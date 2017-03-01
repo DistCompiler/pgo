@@ -5,9 +5,9 @@ import java.util.Vector;
 import pcal.AST;
 import pcal.IntPair;
 import pcal.ParseAlgorithm;
-import pcal.PcalCharReader;
 import pcal.PcalDebug;
 import pcal.PcalParams;
+import pcal.PcalCharReaderPgo;
 import pcal.TLAtoPCalMapping;
 import pcal.exception.FileToStringVectorException;
 import pcal.exception.ParseAlgorithmException;
@@ -358,7 +358,7 @@ public class PGoMain {
 		 * the previous translation removed), starting right after the *
 		 * PcalParams.BeginAlg string. *
 		 *********************************************************************/
-		PcalCharReader reader = new PcalCharReader(untabInputVec, algLine, algCol, inputVec.size(), 0);
+		PcalCharReaderPgo reader = new PcalCharReaderPgo(untabInputVec, algLine, algCol, inputVec.size(), 0);
 
 		/*********************************************************************
 		 * Set ast to the AST node representing the entire algorithm. *
