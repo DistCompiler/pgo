@@ -8,6 +8,8 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.Vector;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import pcal.AST;
 import pcal.IntPair;
@@ -26,8 +28,35 @@ public class PGoMain {
 
 	/** Status indicating no errors and successful process */
 	static final int STATUS_OK = 1;
+	
+	private static Logger logger;
+
+    private PGoOptions opts = null;
+    private static PGoMain instance = null;
+	
+	public PGoMain(String[] args) throws PGoOptionException {
+		opts = new PGoOptions(args);
+		
+		// set up logging with correct verbosity
+		setUpLogging(opts);
+	}
+
 
 	public static void main(String[] args) {
+        // Get the top Logger instance
+        logger = Logger.getLogger("PGoMain");
+        
+		try {
+			instance = new PGoMain(args);
+		} catch (PGoOptionException e) {
+			// TODO Auto-generated catch block
+			logger.severe(e.getMessage());
+		}
+		
+		instance.run();
+	}
+	
+	public void run() {
 		if (ToolIO.getMode() == ToolIO.SYSTEM) {
 			PcalDebug.reportInfo("pcal.trans Version " + PcalParams.version + " of " + PcalParams.modDate);
 		}
@@ -339,6 +368,23 @@ public class PGoMain {
 
 	}
 
+	
+    public static void setUpLogging(PGoOptions opts) {
+        // Set the logger's log level based on command line arguments
+        if (opts.logLvlQuiet) {
+            logger.setLevel(Level.WARNING);
+        } else if (opts.logLvlVerbose) {
+            logger.setLevel(Level.FINE);
+        } else {
+            logger.setLevel(Level.INFO);
+        }
+        return;
+    }
+	
+	
+	////////////////////////////////////////////////////////////////////////////
+	// copied from pluscal
+	
 	/***************** METHODS FOR READING AND WRITING FILES *****************/
 
 	/***********************************************************************
