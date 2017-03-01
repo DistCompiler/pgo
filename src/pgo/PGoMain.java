@@ -16,24 +16,10 @@ import util.ToolIO;
 public class PGoMain {
 
 	public static void main(String[] args) {
-		// TODO Auto-generated method stub
-
-		/*********************************************************************
-		 * Get and print version number. *
-		 *********************************************************************/
-		// String lastModified =
-		// "last modified on Wed 11 March 2009 at 14:52:58 PST by lamport";
-		/*******************************************************************
-		 * This string is inserted by an Emacs macro when a new version is *
-		 * saved. Unfortunately, Eclipse isn't Emacs, so the modification * date
-		 * must be entered manually in the PcalParams module. *
-		 *******************************************************************/
-
 		if (ToolIO.getMode() == ToolIO.SYSTEM) {
 			PcalDebug.reportInfo("pcal.trans Version " + PcalParams.version + " of " + PcalParams.modDate);
 		}
 
-		// SZ Mar 9, 2009:
 		/*
 		 * This method is called in order to make sure, that the parameters are
 		 * not sticky because these are could have been initialized by the
@@ -54,7 +40,6 @@ public class PGoMain {
 		int status = parseAndProcessArguments(args);
 
 		if (status != STATUS_OK) {
-			// return exitWithStatus(status);
 			return new TLAtoPCalMapping(); // added for testing
 		}
 
@@ -249,36 +234,6 @@ public class PGoMain {
 					char ch = line[ecCol];
 					char ch2 = line[ecCol + 1];
 
-					// The following code isn't needed because the algorithm is
-					// inside a comment, and
-					// quotes and \* have no effect in determining where the
-					// comment ends.
-					//
-					// if (ch == '"') {
-					// // gobble string
-					// ch = ch2 ;
-					// ecCol++ ;
-					// while (ch != '"') {
-					// if (ch == '\\') {
-					// ecCol = ecCol + 2;
-					// }
-					// else {
-					// ecCol++ ;
-					// } ;
-					// if (ecCol < line.length - 1) {
-					// ch = line[ecCol] ;
-					// }
-					// else {
-					// ch = '"' ;
-					// }
-					// } ;
-					// ecCol++ ;
-					// }
-					//
-					// if (ch == '\\' && ch2 == '*' ) {
-					// // end of line comment, skip to end of line
-					// ecCol = 214748364; // a very large int
-					// }
 					if (ch == '(' && ch2 == '*') {
 						// left comment delimiter
 						depth++;
@@ -305,7 +260,6 @@ public class PGoMain {
 
 			if (notFound) {
 				PcalDebug.reportError("Algorithm not in properly terminated comment");
-				// return exitWithStatus(STATUS_EXIT_WITH_ERRORS);
 				return null; // added for testing
 			}
 
@@ -317,7 +271,6 @@ public class PGoMain {
 			if (!endStuff.equals("") && !endStuff.startsWith("\\*")) {
 				PcalDebug.reportError(
 						"Text on same line following `*)' that ends the \n   comment containing the algorithm.");
-				// return exitWithStatus(STATUS_EXIT_WITH_ERRORS);
 				return null; // added for testing
 			}
 			;
