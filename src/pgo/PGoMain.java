@@ -50,11 +50,9 @@ public class PGoMain {
 		 *********************************************************************/
 		Vector inputVec = null;
 		try {
-			inputVec = fileToStringVector(PcalParams.TLAInputFile
-					+ /* (PcalParams.fromPcalFile ? ".pcal" : */".tla" /* ) */);
+			inputVec = fileToStringVector(PcalParams.TLAInputFile);
 		} catch (FileToStringVectorException e) {
 			PcalDebug.reportError(e);
-			// return exitWithStatus(STATUS_EXIT_WITH_ERRORS);
 			return null; // added for testing
 		}
 
@@ -62,7 +60,6 @@ public class PGoMain {
 		 * outputVec is an alias for inputVec if the input is a .tla file, *
 		 * which was not always the case in the aborted version 1.31. *
 		 *********************************************************************/
-		// Vector outputVec = PcalParams.fromPcalFile ? new Vector() : inputVec;
 		Vector outputVec = inputVec;
 
 		/*********************************************************************
@@ -155,7 +152,6 @@ public class PGoMain {
 					PcalParams.EndXlation2);
 			if (endTranslationLine == -1) {
 				PcalDebug.reportError("No line containing `" + PcalParams.EndXlation1 + " " + PcalParams.EndXlation2);
-				// return exitWithStatus(STATUS_EXIT_WITH_ERRORS);
 				return null;
 			}
 
@@ -201,7 +197,6 @@ public class PGoMain {
 		;
 		if (!foundBegin) {
 			PcalDebug.reportError("Beginning of algorithm string " + PcalParams.BeginAlg + " not found.");
-			// return exitWithStatus(STATUS_EXIT_WITH_ERRORS);
 			return null; // added for testing
 		}
 		;
@@ -281,8 +276,6 @@ public class PGoMain {
 			untabInputVec.insertElementAt("\\* END TRANSLATION", ecLine + 2);
 
 			translationLine = ecLine + 1;
-			// System.out.println(ecLine + ", " + ecCol);
-			// Debug.printVector(inputVec, "foo");
 		}
 
 		/*
@@ -300,7 +293,6 @@ public class PGoMain {
 			ParseAlgorithm.uncomment(untabInputVec, algLine, algCol);
 		} catch (ParseAlgorithmException e) {
 			PcalDebug.reportError(e);
-			// return exitWithStatus(STATUS_EXIT_WITH_ERRORS);
 			return null; // added for testing
 		}
 		// } // end else of if (PcalParams.fromPcalFile) -- i.e., end processing
@@ -319,31 +311,16 @@ public class PGoMain {
 		AST ast = null;
 		try {
 			ast = ParseAlgorithm.getAlgorithm(reader, foundFairBegin);
-			// System.out.println(ast.toString());
-			// For testing, we print out when the new code for eliminating the
-			// suttering-on-done and pc is used.
-			// if (ParseAlgorithm.omitPC ||
-			// ParseAlgorithm.omitStutteringWhenDone) {
-			// System.out.println("omit pc = " + ParseAlgorithm.omitPC +
-			// ", omitStutteringWhenDone = " +
-			// ParseAlgorithm.omitStutteringWhenDone);
-			// }
-
 		} catch (ParseAlgorithmException e) {
 			PcalDebug.reportError(e);
-			// return exitWithStatus(STATUS_EXIT_WITH_ERRORS);
 			return null; // added for testing
 		}
 		PcalDebug.reportInfo("Parsing completed.");
-		// tla-pcal debugging
-		// System.out.println("Translation Output:");
-		// System.out.println(ast.toString());
 		/*********************************************************************
 		 * For -writeAST option, just write the file AST.tla and halt. *
 		 *********************************************************************/
 		if (PcalParams.WriteASTFlag) {
 			WriteAST(ast);
-			// return exitWithStatus(STATUS_EXIT_WITHOUT_ERROR);
 			return null; // added for testing
 		}
 
