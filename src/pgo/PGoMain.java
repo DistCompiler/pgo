@@ -1,5 +1,12 @@
 package pgo;
 
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.Vector;
 
 import pcal.AST;
@@ -11,9 +18,14 @@ import pcal.PcalCharReaderPgo;
 import pcal.TLAtoPCalMapping;
 import pcal.exception.FileToStringVectorException;
 import pcal.exception.ParseAlgorithmException;
+import pcal.exception.StringVectorToFileException;
 import util.ToolIO;
 
+// TODO refactor this mess
 public class PGoMain {
+
+	/** Status indicating no errors and successful process */
+	static final int STATUS_OK = 1;
 
 	public static void main(String[] args) {
 		if (ToolIO.getMode() == ToolIO.SYSTEM) {
@@ -37,10 +49,11 @@ public class PGoMain {
 		TLAtoPCalMapping mapping = new TLAtoPCalMapping();
 		PcalParams.tlaPcalMapping = mapping;
 
-		int status = parseAndProcessArguments(args);
+		int status = STATUS_OK; // TODO fix arguments
+								// parseAndProcessArguments(args);
 
 		if (status != STATUS_OK) {
-			return new TLAtoPCalMapping(); // added for testing
+			return; // added for testing
 		}
 
 		/*********************************************************************
@@ -53,7 +66,7 @@ public class PGoMain {
 			inputVec = fileToStringVector(PcalParams.TLAInputFile);
 		} catch (FileToStringVectorException e) {
 			PcalDebug.reportError(e);
-			return null; // added for testing
+			return; // added for testing
 		}
 
 		/*********************************************************************
@@ -152,7 +165,7 @@ public class PGoMain {
 					PcalParams.EndXlation2);
 			if (endTranslationLine == -1) {
 				PcalDebug.reportError("No line containing `" + PcalParams.EndXlation1 + " " + PcalParams.EndXlation2);
-				return null;
+				return;
 			}
 
 			endTranslationLine = endTranslationLine - 1;
@@ -197,7 +210,7 @@ public class PGoMain {
 		;
 		if (!foundBegin) {
 			PcalDebug.reportError("Beginning of algorithm string " + PcalParams.BeginAlg + " not found.");
-			return null; // added for testing
+			return; // added for testing
 		}
 		;
 
@@ -255,7 +268,7 @@ public class PGoMain {
 
 			if (notFound) {
 				PcalDebug.reportError("Algorithm not in properly terminated comment");
-				return null; // added for testing
+				return; // added for testing
 			}
 
 			// Report an error if there's something else on the line that
@@ -266,7 +279,7 @@ public class PGoMain {
 			if (!endStuff.equals("") && !endStuff.startsWith("\\*")) {
 				PcalDebug.reportError(
 						"Text on same line following `*)' that ends the \n   comment containing the algorithm.");
-				return null; // added for testing
+				return; // added for testing
 			}
 			;
 
@@ -293,7 +306,7 @@ public class PGoMain {
 			ParseAlgorithm.uncomment(untabInputVec, algLine, algCol);
 		} catch (ParseAlgorithmException e) {
 			PcalDebug.reportError(e);
-			return null; // added for testing
+			return; // added for testing
 		}
 		// } // end else of if (PcalParams.fromPcalFile) -- i.e., end processing
 		// of .tla input file.
@@ -313,7 +326,7 @@ public class PGoMain {
 			ast = ParseAlgorithm.getAlgorithm(reader, foundFairBegin);
 		} catch (ParseAlgorithmException e) {
 			PcalDebug.reportError(e);
-			return null; // added for testing
+			return; // added for testing
 		}
 		PcalDebug.reportInfo("Parsing completed.");
 		/*********************************************************************
@@ -321,9 +334,150 @@ public class PGoMain {
 		 *********************************************************************/
 		if (PcalParams.WriteASTFlag) {
 			WriteAST(ast);
-			return null; // added for testing
+			return; // added for testing
 		}
 
 	}
 
+	/***************** METHODS FOR READING AND WRITING FILES *****************/
+
+	/***********************************************************************
+	 * Writes the Vector of strings inputVec to file named fileName, with * each
+	 * element of inputVec written on a new line. *
+	 ***********************************************************************/
+	private static void WriteStringVectorToFile(Vector inputVec, String fileName) throws StringVectorToFileException {
+		try {
+			BufferedWriter fileW = new BufferedWriter(new FileWriter(fileName));
+			int lineNum = 0;
+			while (lineNum < inputVec.size()) {
+				fileW.write((String) inputVec.elementAt(lineNum));
+				fileW.newLine();
+				lineNum = lineNum + 1;
+			}
+
+			fileW.close();
+		} catch (Exception e) {
+			throw new StringVectorToFileException("Could not write file " + fileName);
+		}
+
+	}
+
+	/***********************************************************************
+	 * Reads file fileName into a StringVector, a vector in which each * element
+	 * is a line of the file. *
+	 ***********************************************************************/
+	private static Vector fileToStringVector(String fileName) throws FileToStringVectorException {
+		Vector inputVec = new Vector(100);
+		try {
+			BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(new FileInputStream(fileName)));
+			try {
+				String nextLine = bufferedReader.readLine();
+				while (nextLine != null) {
+					inputVec.addElement(nextLine);
+					nextLine = bufferedReader.readLine();
+				}
+				;
+				bufferedReader.close();
+			} catch (IOException e) {
+				/*********************************************************
+				 * Error while reading input file. *
+				 *********************************************************/
+				throw new FileToStringVectorException("Error reading file " + fileName + ".");
+			}
+		}
+
+		catch (FileNotFoundException e) {
+			/**************************************************************
+			 * Input file could not be found. *
+			 **************************************************************/
+			throw new FileToStringVectorException("Input file " + fileName + " not found.");
+		}
+
+		return inputVec;
+	}
+
+	/**********************
+	 * Writing the AST
+	 ************************************/
+	private static boolean WriteAST(AST ast) {
+		Vector astFile = new Vector();
+		astFile.addElement("------ MODULE AST -------");
+		astFile.addElement("EXTENDS TLC");
+		astFile.addElement("fairness == \"" + PcalParams.FairnessOption + "\"");
+		astFile.addElement(" ");
+		astFile.addElement("ast == ");
+		astFile.addElement(ast.toString());
+		astFile.addElement("==========================");
+		try {
+			WriteStringVectorToFile(astFile, "AST.tla");
+		} catch (StringVectorToFileException e) {
+			PcalDebug.reportError(e);
+			return false;
+		}
+		PcalDebug.reportInfo("Wrote file AST.tla.");
+		return true;
+	}
+
+	/********************************************************************
+	 * Returns a string vector obtained from the string vector vec by *
+	 * replacing any evil tabs with the appropriate number of spaces, * where
+	 * "appropriate" means adding from 1 to 8 spaces in order to * make the next
+	 * character fall on a column with Java column * number (counting from 0)
+	 * congruent to 0 mod 8. This is what * Emacs does when told to remove tabs,
+	 * which makes it good enough * for me. *
+	 ********************************************************************/
+	public static Vector removeTabs(Vector vec) {
+
+		Vector newVec = new Vector();
+		int i = 0;
+		while (i < vec.size()) {
+			String oldline = (String) vec.elementAt(i);
+			String newline = "";
+			int next = 0;
+			while (next < oldline.length()) {
+				if (oldline.charAt(next) == '\t') {
+					int toAdd = 8 - (newline.length() % 8);
+					while (toAdd > 0) {
+						newline = newline + " ";
+						toAdd = toAdd - 1;
+					}
+				} else {
+					newline = newline + oldline.substring(next, next + 1);
+				}
+				;
+				next = next + 1;
+			}
+			newVec.addElement(newline);
+			i = i + 1;
+		}
+		;
+		return newVec;
+	}
+
+	/*********************************************************************
+	 * Returns the number of the first line at or after lineNum in the * vector
+	 * of strings vec containing tok1 followed by 1 or more * spaces followed by
+	 * tok2. Returns -1 if such a line is not found. *
+	 *********************************************************************/
+	private static int findTokenPair(Vector vec, int lineNum, String tok1, String tok2) {
+		int i = lineNum;
+		while (i < vec.size()) {
+			String line = (String) vec.elementAt(i);
+			int col = line.indexOf(tok1);
+			int nextcol = col + tok1.length();
+			if (col != -1) {
+				while ((nextcol < line.length()) && (line.charAt(nextcol) == ' ')) {
+					nextcol = nextcol + 1;
+				}
+				;
+				if ((nextcol < line.length()) && (nextcol == line.indexOf(tok2))) {
+					return i;
+				}
+			}
+			;
+			i = i + 1;
+		}
+		;
+		return -1;
+	}
 }
