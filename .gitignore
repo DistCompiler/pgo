@@ -3,3 +3,6 @@
 bin/*
 
 *~
+
+# ignore the test files
+test/*
