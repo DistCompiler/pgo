@@ -65,6 +65,10 @@ public class PGoMain {
 		 * previous run
 		 */
 		PcalParams.resetParams();
+		
+		// TODO refactor below into parser then make conversion
+		// PcalParser parse = new PcalParser();
+		
 		/*********************************************************************
 		 * Get and process arguments.
 		 *********************************************************************/
