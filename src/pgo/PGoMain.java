@@ -90,7 +90,7 @@ public class PGoMain {
 		 *********************************************************************/
 		Vector inputVec = null;
 		try {
-			inputVec = fileToStringVector(opts.pcalfile);
+			inputVec = fileToStringVector(opts.infile);
 		} catch (FileToStringVectorException e) {
 			logger.severe(e.getMessage());
 			return; // added for testing
@@ -336,12 +336,12 @@ public class PGoMain {
 		astFile.addElement(ast.toString());
 		astFile.addElement("==========================");
 		try {
-			WriteStringVectorToFile(astFile, "AST.tla");
+			WriteStringVectorToFile(astFile, opts.outfile);
 		} catch (StringVectorToFileException e) {
 			logger.severe(e.getMessage());
 			return false;
 		}
-		logger.info("Wrote file AST.tla.");
+		logger.info("Wrote file " + opts.outfile);
 		return true;
 	}
 

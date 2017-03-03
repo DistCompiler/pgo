@@ -18,10 +18,10 @@ public class PGoOptions {
 	public boolean logLvlVerbose = false;
 
 	@Option(value = "-i the input pluscal file to transpile ")
-	public static String pcalfile = "";
+	public static String infile = "";
 
-	@Option(value = "-o the output golang file to generate")
-	public static String gofile = "";
+	@Option(value = "-o the output file to generate")
+	public static String outfile = "";
 
 	@Option(value = "write the AST generated and skip the rest", aliases = { "-ast" })
 	public static boolean writeAST = false;
@@ -35,13 +35,13 @@ public class PGoOptions {
 		String[] remaining_args = plumeOptions.parse_or_usage(args);
 
 		if (remaining_args.length > 0) {
-			if (!pcalfile.isEmpty() || !gofile.isEmpty()) {
+			if (!infile.isEmpty() || !outfile.isEmpty()) {
 				throw new PGoOptionException("PlusCal input or Go output file specified twice");
 			}
 
-			pcalfile = remaining_args[0];
+			infile = remaining_args[0];
 			if (remaining_args.length == 2) {
-				gofile = remaining_args[1];
+				outfile = remaining_args[1];
 			}
 		}
 
@@ -49,13 +49,12 @@ public class PGoOptions {
 	}
 
 	private void checkOptions() throws PGoOptionException {
-		if (pcalfile.isEmpty()) {
+		if (infile.isEmpty()) {
 			throw new PGoOptionException("Input pluscal file is not specified");
 		}
-		if (!writeAST) {
-			if (gofile.isEmpty()) {
-				throw new PGoOptionException("Output go file is not specified");
-			}
+
+		if (outfile.isEmpty()) {
+			throw new PGoOptionException("Output go file is not specified");
 		}
 
 		return;
