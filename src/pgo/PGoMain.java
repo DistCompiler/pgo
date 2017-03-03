@@ -28,37 +28,35 @@ public class PGoMain {
 
 	/** Status indicating no errors and successful process */
 	static final int STATUS_OK = 1;
-	
+
 	private static Logger logger;
 
-    private PGoOptions opts = null;
-    private static PGoMain instance = null;
-	
+	private PGoOptions opts = null;
+	private static PGoMain instance = null;
+
 	public PGoMain(String[] args) throws PGoOptionException {
 		opts = new PGoOptions(args);
-		
+
 		// set up logging with correct verbosity
 		setUpLogging(opts);
 	}
 
-
 	public static void main(String[] args) {
-        // Get the top Logger instance
-        logger = Logger.getLogger("PGoMain");
-        
+		// Get the top Logger instance
+		logger = Logger.getLogger("PGoMain");
+
 		try {
 			instance = new PGoMain(args);
 		} catch (PGoOptionException e) {
-			// TODO Auto-generated catch block
 			logger.severe(e.getMessage());
 		}
-		
+
 		instance.run();
 	}
-	
+
 	public void run() {
 		if (ToolIO.getMode() == ToolIO.SYSTEM) {
-			PcalDebug.reportInfo("pcal.trans Version " + PcalParams.version + " of " + PcalParams.modDate);
+			logger.info("pcal.trans Version " + PcalParams.version + " of " + PcalParams.modDate);
 		}
 
 		/*
@@ -92,12 +90,12 @@ public class PGoMain {
 		 *********************************************************************/
 		Vector inputVec = null;
 		try {
-			inputVec = fileToStringVector(PcalParams.TLAInputFile);
+			inputVec = fileToStringVector(opts.pcalfile);
 		} catch (FileToStringVectorException e) {
-			PcalDebug.reportError(e);
+			logger.severe(e.getMessage());
 			return; // added for testing
 		}
-
+		
 		/*********************************************************************
 		 * outputVec is an alias for inputVec if the input is a .tla file, *
 		 * which was not always the case in the aborted version 1.31. *
@@ -151,14 +149,6 @@ public class PGoMain {
 			}
 		}
 
-		/**
-		 * translationLine is set to the line of the output file at which the \*
-		 * BEGIN TRANSLATION appears--whether it is inserted into the tla-file
-		 * input by the user, or inserted into the output by the translator for
-		 * pcal-file input.
-		 */
-		int translationLine = 0;
-
 		/*********************************************************************
 		 * Set algLine, algCol to the line and column just after the string *
 		 * [--]algorithm that begins the algorithm. (These are Java * ordinals,
@@ -176,34 +166,6 @@ public class PGoMain {
 		 *********************************************************************/
 		int algLine = 0;
 		int algCol = -1;
-		/*******************************************************************
-		 * If the BEGIN/END TRANSLATION region exists, then set *
-		 * translationLine to the number of the line after which the *
-		 * translation is to be inserted and delete the previous version * of
-		 * the translation (if it exists) from inputVec. (Line * numbering is by
-		 * Java ordinals.) If the region doesn't exist, * set translationLine to
-		 * -1. * * Note: we remove the previous version from inputVec, because *
-		 * that's where the translated output is going to go, and also * from
-		 * untabInputVec, because we will then detect if the begin * and end
-		 * translation lines contain part of the algorithm within * them. *
-		 *******************************************************************/
-		translationLine = findTokenPair(untabInputVec, 0, PcalParams.BeginXlation1, PcalParams.BeginXlation2);
-		if (translationLine != -1) {
-
-			int endTranslationLine = findTokenPair(untabInputVec, translationLine + 1, PcalParams.EndXlation1,
-					PcalParams.EndXlation2);
-			if (endTranslationLine == -1) {
-				PcalDebug.reportError("No line containing `" + PcalParams.EndXlation1 + " " + PcalParams.EndXlation2);
-				return;
-			}
-
-			endTranslationLine = endTranslationLine - 1;
-			while (translationLine < endTranslationLine) {
-				inputVec.remove(endTranslationLine);
-				untabInputVec.remove(endTranslationLine);
-				endTranslationLine = endTranslationLine - 1;
-			}
-		}
 
 		// Search for "--algorithm" or "--fair".
 		// If found set algLine and algCol right after the last char,
@@ -234,96 +196,19 @@ public class PGoMain {
 					algLine = algLine + 1;
 				}
 			}
-			;
+
 		}
-		;
+
 		if (!foundBegin) {
-			PcalDebug.reportError("Beginning of algorithm string " + PcalParams.BeginAlg + " not found.");
+			logger.severe("Beginning of algorithm string " + PcalParams.BeginAlg + " not found.");
 			return; // added for testing
 		}
-		;
-
-		/*
-		 * Set the algColumn and algLine fields of the mapping object.
-		 */
-		mapping.algColumn = algCol;
-		mapping.algLine = algLine;
-
-		if (translationLine == -1) {
-			/****************************************************************
-			 * Insert BEGIN/END TRANSLATION comments immediately after the * end
-			 * of the comment that contains the beginning of the * algorithm.
-			 * Set translationLine to the (Java) line number of * the BEGIN
-			 * TRANSLATION. *
-			 ****************************************************************/
-
-			// Set ecLine, ecCol to the position immediately after the
-			// *) that closes the current comment.
-			int depth = 1;
-			int ecLine = algLine;
-			int ecCol = algCol;
-			boolean notFound = true;
-			while (notFound && ecLine < untabInputVec.size()) {
-				char[] line = ((String) untabInputVec.elementAt(ecLine)).toCharArray();
-
-				// check current line
-				while (notFound && ecCol < line.length - 1) {
-					char ch = line[ecCol];
-					char ch2 = line[ecCol + 1];
-
-					if (ch == '(' && ch2 == '*') {
-						// left comment delimiter
-						depth++;
-						ecCol = ecCol + 2;
-					} else if (ch == '*' && ch2 == ')') {
-						// right comment delimiter
-						depth--;
-						ecCol = ecCol + 2;
-						if (depth == 0) {
-							notFound = false;
-						}
-					} else {
-						// not an interesting character
-						ecCol++;
-					}
-				}
-
-				// if not found, go to next line
-				if (notFound) {
-					ecLine++;
-					ecCol = 0;
-				}
-			}
-
-			if (notFound) {
-				PcalDebug.reportError("Algorithm not in properly terminated comment");
-				return; // added for testing
-			}
-
-			// Report an error if there's something else on the line that
-			// doesn't begin with "\*". This is probably
-
-			String endStuff = ((String) untabInputVec.elementAt(ecLine)).substring(ecCol).trim();
-
-			if (!endStuff.equals("") && !endStuff.startsWith("\\*")) {
-				PcalDebug.reportError(
-						"Text on same line following `*)' that ends the \n   comment containing the algorithm.");
-				return; // added for testing
-			}
-			;
-
-			inputVec.insertElementAt("\\* BEGIN TRANSLATION", ecLine + 1);
-			untabInputVec.insertElementAt("\\* BEGIN TRANSLATION", ecLine + 1);
-			inputVec.insertElementAt("\\* END TRANSLATION", ecLine + 2);
-			untabInputVec.insertElementAt("\\* END TRANSLATION", ecLine + 2);
-
-			translationLine = ecLine + 1;
-		}
-
-		/*
-		 * Set the mappings start line.
-		 */
-		mapping.tlaStartLine = translationLine + 1;
+		
+        /*
+         * Set the algColumn and algLine fields of the mapping object.
+         */
+        mapping.algColumn = algCol;
+        mapping.algLine = algLine;
 
 		/*********************************************************************
 		 * Added by LL on 18 Feb 2006 to fix bugs related to handling of *
@@ -334,11 +219,9 @@ public class PGoMain {
 		try {
 			ParseAlgorithm.uncomment(untabInputVec, algLine, algCol);
 		} catch (ParseAlgorithmException e) {
-			PcalDebug.reportError(e);
-			return; // added for testing
+			logger.severe(e.getMessage());
+			return;
 		}
-		// } // end else of if (PcalParams.fromPcalFile) -- i.e., end processing
-		// of .tla input file.
 
 		/*********************************************************************
 		 * Set reader to a PcalCharReader for the input file (with tabs and *
@@ -354,37 +237,35 @@ public class PGoMain {
 		try {
 			ast = ParseAlgorithm.getAlgorithm(reader, foundFairBegin);
 		} catch (ParseAlgorithmException e) {
-			PcalDebug.reportError(e);
+			logger.severe(e.getMessage());
 			return; // added for testing
 		}
-		PcalDebug.reportInfo("Parsing completed.");
+		logger.info("Parsing completed.");
 		/*********************************************************************
 		 * For -writeAST option, just write the file AST.tla and halt. *
 		 *********************************************************************/
-		if (PcalParams.WriteASTFlag) {
+		if (opts.writeAST) {
 			WriteAST(ast);
 			return; // added for testing
 		}
 
 	}
 
-	
-    public static void setUpLogging(PGoOptions opts) {
-        // Set the logger's log level based on command line arguments
-        if (opts.logLvlQuiet) {
-            logger.setLevel(Level.WARNING);
-        } else if (opts.logLvlVerbose) {
-            logger.setLevel(Level.FINE);
-        } else {
-            logger.setLevel(Level.INFO);
-        }
-        return;
-    }
-	
-	
+	public static void setUpLogging(PGoOptions opts) {
+		// Set the logger's log level based on command line arguments
+		if (opts.logLvlQuiet) {
+			logger.setLevel(Level.WARNING);
+		} else if (opts.logLvlVerbose) {
+			logger.setLevel(Level.FINE);
+		} else {
+			logger.setLevel(Level.INFO);
+		}
+		return;
+	}
+
 	////////////////////////////////////////////////////////////////////////////
 	// copied from pluscal
-	
+
 	/***************** METHODS FOR READING AND WRITING FILES *****************/
 
 	/***********************************************************************
@@ -445,7 +326,7 @@ public class PGoMain {
 	/**********************
 	 * Writing the AST
 	 ************************************/
-	private static boolean WriteAST(AST ast) {
+	private boolean WriteAST(AST ast) {
 		Vector astFile = new Vector();
 		astFile.addElement("------ MODULE AST -------");
 		astFile.addElement("EXTENDS TLC");
@@ -457,10 +338,10 @@ public class PGoMain {
 		try {
 			WriteStringVectorToFile(astFile, "AST.tla");
 		} catch (StringVectorToFileException e) {
-			PcalDebug.reportError(e);
+			logger.severe(e.getMessage());
 			return false;
 		}
-		PcalDebug.reportInfo("Wrote file AST.tla.");
+		logger.info("Wrote file AST.tla.");
 		return true;
 	}
 

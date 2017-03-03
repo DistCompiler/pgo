@@ -23,6 +23,9 @@ public class PGoOptions {
 	@Option(value = "-o the output golang file to generate")
 	public static String gofile = "";
 
+	@Option(value = "write the AST generated and skip the rest", aliases = { "-ast" })
+	public static boolean writeAST = false;
+
 	private Options plumeOptions;
 
 	private static String kUsageString = "pgo [options] pcalfile gofile";
@@ -35,18 +38,26 @@ public class PGoOptions {
 			if (!pcalfile.isEmpty() || !gofile.isEmpty()) {
 				throw new PGoOptionException("PlusCal input or Go output file specified twice");
 			}
-			if (remaining_args.length != 2) {
-				throw new PGoOptionException("Expected two file names: pcalfile gofile");
-			}
+
 			pcalfile = remaining_args[0];
-			gofile = remaining_args[1];
+			if (remaining_args.length == 2) {
+				gofile = remaining_args[1];
+			}
 		}
 
 		checkOptions();
 	}
 
 	private void checkOptions() throws PGoOptionException {
-		// TODO
+		if (pcalfile.isEmpty()) {
+			throw new PGoOptionException("Input pluscal file is not specified");
+		}
+		if (!writeAST) {
+			if (gofile.isEmpty()) {
+				throw new PGoOptionException("Output go file is not specified");
+			}
+		}
+
 		return;
 	}
 }
