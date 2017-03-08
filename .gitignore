@@ -5,4 +5,4 @@ bin/*
 *~
 
 # ignore the test files
-test/*
+test/out/*
