@@ -16,7 +16,7 @@ import pcal.AST.Procedure;
 public class PGoFunction {
 
 	// The function name
-	private String funcName;
+	private String funcName = "";
 
 	// The parameters to the function
 	private HashMap<String, PGoVariable> params;
@@ -30,12 +30,12 @@ public class PGoFunction {
 
 	public static PGoFunction convert(Procedure m) {
 		// TODO Auto-generated method stub
-		return null;
+		return new PGoFunction();
 	}
 
 	public static PGoFunction convert(Macro m) {
 		// TODO Auto-generated method stub
-		return null;
+		return new PGoFunction();
 	}
 
 }

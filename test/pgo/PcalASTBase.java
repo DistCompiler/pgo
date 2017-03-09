@@ -22,7 +22,8 @@ public class PcalASTBase {
 	@BeforeClass
 	public static void setUpBeforeClass() throws Exception {
 		Logger.getLogger("PGoTrans AST Stage").setLevel(Level.INFO);
-		pcalAlgs = Arrays.asList("Euclid", "Sum", "TwoPhaseCommit", "FastMutex");
+		pcalAlgs = Arrays.asList("Euclid", "Sum", "TwoPhaseCommit", "FastMutex", "QueensPluscal",
+				"QueensPluscalProcedure");
 		ast = new HashMap<String, AST>();
 		for (String alg : pcalAlgs) {
 			System.out.println(alg);

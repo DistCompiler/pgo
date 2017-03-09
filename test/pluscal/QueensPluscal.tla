@@ -1,4 +1,4 @@
--------------------------- MODULE QueensPlusCal -----------------------------
+-------------------------- MODULE QueensPluscal -----------------------------
 EXTENDS Naturals, Sequences
 (***************************************************************************)
 (* Formulation of the N-queens problem and an iterative algorithm to solve *)
@@ -42,7 +42,7 @@ Solutions == { queens \in [1..N -> 1..N] : IsSolution(queens) }
 (* to the set todo.                                                        *)
 (***************************************************************************)
 
-(* --algorithm Queens
+(* --algorithm QueensPluscal
      variables
        todo = { << >> };
        sols = {};

@@ -1,5 +1,6 @@
 package pgo.trans.intermediate;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Vector;
 
@@ -50,6 +51,18 @@ public class PGoTransStageOne {
 
 	public boolean getIsMultiProcess() {
 		return isMultiProcess;
+	}
+
+	public String getAlgName() {
+		return algName;
+	}
+
+	public Collection<PGoVariable> getGlobals() {
+		return globals.values();
+	}
+
+	public PGoVariable getGlobal(String name) {
+		return globals.get(name);
 	}
 
 	/**
@@ -146,17 +159,12 @@ public class PGoTransStageOne {
 		this.tlaExpr = ast.defs;
 		for (Macro m : (Vector<Macro>) ast.macros) {
 			PGoFunction f = PGoFunction.convert(m);
-			funcs.put(f.getName(), f);
+			// funcs.put(f.getName(), f);
 		}
 		for (Procedure m : (Vector<Procedure>) ast.prcds) {
 			PGoFunction f = PGoFunction.convert(m);
-			funcs.put(f.getName(), f);
+			// funcs.put(f.getName(), f);
 		}
-		// TODO parsing for
-		/**
-		 * this.defs = ast.defs; this.macros = ast.macros; this.prcds =
-		 * ast.prcds;
-		 */
 	}
 
 }

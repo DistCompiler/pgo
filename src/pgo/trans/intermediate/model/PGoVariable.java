@@ -19,8 +19,8 @@ public class PGoVariable {
 
 	// TODO types, initialization, etc
 
-	// whether the variable is assigned = or \in
-	private boolean isEq;
+	// whether the variable has a simple "=" assignment initialization
+	private boolean isSimpleAssignInit;
 
 	// the pluscal ast code block corresponding to variable initialization
 	private TLAExpr tlaExpr;
@@ -33,14 +33,18 @@ public class PGoVariable {
 		return name;
 	}
 
+	public boolean getIsSimpleAssignInit() {
+		return isSimpleAssignInit;
+	}
+
 	public TLAExpr getPcalInitBlock() {
 		return tlaExpr;
 	}
 
 	/**
 	 * Converts a PlusCal AST variable into a basic PGoVariable intermediate
-	 * representation. This does not create the variable initilization functions
-	 * for Go and the type inference.
+	 * representation. This does not create the variable initialization
+	 * functions for Go and the type inference.
 	 * 
 	 * @param var
 	 * @return
@@ -48,7 +52,7 @@ public class PGoVariable {
 	public static PGoVariable convert(VarDecl var) {
 		PGoVariable r = new PGoVariable();
 		r.name = var.var;
-		r.isEq = var.isEq;
+		r.isSimpleAssignInit = var.isEq;
 		r.tlaExpr = var.val;
 
 		return r;
@@ -58,9 +62,10 @@ public class PGoVariable {
 	public static PGoVariable convert(PVarDecl var) {
 		PGoVariable r = new PGoVariable();
 		r.name = var.var;
-		r.isEq = var.isEq;
+		r.isSimpleAssignInit = var.isEq;
 		r.tlaExpr = var.val;
 
 		return r;
 	}
+
 }
