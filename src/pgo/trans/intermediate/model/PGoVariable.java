@@ -1,6 +1,8 @@
 package pgo.trans.intermediate.model;
 
-import pcal.AST;
+import pcal.AST.PVarDecl;
+import pcal.AST.VarDecl;
+import pcal.TLAExpr;
 
 /**
  * Intermediate representation of a single pluscal and golang variable.
@@ -15,23 +17,50 @@ public class PGoVariable {
 	// the name of the variable
 	private String name;
 
-	// the pluscal ast code block corresponding to variable initialization
-	private AST pcalInitBlock;
 	// TODO types, initialization, etc
+
+	// whether the variable is assigned = or \in
+	private boolean isEq;
+
+	// the pluscal ast code block corresponding to variable initialization
+	private TLAExpr tlaExpr;
+
+	// private constructor. only construct through converting from VarDecl
+	private PGoVariable() {
+	}
 
 	public String getName() {
 		return name;
 	}
 
-	public AST getPcalInitBlock() {
-		return pcalInitBlock;
+	public TLAExpr getPcalInitBlock() {
+		return tlaExpr;
 	}
 
-	public void setName(String name) {
-		this.name = name;
+	/**
+	 * Converts a PlusCal AST variable into a basic PGoVariable intermediate
+	 * representation. This does not create the variable initilization functions
+	 * for Go and the type inference.
+	 * 
+	 * @param var
+	 * @return
+	 */
+	public static PGoVariable convert(VarDecl var) {
+		PGoVariable r = new PGoVariable();
+		r.name = var.var;
+		r.isEq = var.isEq;
+		r.tlaExpr = var.val;
+
+		return r;
 	}
 
-	public void setPcalInitBlock(AST ast) {
-		this.pcalInitBlock = ast;
+	// The same as above but for a PVarDecl (for process variable)
+	public static PGoVariable convert(PVarDecl var) {
+		PGoVariable r = new PGoVariable();
+		r.name = var.var;
+		r.isEq = var.isEq;
+		r.tlaExpr = var.val;
+
+		return r;
 	}
 }
