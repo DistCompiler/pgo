@@ -1,6 +1,7 @@
 package pgo.trans.intermediate.model;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
@@ -54,5 +55,19 @@ public class PGoVariableTest {
 		var.val.addToken(new TLAToken("blah", 0, TLAToken.STRING));
 		p = PGoVariable.convert(var);
 		assertEquals(p.getPcalInitBlock().toString(), var.val.toString());
+	}
+
+	public void testConvertString() {
+		String var = "var";
+		PGoVariable p = PGoVariable.convert(var);
+		assertEquals(var, p.getName());
+		assertTrue(p.getIsSimpleAssignInit());
+		assertEquals(PcalParams.DefaultVarInit().toString(), p.getPcalInitBlock().toString());
+
+		var = "var2";
+		p = PGoVariable.convert(var);
+		assertEquals(var, p.getName());
+		assertTrue(p.getIsSimpleAssignInit());
+		assertEquals(PcalParams.DefaultVarInit().toString(), p.getPcalInitBlock().toString());
 	}
 }

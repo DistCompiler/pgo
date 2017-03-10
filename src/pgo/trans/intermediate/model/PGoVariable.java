@@ -2,6 +2,7 @@ package pgo.trans.intermediate.model;
 
 import pcal.AST.PVarDecl;
 import pcal.AST.VarDecl;
+import pcal.PcalParams;
 import pcal.TLAExpr;
 
 /**
@@ -64,6 +65,16 @@ public class PGoVariable {
 		r.name = var.var;
 		r.isSimpleAssignInit = var.isEq;
 		r.tlaExpr = var.val;
+
+		return r;
+	}
+
+	// The same as above but with a simple String
+	public static PGoVariable convert(String var) {
+		PGoVariable r = new PGoVariable();
+		r.name = var;
+		r.isSimpleAssignInit = true;
+		r.tlaExpr = PcalParams.DefaultVarInit();
 
 		return r;
 	}
