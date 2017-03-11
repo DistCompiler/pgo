@@ -159,11 +159,11 @@ public class PGoTransStageOne {
 		this.tlaExpr = ast.defs;
 		for (Macro m : (Vector<Macro>) ast.macros) {
 			PGoFunction f = PGoFunction.convert(m);
-			// funcs.put(f.getName(), f);
+			funcs.put(f.getName(), f);
 		}
 		for (Procedure m : (Vector<Procedure>) ast.prcds) {
 			PGoFunction f = PGoFunction.convert(m);
-			// funcs.put(f.getName(), f);
+			funcs.put(f.getName(), f);
 		}
 	}
 
