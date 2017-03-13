@@ -1,8 +1,13 @@
 .metadata/*
 .settings/*
 bin/*
+*.swp
 
 *~
 
 # ignore the test files
 test/out/*
+junit/*
+
+# ignore generated jar from ant
+lib/pgo.jar

@@ -1,0 +1,30 @@
+------ MODULE AST -------
+EXTENDS TLC
+fairness == ""
+ 
+ast == 
+[type     |-> "uniprocess", 
+ name  |-> "Euclid", 
+ decls  |-> <<[var |-> "u", eqOrIn |-> "=", val |-> << "24" >>], 
+              [var |-> "v", eqOrIn |-> "\\in", val |-> << "1", "..", "N" >>], 
+              [var |-> "v_init", eqOrIn |-> "=", val |-> << "v" >>]>>,
+ defs   |-> <<  >>,
+ prcds  |-> <<>>,
+ body  |-> <<[label |-> "Lbl_1",
+              stmts |-> <<[type    |-> "while", 
+                           test    |-> << "u", "#", "0" >>,
+                           labDo   |-> <<[label |-> "Lbl_2",
+                                          stmts |-> <<[type |-> "assignment",
+                                                       ass  |-> <<[lhs |-> [var |-> "u", sub |-> <<  >>],
+                                                                   rhs |-> << "u", "-", "v" >>]>>]>>]>>,
+                           unlabDo |-> <<[type    |-> "if", 
+                                          test    |-> << "u", "<", "v" >>,
+                                          then |-> <<[type |-> "assignment",
+                                                      ass  |-> <<[lhs |-> [var |-> "u", sub |-> <<  >>],
+                                                                  rhs |-> << "v" >>], 
+                                                                 [lhs |-> [var |-> "v", sub |-> <<  >>],
+                                                                  rhs |-> << "u" >>]>>]>>,
+                                          else |-> <<>>]>>], 
+                          [type |-> "print", 
+                           exp |-> << "<<", "24", ",", "v_init", ",", "\"", "have gcd", "\"", ",", "v", ">>" >>]>>]>>]
+==========================
