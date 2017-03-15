@@ -47,7 +47,7 @@ public abstract class PGoPluscalTesterBase {
 		// The declared variables of the function
 		public final ArrayList<TestVariableData> vars;
 
-		// The body of the function
+		// The body of the function string form
 		public final String body;
 
 		public TestFunctionData(String n, ArrayList<TestVariableData> p, ArrayList<TestVariableData> v, String b) {
