@@ -1,7 +1,7 @@
 package pgo.trans.intermediate.model;
 
-import java.util.Collection;
-import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.Vector;
 
 import pcal.AST;
@@ -23,10 +23,10 @@ public class PGoFunction {
 	private String funcName;
 
 	// The parameters to the function
-	private HashMap<String, PGoVariable> params;
+	private LinkedHashMap<String, PGoVariable> params;
 
 	// The declared variables of the function
-	private HashMap<String, PGoVariable> vars;
+	private LinkedHashMap<String, PGoVariable> vars;
 
 	// The body of the function
 	private Vector<AST> body;
@@ -35,16 +35,16 @@ public class PGoFunction {
 		return funcName;
 	}
 
-	public Collection<PGoVariable> getParams() {
-		return params.values();
+	public ArrayList<PGoVariable> getParams() {
+		return new ArrayList<PGoVariable>(params.values());
 	}
 
 	public PGoVariable getParam(String p) {
 		return params.get(p);
 	}
 
-	public Collection<PGoVariable> getVariables() {
-		return vars.values();
+	public ArrayList<PGoVariable> getVariables() {
+		return new ArrayList<PGoVariable>(vars.values());
 	}
 
 	public PGoVariable getVariable(String v) {
@@ -57,8 +57,8 @@ public class PGoFunction {
 
 	// private constructor
 	private PGoFunction() {
-		params = new HashMap<String, PGoVariable>();
-		vars = new HashMap<String, PGoVariable>();
+		params = new LinkedHashMap<String, PGoVariable>();
+		vars = new LinkedHashMap<String, PGoVariable>();
 		body = new Vector<AST>();
 	}
 

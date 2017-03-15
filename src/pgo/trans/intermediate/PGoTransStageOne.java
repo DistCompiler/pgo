@@ -1,7 +1,7 @@
 package pgo.trans.intermediate;
 
-import java.util.Collection;
-import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.Vector;
 
 import pcal.AST;
@@ -34,9 +34,9 @@ public class PGoTransStageOne {
 	private String algName;
 
 	// The global variables of this algorithm
-	private HashMap<String, PGoVariable> globals;
+	private LinkedHashMap<String, PGoVariable> globals;
 	// The functions of this algorithm
-	private HashMap<String, PGoFunction> funcs;
+	private LinkedHashMap<String, PGoFunction> funcs;
 
 	// Defined TLAExpr to be parsed into functions. Except these are not of the
 	// form individual functions, they are a collection of quick definitions. We
@@ -45,7 +45,8 @@ public class PGoTransStageOne {
 
 	public PGoTransStageOne(AST ast) throws PGoTransException {
 		this.ast = ast;
-		this.globals = new HashMap<String, PGoVariable>();
+		this.globals = new LinkedHashMap<String, PGoVariable>();
+		this.funcs = new LinkedHashMap<String, PGoFunction>();
 		trans();
 	}
 
@@ -57,12 +58,20 @@ public class PGoTransStageOne {
 		return algName;
 	}
 
-	public Collection<PGoVariable> getGlobals() {
-		return globals.values();
+	public ArrayList<PGoVariable> getGlobals() {
+		return new ArrayList<PGoVariable>(globals.values());
 	}
 
 	public PGoVariable getGlobal(String name) {
 		return globals.get(name);
+	}
+
+	public ArrayList<PGoFunction> getFunctions() {
+		return new ArrayList<PGoFunction>(funcs.values());
+	}
+
+	public PGoFunction getFunction(String name) {
+		return funcs.get(name);
 	}
 
 	/**

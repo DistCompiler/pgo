@@ -56,9 +56,10 @@ public class PGoFunctionTest {
 
 		param = new PVarDecl();
 		param.var = "param2";
+		p.params.add(param);
 		f = PGoFunction.convert(p);
 		assertEquals(p.name, f.getName());
-		assertEquals(1, f.getParams().size());
+		assertEquals(2, f.getParams().size());
 		assertParam(f, "param1");
 		assertEquals(0, f.getVariables().size());
 
@@ -73,8 +74,9 @@ public class PGoFunctionTest {
 		p.decls.add(decl);
 		f = PGoFunction.convert(p);
 		assertEquals(p.name, f.getName());
-		assertEquals(1, f.getParams().size());
-		assertParam(f, "param1");
+		assertEquals(2, f.getParams().size());
+		assertParam(f, "param1", 0);
+		assertParam(f, "param2", 1);
 		assertEquals(1, f.getVariables().size());
 		PGoVariable pdecl = f.getVariable("var1");
 		assertNotNull(pdecl);
@@ -95,8 +97,9 @@ public class PGoFunctionTest {
 		p.body.add(stmt);
 		f = PGoFunction.convert(p);
 		assertEquals(p.name, f.getName());
-		assertEquals(1, f.getParams().size());
-		assertParam(f, "param1");
+		assertEquals(2, f.getParams().size());
+		assertParam(f, "param1", 0);
+		assertParam(f, "param2", 1);
 		assertEquals(1, f.getVariables().size());
 		pdecl = f.getVariable("var1");
 		assertNotNull(pdecl);
@@ -144,8 +147,8 @@ public class PGoFunctionTest {
 		f = PGoFunction.convert(m);
 		assertEquals(m.name, f.getName());
 		assertEquals(2, f.getParams().size());
-		assertParam(f, "param1");
-		assertParam(f, "param2");
+		assertParam(f, "param1", 0);
+		assertParam(f, "param2", 1);
 
 		assertEquals(m.body.size(), f.getBody().size());
 		for (int i = 0; i < f.getBody().size(); i++) {
@@ -158,8 +161,8 @@ public class PGoFunctionTest {
 		f = PGoFunction.convert(m);
 		assertEquals(m.name, f.getName());
 		assertEquals(2, f.getParams().size());
-		assertParam(f, "param1");
-		assertParam(f, "param2");
+		assertParam(f, "param1", 0);
+		assertParam(f, "param2", 1);
 
 		assertEquals(m.body.size(), f.getBody().size());
 		for (int i = 0; i < f.getBody().size(); i++) {
@@ -172,6 +175,17 @@ public class PGoFunctionTest {
 	// The simple assignment should be true for functions, and the init block
 	// null
 	private void assertParam(PGoFunction f, String var) {
+		PGoVariable param;
+		param = f.getParam(var);
+		assertNotNull(param);
+		assertEquals(var, param.getName());
+		assertTrue(param.getIsSimpleAssignInit());
+		assertEquals(PcalParams.DefaultVarInit().toString(), param.getPcalInitBlock().toString());
+	}
+
+	// same as above, but asserts order of var
+	private void assertParam(PGoFunction f, String var, int order) {
+		assertEquals(var, f.getParams().get(order).getName());
 		PGoVariable param;
 		param = f.getParam(var);
 		assertNotNull(param);
