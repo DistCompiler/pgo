@@ -26,4 +26,6 @@ Requirements: JRE8, and one of Eclipse or Ant 1.9
 Option 2: Execute `ant pgo` assuming the project is in the `pgo/` directory
 
 ## How to use it? e.g., command line usage/how to run test suite
-I don't know yet
+
+Run with eclipse. Arguments `-h` for help.
+Alternatively, run `./pgo.sh` to execute the program.
