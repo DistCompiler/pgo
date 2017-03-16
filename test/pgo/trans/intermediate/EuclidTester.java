@@ -38,4 +38,14 @@ public class EuclidTester extends PGoPluscalTesterBase {
 		return new ArrayList<TestFunctionData>();
 	}
 
+	@Override
+	public int getNumGoroutineInit() {
+		return 0;
+	}
+
+	@Override
+	protected String getAlg() {
+		return "Euclid";
+	}
+
 }

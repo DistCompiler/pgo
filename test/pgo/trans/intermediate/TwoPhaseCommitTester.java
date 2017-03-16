@@ -2,6 +2,10 @@ package pgo.trans.intermediate;
 
 import java.util.ArrayList;
 
+import pcal.AST.Macro;
+import pcal.AST.Multiprocess;
+import pcal.AST.Process;
+import pgo.pcalparser.PcalParseException;
 import pgo.trans.PGoPluscalTesterBase;
 
 /**
@@ -37,7 +41,7 @@ public class TwoPhaseCommitTester extends PGoPluscalTesterBase {
 	}
 
 	@Override
-	public ArrayList<TestFunctionData> getFunctions() {
+	public ArrayList<TestFunctionData> getFunctions() throws PcalParseException {
 		ArrayList<TestFunctionData> ret = new ArrayList<TestFunctionData>();
 
 		ArrayList<TestVariableData> params = new ArrayList<TestVariableData>();
@@ -45,20 +49,39 @@ public class TwoPhaseCommitTester extends PGoPluscalTesterBase {
 		params.add(new TestVariableData("state", true, "<< \"defaultInitValue\" >>"));
 		params.add(new TestVariableData("kmgrs", true, "<< \"defaultInitValue\" >>"));
 
-		String b = "[[type    |-> \"while\", \n test    |-> << \"kmgrs\", \"#\", \"{\", \"}\" >>,\n "
-				+ "labDo   |-> <<>>,\n unlabDo |-> <<[type   |-> \"with\", \n                "
-				+ "var    |-> \"km\",\n                eqOrIn |-> \"\\\\in\",\n                "
-				+ "exp    |-> << \"kmgrs\" >>,\n                do     |-> <<[type |-> "
-				+ "\"assignment\",\n                              ass  |-> <<[lhs |-> "
-				+ "[var |-> \"restaurant_stage\", sub |-> << \"[\", \"km\", \"]\" >>],\n"
-				+ "                                          rhs |-> << \"state\" >>]>>], \n"
-				+ "                             [type |-> \"assignment\",\n"
-				+ "                              ass  |-> <<[lhs |-> [var |-> \"kmgrs\", sub |-> <<  >>],\n"
-				+ "                                          rhs |-> << \"kmgrs\", \"\\\\\", \"{\", \"km\", \"}\" >>]>>]>>]>>]]";
+		String b = ((Macro) ((Multiprocess) getAST()).macros.get(0)).body.toString();
 
-		ret.add(new TestFunctionData("SetAll", params, vars, b));
+		ret.add(new TestFunctionData("SetAll", params, vars, b, false, false, ""));
 
+		params = new ArrayList<TestVariableData>();
+		vars = new ArrayList<TestVariableData>();
+		params.add(new TestVariableData("self", true, "<< \"defaultInitValue\" >>"));
+
+		b = ((Process) ((Multiprocess) getAST()).procs.get(0)).body.toString();
+
+		ret.add(new TestFunctionData("Restaurant", params, vars, b, true, false, "<< \"managers\" >>"));
+
+		params = new ArrayList<TestVariableData>();
+		vars = new ArrayList<TestVariableData>();
+		params.add(new TestVariableData("self", true, "<< \"defaultInitValue\" >>"));
+		vars.add(new TestVariableData("rstMgrs", true, "<< \"defaultInitValue\" >>"));
+		vars.add(new TestVariableData("aborted", true, "<< \"FALSE\" >>"));
+		
+		b = ((Process) ((Multiprocess) getAST()).procs.get(1)).body.toString();
+
+		ret.add(new TestFunctionData("Controller", params, vars, b, true, true, "<< \"\\\"\", \"alice\", \"\\\"\" >>"));
+		
 		return ret;
+	}
+
+	@Override
+	protected String getAlg() {
+		return "TwoPhaseCommit";
+	}
+
+	@Override
+	public int getNumGoroutineInit() {
+		return 2;
 	}
 
 }

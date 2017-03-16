@@ -8,6 +8,8 @@ import pcal.AST;
 import pcal.AST.Macro;
 import pcal.AST.PVarDecl;
 import pcal.AST.Procedure;
+import pcal.AST.Process;
+import pcal.AST.VarDecl;
 
 /**
  * Intermediate representation of a single pluscal and golang function.
@@ -30,6 +32,9 @@ public class PGoFunction {
 
 	// The body of the function
 	private Vector<AST> body;
+
+	// Whether this function is a goroutine or process
+	private boolean isGoRoutine;
 
 	public String getName() {
 		return funcName;
@@ -55,6 +60,10 @@ public class PGoFunction {
 		return body;
 	}
 
+	public boolean getIsGoRoutine() {
+		return isGoRoutine;
+	}
+
 	// private constructor
 	private PGoFunction() {
 		params = new LinkedHashMap<String, PGoVariable>();
@@ -62,6 +71,7 @@ public class PGoFunction {
 		body = new Vector<AST>();
 	}
 
+	// Converts a procedure from pluscal into a golang function
 	public static PGoFunction convert(Procedure m) {
 		PGoFunction ret = new PGoFunction();
 		ret.funcName = m.name;
@@ -79,6 +89,7 @@ public class PGoFunction {
 		return ret;
 	}
 
+	// Converts a macro from pluscal into a golang function
 	public static PGoFunction convert(Macro m) {
 		PGoFunction ret = new PGoFunction();
 		ret.funcName = m.name;
@@ -88,6 +99,31 @@ public class PGoFunction {
 		}
 
 		ret.body = m.body;
+
+		return ret;
+	}
+
+	// Sets whether this function is a process or goroutine
+	public void setIsGoRoutine(boolean tf) {
+		isGoRoutine = tf;
+	}
+
+	// Converts a process from a multiprocessed pluscal algorithm to a go
+	// function that we can run as a goroutine
+	public static PGoFunction convert(Process p) {
+		PGoFunction ret = new PGoFunction();
+		ret.funcName = p.name;
+
+		// process function argument is just the process id
+		PGoVariable id = PGoVariable.processIdArg();
+		ret.params.put(id.getName(), id);
+
+		for (VarDecl var : (Vector<VarDecl>) p.decls) {
+			PGoVariable pvar = PGoVariable.convert(var);
+			ret.vars.put(pvar.getName(), pvar);
+		}
+
+		ret.body = p.body;
 
 		return ret;
 	}

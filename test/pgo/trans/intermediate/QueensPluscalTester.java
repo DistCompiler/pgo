@@ -36,4 +36,14 @@ public class QueensPluscalTester extends PGoPluscalTesterBase {
 	public ArrayList<TestFunctionData> getFunctions() {
 		return new ArrayList<TestFunctionData>();
 	}
+
+	@Override
+	protected String getAlg() {
+		return "QueensPluscal";
+	}
+
+	@Override
+	public int getNumGoroutineInit() {
+		return 0;
+	}
 }

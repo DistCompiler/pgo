@@ -2,6 +2,9 @@ package pgo.trans.intermediate;
 
 import java.util.ArrayList;
 
+import pcal.AST.Multiprocess;
+import pcal.AST.Process;
+import pgo.pcalparser.PcalParseException;
 import pgo.trans.PGoPluscalTesterBase;
 
 /**
@@ -34,8 +37,29 @@ public class FastMutexTester extends PGoPluscalTesterBase {
 	}
 
 	@Override
-	public ArrayList<TestFunctionData> getFunctions() {
-		return new ArrayList<TestFunctionData>();
+	public ArrayList<TestFunctionData> getFunctions() throws PcalParseException {
+		ArrayList<TestFunctionData> r = new ArrayList<TestFunctionData>();
+
+		ArrayList<TestVariableData> params = new ArrayList<TestVariableData>();
+		ArrayList<TestVariableData> vars = new ArrayList<TestVariableData>();
+		params.add(new TestVariableData("self", true, "<< \"defaultInitValue\" >>"));
+		vars.add(new TestVariableData("j", true, "<< \"defaultInitValue\" >>"));
+
+		String b = ((Process) ((Multiprocess) getAST()).procs.get(0)).body.toString();
+
+		r.add(new TestFunctionData("Proc", params, vars, b, true, false, "<< \"1\", \"..\", \"N\" >>"));
+
+		return r;
+	}
+
+	@Override
+	public int getNumGoroutineInit() {
+		return 1;
+	}
+
+	@Override
+	protected String getAlg() {
+		return "FastMutex";
 	}
 
 }

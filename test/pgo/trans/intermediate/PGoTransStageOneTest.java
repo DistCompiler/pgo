@@ -12,6 +12,7 @@ import org.junit.runners.Parameterized;
 
 import pcal.AST;
 import pgo.PcalASTBase;
+import pgo.pcalparser.PcalParseException;
 import pgo.trans.PGoPluscalTesterBase;
 import pgo.trans.PGoPluscalTesterBase.TestFunctionData;
 import pgo.trans.PGoPluscalTesterBase.TestVariableData;
@@ -22,13 +23,13 @@ import pgo.trans.intermediate.model.PGoVariable;
 @RunWith(Parameterized.class)
 public class PGoTransStageOneTest extends PcalASTBase {
 
-	public PGoTransStageOneTest(String alg, PGoPluscalTesterBase tester) {
-		super(alg, tester);
+	public PGoTransStageOneTest(PGoPluscalTesterBase tester) {
+		super(tester);
 	}
 
 
 	@Test
-	public void testUniOrMultiProcess() throws PGoTransException {
+	public void testUniOrMultiProcess() throws PGoTransException, PcalParseException {
 		boolean succ = false;
 		try {
 			PGoTransStageOne p = new PGoTransStageOne(new AST());
@@ -40,20 +41,20 @@ public class PGoTransStageOneTest extends PcalASTBase {
 			fail("Expected PGoTransException from parsing");
 		}
 		
-		PGoTransStageOne p = new PGoTransStageOne(ast.get(alg));
+		PGoTransStageOne p = new PGoTransStageOne(tester.getAST());
 		assertEquals(tester.isMultiProcess(), p.getIsMultiProcess());
 	}
 
 	@Test
-	public void testAlgName() throws PGoTransException {
-		PGoTransStageOne p = new PGoTransStageOne(ast.get(alg));
+	public void testAlgName() throws PGoTransException, PcalParseException {
+		PGoTransStageOne p = new PGoTransStageOne(tester.getAST());
 		assertEquals(tester.getName(), p.getAlgName());
 
 	}
 
 	@Test
-	public void testPGoVariable() throws PGoTransException {
-		PGoTransStageOne p = new PGoTransStageOne(ast.get(alg));
+	public void testPGoVariable() throws PGoTransException, PcalParseException {
+		PGoTransStageOne p = new PGoTransStageOne(tester.getAST());
 		ArrayList<PGoVariable> cv = p.getGlobals();
 		assertEquals(tester.getVariables().size(), cv.size());
 
@@ -74,8 +75,8 @@ public class PGoTransStageOneTest extends PcalASTBase {
 	}
 
 	@Test
-	public void testPGoFunction() throws PGoTransException {
-		PGoTransStageOne p = new PGoTransStageOne(ast.get(alg));
+	public void testPGoFunction() throws PGoTransException, PcalParseException {
+		PGoTransStageOne p = new PGoTransStageOne(tester.getAST());
 
 		ArrayList<PGoFunction> cv = p.getFunctions();
 		assertEquals(tester.getFunctions().size(), cv.size());
@@ -86,7 +87,7 @@ public class PGoTransStageOneTest extends PcalASTBase {
 	}
 
 	// assert function for a pgofunction generated from initial pass
-	private void assertPGoFunction(PGoTransStageOne p, int i, PGoPluscalTesterBase tester) {
+	private void assertPGoFunction(PGoTransStageOne p, int i, PGoPluscalTesterBase tester) throws PcalParseException {
 		TestFunctionData af = tester.getFunctions().get(i);
 
 		PGoFunction f = p.getFunctions().get(i);
@@ -102,10 +103,30 @@ public class PGoTransStageOneTest extends PcalASTBase {
 		
 		assertEquals(af.vars.size(), f.getVariables().size());
 		for (int j = 0; j < f.getVariables().size(); j++) {
-			assertPGoVariable(f.getVariables().get(j), j, af.params);
+			assertPGoVariable(f.getVariables().get(j), j, af.vars);
 			assertEquals(f.getVariables().get(j), f.getVariable(f.getVariables().get(j).getName()));
 		}
 
 		assertEquals(p.getFunction(af.name), f);
+		
+		assertEquals(af.isGoRoutine, f.getIsGoRoutine());
+	}
+
+	@Test
+	public void assertGoRoutineInit() throws PGoTransException, PcalParseException {
+		PGoTransStageOne p = new PGoTransStageOne(tester.getAST());
+
+		ArrayList<PGoRoutineInit> grs = p.getGoRoutineInits();
+		assertEquals(tester.getNumGoroutineInit(), grs.size());
+		
+		for (TestFunctionData f : tester.getFunctions()) {
+			if (f.isGoRoutine) {
+				PGoRoutineInit gr = p.getGoRoutineInit(f.name);
+				assertNotNull(gr);
+				assertEquals(f.name, gr.getName());
+				assertEquals(f.isGoSimpleInit, gr.getIsSimpleInit());
+				assertEquals(f.goroutineInit, gr.getInitTLA().toString());
+			}
+		}
 	}
 }

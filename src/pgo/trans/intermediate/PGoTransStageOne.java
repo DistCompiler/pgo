@@ -5,9 +5,11 @@ import java.util.LinkedHashMap;
 import java.util.Vector;
 
 import pcal.AST;
+import pcal.AST.LabeledStmt;
 import pcal.AST.Macro;
 import pcal.AST.Multiprocess;
 import pcal.AST.Procedure;
+import pcal.AST.Process;
 import pcal.AST.Uniprocess;
 import pcal.AST.VarDecl;
 import pcal.TLAExpr;
@@ -43,10 +45,18 @@ public class PGoTransStageOne {
 	// must individually parse these.
 	private TLAExpr tlaExpr;
 
+	// Array of code blocks we need to insert into the go main function
+	private ArrayList<LabeledStmt> mainBlock;
+
+	// Map of goroutines and its function to its initialization code
+	private LinkedHashMap<String, PGoRoutineInit> goroutines;
+
 	public PGoTransStageOne(AST ast) throws PGoTransException {
 		this.ast = ast;
 		this.globals = new LinkedHashMap<String, PGoVariable>();
 		this.funcs = new LinkedHashMap<String, PGoFunction>();
+		this.mainBlock = new ArrayList<LabeledStmt>();
+		this.goroutines = new LinkedHashMap<String, PGoRoutineInit>();
 		trans();
 	}
 
@@ -72,6 +82,18 @@ public class PGoTransStageOne {
 
 	public PGoFunction getFunction(String name) {
 		return funcs.get(name);
+	}
+
+	public ArrayList<LabeledStmt> getMain() {
+		return mainBlock;
+	}
+
+	public ArrayList<PGoRoutineInit> getGoRoutineInits() {
+		return new ArrayList<PGoRoutineInit>(goroutines.values());
+	}
+
+	public PGoRoutineInit getGoRoutineInit(String r) {
+		return goroutines.get(r);
 	}
 
 	/**
@@ -132,7 +154,16 @@ public class PGoTransStageOne {
 	 */
 	private void trans(Multiprocess ast) {
 		transCommon(new BaseAlgAST(ast));
-		// TODO the unique parts
+
+		// TODO eventually we want to support a process as a goroutine and a
+		// networked process. For now we just do goroutines
+		for (Process p : (Vector<Process>) ast.procs) {
+			PGoFunction f = PGoFunction.convert(p);
+			f.setIsGoRoutine(true);
+			funcs.put(f.getName(), f);
+
+			goroutines.put(f.getName(), PGoRoutineInit.convert(p));
+		}
 	}
 
 	/**
@@ -144,8 +175,8 @@ public class PGoTransStageOne {
 	 */
 	private void trans(Uniprocess ast) {
 		transCommon(new BaseAlgAST(ast));
-		// TODO the unique parts
 
+		mainBlock.addAll(ast.body);
 	}
 
 	/**

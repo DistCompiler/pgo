@@ -50,8 +50,18 @@ public class QueensPluscalProcedureTester extends PGoPluscalTesterBase {
 				+ "\"\\\\/\", \"queens\", \"[\", \"j\", \"]\", \"-\", \"queens\", \"[\", \"i\", \"]\", \"=\", \"i\", \"-\", \"j\" >>]>>], \n"
 				+ "             [type |-> \"return\", from |-> \"PgoAttacks\"]>>]]";
 
-		ret.add(new TestFunctionData("PgoAttacks", params, vars, b));
+		ret.add(new TestFunctionData("PgoAttacks", params, vars, b, false, false, ""));
 		return ret;
+	}
+
+	@Override
+	protected String getAlg() {
+		return "QueensPluscalProcedure";
+	}
+
+	@Override
+	public int getNumGoroutineInit() {
+		return 0;
 	}
 
 }

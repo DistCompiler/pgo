@@ -2,6 +2,10 @@ package pgo.trans.intermediate;
 
 import java.util.ArrayList;
 
+import pcal.AST.Macro;
+import pcal.AST.Multiprocess;
+import pcal.AST.Process;
+import pgo.pcalparser.PcalParseException;
 import pgo.trans.PGoPluscalTesterBase;
 
 /**
@@ -33,7 +37,7 @@ public class SumTester extends PGoPluscalTesterBase {
 	}
 
 	@Override
-	public ArrayList<TestFunctionData> getFunctions() {
+	public ArrayList<TestFunctionData> getFunctions() throws PcalParseException {
 		ArrayList<TestFunctionData> ret = new ArrayList<TestFunctionData>();
 
 		ArrayList<TestVariableData> params = new ArrayList<TestVariableData>();
@@ -42,13 +46,9 @@ public class SumTester extends PGoPluscalTesterBase {
 		params.add(new TestVariableData("to", true, "<< \"defaultInitValue\" >>"));
 		params.add(new TestVariableData("msg", true, "<< \"defaultInitValue\" >>"));
 
-		String b = "[[type |-> \"assignment\",\n "
-				+ "ass  |-> <<[lhs |-> [var |-> \"network\", sub |-> << \"[\", \"to\", \"]\" >>],\n"
-				+ "             rhs |-> << \"Append\", \"(\","
-				+ " \"network\", \"[\", \"to\", \"]\", \",\", \"<<\", \"from\", \",\","
-				+ " \"msg\", \">>\", \")\" >>]>>]]";
+		String b = ((Macro) ((Multiprocess) getAST()).macros.get(0)).body.toString();
 
-		ret.add(new TestFunctionData("SendTo", params, vars, b));
+		ret.add(new TestFunctionData("SendTo", params, vars, b, false, false, ""));
 
 		params = new ArrayList<TestVariableData>();
 		vars = new ArrayList<TestVariableData>();
@@ -56,20 +56,46 @@ public class SumTester extends PGoPluscalTesterBase {
 		params.add(new TestVariableData("id", true, "<< \"defaultInitValue\" >>"));
 		params.add(new TestVariableData("msg", true, "<< \"defaultInitValue\" >>"));
 
-		b = "[[type |-> \"when\", \n exp |-> << \"network\", \"[\","
-				+ " \"to\", \"]\", \"#\", \"<<\", \">>\" >>], [type |-> \"assignment\",\n "
-				+ "ass  |-> <<[lhs |-> [var |-> \"id\", sub |-> <<  >>],\n             "
-				+ "rhs |-> << \"Head\", \"(\", \"network\", \"[\", \"to\", \"]\", \")\", "
-				+ "\"[\", \"1\", \"]\" >>]>>], [type |-> \"assignment\",\n"
-				+ " ass  |-> <<[lhs |-> [var |-> \"msg\", sub |-> <<  >>],\n"
-				+ "             rhs |-> << \"Head\", \"(\", \"network\", "
-				+ "\"[\", \"to\", \"]\", \")\", \"[\", \"2\", \"]\" >>]>>], "
-				+ "[type |-> \"assignment\",\n ass  |-> <<[lhs |-> "
-				+ "[var |-> \"network\", sub |-> << \"[\", \"to\", \"]\" >>],\n"
-				+ "             rhs |-> << \"Tail\", \"(\", \"network\", "
-				+ "\"[\", \"to\", \"]\", \")\" >>]>>]]";
+		b = ((Macro) ((Multiprocess) getAST()).macros.get(1)).body.toString();
 
-		ret.add(new TestFunctionData("Recv", params, vars, b));
+		ret.add(new TestFunctionData("Recv", params, vars, b, false, false, ""));
+
+		params = new ArrayList<TestVariableData>();
+		vars = new ArrayList<TestVariableData>();
+		params.add(new TestVariableData("self", true, "<< \"defaultInitValue\" >>"));
+		vars.add(new TestVariableData("a_init", true, "<< \"defaultInitValue\" >>"));
+		vars.add(new TestVariableData("b_init", true, "<< \"defaultInitValue\" >>"));
+		vars.add(new TestVariableData("runs", true, "<< \"0\" >>"));
+		vars.add(new TestVariableData("id", true, "<< \"defaultInitValue\" >>"));
+		vars.add(new TestVariableData("msg", true, "<< \"defaultInitValue\" >>"));
+		vars.add(new TestVariableData("sum", true, "<< \"defaultInitValue\" >>"));
+
+		b = ((Process) ((Multiprocess) getAST()).procs.get(0)).body.toString();
+
+		ret.add(new TestFunctionData("Client", params, vars, b, true, false, "<< \"1\", \"..\", \"N\" >>"));
+
+		params = new ArrayList<TestVariableData>();
+		vars = new ArrayList<TestVariableData>();
+		params.add(new TestVariableData("self", true, "<< \"defaultInitValue\" >>"));
+		vars.add(new TestVariableData("a", true, "<< \"defaultInitValue\" >>"));
+		vars.add(new TestVariableData("b", true, "<< \"defaultInitValue\" >>"));
+		vars.add(new TestVariableData("id", true, "<< \"defaultInitValue\" >>"));
+		vars.add(new TestVariableData("msg", true, "<< \"defaultInitValue\" >>"));
+
+		b = ((Process) ((Multiprocess) getAST()).procs.get(1)).body.toString();
+
+		ret.add(new TestFunctionData("Server", params, vars, b, true, true, "<< \"N\", \"+\", \"1\" >>"));
+
 		return ret;
+	}
+
+	@Override
+	protected String getAlg() {
+		return "Sum";
+	}
+
+	@Override
+	public int getNumGoroutineInit() {
+		return 2;
 	}
 }
