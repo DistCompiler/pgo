@@ -9,6 +9,8 @@ import pcal.AST.PVarDecl;
 import pcal.AST.VarDecl;
 import pcal.PcalParams;
 import pcal.TLAToken;
+import pgo.trans.intermediate.model.PGoPrimitiveType.PGoInt;
+import pgo.trans.intermediate.model.PGoPrimitiveType.PGoString;
 
 public class PGoVariableTest {
 
@@ -38,6 +40,7 @@ public class PGoVariableTest {
 		assertEquals(p.getPcalInitBlock().toString(), var.val.toString());
 	}
 
+	@Test
 	public void testConvertPVarDecl() {
 		PVarDecl var = new PVarDecl();
 		var.var = "var";
@@ -57,6 +60,7 @@ public class PGoVariableTest {
 		assertEquals(p.getPcalInitBlock().toString(), var.val.toString());
 	}
 
+	@Test
 	public void testConvertString() {
 		String var = "var";
 		PGoVariable p = PGoVariable.convert(var);
@@ -67,6 +71,32 @@ public class PGoVariableTest {
 		var = "var2";
 		p = PGoVariable.convert(var);
 		assertEquals(var, p.getName());
+		assertTrue(p.getIsSimpleAssignInit());
+		assertEquals(PcalParams.DefaultVarInit().toString(), p.getPcalInitBlock().toString());
+	}
+	
+	@Test
+	public void testConvertType() {
+		String var = "var";
+		PGoType t = new PGoInt();
+		PGoVariable p = PGoVariable.convert(var, t);
+		assertEquals(var, p.getName());
+		assertEquals(t, p.getType());
+		assertTrue(p.getIsSimpleAssignInit());
+		assertEquals(PcalParams.DefaultVarInit().toString(), p.getPcalInitBlock().toString());
+
+		var = "var2";
+		t = new PGoInt();
+		p = PGoVariable.convert(var, t);
+		assertEquals(var, p.getName());
+		assertEquals(t, p.getType());
+		assertTrue(p.getIsSimpleAssignInit());
+		assertEquals(PcalParams.DefaultVarInit().toString(), p.getPcalInitBlock().toString());
+
+		t = new PGoString();
+		p = PGoVariable.convert(var, t);
+		assertEquals(var, p.getName());
+		assertEquals(t, p.getType());
 		assertTrue(p.getIsSimpleAssignInit());
 		assertEquals(PcalParams.DefaultVarInit().toString(), p.getPcalInitBlock().toString());
 	}

@@ -19,13 +19,23 @@ public abstract class PGoType {
 	 * 
 	 * @return the go type
 	 */
-	public abstract String toGo();
+	public abstract String toGoTypeName();
 
 	/**
 	 * Represents an indeterminable type
 	 *
 	 */
-	public static class Undetermined {
+	public static class PGoUndetermined extends PGoType {
+
+		@Override
+		public String toGoTypeName() {
+			return "";
+		}
 
 	}
+
+	public boolean equals(PGoType p) {
+		return toGoTypeName() == p.toGoTypeName();
+	}
+
 }

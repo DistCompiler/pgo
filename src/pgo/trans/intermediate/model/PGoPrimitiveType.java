@@ -16,7 +16,7 @@ public abstract class PGoPrimitiveType extends PGoType {
 		private static final String goType = "int";
 		
 		@Override
-		public String toGo() {
+		public String toGoTypeName() {
 			return goType;
 		}
 
@@ -31,7 +31,7 @@ public abstract class PGoPrimitiveType extends PGoType {
 		private static final String goType = "float64";
 
 		@Override
-		public String toGo() {
+		public String toGoTypeName() {
 			return goType;
 		}
 
@@ -46,7 +46,7 @@ public abstract class PGoPrimitiveType extends PGoType {
 		private static final String goType = "uint64";
 
 		@Override
-		public String toGo() {
+		public String toGoTypeName() {
 			return goType;
 		}
 
@@ -62,7 +62,7 @@ public abstract class PGoPrimitiveType extends PGoType {
 		private static final String goType = "bool";
 
 		@Override
-		public String toGo() {
+		public String toGoTypeName() {
 			return goType;
 		}
 
@@ -77,10 +77,39 @@ public abstract class PGoPrimitiveType extends PGoType {
 		private static final String goType = "String";
 
 		@Override
-		public String toGo() {
+		public String toGoTypeName() {
 			return goType;
 		}
 
+	}
+
+	/**
+	 * Attempts to infer the type from a given type name
+	 * 
+	 * @param string
+	 *            the type name, which is one of: int/integer, bool/boolean,
+	 *            natural/uint64, decimal/float64, string
+	 * @return a PGoType of inferred type
+	 */
+	public static PGoType inferPrimitiveFromGoTypeName(String string) {
+		string = string.toLowerCase();
+		switch (string) {
+		case "int":
+		case "integer":
+			return new PGoInt();
+		case "bool":
+		case "boolean":
+			return new PGoBool();
+		case "natural":
+		case "uint64":
+			return new PGoNatural();
+		case "decimal":
+		case "float64":
+			return new PGoDecimal();
+		case "string":
+			return new PGoString();
+		}
+		return new PGoUndetermined();
 	}
 
 }

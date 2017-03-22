@@ -18,13 +18,13 @@ public class PGoOptions {
 	public boolean logLvlVerbose = false;
 
 	@Option(value = "-i the input pluscal file to transpile ")
-	public static String infile = "";
+	public String infile = "";
 
 	@Option(value = "-o the output file to generate")
-	public static String outfile = "";
+	public String outfile = "";
 
 	@Option(value = "write the AST generated and skip the rest", aliases = { "-ast" })
-	public static boolean writeAST = false;
+	public boolean writeAST = false;
 
 	private Options plumeOptions;
 
@@ -44,7 +44,7 @@ public class PGoOptions {
 				outfile = remaining_args[1];
 			}
 		}
-
+		
 		checkOptions();
 	}
 

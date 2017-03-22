@@ -3,9 +3,9 @@ package pgo;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import pcal.AST;
 import pgo.pcalparser.PcalParseException;
 import pgo.pcalparser.PcalParser;
+import pgo.pcalparser.PcalParser.ParsedPcal;
 import pgo.trans.PGoTranslater;
 import pgo.util.IOUtil;
 
@@ -43,20 +43,20 @@ public class PGoMain {
 		/*********************************************************************
 		 * For -writeAST option, just write the file AST.tla and halt. *
 		 *********************************************************************/
-		AST ast;
+		ParsedPcal pcal;
 		try {
-			ast = parser.parse();
+			pcal = parser.parse();
 		} catch (PcalParseException e) {
 			logger.severe(e.getMessage());
 			return;
 		}
 		
 		if (opts.writeAST) {
-			IOUtil.WriteAST(ast, opts.outfile);
+			IOUtil.WriteAST(pcal.getAST(), opts.outfile);
 			return; // added for testing
 		}
 		
-		PGoTranslater trans = new PGoTranslater(ast);
+		PGoTranslater trans = new PGoTranslater(pcal);
 		// TODO translate it
 	}
 

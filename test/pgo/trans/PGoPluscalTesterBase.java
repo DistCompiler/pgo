@@ -8,6 +8,7 @@ import java.util.logging.Logger;
 import pcal.AST;
 import pgo.pcalparser.PcalParseException;
 import pgo.pcalparser.PcalParser;
+import pgo.pcalparser.PcalParser.ParsedPcal;
 
 /**
  * Abstract class for testing data of real pluscal algorithms.
@@ -15,18 +16,18 @@ import pgo.pcalparser.PcalParser;
  *
  */
 public abstract class PGoPluscalTesterBase {
-	private static HashMap<String, AST> ast = new HashMap<String, AST>();
+	private static HashMap<String, ParsedPcal> ast = new HashMap<String, ParsedPcal>();
 
-	// Gets the AST of this pluscal algorithm
+	// Gets the parsed version of this pluscal algorithm
 	public AST getAST() throws PcalParseException {
-		AST r = ast.get(getAlg());
+		ParsedPcal r = ast.get(getAlg());
 		if (r != null) {
-			return r;
+			return r.getAST();
 		}
 		Logger.getLogger("PGoTrans AST Stage").setLevel(Level.INFO);
 		r = new PcalParser("./test/pluscal/" + getAlg() + ".tla").parse();
 		ast.put(getAlg(), r);
-		return r;
+		return r.getAST();
 	}
 
 	protected abstract String getAlg();

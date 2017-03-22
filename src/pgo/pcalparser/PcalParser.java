@@ -11,7 +11,6 @@ import pcal.PcalParams;
 import pcal.TLAtoPCalMapping;
 import pcal.exception.FileToStringVectorException;
 import pcal.exception.ParseAlgorithmException;
-import pcal.exception.StringVectorToFileException;
 import pgo.util.IOUtil;
 import util.ToolIO;
 
@@ -32,8 +31,28 @@ public class PcalParser {
 		this.file = file;
 	}
 	
+	public static class ParsedPcal {
+		// the list of PGo annotations
+		private Vector<String> annotations;
+
+		// the AST
+		private AST ast;
+
+		private ParsedPcal(AST ast, Vector<String> annotations) {
+			this.ast = ast;
+			this.annotations = annotations;
+		}
+
+		public Vector<String> getPGoAnnotations() {
+			return annotations;
+		}
+
+		public AST getAST() {
+			return ast;
+		}
+	}
 	
-	public AST parse() throws PcalParseException {
+	public ParsedPcal parse() throws PcalParseException {
 		if (ToolIO.getMode() == ToolIO.SYSTEM) {
 			logger.info("pcal.trans Version " + PcalParams.version + " of " + PcalParams.modDate);
 		}
@@ -190,6 +209,7 @@ public class PcalParser {
 		 * untabInputVec, * replacing (* *) comments by spaces to keep the
 		 * algorithm tokens * in the same positions for error reporting. *
 		 *********************************************************************/
+		Vector<String> annotations = findPGoAnnotations(untabInputVec);
 		try {
 			ParseAlgorithm.uncomment(untabInputVec, algLine, algCol);
 		} catch (ParseAlgorithmException e) {
@@ -214,9 +234,70 @@ public class PcalParser {
 		}
 		logger.info("Parsing completed.");
 
-		return ast;
+		return new ParsedPcal(ast, annotations);
 	}
 	
+	/**
+	 * Finds all comments that are pgo annotations PGo annotations are comments
+	 * of format "@PGo <string> @PGo" on one line
+	 * 
+	 * @param untabInputVec
+	 * @return the parsed go annotations
+	 */
+	private Vector<String> findPGoAnnotations(Vector untabInputVec) {
+		Vector<String> annotations = new Vector<String>();
+		for (String line : (Vector<String>) untabInputVec) {
+			boolean isComment = false;
+			boolean isPGo = false;
+			StringBuilder sb = null;
+			for (int i = 0; i < line.length(); ++i) {
+				char c = line.charAt(i);
+				if (!isComment) {
+					if (c == '(') {
+						if (i + 1 < line.length() && line.charAt(i + 1) == '*') {
+							isComment = true;
+						}
+					} else if (c == '\\') {
+						if (i + 1 < line.length() && line.charAt(i + 1) == '*') {
+							isComment = true;
+
+						}
+					}
+					if (isComment) {
+						++i;
+						while (i + 1 < line.length() && line.charAt(++i) == '*') {
+						}
+					}
+				} else if (isPGo) {
+					if (c == '@') {
+						if (i + 3 < line.length() && line.charAt(i + 1) == 'P' && line.charAt(i + 2) == 'G'
+								&& line.charAt(i + 3) == 'o') {
+							isPGo = false;
+							i += 3;
+							annotations.add(sb.toString());
+							continue;
+						}
+					}
+					sb.append(c);
+				} else if (!isPGo && isComment) {
+					if (c == '@') {
+						if (i + 3 < line.length() && line.charAt(i + 1) == 'P' && line.charAt(i + 2) == 'G'
+								&& line.charAt(i + 3) == 'o') {
+							isPGo = true;
+							i += 3;
+							sb = new StringBuilder();
+						}
+					} else if (c == '*') {
+						if (i + 1 < line.length() && line.charAt(i + 1) == ')') {
+							isComment = false;
+						}
+					}
+				}
+			}
+		}
+		return annotations;
+	}
+
 	/********************************************************************
 	 * Returns a string vector obtained from the string vector vec by *
 	 * replacing any evil tabs with the appropriate number of spaces, * where

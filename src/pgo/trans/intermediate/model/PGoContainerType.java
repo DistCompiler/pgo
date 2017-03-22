@@ -14,7 +14,7 @@ public abstract class PGoContainerType extends PGoType {
 	public static class PGoArray extends PGoContainerType {
 
 		@Override
-		public String toGo() {
+		public String toGoTypeName() {
 			// TODO Auto-generated method stub
 			return null;
 		}
@@ -29,7 +29,7 @@ public abstract class PGoContainerType extends PGoType {
 	public static class PGoQueue extends PGoContainerType {
 
 		@Override
-		public String toGo() {
+		public String toGoTypeName() {
 			// TODO Auto-generated method stub
 			return null;
 		}
@@ -43,7 +43,7 @@ public abstract class PGoContainerType extends PGoType {
 	public static class PGoSet extends PGoContainerType {
 
 		@Override
-		public String toGo() {
+		public String toGoTypeName() {
 			// TODO Auto-generated method stub
 			return null;
 		}
@@ -58,7 +58,7 @@ public abstract class PGoContainerType extends PGoType {
 	public static class PGoMap extends PGoContainerType {
 
 		@Override
-		public String toGo() {
+		public String toGoTypeName() {
 			// TODO Auto-generated method stub
 			return null;
 		}

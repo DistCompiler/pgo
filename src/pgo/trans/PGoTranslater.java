@@ -1,6 +1,6 @@
 package pgo.trans;
 
-import pcal.AST;
+import pgo.pcalparser.PcalParser.ParsedPcal;
 
 /**
  * Performs the translation of the PlusCal AST into a Golang AST
@@ -9,10 +9,10 @@ import pcal.AST;
 public class PGoTranslater {
 	
 	// The pluscal AST to be translated
-	private AST pluscal;
+	private ParsedPcal pluscal;
 	
-	public PGoTranslater(AST pluscal) {
-		this.pluscal = pluscal;
+	public PGoTranslater(ParsedPcal pcal) {
+		this.pluscal = pcal;
 	}
 	
 }

@@ -4,6 +4,7 @@ import pcal.AST.PVarDecl;
 import pcal.AST.VarDecl;
 import pcal.PcalParams;
 import pcal.TLAExpr;
+import pgo.trans.intermediate.model.PGoType.PGoUndetermined;
 
 /**
  * Intermediate representation of a single pluscal and golang variable.
@@ -26,8 +27,16 @@ public class PGoVariable {
 	// the pluscal ast code block corresponding to variable initialization
 	private TLAExpr tlaExpr;
 
+	// the type of the variable
+	private PGoType type;
+
+	// The go syntax value
+	private String goval;
+
 	// private constructor. only construct through converting from VarDecl
 	private PGoVariable() {
+		type = new PGoUndetermined();
+		goval = "";
 	}
 
 	public String getName() {
@@ -40,6 +49,14 @@ public class PGoVariable {
 
 	public TLAExpr getPcalInitBlock() {
 		return tlaExpr;
+	}
+
+	public PGoType getType() {
+		return type;
+	}
+
+	public void setType(PGoType t) {
+		type = t;
 	}
 
 	/**
@@ -87,6 +104,27 @@ public class PGoVariable {
 		r.isSimpleAssignInit = true;
 		r.tlaExpr = PcalParams.DefaultVarInit();
 
+		return r;
+	}
+
+	// Creates a variable from a name and the type of the variable
+	public static PGoVariable convert(String n, PGoType tn) {
+		PGoVariable r = new PGoVariable();
+		r.name = n;
+		r.isSimpleAssignInit = true;
+		r.tlaExpr = PcalParams.DefaultVarInit();
+		r.type = tn;
+		return r;
+	}
+
+	// Creates a variable from a name and an initial value (a primitive),
+	// inferring the type from the initial value.
+	public static PGoVariable convert(String n, String val, PGoType tn) {
+		PGoVariable r = new PGoVariable();
+		r.name = n;
+		r.isSimpleAssignInit = true;
+		r.goval = val;
+		r.type = tn;
 		return r;
 	}
 

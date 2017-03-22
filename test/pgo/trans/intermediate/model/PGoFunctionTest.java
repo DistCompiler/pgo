@@ -113,6 +113,7 @@ public class PGoFunctionTest {
 		}
 	}
 
+	@Test
 	public void testConvertMacro() {
 		Macro m = new Macro();
 		m.name = "macroFunc";
