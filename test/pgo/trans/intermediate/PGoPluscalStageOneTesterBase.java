@@ -1,36 +1,19 @@
-package pgo.trans;
+package pgo.trans.intermediate;
 
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
-import pcal.AST;
+import pgo.PGoPluscalTesterBase;
 import pgo.pcalparser.PcalParseException;
-import pgo.pcalparser.PcalParser;
-import pgo.pcalparser.PcalParser.ParsedPcal;
 
 /**
- * Abstract class for testing data of real pluscal algorithms.
- * This class will store the data of the pluscal algorithms such as the variables, and functions so that we can assert our translated models with the actual program.
+ * Abstract class for testing data of real pluscal algorithms for stage one
+ * testing. This class will store the data of the pluscal algorithms such as the
+ * variables, and functions so that we can assert our translated models with the
+ * actual program.
  *
  */
-public abstract class PGoPluscalTesterBase {
-	private static HashMap<String, ParsedPcal> ast = new HashMap<String, ParsedPcal>();
+public abstract class PGoPluscalStageOneTesterBase extends PGoPluscalTesterBase {
 
-	// Gets the parsed version of this pluscal algorithm
-	public AST getAST() throws PcalParseException {
-		ParsedPcal r = ast.get(getAlg());
-		if (r != null) {
-			return r.getAST();
-		}
-		Logger.getLogger("PGoTrans AST Stage").setLevel(Level.INFO);
-		r = new PcalParser("./test/pluscal/" + getAlg() + ".tla").parse();
-		ast.put(getAlg(), r);
-		return r.getAST();
-	}
-
-	protected abstract String getAlg();
 
 	// whether this pluscal algorithm is multiprocess
 	public abstract boolean isMultiProcess();

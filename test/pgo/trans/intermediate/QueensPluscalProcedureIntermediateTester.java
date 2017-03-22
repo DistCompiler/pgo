@@ -2,8 +2,6 @@ package pgo.trans.intermediate;
 
 import java.util.ArrayList;
 
-import pgo.trans.PGoPluscalTesterBase;
-
 /**
  * Tester class for the QueensPluscal pluscal algorithm
  * 
@@ -12,7 +10,7 @@ import pgo.trans.PGoPluscalTesterBase;
  * algorithm with the actual data.
  *
  */
-public class QueensPluscalProcedureTester extends PGoPluscalTesterBase {
+public class QueensPluscalProcedureIntermediateTester extends PGoPluscalStageOneTesterBase {
 
 	@Override
 	public boolean isMultiProcess() {

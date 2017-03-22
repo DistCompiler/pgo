@@ -11,19 +11,18 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
 import pcal.AST;
-import pgo.PcalASTBase;
+import pgo.PcalTestBase;
 import pgo.pcalparser.PcalParseException;
-import pgo.trans.PGoPluscalTesterBase;
-import pgo.trans.PGoPluscalTesterBase.TestFunctionData;
-import pgo.trans.PGoPluscalTesterBase.TestVariableData;
 import pgo.trans.PGoTransException;
+import pgo.trans.intermediate.PGoPluscalStageOneTesterBase.TestFunctionData;
+import pgo.trans.intermediate.PGoPluscalStageOneTesterBase.TestVariableData;
 import pgo.trans.intermediate.model.PGoFunction;
 import pgo.trans.intermediate.model.PGoVariable;
 
 @RunWith(Parameterized.class)
-public class PGoTransStageOneTest extends PcalASTBase {
+public class PGoTransStageOneTest extends PcalTestBase {
 
-	public PGoTransStageOneTest(PGoPluscalTesterBase tester) {
+	public PGoTransStageOneTest(PGoPluscalStageOneTesterBase tester) {
 		super(tester);
 	}
 
@@ -87,7 +86,7 @@ public class PGoTransStageOneTest extends PcalASTBase {
 	}
 
 	// assert function for a pgofunction generated from initial pass
-	private void assertPGoFunction(PGoTransStageOne p, int i, PGoPluscalTesterBase tester) throws PcalParseException {
+	private void assertPGoFunction(PGoTransStageOne p, int i, PGoPluscalStageOneTesterBase tester) throws PcalParseException {
 		TestFunctionData af = tester.getFunctions().get(i);
 
 		PGoFunction f = p.getFunctions().get(i);

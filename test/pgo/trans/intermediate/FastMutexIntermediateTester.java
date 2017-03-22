@@ -5,7 +5,6 @@ import java.util.ArrayList;
 import pcal.AST.Multiprocess;
 import pcal.AST.Process;
 import pgo.pcalparser.PcalParseException;
-import pgo.trans.PGoPluscalTesterBase;
 
 /**
  * Tester class for the FastMutex pluscal algorithm
@@ -15,7 +14,7 @@ import pgo.trans.PGoPluscalTesterBase;
  * algorithm with the actual data.
  *
  */
-public class FastMutexTester extends PGoPluscalTesterBase {
+public class FastMutexIntermediateTester extends PGoPluscalStageOneTesterBase {
 
 	@Override
 	public boolean isMultiProcess() {

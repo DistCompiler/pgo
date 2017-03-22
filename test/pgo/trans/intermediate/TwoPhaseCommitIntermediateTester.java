@@ -6,7 +6,6 @@ import pcal.AST.Macro;
 import pcal.AST.Multiprocess;
 import pcal.AST.Process;
 import pgo.pcalparser.PcalParseException;
-import pgo.trans.PGoPluscalTesterBase;
 
 /**
  * Tester class for the TwoPhaseCommit pluscal algorithm
@@ -16,7 +15,7 @@ import pgo.trans.PGoPluscalTesterBase;
  * algorithm with the actual data.
  *
  */
-public class TwoPhaseCommitTester extends PGoPluscalTesterBase {
+public class TwoPhaseCommitIntermediateTester extends PGoPluscalStageOneTesterBase {
 
 	@Override
 	public boolean isMultiProcess() {
