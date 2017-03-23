@@ -6,7 +6,7 @@ TLA+ is a specification language for distributed systems. Coupled with a TLC mod
 
 Go is a C based language developed by Google for developing distributed systems. Go has built in support for concurrency with channels, and goroutines, which makes it very practical for developing distributed systems.
 
-TLA+ specification and Go implementation is not related. PGo is a tool that aims to connect the specification with the implementation through allowing the generation of Go code based on a PlusCal specification. PGo would allow developers to translate a verified PlusCal specification of a distributed system algorithm into a valid Go program.
+Currently there are no tools that corresponds TLA+ specification with the Go implementation of the same algorithm. PGo is a tool that aims to connect the specification with the implementation through allowing the generation of Go code based on a PlusCal specification. PGo would allow developers to translate a verified PlusCal specification of a distributed system algorithm into a valid Go program.
 
 ## Current status
 
