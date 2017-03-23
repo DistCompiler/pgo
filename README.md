@@ -37,10 +37,13 @@ PGo requires all variables used that is not defined in the PlusCal algorithm (e.
 
 Annotations appear in the PlusCal code within PlusCal comments, either `(* ... *)` or `\* ...`.
 Each annotation is of the form `@PGo{ <annotation> }@PGo`. Multiple annotations of these formats can appear per comment.
-#### Annotation for undeclared PlusCal variables
+#### Annotation for undeclared PlusCal variables (Required)
 There will be constants in PlusCal that are not declared in the PlusCal algorithm (e.g. constant N for model checking). These variables will need to be specified using PGo annotations either as constants of the Go program, or command line arguments of the Go program.
 Constants are specified as `const <type> <varname> <val>` indicating that varname is a go constant of type <type> with initial value <val>.
 Command line argument variables of Go are specified as `arg <type> <varname> (<flagname>)?` indicating that variable <varname> of type <type> and is going to be specified through command line argument to the go program. If no <flagname> is specified, then the variable will be positional arguments, the ith argument in the order they appear in the annotation. If <flagname> is specified, then the variable will be set through `-<flagname>=...`.
+
+#### Annotations for PlusCal procedure return values (Required)
+PlusCal has no return values, so procedures can only return values by writing to a global variable. It is required to indicate which variable serves this purpose. This is specified through the annotation `return <varname>`.
 
 #### Annotations for specifying variable types
 PGo will automatically infer types for variables declared in PlusCal. However, you may want to specify the types rather than using the inferred types (e.g. you want a uint64 rather than int). This is possible by specifying `var <type> <varname>`.
