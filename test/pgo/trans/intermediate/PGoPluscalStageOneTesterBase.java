@@ -2,6 +2,7 @@ package pgo.trans.intermediate;
 
 import java.util.ArrayList;
 
+import pcal.AST;
 import pgo.PGoPluscalTesterBase;
 import pgo.pcalparser.PcalParseException;
 
@@ -14,6 +15,9 @@ import pgo.pcalparser.PcalParseException;
  */
 public abstract class PGoPluscalStageOneTesterBase extends PGoPluscalTesterBase {
 
+	public AST getAST() throws PcalParseException {
+		return getParsedPcal().getAST();
+	}
 
 	// whether this pluscal algorithm is multiprocess
 	public abstract boolean isMultiProcess();

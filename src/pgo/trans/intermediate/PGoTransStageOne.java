@@ -13,6 +13,7 @@ import pcal.AST.Process;
 import pcal.AST.Uniprocess;
 import pcal.AST.VarDecl;
 import pcal.TLAExpr;
+import pgo.pcalparser.PcalParser.ParsedPcal;
 import pgo.trans.PGoTransException;
 import pgo.trans.intermediate.model.PGoFunction;
 import pgo.trans.intermediate.model.PGoVariable;
@@ -51,8 +52,8 @@ public class PGoTransStageOne {
 	// Map of goroutines and its function to its initialization code
 	private LinkedHashMap<String, PGoRoutineInit> goroutines;
 
-	public PGoTransStageOne(AST ast) throws PGoTransException {
-		this.ast = ast;
+	public PGoTransStageOne(ParsedPcal parsed) throws PGoTransException {
+		this.ast = parsed.getAST();
 		this.globals = new LinkedHashMap<String, PGoVariable>();
 		this.funcs = new LinkedHashMap<String, PGoFunction>();
 		this.mainBlock = new ArrayList<LabeledStmt>();

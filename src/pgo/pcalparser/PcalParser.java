@@ -295,6 +295,10 @@ public class PcalParser {
 				}
 			}
 		}
+
+		for (int i = 0; i < annotations.size(); i++) {
+			annotations.setElementAt(annotations.elementAt(i).trim(), i);
+		}
 		return annotations;
 	}
 

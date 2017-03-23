@@ -4,7 +4,6 @@ import java.util.HashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import pcal.AST;
 import pgo.pcalparser.PcalParseException;
 import pgo.pcalparser.PcalParser;
 import pgo.pcalparser.PcalParser.ParsedPcal;
@@ -17,16 +16,21 @@ public abstract class PGoPluscalTesterBase {
 	private static HashMap<String, ParsedPcal> parsedPcal = new HashMap<String, ParsedPcal>();
 
 	// Gets the parsed version of this pluscal algorithm
-	public AST getAST() throws PcalParseException {
+	public ParsedPcal getParsedPcal() throws PcalParseException {
 		ParsedPcal r = parsedPcal.get(getAlg());
 		if (r != null) {
-			return r.getAST();
+			return r;
 		}
 		Logger.getLogger("PGoTrans AST Stage").setLevel(Level.INFO);
-		r = new PcalParser("./test/pluscal/" + getAlg() + ".tla").parse();
+		r = new PcalParser(getPcalPath()).parse();
 		parsedPcal.put(getAlg(), r);
-		return r.getAST();
+		return r;
 	}
 
+	public String getPcalPath() {
+		return "./test/pluscal/" + getAlg() + ".tla";
+	}
+
+	// The name of the algorithm
 	protected abstract String getAlg();
 }
