@@ -1,10 +1,12 @@
-package pgo.pcalparser;
+package pgo.parser;
 
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.Vector;
 
 import org.apache.commons.io.IOUtils;
+
+import pgo.trans.intermediate.model.PGoAnnotation;
 
 /**
  * Tester class for the Sum pluscal algorithm
@@ -16,11 +18,11 @@ import org.apache.commons.io.IOUtils;
 public class SumNoTypeAnnotationParserTester extends PGoPluscalParserTesterBase {
 
 	@Override
-	public Vector<String> getAnnotations() {
-		Vector<String> v = new Vector<String>();
-		v.add("const uint64 MAXINT 10000000");
-		v.add("arg uint64 RUNS runs");
-		v.add("arg uint64 N numT");
+	public Vector<PGoAnnotation> getAnnotations() {
+		Vector<PGoAnnotation> v = new Vector<PGoAnnotation>();
+		v.add(new PGoAnnotation("const uint64 MAXINT 10000000", 8));
+		v.add(new PGoAnnotation("arg uint64 RUNS runs", 9));
+		v.add(new PGoAnnotation("arg uint64 N numT", 9));
 		return v;
 	}
 

@@ -1,6 +1,8 @@
-package pgo.pcalparser;
+package pgo.parser;
 
 import java.util.Vector;
+
+import pgo.trans.intermediate.model.PGoAnnotation;
 
 /**
  * Tester class for the Euclid pluscal algorithm
@@ -12,10 +14,10 @@ import java.util.Vector;
 public class EuclidPluscalParserTester extends PGoPluscalParserTesterBase {
 
 	@Override
-	public Vector<String> getAnnotations() {
-		Vector<String> v = new Vector<String>();
-		v.add("arg int N");
-		v.add("var int u");
+	public Vector<PGoAnnotation> getAnnotations() {
+		Vector<PGoAnnotation> v = new Vector<PGoAnnotation>();
+		v.add(new PGoAnnotation("arg int N", 6));
+		v.add(new PGoAnnotation("var int u", 7));
 		return v;
 	}
 

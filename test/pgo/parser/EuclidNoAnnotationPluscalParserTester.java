@@ -1,4 +1,4 @@
-package pgo.pcalparser;
+package pgo.parser;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -6,18 +6,19 @@ import java.util.Vector;
 
 import org.apache.commons.io.IOUtils;
 
+import pgo.trans.intermediate.model.PGoAnnotation;
+
 /**
- * Tester class for parsing the FastMutex pluscal algorithm
+ * Tester class for the Euclid pluscal algorithm
  * 
  * This class stores the annotations, exceptions if any, and ast that is
  * expected.
- *
  */
-public class FastMutexNoAnnotationPluscalParserTester extends PGoPluscalParserTesterBase {
+public class EuclidNoAnnotationPluscalParserTester extends PGoPluscalParserTesterBase {
 
 	@Override
-	public Vector<String> getAnnotations() {
-		return new Vector<String>();
+	public Vector<PGoAnnotation> getAnnotations() {
+		return new Vector<PGoAnnotation>();
 	}
 
 	@Override
@@ -27,13 +28,13 @@ public class FastMutexNoAnnotationPluscalParserTester extends PGoPluscalParserTe
 
 	@Override
 	public String getASTString() throws IOException {
-		FileInputStream inputStream = new FileInputStream("./test/pluscal/ast/" + "FastMutex");
+		FileInputStream inputStream = new FileInputStream("./test/pluscal/ast/" + "Euclid");
 		return IOUtils.toString(inputStream);
 	}
 
 	@Override
 	protected String getAlg() {
-		return "FastMutexNoAnnotation";
+		return "EuclidNoAnnotation";
 	}
 
 	@Override

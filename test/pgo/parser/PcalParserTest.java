@@ -1,4 +1,4 @@
-package pgo.pcalparser;
+package pgo.parser;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
@@ -13,9 +13,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
-import pgo.parser.PGoParseException;
-import pgo.parser.PcalParser;
 import pgo.parser.PcalParser.ParsedPcal;
+import pgo.trans.intermediate.model.PGoAnnotation;
 
 @RunWith(Parameterized.class)
 public class PcalParserTest {
@@ -44,7 +43,14 @@ public class PcalParserTest {
 			if (tester.expectException()) {
 				fail("Expected PcalParseException");
 			}
-			assertEquals(tester.getAnnotations(), pa.getPGoAnnotations());
+			assertEquals(tester.getAnnotations().size(), pa.getPGoAnnotations().size());
+			for (int i = 0; i < tester.getAnnotations().size(); i++) {
+				PGoAnnotation exp = tester.getAnnotations().get(i);
+				PGoAnnotation act = pa.getPGoAnnotations().get(i);
+				assertEquals(exp.getString(), act.getString());
+				assertEquals(exp.getLine(), act.getLine());
+			}
+
 			Assert.assertThat(tester.getASTString(), containsString(pa.getAST().toString()));
 		} catch (PGoParseException e) {
 			if (!tester.expectException()) {

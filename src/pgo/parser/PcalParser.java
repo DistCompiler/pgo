@@ -205,7 +205,7 @@ public class PcalParser {
         mapping.algLine = algLine;
 
 		// Get the annotations for PGo
-		Vector<String> annotations = findPGoAnnotations(untabInputVec);
+		Vector<PGoAnnotation> annotations = findPGoAnnotations(untabInputVec);
 
 		/*********************************************************************
 		 * Added by LL on 18 Feb 2006 to fix bugs related to handling of *
@@ -237,7 +237,7 @@ public class PcalParser {
 		}
 		logger.info("Parsing completed.");
 
-		return new ParsedPcal(ast, null);
+		return new ParsedPcal(ast, annotations);
 	}
 	
 	/**
@@ -250,8 +250,8 @@ public class PcalParser {
 	 * @return the parsed go annotations
 	 * @throws PGoParseException
 	 */
-	private Vector<String> findPGoAnnotations(Vector untabInputVec) throws PGoParseException {
-		Vector<String> annotations = new Vector<String>();
+	private Vector<PGoAnnotation> findPGoAnnotations(Vector untabInputVec) throws PGoParseException {
+		Vector<PGoAnnotation> annotations = new Vector<PGoAnnotation>();
 		boolean isCommentBlock = false;
 		boolean isCommentLine = false;
 		boolean isPGo = false;
@@ -282,7 +282,7 @@ public class PcalParser {
 								&& line.charAt(i + 3) == 'G' && line.charAt(i + 4) == 'o') {
 							isPGo = false;
 							i += 4;
-							annotations.add(sb.toString());
+							annotations.add(new PGoAnnotation(sb.toString(), l + 1));
 							continue;
 						}
 					}
@@ -316,9 +316,6 @@ public class PcalParser {
 			}
 		}
 
-		for (int i = 0; i < annotations.size(); i++) {
-			annotations.setElementAt(annotations.elementAt(i).trim(), i);
-		}
 		return annotations;
 	}
 

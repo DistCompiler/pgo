@@ -1,6 +1,8 @@
-package pgo.pcalparser;
+package pgo.parser;
 
 import java.util.Vector;
+
+import pgo.trans.intermediate.model.PGoAnnotation;
 
 /**
  * Tester class for the Queens pluscal algorithm
@@ -12,10 +14,10 @@ import java.util.Vector;
 public class QueensPluscalProcedureParserTester extends PGoPluscalParserTesterBase {
 
 	@Override
-	public Vector<String> getAnnotations() {
-		Vector<String> v = new Vector<String>();
-		v.add("arg int N");
-		v.add("return rVal");
+	public Vector<PGoAnnotation> getAnnotations() {
+		Vector<PGoAnnotation> v = new Vector<PGoAnnotation>();
+		v.add(new PGoAnnotation("arg int N", 45));
+		v.add(new PGoAnnotation("return rVal", 49));
 		return v;
 	}
 

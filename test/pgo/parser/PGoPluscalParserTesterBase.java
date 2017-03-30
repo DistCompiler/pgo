@@ -1,4 +1,4 @@
-package pgo.pcalparser;
+package pgo.parser;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -7,6 +7,7 @@ import java.util.Vector;
 import org.apache.commons.io.IOUtils;
 
 import pgo.PGoPluscalTesterBase;
+import pgo.trans.intermediate.model.PGoAnnotation;
 
 /**
  * Abstract class for testing parsing of real pluscal algorithms. This class
@@ -20,7 +21,7 @@ public abstract class PGoPluscalParserTesterBase extends PGoPluscalTesterBase {
 	 * 
 	 * @return
 	 */
-	public abstract Vector<String> getAnnotations();
+	public abstract Vector<PGoAnnotation> getAnnotations();
 
 	/**
 	 * Gets the expected AST as a string

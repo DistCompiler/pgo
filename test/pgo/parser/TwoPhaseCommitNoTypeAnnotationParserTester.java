@@ -1,10 +1,12 @@
-package pgo.pcalparser;
+package pgo.parser;
 
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.Vector;
 
 import org.apache.commons.io.IOUtils;
+
+import pgo.trans.intermediate.model.PGoAnnotation;
 
 /**
  * Tester class for the TwoPhaseCommit pluscal algorithm
@@ -16,8 +18,8 @@ import org.apache.commons.io.IOUtils;
 public class TwoPhaseCommitNoTypeAnnotationParserTester extends PGoPluscalParserTesterBase {
 
 	@Override
-	public Vector<String> getAnnotations() {
-		Vector<String> v = new Vector<String>();
+	public Vector<PGoAnnotation> getAnnotations() {
+		Vector<PGoAnnotation> v = new Vector<PGoAnnotation>();
 		return v;
 	}
 

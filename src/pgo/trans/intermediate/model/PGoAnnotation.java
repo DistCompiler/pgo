@@ -8,17 +8,20 @@ package pgo.trans.intermediate.model;
 public class PGoAnnotation {
 
 	// The annotation string
-	String s;
+	String annotation;
 	// The line number
 	int line;
 
+	public PGoAnnotation(String s, int l) {
+		annotation = s.trim();
+		line = l;
+	}
+
 	public String getString() {
-		// TODO Auto-generated method stub
-		return null;
+		return annotation;
 	}
 
 	public int getLine() {
-		// TODO Auto-generated method stub
-		return 0;
+		return line;
 	}
 }

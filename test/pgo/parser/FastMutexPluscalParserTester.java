@@ -1,6 +1,8 @@
-package pgo.pcalparser;
+package pgo.parser;
 
 import java.util.Vector;
+
+import pgo.trans.intermediate.model.PGoAnnotation;
 
 /**
  * Tester class for the FastMutex pluscal algorithm
@@ -12,10 +14,10 @@ import java.util.Vector;
 public class FastMutexPluscalParserTester extends PGoPluscalParserTesterBase {
 
 	@Override
-	public Vector<String> getAnnotations() {
-		Vector<String> v = new Vector<String>();
-		v.add("arg natural N numT");
-		v.add("var x int");
+	public Vector<PGoAnnotation> getAnnotations() {
+		Vector<PGoAnnotation> v = new Vector<PGoAnnotation>();
+		v.add(new PGoAnnotation("arg natural N numT", 6));
+		v.add(new PGoAnnotation("var x int", 8));
 		return v;
 	}
 
