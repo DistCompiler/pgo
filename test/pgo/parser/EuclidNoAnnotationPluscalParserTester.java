@@ -22,11 +22,6 @@ public class EuclidNoAnnotationPluscalParserTester extends PGoPluscalParserTeste
 	}
 
 	@Override
-	public boolean expectException() {
-		return false;
-	}
-
-	@Override
 	public String getASTString() throws IOException {
 		FileInputStream inputStream = new FileInputStream("./test/pluscal/ast/" + "Euclid");
 		return IOUtils.toString(inputStream);

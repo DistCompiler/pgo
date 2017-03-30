@@ -34,8 +34,6 @@ public abstract class PGoPluscalParserTesterBase extends PGoPluscalTesterBase {
 		return IOUtils.toString(inputStream);
 	}
 
-	public abstract boolean expectException();
-
 	public abstract int exceptionLine();
 
 }

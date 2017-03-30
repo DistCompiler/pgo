@@ -22,11 +22,6 @@ public class FastMutexPluscalParserTester extends PGoPluscalParserTesterBase {
 	}
 
 	@Override
-	public boolean expectException() {
-		return false;
-	}
-
-	@Override
 	protected String getAlg() {
 		return "FastMutex";
 	}

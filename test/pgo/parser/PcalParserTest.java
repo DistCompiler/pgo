@@ -1,7 +1,6 @@
 package pgo.parser;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
 import static org.junit.matchers.JUnitMatchers.containsString;
 
 import java.io.IOException;
@@ -36,27 +35,20 @@ public class PcalParserTest {
 	}
 
 	@Test
-	public void testParse() throws IOException {
+	public void testParse() throws IOException, PGoParseException {
 		PcalParser p = new PcalParser(tester.getPcalPath());
-		try {
-			ParsedPcal pa = p.parse();
-			if (tester.expectException()) {
-				fail("Expected PcalParseException");
-			}
-			assertEquals(tester.getAnnotations().size(), pa.getPGoAnnotations().size());
-			for (int i = 0; i < tester.getAnnotations().size(); i++) {
-				PGoAnnotation exp = tester.getAnnotations().get(i);
-				PGoAnnotation act = pa.getPGoAnnotations().get(i);
-				assertEquals(exp.getString(), act.getString());
-				assertEquals(exp.getLine(), act.getLine());
-			}
 
-			Assert.assertThat(tester.getASTString(), containsString(pa.getAST().toString()));
-		} catch (PGoParseException e) {
-			if (!tester.expectException()) {
-				fail("Unexpected PcalParseException: " + e.getMessage());
-			}
+		ParsedPcal pa = p.parse();
+
+		assertEquals(tester.getAnnotations().size(), pa.getPGoAnnotations().size());
+		for (int i = 0; i < tester.getAnnotations().size(); i++) {
+			PGoAnnotation exp = tester.getAnnotations().get(i);
+			PGoAnnotation act = pa.getPGoAnnotations().get(i);
+			assertEquals(exp.getString(), act.getString());
+			assertEquals(exp.getLine(), act.getLine());
 		}
+
+		Assert.assertThat(tester.getASTString(), containsString(pa.getAST().toString()));
 
 	}
 }

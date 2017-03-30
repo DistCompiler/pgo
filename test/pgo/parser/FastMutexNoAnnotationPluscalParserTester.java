@@ -23,11 +23,6 @@ public class FastMutexNoAnnotationPluscalParserTester extends PGoPluscalParserTe
 	}
 
 	@Override
-	public boolean expectException() {
-		return false;
-	}
-
-	@Override
 	public String getASTString() throws IOException {
 		FileInputStream inputStream = new FileInputStream("./test/pluscal/ast/" + "FastMutex");
 		return IOUtils.toString(inputStream);
