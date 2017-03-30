@@ -33,7 +33,7 @@ public class PcalParserExceptionTest extends PGoPluscalTesterBase {
 				{ "AnnotationNoEndNewLineCommentBlock", 14 }, { "AnnotationNoEndBlockCommentEnd", 7 },
 				{ "AnnotationNoEndTokenWrong1", 15 }, { "AnnotationNoEndTokenWrong2", 11 },
 				{ "AnnotationNoEndTokenWrong3", 8 }, { "AnnotationNoEndTokenWrong4", 7 },
-				{ "AnnotationNoEndTokenWrong5", 6 } });
+				{ "AnnotationNoEndTokenWrong5", 6 }, { "No such file", -1 } });
 	}
 
 	@Test
