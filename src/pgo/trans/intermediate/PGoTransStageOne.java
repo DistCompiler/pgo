@@ -13,7 +13,7 @@ import pcal.AST.Process;
 import pcal.AST.Uniprocess;
 import pcal.AST.VarDecl;
 import pcal.TLAExpr;
-import pgo.pcalparser.PcalParser.ParsedPcal;
+import pgo.parser.PcalParser.ParsedPcal;
 import pgo.trans.PGoTransException;
 import pgo.trans.intermediate.model.PGoFunction;
 import pgo.trans.intermediate.model.PGoVariable;
@@ -44,6 +44,7 @@ public class PGoTransStageOne {
 	// Defined TLAExpr to be parsed into functions. Except these are not of the
 	// form individual functions, they are a collection of quick definitions. We
 	// must individually parse these.
+	// TODO support these
 	private TLAExpr tlaExpr;
 
 	// Array of code blocks we need to insert into the go main function

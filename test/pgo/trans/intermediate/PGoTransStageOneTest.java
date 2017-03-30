@@ -11,7 +11,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
-import pgo.pcalparser.PcalParseException;
+import pgo.parser.PGoParseException;
 import pgo.trans.PGoTransException;
 import pgo.trans.intermediate.PGoPluscalStageOneTesterBase.TestFunctionData;
 import pgo.trans.intermediate.PGoPluscalStageOneTesterBase.TestVariableData;
@@ -35,21 +35,21 @@ public class PGoTransStageOneTest {
 	}
 
 	@Test
-	public void testUniOrMultiProcess() throws PGoTransException, PcalParseException {
+	public void testUniOrMultiProcess() throws PGoTransException, PGoParseException {
 
 		PGoTransStageOne p = new PGoTransStageOne(tester.getParsedPcal());
 		assertEquals(tester.isMultiProcess(), p.getIsMultiProcess());
 	}
 
 	@Test
-	public void testAlgName() throws PGoTransException, PcalParseException {
+	public void testAlgName() throws PGoTransException, PGoParseException {
 		PGoTransStageOne p = new PGoTransStageOne(tester.getParsedPcal());
 		assertEquals(tester.getName(), p.getAlgName());
 
 	}
 
 	@Test
-	public void testPGoVariable() throws PGoTransException, PcalParseException {
+	public void testPGoVariable() throws PGoTransException, PGoParseException {
 		PGoTransStageOne p = new PGoTransStageOne(tester.getParsedPcal());
 		ArrayList<PGoVariable> cv = p.getGlobals();
 		assertEquals(tester.getVariables().size(), cv.size());
@@ -71,7 +71,7 @@ public class PGoTransStageOneTest {
 	}
 
 	@Test
-	public void testPGoFunction() throws PGoTransException, PcalParseException {
+	public void testPGoFunction() throws PGoTransException, PGoParseException {
 		PGoTransStageOne p = new PGoTransStageOne(tester.getParsedPcal());
 
 		ArrayList<PGoFunction> cv = p.getFunctions();
@@ -83,7 +83,7 @@ public class PGoTransStageOneTest {
 	}
 
 	// assert function for a pgofunction generated from initial pass
-	private void assertPGoFunction(PGoTransStageOne p, int i, PGoPluscalStageOneTesterBase tester) throws PcalParseException {
+	private void assertPGoFunction(PGoTransStageOne p, int i, PGoPluscalStageOneTesterBase tester) throws PGoParseException {
 		TestFunctionData af = tester.getFunctions().get(i);
 
 		PGoFunction f = p.getFunctions().get(i);
@@ -109,7 +109,7 @@ public class PGoTransStageOneTest {
 	}
 
 	@Test
-	public void assertGoRoutineInit() throws PGoTransException, PcalParseException {
+	public void assertGoRoutineInit() throws PGoTransException, PGoParseException {
 		PGoTransStageOne p = new PGoTransStageOne(tester.getParsedPcal());
 
 		ArrayList<PGoRoutineInit> grs = p.getGoRoutineInits();

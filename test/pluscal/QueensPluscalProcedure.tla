@@ -42,11 +42,11 @@ Solutions == { queens \in [1..N -> 1..N] : IsSolution(queens) }
 (* to the set todo.                                                        *)
 (***************************************************************************)
 
-(* --algorithm QueensPluscalProcedure
+(* --algorithm QueensPluscalProcedure \** for pgo @PGo{ arg int N }@PGo
      variables
        todo = { << >> };
        sols = {};
-       rVal;
+       rVal; \** for pgo @PGo{ return rVal }@PGo
 
      procedure PgoAttacks(queens,i,j) begin
        attlabl: rVal := \/ queens[i] = queens[j]                \** same column

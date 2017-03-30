@@ -4,7 +4,7 @@ import java.util.ArrayList;
 
 import pcal.AST;
 import pgo.PGoPluscalTesterBase;
-import pgo.pcalparser.PcalParseException;
+import pgo.parser.PGoParseException;
 
 /**
  * Abstract class for testing data of real pluscal algorithms for stage one
@@ -15,7 +15,7 @@ import pgo.pcalparser.PcalParseException;
  */
 public abstract class PGoPluscalStageOneTesterBase extends PGoPluscalTesterBase {
 
-	public AST getAST() throws PcalParseException {
+	public AST getAST() throws PGoParseException {
 		return getParsedPcal().getAST();
 	}
 
@@ -29,7 +29,7 @@ public abstract class PGoPluscalStageOneTesterBase extends PGoPluscalTesterBase 
 	public abstract ArrayList<TestVariableData> getVariables();
 
 	// the functions of the algorithm
-	public abstract ArrayList<TestFunctionData> getFunctions() throws PcalParseException;
+	public abstract ArrayList<TestFunctionData> getFunctions() throws PGoParseException;
 
 	public abstract int getNumGoroutineInit();
 

@@ -3,9 +3,8 @@ EXTENDS Naturals, TLC
 CONSTANT N
 
 (*
-\* @PGo{ arg natural N numT }@PGo
---algorithm FastMutex {
-  variables x, \** @PGo{var x int}@PGo
+--algorithm FastMutex { 
+  variables x,
             y = 0,
             b = [i \in 1..N |-> FALSE];
   process (Proc \in 1..N)

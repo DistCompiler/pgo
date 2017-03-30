@@ -5,7 +5,7 @@ import java.util.ArrayList;
 import pcal.AST.Macro;
 import pcal.AST.Multiprocess;
 import pcal.AST.Process;
-import pgo.pcalparser.PcalParseException;
+import pgo.parser.PGoParseException;
 
 /**
  * Tester class for the Sum pluscal algorithm
@@ -36,7 +36,7 @@ public class SumIntermediateTester extends PGoPluscalStageOneTesterBase {
 	}
 
 	@Override
-	public ArrayList<TestFunctionData> getFunctions() throws PcalParseException {
+	public ArrayList<TestFunctionData> getFunctions() throws PGoParseException {
 		ArrayList<TestFunctionData> ret = new ArrayList<TestFunctionData>();
 
 		ArrayList<TestVariableData> params = new ArrayList<TestVariableData>();

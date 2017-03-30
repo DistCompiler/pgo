@@ -4,7 +4,7 @@ fairness == ""
  
 ast == 
 [type     |-> "uniprocess", 
- name  |-> "Queens", 
+ name  |-> "QueensPluscalProcedure", 
  decls  |-> <<[var |-> "todo", eqOrIn |-> "=", val |-> << "{", "<<", ">>", "}" >>], 
               [var |-> "sols", eqOrIn |-> "=", val |-> << "{", "}" >>], 
               [var |-> "rVal", eqOrIn |-> "=", val |-> << "defaultInitValue" >>]>>,

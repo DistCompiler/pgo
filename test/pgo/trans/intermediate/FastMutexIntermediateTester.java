@@ -4,7 +4,7 @@ import java.util.ArrayList;
 
 import pcal.AST.Multiprocess;
 import pcal.AST.Process;
-import pgo.pcalparser.PcalParseException;
+import pgo.parser.PGoParseException;
 
 /**
  * Tester class for the FastMutex pluscal algorithm
@@ -36,7 +36,7 @@ public class FastMutexIntermediateTester extends PGoPluscalStageOneTesterBase {
 	}
 
 	@Override
-	public ArrayList<TestFunctionData> getFunctions() throws PcalParseException {
+	public ArrayList<TestFunctionData> getFunctions() throws PGoParseException {
 		ArrayList<TestFunctionData> r = new ArrayList<TestFunctionData>();
 
 		ArrayList<TestVariableData> params = new ArrayList<TestVariableData>();

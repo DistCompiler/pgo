@@ -35,4 +35,6 @@ public abstract class PGoPluscalParserTesterBase extends PGoPluscalTesterBase {
 
 	public abstract boolean expectException();
 
+	public abstract int exceptionLine();
+
 }

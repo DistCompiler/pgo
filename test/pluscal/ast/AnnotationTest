@@ -1,0 +1,14 @@
+------ MODULE AST -------
+EXTENDS TLC
+fairness == ""
+ 
+ast == 
+[type     |-> "uniprocess", 
+ name  |-> "Annotation", 
+ decls  |-> <<[var |-> "a", eqOrIn |-> "=", val |-> << "defaultInitValue" >>]>>,
+ defs   |-> <<  >>,
+ prcds  |-> <<>>,
+ body  |-> <<[label |-> "Lbl_1",
+              stmts |-> <<[type |-> "print", 
+                           exp |-> << "<<", "a", ">>" >>]>>]>>]
+==========================

@@ -3,9 +3,10 @@ package pgo;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import pgo.pcalparser.PcalParseException;
-import pgo.pcalparser.PcalParser;
-import pgo.pcalparser.PcalParser.ParsedPcal;
+import pgo.parser.PGoParseException;
+import pgo.parser.PcalParser;
+import pgo.parser.PcalParser.ParsedPcal;
+import pgo.trans.PGoTransException;
 import pgo.trans.PGoTranslater;
 import pgo.util.IOUtil;
 
@@ -46,7 +47,7 @@ public class PGoMain {
 		ParsedPcal pcal;
 		try {
 			pcal = parser.parse();
-		} catch (PcalParseException e) {
+		} catch (PGoParseException e) {
 			logger.severe(e.getMessage());
 			return;
 		}
@@ -56,7 +57,12 @@ public class PGoMain {
 			return; // added for testing
 		}
 		
-		PGoTranslater trans = new PGoTranslater(pcal);
+		try {
+			PGoTranslater trans = new PGoTranslater(pcal);
+		} catch (PGoTransException | PGoParseException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 		// TODO translate it
 	}
 

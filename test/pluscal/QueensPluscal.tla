@@ -42,7 +42,7 @@ Solutions == { queens \in [1..N -> 1..N] : IsSolution(queens) }
 (* to the set todo.                                                        *)
 (***************************************************************************)
 
-(* --algorithm QueensPluscal
+(* --algorithm QueensPluscal  (*** for pgo @PGo{ arg int N }@PGo done ***)
      variables
        todo = { << >> };
        sols = {};

@@ -3,19 +3,19 @@ package pgo.pcalparser;
 import java.util.Vector;
 
 /**
- * Tester class for the Euclid pluscal algorithm
+ * Tester class for the Queens pluscal algorithm
  * 
  * This class stores the annotations, exceptions if any, and ast that is
  * expected.
  *
  */
-public class EuclidPluscalParserTester extends PGoPluscalParserTesterBase {
+public class QueensPluscalProcedureParserTester extends PGoPluscalParserTesterBase {
 
 	@Override
 	public Vector<String> getAnnotations() {
 		Vector<String> v = new Vector<String>();
 		v.add("arg int N");
-		v.add("var int u");
+		v.add("return rVal");
 		return v;
 	}
 
@@ -26,7 +26,7 @@ public class EuclidPluscalParserTester extends PGoPluscalParserTesterBase {
 
 	@Override
 	protected String getAlg() {
-		return "Euclid";
+		return "QueensPluscalProcedure";
 	}
 
 	@Override

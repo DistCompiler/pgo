@@ -11,4 +11,5 @@ public class PGoTransException extends Exception {
 	public PGoTransException(String msg) {
 		super(msg);
 	}
+
 }

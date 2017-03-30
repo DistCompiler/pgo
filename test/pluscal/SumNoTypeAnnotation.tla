@@ -12,7 +12,6 @@ CONSTANT MAXINT, RUNS, N
 --algorithm Sum  {
 variables network = [i \in 1 .. N+1 |-> <<>>];
 
-\** @PGo{ func SendTo() uint64t uint64t [](chan string) }@PGo
 macro SendTo(from, to, msg) {
     network[to] := Append(network[to], <<from, msg>>);
 }

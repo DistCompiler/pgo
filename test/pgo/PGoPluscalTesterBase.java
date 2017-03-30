@@ -4,9 +4,9 @@ import java.util.HashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import pgo.pcalparser.PcalParseException;
-import pgo.pcalparser.PcalParser;
-import pgo.pcalparser.PcalParser.ParsedPcal;
+import pgo.parser.PGoParseException;
+import pgo.parser.PcalParser;
+import pgo.parser.PcalParser.ParsedPcal;
 
 /**
  * Abstract class for testing data of real pluscal algorithms for any stage.
@@ -16,7 +16,7 @@ public abstract class PGoPluscalTesterBase {
 	private static HashMap<String, ParsedPcal> parsedPcal = new HashMap<String, ParsedPcal>();
 
 	// Gets the parsed version of this pluscal algorithm
-	public ParsedPcal getParsedPcal() throws PcalParseException {
+	public ParsedPcal getParsedPcal() throws PGoParseException {
 		ParsedPcal r = parsedPcal.get(getAlg());
 		if (r != null) {
 			return r;

@@ -1,4 +1,4 @@
-package pgo.pcalparser;
+package pgo.parser;
 
 import java.util.Vector;
 import java.util.logging.Logger;
@@ -11,6 +11,7 @@ import pcal.PcalParams;
 import pcal.TLAtoPCalMapping;
 import pcal.exception.FileToStringVectorException;
 import pcal.exception.ParseAlgorithmException;
+import pgo.trans.intermediate.model.PGoAnnotation;
 import pgo.util.IOUtil;
 import util.ToolIO;
 
@@ -33,17 +34,17 @@ public class PcalParser {
 	
 	public static class ParsedPcal {
 		// the list of PGo annotations
-		private Vector<String> annotations;
+		private Vector<PGoAnnotation> annotations;
 
 		// the AST
 		private AST ast;
 
-		private ParsedPcal(AST ast, Vector<String> annotations) {
+		private ParsedPcal(AST ast, Vector<PGoAnnotation> annotations) {
 			this.ast = ast;
 			this.annotations = annotations;
 		}
 
-		public Vector<String> getPGoAnnotations() {
+		public Vector<PGoAnnotation> getPGoAnnotations() {
 			return annotations;
 		}
 
@@ -52,7 +53,7 @@ public class PcalParser {
 		}
 	}
 	
-	public ParsedPcal parse() throws PcalParseException {
+	public ParsedPcal parse() throws PGoParseException {
 		if (ToolIO.getMode() == ToolIO.SYSTEM) {
 			logger.info("pcal.trans Version " + PcalParams.version + " of " + PcalParams.modDate);
 		}
@@ -87,7 +88,7 @@ public class PcalParser {
 		try {
 			inputVec = IOUtil.fileToStringVector(file);
 		} catch (FileToStringVectorException e) {
-			throw new PcalParseException(e.getMessage());
+			throw new PGoParseException(e.getMessage());
 		}
 		
 		/*********************************************************************
@@ -194,7 +195,7 @@ public class PcalParser {
 		}
 
 		if (!foundBegin) {
-			throw new PcalParseException("Beginning of algorithm string " + PcalParams.BeginAlg + " not found.");
+			throw new PGoParseException("Beginning of algorithm string " + PcalParams.BeginAlg + " not found.");
 		}
 		
         /*
@@ -203,17 +204,19 @@ public class PcalParser {
         mapping.algColumn = algCol;
         mapping.algLine = algLine;
 
+		// Get the annotations for PGo
+		Vector<String> annotations = findPGoAnnotations(untabInputVec);
+
 		/*********************************************************************
 		 * Added by LL on 18 Feb 2006 to fix bugs related to handling of *
 		 * comments. * * Remove all comments from the algorithm in
 		 * untabInputVec, * replacing (* *) comments by spaces to keep the
 		 * algorithm tokens * in the same positions for error reporting. *
 		 *********************************************************************/
-		Vector<String> annotations = findPGoAnnotations(untabInputVec);
 		try {
 			ParseAlgorithm.uncomment(untabInputVec, algLine, algCol);
 		} catch (ParseAlgorithmException e) {
-			throw new PcalParseException(e.getMessage());
+			throw new PGoParseException(e.getMessage());
 		}
 
 		/*********************************************************************
@@ -230,11 +233,11 @@ public class PcalParser {
 		try {
 			ast = ParseAlgorithm.getAlgorithm(reader, foundFairBegin);
 		} catch (ParseAlgorithmException e) {
-			throw new PcalParseException(e.getMessage());
+			throw new PGoParseException(e.getMessage());
 		}
 		logger.info("Parsing completed.");
 
-		return new ParsedPcal(ast, annotations);
+		return new ParsedPcal(ast, null);
 	}
 	
 	/**
@@ -242,57 +245,74 @@ public class PcalParser {
 	 * of format "@PGo <string> @PGo" on one line
 	 * 
 	 * @param untabInputVec
+	 * @param algCol
+	 * @param algLine
 	 * @return the parsed go annotations
+	 * @throws PGoParseException
 	 */
-	private Vector<String> findPGoAnnotations(Vector untabInputVec) {
+	private Vector<String> findPGoAnnotations(Vector untabInputVec) throws PGoParseException {
 		Vector<String> annotations = new Vector<String>();
-		for (String line : (Vector<String>) untabInputVec) {
-			boolean isComment = false;
-			boolean isPGo = false;
+		boolean isCommentBlock = false;
+		boolean isCommentLine = false;
+		boolean isPGo = false;
+		for (int l = 0; l < untabInputVec.size(); l++) {
+			String line = (String) untabInputVec.get(l);
 			StringBuilder sb = null;
 			for (int i = 0; i < line.length(); ++i) {
 				char c = line.charAt(i);
-				if (!isComment) {
+				if (!isCommentLine && !isCommentBlock) {
 					if (c == '(') {
 						if (i + 1 < line.length() && line.charAt(i + 1) == '*') {
-							isComment = true;
+							isCommentBlock = true;
 						}
 					} else if (c == '\\') {
 						if (i + 1 < line.length() && line.charAt(i + 1) == '*') {
-							isComment = true;
-
+							isCommentLine = true;
 						}
 					}
-					if (isComment) {
+					if (isCommentBlock || isCommentLine) {
 						++i;
 						while (i + 1 < line.length() && line.charAt(++i) == '*') {
 						}
+						continue;
 					}
 				} else if (isPGo) {
-					if (c == '@') {
-						if (i + 3 < line.length() && line.charAt(i + 1) == 'P' && line.charAt(i + 2) == 'G'
-								&& line.charAt(i + 3) == 'o') {
+					if (c == '}') {
+						if (i + 4 < line.length() && line.charAt(i + 1) == '@' && line.charAt(i + 2) == 'P'
+								&& line.charAt(i + 3) == 'G' && line.charAt(i + 4) == 'o') {
 							isPGo = false;
-							i += 3;
+							i += 4;
 							annotations.add(sb.toString());
 							continue;
 						}
 					}
 					sb.append(c);
-				} else if (!isPGo && isComment) {
+				} else if (!isPGo && (isCommentBlock || isCommentLine)) {
 					if (c == '@') {
-						if (i + 3 < line.length() && line.charAt(i + 1) == 'P' && line.charAt(i + 2) == 'G'
-								&& line.charAt(i + 3) == 'o') {
+						if (i + 4 < line.length() && line.charAt(i + 1) == 'P' && line.charAt(i + 2) == 'G'
+								&& line.charAt(i + 3) == 'o' && line.charAt(i + 4) == '{') {
 							isPGo = true;
-							i += 3;
+							i += 4;
 							sb = new StringBuilder();
+							continue;
 						}
 					} else if (c == '*') {
 						if (i + 1 < line.length() && line.charAt(i + 1) == ')') {
-							isComment = false;
+							isCommentBlock = false;
+							i++;
 						}
 					}
 				}
+
+
+			}
+			if (isPGo) {
+				throw new PGoParseException(
+						"Expected \"}@PGo\" to end annotation block, but found new line instead. " + line,
+						l);
+			}
+			if (isCommentLine) {
+				isCommentLine = false;
 			}
 		}
 

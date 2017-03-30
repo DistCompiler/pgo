@@ -5,8 +5,7 @@ EXTENDS Naturals, TLC
   variables 
     managers = {"bob", "chuck", "dave", "everett", "fred"};
     restaurant_stage = [mgr \in managers |-> "start"];
-  
-  (** @PGo{ func void SetAll() string map[string]string }@PGo **)
+    
   macro SetAll(state, kmgrs) {
     while (kmgrs # {}) {
         with (km \in kmgrs) {
