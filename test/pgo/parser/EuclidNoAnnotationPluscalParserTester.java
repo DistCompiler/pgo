@@ -32,9 +32,4 @@ public class EuclidNoAnnotationPluscalParserTester extends PGoPluscalParserTeste
 		return "EuclidNoAnnotation";
 	}
 
-	@Override
-	public int exceptionLine() {
-		return 0;
-	}
-
 }

@@ -37,9 +37,4 @@ public class SumNoTypeAnnotationParserTester extends PGoPluscalParserTesterBase 
 		return IOUtils.toString(inputStream);
 	}
 
-	@Override
-	public int exceptionLine() {
-		return 0;
-	}
-
 }

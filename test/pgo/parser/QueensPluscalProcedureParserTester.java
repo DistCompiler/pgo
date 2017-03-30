@@ -26,9 +26,4 @@ public class QueensPluscalProcedureParserTester extends PGoPluscalParserTesterBa
 		return "QueensPluscalProcedure";
 	}
 
-	@Override
-	public int exceptionLine() {
-		return 0;
-	}
-
 }

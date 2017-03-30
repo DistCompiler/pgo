@@ -308,8 +308,8 @@ public class PcalParser {
 			}
 			if (isPGo) {
 				throw new PGoParseException(
-						"Expected \"}@PGo\" to end annotation block, but found new line instead. " + line,
-						l);
+						"Expected \"}@PGo\" to end annotation block, but found new line instead.",
+						l + 1);
 			}
 			if (isCommentLine) {
 				isCommentLine = false;

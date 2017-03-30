@@ -34,9 +34,4 @@ public class TwoPhaseCommitNoTypeAnnotationParserTester extends PGoPluscalParser
 		return IOUtils.toString(inputStream);
 	}
 
-	@Override
-	public int exceptionLine() {
-		return 0;
-	}
-
 }

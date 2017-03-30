@@ -26,9 +26,4 @@ public class FastMutexPluscalParserTester extends PGoPluscalParserTesterBase {
 		return "FastMutex";
 	}
 
-	@Override
-	public int exceptionLine() {
-		return 0;
-	}
-
 }

@@ -26,9 +26,4 @@ public class EuclidPluscalParserTester extends PGoPluscalParserTesterBase {
 		return "Euclid";
 	}
 
-	@Override
-	public int exceptionLine() {
-		return 0;
-	}
-
 }

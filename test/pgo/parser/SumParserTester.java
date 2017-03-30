@@ -28,9 +28,4 @@ public class SumParserTester extends PGoPluscalParserTesterBase {
 		return "Sum";
 	}
 
-	@Override
-	public int exceptionLine() {
-		return 0;
-	}
-
 }

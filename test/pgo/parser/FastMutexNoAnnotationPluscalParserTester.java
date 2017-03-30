@@ -33,9 +33,4 @@ public class FastMutexNoAnnotationPluscalParserTester extends PGoPluscalParserTe
 		return "FastMutexNoAnnotation";
 	}
 
-	@Override
-	public int exceptionLine() {
-		return 0;
-	}
-
 }

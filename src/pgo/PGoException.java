@@ -7,18 +7,19 @@ package pgo;
  */
 public abstract class PGoException extends Exception {
 
-	private int line = -1;
+	private int line;
 	private String msg;
 	private String prefix;
 
 	public PGoException(String prefix, String msg) {
 		super(prefix + " " + msg);
-		msg = msg;
+		this.msg = msg;
+		this.line = -1;
 	}
 
 	public PGoException(String prefix, String msg, int lineN) {
 		super(prefix + " " + msg + " at Line: " + lineN);
-		line = lineN;
+		this.line = lineN;
 		this.msg = msg;
 	}
 

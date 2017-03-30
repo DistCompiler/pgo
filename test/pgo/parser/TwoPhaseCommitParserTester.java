@@ -25,9 +25,4 @@ public class TwoPhaseCommitParserTester extends PGoPluscalParserTesterBase {
 		return "TwoPhaseCommit";
 	}
 
-	@Override
-	public int exceptionLine() {
-		return 0;
-	}
-
 }

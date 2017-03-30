@@ -38,12 +38,7 @@ public class AnnotationTestParserTester extends PGoPluscalParserTesterBase {
 
 	@Override
 	protected String getAlg() {
-		return "AnnotationTest";
-	}
-
-	@Override
-	public int exceptionLine() {
-		return 0;
+		return "annotationtests/AnnotationTest";
 	}
 
 }
