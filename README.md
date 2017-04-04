@@ -6,7 +6,7 @@ TLA+ is a specification language for distributed systems. Coupled with a TLC mod
 
 Go is a C based language developed by Google for developing distributed systems. Go has built in support for concurrency with channels, and goroutines, which makes it very practical for developing distributed systems.
 
-TLA+ specification and Go implementation is not related. PGo is a tool that aims to connect the specification with the implementation through allowing the generation of Go code based on a PlusCal specification. PGo would allow developers to translate a verified PlusCal specification of a distributed system algorithm into a valid Go program.
+Currently there are no tools that corresponds TLA+ specification with the Go implementation of the same algorithm. PGo is a tool that aims to connect the specification with the implementation through allowing the generation of Go code based on a PlusCal specification. PGo would allow developers to translate a verified PlusCal specification of a distributed system algorithm into a valid Go program.
 
 ## Current status
 
@@ -25,7 +25,29 @@ Requirements: JRE8, and one of Eclipse or Ant 1.9
 2. Option 1: Import as an Eclipse project
 Option 2: Execute `ant pgo` assuming the project is in the `pgo/` directory
 
-## How to use it? e.g., command line usage/how to run test suite
+## How to Run
 
 Run with eclipse. Arguments `-h` for help.
 Alternatively, run `./pgo.sh` to execute the program.
+
+## Usage Documentation
+### PlusCal annotations
+Users can specify annotations in the pluscal file to aid PGo in compiling PlusCal to Go.
+PGo requires all variables used that is not defined in the PlusCal algorithm (e.g. constant N).
+
+Annotations appear in the PlusCal code within PlusCal comments, either `(* ... *)` or `\* ...`.
+Each annotation is of the form `@PGo{ <annotation> }@PGo`. Multiple annotations of these formats can appear per comment.
+#### Annotation for undeclared PlusCal variables (Required)
+There will be constants in PlusCal that are not declared in the PlusCal algorithm (e.g. constant N for model checking). These variables will need to be specified using PGo annotations either as constants of the Go program, or command line arguments of the Go program.
+Constants are specified as `const <type> <varname> <val>` indicating that varname is a go constant of type <type> with initial value <val>.
+Command line argument variables of Go are specified as `arg <type> <varname> (<flagname>)?` indicating that variable <varname> of type <type> and is going to be specified through command line argument to the go program. If no <flagname> is specified, then the variable will be positional arguments, the ith argument in the order they appear in the annotation. If <flagname> is specified, then the variable will be set through `-<flagname>=...`.
+
+#### Annotations for PlusCal procedure return values (Required)
+PlusCal has no return values, so procedures can only return values by writing to a global variable. It is required to indicate which variable serves this purpose. This is specified through the annotation `return <varname>`.
+
+#### Annotations for specifying variable types
+PGo will automatically infer types for variables declared in PlusCal. However, you may want to specify the types rather than using the inferred types (e.g. you want a uint64 rather than int). This is possible by specifying `var <type> <varname>`.
+
+#### Annotations for specifying function types
+Similar to specifying variable types. `func (<rtype>)? <funcname>() <p1type>?+` represents <funcname>() having a return type of <rtype> if specified, and parameters of type <p1type>, <p2type>... If you specify any types of function, all return types or parameters must be specified.
+Note: macro functions will automatically have the parameters as pointers of the type you specified.
