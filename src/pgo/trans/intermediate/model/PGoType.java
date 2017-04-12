@@ -6,13 +6,27 @@ package pgo.trans.intermediate.model;
  */
 public abstract class PGoType {
 
+	protected boolean isUndetermined = false;
+
 	/**
 	 * Attempts to infer the type from the given pluscal expressions
 	 * 
 	 * @return a PGoType of inferred type
 	 */
-	public static PGoType infer() {
-		return null;
+	public static PGoType inferFromGoTypeName(String s) {
+		PGoType r = PGoPrimitiveType.inferPrimitiveFromGoTypeName(s);
+		if (r.isUndetermined()) {
+			r = PGoContainerType.inferContainerFromGoTypeName(s);
+		}
+		return r;
+	}
+
+	/**
+	 * 
+	 * @return whether the type is undetermined
+	 */
+	public boolean isUndetermined() {
+		return isUndetermined;
 	}
 
 	/**
@@ -26,6 +40,10 @@ public abstract class PGoType {
 	 *
 	 */
 	public static class PGoUndetermined extends PGoType {
+
+		public PGoUndetermined() {
+			isUndetermined = true;
+		}
 
 		@Override
 		public String toGoTypeName() {

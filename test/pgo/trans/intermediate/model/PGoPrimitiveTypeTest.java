@@ -14,6 +14,7 @@ import pgo.trans.intermediate.model.PGoPrimitiveType.PGoDecimal;
 import pgo.trans.intermediate.model.PGoPrimitiveType.PGoInt;
 import pgo.trans.intermediate.model.PGoPrimitiveType.PGoNatural;
 import pgo.trans.intermediate.model.PGoPrimitiveType.PGoString;
+import pgo.trans.intermediate.model.PGoPrimitiveType.PGoVoid;
 import pgo.trans.intermediate.model.PGoType.PGoUndetermined;
 
 @RunWith(Parameterized.class)
@@ -39,7 +40,7 @@ public class PGoPrimitiveTypeTest {
 		return Arrays.asList(new Object[][] { { "int", new PGoInt() }, { "integer", new PGoInt() },
 				{ "float64", new PGoDecimal() }, { "decimal", new PGoDecimal() }, { "natural", new PGoNatural() },
 				{ "uint64", new PGoNatural() }, { "bool", new PGoBool() }, { "boolean", new PGoBool() },
-				{ "String", new PGoString() }, { "asf", new PGoUndetermined() }
+				{ "String", new PGoString() }, { "void", new PGoVoid() }, { "asf", new PGoUndetermined() }
 				 });
 	}
 }

@@ -84,6 +84,19 @@ public abstract class PGoPrimitiveType extends PGoType {
 	}
 
 	/**
+	 * Represents a void or no type in pluscal / go
+	 * 
+	 */
+	public static class PGoVoid extends PGoPrimitiveType {
+		private static final String goType = "void";
+
+		@Override
+		public String toGoTypeName() {
+			return goType;
+		}
+	}
+
+	/**
 	 * Attempts to infer the type from a given type name
 	 * 
 	 * @param string
@@ -108,6 +121,8 @@ public abstract class PGoPrimitiveType extends PGoType {
 			return new PGoDecimal();
 		case "string":
 			return new PGoString();
+		case "void":
+			return new PGoVoid();
 		}
 		return new PGoUndetermined();
 	}
