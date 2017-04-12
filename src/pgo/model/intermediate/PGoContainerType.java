@@ -1,4 +1,4 @@
-package pgo.trans.intermediate.model;
+package pgo.model.intermediate;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;

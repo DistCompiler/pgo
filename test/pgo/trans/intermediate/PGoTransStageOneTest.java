@@ -11,12 +11,12 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
+import pgo.model.intermediate.PGoFunction;
+import pgo.model.intermediate.PGoVariable;
 import pgo.parser.PGoParseException;
 import pgo.trans.PGoTransException;
 import pgo.trans.intermediate.PGoPluscalStageOneTesterBase.TestFunctionData;
 import pgo.trans.intermediate.PGoPluscalStageOneTesterBase.TestVariableData;
-import pgo.trans.intermediate.model.PGoFunction;
-import pgo.trans.intermediate.model.PGoVariable;
 
 @RunWith(Parameterized.class)
 public class PGoTransStageOneTest {

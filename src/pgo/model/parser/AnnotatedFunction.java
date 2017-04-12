@@ -1,7 +1,10 @@
-package pgo.trans.intermediate.model;
+package pgo.model.parser;
 
 import java.util.Vector;
 
+import pgo.model.intermediate.PGoFunction;
+import pgo.model.intermediate.PGoPrimitiveType;
+import pgo.model.intermediate.PGoType;
 import pgo.parser.PGoParseException;
 
 /**

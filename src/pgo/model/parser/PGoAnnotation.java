@@ -1,4 +1,4 @@
-package pgo.trans.intermediate.model;
+package pgo.model.parser;
 
 /**
  * Represents a single annotation of PGo, with the annotation string and the

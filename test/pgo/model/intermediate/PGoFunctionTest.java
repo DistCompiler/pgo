@@ -1,4 +1,4 @@
-package pgo.trans.intermediate.model;
+package pgo.model.intermediate;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -15,6 +15,8 @@ import pcal.AST.PVarDecl;
 import pcal.AST.PrintS;
 import pcal.AST.Procedure;
 import pcal.AST.Skip;
+import pgo.model.intermediate.PGoFunction;
+import pgo.model.intermediate.PGoVariable;
 import pcal.PcalParams;
 
 public class PGoFunctionTest {

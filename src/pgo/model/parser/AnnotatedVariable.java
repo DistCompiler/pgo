@@ -1,5 +1,8 @@
-package pgo.trans.intermediate.model;
+package pgo.model.parser;
 
+import pgo.model.intermediate.PGoPrimitiveType;
+import pgo.model.intermediate.PGoType;
+import pgo.model.intermediate.PGoVariable;
 import pgo.parser.PGoParseException;
 
 /**

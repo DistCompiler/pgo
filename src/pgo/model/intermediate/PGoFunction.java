@@ -1,4 +1,4 @@
-package pgo.trans.intermediate.model;
+package pgo.model.intermediate;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;

@@ -1,4 +1,4 @@
-package pgo.trans.intermediate.model;
+package pgo.model.intermediate;
 
 /**
  * Base class representing all types in pluscal and go

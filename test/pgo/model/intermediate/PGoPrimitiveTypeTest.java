@@ -1,4 +1,4 @@
-package pgo.trans.intermediate.model;
+package pgo.model.intermediate;
 
 import static junit.framework.Assert.assertEquals;
 
@@ -9,13 +9,15 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
-import pgo.trans.intermediate.model.PGoPrimitiveType.PGoBool;
-import pgo.trans.intermediate.model.PGoPrimitiveType.PGoDecimal;
-import pgo.trans.intermediate.model.PGoPrimitiveType.PGoInt;
-import pgo.trans.intermediate.model.PGoPrimitiveType.PGoNatural;
-import pgo.trans.intermediate.model.PGoPrimitiveType.PGoString;
-import pgo.trans.intermediate.model.PGoPrimitiveType.PGoVoid;
-import pgo.trans.intermediate.model.PGoType.PGoUndetermined;
+import pgo.model.intermediate.PGoPrimitiveType;
+import pgo.model.intermediate.PGoType;
+import pgo.model.intermediate.PGoPrimitiveType.PGoBool;
+import pgo.model.intermediate.PGoPrimitiveType.PGoDecimal;
+import pgo.model.intermediate.PGoPrimitiveType.PGoInt;
+import pgo.model.intermediate.PGoPrimitiveType.PGoNatural;
+import pgo.model.intermediate.PGoPrimitiveType.PGoString;
+import pgo.model.intermediate.PGoPrimitiveType.PGoVoid;
+import pgo.model.intermediate.PGoType.PGoUndetermined;
 
 @RunWith(Parameterized.class)
 public class PGoPrimitiveTypeTest {

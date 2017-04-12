@@ -1,4 +1,4 @@
-package pgo.trans.intermediate.model;
+package pgo.model.intermediate;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -7,10 +7,12 @@ import org.junit.Test;
 
 import pcal.AST.PVarDecl;
 import pcal.AST.VarDecl;
+import pgo.model.intermediate.PGoType;
+import pgo.model.intermediate.PGoVariable;
+import pgo.model.intermediate.PGoPrimitiveType.PGoInt;
+import pgo.model.intermediate.PGoPrimitiveType.PGoString;
 import pcal.PcalParams;
 import pcal.TLAToken;
-import pgo.trans.intermediate.model.PGoPrimitiveType.PGoInt;
-import pgo.trans.intermediate.model.PGoPrimitiveType.PGoString;
 
 public class PGoVariableTest {
 

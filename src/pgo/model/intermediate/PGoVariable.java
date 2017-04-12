@@ -1,10 +1,10 @@
-package pgo.trans.intermediate.model;
+package pgo.model.intermediate;
 
 import pcal.AST.PVarDecl;
 import pcal.AST.VarDecl;
+import pgo.model.intermediate.PGoType.PGoUndetermined;
 import pcal.PcalParams;
 import pcal.TLAExpr;
-import pgo.trans.intermediate.model.PGoType.PGoUndetermined;
 
 /**
  * Intermediate representation of a single pluscal and golang variable.

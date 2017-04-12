@@ -4,9 +4,9 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.Vector;
 
-import pgo.trans.intermediate.model.AnnotatedFunction;
-import pgo.trans.intermediate.model.AnnotatedVariable;
-import pgo.trans.intermediate.model.PGoAnnotation;
+import pgo.model.parser.AnnotatedFunction;
+import pgo.model.parser.AnnotatedVariable;
+import pgo.model.parser.PGoAnnotation;
 
 /**
  * Parses the annotations of the pluscal algorithm for pgo

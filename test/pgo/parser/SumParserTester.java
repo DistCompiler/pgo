@@ -2,7 +2,7 @@ package pgo.parser;
 
 import java.util.Vector;
 
-import pgo.trans.intermediate.model.PGoAnnotation;
+import pgo.model.parser.PGoAnnotation;
 
 /**
  * Tester class for the Sum pluscal algorithm

@@ -1,17 +1,19 @@
-package pgo.trans.intermediate.model;
+package pgo.model.intermediate;
 
 import static junit.framework.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
-import pgo.trans.intermediate.model.PGoContainerType.PGoChan;
-import pgo.trans.intermediate.model.PGoContainerType.PGoMap;
-import pgo.trans.intermediate.model.PGoContainerType.PGoSet;
-import pgo.trans.intermediate.model.PGoContainerType.PGoSlice;
-import pgo.trans.intermediate.model.PGoPrimitiveType.PGoBool;
-import pgo.trans.intermediate.model.PGoPrimitiveType.PGoInt;
-import pgo.trans.intermediate.model.PGoPrimitiveType.PGoString;
+import pgo.model.intermediate.PGoContainerType;
+import pgo.model.intermediate.PGoType;
+import pgo.model.intermediate.PGoContainerType.PGoChan;
+import pgo.model.intermediate.PGoContainerType.PGoMap;
+import pgo.model.intermediate.PGoContainerType.PGoSet;
+import pgo.model.intermediate.PGoContainerType.PGoSlice;
+import pgo.model.intermediate.PGoPrimitiveType.PGoBool;
+import pgo.model.intermediate.PGoPrimitiveType.PGoInt;
+import pgo.model.intermediate.PGoPrimitiveType.PGoString;
 
 public class PGoContainerTypeTest {
 

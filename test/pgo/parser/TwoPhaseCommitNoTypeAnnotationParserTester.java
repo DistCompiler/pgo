@@ -6,7 +6,7 @@ import java.util.Vector;
 
 import org.apache.commons.io.IOUtils;
 
-import pgo.trans.intermediate.model.PGoAnnotation;
+import pgo.model.parser.PGoAnnotation;
 
 /**
  * Tester class for the TwoPhaseCommit pluscal algorithm

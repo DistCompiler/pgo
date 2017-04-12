@@ -4,13 +4,13 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 
 import pcal.AST.LabeledStmt;
+import pgo.model.intermediate.PGoFunction;
+import pgo.model.intermediate.PGoVariable;
+import pgo.model.parser.AnnotatedFunction;
+import pgo.model.parser.AnnotatedVariable;
 import pgo.parser.PGoAnnotationParser;
 import pgo.parser.PGoParseException;
 import pgo.parser.PcalParser.ParsedPcal;
-import pgo.trans.intermediate.model.AnnotatedFunction;
-import pgo.trans.intermediate.model.AnnotatedVariable;
-import pgo.trans.intermediate.model.PGoFunction;
-import pgo.trans.intermediate.model.PGoVariable;
 
 /**
  * The second stage of the translation where we determine the types of all

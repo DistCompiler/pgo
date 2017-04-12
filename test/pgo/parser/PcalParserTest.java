@@ -12,8 +12,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
+import pgo.model.parser.PGoAnnotation;
 import pgo.parser.PcalParser.ParsedPcal;
-import pgo.trans.intermediate.model.PGoAnnotation;
 
 @RunWith(Parameterized.class)
 public class PcalParserTest {

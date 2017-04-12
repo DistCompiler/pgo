@@ -1,4 +1,4 @@
-package pgo.trans.intermediate.model;
+package pgo.model.intermediate;
 
 /**
  * Represents the primitive types from pluscal converted to Go. These are types

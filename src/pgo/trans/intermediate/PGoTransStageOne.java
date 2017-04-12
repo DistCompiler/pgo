@@ -13,10 +13,10 @@ import pcal.AST.Process;
 import pcal.AST.Uniprocess;
 import pcal.AST.VarDecl;
 import pcal.TLAExpr;
+import pgo.model.intermediate.PGoFunction;
+import pgo.model.intermediate.PGoVariable;
 import pgo.parser.PcalParser.ParsedPcal;
 import pgo.trans.PGoTransException;
-import pgo.trans.intermediate.model.PGoFunction;
-import pgo.trans.intermediate.model.PGoVariable;
 
 /**
  * Makes initial pass over the AST to generate the basic intermediate

@@ -11,7 +11,7 @@ import pcal.PcalParams;
 import pcal.TLAtoPCalMapping;
 import pcal.exception.FileToStringVectorException;
 import pcal.exception.ParseAlgorithmException;
-import pgo.trans.intermediate.model.PGoAnnotation;
+import pgo.model.parser.PGoAnnotation;
 import pgo.util.IOUtil;
 import util.ToolIO;
 
