@@ -36,26 +36,26 @@ public abstract class PGoContainerType extends PGoType {
 	 */
 	public static class PGoSlice extends PGoContainerType {
 
-		private int initCap;
+		private String initCap;
 
 		public PGoSlice(String eType) {
 			super(eType);
-			initCap = -1;
+			initCap = "";
 		}
 
 		public PGoSlice(String initCap, String eType) {
 			super(eType);
-			this.initCap = Integer.parseInt(initCap);
+			this.initCap = initCap;
 		}
 
-		public int getInitCap() {
+		public String getInitCap() {
 			return initCap;
 		}
 
 		@Override
 		public String toGoTypeName() {
-			if (initCap != -1) {
-				return "[" + String.valueOf(initCap) + "]" + eType.toGoTypeName();
+			if (!initCap.isEmpty()) {
+				return "[" + initCap + "]" + eType.toGoTypeName();
 			} else {
 				return "[]" + eType.toGoTypeName();
 			}
@@ -132,14 +132,19 @@ public abstract class PGoContainerType extends PGoType {
 	 * @return
 	 */
 	public static PGoType inferContainerFromGoTypeName(String s) {
+		PGoType ret;
+
 		// matches [<number>?]<type>
 		Pattern rgex = Pattern.compile("\\[(\\d*)\\](.+)");
 		Matcher m = rgex.matcher(s);
 		if (m.matches()) {
 			if (m.group(1) != null && !m.group(1).isEmpty()) {
-				return new PGoSlice(m.group(1), m.group(2));
+				ret = new PGoSlice(m.group(1), m.group(2));
 			} else {
-				return new PGoSlice(m.group(2));
+				ret = new PGoSlice(m.group(2));
+			}
+			if (!ret.isUndetermined()) {
+				return ret;
 			}
 		}
 
@@ -147,21 +152,30 @@ public abstract class PGoContainerType extends PGoType {
 		rgex = Pattern.compile("chan (.+)");
 		m = rgex.matcher(s);
 		if (m.matches()) {
-			return new PGoChan(m.group(1));
+			ret = new PGoChan(m.group(1));
+			if (!ret.isUndetermined()) {
+				return ret;
+			}
 		}
 		
 		// matches set[]<type>
 		rgex = Pattern.compile("set\\[\\](.+)");
 		m = rgex.matcher(s);
 		if (m.matches()) {
-			return new PGoSet(m.group(1));
+			ret = new PGoSet(m.group(1));
+			if (!ret.isUndetermined()) {
+				return ret;
+			}
 		}
 
 		// matches map[<type>]<type>
-		rgex = Pattern.compile("map\\[(.+)\\](.+)");
+		rgex = Pattern.compile("map\\[(.+?)\\](.+)");
 		m = rgex.matcher(s);
 		if (m.matches()) {
-			return new PGoMap(m.group(1), m.group(2));
+			ret = new PGoMap(m.group(1), m.group(2));
+			if (!ret.isUndetermined()) {
+				return ret;
+			}
 		}
 		return new PGoUndetermined();
 	}
