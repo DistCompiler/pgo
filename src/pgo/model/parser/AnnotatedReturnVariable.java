@@ -12,7 +12,7 @@ public class AnnotatedReturnVariable {
 	// the name of the variable
 	private String name;
 
-	// the line number of the annotaiton
+	// the line number of the annotation
 	private int line;
 
 	protected AnnotatedReturnVariable(String n, int l) {

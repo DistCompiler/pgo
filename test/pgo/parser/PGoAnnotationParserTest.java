@@ -13,6 +13,7 @@ import pgo.model.intermediate.PGoPrimitiveType.PGoInt;
 import pgo.model.intermediate.PGoPrimitiveType.PGoString;
 import pgo.model.intermediate.PGoPrimitiveType.PGoVoid;
 import pgo.model.parser.AnnotatedFunction;
+import pgo.model.parser.AnnotatedProcess;
 import pgo.model.parser.AnnotatedReturnVariable;
 import pgo.model.parser.AnnotatedVariable.ArgAnnotatedVariable;
 import pgo.model.parser.AnnotatedVariable.ConstAnnotatedVariable;
@@ -31,6 +32,9 @@ public class PGoAnnotationParserTest {
 		annots.add(new PGoAnnotation("func bar() map[string]int", 25));
 		annots.add(new PGoAnnotation("ret ret", 6));
 		annots.add(new PGoAnnotation("ret fRet", 50));
+		annots.add(new PGoAnnotation("proc Client int", 100));
+		annots.add(new PGoAnnotation("proc Server string", 150));
+
 		PGoAnnotationParser parser = new PGoAnnotationParser(annots);
 
 		assertEquals(3, parser.getAnnotatedVariables().size());
@@ -85,6 +89,19 @@ public class PGoAnnotationParserTest {
 		assertNotNull(rv);
 		assertEquals("fRet", rv.getName());
 		assertEquals(50, rv.getLine());
+
+		assertEquals(2, parser.getAnnotatedProcesses().size());
+		AnnotatedProcess pr = parser.getAnnotatedProcess("Client");
+		assertNotNull(pr);
+		assertEquals("Client", pr.getName());
+		assertEquals(100, pr.getLine());
+		assertTrue(pr.getIdType() instanceof PGoInt);
+
+		pr = parser.getAnnotatedProcess("Server");
+		assertNotNull(pr);
+		assertEquals("Server", pr.getName());
+		assertEquals(150, pr.getLine());
+		assertTrue(pr.getIdType() instanceof PGoString);
 	}
 
 }
