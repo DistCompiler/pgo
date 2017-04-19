@@ -5,7 +5,7 @@ CONSTANT N
 (*
 \* @PGo{ arg natural N numT }@PGo
 --algorithm FastMutex {
-  variables x, \** @PGo{var x int}@PGo
+  variables x, \** @PGo{var int x}@PGo
             y = 0,
             b = [i \in 1..N |-> FALSE];
   process (Proc \in 1..N)

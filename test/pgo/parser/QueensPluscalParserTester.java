@@ -1,7 +1,10 @@
 package pgo.parser;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Vector;
 
+import pgo.model.intermediate.PGoPrimitiveType;
 import pgo.model.parser.PGoAnnotation;
 
 /**
@@ -23,6 +26,19 @@ public class QueensPluscalParserTester extends PGoPluscalParserTesterBase {
 	@Override
 	protected String getAlg() {
 		return "QueensPluscal";
+	}
+
+	@Override
+	public List<ArgAnnotatedVariableData> getArgAnnotatedVariables() {
+		ArrayList<ArgAnnotatedVariableData> ret = new ArrayList<ArgAnnotatedVariableData>();
+		ret.add(new ArgAnnotatedVariableData(new PGoPrimitiveType.PGoInt(), "N", 45, true, ""));
+
+		return ret;
+	}
+
+	@Override
+	public int getNumberAnnotatedVariables() {
+		return 1;
 	}
 
 }

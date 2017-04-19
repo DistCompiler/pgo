@@ -78,7 +78,7 @@ public class PGoContainerTypeTest {
 		PGoType pt;
 		PGoChan pc;
 
-		s = "chan int";
+		s = "chan[int]";
 		pt = PGoContainerType.inferContainerFromGoTypeName(s);
 		assertTrue(pt instanceof PGoChan);
 		pc = (PGoChan) pt;
@@ -86,7 +86,7 @@ public class PGoContainerTypeTest {
 		assertTrue(pc.getElementType() instanceof PGoInt);
 		assertEquals(s, pc.toGoTypeName());
 
-		s = "chan chan bool";
+		s = "chan[chan[bool]]";
 		pt = PGoContainerType.inferContainerFromGoTypeName(s);
 		assertTrue(pt instanceof PGoChan);
 		pc = (PGoChan) pt;
@@ -97,7 +97,7 @@ public class PGoContainerTypeTest {
 		assertTrue(pc.getElementType() instanceof PGoBool);
 		assertEquals(s, pt.toGoTypeName());
 
-		s = "chan []int";
+		s = "chan[[]int]";
 		pt = PGoContainerType.inferContainerFromGoTypeName(s);
 		assertTrue(pt instanceof PGoChan);
 		pc = (PGoChan) pt;
@@ -105,11 +105,11 @@ public class PGoContainerTypeTest {
 		assertTrue(pc.getElementType() instanceof PGoSlice);
 		assertEquals(s, pt.toGoTypeName());
 
-		s = "chan a";
+		s = "chan[a]";
 		pt = PGoContainerType.inferContainerFromGoTypeName(s);
 		assertTrue(pt instanceof PGoUndetermined);
 
-		s = "chan chan a";
+		s = "chan[chan[a]]";
 		pt = PGoContainerType.inferContainerFromGoTypeName(s);
 		assertTrue(pt instanceof PGoUndetermined);
 	}

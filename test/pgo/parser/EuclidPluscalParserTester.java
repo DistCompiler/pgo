@@ -1,7 +1,10 @@
 package pgo.parser;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Vector;
 
+import pgo.model.intermediate.PGoPrimitiveType;
 import pgo.model.parser.PGoAnnotation;
 
 /**
@@ -24,6 +27,26 @@ public class EuclidPluscalParserTester extends PGoPluscalParserTesterBase {
 	@Override
 	protected String getAlg() {
 		return "Euclid";
+	}
+
+	@Override
+	public List<ArgAnnotatedVariableData> getArgAnnotatedVariables() {
+		ArrayList<ArgAnnotatedVariableData> ret = new ArrayList<ArgAnnotatedVariableData>();
+		ret.add(new ArgAnnotatedVariableData(new PGoPrimitiveType.PGoInt(), "N", 6, true, ""));
+
+		return ret;
+	}
+
+	@Override
+	public List<VarAnnotatedVariableData> getVarAnnotatedVariables() {
+		ArrayList<VarAnnotatedVariableData> ret = new ArrayList<VarAnnotatedVariableData>();
+		ret.add(new VarAnnotatedVariableData(new PGoPrimitiveType.PGoInt(), "u", 7));
+		return ret;
+	}
+
+	@Override
+	public int getNumberAnnotatedVariables() {
+		return 2;
 	}
 
 }

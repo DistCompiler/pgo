@@ -114,6 +114,7 @@ public abstract class AnnotatedVariable {
 				argname = parts[3];
 			} else {
 				positional = true;
+				argname = "";
 			}
 		}
 

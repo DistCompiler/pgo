@@ -75,7 +75,7 @@ public abstract class PGoContainerType extends PGoType {
 
 		@Override
 		public String toGoTypeName() {
-			return "chan " + eType.toGoTypeName();
+			return "chan[" + eType.toGoTypeName() + "]";
 		}
 
 	}
@@ -148,8 +148,8 @@ public abstract class PGoContainerType extends PGoType {
 			}
 		}
 
-		// matches chan <type>
-		rgex = Pattern.compile("chan (.+)");
+		// matches chan[<type>]
+		rgex = Pattern.compile("chan\\[(.+)\\]");
 		m = rgex.matcher(s);
 		if (m.matches()) {
 			ret = new PGoChan(m.group(1));

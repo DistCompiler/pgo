@@ -5,9 +5,6 @@ CONSTANT MAXINT, RUNS, N
 (* PlusCal options (-termination) *)
 
 (*
-(* @PGo{ const uint64 MAXINT 10000000 }@PGo
-   @PGo{ arg uint64 RUNS runs }@PGo   @PGo{ arg uint64 N numT }@PGo
- *)
 
 --algorithm Sum  {
 variables network = [i \in 1 .. N+1 |-> <<>>];

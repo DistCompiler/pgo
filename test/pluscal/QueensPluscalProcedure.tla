@@ -46,7 +46,7 @@ Solutions == { queens \in [1..N -> 1..N] : IsSolution(queens) }
      variables
        todo = { << >> };
        sols = {};
-       rVal; \** for pgo @PGo{ return rVal }@PGo
+       rVal; \** for pgo @PGo{ ret rVal }@PGo
 
      procedure PgoAttacks(queens,i,j) begin
        attlabl: rVal := \/ queens[i] = queens[j]                \** same column
