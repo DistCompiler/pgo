@@ -19,10 +19,10 @@ public class AnnotatedProcess {
 	private int line;
 
 	protected AnnotatedProcess(String[] parts, int l) throws PGoParseException {
-		name = parts[1];
-		idType = PGoType.inferFromGoTypeName(parts[2]);
+		name = parts[2];
+		idType = PGoType.inferFromGoTypeName(parts[1]);
 		if (idType.isUndetermined()) {
-			throw new PGoParseException("Unknown type name \"" + parts[2] + "\" for process \"" + name + "\"", line);
+			throw new PGoParseException("Unknown type name \"" + parts[1] + "\" for process \"" + name + "\"", line);
 		}
 		line = l;
 	}

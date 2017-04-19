@@ -43,7 +43,7 @@ Constants are specified as `const <type> <varname> <val>` indicating that varnam
 Command line argument variables of Go are specified as `arg <type> <varname> (<flagname>)?` indicating that variable <varname> of type <type> and is going to be specified through command line argument to the go program. If no <flagname> is specified, then the variable will be positional arguments, the ith argument in the order they appear in the annotation. If <flagname> is specified, then the variable will be set through `-<flagname>=...`.
 
 #### Annotations for PlusCal procedure return values (Required)
-PlusCal has no return values, so procedures can only return values by writing to a global variable. It is required to indicate which variable serves this purpose. This is specified through the annotation `return <varname>`.
+PlusCal has no return values, so procedures can only return values by writing to a global variable. It is required to indicate which variable serves this purpose. This is specified through the annotation `ret <varname>`.
 
 #### Annotations for specifying variable types
 PGo will automatically infer types for variables declared in PlusCal. However, you may want to specify the types rather than using the inferred types (e.g. you want a uint64 rather than int). This is possible by specifying `var <type> <varname>`.
@@ -51,3 +51,6 @@ PGo will automatically infer types for variables declared in PlusCal. However, y
 #### Annotations for specifying function types
 Similar to specifying variable types. `func (<rtype>)? <funcname>() <p1type>?+` represents <funcname>() having a return type of <rtype> if specified, and parameters of type <p1type>, <p2type>... If you specify any types of function, all return types or parameters must be specified.
 Note: macro functions will automatically have the parameters as pointers of the type you specified.
+
+#### Annotations for specifying process ID type
+All processes must have an ID of some sort. In PlusCal, processes are written as `process(Var \in Set)` or `process(Var = <val>)`. Var will be used as the ID of the process. The type of var must be specified as `proc <type> Var`.
