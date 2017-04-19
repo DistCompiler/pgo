@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import pcal.AST.Macro;
 import pcal.AST.Multiprocess;
 import pcal.AST.Process;
+import pgo.model.intermediate.PGoFunction;
 import pgo.parser.PGoParseException;
 
 /**
@@ -47,7 +48,7 @@ public class SumIntermediateTester extends PGoPluscalStageOneTesterBase {
 
 		String b = ((Macro) ((Multiprocess) getAST()).macros.get(0)).body.toString();
 
-		ret.add(new TestFunctionData("SendTo", params, vars, b, false, false, ""));
+		ret.add(new TestFunctionData("SendTo", params, vars, b, PGoFunction.FunctionType.Macro, false, ""));
 
 		params = new ArrayList<TestVariableData>();
 		vars = new ArrayList<TestVariableData>();
@@ -57,7 +58,7 @@ public class SumIntermediateTester extends PGoPluscalStageOneTesterBase {
 
 		b = ((Macro) ((Multiprocess) getAST()).macros.get(1)).body.toString();
 
-		ret.add(new TestFunctionData("Recv", params, vars, b, false, false, ""));
+		ret.add(new TestFunctionData("Recv", params, vars, b, PGoFunction.FunctionType.Macro, false, ""));
 
 		params = new ArrayList<TestVariableData>();
 		vars = new ArrayList<TestVariableData>();
@@ -71,7 +72,8 @@ public class SumIntermediateTester extends PGoPluscalStageOneTesterBase {
 
 		b = ((Process) ((Multiprocess) getAST()).procs.get(0)).body.toString();
 
-		ret.add(new TestFunctionData("Client", params, vars, b, true, false, "<< \"1\", \"..\", \"N\" >>"));
+		ret.add(new TestFunctionData("Client", params, vars, b, PGoFunction.FunctionType.GoRoutine, false,
+				"<< \"1\", \"..\", \"N\" >>"));
 
 		params = new ArrayList<TestVariableData>();
 		vars = new ArrayList<TestVariableData>();
@@ -83,7 +85,8 @@ public class SumIntermediateTester extends PGoPluscalStageOneTesterBase {
 
 		b = ((Process) ((Multiprocess) getAST()).procs.get(1)).body.toString();
 
-		ret.add(new TestFunctionData("Server", params, vars, b, true, true, "<< \"N\", \"+\", \"1\" >>"));
+		ret.add(new TestFunctionData("Server", params, vars, b, PGoFunction.FunctionType.GoRoutine, true,
+				"<< \"N\", \"+\", \"1\" >>"));
 
 		return ret;
 	}

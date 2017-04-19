@@ -4,6 +4,7 @@ import java.util.ArrayList;
 
 import pcal.AST.Multiprocess;
 import pcal.AST.Process;
+import pgo.model.intermediate.PGoFunction;
 import pgo.parser.PGoParseException;
 
 /**
@@ -46,7 +47,8 @@ public class FastMutexIntermediateTester extends PGoPluscalStageOneTesterBase {
 
 		String b = ((Process) ((Multiprocess) getAST()).procs.get(0)).body.toString();
 
-		r.add(new TestFunctionData("Proc", params, vars, b, true, false, "<< \"1\", \"..\", \"N\" >>"));
+		r.add(new TestFunctionData("Proc", params, vars, b, PGoFunction.FunctionType.GoRoutine, false,
+				"<< \"1\", \"..\", \"N\" >>"));
 
 		return r;
 	}

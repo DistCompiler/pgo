@@ -1,4 +1,4 @@
-package pgo.trans.intermediate;
+package pgo.model.intermediate;
 
 import pcal.AST.Process;
 import pcal.TLAExpr;

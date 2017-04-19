@@ -2,9 +2,9 @@ package pgo.model.intermediate;
 
 import pcal.AST.PVarDecl;
 import pcal.AST.VarDecl;
-import pgo.model.intermediate.PGoType.PGoUndetermined;
 import pcal.PcalParams;
 import pcal.TLAExpr;
+import pgo.model.intermediate.PGoType.PGoUndetermined;
 
 /**
  * Intermediate representation of a single pluscal and golang variable.
@@ -32,6 +32,9 @@ public class PGoVariable {
 
 	// The go syntax value
 	private String goval;
+
+	// The line number in pluscal
+	private int line;
 
 	// private constructor. only construct through converting from VarDecl
 	private PGoVariable() {
@@ -72,6 +75,7 @@ public class PGoVariable {
 		r.name = var.var;
 		r.isSimpleAssignInit = var.isEq;
 		r.tlaExpr = var.val;
+		r.line = var.line;
 
 		return r;
 	}
@@ -82,6 +86,7 @@ public class PGoVariable {
 		r.name = var.var;
 		r.isSimpleAssignInit = var.isEq;
 		r.tlaExpr = var.val;
+		r.line = var.line;
 
 		return r;
 	}
@@ -92,6 +97,7 @@ public class PGoVariable {
 		r.name = var;
 		r.isSimpleAssignInit = true;
 		r.tlaExpr = PcalParams.DefaultVarInit();
+		r.line = -1;
 
 		return r;
 	}
@@ -103,6 +109,7 @@ public class PGoVariable {
 		r.name = "self";
 		r.isSimpleAssignInit = true;
 		r.tlaExpr = PcalParams.DefaultVarInit();
+		r.line = -1;
 
 		return r;
 	}
@@ -114,6 +121,7 @@ public class PGoVariable {
 		r.isSimpleAssignInit = true;
 		r.tlaExpr = PcalParams.DefaultVarInit();
 		r.type = tn;
+		r.line = -1;
 		return r;
 	}
 
@@ -125,6 +133,7 @@ public class PGoVariable {
 		r.isSimpleAssignInit = true;
 		r.goval = val;
 		r.type = tn;
+		r.line = -1;
 		return r;
 	}
 

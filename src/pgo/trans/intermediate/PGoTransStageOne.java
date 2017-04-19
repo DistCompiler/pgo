@@ -14,6 +14,7 @@ import pcal.AST.Uniprocess;
 import pcal.AST.VarDecl;
 import pcal.TLAExpr;
 import pgo.model.intermediate.PGoFunction;
+import pgo.model.intermediate.PGoRoutineInit;
 import pgo.model.intermediate.PGoVariable;
 import pgo.parser.PcalParser.ParsedPcal;
 import pgo.trans.PGoTransException;
@@ -161,7 +162,6 @@ public class PGoTransStageOne {
 		// networked process. For now we just do goroutines
 		for (Process p : (Vector<Process>) ast.procs) {
 			PGoFunction f = PGoFunction.convert(p);
-			f.setIsGoRoutine(true);
 			funcs.put(f.getName(), f);
 
 			goroutines.put(f.getName(), PGoRoutineInit.convert(p));

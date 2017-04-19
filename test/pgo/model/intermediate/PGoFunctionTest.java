@@ -14,9 +14,8 @@ import pcal.AST.Macro;
 import pcal.AST.PVarDecl;
 import pcal.AST.PrintS;
 import pcal.AST.Procedure;
+import pcal.AST.Process;
 import pcal.AST.Skip;
-import pgo.model.intermediate.PGoFunction;
-import pgo.model.intermediate.PGoVariable;
 import pcal.PcalParams;
 
 public class PGoFunctionTest {
@@ -34,6 +33,7 @@ public class PGoFunctionTest {
 		p.body = new Vector<LabeledStmt>();
 
 		PGoFunction f = PGoFunction.convert(p);
+		assertEquals(PGoFunction.FunctionType.Normal, f.getType());
 		assertEquals(p.name, f.getName());
 		assertEquals(1, f.getParams().size());
 		assertParam(f, "param1");
@@ -47,6 +47,7 @@ public class PGoFunctionTest {
 		p.name = "proc2";
 		f = PGoFunction.convert(p);
 		assertEquals(p.name, f.getName());
+		assertEquals(PGoFunction.FunctionType.Normal, f.getType());
 		assertEquals(1, f.getParams().size());
 		assertParam(f, "param1");
 		assertEquals(0, f.getVariables().size());
@@ -61,6 +62,7 @@ public class PGoFunctionTest {
 		p.params.add(param);
 		f = PGoFunction.convert(p);
 		assertEquals(p.name, f.getName());
+		assertEquals(PGoFunction.FunctionType.Normal, f.getType());
 		assertEquals(2, f.getParams().size());
 		assertParam(f, "param1");
 		assertEquals(0, f.getVariables().size());
@@ -76,6 +78,7 @@ public class PGoFunctionTest {
 		p.decls.add(decl);
 		f = PGoFunction.convert(p);
 		assertEquals(p.name, f.getName());
+		assertEquals(PGoFunction.FunctionType.Normal, f.getType());
 		assertEquals(2, f.getParams().size());
 		assertParam(f, "param1", 0);
 		assertParam(f, "param2", 1);
@@ -99,6 +102,7 @@ public class PGoFunctionTest {
 		p.body.add(stmt);
 		f = PGoFunction.convert(p);
 		assertEquals(p.name, f.getName());
+		assertEquals(PGoFunction.FunctionType.Normal, f.getType());
 		assertEquals(2, f.getParams().size());
 		assertParam(f, "param1", 0);
 		assertParam(f, "param2", 1);
@@ -127,6 +131,7 @@ public class PGoFunctionTest {
 		
 		PGoFunction f = PGoFunction.convert(m);
 		assertEquals(m.name, f.getName());
+		assertEquals(PGoFunction.FunctionType.Macro, f.getType());
 		assertEquals(1, f.getParams().size());
 		assertParam(f, "param1");
 
@@ -138,6 +143,7 @@ public class PGoFunctionTest {
 		m.name = "another";
 		f = PGoFunction.convert(m);
 		assertEquals(m.name, f.getName());
+		assertEquals(PGoFunction.FunctionType.Macro, f.getType());
 		assertEquals(1, f.getParams().size());
 		assertParam(f, "param1");
 
@@ -149,6 +155,7 @@ public class PGoFunctionTest {
 		m.params.add("param2");
 		f = PGoFunction.convert(m);
 		assertEquals(m.name, f.getName());
+		assertEquals(PGoFunction.FunctionType.Macro, f.getType());
 		assertEquals(2, f.getParams().size());
 		assertParam(f, "param1", 0);
 		assertParam(f, "param2", 1);
@@ -163,6 +170,7 @@ public class PGoFunctionTest {
 		m.body.add(stmt);
 		f = PGoFunction.convert(m);
 		assertEquals(m.name, f.getName());
+		assertEquals(PGoFunction.FunctionType.Macro, f.getType());
 		assertEquals(2, f.getParams().size());
 		assertParam(f, "param1", 0);
 		assertParam(f, "param2", 1);
@@ -170,6 +178,26 @@ public class PGoFunctionTest {
 		assertEquals(m.body.size(), f.getBody().size());
 		for (int i = 0; i < f.getBody().size(); i++) {
 			assertEquals(m.body.get(i).toString(), f.getBody().get(i).toString());
+		}
+	}
+
+	@Test
+	public void testConvertProcess() {
+		Process p = new Process();
+		p.name = "client";
+		p.decls = new Vector();
+		p.body = new Vector<AST>();
+		p.body.add(new Skip());
+
+		PGoFunction f = PGoFunction.convert(p);
+		assertEquals(p.name, f.getName());
+		assertEquals(PGoFunction.FunctionType.GoRoutine, f.getType());
+		assertEquals(1, f.getParams().size());
+		assertParam(f, "self");
+
+		assertEquals(p.body.size(), f.getBody().size());
+		for (int i = 0; i < f.getBody().size(); i++) {
+			assertEquals(p.body.get(i).toString(), f.getBody().get(i).toString());
 		}
 	}
 

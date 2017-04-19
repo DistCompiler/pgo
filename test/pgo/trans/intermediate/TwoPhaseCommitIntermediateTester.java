@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import pcal.AST.Macro;
 import pcal.AST.Multiprocess;
 import pcal.AST.Process;
+import pgo.model.intermediate.PGoFunction;
 import pgo.parser.PGoParseException;
 
 /**
@@ -50,7 +51,7 @@ public class TwoPhaseCommitIntermediateTester extends PGoPluscalStageOneTesterBa
 
 		String b = ((Macro) ((Multiprocess) getAST()).macros.get(0)).body.toString();
 
-		ret.add(new TestFunctionData("SetAll", params, vars, b, false, false, ""));
+		ret.add(new TestFunctionData("SetAll", params, vars, b, PGoFunction.FunctionType.Macro, false, ""));
 
 		params = new ArrayList<TestVariableData>();
 		vars = new ArrayList<TestVariableData>();
@@ -58,7 +59,8 @@ public class TwoPhaseCommitIntermediateTester extends PGoPluscalStageOneTesterBa
 
 		b = ((Process) ((Multiprocess) getAST()).procs.get(0)).body.toString();
 
-		ret.add(new TestFunctionData("Restaurant", params, vars, b, true, false, "<< \"managers\" >>"));
+		ret.add(new TestFunctionData("Restaurant", params, vars, b, PGoFunction.FunctionType.GoRoutine, false,
+				"<< \"managers\" >>"));
 
 		params = new ArrayList<TestVariableData>();
 		vars = new ArrayList<TestVariableData>();
@@ -68,7 +70,8 @@ public class TwoPhaseCommitIntermediateTester extends PGoPluscalStageOneTesterBa
 		
 		b = ((Process) ((Multiprocess) getAST()).procs.get(1)).body.toString();
 
-		ret.add(new TestFunctionData("Controller", params, vars, b, true, true, "<< \"\\\"\", \"alice\", \"\\\"\" >>"));
+		ret.add(new TestFunctionData("Controller", params, vars, b, PGoFunction.FunctionType.GoRoutine, true,
+				"<< \"\\\"\", \"alice\", \"\\\"\" >>"));
 		
 		return ret;
 	}

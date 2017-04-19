@@ -2,6 +2,8 @@ package pgo.trans.intermediate;
 
 import java.util.ArrayList;
 
+import pgo.model.intermediate.PGoFunction;
+
 /**
  * Tester class for the QueensPluscal pluscal algorithm
  * 
@@ -48,7 +50,7 @@ public class QueensPluscalProcedureIntermediateTester extends PGoPluscalStageOne
 				+ "\"\\\\/\", \"queens\", \"[\", \"j\", \"]\", \"-\", \"queens\", \"[\", \"i\", \"]\", \"=\", \"i\", \"-\", \"j\" >>]>>], \n"
 				+ "             [type |-> \"return\", from |-> \"PgoAttacks\"]>>]]";
 
-		ret.add(new TestFunctionData("PgoAttacks", params, vars, b, false, false, ""));
+		ret.add(new TestFunctionData("PgoAttacks", params, vars, b, PGoFunction.FunctionType.Normal, false, ""));
 		return ret;
 	}
 

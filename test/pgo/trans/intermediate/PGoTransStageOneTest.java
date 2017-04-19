@@ -12,6 +12,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
 import pgo.model.intermediate.PGoFunction;
+import pgo.model.intermediate.PGoRoutineInit;
 import pgo.model.intermediate.PGoVariable;
 import pgo.parser.PGoParseException;
 import pgo.trans.PGoTransException;
@@ -105,7 +106,7 @@ public class PGoTransStageOneTest {
 
 		assertEquals(p.getFunction(af.name), f);
 		
-		assertEquals(af.isGoRoutine, f.getIsGoRoutine());
+		assertEquals(af.type, f.getType());
 	}
 
 	@Test
@@ -116,7 +117,7 @@ public class PGoTransStageOneTest {
 		assertEquals(tester.getNumGoroutineInit(), grs.size());
 		
 		for (TestFunctionData f : tester.getFunctions()) {
-			if (f.isGoRoutine) {
+			if (f.type == PGoFunction.FunctionType.GoRoutine) {
 				PGoRoutineInit gr = p.getGoRoutineInit(f.name);
 				assertNotNull(gr);
 				assertEquals(f.name, gr.getName());

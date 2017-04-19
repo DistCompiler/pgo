@@ -5,6 +5,7 @@ import java.util.LinkedHashMap;
 
 import pcal.AST.LabeledStmt;
 import pgo.model.intermediate.PGoFunction;
+import pgo.model.intermediate.PGoRoutineInit;
 import pgo.model.intermediate.PGoVariable;
 import pgo.model.parser.AnnotatedFunction;
 import pgo.model.parser.AnnotatedVariable;

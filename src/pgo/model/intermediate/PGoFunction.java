@@ -33,8 +33,16 @@ public class PGoFunction {
 	// The body of the function
 	private Vector<AST> body;
 
-	// Whether this function is a goroutine or process
-	private boolean isGoRoutine;
+	// Whether this function is a goroutine or procese, or a macro, or a
+	// standard function
+	private FunctionType type;
+
+	public static enum FunctionType {
+		GoRoutine, Macro, Normal
+	}
+
+	// The line number at start of function
+	private int line;
 
 	public String getName() {
 		return funcName;
@@ -60,8 +68,12 @@ public class PGoFunction {
 		return body;
 	}
 
-	public boolean getIsGoRoutine() {
-		return isGoRoutine;
+	public FunctionType getType() {
+		return type;
+	}
+
+	public int getLine() {
+		return line;
 	}
 
 	// private constructor
@@ -69,6 +81,7 @@ public class PGoFunction {
 		params = new LinkedHashMap<String, PGoVariable>();
 		vars = new LinkedHashMap<String, PGoVariable>();
 		body = new Vector<AST>();
+		type = FunctionType.Normal;
 	}
 
 	// Converts a procedure from pluscal into a golang function
@@ -85,6 +98,7 @@ public class PGoFunction {
 		}
 
 		ret.body = m.body;
+		ret.line = m.line;
 
 		return ret;
 	}
@@ -99,13 +113,10 @@ public class PGoFunction {
 		}
 
 		ret.body = m.body;
+		ret.type = FunctionType.Macro;
+		ret.line = m.line;
 
 		return ret;
-	}
-
-	// Sets whether this function is a process or goroutine
-	public void setIsGoRoutine(boolean tf) {
-		isGoRoutine = tf;
 	}
 
 	// Converts a process from a multiprocessed pluscal algorithm to a go
@@ -124,6 +135,8 @@ public class PGoFunction {
 		}
 
 		ret.body = p.body;
+		ret.line = p.line;
+		ret.type = FunctionType.GoRoutine;
 
 		return ret;
 	}
