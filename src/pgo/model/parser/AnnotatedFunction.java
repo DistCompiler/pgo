@@ -3,7 +3,6 @@ package pgo.model.parser;
 import java.util.Vector;
 
 import pgo.model.intermediate.PGoFunction;
-import pgo.model.intermediate.PGoPrimitiveType;
 import pgo.model.intermediate.PGoType;
 import pgo.parser.PGoParseException;
 
@@ -13,22 +12,41 @@ import pgo.parser.PGoParseException;
  */
 public class AnnotatedFunction {
 
+	// list of types of the function argument
 	private Vector<PGoType> args;
+
+	// the name of function
 	private String name;
+
+	// the return type of function
 	private PGoType rType;
 
-	public AnnotatedFunction(String[] parts) {
+	// the line number of the annotation
+	private int line;
+
+	protected AnnotatedFunction(String[] parts, int line) throws PGoParseException {
 		args = new Vector<PGoType>();
-		rType = PGoPrimitiveType.inferPrimitiveFromGoTypeName("void");
+		this.line = line;
+		rType = PGoType.VOID;
 		int i = 1;
 		if (!parts[i].contains("()")) {
-			rType = PGoPrimitiveType.inferPrimitiveFromGoTypeName(parts[1]);
+			rType = PGoType.inferFromGoTypeName(parts[1]);
+			if (rType.isUndetermined()) {
+				throw new PGoParseException(
+						"Unknown type \"" + parts[1] + "\" specified for return type in function annotation", line);
+			}
 			++i;
-		} else {
-			name = parts[i].substring(0, parts[1].length() - 2);
 		}
-		for (; i < parts.length; ++i) {
-			args.add(PGoPrimitiveType.inferPrimitiveFromGoTypeName(parts[i]));
+
+		name = parts[i].substring(0, parts[i].length() - 2);
+
+		for (int j=1; i+j < parts.length; ++j) {
+			PGoType atype = PGoType.inferFromGoTypeName(parts[i + j]);
+			if (atype.isUndetermined()) {
+				throw new PGoParseException("Unknown type \"" + parts[i + j]
+						+ "\" specified for parameter " + j + " in function annotation", line);
+			}
+			args.add(atype);
 		}
 	}
 
@@ -44,6 +62,10 @@ public class AnnotatedFunction {
 		return rType;
 	}
 
+	public int getLine() {
+		return line;
+	}
+
 	// Fill the PGoFunction with information of this annotation
 	public void fillFunction(PGoFunction fun) {
 		// TODO Auto-generated method stub
@@ -51,6 +73,8 @@ public class AnnotatedFunction {
 	}
 
 	public static AnnotatedFunction parse(String[] parts, int line) throws PGoParseException {
+		assert (parts[0].toLowerCase().equals("func"));
+
 		boolean error = false;
 		if (parts.length < 2) {
 			error = true;
@@ -65,7 +89,7 @@ public class AnnotatedFunction {
 			throw new PGoParseException("Annotation of \"func\" requires (<rtype>)? <funcname>() (<argtype>)?+",
 					line);
 		}
-		return new AnnotatedFunction(parts);
+		return new AnnotatedFunction(parts, line);
 	}
 
 }

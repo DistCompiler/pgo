@@ -6,6 +6,10 @@ package pgo.model.intermediate;
  */
 public abstract class PGoType {
 
+	// void type
+	public static final PGoType VOID = PGoPrimitiveType.inferPrimitiveFromGoTypeName("void");
+
+	// whether this type is determinable
 	protected boolean isUndetermined = false;
 
 	/**

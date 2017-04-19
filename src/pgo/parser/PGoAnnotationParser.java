@@ -5,6 +5,7 @@ import java.util.LinkedHashMap;
 import java.util.Vector;
 
 import pgo.model.parser.AnnotatedFunction;
+import pgo.model.parser.AnnotatedReturnVariable;
 import pgo.model.parser.AnnotatedVariable;
 import pgo.model.parser.PGoAnnotation;
 
@@ -16,12 +17,12 @@ public class PGoAnnotationParser {
 
 	private LinkedHashMap<String, AnnotatedVariable> vars;
 	private LinkedHashMap<String, AnnotatedFunction> funcs;
-	private Vector<String> retVars;
+	private LinkedHashMap<String, AnnotatedReturnVariable> retVars;
 
 	public PGoAnnotationParser(Vector<PGoAnnotation> pGoAnnotations) throws PGoParseException {
 		vars = new LinkedHashMap<String, AnnotatedVariable>();
 		funcs = new LinkedHashMap<String, AnnotatedFunction>();
-		retVars = new Vector<String>();
+		retVars = new LinkedHashMap<String, AnnotatedReturnVariable>();
 
 		for (PGoAnnotation annot : pGoAnnotations) {
 			parseAnnote(annot);
@@ -43,27 +44,38 @@ public class PGoAnnotationParser {
 			funcs.put(af.getName(), af);
 			break;
 		case "ret":
-			if (parts.length != 2) {
-				throw new PGoParseException(
-						"Annotation attribute \"ret\" expects argument <varname>. None provided", annot.getLine());
-			}
-			retVars.add(parts[1]);
+			AnnotatedReturnVariable ar = AnnotatedReturnVariable.parse(parts, annot.getLine());
+			retVars.put(ar.getName(), ar);
 			break;
 		default:
 			throw new PGoParseException("Unknown annotation attribute \"" + parts[0] + "\"", annot.getLine());
 		}
 	}
 
+	public AnnotatedVariable getAnnotatedVariable(String name) {
+		return vars.get(name);
+	}
+
 	// Returns all the annotated variables
 	public ArrayList<AnnotatedVariable> getAnnotatedVariables() {
-		// TODO Auto-generated method stub
-		return null;
+		return new ArrayList<AnnotatedVariable>(vars.values());
+	}
+
+	public AnnotatedFunction getAnnotatedFunction(String name) {
+		return funcs.get(name);
 	}
 
 	// Returns all the annotated functions
 	public ArrayList<AnnotatedFunction> getAnnotatedFunctions() {
-		// TODO Auto-generated method stub
-		return null;
+		return new ArrayList<AnnotatedFunction>(funcs.values());
 	}
 
+	// Returns all the return variables
+	public ArrayList<AnnotatedReturnVariable> getReturnVariables() {
+		return new ArrayList<AnnotatedReturnVariable>(retVars.values());
+	}
+
+	public AnnotatedReturnVariable getReturnVariable(String name) {
+		return retVars.get(name);
+	}
 }
