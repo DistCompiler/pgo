@@ -2,13 +2,16 @@ package pgo.model.parser;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import org.junit.Test;
 
+import pgo.model.intermediate.PGoPrimitiveType;
 import pgo.model.intermediate.PGoPrimitiveType.PGoInt;
 import pgo.model.intermediate.PGoPrimitiveType.PGoString;
+import pgo.model.intermediate.PGoVariable;
 import pgo.model.parser.AnnotatedVariable.ArgAnnotatedVariable;
 import pgo.model.parser.AnnotatedVariable.ConstAnnotatedVariable;
 import pgo.model.parser.AnnotatedVariable.VarAnnotatedVariable;
@@ -162,5 +165,43 @@ public class AnnotatedVariableTest {
 		} catch (PGoParseException e) {
 
 		}
+	}
+
+	@Test
+	public void testFillVariable() throws PGoParseException {
+		PGoVariable v;
+		AnnotatedVariable av;
+
+		v = PGoVariable.convert("var");
+		av = AnnotatedVariable.parse(new String[] { "const", "int", "var", "50" }, 2);
+		av.fillVariable(v);
+		assertTrue(v.getIsConstant());
+		assertEquals(new PGoPrimitiveType.PGoInt(), v.getType());
+		assertTrue(v.getIsSimpleAssignInit());
+		assertEquals("50", v.getGoVal());
+		assertNull(v.getArgInfo());
+
+		v = PGoVariable.convert("var");
+		av = AnnotatedVariable.parse(new String[] { "arg", "int", "var" }, 2);
+		av.fillVariable(v);
+		assertFalse(v.getIsConstant());
+		assertEquals(new PGoPrimitiveType.PGoInt(), v.getType());
+		assertFalse(v.getIsSimpleAssignInit());
+		assertEquals(av, v.getArgInfo());
+
+		v = PGoVariable.convert("var");
+		av = AnnotatedVariable.parse(new String[] { "arg", "int", "var", "varflag" }, 2);
+		av.fillVariable(v);
+		assertFalse(v.getIsConstant());
+		assertEquals(new PGoPrimitiveType.PGoInt(), v.getType());
+		assertFalse(v.getIsSimpleAssignInit());
+		assertEquals(av, v.getArgInfo());
+
+		v = PGoVariable.convert("var");
+		av = AnnotatedVariable.parse(new String[] { "var", "string", "var" }, 2);
+		av.fillVariable(v);
+		assertFalse(v.getIsConstant());
+		assertEquals(new PGoPrimitiveType.PGoString(), v.getType());
+		assertNull(v.getArgInfo());
 	}
 }

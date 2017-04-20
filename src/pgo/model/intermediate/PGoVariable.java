@@ -5,6 +5,7 @@ import pcal.AST.VarDecl;
 import pcal.PcalParams;
 import pcal.TLAExpr;
 import pgo.model.intermediate.PGoType.PGoUndetermined;
+import pgo.model.parser.AnnotatedVariable.ArgAnnotatedVariable;
 
 /**
  * Intermediate representation of a single pluscal and golang variable.
@@ -34,10 +35,19 @@ public class PGoVariable {
 	// The line number in pluscal
 	private int line;
 
+	// Whether this variable is a constant
+	private boolean isConstant;
+
+	// If this variable is initialized from command line argument, argInfo is
+	// populated with the corresponding information of flagname, or position
+	private ArgAnnotatedVariable argInfo;
+
 	// private constructor. only construct through converting from VarDecl
 	private PGoVariable() {
 		type = new PGoUndetermined();
 		goval = "";
+		isConstant = false;
+		argInfo = null;
 	}
 
 	public String getName() {
@@ -46,6 +56,11 @@ public class PGoVariable {
 
 	public boolean getIsSimpleAssignInit() {
 		return isSimpleAssignInit;
+	}
+
+	// Sets the simple assignment flag
+	public void setIsSimpleAssign(boolean b) {
+		this.isSimpleAssignInit = b;
 	}
 
 	public TLAExpr getPcalInitBlock() {
@@ -58,6 +73,39 @@ public class PGoVariable {
 
 	public void setType(PGoType t) {
 		type = t;
+	}
+
+	public String getGoVal() {
+		return goval;
+	}
+
+	// Sets the value of this variable in go syntax
+	public void setGoVal(String val) {
+		this.goval = val;
+	}
+
+	public boolean getIsConstant() {
+		return isConstant;
+	}
+
+	public void setIsConstant(boolean b) {
+		this.isConstant = b;
+	}
+
+	public ArgAnnotatedVariable getArgInfo() {
+		return argInfo;
+	}
+
+	public void setArgInfo(ArgAnnotatedVariable a) {
+		this.argInfo = a;
+	}
+
+	public int getLine() {
+		return line;
+	}
+
+	public void setLine(int line) {
+		this.line = line;
 	}
 
 	/**

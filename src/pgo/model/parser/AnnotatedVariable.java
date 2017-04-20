@@ -1,5 +1,8 @@
 package pgo.model.parser;
 
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
 import pgo.model.intermediate.PGoType;
 import pgo.model.intermediate.PGoVariable;
 import pgo.parser.PGoParseException;
@@ -84,8 +87,13 @@ public abstract class AnnotatedVariable {
 
 		@Override
 		public void fillVariable(PGoVariable var) {
-			// TODO Auto-generated method stub
-
+			var.setType(this.getType());
+			var.setIsSimpleAssign(true);
+			var.setGoVal(this.getVal());
+			var.setIsConstant(true);
+			
+			Logger.getLogger("PGo Stage Typing").log(Level.INFO, "filling in variable \"" + var.getName()
+					+ "\" based on annotation as a constant from line: " + this.getLine());
 		}
 		
 		public String getVal() {
@@ -121,8 +129,12 @@ public abstract class AnnotatedVariable {
 
 		@Override
 		public void fillVariable(PGoVariable var) {
-			// TODO Auto-generated method stub
+			var.setType(this.getType());
+			var.setIsSimpleAssign(false);
+			var.setArgInfo(this);
 
+			Logger.getLogger("PGo Stage Typing").log(Level.INFO, "filling in variable \"" + var.getName()
+					+ "\" based on annotation as an command line argument from line: " + this.getLine());
 		}
 		
 		public String getArgName() {
@@ -150,8 +162,10 @@ public abstract class AnnotatedVariable {
 
 		@Override
 		public void fillVariable(PGoVariable var) {
-			// TODO Auto-generated method stub
+			var.setType(this.getType());
 
+			Logger.getLogger("PGo Stage Typing").log(Level.INFO, "filling in variable \"" + var.getName()
+					+ "\" based on annotation as a standard variable from line: " + this.getLine());
 		}
 	}
 }

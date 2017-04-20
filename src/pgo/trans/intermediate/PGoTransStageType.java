@@ -30,10 +30,12 @@ public class PGoTransStageType {
 		for (AnnotatedVariable v : p.getAnnotatedVariables()) {
 			PGoVariable var = this.intermediateData.findPGoVariable(v.getName());
 			if (var == null) {
-				// TODO
-			} else {
-				v.fillVariable(var);
+				var = PGoVariable.convert(v.getName());
+				var.setLine(v.getLine());
+				this.intermediateData.globals.put(v.getName(), var);
 			}
+			v.fillVariable(var);
+
 		}
 		
 		for (AnnotatedFunction f : p.getAnnotatedFunctions()) {
