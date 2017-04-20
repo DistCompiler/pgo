@@ -19,13 +19,13 @@ public abstract class AnnotatedVariable {
 	public static final String VAR = "var";
 	
 	// name of variable
-	private String name;
+	protected String name;
 
 	// type of variable
-	private PGoType type;
+	protected PGoType type;
 
 	// the line number of annotation
-	private int line;
+	protected int line;
 
 	protected AnnotatedVariable(String[] parts, int line) throws PGoParseException {
 		if (parts.length >= 3) {
@@ -87,6 +87,7 @@ public abstract class AnnotatedVariable {
 
 		@Override
 		public void fillVariable(PGoVariable var) {
+			assert (var.getName().equals(this.name));
 			var.setType(this.getType());
 			var.setIsSimpleAssign(true);
 			var.setGoVal(this.getVal());
@@ -129,6 +130,7 @@ public abstract class AnnotatedVariable {
 
 		@Override
 		public void fillVariable(PGoVariable var) {
+			assert (var.getName().equals(this.name));
 			var.setType(this.getType());
 			var.setIsSimpleAssign(false);
 			var.setArgInfo(this);
@@ -162,6 +164,7 @@ public abstract class AnnotatedVariable {
 
 		@Override
 		public void fillVariable(PGoVariable var) {
+			assert (var.getName().equals(this.name));
 			var.setType(this.getType());
 
 			Logger.getLogger("PGo Stage Typing").log(Level.INFO, "filling in variable \"" + var.getName()

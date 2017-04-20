@@ -37,6 +37,9 @@ public class PGoFunction {
 	// standard function
 	private FunctionType type;
 
+	// The return type of the function
+	private PGoType rType;
+
 	public static enum FunctionType {
 		GoRoutine, Macro, Normal
 	}
@@ -46,6 +49,21 @@ public class PGoFunction {
 
 	public String getName() {
 		return funcName;
+	}
+
+	// Get the return type
+	public PGoType getReturnType() {
+		return rType;
+	}
+
+	// set the return type
+	public void setReturnType(PGoType t) {
+		this.rType = t;
+	}
+
+	// Updates the name of the function
+	public void setName(String name) {
+		this.funcName = name;
 	}
 
 	public ArrayList<PGoVariable> getParams() {
@@ -82,6 +100,7 @@ public class PGoFunction {
 		vars = new LinkedHashMap<String, PGoVariable>();
 		body = new Vector<AST>();
 		type = FunctionType.Normal;
+		rType = PGoType.UNDETERMINED;
 	}
 
 	// Converts a procedure from pluscal into a golang function
@@ -139,11 +158,6 @@ public class PGoFunction {
 		ret.type = FunctionType.GoRoutine;
 
 		return ret;
-	}
-
-	// Updates the name of the function
-	public void setName(String name) {
-		this.funcName = name;
 	}
 
 }

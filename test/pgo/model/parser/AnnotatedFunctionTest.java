@@ -8,12 +8,17 @@ import java.util.Vector;
 
 import org.junit.Test;
 
+import pcal.AST.PVarDecl;
+import pcal.AST.Procedure;
+import pgo.model.intermediate.PGoFunction;
+import pgo.model.intermediate.PGoPrimitiveType;
 import pgo.model.intermediate.PGoPrimitiveType.PGoBool;
 import pgo.model.intermediate.PGoPrimitiveType.PGoInt;
 import pgo.model.intermediate.PGoPrimitiveType.PGoString;
 import pgo.model.intermediate.PGoPrimitiveType.PGoVoid;
 import pgo.model.intermediate.PGoType;
 import pgo.parser.PGoParseException;
+import pgo.trans.PGoTransException;
 
 public class AnnotatedFunctionTest {
 
@@ -90,5 +95,54 @@ public class AnnotatedFunctionTest {
 		} catch (PGoParseException e) {
 
 		}
+	}
+
+	@Test
+	public void testFillFunction() throws PGoParseException, PGoTransException {
+		PGoFunction f;
+		AnnotatedFunction af;
+
+		Procedure p;
+		PVarDecl pv;
+
+		p = new Procedure();
+		p.params = new Vector();
+		p.decls = new Vector();
+		p.name = "func";
+		f = PGoFunction.convert(p);
+		af = AnnotatedFunction.parse(new String[] { "func", "func()" }, 1);
+		af.fillFunction(f);
+		assertEquals(0, f.getParams().size());
+		assertEquals(PGoType.VOID, f.getReturnType());
+
+		pv = new PVarDecl();
+		pv.var = "Param1";
+		p.params.add(pv);
+		f = PGoFunction.convert(p);
+		try {
+			af.fillFunction(f);
+			fail("Exception expected for parameter size mismatch");
+		} catch (PGoTransException e) {
+
+		}
+
+		af = AnnotatedFunction.parse(new String[] { "func", "void", "func()", "int" }, 2);
+		af.fillFunction(f);
+		assertEquals(1, f.getParams().size());
+		assertEquals(new PGoPrimitiveType.PGoInt(), f.getParam("Param1").getType());
+		assertEquals(PGoType.VOID, f.getReturnType());
+
+		pv = new PVarDecl();
+		pv.var = "Param2";
+		p.params.add(pv);
+		f = PGoFunction.convert(p);
+
+		af = AnnotatedFunction.parse(new String[] { "func", "boolean", "func()", "int", "string" }, 2);
+		af.fillFunction(f);
+		assertEquals(2, f.getParams().size());
+		assertEquals(new PGoPrimitiveType.PGoInt(), f.getParam("Param1").getType());
+		assertEquals(new PGoPrimitiveType.PGoString(), f.getParam("Param2").getType());
+		assertEquals(new PGoPrimitiveType.PGoBool(), f.getReturnType());
+
 	}
 }

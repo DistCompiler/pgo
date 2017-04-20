@@ -5,6 +5,7 @@ import java.util.Vector;
 import pgo.model.intermediate.PGoFunction;
 import pgo.model.intermediate.PGoType;
 import pgo.parser.PGoParseException;
+import pgo.trans.PGoTransException;
 
 /**
  * Represents the information of a function from the pluscal annotations.
@@ -67,9 +68,18 @@ public class AnnotatedFunction {
 	}
 
 	// Fill the PGoFunction with information of this annotation
-	public void fillFunction(PGoFunction fun) {
-		// TODO Auto-generated method stub
-
+	public void fillFunction(PGoFunction fun) throws PGoTransException {
+		assert (fun.getName().equals(name));
+		fun.setReturnType(this.rType);
+		if (fun.getParams().size() != this.args.size()) {
+			throw new PGoTransException(
+					"Annotation on line " + this.line + " for function \"" + fun.getName() + "\" has "
+							+ this.args.size() + " parameters while actual function has " + fun.getParams().size(),
+					fun.getLine());
+		}
+		for (int i = 0; i < this.args.size(); i++) {
+			fun.getParams().get(i).setType(this.args.get(i));
+		}
 	}
 
 	public static AnnotatedFunction parse(String[] parts, int line) throws PGoParseException {

@@ -4,7 +4,6 @@ import pcal.AST.PVarDecl;
 import pcal.AST.VarDecl;
 import pcal.PcalParams;
 import pcal.TLAExpr;
-import pgo.model.intermediate.PGoType.PGoUndetermined;
 import pgo.model.parser.AnnotatedVariable.ArgAnnotatedVariable;
 
 /**
@@ -44,7 +43,7 @@ public class PGoVariable {
 
 	// private constructor. only construct through converting from VarDecl
 	private PGoVariable() {
-		type = new PGoUndetermined();
+		type = PGoType.UNDETERMINED;
 		goval = "";
 		isConstant = false;
 		argInfo = null;
