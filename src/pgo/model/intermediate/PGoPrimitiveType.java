@@ -97,6 +97,22 @@ public abstract class PGoPrimitiveType extends PGoType {
 	}
 
 	/**
+	 * Represents a dynamically typed variable in Go (the go interface{}).
+	 *
+	 */
+	public static class PGoInterface extends PGoPrimitiveType {
+
+		// TODO conversion to go
+		private static final String goType = "interface";
+
+		@Override
+		public String toGoTypeName() {
+			return goType;
+		}
+
+	}
+
+	/**
 	 * Attempts to infer the type from a given type name
 	 * 
 	 * @param string
@@ -123,7 +139,11 @@ public abstract class PGoPrimitiveType extends PGoType {
 			return new PGoString();
 		case "void":
 			return new PGoVoid();
+		case "interface":
+		case "interface{}":
+			return new PGoInterface();
 		}
+
 		return new PGoUndetermined();
 	}
 

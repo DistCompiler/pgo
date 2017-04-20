@@ -43,11 +43,14 @@ Solutions == { queens \in [1..N -> 1..N] : IsSolution(queens) }
 (***************************************************************************)
 
 (* --algorithm QueensPluscalProcedure \** for pgo @PGo{ arg int N }@PGo
+     (** @PGo{ var Set[chan[int]] todo }@PGo
+         @PGo{ var Set[chan[int]] sols }@PGo **)
      variables
        todo = { << >> };
        sols = {};
        rVal; \** for pgo @PGo{ ret rVal }@PGo
 
+     (** @PGo{ func bool PgoAttacks() chan[int] int int }@PGo **)
      procedure PgoAttacks(queens,i,j) begin
        attlabl: rVal := \/ queens[i] = queens[j]                \** same column
                \/ queens[i] - queens[j] = i - j         \** first diagonal
@@ -58,6 +61,10 @@ Solutions == { queens \in [1..N -> 1..N] : IsSolution(queens) }
      begin
 nxtQ:  while todo # {}
        do
+         (** @PGo{ var chan[int] queens }@PGo
+             @PGo{ var int nexQ }@PGo
+             @PGo{ var Set[int] cols }@PGo
+             @PGo{ var Set[chan[int]] exts }@PGo **)
          with queens \in todo,
               nxtQ = Len(queens) + 1,
               cols = { c \in 1..N : ~ \E i \in 1 .. Len(queens) :

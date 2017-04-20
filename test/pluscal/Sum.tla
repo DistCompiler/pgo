@@ -10,13 +10,15 @@ CONSTANT MAXINT, RUNS, N
  *)
 
 --algorithm Sum  {
+\** @PGo{ var []chan[[2]interface] network }@PGo
 variables network = [i \in 1 .. N+1 |-> <<>>];
 
-\** @PGo{ func SendTo() uint64 uint64 []chan[string] }@PGo
+\** @PGo{ func SendTo() uint64 uint64 interface }@PGo
 macro SendTo(from, to, msg) {
     network[to] := Append(network[to], <<from, msg>>);
 }
 
+\** @PGo{ func Recv() uint64 uint64 interface }@PGo
 macro Recv(to, id, msg) {
     await network[to] # <<>>;
     id := Head(network[to])[1];
@@ -24,7 +26,15 @@ macro Recv(to, id, msg) {
     network[to] := Tail(network[to]);
 }    
 
+\** @PGo{ proc uint64 Client }@PGo
 process (Client \in 1..N) 
+  (** @PGo{ var uint64 a_init }@PGo
+      @PGo{ var uint64 b_init }@PGo
+      @PGo{ var uint64 runs }@PGo
+      @PGo{ var uint64 Client.id }@PGo
+      @PGo{ var uint64 Client.msg }@PGo
+      @PGo{ var uint64 sum }@PGo
+  **)   
   variable a_init, b_init, runs=0, id, msg, sum;
   {
     cl: while (runs < RUNS) {
@@ -45,7 +55,12 @@ process (Client \in 1..N)
     }  
 }
 
+\** @PGo{ proc uint64 Server }@PGo
 process (Server = N+1)
+  \** @PGo{ var uint64 a }@PGo
+  \** @PGo{ var uint64 b }@PGo
+  \** @PGo{ var uint64 Server.id }@PGo
+  \** @PGo{ var [2]uint64 Server.msg }@PGo
   variable a, b, id, msg;
   {
   sr:

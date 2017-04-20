@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Vector;
 
+import pgo.model.intermediate.PGoContainerType;
 import pgo.model.intermediate.PGoPrimitiveType;
 import pgo.model.parser.PGoAnnotation;
 
@@ -20,7 +21,11 @@ public class FastMutexPluscalParserTester extends PGoPluscalParserTesterBase {
 	public Vector<PGoAnnotation> getAnnotations() {
 		Vector<PGoAnnotation> v = new Vector<PGoAnnotation>();
 		v.add(new PGoAnnotation("arg natural N numT", 6));
-		v.add(new PGoAnnotation("var int x", 8));
+		v.add(new PGoAnnotation("var natural x", 8));
+		v.add(new PGoAnnotation("var natural y", 9));
+		v.add(new PGoAnnotation("var []bool b", 10));
+		v.add(new PGoAnnotation("proc natural Proc", 11));
+		v.add(new PGoAnnotation("var natural j", 12));
 		return v;
 	}
 
@@ -40,13 +45,24 @@ public class FastMutexPluscalParserTester extends PGoPluscalParserTesterBase {
 	@Override
 	public List<VarAnnotatedVariableData> getVarAnnotatedVariables() {
 		ArrayList<VarAnnotatedVariableData> ret = new ArrayList<VarAnnotatedVariableData>();
-		ret.add(new VarAnnotatedVariableData(new PGoPrimitiveType.PGoInt(), "x", 8));
+		ret.add(new VarAnnotatedVariableData(new PGoPrimitiveType.PGoNatural(), "x", 8));
+		ret.add(new VarAnnotatedVariableData(new PGoPrimitiveType.PGoNatural(), "y", 9));
+		ret.add(new VarAnnotatedVariableData(new PGoContainerType.PGoSlice("bool"), "b", 10));
+		ret.add(new VarAnnotatedVariableData(new PGoPrimitiveType.PGoNatural(), "j", 12));
 		return ret;
 	}
 
 	@Override
 	public int getNumberAnnotatedVariables() {
-		return 2;
+		return 5;
+	}
+
+	@Override
+	public List<AnnotatedProcessData> getAnnotatedProcesses() {
+		ArrayList<AnnotatedProcessData> ret = new ArrayList<AnnotatedProcessData>();
+		ret.add(new AnnotatedProcessData("Proc", 11, new PGoPrimitiveType.PGoNatural()));
+		
+		return ret;
 	}
 
 }

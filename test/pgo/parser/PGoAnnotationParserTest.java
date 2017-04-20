@@ -32,8 +32,8 @@ public class PGoAnnotationParserTest {
 		annots.add(new PGoAnnotation("func bar() map[string]int", 25));
 		annots.add(new PGoAnnotation("ret ret", 6));
 		annots.add(new PGoAnnotation("ret fRet", 50));
-		annots.add(new PGoAnnotation("proc Client int", 100));
-		annots.add(new PGoAnnotation("proc Server string", 150));
+		annots.add(new PGoAnnotation("proc int Client", 100));
+		annots.add(new PGoAnnotation("proc string Server", 150));
 
 		PGoAnnotationParser parser = new PGoAnnotationParser(annots);
 

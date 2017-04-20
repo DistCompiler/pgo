@@ -52,7 +52,8 @@ public abstract class PGoPluscalParserTesterBase extends PGoPluscalTesterBase {
 
 	// get total number of annotated variables
 	public int getNumberAnnotatedVariables() {
-		return 0;
+		return getConstAnnotatedVariables().size() + getArgAnnotatedVariables().size()
+				+ getVarAnnotatedVariables().size();
 	}
 
 	// Stores the expected annotation const ariable data for testing
@@ -122,5 +123,103 @@ public abstract class PGoPluscalParserTesterBase extends PGoPluscalTesterBase {
 				this.name = name;
 				this.line = line;
 			}
+	}
+
+	// Gets the number of annotated functions for the algorithm
+	public int getNumberAnnotatedFunctions() {
+		return getAnnotatedFunctions().size();
+	}
+
+	// Gets the list of annotated functions we expect
+	public List<AnnotatedFunctionData> getAnnotatedFunctions() {
+		return new ArrayList<AnnotatedFunctionData>();
+	}
+
+	/**
+	 * Stores the expected data of annotated functions
+	 *
+	 */
+	public static class AnnotatedFunctionData {
+
+		// the name of the function
+		public final String name;
+
+		// the line number of the annotation
+		public final int line;
+
+		// the return type of function
+		public final PGoType rType;
+
+		// the types of arguments to the function
+		public final Vector<PGoType> argTypes;
+
+		public AnnotatedFunctionData(String name, int line, PGoType rType, Vector<PGoType> argTypes) {
+			this.name = name;
+			this.line = line;
+			this.rType = rType;
+			this.argTypes = argTypes;
+		}
+
+	}
+
+	// get the number of global variables used for function return in pluscal
+	// algorithm
+	public int getNumberReturnVariables() {
+		return getReturnVariables().size();
+	}
+
+	// get list of all expected variables used for function return value in
+	// pluscal algorithm
+	public List<ReturnVariableData> getReturnVariables() {
+		return new ArrayList<ReturnVariableData>();
+	}
+
+	/**
+	 * Stores the expected data of annotated variables used for function return
+	 * 
+	 */
+	public static class ReturnVariableData {
+
+		// the name of the variable
+		public final String name;
+		// the line number of the annotation
+		public final int line;
+
+		public ReturnVariableData(String name, int line) {
+			this.name = name;
+			this.line = line;
+		}
+
+	}
+
+	// get the number of processes annotated in pluscal algorithm
+	public int getNumberAnnotatedProcesses() {
+		return getAnnotatedProcesses().size();
+	}
+
+	// get the expected process annotation data
+	public List<AnnotatedProcessData> getAnnotatedProcesses() {
+		return new ArrayList<AnnotatedProcessData>();
+	}
+
+	/**
+	 * Stores the expected data of annotated processes
+	 * 
+	 */
+	public static class AnnotatedProcessData {
+
+		// the name of the process
+		public final String name;
+		// the line number of the annotation
+		public final int line;
+		// the PGoType of the id of the process
+		public final PGoType idType;
+
+		public AnnotatedProcessData(String name, int line, PGoType idType) {
+			this.name = name;
+			this.line = line;
+			this.idType = idType;
+		}
+
 	}
 }

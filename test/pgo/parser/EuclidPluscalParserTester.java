@@ -21,6 +21,8 @@ public class EuclidPluscalParserTester extends PGoPluscalParserTesterBase {
 		Vector<PGoAnnotation> v = new Vector<PGoAnnotation>();
 		v.add(new PGoAnnotation("arg int N", 6));
 		v.add(new PGoAnnotation("var int u", 7));
+		v.add(new PGoAnnotation("var int v", 8));
+		v.add(new PGoAnnotation("var int v_init", 9));
 		return v;
 	}
 
@@ -41,12 +43,9 @@ public class EuclidPluscalParserTester extends PGoPluscalParserTesterBase {
 	public List<VarAnnotatedVariableData> getVarAnnotatedVariables() {
 		ArrayList<VarAnnotatedVariableData> ret = new ArrayList<VarAnnotatedVariableData>();
 		ret.add(new VarAnnotatedVariableData(new PGoPrimitiveType.PGoInt(), "u", 7));
+		ret.add(new VarAnnotatedVariableData(new PGoPrimitiveType.PGoInt(), "v", 8));
+		ret.add(new VarAnnotatedVariableData(new PGoPrimitiveType.PGoInt(), "v_init", 9));
 		return ret;
-	}
-
-	@Override
-	public int getNumberAnnotatedVariables() {
-		return 2;
 	}
 
 }

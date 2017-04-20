@@ -84,9 +84,9 @@ public class PGoContainerTypeTest {
 		pc = (PGoChan) pt;
 		assertFalse(pc.isUndetermined());
 		assertTrue(pc.getElementType() instanceof PGoInt);
-		assertEquals(s, pc.toGoTypeName());
+		assertEquals(s.toLowerCase(), pc.toGoTypeName().toLowerCase());
 
-		s = "chan[chan[bool]]";
+		s = "Chan[chan[bool]]";
 		pt = PGoContainerType.inferContainerFromGoTypeName(s);
 		assertTrue(pt instanceof PGoChan);
 		pc = (PGoChan) pt;
@@ -95,7 +95,7 @@ public class PGoContainerTypeTest {
 		pc = (PGoChan) pc.getElementType();
 		assertFalse(pc.isUndetermined());
 		assertTrue(pc.getElementType() instanceof PGoBool);
-		assertEquals(s, pt.toGoTypeName());
+		assertEquals(s.toLowerCase(), pt.toGoTypeName().toLowerCase());
 
 		s = "chan[[]int]";
 		pt = PGoContainerType.inferContainerFromGoTypeName(s);
@@ -103,7 +103,7 @@ public class PGoContainerTypeTest {
 		pc = (PGoChan) pt;
 		assertFalse(pc.isUndetermined());
 		assertTrue(pc.getElementType() instanceof PGoSlice);
-		assertEquals(s, pt.toGoTypeName());
+		assertEquals(s.toLowerCase(), pt.toGoTypeName().toLowerCase());
 
 		s = "chan[a]";
 		pt = PGoContainerType.inferContainerFromGoTypeName(s);
@@ -120,15 +120,15 @@ public class PGoContainerTypeTest {
 		PGoType pt;
 		PGoSet ps;
 
-		s = "set[]int";
+		s = "set[int]";
 		pt = PGoContainerType.inferContainerFromGoTypeName(s);
 		assertTrue(pt instanceof PGoSet);
 		ps = (PGoSet) pt;
 		assertFalse(ps.isUndetermined());
 		assertTrue(ps.getElementType() instanceof PGoInt);
-		assertEquals(s, ps.toGoTypeName());
+		assertEquals(s.toLowerCase(), pt.toGoTypeName().toLowerCase());
 
-		s = "set[]set[]bool";
+		s = "set[set[bool]]";
 		pt = PGoContainerType.inferContainerFromGoTypeName(s);
 		assertTrue(pt instanceof PGoSet);
 		ps = (PGoSet) pt;
@@ -137,21 +137,21 @@ public class PGoContainerTypeTest {
 		ps = (PGoSet) ps.getElementType();
 		assertFalse(ps.isUndetermined());
 		assertTrue(ps.getElementType() instanceof PGoBool);
-		assertEquals(s, pt.toGoTypeName());
+		assertEquals(s.toLowerCase(), pt.toGoTypeName().toLowerCase());
 
-		s = "set[][]int";
+		s = "Set[[]int]";
 		pt = PGoContainerType.inferContainerFromGoTypeName(s);
 		assertTrue(pt instanceof PGoSet);
 		ps = (PGoSet) pt;
 		assertFalse(ps.isUndetermined());
 		assertTrue(ps.getElementType() instanceof PGoSlice);
-		assertEquals(s, pt.toGoTypeName());
+		assertEquals(s.toLowerCase(), pt.toGoTypeName().toLowerCase());
 
-		s = "set[]a";
+		s = "set[a]";
 		pt = PGoContainerType.inferContainerFromGoTypeName(s);
 		assertTrue(pt instanceof PGoUndetermined);
 
-		s = "set[]set[]a";
+		s = "set[set[a]]";
 		pt = PGoContainerType.inferContainerFromGoTypeName(s);
 		assertTrue(pt instanceof PGoUndetermined);
 	}
@@ -169,9 +169,9 @@ public class PGoContainerTypeTest {
 		assertFalse(pm.isUndetermined());
 		assertTrue(pm.getKeyType() instanceof PGoInt);
 		assertTrue(pm.getElementType() instanceof PGoBool);
-		assertEquals(s, pm.toGoTypeName());
+		assertEquals(s.toLowerCase(), pm.toGoTypeName().toLowerCase());
 
-		s = "map[int]map[int]bool";
+		s = "Map[int]map[int]bool";
 		pt = PGoContainerType.inferContainerFromGoTypeName(s);
 		assertTrue(pt instanceof PGoMap);
 		pm = (PGoMap) pt;
@@ -182,7 +182,7 @@ public class PGoContainerTypeTest {
 		assertFalse(pm.isUndetermined());
 		assertTrue(pm.getKeyType() instanceof PGoInt);
 		assertTrue(pm.getElementType() instanceof PGoBool);
-		assertEquals(s, pt.toGoTypeName());
+		assertEquals(s.toLowerCase(), pt.toGoTypeName().toLowerCase());
 
 		s = "map[String][]int";
 		pt = PGoContainerType.inferContainerFromGoTypeName(s);
@@ -191,7 +191,7 @@ public class PGoContainerTypeTest {
 		assertFalse(pm.isUndetermined());
 		assertTrue(pm.getKeyType() instanceof PGoString);
 		assertTrue(pm.getElementType() instanceof PGoSlice);
-		assertEquals(s, pt.toGoTypeName());
+		assertEquals(s.toLowerCase(), pt.toGoTypeName().toLowerCase());
 
 		s = "map[int]a";
 		pt = PGoContainerType.inferContainerFromGoTypeName(s);

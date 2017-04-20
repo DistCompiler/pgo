@@ -4,7 +4,11 @@ CONSTANT N
 
 (*
 --algorithm Euclid {    \** @PGo{ arg int N }@PGo
-  variables u = 24; \** @PGo{ var int u }@PGo
+  (** @PGo{ var int u }@PGo
+      @PGo{ var int v }@PGo
+      @PGo{ var int v_init }@PGo
+  **)
+  variables u = 24;
             v \in 1 .. N; 
             v_init = v;
   {

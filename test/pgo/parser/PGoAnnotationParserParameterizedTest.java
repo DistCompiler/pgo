@@ -12,12 +12,18 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
+import pgo.model.parser.AnnotatedFunction;
+import pgo.model.parser.AnnotatedProcess;
+import pgo.model.parser.AnnotatedReturnVariable;
 import pgo.model.parser.AnnotatedVariable;
 import pgo.model.parser.AnnotatedVariable.ArgAnnotatedVariable;
 import pgo.model.parser.AnnotatedVariable.ConstAnnotatedVariable;
 import pgo.model.parser.AnnotatedVariable.VarAnnotatedVariable;
+import pgo.parser.PGoPluscalParserTesterBase.AnnotatedFunctionData;
+import pgo.parser.PGoPluscalParserTesterBase.AnnotatedProcessData;
 import pgo.parser.PGoPluscalParserTesterBase.ArgAnnotatedVariableData;
 import pgo.parser.PGoPluscalParserTesterBase.ConstAnnotatedVariableData;
+import pgo.parser.PGoPluscalParserTesterBase.ReturnVariableData;
 import pgo.parser.PGoPluscalParserTesterBase.VarAnnotatedVariableData;
 import pgo.parser.PcalParser.ParsedPcal;
 
@@ -81,6 +87,36 @@ public class PGoAnnotationParserParameterizedTest {
 			assertEquals(tv.name, v.getName());
 			assertEquals(tv.type.getClass(), v.getType().getClass());
 			assertEquals(tv.line, v.getLine());
+		}
+		
+		assertEquals(tester.getNumberAnnotatedFunctions(), pa.getAnnotatedFunctions().size());
+		for (AnnotatedFunctionData tf : tester.getAnnotatedFunctions()) {
+			AnnotatedFunction f = pa.getAnnotatedFunction(tf.name);
+			assertNotNull(f);
+			assertEquals(tf.name, f.getName());
+			assertEquals(tf.line, f.getLine());
+			assertEquals(tf.rType.getClass(), f.getReturnType().getClass());
+			assertEquals(tf.argTypes.size(), f.getArgTypes().size());
+			for (int i = 0; i < tf.argTypes.size(); i++) {
+				assertEquals(tf.argTypes.get(i).getClass(), f.getArgTypes().get(i).getClass());
+			}
+		}
+		
+		assertEquals(tester.getNumberReturnVariables(), pa.getReturnVariables().size());
+		for (ReturnVariableData tr : tester.getReturnVariables()) {
+			AnnotatedReturnVariable r = pa.getReturnVariable(tr.name);
+			assertNotNull(r);
+			assertEquals(tr.name, r.getName());
+			assertEquals(tr.line, r.getLine());
+		}
+		
+		assertEquals(tester.getNumberAnnotatedProcesses(), pa.getAnnotatedProcesses().size());
+		for (AnnotatedProcessData tp : tester.getAnnotatedProcesses()) {
+			AnnotatedProcess ap = pa.getAnnotatedProcess(tp.name);
+			assertNotNull(ap);
+			assertEquals(tp.name, ap.getName());
+			assertEquals(tp.line, ap.getLine());
+			assertEquals(tp.idType.getClass(), ap.getIdType().getClass());
 		}
 	}
 }

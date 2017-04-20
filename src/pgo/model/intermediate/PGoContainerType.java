@@ -92,7 +92,7 @@ public abstract class PGoContainerType extends PGoType {
 
 		@Override
 		public String toGoTypeName() {
-			return "set[]" + eType.toGoTypeName();
+			return "set[" + eType.toGoTypeName() + "]";
 		}
 
 	}
@@ -149,7 +149,7 @@ public abstract class PGoContainerType extends PGoType {
 		}
 
 		// matches chan[<type>]
-		rgex = Pattern.compile("chan\\[(.+)\\]");
+		rgex = Pattern.compile("(?i)chan\\[(.+)\\]");
 		m = rgex.matcher(s);
 		if (m.matches()) {
 			ret = new PGoChan(m.group(1));
@@ -159,7 +159,7 @@ public abstract class PGoContainerType extends PGoType {
 		}
 		
 		// matches set[]<type>
-		rgex = Pattern.compile("set\\[\\](.+)");
+		rgex = Pattern.compile("(?i)set\\[(.+)\\]");
 		m = rgex.matcher(s);
 		if (m.matches()) {
 			ret = new PGoSet(m.group(1));
@@ -169,7 +169,7 @@ public abstract class PGoContainerType extends PGoType {
 		}
 
 		// matches map[<type>]<type>
-		rgex = Pattern.compile("map\\[(.+?)\\](.+)");
+		rgex = Pattern.compile("(?i)map\\[(.+?)\\](.+)");
 		m = rgex.matcher(s);
 		if (m.matches()) {
 			ret = new PGoMap(m.group(1), m.group(2));

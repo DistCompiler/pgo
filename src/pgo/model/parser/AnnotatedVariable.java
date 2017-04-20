@@ -7,6 +7,7 @@ import pgo.parser.PGoParseException;
 /**
  * Represents the information of a variable from annotations The
  * AnnotatedVariable class is the base class
+ * 
  */
 public abstract class AnnotatedVariable {
 

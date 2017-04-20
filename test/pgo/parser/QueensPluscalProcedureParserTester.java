@@ -4,7 +4,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Vector;
 
+import pgo.model.intermediate.PGoContainerType;
 import pgo.model.intermediate.PGoPrimitiveType;
+import pgo.model.intermediate.PGoType;
 import pgo.model.parser.PGoAnnotation;
 
 /**
@@ -20,7 +22,14 @@ public class QueensPluscalProcedureParserTester extends PGoPluscalParserTesterBa
 	public Vector<PGoAnnotation> getAnnotations() {
 		Vector<PGoAnnotation> v = new Vector<PGoAnnotation>();
 		v.add(new PGoAnnotation("arg int N", 45));
-		v.add(new PGoAnnotation("ret rVal", 49));
+		v.add(new PGoAnnotation("var Set[chan[int]] todo", 46));
+		v.add(new PGoAnnotation("var Set[chan[int]] sols", 47));
+		v.add(new PGoAnnotation("ret rVal", 51));
+		v.add(new PGoAnnotation("func bool PgoAttacks() chan[int] int int", 53));
+		v.add(new PGoAnnotation("var chan[int] queens", 64));
+		v.add(new PGoAnnotation("var int nexQ", 65));
+		v.add(new PGoAnnotation("var Set[int] cols", 66));
+		v.add(new PGoAnnotation("var Set[chan[int]] exts", 67));
 		return v;
 	}
 
@@ -38,7 +47,35 @@ public class QueensPluscalProcedureParserTester extends PGoPluscalParserTesterBa
 	}
 
 	@Override
-	public int getNumberAnnotatedVariables() {
-		return 1;
+	public List<VarAnnotatedVariableData> getVarAnnotatedVariables() {
+		ArrayList<VarAnnotatedVariableData> ret = new ArrayList<VarAnnotatedVariableData>();
+		ret.add(new VarAnnotatedVariableData(new PGoContainerType.PGoSet("chan[int]"), "todo", 46));
+		ret.add(new VarAnnotatedVariableData(new PGoContainerType.PGoSet("chan[int]"), "sols", 47));
+		ret.add(new VarAnnotatedVariableData(new PGoContainerType.PGoChan("int"), "queens", 64));
+		ret.add(new VarAnnotatedVariableData(new PGoPrimitiveType.PGoInt(), "nexQ", 65));
+		ret.add(new VarAnnotatedVariableData(new PGoContainerType.PGoSet("int"), "cols", 66));
+		ret.add(new VarAnnotatedVariableData(new PGoContainerType.PGoSet("chan[int]"), "exts", 67));
+
+		return ret;
+	}
+
+	@Override
+	public List<ReturnVariableData> getReturnVariables() {
+		ArrayList<ReturnVariableData> ret = new ArrayList<ReturnVariableData>();
+		ret.add(new ReturnVariableData("rVal", 51));
+
+		return ret;
+	}
+
+	@Override
+	public List<AnnotatedFunctionData> getAnnotatedFunctions() {
+		ArrayList<AnnotatedFunctionData> ret = new ArrayList<AnnotatedFunctionData>();
+		Vector<PGoType> args = new Vector<PGoType>();
+		args.add(new PGoContainerType.PGoChan("int"));
+		args.add(new PGoPrimitiveType.PGoInt());
+		args.add(new PGoPrimitiveType.PGoInt());
+		ret.add(new AnnotatedFunctionData("PgoAttacks", 53, new PGoPrimitiveType.PGoBool(), args));
+
+		return ret;
 	}
 }
