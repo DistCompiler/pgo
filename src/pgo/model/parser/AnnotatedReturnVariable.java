@@ -1,10 +1,12 @@
 package pgo.model.parser;
 
+import java.util.Collection;
 import java.util.LinkedHashMap;
 
 import pgo.model.intermediate.PGoFunction;
 import pgo.model.intermediate.PGoVariable;
 import pgo.parser.PGoParseException;
+import pgo.util.PcalASTUtil;
 
 /**
  * Represents the annotation that marks a variable as used to return values in
@@ -51,9 +53,18 @@ public class AnnotatedReturnVariable {
 	 * and creating a local variable for each function that uses it, typing it
 	 * according to the function return type.
 	 */
-	public void fixUp(LinkedHashMap<String, PGoVariable> globals, LinkedHashMap<String, PGoFunction> funcs) {
-		// TODO Auto-generated method stub
-
+	public void fixUp(LinkedHashMap<String, PGoVariable> globals, Collection<PGoFunction> funcs) {
+		globals.remove(name);
+		for (PGoFunction f : funcs) {
+			if (f.getVariable(name) == null) {
+				if (PcalASTUtil.containsAssignmentToVar(f.getBody(), name)) {
+					PGoVariable retVar = PGoVariable.convert(name, f.getReturnType());
+					f.addVariable(retVar);
+				}
+			} else {
+				f.getVariable(name).setType(f.getReturnType());
+			}
+		}
 	}
 
 }

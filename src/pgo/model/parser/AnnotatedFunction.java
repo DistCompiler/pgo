@@ -1,9 +1,11 @@
 package pgo.model.parser;
 
+import java.util.List;
 import java.util.Vector;
 
 import pgo.model.intermediate.PGoFunction;
 import pgo.model.intermediate.PGoType;
+import pgo.model.intermediate.PGoVariable;
 import pgo.parser.PGoParseException;
 import pgo.trans.PGoTransException;
 
@@ -68,7 +70,7 @@ public class AnnotatedFunction {
 	}
 
 	// Fill the PGoFunction with information of this annotation
-	public void fillFunction(PGoFunction fun) throws PGoTransException {
+	public void fillFunction(PGoFunction fun, List<AnnotatedReturnVariable> rets) throws PGoTransException {
 		assert (fun.getName().equals(name));
 		fun.setReturnType(this.rType);
 		if (fun.getParams().size() != this.args.size()) {
@@ -79,6 +81,15 @@ public class AnnotatedFunction {
 		}
 		for (int i = 0; i < this.args.size(); i++) {
 			fun.getParams().get(i).setType(this.args.get(i));
+		}
+
+		for (AnnotatedReturnVariable rv : rets) {
+			PGoVariable retfv = fun.getVariable(rv.getName());
+			if (retfv != null) {
+				retfv.setType(this.rType);
+				break; // we only support one return value for now. TODO support
+						// multiple return types
+			}
 		}
 	}
 

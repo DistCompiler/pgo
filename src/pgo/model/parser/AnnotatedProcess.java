@@ -2,7 +2,9 @@ package pgo.model.parser;
 
 import pgo.model.intermediate.PGoFunction;
 import pgo.model.intermediate.PGoType;
+import pgo.model.intermediate.PGoVariable;
 import pgo.parser.PGoParseException;
+import pgo.trans.PGoTransException;
 
 /**
  * Represents the annotation that marks a process
@@ -55,11 +57,22 @@ public class AnnotatedProcess {
 	 * Uses the information in the current annotation regarding a process to
 	 * fill in information of the corresponding function.
 	 * 
+	 * This takes the corresponding function and makes sure the self parameter
+	 * is of the correct type
+	 * 
 	 * @param fun
+	 * @throws PGoTransException
 	 */
-	public void fillFunction(PGoFunction fun) {
-		// TODO Auto-generated method stub
+	public void fillFunction(PGoFunction fun) throws PGoTransException {
+		assert (fun.getName().equals(name));
 
+		PGoVariable v = fun.getParam(PGoVariable.processIdArg().getName());
+		if (v == null || fun.getType() != PGoFunction.FunctionType.GoRoutine) {
+			throw new PGoTransException("Got annotation on line " + line + " for function \"" + name
+					+ "\" as a process goroutine function, but actually isn't", fun.getLine());
+		}
+
+		v.setType(idType);
 	}
 
 }

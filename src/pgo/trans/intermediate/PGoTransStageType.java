@@ -47,11 +47,11 @@ public class PGoTransStageType {
 							f.getLine());
 			}
 
-			f.fillFunction(fun);
+			f.fillFunction(fun, p.getReturnVariables());
 		}
 
 		for (AnnotatedReturnVariable r : p.getReturnVariables()) {
-			r.fixUp(this.intermediateData.globals, this.intermediateData.funcs);
+			r.fixUp(this.intermediateData.globals, this.intermediateData.funcs.values());
 		}
 
 		for (AnnotatedProcess prcs : p.getAnnotatedProcesses()) {

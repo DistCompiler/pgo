@@ -4,6 +4,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Vector;
 
 import org.junit.Test;
@@ -101,9 +103,9 @@ public class AnnotatedFunctionTest {
 	public void testFillFunction() throws PGoParseException, PGoTransException {
 		PGoFunction f;
 		AnnotatedFunction af;
-
 		Procedure p;
 		PVarDecl pv;
+		List<AnnotatedReturnVariable> rvs = new ArrayList<AnnotatedReturnVariable>();
 
 		p = new Procedure();
 		p.params = new Vector();
@@ -111,7 +113,7 @@ public class AnnotatedFunctionTest {
 		p.name = "func";
 		f = PGoFunction.convert(p);
 		af = AnnotatedFunction.parse(new String[] { "func", "func()" }, 1);
-		af.fillFunction(f);
+		af.fillFunction(f, rvs);
 		assertEquals(0, f.getParams().size());
 		assertEquals(PGoType.VOID, f.getReturnType());
 
@@ -120,14 +122,14 @@ public class AnnotatedFunctionTest {
 		p.params.add(pv);
 		f = PGoFunction.convert(p);
 		try {
-			af.fillFunction(f);
+			af.fillFunction(f, rvs);
 			fail("Exception expected for parameter size mismatch");
 		} catch (PGoTransException e) {
 
 		}
 
 		af = AnnotatedFunction.parse(new String[] { "func", "void", "func()", "int" }, 2);
-		af.fillFunction(f);
+		af.fillFunction(f, rvs);
 		assertEquals(1, f.getParams().size());
 		assertEquals(new PGoPrimitiveType.PGoInt(), f.getParam("Param1").getType());
 		assertEquals(PGoType.VOID, f.getReturnType());
@@ -138,11 +140,22 @@ public class AnnotatedFunctionTest {
 		f = PGoFunction.convert(p);
 
 		af = AnnotatedFunction.parse(new String[] { "func", "boolean", "func()", "int", "string" }, 2);
-		af.fillFunction(f);
+		af.fillFunction(f, rvs);
 		assertEquals(2, f.getParams().size());
 		assertEquals(new PGoPrimitiveType.PGoInt(), f.getParam("Param1").getType());
 		assertEquals(new PGoPrimitiveType.PGoString(), f.getParam("Param2").getType());
 		assertEquals(new PGoPrimitiveType.PGoBool(), f.getReturnType());
-
+		
+		rvs.add(AnnotatedReturnVariable.parse(new String[] {"ret", "ret"}, 2));
+		pv = new PVarDecl();
+		pv.var = "ret";
+		p.decls.add(pv);
+		f = PGoFunction.convert(p);
+		af.fillFunction(f, rvs);
+		assertEquals(2, f.getParams().size());
+		assertEquals(new PGoPrimitiveType.PGoInt(), f.getParam("Param1").getType());
+		assertEquals(new PGoPrimitiveType.PGoString(), f.getParam("Param2").getType());
+		assertEquals(new PGoPrimitiveType.PGoBool(), f.getReturnType());
+		assertEquals(new PGoPrimitiveType.PGoBool(), f.getVariable("ret").getType());
 	}
 }

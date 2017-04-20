@@ -82,6 +82,10 @@ public class PGoFunction {
 		return vars.get(v);
 	}
 
+	public void addVariable(PGoVariable retVar) {
+		vars.put(retVar.getName(), retVar);
+	}
+
 	public Vector<AST> getBody() {
 		return body;
 	}
