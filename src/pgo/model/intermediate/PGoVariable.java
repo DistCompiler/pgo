@@ -19,8 +19,6 @@ public class PGoVariable {
 	// the name of the variable
 	private String name;
 
-	// TODO types, initialization, etc
-
 	// whether the variable has a simple "=" assignment initialization
 	private boolean isSimpleAssignInit;
 

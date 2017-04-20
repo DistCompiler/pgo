@@ -141,4 +141,9 @@ public class PGoFunction {
 		return ret;
 	}
 
+	// Updates the name of the function
+	public void setName(String name) {
+		this.funcName = name;
+	}
+
 }

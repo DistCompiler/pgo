@@ -1,5 +1,9 @@
 package pgo.model.parser;
 
+import java.util.LinkedHashMap;
+
+import pgo.model.intermediate.PGoFunction;
+import pgo.model.intermediate.PGoVariable;
 import pgo.parser.PGoParseException;
 
 /**
@@ -36,6 +40,20 @@ public class AnnotatedReturnVariable {
 					line);
 		}
 		return new AnnotatedReturnVariable(parts[1], line);
+	}
+
+	/**
+	 * Fix the global variable declaration and function variable declarations
+	 * given the data in this class regarding what global variable represents a
+	 * return value for functions.
+	 * 
+	 * This involves removing the return variable from the global variable list,
+	 * and creating a local variable for each function that uses it, typing it
+	 * according to the function return type.
+	 */
+	public void fixUp(LinkedHashMap<String, PGoVariable> globals, LinkedHashMap<String, PGoFunction> funcs) {
+		// TODO Auto-generated method stub
+
 	}
 
 }

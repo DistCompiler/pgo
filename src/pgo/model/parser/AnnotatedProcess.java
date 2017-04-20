@@ -1,5 +1,6 @@
 package pgo.model.parser;
 
+import pgo.model.intermediate.PGoFunction;
 import pgo.model.intermediate.PGoType;
 import pgo.parser.PGoParseException;
 
@@ -48,6 +49,17 @@ public class AnnotatedProcess {
 					line);
 		}
 		return new AnnotatedProcess(parts, line);
+	}
+
+	/**
+	 * Uses the information in the current annotation regarding a process to
+	 * fill in information of the corresponding function.
+	 * 
+	 * @param fun
+	 */
+	public void fillFunction(PGoFunction fun) {
+		// TODO Auto-generated method stub
+
 	}
 
 }

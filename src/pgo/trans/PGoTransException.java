@@ -15,4 +15,8 @@ public class PGoTransException extends PGoException {
 		super(prefix, msg);
 	}
 
+	public PGoTransException(String msg, int line) {
+		super(prefix, msg, line);
+	}
+
 }

@@ -1,7 +1,6 @@
 package pgo.trans.intermediate;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.Vector;
 
 import pcal.AST;
@@ -30,73 +29,50 @@ public class PGoTransStageOne {
 	// The PlusCal AST to parse
 	private AST ast;
 
-	// Whether the PlusCal program has multiple processes, or is just a single
-	// threaded function
-	private boolean isMultiProcess;
-
-	// The algorithm name
-	private String algName;
-
-	// The global variables of this algorithm
-	private LinkedHashMap<String, PGoVariable> globals;
-	// The functions of this algorithm
-	private LinkedHashMap<String, PGoFunction> funcs;
-
-	// Defined TLAExpr to be parsed into functions. Except these are not of the
-	// form individual functions, they are a collection of quick definitions. We
-	// must individually parse these.
-	// TODO support these
-	private TLAExpr tlaExpr;
-
-	// Array of code blocks we need to insert into the go main function
-	private ArrayList<LabeledStmt> mainBlock;
-
-	// Map of goroutines and its function to its initialization code
-	private LinkedHashMap<String, PGoRoutineInit> goroutines;
+	// The intermediate data
+	PGoTransIntermediateData intermediateData;
 
 	public PGoTransStageOne(ParsedPcal parsed) throws PGoTransException {
 		this.ast = parsed.getAST();
-		this.globals = new LinkedHashMap<String, PGoVariable>();
-		this.funcs = new LinkedHashMap<String, PGoFunction>();
-		this.mainBlock = new ArrayList<LabeledStmt>();
-		this.goroutines = new LinkedHashMap<String, PGoRoutineInit>();
+		this.intermediateData = new PGoTransIntermediateData();
+
 		trans();
 	}
 
 	public boolean getIsMultiProcess() {
-		return isMultiProcess;
+		return intermediateData.isMultiProcess;
 	}
 
 	public String getAlgName() {
-		return algName;
+		return intermediateData.algName;
 	}
 
 	public ArrayList<PGoVariable> getGlobals() {
-		return new ArrayList<PGoVariable>(globals.values());
+		return new ArrayList<PGoVariable>(intermediateData.globals.values());
 	}
 
 	public PGoVariable getGlobal(String name) {
-		return globals.get(name);
+		return intermediateData.globals.get(name);
 	}
 
 	public ArrayList<PGoFunction> getFunctions() {
-		return new ArrayList<PGoFunction>(funcs.values());
+		return new ArrayList<PGoFunction>(intermediateData.funcs.values());
 	}
 
 	public PGoFunction getFunction(String name) {
-		return funcs.get(name);
+		return intermediateData.funcs.get(name);
 	}
 
 	public ArrayList<LabeledStmt> getMain() {
-		return mainBlock;
+		return intermediateData.mainBlock;
 	}
 
 	public ArrayList<PGoRoutineInit> getGoRoutineInits() {
-		return new ArrayList<PGoRoutineInit>(goroutines.values());
+		return new ArrayList<PGoRoutineInit>(intermediateData.goroutines.values());
 	}
 
 	public PGoRoutineInit getGoRoutineInit(String r) {
-		return goroutines.get(r);
+		return intermediateData.goroutines.get(r);
 	}
 
 	/**
@@ -107,10 +83,10 @@ public class PGoTransStageOne {
 	 */
 	private void trans() throws PGoTransException {
 		if (ast instanceof Uniprocess) {
-			isMultiProcess = false;
+			intermediateData.isMultiProcess = false;
 			trans((Uniprocess) ast);
 		} else if (ast instanceof Multiprocess) {
-			isMultiProcess = true;
+			intermediateData.isMultiProcess = true;
 			trans((Multiprocess) ast);
 		} else {
 			throw new PGoTransException("Error: PlusCal algorithm must be one of uniprocess or multiprocess");
@@ -162,9 +138,9 @@ public class PGoTransStageOne {
 		// networked process. For now we just do goroutines
 		for (Process p : (Vector<Process>) ast.procs) {
 			PGoFunction f = PGoFunction.convert(p);
-			funcs.put(f.getName(), f);
+			intermediateData.funcs.put(f.getName(), f);
 
-			goroutines.put(f.getName(), PGoRoutineInit.convert(p));
+			intermediateData.goroutines.put(f.getName(), PGoRoutineInit.convert(p));
 		}
 	}
 
@@ -178,7 +154,7 @@ public class PGoTransStageOne {
 	private void trans(Uniprocess ast) {
 		transCommon(new BaseAlgAST(ast));
 
-		mainBlock.addAll(ast.body);
+		intermediateData.mainBlock.addAll(ast.body);
 	}
 
 	/**
@@ -193,19 +169,19 @@ public class PGoTransStageOne {
 	 *            BaseAlgAST representation of types Uniprocess or Multiprocess
 	 */
 	private void transCommon(BaseAlgAST ast) {
-		this.algName = ast.name;
+		this.intermediateData.algName = ast.name;
 		for (VarDecl var : (Vector<VarDecl>) ast.decls) {
 			PGoVariable pvar = PGoVariable.convert(var);
-			globals.put(pvar.getName(), pvar);
+			intermediateData.globals.put(pvar.getName(), pvar);
 		}
-		this.tlaExpr = ast.defs;
+		this.intermediateData.tlaExpr = ast.defs;
 		for (Macro m : (Vector<Macro>) ast.macros) {
 			PGoFunction f = PGoFunction.convert(m);
-			funcs.put(f.getName(), f);
+			intermediateData.funcs.put(f.getName(), f);
 		}
 		for (Procedure m : (Vector<Procedure>) ast.prcds) {
 			PGoFunction f = PGoFunction.convert(m);
-			funcs.put(f.getName(), f);
+			intermediateData.funcs.put(f.getName(), f);
 		}
 	}
 

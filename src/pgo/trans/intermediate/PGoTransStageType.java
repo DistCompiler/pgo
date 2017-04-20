@@ -1,17 +1,15 @@
 package pgo.trans.intermediate;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-
-import pcal.AST.LabeledStmt;
 import pgo.model.intermediate.PGoFunction;
-import pgo.model.intermediate.PGoRoutineInit;
 import pgo.model.intermediate.PGoVariable;
 import pgo.model.parser.AnnotatedFunction;
+import pgo.model.parser.AnnotatedProcess;
+import pgo.model.parser.AnnotatedReturnVariable;
 import pgo.model.parser.AnnotatedVariable;
 import pgo.parser.PGoAnnotationParser;
 import pgo.parser.PGoParseException;
 import pgo.parser.PcalParser.ParsedPcal;
+import pgo.trans.PGoTransException;
 
 /**
  * The second stage of the translation where we determine the types of all
@@ -22,29 +20,15 @@ import pgo.parser.PcalParser.ParsedPcal;
  */
 public class PGoTransStageType {
 
-	// Whether the PlusCal program has multiple processes, or is just a single
-	// threaded function
-	private boolean isMultiProcess;
+	// The intermediate data
+	PGoTransIntermediateData intermediateData;
 
-	// The algorithm name
-	private String algName;
-
-	// The global variables of this algorithm
-	private LinkedHashMap<String, PGoVariable> globals;
-	// The functions of this algorithm
-	private LinkedHashMap<String, PGoFunction> funcs;
-
-	// Array of code blocks we need to insert into the go main function
-	private ArrayList<LabeledStmt> mainBlock;
-
-	// Map of goroutines and its function to its initialization code
-	private LinkedHashMap<String, PGoRoutineInit> goroutines;
-
-	public PGoTransStageType(PGoTransStageOne s1, ParsedPcal pcal) throws PGoParseException {
+	public PGoTransStageType(PGoTransStageOne s1, ParsedPcal pcal) throws PGoParseException, PGoTransException {
 		PGoAnnotationParser p = new PGoAnnotationParser(pcal.getPGoAnnotations());
-
+		intermediateData = s1.intermediateData;
+		
 		for (AnnotatedVariable v : p.getAnnotatedVariables()) {
-			PGoVariable var = findPGoVariable(v.getName());
+			PGoVariable var = this.intermediateData.findPGoVariable(v.getName());
 			if (var == null) {
 				// TODO
 			} else {
@@ -53,24 +37,32 @@ public class PGoTransStageType {
 		}
 		
 		for (AnnotatedFunction f : p.getAnnotatedFunctions()) {
-			PGoFunction fun = findPGoFunction(f.getName());
+			PGoFunction fun = this.intermediateData.findPGoFunction(f.getName());
 			if (fun == null) {
-				// TODO
-			} else {
-				f.fillFunction(fun);
+				throw new PGoTransException(
+							"Reference to function \"" + f.getName()
+									+ "\" in annotation but no matching function or \"PGo " + f.getName() + "\" found.",
+							f.getLine());
 			}
+
+			f.fillFunction(fun);
+		}
+
+		for (AnnotatedReturnVariable r : p.getReturnVariables()) {
+			r.fixUp(this.intermediateData.globals, this.intermediateData.funcs);
+		}
+
+		for (AnnotatedProcess prcs : p.getAnnotatedProcesses()) {
+			PGoFunction fun = this.intermediateData.findPGoFunction(prcs.getName());
+			if (fun == null) {
+				throw new PGoTransException(
+						"Reference to process function \"" + prcs.getName()
+								+ "\" in annotation but no matching function or \"PGo " + prcs.getName() + "\" found.",
+						prcs.getLine());
+			}
+			prcs.fillFunction(fun);
 		}
 	}
 
-	private PGoFunction findPGoFunction(String name) {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	// Find the PGoVariable of the given name from the program.
-	private PGoVariable findPGoVariable(Object name) {
-		// TODO Auto-generated method stub
-		return null;
-	}
 
 }
