@@ -8,7 +8,7 @@ import java.util.Vector;
 
 import org.junit.Test;
 
-import pgo.model.intermediate.PGoContainerType.PGoMap;
+import pgo.model.intermediate.PGoCollectionType.PGoMap;
 import pgo.model.intermediate.PGoPrimitiveType.PGoInt;
 import pgo.model.intermediate.PGoPrimitiveType.PGoString;
 import pgo.model.intermediate.PGoPrimitiveType.PGoVoid;

@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Vector;
 
-import pgo.model.intermediate.PGoContainerType;
+import pgo.model.intermediate.PGoCollectionType;
 import pgo.model.intermediate.PGoPrimitiveType;
 import pgo.model.parser.PGoAnnotation;
 
@@ -47,7 +47,7 @@ public class FastMutexPluscalParserTester extends PGoPluscalParserTesterBase {
 		ArrayList<VarAnnotatedVariableData> ret = new ArrayList<VarAnnotatedVariableData>();
 		ret.add(new VarAnnotatedVariableData(new PGoPrimitiveType.PGoNatural(), "x", 8));
 		ret.add(new VarAnnotatedVariableData(new PGoPrimitiveType.PGoNatural(), "y", 9));
-		ret.add(new VarAnnotatedVariableData(new PGoContainerType.PGoSlice("bool"), "b", 10));
+		ret.add(new VarAnnotatedVariableData(new PGoCollectionType.PGoSlice("bool"), "b", 10));
 		ret.add(new VarAnnotatedVariableData(new PGoPrimitiveType.PGoNatural(), "j", 12));
 		return ret;
 	}

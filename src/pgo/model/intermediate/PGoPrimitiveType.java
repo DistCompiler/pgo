@@ -16,7 +16,7 @@ public abstract class PGoPrimitiveType extends PGoType {
 		private static final String goType = "int";
 		
 		@Override
-		public String toGoTypeName() {
+		public String toTypeName() {
 			return goType;
 		}
 
@@ -31,7 +31,7 @@ public abstract class PGoPrimitiveType extends PGoType {
 		private static final String goType = "float64";
 
 		@Override
-		public String toGoTypeName() {
+		public String toTypeName() {
 			return goType;
 		}
 
@@ -46,7 +46,7 @@ public abstract class PGoPrimitiveType extends PGoType {
 		private static final String goType = "uint64";
 
 		@Override
-		public String toGoTypeName() {
+		public String toTypeName() {
 			return goType;
 		}
 
@@ -62,7 +62,7 @@ public abstract class PGoPrimitiveType extends PGoType {
 		private static final String goType = "bool";
 
 		@Override
-		public String toGoTypeName() {
+		public String toTypeName() {
 			return goType;
 		}
 
@@ -77,7 +77,7 @@ public abstract class PGoPrimitiveType extends PGoType {
 		private static final String goType = "String";
 
 		@Override
-		public String toGoTypeName() {
+		public String toTypeName() {
 			return goType;
 		}
 
@@ -91,7 +91,7 @@ public abstract class PGoPrimitiveType extends PGoType {
 		private static final String goType = "void";
 
 		@Override
-		public String toGoTypeName() {
+		public String toTypeName() {
 			return goType;
 		}
 	}
@@ -106,7 +106,7 @@ public abstract class PGoPrimitiveType extends PGoType {
 		private static final String goType = "interface";
 
 		@Override
-		public String toGoTypeName() {
+		public String toTypeName() {
 			return goType;
 		}
 

@@ -60,7 +60,7 @@ public class PGoAnnotationParserParameterizedTest {
 			assertNotNull(v);
 			assertTrue(v instanceof ConstAnnotatedVariable);
 			assertEquals(tv.name, v.getName());
-			assertEquals(tv.type.getClass(), v.getType().getClass());
+			assertEquals(tv.type, v.getType());
 			assertEquals(tv.line, v.getLine());
 			
 			ConstAnnotatedVariable cv = (ConstAnnotatedVariable) v;
@@ -72,7 +72,7 @@ public class PGoAnnotationParserParameterizedTest {
 			assertNotNull(v);
 			assertTrue(v instanceof ArgAnnotatedVariable);
 			assertEquals(tv.name, v.getName());
-			assertEquals(tv.type.getClass(), v.getType().getClass());
+			assertEquals(tv.type, v.getType());
 			assertEquals(tv.line, v.getLine());
 
 			ArgAnnotatedVariable av = (ArgAnnotatedVariable) v;
@@ -85,7 +85,7 @@ public class PGoAnnotationParserParameterizedTest {
 			assertNotNull(v);
 			assertTrue(v instanceof VarAnnotatedVariable);
 			assertEquals(tv.name, v.getName());
-			assertEquals(tv.type.getClass(), v.getType().getClass());
+			assertEquals(tv.type, v.getType());
 			assertEquals(tv.line, v.getLine());
 		}
 		
@@ -95,10 +95,10 @@ public class PGoAnnotationParserParameterizedTest {
 			assertNotNull(f);
 			assertEquals(tf.name, f.getName());
 			assertEquals(tf.line, f.getLine());
-			assertEquals(tf.rType.getClass(), f.getReturnType().getClass());
+			assertEquals(tf.rType, f.getReturnType());
 			assertEquals(tf.argTypes.size(), f.getArgTypes().size());
 			for (int i = 0; i < tf.argTypes.size(); i++) {
-				assertEquals(tf.argTypes.get(i).getClass(), f.getArgTypes().get(i).getClass());
+				assertEquals(tf.argTypes.get(i), f.getArgTypes().get(i));
 			}
 		}
 		

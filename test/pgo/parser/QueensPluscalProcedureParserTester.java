@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Vector;
 
-import pgo.model.intermediate.PGoContainerType;
+import pgo.model.intermediate.PGoCollectionType;
 import pgo.model.intermediate.PGoPrimitiveType;
 import pgo.model.intermediate.PGoType;
 import pgo.model.parser.PGoAnnotation;
@@ -49,12 +49,12 @@ public class QueensPluscalProcedureParserTester extends PGoPluscalParserTesterBa
 	@Override
 	public List<VarAnnotatedVariableData> getVarAnnotatedVariables() {
 		ArrayList<VarAnnotatedVariableData> ret = new ArrayList<VarAnnotatedVariableData>();
-		ret.add(new VarAnnotatedVariableData(new PGoContainerType.PGoSet("chan[int]"), "todo", 46));
-		ret.add(new VarAnnotatedVariableData(new PGoContainerType.PGoSet("chan[int]"), "sols", 47));
-		ret.add(new VarAnnotatedVariableData(new PGoContainerType.PGoChan("int"), "queens", 64));
+		ret.add(new VarAnnotatedVariableData(new PGoCollectionType.PGoSet("chan[int]"), "todo", 46));
+		ret.add(new VarAnnotatedVariableData(new PGoCollectionType.PGoSet("chan[int]"), "sols", 47));
+		ret.add(new VarAnnotatedVariableData(new PGoCollectionType.PGoChan("int"), "queens", 64));
 		ret.add(new VarAnnotatedVariableData(new PGoPrimitiveType.PGoInt(), "nexQ", 65));
-		ret.add(new VarAnnotatedVariableData(new PGoContainerType.PGoSet("int"), "cols", 66));
-		ret.add(new VarAnnotatedVariableData(new PGoContainerType.PGoSet("chan[int]"), "exts", 67));
+		ret.add(new VarAnnotatedVariableData(new PGoCollectionType.PGoSet("int"), "cols", 66));
+		ret.add(new VarAnnotatedVariableData(new PGoCollectionType.PGoSet("chan[int]"), "exts", 67));
 
 		return ret;
 	}
@@ -71,7 +71,7 @@ public class QueensPluscalProcedureParserTester extends PGoPluscalParserTesterBa
 	public List<AnnotatedFunctionData> getAnnotatedFunctions() {
 		ArrayList<AnnotatedFunctionData> ret = new ArrayList<AnnotatedFunctionData>();
 		Vector<PGoType> args = new Vector<PGoType>();
-		args.add(new PGoContainerType.PGoChan("int"));
+		args.add(new PGoCollectionType.PGoChan("int"));
 		args.add(new PGoPrimitiveType.PGoInt());
 		args.add(new PGoPrimitiveType.PGoInt());
 		ret.add(new AnnotatedFunctionData("PgoAttacks", 53, new PGoPrimitiveType.PGoBool(), args));

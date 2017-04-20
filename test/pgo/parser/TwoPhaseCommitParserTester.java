@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Vector;
 
-import pgo.model.intermediate.PGoContainerType;
+import pgo.model.intermediate.PGoCollectionType;
 import pgo.model.intermediate.PGoPrimitiveType;
 import pgo.model.intermediate.PGoType;
 import pgo.model.parser.PGoAnnotation;
@@ -34,9 +34,9 @@ public class TwoPhaseCommitParserTester extends PGoPluscalParserTesterBase {
 	@Override
 	public List<VarAnnotatedVariableData> getVarAnnotatedVariables() {
 		ArrayList<VarAnnotatedVariableData> ret = new ArrayList<VarAnnotatedVariableData>();
-		ret.add(new VarAnnotatedVariableData(new PGoContainerType.PGoSet("String"), "managers", 6));
-		ret.add(new VarAnnotatedVariableData(new PGoContainerType.PGoMap("String", "String"), "restaurant_stage", 7));
-		ret.add(new VarAnnotatedVariableData(new PGoContainerType.PGoSet("string"), "rstMgr", 42));
+		ret.add(new VarAnnotatedVariableData(new PGoCollectionType.PGoSet("String"), "managers", 6));
+		ret.add(new VarAnnotatedVariableData(new PGoCollectionType.PGoMap("String", "String"), "restaurant_stage", 7));
+		ret.add(new VarAnnotatedVariableData(new PGoCollectionType.PGoSet("string"), "rstMgr", 42));
 		ret.add(new VarAnnotatedVariableData(new PGoPrimitiveType.PGoBool(), "aborted", 42));
 
 		return ret;
@@ -47,7 +47,7 @@ public class TwoPhaseCommitParserTester extends PGoPluscalParserTesterBase {
 		ArrayList<AnnotatedFunctionData> ret = new ArrayList<AnnotatedFunctionData>();
 		Vector<PGoType> args = new Vector<PGoType>();
 		args.add(new PGoPrimitiveType.PGoString());
-		args.add(new PGoContainerType.PGoSet("string"));
+		args.add(new PGoCollectionType.PGoSet("string"));
 		ret.add(new AnnotatedFunctionData("SetAll", 11, PGoType.VOID, args));
 
 		return ret;

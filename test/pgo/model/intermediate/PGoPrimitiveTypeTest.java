@@ -9,8 +9,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
-import pgo.model.intermediate.PGoPrimitiveType;
-import pgo.model.intermediate.PGoType;
 import pgo.model.intermediate.PGoPrimitiveType.PGoBool;
 import pgo.model.intermediate.PGoPrimitiveType.PGoDecimal;
 import pgo.model.intermediate.PGoPrimitiveType.PGoInt;
@@ -33,8 +31,8 @@ public class PGoPrimitiveTypeTest {
 	@Test
 	public void testConvertTypeName() {
 		PGoType pt = PGoPrimitiveType.inferPrimitiveFromGoTypeName(typename);
-		assertEquals(ptype.getClass(), pt.getClass());
-		assertEquals(PGoPrimitiveType.inferPrimitiveFromGoTypeName(pt.toGoTypeName()).getClass(), pt.getClass());
+		assertEquals(ptype, pt);
+		assertEquals(PGoPrimitiveType.inferPrimitiveFromGoTypeName(pt.toTypeName()), pt);
 	}
 
 	@Parameterized.Parameters

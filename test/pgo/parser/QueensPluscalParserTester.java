@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Vector;
 
-import pgo.model.intermediate.PGoContainerType;
+import pgo.model.intermediate.PGoCollectionType;
 import pgo.model.intermediate.PGoPrimitiveType;
 import pgo.model.parser.PGoAnnotation;
 
@@ -46,12 +46,12 @@ public class QueensPluscalParserTester extends PGoPluscalParserTesterBase {
 	@Override
 	public List<VarAnnotatedVariableData> getVarAnnotatedVariables() {
 		ArrayList<VarAnnotatedVariableData> ret = new ArrayList<VarAnnotatedVariableData>();
-		ret.add(new VarAnnotatedVariableData(new PGoContainerType.PGoSet("chan[int]"), "todo", 46));
-		ret.add(new VarAnnotatedVariableData(new PGoContainerType.PGoSet("chan[int]"), "sols", 47));
-		ret.add(new VarAnnotatedVariableData(new PGoContainerType.PGoChan("int"), "queens", 55));
+		ret.add(new VarAnnotatedVariableData(new PGoCollectionType.PGoSet("chan[int]"), "todo", 46));
+		ret.add(new VarAnnotatedVariableData(new PGoCollectionType.PGoSet("chan[int]"), "sols", 47));
+		ret.add(new VarAnnotatedVariableData(new PGoCollectionType.PGoChan("int"), "queens", 55));
 		ret.add(new VarAnnotatedVariableData(new PGoPrimitiveType.PGoInt(), "nexQ", 56));
-		ret.add(new VarAnnotatedVariableData(new PGoContainerType.PGoSet("int"), "cols", 57));
-		ret.add(new VarAnnotatedVariableData(new PGoContainerType.PGoSet("chan[int]"), "exts", 58));
+		ret.add(new VarAnnotatedVariableData(new PGoCollectionType.PGoSet("int"), "cols", 57));
+		ret.add(new VarAnnotatedVariableData(new PGoCollectionType.PGoSet("chan[int]"), "exts", 58));
 
 		return ret;
 	}

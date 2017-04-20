@@ -20,7 +20,7 @@ public abstract class PGoType {
 	public static PGoType inferFromGoTypeName(String s) {
 		PGoType r = PGoPrimitiveType.inferPrimitiveFromGoTypeName(s);
 		if (r.isUndetermined()) {
-			r = PGoContainerType.inferContainerFromGoTypeName(s);
+			r = PGoCollectionType.inferContainerFromGoTypeName(s);
 		}
 		return r;
 	}
@@ -35,9 +35,9 @@ public abstract class PGoType {
 
 	/**
 	 * 
-	 * @return the go type
+	 * @return the type name
 	 */
-	public abstract String toGoTypeName();
+	public abstract String toTypeName();
 
 	/**
 	 * Represents an indeterminable type
@@ -50,14 +50,22 @@ public abstract class PGoType {
 		}
 
 		@Override
-		public String toGoTypeName() {
+		public String toTypeName() {
 			return "";
 		}
 
 	}
 
-	public boolean equals(PGoType p) {
-		return toGoTypeName() == p.toGoTypeName();
+	@Override
+	public boolean equals(Object p) {
+		if (p == null) {
+			return false;
+		}
+		if (!(p instanceof PGoType)) {
+			return false;
+		}
+		PGoType op = (PGoType) p;
+		return toTypeName().equals(op.toTypeName());
 	}
 
 }

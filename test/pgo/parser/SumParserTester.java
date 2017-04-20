@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Vector;
 
-import pgo.model.intermediate.PGoContainerType;
+import pgo.model.intermediate.PGoCollectionType;
 import pgo.model.intermediate.PGoPrimitiveType;
 import pgo.model.intermediate.PGoType;
 import pgo.model.parser.PGoAnnotation;
@@ -45,7 +45,7 @@ public class SumParserTester extends PGoPluscalParserTesterBase {
 	@Override
 	public List<VarAnnotatedVariableData> getVarAnnotatedVariables() {
 		ArrayList<VarAnnotatedVariableData> ret = new ArrayList<VarAnnotatedVariableData>();
-		ret.add(new VarAnnotatedVariableData(new PGoContainerType.PGoSlice("chan[[2]interface]"), "network", 13));
+		ret.add(new VarAnnotatedVariableData(new PGoCollectionType.PGoSlice("chan[[2]interface]"), "network", 13));
 		ret.add(new VarAnnotatedVariableData(new PGoPrimitiveType.PGoNatural(), "a_init", 31));
 		ret.add(new VarAnnotatedVariableData(new PGoPrimitiveType.PGoNatural(), "b_init", 32));
 		ret.add(new VarAnnotatedVariableData(new PGoPrimitiveType.PGoNatural(), "runs", 33));
@@ -55,7 +55,7 @@ public class SumParserTester extends PGoPluscalParserTesterBase {
 		ret.add(new VarAnnotatedVariableData(new PGoPrimitiveType.PGoNatural(), "a", 60));
 		ret.add(new VarAnnotatedVariableData(new PGoPrimitiveType.PGoNatural(), "b", 61));
 		ret.add(new VarAnnotatedVariableData(new PGoPrimitiveType.PGoNatural(), "Server.id", 62));
-		ret.add(new VarAnnotatedVariableData(new PGoContainerType.PGoSlice("2", "interface"), "Server.msg", 63));
+		ret.add(new VarAnnotatedVariableData(new PGoCollectionType.PGoSlice("2", "uint64"), "Server.msg", 63));
 
 		return ret;
 	}
