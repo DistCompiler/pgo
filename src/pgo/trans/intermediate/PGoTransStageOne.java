@@ -1,10 +1,8 @@
 package pgo.trans.intermediate;
 
-import java.util.ArrayList;
 import java.util.Vector;
 
 import pcal.AST;
-import pcal.AST.LabeledStmt;
 import pcal.AST.Macro;
 import pcal.AST.Multiprocess;
 import pcal.AST.Procedure;
@@ -24,55 +22,15 @@ import pgo.trans.PGoTransException;
  * completed).
  *
  */
-public class PGoTransStageOne {
+public class PGoTransStageOne extends PGoTransStageBase {
 
 	// The PlusCal AST to parse
 	private AST ast;
 
-	// The intermediate data
-	PGoTransIntermediateData intermediateData;
-
 	public PGoTransStageOne(ParsedPcal parsed) throws PGoTransException {
 		this.ast = parsed.getAST();
-		this.intermediateData = new PGoTransIntermediateData();
 
 		trans();
-	}
-
-	public boolean getIsMultiProcess() {
-		return intermediateData.isMultiProcess;
-	}
-
-	public String getAlgName() {
-		return intermediateData.algName;
-	}
-
-	public ArrayList<PGoVariable> getGlobals() {
-		return new ArrayList<PGoVariable>(intermediateData.globals.values());
-	}
-
-	public PGoVariable getGlobal(String name) {
-		return intermediateData.globals.get(name);
-	}
-
-	public ArrayList<PGoFunction> getFunctions() {
-		return new ArrayList<PGoFunction>(intermediateData.funcs.values());
-	}
-
-	public PGoFunction getFunction(String name) {
-		return intermediateData.funcs.get(name);
-	}
-
-	public ArrayList<LabeledStmt> getMain() {
-		return intermediateData.mainBlock;
-	}
-
-	public ArrayList<PGoRoutineInit> getGoRoutineInits() {
-		return new ArrayList<PGoRoutineInit>(intermediateData.goroutines.values());
-	}
-
-	public PGoRoutineInit getGoRoutineInit(String r) {
-		return intermediateData.goroutines.get(r);
 	}
 
 	/**

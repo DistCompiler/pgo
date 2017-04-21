@@ -18,14 +18,11 @@ import pgo.trans.PGoTransException;
  * PGoTransException will be thrown.
  *
  */
-public class PGoTransStageType {
-
-	// The intermediate data
-	PGoTransIntermediateData intermediateData;
+public class PGoTransStageType extends PGoTransStageBase {
 
 	public PGoTransStageType(PGoTransStageOne s1, ParsedPcal pcal) throws PGoParseException, PGoTransException {
+		super(s1);
 		PGoAnnotationParser p = new PGoAnnotationParser(pcal.getPGoAnnotations());
-		intermediateData = s1.intermediateData;
 		
 		for (AnnotatedVariable v : p.getAnnotatedVariables()) {
 			PGoVariable var = this.intermediateData.findPGoVariable(v.getName());
