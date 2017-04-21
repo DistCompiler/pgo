@@ -24,7 +24,7 @@ public class QueensPluscalProcedureIntermediateTester extends PGoPluscalStageOne
 	}
 
 	@Override
-	public ArrayList<TestVariableData> getVariables() {
+	public ArrayList<TestVariableData> getStageOneVariables() {
 		ArrayList<TestVariableData> ret = new ArrayList<TestVariableData>();
 		ret.add(new TestVariableData("todo", true, "<< \"{\", \"<<\", \">>\", \"}\" >>"));
 		ret.add(new TestVariableData("sols", true, "<< \"{\", \"}\" >>"));
@@ -34,7 +34,7 @@ public class QueensPluscalProcedureIntermediateTester extends PGoPluscalStageOne
 	}
 
 	@Override
-	public ArrayList<TestFunctionData> getFunctions() {
+	public ArrayList<TestFunctionData> getStageOneFunctions() {
 		ArrayList<TestFunctionData> ret = new ArrayList<TestFunctionData>();
 
 		ArrayList<TestVariableData> params = new ArrayList<TestVariableData>();

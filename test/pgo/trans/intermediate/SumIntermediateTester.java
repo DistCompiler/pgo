@@ -28,7 +28,7 @@ public class SumIntermediateTester extends PGoPluscalStageOneTesterBase {
 	}
 
 	@Override
-	public ArrayList<TestVariableData> getVariables() {
+	public ArrayList<TestVariableData> getStageOneVariables() {
 		ArrayList<TestVariableData> ret = new ArrayList<TestVariableData>();
 		ret.add(new TestVariableData("network", true, "<< \"[\", \"i\", \"\\\\in\", "
 				+ "\"1\", \"..\", \"N\", \"+\", \"1\", \"|->\", \"<<\", \">>\", \"]\" >>"));
@@ -37,7 +37,7 @@ public class SumIntermediateTester extends PGoPluscalStageOneTesterBase {
 	}
 
 	@Override
-	public ArrayList<TestFunctionData> getFunctions() throws PGoParseException {
+	public ArrayList<TestFunctionData> getStageOneFunctions() throws PGoParseException {
 		ArrayList<TestFunctionData> ret = new ArrayList<TestFunctionData>();
 
 		ArrayList<TestVariableData> params = new ArrayList<TestVariableData>();

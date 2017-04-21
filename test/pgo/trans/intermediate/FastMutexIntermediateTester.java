@@ -27,7 +27,7 @@ public class FastMutexIntermediateTester extends PGoPluscalStageOneTesterBase {
 	}
 
 	@Override
-	public ArrayList<TestVariableData> getVariables() {
+	public ArrayList<TestVariableData> getStageOneVariables() {
 		ArrayList<TestVariableData> ret = new ArrayList<TestVariableData>();
 		ret.add(new TestVariableData("x", true, "<< \"defaultInitValue\" >>"));
 		ret.add(new TestVariableData("y", true, "<< \"0\" >>"));
@@ -37,7 +37,7 @@ public class FastMutexIntermediateTester extends PGoPluscalStageOneTesterBase {
 	}
 
 	@Override
-	public ArrayList<TestFunctionData> getFunctions() throws PGoParseException {
+	public ArrayList<TestFunctionData> getStageOneFunctions() throws PGoParseException {
 		ArrayList<TestFunctionData> r = new ArrayList<TestFunctionData>();
 
 		ArrayList<TestVariableData> params = new ArrayList<TestVariableData>();

@@ -27,10 +27,10 @@ public abstract class PGoPluscalStageOneTesterBase extends PGoPluscalTesterBase 
 	public abstract String getName();
 
 	// the variables and their data of the algorithm
-	public abstract ArrayList<TestVariableData> getVariables();
+	public abstract ArrayList<TestVariableData> getStageOneVariables();
 
 	// the functions of the algorithm
-	public abstract ArrayList<TestFunctionData> getFunctions() throws PGoParseException;
+	public abstract ArrayList<TestFunctionData> getStageOneFunctions() throws PGoParseException;
 
 	public abstract int getNumGoroutineInit();
 

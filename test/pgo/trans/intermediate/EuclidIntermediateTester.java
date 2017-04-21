@@ -22,7 +22,7 @@ public class EuclidIntermediateTester extends PGoPluscalStageOneTesterBase {
 	}
 
 	@Override
-	public ArrayList<TestVariableData> getVariables() {
+	public ArrayList<TestVariableData> getStageOneVariables() {
 		ArrayList<TestVariableData> ret = new ArrayList<TestVariableData>();
 		ret.add(new TestVariableData("u", true, "<< \"24\" >>"));
 		ret.add(new TestVariableData("v", false, "<< \"1\", \"..\", \"N\" >>"));
@@ -32,7 +32,7 @@ public class EuclidIntermediateTester extends PGoPluscalStageOneTesterBase {
 	}
 
 	@Override
-	public ArrayList<TestFunctionData> getFunctions() {
+	public ArrayList<TestFunctionData> getStageOneFunctions() {
 		return new ArrayList<TestFunctionData>();
 	}
 

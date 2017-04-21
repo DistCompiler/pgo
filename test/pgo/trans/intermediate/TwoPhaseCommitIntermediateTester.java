@@ -28,7 +28,7 @@ public class TwoPhaseCommitIntermediateTester extends PGoPluscalStageOneTesterBa
 	}
 
 	@Override
-	public ArrayList<TestVariableData> getVariables() {
+	public ArrayList<TestVariableData> getStageOneVariables() {
 		ArrayList<TestVariableData> ret = new ArrayList<TestVariableData>();
 		ret.add(new TestVariableData("managers", true,"<< \"{\", \"\\\"\", \"bob\", \"\\\"\","
 				+ " \",\", \"\\\"\", \"chuck\", \"\\\"\", \",\", \"\\\"\", \"dave\", "
@@ -41,7 +41,7 @@ public class TwoPhaseCommitIntermediateTester extends PGoPluscalStageOneTesterBa
 	}
 
 	@Override
-	public ArrayList<TestFunctionData> getFunctions() throws PGoParseException {
+	public ArrayList<TestFunctionData> getStageOneFunctions() throws PGoParseException {
 		ArrayList<TestFunctionData> ret = new ArrayList<TestFunctionData>();
 
 		ArrayList<TestVariableData> params = new ArrayList<TestVariableData>();

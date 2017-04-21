@@ -53,10 +53,10 @@ public class PGoTransStageOneTest {
 	public void testPGoVariable() throws PGoTransException, PGoParseException {
 		PGoTransStageOne p = new PGoTransStageOne(tester.getParsedPcal());
 		ArrayList<PGoVariable> cv = p.getGlobals();
-		assertEquals(tester.getVariables().size(), cv.size());
+		assertEquals(tester.getStageOneVariables().size(), cv.size());
 
 		for (int i = 0; i < cv.size(); i++) {
-			assertPGoVariable(p.getGlobals().get(i), i, tester.getVariables());
+			assertPGoVariable(p.getGlobals().get(i), i, tester.getStageOneVariables());
 			assertEquals(p.getGlobals().get(i), p.getGlobal(p.getGlobals().get(i).getName()));
 		}
 	}
@@ -76,7 +76,7 @@ public class PGoTransStageOneTest {
 		PGoTransStageOne p = new PGoTransStageOne(tester.getParsedPcal());
 
 		ArrayList<PGoFunction> cv = p.getFunctions();
-		assertEquals(tester.getFunctions().size(), cv.size());
+		assertEquals(tester.getStageOneFunctions().size(), cv.size());
 
 		for (int i = 0; i < cv.size(); i++) {
 			assertPGoFunction(p, i, tester);
@@ -85,7 +85,7 @@ public class PGoTransStageOneTest {
 
 	// assert function for a pgofunction generated from initial pass
 	private void assertPGoFunction(PGoTransStageOne p, int i, PGoPluscalStageOneTesterBase tester) throws PGoParseException {
-		TestFunctionData af = tester.getFunctions().get(i);
+		TestFunctionData af = tester.getStageOneFunctions().get(i);
 
 		PGoFunction f = p.getFunctions().get(i);
 		assertNotNull(f);
@@ -116,7 +116,7 @@ public class PGoTransStageOneTest {
 		ArrayList<PGoRoutineInit> grs = p.getGoRoutineInits();
 		assertEquals(tester.getNumGoroutineInit(), grs.size());
 		
-		for (TestFunctionData f : tester.getFunctions()) {
+		for (TestFunctionData f : tester.getStageOneFunctions()) {
 			if (f.type == PGoFunction.FunctionType.GoRoutine) {
 				PGoRoutineInit gr = p.getGoRoutineInit(f.name);
 				assertNotNull(gr);
