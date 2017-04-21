@@ -1,5 +1,6 @@
 package pgo.util;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
@@ -153,4 +154,42 @@ public class PcalASTUtilTest {
 		assertFalse(PcalASTUtil.containsAssignmentToVar(body, "none"));
 	}
 
+	@Test
+	public void testEarlyTermWalker() {
+		// testing that the early termination works
+		assertEquals(3, (int) new PcalASTUtil.Walker<Integer>() {
+
+			@Override
+			protected void init() {
+				result = 0;
+			}
+
+			@Override
+			protected void walk(AST a) {
+				result++;
+				if (result == 3) {
+					earlyTerm = true;
+				}
+				super.walk(a);
+			}
+		}.getResult(ast));
+
+		// If we can reach 3, see that 2 works as well
+		assertEquals(2, (int) new PcalASTUtil.Walker<Integer>() {
+
+			@Override
+			protected void init() {
+				result = 0;
+			}
+
+			@Override
+			protected void walk(AST a) {
+				result++;
+				if (result == 2) {
+					earlyTerm = true;
+				}
+				super.walk(a);
+			}
+		}.getResult(ast));
+	}
 }

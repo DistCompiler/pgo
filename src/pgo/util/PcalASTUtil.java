@@ -45,6 +45,8 @@ public class PcalASTUtil {
 	 * point to resume normal traversal after any special operations.
 	 * 
 	 * The ast to visit is guaranteed to never to null.
+	 * 
+	 * We can also override walk function to deal with any generic AST node
 	 *
 	 * T is the result type
 	 * 
@@ -52,8 +54,8 @@ public class PcalASTUtil {
 	public static abstract class Walker<T> {
 
 		// whether to terminate early
-		boolean earlyTerm = false;
-		T result;
+		protected boolean earlyTerm = false;
+		protected T result;
 
 		public T getResult(Vector<AST> ast) {
 			walk(ast);

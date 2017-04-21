@@ -104,4 +104,5 @@ public class AnnotatedReturnVariableTest {
 		assertNotNull(v);
 		assertEquals(new PGoPrimitiveType.PGoBool(), v.getType());
 	}
+
 }
