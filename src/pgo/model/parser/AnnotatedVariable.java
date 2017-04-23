@@ -164,7 +164,7 @@ public abstract class AnnotatedVariable {
 
 		@Override
 		public void fillVariable(PGoVariable var) {
-			assert (var.getName().equals(this.name));
+			assert (var.getName().equals(this.name) || this.name.split("\\.")[1].equals(var.getName()));
 			var.setType(this.getType());
 
 			Logger.getLogger("PGo Stage Typing").log(Level.INFO, "filling in variable \"" + var.getName()

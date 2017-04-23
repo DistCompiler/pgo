@@ -50,8 +50,8 @@ Solutions == { queens \in [1..N -> 1..N] : IsSolution(queens) }
        sols = {};
        rVal; \** for pgo @PGo{ ret rVal }@PGo
 
-     (** @PGo{ func bool PgoAttacks() chan[int] int int }@PGo **)
-     procedure PgoAttacks(queens,i,j) begin
+     (** @PGo{ func bool Attacks() chan[int] int int }@PGo **)
+     procedure PGoAttacks(queens,i,j) begin
        attlabl: rVal := \/ queens[i] = queens[j]                \** same column
                \/ queens[i] - queens[j] = i - j         \** first diagonal
                \/ queens[j] - queens[i] = i - j;        \** second diagonal

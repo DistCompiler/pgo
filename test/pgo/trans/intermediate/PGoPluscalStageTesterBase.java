@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import pcal.AST;
 import pgo.PGoPluscalTesterBase;
 import pgo.model.intermediate.PGoFunction;
+import pgo.model.intermediate.PGoType;
 import pgo.parser.PGoParseException;
 
 /**
@@ -14,7 +15,7 @@ import pgo.parser.PGoParseException;
  * actual program.
  *
  */
-public abstract class PGoPluscalStageOneTesterBase extends PGoPluscalTesterBase {
+public abstract class PGoPluscalStageTesterBase extends PGoPluscalTesterBase {
 
 	public AST getAST() throws PGoParseException {
 		return getParsedPcal().getAST();
@@ -26,11 +27,20 @@ public abstract class PGoPluscalStageOneTesterBase extends PGoPluscalTesterBase 
 	// the name of the algorithm
 	public abstract String getName();
 
-	// the variables and their data of the algorithm
+	// the variables and their data of the algorithm for various stages
 	public abstract ArrayList<TestVariableData> getStageOneVariables();
 
-	// the functions of the algorithm
+	public ArrayList<TestVariableData> getStageTypeVariables() {
+		return getStageOneVariables(); // in most cases we get by with the data
+										// unchanged
+	}
+
+	// the functions of the algorithm for various stages
 	public abstract ArrayList<TestFunctionData> getStageOneFunctions() throws PGoParseException;
+
+	public ArrayList<TestFunctionData> getStageTypeFunctions() throws PGoParseException {
+		return getStageOneFunctions(); // in most cases we can get by with the data unchanged.
+	}
 
 	public abstract int getNumGoroutineInit();
 
@@ -42,15 +52,31 @@ public abstract class PGoPluscalStageOneTesterBase extends PGoPluscalTesterBase 
 		public final boolean isSimpleInit;
 		// the tla string that initializes this variable
 		public final String initBlock;
+		// the go string that initializes this variable
+		public final String goVal;
+		// whether the variable is a constant
+		public final boolean isConst;
+		// the type of the var
+		public final PGoType type;
+		// whether this is a positional argument
+		public final boolean isPositionalArg;
+		// the argument flag name if applicable
+		public String argFlag;
 
-		public TestVariableData(String n, boolean isSimple, String init) {
+		public TestVariableData(String n, boolean isSimple, String init, String gv, boolean isconst, PGoType t,
+				boolean isPos, String aflag) {
 			name = n;
 			isSimpleInit = isSimple;
 			initBlock = init;
+			goVal = gv;
+			isConst = isconst;
+			type = t;
+			isPositionalArg = isPos;
+			argFlag = aflag;
 		}
 	}
 
-	// model storing data of each function in the algorith
+	// model storing data of each function in the algorithm
 	public class TestFunctionData {
 		// variable name
 		public final String name;
@@ -73,8 +99,10 @@ public abstract class PGoPluscalStageOneTesterBase extends PGoPluscalTesterBase 
 		// The string form of tlaexpr initializing the goroutine
 		public final String goroutineInit;
 
+		public final PGoType retType;
+
 		public TestFunctionData(String n, ArrayList<TestVariableData> p, ArrayList<TestVariableData> v, String b,
-				PGoFunction.FunctionType ftype, boolean isSimple, String init) {
+				PGoFunction.FunctionType ftype, boolean isSimple, String init, PGoType rType) {
 			name = n;
 			params = p;
 			vars = v;
@@ -82,7 +110,7 @@ public abstract class PGoPluscalStageOneTesterBase extends PGoPluscalTesterBase 
 			type = ftype;
 			isGoSimpleInit = isSimple;
 			goroutineInit = init;
+			retType = rType;
 		}
 	}
-
 }

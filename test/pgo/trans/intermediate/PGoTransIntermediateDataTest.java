@@ -65,6 +65,9 @@ public class PGoTransIntermediateDataTest {
 			assertNotNull(v);
 			assertEquals("OtherOtherVar" + i, v.getName());
 		}
+
+		assertNotNull(d.findPGoVariable("func1.OtherVar1"));
+		assertNull(d.findPGoFunction("func2.OtherVar1"));
 	}
 
 	@Test

@@ -9,7 +9,7 @@ ast ==
               [var |-> "sols", eqOrIn |-> "=", val |-> << "{", "}" >>], 
               [var |-> "rVal", eqOrIn |-> "=", val |-> << "defaultInitValue" >>]>>,
  defs   |-> <<  >>,
- prcds  |-> <<[name   |-> "PgoAttacks", 
+ prcds  |-> <<[name   |-> "PGoAttacks", 
               minusLabels |-> <<>>, plusLabels |-><<>>, proceduresCalled |-><<>>,
                params |-> <<[var |-> "queens", eqOrIn |-> "=", val |-> << "defaultInitValue" >>], 
                             [var |-> "i", eqOrIn |-> "=", val |-> << "defaultInitValue" >>], 
@@ -21,7 +21,7 @@ ast ==
                                                       rhs |-> << "\\/", "queens", "[", "i", "]", "=", "queens", "[", "j", "]"
 , "\\/", "queens", "[", "i", "]", "-", "queens", "[", "j", "]", "=", "i", "-", "j"
 , "\\/", "queens", "[", "j", "]", "-", "queens", "[", "i", "]", "=", "i", "-", "j" >>]>>], 
-                                         [type |-> "return", from |-> "PgoAttacks"]>>]>>]>>,
+                                         [type |-> "return", from |-> "PGoAttacks"]>>]>>]>>,
  body  |-> <<[label |-> "nxtQ",
               stmts |-> <<[type    |-> "while", 
                            test    |-> << "todo", "#", "{", "}" >>,

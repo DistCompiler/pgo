@@ -56,13 +56,15 @@ public class AnnotatedReturnVariable {
 	public void fixUp(LinkedHashMap<String, PGoVariable> globals, Collection<PGoFunction> funcs) {
 		globals.remove(name);
 		for (PGoFunction f : funcs) {
-			if (f.getVariable(name) == null) {
-				if (PcalASTUtil.containsAssignmentToVar(f.getBody(), name)) {
-					PGoVariable retVar = PGoVariable.convert(name, f.getReturnType());
-					f.addVariable(retVar);
+			if (f.getType() == PGoFunction.FunctionType.Normal) {
+				if (f.getVariable(name) == null) {
+					if (PcalASTUtil.containsAssignmentToVar(f.getBody(), name)) {
+						PGoVariable retVar = PGoVariable.convert(name, f.getReturnType());
+						f.addVariable(retVar);
+					}
+				} else {
+					f.getVariable(name).setType(f.getReturnType());
 				}
-			} else {
-				f.getVariable(name).setType(f.getReturnType());
 			}
 		}
 	}

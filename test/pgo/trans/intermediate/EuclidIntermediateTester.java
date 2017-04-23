@@ -2,6 +2,8 @@ package pgo.trans.intermediate;
 
 import java.util.ArrayList;
 
+import pgo.model.intermediate.PGoPrimitiveType;
+
 /**
  * Tester class for the Euclid pluscal algorithm
  * 
@@ -10,7 +12,7 @@ import java.util.ArrayList;
  * algorithm with the actual data.
  *
  */
-public class EuclidIntermediateTester extends PGoPluscalStageOneTesterBase {
+public class EuclidIntermediateTester extends PGoPluscalStageTesterBase {
 
 	@Override
 	public boolean isMultiProcess() {
@@ -24,9 +26,11 @@ public class EuclidIntermediateTester extends PGoPluscalStageOneTesterBase {
 	@Override
 	public ArrayList<TestVariableData> getStageOneVariables() {
 		ArrayList<TestVariableData> ret = new ArrayList<TestVariableData>();
-		ret.add(new TestVariableData("u", true, "<< \"24\" >>"));
-		ret.add(new TestVariableData("v", false, "<< \"1\", \"..\", \"N\" >>"));
-		ret.add(new TestVariableData("v_init", true, "<< \"v\" >>"));
+		ret.add(new TestVariableData("u", true, "<< \"24\" >>", "", false, new PGoPrimitiveType.PGoInt(), false, ""));
+		ret.add(new TestVariableData("v", false, "<< \"1\", \"..\", \"N\" >>", "", false, new PGoPrimitiveType.PGoInt(),
+				false, ""));
+		ret.add(new TestVariableData("v_init", true, "<< \"v\" >>", "", false, new PGoPrimitiveType.PGoInt(), false,
+				""));
 
 		return ret;
 	}
@@ -34,6 +38,14 @@ public class EuclidIntermediateTester extends PGoPluscalStageOneTesterBase {
 	@Override
 	public ArrayList<TestFunctionData> getStageOneFunctions() {
 		return new ArrayList<TestFunctionData>();
+	}
+
+	@Override
+	public ArrayList<TestVariableData> getStageTypeVariables() {
+		ArrayList<TestVariableData> ret = super.getStageTypeVariables();
+		ret.add(new TestVariableData("N", false, "<< \"defaultInitValue\" >>", "", false, new PGoPrimitiveType.PGoInt(),
+				true, ""));
+		return ret;
 	}
 
 	@Override

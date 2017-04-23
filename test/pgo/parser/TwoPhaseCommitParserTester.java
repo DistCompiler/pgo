@@ -26,7 +26,7 @@ public class TwoPhaseCommitParserTester extends PGoPluscalParserTesterBase {
 		v.add(new PGoAnnotation("func void SetAll() string Set[string]", 11));
 		v.add(new PGoAnnotation("proc string Restaurant", 21));
 		v.add(new PGoAnnotation("proc string Controller", 41));
-		v.add(new PGoAnnotation("var Set[string] rstMgr", 42));
+		v.add(new PGoAnnotation("var Set[string] rstMgrs", 42));
 		v.add(new PGoAnnotation("var bool aborted", 42));
 		return v;
 	}
@@ -36,7 +36,7 @@ public class TwoPhaseCommitParserTester extends PGoPluscalParserTesterBase {
 		ArrayList<VarAnnotatedVariableData> ret = new ArrayList<VarAnnotatedVariableData>();
 		ret.add(new VarAnnotatedVariableData(new PGoCollectionType.PGoSet("String"), "managers", 6));
 		ret.add(new VarAnnotatedVariableData(new PGoCollectionType.PGoMap("String", "String"), "restaurant_stage", 7));
-		ret.add(new VarAnnotatedVariableData(new PGoCollectionType.PGoSet("string"), "rstMgr", 42));
+		ret.add(new VarAnnotatedVariableData(new PGoCollectionType.PGoSet("string"), "rstMgrs", 42));
 		ret.add(new VarAnnotatedVariableData(new PGoPrimitiveType.PGoBool(), "aborted", 42));
 
 		return ret;

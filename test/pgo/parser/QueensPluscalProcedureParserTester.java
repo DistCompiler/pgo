@@ -25,7 +25,7 @@ public class QueensPluscalProcedureParserTester extends PGoPluscalParserTesterBa
 		v.add(new PGoAnnotation("var Set[chan[int]] todo", 46));
 		v.add(new PGoAnnotation("var Set[chan[int]] sols", 47));
 		v.add(new PGoAnnotation("ret rVal", 51));
-		v.add(new PGoAnnotation("func bool PgoAttacks() chan[int] int int", 53));
+		v.add(new PGoAnnotation("func bool Attacks() chan[int] int int", 53));
 		v.add(new PGoAnnotation("var chan[int] queens", 64));
 		v.add(new PGoAnnotation("var int nexQ", 65));
 		v.add(new PGoAnnotation("var Set[int] cols", 66));
@@ -74,7 +74,7 @@ public class QueensPluscalProcedureParserTester extends PGoPluscalParserTesterBa
 		args.add(new PGoCollectionType.PGoChan("int"));
 		args.add(new PGoPrimitiveType.PGoInt());
 		args.add(new PGoPrimitiveType.PGoInt());
-		ret.add(new AnnotatedFunctionData("PgoAttacks", 53, new PGoPrimitiveType.PGoBool(), args));
+		ret.add(new AnnotatedFunctionData("Attacks", 53, new PGoPrimitiveType.PGoBool(), args));
 
 		return ret;
 	}

@@ -2,6 +2,9 @@ package pgo.trans.intermediate;
 
 import java.util.ArrayList;
 
+import pgo.model.intermediate.PGoCollectionType;
+import pgo.model.intermediate.PGoPrimitiveType;
+
 /**
  * Tester class for the QueensPluscal pluscal algorithm
  * 
@@ -10,7 +13,7 @@ import java.util.ArrayList;
  * algorithm with the actual data.
  *
  */
-public class QueensPluscalIntermediateTester extends PGoPluscalStageOneTesterBase {
+public class QueensPluscalIntermediateTester extends PGoPluscalStageTesterBase {
 
 	@Override
 	public boolean isMultiProcess() {
@@ -24,9 +27,19 @@ public class QueensPluscalIntermediateTester extends PGoPluscalStageOneTesterBas
 	@Override
 	public ArrayList<TestVariableData> getStageOneVariables() {
 		ArrayList<TestVariableData> ret = new ArrayList<TestVariableData>();
-		ret.add(new TestVariableData("todo", true, "<< \"{\", \"<<\", \">>\", \"}\" >>"));
-		ret.add(new TestVariableData("sols", true, "<< \"{\", \"}\" >>"));
+		ret.add(new TestVariableData("todo", true, "<< \"{\", \"<<\", \">>\", \"}\" >>", "", false,
+				new PGoCollectionType.PGoSet("chan[int]"), false, ""));
+		ret.add(new TestVariableData("sols", true, "<< \"{\", \"}\" >>", "", false,
+				new PGoCollectionType.PGoSet("chan[int]"), false, ""));
 
+		return ret;
+	}
+
+	@Override
+	public ArrayList<TestVariableData> getStageTypeVariables() {
+		ArrayList<TestVariableData> ret = getStageOneVariables();
+		ret.add(new TestVariableData("N", false, "<< \"defaultInitValue\" >>", "", false, new PGoPrimitiveType.PGoInt(),
+				true, ""));
 		return ret;
 	}
 

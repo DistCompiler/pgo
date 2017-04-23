@@ -30,6 +30,9 @@ class PGoTransIntermediateData {
 
 	// The global variables of this algorithm
 	LinkedHashMap<String, PGoVariable> globals;
+	// The local variables we have yet to encountered from our passes (probably
+	// hidden in a with clause)
+	LinkedHashMap<String, PGoVariable> tempVars;
 	// The functions of this algorithm
 	LinkedHashMap<String, PGoFunction> funcs;
 
@@ -48,6 +51,7 @@ class PGoTransIntermediateData {
 	PGoTransIntermediateData() {
 
 		this.globals = new LinkedHashMap<String, PGoVariable>();
+		this.tempVars = new LinkedHashMap<String, PGoVariable>();
 		this.funcs = new LinkedHashMap<String, PGoFunction>();
 		this.mainBlock = new ArrayList<LabeledStmt>();
 		this.goroutines = new LinkedHashMap<String, PGoRoutineInit>();
@@ -76,13 +80,21 @@ class PGoTransIntermediateData {
 
 	// Find the PGoVariable of the given name from the program.
 	PGoVariable findPGoVariable(String name) {
-		PGoVariable ret;
-		ret = globals.get(name);
-		if (ret == null) {
-			for (PGoFunction f : funcs.values()) {
-				ret = f.getVariable(name);
-				if (ret != null) {
-					break;
+		PGoVariable ret = null;
+		if (name.contains(".")) {
+			String[] parts = name.split("\\.");
+			PGoFunction f = findPGoFunction(parts[0]);
+			if (f != null) {
+				ret = f.getVariable(parts[1]);
+			}
+		} else {
+			ret = globals.get(name);
+			if (ret == null) {
+				for (PGoFunction f : funcs.values()) {
+					ret = f.getVariable(name);
+					if (ret != null) {
+						break;
+					}
 				}
 			}
 		}

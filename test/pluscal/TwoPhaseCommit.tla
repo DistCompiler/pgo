@@ -39,7 +39,7 @@ EXTENDS Naturals, TLC
   }; \* end Restaurant process block
 
   process (Controller = "alice")  \** @PGo{ proc string Controller }@PGo
-    (** @PGo{ var Set[string] rstMgr }@PGo  @PGo{ var bool aborted }@PGo  **)
+    (** @PGo{ var Set[string] rstMgrs }@PGo  @PGo{ var bool aborted }@PGo  **)
     variables rstMgrs, aborted = FALSE;    
   {  
     n0: rstMgrs := managers;

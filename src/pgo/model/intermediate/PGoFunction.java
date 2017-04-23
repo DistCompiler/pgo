@@ -138,6 +138,7 @@ public class PGoFunction {
 		ret.body = m.body;
 		ret.type = FunctionType.Macro;
 		ret.line = m.line;
+		ret.rType = PGoType.VOID;
 
 		return ret;
 	}
@@ -160,6 +161,7 @@ public class PGoFunction {
 		ret.body = p.body;
 		ret.line = p.line;
 		ret.type = FunctionType.GoRoutine;
+		ret.rType = PGoType.VOID;
 
 		return ret;
 	}

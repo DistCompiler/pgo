@@ -6,6 +6,7 @@ import pgo.model.parser.AnnotatedFunction;
 import pgo.model.parser.AnnotatedProcess;
 import pgo.model.parser.AnnotatedReturnVariable;
 import pgo.model.parser.AnnotatedVariable;
+import pgo.model.parser.AnnotatedVariable.VarAnnotatedVariable;
 import pgo.parser.PGoAnnotationParser;
 import pgo.parser.PGoParseException;
 import pgo.parser.PcalParser.ParsedPcal;
@@ -29,7 +30,15 @@ public class PGoTransStageType extends PGoTransStageBase {
 			if (var == null) {
 				var = PGoVariable.convert(v.getName());
 				var.setLine(v.getLine());
-				this.intermediateData.globals.put(v.getName(), var);
+				if (v instanceof VarAnnotatedVariable) {
+					// normal variable that we haven't encountered
+					// this means the variable is probably defined in a "with"
+					// clause or something, so don't store it as a global. Keep
+					// it at the side for now.
+					this.intermediateData.tempVars.put(v.getName(), var);
+				} else {
+					this.intermediateData.globals.put(v.getName(), var);
+				}
 			}
 			v.fillVariable(var);
 
@@ -40,7 +49,8 @@ public class PGoTransStageType extends PGoTransStageBase {
 			if (fun == null) {
 				throw new PGoTransException(
 							"Reference to function \"" + f.getName()
-									+ "\" in annotation but no matching function or \"PGo " + f.getName() + "\" found.",
+								+ "\" in annotation but no matching function \"" + f.getName() + " \"or \"PGo"
+								+ f.getName() + "\" found.",
 							f.getLine());
 			}
 

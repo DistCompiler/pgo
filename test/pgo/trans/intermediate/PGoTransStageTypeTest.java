@@ -2,11 +2,13 @@ package pgo.trans.intermediate;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -20,11 +22,12 @@ import pgo.trans.intermediate.PGoPluscalStageTesterBase.TestFunctionData;
 import pgo.trans.intermediate.PGoPluscalStageTesterBase.TestVariableData;
 
 @RunWith(Parameterized.class)
-public class PGoTransStageOneTest {
+public class PGoTransStageTypeTest {
 
 	protected PGoPluscalStageTesterBase tester;
+	private PGoTransStageType p;
 
-	public PGoTransStageOneTest(PGoPluscalStageTesterBase tester) {
+	public PGoTransStageTypeTest(PGoPluscalStageTesterBase tester) {
 		this.tester = tester;
 	}
 
@@ -35,28 +38,29 @@ public class PGoTransStageOneTest {
 				{ new SumIntermediateTester() }, { new TwoPhaseCommitIntermediateTester() } });
 	}
 
+	@Before
+	public void SetUp() throws PGoParseException, PGoTransException {
+		PGoTransStageOne s1 = new PGoTransStageOne(tester.getParsedPcal());
+		p = new PGoTransStageType(s1, tester.getParsedPcal());
+	}
+
 	@Test
 	public void testUniOrMultiProcess() throws PGoTransException, PGoParseException {
-
-		PGoTransStageOne p = new PGoTransStageOne(tester.getParsedPcal());
 		assertEquals(tester.isMultiProcess(), p.getIsMultiProcess());
 	}
 
 	@Test
 	public void testAlgName() throws PGoTransException, PGoParseException {
-		PGoTransStageOne p = new PGoTransStageOne(tester.getParsedPcal());
 		assertEquals(tester.getName(), p.getAlgName());
-
 	}
 
 	@Test
 	public void testPGoVariable() throws PGoTransException, PGoParseException {
-		PGoTransStageOne p = new PGoTransStageOne(tester.getParsedPcal());
 		ArrayList<PGoVariable> cv = p.getGlobals();
-		assertEquals(tester.getStageOneVariables().size(), cv.size());
+		assertEquals(tester.getStageTypeVariables().size(), cv.size());
 
 		for (int i = 0; i < cv.size(); i++) {
-			assertPGoVariable(p.getGlobals().get(i), i, tester.getStageOneVariables());
+			assertPGoVariable(p.getGlobals().get(i), i, tester.getStageTypeVariables());
 			assertEquals(p.getGlobals().get(i), p.getGlobal(p.getGlobals().get(i).getName()));
 		}
 	}
@@ -69,14 +73,23 @@ public class PGoTransStageOneTest {
 		assertEquals(av.name, v.getName());
 		assertEquals(av.isSimpleInit, v.getIsSimpleAssignInit());
 		assertEquals(av.initBlock, v.getPcalInitBlock().toString());
+
+		assertEquals(av.goVal, v.getGoVal());
+		assertEquals(av.isConst, v.getIsConstant());
+		assertEquals(av.type, v.getType());
+		if (av.isPositionalArg || !av.argFlag.isEmpty()) {
+			assertNotNull(v.getArgInfo());
+			assertEquals(av.isPositionalArg, v.getArgInfo().isPositionalArg());
+			assertEquals(av.argFlag, v.getArgInfo().getArgName());
+		} else {
+			assertNull(v.getArgInfo());
+		}
 	}
 
 	@Test
 	public void testPGoFunction() throws PGoTransException, PGoParseException {
-		PGoTransStageOne p = new PGoTransStageOne(tester.getParsedPcal());
-
 		ArrayList<PGoFunction> cv = p.getFunctions();
-		assertEquals(tester.getStageOneFunctions().size(), cv.size());
+		assertEquals(tester.getStageTypeFunctions().size(), cv.size());
 
 		for (int i = 0; i < cv.size(); i++) {
 			assertPGoFunction(p, i, tester);
@@ -84,8 +97,9 @@ public class PGoTransStageOneTest {
 	}
 
 	// assert function for a pgofunction generated from initial pass
-	private void assertPGoFunction(PGoTransStageOne p, int i, PGoPluscalStageTesterBase tester) throws PGoParseException {
-		TestFunctionData af = tester.getStageOneFunctions().get(i);
+	private void assertPGoFunction(PGoTransStageType p, int i, PGoPluscalStageTesterBase tester)
+			throws PGoParseException {
+		TestFunctionData af = tester.getStageTypeFunctions().get(i);
 
 		PGoFunction f = p.getFunctions().get(i);
 		assertNotNull(f);
@@ -107,6 +121,8 @@ public class PGoTransStageOneTest {
 		assertEquals(p.getFunction(af.name), f);
 		
 		assertEquals(af.type, f.getType());
+
+		assertEquals(af.retType, f.getReturnType());
 	}
 
 	@Test

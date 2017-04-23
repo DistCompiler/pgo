@@ -18,7 +18,7 @@ public abstract class PGoException extends Exception {
 	}
 
 	public PGoException(String prefix, String msg, int lineN) {
-		super(prefix + " " + msg + " at Line: " + lineN);
+		super(prefix + ": " + msg + " at Line: " + lineN);
 		this.line = lineN;
 		this.msg = msg;
 	}

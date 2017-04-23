@@ -5,7 +5,10 @@ import java.util.ArrayList;
 import pcal.AST.Macro;
 import pcal.AST.Multiprocess;
 import pcal.AST.Process;
+import pgo.model.intermediate.PGoCollectionType;
 import pgo.model.intermediate.PGoFunction;
+import pgo.model.intermediate.PGoPrimitiveType;
+import pgo.model.intermediate.PGoType;
 import pgo.parser.PGoParseException;
 
 /**
@@ -16,7 +19,7 @@ import pgo.parser.PGoParseException;
  * algorithm with the actual data.
  *
  */
-public class TwoPhaseCommitIntermediateTester extends PGoPluscalStageOneTesterBase {
+public class TwoPhaseCommitIntermediateTester extends PGoPluscalStageTesterBase {
 
 	@Override
 	public boolean isMultiProcess() {
@@ -33,10 +36,11 @@ public class TwoPhaseCommitIntermediateTester extends PGoPluscalStageOneTesterBa
 		ret.add(new TestVariableData("managers", true,"<< \"{\", \"\\\"\", \"bob\", \"\\\"\","
 				+ " \",\", \"\\\"\", \"chuck\", \"\\\"\", \",\", \"\\\"\", \"dave\", "
 				+ "\"\\\"\", \",\", \"\\\"\", \"everett\", \"\\\"\", \",\", \"\\\"\","
-				+ " \"fred\", \"\\\"\", \"}\" >>"));
+				+ " \"fred\", \"\\\"\", \"}\" >>", "", false, new PGoCollectionType.PGoSet("String"), false, ""));
 				
 		ret.add(new TestVariableData("restaurant_stage", true,
-				"<< \"[\", \"mgr\", \"\\\\in\", \"managers\", \"|->\", \"\\\"\", \"start\", \"\\\"\", \"]\" >>"));
+				"<< \"[\", \"mgr\", \"\\\\in\", \"managers\", \"|->\", \"\\\"\", \"start\", \"\\\"\", \"]\" >>", "",
+				false, new PGoCollectionType.PGoMap("String", "String"), false, ""));
 		return ret;
 	}
 
@@ -46,32 +50,39 @@ public class TwoPhaseCommitIntermediateTester extends PGoPluscalStageOneTesterBa
 
 		ArrayList<TestVariableData> params = new ArrayList<TestVariableData>();
 		ArrayList<TestVariableData> vars = new ArrayList<TestVariableData>();
-		params.add(new TestVariableData("state", true, "<< \"defaultInitValue\" >>"));
-		params.add(new TestVariableData("kmgrs", true, "<< \"defaultInitValue\" >>"));
+		params.add(new TestVariableData("state", true, "<< \"defaultInitValue\" >>", "", false,
+				new PGoPrimitiveType.PGoString(), false, ""));
+		params.add(new TestVariableData("kmgrs", true, "<< \"defaultInitValue\" >>", "", false,
+				new PGoCollectionType.PGoSet("string"), false, ""));
 
 		String b = ((Macro) ((Multiprocess) getAST()).macros.get(0)).body.toString();
 
-		ret.add(new TestFunctionData("SetAll", params, vars, b, PGoFunction.FunctionType.Macro, false, ""));
+		ret.add(new TestFunctionData("SetAll", params, vars, b, PGoFunction.FunctionType.Macro, false, "",
+				PGoType.VOID));
 
 		params = new ArrayList<TestVariableData>();
 		vars = new ArrayList<TestVariableData>();
-		params.add(new TestVariableData("self", true, "<< \"defaultInitValue\" >>"));
+		params.add(new TestVariableData("self", true, "<< \"defaultInitValue\" >>", "", false,
+				new PGoPrimitiveType.PGoString(), false, ""));
 
 		b = ((Process) ((Multiprocess) getAST()).procs.get(0)).body.toString();
 
 		ret.add(new TestFunctionData("Restaurant", params, vars, b, PGoFunction.FunctionType.GoRoutine, false,
-				"<< \"managers\" >>"));
+				"<< \"managers\" >>", PGoType.VOID));
 
 		params = new ArrayList<TestVariableData>();
 		vars = new ArrayList<TestVariableData>();
-		params.add(new TestVariableData("self", true, "<< \"defaultInitValue\" >>"));
-		vars.add(new TestVariableData("rstMgrs", true, "<< \"defaultInitValue\" >>"));
-		vars.add(new TestVariableData("aborted", true, "<< \"FALSE\" >>"));
+		params.add(new TestVariableData("self", true, "<< \"defaultInitValue\" >>", "", false,
+				new PGoPrimitiveType.PGoString(), false, ""));
+		vars.add(new TestVariableData("rstMgrs", true, "<< \"defaultInitValue\" >>", "", false,
+				new PGoCollectionType.PGoSet("String"), false, ""));
+		vars.add(new TestVariableData("aborted", true, "<< \"FALSE\" >>", "", false, new PGoPrimitiveType.PGoBool(),
+				false, ""));
 		
 		b = ((Process) ((Multiprocess) getAST()).procs.get(1)).body.toString();
 
 		ret.add(new TestFunctionData("Controller", params, vars, b, PGoFunction.FunctionType.GoRoutine, true,
-				"<< \"\\\"\", \"alice\", \"\\\"\" >>"));
+				"<< \"\\\"\", \"alice\", \"\\\"\" >>", PGoType.VOID));
 		
 		return ret;
 	}

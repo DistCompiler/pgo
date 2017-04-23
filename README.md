@@ -42,8 +42,9 @@ There will be constants in PlusCal that are not declared in the PlusCal algorith
 Constants are specified as `const <type> <varname> <val>` indicating that varname is a go constant of type <type> with initial value <val>.
 Command line argument variables of Go are specified as `arg <type> <varname> (<flagname>)?` indicating that variable <varname> of type <type> and is going to be specified through command line argument to the go program. If no <flagname> is specified, then the variable will be positional arguments, the ith argument in the order they appear in the annotation. If <flagname> is specified, then the variable will be set through `-<flagname>=...`.
 
-#### Annotations for PlusCal procedure return values (Required)
+#### Annotations for PlusCal procedure return values (Optional)
 PlusCal has no return values, so procedures can only return values by writing to a global variable. It is required to indicate which variable serves this purpose. This is specified through the annotation `ret <varname>`.
+Note that using this feature will remove the specified variable from global variables. If you rely on global state of the variable for more than just function return value, do not specify it as a return value.
 
 #### Annotations for specifying variable types
 PGo will automatically infer types for variables declared in PlusCal. However, you may want to specify the types rather than using the inferred types (e.g. you want a uint64 rather than int). This is possible by specifying `var <type> <varname>`.
