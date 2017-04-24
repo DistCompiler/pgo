@@ -13,6 +13,8 @@ import pcal.TLAExpr;
 import pgo.model.intermediate.PGoFunction;
 import pgo.model.intermediate.PGoRoutineInit;
 import pgo.model.intermediate.PGoVariable;
+import pgo.parser.PGoAnnotationParser;
+import pgo.parser.PGoParseException;
 import pgo.parser.PcalParser.ParsedPcal;
 import pgo.trans.PGoTransException;
 
@@ -27,8 +29,9 @@ public class PGoTransStageOne extends PGoTransStageBase {
 	// The PlusCal AST to parse
 	private AST ast;
 
-	public PGoTransStageOne(ParsedPcal parsed) throws PGoTransException {
+	public PGoTransStageOne(ParsedPcal parsed) throws PGoTransException, PGoParseException {
 		this.ast = parsed.getAST();
+		this.intermediateData.annots = new PGoAnnotationParser(parsed.getPGoAnnotations());
 
 		trans();
 	}

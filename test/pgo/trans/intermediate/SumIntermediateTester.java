@@ -35,7 +35,7 @@ public class SumIntermediateTester extends PGoPluscalStageTesterBase {
 		ArrayList<TestVariableData> ret = new ArrayList<TestVariableData>();
 		ret.add(new TestVariableData("network", true, "<< \"[\", \"i\", \"\\\\in\", "
 				+ "\"1\", \"..\", \"N\", \"+\", \"1\", \"|->\", \"<<\", \">>\", \"]\" >>", "", false,
-				new PGoCollectionType.PGoSlice("chan[[2]interface]"), false, ""));
+				new PGoCollectionType.PGoSlice("chan[[2]interface]"), false, "", true));
 
 		return ret;
 	}
@@ -45,11 +45,11 @@ public class SumIntermediateTester extends PGoPluscalStageTesterBase {
 		ArrayList<TestVariableData> ret = getStageOneVariables();
 		ret.add(new TestVariableData("MAXINT", true, "<< \"defaultInitValue\" >>", "10000000", true,
 				new PGoPrimitiveType.PGoNatural(), false,
-				""));
+				"", false));
 		ret.add(new TestVariableData("RUNS", false, "<< \"defaultInitValue\" >>", "", false,
-				new PGoPrimitiveType.PGoNatural(), false, "runs"));
+				new PGoPrimitiveType.PGoNatural(), false, "runs", false));
 		ret.add(new TestVariableData("N", false, "<< \"defaultInitValue\" >>", "", false,
-				new PGoPrimitiveType.PGoNatural(), false, "numT"));
+				new PGoPrimitiveType.PGoNatural(), false, "numT", false));
 		return ret;
 	}
 
@@ -60,11 +60,11 @@ public class SumIntermediateTester extends PGoPluscalStageTesterBase {
 		ArrayList<TestVariableData> params = new ArrayList<TestVariableData>();
 		ArrayList<TestVariableData> vars = new ArrayList<TestVariableData>();
 		params.add(new TestVariableData("from", true, "<< \"defaultInitValue\" >>", "", false,
-				new PGoPrimitiveType.PGoNatural(), false, ""));
+				new PGoPrimitiveType.PGoNatural(), false, "", false));
 		params.add(new TestVariableData("to", true, "<< \"defaultInitValue\" >>", "", false,
-				new PGoPrimitiveType.PGoNatural(), false, ""));
+				new PGoPrimitiveType.PGoNatural(), false, "", false));
 		params.add(new TestVariableData("msg", true, "<< \"defaultInitValue\" >>", "", false,
-				new PGoPrimitiveType.PGoInterface(), false, ""));
+				new PGoPrimitiveType.PGoInterface(), false, "", false));
 
 		String b = ((Macro) ((Multiprocess) getAST()).macros.get(0)).body.toString();
 
@@ -74,11 +74,11 @@ public class SumIntermediateTester extends PGoPluscalStageTesterBase {
 		params = new ArrayList<TestVariableData>();
 		vars = new ArrayList<TestVariableData>();
 		params.add(new TestVariableData("to", true, "<< \"defaultInitValue\" >>", "", false,
-				new PGoPrimitiveType.PGoNatural(), false, ""));
+				new PGoPrimitiveType.PGoNatural(), false, "", false));
 		params.add(new TestVariableData("id", true, "<< \"defaultInitValue\" >>", "", false,
-				new PGoPrimitiveType.PGoNatural(), false, ""));
+				new PGoPrimitiveType.PGoNatural(), false, "", false));
 		params.add(new TestVariableData("msg", true, "<< \"defaultInitValue\" >>", "", false,
-				new PGoPrimitiveType.PGoInterface(), false, ""));
+				new PGoPrimitiveType.PGoInterface(), false, "", false));
 
 		b = ((Macro) ((Multiprocess) getAST()).macros.get(1)).body.toString();
 
@@ -87,19 +87,19 @@ public class SumIntermediateTester extends PGoPluscalStageTesterBase {
 		params = new ArrayList<TestVariableData>();
 		vars = new ArrayList<TestVariableData>();
 		params.add(new TestVariableData("self", true, "<< \"defaultInitValue\" >>", "", false,
-				new PGoPrimitiveType.PGoNatural(), false, ""));
+				new PGoPrimitiveType.PGoNatural(), false, "", false));
 		vars.add(new TestVariableData("a_init", true, "<< \"defaultInitValue\" >>", "", false,
-				new PGoPrimitiveType.PGoNatural(), false, ""));
+				new PGoPrimitiveType.PGoNatural(), false, "", false));
 		vars.add(new TestVariableData("b_init", true, "<< \"defaultInitValue\" >>", "", false,
-				new PGoPrimitiveType.PGoNatural(), false, ""));
+				new PGoPrimitiveType.PGoNatural(), false, "", false));
 		vars.add(new TestVariableData("runs", true, "<< \"0\" >>", "", false, new PGoPrimitiveType.PGoNatural(), false,
-				""));
+				"", false));
 		vars.add(new TestVariableData("id", true, "<< \"defaultInitValue\" >>", "", false,
-				new PGoPrimitiveType.PGoNatural(), false, ""));
+				new PGoPrimitiveType.PGoNatural(), false, "", false));
 		vars.add(new TestVariableData("msg", true, "<< \"defaultInitValue\" >>", "", false,
-				new PGoPrimitiveType.PGoNatural(), false, ""));
+				new PGoPrimitiveType.PGoNatural(), false, "", false));
 		vars.add(new TestVariableData("sum", true, "<< \"defaultInitValue\" >>", "", false,
-				new PGoPrimitiveType.PGoNatural(), false, ""));
+				new PGoPrimitiveType.PGoNatural(), false, "", false));
 
 		b = ((Process) ((Multiprocess) getAST()).procs.get(0)).body.toString();
 
@@ -109,15 +109,15 @@ public class SumIntermediateTester extends PGoPluscalStageTesterBase {
 		params = new ArrayList<TestVariableData>();
 		vars = new ArrayList<TestVariableData>();
 		params.add(new TestVariableData("self", true, "<< \"defaultInitValue\" >>", "", false,
-				new PGoPrimitiveType.PGoNatural(), false, ""));
+				new PGoPrimitiveType.PGoNatural(), false, "", false));
 		vars.add(new TestVariableData("a", true, "<< \"defaultInitValue\" >>", "", false,
-				new PGoPrimitiveType.PGoNatural(), false, ""));
+				new PGoPrimitiveType.PGoNatural(), false, "", false));
 		vars.add(new TestVariableData("b", true, "<< \"defaultInitValue\" >>", "", false,
-				new PGoPrimitiveType.PGoNatural(), false, ""));
+				new PGoPrimitiveType.PGoNatural(), false, "", false));
 		vars.add(new TestVariableData("id", true, "<< \"defaultInitValue\" >>", "", false,
-				new PGoPrimitiveType.PGoNatural(), false, ""));
+				new PGoPrimitiveType.PGoNatural(), false, "", false));
 		vars.add(new TestVariableData("msg", true, "<< \"defaultInitValue\" >>", "", false,
-				new PGoCollectionType.PGoSlice("2", "uint64"), false, ""));
+				new PGoCollectionType.PGoSlice("2", "uint64"), false, "", false));
 
 		b = ((Process) ((Multiprocess) getAST()).procs.get(1)).body.toString();
 

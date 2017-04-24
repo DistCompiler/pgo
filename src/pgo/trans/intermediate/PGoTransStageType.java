@@ -7,9 +7,7 @@ import pgo.model.parser.AnnotatedProcess;
 import pgo.model.parser.AnnotatedReturnVariable;
 import pgo.model.parser.AnnotatedVariable;
 import pgo.model.parser.AnnotatedVariable.VarAnnotatedVariable;
-import pgo.parser.PGoAnnotationParser;
 import pgo.parser.PGoParseException;
-import pgo.parser.PcalParser.ParsedPcal;
 import pgo.trans.PGoTransException;
 
 /**
@@ -21,14 +19,12 @@ import pgo.trans.PGoTransException;
  */
 public class PGoTransStageType extends PGoTransStageBase {
 
-	public PGoTransStageType(PGoTransStageOne s1, ParsedPcal pcal) throws PGoParseException, PGoTransException {
+	public PGoTransStageType(PGoTransStageOne s1) throws PGoParseException, PGoTransException {
 		super(s1);
-		PGoAnnotationParser p = new PGoAnnotationParser(pcal.getPGoAnnotations());
-		
-		fixUpVariables(p);
-		fixUpFunctions(p);
-		fixUpReturnVariables(p);
-		fixUpProcesses(p);
+		fixUpVariables();
+		fixUpFunctions();
+		fixUpReturnVariables();
+		fixUpProcesses();
 
 		checkAllTyped();
 	}
@@ -81,8 +77,8 @@ public class PGoTransStageType extends PGoTransStageBase {
 		}
 	}
 
-	private void fixUpProcesses(PGoAnnotationParser p) throws PGoTransException {
-		for (AnnotatedProcess prcs : p.getAnnotatedProcesses()) {
+	private void fixUpProcesses() throws PGoTransException {
+		for (AnnotatedProcess prcs : this.intermediateData.annots.getAnnotatedProcesses()) {
 			PGoFunction fun = this.intermediateData.findPGoFunction(prcs.getName());
 			if (fun == null) {
 				throw new PGoTransException(
@@ -95,15 +91,15 @@ public class PGoTransStageType extends PGoTransStageBase {
 	}
 
 	// Add annotation information of return variables
-	private void fixUpReturnVariables(PGoAnnotationParser p) {
-		for (AnnotatedReturnVariable r : p.getReturnVariables()) {
+	private void fixUpReturnVariables() {
+		for (AnnotatedReturnVariable r : this.intermediateData.annots.getReturnVariables()) {
 			r.fixUp(this.intermediateData.globals, this.intermediateData.funcs.values());
 		}
 	}
 
 	// Add annotation information of functions
-	private void fixUpFunctions(PGoAnnotationParser p) throws PGoTransException {
-		for (AnnotatedFunction f : p.getAnnotatedFunctions()) {
+	private void fixUpFunctions() throws PGoTransException {
+		for (AnnotatedFunction f : this.intermediateData.annots.getAnnotatedFunctions()) {
 			PGoFunction fun = this.intermediateData.findPGoFunction(f.getName());
 			if (fun == null) {
 				throw new PGoTransException(
@@ -113,13 +109,13 @@ public class PGoTransStageType extends PGoTransStageBase {
 							f.getLine());
 			}
 
-			f.fillFunction(fun, p.getReturnVariables());
+			f.fillFunction(fun, this.intermediateData.annots.getReturnVariables());
 		}
 	}
 
 	// Add annotation information of variables
-	private void fixUpVariables(PGoAnnotationParser p) {
-		for (AnnotatedVariable v : p.getAnnotatedVariables()) {
+	private void fixUpVariables() {
+		for (AnnotatedVariable v : this.intermediateData.annots.getAnnotatedVariables()) {
 			PGoVariable var = this.intermediateData.findPGoVariable(v.getName());
 			if (var == null) {
 				var = PGoVariable.convert(v.getName());

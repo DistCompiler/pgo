@@ -2,6 +2,7 @@ package pgo.trans;
 
 import pgo.parser.PGoParseException;
 import pgo.parser.PcalParser.ParsedPcal;
+import pgo.trans.intermediate.PGoTransStageAtomicity;
 import pgo.trans.intermediate.PGoTransStageOne;
 import pgo.trans.intermediate.PGoTransStageType;
 
@@ -17,7 +18,8 @@ public class PGoTranslater {
 	public PGoTranslater(ParsedPcal pcal) throws PGoTransException, PGoParseException {
 		this.pluscal = pcal;
 		PGoTransStageOne s1 = new PGoTransStageOne(pcal);
-		PGoTransStageType s2 = new PGoTransStageType(s1, pcal);
+		PGoTransStageType s2 = new PGoTransStageType(s1);
+		PGoTransStageAtomicity s3 = new PGoTransStageAtomicity(s2);
 	}
 	
 }

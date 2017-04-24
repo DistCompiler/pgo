@@ -192,4 +192,33 @@ public class PcalASTUtilTest {
 			}
 		}.getResult(ast));
 	}
+
+	@Test
+	public void testFindFunctionCalls() {
+		Vector<String> expected = new Vector<String>();
+		Vector<AST> body = new Vector<AST>();
+		body.add((AST) ((Multiprocess) ast).prcds.get(0));
+
+		assertEquals(expected, PcalASTUtil.collectFunctionCalls(body));
+
+		body.clear();
+		expected.add("foo");
+		body.add((AST) ((Multiprocess) ast).procs.get(0));
+		assertEquals(expected, PcalASTUtil.collectFunctionCalls(body));
+
+		body.clear();
+		expected.clear();
+		expected.add("bar");
+		body.add((AST) ((Multiprocess) ast).procs.get(1));
+		assertEquals(expected, PcalASTUtil.collectFunctionCalls(body));
+
+		body.clear();
+		expected.clear();
+		expected.add("foo");
+		expected.add("bar");
+		body.add(ast);
+		Vector<String> vs = PcalASTUtil.collectFunctionCalls(body);
+		assertEquals(expected.size(), vs.size());
+		assertTrue(expected.containsAll(vs));
+	}
 }

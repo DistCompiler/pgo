@@ -30,11 +30,11 @@ public class QueensPluscalProcedureIntermediateTester extends PGoPluscalStageTes
 	public ArrayList<TestVariableData> getStageOneVariables() {
 		ArrayList<TestVariableData> ret = new ArrayList<TestVariableData>();
 		ret.add(new TestVariableData("todo", true, "<< \"{\", \"<<\", \">>\", \"}\" >>", "", false,
-				new PGoCollectionType.PGoSet("chan[int]"), false, ""));
+				new PGoCollectionType.PGoSet("chan[int]"), false, "", false));
 		ret.add(new TestVariableData("sols", true, "<< \"{\", \"}\" >>", "", false,
-				new PGoCollectionType.PGoSet("chan[int]"), false, ""));
+				new PGoCollectionType.PGoSet("chan[int]"), false, "", false));
 		ret.add(new TestVariableData("rVal", true, "<< \"defaultInitValue\" >>", "", false,
-				new PGoType.PGoUndetermined(), false, ""));
+				new PGoType.PGoUndetermined(), false, "", false));
 
 		return ret;
 	}
@@ -44,7 +44,7 @@ public class QueensPluscalProcedureIntermediateTester extends PGoPluscalStageTes
 		ArrayList<TestVariableData> ret = getStageOneVariables();
 		ret.remove(2); // remove rVal
 		ret.add(new TestVariableData("N", false, "<< \"defaultInitValue\" >>", "", false, new PGoPrimitiveType.PGoInt(),
-				true, ""));
+				true, "", false));
 		return ret;
 	}
 
@@ -55,11 +55,11 @@ public class QueensPluscalProcedureIntermediateTester extends PGoPluscalStageTes
 		ArrayList<TestVariableData> params = new ArrayList<TestVariableData>();
 		ArrayList<TestVariableData> vars = new ArrayList<TestVariableData>();
 		params.add(new TestVariableData("queens", true, "<< \"defaultInitValue\" >>", "", false,
-				new PGoCollectionType.PGoChan("int"), false, ""));
+				new PGoCollectionType.PGoChan("int"), false, "", false));
 		params.add(new TestVariableData("i", true, "<< \"defaultInitValue\" >>", "", false,
-				new PGoPrimitiveType.PGoInt(), false, ""));
+				new PGoPrimitiveType.PGoInt(), false, "", false));
 		params.add(new TestVariableData("j", true, "<< \"defaultInitValue\" >>", "", false,
-				new PGoPrimitiveType.PGoInt(), false, ""));
+				new PGoPrimitiveType.PGoInt(), false, "", false));
 
 		String b = "[[label |-> \"attlabl\",\n stmts |-> <<[type |-> \"assignment\",\n              "
 				+ "ass  |-> <<[lhs |-> [var |-> \"rVal\", sub |-> <<  >>],\n                          "
@@ -80,14 +80,14 @@ public class QueensPluscalProcedureIntermediateTester extends PGoPluscalStageTes
 		ArrayList<TestVariableData> params = new ArrayList<TestVariableData>();
 		ArrayList<TestVariableData> vars = new ArrayList<TestVariableData>();
 		params.add(new TestVariableData("queens", true, "<< \"defaultInitValue\" >>", "", false,
-				new PGoCollectionType.PGoChan("int"), false, ""));
+				new PGoCollectionType.PGoChan("int"), false, "", false));
 		params.add(new TestVariableData("i", true, "<< \"defaultInitValue\" >>", "", false,
-				new PGoPrimitiveType.PGoInt(), false, ""));
+				new PGoPrimitiveType.PGoInt(), false, "", false));
 		params.add(new TestVariableData("j", true, "<< \"defaultInitValue\" >>", "", false,
-				new PGoPrimitiveType.PGoInt(), false, ""));
+				new PGoPrimitiveType.PGoInt(), false, "", false));
 
 		vars.add(new TestVariableData("rVal", true, "<< \"defaultInitValue\" >>", "", false,
-				new PGoPrimitiveType.PGoBool(), false, ""));
+				new PGoPrimitiveType.PGoBool(), false, "", false));
 
 		String b = "[[label |-> \"attlabl\",\n stmts |-> <<[type |-> \"assignment\",\n              "
 				+ "ass  |-> <<[lhs |-> [var |-> \"rVal\", sub |-> <<  >>],\n                          "

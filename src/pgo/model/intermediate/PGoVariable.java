@@ -41,6 +41,9 @@ public class PGoVariable {
 	// populated with the corresponding information of flagname, or position
 	private ArgAnnotatedVariable argInfo;
 
+	// Whether this variable needs atomic access (ie threadsafe)
+	private boolean isAtomic;
+
 	// private constructor. only construct through converting from VarDecl
 	private PGoVariable() {
 		type = PGoType.UNDETERMINED;
@@ -105,6 +108,14 @@ public class PGoVariable {
 
 	public void setLine(int line) {
 		this.line = line;
+	}
+
+	public void setAtomic(boolean b) {
+		this.isAtomic = b;
+	}
+
+	public boolean getIsAtomic() {
+		return this.isAtomic;
 	}
 
 	/**

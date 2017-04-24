@@ -8,6 +8,7 @@ import pcal.TLAExpr;
 import pgo.model.intermediate.PGoFunction;
 import pgo.model.intermediate.PGoRoutineInit;
 import pgo.model.intermediate.PGoVariable;
+import pgo.parser.PGoAnnotationParser;
 
 /**
  * This class holds all the important intermediate stage data and data
@@ -47,6 +48,9 @@ class PGoTransIntermediateData {
 
 	// Map of goroutines and its function to its initialization code
 	LinkedHashMap<String, PGoRoutineInit> goroutines;
+
+	// The annotation information
+	PGoAnnotationParser annots;
 
 	PGoTransIntermediateData() {
 

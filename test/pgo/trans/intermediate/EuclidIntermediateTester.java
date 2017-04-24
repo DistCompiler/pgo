@@ -26,11 +26,11 @@ public class EuclidIntermediateTester extends PGoPluscalStageTesterBase {
 	@Override
 	public ArrayList<TestVariableData> getStageOneVariables() {
 		ArrayList<TestVariableData> ret = new ArrayList<TestVariableData>();
-		ret.add(new TestVariableData("u", true, "<< \"24\" >>", "", false, new PGoPrimitiveType.PGoInt(), false, ""));
+		ret.add(new TestVariableData("u", true, "<< \"24\" >>", "", false, new PGoPrimitiveType.PGoInt(), false, "", false));
 		ret.add(new TestVariableData("v", false, "<< \"1\", \"..\", \"N\" >>", "", false, new PGoPrimitiveType.PGoInt(),
-				false, ""));
+				false, "", false));
 		ret.add(new TestVariableData("v_init", true, "<< \"v\" >>", "", false, new PGoPrimitiveType.PGoInt(), false,
-				""));
+				"", false));
 
 		return ret;
 	}
@@ -44,7 +44,7 @@ public class EuclidIntermediateTester extends PGoPluscalStageTesterBase {
 	public ArrayList<TestVariableData> getStageTypeVariables() {
 		ArrayList<TestVariableData> ret = super.getStageTypeVariables();
 		ret.add(new TestVariableData("N", false, "<< \"defaultInitValue\" >>", "", false, new PGoPrimitiveType.PGoInt(),
-				true, ""));
+				true, "", false));
 		return ret;
 	}
 

@@ -62,9 +62,11 @@ public abstract class PGoPluscalStageTesterBase extends PGoPluscalTesterBase {
 		public final boolean isPositionalArg;
 		// the argument flag name if applicable
 		public String argFlag;
+		// whether the variable needs to be atomic/thread safe
+		public final boolean atomicity;
 
 		public TestVariableData(String n, boolean isSimple, String init, String gv, boolean isconst, PGoType t,
-				boolean isPos, String aflag) {
+				boolean isPos, String aflag, boolean isAtomic) {
 			name = n;
 			isSimpleInit = isSimple;
 			initBlock = init;
@@ -73,6 +75,7 @@ public abstract class PGoPluscalStageTesterBase extends PGoPluscalTesterBase {
 			type = t;
 			isPositionalArg = isPos;
 			argFlag = aflag;
+			atomicity = isAtomic;
 		}
 	}
 

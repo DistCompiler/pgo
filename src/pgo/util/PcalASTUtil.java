@@ -232,7 +232,10 @@ public class PcalASTUtil {
 		}
 
 		protected void visit(Either ei) {
-			walk(ei.ors);
+			for (Vector v : (Vector<Vector>) ei.ors) {
+				// either has vector of vectors
+				walk(v);
+			}
 		}
 
 		protected void visit(With with) {
@@ -322,6 +325,43 @@ public class PcalASTUtil {
 			
 		};
 		
+		return av.getResult(body);
+	}
+
+	/**
+	 * Finds all the function calls (procedure and macro calls) made in body of
+	 * code
+	 * 
+	 * @param newBodies
+	 * @return
+	 */
+	public static Vector<String> collectFunctionCalls(Vector<AST> body) {
+		Walker<Vector<String>> av = new Walker<Vector<String>>() {
+
+			@Override
+			protected void init() {
+				result = new Vector<String>();
+			}
+
+			@Override
+			public void visit(Call call) {
+				result.add(call.to);
+			}
+
+			@Override
+			public void visit(CallReturn call) {
+				result.add(call.to);
+			}
+
+			@Override
+			public void visit(MacroCall mc) {
+				// TODO pluscal actually already expanded the macro. we need to
+				// handle it before this is useful. Right now, this will never
+				// be reached as MacroCalls are replaced with the actual code
+				result.add(mc.name);
+			}
+		};
+
 		return av.getResult(body);
 	}
 

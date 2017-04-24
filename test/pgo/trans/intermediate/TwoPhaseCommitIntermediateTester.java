@@ -36,11 +36,11 @@ public class TwoPhaseCommitIntermediateTester extends PGoPluscalStageTesterBase 
 		ret.add(new TestVariableData("managers", true,"<< \"{\", \"\\\"\", \"bob\", \"\\\"\","
 				+ " \",\", \"\\\"\", \"chuck\", \"\\\"\", \",\", \"\\\"\", \"dave\", "
 				+ "\"\\\"\", \",\", \"\\\"\", \"everett\", \"\\\"\", \",\", \"\\\"\","
-				+ " \"fred\", \"\\\"\", \"}\" >>", "", false, new PGoCollectionType.PGoSet("String"), false, ""));
+				+ " \"fred\", \"\\\"\", \"}\" >>", "", false, new PGoCollectionType.PGoSet("String"), false, "", false));
 				
 		ret.add(new TestVariableData("restaurant_stage", true,
 				"<< \"[\", \"mgr\", \"\\\\in\", \"managers\", \"|->\", \"\\\"\", \"start\", \"\\\"\", \"]\" >>", "",
-				false, new PGoCollectionType.PGoMap("String", "String"), false, ""));
+				false, new PGoCollectionType.PGoMap("String", "String"), false, "", true));
 		return ret;
 	}
 
@@ -51,9 +51,9 @@ public class TwoPhaseCommitIntermediateTester extends PGoPluscalStageTesterBase 
 		ArrayList<TestVariableData> params = new ArrayList<TestVariableData>();
 		ArrayList<TestVariableData> vars = new ArrayList<TestVariableData>();
 		params.add(new TestVariableData("state", true, "<< \"defaultInitValue\" >>", "", false,
-				new PGoPrimitiveType.PGoString(), false, ""));
+				new PGoPrimitiveType.PGoString(), false, "", false));
 		params.add(new TestVariableData("kmgrs", true, "<< \"defaultInitValue\" >>", "", false,
-				new PGoCollectionType.PGoSet("string"), false, ""));
+				new PGoCollectionType.PGoSet("string"), false, "", false));
 
 		String b = ((Macro) ((Multiprocess) getAST()).macros.get(0)).body.toString();
 
@@ -63,7 +63,7 @@ public class TwoPhaseCommitIntermediateTester extends PGoPluscalStageTesterBase 
 		params = new ArrayList<TestVariableData>();
 		vars = new ArrayList<TestVariableData>();
 		params.add(new TestVariableData("self", true, "<< \"defaultInitValue\" >>", "", false,
-				new PGoPrimitiveType.PGoString(), false, ""));
+				new PGoPrimitiveType.PGoString(), false, "", false));
 
 		b = ((Process) ((Multiprocess) getAST()).procs.get(0)).body.toString();
 
@@ -73,11 +73,11 @@ public class TwoPhaseCommitIntermediateTester extends PGoPluscalStageTesterBase 
 		params = new ArrayList<TestVariableData>();
 		vars = new ArrayList<TestVariableData>();
 		params.add(new TestVariableData("self", true, "<< \"defaultInitValue\" >>", "", false,
-				new PGoPrimitiveType.PGoString(), false, ""));
+				new PGoPrimitiveType.PGoString(), false, "", false));
 		vars.add(new TestVariableData("rstMgrs", true, "<< \"defaultInitValue\" >>", "", false,
-				new PGoCollectionType.PGoSet("String"), false, ""));
+				new PGoCollectionType.PGoSet("String"), false, "", false));
 		vars.add(new TestVariableData("aborted", true, "<< \"FALSE\" >>", "", false, new PGoPrimitiveType.PGoBool(),
-				false, ""));
+				false, "", false));
 		
 		b = ((Process) ((Multiprocess) getAST()).procs.get(1)).body.toString();
 

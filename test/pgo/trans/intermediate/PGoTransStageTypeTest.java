@@ -41,7 +41,7 @@ public class PGoTransStageTypeTest {
 	@Before
 	public void SetUp() throws PGoParseException, PGoTransException {
 		PGoTransStageOne s1 = new PGoTransStageOne(tester.getParsedPcal());
-		p = new PGoTransStageType(s1, tester.getParsedPcal());
+		p = new PGoTransStageType(s1);
 	}
 
 	@Test

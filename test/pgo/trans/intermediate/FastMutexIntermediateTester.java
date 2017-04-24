@@ -34,12 +34,12 @@ public class FastMutexIntermediateTester extends PGoPluscalStageTesterBase {
 		ArrayList<TestVariableData> ret = new ArrayList<TestVariableData>();
 		ret.add(new TestVariableData("x", true, "<< \"defaultInitValue\" >>", "", false,
 				new PGoPrimitiveType.PGoNatural(),
-				false, ""));
+				false, "", true));
 		ret.add(new TestVariableData("y", true, "<< \"0\" >>", "", false, new PGoPrimitiveType.PGoNatural(), false,
-				""));
+				"", true));
 		ret.add(new TestVariableData("b", true,
 				"<< \"[\", \"i\", \"\\\\in\", \"1\", \"..\", \"N\", \"|->\", \"FALSE\", \"]\" >>", "", false,
-				new PGoCollectionType.PGoSlice("bool"), false, ""));
+				new PGoCollectionType.PGoSlice("bool"), false, "", true));
 		return ret;
 	}
 
@@ -47,7 +47,7 @@ public class FastMutexIntermediateTester extends PGoPluscalStageTesterBase {
 	public ArrayList<TestVariableData> getStageTypeVariables() {
 		ArrayList<TestVariableData> ret = getStageOneVariables();
 		ret.add(new TestVariableData("N", false, "<< \"defaultInitValue\" >>", "", false,
-				new PGoPrimitiveType.PGoNatural(), false, "numT"));
+				new PGoPrimitiveType.PGoNatural(), false, "numT", false));
 		return ret;
 	}
 
@@ -58,9 +58,9 @@ public class FastMutexIntermediateTester extends PGoPluscalStageTesterBase {
 		ArrayList<TestVariableData> params = new ArrayList<TestVariableData>();
 		ArrayList<TestVariableData> vars = new ArrayList<TestVariableData>();
 		params.add(new TestVariableData("self", true, "<< \"defaultInitValue\" >>", "", false,
-				new PGoPrimitiveType.PGoNatural(), false, ""));
+				new PGoPrimitiveType.PGoNatural(), false, "", false));
 		vars.add(new TestVariableData("j", true, "<< \"defaultInitValue\" >>", "", false,
-				new PGoPrimitiveType.PGoNatural(), false, ""));
+				new PGoPrimitiveType.PGoNatural(), false, "", false));
 
 		String b = ((Process) ((Multiprocess) getAST()).procs.get(0)).body.toString();
 
