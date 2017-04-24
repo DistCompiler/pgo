@@ -132,6 +132,7 @@ public class PGoFunction {
 		ret.funcName = m.name;
 		for (String var : (Vector<String>) m.params) {
 			PGoVariable pvar = PGoVariable.convert(var);
+			pvar.setLine(m.line);
 			ret.params.put(pvar.getName(), pvar);
 		}
 
