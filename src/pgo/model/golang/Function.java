@@ -77,16 +77,8 @@ public class Function extends GoAST {
 			pnames.add(p.toGoExpr());
 		}
 		ret.add("func " + fname + "(" + String.join(", ", pnames) + ") " + retType.toGo() + " {");
-		for (VariableDeclaration v : localVars) {
-			for (String s : v.toGo()) {
-				ret.add("\t" + s);
-			}
-		}
-		for (Statement stmt : body) {
-			for (String s : stmt.toGo()) {
-				ret.add("\t" + s);
-			}
-		}
+		addIndented(ret, localVars);
+		addIndented(ret, body);
 		ret.add("}");
 		return ret;
 	}

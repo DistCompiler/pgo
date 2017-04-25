@@ -54,54 +54,8 @@ public class GoASTTest {
 	}
 
 	@Test
-	public void testImports() {
-		Imports im = new Imports();
-		Vector<String> expected = new Vector<String>();
-
-		assertEquals(expected, im.toGo());
-		
-		im.addImport("pkg1");
-		expected.add("import pkg1");
-		assertEquals(expected, im.toGo());
-		
-		expected.clear();
-		im.addImport("pkg3");
-		expected.add("import (");
-		expected.add("\tpkg1");
-		expected.add("\tpkg3");
-		expected.add(")");
-		assertEquals(expected, im.toGo());
-		
-		im.addImport("pkg3");
-		assertEquals(expected, im.toGo());
-		
-		im.addImport("pkg2");
-		expected.add(2,"\tpkg2");
-		assertEquals(expected, im.toGo());
-	}
-
-	@Test
-	public void testParameterDeclaration() {
-		ParameterDeclaration pd = new ParameterDeclaration("p1", new PGoPrimitiveType.PGoInt());
-		assertEquals("p1 int", pd.toGoExpr());
-		assertEquals(new Vector<String>(Arrays.asList(new String[] { "p1 int" })), pd.toGo());
-	}
-
-	@Test
-	public void testVariableDeclaration() {
-		VariableDeclaration vd = new VariableDeclaration("var1", new PGoPrimitiveType.PGoDecimal(),
-				new SimpleExpression(), new Vector<Statement>());
-		Vector<String> expected = new Vector<String>();
-		expected.add("var var1 float64 = ");
-		assertEquals(expected, vd.toGo());
-
-		vd = new VariableDeclaration("var2", new PGoCollectionType.PGoMap("String", "boolean"),
-				new SimpleExpression(), new Vector<Statement>());
-		expected = new Vector<String>();
-		expected.add("var var2 map[string]bool = ");
-		assertEquals(expected, vd.toGo());
-
-		// TODO assert the init codes
+	public void testFor() {
+		// TODO
 	}
 
 	@Test
@@ -135,7 +89,8 @@ public class GoASTTest {
 		assertEquals(expected, f.toGo());
 
 		Vector<VariableDeclaration> vs = new Vector<VariableDeclaration>();
-		vs.add(new VariableDeclaration("var1", new PGoPrimitiveType.PGoDecimal(), new SimpleExpression(),
+		vs.add(new VariableDeclaration("var1", new PGoPrimitiveType.PGoDecimal(),
+				new SimpleExpression(new Vector<Expression>()),
 				new Vector<Statement>()));
 		f = new Function("foo", new PGoPrimitiveType.PGoInt(), ps, vs, new Vector<Statement>());
 		expected.remove(1);
@@ -149,4 +104,124 @@ public class GoASTTest {
 
 		// TODO function body
 	}
+
+	@Test
+	public void testFunctionCall() {
+		// TODO
+	}
+
+	@Test
+	public void testGoTo() {
+		GoTo g = new GoTo("L");
+		assertEquals("goto L", g.toGoExpr());
+	}
+
+	@Test
+	public void testIf() {
+		// TODO
+	}
+
+	@Test
+	public void testImports() {
+		Imports im = new Imports();
+		Vector<String> expected = new Vector<String>();
+
+		assertEquals(expected, im.toGo());
+
+		im.addImport("pkg1");
+		expected.add("import pkg1");
+		assertEquals(expected, im.toGo());
+
+		expected.clear();
+		im.addImport("pkg3");
+		expected.add("import (");
+		expected.add("\tpkg1");
+		expected.add("\tpkg3");
+		expected.add(")");
+		assertEquals(expected, im.toGo());
+
+		im.addImport("pkg3");
+		assertEquals(expected, im.toGo());
+
+		im.addImport("pkg2");
+		expected.add(2, "\tpkg2");
+		assertEquals(expected, im.toGo());
+	}
+
+	@Test
+	public void testLabel() {
+		Label l = new Label("L");
+		assertEquals("L:", l.toGoExpr());
+	}
+
+	@Test
+	public void testParameterDeclaration() {
+		ParameterDeclaration pd = new ParameterDeclaration("p1", new PGoPrimitiveType.PGoInt());
+		assertEquals("p1 int", pd.toGoExpr());
+		assertEquals(new Vector<String>(Arrays.asList(new String[] { "p1 int" })), pd.toGo());
+	}
+
+	@Test
+	public void testReturn() {
+		Return r = new Return(null);
+		assertEquals("return", r.toGoExpr());
+
+		r = new Return(new Token("ret"));
+		assertEquals("return ret", r.toGoExpr());
+	}
+
+	@Test
+	public void testSelect() {
+		// TODO
+	}
+
+	@Test
+	public void testSimpleExpression() {
+		// TODO
+	}
+
+	@Test
+	public void testToken() {
+		Token t = new Token("1");
+		assertEquals("1", t.toGoExpr());
+
+		t = new Token("<-");
+		assertEquals("<-", t.toGoExpr());
+	}
+
+	@Test
+	public void testTokenExpression() {
+		TokenExpression te = new TokenExpression(new Vector<Token>());
+		assertEquals("", te.toGoExpr());
+
+		Vector<Token> ts = new Vector<Token>();
+		ts.add(new Token("var"));
+		te.setExpressions(ts);
+		assertEquals("var", te.toGoExpr());
+
+		ts.add(new Token("["));
+		ts.add(new Token("2"));
+		ts.add(new Token("]"));
+		te = new TokenExpression(ts);
+
+		assertEquals("var[2]", te.toGoExpr());
+	}
+
+	@Test
+	public void testVariableDeclaration() {
+		VariableDeclaration vd = new VariableDeclaration("var1", new PGoPrimitiveType.PGoDecimal(),
+				new SimpleExpression(new Vector<Expression>()), new Vector<Statement>());
+		Vector<String> expected = new Vector<String>();
+		expected.add("var var1 float64 = ");
+		assertEquals(expected, vd.toGo());
+
+		vd = new VariableDeclaration("var2", new PGoCollectionType.PGoMap("String", "boolean"),
+				new SimpleExpression(new Vector<Expression>()), new Vector<Statement>());
+		expected = new Vector<String>();
+		expected.add("var var2 map[string]bool = ");
+		assertEquals(expected, vd.toGo());
+
+		// TODO assert the init codes
+	}
 }
+
