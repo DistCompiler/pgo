@@ -19,6 +19,7 @@ public class GoASTTest {
 
 		cStrs.add("comment1");
 		expected.add("// comment1");
+
 		Comment c = new Comment(cStrs, false);
 		assertEquals(expected, c.toGo());
 
