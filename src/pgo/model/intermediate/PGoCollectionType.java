@@ -78,6 +78,10 @@ public abstract class PGoCollectionType extends PGoType {
 			return "chan[" + eType.toTypeName() + "]";
 		}
 
+		@Override
+		public String toGo() {
+			return "chan " + eType.toGo();
+		}
 	}
 
 	/**
@@ -95,6 +99,10 @@ public abstract class PGoCollectionType extends PGoType {
 			return "set[" + eType.toTypeName() + "]";
 		}
 
+		@Override
+		public String toGo() {
+			return "Set";
+		}
 	}
 
 	/**

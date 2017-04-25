@@ -74,7 +74,7 @@ public abstract class PGoPrimitiveType extends PGoType {
 	 */
 	public static class PGoString extends PGoPrimitiveType {
 
-		private static final String goType = "String";
+		private static final String goType = "string";
 
 		@Override
 		public String toTypeName() {
@@ -94,6 +94,11 @@ public abstract class PGoPrimitiveType extends PGoType {
 		public String toTypeName() {
 			return goType;
 		}
+
+		@Override
+		public String toGo() {
+			return ""; // go has no void, it's just empty
+		}
 	}
 
 	/**
@@ -110,6 +115,10 @@ public abstract class PGoPrimitiveType extends PGoType {
 			return goType;
 		}
 
+		@Override
+		public String toGo() {
+			return goType + "{}";
+		}
 	}
 
 	/**
