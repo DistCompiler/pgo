@@ -70,4 +70,13 @@ public abstract class PGoType {
 		return toTypeName().equals(op.toTypeName());
 	}
 
+	/**
+	 * Converts to the go code syntax of this type
+	 * 
+	 * @return
+	 */
+	public String toGo() {
+		return toTypeName();
+	}
+
 }
