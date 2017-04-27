@@ -57,7 +57,7 @@ public class AnnotatedReturnVariableTest {
 	public void testFixUpNoReference() throws PGoParseException, PGoTransException {
 		PGoVariable v;
 
-		AnnotatedReturnVariable.parse(new String[] { "ret", "var2" }, 2).fixUp(globals, funcs);
+		AnnotatedReturnVariable.parse(new String[] { "ret", "var2" }, 2).applyAnnotation(globals, funcs);
 		assertNull(globals.get("var2"));
 		for (int i = 0; i < 10; i++) {
 			if (i != 2) {
@@ -77,7 +77,7 @@ public class AnnotatedReturnVariableTest {
 		funcs.get(2).getBody().add(ast);
 		funcs.get(2).setReturnType(new PGoPrimitiveType.PGoBool());
 
-		AnnotatedReturnVariable.parse(new String[] { "ret", "var2" }, 2).fixUp(globals, funcs);
+		AnnotatedReturnVariable.parse(new String[] { "ret", "var2" }, 2).applyAnnotation(globals, funcs);
 		assertNull(globals.get("var2"));
 		for (int i = 0; i < 10; i++) {
 			if (i != 2) {
@@ -95,7 +95,7 @@ public class AnnotatedReturnVariableTest {
 
 		funcs.get(12).setReturnType(new PGoPrimitiveType.PGoBool());
 
-		AnnotatedReturnVariable.parse(new String[] { "ret", "OtherVar2" }, 2).fixUp(globals, funcs);
+		AnnotatedReturnVariable.parse(new String[] { "ret", "OtherVar2" }, 2).applyAnnotation(globals, funcs);
 		assertNull(globals.get("OtherVar2"));
 		for (int i = 0; i < 10; i++) {
 			assertNotNull(globals.get("var" + i));

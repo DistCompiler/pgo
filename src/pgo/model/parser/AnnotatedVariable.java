@@ -66,7 +66,7 @@ public abstract class AnnotatedVariable {
 	}
 
 	// Add the information from annotation to the variable
-	public abstract void fillVariable(PGoVariable var);
+	public abstract void applyAnnotationOnVariable(PGoVariable var);
 
 	/**
 	 * An annotated variable that is to be a constant in Go
@@ -86,7 +86,7 @@ public abstract class AnnotatedVariable {
 		}
 
 		@Override
-		public void fillVariable(PGoVariable var) {
+		public void applyAnnotationOnVariable(PGoVariable var) {
 			assert (var.getName().equals(this.name));
 			var.setType(this.getType());
 			var.setIsSimpleAssign(true);
@@ -129,7 +129,7 @@ public abstract class AnnotatedVariable {
 		}
 
 		@Override
-		public void fillVariable(PGoVariable var) {
+		public void applyAnnotationOnVariable(PGoVariable var) {
 			assert (var.getName().equals(this.name));
 			var.setType(this.getType());
 			var.setIsSimpleAssign(false);
@@ -163,7 +163,7 @@ public abstract class AnnotatedVariable {
 		}
 
 		@Override
-		public void fillVariable(PGoVariable var) {
+		public void applyAnnotationOnVariable(PGoVariable var) {
 			assert (var.getName().equals(this.name) || this.name.split("\\.")[1].equals(var.getName()));
 			var.setType(this.getType());
 

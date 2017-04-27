@@ -29,7 +29,7 @@ public class AnnotatedProcessTest {
 		p.name = "Proc";
 		f = PGoFunction.convert(p);
 		ap = AnnotatedProcess.parse(new String[] { "proc", "int", "Proc" }, 1);
-		ap.fillFunction(f);
+		ap.applyAnnotationOnFunction(f);
 		assertEquals(1, f.getParams().size());
 		assertEquals(new PGoPrimitiveType.PGoInt(), f.getParam(PGoVariable.processIdArg().getName()).getType());
 
@@ -39,7 +39,7 @@ public class AnnotatedProcessTest {
 		pc.name = "Proc";
 		f = PGoFunction.convert(pc);
 		try {
-			ap.fillFunction(f);
+			ap.applyAnnotationOnFunction(f);
 			fail("Exception expected for not a goroutine function");
 		} catch (PGoTransException e) {
 

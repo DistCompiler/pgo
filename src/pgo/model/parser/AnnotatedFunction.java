@@ -70,7 +70,7 @@ public class AnnotatedFunction {
 	}
 
 	// Fill the PGoFunction with information of this annotation
-	public void fillFunction(PGoFunction fun, List<AnnotatedReturnVariable> rets) throws PGoTransException {
+	public void applyAnnotationOnFunction(PGoFunction fun, List<AnnotatedReturnVariable> rets) throws PGoTransException {
 		assert (fun.getName().equals(name));
 		fun.setReturnType(this.rType);
 		if (fun.getParams().size() != this.args.size()) {

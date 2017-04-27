@@ -21,10 +21,10 @@ public class PGoTransStageType extends PGoTransStageBase {
 
 	public PGoTransStageType(PGoTransStageOne s1) throws PGoParseException, PGoTransException {
 		super(s1);
-		fixUpVariables();
-		fixUpFunctions();
-		fixUpReturnVariables();
-		fixUpProcesses();
+		applyAnnotationOnVariables();
+		applyAnnotationOnFunctions();
+		applyAnnotationOnReturnVariables();
+		applyAnnotationOnProcesses();
 
 		checkAllTyped();
 	}
@@ -69,7 +69,7 @@ public class PGoTransStageType extends PGoTransStageBase {
 						v.getLine());
 			}
 		}
-		for (PGoVariable v : this.intermediateData.tempVars.values()) {
+		for (PGoVariable v : this.intermediateData.unresolvedVars.values()) {
 			if (v.getType().isUndetermined()) {
 				throw new PGoTransException("Unable to determine type of variable \"" + v.getName() + "\"",
 						v.getLine());
@@ -77,7 +77,8 @@ public class PGoTransStageType extends PGoTransStageBase {
 		}
 	}
 
-	private void fixUpProcesses() throws PGoTransException {
+	// Add typing information to the process functions' ID
+	private void applyAnnotationOnProcesses() throws PGoTransException {
 		for (AnnotatedProcess prcs : this.intermediateData.annots.getAnnotatedProcesses()) {
 			PGoFunction fun = this.intermediateData.findPGoFunction(prcs.getName());
 			if (fun == null) {
@@ -86,19 +87,19 @@ public class PGoTransStageType extends PGoTransStageBase {
 								+ "\" in annotation but no matching function or \"PGo " + prcs.getName() + "\" found.",
 						prcs.getLine());
 			}
-			prcs.fillFunction(fun);
+			prcs.applyAnnotationOnFunction(fun);
 		}
 	}
 
 	// Add annotation information of return variables
-	private void fixUpReturnVariables() {
+	private void applyAnnotationOnReturnVariables() throws PGoTransException {
 		for (AnnotatedReturnVariable r : this.intermediateData.annots.getReturnVariables()) {
-			r.fixUp(this.intermediateData.globals, this.intermediateData.funcs.values());
+			r.applyAnnotation(this.intermediateData.globals, this.intermediateData.funcs.values());
 		}
 	}
 
 	// Add annotation information of functions
-	private void fixUpFunctions() throws PGoTransException {
+	private void applyAnnotationOnFunctions() throws PGoTransException {
 		for (AnnotatedFunction f : this.intermediateData.annots.getAnnotatedFunctions()) {
 			PGoFunction fun = this.intermediateData.findPGoFunction(f.getName());
 			if (fun == null) {
@@ -109,12 +110,12 @@ public class PGoTransStageType extends PGoTransStageBase {
 							f.getLine());
 			}
 
-			f.fillFunction(fun, this.intermediateData.annots.getReturnVariables());
+			f.applyAnnotationOnFunction(fun, this.intermediateData.annots.getReturnVariables());
 		}
 	}
 
 	// Add annotation information of variables
-	private void fixUpVariables() {
+	private void applyAnnotationOnVariables() {
 		for (AnnotatedVariable v : this.intermediateData.annots.getAnnotatedVariables()) {
 			PGoVariable var = this.intermediateData.findPGoVariable(v.getName());
 			if (var == null) {
@@ -125,12 +126,12 @@ public class PGoTransStageType extends PGoTransStageBase {
 					// this means the variable is probably defined in a "with"
 					// clause or something, so don't store it as a global. Keep
 					// it at the side for now.
-					this.intermediateData.tempVars.put(v.getName(), var);
+					this.intermediateData.unresolvedVars.put(v.getName(), var);
 				} else {
 					this.intermediateData.globals.put(v.getName(), var);
 				}
 			}
-			v.fillVariable(var);
+			v.applyAnnotationOnVariable(var);
 
 		}
 	}

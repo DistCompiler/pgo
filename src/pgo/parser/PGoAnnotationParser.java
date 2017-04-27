@@ -41,8 +41,6 @@ public class PGoAnnotationParser {
 		case AnnotatedVariable.VAR:
 			AnnotatedVariable av = AnnotatedVariable.parse(parts, annot.getLine());
 			vars.put(av.getName(), av);
-			// TODO handle cases where 2 variable of same name appear in
-			// different scope
 			break;
 		case "func":
 			AnnotatedFunction af = AnnotatedFunction.parse(parts, annot.getLine());

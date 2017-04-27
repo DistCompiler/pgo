@@ -33,7 +33,7 @@ class PGoTransIntermediateData {
 	LinkedHashMap<String, PGoVariable> globals;
 	// The local variables we have yet to encountered from our passes (probably
 	// hidden in a with clause)
-	LinkedHashMap<String, PGoVariable> tempVars;
+	LinkedHashMap<String, PGoVariable> unresolvedVars;
 	// The functions of this algorithm
 	LinkedHashMap<String, PGoFunction> funcs;
 
@@ -55,7 +55,7 @@ class PGoTransIntermediateData {
 	PGoTransIntermediateData() {
 
 		this.globals = new LinkedHashMap<String, PGoVariable>();
-		this.tempVars = new LinkedHashMap<String, PGoVariable>();
+		this.unresolvedVars = new LinkedHashMap<String, PGoVariable>();
 		this.funcs = new LinkedHashMap<String, PGoFunction>();
 		this.mainBlock = new ArrayList<LabeledStmt>();
 		this.goroutines = new LinkedHashMap<String, PGoRoutineInit>();

@@ -6,6 +6,7 @@ import java.util.LinkedHashMap;
 import pgo.model.intermediate.PGoFunction;
 import pgo.model.intermediate.PGoVariable;
 import pgo.parser.PGoParseException;
+import pgo.trans.PGoTransException;
 import pgo.util.PcalASTUtil;
 
 /**
@@ -46,15 +47,19 @@ public class AnnotatedReturnVariable {
 
 	/**
 	 * Fix the global variable declaration and function variable declarations
-	 * given the data in this class regarding what global variable represents a
-	 * return value for functions.
+	 * given the data in this class regarding which global variable represents a
+	 * return value for functions. TODO why
 	 * 
 	 * This involves removing the return variable from the global variable list,
 	 * and creating a local variable for each function that uses it, typing it
 	 * according to the function return type.
+	 * 
+	 * @throws PGoTransException
 	 */
-	public void fixUp(LinkedHashMap<String, PGoVariable> globals, Collection<PGoFunction> funcs) {
+	public void applyAnnotation(LinkedHashMap<String, PGoVariable> globals, Collection<PGoFunction> funcs)
+			throws PGoTransException {
 		globals.remove(name);
+		boolean found = false;
 		for (PGoFunction f : funcs) {
 			if (f.getType() == PGoFunction.FunctionType.Normal) {
 				if (f.getVariable(name) == null) {
@@ -65,8 +70,14 @@ public class AnnotatedReturnVariable {
 				} else {
 					f.getVariable(name).setType(f.getReturnType());
 				}
+				found = true;
 			}
 		}
+		if (!found) {
+			throw new PGoTransException("Expected procedures that uses \"" + name
+					+ "\" as a return variable based on annotation, but found none", line);
+		}
+		// TODO throw warning for no function containing return variable
 	}
 
 }

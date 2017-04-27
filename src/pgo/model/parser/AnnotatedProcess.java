@@ -63,7 +63,7 @@ public class AnnotatedProcess {
 	 * @param fun
 	 * @throws PGoTransException
 	 */
-	public void fillFunction(PGoFunction fun) throws PGoTransException {
+	public void applyAnnotationOnFunction(PGoFunction fun) throws PGoTransException {
 		assert (fun.getName().equals(name));
 
 		PGoVariable v = fun.getParam(PGoVariable.processIdArg().getName());
