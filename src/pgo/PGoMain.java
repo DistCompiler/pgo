@@ -1,5 +1,6 @@
 package pgo;
 
+import java.io.IOException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -60,9 +61,11 @@ public class PGoMain {
 		
 		try {
 			PGoTranslater trans = new PGoTranslater(pcal);
-			logger.info("Writing Go to \"" + opts.outfile + "\"");
-			IOUtil.WriteStringVectorToFile(trans.getLines(), opts.outfile);
-		} catch (PGoTransException | PGoParseException | StringVectorToFileException e) {
+			logger.info("Writing Go to \"" + opts.outfile + "\" in folder \"" + opts.outfolder + "\"");
+			IOUtil.WriteStringVectorToFile(trans.getLines(), opts.outfolder + "/" + opts.outfile);
+			logger.info("Copying necessary Go packages to folder \"" + opts.outfolder + "\"");
+			trans.copyPackages(opts);
+		} catch (PGoTransException | PGoParseException | StringVectorToFileException | IOException e) {
 			logger.severe(e.getMessage());
 			e.printStackTrace();
 		}

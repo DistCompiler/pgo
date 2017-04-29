@@ -24,6 +24,7 @@ import pcal.AST.Process;
 import pcal.AST.SingleAssign;
 import pcal.AST.VarDecl;
 import pcal.AST.While;
+import pgo.trans.PGoTransException;
 
 public class PcalASTUtilTest {
 
@@ -155,7 +156,7 @@ public class PcalASTUtilTest {
 	}
 
 	@Test
-	public void testEarlyTermWalker() {
+	public void testEarlyTermWalker() throws PGoTransException {
 		// testing that the early termination works
 		assertEquals(3, (int) new PcalASTUtil.Walker<Integer>() {
 
@@ -165,7 +166,7 @@ public class PcalASTUtilTest {
 			}
 
 			@Override
-			protected void walk(AST a) {
+			protected void walk(AST a) throws PGoTransException {
 				result++;
 				if (result == 3) {
 					earlyTerm = true;
@@ -183,7 +184,7 @@ public class PcalASTUtilTest {
 			}
 
 			@Override
-			protected void walk(AST a) {
+			protected void walk(AST a) throws PGoTransException {
 				result++;
 				if (result == 2) {
 					earlyTerm = true;

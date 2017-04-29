@@ -32,7 +32,7 @@ public class VariableDeclaration extends GoAST {
 		name = n;
 		type = t;
 		defaultValue = val;
-		initCode = new Vector<Statement>();
+		initCode = init;
 		this.isConst = isConst;
 	}
 

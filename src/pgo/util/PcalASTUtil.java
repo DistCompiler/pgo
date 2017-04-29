@@ -30,6 +30,7 @@ import pcal.AST.VarDecl;
 import pcal.AST.When;
 import pcal.AST.While;
 import pcal.AST.With;
+import pgo.trans.PGoTransException;
 
 /**
  * Utils package for PlusCal AST traversal and manipulation
@@ -61,12 +62,12 @@ public class PcalASTUtil {
 
 		protected abstract void init();
 
-		public T getResult(Vector<AST> body) {
+		public T getResult(Vector<AST> body) throws PGoTransException {
 			walk(body);
 			return result;
 		}
 
-		public T getResult(AST body) {
+		public T getResult(AST body) throws PGoTransException {
 			walk(body);
 			return result;
 		}
@@ -80,7 +81,7 @@ public class PcalASTUtil {
 		 * 
 		 * @param ast
 		 */
-		protected void walk(Vector<AST> ast) {
+		protected void walk(Vector<AST> ast) throws PGoTransException {
 			if (ast == null || earlyTerm) {
 				return;
 			}
@@ -92,7 +93,7 @@ public class PcalASTUtil {
 			}
 		}
 
-		protected void walk(AST a) {
+		protected void walk(AST a) throws PGoTransException {
 			if (a == null || earlyTerm) {
 				return;
 			}
@@ -174,93 +175,93 @@ public class PcalASTUtil {
 		// Override any of them to perform special operations at that node.
 		// The argument to visit is guaranteed to not be null.
 
-		protected void visit(Uniprocess ua) {
+		protected void visit(Uniprocess ua) throws PGoTransException {
 			walk(ua.body);
 			walk(ua.decls);
 			walk(ua.macros);
 			walk(ua.prcds);
 		}
 
-		protected void visit(Multiprocess ma) {
+		protected void visit(Multiprocess ma) throws PGoTransException {
 			walk(ma.decls);
 			walk(ma.macros);
 			walk(ma.prcds);
 			walk(ma.procs);
 		}
 
-		protected void visit(Procedure p) {
+		protected void visit(Procedure p) throws PGoTransException {
 			walk(p.body);
 			walk(p.decls);
 			walk(p.params);
 		}
 
-		protected void visit(Process p) {
+		protected void visit(Process p) throws PGoTransException {
 			walk(p.body);
 			walk(p.decls);
 		}
 
-		protected void visit(PVarDecl a) {
+		protected void visit(PVarDecl a) throws PGoTransException {
 
 		}
 
-		protected void visit(VarDecl a) {
+		protected void visit(VarDecl a) throws PGoTransException {
 
 		}
 
-		protected void visit(LabeledStmt ls) {
+		protected void visit(LabeledStmt ls) throws PGoTransException {
 			walk(ls.stmts);
 		}
 
-		protected void visit(While w) {
+		protected void visit(While w) throws PGoTransException {
 			walk(w.unlabDo);
 			walk(w.labDo);
 		}
 
-		protected void visit(Assign as) {
+		protected void visit(Assign as) throws PGoTransException {
 			walk(as.ass);
 		}
 		
-		protected void visit(SingleAssign sa) {
+		protected void visit(SingleAssign sa) throws PGoTransException {
 			walk(sa.lhs);
 		}
 
-		protected void visit(Lhs lhs) {
+		protected void visit(Lhs lhs) throws PGoTransException {
 
 		}
 
-		protected void visit(If ifast) {
+		protected void visit(If ifast) throws PGoTransException {
 			walk(ifast.Then);
 			walk(ifast.Else);
 		}
 
-		protected void visit(Either ei) {
+		protected void visit(Either ei) throws PGoTransException {
 			for (Vector v : (Vector<Vector>) ei.ors) {
 				// either has vector of vectors
 				walk(v);
 			}
 		}
 
-		protected void visit(With with) {
+		protected void visit(With with) throws PGoTransException {
 			walk(with.Do);
 		}
 
-		protected void visit(When when) {
+		protected void visit(When when) throws PGoTransException {
 
 		}
 
-		protected void visit(PrintS ps) {
+		protected void visit(PrintS ps) throws PGoTransException {
 
 		}
 
-		protected void visit(Assert as) {
+		protected void visit(Assert as) throws PGoTransException {
 
 		}
 
-		protected void visit(Skip s) {
+		protected void visit(Skip s) throws PGoTransException {
 
 		}
 
-		protected void visit(LabelIf lif) {
+		protected void visit(LabelIf lif) throws PGoTransException {
 
 			walk(lif.unlabThen);
 			walk(lif.labThen);
@@ -268,36 +269,36 @@ public class PcalASTUtil {
 			walk(lif.labElse);
 		}
 
-		protected void visit(LabelEither le) {
+		protected void visit(LabelEither le) throws PGoTransException {
 			walk(le.clauses);
 		}
 
-		protected void visit(Clause c) {
+		protected void visit(Clause c) throws PGoTransException {
 			walk(c.unlabOr);
 			walk(c.labOr);
 		}
 
-		protected void visit(Call c) {
+		protected void visit(Call c) throws PGoTransException {
 
 		}
 
-		protected void visit(Return r) {
+		protected void visit(Return r) throws PGoTransException {
 
 		}
 
-		protected void visit(CallReturn cr) {
+		protected void visit(CallReturn cr) throws PGoTransException {
 
 		}
 
-		protected void visit(Goto g) {
+		protected void visit(Goto g) throws PGoTransException {
 
 		}
 
-		protected void visit(Macro m) {
+		protected void visit(Macro m) throws PGoTransException {
 			walk(m.body);
 		}
 
-		protected void visit(MacroCall m) {
+		protected void visit(MacroCall m) throws PGoTransException {
 
 		}
 
@@ -329,7 +330,12 @@ public class PcalASTUtil {
 			
 		};
 		
-		return av.getResult(body);
+		try {
+			return av.getResult(body);
+		} catch (PGoTransException e) {
+			assert (false); // shouldn't throw
+		}
+		return false;
 	}
 
 	/**
@@ -366,7 +372,12 @@ public class PcalASTUtil {
 			}
 		};
 
-		return av.getResult(body);
+		try {
+			return av.getResult(body);
+		} catch (PGoTransException e) {
+			assert (false);
+		}
+		return null;
 	}
 
 }

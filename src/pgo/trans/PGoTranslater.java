@@ -1,8 +1,13 @@
 package pgo.trans;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.Vector;
 import java.util.logging.Logger;
 
+import org.apache.commons.io.FileUtils;
+
+import pgo.PGoOptions;
 import pgo.model.golang.GoProgram;
 import pgo.parser.PGoParseException;
 import pgo.parser.PcalParser.ParsedPcal;
@@ -43,6 +48,15 @@ public class PGoTranslater {
 
 	public Vector<String> getLines() {
 		return go.toGo();
+	}
+
+	public void copyPackages(PGoOptions opts) throws IOException {
+		if (go.getImports().getImports().contains("mapset")) {
+			FileUtils.copyDirectory(new File("src/go/mapset"), new File(opts.outfolder + "/src/mapset"));
+		}
+		if (go.getImports().getImports().contains("pgoutil")) {
+			FileUtils.copyDirectory(new File("src/go/pgoutil"), new File(opts.outfolder + "/src/pgoutil"));
+		}
 	}
 	
 }
