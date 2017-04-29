@@ -1,25 +1,39 @@
 package pgo.model.golang;
 
+import java.util.Vector;
+
 /**
- * Special go tokens. These are symbols, like arithmetic operators, channel
- * accessors, or literals (int, strings)
+ * A tokens such as "var[2]".
  *
  */
 public class Token extends Expression {
 
-	private final String token;
+	// the tokens in this expression
+	private String toks;
 
-	public Token(String t) {
-		token = t;
+	public Token(String tok) {
+		this.toks = tok;
 	}
 
-	public String getToken() {
-		return token;
+	public String getTokens() {
+		return this.toks;
+	}
+
+	public void setExpressions(String exps) {
+		this.toks = exps;
+	}
+
+	public void merge(Token t) {
+		toks = toks + t.toks;
 	}
 
 	@Override
-	public String toGoExpr() {
-		return token;
+	public Vector<String> toGo() {
+		return new Vector<String>() {
+			{
+				add(toks);
+			}
+		};
 	}
 
 }

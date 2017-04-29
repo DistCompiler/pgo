@@ -17,12 +17,23 @@ public class VariableDeclaration extends GoAST {
 	private SimpleExpression defaultValue;
 	// the statements to initialize the variable
 	private Vector<Statement> initCode;
+	// whether this is a constant
+	private boolean isConst;
 
-	public VariableDeclaration(String n, PGoType t, SimpleExpression val, Vector<Statement> vector) {
+	public VariableDeclaration(String n, PGoType t, SimpleExpression val, boolean isConst) {
 		name = n;
 		type = t;
 		defaultValue = val;
-		initCode = vector;
+		initCode = new Vector<Statement>();
+		this.isConst = isConst;
+	}
+
+	public VariableDeclaration(String n, PGoType t, SimpleExpression val, Vector<Statement> init, boolean isConst) {
+		name = n;
+		type = t;
+		defaultValue = val;
+		initCode = new Vector<Statement>();
+		this.isConst = isConst;
 	}
 
 	public String getName() {
@@ -31,6 +42,14 @@ public class VariableDeclaration extends GoAST {
 
 	public PGoType getType() {
 		return type;
+	}
+
+	public boolean isConst() {
+		return isConst;
+	}
+
+	public void setIsConst(boolean b) {
+		this.isConst = b;
 	}
 
 	public void setType(PGoType t) {
@@ -56,7 +75,11 @@ public class VariableDeclaration extends GoAST {
 	@Override
 	public Vector<String> toGo() {
 		Vector<String> ret = new Vector<String>();
-		ret.add("var " + name + " " + type.toGo() + (defaultValue == null ? "" : " = " + defaultValue.toGoExpr()));
+		Vector<String> valStr = defaultValue == null ? new Vector<String>() : defaultValue.toGo();
+		ret.add((isConst ? "const " : "var ") + name + " " + type.toGo()
+				+ (valStr.size() == 0 ? "" : " = " + valStr.remove(0)));
+		addIndented(ret, valStr);
+
 		for (Statement s : initCode) {
 			ret.addAll(s.toGo());
 		}

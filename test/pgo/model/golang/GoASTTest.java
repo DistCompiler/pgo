@@ -92,7 +92,7 @@ public class GoASTTest {
 		Vector<VariableDeclaration> vs = new Vector<VariableDeclaration>();
 		vs.add(new VariableDeclaration("var1", new PGoPrimitiveType.PGoDecimal(),
 				new SimpleExpression(new Vector<Expression>()),
-				new Vector<Statement>()));
+				false));
 		f = new Function("foo", new PGoPrimitiveType.PGoInt(), ps, vs, new Vector<Statement>());
 		expected.remove(1);
 		for (VariableDeclaration v : vs) {
@@ -114,7 +114,8 @@ public class GoASTTest {
 	@Test
 	public void testGoTo() {
 		GoTo g = new GoTo("L");
-		assertEquals("goto L", g.toGoExpr());
+		assertEquals(1, g.toGo().size());
+		assertEquals("goto L", g.toGo().firstElement());
 	}
 
 	@Test
@@ -152,23 +153,28 @@ public class GoASTTest {
 	@Test
 	public void testLabel() {
 		Label l = new Label("L");
-		assertEquals("L:", l.toGoExpr());
+		assertEquals(1, l.toGo().size());
+		assertEquals("L:", l.toGo().firstElement());
 	}
 
 	@Test
 	public void testParameterDeclaration() {
 		ParameterDeclaration pd = new ParameterDeclaration("p1", new PGoPrimitiveType.PGoInt());
-		assertEquals("p1 int", pd.toGoExpr());
+		assertEquals(1, pd.toGo().size());
+		assertEquals("p1 int", pd.toGo().firstElement());
 		assertEquals(new Vector<String>(Arrays.asList(new String[] { "p1 int" })), pd.toGo());
 	}
 
 	@Test
 	public void testReturn() {
 		Return r = new Return(null);
-		assertEquals("return", r.toGoExpr());
+		assertEquals(1, r.toGo().size());
+		assertEquals("return", r.toGo().firstElement());
+
 
 		r = new Return(new Token("ret"));
-		assertEquals("return ret", r.toGoExpr());
+		assertEquals(1, r.toGo().size());
+		assertEquals("return ret", r.toGo().firstElement());
 	}
 
 	@Test
@@ -182,44 +188,35 @@ public class GoASTTest {
 	}
 
 	@Test
-	public void testToken() {
-		Token t = new Token("1");
-		assertEquals("1", t.toGoExpr());
-
-		t = new Token("<-");
-		assertEquals("<-", t.toGoExpr());
-	}
-
-	@Test
 	public void testTokenExpression() {
-		TokenExpression te = new TokenExpression(new Vector<Token>());
-		assertEquals("", te.toGoExpr());
+		Token te = new Token("");
+		assertEquals(1, te.toGo().size());
+		assertEquals("", te.toGo().firstElement());
 
-		Vector<Token> ts = new Vector<Token>();
-		ts.add(new Token("var"));
-		te.setExpressions(ts);
-		assertEquals("var", te.toGoExpr());
+		te.setExpressions("var");
+		assertEquals(1, te.toGo().size());
+		assertEquals("var", te.toGo().firstElement());
 
-		ts.add(new Token("["));
-		ts.add(new Token("2"));
-		ts.add(new Token("]"));
-		te = new TokenExpression(ts);
+		te = new Token("[2]");
 
-		assertEquals("var[2]", te.toGoExpr());
+		assertEquals(1, te.toGo().size());
+		assertEquals("var[2]", te.toGo().firstElement());
 	}
 
 	@Test
 	public void testVariableDeclaration() {
 		VariableDeclaration vd = new VariableDeclaration("var1", new PGoPrimitiveType.PGoDecimal(),
-				new SimpleExpression(new Vector<Expression>()), new Vector<Statement>());
+				null, false);
 		Vector<String> expected = new Vector<String>();
-		expected.add("var var1 float64 = ");
+		expected.add("var var1 float64");
 		assertEquals(expected, vd.toGo());
 
+		Vector<Expression> toks = new Vector<Expression>();
+		toks.add(new Token("1"));
 		vd = new VariableDeclaration("var2", new PGoCollectionType.PGoMap("String", "boolean"),
-				new SimpleExpression(new Vector<Expression>()), new Vector<Statement>());
+				new SimpleExpression(toks), false);
 		expected = new Vector<String>();
-		expected.add("var var2 map[string]bool = ");
+		expected.add("var var2 map[string]bool = 1");
 		assertEquals(expected, vd.toGo());
 
 		// TODO assert the init codes

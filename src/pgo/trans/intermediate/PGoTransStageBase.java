@@ -1,6 +1,7 @@
 package pgo.trans.intermediate;
 
 import java.util.ArrayList;
+import java.util.Vector;
 
 import pcal.AST.LabeledStmt;
 import pgo.model.intermediate.PGoFunction;
@@ -48,7 +49,7 @@ public abstract class PGoTransStageBase {
 		return intermediateData.funcs.get(name);
 	}
 
-	public ArrayList<LabeledStmt> getMain() {
+	public Vector<LabeledStmt> getMain() {
 		return intermediateData.mainBlock;
 	}
 

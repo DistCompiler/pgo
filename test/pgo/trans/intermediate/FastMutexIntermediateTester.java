@@ -46,7 +46,7 @@ public class FastMutexIntermediateTester extends PGoPluscalStageTesterBase {
 	@Override
 	public ArrayList<TestVariableData> getStageTypeVariables() {
 		ArrayList<TestVariableData> ret = getStageOneVariables();
-		ret.add(new TestVariableData("N", false, "<< \"defaultInitValue\" >>", "", false,
+		ret.add(new TestVariableData("N", true, "<< \"defaultInitValue\" >>", "", false,
 				new PGoPrimitiveType.PGoNatural(), false, "numT", false));
 		return ret;
 	}

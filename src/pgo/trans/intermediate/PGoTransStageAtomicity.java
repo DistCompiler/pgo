@@ -61,6 +61,7 @@ public class PGoTransStageAtomicity extends PGoTransStageBase {
 					// assignment from a process means we need the variable
 					// thread safe
 					v.setAtomic(true);
+					this.intermediateData.needsLock = true;
 					break;
 				}
 			}

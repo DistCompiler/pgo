@@ -46,9 +46,9 @@ public class SumIntermediateTester extends PGoPluscalStageTesterBase {
 		ret.add(new TestVariableData("MAXINT", true, "<< \"defaultInitValue\" >>", "10000000", true,
 				new PGoPrimitiveType.PGoNatural(), false,
 				"", false));
-		ret.add(new TestVariableData("RUNS", false, "<< \"defaultInitValue\" >>", "", false,
+		ret.add(new TestVariableData("RUNS", true, "<< \"defaultInitValue\" >>", "", false,
 				new PGoPrimitiveType.PGoNatural(), false, "runs", false));
-		ret.add(new TestVariableData("N", false, "<< \"defaultInitValue\" >>", "", false,
+		ret.add(new TestVariableData("N", true, "<< \"defaultInitValue\" >>", "", false,
 				new PGoPrimitiveType.PGoNatural(), false, "numT", false));
 		return ret;
 	}

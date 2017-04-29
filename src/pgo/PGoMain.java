@@ -3,6 +3,7 @@ package pgo;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import pcal.exception.StringVectorToFileException;
 import pgo.parser.PGoParseException;
 import pgo.parser.PcalParser;
 import pgo.parser.PcalParser.ParsedPcal;
@@ -59,11 +60,12 @@ public class PGoMain {
 		
 		try {
 			PGoTranslater trans = new PGoTranslater(pcal);
-		} catch (PGoTransException | PGoParseException e) {
-			// TODO Auto-generated catch block
+			logger.info("Writing Go to \"" + opts.outfile + "\"");
+			IOUtil.WriteStringVectorToFile(trans.getLines(), opts.outfile);
+		} catch (PGoTransException | PGoParseException | StringVectorToFileException e) {
+			logger.severe(e.getMessage());
 			e.printStackTrace();
 		}
-		// TODO translate it
 	}
 
 	public static void setUpLogging(PGoOptions opts) {

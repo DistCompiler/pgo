@@ -69,14 +69,41 @@ public class Function extends GoAST {
 		this.localVars = s;
 	}
 
+	public Vector<Statement> getBody() {
+		return body;
+	}
+
+	public void setBody(Vector<Statement> body) {
+		this.body = body;
+	}
+
 	@Override
 	public Vector<String> toGo() {
 		Vector<String> ret = new Vector<String>();
-		Vector<String> pnames = new Vector<String>();
-		for (ParameterDeclaration p : params) {
-			pnames.add(p.toGoExpr());
+		Vector<String> paramStr = new Vector<String>();
+
+		for (int i = 0; i < params.size(); i++) {
+			Vector<String> e = params.get(i).toGo();
+			for (int j = 0; j < e.size(); j++) {
+				if (j > 0) {
+					paramStr.add(e.get(j));
+				} else {
+					// param is one line
+					if (i == 0) {
+						paramStr.add(e.get(j));
+					} else {
+						paramStr.add(paramStr.remove(paramStr.size() - 1) + ", " + e.get(j));
+					}
+				}
+			}
 		}
-		ret.add("func " + fname + "(" + String.join(", ", pnames) + ") " + retType.toGo() + " {");
+		if (paramStr.size() > 0) {
+			ret.add("func " + fname + "(" + paramStr.remove(0));
+			addIndented(ret, paramStr);
+			ret.add(ret.remove(ret.size() - 1) + ") " + retType.toGo() + " {");
+		} else {
+			ret.add("func " + fname + "() " + retType.toGo() + " {");
+		}
 		addIndented(ret, localVars);
 		addIndented(ret, body);
 		ret.add("}");

@@ -1,5 +1,7 @@
 package pgo.model.golang;
 
+import java.util.Vector;
+
 /**
  * A goroutine call
  *
@@ -21,8 +23,14 @@ public class GoCall extends Expression {
 	}
 
 	@Override
-	public String toGoExpr() {
-		return "go " + func.toGoExpr();
+	public Vector<String> toGo() {
+		Vector<String> ret = new Vector<String>();
+		Vector<String> funcStr = func.toGo();
+		
+		ret.add("go " + funcStr.remove(0));
+		ret.addAll(funcStr);
+
+		return ret;
 	}
 
 }

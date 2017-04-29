@@ -3,8 +3,7 @@ package pgo.model.golang;
 import java.util.Vector;
 
 /**
- * A simple expression: a one line operation, like an assignment or function
- * call
+ * A simple expression: like an assignment
  * 
  */
 public class SimpleExpression extends Expression {
@@ -24,14 +23,32 @@ public class SimpleExpression extends Expression {
 		this.exps = exps;
 	}
 
+	public void merge(SimpleExpression s) {
+		exps.addAll(s.exps);
+	}
+
 	@Override
-	public String toGoExpr() {
-		StringBuilder s = new StringBuilder();
-		for (Expression e : exps) {
-			s.append(e.toGoExpr());
-			s.append(" ");
+	public Vector<String> toGo() {
+
+		Vector<String> eStr = new Vector<String>();
+
+		for (int i = 0; i < exps.size(); i++) {
+			Vector<String> e = exps.get(i).toGo();
+			for (int j = 0; j < e.size(); j++) {
+				if (j > 0) {
+					eStr.add(e.get(j));
+				} else {
+					// param is one line
+					if (i == 0) {
+						eStr.add(e.get(j));
+					} else {
+						eStr.add(eStr.remove(eStr.size() - 1) + e.get(j));
+					}
+				}
+			}
 		}
-		return s.toString().trim();
+
+		return eStr;
 	}
 
 }

@@ -1,17 +1,9 @@
 package pgo.model.golang;
 
-import java.util.Vector;
-
 /**
- * A Go code expression
+ * A Go code expression base class
  * 
  */
-public abstract class Expression extends GoAST {
-	public abstract String toGoExpr();
+public abstract class Expression extends Statement {
 
-	public Vector<String> toGo() {
-		Vector<String> ret = new Vector<String>();
-		ret.add(toGoExpr());
-		return ret;
-	}
 }

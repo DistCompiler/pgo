@@ -43,7 +43,7 @@ public class QueensPluscalProcedureIntermediateTester extends PGoPluscalStageTes
 	public ArrayList<TestVariableData> getStageTypeVariables() {
 		ArrayList<TestVariableData> ret = getStageOneVariables();
 		ret.remove(2); // remove rVal
-		ret.add(new TestVariableData("N", false, "<< \"defaultInitValue\" >>", "", false, new PGoPrimitiveType.PGoInt(),
+		ret.add(new TestVariableData("N", true, "<< \"defaultInitValue\" >>", "", false, new PGoPrimitiveType.PGoInt(),
 				true, "", false));
 		return ret;
 	}

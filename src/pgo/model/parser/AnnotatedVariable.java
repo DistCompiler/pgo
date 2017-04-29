@@ -132,7 +132,6 @@ public abstract class AnnotatedVariable {
 		public void applyAnnotationOnVariable(PGoVariable var) {
 			assert (var.getName().equals(this.name));
 			var.setType(this.getType());
-			var.setIsSimpleAssign(false);
 			var.setArgInfo(this);
 
 			Logger.getLogger("PGo Stage Typing").log(Level.INFO, "filling in variable \"" + var.getName()

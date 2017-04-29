@@ -186,7 +186,7 @@ public class AnnotatedVariableTest {
 		av.applyAnnotationOnVariable(v);
 		assertFalse(v.getIsConstant());
 		assertEquals(new PGoPrimitiveType.PGoInt(), v.getType());
-		assertFalse(v.getIsSimpleAssignInit());
+		assertTrue(v.getIsSimpleAssignInit());
 		assertEquals(av, v.getArgInfo());
 
 		v = PGoVariable.convert("var");
@@ -194,7 +194,7 @@ public class AnnotatedVariableTest {
 		av.applyAnnotationOnVariable(v);
 		assertFalse(v.getIsConstant());
 		assertEquals(new PGoPrimitiveType.PGoInt(), v.getType());
-		assertFalse(v.getIsSimpleAssignInit());
+		assertTrue(v.getIsSimpleAssignInit());
 		assertEquals(av, v.getArgInfo());
 
 		v = PGoVariable.convert("var");

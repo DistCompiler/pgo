@@ -107,7 +107,6 @@ public abstract class PGoPrimitiveType extends PGoType {
 	 */
 	public static class PGoInterface extends PGoPrimitiveType {
 
-		// TODO conversion to go
 		private static final String goType = "interface";
 
 		@Override

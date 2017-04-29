@@ -1,7 +1,7 @@
 package pgo.trans.intermediate;
 
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.Vector;
 
 import pcal.AST.LabeledStmt;
 import pcal.TLAExpr;
@@ -44,7 +44,7 @@ class PGoTransIntermediateData {
 	TLAExpr tlaExpr;
 
 	// Array of code blocks we need to insert into the go main function
-	ArrayList<LabeledStmt> mainBlock;
+	Vector<LabeledStmt> mainBlock;
 
 	// Map of goroutines and its function to its initialization code
 	LinkedHashMap<String, PGoRoutineInit> goroutines;
@@ -52,13 +52,17 @@ class PGoTransIntermediateData {
 	// The annotation information
 	PGoAnnotationParser annots;
 
+	// Whether we need a lock in this algorithm
+	boolean needsLock;
+
 	PGoTransIntermediateData() {
 
 		this.globals = new LinkedHashMap<String, PGoVariable>();
 		this.unresolvedVars = new LinkedHashMap<String, PGoVariable>();
 		this.funcs = new LinkedHashMap<String, PGoFunction>();
-		this.mainBlock = new ArrayList<LabeledStmt>();
+		this.mainBlock = new Vector<LabeledStmt>();
 		this.goroutines = new LinkedHashMap<String, PGoRoutineInit>();
+		this.needsLock = false;
 	}
 
 	// Finds the PGofunction of the given name, or null if none exists.

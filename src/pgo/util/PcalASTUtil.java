@@ -53,24 +53,26 @@ public class PcalASTUtil {
 	 */
 	public static abstract class Walker<T> {
 
-		// whether to terminate early
-		protected boolean earlyTerm = false;
+		// the result storage
 		protected T result;
 
-		public T getResult(Vector<AST> ast) {
-			walk(ast);
+		// whether to stop traversing
+		protected boolean earlyTerm;
+
+		protected abstract void init();
+
+		public T getResult(Vector<AST> body) {
+			walk(body);
+			return result;
+		}
+
+		public T getResult(AST body) {
+			walk(body);
 			return result;
 		}
 
 		public Walker() {
 			init();
-		}
-
-		protected abstract void init();
-
-		public T getResult(AST ast) {
-			walk(ast);
-			return result;
 		}
 
 		/**
@@ -259,10 +261,11 @@ public class PcalASTUtil {
 		}
 
 		protected void visit(LabelIf lif) {
-			walk(lif.unlabElse);
+
 			walk(lif.unlabThen);
-			walk(lif.labElse);
 			walk(lif.labThen);
+			walk(lif.unlabElse);
+			walk(lif.labElse);
 		}
 
 		protected void visit(LabelEither le) {
@@ -297,6 +300,7 @@ public class PcalASTUtil {
 		protected void visit(MacroCall m) {
 
 		}
+
 	}
 
 	/**

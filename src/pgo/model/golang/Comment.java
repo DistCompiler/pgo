@@ -6,7 +6,7 @@ import java.util.Vector;
  * A Golang comment
  *
  */
-public class Comment extends GoAST {
+public class Comment extends Statement {
 	private Vector<String> comment;
 	// whether this is a block comment (true) with /* and */ or line comment
 	// with "//"

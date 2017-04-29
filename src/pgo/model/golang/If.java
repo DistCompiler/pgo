@@ -49,7 +49,8 @@ public class If extends Statement {
 	@Override
 	public Vector<String> toGo() {
 		Vector<String> ret = new Vector<String>();
-		ret.add("if " + cond.toGoExpr() + " {");
+		Vector<String> condStr = cond.toGo();
+		ret.add("if " + String.join("; ", condStr) + " {");
 		addIndented(ret, thenS);
 		if (elseS.size() > 0) {
 			ret.add("} else {");

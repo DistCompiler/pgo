@@ -8,7 +8,7 @@ import java.util.Vector;
  */
 public class FunctionCall extends Expression {
 
-	// the called function name
+	// the called function
 	private String fname;
 	// the parameters
 	private Vector<Expression> params;
@@ -18,11 +18,11 @@ public class FunctionCall extends Expression {
 		this.params = params;
 	}
 
-	public String getFunctionName() {
+	public String getFunction() {
 		return fname;
 	}
 
-	public void setFunctionName(String f) {
+	public void setFunction(String f) {
 		this.fname = f;
 	}
 
@@ -35,12 +35,32 @@ public class FunctionCall extends Expression {
 	}
 
 	@Override
-	public String toGoExpr() {
-		Vector<String> paramS = new Vector<String>(params.size());
-		for (Expression e : params) {
-			paramS.add(e.toGoExpr());
+	public Vector<String> toGo() {
+		Vector<String> paramStr = new Vector<String>();
+		for (int i = 0; i < params.size(); i++) {
+			Vector<String> e = params.get(i).toGo();
+			for (int j = 0; j < e.size(); j++) {
+				if (j > 0) {
+					paramStr.add(e.get(j));
+				} else {
+					if (i == 0) {
+						paramStr.add(e.get(j));
+					} else {
+						paramStr.add(paramStr.remove(paramStr.size() - 1) + ", " + e.get(j));
+					}
+				}
+			}
 		}
-		return fname + "(" + String.join(", ", paramS) + ")";
+		Vector<String> ret = new Vector<String>();
+		
+		if (paramStr.size() > 0) {
+			ret.add(fname + "(" + paramStr.remove(0));
+			addIndented(ret, paramStr);
+			ret.add(ret.remove(ret.size() - 1) + ")");
+		} else {
+			ret.add(fname + "()");
+		}
+		return ret;
 	}
 
 }

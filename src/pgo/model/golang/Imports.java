@@ -42,7 +42,7 @@ public class Imports extends GoAST {
 
 		ret.add("import (");
 		for (String pkg : imports) {
-			ret.add("\t" + pkg);
+			ret.add("\t\"" + pkg + "\"");
 		}
 		ret.add(")");
 		return ret;

@@ -42,7 +42,10 @@ public class Select extends Statement {
 		Vector<String> ret = new Vector<String>();
 		ret.add("select {");
 		for (int i = 0; i < cases.size(); ++i) {
-			ret.add("case " + cases.get(i).toGoExpr() + ":");
+			Vector<String> caseStr = cases.get(i).toGo();
+			ret.add("case " + caseStr.remove(0));
+			addIndented(ret, caseStr);
+			ret.add(ret.remove(ret.size() - 1) + ":");
 			addIndented(ret, body.get(i));
 		}
 		ret.add("}");

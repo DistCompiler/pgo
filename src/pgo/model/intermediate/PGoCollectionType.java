@@ -1,5 +1,6 @@
 package pgo.model.intermediate;
 
+import java.util.Vector;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -17,6 +18,9 @@ public abstract class PGoCollectionType extends PGoType {
 
 	// The contained type
 	protected PGoType eType;
+
+	protected PGoCollectionType() {
+	}
 
 	protected PGoCollectionType(String eTypeS) {
 		eType = PGoType.inferFromGoTypeName(eTypeS);
@@ -58,6 +62,15 @@ public abstract class PGoCollectionType extends PGoType {
 				return "[" + initCap + "]" + eType.toTypeName();
 			} else {
 				return "[]" + eType.toTypeName();
+			}
+		}
+
+		@Override
+		public String toGo() {
+			if (!initCap.isEmpty()) {
+				return "[" + initCap + "]" + eType.toGo();
+			} else {
+				return "[]" + eType.toGo();
 			}
 		}
 	}
@@ -131,12 +144,86 @@ public abstract class PGoCollectionType extends PGoType {
 			return "map[" + kType.toTypeName() + "]" + eType.toTypeName();
 		}
 
+		public String toGo() {
+			return "map[" + kType.toGo() + "]" + eType.toGo();
+		}
+	}
+
+	/**
+	 * Represents a pointer to something
+	 * 
+	 * TODO add this as part of parsing? not sure pluscal has this so we don't
+	 * necessarily need to parse it
+	 */
+	public static class PGoPointer extends PGoCollectionType {
+
+		protected PGoPointer(String eTypeS) {
+			super(eTypeS);
+		}
+
+		@Override
+		public String toTypeName() {
+			return eType.toTypeName() + "*";
+		}
+
+		public String toGo() {
+			return eType.toGo() + "*";
+		}
+	}
+	
+	/**
+	 * Represents an anonymous function
+	 * 
+	 * TODO add this as part of parsing? not sure pluscal has this so we don't
+	 * necessarily need to parse it
+	 */
+	public static class PGoAnonymousFunction extends PGoCollectionType {
+		private static final String goType = "func()";
+
+		// the paramer types
+		private Vector<PGoType> paramType;
+		// TODO support multiple return values. but is this needed?
+		private PGoType retType;
+
+		public PGoAnonymousFunction(Vector<PGoType> params, PGoType ret) {
+			paramType = params;
+			retType = ret;
+		}
+
+		public Vector<PGoType> getParamType() {
+			return paramType;
+		}
+
+		public PGoType getReturnType() {
+			return retType;
+		}
+
+		@Override public String toTypeName() {
+			Vector<String> pstrings = new Vector<String>();
+			for (PGoType t : paramType) {
+				pstrings.add(t.toTypeName());
+			}
+
+			return "func(" + String.join(", ", pstrings) + ") " + retType.toTypeName();
+		}
+
+		@Override
+		public String toGo() {
+			Vector<String> pstrings = new Vector<String>();
+			for (PGoType t : paramType) {
+				pstrings.add(t.toGo());
+			}
+
+			return ("func(" + String.join(" ", pstrings) + ") " + retType.toGo()).trim();
+		}
+
 	}
 
 	/**
 	 * Infers the PGo container type from given string
 	 * 
-	 * @param s the go type
+	 * @param s
+	 *            the go type
 	 * @return
 	 */
 	public static PGoType inferContainerFromGoTypeName(String s) {

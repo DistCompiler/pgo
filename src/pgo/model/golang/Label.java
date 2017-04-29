@@ -1,5 +1,7 @@
 package pgo.model.golang;
 
+import java.util.Vector;
+
 /**
  * A label in Go. This will be on it's own line
  *
@@ -17,8 +19,12 @@ public class Label extends Expression {
 	}
 
 	@Override
-	public String toGoExpr() {
-		return labelName + ":";
+	public Vector<String> toGo() {
+		return new Vector<String>() {
+			{
+				add(labelName + ":");
+			}
+		};
 	}
 
 }

@@ -1,5 +1,7 @@
 package pgo.model.golang;
 
+import java.util.Vector;
+
 /**
  * A Goto in pluscal and go
  *
@@ -21,7 +23,11 @@ public class GoTo extends Expression {
 	}
 
 	@Override
-	public String toGoExpr() {
-		return "goto " + to;
+	public Vector<String> toGo() {
+		return new Vector<String>() {
+			{
+				add("goto " + to);
+			}
+		};
 	}
 }
