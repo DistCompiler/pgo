@@ -6,18 +6,7 @@ import java.util.Vector;
 
 import pcal.TLAExpr;
 import pcal.TLAToken;
-import pgo.model.tla.PGoTLA;
-import pgo.model.tla.PGoTLAArray;
-import pgo.model.tla.PGoTLABool;
-import pgo.model.tla.PGoTLAComparator;
-import pgo.model.tla.PGoTLAFunction;
-import pgo.model.tla.PGoTLAGroup;
-import pgo.model.tla.PGoTLANumber;
-import pgo.model.tla.PGoTLASequence;
-import pgo.model.tla.PGoTLASet;
-import pgo.model.tla.PGoTLASimpleArithmetic;
-import pgo.model.tla.PGoTLAString;
-import pgo.model.tla.PGoTLAVariable;
+import pgo.model.tla.*;
 import pgo.trans.PGoTransException;
 
 /**
@@ -246,6 +235,8 @@ public class TLAExprParser {
 			handleSimpleExp(new PGoTLAComparator(prevT.string, lexps, rexps, line));
 		} else if (mask == Dictionary.SEQUENCE) {
 			handleSimpleExp(new PGoTLASequence(lexps, rexps, line));
+		} else if ((mask & Dictionary.SET_OP) != 0) {
+			handleSimpleExp(new PGoTLASetOp(prevT.string, lexps, rexps, line));
 		}
 		// TODO add more operators that we have
 

@@ -18,7 +18,6 @@ public class PGoTLASet extends PGoTLA {
 
 	public PGoTLASet(Vector<TLAToken> between, int line) throws PGoTransException {
 		super(line);
-		// TODO Auto-generated constructor stub
 		contents = new TLAExprParser(between, line).getResult();
 	}
 
