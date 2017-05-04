@@ -31,4 +31,11 @@ public class PGoTLAFunction extends PGoTLA {
 		return params;
 	}
 
+	public String toString() {
+		String ret = "PGoTLAFunc(" + this.getLine() + "): " + fname + "(";
+		for (PGoTLA p : params) {
+			ret += "(" + p.toString() + "), ";
+		}
+		return ret + ")";
+	}
 }

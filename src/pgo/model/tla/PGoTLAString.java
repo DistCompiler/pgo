@@ -17,4 +17,8 @@ public class PGoTLAString extends PGoTLA {
 	public String getString() {
 		return string;
 	}
+	
+	public String toString() {
+		return "PGoTLAString (" + this.getLine() + "): " + string;
+	}
 }

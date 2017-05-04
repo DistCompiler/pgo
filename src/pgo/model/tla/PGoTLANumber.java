@@ -17,4 +17,7 @@ public class PGoTLANumber extends PGoTLA {
 		return val;
 	}
 
+	public String toString() {
+		return "PGoTLANumber (" + this.getLine() + "): " + val;
+	}
 }

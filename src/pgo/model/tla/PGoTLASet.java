@@ -24,4 +24,12 @@ public class PGoTLASet extends PGoTLA {
 	public Vector<PGoTLA> getContents() {
 		return contents;
 	}
+	
+	public String toString() {
+		String ret = "PGoTLASet (" + this.getLine() + "): {";
+		for (PGoTLA p : contents) {
+			ret += "(" + p.toString() + "), ";
+		}
+		return ret + "}";
+	}
 }

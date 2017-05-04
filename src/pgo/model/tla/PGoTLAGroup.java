@@ -22,4 +22,8 @@ public class PGoTLAGroup extends PGoTLA {
 	public PGoTLA getInner() {
 		return inner;
 	}
+	
+	public String toString() {
+		return "PGoTLAGroup (" + this.getLine() + "): (" + inner.toString() + ")";
+	}
 }

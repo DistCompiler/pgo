@@ -35,4 +35,7 @@ public class PGoTLAComparator extends PGoTLA {
 		return right;
 	}
 
+	public String toString() {
+		return "PGoTLAComp (" + this.getLine() + "): (" + left.toString() + ") " + token + " (" + right.toString() + ")";
+	}
 }

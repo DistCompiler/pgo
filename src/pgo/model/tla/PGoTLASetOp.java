@@ -1,6 +1,3 @@
-/**
- * 
- */
 package pgo.model.tla;
 
 /**
@@ -30,4 +27,7 @@ public class PGoTLASetOp extends PGoTLA {
 		return right;
 	}
 
+	public String toString() {
+		return "PGoTLASetOp (" + this.getLine() + "): (" + left.toString() + ") " + token + " (" + right.toString() + ")";
+	}
 }

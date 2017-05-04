@@ -39,4 +39,8 @@ public class PGoTLASimpleArithmetic extends PGoTLA {
 	public PGoTLA getRight() {
 		return right;
 	}
+	
+	public String toString() {
+		return "PGoTLASimpArith (" + this.getLine() + "): (" + left.toString() + ") " + token + " (" + right.toString() + ")";
+	}
 }

@@ -16,4 +16,8 @@ public class PGoTLAVariable extends PGoTLA {
 	public String getName() {
 		return name;
 	}
+	
+	public String toString() {
+		return "PGoTLAVar (" + this.getLine() + "): " + name;
+	}
 }

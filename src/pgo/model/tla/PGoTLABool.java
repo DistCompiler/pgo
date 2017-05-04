@@ -18,5 +18,8 @@ public class PGoTLABool extends PGoTLA {
 	public boolean getVal() {
 		return val;
 	}
-
+	
+	public String toString() {
+		return "PGoTLABool (" + this.getLine() + "): " + val;
+	}
 }

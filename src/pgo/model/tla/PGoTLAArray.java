@@ -25,4 +25,12 @@ public class PGoTLAArray extends PGoTLA {
 	public Vector<PGoTLA> getContents() {
 		return contents;
 	}
+	
+	public String toString() {
+		String ret = "PGoTLAArray (" + this.getLine() + "): [";
+		for (PGoTLA p : contents) {
+			ret += "(" + p.toString() + "), ";
+		}
+		return ret + "]";
+	}
 }

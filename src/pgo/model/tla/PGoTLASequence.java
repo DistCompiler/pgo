@@ -23,4 +23,8 @@ public class PGoTLASequence extends PGoTLA {
 	public PGoTLA getEnd() {
 		return end;
 	}
+	
+	public String toString() {
+		return "PGoTLASequence (" + this.getLine() + "): (" + start.toString() + ") .. (" + end.toString() + ")"; 
+	}
 }
