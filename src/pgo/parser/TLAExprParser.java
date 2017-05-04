@@ -137,7 +137,9 @@ public class TLAExprParser {
 			PGoTLA lexps = exps.pop();
 			parseXOpXToken(prevT, lexps, rexps);
 		}
-		result.add(exps.pop());
+		if (!exps.isEmpty()) {
+			result.add(exps.pop());
+		}
 	}
 
 	// Returns null if new line
@@ -389,6 +391,7 @@ public class TLAExprParser {
 				put("\\E", EXISTS);
 
 				put("<<", ARROW_OPEN);
+				put("{", CURLY_OPEN);
 				// TODO check http://lamport.azurewebsites.net/tla/p-manual.pdf
 				// and
 				// https://pdfs.semanticscholar.org/6ed6/404cc710511c2a77d190ff10f83e46324d91.pdf

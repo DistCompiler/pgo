@@ -3,6 +3,8 @@ package pgo.model.tla;
 import java.util.Vector;
 
 import pcal.TLAToken;
+import pgo.parser.TLAExprParser;
+import pgo.trans.PGoTransException;
 
 /**
  * Represents a set "{ ... }" in TLA. This should store what is in the set, and
@@ -11,10 +13,16 @@ import pcal.TLAToken;
  *
  */
 public class PGoTLASet extends PGoTLA {
+	
+	private Vector<PGoTLA> contents;
 
-	public PGoTLASet(Vector<TLAToken> between, int line) {
+	public PGoTLASet(Vector<TLAToken> between, int line) throws PGoTransException {
 		super(line);
 		// TODO Auto-generated constructor stub
+		contents = new TLAExprParser(between, line).getResult();
 	}
 
+	public Vector<PGoTLA> getContents() {
+		return contents;
+	}
 }

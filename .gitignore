@@ -11,3 +11,4 @@ junit/*
 
 # ignore generated jar from ant
 lib/pgo.jar
+/bin/
