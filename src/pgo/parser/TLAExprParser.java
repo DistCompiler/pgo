@@ -363,15 +363,21 @@ public class TLAExprParser {
 				put("<", SMALLER);
 				put(">", GREATER);
 				put("<=", SMALLER_EQ);
+				put("=<", SMALLER_EQ);
+				put("\\leq", SMALLER_EQ);
 				put(">=", GREATER_EQ);
+				put("\\geq", GREATER_EQ);
 				put("==", EQUAL);
 				put("=", EQUAL);
 				
 				put("\\in", IS_IN);
+				put("\\notin", NOT_IN);
 				put("\\cup", UNION);
+				put("\\union", UNION);
 				put("UNION", ELEMENT_UNION);
 				put("\\subseteq", SUBSET);
 				put("\\cap", INTERSECTION);
+				put("\\intersect", INTERSECTION);
 				put("SUBSET", POWER_SET);
 				put("\\", SET_DIFFERENCE);
 				put(":", SUCH_THAT);

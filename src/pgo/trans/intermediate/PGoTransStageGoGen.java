@@ -623,6 +623,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 			for (Statement s : contents) {
 				args.add((Expression) s);
 			}
+			
 			go.getImports().addImport("mapset");
 			FunctionCall fc = new FunctionCall("mapset.NewSet", args);
 			stmts.addElement(fc);
