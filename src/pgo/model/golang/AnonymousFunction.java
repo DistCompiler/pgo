@@ -95,5 +95,4 @@ public class AnonymousFunction extends Expression {
 		ret.add("}");
 		return ret;
 	}
-
 }

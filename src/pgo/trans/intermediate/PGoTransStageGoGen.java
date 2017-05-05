@@ -46,6 +46,7 @@ import pgo.model.tla.PGoTLABool;
 import pgo.model.tla.PGoTLAComparator;
 import pgo.model.tla.PGoTLANumber;
 import pgo.model.tla.PGoTLASequence;
+import pgo.model.tla.PGoTLASet;
 import pgo.model.tla.PGoTLASimpleArithmetic;
 import pgo.model.tla.PGoTLAString;
 import pgo.model.tla.PGoTLAVariable;
@@ -615,6 +616,16 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 			go.getImports().addImport("pgoutil");
 			FunctionCall fc = new FunctionCall("pgoutil.Sequence", args);
 			stmts.add(fc);
+		} else if (tla instanceof PGoTLASet) {
+			Vector<Statement> contents = tlaTokenToStatement(((PGoTLASet) tla).getContents());
+			
+			Vector<Expression> args = new Vector<>();
+			for (Statement s : contents) {
+				args.add((Expression) s);
+			}
+			go.getImports().addImport("mapset");
+			FunctionCall fc = new FunctionCall("mapset.NewSet", args);
+			stmts.addElement(fc);
 		}
 		return stmts;
 	}

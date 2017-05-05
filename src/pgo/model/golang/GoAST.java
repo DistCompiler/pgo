@@ -17,4 +17,12 @@ public abstract class GoAST {
 			}
 		}
 	}
+	
+	public String toString() {
+		String ret = "";
+		for (String s : this.toGo()) {
+			ret += s + "\n";
+		}
+		return ret;
+	}
 }

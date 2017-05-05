@@ -114,7 +114,7 @@ public abstract class PGoCollectionType extends PGoType {
 
 		@Override
 		public String toGo() {
-			return "Set";
+			return "mapset.Set";
 		}
 	}
 
