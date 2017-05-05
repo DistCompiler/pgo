@@ -26,6 +26,31 @@ public class PGoTLASetOp extends PGoTLA {
 	public PGoTLA getRight() {
 		return right;
 	}
+	
+	/* Helper method to map TLA set ops to Go mapset functions.
+	 * This is necessary because Go does not have set operations.
+	 * @return the Go mapset function name corresponding to the TLA set operation
+	 */
+	public String getGoFunc() {
+		switch (token) {
+		case "\\cup":
+		case "\\union":
+			return "Union";
+		case "\\cap":
+		case "\\intersect":
+			return "Intersect";
+		case "\\in":
+			return "Contains";
+		case "\\notin":
+			return "?"; // TODO how to handle?
+		case "\\subseteq":
+			return "IsSubset";
+		case "\\":
+			return "Difference";
+		}
+		assert(false);
+		return null;
+	}
 
 	public String toString() {
 		return "PGoTLASetOp (" + this.getLine() + "): (" + left.toString() + ") " + token + " (" + right.toString() + ")";

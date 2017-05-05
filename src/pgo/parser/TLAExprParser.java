@@ -90,7 +90,7 @@ public class TLAExprParser {
 					if (Dictionary.tokenDict.containsKey(tok.string)) {
 						int mask = Dictionary.tokenDict.get(tok.string);
 						if ((mask & Dictionary.X_OP_X) > 0) {
-							while (!ops.isEmpty() && Dictionary.tokenDict.get(ops.peek()) <= mask) {
+							while (!ops.isEmpty() && Dictionary.tokenDict.get(ops.peek().string) <= mask) {
 								TLAToken prevT = ops.pop();
 								PGoTLA rexps = exps.pop();
 								PGoTLA lexps = exps.pop();

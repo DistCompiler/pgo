@@ -38,6 +38,7 @@ public class PGoMain {
 		}
 
 		instance.run();
+		logger.info("Success");
 	}
 
 	public void run() {

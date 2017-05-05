@@ -47,6 +47,7 @@ import pgo.model.tla.PGoTLAComparator;
 import pgo.model.tla.PGoTLANumber;
 import pgo.model.tla.PGoTLASequence;
 import pgo.model.tla.PGoTLASet;
+import pgo.model.tla.PGoTLASetOp;
 import pgo.model.tla.PGoTLASimpleArithmetic;
 import pgo.model.tla.PGoTLAString;
 import pgo.model.tla.PGoTLAVariable;
@@ -626,6 +627,26 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 			
 			go.getImports().addImport("mapset");
 			FunctionCall fc = new FunctionCall("mapset.NewSet", args);
+			stmts.addElement(fc);
+		} else if (tla instanceof PGoTLASetOp) {
+			Vector<Statement> leftRes = tlaTokenToStatement(((PGoTLASetOp) tla).getLeft());
+			Vector<Statement> rightRes = tlaTokenToStatement(((PGoTLASetOp) tla).getRight());
+			
+			// lhs and rhs should each be a single expression
+			assert (leftRes.size() == 1);
+			assert (rightRes.size() == 1);
+			
+			Vector<Expression> otherSet = new Vector<>();
+			otherSet.add((Expression) rightRes.get(0));
+			
+			go.getImports().addImport("mapset");
+			String lhs = "(";
+			for (String s : leftRes.get(0).toGo()) {
+				lhs += s;
+			}
+			lhs += ")";
+			String funcName = ((PGoTLASetOp) tla).getGoFunc();
+			FunctionCall fc = new FunctionCall(lhs + "." + funcName, otherSet); // TODO fix hack
 			stmts.addElement(fc);
 		}
 		return stmts;
