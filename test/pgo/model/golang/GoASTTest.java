@@ -80,13 +80,13 @@ public class GoASTTest {
 		f = new Function("foo", new PGoPrimitiveType.PGoVoid(), ps, new Vector<VariableDeclaration>(),
 				new Vector<Statement>());
 		expected.remove(0);
-		expected.add(0, "func foo(p1 uint64, p2 Set)  {");
+		expected.add(0, "func foo(p1 uint64, p2 mapset.Set)  {");
 		assertEquals(expected, f.toGo());
 		
 		f = new Function("foo", new PGoPrimitiveType.PGoInt(), ps,
 				new Vector<VariableDeclaration>(), new Vector<Statement>());
 		expected.remove(0);
-		expected.add(0, "func foo(p1 uint64, p2 Set) int {");
+		expected.add(0, "func foo(p1 uint64, p2 mapset.Set) int {");
 		assertEquals(expected, f.toGo());
 
 		Vector<VariableDeclaration> vs = new Vector<VariableDeclaration>();
@@ -137,8 +137,8 @@ public class GoASTTest {
 		expected.clear();
 		im.addImport("pkg3");
 		expected.add("import (");
-		expected.add("\tpkg1");
-		expected.add("\tpkg3");
+		expected.add("\t\"pkg1\"");
+		expected.add("\t\"pkg3\"");
 		expected.add(")");
 		assertEquals(expected, im.toGo());
 
@@ -146,7 +146,7 @@ public class GoASTTest {
 		assertEquals(expected, im.toGo());
 
 		im.addImport("pkg2");
-		expected.add(2, "\tpkg2");
+		expected.add(2, "\t\"pkg2\"");
 		assertEquals(expected, im.toGo());
 	}
 
@@ -197,7 +197,9 @@ public class GoASTTest {
 		assertEquals(1, te.toGo().size());
 		assertEquals("var", te.toGo().firstElement());
 
-		te = new Token("[2]");
+		Token t2 = new Token("[2]");
+		
+		te.merge(t2);
 
 		assertEquals(1, te.toGo().size());
 		assertEquals("var[2]", te.toGo().firstElement());

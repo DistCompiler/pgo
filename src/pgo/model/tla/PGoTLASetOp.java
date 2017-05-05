@@ -27,7 +27,8 @@ public class PGoTLASetOp extends PGoTLA {
 		return right;
 	}
 	
-	/* Helper method to map TLA set ops to Go mapset functions.
+	/* 
+	 * Helper method to map TLA set ops to Go mapset functions.
 	 * This is necessary because Go does not have set operations.
 	 * @return the Go mapset function name corresponding to the TLA set operation
 	 */
