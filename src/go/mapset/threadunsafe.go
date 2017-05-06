@@ -304,3 +304,7 @@ func (set *threadUnsafeSet) UnmarshalJSON(b []byte) error {
 
 	return nil
 }
+
+func (set *threadUnsafeSet) NotIn(i interface{}) bool {
+	return !set.Contains(i)
+}

@@ -43,7 +43,7 @@ public class PGoTLASetOp extends PGoTLA {
 		case "\\in":
 			return "Contains";
 		case "\\notin":
-			return "?"; // TODO how to handle?
+			return "NotIn";
 		case "\\subseteq":
 			return "IsSubset";
 		case "\\":

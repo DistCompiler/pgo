@@ -204,13 +204,13 @@ public class TLAExprParser {
 			TLAExprParser parser = new TLAExprParser(between, oldLine);
 			handleSimpleExp(new PGoTLAGroup(parser.getResult(), oldLine));
 		} else if (mask == Dictionary.SQR_PAREN_O) {
-			Vector<TLAToken> between = advanceUntilMatching("]", "(", TLAToken.BUILTIN);
+			Vector<TLAToken> between = advanceUntilMatching("]", "[", TLAToken.BUILTIN);
 			handleSimpleExp(new PGoTLAArray(between, oldLine));
 		} else if (mask == Dictionary.CURLY_OPEN) {
-			Vector<TLAToken> between = advanceUntilMatching("}", "(", TLAToken.BUILTIN);
+			Vector<TLAToken> between = advanceUntilMatching("}", "{", TLAToken.BUILTIN);
 			handleSimpleExp(new PGoTLASet(between, oldLine));
 		} else if (mask == Dictionary.ARROW_OPEN) {
-			Vector<TLAToken> between = advanceUntilMatching(">>", "(", TLAToken.BUILTIN);
+			Vector<TLAToken> between = advanceUntilMatching(">>", "<<", TLAToken.BUILTIN);
 
 			// << >> are tuples in PlusCal. Most of the time they converted to
 			// channels since they are used for communication. But more safety
@@ -265,17 +265,17 @@ public class TLAExprParser {
 		while (hasNext()) {
 
 			TLAToken tok = next();
-			if (tok != null && tok.string.equals(endToken) && tok.type == tokenType) {
+			if (tok == null) {
+				line++;
+			} else if (tok.string.equals(endToken) && tok.type == tokenType) {
 				numExtra--;
 				if (numExtra < 0) {
 					return ret;
 				}
-			} else if (tok != null && tok.string.equals(begin) && tok.type == tokenType) {
+			} else if (tok.string.equals(begin) && tok.type == tokenType) {
 				numExtra++;
 			}
-			if (tok == null) {
-				line++;
-			}
+			
 			ret.add(tok);
 		}
 		return ret;

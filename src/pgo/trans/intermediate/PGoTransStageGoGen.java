@@ -258,6 +258,9 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 
 			protected void visit(With with) {
 				// TODO handle
+				// Select a random element of with.exp and perform with.Do on it
+				go.getImports().addImport("math/rand");
+				
 				// walk(with.Do);
 			}
 

@@ -109,6 +109,9 @@ type Set interface {
 	// Returns an Iterator object that you can
 	// use to range over the set.
 	Iterator() *Iterator
+	
+	// Returns whether i is not in the set.
+	NotIn(i interface{}) bool
 
 	// Remove a single element from the set.
 	Remove(i interface{})
