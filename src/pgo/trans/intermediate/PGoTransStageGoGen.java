@@ -260,7 +260,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 				// TODO handle
 				// Select a random element of with.exp and perform with.Do on it
 				go.getImports().addImport("math/rand");
-				
+				Vector<Statement> pre; //handle random selection and declaration of var
 				// walk(with.Do);
 			}
 

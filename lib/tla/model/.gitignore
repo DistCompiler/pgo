@@ -2,3 +2,5 @@
 *.tla
 *.cfg
 *.properties
+/InJarFilenameToStream.class
+/ModelInJar.class

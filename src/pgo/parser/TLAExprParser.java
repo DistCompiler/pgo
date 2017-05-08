@@ -323,7 +323,7 @@ public class TLAExprParser {
 
 		// predicate operations
 		public static final int CHOOSE = SUBSET << 1;
-		public static final int FOR_ALL = CHOOSE << 1;;
+		public static final int FOR_ALL = CHOOSE << 1;
 		public static final int EXISTS = FOR_ALL << 1; // 25 bits total
 
 		// container tokens. we only need to know when we hit the start.
