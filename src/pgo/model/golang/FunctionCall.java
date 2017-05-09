@@ -15,7 +15,7 @@ public class FunctionCall extends Expression {
 	// whether this is an object call
 	private boolean isObjectCall;
 	// the object the function is called on; null if this is not an object call
-	private String objName;
+	private Expression obj;
 
 	public FunctionCall(String fname, Vector<Expression> params) {
 		this.fname = fname;
@@ -23,10 +23,10 @@ public class FunctionCall extends Expression {
 		this.isObjectCall = false;
 	}
 	
-	public FunctionCall(String fname, Vector<Expression> params, String objName) {
+	public FunctionCall(String fname, Vector<Expression> params, Expression obj) {
 		this.fname = fname;
 		this.params = params;
-		this.objName = objName;
+		this.obj = obj;
 		this.isObjectCall = true;
 	}
 
@@ -66,10 +66,11 @@ public class FunctionCall extends Expression {
 		Vector<String> ret = new Vector<String>();
 		String first = "";
 		if (this.isObjectCall) {
-			assert (objName != null);
-			first = objName + ".";
+			assert (obj != null);
+			assert (obj.toGo().size() == 1);
+			first = obj.toGo().get(0) + ".";
 		} else {
-			assert (objName == null);
+			assert (obj == null);
 		}
 		if (paramStr.size() > 0) {
 			first += fname + "(" + paramStr.remove(0);
