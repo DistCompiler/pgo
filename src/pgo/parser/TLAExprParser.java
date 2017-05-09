@@ -90,7 +90,7 @@ public class TLAExprParser {
 					if (Dictionary.tokenDict.containsKey(tok.string)) {
 						int mask = Dictionary.tokenDict.get(tok.string);
 						if ((mask & Dictionary.X_OP_X) > 0) {
-							while (!ops.isEmpty() && Dictionary.tokenDict.get(ops.peek().string) <= mask) {
+							while (!ops.isEmpty() && Dictionary.tokenDict.get(ops.peek().string) >= mask) { //this is where order of operations is determined
 								TLAToken prevT = ops.pop();
 								PGoTLA rexps = exps.pop();
 								PGoTLA lexps = exps.pop();
@@ -120,7 +120,7 @@ public class TLAExprParser {
 				throw new PGoTransException("Unknown token: \"" + tok.string + "\"", line);
 			}
 		}
-		if (!ops.isEmpty()) {
+		while (!ops.isEmpty()) {
 			TLAToken prevT = ops.pop();
 			PGoTLA rexps = exps.pop();
 			PGoTLA lexps = exps.pop();
@@ -231,8 +231,8 @@ public class TLAExprParser {
 		int mask = Dictionary.tokenDict.get(prevT.string);
 		if (mask == Dictionary.SIMPLE_ARITHMETIC) {
 			handleSimpleExp(new PGoTLASimpleArithmetic(prevT.string, lexps, rexps, line));
-		} else if ((mask & Dictionary.COMPARATOR) != 0) {
-			handleSimpleExp(new PGoTLAComparator(prevT.string, lexps, rexps, line));
+		} else if ((mask & Dictionary.BOOL_OP) != 0) {
+			handleSimpleExp(new PGoTLABoolOp(prevT.string, lexps, rexps, line));
 		} else if (mask == Dictionary.SEQUENCE) {
 			handleSimpleExp(new PGoTLASequence(lexps, rexps, line));
 		} else if ((mask & Dictionary.SET_OP) != 0) {
@@ -306,6 +306,7 @@ public class TLAExprParser {
 		public static final int NOT_EQ = GREATER_EQ << 1;
 		public static final int EQUAL = NOT_EQ << 1; // 11 bits
 		public static final int COMPARATOR = NOT_EQ | SMALLER | GREATER | SMALLER_EQ | GREATER_EQ | EQUAL;
+		public static final int BOOL_OP = AND | OR | NEGATE | COMPARATOR;
 
 		// set operations
 		public static final int SUCH_THAT = EQUAL << 1;
@@ -339,8 +340,8 @@ public class TLAExprParser {
 		public static final int CONTAINER_TOK = OPEN_PAREN | SQR_PAREN_O | CURLY_OPEN | ARROW_OPEN;
 
 		// operators with 2 arguments on either side
-		public static final int X_OP_X = (SIMPLE_ARITHMETIC | COMPARATOR | EXPONENT | STRING_APPEND | SET_OP)
-				& ~(SUCH_THAT | ELEMENT_UNION | POWER_SET);
+		public static final int X_OP_X = (SIMPLE_ARITHMETIC | BOOL_OP | EXPONENT | STRING_APPEND | SET_OP)
+				& ~(NEGATE | SUCH_THAT | ELEMENT_UNION | POWER_SET);
 		// right side argument operators
 		public static final int OP_X = ELEMENT_UNION | POWER_SET;
 

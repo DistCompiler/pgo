@@ -1,10 +1,10 @@
 package pgo.model.tla;
 
 /**
- * Represents a comparator in TLA.
+ * Represents a comparator or a binary boolean operation in TLA.
  *
  */
-public class PGoTLAComparator extends PGoTLA {
+public class PGoTLABoolOp extends PGoTLA {
 
 	private String token;
 
@@ -12,12 +12,16 @@ public class PGoTLAComparator extends PGoTLA {
 
 	private PGoTLA right;
 
-	public PGoTLAComparator(String comp, PGoTLA prev, PGoTLA next, int line) {
+	public PGoTLABoolOp(String tok, PGoTLA prev, PGoTLA next, int line) {
 		super(line);
-		if (comp.equals("#") || comp.equals("/=")) {
+		if (tok.equals("#") || tok.equals("/=")) {
 			token = "!=";
+		} else if (tok.equals("/\\")) {
+			this.token = "&&";
+		} else if (tok.equals("\\/")) {
+			this.token = "||";
 		} else {
-			token = comp;
+			token = tok;
 		}
 		left = prev;
 		right = next;

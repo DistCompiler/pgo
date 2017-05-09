@@ -12,10 +12,22 @@ public class FunctionCall extends Expression {
 	private String fname;
 	// the parameters
 	private Vector<Expression> params;
+	// whether this is an object call
+	private boolean isObjectCall;
+	// the object the function is called on; null if this is not an object call
+	private String objName;
 
 	public FunctionCall(String fname, Vector<Expression> params) {
 		this.fname = fname;
 		this.params = params;
+		this.isObjectCall = false;
+	}
+	
+	public FunctionCall(String fname, Vector<Expression> params, String objName) {
+		this.fname = fname;
+		this.params = params;
+		this.objName = objName;
+		this.isObjectCall = true;
 	}
 
 	public String getFunction() {
@@ -52,13 +64,21 @@ public class FunctionCall extends Expression {
 			}
 		}
 		Vector<String> ret = new Vector<String>();
-		
+		String first = "";
+		if (this.isObjectCall) {
+			assert (objName != null);
+			first = objName + ".";
+		} else {
+			assert (objName == null);
+		}
 		if (paramStr.size() > 0) {
-			ret.add(fname + "(" + paramStr.remove(0));
+			first += fname + "(" + paramStr.remove(0);
+			ret.add(first);
 			addIndented(ret, paramStr);
 			ret.add(ret.remove(ret.size() - 1) + ")");
 		} else {
-			ret.add(fname + "()");
+			first += fname + "()";
+			ret.add(first);
 		}
 		return ret;
 	}

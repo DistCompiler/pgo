@@ -43,7 +43,7 @@ import pgo.model.intermediate.PGoVariable;
 import pgo.model.tla.PGoTLA;
 import pgo.model.tla.PGoTLAArray;
 import pgo.model.tla.PGoTLABool;
-import pgo.model.tla.PGoTLAComparator;
+import pgo.model.tla.PGoTLABoolOp;
 import pgo.model.tla.PGoTLANumber;
 import pgo.model.tla.PGoTLASequence;
 import pgo.model.tla.PGoTLASet;
@@ -463,7 +463,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 			go.addGlobal(new VariableDeclaration(pv.getName(), pv.getType(), null, new Vector<Statement>(),
 					pv.getIsConstant()));
 			Vector<Expression> toks = new Vector<Expression>();
-			toks.add(new Token("_," + pv.getName()));
+			toks.add(new Token("_, " + pv.getName()));
 			toks.add(new Token(" = "));
 			toks.add(new Token("range "));
 			toks.add(se); // TODO what if not a single expression
@@ -585,9 +585,9 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 			SimpleExpression arith = new SimpleExpression(toks);
 
 			stmts.add(arith);
-		} else if (tla instanceof PGoTLAComparator) {
-			Vector<Statement> leftRes = tlaTokenToStatement(((PGoTLAComparator) tla).getLeft());
-			Vector<Statement> rightRes = tlaTokenToStatement(((PGoTLAComparator) tla).getRight());
+		} else if (tla instanceof PGoTLABoolOp) {
+			Vector<Statement> leftRes = tlaTokenToStatement(((PGoTLABoolOp) tla).getLeft());
+			Vector<Statement> rightRes = tlaTokenToStatement(((PGoTLABoolOp) tla).getRight());
 
 			// comparators operations should just be a single SimpleExpression
 			assert (leftRes.size() == 1);
@@ -597,7 +597,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 
 			Vector<Expression> toks = new Vector<Expression>();
 			toks.add((Expression) leftRes.get(0));
-			toks.add(new Token(" " + ((PGoTLAComparator) tla).getToken() + " "));
+			toks.add(new Token(" " + ((PGoTLABoolOp) tla).getToken() + " "));
 			toks.add((Expression) rightRes.get(0));
 
 			SimpleExpression comp = new SimpleExpression(toks);
@@ -607,11 +607,11 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 			Vector<Statement> startRes = tlaTokenToStatement(((PGoTLASequence) tla).getStart());
 			Vector<Statement> endRes = tlaTokenToStatement(((PGoTLASequence) tla).getEnd());
 
-			// comparators operations should just be a single SimpleExpression
+			// comparators operations should just be a single Expression
 			assert (startRes.size() == 1);
 			assert (endRes.size() == 1);
-			assert (startRes.get(0) instanceof SimpleExpression);
-			assert (endRes.get(0) instanceof SimpleExpression);
+			assert (startRes.get(0) instanceof Expression);
+			assert (endRes.get(0) instanceof Expression);
 
 			Vector<Expression> args = new Vector<Expression>();
 			args.add((Expression) startRes.get(0));
@@ -635,21 +635,19 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 			Vector<Statement> leftRes = tlaTokenToStatement(((PGoTLASetOp) tla).getLeft());
 			Vector<Statement> rightRes = tlaTokenToStatement(((PGoTLASetOp) tla).getRight());
 			
-			// lhs and rhs should each be a single expression
+			// lhs and rhs should each be a single Expression
 			assert (leftRes.size() == 1);
 			assert (rightRes.size() == 1);
+			assert (leftRes.get(0) instanceof Expression);
+			assert (rightRes.get(0) instanceof Expression);
 			
 			Vector<Expression> otherSet = new Vector<>();
 			otherSet.add((Expression) rightRes.get(0));
 			
 			go.getImports().addImport("mapset");
-			String lhs = "(";
-			for (String s : leftRes.get(0).toGo()) {
-				lhs += s;
-			}
-			lhs += ")";
+			String lhs = leftRes.get(0).toGo().get(0);
 			String funcName = ((PGoTLASetOp) tla).getGoFunc();
-			FunctionCall fc = new FunctionCall(lhs + "." + funcName, otherSet); // TODO fix hack
+			FunctionCall fc = new FunctionCall(funcName, otherSet, lhs);
 			stmts.addElement(fc);
 		}
 		return stmts;

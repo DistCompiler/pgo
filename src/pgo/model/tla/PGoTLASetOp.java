@@ -30,6 +30,8 @@ public class PGoTLASetOp extends PGoTLA {
 	/* 
 	 * Helper method to map TLA set ops to Go mapset functions.
 	 * This is necessary because Go does not have set operations.
+	 * Note that \notin does not correspond directly to a mapset function.
+	 * This is dealt with in PGoTransStageGoGen.tlaTokentoStatement().
 	 * @return the Go mapset function name corresponding to the TLA set operation
 	 */
 	public String getGoFunc() {
