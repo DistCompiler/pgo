@@ -90,7 +90,8 @@ public class TLAExprParser {
 					if (Dictionary.tokenDict.containsKey(tok.string)) {
 						int mask = Dictionary.tokenDict.get(tok.string);
 						if ((mask & Dictionary.X_OP_X) > 0) {
-							while (!ops.isEmpty() && Dictionary.tokenDict.get(ops.peek().string) >= mask) { //this is where order of operations is determined
+							while (!ops.isEmpty()
+									&& opPrecedence.get(Dictionary.tokenDict.get(ops.peek().string)) >= opPrecedence.get(mask)) {
 								TLAToken prevT = ops.pop();
 								PGoTLA rexps = exps.pop();
 								PGoTLA lexps = exps.pop();
@@ -146,8 +147,7 @@ public class TLAExprParser {
 	}
 
 	/**
-	 * Handle single token expression, adding it to the stack or combining with
-	 * the previous operator as appropriate
+	 * Handle single token expression, adding it to the stack or combining with the previous operator as appropriate
 	 */
 	private void handleSimpleExp(PGoTLA tok) {
 		if (ops.isEmpty()) {
@@ -170,8 +170,7 @@ public class TLAExprParser {
 	}
 
 	/**
-	 * The following methods parses a single token, and advances forward as
-	 * appropriate
+	 * The following methods parses a single token, and advances forward as appropriate
 	 */
 	private void parseStringToken(TLAToken tlaToken) {
 		handleSimpleExp(new PGoTLAString(tlaToken.string, line));
@@ -229,7 +228,7 @@ public class TLAExprParser {
 	private void parseXOpXToken(TLAToken prevT, PGoTLA lexps, PGoTLA rexps) {
 		assert (Dictionary.tokenDict.containsKey(prevT.string));
 		int mask = Dictionary.tokenDict.get(prevT.string);
-		if (mask == Dictionary.SIMPLE_ARITHMETIC) {
+		if (mask == Dictionary.SIMPLE_ARITHMETIC || mask == Dictionary.EXPONENT) {
 			handleSimpleExp(new PGoTLASimpleArithmetic(prevT.string, lexps, rexps, line));
 		} else if ((mask & Dictionary.BOOL_OP) != 0) {
 			handleSimpleExp(new PGoTLABoolOp(prevT.string, lexps, rexps, line));
@@ -237,9 +236,10 @@ public class TLAExprParser {
 			handleSimpleExp(new PGoTLASequence(lexps, rexps, line));
 		} else if ((mask & Dictionary.SET_OP) != 0) {
 			handleSimpleExp(new PGoTLASetOp(prevT.string, lexps, rexps, line));
+		} else {
+			assert false;
 		}
 		// TODO add more operators that we have
-
 	}
 
 	// Parse an operator with only right side argument
@@ -249,19 +249,18 @@ public class TLAExprParser {
 	}
 
 	/**
-	 * Advance until the next closing endToken. Every occurrence of beginToken
-	 * will require an extra closing token, which is the begin token in param.
-	 * We expect the current token to be after the begin that we are trying to
-	 * enclose.
+	 * Advance until the next closing endToken. Every occurrence of beginToken will require an extra closing token, which is the
+	 * begin token in param. We expect the current token to be after the begin that we are trying to enclose.
 	 * 
 	 * Returns all the token in between
-	 * @param tokenType 
+	 * 
+	 * @param tokenType
 	 */
 	private Vector<TLAToken> advanceUntilMatching(String endToken, String begin, int tokenType) {
 		int numExtra = 0;
-		
+
 		Vector<TLAToken> ret = new Vector<TLAToken>();
-		
+
 		while (hasNext()) {
 
 			TLAToken tok = next();
@@ -275,7 +274,7 @@ public class TLAExprParser {
 			} else if (tok.string.equals(begin) && tok.type == tokenType) {
 				numExtra++;
 			}
-			
+
 			ret.add(tok);
 		}
 		return ret;
@@ -283,10 +282,11 @@ public class TLAExprParser {
 
 	public static class Dictionary {
 		/*
-		 * bitmasks of various tla tokens. We use bitmask as a token could be
-		 * multiple possibilities until we check the corresponding variable
-		 * types. Listed in most precedent to least.
+		 * bitmasks of various tla tokens. We use bitmask as a token could be multiple possibilities until we check the
+		 * corresponding variable types. Not listed in a particular order; operator precedence is handled by the OpPrecedence
+		 * dict.
 		 */
+
 		// arithmetic operations
 		public static final int EXPONENT = 1 << 0;
 		// don't care for arithmetic operation orders. Go will take care of it.
@@ -353,12 +353,16 @@ public class TLAExprParser {
 				put("/", SIMPLE_ARITHMETIC);
 				put("%", SIMPLE_ARITHMETIC);
 				put("^", EXPONENT);
-				
+
 				put("\\o", STRING_APPEND);
-				
+
 				put("/\\", AND);
+				put("\\land", AND);
+				put("\\lor", OR);
 				put("\\/", OR);
 				put("~", NEGATE);
+				put("\\lnot", NEGATE);
+				put("\\neg", NEGATE);
 				put("#", NOT_EQ);
 				put("/=", NOT_EQ);
 				put("<", SMALLER);
@@ -370,7 +374,7 @@ public class TLAExprParser {
 				put("\\geq", GREATER_EQ);
 				put("==", EQUAL);
 				put("=", EQUAL);
-				
+
 				put("\\in", IS_IN);
 				put("\\notin", NOT_IN);
 				put("\\cup", UNION);
@@ -397,8 +401,43 @@ public class TLAExprParser {
 				// pcal.PcalBuiltInSymbols has a whole list of stuff too
 			}
 		};
-		
+
 	}
+
+	/*
+	 * Maps a Dictionary bitmask to the corresponding operator precedence.
+	 * Higher precedence => higher number.
+	 * Operator precedence table found at http://lamport.azurewebsites.net/tla/summary-standalone.pdf
+	 * TODO figure out precedence of operators not in table
+	 */
+	private static final HashMap<Integer, Integer> opPrecedence = new HashMap<Integer, Integer>() {
+		{
+			put(Dictionary.AND, 3);
+			put(Dictionary.OR, 3);
+			put(Dictionary.NEGATE, 4);
+			put(Dictionary.NOT_EQ, 5);
+			put(Dictionary.SMALLER, 5);
+			put(Dictionary.EQUAL, 5);
+			put(Dictionary.GREATER, 5);
+			put(Dictionary.GREATER_EQ, 5);
+			put(Dictionary.IS_IN, 5);
+			put(Dictionary.NOT_IN, 5);
+			put(Dictionary.SUBSET, 5);
+			put(Dictionary.SET_DIFFERENCE, 8);
+			put(Dictionary.INTERSECTION, 8);
+			put(Dictionary.UNION, 8);
+			put(Dictionary.ELEMENT_UNION, 8);
+			put(Dictionary.POWER_SET, 8);
+			put(Dictionary.SEQUENCE, 9);
+			put(Dictionary.SIMPLE_ARITHMETIC, 13);
+			put(Dictionary.STRING_APPEND, 13);
+			put(Dictionary.EXPONENT, 14);
+			put(Dictionary.OPEN_PAREN, 18);
+			put(Dictionary.SQR_PAREN_O, 18);
+			put(Dictionary.ARROW_OPEN, 18);
+			put(Dictionary.CURLY_OPEN, 18);
+		}
+	};
 
 	public Vector<PGoTLA> getResult() {
 		return result;

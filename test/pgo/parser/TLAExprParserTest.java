@@ -10,10 +10,7 @@ import org.junit.Test;
 import pcal.PcalTranslate;
 import pcal.TLAExpr;
 import pcal.TLAToken;
-import pgo.model.tla.PGoTLA;
-import pgo.model.tla.PGoTLABool;
-import pgo.model.tla.PGoTLANumber;
-import pgo.model.tla.PGoTLAString;
+import pgo.model.tla.*;
 import pgo.trans.PGoTransException;
 
 public class TLAExprParserTest {
@@ -78,5 +75,25 @@ public class TLAExprParserTest {
 		assertEquals(false, res.getVal());
 	}
 
+	@Test
+	public void testArithmetic() throws PGoTransException {
+		Vector<TLAToken> toks = new Vector<>();
+		toks.add(new TLAToken("a", 0, TLAToken.IDENT));
+		toks.add(new TLAToken("+", 0, TLAToken.BUILTIN));
+		toks.add(new TLAToken("b", 0, TLAToken.IDENT));
+		toks.add(new TLAToken("^", 0, TLAToken.BUILTIN));
+		toks.add(new TLAToken("3", 0, TLAToken.NUMBER));
+		Vector<Vector<TLAToken>> v = new Vector<>();
+		v.add(toks);
+		TLAExpr exp = PcalTranslate.MakeExpr(v);
+		Vector<PGoTLA> result = new TLAExprParser(exp, 0).getResult();
+		assertEquals(1, result.size());
+		assertTrue(result.get(0) instanceof PGoTLASimpleArithmetic);
+		PGoTLASimpleArithmetic sa = (PGoTLASimpleArithmetic) result.get(0);
+		assertTrue(sa.getLeft() instanceof PGoTLAVariable);
+		assertTrue(sa.getRight() instanceof PGoTLASimpleArithmetic);
+		assertTrue(((PGoTLASimpleArithmetic) sa.getRight()).getLeft() instanceof PGoTLAVariable);
+		assertTrue(((PGoTLASimpleArithmetic) sa.getRight()).getRight() instanceof PGoTLANumber);
+	}
 	// TODO more tests
 }
