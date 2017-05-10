@@ -45,6 +45,10 @@ public class FunctionCall extends Expression {
 	public void setParams(Vector<Expression> p) {
 		this.params = p;
 	}
+	
+	public Expression getObj() {
+		return obj;
+	}
 
 	@Override
 	public Vector<String> toGo() {

@@ -11,6 +11,10 @@ import pgo.model.intermediate.PGoCollectionType;
 import pgo.model.intermediate.PGoPrimitiveType;
 
 public class GoASTTest {
+	private static final Vector<Statement> body = new Vector<>();
+	static {
+		body.add(new FunctionCall("foo", new Vector<>()));
+	}
 
 	@Test
 	public void testComments() {
@@ -56,7 +60,15 @@ public class GoASTTest {
 
 	@Test
 	public void testFor() {
-		// TODO
+		// we don't care about for loops with more than 1 expression; only range-based and condition-based loops are compiled
+		For f = new For(new Token("x > 0"), body);
+		Vector<String> expected = new Vector<>();
+		expected.add("x > 0");
+		assertEquals(expected, f.getCond().toGo());
+		expected.set(0, "for x > 0 {");
+		expected.add("\tfoo()");
+		expected.add("}");
+		assertEquals(expected, f.toGo());
 	}
 
 	@Test
@@ -67,32 +79,28 @@ public class GoASTTest {
 		expected.add("func foo()  {");
 		expected.add("}");
 		assertEquals(expected, f.toGo());
-		
+
 		Vector<ParameterDeclaration> ps = new Vector<ParameterDeclaration>();
 		ps.add(new ParameterDeclaration("p1", new PGoPrimitiveType.PGoNatural()));
-		f = new Function("foo", new PGoPrimitiveType.PGoVoid(), ps,
-				new Vector<VariableDeclaration>(), new Vector<Statement>());
+		f = new Function("foo", new PGoPrimitiveType.PGoVoid(), ps, new Vector<VariableDeclaration>(), new Vector<Statement>());
 		expected.remove(0);
 		expected.add(0, "func foo(p1 uint64)  {");
 		assertEquals(expected, f.toGo());
 
 		ps.add(new ParameterDeclaration("p2", new PGoCollectionType.PGoSet("int")));
-		f = new Function("foo", new PGoPrimitiveType.PGoVoid(), ps, new Vector<VariableDeclaration>(),
-				new Vector<Statement>());
+		f = new Function("foo", new PGoPrimitiveType.PGoVoid(), ps, new Vector<VariableDeclaration>(), new Vector<Statement>());
 		expected.remove(0);
 		expected.add(0, "func foo(p1 uint64, p2 mapset.Set)  {");
 		assertEquals(expected, f.toGo());
-		
-		f = new Function("foo", new PGoPrimitiveType.PGoInt(), ps,
-				new Vector<VariableDeclaration>(), new Vector<Statement>());
+
+		f = new Function("foo", new PGoPrimitiveType.PGoInt(), ps, new Vector<VariableDeclaration>(), new Vector<Statement>());
 		expected.remove(0);
 		expected.add(0, "func foo(p1 uint64, p2 mapset.Set) int {");
 		assertEquals(expected, f.toGo());
 
 		Vector<VariableDeclaration> vs = new Vector<VariableDeclaration>();
 		vs.add(new VariableDeclaration("var1", new PGoPrimitiveType.PGoDecimal(),
-				new SimpleExpression(new Vector<Expression>()),
-				false));
+				new SimpleExpression(new Vector<Expression>()), false));
 		f = new Function("foo", new PGoPrimitiveType.PGoInt(), ps, vs, new Vector<Statement>());
 		expected.remove(1);
 		for (VariableDeclaration v : vs) {
@@ -103,12 +111,28 @@ public class GoASTTest {
 		expected.add("}");
 		assertEquals(expected, f.toGo());
 
-		// TODO function body
+		f.setBody(body);
+		expected.remove(expected.size() - 1);
+		expected.add("\tfoo()");
+		expected.add("}");
+		assertEquals(expected, f.toGo());
 	}
 
 	@Test
 	public void testFunctionCall() {
-		// TODO
+		FunctionCall fc = new FunctionCall("foo", new Vector<Expression>());
+		Vector<String> expected = new Vector<>();
+		expected.add("foo()");
+		assertEquals(expected, fc.toGo());
+		Vector<Expression> params = new Vector<>();
+		params.add(new Token("bar"));
+		params.add(new Token("baz"));
+		fc.setParams(params);
+		expected.set(0, "foo(bar, baz)");
+		assertEquals(expected, fc.toGo());
+		fc = new FunctionCall("foo", params, new Token("obj"));
+		expected.set(0, "obj.foo(bar, baz)");
+		assertEquals(expected, fc.toGo());
 	}
 
 	@Test
@@ -171,7 +195,6 @@ public class GoASTTest {
 		assertEquals(1, r.toGo().size());
 		assertEquals("return", r.toGo().firstElement());
 
-
 		r = new Return(new Token("ret"));
 		assertEquals(1, r.toGo().size());
 		assertEquals("return ret", r.toGo().firstElement());
@@ -198,7 +221,7 @@ public class GoASTTest {
 		assertEquals("var", te.toGo().firstElement());
 
 		Token t2 = new Token("[2]");
-		
+
 		te.merge(t2);
 
 		assertEquals(1, te.toGo().size());
@@ -207,16 +230,15 @@ public class GoASTTest {
 
 	@Test
 	public void testVariableDeclaration() {
-		VariableDeclaration vd = new VariableDeclaration("var1", new PGoPrimitiveType.PGoDecimal(),
-				null, false);
+		VariableDeclaration vd = new VariableDeclaration("var1", new PGoPrimitiveType.PGoDecimal(), null, false);
 		Vector<String> expected = new Vector<String>();
 		expected.add("var var1 float64");
 		assertEquals(expected, vd.toGo());
 
 		Vector<Expression> toks = new Vector<Expression>();
 		toks.add(new Token("1"));
-		vd = new VariableDeclaration("var2", new PGoCollectionType.PGoMap("String", "boolean"),
-				new SimpleExpression(toks), false);
+		vd = new VariableDeclaration("var2", new PGoCollectionType.PGoMap("String", "boolean"), new SimpleExpression(toks),
+				false);
 		expected = new Vector<String>();
 		expected.add("var var2 map[string]bool = 1");
 		assertEquals(expected, vd.toGo());
@@ -224,4 +246,3 @@ public class GoASTTest {
 		// TODO assert the init codes
 	}
 }
-

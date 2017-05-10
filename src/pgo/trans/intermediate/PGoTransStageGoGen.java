@@ -188,9 +188,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 						if (!firstAssign) {
 							exps.add(new Token(", "));
 						}
-						exps.add((Expression) rhs.remove(0)); // TODO check if
-																// cast
-																// is
+						exps.add((Expression) rhs.remove(0)); // TODO check if cast is
 						firstAssign = false;
 					}
 					result.add(new SimpleExpression(exps));
@@ -211,7 +209,6 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 				assert (rhs.size() > 0);
 				exps.add((Expression) rhs.remove(0)); // TODO check if cast is
 
-				Expression se = new SimpleExpression(exps);
 				result.add(new SimpleExpression(exps));
 				result.addAll(rhs);
 
@@ -222,7 +219,9 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 				// TODO handle complicated conditions
 				assert (cond.size() > 0);
 				Vector<Expression> exps = new Vector<Expression>();
-				exps.add((Expression) cond.get(0));
+				for (Statement s : cond) {
+					exps.add((Expression) s);
+				}
 				Expression se = new SimpleExpression(exps);
 
 				Vector<Statement> thenS = new Vector<Statement>();

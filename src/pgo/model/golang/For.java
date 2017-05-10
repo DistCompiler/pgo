@@ -38,7 +38,7 @@ public class For extends Statement {
 	public Vector<String> toGo() {
 		Vector<String> ret = new Vector<String>();
 		Vector<String> conds = cond.toGo();
-		ret.add("for " + String.join(";", conds) + " {");
+		ret.add("for " + String.join("; ", conds) + " {");
 		addIndented(ret, then);
 		ret.add("}");
 		return ret;
