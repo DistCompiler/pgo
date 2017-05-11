@@ -31,6 +31,7 @@ import pgo.model.golang.For;
 import pgo.model.golang.Function;
 import pgo.model.golang.FunctionCall;
 import pgo.model.golang.GoProgram;
+import pgo.model.golang.Group;
 import pgo.model.golang.ParameterDeclaration;
 import pgo.model.golang.SimpleExpression;
 import pgo.model.golang.Statement;
@@ -565,6 +566,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 
 			stmts.add(arith);
 		} else if (tla instanceof PGoTLABoolOp) {
+			// TODO we need to see whether we are operating on sets
 			Vector<Statement> leftRes = tlaTokenToStatement(((PGoTLABoolOp) tla).getLeft());
 			Vector<Statement> rightRes = tlaTokenToStatement(((PGoTLABoolOp) tla).getRight());
 
@@ -604,6 +606,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 
 			Vector<Expression> args = new Vector<>();
 			for (Statement s : contents) {
+				assert (s instanceof Expression);
 				args.add((Expression) s);
 			}
 
@@ -624,15 +627,17 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 			lhs.add((Expression) leftRes.get(0));
 			Expression rightSet = (Expression) rightRes.get(0);
 
+			Vector<Expression> exp = new Vector<>();
 			go.getImports().addImport("mapset");
 			String funcName = ((PGoTLASetOp) tla).getGoFunc();
 			if (funcName.equals("NotIn")) {
-				stmts.add(new Token("!"));
+				exp.add(new Token("!"));
 				funcName = "Contains";
 			}
 			// rightSet is the object because lhs can be an element (e.g. in Contains)
 			FunctionCall fc = new FunctionCall(funcName, lhs, rightSet);
-			stmts.add(fc);
+			exp.add(fc);
+			stmts.add(new SimpleExpression(exp));
 		} else if (tla instanceof PGoTLAUnary) {
 			Vector<Statement> rightRes = tlaTokenToStatement(((PGoTLAUnary) tla).getArg());
 			
@@ -642,8 +647,10 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 			
 			switch (((PGoTLAUnary) tla).getToken()) {
 			case "!":
-				stmts.add(new Token("!"));
-				stmts.add(rightRes.get(0));
+				Vector<Expression> exp = new Vector<>();
+				exp.add(new Token("!"));
+				exp.add((Expression) rightRes.get(0));
+				stmts.add(new SimpleExpression(exp));
 				break;
 			case "UNION":
 				// TODO implement
@@ -653,6 +660,13 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 				stmts.add(fc);
 				break;
 			}
+		} else if (tla instanceof PGoTLAGroup) {
+			Vector<Statement> inside = tlaTokenToStatement(((PGoTLAGroup) tla).getInner());
+			
+			assert (inside.size() == 1);
+			assert (inside.get(0) instanceof Expression);
+			
+			stmts.add(new Group((Expression) inside.get(0)));
 		}
 		return stmts;
 	}

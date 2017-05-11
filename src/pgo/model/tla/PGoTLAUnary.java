@@ -32,4 +32,8 @@ public class PGoTLAUnary extends PGoTLA {
 	public PGoTLA getArg() {
 		return arg;
 	}
+	
+	public String toString() {
+		return "PGoTLAUnary (" + this.getLine() + "): " + token + " " + arg.toString();
+	}
 }
