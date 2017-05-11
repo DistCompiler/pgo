@@ -40,17 +40,7 @@ import pgo.model.intermediate.PGoFunction;
 import pgo.model.intermediate.PGoPrimitiveType;
 import pgo.model.intermediate.PGoRoutineInit;
 import pgo.model.intermediate.PGoVariable;
-import pgo.model.tla.PGoTLA;
-import pgo.model.tla.PGoTLAArray;
-import pgo.model.tla.PGoTLABool;
-import pgo.model.tla.PGoTLABoolOp;
-import pgo.model.tla.PGoTLANumber;
-import pgo.model.tla.PGoTLASequence;
-import pgo.model.tla.PGoTLASet;
-import pgo.model.tla.PGoTLASetOp;
-import pgo.model.tla.PGoTLASimpleArithmetic;
-import pgo.model.tla.PGoTLAString;
-import pgo.model.tla.PGoTLAVariable;
+import pgo.model.tla.*;
 import pgo.parser.PGoParseException;
 import pgo.parser.TLAExprParser;
 import pgo.trans.PGoTransException;
@@ -643,6 +633,26 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 			// rightSet is the object because lhs can be an element (e.g. in Contains)
 			FunctionCall fc = new FunctionCall(funcName, lhs, rightSet);
 			stmts.add(fc);
+		} else if (tla instanceof PGoTLAUnary) {
+			Vector<Statement> rightRes = tlaTokenToStatement(((PGoTLAUnary) tla).getArg());
+			
+			//the argument should be a single Expression
+			assert (rightRes.size() == 1);
+			assert (rightRes.get(0) instanceof Expression);
+			
+			switch (((PGoTLAUnary) tla).getToken()) {
+			case "!":
+				stmts.add(new Token("!"));
+				stmts.add(rightRes.get(0));
+				break;
+			case "UNION":
+				// TODO implement
+				break;
+			case "SUBSET":
+				FunctionCall fc = new FunctionCall("PowerSet", new Vector<>(), (Expression) rightRes.get(0));
+				stmts.add(fc);
+				break;
+			}
 		}
 		return stmts;
 	}

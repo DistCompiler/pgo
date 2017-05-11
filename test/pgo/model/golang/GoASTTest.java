@@ -151,6 +151,7 @@ public class GoASTTest {
 		expected.add("\tfoo()");
 		expected.add("}");
 		assertEquals(expected, i.toGo());
+		
 		Vector<Statement> el = new Vector<>();
 		el.add(new Token("bar()"));
 		i.setElse(el);
@@ -158,6 +159,7 @@ public class GoASTTest {
 		expected.add("\tbar()");
 		expected.add("}");
 		assertEquals(expected, i.toGo());
+		
 		Vector<Statement> funcBody = new Vector<>();
 		funcBody.add(new Token("bar()"));
 		funcBody.add(new Token("return x > 0"));
@@ -168,9 +170,6 @@ public class GoASTTest {
 		expected.insertElementAt("\tbar()", 1);
 		expected.insertElementAt("\treturn x > 0", 2);
 		expected.insertElementAt("}() {", 3);
-		for (String s : i.toGo()) {
-			System.out.println(s);
-		}
 		assertEquals(expected, i.toGo());
 	}
 

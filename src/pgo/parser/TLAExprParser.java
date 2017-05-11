@@ -243,8 +243,7 @@ public class TLAExprParser {
 
 	// Parse an operator with only right side argument
 	private void parseOpXToken(TLAToken prevT, PGoTLA rexps) {
-		// TODO Auto-generated method stub
-
+		handleSimpleExp(new PGoTLAUnary(prevT.string, rexps, line));
 	}
 
 	/**
