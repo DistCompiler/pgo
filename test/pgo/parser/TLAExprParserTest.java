@@ -62,6 +62,7 @@ public class TLAExprParserTest {
 		PGoTLABool res = (PGoTLABool) result.get(0);
 		assertEquals(true, res.getVal());
 
+		toks.clear();
 		toks.add(new TLAToken("FALSE", 0, TLAToken.BUILTIN));
 		vec = new Vector<Vector<TLAToken>>();
 		vec.add(toks);

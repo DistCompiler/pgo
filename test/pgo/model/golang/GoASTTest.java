@@ -9,6 +9,7 @@ import org.junit.Test;
 
 import pgo.model.intermediate.PGoCollectionType;
 import pgo.model.intermediate.PGoPrimitiveType;
+import pgo.model.intermediate.PGoType;
 
 public class GoASTTest {
 	private static final Vector<Statement> body = new Vector<>();
@@ -144,7 +145,33 @@ public class GoASTTest {
 
 	@Test
 	public void testIf() {
-		// TODO
+		If i = new If(new Token("x > 0"), body, new Vector<Statement>());
+		Vector<String> expected = new Vector<>();
+		expected.add("if x > 0 {");
+		expected.add("\tfoo()");
+		expected.add("}");
+		assertEquals(expected, i.toGo());
+		Vector<Statement> el = new Vector<>();
+		el.add(new Token("bar()"));
+		i.setElse(el);
+		expected.add(expected.remove(expected.size() - 1) + " else {");
+		expected.add("\tbar()");
+		expected.add("}");
+		assertEquals(expected, i.toGo());
+		Vector<Statement> funcBody = new Vector<>();
+		funcBody.add(new Token("bar()"));
+		funcBody.add(new Token("return x > 0"));
+		AnonymousFunction f = new AnonymousFunction(PGoType.inferFromGoTypeName("bool"), new Vector<>(), new Vector<>(), funcBody,
+				new Vector<>());
+		i.setCond(f);
+		expected.set(0, "if func() bool {");
+		expected.insertElementAt("\tbar()", 1);
+		expected.insertElementAt("\treturn x > 0", 2);
+		expected.insertElementAt("}() {", 3);
+		for (String s : i.toGo()) {
+			System.out.println(s);
+		}
+		assertEquals(expected, i.toGo());
 	}
 
 	@Test

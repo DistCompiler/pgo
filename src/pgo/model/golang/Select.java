@@ -44,9 +44,9 @@ public class Select extends Statement {
 		for (int i = 0; i < cases.size(); ++i) {
 			Vector<String> caseStr = cases.get(i).toGo();
 			ret.add("case " + caseStr.remove(0));
-			addIndented(ret, caseStr);
+			addIndented(ret, caseStr, true);
 			ret.add(ret.remove(ret.size() - 1) + ":");
-			addIndented(ret, body.get(i));
+			addIndented(ret, body.get(i), false);
 		}
 		ret.add("}");
 		return ret;
