@@ -419,8 +419,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 	private void generateGlobalVariables() throws PGoTransException {
 		// we delay initialization once we hit a variable with \in, in case
 		// other variable refer to it. We also want to reset the other values to
-		// the initial value. Constants will still be generated at the
-		// time
+		// the initial value. Constants will still be generated at the time
 		boolean delay = false;
 		for (PGoVariable pv : this.intermediateData.globals.values()) {
 			if (pv.getIsSimpleAssignInit()) {

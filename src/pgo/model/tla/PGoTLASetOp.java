@@ -27,7 +27,7 @@ public class PGoTLASetOp extends PGoTLA {
 		return right;
 	}
 	
-	/* 
+	/**
 	 * Helper method to map TLA set ops to Go mapset functions.
 	 * This is necessary because Go does not have set operations.
 	 * Note that \notin does not correspond directly to a mapset function.

@@ -127,9 +127,8 @@ public class TLAExprParser {
 			PGoTLA lexps = exps.pop();
 			parseXOpXToken(prevT, lexps, rexps);
 		}
-		if (!exps.isEmpty()) {
-			result.add(exps.pop());
-		}
+		assert (exps.size() == 1);
+		result.add(exps.pop());
 	}
 
 	// Returns null if new line
@@ -283,7 +282,7 @@ public class TLAExprParser {
 	public static class Dictionary {
 		/*
 		 * bitmasks of various tla tokens. We use bitmask as a token could be multiple possibilities until we check the
-		 * corresponding variable types. Not listed in a particular order; operator precedence is handled by the OpPrecedence
+		 * corresponding variable types. Not listed in a particular order; operator precedence is handled by the opPrecedence
 		 * dict.
 		 */
 
@@ -343,7 +342,7 @@ public class TLAExprParser {
 		public static final int X_OP_X = (SIMPLE_ARITHMETIC | BOOL_OP | EXPONENT | STRING_APPEND | SET_OP)
 				& ~(NEGATE | SUCH_THAT | ELEMENT_UNION | POWER_SET);
 		// right side argument operators
-		public static final int OP_X = ELEMENT_UNION | POWER_SET;
+		public static final int OP_X = NEGATE | ELEMENT_UNION | POWER_SET;
 
 		private static final HashMap<String, Integer> tokenDict = new HashMap<String, Integer>() {
 			{
@@ -394,6 +393,8 @@ public class TLAExprParser {
 
 				put("<<", ARROW_OPEN);
 				put("{", CURLY_OPEN);
+				put("[", SQR_PAREN_O);
+				put("(", OPEN_PAREN);
 				// TODO check http://lamport.azurewebsites.net/tla/p-manual.pdf
 				// and
 				// https://pdfs.semanticscholar.org/6ed6/404cc710511c2a77d190ff10f83e46324d91.pdf

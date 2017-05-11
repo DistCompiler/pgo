@@ -22,12 +22,29 @@ public class AnonymousFunction extends Expression {
 	// the body
 	private Vector<Statement> body;
 
-	public AnonymousFunction(PGoType ret, Vector<ParameterDeclaration> params,
-			Vector<VariableDeclaration> locals, Vector<Statement> vector) {
+	// whether we call the function at declaration
+	private boolean isCall;
+
+	// the parameters the func is called with, if it is a function call; null otherwise
+	private Vector<Expression> callParams;
+
+	public AnonymousFunction(PGoType ret, Vector<ParameterDeclaration> params, Vector<VariableDeclaration> locals,
+			Vector<Statement> vector) {
 		this.retType = ret;
 		this.params = params;
 		this.localVars = locals;
 		this.body = vector;
+		this.isCall = false;
+	}
+
+	public AnonymousFunction(PGoType ret, Vector<ParameterDeclaration> params, Vector<VariableDeclaration> locals,
+			Vector<Statement> body, Vector<Expression> callParams) {
+		this.retType = ret;
+		this.params = params;
+		this.localVars = locals;
+		this.body = body;
+		this.isCall = true;
+		this.callParams = callParams;
 	}
 
 	public PGoType getReturnType() {
@@ -92,7 +109,35 @@ public class AnonymousFunction extends Expression {
 		}
 		addIndented(ret, localVars);
 		addIndented(ret, body);
-		ret.add("}");
+		if (this.isCall) {
+			ret.add("}");
+		} else {
+			Vector<String> cParamStr = new Vector<String>();
+			for (int i = 0; i < callParams.size(); i++) {
+				Vector<String> e = callParams.get(i).toGo();
+				for (int j = 0; j < e.size(); j++) {
+					if (j > 0) {
+						cParamStr.add(e.get(j));
+					} else {
+						if (i == 0) {
+							cParamStr.add(e.get(j));
+						} else {
+							cParamStr.add(cParamStr.remove(cParamStr.size() - 1) + ", " + e.get(j));
+						}
+					}
+				}
+			}
+			String add = "}";
+			if (callParams.isEmpty()) {
+				add += "()";
+			} else {
+				add += "(" + paramStr.remove(0);
+				ret.add(add);
+				addIndented(ret, paramStr);
+				ret.add(ret.remove(ret.size() - 1) + ")");
+			}
+		}
+		
 		return ret;
 	}
 }
