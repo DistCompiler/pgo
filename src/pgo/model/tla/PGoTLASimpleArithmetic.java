@@ -20,10 +20,6 @@ public class PGoTLASimpleArithmetic extends PGoTLA {
 	public PGoTLASimpleArithmetic(String t, PGoTLA prev, PGoTLA next, int line) {
 		super(line);
 		token = t;
-		if (token.equals("^")) {
-			// replace exponent
-			token = "**";
-		}
 		left = prev;
 		right = next;
 	}

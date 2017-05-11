@@ -557,14 +557,25 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 			assert (leftRes.get(0) instanceof Expression);
 			assert (rightRes.get(0) instanceof Expression);
 
-			Vector<Expression> toks = new Vector<Expression>();
-			toks.add((Expression) leftRes.get(0));
-			toks.add(new Token(" " + ((PGoTLASimpleArithmetic) tla).getToken() + " "));
-			toks.add((Expression) rightRes.get(0));
+			if (((PGoTLASimpleArithmetic) tla).getToken().equals("^")) {
+				// TODO we need to check which number type we are using and cast to float64 if needed
+				go.getImports().addImport("math");
+				Vector<Expression> params = new Vector<>();
+				params.add((Expression) leftRes.get(0));
+				params.add((Expression) rightRes.get(0));
+				FunctionCall fc = new FunctionCall("math.Pow", params);
+				stmts.add(fc);
+			} else {
+				Vector<Expression> toks = new Vector<Expression>();
+				toks.add((Expression) leftRes.get(0));
 
-			SimpleExpression arith = new SimpleExpression(toks);
+				toks.add(new Token(" " + ((PGoTLASimpleArithmetic) tla).getToken() + " "));
+				toks.add((Expression) rightRes.get(0));
 
-			stmts.add(arith);
+				SimpleExpression arith = new SimpleExpression(toks);
+
+				stmts.add(arith);
+			}
 		} else if (tla instanceof PGoTLABoolOp) {
 			// TODO we need to see whether we are operating on sets
 			Vector<Statement> leftRes = tlaTokenToStatement(((PGoTLABoolOp) tla).getLeft());
@@ -640,11 +651,11 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 			stmts.add(new SimpleExpression(exp));
 		} else if (tla instanceof PGoTLAUnary) {
 			Vector<Statement> rightRes = tlaTokenToStatement(((PGoTLAUnary) tla).getArg());
-			
-			//the argument should be a single Expression
+
+			// the argument should be a single Expression
 			assert (rightRes.size() == 1);
 			assert (rightRes.get(0) instanceof Expression);
-			
+
 			switch (((PGoTLAUnary) tla).getToken()) {
 			case "!":
 				Vector<Expression> exp = new Vector<>();
@@ -662,10 +673,10 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 			}
 		} else if (tla instanceof PGoTLAGroup) {
 			Vector<Statement> inside = tlaTokenToStatement(((PGoTLAGroup) tla).getInner());
-			
+
 			assert (inside.size() == 1);
 			assert (inside.get(0) instanceof Expression);
-			
+
 			stmts.add(new Group((Expression) inside.get(0)));
 		}
 		return stmts;
