@@ -3,7 +3,6 @@ package pgo.model.tla;
 /**
  * Represents a TLA unary operator: negation, element union, or powerset.
  * 
- * @author Brandon Zhang
  */
 public class PGoTLAUnary extends PGoTLA {
 	private String token;

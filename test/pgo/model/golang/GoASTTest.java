@@ -228,12 +228,63 @@ public class GoASTTest {
 
 	@Test
 	public void testSelect() {
-		// TODO
+		Vector<Expression> cases = new Vector<>();
+		cases.add(new Token("<-chan1"));
+		cases.add(new Token("<-chan2"));
+		Vector<Vector<Statement>> body = new Vector<>();
+		Vector<Statement> b1 = new Vector<>();
+		b1.add(new Token("x = 0"));
+		body.add(b1);
+		Vector<Statement> b2 = new Vector<>();
+		b2.add(new Token("x = 1"));
+		body.add(b2);
+		Select s = new Select(cases, body);
+		Vector<String> expected = new Vector<>();
+		expected.add("select {");
+		expected.add("case <-chan1:");
+		expected.add("\tx = 0");
+		expected.add("case <-chan2:");
+		expected.add("\tx = 1");
+		expected.add("}");
+		assertEquals(expected, s.toGo());
+		cases.add(new Token("<-chan3"));
+		Vector<Statement> b3 = new Vector<>();
+		b3.add(new Token("x = 2"));
+		body.add(b3);
+		s.setBodies(body);
+		s.setCases(cases);
+		expected.remove(expected.size()-1);
+		expected.add("case <-chan3:");
+		expected.add("\tx = 2");
+		expected.add("}");
+		assertEquals(expected, s.toGo());
 	}
 
 	@Test
 	public void testSimpleExpression() {
-		// TODO
+		Vector<Expression> toks = new Vector<>();
+		toks.add(new Token("x"));
+		toks.add(new Token(" = "));
+		toks.add(new Token("2"));
+		SimpleExpression se = new SimpleExpression(toks);
+		Vector<String> expected = new Vector<>();
+		expected.add("x = 2");
+		assertEquals(expected, se.toGo());
+		
+		// test multiline expression
+		toks = new Vector<>();
+		Vector<Expression> params = new Vector<>();
+		Vector<Statement> body = new Vector<>();
+		body.add(new Return(new Token("1")));
+		AnonymousFunction f = new AnonymousFunction(PGoType.inferFromGoTypeName("int"), new Vector<>(), new Vector<>(), body, new Vector<>());
+		toks.add(f);
+		toks.add(new Token(" + "));
+		toks.add(new Token("1"));
+		se = new SimpleExpression(toks);
+		expected.set(0, "func() int {");
+		expected.add("\treturn 1");
+		expected.add("}() + 1");
+		assertEquals(expected, se.toGo());
 	}
 
 	@Test

@@ -77,7 +77,6 @@ public class AnnotatedReturnVariable {
 			throw new PGoTransException("Expected procedures that uses \"" + name
 					+ "\" as a return variable based on annotation, but found none", line);
 		}
-		// TODO throw warning for no function containing return variable
 	}
 
 }

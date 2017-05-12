@@ -49,7 +49,7 @@ public class PGoTransStageAtomicity extends PGoTransStageBase {
 					toExamine.addAll(newBodies);
 
 					// TODO add tests for cases when this is needed
-					// TODO add recursive cases
+					// TODO add recursive cases (issue #7)
 					funcsCalled = PcalASTUtil.collectFunctionCalls(newBodies);
 
 					funcsCalled.removeAll(visited);

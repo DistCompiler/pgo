@@ -96,5 +96,48 @@ public class TLAExprParserTest {
 		assertTrue(((PGoTLASimpleArithmetic) sa.getRight()).getLeft() instanceof PGoTLAVariable);
 		assertTrue(((PGoTLASimpleArithmetic) sa.getRight()).getRight() instanceof PGoTLANumber);
 	}
+	
+	@Test
+	public void testSetOps() throws PGoTransException {
+		Vector<TLAToken> toks = new Vector<>();
+		toks.add(new TLAToken("1", 0, TLAToken.NUMBER));
+		toks.add(new TLAToken("\\in", 0, TLAToken.BUILTIN));
+		toks.add(new TLAToken("A", 0, TLAToken.IDENT));
+		toks.add(new TLAToken("\\union", 0, TLAToken.BUILTIN));
+		toks.add(new TLAToken("B", 0, TLAToken.IDENT));
+		Vector<Vector<TLAToken>> v = new Vector<>();
+		v.add(toks);
+		TLAExpr exp = PcalTranslate.MakeExpr(v);
+		Vector<PGoTLA> result = new TLAExprParser(exp, 0).getResult();
+		assertEquals(1, result.size());
+		assertTrue(result.get(0) instanceof PGoTLASetOp);
+		PGoTLASetOp so = (PGoTLASetOp) result.get(0);
+		assertTrue(so.getLeft() instanceof PGoTLANumber);
+		assertTrue(so.getRight() instanceof PGoTLASetOp);		
+	}
+	
+	@Test
+	public void testBoolOps() throws PGoTransException {
+		Vector<TLAToken> toks = new Vector<>();
+		toks.add(new TLAToken("(", 0, TLAToken.BUILTIN));
+		toks.add(new TLAToken("p", 0, TLAToken.IDENT));
+		toks.add(new TLAToken("/\\", 0, TLAToken.BUILTIN));
+		toks.add(new TLAToken("TRUE", 0, TLAToken.BUILTIN));
+		toks.add(new TLAToken(")", 0, TLAToken.BUILTIN));
+		toks.add(new TLAToken("/=", 0, TLAToken.BUILTIN));
+		toks.add(new TLAToken("q", 0, TLAToken.IDENT));
+		Vector<Vector<TLAToken>> v = new Vector<>();
+		v.add(toks);
+		TLAExpr exp = PcalTranslate.MakeExpr(v);
+		Vector<PGoTLA> result = new TLAExprParser(exp, 0).getResult();
+		assertEquals(1, result.size());
+		assertTrue(result.get(0) instanceof PGoTLABoolOp);
+		PGoTLABoolOp bo = (PGoTLABoolOp) result.get(0);
+		assertTrue(bo.getLeft() instanceof PGoTLAGroup);
+		assertTrue(bo.getRight() instanceof PGoTLAVariable);
+		assertEquals("/=", bo.getToken());
+		PGoTLABoolOp lhs = (PGoTLABoolOp) ((PGoTLAGroup) bo.getLeft()).getInner();
+		assertTrue(lhs.getRight() instanceof PGoTLABool);
+	}
 	// TODO more tests
 }

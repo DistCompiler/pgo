@@ -4,8 +4,6 @@ import java.util.Vector;
 
 /**
  * Represents a parenthesized expression.
- * 
- * @author Brandon Zhang
  *
  */
 public class Group extends Expression {

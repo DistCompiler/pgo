@@ -34,7 +34,7 @@ public abstract class PGoTLA {
 		}
 
 		private void walk(PGoTLA ast) {
-			// TODO Auto-generated method stub
+			// TODO (issue #9) Auto-generated method stub
 
 		}
 	}

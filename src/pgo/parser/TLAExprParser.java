@@ -218,7 +218,7 @@ public class TLAExprParser {
 			// TODO distinguish this. I think we have to do this later on in the
 			// code when converting to go, then we can check the types of the
 			// variables from annotation to determine slice vs chan.
-			handleSimpleExp(new PGoTLAArray(between, line)); // TODO
+			handleSimpleExp(new PGoTLAArray(between, line)); // TODO (issue #5)
 			// support
 		}
 	}
@@ -235,10 +235,11 @@ public class TLAExprParser {
 			handleSimpleExp(new PGoTLASequence(lexps, rexps, line));
 		} else if ((mask & Dictionary.SET_OP) != 0) {
 			handleSimpleExp(new PGoTLASetOp(prevT.string, lexps, rexps, line));
+		} else if (mask == Dictionary.STRING_APPEND) {
+			// TODO handle (issue #6)
 		} else {
 			assert false;
 		}
-		// TODO add more operators that we have
 	}
 
 	// Parse an operator with only right side argument
@@ -339,7 +340,7 @@ public class TLAExprParser {
 
 		// operators with 2 arguments on either side
 		public static final int X_OP_X = (SIMPLE_ARITHMETIC | BOOL_OP | EXPONENT | STRING_APPEND | SET_OP)
-				& ~(NEGATE | SUCH_THAT | ELEMENT_UNION | POWER_SET);
+				& ~(NEGATE | ELEMENT_UNION | POWER_SET);
 		// right side argument operators
 		public static final int OP_X = NEGATE | ELEMENT_UNION | POWER_SET;
 
@@ -394,7 +395,7 @@ public class TLAExprParser {
 				put("{", CURLY_OPEN);
 				put("[", SQR_PAREN_O);
 				put("(", OPEN_PAREN);
-				// TODO check http://lamport.azurewebsites.net/tla/p-manual.pdf
+				// TODO (issue #11) check http://lamport.azurewebsites.net/tla/p-manual.pdf
 				// and
 				// https://pdfs.semanticscholar.org/6ed6/404cc710511c2a77d190ff10f83e46324d91.pdf
 				// for more tla expressions and support necessary ones.
@@ -408,7 +409,7 @@ public class TLAExprParser {
 	 * Maps a Dictionary bitmask to the corresponding operator precedence.
 	 * Higher precedence => higher number.
 	 * Operator precedence table found at http://lamport.azurewebsites.net/tla/summary-standalone.pdf
-	 * TODO figure out precedence of operators not in table
+	 * TODO (issue #13) figure out precedence of operators not in table
 	 */
 	private static final HashMap<Integer, Integer> opPrecedence = new HashMap<Integer, Integer>() {
 		{

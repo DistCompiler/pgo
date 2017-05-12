@@ -14,33 +14,7 @@ public class PGoTLABoolOp extends PGoTLA {
 
 	public PGoTLABoolOp(String tok, PGoTLA prev, PGoTLA next, int line) {
 		super(line);
-		switch (tok) {
-		case "#":
-		case "/=":
-			this.token = "!=";
-			break;
-		case "/\\":
-		case "\\land":
-			this.token = "&&";
-			break;
-		case "\\/":
-		case "\\lor":
-			this.token = "||";
-			break;
-		case "=<":
-		case "\\leq":
-			this.token = "<=";
-			break;
-		case "\\geq":
-			this.token = ">=";
-			break;
-		case "=":
-			this.token = "==";
-			break;
-		default:
-			this.token = tok;
-			break;
-		}
+		this.token = tok;
 		left = prev;
 		right = next;
 	}
@@ -58,6 +32,6 @@ public class PGoTLABoolOp extends PGoTLA {
 	}
 
 	public String toString() {
-		return "PGoTLABool (" + this.getLine() + "): (" + left.toString() + ") " + token + " (" + right.toString() + ")";
+		return "PGoTLABoolOp (" + this.getLine() + "): (" + left.toString() + ") " + token + " (" + right.toString() + ")";
 	}
 }

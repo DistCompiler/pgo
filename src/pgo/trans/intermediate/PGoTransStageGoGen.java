@@ -49,7 +49,7 @@ import pgo.util.PcalASTUtil;
 
 /**
  * The last stage of the translation. Takes given intermediate data and converts it to a Go AST, properly
- *
+ * 
  */
 public class PGoTransStageGoGen extends PGoTransStageBase {
 
@@ -119,6 +119,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 
 	/**
 	 * Converts a given code black into Go code. Given code block should not have function definitions and such in pluscal
+	 * TODO finish visit methods (issue #4)
 	 * 
 	 * @param stmts
 	 * @return
@@ -142,12 +143,10 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 
 			protected void visit(While w) throws PGoTransException {
 				Vector<Statement> cond = tlaTokenToStatement(new TLAExprParser(w.test, w.line).getResult());
-				// TODO handle complicated conditions
+				// TODO (issue #15) handle complicated conditions
 				assert (cond.size() > 0);
 				Vector<Expression> exps = new Vector<Expression>();
-				for (Statement s : cond) {
-					exps.add((Expression) s);
-				}
+				exps.add((Expression) cond.get(0));
 				Expression se = new SimpleExpression(exps);
 
 				Vector<Statement> loopBody = new Vector<Statement>();
@@ -207,7 +206,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 
 			protected void visit(If ifast) throws PGoTransException {
 				Vector<Statement> cond = tlaTokenToStatement(new TLAExprParser(ifast.test, ifast.line).getResult());
-				// TODO handle complicated conditions
+				// TODO (issue #15) handle complicated conditions
 				assert (cond.size() > 0);
 				Vector<Expression> exps = new Vector<Expression>();
 				for (Statement s : cond) {
@@ -298,7 +297,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 			protected void visit(LabelIf lif) throws PGoTransException {
 				// TODO w.test is the condition
 				Vector<Statement> cond = tlaTokenToStatement(new TLAExprParser(lif.test, lif.line).getResult());
-				// TODO handle complicated conditions
+				// TODO (issue #15) handle complicated conditions
 				assert (cond.size() > 0);
 				Vector<Expression> exps = new Vector<Expression>();
 				exps.add((Expression) cond.get(0));
@@ -369,7 +368,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 	 */
 	private Vector<Statement> convertGoRoutinesToGo(Collection<PGoRoutineInit> goroutines) {
 		return null;
-		// TODO Auto-generated method stub
+		// TODO (issue #10) Auto-generated method stub
 
 	}
 
@@ -387,7 +386,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 			}
 			Vector<VariableDeclaration> locals = new Vector<VariableDeclaration>();
 			for (PGoVariable local : pf.getVariables()) {
-				SimpleExpression e = null; // TODO from tla
+				SimpleExpression e = null; // TODO (issue #14) from tla
 				Vector<Statement> init = new Vector<Statement>(); // TODO from
 																	// tla
 				locals.add(new VariableDeclaration(local.getName(), local.getType(), e, init, local.getIsConstant()));
@@ -441,14 +440,14 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 					});
 				}
 
-			} // TODO handle other cases where need more than 1 statement
+			} // TODO (issue #15) handle other cases where need more than 1 statement
 			go.addGlobal(
 					new VariableDeclaration(pv.getName(), pv.getType(), null, new Vector<Statement>(), pv.getIsConstant()));
 			Vector<Expression> toks = new Vector<Expression>();
 			toks.add(new Token("_, " + pv.getName()));
 			toks.add(new Token(" = "));
 			toks.add(new Token("range "));
-			toks.add(se); // TODO what if not a single expression
+			toks.add(se); // TODO (issue #15) what if not a single expression
 			SimpleExpression exp = new SimpleExpression(toks);
 
 			For loop = new For(exp, new Vector<Statement>());
@@ -558,7 +557,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 			assert (rightRes.get(0) instanceof Expression);
 
 			if (((PGoTLASimpleArithmetic) tla).getToken().equals("^")) {
-				// TODO we need to check which number type we are using and cast to float64 if needed
+				// TODO (issue #22) we need to check which number type we are using and cast to float64 if needed
 				go.getImports().addImport("math");
 				Vector<Expression> params = new Vector<>();
 				params.add((Expression) leftRes.get(0));
@@ -577,7 +576,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 				stmts.add(arith);
 			}
 		} else if (tla instanceof PGoTLABoolOp) {
-			// TODO we need to see whether we are operating on sets
+			// TODO (issue #22) we need to see whether we are operating on sets
 			Vector<Statement> leftRes = tlaTokenToStatement(((PGoTLABoolOp) tla).getLeft());
 			Vector<Statement> rightRes = tlaTokenToStatement(((PGoTLABoolOp) tla).getRight());
 
@@ -586,10 +585,36 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 			assert (rightRes.size() == 1);
 			assert (leftRes.get(0) instanceof Expression);
 			assert (rightRes.get(0) instanceof Expression);
+			
+			String tok = ((PGoTLABoolOp) tla).getToken();
+			switch (tok) {
+			case "#":
+			case "/=":
+				tok = "!=";
+				break;
+			case "/\\":
+			case "\\land":
+				tok = "&&";
+				break;
+			case "\\/":
+			case "\\lor":
+				tok = "||";
+				break;
+			case "=<":
+			case "\\leq":
+				tok = "<=";
+				break;
+			case "\\geq":
+				tok = ">=";
+				break;
+			case "=":
+				tok = "==";
+				break;
+			}
 
 			Vector<Expression> toks = new Vector<Expression>();
 			toks.add((Expression) leftRes.get(0));
-			toks.add(new Token(" " + ((PGoTLABoolOp) tla).getToken() + " "));
+			toks.add(new Token(" " + tok + " "));
 			toks.add((Expression) rightRes.get(0));
 
 			SimpleExpression comp = new SimpleExpression(toks);
@@ -664,7 +689,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 				stmts.add(new SimpleExpression(exp));
 				break;
 			case "UNION":
-				// TODO implement
+				// TODO (issue #18) implement
 				break;
 			case "SUBSET":
 				FunctionCall fc = new FunctionCall("PowerSet", new Vector<>(), (Expression) rightRes.get(0));
@@ -682,16 +707,6 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 		return stmts;
 	}
 
-	/**
-	 * Given a tla ast, converts it to a Go value equivalent to assign to v
-	 * 
-	 * @param pGoTLA
-	 * @return
-	 */
-	private Entry<SimpleExpression, Vector<Statement>> getGoValue(PGoVariable v, PGoTLA pGoTLA) {
-		// TODO Auto-generated method stub
-		return null;
-	}
 
 	/**
 	 * Add the position based argument command line parsing code to main

@@ -6,12 +6,11 @@ import java.util.regex.Pattern;
 
 /**
  * Represents the collections from pluscal converted to Go. Collections are
- * types like arrays/slice, queues/chan, maps, sets that hold a collection of
- * primitives
+ * types like arrays/slice, queues/chan, maps, sets that hold a collection of primitives
  *
  * The following types in go correspond to the following type names
- * arrays/slices - [<#elem>]<etype>, channels - chan <etype>, sets -
- * set[]<etype>, maps - map[<keyType>]<etype>
+ * arrays/slices - [<#elem>]<etype>, channels - chan <etype>,
+ * sets - set[]<etype>, maps - map[<keyType>]<etype>
  * 
  */
 public abstract class PGoCollectionType extends PGoType {
@@ -34,8 +33,7 @@ public abstract class PGoCollectionType extends PGoType {
 	}
 
 	/**
-	 * Represents a slice in Go lang, which is just a specialized array of
-	 * elements in pluscal
+	 * Represents a slice in Go lang, which is just a specialized array of elements in pluscal
 	 *
 	 */
 	public static class PGoSlice extends PGoCollectionType {
@@ -76,8 +74,7 @@ public abstract class PGoCollectionType extends PGoType {
 	}
 
 	/**
-	 * Represents a queue or channel in pluscal, which converts to channels in
-	 * go
+	 * Represents a queue or channel in pluscal, which converts to channels in go
 	 * 
 	 */
 	public static class PGoChan extends PGoCollectionType {
@@ -119,8 +116,7 @@ public abstract class PGoCollectionType extends PGoType {
 	}
 
 	/**
-	 * Represents a map in pluscal (array indexed by non-numbers), which
-	 * converts to map in go
+	 * Represents a map in pluscal (array indexed by non-numbers), which converts to map in go
 	 * 
 	 */
 	public static class PGoMap extends PGoCollectionType {
@@ -152,8 +148,6 @@ public abstract class PGoCollectionType extends PGoType {
 	/**
 	 * Represents a pointer to something
 	 * 
-	 * TODO add this as part of parsing? not sure pluscal has this so we don't
-	 * necessarily need to parse it
 	 */
 	public static class PGoPointer extends PGoCollectionType {
 
@@ -170,12 +164,10 @@ public abstract class PGoCollectionType extends PGoType {
 			return eType.toGo() + "*";
 		}
 	}
-	
+
 	/**
 	 * Represents an anonymous function
 	 * 
-	 * TODO add this as part of parsing? not sure pluscal has this so we don't
-	 * necessarily need to parse it
 	 */
 	public static class PGoAnonymousFunction extends PGoCollectionType {
 		private static final String goType = "func()";
@@ -198,7 +190,8 @@ public abstract class PGoCollectionType extends PGoType {
 			return retType;
 		}
 
-		@Override public String toTypeName() {
+		@Override
+		public String toTypeName() {
 			Vector<String> pstrings = new Vector<String>();
 			for (PGoType t : paramType) {
 				pstrings.add(t.toTypeName());
@@ -252,7 +245,7 @@ public abstract class PGoCollectionType extends PGoType {
 				return ret;
 			}
 		}
-		
+
 		// matches set[]<type>
 		rgex = Pattern.compile("(?i)set\\[(.+)\\]");
 		m = rgex.matcher(s);
