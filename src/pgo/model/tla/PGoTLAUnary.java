@@ -11,16 +11,7 @@ public class PGoTLAUnary extends PGoTLA {
 	
 	public PGoTLAUnary(String tok, PGoTLA arg, int line) {
 		super(line);
-		switch (tok) {
-		case "~":
-		case "\\lnot":
-		case "\\neg":
-			this.token = "!";
-			break;
-		default:
-			this.token = tok;
-			break;
-		}
+		this.token = tok;
 		this.arg = arg;
 	}
 	

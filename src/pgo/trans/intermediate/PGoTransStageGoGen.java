@@ -680,9 +680,11 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 			// the argument should be a single Expression
 			assert (rightRes.size() == 1);
 			assert (rightRes.get(0) instanceof Expression);
-
+			
 			switch (((PGoTLAUnary) tla).getToken()) {
-			case "!":
+			case "~":
+			case "\\lnot":
+			case "\\neg":
 				Vector<Expression> exp = new Vector<>();
 				exp.add(new Token("!"));
 				exp.add((Expression) rightRes.get(0));

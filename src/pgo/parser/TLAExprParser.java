@@ -127,8 +127,10 @@ public class TLAExprParser {
 			PGoTLA lexps = exps.pop();
 			parseXOpXToken(prevT, lexps, rexps);
 		}
-		assert (exps.size() == 1);
-		result.add(exps.pop());
+		assert (exps.size() <= 1);
+		if (!exps.isEmpty()) {
+			result.add(exps.pop());
+		}
 	}
 
 	// Returns null if new line
@@ -409,15 +411,19 @@ public class TLAExprParser {
 	 * Maps a Dictionary bitmask to the corresponding operator precedence.
 	 * Higher precedence => higher number.
 	 * Operator precedence table found at http://lamport.azurewebsites.net/tla/summary-standalone.pdf
-	 * TODO (issue #13) figure out precedence of operators not in table
 	 */
 	private static final HashMap<Integer, Integer> opPrecedence = new HashMap<Integer, Integer>() {
 		{
+			put(Dictionary.CHOOSE, 1);
+			put(Dictionary.FOR_ALL, 1);
+			put(Dictionary.EXISTS, 1);
+			put(Dictionary.SUCH_THAT, 2);
 			put(Dictionary.AND, 3);
 			put(Dictionary.OR, 3);
 			put(Dictionary.NEGATE, 4);
 			put(Dictionary.NOT_EQ, 5);
 			put(Dictionary.SMALLER, 5);
+			put(Dictionary.SMALLER_EQ, 5);
 			put(Dictionary.EQUAL, 5);
 			put(Dictionary.GREATER, 5);
 			put(Dictionary.GREATER_EQ, 5);

@@ -113,7 +113,7 @@ public class TLAExprParserTest {
 		assertTrue(result.get(0) instanceof PGoTLASetOp);
 		PGoTLASetOp so = (PGoTLASetOp) result.get(0);
 		assertTrue(so.getLeft() instanceof PGoTLANumber);
-		assertTrue(so.getRight() instanceof PGoTLASetOp);		
+		assertTrue(so.getRight() instanceof PGoTLASetOp);
 	}
 	
 	@Test
@@ -138,6 +138,86 @@ public class TLAExprParserTest {
 		assertEquals("/=", bo.getToken());
 		PGoTLABoolOp lhs = (PGoTLABoolOp) ((PGoTLAGroup) bo.getLeft()).getInner();
 		assertTrue(lhs.getRight() instanceof PGoTLABool);
+	}
+	
+	@Test
+	public void testUnaryOps() throws PGoTransException {
+		Vector<TLAToken> toks = new Vector<>();
+		toks.add(new TLAToken("~", 0, TLAToken.BUILTIN));
+		toks.add(new TLAToken("b", 0, TLAToken.IDENT));
+		Vector<Vector<TLAToken>> v = new Vector<>();
+		v.add(toks);
+		TLAExpr exp = PcalTranslate.MakeExpr(v);
+		Vector<PGoTLA> result = new TLAExprParser(exp, 0).getResult();
+		assertEquals(1, result.size());
+		assertTrue(result.get(0) instanceof PGoTLAUnary);
+		
+		toks = new Vector<>();
+		toks.add(new TLAToken("SUBSET", 0, TLAToken.BUILTIN));
+		toks.add(new TLAToken("{", 0, TLAToken.BUILTIN));
+		toks.add(new TLAToken("}", 0, TLAToken.BUILTIN));
+		v = new Vector<>();
+		v.add(toks);
+		exp = PcalTranslate.MakeExpr(v);
+		result = new TLAExprParser(exp, 0).getResult();
+		assertEquals(1, result.size());
+		assertTrue(result.get(0) instanceof PGoTLAUnary);
+		assertTrue(((PGoTLAUnary) result.get(0)).getArg() instanceof PGoTLASet);
+	}
+	
+	@Test
+	public void testOrderOfOperations() throws PGoTransException {
+		// SUBSET A /= B \\union C \\/ ~(5 \\notin {x \\in S : x /\\ y})
+		Vector<TLAToken> toks = new Vector<>();
+		toks.add(new TLAToken("SUBSET", 0, TLAToken.BUILTIN));
+		toks.add(new TLAToken("A", 0, TLAToken.IDENT));
+		toks.add(new TLAToken("/=", 0, TLAToken.BUILTIN));
+		toks.add(new TLAToken("B", 0, TLAToken.IDENT));
+		toks.add(new TLAToken("\\union", 0, TLAToken.BUILTIN));
+		toks.add(new TLAToken("C", 0, TLAToken.IDENT));
+		toks.add(new TLAToken("\\/", 0, TLAToken.BUILTIN));
+		toks.add(new TLAToken("~", 0, TLAToken.BUILTIN));
+		toks.add(new TLAToken("(", 0, TLAToken.BUILTIN));
+		toks.add(new TLAToken("5", 0, TLAToken.NUMBER));
+		toks.add(new TLAToken("\\notin", 0, TLAToken.BUILTIN));
+		toks.add(new TLAToken("{", 0, TLAToken.BUILTIN));
+		toks.add(new TLAToken("x", 0, TLAToken.IDENT));
+		toks.add(new TLAToken("\\in", 0, TLAToken.BUILTIN));
+		toks.add(new TLAToken("S", 0, TLAToken.IDENT));
+		toks.add(new TLAToken(":", 0, TLAToken.BUILTIN));
+		toks.add(new TLAToken("x", 0, TLAToken.IDENT));
+		toks.add(new TLAToken("/\\", 0, TLAToken.BUILTIN));
+		toks.add(new TLAToken("y", 0, TLAToken.IDENT));
+		toks.add(new TLAToken("}", 0, TLAToken.BUILTIN));
+		toks.add(new TLAToken(")", 0, TLAToken.BUILTIN));
+		Vector<Vector<TLAToken>> v = new Vector<>();
+		v.add(toks);
+		TLAExpr exp = PcalTranslate.MakeExpr(v);
+		Vector<PGoTLA> result = new TLAExprParser(exp, 0).getResult();
+		assertEquals(1, result.size());
+		assertTrue(result.get(0) instanceof PGoTLABoolOp);
+		PGoTLABoolOp root = (PGoTLABoolOp) result.get(0);
+		assertEquals("\\/", root.getToken());
+		assertTrue(root.getLeft() instanceof PGoTLABoolOp);
+		PGoTLABoolOp l = (PGoTLABoolOp) root.getLeft();
+		assertEquals("/=", l.getToken());
+		assertTrue(l.getLeft() instanceof PGoTLAUnary);
+		assertTrue(l.getRight() instanceof PGoTLASetOp);
+		
+		assertTrue(root.getRight() instanceof PGoTLAUnary);
+		PGoTLAUnary r = (PGoTLAUnary) root.getRight();
+		assertEquals("~", r.getToken());
+		assertTrue(r.getArg() instanceof PGoTLAGroup);
+		assertTrue(((PGoTLAGroup) r.getArg()).getInner() instanceof PGoTLASetOp);
+		PGoTLASetOp rr = (PGoTLASetOp) ((PGoTLAGroup) r.getArg()).getInner();
+		assertTrue(rr.getRight() instanceof PGoTLASet);
+		PGoTLASet rrr = (PGoTLASet) rr.getRight();
+		assertEquals(1, rrr.getContents().size());
+		assertTrue(rrr.getContents().get(0) instanceof PGoTLASetOp);
+		PGoTLASetOp setContents = (PGoTLASetOp) rrr.getContents().get(0);
+		assertEquals(":", setContents.getToken());
+		assertTrue(setContents.getRight() instanceof PGoTLABoolOp);
+		assertTrue(setContents.getLeft() instanceof PGoTLASetOp);
 	}
 	// TODO more tests
 }
