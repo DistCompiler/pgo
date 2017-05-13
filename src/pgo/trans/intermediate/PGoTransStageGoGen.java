@@ -164,24 +164,34 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 				if (as.ass.size() > 1) {
 					// pluscal semantics:
 					// u = v || v = u is equivalent to setting new_u and new_v
-					Vector<Expression> exps = new Vector<Expression>();
-					boolean firstAssign = true; // whether we need to prepend var w/ comma
+
 					for (SingleAssign sa : (Vector<SingleAssign>) as.ass) {
-						exps.add(new Token((firstAssign ? "" : ", ") + sa.lhs.var));
-						firstAssign = false;
-					}
-					exps.add(new Token(" = "));
-					firstAssign = true;
-					for (SingleAssign sa : (Vector<SingleAssign>) as.ass) {
+						Vector<Expression> exps = new Vector<Expression>();
+						exps.add(new Token(sa.lhs.var + "_new"));
+						// TODO parse sub for [2] etc
+						exps.add(new Token(" := "));
+						// TODO this is tlaexpr exps.add(sa.rhs);
 						Vector<Statement> rhs = tlaTokenToStatement(new TLAExprParser(sa.rhs, sa.line).getResult());
-						assert (rhs.size() == 1);
-						if (!firstAssign) {
-							exps.add(new Token(", "));
-						}
-						exps.add((Expression) rhs.remove(0)); // TODO check if cast is
-						firstAssign = false;
+
+						assert (rhs.size() > 0);
+						exps.add((Expression) rhs.remove(0)); // TODO check if
+																// cast
+																// is
+
+						Expression se = new SimpleExpression(exps);
+						result.add(new SimpleExpression(exps));
+						result.addAll(rhs);
 					}
-					result.add(new SimpleExpression(exps));
+
+					for (SingleAssign sa : (Vector<SingleAssign>) as.ass) {
+						Vector<Expression> exps = new Vector<Expression>();
+						exps.add(new Token(sa.lhs.var));
+						exps.add(new Token(" = "));
+						exps.add(new Token(sa.lhs.var + "_new"));
+
+						Expression se = new SimpleExpression(exps);
+						result.add(new SimpleExpression(exps));
+					}
 				} else {
 					// only one assign, just treat it like a single assignment
 					// without temp variables
