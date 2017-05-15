@@ -1,5 +1,9 @@
 package pgo.model.tla;
 
+import java.util.Vector;
+
+import pgo.model.golang.Statement;
+
 /**
  * Base TLA Expression representation
  *
@@ -16,6 +20,11 @@ public abstract class PGoTLA {
 	public int getLine() {
 		return line;
 	}
+
+	/**
+	 * Convert the TLA expression into its GoAST representation.
+	 */
+	protected abstract Vector<Statement> toStatements();
 
 	public static abstract class Walker<T> {
 		// whether to terminate early

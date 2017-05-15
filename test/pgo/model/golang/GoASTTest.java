@@ -74,8 +74,9 @@ public class GoASTTest {
 
 	@Test
 	public void testFunction() {
-		Function f = new Function("foo", new PGoPrimitiveType.PGoVoid(), new Vector<ParameterDeclaration>(),
-				new Vector<VariableDeclaration>(), new Vector<Statement>());
+		Function f = new Function("foo", new PGoPrimitiveType.PGoVoid(),
+				new Vector<ParameterDeclaration>(), new Vector<VariableDeclaration>(),
+				new Vector<Statement>());
 		Vector<String> expected = new Vector<String>();
 		expected.add("func foo()  {");
 		expected.add("}");
@@ -83,18 +84,21 @@ public class GoASTTest {
 
 		Vector<ParameterDeclaration> ps = new Vector<ParameterDeclaration>();
 		ps.add(new ParameterDeclaration("p1", new PGoPrimitiveType.PGoNatural()));
-		f = new Function("foo", new PGoPrimitiveType.PGoVoid(), ps, new Vector<VariableDeclaration>(), new Vector<Statement>());
+		f = new Function("foo", new PGoPrimitiveType.PGoVoid(), ps,
+				new Vector<VariableDeclaration>(), new Vector<Statement>());
 		expected.remove(0);
 		expected.add(0, "func foo(p1 uint64)  {");
 		assertEquals(expected, f.toGo());
 
 		ps.add(new ParameterDeclaration("p2", new PGoCollectionType.PGoSet("int")));
-		f = new Function("foo", new PGoPrimitiveType.PGoVoid(), ps, new Vector<VariableDeclaration>(), new Vector<Statement>());
+		f = new Function("foo", new PGoPrimitiveType.PGoVoid(), ps,
+				new Vector<VariableDeclaration>(), new Vector<Statement>());
 		expected.remove(0);
 		expected.add(0, "func foo(p1 uint64, p2 mapset.Set)  {");
 		assertEquals(expected, f.toGo());
 
-		f = new Function("foo", new PGoPrimitiveType.PGoInt(), ps, new Vector<VariableDeclaration>(), new Vector<Statement>());
+		f = new Function("foo", new PGoPrimitiveType.PGoInt(), ps,
+				new Vector<VariableDeclaration>(), new Vector<Statement>());
 		expected.remove(0);
 		expected.add(0, "func foo(p1 uint64, p2 mapset.Set) int {");
 		assertEquals(expected, f.toGo());
@@ -151,7 +155,7 @@ public class GoASTTest {
 		expected.add("\tfoo()");
 		expected.add("}");
 		assertEquals(expected, i.toGo());
-		
+
 		Vector<Statement> el = new Vector<>();
 		el.add(new Token("bar()"));
 		i.setElse(el);
@@ -159,12 +163,12 @@ public class GoASTTest {
 		expected.add("\tbar()");
 		expected.add("}");
 		assertEquals(expected, i.toGo());
-		
+
 		Vector<Statement> funcBody = new Vector<>();
 		funcBody.add(new Token("bar()"));
 		funcBody.add(new Token("return x > 0"));
-		AnonymousFunction f = new AnonymousFunction(PGoType.inferFromGoTypeName("bool"), new Vector<>(), new Vector<>(), funcBody,
-				new Vector<>());
+		AnonymousFunction f = new AnonymousFunction(PGoType.inferFromGoTypeName("bool"),
+				new Vector<>(), new Vector<>(), funcBody, new Vector<>());
 		i.setCond(f);
 		expected.set(0, "if func() bool {");
 		expected.insertElementAt("\tbar()", 1);
@@ -253,7 +257,7 @@ public class GoASTTest {
 		body.add(b3);
 		s.setBodies(body);
 		s.setCases(cases);
-		expected.remove(expected.size()-1);
+		expected.remove(expected.size() - 1);
 		expected.add("case <-chan3:");
 		expected.add("\tx = 2");
 		expected.add("}");
@@ -270,13 +274,14 @@ public class GoASTTest {
 		Vector<String> expected = new Vector<>();
 		expected.add("x = 2");
 		assertEquals(expected, se.toGo());
-		
+
 		// test multiline expression
 		toks = new Vector<>();
 		Vector<Expression> params = new Vector<>();
 		Vector<Statement> body = new Vector<>();
 		body.add(new Return(new Token("1")));
-		AnonymousFunction f = new AnonymousFunction(PGoType.inferFromGoTypeName("int"), new Vector<>(), new Vector<>(), body, new Vector<>());
+		AnonymousFunction f = new AnonymousFunction(PGoType.inferFromGoTypeName("int"),
+				new Vector<>(), new Vector<>(), body, new Vector<>());
 		toks.add(f);
 		toks.add(new Token(" + "));
 		toks.add(new Token("1"));
@@ -307,15 +312,16 @@ public class GoASTTest {
 
 	@Test
 	public void testVariableDeclaration() {
-		VariableDeclaration vd = new VariableDeclaration("var1", new PGoPrimitiveType.PGoDecimal(), null, false);
+		VariableDeclaration vd = new VariableDeclaration("var1",
+				new PGoPrimitiveType.PGoDecimal(), null, false);
 		Vector<String> expected = new Vector<String>();
 		expected.add("var var1 float64");
 		assertEquals(expected, vd.toGo());
 
 		Vector<Expression> toks = new Vector<Expression>();
 		toks.add(new Token("1"));
-		vd = new VariableDeclaration("var2", new PGoCollectionType.PGoMap("String", "boolean"), new SimpleExpression(toks),
-				false);
+		vd = new VariableDeclaration("var2", new PGoCollectionType.PGoMap("String", "boolean"),
+				new SimpleExpression(toks), false);
 		expected = new Vector<String>();
 		expected.add("var var2 map[string]bool = 1");
 		assertEquals(expected, vd.toGo());
