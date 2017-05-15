@@ -54,32 +54,24 @@ import pgo.util.PcalASTUtil;
  */
 public class PGoTransStageGoGen extends PGoTransStageBase {
 
-	// the singleton object
-	public static PGoTransStageGoGen instance;
-	
 	// the ast
 	private GoProgram go;
 
 	// the main block pointer
 	private Vector<Statement> main;
 
-	private PGoTransStageGoGen(PGoTransStageAtomicity s1)
+	public PGoTransStageGoGen(PGoTransStageAtomicity s1)
 			throws PGoParseException, PGoTransException {
 		super(s1);
 
 		go = new GoProgram("main");
 
 		main = go.getMain().getBody();
-	}
-	
-	// Initializes the singleton with the previous stages' intermediate data.
-	public static void init(PGoTransStageAtomicity s1)
-			throws PGoParseException, PGoTransException {
-		instance = new PGoTransStageGoGen(s1);
-		instance.generateArgParsing();
-		instance.generateGlobalVariables();
-		instance.generateFunctions();
-		instance.generateMain();
+
+		generateArgParsing();
+		generateGlobalVariables();
+		generateFunctions();
+		generateMain();
 	}
 
 	public GoProgram getGo() {

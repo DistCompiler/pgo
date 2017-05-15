@@ -40,9 +40,8 @@ public class PGoTransStageTypeTest {
 
 	@Before
 	public void SetUp() throws PGoParseException, PGoTransException {
-		PGoTransStageOne.init(tester.getParsedPcal());
-		PGoTransStageType.init(PGoTransStageOne.instance);
-		p = PGoTransStageType.instance;
+		PGoTransStageOne s1 = new PGoTransStageOne(tester.getParsedPcal());
+		p = new PGoTransStageType(s1);
 	}
 
 	@Test
@@ -128,8 +127,7 @@ public class PGoTransStageTypeTest {
 
 	@Test
 	public void assertGoRoutineInit() throws PGoTransException, PGoParseException {
-		PGoTransStageOne.init(tester.getParsedPcal());
-		PGoTransStageOne p = PGoTransStageOne.instance;
+		PGoTransStageOne p = new PGoTransStageOne(tester.getParsedPcal());
 
 		ArrayList<PGoRoutineInit> grs = p.getGoRoutineInits();
 		assertEquals(tester.getNumGoroutineInit(), grs.size());

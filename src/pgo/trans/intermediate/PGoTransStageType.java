@@ -18,11 +18,8 @@ import pgo.trans.PGoTransException;
  *
  */
 public class PGoTransStageType extends PGoTransStageBase {
-	
-	// the singleton object
-	public static PGoTransStageType instance;
 
-	private PGoTransStageType(PGoTransStageOne s1) throws PGoParseException, PGoTransException {
+	public PGoTransStageType(PGoTransStageOne s1) throws PGoParseException, PGoTransException {
 		super(s1);
 		applyAnnotationOnVariables();
 		applyAnnotationOnFunctions();
@@ -30,11 +27,6 @@ public class PGoTransStageType extends PGoTransStageBase {
 		applyAnnotationOnProcesses();
 
 		checkAllTyped();
-	}
-	
-	// Initialize the singleton object with intermediate data
-	public static void init(PGoTransStageOne s1) throws PGoParseException, PGoTransException {
-		instance = new PGoTransStageType(s1);
 	}
 
 	/**
