@@ -8,6 +8,7 @@ import pgo.model.golang.FunctionCall;
 import pgo.model.golang.Statement;
 import pgo.parser.TLAExprParser;
 import pgo.trans.PGoTransException;
+import pgo.trans.intermediate.PGoTransStageGoGen;
 
 /**
  * Represents a set "{ ... }" in TLA. This should store what is in the set, and the set
@@ -41,7 +42,7 @@ public class PGoTLASet extends PGoTLA {
 			args.add((Expression) s);
 		}
 
-		// go.getImports().addImport("mapset"); // TODO (issue #24) figure out how to handle
+		PGoTransStageGoGen.go.getImports().addImport("mapset");
 		// imports
 		FunctionCall fc = new FunctionCall("mapset.NewSet", args);
 		ret.addElement(fc);

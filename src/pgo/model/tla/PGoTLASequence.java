@@ -5,6 +5,7 @@ import java.util.Vector;
 import pgo.model.golang.Expression;
 import pgo.model.golang.FunctionCall;
 import pgo.model.golang.Statement;
+import pgo.trans.intermediate.PGoTransStageGoGen;
 
 /**
  * Represents a sequence "a .. b" in TLA
@@ -46,7 +47,7 @@ public class PGoTLASequence extends PGoTLA {
 		args.add((Expression) startRes.get(0));
 		args.add((Expression) endRes.get(0));
 
-		// go.getImports().addImport("pgoutil"); // TODO (issue #24) figure out how to handle imports
+		PGoTransStageGoGen.go.getImports().addImport("pgoutil");
 		FunctionCall fc = new FunctionCall("pgoutil.Sequence", args);
 		ret.add(fc);
 
