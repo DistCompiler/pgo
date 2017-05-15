@@ -43,7 +43,7 @@ public class PGoTranslater {
 		logger.info("Entering Stage Four: Generating Go AST");
 		PGoTransStageGoGen s4 = new PGoTransStageGoGen(s3);
 		logger.info("Entering Stage Five: Generating Go Code");
-		go = PGoTransStageGoGen.go;
+		go = s4.getGo();
 	}
 
 	public Vector<String> getLines() {

@@ -55,7 +55,7 @@ import pgo.util.PcalASTUtil;
 public class PGoTransStageGoGen extends PGoTransStageBase {
 
 	// the ast
-	public static GoProgram go;
+	private GoProgram go;
 
 	// the main block pointer
 	private Vector<Statement> main;
@@ -72,6 +72,10 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 		generateGlobalVariables();
 		generateFunctions();
 		generateMain();
+	}
+
+	public GoProgram getGo() {
+		return go;
 	}
 
 	private void generateMain() throws PGoTransException {

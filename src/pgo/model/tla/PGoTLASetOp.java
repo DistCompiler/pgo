@@ -7,7 +7,6 @@ import pgo.model.golang.FunctionCall;
 import pgo.model.golang.SimpleExpression;
 import pgo.model.golang.Statement;
 import pgo.model.golang.Token;
-import pgo.trans.intermediate.PGoTransStageGoGen;
 
 /**
  * Represents a binary set operation.
@@ -52,7 +51,7 @@ public class PGoTLASetOp extends PGoTLA {
 		Expression rightSet = (Expression) rightRes.get(0);
 
 		Vector<Expression> exp = new Vector<>();
-		PGoTransStageGoGen.go.getImports().addImport("mapset");
+		// go.getImports().addImport("mapset"); //TODO (issue #24) figure out how to handle
 		// imports
 		String funcName = null;
 		// Map the set operation to the mapset function. \\notin does not have a corresponding
