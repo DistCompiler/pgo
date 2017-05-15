@@ -19,8 +19,11 @@ import pgo.util.PcalASTUtil;
  *
  */
 public class PGoTransStageAtomicity extends PGoTransStageBase {
+	
+	// the singleton object
+	public static PGoTransStageAtomicity instance;
 
-	public PGoTransStageAtomicity(PGoTransStageType s) throws PGoParseException, PGoTransException {
+	private PGoTransStageAtomicity(PGoTransStageType s) throws PGoParseException, PGoTransException {
 		super(s);
 
 		// Mark all variables that have an assignment from processes as needing
@@ -66,5 +69,9 @@ public class PGoTransStageAtomicity extends PGoTransStageBase {
 				}
 			}
 		}
+	}
+	
+	public static void init(PGoTransStageType s) throws PGoParseException, PGoTransException {
+		instance = new PGoTransStageAtomicity(s);
 	}
 }

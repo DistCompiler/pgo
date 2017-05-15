@@ -25,15 +25,23 @@ import pgo.trans.PGoTransException;
  *
  */
 public class PGoTransStageOne extends PGoTransStageBase {
+	
+	// the singleton object
+	public static PGoTransStageOne instance;
 
 	// The PlusCal AST to parse
 	private AST ast;
 
-	public PGoTransStageOne(ParsedPcal parsed) throws PGoTransException, PGoParseException {
+	private PGoTransStageOne(ParsedPcal parsed) throws PGoTransException, PGoParseException {
 		this.ast = parsed.getAST();
 		this.intermediateData.annots = new PGoAnnotationParser(parsed.getPGoAnnotations());
 
 		trans();
+	}
+	
+	// Initialize the singleton object with the Pcal AST
+	public static void init(ParsedPcal pcal) throws PGoTransException, PGoParseException {
+		instance = new PGoTransStageOne(pcal);
 	}
 
 	/**

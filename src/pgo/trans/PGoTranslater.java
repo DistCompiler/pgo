@@ -35,15 +35,15 @@ public class PGoTranslater {
 		logger = Logger.getGlobal();
 
 		logger.info("Entering Stage One: Inferring intermediate data structures");
-		PGoTransStageOne s1 = new PGoTransStageOne(pcal);
+		PGoTransStageOne.init(pcal);
 		logger.info("Entering Stage Two: Inferring types");
-		PGoTransStageType s2 = new PGoTransStageType(s1);
+		PGoTransStageType.init(PGoTransStageOne.instance);
 		logger.info("Entering Stage Three: Inferring atomicity constraints");
-		PGoTransStageAtomicity s3 = new PGoTransStageAtomicity(s2);
+		PGoTransStageAtomicity.init(PGoTransStageType.instance);
 		logger.info("Entering Stage Four: Generating Go AST");
-		PGoTransStageGoGen s4 = new PGoTransStageGoGen(s3);
+		PGoTransStageGoGen.init(PGoTransStageAtomicity.instance);
 		logger.info("Entering Stage Five: Generating Go Code");
-		go = s4.getGo();
+		go = PGoTransStageGoGen.instance.getGo();
 	}
 
 	public Vector<String> getLines() {

@@ -7,6 +7,7 @@ import pgo.model.golang.FunctionCall;
 import pgo.model.golang.SimpleExpression;
 import pgo.model.golang.Statement;
 import pgo.model.golang.Token;
+import pgo.trans.intermediate.PGoTransStageGoGen;
 
 /**
  * Represents a simple arithmetic operation written in TLA
@@ -59,8 +60,7 @@ public class PGoTLASimpleArithmetic extends PGoTLA {
 		if (this.getToken().equals("^")) {
 			// TODO (issue #22) we need to check which number type we are using and cast to/from
 			// float64 if needed
-			// go.getImports().addImport("math"); // TODO (issue #24) figure out how to handle
-			// imports
+			PGoTransStageGoGen.instance.getGo().getImports().addImport("math");
 			Vector<Expression> params = new Vector<>();
 			params.add((Expression) leftRes.get(0));
 			params.add((Expression) rightRes.get(0));
