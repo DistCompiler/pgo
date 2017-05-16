@@ -17,6 +17,10 @@ public class TLAExprToGo {
 		stmts = new Vector<>();
 		convert(tla);
 	}
+	
+	public TLAExprToGo(PGoTLA tla) {
+		convert(tla);
+	}
 
 	public SimpleExpression toSimpleExpression() {
 		// TODO Auto-generated method stub
@@ -41,5 +45,9 @@ public class TLAExprToGo {
 		for (PGoTLA tla : ptla) {
 			stmts.addAll(tla.toStatements());
 		}
+	}
+	
+	private void convert(PGoTLA tla) {
+		stmts = tla.toStatements();
 	}
 }

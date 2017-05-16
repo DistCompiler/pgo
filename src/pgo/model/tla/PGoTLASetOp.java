@@ -60,17 +60,23 @@ public class PGoTLASetOp extends PGoTLA {
 		case "\\cup":
 		case "\\union":
 			funcName = "Union";
+			break;
 		case "\\cap":
 		case "\\intersect":
 			funcName = "Intersect";
+			break;
 		case "\\in":
 			funcName = "Contains";
+			break;
 		case "\\notin":
 			funcName = "NotIn";
+			break;
 		case "\\subseteq":
 			funcName = "IsSubset";
+			break;
 		case "\\":
 			funcName = "Difference";
+			break;
 		default:
 			assert false;
 		}

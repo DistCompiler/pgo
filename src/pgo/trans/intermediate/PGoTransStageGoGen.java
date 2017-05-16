@@ -651,25 +651,25 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 		args.add(new Token("&" + pv.getName()));
 		args.add(new Token(pv.getArgInfo().getName()));
 
-		if (pv.getType().toGo().equals(new PGoPrimitiveType.PGoInt())) {
+		if (pv.getType().toGo().equals(new PGoPrimitiveType.PGoInt().toGo())) {
 			// TODO we support default value and help message. Add this
 			// to annotations
 			args.add(new Token("0"));
 			args.add(new Token("\"\""));
 			main.add(new FunctionCall("flagIntVar", args));
-		} else if (pv.getType().toGo().equals(new PGoPrimitiveType.PGoBool())) {
+		} else if (pv.getType().toGo().equals(new PGoPrimitiveType.PGoBool().toGo())) {
 			args.add(new Token("false"));
 			args.add(new Token("\"\""));
 			main.add(new FunctionCall("flagBoolVar", args));
-		} else if (pv.getType().toGo().equals(new PGoPrimitiveType.PGoString())) {
+		} else if (pv.getType().toGo().equals(new PGoPrimitiveType.PGoString().toGo())) {
 			args.add(new Token(""));
 			args.add(new Token("\"\""));
 			main.add(new FunctionCall("flagStringVar", args));
-		} else if (pv.getType().toGo().equals(new PGoPrimitiveType.PGoNatural())) {
+		} else if (pv.getType().toGo().equals(new PGoPrimitiveType.PGoNatural().toGo())) {
 			args.add(new Token("0"));
 			args.add(new Token("\"\""));
 			main.add(new FunctionCall("flagUint64Var", args));
-		} else if (pv.getType().toGo().equals(new PGoPrimitiveType.PGoDecimal())) {
+		} else if (pv.getType().toGo().equals(new PGoPrimitiveType.PGoDecimal().toGo())) {
 			args.add(new Token("0.0"));
 			args.add(new Token("\"\""));
 			main.add(new FunctionCall("flagFloat64Var", args));
