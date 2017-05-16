@@ -102,13 +102,13 @@ public class AnonymousFunction extends Expression {
 
 		if (paramStr.size() > 0) {
 			ret.add("func(" + paramStr.remove(0));
-			addIndented(ret, paramStr, true);
+			addStringsAndIndent(ret, paramStr);
 			ret.add(ret.remove(ret.size() - 1) + ") " + retType.toGo() + " {");
 		} else {
 			ret.add("func() " + retType.toGo() + " {");
 		}
-		addIndented(ret, localVars, false);
-		addIndented(ret, body, false);
+		addIndentedAST(ret, localVars);
+		addIndentedAST(ret, body);
 		if (this.isCall) {
 			Vector<String> cParamStr = new Vector<String>();
 			for (int i = 0; i < callParams.size(); i++) {
@@ -132,7 +132,7 @@ public class AnonymousFunction extends Expression {
 			} else {
 				add += "(" + cParamStr.remove(0);
 				ret.add(add);
-				addIndented(ret, cParamStr, true);
+				addStringsAndIndent(ret, cParamStr);
 				ret.add(ret.remove(ret.size() - 1) + ")");
 			}
 		} else {

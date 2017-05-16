@@ -10,17 +10,25 @@ public abstract class GoAST {
 
 	public abstract Vector<String> toGo();
 
-	public static void addIndented(Vector<String> ret, Vector ast, boolean isString) {
-		if (isString) {
-			for (String s : (Vector<String>) ast) {
-				ret.add("\t" + s);
-			}
-		} else {
-			for (GoAST e : (Vector<GoAST>) ast) {
-				for (String s : e.toGo()) {
-					ret.add("\t" + s);
-				}
-			}
+	/**
+	 * Appends ret with a block of code with the correct indentation.
+	 * @param ret	the Go code we are adding to
+	 * @param ast	the GoAST representation of the indented block
+	 */
+	public static void addIndentedAST(Vector<String> ret, Vector ast) {
+		for (GoAST e : (Vector<GoAST>) ast) {
+			addStringsAndIndent(ret, e.toGo());
+		}
+	}
+	
+	/**
+	 * Appends ret with the strings in toIndent, indented.
+	 * @param ret		the strings we are adding to
+	 * @param toIndent	the strings we are indenting
+	 */
+	public static void addStringsAndIndent(Vector<String> ret, Vector<String> toIndent) {
+		for (String s : toIndent) {
+			ret.add("\t" + s);
 		}
 	}
 

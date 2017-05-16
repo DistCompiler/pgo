@@ -60,10 +60,10 @@ public class If extends Statement {
 		} else {
 			ret.add("if " + String.join("; ", condStr) + " {");
 		}
-		addIndented(ret, thenS, false);
+		addIndentedAST(ret, thenS);
 		if (elseS.size() > 0) {
 			ret.add("} else {");
-			addIndented(ret, elseS, false);
+			addIndentedAST(ret, elseS);
 		}
 		ret.add("}");
 		return ret;

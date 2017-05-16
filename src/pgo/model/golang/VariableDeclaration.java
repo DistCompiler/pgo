@@ -78,7 +78,7 @@ public class VariableDeclaration extends GoAST {
 		Vector<String> valStr = defaultValue == null ? new Vector<String>() : defaultValue.toGo();
 		ret.add((isConst ? "const " : "var ") + name + " " + type.toGo()
 				+ (valStr.size() == 0 ? "" : " = " + valStr.remove(0)));
-		addIndented(ret, valStr, true);
+		addStringsAndIndent(ret, valStr);
 
 		for (Statement s : initCode) {
 			ret.addAll(s.toGo());

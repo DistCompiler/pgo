@@ -35,7 +35,7 @@ public class Return extends Expression {
 		Vector<String> valStr = value.toGo();
 		Vector<String> ret = new Vector<String>();
 		ret.add("return " + valStr.remove(0));
-		addIndented(ret, valStr, true);
+		addStringsAndIndent(ret, valStr);
 		return ret;
 	}
 

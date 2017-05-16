@@ -99,13 +99,13 @@ public class Function extends GoAST {
 		}
 		if (paramStr.size() > 0) {
 			ret.add("func " + fname + "(" + paramStr.remove(0));
-			addIndented(ret, paramStr, true);
+			addStringsAndIndent(ret, paramStr);
 			ret.add(ret.remove(ret.size() - 1) + ") " + retType.toGo() + " {");
 		} else {
 			ret.add("func " + fname + "() " + retType.toGo() + " {");
 		}
-		addIndented(ret, localVars, false);
-		addIndented(ret, body, false);
+		addIndentedAST(ret, localVars);
+		addIndentedAST(ret, body);
 		ret.add("}");
 		return ret;
 	}

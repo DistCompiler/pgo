@@ -79,7 +79,7 @@ public class FunctionCall extends Expression {
 		if (paramStr.size() > 0) {
 			first += fname + "(" + paramStr.remove(0);
 			ret.add(first);
-			addIndented(ret, paramStr, true);
+			addStringsAndIndent(ret, paramStr);
 			ret.add(ret.remove(ret.size() - 1) + ")");
 		} else {
 			first += fname + "()";
