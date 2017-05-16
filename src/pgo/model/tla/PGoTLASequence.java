@@ -1,5 +1,7 @@
 package pgo.model.tla;
 
+import java.util.HashSet;
+import java.util.Set;
 import java.util.Vector;
 
 import pgo.model.golang.Expression;
@@ -46,10 +48,17 @@ public class PGoTLASequence extends PGoTLA {
 		args.add((Expression) startRes.get(0));
 		args.add((Expression) endRes.get(0));
 
-		// go.getImports().addImport("pgoutil"); // TODO (issue #24) figure out how to handle imports
 		FunctionCall fc = new FunctionCall("pgoutil.Sequence", args);
 		ret.add(fc);
 
+		return ret;
+	}
+	
+	protected Set<String> getImports() {
+		Set<String> ret = new HashSet<>();
+		ret.add("pgoutil");
+		ret.addAll(this.getStart().getImports());
+		ret.addAll(this.getEnd().getImports());
 		return ret;
 	}
 

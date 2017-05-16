@@ -1,5 +1,7 @@
 package pgo.model.tla;
 
+import java.util.HashSet;
+import java.util.Set;
 import java.util.Vector;
 
 import pgo.model.golang.Expression;
@@ -77,6 +79,16 @@ public class PGoTLASimpleArithmetic extends PGoTLA {
 
 			ret.add(arith);
 		}
+		return ret;
+	}
+	
+	protected Set<String> getImports() {
+		Set<String> ret = new HashSet<>();
+		if (this.getToken().equals("^")) {
+			ret.add("math");
+		}
+		ret.addAll(this.getLeft().getImports());
+		ret.addAll(this.getRight().getImports());
 		return ret;
 	}
 

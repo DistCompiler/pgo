@@ -55,6 +55,10 @@ public class Imports extends GoAST {
 	public void addImport(String pkg) {
 		importPkgs.add(pkg);
 	}
+	
+	public void addAllImports(Set<String> pkgs) {
+		importPkgs.addAll(pkgs);
+	}
 
 	public void removeImport(String pkg) {
 		importPkgs.remove(pkg);

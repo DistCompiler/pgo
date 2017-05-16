@@ -1,5 +1,7 @@
 package pgo.model.tla;
 
+import java.util.HashSet;
+import java.util.Set;
 import java.util.Vector;
 
 import pgo.model.golang.SimpleExpression;
@@ -12,9 +14,11 @@ import pgo.model.golang.Statement;
 public class TLAExprToGo {
 	
 	private Vector<Statement> stmts;
+	private Set<String> imports;
 
 	public TLAExprToGo(Vector<PGoTLA> tla) {
 		stmts = new Vector<>();
+		imports = new HashSet<>();
 		convert(tla);
 	}
 	
@@ -31,6 +35,10 @@ public class TLAExprToGo {
 		return stmts;
 	}
 	
+	public Set<String> getImports() {
+		return imports;
+	}
+	
 	/**
 	 * Takes PGoTLA ast tree and converts it to Go statement
 	 * 
@@ -44,10 +52,12 @@ public class TLAExprToGo {
 	private void convert(Vector<PGoTLA> ptla) {
 		for (PGoTLA tla : ptla) {
 			stmts.addAll(tla.toStatements());
+			imports.addAll(tla.getImports());
 		}
 	}
 	
 	private void convert(PGoTLA tla) {
 		stmts = tla.toStatements();
+		imports = tla.getImports();
 	}
 }

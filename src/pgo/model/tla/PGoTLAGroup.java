@@ -1,5 +1,6 @@
 package pgo.model.tla;
 
+import java.util.Set;
 import java.util.Vector;
 
 import pgo.model.golang.Expression;
@@ -38,6 +39,10 @@ public class PGoTLAGroup extends PGoTLA {
 		ret.add(new Group((Expression) inside.get(0)));
 
 		return ret;
+	}
+	
+	protected Set<String> getImports() {
+		return inner.getImports();
 	}
 
 	public String toString() {

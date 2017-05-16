@@ -1,5 +1,7 @@
 package pgo.model.tla;
 
+import java.util.HashSet;
+import java.util.Set;
 import java.util.Vector;
 
 import pgo.model.golang.Statement;
@@ -26,6 +28,10 @@ public class PGoTLANumber extends PGoTLA {
 		Vector<Statement> ret = new Vector<>();
 		ret.add(new Token(this.getVal()));
 		return ret;
+	}
+	
+	protected Set<String> getImports() {
+		return new HashSet<>();
 	}
 
 	public String toString() {

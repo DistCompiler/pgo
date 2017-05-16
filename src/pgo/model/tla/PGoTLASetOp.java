@@ -1,5 +1,7 @@
 package pgo.model.tla;
 
+import java.util.HashSet;
+import java.util.Set;
 import java.util.Vector;
 
 import pgo.model.golang.Expression;
@@ -51,8 +53,6 @@ public class PGoTLASetOp extends PGoTLA {
 		Expression rightSet = (Expression) rightRes.get(0);
 
 		Vector<Expression> exp = new Vector<>();
-		// go.getImports().addImport("mapset"); //TODO (issue #24) figure out how to handle
-		// imports
 		String funcName = null;
 		// Map the set operation to the mapset function. \\notin does not have a corresponding
 		// function and is handled separately.
@@ -89,6 +89,14 @@ public class PGoTLASetOp extends PGoTLA {
 		FunctionCall fc = new FunctionCall(funcName, lhs, rightSet);
 		exp.add(fc);
 		ret.add(new SimpleExpression(exp));
+		return ret;
+	}
+	
+	protected Set<String> getImports() {
+		Set<String> ret = new HashSet<>();
+		ret.add("mapset");
+		ret.addAll(this.getLeft().getImports());
+		ret.addAll(this.getRight().getImports());
 		return ret;
 	}
 

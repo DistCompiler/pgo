@@ -1,5 +1,7 @@
 package pgo.model.tla;
 
+import java.util.HashSet;
+import java.util.Set;
 import java.util.Vector;
 
 import pcal.TLAToken;
@@ -41,10 +43,17 @@ public class PGoTLASet extends PGoTLA {
 			args.add((Expression) s);
 		}
 
-		// go.getImports().addImport("mapset"); // TODO (issue #24) figure out how to handle
-		// imports
 		FunctionCall fc = new FunctionCall("mapset.NewSet", args);
 		ret.addElement(fc);
+		return ret;
+	}
+	
+	protected Set<String> getImports() {
+		Set<String> ret = new HashSet<>();
+		ret.add("mapset");
+		for (PGoTLA ptla : this.getContents()) {
+			ret.addAll(ptla.getImports());
+		}
 		return ret;
 	}
 

@@ -1,5 +1,7 @@
 package pgo.model.tla;
 
+import java.util.HashSet;
+import java.util.Set;
 import java.util.Vector;
 
 import pgo.model.golang.Expression;
@@ -85,6 +87,13 @@ public class PGoTLABoolOp extends PGoTLA {
 		SimpleExpression comp = new SimpleExpression(toks);
 
 		ret.add(comp);
+		return ret;
+	}
+	
+	protected Set<String> getImports() {
+		Set<String> ret = new HashSet<>();
+		ret.addAll(this.getLeft().getImports());
+		ret.addAll(this.getRight().getImports());
 		return ret;
 	}
 

@@ -1,5 +1,7 @@
 package pgo.model.tla;
 
+import java.util.HashSet;
+import java.util.Set;
 import java.util.Vector;
 
 import pgo.model.golang.Expression;
@@ -59,6 +61,17 @@ public class PGoTLAUnary extends PGoTLA {
 		}
 		return ret;
 	}
+	
+	protected Set<String> getImports() {
+		Set<String> ret = new HashSet<>();
+		if (this.getToken().equals("UNION")
+				|| this.getToken().equals("SUBSET")) {
+			ret.add("mapset");
+		}
+		ret.addAll(this.getArg().getImports());
+		return ret;
+	}
+	
 	
 	public String toString() {
 		return "PGoTLAUnary (" + this.getLine() + "): " + token + " " + arg.toString();
