@@ -121,6 +121,21 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 	}
 
 	/**
+	 * Convert the TLA AST to the equivalent Go AST while adding the required imports.
+	 */
+	private Vector<Statement> TLAToGo(PGoTLA tla) {
+		TLAExprToGo trans = new TLAExprToGo(tla);
+		go.getImports().addAllImports(trans.getImports());
+		return trans.getStatements();
+	}
+	
+	private Vector<Statement> TLAToGo(Vector<PGoTLA> tla) {
+		TLAExprToGo trans = new TLAExprToGo(tla);
+		go.getImports().addAllImports(trans.getImports());
+		return trans.getStatements();
+	}
+	
+	/**
 	 * Converts a given code black into Go code. Given code block should not have function
 	 * definitions and such in pluscal TODO finish visit methods (issue #4)
 	 * 
@@ -145,10 +160,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 			}
 
 			protected void visit(While w) throws PGoTransException {
-				TLAExprToGo trans = new TLAExprToGo(
-						new TLAExprParser(w.test, w.line).getResult());
-				Vector<Statement> cond = trans.getStatements();
-				go.getImports().addAllImports(trans.getImports());
+				Vector<Statement> cond = TLAToGo(new TLAExprParser(w.test, w.line).getResult());
 				// TODO (issue #15) handle complicated conditions
 				assert (cond.size() > 0);
 				Vector<Expression> exps = new Vector<Expression>();
@@ -177,10 +189,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 						// TODO parse sub for [2] etc
 						exps.add(new Token(" := "));
 						// TODO this is tlaexpr exps.add(sa.rhs);
-						TLAExprToGo trans = new TLAExprToGo(
-								new TLAExprParser(sa.rhs, sa.line).getResult());
-						Vector<Statement> rhs = trans.getStatements();
-						go.getImports().addAllImports(trans.getImports());
+						Vector<Statement> rhs = TLAToGo(new TLAExprParser(sa.rhs, sa.line).getResult());
 
 						assert (rhs.size() > 0);
 						exps.add((Expression) rhs.remove(0)); // TODO check if
@@ -214,10 +223,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 				// TODO parse sub for [2] etc
 				exps.add(new Token(" = "));
 				// TODO this is tlaexpr exps.add(sa.rhs);
-				TLAExprToGo trans = new TLAExprToGo(
-						new TLAExprParser(sa.rhs, sa.line).getResult());
-				Vector<Statement> rhs = trans.getStatements();
-				go.getImports().addAllImports(trans.getImports());
+				Vector<Statement> rhs = TLAToGo(new TLAExprParser(sa.rhs, sa.line).getResult());
 				assert (rhs.size() > 0);
 				exps.add((Expression) rhs.remove(0)); // TODO check if cast is
 
@@ -227,10 +233,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 			}
 
 			protected void visit(If ifast) throws PGoTransException {
-				TLAExprToGo trans = new TLAExprToGo(
-						new TLAExprParser(ifast.test, ifast.line).getResult());
-				Vector<Statement> cond = trans.getStatements();
-				go.getImports().addAllImports(trans.getImports());
+				Vector<Statement> cond = TLAToGo(new TLAExprParser(ifast.test, ifast.line).getResult());
 				// TODO (issue #15) handle complicated conditions
 				assert (cond.size() > 0);
 				Vector<Expression> exps = new Vector<Expression>();
@@ -321,10 +324,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 
 			protected void visit(LabelIf lif) throws PGoTransException {
 				// TODO w.test is the condition
-				TLAExprToGo trans = new TLAExprToGo(
-						new TLAExprParser(lif.test, lif.line).getResult());
-				Vector<Statement> cond = trans.getStatements();
-				go.getImports().addAllImports(trans.getImports());
+				Vector<Statement> cond = TLAToGo(new TLAExprParser(lif.test, lif.line).getResult());
 				// TODO (issue #15) handle complicated conditions
 				assert (cond.size() > 0);
 				Vector<Expression> exps = new Vector<Expression>();
@@ -457,9 +457,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 			TLAExprParser parser = new TLAExprParser(pv.getPcalInitBlock(), pv.getLine());
 			Vector<PGoTLA> ptla = parser.getResult();
 			assert (ptla.size() == 1);
-			TLAExprToGo trans = new TLAExprToGo(ptla);
-			Vector<Statement> stmt = trans.getStatements();
-			go.getImports().addAllImports(trans.getImports());
+			Vector<Statement> stmt = TLAToGo(ptla);
 			SimpleExpression se = null;
 			if (stmt.size() == 1) {
 				if (stmt.get(0) instanceof SimpleExpression) {
@@ -515,9 +513,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 				TLAExprParser parser = new TLAExprParser(pv.getPcalInitBlock(), pv.getLine());
 				Vector<PGoTLA> ptla = parser.getResult();
 				assert (ptla.size() == 1);
-				TLAExprToGo trans = new TLAExprToGo(ptla);
-				Vector<Statement> stmt = trans.getStatements();
-				go.getImports().addAllImports(trans.getImports());
+				Vector<Statement> stmt = TLAToGo(ptla);
 				SimpleExpression se = null;
 				if (stmt.size() == 1) {
 					if (stmt.get(0) instanceof SimpleExpression) {
