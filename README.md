@@ -10,11 +10,11 @@ Currently there are no tools that corresponds TLA+ specification with the Go imp
 
 ## Current status
 
-Under development. 
+Under development. We currently support compilation of some small, single threaded PlusCal programs into corresponding compilable, runnable Go code.
 
 ## How does it work
 
-PGo acts as a source to source compiler written in Java. It uses TLA+ toolset to parse PlusCal into an AST, which is then translated to a Go AST, and finally written.
+PGo acts as a source to source compiler written in Java. It uses TLA+ toolset to parse PlusCal into an AST, which is then translated to a Go AST, and finally written to a file specified.
 
 ## How do install it?
 
@@ -34,6 +34,7 @@ Alternatively, run `./pgo.sh` to execute the program.
 ### PlusCal annotations
 Users can specify annotations in the pluscal file to aid PGo in compiling PlusCal to Go.
 PGo requires all variables used that is not defined in the PlusCal algorithm (e.g. constant N).
+Annotations are not location sensitive, but they must appear within the `(* ... *)` for the PlusCal algorithm in the TLA file.
 
 Annotations appear in the PlusCal code within PlusCal comments, either `(* ... *)` or `\* ...`.
 Each annotation is of the form `@PGo{ <annotation> }@PGo`. Multiple annotations of these formats can appear per comment.
