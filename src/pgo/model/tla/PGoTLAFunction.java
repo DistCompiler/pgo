@@ -1,24 +1,28 @@
 package pgo.model.tla;
 
+import java.util.HashSet;
+import java.util.Set;
 import java.util.Vector;
 
 import pcal.TLAToken;
+import pgo.model.golang.Statement;
 import pgo.parser.TLAExprParser;
 import pgo.trans.PGoTransException;
 
 /**
- * A function call in TLA. These are more like predicates since they are the
- * only functions that show up in TLA
+ * A function call in TLA. These are more like predicates since they are the only functions that
+ * show up in TLA
  *
  */
 public class PGoTLAFunction extends PGoTLA {
 
 	// the function called
 	private String fname;
-	
+
 	private Vector<PGoTLA> params;
-	
-	public PGoTLAFunction(String f, Vector<TLAToken> contained, int line) throws PGoTransException {
+
+	public PGoTLAFunction(String f, Vector<TLAToken> contained, int line)
+			throws PGoTransException {
 		super(line);
 		fname = f;
 
@@ -29,6 +33,19 @@ public class PGoTLAFunction extends PGoTLA {
 
 	public Vector<PGoTLA> getParams() {
 		return params;
+	}
+
+	protected Vector<Statement> toStatements() {
+		// TODO (issue #23)
+		return null;
+	}
+	
+	protected Set<String> getImports() {
+		Set<String> ret = new HashSet<>();
+		for (PGoTLA ptla : params) {
+			ret.addAll(ptla.getImports());
+		}
+		return ret;
 	}
 
 	public String toString() {

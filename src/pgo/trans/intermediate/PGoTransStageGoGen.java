@@ -48,7 +48,8 @@ import pgo.trans.PGoTransException;
 import pgo.util.PcalASTUtil;
 
 /**
- * The last stage of the translation. Takes given intermediate data and converts it to a Go AST, properly
+ * The last stage of the translation. Takes given intermediate data and converts it to a Go AST,
+ * properly
  * 
  */
 public class PGoTransStageGoGen extends PGoTransStageBase {
@@ -59,7 +60,8 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 	// the main block pointer
 	private Vector<Statement> main;
 
-	public PGoTransStageGoGen(PGoTransStageAtomicity s1) throws PGoParseException, PGoTransException {
+	public PGoTransStageGoGen(PGoTransStageAtomicity s1)
+			throws PGoParseException, PGoTransException {
 		super(s1);
 
 		go = new GoProgram("main");
@@ -96,7 +98,8 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 		for (PGoVariable pv : this.intermediateData.globals.values()) {
 			// Add flags as necessary
 			if (pv.getArgInfo() != null) {
-				Logger.getGlobal().info("Generating command line argument code for variable \"" + pv.getName() + "\"");
+				Logger.getGlobal().info("Generating command line argument code for variable \""
+						+ pv.getName() + "\"");
 				go.getImports().addImport("flag");
 				hasArg = true;
 				if (pv.getArgInfo().isPositionalArg()) {
@@ -118,8 +121,23 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 	}
 
 	/**
-	 * Converts a given code black into Go code. Given code block should not have function definitions and such in pluscal
-	 * TODO finish visit methods (issue #4)
+	 * Convert the TLA AST to the equivalent Go AST while adding the required imports.
+	 */
+	private Vector<Statement> TLAToGo(PGoTLA tla) {
+		TLAExprToGo trans = new TLAExprToGo(tla);
+		go.getImports().addAllImports(trans.getImports());
+		return trans.getStatements();
+	}
+	
+	private Vector<Statement> TLAToGo(Vector<PGoTLA> tla) {
+		TLAExprToGo trans = new TLAExprToGo(tla);
+		go.getImports().addAllImports(trans.getImports());
+		return trans.getStatements();
+	}
+	
+	/**
+	 * Converts a given code black into Go code. Given code block should not have function
+	 * definitions and such in pluscal TODO finish visit methods (issue #4)
 	 * 
 	 * @param stmts
 	 * @return
@@ -142,7 +160,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 			}
 
 			protected void visit(While w) throws PGoTransException {
-				Vector<Statement> cond = tlaTokenToStatement(new TLAExprParser(w.test, w.line).getResult());
+				Vector<Statement> cond = TLAToGo(new TLAExprParser(w.test, w.line).getResult());
 				// TODO (issue #15) handle complicated conditions
 				assert (cond.size() > 0);
 				Vector<Expression> exps = new Vector<Expression>();
@@ -171,7 +189,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 						// TODO parse sub for [2] etc
 						exps.add(new Token(" := "));
 						// TODO this is tlaexpr exps.add(sa.rhs);
-						Vector<Statement> rhs = tlaTokenToStatement(new TLAExprParser(sa.rhs, sa.line).getResult());
+						Vector<Statement> rhs = TLAToGo(new TLAExprParser(sa.rhs, sa.line).getResult());
 
 						assert (rhs.size() > 0);
 						exps.add((Expression) rhs.remove(0)); // TODO check if
@@ -205,7 +223,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 				// TODO parse sub for [2] etc
 				exps.add(new Token(" = "));
 				// TODO this is tlaexpr exps.add(sa.rhs);
-				Vector<Statement> rhs = tlaTokenToStatement(new TLAExprParser(sa.rhs, sa.line).getResult());
+				Vector<Statement> rhs = TLAToGo(new TLAExprParser(sa.rhs, sa.line).getResult());
 				assert (rhs.size() > 0);
 				exps.add((Expression) rhs.remove(0)); // TODO check if cast is
 
@@ -215,7 +233,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 			}
 
 			protected void visit(If ifast) throws PGoTransException {
-				Vector<Statement> cond = tlaTokenToStatement(new TLAExprParser(ifast.test, ifast.line).getResult());
+				Vector<Statement> cond = TLAToGo(new TLAExprParser(ifast.test, ifast.line).getResult());
 				// TODO (issue #15) handle complicated conditions
 				assert (cond.size() > 0);
 				Vector<Expression> exps = new Vector<Expression>();
@@ -306,7 +324,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 
 			protected void visit(LabelIf lif) throws PGoTransException {
 				// TODO w.test is the condition
-				Vector<Statement> cond = tlaTokenToStatement(new TLAExprParser(lif.test, lif.line).getResult());
+				Vector<Statement> cond = TLAToGo(new TLAExprParser(lif.test, lif.line).getResult());
 				// TODO (issue #15) handle complicated conditions
 				assert (cond.size() > 0);
 				Vector<Expression> exps = new Vector<Expression>();
@@ -399,7 +417,8 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 				SimpleExpression e = null; // TODO (issue #14) from tla
 				Vector<Statement> init = new Vector<Statement>(); // TODO from
 																	// tla
-				locals.add(new VariableDeclaration(local.getName(), local.getType(), e, init, local.getIsConstant()));
+				locals.add(new VariableDeclaration(local.getName(), local.getType(), e, init,
+						local.getIsConstant()));
 			}
 
 			Vector<Statement> body = new Vector<Statement>();
@@ -430,14 +449,15 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 
 			// this is var \in collection
 
-			Logger.getGlobal().info("Generating go variable \"" + pv.getName() + "\" with loop");
+			Logger.getGlobal()
+					.info("Generating go variable \"" + pv.getName() + "\" with loop");
 
 			// being part of the rhs, the parsed result should just be
 			// one coherent expression
 			TLAExprParser parser = new TLAExprParser(pv.getPcalInitBlock(), pv.getLine());
 			Vector<PGoTLA> ptla = parser.getResult();
 			assert (ptla.size() == 1);
-			Vector<Statement> stmt = tlaTokenToStatement(ptla);
+			Vector<Statement> stmt = TLAToGo(ptla);
 			SimpleExpression se = null;
 			if (stmt.size() == 1) {
 				if (stmt.get(0) instanceof SimpleExpression) {
@@ -451,8 +471,8 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 				}
 
 			} // TODO (issue #15) handle other cases where need more than 1 statement
-			go.addGlobal(
-					new VariableDeclaration(pv.getName(), pv.getType(), null, new Vector<Statement>(), pv.getIsConstant()));
+			go.addGlobal(new VariableDeclaration(pv.getName(), pv.getType(), null,
+					new Vector<Statement>(), pv.getIsConstant()));
 			Vector<Expression> toks = new Vector<Expression>();
 			toks.add(new Token("_, " + pv.getName()));
 			toks.add(new Token(" = "));
@@ -480,10 +500,12 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 				exp.add(new Token(pv.getGoVal()));
 				SimpleExpression s = new SimpleExpression(exp);
 
-				go.addGlobal(new VariableDeclaration(pv.getName(), pv.getType(), s, pv.getIsConstant()));
+				go.addGlobal(new VariableDeclaration(pv.getName(), pv.getType(), s,
+						pv.getIsConstant()));
 				continue;
 			} else if (pv.getArgInfo() != null) {
-				go.addGlobal(new VariableDeclaration(pv.getName(), pv.getType(), null, pv.getIsConstant()));
+				go.addGlobal(new VariableDeclaration(pv.getName(), pv.getType(), null,
+						pv.getIsConstant()));
 				// generateMain will fill the main function
 			} else {
 				// being part of the rhs, the parsed result should just be
@@ -491,7 +513,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 				TLAExprParser parser = new TLAExprParser(pv.getPcalInitBlock(), pv.getLine());
 				Vector<PGoTLA> ptla = parser.getResult();
 				assert (ptla.size() == 1);
-				Vector<Statement> stmt = tlaTokenToStatement(ptla);
+				Vector<Statement> stmt = TLAToGo(ptla);
 				SimpleExpression se = null;
 				if (stmt.size() == 1) {
 					if (stmt.get(0) instanceof SimpleExpression) {
@@ -506,16 +528,16 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 
 				}
 				if (pv.getIsConstant() || !delay) {
-					go.addGlobal(new VariableDeclaration(pv.getName(), pv.getType(), se, new Vector<Statement>(),
-							pv.getIsConstant()));
+					go.addGlobal(new VariableDeclaration(pv.getName(), pv.getType(), se,
+							new Vector<Statement>(), pv.getIsConstant()));
 
 					if (stmt.size() > 0) {
 						// complex initializations go into main
 						main.addAll(stmt);
 					}
 				} else {
-					go.addGlobal(new VariableDeclaration(pv.getName(), pv.getType(), null, new Vector<Statement>(),
-							pv.getIsConstant()));
+					go.addGlobal(new VariableDeclaration(pv.getName(), pv.getType(), null,
+							new Vector<Statement>(), pv.getIsConstant()));
 					Vector<Expression> toks = new Vector<Expression>();
 					toks.add(new Token(pv.getName()));
 					toks.add(new Token(" = "));
@@ -528,206 +550,14 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 	}
 
 	/**
-	 * Takes PGoTLA ast tree and converts it to Go statement
-	 * 
-	 * TODO probably want to take the tokens into a class TLAExprToGo. Then support things like getEquivStatement() to get the
-	 * equivalent go expr to refer to the equivalent data in the pluscal, and getInit() to get any initialization code to
-	 * generate that data. Constructor of this class may need to know what local variable names are available
-	 * 
-	 * @param ptla
-	 * @return
-	 */
-	private Vector<Statement> tlaTokenToStatement(Vector<PGoTLA> ptla) {
-		Vector<Statement> stmts = new Vector<Statement>();
-		for (PGoTLA tla : ptla) {
-			stmts.addAll(tlaTokenToStatement(tla));
-		}
-
-		return stmts;
-	}
-
-	private Vector<Statement> tlaTokenToStatement(PGoTLA tla) {
-		Vector<Statement> stmts = new Vector<Statement>();
-		if (tla instanceof PGoTLAString) {
-			stmts.add(new Token((((PGoTLAString) tla).getString())));
-		} else if (tla instanceof PGoTLANumber) {
-			stmts.add(new Token((((PGoTLANumber) tla).getVal())));
-		} else if (tla instanceof PGoTLABool) {
-			stmts.add(new Token(String.valueOf((((PGoTLABool) tla).getVal()))));
-		} else if (tla instanceof PGoTLAVariable) {
-			stmts.add(new Token(String.valueOf((((PGoTLAVariable) tla).getName()))));
-		} else if (tla instanceof PGoTLASimpleArithmetic) {
-			Vector<Statement> leftRes = tlaTokenToStatement(((PGoTLASimpleArithmetic) tla).getLeft());
-			Vector<Statement> rightRes = tlaTokenToStatement(((PGoTLASimpleArithmetic) tla).getRight());
-
-			// arithmetic operations should just be a single SimpleExpression
-			assert (leftRes.size() == 1);
-			assert (rightRes.size() == 1);
-			assert (leftRes.get(0) instanceof Expression);
-			assert (rightRes.get(0) instanceof Expression);
-
-			if (((PGoTLASimpleArithmetic) tla).getToken().equals("^")) {
-				// TODO (issue #22) we need to check which number type we are using and cast to float64 if needed
-				go.getImports().addImport("math");
-				Vector<Expression> params = new Vector<>();
-				params.add((Expression) leftRes.get(0));
-				params.add((Expression) rightRes.get(0));
-				FunctionCall fc = new FunctionCall("math.Pow", params);
-				stmts.add(fc);
-			} else {
-				Vector<Expression> toks = new Vector<Expression>();
-				toks.add((Expression) leftRes.get(0));
-
-				toks.add(new Token(" " + ((PGoTLASimpleArithmetic) tla).getToken() + " "));
-				toks.add((Expression) rightRes.get(0));
-
-				SimpleExpression arith = new SimpleExpression(toks);
-
-				stmts.add(arith);
-			}
-		} else if (tla instanceof PGoTLABoolOp) {
-			// TODO (issue #22) we need to see whether we are operating on sets
-			Vector<Statement> leftRes = tlaTokenToStatement(((PGoTLABoolOp) tla).getLeft());
-			Vector<Statement> rightRes = tlaTokenToStatement(((PGoTLABoolOp) tla).getRight());
-
-			// comparators operations should just be a single SimpleExpression
-			assert (leftRes.size() == 1);
-			assert (rightRes.size() == 1);
-			assert (leftRes.get(0) instanceof Expression);
-			assert (rightRes.get(0) instanceof Expression);
-			
-			String tok = ((PGoTLABoolOp) tla).getToken();
-			switch (tok) {
-			case "#":
-			case "/=":
-				tok = "!=";
-				break;
-			case "/\\":
-			case "\\land":
-				tok = "&&";
-				break;
-			case "\\/":
-			case "\\lor":
-				tok = "||";
-				break;
-			case "=<":
-			case "\\leq":
-				tok = "<=";
-				break;
-			case "\\geq":
-				tok = ">=";
-				break;
-			case "=":
-				tok = "==";
-				break;
-			}
-
-			Vector<Expression> toks = new Vector<Expression>();
-			toks.add((Expression) leftRes.get(0));
-			toks.add(new Token(" " + tok + " "));
-			toks.add((Expression) rightRes.get(0));
-
-			SimpleExpression comp = new SimpleExpression(toks);
-
-			stmts.add(comp);
-		} else if (tla instanceof PGoTLASequence) {
-			Vector<Statement> startRes = tlaTokenToStatement(((PGoTLASequence) tla).getStart());
-			Vector<Statement> endRes = tlaTokenToStatement(((PGoTLASequence) tla).getEnd());
-
-			// comparators operations should just be a single Expression
-			assert (startRes.size() == 1);
-			assert (endRes.size() == 1);
-			assert (startRes.get(0) instanceof Expression);
-			assert (endRes.get(0) instanceof Expression);
-
-			Vector<Expression> args = new Vector<Expression>();
-			args.add((Expression) startRes.get(0));
-			args.add((Expression) endRes.get(0));
-
-			go.getImports().addImport("pgoutil");
-			FunctionCall fc = new FunctionCall("pgoutil.Sequence", args);
-			stmts.add(fc);
-		} else if (tla instanceof PGoTLASet) {
-			Vector<Statement> contents = tlaTokenToStatement(((PGoTLASet) tla).getContents());
-
-			Vector<Expression> args = new Vector<>();
-			for (Statement s : contents) {
-				assert (s instanceof Expression);
-				args.add((Expression) s);
-			}
-
-			go.getImports().addImport("mapset");
-			FunctionCall fc = new FunctionCall("mapset.NewSet", args);
-			stmts.addElement(fc);
-		} else if (tla instanceof PGoTLASetOp) {
-			Vector<Statement> leftRes = tlaTokenToStatement(((PGoTLASetOp) tla).getLeft());
-			Vector<Statement> rightRes = tlaTokenToStatement(((PGoTLASetOp) tla).getRight());
-
-			// lhs and rhs should each be a single Expression
-			assert (leftRes.size() == 1);
-			assert (rightRes.size() == 1);
-			assert (leftRes.get(0) instanceof Expression);
-			assert (rightRes.get(0) instanceof Expression);
-
-			Vector<Expression> lhs = new Vector<>();
-			lhs.add((Expression) leftRes.get(0));
-			Expression rightSet = (Expression) rightRes.get(0);
-
-			Vector<Expression> exp = new Vector<>();
-			go.getImports().addImport("mapset");
-			String funcName = ((PGoTLASetOp) tla).getGoFunc();
-			if (funcName.equals("NotIn")) {
-				exp.add(new Token("!"));
-				funcName = "Contains";
-			}
-			// rightSet is the object because lhs can be an element (e.g. in Contains)
-			FunctionCall fc = new FunctionCall(funcName, lhs, rightSet);
-			exp.add(fc);
-			stmts.add(new SimpleExpression(exp));
-		} else if (tla instanceof PGoTLAUnary) {
-			Vector<Statement> rightRes = tlaTokenToStatement(((PGoTLAUnary) tla).getArg());
-
-			// the argument should be a single Expression
-			assert (rightRes.size() == 1);
-			assert (rightRes.get(0) instanceof Expression);
-			
-			switch (((PGoTLAUnary) tla).getToken()) {
-			case "~":
-			case "\\lnot":
-			case "\\neg":
-				Vector<Expression> exp = new Vector<>();
-				exp.add(new Token("!"));
-				exp.add((Expression) rightRes.get(0));
-				stmts.add(new SimpleExpression(exp));
-				break;
-			case "UNION":
-				// TODO (issue #18) implement
-				break;
-			case "SUBSET":
-				FunctionCall fc = new FunctionCall("PowerSet", new Vector<>(), (Expression) rightRes.get(0));
-				stmts.add(fc);
-				break;
-			}
-		} else if (tla instanceof PGoTLAGroup) {
-			Vector<Statement> inside = tlaTokenToStatement(((PGoTLAGroup) tla).getInner());
-
-			assert (inside.size() == 1);
-			assert (inside.get(0) instanceof Expression);
-
-			stmts.add(new Group((Expression) inside.get(0)));
-		}
-		return stmts;
-	}
-
-
-	/**
 	 * Add the position based argument command line parsing code to main
 	 * 
 	 * @param argN
 	 * @param positionalArgs
 	 * @param pv
 	 */
-	private void addPositionalArgToMain(int argN, Vector<Statement> positionalArgs, PGoVariable pv) {
+	private void addPositionalArgToMain(int argN, Vector<Statement> positionalArgs,
+			PGoVariable pv) {
 		if (pv.getType().equals(new PGoPrimitiveType.PGoString())) {
 			// var = flag.Args()[..]
 			Vector<Expression> args = new Vector<Expression>();
@@ -831,32 +661,31 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 		args.add(new Token("&" + pv.getName()));
 		args.add(new Token(pv.getArgInfo().getName()));
 
-		if (pv.getType().toGo().equals(new PGoPrimitiveType.PGoInt())) {
+		if (pv.getType().toGo().equals(new PGoPrimitiveType.PGoInt().toGo())) {
 			// TODO we support default value and help message. Add this
 			// to annotations
 			args.add(new Token("0"));
 			args.add(new Token("\"\""));
 			main.add(new FunctionCall("flagIntVar", args));
-		} else if (pv.getType().toGo().equals(new PGoPrimitiveType.PGoBool())) {
+		} else if (pv.getType().toGo().equals(new PGoPrimitiveType.PGoBool().toGo())) {
 			args.add(new Token("false"));
 			args.add(new Token("\"\""));
 			main.add(new FunctionCall("flagBoolVar", args));
-		} else if (pv.getType().toGo().equals(new PGoPrimitiveType.PGoString())) {
+		} else if (pv.getType().toGo().equals(new PGoPrimitiveType.PGoString().toGo())) {
 			args.add(new Token(""));
 			args.add(new Token("\"\""));
 			main.add(new FunctionCall("flagStringVar", args));
-		} else if (pv.getType().toGo().equals(new PGoPrimitiveType.PGoNatural())) {
+		} else if (pv.getType().toGo().equals(new PGoPrimitiveType.PGoNatural().toGo())) {
 			args.add(new Token("0"));
 			args.add(new Token("\"\""));
 			main.add(new FunctionCall("flagUint64Var", args));
-		} else if (pv.getType().toGo().equals(new PGoPrimitiveType.PGoDecimal())) {
+		} else if (pv.getType().toGo().equals(new PGoPrimitiveType.PGoDecimal().toGo())) {
 			args.add(new Token("0.0"));
 			args.add(new Token("\"\""));
 			main.add(new FunctionCall("flagFloat64Var", args));
 		} else {
-			throw new PGoTransException(
-					"Unsupported go argument type \"" + pv.getType().toGo() + "\" for variable \"" + pv.getName() + "\"",
-					pv.getLine());
+			throw new PGoTransException("Unsupported go argument type \"" + pv.getType().toGo()
+					+ "\" for variable \"" + pv.getName() + "\"", pv.getLine());
 		}
 	}
 

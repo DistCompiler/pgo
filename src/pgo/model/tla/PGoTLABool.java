@@ -1,5 +1,12 @@
 package pgo.model.tla;
 
+import java.util.HashSet;
+import java.util.Set;
+import java.util.Vector;
+
+import pgo.model.golang.Statement;
+import pgo.model.golang.Token;
+
 public class PGoTLABool extends PGoTLA {
 
 	private boolean val;
@@ -18,7 +25,17 @@ public class PGoTLABool extends PGoTLA {
 	public boolean getVal() {
 		return val;
 	}
+
+	protected Vector<Statement> toStatements() {
+		Vector<Statement> ret = new Vector<>();
+		ret.add(new Token(String.valueOf(this.getVal())));
+		return ret;
+	}
 	
+	protected Set<String> getImports() {
+		return new HashSet<>();
+	}
+
 	public String toString() {
 		return "PGoTLABool (" + this.getLine() + "): " + val;
 	}

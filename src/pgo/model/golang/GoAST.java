@@ -31,6 +31,15 @@ public abstract class GoAST {
 			ret.add("\t" + s);
 		}
 	}
+	
+	// Convenience method for testing
+	public boolean equals(Object other) {
+		if (!(other instanceof GoAST)) {
+			return false;
+		}
+		GoAST g = (GoAST) other;
+		return this.toGo().equals(g.toGo());
+	}
 
 	public String toString() {
 		String ret = "";
