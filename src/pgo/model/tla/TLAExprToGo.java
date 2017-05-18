@@ -4,6 +4,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.Vector;
 
+import pgo.model.golang.Expression;
 import pgo.model.golang.SimpleExpression;
 import pgo.model.golang.Statement;
 
@@ -27,8 +28,12 @@ public class TLAExprToGo {
 	}
 
 	public SimpleExpression toSimpleExpression() {
-		// TODO Auto-generated method stub
-		return null;
+		Vector<Expression> exprs = new Vector<>();
+		for (Statement s : stmts) {
+			assert (s instanceof Expression);
+			exprs.add((Expression) s);
+		}
+		return new SimpleExpression(exprs);
 	}
 
 	public Vector<Statement> getStatements() {

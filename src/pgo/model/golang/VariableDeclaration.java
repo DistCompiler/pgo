@@ -71,6 +71,13 @@ public class VariableDeclaration extends GoAST {
 	public void setInitCode(Vector<Statement> s) {
 		this.initCode = s;
 	}
+	
+	/**
+	 * Return whether the variable declaration is complex (multiline).
+	 */
+	public boolean isComplex() {
+		return this.initCode.size() > 0;
+	}
 
 	@Override
 	public Vector<String> toGo() {
