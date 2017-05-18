@@ -30,6 +30,13 @@ Option 2: Execute `ant pgo` assuming the project is in the `pgo/` directory
 Run with eclipse. Arguments `-h` for help.
 Alternatively, run `./pgo.sh` to execute the program.
 
+## For Developers
+If you use Eclipse, you should import the code style found in the `pgo-code-style.epf` file by clicking `File -> Import...` and selecting the file.
+Furthermore, use the Unix text file line delimiter (especially important if you are using Windows) by going to Eclipse's preferences/options, and under General and Workspace set "New text file line delimiter" to be "Unix".
+By default Eclipse does not enable assertions. Our projects assume that you have assertions enabled at all times.
+To globally enable assertions as a default for all projects, go to Window -> Preferences -> Java / Installed JREs.
+Select the JRE and click "Edit...". In the "Default VM arguments" field, add "-ea"
+
 ## Usage Documentation
 ### PlusCal annotations
 Users can specify annotations in the pluscal file to aid PGo in compiling PlusCal to Go.
