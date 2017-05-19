@@ -1,6 +1,9 @@
 package pgoutil
 
-import "mapset"
+import (
+	"mapset"
+	"reflect"
+)
 
 func EltUnion(S mapset.Set) mapset.Set {
 	ret := mapset.NewSet()
@@ -11,26 +14,34 @@ func EltUnion(S mapset.Set) mapset.Set {
 }
 
 // Return the elements x in S such that P(x)
-func SetConstructor(S mapset.Set, P func(interface{}) bool) mapset.Set {
+func SetConstructor(S mapset.Set, P interface{}) mapset.Set {
 	ret := mapset.NewSet()
+	vf := reflect.ValueOf(P)
 	for x := range S.Iter() {
-		if P(x) {
+		cond := vf.Call([]reflect.Value{reflect.ValueOf(x)})
+		if cond[0].Bool() {
 			ret.Add(x)
 		}
 	}
 	return ret
 }
 
-// Return the image of the function f over the sets in sets
-func SetImage(f func(...interface{}) interface{}, sets ...mapset.Set) mapset.Set {
+// Return the image of the function f over the cartesian product of sets
+func SetImage(f interface{}, sets ...mapset.Set) mapset.Set {
 	ret := mapset.NewSet()
 	// Recursively iterate over all possible tuples in the cartesian product of all sets, and add image to set
 	// prev stores the current tuple
 	var prev []interface{}
+	vf := reflect.ValueOf(f)
 	var iterateOverAllTuples func(int)
 	iterateOverAllTuples = func(depth int) {
 		if depth == len(sets) {
-			ret.Add(f(prev...))
+			params := make([]reflect.Value, len(sets))
+			for i, val := range prev {
+				params[i] = reflect.ValueOf(val)
+			}
+			toAdd := vf.Call(params)
+			ret.Add(toAdd[0].Interface())
 			return
 		}
 		for x := range sets[depth].Iter() {
