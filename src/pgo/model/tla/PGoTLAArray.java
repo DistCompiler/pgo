@@ -1,7 +1,5 @@
 package pgo.model.tla;
 
-import java.util.HashSet;
-import java.util.Set;
 import java.util.Vector;
 
 import pcal.TLAToken;
@@ -28,18 +26,9 @@ public class PGoTLAArray extends PGoTLA {
 	public Vector<PGoTLA> getContents() {
 		return contents;
 	}
-
-	protected Vector<Statement> toStatements() {
-		// TODO (issue #5, 23)
-		return null;
-	}
 	
-	protected Set<String> getImports() {
-		Set<String> ret = new HashSet<>();
-		for (PGoTLA ptla : contents) {
-			ret.addAll(ptla.getImports());
-		}
-		return ret;
+	protected Vector<Statement> convert(TLAExprToGo trans) {
+		return trans.translate(this);
 	}
 
 	public String toString() {

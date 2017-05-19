@@ -1,10 +1,7 @@
 package pgo.model.tla;
 
-import java.util.Set;
 import java.util.Vector;
 
-import pgo.model.golang.Expression;
-import pgo.model.golang.Group;
 import pgo.model.golang.Statement;
 
 /**
@@ -27,24 +24,11 @@ public class PGoTLAGroup extends PGoTLA {
 	public PGoTLA getInner() {
 		return inner;
 	}
-
-	protected Vector<Statement> toStatements() {
-		Vector<Statement> ret = new Vector<>();
-
-		Vector<Statement> inside = this.getInner().toStatements();
-
-		assert (inside.size() == 1);
-		assert (inside.get(0) instanceof Expression);
-
-		ret.add(new Group((Expression) inside.get(0)));
-
-		return ret;
+	
+	protected Vector<Statement> convert(TLAExprToGo trans) {
+		return trans.translate(this);
 	}
 	
-	protected Set<String> getImports() {
-		return inner.getImports();
-	}
-
 	public String toString() {
 		return "PGoTLAGroup (" + this.getLine() + "): (" + inner.toString() + ")";
 	}

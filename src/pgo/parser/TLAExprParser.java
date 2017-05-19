@@ -344,7 +344,7 @@ public class TLAExprParser {
 		public static final int X_OP_X = (SIMPLE_ARITHMETIC | BOOL_OP | EXPONENT | STRING_APPEND | SET_OP)
 				& ~(NEGATE | ELEMENT_UNION | POWER_SET);
 		// right side argument operators
-		public static final int OP_X = NEGATE | ELEMENT_UNION | POWER_SET;
+		public static final int OP_X = NEGATE | ELEMENT_UNION | POWER_SET | CHOOSE | FOR_ALL | EXISTS;
 
 		private static final HashMap<String, Integer> tokenDict = new HashMap<String, Integer>() {
 			{

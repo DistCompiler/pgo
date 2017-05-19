@@ -1,11 +1,8 @@
 package pgo.model.tla;
 
-import java.util.HashSet;
-import java.util.Set;
 import java.util.Vector;
 
 import pgo.model.golang.Statement;
-import pgo.model.golang.Token;
 
 public class PGoTLABool extends PGoTLA {
 
@@ -26,16 +23,10 @@ public class PGoTLABool extends PGoTLA {
 		return val;
 	}
 
-	protected Vector<Statement> toStatements() {
-		Vector<Statement> ret = new Vector<>();
-		ret.add(new Token(String.valueOf(this.getVal())));
-		return ret;
+	protected Vector<Statement> convert(TLAExprToGo trans) {
+		return trans.translate(this);
 	}
 	
-	protected Set<String> getImports() {
-		return new HashSet<>();
-	}
-
 	public String toString() {
 		return "PGoTLABool (" + this.getLine() + "): " + val;
 	}
