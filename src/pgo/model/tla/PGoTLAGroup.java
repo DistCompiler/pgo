@@ -3,6 +3,8 @@ package pgo.model.tla;
 import java.util.Vector;
 
 import pgo.model.golang.Statement;
+import pgo.model.intermediate.PGoType;
+import pgo.trans.PGoTransException;
 
 /**
  * Represents a grouped clause of TLAExpr found in a parenthesis. This let's us preserve order
@@ -27,6 +29,10 @@ public class PGoTLAGroup extends PGoTLA {
 	
 	protected Vector<Statement> convert(TLAExprToGo trans) {
 		return trans.translate(this);
+	}
+	
+	protected PGoType inferType(TLAExprToType trans) throws PGoTransException {
+		return trans.type(this);
 	}
 	
 	public String toString() {

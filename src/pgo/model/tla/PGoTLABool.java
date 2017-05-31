@@ -3,6 +3,7 @@ package pgo.model.tla;
 import java.util.Vector;
 
 import pgo.model.golang.Statement;
+import pgo.model.intermediate.PGoType;
 
 public class PGoTLABool extends PGoTLA {
 
@@ -25,6 +26,10 @@ public class PGoTLABool extends PGoTLA {
 
 	protected Vector<Statement> convert(TLAExprToGo trans) {
 		return trans.translate(this);
+	}
+	
+	protected PGoType inferType(TLAExprToType trans) {
+		return trans.type(this);
 	}
 	
 	public String toString() {

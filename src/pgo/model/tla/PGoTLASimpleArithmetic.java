@@ -3,6 +3,8 @@ package pgo.model.tla;
 import java.util.Vector;
 
 import pgo.model.golang.Statement;
+import pgo.model.intermediate.PGoType;
+import pgo.trans.PGoTransException;
 
 /**
  * Represents a simple arithmetic operation written in TLA
@@ -42,6 +44,10 @@ public class PGoTLASimpleArithmetic extends PGoTLA {
 	
 	protected Vector<Statement> convert(TLAExprToGo trans) {
 		return trans.translate(this);
+	}
+	
+	protected PGoType inferType(TLAExprToType trans) throws PGoTransException {
+		return trans.type(this);
 	}
 	
 	public String toString() {

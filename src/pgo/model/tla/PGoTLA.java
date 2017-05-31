@@ -3,6 +3,8 @@ package pgo.model.tla;
 import java.util.Vector;
 
 import pgo.model.golang.Statement;
+import pgo.model.intermediate.PGoType;
+import pgo.trans.PGoTransException;
 
 /**
  * Base TLA Expression representation
@@ -26,6 +28,14 @@ public abstract class PGoTLA {
 	 * translator passed in.
 	 */
 	protected abstract Vector<Statement> convert(TLAExprToGo trans);
+
+	/**
+	 * Infer the type of the TLA expression using the translator passed in.
+	 * 
+	 * @throws PGoTransException
+	 *             if there is a type contradiction
+	 */
+	protected abstract PGoType inferType(TLAExprToType trans) throws PGoTransException;
 
 	public static abstract class Walker<T> {
 		// whether to terminate early

@@ -4,12 +4,13 @@ import java.util.Vector;
 
 import pcal.TLAToken;
 import pgo.model.golang.Statement;
+import pgo.model.intermediate.PGoType;
 import pgo.parser.TLAExprParser;
 import pgo.trans.PGoTransException;
 
 /**
- * Represents a set "{ ... }" in TLA. This should store what is in the set, and the set
- * notations for the set.
+ * Represents a set "{ ... }" in TLA. This should store what is in the set, and
+ * the set notations for the set.
  *
  */
 public class PGoTLASet extends PGoTLA {
@@ -24,11 +25,15 @@ public class PGoTLASet extends PGoTLA {
 	public Vector<PGoTLA> getContents() {
 		return contents;
 	}
-	
+
 	protected Vector<Statement> convert(TLAExprToGo trans) {
 		return trans.translate(this);
 	}
 	
+	protected PGoType inferType(TLAExprToType trans) throws PGoTransException {
+		return trans.type(this);
+	}
+
 	public String toString() {
 		String ret = "PGoTLASet (" + this.getLine() + "): {";
 		for (PGoTLA p : contents) {

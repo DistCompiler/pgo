@@ -70,4 +70,14 @@ public class PGoTLASuchThat extends PGoTLA {
 		return trans.translate(this);
 	}
 
+	/*
+	 * This returns the contained type in the context of a set. We don't need to
+	 * worry about exists or forall predicates because these always return
+	 * booleans, so this will never be called in the context of these
+	 * predicates.
+	 */
+	protected PGoType inferType(TLAExprToType trans) throws PGoTransException {
+		return trans.type(this);
+	}
+
 }

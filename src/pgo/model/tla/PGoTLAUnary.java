@@ -3,10 +3,12 @@ package pgo.model.tla;
 import java.util.Vector;
 
 import pgo.model.golang.Statement;
+import pgo.model.intermediate.PGoType;
+import pgo.trans.PGoTransException;
 
 /**
- * Represents a TLA unary operator: negation, element union, or powerset. TODO
- * predicate operations should probably also be handled by this class
+ * Represents a TLA unary operator (negation, element union, or powerset) or a
+ * predicate operation (CHOOSE, for all, exists)
  * 
  */
 public class PGoTLAUnary extends PGoTLA {
@@ -27,11 +29,15 @@ public class PGoTLAUnary extends PGoTLA {
 	public PGoTLA getArg() {
 		return arg;
 	}
-	
+
 	protected Vector<Statement> convert(TLAExprToGo trans) {
 		return trans.translate(this);
 	}
 	
+	protected PGoType inferType(TLAExprToType trans) throws PGoTransException {
+		return trans.type(this);
+	}
+
 	public String toString() {
 		return "PGoTLAUnary (" + this.getLine() + "): " + token + " " + arg.toString();
 	}
