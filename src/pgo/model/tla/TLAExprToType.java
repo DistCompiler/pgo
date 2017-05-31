@@ -4,14 +4,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Vector;
 
-import pgo.model.golang.Expression;
-import pgo.model.golang.FunctionCall;
-import pgo.model.golang.Group;
-import pgo.model.golang.ParameterDeclaration;
-import pgo.model.golang.Return;
-import pgo.model.golang.SimpleExpression;
-import pgo.model.golang.Statement;
-import pgo.model.golang.Token;
 import pgo.model.intermediate.PGoCollectionType;
 import pgo.model.intermediate.PGoType;
 import pgo.model.intermediate.PGoVariable;
@@ -19,7 +11,6 @@ import pgo.model.intermediate.PGoCollectionType.PGoChan;
 import pgo.model.intermediate.PGoCollectionType.PGoMap;
 import pgo.model.intermediate.PGoCollectionType.PGoSet;
 import pgo.model.intermediate.PGoCollectionType.PGoSlice;
-import pgo.model.intermediate.PGoPrimitiveType;
 import pgo.trans.PGoTransException;
 import pgo.trans.intermediate.PGoTempData;
 import pgo.trans.intermediate.PGoTransIntermediateData;
@@ -152,6 +143,28 @@ public class TLAExprToType {
 			throw new PGoTransException("The operator " + tla.getToken() + " cannot be used on the types "
 					+ lhs.toTypeName() + " and " + rhs.toTypeName() + " (line " + tla.getLine() + ")");
 		}
+		// and/or take booleans only, and greater/less take numbers only
+		switch (tla.getToken()) {
+		case "/\\":
+		case "\\land":
+		case "\\/":
+		case "\\lor":
+			if (!lhs.equals(PGoType.inferFromGoTypeName("bool")) || !rhs.equals(PGoType.inferFromGoTypeName("bool"))) {
+				throw new PGoTransException("The operator " + tla.getToken() + " cannot be used on the types "
+						+ lhs.toTypeName() + " and " + rhs.toTypeName() + " (line " + tla.getLine() + ")");
+			}
+			break;
+		case "=<":
+		case "\\leq":
+		case "<=":
+		case "\\geq":
+		case ">=":
+			if (!numberType.containsKey(lhs.toTypeName()) || !numberType.containsKey(rhs.toTypeName())) {
+				throw new PGoTransException("The operator " + tla.getToken() + " cannot be used on the types "
+						+ lhs.toTypeName() + " and " + rhs.toTypeName() + " (line " + tla.getLine() + ")");
+			}
+			break;
+		}
 		return PGoType.inferFromGoTypeName("bool");
 	}
 
@@ -180,7 +193,7 @@ public class TLAExprToType {
 		if (!numberType.containsKey(begin.toTypeName())
 				|| !numberType.containsKey(end.toTypeName())
 				|| numberType.get(begin.toTypeName()) > numberType.get("int")
-				|| numberType.get(begin.toTypeName()) > numberType.get("int")) {
+				|| numberType.get(end.toTypeName()) > numberType.get("int")) {
 			throw new PGoTransException("The sequence operator \"..\" must take integers (line " + tla.getLine() + ")");
 		}
 		return PGoType.inferFromGoTypeName("[]int");
@@ -269,7 +282,7 @@ public class TLAExprToType {
 		PGoType argType = new TLAExprToType(tla.getArg(), data).getType();
 		switch (tla.getToken()) {
 		case "UNION":
-			if (!(argType instanceof PGoSet)) {
+			if (!(argType instanceof PGoSet) || !(((PGoSet) argType).getElementType() instanceof PGoSet)) {
 				throw new PGoTransException("Can't UNION a " + argType.toTypeName() + " (line " + tla.getLine() + ")");
 			}
 			return PGoType.inferFromGoTypeName(((PGoSet) argType).getElementType().toTypeName());
