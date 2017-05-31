@@ -15,15 +15,19 @@ import pgo.model.golang.Token;
 import pgo.model.intermediate.PGoCollectionType;
 import pgo.model.intermediate.PGoType;
 import pgo.model.intermediate.PGoVariable;
+import pgo.model.intermediate.PGoCollectionType.PGoChan;
+import pgo.model.intermediate.PGoCollectionType.PGoMap;
 import pgo.model.intermediate.PGoCollectionType.PGoSet;
+import pgo.model.intermediate.PGoCollectionType.PGoSlice;
 import pgo.model.intermediate.PGoPrimitiveType;
 import pgo.trans.PGoTransException;
 import pgo.trans.intermediate.PGoTempData;
 import pgo.trans.intermediate.PGoTransIntermediateData;
 
 /**
- * Infer the Go type that a TLA expression evaluates to with the help of the
- * intermediate data.
+ * Infer the Go type that a TLA expression evaluates to, and determine whether
+ * the expression is legal in terms of typing, with the help of the intermediate
+ * data.
  *
  */
 public class TLAExprToType {
@@ -43,7 +47,7 @@ public class TLAExprToType {
 	private PGoType infer(PGoTLA tla) throws PGoTransException {
 		return tla.inferType(this);
 	}
-	
+
 	/**
 	 * Map the number type name to its specificity (precedence in promotion).
 	 * Floating-point numbers have the highest precedence (most general type).
@@ -63,12 +67,18 @@ public class TLAExprToType {
 	 * - All number types are compatible.
 	 * - Sets and other containers are compatible if they are the same type
 	 * of container and their contained types are compatible.
-	 * - Interface is compatible with all primitives, but not containers
-	 * since this would create complications.
+	 * - Interface is said to be not compatible with any type.
+	 * - We don't care about pointers, anonymous functions, or void types since
+	 * these don't appear in TLA expressions.
 	 * 
-	 * @return null if the types are not compatible
+	 * @return null if the types are not compatible, or if at least one type is
+	 *         undetermined
 	 */
 	private PGoType compatibleType(PGoType first, PGoType second) {
+		if (first.equals(PGoType.UNDETERMINED) || second.equals(PGoType.UNDETERMINED)) {
+			return null;
+		}
+
 		if (first.equals(second)) {
 			return first;
 		}
@@ -76,14 +86,6 @@ public class TLAExprToType {
 		if (numberType.containsKey(first.toTypeName()) && numberType.containsKey(second.toTypeName())) {
 			int firstPrec = numberType.get(first.toTypeName()), secondPrec = numberType.get(second.toTypeName());
 			return (firstPrec > secondPrec ? first : second);
-		}
-
-		if (first instanceof PGoPrimitiveType && second instanceof PGoPrimitiveType) {
-			if (first.equals(PGoType.inferFromGoTypeName("interface"))) {
-				return second;
-			}
-		} else if (second.equals(PGoType.inferFromGoTypeName("interface"))) {
-			return first;
 		}
 
 		// containers
@@ -96,10 +98,31 @@ public class TLAExprToType {
 					return first;
 				}
 
-				return compatibleType(((PGoSet) first).getElementType(), ((PGoSet) second).getElementType());
+				PGoType contained = compatibleType(((PGoSet) first).getElementType(),
+						((PGoSet) second).getElementType());
+				if (contained == null) {
+					return null;
+				}
+				return PGoType.inferFromGoTypeName("set[" + contained.toTypeName() + "]");
 			} else if (first.getClass().equals(second.getClass())) {
-				return compatibleType(((PGoCollectionType) first).getElementType(),
+				PGoType contained = compatibleType(((PGoCollectionType) first).getElementType(),
 						((PGoCollectionType) second).getElementType());
+				if (contained == null) {
+					return null;
+				}
+
+				if (first instanceof PGoSlice) {
+					return PGoType.inferFromGoTypeName("[]" + contained.toTypeName());
+				} else if (first instanceof PGoChan) {
+					return PGoType.inferFromGoTypeName("chan[" + contained.toTypeName() + "]");
+				} else if (first instanceof PGoMap) {
+					PGoType key1 = ((PGoMap) first).getKeyType(), key2 = ((PGoMap) second).getKeyType();
+					PGoType keyType = compatibleType(key1, key2);
+					if (keyType == null) {
+						return null;
+					}
+					return PGoType.inferFromGoTypeName("map[" + keyType.toTypeName() + "]" + contained.toTypeName());
+				}
 			}
 		}
 		return null;
@@ -120,7 +143,15 @@ public class TLAExprToType {
 		return PGoType.inferFromGoTypeName("bool");
 	}
 
-	protected PGoType type(PGoTLABoolOp tla) {
+	protected PGoType type(PGoTLABoolOp tla) throws PGoTransException {
+		// The types on either side should be comparable.
+		PGoType lhs = new TLAExprToType(tla.getLeft(), data).getType();
+		PGoType rhs = new TLAExprToType(tla.getRight(), data).getType();
+		PGoType compar = compatibleType(lhs, rhs);
+		if (compar == null) {
+			throw new PGoTransException("The operator " + tla.getToken() + " cannot be used on the types "
+					+ lhs.toTypeName() + " and " + rhs.toTypeName() + " (line " + tla.getLine() + ")");
+		}
 		return PGoType.inferFromGoTypeName("bool");
 	}
 
@@ -142,7 +173,16 @@ public class TLAExprToType {
 		}
 	}
 
-	protected PGoType type(PGoTLASequence tla) {
+	protected PGoType type(PGoTLASequence tla) throws PGoTransException {
+		// the begin and end arguments should both be integers
+		PGoType begin = new TLAExprToType(tla.getStart(), data).getType();
+		PGoType end = new TLAExprToType(tla.getEnd(), data).getType();
+		if (!numberType.containsKey(begin.toTypeName())
+				|| !numberType.containsKey(end.toTypeName())
+				|| numberType.get(begin.toTypeName()) > numberType.get("int")
+				|| numberType.get(begin.toTypeName()) > numberType.get("int")) {
+			throw new PGoTransException("The sequence operator \"..\" must take integers (line " + tla.getLine() + ")");
+		}
 		return PGoType.inferFromGoTypeName("[]int");
 	}
 
@@ -176,7 +216,18 @@ public class TLAExprToType {
 		switch (tla.getToken()) {
 		case "\\in":
 		case "\\notin":
-		case "\\subseteq":
+			// the element type must be compatible w/ set type
+			PGoType eltType = new TLAExprToType(tla.getLeft(), data).getType();
+			PGoType setType = new TLAExprToType(tla.getRight(), data).getType();
+			if (!(setType instanceof PGoSet)) {
+				throw new PGoTransException("The right-hand argument of the " + tla.getToken()
+						+ " operator must be a set (line " + tla.getLine() + ")");
+			}
+			if (compatibleType(eltType, ((PGoSet) setType).getElementType()) == null) {
+				throw new PGoTransException(
+						"The type " + eltType.toTypeName() + " is not compatible with the element type of the set "
+								+ setType.toTypeName() + " (line " + tla.getLine() + ")");
+			}
 			return PGoType.inferFromGoTypeName("bool");
 		default:
 			PGoType lhs = new TLAExprToType(tla.getLeft(), data).getType();
@@ -185,6 +236,9 @@ public class TLAExprToType {
 			if (result == null || !(result instanceof PGoSet)) {
 				throw new PGoTransException("Can't use operator " + tla.getToken() + " on types " + lhs.toTypeName()
 						+ " and " + rhs.toTypeName() + " (line " + tla.getLine() + ")");
+			}
+			if (tla.getToken().equals("\\subseteq")) {
+				return PGoType.inferFromGoTypeName("bool");
 			}
 			return result;
 		}
@@ -212,26 +266,32 @@ public class TLAExprToType {
 	}
 
 	protected PGoType type(PGoTLAUnary tla) throws PGoTransException {
+		PGoType argType = new TLAExprToType(tla.getArg(), data).getType();
 		switch (tla.getToken()) {
 		case "UNION":
-			PGoType setType = new TLAExprToType(tla.getArg(), data).getType();
-			if (!(setType instanceof PGoSet)) {
-				throw new PGoTransException("Can't UNION a " + setType.toTypeName() + " (line " + tla.getLine() + ")");
+			if (!(argType instanceof PGoSet)) {
+				throw new PGoTransException("Can't UNION a " + argType.toTypeName() + " (line " + tla.getLine() + ")");
 			}
-			return PGoType.inferFromGoTypeName(((PGoSet) setType).getElementType().toTypeName());
+			return PGoType.inferFromGoTypeName(((PGoSet) argType).getElementType().toTypeName());
 		case "SUBSET":
-			PGoType eltType = new TLAExprToType(tla.getArg(), data).getType();
-			return PGoType.inferFromGoTypeName("set[" + eltType.toTypeName() + "]");
+			if (!(argType instanceof PGoSet)) {
+				throw new PGoTransException("Can't take powerset of non-set type " + argType.toTypeName() + " (line "
+						+ tla.getLine() + ")");
+			}
+			return PGoType.inferFromGoTypeName("set[" + argType.toTypeName() + "]");
 		case "~":
 		case "\\lnot":
 		case "\\neg":
+			if (!argType.equals(PGoType.inferFromGoTypeName("bool"))) {
+				throw new PGoTransException("Can't negate a " + argType.toTypeName() + " (line " + tla.getLine() + ")");
+			}
 		case "\\A":
 		case "\\E":
 			return PGoType.inferFromGoTypeName("bool");
 		case "CHOOSE":
 			// CHOOSE x \in S : P(x)
 			assert (tla.getArg() instanceof PGoTLASuchThat);
-			return new TLAExprToType(tla.getArg(), data).getType();
+			return argType;
 		default:
 			assert false;
 			return null;
@@ -242,28 +302,35 @@ public class TLAExprToType {
 		return data.findPGoVariable(tla.getName()).getType();
 	}
 
-	// This method is never called in the context of the forall or exists
-	// operations, since these always return bools.
+	// The returned type is never used in the context of the forall or exists
+	// operations, since these always return bools. When the method is called in
+	// this context, it is used only to check type consistency.
 	protected PGoType type(PGoTLASuchThat tla) throws PGoTransException {
+
+		PGoTempData temp = new PGoTempData(data);
+		// Add typing data for variables local to this scope (the x \in S)
+		for (PGoTLASetOp set : tla.getSets()) {
+			// TODO handle stuff like << x, y >> \in S \X T
+			assert (set.getLeft() instanceof PGoTLAVariable);
+			PGoTLAVariable var = (PGoTLAVariable) set.getLeft();
+			PGoType containerType = new TLAExprToType(set.getRight(), data).getType();
+			assert (containerType instanceof PGoSet);
+			PGoType eltType = ((PGoSet) containerType).getElementType();
+			temp.getLocals().put(var.getName(), PGoVariable.convert(var.getName(), eltType));
+		}
+		// Check if the expression agrees w/ types of variables
+		PGoType exprType = new TLAExprToType(tla.getExpr(), temp).getType();
+
 		if (tla.isSetImage()) {
 			// the type is the return type of the function
-			PGoTempData temp = new PGoTempData(data);
-			// Add typing data for variables local to this scope (the x \in S)
-			for (PGoTLASetOp set : tla.getSets()) {
-				// TODO handle stuff like << x, y >> \in S \X T
-				assert (set.getLeft() instanceof PGoTLAVariable);
-				PGoTLAVariable var = (PGoTLAVariable) set.getLeft();
-				PGoType containerType = new TLAExprToType(set.getRight(), data).getType();
-				assert (containerType instanceof PGoSet);
-				PGoType eltType = ((PGoSet) containerType).getElementType();
-				temp.getLocals().put(var.getName(), PGoVariable.convert(var.getName(), eltType));
-			}
-
-			return new TLAExprToType(tla.getExpr(), temp).getType();
+			return exprType;
 		} else {
-			// the type is the contained type of the set; only 1 set
+			// if there is 1 set, the type is the contained type of the set;
+			// otherwise we don't care since this must be forall/exists
 			Vector<PGoTLASetOp> sets = tla.getSets();
-			assert (sets.size() == 1);
+			if (sets.size() > 1) {
+				return PGoType.UNDETERMINED;
+			}
 			// x \in S
 			PGoTLA set = sets.get(0).getRight();
 			PGoType setType = new TLAExprToType(set, data).getType();

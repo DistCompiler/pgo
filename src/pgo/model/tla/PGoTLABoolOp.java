@@ -4,6 +4,7 @@ import java.util.Vector;
 
 import pgo.model.golang.Statement;
 import pgo.model.intermediate.PGoType;
+import pgo.trans.PGoTransException;
 
 /**
  * Represents a comparator or a binary boolean operation in TLA.
@@ -40,7 +41,7 @@ public class PGoTLABoolOp extends PGoTLA {
 		return trans.translate(this);
 	}
 	
-	protected PGoType inferType(TLAExprToType trans) {
+	protected PGoType inferType(TLAExprToType trans) throws PGoTransException {
 		return trans.type(this);
 	}
 	

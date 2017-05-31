@@ -4,6 +4,7 @@ import java.util.Vector;
 
 import pgo.model.golang.Statement;
 import pgo.model.intermediate.PGoType;
+import pgo.trans.PGoTransException;
 
 /**
  * Represents a sequence "a .. b" in TLA
@@ -33,7 +34,7 @@ public class PGoTLASequence extends PGoTLA {
 		return trans.translate(this);
 	}
 	
-	protected PGoType inferType(TLAExprToType trans) {
+	protected PGoType inferType(TLAExprToType trans) throws PGoTransException {
 		return trans.type(this);
 	}
 	

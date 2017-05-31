@@ -42,6 +42,7 @@ public class TLAToTypeTest {
 	@Test
 	public void testBoolOp() throws PGoTransException {
 		PGoTLABoolOp tla = new PGoTLABoolOp("/\\", new PGoTLABool("TRUE", 0), new PGoTLAVariable("x", 0), 0);
+		data.globals.put("x", PGoVariable.convert("x", PGoType.inferFromGoTypeName("bool")));
 		PGoType result = new TLAExprToType(tla, data).getType();
 		assertEquals(PGoType.inferFromGoTypeName("bool"), result);
 	}
@@ -75,6 +76,7 @@ public class TLAToTypeTest {
 	@Test
 	public void testSequence() throws PGoTransException {
 		PGoTLASequence tla = new PGoTLASequence(new PGoTLANumber("0", 0), new PGoTLAVariable("x", 0), 0);
+		data.globals.put("x", PGoVariable.convert("x", PGoType.inferFromGoTypeName("natural")));
 		PGoType result = new TLAExprToType(tla, data).getType();
 		assertEquals(PGoType.inferFromGoTypeName("[]int"), result);
 	}
