@@ -213,11 +213,9 @@ public class TLAExprParserTest {
 		assertTrue(rr.getRight() instanceof PGoTLASet);
 		PGoTLASet rrr = (PGoTLASet) rr.getRight();
 		assertEquals(1, rrr.getContents().size());
-		assertTrue(rrr.getContents().get(0) instanceof PGoTLASetOp);
-		PGoTLASetOp setContents = (PGoTLASetOp) rrr.getContents().get(0);
-		assertEquals(":", setContents.getToken());
-		assertTrue(setContents.getRight() instanceof PGoTLABoolOp);
-		assertTrue(setContents.getLeft() instanceof PGoTLASetOp);
+		assertTrue(rrr.getContents().get(0) instanceof PGoTLASuchThat);
+		PGoTLASuchThat setContents = (PGoTLASuchThat) rrr.getContents().get(0);
+		assertTrue(setContents.getExpr() instanceof PGoTLABoolOp);
+		assertTrue(setContents.getSets().size() == 1);
 	}
-	// TODO more tests
 }

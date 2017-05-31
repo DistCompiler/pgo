@@ -89,9 +89,28 @@ public class TLAExprParser {
 				} else {
 					if (Dictionary.tokenDict.containsKey(tok.string)) {
 						int mask = Dictionary.tokenDict.get(tok.string);
-						if ((mask & Dictionary.X_OP_X) > 0) {
-							while (!ops.isEmpty()
-									&& opPrecedence.get(Dictionary.tokenDict.get(ops.peek().string)) >= opPrecedence.get(mask)) {
+						if ((mask & Dictionary.SUCH_THAT) > 0) {
+							// in this case we take all exprs from the lhs and
+							// all unparsed TLATokens from the rhs
+							// We take the entire expression since any
+							// surrounding context is already stripped
+							while (!ops.isEmpty() && opPrecedence
+									.get(Dictionary.tokenDict.get(ops.peek().string)) >= opPrecedence.get(mask)) {
+								TLAToken prevT = ops.pop();
+								PGoTLA rexps = exps.pop();
+								PGoTLA lexps = exps.pop();
+								parseXOpXToken(prevT, lexps, rexps);
+							}
+							Vector<PGoTLA> left = (Vector<PGoTLA>) result.clone();
+							left.addAll(exps);
+							exps.clear();
+							Vector<TLAToken> right = new Vector<>(tokens.subList(cur, tokens.size()));
+							handleSimpleExp(new PGoTLASuchThat(left, right, line));
+							// we are done parsing; don't parse rhs twice
+							cur = tokens.size();
+						} else if ((mask & Dictionary.X_OP_X) > 0) {
+							while (!ops.isEmpty() && opPrecedence
+									.get(Dictionary.tokenDict.get(ops.peek().string)) >= opPrecedence.get(mask)) {
 								TLAToken prevT = ops.pop();
 								PGoTLA rexps = exps.pop();
 								PGoTLA lexps = exps.pop();
@@ -148,7 +167,8 @@ public class TLAExprParser {
 	}
 
 	/**
-	 * Handle single token expression, adding it to the stack or combining with the previous operator as appropriate
+	 * Handle single token expression, adding it to the stack or combining with
+	 * the previous operator as appropriate
 	 */
 	private void handleSimpleExp(PGoTLA tok) {
 		if (ops.isEmpty()) {
@@ -171,7 +191,8 @@ public class TLAExprParser {
 	}
 
 	/**
-	 * The following methods parses a single token, and advances forward as appropriate
+	 * The following methods parses a single token, and advances forward as
+	 * appropriate
 	 */
 	private void parseStringToken(TLAToken tlaToken) {
 		handleSimpleExp(new PGoTLAString(tlaToken.string, line));
@@ -250,8 +271,10 @@ public class TLAExprParser {
 	}
 
 	/**
-	 * Advance until the next closing endToken. Every occurrence of beginToken will require an extra closing token, which is the
-	 * begin token in param. We expect the current token to be after the begin that we are trying to enclose.
+	 * Advance until the next closing endToken. Every occurrence of beginToken
+	 * will require an extra closing token, which is the begin token in param.
+	 * We expect the current token to be after the begin that we are trying to
+	 * enclose.
 	 * 
 	 * Returns all the token in between
 	 * 
@@ -283,9 +306,10 @@ public class TLAExprParser {
 
 	public static class Dictionary {
 		/*
-		 * bitmasks of various tla tokens. We use bitmask as a token could be multiple possibilities until we check the
-		 * corresponding variable types. Not listed in a particular order; operator precedence is handled by the opPrecedence
-		 * dict.
+		 * bitmasks of various tla tokens. We use bitmask as a token could be
+		 * multiple possibilities until we check the corresponding variable
+		 * types. Not listed in a particular order; operator precedence is
+		 * handled by the opPrecedence dict.
 		 */
 
 		// arithmetic operations
@@ -320,8 +344,8 @@ public class TLAExprParser {
 		public static final int IS_IN = SET_DIFFERENCE << 1;
 		public static final int NOT_IN = IS_IN << 1;
 		public static final int SUBSET = NOT_IN << 1;
-		public static final int SET_OP = SUCH_THAT | SEQUENCE | UNION | ELEMENT_UNION | POWER_SET | INTERSECTION
-				| SET_DIFFERENCE | IS_IN | NOT_IN | SUBSET;
+		public static final int SET_OP = SEQUENCE | UNION | ELEMENT_UNION | POWER_SET | INTERSECTION | SET_DIFFERENCE
+				| IS_IN | NOT_IN | SUBSET;
 
 		// predicate operations
 		public static final int CHOOSE = SUBSET << 1;
@@ -397,7 +421,8 @@ public class TLAExprParser {
 				put("{", CURLY_OPEN);
 				put("[", SQR_PAREN_O);
 				put("(", OPEN_PAREN);
-				// TODO (issue #11) check http://lamport.azurewebsites.net/tla/p-manual.pdf
+				// TODO (issue #11) check
+				// http://lamport.azurewebsites.net/tla/p-manual.pdf
 				// and
 				// https://pdfs.semanticscholar.org/6ed6/404cc710511c2a77d190ff10f83e46324d91.pdf
 				// for more tla expressions and support necessary ones.
@@ -409,8 +434,8 @@ public class TLAExprParser {
 
 	/*
 	 * Maps a Dictionary bitmask to the corresponding operator precedence.
-	 * Higher precedence => higher number.
-	 * Operator precedence table found at http://lamport.azurewebsites.net/tla/summary-standalone.pdf
+	 * Higher precedence => higher number. Operator precedence table found at
+	 * http://lamport.azurewebsites.net/tla/summary-standalone.pdf
 	 */
 	private static final HashMap<Integer, Integer> opPrecedence = new HashMap<Integer, Integer>() {
 		{
