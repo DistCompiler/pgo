@@ -25,22 +25,20 @@ public class PGoTLASuchThat extends PGoTLA {
 	private boolean isSetImage;
 
 	public PGoTLASuchThat(Vector<PGoTLA> left, Vector<TLAToken> right, int line) throws PGoTransException {
+		// If both sides are set ops, it doesn't matter which one we pick to be
+		// the "set" side so we arbitrarily choose the left one. The only legal
+		// set ops (for direct children of this node) are "\in" and "\notin"
 		super(line);
 		sets = new Vector<>();
-		// The left side has already been parsed by the TLAExprParser, but we
-		// need to parse rhs
 		Vector<PGoTLA> r = new TLAExprParser(right, line).getResult();
-		if (left.size() > 1 || left.get(0) instanceof PGoTLASetOp) {
-			isSetImage = false;
-			for (PGoTLA tla : left) {
-				assert (tla instanceof PGoTLASetOp);
-				assert ((PGoTLASetOp) tla).getToken().equals("\\in");
-				sets.add((PGoTLASetOp) tla);
-			}
-			assert (r.size() == 1);
-			expr = r.get(0);
+		// The side with the sets has >1 elt, or the "\in" set op
+		if (r.size() > 1 || r.get(0) instanceof PGoTLASetOp) {
+			isSetImage = ((PGoTLASetOp) r.get(0)).getToken().equals("\\in");
 		} else {
-			isSetImage = true;
+			isSetImage = false;
+		}
+
+		if (isSetImage) {
 			for (PGoTLA tla : r) {
 				assert (tla instanceof PGoTLASetOp);
 				assert ((PGoTLASetOp) tla).getToken().equals("\\in");
@@ -48,10 +46,15 @@ public class PGoTLASuchThat extends PGoTLA {
 			}
 			assert (left.size() == 1);
 			expr = left.get(0);
+		} else {
+			for (PGoTLA tla : left) {
+				assert (tla instanceof PGoTLASetOp);
+				assert ((PGoTLASetOp) tla).getToken().equals("\\in");
+				sets.add((PGoTLASetOp) tla);
+			}
+			assert (r.size() == 1);
+			expr = r.get(0);
 		}
-		// If both sides are set ops, it doesn't matter which one we pick to be
-		// the "set" side so we arbitrarily choose the left one. The only legal
-		// set op (for direct children of this ast node) is "\in".
 	}
 
 	public Vector<PGoTLASetOp> getSets() {
@@ -61,7 +64,7 @@ public class PGoTLASuchThat extends PGoTLA {
 	public PGoTLA getExpr() {
 		return expr;
 	}
-	
+
 	public boolean isSetImage() {
 		return isSetImage;
 	}
@@ -71,10 +74,9 @@ public class PGoTLASuchThat extends PGoTLA {
 	}
 
 	/*
-	 * This returns the contained type in the context of a set. We don't need to
-	 * worry about exists or forall predicates because these always return
-	 * booleans, so this will never be called in the context of these
-	 * predicates.
+	 * This returns the contained type in the context of a set (i.e. the type of
+	 * the outer set in set constructor, or the return type of the function in
+	 * set image).
 	 */
 	protected PGoType inferType(TLAExprToType trans) throws PGoTransException {
 		return trans.type(this);
