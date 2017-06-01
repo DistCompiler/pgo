@@ -29,14 +29,14 @@ public class TLAExprToGo {
 	// the intermediate data; includes information about the type of variables
 	private PGoTransIntermediateData data;
 
-	public TLAExprToGo(Vector<PGoTLA> tla, Imports imports, PGoTransIntermediateData data) {
+	public TLAExprToGo(Vector<PGoTLA> tla, Imports imports, PGoTransIntermediateData data) throws PGoTransException {
 		stmts = new Vector<>();
 		this.imports = imports;
 		this.data = data;
 		convert(tla);
 	}
 
-	public TLAExprToGo(PGoTLA tla, Imports imports, PGoTransIntermediateData data) {
+	public TLAExprToGo(PGoTLA tla, Imports imports, PGoTransIntermediateData data) throws PGoTransException {
 		this.imports = imports;
 		this.data = data;
 		stmts = convert(tla);
@@ -61,14 +61,19 @@ public class TLAExprToGo {
 	 * need to know what local variable names are available
 	 * 
 	 * @param ptla
+	 * @throws PGoTransException
+	 *             if there is a typing inconsistency
 	 */
-	private void convert(Vector<PGoTLA> ptla) {
+	private void convert(Vector<PGoTLA> ptla) throws PGoTransException {
 		for (PGoTLA tla : ptla) {
+			// check type consistency
+			new TLAExprToType(tla, data);
 			stmts.addAll(tla.convert(this));
 		}
 	}
 
-	private Vector<Statement> convert(PGoTLA tla) {
+	private Vector<Statement> convert(PGoTLA tla) throws PGoTransException {
+		new TLAExprToType(tla, data);
 		return tla.convert(this);
 	}
 
@@ -90,18 +95,42 @@ public class TLAExprToGo {
 		return ret;
 	}
 
-	protected Vector<Statement> translate(PGoTLABoolOp tla) {
-		// TODO (issue #22) we need to see whether we are operating on sets
+	protected Vector<Statement> translate(PGoTLABoolOp tla) throws PGoTransException {
 		Vector<Statement> ret = new Vector<>();
 
 		Vector<Statement> leftRes = convert(tla.getLeft());
 		Vector<Statement> rightRes = convert(tla.getRight());
-
+		
 		// comparators operations should just be a single SimpleExpression
 		assert (leftRes.size() == 1);
 		assert (rightRes.size() == 1);
 		assert (leftRes.get(0) instanceof Expression);
 		assert (rightRes.get(0) instanceof Expression);
+		
+		// we already know the types are consistent
+		PGoType leftType = new TLAExprToType(tla.getLeft(), data).getType();
+		if (leftType instanceof PGoSet) {
+			imports.addImport("mapset");
+			Vector<Expression> leftExp = new Vector<>();
+			leftExp.add((Expression) leftRes.get(0));
+			
+			switch (tla.getToken()) {
+			case "#":
+			case "/=":
+				Vector<Expression> toks = new Vector<>();
+				toks.add(new Token("!"));
+				toks.add(new FunctionCall("Equal", leftExp, (Expression) rightRes.get(0)));
+				ret.add(new SimpleExpression(toks));
+				return ret;
+			case "=":
+			case "==":
+				ret.add(new FunctionCall("Equal", leftExp, (Expression) rightRes.get(0)));
+				return ret;
+			default:
+				assert false;
+				return null;
+			}
+		}
 
 		String tok = tla.getToken();
 		switch (tok) {
@@ -143,7 +172,7 @@ public class TLAExprToGo {
 		return new Vector<>();
 	}
 
-	protected Vector<Statement> translate(PGoTLAGroup tla) {
+	protected Vector<Statement> translate(PGoTLAGroup tla) throws PGoTransException {
 		Vector<Statement> ret = new Vector<>();
 
 		Vector<Statement> inside = convert(tla.getInner());
@@ -162,7 +191,7 @@ public class TLAExprToGo {
 		return ret;
 	}
 
-	protected Vector<Statement> translate(PGoTLASequence tla) {
+	protected Vector<Statement> translate(PGoTLASequence tla) throws PGoTransException {
 		Vector<Statement> ret = new Vector<>();
 
 		Vector<Statement> startRes = convert(tla.getStart());
@@ -185,7 +214,7 @@ public class TLAExprToGo {
 		return ret;
 	}
 
-	protected Vector<Statement> translate(PGoTLASet tla) {
+	protected Vector<Statement> translate(PGoTLASet tla) throws PGoTransException {
 		Vector<Statement> ret = new Vector<>();
 
 		Vector<Statement> contents = new Vector<>();
@@ -206,7 +235,7 @@ public class TLAExprToGo {
 		return ret;
 	}
 
-	protected Vector<Statement> translate(PGoTLASetOp tla) {
+	protected Vector<Statement> translate(PGoTLASetOp tla) throws PGoTransException {
 		Vector<Statement> ret = new Vector<>();
 
 		Vector<Statement> leftRes = convert(tla.getLeft());
@@ -268,7 +297,7 @@ public class TLAExprToGo {
 		return ret;
 	}
 
-	protected Vector<Statement> translate(PGoTLASimpleArithmetic tla) {
+	protected Vector<Statement> translate(PGoTLASimpleArithmetic tla) throws PGoTransException {
 		Vector<Statement> ret = new Vector<>();
 
 		Vector<Statement> leftRes = convert(tla.getLeft());
@@ -307,7 +336,7 @@ public class TLAExprToGo {
 		return ret;
 	}
 
-	protected Vector<Statement> translate(PGoTLAUnary tla) {
+	protected Vector<Statement> translate(PGoTLAUnary tla) throws PGoTransException {
 		Vector<Statement> ret = new Vector<>();
 
 		Vector<Statement> rightRes = convert(tla.getArg());
@@ -346,27 +375,33 @@ public class TLAExprToGo {
 			// TODO
 			assert (tla.getArg() instanceof PGoTLASuchThat);
 			PGoTLASuchThat st = (PGoTLASuchThat) tla.getArg();
-/*			// the set S
-			Vector<Statement> lr = convert(((PGoTLASetOp) st.getLeft()).getRight());
-			// the variable x
-			Vector<Statement> ll = convert(((PGoTLASetOp) st.getLeft()).getLeft());
-			Vector<Statement> pred = convert(st.getRight());
-
-			assert (ll.size() == 1);
-			assert (ll.get(0) instanceof Token);
-			Token varName = (Token) ll.get(0);
-
-			// create the anonymous function for the predicate
-			Vector<ParameterDeclaration> params = new Vector<>();
-			params.add(new ParameterDeclaration(varName.getTokens(), PGoType.inferFromGoTypeName("interface{}")));
-			Vector<Statement> body = new Vector<>();
-			// since there are no complex assignments, the predicate should be a
-			// single Expression
-			assert (pred.size() == 1);
-			assert (pred.get(0) instanceof Expression);
-			body.add(new Return((Expression) pred.get(0)));
-
-			this.imports.addImport("pgoutil");*/
+			/*
+			 * // the set S
+			 * Vector<Statement> lr = convert(((PGoTLASetOp)
+			 * st.getLeft()).getRight());
+			 * // the variable x
+			 * Vector<Statement> ll = convert(((PGoTLASetOp)
+			 * st.getLeft()).getLeft());
+			 * Vector<Statement> pred = convert(st.getRight());
+			 * 
+			 * assert (ll.size() == 1);
+			 * assert (ll.get(0) instanceof Token);
+			 * Token varName = (Token) ll.get(0);
+			 * 
+			 * // create the anonymous function for the predicate
+			 * Vector<ParameterDeclaration> params = new Vector<>();
+			 * params.add(new ParameterDeclaration(varName.getTokens(),
+			 * PGoType.inferFromGoTypeName("interface{}")));
+			 * Vector<Statement> body = new Vector<>();
+			 * // since there are no complex assignments, the predicate should
+			 * be a
+			 * // single Expression
+			 * assert (pred.size() == 1);
+			 * assert (pred.get(0) instanceof Expression);
+			 * body.add(new Return((Expression) pred.get(0)));
+			 * 
+			 * this.imports.addImport("pgoutil");
+			 */
 		}
 		return ret;
 	}

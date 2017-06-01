@@ -236,7 +236,8 @@ public class TLAExprToType {
 				throw new PGoTransException("The right-hand argument of the " + tla.getToken()
 						+ " operator must be a set (line " + tla.getLine() + ")");
 			}
-			if (compatibleType(eltType, ((PGoSet) setType).getElementType()) == null) {
+			if (!setType.equals(PGoCollectionType.EMPTY_SET)
+					&& compatibleType(eltType, ((PGoSet) setType).getElementType()) == null) {
 				throw new PGoTransException(
 						"The type " + eltType.toTypeName() + " is not compatible with the element type of the set "
 								+ setType.toTypeName() + " (line " + tla.getLine() + ")");

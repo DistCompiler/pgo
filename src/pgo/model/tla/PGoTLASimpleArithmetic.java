@@ -42,7 +42,7 @@ public class PGoTLASimpleArithmetic extends PGoTLA {
 		return right;
 	}
 	
-	protected Vector<Statement> convert(TLAExprToGo trans) {
+	protected Vector<Statement> convert(TLAExprToGo trans) throws PGoTransException {
 		return trans.translate(this);
 	}
 	

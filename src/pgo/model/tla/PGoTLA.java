@@ -26,8 +26,11 @@ public abstract class PGoTLA {
 	/**
 	 * Convert the TLA expression into its GoAST representation using the
 	 * translator passed in.
+	 * 
+	 * @throws PGoTransException
+	 *             if there is a type contradiction
 	 */
-	protected abstract Vector<Statement> convert(TLAExprToGo trans);
+	protected abstract Vector<Statement> convert(TLAExprToGo trans) throws PGoTransException;
 
 	/**
 	 * Infer the type of the TLA expression using the translator passed in.

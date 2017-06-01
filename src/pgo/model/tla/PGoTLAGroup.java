@@ -27,7 +27,7 @@ public class PGoTLAGroup extends PGoTLA {
 		return inner;
 	}
 	
-	protected Vector<Statement> convert(TLAExprToGo trans) {
+	protected Vector<Statement> convert(TLAExprToGo trans) throws PGoTransException {
 		return trans.translate(this);
 	}
 	
