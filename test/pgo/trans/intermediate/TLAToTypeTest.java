@@ -20,11 +20,11 @@ import pgo.trans.intermediate.*;
  */
 public class TLAToTypeTest {
 	
-	private PGoTransIntermediateData data;
+	private PGoTempData data;
 	
 	@Before
 	public void setup() {
-		data = new PGoTransIntermediateData();
+		data = new PGoTempData(new PGoTransIntermediateData());
 	}
 	
 	@Test

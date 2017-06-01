@@ -27,12 +27,12 @@ import pgo.trans.intermediate.PGoTransIntermediateData;
  */
 public class TLAToStatementTest {
 	private Imports imports;
-	private PGoTransIntermediateData data;
+	private PGoTempData data;
 	
 	@Before
 	public void init() {
 		imports = new Imports();
-		data = new PGoTransIntermediateData();
+		data = new PGoTempData(new PGoTransIntermediateData());
 	}
 	
 	@Test

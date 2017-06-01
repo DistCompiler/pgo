@@ -20,7 +20,7 @@ import pgo.parser.PGoAnnotationParser;
  * intermediate stage
  *
  */
-public class PGoTransIntermediateData {
+class PGoTransIntermediateData {
 
 	// Whether the PlusCal program has multiple processes, or is just a single
 	// threaded function
@@ -70,7 +70,7 @@ public class PGoTransIntermediateData {
 	// cases of special functions defined in pluscal for predicates defined
 	// outside the pluscal algorithm, and renaming them to without the PGo
 	// prefix
-	public PGoFunction findPGoFunction(String name) {
+	PGoFunction findPGoFunction(String name) {
 		PGoFunction fun = funcs.get(name);
 		if (fun == null) {
 			fun = funcs.get("PGo" + name);
@@ -87,7 +87,7 @@ public class PGoTransIntermediateData {
 	}
 
 	// Find the PGoVariable of the given name from the program.
-	public PGoVariable findPGoVariable(String name) {
+	PGoVariable findPGoVariable(String name) {
 		PGoVariable ret = null;
 		if (name.contains(".")) {
 			String[] parts = name.split("\\.");

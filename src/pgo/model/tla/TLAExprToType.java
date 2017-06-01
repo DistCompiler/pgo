@@ -14,7 +14,6 @@ import pgo.model.intermediate.PGoCollectionType.PGoSlice;
 import pgo.model.intermediate.PGoPrimitiveType.PGoNumber;
 import pgo.trans.PGoTransException;
 import pgo.trans.intermediate.PGoTempData;
-import pgo.trans.intermediate.PGoTransIntermediateData;
 
 /**
  * Infer the Go type that a TLA expression evaluates to, and determine whether
@@ -25,9 +24,9 @@ import pgo.trans.intermediate.PGoTransIntermediateData;
 public class TLAExprToType {
 	private PGoType type;
 	// Contains typing information for variables
-	private PGoTransIntermediateData data;
+	private PGoTempData data;
 
-	public TLAExprToType(PGoTLA tla, PGoTransIntermediateData data) throws PGoTransException {
+	public TLAExprToType(PGoTLA tla, PGoTempData data) throws PGoTransException {
 		this.data = data;
 		type = infer(tla);
 	}

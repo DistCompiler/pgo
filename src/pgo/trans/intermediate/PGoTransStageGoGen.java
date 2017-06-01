@@ -125,12 +125,12 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 	 * @throws PGoTransException 
 	 */
 	private Vector<Statement> TLAToGo(PGoTLA tla) throws PGoTransException {
-		TLAExprToGo trans = new TLAExprToGo(tla, go.getImports(), intermediateData);
+		TLAExprToGo trans = new TLAExprToGo(tla, go.getImports(), new PGoTempData(intermediateData));
 		return trans.getStatements();
 	}
 	
 	private Vector<Statement> TLAToGo(Vector<PGoTLA> tla) throws PGoTransException {
-		TLAExprToGo trans = new TLAExprToGo(tla, go.getImports(), intermediateData);
+		TLAExprToGo trans = new TLAExprToGo(tla, go.getImports(), new PGoTempData(intermediateData));
 		return trans.getStatements();
 	}
 	

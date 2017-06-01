@@ -3,18 +3,29 @@ package pgo.trans.intermediate;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import pgo.model.intermediate.PGoType;
 import pgo.model.intermediate.PGoVariable;
 
 /**
  * A class that holds the same data as the PGoTransIntermediateData, in addition
  * to variables that are local to some scope (e.g. in a with clause or set
- * declaration). Intended for use in the TLAExprToType class, when inferring
- * expressions like x*y : x \in S, y \in T.
+ * declaration). Intended for use in classes which need variable information
+ * such as the TLAExprToType class.
  *
  */
 public class PGoTempData extends PGoTransIntermediateData {
 	// The local variables
 	private LinkedHashMap<String, PGoVariable> locals;
+	// Contains some TLA constants like "Nat" (the set of naturals).
+	private static final LinkedHashMap<String, PGoVariable> constants = new LinkedHashMap<String, PGoVariable>() {
+		{
+			put("Nat", PGoVariable.convert("Nat", PGoType.inferFromGoTypeName("set[natural]")));
+			put("Int", PGoVariable.convert("Int", PGoType.inferFromGoTypeName("set[int]")));
+			put("Real", PGoVariable.convert("Real", PGoType.inferFromGoTypeName("set[float64]")));
+			put("Infinity", PGoVariable.convert("Infinity", PGoType.inferFromGoTypeName("float64")));
+			put("STRING", PGoVariable.convert("STRING", PGoType.inferFromGoTypeName("set[string]")));
+		}
+	};
 
 	public PGoTempData(PGoTransIntermediateData data) {
 		isMultiProcess = data.isMultiProcess;
@@ -31,15 +42,18 @@ public class PGoTempData extends PGoTransIntermediateData {
 		needsLock = data.needsLock;
 		locals = new LinkedHashMap<>();
 	}
-	
+
 	public Map<String, PGoVariable> getLocals() {
 		return locals;
 	}
-	
+
 	public PGoVariable findPGoVariable(String name) {
 		PGoVariable ret = super.findPGoVariable(name);
 		if (ret == null || locals.containsKey(name)) {
 			ret = locals.get(name);
+		}
+		if (ret == null || constants.containsKey(name)) {
+			ret = constants.get(name);
 		}
 		return ret;
 	}
