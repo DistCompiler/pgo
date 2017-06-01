@@ -8,13 +8,22 @@ package pgo.model.intermediate;
 public abstract class PGoPrimitiveType extends PGoType {
 
 	/**
+	 * Represents an arbitrary number type. In Go if we use a number e.g. in a
+	 * function call, it will automatically take on the correct type.
+	 * 
+	 */
+	public static abstract class PGoNumber extends PGoPrimitiveType {
+
+	}
+
+	/**
 	 * Represents an integer in pluscal, which converts to int in go
 	 *
 	 */
-	public static class PGoInt extends PGoPrimitiveType {
+	public static class PGoInt extends PGoNumber {
 
 		private static final String goType = "int";
-		
+
 		@Override
 		public String toTypeName() {
 			return goType;
@@ -26,7 +35,7 @@ public abstract class PGoPrimitiveType extends PGoType {
 	 * Represents a decimal number in pluscal, which converts to float64 in go
 	 * 
 	 */
-	public static class PGoDecimal extends PGoPrimitiveType {
+	public static class PGoDecimal extends PGoNumber {
 
 		private static final String goType = "float64";
 
@@ -41,7 +50,7 @@ public abstract class PGoPrimitiveType extends PGoType {
 	 * Represents a natural number in pluscal, which converts to uint64 in go
 	 * 
 	 */
-	public static class PGoNatural extends PGoPrimitiveType {
+	public static class PGoNatural extends PGoNumber {
 
 		private static final String goType = "uint64";
 

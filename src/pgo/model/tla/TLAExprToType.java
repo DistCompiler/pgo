@@ -11,6 +11,7 @@ import pgo.model.intermediate.PGoCollectionType.PGoChan;
 import pgo.model.intermediate.PGoCollectionType.PGoMap;
 import pgo.model.intermediate.PGoCollectionType.PGoSet;
 import pgo.model.intermediate.PGoCollectionType.PGoSlice;
+import pgo.model.intermediate.PGoPrimitiveType.PGoNumber;
 import pgo.trans.PGoTransException;
 import pgo.trans.intermediate.PGoTempData;
 import pgo.trans.intermediate.PGoTransIntermediateData;
@@ -74,7 +75,7 @@ public class TLAExprToType {
 			return first;
 		}
 
-		if (numberType.containsKey(first.toTypeName()) && numberType.containsKey(second.toTypeName())) {
+		if (first instanceof PGoNumber && second instanceof PGoNumber) {
 			int firstPrec = numberType.get(first.toTypeName()), secondPrec = numberType.get(second.toTypeName());
 			return (firstPrec > secondPrec ? first : second);
 		}
@@ -190,8 +191,7 @@ public class TLAExprToType {
 		// the begin and end arguments should both be integers
 		PGoType begin = new TLAExprToType(tla.getStart(), data).getType();
 		PGoType end = new TLAExprToType(tla.getEnd(), data).getType();
-		if (!numberType.containsKey(begin.toTypeName())
-				|| !numberType.containsKey(end.toTypeName())
+		if (!(begin instanceof PGoNumber) || !(end instanceof PGoNumber)
 				|| numberType.get(begin.toTypeName()) > numberType.get("int")
 				|| numberType.get(end.toTypeName()) > numberType.get("int")) {
 			throw new PGoTransException("The sequence operator \"..\" must take integers (line " + tla.getLine() + ")");
@@ -263,7 +263,7 @@ public class TLAExprToType {
 		PGoType right = new TLAExprToType(tla.getRight(), data).getType();
 
 		PGoType result = compatibleType(left, right);
-		if (result == null || !numberType.containsKey(result.toTypeName())) {
+		if (!(result instanceof PGoNumber)) {
 			throw new PGoTransException("Can't use arithmetic operator " + tla.getToken() + " on types "
 					+ left.toTypeName() + " and " + right.toTypeName() + " (line " + tla.getLine() + ")");
 		}
