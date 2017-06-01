@@ -65,7 +65,7 @@ public class TLAExprToType {
 	 * @return null if the types are not compatible, or if at least one type is
 	 *         undetermined
 	 */
-	private PGoType compatibleType(PGoType first, PGoType second) {
+	public static PGoType compatibleType(PGoType first, PGoType second) {
 		if (first.equals(PGoType.UNDETERMINED) || second.equals(PGoType.UNDETERMINED)) {
 			return null;
 		}

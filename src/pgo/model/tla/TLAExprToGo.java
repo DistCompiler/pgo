@@ -2,17 +2,12 @@ package pgo.model.tla;
 
 import java.util.Vector;
 
-import pgo.model.golang.Expression;
-import pgo.model.golang.FunctionCall;
-import pgo.model.golang.Group;
-import pgo.model.golang.Imports;
-import pgo.model.golang.ParameterDeclaration;
-import pgo.model.golang.Return;
-import pgo.model.golang.SimpleExpression;
-import pgo.model.golang.Statement;
-import pgo.model.golang.Token;
+import pgo.model.golang.*;
 import pgo.model.intermediate.PGoCollectionType;
 import pgo.model.intermediate.PGoCollectionType.PGoSet;
+import pgo.model.intermediate.PGoPrimitiveType.PGoDecimal;
+import pgo.model.intermediate.PGoPrimitiveType.PGoNatural;
+import pgo.model.intermediate.PGoPrimitiveType.PGoNumber;
 import pgo.model.intermediate.PGoType;
 import pgo.trans.PGoTransException;
 import pgo.trans.intermediate.PGoTempData;
@@ -100,20 +95,20 @@ public class TLAExprToGo {
 
 		Vector<Statement> leftRes = convert(tla.getLeft());
 		Vector<Statement> rightRes = convert(tla.getRight());
-		
+
 		// comparators operations should just be a single SimpleExpression
 		assert (leftRes.size() == 1);
 		assert (rightRes.size() == 1);
 		assert (leftRes.get(0) instanceof Expression);
 		assert (rightRes.get(0) instanceof Expression);
-		
+
 		// we already know the types are consistent
 		PGoType leftType = new TLAExprToType(tla.getLeft(), data).getType();
 		if (leftType instanceof PGoSet) {
 			imports.addImport("mapset");
 			Vector<Expression> leftExp = new Vector<>();
 			leftExp.add((Expression) leftRes.get(0));
-			
+
 			switch (tla.getToken()) {
 			case "#":
 			case "/=":
@@ -158,10 +153,25 @@ public class TLAExprToGo {
 			break;
 		}
 
+		Expression lhs = (Expression) leftRes.get(0), rhs = (Expression) rightRes.get(0);
+		// if we are comparing number types we may need to do type conversion
+		if (leftType instanceof PGoNumber) {
+			PGoType rightType = new TLAExprToType(tla.getRight(), data).getType();
+			PGoType convertedType = TLAExprToType.compatibleType(leftType, rightType);
+			assert (convertedType != null);
+			// cast if not plain number
+			if (!leftType.equals(convertedType) && !(tla.getLeft() instanceof PGoTLANumber)) {
+				lhs = new TypeConversion(convertedType, lhs);
+			} else if (!rightType.equals(convertedType) && !(tla.getRight() instanceof PGoTLANumber)) {
+				// only one of the left or right needs to be cast
+				rhs = new TypeConversion(convertedType, rhs);
+			}
+		}
+
 		Vector<Expression> toks = new Vector<Expression>();
-		toks.add((Expression) leftRes.get(0));
+		toks.add(lhs);
 		toks.add(new Token(" " + tok + " "));
-		toks.add((Expression) rightRes.get(0));
+		toks.add(rhs);
 
 		ret.add(new SimpleExpression(toks));
 		return ret;
@@ -203,9 +213,22 @@ public class TLAExprToGo {
 		assert (startRes.get(0) instanceof Expression);
 		assert (endRes.get(0) instanceof Expression);
 
-		Vector<Expression> args = new Vector<Expression>();
-		args.add((Expression) startRes.get(0));
-		args.add((Expression) endRes.get(0));
+		Vector<Expression> args = new Vector<>();
+		Expression start = (Expression) startRes.get(0), end = (Expression) endRes.get(0);
+
+		// we may need to convert natural to int
+		PGoType startType = new TLAExprToType(tla.getStart(), data).getType();
+		PGoType endType = new TLAExprToType(tla.getEnd(), data).getType();
+		// plain numbers are never naturals (int or float only), so we don't
+		// need to check if the exprs are plain numbers
+		if (startType instanceof PGoNatural) {
+			start = new TypeConversion("int", start);
+		}
+		if (endType instanceof PGoNatural) {
+			end = new TypeConversion("int", end);
+		}
+		args.add(start);
+		args.add(end);
 
 		FunctionCall fc = new FunctionCall("pgoutil.Sequence", args);
 		ret.add(fc);
@@ -254,11 +277,7 @@ public class TLAExprToGo {
 		Vector<Expression> exp = new Vector<>();
 		String funcName = null;
 		// Map the set operation to the mapset function. \\notin does not have a
-		// corresponding function and is handled separately. Such that is a
-		// completely different operation: if we are calling toStatements(), it
-		// is used for set constructor/set image declaration of a set. The case
-		// where such that is used in predicate operations is completely handled
-		// by PGoTLAUnary.
+		// corresponding function and is handled separately.
 		switch (tla.getToken()) {
 		case "\\cup":
 		case "\\union":
@@ -309,21 +328,36 @@ public class TLAExprToGo {
 		assert (leftRes.get(0) instanceof Expression);
 		assert (rightRes.get(0) instanceof Expression);
 
+		Expression lhs = (Expression) leftRes.get(0), rhs = (Expression) rightRes.get(0);
+		PGoType leftType = new TLAExprToType(tla.getLeft(), data).getType();
+		PGoType rightType = new TLAExprToType(tla.getRight(), data).getType();
 		if (tla.getToken().equals("^")) {
-			// TODO (issue #22) we need to check which number type we are using
-			// and cast to/from float64 if needed
 			this.imports.addImport("math");
 			Vector<Expression> params = new Vector<>();
-			params.add((Expression) leftRes.get(0));
-			params.add((Expression) rightRes.get(0));
+			// math.Pow takes float64s; convert if needed
+			if (!(tla.getLeft() instanceof PGoTLANumber || leftType instanceof PGoDecimal)) {
+				lhs = new TypeConversion("float64", lhs);
+			}
+			if (!(tla.getRight() instanceof PGoTLANumber || rightType instanceof PGoDecimal)) {
+				rhs = new TypeConversion("float64", rhs);
+			}
+			
+			params.add(lhs);
+			params.add(rhs);
 			FunctionCall fc = new FunctionCall("math.Pow", params);
 			ret.add(fc);
 		} else {
-			Vector<Expression> toks = new Vector<Expression>();
-			toks.add((Expression) leftRes.get(0));
-
+			PGoType convertedType = TLAExprToType.compatibleType(leftType, rightType);
+			assert (convertedType != null);
+			if (!(tla.getLeft() instanceof PGoTLANumber || leftType.equals(convertedType))) {
+				lhs = new TypeConversion(convertedType, lhs);
+			} else if (!(tla.getRight() instanceof PGoTLANumber || rightType.equals(convertedType))) {
+				rhs = new TypeConversion(convertedType, rhs);
+			}
+			Vector<Expression> toks = new Vector<>();
+			toks.add(lhs);
 			toks.add(new Token(" " + tla.getToken() + " "));
-			toks.add((Expression) rightRes.get(0));
+			toks.add(rhs);
 
 			ret.add(new SimpleExpression(toks));
 		}

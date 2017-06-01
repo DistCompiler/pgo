@@ -15,6 +15,7 @@ import pgo.model.golang.Imports;
 import pgo.model.golang.SimpleExpression;
 import pgo.model.golang.Statement;
 import pgo.model.golang.Token;
+import pgo.model.golang.TypeConversion;
 import pgo.model.intermediate.PGoType;
 import pgo.model.intermediate.PGoVariable;
 import pgo.model.tla.*;
@@ -74,16 +75,26 @@ public class TLAToStatementTest {
 		se.add(new Token("x"));
 		expected.add(new SimpleExpression(se));
 		assertEquals(expected, result);
+		
+		tla = new PGoTLASimpleArithmetic("*", new PGoTLANumber("2.5", 0), new PGoTLAVariable("x", 0), 0);
+		expected.clear();
+		se.clear();
+		se.add(new Token("2.5"));
+		se.add(new Token(" * "));
+		se.add(new TypeConversion("float64", new Token("x")));
+		expected.add(new SimpleExpression(se));
+		result = new TLAExprToGo(tla, imports, data).getStatements();
+		assertEquals(expected, result);
+		
 		tla = new PGoTLASimpleArithmetic("^", new PGoTLAVariable("y", 0), new PGoTLANumber("5", 0), 0);
 		data.globals.put("y", PGoVariable.convert("y", PGoType.inferFromGoTypeName("int")));
 		result = new TLAExprToGo(tla, imports, data).getStatements();
 		expected.clear();
 		Vector<Expression> params = new Vector<>();
-		params.add(new Token("y"));
+		params.add(new TypeConversion("float64", new Token("y")));
 		params.add(new Token("5"));
 		expected.add(new FunctionCall("math.Pow", params));
 		assertEquals(expected, result);
-		// TODO add test where cast is needed
 	}
 	
 	@Test
@@ -126,6 +137,14 @@ public class TLAToStatementTest {
 		args.add(new Token("x"));
 		expected.add(new FunctionCall("pgoutil.Sequence", args));
 		assertEquals(expected, new TLAExprToGo(tla, imports, data).getStatements());
+		
+		data.globals.clear();
+		data.globals.put("x", PGoVariable.convert("x", PGoType.inferFromGoTypeName("uint64")));
+		args.clear();
+		args.add(new Token("1"));
+		args.add(new TypeConversion("int", new Token("x")));
+		expected.set(0, new FunctionCall("pgoutil.Sequence", args));
+		assertEquals(expected, new TLAExprToGo(tla, imports, data).getStatements());
 	}
 	
 	@Test
@@ -149,7 +168,29 @@ public class TLAToStatementTest {
 		expr.add(new Token("z"));
 		expected.set(0, new SimpleExpression(expr));
 		assertEquals(expected, new TLAExprToGo(tla, imports, data).getStatements());
-		// TODO add equality test for sets
+
+		tla = new PGoTLABoolOp("#", new PGoTLASet(new Vector<>(), 0), new PGoTLAVariable("S", 0), 0);
+		data.globals.put("S", PGoVariable.convert("S", PGoType.inferFromGoTypeName("set[string]")));
+		expr.clear();
+		expr.add(new Token("!"));
+		Vector<Expression> args = new Vector<>();
+		args.add(new FunctionCall("mapset.NewSet", new Vector<>()));
+		expr.add(new FunctionCall("Equal", args, new Token("S")));
+		expected.set(0, new SimpleExpression(expr));
+		assertEquals(expected, new TLAExprToGo(tla, imports, data).getStatements());
+		
+		tla = new PGoTLABoolOp("=<", new PGoTLAVariable("x", 0), new PGoTLAVariable("y", 0), 0);
+		data.globals.clear();
+		data.globals.put("x", PGoVariable.convert("x", PGoType.inferFromGoTypeName("int")));
+		data.globals.put("y", PGoVariable.convert("y", PGoType.inferFromGoTypeName("float64")));
+		expr.clear();
+		args.clear();
+		args.add(new Token("x"));
+		expr.add(new FunctionCall("float64", args));
+		expr.add(new Token(" <= "));
+		expr.add(new Token("y"));
+		expected.set(0, new SimpleExpression(expr));
+		assertEquals(expected, new TLAExprToGo(tla, imports, data).getStatements());
 	}
 	
 	@Test
