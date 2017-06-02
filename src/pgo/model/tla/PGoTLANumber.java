@@ -2,7 +2,7 @@ package pgo.model.tla;
 
 import java.util.Vector;
 
-import pgo.model.golang.Statement;
+import pgo.model.golang.Expression;
 import pgo.model.intermediate.PGoType;
 
 /**
@@ -22,7 +22,7 @@ public class PGoTLANumber extends PGoTLA {
 		return val;
 	}
 	
-	protected Vector<Statement> convert(TLAExprToGo trans) {
+	protected Expression convert(TLAExprToGo trans) {
 		return trans.translate(this);
 	}
 	

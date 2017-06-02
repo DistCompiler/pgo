@@ -18,24 +18,27 @@ import pgo.trans.intermediate.PGoTempData;
  *
  */
 public class TLAExprToGo {
-
-	private Vector<Statement> stmts;
+	// the resulting GoAST expression
+	private Expression expr;
+	// the inferred type of the expression
+	private PGoType type;
 	// the Go program's imports
 	private Imports imports;
 	// the intermediate data; includes information about the type of variables
 	private PGoTempData data;
 
-	public TLAExprToGo(Vector<PGoTLA> tla, Imports imports, PGoTempData data) throws PGoTransException {
+/*	public TLAExprToGo(Vector<PGoTLA> tla, Imports imports, PGoTempData data) throws PGoTransException {
 		stmts = new Vector<>();
 		this.imports = imports;
 		this.data = data;
 		convert(tla);
-	}
+	}*/
 
 	public TLAExprToGo(PGoTLA tla, Imports imports, PGoTempData data) throws PGoTransException {
 		this.imports = imports;
 		this.data = data;
-		stmts = convert(tla);
+		type = new TLAExprToType(tla, data).getType();
+		expr = tla.convert(this);
 	}
 
 	public SimpleExpression toSimpleExpression() {
@@ -43,8 +46,8 @@ public class TLAExprToGo {
 		return null;
 	}
 
-	public Vector<Statement> getStatements() {
-		return stmts;
+	public Expression toExpression() {
+		return expr;
 	}
 
 	/**
@@ -60,18 +63,13 @@ public class TLAExprToGo {
 	 * @throws PGoTransException
 	 *             if there is a typing inconsistency
 	 */
-	private void convert(Vector<PGoTLA> ptla) throws PGoTransException {
+/*	private void convert(Vector<PGoTLA> ptla) throws PGoTransException {
 		for (PGoTLA tla : ptla) {
 			// check type consistency
 			new TLAExprToType(tla, data);
-			stmts.addAll(tla.convert(this));
+			expr.addAll(tla.convert(this));
 		}
-	}
-
-	private Vector<Statement> convert(PGoTLA tla) throws PGoTransException {
-		new TLAExprToType(tla, data);
-		return tla.convert(this);
-	}
+	}*/
 
 	/**
 	 * Convert the TLA expression to a Go AST, while also adding the correct
@@ -80,48 +78,36 @@ public class TLAExprToGo {
 	 * @param tla
 	 *            the TLA expression
 	 */
-	protected Vector<Statement> translate(PGoTLAArray tla) {
+	protected Expression translate(PGoTLAArray tla) {
 		// TODO (issue #5, 23)
-		return new Vector<>();
+		return new SimpleExpression(new Vector<>());
 	}
 
-	protected Vector<Statement> translate(PGoTLABool tla) {
-		Vector<Statement> ret = new Vector<>();
-		ret.add(new Token(String.valueOf(tla.getVal())));
-		return ret;
+	protected Expression translate(PGoTLABool tla) {
+		return new Token(String.valueOf(tla.getVal()));
 	}
 
-	protected Vector<Statement> translate(PGoTLABoolOp tla) throws PGoTransException {
-		Vector<Statement> ret = new Vector<>();
+	protected Expression translate(PGoTLABoolOp tla) throws PGoTransException {
+		Expression leftRes = tla.getLeft().convert(this);
+		Expression rightRes = tla.getRight().convert(this);
 
-		Vector<Statement> leftRes = convert(tla.getLeft());
-		Vector<Statement> rightRes = convert(tla.getRight());
-
-		// comparators operations should just be a single SimpleExpression
-		assert (leftRes.size() == 1);
-		assert (rightRes.size() == 1);
-		assert (leftRes.get(0) instanceof Expression);
-		assert (rightRes.get(0) instanceof Expression);
-
-		// we already know the types are consistent
+		// we have already checked types for consistency, so can check just lhs
 		PGoType leftType = new TLAExprToType(tla.getLeft(), data).getType();
 		if (leftType instanceof PGoSet) {
 			imports.addImport("mapset");
 			Vector<Expression> leftExp = new Vector<>();
-			leftExp.add((Expression) leftRes.get(0));
+			leftExp.add(leftRes);
 
 			switch (tla.getToken()) {
 			case "#":
 			case "/=":
 				Vector<Expression> toks = new Vector<>();
 				toks.add(new Token("!"));
-				toks.add(new FunctionCall("Equal", leftExp, (Expression) rightRes.get(0)));
-				ret.add(new SimpleExpression(toks));
-				return ret;
+				toks.add(new FunctionCall("Equal", leftExp, rightRes));
+				return new SimpleExpression(toks);
 			case "=":
 			case "==":
-				ret.add(new FunctionCall("Equal", leftExp, (Expression) rightRes.get(0)));
-				return ret;
+				return new FunctionCall("Equal", leftExp, rightRes);
 			default:
 				assert false;
 				return null;
@@ -154,7 +140,6 @@ public class TLAExprToGo {
 			break;
 		}
 
-		Expression lhs = (Expression) leftRes.get(0), rhs = (Expression) rightRes.get(0);
 		// if we are comparing number types we may need to do type conversion
 		if (leftType instanceof PGoNumber) {
 			PGoType rightType = new TLAExprToType(tla.getRight(), data).getType();
@@ -162,118 +147,73 @@ public class TLAExprToGo {
 			assert (convertedType != null);
 			// cast if not plain number
 			if (!leftType.equals(convertedType) && !(tla.getLeft() instanceof PGoTLANumber)) {
-				lhs = new TypeConversion(convertedType, lhs);
+				leftRes = new TypeConversion(convertedType, leftRes);
 			} else if (!rightType.equals(convertedType) && !(tla.getRight() instanceof PGoTLANumber)) {
 				// only one of the left or right needs to be cast
-				rhs = new TypeConversion(convertedType, rhs);
+				rightRes = new TypeConversion(convertedType, rightRes);
 			}
 		}
 
 		Vector<Expression> toks = new Vector<Expression>();
-		toks.add(lhs);
+		toks.add(leftRes);
 		toks.add(new Token(" " + tok + " "));
-		toks.add(rhs);
+		toks.add(rightRes);
 
-		ret.add(new SimpleExpression(toks));
-		return ret;
+		return new SimpleExpression(toks);
 	}
 
-	protected Vector<Statement> translate(PGoTLAFunction tla) {
+	protected Expression translate(PGoTLAFunction tla) {
 		// TODO (issue #23)
-		return new Vector<>();
+		return new SimpleExpression(new Vector<>());
 	}
 
-	protected Vector<Statement> translate(PGoTLAGroup tla) throws PGoTransException {
-		Vector<Statement> ret = new Vector<>();
-
-		Vector<Statement> inside = convert(tla.getInner());
-
-		assert (inside.size() == 1);
-		assert (inside.get(0) instanceof Expression);
-
-		ret.add(new Group((Expression) inside.get(0)));
-
-		return ret;
+	protected Expression translate(PGoTLAGroup tla) throws PGoTransException {
+		Expression inside = tla.getInner().convert(this);
+		return new Group(inside);
 	}
 
-	protected Vector<Statement> translate(PGoTLANumber tla) {
-		Vector<Statement> ret = new Vector<>();
-		ret.add(new Token(tla.getVal()));
-		return ret;
+	protected Expression translate(PGoTLANumber tla) {
+		return new Token(tla.getVal());
 	}
 
-	protected Vector<Statement> translate(PGoTLASequence tla) throws PGoTransException {
-		Vector<Statement> ret = new Vector<>();
-
-		Vector<Statement> startRes = convert(tla.getStart());
-		Vector<Statement> endRes = convert(tla.getEnd());
-
-		// comparators operations should just be a single Expression
-		assert (startRes.size() == 1);
-		assert (endRes.size() == 1);
-		assert (startRes.get(0) instanceof Expression);
-		assert (endRes.get(0) instanceof Expression);
+	protected Expression translate(PGoTLASequence tla) throws PGoTransException {
+		Expression startRes = tla.getStart().convert(this);
+		Expression endRes = tla.getEnd().convert(this);
 
 		Vector<Expression> args = new Vector<>();
-		Expression start = (Expression) startRes.get(0), end = (Expression) endRes.get(0);
-
 		// we may need to convert natural to int
 		PGoType startType = new TLAExprToType(tla.getStart(), data).getType();
 		PGoType endType = new TLAExprToType(tla.getEnd(), data).getType();
 		// plain numbers are never naturals (int or float only), so we don't
 		// need to check if the exprs are plain numbers
 		if (startType instanceof PGoNatural) {
-			start = new TypeConversion("int", start);
+			startRes = new TypeConversion("int", startRes);
 		}
 		if (endType instanceof PGoNatural) {
-			end = new TypeConversion("int", end);
+			endRes = new TypeConversion("int", endRes);
 		}
-		args.add(start);
-		args.add(end);
-
-		FunctionCall fc = new FunctionCall("pgoutil.Sequence", args);
-		ret.add(fc);
+		args.add(startRes);
+		args.add(endRes);
 
 		this.imports.addImport("pgoutil");
-		return ret;
+		return new FunctionCall("pgoutil.Sequence", args);
 	}
 
-	protected Vector<Statement> translate(PGoTLASet tla) throws PGoTransException {
-		Vector<Statement> ret = new Vector<>();
-
-		Vector<Statement> contents = new Vector<>();
-		for (PGoTLA ptla : tla.getContents()) {
-			contents.addAll(convert(ptla));
-		}
-
+	protected Expression translate(PGoTLASet tla) throws PGoTransException {
 		Vector<Expression> args = new Vector<>();
-		for (Statement s : contents) {
-			assert (s instanceof Expression);
-			args.add((Expression) s);
+		for (PGoTLA ptla : tla.getContents()) {
+			args.add(ptla.convert(this));
 		}
-
-		FunctionCall fc = new FunctionCall("mapset.NewSet", args);
-		ret.addElement(fc);
-
 		this.imports.addImport("mapset");
-		return ret;
+		return new FunctionCall("mapset.NewSet", args);
 	}
 
-	protected Vector<Statement> translate(PGoTLASetOp tla) throws PGoTransException {
-		Vector<Statement> ret = new Vector<>();
-
-		Vector<Statement> leftRes = convert(tla.getLeft());
-		Vector<Statement> rightRes = convert(tla.getRight());
-
-		// lhs and rhs should each be a single Expression
-		assert (leftRes.size() == 1);
-		assert (rightRes.size() == 1);
-		assert (leftRes.get(0) instanceof Expression);
-		assert (rightRes.get(0) instanceof Expression);
+	protected Expression translate(PGoTLASetOp tla) throws PGoTransException {
+		Expression leftRes = tla.getLeft().convert(this);
+		Expression rightRes = tla.getRight().convert(this);
 
 		Vector<Expression> lhs = new Vector<>();
-		lhs.add((Expression) leftRes.get(0));
-		Expression rightSet = (Expression) rightRes.get(0);
+		lhs.add(leftRes);
 
 		Vector<Expression> exp = new Vector<>();
 		String funcName = null;
@@ -308,110 +248,87 @@ public class TLAExprToGo {
 			exp.add(new Token("!"));
 			funcName = "Contains";
 		}
-		// rightSet is the object because lhs can be an element (e.g. in
+		// rightRes is the object because lhs can be an element (e.g. in
 		// Contains)
-		FunctionCall fc = new FunctionCall(funcName, lhs, rightSet);
-		exp.add(fc);
-		ret.add(new SimpleExpression(exp));
 		this.imports.addImport("mapset");
-		return ret;
+		exp.add(new FunctionCall(funcName, lhs, rightRes));
+		return new SimpleExpression(exp);
 	}
 
-	protected Vector<Statement> translate(PGoTLASimpleArithmetic tla) throws PGoTransException {
-		Vector<Statement> ret = new Vector<>();
-
-		Vector<Statement> leftRes = convert(tla.getLeft());
-		Vector<Statement> rightRes = convert(tla.getRight());
-
-		// arithmetic operations should just be a single SimpleExpression
-		assert (leftRes.size() == 1);
-		assert (rightRes.size() == 1);
-		assert (leftRes.get(0) instanceof Expression);
-		assert (rightRes.get(0) instanceof Expression);
-
-		Expression lhs = (Expression) leftRes.get(0), rhs = (Expression) rightRes.get(0);
+	protected Expression translate(PGoTLASimpleArithmetic tla) throws PGoTransException {
+		Expression leftRes = tla.getLeft().convert(this);
+		Expression rightRes = tla.getRight().convert(this);
 		PGoType leftType = new TLAExprToType(tla.getLeft(), data).getType();
 		PGoType rightType = new TLAExprToType(tla.getRight(), data).getType();
+		
 		if (tla.getToken().equals("^")) {
 			this.imports.addImport("math");
 			Vector<Expression> params = new Vector<>();
 			// math.Pow takes float64s; convert if needed
 			if (!(tla.getLeft() instanceof PGoTLANumber || leftType instanceof PGoDecimal)) {
-				lhs = new TypeConversion("float64", lhs);
+				leftRes = new TypeConversion("float64", leftRes);
 			}
 			if (!(tla.getRight() instanceof PGoTLANumber || rightType instanceof PGoDecimal)) {
-				rhs = new TypeConversion("float64", rhs);
+				rightRes = new TypeConversion("float64", rightRes);
 			}
-
-			params.add(lhs);
-			params.add(rhs);
-			FunctionCall fc = new FunctionCall("math.Pow", params);
-			ret.add(fc);
+			params.add(leftRes);
+			params.add(rightRes);
+			return new FunctionCall("math.Pow", params);
 		} else {
 			PGoType convertedType = TLAExprToType.compatibleType(leftType, rightType);
 			assert (convertedType != null);
 			if (!(tla.getLeft() instanceof PGoTLANumber || leftType.equals(convertedType))) {
-				lhs = new TypeConversion(convertedType, lhs);
+				leftRes = new TypeConversion(convertedType, leftRes);
 			} else if (!(tla.getRight() instanceof PGoTLANumber || rightType.equals(convertedType))) {
-				rhs = new TypeConversion(convertedType, rhs);
+				rightRes = new TypeConversion(convertedType, rightRes);
 			}
+			
 			Vector<Expression> toks = new Vector<>();
-			toks.add(lhs);
+			toks.add(leftRes);
 			toks.add(new Token(" " + tla.getToken() + " "));
-			toks.add(rhs);
-
-			ret.add(new SimpleExpression(toks));
+			toks.add(rightRes);
+			return new SimpleExpression(toks);
 		}
-		return ret;
 	}
 
-	protected Vector<Statement> translate(PGoTLAString tla) {
-		Vector<Statement> ret = new Vector<>();
-		ret.add(new Token(tla.getString()));
-		return ret;
+	protected Expression translate(PGoTLAString tla) {
+		return new Token(tla.getString());
 	}
 
-	protected Vector<Statement> translate(PGoTLAUnary tla) throws PGoTransException {
+	protected Expression translate(PGoTLAUnary tla) throws PGoTransException {
 		Vector<Statement> ret = new Vector<>();
 
 		switch (tla.getToken()) {
 		case "~":
 		case "\\lnot":
 		case "\\neg":
-			Vector<Statement> stmts = convert(tla.getArg());
-			assert (stmts.size() == 1);
-			assert (stmts.get(0) instanceof Expression);
+			Expression expr = tla.getArg().convert(this);
 			Vector<Expression> exp = new Vector<>();
 			exp.add(new Token("!"));
-			exp.add((Expression) stmts.get(0));
-			ret.add(new SimpleExpression(exp));
-			break;
+			exp.add(expr);
+			return new SimpleExpression(exp);
 		case "UNION":
-			stmts = convert(tla.getArg());
-			assert (stmts.size() == 1);
-			assert (stmts.get(0) instanceof Expression);
+			expr = tla.getArg().convert(this);
 			FunctionCall fc = new FunctionCall("pgoutil.EltUnion", new Vector<Expression>() {
 				{
-					add((Expression) stmts.get(0));
+					add(expr);
 				}
 			});
 			this.imports.addImport("pgoutil");
-			ret.add(fc);
-			break;
+			return fc;
 		case "SUBSET":
-			stmts = convert(tla.getArg());
-			FunctionCall fc1 = new FunctionCall("PowerSet", new Vector<>(), (Expression) stmts.get(0));
+			expr = tla.getArg().convert(this);
+			FunctionCall fc1 = new FunctionCall("PowerSet", new Vector<>(), expr);
 			this.imports.addImport("mapset");
-			ret.add(fc1);
-			break;
+			return fc1;
 		// these operations are of the form OP x \in S : P(x)
 		case "CHOOSE":
 			PGoTLASuchThat st = (PGoTLASuchThat) tla.getArg();
 			assert (st.getSets().size() == 1);
 			// the set S
-			Vector<Statement> setExpr = convert(st.getSets().get(0).getRight());
+			Expression setExpr = st.getSets().get(0).getRight().convert(this);
 			// the variable x
-			Vector<Statement> varExpr = convert(st.getSets().get(0).getLeft());
+			Expression varExpr = st.getSets().get(0).getLeft().convert(this);
 			// We need to add typing data to avoid TLAExprToType complaining
 			// about untyped variables
 			PGoTempData temp = new PGoTempData(data);
@@ -424,25 +341,12 @@ public class TLAExprToGo {
 				PGoType eltType = ((PGoSet) containerType).getElementType();
 				temp.getLocals().put(var.getName(), PGoVariable.convert(var.getName(), eltType));
 			}
-			Vector<Statement> pred = new TLAExprToGo(st.getExpr(), imports, temp).getStatements();
-
-			assert (setExpr.size() == 1);
-			assert (varExpr.size() == 1);
-			assert (pred.size() == 1);
-			assert (setExpr.get(0) instanceof Expression);
-			assert (varExpr.get(0) instanceof Expression);
-			assert (pred.get(0) instanceof Expression);
-
-			Expression varName = (Expression) varExpr.get(0);
+			Expression pred = new TLAExprToGo(st.getExpr(), imports, temp).toExpression();
 			// most expressions can't be used as the variable (only stuff like
 			// tuples) so this should be one line
-			assert (varName.toGo().size() == 1);
+			assert (varExpr.toGo().size() == 1);
 
 			// create the anonymous function for the predicate
-			// since there are no complex assignments, the predicate should
-			// be a single Expression
-			assert (pred.size() == 1);
-			assert (pred.get(0) instanceof Expression);
 			// go func: Choose(P interface{}, S mapset.Set) interface{}
 			// (P is predicate)
 			// P = func(varType) bool { return pred }
@@ -450,25 +354,23 @@ public class TLAExprToGo {
 					// TODO (issue 28) deal with tuples as variable declaration
 					new Vector<ParameterDeclaration>() {
 						{
-							add(new ParameterDeclaration(varName.toGo().get(0),
+							add(new ParameterDeclaration(varExpr.toGo().get(0),
 									new TLAExprToType(tla, data).getType()));
 						}
 					},
 					new Vector<>(),
 					new Vector<Statement>() {
 						{
-							add(new Return((Expression) pred.get(0)));
+							add(new Return(pred));
 						}
 					});
 
 			Vector<Expression> chooseFuncParams = new Vector<>();
 			chooseFuncParams.add(P);
-			chooseFuncParams.add((Expression) setExpr.get(0));
+			chooseFuncParams.add(setExpr);
 
 			this.imports.addImport("pgoutil");
-			FunctionCall choose = new FunctionCall("pgoutil.Choose", chooseFuncParams);
-			ret.add(choose);
-			break;
+			return new FunctionCall("pgoutil.Choose", chooseFuncParams);
 		case "\\E":
 		case "\\A":
 			st = (PGoTLASuchThat) tla.getArg();
@@ -483,19 +385,15 @@ public class TLAExprToGo {
 				PGoType eltType = ((PGoSet) containerType).getElementType();
 				temp.getLocals().put(var.getName(), PGoVariable.convert(var.getName(), eltType));
 			}
-			pred = new TLAExprToGo(st.getExpr(), imports, temp).getStatements();
+			pred = new TLAExprToGo(st.getExpr(), imports, temp).toExpression();
 
-			Vector<Statement> setExprs = new Vector<>(), varExprs = new Vector<>();
+			Vector<Expression> setExprs = new Vector<>(), varExprs = new Vector<>();
 			for (PGoTLASetOp setOp : st.getSets()) {
-				varExprs.add(convert(setOp.getLeft()).get(0));
-				setExprs.add(convert(setOp.getRight()).get(0));
+				varExprs.add(setOp.getLeft().convert(this));
+				setExprs.add(setOp.getRight().convert(this));
 			}
 			// create the anonymous function for the predicate
-			// since there are no complex assignments, the predicate should
-			// be a single Expression
-			assert (pred.size() == 1);
-			assert (pred.get(0) instanceof Expression);
-			// go func: Choose(P interface{}, S mapset.Set) interface{}
+			// go func: Exists|ForAll(P interface{}, S ...mapset.Set) interface{}
 			// (P is predicate)
 			// P = func(varType, varType...) bool { return pred }
 			P = new AnonymousFunction(PGoType.inferFromGoTypeName("bool"),
@@ -515,32 +413,29 @@ public class TLAExprToGo {
 					new Vector<>(),
 					new Vector<Statement>() {
 						{
-							add(new Return((Expression) pred.get(0)));
+							add(new Return(pred));
 						}
 					});
 
 			Vector<Expression> funcParams = new Vector<>();
 			funcParams.add(P);
-			for (Statement s : setExprs) {
-				funcParams.add((Expression) s);
+			for (Expression s : setExprs) {
+				funcParams.add(s);
 			}
 
 			this.imports.addImport("pgoutil");
-			FunctionCall call = new FunctionCall((tla.getToken().equals("\\E") ? "pgoutil.Exists" : "pgoutil.ForAll"),
+			return new FunctionCall((tla.getToken().equals("\\E") ? "pgoutil.Exists" : "pgoutil.ForAll"),
 					funcParams);
-			ret.add(call);
-			break;
 		}
-		return ret;
+		assert false;
+		return null;
 	}
 
-	protected Vector<Statement> translate(PGoTLAVariable tla) {
-		Vector<Statement> ret = new Vector<>();
-		ret.add(new Token(String.valueOf(tla.getName())));
-		return ret;
+	protected Expression translate(PGoTLAVariable tla) {
+		return new Token(String.valueOf(tla.getName()));
 	}
 
-	protected Vector<Statement> translate(PGoTLASuchThat tla) {
+	protected Expression translate(PGoTLASuchThat tla) {
 		// This compiles differently based on context, so we should deal with
 		// translating this when we have the appropriate context.
 		assert false;

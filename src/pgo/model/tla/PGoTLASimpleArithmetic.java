@@ -2,7 +2,7 @@ package pgo.model.tla;
 
 import java.util.Vector;
 
-import pgo.model.golang.Statement;
+import pgo.model.golang.Expression;
 import pgo.model.intermediate.PGoType;
 import pgo.trans.PGoTransException;
 
@@ -42,7 +42,7 @@ public class PGoTLASimpleArithmetic extends PGoTLA {
 		return right;
 	}
 	
-	protected Vector<Statement> convert(TLAExprToGo trans) throws PGoTransException {
+	protected Expression convert(TLAExprToGo trans) throws PGoTransException {
 		return trans.translate(this);
 	}
 	

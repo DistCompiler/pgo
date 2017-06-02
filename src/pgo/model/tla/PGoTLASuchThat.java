@@ -3,7 +3,7 @@ package pgo.model.tla;
 import java.util.Vector;
 
 import pcal.TLAToken;
-import pgo.model.golang.Statement;
+import pgo.model.golang.Expression;
 import pgo.model.intermediate.PGoType;
 import pgo.parser.TLAExprParser;
 import pgo.trans.PGoTransException;
@@ -69,7 +69,7 @@ public class PGoTLASuchThat extends PGoTLA {
 		return isSetImage;
 	}
 
-	protected Vector<Statement> convert(TLAExprToGo trans) {
+	protected Expression convert(TLAExprToGo trans) {
 		return trans.translate(this);
 	}
 
