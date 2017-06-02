@@ -73,12 +73,9 @@ public class TLAExprParser {
 			}
 			if (tok.type == TLAToken.BUILTIN) {
 				if (tok.type == TLAToken.BUILTIN && tok.string.equals(",")) {
-					if (!ops.isEmpty()) {
-						TLAToken prevT = ops.pop();
-						PGoTLA rexps = exps.pop();
-						PGoTLA lexps = exps.pop();
-						parseXOpXToken(prevT, lexps, rexps);
-					}
+					// in the case of expressions like \E x \in S, y \in T... we
+					// don't want the \E to get combined with just x \in S
+					combineExps(opPrecedence.get(Dictionary.EXISTS) + 1);
 					result.add(exps.pop());
 					continue;
 				}
@@ -93,29 +90,20 @@ public class TLAExprParser {
 							// in this case we take all exprs from the lhs and
 							// all unparsed TLATokens from the rhs
 							// We take the entire expression since any
-							// surrounding context is already stripped
-							while (!ops.isEmpty() && opPrecedence
-									.get(Dictionary.tokenDict.get(ops.peek().string)) >= opPrecedence.get(mask)) {
-								TLAToken prevT = ops.pop();
-								PGoTLA rexps = exps.pop();
-								PGoTLA lexps = exps.pop();
-								parseXOpXToken(prevT, lexps, rexps);
-							}
-							Vector<PGoTLA> left = (Vector<PGoTLA>) result.clone();
+							// surrounding context is already stripped (apart
+							// from maybe the predicate operation on the ops
+							// stack)
+							combineExps(opPrecedence.get(mask));
+							Vector<PGoTLA> left = new Vector<>(result);
+							result.clear();
 							left.addAll(exps);
 							exps.clear();
 							Vector<TLAToken> right = new Vector<>(tokens.subList(cur, tokens.size()));
-							handleSimpleExp(new PGoTLASuchThat(left, right, line));
+							exps.push(new PGoTLASuchThat(left, right, line));
 							// we are done parsing; don't parse rhs twice
 							cur = tokens.size();
 						} else if ((mask & Dictionary.X_OP_X) > 0) {
-							while (!ops.isEmpty() && opPrecedence
-									.get(Dictionary.tokenDict.get(ops.peek().string)) >= opPrecedence.get(mask)) {
-								TLAToken prevT = ops.pop();
-								PGoTLA rexps = exps.pop();
-								PGoTLA lexps = exps.pop();
-								parseXOpXToken(prevT, lexps, rexps);
-							}
+							combineExps(opPrecedence.get(mask));
 							ops.push(tok);
 						} else if ((mask & Dictionary.OP_X) > 0) {
 							ops.push(tok);
@@ -140,12 +128,7 @@ public class TLAExprParser {
 				throw new PGoTransException("Unknown token: \"" + tok.string + "\"", line);
 			}
 		}
-		while (!ops.isEmpty()) {
-			TLAToken prevT = ops.pop();
-			PGoTLA rexps = exps.pop();
-			PGoTLA lexps = exps.pop();
-			parseXOpXToken(prevT, lexps, rexps);
-		}
+		combineExps(0);
 		assert (exps.size() <= 1);
 		if (!exps.isEmpty()) {
 			result.add(exps.pop());
@@ -166,22 +149,6 @@ public class TLAExprParser {
 		return cur < tokens.size();
 	}
 
-	/**
-	 * Handle single token expression, adding it to the stack or combining with
-	 * the previous operator as appropriate
-	 */
-	private void handleSimpleExp(PGoTLA tok) {
-		if (ops.isEmpty()) {
-			exps.push(tok);
-		} else {
-			if ((Dictionary.tokenDict.get(ops.peek().string) & Dictionary.OP_X) > 0) {
-				parseOpXToken(ops.pop(), tok);
-			} else {
-				exps.push(tok);
-			}
-		}
-	}
-
 	// peaks at next token
 	private boolean lookAheadMatch(int tokenType, String token) {
 		if (cur + 1 < tokens.size()) {
@@ -191,28 +158,51 @@ public class TLAExprParser {
 	}
 
 	/**
+	 * Combine the expressions on the stack with the operators on the stack, as
+	 * long as their precedence is at least equal to the current operator.
+	 * 
+	 * @param precedence
+	 *            the precedence of the current operator, as specified by the
+	 *            opPrecedence dict. Use 0 to combine w/ all operations
+	 */
+	private void combineExps(int precedence) {
+		while (!ops.isEmpty() && opPrecedence.get(Dictionary.tokenDict.get(ops.peek().string)) >= precedence) {
+			TLAToken prevT = ops.pop();
+			if ((Dictionary.tokenDict.get(prevT.string) & Dictionary.X_OP_X) > 0) {
+				PGoTLA rexps = exps.pop();
+				PGoTLA lexps = exps.pop();
+				parseXOpXToken(prevT, lexps, rexps);
+			} else {
+				assert ((Dictionary.tokenDict.get(prevT.string) & Dictionary.OP_X) > 0);
+				PGoTLA rexps = exps.pop();
+				parseOpXToken(prevT, rexps);
+			}
+		}
+	}
+
+	/**
 	 * The following methods parses a single token, and advances forward as
 	 * appropriate
 	 */
 	private void parseStringToken(TLAToken tlaToken) {
-		handleSimpleExp(new PGoTLAString(tlaToken.string, line));
+		exps.push(new PGoTLAString(tlaToken.string, line));
 	}
 
 	private void parseNumberToken(TLAToken tlaToken) {
-		handleSimpleExp(new PGoTLANumber(tlaToken.string, line));
+		exps.push(new PGoTLANumber(tlaToken.string, line));
 	}
 
 	private void parseIdentifierToken(TLAToken tlaToken) throws PGoTransException {
 		if (lookAheadMatch(TLAToken.BUILTIN, "(")) {
 			Vector<TLAToken> contained = advanceUntilMatching(")", "(", TLAToken.BUILTIN);
-			handleSimpleExp(new PGoTLAFunction(tlaToken.string, contained, line));
+			exps.push(new PGoTLAFunction(tlaToken.string, contained, line));
 		} else {
-			handleSimpleExp(new PGoTLAVariable(tlaToken.string, line));
+			exps.push(new PGoTLAVariable(tlaToken.string, line));
 		}
 	}
 
 	private void parseBooleanToken(TLAToken tlaToken) {
-		handleSimpleExp(new PGoTLABool(tlaToken.string, line));
+		exps.push(new PGoTLABool(tlaToken.string, line));
 	}
 
 	// Parse a container token eg ( ) [ ] { } << >>
@@ -223,13 +213,13 @@ public class TLAExprParser {
 		if (mask == Dictionary.OPEN_PAREN) {
 			Vector<TLAToken> between = advanceUntilMatching(")", "(", TLAToken.BUILTIN);
 			TLAExprParser parser = new TLAExprParser(between, oldLine);
-			handleSimpleExp(new PGoTLAGroup(parser.getResult(), oldLine));
+			exps.push(new PGoTLAGroup(parser.getResult(), oldLine));
 		} else if (mask == Dictionary.SQR_PAREN_O) {
 			Vector<TLAToken> between = advanceUntilMatching("]", "[", TLAToken.BUILTIN);
-			handleSimpleExp(new PGoTLAArray(between, oldLine));
+			exps.push(new PGoTLAArray(between, oldLine));
 		} else if (mask == Dictionary.CURLY_OPEN) {
 			Vector<TLAToken> between = advanceUntilMatching("}", "{", TLAToken.BUILTIN);
-			handleSimpleExp(new PGoTLASet(between, oldLine));
+			exps.push(new PGoTLASet(between, oldLine));
 		} else if (mask == Dictionary.ARROW_OPEN) {
 			Vector<TLAToken> between = advanceUntilMatching(">>", "<<", TLAToken.BUILTIN);
 
@@ -241,7 +231,7 @@ public class TLAExprParser {
 			// TODO distinguish this. I think we have to do this later on in the
 			// code when converting to go, then we can check the types of the
 			// variables from annotation to determine slice vs chan.
-			handleSimpleExp(new PGoTLAArray(between, line)); // TODO (issue #5)
+			exps.push(new PGoTLAArray(between, line)); // TODO (issue #5)
 			// support
 		}
 	}
@@ -251,13 +241,13 @@ public class TLAExprParser {
 		assert (Dictionary.tokenDict.containsKey(prevT.string));
 		int mask = Dictionary.tokenDict.get(prevT.string);
 		if (mask == Dictionary.SIMPLE_ARITHMETIC || mask == Dictionary.EXPONENT) {
-			handleSimpleExp(new PGoTLASimpleArithmetic(prevT.string, lexps, rexps, line));
+			exps.push(new PGoTLASimpleArithmetic(prevT.string, lexps, rexps, line));
 		} else if ((mask & Dictionary.BOOL_OP) != 0) {
-			handleSimpleExp(new PGoTLABoolOp(prevT.string, lexps, rexps, line));
+			exps.push(new PGoTLABoolOp(prevT.string, lexps, rexps, line));
 		} else if (mask == Dictionary.SEQUENCE) {
-			handleSimpleExp(new PGoTLASequence(lexps, rexps, line));
+			exps.push(new PGoTLASequence(lexps, rexps, line));
 		} else if ((mask & Dictionary.SET_OP) != 0) {
-			handleSimpleExp(new PGoTLASetOp(prevT.string, lexps, rexps, line));
+			exps.push(new PGoTLASetOp(prevT.string, lexps, rexps, line));
 		} else if (mask == Dictionary.STRING_APPEND) {
 			// TODO handle (issue #6)
 		} else {
@@ -267,7 +257,7 @@ public class TLAExprParser {
 
 	// Parse an operator with only right side argument
 	private void parseOpXToken(TLAToken prevT, PGoTLA rexps) {
-		handleSimpleExp(new PGoTLAUnary(prevT.string, rexps, line));
+		exps.push(new PGoTLAUnary(prevT.string, rexps, line));
 	}
 
 	/**
