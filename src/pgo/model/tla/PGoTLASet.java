@@ -1,19 +1,16 @@
 package pgo.model.tla;
 
-import java.util.HashSet;
-import java.util.Set;
 import java.util.Vector;
 
 import pcal.TLAToken;
 import pgo.model.golang.Expression;
-import pgo.model.golang.FunctionCall;
-import pgo.model.golang.Statement;
+import pgo.model.intermediate.PGoType;
 import pgo.parser.TLAExprParser;
 import pgo.trans.PGoTransException;
 
 /**
- * Represents a set "{ ... }" in TLA. This should store what is in the set, and the set
- * notations for the set.
+ * Represents a set "{ ... }" in TLA. This should store what is in the set, and
+ * the set notations for the set.
  *
  */
 public class PGoTLASet extends PGoTLA {
@@ -29,32 +26,12 @@ public class PGoTLASet extends PGoTLA {
 		return contents;
 	}
 
-	protected Vector<Statement> toStatements() {
-		Vector<Statement> ret = new Vector<>();
-
-		Vector<Statement> contents = new Vector<>();
-		for (PGoTLA ptla : this.getContents()) {
-			contents.addAll(ptla.toStatements());
-		}
-
-		Vector<Expression> args = new Vector<>();
-		for (Statement s : contents) {
-			assert (s instanceof Expression);
-			args.add((Expression) s);
-		}
-
-		FunctionCall fc = new FunctionCall("mapset.NewSet", args);
-		ret.addElement(fc);
-		return ret;
+	protected Expression convert(TLAExprToGo trans) throws PGoTransException {
+		return trans.translate(this);
 	}
 	
-	protected Set<String> getImports() {
-		Set<String> ret = new HashSet<>();
-		ret.add("mapset");
-		for (PGoTLA ptla : this.getContents()) {
-			ret.addAll(ptla.getImports());
-		}
-		return ret;
+	protected PGoType inferType(TLAExprToType trans) throws PGoTransException {
+		return trans.type(this);
 	}
 
 	public String toString() {

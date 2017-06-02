@@ -213,11 +213,71 @@ public class TLAExprParserTest {
 		assertTrue(rr.getRight() instanceof PGoTLASet);
 		PGoTLASet rrr = (PGoTLASet) rr.getRight();
 		assertEquals(1, rrr.getContents().size());
-		assertTrue(rrr.getContents().get(0) instanceof PGoTLASetOp);
-		PGoTLASetOp setContents = (PGoTLASetOp) rrr.getContents().get(0);
-		assertEquals(":", setContents.getToken());
-		assertTrue(setContents.getRight() instanceof PGoTLABoolOp);
-		assertTrue(setContents.getLeft() instanceof PGoTLASetOp);
+		assertTrue(rrr.getContents().get(0) instanceof PGoTLASuchThat);
+		PGoTLASuchThat setContents = (PGoTLASuchThat) rrr.getContents().get(0);
+		assertTrue(setContents.getExpr() instanceof PGoTLABoolOp);
+		assertTrue(setContents.getSets().size() == 1);
 	}
-	// TODO more tests
+	
+	@Test
+	public void testSuchThat() throws PGoTransException {
+		Vector<TLAToken> toks = new Vector<TLAToken>() {
+			{
+				add(new TLAToken("CHOOSE", 0, TLAToken.BUILTIN));
+				add(new TLAToken("x", 0, TLAToken.IDENT));
+				add(new TLAToken("\\in", 0, TLAToken.BUILTIN));
+				add(new TLAToken("S", 0, TLAToken.IDENT));
+				add(new TLAToken(":", 0, TLAToken.BUILTIN));
+				add(new TLAToken("x", 0, TLAToken.IDENT));
+				add(new TLAToken("=", 0, TLAToken.BUILTIN));
+				add(new TLAToken("2", 0, TLAToken.NUMBER));
+			}
+		};
+		Vector<Vector<TLAToken>> v = new Vector<>();
+		v.add(toks);
+		TLAExpr expr = PcalTranslate.MakeExpr(v);
+		Vector<PGoTLA> result = new TLAExprParser(expr, 0).getResult();
+		assertEquals(1, result.size());
+		assertTrue(result.get(0) instanceof PGoTLAUnary);
+		PGoTLAUnary choose = (PGoTLAUnary) result.get(0);
+		assertTrue(choose.getArg() instanceof PGoTLASuchThat);
+		PGoTLASuchThat st = (PGoTLASuchThat) choose.getArg();
+		Vector<PGoTLASetOp> sets = st.getSets();
+		assertTrue(sets.size() == 1);
+		assertTrue(st.getExpr() instanceof PGoTLABoolOp);
+		
+		toks = new Vector<TLAToken>() {
+			{
+				add(new TLAToken("\\E", 0, TLAToken.BUILTIN));
+				add(new TLAToken("x", 0, TLAToken.IDENT));
+				add(new TLAToken("\\in", 0, TLAToken.BUILTIN));
+				add(new TLAToken("S", 0, TLAToken.IDENT));
+				add(new TLAToken(",", 0, TLAToken.BUILTIN));
+				add(new TLAToken("y", 0, TLAToken.IDENT));
+				add(new TLAToken("\\in", 0, TLAToken.BUILTIN));
+				add(new TLAToken("T", 0, TLAToken.IDENT));
+				add(new TLAToken(":", 0, TLAToken.BUILTIN));
+				add(new TLAToken("x", 0, TLAToken.IDENT));
+				add(new TLAToken("/\\", 0, TLAToken.BUILTIN));
+				add(new TLAToken("y", 0, TLAToken.IDENT));
+			}
+		};
+		v = new Vector<>();
+		v.add(toks);
+		expr = PcalTranslate.MakeExpr(v);
+		result = new TLAExprParser(expr, 0).getResult();
+		assertEquals(1, result.size());
+		assertTrue(result.get(0) instanceof PGoTLAUnary);
+		PGoTLAUnary exists = (PGoTLAUnary) result.get(0);
+		assertTrue(exists.getArg() instanceof PGoTLASuchThat);
+		st = (PGoTLASuchThat) exists.getArg();
+		sets = st.getSets();
+		assertTrue(sets.size() == 2);
+		assertTrue(st.getExpr() instanceof PGoTLABoolOp);
+		PGoTLASetOp set = st.getSets().get(1);
+		assertEquals("\\in", set.getToken());
+		assertTrue(set.getLeft() instanceof PGoTLAVariable);
+		assertTrue(set.getRight() instanceof PGoTLAVariable);
+		assertEquals("T", ((PGoTLAVariable) set.getRight()).getName());
+	}
 }

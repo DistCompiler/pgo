@@ -1,11 +1,9 @@
 package pgo.model.tla;
 
-import java.util.HashSet;
-import java.util.Set;
 import java.util.Vector;
 
-import pgo.model.golang.Statement;
-import pgo.model.golang.Token;
+import pgo.model.golang.Expression;
+import pgo.model.intermediate.PGoType;
 
 /**
  * Variable access in TLA Expr
@@ -24,14 +22,12 @@ public class PGoTLAVariable extends PGoTLA {
 		return name;
 	}
 	
-	protected Vector<Statement> toStatements() {
-		Vector<Statement> ret = new Vector<>();
-		ret.add(new Token(String.valueOf(this.getName())));
-		return ret;
+	protected Expression convert(TLAExprToGo trans) {
+		return trans.translate(this);
 	}
 	
-	protected Set<String> getImports() {
-		return new HashSet<>();
+	protected PGoType inferType(TLAExprToType trans) {
+		return trans.type(this);
 	}
 	
 	public String toString() {

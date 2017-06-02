@@ -1,11 +1,10 @@
 package pgo.model.tla;
 
-import java.util.HashSet;
-import java.util.Set;
 import java.util.Vector;
 
 import pcal.TLAToken;
-import pgo.model.golang.Statement;
+import pgo.model.golang.Expression;
+import pgo.model.intermediate.PGoType;
 import pgo.parser.TLAExprParser;
 import pgo.trans.PGoTransException;
 
@@ -34,20 +33,15 @@ public class PGoTLAFunction extends PGoTLA {
 	public Vector<PGoTLA> getParams() {
 		return params;
 	}
-
-	protected Vector<Statement> toStatements() {
-		// TODO (issue #23)
-		return null;
+	
+	protected Expression convert(TLAExprToGo trans) {
+		return trans.translate(this);
 	}
 	
-	protected Set<String> getImports() {
-		Set<String> ret = new HashSet<>();
-		for (PGoTLA ptla : params) {
-			ret.addAll(ptla.getImports());
-		}
-		return ret;
+	protected PGoType inferType(TLAExprToType trans) {
+		return trans.type(this);
 	}
-
+	
 	public String toString() {
 		String ret = "PGoTLAFunc(" + this.getLine() + "): " + fname + "(";
 		for (PGoTLA p : params) {

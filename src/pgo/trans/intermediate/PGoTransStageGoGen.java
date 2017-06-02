@@ -122,17 +122,18 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 
 	/**
 	 * Convert the TLA AST to the equivalent Go AST while adding the required imports.
+	 * @throws PGoTransException 
 	 */
-	private Vector<Statement> TLAToGo(PGoTLA tla) {
-		TLAExprToGo trans = new TLAExprToGo(tla);
-		go.getImports().addAllImports(trans.getImports());
-		return trans.getStatements();
+	private Expression TLAToGo(PGoTLA tla) throws PGoTransException {
+		return new TLAExprToGo(tla, go.getImports(), new PGoTempData(intermediateData)).toExpression();
 	}
 	
-	private Vector<Statement> TLAToGo(Vector<PGoTLA> tla) {
-		TLAExprToGo trans = new TLAExprToGo(tla);
-		go.getImports().addAllImports(trans.getImports());
-		return trans.getStatements();
+	private Vector<Statement> TLAToGo(Vector<PGoTLA> tla) throws PGoTransException {
+		Vector<Statement> ret = new Vector<>();
+		for (PGoTLA ptla : tla) {
+			ret.add(new TLAExprToGo(ptla, go.getImports(), new PGoTempData(intermediateData)).toExpression());
+		}
+		return ret;
 	}
 	
 	/**

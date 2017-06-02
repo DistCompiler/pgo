@@ -1,11 +1,9 @@
 package pgo.model.tla;
 
-import java.util.HashSet;
-import java.util.Set;
 import java.util.Vector;
 
-import pgo.model.golang.Statement;
-import pgo.model.golang.Token;
+import pgo.model.golang.Expression;
+import pgo.model.intermediate.PGoType;
 
 /**
  * Represents a tla token for a number
@@ -23,17 +21,15 @@ public class PGoTLANumber extends PGoTLA {
 	public String getVal() {
 		return val;
 	}
-
-	protected Vector<Statement> toStatements() {
-		Vector<Statement> ret = new Vector<>();
-		ret.add(new Token(this.getVal()));
-		return ret;
+	
+	protected Expression convert(TLAExprToGo trans) {
+		return trans.translate(this);
 	}
 	
-	protected Set<String> getImports() {
-		return new HashSet<>();
+	protected PGoType inferType(TLAExprToType trans) {
+		return trans.type(this);
 	}
-
+	
 	public String toString() {
 		return "PGoTLANumber (" + this.getLine() + "): " + val;
 	}

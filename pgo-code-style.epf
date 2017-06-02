@@ -1,4 +1,4 @@
-#Wed May 17 17:46:21 PDT 2017
+#Tue May 30 17:43:32 PDT 2017
 \!/=
 /instance/org.eclipse.jdt.core/org.eclipse.jdt.core.codeComplete.argumentPrefixes=
 /instance/org.eclipse.jdt.core/org.eclipse.jdt.core.codeComplete.argumentSuffixes=
@@ -10,6 +10,12 @@
 /instance/org.eclipse.jdt.core/org.eclipse.jdt.core.codeComplete.staticFieldSuffixes=
 /instance/org.eclipse.jdt.core/org.eclipse.jdt.core.codeComplete.staticFinalFieldPrefixes=
 /instance/org.eclipse.jdt.core/org.eclipse.jdt.core.codeComplete.staticFinalFieldSuffixes=
+/instance/org.eclipse.jdt.core/org.eclipse.jdt.core.compiler.codegen.inlineJsrBytecode=enabled
+/instance/org.eclipse.jdt.core/org.eclipse.jdt.core.compiler.codegen.targetPlatform=1.8
+/instance/org.eclipse.jdt.core/org.eclipse.jdt.core.compiler.compliance=1.8
+/instance/org.eclipse.jdt.core/org.eclipse.jdt.core.compiler.problem.assertIdentifier=error
+/instance/org.eclipse.jdt.core/org.eclipse.jdt.core.compiler.problem.enumIdentifier=error
+/instance/org.eclipse.jdt.core/org.eclipse.jdt.core.compiler.source=1.8
 /instance/org.eclipse.jdt.core/org.eclipse.jdt.core.formatter.align_fields_grouping_blank_lines=2147483647
 /instance/org.eclipse.jdt.core/org.eclipse.jdt.core.formatter.align_type_members_on_columns=false
 /instance/org.eclipse.jdt.core/org.eclipse.jdt.core.formatter.alignment_for_arguments_in_allocation_expression=16
@@ -281,8 +287,8 @@
 /instance/org.eclipse.jdt.core/org.eclipse.jdt.core.formatter.insert_space_between_empty_parens_in_enum_constant=do not insert
 /instance/org.eclipse.jdt.core/org.eclipse.jdt.core.formatter.insert_space_between_empty_parens_in_method_declaration=do not insert
 /instance/org.eclipse.jdt.core/org.eclipse.jdt.core.formatter.insert_space_between_empty_parens_in_method_invocation=do not insert
-/instance/org.eclipse.jdt.core/org.eclipse.jdt.core.formatter.join_lines_in_comments=true
-/instance/org.eclipse.jdt.core/org.eclipse.jdt.core.formatter.join_wrapped_lines=true
+/instance/org.eclipse.jdt.core/org.eclipse.jdt.core.formatter.join_lines_in_comments=false
+/instance/org.eclipse.jdt.core/org.eclipse.jdt.core.formatter.join_wrapped_lines=false
 /instance/org.eclipse.jdt.core/org.eclipse.jdt.core.formatter.keep_else_statement_on_same_line=false
 /instance/org.eclipse.jdt.core/org.eclipse.jdt.core.formatter.keep_empty_array_initializer_on_one_line=false
 /instance/org.eclipse.jdt.core/org.eclipse.jdt.core.formatter.keep_imple_if_on_one_line=false

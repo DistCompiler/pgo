@@ -14,6 +14,9 @@ import java.util.regex.Pattern;
  * 
  */
 public abstract class PGoCollectionType extends PGoType {
+	
+	// The type of an empty set. The empty set is compatible with all set types.
+	public static final PGoSet EMPTY_SET = new PGoSet("");
 
 	// The contained type
 	protected PGoType eType;
@@ -246,7 +249,7 @@ public abstract class PGoCollectionType extends PGoType {
 			}
 		}
 
-		// matches set[]<type>
+		// matches set[<type>]
 		rgex = Pattern.compile("(?i)set\\[(.+)\\]");
 		m = rgex.matcher(s);
 		if (m.matches()) {
