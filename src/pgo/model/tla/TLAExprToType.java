@@ -312,7 +312,8 @@ public class TLAExprToType {
 	}
 
 	protected PGoType type(PGoTLAVariable tla) {
-		return data.findPGoVariable(tla.getName()).getType();
+		PGoVariable var = data.findPGoVariable(tla.getName());
+		return (var == null ? PGoType.UNDETERMINED : var.getType());
 	}
 
 	// The returned type is never used in the context of the forall or exists

@@ -9,6 +9,7 @@ import pgo.model.intermediate.PGoPrimitiveType.PGoDecimal;
 import pgo.model.intermediate.PGoPrimitiveType.PGoNatural;
 import pgo.model.intermediate.PGoPrimitiveType.PGoNumber;
 import pgo.model.intermediate.PGoType;
+import pgo.model.intermediate.PGoVariable;
 import pgo.trans.PGoTransException;
 import pgo.trans.intermediate.PGoTempData;
 
@@ -341,7 +342,7 @@ public class TLAExprToGo {
 			if (!(tla.getRight() instanceof PGoTLANumber || rightType instanceof PGoDecimal)) {
 				rhs = new TypeConversion("float64", rhs);
 			}
-			
+
 			params.add(lhs);
 			params.add(rhs);
 			FunctionCall fc = new FunctionCall("math.Pow", params);
@@ -373,22 +374,20 @@ public class TLAExprToGo {
 	protected Vector<Statement> translate(PGoTLAUnary tla) throws PGoTransException {
 		Vector<Statement> ret = new Vector<>();
 
-		Vector<Statement> rightRes = convert(tla.getArg());
-		// the argument should be a single Expression
-		assert (rightRes.size() == 1);
-		assert (rightRes.get(0) instanceof Expression);
-
 		switch (tla.getToken()) {
 		case "~":
 		case "\\lnot":
 		case "\\neg":
+			Vector<Statement> stmts = convert(tla.getArg());
+			assert (stmts.size() == 1);
+			assert (stmts.get(0) instanceof Expression);
 			Vector<Expression> exp = new Vector<>();
 			exp.add(new Token("!"));
-			exp.add((Expression) rightRes.get(0));
+			exp.add((Expression) stmts.get(0));
 			ret.add(new SimpleExpression(exp));
 			break;
 		case "UNION":
-			Vector<Statement> stmts = convert(tla.getArg());
+			stmts = convert(tla.getArg());
 			assert (stmts.size() == 1);
 			assert (stmts.get(0) instanceof Expression);
 			FunctionCall fc = new FunctionCall("pgoutil.EltUnion", new Vector<Expression>() {
@@ -400,42 +399,137 @@ public class TLAExprToGo {
 			ret.add(fc);
 			break;
 		case "SUBSET":
-			FunctionCall fc1 = new FunctionCall("PowerSet", new Vector<>(), (Expression) rightRes.get(0));
+			stmts = convert(tla.getArg());
+			FunctionCall fc1 = new FunctionCall("PowerSet", new Vector<>(), (Expression) stmts.get(0));
 			this.imports.addImport("mapset");
 			ret.add(fc1);
 			break;
 		// these operations are of the form OP x \in S : P(x)
 		case "CHOOSE":
-			// TODO
-			assert (tla.getArg() instanceof PGoTLASuchThat);
 			PGoTLASuchThat st = (PGoTLASuchThat) tla.getArg();
-			/*
-			 * // the set S
-			 * Vector<Statement> lr = convert(((PGoTLASetOp)
-			 * st.getLeft()).getRight());
-			 * // the variable x
-			 * Vector<Statement> ll = convert(((PGoTLASetOp)
-			 * st.getLeft()).getLeft());
-			 * Vector<Statement> pred = convert(st.getRight());
-			 * 
-			 * assert (ll.size() == 1);
-			 * assert (ll.get(0) instanceof Token);
-			 * Token varName = (Token) ll.get(0);
-			 * 
-			 * // create the anonymous function for the predicate
-			 * Vector<ParameterDeclaration> params = new Vector<>();
-			 * params.add(new ParameterDeclaration(varName.getTokens(),
-			 * PGoType.inferFromGoTypeName("interface{}")));
-			 * Vector<Statement> body = new Vector<>();
-			 * // since there are no complex assignments, the predicate should
-			 * be a
-			 * // single Expression
-			 * assert (pred.size() == 1);
-			 * assert (pred.get(0) instanceof Expression);
-			 * body.add(new Return((Expression) pred.get(0)));
-			 * 
-			 * this.imports.addImport("pgoutil");
-			 */
+			assert (st.getSets().size() == 1);
+			// the set S
+			Vector<Statement> setExpr = convert(st.getSets().get(0).getRight());
+			// the variable x
+			Vector<Statement> varExpr = convert(st.getSets().get(0).getLeft());
+			// We need to add typing data to avoid TLAExprToType complaining
+			// about untyped variables
+			PGoTempData temp = new PGoTempData(data);
+			for (PGoTLASetOp set : st.getSets()) {
+				// TODO handle stuff like << x, y >> \in S \X T
+				assert (set.getLeft() instanceof PGoTLAVariable);
+				PGoTLAVariable var = (PGoTLAVariable) set.getLeft();
+				PGoType containerType = new TLAExprToType(set.getRight(), data).getType();
+				assert (containerType instanceof PGoSet);
+				PGoType eltType = ((PGoSet) containerType).getElementType();
+				temp.getLocals().put(var.getName(), PGoVariable.convert(var.getName(), eltType));
+			}
+			Vector<Statement> pred = new TLAExprToGo(st.getExpr(), imports, temp).getStatements();
+
+			assert (setExpr.size() == 1);
+			assert (varExpr.size() == 1);
+			assert (pred.size() == 1);
+			assert (setExpr.get(0) instanceof Expression);
+			assert (varExpr.get(0) instanceof Expression);
+			assert (pred.get(0) instanceof Expression);
+
+			Expression varName = (Expression) varExpr.get(0);
+			// most expressions can't be used as the variable (only stuff like
+			// tuples) so this should be one line
+			assert (varName.toGo().size() == 1);
+
+			// create the anonymous function for the predicate
+			// since there are no complex assignments, the predicate should
+			// be a single Expression
+			assert (pred.size() == 1);
+			assert (pred.get(0) instanceof Expression);
+			// go func: Choose(P interface{}, S mapset.Set) interface{}
+			// (P is predicate)
+			// P = func(varType) bool { return pred }
+			AnonymousFunction P = new AnonymousFunction(PGoType.inferFromGoTypeName("bool"),
+					// TODO (issue 28) deal with tuples as variable declaration
+					new Vector<ParameterDeclaration>() {
+						{
+							add(new ParameterDeclaration(varName.toGo().get(0),
+									new TLAExprToType(tla, data).getType()));
+						}
+					},
+					new Vector<>(),
+					new Vector<Statement>() {
+						{
+							add(new Return((Expression) pred.get(0)));
+						}
+					});
+
+			Vector<Expression> chooseFuncParams = new Vector<>();
+			chooseFuncParams.add(P);
+			chooseFuncParams.add((Expression) setExpr.get(0));
+
+			this.imports.addImport("pgoutil");
+			FunctionCall choose = new FunctionCall("pgoutil.Choose", chooseFuncParams);
+			ret.add(choose);
+			break;
+		case "\\E":
+		case "\\A":
+			st = (PGoTLASuchThat) tla.getArg();
+
+			temp = new PGoTempData(data);
+			for (PGoTLASetOp set : st.getSets()) {
+				// TODO handle stuff like << x, y >> \in S \X T
+				assert (set.getLeft() instanceof PGoTLAVariable);
+				PGoTLAVariable var = (PGoTLAVariable) set.getLeft();
+				PGoType containerType = new TLAExprToType(set.getRight(), data).getType();
+				assert (containerType instanceof PGoSet);
+				PGoType eltType = ((PGoSet) containerType).getElementType();
+				temp.getLocals().put(var.getName(), PGoVariable.convert(var.getName(), eltType));
+			}
+			pred = new TLAExprToGo(st.getExpr(), imports, temp).getStatements();
+
+			Vector<Statement> setExprs = new Vector<>(), varExprs = new Vector<>();
+			for (PGoTLASetOp setOp : st.getSets()) {
+				varExprs.add(convert(setOp.getLeft()).get(0));
+				setExprs.add(convert(setOp.getRight()).get(0));
+			}
+			// create the anonymous function for the predicate
+			// since there are no complex assignments, the predicate should
+			// be a single Expression
+			assert (pred.size() == 1);
+			assert (pred.get(0) instanceof Expression);
+			// go func: Choose(P interface{}, S mapset.Set) interface{}
+			// (P is predicate)
+			// P = func(varType, varType...) bool { return pred }
+			P = new AnonymousFunction(PGoType.inferFromGoTypeName("bool"),
+					// TODO (issue 28) deal with tuples as variable declaration
+					new Vector<ParameterDeclaration>() {
+						{
+							// var[i] \in set[i]
+							for (int i = 0; i < setExprs.size(); i++) {
+								PGoType setType = new TLAExprToType(st.getSets().get(i).getRight(), data)
+										.getType();
+								PGoType varType = ((PGoCollectionType) setType).getElementType();
+								add(new ParameterDeclaration(varExprs.get(i).toGo().get(0),
+										varType));
+							}
+						}
+					},
+					new Vector<>(),
+					new Vector<Statement>() {
+						{
+							add(new Return((Expression) pred.get(0)));
+						}
+					});
+
+			Vector<Expression> funcParams = new Vector<>();
+			funcParams.add(P);
+			for (Statement s : setExprs) {
+				funcParams.add((Expression) s);
+			}
+
+			this.imports.addImport("pgoutil");
+			FunctionCall call = new FunctionCall((tla.getToken().equals("\\E") ? "pgoutil.Exists" : "pgoutil.ForAll"),
+					funcParams);
+			ret.add(call);
+			break;
 		}
 		return ret;
 	}
