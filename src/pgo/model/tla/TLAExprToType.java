@@ -11,6 +11,7 @@ import pgo.model.intermediate.PGoCollectionType.PGoChan;
 import pgo.model.intermediate.PGoCollectionType.PGoMap;
 import pgo.model.intermediate.PGoCollectionType.PGoSet;
 import pgo.model.intermediate.PGoCollectionType.PGoSlice;
+import pgo.model.intermediate.PGoPrimitiveType.PGoNatural;
 import pgo.model.intermediate.PGoPrimitiveType.PGoNumber;
 import pgo.trans.PGoTransException;
 import pgo.trans.intermediate.PGoTempData;
@@ -267,8 +268,17 @@ public class TLAExprToType {
 					+ left.toTypeName() + " and " + right.toTypeName() + " (line " + tla.getLine() + ")");
 		}
 
+		if (tla.getToken().equals("\\div")) {
+			if (numberType.get(left.toTypeName()) > numberType.get("int")
+					|| numberType.get(right.toTypeName()) > numberType.get("int")) {
+				throw new PGoTransException("Can't use integer division operator \"\\div\" on types "
+						+ left.toTypeName() + " and " + right.toTypeName() + " (line " + tla.getLine() + ")");
+			}
+		}
+		
 		// PlusCal division is always floating-point (maybe? TLC can't check)
-		if (tla.getToken().equals("/")) {
+		if (tla.getToken().equals("/") || tla.getToken().equals("^")) {
+			// math.Pow returns float64
 			return PGoType.inferFromGoTypeName("float64");
 		}
 		return result;

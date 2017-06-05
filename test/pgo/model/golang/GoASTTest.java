@@ -185,7 +185,7 @@ public class GoASTTest {
 		assertEquals(expected, im.toGo());
 
 		im.addImport("pkg1");
-		expected.add("import pkg1");
+		expected.add("import \"pkg1\"");
 		assertEquals(expected, im.toGo());
 
 		expected.clear();

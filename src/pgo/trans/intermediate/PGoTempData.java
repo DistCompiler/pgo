@@ -25,6 +25,7 @@ public class PGoTempData extends PGoTransIntermediateData {
 			put("Real", PGoVariable.convert("Real", PGoType.inferFromGoTypeName("set[float64]")));
 			put("Infinity", PGoVariable.convert("Infinity", PGoType.inferFromGoTypeName("float64")));
 			put("STRING", PGoVariable.convert("STRING", PGoType.inferFromGoTypeName("set[string]")));
+			put("BOOLEAN", PGoVariable.convert("BOOLEAN", PGoType.inferFromGoTypeName("set[bool]")));
 		}
 	};
 

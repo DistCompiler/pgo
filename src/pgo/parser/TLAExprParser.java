@@ -85,7 +85,7 @@ public class TLAExprParser {
 					parseBooleanToken(tok);
 				} else {
 					if (Dictionary.tokenDict.containsKey(tok.string)) {
-						int mask = Dictionary.tokenDict.get(tok.string);
+						long mask = Dictionary.tokenDict.get(tok.string);
 						if ((mask & Dictionary.SUCH_THAT) > 0) {
 							// in this case we take all exprs from the lhs and
 							// all unparsed TLATokens from the rhs
@@ -208,7 +208,7 @@ public class TLAExprParser {
 	// Parse a container token eg ( ) [ ] { } << >>
 	private void parseContainerToken(TLAToken tok) throws PGoTransException {
 		assert (Dictionary.tokenDict.containsKey(tok.string));
-		int mask = Dictionary.tokenDict.get(tok.string);
+		long mask = Dictionary.tokenDict.get(tok.string);
 		int oldLine = line;
 		if (mask == Dictionary.OPEN_PAREN) {
 			Vector<TLAToken> between = advanceUntilMatching(")", "(", TLAToken.BUILTIN);
@@ -239,7 +239,7 @@ public class TLAExprParser {
 	// Parse an operator with 2 arguments on either side
 	private void parseXOpXToken(TLAToken prevT, PGoTLA lexps, PGoTLA rexps) {
 		assert (Dictionary.tokenDict.containsKey(prevT.string));
-		int mask = Dictionary.tokenDict.get(prevT.string);
+		long mask = Dictionary.tokenDict.get(prevT.string);
 		if (mask == Dictionary.SIMPLE_ARITHMETIC || mask == Dictionary.EXPONENT) {
 			exps.push(new PGoTLASimpleArithmetic(prevT.string, lexps, rexps, line));
 		} else if ((mask & Dictionary.BOOL_OP) != 0) {
@@ -303,69 +303,78 @@ public class TLAExprParser {
 		 */
 
 		// arithmetic operations
-		public static final int EXPONENT = 1 << 0;
+		public static final long EXPONENT = 1 << 0;
 		// don't care for arithmetic operation orders. Go will take care of it.
-		public static final int SIMPLE_ARITHMETIC = EXPONENT << 1;
+		public static final long SIMPLE_ARITHMETIC = EXPONENT << 1;
 
 		// string operations
-		public static final int STRING_APPEND = SIMPLE_ARITHMETIC << 1;
+		public static final long STRING_APPEND = SIMPLE_ARITHMETIC << 1;
 
 		// boolean operations
-		public static final int AND = STRING_APPEND << 1;
-		public static final int OR = AND << 1;
-		public static final int NEGATE = OR << 1;
-		public static final int SMALLER = NEGATE << 1;
-		public static final int GREATER = SMALLER << 1;
-		public static final int SMALLER_EQ = GREATER << 1;
-		public static final int GREATER_EQ = SMALLER_EQ << 1;
-		public static final int NOT_EQ = GREATER_EQ << 1;
-		public static final int EQUAL = NOT_EQ << 1; // 11 bits
-		public static final int COMPARATOR = NOT_EQ | SMALLER | GREATER | SMALLER_EQ | GREATER_EQ | EQUAL;
-		public static final int BOOL_OP = AND | OR | NEGATE | COMPARATOR;
+		public static final long AND = STRING_APPEND << 1;
+		public static final long OR = AND << 1;
+		public static final long NEGATE = OR << 1;
+		public static final long SMALLER = NEGATE << 1;
+		public static final long GREATER = SMALLER << 1;
+		public static final long SMALLER_EQ = GREATER << 1;
+		public static final long GREATER_EQ = SMALLER_EQ << 1;
+		public static final long NOT_EQ = GREATER_EQ << 1;
+		public static final long EQUAL = NOT_EQ << 1; // 11 bits
+		public static final long COMPARATOR = NOT_EQ | SMALLER | GREATER | SMALLER_EQ | GREATER_EQ | EQUAL;
+		public static final long BOOL_OP = AND | OR | NEGATE | COMPARATOR;
 
 		// set operations
-		public static final int SUCH_THAT = EQUAL << 1;
-		public static final int SEQUENCE = SUCH_THAT << 1;
-		public static final int UNION = SEQUENCE << 1;
-		public static final int ELEMENT_UNION = UNION << 1;
-		public static final int POWER_SET = ELEMENT_UNION << 1;
-		public static final int INTERSECTION = POWER_SET << 1;
-		public static final int SET_DIFFERENCE = INTERSECTION << 1;
-		public static final int IS_IN = SET_DIFFERENCE << 1;
-		public static final int NOT_IN = IS_IN << 1;
-		public static final int SUBSET = NOT_IN << 1;
-		public static final int SET_OP = SEQUENCE | UNION | ELEMENT_UNION | POWER_SET | INTERSECTION | SET_DIFFERENCE
-				| IS_IN | NOT_IN | SUBSET;
+		public static final long SUCH_THAT = EQUAL << 1;
+		public static final long SEQUENCE = SUCH_THAT << 1;
+		public static final long UNION = SEQUENCE << 1;
+		public static final long ELEMENT_UNION = UNION << 1;
+		public static final long POWER_SET = ELEMENT_UNION << 1;
+		public static final long INTERSECTION = POWER_SET << 1;
+		public static final long SET_DIFFERENCE = INTERSECTION << 1;
+		public static final long IS_IN = SET_DIFFERENCE << 1;
+		public static final long NOT_IN = IS_IN << 1;
+		public static final long SUBSET = NOT_IN << 1;
+		public static final long CARTESIAN_PRODUCT = SUBSET << 1;
+		public static final long SET_OP = SEQUENCE | UNION | ELEMENT_UNION | POWER_SET | INTERSECTION | SET_DIFFERENCE
+				| IS_IN | NOT_IN | SUBSET | CARTESIAN_PRODUCT;
+		
+		// used in array declarations
+		public static final long MAPS_TO = CARTESIAN_PRODUCT << 1;
+		public static final long EXCEPT = MAPS_TO << 1;
+		public static final long DOMAIN = EXCEPT << 1;
+		public static final long TO = DOMAIN << 1;
+		public static final long ARRAY_OP = MAPS_TO | EXCEPT | DOMAIN | TO;
 
 		// predicate operations
-		public static final int CHOOSE = SUBSET << 1;
-		public static final int FOR_ALL = CHOOSE << 1;
-		public static final int EXISTS = FOR_ALL << 1; // 25 bits total
+		public static final long CHOOSE = TO << 1;
+		public static final long FOR_ALL = CHOOSE << 1;
+		public static final long EXISTS = FOR_ALL << 1;
 
 		// container tokens. we only need to know when we hit the start.
 		// ( ) parens
-		public static final int OPEN_PAREN = EXISTS << 1;
+		public static final long OPEN_PAREN = EXISTS << 1;
 		// [ ] parens
-		public static final int SQR_PAREN_O = OPEN_PAREN << 1;
+		public static final long SQR_PAREN_O = OPEN_PAREN << 1;
 		// { } parens
-		public static final int CURLY_OPEN = SQR_PAREN_O << 1;
+		public static final long CURLY_OPEN = SQR_PAREN_O << 1;
 		// << >> parens
-		public static final int ARROW_OPEN = CURLY_OPEN << 1; // 29
+		public static final long ARROW_OPEN = CURLY_OPEN << 1; // 31
 
-		public static final int CONTAINER_TOK = OPEN_PAREN | SQR_PAREN_O | CURLY_OPEN | ARROW_OPEN;
+		public static final long CONTAINER_TOK = OPEN_PAREN | SQR_PAREN_O | CURLY_OPEN | ARROW_OPEN;
 
 		// operators with 2 arguments on either side
-		public static final int X_OP_X = (SIMPLE_ARITHMETIC | BOOL_OP | EXPONENT | STRING_APPEND | SET_OP)
-				& ~(NEGATE | ELEMENT_UNION | POWER_SET);
+		public static final long X_OP_X = (SIMPLE_ARITHMETIC | BOOL_OP | EXPONENT | STRING_APPEND | SET_OP | ARRAY_OP)
+				& ~(NEGATE | ELEMENT_UNION | POWER_SET | DOMAIN);
 		// right side argument operators
-		public static final int OP_X = NEGATE | ELEMENT_UNION | POWER_SET | CHOOSE | FOR_ALL | EXISTS;
+		public static final long OP_X = NEGATE | ELEMENT_UNION | POWER_SET | CHOOSE | FOR_ALL | EXISTS | DOMAIN;
 
-		private static final HashMap<String, Integer> tokenDict = new HashMap<String, Integer>() {
+		private static final HashMap<String, Long> tokenDict = new HashMap<String, Long>() {
 			{
 				put("+", SIMPLE_ARITHMETIC);
 				put("-", SIMPLE_ARITHMETIC);
 				put("*", SIMPLE_ARITHMETIC);
 				put("/", SIMPLE_ARITHMETIC);
+				put("\\div", SIMPLE_ARITHMETIC);
 				put("%", SIMPLE_ARITHMETIC);
 				put("^", EXPONENT);
 
@@ -402,6 +411,13 @@ public class TLAExprParser {
 				put("\\", SET_DIFFERENCE);
 				put(":", SUCH_THAT);
 				put("..", SEQUENCE);
+				put("\\X", CARTESIAN_PRODUCT);
+				put("\\times", CARTESIAN_PRODUCT);
+				
+				put("|->", MAPS_TO);
+				put("EXCEPT", EXCEPT);
+				put("DOMAIN", DOMAIN);
+				put("->", TO);
 
 				put("CHOOSE", CHOOSE);
 				put("\\A", FOR_ALL);
@@ -427,12 +443,15 @@ public class TLAExprParser {
 	 * Higher precedence => higher number. Operator precedence table found at
 	 * http://lamport.azurewebsites.net/tla/summary-standalone.pdf
 	 */
-	private static final HashMap<Integer, Integer> opPrecedence = new HashMap<Integer, Integer>() {
+	private static final HashMap<Long, Integer> opPrecedence = new HashMap<Long, Integer>() {
 		{
 			put(Dictionary.CHOOSE, 1);
 			put(Dictionary.FOR_ALL, 1);
 			put(Dictionary.EXISTS, 1);
 			put(Dictionary.SUCH_THAT, 2);
+			put(Dictionary.EXCEPT, 2);
+			put(Dictionary.MAPS_TO, 2);
+			put(Dictionary.TO, 2);
 			put(Dictionary.AND, 3);
 			put(Dictionary.OR, 3);
 			put(Dictionary.NEGATE, 4);
@@ -450,7 +469,9 @@ public class TLAExprParser {
 			put(Dictionary.UNION, 8);
 			put(Dictionary.ELEMENT_UNION, 8);
 			put(Dictionary.POWER_SET, 8);
+			put(Dictionary.CARTESIAN_PRODUCT, 9);
 			put(Dictionary.SEQUENCE, 9);
+			put(Dictionary.DOMAIN, 9);
 			put(Dictionary.SIMPLE_ARITHMETIC, 13);
 			put(Dictionary.STRING_APPEND, 13);
 			put(Dictionary.EXPONENT, 14);
