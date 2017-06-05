@@ -33,7 +33,7 @@ public class Imports extends GoAST {
 			return ret;
 		}
 		if (importPkgs.size() == 1) {
-			ret.add("import " + importPkgs.iterator().next());
+			ret.add("import \"" + importPkgs.iterator().next() + "\"");
 			return ret;
 		}
 

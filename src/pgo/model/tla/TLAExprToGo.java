@@ -41,9 +41,8 @@ public class TLAExprToGo {
 		expr = tla.convert(this);
 	}
 
-	public SimpleExpression toSimpleExpression() {
-		// TODO Auto-generated method stub
-		return null;
+	public PGoType getType() {
+		return type;
 	}
 
 	public Expression toExpression() {

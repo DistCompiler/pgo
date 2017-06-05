@@ -242,12 +242,75 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 				}
 			}
 
-			protected void visit(With with) {
-				// TODO handle
+			protected void visit(With with) throws PGoTransException {
 				// Select a random element of with.exp and perform with.Do on it
-				go.getImports().addImport("math/rand");
-				Vector<Statement> pre; // handle random selection and declaration of var
-				// walk(with.Do);
+				// multiple vars in one with are nested by the PcalParser
+				Vector<Statement> pre = new Vector<>();
+				// we will add new typing data for local variables, but we
+				// should keep them within the scope of this with
+				PGoTransIntermediateData oldData = intermediateData;
+				intermediateData = new PGoTempData(intermediateData);
+				AST cur = with;
+				// if the withs are nested, we don't want to keep nesting them,
+				// so get them all at once
+				while (cur instanceof With) {
+					with = (With) cur;
+					String varName = with.var;
+					if (with.isEq) {
+						// of the form with x = a
+						Vector<PGoTLA> varExpr = new TLAExprParser(with.exp, with.line).getResult();
+						assert (varExpr.size() == 1);
+						TLAExprToGo trans = new TLAExprToGo(varExpr.get(0), go.getImports(),
+								new PGoTempData(intermediateData));
+						Vector<Expression> se = new Vector<>();
+						se.add(new Token(varName));
+						se.add(new Token(" := "));
+						se.add(trans.toExpression());
+						pre.add(new SimpleExpression(se));
+						((PGoTempData) intermediateData).getLocals().put(varName,
+								PGoVariable.convert(varName, trans.getType()));
+					} else {
+						// x \in S
+						// x := S.ToSlice()[rand.Intn(S.Cardinality())].(type)
+						Vector<PGoTLA> setExpr = new TLAExprParser(with.exp, with.line).getResult();
+						assert (setExpr.size() == 1);
+						TLAExprToGo trans = new TLAExprToGo(setExpr.get(0), go.getImports(),
+								new PGoTempData(intermediateData));
+						PGoType setType = trans.getType();
+						assert (setType instanceof PGoSet);
+						PGoType containedType = ((PGoSet) setType).getElementType();
+						Vector<Expression> se = new Vector<>();
+						se.add(new Token(varName));
+						se.add(new Token(" := "));
+						Vector<Expression> rhs = new Vector<>();
+						rhs.add(new FunctionCall("ToSlice", new Vector<>(), trans.toExpression()));
+						rhs.add(new Token("["));
+						rhs.add(new FunctionCall("rand.Intn", new Vector<Expression>() {
+							{
+								add(new FunctionCall("Cardinality", new Vector<>(), trans.toExpression()));
+							}
+						}));
+						rhs.add(new Token("]"));
+						se.add(new TypeAssertion(new SimpleExpression(rhs), containedType));
+						pre.add(new SimpleExpression(se));
+						go.getImports().addImport("math/rand");
+						((PGoTempData) intermediateData).getLocals().put(varName,
+								PGoVariable.convert(varName, containedType));
+					}
+					// if there are multiple statements, this is no longer a nested with
+					if (with.Do.size() > 1) {
+						break;
+					}
+					cur = (AST) with.Do.get(0);
+				}
+				CodeBlock cb = new CodeBlock(pre);
+				Vector<Statement> tempRes = result;
+				// put the with body in the code block
+				result = cb.getInside();
+				walk(with.Do);
+				tempRes.add(cb);
+				result = tempRes;
+				intermediateData = oldData;
 			}
 
 			protected void visit(When when) {
@@ -255,7 +318,6 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 			}
 
 			protected void visit(PrintS ps) throws PGoTransException {
-				// TODO parse ps.exp
 				Vector<PGoTLA> argExp = new TLAExprParser(ps.exp, ps.line).getResult();
 				assert (argExp.size() == 1); // print should only have 1
 												// argument as a tupple
@@ -276,8 +338,9 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 						strfmt.add("%v"); // use go default printing
 						args.add(new Token(((PGoTLAVariable) arg).getName()));
 					} else {
-						// TODO handle printing sets/arrays/maps if its legal in
-						// plscal
+						strfmt.add("%v");
+						args.add(new TLAExprToGo(arg, go.getImports(), new PGoTempData(intermediateData))
+								.toExpression());
 					}
 				}
 

@@ -8,7 +8,7 @@ import pgo.model.intermediate.PGoType;
  * Represents a variable declaration
  * 
  */
-public class VariableDeclaration extends GoAST {
+public class VariableDeclaration extends Statement {
 	// name of variable
 	private final String name;
 	// type of variable

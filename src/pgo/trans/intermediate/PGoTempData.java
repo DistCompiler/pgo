@@ -2,6 +2,7 @@ package pgo.trans.intermediate;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Vector;
 
 import pgo.model.intermediate.PGoType;
 import pgo.model.intermediate.PGoVariable;
@@ -41,6 +42,21 @@ public class PGoTempData extends PGoTransIntermediateData {
 		annots = data.annots;
 		needsLock = data.needsLock;
 		locals = new LinkedHashMap<>();
+	}
+	
+	// Clone the data passed in.
+	public PGoTempData(PGoTempData data) {
+		isMultiProcess = data.isMultiProcess;
+		algName = data.algName;
+		globals = new LinkedHashMap<>(data.globals);
+		unresolvedVars = new LinkedHashMap<>(data.unresolvedVars);
+		funcs = new LinkedHashMap<>(data.funcs);
+		tlaExpr = data.tlaExpr;
+		mainBlock = new Vector<>(data.mainBlock);
+		goroutines = new LinkedHashMap<>(data.goroutines);
+		annots = data.annots;
+		needsLock = data.needsLock;
+		locals = new LinkedHashMap<>(data.getLocals());
 	}
 
 	public Map<String, PGoVariable> getLocals() {
