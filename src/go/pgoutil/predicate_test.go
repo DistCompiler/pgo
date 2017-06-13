@@ -3,14 +3,7 @@ package pgoutil
 import (
 	"testing"
 	"mapset"
-	"reflect"
 )
-
-func assertEquals(expected, actual interface{}, t *testing.T) {
-	if (!reflect.DeepEqual(expected, actual)) {
-		t.Errorf("Expected %v but got %v", expected, actual)
-	}
-}
 
 func TestEmptySets(t *testing.T) {
 	// For empty sets, Exists is defined to be false and ForAll is defined to be true.
