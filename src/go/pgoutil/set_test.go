@@ -181,3 +181,11 @@ func TestCartProduct(t *testing.T) {
 	it = c.Iter()
 	assertEquals(NewTuple(1, 4, 7), <-it, t)
 }
+
+func TestEltUnion(t *testing.T) {
+	S := NewSet(
+		NewSet(1, 2),
+		NewSet(2, 4, 5),
+		NewSet())
+	assertEquals(true, NewSet(1, 2, 4, 5).Equal(S.EltUnion()), t)
+}

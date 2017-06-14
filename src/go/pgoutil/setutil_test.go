@@ -6,16 +6,6 @@ import (
 	"fmt"
 )
 
-func TestEltUnion(t *testing.T) {
-	S := mapset.NewSet(
-		mapset.NewSet(1, 2),
-		mapset.NewSet(2, 4, 5),
-		mapset.NewSet())
-	assertEquals(
-		mapset.NewSet(1, 2, 4, 5),
-		EltUnion(S), t)
-}
-
 func TestSetConstructor(t *testing.T) {
 	S := mapset.NewSet(1, 2, 3, 4)
 	assertEquals(

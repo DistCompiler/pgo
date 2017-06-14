@@ -25,6 +25,8 @@ type Set interface {
 	Union(other Set) Set
 	PowerSet() Set
 	CartesianProduct(others ...Set) Set
+	// Return the union of the elements of the set (given that this is a set of sets)
+	EltUnion() Set
 	// Return ordered slice of elts
 	ToSlice() []interface{}
 }
@@ -171,6 +173,14 @@ func (s *set) CartesianProduct(others ...Set) Set {
 		cur = append(cur, x)
 		iterateOverAllTuples(0)
 		cur = cur[:len(cur)-1]
+	}
+	return ret
+}
+
+func (s *set) EltUnion() Set {
+	ret := NewSet()
+	for x := range s.Iter() {
+		ret = ret.Union(x.(Set))
 	}
 	return ret
 }

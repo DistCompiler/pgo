@@ -5,14 +5,6 @@ import (
 	"reflect"
 )
 
-func EltUnion(S mapset.Set) mapset.Set {
-	ret := mapset.NewSet()
-	for x := range S.Iter() {
-		ret = ret.Union(x.(mapset.Set))
-	}
-	return ret
-}
-
 // Return the elements x in S such that P(x)
 func SetConstructor(S mapset.Set, P interface{}) mapset.Set {
 	ret := mapset.NewSet()
