@@ -44,7 +44,7 @@ func TestNewMap(t *testing.T) {
 	assertEquals(0, a.Size(), t)
 }
 
-func TestAddRemove(t *testing.T) {
+func TestAddRemoveMap(t *testing.T) {
 	m := NewMap()
 	m.Put("s", 5)
 	assertEquals(false, m.IsEmpty(), t)
