@@ -208,7 +208,28 @@ public class TLAToStatementTest {
 		between.add(new TLAToken(":", 0, TLAToken.BUILTIN));
 		between.add(new TLAToken("TRUE", 0, TLAToken.BUILTIN));
 		tla = new PGoTLASet(between, 0);
-		// TODO finish set constructor test
+		data.globals.clear();
+		data.globals.put("S", PGoVariable.convert("S", PGoType.inferFromGoTypeName("set[set[string]]")));
+		AnonymousFunction P = new AnonymousFunction(
+				PGoType.inferFromGoTypeName("bool"),
+				new Vector<ParameterDeclaration>() {
+					{
+						add(new ParameterDeclaration("x", PGoType.inferFromGoTypeName("set[string]")));
+					}
+				},
+				new Vector<>(),
+				new Vector<Statement>() {
+					{
+						add(new Return(new Token("true")));
+					}
+				});
+		expected = new FunctionCall("pgoutil.SetConstructor", new Vector<Expression>() {
+			{
+				add(new Token("S"));
+				add(P);
+			}
+		});
+		assertEquals(expected, new TLAExprToGo(tla, imports, data).toExpression());
 	}
 
 	@Test
@@ -258,7 +279,7 @@ public class TLAToStatementTest {
 		});
 		assertEquals(expected, new TLAExprToGo(tla, imports, data).toExpression());
 
-		tla = new PGoTLAUnary("CHOOSE", new PGoTLASuchThat(new Vector<PGoTLA>() {
+		tla = new PGoTLAUnary("CHOOSE", new PGoTLAVariadic(":", new Vector<PGoTLA>() {
 			{
 				add(new PGoTLASetOp("\\in", new PGoTLAVariable("x", 0), new PGoTLAVariable("S", 0), 0));
 			}
@@ -284,7 +305,7 @@ public class TLAToStatementTest {
 		expected = new FunctionCall("pgoutil.Choose", params);
 		assertEquals(expected, new TLAExprToGo(tla, imports, data).toExpression());
 
-		tla = new PGoTLAUnary("\\E", new PGoTLASuchThat(new Vector<PGoTLA>() {
+		tla = new PGoTLAUnary("\\E", new PGoTLAVariadic(":", new Vector<PGoTLA>() {
 			{
 				add(new PGoTLASetOp("\\in", new PGoTLAVariable("x", 0), new PGoTLAVariable("S", 0), 0));
 				add(new PGoTLASetOp("\\in", new PGoTLAVariable("y", 0), new PGoTLAVariable("T", 0), 0));

@@ -86,20 +86,20 @@ public class TLAExprParser {
 				} else {
 					if (Dictionary.tokenDict.containsKey(tok.string)) {
 						long mask = Dictionary.tokenDict.get(tok.string);
-						if ((mask & Dictionary.SUCH_THAT) > 0) {
+						if ((mask & Dictionary.VARIADIC_OP) > 0) {
 							// in this case we take all exprs from the lhs and
 							// all unparsed TLATokens from the rhs
 							// We take the entire expression since any
 							// surrounding context is already stripped (apart
 							// from maybe the predicate operation on the ops
-							// stack)
+							// stack, if the op is such that)
 							combineExps(opPrecedence.get(mask));
 							Vector<PGoTLA> left = new Vector<>(result);
 							result.clear();
 							left.addAll(exps);
 							exps.clear();
 							Vector<TLAToken> right = new Vector<>(tokens.subList(cur, tokens.size()));
-							exps.push(new PGoTLASuchThat(left, right, line));
+							exps.push(new PGoTLAVariadic(tok.string, left, right, line));
 							// we are done parsing; don't parse rhs twice
 							cur = tokens.size();
 						} else if ((mask & Dictionary.X_OP_X) > 0) {
@@ -337,7 +337,7 @@ public class TLAExprParser {
 		public static final long CARTESIAN_PRODUCT = SUBSET << 1;
 		public static final long SET_OP = SEQUENCE | UNION | ELEMENT_UNION | POWER_SET | INTERSECTION | SET_DIFFERENCE
 				| IS_IN | NOT_IN | SUBSET | CARTESIAN_PRODUCT;
-		
+
 		// used in array declarations
 		public static final long MAPS_TO = CARTESIAN_PRODUCT << 1;
 		public static final long EXCEPT = MAPS_TO << 1;
@@ -345,8 +345,10 @@ public class TLAExprParser {
 		public static final long TO = DOMAIN << 1;
 		public static final long ARRAY_OP = MAPS_TO | EXCEPT | DOMAIN | TO;
 
+		public static final long IGNORE = TO << 1;
+
 		// predicate operations
-		public static final long CHOOSE = TO << 1;
+		public static final long CHOOSE = IGNORE << 1;
 		public static final long FOR_ALL = CHOOSE << 1;
 		public static final long EXISTS = FOR_ALL << 1;
 
@@ -363,10 +365,13 @@ public class TLAExprParser {
 		public static final long CONTAINER_TOK = OPEN_PAREN | SQR_PAREN_O | CURLY_OPEN | ARROW_OPEN;
 
 		// operators with 2 arguments on either side
-		public static final long X_OP_X = (SIMPLE_ARITHMETIC | BOOL_OP | EXPONENT | STRING_APPEND | SET_OP | ARRAY_OP)
+		public static final long X_OP_X = (SIMPLE_ARITHMETIC | BOOL_OP | EXPONENT | STRING_APPEND | SET_OP | TO)
 				& ~(NEGATE | ELEMENT_UNION | POWER_SET | DOMAIN);
 		// right side argument operators
 		public static final long OP_X = NEGATE | ELEMENT_UNION | POWER_SET | CHOOSE | FOR_ALL | EXISTS | DOMAIN;
+		// operators with one argument on one side and a variable number on the
+		// other
+		public static final long VARIADIC_OP = SUCH_THAT | MAPS_TO | EXCEPT;
 
 		private static final HashMap<String, Long> tokenDict = new HashMap<String, Long>() {
 			{
@@ -413,11 +418,12 @@ public class TLAExprParser {
 				put("..", SEQUENCE);
 				put("\\X", CARTESIAN_PRODUCT);
 				put("\\times", CARTESIAN_PRODUCT);
-				
+
 				put("|->", MAPS_TO);
 				put("EXCEPT", EXCEPT);
 				put("DOMAIN", DOMAIN);
 				put("->", TO);
+				put("!", IGNORE);
 
 				put("CHOOSE", CHOOSE);
 				put("\\A", FOR_ALL);

@@ -203,10 +203,10 @@ public class TLAExprToType {
 		if (tla.getContents().isEmpty()) {
 			return PGoCollectionType.EMPTY_SET;
 		}
-		if (tla.getContents().get(0) instanceof PGoTLASuchThat) {
+		if (tla.getContents().get(0) instanceof PGoTLAVariadic) {
 			// set constructor or set image
 			assert (tla.getContents().size() == 1);
-			PGoTLASuchThat st = (PGoTLASuchThat) tla.getContents().get(0);
+			PGoTLAVariadic st = (PGoTLAVariadic) tla.getContents().get(0);
 			return PGoType.inferFromGoTypeName("set[" + new TLAExprToType(st, data).getType().toTypeName() + "]");
 		} else {
 			// elt's are declared one by one
@@ -313,7 +313,7 @@ public class TLAExprToType {
 			return PGoType.inferFromGoTypeName("bool");
 		case "CHOOSE":
 			// CHOOSE x \in S : P(x)
-			assert (tla.getArg() instanceof PGoTLASuchThat);
+			assert (tla.getArg() instanceof PGoTLAVariadic);
 			return argType;
 		default:
 			assert false;
@@ -329,37 +329,44 @@ public class TLAExprToType {
 	// The returned type is never used in the context of the forall or exists
 	// operations, since these always return bools. When the method is called in
 	// this context, it is used only to check type consistency.
-	protected PGoType type(PGoTLASuchThat tla) throws PGoTransException {
-
-		PGoTempData temp = new PGoTempData(data);
-		// Add typing data for variables local to this scope (the x \in S)
-		for (PGoTLASetOp set : tla.getSets()) {
-			// TODO handle stuff like << x, y >> \in S \X T
-			assert (set.getLeft() instanceof PGoTLAVariable);
-			PGoTLAVariable var = (PGoTLAVariable) set.getLeft();
-			PGoType containerType = new TLAExprToType(set.getRight(), data).getType();
-			assert (containerType instanceof PGoSet);
-			PGoType eltType = ((PGoSet) containerType).getElementType();
-			temp.getLocals().put(var.getName(), PGoVariable.convert(var.getName(), eltType));
-		}
-		// Check if the expression agrees w/ types of variables
-		PGoType exprType = new TLAExprToType(tla.getExpr(), temp).getType();
-
-		if (tla.isSetImage()) {
-			// the type is the return type of the function
-			return exprType;
-		} else {
-			// if there is 1 set, the type is the contained type of the set;
-			// otherwise we don't care since this must be forall/exists
-			Vector<PGoTLASetOp> sets = tla.getSets();
-			if (sets.size() > 1) {
-				return PGoType.UNDETERMINED;
+	protected PGoType type(PGoTLAVariadic tla) throws PGoTransException {
+		switch (tla.getToken()) {
+		case ":":
+			PGoTempData temp = new PGoTempData(data);
+			// Add typing data for variables local to this scope (the x \in S)
+			for (PGoTLA arg : tla.getArgs()) {
+				// TODO handle stuff like << x, y >> \in S \X T
+				PGoTLASetOp set = (PGoTLASetOp) arg;
+				assert (set.getLeft() instanceof PGoTLAVariable);
+				PGoTLAVariable var = (PGoTLAVariable) set.getLeft();
+				PGoType containerType = new TLAExprToType(set.getRight(), data).getType();
+				assert (containerType instanceof PGoSet);
+				PGoType eltType = ((PGoSet) containerType).getElementType();
+				temp.getLocals().put(var.getName(), PGoVariable.convert(var.getName(), eltType));
 			}
-			// x \in S
-			PGoTLA set = sets.get(0).getRight();
-			PGoType setType = new TLAExprToType(set, data).getType();
-			assert (setType instanceof PGoSet);
-			return ((PGoSet) setType).getElementType();
+			// Check if the expression agrees w/ types of variables
+			PGoType exprType = new TLAExprToType(tla.getExpr(), temp).getType();
+
+			if (tla.isRightSide()) {
+				// the type is the return type of the function
+				return exprType;
+			} else {
+				// if there is 1 set, the type is the contained type of the set;
+				// otherwise we don't care since this must be forall/exists
+				Vector<PGoTLA> sets = tla.getArgs();
+				if (sets.size() > 1) {
+					return PGoType.UNDETERMINED;
+				}
+				// x \in S
+				PGoTLA set = ((PGoTLASetOp) sets.get(0)).getRight();
+				PGoType setType = new TLAExprToType(set, data).getType();
+				assert (setType instanceof PGoSet);
+				return ((PGoSet) setType).getElementType();
+			}
+		// TODO add other cases
+		default:
+			assert false;
+			return null;
 		}
 	}
 }

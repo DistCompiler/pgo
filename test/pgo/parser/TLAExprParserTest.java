@@ -213,10 +213,10 @@ public class TLAExprParserTest {
 		assertTrue(rr.getRight() instanceof PGoTLASet);
 		PGoTLASet rrr = (PGoTLASet) rr.getRight();
 		assertEquals(1, rrr.getContents().size());
-		assertTrue(rrr.getContents().get(0) instanceof PGoTLASuchThat);
-		PGoTLASuchThat setContents = (PGoTLASuchThat) rrr.getContents().get(0);
+		assertTrue(rrr.getContents().get(0) instanceof PGoTLAVariadic);
+		PGoTLAVariadic setContents = (PGoTLAVariadic) rrr.getContents().get(0);
 		assertTrue(setContents.getExpr() instanceof PGoTLABoolOp);
-		assertTrue(setContents.getSets().size() == 1);
+		assertTrue(setContents.getArgs().size() == 1);
 	}
 	
 	@Test
@@ -240,9 +240,9 @@ public class TLAExprParserTest {
 		assertEquals(1, result.size());
 		assertTrue(result.get(0) instanceof PGoTLAUnary);
 		PGoTLAUnary choose = (PGoTLAUnary) result.get(0);
-		assertTrue(choose.getArg() instanceof PGoTLASuchThat);
-		PGoTLASuchThat st = (PGoTLASuchThat) choose.getArg();
-		Vector<PGoTLASetOp> sets = st.getSets();
+		assertTrue(choose.getArg() instanceof PGoTLAVariadic);
+		PGoTLAVariadic st = (PGoTLAVariadic) choose.getArg();
+		Vector<PGoTLA> sets = st.getArgs();
 		assertTrue(sets.size() == 1);
 		assertTrue(st.getExpr() instanceof PGoTLABoolOp);
 		
@@ -269,12 +269,12 @@ public class TLAExprParserTest {
 		assertEquals(1, result.size());
 		assertTrue(result.get(0) instanceof PGoTLAUnary);
 		PGoTLAUnary exists = (PGoTLAUnary) result.get(0);
-		assertTrue(exists.getArg() instanceof PGoTLASuchThat);
-		st = (PGoTLASuchThat) exists.getArg();
-		sets = st.getSets();
+		assertTrue(exists.getArg() instanceof PGoTLAVariadic);
+		st = (PGoTLAVariadic) exists.getArg();
+		sets = st.getArgs();
 		assertTrue(sets.size() == 2);
 		assertTrue(st.getExpr() instanceof PGoTLABoolOp);
-		PGoTLASetOp set = st.getSets().get(1);
+		PGoTLASetOp set = (PGoTLASetOp) st.getArgs().get(1);
 		assertEquals("\\in", set.getToken());
 		assertTrue(set.getLeft() instanceof PGoTLAVariable);
 		assertTrue(set.getRight() instanceof PGoTLAVariable);

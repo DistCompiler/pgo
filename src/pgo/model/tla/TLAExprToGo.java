@@ -27,13 +27,6 @@ public class TLAExprToGo {
 	// the intermediate data; includes information about the type of variables
 	private PGoTempData data;
 
-/*	public TLAExprToGo(Vector<PGoTLA> tla, Imports imports, PGoTempData data) throws PGoTransException {
-		stmts = new Vector<>();
-		this.imports = imports;
-		this.data = data;
-		convert(tla);
-	}*/
-
 	public TLAExprToGo(PGoTLA tla, Imports imports, PGoTempData data) throws PGoTransException {
 		this.imports = imports;
 		this.data = data;
@@ -50,27 +43,6 @@ public class TLAExprToGo {
 	}
 
 	/**
-	 * Takes PGoTLA ast tree and converts it to Go statement
-	 * 
-	 * TODO probably want to take the tokens into a class TLAExprToGo. Then
-	 * support things like getEquivStatement() to get the equivalent go expr to
-	 * refer to the equivalent data in the pluscal, and getInit() to get any
-	 * initialization code to generate that data. Constructor of this class may
-	 * need to know what local variable names are available
-	 * 
-	 * @param ptla
-	 * @throws PGoTransException
-	 *             if there is a typing inconsistency
-	 */
-/*	private void convert(Vector<PGoTLA> ptla) throws PGoTransException {
-		for (PGoTLA tla : ptla) {
-			// check type consistency
-			new TLAExprToType(tla, data);
-			expr.addAll(tla.convert(this));
-		}
-	}*/
-
-	/**
 	 * Convert the TLA expression to a Go AST, while also adding the correct
 	 * imports.
 	 * 
@@ -80,6 +52,132 @@ public class TLAExprToGo {
 	protected Expression translate(PGoTLAArray tla) {
 		// TODO (issue #5, 23)
 		return new SimpleExpression(new Vector<>());
+	}
+
+	protected Expression translate(PGoTLAVariadic tla) throws PGoTransException {
+		// TODO
+		switch (tla.getToken()) {
+		case "|->":
+			// tla: x \in S, y \in T |-> f(x, y)
+			// go: pgoutil.MapsTo(func(x, y type) type { return f(x, y) }, S, T)
+			// func params to MapsTo
+			Vector<Expression> params = new Vector<>();
+			// params for anonymous function
+			Vector<ParameterDeclaration> decls = new Vector<>();
+			PGoTempData temp = new PGoTempData(data);
+			for (PGoTLA arg : tla.getArgs()) {
+				assert (arg instanceof PGoTLASetOp);
+				PGoTLASetOp in = (PGoTLASetOp) arg;
+				assert (in.getToken().equals("\\in"));
+				// TODO handle tuples
+				assert (in.getLeft() instanceof PGoTLAVariable);
+				PGoTLAVariable var = (PGoTLAVariable) in.getLeft();
+				PGoType setType = new TLAExprToType(in.getRight(), data).getType();
+				assert (setType instanceof PGoSet);
+				PGoType containedType = ((PGoSet) setType).getElementType();
+
+				decls.add(new ParameterDeclaration(var.getName(), containedType));
+				params.add(new TLAExprToGo(in.getRight(), imports, data).toExpression());
+
+				temp.getLocals().put(var.getName(), PGoVariable.convert(var.getName(), containedType));
+			}
+			// Create anonymous function for f
+			TLAExprToGo trans = new TLAExprToGo(tla.getExpr(), imports, temp);
+			AnonymousFunction f = new AnonymousFunction(trans.getType(), decls, new Vector<>(),
+					new Vector<Statement>() {
+						{
+							add(new Return(trans.toExpression()));
+						}
+					});
+			params.add(0, f);
+			imports.addImport("pgoutil");
+			return new FunctionCall("pgoutil.MapsTo", params);
+		case "EXCEPT":
+			// tla: f EXCEPT ![x1] = y1, [x2] = y2...
+			// TODO
+			return null;
+		case ":":
+			// if we are calling this, it is set constructor or set image
+			if (tla.isRightSide()) {
+				// set image { f(x, y) : x \in S, y \in T }
+				// go func: pgoutil.SetImage(func(x, y type) type { return f(x, y) }, S, T)
+				
+				// the set operations
+				Vector<Expression> varExprs = new Vector<>(), setExprs = new Vector<>();
+				// add temporary typing data used to translate the predicate
+				temp = new PGoTempData(data);
+				// parameters for anonymous function
+				decls = new Vector<ParameterDeclaration>();
+				// the SetImage function parameters
+				params = new Vector<Expression>();
+				for (PGoTLA arg : tla.getArgs()) {
+					PGoTLASetOp setOp = (PGoTLASetOp) arg;
+					varExprs.add(setOp.getLeft().convert(this));
+					setExprs.add(setOp.getRight().convert(this));
+					// TODO handle tuples
+					assert (setOp.getLeft() instanceof PGoTLAVariable);
+					PGoTLAVariable var = (PGoTLAVariable) setOp.getLeft();
+					PGoType setType = new TLAExprToType(setOp.getRight(), data).getType();
+					assert (setType instanceof PGoSet);
+					PGoType containedType = ((PGoSet) setType).getElementType();
+
+					decls.add(new ParameterDeclaration(var.getName(), containedType));
+					params.add(new TLAExprToGo(setOp.getRight(), imports, data).toExpression());
+
+					temp.getLocals().put(var.getName(), PGoVariable.convert(var.getName(), containedType));
+				}
+				trans = new TLAExprToGo(tla.getExpr(), imports, temp);
+				f = new AnonymousFunction(trans.getType(), decls, new Vector<>(),
+						new Vector<Statement>() {
+							{
+								add(new Return(trans.toExpression()));
+							}
+						});
+				params.add(0, f);
+				imports.addImport("pgoutil");
+				return new FunctionCall("pgoutil.SetImage", params);
+			} else {
+				// set constructor { x \in S : P(x) }
+				// go func: pgoutil.SetConstructor(S, func(x type) bool { return P(x) })
+				// there is only a single set expression S
+				
+				assert (tla.getArgs().size() == 1);
+				PGoTLASetOp setOp = (PGoTLASetOp) tla.getArgs().get(0);
+				TLAExprToGo setTrans = new TLAExprToGo(setOp.getRight(), imports, data);
+				assert (setTrans.getType() instanceof PGoSet);
+				PGoType varType = ((PGoSet) setTrans.getType()).getElementType();
+				
+				// TODO handle tuples
+				assert (setOp.getLeft() instanceof PGoTLAVariable);
+				PGoTLAVariable var = (PGoTLAVariable) setOp.getLeft();
+				temp = new PGoTempData(data);
+				temp.getLocals().put(var.getName(), PGoVariable.convert(var.getName(), varType));
+				
+				AnonymousFunction P = new AnonymousFunction(
+						PGoType.inferFromGoTypeName("bool"),
+						new Vector<ParameterDeclaration>() {
+							{
+								add(new ParameterDeclaration(var.getName(), varType));
+							}
+						},
+						new Vector<>(),
+						new Vector<Statement>() {
+							{
+								add(new Return(new TLAExprToGo(tla.getExpr(), imports, temp).toExpression()));
+							}
+						});
+				imports.addImport("pgoutil");
+				return new FunctionCall("pgoutil.SetConstructor", new Vector<Expression>() {
+					{
+						add(setTrans.toExpression());
+						add(P);
+					}
+				});
+			}
+		default:
+			assert false;
+			return null;
+		}
 	}
 
 	protected Expression translate(PGoTLABool tla) {
@@ -259,7 +357,7 @@ public class TLAExprToGo {
 		Expression rightRes = tla.getRight().convert(this);
 		PGoType leftType = new TLAExprToType(tla.getLeft(), data).getType();
 		PGoType rightType = new TLAExprToType(tla.getRight(), data).getType();
-		
+
 		if (tla.getToken().equals("^")) {
 			this.imports.addImport("math");
 			Vector<Expression> params = new Vector<>();
@@ -281,7 +379,7 @@ public class TLAExprToGo {
 			} else if (!(tla.getRight() instanceof PGoTLANumber || rightType.equals(convertedType))) {
 				rightRes = new TypeConversion(convertedType, rightRes);
 			}
-			
+
 			Vector<Expression> toks = new Vector<>();
 			toks.add(leftRes);
 			toks.add(new Token(" " + tla.getToken() + " "));
@@ -322,16 +420,17 @@ public class TLAExprToGo {
 			return fc1;
 		// these operations are of the form OP x \in S : P(x)
 		case "CHOOSE":
-			PGoTLASuchThat st = (PGoTLASuchThat) tla.getArg();
-			assert (st.getSets().size() == 1);
+			PGoTLAVariadic st = (PGoTLAVariadic) tla.getArg();
+			assert (st.getArgs().size() == 1);
 			// the set S
-			Expression setExpr = st.getSets().get(0).getRight().convert(this);
+			Expression setExpr = ((PGoTLASetOp) st.getArgs().get(0)).getRight().convert(this);
 			// the variable x
-			Expression varExpr = st.getSets().get(0).getLeft().convert(this);
+			Expression varExpr = ((PGoTLASetOp) st.getArgs().get(0)).getLeft().convert(this);
 			// We need to add typing data to avoid TLAExprToType complaining
 			// about untyped variables
 			PGoTempData temp = new PGoTempData(data);
-			for (PGoTLASetOp set : st.getSets()) {
+			for (PGoTLA arg : st.getArgs()) {
+				PGoTLASetOp set = (PGoTLASetOp) arg;
 				// TODO handle stuff like << x, y >> \in S \X T
 				assert (set.getLeft() instanceof PGoTLAVariable);
 				PGoTLAVariable var = (PGoTLAVariable) set.getLeft();
@@ -372,10 +471,11 @@ public class TLAExprToGo {
 			return new FunctionCall("pgoutil.Choose", chooseFuncParams);
 		case "\\E":
 		case "\\A":
-			st = (PGoTLASuchThat) tla.getArg();
+			st = (PGoTLAVariadic) tla.getArg();
 
 			temp = new PGoTempData(data);
-			for (PGoTLASetOp set : st.getSets()) {
+			for (PGoTLA arg : st.getArgs()) {
+				PGoTLASetOp set = (PGoTLASetOp) arg;
 				// TODO handle stuff like << x, y >> \in S \X T
 				assert (set.getLeft() instanceof PGoTLAVariable);
 				PGoTLAVariable var = (PGoTLAVariable) set.getLeft();
@@ -387,28 +487,26 @@ public class TLAExprToGo {
 			pred = new TLAExprToGo(st.getExpr(), imports, temp).toExpression();
 
 			Vector<Expression> setExprs = new Vector<>(), varExprs = new Vector<>();
-			for (PGoTLASetOp setOp : st.getSets()) {
+			for (PGoTLA arg : st.getArgs()) {
+				PGoTLASetOp setOp = (PGoTLASetOp) arg;
 				varExprs.add(setOp.getLeft().convert(this));
 				setExprs.add(setOp.getRight().convert(this));
 			}
 			// create the anonymous function for the predicate
-			// go func: Exists|ForAll(P interface{}, S ...mapset.Set) interface{}
+			// go func: Exists|ForAll(P interface{}, S ...mapset.Set)
+			// interface{}
 			// (P is predicate)
 			// P = func(varType, varType...) bool { return pred }
+			Vector<ParameterDeclaration> params = new Vector<>();
+			for (int i = 0; i < setExprs.size(); i++) {
+				PGoTLA setExprTLA = ((PGoTLASetOp) st.getArgs().get(i)).getRight();
+				PGoType setType = new TLAExprToType(setExprTLA, data).getType();
+				PGoType varType = ((PGoCollectionType) setType).getElementType();
+				params.add(new ParameterDeclaration(varExprs.get(i).toGo().get(0), varType));
+			}
 			P = new AnonymousFunction(PGoType.inferFromGoTypeName("bool"),
 					// TODO (issue 28) deal with tuples as variable declaration
-					new Vector<ParameterDeclaration>() {
-						{
-							// var[i] \in set[i]
-							for (int i = 0; i < setExprs.size(); i++) {
-								PGoType setType = new TLAExprToType(st.getSets().get(i).getRight(), data)
-										.getType();
-								PGoType varType = ((PGoCollectionType) setType).getElementType();
-								add(new ParameterDeclaration(varExprs.get(i).toGo().get(0),
-										varType));
-							}
-						}
-					},
+					params,
 					new Vector<>(),
 					new Vector<Statement>() {
 						{
@@ -432,12 +530,5 @@ public class TLAExprToGo {
 
 	protected Expression translate(PGoTLAVariable tla) {
 		return new Token(String.valueOf(tla.getName()));
-	}
-
-	protected Expression translate(PGoTLASuchThat tla) {
-		// This compiles differently based on context, so we should deal with
-		// translating this when we have the appropriate context.
-		assert false;
-		return null;
 	}
 }

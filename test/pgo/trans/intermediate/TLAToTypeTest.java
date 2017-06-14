@@ -252,7 +252,7 @@ public class TLAToTypeTest {
 		lhs.add(new PGoTLASetOp("\\in", new PGoTLAVariable("x", 0), new PGoTLAVariable("S", 0), 0));
 		Vector<TLAToken> rhs = new Vector<>();
 		rhs.add(new TLAToken("TRUE", 0, TLAToken.BUILTIN, 0));
-		PGoTLASuchThat tla = new PGoTLASuchThat(lhs, rhs, 0);
+		PGoTLAVariadic tla = new PGoTLAVariadic(":", lhs, rhs, 0);
 		data.globals.put("S", PGoVariable.convert("S", PGoType.inferFromGoTypeName("set[set[int]]")));
 		PGoType result = new TLAExprToType(tla, data).getType();
 		assertEquals(PGoType.inferFromGoTypeName("set[int]"), result);
@@ -267,7 +267,7 @@ public class TLAToTypeTest {
 		rhs.add(new TLAToken("y", 0, TLAToken.IDENT, 0));
 		rhs.add(new TLAToken("\\in", 0, TLAToken.BUILTIN, 0));
 		rhs.add(new TLAToken("S", 0, TLAToken.IDENT, 0));
-		tla = new PGoTLASuchThat(lhs, rhs, 0);
+		tla = new PGoTLAVariadic(":", lhs, rhs, 0);
 		data.globals.clear();
 		data.globals.put("S", PGoVariable.convert("S", PGoType.inferFromGoTypeName("set[int]")));
 		result = new TLAExprToType(tla, data).getType();
@@ -290,7 +290,7 @@ public class TLAToTypeTest {
 		Vector<TLAToken> rhs = new Vector<>();
 		lhs.add(new PGoTLASetOp("\\in", new PGoTLAVariable("x", 0), new PGoTLAVariable("S", 0), 0));
 		rhs.add(new TLAToken("TRUE", 0, TLAToken.BUILTIN, 0));
-		PGoTLASuchThat arg = new PGoTLASuchThat(lhs, rhs, 0);
+		PGoTLAVariadic arg = new PGoTLAVariadic(":", lhs, rhs, 0);
 		tla = new PGoTLAUnary("CHOOSE", arg, 0);
 		assertEquals(PGoType.inferFromGoTypeName("set[int]"), new TLAExprToType(tla, data).getType());
 	}
