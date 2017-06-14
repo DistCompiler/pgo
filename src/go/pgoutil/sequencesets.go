@@ -1,9 +1,9 @@
 package pgoutil
 
-func Sequence(begin, end int) []int {
-	ret := make([]int, end-begin+1)
+func Sequence(begin, end int) Set {
+	ret := NewSet()
 	for i := 0; i <= end-begin; i++ {
-		ret[i] = begin + i
+		ret.Add(begin + i)
 	}
 	return ret
 }

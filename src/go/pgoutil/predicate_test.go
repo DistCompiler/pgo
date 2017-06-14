@@ -1,13 +1,10 @@
 package pgoutil
 
-import (
-	"testing"
-	"mapset"
-)
+import "testing"
 
 func TestEmptySets(t *testing.T) {
 	// For empty sets, Exists is defined to be false and ForAll is defined to be true.
-	S := mapset.NewSet()
+	S := NewSet()
 	assertEquals(
 		false,
 		Exists(func(i int) bool {
@@ -19,7 +16,7 @@ func TestEmptySets(t *testing.T) {
 				return false
 			}, S), t)
 
-	T := mapset.NewSet()
+	T := NewSet()
 	assertEquals(
 		false,
 		Exists(func(i, j int) bool {
@@ -31,7 +28,7 @@ func TestEmptySets(t *testing.T) {
 				return false
 			}, S), t)
 
-	U := mapset.NewSet(1, 2, 3)
+	U := NewSet(1, 2, 3)
 	assertEquals(
 		false,
 		Exists(func(i, j, k int) bool {
@@ -45,7 +42,7 @@ func TestEmptySets(t *testing.T) {
 }
 
 func TestSimpleExistsForAll(t *testing.T) {
-	S := mapset.NewSet(2)
+	S := NewSet(2)
 	assertEquals(
 		true,
 		Exists(func(i int) bool {
@@ -71,8 +68,8 @@ func TestSimpleExistsForAll(t *testing.T) {
 }
 
 func TestMultipleSets(t *testing.T) {
-	S := mapset.NewSet(1, 2, 3)
-	T := mapset.NewSet(4, 5, 6)
+	S := NewSet(1, 2, 3)
+	T := NewSet(4, 5, 6)
 	assertEquals(
 		true,
 		Exists(func(i, j int) bool {
@@ -84,7 +81,7 @@ func TestMultipleSets(t *testing.T) {
 				return j > i
 			}, S, T), t)
 
-	U := mapset.NewSet(7, 8, 9)
+	U := NewSet(7, 8, 9)
 	assertEquals(
 		false,
 		Exists(func(i, j, k int) bool {
@@ -100,14 +97,14 @@ func TestMultipleSets(t *testing.T) {
 func TestChoose(t *testing.T) {
 	// For our Choose function, we take the least element that satisfies the predicate.
 	// This guarantees the determinism the TLA specifies.
-	S := mapset.NewSet("x", "a", "ab")
+	S := NewSet("x", "a", "ab")
 	assertEquals(
 		"a",
 		Choose(func(i string) bool {
 				return true
 			}, S), t)
 
-	S = mapset.NewSet(2, 4, 6, 8, 9)
+	S = NewSet(2, 4, 6, 8, 9)
 	assertEquals(
 		9,
 		Choose(func(i int) bool {

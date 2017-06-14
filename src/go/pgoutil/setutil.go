@@ -1,13 +1,10 @@
 package pgoutil
 
-import (
-	"mapset"
-	"reflect"
-)
+import "reflect"
 
 // Return the elements x in S such that P(x)
-func SetConstructor(S mapset.Set, P interface{}) mapset.Set {
-	ret := mapset.NewSet()
+func SetConstructor(S Set, P interface{}) Set {
+	ret := NewSet()
 	vf := reflect.ValueOf(P)
 	for x := range S.Iter() {
 		cond := vf.Call([]reflect.Value{reflect.ValueOf(x)})
@@ -19,28 +16,24 @@ func SetConstructor(S mapset.Set, P interface{}) mapset.Set {
 }
 
 // Return the image of the function f over the cartesian product of sets
-func SetImage(f interface{}, sets ...mapset.Set) mapset.Set {
-	ret := mapset.NewSet()
+func SetImage(f interface{}, sets ...Set) Set {
+	ret := NewSet()
 	// Recursively iterate over all possible tuples in the cartesian product of all sets, and add image to set
-	// prev stores the current tuple
-	var prev []interface{}
+	// params stores the current tuple
+	var params []reflect.Value
 	vf := reflect.ValueOf(f)
 	var iterateOverAllTuples func(int)
 	iterateOverAllTuples = func(depth int) {
 		if depth == len(sets) {
-			params := make([]reflect.Value, len(sets))
-			for i, val := range prev {
-				params[i] = reflect.ValueOf(val)
-			}
 			toAdd := vf.Call(params)
 			ret.Add(toAdd[0].Interface())
 			return
 		}
 		for x := range sets[depth].Iter() {
-			// Iterate over all tuples with prefix prev
-			prev = append(prev, x)
+			// Iterate over all tuples with prefix params
+			params = append(params, reflect.ValueOf(x))
 			iterateOverAllTuples(depth + 1)
-			prev = prev[:len(prev)-1]
+			params = params[:len(params)-1]
 		}
 	}
 	iterateOverAllTuples(0)
