@@ -9,7 +9,6 @@ import (
 )
 
 // Generic comparator function that satisfies utils.Comparator
-// We assume 
 func comp(a, b interface{}) int {
 	if reflect.TypeOf(a) != reflect.TypeOf(b) {
 		panic(fmt.Sprintf("Arguments to comparator are not the same type: %T %T", a, b))
@@ -141,18 +140,18 @@ func comp(a, b interface{}) int {
 		return 0
 	case Tuple:
 		b := b.(Tuple)
-		for i := range a {
-			if i == len(b) {
+		for i := 0; i < a.Size(); i++ {
+			if i == b.Size() {
 				return 1
 			}
-			switch comp(a[i], b[i]) {
+			switch comp(a.At(i), b.At(i)) {
 			case -1:
 				return -1
 			case 1:
 				return 1
 			}
 		}
-		if (len(b) == len(a)) {
+		if (a.Size() == b.Size()) {
 			return 0
 		}
 		return -1
