@@ -18,9 +18,9 @@ func TestComparator(t *testing.T) {
 	assertEquals(-1, comp("aaaa", "aaaaa"), t)
 	assertEquals(1, comp("aaaaa", "aaaa"), t)
 
-	assertEquals(1, comp([]int{1, 2}, []int{1}), t)
-	assertEquals(-1, comp([]int{1}, []int{1, 2}), t)
-	assertEquals(0, comp([]uint64{1, 3, 5}, []uint64{1, 3, 5}), t)
+	assertEquals(1, comp(NewTuple(1, 2), NewTuple(1)), t)
+	assertEquals(-1, comp(NewTuple(1), NewTuple(1, 2)), t)
+	assertEquals(0, comp(NewTuple(1, 3, 5), NewTuple(1, 3, 5)), t)
 
 	x := "asdf"
 	y := "asdf"

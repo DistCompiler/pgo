@@ -151,16 +151,65 @@ func comp(a, b interface{}) int {
 				return 1
 			}
 		}
-		if (a.Size() == b.Size()) {
+
+		if a.Size() == b.Size() {
 			return 0
 		}
 		return -1
-	// TODO add cases for sets and maps
+	case Set:
+		// Sets are compared using their elements.
+		// Elements are ordered so we can just iterate.
+		b := b.(Set)
+		aIter, bIter := a.Iter(), b.Iter()
+		for i := 0; i < a.Size(); i++ {
+			if i == b.Size() {
+				return 1
+			}
+			switch comp(<-aIter, <-bIter) {
+			case -1:
+				return -1
+			case 1:
+				return 1
+			}
+		}
+
+		if a.Size() == b.Size() {
+			return 0
+		}
+		return -1
+	case Map:
+		// Maps are compared first by their keys, then their corresponding values.
+		// Elements are ordered so we can just iterate.
+		b := b.(Map)
+		aIter, bIter := a.Iter(), b.Iter()
+		for i := 0; i < a.Size(); i++ {
+			if i == b.Size() {
+				return 1
+			}
+			aElt, bElt := <-aIter, <-bIter
+			switch comp(aElt.Key, bElt.Key) {
+			case -1:
+				return -1
+			case 1:
+				return 1
+			case 0:
+				switch comp(aElt.Val, bElt.Val) {
+				case -1:
+					return -1
+				case 1:
+					return 1
+				}
+			}
+		}
+
+		if a.Size() == b.Size() {
+			return 0
+		}
+		return -1
 	default:
-		// check if this is a struct, ptr or slice
+		// check if this is a struct or ptr
 		// structs are compared based on each (exported) field (in order)
 		// ptrs are compared based on pointed-to value
-		// slices are compared in the same way as tuples
 		v := reflect.ValueOf(a)
 		w := reflect.ValueOf(b)
 		switch v.Kind() {
@@ -184,22 +233,6 @@ func comp(a, b interface{}) int {
 				}
 			}
 			return 0
-		case reflect.Slice:
-			for i := 0; i < v.Len(); i++ {
-				if i == w.Len() {
-					return 1
-				}
-				switch comp(v.Index(i).Interface(), w.Index(i).Interface()) {
-				case -1:
-					return -1
-				case 1:
-					return 1
-				}
-			}
-			if w.Len() == v.Len() {
-				return 0
-			}
-			return -1
 		default:
 			panic(fmt.Sprintf("The type %T is not comparable", a))
 		}
