@@ -214,6 +214,57 @@ public abstract class PGoCollectionType extends PGoType {
 		}
 
 	}
+	
+	/**
+	 * Represents a tuple with multiple contained types
+	 */
+	public static class PGoTuple extends PGoCollectionType {
+		// contained types; only one if tuple is uniform type
+		private Vector<PGoType> contained;
+		// the tuple length; -1 if tuple is uniform type (can be any size)
+		private int length;
+		
+		public PGoTuple(Vector<PGoType> contained, boolean uniform) {
+			this.contained = contained;
+			if (uniform) {
+				this.length = -1;
+			} else {
+				this.length = contained.size();
+			}
+		}
+		
+		public Vector<PGoType> getContainedTypes() {
+			return new Vector<>(contained);
+		}
+		
+		public PGoType getType(int index) {
+			if (length == -1) {
+				return contained.get(0);
+			}
+			return contained.get(index);
+		}
+		
+		public int getLength() {
+			return length;
+		}
+		
+		@Override
+		public String toTypeName() {
+			if (length == -1) {
+				return "tuple[" + contained.get(0).toTypeName() + "...]";
+			}
+			Vector<String> containedStrings = new Vector<>();
+			for (PGoType type : contained) {
+				containedStrings.add(type.toTypeName());
+			}
+			return "tuple[" + String.join(", ", containedStrings) + "]";
+		}
+		
+		@Override
+		public String toGo() {
+			return "pgoutil.Tuple";
+		}
+	}
 
 	/**
 	 * Infers the PGo container type from given string
@@ -269,7 +320,57 @@ public abstract class PGoCollectionType extends PGoType {
 			}
 		}
 		
-		// TODO make tuple type
+		// matches tuple[type...] or tuple[type1, type2, ...]
+		rgex = Pattern.compile("(?i)tuple\\[(.+)\\]");
+		m = rgex.matcher(s);
+		if (m.matches()) {
+			String inner = m.group(1);
+			// parse comma separated list of types
+			// ignore commas in nested types
+			String cur = "";
+			Vector<PGoType> types = new Vector<>();
+			boolean uniform = false;
+			for (int i = 0; i < inner.length(); i++) {
+				switch (inner.charAt(i)) {
+				case ',':
+					types.add(PGoType.inferFromGoTypeName(cur.trim()));
+					cur = "";
+					break;
+				case '[':
+					// advance until matching close bracket
+					int depth = 0;
+					for (; i < inner.length(); i++){
+						cur += inner.charAt(i);
+						if (inner.charAt(i) == ']') {
+							depth--;
+							if (depth == 0) {
+								break;
+							}
+						} else if (inner.charAt(i) == '[') {
+							depth++;
+						}
+					}
+					break;
+				case '.':
+					// check to see if this is "..."
+					if (inner.substring(i, i+3).equals("...")) {
+						uniform = true;
+						types.add(PGoType.inferFromGoTypeName(cur));
+						i = inner.length();
+						cur = "";
+					}
+					break;
+				default:
+					cur += inner.charAt(i);
+				}
+			}
+			cur = cur.trim();
+			if (!cur.equals("")) {
+				types.add(PGoType.inferFromGoTypeName(cur));
+			}
+			return new PGoTuple(types, uniform);
+		}
+		
 		return new PGoUndetermined();
 	}
 }

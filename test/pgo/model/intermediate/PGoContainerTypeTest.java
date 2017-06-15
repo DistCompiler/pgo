@@ -10,7 +10,9 @@ import pgo.model.intermediate.PGoCollectionType.PGoChan;
 import pgo.model.intermediate.PGoCollectionType.PGoMap;
 import pgo.model.intermediate.PGoCollectionType.PGoSet;
 import pgo.model.intermediate.PGoCollectionType.PGoSlice;
+import pgo.model.intermediate.PGoCollectionType.PGoTuple;
 import pgo.model.intermediate.PGoPrimitiveType.PGoBool;
+import pgo.model.intermediate.PGoPrimitiveType.PGoDecimal;
 import pgo.model.intermediate.PGoPrimitiveType.PGoInt;
 import pgo.model.intermediate.PGoPrimitiveType.PGoString;
 import pgo.model.intermediate.PGoType.PGoUndetermined;
@@ -204,5 +206,44 @@ public class PGoContainerTypeTest {
 		s = "map[int]map[int]a";
 		pt = PGoCollectionType.inferContainerFromGoTypeName(s);
 		assertTrue(pt instanceof PGoUndetermined);
+	}
+	
+	@Test
+	public void testTuple() {
+		String s = "tuple[int...]";
+		PGoType type = PGoType.inferFromGoTypeName(s);
+		assertTrue(type instanceof PGoTuple);
+		PGoTuple tup = (PGoTuple) type;
+		assertEquals(-1, tup.getLength());
+		assertEquals(1, tup.getContainedTypes().size());
+		assertTrue(tup.getContainedTypes().get(0) instanceof PGoInt);
+		assertEquals(s, type.toTypeName());
+		assertEquals("pgoutil.Tuple", type.toGo());
+		
+		s = "tuple[int, map[int]string, tuple[string...], string]";
+		type = PGoType.inferFromGoTypeName(s);
+		assertTrue(type instanceof PGoTuple);
+		tup = (PGoTuple) type;
+		assertEquals(4, tup.getLength());
+		assertTrue(tup.getType(0) instanceof PGoInt);
+		assertTrue(tup.getType(1) instanceof PGoMap);
+		assertTrue(tup.getType(2) instanceof PGoTuple);
+		assertTrue(tup.getType(3) instanceof PGoString);
+		assertEquals(s, type.toTypeName());
+		assertEquals("pgoutil.Tuple", type.toGo());
+		
+		s = "tuple[int, tuple[float64, string], []int]";
+		type = PGoType.inferFromGoTypeName(s);
+		assertTrue(type instanceof PGoTuple);
+		tup = (PGoTuple) type;
+		assertEquals(3, tup.getLength());
+		assertTrue(tup.getType(0) instanceof PGoInt);
+		assertTrue(tup.getType(1) instanceof PGoTuple);
+		assertTrue(tup.getType(2) instanceof PGoSlice);
+		PGoTuple innerTup = (PGoTuple) tup.getType(1);
+		assertTrue(innerTup.getType(0) instanceof PGoDecimal);
+		assertTrue(innerTup.getType(1) instanceof PGoString);
+		assertEquals(s, type.toTypeName());
+		assertEquals("pgoutil.Tuple", type.toGo());
 	}
 }
