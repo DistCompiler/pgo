@@ -191,7 +191,7 @@ public class TLAExprToGo {
 		// we have already checked types for consistency, so can check just lhs
 		PGoType leftType = new TLAExprToType(tla.getLeft(), data).getType();
 		if (leftType instanceof PGoSet) {
-			imports.addImport("mapset");
+			imports.addImport("pgoutil");
 			Vector<Expression> leftExp = new Vector<>();
 			leftExp.add(leftRes);
 
@@ -297,12 +297,16 @@ public class TLAExprToGo {
 	}
 
 	protected Expression translate(PGoTLASet tla) throws PGoTransException {
+		if (tla.getContents().size() == 1 && tla.getContents().get(0) instanceof PGoTLAVariadic) {
+			// this is set constructor/set image: handled with that translation method
+			return tla.getContents().get(0).convert(this);
+		}
 		Vector<Expression> args = new Vector<>();
 		for (PGoTLA ptla : tla.getContents()) {
 			args.add(ptla.convert(this));
 		}
-		this.imports.addImport("mapset");
-		return new FunctionCall("mapset.NewSet", args);
+		this.imports.addImport("pgoutil");
+		return new FunctionCall("pgoutil.NewSet", args);
 	}
 
 	protected Expression translate(PGoTLASetOp tla) throws PGoTransException {
@@ -314,7 +318,7 @@ public class TLAExprToGo {
 
 		Vector<Expression> exp = new Vector<>();
 		String funcName = null;
-		// Map the set operation to the mapset function. \\notin does not have a
+		// Map the set operation to the pgoutil set function. \\notin does not have a
 		// corresponding function and is handled separately.
 		switch (tla.getToken()) {
 		case "\\cup":
@@ -347,7 +351,7 @@ public class TLAExprToGo {
 		}
 		// rightRes is the object because lhs can be an element (e.g. in
 		// Contains)
-		this.imports.addImport("mapset");
+		this.imports.addImport("pgoutil");
 		exp.add(new FunctionCall(funcName, lhs, rightRes));
 		return new SimpleExpression(exp);
 	}
@@ -406,17 +410,13 @@ public class TLAExprToGo {
 			return new SimpleExpression(exp);
 		case "UNION":
 			expr = tla.getArg().convert(this);
-			FunctionCall fc = new FunctionCall("pgoutil.EltUnion", new Vector<Expression>() {
-				{
-					add(expr);
-				}
-			});
+			FunctionCall fc = new FunctionCall("EltUnion", new Vector<>(), expr);
 			this.imports.addImport("pgoutil");
 			return fc;
 		case "SUBSET":
 			expr = tla.getArg().convert(this);
 			FunctionCall fc1 = new FunctionCall("PowerSet", new Vector<>(), expr);
-			this.imports.addImport("mapset");
+			this.imports.addImport("pgoutil");
 			return fc1;
 		// these operations are of the form OP x \in S : P(x)
 		case "CHOOSE":
@@ -445,7 +445,7 @@ public class TLAExprToGo {
 			assert (varExpr.toGo().size() == 1);
 
 			// create the anonymous function for the predicate
-			// go func: Choose(P interface{}, S mapset.Set) interface{}
+			// go func: Choose(P interface{}, S pgoutil.Set) interface{}
 			// (P is predicate)
 			// P = func(varType) bool { return pred }
 			AnonymousFunction P = new AnonymousFunction(PGoType.inferFromGoTypeName("bool"),
@@ -493,7 +493,7 @@ public class TLAExprToGo {
 				setExprs.add(setOp.getRight().convert(this));
 			}
 			// create the anonymous function for the predicate
-			// go func: Exists|ForAll(P interface{}, S ...mapset.Set)
+			// go func: Exists|ForAll(P interface{}, S ...pgoutil.Set)
 			// interface{}
 			// (P is predicate)
 			// P = func(varType, varType...) bool { return pred }

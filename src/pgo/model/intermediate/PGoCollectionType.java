@@ -114,7 +114,7 @@ public abstract class PGoCollectionType extends PGoType {
 
 		@Override
 		public String toGo() {
-			return "mapset.Set";
+			return "pgoutil.Set";
 		}
 	}
 
@@ -144,7 +144,7 @@ public abstract class PGoCollectionType extends PGoType {
 		}
 
 		public String toGo() {
-			return "map[" + kType.toGo() + "]" + eType.toGo();
+			return "pgoutil.Map";
 		}
 	}
 
@@ -268,6 +268,8 @@ public abstract class PGoCollectionType extends PGoType {
 				return ret;
 			}
 		}
+		
+		// TODO make tuple type
 		return new PGoUndetermined();
 	}
 }

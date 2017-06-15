@@ -271,7 +271,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 								PGoVariable.convert(varName, trans.getType()));
 					} else {
 						// x \in S
-						// x := S.ToSlice()[rand.Intn(S.Cardinality())].(type)
+						// x := S.ToSlice()[rand.Intn(S.Size())].(type)
 						Vector<PGoTLA> setExpr = new TLAExprParser(with.exp, with.line).getResult();
 						assert (setExpr.size() == 1);
 						TLAExprToGo trans = new TLAExprToGo(setExpr.get(0), go.getImports(),
@@ -287,7 +287,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 						rhs.add(new Token("["));
 						rhs.add(new FunctionCall("rand.Intn", new Vector<Expression>() {
 							{
-								add(new FunctionCall("Cardinality", new Vector<>(), trans.toExpression()));
+								add(new FunctionCall("Size", new Vector<>(), trans.toExpression()));
 							}
 						}));
 						rhs.add(new Token("]"));
@@ -491,29 +491,26 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 			Vector<PGoTLA> ptla = parser.getResult();
 			assert (ptla.size() == 1);
 			Vector<Expression> stmt = TLAToGo(ptla);
-			SimpleExpression se = null;
+			
 			assert (stmt.size() == 1);
-
-			if (stmt.get(0) instanceof SimpleExpression) {
-				se = (SimpleExpression) stmt.remove(0);
-			} else {
-				se = new SimpleExpression(new Vector<Expression>() {
-					{
-						add((Expression) stmt.remove(0));
-					}
-				});
-			}
+			Expression se = stmt.get(0);
 
 			go.addGlobal(new VariableDeclaration(pv.getName(), pv.getType(), null,
 					new Vector<>(), pv.getIsConstant()));
 			Vector<Expression> toks = new Vector<>();
-			toks.add(new Token("_, " + pv.getName()));
-			toks.add(new Token(" = "));
+			toks.add(new Token(pv.getName() + "_interface"));
+			toks.add(new Token(" := "));
 			toks.add(new Token("range "));
-			toks.add(se);
+			toks.add(new FunctionCall("Iter", new Vector<>(), se));
 
 			For loop = new For(new SimpleExpression(toks), new Vector<>());
 			main.add(loop);
+			// we need to cast the interface value to int
+			Vector<Expression> cast = new Vector<>();
+			cast.add(new Token(pv.getName()));
+			cast.add(new Token(" = "));
+			cast.add(new TypeAssertion(new Token(pv.getName() + "_interface"), PGoType.inferFromGoTypeName("int")));
+			loop.getThen().add(new SimpleExpression(cast));
 			main = loop.getThen();
 			// we set the rest of the main to go in here
 		}
