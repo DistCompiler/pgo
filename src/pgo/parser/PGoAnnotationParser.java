@@ -3,10 +3,12 @@ package pgo.parser;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.Vector;
+import java.util.regex.Pattern;
 
 import pgo.model.parser.AnnotatedFunction;
 import pgo.model.parser.AnnotatedProcess;
 import pgo.model.parser.AnnotatedReturnVariable;
+import pgo.model.parser.AnnotatedTLADefinition;
 import pgo.model.parser.AnnotatedVariable;
 import pgo.model.parser.PGoAnnotation;
 
@@ -20,12 +22,14 @@ public class PGoAnnotationParser {
 	private LinkedHashMap<String, AnnotatedFunction> funcs;
 	private LinkedHashMap<String, AnnotatedProcess> procs;
 	private LinkedHashMap<String, AnnotatedReturnVariable> retVars;
+	private LinkedHashMap<String, AnnotatedTLADefinition> defns;
 
 	public PGoAnnotationParser(Vector<PGoAnnotation> pGoAnnotations) throws PGoParseException {
 		vars = new LinkedHashMap<String, AnnotatedVariable>();
 		funcs = new LinkedHashMap<String, AnnotatedFunction>();
 		procs = new LinkedHashMap<String, AnnotatedProcess>();
 		retVars = new LinkedHashMap<String, AnnotatedReturnVariable>();
+		defns = new LinkedHashMap<>();
 
 		for (PGoAnnotation annot : pGoAnnotations) {
 			parseAnnote(annot);
@@ -53,6 +57,10 @@ public class PGoAnnotationParser {
 		case "proc":
 			AnnotatedProcess ap = AnnotatedProcess.parse(parts, annot.getLine());
 			procs.put(ap.getName(), ap);
+			break;
+		case "macro":
+			AnnotatedTLADefinition ad = AnnotatedTLADefinition.parse(annot.getString(), annot.getLine());
+			defns.put(ad.getName(), ad);
 			break;
 		default:
 			throw new PGoParseException("Unknown annotation attribute \"" + parts[0] + "\"", annot.getLine());
@@ -93,5 +101,13 @@ public class PGoAnnotationParser {
 
 	public AnnotatedProcess getAnnotatedProcess(String name) {
 		return procs.get(name);
+	}
+	
+	public ArrayList<AnnotatedTLADefinition> getAnnotatedTLADefinitions() {
+		return new ArrayList<>(defns.values());
+	}
+	
+	public AnnotatedTLADefinition getAnnotatedTLADefinition(String name) {
+		return defns.get(name);
 	}
 }
