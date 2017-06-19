@@ -11,11 +11,12 @@ CONSTANT N
 \** @PGo{ test }@Pgo }PGo @PGo @PGo} PGo{ } @PGo still part of annotation }@PGo
 \** @PGo{no space}@PGo
 \** @PGo{              many space          }@PGo
-(* @PGo{ many per line1 }@PGo not annotage @PGo{ more annote  !!!! <- this end is missing
+(* @PGo{ many per line1 }@PGo not annotage @PGo{ more annote }@PGo
    @PGo{ multiline }@PGo @PGo{ more multiline }@PGo
    not pgo
    @PGo{ even more lines }@PGo
    not pgo now
+   }@PGo !!! no opening token
 *)
 
 --algorithm Annotation {    \** @PGo{ annotation with \** comment on code line }@PGo

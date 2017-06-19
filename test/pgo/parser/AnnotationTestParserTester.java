@@ -20,7 +20,7 @@ public class AnnotationTestParserTester extends PGoPluscalParserTesterBase {
 		v.add(new PGoAnnotation("annotation with (* *) before algorithm", 7));
 		v.add(new PGoAnnotation("annotation with other string in \\* comment", 8));
 		v.add(new PGoAnnotation("annotation with other string in (* *) comment", 9));
-		v.add(new PGoAnnotation("test }@Pgo }PGo @PGo @PGo} @PGo{ } @PGo still part of annotation",11));
+		v.add(new PGoAnnotation("test }@Pgo }PGo @PGo @PGo} PGo{ } @PGo still part of annotation",11));
 		v.add(new PGoAnnotation("no space",12));
 		v.add(new PGoAnnotation("many space",13));
 		v.add(new PGoAnnotation("many per line1",14));

@@ -242,7 +242,7 @@ public class PcalParser {
 	
 	/**
 	 * Finds all comments that are pgo annotations PGo annotations are comments
-	 * of format "@PGo <string> @PGo" on one line
+	 * of format "@PGo{<string>}@PGo"
 	 * 
 	 * @param untabInputVec
 	 * @param algCol
@@ -252,18 +252,25 @@ public class PcalParser {
 	 */
 	private Vector<PGoAnnotation> findPGoAnnotations(Vector untabInputVec) throws PGoParseException {
 		Vector<PGoAnnotation> annotations = new Vector<PGoAnnotation>();
+		// We only parse comments inside the commented PlusCal algorithm block.
+		// We also consider the algorithm block not to be a comment block.
+		boolean insidePlusCal = false;
 		boolean isCommentBlock = false;
 		boolean isCommentLine = false;
 		boolean isPGo = false;
+		StringBuilder sb = null;
 		for (int l = 0; l < untabInputVec.size(); l++) {
 			String line = (String) untabInputVec.get(l);
-			StringBuilder sb = null;
 			for (int i = 0; i < line.length(); ++i) {
 				char c = line.charAt(i);
 				if (!isCommentLine && !isCommentBlock) {
 					if (c == '(') {
 						if (i + 1 < line.length() && line.charAt(i + 1) == '*') {
-							isCommentBlock = true;
+							if (!insidePlusCal) {
+								insidePlusCal = true;
+							} else {
+								isCommentBlock = true;
+							}
 						}
 					} else if (c == '\\') {
 						if (i + 1 < line.length() && line.charAt(i + 1) == '*') {
@@ -285,9 +292,14 @@ public class PcalParser {
 							annotations.add(new PGoAnnotation(sb.toString(), l + 1));
 							continue;
 						}
+					} else if (c == '@') {
+						if (i + 4 < line.length() && line.charAt(i + 1) == 'P' && line.charAt(i + 2) == 'G'
+								&& line.charAt(i + 3) == 'o' && line.charAt(i + 4) == '{') {
+							throw new PGoParseException("Opened new annotation before the previous one was closed", l);
+						}
 					}
 					sb.append(c);
-				} else if (!isPGo && (isCommentBlock || isCommentLine)) {
+				} else if (isCommentBlock || isCommentLine) {
 					if (c == '@') {
 						if (i + 4 < line.length() && line.charAt(i + 1) == 'P' && line.charAt(i + 2) == 'G'
 								&& line.charAt(i + 3) == 'o' && line.charAt(i + 4) == '{') {
@@ -296,9 +308,20 @@ public class PcalParser {
 							sb = new StringBuilder();
 							continue;
 						}
+					} else if (c == '}') {
+						if (i + 4 < line.length() && line.charAt(i + 1) == '@' && line.charAt(i + 2) == 'P'
+								&& line.charAt(i + 3) == 'G' && line.charAt(i + 4) == 'o') {
+							throw new PGoParseException("Closed a non-existent annotation block", l);
+						}
 					} else if (c == '*') {
 						if (i + 1 < line.length() && line.charAt(i + 1) == ')') {
-							isCommentBlock = false;
+							if (isCommentBlock) {
+								isCommentBlock = false;
+							} else if (insidePlusCal) {
+								insidePlusCal = false;
+							} else {
+								throw new PGoParseException("Mismatched comment block delimiters", l);
+							}
 							i++;
 						}
 					}
@@ -306,13 +329,16 @@ public class PcalParser {
 
 
 			}
-			if (isPGo) {
-				throw new PGoParseException(
-						"Expected \"}@PGo\" to end annotation block, but found new line instead.",
-						l + 1);
-			}
 			if (isCommentLine) {
 				isCommentLine = false;
+			}
+			if (isPGo && !(isCommentBlock || isCommentLine)) {
+				throw new PGoParseException(
+					"Reached end of comment block before \"}@PGo\" ended annotation block",
+					l + 1);
+			}
+			if (isPGo) {
+				sb.append('\n');
 			}
 		}
 

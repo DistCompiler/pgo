@@ -8,7 +8,7 @@ CONSTANT N
 \** asljl ** a @PGo{ annotation with other string in \* comment }@PGo lkjlkjl * } 
 (* asljl ** a @PGo{ annotation with other string in (* *) comment }@PGo lkjlkjl * } *)
 \** @PGo not annotation @PGo
-\** @PGo{ test }@Pgo }PGo @PGo @PGo} @PGo{ } @PGo still part of annotation }@Pgo !!! <- this end has caps error
+\** @PGo{ test }@Pgo }PGo @PGo @PGo} PGo{ } @PGo still part of annotation }@Pgo !!! <- this end has caps error
 \** @PGo{no space}@PGo
 \** @PGo{              many space          }@PGo
 (* @PGo{ many per line1 }@PGo not annotage @PGo{ more annote }@PGo
