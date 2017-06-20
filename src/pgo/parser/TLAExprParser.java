@@ -103,6 +103,11 @@ public class TLAExprParser {
 							// we are done parsing; don't parse rhs twice
 							cur = tokens.size();
 						} else if ((mask & Dictionary.X_OP_X) > 0) {
+							if (cur == 1 && (mask & (Dictionary.AND | Dictionary.OR)) > 0) {
+								// this is the first item in a bulleted list of
+								// and/or, so we can ignore it
+								continue;
+							}
 							combineExps(opPrecedence.get(mask));
 							ops.push(tok);
 						} else if ((mask & Dictionary.OP_X) > 0) {
@@ -117,7 +122,6 @@ public class TLAExprParser {
 			} else if (tok.type == TLAToken.IDENT) {
 				// this is identifier to a variable or function call
 				parseIdentifierToken(tok);
-
 			} else if (tok.type == TLAToken.NUMBER) {
 				// this is just a number
 				parseNumberToken(tok);
@@ -196,6 +200,10 @@ public class TLAExprParser {
 		if (lookAheadMatch(TLAToken.BUILTIN, "(")) {
 			Vector<TLAToken> contained = advanceUntilMatching(")", "(", TLAToken.BUILTIN);
 			exps.push(new PGoTLAFunction(tlaToken.string, contained, line));
+		} else if (lookAheadMatch(TLAToken.BUILTIN, "[")) {
+			// map access
+			Vector<TLAToken> contained = advanceUntilMatching("]", "[", TLAToken.BUILTIN);
+			exps.push(new PGoTLAArrayAccess(tlaToken.string, contained, line));
 		} else {
 			exps.push(new PGoTLAVariable(tlaToken.string, line));
 		}
