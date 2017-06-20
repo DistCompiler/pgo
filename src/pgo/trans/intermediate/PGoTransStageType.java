@@ -1,12 +1,17 @@
 package pgo.trans.intermediate;
 
+import java.util.Vector;
+
 import pgo.model.intermediate.PGoFunction;
+import pgo.model.intermediate.PGoType;
 import pgo.model.intermediate.PGoVariable;
 import pgo.model.parser.AnnotatedFunction;
 import pgo.model.parser.AnnotatedProcess;
 import pgo.model.parser.AnnotatedReturnVariable;
+import pgo.model.parser.AnnotatedTLADefinition;
 import pgo.model.parser.AnnotatedVariable;
 import pgo.model.parser.AnnotatedVariable.VarAnnotatedVariable;
+import pgo.model.tla.PGoTLAFuncDefinition;
 import pgo.parser.PGoParseException;
 import pgo.trans.PGoTransException;
 
@@ -25,6 +30,7 @@ public class PGoTransStageType extends PGoTransStageBase {
 		applyAnnotationOnFunctions();
 		applyAnnotationOnReturnVariables();
 		applyAnnotationOnProcesses();
+		addAnnotatedDefinitions();
 
 		checkAllTyped();
 	}
@@ -104,10 +110,10 @@ public class PGoTransStageType extends PGoTransStageBase {
 			PGoFunction fun = this.intermediateData.findPGoFunction(f.getName());
 			if (fun == null) {
 				throw new PGoTransException(
-							"Reference to function \"" + f.getName()
+						"Reference to function \"" + f.getName()
 								+ "\" in annotation but no matching function \"" + f.getName() + " \"or \"PGo"
 								+ f.getName() + "\" found.",
-							f.getLine());
+						f.getLine());
 			}
 
 			f.applyAnnotationOnFunction(fun, this.intermediateData.annots.getReturnVariables());
@@ -136,5 +142,11 @@ public class PGoTransStageType extends PGoTransStageBase {
 		}
 	}
 
-
+	// Parse annotated TLA definitions and add parsed version to data
+	private void addAnnotatedDefinitions() throws PGoTransException, PGoParseException {
+		for (AnnotatedTLADefinition d : this.intermediateData.annots.getAnnotatedTLADefinitions()) {
+			PGoTLAFuncDefinition tla = new PGoTLAFuncDefinition(d.getName(), d.getParams(), d.getExpr(), d.getLine());
+			this.intermediateData.defns.put(d.getName(), tla);
+		}
+	}
 }

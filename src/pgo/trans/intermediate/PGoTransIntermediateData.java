@@ -8,6 +8,7 @@ import pcal.TLAExpr;
 import pgo.model.intermediate.PGoFunction;
 import pgo.model.intermediate.PGoRoutineInit;
 import pgo.model.intermediate.PGoVariable;
+import pgo.model.tla.PGoTLAFuncDefinition;
 import pgo.parser.PGoAnnotationParser;
 
 /**
@@ -36,6 +37,8 @@ class PGoTransIntermediateData {
 	LinkedHashMap<String, PGoVariable> unresolvedVars;
 	// The functions of this algorithm
 	LinkedHashMap<String, PGoFunction> funcs;
+	// The TLA function definitions
+	LinkedHashMap<String, PGoTLAFuncDefinition> defns;
 
 	// Defined TLAExpr to be parsed into functions. Except these are not of the
 	// form individual functions, they are a collection of quick definitions. We
@@ -62,6 +65,7 @@ class PGoTransIntermediateData {
 		this.funcs = new LinkedHashMap<String, PGoFunction>();
 		this.mainBlock = new Vector<LabeledStmt>();
 		this.goroutines = new LinkedHashMap<String, PGoRoutineInit>();
+		this.defns = new LinkedHashMap<>();
 		this.needsLock = false;
 	}
 
