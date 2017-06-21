@@ -245,5 +245,13 @@ public class PGoContainerTypeTest {
 		assertTrue(innerTup.getType(1) instanceof PGoString);
 		assertEquals(s, type.toTypeName());
 		assertEquals("pgoutil.Tuple", type.toGo());
+		
+		s = "tuple[]";
+		type = PGoType.inferFromGoTypeName(s);
+		assertTrue(type instanceof PGoTuple);
+		tup = (PGoTuple) type;
+		assertEquals(0, tup.getLength());
+		assertEquals(s, type.toTypeName());
+		assertEquals("pgoutil.Tuple", type.toGo());
 	}
 }

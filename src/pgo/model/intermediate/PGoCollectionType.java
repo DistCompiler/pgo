@@ -320,8 +320,8 @@ public abstract class PGoCollectionType extends PGoType {
 			}
 		}
 		
-		// matches tuple[type...] or tuple[type1, type2, ...]
-		rgex = Pattern.compile("(?i)tuple\\[(.+)\\]");
+		// matches tuple[type...], tuple[type1, type2, ...] or tuple[]
+		rgex = Pattern.compile("(?i)tuple\\[(.*)\\]");
 		m = rgex.matcher(s);
 		if (m.matches()) {
 			String inner = m.group(1);
