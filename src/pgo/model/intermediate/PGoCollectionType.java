@@ -311,10 +311,27 @@ public abstract class PGoCollectionType extends PGoType {
 		}
 
 		// matches map[<type>]<type>
-		rgex = Pattern.compile("(?i)map\\[(.+?)\\](.+)");
+		rgex = Pattern.compile("(?i)map(.+)");
 		m = rgex.matcher(s);
 		if (m.matches()) {
-			ret = new PGoMap(m.group(1), m.group(2));
+			// match key type brackets
+			String key = "", val = "";
+			int depth = 0;
+			for (int i = 1; i < m.group(1).length(); i++) {
+				char cur = m.group(1).charAt(i);
+				if (cur == '[') {
+					depth++;
+				} else if (cur == ']') {
+					depth--;
+					if (depth < 0) {
+						// cur is closing bracket for key type
+						val = m.group(1).substring(i + 1);
+						break;
+					}
+				}
+				key += cur;
+			}
+			ret = new PGoMap(key, val);
 			if (!ret.isUndetermined()) {
 				return ret;
 			}
