@@ -11,6 +11,7 @@ import pgo.model.intermediate.PGoCollectionType.PGoChan;
 import pgo.model.intermediate.PGoCollectionType.PGoMap;
 import pgo.model.intermediate.PGoCollectionType.PGoSet;
 import pgo.model.intermediate.PGoCollectionType.PGoSlice;
+import pgo.model.intermediate.PGoCollectionType.PGoTuple;
 import pgo.model.intermediate.PGoPrimitiveType.PGoNatural;
 import pgo.model.intermediate.PGoPrimitiveType.PGoNumber;
 import pgo.trans.PGoTransException;
@@ -26,9 +27,19 @@ public class TLAExprToType {
 	private PGoType type;
 	// Contains typing information for variables
 	private PGoTempData data;
+	// The variable that this is assigned to, if relevant (when dealing w/
+	// arrays)
+	private PGoVariable assign;
 
 	public TLAExprToType(PGoTLA tla, PGoTempData data) throws PGoTransException {
 		this.data = data;
+		this.assign = null;
+		type = infer(tla);
+	}
+
+	public TLAExprToType(PGoTLA tla, PGoTempData data, PGoVariable assign) throws PGoTransException {
+		this.data = data;
+		this.assign = assign;
 		type = infer(tla);
 	}
 
@@ -114,6 +125,22 @@ public class TLAExprToType {
 						return null;
 					}
 					return PGoType.inferFromGoTypeName("map[" + keyType.toTypeName() + "]" + contained.toTypeName());
+				} else if (first instanceof PGoTuple) {
+					// Assume the tuples are being concatenated. We treat
+					// uniform tuples as not being able to be concatenated
+					// unless they are the same type. This is not strictly true
+					// but it shouldn't cause problems.
+					if (((PGoTuple) first).getLength() == -1 && ((PGoTuple) second).getLength() == -1) {
+						if (!((PGoTuple) first).getType(0).equals(((PGoTuple) second).getType(0))) {
+							return null;
+						}
+						return first;
+					} else if (((PGoTuple) first).getLength() == -1 || ((PGoTuple) second).getLength() == -1) {
+						return null;
+					}
+					Vector<PGoType> elts = ((PGoTuple) first).getContainedTypes();
+					elts.addAll(((PGoTuple) second).getContainedTypes());
+					return new PGoTuple(elts, false);
 				}
 			}
 		}
@@ -126,9 +153,73 @@ public class TLAExprToType {
 	 * @throws PGoTransException
 	 *             if there is a type inconsistency
 	 */
-	protected PGoType type(PGoTLAArray tla) {
-		// TODO
-		return PGoType.UNDETERMINED;
+	protected PGoType type(PGoTLAArray tla) throws PGoTransException {
+		if (!tla.getContents().isEmpty() && tla.getContents().get(0) instanceof PGoTLAVariadic) {
+			// this is a map; typing is handled in the other method
+			return new TLAExprToType(tla.getContents().get(0), data).getType();
+		}
+		// We need to look at variable information to see if this is a tuple or
+		// channel. By default we assume this is a tuple.
+		if (assign == null) {
+			// This is a tuple. Infer types of each element. If all types are
+			// compatible, assume that the tuple is uniformly typed.
+			Vector<String> containedTypes = new Vector<>();
+			if (tla.getContents().isEmpty()) {
+				return PGoType.inferFromGoTypeName("tuple[]");
+			}
+			PGoType first = new TLAExprToType(tla.getContents().get(0), data).getType();
+			for (PGoTLA elt : tla.getContents()) {
+				PGoType curType = new TLAExprToType(elt, data).getType();
+				containedTypes.add(curType.toTypeName());
+				first = TLAExprToType.compatibleType(first, curType);
+			}
+			if (first != null) {
+				return PGoType.inferFromGoTypeName("tuple[" + first.toTypeName() + "...]");
+			} else {
+				return PGoType.inferFromGoTypeName("tuple[" + String.join(",", containedTypes) + "]");
+			}
+		} else if (assign.getType() instanceof PGoTuple) {
+			// The type is the same as the assignment type. Check for
+			// consistency.
+			PGoTuple tup = (PGoTuple) assign.getType();
+			if (tup.getLength() == -1) {
+				PGoType contained = tup.getType(0);
+				for (PGoTLA elt : tla.getContents()) {
+					PGoType eltType = new TLAExprToType(elt, data).getType();
+					if (TLAExprToType.compatibleType(contained, eltType) == null) {
+						throw new PGoTransException("Expected elements in tuple to be of type " + contained.toTypeName()
+								+ " but found " + eltType.toTypeName() + " instead (line" + tla.getLine() + ")");
+					}
+				}
+			} else {
+				if (tla.getContents().size() != tup.getLength()) {
+					throw new PGoTransException("Expected type " + tup.toTypeName() + " to have "
+							+ tup.getLength() + " elements, but found "
+							+ tla.getContents().size() + " instead (line " + tla.getLine() + ")");
+				}
+				for (int i = 0; i < tla.getContents().size(); i++) {
+					PGoType eltType = new TLAExprToType(tla.getContents().get(i), data).getType();
+					if (TLAExprToType.compatibleType(tup.getType(i), eltType) == null) {
+						throw new PGoTransException("Expected the " + i + "th component of the tuple "
+								+ tup.toTypeName() + " to be of type " + tup.getType(i).toTypeName() + " but found "
+								+ eltType.toTypeName() + " instead (line " + tla.getLine() + ")");
+					}
+				}
+			}
+			return tup;
+		} else if (assign.getType() instanceof PGoChan) {
+			PGoType eltType = ((PGoChan) assign.getType()).getElementType();
+			for (PGoTLA elt : tla.getContents()) {
+				PGoType eType = new TLAExprToType(elt, data).getType();
+				if (!eltType.equals(eType)) {
+					throw new PGoTransException("Expected channel elements to be of type " + eltType.toTypeName()
+							+ " but found " + eType.toTypeName() + " (line " + tla.getLine() + ")");
+				}
+			}
+			return assign.getType();
+		}
+		assert false;
+		return null;
 	}
 
 	protected PGoType type(PGoTLABool tla) {
@@ -275,7 +366,7 @@ public class TLAExprToType {
 						+ left.toTypeName() + " and " + right.toTypeName() + " (line " + tla.getLine() + ")");
 			}
 		}
-		
+
 		// PlusCal division is always floating-point (maybe? TLC can't check)
 		if (tla.getToken().equals("/") || tla.getToken().equals("^")) {
 			// math.Pow returns float64
@@ -363,7 +454,30 @@ public class TLAExprToType {
 				assert (setType instanceof PGoSet);
 				return ((PGoSet) setType).getElementType();
 			}
-		// TODO add other cases
+		case "|->":
+			// x \in S, y \in T |-> f(x, y)
+			Vector<PGoTLA> lhs = tla.getArgs();
+			Vector<PGoType> tupTypes = new Vector<>();
+			// Add typing data for locals while also adding components to tuple
+			temp = new PGoTempData(data);
+			for (PGoTLA elt : lhs) {
+				assert (elt instanceof PGoTLASetOp);
+				PGoTLA setExpr = ((PGoTLASetOp) elt).getRight();
+				PGoType setType = new TLAExprToType(setExpr, data).getType();
+				assert (setType instanceof PGoSet);
+				tupTypes.add(((PGoSet) setType).getElementType());
+
+				PGoTLA varExpr = ((PGoTLASetOp) elt).getLeft();
+				// TODO handle tuples
+				assert (varExpr instanceof PGoTLAVariable);
+				temp.getLocals().put(((PGoTLAVariable) varExpr).getName(),
+						PGoVariable.convert(((PGoTLAVariable) varExpr).getName(), ((PGoSet) setType).getElementType()));
+			}
+			PGoType keyType = new PGoTuple(tupTypes, false);
+			PGoType valType = new TLAExprToType(tla.getExpr(), temp).getType();
+			return PGoType.inferFromGoTypeName("map[" + keyType.toTypeName() + "]" + valType.toTypeName());
+		case "EXCEPT":
+			// TODO
 		default:
 			assert false;
 			return null;

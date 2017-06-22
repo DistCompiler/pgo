@@ -28,11 +28,11 @@ public class PGoTLAArray extends PGoTLA {
 		return contents;
 	}
 	
-	protected Expression convert(TLAExprToGo trans) {
+	protected Expression convert(TLAExprToGo trans) throws PGoTransException {
 		return trans.translate(this);
 	}
 	
-	protected PGoType inferType(TLAExprToType trans) {
+	protected PGoType inferType(TLAExprToType trans) throws PGoTransException {
 		return trans.type(this);
 	}
 

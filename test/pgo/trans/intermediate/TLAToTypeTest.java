@@ -8,6 +8,11 @@ import org.junit.Before;
 import org.junit.Test;
 
 import pcal.TLAToken;
+import pgo.model.intermediate.PGoCollectionType.PGoChan;
+import pgo.model.intermediate.PGoCollectionType.PGoMap;
+import pgo.model.intermediate.PGoCollectionType.PGoTuple;
+import pgo.model.intermediate.PGoPrimitiveType.PGoDecimal;
+import pgo.model.intermediate.PGoPrimitiveType.PGoInt;
 import pgo.model.intermediate.PGoType;
 import pgo.model.intermediate.PGoVariable;
 import pgo.model.tla.*;
@@ -28,8 +33,71 @@ public class TLAToTypeTest {
 	}
 	
 	@Test
-	public void testArray() {
-		// TODO
+	public void testArray() throws PGoTransException {
+		PGoTLAArray tla = new PGoTLAArray(new Vector<TLAToken>() {
+			{
+				add(new TLAToken("1", 0, TLAToken.NUMBER));
+				add(new TLAToken(",", 0, TLAToken.BUILTIN));
+				add(new TLAToken("2", 0, TLAToken.NUMBER));
+				add(new TLAToken("+", 0, TLAToken.BUILTIN));
+				add(new TLAToken("3", 0, TLAToken.NUMBER));
+			}
+		}, 0);
+		PGoType result = new TLAExprToType(tla, data).getType();
+		assertTrue(result instanceof PGoTuple);
+		assertEquals(-1, ((PGoTuple) result).getLength());
+		assertTrue(((PGoTuple) result).getType(0) instanceof PGoInt);
+		
+		PGoVariable var = PGoVariable.convert("arr", PGoType.inferFromGoTypeName("tuple[int, float64]"));
+		data.getLocals().put("arr", var);
+		result = new TLAExprToType(tla, data, var).getType();
+		assertTrue(result instanceof PGoTuple);
+		assertEquals(2, ((PGoTuple) result).getLength());
+		assertTrue(((PGoTuple) result).getType(1) instanceof PGoDecimal);
+		
+		var = PGoVariable.convert("channel", PGoType.inferFromGoTypeName("chan[int]"));
+		data.getLocals().clear();
+		data.getLocals().put("channel", var);
+		result = new TLAExprToType(tla, data, var).getType();
+		assertTrue(result instanceof PGoChan);
+		assertEquals(PGoType.inferFromGoTypeName("int"), ((PGoChan) result).getElementType());
+		
+		tla = new PGoTLAArray(new Vector<TLAToken>() {
+			{
+				add(new TLAToken("x", 0, TLAToken.IDENT));
+				add(new TLAToken("\\in", 0, TLAToken.BUILTIN));
+				add(new TLAToken("S", 0, TLAToken.IDENT));
+				add(new TLAToken(",", 0, TLAToken.BUILTIN));
+				add(new TLAToken("y", 0, TLAToken.IDENT));
+				add(new TLAToken("\\in", 0, TLAToken.BUILTIN));
+				add(new TLAToken("T", 0, TLAToken.IDENT));
+				add(new TLAToken("|->", 0, TLAToken.BUILTIN));
+				add(new TLAToken("x", 0, TLAToken.IDENT));
+			}
+		}, 0);
+		data.getLocals().clear();
+		data.getLocals().put("S", PGoVariable.convert("S", PGoType.inferFromGoTypeName("set[set[tuple[int...]]]")));
+		data.getLocals().put("T", PGoVariable.convert("T", PGoType.inferFromGoTypeName("set[string]")));
+		result = new TLAExprToType(tla, data).getType();
+		assertTrue(result instanceof PGoMap);
+		assertEquals(PGoType.inferFromGoTypeName("tuple[set[tuple[int...]], string]"), ((PGoMap) result).getKeyType());
+		assertEquals(PGoType.inferFromGoTypeName("set[tuple[int...]]"), ((PGoMap) result).getElementType());
+	}
+	
+	@Test (expected = PGoTransException.class)
+	public void testArrayFail() throws PGoTransException {
+		PGoTLAArray tla = new PGoTLAArray(new Vector<TLAToken>() {
+			{
+				add(new TLAToken("1", 0, TLAToken.NUMBER));
+				add(new TLAToken(",", 0, TLAToken.BUILTIN));
+				add(new TLAToken("2", 0, TLAToken.NUMBER));
+				add(new TLAToken("+", 0, TLAToken.BUILTIN));
+				add(new TLAToken("3", 0, TLAToken.NUMBER));
+			}
+		}, 0);
+		PGoVariable var = PGoVariable.convert("arr", PGoType.inferFromGoTypeName("tuple[int, string]"));
+		data.getLocals().put("arr", var);
+		PGoType result = new TLAExprToType(tla, data, var).getType();
 	}
 	
 	@Test

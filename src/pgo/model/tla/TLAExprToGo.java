@@ -4,7 +4,9 @@ import java.util.Vector;
 
 import pgo.model.golang.*;
 import pgo.model.intermediate.PGoCollectionType;
+import pgo.model.intermediate.PGoCollectionType.PGoChan;
 import pgo.model.intermediate.PGoCollectionType.PGoSet;
+import pgo.model.intermediate.PGoCollectionType.PGoTuple;
 import pgo.model.intermediate.PGoPrimitiveType.PGoDecimal;
 import pgo.model.intermediate.PGoPrimitiveType.PGoNatural;
 import pgo.model.intermediate.PGoPrimitiveType.PGoNumber;
@@ -26,11 +28,22 @@ public class TLAExprToGo {
 	private Imports imports;
 	// the intermediate data; includes information about the type of variables
 	private PGoTempData data;
+	// the variable we are assigning to, if it exists and is relevant
+	private PGoVariable assign;
 
 	public TLAExprToGo(PGoTLA tla, Imports imports, PGoTempData data) throws PGoTransException {
 		this.imports = imports;
 		this.data = data;
+		assign = null;
 		type = new TLAExprToType(tla, data).getType();
+		expr = tla.convert(this);
+	}
+	
+	public TLAExprToGo(PGoTLA tla, Imports imports, PGoTempData data, PGoVariable assign) throws PGoTransException {
+		this.imports = imports;
+		this.data = data;
+		this.assign = assign;
+		type = new TLAExprToType(tla, data, assign).getType();
 		expr = tla.convert(this);
 	}
 
@@ -49,9 +62,25 @@ public class TLAExprToGo {
 	 * @param tla
 	 *            the TLA expression
 	 */
-	protected Expression translate(PGoTLAArray tla) {
+	protected Expression translate(PGoTLAArray tla) throws PGoTransException {
 		// TODO (issue #5, 23)
-		return new SimpleExpression(new Vector<>());
+		if (tla.getContents().size() == 1 && tla.getContents().get(0) instanceof PGoTLAVariadic) {
+			// maps to or except operator
+			return translate((PGoTLAVariadic) tla.getContents().get(0));
+		}
+		// array or chan, depending on assigned type
+		Vector<Expression> contents = new Vector<>();
+		for (PGoTLA elt : tla.getContents()) {
+			Expression e = new TLAExprToGo(elt, imports, data).toExpression();
+			contents.add(e);
+		}
+		if (type instanceof PGoTuple) {
+			return new FunctionCall("pgoutil.NewTuple", contents);
+		} else if (type instanceof PGoChan) {
+			return new FunctionCall("pgoutil.NewChan", contents);
+		}
+		assert false;
+		return null;
 	}
 
 	protected Expression translate(PGoTLAVariadic tla) throws PGoTransException {
