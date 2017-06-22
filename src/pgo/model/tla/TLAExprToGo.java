@@ -7,6 +7,7 @@ import pgo.model.intermediate.PGoCollectionType;
 import pgo.model.intermediate.PGoCollectionType.PGoChan;
 import pgo.model.intermediate.PGoCollectionType.PGoSet;
 import pgo.model.intermediate.PGoCollectionType.PGoTuple;
+import pgo.model.intermediate.PGoFunction;
 import pgo.model.intermediate.PGoPrimitiveType.PGoDecimal;
 import pgo.model.intermediate.PGoPrimitiveType.PGoNatural;
 import pgo.model.intermediate.PGoPrimitiveType.PGoNumber;
@@ -38,7 +39,7 @@ public class TLAExprToGo {
 		type = new TLAExprToType(tla, data).getType();
 		expr = tla.convert(this);
 	}
-	
+
 	public TLAExprToGo(PGoTLA tla, Imports imports, PGoTempData data, PGoVariable assign) throws PGoTransException {
 		this.imports = imports;
 		this.data = data;
@@ -129,8 +130,9 @@ public class TLAExprToGo {
 			// if we are calling this, it is set constructor or set image
 			if (tla.isRightSide()) {
 				// set image { f(x, y) : x \in S, y \in T }
-				// go func: pgoutil.SetImage(func(x, y type) type { return f(x, y) }, S, T)
-				
+				// go func: pgoutil.SetImage(func(x, y type) type { return f(x,
+				// y) }, S, T)
+
 				// the set operations
 				Vector<Expression> varExprs = new Vector<>(), setExprs = new Vector<>();
 				// add temporary typing data used to translate the predicate
@@ -167,21 +169,22 @@ public class TLAExprToGo {
 				return new FunctionCall("pgoutil.SetImage", params);
 			} else {
 				// set constructor { x \in S : P(x) }
-				// go func: pgoutil.SetConstructor(S, func(x type) bool { return P(x) })
+				// go func: pgoutil.SetConstructor(S, func(x type) bool { return
+				// P(x) })
 				// there is only a single set expression S
-				
+
 				assert (tla.getArgs().size() == 1);
 				PGoTLASetOp setOp = (PGoTLASetOp) tla.getArgs().get(0);
 				TLAExprToGo setTrans = new TLAExprToGo(setOp.getRight(), imports, data);
 				assert (setTrans.getType() instanceof PGoSet);
 				PGoType varType = ((PGoSet) setTrans.getType()).getElementType();
-				
+
 				// TODO handle tuples
 				assert (setOp.getLeft() instanceof PGoTLAVariable);
 				PGoTLAVariable var = (PGoTLAVariable) setOp.getLeft();
 				temp = new PGoTempData(data);
 				temp.getLocals().put(var.getName(), PGoVariable.convert(var.getName(), varType));
-				
+
 				AnonymousFunction P = new AnonymousFunction(
 						PGoType.inferFromGoTypeName("bool"),
 						new Vector<ParameterDeclaration>() {
@@ -288,9 +291,38 @@ public class TLAExprToGo {
 		return new SimpleExpression(toks);
 	}
 
-	protected Expression translate(PGoTLAFunction tla) {
-		// TODO (issue #23)
-		return new SimpleExpression(new Vector<>());
+	protected Expression translate(PGoTLAFunction tla) throws PGoTransException {
+		Vector<Expression> params = new Vector<>();
+		for (PGoTLA param : tla.getParams()) {
+			params.add(new TLAExprToGo(param, imports, data).toExpression());
+		}
+		// Determine whether this is a PlusCal macro call, TLA definition call,
+		// or map/tuple access.
+		PGoFunction func = data.findPGoFunction(tla.getName());
+		PGoTLAFuncDefinition def = data.findTLADefinition(tla.getName());
+		PGoVariable var = data.findPGoVariable(tla.getName());
+		if (func != null || def != null) {
+			return new FunctionCall(tla.getName(), params);
+		} else {
+			if (var.getType() instanceof PGoTuple) {
+				// also need to cast element to correct type
+				assert (params.size() == 1);
+				return new TypeAssertion(new FunctionCall("At", params, new Token(tla.getName())), type);
+			} else {
+				// map
+				if (params.size() > 1) {
+					// tuple key
+					FunctionCall newTup = new FunctionCall("pgoutil.NewTuple", params);
+					return new TypeAssertion(new FunctionCall("Get", new Vector<Expression>() {
+						{
+							add(newTup);
+						}
+					}, new Token(tla.getName())), type);
+				} else {
+					return new TypeAssertion(new FunctionCall("Get", params, new Token(tla.getName())), type);
+				}
+			}
+		}
 	}
 
 	protected Expression translate(PGoTLAGroup tla) throws PGoTransException {
@@ -327,7 +359,8 @@ public class TLAExprToGo {
 
 	protected Expression translate(PGoTLASet tla) throws PGoTransException {
 		if (tla.getContents().size() == 1 && tla.getContents().get(0) instanceof PGoTLAVariadic) {
-			// this is set constructor/set image: handled with that translation method
+			// this is set constructor/set image: handled with that translation
+			// method
 			return tla.getContents().get(0).convert(this);
 		}
 		Vector<Expression> args = new Vector<>();
@@ -347,8 +380,8 @@ public class TLAExprToGo {
 
 		Vector<Expression> exp = new Vector<>();
 		String funcName = null;
-		// Map the set operation to the pgoutil set function. \\notin does not have a
-		// corresponding function and is handled separately.
+		// Map the set operation to the pgoutil set function. \\notin does not
+		// have a corresponding function and is handled separately.
 		switch (tla.getToken()) {
 		case "\\cup":
 		case "\\union":
@@ -422,7 +455,7 @@ public class TLAExprToGo {
 	}
 
 	protected Expression translate(PGoTLAString tla) {
-		return new Token(tla.getString());
+		return new Token("\"" + tla.getString() + "\"");
 	}
 
 	protected Expression translate(PGoTLAUnary tla) throws PGoTransException {

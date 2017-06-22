@@ -7,12 +7,18 @@ import java.util.Vector;
 import org.junit.Before;
 import org.junit.Test;
 
+import pcal.PcalTranslate;
 import pcal.TLAToken;
 import pgo.model.intermediate.PGoCollectionType.PGoChan;
 import pgo.model.intermediate.PGoCollectionType.PGoMap;
 import pgo.model.intermediate.PGoCollectionType.PGoTuple;
 import pgo.model.intermediate.PGoPrimitiveType.PGoDecimal;
 import pgo.model.intermediate.PGoPrimitiveType.PGoInt;
+import pgo.model.golang.Expression;
+import pgo.model.golang.FunctionCall;
+import pgo.model.golang.SimpleExpression;
+import pgo.model.golang.Token;
+import pgo.model.golang.TypeAssertion;
 import pgo.model.intermediate.PGoType;
 import pgo.model.intermediate.PGoVariable;
 import pgo.model.tla.*;
@@ -129,8 +135,28 @@ public class TLAToTypeTest {
 	}
 	
 	@Test
-	public void testFunction() {
-		// TODO
+	public void testFunction() throws PGoTransException {
+		Vector<TLAToken> toks = new Vector<>();
+		toks.add(new TLAToken("3", 0, TLAToken.NUMBER));
+		toks.add(new TLAToken(",", 0, TLAToken.BUILTIN));
+		toks.add(new TLAToken("a", 0, TLAToken.STRING));
+		PGoTLAFunction tla = new PGoTLAFunction("foo", toks, 0);
+		Vector<Vector<TLAToken>> foo = new Vector<>();
+		foo.add(new Vector<>());
+		foo.get(0).add(new TLAToken("b", 0, TLAToken.IDENT));
+		data.defns.put("foo", new PGoTLAFuncDefinition("foo", new Vector<PGoVariable>() {
+			{
+				add(PGoVariable.convert("a", PGoType.inferFromGoTypeName("int")));
+				add(PGoVariable.convert("b", PGoType.inferFromGoTypeName("string")));
+			}
+		}, PcalTranslate.MakeExpr(foo), 0));
+		PGoType result = new TLAExprToType(tla, data).getType();
+		assertEquals(PGoType.inferFromGoTypeName("string"), result);
+		
+		data.defns.clear();
+		data.globals.put("foo", PGoVariable.convert("foo", PGoType.inferFromGoTypeName("map[tuple[int, string]]set[int]")));
+		result = new TLAExprToType(tla, data).getType();
+		assertEquals(PGoType.inferFromGoTypeName("set[int]"), result);
 	}
 	
 	@Test

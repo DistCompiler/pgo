@@ -1,8 +1,10 @@
 package pgo.model.tla;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Vector;
+import java.util.logging.Logger;
 
 import pgo.model.intermediate.PGoCollectionType;
 import pgo.model.intermediate.PGoType;
@@ -12,6 +14,8 @@ import pgo.model.intermediate.PGoCollectionType.PGoMap;
 import pgo.model.intermediate.PGoCollectionType.PGoSet;
 import pgo.model.intermediate.PGoCollectionType.PGoSlice;
 import pgo.model.intermediate.PGoCollectionType.PGoTuple;
+import pgo.model.intermediate.PGoFunction;
+import pgo.model.intermediate.PGoPrimitiveType.PGoInt;
 import pgo.model.intermediate.PGoPrimitiveType.PGoNatural;
 import pgo.model.intermediate.PGoPrimitiveType.PGoNumber;
 import pgo.trans.PGoTransException;
@@ -260,9 +264,103 @@ public class TLAExprToType {
 		return PGoType.inferFromGoTypeName("bool");
 	}
 
-	protected PGoType type(PGoTLAFunction tla) {
-		// TODO
-		return PGoType.UNDETERMINED;
+	protected PGoType type(PGoTLAFunction tla) throws PGoTransException {
+		// search for functions, TLA definitions, tuples, or maps
+		PGoFunction func = data.findPGoFunction(tla.getName());
+		if (func != null) {
+			// check params for type consistency
+			List<PGoVariable> funcParams = func.getParams();
+			Vector<PGoTLA> callParams = tla.getParams();
+			if (funcParams.size() != callParams.size()) {
+				throw new PGoTransException("Expected function call " + tla.getName() + " to have " + funcParams.size()
+						+ " parameters but found " + callParams.size() + " instead (line " + tla.getLine() + ")");
+			}
+
+			for (int i = 0; i < funcParams.size(); i++) {
+				PGoType paramType = new TLAExprToType(callParams.get(0), data).getType();
+				if (!paramType.equals(funcParams.get(0).getType())) {
+					throw new PGoTransException("Expected the " + i + "th parameter of the function " + tla.getName()
+							+ " to be of type " + funcParams.get(0).getType().toTypeName() + " but found "
+							+ paramType.toTypeName() + " instead (line " + tla.getLine() + ")");
+				}
+			}
+			return func.getReturnType();
+		}
+
+		PGoTLAFuncDefinition def = data.findTLADefinition(tla.getName());
+		if (def != null) {
+			Vector<PGoVariable> funcParams = def.getParams();
+			Vector<PGoTLA> callParams = tla.getParams();
+			if (funcParams.size() != callParams.size()) {
+				throw new PGoTransException("Expected function call " + tla.getName() + " to have " + funcParams.size()
+						+ " parameters but found " + callParams.size() + " instead (line " + tla.getLine() + ")");
+			}
+
+			for (int i = 0; i < funcParams.size(); i++) {
+				PGoType paramType = new TLAExprToType(callParams.get(0), data).getType();
+				if (!paramType.equals(funcParams.get(0).getType())) {
+					throw new PGoTransException("Expected the " + i + "th parameter of the function " + tla.getName()
+							+ " to be of type " + funcParams.get(0).getType().toTypeName() + " but found "
+							+ paramType.toTypeName() + " instead (line " + tla.getLine() + ")");
+				}
+			}
+
+			PGoTempData temp = new PGoTempData(data);
+			for (PGoVariable var : funcParams) {
+				temp.getLocals().put(var.getName(), var);
+			}
+			return new TLAExprToType(def.getExpr(), temp).getType();
+		}
+
+		PGoVariable var = data.findPGoVariable(tla.getName());
+		if (var == null) {
+			throw new PGoTransException(
+					"No function or variable with the name " + tla.getName() + " (line " + tla.getLine() + ")");
+		}
+		if (var.getType() instanceof PGoTuple) {
+			if (tla.getParams().size() != 1) {
+				throw new PGoTransException("Can't access multiple indices of tuple (line " + tla.getLine() + ")");
+			}
+			PGoType type = new TLAExprToType(tla.getParams().get(0), data).getType();
+			if (!(type instanceof PGoNatural) && !(type instanceof PGoInt)) {
+				throw new PGoTransException("Can't access non-integer tuple index (line " + tla.getLine() + ")");
+			}
+			// if the number is known at compile-time or the tuple is uniform,
+			// we can determine the type
+			if (tla.getParams().get(0) instanceof PGoTLANumber) {
+				return ((PGoTuple) var.getType())
+						.getType(Integer.parseInt(((PGoTLANumber) tla.getParams().get(0)).getVal()));
+			} else if (((PGoTuple) var.getType()).getLength() == -1) {
+				return ((PGoTuple) var.getType()).getType(0);
+			} else {
+				Logger.getGlobal().warning(
+						"Can't determine the type of tuple element at compile-time (line " + tla.getLine() + ")");
+				return PGoType.UNDETERMINED;
+			}
+		} else if (var.getType() instanceof PGoMap) {
+			PGoType keyType = ((PGoMap) var.getType()).getKeyType();
+			if (tla.getParams().size() > 1) {
+				// something like f[1, 3] which is shorthand for f[<<1, 3>>]
+				Vector<PGoType> tup = new Vector<>();
+				for (PGoTLA param : tla.getParams()) {
+					tup.add(new TLAExprToType(param, data).getType());
+				}
+				PGoTuple key = new PGoTuple(tup, false);
+				if (!key.equals(keyType)) {
+					throw new PGoTransException("Can't use " + type.toTypeName() + " as key for "
+							+ var.getType().toTypeName() + " (line " + tla.getLine() + ")");
+				}
+			} else {
+				PGoType type = new TLAExprToType(tla.getParams().get(0), data).getType();
+				if (!type.equals(keyType)) {
+					throw new PGoTransException("Can't use " + type.toTypeName() + " as key for "
+							+ var.getType().toTypeName() + " (line " + tla.getLine() + ")");
+				}
+			}
+			return ((PGoMap) var.getType()).getElementType();
+		}
+		throw new PGoTransException(
+				"Can't access arbitrary elements of a " + var.getType().toTypeName() + " (line " + tla.getLine() + ")");
 	}
 
 	protected PGoType type(PGoTLAGroup tla) throws PGoTransException {

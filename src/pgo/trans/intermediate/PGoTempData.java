@@ -4,8 +4,10 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Vector;
 
+import pgo.model.intermediate.PGoFunction;
 import pgo.model.intermediate.PGoType;
 import pgo.model.intermediate.PGoVariable;
+import pgo.model.tla.PGoTLAFuncDefinition;
 
 /**
  * A class that holds the same data as the PGoTransIntermediateData, in addition
@@ -73,5 +75,13 @@ public class PGoTempData extends PGoTransIntermediateData {
 			ret = constants.get(name);
 		}
 		return ret;
+	}
+	
+	public PGoFunction findPGoFunction(String name) {
+		return super.findPGoFunction(name);
+	}
+	
+	public PGoTLAFuncDefinition findTLADefinition(String name) {
+		return super.findTLADefinition(name);
 	}
 }

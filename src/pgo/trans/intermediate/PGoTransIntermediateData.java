@@ -113,5 +113,10 @@ class PGoTransIntermediateData {
 
 		return ret;
 	}
+	
+	// Return the TLA definition with the given name.
+	PGoTLAFuncDefinition findTLADefinition(String name) {
+		return defns.get(name);
+	}
 
 }

@@ -3,6 +3,7 @@ package pgo.trans.intermediate;
 import org.junit.Before;
 import org.junit.Test;
 
+import pcal.PcalTranslate;
 import pcal.TLAToken;
 
 import static org.junit.Assert.*;
@@ -50,7 +51,7 @@ public class TLAToStatementTest {
 	@Test
 	public void testString() throws PGoTransException {
 		PGoTLAString tla = new PGoTLAString("string", 0);
-		Expression expected = new Token("string");
+		Expression expected = new Token("\"string\"");
 		assertEquals(expected, new TLAExprToGo(tla, imports, null).toExpression());
 	}
 
@@ -180,8 +181,46 @@ public class TLAToStatementTest {
 	}
 
 	@Test
-	public void testFunction() {
-		// TODO
+	public void testFunction() throws PGoTransException {
+		Vector<TLAToken> toks = new Vector<>();
+		toks.add(new TLAToken("3", 0, TLAToken.NUMBER));
+		toks.add(new TLAToken(",", 0, TLAToken.BUILTIN));
+		toks.add(new TLAToken("a", 0, TLAToken.STRING));
+		PGoTLAFunction tla = new PGoTLAFunction("foo", toks, 0);
+		Vector<Vector<TLAToken>> foo = new Vector<>();
+		foo.add(new Vector<>());
+		foo.get(0).add(new TLAToken("b", 0, TLAToken.IDENT));
+		data.defns.put("foo", new PGoTLAFuncDefinition("foo", new Vector<PGoVariable>() {
+			{
+				add(PGoVariable.convert("a", PGoType.inferFromGoTypeName("int")));
+				add(PGoVariable.convert("b", PGoType.inferFromGoTypeName("string")));
+			}
+		}, PcalTranslate.MakeExpr(foo), 0));
+		Expression result = new TLAExprToGo(tla, imports, data).toExpression();
+		Vector<Expression> se = new Vector<>();
+		se.add(new FunctionCall("foo", new Vector<Expression>() {
+			{
+				add(new Token("3"));
+				add(new Token("\"a\""));
+			}
+		}));
+		assertEquals(new SimpleExpression(se), result);
+		
+		data.defns.clear();
+		data.globals.put("foo", PGoVariable.convert("foo", PGoType.inferFromGoTypeName("map[tuple[int, string]]set[int]")));
+		result = new TLAExprToGo(tla, imports, data).toExpression();
+		se = new Vector<>();
+		se.add(new TypeAssertion(new FunctionCall("Get", new Vector<Expression>() {
+			{
+				add(new FunctionCall("pgoutil.NewTuple", new Vector<Expression>() {
+					{
+						add(new Token("3"));
+						add(new Token("\"a\""));
+					}
+				}));
+			}
+		}, new Token("foo")), PGoType.inferFromGoTypeName("set[int]")));
+		assertEquals(new SimpleExpression(se), result);
 	}
 
 	@Test
