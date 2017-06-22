@@ -208,7 +208,7 @@ public class TLAExprParser {
 			// map access
 			cur++;
 			Vector<TLAToken> contained = advanceUntilMatching("]", "[", TLAToken.BUILTIN);
-			exps.push(new PGoTLAArrayAccess(tlaToken.string, contained, line));
+			exps.push(new PGoTLAFunction(tlaToken.string, contained, line));
 		} else {
 			exps.push(new PGoTLAVariable(tlaToken.string, line));
 		}

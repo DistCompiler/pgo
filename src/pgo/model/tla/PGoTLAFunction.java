@@ -29,16 +29,20 @@ public class PGoTLAFunction extends PGoTLA {
 		TLAExprParser p = new TLAExprParser(contained, line);
 		params = p.getResult();
 	}
+	
+	public String getName() {
+		return fname;
+	}
 
 	public Vector<PGoTLA> getParams() {
 		return params;
 	}
 	
-	protected Expression convert(TLAExprToGo trans) {
+	protected Expression convert(TLAExprToGo trans) throws PGoTransException {
 		return trans.translate(this);
 	}
 	
-	protected PGoType inferType(TLAExprToType trans) {
+	protected PGoType inferType(TLAExprToType trans) throws PGoTransException {
 		return trans.type(this);
 	}
 	
