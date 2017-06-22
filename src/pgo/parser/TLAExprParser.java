@@ -155,8 +155,10 @@ public class TLAExprParser {
 
 	// peaks at next token
 	private boolean lookAheadMatch(int tokenType, String token) {
-		if (cur + 1 < tokens.size()) {
-			return ((tokens.get(cur + 1).type == tokenType) && tokens.get(cur + 1).string.equals(token));
+		if (cur < tokens.size() && tokens.get(cur) != null) {
+			return (tokens.get(cur).type == tokenType) && tokens.get(cur).string.equals(token);
+		} else if (cur + 1 < tokens.size()) {
+			return (tokens.get(cur + 1).type == tokenType) && tokens.get(cur + 1).string.equals(token);
 		}
 		return false;
 	}
@@ -198,10 +200,13 @@ public class TLAExprParser {
 
 	private void parseIdentifierToken(TLAToken tlaToken) throws PGoTransException {
 		if (lookAheadMatch(TLAToken.BUILTIN, "(")) {
+			// don't include outer brackets
+			cur++;
 			Vector<TLAToken> contained = advanceUntilMatching(")", "(", TLAToken.BUILTIN);
 			exps.push(new PGoTLAFunction(tlaToken.string, contained, line));
 		} else if (lookAheadMatch(TLAToken.BUILTIN, "[")) {
 			// map access
+			cur++;
 			Vector<TLAToken> contained = advanceUntilMatching("]", "[", TLAToken.BUILTIN);
 			exps.push(new PGoTLAArrayAccess(tlaToken.string, contained, line));
 		} else {
