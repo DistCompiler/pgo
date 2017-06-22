@@ -264,7 +264,7 @@ public class TLAExprToType {
 		return PGoType.inferFromGoTypeName("bool");
 	}
 
-	protected PGoType type(PGoTLAFunction tla) throws PGoTransException {
+	protected PGoType type(PGoTLAFunctionCall tla) throws PGoTransException {
 		// search for functions, TLA definitions, tuples, or maps
 		PGoFunction func = data.findPGoFunction(tla.getName());
 		if (func != null) {
@@ -287,7 +287,7 @@ public class TLAExprToType {
 			return func.getReturnType();
 		}
 
-		PGoTLAFuncDefinition def = data.findTLADefinition(tla.getName());
+		PGoTLADefinition def = data.findTLADefinition(tla.getName());
 		if (def != null) {
 			Vector<PGoVariable> funcParams = def.getParams();
 			Vector<PGoTLA> callParams = tla.getParams();

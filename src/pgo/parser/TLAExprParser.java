@@ -203,12 +203,12 @@ public class TLAExprParser {
 			// don't include outer brackets
 			cur++;
 			Vector<TLAToken> contained = advanceUntilMatching(")", "(", TLAToken.BUILTIN);
-			exps.push(new PGoTLAFunction(tlaToken.string, contained, line));
+			exps.push(new PGoTLAFunctionCall(tlaToken.string, contained, line));
 		} else if (lookAheadMatch(TLAToken.BUILTIN, "[")) {
 			// map access
 			cur++;
 			Vector<TLAToken> contained = advanceUntilMatching("]", "[", TLAToken.BUILTIN);
-			exps.push(new PGoTLAFunction(tlaToken.string, contained, line));
+			exps.push(new PGoTLAFunctionCall(tlaToken.string, contained, line));
 		} else {
 			exps.push(new PGoTLAVariable(tlaToken.string, line));
 		}

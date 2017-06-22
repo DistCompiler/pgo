@@ -13,14 +13,14 @@ import pgo.trans.PGoTransException;
  * show up in TLA
  *
  */
-public class PGoTLAFunction extends PGoTLA {
+public class PGoTLAFunctionCall extends PGoTLA {
 
 	// the function called
 	private String fname;
 
 	private Vector<PGoTLA> params;
 
-	public PGoTLAFunction(String f, Vector<TLAToken> contained, int line)
+	public PGoTLAFunctionCall(String f, Vector<TLAToken> contained, int line)
 			throws PGoTransException {
 		super(line);
 		fname = f;

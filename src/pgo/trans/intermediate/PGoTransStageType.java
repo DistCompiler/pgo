@@ -11,7 +11,7 @@ import pgo.model.parser.AnnotatedReturnVariable;
 import pgo.model.parser.AnnotatedTLADefinition;
 import pgo.model.parser.AnnotatedVariable;
 import pgo.model.parser.AnnotatedVariable.VarAnnotatedVariable;
-import pgo.model.tla.PGoTLAFuncDefinition;
+import pgo.model.tla.PGoTLADefinition;
 import pgo.parser.PGoParseException;
 import pgo.trans.PGoTransException;
 
@@ -145,7 +145,7 @@ public class PGoTransStageType extends PGoTransStageBase {
 	// Parse annotated TLA definitions and add parsed version to data
 	private void addAnnotatedDefinitions() throws PGoTransException, PGoParseException {
 		for (AnnotatedTLADefinition d : this.intermediateData.annots.getAnnotatedTLADefinitions()) {
-			PGoTLAFuncDefinition tla = new PGoTLAFuncDefinition(d.getName(), d.getParams(), d.getExpr(), d.getLine());
+			PGoTLADefinition tla = new PGoTLADefinition(d.getName(), d.getParams(), d.getExpr(), d.getLine());
 			this.intermediateData.defns.put(d.getName(), tla);
 		}
 	}

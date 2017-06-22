@@ -7,7 +7,7 @@ import java.util.Vector;
 import pgo.model.intermediate.PGoFunction;
 import pgo.model.intermediate.PGoType;
 import pgo.model.intermediate.PGoVariable;
-import pgo.model.tla.PGoTLAFuncDefinition;
+import pgo.model.tla.PGoTLADefinition;
 
 /**
  * A class that holds the same data as the PGoTransIntermediateData, in addition
@@ -81,7 +81,7 @@ public class PGoTempData extends PGoTransIntermediateData {
 		return super.findPGoFunction(name);
 	}
 	
-	public PGoTLAFuncDefinition findTLADefinition(String name) {
+	public PGoTLADefinition findTLADefinition(String name) {
 		return super.findTLADefinition(name);
 	}
 }

@@ -295,8 +295,8 @@ public class TLAExprParserTest {
 		TLAExpr expr = PcalTranslate.MakeExpr(v);
 		Vector<PGoTLA> result = new TLAExprParser(expr, 0).getResult();
 		assertEquals(1, result.size());
-		assertTrue(result.get(0) instanceof PGoTLAFunction);
-		PGoTLAFunction func = (PGoTLAFunction) result.get(0);
+		assertTrue(result.get(0) instanceof PGoTLAFunctionCall);
+		PGoTLAFunctionCall func = (PGoTLAFunctionCall) result.get(0);
 		assertEquals("foo", func.getName());
 		assertEquals(2, func.getParams().size());
 		assertTrue(func.getParams().get(0) instanceof PGoTLAVariable && func.getParams().get(1) instanceof PGoTLAVariable);
@@ -306,8 +306,8 @@ public class TLAExprParserTest {
 		expr = PcalTranslate.MakeExpr(v);
 		result = new TLAExprParser(expr, 0).getResult();
 		assertEquals(1, result.size());
-		assertTrue(result.get(0) instanceof PGoTLAFunction);
-		func = (PGoTLAFunction) result.get(0);
+		assertTrue(result.get(0) instanceof PGoTLAFunctionCall);
+		func = (PGoTLAFunctionCall) result.get(0);
 		assertEquals(1, func.getParams().size());
 		assertTrue(func.getParams().get(0) instanceof PGoTLASimpleArithmetic);
 		
@@ -323,8 +323,8 @@ public class TLAExprParserTest {
 		expr = PcalTranslate.MakeExpr(v);
 		result = new TLAExprParser(expr, 0).getResult();
 		assertEquals(1, result.size());
-		assertTrue(result.get(0) instanceof PGoTLAFunction);
-		func = (PGoTLAFunction) result.get(0);
+		assertTrue(result.get(0) instanceof PGoTLAFunctionCall);
+		func = (PGoTLAFunctionCall) result.get(0);
 		assertEquals("foo", func.getName());
 		assertEquals(2, func.getParams().size());
 		assertTrue(func.getParams().get(0) instanceof PGoTLAVariable && func.getParams().get(1) instanceof PGoTLAVariable);

@@ -8,7 +8,7 @@ import pcal.TLAExpr;
 import pgo.model.intermediate.PGoFunction;
 import pgo.model.intermediate.PGoRoutineInit;
 import pgo.model.intermediate.PGoVariable;
-import pgo.model.tla.PGoTLAFuncDefinition;
+import pgo.model.tla.PGoTLADefinition;
 import pgo.parser.PGoAnnotationParser;
 
 /**
@@ -38,7 +38,7 @@ class PGoTransIntermediateData {
 	// The functions of this algorithm
 	LinkedHashMap<String, PGoFunction> funcs;
 	// The TLA function definitions
-	LinkedHashMap<String, PGoTLAFuncDefinition> defns;
+	LinkedHashMap<String, PGoTLADefinition> defns;
 
 	// Defined TLAExpr to be parsed into functions. Except these are not of the
 	// form individual functions, they are a collection of quick definitions. We
@@ -115,7 +115,7 @@ class PGoTransIntermediateData {
 	}
 	
 	// Return the TLA definition with the given name.
-	PGoTLAFuncDefinition findTLADefinition(String name) {
+	PGoTLADefinition findTLADefinition(String name) {
 		return defns.get(name);
 	}
 

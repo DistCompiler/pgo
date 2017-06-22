@@ -10,7 +10,7 @@ import pgo.model.intermediate.PGoVariable;
 import pgo.parser.TLAExprParser;
 import pgo.trans.PGoTransException;
 
-public class PGoTLAFuncDefinition extends PGoTLA {
+public class PGoTLADefinition extends PGoTLA {
 
 	private String name;
 	// name and typing information for params
@@ -18,7 +18,7 @@ public class PGoTLAFuncDefinition extends PGoTLA {
 	// the expression this definition evaluates to
 	private PGoTLA expr;
 
-	public PGoTLAFuncDefinition(String name, Vector<PGoVariable> params, TLAExpr expr, int line)
+	public PGoTLADefinition(String name, Vector<PGoVariable> params, TLAExpr expr, int line)
 			throws PGoTransException {
 		super(line);
 		this.name = name;

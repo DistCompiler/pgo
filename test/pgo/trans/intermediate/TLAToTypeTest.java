@@ -140,11 +140,11 @@ public class TLAToTypeTest {
 		toks.add(new TLAToken("3", 0, TLAToken.NUMBER));
 		toks.add(new TLAToken(",", 0, TLAToken.BUILTIN));
 		toks.add(new TLAToken("a", 0, TLAToken.STRING));
-		PGoTLAFunction tla = new PGoTLAFunction("foo", toks, 0);
+		PGoTLAFunctionCall tla = new PGoTLAFunctionCall("foo", toks, 0);
 		Vector<Vector<TLAToken>> foo = new Vector<>();
 		foo.add(new Vector<>());
 		foo.get(0).add(new TLAToken("b", 0, TLAToken.IDENT));
-		data.defns.put("foo", new PGoTLAFuncDefinition("foo", new Vector<PGoVariable>() {
+		data.defns.put("foo", new PGoTLADefinition("foo", new Vector<PGoVariable>() {
 			{
 				add(PGoVariable.convert("a", PGoType.inferFromGoTypeName("int")));
 				add(PGoVariable.convert("b", PGoType.inferFromGoTypeName("string")));

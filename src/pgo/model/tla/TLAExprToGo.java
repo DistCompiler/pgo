@@ -291,7 +291,7 @@ public class TLAExprToGo {
 		return new SimpleExpression(toks);
 	}
 
-	protected Expression translate(PGoTLAFunction tla) throws PGoTransException {
+	protected Expression translate(PGoTLAFunctionCall tla) throws PGoTransException {
 		Vector<Expression> params = new Vector<>();
 		for (PGoTLA param : tla.getParams()) {
 			params.add(new TLAExprToGo(param, imports, data).toExpression());
@@ -299,7 +299,7 @@ public class TLAExprToGo {
 		// Determine whether this is a PlusCal macro call, TLA definition call,
 		// or map/tuple access.
 		PGoFunction func = data.findPGoFunction(tla.getName());
-		PGoTLAFuncDefinition def = data.findTLADefinition(tla.getName());
+		PGoTLADefinition def = data.findTLADefinition(tla.getName());
 		PGoVariable var = data.findPGoVariable(tla.getName());
 		if (func != null || def != null) {
 			return new FunctionCall(tla.getName(), params);
