@@ -9,7 +9,10 @@ import pgo.model.intermediate.PGoType;
 import pgo.model.intermediate.PGoVariable;
 import pgo.parser.TLAExprParser;
 import pgo.trans.PGoTransException;
-
+/**
+ * Represents a TLA definition found in an annotation.
+ *
+ */
 public class PGoTLADefinition extends PGoTLA {
 
 	private String name;

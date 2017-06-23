@@ -192,21 +192,21 @@ public class TLAExprToType {
 					PGoType eltType = new TLAExprToType(elt, data).getType();
 					if (TLAExprToType.compatibleType(contained, eltType) == null) {
 						throw new PGoTransException("Expected elements in tuple to be of type " + contained.toTypeName()
-								+ " but found " + eltType.toTypeName() + " instead (line" + tla.getLine() + ")");
+								+ " but found " + eltType.toTypeName() + " instead", tla.getLine());
 					}
 				}
 			} else {
 				if (tla.getContents().size() != tup.getLength()) {
 					throw new PGoTransException("Expected type " + tup.toTypeName() + " to have "
 							+ tup.getLength() + " elements, but found "
-							+ tla.getContents().size() + " instead (line " + tla.getLine() + ")");
+							+ tla.getContents().size() + " instead", tla.getLine());
 				}
 				for (int i = 0; i < tla.getContents().size(); i++) {
 					PGoType eltType = new TLAExprToType(tla.getContents().get(i), data).getType();
 					if (TLAExprToType.compatibleType(tup.getType(i), eltType) == null) {
 						throw new PGoTransException("Expected the " + i + "th component of the tuple "
 								+ tup.toTypeName() + " to be of type " + tup.getType(i).toTypeName() + " but found "
-								+ eltType.toTypeName() + " instead (line " + tla.getLine() + ")");
+								+ eltType.toTypeName() + " instead", tla.getLine());
 					}
 				}
 			}
@@ -217,7 +217,7 @@ public class TLAExprToType {
 				PGoType eType = new TLAExprToType(elt, data).getType();
 				if (!eltType.equals(eType)) {
 					throw new PGoTransException("Expected channel elements to be of type " + eltType.toTypeName()
-							+ " but found " + eType.toTypeName() + " (line " + tla.getLine() + ")");
+							+ " but found " + eType.toTypeName(), tla.getLine());
 				}
 			}
 			return assign.getType();
@@ -237,7 +237,7 @@ public class TLAExprToType {
 		PGoType compar = compatibleType(lhs, rhs);
 		if (compar == null) {
 			throw new PGoTransException("The operator " + tla.getToken() + " cannot be used on the types "
-					+ lhs.toTypeName() + " and " + rhs.toTypeName() + " (line " + tla.getLine() + ")");
+					+ lhs.toTypeName() + " and " + rhs.toTypeName(), tla.getLine());
 		}
 		// and/or take booleans only, and greater/less take numbers only
 		switch (tla.getToken()) {
@@ -247,7 +247,7 @@ public class TLAExprToType {
 		case "\\lor":
 			if (!lhs.equals(PGoType.inferFromGoTypeName("bool")) || !rhs.equals(PGoType.inferFromGoTypeName("bool"))) {
 				throw new PGoTransException("The operator " + tla.getToken() + " cannot be used on the types "
-						+ lhs.toTypeName() + " and " + rhs.toTypeName() + " (line " + tla.getLine() + ")");
+						+ lhs.toTypeName() + " and " + rhs.toTypeName(), tla.getLine());
 			}
 			break;
 		case "=<":
@@ -257,7 +257,7 @@ public class TLAExprToType {
 		case ">=":
 			if (!numberType.containsKey(lhs.toTypeName()) || !numberType.containsKey(rhs.toTypeName())) {
 				throw new PGoTransException("The operator " + tla.getToken() + " cannot be used on the types "
-						+ lhs.toTypeName() + " and " + rhs.toTypeName() + " (line " + tla.getLine() + ")");
+						+ lhs.toTypeName() + " and " + rhs.toTypeName(), tla.getLine());
 			}
 			break;
 		}
@@ -273,7 +273,7 @@ public class TLAExprToType {
 			Vector<PGoTLA> callParams = tla.getParams();
 			if (funcParams.size() != callParams.size()) {
 				throw new PGoTransException("Expected function call " + tla.getName() + " to have " + funcParams.size()
-						+ " parameters but found " + callParams.size() + " instead (line " + tla.getLine() + ")");
+						+ " parameters but found " + callParams.size() + " instead", tla.getLine());
 			}
 
 			for (int i = 0; i < funcParams.size(); i++) {
@@ -281,7 +281,7 @@ public class TLAExprToType {
 				if (!paramType.equals(funcParams.get(0).getType())) {
 					throw new PGoTransException("Expected the " + i + "th parameter of the function " + tla.getName()
 							+ " to be of type " + funcParams.get(0).getType().toTypeName() + " but found "
-							+ paramType.toTypeName() + " instead (line " + tla.getLine() + ")");
+							+ paramType.toTypeName() + " instead", tla.getLine());
 				}
 			}
 			return func.getReturnType();
@@ -293,7 +293,7 @@ public class TLAExprToType {
 			Vector<PGoTLA> callParams = tla.getParams();
 			if (funcParams.size() != callParams.size()) {
 				throw new PGoTransException("Expected function call " + tla.getName() + " to have " + funcParams.size()
-						+ " parameters but found " + callParams.size() + " instead (line " + tla.getLine() + ")");
+						+ " parameters but found " + callParams.size() + " instead", tla.getLine());
 			}
 
 			for (int i = 0; i < funcParams.size(); i++) {
@@ -301,7 +301,7 @@ public class TLAExprToType {
 				if (!paramType.equals(funcParams.get(0).getType())) {
 					throw new PGoTransException("Expected the " + i + "th parameter of the function " + tla.getName()
 							+ " to be of type " + funcParams.get(0).getType().toTypeName() + " but found "
-							+ paramType.toTypeName() + " instead (line " + tla.getLine() + ")");
+							+ paramType.toTypeName() + " instead", tla.getLine());
 				}
 			}
 
@@ -314,16 +314,15 @@ public class TLAExprToType {
 
 		PGoVariable var = data.findPGoVariable(tla.getName());
 		if (var == null) {
-			throw new PGoTransException(
-					"No function or variable with the name " + tla.getName() + " (line " + tla.getLine() + ")");
+			throw new PGoTransException("No function or variable with the name " + tla.getName(), tla.getLine());
 		}
 		if (var.getType() instanceof PGoTuple) {
 			if (tla.getParams().size() != 1) {
-				throw new PGoTransException("Can't access multiple indices of tuple (line " + tla.getLine() + ")");
+				throw new PGoTransException("Can't access multiple indices of tuple", tla.getLine());
 			}
 			PGoType type = new TLAExprToType(tla.getParams().get(0), data).getType();
 			if (!(type instanceof PGoNatural) && !(type instanceof PGoInt)) {
-				throw new PGoTransException("Can't access non-integer tuple index (line " + tla.getLine() + ")");
+				throw new PGoTransException("Can't access non-integer tuple index", tla.getLine());
 			}
 			// if the number is known at compile-time or the tuple is uniform,
 			// we can determine the type
@@ -348,19 +347,19 @@ public class TLAExprToType {
 				PGoTuple key = new PGoTuple(tup, false);
 				if (!key.equals(keyType)) {
 					throw new PGoTransException("Can't use " + type.toTypeName() + " as key for "
-							+ var.getType().toTypeName() + " (line " + tla.getLine() + ")");
+							+ var.getType().toTypeName(), tla.getLine());
 				}
 			} else {
 				PGoType type = new TLAExprToType(tla.getParams().get(0), data).getType();
 				if (!type.equals(keyType)) {
 					throw new PGoTransException("Can't use " + type.toTypeName() + " as key for "
-							+ var.getType().toTypeName() + " (line " + tla.getLine() + ")");
+							+ var.getType().toTypeName(), tla.getLine());
 				}
 			}
 			return ((PGoMap) var.getType()).getElementType();
 		}
 		throw new PGoTransException(
-				"Can't access arbitrary elements of a " + var.getType().toTypeName() + " (line " + tla.getLine() + ")");
+				"Can't access arbitrary elements of a " + var.getType().toTypeName(), tla.getLine());
 	}
 
 	protected PGoType type(PGoTLAGroup tla) throws PGoTransException {
@@ -383,7 +382,7 @@ public class TLAExprToType {
 		if (!(begin instanceof PGoNumber) || !(end instanceof PGoNumber)
 				|| numberType.get(begin.toTypeName()) > numberType.get("int")
 				|| numberType.get(end.toTypeName()) > numberType.get("int")) {
-			throw new PGoTransException("The sequence operator \"..\" must take integers (line " + tla.getLine() + ")");
+			throw new PGoTransException("The sequence operator \"..\" must take integers", tla.getLine());
 		}
 		return PGoType.inferFromGoTypeName("[]int");
 	}
@@ -407,7 +406,7 @@ public class TLAExprToType {
 				first = compatibleType(first, eltType);
 				if (first == null) {
 					throw new PGoTransException(
-							"Set initialized with elements of incompatible types (line " + tla.getLine() + ")");
+							"Set initialized with elements of incompatible types", tla.getLine());
 				}
 			}
 			return PGoType.inferFromGoTypeName("set[" + first.toTypeName() + "]");
@@ -423,13 +422,14 @@ public class TLAExprToType {
 			PGoType setType = new TLAExprToType(tla.getRight(), data).getType();
 			if (!(setType instanceof PGoSet)) {
 				throw new PGoTransException("The right-hand argument of the " + tla.getToken()
-						+ " operator must be a set (line " + tla.getLine() + ")");
+						+ " operator must be a set", tla.getLine());
 			}
 			if (!setType.equals(PGoCollectionType.EMPTY_SET)
 					&& compatibleType(eltType, ((PGoSet) setType).getElementType()) == null) {
 				throw new PGoTransException(
 						"The type " + eltType.toTypeName() + " is not compatible with the element type of the set "
-								+ setType.toTypeName() + " (line " + tla.getLine() + ")");
+								+ setType.toTypeName(),
+						tla.getLine());
 			}
 			return PGoType.inferFromGoTypeName("bool");
 		default:
@@ -438,7 +438,7 @@ public class TLAExprToType {
 			PGoType result = compatibleType(lhs, rhs);
 			if (result == null || !(result instanceof PGoSet)) {
 				throw new PGoTransException("Can't use operator " + tla.getToken() + " on types " + lhs.toTypeName()
-						+ " and " + rhs.toTypeName() + " (line " + tla.getLine() + ")");
+						+ " and " + rhs.toTypeName(), tla.getLine());
 			}
 			if (tla.getToken().equals("\\subseteq")) {
 				return PGoType.inferFromGoTypeName("bool");
@@ -454,14 +454,14 @@ public class TLAExprToType {
 		PGoType result = compatibleType(left, right);
 		if (!(result instanceof PGoNumber)) {
 			throw new PGoTransException("Can't use arithmetic operator " + tla.getToken() + " on types "
-					+ left.toTypeName() + " and " + right.toTypeName() + " (line " + tla.getLine() + ")");
+					+ left.toTypeName() + " and " + right.toTypeName(), tla.getLine());
 		}
 
 		if (tla.getToken().equals("\\div")) {
 			if (numberType.get(left.toTypeName()) > numberType.get("int")
 					|| numberType.get(right.toTypeName()) > numberType.get("int")) {
 				throw new PGoTransException("Can't use integer division operator \"\\div\" on types "
-						+ left.toTypeName() + " and " + right.toTypeName() + " (line " + tla.getLine() + ")");
+						+ left.toTypeName() + " and " + right.toTypeName(), tla.getLine());
 			}
 		}
 
@@ -482,20 +482,20 @@ public class TLAExprToType {
 		switch (tla.getToken()) {
 		case "UNION":
 			if (!(argType instanceof PGoSet) || !(((PGoSet) argType).getElementType() instanceof PGoSet)) {
-				throw new PGoTransException("Can't UNION a " + argType.toTypeName() + " (line " + tla.getLine() + ")");
+				throw new PGoTransException("Can't UNION a " + argType.toTypeName(), tla.getLine());
 			}
 			return PGoType.inferFromGoTypeName(((PGoSet) argType).getElementType().toTypeName());
 		case "SUBSET":
 			if (!(argType instanceof PGoSet)) {
-				throw new PGoTransException("Can't take powerset of non-set type " + argType.toTypeName() + " (line "
-						+ tla.getLine() + ")");
+				throw new PGoTransException("Can't take powerset of non-set type " + argType.toTypeName(),
+						tla.getLine());
 			}
 			return PGoType.inferFromGoTypeName("set[" + argType.toTypeName() + "]");
 		case "~":
 		case "\\lnot":
 		case "\\neg":
 			if (!argType.equals(PGoType.inferFromGoTypeName("bool"))) {
-				throw new PGoTransException("Can't negate a " + argType.toTypeName() + " (line " + tla.getLine() + ")");
+				throw new PGoTransException("Can't negate a " + argType.toTypeName(), tla.getLine());
 			}
 		case "\\A":
 		case "\\E":
