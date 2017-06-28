@@ -261,7 +261,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 						Vector<PGoTLA> varExpr = new TLAExprParser(with.exp, with.line).getResult();
 						assert (varExpr.size() == 1);
 						TLAExprToGo trans = new TLAExprToGo(varExpr.get(0), go.getImports(),
-								new PGoTempData(intermediateData));
+								new PGoTempData((PGoTempData) intermediateData));
 						Vector<Expression> se = new Vector<>();
 						se.add(new Token(varName));
 						se.add(new Token(" := "));

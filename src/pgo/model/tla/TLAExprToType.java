@@ -294,7 +294,7 @@ public class TLAExprToType {
 	}
 
 	protected PGoType type(PGoTLAFunctionCall tla) throws PGoTransException {
-		// search for functions, TLA definitions, tuples, or maps
+		// search for functions, TLA definitions, builtin funcs, tuples, or maps
 		PGoFunction func = data.findPGoFunction(tla.getName());
 		if (func != null) {
 			// check params for type consistency
@@ -339,6 +339,18 @@ public class TLAExprToType {
 				temp.getLocals().put(var.getName(), var);
 			}
 			return new TLAExprToType(def.getExpr(), temp).getType();
+		}
+
+		PGoLibFunction lfunc = data.findBuiltInFunction(tla.getName());
+		if (lfunc != null) {
+			// see if a function exists w/ the given param types
+			Vector<PGoType> callParams = new Vector<>();
+			for (PGoTLA param : tla.getParams()) {
+				callParams.add(new TLAExprToType(param, data).getType());
+			}
+			if (lfunc.getGoName(callParams) != null) {
+				return lfunc.getRetType(callParams);
+			}
 		}
 
 		PGoVariable var = data.findPGoVariable(tla.getName());

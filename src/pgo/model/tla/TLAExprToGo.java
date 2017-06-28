@@ -6,8 +6,10 @@ import pgo.model.golang.*;
 import pgo.model.intermediate.PGoCollectionType;
 import pgo.model.intermediate.PGoCollectionType.PGoChan;
 import pgo.model.intermediate.PGoCollectionType.PGoSet;
+import pgo.model.intermediate.PGoCollectionType.PGoSlice;
 import pgo.model.intermediate.PGoCollectionType.PGoTuple;
 import pgo.model.intermediate.PGoFunction;
+import pgo.model.intermediate.PGoLibFunction;
 import pgo.model.intermediate.PGoPrimitiveType.PGoDecimal;
 import pgo.model.intermediate.PGoPrimitiveType.PGoNatural;
 import pgo.model.intermediate.PGoPrimitiveType.PGoNumber;
@@ -297,12 +299,26 @@ public class TLAExprToGo {
 			params.add(new TLAExprToGo(param, imports, data).toExpression());
 		}
 		// Determine whether this is a PlusCal macro call, TLA definition call,
-		// or map/tuple access.
+		// TLA builtin method call, or map/tuple access.
 		PGoFunction func = data.findPGoFunction(tla.getName());
 		PGoTLADefinition def = data.findTLADefinition(tla.getName());
+		PGoLibFunction lfunc = data.findBuiltInFunction(tla.getName());
 		PGoVariable var = data.findPGoVariable(tla.getName());
 		if (func != null || def != null) {
 			return new FunctionCall(tla.getName(), params);
+		} else if (lfunc != null) {
+			Vector<PGoType> paramTypes = new Vector<>();
+			for (PGoTLA param : tla.getParams()) {
+				paramTypes.add(new TLAExprToType(param, data).getType());
+			}
+			String goName = lfunc.getGoName(paramTypes);
+			if (lfunc.isObjectMethod(paramTypes)) {
+				// the object is the 1st param
+				Expression first = params.remove(0);
+				return new FunctionCall(goName, params, first);
+			} else {
+				return new FunctionCall(goName, params);
+			}
 		} else {
 			if (var.getType() instanceof PGoTuple) {
 				// also need to cast element to correct type

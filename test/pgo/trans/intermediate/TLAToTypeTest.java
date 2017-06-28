@@ -157,6 +157,19 @@ public class TLAToTypeTest {
 		data.globals.put("foo", PGoVariable.convert("foo", PGoType.inferFromGoTypeName("map[tuple[int, string]]set[int]")));
 		result = new TLAExprToType(tla, data).getType();
 		assertEquals(PGoType.inferFromGoTypeName("set[int]"), result);
+		
+		data.globals.clear();
+		toks.clear();
+		toks.add(new TLAToken("a", 0, TLAToken.IDENT));
+		tla = new PGoTLAFunctionCall("Len", toks, 0);
+		data.globals.put("a", PGoVariable.convert("a", PGoType.inferFromGoTypeName("string")));
+		result = new TLAExprToType(tla, data).getType();
+		assertTrue(result instanceof PGoInt);
+		
+		data.globals.clear();
+		data.globals.put("a", PGoVariable.convert("a", PGoType.inferFromGoTypeName("tuple[int]")));
+		result = new TLAExprToType(tla, data).getType();
+		assertTrue(result instanceof PGoInt);
 	}
 	
 	@Test
