@@ -5,6 +5,7 @@ import java.util.Map;
 import java.util.Vector;
 
 import pgo.model.intermediate.PGoFunction;
+import pgo.model.intermediate.PGoLibFunction;
 import pgo.model.intermediate.PGoType;
 import pgo.model.intermediate.PGoVariable;
 import pgo.model.tla.PGoTLADefinition;
@@ -44,6 +45,7 @@ public class PGoTempData extends PGoTransIntermediateData {
 		goroutines = data.goroutines;
 		annots = data.annots;
 		needsLock = data.needsLock;
+		defns = data.defns;
 		locals = new LinkedHashMap<>();
 	}
 	
@@ -59,6 +61,7 @@ public class PGoTempData extends PGoTransIntermediateData {
 		goroutines = new LinkedHashMap<>(data.goroutines);
 		annots = data.annots;
 		needsLock = data.needsLock;
+		defns = new LinkedHashMap<>(data.defns);
 		locals = new LinkedHashMap<>(data.getLocals());
 	}
 
@@ -83,5 +86,9 @@ public class PGoTempData extends PGoTransIntermediateData {
 	
 	public PGoTLADefinition findTLADefinition(String name) {
 		return super.findTLADefinition(name);
+	}
+	
+	public PGoLibFunction findBuiltInFunction(String name) {
+		return super.findBuiltinFunction(name);
 	}
 }

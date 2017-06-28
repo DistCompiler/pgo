@@ -5,8 +5,11 @@ import java.util.Vector;
 
 import pcal.AST.LabeledStmt;
 import pcal.TLAExpr;
+import pgo.model.intermediate.PGoCollectionType;
 import pgo.model.intermediate.PGoFunction;
+import pgo.model.intermediate.PGoLibFunction;
 import pgo.model.intermediate.PGoRoutineInit;
+import pgo.model.intermediate.PGoType;
 import pgo.model.intermediate.PGoVariable;
 import pgo.model.tla.PGoTLADefinition;
 import pgo.parser.PGoAnnotationParser;
@@ -39,6 +42,74 @@ class PGoTransIntermediateData {
 	LinkedHashMap<String, PGoFunction> funcs;
 	// The TLA function definitions
 	LinkedHashMap<String, PGoTLADefinition> defns;
+	
+	// Contains information for builtin TLA funcs like Len (length of tuple).
+	private static final LinkedHashMap<String, PGoLibFunction> libFuncs = new LinkedHashMap<String, PGoLibFunction>() {
+		{
+			put("Len", new PGoLibFunction("Len") {
+				{
+					addFuncSignature(
+							new Vector<PGoType>() {
+								{
+									add(PGoType.inferFromGoTypeName("[]E"));
+								}
+							},
+							"len",
+							false,
+							PGoType.inferFromGoTypeName("int"));
+					
+					addFuncSignature(
+							new Vector<PGoType>() {
+								{
+									add(PGoType.inferFromGoTypeName("tuple[E]"));
+								}
+							},
+							"Size",
+							true,
+							PGoType.inferFromGoTypeName("int"));
+					
+					addFuncSignature(
+							new Vector<PGoType>() {
+								{
+									add(PGoType.inferFromGoTypeName("string"));
+								}
+							},
+							"len",
+							false,
+							PGoType.inferFromGoTypeName("int"));
+				}
+			});
+			
+			put("Cardinality", new PGoLibFunction("Cardinality") {
+				{
+					addFuncSignature(
+							new Vector<PGoType>() {
+								{
+									add(PGoType.inferFromGoTypeName("set[E]"));
+								}
+							},
+							"Size",
+							true,
+							PGoType.inferFromGoTypeName("int"));
+				}
+			});
+			
+			put("Append", new PGoLibFunction("Append") {
+				{
+					addFuncSignature(
+							new Vector<PGoType>() {
+								{
+									add(PGoType.inferFromGoTypeName("[]E"));
+									add(PGoType.inferFromGoTypeName("E"));
+								}
+							},
+							"append",
+							false,
+							PGoType.inferFromGoTypeName("[]E"));
+				}
+			});
+		}
+	};
 
 	// Defined TLAExpr to be parsed into functions. Except these are not of the
 	// form individual functions, they are a collection of quick definitions. We
@@ -117,6 +188,11 @@ class PGoTransIntermediateData {
 	// Return the TLA definition with the given name.
 	PGoTLADefinition findTLADefinition(String name) {
 		return defns.get(name);
+	}
+	
+	// Return the TLA library function with the given name and parameters
+	PGoLibFunction findBuiltinFunction(String name) {
+		return libFuncs.get(name);
 	}
 
 }
