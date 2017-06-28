@@ -130,11 +130,34 @@ public abstract class PGoPrimitiveType extends PGoType {
 	}
 
 	/**
+	 * Represents a template argument like the K, V in Map<K, V>. Template
+	 * arguments are single-letter. These are used for function signatures of
+	 * TLA builtin functions.
+	 */
+	public static class PGoTemplateArgument extends PGoType {
+
+		private String name;
+
+		public PGoTemplateArgument(String name) {
+			assert (name.length() == 1);
+			this.name = name;
+			hasTemplateArgs = true;
+		}
+
+		@Override
+		public String toTypeName() {
+			return name;
+		}
+
+	}
+
+	/**
 	 * Attempts to infer the type from a given type name
 	 * 
 	 * @param string
 	 *            the type name, which is one of: int/integer, bool/boolean,
-	 *            natural/uint64, decimal/float64, string
+	 *            natural/uint64, decimal/float64, string, or a single character
+	 *            (template argument)
 	 * @return a PGoType of inferred type
 	 */
 	public static PGoType inferPrimitiveFromGoTypeName(String string) {
@@ -160,7 +183,9 @@ public abstract class PGoPrimitiveType extends PGoType {
 		case "interface{}":
 			return new PGoInterface();
 		}
-
+		if (string.length() == 1) {
+			return new PGoTemplateArgument(string);
+		}
 		return new PGoUndetermined();
 	}
 

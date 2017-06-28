@@ -15,9 +15,12 @@ import pgo.model.intermediate.PGoCollectionType.PGoSet;
 import pgo.model.intermediate.PGoCollectionType.PGoSlice;
 import pgo.model.intermediate.PGoCollectionType.PGoTuple;
 import pgo.model.intermediate.PGoFunction;
+import pgo.model.intermediate.PGoLibFunction;
+import pgo.model.intermediate.PGoPrimitiveType;
 import pgo.model.intermediate.PGoPrimitiveType.PGoInt;
 import pgo.model.intermediate.PGoPrimitiveType.PGoNatural;
 import pgo.model.intermediate.PGoPrimitiveType.PGoNumber;
+import pgo.model.intermediate.PGoPrimitiveType.PGoTemplateArgument;
 import pgo.trans.PGoTransException;
 import pgo.trans.intermediate.PGoTempData;
 
@@ -75,6 +78,7 @@ public class TLAExprToType {
 	 * - Sets and other containers are compatible if they are the same type
 	 * of container and their contained types are compatible.
 	 * - Interface is said to be not compatible with any type.
+	 * - If a type is a template argument, the other type is returned.
 	 * - We don't care about pointers, anonymous functions, or void types since
 	 * these don't appear in TLA expressions.
 	 * 
@@ -87,6 +91,13 @@ public class TLAExprToType {
 		}
 
 		if (first.equals(second)) {
+			return first;
+		}
+
+		if (first instanceof PGoPrimitiveType.PGoTemplateArgument) {
+			return second;
+		}
+		if (second instanceof PGoPrimitiveType.PGoTemplateArgument) {
 			return first;
 		}
 
@@ -111,6 +122,40 @@ public class TLAExprToType {
 					return null;
 				}
 				return PGoType.inferFromGoTypeName("set[" + contained.toTypeName() + "]");
+			} else if (first instanceof PGoTuple && second instanceof PGoTuple) {
+				// If a tuple contains a template arg, return the other.
+				if (((PGoTuple) first).getLength() == -1 && ((PGoTuple) second).getLength() == -1) {
+					if (!((PGoTuple) first).getType(0).equals(((PGoTuple) second).getType(0))) {
+						return null;
+					}
+					return first;
+				} else if (((PGoTuple) first).getLength() == -1 || ((PGoTuple) second).getLength() == -1) {
+					return null;
+				}
+				Vector<PGoType> firstElts = ((PGoTuple) first).getContainedTypes(),
+						secondElts = ((PGoTuple) second).getContainedTypes();
+				// a single template argument is for the whole type
+				if (firstElts.size() == 1 && firstElts.get(0) instanceof PGoTemplateArgument) {
+					return second;
+				}
+				if (secondElts.size() == 1 && secondElts.get(0) instanceof PGoTemplateArgument) {
+					return first;
+				}
+				if (firstElts.size() != secondElts.size()) {
+					Logger.getGlobal().warning(
+							"Comparing tuples of unequal lengths " + firstElts.size() + " and " + secondElts.size());
+					// don't want to return null, since these are comparable
+					return (first.isUndetermined() ? second : first);
+				}
+				Vector<PGoType> ret = new Vector<>();
+				for (int i = 0; i < firstElts.size(); i++) {
+					PGoType curElt = compatibleType(firstElts.get(i), secondElts.get(i));
+					if (curElt == null) {
+						return null;
+					}
+					ret.add(curElt);
+				}
+				return new PGoTuple(ret, false);
 			} else if (first.getClass().equals(second.getClass())) {
 				PGoType contained = compatibleType(((PGoCollectionType) first).getElementType(),
 						((PGoCollectionType) second).getElementType());
@@ -129,22 +174,6 @@ public class TLAExprToType {
 						return null;
 					}
 					return PGoType.inferFromGoTypeName("map[" + keyType.toTypeName() + "]" + contained.toTypeName());
-				} else if (first instanceof PGoTuple) {
-					// Assume the tuples are being concatenated. We treat
-					// uniform tuples as not being able to be concatenated
-					// unless they are the same type. This is not strictly true
-					// but it shouldn't cause problems.
-					if (((PGoTuple) first).getLength() == -1 && ((PGoTuple) second).getLength() == -1) {
-						if (!((PGoTuple) first).getType(0).equals(((PGoTuple) second).getType(0))) {
-							return null;
-						}
-						return first;
-					} else if (((PGoTuple) first).getLength() == -1 || ((PGoTuple) second).getLength() == -1) {
-						return null;
-					}
-					Vector<PGoType> elts = ((PGoTuple) first).getContainedTypes();
-					elts.addAll(((PGoTuple) second).getContainedTypes());
-					return new PGoTuple(elts, false);
 				}
 			}
 		}

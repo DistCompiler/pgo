@@ -13,6 +13,8 @@ public abstract class PGoType {
 
 	// whether this type is determinable
 	protected boolean isUndetermined = false;
+	// whether the type contains template arguments
+	protected boolean hasTemplateArgs = false;
 
 	/**
 	 * Attempts to infer the type from the given pluscal expressions
@@ -33,6 +35,14 @@ public abstract class PGoType {
 	 */
 	public boolean isUndetermined() {
 		return isUndetermined;
+	}
+	
+	/**
+	 * 
+	 * @return whether the type contains template args
+	 */
+	public boolean hasTemplateArgs() {
+		return hasTemplateArgs;
 	}
 
 	/**
@@ -68,6 +78,11 @@ public abstract class PGoType {
 		}
 		PGoType op = (PGoType) p;
 		return toTypeName().equals(op.toTypeName());
+	}
+
+	@Override
+	public int hashCode() {
+		return this.toTypeName().hashCode();
 	}
 
 	/**

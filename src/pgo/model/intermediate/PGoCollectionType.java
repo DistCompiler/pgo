@@ -6,7 +6,8 @@ import java.util.regex.Pattern;
 
 /**
  * Represents the collections from pluscal converted to Go. Collections are
- * types like arrays/slice, queues/chan, maps, sets that hold a collection of primitives
+ * types like arrays/slice, queues/chan, maps, sets that hold a collection of
+ * primitives
  *
  * The following types in go correspond to the following type names
  * arrays/slices - [<#elem>]<etype>, channels - chan <etype>,
@@ -14,7 +15,7 @@ import java.util.regex.Pattern;
  * 
  */
 public abstract class PGoCollectionType extends PGoType {
-	
+
 	// The type of an empty set. The empty set is compatible with all set types.
 	public static final PGoSet EMPTY_SET = new PGoSet("");
 
@@ -29,6 +30,9 @@ public abstract class PGoCollectionType extends PGoType {
 		if (eType.isUndetermined()) {
 			this.isUndetermined = true;
 		}
+		if (eType.hasTemplateArgs()) {
+			this.hasTemplateArgs = true;
+		}
 	}
 
 	public PGoType getElementType() {
@@ -36,7 +40,8 @@ public abstract class PGoCollectionType extends PGoType {
 	}
 
 	/**
-	 * Represents a slice in Go lang, which is just a specialized array of elements in pluscal
+	 * Represents a slice in Go lang, which is just a specialized array of
+	 * elements in pluscal
 	 *
 	 */
 	public static class PGoSlice extends PGoCollectionType {
@@ -77,7 +82,8 @@ public abstract class PGoCollectionType extends PGoType {
 	}
 
 	/**
-	 * Represents a queue or channel in pluscal, which converts to channels in go
+	 * Represents a queue or channel in pluscal, which converts to channels in
+	 * go
 	 * 
 	 */
 	public static class PGoChan extends PGoCollectionType {
@@ -119,7 +125,8 @@ public abstract class PGoCollectionType extends PGoType {
 	}
 
 	/**
-	 * Represents a map in pluscal (array indexed by non-numbers), which converts to map in go
+	 * Represents a map in pluscal (array indexed by non-numbers), which
+	 * converts to map in go
 	 * 
 	 */
 	public static class PGoMap extends PGoCollectionType {
@@ -131,6 +138,9 @@ public abstract class PGoCollectionType extends PGoType {
 			kType = PGoType.inferFromGoTypeName(ktype);
 			if (kType.isUndetermined()) {
 				this.isUndetermined = true;
+			}
+			if (kType.hasTemplateArgs()) {
+				this.hasTemplateArgs = true;
 			}
 		}
 
@@ -214,7 +224,7 @@ public abstract class PGoCollectionType extends PGoType {
 		}
 
 	}
-	
+
 	/**
 	 * Represents a tuple with multiple contained types
 	 */
@@ -223,31 +233,39 @@ public abstract class PGoCollectionType extends PGoType {
 		private Vector<PGoType> contained;
 		// the tuple length; -1 if tuple is uniform type (can be any size)
 		private int length;
-		
+
 		public PGoTuple(Vector<PGoType> contained, boolean uniform) {
 			this.contained = contained;
+			for (PGoType type : contained) {
+				if (type.isUndetermined()) {
+					this.isUndetermined = true;
+				}
+				if (type.hasTemplateArgs()) {
+					this.hasTemplateArgs = true;
+				}
+			}
 			if (uniform) {
 				this.length = -1;
 			} else {
 				this.length = contained.size();
 			}
 		}
-		
+
 		public Vector<PGoType> getContainedTypes() {
 			return new Vector<>(contained);
 		}
-		
+
 		public PGoType getType(int index) {
 			if (length == -1) {
 				return contained.get(0);
 			}
 			return contained.get(index);
 		}
-		
+
 		public int getLength() {
 			return length;
 		}
-		
+
 		@Override
 		public String toTypeName() {
 			if (length == -1) {
@@ -259,7 +277,7 @@ public abstract class PGoCollectionType extends PGoType {
 			}
 			return "tuple[" + String.join(", ", containedStrings) + "]";
 		}
-		
+
 		@Override
 		public String toGo() {
 			return "pgoutil.Tuple";
@@ -336,7 +354,7 @@ public abstract class PGoCollectionType extends PGoType {
 				return ret;
 			}
 		}
-		
+
 		// matches tuple[type...], tuple[type1, type2, ...] or tuple[]
 		rgex = Pattern.compile("(?i)tuple\\[(.*)\\]");
 		m = rgex.matcher(s);
@@ -356,7 +374,7 @@ public abstract class PGoCollectionType extends PGoType {
 				case '[':
 					// advance until matching close bracket
 					int depth = 0;
-					for (; i < inner.length(); i++){
+					for (; i < inner.length(); i++) {
 						cur += inner.charAt(i);
 						if (inner.charAt(i) == ']') {
 							depth--;
@@ -370,7 +388,7 @@ public abstract class PGoCollectionType extends PGoType {
 					break;
 				case '.':
 					// check to see if this is "..."
-					if (inner.substring(i, i+3).equals("...")) {
+					if (inner.substring(i, i + 3).equals("...")) {
 						uniform = true;
 						types.add(PGoType.inferFromGoTypeName(cur));
 						i = inner.length();
@@ -385,9 +403,12 @@ public abstract class PGoCollectionType extends PGoType {
 			if (!cur.equals("")) {
 				types.add(PGoType.inferFromGoTypeName(cur));
 			}
-			return new PGoTuple(types, uniform);
+			ret = new PGoTuple(types, uniform);
+			if (!ret.isUndetermined()) {
+				return ret;
+			}
 		}
-		
+
 		return new PGoUndetermined();
 	}
 }

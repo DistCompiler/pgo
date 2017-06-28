@@ -48,7 +48,7 @@ public class AnnotatedTLADefinition {
 		String name = m.group(1);
 		String params = m.group(2);
 		String expr = m.group(3);
-		
+
 		// split the params into name-type pairs
 		Vector<PGoVariable> paramVars = new Vector<>();
 		String[] vars = params.split(",");
@@ -62,7 +62,7 @@ public class AnnotatedTLADefinition {
 			}
 			paramVars.add(PGoVariable.convert(parts[0], PGoType.inferFromGoTypeName(parts[1])));
 		}
-		
+
 		// parse the expression into TLATokens
 		String[] exprLines = expr.split("\\n");
 		Vector<String> v = new Vector<>(Arrays.asList(exprLines));
@@ -73,15 +73,14 @@ public class AnnotatedTLADefinition {
 			return new AnnotatedTLADefinition(name, paramVars, tla, l);
 		} catch (TokenizerException e) {
 			throw new PGoParseException(
-					"Encountered TokenizerException when parsing annotation for TLA definition: " + e.getMessage()
-							+ " (line " + l + ")");
+					"Encountered TokenizerException when parsing annotation for TLA definition: " + e.getMessage(), l);
 		}
 	}
 
 	public String getName() {
 		return name;
 	}
-	
+
 	public TLAExpr getExpr() {
 		return expr;
 	}
@@ -89,7 +88,7 @@ public class AnnotatedTLADefinition {
 	public Vector<PGoVariable> getParams() {
 		return new Vector<>(params);
 	}
-	
+
 	public int getLine() {
 		return line;
 	}

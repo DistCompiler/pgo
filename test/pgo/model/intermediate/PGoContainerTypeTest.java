@@ -65,11 +65,11 @@ public class PGoContainerTypeTest {
 		assertEquals("", ps.getInitCap());
 		assertEquals(s, pt.toTypeName());
 
-		s = "[]a";
+		s = "[]asf";
 		pt = PGoCollectionType.inferContainerFromGoTypeName(s);
 		assertTrue(pt instanceof PGoUndetermined);
 
-		s = "[][]a";
+		s = "[][]asf";
 		pt = PGoCollectionType.inferContainerFromGoTypeName(s);
 		assertTrue(pt instanceof PGoUndetermined);
 	}
@@ -107,11 +107,11 @@ public class PGoContainerTypeTest {
 		assertTrue(pc.getElementType() instanceof PGoSlice);
 		assertEquals(s.toLowerCase(), pt.toTypeName().toLowerCase());
 
-		s = "chan[a]";
+		s = "chan[asf]";
 		pt = PGoCollectionType.inferContainerFromGoTypeName(s);
 		assertTrue(pt instanceof PGoUndetermined);
 
-		s = "chan[chan[a]]";
+		s = "chan[chan[asf]]";
 		pt = PGoCollectionType.inferContainerFromGoTypeName(s);
 		assertTrue(pt instanceof PGoUndetermined);
 	}
@@ -149,11 +149,11 @@ public class PGoContainerTypeTest {
 		assertTrue(ps.getElementType() instanceof PGoSlice);
 		assertEquals(s.toLowerCase(), pt.toTypeName().toLowerCase());
 
-		s = "set[a]";
+		s = "set[asf]";
 		pt = PGoCollectionType.inferContainerFromGoTypeName(s);
 		assertTrue(pt instanceof PGoUndetermined);
 
-		s = "set[set[a]]";
+		s = "set[set[asf]]";
 		pt = PGoCollectionType.inferContainerFromGoTypeName(s);
 		assertTrue(pt instanceof PGoUndetermined);
 	}
@@ -195,15 +195,15 @@ public class PGoContainerTypeTest {
 		assertTrue(pm.getElementType() instanceof PGoSlice);
 		assertEquals(s.toLowerCase(), pt.toTypeName().toLowerCase());
 
-		s = "map[int]a";
+		s = "map[int]asf";
 		pt = PGoCollectionType.inferContainerFromGoTypeName(s);
 		assertTrue(pt instanceof PGoUndetermined);
 
-		s = "map[a]int";
+		s = "map[asf]int";
 		pt = PGoCollectionType.inferContainerFromGoTypeName(s);
 		assertTrue(pt instanceof PGoUndetermined);
 
-		s = "map[int]map[int]a";
+		s = "map[int]map[int]afs";
 		pt = PGoCollectionType.inferContainerFromGoTypeName(s);
 		assertTrue(pt instanceof PGoUndetermined);
 	}
