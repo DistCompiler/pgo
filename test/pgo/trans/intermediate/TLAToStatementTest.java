@@ -241,6 +241,18 @@ public class TLAToStatementTest {
 		result = new TLAExprToGo(tla, imports, data).toExpression();
 		se.set(0, new FunctionCall("Size", new Vector<>(), new Token("a")));
 		assertEquals(new SimpleExpression(se), result);
+		
+		tla = new PGoTLAFunctionCall("foo", toks, 0);
+		data.globals.clear();
+		data.globals.put("a", PGoVariable.convert("a", PGoType.inferFromGoTypeName("int")));
+		data.globals.put("foo", PGoVariable.convert("foo", PGoType.inferFromGoTypeName("[]string")));
+		result = new TLAExprToGo(tla, imports, data).toExpression();
+		se.clear();
+		se.add(new Token("foo"));
+		se.add(new Token("["));
+		se.add(new Token("a"));
+		se.add(new Token("]"));
+		assertEquals(new SimpleExpression(se), result);
 	}
 
 	@Test

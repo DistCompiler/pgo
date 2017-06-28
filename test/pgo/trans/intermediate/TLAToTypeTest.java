@@ -14,6 +14,7 @@ import pgo.model.intermediate.PGoCollectionType.PGoMap;
 import pgo.model.intermediate.PGoCollectionType.PGoTuple;
 import pgo.model.intermediate.PGoPrimitiveType.PGoDecimal;
 import pgo.model.intermediate.PGoPrimitiveType.PGoInt;
+import pgo.model.intermediate.PGoPrimitiveType.PGoString;
 import pgo.model.golang.Expression;
 import pgo.model.golang.FunctionCall;
 import pgo.model.golang.SimpleExpression;
@@ -170,6 +171,13 @@ public class TLAToTypeTest {
 		data.globals.put("a", PGoVariable.convert("a", PGoType.inferFromGoTypeName("tuple[int]")));
 		result = new TLAExprToType(tla, data).getType();
 		assertTrue(result instanceof PGoInt);
+		
+		tla = new PGoTLAFunctionCall("foo", toks, 0);
+		data.globals.clear();
+		data.globals.put("a", PGoVariable.convert("a", PGoType.inferFromGoTypeName("int")));
+		data.globals.put("foo", PGoVariable.convert("foo", PGoType.inferFromGoTypeName("[]string")));
+		result = new TLAExprToType(tla, data).getType();
+		assertTrue(result instanceof PGoString);
 	}
 	
 	@Test

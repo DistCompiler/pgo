@@ -294,7 +294,7 @@ public class TLAExprToType {
 	}
 
 	protected PGoType type(PGoTLAFunctionCall tla) throws PGoTransException {
-		// search for functions, TLA definitions, builtin funcs, tuples, or maps
+		// search for functions, TLA definitions, builtin funcs, tuples, slices, or maps
 		PGoFunction func = data.findPGoFunction(tla.getName());
 		if (func != null) {
 			// check params for type consistency
@@ -377,6 +377,15 @@ public class TLAExprToType {
 						"Can't determine the type of tuple element at compile-time (line " + tla.getLine() + ")");
 				return PGoType.UNDETERMINED;
 			}
+		} else if (var.getType() instanceof PGoSlice) {
+			if (tla.getParams().size() != 1) {
+				throw new PGoTransException("Can't access multiple indices of slice", tla.getLine());
+			}
+			PGoType type = new TLAExprToType(tla.getParams().get(0), data).getType();
+			if (!(type instanceof PGoNatural) && !(type instanceof PGoInt)) {
+				throw new PGoTransException("Can't access non-integer slice index", tla.getLine());
+			}
+			return ((PGoSlice) var.getType()).getElementType();
 		} else if (var.getType() instanceof PGoMap) {
 			PGoType keyType = ((PGoMap) var.getType()).getKeyType();
 			if (tla.getParams().size() > 1) {

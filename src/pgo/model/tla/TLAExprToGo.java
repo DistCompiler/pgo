@@ -299,7 +299,7 @@ public class TLAExprToGo {
 			params.add(new TLAExprToGo(param, imports, data).toExpression());
 		}
 		// Determine whether this is a PlusCal macro call, TLA definition call,
-		// TLA builtin method call, or map/tuple access.
+		// TLA builtin method call, or map/slice/tuple access.
 		PGoFunction func = data.findPGoFunction(tla.getName());
 		PGoTLADefinition def = data.findTLADefinition(tla.getName());
 		PGoLibFunction lfunc = data.findBuiltInFunction(tla.getName());
@@ -324,6 +324,15 @@ public class TLAExprToGo {
 				// also need to cast element to correct type
 				assert (params.size() == 1);
 				return new TypeAssertion(new FunctionCall("At", params, new Token(tla.getName())), type);
+			} else if (var.getType() instanceof PGoSlice) {
+				Vector<Expression> se = new Vector<>();
+				assert (params.size() == 1);
+				
+				se.add(new Token(tla.getName()));
+				se.add(new Token("["));
+				se.add(params.remove(0));
+				se.add(new Token("]"));
+				return new SimpleExpression(se);
 			} else {
 				// map
 				if (params.size() > 1) {
