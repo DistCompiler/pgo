@@ -384,7 +384,7 @@ public class TLAExprToType {
 				|| numberType.get(end.toTypeName()) > numberType.get("int")) {
 			throw new PGoTransException("The sequence operator \"..\" must take integers", tla.getLine());
 		}
-		return PGoType.inferFromGoTypeName("[]int");
+		return PGoType.inferFromGoTypeName("set[int]");
 	}
 
 	protected PGoType type(PGoTLASet tla) throws PGoTransException {

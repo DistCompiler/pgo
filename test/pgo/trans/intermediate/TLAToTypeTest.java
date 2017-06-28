@@ -185,7 +185,7 @@ public class TLAToTypeTest {
 		PGoTLASequence tla = new PGoTLASequence(new PGoTLANumber("0", 0), new PGoTLAVariable("x", 0), 0);
 		data.globals.put("x", PGoVariable.convert("x", PGoType.inferFromGoTypeName("natural")));
 		PGoType result = new TLAExprToType(tla, data).getType();
-		assertEquals(PGoType.inferFromGoTypeName("[]int"), result);
+		assertEquals(PGoType.inferFromGoTypeName("set[int]"), result);
 	}
 	
 	@Test (expected = PGoTransException.class)
