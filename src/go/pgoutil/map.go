@@ -375,3 +375,14 @@ func (m *Map) Iter() <-chan KVPair {
 	}()
 	return ret
 }
+
+func (m *Map) String() string {
+	ret := "Map{"
+	m.RLock()
+	defer m.RUnlock()
+	for kv := range m.Iter() {
+		ret += fmt.Sprintf("%v = %v, ", kv.Key, kv.Val)
+	}
+	ret += "}"
+	return ret
+}

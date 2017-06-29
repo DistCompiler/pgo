@@ -1,6 +1,8 @@
 // Implements an ordered set using the pgoutil map as a container.
 package pgoutil
 
+import "fmt"
+
 // We declare an interface to avoid dealing with weird pointer stuff
 type Set interface {
 	// Add all elements to the set
@@ -192,5 +194,14 @@ func (s *set) ToSlice() []interface{} {
 		ret[i] = elt
 		i++
 	}
+	return ret
+}
+
+func (s *set) String() string {
+	ret := "Set{"
+	for i := range s.Iter() {
+		ret += fmt.Sprintf("%v, ", i)
+	}
+	ret += "}"
 	return ret
 }
