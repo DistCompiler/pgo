@@ -187,7 +187,6 @@ public abstract class PGoCollectionType extends PGoType {
 
 		// the paramer types
 		private Vector<PGoType> paramType;
-		// TODO support multiple return values. but is this needed?
 		private PGoType retType;
 
 		public PGoAnonymousFunction(Vector<PGoType> params, PGoType ret) {

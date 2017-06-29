@@ -29,9 +29,8 @@ public class PcalParserTest {
 		return Arrays.asList(new Object[][] { { new AnnotationTestParserTester() }, { new EuclidPluscalParserTester() },
 				{ new EuclidNoAnnotationPluscalParserTester() }, { new FastMutexPluscalParserTester() },
 				{ new FastMutexNoAnnotationPluscalParserTester() }, { new QueensPluscalParserTester() },
-				{ new QueensPluscalProcedureParserTester() }, { new SumParserTester() },
-				{ new SumNoTypeAnnotationParserTester() }, { new TwoPhaseCommitParserTester() },
-				{ new TwoPhaseCommitNoTypeAnnotationParserTester() } });
+				{ new SumParserTester() }, { new SumNoTypeAnnotationParserTester() },
+				{ new TwoPhaseCommitParserTester() }, { new TwoPhaseCommitNoTypeAnnotationParserTester() } });
 	}
 
 	@Test

@@ -43,8 +43,15 @@ Solutions == { queens \in [1..N -> 1..N] : IsSolution(queens) }
 (***************************************************************************)
 
 (* --algorithm QueensPluscal  (*** for pgo @PGo{ arg int N }@PGo done ***)
-     (** @PGo{ var Set[chan[int]] todo }@PGo
-         @PGo{ var Set[chan[int]] sols }@PGo **)
+     (** @PGo{ var Set[[]int] todo }@PGo
+         @PGo{ var Set[[]int] sols }@PGo
+         @PGo{ macro Attacks(queens []int,i int,j int) ==
+                \/ queens[i] = queens[j]                 \** same column
+                \/ queens[i] - queens[j] = i - j         \** first diagonal
+                \/ queens[j] - queens[i] = i - j         \** second diagonal }@PGo
+          @PGo{ macro IsSolution(queens []int) ==
+                \A i \in 1 .. Len(queens)-1 : \A j \in i+1 .. Len(queens) : 
+                ~ Attacks(queens,i,j) }@PGo **)
      variables
        todo = { << >> };
        sols = {};
@@ -52,10 +59,10 @@ Solutions == { queens \in [1..N -> 1..N] : IsSolution(queens) }
      begin
 nxtQ:  while todo # {}
        do
-         (** @PGo{ var chan[int] queens }@PGo
-             @PGo{ var int nexQ }@PGo
+         (** @PGo{ var []int queens }@PGo
+             @PGo{ var int nxtQ }@PGo
              @PGo{ var Set[int] cols }@PGo
-             @PGo{ var Set[chan[int]] exts }@PGo **)
+             @PGo{ var Set[[]int] exts }@PGo **)
          with queens \in todo,
               nxtQ = Len(queens) + 1,
               cols = { c \in 1..N : ~ \E i \in 1 .. Len(queens) :

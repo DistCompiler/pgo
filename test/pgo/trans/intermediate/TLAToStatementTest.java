@@ -251,6 +251,8 @@ public class TLAToStatementTest {
 		se.add(new Token("foo"));
 		se.add(new Token("["));
 		se.add(new Token("a"));
+		se.add(new Token(" - "));
+		se.add(new Token("1"));
 		se.add(new Token("]"));
 		assertEquals(new SimpleExpression(se), result);
 	}

@@ -239,13 +239,9 @@ public class TLAExprParser {
 			// << >> are tuples in PlusCal. Most of the time they converted to
 			// channels since they are used for communication. But more safety
 			// they should be either a slice for tuple, or channel for
-			// communication.
-			//
-			// TODO distinguish this. I think we have to do this later on in the
-			// code when converting to go, then we can check the types of the
-			// variables from annotation to determine slice vs chan.
-			exps.push(new PGoTLAArray(between, line)); // TODO (issue #5)
-			// support
+			// communication. We distinguish between these later when converting
+			// to Go.
+			exps.push(new PGoTLAArray(between, line));
 		}
 	}
 

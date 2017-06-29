@@ -633,7 +633,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 
 			Vector<Expression> exp = new Vector<>();
 			exp.add(new Token(pv.getName()));
-			exp.add(new Token(",_"));
+			exp.add(new Token(", _"));
 			exp.add(new Token(" = "));
 			exp.add(convert);
 
@@ -654,7 +654,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 
 			Vector<Expression> exp = new Vector<>();
 			exp.add(new Token(pv.getName()));
-			exp.add(new Token(",_"));
+			exp.add(new Token(", _"));
 			exp.add(new Token(" = "));
 			exp.add(convert);
 
@@ -675,7 +675,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 
 			Vector<Expression> exp = new Vector<>();
 			exp.add(new Token(pv.getName()));
-			exp.add(new Token(",_"));
+			exp.add(new Token(", _"));
 			exp.add(new Token(" = "));
 			exp.add(convert);
 
@@ -694,7 +694,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 
 			Vector<Expression> exp = new Vector<>();
 			exp.add(new Token(pv.getName()));
-			exp.add(new Token(",_"));
+			exp.add(new Token(", _"));
 			exp.add(new Token(" = "));
 			exp.add(convert);
 

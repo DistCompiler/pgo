@@ -79,14 +79,13 @@ public class TLAExprToGo {
 	 *            the TLA expression
 	 */
 	protected Expression translate(PGoTLAArray tla) throws PGoTransException {
-		// TODO (issue #5, 23)
 		if (tla.getContents().size() == 1 && tla.getContents().get(0) instanceof PGoTLAVariadic) {
 			// maps to or except operator
 			return new TLAExprToGo((PGoTLAVariadic) tla.getContents().get(0), imports, data, assign).toExpression();
 		}
 		// array, tuple or chan, depending on assigned type
 		Vector<Expression> contents = new Vector<>();
-		PGoType assignType = assign.getType();
+		PGoType assignType = this.type;
 		// make sure we maintain the assign type
 		if (type instanceof PGoTuple) {
 			for (int i = 0; i < tla.getContents().size(); i++) {

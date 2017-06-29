@@ -84,6 +84,11 @@ public abstract class PGoType {
 	public int hashCode() {
 		return this.toTypeName().hashCode();
 	}
+	
+	@Override
+	public String toString() {
+		return this.toTypeName();
+	}
 
 	/**
 	 * Converts to the go code syntax of this type

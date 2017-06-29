@@ -9,10 +9,8 @@ import pgo.parser.TLAExprParser;
 import pgo.trans.PGoTransException;
 
 /**
- * An array declared in TLA. "[ ... ]". These should contain the fill array information, in any
- * complex TLA syntax via a for loop.
- * 
- * TODO (issue #5)
+ * An array "[ ... ]" or tuple "<< ... >>" declared in TLA. These contain the
+ * contents of the array.
  *
  */
 public class PGoTLAArray extends PGoTLA {
@@ -27,11 +25,11 @@ public class PGoTLAArray extends PGoTLA {
 	public Vector<PGoTLA> getContents() {
 		return contents;
 	}
-	
+
 	protected Expression convert(TLAExprToGo trans) throws PGoTransException {
 		return trans.translate(this);
 	}
-	
+
 	protected PGoType inferType(TLAExprToType trans) throws PGoTransException {
 		return trans.type(this);
 	}

@@ -42,8 +42,7 @@ public class PGoAnnotationParserParameterizedTest {
 		return Arrays
 				.asList(new Object[][] { { new EuclidPluscalParserTester() },
 						{ new FastMutexPluscalParserTester() }, { new QueensPluscalParserTester() },
-						{ new QueensPluscalProcedureParserTester() }, { new SumParserTester() },
-						{ new TwoPhaseCommitParserTester() },
+						{ new SumParserTester() }, { new TwoPhaseCommitParserTester() },
 				 });
 	}
 

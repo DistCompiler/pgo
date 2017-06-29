@@ -28,9 +28,9 @@ public class QueensPluscalIntermediateTester extends PGoPluscalStageTesterBase {
 	public ArrayList<TestVariableData> getStageOneVariables() {
 		ArrayList<TestVariableData> ret = new ArrayList<TestVariableData>();
 		ret.add(new TestVariableData("todo", true, "<< \"{\", \"<<\", \">>\", \"}\" >>", "", false,
-				new PGoCollectionType.PGoSet("chan[int]"), false, "", false));
+				new PGoCollectionType.PGoSet("[]int"), false, "", false));
 		ret.add(new TestVariableData("sols", true, "<< \"{\", \"}\" >>", "", false,
-				new PGoCollectionType.PGoSet("chan[int]"), false, "", false));
+				new PGoCollectionType.PGoSet("[]int"), false, "", false));
 
 		return ret;
 	}

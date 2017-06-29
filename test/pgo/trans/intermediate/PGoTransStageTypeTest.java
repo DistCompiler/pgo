@@ -34,8 +34,8 @@ public class PGoTransStageTypeTest {
 	@Parameterized.Parameters
 	public static Collection primeNumbers() {
 		return Arrays.asList(new Object[][] { { new EuclidIntermediateTester() }, { new FastMutexIntermediateTester() },
-				{ new QueensPluscalIntermediateTester() }, { new QueensPluscalProcedureIntermediateTester() },
-				{ new SumIntermediateTester() }, { new TwoPhaseCommitIntermediateTester() } });
+				{ new QueensPluscalIntermediateTester() }, { new SumIntermediateTester() },
+				{ new TwoPhaseCommitIntermediateTester() } });
 	}
 
 	@Before
@@ -111,7 +111,7 @@ public class PGoTransStageTypeTest {
 			assertPGoVariable(f.getParams().get(j), j, af.params);
 			assertEquals(f.getParams().get(j), f.getParam(f.getParams().get(j).getName()));
 		}
-		
+
 		assertEquals(af.vars.size(), f.getVariables().size());
 		for (int j = 0; j < f.getVariables().size(); j++) {
 			assertPGoVariable(f.getVariables().get(j), j, af.vars);
@@ -119,7 +119,7 @@ public class PGoTransStageTypeTest {
 		}
 
 		assertEquals(p.getFunction(af.name), f);
-		
+
 		assertEquals(af.type, f.getType());
 
 		assertEquals(af.retType, f.getReturnType());
@@ -131,7 +131,7 @@ public class PGoTransStageTypeTest {
 
 		ArrayList<PGoRoutineInit> grs = p.getGoRoutineInits();
 		assertEquals(tester.getNumGoroutineInit(), grs.size());
-		
+
 		for (TestFunctionData f : tester.getStageOneFunctions()) {
 			if (f.type == PGoFunction.FunctionType.GoRoutine) {
 				PGoRoutineInit gr = p.getGoRoutineInit(f.name);
