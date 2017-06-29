@@ -50,6 +50,17 @@ public class TLAExprToType {
 		type = infer(tla);
 	}
 
+	// The type is assign's type.
+	public TLAExprToType(PGoTLA tla, PGoTempData data, PGoType assign) throws PGoTransException {
+		this.data = data;
+		if (assign != null) {
+			this.assign = PGoVariable.convert("", assign);
+		} else {
+			this.assign = null;
+		}
+		type = infer(tla);
+	}
+
 	public PGoType getType() {
 		return type;
 	}
@@ -189,7 +200,7 @@ public class TLAExprToType {
 	protected PGoType type(PGoTLAArray tla) throws PGoTransException {
 		if (!tla.getContents().isEmpty() && tla.getContents().get(0) instanceof PGoTLAVariadic) {
 			// this is a map; typing is handled in the other method
-			return new TLAExprToType(tla.getContents().get(0), data).getType();
+			return new TLAExprToType(tla.getContents().get(0), data, assign).getType();
 		}
 		// We need to look at variable information to see if this is a tuple or
 		// channel. By default we assume this is a tuple.
@@ -218,7 +229,7 @@ public class TLAExprToType {
 			if (tup.getLength() == -1) {
 				PGoType contained = tup.getType(0);
 				for (PGoTLA elt : tla.getContents()) {
-					PGoType eltType = new TLAExprToType(elt, data).getType();
+					PGoType eltType = new TLAExprToType(elt, data, tup.getType(0)).getType();
 					if (TLAExprToType.compatibleType(contained, eltType) == null) {
 						throw new PGoTransException("Expected elements in tuple to be of type " + contained.toTypeName()
 								+ " but found " + eltType.toTypeName() + " instead", tla.getLine());
@@ -231,7 +242,7 @@ public class TLAExprToType {
 							+ tla.getContents().size() + " instead", tla.getLine());
 				}
 				for (int i = 0; i < tla.getContents().size(); i++) {
-					PGoType eltType = new TLAExprToType(tla.getContents().get(i), data).getType();
+					PGoType eltType = new TLAExprToType(tla.getContents().get(i), data, tup.getType(i)).getType();
 					if (TLAExprToType.compatibleType(tup.getType(i), eltType) == null) {
 						throw new PGoTransException("Expected the " + i + "th component of the tuple "
 								+ tup.toTypeName() + " to be of type " + tup.getType(i).toTypeName() + " but found "
@@ -243,9 +254,19 @@ public class TLAExprToType {
 		} else if (assign.getType() instanceof PGoChan) {
 			PGoType eltType = ((PGoChan) assign.getType()).getElementType();
 			for (PGoTLA elt : tla.getContents()) {
-				PGoType eType = new TLAExprToType(elt, data).getType();
+				PGoType eType = new TLAExprToType(elt, data, eltType).getType();
 				if (!eltType.equals(eType)) {
 					throw new PGoTransException("Expected channel elements to be of type " + eltType.toTypeName()
+							+ " but found " + eType.toTypeName(), tla.getLine());
+				}
+			}
+			return assign.getType();
+		} else if (assign.getType() instanceof PGoSlice) {
+			PGoType eltType = ((PGoSlice) assign.getType()).getElementType();
+			for (PGoTLA elt : tla.getContents()) {
+				PGoType eType = new TLAExprToType(elt, data, eltType).getType();
+				if (!eltType.equals(eType)) {
+					throw new PGoTransException("Expected slice elements to be of type " + eltType.toTypeName()
 							+ " but found " + eType.toTypeName(), tla.getLine());
 				}
 			}
@@ -294,7 +315,8 @@ public class TLAExprToType {
 	}
 
 	protected PGoType type(PGoTLAFunctionCall tla) throws PGoTransException {
-		// search for functions, TLA definitions, builtin funcs, tuples, slices, or maps
+		// search for functions, TLA definitions, builtin funcs, tuples, slices,
+		// or maps
 		PGoFunction func = data.findPGoFunction(tla.getName());
 		if (func != null) {
 			// check params for type consistency
@@ -390,9 +412,14 @@ public class TLAExprToType {
 			PGoType keyType = ((PGoMap) var.getType()).getKeyType();
 			if (tla.getParams().size() > 1) {
 				// something like f[1, 3] which is shorthand for f[<<1, 3>>]
+				if (!(keyType instanceof PGoTuple)) {
+					throw new PGoTransException(
+							"Can't use multiple indices to access map with key type " + keyType.toTypeName(),
+							tla.getLine());
+				}
 				Vector<PGoType> tup = new Vector<>();
-				for (PGoTLA param : tla.getParams()) {
-					tup.add(new TLAExprToType(param, data).getType());
+				for (int i = 0; i < tla.getParams().size(); i++) {
+					tup.add(new TLAExprToType(tla.getParams().get(i), data, ((PGoTuple) keyType).getType(i)).getType());
 				}
 				PGoTuple key = new PGoTuple(tup, false);
 				if (!key.equals(keyType)) {
@@ -400,7 +427,7 @@ public class TLAExprToType {
 							+ var.getType().toTypeName(), tla.getLine());
 				}
 			} else {
-				PGoType type = new TLAExprToType(tla.getParams().get(0), data).getType();
+				PGoType type = new TLAExprToType(tla.getParams().get(0), data, keyType).getType();
 				if (!type.equals(keyType)) {
 					throw new PGoTransException("Can't use " + type.toTypeName() + " as key for "
 							+ var.getType().toTypeName(), tla.getLine());
@@ -413,7 +440,7 @@ public class TLAExprToType {
 	}
 
 	protected PGoType type(PGoTLAGroup tla) throws PGoTransException {
-		return new TLAExprToType(tla.getInner(), data).getType();
+		return new TLAExprToType(tla.getInner(), data, assign).getType();
 	}
 
 	protected PGoType type(PGoTLANumber tla) {
@@ -447,13 +474,15 @@ public class TLAExprToType {
 			PGoTLAVariadic st = (PGoTLAVariadic) tla.getContents().get(0);
 			return PGoType.inferFromGoTypeName("set[" + new TLAExprToType(st, data).getType().toTypeName() + "]");
 		} else {
+			// check if an elt type is already available
+			PGoType eltType = (assign == null ? null : ((PGoSet) assign.getType()).getElementType());
 			// elt's are declared one by one
-			PGoType first = new TLAExprToType(tla.getContents().get(0), data).getType();
+			PGoType first = new TLAExprToType(tla.getContents().get(0), data, eltType).getType();
 			// check if all elts are compatible and take the most specific type
 			// that works
 			for (PGoTLA elt : tla.getContents()) {
-				PGoType eltType = new TLAExprToType(elt, data).getType();
-				first = compatibleType(first, eltType);
+				PGoType eType = new TLAExprToType(elt, data, eltType).getType();
+				first = compatibleType(first, eType);
 				if (first == null) {
 					throw new PGoTransException(
 							"Set initialized with elements of incompatible types", tla.getLine());
@@ -468,12 +497,12 @@ public class TLAExprToType {
 		case "\\in":
 		case "\\notin":
 			// the element type must be compatible w/ set type
-			PGoType eltType = new TLAExprToType(tla.getLeft(), data).getType();
 			PGoType setType = new TLAExprToType(tla.getRight(), data).getType();
 			if (!(setType instanceof PGoSet)) {
 				throw new PGoTransException("The right-hand argument of the " + tla.getToken()
 						+ " operator must be a set", tla.getLine());
 			}
+			PGoType eltType = new TLAExprToType(tla.getLeft(), data, ((PGoSet) setType).getElementType()).getType();
 			if (!setType.equals(PGoCollectionType.EMPTY_SET)
 					&& compatibleType(eltType, ((PGoSet) setType).getElementType()) == null) {
 				throw new PGoTransException(
@@ -483,8 +512,8 @@ public class TLAExprToType {
 			}
 			return PGoType.inferFromGoTypeName("bool");
 		default:
-			PGoType lhs = new TLAExprToType(tla.getLeft(), data).getType();
-			PGoType rhs = new TLAExprToType(tla.getRight(), data).getType();
+			PGoType lhs = new TLAExprToType(tla.getLeft(), data, assign).getType();
+			PGoType rhs = new TLAExprToType(tla.getRight(), data, assign).getType();
 			PGoType result = compatibleType(lhs, rhs);
 			if (result == null || !(result instanceof PGoSet)) {
 				throw new PGoTransException("Can't use operator " + tla.getToken() + " on types " + lhs.toTypeName()

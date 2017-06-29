@@ -50,6 +50,19 @@ public class TLAExprToGo {
 		expr = tla.convert(this);
 	}
 
+	// The type is assign's type.
+	public TLAExprToGo(PGoTLA tla, Imports imports, PGoTempData data, PGoType assign) throws PGoTransException {
+		this.imports = imports;
+		this.data = data;
+		if (assign != null) {
+			this.assign = PGoVariable.convert("", assign);
+		} else {
+			this.assign = null;
+		}
+		type = new TLAExprToType(tla, data, this.assign).getType();
+		expr = tla.convert(this);
+	}
+
 	public PGoType getType() {
 		return type;
 	}
@@ -69,16 +82,40 @@ public class TLAExprToGo {
 		// TODO (issue #5, 23)
 		if (tla.getContents().size() == 1 && tla.getContents().get(0) instanceof PGoTLAVariadic) {
 			// maps to or except operator
-			return translate((PGoTLAVariadic) tla.getContents().get(0));
+			return new TLAExprToGo((PGoTLAVariadic) tla.getContents().get(0), imports, data, assign).toExpression();
 		}
-		// array or chan, depending on assigned type
+		// array, tuple or chan, depending on assigned type
 		Vector<Expression> contents = new Vector<>();
-		for (PGoTLA elt : tla.getContents()) {
-			Expression e = new TLAExprToGo(elt, imports, data).toExpression();
-			contents.add(e);
+		PGoType assignType = assign.getType();
+		// make sure we maintain the assign type
+		if (type instanceof PGoTuple) {
+			for (int i = 0; i < tla.getContents().size(); i++) {
+				Expression e = new TLAExprToGo(tla.getContents().get(i), imports, data,
+						((PGoTuple) assignType).getType(i)).toExpression();
+				contents.add(e);
+			}
+		} else {
+			for (PGoTLA elt : tla.getContents()) {
+				Expression e = new TLAExprToGo(elt, imports, data, ((PGoCollectionType) assignType).getElementType())
+						.toExpression();
+				contents.add(e);
+			}
 		}
 		if (type instanceof PGoTuple) {
 			return new FunctionCall("pgoutil.NewTuple", contents);
+		} else if (type instanceof PGoSlice) {
+			// << 1, 2, 3 >> -> []int{1, 2, 3}
+			Vector<Expression> se = new Vector<>();
+			se.add(new Token(type.toGo()));
+			se.add(new Token("{"));
+			for (int i = 0; i < contents.size(); i++) {
+				if (i > 0) {
+					se.add(new Token(","));
+				}
+				se.add(contents.get(i));
+			}
+			se.add(new Token("}"));
+			return new SimpleExpression(se);
 		} else if (type instanceof PGoChan) {
 			return new FunctionCall("pgoutil.NewChan", contents);
 		}
@@ -223,7 +260,7 @@ public class TLAExprToGo {
 		Expression rightRes = new TLAExprToGo(tla.getRight(), imports, data).toExpression();
 
 		// we have already checked types for consistency, so can check just lhs
-		PGoType leftType = new TLAExprToType(tla.getLeft(), data).getType();
+		PGoType leftType = new TLAExprToType(tla.getLeft(), data, assign).getType();
 		if (leftType instanceof PGoSet) {
 			imports.addImport("pgoutil");
 			Vector<Expression> leftExp = new Vector<>();
@@ -327,7 +364,7 @@ public class TLAExprToGo {
 			} else if (var.getType() instanceof PGoSlice) {
 				Vector<Expression> se = new Vector<>();
 				assert (params.size() == 1);
-				
+
 				se.add(new Token(tla.getName()));
 				se.add(new Token("["));
 				se.add(params.remove(0));
@@ -388,17 +425,19 @@ public class TLAExprToGo {
 			// method
 			return new TLAExprToGo(tla.getContents().get(0), imports, data, assign).toExpression();
 		}
+		PGoType setType = this.type;
+		PGoType containedType = ((PGoSet) setType).getElementType();
 		Vector<Expression> args = new Vector<>();
 		for (PGoTLA ptla : tla.getContents()) {
-			args.add(new TLAExprToGo(ptla, imports, data).toExpression());
+			args.add(new TLAExprToGo(ptla, imports, data, containedType).toExpression());
 		}
 		this.imports.addImport("pgoutil");
 		return new FunctionCall("pgoutil.NewSet", args);
 	}
 
 	protected Expression translate(PGoTLASetOp tla) throws PGoTransException {
-		Expression leftRes = new TLAExprToGo(tla.getLeft(), imports, data).toExpression();
-		Expression rightRes = new TLAExprToGo(tla.getRight(), imports, data).toExpression();
+		Expression leftRes = new TLAExprToGo(tla.getLeft(), imports, data, assign).toExpression();
+		Expression rightRes = new TLAExprToGo(tla.getRight(), imports, data, assign).toExpression();
 
 		Vector<Expression> lhs = new Vector<>();
 		lhs.add(leftRes);
