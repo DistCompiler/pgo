@@ -360,14 +360,24 @@ public class TLAExprToGo {
 			if (var.getType() instanceof PGoTuple) {
 				// also need to cast element to correct type
 				assert (params.size() == 1);
+				// PlusCal tuples are 1-indexed, so need to subtract 1
+				Vector<Expression> se = new Vector<>();
+				se.add(params.get(0));
+				se.add(new Token(" - "));
+				se.add(new Token("1"));
+				params.set(0, new SimpleExpression(se));
+				
 				return new TypeAssertion(new FunctionCall("At", params, new Token(tla.getName())), type);
 			} else if (var.getType() instanceof PGoSlice) {
 				Vector<Expression> se = new Vector<>();
 				assert (params.size() == 1);
 
+				// PlusCal tuples are 1-indexed, so need to subtract 1
 				se.add(new Token(tla.getName()));
 				se.add(new Token("["));
-				se.add(params.remove(0));
+				se.add(params.get(0));
+				se.add(new Token(" - "));
+				se.add(new Token("1"));
 				se.add(new Token("]"));
 				return new SimpleExpression(se);
 			} else {
@@ -476,9 +486,17 @@ public class TLAExprToGo {
 			funcName = "Contains";
 		}
 		// rightRes is the object because lhs can be an element (e.g. in
-		// Contains)
+		// Contains) except when calling Difference (not symmetric)
 		this.imports.addImport("pgoutil");
-		exp.add(new FunctionCall(funcName, lhs, rightRes));
+		if (tla.getToken().equals("\\")) {
+			exp.add(new FunctionCall(funcName, new Vector<Expression>() {
+				{
+					add(rightRes);
+				}
+			}, leftRes));
+		} else {
+			exp.add(new FunctionCall(funcName, lhs, rightRes));
+		}
 		return new SimpleExpression(exp);
 	}
 

@@ -80,6 +80,16 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 			Vector<Statement> stmts = convertStatementToGo(block);
 			main.addAll(stmts);
 		}
+		// if we use math/rand we also need to set a seed
+		if (go.getImports().containsPackage("math/rand")) {
+			go.getImports().addImport("time");
+			FunctionCall seed = new FunctionCall("rand.Seed", new Vector<Expression>() {
+				{
+					add(new FunctionCall("UnixNano", new Vector<>(), new FunctionCall("time.Now", new Vector<>())));
+				}
+			});
+			go.getMain().getBody().add(0, seed);
+		}
 	}
 
 	private void generateArgParsing() throws PGoTransException {
