@@ -210,6 +210,7 @@ func comp(a, b interface{}) int {
 		// check if this is a struct or ptr
 		// structs are compared based on each (exported) field (in order)
 		// ptrs are compared based on pointed-to value
+		// slices are compared in the same way as tuples
 		v := reflect.ValueOf(a)
 		w := reflect.ValueOf(b)
 		switch v.Kind() {
@@ -233,6 +234,23 @@ func comp(a, b interface{}) int {
 				}
 			}
 			return 0
+		case reflect.Slice:
+			for i := 0; i < v.Len(); i++ {
+				if i == w.Len() {
+					return 1
+				}
+				switch comp(v.Index(i).Interface(), w.Index(i).Interface()) {
+				case -1:
+					return -1
+				case 1:
+					return 1
+				}
+			}
+
+			if v.Len() == w.Len() {
+				return 0
+			}
+			return -1
 		default:
 			panic(fmt.Sprintf("The type %T is not comparable", a))
 		}
@@ -254,6 +272,21 @@ func NewMap() *Map {
 }
 
 func (m *Map) Put(key interface{}, val interface{}) {
+	// If key/val are slices, we need to create a deep copy.
+	kType, kVal := reflect.TypeOf(key), reflect.ValueOf(key)
+	if kType.Kind() == reflect.Slice {
+		cpy := reflect.MakeSlice(kType, kVal.Len(), kVal.Len())
+		reflect.Copy(cpy, kVal)
+		key = cpy.Interface()
+	}
+
+	eType, eVal := reflect.TypeOf(val), reflect.ValueOf(val)
+	if eType.Kind() == reflect.Slice {
+		cpy := reflect.MakeSlice(eType, eVal.Len(), eVal.Len())
+		reflect.Copy(cpy, eVal)
+		val = cpy.Interface()
+	}
+	
 	m.Lock()
 	defer m.Unlock()
 	m.tree.Put(key, val)

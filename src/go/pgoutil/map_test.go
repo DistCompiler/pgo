@@ -73,6 +73,14 @@ func TestAddRemoveMap(t *testing.T) {
 	m.Clear()
 	assertEquals(0, m.Size(), t)
 	assertEquals(nil, m.Get("s"), t)
+
+	slice := []int{1, 2, 3}
+	m.Put(slice, 1)
+	slice = append(slice, 4)
+	m.Put(slice, 2)
+	assertEquals(2, m.Size(), t)
+	assertEquals(1, m.Get([]int{1, 2, 3}), t)
+	assertEquals(2, m.Get(slice), t)
 }
 
 func TestIteration(t *testing.T) {
