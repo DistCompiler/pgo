@@ -1,5 +1,7 @@
 package pgo.util;
 
+import java.util.HashSet;
+import java.util.Set;
 import java.util.Vector;
 
 import pcal.AST;
@@ -220,7 +222,7 @@ public class PcalASTUtil {
 		protected void visit(Assign as) throws PGoTransException {
 			walk(as.ass);
 		}
-		
+
 		protected void visit(SingleAssign sa) throws PGoTransException {
 			walk(sa.lhs);
 		}
@@ -319,7 +321,7 @@ public class PcalASTUtil {
 			protected void init() {
 				result = false;
 			}
-			
+
 			@Override
 			public void visit(Lhs lhs) {
 				if (lhs.var.equals(name)) {
@@ -327,9 +329,9 @@ public class PcalASTUtil {
 					earlyTerm = true;
 				}
 			}
-			
+
 		};
-		
+
 		try {
 			return av.getResult(body);
 		} catch (PGoTransException e) {
@@ -380,4 +382,29 @@ public class PcalASTUtil {
 		return null;
 	}
 
+	/**
+	 * Finds all the labels that are used in goto statements.
+	 */
+	public static Set<String> collectUsedLabels(Vector<AST> body) {
+		Walker<Set<String>> av = new Walker<Set<String>>() {
+
+			@Override
+			protected void init() {
+				result = new HashSet<>();
+			}
+
+			@Override
+			protected void visit(Goto g) {
+				result.add(g.to);
+			}
+
+		};
+
+		try {
+			return av.getResult(body);
+		} catch (PGoTransException e) {
+			assert false;
+		}
+		return null;
+	}
 }

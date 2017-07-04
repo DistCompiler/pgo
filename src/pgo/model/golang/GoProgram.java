@@ -1,9 +1,11 @@
 package pgo.model.golang;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Vector;
+import java.util.Set;
 
 import pgo.model.intermediate.PGoType;
 
@@ -26,6 +28,9 @@ public class GoProgram extends GoAST {
 
 	// the main function
 	private Function main;
+	
+	// the set of labels we use in gotos
+	private Set<String> labels;
 
 	public GoProgram(String pkgName) {
 		this.pkgName = pkgName;
@@ -34,6 +39,7 @@ public class GoProgram extends GoAST {
 		this.funcs = new LinkedHashMap<String, Function>();
 		this.main = new Function("main", PGoType.VOID, new Vector<ParameterDeclaration>(),
 				new Vector<VariableDeclaration>(), new Vector<Statement>());
+		this.labels = new HashSet<>();
 	}
 
 	public Vector<String> toGo() {
@@ -94,5 +100,13 @@ public class GoProgram extends GoAST {
 
 	public void addGlobal(VariableDeclaration v) {
 		globals.put(v.getName(), v);
+	}
+
+	public void addUsedLabels(Set<String> labels) {
+		this.labels.addAll(labels);
+	}
+	
+	public boolean isLabelUsed(String label) {
+		return labels.contains(label);
 	}
 }

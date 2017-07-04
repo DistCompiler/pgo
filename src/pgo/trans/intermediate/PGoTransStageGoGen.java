@@ -156,6 +156,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 	 * @throws PGoTransException
 	 */
 	private Vector<Statement> convertStatementToGo(Vector<AST> stmts) throws PGoTransException {
+		go.addUsedLabels(PcalASTUtil.collectUsedLabels(stmts));
 		return new PcalASTUtil.Walker<Vector<Statement>>() {
 
 			@Override
@@ -164,10 +165,10 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 			}
 
 			protected void visit(LabeledStmt ls) throws PGoTransException {
-				// result.add(new Label(ls.label)); TODO add cleanup for
-				// non-used labels. Go compile fails on non-used labels. So scan
-				// through for gotos and remove all labels that isnt used. Or
-				// somehow keep track of which labels are used in preprocessing
+				// only add the label if we use it in a goto
+				if (go.isLabelUsed(ls.label)) {
+					result.add(new Label(ls.label));
+				}
 				super.visit(ls);
 			}
 
@@ -431,6 +432,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 
 			protected void visit(Goto g) {
 				result.add(new pgo.model.golang.GoTo(g.to));
+				assert (go.isLabelUsed(g.to));
 			}
 
 			protected void visit(MacroCall m) {
