@@ -262,16 +262,38 @@ type KVPair struct {
 	Val interface{}
 }
 
-type Map struct {
+type Map interface {
+	// Put the key-value pair in the map. If the key already exists we replace the value.
+	Put(key, val interface{})
+	// Return whether the key is in the map.
+	Contains(key interface{}) bool
+	// Get the val associated with the key; nil if key is not in map
+	Get(key interface{}) interface{}
+	// Remove the entry with the given key.
+	Remove(key interface{})
+	// Clear all entries.
+	Clear()
+	// Return true if the map is empty.
+	IsEmpty() bool
+	// Return the number of keys in the map.
+	Size() int
+	// Iterators over keys, values, and entries.
+	Keys() <-chan interface{}
+	Values() <-chan interface{}
+	Iter() <-chan KVPair
+}
+
+// Implements the Map interface.
+type mp struct {
 	tree *rbt.Tree
 	sync.RWMutex
 }
 
-func NewMap() *Map {
-	return &Map{rbt.NewWith(comp), sync.RWMutex{}}
+func NewMap() Map {
+	return &mp{rbt.NewWith(comp), sync.RWMutex{}}
 }
 
-func (m *Map) Put(key interface{}, val interface{}) {
+func (m *mp) Put(key interface{}, val interface{}) {
 	// If key/val are slices, we need to create a deep copy.
 	kType, kVal := reflect.TypeOf(key), reflect.ValueOf(key)
 	if kType.Kind() == reflect.Slice {
@@ -292,46 +314,46 @@ func (m *Map) Put(key interface{}, val interface{}) {
 	m.tree.Put(key, val)
 }
 
-func (m *Map) Contains(key interface{}) bool {
+func (m *mp) Contains(key interface{}) bool {
 	m.RLock()
 	defer m.RUnlock()
 	_, found := m.tree.Get(key)
 	return found
 }
 
-func (m *Map) Get(key interface{}) interface{} {
+func (m *mp) Get(key interface{}) interface{} {
 	m.RLock()
 	defer m.RUnlock()
 	ret, _ := m.tree.Get(key)
 	return ret
 }
 
-func (m *Map) Remove(key interface{}) {
+func (m *mp) Remove(key interface{}) {
 	m.Lock()
 	defer m.Unlock()
 	m.tree.Remove(key)
 }
 
-func (m *Map) Clear() {
+func (m *mp) Clear() {
 	m.Lock()
 	defer m.Unlock()
 	m.tree.Clear()
 }
 
-func (m *Map) IsEmpty() bool {
+func (m *mp) IsEmpty() bool {
 	m.RLock()
 	defer m.RUnlock()
 	return m.tree.Empty()
 }
 
-func (m *Map) Size() int {
+func (m *mp) Size() int {
 	m.RLock()
 	defer m.RUnlock()
 	return m.tree.Size()
 }
 
 //Iterators (can be ranged over)
-func (m *Map) Keys() <-chan interface{} {
+func (m *mp) Keys() <-chan interface{} {
 	m.RLock()
 	iter := m.tree.Iterator()
 	ret := make(chan interface{})
@@ -346,7 +368,7 @@ func (m *Map) Keys() <-chan interface{} {
 	return ret
 }
 
-func (m *Map) Values() <-chan interface{} {
+func (m *mp) Values() <-chan interface{} {
 	m.RLock()
 	iter := m.tree.Iterator()
 	ret := make(chan interface{})
@@ -361,7 +383,7 @@ func (m *Map) Values() <-chan interface{} {
 	return ret
 }
 
-func (m *Map) Iter() <-chan KVPair {
+func (m *mp) Iter() <-chan KVPair {
 	m.RLock()
 	iter := m.tree.Iterator()
 	ret := make(chan KVPair)
@@ -376,7 +398,7 @@ func (m *Map) Iter() <-chan KVPair {
 	return ret
 }
 
-func (m *Map) String() string {
+func (m *mp) String() string {
 	ret := "Map{"
 	m.RLock()
 	defer m.RUnlock()

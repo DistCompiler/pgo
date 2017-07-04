@@ -34,7 +34,7 @@ type Set interface {
 }
 
 type set struct {
-	m *Map
+	m Map
 }
 
 // Return a new set that contains the elements elts.

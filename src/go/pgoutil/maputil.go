@@ -3,7 +3,7 @@ package pgoutil
 import "reflect"
 
 // Create a map which maps the elements in S using the mapping f
-func MapsTo(f interface{}, sets ...Set) *Map {
+func MapsTo(f interface{}, sets ...Set) Map {
 	vf := reflect.ValueOf(f)
 	ret := NewMap()
 	var params []reflect.Value
@@ -44,7 +44,7 @@ func EP(first, second interface{}) pair {
 }
 
 // Create a map based on the existing map f, except each except[i].first is mapped to except[i].second
-func Except(f *Map, except ...pair) *Map {
+func Except(f Map, except ...pair) Map {
 	ret := NewMap()
 	for i := range f.Iter() {
 		ret.Put(i.Key, i.Val)
