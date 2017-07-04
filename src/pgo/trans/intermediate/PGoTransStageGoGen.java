@@ -25,8 +25,13 @@ import pcal.AST.Skip;
 import pcal.AST.When;
 import pcal.AST.While;
 import pcal.AST.With;
+import pcal.TLAExpr;
+import pcal.TLAToken;
 import pgo.model.golang.*;
+import pgo.model.intermediate.PGoCollectionType.PGoMap;
 import pgo.model.intermediate.PGoCollectionType.PGoSet;
+import pgo.model.intermediate.PGoCollectionType.PGoSlice;
+import pgo.model.intermediate.PGoCollectionType.PGoTuple;
 import pgo.model.intermediate.PGoFunction;
 import pgo.model.intermediate.PGoPrimitiveType;
 import pgo.model.intermediate.PGoRoutineInit;
@@ -130,6 +135,10 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 	 * @throws PGoTransException
 	 */
 	private Expression TLAToGo(PGoTLA tla) throws PGoTransException {
+		if (intermediateData instanceof PGoTempData) {
+			return new TLAExprToGo(tla, go.getImports(), new PGoTempData((PGoTempData) intermediateData))
+					.toExpression();
+		}
 		return new TLAExprToGo(tla, go.getImports(), new PGoTempData(intermediateData)).toExpression();
 	}
 
@@ -207,9 +216,66 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 
 					for (SingleAssign sa : (Vector<SingleAssign>) as.ass) {
 						Vector<Expression> exps = new Vector<>();
-						exps.add(new Token(sa.lhs.var));
-						exps.add(new Token(" = "));
-						exps.add(new Token(sa.lhs.var + "_new"));
+						if (!sa.lhs.sub.tokens.isEmpty()) {
+							// the sub is [expr, expr...] (map/array access) or
+							// .<name> for a record field
+
+							// to parse properly, prepend the variable name
+							((Vector<TLAToken>) sa.lhs.sub.tokens.get(0)).add(0,
+									new TLAToken(sa.lhs.var, 0, TLAToken.IDENT));
+							Vector<PGoTLA> ptla = new TLAExprParser(sa.lhs.sub, as.line).getResult();
+							assert (ptla.size() == 1);
+							// TODO handle record fields
+							assert (ptla.get(0) instanceof PGoTLAFunctionCall);
+							PGoTLAFunctionCall fc = (PGoTLAFunctionCall) ptla.get(0);
+							// Check for type consistency.
+							TLAToGo(fc);
+							// We compile differently based on the variable's
+							// type.
+							PGoVariable assign = intermediateData.findPGoVariable(sa.lhs.var);
+							if (assign.getType() instanceof PGoSlice) {
+								// just var[expr]
+								assert (fc.getParams().size() == 1);
+								exps.add(new Token(sa.lhs.var));
+								exps.add(new Token("["));
+								exps.add(TLAToGo(fc.getParams().get(0)));
+								exps.add(new Token("]"));
+								exps.add(new Token(" = "));
+								exps.add(new Token(sa.lhs.var + "_new"));
+							} else if (assign.getType() instanceof PGoTuple) {
+								// var = var.Set(index, assign)
+								assert (fc.getParams().size() == 1);
+								exps.add(new Token(sa.lhs.var));
+								exps.add(new Token(" = "));
+								Vector<Expression> params = new Vector<>();
+								params.add(TLAToGo(fc.getParams().get(0)));
+								params.add(new Token(sa.lhs.var + "_new"));
+								exps.add(new FunctionCall("Set", params, new Token(sa.lhs.var)));
+							} else if (assign.getType() instanceof PGoMap) {
+								// var.Put(params, assign)
+								Vector<Expression> params = new Vector<>();
+								// if there is a single param, we can just put it
+								// otherwise, we make a tuple
+								if (fc.getParams().size() == 1) {
+									params.add(TLAToGo(fc.getParams().get(0)));
+								} else {
+									Vector<Expression> tupleElts = new Vector<>();
+									for (PGoTLA tla : fc.getParams()) {
+										tupleElts.add(TLAToGo(tla));
+									}
+									params.add(new FunctionCall("pgoutil.NewTuple", tupleElts));
+								}
+								params.add(new Token(sa.lhs.var + "_new"));
+								exps.add(new FunctionCall("Put", params, new Token(sa.lhs.var)));
+							} else {
+								assert false;
+							}
+						} else {
+							// the lhs is a simple variable
+							exps.add(new Token(sa.lhs.var));
+							exps.add(new Token(" = "));
+							exps.add(new Token(sa.lhs.var + "_new"));
+						}
 						result.add(new SimpleExpression(exps));
 					}
 				} else {
@@ -221,14 +287,67 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 
 			protected void visit(SingleAssign sa) throws PGoTransException {
 				Vector<Expression> exps = new Vector<>();
-				exps.add(new Token(sa.lhs.var));
-				// TODO parse sub for [2] etc
-				exps.add(new Token(" = "));
-				// TODO this is tlaexpr exps.add(sa.rhs);
 				Vector<Expression> rhs = TLAToGo(new TLAExprParser(sa.rhs, sa.line).getResult());
 				assert (rhs.size() == 1);
-				exps.add(rhs.get(0));
+				if (!sa.lhs.sub.tokens.isEmpty()) {
+					// the sub is [expr, expr...] (map/array access) or
+					// .<name> for a record field
 
+					// to parse properly, prepend the variable name
+					((Vector<TLAToken>) sa.lhs.sub.tokens.get(0)).add(0,
+							new TLAToken(sa.lhs.var, 0, TLAToken.IDENT));
+					Vector<PGoTLA> ptla = new TLAExprParser(sa.lhs.sub, sa.line).getResult();
+					assert (ptla.size() == 1);
+					// TODO handle record fields
+					assert (ptla.get(0) instanceof PGoTLAFunctionCall);
+					PGoTLAFunctionCall fc = (PGoTLAFunctionCall) ptla.get(0);
+					// Check for type consistency.
+					TLAToGo(fc);
+					// We compile differently based on the variable's type.
+					PGoVariable assign = intermediateData.findPGoVariable(sa.lhs.var);
+					if (assign.getType() instanceof PGoSlice) {
+						// just var[expr]
+						assert (fc.getParams().size() == 1);
+						exps.add(new Token(sa.lhs.var));
+						exps.add(new Token("["));
+						exps.add(TLAToGo(fc.getParams().get(0)));
+						exps.add(new Token("]"));
+						exps.add(new Token(" = "));
+						exps.add(rhs.get(0));
+					} else if (assign.getType() instanceof PGoTuple) {
+						// var = var.Set(index, assign)
+						assert (fc.getParams().size() == 1);
+						exps.add(new Token(sa.lhs.var));
+						exps.add(new Token(" = "));
+						Vector<Expression> params = new Vector<>();
+						params.add(TLAToGo(fc.getParams().get(0)));
+						params.add(rhs.get(0));
+						exps.add(new FunctionCall("Set", params, new Token(sa.lhs.var)));
+					} else if (assign.getType() instanceof PGoMap) {
+						// var.Put(params, assign)
+						Vector<Expression> params = new Vector<>();
+						// if there is a single param, we can just put it
+						// otherwise, we make a tuple
+						if (fc.getParams().size() == 1) {
+							params.add(TLAToGo(fc.getParams().get(0)));
+						} else {
+							Vector<Expression> tupleElts = new Vector<>();
+							for (PGoTLA tla : fc.getParams()) {
+								tupleElts.add(TLAToGo(tla));
+							}
+							params.add(new FunctionCall("pgoutil.NewTuple", tupleElts));
+						}
+						params.add(rhs.get(0));
+						exps.add(new FunctionCall("Put", params, new Token(sa.lhs.var)));
+					} else {
+						assert false;
+					}
+				} else {
+					// the lhs is a simple variable
+					exps.add(new Token(sa.lhs.var));
+					exps.add(new Token(" = "));
+					exps.add(rhs.get(0));
+				}
 				result.add(new SimpleExpression(exps));
 			}
 
