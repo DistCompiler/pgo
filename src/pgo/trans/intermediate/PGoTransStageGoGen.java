@@ -37,6 +37,7 @@ import pgo.parser.PGoParseException;
 import pgo.parser.TLAExprParser;
 import pgo.trans.PGoTransException;
 import pgo.util.PcalASTUtil;
+import pgo.model.intermediate.PGoMiscellaneousType.PGoWaitGroup;
 
 /**
  * The last stage of the translation. Takes given intermediate data and converts
@@ -442,11 +443,81 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 	 * Generate the go routines init blocks as statements
 	 * 
 	 * @param goroutines
+	 * @throws PGoTransException
 	 */
-	private Vector<Statement> convertGoRoutinesToGo(Collection<PGoRoutineInit> goroutines) {
-		return null;
-		// TODO (issue #10) Auto-generated method stub
+	private Vector<Statement> convertGoRoutinesToGo(Collection<PGoRoutineInit> goroutines) throws PGoTransException {
+		Vector<Statement> ret = new Vector<>();
+		for (PGoRoutineInit goroutine : goroutines) {
+			if (goroutine.getIsSimpleInit()) {
+				// The waitgroup was added in generateGlobalVariables()
+				// PGoWait.Add(1)
+				// go foo(id)
+				ret.add(new FunctionCall("Add", new Vector<Expression>() {
+					{
+						add(new Token("1"));
+					}
+				}, new Token("PGoWait")));
 
+				Vector<Expression> se = new Vector<>();
+				se.add(new Token("go "));
+				Vector<PGoTLA> id = new TLAExprParser(goroutine.getInitTLA(), -1).getResult();
+				assert (id.size() == 1);
+				se.add(new FunctionCall(goroutine.getName(), new Vector<Expression>() {
+					{
+						add(new TLAExprToGo(id.get(0), go.getImports(), new PGoTempData(intermediateData))
+								.toExpression());
+					}
+				}));
+			} else {
+				// for procId := range set.Iter() {
+				// PGoWait.Add(1)
+				// go foo(procId.(type))
+				// }
+
+				Vector<PGoTLA> setTLA = new TLAExprParser(goroutine.getInitTLA(), -1).getResult();
+				assert (setTLA.size() == 1);
+				TLAExprToGo trans = new TLAExprToGo(setTLA.get(0), go.getImports(), new PGoTempData(intermediateData));
+				PGoType setType = trans.getType();
+				assert (setType instanceof PGoSet);
+				PGoType eltType = ((PGoSet) setType).getElementType();
+
+				Vector<Expression> range = new Vector<>();
+				range.add(new Token("procId"));
+				range.add(new Token(" := "));
+				range.add(new Token("range "));
+				range.add(new FunctionCall("Iter", new Vector<>(), trans.toExpression()));
+
+				Vector<Statement> forBody = new Vector<>();
+				forBody.add(new FunctionCall("Add", new Vector<Expression>() {
+					{
+						add(new Token("1"));
+					}
+				}, new Token("PGoWait")));
+
+				TypeAssertion param = new TypeAssertion(new Token("procId"), eltType);
+
+				Vector<Expression> se = new Vector<>();
+				se.add(new Token("go "));
+				se.add(new FunctionCall(goroutine.getName(), new Vector<Expression>() {
+					{
+						add(param);
+					}
+				}));
+				forBody.add(new SimpleExpression(se));
+
+				For loop = new For(new SimpleExpression(range), forBody);
+				ret.add(loop);
+			}
+		}
+		// close(PGoStart)
+		// PGoWait.Wait()
+		ret.add(new FunctionCall("close", new Vector<Expression>() {
+			{
+				add(new Token("PGoStart"));
+			}
+		}));
+		ret.add(new FunctionCall("Wait", new Vector<>(), new Token("PGoWait")));
+		return ret;
 	}
 
 	/**
@@ -456,25 +527,59 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 	 */
 	private void generateFunctions() throws PGoTransException {
 		for (PGoFunction pf : this.intermediateData.funcs.values()) {
+			// Add typing data for params and locals.
+			PGoTransIntermediateData oldData = intermediateData;
+			PGoTempData localData = new PGoTempData(oldData);
 
 			Vector<ParameterDeclaration> params = new Vector<ParameterDeclaration>();
 			for (PGoVariable param : pf.getParams()) {
 				params.add(new ParameterDeclaration(param.getName(), param.getType()));
+				localData.getLocals().put(param.getName(), param);
 			}
 			Vector<VariableDeclaration> locals = new Vector<VariableDeclaration>();
 			for (PGoVariable local : pf.getVariables()) {
-				SimpleExpression e = null; // TODO (issue #14) from tla
-				Vector<Statement> init = new Vector<>(); // TODO from
-															// tla
-				locals.add(new VariableDeclaration(local.getName(), local.getType(), e, init,
-						local.getIsConstant()));
+				Vector<PGoTLA> initTLA = new TLAExprParser(local.getPcalInitBlock(), local.getLine()).getResult();
+				assert (initTLA.size() <= 1);
+				// if initTLA is empty, the local init is defaultInitValue
+				// (no initialization code)
+				if (initTLA.isEmpty()) {
+					locals.add(new VariableDeclaration(local.getName(), local.getType(), null, new Vector<>(),
+							local.getIsConstant()));
+				} else {
+					Expression init = new TLAExprToGo(initTLA.get(0), go.getImports(), localData, local).toExpression();
+					Vector<Expression> se = new Vector<>();
+					se.add(init);
+					locals.add(new VariableDeclaration(local.getName(), local.getType(), new SimpleExpression(se),
+							new Vector<>(), local.getIsConstant()));
+				}
+
+				localData.getLocals().put(local.getName(), local);
 			}
 
 			Vector<Statement> body = new Vector<>();
+			// if this is a goroutine, we need to use waitgroup and flag channel
+			// in the function body
+			if (intermediateData.goroutines.containsKey(pf.getName())) {
+				// defer PGoWait.Done()
+				Vector<Expression> se = new Vector<>();
+				se.add(new Token("defer "));
+				se.add(new FunctionCall("Done", new Vector<>(), new Token("PGoWait")));
+				body.add(new SimpleExpression(se));
+				// to synchronize start of all processes, we pull from a dummy
+				// channel which is closed when we want to start the goroutines
+
+				// <-PGoStart
+				se = new Vector<>();
+				se.add(new Token("<-"));
+				se.add(new Token("PGoStart"));
+				body.add(new SimpleExpression(se));
+			}
+
+			intermediateData = localData;
 			body.addAll(convertStatementToGo(pf.getBody()));
+			intermediateData = oldData;
 
 			Function f = new Function(pf.getName(), pf.getReturnType(), params, locals, body);
-
 			go.addFunction(f);
 		}
 
@@ -598,7 +703,24 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 					main.add(new SimpleExpression(toks));
 				}
 			}
+		}
 
+		// if the program contains goroutines, we need to add a waitgroup
+		// (prevent early termination of main goroutine) and a dummy channel
+		// (synchronize the start of the goroutines)
+		if (!intermediateData.goroutines.isEmpty()) {
+			go.getImports().addImport("sync");
+			go.addGlobal(new VariableDeclaration("PGoWait", new PGoWaitGroup(), null, false));
+
+			Vector<Expression> se = new Vector<>();
+			se.add(new FunctionCall("make", new Vector<Expression>() {
+				{
+					add(new Token(PGoType.inferFromGoTypeName("chan[bool]").toGo()));
+				}
+			}));
+			VariableDeclaration chanDecl = new VariableDeclaration("PGoStart",
+					PGoType.inferFromGoTypeName("chan[bool]"), new SimpleExpression(se), false);
+			go.addGlobal(chanDecl);
 		}
 	}
 

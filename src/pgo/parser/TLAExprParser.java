@@ -36,6 +36,9 @@ public class TLAExprParser {
 
 	// the stack of lhs of hte operators
 	private Stack<PGoTLA> exps;
+	
+	// the type of the "defaultInitValue" TLAToken.
+	private static final int DEFAULT_VAL = 0;
 
 	public TLAExprParser(TLAExpr tla, int line) throws PGoTransException {
 		init(line);
@@ -128,6 +131,9 @@ public class TLAExprParser {
 			} else if (tok.type == TLAToken.STRING) {
 				// this is just a string
 				parseStringToken(tok);
+			} else if (tok.type == DEFAULT_VAL) {
+				// this means the TLA expr is blank
+				break;
 			} else {
 				throw new PGoTransException("Unknown token: \"" + tok.string + "\"", line);
 			}

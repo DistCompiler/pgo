@@ -48,6 +48,10 @@ public class TLAExprToGo {
 		this.assign = assign;
 		type = new TLAExprToType(tla, data, assign).getType();
 		expr = tla.convert(this);
+		if (assign != null && !assign.getType().equals(TLAExprToType.compatibleType(type, assign.getType()))) {
+			throw new PGoTransException("Expected to assign " + assign.getType().toTypeName() + " to the variable "
+					+ assign.getName() + " but inferred " + type.toTypeName() + " instead", tla.getLine());
+		}
 	}
 
 	// The type is assign's type.
@@ -60,6 +64,12 @@ public class TLAExprToGo {
 			this.assign = null;
 		}
 		type = new TLAExprToType(tla, data, this.assign).getType();
+		if (this.assign != null
+				&& !this.assign.getType().equals(TLAExprToType.compatibleType(type, this.assign.getType()))) {
+			throw new PGoTransException("Expected the type of the TLA subexpression to be "
+					+ this.assign.getType().toTypeName() + " but inferred " + type.toTypeName() + " instead",
+					tla.getLine());
+		}
 		expr = tla.convert(this);
 	}
 
@@ -365,7 +375,7 @@ public class TLAExprToGo {
 				se.add(new Token(" - "));
 				se.add(new Token("1"));
 				params.set(0, new SimpleExpression(se));
-				
+
 				return new TypeAssertion(new FunctionCall("At", params, new Token(tla.getName())), type);
 			} else if (var.getType() instanceof PGoSlice) {
 				Vector<Expression> se = new Vector<>();

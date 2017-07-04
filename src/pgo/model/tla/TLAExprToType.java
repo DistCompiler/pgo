@@ -650,7 +650,12 @@ public class TLAExprToType {
 				temp.getLocals().put(((PGoTLAVariable) varExpr).getName(),
 						PGoVariable.convert(((PGoTLAVariable) varExpr).getName(), ((PGoSet) setType).getElementType()));
 			}
-			PGoType keyType = new PGoTuple(tupTypes, false);
+			PGoType keyType;
+			if (tupTypes.size() > 1) {
+				keyType = new PGoTuple(tupTypes, false);
+			} else {
+				keyType = tupTypes.get(0);
+			}
 			PGoType valType = new TLAExprToType(tla.getExpr(), temp).getType();
 			return PGoType.inferFromGoTypeName("map[" + keyType.toTypeName() + "]" + valType.toTypeName());
 		case "EXCEPT":
