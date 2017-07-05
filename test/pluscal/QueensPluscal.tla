@@ -45,11 +45,11 @@ Solutions == { queens \in [1..N -> 1..N] : IsSolution(queens) }
 (* --algorithm QueensPluscal  (*** for pgo @PGo{ arg int N }@PGo done ***)
      (** @PGo{ var Set[[]int] todo }@PGo
          @PGo{ var Set[[]int] sols }@PGo
-         @PGo{ macro Attacks(queens []int,i int,j int) ==
+         @PGo{ def Attacks(queens []int,i int,j int) ==
                 \/ queens[i] = queens[j]                 \** same column
                 \/ queens[i] - queens[j] = i - j         \** first diagonal
                 \/ queens[j] - queens[i] = i - j         \** second diagonal }@PGo
-          @PGo{ macro IsSolution(queens []int) ==
+          @PGo{ def IsSolution(queens []int) ==
                 \A i \in 1 .. Len(queens)-1 : \A j \in i+1 .. Len(queens) : 
                 ~ Attacks(queens,i,j) }@PGo **)
      variables

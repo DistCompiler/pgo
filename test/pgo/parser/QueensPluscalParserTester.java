@@ -23,11 +23,11 @@ public class QueensPluscalParserTester extends PGoPluscalParserTesterBase {
 		v.add(new PGoAnnotation("arg int N", 45));
 		v.add(new PGoAnnotation("var Set[[]int] todo", 46));
 		v.add(new PGoAnnotation("var Set[[]int] sols", 47));
-		v.add(new PGoAnnotation("macro Attacks(queens []int,i int,j int) ==\n"
+		v.add(new PGoAnnotation("def Attacks(queens []int,i int,j int) ==\n"
 				+ "                \\/ queens[i] = queens[j]                 \\** same column\n"
 				+ "                \\/ queens[i] - queens[j] = i - j         \\** first diagonal\n"
 				+ "                \\/ queens[j] - queens[i] = i - j         \\** second diagonal", 51));
-		v.add(new PGoAnnotation("macro IsSolution(queens []int) ==\n"
+		v.add(new PGoAnnotation("def IsSolution(queens []int) ==\n"
 				+ "                \\A i \\in 1 .. Len(queens)-1 : \\A j \\in i+1 .. Len(queens) : \n"
 				+ "                ~ Attacks(queens,i,j)", 54));
 		v.add(new PGoAnnotation("var []int queens", 62));

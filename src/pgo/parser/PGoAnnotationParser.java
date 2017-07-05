@@ -58,7 +58,7 @@ public class PGoAnnotationParser {
 			AnnotatedProcess ap = AnnotatedProcess.parse(parts, annot.getLine());
 			procs.put(ap.getName(), ap);
 			break;
-		case "macro":
+		case "def":
 			AnnotatedTLADefinition ad = AnnotatedTLADefinition.parse(annot.getString(), annot.getLine());
 			defns.put(ad.getName(), ad);
 			break;

@@ -17,7 +17,7 @@ import pgo.parser.PcalParser;
 /**
  * Represents an annotated TLA definition of a macro which is called in the
  * PlusCal algorithm. This definition has the form
- * "macro <name>(<params>) == <TLA expression>".
+ * "def <name>(<params>)? == <TLA expression>".
  *
  */
 public class AnnotatedTLADefinition {
@@ -38,29 +38,33 @@ public class AnnotatedTLADefinition {
 	}
 
 	public static AnnotatedTLADefinition parse(String s, int l) throws PGoParseException {
-		// of the form macro <name>(<params>) == <TLA expression>
-		Pattern regex = Pattern.compile("macro (.+)\\((.+)\\)\\s*==\\s*((.|\\s)+)");
+		// of the form def <name>(<params>) == <TLA expression>
+		Pattern regex = Pattern.compile("def (.+?)(\\(.+\\))?\\s*==\\s*([\\s\\S]+)");
 		Matcher m = regex.matcher(s);
 		if (!m.matches()) {
 			throw new PGoParseException(
-					"TLA definition annotations are of the form \"macro <name>(<params>) == <TLA expression>\"", l);
+					"TLA definition annotations are of the form \"def <name>(<params>)? == <TLA expression>\"", l);
 		}
 		String name = m.group(1);
 		String params = m.group(2);
 		String expr = m.group(3);
 
-		// split the params into name-type pairs
 		Vector<PGoVariable> paramVars = new Vector<>();
-		String[] vars = params.split(",");
-		for (String var : vars) {
-			// should be "name <type>"
-			var = var.trim();
-			String[] parts = var.split("\\s");
-			if (parts.length != 2) {
-				throw new PGoParseException("Expected parameter to be fo the form \"name <type>\", but found "
-						+ parts.length + " parts instead.", l);
+		if (params != null) {
+			// trim the surrounding parens
+			params = params.substring(1, params.length() - 1);
+			// split the params into name-type pairs
+			String[] vars = params.split(",");
+			for (String var : vars) {
+				// should be "name <type>"
+				var = var.trim();
+				String[] parts = var.split("\\s");
+				if (parts.length != 2) {
+					throw new PGoParseException("Expected parameter to be fo the form \"name <type>\", but found "
+							+ parts.length + " parts instead.", l);
+				}
+				paramVars.add(PGoVariable.convert(parts[0], PGoType.inferFromGoTypeName(parts[1])));
 			}
-			paramVars.add(PGoVariable.convert(parts[0], PGoType.inferFromGoTypeName(parts[1])));
 		}
 
 		// parse the expression into TLATokens
