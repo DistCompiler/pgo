@@ -2,7 +2,7 @@
 .settings/*
 bin/*
 *.swp
-
+*.gitignore
 *~
 
 # ignore the test files
