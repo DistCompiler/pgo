@@ -24,12 +24,12 @@ import pgo.trans.PGoTransException;
  * completed).
  *
  */
-public class PGoTransStageOne extends PGoTransStageBase {
+public class PGoTransStageInitParse extends PGoTransStageBase {
 
 	// The PlusCal AST to parse
 	private AST ast;
 
-	public PGoTransStageOne(ParsedPcal parsed) throws PGoTransException, PGoParseException {
+	public PGoTransStageInitParse(ParsedPcal parsed) throws PGoTransException, PGoParseException {
 		this.ast = parsed.getAST();
 		this.intermediateData.annots = new PGoAnnotationParser(parsed.getPGoAnnotations());
 

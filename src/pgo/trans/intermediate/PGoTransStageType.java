@@ -24,7 +24,7 @@ import pgo.trans.PGoTransException;
  */
 public class PGoTransStageType extends PGoTransStageBase {
 
-	public PGoTransStageType(PGoTransStageOne s1) throws PGoParseException, PGoTransException {
+	public PGoTransStageType(PGoTransStageInitParse s1) throws PGoParseException, PGoTransException {
 		super(s1);
 		applyAnnotationOnVariables();
 		applyAnnotationOnFunctions();

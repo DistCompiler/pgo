@@ -73,6 +73,9 @@ public class AnnotatedTLADefinition {
 		PcalCharReaderPgo chars = new PcalCharReaderPgo(PcalParser.removeTabs(v), 0, 0, v.size(),
 				v.get(v.size() - 1).length());
 		try {
+			// TODO parse indentation of lists
+			// Precedence of boolean logic lists depends on indentation level.
+			// We can add parentheses before tokenizing to solve this.
 			TLAExpr tla = Tokenize.TokenizeExpr(chars);
 			return new AnnotatedTLADefinition(name, paramVars, tla, l);
 		} catch (TokenizerException e) {

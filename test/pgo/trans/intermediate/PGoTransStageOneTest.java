@@ -38,20 +38,20 @@ public class PGoTransStageOneTest {
 	@Test
 	public void testUniOrMultiProcess() throws PGoTransException, PGoParseException {
 
-		PGoTransStageOne p = new PGoTransStageOne(tester.getParsedPcal());
+		PGoTransStageInitParse p = new PGoTransStageInitParse(tester.getParsedPcal());
 		assertEquals(tester.isMultiProcess(), p.getIsMultiProcess());
 	}
 
 	@Test
 	public void testAlgName() throws PGoTransException, PGoParseException {
-		PGoTransStageOne p = new PGoTransStageOne(tester.getParsedPcal());
+		PGoTransStageInitParse p = new PGoTransStageInitParse(tester.getParsedPcal());
 		assertEquals(tester.getName(), p.getAlgName());
 
 	}
 
 	@Test
 	public void testPGoVariable() throws PGoTransException, PGoParseException {
-		PGoTransStageOne p = new PGoTransStageOne(tester.getParsedPcal());
+		PGoTransStageInitParse p = new PGoTransStageInitParse(tester.getParsedPcal());
 		ArrayList<PGoVariable> cv = p.getGlobals();
 		assertEquals(tester.getStageOneVariables().size(), cv.size());
 
@@ -73,7 +73,7 @@ public class PGoTransStageOneTest {
 
 	@Test
 	public void testPGoFunction() throws PGoTransException, PGoParseException {
-		PGoTransStageOne p = new PGoTransStageOne(tester.getParsedPcal());
+		PGoTransStageInitParse p = new PGoTransStageInitParse(tester.getParsedPcal());
 
 		ArrayList<PGoFunction> cv = p.getFunctions();
 		assertEquals(tester.getStageOneFunctions().size(), cv.size());
@@ -84,7 +84,7 @@ public class PGoTransStageOneTest {
 	}
 
 	// assert function for a pgofunction generated from initial pass
-	private void assertPGoFunction(PGoTransStageOne p, int i, PGoPluscalStageTesterBase tester)
+	private void assertPGoFunction(PGoTransStageInitParse p, int i, PGoPluscalStageTesterBase tester)
 			throws PGoParseException {
 		TestFunctionData af = tester.getStageOneFunctions().get(i);
 
@@ -112,7 +112,7 @@ public class PGoTransStageOneTest {
 
 	@Test
 	public void assertGoRoutineInit() throws PGoTransException, PGoParseException {
-		PGoTransStageOne p = new PGoTransStageOne(tester.getParsedPcal());
+		PGoTransStageInitParse p = new PGoTransStageInitParse(tester.getParsedPcal());
 
 		ArrayList<PGoRoutineInit> grs = p.getGoRoutineInits();
 		assertEquals(tester.getNumGoroutineInit(), grs.size());

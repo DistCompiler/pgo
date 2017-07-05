@@ -13,7 +13,7 @@ import pgo.parser.PGoParseException;
 import pgo.parser.PcalParser.ParsedPcal;
 import pgo.trans.intermediate.PGoTransStageAtomicity;
 import pgo.trans.intermediate.PGoTransStageGoGen;
-import pgo.trans.intermediate.PGoTransStageOne;
+import pgo.trans.intermediate.PGoTransStageInitParse;
 import pgo.trans.intermediate.PGoTransStageType;
 
 /**
@@ -35,7 +35,7 @@ public class PGoTranslater {
 		logger = Logger.getGlobal();
 
 		logger.info("Entering Stage One: Inferring intermediate data structures");
-		PGoTransStageOne s1 = new PGoTransStageOne(pcal);
+		PGoTransStageInitParse s1 = new PGoTransStageInitParse(pcal);
 		logger.info("Entering Stage Two: Inferring types");
 		PGoTransStageType s2 = new PGoTransStageType(s1);
 		logger.info("Entering Stage Three: Inferring atomicity constraints");
@@ -46,7 +46,7 @@ public class PGoTranslater {
 		go = s4.getGo();
 	}
 
-	public Vector<String> getLines() {
+	public Vector<String> getGoLines() {
 		return go.toGo();
 	}
 

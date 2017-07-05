@@ -1,31 +1,13 @@
 package pgo.trans.intermediate;
 
 import java.util.Collection;
-import java.util.Map.Entry;
 import java.util.Vector;
 import java.util.logging.Logger;
 
 import pcal.AST;
-import pcal.AST.Assert;
-import pcal.AST.Assign;
-import pcal.AST.Call;
-import pcal.AST.CallReturn;
-import pcal.AST.Clause;
-import pcal.AST.Either;
-import pcal.AST.Goto;
+import pcal.AST.*;
 import pcal.AST.If;
-import pcal.AST.LabelEither;
-import pcal.AST.LabelIf;
-import pcal.AST.LabeledStmt;
-import pcal.AST.MacroCall;
-import pcal.AST.PrintS;
 import pcal.AST.Return;
-import pcal.AST.SingleAssign;
-import pcal.AST.Skip;
-import pcal.AST.When;
-import pcal.AST.While;
-import pcal.AST.With;
-import pcal.TLAExpr;
 import pcal.TLAToken;
 import pgo.model.golang.*;
 import pgo.model.intermediate.PGoCollectionType.PGoMap;
@@ -33,16 +15,24 @@ import pgo.model.intermediate.PGoCollectionType.PGoSet;
 import pgo.model.intermediate.PGoCollectionType.PGoSlice;
 import pgo.model.intermediate.PGoCollectionType.PGoTuple;
 import pgo.model.intermediate.PGoFunction;
+import pgo.model.intermediate.PGoMiscellaneousType.PGoWaitGroup;
 import pgo.model.intermediate.PGoPrimitiveType;
 import pgo.model.intermediate.PGoRoutineInit;
 import pgo.model.intermediate.PGoType;
 import pgo.model.intermediate.PGoVariable;
-import pgo.model.tla.*;
+import pgo.model.tla.PGoTLA;
+import pgo.model.tla.PGoTLAArray;
+import pgo.model.tla.PGoTLABool;
+import pgo.model.tla.PGoTLADefinition;
+import pgo.model.tla.PGoTLAFunctionCall;
+import pgo.model.tla.PGoTLANumber;
+import pgo.model.tla.PGoTLAString;
+import pgo.model.tla.PGoTLAVariable;
+import pgo.model.tla.TLAExprToGo;
 import pgo.parser.PGoParseException;
 import pgo.parser.TLAExprParser;
 import pgo.trans.PGoTransException;
 import pgo.util.PcalASTUtil;
-import pgo.model.intermediate.PGoMiscellaneousType.PGoWaitGroup;
 
 /**
  * The last stage of the translation. Takes given intermediate data and converts
@@ -173,6 +163,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 				result = new Vector<Statement>();
 			}
 
+			@Override
 			protected void visit(LabeledStmt ls) throws PGoTransException {
 				// only add the label if we use it in a goto
 				if (go.isLabelUsed(ls.label)) {
@@ -181,6 +172,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 				super.visit(ls);
 			}
 
+			@Override
 			protected void visit(While w) throws PGoTransException {
 				Vector<Expression> cond = TLAToGo(new TLAExprParser(w.test, w.line).getResult());
 				assert (cond.size() == 1);
@@ -196,6 +188,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 				result.add(loopAst);
 			}
 
+			@Override
 			protected void visit(Assign as) throws PGoTransException {
 				if (as.ass.size() > 1) {
 					// pluscal semantics:
@@ -254,7 +247,8 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 							} else if (assign.getType() instanceof PGoMap) {
 								// var.Put(params, assign)
 								Vector<Expression> params = new Vector<>();
-								// if there is a single param, we can just put it
+								// if there is a single param, we can just put
+								// it
 								// otherwise, we make a tuple
 								if (fc.getParams().size() == 1) {
 									params.add(TLAToGo(fc.getParams().get(0)));
@@ -285,6 +279,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 				}
 			}
 
+			@Override
 			protected void visit(SingleAssign sa) throws PGoTransException {
 				Vector<Expression> exps = new Vector<>();
 				Vector<Expression> rhs = TLAToGo(new TLAExprParser(sa.rhs, sa.line).getResult());
@@ -351,6 +346,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 				result.add(new SimpleExpression(exps));
 			}
 
+			@Override
 			protected void visit(If ifast) throws PGoTransException {
 				Vector<Expression> cond = TLAToGo(new TLAExprParser(ifast.test, ifast.line).getResult());
 				assert (cond.size() == 1);
@@ -370,6 +366,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 				result.add(ifAst);
 			}
 
+			@Override
 			protected void visit(Either ei) {
 				for (Vector v : (Vector<Vector>) ei.ors) {
 					// either has vector of vectors
@@ -378,6 +375,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 				}
 			}
 
+			@Override
 			protected void visit(With with) throws PGoTransException {
 				// Select a random element of with.exp and perform with.Do on it
 				// multiple vars in one with are nested by the PcalParser
@@ -450,10 +448,12 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 				intermediateData = oldData;
 			}
 
+			@Override
 			protected void visit(When when) {
 				// TODO handle await
 			}
 
+			@Override
 			protected void visit(PrintS ps) throws PGoTransException {
 				Vector<PGoTLA> argExp = new TLAExprParser(ps.exp, ps.line).getResult();
 				assert (argExp.size() == 1); // print should only have 1
@@ -488,16 +488,19 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 				result.add(fc);
 			}
 
+			@Override
 			protected void visit(Assert as) {
 				// TODO actually do we even want this?
 			}
 
+			@Override
 			protected void visit(Skip s) {
 				Vector<String> cmt = new Vector<>();
 				cmt.add("TODO skipped from pluscal");
 				result.add(new Comment(cmt, false));
 			}
 
+			@Override
 			protected void visit(LabelIf lif) throws PGoTransException {
 				Vector<Expression> cond = TLAToGo(new TLAExprParser(lif.test, lif.line).getResult());
 				assert (cond.size() == 1);
@@ -519,17 +522,20 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 				result.add(ifAst);
 			}
 
+			@Override
 			protected void visit(LabelEither le) {
 				// TODO
 				// walk(le.clauses);
 			}
 
+			@Override
 			protected void visit(Clause c) {
 				// TODO handle with either
 				// walk(c.unlabOr);
 				// walk(c.labOr);
 			}
 
+			@Override
 			protected void visit(Call c) {
 				// TODO c.args is vector of tlaExpr
 				Vector<Expression> args = new Vector<>();
@@ -537,11 +543,13 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 				result.add(fc);
 			}
 
+			@Override
 			protected void visit(Return r) {
 				// TODO learn to get the return variable
 				result.add(new pgo.model.golang.Return(null));
 			}
 
+			@Override
 			protected void visit(CallReturn cr) {
 				// TODO c.args is vector of tlaExpr
 				Vector<Expression> args = new Vector<>();
@@ -549,11 +557,13 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 				result.add(fc);
 			}
 
+			@Override
 			protected void visit(Goto g) {
 				result.add(new pgo.model.golang.GoTo(g.to));
 				assert (go.isLabelUsed(g.to));
 			}
 
+			@Override
 			protected void visit(MacroCall m) {
 				// TODO
 			}

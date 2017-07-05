@@ -36,7 +36,7 @@ public class TLAExprParser {
 
 	// the stack of lhs of hte operators
 	private Stack<PGoTLA> exps;
-	
+
 	// the type of the "defaultInitValue" TLAToken.
 	private static final int DEFAULT_VAL = 0;
 

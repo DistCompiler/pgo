@@ -91,7 +91,7 @@ public class TLAExprToGo {
 	protected Expression translate(PGoTLAArray tla) throws PGoTransException {
 		if (tla.getContents().size() == 1 && tla.getContents().get(0) instanceof PGoTLAVariadic) {
 			// maps to or except operator
-			return new TLAExprToGo((PGoTLAVariadic) tla.getContents().get(0), imports, data, assign).toExpression();
+			return new TLAExprToGo(tla.getContents().get(0), imports, data, assign).toExpression();
 		}
 		// array, tuple or chan, depending on assigned type
 		Vector<Expression> contents = new Vector<>();

@@ -141,24 +141,8 @@ class PGoTransIntermediateData {
 	}
 
 	// Finds the PGofunction of the given name, or null if none exists.
-	// This method also takes care of finding functions prefixed by "PGo" in
-	// cases of special functions defined in pluscal for predicates defined
-	// outside the pluscal algorithm, and renaming them to without the PGo
-	// prefix
 	PGoFunction findPGoFunction(String name) {
-		PGoFunction fun = funcs.get(name);
-		if (fun == null) {
-			fun = funcs.get("PGo" + name);
-			if (fun == null) {
-				return null;
-			} else {
-				// Change the PGo version of the function to the real name
-				this.funcs.remove("PGo" + name);
-				fun.setName(name);
-				this.funcs.put(name, fun);
-			}
-		}
-		return fun;
+		return funcs.get(name);
 	}
 
 	// Find the PGoVariable of the given name from the program.

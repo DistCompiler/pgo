@@ -131,7 +131,7 @@ public class PGoLibFunction {
 			return type;
 		}
 		if (type instanceof PGoTemplateArgument) {
-			return argsToType.get((PGoTemplateArgument) type);
+			return argsToType.get(type);
 		}
 		// If this is a tuple or map, we need to check all entries of tuple and
 		// both key and val of map.

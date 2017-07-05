@@ -1,7 +1,5 @@
 package pgo.model.tla;
 
-import java.util.Vector;
-
 import pgo.model.golang.Expression;
 import pgo.model.intermediate.PGoType;
 import pgo.trans.PGoTransException;

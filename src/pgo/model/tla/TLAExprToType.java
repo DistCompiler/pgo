@@ -25,7 +25,8 @@ import pgo.trans.PGoTransException;
 import pgo.trans.intermediate.PGoTempData;
 
 /**
- * Infer the Go type that a TLA expression evaluates to, and determine whether
+ * Infer the Go type that a TLA AST expression evaluates to, and determine
+ * whether
  * the expression is legal in terms of typing, with the help of the intermediate
  * data.
  *
@@ -370,9 +371,12 @@ public class TLAExprToType {
 			for (PGoTLA param : tla.getParams()) {
 				callParams.add(new TLAExprToType(param, data).getType());
 			}
-			if (lfunc.getGoName(callParams) != null) {
-				return lfunc.getRetType(callParams);
+			if (lfunc.getGoName(callParams) == null) {
+				throw new PGoTransException(
+						"The parameters of the function call " + tla.getName() + " don't match the library function",
+						tla.getLine());
 			}
+			return lfunc.getRetType(callParams);
 		}
 
 		PGoVariable var = data.findPGoVariable(tla.getName());

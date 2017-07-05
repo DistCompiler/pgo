@@ -10,7 +10,7 @@ import pgo.model.intermediate.PGoVariable;
 
 /**
  * Base abstract class for all stages to manage the data
- *
+ * TODO merge with intermediate data
  */
 public abstract class PGoTransStageBase {
 

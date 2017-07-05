@@ -41,7 +41,7 @@ public class PGoTransStageAtomicityTest {
 
 	@Before
 	public void SetUp() throws PGoParseException, PGoTransException {
-		p = new PGoTransStageAtomicity(new PGoTransStageType(new PGoTransStageOne(tester.getParsedPcal())));
+		p = new PGoTransStageAtomicity(new PGoTransStageType(new PGoTransStageInitParse(tester.getParsedPcal())));
 	}
 
 	@Test
@@ -128,7 +128,7 @@ public class PGoTransStageAtomicityTest {
 
 	@Test
 	public void assertGoRoutineInit() throws PGoTransException, PGoParseException {
-		PGoTransStageOne p = new PGoTransStageOne(tester.getParsedPcal());
+		PGoTransStageInitParse p = new PGoTransStageInitParse(tester.getParsedPcal());
 
 		ArrayList<PGoRoutineInit> grs = p.getGoRoutineInits();
 		assertEquals(tester.getNumGoroutineInit(), grs.size());

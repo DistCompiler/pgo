@@ -153,7 +153,7 @@ func (s *set) PowerSet() Set {
 	return ret
 }
 
-// Return the Carteian product s x others1 x others2 x ... x othersn
+// Return the Cartesian product s x others1 x others2 x ... x othersn
 func (s *set) CartesianProduct(others ...Set) Set {
 	ret := NewSet()
 	// Recursively iterate over all elements in the cartesian product
