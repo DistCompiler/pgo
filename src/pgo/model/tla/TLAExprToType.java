@@ -7,8 +7,6 @@ import java.util.Vector;
 import java.util.logging.Logger;
 
 import pgo.model.intermediate.PGoCollectionType;
-import pgo.model.intermediate.PGoType;
-import pgo.model.intermediate.PGoVariable;
 import pgo.model.intermediate.PGoCollectionType.PGoChan;
 import pgo.model.intermediate.PGoCollectionType.PGoMap;
 import pgo.model.intermediate.PGoCollectionType.PGoSet;
@@ -21,6 +19,8 @@ import pgo.model.intermediate.PGoPrimitiveType.PGoInt;
 import pgo.model.intermediate.PGoPrimitiveType.PGoNatural;
 import pgo.model.intermediate.PGoPrimitiveType.PGoNumber;
 import pgo.model.intermediate.PGoPrimitiveType.PGoTemplateArgument;
+import pgo.model.intermediate.PGoType;
+import pgo.model.intermediate.PGoVariable;
 import pgo.trans.PGoTransException;
 import pgo.trans.intermediate.PGoTempData;
 
@@ -49,6 +49,10 @@ public class TLAExprToType {
 		this.data = data;
 		this.assign = assign;
 		type = infer(tla);
+		if (assign != null && !assign.getType().equals(compatibleType(type, assign.getType()))) {
+			throw new PGoTransException("Expected to assign " + assign.getType().toTypeName() + " to the variable "
+					+ assign.getName() + " but inferred " + type.toTypeName() + " instead", tla.getLine());
+		}
 	}
 
 	// The type is assign's type.
@@ -60,6 +64,12 @@ public class TLAExprToType {
 			this.assign = null;
 		}
 		type = infer(tla);
+		if (this.assign != null
+				&& !this.assign.getType().equals(compatibleType(type, this.assign.getType()))) {
+			throw new PGoTransException("Expected the type of the TLA subexpression to be "
+					+ this.assign.getType().toTypeName() + " but inferred " + type.toTypeName() + " instead",
+					tla.getLine());
+		}
 	}
 
 	public PGoType getType() {
