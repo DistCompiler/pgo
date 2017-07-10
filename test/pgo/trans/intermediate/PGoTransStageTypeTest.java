@@ -46,22 +46,22 @@ public class PGoTransStageTypeTest {
 
 	@Test
 	public void testUniOrMultiProcess() throws PGoTransException, PGoParseException {
-		assertEquals(tester.isMultiProcess(), p.getIsMultiProcess());
+		assertEquals(tester.isMultiProcess(), p.data.isMultiProcess);
 	}
 
 	@Test
 	public void testAlgName() throws PGoTransException, PGoParseException {
-		assertEquals(tester.getName(), p.getAlgName());
+		assertEquals(tester.getName(), p.data.algName);
 	}
 
 	@Test
 	public void testPGoVariable() throws PGoTransException, PGoParseException {
-		ArrayList<PGoVariable> cv = p.getGlobals();
+		ArrayList<PGoVariable> cv = new ArrayList<>(p.data.globals.values());
 		assertEquals(tester.getStageTypeVariables().size(), cv.size());
 
 		for (int i = 0; i < cv.size(); i++) {
-			assertPGoVariable(p.getGlobals().get(i), i, tester.getStageTypeVariables());
-			assertEquals(p.getGlobals().get(i), p.getGlobal(p.getGlobals().get(i).getName()));
+			assertPGoVariable(cv.get(i), i, tester.getStageTypeVariables());
+			assertEquals(cv.get(i), p.data.globals.get(cv.get(i).getName()));
 		}
 	}
 
@@ -88,7 +88,7 @@ public class PGoTransStageTypeTest {
 
 	@Test
 	public void testPGoFunction() throws PGoTransException, PGoParseException {
-		ArrayList<PGoFunction> cv = p.getFunctions();
+		ArrayList<PGoFunction> cv = new ArrayList<>(p.data.funcs.values());
 		assertEquals(tester.getStageTypeFunctions().size(), cv.size());
 
 		for (int i = 0; i < cv.size(); i++) {
@@ -101,7 +101,8 @@ public class PGoTransStageTypeTest {
 			throws PGoParseException {
 		TestFunctionData af = tester.getStageTypeFunctions().get(i);
 
-		PGoFunction f = p.getFunctions().get(i);
+		ArrayList<PGoFunction> funcs = new ArrayList<>(p.data.funcs.values());
+		PGoFunction f = funcs.get(i);
 		assertNotNull(f);
 		assertEquals(af.name, f.getName());
 		assertEquals(af.body, f.getBody().toString());
@@ -118,7 +119,7 @@ public class PGoTransStageTypeTest {
 			assertEquals(f.getVariables().get(j), f.getVariable(f.getVariables().get(j).getName()));
 		}
 
-		assertEquals(p.getFunction(af.name), f);
+		assertEquals(p.data.funcs.get(af.name), f);
 
 		assertEquals(af.type, f.getType());
 
@@ -129,12 +130,12 @@ public class PGoTransStageTypeTest {
 	public void assertGoRoutineInit() throws PGoTransException, PGoParseException {
 		PGoTransStageInitParse p = new PGoTransStageInitParse(tester.getParsedPcal());
 
-		ArrayList<PGoRoutineInit> grs = p.getGoRoutineInits();
+		ArrayList<PGoRoutineInit> grs = new ArrayList<>(p.data.goroutines.values());
 		assertEquals(tester.getNumGoroutineInit(), grs.size());
 
 		for (TestFunctionData f : tester.getStageOneFunctions()) {
 			if (f.type == PGoFunction.FunctionType.GoRoutine) {
-				PGoRoutineInit gr = p.getGoRoutineInit(f.name);
+				PGoRoutineInit gr = p.data.goroutines.get(f.name);
 				assertNotNull(gr);
 				assertEquals(f.name, gr.getName());
 				assertEquals(f.isGoSimpleInit, gr.getIsSimpleInit());

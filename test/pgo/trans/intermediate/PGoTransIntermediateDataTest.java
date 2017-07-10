@@ -50,12 +50,12 @@ public class PGoTransIntermediateDataTest {
 		assertNull(d.findPGoVariable("random"));
 		PGoVariable v;
 		for (int i = 0; i < 10; i++) {
-			
+
 			v = d.findPGoVariable("var" + i);
 			assertNotNull(v);
 			assertEquals("var" + i, v.getName());
 		}
-		
+
 		for (int i = 0; i < 10; i++) {
 			v = d.findPGoVariable("OtherVar" + i);
 			assertNotNull(v);
@@ -75,24 +75,10 @@ public class PGoTransIntermediateDataTest {
 		assertNull(d.findPGoFunction("random"));
 		PGoFunction f;
 		for (int i = 0; i < 10; i++) {
-			
+
 			f = d.findPGoFunction("func" + i);
 			assertNotNull(f);
 			assertEquals("func" + i, f.getName());
-		}
-		
-		for (int i = 0; i < 10; i++) {
-			f = d.findPGoFunction("PGoOtherFunc" + i);
-			assertNotNull(f);
-			assertEquals("PGoOtherFunc" + i, f.getName());
-			assertNull(d.funcs.get("OtherFunc" + i));
-			assertNotNull(d.funcs.get("PGoOtherFunc" + i));
-			
-			f = d.findPGoFunction("OtherFunc" + i);
-			assertNotNull(f);
-			assertEquals("OtherFunc" + i, f.getName());
-			assertNotNull(d.funcs.get("OtherFunc" + i));
-			assertNull(d.funcs.get("PGoOtherFunc" + i));
 		}
 	}
 }

@@ -24,14 +24,18 @@ import pgo.trans.PGoTransException;
  * completed).
  *
  */
-public class PGoTransStageInitParse extends PGoTransStageBase {
+public class PGoTransStageInitParse {
 
 	// The PlusCal AST to parse
 	private AST ast;
+	// intermediate data, which is filled with annotation information and data
+	// from the PlusCal ast
+	PGoTransIntermediateData data;
 
 	public PGoTransStageInitParse(ParsedPcal parsed) throws PGoTransException, PGoParseException {
+		data = new PGoTransIntermediateData();
 		this.ast = parsed.getAST();
-		this.intermediateData.annots = new PGoAnnotationParser(parsed.getPGoAnnotations());
+		this.data.annots = new PGoAnnotationParser(parsed.getPGoAnnotations());
 
 		trans();
 	}
@@ -44,10 +48,10 @@ public class PGoTransStageInitParse extends PGoTransStageBase {
 	 */
 	private void trans() throws PGoTransException {
 		if (ast instanceof Uniprocess) {
-			intermediateData.isMultiProcess = false;
+			data.isMultiProcess = false;
 			trans((Uniprocess) ast);
 		} else if (ast instanceof Multiprocess) {
-			intermediateData.isMultiProcess = true;
+			data.isMultiProcess = true;
 			trans((Multiprocess) ast);
 		} else {
 			throw new PGoTransException("Error: PlusCal algorithm must be one of uniprocess or multiprocess");
@@ -99,9 +103,9 @@ public class PGoTransStageInitParse extends PGoTransStageBase {
 		// networked process. For now we just do goroutines
 		for (Process p : (Vector<Process>) ast.procs) {
 			PGoFunction f = PGoFunction.convert(p);
-			intermediateData.funcs.put(f.getName(), f);
+			data.funcs.put(f.getName(), f);
 
-			intermediateData.goroutines.put(f.getName(), PGoRoutineInit.convert(p));
+			data.goroutines.put(f.getName(), PGoRoutineInit.convert(p));
 		}
 	}
 
@@ -115,12 +119,14 @@ public class PGoTransStageInitParse extends PGoTransStageBase {
 	private void trans(Uniprocess ast) {
 		transCommon(new BaseAlgAST(ast));
 
-		intermediateData.mainBlock.addAll(ast.body);
+		data.mainBlock.addAll(ast.body);
 	}
 
 	/**
-	 * Translates the common parts of Multiprocess and Uniprocess (called now BaseAST)
-	 * PlusCal algorithm into first stage intermediate representation, setting the
+	 * Translates the common parts of Multiprocess and Uniprocess (called now
+	 * BaseAST)
+	 * PlusCal algorithm into first stage intermediate representation, setting
+	 * the
 	 * corresponding fields of this class.
 	 * 
 	 * Common parts are: name, variable declarations, tla definitions, and
@@ -130,19 +136,19 @@ public class PGoTransStageInitParse extends PGoTransStageBase {
 	 *            BaseAlgAST representation of types Uniprocess or Multiprocess
 	 */
 	private void transCommon(BaseAlgAST ast) {
-		this.intermediateData.algName = ast.name;
+		this.data.algName = ast.name;
 		for (VarDecl var : (Vector<VarDecl>) ast.decls) {
 			PGoVariable pvar = PGoVariable.convert(var);
-			intermediateData.globals.put(pvar.getName(), pvar);
+			data.globals.put(pvar.getName(), pvar);
 		}
-		this.intermediateData.tlaExpr = ast.defs;
+		this.data.tlaExpr = ast.defs;
 		for (Macro m : (Vector<Macro>) ast.macros) {
 			PGoFunction f = PGoFunction.convert(m);
-			intermediateData.funcs.put(f.getName(), f);
+			data.funcs.put(f.getName(), f);
 		}
 		for (Procedure m : (Vector<Procedure>) ast.prcds) {
 			PGoFunction f = PGoFunction.convert(m);
-			intermediateData.funcs.put(f.getName(), f);
+			data.funcs.put(f.getName(), f);
 		}
 	}
 

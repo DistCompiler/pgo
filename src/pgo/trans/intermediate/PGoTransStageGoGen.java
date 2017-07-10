@@ -40,7 +40,7 @@ import pgo.util.PcalASTUtil;
  * properly
  * 
  */
-public class PGoTransStageGoGen extends PGoTransStageBase {
+public class PGoTransStageGoGen {
 
 	// the ast
 	private GoProgram go;
@@ -48,9 +48,13 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 	// the main block pointer
 	private Vector<Statement> main;
 
-	public PGoTransStageGoGen(PGoTransStageAtomicity s1)
-			throws PGoParseException, PGoTransException {
-		super(s1);
+	// the intermediate data, which we use to generate the Go AST
+	// when translating, this may be temporarily replaced by a PGoTempData which
+	// stores some local variables
+	PGoTransIntermediateData data;
+
+	public PGoTransStageGoGen(PGoTransStageAtomicity s1) throws PGoParseException, PGoTransException {
+		this.data = s1.data;
 
 		go = new GoProgram("main");
 
@@ -69,10 +73,10 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 	private void generateMain() throws PGoTransException {
 		Logger.getGlobal().info("Generating Main Function");
 
-		if (this.intermediateData.isMultiProcess) {
-			main.addAll(convertGoRoutinesToGo(this.intermediateData.goroutines.values()));
+		if (this.data.isMultiProcess) {
+			main.addAll(convertGoRoutinesToGo(this.data.goroutines.values()));
 		} else {
-			Vector block = this.intermediateData.mainBlock;
+			Vector block = this.data.mainBlock;
 			Vector<Statement> stmts = convertStatementToGo(block);
 			main.addAll(stmts);
 		}
@@ -93,7 +97,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 		boolean hasArg = false;
 
 		Vector<Statement> positionalArgs = new Vector<Statement>();
-		for (PGoVariable pv : this.intermediateData.globals.values()) {
+		for (PGoVariable pv : this.data.globals.values()) {
 			// Add flags as necessary
 			if (pv.getArgInfo() != null) {
 				Logger.getGlobal().info("Generating command line argument code for variable \""
@@ -125,21 +129,21 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 	 * @throws PGoTransException
 	 */
 	private Expression TLAToGo(PGoTLA tla) throws PGoTransException {
-		if (intermediateData instanceof PGoTempData) {
-			return new TLAExprToGo(tla, go.getImports(), new PGoTempData((PGoTempData) intermediateData))
+		if (data instanceof PGoTempData) {
+			return new TLAExprToGo(tla, go.getImports(), new PGoTempData((PGoTempData) data))
 					.toExpression();
 		}
-		return new TLAExprToGo(tla, go.getImports(), new PGoTempData(intermediateData)).toExpression();
+		return new TLAExprToGo(tla, go.getImports(), new PGoTempData(data)).toExpression();
 	}
 
 	private Vector<Expression> TLAToGo(Vector<PGoTLA> tla) throws PGoTransException {
 		Vector<Expression> ret = new Vector<>();
 		for (PGoTLA ptla : tla) {
-			if (intermediateData instanceof PGoTempData) {
-				ret.add(new TLAExprToGo(ptla, go.getImports(), new PGoTempData((PGoTempData) intermediateData))
+			if (data instanceof PGoTempData) {
+				ret.add(new TLAExprToGo(ptla, go.getImports(), new PGoTempData((PGoTempData) data))
 						.toExpression());
 			} else {
-				ret.add(new TLAExprToGo(ptla, go.getImports(), new PGoTempData(intermediateData)).toExpression());
+				ret.add(new TLAExprToGo(ptla, go.getImports(), new PGoTempData(data)).toExpression());
 			}
 		}
 		return ret;
@@ -225,7 +229,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 							TLAToGo(fc);
 							// We compile differently based on the variable's
 							// type.
-							PGoVariable assign = intermediateData.findPGoVariable(sa.lhs.var);
+							PGoVariable assign = data.findPGoVariable(sa.lhs.var);
 							if (assign.getType() instanceof PGoSlice) {
 								// just var[expr]
 								assert (fc.getParams().size() == 1);
@@ -299,7 +303,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 					// Check for type consistency.
 					TLAToGo(fc);
 					// We compile differently based on the variable's type.
-					PGoVariable assign = intermediateData.findPGoVariable(sa.lhs.var);
+					PGoVariable assign = data.findPGoVariable(sa.lhs.var);
 					if (assign.getType() instanceof PGoSlice) {
 						// just var[expr]
 						assert (fc.getParams().size() == 1);
@@ -382,8 +386,8 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 				Vector<Statement> pre = new Vector<>();
 				// we will add new typing data for local variables, but we
 				// should keep them within the scope of this with
-				PGoTransIntermediateData oldData = intermediateData;
-				intermediateData = new PGoTempData(intermediateData);
+				PGoTransIntermediateData oldData = data;
+				data = new PGoTempData(data);
 				AST cur = with;
 				// if the withs are nested, we don't want to keep nesting them,
 				// so get them all at once
@@ -395,13 +399,13 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 						Vector<PGoTLA> varExpr = new TLAExprParser(with.exp, with.line).getResult();
 						assert (varExpr.size() == 1);
 						TLAExprToGo trans = new TLAExprToGo(varExpr.get(0), go.getImports(),
-								new PGoTempData((PGoTempData) intermediateData));
+								new PGoTempData((PGoTempData) data));
 						Vector<Expression> se = new Vector<>();
 						se.add(new Token(varName));
 						se.add(new Token(" := "));
 						se.add(trans.toExpression());
 						pre.add(new SimpleExpression(se));
-						((PGoTempData) intermediateData).getLocals().put(varName,
+						((PGoTempData) data).getLocals().put(varName,
 								PGoVariable.convert(varName, trans.getType()));
 					} else {
 						// x \in S
@@ -409,7 +413,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 						Vector<PGoTLA> setExpr = new TLAExprParser(with.exp, with.line).getResult();
 						assert (setExpr.size() == 1);
 						TLAExprToGo trans = new TLAExprToGo(setExpr.get(0), go.getImports(),
-								new PGoTempData(intermediateData));
+								new PGoTempData(data));
 						PGoType setType = trans.getType();
 						assert (setType instanceof PGoSet);
 						PGoType containedType = ((PGoSet) setType).getElementType();
@@ -428,7 +432,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 						se.add(new TypeAssertion(new SimpleExpression(rhs), containedType));
 						pre.add(new SimpleExpression(se));
 						go.getImports().addImport("math/rand");
-						((PGoTempData) intermediateData).getLocals().put(varName,
+						((PGoTempData) data).getLocals().put(varName,
 								PGoVariable.convert(varName, containedType));
 					}
 					// if there are multiple statements, this is no longer a
@@ -445,7 +449,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 				walk(with.Do);
 				tempRes.add(cb);
 				result = tempRes;
-				intermediateData = oldData;
+				data = oldData;
 			}
 
 			@Override
@@ -476,7 +480,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 						args.add(new Token(((PGoTLAVariable) arg).getName()));
 					} else {
 						strfmt.add("%v");
-						args.add(new TLAExprToGo(arg, go.getImports(), new PGoTempData(intermediateData))
+						args.add(new TLAExprToGo(arg, go.getImports(), new PGoTempData(data))
 								.toExpression());
 					}
 				}
@@ -595,7 +599,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 				assert (id.size() == 1);
 				se.add(new FunctionCall(goroutine.getName(), new Vector<Expression>() {
 					{
-						add(new TLAExprToGo(id.get(0), go.getImports(), new PGoTempData(intermediateData))
+						add(new TLAExprToGo(id.get(0), go.getImports(), new PGoTempData(data))
 								.toExpression());
 					}
 				}));
@@ -607,7 +611,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 
 				Vector<PGoTLA> setTLA = new TLAExprParser(goroutine.getInitTLA(), -1).getResult();
 				assert (setTLA.size() == 1);
-				TLAExprToGo trans = new TLAExprToGo(setTLA.get(0), go.getImports(), new PGoTempData(intermediateData));
+				TLAExprToGo trans = new TLAExprToGo(setTLA.get(0), go.getImports(), new PGoTempData(data));
 				PGoType setType = trans.getType();
 				assert (setType instanceof PGoSet);
 				PGoType eltType = ((PGoSet) setType).getElementType();
@@ -657,9 +661,9 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 	 * @throws PGoTransException
 	 */
 	private void generateFunctions() throws PGoTransException {
-		for (PGoFunction pf : this.intermediateData.funcs.values()) {
+		for (PGoFunction pf : this.data.funcs.values()) {
 			// Add typing data for params and locals.
-			PGoTransIntermediateData oldData = intermediateData;
+			PGoTransIntermediateData oldData = data;
 			PGoTempData localData = new PGoTempData(oldData);
 
 			Vector<ParameterDeclaration> params = new Vector<ParameterDeclaration>();
@@ -690,7 +694,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 			Vector<Statement> body = new Vector<>();
 			// if this is a goroutine, we need to use waitgroup and flag channel
 			// in the function body
-			if (intermediateData.goroutines.containsKey(pf.getName())) {
+			if (data.goroutines.containsKey(pf.getName())) {
 				// defer PGoWait.Done()
 				Vector<Expression> se = new Vector<>();
 				se.add(new Token("defer "));
@@ -706,15 +710,15 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 				body.add(new SimpleExpression(se));
 			}
 
-			intermediateData = localData;
+			data = localData;
 			body.addAll(convertStatementToGo(pf.getBody()));
-			intermediateData = oldData;
+			data = oldData;
 
 			Function f = new Function(pf.getName(), pf.getReturnType(), params, locals, body);
 			go.addFunction(f);
 		}
 
-		for (PGoTLADefinition tlaDef : this.intermediateData.defns.values()) {
+		for (PGoTLADefinition tlaDef : this.data.defns.values()) {
 			Vector<ParameterDeclaration> params = new Vector<>();
 			for (PGoVariable param : tlaDef.getParams()) {
 				params.add(new ParameterDeclaration(param.getName(), param.getType()));
@@ -722,7 +726,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 			// tla defn's don't have locals
 			Vector<Statement> body = new Vector<>();
 			// add typing information for parameters
-			PGoTempData temp = new PGoTempData(intermediateData);
+			PGoTempData temp = new PGoTempData(data);
 			for (PGoVariable param : tlaDef.getParams()) {
 				temp.getLocals().put(param.getName(), param);
 			}
@@ -744,7 +748,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 		// other variable refer to it. We also want to reset the other values to
 		// the initial value. Constants will still be generated at the time
 		boolean delay = false;
-		for (PGoVariable pv : this.intermediateData.globals.values()) {
+		for (PGoVariable pv : this.data.globals.values()) {
 			if (pv.getIsSimpleAssignInit()) {
 				continue;
 			}
@@ -786,7 +790,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 			// we set the rest of the main to go in here
 		}
 
-		for (PGoVariable pv : this.intermediateData.globals.values()) {
+		for (PGoVariable pv : this.data.globals.values()) {
 			if (!pv.getIsSimpleAssignInit()) {
 				// already did var \in set
 				continue;
@@ -813,7 +817,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 				TLAExprParser parser = new TLAExprParser(pv.getPcalInitBlock(), pv.getLine());
 				Vector<PGoTLA> ptla = parser.getResult();
 				assert (ptla.size() == 1);
-				Expression stmt = new TLAExprToGo(ptla.get(0), go.getImports(), new PGoTempData(intermediateData), pv)
+				Expression stmt = new TLAExprToGo(ptla.get(0), go.getImports(), new PGoTempData(data), pv)
 						.toExpression();
 				SimpleExpression se = new SimpleExpression(new Vector<Expression>() {
 					{
@@ -839,7 +843,7 @@ public class PGoTransStageGoGen extends PGoTransStageBase {
 		// if the program contains goroutines, we need to add a waitgroup
 		// (prevent early termination of main goroutine) and a dummy channel
 		// (synchronize the start of the goroutines)
-		if (!intermediateData.goroutines.isEmpty()) {
+		if (!data.goroutines.isEmpty()) {
 			go.getImports().addImport("sync");
 			go.addGlobal(new VariableDeclaration("PGoWait", new PGoWaitGroup(), null, false));
 

@@ -18,22 +18,24 @@ import pgo.util.PcalASTUtil;
  * with networks
  *
  */
-public class PGoTransStageAtomicity extends PGoTransStageBase {
+public class PGoTransStageAtomicity {
+
+	// the intermediate data
+	PGoTransIntermediateData data;
 
 	public PGoTransStageAtomicity(PGoTransStageType s) throws PGoParseException, PGoTransException {
-		super(s);
+		this.data = s.data;
 
 		// Mark all variables that have an assignment from processes as needing
 		// to be atomic. We assume any variable that has an assignment within a
 		// process to be accessed concurrently.
 
-		for (PGoVariable v : this.intermediateData.globals.values()) {
-			for (String pname : this.intermediateData.goroutines.keySet())
-			{
+		for (PGoVariable v : this.data.globals.values()) {
+			for (String pname : this.data.goroutines.keySet()) {
 				// set of functions we already visited
 				HashSet<String> visited = new HashSet<String>();
-				
-				PGoFunction prcs = this.intermediateData.funcs.get(pname);
+
+				PGoFunction prcs = this.data.funcs.get(pname);
 				assert (prcs != null);
 				Vector<AST> toExamine = new Vector<AST>();
 				toExamine.addAll(prcs.getBody());
@@ -44,7 +46,7 @@ public class PGoTransStageAtomicity extends PGoTransStageBase {
 					visited.addAll(funcsCalled);
 
 					for (String fname : funcsCalled) {
-						newBodies.addAll(this.intermediateData.findPGoFunction(fname).getBody());
+						newBodies.addAll(this.data.findPGoFunction(fname).getBody());
 					}
 					toExamine.addAll(newBodies);
 
@@ -61,7 +63,7 @@ public class PGoTransStageAtomicity extends PGoTransStageBase {
 					// assignment from a process means we need the variable
 					// thread safe
 					v.setAtomic(true);
-					this.intermediateData.needsLock = true;
+					this.data.needsLock = true;
 					break;
 				}
 			}

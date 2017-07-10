@@ -1,9 +1,6 @@
 package pgo.trans.intermediate;
 
-import java.util.Vector;
-
 import pgo.model.intermediate.PGoFunction;
-import pgo.model.intermediate.PGoType;
 import pgo.model.intermediate.PGoVariable;
 import pgo.model.parser.AnnotatedFunction;
 import pgo.model.parser.AnnotatedProcess;
@@ -22,10 +19,14 @@ import pgo.trans.PGoTransException;
  * PGoTransException will be thrown.
  *
  */
-public class PGoTransStageType extends PGoTransStageBase {
+public class PGoTransStageType {
+
+	// intermediate data, which is filled with typing information from
+	// annotations
+	PGoTransIntermediateData data;
 
 	public PGoTransStageType(PGoTransStageInitParse s1) throws PGoParseException, PGoTransException {
-		super(s1);
+		this.data = s1.data;
 		applyAnnotationOnVariables();
 		applyAnnotationOnFunctions();
 		applyAnnotationOnReturnVariables();
@@ -47,7 +48,7 @@ public class PGoTransStageType extends PGoTransStageBase {
 	}
 
 	private void checkFunctionsTyped() throws PGoTransException {
-		for (PGoFunction f : this.intermediateData.funcs.values()) {
+		for (PGoFunction f : this.data.funcs.values()) {
 			if (f.getReturnType().isUndetermined()) {
 				throw new PGoTransException("Unable to determine return type of function \"" + f.getName() + "()\"",
 						f.getLine());
@@ -69,13 +70,13 @@ public class PGoTransStageType extends PGoTransStageBase {
 	}
 
 	private void checkVariablesTyped() throws PGoTransException {
-		for (PGoVariable v : this.intermediateData.globals.values()) {
+		for (PGoVariable v : this.data.globals.values()) {
 			if (v.getType().isUndetermined()) {
 				throw new PGoTransException("Unable to determine type of global variable \"" + v.getName() + "\"",
 						v.getLine());
 			}
 		}
-		for (PGoVariable v : this.intermediateData.unresolvedVars.values()) {
+		for (PGoVariable v : this.data.unresolvedVars.values()) {
 			if (v.getType().isUndetermined()) {
 				throw new PGoTransException("Unable to determine type of variable \"" + v.getName() + "\"",
 						v.getLine());
@@ -85,8 +86,8 @@ public class PGoTransStageType extends PGoTransStageBase {
 
 	// Add typing information to the process functions' ID
 	private void applyAnnotationOnProcesses() throws PGoTransException {
-		for (AnnotatedProcess prcs : this.intermediateData.annots.getAnnotatedProcesses()) {
-			PGoFunction fun = this.intermediateData.findPGoFunction(prcs.getName());
+		for (AnnotatedProcess prcs : this.data.annots.getAnnotatedProcesses()) {
+			PGoFunction fun = this.data.findPGoFunction(prcs.getName());
 			if (fun == null) {
 				throw new PGoTransException(
 						"Reference to process function \"" + prcs.getName()
@@ -99,15 +100,15 @@ public class PGoTransStageType extends PGoTransStageBase {
 
 	// Add annotation information of return variables
 	private void applyAnnotationOnReturnVariables() throws PGoTransException {
-		for (AnnotatedReturnVariable r : this.intermediateData.annots.getReturnVariables()) {
-			r.applyAnnotation(this.intermediateData.globals, this.intermediateData.funcs.values());
+		for (AnnotatedReturnVariable r : this.data.annots.getReturnVariables()) {
+			r.applyAnnotation(this.data.globals, this.data.funcs.values());
 		}
 	}
 
 	// Add annotation information of functions
 	private void applyAnnotationOnFunctions() throws PGoTransException {
-		for (AnnotatedFunction f : this.intermediateData.annots.getAnnotatedFunctions()) {
-			PGoFunction fun = this.intermediateData.findPGoFunction(f.getName());
+		for (AnnotatedFunction f : this.data.annots.getAnnotatedFunctions()) {
+			PGoFunction fun = this.data.findPGoFunction(f.getName());
 			if (fun == null) {
 				throw new PGoTransException(
 						"Reference to function \"" + f.getName()
@@ -116,14 +117,14 @@ public class PGoTransStageType extends PGoTransStageBase {
 						f.getLine());
 			}
 
-			f.applyAnnotationOnFunction(fun, this.intermediateData.annots.getReturnVariables());
+			f.applyAnnotationOnFunction(fun, this.data.annots.getReturnVariables());
 		}
 	}
 
 	// Add annotation information of variables
 	private void applyAnnotationOnVariables() {
-		for (AnnotatedVariable v : this.intermediateData.annots.getAnnotatedVariables()) {
-			PGoVariable var = this.intermediateData.findPGoVariable(v.getName());
+		for (AnnotatedVariable v : this.data.annots.getAnnotatedVariables()) {
+			PGoVariable var = this.data.findPGoVariable(v.getName());
 			if (var == null) {
 				var = PGoVariable.convert(v.getName());
 				var.setLine(v.getLine());
@@ -132,9 +133,9 @@ public class PGoTransStageType extends PGoTransStageBase {
 					// this means the variable is probably defined in a "with"
 					// clause or something, so don't store it as a global. Keep
 					// it at the side for now.
-					this.intermediateData.unresolvedVars.put(v.getName(), var);
+					this.data.unresolvedVars.put(v.getName(), var);
 				} else {
-					this.intermediateData.globals.put(v.getName(), var);
+					this.data.globals.put(v.getName(), var);
 				}
 			}
 			v.applyAnnotationOnVariable(var);
@@ -144,9 +145,9 @@ public class PGoTransStageType extends PGoTransStageBase {
 
 	// Parse annotated TLA definitions and add parsed version to data
 	private void addAnnotatedDefinitions() throws PGoTransException, PGoParseException {
-		for (AnnotatedTLADefinition d : this.intermediateData.annots.getAnnotatedTLADefinitions()) {
+		for (AnnotatedTLADefinition d : this.data.annots.getAnnotatedTLADefinitions()) {
 			PGoTLADefinition tla = new PGoTLADefinition(d.getName(), d.getParams(), d.getExpr(), d.getLine());
-			this.intermediateData.defns.put(d.getName(), tla);
+			this.data.defns.put(d.getName(), tla);
 		}
 	}
 }
