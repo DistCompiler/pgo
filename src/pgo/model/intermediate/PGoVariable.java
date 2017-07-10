@@ -1,10 +1,18 @@
 package pgo.model.intermediate;
 
+import java.util.Vector;
+
 import pcal.AST.PVarDecl;
 import pcal.AST.VarDecl;
 import pcal.PcalParams;
 import pcal.TLAExpr;
+import pgo.model.parser.AnnotatedTLADefinition;
 import pgo.model.parser.AnnotatedVariable.ArgAnnotatedVariable;
+import pgo.model.tla.PGoTLA;
+import pgo.model.tla.TLAExprToType;
+import pgo.parser.TLAExprParser;
+import pgo.trans.PGoTransException;
+import pgo.trans.intermediate.PGoTempData;
 
 /**
  * Intermediate representation of a single pluscal and golang variable.
@@ -190,6 +198,21 @@ public class PGoVariable {
 		r.goval = val;
 		r.type = tn;
 		r.line = -1;
+		return r;
+	}
+
+	// Creates a variable based on a parameterless TLA definition
+	public static PGoVariable convert(AnnotatedTLADefinition defn, PGoTempData varData) throws PGoTransException {
+		assert (defn.getParams().isEmpty());
+		PGoVariable r = new PGoVariable();
+		r.name = defn.getName();
+		r.isSimpleAssignInit = true;
+		r.tlaExpr = defn.getExpr();
+		// infer the type
+		Vector<PGoTLA> ptla = new TLAExprParser(r.tlaExpr, defn.getLine()).getResult();
+		assert (ptla.size() == 1);
+		r.type = new TLAExprToType(ptla.get(0), varData).getType();
+		r.line = defn.getLine();
 		return r;
 	}
 

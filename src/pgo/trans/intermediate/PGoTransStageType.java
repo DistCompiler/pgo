@@ -146,8 +146,14 @@ public class PGoTransStageType {
 	// Parse annotated TLA definitions and add parsed version to data
 	private void addAnnotatedDefinitions() throws PGoTransException, PGoParseException {
 		for (AnnotatedTLADefinition d : this.data.annots.getAnnotatedTLADefinitions()) {
-			PGoTLADefinition tla = new PGoTLADefinition(d.getName(), d.getParams(), d.getExpr(), d.getLine());
-			this.data.defns.put(d.getName(), tla);
+			// if there are no parameters, compile to a variable
+			if (d.getParams().isEmpty()) {
+				PGoVariable var = PGoVariable.convert(d, new PGoTempData(data));
+				this.data.globals.put(var.getName(), var);
+			} else {
+				PGoTLADefinition tla = new PGoTLADefinition(d.getName(), d.getParams(), d.getExpr(), d.getLine());
+				this.data.defns.put(d.getName(), tla);
+			}
 		}
 	}
 }
