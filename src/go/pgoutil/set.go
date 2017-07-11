@@ -19,6 +19,8 @@ type Set interface {
 	Size() int
 	// Can be ranged over; in-order
 	Iter() <-chan interface{}
+	// Return a new set equal to the given set
+	Clone() Set
 	// Set operations, defined in the usual way
 	Difference(other Set) Set
 	Equal(other Set) bool
@@ -74,6 +76,14 @@ func (s *set) Size() int {
 
 func (s *set) Iter() <-chan interface{} {
 	return s.m.Keys()
+}
+
+func (s *set) Clone() Set {
+	ret := NewSet()
+	for i := range s.Iter() {
+		ret.Add(i)
+	}
+	return ret
 }
 
 // set operations

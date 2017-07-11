@@ -61,3 +61,12 @@ func (t Tuple) Iter() <-chan interface{} {
 	}()
 	return ret
 }
+
+func (t Tuple) String() string {
+	ret := "Tuple{";
+	for _, i := range t.data {
+		ret += fmt.Sprintf("%v", i)
+	}
+	ret += "}"
+	return ret
+}

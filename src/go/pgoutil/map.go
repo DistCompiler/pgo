@@ -281,6 +281,8 @@ type Map interface {
 	Keys() <-chan interface{}
 	Values() <-chan interface{}
 	Iter() <-chan KVPair
+	// Return a new map equivalent to the current map.
+	Clone() Map
 }
 
 // Implements the Map interface.
@@ -395,6 +397,14 @@ func (m *mp) Iter() <-chan KVPair {
 		}
 		close(ret)
 	}()
+	return ret
+}
+
+func (m *mp) Clone() Map {
+	ret := NewMap()
+	for i := range m.Iter() {
+		ret.Put(i.Key, i.Val)
+	}
 	return ret
 }
 
