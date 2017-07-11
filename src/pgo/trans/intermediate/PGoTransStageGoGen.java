@@ -21,13 +21,8 @@ import pgo.model.intermediate.PGoRoutineInit;
 import pgo.model.intermediate.PGoType;
 import pgo.model.intermediate.PGoVariable;
 import pgo.model.tla.PGoTLA;
-import pgo.model.tla.PGoTLAArray;
-import pgo.model.tla.PGoTLABool;
 import pgo.model.tla.PGoTLADefinition;
 import pgo.model.tla.PGoTLAFunctionCall;
-import pgo.model.tla.PGoTLANumber;
-import pgo.model.tla.PGoTLAString;
-import pgo.model.tla.PGoTLAVariable;
 import pgo.model.tla.TLAExprToGo;
 import pgo.parser.PGoParseException;
 import pgo.parser.TLAExprParser;
@@ -461,31 +456,11 @@ public class PGoTransStageGoGen {
 			protected void visit(PrintS ps) throws PGoTransException {
 				Vector<PGoTLA> argExp = new TLAExprParser(ps.exp, ps.line).getResult();
 				assert (argExp.size() == 1); // print should only have 1
-												// argument as a tupple
-				assert (argExp.get(0) instanceof PGoTLAArray); // convert tupple
-																// to array
+												// argument
+				// fmt.Printf("%v\n", arg)
+				Vector<Expression> args = TLAToGo(argExp);
 
-				PGoTLAArray tup = (PGoTLAArray) argExp.get(0);
-				Vector<String> strfmt = new Vector<String>();
-				Vector<Expression> args = new Vector<Expression>();
-				for (PGoTLA arg : tup.getContents()) {
-					if (arg instanceof PGoTLAString) {
-						strfmt.add(((PGoTLAString) arg).getString());
-					} else if (arg instanceof PGoTLANumber) {
-						strfmt.add(((PGoTLANumber) arg).getVal());
-					} else if (arg instanceof PGoTLABool) {
-						strfmt.add(String.valueOf(((PGoTLABool) arg).getVal()));
-					} else if (arg instanceof PGoTLAVariable) {
-						strfmt.add("%v"); // use go default printing
-						args.add(new Token(((PGoTLAVariable) arg).getName()));
-					} else {
-						strfmt.add("%v");
-						args.add(new TLAExprToGo(arg, go.getImports(), new PGoTempData(data))
-								.toExpression());
-					}
-				}
-
-				args.add(0, new Token("\"" + String.join(" ", strfmt) + "\\n\""));
+				args.add(0, new Token("\"%v\\n\""));
 
 				go.getImports().addImport("fmt");
 				FunctionCall fc = new FunctionCall("fmt.Printf", args);
