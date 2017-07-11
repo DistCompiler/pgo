@@ -1,21 +1,19 @@
 package pgo.trans.intermediate;
 
+import static org.junit.Assert.assertEquals;
+
+import java.util.Vector;
+
 import org.junit.Before;
 import org.junit.Test;
 
 import pcal.PcalTranslate;
 import pcal.TLAToken;
-
-import static org.junit.Assert.*;
-
-import java.util.Vector;
-
 import pgo.model.golang.*;
 import pgo.model.intermediate.PGoType;
 import pgo.model.intermediate.PGoVariable;
 import pgo.model.tla.*;
 import pgo.trans.PGoTransException;
-import pgo.trans.intermediate.PGoTransIntermediateData;
 
 /**
  * Test the conversion of parsed TLA asts to Go asts.
@@ -119,7 +117,11 @@ public class TLAToStatementTest {
 				add(new TLAToken("3", 0, TLAToken.NUMBER));
 			}
 		}, 0);
-		Expression result = new TLAExprToGo(tla, imports, data).toExpression();
+
+		PGoVariable var = PGoVariable.convert("arr", PGoType.inferFromGoTypeName("tuple[int, int]"));
+		data.getLocals().put("arr", var);
+		Expression result = new TLAExprToGo(tla, imports, data, var).toExpression();
+
 		Vector<Expression> params = new Vector<>();
 		params.add(new Token("1"));
 		params.add(new SimpleExpression(new Vector<Expression>() {
@@ -129,11 +131,6 @@ public class TLAToStatementTest {
 				add(new Token("3"));
 			}
 		}));
-		assertEquals(new FunctionCall("pgoutil.NewTuple", params), result);
-
-		PGoVariable var = PGoVariable.convert("arr", PGoType.inferFromGoTypeName("tuple[int, int]"));
-		data.getLocals().put("arr", var);
-		result = new TLAExprToGo(tla, imports, data, var).toExpression();
 		assertEquals(new FunctionCall("pgoutil.NewTuple", params), result);
 
 		var = PGoVariable.convert("channel", PGoType.inferFromGoTypeName("chan[int]"));
@@ -205,9 +202,10 @@ public class TLAToStatementTest {
 			}
 		}));
 		assertEquals(new SimpleExpression(se), result);
-		
+
 		data.defns.clear();
-		data.globals.put("foo", PGoVariable.convert("foo", PGoType.inferFromGoTypeName("map[tuple[int, string]]set[int]")));
+		data.globals.put("foo",
+				PGoVariable.convert("foo", PGoType.inferFromGoTypeName("map[tuple[int, string]]set[int]")));
 		result = new TLAExprToGo(tla, imports, data).toExpression();
 		se = new Vector<>();
 		se.add(new TypeAssertion(new FunctionCall("Get", new Vector<Expression>() {
@@ -221,7 +219,7 @@ public class TLAToStatementTest {
 			}
 		}, new Token("foo")), PGoType.inferFromGoTypeName("set[int]")));
 		assertEquals(new SimpleExpression(se), result);
-		
+
 		data.globals.clear();
 		toks.clear();
 		toks.add(new TLAToken("a", 0, TLAToken.IDENT));
@@ -235,13 +233,13 @@ public class TLAToStatementTest {
 			}
 		}));
 		assertEquals(new SimpleExpression(se), result);
-		
+
 		data.globals.clear();
 		data.globals.put("a", PGoVariable.convert("a", PGoType.inferFromGoTypeName("tuple[int]")));
 		result = new TLAExprToGo(tla, imports, data).toExpression();
 		se.set(0, new FunctionCall("Size", new Vector<>(), new Token("a")));
 		assertEquals(new SimpleExpression(se), result);
-		
+
 		tla = new PGoTLAFunctionCall("foo", toks, 0);
 		data.globals.clear();
 		data.globals.put("a", PGoVariable.convert("a", PGoType.inferFromGoTypeName("int")));

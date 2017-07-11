@@ -49,7 +49,8 @@ public class TLAExprToType {
 		this.data = data;
 		this.assign = assign;
 		type = infer(tla);
-		if (assign != null && !assign.getType().equals(compatibleType(type, assign.getType()))) {
+		if (assign != null && !this.assign.getType().equals(PGoType.UNDETERMINED)
+				&& !assign.getType().equals(compatibleType(type, assign.getType()))) {
 			throw new PGoTransException("Expected to assign " + assign.getType().toTypeName() + " to the variable "
 					+ assign.getName() + " but inferred " + type.toTypeName() + " instead", tla.getLine());
 		}
@@ -64,7 +65,7 @@ public class TLAExprToType {
 			this.assign = null;
 		}
 		type = infer(tla);
-		if (this.assign != null
+		if (this.assign != null && !this.assign.getType().equals(PGoType.UNDETERMINED)
 				&& !this.assign.getType().equals(compatibleType(type, this.assign.getType()))) {
 			throw new PGoTransException("Expected the type of the TLA subexpression to be "
 					+ this.assign.getType().toTypeName() + " but inferred " + type.toTypeName() + " instead",
@@ -213,27 +214,15 @@ public class TLAExprToType {
 			// this is a map; typing is handled in the other method
 			return new TLAExprToType(tla.getContents().get(0), data, assign).getType();
 		}
-		// We need to look at variable information to see if this is a tuple or
-		// channel. By default we assume this is a tuple.
+
 		if (assign == null) {
-			// This is a tuple. Infer types of each element. If all types are
-			// compatible, assume that the tuple is uniformly typed.
-			Vector<String> containedTypes = new Vector<>();
-			if (tla.getContents().isEmpty()) {
-				return PGoType.inferFromGoTypeName("tuple[]");
-			}
-			PGoType first = new TLAExprToType(tla.getContents().get(0), data).getType();
-			for (PGoTLA elt : tla.getContents()) {
-				PGoType curType = new TLAExprToType(elt, data).getType();
-				containedTypes.add(curType.toTypeName());
-				first = TLAExprToType.compatibleType(first, curType);
-			}
-			if (first != null) {
-				return PGoType.inferFromGoTypeName("tuple[" + first.toTypeName() + "...]");
-			} else {
-				return PGoType.inferFromGoTypeName("tuple[" + String.join(",", containedTypes) + "]");
-			}
-		} else if (assign.getType() instanceof PGoTuple) {
+			Logger.getGlobal().severe("Can't infer the type of the PlusCal tuple at line " + tla.getLine()
+					+ " without annotation information.");
+			return PGoType.UNDETERMINED;
+		}
+		// We need to look at variable information to see if this is a slice,
+		// tuple or channel.
+		if (assign.getType() instanceof PGoTuple) {
 			// The type is the same as the assignment type. Check for
 			// consistency.
 			PGoTuple tup = (PGoTuple) assign.getType();
@@ -283,8 +272,9 @@ public class TLAExprToType {
 			}
 			return assign.getType();
 		}
-		assert false;
-		return null;
+		Logger.getGlobal().severe("Can't infer the type of the PlusCal tuple at line " + tla.getLine()
+				+ " without annotation information.");
+		return PGoType.UNDETERMINED;
 	}
 
 	protected PGoType type(PGoTLABool tla) {
