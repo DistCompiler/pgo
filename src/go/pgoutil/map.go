@@ -310,6 +310,14 @@ func (m *mp) Put(key interface{}, val interface{}) {
 		reflect.Copy(cpy, eVal)
 		val = cpy.Interface()
 	}
+
+	// If key/val are maps, we need to clone the map.
+	if k, ok := key.(Map); ok {
+		key = k.Clone()
+	}
+	if e, ok := val.(Map); ok {
+		val = e.Clone()
+	}
 	
 	m.Lock()
 	defer m.Unlock()
