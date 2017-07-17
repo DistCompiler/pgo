@@ -25,7 +25,7 @@ public class PGoTransStageType {
 	// annotations
 	PGoTransIntermediateData data;
 
-	public PGoTransStageType(PGoTransStageInitParse s1) throws PGoParseException, PGoTransException {
+	public PGoTransStageType(PGoTransStageTLAParse s1) throws PGoParseException, PGoTransException {
 		this.data = s1.data;
 		applyAnnotationOnVariables();
 		applyAnnotationOnFunctions();

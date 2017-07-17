@@ -26,15 +26,13 @@ import pgo.trans.PGoTransException;
  */
 public class PGoTransStageInitParse {
 
-	// The PlusCal AST to parse
-	private AST ast;
 	// intermediate data, which is filled with annotation information and data
 	// from the PlusCal ast
 	PGoTransIntermediateData data;
 
 	public PGoTransStageInitParse(ParsedPcal parsed) throws PGoTransException, PGoParseException {
 		data = new PGoTransIntermediateData();
-		this.ast = parsed.getAST();
+		this.data.ast = parsed.getAST();
 		this.data.annots = new PGoAnnotationParser(parsed.getPGoAnnotations());
 
 		trans();
@@ -47,12 +45,12 @@ public class PGoTransStageInitParse {
 	 *             on error
 	 */
 	private void trans() throws PGoTransException {
-		if (ast instanceof Uniprocess) {
+		if (data.ast instanceof Uniprocess) {
 			data.isMultiProcess = false;
-			trans((Uniprocess) ast);
-		} else if (ast instanceof Multiprocess) {
+			trans((Uniprocess) data.ast);
+		} else if (data.ast instanceof Multiprocess) {
 			data.isMultiProcess = true;
-			trans((Multiprocess) ast);
+			trans((Multiprocess) data.ast);
 		} else {
 			throw new PGoTransException("Error: PlusCal algorithm must be one of uniprocess or multiprocess");
 		}

@@ -14,6 +14,7 @@ import pgo.parser.PcalParser.ParsedPcal;
 import pgo.trans.intermediate.PGoTransStageAtomicity;
 import pgo.trans.intermediate.PGoTransStageGoGen;
 import pgo.trans.intermediate.PGoTransStageInitParse;
+import pgo.trans.intermediate.PGoTransStageTLAParse;
 import pgo.trans.intermediate.PGoTransStageType;
 
 /**
@@ -21,10 +22,10 @@ import pgo.trans.intermediate.PGoTransStageType;
  * 
  */
 public class PGoTranslater {
-	
+
 	// The pluscal AST to be translated
 	private ParsedPcal pluscal;
-	
+
 	// the translated go ast
 	private GoProgram go;
 
@@ -36,14 +37,16 @@ public class PGoTranslater {
 
 		logger.info("Entering Stage One: Inferring intermediate data structures");
 		PGoTransStageInitParse s1 = new PGoTransStageInitParse(pcal);
-		logger.info("Entering Stage Two: Inferring types");
-		PGoTransStageType s2 = new PGoTransStageType(s1);
-		logger.info("Entering Stage Three: Inferring atomicity constraints");
-		PGoTransStageAtomicity s3 = new PGoTransStageAtomicity(s2);
-		logger.info("Entering Stage Four: Generating Go AST");
-		PGoTransStageGoGen s4 = new PGoTransStageGoGen(s3);
-		logger.info("Entering Stage Five: Generating Go Code");
-		go = s4.getGo();
+		logger.info("Entering Stage Two: Parsing TLA expressions");
+		PGoTransStageTLAParse s2 = new PGoTransStageTLAParse(s1);
+		logger.info("Entering Stage Three: Inferring types");
+		PGoTransStageType s3 = new PGoTransStageType(s2);
+		logger.info("Entering Stage Four: Inferring atomicity constraints");
+		PGoTransStageAtomicity s4 = new PGoTransStageAtomicity(s3);
+		logger.info("Entering Stage Five: Generating Go AST");
+		PGoTransStageGoGen s5 = new PGoTransStageGoGen(s4);
+		logger.info("Entering Stage Six: Generating Go Code");
+		go = s5.getGo();
 	}
 
 	public Vector<String> getGoLines() {
@@ -53,8 +56,9 @@ public class PGoTranslater {
 	public void copyPackages(PGoOptions opts) throws IOException {
 		if (go.getImports().getImports().contains("pgoutil")) {
 			FileUtils.copyDirectory(new File("src/go/pgoutil"), new File(opts.outfolder + "/src/pgoutil"));
-			FileUtils.copyDirectory(new File("src/go/github.com/emirpasic"), new File(opts.outfolder + "/src/github.com/emirpasic"));
+			FileUtils.copyDirectory(new File("src/go/github.com/emirpasic"),
+					new File(opts.outfolder + "/src/github.com/emirpasic"));
 		}
 	}
-	
+
 }

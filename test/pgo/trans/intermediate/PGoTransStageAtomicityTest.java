@@ -41,7 +41,8 @@ public class PGoTransStageAtomicityTest {
 
 	@Before
 	public void SetUp() throws PGoParseException, PGoTransException {
-		p = new PGoTransStageAtomicity(new PGoTransStageType(new PGoTransStageInitParse(tester.getParsedPcal())));
+		p = new PGoTransStageAtomicity(
+				new PGoTransStageType(new PGoTransStageTLAParse(new PGoTransStageInitParse(tester.getParsedPcal()))));
 	}
 
 	@Test

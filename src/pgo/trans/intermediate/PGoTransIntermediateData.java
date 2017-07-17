@@ -1,16 +1,19 @@
 package pgo.trans.intermediate;
 
+import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Vector;
 
+import pcal.AST;
 import pcal.AST.LabeledStmt;
 import pcal.TLAExpr;
-import pgo.model.intermediate.PGoCollectionType;
 import pgo.model.intermediate.PGoFunction;
 import pgo.model.intermediate.PGoLibFunction;
 import pgo.model.intermediate.PGoRoutineInit;
 import pgo.model.intermediate.PGoType;
 import pgo.model.intermediate.PGoVariable;
+import pgo.model.tla.PGoTLA;
 import pgo.model.tla.PGoTLADefinition;
 import pgo.parser.PGoAnnotationParser;
 
@@ -25,6 +28,9 @@ import pgo.parser.PGoAnnotationParser;
  *
  */
 class PGoTransIntermediateData {
+
+	// The PlusCal AST
+	AST ast;
 
 	// Whether the PlusCal program has multiple processes, or is just a single
 	// threaded function
@@ -42,7 +48,7 @@ class PGoTransIntermediateData {
 	LinkedHashMap<String, PGoFunction> funcs;
 	// The TLA function definitions
 	LinkedHashMap<String, PGoTLADefinition> defns;
-	
+
 	// Contains information for builtin TLA funcs like Len (length of tuple).
 	private static final LinkedHashMap<String, PGoLibFunction> libFuncs = new LinkedHashMap<String, PGoLibFunction>() {
 		{
@@ -57,7 +63,7 @@ class PGoTransIntermediateData {
 							"len",
 							false,
 							PGoType.inferFromGoTypeName("int"));
-					
+
 					addFuncSignature(
 							new Vector<PGoType>() {
 								{
@@ -67,7 +73,7 @@ class PGoTransIntermediateData {
 							"Size",
 							true,
 							PGoType.inferFromGoTypeName("int"));
-					
+
 					addFuncSignature(
 							new Vector<PGoType>() {
 								{
@@ -79,7 +85,7 @@ class PGoTransIntermediateData {
 							PGoType.inferFromGoTypeName("int"));
 				}
 			});
-			
+
 			put("Cardinality", new PGoLibFunction("Cardinality") {
 				{
 					addFuncSignature(
@@ -93,7 +99,7 @@ class PGoTransIntermediateData {
 							PGoType.inferFromGoTypeName("int"));
 				}
 			});
-			
+
 			put("Append", new PGoLibFunction("Append") {
 				{
 					addFuncSignature(
@@ -129,6 +135,10 @@ class PGoTransIntermediateData {
 	// Whether we need a lock in this algorithm
 	boolean needsLock;
 
+	// Maps all TLAExprs found in the ast to their corresponding PGoTLA
+	// representation
+	Map<TLAExpr, PGoTLA> tlaToAST;
+
 	PGoTransIntermediateData() {
 
 		this.globals = new LinkedHashMap<String, PGoVariable>();
@@ -138,6 +148,7 @@ class PGoTransIntermediateData {
 		this.goroutines = new LinkedHashMap<String, PGoRoutineInit>();
 		this.defns = new LinkedHashMap<>();
 		this.needsLock = false;
+		this.tlaToAST = new HashMap<>();
 	}
 
 	// Finds the PGofunction of the given name, or null if none exists.
@@ -168,12 +179,12 @@ class PGoTransIntermediateData {
 
 		return ret;
 	}
-	
+
 	// Return the TLA definition with the given name.
 	PGoTLADefinition findTLADefinition(String name) {
 		return defns.get(name);
 	}
-	
+
 	// Return the TLA library function with the given name and parameters
 	PGoLibFunction findBuiltinFunction(String name) {
 		return libFuncs.get(name);
