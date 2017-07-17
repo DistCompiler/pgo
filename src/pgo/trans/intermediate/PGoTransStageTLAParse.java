@@ -34,25 +34,25 @@ public class PGoTransStageTLAParse {
 
 			@Override
 			protected void visit(Uniprocess ua) throws PGoTransException {
-				convert(ua.defs);
+				convert(ua.defs, ua.line);
 				super.visit(ua);
 			}
 
 			@Override
 			protected void visit(Multiprocess ma) throws PGoTransException {
-				convert(ma.defs);
+				convert(ma.defs, ma.line);
 				super.visit(ma);
 			}
 
 			@Override
 			protected void visit(Process p) throws PGoTransException {
-				convert(p.id);
+				convert(p.id, p.line);
 				super.visit(p);
 			}
 
 			@Override
 			protected void visit(VarDecl v) throws PGoTransException {
-				convert(v.val);
+				convert(v.val, v.line);
 				super.visit(v);
 			}
 
@@ -63,56 +63,56 @@ public class PGoTransStageTLAParse {
 
 			@Override
 			protected void visit(While w) throws PGoTransException {
-				convert(w.test);
+				convert(w.test, w.line);
 				super.visit(w);
 			}
 
 			@Override
 			protected void visit(SingleAssign sa) throws PGoTransException {
-				convert(sa.rhs);
+				convert(sa.rhs, sa.line);
 				super.visit(sa);
 			}
 
 			@Override
 			protected void visit(If i) throws PGoTransException {
-				convert(i.test);
+				convert(i.test, i.line);
 				super.visit(i);
 			}
 
 			@Override
 			protected void visit(With w) throws PGoTransException {
-				convert(w.exp);
+				convert(w.exp, w.line);
 				super.visit(w);
 			}
 
 			@Override
 			protected void visit(When w) throws PGoTransException {
-				convert(w.exp);
+				convert(w.exp, w.line);
 				super.visit(w);
 			}
 
 			@Override
 			protected void visit(PrintS ps) throws PGoTransException {
-				convert(ps.exp);
+				convert(ps.exp, ps.line);
 				super.visit(ps);
 			}
 
 			@Override
 			protected void visit(Assert a) throws PGoTransException {
-				convert(a.exp);
+				convert(a.exp, a.line);
 				super.visit(a);
 			}
 
 			@Override
 			protected void visit(LabelIf lif) throws PGoTransException {
-				convert(lif.test);
+				convert(lif.test, lif.line);
 				super.visit(lif);
 			}
 
 			@Override
 			protected void visit(Call c) throws PGoTransException {
 				for (TLAExpr e : (Vector<TLAExpr>) c.args) {
-					convert(e);
+					convert(e, c.line);
 				}
 				super.visit(c);
 			}
@@ -120,7 +120,7 @@ public class PGoTransStageTLAParse {
 			@Override
 			protected void visit(CallReturn cr) throws PGoTransException {
 				for (TLAExpr e : (Vector<TLAExpr>) cr.args) {
-					convert(e);
+					convert(e, cr.line);
 				}
 				super.visit(cr);
 			}
@@ -128,7 +128,7 @@ public class PGoTransStageTLAParse {
 			@Override
 			protected void visit(MacroCall mc) throws PGoTransException {
 				for (TLAExpr e : (Vector<TLAExpr>) mc.args) {
-					convert(e);
+					convert(e, mc.line);
 				}
 				super.visit(mc);
 			}
@@ -137,14 +137,9 @@ public class PGoTransStageTLAParse {
 	}
 
 	// Converts the TLAExpr to PGoTLA using the TLAExprParser
-	private void convert(TLAExpr e) throws PGoTransException {
+	private void convert(TLAExpr e, int line) throws PGoTransException {
 		if (e != null) {
-			Vector<PGoTLA> v;
-			if (e.getOrigin() != null) {
-				v = new TLAExprParser(e, e.getOrigin().getBegin().getLine()).getResult();
-			} else {
-				v = new TLAExprParser(e, -1).getResult();
-			}
+			Vector<PGoTLA> v = new TLAExprParser(e, line).getResult();
 			assert (v.size() <= 1);
 			if (!v.isEmpty()) {
 				data.tlaToAST.put(e, v.get(0));
