@@ -21,6 +21,7 @@ import pgo.model.intermediate.PGoRoutineInit;
 import pgo.model.intermediate.PGoType;
 import pgo.model.intermediate.PGoVariable;
 import pgo.model.tla.PGoTLA;
+import pgo.model.tla.PGoTLAArray;
 import pgo.model.tla.PGoTLADefinition;
 import pgo.model.tla.PGoTLAFunctionCall;
 import pgo.model.tla.TLAExprToGo;
@@ -457,10 +458,21 @@ public class PGoTransStageGoGen {
 				Vector<PGoTLA> argExp = new TLAExprParser(ps.exp, ps.line).getResult();
 				assert (argExp.size() == 1); // print should only have 1
 												// argument
-				// fmt.Printf("%v\n", arg)
-				Vector<Expression> args = TLAToGo(argExp);
+				Vector<Expression> args = new Vector<>();
+				// if this is a tuple, we print each element individually
+				if (argExp.get(0) instanceof PGoTLAArray) {
+					Vector<String> strfmt = new Vector<>();
+					for (PGoTLA arg : ((PGoTLAArray) argExp.get(0)).getContents()) {
+						strfmt.add("%v");
+						args.add(TLAToGo(arg));
+					}
+					args.add(0, new Token("\"" + String.join(" ", strfmt) + "\\n\""));
+				} else {
+					// fmt.Printf("%v\n", arg)
+					args = TLAToGo(argExp);
 
-				args.add(0, new Token("\"%v\\n\""));
+					args.add(0, new Token("\"%v\\n\""));
+				}
 
 				go.getImports().addImport("fmt");
 				FunctionCall fc = new FunctionCall("fmt.Printf", args);
