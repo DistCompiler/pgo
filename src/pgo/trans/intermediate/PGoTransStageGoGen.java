@@ -174,8 +174,7 @@ public class PGoTransStageGoGen {
 
 			@Override
 			protected void visit(While w) throws PGoTransException {
-				Vector<Expression> cond = TLAToGo(new TLAExprParser(w.test, w.line).getResult());
-				assert (cond.size() == 1);
+				Expression cond = TLAToGo(data.findPGoTLA(w.test));
 
 				Vector<Statement> loopBody = new Vector<>();
 
@@ -183,7 +182,7 @@ public class PGoTransStageGoGen {
 				Vector<Statement> tempRes = result;
 				result = loopBody; // we send the loop body to be filled
 				super.visit(w); // visit the loop body
-				For loopAst = new For(cond.get(0), result);
+				For loopAst = new For(cond, result);
 				result = tempRes;
 				result.add(loopAst);
 			}
@@ -198,11 +197,9 @@ public class PGoTransStageGoGen {
 						exps.add(new Token(sa.lhs.var + "_new"));
 						// TODO parse sub for [2] etc
 						exps.add(new Token(" := "));
-						// TODO this is tlaexpr exps.add(sa.rhs);
-						Vector<Expression> rhs = TLAToGo(new TLAExprParser(sa.rhs, sa.line).getResult());
+						Expression rhs = TLAToGo(data.findPGoTLA(sa.rhs));
 
-						assert (rhs.size() == 1);
-						exps.add(rhs.get(0));
+						exps.add(rhs);
 
 						result.add(new SimpleExpression(exps));
 					}
@@ -213,6 +210,7 @@ public class PGoTransStageGoGen {
 							// the sub is [expr, expr...] (map/array access) or
 							// .<name> for a record field
 
+							// subs aren't parsed in the TLAParse stage, so parse them now
 							// to parse properly, prepend the variable name
 							((Vector<TLAToken>) sa.lhs.sub.tokens.get(0)).add(0,
 									new TLAToken(sa.lhs.var, 0, TLAToken.IDENT));
@@ -282,8 +280,7 @@ public class PGoTransStageGoGen {
 			@Override
 			protected void visit(SingleAssign sa) throws PGoTransException {
 				Vector<Expression> exps = new Vector<>();
-				Vector<Expression> rhs = TLAToGo(new TLAExprParser(sa.rhs, sa.line).getResult());
-				assert (rhs.size() == 1);
+				Expression rhs = TLAToGo(data.findPGoTLA(sa.rhs));
 				if (!sa.lhs.sub.tokens.isEmpty()) {
 					// the sub is [expr, expr...] (map/array access) or
 					// .<name> for a record field
@@ -308,7 +305,7 @@ public class PGoTransStageGoGen {
 						exps.add(TLAToGo(fc.getParams().get(0)));
 						exps.add(new Token("]"));
 						exps.add(new Token(" = "));
-						exps.add(rhs.get(0));
+						exps.add(rhs);
 					} else if (assign.getType() instanceof PGoTuple) {
 						// var = var.Set(index, assign)
 						assert (fc.getParams().size() == 1);
@@ -316,7 +313,7 @@ public class PGoTransStageGoGen {
 						exps.add(new Token(" = "));
 						Vector<Expression> params = new Vector<>();
 						params.add(TLAToGo(fc.getParams().get(0)));
-						params.add(rhs.get(0));
+						params.add(rhs);
 						exps.add(new FunctionCall("Set", params, new Token(sa.lhs.var)));
 					} else if (assign.getType() instanceof PGoMap) {
 						// var.Put(params, assign)
@@ -332,7 +329,7 @@ public class PGoTransStageGoGen {
 							}
 							params.add(new FunctionCall("pgoutil.NewTuple", tupleElts));
 						}
-						params.add(rhs.get(0));
+						params.add(rhs);
 						exps.add(new FunctionCall("Put", params, new Token(sa.lhs.var)));
 					} else {
 						assert false;
@@ -341,15 +338,14 @@ public class PGoTransStageGoGen {
 					// the lhs is a simple variable
 					exps.add(new Token(sa.lhs.var));
 					exps.add(new Token(" = "));
-					exps.add(rhs.get(0));
+					exps.add(rhs);
 				}
 				result.add(new SimpleExpression(exps));
 			}
 
 			@Override
 			protected void visit(If ifast) throws PGoTransException {
-				Vector<Expression> cond = TLAToGo(new TLAExprParser(ifast.test, ifast.line).getResult());
-				assert (cond.size() == 1);
+				Expression cond = TLAToGo(data.findPGoTLA(ifast.test));
 
 				Vector<Statement> thenS = new Vector<>(), elseS = new Vector<>();
 
@@ -360,7 +356,7 @@ public class PGoTransStageGoGen {
 				result = elseS;
 				walk(ifast.Else);
 
-				pgo.model.golang.If ifAst = new pgo.model.golang.If(cond.get(0), thenS, elseS);
+				pgo.model.golang.If ifAst = new pgo.model.golang.If(cond, thenS, elseS);
 
 				result = tempRes;
 				result.add(ifAst);
@@ -392,9 +388,8 @@ public class PGoTransStageGoGen {
 					String varName = with.var;
 					if (with.isEq) {
 						// of the form with x = a
-						Vector<PGoTLA> varExpr = new TLAExprParser(with.exp, with.line).getResult();
-						assert (varExpr.size() == 1);
-						TLAExprToGo trans = new TLAExprToGo(varExpr.get(0), go.getImports(),
+						PGoTLA varExpr = data.findPGoTLA(with.exp);
+						TLAExprToGo trans = new TLAExprToGo(varExpr, go.getImports(),
 								new PGoTempData((PGoTempData) data));
 						Vector<Expression> se = new Vector<>();
 						se.add(new Token(varName));
@@ -406,9 +401,8 @@ public class PGoTransStageGoGen {
 					} else {
 						// x \in S
 						// x := S.ToSlice()[rand.Intn(S.Size())].(type)
-						Vector<PGoTLA> setExpr = new TLAExprParser(with.exp, with.line).getResult();
-						assert (setExpr.size() == 1);
-						TLAExprToGo trans = new TLAExprToGo(setExpr.get(0), go.getImports(),
+						PGoTLA setExpr = data.findPGoTLA(with.exp);
+						TLAExprToGo trans = new TLAExprToGo(setExpr, go.getImports(),
 								new PGoTempData(data));
 						PGoType setType = trans.getType();
 						assert (setType instanceof PGoSet);
@@ -455,23 +449,20 @@ public class PGoTransStageGoGen {
 
 			@Override
 			protected void visit(PrintS ps) throws PGoTransException {
-				Vector<PGoTLA> argExp = new TLAExprParser(ps.exp, ps.line).getResult();
-				assert (argExp.size() == 1); // print should only have 1
-												// argument
+				PGoTLA argExp = data.findPGoTLA(ps.exp);
 				Vector<Expression> args = new Vector<>();
 				// if this is a tuple, we print each element individually
-				if (argExp.get(0) instanceof PGoTLAArray) {
+				if (argExp instanceof PGoTLAArray) {
 					Vector<String> strfmt = new Vector<>();
-					for (PGoTLA arg : ((PGoTLAArray) argExp.get(0)).getContents()) {
+					for (PGoTLA arg : ((PGoTLAArray) argExp).getContents()) {
 						strfmt.add("%v");
 						args.add(TLAToGo(arg));
 					}
 					args.add(0, new Token("\"" + String.join(" ", strfmt) + "\\n\""));
 				} else {
 					// fmt.Printf("%v\n", arg)
-					args = TLAToGo(argExp);
-
 					args.add(0, new Token("\"%v\\n\""));
+					args.add(TLAToGo(argExp));
 				}
 
 				go.getImports().addImport("fmt");
@@ -493,8 +484,7 @@ public class PGoTransStageGoGen {
 
 			@Override
 			protected void visit(LabelIf lif) throws PGoTransException {
-				Vector<Expression> cond = TLAToGo(new TLAExprParser(lif.test, lif.line).getResult());
-				assert (cond.size() == 1);
+				Expression cond = TLAToGo(data.findPGoTLA(lif.test));
 
 				Vector<Statement> thenS = new Vector<>(), elseS = new Vector<>();
 
@@ -507,7 +497,7 @@ public class PGoTransStageGoGen {
 				walk(lif.unlabElse);
 				walk(lif.labElse);
 
-				pgo.model.golang.If ifAst = new pgo.model.golang.If(cond.get(0), thenS, elseS);
+				pgo.model.golang.If ifAst = new pgo.model.golang.If(cond, thenS, elseS);
 
 				result = tempRes;
 				result.add(ifAst);
@@ -582,11 +572,10 @@ public class PGoTransStageGoGen {
 
 				Vector<Expression> se = new Vector<>();
 				se.add(new Token("go "));
-				Vector<PGoTLA> id = new TLAExprParser(goroutine.getInitTLA(), -1).getResult();
-				assert (id.size() == 1);
+				PGoTLA id = data.findPGoTLA(goroutine.getInitTLA());
 				se.add(new FunctionCall(goroutine.getName(), new Vector<Expression>() {
 					{
-						add(new TLAExprToGo(id.get(0), go.getImports(), new PGoTempData(data))
+						add(new TLAExprToGo(id, go.getImports(), new PGoTempData(data))
 								.toExpression());
 					}
 				}));
@@ -596,9 +585,8 @@ public class PGoTransStageGoGen {
 				// go foo(procId.(type))
 				// }
 
-				Vector<PGoTLA> setTLA = new TLAExprParser(goroutine.getInitTLA(), -1).getResult();
-				assert (setTLA.size() == 1);
-				TLAExprToGo trans = new TLAExprToGo(setTLA.get(0), go.getImports(), new PGoTempData(data));
+				PGoTLA setTLA = data.findPGoTLA(goroutine.getInitTLA());
+				TLAExprToGo trans = new TLAExprToGo(setTLA, go.getImports(), new PGoTempData(data));
 				PGoType setType = trans.getType();
 				assert (setType instanceof PGoSet);
 				PGoType eltType = ((PGoSet) setType).getElementType();
@@ -653,22 +641,21 @@ public class PGoTransStageGoGen {
 			PGoTransIntermediateData oldData = data;
 			PGoTempData localData = new PGoTempData(oldData);
 
-			Vector<ParameterDeclaration> params = new Vector<ParameterDeclaration>();
+			Vector<ParameterDeclaration> params = new Vector<>();
 			for (PGoVariable param : pf.getParams()) {
 				params.add(new ParameterDeclaration(param.getName(), param.getType()));
 				localData.getLocals().put(param.getName(), param);
 			}
-			Vector<VariableDeclaration> locals = new Vector<VariableDeclaration>();
+			Vector<VariableDeclaration> locals = new Vector<>();
 			for (PGoVariable local : pf.getVariables()) {
-				Vector<PGoTLA> initTLA = new TLAExprParser(local.getPcalInitBlock(), local.getLine()).getResult();
-				assert (initTLA.size() <= 1);
+				PGoTLA initTLA = data.findPGoTLA(local.getPcalInitBlock());
 				// if initTLA is empty, the local init is defaultInitValue
 				// (no initialization code)
-				if (initTLA.isEmpty()) {
+				if (initTLA == null) {
 					locals.add(new VariableDeclaration(local.getName(), local.getType(), null, new Vector<>(),
 							local.getIsConstant()));
 				} else {
-					Expression init = new TLAExprToGo(initTLA.get(0), go.getImports(), localData, local).toExpression();
+					Expression init = new TLAExprToGo(initTLA, go.getImports(), localData, local).toExpression();
 					Vector<Expression> se = new Vector<>();
 					se.add(init);
 					locals.add(new VariableDeclaration(local.getName(), local.getType(), new SimpleExpression(se),
@@ -749,13 +736,8 @@ public class PGoTransStageGoGen {
 
 			// being part of the rhs, the parsed result should just be
 			// one coherent expression
-			TLAExprParser parser = new TLAExprParser(pv.getPcalInitBlock(), pv.getLine());
-			Vector<PGoTLA> ptla = parser.getResult();
-			assert (ptla.size() == 1);
-			Vector<Expression> stmt = TLAToGo(ptla);
-
-			assert (stmt.size() == 1);
-			Expression se = stmt.get(0);
+			PGoTLA ptla = data.findPGoTLA(pv.getPcalInitBlock());
+			Expression se = TLAToGo(ptla);
 
 			go.addGlobal(new VariableDeclaration(pv.getName(), pv.getType(), null,
 					new Vector<>(), pv.getIsConstant()));
@@ -767,11 +749,11 @@ public class PGoTransStageGoGen {
 
 			For loop = new For(new SimpleExpression(toks), new Vector<>());
 			main.add(loop);
-			// we need to cast the interface value to int
+			// we need to cast the interface value to its actual type
 			Vector<Expression> cast = new Vector<>();
 			cast.add(new Token(pv.getName()));
 			cast.add(new Token(" = "));
-			cast.add(new TypeAssertion(new Token(pv.getName() + "_interface"), PGoType.inferFromGoTypeName("int")));
+			cast.add(new TypeAssertion(new Token(pv.getName() + "_interface"), pv.getType()));
 			loop.getThen().add(new SimpleExpression(cast));
 			main = loop.getThen();
 			// we set the rest of the main to go in here
@@ -801,10 +783,8 @@ public class PGoTransStageGoGen {
 			} else {
 				// being part of the rhs, the parsed result should just be
 				// one coherent expression
-				TLAExprParser parser = new TLAExprParser(pv.getPcalInitBlock(), pv.getLine());
-				Vector<PGoTLA> ptla = parser.getResult();
-				assert (ptla.size() == 1);
-				Expression stmt = new TLAExprToGo(ptla.get(0), go.getImports(), new PGoTempData(data), pv)
+				PGoTLA ptla = data.findPGoTLA(pv.getPcalInitBlock());
+				Expression stmt = new TLAExprToGo(ptla, go.getImports(), new PGoTempData(data), pv)
 						.toExpression();
 				SimpleExpression se = new SimpleExpression(new Vector<Expression>() {
 					{
