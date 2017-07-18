@@ -1,5 +1,7 @@
 package pgo.trans.intermediate;
 
+import java.util.Vector;
+
 import pgo.model.intermediate.PGoFunction;
 import pgo.model.intermediate.PGoVariable;
 import pgo.model.parser.AnnotatedFunction;
@@ -8,8 +10,10 @@ import pgo.model.parser.AnnotatedReturnVariable;
 import pgo.model.parser.AnnotatedTLADefinition;
 import pgo.model.parser.AnnotatedVariable;
 import pgo.model.parser.AnnotatedVariable.VarAnnotatedVariable;
+import pgo.model.tla.PGoTLA;
 import pgo.model.tla.PGoTLADefinition;
 import pgo.parser.PGoParseException;
+import pgo.parser.TLAExprParser;
 import pgo.trans.PGoTransException;
 
 /**
@@ -150,6 +154,9 @@ public class PGoTransStageType {
 			if (d.getParams().isEmpty()) {
 				PGoVariable var = PGoVariable.convert(d, new PGoTempData(data));
 				this.data.globals.put(var.getName(), var);
+				Vector<PGoTLA> ptla = new TLAExprParser(d.getExpr(), d.getLine()).getResult();
+				assert (ptla.size() == 1);
+				this.data.putPGoTLA(d.getExpr(), ptla.get(0));
 			} else {
 				PGoTLADefinition tla = new PGoTLADefinition(d.getName(), d.getParams(), d.getExpr(), d.getLine());
 				this.data.defns.put(d.getName(), tla);
