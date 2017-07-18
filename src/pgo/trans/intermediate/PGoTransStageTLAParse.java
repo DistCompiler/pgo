@@ -142,7 +142,7 @@ public class PGoTransStageTLAParse {
 			Vector<PGoTLA> v = new TLAExprParser(e, line).getResult();
 			assert (v.size() <= 1);
 			if (!v.isEmpty()) {
-				data.tlaToAST.put(e, v.get(0));
+				data.putPGoTLA(e, v.get(0));
 			}
 		}
 	}

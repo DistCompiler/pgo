@@ -1,5 +1,6 @@
 package pgo.trans.intermediate;
 
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Vector;
@@ -46,9 +47,10 @@ public class PGoTempData extends PGoTransIntermediateData {
 		annots = data.annots;
 		needsLock = data.needsLock;
 		defns = data.defns;
+		tlaToAST = data.tlaToAST;
 		locals = new LinkedHashMap<>();
 	}
-	
+
 	// Clone the data passed in.
 	public PGoTempData(PGoTempData data) {
 		isMultiProcess = data.isMultiProcess;
@@ -62,6 +64,7 @@ public class PGoTempData extends PGoTransIntermediateData {
 		annots = data.annots;
 		needsLock = data.needsLock;
 		defns = new LinkedHashMap<>(data.defns);
+		tlaToAST = new HashMap<>(data.tlaToAST);
 		locals = new LinkedHashMap<>(data.getLocals());
 	}
 
@@ -69,6 +72,7 @@ public class PGoTempData extends PGoTransIntermediateData {
 		return locals;
 	}
 
+	@Override
 	public PGoVariable findPGoVariable(String name) {
 		PGoVariable ret = super.findPGoVariable(name);
 		if (ret == null || locals.containsKey(name)) {
@@ -79,15 +83,17 @@ public class PGoTempData extends PGoTransIntermediateData {
 		}
 		return ret;
 	}
-	
+
+	@Override
 	public PGoFunction findPGoFunction(String name) {
 		return super.findPGoFunction(name);
 	}
-	
+
+	@Override
 	public PGoTLADefinition findTLADefinition(String name) {
 		return super.findTLADefinition(name);
 	}
-	
+
 	public PGoLibFunction findBuiltInFunction(String name) {
 		return super.findBuiltinFunction(name);
 	}

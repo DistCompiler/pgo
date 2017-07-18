@@ -8,6 +8,7 @@ import java.util.Vector;
 import pcal.AST;
 import pcal.AST.LabeledStmt;
 import pcal.TLAExpr;
+import pcal.TLAExprPgo;
 import pgo.model.intermediate.PGoFunction;
 import pgo.model.intermediate.PGoLibFunction;
 import pgo.model.intermediate.PGoRoutineInit;
@@ -137,7 +138,7 @@ class PGoTransIntermediateData {
 
 	// Maps all TLAExprs found in the ast to their corresponding PGoTLA
 	// representation
-	Map<TLAExpr, PGoTLA> tlaToAST;
+	Map<TLAExprPgo, PGoTLA> tlaToAST;
 
 	PGoTransIntermediateData() {
 
@@ -188,6 +189,16 @@ class PGoTransIntermediateData {
 	// Return the TLA library function with the given name and parameters
 	PGoLibFunction findBuiltinFunction(String name) {
 		return libFuncs.get(name);
+	}
+
+	// Find the PGoTLA corresponding to the TLA expression
+	PGoTLA findPGoTLA(TLAExpr t) {
+		return tlaToAST.get(new TLAExprPgo(t));
+	}
+
+	// Put into the tlaToAST map
+	void putPGoTLA(TLAExpr t, PGoTLA tla) {
+		tlaToAST.put(new TLAExprPgo(t), tla);
 	}
 
 }
