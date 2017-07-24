@@ -26,9 +26,13 @@ import pgo.trans.intermediate.PGoTempData;
 
 /**
  * Infer the Go type that a TLA AST expression evaluates to, and determine
- * whether
- * the expression is legal in terms of typing, with the help of the intermediate
- * data.
+ * whether the expression is legal in terms of typing, with the help of the
+ * intermediate data.
+ * 
+ * This class is used both for type inference (in PGoTransStageType) and for
+ * type checking (in PGoTransStageGoGen). If this is used for type checking,
+ * there must not be any undetermined variables (which is enforced by
+ * PGoTransStageType.checkAllTyped()).
  *
  */
 public class TLAExprToType {
@@ -49,7 +53,7 @@ public class TLAExprToType {
 		this.data = data;
 		this.assign = assign;
 		type = infer(tla);
-		if (assign != null && !this.assign.getType().equals(PGoType.UNDETERMINED)
+		if (assign != null && this.assign.getType() != PGoType.UNDETERMINED && type != PGoType.UNDETERMINED
 				&& !assign.getType().equals(compatibleType(type, assign.getType()))) {
 			throw new PGoTransException("Expected to assign " + assign.getType().toTypeName() + " to the variable "
 					+ assign.getName() + " but inferred " + type.toTypeName() + " instead", tla.getLine());
@@ -65,7 +69,7 @@ public class TLAExprToType {
 			this.assign = null;
 		}
 		type = infer(tla);
-		if (this.assign != null && !this.assign.getType().equals(PGoType.UNDETERMINED)
+		if (this.assign != null && this.assign.getType() != PGoType.UNDETERMINED && type != PGoType.UNDETERMINED
 				&& !this.assign.getType().equals(compatibleType(type, this.assign.getType()))) {
 			throw new PGoTransException("Expected the type of the TLA subexpression to be "
 					+ this.assign.getType().toTypeName() + " but inferred " + type.toTypeName() + " instead",
@@ -98,19 +102,18 @@ public class TLAExprToType {
 	 * type that is compatible with both.
 	 * - Arbitrary types are compatible if they are the same type.
 	 * - All number types are compatible.
-	 * - Sets and other containers are compatible if they are the same type
-	 * of container and their contained types are compatible.
+	 * - Sets and other containers are compatible if they are the same type of
+	 * container and their contained types are compatible.
 	 * - Interface is said to be not compatible with any type.
 	 * - If a type is a template argument, the other type is returned.
 	 * - We don't care about pointers, anonymous functions, or void types since
 	 * these don't appear in TLA expressions.
 	 * 
-	 * @return null if the types are not compatible, or if at least one type is
-	 *         undetermined
+	 * @return null if the types are not compatible
 	 */
 	public static PGoType compatibleType(PGoType first, PGoType second) {
 		if (first.equals(PGoType.UNDETERMINED) || second.equals(PGoType.UNDETERMINED)) {
-			return null;
+			return PGoType.UNDETERMINED;
 		}
 
 		if (first.equals(second)) {
@@ -230,6 +233,10 @@ public class TLAExprToType {
 				PGoType contained = tup.getType(0);
 				for (PGoTLA elt : tla.getContents()) {
 					PGoType eltType = new TLAExprToType(elt, data, tup.getType(0)).getType();
+					if (eltType == PGoType.UNDETERMINED) {
+						return PGoType.UNDETERMINED;
+					}
+
 					if (TLAExprToType.compatibleType(contained, eltType) == null) {
 						throw new PGoTransException("Expected elements in tuple to be of type " + contained.toTypeName()
 								+ " but found " + eltType.toTypeName() + " instead", tla.getLine());
@@ -237,12 +244,15 @@ public class TLAExprToType {
 				}
 			} else {
 				if (tla.getContents().size() != tup.getLength()) {
-					throw new PGoTransException("Expected type " + tup.toTypeName() + " to have "
-							+ tup.getLength() + " elements, but found "
-							+ tla.getContents().size() + " instead", tla.getLine());
+					throw new PGoTransException("Expected type " + tup.toTypeName() + " to have " + tup.getLength()
+							+ " elements, but found " + tla.getContents().size() + " instead", tla.getLine());
 				}
 				for (int i = 0; i < tla.getContents().size(); i++) {
 					PGoType eltType = new TLAExprToType(tla.getContents().get(i), data, tup.getType(i)).getType();
+					if (eltType == PGoType.UNDETERMINED) {
+						return PGoType.UNDETERMINED;
+					}
+
 					if (TLAExprToType.compatibleType(tup.getType(i), eltType) == null) {
 						throw new PGoTransException("Expected the " + i + "th component of the tuple "
 								+ tup.toTypeName() + " to be of type " + tup.getType(i).toTypeName() + " but found "
@@ -255,6 +265,10 @@ public class TLAExprToType {
 			PGoType eltType = ((PGoChan) assign.getType()).getElementType();
 			for (PGoTLA elt : tla.getContents()) {
 				PGoType eType = new TLAExprToType(elt, data, eltType).getType();
+				if (eType == PGoType.UNDETERMINED) {
+					return PGoType.UNDETERMINED;
+				}
+
 				if (!eltType.equals(eType)) {
 					throw new PGoTransException("Expected channel elements to be of type " + eltType.toTypeName()
 							+ " but found " + eType.toTypeName(), tla.getLine());
@@ -265,6 +279,10 @@ public class TLAExprToType {
 			PGoType eltType = ((PGoSlice) assign.getType()).getElementType();
 			for (PGoTLA elt : tla.getContents()) {
 				PGoType eType = new TLAExprToType(elt, data, eltType).getType();
+				if (eType == PGoType.UNDETERMINED) {
+					return PGoType.UNDETERMINED;
+				}
+
 				if (!eltType.equals(eType)) {
 					throw new PGoTransException("Expected slice elements to be of type " + eltType.toTypeName()
 							+ " but found " + eType.toTypeName(), tla.getLine());
@@ -285,6 +303,10 @@ public class TLAExprToType {
 		// The types on either side should be comparable.
 		PGoType lhs = new TLAExprToType(tla.getLeft(), data).getType();
 		PGoType rhs = new TLAExprToType(tla.getRight(), data).getType();
+		// whether we should throw an error if we find a conflict; undetermined
+		// types should not cause errors
+		boolean throwOnConflict = lhs == PGoType.UNDETERMINED || rhs == PGoType.UNDETERMINED;
+
 		PGoType compar = compatibleType(lhs, rhs);
 		if (compar == null) {
 			throw new PGoTransException("The operator " + tla.getToken() + " cannot be used on the types "
@@ -296,7 +318,8 @@ public class TLAExprToType {
 		case "\\land":
 		case "\\/":
 		case "\\lor":
-			if (!lhs.equals(PGoType.inferFromGoTypeName("bool")) || !rhs.equals(PGoType.inferFromGoTypeName("bool"))) {
+			if ((!lhs.equals(PGoType.inferFromGoTypeName("bool"))
+					|| !rhs.equals(PGoType.inferFromGoTypeName("bool"))) && throwOnConflict) {
 				throw new PGoTransException("The operator " + tla.getToken() + " cannot be used on the types "
 						+ lhs.toTypeName() + " and " + rhs.toTypeName(), tla.getLine());
 			}
@@ -306,7 +329,8 @@ public class TLAExprToType {
 		case "<=":
 		case "\\geq":
 		case ">=":
-			if (!numberType.containsKey(lhs.toTypeName()) || !numberType.containsKey(rhs.toTypeName())) {
+			if ((!numberType.containsKey(lhs.toTypeName())
+					|| !numberType.containsKey(rhs.toTypeName())) && throwOnConflict) {
 				throw new PGoTransException("The operator " + tla.getToken() + " cannot be used on the types "
 						+ lhs.toTypeName() + " and " + rhs.toTypeName(), tla.getLine());
 			}
@@ -330,7 +354,7 @@ public class TLAExprToType {
 
 			for (int i = 0; i < funcParams.size(); i++) {
 				PGoType paramType = new TLAExprToType(callParams.get(0), data).getType();
-				if (!paramType.equals(funcParams.get(0).getType())) {
+				if (paramType != PGoType.UNDETERMINED && !paramType.equals(funcParams.get(0).getType())) {
 					throw new PGoTransException("Expected the " + i + "th parameter of the function " + tla.getName()
 							+ " to be of type " + funcParams.get(0).getType().toTypeName() + " but found "
 							+ paramType.toTypeName() + " instead", tla.getLine());
@@ -350,7 +374,7 @@ public class TLAExprToType {
 
 			for (int i = 0; i < funcParams.size(); i++) {
 				PGoType paramType = new TLAExprToType(callParams.get(0), data).getType();
-				if (!paramType.equals(funcParams.get(0).getType())) {
+				if (paramType != PGoType.UNDETERMINED && !paramType.equals(funcParams.get(0).getType())) {
 					throw new PGoTransException("Expected the " + i + "th parameter of the function " + tla.getName()
 							+ " to be of type " + funcParams.get(0).getType().toTypeName() + " but found "
 							+ paramType.toTypeName() + " instead", tla.getLine());
@@ -388,6 +412,9 @@ public class TLAExprToType {
 				throw new PGoTransException("Can't access multiple indices of tuple", tla.getLine());
 			}
 			PGoType type = new TLAExprToType(tla.getParams().get(0), data).getType();
+			if (type == PGoType.UNDETERMINED) {
+				return PGoType.UNDETERMINED;
+			}
 			if (!(type instanceof PGoNatural) && !(type instanceof PGoInt)) {
 				throw new PGoTransException("Can't access non-integer tuple index", tla.getLine());
 			}
@@ -408,7 +435,7 @@ public class TLAExprToType {
 				throw new PGoTransException("Can't access multiple indices of slice", tla.getLine());
 			}
 			PGoType type = new TLAExprToType(tla.getParams().get(0), data).getType();
-			if (!(type instanceof PGoNatural) && !(type instanceof PGoInt)) {
+			if (type != PGoType.UNDETERMINED && !(type instanceof PGoNatural) && !(type instanceof PGoInt)) {
 				throw new PGoTransException("Can't access non-integer slice index", tla.getLine());
 			}
 			return ((PGoSlice) var.getType()).getElementType();
@@ -421,26 +448,34 @@ public class TLAExprToType {
 							"Can't use multiple indices to access map with key type " + keyType.toTypeName(),
 							tla.getLine());
 				}
+				boolean isUndetermined = false;
 				Vector<PGoType> tup = new Vector<>();
 				for (int i = 0; i < tla.getParams().size(); i++) {
-					tup.add(new TLAExprToType(tla.getParams().get(i), data, ((PGoTuple) keyType).getType(i)).getType());
+					PGoType eltType = new TLAExprToType(tla.getParams().get(i), data, ((PGoTuple) keyType).getType(i))
+							.getType();
+					if (eltType == PGoType.UNDETERMINED) {
+						isUndetermined = true;
+					}
+					tup.add(eltType);
 				}
 				PGoTuple key = new PGoTuple(tup, false);
-				if (!key.equals(keyType)) {
-					throw new PGoTransException("Can't use " + type.toTypeName() + " as key for "
-							+ var.getType().toTypeName(), tla.getLine());
+				if (!isUndetermined && !key.equals(keyType)) {
+					throw new PGoTransException(
+							"Can't use " + type.toTypeName() + " as key for " + var.getType().toTypeName(),
+							tla.getLine());
 				}
 			} else {
 				PGoType type = new TLAExprToType(tla.getParams().get(0), data, keyType).getType();
-				if (!type.equals(keyType)) {
-					throw new PGoTransException("Can't use " + type.toTypeName() + " as key for "
-							+ var.getType().toTypeName(), tla.getLine());
+				if (type != PGoType.UNDETERMINED && !type.equals(keyType)) {
+					throw new PGoTransException(
+							"Can't use " + type.toTypeName() + " as key for " + var.getType().toTypeName(),
+							tla.getLine());
 				}
 			}
 			return ((PGoMap) var.getType()).getElementType();
 		}
-		throw new PGoTransException(
-				"Can't access arbitrary elements of a " + var.getType().toTypeName(), tla.getLine());
+		throw new PGoTransException("Can't access arbitrary elements of a " + var.getType().toTypeName(),
+				tla.getLine());
 	}
 
 	protected PGoType type(PGoTLAGroup tla) throws PGoTransException {
@@ -460,10 +495,12 @@ public class TLAExprToType {
 		// the begin and end arguments should both be integers
 		PGoType begin = new TLAExprToType(tla.getStart(), data).getType();
 		PGoType end = new TLAExprToType(tla.getEnd(), data).getType();
-		if (!(begin instanceof PGoNumber) || !(end instanceof PGoNumber)
-				|| numberType.get(begin.toTypeName()) > numberType.get("int")
-				|| numberType.get(end.toTypeName()) > numberType.get("int")) {
-			throw new PGoTransException("The sequence operator \"..\" must take integers", tla.getLine());
+		if (begin != PGoType.UNDETERMINED && end != PGoType.UNDETERMINED) {
+			if (!(begin instanceof PGoNumber) || !(end instanceof PGoNumber)
+					|| numberType.get(begin.toTypeName()) > numberType.get("int")
+					|| numberType.get(end.toTypeName()) > numberType.get("int")) {
+				throw new PGoTransException("The sequence operator \"..\" must take integers", tla.getLine());
+			}
 		}
 		return PGoType.inferFromGoTypeName("set[int]");
 	}
@@ -479,7 +516,10 @@ public class TLAExprToType {
 			return PGoType.inferFromGoTypeName("set[" + new TLAExprToType(st, data).getType().toTypeName() + "]");
 		} else {
 			// check if an elt type is already available
-			PGoType eltType = (assign == null ? null : ((PGoSet) assign.getType()).getElementType());
+			PGoType eltType = null;
+			if (assign != null && assign.getType() != PGoType.UNDETERMINED) {
+				eltType = ((PGoSet) assign.getType()).getElementType();
+			}
 			// elt's are declared one by one
 			PGoType first = new TLAExprToType(tla.getContents().get(0), data, eltType).getType();
 			// check if all elts are compatible and take the most specific type
@@ -488,9 +528,11 @@ public class TLAExprToType {
 				PGoType eType = new TLAExprToType(elt, data, eltType).getType();
 				first = compatibleType(first, eType);
 				if (first == null) {
-					throw new PGoTransException(
-							"Set initialized with elements of incompatible types", tla.getLine());
+					throw new PGoTransException("Set initialized with elements of incompatible types", tla.getLine());
 				}
+			}
+			if (first == PGoType.UNDETERMINED) {
+				return PGoType.UNDETERMINED;
 			}
 			return PGoType.inferFromGoTypeName("set[" + first.toTypeName() + "]");
 		}
@@ -502,24 +544,28 @@ public class TLAExprToType {
 		case "\\notin":
 			// the element type must be compatible w/ set type
 			PGoType setType = new TLAExprToType(tla.getRight(), data).getType();
+
+			if (setType == PGoType.UNDETERMINED) {
+				return PGoType.inferFromGoTypeName("bool");
+			}
+
 			if (!(setType instanceof PGoSet)) {
-				throw new PGoTransException("The right-hand argument of the " + tla.getToken()
-						+ " operator must be a set", tla.getLine());
+				throw new PGoTransException(
+						"The right-hand argument of the " + tla.getToken() + " operator must be a set", tla.getLine());
 			}
 			PGoType eltType = new TLAExprToType(tla.getLeft(), data, ((PGoSet) setType).getElementType()).getType();
 			if (!setType.equals(PGoCollectionType.EMPTY_SET)
 					&& compatibleType(eltType, ((PGoSet) setType).getElementType()) == null) {
-				throw new PGoTransException(
-						"The type " + eltType.toTypeName() + " is not compatible with the element type of the set "
-								+ setType.toTypeName(),
-						tla.getLine());
+				throw new PGoTransException("The type " + eltType.toTypeName()
+						+ " is not compatible with the element type of the set " + setType.toTypeName(), tla.getLine());
 			}
 			return PGoType.inferFromGoTypeName("bool");
 		default:
 			PGoType lhs = new TLAExprToType(tla.getLeft(), data, assign).getType();
 			PGoType rhs = new TLAExprToType(tla.getRight(), data, assign).getType();
 			PGoType result = compatibleType(lhs, rhs);
-			if (result == null || !(result instanceof PGoSet)) {
+
+			if (result != PGoType.UNDETERMINED && (result == null || !(result instanceof PGoSet))) {
 				throw new PGoTransException("Can't use operator " + tla.getToken() + " on types " + lhs.toTypeName()
 						+ " and " + rhs.toTypeName(), tla.getLine());
 			}
@@ -535,6 +581,10 @@ public class TLAExprToType {
 		PGoType right = new TLAExprToType(tla.getRight(), data).getType();
 
 		PGoType result = compatibleType(left, right);
+		if (result == PGoType.UNDETERMINED) {
+			return PGoType.UNDETERMINED;
+		}
+
 		if (!(result instanceof PGoNumber)) {
 			throw new PGoTransException("Can't use arithmetic operator " + tla.getToken() + " on types "
 					+ left.toTypeName() + " and " + right.toTypeName(), tla.getLine());
@@ -564,11 +614,19 @@ public class TLAExprToType {
 		PGoType argType = new TLAExprToType(tla.getArg(), data).getType();
 		switch (tla.getToken()) {
 		case "UNION":
+			if (argType == PGoType.UNDETERMINED) {
+				return PGoType.UNDETERMINED;
+			}
+
 			if (!(argType instanceof PGoSet) || !(((PGoSet) argType).getElementType() instanceof PGoSet)) {
 				throw new PGoTransException("Can't UNION a " + argType.toTypeName(), tla.getLine());
 			}
 			return PGoType.inferFromGoTypeName(((PGoSet) argType).getElementType().toTypeName());
 		case "SUBSET":
+			if (argType == PGoType.UNDETERMINED) {
+				return PGoType.UNDETERMINED;
+			}
+
 			if (!(argType instanceof PGoSet)) {
 				throw new PGoTransException("Can't take powerset of non-set type " + argType.toTypeName(),
 						tla.getLine());
@@ -577,7 +635,7 @@ public class TLAExprToType {
 		case "~":
 		case "\\lnot":
 		case "\\neg":
-			if (!argType.equals(PGoType.inferFromGoTypeName("bool"))) {
+			if (argType != PGoType.UNDETERMINED && !argType.equals(PGoType.inferFromGoTypeName("bool"))) {
 				throw new PGoTransException("Can't negate a " + argType.toTypeName(), tla.getLine());
 			}
 		case "\\A":
@@ -612,6 +670,11 @@ public class TLAExprToType {
 				assert (set.getLeft() instanceof PGoTLAVariable);
 				PGoTLAVariable var = (PGoTLAVariable) set.getLeft();
 				PGoType containerType = new TLAExprToType(set.getRight(), data).getType();
+
+				if (containerType == PGoType.UNDETERMINED) {
+					return PGoType.UNDETERMINED;
+				}
+
 				assert (containerType instanceof PGoSet);
 				PGoType eltType = ((PGoSet) containerType).getElementType();
 				temp.getLocals().put(var.getName(), PGoVariable.convert(var.getName(), eltType));
@@ -632,6 +695,11 @@ public class TLAExprToType {
 				// x \in S
 				PGoTLA set = ((PGoTLASetOp) sets.get(0)).getRight();
 				PGoType setType = new TLAExprToType(set, data).getType();
+
+				if (setType == PGoType.UNDETERMINED) {
+					return PGoType.UNDETERMINED;
+				}
+
 				assert (setType instanceof PGoSet);
 				return ((PGoSet) setType).getElementType();
 			}
@@ -645,6 +713,11 @@ public class TLAExprToType {
 				assert (elt instanceof PGoTLASetOp);
 				PGoTLA setExpr = ((PGoTLASetOp) elt).getRight();
 				PGoType setType = new TLAExprToType(setExpr, data).getType();
+
+				if (setType == PGoType.UNDETERMINED) {
+					return PGoType.UNDETERMINED;
+				}
+
 				assert (setType instanceof PGoSet);
 				tupTypes.add(((PGoSet) setType).getElementType());
 
@@ -661,6 +734,11 @@ public class TLAExprToType {
 				keyType = tupTypes.get(0);
 			}
 			PGoType valType = new TLAExprToType(tla.getExpr(), temp).getType();
+
+			if (valType == PGoType.UNDETERMINED) {
+				return PGoType.UNDETERMINED;
+			}
+
 			return PGoType.inferFromGoTypeName("map[" + keyType.toTypeName() + "]" + valType.toTypeName());
 		case "EXCEPT":
 			// TODO
@@ -669,4 +747,5 @@ public class TLAExprToType {
 			return null;
 		}
 	}
+
 }
