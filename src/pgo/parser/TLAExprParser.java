@@ -133,6 +133,7 @@ public class TLAExprParser {
 				parseStringToken(tok);
 			} else if (tok.type == DEFAULT_VAL) {
 				// this means the TLA expr is blank
+				result.add(new PGoTLA.PGoTLADefault(line));
 				break;
 			} else {
 				throw new PGoTransException("Unknown token: \"" + tok.string + "\"", line);

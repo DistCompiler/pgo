@@ -1,6 +1,9 @@
 package pgo.model.tla;
 
+import java.util.Vector;
+
 import pgo.model.golang.Expression;
+import pgo.model.golang.SimpleExpression;
 import pgo.model.intermediate.PGoType;
 import pgo.trans.PGoTransException;
 
@@ -19,6 +22,24 @@ public abstract class PGoTLA {
 
 	public int getLine() {
 		return line;
+	}
+
+	// A class representing a blank expression (equivalent to
+	// "defaultInitValue" in PlusCal).
+	public static final class PGoTLADefault extends PGoTLA {
+		public PGoTLADefault(int line) {
+			super(line);
+		}
+
+		@Override
+		protected Expression convert(TLAExprToGo trans) throws PGoTransException {
+			return new SimpleExpression(new Vector<>());
+		}
+
+		@Override
+		protected PGoType inferType(TLAExprToType trans) throws PGoTransException {
+			return PGoType.UNDETERMINED;
+		}
 	}
 
 	/**
