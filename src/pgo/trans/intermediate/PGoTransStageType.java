@@ -2,7 +2,14 @@ package pgo.trans.intermediate;
 
 import java.util.Vector;
 
+import pcal.AST;
+import pcal.AST.PVarDecl;
+import pcal.AST.Process;
+import pcal.AST.SingleAssign;
+import pcal.AST.VarDecl;
+import pgo.model.intermediate.PGoCollectionType.PGoSet;
 import pgo.model.intermediate.PGoFunction;
+import pgo.model.intermediate.PGoType;
 import pgo.model.intermediate.PGoVariable;
 import pgo.model.parser.AnnotatedFunction;
 import pgo.model.parser.AnnotatedProcess;
@@ -12,9 +19,11 @@ import pgo.model.parser.AnnotatedVariable;
 import pgo.model.parser.AnnotatedVariable.VarAnnotatedVariable;
 import pgo.model.tla.PGoTLA;
 import pgo.model.tla.PGoTLADefinition;
+import pgo.model.tla.TLAExprToType;
 import pgo.parser.PGoParseException;
 import pgo.parser.TLAExprParser;
 import pgo.trans.PGoTransException;
+import pgo.util.PcalASTUtil;
 
 /**
  * The second stage of the translation where we determine the types of all
@@ -31,11 +40,13 @@ public class PGoTransStageType {
 
 	public PGoTransStageType(PGoTransStageTLAParse s1) throws PGoParseException, PGoTransException {
 		this.data = s1.data;
+		addAnnotatedDefinitions();
 		applyAnnotationOnVariables();
 		applyAnnotationOnFunctions();
 		applyAnnotationOnReturnVariables();
 		applyAnnotationOnProcesses();
-		addAnnotatedDefinitions();
+
+		inferVariableTypes();
 
 		checkAllTyped();
 	}
@@ -115,8 +126,7 @@ public class PGoTransStageType {
 			PGoFunction fun = this.data.findPGoFunction(f.getName());
 			if (fun == null) {
 				throw new PGoTransException(
-						"Reference to function \"" + f.getName()
-								+ "\" in annotation but no matching function \"" + f.getName() + " \"or \"PGo"
+						"Reference to function \"" + f.getName() + "\" in annotation but no matching function \""
 								+ f.getName() + "\" found.",
 						f.getLine());
 			}
@@ -160,6 +170,161 @@ public class PGoTransStageType {
 			} else {
 				PGoTLADefinition tla = new PGoTLADefinition(d.getName(), d.getParams(), d.getExpr(), d.getLine());
 				this.data.defns.put(d.getName(), tla);
+			}
+		}
+	}
+
+	// Infer types of variables based on the TLA expressions used in assignment.
+	private void inferVariableTypes() throws PGoTransException {
+		PcalASTUtil.Walker<Boolean> walker = new PcalASTUtil.Walker<Boolean>() {
+
+			@Override
+			protected void init() {
+				// whether we were able to infer something new in this pass
+				result = false;
+			}
+
+			@Override
+			public Boolean getResult(AST body) throws PGoTransException {
+				init();
+				return super.getResult(body);
+			}
+
+			@Override
+			protected void visit(Process p) throws PGoTransException {
+				// infer the type of the process id
+				PGoTLA tla = data.findPGoTLA(p.id);
+				PGoFunction fun = data.findPGoFunction(p.name);
+				PGoVariable pId = fun.getParam(PGoVariable.processIdArg().getName());
+
+				PGoType type;
+				if (p.isEq) {
+					type = new TLAExprToType(tla, new PGoTempData(data), pId).getType();
+				} else {
+					type = new TLAExprToType(tla, new PGoTempData(data),
+							PGoType.inferFromGoTypeName("set[" + pId.getType().toTypeName() + "]")).getType();
+				}
+
+				if (type != PGoType.UNDETERMINED) {
+					if (!p.isEq) {
+						// this is var \in set
+						assert (type instanceof PGoSet);
+						type = ((PGoSet) type).getElementType();
+					}
+
+					if (!type.equals(pId.getType())) {
+						if (pId.getType() == PGoType.UNDETERMINED) {
+							pId.setType(type);
+						} else {
+							// already checked for type consistency in
+							// TLAExprToType
+							assert (TLAExprToType.compatibleType(type, pId.getType()) != null);
+							// if the variable type didn't change, don't flag as
+							// changed
+							if (!pId.getType().equals(TLAExprToType.compatibleType(type, pId.getType()))) {
+								pId.setType(TLAExprToType.compatibleType(type, pId.getType()));
+								result = true;
+							}
+						}
+					}
+
+				}
+
+				// add "self" to data
+				PGoTempData temp = new PGoTempData(data);
+				PGoTransIntermediateData oldData = data;
+				data = temp;
+				temp.globals.put("self", pId);
+				// walk process ast
+				super.visit(p);
+				data = oldData;
+			}
+
+			@Override
+			protected void visit(PVarDecl a) throws PGoTransException {
+				visit(a.toVarDecl());
+			}
+
+			@Override
+			protected void visit(VarDecl a) throws PGoTransException {
+				PGoTLA tla = data.findPGoTLA(a.val);
+				PGoVariable var = data.findPGoVariable(a.var);
+				PGoType type;
+				if (a.isEq) {
+					type = new TLAExprToType(tla, new PGoTempData(data), var).getType();
+				} else {
+					type = new TLAExprToType(tla, new PGoTempData(data),
+							PGoType.inferFromGoTypeName("set[" + var.getType().toTypeName() + "]")).getType();
+				}
+
+				if (type == PGoType.UNDETERMINED) {
+					return;
+				}
+
+				if (!a.isEq) {
+					// this is var \in set
+					assert (type instanceof PGoSet);
+					type = ((PGoSet) type).getElementType();
+				}
+
+				if (type.equals(var.getType())) {
+					return;
+				}
+
+				if (var.getType() == PGoType.UNDETERMINED) {
+					var.setType(type);
+				} else {
+					// already checked for type consistency in TLAExprToType
+					assert (TLAExprToType.compatibleType(type, var.getType()) != null);
+					// if the variable type didn't change, don't flag as changed
+					if (var.getType().equals(TLAExprToType.compatibleType(type, var.getType()))) {
+						return;
+					}
+					var.setType(TLAExprToType.compatibleType(type, var.getType()));
+				}
+
+				result = true;
+			}
+
+			@Override
+			protected void visit(SingleAssign sa) throws PGoTransException {
+				PGoTLA tla = data.findPGoTLA(sa.rhs);
+				PGoVariable var = data.findPGoVariable(sa.lhs.var);
+				PGoType type;
+				if (sa.lhs.sub.tokens.isEmpty()) {
+					// no sub
+					type = new TLAExprToType(tla, new PGoTempData(data), var).getType();
+
+					if (type == PGoType.UNDETERMINED || var.getType().equals(type)) {
+						return;
+					}
+
+					if (var.getType() == PGoType.UNDETERMINED) {
+						var.setType(type);
+					} else {
+						assert (TLAExprToType.compatibleType(type, var.getType()) != null);
+						// if the variable type didn't change, don't flag as
+						// changed
+						if (var.getType().equals(TLAExprToType.compatibleType(type, var.getType()))) {
+							return;
+						}
+						var.setType(TLAExprToType.compatibleType(type, var.getType()));
+					}
+					result = true;
+				} else {
+					// sub for array access or record field access
+					// TODO
+					type = null;
+				}
+
+			}
+
+		};
+		// walk the ast repeatedly, filling type information, until we cannot
+		// infer any more types
+		while (true) {
+			if (!walker.getResult(data.ast)) {
+				break;
 			}
 		}
 	}

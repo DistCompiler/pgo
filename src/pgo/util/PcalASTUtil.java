@@ -5,33 +5,8 @@ import java.util.Set;
 import java.util.Vector;
 
 import pcal.AST;
-import pcal.AST.Assert;
-import pcal.AST.Assign;
-import pcal.AST.Call;
-import pcal.AST.CallReturn;
-import pcal.AST.Clause;
-import pcal.AST.Either;
-import pcal.AST.Goto;
-import pcal.AST.If;
-import pcal.AST.LabelEither;
-import pcal.AST.LabelIf;
-import pcal.AST.LabeledStmt;
-import pcal.AST.Lhs;
-import pcal.AST.Macro;
-import pcal.AST.MacroCall;
-import pcal.AST.Multiprocess;
-import pcal.AST.PVarDecl;
-import pcal.AST.PrintS;
-import pcal.AST.Procedure;
+import pcal.AST.*;
 import pcal.AST.Process;
-import pcal.AST.Return;
-import pcal.AST.SingleAssign;
-import pcal.AST.Skip;
-import pcal.AST.Uniprocess;
-import pcal.AST.VarDecl;
-import pcal.AST.When;
-import pcal.AST.While;
-import pcal.AST.With;
 import pgo.trans.PGoTransException;
 
 /**
@@ -198,8 +173,8 @@ public class PcalASTUtil {
 		}
 
 		protected void visit(Process p) throws PGoTransException {
-			walk(p.body);
 			walk(p.decls);
+			walk(p.body);
 		}
 
 		protected void visit(PVarDecl a) throws PGoTransException {
