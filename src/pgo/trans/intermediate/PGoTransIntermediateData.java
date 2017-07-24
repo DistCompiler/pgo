@@ -176,6 +176,9 @@ class PGoTransIntermediateData {
 					}
 				}
 			}
+			if (ret == null) {
+				ret = unresolvedVars.get(name);
+			}
 		}
 
 		return ret;

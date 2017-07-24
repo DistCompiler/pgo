@@ -36,18 +36,16 @@ public class PGoTempData extends PGoTransIntermediateData {
 	public PGoTempData(PGoTransIntermediateData data) {
 		isMultiProcess = data.isMultiProcess;
 		algName = data.algName;
-		// don't need to make deep copy since we can't mess with these fields
-		// anyway
-		globals = data.globals;
-		unresolvedVars = data.unresolvedVars;
-		funcs = data.funcs;
+		globals = new LinkedHashMap<>(data.globals);
+		unresolvedVars = new LinkedHashMap<>(data.unresolvedVars);
+		funcs = new LinkedHashMap<>(data.funcs);
 		tlaExpr = data.tlaExpr;
-		mainBlock = data.mainBlock;
-		goroutines = data.goroutines;
+		mainBlock = new Vector<>(data.mainBlock);
+		goroutines = new LinkedHashMap<>(data.goroutines);
 		annots = data.annots;
 		needsLock = data.needsLock;
-		defns = data.defns;
-		tlaToAST = data.tlaToAST;
+		defns = new LinkedHashMap<>(data.defns);
+		tlaToAST = new HashMap<>(data.tlaToAST);
 		locals = new LinkedHashMap<>();
 	}
 
