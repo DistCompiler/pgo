@@ -39,6 +39,10 @@ public abstract class PGoCollectionType extends PGoType {
 		return eType;
 	}
 
+	public void setElementType(PGoType type) {
+		eType = type;
+	}
+
 	/**
 	 * Represents a slice in Go lang, which is just a specialized array of
 	 * elements in pluscal
@@ -148,11 +152,16 @@ public abstract class PGoCollectionType extends PGoType {
 			return kType;
 		}
 
+		public void setKeyType(PGoType kType) {
+			this.kType = kType;
+		}
+
 		@Override
 		public String toTypeName() {
 			return "map[" + kType.toTypeName() + "]" + eType.toTypeName();
 		}
 
+		@Override
 		public String toGo() {
 			return "pgoutil.Map";
 		}
@@ -173,6 +182,7 @@ public abstract class PGoCollectionType extends PGoType {
 			return eType.toTypeName() + "*";
 		}
 
+		@Override
 		public String toGo() {
 			return eType.toGo() + "*";
 		}
@@ -252,6 +262,14 @@ public abstract class PGoCollectionType extends PGoType {
 
 		public Vector<PGoType> getContainedTypes() {
 			return new Vector<>(contained);
+		}
+
+		public void setType(int index, PGoType type) {
+			if (length == -1) {
+				contained.set(0, type);
+			} else {
+				contained.set(index, type);
+			}
 		}
 
 		public PGoType getType(int index) {

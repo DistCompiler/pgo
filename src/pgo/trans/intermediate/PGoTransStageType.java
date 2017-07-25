@@ -7,8 +7,15 @@ import pcal.AST.PVarDecl;
 import pcal.AST.Process;
 import pcal.AST.SingleAssign;
 import pcal.AST.VarDecl;
+import pcal.TLAToken;
+import pgo.model.intermediate.PGoCollectionType;
+import pgo.model.intermediate.PGoCollectionType.PGoMap;
 import pgo.model.intermediate.PGoCollectionType.PGoSet;
+import pgo.model.intermediate.PGoCollectionType.PGoSlice;
+import pgo.model.intermediate.PGoCollectionType.PGoTuple;
 import pgo.model.intermediate.PGoFunction;
+import pgo.model.intermediate.PGoPrimitiveType.PGoInt;
+import pgo.model.intermediate.PGoPrimitiveType.PGoNatural;
 import pgo.model.intermediate.PGoType;
 import pgo.model.intermediate.PGoVariable;
 import pgo.model.parser.AnnotatedFunction;
@@ -19,6 +26,8 @@ import pgo.model.parser.AnnotatedVariable;
 import pgo.model.parser.AnnotatedVariable.VarAnnotatedVariable;
 import pgo.model.tla.PGoTLA;
 import pgo.model.tla.PGoTLADefinition;
+import pgo.model.tla.PGoTLAFunctionCall;
+import pgo.model.tla.PGoTLANumber;
 import pgo.model.tla.TLAExprToType;
 import pgo.parser.PGoParseException;
 import pgo.parser.TLAExprParser;
@@ -312,10 +321,98 @@ public class PGoTransStageType {
 					}
 					result = true;
 				} else {
-					// sub for array access or record field access
-					// TODO
-					type = null;
+					// the sub is [expr, expr...] (map/array access) or
+					// .<name> for a record field
+
+					// subs aren't parsed in the TLAParse stage, so parse them
+					// now
+					// to parse properly, prepend the variable name
+					((Vector<TLAToken>) sa.lhs.sub.tokens.get(0)).add(0,
+							new TLAToken(sa.lhs.var, 0, TLAToken.IDENT));
+					Vector<PGoTLA> ptla = new TLAExprParser(sa.lhs.sub, sa.line).getResult();
+					assert (ptla.size() == 1);
+					// TODO handle record fields
+					assert (ptla.get(0) instanceof PGoTLAFunctionCall);
+					PGoTLAFunctionCall fc = (PGoTLAFunctionCall) ptla.get(0);
+
+					// the element type of the variable
+					PGoType givenType = PGoType.UNDETERMINED;
+					if (var.getType() instanceof PGoMap || var.getType() instanceof PGoSlice) {
+						givenType = ((PGoCollectionType) var.getType()).getElementType();
+					}
+					type = new TLAExprToType(ptla.get(0), new PGoTempData(data), givenType).getType();
+
+					if (type == PGoType.UNDETERMINED) {
+						return;
+					}
+
+					if (var.getType() == PGoType.UNDETERMINED) {
+						// if there are multiple indices, or the index is not an
+						// integer, then this is a map
+						if (fc.getParams().size() > 1) {
+							var.setType(new PGoMap("undetermined", "undetermined"));
+						} else {
+							PGoType indexType = new TLAExprToType(fc.getParams().get(0), new PGoTempData(data))
+									.getType();
+							if (indexType != PGoType.UNDETERMINED && !(indexType instanceof PGoNatural)
+									&& !(indexType instanceof PGoInt)) {
+								var.setType(new PGoMap(indexType.toTypeName(), "undetermined"));
+							} else {
+								return;
+							}
+						}
+					}
+
+					if (var.getType() instanceof PGoTuple) {
+						if (fc.getParams().get(0) instanceof PGoTLANumber) {
+							int index = Integer.parseInt(((PGoTLANumber) fc.getParams().get(0)).getVal());
+							PGoType toSet = ((PGoTuple) var.getType()).getType(index);
+
+							if (TLAExprToType.compatibleType(toSet, type).equals(toSet)) {
+								return;
+							}
+							((PGoTuple) var.getType()).setType(index, type);
+						} else {
+							return;
+						}
+					} else if (var.getType() instanceof PGoSlice) {
+						PGoType toSet = ((PGoSlice) var.getType()).getElementType();
+
+						if (TLAExprToType.compatibleType(toSet, type).equals(toSet)) {
+							return;
+						}
+						((PGoSlice) var.getType()).setElementType(type);
+					} else if (var.getType() instanceof PGoMap) {
+						PGoType eType = ((PGoMap) var.getType()).getElementType();
+						PGoType kType = ((PGoMap) var.getType()).getKeyType();
+
+						// we should also try to infer the key type
+						Vector<PGoType> key = new Vector<>();
+						for (PGoTLA param : fc.getParams()) {
+							key.add(new TLAExprToType(param, new PGoTempData(data)).getType());
+						}
+
+						PGoType kTypeInferred;
+						if (key.size() == 1) {
+							kTypeInferred = key.get(0);
+						} else {
+							kTypeInferred = new PGoTuple(key, false);
+						}
+
+						PGoType kNew = TLAExprToType.compatibleType(kTypeInferred, kType),
+								eNew = TLAExprToType.compatibleType(type, eType);
+
+						if ((type == PGoType.UNDETERMINED || eNew.equals(eType))
+								&& (kTypeInferred == PGoType.UNDETERMINED || kNew.equals(kType))) {
+							return;
+						}
+
+						((PGoMap) var.getType()).setElementType(eNew);
+						((PGoMap) var.getType()).setKeyType(kNew);
+					}
 				}
+
+				result = true;
 
 			}
 
