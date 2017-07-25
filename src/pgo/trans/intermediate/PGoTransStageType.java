@@ -7,7 +7,6 @@ import pcal.AST.PVarDecl;
 import pcal.AST.Process;
 import pcal.AST.SingleAssign;
 import pcal.AST.VarDecl;
-import pcal.TLAToken;
 import pgo.model.intermediate.PGoCollectionType;
 import pgo.model.intermediate.PGoCollectionType.PGoMap;
 import pgo.model.intermediate.PGoCollectionType.PGoSet;
@@ -324,23 +323,16 @@ public class PGoTransStageType {
 					// the sub is [expr, expr...] (map/array access) or
 					// .<name> for a record field
 
-					// subs aren't parsed in the TLAParse stage, so parse them
-					// now
-					// to parse properly, prepend the variable name
-					((Vector<TLAToken>) sa.lhs.sub.tokens.get(0)).add(0,
-							new TLAToken(sa.lhs.var, 0, TLAToken.IDENT));
-					Vector<PGoTLA> ptla = new TLAExprParser(sa.lhs.sub, sa.line).getResult();
-					assert (ptla.size() == 1);
+					PGoTLA ptla = data.findPGoTLA(sa.lhs.sub);
 					// TODO handle record fields
-					assert (ptla.get(0) instanceof PGoTLAFunctionCall);
-					PGoTLAFunctionCall fc = (PGoTLAFunctionCall) ptla.get(0);
+					PGoTLAFunctionCall fc = (PGoTLAFunctionCall) ptla;
 
 					// the element type of the variable
 					PGoType givenType = PGoType.UNDETERMINED;
 					if (var.getType() instanceof PGoMap || var.getType() instanceof PGoSlice) {
 						givenType = ((PGoCollectionType) var.getType()).getElementType();
 					}
-					type = new TLAExprToType(ptla.get(0), new PGoTempData(data), givenType).getType();
+					type = new TLAExprToType(ptla, new PGoTempData(data), givenType).getType();
 
 					if (type == PGoType.UNDETERMINED) {
 						return;

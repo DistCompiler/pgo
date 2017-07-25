@@ -5,6 +5,7 @@ import java.util.Vector;
 import pcal.AST.*;
 import pcal.AST.Process;
 import pcal.TLAExpr;
+import pcal.TLAToken;
 import pgo.model.tla.PGoTLA;
 import pgo.parser.TLAExprParser;
 import pgo.trans.PGoTransException;
@@ -70,6 +71,12 @@ public class PGoTransStageTLAParse {
 			@Override
 			protected void visit(SingleAssign sa) throws PGoTransException {
 				convert(sa.rhs, sa.line);
+				// also parse the sub, if it's not empty
+				if (!sa.lhs.sub.tokens.isEmpty()) {
+					// prepend the variable name
+					((Vector<TLAToken>) sa.lhs.sub.tokens.get(0)).add(0, new TLAToken(sa.lhs.var, 0, TLAToken.IDENT));
+					convert(sa.lhs.sub, sa.line);
+				}
 				super.visit(sa);
 			}
 

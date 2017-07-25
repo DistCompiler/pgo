@@ -8,7 +8,6 @@ import pcal.AST;
 import pcal.AST.*;
 import pcal.AST.If;
 import pcal.AST.Return;
-import pcal.TLAToken;
 import pgo.model.golang.*;
 import pgo.model.intermediate.PGoCollectionType.PGoMap;
 import pgo.model.intermediate.PGoCollectionType.PGoSet;
@@ -26,7 +25,6 @@ import pgo.model.tla.PGoTLADefinition;
 import pgo.model.tla.PGoTLAFunctionCall;
 import pgo.model.tla.TLAExprToGo;
 import pgo.parser.PGoParseException;
-import pgo.parser.TLAExprParser;
 import pgo.trans.PGoTransException;
 import pgo.util.PcalASTUtil;
 
@@ -210,15 +208,9 @@ public class PGoTransStageGoGen {
 							// the sub is [expr, expr...] (map/array access) or
 							// .<name> for a record field
 
-							// subs aren't parsed in the TLAParse stage, so parse them now
-							// to parse properly, prepend the variable name
-							((Vector<TLAToken>) sa.lhs.sub.tokens.get(0)).add(0,
-									new TLAToken(sa.lhs.var, 0, TLAToken.IDENT));
-							Vector<PGoTLA> ptla = new TLAExprParser(sa.lhs.sub, as.line).getResult();
-							assert (ptla.size() == 1);
+							PGoTLA ptla = data.findPGoTLA(sa.lhs.sub);
 							// TODO handle record fields
-							assert (ptla.get(0) instanceof PGoTLAFunctionCall);
-							PGoTLAFunctionCall fc = (PGoTLAFunctionCall) ptla.get(0);
+							PGoTLAFunctionCall fc = (PGoTLAFunctionCall) ptla;
 							// Check for type consistency.
 							TLAToGo(fc);
 							// We compile differently based on the variable's
@@ -285,14 +277,9 @@ public class PGoTransStageGoGen {
 					// the sub is [expr, expr...] (map/array access) or
 					// .<name> for a record field
 
-					// to parse properly, prepend the variable name
-					((Vector<TLAToken>) sa.lhs.sub.tokens.get(0)).add(0,
-							new TLAToken(sa.lhs.var, 0, TLAToken.IDENT));
-					Vector<PGoTLA> ptla = new TLAExprParser(sa.lhs.sub, sa.line).getResult();
-					assert (ptla.size() == 1);
+					PGoTLA ptla = data.findPGoTLA(sa.lhs.sub);
 					// TODO handle record fields
-					assert (ptla.get(0) instanceof PGoTLAFunctionCall);
-					PGoTLAFunctionCall fc = (PGoTLAFunctionCall) ptla.get(0);
+					PGoTLAFunctionCall fc = (PGoTLAFunctionCall) ptla;
 					// Check for type consistency.
 					TLAToGo(fc);
 					// We compile differently based on the variable's type.
