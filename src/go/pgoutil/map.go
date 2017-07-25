@@ -396,7 +396,7 @@ func (m *mp) Values() <-chan interface{} {
 func (m *mp) Iter() <-chan KVPair {
 	m.RLock()
 	iter := m.tree.Iterator()
-	ret := make(chan KVPair)
+	ret := make(chan KVPair, m.Size())
 
 	go func() {
 		defer m.RUnlock()
