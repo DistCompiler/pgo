@@ -8,6 +8,7 @@ import pcal.AST;
 import pcal.AST.*;
 import pcal.AST.If;
 import pcal.AST.Return;
+import pcal.TLAExpr;
 import pgo.model.golang.*;
 import pgo.model.intermediate.PGoCollectionType.PGoMap;
 import pgo.model.intermediate.PGoCollectionType.PGoSet;
@@ -504,9 +505,12 @@ public class PGoTransStageGoGen {
 			}
 
 			@Override
-			protected void visit(Call c) {
-				// TODO c.args is vector of tlaExpr
+			protected void visit(Call c) throws PGoTransException {
 				Vector<Expression> args = new Vector<>();
+				for (TLAExpr t : (Vector<TLAExpr>) c.args) {
+					PGoTLA tla = data.findPGoTLA(t);
+					args.add(TLAToGo(tla));
+				}
 				FunctionCall fc = new FunctionCall(c.to, args);
 				result.add(fc);
 			}
@@ -518,9 +522,12 @@ public class PGoTransStageGoGen {
 			}
 
 			@Override
-			protected void visit(CallReturn cr) {
-				// TODO c.args is vector of tlaExpr
+			protected void visit(CallReturn cr) throws PGoTransException {
 				Vector<Expression> args = new Vector<>();
+				for (TLAExpr t : (Vector<TLAExpr>) cr.args) {
+					PGoTLA tla = data.findPGoTLA(t);
+					args.add(TLAToGo(tla));
+				}
 				FunctionCall fc = new FunctionCall(cr.to, args);
 				result.add(fc);
 			}
