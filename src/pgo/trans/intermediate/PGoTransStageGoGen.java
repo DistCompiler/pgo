@@ -15,6 +15,7 @@ import pgo.model.intermediate.PGoCollectionType.PGoSet;
 import pgo.model.intermediate.PGoCollectionType.PGoSlice;
 import pgo.model.intermediate.PGoCollectionType.PGoTuple;
 import pgo.model.intermediate.PGoFunction;
+import pgo.model.intermediate.PGoMiscellaneousType.PGoRWMutex;
 import pgo.model.intermediate.PGoMiscellaneousType.PGoWaitGroup;
 import pgo.model.intermediate.PGoPrimitiveType;
 import pgo.model.intermediate.PGoRoutineInit;
@@ -712,6 +713,11 @@ public class PGoTransStageGoGen {
 	 * @throws PGoTransException
 	 */
 	private void generateGlobalVariables() throws PGoTransException {
+		// if the algorithm needs a lock, we should make a sync.RWMutex
+		if (data.needsLock) {
+			go.addGlobal(new VariableDeclaration("PGoLock", new PGoRWMutex(), null, new Vector<>(), false));
+			go.getImports().addImport("sync");
+		}
 		// we delay initialization once we hit a variable with \in, in case
 		// other variable refer to it. We also want to reset the other values to
 		// the initial value. Constants will still be generated at the time
