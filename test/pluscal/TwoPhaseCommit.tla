@@ -3,8 +3,8 @@ EXTENDS Naturals, TLC
 (*
 --algorithm TwoPhaseCommit {
   variables
-    (** @PGo{ var Set[String] managers }@PGo
-        @PGo{ var map[String]String restaurant_stage }@PGo **)
+    (** @PGo{ var managers Set[String] }@PGo
+        @PGo{ var restaurant_stage map[String]String }@PGo **)
     managers = {"bob", "chuck", "dave", "everett", "fred"};
     restaurant_stage = [mgr \in managers |-> "start"];
   
@@ -18,7 +18,7 @@ EXTENDS Naturals, TLC
     };
   }
     
-  process (Restaurant \in managers) \** @PGo{ proc string Restaurant }@PGo
+  process (Restaurant \in managers)
   {
     c0: await restaurant_stage[self] = "propose";
     
@@ -38,8 +38,8 @@ EXTENDS Naturals, TLC
         };        
   }; \* end Restaurant process block
 
-  process (Controller = "alice")  \** @PGo{ proc string Controller }@PGo
-    (** @PGo{ var Set[string] rstMgrs }@PGo  @PGo{ var bool aborted }@PGo  **)
+  process (Controller = "alice")
+    (** @PGo{ var rstMgrs Set[string] }@PGo  @PGo{ var aborted bool }@PGo  **)
     variables rstMgrs, aborted = FALSE;    
   {  
     n0: rstMgrs := managers;

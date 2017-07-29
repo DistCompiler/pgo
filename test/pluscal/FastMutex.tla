@@ -3,13 +3,13 @@ EXTENDS Naturals, TLC
 CONSTANT N
 
 (*
-\* @PGo{ arg natural N numT }@PGo
+\* @PGo{ arg N uint64 numT }@PGo
 --algorithm FastMutex {
-  variables x, \** @PGo{var natural x}@PGo
-            y = 0,  \** @PGo{var natural y}@PGo
-            b = [i \in 1..N |-> FALSE];  \** @PGo{var []bool b}@PGo
-  process (Proc \in 1..N)  \** @PGo{ proc natural Proc }@PGo
-    variable j; \** @PGo{ var natural j }@PGo
+  variables x, \** @PGo{var x uint64}@PGo
+            y = 0,  \** @PGo{var y uint64}@PGo
+            b = [i \in 1..N |-> FALSE];  \** @PGo{var b []bool}@PGo
+  process (Proc \in 1..N)
+    variable j; \** @PGo{ var j uint64 }@PGo
   {
       ncs: while (TRUE) {
              skip; \* the noncritical section

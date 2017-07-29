@@ -21,13 +21,11 @@ public class TwoPhaseCommitParserTester extends PGoPluscalParserTesterBase {
 	@Override
 	public Vector<PGoAnnotation> getAnnotations() {
 		Vector<PGoAnnotation> v = new Vector<PGoAnnotation>();
-		v.add(new PGoAnnotation("var Set[String] managers", 6));
-		v.add(new PGoAnnotation("var map[String]String restaurant_stage", 7));
+		v.add(new PGoAnnotation("var managers Set[String]", 6));
+		v.add(new PGoAnnotation("var restaurant_stage map[String]String", 7));
 		v.add(new PGoAnnotation("func void SetAll() string Set[string]", 11));
-		v.add(new PGoAnnotation("proc string Restaurant", 21));
-		v.add(new PGoAnnotation("proc string Controller", 41));
-		v.add(new PGoAnnotation("var Set[string] rstMgrs", 42));
-		v.add(new PGoAnnotation("var bool aborted", 42));
+		v.add(new PGoAnnotation("var rstMgrs Set[string]", 42));
+		v.add(new PGoAnnotation("var aborted bool", 42));
 		return v;
 	}
 
@@ -55,11 +53,7 @@ public class TwoPhaseCommitParserTester extends PGoPluscalParserTesterBase {
 
 	@Override
 	public List<AnnotatedProcessData> getAnnotatedProcesses() {
-		ArrayList<AnnotatedProcessData> ret = new ArrayList<AnnotatedProcessData>();
-		ret.add(new AnnotatedProcessData("Restaurant", 21, new PGoPrimitiveType.PGoString()));
-		ret.add(new AnnotatedProcessData("Controller", 41, new PGoPrimitiveType.PGoString()));
-
-		return ret;
+		return new ArrayList<>();
 	}
 
 	@Override

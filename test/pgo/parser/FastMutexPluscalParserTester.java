@@ -20,12 +20,11 @@ public class FastMutexPluscalParserTester extends PGoPluscalParserTesterBase {
 	@Override
 	public Vector<PGoAnnotation> getAnnotations() {
 		Vector<PGoAnnotation> v = new Vector<PGoAnnotation>();
-		v.add(new PGoAnnotation("arg natural N numT", 6));
-		v.add(new PGoAnnotation("var natural x", 8));
-		v.add(new PGoAnnotation("var natural y", 9));
-		v.add(new PGoAnnotation("var []bool b", 10));
-		v.add(new PGoAnnotation("proc natural Proc", 11));
-		v.add(new PGoAnnotation("var natural j", 12));
+		v.add(new PGoAnnotation("arg N uint64 numT", 6));
+		v.add(new PGoAnnotation("var x uint64", 8));
+		v.add(new PGoAnnotation("var y uint64", 9));
+		v.add(new PGoAnnotation("var b []bool", 10));
+		v.add(new PGoAnnotation("var j uint64", 12));
 		return v;
 	}
 
@@ -59,10 +58,7 @@ public class FastMutexPluscalParserTester extends PGoPluscalParserTesterBase {
 
 	@Override
 	public List<AnnotatedProcessData> getAnnotatedProcesses() {
-		ArrayList<AnnotatedProcessData> ret = new ArrayList<AnnotatedProcessData>();
-		ret.add(new AnnotatedProcessData("Proc", 11, new PGoPrimitiveType.PGoNatural()));
-		
-		return ret;
+		return new ArrayList<>();
 	}
 
 }

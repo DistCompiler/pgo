@@ -21,24 +21,22 @@ public class SumParserTester extends PGoPluscalParserTesterBase {
 	@Override
 	public Vector<PGoAnnotation> getAnnotations() {
 		Vector<PGoAnnotation> v = new Vector<PGoAnnotation>();
-		v.add(new PGoAnnotation("const uint64 MAXINT 10000000", 8));
-		v.add(new PGoAnnotation("arg uint64 RUNS runs", 9));
-		v.add(new PGoAnnotation("arg uint64 N numT", 9));
-		v.add(new PGoAnnotation("var []chan[[2]interface] network", 13));
+		v.add(new PGoAnnotation("const MAXINT uint64 10000000", 8));
+		v.add(new PGoAnnotation("arg RUNS uint64 runs", 9));
+		v.add(new PGoAnnotation("arg N uint64 numT", 9));
+		v.add(new PGoAnnotation("var network []chan[[2]interface]", 13));
 		v.add(new PGoAnnotation("func SendTo() uint64 uint64 interface", 16));
 		v.add(new PGoAnnotation("func Recv() uint64 uint64 interface", 21));
-		v.add(new PGoAnnotation("proc uint64 Client", 29));
-		v.add(new PGoAnnotation("var uint64 a_init", 31));
-		v.add(new PGoAnnotation("var uint64 b_init", 32));
-		v.add(new PGoAnnotation("var uint64 runs", 33));
-		v.add(new PGoAnnotation("var uint64 Client.id", 34));
-		v.add(new PGoAnnotation("var uint64 Client.msg", 35));
-		v.add(new PGoAnnotation("var uint64 sum", 36));
-		v.add(new PGoAnnotation("proc uint64 Server", 58));
-		v.add(new PGoAnnotation("var uint64 a", 60));
-		v.add(new PGoAnnotation("var uint64 b", 61));
-		v.add(new PGoAnnotation("var uint64 Server.id", 62));
-		v.add(new PGoAnnotation("var [2]uint64 Server.msg", 63));
+		v.add(new PGoAnnotation("var a_init uint64", 30));
+		v.add(new PGoAnnotation("var b_init uint64", 31));
+		v.add(new PGoAnnotation("var runs uint64", 32));
+		v.add(new PGoAnnotation("var Client.id uint64", 33));
+		v.add(new PGoAnnotation("var Client.msg uint64", 34));
+		v.add(new PGoAnnotation("var sum uint64", 35));
+		v.add(new PGoAnnotation("var a uint64", 58));
+		v.add(new PGoAnnotation("var b uint64", 59));
+		v.add(new PGoAnnotation("var Server.id uint64", 60));
+		v.add(new PGoAnnotation("var Server.msg [2]uint64", 61));
 		return v;
 	}
 
@@ -46,16 +44,16 @@ public class SumParserTester extends PGoPluscalParserTesterBase {
 	public List<VarAnnotatedVariableData> getVarAnnotatedVariables() {
 		ArrayList<VarAnnotatedVariableData> ret = new ArrayList<VarAnnotatedVariableData>();
 		ret.add(new VarAnnotatedVariableData(new PGoCollectionType.PGoSlice("chan[[2]interface]"), "network", 13));
-		ret.add(new VarAnnotatedVariableData(new PGoPrimitiveType.PGoNatural(), "a_init", 31));
-		ret.add(new VarAnnotatedVariableData(new PGoPrimitiveType.PGoNatural(), "b_init", 32));
-		ret.add(new VarAnnotatedVariableData(new PGoPrimitiveType.PGoNatural(), "runs", 33));
-		ret.add(new VarAnnotatedVariableData(new PGoPrimitiveType.PGoNatural(), "Client.id", 34));
-		ret.add(new VarAnnotatedVariableData(new PGoPrimitiveType.PGoNatural(), "Client.msg", 35));
-		ret.add(new VarAnnotatedVariableData(new PGoPrimitiveType.PGoNatural(), "sum", 36));
-		ret.add(new VarAnnotatedVariableData(new PGoPrimitiveType.PGoNatural(), "a", 60));
-		ret.add(new VarAnnotatedVariableData(new PGoPrimitiveType.PGoNatural(), "b", 61));
-		ret.add(new VarAnnotatedVariableData(new PGoPrimitiveType.PGoNatural(), "Server.id", 62));
-		ret.add(new VarAnnotatedVariableData(new PGoCollectionType.PGoSlice("2", "uint64"), "Server.msg", 63));
+		ret.add(new VarAnnotatedVariableData(new PGoPrimitiveType.PGoNatural(), "a_init", 30));
+		ret.add(new VarAnnotatedVariableData(new PGoPrimitiveType.PGoNatural(), "b_init", 31));
+		ret.add(new VarAnnotatedVariableData(new PGoPrimitiveType.PGoNatural(), "runs", 32));
+		ret.add(new VarAnnotatedVariableData(new PGoPrimitiveType.PGoNatural(), "Client.id", 33));
+		ret.add(new VarAnnotatedVariableData(new PGoPrimitiveType.PGoNatural(), "Client.msg", 34));
+		ret.add(new VarAnnotatedVariableData(new PGoPrimitiveType.PGoNatural(), "sum", 35));
+		ret.add(new VarAnnotatedVariableData(new PGoPrimitiveType.PGoNatural(), "a", 58));
+		ret.add(new VarAnnotatedVariableData(new PGoPrimitiveType.PGoNatural(), "b", 59));
+		ret.add(new VarAnnotatedVariableData(new PGoPrimitiveType.PGoNatural(), "Server.id", 60));
+		ret.add(new VarAnnotatedVariableData(new PGoCollectionType.PGoSlice("2", "uint64"), "Server.msg", 61));
 
 		return ret;
 	}
@@ -92,11 +90,7 @@ public class SumParserTester extends PGoPluscalParserTesterBase {
 
 	@Override
 	public List<AnnotatedProcessData> getAnnotatedProcesses() {
-		ArrayList<AnnotatedProcessData> ret = new ArrayList<AnnotatedProcessData>();
-		ret.add(new AnnotatedProcessData("Client", 29, new PGoPrimitiveType.PGoNatural()));
-		ret.add(new AnnotatedProcessData("Server", 58, new PGoPrimitiveType.PGoNatural()));
-
-		return ret;
+		return new ArrayList<>();
 	}
 
 	@Override

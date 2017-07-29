@@ -17,7 +17,7 @@ public abstract class AnnotatedVariable {
 	public static final String CONST = "const";
 	public static final String ARG = "arg";
 	public static final String VAR = "var";
-	
+
 	// name of variable
 	protected String name;
 
@@ -29,18 +29,18 @@ public abstract class AnnotatedVariable {
 
 	protected AnnotatedVariable(String[] parts, int line) throws PGoParseException {
 		if (parts.length >= 3) {
-			type = PGoType.inferFromGoTypeName(parts[1]);
+			type = PGoType.inferFromGoTypeName(parts[2]);
 			if (type.isUndetermined()) {
-				throw new PGoParseException("Unknown type \"" + parts[1] + "\" given for variable annotation", line);
+				throw new PGoParseException("Unknown type \"" + parts[2] + "\" given for variable annotation", line);
 			}
-			name = parts[2];
+			name = parts[1];
 			this.line = line;
 		}
 	}
 
 	// parses a const, arg, or var annotation for a variable
 	public static AnnotatedVariable parse(String[] parts, int line) throws PGoParseException {
-		switch(parts[0].toLowerCase()) {
+		switch (parts[0].toLowerCase()) {
 		case CONST:
 			return new ConstAnnotatedVariable(parts, line);
 		case ARG:
@@ -92,17 +92,17 @@ public abstract class AnnotatedVariable {
 			var.setIsSimpleAssign(true);
 			var.setGoVal(this.getVal());
 			var.setIsConstant(true);
-			
+
 			Logger.getLogger("PGo Stage Typing").log(Level.INFO, "filling in variable \"" + var.getName()
 					+ "\" based on annotation as a constant from line: " + this.getLine());
 		}
-		
+
 		public String getVal() {
 			return val;
 		}
 
 	}
-	
+
 	/**
 	 * Annotated variable that will become a command line argument in go
 	 *
@@ -137,7 +137,7 @@ public abstract class AnnotatedVariable {
 			Logger.getLogger("PGo Stage Typing").log(Level.INFO, "filling in variable \"" + var.getName()
 					+ "\" based on annotation as an command line argument from line: " + this.getLine());
 		}
-		
+
 		public String getArgName() {
 			return argname;
 		}
@@ -146,7 +146,7 @@ public abstract class AnnotatedVariable {
 			return positional;
 		}
 	}
-	
+
 	/**
 	 * Annotated variable for any non-special variable in Go
 	 *

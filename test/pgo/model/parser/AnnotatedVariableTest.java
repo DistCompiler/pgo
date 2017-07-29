@@ -19,14 +19,13 @@ import pgo.parser.PGoParseException;
 
 public class AnnotatedVariableTest {
 
-
 	@Test
 	public void testConstVars() throws PGoParseException {
 		String[] parts;
 		AnnotatedVariable var;
 		ConstAnnotatedVariable cvar;
 
-		parts = new String[] { "const", "int", "x", "2" };
+		parts = new String[] { "const", "x", "int", "2" };
 		var = AnnotatedVariable.parse(parts, 0);
 		assertTrue(var instanceof ConstAnnotatedVariable);
 		assertEquals(0, var.getLine());
@@ -35,7 +34,7 @@ public class AnnotatedVariableTest {
 		assertTrue(cvar.getType() instanceof PGoInt);
 		assertEquals("2", cvar.getVal());
 
-		parts = new String[] { "const", "string", "var_y", "hababa" };
+		parts = new String[] { "const", "var_y", "string", "hababa" };
 		var = AnnotatedVariable.parse(parts, 2);
 		assertTrue(var instanceof ConstAnnotatedVariable);
 		assertEquals(2, var.getLine());
@@ -45,7 +44,7 @@ public class AnnotatedVariableTest {
 		assertEquals("hababa", cvar.getVal());
 
 		try {
-			parts = new String[] { "const", "int", "x", "2", "extra" };
+			parts = new String[] { "const", "x", "int", "2", "extra" };
 			AnnotatedVariable.parse(parts, 2);
 			fail("Exception expected for extra argument");
 		} catch (PGoParseException e) {
@@ -61,7 +60,7 @@ public class AnnotatedVariableTest {
 		}
 
 		try {
-			parts = new String[] { "const", "wrongtype", "x", "2" };
+			parts = new String[] { "const", "x", "wrongtype", "2" };
 			AnnotatedVariable.parse(parts, 2);
 			fail("Exception expected for unknown type");
 		} catch (PGoParseException e) {
@@ -76,7 +75,7 @@ public class AnnotatedVariableTest {
 		AnnotatedVariable var;
 		ArgAnnotatedVariable avar;
 
-		parts = new String[] { "arg", "int", "x" };
+		parts = new String[] { "arg", "x", "int" };
 		var = AnnotatedVariable.parse(parts, 0);
 		assertTrue(var instanceof ArgAnnotatedVariable);
 		assertEquals(0, var.getLine());
@@ -85,7 +84,7 @@ public class AnnotatedVariableTest {
 		assertTrue(avar.getType() instanceof PGoInt);
 		assertTrue(avar.isPositionalArg());
 
-		parts = new String[] { "arg", "string", "var_y", "argname" };
+		parts = new String[] { "arg", "var_y", "string", "argname" };
 		var = AnnotatedVariable.parse(parts, 2);
 		assertTrue(var instanceof ArgAnnotatedVariable);
 		assertEquals(2, var.getLine());
@@ -96,7 +95,7 @@ public class AnnotatedVariableTest {
 		assertEquals("argname", avar.getArgName());
 
 		try {
-			parts = new String[] { "arg", "int", "x", "argname", "extra" };
+			parts = new String[] { "arg", "x", "int", "argname", "extra" };
 			AnnotatedVariable.parse(parts, 2);
 			fail("Exception expected for extra argument");
 		} catch (PGoParseException e) {
@@ -112,7 +111,7 @@ public class AnnotatedVariableTest {
 		}
 
 		try {
-			parts = new String[] { "arg", "wrongtype", "x" };
+			parts = new String[] { "arg", "x", "wrongtype" };
 			AnnotatedVariable.parse(parts, 2);
 			fail("Exception expected for unknown type");
 		} catch (PGoParseException e) {
@@ -126,7 +125,7 @@ public class AnnotatedVariableTest {
 		AnnotatedVariable var;
 		VarAnnotatedVariable vvar;
 
-		parts = new String[] { "var", "int", "x" };
+		parts = new String[] { "var", "x", "int" };
 		var = AnnotatedVariable.parse(parts, 0);
 		assertTrue(var instanceof VarAnnotatedVariable);
 		assertEquals(0, var.getLine());
@@ -134,7 +133,7 @@ public class AnnotatedVariableTest {
 		assertEquals("x", vvar.getName());
 		assertTrue(vvar.getType() instanceof PGoInt);
 
-		parts = new String[] { "var", "string", "var_y" };
+		parts = new String[] { "var", "var_y", "string" };
 		var = AnnotatedVariable.parse(parts, 2);
 		assertTrue(var instanceof VarAnnotatedVariable);
 		assertEquals(2, var.getLine());
@@ -143,7 +142,7 @@ public class AnnotatedVariableTest {
 		assertTrue(vvar.getType() instanceof PGoString);
 
 		try {
-			parts = new String[] { "var", "int", "x", "extra" };
+			parts = new String[] { "var", "x", "int", "extra" };
 			AnnotatedVariable.parse(parts, 2);
 			fail("Exception expected for extra argument");
 		} catch (PGoParseException e) {
@@ -159,7 +158,7 @@ public class AnnotatedVariableTest {
 		}
 
 		try {
-			parts = new String[] { "var", "wrongtype", "x" };
+			parts = new String[] { "var", "x", "wrongtype" };
 			AnnotatedVariable.parse(parts, 2);
 			fail("Exception expected for unknown type");
 		} catch (PGoParseException e) {
@@ -173,7 +172,7 @@ public class AnnotatedVariableTest {
 		AnnotatedVariable av;
 
 		v = PGoVariable.convert("var");
-		av = AnnotatedVariable.parse(new String[] { "const", "int", "var", "50" }, 2);
+		av = AnnotatedVariable.parse(new String[] { "const", "var", "int", "50" }, 2);
 		av.applyAnnotationOnVariable(v);
 		assertTrue(v.getIsConstant());
 		assertEquals(new PGoPrimitiveType.PGoInt(), v.getType());
@@ -182,7 +181,7 @@ public class AnnotatedVariableTest {
 		assertNull(v.getArgInfo());
 
 		v = PGoVariable.convert("var");
-		av = AnnotatedVariable.parse(new String[] { "arg", "int", "var" }, 2);
+		av = AnnotatedVariable.parse(new String[] { "arg", "var", "int" }, 2);
 		av.applyAnnotationOnVariable(v);
 		assertFalse(v.getIsConstant());
 		assertEquals(new PGoPrimitiveType.PGoInt(), v.getType());
@@ -190,7 +189,7 @@ public class AnnotatedVariableTest {
 		assertEquals(av, v.getArgInfo());
 
 		v = PGoVariable.convert("var");
-		av = AnnotatedVariable.parse(new String[] { "arg", "int", "var", "varflag" }, 2);
+		av = AnnotatedVariable.parse(new String[] { "arg", "var", "int", "varflag" }, 2);
 		av.applyAnnotationOnVariable(v);
 		assertFalse(v.getIsConstant());
 		assertEquals(new PGoPrimitiveType.PGoInt(), v.getType());
@@ -198,7 +197,7 @@ public class AnnotatedVariableTest {
 		assertEquals(av, v.getArgInfo());
 
 		v = PGoVariable.convert("var");
-		av = AnnotatedVariable.parse(new String[] { "var", "string", "var" }, 2);
+		av = AnnotatedVariable.parse(new String[] { "var", "var", "string" }, 2);
 		av.applyAnnotationOnVariable(v);
 		assertFalse(v.getIsConstant());
 		assertEquals(new PGoPrimitiveType.PGoString(), v.getType());

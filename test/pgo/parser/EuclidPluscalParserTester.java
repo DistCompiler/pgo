@@ -19,10 +19,10 @@ public class EuclidPluscalParserTester extends PGoPluscalParserTesterBase {
 	@Override
 	public Vector<PGoAnnotation> getAnnotations() {
 		Vector<PGoAnnotation> v = new Vector<PGoAnnotation>();
-		v.add(new PGoAnnotation("arg int N", 6));
-		v.add(new PGoAnnotation("var int u", 7));
-		v.add(new PGoAnnotation("var int v", 8));
-		v.add(new PGoAnnotation("var int v_init", 9));
+		v.add(new PGoAnnotation("arg N int", 6));
+		v.add(new PGoAnnotation("var u int", 7));
+		v.add(new PGoAnnotation("var v int", 8));
+		v.add(new PGoAnnotation("var v_init int", 9));
 		return v;
 	}
 

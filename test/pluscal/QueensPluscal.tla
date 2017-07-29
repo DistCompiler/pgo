@@ -42,9 +42,9 @@ Solutions == { queens \in [1..N -> 1..N] : IsSolution(queens) }
 (* to the set todo.                                                        *)
 (***************************************************************************)
 
-(* --algorithm QueensPluscal  (*** for pgo @PGo{ arg int N }@PGo done ***)
-     (** @PGo{ var Set[[]int] todo }@PGo
-         @PGo{ var Set[[]int] sols }@PGo
+(* --algorithm QueensPluscal  (*** for pgo @PGo{ arg N int }@PGo done ***)
+     (** @PGo{ var todo set[[]int] }@PGo
+         @PGo{ var sols set[[]int] }@PGo
          @PGo{ def Attacks(queens []int,i int,j int) ==
                 \/ queens[i] = queens[j]                 \** same column
                 \/ queens[i] - queens[j] = i - j         \** first diagonal
@@ -59,10 +59,10 @@ Solutions == { queens \in [1..N -> 1..N] : IsSolution(queens) }
      begin
 nxtQ:  while todo # {}
        do
-         (** @PGo{ var []int queens }@PGo
-             @PGo{ var int nxtQ }@PGo
-             @PGo{ var Set[int] cols }@PGo
-             @PGo{ var Set[[]int] exts }@PGo **)
+         (** @PGo{ var queens []int }@PGo
+             @PGo{ var nxtQ int }@PGo
+             @PGo{ var cols set[int] }@PGo
+             @PGo{ var exts set[[]int] }@PGo **)
          with queens \in todo,
               nxtQ = Len(queens) + 1,
               cols = { c \in 1..N : ~ \E i \in 1 .. Len(queens) :
