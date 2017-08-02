@@ -38,7 +38,7 @@ public class TLAExprToGo {
 		this.imports = imports;
 		this.data = data;
 		assign = null;
-		type = new TLAExprToType(tla, data).getType();
+		type = new TLAExprToType(tla, data, true).getType();
 		expr = tla.convert(this);
 	}
 
@@ -46,7 +46,7 @@ public class TLAExprToGo {
 		this.imports = imports;
 		this.data = data;
 		this.assign = assign;
-		type = new TLAExprToType(tla, data, assign).getType();
+		type = new TLAExprToType(tla, data, assign, true).getType();
 		expr = tla.convert(this);
 	}
 
@@ -59,7 +59,7 @@ public class TLAExprToGo {
 		} else {
 			this.assign = null;
 		}
-		type = new TLAExprToType(tla, data, this.assign).getType();
+		type = new TLAExprToType(tla, data, this.assign, true).getType();
 		expr = tla.convert(this);
 	}
 
@@ -140,7 +140,7 @@ public class TLAExprToGo {
 				// TODO handle tuples
 				assert (in.getLeft() instanceof PGoTLAVariable);
 				PGoTLAVariable var = (PGoTLAVariable) in.getLeft();
-				PGoType setType = new TLAExprToType(in.getRight(), data).getType();
+				PGoType setType = new TLAExprToType(in.getRight(), data, true).getType();
 				assert (setType instanceof PGoSet);
 				PGoType containedType = ((PGoSet) setType).getElementType();
 
@@ -186,7 +186,7 @@ public class TLAExprToGo {
 					// TODO handle tuples
 					assert (setOp.getLeft() instanceof PGoTLAVariable);
 					PGoTLAVariable var = (PGoTLAVariable) setOp.getLeft();
-					PGoType setType = new TLAExprToType(setOp.getRight(), data).getType();
+					PGoType setType = new TLAExprToType(setOp.getRight(), data, true).getType();
 					assert (setType instanceof PGoSet);
 					PGoType containedType = ((PGoSet) setType).getElementType();
 
@@ -259,7 +259,7 @@ public class TLAExprToGo {
 		Expression rightRes = new TLAExprToGo(tla.getRight(), imports, data).toExpression();
 
 		// we have already checked types for consistency, so can check just lhs
-		PGoType leftType = new TLAExprToType(tla.getLeft(), data, assign).getType();
+		PGoType leftType = new TLAExprToType(tla.getLeft(), data, assign, true).getType();
 		if (leftType instanceof PGoSet) {
 			imports.addImport("pgoutil");
 			Vector<Expression> leftExp = new Vector<>();
@@ -309,7 +309,7 @@ public class TLAExprToGo {
 
 		// if we are comparing number types we may need to do type conversion
 		if (leftType instanceof PGoNumber) {
-			PGoType rightType = new TLAExprToType(tla.getRight(), data).getType();
+			PGoType rightType = new TLAExprToType(tla.getRight(), data, true).getType();
 			PGoType convertedType = TLAExprToType.compatibleType(leftType, rightType);
 			assert (convertedType != null);
 			// cast if not plain number
@@ -345,7 +345,7 @@ public class TLAExprToGo {
 		} else if (lfunc != null) {
 			Vector<PGoType> paramTypes = new Vector<>();
 			for (PGoTLA param : tla.getParams()) {
-				paramTypes.add(new TLAExprToType(param, data).getType());
+				paramTypes.add(new TLAExprToType(param, data, true).getType());
 			}
 			String goName = lfunc.getGoName(paramTypes);
 			if (lfunc.isObjectMethod(paramTypes)) {
@@ -411,8 +411,8 @@ public class TLAExprToGo {
 
 		Vector<Expression> args = new Vector<>();
 		// we may need to convert natural to int
-		PGoType startType = new TLAExprToType(tla.getStart(), data).getType();
-		PGoType endType = new TLAExprToType(tla.getEnd(), data).getType();
+		PGoType startType = new TLAExprToType(tla.getStart(), data, true).getType();
+		PGoType endType = new TLAExprToType(tla.getEnd(), data, true).getType();
 		// plain numbers are never naturals (int or float only), so we don't
 		// need to check if the exprs are plain numbers
 		if (startType instanceof PGoNatural) {
@@ -502,8 +502,8 @@ public class TLAExprToGo {
 	protected Expression translate(PGoTLASimpleArithmetic tla) throws PGoTransException {
 		Expression leftRes = new TLAExprToGo(tla.getLeft(), imports, data).toExpression();
 		Expression rightRes = new TLAExprToGo(tla.getRight(), imports, data).toExpression();
-		PGoType leftType = new TLAExprToType(tla.getLeft(), data).getType();
-		PGoType rightType = new TLAExprToType(tla.getRight(), data).getType();
+		PGoType leftType = new TLAExprToType(tla.getLeft(), data, true).getType();
+		PGoType rightType = new TLAExprToType(tla.getRight(), data, true).getType();
 
 		if (tla.getToken().equals("^")) {
 			this.imports.addImport("math");
@@ -579,7 +579,7 @@ public class TLAExprToGo {
 				// TODO handle stuff like << x, y >> \in S \X T
 				assert (set.getLeft() instanceof PGoTLAVariable);
 				PGoTLAVariable var = (PGoTLAVariable) set.getLeft();
-				PGoType containerType = new TLAExprToType(set.getRight(), data).getType();
+				PGoType containerType = new TLAExprToType(set.getRight(), data, true).getType();
 				assert (containerType instanceof PGoSet);
 				PGoType eltType = ((PGoSet) containerType).getElementType();
 				temp.getLocals().put(var.getName(), PGoVariable.convert(var.getName(), eltType));
@@ -598,7 +598,7 @@ public class TLAExprToGo {
 					new Vector<ParameterDeclaration>() {
 						{
 							add(new ParameterDeclaration(varExpr.toGo().get(0),
-									new TLAExprToType(tla, data).getType()));
+									new TLAExprToType(tla, data, true).getType()));
 						}
 					},
 					new Vector<>(),
@@ -624,7 +624,7 @@ public class TLAExprToGo {
 				// TODO handle stuff like << x, y >> \in S \X T
 				assert (set.getLeft() instanceof PGoTLAVariable);
 				PGoTLAVariable var = (PGoTLAVariable) set.getLeft();
-				PGoType containerType = new TLAExprToType(set.getRight(), data).getType();
+				PGoType containerType = new TLAExprToType(set.getRight(), data, true).getType();
 				assert (containerType instanceof PGoSet);
 				PGoType eltType = ((PGoSet) containerType).getElementType();
 				temp.getLocals().put(var.getName(), PGoVariable.convert(var.getName(), eltType));
@@ -645,7 +645,7 @@ public class TLAExprToGo {
 			Vector<ParameterDeclaration> params = new Vector<>();
 			for (int i = 0; i < setExprs.size(); i++) {
 				PGoTLA setExprTLA = ((PGoTLASetOp) st.getArgs().get(i)).getRight();
-				PGoType setType = new TLAExprToType(setExprTLA, data).getType();
+				PGoType setType = new TLAExprToType(setExprTLA, data, true).getType();
 				PGoType varType = ((PGoCollectionType) setType).getElementType();
 				params.add(new ParameterDeclaration(varExprs.get(i).toGo().get(0), varType));
 			}

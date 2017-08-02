@@ -38,7 +38,7 @@ public abstract class PGoTLA {
 
 		@Override
 		protected PGoType inferType(TLAExprToType trans) throws PGoTransException {
-			return PGoType.UNDETERMINED;
+			return trans.type(this);
 		}
 	}
 

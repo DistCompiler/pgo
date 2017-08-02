@@ -211,7 +211,7 @@ public class PGoVariable {
 		// infer the type
 		Vector<PGoTLA> ptla = new TLAExprParser(r.tlaExpr, defn.getLine()).getResult();
 		assert (ptla.size() == 1);
-		r.type = new TLAExprToType(ptla.get(0), varData).getType();
+		r.type = new TLAExprToType(ptla.get(0), varData, true).getType();
 		r.line = defn.getLine();
 		return r;
 	}

@@ -207,10 +207,10 @@ public class PGoTransStageType {
 
 				PGoType type;
 				if (p.isEq) {
-					type = new TLAExprToType(tla, new PGoTempData(data), pId).getType();
+					type = new TLAExprToType(tla, new PGoTempData(data), pId, false).getType();
 				} else {
 					type = new TLAExprToType(tla, new PGoTempData(data),
-							PGoType.inferFromGoTypeName("set[" + pId.getType().toTypeName() + "]")).getType();
+							PGoType.inferFromGoTypeName("set[" + pId.getType().toTypeName() + "]"), false).getType();
 				}
 
 				if (type != PGoType.UNDETERMINED) {
@@ -259,10 +259,10 @@ public class PGoTransStageType {
 				PGoVariable var = data.findPGoVariable(a.var);
 				PGoType type;
 				if (a.isEq) {
-					type = new TLAExprToType(tla, new PGoTempData(data), var).getType();
+					type = new TLAExprToType(tla, new PGoTempData(data), var, false).getType();
 				} else {
 					type = new TLAExprToType(tla, new PGoTempData(data),
-							PGoType.inferFromGoTypeName("set[" + var.getType().toTypeName() + "]")).getType();
+							PGoType.inferFromGoTypeName("set[" + var.getType().toTypeName() + "]"), false).getType();
 				}
 
 				if (type == PGoType.UNDETERMINED) {
@@ -301,7 +301,7 @@ public class PGoTransStageType {
 				PGoType type;
 				if (sa.lhs.sub.tokens.isEmpty()) {
 					// no sub
-					type = new TLAExprToType(tla, new PGoTempData(data), var).getType();
+					type = new TLAExprToType(tla, new PGoTempData(data), var, false).getType();
 
 					if (type == PGoType.UNDETERMINED || var.getType().equals(type)) {
 						return;
@@ -332,7 +332,7 @@ public class PGoTransStageType {
 					if (var.getType() instanceof PGoMap || var.getType() instanceof PGoSlice) {
 						givenType = ((PGoCollectionType) var.getType()).getElementType();
 					}
-					type = new TLAExprToType(ptla, new PGoTempData(data), givenType).getType();
+					type = new TLAExprToType(ptla, new PGoTempData(data), givenType, false).getType();
 
 					if (type == PGoType.UNDETERMINED) {
 						return;
@@ -344,7 +344,7 @@ public class PGoTransStageType {
 						if (fc.getParams().size() > 1) {
 							var.setType(new PGoMap("undetermined", "undetermined"));
 						} else {
-							PGoType indexType = new TLAExprToType(fc.getParams().get(0), new PGoTempData(data))
+							PGoType indexType = new TLAExprToType(fc.getParams().get(0), new PGoTempData(data), false)
 									.getType();
 							if (indexType != PGoType.UNDETERMINED && !(indexType instanceof PGoNatural)
 									&& !(indexType instanceof PGoInt)) {
@@ -381,7 +381,7 @@ public class PGoTransStageType {
 						// we should also try to infer the key type
 						Vector<PGoType> key = new Vector<>();
 						for (PGoTLA param : fc.getParams()) {
-							key.add(new TLAExprToType(param, new PGoTempData(data)).getType());
+							key.add(new TLAExprToType(param, new PGoTempData(data), false).getType());
 						}
 
 						PGoType kTypeInferred;

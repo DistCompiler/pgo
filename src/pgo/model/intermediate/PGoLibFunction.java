@@ -119,7 +119,7 @@ public class PGoLibFunction {
 	public PGoType getRetType(Vector<PGoType> params) {
 		LibFuncInfo func = getFunc(params);
 		if (func == null) {
-			return null;
+			return PGoType.UNDETERMINED;
 		}
 		return fillTemplateArgs(func.ret);
 	}

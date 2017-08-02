@@ -36,7 +36,7 @@ public abstract class PGoType {
 	public boolean isUndetermined() {
 		return isUndetermined;
 	}
-	
+
 	/**
 	 * 
 	 * @return whether the type contains template args
@@ -84,7 +84,7 @@ public abstract class PGoType {
 	public int hashCode() {
 		return this.toTypeName().hashCode();
 	}
-	
+
 	@Override
 	public String toString() {
 		return this.toTypeName();
