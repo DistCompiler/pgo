@@ -142,7 +142,7 @@ public class TLAToTypeTest {
 				add(PGoVariable.convert("a", PGoType.inferFromGoTypeName("int")));
 				add(PGoVariable.convert("b", PGoType.inferFromGoTypeName("string")));
 			}
-		}, PcalTranslate.MakeExpr(foo), 0));
+		}, PcalTranslate.MakeExpr(foo), null, 0));
 		PGoType result = new TLAExprToType(tla, data, true).getType();
 		assertEquals(PGoType.inferFromGoTypeName("string"), result);
 

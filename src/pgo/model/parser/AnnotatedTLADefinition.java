@@ -17,7 +17,7 @@ import pgo.parser.PcalParser;
 /**
  * Represents an annotated TLA definition of a macro which is called in the
  * PlusCal algorithm. This definition has the form
- * "def <name>(<params>)? == <TLA expression>".
+ * "def <name>(<params>)? <type>? == <TLA expression>".
  *
  */
 public class AnnotatedTLADefinition {
@@ -27,27 +27,32 @@ public class AnnotatedTLADefinition {
 	private TLAExpr expr;
 	// the parameters, of the form "name <type>"
 	private Vector<PGoVariable> params;
+	// the type that the expression should evaluate to
+	private PGoType type;
 
 	private int line;
 
-	protected AnnotatedTLADefinition(String name, Vector<PGoVariable> params, TLAExpr expr, int l) {
+	protected AnnotatedTLADefinition(String name, Vector<PGoVariable> params, TLAExpr expr, PGoType type, int l) {
 		this.name = name;
 		this.params = params;
 		this.expr = expr;
+		this.type = type;
 		this.line = l;
 	}
 
 	public static AnnotatedTLADefinition parse(String s, int l) throws PGoParseException {
 		// of the form def <name>(<params>) == <TLA expression>
-		Pattern regex = Pattern.compile("def (.+?)(\\(.+\\))?\\s*==\\s*([\\s\\S]+)");
+		Pattern regex = Pattern.compile("def ([^(\\s]+)(\\(.+\\))?\\s*(.+)*?\\s*==\\s*([\\s\\S]+)");
 		Matcher m = regex.matcher(s);
 		if (!m.matches()) {
 			throw new PGoParseException(
-					"TLA definition annotations are of the form \"def <name>(<params>)? == <TLA expression>\"", l);
+					"TLA definition annotations are of the form \"def <name>(<params>)? <type>? == <TLA expression>\"",
+					l);
 		}
 		String name = m.group(1);
 		String params = m.group(2);
-		String expr = m.group(3);
+		String typeString = m.group(3);
+		String expr = m.group(4);
 
 		Vector<PGoVariable> paramVars = new Vector<>();
 		if (params != null) {
@@ -67,6 +72,17 @@ public class AnnotatedTLADefinition {
 			}
 		}
 
+		PGoType type = null;
+
+		if (typeString != null) {
+			typeString = typeString.trim();
+			type = PGoType.inferFromGoTypeName(typeString);
+			if (type.isUndetermined()) {
+				throw new PGoParseException(
+						"Unknown type annotation " + typeString + " encountered in annotation for TLA definition", l);
+			}
+		}
+
 		// parse the expression into TLATokens
 		String[] exprLines = expr.split("\\n");
 		Vector<String> v = new Vector<>(Arrays.asList(exprLines));
@@ -77,7 +93,7 @@ public class AnnotatedTLADefinition {
 			// Precedence of boolean logic lists depends on indentation level.
 			// We can add parentheses before tokenizing to solve this.
 			TLAExpr tla = Tokenize.TokenizeExpr(chars);
-			return new AnnotatedTLADefinition(name, paramVars, tla, l);
+			return new AnnotatedTLADefinition(name, paramVars, tla, type, l);
 		} catch (TokenizerException e) {
 			throw new PGoParseException(
 					"Encountered TokenizerException when parsing annotation for TLA definition: " + e.getMessage(), l);
@@ -94,6 +110,10 @@ public class AnnotatedTLADefinition {
 
 	public Vector<PGoVariable> getParams() {
 		return new Vector<>(params);
+	}
+
+	public PGoType getType() {
+		return type;
 	}
 
 	public int getLine() {

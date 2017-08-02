@@ -192,7 +192,7 @@ public class TLAToStatementTest {
 				add(PGoVariable.convert("a", PGoType.inferFromGoTypeName("int")));
 				add(PGoVariable.convert("b", PGoType.inferFromGoTypeName("string")));
 			}
-		}, PcalTranslate.MakeExpr(foo), 0));
+		}, PcalTranslate.MakeExpr(foo), null, 0));
 		Expression result = new TLAExprToGo(tla, imports, data).toExpression();
 		Vector<Expression> se = new Vector<>();
 		se.add(new FunctionCall("foo", new Vector<Expression>() {

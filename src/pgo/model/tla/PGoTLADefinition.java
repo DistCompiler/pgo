@@ -1,6 +1,5 @@
 package pgo.model.tla;
 
-import java.util.Arrays;
 import java.util.Vector;
 
 import pcal.TLAExpr;
@@ -9,6 +8,7 @@ import pgo.model.intermediate.PGoType;
 import pgo.model.intermediate.PGoVariable;
 import pgo.parser.TLAExprParser;
 import pgo.trans.PGoTransException;
+
 /**
  * Represents a TLA definition found in an annotation.
  *
@@ -20,8 +20,10 @@ public class PGoTLADefinition extends PGoTLA {
 	private Vector<PGoVariable> params;
 	// the expression this definition evaluates to
 	private PGoTLA expr;
+	// the type that this expression should have
+	private PGoType type;
 
-	public PGoTLADefinition(String name, Vector<PGoVariable> params, TLAExpr expr, int line)
+	public PGoTLADefinition(String name, Vector<PGoVariable> params, TLAExpr expr, PGoType type, int line)
 			throws PGoTransException {
 		super(line);
 		this.name = name;
@@ -29,6 +31,7 @@ public class PGoTLADefinition extends PGoTLA {
 		TLAExprParser trans = new TLAExprParser(expr, line);
 		assert (trans.getResult().size() == 1);
 		this.expr = trans.getResult().get(0);
+		this.type = type;
 	}
 
 	public String getName() {
@@ -41,6 +44,10 @@ public class PGoTLADefinition extends PGoTLA {
 
 	public PGoTLA getExpr() {
 		return expr;
+	}
+
+	public PGoType getType() {
+		return type;
 	}
 
 	@Override

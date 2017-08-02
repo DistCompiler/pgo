@@ -176,7 +176,8 @@ public class PGoTransStageType {
 				assert (ptla.size() == 1);
 				this.data.putPGoTLA(d.getExpr(), ptla.get(0));
 			} else {
-				PGoTLADefinition tla = new PGoTLADefinition(d.getName(), d.getParams(), d.getExpr(), d.getLine());
+				PGoTLADefinition tla = new PGoTLADefinition(d.getName(), d.getParams(), d.getExpr(), d.getType(),
+						d.getLine());
 				this.data.defns.put(d.getName(), tla);
 			}
 		}

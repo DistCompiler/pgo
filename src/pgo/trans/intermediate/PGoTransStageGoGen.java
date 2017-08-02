@@ -700,7 +700,7 @@ public class PGoTransStageGoGen {
 				temp.getLocals().put(param.getName(), param);
 			}
 
-			TLAExprToGo trans = new TLAExprToGo(tlaDef.getExpr(), go.getImports(), temp);
+			TLAExprToGo trans = new TLAExprToGo(tlaDef.getExpr(), go.getImports(), temp, tlaDef.getType());
 			body.add(new pgo.model.golang.Return(trans.toExpression()));
 
 			go.addFunction(new Function(tlaDef.getName(), trans.getType(), params, new Vector<>(), body));
