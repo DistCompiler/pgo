@@ -224,6 +224,7 @@ public class PGoTransStageType {
 					if (!type.equals(pId.getType())) {
 						if (pId.getType() == PGoType.UNDETERMINED) {
 							pId.setType(type);
+							pId.setAsInferredType();
 						} else {
 							// already checked for type consistency in
 							// TLAExprToType
@@ -232,6 +233,7 @@ public class PGoTransStageType {
 							// changed
 							if (!pId.getType().equals(TLAExprToType.compatibleType(type, pId.getType()))) {
 								pId.setType(TLAExprToType.compatibleType(type, pId.getType()));
+								pId.setAsInferredType();
 								result = true;
 							}
 						}
@@ -282,6 +284,7 @@ public class PGoTransStageType {
 
 				if (var.getType() == PGoType.UNDETERMINED) {
 					var.setType(type);
+					var.setAsInferredType();
 				} else {
 					// already checked for type consistency in TLAExprToType
 					assert (TLAExprToType.compatibleType(type, var.getType()) != null);
@@ -290,6 +293,7 @@ public class PGoTransStageType {
 						return;
 					}
 					var.setType(TLAExprToType.compatibleType(type, var.getType()));
+					var.setAsInferredType();
 				}
 
 				result = true;
@@ -310,6 +314,7 @@ public class PGoTransStageType {
 
 					if (var.getType() == PGoType.UNDETERMINED) {
 						var.setType(type);
+						var.setAsInferredType();
 					} else {
 						assert (TLAExprToType.compatibleType(type, var.getType()) != null);
 						// if the variable type didn't change, don't flag as
@@ -318,6 +323,7 @@ public class PGoTransStageType {
 							return;
 						}
 						var.setType(TLAExprToType.compatibleType(type, var.getType()));
+						var.setAsInferredType();
 					}
 					result = true;
 				} else {
@@ -344,12 +350,14 @@ public class PGoTransStageType {
 						// integer, then this is a map
 						if (fc.getParams().size() > 1) {
 							var.setType(new PGoMap("undetermined", "undetermined"));
+							var.setAsInferredType();
 						} else {
 							PGoType indexType = new TLAExprToType(fc.getParams().get(0), new PGoTempData(data), false)
 									.getType();
 							if (indexType != PGoType.UNDETERMINED && !(indexType instanceof PGoNatural)
 									&& !(indexType instanceof PGoInt)) {
 								var.setType(new PGoMap(indexType.toTypeName(), "undetermined"));
+								var.setAsInferredType();
 							} else {
 								return;
 							}
@@ -365,6 +373,7 @@ public class PGoTransStageType {
 								return;
 							}
 							((PGoTuple) var.getType()).setType(index, type);
+							var.setAsInferredType();
 						} else {
 							return;
 						}
@@ -375,6 +384,7 @@ public class PGoTransStageType {
 							return;
 						}
 						((PGoSlice) var.getType()).setElementType(type);
+						var.setAsInferredType();
 					} else if (var.getType() instanceof PGoMap) {
 						PGoType eType = ((PGoMap) var.getType()).getElementType();
 						PGoType kType = ((PGoMap) var.getType()).getKeyType();
@@ -402,6 +412,8 @@ public class PGoTransStageType {
 
 						((PGoMap) var.getType()).setElementType(eNew);
 						((PGoMap) var.getType()).setKeyType(kNew);
+
+						var.setAsInferredType();
 					}
 				}
 

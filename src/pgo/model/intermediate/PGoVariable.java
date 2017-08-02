@@ -52,11 +52,15 @@ public class PGoVariable {
 	// Whether this variable needs atomic access (ie threadsafe)
 	private boolean isAtomic;
 
+	// whether we inferred the type of this variable or it was in an annotation
+	private boolean inferred;
+
 	// private constructor. only construct through converting from VarDecl
 	private PGoVariable() {
 		type = PGoType.UNDETERMINED;
 		goval = "";
 		isConstant = false;
+		inferred = false;
 		argInfo = null;
 	}
 
@@ -124,6 +128,14 @@ public class PGoVariable {
 
 	public boolean getIsAtomic() {
 		return this.isAtomic;
+	}
+
+	public void setAsInferredType() {
+		this.inferred = true;
+	}
+
+	public boolean wasInferred() {
+		return inferred;
 	}
 
 	/**

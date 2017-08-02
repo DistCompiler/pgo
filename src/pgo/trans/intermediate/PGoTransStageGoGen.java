@@ -653,14 +653,14 @@ public class PGoTransStageGoGen {
 				// if initTLA is empty, the local init is defaultInitValue
 				// (no initialization code)
 				if (initTLA == null) {
-					locals.add(new VariableDeclaration(local.getName(), local.getType(), null, new Vector<>(),
-							local.getIsConstant()));
+					locals.add(new VariableDeclaration(local.getName(), local.getType(), null, local.getIsConstant(),
+							local.wasInferred()));
 				} else {
 					Expression init = new TLAExprToGo(initTLA, go.getImports(), localData, local).toExpression();
 					Vector<Expression> se = new Vector<>();
 					se.add(init);
 					locals.add(new VariableDeclaration(local.getName(), local.getType(), new SimpleExpression(se),
-							new Vector<>(), local.getIsConstant()));
+							local.getIsConstant(), local.wasInferred()));
 				}
 
 				localData.getLocals().put(local.getName(), local);
@@ -745,8 +745,8 @@ public class PGoTransStageGoGen {
 			PGoTLA ptla = data.findPGoTLA(pv.getPcalInitBlock());
 			Expression se = TLAToGo(ptla);
 
-			go.addGlobal(new VariableDeclaration(pv.getName(), pv.getType(), null,
-					new Vector<>(), pv.getIsConstant()));
+			go.addGlobal(
+					new VariableDeclaration(pv.getName(), pv.getType(), null, pv.getIsConstant(), pv.wasInferred()));
 			Vector<Expression> toks = new Vector<>();
 			toks.add(new Token(pv.getName() + "_interface"));
 			toks.add(new Token(" := "));
@@ -784,7 +784,7 @@ public class PGoTransStageGoGen {
 				continue;
 			} else if (pv.getArgInfo() != null) {
 				go.addGlobal(new VariableDeclaration(pv.getName(), pv.getType(), null,
-						pv.getIsConstant()));
+						pv.getIsConstant(), pv.wasInferred()));
 				// generateMain will fill the main function
 			} else {
 				// being part of the rhs, the parsed result should just be
@@ -800,10 +800,10 @@ public class PGoTransStageGoGen {
 
 				if (pv.getIsConstant() || !delay) {
 					go.addGlobal(new VariableDeclaration(pv.getName(), pv.getType(), se,
-							new Vector<>(), pv.getIsConstant()));
+							pv.getIsConstant(), pv.wasInferred()));
 				} else {
 					go.addGlobal(new VariableDeclaration(pv.getName(), pv.getType(), null,
-							new Vector<>(), pv.getIsConstant()));
+							pv.getIsConstant(), pv.wasInferred()));
 					Vector<Expression> toks = new Vector<>();
 					toks.add(new Token(pv.getName()));
 					toks.add(new Token(" = "));

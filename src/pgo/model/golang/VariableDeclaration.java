@@ -19,6 +19,9 @@ public class VariableDeclaration extends Statement {
 	private Vector<Statement> initCode;
 	// whether this is a constant
 	private boolean isConst;
+	// whether this type was inferred in the typing stage (should print a
+	// comment with the inferred type)
+	private boolean wasInferred;
 
 	public VariableDeclaration(String n, PGoType t, SimpleExpression val, boolean isConst) {
 		name = n;
@@ -26,6 +29,16 @@ public class VariableDeclaration extends Statement {
 		defaultValue = val;
 		initCode = new Vector<Statement>();
 		this.isConst = isConst;
+		wasInferred = false;
+	}
+
+	public VariableDeclaration(String n, PGoType t, SimpleExpression val, boolean isConst, boolean inferred) {
+		name = n;
+		type = t;
+		defaultValue = val;
+		initCode = new Vector<>();
+		this.isConst = isConst;
+		wasInferred = inferred;
 	}
 
 	public VariableDeclaration(String n, PGoType t, SimpleExpression val, Vector<Statement> init, boolean isConst) {
@@ -34,6 +47,7 @@ public class VariableDeclaration extends Statement {
 		defaultValue = val;
 		initCode = init;
 		this.isConst = isConst;
+		wasInferred = false;
 	}
 
 	public String getName() {
@@ -76,8 +90,14 @@ public class VariableDeclaration extends Statement {
 	public Vector<String> toGo() {
 		Vector<String> ret = new Vector<String>();
 		Vector<String> valStr = defaultValue == null ? new Vector<String>() : defaultValue.toGo();
-		ret.add((isConst ? "const " : "var ") + name + " " + type.toGo()
-				+ (valStr.size() == 0 ? "" : " = " + valStr.remove(0)));
+		String decl = (isConst ? "const " : "var ") + name + " " + type.toGo();
+		if (valStr.size() > 0) {
+			decl += " = " + valStr.remove(0);
+		}
+		if (wasInferred) {
+			decl += " // PGo inferred type " + type.toTypeName();
+		}
+		ret.add(decl);
 		addStringsAndIndent(ret, valStr);
 
 		for (Statement s : initCode) {
