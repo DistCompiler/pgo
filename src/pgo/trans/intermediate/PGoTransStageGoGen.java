@@ -18,9 +18,15 @@ import pgo.model.intermediate.PGoFunction;
 import pgo.model.intermediate.PGoMiscellaneousType.PGoRWMutex;
 import pgo.model.intermediate.PGoMiscellaneousType.PGoWaitGroup;
 import pgo.model.intermediate.PGoPrimitiveType;
+import pgo.model.intermediate.PGoPrimitiveType.PGoBool;
+import pgo.model.intermediate.PGoPrimitiveType.PGoDecimal;
+import pgo.model.intermediate.PGoPrimitiveType.PGoInt;
+import pgo.model.intermediate.PGoPrimitiveType.PGoNatural;
+import pgo.model.intermediate.PGoPrimitiveType.PGoString;
 import pgo.model.intermediate.PGoRoutineInit;
 import pgo.model.intermediate.PGoType;
 import pgo.model.intermediate.PGoVariable;
+import pgo.model.parser.AnnotatedVariable.ArgAnnotatedVariable;
 import pgo.model.tla.PGoTLA;
 import pgo.model.tla.PGoTLAArray;
 import pgo.model.tla.PGoTLADefinition;
@@ -929,32 +935,34 @@ public class PGoTransStageGoGen {
 	private void addFlagArgToMain(PGoVariable pv) throws PGoTransException {
 		// flag arguments
 
+		ArgAnnotatedVariable argInfo = pv.getArgInfo();
+
 		Vector<Expression> args = new Vector<>();
 		args.add(new Token("&" + pv.getName()));
-		args.add(new Token(pv.getArgInfo().getName()));
+		args.add(new Token("\"" + argInfo.getArgName() + "\""));
 
-		if (pv.getType().toGo().equals(new PGoPrimitiveType.PGoInt().toGo())) {
+		if (pv.getType() instanceof PGoInt) {
 			// TODO we support default value and help message. Add this
 			// to annotations
 			args.add(new Token("0"));
 			args.add(new Token("\"\""));
-			main.add(new FunctionCall("flagIntVar", args));
-		} else if (pv.getType().toGo().equals(new PGoPrimitiveType.PGoBool().toGo())) {
+			main.add(new FunctionCall("flag.IntVar", args));
+		} else if (pv.getType() instanceof PGoBool) {
 			args.add(new Token("false"));
 			args.add(new Token("\"\""));
-			main.add(new FunctionCall("flagBoolVar", args));
-		} else if (pv.getType().toGo().equals(new PGoPrimitiveType.PGoString().toGo())) {
+			main.add(new FunctionCall("flag.BoolVar", args));
+		} else if (pv.getType() instanceof PGoString) {
 			args.add(new Token(""));
 			args.add(new Token("\"\""));
-			main.add(new FunctionCall("flagStringVar", args));
-		} else if (pv.getType().toGo().equals(new PGoPrimitiveType.PGoNatural().toGo())) {
+			main.add(new FunctionCall("flag.StringVar", args));
+		} else if (pv.getType() instanceof PGoNatural) {
 			args.add(new Token("0"));
 			args.add(new Token("\"\""));
-			main.add(new FunctionCall("flagUint64Var", args));
-		} else if (pv.getType().toGo().equals(new PGoPrimitiveType.PGoDecimal().toGo())) {
+			main.add(new FunctionCall("flag.Uint64Var", args));
+		} else if (pv.getType() instanceof PGoDecimal) {
 			args.add(new Token("0.0"));
 			args.add(new Token("\"\""));
-			main.add(new FunctionCall("flagFloat64Var", args));
+			main.add(new FunctionCall("flag.Float64Var", args));
 		} else {
 			throw new PGoTransException("Unsupported go argument type \"" + pv.getType().toGo()
 					+ "\" for variable \"" + pv.getName() + "\"", pv.getLine());
