@@ -48,11 +48,16 @@ public class PGoOptions {
 				outfile = remaining_args[2];
 			}
 		}
-		
+
 		checkOptions();
 	}
 
 	private void checkOptions() throws PGoOptionException {
+		if (help) {
+			plumeOptions.print_usage();
+			System.exit(0);
+		}
+
 		if (infile.isEmpty()) {
 			throw new PGoOptionException("Input pluscal file is not specified");
 		}
