@@ -63,5 +63,5 @@ func Choose(P interface{}, S Set) interface{} {
 			return x
 		}
 	}
-	return nil
+	panic("Attempted to compute the value of an expression of form CHOOSE x \\in S: P, but no element of S satisfied P.")
 }
