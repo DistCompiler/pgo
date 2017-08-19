@@ -163,6 +163,24 @@ public class PGoTransStageGoGen {
 	private Vector<Statement> convertStatementToGo(Vector<AST> stmts) throws PGoTransException {
 		go.addUsedLabels(PcalASTUtil.collectUsedLabels(stmts));
 		return new PcalASTUtil.Walker<Vector<Statement>>() {
+			// whether we are locked currently
+			boolean locked = false;
+
+			// Add a statement to lock, if we need thread safety and if we are
+			// not currently locked
+			private void lockIfUnlocked() {
+				if (!locked && data.needsLock) {
+					result.add(new FunctionCall("Lock", new Vector<>(), new Token("PGoLock")));
+					locked = true;
+				}
+			}
+
+			private void unlockIfLocked() {
+				if (locked && data.needsLock) {
+					result.add(new FunctionCall("Unlock", new Vector<>(), new Token("PGoLock")));
+					locked = false;
+				}
+			}
 
 			@Override
 			protected void init() {
@@ -171,11 +189,26 @@ public class PGoTransStageGoGen {
 
 			@Override
 			protected void visit(LabeledStmt ls) throws PGoTransException {
+				// unlock if we're still locked from another label (e.g. if
+				// this is a label inside the body of a while, the
+				// LabeledStmts are nested)
+				unlockIfLocked();
+
 				// only add the label if we use it in a goto
 				if (go.isLabelUsed(ls.label)) {
 					result.add(new Label(ls.label));
 				}
+
+				// if the first statement is a while, we should lock on the
+				// loop interior
+				assert (!ls.stmts.isEmpty());
+				if (!(ls.stmts.get(0) instanceof While)) {
+					lockIfUnlocked();
+				}
+
 				super.visit(ls);
+				// we don't need to unlock afterward, since this statement will
+				// be followed by a label
 			}
 
 			@Override
@@ -187,7 +220,15 @@ public class PGoTransStageGoGen {
 				// Store the result so far temporarily
 				Vector<Statement> tempRes = result;
 				result = loopBody; // we send the loop body to be filled
-				super.visit(w); // visit the loop body
+
+				if (!w.unlabDo.isEmpty()) {
+					lockIfUnlocked();
+					walk(w.unlabDo); // this is the body before the first label
+					unlockIfLocked();
+				}
+				walk(w.labDo);
+				unlockIfLocked();
+
 				For loopAst = new For(cond, result);
 				result = tempRes;
 				result.add(loopAst);
@@ -488,6 +529,7 @@ public class PGoTransStageGoGen {
 				result = thenS; // we send the loop body to be filled
 				walk(lif.unlabThen);
 				walk(lif.labThen);
+
 				result = elseS;
 				walk(lif.unlabElse);
 				walk(lif.labElse);
@@ -496,6 +538,7 @@ public class PGoTransStageGoGen {
 
 				result = tempRes;
 				result.add(ifAst);
+				unlockIfLocked();
 			}
 
 			@Override
@@ -518,6 +561,7 @@ public class PGoTransStageGoGen {
 					PGoTLA tla = data.findPGoTLA(t);
 					args.add(TLAToGo(tla));
 				}
+				unlockIfLocked();
 				FunctionCall fc = new FunctionCall(c.to, args);
 				result.add(fc);
 			}
@@ -535,12 +579,20 @@ public class PGoTransStageGoGen {
 					PGoTLA tla = data.findPGoTLA(t);
 					args.add(TLAToGo(tla));
 				}
+				unlockIfLocked();
 				FunctionCall fc = new FunctionCall(cr.to, args);
 				result.add(fc);
 			}
 
 			@Override
 			protected void visit(Goto g) {
+				// we are jumping to a label which will immediately lock, so
+				// unlock before
+				unlockIfLocked();
+				// control jumps to a different label at which point we are
+				// unlocked, but the rest of the ast we are walking is still
+				// locked
+				locked = true;
 				result.add(new pgo.model.golang.GoTo(g.to));
 				assert (go.isLabelUsed(g.to));
 			}
