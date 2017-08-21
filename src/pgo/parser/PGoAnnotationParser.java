@@ -3,9 +3,9 @@ package pgo.parser;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.Vector;
-import java.util.regex.Pattern;
 
 import pgo.model.parser.AnnotatedFunction;
+import pgo.model.parser.AnnotatedLock;
 import pgo.model.parser.AnnotatedProcess;
 import pgo.model.parser.AnnotatedReturnVariable;
 import pgo.model.parser.AnnotatedTLADefinition;
@@ -23,6 +23,8 @@ public class PGoAnnotationParser {
 	private LinkedHashMap<String, AnnotatedProcess> procs;
 	private LinkedHashMap<String, AnnotatedReturnVariable> retVars;
 	private LinkedHashMap<String, AnnotatedTLADefinition> defns;
+	// null if there is no lock annotation
+	private AnnotatedLock lock;
 
 	public PGoAnnotationParser(Vector<PGoAnnotation> pGoAnnotations) throws PGoParseException {
 		vars = new LinkedHashMap<String, AnnotatedVariable>();
@@ -30,6 +32,7 @@ public class PGoAnnotationParser {
 		procs = new LinkedHashMap<String, AnnotatedProcess>();
 		retVars = new LinkedHashMap<String, AnnotatedReturnVariable>();
 		defns = new LinkedHashMap<>();
+		lock = null;
 
 		for (PGoAnnotation annot : pGoAnnotations) {
 			parseAnnote(annot);
@@ -61,6 +64,12 @@ public class PGoAnnotationParser {
 		case "def":
 			AnnotatedTLADefinition ad = AnnotatedTLADefinition.parse(annot.getString(), annot.getLine());
 			defns.put(ad.getName(), ad);
+			break;
+		case "lock":
+			if (lock != null) {
+				throw new PGoParseException("Found more than one lock annotation", annot.getLine());
+			}
+			lock = AnnotatedLock.parse(parts, annot.getLine());
 			break;
 		default:
 			throw new PGoParseException("Unknown annotation attribute \"" + parts[0] + "\"", annot.getLine());
@@ -102,12 +111,16 @@ public class PGoAnnotationParser {
 	public AnnotatedProcess getAnnotatedProcess(String name) {
 		return procs.get(name);
 	}
-	
+
 	public ArrayList<AnnotatedTLADefinition> getAnnotatedTLADefinitions() {
 		return new ArrayList<>(defns.values());
 	}
-	
+
 	public AnnotatedTLADefinition getAnnotatedTLADefinition(String name) {
 		return defns.get(name);
+	}
+
+	public AnnotatedLock getAnnotatedLock() {
+		return lock;
 	}
 }

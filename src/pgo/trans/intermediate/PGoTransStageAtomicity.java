@@ -6,7 +6,7 @@ import java.util.Vector;
 import pcal.AST;
 import pgo.model.intermediate.PGoFunction;
 import pgo.model.intermediate.PGoVariable;
-import pgo.parser.PGoParseException;
+import pgo.model.parser.AnnotatedLock;
 import pgo.trans.PGoTransException;
 import pgo.util.PcalASTUtil;
 
@@ -23,8 +23,15 @@ public class PGoTransStageAtomicity {
 	// the intermediate data
 	PGoTransIntermediateData data;
 
-	public PGoTransStageAtomicity(PGoTransStageType s) throws PGoParseException, PGoTransException {
+	public PGoTransStageAtomicity(PGoTransStageType s) throws PGoTransException {
 		this.data = s.data;
+
+		// If we have annotated whether we should lock, use the annotation.
+		AnnotatedLock al = this.data.annots.getAnnotatedLock();
+		if (al != null) {
+			this.data.needsLock = al.needsLock();
+			return;
+		}
 
 		// Mark all variables that have an assignment from processes as needing
 		// to be atomic. We assume any variable that has an assignment within a

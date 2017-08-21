@@ -13,6 +13,7 @@ import pgo.model.intermediate.PGoPrimitiveType.PGoInt;
 import pgo.model.intermediate.PGoPrimitiveType.PGoString;
 import pgo.model.intermediate.PGoPrimitiveType.PGoVoid;
 import pgo.model.parser.AnnotatedFunction;
+import pgo.model.parser.AnnotatedLock;
 import pgo.model.parser.AnnotatedProcess;
 import pgo.model.parser.AnnotatedReturnVariable;
 import pgo.model.parser.AnnotatedVariable.ArgAnnotatedVariable;
@@ -34,6 +35,7 @@ public class PGoAnnotationParserTest {
 		annots.add(new PGoAnnotation("ret fRet", 50));
 		annots.add(new PGoAnnotation("proc int Client", 100));
 		annots.add(new PGoAnnotation("proc string Server", 150));
+		annots.add(new PGoAnnotation("lock true", 200));
 
 		PGoAnnotationParser parser = new PGoAnnotationParser(annots);
 
@@ -102,6 +104,10 @@ public class PGoAnnotationParserTest {
 		assertEquals("Server", pr.getName());
 		assertEquals(150, pr.getLine());
 		assertTrue(pr.getIdType() instanceof PGoString);
+
+		AnnotatedLock al = parser.getAnnotatedLock();
+		assertTrue(al.needsLock());
+		assertEquals(200, al.getLine());
 	}
 
 }
