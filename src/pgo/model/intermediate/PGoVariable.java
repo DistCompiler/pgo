@@ -52,6 +52,10 @@ public class PGoVariable {
 	// Whether this variable needs atomic access (ie threadsafe)
 	private boolean isAtomic;
 
+	// the lock group id that this variable is associated with (-1 if no atomic
+	// access needed)
+	private int lockGroup;
+
 	// whether we inferred the type of this variable or it was in an annotation
 	private boolean inferred;
 
@@ -62,6 +66,7 @@ public class PGoVariable {
 		isConstant = false;
 		inferred = false;
 		argInfo = null;
+		lockGroup = -1;
 	}
 
 	public String getName() {
@@ -128,6 +133,14 @@ public class PGoVariable {
 
 	public boolean getIsAtomic() {
 		return this.isAtomic;
+	}
+
+	public void setLockGroup(int group) {
+		this.lockGroup = group;
+	}
+
+	public int getLockGroup() {
+		return lockGroup;
 	}
 
 	public void setAsInferredType() {
@@ -228,4 +241,17 @@ public class PGoVariable {
 		return r;
 	}
 
+	@Override
+	public boolean equals(Object other) {
+		if (other == null || !(other instanceof PGoVariable)) {
+			return false;
+		}
+		PGoVariable o = (PGoVariable) other;
+		return getName().equals(o.getName());
+	}
+
+	@Override
+	public int hashCode() {
+		return getName().hashCode();
+	}
 }

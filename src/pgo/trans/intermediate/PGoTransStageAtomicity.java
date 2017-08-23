@@ -1,10 +1,16 @@
 package pgo.trans.intermediate;
 
-import java.util.HashSet;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
 import java.util.Vector;
 
-import pcal.AST;
-import pgo.model.intermediate.PGoFunction;
+import pcal.AST.Clause;
+import pcal.AST.LabelEither;
+import pcal.AST.LabelIf;
+import pcal.AST.LabeledStmt;
+import pcal.AST.SingleAssign;
 import pgo.model.intermediate.PGoVariable;
 import pgo.model.parser.AnnotatedLock;
 import pgo.trans.PGoTransException;
@@ -13,6 +19,10 @@ import pgo.util.PcalASTUtil;
 /**
  * Stage to detect concurrent accesses to variables and mark them as needing
  * thread safe.
+ * 
+ * The current behaviour is to group variables together and guard each group
+ * with a lock. Two variables are in the same group if they can be accessed in
+ * the same label.
  * 
  * TODO we can probably optimize this in terms of locking. Also need to deal
  * with networks
@@ -33,46 +43,132 @@ public class PGoTransStageAtomicity {
 			return;
 		}
 
-		// Mark all variables that have an assignment from processes as needing
-		// to be atomic. We assume any variable that has an assignment within a
-		// process to be accessed concurrently.
+		// If this is a uniprocess algorithm, no locking is needed.
+		if (!this.data.isMultiProcess) {
+			this.data.needsLock = false;
+			return;
+		}
 
-		for (PGoVariable v : this.data.globals.values()) {
-			for (String pname : this.data.goroutines.keySet()) {
-				// set of functions we already visited
-				HashSet<String> visited = new HashSet<String>();
+		inferAtomic();
+	}
 
-				PGoFunction prcs = this.data.funcs.get(pname);
-				assert (prcs != null);
-				Vector<AST> toExamine = new Vector<AST>();
-				toExamine.addAll(prcs.getBody());
+	// Infer the locking groups that the variables belong to.
+	private void inferAtomic() throws PGoTransException {
+		// this will group variables that may be accessed in a single label
+		DisjointSets dsu = new DisjointSets();
 
-				Vector<String> funcsCalled = PcalASTUtil.collectFunctionCalls(toExamine);
-				Vector<AST> newBodies = new Vector<AST>();
-				while (!funcsCalled.isEmpty()) {
-					visited.addAll(funcsCalled);
+		// the result maps the label name to the variables that are accessed in
+		// it
+		PcalASTUtil.Walker<Map<String, Set<PGoVariable>>> walker = new PcalASTUtil.Walker<Map<String, Set<PGoVariable>>>() {
+			// the current label we are in
+			String curLabel;
 
-					for (String fname : funcsCalled) {
-						newBodies.addAll(this.data.findPGoFunction(fname).getBody());
-					}
-					toExamine.addAll(newBodies);
+			@Override
+			protected void init() {
+				result = new HashMap<>();
+			}
 
-					// TODO add tests for cases when this is needed
-					// TODO add recursive cases (issue #7)
-					funcsCalled = PcalASTUtil.collectFunctionCalls(newBodies);
+			@Override
+			protected void visit(LabeledStmt ls) throws PGoTransException {
+				curLabel = ls.label;
+				super.visit(ls);
+			}
 
-					funcsCalled.removeAll(visited);
-
-					newBodies.clear();
+			@Override
+			protected void visit(SingleAssign sa) {
+				// we only care about global variables, so don't use
+				// findPGoVariable
+				PGoVariable toInsert = data.globals.get(sa.lhs.var);
+				if (toInsert != null) {
+					result.get(curLabel).add(toInsert);
 				}
+			}
 
-				if (PcalASTUtil.containsAssignmentToVar(toExamine, v.getName())) {
-					// assignment from a process means we need the variable
-					// thread safe
-					v.setAtomic(true);
-					this.data.needsLock = true;
-					break;
+			@Override
+			protected void visit(LabelIf lif) throws PGoTransException {
+				// we might hit some labels in the "then" block, but the "else"
+				// block will be in the old label
+				String oldLabel = curLabel;
+				walk(lif.unlabThen);
+				walk(lif.labThen);
+				// reset to old label before walking else
+				curLabel = oldLabel;
+				walk(lif.unlabElse);
+				walk(lif.labElse);
+				// there has to be a label after a LabelIf, so don't need to
+				// worry about anything here
+			}
+
+			@Override
+			protected void visit(LabelEither le) throws PGoTransException {
+				String oldLabel = curLabel;
+				// for each clause, reset the label for the unlab block
+				for (Clause c : (Vector<Clause>) le.clauses) {
+					super.visit(c);
+					curLabel = oldLabel;
 				}
+			}
+		};
+
+		Map<String, Set<PGoVariable>> varGroups = walker.getResult(data.ast);
+		for (Entry<String, Set<PGoVariable>> e : varGroups.entrySet()) {
+			// put all variables in this label into the same group
+			Set<PGoVariable> toMerge = e.getValue();
+			if (toMerge.isEmpty()) {
+				continue;
+			}
+			PGoVariable first = toMerge.iterator().next();
+			for (PGoVariable var : toMerge) {
+				dsu.union(first, var);
+			}
+		}
+
+		// map the representative PGoVariable of the set to the id number of the
+		// lock group
+		int id = 0;
+		Map<PGoVariable, Integer> setToId = new HashMap<>();
+		for (PGoVariable v : dsu.representative.values()) {
+			if (!setToId.containsKey(v)) {
+				setToId.put(v, id);
+				id++;
+			}
+		}
+
+		// apply the ids to the variables
+		for (PGoVariable var : data.globals.values()) {
+			PGoVariable varRoot = dsu.find(var);
+			var.setLockGroup(setToId.get(varRoot));
+		}
+		data.needsLock = true;
+	}
+
+	// A basic disjoint-set union data structure
+	private class DisjointSets {
+		// maps the variable to the representative of the set
+		Map<PGoVariable, PGoVariable> representative;
+
+		DisjointSets() {
+			representative = new HashMap<>();
+			for (PGoVariable v : data.globals.values()) {
+				representative.put(v, v);
+			}
+		}
+
+		// Finds the representative of the set that var is in.
+		PGoVariable find(PGoVariable var) {
+			if (representative.get(var) == var) {
+				return var;
+			}
+			PGoVariable ret = find(representative.get(var));
+			representative.put(var, ret);
+			return ret;
+		}
+
+		// Merge the two sets given by a and b.
+		void union(PGoVariable a, PGoVariable b) {
+			PGoVariable aRoot = find(a), bRoot = find(b);
+			if (aRoot != bRoot) {
+				representative.put(aRoot, bRoot);
 			}
 		}
 	}
