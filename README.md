@@ -41,21 +41,31 @@ PGo is a source to source compiler written in Java. It uses TLA+
 toolset to parse PlusCal into an AST, which is then translated to a Go
 AST, and finally written to a .go file.
 
-## How do install it?
+## How to install it?
 
-Requirements: JRE8, and one of Eclipse or Ant 1.9
+Requirements: Eclipse or Ant 1.9
 
 1. First download/clone the repository
 
 2. Option 1: Import as an Eclipse project
 Option 2: Execute `ant pgo` assuming the project is in the `pgo/` directory
 
-## How to Run
+Dependencies:
+
+- The [Plume options library](https://mernst.github.io/plume-lib/).
+
+- The [TLA+ tools](https://github.com/tlaplus/tlaplus/tree/master/tlatools/src).
+
+- The [Go Data Structures library](https://github.com/emirpasic/gods).
+
+PGo was tested on JRE8 and Go 1.8.3.
+
+## How to run
 
 Run with eclipse. Arguments `-h` for help.
 Alternatively, run the compiler with `./pgo.sh`.
 
-## For Developers
+## For developers
 
 If you use Eclipse, you should import the code style found in the
 `pgo-code-style.epf` file by clicking `File -> Import...` and
