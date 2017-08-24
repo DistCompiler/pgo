@@ -814,6 +814,13 @@ public class PGoTransStageGoGen {
 					new Vector<>(), false));
 			go.getImports().addImport("sync");
 		}
+		// Generate all variables from TLA definitions first.
+		for (PGoVariable pv : this.data.globals.values()) {
+			if (this.data.annots.getAnnotatedTLADefinition(pv.getName()) == null) {
+				continue;
+			}
+			generateSimpleVariable(pv, false);
+		}
 		// we delay initialization once we hit a variable with \in, in case
 		// other variable refer to it. We also want to reset the other values to
 		// the initial value. Constants will still be generated at the time
@@ -860,47 +867,11 @@ public class PGoTransStageGoGen {
 				// already did var \in set
 				continue;
 			}
-			Logger.getGlobal().info("Generating go variable \"" + pv.getName() + "\"");
-
-			if (!pv.getGoVal().isEmpty()) {
-				// If we have a specifieVector<E>ang value for the variable,
-				// use it
-				Vector<Expression> exp = new Vector<>();
-				exp.add(new Token(pv.getGoVal()));
-				SimpleExpression s = new SimpleExpression(exp);
-
-				go.addGlobal(new VariableDeclaration(pv.getName(), pv.getType(), s,
-						pv.getIsConstant()));
+			if (this.data.annots.getAnnotatedTLADefinition(pv.getName()) != null) {
+				// already generated TLA defns
 				continue;
-			} else if (pv.getArgInfo() != null) {
-				go.addGlobal(new VariableDeclaration(pv.getName(), pv.getType(), null,
-						pv.getIsConstant(), pv.wasInferred()));
-				// generateMain will fill the main function
-			} else {
-				// being part of the rhs, the parsed result should just be
-				// one coherent expression
-				PGoTLA ptla = data.findPGoTLA(pv.getPcalInitBlock());
-				Expression stmt = new TLAExprToGo(ptla, go.getImports(), new PGoTempData(data), pv)
-						.toExpression();
-				SimpleExpression se = new SimpleExpression(new Vector<Expression>() {
-					{
-						add(stmt);
-					}
-				});
-
-				if (pv.getIsConstant() || !delay) {
-					go.addGlobal(new VariableDeclaration(pv.getName(), pv.getType(), se,
-							pv.getIsConstant(), pv.wasInferred()));
-				} else {
-					go.addGlobal(new VariableDeclaration(pv.getName(), pv.getType(), null,
-							pv.getIsConstant(), pv.wasInferred()));
-					Vector<Expression> toks = new Vector<>();
-					toks.add(new Token(pv.getName()));
-					toks.add(new Token(" = "));
-					toks.add(se);
-					main.add(new SimpleExpression(toks));
-				}
 			}
+			generateSimpleVariable(pv, delay);
 		}
 
 		// if the program contains goroutines, we need to add a waitgroup
@@ -919,6 +890,50 @@ public class PGoTransStageGoGen {
 			VariableDeclaration chanDecl = new VariableDeclaration("PGoStart",
 					PGoType.inferFromGoTypeName("chan[bool]"), new SimpleExpression(se), false);
 			go.addGlobal(chanDecl);
+		}
+	}
+
+	private void generateSimpleVariable(PGoVariable pv, boolean delay) throws PGoTransException {
+		Logger.getGlobal().info("Generating go variable \"" + pv.getName() + "\"");
+
+		if (!pv.getGoVal().isEmpty()) {
+			// If we have a specifieVector<E>ang value for the variable,
+			// use it
+			Vector<Expression> exp = new Vector<>();
+			exp.add(new Token(pv.getGoVal()));
+			SimpleExpression s = new SimpleExpression(exp);
+
+			go.addGlobal(new VariableDeclaration(pv.getName(), pv.getType(), s,
+					pv.getIsConstant()));
+			return;
+		} else if (pv.getArgInfo() != null) {
+			go.addGlobal(new VariableDeclaration(pv.getName(), pv.getType(), null,
+					pv.getIsConstant(), pv.wasInferred()));
+			// generateMain will fill the main function
+		} else {
+			// being part of the rhs, the parsed result should just be
+			// one coherent expression
+			PGoTLA ptla = data.findPGoTLA(pv.getPcalInitBlock());
+			Expression stmt = new TLAExprToGo(ptla, go.getImports(), new PGoTempData(data), pv)
+					.toExpression();
+			SimpleExpression se = new SimpleExpression(new Vector<Expression>() {
+				{
+					add(stmt);
+				}
+			});
+
+			if (pv.getIsConstant() || !delay) {
+				go.addGlobal(new VariableDeclaration(pv.getName(), pv.getType(), se,
+						pv.getIsConstant(), pv.wasInferred()));
+			} else {
+				go.addGlobal(new VariableDeclaration(pv.getName(), pv.getType(), null,
+						pv.getIsConstant(), pv.wasInferred()));
+				Vector<Expression> toks = new Vector<>();
+				toks.add(new Token(pv.getName()));
+				toks.add(new Token(" = "));
+				toks.add(se);
+				main.add(new SimpleExpression(toks));
+			}
 		}
 	}
 
