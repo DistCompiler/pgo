@@ -3,6 +3,7 @@ package pgo.model.golang;
 import java.util.Vector;
 
 import pgo.model.intermediate.PGoType;
+import pgo.model.intermediate.PGoVariable;
 
 /**
  * Represents a variable declaration
@@ -14,9 +15,7 @@ public class VariableDeclaration extends Statement {
 	// type of variable
 	private PGoType type;
 	// the init default value
-	private SimpleExpression defaultValue;
-	// the statements to initialize the variable
-	private Vector<Statement> initCode;
+	private Expression defaultValue;
 	// whether this is a constant
 	private boolean isConst;
 	// whether this type was inferred in the typing stage (should print a
@@ -25,25 +24,22 @@ public class VariableDeclaration extends Statement {
 	// the lock group this belongs to (should print a comment)
 	private int lockGroup;
 
-	public VariableDeclaration(String n, PGoType t, SimpleExpression val, boolean isConst) {
+	public VariableDeclaration(String n, PGoType t, Expression val, boolean isConst, boolean inferred) {
 		name = n;
 		type = t;
 		defaultValue = val;
-		initCode = new Vector<Statement>();
 		this.isConst = isConst;
-		wasInferred = false;
+		wasInferred = inferred;
 		lockGroup = -1;
 	}
 
-	public VariableDeclaration(String n, PGoType t, SimpleExpression val, boolean isConst, boolean inferred,
-			int lockGroup) {
-		name = n;
-		type = t;
+	public VariableDeclaration(PGoVariable var, Expression val) {
+		name = var.getName();
+		type = var.getType();
 		defaultValue = val;
-		initCode = new Vector<>();
-		this.isConst = isConst;
-		wasInferred = inferred;
-		this.lockGroup = lockGroup;
+		isConst = var.getIsConstant();
+		wasInferred = var.wasInferred();
+		lockGroup = var.getLockGroup();
 	}
 
 	public String getName() {
@@ -66,20 +62,12 @@ public class VariableDeclaration extends Statement {
 		this.type = t;
 	}
 
-	public SimpleExpression getDefaultValue() {
+	public Expression getDefaultValue() {
 		return defaultValue;
 	}
 
-	public void setDefaultValue(SimpleExpression v) {
+	public void setDefaultValue(Expression v) {
 		this.defaultValue = v;
-	}
-
-	public Vector<Statement> getInitCode() {
-		return new Vector<Statement>(initCode);
-	}
-
-	public void setInitCode(Vector<Statement> s) {
-		this.initCode = s;
 	}
 
 	@Override
@@ -101,10 +89,6 @@ public class VariableDeclaration extends Statement {
 
 		ret.add(decl);
 		addStringsAndIndent(ret, valStr);
-
-		for (Statement s : initCode) {
-			ret.addAll(s.toGo());
-		}
 		return ret;
 	}
 }
