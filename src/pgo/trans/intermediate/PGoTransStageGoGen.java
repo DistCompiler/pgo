@@ -449,25 +449,21 @@ public class PGoTransStageGoGen {
 						TLAExprToGo trans = new TLAExprToGo(varExpr, go.getImports(),
 								new PGoTempData((PGoTempData) data));
 
-						Vector<Expression> se = new Vector<>();
-						se.add(new Token(varName));
-						se.add(new Token(" := "));
-						se.add(trans.toExpression());
-						pre.add(new SimpleExpression(se));
+						VariableDeclaration v = new VariableDeclaration(varName, trans.getType(), trans.toExpression(),
+								false, true);
+						pre.add(v);
 						((PGoTempData) data).getLocals().put(varName,
 								PGoVariable.convert(varName, trans.getType()));
 					} else {
 						// x \in S
-						// x := S.ToSlice()[rand.Intn(S.Size())].(type)
+						// var x type = S.ToSlice()[rand.Intn(S.Size())].(type)
 						PGoTLA setExpr = data.findPGoTLA(with.exp);
 						TLAExprToGo trans = new TLAExprToGo(setExpr, go.getImports(),
 								new PGoTempData(data));
 						PGoType setType = trans.getType();
 						assert (setType instanceof PGoSet);
 						PGoType containedType = ((PGoSet) setType).getElementType();
-						Vector<Expression> se = new Vector<>();
-						se.add(new Token(varName));
-						se.add(new Token(" := "));
+
 						Vector<Expression> rhs = new Vector<>();
 						rhs.add(new FunctionCall("ToSlice", new Vector<>(), trans.toExpression()));
 						rhs.add(new Token("["));
@@ -477,8 +473,10 @@ public class PGoTransStageGoGen {
 							}
 						}));
 						rhs.add(new Token("]"));
-						se.add(new TypeAssertion(new SimpleExpression(rhs), containedType));
-						pre.add(new SimpleExpression(se));
+
+						VariableDeclaration v = new VariableDeclaration(varName, containedType,
+								new TypeAssertion(new SimpleExpression(rhs), containedType), false, true);
+						pre.add(v);
 						go.getImports().addImport("math/rand");
 						((PGoTempData) data).getLocals().put(varName,
 								PGoVariable.convert(varName, containedType));
