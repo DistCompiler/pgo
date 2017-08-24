@@ -26,6 +26,9 @@ public abstract class PGoType {
 		if (r.isUndetermined()) {
 			r = PGoCollectionType.inferContainerFromGoTypeName(s);
 		}
+		if (r.isUndetermined()) {
+			r = PGoMiscellaneousType.inferMiscFromGoTypeName(s);
+		}
 		return r;
 	}
 

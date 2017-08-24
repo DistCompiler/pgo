@@ -1,6 +1,7 @@
 package pgo.trans.intermediate;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -24,6 +25,9 @@ import pgo.util.PcalASTUtil;
  * with a lock. Two variables are in the same group if they can be accessed in
  * the same label.
  * 
+ * This stage determines the value of needsLock, fills the lockGroup field of
+ * all global PGoVariables, and populates the labToLockGroup method.
+ * 
  * TODO we can probably optimize this in terms of locking. Also need to deal
  * with networks
  *
@@ -40,11 +44,10 @@ public class PGoTransStageAtomicity {
 		AnnotatedLock al = this.data.annots.getAnnotatedLock();
 		if (al != null) {
 			this.data.needsLock = al.needsLock();
-			return;
-		}
-
-		// If this is a uniprocess algorithm, no locking is needed.
-		if (!this.data.isMultiProcess) {
+			if (!this.data.needsLock) {
+				return;
+			}
+		} else if (!this.data.isMultiProcess) {
 			this.data.needsLock = false;
 			return;
 		}
@@ -56,7 +59,6 @@ public class PGoTransStageAtomicity {
 	private void inferAtomic() throws PGoTransException {
 		// this will group variables that may be accessed in a single label
 		DisjointSets dsu = new DisjointSets();
-
 		// the result maps the label name to the variables that are accessed in
 		// it
 		PcalASTUtil.Walker<Map<String, Set<PGoVariable>>> walker = new PcalASTUtil.Walker<Map<String, Set<PGoVariable>>>() {
@@ -71,6 +73,7 @@ public class PGoTransStageAtomicity {
 			@Override
 			protected void visit(LabeledStmt ls) throws PGoTransException {
 				curLabel = ls.label;
+				result.put(curLabel, new HashSet<>());
 				super.visit(ls);
 			}
 
@@ -131,6 +134,7 @@ public class PGoTransStageAtomicity {
 			if (!setToId.containsKey(v)) {
 				setToId.put(v, id);
 				id++;
+				data.numLockGroups++;
 			}
 		}
 
@@ -138,6 +142,18 @@ public class PGoTransStageAtomicity {
 		for (PGoVariable var : data.globals.values()) {
 			PGoVariable varRoot = dsu.find(var);
 			var.setLockGroup(setToId.get(varRoot));
+		}
+
+		// fill the labToLockGroup map
+		for (Entry<String, Set<PGoVariable>> e : varGroups.entrySet()) {
+			if (e.getValue().isEmpty()) {
+				data.labToLockGroup.put(e.getKey(), -1);
+				continue;
+			}
+			// find the group one of the variables is in
+			PGoVariable first = e.getValue().iterator().next();
+			int labId = setToId.get(first);
+			data.labToLockGroup.put(e.getKey(), labId);
 		}
 		data.needsLock = true;
 	}

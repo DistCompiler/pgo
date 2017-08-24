@@ -25,4 +25,14 @@ public abstract class PGoMiscellaneousType extends PGoType {
 		return goType;
 	}
 
+	public static PGoType inferMiscFromGoTypeName(String s) {
+		switch (s) {
+		case "sync.WaitGroup":
+			return new PGoWaitGroup();
+		case "sync.RWMutex":
+			return new PGoRWMutex();
+		}
+		return PGoType.UNDETERMINED;
+	}
+
 }

@@ -46,6 +46,8 @@ public class PGoTempData extends PGoTransIntermediateData {
 		needsLock = data.needsLock;
 		defns = new LinkedHashMap<>(data.defns);
 		tlaToAST = new HashMap<>(data.tlaToAST);
+		labToLockGroup = new HashMap<>(data.labToLockGroup);
+		numLockGroups = data.numLockGroups;
 		locals = new LinkedHashMap<>();
 	}
 
@@ -63,6 +65,8 @@ public class PGoTempData extends PGoTransIntermediateData {
 		needsLock = data.needsLock;
 		defns = new LinkedHashMap<>(data.defns);
 		tlaToAST = new HashMap<>(data.tlaToAST);
+		labToLockGroup = new HashMap<>(data.labToLockGroup);
+		numLockGroups = data.numLockGroups;
 		locals = new LinkedHashMap<>(data.getLocals());
 	}
 

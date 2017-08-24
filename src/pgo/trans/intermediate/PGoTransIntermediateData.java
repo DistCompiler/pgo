@@ -140,6 +140,12 @@ class PGoTransIntermediateData {
 	// representation
 	Map<TLAExprPgo, PGoTLA> tlaToAST;
 
+	// Maps the label name to the lock group that should be used when entering
+	// the label (-1 if none is needed)
+	Map<String, Integer> labToLockGroup;
+	// the number of lock groups there are
+	int numLockGroups;
+
 	PGoTransIntermediateData() {
 
 		this.globals = new LinkedHashMap<String, PGoVariable>();
@@ -150,6 +156,8 @@ class PGoTransIntermediateData {
 		this.defns = new LinkedHashMap<>();
 		this.needsLock = false;
 		this.tlaToAST = new HashMap<>();
+		this.labToLockGroup = new HashMap<>();
+		this.numLockGroups = 0;
 	}
 
 	// Finds the PGofunction of the given name, or null if none exists.

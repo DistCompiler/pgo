@@ -15,7 +15,6 @@ import pgo.model.intermediate.PGoCollectionType.PGoSet;
 import pgo.model.intermediate.PGoCollectionType.PGoSlice;
 import pgo.model.intermediate.PGoCollectionType.PGoTuple;
 import pgo.model.intermediate.PGoFunction;
-import pgo.model.intermediate.PGoMiscellaneousType.PGoRWMutex;
 import pgo.model.intermediate.PGoMiscellaneousType.PGoWaitGroup;
 import pgo.model.intermediate.PGoPrimitiveType;
 import pgo.model.intermediate.PGoPrimitiveType.PGoBool;
@@ -163,22 +162,45 @@ public class PGoTransStageGoGen {
 	private Vector<Statement> convertStatementToGo(Vector<AST> stmts) throws PGoTransException {
 		go.addUsedLabels(PcalASTUtil.collectUsedLabels(stmts));
 		return new PcalASTUtil.Walker<Vector<Statement>>() {
-			// whether we are locked currently
-			boolean locked = false;
+			// the current label that we are in
+			String curLabel = null;
+			// the current lock group we are in (-1 if no lock)
+			int curLockGroup = -1;
 
-			// Add a statement to lock, if we need thread safety and if we are
-			// not currently locked
-			private void lockIfUnlocked() {
-				if (!locked && data.needsLock) {
-					result.add(new FunctionCall("Lock", new Vector<>(), new Token("PGoLock")));
-					locked = true;
+			// Add a statement to lock, if we need thread safety
+			private void lock() {
+				if (data.needsLock) {
+					assert (curLockGroup == -1);
+					// find the lock group corresponding to the label
+					int lockGroup = data.labToLockGroup.get(curLabel);
+					if (lockGroup == -1) {
+						return;
+					}
+					SimpleExpression lock = new SimpleExpression(new Vector<Expression>() {
+						{
+							add(new Token("PGoLock"));
+							add(new Token("["));
+							add(new Token(((Integer) lockGroup).toString()));
+							add(new Token("]"));
+						}
+					});
+					result.add(new FunctionCall("Lock", new Vector<>(), lock));
+					curLockGroup = lockGroup;
 				}
 			}
 
-			private void unlockIfLocked() {
-				if (locked && data.needsLock) {
-					result.add(new FunctionCall("Unlock", new Vector<>(), new Token("PGoLock")));
-					locked = false;
+			private void unlock() {
+				if (curLockGroup != -1 && data.needsLock) {
+					SimpleExpression lock = new SimpleExpression(new Vector<Expression>() {
+						{
+							add(new Token("PGoLock"));
+							add(new Token("["));
+							add(new Token(((Integer) curLockGroup).toString()));
+							add(new Token("]"));
+						}
+					});
+					result.add(new FunctionCall("Unlock", new Vector<>(), lock));
+					curLockGroup = -1;
 				}
 			}
 
@@ -192,8 +214,8 @@ public class PGoTransStageGoGen {
 				// unlock if we're still locked from another label (e.g. if
 				// this is a label inside the body of a while, the
 				// LabeledStmts are nested)
-				unlockIfLocked();
-
+				unlock();
+				curLabel = ls.label;
 				// only add the label if we use it in a goto
 				if (go.isLabelUsed(ls.label)) {
 					result.add(new Label(ls.label));
@@ -203,7 +225,7 @@ public class PGoTransStageGoGen {
 				// loop interior
 				assert (!ls.stmts.isEmpty());
 				if (!(ls.stmts.get(0) instanceof While)) {
-					lockIfUnlocked();
+					lock();
 				}
 
 				super.visit(ls);
@@ -222,12 +244,11 @@ public class PGoTransStageGoGen {
 				result = loopBody; // we send the loop body to be filled
 
 				if (!w.unlabDo.isEmpty()) {
-					lockIfUnlocked();
+					lock();
 					walk(w.unlabDo); // this is the body before the first label
-					unlockIfLocked();
 				}
 				walk(w.labDo);
-				unlockIfLocked();
+				unlock();
 
 				For loopAst = new For(cond, result);
 				result = tempRes;
@@ -522,6 +543,11 @@ public class PGoTransStageGoGen {
 			protected void visit(LabelIf lif) throws PGoTransException {
 				Expression cond = TLAToGo(data.findPGoTLA(lif.test));
 
+				// we might change labels in the then block, but the else block
+				// should start at the old label
+				String oldLabel = curLabel;
+				int oldLockGroup = curLockGroup;
+
 				Vector<Statement> thenS = new Vector<>(), elseS = new Vector<>();
 
 				// Store the result so far temporarily
@@ -529,16 +555,19 @@ public class PGoTransStageGoGen {
 				result = thenS; // we send the loop body to be filled
 				walk(lif.unlabThen);
 				walk(lif.labThen);
+				unlock();
 
+				curLabel = oldLabel;
+				curLockGroup = oldLockGroup;
 				result = elseS;
 				walk(lif.unlabElse);
 				walk(lif.labElse);
+				unlock();
 
 				pgo.model.golang.If ifAst = new pgo.model.golang.If(cond, thenS, elseS);
 
 				result = tempRes;
 				result.add(ifAst);
-				unlockIfLocked();
 			}
 
 			@Override
@@ -561,7 +590,7 @@ public class PGoTransStageGoGen {
 					PGoTLA tla = data.findPGoTLA(t);
 					args.add(TLAToGo(tla));
 				}
-				unlockIfLocked();
+				unlock();
 				FunctionCall fc = new FunctionCall(c.to, args);
 				result.add(fc);
 			}
@@ -579,7 +608,7 @@ public class PGoTransStageGoGen {
 					PGoTLA tla = data.findPGoTLA(t);
 					args.add(TLAToGo(tla));
 				}
-				unlockIfLocked();
+				unlock();
 				FunctionCall fc = new FunctionCall(cr.to, args);
 				result.add(fc);
 			}
@@ -588,11 +617,12 @@ public class PGoTransStageGoGen {
 			protected void visit(Goto g) {
 				// we are jumping to a label which will immediately lock, so
 				// unlock before
-				unlockIfLocked();
+				int oldLockGroup = curLockGroup;
+				unlock();
 				// control jumps to a different label at which point we are
 				// unlocked, but the rest of the ast we are walking is still
 				// locked
-				locked = true;
+				curLockGroup = oldLockGroup;
 				result.add(new pgo.model.golang.GoTo(g.to));
 				assert (go.isLabelUsed(g.to));
 			}
@@ -771,9 +801,17 @@ public class PGoTransStageGoGen {
 	 * @throws PGoTransException
 	 */
 	private void generateGlobalVariables() throws PGoTransException {
-		// if the algorithm needs a lock, we should make a sync.RWMutex
+		// if the algorithm needs locking, we should create sync.RWMutexes
 		if (data.needsLock) {
-			go.addGlobal(new VariableDeclaration("PGoLock", new PGoRWMutex(), null, new Vector<>(), false));
+			// make([]sync.RWMutex, size)
+			Vector<Expression> params = new Vector<>();
+			params.add(new Token(new PGoSlice("sync.RWMutex").toGo()));
+			params.add(new Token(((Integer) data.numLockGroups).toString()));
+			Vector<Expression> se = new Vector<>();
+			se.add(new FunctionCall("make", params));
+
+			go.addGlobal(new VariableDeclaration("PGoLock", new PGoSlice("sync.RWMutex"), new SimpleExpression(se),
+					new Vector<>(), false));
 			go.getImports().addImport("sync");
 		}
 		// we delay initialization once we hit a variable with \in, in case
