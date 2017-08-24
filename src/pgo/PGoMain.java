@@ -12,21 +12,28 @@ import pgo.trans.PGoTransException;
 import pgo.trans.PGoTranslater;
 import pgo.util.IOUtil;
 
-// TODO refactor this mess
 public class PGoMain {
 
 	private static Logger logger;
-
 	private PGoOptions opts = null;
 	private static PGoMain instance = null;
 
+        // Check options, sets up logging.
 	public PGoMain(String[] args) throws PGoOptionException {
 		opts = new PGoOptions(args);
+                try {
+                        opts.checkOptions();
+		} catch (PGoOptionException e) {
+                        logger.severe(e.getMessage());
+                        opts.printHelp();
+			System.exit(-1);
+                }
 
 		// set up logging with correct verbosity
 		setUpLogging(opts);
 	}
 
+        // Creates a PGoMain instance, and initiates run() below.
 	public static void main(String[] args) {
 		// Get the top Logger instance
 		logger = Logger.getLogger("PGoMain");
@@ -35,12 +42,14 @@ public class PGoMain {
 			instance = new PGoMain(args);
 		} catch (PGoOptionException e) {
 			logger.severe(e.getMessage());
+			System.exit(-1);
 		}
 
 		instance.run();
 		logger.info("Finished");
 	}
 
+        // Top-level workhorse method.
 	public void run() {
 		PcalParser parser = new PcalParser(opts.infile);
 
