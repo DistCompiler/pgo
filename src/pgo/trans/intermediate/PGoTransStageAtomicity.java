@@ -84,6 +84,7 @@ public class PGoTransStageAtomicity {
 				PGoVariable toInsert = data.globals.get(sa.lhs.var);
 				if (toInsert != null) {
 					result.get(curLabel).add(toInsert);
+					toInsert.setAtomic(true);
 				}
 			}
 
@@ -131,7 +132,8 @@ public class PGoTransStageAtomicity {
 		int id = 0;
 		Map<PGoVariable, Integer> setToId = new HashMap<>();
 		for (PGoVariable v : dsu.representative.values()) {
-			if (!setToId.containsKey(v)) {
+			// if the variable is never accessed, doesn't need lock
+			if (v.getIsAtomic() && !setToId.containsKey(v)) {
 				setToId.put(v, id);
 				id++;
 				data.numLockGroups++;
@@ -140,6 +142,9 @@ public class PGoTransStageAtomicity {
 
 		// apply the ids to the variables
 		for (PGoVariable var : data.globals.values()) {
+			if (!var.getIsAtomic()) {
+				continue;
+			}
 			PGoVariable varRoot = dsu.find(var);
 			var.setLockGroup(setToId.get(varRoot));
 		}
@@ -172,6 +177,7 @@ public class PGoTransStageAtomicity {
 
 		// Finds the representative of the set that var is in.
 		PGoVariable find(PGoVariable var) {
+			// we can use == since no copies of the vars are made
 			if (representative.get(var) == var) {
 				return var;
 			}
@@ -183,9 +189,7 @@ public class PGoTransStageAtomicity {
 		// Merge the two sets given by a and b.
 		void union(PGoVariable a, PGoVariable b) {
 			PGoVariable aRoot = find(a), bRoot = find(b);
-			if (aRoot != bRoot) {
-				representative.put(aRoot, bRoot);
-			}
+			representative.put(aRoot, bRoot);
 		}
 	}
 }
