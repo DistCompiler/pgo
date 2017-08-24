@@ -736,13 +736,13 @@ public class PGoTransStageGoGen {
 				// (no initialization code)
 				if (initTLA == null) {
 					locals.add(new VariableDeclaration(local.getName(), local.getType(), null, local.getIsConstant(),
-							local.wasInferred()));
+							local.wasInferred(), local.getLockGroup()));
 				} else {
 					Expression init = new TLAExprToGo(initTLA, go.getImports(), localData, local).toExpression();
 					Vector<Expression> se = new Vector<>();
 					se.add(init);
 					locals.add(new VariableDeclaration(local.getName(), local.getType(), new SimpleExpression(se),
-							local.getIsConstant(), local.wasInferred()));
+							local.getIsConstant(), local.wasInferred(), local.getLockGroup()));
 				}
 
 				localData.getLocals().put(local.getName(), local);
@@ -810,8 +810,8 @@ public class PGoTransStageGoGen {
 			Vector<Expression> se = new Vector<>();
 			se.add(new FunctionCall("make", params));
 
-			go.addGlobal(new VariableDeclaration("PGoLock", new PGoSlice("sync.RWMutex"), new SimpleExpression(se),
-					new Vector<>(), false));
+			go.addGlobal(
+					new VariableDeclaration("PGoLock", new PGoSlice("sync.RWMutex"), new SimpleExpression(se), false));
 			go.getImports().addImport("sync");
 		}
 		// Generate all variables from TLA definitions first.
@@ -842,8 +842,8 @@ public class PGoTransStageGoGen {
 			PGoTLA ptla = data.findPGoTLA(pv.getPcalInitBlock());
 			Expression se = TLAToGo(ptla);
 
-			go.addGlobal(
-					new VariableDeclaration(pv.getName(), pv.getType(), null, pv.getIsConstant(), pv.wasInferred()));
+			go.addGlobal(new VariableDeclaration(pv.getName(), pv.getType(), null, pv.getIsConstant(), pv.wasInferred(),
+					pv.getLockGroup()));
 			Vector<Expression> toks = new Vector<>();
 			toks.add(new Token(pv.getName() + "_interface"));
 			toks.add(new Token(" := "));
@@ -908,7 +908,7 @@ public class PGoTransStageGoGen {
 			return;
 		} else if (pv.getArgInfo() != null) {
 			go.addGlobal(new VariableDeclaration(pv.getName(), pv.getType(), null,
-					pv.getIsConstant(), pv.wasInferred()));
+					pv.getIsConstant(), pv.wasInferred(), pv.getLockGroup()));
 			// generateMain will fill the main function
 		} else {
 			// being part of the rhs, the parsed result should just be
@@ -924,10 +924,10 @@ public class PGoTransStageGoGen {
 
 			if (pv.getIsConstant() || !delay) {
 				go.addGlobal(new VariableDeclaration(pv.getName(), pv.getType(), se,
-						pv.getIsConstant(), pv.wasInferred()));
+						pv.getIsConstant(), pv.wasInferred(), pv.getLockGroup()));
 			} else {
 				go.addGlobal(new VariableDeclaration(pv.getName(), pv.getType(), null,
-						pv.getIsConstant(), pv.wasInferred()));
+						pv.getIsConstant(), pv.wasInferred(), pv.getLockGroup()));
 				Vector<Expression> toks = new Vector<>();
 				toks.add(new Token(pv.getName()));
 				toks.add(new Token(" = "));

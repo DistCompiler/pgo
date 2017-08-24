@@ -22,6 +22,8 @@ public class VariableDeclaration extends Statement {
 	// whether this type was inferred in the typing stage (should print a
 	// comment with the inferred type)
 	private boolean wasInferred;
+	// the lock group this belongs to (should print a comment)
+	private int lockGroup;
 
 	public VariableDeclaration(String n, PGoType t, SimpleExpression val, boolean isConst) {
 		name = n;
@@ -30,24 +32,18 @@ public class VariableDeclaration extends Statement {
 		initCode = new Vector<Statement>();
 		this.isConst = isConst;
 		wasInferred = false;
+		lockGroup = -1;
 	}
 
-	public VariableDeclaration(String n, PGoType t, SimpleExpression val, boolean isConst, boolean inferred) {
+	public VariableDeclaration(String n, PGoType t, SimpleExpression val, boolean isConst, boolean inferred,
+			int lockGroup) {
 		name = n;
 		type = t;
 		defaultValue = val;
 		initCode = new Vector<>();
 		this.isConst = isConst;
 		wasInferred = inferred;
-	}
-
-	public VariableDeclaration(String n, PGoType t, SimpleExpression val, Vector<Statement> init, boolean isConst) {
-		name = n;
-		type = t;
-		defaultValue = val;
-		initCode = init;
-		this.isConst = isConst;
-		wasInferred = false;
+		this.lockGroup = lockGroup;
 	}
 
 	public String getName() {
@@ -96,7 +92,13 @@ public class VariableDeclaration extends Statement {
 		}
 		if (wasInferred) {
 			decl += " // PGo inferred type " + type.toTypeName();
+			if (lockGroup != -1) {
+				decl += "; Lock group " + lockGroup;
+			}
+		} else if (lockGroup != -1) {
+			decl += " // Lock group " + lockGroup;
 		}
+
 		ret.add(decl);
 		addStringsAndIndent(ret, valStr);
 
