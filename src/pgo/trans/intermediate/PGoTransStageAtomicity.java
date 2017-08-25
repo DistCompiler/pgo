@@ -131,10 +131,11 @@ public class PGoTransStageAtomicity {
 		// lock group
 		int id = 0;
 		Map<PGoVariable, Integer> setToId = new HashMap<>();
-		for (PGoVariable v : dsu.representative.values()) {
+		for (PGoVariable v : data.globals.values()) {
+			PGoVariable rep = dsu.find(v);
 			// if the variable is never accessed, doesn't need lock
-			if (v.getIsAtomic() && !setToId.containsKey(v)) {
-				setToId.put(v, id);
+			if (rep.getIsAtomic() && !setToId.containsKey(rep)) {
+				setToId.put(rep, id);
 				id++;
 				data.numLockGroups++;
 			}
@@ -157,10 +158,17 @@ public class PGoTransStageAtomicity {
 			}
 			// find the group one of the variables is in
 			PGoVariable first = e.getValue().iterator().next();
+			first = dsu.find(first);
+			if (!first.getIsAtomic()) {
+				data.labToLockGroup.put(e.getKey(), -1);
+				continue;
+			}
 			int labId = setToId.get(first);
 			data.labToLockGroup.put(e.getKey(), labId);
 		}
-		data.needsLock = true;
+		if (data.numLockGroups > 0) {
+			data.needsLock = true;
+		}
 	}
 
 	// A basic disjoint-set union data structure
