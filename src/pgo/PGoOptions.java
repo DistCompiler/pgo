@@ -30,13 +30,12 @@ public class PGoOptions {
 	public boolean writeAST = false;
 
 	private Options plumeOptions;
-        
+
 	private static String kUsageString = "pgo [options] pcalfile gofolder gofile";
 
-        
-        public void printHelp() {
-                plumeOptions.print_usage();
-        }
+	public void printHelp() {
+		plumeOptions.print_usage();
+	}
 
 	public PGoOptions(String[] args) throws PGoOptionException {
 		plumeOptions = new plume.Options(kUsageString, this);

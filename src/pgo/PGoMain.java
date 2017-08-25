@@ -18,22 +18,22 @@ public class PGoMain {
 	private PGoOptions opts = null;
 	private static PGoMain instance = null;
 
-        // Check options, sets up logging.
+	// Check options, sets up logging.
 	public PGoMain(String[] args) throws PGoOptionException {
 		opts = new PGoOptions(args);
-                try {
-                        opts.checkOptions();
+		try {
+			opts.checkOptions();
 		} catch (PGoOptionException e) {
-                        logger.severe(e.getMessage());
-                        opts.printHelp();
+			logger.severe(e.getMessage());
+			opts.printHelp();
 			System.exit(-1);
-                }
+		}
 
 		// set up logging with correct verbosity
 		setUpLogging(opts);
 	}
 
-        // Creates a PGoMain instance, and initiates run() below.
+	// Creates a PGoMain instance, and initiates run() below.
 	public static void main(String[] args) {
 		// Get the top Logger instance
 		logger = Logger.getLogger("PGoMain");
@@ -49,7 +49,7 @@ public class PGoMain {
 		logger.info("Finished");
 	}
 
-        // Top-level workhorse method.
+	// Top-level workhorse method.
 	public void run() {
 		PcalParser parser = new PcalParser(opts.infile);
 
@@ -63,12 +63,12 @@ public class PGoMain {
 			logger.severe(e.getMessage());
 			return;
 		}
-		
+
 		if (opts.writeAST) {
 			IOUtil.WriteAST(pcal.getAST(), opts.outfile);
 			return; // added for testing
 		}
-		
+
 		try {
 			PGoTranslater trans = new PGoTranslater(pcal);
 			logger.info("Writing Go to \"" + opts.outfile + "\" in folder \"" + opts.outfolder + "\"");
@@ -92,6 +92,5 @@ public class PGoMain {
 		}
 		return;
 	}
-
 
 }
