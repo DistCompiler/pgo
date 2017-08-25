@@ -281,6 +281,8 @@ type Map interface {
 	Keys() <-chan interface{}
 	Values() <-chan interface{}
 	Iter() <-chan KVPair
+	// Iterator with Next(), Prev()
+	Iterator() rbt.Iterator
 	// Return a new map equivalent to the current map.
 	Clone() Map
 }
@@ -406,6 +408,10 @@ func (m *mp) Iter() <-chan KVPair {
 		close(ret)
 	}()
 	return ret
+}
+
+func (m *mp) Iterator() rbt.Iterator {
+	return m.tree.Iterator()
 }
 
 func (m *mp) Clone() Map {

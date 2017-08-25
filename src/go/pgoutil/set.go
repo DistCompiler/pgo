@@ -1,7 +1,10 @@
 // Implements an ordered set using the pgoutil map as a container.
 package pgoutil
 
-import "fmt"
+import (
+	"fmt"
+	rbt "github.com/emirpasic/gods/trees/redblacktree"
+)
 
 // We declare an interface to avoid dealing with weird pointer stuff
 type Set interface {
@@ -19,6 +22,8 @@ type Set interface {
 	Size() int
 	// Can be ranged over; in-order
 	Iter() <-chan interface{}
+	// Iterator with next(), prev()
+	Iterator() rbt.Iterator
 	// Return a new set equal to the given set
 	Clone() Set
 	// Set operations, defined in the usual way
@@ -76,6 +81,10 @@ func (s *set) Size() int {
 
 func (s *set) Iter() <-chan interface{} {
 	return s.m.Keys()
+}
+
+func (s *set) Iterator() rbt.Iterator {
+	return s.m.Iterator()
 }
 
 func (s *set) Clone() Set {
