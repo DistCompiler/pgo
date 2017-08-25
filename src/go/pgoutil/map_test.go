@@ -109,3 +109,12 @@ func TestIteration(t *testing.T) {
 		assertEquals(i*2, j.Val, t)
 	}
 }
+
+func TestDomain(t *testing.T) {
+	m := NewMap()
+	m.Put(1, 3)
+	m.Put(2, 4)
+	m.Put(3, 5)
+	s := m.Domain()
+	assertSetEqual(NewSet(1, 2, 3), s, t)
+}

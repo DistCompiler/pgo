@@ -277,6 +277,8 @@ type Map interface {
 	IsEmpty() bool
 	// Return the number of keys in the map.
 	Size() int
+	// Return the key set of the map.
+	Domain() Set
 	// Iterators over keys, values, and entries.
 	Keys() <-chan interface{}
 	Values() <-chan interface{}
@@ -362,6 +364,11 @@ func (m *mp) Size() int {
 	m.RLock()
 	defer m.RUnlock()
 	return m.tree.Size()
+}
+
+// Backed by the map.
+func (m *mp) Domain() Set {
+	return &set{m}
 }
 
 //Iterators (can be ranged over)
