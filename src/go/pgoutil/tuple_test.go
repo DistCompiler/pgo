@@ -28,3 +28,11 @@ func testAppend(t *testing.T) {
 	c = b.Append(a)
 	assertEquals(NewTuple(1, 2, "a", "b", "c"), c, t)
 }
+
+func TestHeadTail(t *testing.T) {
+	a := NewTuple(1, 2)
+	assertEquals(1, a.Head(), t)
+	a = a.Tail()
+	assertEquals(NewTuple(2), a, t)
+	assertEquals(NewTuple(), a.Tail(), t)
+}

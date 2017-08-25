@@ -3,12 +3,30 @@ package pgoutil
 
 import "fmt"
 
-type Tuple struct {
+type Tuple interface {
+	// Return ith component
+	At(i int) interface{}
+	// Return new tuple with ith component set to elt
+	Set(i int, elt interface{}) Tuple
+	Size() int
+	// Return new tuple with components appended
+	Append(i ...interface{}) Tuple
+	// Return first elt
+	Head() interface{}
+	// Return new tuple with head removed
+	Tail() Tuple
+	// Can be ranged over
+	Iter() <-chan interface{}
+	String() string
+}
+
+// Type tuple implements Tuple.
+type tuple struct {
 	data []interface{}
 }
 
 func NewTuple(elts ...interface{}) Tuple {
-	ret := Tuple{make([]interface{}, len(elts))}
+	ret := tuple{make([]interface{}, len(elts))}
 	for i, elt := range elts {
 		ret.data[i] = elt
 	}
@@ -18,40 +36,52 @@ func NewTuple(elts ...interface{}) Tuple {
 func SliceToTuple(elts []interface{}) Tuple {
 	eltsCopy := make([]interface{}, len(elts))
 	copy(eltsCopy, elts)
-	return Tuple{eltsCopy}
+	return tuple{eltsCopy}
 }
 
-// Return the ith component
-func (t Tuple) At(i int) interface{} {
+func (t tuple) At(i int) interface{} {
 	if i < 0 || i >= len(t.data) {
 		panic(fmt.Sprintf("The index %v is invalid for the tuple %v", i, t.data))
 	}
 	return t.data[i]
 }
 
-// Return a new tuple with the ith component set to elt
-func (t Tuple) Set(i int, elt interface{}) Tuple {
+func (t tuple) Set(i int, elt interface{}) Tuple {
 	if i < 0 || i >= len(t.data) {
 		panic(fmt.Sprintf("The index %v is invalid for the tuple %v", i, t.data))
 	}
 	ret := SliceToTuple(t.data)
-	ret.data[i] = elt
+	ret.(tuple).data[i] = elt
 	return ret
 }
 
-func (t Tuple) Size() int {
+func (t tuple) Size() int {
 	return len(t.data)
 }
 
-// Return a new tuple with the components appended.
-func (t Tuple) Append(i ...interface{}) Tuple {
+func (t tuple) Append(i ...interface{}) Tuple {
 	data := make([]interface{}, 0, t.Size() + len(i))
 	data = append(data, t.data...)
 	data = append(data, i)
-	return Tuple{data}
+	return tuple{data}
 }
 
-func (t Tuple) Iter() <-chan interface{} {
+func (t tuple) Head() interface{} {
+	if len(t.data) == 0 {
+		panic("Tried to take the Head of an empty tuple")
+	}
+	return t.data[0]
+}
+
+func (t tuple) Tail() Tuple {
+	if len(t.data) == 0 {
+		panic("Tried to take the Tail of an empty tuple")
+	}
+	// don't need to clone since the data isn't exposed anyway
+	return tuple{t.data[1:]}
+}
+
+func (t tuple) Iter() <-chan interface{} {
 	ret := make(chan interface{})
 	go func() {
 		for _, i := range t.data {
@@ -62,10 +92,10 @@ func (t Tuple) Iter() <-chan interface{} {
 	return ret
 }
 
-func (t Tuple) String() string {
+func (t tuple) String() string {
 	ret := "Tuple{";
 	for _, i := range t.data {
-		ret += fmt.Sprintf("%v", i)
+		ret += fmt.Sprintf("%v ", i)
 	}
 	ret += "}"
 	return ret
