@@ -210,6 +210,15 @@ public class PGoTransStageGoGen {
 			}
 
 			@Override
+			public Vector<Statement> getResult(Vector<AST> stmts) throws PGoTransException {
+				// fill the result
+				super.getResult(stmts);
+				// add an unlock, if we need it
+				unlock();
+				return result;
+			}
+
+			@Override
 			protected void visit(LabeledStmt ls) throws PGoTransException {
 				// unlock if we're still locked from another label (e.g. if
 				// this is a label inside the body of a while, the
