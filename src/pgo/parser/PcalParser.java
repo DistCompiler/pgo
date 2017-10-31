@@ -65,9 +65,6 @@ public class PcalParser {
 		 */
 		PcalParams.resetParams();
 		
-		// TODO refactor below into parser then make conversion
-		// PcalParser parse = new PcalParser();
-		
 		/*********************************************************************
 		 * Get and process arguments.
 		 *********************************************************************/
@@ -118,12 +115,12 @@ public class PcalParser {
 		 * the file (either before or after the module or in a comment) with the
 		 * following sequence PlusCal <optional white space> options <optional
 		 * white space> ( <options> )
-		 * 
+		 *
 		 * where <options> has the same format as options on the command line.
 		 */
 		IntPair searchLoc = new IntPair(0, 0);
-		boolean notDone = true;
-		while (notDone) {
+		boolean done = false;
+		while (!done) {
 			try {
 				ParseAlgorithm.FindToken("PlusCal", untabInputVec, searchLoc, "");
 				String line = ParseAlgorithm.GotoNextNonSpace(untabInputVec, searchLoc);
@@ -135,12 +132,12 @@ public class PcalParser {
 						// The "options" should begin an options line
 						PcalParams.optionsInFile = true;
 						ParseAlgorithm.ProcessOptions(untabInputVec, searchLoc);
-						notDone = false;
+						done = true;
 					}
 				}
 			} catch (ParseAlgorithmException e) {
 				// The token "PlusCal" not found.
-				notDone = false;
+				done = true;
 			}
 		}
 
