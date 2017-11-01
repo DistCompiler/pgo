@@ -18,6 +18,12 @@ import pgo.model.parser.PGoAnnotation;
  */
 public class PGoAnnotationParser {
 
+	private static final String FUNC_KW = "func";
+	private static final String RET_KW = "ret";
+	private static final String PROC_KW = "proc";
+	private static final String DEF_KW = "def";
+	private static final String LOCK_KW = "lock";
+
 	private LinkedHashMap<String, AnnotatedVariable> vars;
 	private LinkedHashMap<String, AnnotatedFunction> funcs;
 	private LinkedHashMap<String, AnnotatedProcess> procs;
@@ -49,23 +55,23 @@ public class PGoAnnotationParser {
 			AnnotatedVariable av = AnnotatedVariable.parse(parts, annot.getLine());
 			vars.put(av.getName(), av);
 			break;
-		case "func":
+		case FUNC_KW:
 			AnnotatedFunction af = AnnotatedFunction.parse(parts, annot.getLine());
 			funcs.put(af.getName(), af);
 			break;
-		case "ret":
+		case RET_KW:
 			AnnotatedReturnVariable ar = AnnotatedReturnVariable.parse(parts, annot.getLine());
 			retVars.put(ar.getName(), ar);
 			break;
-		case "proc":
+        case PROC_KW:
 			AnnotatedProcess ap = AnnotatedProcess.parse(parts, annot.getLine());
 			procs.put(ap.getName(), ap);
 			break;
-		case "def":
+        case DEF_KW:
 			AnnotatedTLADefinition ad = AnnotatedTLADefinition.parse(annot.getString(), annot.getLine());
 			defns.put(ad.getName(), ad);
 			break;
-		case "lock":
+        case LOCK_KW:
 			if (lock != null) {
 				throw new PGoParseException("Found more than one lock annotation", annot.getLine());
 			}

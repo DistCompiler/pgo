@@ -40,7 +40,7 @@ public class PGoTransStageInitParse {
 
 	/**
 	 * Translates the PlusCal AST to the first stage intermediate representation
-	 * 
+	 *
 	 * @throws PGoTransException
 	 *             on error
 	 */
