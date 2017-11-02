@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 
-<project basedir="." default="build" name="PGo">
+<project basedir="." default="build" name="PGo" xmlns:ivy="antlib:org.apache.ivy.ant">
   <description>
     Provides targets to build, test, and package the PGo
     project into a pgo.jar archive.
@@ -26,68 +26,74 @@
   <path id="pgo.depjars.classpath">
     <pathelement location="lib/tlatools.jar"/>
     <pathelement location="lib/plume.jar"/>
-    <!-- pathelement location="lib/hamcrest-core-1.3.jar"/>
-      <pathelement location="lib/junit-4.12.jar"/> -->
-    </path>
+    <pathelement location="lib/json.jar"/>
+  </path>
 
-    <!-- The complete classpath for running the compiled pgo. -->
-    <path id="pgo.classpath">
-      <path refid="pgo.classes.classpath"/>
-      <path refid="pgo.depjars.classpath"/>
-    </path>
+  <!-- The complete classpath for running the compiled pgo. -->
+  <path id="pgo.classpath">
+    <path refid="pgo.classes.classpath"/>
+    <path refid="pgo.depjars.classpath"/>
+  </path>
 
-    <manifestclasspath property="jar.liblist" jarfile="${pgo.jarpath}">
-      <classpath refid="pgo.depjars.classpath" />
-    </manifestclasspath>
+  <manifestclasspath property="jar.liblist" jarfile="${pgo.jarpath}">
+    <classpath refid="pgo.depjars.classpath" />
+  </manifestclasspath>
 
-    <property name="debuglevel" value="source,lines,vars"/>
-    <property name="target" value="1.8"/>
-    <property name="source" value="1.8"/>
+  <property name="debuglevel" value="source,lines,vars"/>
+  <property name="target" value="1.8"/>
+  <property name="source" value="1.8"/>
 
-    <!--=====================================================================-->
-    <target name="clean">
-      <delete dir="bin"/>
-      <delete dir="junit"/>
-      <!-- Clear out any generated test output. -->
-      <delete>
-        <fileset dir="test/out" includes="*" excludes=".hidden"/>
-      </delete>
-      <delete file="${pgo.jarpath}"/>
-    </target>
+  <!--=====================================================================-->
+  <target name="clean">
+    <delete dir="bin"/>
+    <delete dir="junit"/>
+    <!-- Clear out any generated test output. -->
+    <delete>
+      <fileset dir="test/out" includes="*" excludes=".hidden"/>
+    </delete>
+    <delete file="${pgo.jarpath}"/>
+  </target>
 
-    <!--=====================================================================-->
-    <target name="build">
-      <!-- Create the bin/ dir where compiled .class files will go. -->
-      <mkdir dir="bin"/>
-      <mkdir dir="test/out"/>
+  <available classname="org.apache.ivy.Main" property="ivy.installed"/>
+  <target name="install-ivy" description="Install Apache Ivy" unless="ivy.installed">
+    <mkdir dir="${user.home}/.ant/lib"/>
+    <get dest="${user.home}/.ant/lib/ivy.jar" src="https://repo1.maven.org/maven2/org/apache/ivy/ivy/2.4.0/ivy-2.4.0.jar"/>
+    <fail message="Apache Ivy successfully installed"/>
+  </target>
 
-      <echo message="Ant running on Java version ${ant.java.version}"/>
+  <!--=====================================================================-->
+  <target name="build">
+    <!-- Create the bin/ dir where compiled .class files will go. -->
+    <mkdir dir="bin"/>
+    <mkdir dir="test/out"/>
 
-      <echo message="${ant.project.name}: ${ant.file}"/>
-      <javac debug="true" debuglevel="${debuglevel}" includeantruntime="false" destdir="bin" source="${source}" target="${target}">
-        <compilerarg value="-Xlint" />
-        <src path="src"/>
-        <src path="test"/>
-        <classpath refid="pgo.classpath"/>
-      </javac>
-    </target>
+    <echo message="Ant running on Java version ${ant.java.version}"/>
 
-    <!--=====================================================================-->
-    <target name="jar" depends="build">
+    <echo message="${ant.project.name}: ${ant.file}"/>
+    <javac debug="true" debuglevel="${debuglevel}" includeantruntime="false" destdir="bin" source="${source}" target="${target}">
+      <compilerarg value="-Xlint" />
+      <src path="src"/>
+      <src path="test"/>
+      <classpath refid="pgo.classpath"/>
+    </javac>
+  </target>
 
-      <!-- Build a jar composed of compiled .class files. -->
-      <jar destfile="${pgo.jarpath}"
-        basedir="./bin/"
-        includes="**/*.class">
-        <manifest>
-          <attribute name="Manifest-Version" value="1.0" />
-          <attribute name="Implementation-Title" value="pgo" />
-          <attribute name="Implementation-Version" value="0.1" />
-          <attribute name="Main-Class" value="pgo.PGoMain" />
-          <attribute name="Class-Path" value="${jar.liblist}" />
-        </manifest>
-      </jar>
-    </target>
+  <!--=====================================================================-->
+  <target name="jar" depends="build">
+
+    <!-- Build a jar composed of compiled .class files. -->
+    <jar destfile="${pgo.jarpath}"
+      basedir="./bin/"
+      includes="**/*.class">
+      <manifest>
+        <attribute name="Manifest-Version" value="1.0" />
+        <attribute name="Implementation-Title" value="pgo" />
+        <attribute name="Implementation-Version" value="0.1" />
+        <attribute name="Main-Class" value="pgo.PGoMain" />
+        <attribute name="Class-Path" value="${jar.liblist}" />
+      </manifest>
+    </jar>
+  </target>
 
     <!--
    Runs test(s) that match a regex partially defined by the
@@ -189,6 +195,13 @@
         </fileset>
         <report format="frames" todir="${junit.output.dir}"/>
       </junitreport>
+    </target>
+
+    <!-- DEPENDENCIES -->
+    <target name="deps" depends="install-ivy">
+      <ivy:cachepath pathid="compile.path">
+        <dependency org="org.json" name="json" rev="20171018"/>
+      </ivy:cachepath>
     </target>
 
   </project>
