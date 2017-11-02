@@ -2,6 +2,11 @@ package pgo;
 
 import plume.Option;
 import plume.Options;
+import org.json.*;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 
 public class PGoOptions {
 
@@ -17,40 +22,38 @@ public class PGoOptions {
 	@Option(value = "-v Print detailed information during execution ", aliases = { "-verbose" })
 	public boolean logLvlVerbose = false;
 
-	@Option(value = "-i the input pluscal file to transpile ")
-	public String infile = "";
-
-	@Option(value = "-o the output file to generate")
-	public String outfile = "";
-
-	@Option(value = "-d the output folder to put additional packages")
-	public String outfolder = "";
+	@Option(value = "-c path to the configuration file, if any")
+	public String optsfile = "";
 
 	@Option(value = "write the AST generated and skip the rest", aliases = { "-ast" })
 	public boolean writeAST = false;
 
+	public String infile = "";
+
+	// fields extracted from the JSON configuration file
+	public String buildDir;
+	public String buildFile;
+
 	private Options plumeOptions;
 
-	private static String kUsageString = "pgo [options] pcalfile gofolder gofile";
+	private static String usageString = "pgo [options] pcalfile";
 
 	public void printHelp() {
 		plumeOptions.print_usage();
 	}
 
 	public PGoOptions(String[] args) throws PGoOptionException {
-		plumeOptions = new plume.Options(kUsageString, this);
+		plumeOptions = new plume.Options(usageString, this);
 		String[] remaining_args = plumeOptions.parse_or_usage(args);
 
-		if (remaining_args.length > 0) {
-			if (!infile.isEmpty() || !outfolder.isEmpty() || !outfile.isEmpty()) {
-				throw new PGoOptionException("PlusCal input or Go output file specified twice");
-			}
+		if (optsfile.isEmpty()) {
+			throw new PGoOptionException("Configuration file is required");
+		}
 
+		if (remaining_args.length == 1) {
 			infile = remaining_args[0];
-			if (remaining_args.length == 3) {
-				outfolder = remaining_args[1];
-				outfile = remaining_args[2];
-			}
+		} else {
+			throw new PGoOptionException("Invalid command line parameters");
 		}
 	}
 
@@ -60,17 +63,25 @@ public class PGoOptions {
 			System.exit(0);
 		}
 
-		if (infile.isEmpty()) {
-			throw new PGoOptionException("Input pluscal file is not specified");
+		String s;
+
+		try {
+			byte[] jsonBytes = Files.readAllBytes(Paths.get(optsfile));
+			s = new String(jsonBytes);
+		} catch (IOException ex) {
+			throw new PGoOptionException("Error reading configuration file: " + ex.getMessage());
 		}
 
-		if (outfolder.isEmpty()) {
-			throw new PGoOptionException("Output go folder is not specified");
+		JSONObject config;
+
+		try {
+			config = new JSONObject(s);
+		} catch (JSONException e) {
+			throw new PGoOptionException(optsfile + ": parsing error: " + e.getMessage());
 		}
 
-		if (outfile.isEmpty()) {
-			throw new PGoOptionException("Output go file is not specified");
-		}
+		buildDir = config.getJSONObject("build").getString("output_dir");
+		buildFile = config.getJSONObject("build").getString("dest_file");
 
 		return;
 	}

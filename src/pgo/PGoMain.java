@@ -65,15 +65,15 @@ public class PGoMain {
 		}
 
 		if (opts.writeAST) {
-			IOUtil.WriteAST(pcal.getAST(), opts.outfile);
+			IOUtil.WriteAST(pcal.getAST(), opts.buildFile);
 			return; // added for testing
 		}
 
 		try {
 			PGoTranslater trans = new PGoTranslater(pcal);
-			logger.info("Writing Go to \"" + opts.outfile + "\" in folder \"" + opts.outfolder + "\"");
-			IOUtil.WriteStringVectorToFile(trans.getGoLines(), opts.outfolder + "/" + opts.outfile);
-			logger.info("Copying necessary Go packages to folder \"" + opts.outfolder + "\"");
+			logger.info("Writing Go to \"" + opts.buildFile + "\" in folder \"" + opts.buildDir + "\"");
+			IOUtil.WriteStringVectorToFile(trans.getGoLines(), opts.buildDir + "/" + opts.buildFile);
+			logger.info("Copying necessary Go packages to folder \"" + opts.buildDir + "\"");
 			trans.copyPackages(opts);
 		} catch (PGoTransException | PGoParseException | StringVectorToFileException | IOException e) {
 			logger.severe(e.getMessage());
