@@ -33,6 +33,7 @@ public class PGoOptions {
 	// fields extracted from the JSON configuration file
 	public String buildDir;
 	public String buildFile;
+	public PGoNetOptions net;
 
 	private Options plumeOptions;
 
@@ -82,6 +83,7 @@ public class PGoOptions {
 
 		buildDir = config.getJSONObject("build").getString("output_dir");
 		buildFile = config.getJSONObject("build").getString("dest_file");
+		net = new PGoNetOptions(config);
 
 		return;
 	}
