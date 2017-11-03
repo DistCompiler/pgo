@@ -6,16 +6,27 @@ import org.json.JSONObject;
 import java.util.Arrays;
 import java.util.HashMap;
 
-// wraps options related to networking in the generated Go code.
+// Wraps options related to networking in the generated Go code.
 // Networking related options are defined in the JSON configuration
 // file and specify details about message channels (e.g., IP addresses
 // and ports. See the +sample.json+ file included in this repository
 // for an example of how to define these properties.
 
-// This class is initialized in PGoOptions. If there is any configuration
-// error in the JSON file provided, an exception will be thrown and the
-// user will be notified.
+// Networking options involve a number of concepts: shared state
+// management, the separation of different processes in the network, and
+// how they are connected together. Each of these components are handled
+// by separate classes (see documentation for the inner classes below).
+//
+// If there are semantic errors in the configuration of any of these
+// aspects, the associated class throws an exception. That is caught
+// by the +PGoOptions+ class (when processing user input) which is then able
+// to display an appropriate error message to the user.
 public class PGoNetOptions {
+
+	// A process declared in the configuration file is expected to match
+	// a PlusCal +process+ definition. When networking is enabled, we need
+	// to know the ID of the process (its declared name in the PlusCal
+	// algorithm), as well as the address-related options (IP and port number).
 	private class Process {
 		public String id;
 		public String role;
@@ -39,6 +50,12 @@ public class PGoNetOptions {
 
 	}
 
+	// This class encapsulates state management options. Since processes now run in
+	// separate hosts, shared state needs to be mapped either to a centralized source
+	// or distributed among a number of nodes in the network.
+	//
+	// This class ensures that the options provided in the configuration file make
+	// sense, i.e., whether they use a known/supported state management strategy.
 	private class StateOptions {
 		private static final String STATE_CENTRALIZED = "centralized";
 		private final String[] STATE_STRATEGIES = {
@@ -70,6 +87,14 @@ public class PGoNetOptions {
 		}
 	}
 
+	// A channel is a communication mechanism that allows two processes (see +Process+ class)
+	// to communicate. PlusCal does not have the concept of a communication channel -
+	// process communication in a PlusCal algorithm typically involves updating a shared
+	// tuple of messages.
+	//
+	// The +channels+ option in the configuration file, therefore, allows the developer to
+	// specify the tuples that represent these communication channels. Currently, only
+	// point-to-point communication is supported (i.e., no broadcast/multicast/anycast).
 	private class Channel {
 		public String name;
 		public Process[] processes;
@@ -102,11 +127,16 @@ public class PGoNetOptions {
 		}
 	}
 
+	// allows the developer to easily turn off networking by setting this parameter to +false+
 	private boolean enabled = false;
 
 	private StateOptions stateOptions;
 	private HashMap<String, Channel> channels = new HashMap<String, Channel>();
 
+	// This constructor expects a +JSONObject+ as parameter - this should be the data structure
+	// representing the entire configuration file. Separate parts of the configuration file
+	// are then passed to specific components (see inner classes above), each of which has
+	// the responsibility to verify whether the configuration is valid.
 	public PGoNetOptions(JSONObject config) throws PGoOptionException {
 		JSONObject netConfig = config.getJSONObject("networking");
 		JSONObject stateConfig = netConfig.getJSONObject("state");
