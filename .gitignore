@@ -1,18 +1,3 @@
-.metadata/*
-.settings/*
-bin/*
-*.swp
-*.gitignore
-*~
-
-# ignore the test files
-test/out/*
-junit/*
-
-# ignore generated jar from ant
-lib/pgo.jar
-/bin/
-
 # Created by https://www.gitignore.io/api/intellij+iml,intellij+all
 
 ### Intellij+all ###
@@ -115,3 +100,18 @@ modules.xml
 
 # End of https://www.gitignore.io/api/intellij+iml,intellij+all
 
+.metadata/*
+.settings/*
+bin/*
+*.swp
+*.gitignore
+*~
+
+# ignore the test files
+test/out/*
+junit/*
+
+# ignore generated jar from ant
+lib/pgo.jar
+/bin/
+/gen/
