@@ -1,6 +1,7 @@
 package pgo;
 
 import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.Arrays;
@@ -27,7 +28,7 @@ public class PGoNetOptions {
 	// a PlusCal +process+ definition. When networking is enabled, we need
 	// to know the ID of the process (its declared name in the PlusCal
 	// algorithm), as well as the address-related options (IP and port number).
-	private class Process {
+	public class Process {
 		public String id;
 		public String role;
 		public String host;
@@ -56,7 +57,7 @@ public class PGoNetOptions {
 	//
 	// This class ensures that the options provided in the configuration file make
 	// sense, i.e., whether they use a known/supported state management strategy.
-	private class StateOptions {
+	public class StateOptions {
 		private static final String STATE_CENTRALIZED = "centralized";
 		private final String[] STATE_STRATEGIES = {
 				STATE_CENTRALIZED
@@ -69,9 +70,10 @@ public class PGoNetOptions {
 		public int port;
 
 		public StateOptions(JSONObject config) throws PGoOptionException {
-			this.strategy = config.getString("strategy");
-			if (this.strategy == null) {
+			if (!config.has("strategy")) {
 				this.strategy = DEFAULT_STATE_STRATEGY;
+			} else {
+				this.strategy = config.getString("strategy");
 			}
 
 			this.host = config.getString("host");
@@ -95,7 +97,7 @@ public class PGoNetOptions {
 	// The +channels+ option in the configuration file, therefore, allows the developer to
 	// specify the tuples that represent these communication channels. Currently, only
 	// point-to-point communication is supported (i.e., no broadcast/multicast/anycast).
-	private class Channel {
+	public class Channel {
 		public String name;
 		public Process[] processes;
 
@@ -127,6 +129,11 @@ public class PGoNetOptions {
 		}
 	}
 
+	// fields to be extracted from the JSON configuration file
+	public static final String NETWORKING_FIELD = "networking";
+	public static final String STATE_FIELD = "state";
+	public static final String CHANNELS_FIELD = "channels";
+
 	// allows the developer to easily turn off networking by setting this parameter to +false+
 	private boolean enabled = false;
 
@@ -138,32 +145,43 @@ public class PGoNetOptions {
 	// are then passed to specific components (see inner classes above), each of which has
 	// the responsibility to verify whether the configuration is valid.
 	public PGoNetOptions(JSONObject config) throws PGoOptionException {
-		JSONObject netConfig = config.getJSONObject("networking");
-		JSONObject stateConfig = netConfig.getJSONObject("state");
-		JSONArray channelsConfig = netConfig.getJSONArray("channels");
-		int i;
-
-		if (!netConfig.getBoolean("enabled")) {
+		if (!config.has(NETWORKING_FIELD)) {
 			enabled = false;
 			return;
 		}
 
-		enabled = true;
-		stateOptions = new StateOptions(stateConfig);
+		try {
+			JSONObject netConfig = config.getJSONObject(NETWORKING_FIELD);
+			JSONObject stateConfig = netConfig.getJSONObject(STATE_FIELD);
+			JSONArray channelsConfig = netConfig.getJSONArray(CHANNELS_FIELD);
+			int i;
 
-		for (i = 0; i < channelsConfig.length(); i++) {
-			JSONObject channel = (JSONObject) channelsConfig.get(i);
-			String name = channel.getString("name");
-
-			if (channels.get(name) != null) {
-				throw new PGoOptionException("Process with name \"" + name + "\" already exists");
+			if (!netConfig.getBoolean("enabled")) {
+				enabled = false;
+				return;
 			}
 
-			channels.put(name, new Channel(channel));
+			enabled = true;
+			stateOptions = new StateOptions(stateConfig);
+
+			for (i = 0; i < channelsConfig.length(); i++) {
+				JSONObject channel = (JSONObject) channelsConfig.get(i);
+				String name = channel.getString("name");
+
+				if (channels.get(name) != null) {
+					throw new PGoOptionException("Process with name \"" + name + "\" already exists");
+				}
+
+				channels.put(name, new Channel(channel));
+			}
+		} catch (JSONException e) {
+			throw new PGoOptionException("Configuration is invalid: " + e.getMessage());
 		}
 	}
 
 	public boolean isEnabled() {
 		return this.enabled;
 	}
+	public StateOptions getStateOptions() { return this.stateOptions; }
+	public HashMap<String, Channel> getChannels() { return this.channels; }
 }
