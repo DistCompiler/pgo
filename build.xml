@@ -1,105 +1,111 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 
-<project basedir="." default="build" name="PGo">
-    <description>
-      Provides targets to build, test, and package the PGo
-      project into a pgo.jar archive.
-    </description>
+<project basedir="." default="build" name="PGo" xmlns:ivy="antlib:org.apache.ivy.ant">
+  <description>
+    Provides targets to build, test, and package the PGo
+    project into a pgo.jar archive.
+  </description>
 
-    <property environment="env"/>
+  <property environment="env"/>
 
-    <!-- Where to create the pgo.jar -->
-    <property name="pgo.jarpath" value="lib/pgo.jar"/>
+  <!-- Where to create the pgo.jar -->
+  <property name="pgo.jarpath" value="lib/pgo.jar"/>
 
-    <!-- Where to output junit test results. -->
-    <property name="junit.output.dir" value="junit"/>
+  <!-- Where to output junit test results. -->
+  <property name="junit.output.dir" value="junit"/>
 
-    <!-- Where to find tests (relative to bin). -->
-    <property name="pgo.testdir" value="pgo/tests/" />
+  <!-- Where to find tests (relative to bin). -->
+  <property name="pgo.testdir" value="pgo/tests/" />
 
-    <!-- Where to find the generated pgo classes. -->
-    <path id="pgo.classes.classpath">
-        <pathelement location="bin"/>
-    </path>
+  <!-- Where to find the generated pgo classes. -->
+  <path id="pgo.classes.classpath">
+    <pathelement location="bin"/>
+  </path>
 
-    <!-- The set of jars pgo depends on, in classpath format. -->
-    <path id="pgo.depjars.classpath">
-      <pathelement location="lib/tlatools.jar"/>
-      <pathelement location="lib/plume.jar"/>
-      <!-- pathelement location="lib/hamcrest-core-1.3.jar"/>
-      <pathelement location="lib/junit-4.12.jar"/> -->
-    </path>
+  <!-- The set of jars pgo depends on, in classpath format. -->
+  <path id="pgo.depjars.classpath">
+    <pathelement location="lib/tlatools.jar"/>
+    <pathelement location="lib/plume.jar"/>
+    <pathelement location="lib/json.jar"/>
+  </path>
 
-    <!-- The complete classpath for running the compiled pgo. -->
-    <path id="pgo.classpath">
-      <path refid="pgo.classes.classpath"/>
-      <path refid="pgo.depjars.classpath"/>
-    </path>
+  <!-- The complete classpath for running the compiled pgo. -->
+  <path id="pgo.classpath">
+    <path refid="pgo.classes.classpath"/>
+    <path refid="pgo.depjars.classpath"/>
+  </path>
 
-    <manifestclasspath property="jar.liblist" jarfile="${pgo.jarpath}">
-      <classpath refid="pgo.depjars.classpath" />
-    </manifestclasspath>
+  <manifestclasspath property="jar.liblist" jarfile="${pgo.jarpath}">
+    <classpath refid="pgo.depjars.classpath" />
+  </manifestclasspath>
 
-    <property name="debuglevel" value="source,lines,vars"/>
-    <property name="target" value="1.8"/>
-    <property name="source" value="1.8"/>
+  <property name="debuglevel" value="source,lines,vars"/>
+  <property name="target" value="1.8"/>
+  <property name="source" value="1.8"/>
 
-    <!--=====================================================================-->
-    <target name="clean">
-      <delete dir="bin"/>
-      <delete dir="junit"/>
-      <!-- Clear out any generated test output. -->
-	<delete>
-          <fileset dir="test/out" includes="*" excludes=".hidden"/>
-        </delete>
-      <delete file="${pgo.jarpath}"/>
-    </target>
+  <!--=====================================================================-->
+  <target name="clean">
+    <delete dir="bin"/>
+    <delete dir="junit"/>
+    <!-- Clear out any generated test output. -->
+    <delete>
+      <fileset dir="test/out" includes="*" excludes=".hidden"/>
+    </delete>
+    <delete file="${pgo.jarpath}"/>
+  </target>
 
-    <!--=====================================================================-->
-    <target name="build">
-      <!-- Create the bin/ dir where compiled .class files will go. -->
-      <mkdir dir="bin"/>
-      <mkdir dir="test/out"/>
+  <available classname="org.apache.ivy.Main" property="ivy.installed"/>
+  <target name="install-ivy" description="Install Apache Ivy" unless="ivy.installed">
+    <mkdir dir="${user.home}/.ant/lib"/>
+    <get dest="${user.home}/.ant/lib/ivy.jar" src="https://repo1.maven.org/maven2/org/apache/ivy/ivy/2.4.0/ivy-2.4.0.jar"/>
+    <fail message="Apache Ivy successfully installed"/>
+  </target>
 
-      <echo message="Ant running on Java version ${ant.java.version}"/>
-      
-      <echo message="${ant.project.name}: ${ant.file}"/>
-      <javac debug="true" debuglevel="${debuglevel}" includeantruntime="false" destdir="bin" source="${source}" target="${target}">
-	<compilerarg value="-Xlint" />
-        <src path="src"/>
-        <src path="test"/>
-        <classpath refid="pgo.classpath"/>
-      </javac>
-    </target>
-    
-    <!--=====================================================================-->
-    <target name="jar" depends="build">
+  <!--=====================================================================-->
+  <target name="build">
+    <!-- Create the bin/ dir where compiled .class files will go. -->
+    <mkdir dir="bin"/>
+    <mkdir dir="test/out"/>
 
-      <!-- Build a jar composed of compiled .class files. -->
-      <jar destfile="${pgo.jarpath}"
-           basedir="./bin/"
-           includes="**/*.class">
-        <manifest>
-	  <attribute name="Manifest-Version" value="1.0" />
-	  <attribute name="Implementation-Title" value="pgo" />
-	  <attribute name="Implementation-Version" value="0.1" />
-	  <attribute name="Main-Class" value="pgo.PGoMain" />
-	  <attribute name="Class-Path" value="${jar.liblist}" />
-	</manifest>
-      </jar>
-    </target>
-    	
-    <!-- 
-	 Runs test(s) that match a regex partially defined by the
-	 -Djunit.class option from the command line. For example,
-	 $ ant -Djunit.class=Foo test-class
-	 Would run all test classes that match the regex '.*Foo.*(\.class)?$'
+    <echo message="Ant running on Java version ${ant.java.version}"/>
+
+    <echo message="${ant.project.name}: ${ant.file}"/>
+    <javac debug="true" debuglevel="${debuglevel}" includeantruntime="false" destdir="bin" source="${source}" target="${target}">
+      <compilerarg value="-Xlint" />
+      <src path="src"/>
+      <src path="test"/>
+      <classpath refid="pgo.classpath"/>
+    </javac>
+  </target>
+
+  <!--=====================================================================-->
+  <target name="jar" depends="build">
+
+    <!-- Build a jar composed of compiled .class files. -->
+    <jar destfile="${pgo.jarpath}"
+      basedir="./bin/"
+      includes="**/*.class">
+      <manifest>
+        <attribute name="Manifest-Version" value="1.0" />
+        <attribute name="Implementation-Title" value="pgo" />
+        <attribute name="Implementation-Version" value="0.1" />
+        <attribute name="Main-Class" value="pgo.PGoMain" />
+        <attribute name="Class-Path" value="${jar.liblist}" />
+      </manifest>
+    </jar>
+  </target>
+
+    <!--
+   Runs test(s) that match a regex partially defined by the
+   -Djunit.class option from the command line. For example,
+   $ ant -Djunit.class=Foo test-class
+   Would run all test classes that match the regex '.*Foo.*(\.class)?$'
          For example, to run just the unit tests, use:
          $ ant -Djunit.class=units test-class
-	 Note: This searches for classes in pgo's testing directory
-	 and executes all matching files across all subdirectories.
+   Note: This searches for classes in pgo's testing directory
+   and executes all matching files across all subdirectories.
       -->
-    <target name="test-class" depends="build"> 
+    <target name="test-class" depends="build">
       <!-- If junit.class is not set, complain. -->
       <fail unless="junit.class">Must supply a class name with -Djunit.class</fail>
       <echo message="Looking for files matching '.*${junit.class}.*(\.class)?$' in bin/${pgo.testdir}" />
@@ -109,11 +115,11 @@
       <!-- Build the file set and make sure it's not empty. -->
       <property name="junit.regex" value=".*${junit.class}.*(\.class)?$" />
       <condition property="dir.empty">
-	<length length="0">
-	  <fileset id="junit.class.fileset" dir="bin/" includes="${pgo.testdir}">
-	    <filename regex="${junit.regex}"/>
-	  </fileset>
-	</length>
+        <length length="0">
+          <fileset id="junit.class.fileset" dir="bin/" includes="${pgo.testdir}">
+            <filename regex="${junit.regex}"/>
+          </fileset>
+        </length>
       </condition>
 
       <!-- If there were no files found, exit. -->
@@ -121,47 +127,46 @@
 
       <!-- Print the files to be run. -->
       <echo>Running JUnit on these files:</echo>
-      <pathconvert pathsep="${line.separator}    --"             
-		   property="junit.class.path"             
-		   refid="junit.class.fileset">
+      <pathconvert pathsep="${line.separator}    --"
+        property="junit.class.path"
+        refid="junit.class.fileset">
       </pathconvert>
       <echo>    ${junit.class.path}</echo>
-      
+
       <!-- Run junit on the found files. -->
       <junit fork="no" printsummary="withOutAndErr" showoutput="true">
-	<classpath refid="pgo.classpath"/>
-	<formatter type="xml"/>
-	<batchtest fork="yes" todir="${junit.output.dir}">
-	  <!-- Include all class files, then filter. -->
-	  <fileset refid="junit.class.fileset" />
-	</batchtest>
+        <classpath refid="pgo.classpath"/>
+        <formatter type="xml"/>
+        <batchtest fork="yes" todir="${junit.output.dir}">
+          <!-- Include all class files, then filter. -->
+          <fileset refid="junit.class.fileset" />
+        </batchtest>
       </junit>
     </target>
 
-
-    <!-- 
-	 Runs test cases from a specific test class that match a
-	 regex. For example, to run the testPositiveDelta test-case
-	 inside of the ITimeTests.class, use this line:
+    <!--
+   Runs test cases from a specific test class that match a
+   regex. For example, to run the testPositiveDelta test-case
+   inside of the ITimeTests.class, use this line:
          $ ant -Djunit.class=pgo.tests.units.ITimeTests -Djunit.case=testPositiveDelta test-case
-          
-         Note: junit.class must refer to the full dotted path of the
-         class, and junit.case must refer to a test method inside of
-         this class.
-      -->
-    <target name="test-case" depends="build"> 
+
+   Note: junit.class must refer to the full dotted path of the
+   class, and junit.case must refer to a test method inside of
+   this class.
+   -->
+    <target name="test-case" depends="build">
       <!-- if junit.class or junit.case is not set, complain. -->
       <fail unless="junit.class">must supply a test-class name with -Djunit.class</fail>
       <fail unless="junit.case">must supply a test-case name with -Djunit.case</fail>
 
       <mkdir dir="${junit.output.dir}"/>
-      
+
       <!-- Run junit on just the single test-case. -->
       <junit fork="no" printsummary="withOutAndErr" showoutput="true">
-	<classpath refid="pgo.classpath"/>
-	<formatter type="xml"/>
-	<test name="${junit.class}" methods="${junit.case}" todir="${junit.output.dir}">
-	</test>
+        <classpath refid="pgo.classpath"/>
+        <formatter type="xml"/>
+        <test name="${junit.class}" methods="${junit.case}" todir="${junit.output.dir}">
+        </test>
       </junit>
     </target>
 
@@ -170,18 +175,18 @@
       <mkdir dir="${junit.output.dir}"/>
 
       <junit fork="no" printsummary="withOutAndErr" showoutput="true">
-	<classpath refid="pgo.classpath"/>
-	<formatter type="xml"/>
-	
-	<batchtest todir="${junit.output.dir}">
-	  <fileset dir="bin/">
+        <classpath refid="pgo.classpath"/>
+        <formatter type="xml"/>
+
+        <batchtest todir="${junit.output.dir}">
+          <fileset dir="bin/">
             <include name="**/*Test.class"/>
-	  </fileset>
-	</batchtest>
-	
+          </fileset>
+        </batchtest>
+
       </junit>
     </target>
-    
+
     <!--=====================================================================-->
     <target name="junitreport">
       <junitreport todir="${junit.output.dir}">
@@ -192,4 +197,11 @@
       </junitreport>
     </target>
 
-</project>
+    <!-- DEPENDENCIES -->
+    <target name="deps" depends="install-ivy">
+      <ivy:cachepath pathid="compile.path">
+        <dependency org="org.json" name="json" rev="20171018"/>
+      </ivy:cachepath>
+    </target>
+
+  </project>

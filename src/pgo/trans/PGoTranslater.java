@@ -55,9 +55,9 @@ public class PGoTranslater {
 
 	public void copyPackages(PGoOptions opts) throws IOException {
 		if (go.getImports().getImports().contains("pgoutil")) {
-			FileUtils.copyDirectory(new File("src/go/pgoutil"), new File(opts.outfolder + "/src/pgoutil"));
+			FileUtils.copyDirectory(new File("src/go/pgoutil"), new File(opts.buildDir + "/src/pgoutil"));
 			FileUtils.copyDirectory(new File("src/go/github.com/emirpasic"),
-					new File(opts.outfolder + "/src/github.com/emirpasic"));
+					new File(opts.buildDir + "/src/github.com/emirpasic"));
 		}
 	}
 
