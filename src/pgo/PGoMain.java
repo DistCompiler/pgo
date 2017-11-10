@@ -70,7 +70,7 @@ public class PGoMain {
 		}
 
 		try {
-			PGoTranslater trans = new PGoTranslater(pcal);
+			PGoTranslater trans = new PGoTranslater(pcal, opts.net);
 			logger.info("Writing Go to \"" + opts.buildFile + "\" in folder \"" + opts.buildDir + "\"");
 			IOUtil.WriteStringVectorToFile(trans.getGoLines(), opts.buildDir + "/" + opts.buildFile);
 			logger.info("Copying necessary Go packages to folder \"" + opts.buildDir + "\"");

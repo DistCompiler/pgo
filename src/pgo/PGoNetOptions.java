@@ -140,6 +140,9 @@ public class PGoNetOptions {
 	private StateOptions stateOptions;
 	private HashMap<String, Channel> channels = new HashMap<String, Channel>();
 
+	/// This is a dummy constructor for testing
+	public PGoNetOptions() {}
+
 	// This constructor expects a +JSONObject+ as parameter - this should be the data structure
 	// representing the entire configuration file. Separate parts of the configuration file
 	// are then passed to specific components (see inner classes above), each of which has

@@ -13,6 +13,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
+import pgo.PGoNetOptions;
 import pgo.model.intermediate.PGoFunction;
 import pgo.model.intermediate.PGoRoutineInit;
 import pgo.model.intermediate.PGoVariable;
@@ -40,7 +41,7 @@ public class PGoTransStageTypeTest {
 
 	@Before
 	public void SetUp() throws PGoParseException, PGoTransException {
-		PGoTransStageInitParse s1 = new PGoTransStageInitParse(tester.getParsedPcal());
+		PGoTransStageInitParse s1 = new PGoTransStageInitParse(tester.getParsedPcal(), new PGoNetOptions());
 		p = new PGoTransStageType(new PGoTransStageTLAParse(s1));
 	}
 
@@ -128,7 +129,7 @@ public class PGoTransStageTypeTest {
 
 	@Test
 	public void assertGoRoutineInit() throws PGoTransException, PGoParseException {
-		PGoTransStageInitParse p = new PGoTransStageInitParse(tester.getParsedPcal());
+		PGoTransStageInitParse p = new PGoTransStageInitParse(tester.getParsedPcal(), new PGoNetOptions());
 
 		ArrayList<PGoRoutineInit> grs = new ArrayList<>(p.data.goroutines.values());
 		assertEquals(tester.getNumGoroutineInit(), grs.size());

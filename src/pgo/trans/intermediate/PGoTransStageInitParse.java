@@ -10,6 +10,7 @@ import pcal.AST.Process;
 import pcal.AST.Uniprocess;
 import pcal.AST.VarDecl;
 import pcal.TLAExpr;
+import pgo.PGoNetOptions;
 import pgo.model.intermediate.PGoFunction;
 import pgo.model.intermediate.PGoRoutineInit;
 import pgo.model.intermediate.PGoVariable;
@@ -29,9 +30,11 @@ public class PGoTransStageInitParse {
 	// intermediate data, which is filled with annotation information and data
 	// from the PlusCal ast
 	PGoTransIntermediateData data;
+	PGoNetOptions options;
 
-	public PGoTransStageInitParse(ParsedPcal parsed) throws PGoTransException, PGoParseException {
+	public PGoTransStageInitParse(ParsedPcal parsed, PGoNetOptions opts) throws PGoTransException, PGoParseException {
 		data = new PGoTransIntermediateData();
+		options = opts;
 		this.data.ast = parsed.getAST();
 		this.data.annots = new PGoAnnotationParser(parsed.getPGoAnnotations());
 
