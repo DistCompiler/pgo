@@ -49,8 +49,8 @@ public class PGoTransStageInitParse {
 			for (Map.Entry<String, PGoNetOptions.Channel> entry : netOpts.getChannels().entrySet()) {
 				PGoNetOptions.Channel channel = entry.getValue();
 				for (PGoNetOptions.Process p : channel.processes) {
-				    if (!this.data.funcs.containsKey(p.name)) {
-				        throw new PGoParseException("PlusCal algorithm does not contain process " + p.name);
+					if (!this.data.funcs.containsKey(p.name)) {
+						throw new PGoParseException("PlusCal algorithm does not contain process " + p.name);
 					}
 				}
 			}
