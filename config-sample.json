@@ -17,13 +17,13 @@
         "name": "msgC",
         "processes": [
           {
-            "id": "S",
+            "id": "S(Sender)",
             "role": "sender",
             "host": "10.0.0.2",
             "port": 5432
           },
           {
-            "id": "R",
+            "id": "R(Receiver)",
             "role": "receiver",
             "host": "10.0.0.3",
             "port": 3333
