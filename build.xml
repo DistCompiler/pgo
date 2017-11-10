@@ -51,6 +51,7 @@
     <delete>
       <fileset dir="test/out" includes="*" excludes=".hidden"/>
     </delete>
+    <delete dir="gen"/> <!--For now use this. identify a way to read this from config file-->
     <delete file="${pgo.jarpath}"/>
   </target>
 

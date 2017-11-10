@@ -7,6 +7,9 @@ import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Vector;
 import java.util.logging.Logger;
 
@@ -24,6 +27,11 @@ public class IOUtil {
 	 ***********************************************************************/
 	public static void WriteStringVectorToFile(Vector inputVec, String fileName) throws StringVectorToFileException {
 		try {
+			Path filePath = Paths.get(fileName);
+			if(!Files.exists(filePath.getParent())){
+				Files.createDirectories(filePath.getParent());
+				Files.createFile(filePath);
+			}
 			BufferedWriter fileW = new BufferedWriter(new FileWriter(fileName));
 			int lineNum = 0;
 			while (lineNum < inputVec.size()) {

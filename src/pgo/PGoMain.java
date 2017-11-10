@@ -65,7 +65,7 @@ public class PGoMain {
 		}
 
 		if (opts.writeAST) {
-			IOUtil.WriteAST(pcal.getAST(), opts.buildFile);
+			IOUtil.WriteAST(pcal.getAST(), opts.buildDir +"/"+ opts.buildFile);
 			return; // added for testing
 		}
 
