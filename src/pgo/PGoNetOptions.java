@@ -193,7 +193,7 @@ public class PGoNetOptions {
 				String name = channel.getString("name");
 
 				if (channels.get(name) != null) {
-					throw new PGoOptionException("Process with name \"" + name + "\" already exists");
+					throw new PGoOptionException("Channel with name \"" + name + "\" already exists");
 				}
 
 				channels.put(name, new Channel(channel));
