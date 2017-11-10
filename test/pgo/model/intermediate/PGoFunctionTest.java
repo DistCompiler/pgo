@@ -189,7 +189,7 @@ public class PGoFunctionTest {
 		p.body = new Vector<AST>();
 		p.body.add(new Skip());
 
-		PGoFunction f = PGoFunction.convert(p);
+		PGoFunction f = PGoFunction.convert(p, PGoFunction.FunctionType.GoRoutine);
 		assertEquals(p.name, f.getName());
 		assertEquals(PGoFunction.FunctionType.GoRoutine, f.getType());
 		assertEquals(1, f.getParams().size());

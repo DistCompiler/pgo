@@ -146,7 +146,7 @@ public class PGoFunction {
 
 	// Converts a process from a multiprocessed pluscal algorithm to a go
 	// function that we can run as a goroutine
-	public static PGoFunction convert(Process p) {
+	public static PGoFunction convert(Process p, FunctionType type) {
 		PGoFunction ret = new PGoFunction();
 		ret.funcName = p.name;
 
@@ -161,7 +161,7 @@ public class PGoFunction {
 
 		ret.body = p.body;
 		ret.line = p.line;
-		ret.type = FunctionType.GoRoutine;
+		ret.type = type;
 		ret.rType = PGoType.VOID;
 
 		return ret;

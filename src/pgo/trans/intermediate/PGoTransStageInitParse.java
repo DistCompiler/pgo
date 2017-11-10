@@ -103,7 +103,7 @@ public class PGoTransStageInitParse {
 		// TODO eventually we want to support a process as a goroutine and a
 		// networked process. For now we just do goroutines
 		for (Process p : (Vector<Process>) ast.procs) {
-			PGoFunction f = PGoFunction.convert(p);
+			PGoFunction f = PGoFunction.convert(p, PGoFunction.FunctionType.GoRoutine);
 			data.funcs.put(f.getName(), f);
 
 			data.goroutines.put(f.getName(), PGoRoutineInit.convert(p));
