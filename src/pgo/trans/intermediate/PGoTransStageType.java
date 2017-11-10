@@ -1,5 +1,6 @@
 package pgo.trans.intermediate;
 
+import java.util.Map;
 import java.util.Vector;
 
 import pcal.AST;
@@ -7,6 +8,9 @@ import pcal.AST.PVarDecl;
 import pcal.AST.Process;
 import pcal.AST.SingleAssign;
 import pcal.AST.VarDecl;
+import pgo.PGoNetOptions;
+import pgo.ProcessIntArg;
+import pgo.ProcessStringArg;
 import pgo.model.intermediate.PGoCollectionType;
 import pgo.model.intermediate.PGoCollectionType.PGoMap;
 import pgo.model.intermediate.PGoCollectionType.PGoSet;
@@ -45,9 +49,12 @@ public class PGoTransStageType {
 	// intermediate data, which is filled with typing information from
 	// annotations
 	PGoTransIntermediateData data;
+	PGoNetOptions netOpts;
 
 	public PGoTransStageType(PGoTransStageTLAParse s1) throws PGoParseException, PGoTransException {
 		this.data = s1.data;
+		this.netOpts = s1.netOpts;
+
 		addAnnotatedDefinitions();
 		applyAnnotationOnVariables();
 		applyAnnotationOnFunctions();
@@ -57,6 +64,22 @@ public class PGoTransStageType {
 		inferVariableTypes();
 
 		checkAllTyped();
+
+		// config sanitization
+		if (netOpts.isEnabled()) {
+			for (Map.Entry<String, PGoNetOptions.Channel> entry : netOpts.getChannels().entrySet()) {
+				PGoNetOptions.Channel channel = entry.getValue();
+				for (PGoNetOptions.Process p : channel.processes) {
+					String type = this.data.funcs.get(p.name).getParam("self").getType().toTypeName();
+					if (type.equals("int") && p.arg instanceof ProcessStringArg) {
+						throw new PGoParseException("Argument for process " + p.name + " expected to be string, found int");
+					}
+					if (type.equals("string") && p.arg instanceof ProcessIntArg) {
+						throw new PGoParseException("Argument for process " + p.name + " expected to be int, found string");
+					}
+				}
+			}
+		}
 	}
 
 	/**

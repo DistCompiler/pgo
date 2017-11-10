@@ -1,0 +1,35 @@
+{
+  "build": {
+    "output_dir": "gen",
+    "dest_file": "test2.go"
+  },
+  "networking": {
+    "enabled": true,
+
+    "state": {
+      "strategy": "centralized",
+      "host": "10.0.0.1",
+      "port": 4321
+    },
+
+    "channels": [
+      {
+        "name": "msgC",
+        "processes": [
+          {
+            "id": "P(1)",
+            "role": "sender",
+            "host": "10.0.0.2",
+            "port": 5432
+          },
+          {
+            "id": "P(2)",
+            "role": "receiver",
+            "host": "10.0.0.3",
+            "port": 3333
+          }
+        ]
+      }
+    ]
+  }
+}

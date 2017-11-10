@@ -9,6 +9,7 @@ import pcal.AST.*;
 import pcal.AST.If;
 import pcal.AST.Return;
 import pcal.TLAExpr;
+import pgo.PGoNetOptions;
 import pgo.model.golang.*;
 import pgo.model.intermediate.PGoCollectionType.PGoMap;
 import pgo.model.intermediate.PGoCollectionType.PGoSet;
@@ -53,9 +54,11 @@ public class PGoTransStageGoGen {
 	// when translating, this may be temporarily replaced by a PGoTempData which
 	// stores some local variables
 	PGoTransIntermediateData data;
+	PGoNetOptions netOpts;
 
 	public PGoTransStageGoGen(PGoTransStageAtomicity s1) throws PGoParseException, PGoTransException {
 		this.data = s1.data;
+		this.netOpts = s1.netOpts;
 
 		go = new GoProgram("main");
 
