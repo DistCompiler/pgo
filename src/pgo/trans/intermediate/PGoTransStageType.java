@@ -49,11 +49,9 @@ public class PGoTransStageType {
 	// intermediate data, which is filled with typing information from
 	// annotations
 	PGoTransIntermediateData data;
-	PGoNetOptions netOpts;
 
 	public PGoTransStageType(PGoTransStageTLAParse s1) throws PGoParseException, PGoTransException {
 		this.data = s1.data;
-		this.netOpts = s1.netOpts;
 
 		addAnnotatedDefinitions();
 		applyAnnotationOnVariables();
@@ -66,8 +64,8 @@ public class PGoTransStageType {
 		checkAllTyped();
 
 		// config sanitization
-		if (netOpts.isEnabled()) {
-			for (Map.Entry<String, PGoNetOptions.Channel> entry : netOpts.getChannels().entrySet()) {
+		if (data.netOpts.isEnabled()) {
+			for (Map.Entry<String, PGoNetOptions.Channel> entry : data.netOpts.getChannels().entrySet()) {
 				PGoNetOptions.Channel channel = entry.getValue();
 				for (PGoNetOptions.Process p : channel.processes) {
 					String type = this.data.funcs.get(p.name).getParam("self").getType().toTypeName();

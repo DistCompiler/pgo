@@ -9,6 +9,7 @@ import pcal.AST;
 import pcal.AST.LabeledStmt;
 import pcal.TLAExpr;
 import pcal.TLAExprPgo;
+import pgo.PGoNetOptions;
 import pgo.model.intermediate.PGoFunction;
 import pgo.model.intermediate.PGoLibFunction;
 import pgo.model.intermediate.PGoRoutineInit;
@@ -145,6 +146,13 @@ class PGoTransIntermediateData {
 	Map<String, Integer> labToLockGroup;
 	// the number of lock groups there are
 	int numLockGroups;
+	PGoNetOptions netOpts;
+
+	public static PGoTransIntermediateData buildWith(PGoNetOptions networkOptions) {
+		PGoTransIntermediateData ret = new PGoTransIntermediateData();
+		ret.netOpts = networkOptions;
+		return ret;
+	}
 
 	PGoTransIntermediateData() {
 
@@ -158,6 +166,7 @@ class PGoTransIntermediateData {
 		this.tlaToAST = new HashMap<>();
 		this.labToLockGroup = new HashMap<>();
 		this.numLockGroups = 0;
+
 	}
 
 	// Finds the PGofunction of the given name, or null if none exists.

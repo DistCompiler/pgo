@@ -37,11 +37,9 @@ public class PGoTransStageAtomicity {
 
 	// the intermediate data
 	PGoTransIntermediateData data;
-	PGoNetOptions netOpts;
 
 	public PGoTransStageAtomicity(PGoTransStageType s) throws PGoTransException {
 		this.data = s.data;
-		this.netOpts = s.netOpts;
 
 		// If we have annotated whether we should lock, use the annotation.
 		AnnotatedLock al = this.data.annots.getAnnotatedLock();

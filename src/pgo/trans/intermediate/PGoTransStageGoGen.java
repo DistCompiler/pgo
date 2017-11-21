@@ -54,11 +54,9 @@ public class PGoTransStageGoGen {
 	// when translating, this may be temporarily replaced by a PGoTempData which
 	// stores some local variables
 	PGoTransIntermediateData data;
-	PGoNetOptions netOpts;
 
 	public PGoTransStageGoGen(PGoTransStageAtomicity s1) throws PGoParseException, PGoTransException {
 		this.data = s1.data;
-		this.netOpts = s1.netOpts;
 
 		go = new GoProgram("main");
 

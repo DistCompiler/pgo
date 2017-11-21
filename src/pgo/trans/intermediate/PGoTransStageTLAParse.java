@@ -25,7 +25,6 @@ public class PGoTransStageTLAParse {
 
 	public PGoTransStageTLAParse(PGoTransStageInitParse s) throws PGoTransException {
 		this.data = s.data;
-		this.netOpts = s.netOpts;
 		parseTLA();
 	}
 

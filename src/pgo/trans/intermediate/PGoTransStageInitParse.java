@@ -34,19 +34,17 @@ public class PGoTransStageInitParse {
 	// intermediate data, which is filled with annotation information and data
 	// from the PlusCal ast
 	PGoTransIntermediateData data;
-	PGoNetOptions netOpts;
 
 	public PGoTransStageInitParse(ParsedPcal parsed, PGoNetOptions networkingOptions) throws PGoTransException, PGoParseException {
-		data = new PGoTransIntermediateData();
-		netOpts = networkingOptions;
+		data = PGoTransIntermediateData.buildWith(networkingOptions);
 		this.data.ast = parsed.getAST();
 		this.data.annots = new PGoAnnotationParser(parsed.getPGoAnnotations());
 
 		trans();
 
 		// config sanitization
-		if (netOpts.isEnabled()) {
-			for (Map.Entry<String, PGoNetOptions.Channel> entry : netOpts.getChannels().entrySet()) {
+		if (data.netOpts.isEnabled()) {
+			for (Map.Entry<String, PGoNetOptions.Channel> entry : data.netOpts.getChannels().entrySet()) {
 				PGoNetOptions.Channel channel = entry.getValue();
 				for (PGoNetOptions.Process p : channel.processes) {
 					if (!this.data.funcs.containsKey(p.name)) {
@@ -64,7 +62,7 @@ public class PGoTransStageInitParse {
 	 *             on error
 	 */
 	private void trans() throws PGoTransException {
-		if (data.ast instanceof Uniprocess && netOpts.isEnabled()) {
+		if (data.ast instanceof Uniprocess && data.netOpts.isEnabled()) {
 			throw new PGoTransException("Error: Networking is not supported for a uniprocess PlusCal algorithm");
 		} else if (data.ast instanceof Uniprocess) {
 			data.isMultiProcess = false;
