@@ -18,7 +18,7 @@ public class ProcessStringArg extends ProcessArg {
 
     @Override
     public String toString() {
-        return "ProcessIntArg(" + value + ")";
+        return "ProcessStringArg(" + value + ")";
     }
 
     public String getValue() {
