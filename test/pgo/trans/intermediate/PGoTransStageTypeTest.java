@@ -8,12 +8,14 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 
+import org.json.JSONObject;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
 import pgo.PGoNetOptions;
+import pgo.PGoOptionException;
 import pgo.model.intermediate.PGoFunction;
 import pgo.model.intermediate.PGoRoutineInit;
 import pgo.model.intermediate.PGoVariable;
@@ -40,8 +42,8 @@ public class PGoTransStageTypeTest {
 	}
 
 	@Before
-	public void SetUp() throws PGoParseException, PGoTransException {
-		PGoTransStageInitParse s1 = new PGoTransStageInitParse(tester.getParsedPcal(), new PGoNetOptions());
+	public void SetUp() throws PGoParseException, PGoTransException, PGoOptionException {
+		PGoTransStageInitParse s1 = new PGoTransStageInitParse(tester.getParsedPcal(), new PGoNetOptions(new JSONObject()));
 		p = new PGoTransStageType(new PGoTransStageTLAParse(s1));
 	}
 
@@ -128,8 +130,8 @@ public class PGoTransStageTypeTest {
 	}
 
 	@Test
-	public void assertGoRoutineInit() throws PGoTransException, PGoParseException {
-		PGoTransStageInitParse p = new PGoTransStageInitParse(tester.getParsedPcal(), new PGoNetOptions());
+	public void assertGoRoutineInit() throws PGoTransException, PGoParseException, PGoOptionException {
+		PGoTransStageInitParse p = new PGoTransStageInitParse(tester.getParsedPcal(), new PGoNetOptions(new JSONObject()));
 
 		ArrayList<PGoRoutineInit> grs = new ArrayList<>(p.data.goroutines.values());
 		assertEquals(tester.getNumGoroutineInit(), grs.size());
