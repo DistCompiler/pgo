@@ -44,6 +44,9 @@ public class PGoNetOptions {
 			validate();
 		}
 
+		// Process ID must have the format of ProcessName(processArg), where processArg is a string
+		// or an integer. The process ID must match one the processes specified in the PlusCal
+		// algorithm. The process ID will also be passed as an argument to the compiled binary.
 		private void parseId(String id) throws PGoOptionException {
 			if (id.isEmpty()) {
 				throw new PGoOptionException("all processes need to have an ID");
