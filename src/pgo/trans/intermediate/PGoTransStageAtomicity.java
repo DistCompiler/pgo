@@ -28,9 +28,6 @@ import pgo.util.PcalASTUtil;
  * 
  * This stage determines the value of needsLock, fills the lockGroup field of
  * all global PGoVariables, and populates the labToLockGroup method.
- * 
- * TODO we can probably optimize this in terms of locking. Also need to deal
- * with networks
  *
  */
 public class PGoTransStageAtomicity {
@@ -54,6 +51,12 @@ public class PGoTransStageAtomicity {
 		}
 
 		inferAtomic();
+
+		// if we are compiling a distributed system, we do not need locks, as
+		// global variables are requested to a centralized server
+		if (this.data.netOpts.isEnabled()) {
+			this.data.needsLock = false;
+		}
 	}
 
 	// Infer the locking groups that the variables belong to.
@@ -87,6 +90,7 @@ public class PGoTransStageAtomicity {
 				if (toInsert != null) {
 					result.get(curLabel).add(toInsert);
 					toInsert.setAtomic(true);
+					toInsert.setRemote(data.netOpts.isEnabled());
 				}
 			}
 

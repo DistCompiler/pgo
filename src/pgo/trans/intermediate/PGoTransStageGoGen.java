@@ -502,7 +502,7 @@ public class PGoTransStageGoGen {
 								new PGoTempData((PGoTempData) data));
 
 						VariableDeclaration v = new VariableDeclaration(varName, trans.getType(), trans.toExpression(),
-								false, true);
+								false, true, false);
 						pre.add(v);
 						((PGoTempData) data).getLocals().put(varName,
 								PGoVariable.convert(varName, trans.getType()));
@@ -527,7 +527,7 @@ public class PGoTransStageGoGen {
 						rhs.add(new Token("]"));
 
 						VariableDeclaration v = new VariableDeclaration(varName, containedType,
-								new TypeAssertion(new SimpleExpression(rhs), containedType), false, true);
+								new TypeAssertion(new SimpleExpression(rhs), containedType), false, true, false);
 						pre.add(v);
 						go.getImports().addImport("math/rand");
 						((PGoTempData) data).getLocals().put(varName,
@@ -855,8 +855,9 @@ public class PGoTransStageGoGen {
 			params.add(new Token(new PGoSlice("sync.RWMutex").toGo()));
 			params.add(new Token(((Integer) data.numLockGroups).toString()));
 
+			// if the algorithm needs lock, then networking must not be enabled
 			go.addGlobal(new VariableDeclaration("PGoLock", new PGoSlice("sync.RWMutex"),
-					new FunctionCall("make", params), false, false));
+					new FunctionCall("make", params), false, false, false));
 			go.getImports().addImport("sync");
 		}
 		// Generate all variables from TLA definitions first.
@@ -923,7 +924,7 @@ public class PGoTransStageGoGen {
 		// (synchronize the start of the goroutines)
 		if (!data.goroutines.isEmpty()) {
 			go.getImports().addImport("sync");
-			go.addGlobal(new VariableDeclaration("PGoWait", new PGoWaitGroup(), null, false, false));
+			go.addGlobal(new VariableDeclaration("PGoWait", new PGoWaitGroup(), null, false, false, false));
 
 			Expression init = new FunctionCall("make", new Vector<Expression>() {
 				{
@@ -931,7 +932,7 @@ public class PGoTransStageGoGen {
 				}
 			});
 			VariableDeclaration chanDecl = new VariableDeclaration("PGoStart",
-					PGoType.inferFromGoTypeName("chan[bool]"), init, false, false);
+					PGoType.inferFromGoTypeName("chan[bool]"), init, false, false, false);
 			go.addGlobal(chanDecl);
 		}
 	}
