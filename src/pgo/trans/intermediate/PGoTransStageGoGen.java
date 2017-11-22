@@ -38,8 +38,7 @@ import pgo.util.PcalASTUtil;
 
 /**
  * The last stage of the translation. Takes given intermediate data and converts
- * it to a Go AST,
- * properly
+ * it to a Go AST, properly
  * 
  */
 public class PGoTransStageGoGen {

@@ -82,6 +82,7 @@ public class PGoTransStageAtomicity {
 			protected void visit(SingleAssign sa) {
 				// we only care about global variables, so don't use
 				// findPGoVariable
+
 				PGoVariable toInsert = data.globals.get(sa.lhs.var);
 				if (toInsert != null) {
 					result.get(curLabel).add(toInsert);
