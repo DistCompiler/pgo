@@ -29,13 +29,14 @@ public class PGoNetOptions {
 	// to know the ID of the process (its declared name in the PlusCal
 	// algorithm), as well as the address-related options (IP and port number).
 	public class Process {
-		public String id;
+		public String name;
+		public ProcessArg arg;
 		public String role;
 		public String host;
 		public int port;
 
 		public Process(JSONObject config) throws PGoOptionException {
-			this.id = config.getString("id");
+			parseId(config.getString("id"));
 			this.role = config.getString("role");
 			this.host = config.getString("host");
 			this.port = config.getInt("port");
@@ -43,11 +44,34 @@ public class PGoNetOptions {
 			validate();
 		}
 
-		public void validate() throws PGoOptionException {
+		// Process ID must have the format of ProcessName(processArg), where processArg is a string
+		// or an integer. The process ID must match one the processes specified in the PlusCal
+		// algorithm. The process ID will also be passed as an argument to the compiled binary.
+		private void parseId(String id) throws PGoOptionException {
 			if (id.isEmpty()) {
 				throw new PGoOptionException("all processes need to have an ID");
 			}
+			int openParensIdx = id.indexOf('(');
+			if (openParensIdx < 0) {
+				throw new PGoOptionException("missing argument for process " + id);
+			}
+			int closeParensIdx = id.lastIndexOf(')');
+			if (closeParensIdx < 0) {
+				throw new PGoOptionException("missing close parenthesis for process " + id);
+			}
+			this.name = id.substring(0, openParensIdx);
+			String arg = id.substring(openParensIdx+1, closeParensIdx);
+			if (arg.isEmpty()) {
+				throw new PGoOptionException("missing argument for process " + this.name);
+			}
+			try {
+				this.arg = new ProcessIntArg(Integer.parseInt(arg, 10));
+			} catch (NumberFormatException e) {
+			    this.arg = new ProcessStringArg(arg);
+			}
 		}
+
+		public void validate() throws PGoOptionException {}
 
 	}
 
@@ -123,7 +147,7 @@ public class PGoNetOptions {
 		}
 
 		private void validate() throws PGoOptionException {
-			if (processes[0].id.equals(processes[1].id)) {
+			if (processes[0].name.equals(processes[1].name) && processes[0].arg.equals(processes[1].arg)) {
 				throw new PGoOptionException("Processes should have different ids");
 			}
 		}
@@ -169,7 +193,7 @@ public class PGoNetOptions {
 				String name = channel.getString("name");
 
 				if (channels.get(name) != null) {
-					throw new PGoOptionException("Process with name \"" + name + "\" already exists");
+					throw new PGoOptionException("Channel with name \"" + name + "\" already exists");
 				}
 
 				channels.put(name, new Channel(channel));

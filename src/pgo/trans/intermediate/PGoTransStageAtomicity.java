@@ -12,6 +12,7 @@ import pcal.AST.LabelEither;
 import pcal.AST.LabelIf;
 import pcal.AST.LabeledStmt;
 import pcal.AST.SingleAssign;
+import pgo.PGoNetOptions;
 import pgo.model.intermediate.PGoVariable;
 import pgo.model.parser.AnnotatedLock;
 import pgo.trans.PGoTransException;

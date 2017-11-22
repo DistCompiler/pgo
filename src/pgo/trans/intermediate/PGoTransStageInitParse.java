@@ -1,5 +1,6 @@
 package pgo.trans.intermediate;
 
+import java.util.Map;
 import java.util.Vector;
 
 import pcal.AST;
@@ -10,8 +11,12 @@ import pcal.AST.Process;
 import pcal.AST.Uniprocess;
 import pcal.AST.VarDecl;
 import pcal.TLAExpr;
+import pgo.PGoNetOptions;
+import pgo.ProcessIntArg;
+import pgo.ProcessStringArg;
 import pgo.model.intermediate.PGoFunction;
 import pgo.model.intermediate.PGoRoutineInit;
+import pgo.model.intermediate.PGoType;
 import pgo.model.intermediate.PGoVariable;
 import pgo.parser.PGoAnnotationParser;
 import pgo.parser.PGoParseException;
@@ -30,12 +35,24 @@ public class PGoTransStageInitParse {
 	// from the PlusCal ast
 	PGoTransIntermediateData data;
 
-	public PGoTransStageInitParse(ParsedPcal parsed) throws PGoTransException, PGoParseException {
-		data = new PGoTransIntermediateData();
+	public PGoTransStageInitParse(ParsedPcal parsed, PGoNetOptions networkingOptions) throws PGoTransException, PGoParseException {
+		data = PGoTransIntermediateData.buildWith(networkingOptions);
 		this.data.ast = parsed.getAST();
 		this.data.annots = new PGoAnnotationParser(parsed.getPGoAnnotations());
 
 		trans();
+
+		// config sanitization
+		if (data.netOpts.isEnabled()) {
+			for (Map.Entry<String, PGoNetOptions.Channel> entry : data.netOpts.getChannels().entrySet()) {
+				PGoNetOptions.Channel channel = entry.getValue();
+				for (PGoNetOptions.Process p : channel.processes) {
+					if (!this.data.funcs.containsKey(p.name)) {
+						throw new PGoParseException("PlusCal algorithm does not contain process " + p.name);
+					}
+				}
+			}
+		}
 	}
 
 	/**
@@ -45,7 +62,9 @@ public class PGoTransStageInitParse {
 	 *             on error
 	 */
 	private void trans() throws PGoTransException {
-		if (data.ast instanceof Uniprocess) {
+		if (data.ast instanceof Uniprocess && data.netOpts.isEnabled()) {
+			throw new PGoTransException("Error: Networking is not supported for a uniprocess PlusCal algorithm");
+		} else if (data.ast instanceof Uniprocess) {
 			data.isMultiProcess = false;
 			trans((Uniprocess) data.ast);
 		} else if (data.ast instanceof Multiprocess) {
@@ -100,7 +119,7 @@ public class PGoTransStageInitParse {
 		// TODO eventually we want to support a process as a goroutine and a
 		// networked process. For now we just do goroutines
 		for (Process p : (Vector<Process>) ast.procs) {
-			PGoFunction f = PGoFunction.convert(p);
+			PGoFunction f = PGoFunction.convert(p, PGoFunction.FunctionType.GoRoutine);
 			data.funcs.put(f.getName(), f);
 
 			data.goroutines.put(f.getName(), PGoRoutineInit.convert(p));

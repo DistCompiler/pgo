@@ -7,6 +7,7 @@ import java.util.logging.Logger;
 
 import org.apache.commons.io.FileUtils;
 
+import pgo.PGoNetOptions;
 import pgo.PGoOptions;
 import pgo.model.golang.GoProgram;
 import pgo.parser.PGoParseException;
@@ -31,12 +32,13 @@ public class PGoTranslater {
 
 	private Logger logger;
 
-	public PGoTranslater(ParsedPcal pcal) throws PGoTransException, PGoParseException {
+	public PGoTranslater(ParsedPcal pcal, PGoNetOptions opts) throws PGoTransException, PGoParseException {
 		this.pluscal = pcal;
+
 		logger = Logger.getGlobal();
 
 		logger.info("Entering Stage One: Inferring intermediate data structures");
-		PGoTransStageInitParse s1 = new PGoTransStageInitParse(pcal);
+		PGoTransStageInitParse s1 = new PGoTransStageInitParse(pcal, opts);
 		logger.info("Entering Stage Two: Parsing TLA expressions");
 		PGoTransStageTLAParse s2 = new PGoTransStageTLAParse(s1);
 		logger.info("Entering Stage Three: Inferring types");

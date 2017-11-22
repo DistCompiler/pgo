@@ -110,12 +110,14 @@ public class PGoNetOptionsTest {
 		assertEquals("msgC", channel.name);
 		assertEquals(2, channel.processes.length);
 
-		assertEquals("S", channel.processes[0].id);
+		assertEquals("S", channel.processes[0].name);
+		assertEquals(new ProcessStringArg("Sender"), channel.processes[0].arg);
 		assertEquals("sender", channel.processes[0].role);
 		assertEquals("10.0.0.2", channel.processes[0].host);
 		assertEquals(5432, channel.processes[0].port);
 
-		assertEquals("R", channel.processes[1].id);
+		assertEquals("R", channel.processes[1].name);
+		assertEquals(new ProcessStringArg("Receiver"), channel.processes[1].arg);
 		assertEquals("receiver", channel.processes[1].role);
 		assertEquals("10.0.0.3", channel.processes[1].host);
 		assertEquals(3333, channel.processes[1].port);

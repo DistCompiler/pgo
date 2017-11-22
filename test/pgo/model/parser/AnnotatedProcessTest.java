@@ -27,7 +27,7 @@ public class AnnotatedProcessTest {
 		Process p = new Process();
 		p.decls = new Vector();
 		p.name = "Proc";
-		f = PGoFunction.convert(p);
+		f = PGoFunction.convert(p, PGoFunction.FunctionType.GoRoutine);
 		ap = AnnotatedProcess.parse(new String[] { "proc", "int", "Proc" }, 1);
 		ap.applyAnnotationOnFunction(f);
 		assertEquals(1, f.getParams().size());
