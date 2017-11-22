@@ -51,38 +51,38 @@ public class TwoPhaseCommitIntermediateTester extends PGoPluscalStageTesterBase 
 		ArrayList<TestVariableData> params = new ArrayList<TestVariableData>();
 		ArrayList<TestVariableData> vars = new ArrayList<TestVariableData>();
 		params.add(new TestVariableData("state", true, "<< \"defaultInitValue\" >>", "", false,
-				new PGoPrimitiveType.PGoString(), false, "", false));
+				   PGoPrimitiveType.STRING, false, "", false));
 		params.add(new TestVariableData("kmgrs", true, "<< \"defaultInitValue\" >>", "", false,
 				new PGoCollectionType.PGoSet("string"), false, "", false));
 
 		String b = ((Macro) ((Multiprocess) getAST()).macros.get(0)).body.toString();
 
 		ret.add(new TestFunctionData("SetAll", params, vars, b, PGoFunction.FunctionType.Macro, false, "",
-				PGoType.VOID));
+				PGoPrimitiveType.VOID));
 
 		params = new ArrayList<TestVariableData>();
 		vars = new ArrayList<TestVariableData>();
 		params.add(new TestVariableData("self", true, "<< \"defaultInitValue\" >>", "", false,
-				new PGoPrimitiveType.PGoString(), false, "", false));
+				   PGoPrimitiveType.STRING, false, "", false));
 
 		b = ((Process) ((Multiprocess) getAST()).procs.get(0)).body.toString();
 
 		ret.add(new TestFunctionData("Restaurant", params, vars, b, PGoFunction.FunctionType.GoRoutine, false,
-				"<< \"managers\" >>", PGoType.VOID));
+				"<< \"managers\" >>", PGoPrimitiveType.VOID));
 
 		params = new ArrayList<TestVariableData>();
 		vars = new ArrayList<TestVariableData>();
 		params.add(new TestVariableData("self", true, "<< \"defaultInitValue\" >>", "", false,
-				new PGoPrimitiveType.PGoString(), false, "", false));
+				   PGoPrimitiveType.STRING, false, "", false));
 		vars.add(new TestVariableData("rstMgrs", true, "<< \"defaultInitValue\" >>", "", false,
 				new PGoCollectionType.PGoSet("String"), false, "", false));
-		vars.add(new TestVariableData("aborted", true, "<< \"FALSE\" >>", "", false, new PGoPrimitiveType.PGoBool(),
+		vars.add(new TestVariableData("aborted", true, "<< \"FALSE\" >>", "", false, PGoPrimitiveType.BOOL,
 				false, "", false));
 		
 		b = ((Process) ((Multiprocess) getAST()).procs.get(1)).body.toString();
 
 		ret.add(new TestFunctionData("Controller", params, vars, b, PGoFunction.FunctionType.GoRoutine, true,
-				"<< \"\\\"\", \"alice\", \"\\\"\" >>", PGoType.VOID));
+				"<< \"\\\"\", \"alice\", \"\\\"\" >>", PGoPrimitiveType.VOID));
 		
 		return ret;
 	}

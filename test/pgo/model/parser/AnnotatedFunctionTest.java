@@ -115,7 +115,7 @@ public class AnnotatedFunctionTest {
 		af = AnnotatedFunction.parse(new String[] { "func", "func()" }, 1);
 		af.applyAnnotationOnFunction(f, rvs);
 		assertEquals(0, f.getParams().size());
-		assertEquals(PGoType.VOID, f.getReturnType());
+		assertEquals(PGoPrimitiveType.VOID, f.getReturnType());
 
 		pv = new PVarDecl();
 		pv.var = "Param1";
@@ -131,8 +131,8 @@ public class AnnotatedFunctionTest {
 		af = AnnotatedFunction.parse(new String[] { "func", "void", "func()", "int" }, 2);
 		af.applyAnnotationOnFunction(f, rvs);
 		assertEquals(1, f.getParams().size());
-		assertEquals(new PGoPrimitiveType.PGoInt(), f.getParam("Param1").getType());
-		assertEquals(PGoType.VOID, f.getReturnType());
+		assertEquals(PGoPrimitiveType.INT, f.getParam("Param1").getType());
+		assertEquals(PGoPrimitiveType.VOID, f.getReturnType());
 
 		pv = new PVarDecl();
 		pv.var = "Param2";
@@ -142,9 +142,9 @@ public class AnnotatedFunctionTest {
 		af = AnnotatedFunction.parse(new String[] { "func", "boolean", "func()", "int", "string" }, 2);
 		af.applyAnnotationOnFunction(f, rvs);
 		assertEquals(2, f.getParams().size());
-		assertEquals(new PGoPrimitiveType.PGoInt(), f.getParam("Param1").getType());
-		assertEquals(new PGoPrimitiveType.PGoString(), f.getParam("Param2").getType());
-		assertEquals(new PGoPrimitiveType.PGoBool(), f.getReturnType());
+		assertEquals(PGoPrimitiveType.INT, f.getParam("Param1").getType());
+		assertEquals(PGoPrimitiveType.STRING, f.getParam("Param2").getType());
+		assertEquals(PGoPrimitiveType.BOOL, f.getReturnType());
 		
 		rvs.add(AnnotatedReturnVariable.parse(new String[] {"ret", "ret"}, 2));
 		pv = new PVarDecl();
@@ -153,9 +153,9 @@ public class AnnotatedFunctionTest {
 		f = PGoFunction.convert(p);
 		af.applyAnnotationOnFunction(f, rvs);
 		assertEquals(2, f.getParams().size());
-		assertEquals(new PGoPrimitiveType.PGoInt(), f.getParam("Param1").getType());
-		assertEquals(new PGoPrimitiveType.PGoString(), f.getParam("Param2").getType());
-		assertEquals(new PGoPrimitiveType.PGoBool(), f.getReturnType());
-		assertEquals(new PGoPrimitiveType.PGoBool(), f.getVariable("ret").getType());
+		assertEquals(PGoPrimitiveType.INT, f.getParam("Param1").getType());
+		assertEquals(PGoPrimitiveType.STRING, f.getParam("Param2").getType());
+		assertEquals(PGoPrimitiveType.BOOL, f.getReturnType());
+		assertEquals(PGoPrimitiveType.BOOL, f.getVariable("ret").getType());
 	}
 }

@@ -44,15 +44,15 @@ public class SumParserTester extends PGoPluscalParserTesterBase {
 	public List<VarAnnotatedVariableData> getVarAnnotatedVariables() {
 		ArrayList<VarAnnotatedVariableData> ret = new ArrayList<VarAnnotatedVariableData>();
 		ret.add(new VarAnnotatedVariableData(new PGoCollectionType.PGoSlice("chan[[2]interface]"), "network", 13));
-		ret.add(new VarAnnotatedVariableData(new PGoPrimitiveType.PGoNatural(), "a_init", 30));
-		ret.add(new VarAnnotatedVariableData(new PGoPrimitiveType.PGoNatural(), "b_init", 31));
-		ret.add(new VarAnnotatedVariableData(new PGoPrimitiveType.PGoNatural(), "runs", 32));
-		ret.add(new VarAnnotatedVariableData(new PGoPrimitiveType.PGoNatural(), "Client.id", 33));
-		ret.add(new VarAnnotatedVariableData(new PGoPrimitiveType.PGoNatural(), "Client.msg", 34));
-		ret.add(new VarAnnotatedVariableData(new PGoPrimitiveType.PGoNatural(), "sum", 35));
-		ret.add(new VarAnnotatedVariableData(new PGoPrimitiveType.PGoNatural(), "a", 58));
-		ret.add(new VarAnnotatedVariableData(new PGoPrimitiveType.PGoNatural(), "b", 59));
-		ret.add(new VarAnnotatedVariableData(new PGoPrimitiveType.PGoNatural(), "Server.id", 60));
+		ret.add(new VarAnnotatedVariableData(PGoPrimitiveType.UINT64, "a_init", 30));
+		ret.add(new VarAnnotatedVariableData(PGoPrimitiveType.UINT64, "b_init", 31));
+		ret.add(new VarAnnotatedVariableData(PGoPrimitiveType.UINT64, "runs", 32));
+		ret.add(new VarAnnotatedVariableData(PGoPrimitiveType.UINT64, "Client.id", 33));
+		ret.add(new VarAnnotatedVariableData(PGoPrimitiveType.UINT64, "Client.msg", 34));
+		ret.add(new VarAnnotatedVariableData(PGoPrimitiveType.UINT64, "sum", 35));
+		ret.add(new VarAnnotatedVariableData(PGoPrimitiveType.UINT64, "a", 58));
+		ret.add(new VarAnnotatedVariableData(PGoPrimitiveType.UINT64, "b", 59));
+		ret.add(new VarAnnotatedVariableData(PGoPrimitiveType.UINT64, "Server.id", 60));
 		ret.add(new VarAnnotatedVariableData(new PGoCollectionType.PGoSlice("2", "uint64"), "Server.msg", 61));
 
 		return ret;
@@ -61,7 +61,7 @@ public class SumParserTester extends PGoPluscalParserTesterBase {
 	@Override
 	public List<ConstAnnotatedVariableData> getConstAnnotatedVariables() {
 		ArrayList<ConstAnnotatedVariableData> ret = new ArrayList<ConstAnnotatedVariableData>();
-		ret.add(new ConstAnnotatedVariableData(new PGoPrimitiveType.PGoNatural(), "MAXINT", 8, "10000000"));
+		ret.add(new ConstAnnotatedVariableData(PGoPrimitiveType.UINT64, "MAXINT", 8, "10000000"));
 
 		return ret;
 	}
@@ -69,8 +69,8 @@ public class SumParserTester extends PGoPluscalParserTesterBase {
 	@Override
 	public List<ArgAnnotatedVariableData> getArgAnnotatedVariables() {
 		ArrayList<ArgAnnotatedVariableData> ret = new ArrayList<ArgAnnotatedVariableData>();
-		ret.add(new ArgAnnotatedVariableData(new PGoPrimitiveType.PGoNatural(), "RUNS", 9, false, "runs"));
-		ret.add(new ArgAnnotatedVariableData(new PGoPrimitiveType.PGoNatural(), "N", 9, false, "numT"));
+		ret.add(new ArgAnnotatedVariableData(PGoPrimitiveType.UINT64, "RUNS", 9, false, "runs"));
+		ret.add(new ArgAnnotatedVariableData(PGoPrimitiveType.UINT64, "N", 9, false, "numT"));
 
 		return ret;
 	}
@@ -79,11 +79,11 @@ public class SumParserTester extends PGoPluscalParserTesterBase {
 	public List<AnnotatedFunctionData> getAnnotatedFunctions() {
 		ArrayList<AnnotatedFunctionData> ret = new ArrayList<AnnotatedFunctionData>();
 		Vector<PGoType> args = new Vector<PGoType>();
-		args.add(new PGoPrimitiveType.PGoNatural());
-		args.add(new PGoPrimitiveType.PGoNatural());
-		args.add(new PGoPrimitiveType.PGoInterface());
-		ret.add(new AnnotatedFunctionData("SendTo", 16, PGoType.VOID, args));
-		ret.add(new AnnotatedFunctionData("Recv", 21, PGoType.VOID, args));
+		args.add(PGoPrimitiveType.UINT64);
+		args.add(PGoPrimitiveType.UINT64);
+		args.add(PGoPrimitiveType.INTERFACE);
+		ret.add(new AnnotatedFunctionData("SendTo", 16, PGoPrimitiveType.VOID, args));
+		ret.add(new AnnotatedFunctionData("Recv", 21, PGoPrimitiveType.VOID, args));
 
 		return ret;
 	}

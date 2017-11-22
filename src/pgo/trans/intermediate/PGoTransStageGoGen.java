@@ -933,9 +933,8 @@ public class PGoTransStageGoGen {
 	 * @param positionalArgs
 	 * @param pv
 	 */
-	private void addPositionalArgToMain(int argN, Vector<Statement> positionalArgs,
-			PGoVariable pv) {
-		if (pv.getType().equals(new PGoPrimitiveType.PGoString())) {
+	private void addPositionalArgToMain(int argN, Vector<Statement> positionalArgs, PGoVariable pv) {
+		if (pv.getType().equals(PGoPrimitiveType.STRING)) {
 			// var = flag.Args()[..]
 			Vector<Expression> args = new Vector<>(), exp = new Vector<>();
 			exp.add(new Token(pv.getName()));
@@ -943,7 +942,7 @@ public class PGoTransStageGoGen {
 			exp.add(new FunctionCall("flag.Args", args));
 			exp.add(new Token("[" + argN + "]"));
 			positionalArgs.add(new SimpleExpression(exp));
-		} else if (pv.getType().equals(new PGoPrimitiveType.PGoInt())) {
+		} else if (pv.getType().equals(PGoPrimitiveType.INT)) {
 			// var,_ = strconv.Atoi(flag.Args()[..])
 			Vector<Expression> args = new Vector<>(), argExp = new Vector<>();
 			FunctionCall fc = new FunctionCall("flag.Args", args);
@@ -962,7 +961,7 @@ public class PGoTransStageGoGen {
 			exp.add(convert);
 
 			positionalArgs.add(new SimpleExpression(exp));
-		} else if (pv.getType().equals(new PGoPrimitiveType.PGoNatural())) {
+		} else if (pv.getType().equals(PGoPrimitiveType.UINT64)) {
 			// var,_ = strconv.ParseUint(flag.Args()[..], 10, 64)
 			Vector<Expression> args = new Vector<>(), argExp = new Vector<>();
 			FunctionCall fc = new FunctionCall("flag.Args", args);
@@ -983,7 +982,7 @@ public class PGoTransStageGoGen {
 			exp.add(convert);
 
 			positionalArgs.add(new SimpleExpression(exp));
-		} else if (pv.getType().equals(new PGoPrimitiveType.PGoDecimal())) {
+		} else if (pv.getType().equals(PGoPrimitiveType.FLOAT64)) {
 			// var = strconv.ParseFloat64(flag.Args()[..], 10, 64)
 			Vector<Expression> args = new Vector<>(), argExp = new Vector<>();
 			FunctionCall fc = new FunctionCall("flag.Args", args);
@@ -1004,7 +1003,7 @@ public class PGoTransStageGoGen {
 			exp.add(convert);
 
 			positionalArgs.add(new SimpleExpression(exp));
-		} else if (pv.getType().equals(new PGoPrimitiveType.PGoBool())) {
+		} else if (pv.getType().equals(PGoPrimitiveType.BOOL)) {
 			// var = strconv.ParseBool(flag.Args()[..])
 			Vector<Expression> args = new Vector<>(), argExp = new Vector<>();
 			FunctionCall fc = new FunctionCall("flag.Args", args);

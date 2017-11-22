@@ -46,7 +46,7 @@ public class TwoPhaseCommitParserTester extends PGoPluscalParserTesterBase {
 		Vector<PGoType> args = new Vector<PGoType>();
 		args.add(new PGoPrimitiveType.PGoString());
 		args.add(new PGoCollectionType.PGoSet("string"));
-		ret.add(new AnnotatedFunctionData("SetAll", 11, PGoType.VOID, args));
+		ret.add(new AnnotatedFunctionData("SetAll", 11, PGoPrimitiveType.VOID, args));
 
 		return ret;
 	}
