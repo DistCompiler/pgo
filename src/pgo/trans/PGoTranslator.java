@@ -22,7 +22,7 @@ import pgo.trans.intermediate.PGoTransStageType;
  * Performs the translation of the PlusCal AST into a Golang AST
  * 
  */
-public class PGoTranslater {
+public class PGoTranslator {
 
 	// The pluscal AST to be translated
 	private ParsedPcal pluscal;
@@ -32,7 +32,7 @@ public class PGoTranslater {
 
 	private Logger logger;
 
-	public PGoTranslater(ParsedPcal pcal, PGoNetOptions opts) throws PGoTransException, PGoParseException {
+	public PGoTranslator(ParsedPcal pcal, PGoNetOptions opts) throws PGoTransException, PGoParseException {
 		this.pluscal = pcal;
 
 		logger = Logger.getGlobal();
