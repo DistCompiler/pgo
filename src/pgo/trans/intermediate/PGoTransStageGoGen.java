@@ -134,9 +134,9 @@ public class PGoTransStageGoGen {
 		if (data.netOpts.isEnabled()) {
 			go.getImports().addImport("flag");
 			hasArg = true;
-		    PGoVariable var = PGoVariable.processIdArg();
-		    var.setType(PGoPrimitiveType.PROCESS_ID);
-		    addPositionalArgToMain(argN++, positionalArgs, var);
+			PGoVariable var = PGoVariable.processIdArg();
+			var.setType(PGoPrimitiveType.PROCESS_ID);
+			addPositionalArgToMain(argN++, positionalArgs, var);
 		}
 
 		for (PGoVariable pv : this.data.globals.values()) {

@@ -66,10 +66,10 @@ public class PGoTransStageType {
 				PGoNetOptions.Channel channel = entry.getValue();
 				for (PGoNetOptions.Process p : channel.processes) {
 					PGoType type = this.data.funcs.get(p.name).getParam("self").getType();
-					if (type.equals(new PGoPrimitiveType.PGoInt()) && p.arg instanceof ProcessStringArg) {
+					if (type.equals(PGoPrimitiveType.INT) && p.arg instanceof ProcessStringArg) {
 						throw new PGoParseException("Argument for process " + p.name + " expected to be string, found int");
 					}
-					if (type.equals(new PGoPrimitiveType.PGoString()) && p.arg instanceof ProcessIntArg) {
+					if (type.equals(PGoPrimitiveType.STRING) && p.arg instanceof ProcessIntArg) {
 						throw new PGoParseException("Argument for process " + p.name + " expected to be int, found string");
 					}
 				}
