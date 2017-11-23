@@ -11,21 +11,18 @@ import pcal.AST.If;
 import pcal.AST.Return;
 import pcal.TLAExpr;
 import pgo.model.golang.*;
+import pgo.model.intermediate.*;
 import pgo.model.intermediate.PGoCollectionType.PGoMap;
 import pgo.model.intermediate.PGoCollectionType.PGoSet;
 import pgo.model.intermediate.PGoCollectionType.PGoSlice;
 import pgo.model.intermediate.PGoCollectionType.PGoTuple;
-import pgo.model.intermediate.PGoFunction;
 import pgo.model.intermediate.PGoMiscellaneousType.PGoWaitGroup;
-import pgo.model.intermediate.PGoPrimitiveType;
+import pgo.model.intermediate.PGoMiscellaneousType.PGoNetGlobalState;
 import pgo.model.intermediate.PGoPrimitiveType.PGoBool;
 import pgo.model.intermediate.PGoPrimitiveType.PGoDecimal;
 import pgo.model.intermediate.PGoPrimitiveType.PGoInt;
 import pgo.model.intermediate.PGoPrimitiveType.PGoNatural;
 import pgo.model.intermediate.PGoPrimitiveType.PGoString;
-import pgo.model.intermediate.PGoRoutineInit;
-import pgo.model.intermediate.PGoType;
-import pgo.model.intermediate.PGoVariable;
 import pgo.model.parser.AnnotatedVariable.ArgAnnotatedVariable;
 import pgo.model.tla.PGoTLA;
 import pgo.model.tla.PGoTLAArray;
@@ -42,6 +39,8 @@ import pgo.util.PcalASTUtil;
  * 
  */
 public class PGoTransStageGoGen {
+
+	private static final String GLOBAL_STATE_OBJECT = "globalState";
 
 	// the ast
 	private GoProgram go;
@@ -123,8 +122,10 @@ public class PGoTransStageGoGen {
 					add(new FunctionCall("UnixNano", new Vector<>(), new FunctionCall("time.Now", new Vector<>())));
 				}
 			});
-			go.getMain().getBody().add(0, seed);
+			main.add(0, seed);
 		}
+
+		configureGlobalState();
 	}
 
 	private void generateArgParsing() throws PGoTransException {
@@ -166,6 +167,7 @@ public class PGoTransStageGoGen {
 		}
 	}
 
+
 	/**
 	 * Convert the TLA AST to the equivalent Go AST while adding the required
 	 * imports.
@@ -191,6 +193,15 @@ public class PGoTransStageGoGen {
 			}
 		}
 		return ret;
+	}
+
+	// whether or not we are compiling a program which has remote global state.
+	// Specifically, this is true if:
+	//
+	// * we are compiling a distributed algorithm (networking option enabled)
+	// * we have at least one global variable
+	private boolean hasRemoteState() {
+		return data.netOpts.isEnabled() && data.globals.size() > 0;
 	}
 
 	/**
@@ -450,10 +461,7 @@ public class PGoTransStageGoGen {
 					if (var.isRemote()) {
 						// assigning to a global, remote variable (managed by etcd)
 
-						// if we have not yet imported the `pgonet' package, do so
-						if (!go.getImports().containsPackage("pgonet")) {
-							go.getImports().addImport("pgonet");
-						}
+						go.getImports().addImport("pgonet");
 
 						Vector<Expression> params = new Vector<>();
 						params.add(new Expression() {
@@ -466,7 +474,7 @@ public class PGoTransStageGoGen {
 						});
 						params.add(rhs);
 
-						exps.add(new FunctionCall("pgonet.Set", params));
+						exps.add(new FunctionCall("Set", params, new Token(GLOBAL_STATE_OBJECT)));
 					} else {
 						// assigning to a regular, non-remote variable
 						exps.add(new Token(sa.lhs.var));
@@ -961,6 +969,13 @@ public class PGoTransStageGoGen {
 					PGoType.inferFromGoTypeName("chan[bool]"), init, false, false, false);
 			go.addGlobal(chanDecl);
 		}
+
+		if (hasRemoteState()) {
+			VariableDeclaration stateDecl = new VariableDeclaration(GLOBAL_STATE_OBJECT, new PGoNetGlobalState(),
+					null, false, false, false);
+
+			go.addGlobal(stateDecl);
+		}
 	}
 
 	private void generateSimpleVariable(PGoVariable pv, boolean delay) throws PGoTransException {
@@ -1107,6 +1122,75 @@ public class PGoTransStageGoGen {
 
 			positionalArgs.add(new SimpleExpression(exp));
 		}
+	}
+
+	// generates initialization code for the remote global state management.
+	// Uses `pgonet' package functions. Generated code code looks like:
+	//
+	// 		cfg := &GlobalsConfig{
+	//			Endpoints: []string{"10.0.0.1:1234", "10.0.0.2:1234"}, // based on networking options
+	// 			Timeout: 2, // based on networking options
+	// 		}
+	//		globalState, err := pgonet.InitGlobals(cfg)
+	// 		if err != nil {
+	// 			// handle error
+	// 		}
+	private void configureGlobalState() {
+		if (!hasRemoteState()) {
+			return;
+		}
+		String configObj = "cfg";
+
+		Assignment cfgDecl = new Assignment(
+				new Vector<String>() {
+					{
+						add(configObj);
+					}
+				},
+				new Expression() {
+					@Override
+					public Vector<String> toGo() {
+						StructDefinition sdef = new StructDefinition("pgonet.GlobalState", true);
+						sdef.addField("Endpoints", new Expression() {
+							@Override
+							public Vector<String> toGo() {
+								return new Token(String.format("%s{\"%s\"}",
+										new PGoCollectionType.PGoSlice("string").toGo(),
+										data.netOpts.getStateOptions().host)).toGo();
+							}
+						});
+
+						sdef.addField("Timeout", new Expression() {
+							@Override
+							public Vector<String> toGo() {
+								return new Token("3").toGo(); // TODO use value from configuration
+							}
+						});
+
+						return sdef.toGo();
+					}
+				}
+		);
+		main.add(1, cfgDecl);
+
+		Vector<Expression> params = new Vector<>();
+		params.add(new Expression() {
+			@Override
+			public Vector<String> toGo() {
+				return new Token(configObj).toGo();
+			}
+		});
+
+		Assignment stateObj = new Assignment(
+				new Vector<String>() {
+					{
+						add(GLOBAL_STATE_OBJECT);
+						add("err");
+					}
+				},
+				new FunctionCall("pgonet.InitState", params)
+		);
+		main.add(2, stateObj);
 	}
 
 	private void addFlagArgToMain(PGoVariable pv) throws PGoTransException {

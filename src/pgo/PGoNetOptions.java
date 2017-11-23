@@ -177,8 +177,15 @@ public class PGoNetOptions {
 		try {
 			JSONObject netConfig = config.getJSONObject(NETWORKING_FIELD);
 			JSONObject stateConfig = netConfig.getJSONObject(STATE_FIELD);
-			JSONArray channelsConfig = netConfig.getJSONArray(CHANNELS_FIELD);
+			JSONArray channelsConfig = new JSONArray();
 			int i;
+
+			// try to get the the definition of channels. An algorithm needs not
+			// to define direct channels (perhaps all communication happens
+			// via global variables
+			if (netConfig.has(CHANNELS_FIELD)) {
+				channelsConfig = netConfig.getJSONArray(CHANNELS_FIELD);
+			}
 
 			if (!netConfig.getBoolean("enabled")) {
 				enabled = false;

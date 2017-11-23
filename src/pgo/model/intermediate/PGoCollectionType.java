@@ -12,7 +12,7 @@ import java.util.regex.Pattern;
  * The following types in go correspond to the following type names
  * arrays/slices - [<#elem>]<etype>, channels - chan <etype>,
  * sets - set[]<etype>, maps - map[<keyType>]<etype>
- * 
+ *
  */
 public abstract class PGoCollectionType extends PGoType {
 
