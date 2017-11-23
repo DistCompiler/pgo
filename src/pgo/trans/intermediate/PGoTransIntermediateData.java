@@ -1,9 +1,6 @@
 package pgo.trans.intermediate;
 
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.Vector;
+import java.util.*;
 
 import pcal.AST;
 import pcal.AST.LabeledStmt;

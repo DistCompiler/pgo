@@ -9,6 +9,8 @@ public abstract class PGoType {
 	// void type
 	public static final PGoType UNDETERMINED = new PGoType.PGoUndetermined();
 
+	public static final PGoType PROCESS_ID = new PGoType.PGoProcessId();
+
 	// whether this type is determinable
 	protected boolean isUndetermined = false;
 	// whether the type contains template arguments
@@ -65,6 +67,18 @@ public abstract class PGoType {
 		@Override
 		public String toTypeName() {
 			return "";
+		}
+
+	}
+
+	/**
+	 * Represents a process ID
+	 *
+	 */
+	public static class PGoProcessId extends PGoType {
+		@Override
+		public String toTypeName() {
+			return "processId";
 		}
 
 	}

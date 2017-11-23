@@ -40,8 +40,8 @@ public class PGoFunction {
 	// The return type of the function
 	private PGoType rType;
 
-	public static enum FunctionType {
-		GoRoutine, Macro, Normal
+	public enum FunctionType {
+		GoRoutine, Macro, Normal, Process
 	}
 
 	// The line number at start of function
