@@ -445,9 +445,34 @@ public class PGoTransStageGoGen {
 					}
 				} else {
 					// the lhs is a simple variable
-					exps.add(new Token(sa.lhs.var));
-					exps.add(new Token(" = "));
-					exps.add(rhs);
+					PGoVariable var = data.findPGoVariable(sa.lhs.var);
+
+					if (var.isRemote()) {
+						// assigning to a global, remote variable (managed by etcd)
+
+						// if we have not yet imported the `pgonet' package, do so
+						if (!go.getImports().containsPackage("pgonet")) {
+							go.getImports().addImport("pgonet");
+						}
+
+						Vector<Expression> params = new Vector<>();
+						params.add(new Expression() {
+							@Override
+							public Vector<String> toGo() {
+								Vector<String> list = new Vector<>();
+								list.add("\"" + var.getName() + "\"");
+								return list;
+							}
+						});
+						params.add(rhs);
+
+						exps.add(new FunctionCall("pgonet.Set", params));
+					} else {
+						// assigning to a regular, non-remote variable
+						exps.add(new Token(sa.lhs.var));
+						exps.add(new Token(" = "));
+						exps.add(rhs);
+					}
 				}
 				result.add(new SimpleExpression(exps));
 			}
@@ -865,6 +890,7 @@ public class PGoTransStageGoGen {
 			if (this.data.annots.getAnnotatedTLADefinition(pv.getName()) == null) {
 				continue;
 			}
+
 			generateSimpleVariable(pv, false);
 		}
 		// we delay initialization once we hit a variable with \in, in case

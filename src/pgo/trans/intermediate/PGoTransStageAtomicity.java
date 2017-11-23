@@ -13,6 +13,8 @@ import pcal.AST.LabelIf;
 import pcal.AST.LabeledStmt;
 import pcal.AST.SingleAssign;
 import pgo.PGoNetOptions;
+import pgo.model.intermediate.PGoPrimitiveType;
+import pgo.model.intermediate.PGoType;
 import pgo.model.intermediate.PGoVariable;
 import pgo.model.parser.AnnotatedLock;
 import pgo.trans.PGoTransException;
@@ -59,6 +61,22 @@ public class PGoTransStageAtomicity {
 		}
 	}
 
+	// a variable is serializable if it can be maintained remotely if networking
+	// is enabled.
+	//
+	// See the `pgonet' implementation for more details.
+	private boolean isSerializable(PGoVariable var) {
+		if (var.getType() instanceof PGoPrimitiveType.PGoInt) {
+			return true;
+		}
+
+		if (var.getType() instanceof PGoPrimitiveType.PGoString) {
+			return true;
+		}
+
+		return false;
+	}
+
 	// Infer the locking groups that the variables belong to.
 	private void inferAtomic() throws PGoTransException {
 		// this will group variables that may be accessed in a single label
@@ -82,7 +100,7 @@ public class PGoTransStageAtomicity {
 			}
 
 			@Override
-			protected void visit(SingleAssign sa) {
+			protected void visit(SingleAssign sa) throws PGoTransException {
 				// we only care about global variables, so don't use
 				// findPGoVariable
 
@@ -91,6 +109,13 @@ public class PGoTransStageAtomicity {
 					result.get(curLabel).add(toInsert);
 					toInsert.setAtomic(true);
 					toInsert.setRemote(data.netOpts.isEnabled());
+
+					// if our global variable is to be stored remotely, but is not of a
+					// supported type, abort compilation
+					if (toInsert.isRemote() && !isSerializable(toInsert)) {
+						String desc = String.format("Remote variable %s is not serializable", toInsert.getName());
+						throw new PGoTransException(desc);
+					}
 				}
 			}
 
