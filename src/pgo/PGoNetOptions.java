@@ -6,6 +6,7 @@ import org.json.JSONObject;
 
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Vector;
 
 // Wraps options related to networking in the generated Go code.
 // Networking related options are defined in the JSON configuration
@@ -90,17 +91,24 @@ public class PGoNetOptions {
 		private static final String DEFAULT_STATE_STRATEGY = STATE_CENTRALIZED;
 
 		public String strategy;
-		public String host;
+		public Vector<String> hosts;
 		public int port;
 
 		public StateOptions(JSONObject config) throws PGoOptionException {
+			int i;
+			this.hosts = new Vector<>();
+
 			if (!config.has("strategy")) {
 				this.strategy = DEFAULT_STATE_STRATEGY;
 			} else {
 				this.strategy = config.getString("strategy");
 			}
 
-			this.host = config.getString("host");
+			JSONArray jHosts = config.getJSONArray("hosts");
+			for (i = 0; i < jHosts.length(); i++) {
+				this.hosts.add(jHosts.getString(i));
+			}
+
 			this.port = config.getInt("port");
 
 			validate();

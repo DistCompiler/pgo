@@ -1156,9 +1156,14 @@ public class PGoTransStageGoGen {
 						sdef.addField("Endpoints", new Expression() {
 							@Override
 							public Vector<String> toGo() {
-								return new Token(String.format("%s{\"%s\"}",
+								Vector<String> endpoints = new Vector<>();
+								for (String h : data.netOpts.getStateOptions().hosts) {
+									endpoints.add(String.format("\"%s\"", h));
+								}
+
+								return new Token(String.format("%s{%s}",
 										new PGoCollectionType.PGoSlice("string").toGo(),
-										data.netOpts.getStateOptions().host)).toGo();
+										String.join(", ", endpoints))).toGo();
 							}
 						});
 

@@ -8,7 +8,7 @@
 
     "state": {
       "strategy": "centralized",
-      "host": "10.0.0.1",
+      "hosts": ["10.0.0.1:3333", "10.0.0.2:4444"],
       "port": 4321
     },
 

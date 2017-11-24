@@ -10,6 +10,7 @@ import org.junit.Test;
 import pgo.PGoNetOptions;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.util.Vector;
 
 public class PGoNetOptionsTest {
 
@@ -99,9 +100,14 @@ public class PGoNetOptionsTest {
 		PGoNetOptions net = options();
 
 		assert(net.isEnabled());
+		Vector<String> expectedHosts = new Vector<String>() {
+			{
+				add("10.0.0.1");
+			}
+		};
 
 		assertEquals("centralized", net.getStateOptions().strategy);
-		assertEquals("10.0.0.1", net.getStateOptions().host);
+		assertEquals(expectedHosts, net.getStateOptions().hosts);
 		assertEquals(4321, net.getStateOptions().port);
 
 		assertEquals(1, net.getChannels().size());
