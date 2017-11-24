@@ -32,10 +32,10 @@ public class StructDefinition extends Statement {
     public Vector<String> toGo() {
         Vector<String> ret = new Vector<>();
         String decl = reference ? "&" : "";
-        decl += String.format("%s{", name);
+        decl += String.format("%s{\n", name);
 
         for (Map.Entry<String, Expression> entry : fields.entrySet()) {
-            decl += String.format("%s: %s,", entry.getKey(), entry.getValue().toGo().get(0));
+            decl += String.format("%s: %s,\n", entry.getKey(), entry.getValue().toGo().get(0));
         }
         decl += "}";
 
