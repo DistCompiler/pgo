@@ -122,7 +122,7 @@ public class PGoTransStageGoGen {
 					add(new FunctionCall("UnixNano", new Vector<>(), new FunctionCall("time.Now", new Vector<>())));
 				}
 			});
-			main.add(0, seed);
+			go.getMain().getBody().add(0, seed);
 		}
 
 		configureGlobalState();
