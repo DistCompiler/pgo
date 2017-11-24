@@ -1139,7 +1139,9 @@ public class PGoTransStageGoGen {
 		if (!hasRemoteState()) {
 			return;
 		}
+		Vector<Statement> topLevelMain = go.getMain().getBody();
 		String configObj = "cfg";
+		int idx = 1;
 
 		Assignment cfgDecl = new Assignment(
 				new Vector<String>() {
@@ -1171,7 +1173,7 @@ public class PGoTransStageGoGen {
 					}
 				}
 		);
-		main.add(1, cfgDecl);
+		topLevelMain.add(idx++, cfgDecl);
 
 		Vector<Expression> params = new Vector<>();
 		params.add(new Expression() {
@@ -1190,7 +1192,39 @@ public class PGoTransStageGoGen {
 				},
 				new FunctionCall("pgonet.InitState", params)
 		);
-		main.add(2, stateObj);
+		topLevelMain.add(idx++, stateObj);
+
+		go.getImports().addImport("os");
+		Vector<Expression> exitParams = new Vector<Expression>() {
+			{
+				add(new Expression() {
+					@Override
+					public Vector<String> toGo() {
+						return new Token("1").toGo();
+					}
+				});
+			}
+		};
+		Vector<Statement> ifBody = new Vector<Statement>() {
+			{
+				add(new Comment("handle error - could not connect to etcd", false));
+				add(new FunctionCall("os.Exit", exitParams));
+			}
+		};
+
+		Expression cond = new Expression() {
+			@Override
+			public Vector<String> toGo() {
+				return new Vector<String>() {
+					{
+						add("err != nil");
+					}
+				};
+			}
+		};
+
+		pgo.model.golang.If errIf = new pgo.model.golang.If(cond, ifBody, new Vector<>());
+		topLevelMain.add(idx, errIf);
 	}
 
 	private void addFlagArgToMain(PGoVariable pv) throws PGoTransException {
