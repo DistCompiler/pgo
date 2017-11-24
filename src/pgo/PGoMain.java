@@ -75,6 +75,14 @@ public class PGoMain {
 			IOUtil.WriteStringVectorToFile(trans.getGoLines(), opts.buildDir + "/" + opts.buildFile);
 			logger.info("Copying necessary Go packages to folder \"" + opts.buildDir + "\"");
 			trans.copyPackages(opts);
+
+			logger.info("Formatting generated Go code");
+			try {
+				goFmt();
+			} catch (Exception e) {
+				logger.warning(String.format("Failed to format Go code. Error: %s", e.getMessage()));
+			}
+
 		} catch (PGoTransException | PGoParseException | StringVectorToFileException | IOException e) {
 			logger.severe(e.getMessage());
 			e.printStackTrace();
@@ -92,5 +100,14 @@ public class PGoMain {
 		}
 		return;
 	}
+
+	private void goFmt() throws IOException, InterruptedException {
+		String destFile = String.format("%s/%s", opts.buildDir, opts.buildFile);
+		String command = String.format("gofmt -w %s", destFile);
+
+		Process p = Runtime.getRuntime().exec(command);
+		p.waitFor();
+	}
+
 
 }
