@@ -76,6 +76,9 @@ public class PGoTransStageGoGen {
 		Logger.getGlobal().info("Generating Main Function");
 
 		if (this.data.isMultiProcess && this.data.netOpts.isEnabled()) {
+			// Switch on `processName` to know which process/function to invoke and passing `processArg`
+			// as the argument to the process/function. They are instantiated in `addPositionalArgToMain`.
+
 		    Vector<Expression> exp, args;
 		    Vector<Statement> code;
 			Switch switchProcess = new Switch(new Token("processName"));
