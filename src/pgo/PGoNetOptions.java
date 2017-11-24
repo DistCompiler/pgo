@@ -92,7 +92,6 @@ public class PGoNetOptions {
 
 		public String strategy;
 		public Vector<String> hosts;
-		public int port;
 
 		public StateOptions(JSONObject config) throws PGoOptionException {
 			int i;
@@ -108,8 +107,6 @@ public class PGoNetOptions {
 			for (i = 0; i < jHosts.length(); i++) {
 				this.hosts.add(jHosts.getString(i));
 			}
-
-			this.port = config.getInt("port");
 
 			validate();
 		}

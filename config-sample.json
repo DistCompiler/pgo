@@ -8,8 +8,7 @@
 
     "state": {
       "strategy": "centralized",
-      "hosts": ["10.0.0.1"],
-      "port": 4321
+      "hosts": ["10.0.0.1"]
     },
 
     "channels": [

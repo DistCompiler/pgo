@@ -7,7 +7,6 @@ import org.json.JSONObject;
 import org.junit.Before;
 import org.junit.Test;
 
-import pgo.PGoNetOptions;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.Vector;
@@ -108,7 +107,6 @@ public class PGoNetOptionsTest {
 
 		assertEquals("centralized", net.getStateOptions().strategy);
 		assertEquals(expectedHosts, net.getStateOptions().hosts);
-		assertEquals(4321, net.getStateOptions().port);
 
 		assertEquals(1, net.getChannels().size());
 
