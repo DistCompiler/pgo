@@ -1170,7 +1170,8 @@ public class PGoTransStageGoGen {
 						sdef.addField("Timeout", new Expression() {
 							@Override
 							public Vector<String> toGo() {
-								return new Token("3").toGo(); // TODO use value from configuration
+								int timeout = data.netOpts.getStateOptions().timeout;
+								return new Token(String.format("%d", timeout)).toGo();
 							}
 						});
 

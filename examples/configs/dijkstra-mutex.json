@@ -8,7 +8,8 @@
 
     "state": {
       "strategy": "centralized",
-      "hosts": ["10.0.0.1:3333", "10.0.0.2:4444"]
+      "hosts": ["10.0.0.1:3333", "10.0.0.2:4444"],
+      "timeout": 5
     },
 
     "channels": [

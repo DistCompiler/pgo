@@ -89,23 +89,31 @@ public class PGoNetOptions {
 		};
 
 		private static final String DEFAULT_STATE_STRATEGY = STATE_CENTRALIZED;
+		private static final int DEFAULT_TIMEOUT = 3;
 
 		public String strategy;
 		public Vector<String> hosts;
+		public int timeout;
 
 		public StateOptions(JSONObject config) throws PGoOptionException {
 			int i;
 			this.hosts = new Vector<>();
 
-			if (!config.has("strategy")) {
-				this.strategy = DEFAULT_STATE_STRATEGY;
-			} else {
+			if (config.has("strategy")) {
 				this.strategy = config.getString("strategy");
+			} else {
+				this.strategy = DEFAULT_STATE_STRATEGY;
 			}
 
 			JSONArray jHosts = config.getJSONArray("hosts");
 			for (i = 0; i < jHosts.length(); i++) {
 				this.hosts.add(jHosts.getString(i));
+			}
+
+			if (config.has("timeout")) {
+				this.timeout = config.getInt("timeout");
+			} else {
+				this.timeout = DEFAULT_TIMEOUT;
 			}
 
 			validate();

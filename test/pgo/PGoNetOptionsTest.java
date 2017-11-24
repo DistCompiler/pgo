@@ -51,6 +51,19 @@ public class PGoNetOptionsTest {
 		assertEquals("centralized", options().getStateOptions().strategy);
 	}
 
+	// the developer is able to specify the timeout for operations on global state
+	@Test
+	public void testTimeout() throws PGoOptionException {
+		getNetworking().getJSONObject(PGoNetOptions.STATE_FIELD).put("timeout", 10);
+		assertEquals(10, options().getStateOptions().timeout);
+	}
+
+	@Test
+	public void testDefaultTimeout() throws PGoOptionException {
+		getNetworking().getJSONObject(PGoNetOptions.STATE_FIELD).remove("timeout");
+		assertEquals(3, options().getStateOptions().timeout);
+	}
+
 	// a channel where number of channels != 2 is invalid
 	@Test(expected = PGoOptionException.class)
 	public void testSingleProcessChannel() throws PGoOptionException {
