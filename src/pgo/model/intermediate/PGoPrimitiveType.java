@@ -7,6 +7,14 @@ package pgo.model.intermediate;
  */
 public abstract class PGoPrimitiveType extends PGoType {
 
+	public static final PGoPrimitiveType INT = new PGoInt();
+	public static final PGoPrimitiveType UINT64 = new PGoNatural();
+	public static final PGoPrimitiveType FLOAT64 = new PGoDecimal();
+	public static final PGoPrimitiveType STRING = new PGoString();
+	public static final PGoPrimitiveType BOOL = new PGoBool();
+	public static final PGoPrimitiveType VOID = new PGoVoid();
+	public static final PGoPrimitiveType INTERFACE = new PGoInterface();
+
 	/**
 	 * Represents an arbitrary number type. In Go if we use a number e.g. in a
 	 * function call, it will automatically take on the correct type.
@@ -165,28 +173,28 @@ public abstract class PGoPrimitiveType extends PGoType {
 		switch (string) {
 		case "int":
 		case "integer":
-			return new PGoInt();
+			return INT;
 		case "bool":
 		case "boolean":
-			return new PGoBool();
+			return BOOL;
 		case "natural":
 		case "uint64":
-			return new PGoNatural();
+			return UINT64;
 		case "decimal":
 		case "float64":
-			return new PGoDecimal();
+			return FLOAT64;
 		case "string":
-			return new PGoString();
+			return STRING;
 		case "void":
-			return new PGoVoid();
+			return VOID;
 		case "interface":
 		case "interface{}":
-			return new PGoInterface();
+			return INTERFACE;
 		}
 		if (string.length() == 1) {
 			return new PGoTemplateArgument(string);
 		}
-		return new PGoUndetermined();
+		return UNDETERMINED;
 	}
 
 }

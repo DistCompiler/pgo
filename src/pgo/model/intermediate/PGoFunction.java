@@ -40,8 +40,8 @@ public class PGoFunction {
 	// The return type of the function
 	private PGoType rType;
 
-	public static enum FunctionType {
-		GoRoutine, Macro, Normal
+	public enum FunctionType {
+		GoRoutine, Macro, Normal, Process
 	}
 
 	// The line number at start of function
@@ -139,7 +139,7 @@ public class PGoFunction {
 		ret.body = m.body;
 		ret.type = FunctionType.Macro;
 		ret.line = m.line;
-		ret.rType = PGoType.VOID;
+		ret.rType = PGoPrimitiveType.VOID;
 
 		return ret;
 	}
@@ -162,7 +162,7 @@ public class PGoFunction {
 		ret.body = p.body;
 		ret.line = p.line;
 		ret.type = type;
-		ret.rType = PGoType.VOID;
+		ret.rType = PGoPrimitiveType.VOID;
 
 		return ret;
 	}

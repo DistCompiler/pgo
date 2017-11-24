@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Vector;
 
 import pgo.model.intermediate.PGoFunction;
+import pgo.model.intermediate.PGoPrimitiveType;
 import pgo.model.intermediate.PGoType;
 import pgo.model.intermediate.PGoVariable;
 import pgo.parser.PGoParseException;
@@ -30,7 +31,7 @@ public class AnnotatedFunction {
 	protected AnnotatedFunction(String[] parts, int line) throws PGoParseException {
 		args = new Vector<PGoType>();
 		this.line = line;
-		rType = PGoType.VOID;
+		rType = PGoPrimitiveType.VOID;
 		int i = 1;
 		if (!parts[i].contains("()")) {
 			rType = PGoType.inferFromGoTypeName(parts[1]);

@@ -50,6 +50,7 @@ public class PGoTempData extends PGoTransIntermediateData {
 		labToLockGroup = new HashMap<>(data.labToLockGroup);
 		numLockGroups = data.numLockGroups;
 		locals = new LinkedHashMap<>();
+		netOpts = data.netOpts;
 	}
 
 	// Clone the data passed in.
@@ -69,6 +70,7 @@ public class PGoTempData extends PGoTransIntermediateData {
 		labToLockGroup = new HashMap<>(data.labToLockGroup);
 		numLockGroups = data.numLockGroups;
 		locals = new LinkedHashMap<>(data.getLocals());
+		netOpts = data.netOpts;
 	}
 
 	public Map<String, PGoVariable> getLocals() {

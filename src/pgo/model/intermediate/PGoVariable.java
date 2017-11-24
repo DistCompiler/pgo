@@ -191,8 +191,7 @@ public class PGoVariable {
 		return r;
 	}
 
-	// Creates a variable representing the process id arguments for process
-	// functions
+	// Creates a variable representing the process id arguments for process functions
 	public static PGoVariable processIdArg() {
 		PGoVariable r = new PGoVariable();
 		r.name = "self";

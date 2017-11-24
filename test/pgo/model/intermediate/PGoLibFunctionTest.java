@@ -14,10 +14,10 @@ public class PGoLibFunctionTest {
 		Vector<PGoType> params = new Vector<>();
 		params.add(PGoType.inferFromGoTypeName("string"));
 		params.add(PGoType.inferFromGoTypeName("int"));
-		lfunc.addFuncSignature(params, "pgoutil.Foo", false, PGoType.VOID);
+		lfunc.addFuncSignature(params, "pgoutil.Foo", false, PGoPrimitiveType.VOID);
 		assertEquals("pgoutil.Foo", lfunc.getGoName(params));
 		assertEquals(false, lfunc.isObjectMethod(params));
-		assertEquals(PGoType.VOID, lfunc.getRetType(params));
+		assertEquals(PGoPrimitiveType.VOID, lfunc.getRetType(params));
 		
 		params = new Vector<>();
 		params.add(PGoType.inferFromGoTypeName("set[int]"));

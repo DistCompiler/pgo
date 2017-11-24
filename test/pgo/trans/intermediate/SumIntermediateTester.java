@@ -69,60 +69,60 @@ public class SumIntermediateTester extends PGoPluscalStageTesterBase {
 		String b = ((Macro) ((Multiprocess) getAST()).macros.get(0)).body.toString();
 
 		ret.add(new TestFunctionData("SendTo", params, vars, b, PGoFunction.FunctionType.Macro, false, "",
-				PGoType.VOID));
+				PGoPrimitiveType.VOID));
 
 		params = new ArrayList<TestVariableData>();
 		vars = new ArrayList<TestVariableData>();
 		params.add(new TestVariableData("to", true, "<< \"defaultInitValue\" >>", "", false,
-				new PGoPrimitiveType.PGoNatural(), false, "", false));
+				   PGoPrimitiveType.UINT64, false, "", false));
 		params.add(new TestVariableData("id", true, "<< \"defaultInitValue\" >>", "", false,
-				new PGoPrimitiveType.PGoNatural(), false, "", false));
+				   PGoPrimitiveType.UINT64, false, "", false));
 		params.add(new TestVariableData("msg", true, "<< \"defaultInitValue\" >>", "", false,
-				new PGoPrimitiveType.PGoInterface(), false, "", false));
+				   PGoPrimitiveType.INTERFACE, false, "", false));
 
 		b = ((Macro) ((Multiprocess) getAST()).macros.get(1)).body.toString();
 
-		ret.add(new TestFunctionData("Recv", params, vars, b, PGoFunction.FunctionType.Macro, false, "", PGoType.VOID));
+		ret.add(new TestFunctionData("Recv", params, vars, b, PGoFunction.FunctionType.Macro, false, "", PGoPrimitiveType.VOID));
 
 		params = new ArrayList<TestVariableData>();
 		vars = new ArrayList<TestVariableData>();
 		params.add(new TestVariableData("self", true, "<< \"defaultInitValue\" >>", "", false,
-				new PGoPrimitiveType.PGoNatural(), false, "", false));
+				   PGoPrimitiveType.UINT64, false, "", false));
 		vars.add(new TestVariableData("a_init", true, "<< \"defaultInitValue\" >>", "", false,
-				new PGoPrimitiveType.PGoNatural(), false, "", false));
+				 PGoPrimitiveType.UINT64, false, "", false));
 		vars.add(new TestVariableData("b_init", true, "<< \"defaultInitValue\" >>", "", false,
-				new PGoPrimitiveType.PGoNatural(), false, "", false));
-		vars.add(new TestVariableData("runs", true, "<< \"0\" >>", "", false, new PGoPrimitiveType.PGoNatural(), false,
+				 PGoPrimitiveType.UINT64, false, "", false));
+		vars.add(new TestVariableData("runs", true, "<< \"0\" >>", "", false, PGoPrimitiveType.UINT64, false,
 				"", false));
 		vars.add(new TestVariableData("id", true, "<< \"defaultInitValue\" >>", "", false,
-				new PGoPrimitiveType.PGoNatural(), false, "", false));
+				 PGoPrimitiveType.UINT64, false, "", false));
 		vars.add(new TestVariableData("msg", true, "<< \"defaultInitValue\" >>", "", false,
-				new PGoPrimitiveType.PGoNatural(), false, "", false));
+				 PGoPrimitiveType.UINT64, false, "", false));
 		vars.add(new TestVariableData("sum", true, "<< \"defaultInitValue\" >>", "", false,
-				new PGoPrimitiveType.PGoNatural(), false, "", false));
+				 PGoPrimitiveType.UINT64, false, "", false));
 
 		b = ((Process) ((Multiprocess) getAST()).procs.get(0)).body.toString();
 
 		ret.add(new TestFunctionData("Client", params, vars, b, PGoFunction.FunctionType.GoRoutine, false,
-				"<< \"1\", \"..\", \"N\" >>", PGoType.VOID));
+				"<< \"1\", \"..\", \"N\" >>", PGoPrimitiveType.VOID));
 
 		params = new ArrayList<TestVariableData>();
 		vars = new ArrayList<TestVariableData>();
 		params.add(new TestVariableData("self", true, "<< \"defaultInitValue\" >>", "", false,
-				new PGoPrimitiveType.PGoNatural(), false, "", false));
+				   PGoPrimitiveType.UINT64, false, "", false));
 		vars.add(new TestVariableData("a", true, "<< \"defaultInitValue\" >>", "", false,
-				new PGoPrimitiveType.PGoNatural(), false, "", false));
+				 PGoPrimitiveType.UINT64, false, "", false));
 		vars.add(new TestVariableData("b", true, "<< \"defaultInitValue\" >>", "", false,
-				new PGoPrimitiveType.PGoNatural(), false, "", false));
+				 PGoPrimitiveType.UINT64, false, "", false));
 		vars.add(new TestVariableData("id", true, "<< \"defaultInitValue\" >>", "", false,
-				new PGoPrimitiveType.PGoNatural(), false, "", false));
+				 PGoPrimitiveType.UINT64, false, "", false));
 		vars.add(new TestVariableData("msg", true, "<< \"defaultInitValue\" >>", "", false,
 				new PGoCollectionType.PGoSlice("2", "uint64"), false, "", false));
 
 		b = ((Process) ((Multiprocess) getAST()).procs.get(1)).body.toString();
 
 		ret.add(new TestFunctionData("Server", params, vars, b, PGoFunction.FunctionType.GoRoutine, true,
-				"<< \"N\", \"+\", \"1\" >>", PGoType.VOID));
+				"<< \"N\", \"+\", \"1\" >>", PGoPrimitiveType.VOID));
 
 		return ret;
 	}

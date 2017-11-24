@@ -12,11 +12,8 @@ import pcal.AST.Uniprocess;
 import pcal.AST.VarDecl;
 import pcal.TLAExpr;
 import pgo.PGoNetOptions;
-import pgo.ProcessIntArg;
-import pgo.ProcessStringArg;
 import pgo.model.intermediate.PGoFunction;
 import pgo.model.intermediate.PGoRoutineInit;
-import pgo.model.intermediate.PGoType;
 import pgo.model.intermediate.PGoVariable;
 import pgo.parser.PGoAnnotationParser;
 import pgo.parser.PGoParseException;
@@ -47,7 +44,7 @@ public class PGoTransStageInitParse {
 			for (Map.Entry<String, PGoNetOptions.Channel> entry : data.netOpts.getChannels().entrySet()) {
 				PGoNetOptions.Channel channel = entry.getValue();
 				for (PGoNetOptions.Process p : channel.processes) {
-					if (!this.data.funcs.containsKey(p.name)) {
+					if (!this.data.funcs.containsKey(p.name) || this.data.funcs.get(p.name).getType() != PGoFunction.FunctionType.Process) {
 						throw new PGoParseException("PlusCal algorithm does not contain process " + p.name);
 					}
 				}
@@ -116,13 +113,18 @@ public class PGoTransStageInitParse {
 	private void trans(Multiprocess ast) {
 		transCommon(new BaseAlgAST(ast));
 
-		// TODO eventually we want to support a process as a goroutine and a
-		// networked process. For now we just do goroutines
-		for (Process p : (Vector<Process>) ast.procs) {
-			PGoFunction f = PGoFunction.convert(p, PGoFunction.FunctionType.GoRoutine);
-			data.funcs.put(f.getName(), f);
+		if (data.netOpts.isEnabled()) {
+			for (Process p : (Vector<Process>) ast.procs) {
+				PGoFunction f = PGoFunction.convert(p, PGoFunction.FunctionType.Process);
+				data.funcs.put(f.getName(), f);
+			}
+		} else {
+			for (Process p : (Vector<Process>) ast.procs) {
+				PGoFunction f = PGoFunction.convert(p, PGoFunction.FunctionType.GoRoutine);
+				data.funcs.put(f.getName(), f);
 
-			data.goroutines.put(f.getName(), PGoRoutineInit.convert(p));
+				data.goroutines.put(f.getName(), PGoRoutineInit.convert(p));
+			}
 		}
 	}
 
@@ -130,7 +132,7 @@ public class PGoTransStageInitParse {
 	 * Translates the PlusCal AST of a uniprocess algorithm into first stage
 	 * intermediate representation, setting the corresponding fields of this
 	 * class
-	 * 
+	 *
 	 * @param ast
 	 */
 	private void trans(Uniprocess ast) {
@@ -145,10 +147,10 @@ public class PGoTransStageInitParse {
 	 * PlusCal algorithm into first stage intermediate representation, setting
 	 * the
 	 * corresponding fields of this class.
-	 * 
+	 *
 	 * Common parts are: name, variable declarations, tla definitions, and
 	 * macros, procedures
-	 * 
+	 *
 	 * @param ast
 	 *            BaseAlgAST representation of types Uniprocess or Multiprocess
 	 */

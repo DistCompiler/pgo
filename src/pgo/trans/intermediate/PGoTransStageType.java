@@ -11,16 +11,13 @@ import pcal.AST.VarDecl;
 import pgo.PGoNetOptions;
 import pgo.ProcessIntArg;
 import pgo.ProcessStringArg;
-import pgo.model.intermediate.PGoCollectionType;
+import pgo.model.intermediate.*;
 import pgo.model.intermediate.PGoCollectionType.PGoMap;
 import pgo.model.intermediate.PGoCollectionType.PGoSet;
 import pgo.model.intermediate.PGoCollectionType.PGoSlice;
 import pgo.model.intermediate.PGoCollectionType.PGoTuple;
-import pgo.model.intermediate.PGoFunction;
 import pgo.model.intermediate.PGoPrimitiveType.PGoInt;
 import pgo.model.intermediate.PGoPrimitiveType.PGoNatural;
-import pgo.model.intermediate.PGoType;
-import pgo.model.intermediate.PGoVariable;
 import pgo.model.parser.AnnotatedFunction;
 import pgo.model.parser.AnnotatedProcess;
 import pgo.model.parser.AnnotatedReturnVariable;
@@ -68,11 +65,11 @@ public class PGoTransStageType {
 			for (Map.Entry<String, PGoNetOptions.Channel> entry : data.netOpts.getChannels().entrySet()) {
 				PGoNetOptions.Channel channel = entry.getValue();
 				for (PGoNetOptions.Process p : channel.processes) {
-					String type = this.data.funcs.get(p.name).getParam("self").getType().toTypeName();
-					if (type.equals("int") && p.arg instanceof ProcessStringArg) {
+					PGoType type = this.data.funcs.get(p.name).getParam("self").getType();
+					if (type.equals(PGoPrimitiveType.INT) && p.arg instanceof ProcessStringArg) {
 						throw new PGoParseException("Argument for process " + p.name + " expected to be string, found int");
 					}
-					if (type.equals("string") && p.arg instanceof ProcessIntArg) {
+					if (type.equals(PGoPrimitiveType.STRING) && p.arg instanceof ProcessIntArg) {
 						throw new PGoParseException("Argument for process " + p.name + " expected to be int, found string");
 					}
 				}

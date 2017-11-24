@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Vector;
 import java.util.Set;
 
-import pgo.model.intermediate.PGoType;
+import pgo.model.intermediate.PGoPrimitiveType;
 
 /**
  * The AST root that contains the whole program
@@ -37,7 +37,7 @@ public class GoProgram extends GoAST {
 		this.imports = new Imports();
 		this.globals = new LinkedHashMap<String, VariableDeclaration>();
 		this.funcs = new LinkedHashMap<String, Function>();
-		this.main = new Function("main", PGoType.VOID, new Vector<ParameterDeclaration>(),
+		this.main = new Function("main", PGoPrimitiveType.VOID, new Vector<ParameterDeclaration>(),
 				new Vector<VariableDeclaration>(), new Vector<Statement>());
 		this.labels = new HashSet<>();
 	}
