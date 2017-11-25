@@ -354,6 +354,26 @@ public class TLAExprToType {
 	}
 
 	protected PGoType type(PGoTLAFunctionCall tla) throws PGoTransException {
+		// TODO: change Head and Tail to a proper construct in the compiler
+		if (tla.getName().equals("Head") || tla.getName().equals("Tail")) {
+			Vector<PGoTLA> callParams = tla.getParams();
+			if (callParams.size() != 1) {
+				throw new PGoTransException("Expected function call " + tla.getName() + " to have 1" +
+						" parameter but found " + callParams.size() + " instead", tla.getLine());
+			}
+			PGoType paramType = new TLAExprToType(callParams.get(0), data, typeChecking).getType();
+			if (!(paramType instanceof PGoSlice)) {
+				throw new PGoTransException("Expected the 0th parameter of the function " + tla.getName()
+						+ " to be of type []E but found " + paramType.toTypeName() + " instead", tla.getLine());
+			}
+			// the return type of Head(e) is the type of the elements of e
+			if (tla.getName().equals("Head")) {
+				return ((PGoSlice) paramType).getElementType();
+			}
+			// the return type of Tail(e) is the type of e
+			return paramType;
+		}
+
 		// search for functions, TLA definitions, builtin funcs, tuples, slices,
 		// or maps
 		PGoFunction func = data.findPGoFunction(tla.getName());
