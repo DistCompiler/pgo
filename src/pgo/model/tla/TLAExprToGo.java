@@ -690,7 +690,7 @@ public class TLAExprToGo {
 		return new Expression() {
 			@Override
 			public Vector<String> toGo() {
-				return new VariableReference(data.findPGoVariable(tla.getName())).toGo();
+				return new VariableReference(tla.getName(), data.findPGoVariable(tla.getName())).toGo();
 			}
 		};
 	}

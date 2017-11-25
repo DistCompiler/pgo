@@ -1,11 +1,8 @@
 package pgo.model.golang;
 
 import pgo.model.intermediate.PGoPrimitiveType;
-import pgo.model.intermediate.PGoType;
 import pgo.model.intermediate.PGoVariable;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Vector;
 
 /**
@@ -21,15 +18,28 @@ import java.util.Vector;
 public class VariableReference extends Statement {
 
 	// the variable name
+	private String name;
+
+	// the reference to the variable (might not exist when declaring a local variable)
 	private PGoVariable var;
 
-	public VariableReference(PGoVariable var) {
+	public VariableReference(String name, PGoVariable var) {
+		this.name = name;
 		this.var = var;
 	}
 
 	@Override
 	public Vector<String> toGo() {
 		Vector<String> ret = new Vector<>();
+		// if the variable is not previously known, return its name
+		// (first reference to a local variable)
+		if (var == null) {
+			ret.add(name);
+			return ret;
+		}
+
+		// if the variable is remote, generate the corresponding call to the global
+		// state manager to retrieve the variable name
 		if (var.isRemote()) {
 			if (var.getType() instanceof PGoPrimitiveType.PGoInt)
 				ret.add(String.format("globalState.GetInt(\"%s\")", var.getName()));
