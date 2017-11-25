@@ -113,7 +113,8 @@ public class PGoTransStageAtomicity {
 					// if our global variable is to be stored remotely, but is not of a
 					// supported type, abort compilation
 					if (toInsert.isRemote() && !isSerializable(toInsert)) {
-						String desc = String.format("Remote variable %s is not serializable", toInsert.getName());
+						String desc = String.format("Remote variable %s is not serializable (type %s)",
+								toInsert.getName(), toInsert.getType().getClass().getName());
 						throw new PGoTransException(desc);
 					}
 				}
