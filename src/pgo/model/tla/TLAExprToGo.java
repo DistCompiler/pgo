@@ -340,7 +340,20 @@ public class TLAExprToGo {
 		PGoTLADefinition def = data.findTLADefinition(tla.getName());
 		PGoLibFunction lfunc = data.findBuiltInFunction(tla.getName());
 		PGoVariable var = data.findPGoVariable(tla.getName());
-		if (func != null || def != null) {
+		// TODO: change Head and Tail to a proper construct in the compiler
+		// Head(e) is translated to e[0]
+		if (tla.getName().equals("Head")) {
+			Vector<Expression> exp = new Vector<>();
+			exp.addAll(params);
+			exp.add(new Token("[0]"));
+			return new SimpleExpression(exp);
+		} else if (tla.getName().equals("Tail")) {
+			// Tail(e) is translated to e[1:]
+			Vector<Expression> exp = new Vector<>();
+			exp.addAll(params);
+			exp.add(new Token("[1:]"));
+			return new SimpleExpression(exp);
+		} else if (func != null || def != null) {
 			return new FunctionCall(tla.getName(), params);
 		} else if (lfunc != null) {
 			Vector<PGoType> paramTypes = new Vector<>();
