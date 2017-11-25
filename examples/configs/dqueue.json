@@ -1,0 +1,17 @@
+{
+  "build": {
+    "output_dir": "gen",
+    "dest_file": "dqueue.go"
+  },
+  "networking": {
+    "enabled": true,
+
+    "state": {
+      "strategy": "centralized",
+      "host": "10.0.0.1",
+      "port": 4321
+    },
+
+    "channels": []
+  }
+}

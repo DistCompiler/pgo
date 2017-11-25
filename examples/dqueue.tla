@@ -6,34 +6,29 @@ EXTENDS Integers, Sequences, TLC
 
 --algorithm DistributedQueue {
     \* Globals
-    variables 
+    variables
+    \** @PGo{ var queue []string }@PGo
     queue = <<>>;
-    
-    macro Produce(r, queue) { queue := Append(queue, r);
-                              }
-    
-    macro Consume(r, queue) { r:= Head(queue);
-                              queue := Tail(queue);
-                             }
 
-    
     process (Producer = 2)
     { p: while (TRUE) {
         p1: if (Len(queue) < 3) {
-        p2:    Produce("resource", queue);
+        p2:    queue := Append(queue, "resource");
                }}}
-              
+
     process (Consumer \in {0,1})
+        \** @PGo{ var resource string }@PGo
         variables resource;
     { c: while (TRUE) {
-          c1: while (queue # <<>>)
-              { 
-              Consume(resource, queue);
+          c1: while (Len(queue) # 0)
+              {
+              resource := Head(queue);
+              queue := Tail(queue);
               assert (resource = "resource");
               goto c;
-              }}}        
-                       
-                     
+              }}}
+
+
 }
 end algorithm *)
 \* BEGIN TRANSLATION
@@ -76,7 +71,7 @@ c1(self) == /\ pc[self] = "c1"
             /\ IF queue # <<>>
                   THEN /\ resource' = [resource EXCEPT ![self] = Head(queue)]
                        /\ queue' = Tail(queue)
-                       /\ Assert((resource'[self] = "resource"), 
+                       /\ Assert((resource'[self] = "resource"),
                                  "Failure of assertion at line 32, column 15.")
                        /\ pc' = [pc EXCEPT ![self] = "c"]
                   ELSE /\ pc' = [pc EXCEPT ![self] = "c"]
@@ -94,7 +89,7 @@ Spec == /\ Init /\ [][Next]_vars
 \* END TRANSLATION
 
 \*Verification
-\*Commented out invariants are due to the critical section issue with while loop labels 
+\*Commented out invariants are due to the critical section issue with while loop labels
 \* Mutual exclusion
 \*MutualExclusion == ~ (pc[0] = "c2" /\ pc[1] = "c2")
 
