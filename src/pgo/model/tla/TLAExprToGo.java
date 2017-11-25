@@ -674,6 +674,11 @@ public class TLAExprToGo {
 	}
 
 	protected Expression translate(PGoTLAVariable tla) {
-		return new Token(String.valueOf(tla.getName()));
+		return new Expression() {
+			@Override
+			public Vector<String> toGo() {
+				return new VariableReference(data.findPGoVariable(tla.getName())).toGo();
+			}
+		};
 	}
 }

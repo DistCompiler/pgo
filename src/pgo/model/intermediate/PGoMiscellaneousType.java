@@ -1,5 +1,7 @@
 package pgo.model.intermediate;
 
+import pgo.PGoNetOptions;
+
 /**
  * Contains some miscellaneous Go types that we might use in compilation.
  *
@@ -20,6 +22,14 @@ public abstract class PGoMiscellaneousType extends PGoType {
 		}
 	}
 
+	public static class PGoNetGlobalState extends PGoMiscellaneousType {
+		public PGoNetGlobalState() { this.goType = "pgonet.GlobalState"; }
+	}
+
+	public static class PGoNetGlobalsConfig extends PGoMiscellaneousType {
+		public PGoNetGlobalsConfig() { this.goType = "pgonet.GlobalsConfig"; }
+	}
+
 	@Override
 	public String toTypeName() {
 		return goType;
@@ -31,6 +41,10 @@ public abstract class PGoMiscellaneousType extends PGoType {
 			return new PGoWaitGroup();
 		case "sync.RWMutex":
 			return new PGoRWMutex();
+		case "pgonet.GlobalState":
+			return new PGoNetGlobalState();
+		case "pgonet.GlobalsConfig":
+			return new PGoNetGlobalsConfig();
 		}
 		return PGoType.UNDETERMINED;
 	}

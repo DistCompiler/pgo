@@ -24,12 +24,15 @@ public class VariableDeclaration extends Statement {
 	// the lock group this belongs to (should print a comment)
 	private int lockGroup;
 
-	public VariableDeclaration(String n, PGoType t, Expression val, boolean isConst, boolean inferred) {
+	private boolean remote;
+
+	public VariableDeclaration(String n, PGoType t, Expression val, boolean isConst, boolean inferred, boolean remote) {
 		name = n;
 		type = t;
 		defaultValue = val;
 		this.isConst = isConst;
 		wasInferred = inferred;
+		this.remote = remote;
 		lockGroup = -1;
 	}
 
@@ -40,6 +43,7 @@ public class VariableDeclaration extends Statement {
 		isConst = var.getIsConstant();
 		wasInferred = var.wasInferred();
 		lockGroup = var.getLockGroup();
+		remote = var.isRemote();
 	}
 
 	public String getName() {
@@ -73,18 +77,32 @@ public class VariableDeclaration extends Statement {
 	@Override
 	public Vector<String> toGo() {
 		Vector<String> ret = new Vector<String>();
+		Vector<String> comments = new Vector<>();
 		Vector<String> valStr = defaultValue == null ? new Vector<String>() : defaultValue.toGo();
-		String decl = (isConst ? "const " : "var ") + name + " " + type.toGo();
-		if (valStr.size() > 0) {
-			decl += " = " + valStr.remove(0);
-		}
-		if (wasInferred) {
-			decl += " // PGo inferred type " + type.toTypeName();
-			if (lockGroup != -1) {
-				decl += "; Lock group " + lockGroup;
+		String decl = "";
+
+		if (remote) {
+		    decl = "// Variable " + name + ": global, remotely stored in etcd";
+		} else {
+			decl = (isConst ? "const " : "var ") + name + " " + type.toGo();
+
+			if (valStr.size() > 0) {
+				decl += " = " + valStr.remove(0);
 			}
-		} else if (lockGroup != -1) {
-			decl += " // Lock group " + lockGroup;
+
+			if (wasInferred) {
+				comments.add("PGo inferred type " + type.toTypeName());
+			}
+			if (remote) {
+				comments.add("stored in etcd");
+			}
+			if (!remote && lockGroup != -1) {
+				comments.add("Lock group " + lockGroup);
+			}
+
+			if (comments.size() > 0) {
+				decl += " // " + String.join("; ", comments);
+			}
 		}
 
 		ret.add(decl);

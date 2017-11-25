@@ -17,6 +17,16 @@ public class Comment extends Statement {
 		this.block = b;
 	}
 
+	// Convenience constructor used when there is only one line of comment.
+	public Comment(String comment, boolean block) {
+		this.comment = new Vector<String>() {
+			{
+				add(comment);
+			}
+		};
+		this.block = block;
+	}
+
 	public Vector<String> getComment() {
 		return new Vector<String>(comment);
 	}

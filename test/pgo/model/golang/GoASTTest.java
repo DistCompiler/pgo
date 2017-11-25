@@ -106,7 +106,7 @@ public class GoASTTest {
 
 		Vector<VariableDeclaration> vs = new Vector<VariableDeclaration>();
 		vs.add(new VariableDeclaration("var1", new PGoPrimitiveType.PGoDecimal(),
-				new SimpleExpression(new Vector<Expression>()), false, false));
+				new SimpleExpression(new Vector<Expression>()), false, false, false));
 		f = new Function("foo", new PGoPrimitiveType.PGoInt(), ps, vs, new Vector<Statement>());
 		expected.remove(1);
 		for (VariableDeclaration v : vs) {
@@ -314,7 +314,7 @@ public class GoASTTest {
 	@Test
 	public void testVariableDeclaration() {
 		VariableDeclaration vd = new VariableDeclaration("var1",
-				new PGoPrimitiveType.PGoDecimal(), null, false, false);
+				new PGoPrimitiveType.PGoDecimal(), null, false, false, false);
 		Vector<String> expected = new Vector<String>();
 		expected.add("var var1 float64");
 		assertEquals(expected, vd.toGo());
@@ -322,7 +322,7 @@ public class GoASTTest {
 		Vector<Expression> toks = new Vector<Expression>();
 		toks.add(new Token("1"));
 		vd = new VariableDeclaration("var2", new PGoCollectionType.PGoMap("String", "boolean"),
-				new SimpleExpression(toks), false, false);
+				new SimpleExpression(toks), false, false, false);
 		expected = new Vector<String>();
 		expected.add("var var2 pgoutil.Map = 1");
 		assertEquals(expected, vd.toGo());

@@ -18,7 +18,7 @@ public abstract class PGoType {
 
 	/**
 	 * Attempts to infer the type from the given pluscal expressions
-	 * 
+	 *
 	 * @return a PGoType of inferred type
 	 */
 	public static PGoType inferFromGoTypeName(String s) {

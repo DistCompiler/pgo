@@ -59,6 +59,11 @@ public class PGoVariable {
 	// whether we inferred the type of this variable or it was in an annotation
 	private boolean inferred;
 
+	// is this variable stored in the current process, or accessible via a request
+	// to a remote server? A variable is only remote if it is global and we are
+	// compiling a distributed algorithm
+	private boolean remote;
+
 	// private constructor. only construct through converting from VarDecl
 	private PGoVariable() {
 		type = PGoType.UNDETERMINED;
@@ -66,6 +71,7 @@ public class PGoVariable {
 		isConstant = false;
 		inferred = false;
 		argInfo = null;
+		remote = false;
 		lockGroup = -1;
 	}
 
@@ -134,6 +140,10 @@ public class PGoVariable {
 	public boolean getIsAtomic() {
 		return this.isAtomic;
 	}
+
+	public void setRemote(boolean isRemote) { this.remote = isRemote; }
+
+	public boolean isRemote() { return this.remote; }
 
 	public void setLockGroup(int group) {
 		this.lockGroup = group;

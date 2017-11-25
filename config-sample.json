@@ -8,8 +8,8 @@
 
     "state": {
       "strategy": "centralized",
-      "host": "10.0.0.1",
-      "port": 4321
+      "hosts": ["10.0.0.1"],
+      "timeout": 2
     },
 
     "channels": [

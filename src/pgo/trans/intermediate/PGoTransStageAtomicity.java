@@ -13,6 +13,8 @@ import pcal.AST.LabelIf;
 import pcal.AST.LabeledStmt;
 import pcal.AST.SingleAssign;
 import pgo.PGoNetOptions;
+import pgo.model.intermediate.PGoPrimitiveType;
+import pgo.model.intermediate.PGoType;
 import pgo.model.intermediate.PGoVariable;
 import pgo.model.parser.AnnotatedLock;
 import pgo.trans.PGoTransException;
@@ -28,9 +30,6 @@ import pgo.util.PcalASTUtil;
  * 
  * This stage determines the value of needsLock, fills the lockGroup field of
  * all global PGoVariables, and populates the labToLockGroup method.
- * 
- * TODO we can probably optimize this in terms of locking. Also need to deal
- * with networks
  *
  */
 public class PGoTransStageAtomicity {
@@ -54,6 +53,28 @@ public class PGoTransStageAtomicity {
 		}
 
 		inferAtomic();
+
+		// if we are compiling a distributed system, we do not need locks, as
+		// global variables are requested to a centralized server
+		if (this.data.netOpts.isEnabled()) {
+			this.data.needsLock = false;
+		}
+	}
+
+	// a variable is serializable if it can be maintained remotely if networking
+	// is enabled.
+	//
+	// See the `pgonet' implementation for more details.
+	private boolean isSerializable(PGoVariable var) {
+		if (var.getType() instanceof PGoPrimitiveType.PGoInt) {
+			return true;
+		}
+
+		if (var.getType() instanceof PGoPrimitiveType.PGoString) {
+			return true;
+		}
+
+		return false;
 	}
 
 	// Infer the locking groups that the variables belong to.
@@ -79,13 +100,22 @@ public class PGoTransStageAtomicity {
 			}
 
 			@Override
-			protected void visit(SingleAssign sa) {
+			protected void visit(SingleAssign sa) throws PGoTransException {
 				// we only care about global variables, so don't use
 				// findPGoVariable
+
 				PGoVariable toInsert = data.globals.get(sa.lhs.var);
 				if (toInsert != null) {
 					result.get(curLabel).add(toInsert);
 					toInsert.setAtomic(true);
+					toInsert.setRemote(data.netOpts.isEnabled());
+
+					// if our global variable is to be stored remotely, but is not of a
+					// supported type, abort compilation
+					if (toInsert.isRemote() && !isSerializable(toInsert)) {
+						String desc = String.format("Remote variable %s is not serializable", toInsert.getName());
+						throw new PGoTransException(desc);
+					}
 				}
 			}
 

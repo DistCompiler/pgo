@@ -6,6 +6,7 @@ import org.json.JSONObject;
 
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Vector;
 
 // Wraps options related to networking in the generated Go code.
 // Networking related options are defined in the JSON configuration
@@ -88,20 +89,32 @@ public class PGoNetOptions {
 		};
 
 		private static final String DEFAULT_STATE_STRATEGY = STATE_CENTRALIZED;
+		private static final int DEFAULT_TIMEOUT = 3;
 
 		public String strategy;
-		public String host;
-		public int port;
+		public Vector<String> hosts;
+		public int timeout;
 
 		public StateOptions(JSONObject config) throws PGoOptionException {
-			if (!config.has("strategy")) {
-				this.strategy = DEFAULT_STATE_STRATEGY;
-			} else {
+			int i;
+			this.hosts = new Vector<>();
+
+			if (config.has("strategy")) {
 				this.strategy = config.getString("strategy");
+			} else {
+				this.strategy = DEFAULT_STATE_STRATEGY;
 			}
 
-			this.host = config.getString("host");
-			this.port = config.getInt("port");
+			JSONArray jHosts = config.getJSONArray("hosts");
+			for (i = 0; i < jHosts.length(); i++) {
+				this.hosts.add(jHosts.getString(i));
+			}
+
+			if (config.has("timeout")) {
+				this.timeout = config.getInt("timeout");
+			} else {
+				this.timeout = DEFAULT_TIMEOUT;
+			}
 
 			validate();
 		}
@@ -177,8 +190,15 @@ public class PGoNetOptions {
 		try {
 			JSONObject netConfig = config.getJSONObject(NETWORKING_FIELD);
 			JSONObject stateConfig = netConfig.getJSONObject(STATE_FIELD);
-			JSONArray channelsConfig = netConfig.getJSONArray(CHANNELS_FIELD);
+			JSONArray channelsConfig = new JSONArray();
 			int i;
+
+			// try to get the the definition of channels. An algorithm needs not
+			// to define direct channels (perhaps all communication happens
+			// via global variables
+			if (netConfig.has(CHANNELS_FIELD)) {
+				channelsConfig = netConfig.getJSONArray(CHANNELS_FIELD);
+			}
 
 			if (!netConfig.getBoolean("enabled")) {
 				enabled = false;

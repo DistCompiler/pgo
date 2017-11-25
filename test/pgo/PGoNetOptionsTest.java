@@ -7,9 +7,9 @@ import org.json.JSONObject;
 import org.junit.Before;
 import org.junit.Test;
 
-import pgo.PGoNetOptions;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.util.Vector;
 
 public class PGoNetOptionsTest {
 
@@ -49,6 +49,19 @@ public class PGoNetOptionsTest {
 	public void testDefaultStateStrategy() throws PGoOptionException {
 		getNetworking().getJSONObject(PGoNetOptions.STATE_FIELD).remove("strategy");
 		assertEquals("centralized", options().getStateOptions().strategy);
+	}
+
+	// the developer is able to specify the timeout for operations on global state
+	@Test
+	public void testTimeout() throws PGoOptionException {
+		getNetworking().getJSONObject(PGoNetOptions.STATE_FIELD).put("timeout", 10);
+		assertEquals(10, options().getStateOptions().timeout);
+	}
+
+	@Test
+	public void testDefaultTimeout() throws PGoOptionException {
+		getNetworking().getJSONObject(PGoNetOptions.STATE_FIELD).remove("timeout");
+		assertEquals(3, options().getStateOptions().timeout);
 	}
 
 	// a channel where number of channels != 2 is invalid
@@ -99,10 +112,14 @@ public class PGoNetOptionsTest {
 		PGoNetOptions net = options();
 
 		assert(net.isEnabled());
+		Vector<String> expectedHosts = new Vector<String>() {
+			{
+				add("10.0.0.1");
+			}
+		};
 
 		assertEquals("centralized", net.getStateOptions().strategy);
-		assertEquals("10.0.0.1", net.getStateOptions().host);
-		assertEquals(4321, net.getStateOptions().port);
+		assertEquals(expectedHosts, net.getStateOptions().hosts);
 
 		assertEquals(1, net.getChannels().size());
 
