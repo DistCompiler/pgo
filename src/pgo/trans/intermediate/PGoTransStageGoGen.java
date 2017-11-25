@@ -182,19 +182,6 @@ public class PGoTransStageGoGen {
 		return new TLAExprToGo(tla, go.getImports(), new PGoTempData(data)).toExpression();
 	}
 
-	private Vector<Expression> TLAToGo(Vector<PGoTLA> tla) throws PGoTransException {
-		Vector<Expression> ret = new Vector<>();
-		for (PGoTLA ptla : tla) {
-			if (data instanceof PGoTempData) {
-				ret.add(new TLAExprToGo(ptla, go.getImports(), new PGoTempData((PGoTempData) data))
-						.toExpression());
-			} else {
-				ret.add(new TLAExprToGo(ptla, go.getImports(), new PGoTempData(data)).toExpression());
-			}
-		}
-		return ret;
-	}
-
 	// whether or not we are compiling a program which has remote global state.
 	// Specifically, this is true if:
 	//
