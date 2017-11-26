@@ -40,7 +40,7 @@ import pgo.util.PcalASTUtil;
  */
 public class PGoTransStageGoGen {
 
-	private static final String GLOBAL_STATE_OBJECT = "globalState";
+	public static final String GLOBAL_STATE_OBJECT = "globalState";
 
 	// the ast
 	private GoProgram go;
