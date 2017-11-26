@@ -1140,7 +1140,7 @@ public class PGoTransStageGoGen {
 				new Expression() {
 					@Override
 					public Vector<String> toGo() {
-						StructDefinition sdef = new StructDefinition("pgonet.GlobalState", true);
+						StructDefinition sdef = new StructDefinition("pgonet.GlobalsConfig", true);
 						sdef.addField("Endpoints", new Expression() {
 							@Override
 							public Vector<String> toGo() {
@@ -1184,7 +1184,7 @@ public class PGoTransStageGoGen {
 						add("err");
 					}
 				},
-				new FunctionCall("pgonet.InitState", params)
+				new FunctionCall("pgonet.InitGlobals", params)
 		);
 		topLevelMain.add(idx++, stateObj);
 
