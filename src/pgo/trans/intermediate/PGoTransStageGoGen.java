@@ -218,30 +218,48 @@ public class PGoTransStageGoGen {
 					if (lockGroup == -1) {
 						return;
 					}
-					SimpleExpression lock = new SimpleExpression(new Vector<Expression>() {
-						{
-							add(new Token("PGoLock"));
-							add(new Token("["));
-							add(new Token(((Integer) lockGroup).toString()));
-							add(new Token("]"));
-						}
-					});
-					result.add(new FunctionCall("Lock", new Vector<>(), lock));
+					if (data.netOpts.isEnabled()) {
+						result.add(new FunctionCall("Lock", new Vector<Expression>() {
+							{
+								add(new Token("selfStr"));
+								add(new Token("\"" + ((Integer) lockGroup).toString() + "\""));
+							}
+						}, new Token("globalState")));
+					} else {
+						SimpleExpression lock = new SimpleExpression(new Vector<Expression>() {
+							{
+								add(new Token("PGoLock"));
+								add(new Token("["));
+								add(new Token(((Integer) lockGroup).toString()));
+								add(new Token("]"));
+							}
+						});
+						result.add(new FunctionCall("Lock", new Vector<>(), lock));
+					}
 					curLockGroup = lockGroup;
 				}
 			}
 
 			private void unlock() {
 				if (curLockGroup != -1 && data.needsLock) {
-					SimpleExpression lock = new SimpleExpression(new Vector<Expression>() {
-						{
-							add(new Token("PGoLock"));
-							add(new Token("["));
-							add(new Token(((Integer) curLockGroup).toString()));
-							add(new Token("]"));
-						}
-					});
-					result.add(new FunctionCall("Unlock", new Vector<>(), lock));
+					if (data.netOpts.isEnabled()) {
+						result.add(new FunctionCall("Unlock", new Vector<Expression>() {
+							{
+								add(new Token("selfStr"));
+								add(new Token("\"" + ((Integer) curLockGroup).toString() + "\""));
+							}
+						}, new Token("globalState")));
+					} else {
+						SimpleExpression lock = new SimpleExpression(new Vector<Expression>() {
+							{
+								add(new Token("PGoLock"));
+								add(new Token("["));
+								add(new Token(((Integer) curLockGroup).toString()));
+								add(new Token("]"));
+							}
+						});
+						result.add(new FunctionCall("Unlock", new Vector<>(), lock));
+					}
 					curLockGroup = -1;
 				}
 			}
@@ -833,6 +851,41 @@ public class PGoTransStageGoGen {
 				se.add(new Token("<-"));
 				se.add(new Token("PGoStart"));
 				body.add(new SimpleExpression(se));
+			}
+			if (pf.getType() == PGoFunction.FunctionType.Process) {
+				if (pf.getParams().get(0).getType().equals(PGoPrimitiveType.STRING)) {
+					body.add(new SimpleExpression(new Vector<Expression>() {
+						{
+							add(new Token("selfStr"));
+							add(new Token(" := "));
+							add(new Token("\"" + pf.getName() + "(\""));
+							add(new Token(" + "));
+							add(new Token("self"));
+							add(new Token(" + "));
+							add(new Token("\")\""));
+						}
+					}));
+				} else if (pf.getParams().get(0).getType().equals(PGoPrimitiveType.INT)) {
+					go.getImports().addImport("strconv");
+					body.add(new SimpleExpression(new Vector<Expression>() {
+						{
+							add(new Token("selfStr"));
+							add(new Token(" := "));
+							add(new Token("\"" + pf.getName() + "(\""));
+							add(new Token(" + "));
+							add(new FunctionCall("strconv.Itoa", new Vector<Expression>() {
+								{
+									add(new Token("self"));
+								}
+							}));
+							add(new Token(" + "));
+							add(new Token("\")\""));
+						}
+					}));
+				} else {
+				    throw new PGoTransException("Unsupported argument type " + pf.getParams().get(0).getType() +
+                            " for process " + pf.getName(), pf.getLine());
+				}
 			}
 
 			data = localData;

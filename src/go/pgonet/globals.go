@@ -60,6 +60,7 @@ type GlobalVariableType int
 const (
 	TYPE_INT = iota
 	TYPE_STRING
+	PGONET_LOCK_NAMESPACE = "/locks/"
 )
 
 // Specifies how to connect to our global state management
@@ -265,9 +266,58 @@ func (self *GlobalState) setStringCol(name string, val []string) {
 	}
 }
 
+func (self *GlobalState) Lock(who, which string) error {
+	key := prepareLock(which)
+	for {
+		_, err := self.kv.Create(context.Background(), key, who)
+		etcdErr, ok := err.(etcd.Error)
+		if !ok {
+			return err
+		}
+		if etcdErr.Code != etcd.ErrorCodeNodeExist {
+			return err
+		}
+		// get the node value for watcher
+		resp, err := self.kv.Get(context.Background(), key, nil)
+		if etcd.IsKeyNotFound(err) {
+			// retry as the key is deleted
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		watcher := self.kv.Watcher(key, &etcd.WatcherOptions{
+			AfterIndex: resp.Index,
+			Recursive:  false,
+		})
+		for {
+			resp, err = watcher.Next(context.Background())
+			if err != nil {
+				return err
+			}
+			if resp.Action == "delete" || resp.Action == "expire" {
+				// retry in the outer loop
+				break
+			}
+		}
+	}
+}
+
+func (self *GlobalState) Unlock(who, which string) error {
+	_, err := self.kv.Delete(context.Background(), prepareLock(which), &etcd.DeleteOptions{
+		PrevValue: who,
+	})
+	return err
+}
+
 // given a key k, this method transforms it to the format expected by `etcd'
 func prepareKey(k string) string {
 	return "/" + k
+}
+
+// given a lock k, this method transforms it to the format expected by `etcd'
+func prepareLock(k string) string {
+	return PGONET_LOCK_NAMESPACE + k
 }
 
 func serialize(v globalVariable) string {

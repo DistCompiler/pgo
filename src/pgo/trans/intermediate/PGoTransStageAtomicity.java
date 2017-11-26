@@ -54,12 +54,6 @@ public class PGoTransStageAtomicity {
 		}
 
 		inferAtomic();
-
-		// if we are compiling a distributed system, we do not need locks, as
-		// global variables are requested to a centralized server
-		if (this.data.netOpts.isEnabled()) {
-			this.data.needsLock = false;
-		}
 	}
 
 	// a variable is serializable if it can be maintained remotely if networking
