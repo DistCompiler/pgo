@@ -61,6 +61,9 @@ public class PGoTranslator {
 			FileUtils.copyDirectory(new File("src/go/github.com/emirpasic"),
 					new File(opts.buildDir + "/src/github.com/emirpasic"));
 		}
+		if (go.getImports().getImports().contains("pgoutil")) {
+			FileUtils.copyDirectory(new File("src/go/pgonet"), new File(opts.buildDir + "/src/pgonet"));
+		}
 	}
 
 }

@@ -32,9 +32,9 @@ public class VariableReference extends Statement {
 		Vector<String> ret = new Vector<>();
 		if (var.isRemote()) {
 			if (var.getType() instanceof PGoPrimitiveType.PGoInt)
-				ret.add(String.format("pgonet.GetInt(\"%s\")", var.getName()));
+				ret.add(String.format("globalState.GetInt(\"%s\")", var.getName()));
 			else if (var.getType() instanceof PGoPrimitiveType.PGoString) {
-				ret.add(String.format("pgonet.GetString(\"%s\")", var.getName()));
+				ret.add(String.format("globalState.GetString(\"%s\")", var.getName()));
 			} else {
 				// should not be reachable - variable type is not supported
 				assert(false);
