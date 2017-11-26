@@ -20,13 +20,12 @@ EXTENDS Integers, Sequences, TLC
         \** @PGo{ var resource string }@PGo
         variables resource;
     { c: while (TRUE) {
-          c1: while (Len(queue) # 0)
+          if (Len(queue) # 0)
               {
               resource := Head(queue);
               queue := Tail(queue);
               assert (resource = "resource");
               print(resource);
-              goto c;
               }}}
 
 
