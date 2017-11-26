@@ -78,8 +78,8 @@ public class VariableDeclaration extends Statement {
 	public Vector<String> toGo() {
 		Vector<String> ret = new Vector<String>();
 		Vector<String> comments = new Vector<>();
-		Vector<String> valStr = defaultValue == null ? new Vector<String>() : defaultValue.toGo();
-		String decl = "";
+		Vector<String> valStr = (defaultValue == null || remote) ? new Vector<String>() : defaultValue.toGo();
+		String decl;
 
 		if (remote) {
 		    decl = "// Variable " + name + ": global, remotely stored in etcd";
@@ -93,10 +93,7 @@ public class VariableDeclaration extends Statement {
 			if (wasInferred) {
 				comments.add("PGo inferred type " + type.toTypeName());
 			}
-			if (remote) {
-				comments.add("stored in etcd");
-			}
-			if (!remote && lockGroup != -1) {
+			if (lockGroup != -1) {
 				comments.add("Lock group " + lockGroup);
 			}
 
