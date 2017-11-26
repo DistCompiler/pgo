@@ -7,7 +7,7 @@ import pgo.model.intermediate.PGoVariable;
 
 /**
  * Represents a variable declaration
- * 
+ *
  */
 public class VariableDeclaration extends Statement {
 	// name of variable
@@ -81,25 +81,24 @@ public class VariableDeclaration extends Statement {
 		Vector<String> valStr = (defaultValue == null || remote) ? new Vector<String>() : defaultValue.toGo();
 		String decl;
 
+		decl = (isConst ? "const " : "var ") + name + " " + type.toGo();
+
+		if (valStr.size() > 0) {
+			decl += " = " + valStr.remove(0);
+		}
+
+		if (wasInferred) {
+			comments.add("PGo inferred type " + type.toTypeName());
+		}
+		if (!remote && lockGroup != -1) {
+			comments.add("Lock group " + lockGroup);
+		}
 		if (remote) {
-		    decl = "// Variable " + name + ": global, remotely stored in etcd";
-		} else {
-			decl = (isConst ? "const " : "var ") + name + " " + type.toGo();
+			decl += "// remotely stored in etcd";
+		}
 
-			if (valStr.size() > 0) {
-				decl += " = " + valStr.remove(0);
-			}
-
-			if (wasInferred) {
-				comments.add("PGo inferred type " + type.toTypeName());
-			}
-			if (lockGroup != -1) {
-				comments.add("Lock group " + lockGroup);
-			}
-
-			if (comments.size() > 0) {
-				decl += " // " + String.join("; ", comments);
-			}
+		if (comments.size() > 0) {
+			decl += " // " + String.join("; ", comments);
 		}
 
 		ret.add(decl);
