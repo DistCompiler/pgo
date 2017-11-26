@@ -923,7 +923,7 @@ public class PGoTransStageGoGen {
 	 */
 	private void generateGlobalVariables() throws PGoTransException {
 		// if the algorithm needs locking, we should create sync.RWMutexes
-		if (data.needsLock) {
+		if (!data.netOpts.isEnabled() && data.needsLock) {
 			// make([]sync.RWMutex, size)
 			Vector<Expression> params = new Vector<>();
 			params.add(new Token(new PGoSlice("sync.RWMutex").toGo()));
