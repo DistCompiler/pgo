@@ -17,7 +17,7 @@ import util.ToolIO;
 
 /**
  * The pluscal parser.
- * 
+ *
  * This class takes a given pluscal file and parses it into the pluscal AST.
  *
  */
@@ -26,12 +26,12 @@ public class PcalParser {
 	private Logger logger;
 	// the file to parse
 	private String file;
-	
+
 	public PcalParser(String file) {
 		logger = Logger.getLogger("PlusCal Parser");
 		this.file = file;
 	}
-	
+
 	public static class ParsedPcal {
 		// the list of PGo annotations
 		private Vector<PGoAnnotation> annotations;
@@ -52,7 +52,7 @@ public class PcalParser {
 			return ast;
 		}
 	}
-	
+
 	public ParsedPcal parse() throws PGoParseException {
 		if (ToolIO.getMode() == ToolIO.SYSTEM) {
 			logger.info("pcal.trans Version " + PcalParams.version + " of " + PcalParams.modDate);
@@ -64,7 +64,7 @@ public class PcalParser {
 		 * previous run
 		 */
 		PcalParams.resetParams();
-		
+
 		/*********************************************************************
 		 * Get and process arguments.
 		 *********************************************************************/
@@ -87,7 +87,7 @@ public class PcalParser {
 		} catch (FileToStringVectorException e) {
 			throw new PGoParseException(e.getMessage());
 		}
-		
+
 		/*********************************************************************
 		 * outputVec is an alias for inputVec if the input is a .tla file, *
 		 * which was not always the case in the aborted version 1.31. *
@@ -194,7 +194,7 @@ public class PcalParser {
 		if (!foundBegin) {
 			throw new PGoParseException("Beginning of algorithm string " + PcalParams.BeginAlg + " not found.");
 		}
-		
+
         /*
          * Set the algColumn and algLine fields of the mapping object.
          */
@@ -236,11 +236,11 @@ public class PcalParser {
 
 		return new ParsedPcal(ast, annotations);
 	}
-	
+
 	/**
 	 * Finds all comments that are pgo annotations PGo annotations are comments
 	 * of format "@PGo{<string>}@PGo"
-	 * 
+	 *
 	 * @param untabInputVec
 	 * @param algCol
 	 * @param algLine

@@ -11,7 +11,7 @@ import pgo.trans.PGoTransException;
 
 /**
  * TLAExpr Parser
- * 
+ *
  *
  */
 public class TLAExprParser {

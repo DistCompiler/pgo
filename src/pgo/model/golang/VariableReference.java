@@ -58,7 +58,7 @@ public class VariableReference extends Statement {
 				switch (var.getType().toString()) {
 					case "[]int":
 						fn = "GetIntCollection";
-					    break;
+						break;
 					case "[]string":
 						fn = "GetStringCollection";
 						break;
@@ -74,7 +74,9 @@ public class VariableReference extends Statement {
 			}
 
 			ret.add(String.format("%s.%s(\"%s\")", GLOBAL_STATE, fn, var.getName()));
+
 		} else {
+			// if the variable is not remote, just use the variable name itself
 			ret.add(var.getName());
 		}
 		return ret;

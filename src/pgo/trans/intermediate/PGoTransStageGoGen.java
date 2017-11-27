@@ -36,7 +36,7 @@ import pgo.util.PcalASTUtil;
 /**
  * The last stage of the translation. Takes given intermediate data and converts
  * it to a Go AST, properly
- * 
+ *
  */
 public class PGoTransStageGoGen {
 
@@ -172,7 +172,7 @@ public class PGoTransStageGoGen {
 	/**
 	 * Convert the TLA AST to the equivalent Go AST while adding the required
 	 * imports.
-	 * 
+	 *
 	 * @throws PGoTransException
 	 */
 	private Expression TLAToGo(PGoTLA tla) throws PGoTransException {
@@ -196,7 +196,7 @@ public class PGoTransStageGoGen {
 	 * Converts a given code black into Go code. Given code block should not
 	 * have function
 	 * definitions and such in pluscal TODO finish visit methods (issue #4)
-	 * 
+	 *
 	 * @param stmts
 	 * @return
 	 * @throws PGoTransException
