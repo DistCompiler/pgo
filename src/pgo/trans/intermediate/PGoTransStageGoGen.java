@@ -1201,7 +1201,7 @@ public class PGoTransStageGoGen {
 							public Vector<String> toGo() {
 								Vector<String> endpoints = new Vector<>();
 								for (String h : data.netOpts.getStateOptions().hosts) {
-									endpoints.add(String.format("\"%s\"", h));
+									endpoints.add(String.format("\"http://%s\"", h));
 								}
 
 								return new Token(String.format("%s{%s}",
