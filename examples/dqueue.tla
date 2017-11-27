@@ -12,7 +12,7 @@ EXTENDS Integers, Sequences, TLC
 
     process (Producer = 2)
     { p: while (TRUE) {
-        p1: if (Len(queue) < 3) {
+      p1:  if (Len(queue) < 3) {
                  queue := Append(queue, "resource");
                }}}
 
@@ -20,7 +20,7 @@ EXTENDS Integers, Sequences, TLC
         \** @PGo{ var resource string }@PGo
         variables resource;
     { c: while (TRUE) {
-          if (Len(queue) # 0) {
+      c1:  if (Len(queue) # 0) {
               resource := Head(queue);
               queue := Tail(queue);
               assert (resource = "resource");
@@ -51,30 +51,28 @@ p == /\ pc[2] = "p"
 
 p1 == /\ pc[2] = "p1"
       /\ IF Len(queue) < 3
-            THEN /\ pc' = [pc EXCEPT ![2] = "p2"]
-            ELSE /\ pc' = [pc EXCEPT ![2] = "p"]
-      /\ UNCHANGED << queue, resource >>
-
-p2 == /\ pc[2] = "p2"
-      /\ queue' = Append(queue, "resource")
+            THEN /\ queue' = Append(queue, "resource")
+            ELSE /\ TRUE
+                 /\ queue' = queue
       /\ pc' = [pc EXCEPT ![2] = "p"]
       /\ UNCHANGED resource
 
-Producer == p \/ p1 \/ p2
+Producer == p \/ p1
 
 c(self) == /\ pc[self] = "c"
            /\ pc' = [pc EXCEPT ![self] = "c1"]
            /\ UNCHANGED << queue, resource >>
 
 c1(self) == /\ pc[self] = "c1"
-            /\ IF queue # <<>>
+            /\ IF Len(queue) # 0
                   THEN /\ resource' = [resource EXCEPT ![self] = Head(queue)]
                        /\ queue' = Tail(queue)
-                       /\ Assert((resource'[self] = "resource"),
-                                 "Failure of assertion at line 32, column 15.")
-                       /\ pc' = [pc EXCEPT ![self] = "c"]
-                  ELSE /\ pc' = [pc EXCEPT ![self] = "c"]
+                       /\ Assert((resource'[self] = "resource"), 
+                                 "Failure of assertion at line 26, column 15.")
+                       /\ PrintT((resource'[self]))
+                  ELSE /\ TRUE
                        /\ UNCHANGED << queue, resource >>
+            /\ pc' = [pc EXCEPT ![self] = "c"]
 
 Consumer(self) == c(self) \/ c1(self)
 
@@ -97,7 +95,7 @@ Spec == /\ Init /\ [][Next]_vars
 
 \* No starvation
 NoStarvationC == \A proc \in {0,1} : (pc[proc] = "c1") ~> (pc[proc] = "c")
-NoStarvationP == (pc[2] = "p1") ~> (pc[2] = "p2")
+NoStarvationP == (pc[2] = "p1") ~> (pc[2] = "p")
 
 \* Assume weakly fair scheduling of all commands
 (* PlusCal options (wf) *)
