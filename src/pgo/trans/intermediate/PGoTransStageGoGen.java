@@ -752,6 +752,7 @@ public class PGoTransStageGoGen {
 								.toExpression());
 					}
 				}));
+				ret.add(new SimpleExpression(se));
 			} else {
 				// for procId := range set.Iter() {
 				// PGoWait.Add(1)
