@@ -13,15 +13,14 @@ EXTENDS Integers, Sequences, TLC
     process (Producer = 2)
     { p: while (TRUE) {
         p1: if (Len(queue) < 3) {
-        p2:    queue := Append(queue, "resource");
+                 queue := Append(queue, "resource");
                }}}
 
     process (Consumer \in {0,1})
         \** @PGo{ var resource string }@PGo
         variables resource;
     { c: while (TRUE) {
-          if (Len(queue) # 0)
-              {
+          if (Len(queue) # 0) {
               resource := Head(queue);
               queue := Tail(queue);
               assert (resource = "resource");
