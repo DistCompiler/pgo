@@ -25,6 +25,7 @@ EXTENDS Integers, Sequences, TLC
               resource := Head(queue);
               queue := Tail(queue);
               assert (resource = "resource");
+              print(resource);
               goto c;
               }}}
 

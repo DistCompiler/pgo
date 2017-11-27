@@ -36,11 +36,11 @@ import pgo.util.PcalASTUtil;
 /**
  * The last stage of the translation. Takes given intermediate data and converts
  * it to a Go AST, properly
- * 
+ *
  */
 public class PGoTransStageGoGen {
 
-	private static final String GLOBAL_STATE_OBJECT = "globalState";
+	public static final String GLOBAL_STATE_OBJECT = "globalState";
 
 	// the ast
 	private GoProgram go;
@@ -77,8 +77,8 @@ public class PGoTransStageGoGen {
 			// Switch on `processName` to know which process/function to invoke and passing `processArg`
 			// as the argument to the process/function. They are instantiated in `addPositionalArgToMain`.
 
-		    Vector<Expression> exp, args;
-		    Vector<Statement> code;
+			Vector<Expression> exp, args;
+			Vector<Statement> code;
 			Switch switchProcess = new Switch(new Token("processName"));
 			exp = new Vector<>();
 			exp.add(new Token("\"Unknown process \""));
@@ -172,7 +172,7 @@ public class PGoTransStageGoGen {
 	/**
 	 * Convert the TLA AST to the equivalent Go AST while adding the required
 	 * imports.
-	 * 
+	 *
 	 * @throws PGoTransException
 	 */
 	private Expression TLAToGo(PGoTLA tla) throws PGoTransException {
@@ -196,7 +196,7 @@ public class PGoTransStageGoGen {
 	 * Converts a given code black into Go code. Given code block should not
 	 * have function
 	 * definitions and such in pluscal TODO finish visit methods (issue #4)
-	 * 
+	 *
 	 * @param stmts
 	 * @return
 	 * @throws PGoTransException
@@ -1119,7 +1119,8 @@ public class PGoTransStageGoGen {
 	//			Endpoints: []string{"10.0.0.1:1234", "10.0.0.2:1234"}, // based on networking options
 	// 			Timeout: 2, // based on networking options
 	// 		}
-	//		globalState, err := pgonet.InitGlobals(cfg)
+	//		var err error
+	//		globalState, err = pgonet.InitGlobals(cfg)
 	// 		if err != nil {
 	// 			// handle error
 	// 		}
@@ -1140,7 +1141,7 @@ public class PGoTransStageGoGen {
 				new Expression() {
 					@Override
 					public Vector<String> toGo() {
-						StructDefinition sdef = new StructDefinition("pgonet.GlobalState", true);
+						StructDefinition sdef = new StructDefinition("pgonet.GlobalsConfig", true);
 						sdef.addField("Endpoints", new Expression() {
 							@Override
 							public Vector<String> toGo() {
@@ -1165,9 +1166,15 @@ public class PGoTransStageGoGen {
 
 						return sdef.toGo();
 					}
-				}
+				},
+				true
 		);
 		topLevelMain.add(idx++, cfgDecl);
+
+		VariableDeclaration errDecl = new VariableDeclaration(
+				"err", PGoType.inferFromGoTypeName("error"), null, false, false, false
+		);
+		topLevelMain.add(idx++, errDecl);
 
 		Vector<Expression> params = new Vector<>();
 		params.add(new Expression() {
@@ -1184,7 +1191,8 @@ public class PGoTransStageGoGen {
 						add("err");
 					}
 				},
-				new FunctionCall("pgonet.InitState", params)
+				new FunctionCall("pgonet.InitGlobals", params),
+				false
 		);
 		topLevelMain.add(idx++, stateObj);
 

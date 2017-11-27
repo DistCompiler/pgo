@@ -553,8 +553,6 @@ public class TLAExprToGo {
 	}
 
 	protected Expression translate(PGoTLAUnary tla) throws PGoTransException {
-		Vector<Statement> ret = new Vector<>();
-
 		switch (tla.getToken()) {
 		case "~":
 		case "\\lnot":
@@ -690,7 +688,7 @@ public class TLAExprToGo {
 		return new Expression() {
 			@Override
 			public Vector<String> toGo() {
-				return new VariableReference(data.findPGoVariable(tla.getName())).toGo();
+				return new VariableReference(tla.getName(), data.findPGoVariable(tla.getName())).toGo();
 			}
 		};
 	}

@@ -23,7 +23,7 @@ public abstract class PGoMiscellaneousType extends PGoType {
 	}
 
 	public static class PGoNetGlobalState extends PGoMiscellaneousType {
-		public PGoNetGlobalState() { this.goType = "pgonet.GlobalState"; }
+		public PGoNetGlobalState() { this.goType = "*pgonet.GlobalState"; }
 	}
 
 	public static class PGoNetGlobalsConfig extends PGoMiscellaneousType {
