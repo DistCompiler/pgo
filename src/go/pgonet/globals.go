@@ -277,29 +277,6 @@ func (self *GlobalState) Lock(who, which string) error {
 		if etcdErr.Code != etcd.ErrorCodeNodeExist {
 			return err
 		}
-		// get the node value for watcher
-		resp, err := self.kv.Get(context.Background(), key, nil)
-		if etcd.IsKeyNotFound(err) {
-			// retry as the key is deleted
-			continue
-		}
-		if err != nil {
-			return err
-		}
-		watcher := self.kv.Watcher(key, &etcd.WatcherOptions{
-			AfterIndex: resp.Index,
-			Recursive:  false,
-		})
-		for {
-			resp, err = watcher.Next(context.Background())
-			if err != nil {
-				return err
-			}
-			if resp.Action == "delete" || resp.Action == "expire" {
-				// retry in the outer loop
-				break
-			}
-		}
 	}
 }
 
