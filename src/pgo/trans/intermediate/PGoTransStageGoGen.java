@@ -77,8 +77,8 @@ public class PGoTransStageGoGen {
 			// Switch on `processName` to know which process/function to invoke and passing `processArg`
 			// as the argument to the process/function. They are instantiated in `addPositionalArgToMain`.
 
-		    Vector<Expression> exp, args;
-		    Vector<Statement> code;
+			Vector<Expression> exp, args;
+			Vector<Statement> code;
 			Switch switchProcess = new Switch(new Token("processName"));
 			exp = new Vector<>();
 			exp.add(new Token("\"Unknown process \""));
@@ -1119,7 +1119,8 @@ public class PGoTransStageGoGen {
 	//			Endpoints: []string{"10.0.0.1:1234", "10.0.0.2:1234"}, // based on networking options
 	// 			Timeout: 2, // based on networking options
 	// 		}
-	//		globalState, err := pgonet.InitGlobals(cfg)
+	//		var err error
+	//		globalState, err = pgonet.InitGlobals(cfg)
 	// 		if err != nil {
 	// 			// handle error
 	// 		}
@@ -1165,9 +1166,15 @@ public class PGoTransStageGoGen {
 
 						return sdef.toGo();
 					}
-				}
+				},
+				true
 		);
 		topLevelMain.add(idx++, cfgDecl);
+
+		VariableDeclaration errDecl = new VariableDeclaration(
+				"err", PGoType.inferFromGoTypeName("error"), null, false, false, false
+		);
+		topLevelMain.add(idx++, errDecl);
 
 		Vector<Expression> params = new Vector<>();
 		params.add(new Expression() {
@@ -1184,7 +1191,8 @@ public class PGoTransStageGoGen {
 						add("err");
 					}
 				},
-				new FunctionCall("pgonet.InitGlobals", params)
+				new FunctionCall("pgonet.InitGlobals", params),
+				false
 		);
 		topLevelMain.add(idx++, stateObj);
 

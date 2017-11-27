@@ -23,39 +23,19 @@ package pgonet
 // 		// handle error
 // 	}
 //
-// 	err = state.Set("project", "PGo")
-// 	if err != nil {
-// 		// handle error
-// 	}
-//
-// 	val, err := state.GetString("project")
-// 	if err != nil {
-// 		// handle error
-// 	}
+// 	state.Set("project", "PGo")
+// 	val := state.GetString("project")
 // 	fmt.Printf("project value has value: %s\n", val) // project has value: PGo
 //
 // 	// Integers are also supported
-// 	err = state.Set("count", 42)
-// 	if err != nil {
-// 		// handle error
-// 	}
-// 	count, err := state.Get("count")
-// 	if err != nil {
-// 		// handle error
-// 	}
+// 	state.Set("count", 42)
+// 	count := state.Get("count")
 // 	fmt.Printf("count has value: %d\n", count) // count has value: 42
 //
 // 	// so are collections
 // 	col := []string{"1", "2", "3"}
-// 	err = state.Set("collection", col)
-// 	if err != nil {
-// 		// handle error
-// 	}
-//
-// 	col, err = state.GetStringCollection("collection")
-// 	if err != nil {
-// 		// handle error
-// 	}
+// 	state.Set("collection", col)
+// 	col = state.GetStringCollection("collection")
 
 // Implementation Details
 //
@@ -129,69 +109,66 @@ func InitGlobals(cfg *GlobalsConfig) (*GlobalState, error) {
 
 // Sets variable `name' to a given `value'. Contacts the global variable server
 // *synchronously*
-func (self *GlobalState) Set(name string, value interface{}) error {
+func (self *GlobalState) Set(name string, value interface{}) {
 	switch val := value.(type) {
 	case int:
-		return self.setInt(name, val)
+		self.setInt(name, val)
 	case string:
-		return self.setString(name, val)
+		self.setString(name, val)
 	case []int:
-		return self.setIntCol(name, val)
+		self.setIntCol(name, val)
 	case []string:
-		return self.setStringCol(name, val)
+		self.setStringCol(name, val)
 	default:
-		return fmt.Errorf("Unsupported global variable type: %T\n", value)
+		panic(fmt.Sprintf("Unsupported global variable type: %T\n", value))
 	}
 }
 
 // Gets the value associated with a variable with the given `name'. The variable value
 // is cast to an int and returned (the method fails if the value exists and is not a
 // valid int). Contacts the global variable server *synchronously*
-func (self *GlobalState) GetInt(name string) (int, error) {
+func (self *GlobalState) GetInt(name string) int {
 	response, err := self.kv.Get(context.Background(), prepareKey(name), nil)
 	if err != nil {
-		return 0, err
+		panic(err)
 	}
 
 	gvar := parseGlobalVariable(response.Node.Value)
 	if gvar.Type != TYPE_INT {
-		err := fmt.Errorf("Variable %s: not an int", name)
-		return 0, err
+		panic(fmt.Sprintf("Variable %s: not an int", name))
 	}
 
-	return int(gvar.Value.(float64)), nil
+	return int(gvar.Value.(float64))
 }
 
 // Returns a string representation of the value associated with the variable with the
 // given `name'.
-func (self *GlobalState) GetString(name string) (string, error) {
+func (self *GlobalState) GetString(name string) string {
 	response, err := self.kv.Get(context.Background(), prepareKey(name), nil)
 	if err != nil {
-		return "", err
+		panic(err)
 	}
 
 	gvar := parseGlobalVariable(response.Node.Value)
 	if gvar.Type != TYPE_STRING {
-		err := fmt.Errorf("Variable %s: not a string", name)
-		return "", err
+		panic(fmt.Sprintf("Variable %s: not a string", name))
 	}
 
-	return gvar.Value.(string), nil
+	return gvar.Value.(string)
 }
 
 // Returns a collection of ints associated with the var of given `name'. The variable should
 // be previously set to a []int using pgonet.Set.
-func (self *GlobalState) GetIntCollection(name string) ([]int, error) {
+func (self *GlobalState) GetIntCollection(name string) []int {
 	response, err := self.kv.Get(context.Background(), prepareKey(name), nil)
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
 
 	gvar := parseGlobalVariable(response.Node.Value)
 
 	if !gvar.IsCollection {
-		err := fmt.Errorf("Variable %s is not a collection", name)
-		return nil, err
+		panic(fmt.Sprintf("Variable %s is not a collection", name))
 	}
 
 	icol := []int{}
@@ -200,46 +177,43 @@ func (self *GlobalState) GetIntCollection(name string) ([]int, error) {
 		// first and then cast it to an int. Floats are currently not supported
 		floatVal, ok := el.(float64)
 		if !ok {
-			err := fmt.Errorf("Variable %s is not a collection of ints", name)
-			return nil, err
+			panic(fmt.Sprintf("Variable %s is not a collection of ints", name))
 		}
 
 		icol = append(icol, int(floatVal))
 	}
 
-	return icol, nil
+	return icol
 }
 
 // Returns a collection of strings associated with the var of given `name'. The variable should
 // be previously set to a []string using pgonet.Set.
-func (self *GlobalState) GetStringCollection(name string) ([]string, error) {
+func (self *GlobalState) GetStringCollection(name string) []string {
 	response, err := self.kv.Get(context.Background(), prepareKey(name), nil)
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
 
 	gvar := parseGlobalVariable(response.Node.Value)
 
 	if !gvar.IsCollection {
-		err := fmt.Errorf("Variable %s is not a collection", name)
-		return nil, err
+		panic(fmt.Sprintf("Variable %s is not a collection", name))
 	}
 
 	strCol := []string{}
 	for _, el := range gvar.Value.([]interface{}) {
 		strVal, ok := el.(string)
 		if !ok {
-			err := fmt.Errorf("Variable %s: not a collection of strings", name)
-			return nil, err
+			panic(fmt.Sprintf("Variable %s: not a collection of strings", name))
 		}
 
 		strCol = append(strCol, strVal)
 	}
 
-	return strCol, nil
+	return strCol
 }
 
-func (self *GlobalState) setInt(name string, value int) error {
+func (self *GlobalState) setInt(name string, value int) {
 	variable := globalVariable{
 		Value:        value,
 		Type:         TYPE_INT,
@@ -247,10 +221,12 @@ func (self *GlobalState) setInt(name string, value int) error {
 	}
 
 	_, err := self.kv.Set(context.Background(), prepareKey(name), serialize(variable), nil)
-	return err
+	if err != nil {
+		panic(err)
+	}
 }
 
-func (self *GlobalState) setString(name, value string) error {
+func (self *GlobalState) setString(name, value string) {
 	variable := globalVariable{
 		Value:        value,
 		Type:         TYPE_STRING,
@@ -258,10 +234,12 @@ func (self *GlobalState) setString(name, value string) error {
 	}
 
 	_, err := self.kv.Set(context.Background(), prepareKey(name), serialize(variable), nil)
-	return err
+	if err != nil {
+		panic(err)
+	}
 }
 
-func (self *GlobalState) setIntCol(name string, val []int) error {
+func (self *GlobalState) setIntCol(name string, val []int) {
 	variable := globalVariable{
 		Value:        val,
 		Type:         TYPE_INT,
@@ -269,10 +247,12 @@ func (self *GlobalState) setIntCol(name string, val []int) error {
 	}
 
 	_, err := self.kv.Set(context.Background(), prepareKey(name), serialize(variable), nil)
-	return err
+	if err != nil {
+		panic(err)
+	}
 }
 
-func (self *GlobalState) setStringCol(name string, val []string) error {
+func (self *GlobalState) setStringCol(name string, val []string) {
 	variable := globalVariable{
 		Value:        val,
 		Type:         TYPE_STRING,
@@ -280,7 +260,9 @@ func (self *GlobalState) setStringCol(name string, val []string) error {
 	}
 
 	_, err := self.kv.Set(context.Background(), prepareKey(name), serialize(variable), nil)
-	return err
+	if err != nil {
+		panic(err)
+	}
 }
 
 // given a key k, this method transforms it to the format expected by `etcd'

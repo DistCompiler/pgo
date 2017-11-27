@@ -14,6 +14,7 @@ public abstract class PGoPrimitiveType extends PGoType {
 	public static final PGoPrimitiveType BOOL = new PGoBool();
 	public static final PGoPrimitiveType VOID = new PGoVoid();
 	public static final PGoPrimitiveType INTERFACE = new PGoInterface();
+	public static final PGoPrimitiveType ERROR = new PGoError();
 
 	/**
 	 * Represents an arbitrary number type. In Go if we use a number e.g. in a
@@ -119,6 +120,24 @@ public abstract class PGoPrimitiveType extends PGoType {
 	}
 
 	/**
+	 * Represents an error variable in Go
+	 *
+	 */
+	public static class PGoError extends PGoPrimitiveType {
+		private static final String goType = "error";
+
+		@Override
+		public String toTypeName() {
+			return goType;
+		}
+
+		@Override
+		public String toGo() {
+			return goType;
+		}
+	}
+
+	/**
 	 * Represents a dynamically typed variable in Go (the go interface{}).
 	 *
 	 */
@@ -190,7 +209,11 @@ public abstract class PGoPrimitiveType extends PGoType {
 		case "interface":
 		case "interface{}":
 			return INTERFACE;
+		case "error":
+			return ERROR;
 		}
+
+
 		if (string.length() == 1) {
 			return new PGoTemplateArgument(string);
 		}
