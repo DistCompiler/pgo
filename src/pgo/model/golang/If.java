@@ -16,10 +16,13 @@ public class If extends Statement {
 	// else
 	private Vector<Statement> elseS;
 
+	private boolean negation;
+
 	public If(Expression cond, Vector<Statement> thenS, Vector<Statement> elseS) {
 		this.cond = cond;
 		this.thenS = thenS;
 		this.elseS = elseS;
+		this.negation = false;
 	}
 
 	public Expression getCond() {
@@ -29,6 +32,8 @@ public class If extends Statement {
 	public void setCond(Expression e) {
 		this.cond = e;
 	}
+
+	public void negate() { this.negation = true; }
 
 	public Vector<Statement> getThen() {
 		return this.thenS;
@@ -50,15 +55,17 @@ public class If extends Statement {
 	public Vector<String> toGo() {
 		Vector<String> ret = new Vector<String>();
 		Vector<String> condStr = cond.toGo();
+		String ifStr = negation ? "if !" : "if ";
+
 		if (cond instanceof AnonymousFunction) {
 			// in this case we want each line of func on a separate line, and we don't need semicolons
-			ret.add("if " + condStr.remove(0));
+			ret.add(ifStr + condStr.remove(0));
 			for (String s : condStr) {
 				ret.add(s);
 			}
 			ret.set(ret.size()-1, ret.get(ret.size()-1) + " {");
 		} else {
-			ret.add("if " + String.join("; ", condStr) + " {");
+			ret.add(ifStr + String.join("; ", condStr) + " {");
 		}
 		addIndentedAST(ret, thenS);
 		if (elseS.size() > 0) {

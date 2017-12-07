@@ -1177,14 +1177,30 @@ public class PGoTransStageGoGen {
 	// it with a proper value. Since multiple processes might be running at the same
 	// time, initialization must be made only once. This is achieved by making use
 	// of the locking functionality available in the `pgonet' package.
-	private Expression initializeGlobalVariable(VariableDeclaration decl) {
+	private Statement initializeGlobalVariable(VariableDeclaration decl) {
 		Vector<Expression> params = new Vector<Expression>() {
 			{
 				add(new Token("\"" + decl.getName() + "\""));
 				add(decl.getDefaultValue());
 			}
 		};
-		return new FunctionCall("Set", params, new Token(GLOBAL_STATE_OBJECT));
+		FunctionCall setVar = new FunctionCall("Set", params, new Token(GLOBAL_STATE_OBJECT));
+		Vector<Statement> ifBody = new Vector<Statement>() {
+			{
+			    add(setVar);
+			}
+		};
+
+		Vector<Expression> existsParams = new Vector<Expression>() {
+			{
+			    add(new Token("\"" + decl.getName() + "\""));
+			}
+		};
+		Expression cond = new FunctionCall("Exists", existsParams, new Token(GLOBAL_STATE_OBJECT));
+		pgo.model.golang.If existenceIf = new pgo.model.golang.If(cond, ifBody, new Vector<>());
+		existenceIf.negate();
+
+		return existenceIf;
 	}
 
 	// generates initialization code for the remote global state management.
@@ -1319,7 +1335,14 @@ public class PGoTransStageGoGen {
 
 			go.getImports().addImport("strconv");
 			if (!initLockInserted) {
-				// A lock must be acquired in order to
+				// A lock must be acquired in order to make sure only one process
+				// initializes global variables with their default values.
+				//
+				// Since processes have no identifiers at this point (before parsing
+				// arguments passed on the command line), we generate a random identifier
+				// and use it when trying to get the lock. However, there is still a
+				// slight chance of very bad luck where two processes happen to get
+				// the same random ID and race to get the lock.
 				int maxProcesses = 10000;
 
 				Vector<Expression> randParams = new Vector<Expression>() {
