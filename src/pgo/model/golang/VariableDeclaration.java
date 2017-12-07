@@ -58,6 +58,8 @@ public class VariableDeclaration extends Statement {
 		return isConst;
 	}
 
+	public boolean isRemote() { return remote; }
+
 	public void setIsConst(boolean b) {
 		this.isConst = b;
 	}
