@@ -115,7 +115,7 @@ public class PGoTransStageGoGen {
 			main.addAll(stmts);
 		}
 
-		// remote stare requires initialization, which requires a random process
+		// remote state requires initialization, which requires a random process
 		// identifier to be generated when acquiring the lock
 		if (hasRemoteState()) {
 			go.getImports().addImport("math/rand");
