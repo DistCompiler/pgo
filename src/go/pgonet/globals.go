@@ -125,6 +125,23 @@ func (self *GlobalState) Set(name string, value interface{}) {
 	}
 }
 
+// indicates whether a variable with the given name was previously set.
+// Caller must hold a lock before invoking this function if behavior following
+// its return lies within a critical section
+func (self *GlobalState) Exists(name string) bool {
+	_, err := self.kv.Get(context.Background(), prepareKey(name), nil)
+	if err != nil {
+		etcdErr := err.(etcd.Error)
+		if etcdErr.Code == etcd.ErrorCodeKeyNotFound {
+			return false
+		}
+
+		panic(err)
+	}
+
+	return true
+}
+
 // Gets the value associated with a variable with the given `name'. The variable value
 // is cast to an int and returned (the method fails if the value exists and is not a
 // valid int). Contacts the global variable server *synchronously*

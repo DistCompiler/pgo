@@ -114,6 +114,13 @@ public class PGoTransStageGoGen {
 			Vector<Statement> stmts = convertStatementToGo(block);
 			main.addAll(stmts);
 		}
+
+		// remote state requires initialization, which requires a random process
+		// identifier to be generated when acquiring the lock
+		if (hasRemoteState()) {
+			go.getImports().addImport("math/rand");
+		}
+
 		// if we use math/rand we also need to set a seed
 		if (go.getImports().containsPackage("math/rand")) {
 			go.getImports().addImport("time");
@@ -224,7 +231,7 @@ public class PGoTransStageGoGen {
 								add(new Token("selfStr"));
 								add(new Token("\"" + ((Integer) lockGroup).toString() + "\""));
 							}
-						}, new Token("globalState")));
+						}, new Token(GLOBAL_STATE_OBJECT)));
 					} else {
 						SimpleExpression lock = new SimpleExpression(new Vector<Expression>() {
 							{
@@ -248,7 +255,7 @@ public class PGoTransStageGoGen {
 								add(new Token("selfStr"));
 								add(new Token("\"" + ((Integer) curLockGroup).toString() + "\""));
 							}
-						}, new Token("globalState")));
+						}, new Token(GLOBAL_STATE_OBJECT)));
 					} else {
 						SimpleExpression lock = new SimpleExpression(new Vector<Expression>() {
 							{
@@ -884,8 +891,8 @@ public class PGoTransStageGoGen {
 						}
 					}));
 				} else {
-				    throw new PGoTransException("Unsupported argument type " + pf.getParams().get(0).getType() +
-                            " for process " + pf.getName(), pf.getLine());
+					throw new PGoTransException("Unsupported argument type " + pf.getParams().get(0).getType() +
+							" for process " + pf.getName(), pf.getLine());
 				}
 			}
 
@@ -1166,6 +1173,36 @@ public class PGoTransStageGoGen {
 		}
 	}
 
+	// given a remote, global variable declaration, this generates code to initialize
+	// it with a proper value. Since multiple processes might be running at the same
+	// time, initialization must be made only once. This is achieved by making use
+	// of the locking functionality available in the `pgonet' package.
+	private Statement initializeGlobalVariable(VariableDeclaration decl) {
+		Vector<Expression> params = new Vector<Expression>() {
+			{
+				add(new Token("\"" + decl.getName() + "\""));
+				add(decl.getDefaultValue());
+			}
+		};
+		FunctionCall setVar = new FunctionCall("Set", params, new Token(GLOBAL_STATE_OBJECT));
+		Vector<Statement> ifBody = new Vector<Statement>() {
+			{
+			    add(setVar);
+			}
+		};
+
+		Vector<Expression> existsParams = new Vector<Expression>() {
+			{
+			    add(new Token("\"" + decl.getName() + "\""));
+			}
+		};
+		Expression cond = new FunctionCall("Exists", existsParams, new Token(GLOBAL_STATE_OBJECT));
+		pgo.model.golang.If existenceIf = new pgo.model.golang.If(cond, ifBody, new Vector<>());
+		existenceIf.negate();
+
+		return existenceIf;
+	}
+
 	// generates initialization code for the remote global state management.
 	// Uses `pgonet' package functions. Generated code code looks like:
 	//
@@ -1280,7 +1317,74 @@ public class PGoTransStageGoGen {
 		};
 
 		pgo.model.golang.If errIf = new pgo.model.golang.If(cond, ifBody, new Vector<>());
-		topLevelMain.add(idx, errIf);
+		topLevelMain.add(idx++, errIf);
+
+		boolean initLockInserted = false;
+		String initLockGroup = "init-lock";
+		String pidVarName = "lockId";
+		Vector<Expression> strconvParams = new Vector<Expression>() {
+			{
+				add(new Token(pidVarName));
+			}
+		};
+
+		for (VariableDeclaration gVar : go.getGlobals()) {
+			if (!gVar.isRemote()) {
+				continue;
+			}
+
+			go.getImports().addImport("strconv");
+			if (!initLockInserted) {
+				// A lock must be acquired in order to make sure only one process
+				// initializes global variables with their default values.
+				//
+				// Since processes have no identifiers at this point (before parsing
+				// arguments passed on the command line), we generate a random identifier
+				// and use it when trying to get the lock. However, there is still a
+				// slight chance of very bad luck where two processes happen to get
+				// the same random ID and race to get the lock.
+				int maxProcesses = 10000;
+
+				Vector<Expression> randParams = new Vector<Expression>() {
+					{
+						add(new Token(((Integer) maxProcesses).toString()));
+					}
+				};
+
+				Assignment pidDecl = new Assignment(
+						new Vector<String>() {
+							{
+								add(pidVarName);
+							}
+						},
+						new FunctionCall("rand.Intn", randParams),
+						true
+				);
+				FunctionCall lock = new FunctionCall("Lock", new Vector<Expression>() {
+					{
+						add(new FunctionCall("strconv.Itoa", strconvParams));
+						add(new Token("\"" + initLockGroup + "\""));
+					}
+				}, new Token(GLOBAL_STATE_OBJECT));
+
+				topLevelMain.add(idx++, pidDecl);
+				topLevelMain.add(idx++, lock);
+				initLockInserted = true;
+			}
+
+			topLevelMain.add(idx++, initializeGlobalVariable(gVar));
+		}
+
+		if (initLockInserted) {
+			FunctionCall lock = new FunctionCall("Unlock", new Vector<Expression>() {
+				{
+					add(new FunctionCall("strconv.Itoa", strconvParams));
+					add(new Token("\"" + initLockGroup + "\""));
+				}
+			}, new Token(GLOBAL_STATE_OBJECT));
+
+			topLevelMain.add(idx, lock);
+		}
 	}
 
 	private void addFlagArgToMain(PGoVariable pv) throws PGoTransException {
