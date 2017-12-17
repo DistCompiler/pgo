@@ -189,6 +189,11 @@ public class PGoNetOptions {
 
 		try {
 			JSONObject netConfig = config.getJSONObject(NETWORKING_FIELD);
+			if (!netConfig.getBoolean("enabled")) {
+				enabled = false;
+				return;
+			}
+
 			JSONObject stateConfig = netConfig.getJSONObject(STATE_FIELD);
 			JSONArray channelsConfig = new JSONArray();
 			int i;
@@ -198,11 +203,6 @@ public class PGoNetOptions {
 			// via global variables
 			if (netConfig.has(CHANNELS_FIELD)) {
 				channelsConfig = netConfig.getJSONArray(CHANNELS_FIELD);
-			}
-
-			if (!netConfig.getBoolean("enabled")) {
-				enabled = false;
-				return;
 			}
 
 			enabled = true;
