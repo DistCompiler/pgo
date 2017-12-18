@@ -1,8 +1,6 @@
 package pgo.trans.intermediate;
 
-import java.util.Collection;
-import java.util.Map;
-import java.util.Vector;
+import java.util.*;
 import java.util.logging.Logger;
 
 import pcal.AST;
@@ -216,6 +214,63 @@ public class PGoTransStageGoGen {
 			// the current lock group we are in (-1 if no lock)
 			int curLockGroup = -1;
 
+			private void fetchDataForCurrentLockGroup() {
+				if (curLockGroup < 0) {
+					return;
+				}
+				for (PGoVariable var : data.globals.values()) {
+				    if (var.getLockGroup() != curLockGroup) {
+						continue;
+					}
+					result.add(new Assignment(
+							new Vector<String>(){
+								{
+									add(var.getName());
+								}
+							},
+							new Expression() {
+								@Override
+								public Vector<String> toGo() {
+									return new VariableReference(var.getName(), var, false).toGo();
+								}
+							},
+							false));
+				    data.cachedVarSet.add(var);
+				}
+			}
+
+			private void pushDataForCurrentLockGroup() {
+				if (curLockGroup < 0) {
+					return;
+				}
+				for (PGoVariable var : data.globals.values()) {
+					if (var.getLockGroup() != curLockGroup) {
+						continue;
+					}
+					Vector<Expression> params = new Vector<>();
+					params.add(new Expression() {
+						@Override
+						public Vector<String> toGo() {
+							Vector<String> list = new Vector<>();
+							list.add("\"" + var.getName() + "\"");
+							return list;
+						}
+					});
+					params.add(new Expression() {
+						@Override
+						public Vector<String> toGo() {
+							return new Vector<String>(){
+								{
+									add(var.getName());
+								}
+							};
+						}
+					});
+					result.add(new FunctionCall("Set", params, new Token(GLOBAL_STATE_OBJECT)));
+					data.cachedVarSet.remove(var);
+				}
+			}
+
 			// Add a statement to lock, if we need thread safety
 			private void lock() {
 				if (data.needsLock) {
@@ -225,6 +280,7 @@ public class PGoTransStageGoGen {
 					if (lockGroup == -1) {
 						return;
 					}
+					curLockGroup = lockGroup;
 					if (data.netOpts.isEnabled()) {
 						result.add(new FunctionCall("Lock", new Vector<Expression>() {
 							{
@@ -232,6 +288,7 @@ public class PGoTransStageGoGen {
 								add(new Token("\"" + ((Integer) lockGroup).toString() + "\""));
 							}
 						}, new Token(GLOBAL_STATE_OBJECT)));
+						fetchDataForCurrentLockGroup();
 					} else {
 						SimpleExpression lock = new SimpleExpression(new Vector<Expression>() {
 							{
@@ -243,13 +300,13 @@ public class PGoTransStageGoGen {
 						});
 						result.add(new FunctionCall("Lock", new Vector<>(), lock));
 					}
-					curLockGroup = lockGroup;
 				}
 			}
 
 			private void unlock() {
 				if (curLockGroup != -1 && data.needsLock) {
 					if (data.netOpts.isEnabled()) {
+						pushDataForCurrentLockGroup();
 						result.add(new FunctionCall("Unlock", new Vector<Expression>() {
 							{
 								add(new Token("selfStr"));
@@ -471,11 +528,8 @@ public class PGoTransStageGoGen {
 					// the lhs is a simple variable
 					PGoVariable var = data.findPGoVariable(sa.lhs.var);
 
-					if (var.isRemote()) {
+					if (var.isRemote() && !data.cachedVarSet.contains(var)) {
 						// assigning to a global, remote variable (managed by etcd)
-
-						go.getImports().addImport("pgonet");
-
 						Vector<Expression> params = new Vector<>();
 						params.add(new Expression() {
 							@Override
@@ -720,7 +774,7 @@ public class PGoTransStageGoGen {
 				// unlocked, but the rest of the ast we are walking is still
 				// locked
 				curLockGroup = oldLockGroup;
-				result.add(new pgo.model.golang.GoTo(g.to));
+				result.add(new GoTo(g.to));
 				assert (go.isLabelUsed(g.to));
 			}
 
@@ -1219,6 +1273,7 @@ public class PGoTransStageGoGen {
 		if (!hasRemoteState()) {
 			return;
 		}
+		go.getImports().addImport("pgonet");
 		Vector<Statement> topLevelMain = go.getMain().getBody();
 		String configObj = "cfg";
 		int idx = 1;

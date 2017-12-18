@@ -48,6 +48,9 @@ class PGoTransIntermediateData {
 	// The TLA function definitions
 	LinkedHashMap<String, PGoTLADefinition> defns;
 
+	// This tracks which remote variables are cached locally for processing
+	public HashSet<PGoVariable> cachedVarSet;
+
 	// Contains information for builtin TLA funcs like Len (length of tuple).
 	private static final LinkedHashMap<String, PGoLibFunction> libFuncs = new LinkedHashMap<String, PGoLibFunction>() {
 		{
@@ -163,6 +166,7 @@ class PGoTransIntermediateData {
 		this.tlaToAST = new HashMap<>();
 		this.labToLockGroup = new HashMap<>();
 		this.numLockGroups = 0;
+		this.cachedVarSet = new HashSet<>();
 
 	}
 

@@ -1,11 +1,7 @@
 package pgo.trans.intermediate;
 
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.Vector;
+import java.util.*;
 
-import pgo.PGoNetOptions;
 import pgo.model.intermediate.PGoFunction;
 import pgo.model.intermediate.PGoLibFunction;
 import pgo.model.intermediate.PGoType;
@@ -51,6 +47,7 @@ public class PGoTempData extends PGoTransIntermediateData {
 		numLockGroups = data.numLockGroups;
 		locals = new LinkedHashMap<>();
 		netOpts = data.netOpts;
+		cachedVarSet = new HashSet<>(data.cachedVarSet);
 	}
 
 	// Clone the data passed in.
@@ -71,6 +68,7 @@ public class PGoTempData extends PGoTransIntermediateData {
 		numLockGroups = data.numLockGroups;
 		locals = new LinkedHashMap<>(data.getLocals());
 		netOpts = data.netOpts;
+		cachedVarSet = new HashSet<>(data.cachedVarSet);
 	}
 
 	public Map<String, PGoVariable> getLocals() {

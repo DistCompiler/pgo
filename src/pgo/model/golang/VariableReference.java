@@ -27,9 +27,13 @@ public class VariableReference extends Statement {
 	// the reference to the variable (might not exist when declaring a local variable)
 	private PGoVariable var;
 
-	public VariableReference(String name, PGoVariable var) {
+	// whether this variable is cached locally
+	private boolean cachedLocally;
+
+	public VariableReference(String name, PGoVariable var, boolean isCachedLocally) {
 		this.name = name;
 		this.var = var;
+		this.cachedLocally = isCachedLocally;
 	}
 
 	@Override
@@ -47,7 +51,7 @@ public class VariableReference extends Statement {
 
 		// if the variable is remote, generate the corresponding call to the global
 		// state manager to retrieve the variable name
-		if (var.isRemote()) {
+		if (var.isRemote() && !cachedLocally) {
 			if (var.getType() instanceof PGoPrimitiveType.PGoInt)
 				fn = "GetInt";
 

@@ -688,7 +688,8 @@ public class TLAExprToGo {
 		return new Expression() {
 			@Override
 			public Vector<String> toGo() {
-				return new VariableReference(tla.getName(), data.findPGoVariable(tla.getName())).toGo();
+				PGoVariable var = data.findPGoVariable(tla.getName());
+				return new VariableReference(var.getName(), var, data.cachedVarSet.contains(var)).toGo();
 			}
 		};
 	}

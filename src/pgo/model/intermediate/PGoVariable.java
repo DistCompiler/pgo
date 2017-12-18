@@ -258,9 +258,4 @@ public class PGoVariable {
 		PGoVariable o = (PGoVariable) other;
 		return getName().equals(o.getName());
 	}
-
-	@Override
-	public int hashCode() {
-		return getName().hashCode();
-	}
 }
