@@ -3,7 +3,7 @@ EXTENDS Naturals, TLC
 CONSTANT N
 
 (*
---algorithm FastMutex { 
+--algorithm FastMutex {
   variables x,
             y = 0,
             b = [i \in 1..N |-> FALSE];
@@ -15,34 +15,34 @@ CONSTANT N
 
     start:   b[self] := TRUE;
       s01:   x := self;
-       
+
       s02:   if (y # 0) {
       s03:     b[self] := FALSE;
-      s04:     await y = 0; 
+      s04:     await y = 0;
                goto start;
              };
-             
+
       s05:   y := self;
       s06:   if (x # self) {
-      s07:     b[self] := FALSE; 
+      s07:     b[self] := FALSE;
                j := 1;
-               
+
       s08:     while (j <= N) {
                  await ~b[j];
                  j := j+1; \* change to j+2 to see a violation of the assertion below
                };
-               
-      s09:     if (y # self) {  
-      s10:       await y = 0; 
+
+      s09:     if (y # self) {
+      s10:       await y = 0;
                  goto start;
                };
              };
-       
+
        cs:   assert \A idx \in 1..N : (idx # self) => (pc[idx] # "cs"); \* critical section
       s11:   y := 0;
-      s12:   b[self] := FALSE;       
+      s12:   b[self] := FALSE;
            } \* end outer while
-                 
+
   } \* end process block
 } \* end algorithm
 *)
