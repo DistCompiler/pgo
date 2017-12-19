@@ -51,6 +51,12 @@ public class VariableReference extends Statement {
 
 		// if the variable is remote, generate the corresponding call to the global
 		// state manager to retrieve the variable name
+		//
+		// we only issue a call to the state manager in case the variable is not
+		// `cachedLocally' -- in that case, variable access is happening inside
+		// a distributed lock, and the state of the variables will be pushed to
+		// the state manager once the lock is released (i.e., implementing
+		// something similar to transaction semantics)
 		if (var.isRemote() && !cachedLocally) {
 			if (var.getType() instanceof PGoPrimitiveType.PGoInt)
 				fn = "GetInt";
