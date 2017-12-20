@@ -9,7 +9,7 @@ CONSTANT N
       @PGo{ var v_init int }@PGo
   **)
   variables u = 24;
-            v \in 1 .. N; 
+            v \in 1 .. N;
             v_init = v;
   {
     while (u # 0) {

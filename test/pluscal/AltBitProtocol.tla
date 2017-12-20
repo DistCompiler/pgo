@@ -11,7 +11,7 @@ Remove(i, seq) == [j \in 1..(Len(seq)-1) |-> IF j < i THEN seq[j] ELSE seq[j+1]]
 
 (*
 --algorithm AltBitProtocol {
-  variables 
+  variables
     input = <<>>, output = <<>>,
     msgChan = <<>>, ackChan = <<>>,
     newChan = <<>>;
@@ -25,7 +25,7 @@ Remove(i, seq) == [j \in 1..(Len(seq)-1) |-> IF j < i THEN seq[j] ELSE seq[j+1]]
     v := Head(chan);
     chan := Tail(chan);
   }
-   
+
   process (Sender = "S")
     variables next = 1, sbit = 0, ack;
   {
@@ -48,7 +48,7 @@ Remove(i, seq) == [j \in 1..(Len(seq)-1) |-> IF j < i THEN seq[j] ELSE seq[j+1]]
       }
   }; \* end Sender process block
 
-  process (Receiver = "R") 
+  process (Receiver = "R")
     variables rbit = 1, msg;
   {
   r:  while (TRUE) {
@@ -71,17 +71,17 @@ Remove(i, seq) == [j \in 1..(Len(seq)-1) |-> IF j < i THEN seq[j] ELSE seq[j+1]]
         } or with (i \in 1..Len(ackChan)) {
           ackChan := Remove(i, ackChan);
         };
-      }  
+      }
   }; \* end LoseMsg process block
 
 } \* end algorithm
-*)    
+*)
 \* BEGIN TRANSLATION
 CONSTANT defaultInitValue
-VARIABLES input, output, msgChan, ackChan, newChan, next, sbit, ack, rbit, 
+VARIABLES input, output, msgChan, ackChan, newChan, next, sbit, ack, rbit,
           msg
 
-vars == << input, output, msgChan, ackChan, newChan, next, sbit, ack, rbit, 
+vars == << input, output, msgChan, ackChan, newChan, next, sbit, ack, rbit,
            msg >>
 
 ProcSet == {"S"} \cup {"R"} \cup {"L"}

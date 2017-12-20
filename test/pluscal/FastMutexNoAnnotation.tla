@@ -131,7 +131,7 @@ s10(self) == /\ pc[self] = "s10"
              /\ UNCHANGED << x, y, b, j >>
 
 cs(self) == /\ pc[self] = "cs"
-            /\ Assert(\A idx \in 1..N : (idx # self) => (pc[idx] # "cs"), 
+            /\ Assert(\A idx \in 1..N : (idx # self) => (pc[idx] # "cs"),
                       "Failure of assertion at line 41, column 14.")
             /\ pc' = [pc EXCEPT ![self] = "s11"]
             /\ UNCHANGED << x, y, b, j >>

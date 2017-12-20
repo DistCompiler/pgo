@@ -7,7 +7,7 @@ EXTENDS Naturals, TLC
         @PGo{ var restaurant_stage map[String]String }@PGo **)
     managers = {"bob", "chuck", "dave", "everett", "fred"};
     restaurant_stage = [mgr \in managers |-> "start"];
-  
+
   (** @PGo{ func void SetAll() string Set[string] }@PGo **)
   macro SetAll(state, kmgrs) {
     while (kmgrs # {}) {
@@ -17,35 +17,35 @@ EXTENDS Naturals, TLC
        };
     };
   }
-    
+
   process (Restaurant \in managers)
   {
     c0: await restaurant_stage[self] = "propose";
-    
+
         either {
           restaurant_stage[self] := "accept";
         } or {
-          restaurant_stage[self] := "refuse";    
+          restaurant_stage[self] := "refuse";
         };
-    
+
     c1: await (restaurant_stage[self] = "commit") \/
               (restaurant_stage[self] = "abort");
-    
+
         if (restaurant_stage[self] = "commit") {
           restaurant_stage[self] := "committed";
         } else {
-          restaurant_stage[self] := "aborted";          
-        };        
+          restaurant_stage[self] := "aborted";
+        };
   }; \* end Restaurant process block
 
   process (Controller = "alice")
     (** @PGo{ var rstMgrs Set[string] }@PGo  @PGo{ var aborted bool }@PGo  **)
-    variables rstMgrs, aborted = FALSE;    
-  {  
+    variables rstMgrs, aborted = FALSE;
+  {
     n0: rstMgrs := managers;
     n1: SetAll("propose", rstMgrs);
         rstMgrs := managers;  \* reassign, since SetAll modified the original rstMgrs set
-        
+
     n3: while (rstMgrs # {}) {
           with (r \in rstMgrs) {
             await (restaurant_stage[r] = "accept") \/ (restaurant_stage[r] = "refuse");
@@ -55,20 +55,20 @@ EXTENDS Naturals, TLC
             rstMgrs := rstMgrs \ {r};
           };
         };
-        
+
         rstMgrs := managers;
         if (aborted = TRUE) {
     n4:   SetAll("abort", rstMgrs);
         } else {
           \* MP addition
    nck:   assert \A rstMgr \in rstMgrs : (restaurant_stage[rstMgr] = "accept");
-          \* END MP addition        
+          \* END MP addition
     n5:    SetAll("commit", rstMgrs);
         };
   } \* end Controller process block
 
 } \* end algorithm
-*)    
+*)
 \* BEGIN TRANSLATION
 CONSTANT defaultInitValue
 VARIABLES managers, restaurant_stage, pc, rstMgrs, aborted
@@ -148,7 +148,7 @@ n4 == /\ pc["alice"] = "n4"
       /\ UNCHANGED << managers, aborted >>
 
 nck == /\ pc["alice"] = "nck"
-       /\ Assert(\A rstMgr \in rstMgrs : (restaurant_stage[rstMgr] = "accept"), 
+       /\ Assert(\A rstMgr \in rstMgrs : (restaurant_stage[rstMgr] = "accept"),
                  "Failure of assertion at line 60, column 11.")
        /\ pc' = [pc EXCEPT !["alice"] = "n5"]
        /\ UNCHANGED << managers, restaurant_stage, rstMgrs, aborted >>
