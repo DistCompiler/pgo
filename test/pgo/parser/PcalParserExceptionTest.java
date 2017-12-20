@@ -28,7 +28,7 @@ public class PcalParserExceptionTest extends PGoPluscalTesterBase {
 	}
 
 	@Parameterized.Parameters
-	public static Collection primeNumbers() {
+	public static Collection testCases() {
 		return Arrays.asList(new Object[][] { { "AnnotationNoEndNewLineCommentLine", 6 },
 				{ "AnnotationNoEndNewLineCommentBlock", 14 }, { "AnnotationNoEndBlockCommentEnd", 7 },
 				{ "AnnotationNoEndTokenWrong1", 15 }, { "AnnotationNoEndTokenWrong2", 11 },

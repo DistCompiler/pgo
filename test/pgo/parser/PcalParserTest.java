@@ -25,10 +25,9 @@ public class PcalParserTest {
 	}
 
 	@Parameterized.Parameters
-	public static Collection primeNumbers() {
+	public static Collection testSpecifications() {
 		return Arrays.asList(new Object[][] { { new AnnotationTestParserTester() }, { new EuclidPluscalParserTester() },
-				{ new EuclidNoAnnotationPluscalParserTester() }, { new FastMutexPluscalParserTester() },
-				{ new FastMutexNoAnnotationPluscalParserTester() }, { new QueensPluscalParserTester() },
+				{ new EuclidNoAnnotationPluscalParserTester() }, { new QueensPluscalParserTester() },
 				{ new SumParserTester() }, { new SumNoTypeAnnotationParserTester() },
 				{ new TwoPhaseCommitParserTester() }, { new TwoPhaseCommitNoTypeAnnotationParserTester() } });
 	}

@@ -35,10 +35,9 @@ public class PGoTransStageTypeTest {
 	}
 
 	@Parameterized.Parameters
-	public static Collection primeNumbers() {
+	public static Collection testSpecifications() {
 		return Arrays.asList(new Object[][] { { new EuclidIntermediateTester() },
-				{ new QueensPluscalIntermediateTester() }, { new SumIntermediateTester() },
-				{ new TwoPhaseCommitIntermediateTester() } });
+				{ new QueensPluscalIntermediateTester() } });
 	}
 
 	@Before

@@ -28,7 +28,7 @@ public class QueensPluscalParserTester extends PGoPluscalParserTesterBase {
 				+ "                \\/ queens[i] - queens[j] = i - j         \\** first diagonal\n"
 				+ "                \\/ queens[j] - queens[i] = i - j         \\** second diagonal", 51));
 		v.add(new PGoAnnotation("def IsSolution(queens []int) ==\n"
-				+ "                \\A i \\in 1 .. Len(queens)-1 : \\A j \\in i+1 .. Len(queens) : \n"
+				+ "                \\A i \\in 1 .. Len(queens)-1 : \\A j \\in i+1 .. Len(queens) :\n"
 				+ "                ~ Attacks(queens,i,j)", 54));
 		v.add(new PGoAnnotation("var queens []int", 62));
 		v.add(new PGoAnnotation("var nxtQ int", 63));
