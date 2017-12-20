@@ -6,7 +6,6 @@ import pcal.AST.*;
 import pcal.AST.Process;
 import pcal.TLAExpr;
 import pcal.TLAToken;
-import pgo.PGoNetOptions;
 import pgo.model.tla.PGoTLA;
 import pgo.parser.TLAExprParser;
 import pgo.trans.PGoTransException;
@@ -21,7 +20,6 @@ public class PGoTransStageTLAParse {
 
 	// contains the tlaToAST map which we populate
 	PGoTransIntermediateData data;
-	PGoNetOptions netOpts;
 
 	public PGoTransStageTLAParse(PGoTransStageInitParse s) throws PGoTransException {
 		this.data = s.data;
