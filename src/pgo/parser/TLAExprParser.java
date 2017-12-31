@@ -59,13 +59,13 @@ public class TLAExprParser {
 
 	private void init(int line) throws PGoTransException {
 		this.line = line;
-		ops = new Stack<TLAToken>();
-		exps = new Stack<PGoTLA>();
+		ops = new Stack<>();
+		exps = new Stack<>();
 
-		tokens = new Vector<TLAToken>();
+		tokens = new Vector<>();
 		cur = 0;
 		resultRow = 0;
-		result = new Vector<PGoTLA>();
+		result = new Vector<>();
 	}
 
 	private void parse() throws PGoTransException {

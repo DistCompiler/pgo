@@ -37,7 +37,7 @@ public class PGoPrimitiveTypeTest {
 	}
 
 	@Parameterized.Parameters
-	public static Collection primeNumbers() {
+	public static Collection testCases() {
 		return Arrays.asList(new Object[][] { { "int", new PGoInt() }, { "integer", new PGoInt() },
 				{ "float64", new PGoDecimal() }, { "decimal", new PGoDecimal() }, { "natural", new PGoNatural() },
 				{ "uint64", new PGoNatural() }, { "bool", new PGoBool() }, { "boolean", new PGoBool() },

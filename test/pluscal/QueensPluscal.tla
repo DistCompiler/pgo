@@ -24,8 +24,8 @@ Attacks(queens,i,j) ==
 (* A placement represents a (partial) solution if no two different queens
    attack each other in it. *)
 IsSolution(queens) ==
-  \A i \in 1 .. Len(queens)-1 : \A j \in i+1 .. Len(queens) : 
-       ~ Attacks(queens,i,j) 
+  \A i \in 1 .. Len(queens)-1 : \A j \in i+1 .. Len(queens) :
+       ~ Attacks(queens,i,j)
 
 (* Compute the set of solutions of the N-queens problem. *)
 Solutions == { queens \in [1..N -> 1..N] : IsSolution(queens) }
@@ -50,7 +50,7 @@ Solutions == { queens \in [1..N -> 1..N] : IsSolution(queens) }
                 \/ queens[i] - queens[j] = i - j         \** first diagonal
                 \/ queens[j] - queens[i] = i - j         \** second diagonal }@PGo
           @PGo{ def IsSolution(queens []int) ==
-                \A i \in 1 .. Len(queens)-1 : \A j \in i+1 .. Len(queens) : 
+                \A i \in 1 .. Len(queens)-1 : \A j \in i+1 .. Len(queens) :
                 ~ Attacks(queens,i,j) }@PGo **)
      variables
        todo = { << >> };

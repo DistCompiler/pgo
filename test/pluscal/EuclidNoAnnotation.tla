@@ -4,8 +4,8 @@ CONSTANT N
 
 (*
 --algorithm Euclid {
-  variables u = 24; 
-            v \in 1 .. N; 
+  variables u = 24;
+            v \in 1 .. N;
             v_init = v;
   {
     while (u # 0) {

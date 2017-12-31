@@ -36,10 +36,9 @@ public class PGoTransStageAtomicityTest {
 	}
 
 	@Parameterized.Parameters
-	public static Collection primeNumbers() {
-		return Arrays.asList(new Object[][] { { new EuclidIntermediateTester() }, { new FastMutexIntermediateTester() },
-				{ new QueensPluscalIntermediateTester() }, { new SumIntermediateTester() },
-				{ new TwoPhaseCommitIntermediateTester() } });
+	public static Collection testSpecifications() {
+		return Arrays.asList(new Object[][] { { new EuclidIntermediateTester() },
+				{ new QueensPluscalIntermediateTester() } });
 	}
 
 	@Before

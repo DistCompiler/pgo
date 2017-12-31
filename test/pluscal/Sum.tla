@@ -24,34 +24,34 @@ macro Recv(to, id, msg) {
     id := Head(network[to])[1];
     msg := Head(network[to])[2];
     network[to] := Tail(network[to]);
-}    
+}
 
-process (Client \in 1..N) 
+process (Client \in 1..N)
   (** @PGo{ var a_init uint64 }@PGo
       @PGo{ var b_init uint64 }@PGo
       @PGo{ var runs uint64 }@PGo
       @PGo{ var Client.id uint64 }@PGo
       @PGo{ var Client.msg uint64 }@PGo
       @PGo{ var sum uint64 }@PGo
-  **)   
+  **)
   variable a_init, b_init, runs=0, id, msg, sum;
   {
     cl: while (runs < RUNS) {
       with (vala \in 1..MAXINT,
            valb \in 1..MAXINT) {
-         
+
         a_init := vala;
         b_init := valb;
       };
       runs := runs + 1;
-      cs:  
+      cs:
         SendTo(self, N+1, <<a_init,b_init>>);
       cr:
         Recv(self, id, msg);
         sum := msg;
       chk: skip;
         \* assert(sum = a_init - b_init);
-    }  
+    }
 }
 
 process (Server = N+1)
@@ -116,7 +116,7 @@ cl(self) == /\ pc[self] = "cl"
 cs(self) == /\ pc[self] = "cs"
             /\ network' = [network EXCEPT ![(N+1)] = Append(network[(N+1)], <<self, (<<a_init[self],b_init[self]>>)>>)]
             /\ pc' = [pc EXCEPT ![self] = "cr"]
-            /\ UNCHANGED << a_init, b_init, runs, id_, msg_, sum, a, b, id, 
+            /\ UNCHANGED << a_init, b_init, runs, id_, msg_, sum, a, b, id,
                             msg >>
 
 cr(self) == /\ pc[self] = "cr"
@@ -131,7 +131,7 @@ cr(self) == /\ pc[self] = "cr"
 chk(self) == /\ pc[self] = "chk"
              /\ TRUE
              /\ pc' = [pc EXCEPT ![self] = "cl"]
-             /\ UNCHANGED << network, a_init, b_init, runs, id_, msg_, sum, a, 
+             /\ UNCHANGED << network, a_init, b_init, runs, id_, msg_, sum, a,
                              b, id, msg >>
 
 Client(self) == cl(self) \/ cs(self) \/ cr(self) \/ chk(self)

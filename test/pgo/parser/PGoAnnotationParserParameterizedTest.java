@@ -38,11 +38,11 @@ public class PGoAnnotationParserParameterizedTest {
 	}
 
 	@Parameterized.Parameters
-	public static Collection primeNumbers() {
+	public static Collection testSpecifications() {
 		return Arrays
 				.asList(new Object[][] { { new EuclidPluscalParserTester() },
-						{ new FastMutexPluscalParserTester() }, { new QueensPluscalParserTester() },
-						{ new SumParserTester() }, { new TwoPhaseCommitParserTester() },
+						{ new QueensPluscalParserTester() }, { new SumParserTester() },
+						{ new TwoPhaseCommitParserTester() },
 				 });
 	}
 
