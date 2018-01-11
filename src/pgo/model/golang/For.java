@@ -18,6 +18,12 @@ public class For extends Statement {
 		this.then = then;
 	}
 
+	// an infinite loop in Go
+	public For(Vector<Statement> then) {
+		this.cond = null;
+		this.then = then;
+	}
+
 	public Expression getCond() {
 		return cond;
 	}
@@ -36,8 +42,8 @@ public class For extends Statement {
 
 	@Override
 	public Vector<String> toGo() {
-		Vector<String> ret = new Vector<String>();
-		Vector<String> conds = cond.toGo();
+		Vector<String> ret = new Vector<>();
+		Vector<String> conds = cond == null ? new Vector<>() : cond.toGo();
 		ret.add("for " + String.join("; ", conds) + " {");
 		addIndentedAST(ret, then);
 		ret.add("}");
