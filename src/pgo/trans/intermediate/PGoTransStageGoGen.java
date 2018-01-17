@@ -214,6 +214,24 @@ public class PGoTransStageGoGen {
 			// the current lock group we are in (-1 if no lock)
 			int curLockGroup = -1;
 
+			private void addVariablesToCache() {
+				for (PGoVariable var : data.globals.values()) {
+					if (var.getLockGroup() != curLockGroup) {
+						continue;
+					}
+					data.cachedVarSet.add(var);
+				}
+			}
+
+			private void removeVariablesFromCache() {
+				for (PGoVariable var : data.globals.values()) {
+					if (var.getLockGroup() != curLockGroup) {
+						continue;
+					}
+					data.cachedVarSet.remove(var);
+				}
+			}
+
 			private void fetchDataForCurrentLockGroup() {
 				if (curLockGroup < 0) {
 					return;
@@ -235,7 +253,6 @@ public class PGoTransStageGoGen {
 								}
 							},
 							false));
-				    data.cachedVarSet.add(var);
 				}
 			}
 
@@ -267,25 +284,36 @@ public class PGoTransStageGoGen {
 						}
 					});
 					result.add(new FunctionCall("Set", params, new Token(GLOBAL_STATE_OBJECT)));
-					data.cachedVarSet.remove(var);
 				}
+				removeVariablesFromCache();
 			}
 
-			// Add a statement to lock, if we need thread safety
-			private void lock() {
+			// DANGER: set lock group without generating lock code
+			// This is used in cases where we're still holding the lock in one code path but releasing it in another,
+			// e.g. in an await statement.
+			private void setLockGroup() throws PGoTransException {
 				if (data.needsLock) {
-					assert (curLockGroup == -1);
-					// find the lock group corresponding to the label
+					if (curLockGroup != -1) {
+						throw new PGoTransException("Nested lock or await/when statement is not first in a labelled block");
+					}
 					int lockGroup = data.labToLockGroup.get(curLabel);
 					if (lockGroup == -1) {
 						return;
 					}
 					curLockGroup = lockGroup;
+					addVariablesToCache();
+				}
+			}
+
+			// Add a statement to lock, if we need thread safety
+			private void lock() throws PGoTransException {
+				setLockGroup();
+				if (data.needsLock) {
 					if (data.netOpts.isEnabled()) {
 						result.add(new FunctionCall("Lock", new Vector<Expression>() {
 							{
 								add(new Token("selfStr"));
-								add(new Token("\"" + ((Integer) lockGroup).toString() + "\""));
+								add(new Token("\"" + ((Integer) curLockGroup).toString() + "\""));
 							}
 						}, new Token(GLOBAL_STATE_OBJECT)));
 						fetchDataForCurrentLockGroup();
@@ -294,7 +322,7 @@ public class PGoTransStageGoGen {
 							{
 								add(new Token("PGoLock"));
 								add(new Token("["));
-								add(new Token(((Integer) lockGroup).toString()));
+								add(new Token(((Integer) curLockGroup).toString()));
 								add(new Token("]"));
 							}
 						});
@@ -354,10 +382,10 @@ public class PGoTransStageGoGen {
 					result.add(new Label(ls.label));
 				}
 
-				// if the first statement is a while, we should lock on the
+				// if the first statement is a while or an await, we should lock on the
 				// loop interior
 				assert (!ls.stmts.isEmpty());
-				if (!(ls.stmts.get(0) instanceof While)) {
+				if (!(ls.stmts.get(0) instanceof While || ls.stmts.get(0) instanceof When)) {
 					lock();
 				}
 
@@ -650,9 +678,41 @@ public class PGoTransStageGoGen {
 				data = oldData;
 			}
 
+			/// An await statement
+			///     await exp;
+			/// is translated into the following
+			///     for {
+			///         lock
+			///         if exp {
+			///             break
+			///         }
+			///         unlock
+			///         yield
+			///     }
+			/// where yield is a call to invoke the Go runtime scheduler.
 			@Override
-			protected void visit(When when) {
-				// TODO handle await
+			protected void visit(When when) throws PGoTransException {
+				// we're about to enter an infinite loop so unlock for safety
+				unlock();
+				Vector<Statement> body = new Vector<>();
+				Vector<Statement> then = new Vector<Statement>() {
+					{
+						add(new Token("break"));
+					}
+				};
+				Vector<Statement> oldResult = result;
+				result = body;
+				lock();
+				body.add(new pgo.model.golang.If(TLAToGo(data.findPGoTLA(when.exp)), then, new Vector<>()));
+				unlock();
+				if (!data.netOpts.isEnabled()) {
+					go.getImports().addImport("runtime");
+					body.add(new FunctionCall("Gosched", new Vector<>(), new Token("runtime")));
+				}
+				result = oldResult;
+				result.add(new For(body));
+				// we're still holding the lock
+				setLockGroup();
 			}
 
 			@Override
