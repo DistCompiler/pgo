@@ -3,24 +3,14 @@ package pgo.lexer;
 import static org.junit.Assert.*;
 import static org.hamcrest.CoreMatchers.*;
 
-import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URL;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
-
-import tla2sany.modanalyzer.SpecObj;
-import tla2sany.semantic.AbortException;
-import tla2sany.semantic.Errors;
-import tla2sany.modanalyzer.ParseUnit;
-import util.NamedInputStream;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
