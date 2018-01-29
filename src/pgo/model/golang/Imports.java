@@ -55,15 +55,7 @@ public class Imports extends GoAST {
 	public void addImport(String pkg) {
 		importPkgs.add(pkg);
 	}
-	
-	public void addAllImports(Set<String> pkgs) {
-		importPkgs.addAll(pkgs);
-	}
 
-	public void removeImport(String pkg) {
-		importPkgs.remove(pkg);
-	}
-	
 	// Return whether pkg is imported by the program.
 	public boolean containsPackage(String pkg) {
 		return importPkgs.contains(pkg);
