@@ -1,6 +1,6 @@
-package pgonet
+package state
 
-// Implements the global state management API.
+// Implements centralized global state management API.
 //
 // Currently, PGo manages global state in a distributed environment by using the
 // `etcd' key-value store. The functions defined here wrap that behaviour by providing

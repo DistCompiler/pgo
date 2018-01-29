@@ -23,11 +23,11 @@ public abstract class PGoMiscellaneousType extends PGoType {
 	}
 
 	public static class PGoNetGlobalState extends PGoMiscellaneousType {
-		public PGoNetGlobalState() { this.goType = "*pgonet.GlobalState"; }
+		public PGoNetGlobalState() { this.goType = "*state.GlobalState"; }
 	}
 
 	public static class PGoNetGlobalsConfig extends PGoMiscellaneousType {
-		public PGoNetGlobalsConfig() { this.goType = "pgonet.GlobalsConfig"; }
+		public PGoNetGlobalsConfig() { this.goType = "globals.GlobalsConfig"; }
 	}
 
 	@Override
