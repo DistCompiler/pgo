@@ -20,8 +20,8 @@ public abstract class PGoMiscellaneousType extends PGoType {
 		}
 	}
 
-	public static class PGoNetGlobalState extends PGoMiscellaneousType {
-		public PGoNetGlobalState() { this.goType = "*pgonet.GlobalState"; }
+	public static class PGoNetCentralizedState extends PGoMiscellaneousType {
+		public PGoNetCentralizedState() { this.goType = "*pgonet.CentralizedState"; }
 	}
 
 	public static class PGoNetConfig extends PGoMiscellaneousType {
@@ -39,8 +39,8 @@ public abstract class PGoMiscellaneousType extends PGoType {
 			return new PGoWaitGroup();
 		case "sync.RWMutex":
 			return new PGoRWMutex();
-		case "pgonet.GlobalState":
-			return new PGoNetGlobalState();
+		case "pgonet.CentralizedState":
+			return new PGoNetCentralizedState();
 		case "pgonet.Config":
 			return new PGoNetConfig();
 		}

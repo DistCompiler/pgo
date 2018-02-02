@@ -15,7 +15,7 @@ import pgo.model.intermediate.PGoCollectionType.PGoSet;
 import pgo.model.intermediate.PGoCollectionType.PGoSlice;
 import pgo.model.intermediate.PGoCollectionType.PGoTuple;
 import pgo.model.intermediate.PGoMiscellaneousType.PGoWaitGroup;
-import pgo.model.intermediate.PGoMiscellaneousType.PGoNetGlobalState;
+import pgo.model.intermediate.PGoMiscellaneousType.PGoNetCentralizedState;
 import pgo.model.intermediate.PGoPrimitiveType.PGoBool;
 import pgo.model.intermediate.PGoPrimitiveType.PGoDecimal;
 import pgo.model.intermediate.PGoPrimitiveType.PGoInt;
@@ -130,7 +130,7 @@ public class PGoTransStageGoGen {
 			go.getMain().getBody().add(0, seed);
 		}
 
-		configureGlobalState();
+		configureCentralizedState();
 	}
 
 	private void generateArgParsing() throws PGoTransException {
@@ -1134,7 +1134,7 @@ public class PGoTransStageGoGen {
 		}
 
 		if (hasRemoteState()) {
-			VariableDeclaration stateDecl = new VariableDeclaration(GLOBAL_STATE_OBJECT, new PGoNetGlobalState(),
+			VariableDeclaration stateDecl = new VariableDeclaration(GLOBAL_STATE_OBJECT, new PGoNetCentralizedState(),
 					null, false, false, false);
 
 			go.addGlobal(stateDecl);
@@ -1329,7 +1329,7 @@ public class PGoTransStageGoGen {
 	// 		if err != nil {
 	// 			// handle error
 	// 		}
-	private void configureGlobalState() {
+	private void configureCentralizedState() {
 		if (!hasRemoteState()) {
 			return;
 		}

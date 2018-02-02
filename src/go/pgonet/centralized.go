@@ -65,7 +65,7 @@ const (
 
 // A reference to our global state, created via +InitGlobals+. Used in the
 // generated Go code to set and get the values of global variables.
-type GlobalState struct {
+type CentralizedState struct {
 	c  etcd.Client
 	kv etcd.KeysAPI
 }
@@ -83,9 +83,9 @@ type globalVariable struct {
 // strategy - that is, every request to global state is sent to the same server
 // (or collection of servers).
 //
-// Returns a reference to `pgonet.GlobalState' on success. Fails if we cannot
-// establish a connection to the etcd cluster.
-func InitGlobals(cfg *Config) (*GlobalState, error) {
+// Returns a reference to `pgonet.CentralizedState' on success. Fails if we
+// cannot establish a connection to the etcd cluster.
+func InitGlobals(cfg *Config) (*CentralizedState, error) {
 	etcdConfig := etcd.Config{
 		Endpoints:               cfg.Endpoints,
 		HeaderTimeoutPerRequest: time.Duration(cfg.Timeout) * time.Second,
@@ -96,7 +96,7 @@ func InitGlobals(cfg *Config) (*GlobalState, error) {
 		return nil, err
 	}
 
-	return &GlobalState{
+	return &CentralizedState{
 		c:  c,
 		kv: etcd.NewKeysAPI(c),
 	}, nil
@@ -104,7 +104,7 @@ func InitGlobals(cfg *Config) (*GlobalState, error) {
 
 // Sets variable `name' to a given `value'. Contacts the global variable server
 // *synchronously*
-func (self *GlobalState) Set(name string, value interface{}) {
+func (self *CentralizedState) Set(name string, value interface{}) {
 	switch val := value.(type) {
 	case int:
 		self.setInt(name, val)
@@ -122,7 +122,7 @@ func (self *GlobalState) Set(name string, value interface{}) {
 // indicates whether a variable with the given name was previously set.
 // Caller must hold a lock before invoking this function if behavior following
 // its return lies within a critical section
-func (self *GlobalState) Exists(name string) bool {
+func (self *CentralizedState) Exists(name string) bool {
 	_, err := self.kv.Get(context.Background(), prepareKey(name), nil)
 	if err != nil {
 		etcdErr := err.(etcd.Error)
@@ -139,7 +139,7 @@ func (self *GlobalState) Exists(name string) bool {
 // Gets the value associated with a variable with the given `name'. The variable value
 // is cast to an int and returned (the method fails if the value exists and is not a
 // valid int). Contacts the global variable server *synchronously*
-func (self *GlobalState) GetInt(name string) int {
+func (self *CentralizedState) GetInt(name string) int {
 	response, err := self.kv.Get(context.Background(), prepareKey(name), nil)
 	if err != nil {
 		panic(err)
@@ -155,7 +155,7 @@ func (self *GlobalState) GetInt(name string) int {
 
 // Returns a string representation of the value associated with the variable with the
 // given `name'.
-func (self *GlobalState) GetString(name string) string {
+func (self *CentralizedState) GetString(name string) string {
 	response, err := self.kv.Get(context.Background(), prepareKey(name), nil)
 	if err != nil {
 		panic(err)
@@ -171,7 +171,7 @@ func (self *GlobalState) GetString(name string) string {
 
 // Returns a collection of ints associated with the var of given `name'. The variable should
 // be previously set to a []int using pgonet.Set.
-func (self *GlobalState) GetIntCollection(name string) []int {
+func (self *CentralizedState) GetIntCollection(name string) []int {
 	response, err := self.kv.Get(context.Background(), prepareKey(name), nil)
 	if err != nil {
 		panic(err)
@@ -200,7 +200,7 @@ func (self *GlobalState) GetIntCollection(name string) []int {
 
 // Returns a collection of strings associated with the var of given `name'. The variable should
 // be previously set to a []string using pgonet.Set.
-func (self *GlobalState) GetStringCollection(name string) []string {
+func (self *CentralizedState) GetStringCollection(name string) []string {
 	response, err := self.kv.Get(context.Background(), prepareKey(name), nil)
 	if err != nil {
 		panic(err)
@@ -225,7 +225,7 @@ func (self *GlobalState) GetStringCollection(name string) []string {
 	return strCol
 }
 
-func (self *GlobalState) setInt(name string, value int) {
+func (self *CentralizedState) setInt(name string, value int) {
 	variable := globalVariable{
 		Value:        value,
 		Type:         TYPE_INT,
@@ -238,7 +238,7 @@ func (self *GlobalState) setInt(name string, value int) {
 	}
 }
 
-func (self *GlobalState) setString(name, value string) {
+func (self *CentralizedState) setString(name, value string) {
 	variable := globalVariable{
 		Value:        value,
 		Type:         TYPE_STRING,
@@ -251,7 +251,7 @@ func (self *GlobalState) setString(name, value string) {
 	}
 }
 
-func (self *GlobalState) setIntCol(name string, val []int) {
+func (self *CentralizedState) setIntCol(name string, val []int) {
 	variable := globalVariable{
 		Value:        val,
 		Type:         TYPE_INT,
@@ -264,7 +264,7 @@ func (self *GlobalState) setIntCol(name string, val []int) {
 	}
 }
 
-func (self *GlobalState) setStringCol(name string, val []string) {
+func (self *CentralizedState) setStringCol(name string, val []string) {
 	variable := globalVariable{
 		Value:        val,
 		Type:         TYPE_STRING,
@@ -277,7 +277,7 @@ func (self *GlobalState) setStringCol(name string, val []string) {
 	}
 }
 
-func (self *GlobalState) Lock(who, which string) error {
+func (self *CentralizedState) Lock(who, which string) error {
 	key := prepareLock(which)
 	for {
 		_, err := self.kv.Create(context.Background(), key, who)
@@ -291,7 +291,7 @@ func (self *GlobalState) Lock(who, which string) error {
 	}
 }
 
-func (self *GlobalState) Unlock(who, which string) error {
+func (self *CentralizedState) Unlock(who, which string) error {
 	_, err := self.kv.Delete(context.Background(), prepareLock(which), &etcd.DeleteOptions{
 		PrevValue: who,
 	})
