@@ -1320,7 +1320,7 @@ public class PGoTransStageGoGen {
 	// generates initialization code for the remote global state management.
 	// Uses `pgonet' package functions. Generated code code looks like:
 	//
-	// 		cfg := &GlobalsConfig{
+	// 		cfg := &Config{
 	//			Endpoints: []string{"10.0.0.1:1234", "10.0.0.2:1234"}, // based on networking options
 	// 			Timeout: 2, // based on networking options
 	// 		}
@@ -1347,7 +1347,7 @@ public class PGoTransStageGoGen {
 				new Expression() {
 					@Override
 					public Vector<String> toGo() {
-						StructDefinition sdef = new StructDefinition("pgonet.GlobalsConfig", true);
+						StructDefinition sdef = new StructDefinition("pgonet.Config", true);
 						sdef.addField("Endpoints", new Expression() {
 							@Override
 							public Vector<String> toGo() {

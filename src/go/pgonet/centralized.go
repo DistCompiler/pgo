@@ -14,7 +14,7 @@ package pgonet
 // 		"pgonet"
 // 	)
 //
-// 	config := &GlobalsConfig{
+// 	config := &Config{
 // 		Endpoints: []string{"10.0.0.1:1234", "10.0.0.2:1234"},
 // 		Timeout: 3,
 // 	}
@@ -63,12 +63,6 @@ const (
 	PGONET_LOCK_NAMESPACE = "/locks/"
 )
 
-// Specifies how to connect to our global state management
-type GlobalsConfig struct {
-	Endpoints []string // a list of etcd endpoints in the IP:PORT format
-	Timeout   int      // the timeout for each operation
-}
-
 // A reference to our global state, created via +InitGlobals+. Used in the
 // generated Go code to set and get the values of global variables.
 type GlobalState struct {
@@ -91,7 +85,7 @@ type globalVariable struct {
 //
 // Returns a reference to `pgonet.GlobalState' on success. Fails if we cannot
 // establish a connection to the etcd cluster.
-func InitGlobals(cfg *GlobalsConfig) (*GlobalState, error) {
+func InitGlobals(cfg *Config) (*GlobalState, error) {
 	etcdConfig := etcd.Config{
 		Endpoints:               cfg.Endpoints,
 		HeaderTimeoutPerRequest: time.Duration(cfg.Timeout) * time.Second,
