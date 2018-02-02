@@ -59,22 +59,6 @@ public class PGoTransStageType {
 		inferVariableTypes();
 
 		checkAllTyped();
-
-		// config sanitization
-		if (data.netOpts.isEnabled()) {
-			for (Map.Entry<String, PGoNetOptions.Channel> entry : data.netOpts.getChannels().entrySet()) {
-				PGoNetOptions.Channel channel = entry.getValue();
-				for (PGoNetOptions.Process p : channel.processes) {
-					PGoType type = this.data.funcs.get(p.name).getParam("self").getType();
-					if (type.equals(PGoPrimitiveType.INT) && p.arg instanceof ProcessStringArg) {
-						throw new PGoParseException("Argument for process " + p.name + " expected to be string, found int");
-					}
-					if (type.equals(PGoPrimitiveType.STRING) && p.arg instanceof ProcessIntArg) {
-						throw new PGoParseException("Argument for process " + p.name + " expected to be int, found string");
-					}
-				}
-			}
-		}
 	}
 
 	/**

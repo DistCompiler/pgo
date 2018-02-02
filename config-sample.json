@@ -8,28 +8,8 @@
 
     "state": {
       "strategy": "centralized",
-      "hosts": ["10.0.0.1"],
+      "endpoints": ["10.0.0.1"],
       "timeout": 2
-    },
-
-    "channels": [
-      {
-        "name": "msgC",
-        "processes": [
-          {
-            "id": "S(Sender)",
-            "role": "sender",
-            "host": "10.0.0.2",
-            "port": 5432
-          },
-          {
-            "id": "R(Receiver)",
-            "role": "receiver",
-            "host": "10.0.0.3",
-            "port": 3333
-          }
-        ]
-      }
-    ]
+    }
   }
 }

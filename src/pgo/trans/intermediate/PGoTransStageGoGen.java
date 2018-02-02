@@ -1352,7 +1352,7 @@ public class PGoTransStageGoGen {
 							@Override
 							public Vector<String> toGo() {
 								Vector<String> endpoints = new Vector<>();
-								for (String h : data.netOpts.getStateOptions().hosts) {
+								for (String h : data.netOpts.getStateOptions().endpoints) {
 									endpoints.add(String.format("\"http://%s\"", h));
 								}
 
