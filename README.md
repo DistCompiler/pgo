@@ -1,3 +1,5 @@
+# This project has relocated to github: https://github.com/UBC-NSS/pgo #
+
 # PGo #
 
 PGo is a source to source compiler to compile
@@ -85,4 +87,7 @@ assertions as a default for all projects, go to Window -> Preferences
 ## Usage Documentation
 
 For more details, see `manual.pdf` in the repository.
+
+# This project has relocated to github: https://github.com/UBC-NSS/pgo #
+
 
