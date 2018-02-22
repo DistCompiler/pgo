@@ -24,7 +24,7 @@ import pgo.model.parser.AnnotatedReturnVariable;
 import pgo.model.parser.AnnotatedTLADefinition;
 import pgo.model.parser.AnnotatedVariable;
 import pgo.model.parser.AnnotatedVariable.VarAnnotatedVariable;
-import pgo.model.tla.PGoTLA;
+import pgo.model.tla.PGoTLAExpression;
 import pgo.model.tla.PGoTLADefinition;
 import pgo.model.tla.PGoTLAFunctionCall;
 import pgo.model.tla.PGoTLANumber;
@@ -190,7 +190,7 @@ public class PGoTransStageType {
 			if (d.getParams().isEmpty()) {
 				PGoVariable var = PGoVariable.convert(d, new PGoTempData(data));
 				this.data.globals.put(var.getName(), var);
-				Vector<PGoTLA> ptla = new TLAExprParser(d.getExpr(), d.getLine()).getResult();
+				Vector<PGoTLAExpression> ptla = new TLAExprParser(d.getExpr(), d.getLine()).getResult();
 				assert (ptla.size() == 1);
 				this.data.putPGoTLA(d.getExpr(), ptla.get(0));
 			} else {
@@ -220,7 +220,7 @@ public class PGoTransStageType {
 			@Override
 			protected void visit(Process p) throws PGoTransException {
 				// infer the type of the process id
-				PGoTLA tla = data.findPGoTLA(p.id);
+				PGoTLAExpression tla = data.findPGoTLA(p.id);
 				PGoFunction fun = data.findPGoFunction(p.name);
 				PGoVariable pId = fun.getParam(PGoVariable.processIdArg().getName());
 
@@ -276,7 +276,7 @@ public class PGoTransStageType {
 
 			@Override
 			protected void visit(VarDecl a) throws PGoTransException {
-				PGoTLA tla = data.findPGoTLA(a.val);
+				PGoTLAExpression tla = data.findPGoTLA(a.val);
 				PGoVariable var = data.findPGoVariable(a.var);
 				PGoType type;
 				if (a.isEq) {
@@ -319,7 +319,7 @@ public class PGoTransStageType {
 
 			@Override
 			protected void visit(SingleAssign sa) throws PGoTransException {
-				PGoTLA tla = data.findPGoTLA(sa.rhs);
+				PGoTLAExpression tla = data.findPGoTLA(sa.rhs);
 				PGoVariable var = data.findPGoVariable(sa.lhs.var);
 				PGoType type;
 				if (sa.lhs.sub.tokens.isEmpty()) {
@@ -348,7 +348,7 @@ public class PGoTransStageType {
 					// the sub is [expr, expr...] (map/array access) or
 					// .<name> for a record field
 
-					PGoTLA ptla = data.findPGoTLA(sa.lhs.sub);
+					PGoTLAExpression ptla = data.findPGoTLA(sa.lhs.sub);
 					// TODO handle record fields
 					PGoTLAFunctionCall fc = (PGoTLAFunctionCall) ptla;
 
@@ -409,7 +409,7 @@ public class PGoTransStageType {
 
 						// we should also try to infer the key type
 						Vector<PGoType> key = new Vector<>();
-						for (PGoTLA param : fc.getParams()) {
+						for (PGoTLAExpression param : fc.getParams()) {
 							key.add(new TLAExprToType(param, new PGoTempData(data), false).getType());
 						}
 

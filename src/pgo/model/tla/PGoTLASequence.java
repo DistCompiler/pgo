@@ -10,23 +10,23 @@ import pgo.trans.PGoTransException;
  * Represents a sequence "a .. b" in TLA
  *
  */
-public class PGoTLASequence extends PGoTLA {
+public class PGoTLASequence extends PGoTLAExpression {
 
-	private PGoTLA start;
+	private PGoTLAExpression start;
 
-	private PGoTLA end;
+	private PGoTLAExpression end;
 
-	public PGoTLASequence(PGoTLA prev, PGoTLA next, int line) {
+	public PGoTLASequence(PGoTLAExpression prev, PGoTLAExpression next, int line) {
 		super(line);
 		start = prev;
 		end = next;
 	}
 
-	public PGoTLA getStart() {
+	public PGoTLAExpression getStart() {
 		return start;
 	}
 
-	public PGoTLA getEnd() {
+	public PGoTLAExpression getEnd() {
 		return end;
 	}
 	

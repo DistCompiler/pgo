@@ -18,20 +18,20 @@ import pgo.trans.PGoTransException;
  * take several assignments on the right side.
  *
  */
-public class PGoTLAVariadic extends PGoTLA {
+public class PGoTLAVariadic extends PGoTLAExpression {
 	private String tok;
 	// the multi-argument side
-	private Vector<PGoTLA> multiArgs;
+	private Vector<PGoTLAExpression> multiArgs;
 	// the expression on the other side
-	private PGoTLA expr;
+	private PGoTLAExpression expr;
 	// true if the multi-argument side is the right one
 	private boolean rightSide;
 
-	public PGoTLAVariadic(String token, Vector<PGoTLA> left, Vector<TLAToken> right, int line)
+	public PGoTLAVariadic(String token, Vector<PGoTLAExpression> left, Vector<TLAToken> right, int line)
 			throws PGoTransException {
 		super(line);
 		multiArgs = new Vector<>();
-		Vector<PGoTLA> r = new TLAExprParser(right, line).getResult();
+		Vector<PGoTLAExpression> r = new TLAExprParser(right, line).getResult();
 		this.tok = token;
 		
 		switch (tok) {
@@ -47,7 +47,7 @@ public class PGoTLAVariadic extends PGoTLA {
 			}
 
 			if (rightSide) {
-				for (PGoTLA tla : r) {
+				for (PGoTLAExpression tla : r) {
 					assert (tla instanceof PGoTLASetOp);
 					assert ((PGoTLASetOp) tla).getToken().equals("\\in");
 				}
@@ -55,7 +55,7 @@ public class PGoTLAVariadic extends PGoTLA {
 				assert (left.size() == 1);
 				expr = left.get(0);
 			} else {
-				for (PGoTLA tla : left) {
+				for (PGoTLAExpression tla : left) {
 					assert (tla instanceof PGoTLASetOp);
 					assert ((PGoTLASetOp) tla).getToken().equals("\\in");
 				}
@@ -85,11 +85,11 @@ public class PGoTLAVariadic extends PGoTLA {
 		return tok;
 	}
 
-	public Vector<PGoTLA> getArgs() {
+	public Vector<PGoTLAExpression> getArgs() {
 		return multiArgs;
 	}
 
-	public PGoTLA getExpr() {
+	public PGoTLAExpression getExpr() {
 		return expr;
 	}
 

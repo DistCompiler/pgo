@@ -11,12 +11,12 @@ import pgo.trans.PGoTransException;
  * predicate operation (CHOOSE, for all, exists)
  * 
  */
-public class PGoTLAUnary extends PGoTLA {
+public class PGoTLAUnary extends PGoTLAExpression {
 	private String token;
 	// The expression the operator operates on
-	private PGoTLA arg;
+	private PGoTLAExpression arg;
 
-	public PGoTLAUnary(String tok, PGoTLA arg, int line) {
+	public PGoTLAUnary(String tok, PGoTLAExpression arg, int line) {
 		super(line);
 		this.token = tok;
 		this.arg = arg;
@@ -26,7 +26,7 @@ public class PGoTLAUnary extends PGoTLA {
 		return token;
 	}
 
-	public PGoTLA getArg() {
+	public PGoTLAExpression getArg() {
 		return arg;
 	}
 

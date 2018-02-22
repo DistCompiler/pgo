@@ -5,7 +5,7 @@ import java.util.Vector;
 import pgo.model.golang.Expression;
 import pgo.model.intermediate.PGoType;
 
-public class PGoTLABool extends PGoTLA {
+public class PGoTLABool extends PGoTLAExpression {
 
 	private boolean val;
 

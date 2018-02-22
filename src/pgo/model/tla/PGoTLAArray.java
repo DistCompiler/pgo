@@ -13,16 +13,16 @@ import pgo.trans.PGoTransException;
  * contents of the array.
  *
  */
-public class PGoTLAArray extends PGoTLA {
+public class PGoTLAArray extends PGoTLAExpression {
 
-	private Vector<PGoTLA> contents;
+	private Vector<PGoTLAExpression> contents;
 
 	public PGoTLAArray(Vector<TLAToken> between, int line) throws PGoTransException {
 		super(line);
 		contents = new TLAExprParser(between, line).getResult();
 	}
 
-	public Vector<PGoTLA> getContents() {
+	public Vector<PGoTLAExpression> getContents() {
 		return contents;
 	}
 
@@ -36,7 +36,7 @@ public class PGoTLAArray extends PGoTLA {
 
 	public String toString() {
 		String ret = "PGoTLAArray (" + this.getLine() + "): [";
-		for (PGoTLA p : contents) {
+		for (PGoTLAExpression p : contents) {
 			ret += "(" + p.toString() + "), ";
 		}
 		return ret + "]";

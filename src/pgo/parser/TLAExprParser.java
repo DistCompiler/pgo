@@ -23,7 +23,7 @@ public class TLAExprParser {
 	private int line;
 
 	// the parsed result. Each element represents one complete clause
-	private Vector<PGoTLA> result;
+	private Vector<PGoTLAExpression> result;
 
 	// which row of array to store result
 	private int resultRow;
@@ -35,7 +35,7 @@ public class TLAExprParser {
 	private Stack<TLAToken> ops;
 
 	// the stack of lhs of hte operators
-	private Stack<PGoTLA> exps;
+	private Stack<PGoTLAExpression> exps;
 
 	// the type of the "defaultInitValue" TLAToken.
 	private static final int DEFAULT_VAL = 0;
@@ -97,7 +97,7 @@ public class TLAExprParser {
 							// from maybe the predicate operation on the ops
 							// stack, if the op is such that)
 							combineExps(opPrecedence.get(mask));
-							Vector<PGoTLA> left = new Vector<>(result);
+							Vector<PGoTLAExpression> left = new Vector<>(result);
 							result.clear();
 							left.addAll(exps);
 							exps.clear();
@@ -133,7 +133,7 @@ public class TLAExprParser {
 				parseStringToken(tok);
 			} else if (tok.type == DEFAULT_VAL) {
 				// this means the TLA expr is blank
-				result.add(new PGoTLA.PGoTLADefault(line));
+				result.add(new PGoTLAExpression.PGoTLADefault(line));
 				break;
 			} else {
 				throw new PGoTransException("Unknown token: \"" + tok.string + "\"", line);
@@ -182,12 +182,12 @@ public class TLAExprParser {
 		while (!ops.isEmpty() && opPrecedence.get(Dictionary.tokenDict.get(ops.peek().string)) >= precedence) {
 			TLAToken prevT = ops.pop();
 			if ((Dictionary.tokenDict.get(prevT.string) & Dictionary.X_OP_X) > 0) {
-				PGoTLA rexps = exps.pop();
-				PGoTLA lexps = exps.pop();
+				PGoTLAExpression rexps = exps.pop();
+				PGoTLAExpression lexps = exps.pop();
 				parseXOpXToken(prevT, lexps, rexps);
 			} else {
 				assert ((Dictionary.tokenDict.get(prevT.string) & Dictionary.OP_X) > 0);
-				PGoTLA rexps = exps.pop();
+				PGoTLAExpression rexps = exps.pop();
 				parseOpXToken(prevT, rexps);
 			}
 		}
@@ -253,7 +253,7 @@ public class TLAExprParser {
 	}
 
 	// Parse an operator with 2 arguments on either side
-	private void parseXOpXToken(TLAToken prevT, PGoTLA lexps, PGoTLA rexps) {
+	private void parseXOpXToken(TLAToken prevT, PGoTLAExpression lexps, PGoTLAExpression rexps) {
 		assert (Dictionary.tokenDict.containsKey(prevT.string));
 		long mask = Dictionary.tokenDict.get(prevT.string);
 		if (mask == Dictionary.SIMPLE_ARITHMETIC || mask == Dictionary.EXPONENT) {
@@ -272,7 +272,7 @@ public class TLAExprParser {
 	}
 
 	// Parse an operator with only right side argument
-	private void parseOpXToken(TLAToken prevT, PGoTLA rexps) {
+	private void parseOpXToken(TLAToken prevT, PGoTLAExpression rexps) {
 		exps.push(new PGoTLAUnary(prevT.string, rexps, line));
 	}
 
@@ -504,7 +504,7 @@ public class TLAExprParser {
 		}
 	};
 
-	public Vector<PGoTLA> getResult() {
+	public Vector<PGoTLAExpression> getResult() {
 		return result;
 	}
 }

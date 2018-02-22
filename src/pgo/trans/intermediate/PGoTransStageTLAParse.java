@@ -6,7 +6,7 @@ import pcal.AST.*;
 import pcal.AST.Process;
 import pcal.TLAExpr;
 import pcal.TLAToken;
-import pgo.model.tla.PGoTLA;
+import pgo.model.tla.PGoTLAExpression;
 import pgo.parser.TLAExprParser;
 import pgo.trans.PGoTransException;
 import pgo.util.PcalASTUtil;
@@ -146,7 +146,7 @@ public class PGoTransStageTLAParse {
 	// Converts the TLAExpr to PGoTLA using the TLAExprParser
 	private void convert(TLAExpr e, int line) throws PGoTransException {
 		if (e != null) {
-			Vector<PGoTLA> v = new TLAExprParser(e, line).getResult();
+			Vector<PGoTLAExpression> v = new TLAExprParser(e, line).getResult();
 			assert (v.size() <= 1);
 			if (!v.isEmpty()) {
 				data.putPGoTLA(e, v.get(0));

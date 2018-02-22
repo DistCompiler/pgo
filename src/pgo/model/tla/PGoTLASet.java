@@ -13,16 +13,16 @@ import pgo.trans.PGoTransException;
  * the set notations for the set.
  *
  */
-public class PGoTLASet extends PGoTLA {
+public class PGoTLASet extends PGoTLAExpression {
 
-	private Vector<PGoTLA> contents;
+	private Vector<PGoTLAExpression> contents;
 
 	public PGoTLASet(Vector<TLAToken> between, int line) throws PGoTransException {
 		super(line);
 		contents = new TLAExprParser(between, line).getResult();
 	}
 
-	public Vector<PGoTLA> getContents() {
+	public Vector<PGoTLAExpression> getContents() {
 		return contents;
 	}
 
@@ -36,7 +36,7 @@ public class PGoTLASet extends PGoTLA {
 
 	public String toString() {
 		String ret = "PGoTLASet (" + this.getLine() + "): {";
-		for (PGoTLA p : contents) {
+		for (PGoTLAExpression p : contents) {
 			ret += "(" + p.toString() + "), ";
 		}
 		return ret + "}";

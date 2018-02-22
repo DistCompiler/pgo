@@ -21,7 +21,7 @@ import pgo.model.intermediate.PGoPrimitiveType.PGoNumber;
 import pgo.model.intermediate.PGoPrimitiveType.PGoTemplateArgument;
 import pgo.model.intermediate.PGoType;
 import pgo.model.intermediate.PGoVariable;
-import pgo.model.tla.PGoTLA.PGoTLADefault;
+import pgo.model.tla.PGoTLAExpression.PGoTLADefault;
 import pgo.trans.PGoTransException;
 import pgo.trans.intermediate.PGoTempData;
 
@@ -45,14 +45,14 @@ public class TLAExprToType {
 	// type checking mode, we are more strict about compatibility of types.
 	boolean typeChecking;
 
-	public TLAExprToType(PGoTLA tla, PGoTempData data, boolean typeChecking) throws PGoTransException {
+	public TLAExprToType(PGoTLAExpression tla, PGoTempData data, boolean typeChecking) throws PGoTransException {
 		this.data = data;
 		this.assign = null;
 		this.typeChecking = typeChecking;
 		type = infer(tla);
 	}
 
-	public TLAExprToType(PGoTLA tla, PGoTempData data, PGoVariable assign, boolean typeChecking)
+	public TLAExprToType(PGoTLAExpression tla, PGoTempData data, PGoVariable assign, boolean typeChecking)
 			throws PGoTransException {
 		this.data = data;
 		this.assign = assign;
@@ -65,7 +65,7 @@ public class TLAExprToType {
 	}
 
 	// The type is assign's type.
-	public TLAExprToType(PGoTLA tla, PGoTempData data, PGoType assign, boolean typeChecking) throws PGoTransException {
+	public TLAExprToType(PGoTLAExpression tla, PGoTempData data, PGoType assign, boolean typeChecking) throws PGoTransException {
 		this.data = data;
 		if (assign != null) {
 			this.assign = PGoVariable.convert("", assign);
@@ -86,7 +86,7 @@ public class TLAExprToType {
 		return type;
 	}
 
-	private PGoType infer(PGoTLA tla) throws PGoTransException {
+	private PGoType infer(PGoTLAExpression tla) throws PGoTransException {
 		return tla.inferType(this);
 	}
 
@@ -237,7 +237,7 @@ public class TLAExprToType {
 			PGoTuple tup = (PGoTuple) assign.getType();
 			if (tup.getLength() == -1) {
 				PGoType contained = tup.getType(0);
-				for (PGoTLA elt : tla.getContents()) {
+				for (PGoTLAExpression elt : tla.getContents()) {
 					PGoType eltType = new TLAExprToType(elt, data, tup.getType(0), typeChecking).getType();
 					if (!typeChecking && eltType == PGoType.UNDETERMINED) {
 						return PGoType.UNDETERMINED;
@@ -270,7 +270,7 @@ public class TLAExprToType {
 			return tup;
 		} else if (assign.getType() instanceof PGoChan) {
 			PGoType eltType = ((PGoChan) assign.getType()).getElementType();
-			for (PGoTLA elt : tla.getContents()) {
+			for (PGoTLAExpression elt : tla.getContents()) {
 				PGoType eType = new TLAExprToType(elt, data, eltType, typeChecking).getType();
 				if (!typeChecking && eType == PGoType.UNDETERMINED) {
 					return PGoType.UNDETERMINED;
@@ -289,7 +289,7 @@ public class TLAExprToType {
 			return PGoType.inferFromGoTypeName("chan[" + eltType.toTypeName() + "]");
 		} else if (assign.getType() instanceof PGoSlice) {
 			PGoType eltType = ((PGoSlice) assign.getType()).getElementType();
-			for (PGoTLA elt : tla.getContents()) {
+			for (PGoTLAExpression elt : tla.getContents()) {
 				PGoType eType = new TLAExprToType(elt, data, eltType, typeChecking).getType();
 				if (!typeChecking && eType == PGoType.UNDETERMINED) {
 					return PGoType.UNDETERMINED;
@@ -356,7 +356,7 @@ public class TLAExprToType {
 	protected PGoType type(PGoTLAFunctionCall tla) throws PGoTransException {
 		// TODO: change Head and Tail to a proper construct in the compiler
 		if (tla.getName().equals("Head") || tla.getName().equals("Tail")) {
-			Vector<PGoTLA> callParams = tla.getParams();
+			Vector<PGoTLAExpression> callParams = tla.getParams();
 			if (callParams.size() != 1) {
 				throw new PGoTransException("Expected function call " + tla.getName() + " to have 1" +
 						" parameter but found " + callParams.size() + " instead", tla.getLine());
@@ -380,7 +380,7 @@ public class TLAExprToType {
 		if (func != null) {
 			// check params for type consistency
 			List<PGoVariable> funcParams = func.getParams();
-			Vector<PGoTLA> callParams = tla.getParams();
+			Vector<PGoTLAExpression> callParams = tla.getParams();
 			if (funcParams.size() != callParams.size()) {
 				throw new PGoTransException("Expected function call " + tla.getName() + " to have " + funcParams.size()
 						+ " parameters but found " + callParams.size() + " instead", tla.getLine());
@@ -401,7 +401,7 @@ public class TLAExprToType {
 		PGoTLADefinition def = data.findTLADefinition(tla.getName());
 		if (def != null) {
 			Vector<PGoVariable> funcParams = def.getParams();
-			Vector<PGoTLA> callParams = tla.getParams();
+			Vector<PGoTLAExpression> callParams = tla.getParams();
 			if (funcParams.size() != callParams.size()) {
 				throw new PGoTransException("Expected function call " + tla.getName() + " to have " + funcParams.size()
 						+ " parameters but found " + callParams.size() + " instead", tla.getLine());
@@ -428,7 +428,7 @@ public class TLAExprToType {
 		if (lfunc != null) {
 			// see if a function exists w/ the given param types
 			Vector<PGoType> callParams = new Vector<>();
-			for (PGoTLA param : tla.getParams()) {
+			for (PGoTLAExpression param : tla.getParams()) {
 				callParams.add(new TLAExprToType(param, data, typeChecking).getType());
 			}
 			if (typeChecking && lfunc.getGoName(callParams) == null) {
@@ -555,7 +555,7 @@ public class TLAExprToType {
 			PGoType first = new TLAExprToType(tla.getContents().get(0), data, eltType, typeChecking).getType();
 			// check if all elts are compatible and take the most specific type
 			// that works
-			for (PGoTLA elt : tla.getContents()) {
+			for (PGoTLAExpression elt : tla.getContents()) {
 				PGoType eType = new TLAExprToType(elt, data, eltType, typeChecking).getType();
 				first = compatibleType(first, eType);
 				if (first == null || (typeChecking && first == PGoType.UNDETERMINED)) {
@@ -693,7 +693,7 @@ public class TLAExprToType {
 		case ":":
 			PGoTempData temp = new PGoTempData(data);
 			// Add typing data for variables local to this scope (the x \in S)
-			for (PGoTLA arg : tla.getArgs()) {
+			for (PGoTLAExpression arg : tla.getArgs()) {
 				// TODO handle stuff like << x, y >> \in S \X T
 				PGoTLASetOp set = (PGoTLASetOp) arg;
 				assert (set.getLeft() instanceof PGoTLAVariable);
@@ -717,12 +717,12 @@ public class TLAExprToType {
 			} else {
 				// if there is 1 set, the type is the contained type of the set;
 				// otherwise we don't care since this must be forall/exists
-				Vector<PGoTLA> sets = tla.getArgs();
+				Vector<PGoTLAExpression> sets = tla.getArgs();
 				if (sets.size() > 1) {
 					return PGoType.UNDETERMINED;
 				}
 				// x \in S
-				PGoTLA set = ((PGoTLASetOp) sets.get(0)).getRight();
+				PGoTLAExpression set = ((PGoTLASetOp) sets.get(0)).getRight();
 				PGoType setType = new TLAExprToType(set, data, typeChecking).getType();
 
 				if (!typeChecking && setType == PGoType.UNDETERMINED) {
@@ -734,13 +734,13 @@ public class TLAExprToType {
 			}
 		case "|->":
 			// x \in S, y \in T |-> f(x, y)
-			Vector<PGoTLA> lhs = tla.getArgs();
+			Vector<PGoTLAExpression> lhs = tla.getArgs();
 			Vector<PGoType> tupTypes = new Vector<>();
 			// Add typing data for locals while also adding components to tuple
 			temp = new PGoTempData(data);
-			for (PGoTLA elt : lhs) {
+			for (PGoTLAExpression elt : lhs) {
 				assert (elt instanceof PGoTLASetOp);
-				PGoTLA setExpr = ((PGoTLASetOp) elt).getRight();
+				PGoTLAExpression setExpr = ((PGoTLASetOp) elt).getRight();
 				PGoType setType = new TLAExprToType(setExpr, data, typeChecking).getType();
 
 				if (!typeChecking && setType == PGoType.UNDETERMINED) {
@@ -750,7 +750,7 @@ public class TLAExprToType {
 				assert (setType instanceof PGoSet);
 				tupTypes.add(((PGoSet) setType).getElementType());
 
-				PGoTLA varExpr = ((PGoTLASetOp) elt).getLeft();
+				PGoTLAExpression varExpr = ((PGoTLASetOp) elt).getLeft();
 				// TODO handle tuples
 				assert (varExpr instanceof PGoTLAVariable);
 				temp.getLocals().put(((PGoTLAVariable) varExpr).getName(),

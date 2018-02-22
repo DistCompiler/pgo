@@ -13,12 +13,12 @@ import pgo.trans.PGoTransException;
  * access.
  *
  */
-public class PGoTLAFunctionCall extends PGoTLA {
+public class PGoTLAFunctionCall extends PGoTLAExpression {
 
 	// the function called
 	private String fname;
 
-	private Vector<PGoTLA> params;
+	private Vector<PGoTLAExpression> params;
 
 	public PGoTLAFunctionCall(String f, Vector<TLAToken> contained, int line)
 			throws PGoTransException {
@@ -34,7 +34,7 @@ public class PGoTLAFunctionCall extends PGoTLA {
 		return fname;
 	}
 
-	public Vector<PGoTLA> getParams() {
+	public Vector<PGoTLAExpression> getParams() {
 		return params;
 	}
 
@@ -51,7 +51,7 @@ public class PGoTLAFunctionCall extends PGoTLA {
 	@Override
 	public String toString() {
 		String ret = "PGoTLAFunc(" + this.getLine() + "): " + fname + "(";
-		for (PGoTLA p : params) {
+		for (PGoTLAExpression p : params) {
 			ret += "(" + p.toString() + "), ";
 		}
 		return ret + ")";

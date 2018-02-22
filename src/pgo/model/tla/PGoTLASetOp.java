@@ -9,11 +9,11 @@ import pgo.trans.PGoTransException;
 /**
  * Represents a binary set operation.
  */
-public class PGoTLASetOp extends PGoTLA {
+public class PGoTLASetOp extends PGoTLAExpression {
 	private String token;
-	private PGoTLA left, right;
+	private PGoTLAExpression left, right;
 
-	public PGoTLASetOp(String tok, PGoTLA prev, PGoTLA next, int line) {
+	public PGoTLASetOp(String tok, PGoTLAExpression prev, PGoTLAExpression next, int line) {
 		super(line);
 		this.token = tok;
 		this.left = prev;
@@ -24,11 +24,11 @@ public class PGoTLASetOp extends PGoTLA {
 		return token;
 	}
 
-	public PGoTLA getLeft() {
+	public PGoTLAExpression getLeft() {
 		return left;
 	}
 
-	public PGoTLA getRight() {
+	public PGoTLAExpression getRight() {
 		return right;
 	}
 	

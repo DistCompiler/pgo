@@ -9,7 +9,7 @@ import pgo.model.intermediate.PGoType;
  * Represents a tla token for a number
  *
  */
-public class PGoTLANumber extends PGoTLA {
+public class PGoTLANumber extends PGoTLAExpression {
 
 	private String val;
 

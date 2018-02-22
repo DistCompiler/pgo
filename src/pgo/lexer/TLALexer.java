@@ -20,7 +20,7 @@ import pcal.TLAToken;
  * Notable feature: extracts PGo annotations as their own tokens so they can
  * be easily parsed later.
  */
-class TLALexer {
+public class TLALexer {
 	List<String> lines;
 	
 	static final Pattern WHITESPACE = Pattern.compile("\\s+");
