@@ -1290,7 +1290,7 @@ public class PGoTransStageGoGen {
 	// given a remote, global variable declaration, this generates code to initialize
 	// it with a proper value. Since multiple processes might be running at the same
 	// time, initialization must be made only once. This is achieved by making use
-	// of the locking functionality available in the `pgonet' package.
+	// of the locking functionality available in the `pgo/distsys' package.
 	private Statement initializeGlobalVariable(VariableDeclaration decl) {
 		Vector<Expression> params = new Vector<Expression>() {
 			{
@@ -1318,14 +1318,14 @@ public class PGoTransStageGoGen {
 	}
 
 	// generates initialization code for the remote global state management.
-	// Uses `pgonet' package functions. Generated code code looks like:
+	// Uses `pgo/distsys' package functions. Generated code code looks like:
 	//
 	// 		cfg := &Config{
 	//			Endpoints: []string{"10.0.0.1:1234", "10.0.0.2:1234"}, // based on networking options
 	// 			Timeout: 2, // based on networking options
 	// 		}
 	//		var err error
-	//		globalState, err = pgonet.InitGlobals(cfg)
+	//		globalState, err = distsys.InitGlobals(cfg)
 	// 		if err != nil {
 	// 			// handle error
 	// 		}
@@ -1333,7 +1333,7 @@ public class PGoTransStageGoGen {
 		if (!hasRemoteState()) {
 			return;
 		}
-		go.getImports().addImport("pgonet");
+		go.getImports().addImport("pgo/distsys");
 		Vector<Statement> topLevelMain = go.getMain().getBody();
 		String configObj = "cfg";
 
@@ -1346,7 +1346,7 @@ public class PGoTransStageGoGen {
 				new Expression() {
 					@Override
 					public Vector<String> toGo() {
-						StructDefinition sdef = new StructDefinition("pgonet.Config", true);
+						StructDefinition sdef = new StructDefinition("distsys.Config", true);
 						sdef.addField("Endpoints", new Expression() {
 							@Override
 							public Vector<String> toGo() {
@@ -1396,7 +1396,7 @@ public class PGoTransStageGoGen {
 						add("err");
 					}
 				},
-				new FunctionCall("pgonet.InitGlobals", params),
+				new FunctionCall("distsys.InitGlobals", params),
 				false
 		);
 		topLevelMain.add(stateObj);

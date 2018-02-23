@@ -1,4 +1,4 @@
-package pgonet
+package distsys
 
 // Specifies how to connect to our global state management
 type Config struct {

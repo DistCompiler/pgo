@@ -1,4 +1,4 @@
-package pgonet
+package distsys
 
 // Implements the state ownership strategy.
 

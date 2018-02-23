@@ -1,6 +1,6 @@
-package pgonet
+package distsys
 
-// Implements the global state management API.
+// Implements the etcd global state management API.
 //
 // Currently, PGo manages global state in a distributed environment by using the
 // `etcd' key-value store. The functions defined here wrap that behaviour by providing
@@ -11,14 +11,14 @@ package pgonet
 //
 // 	import (
 // 		"fmt"
-// 		"pgonet"
+// 		"pgo/distsys"
 // 	)
 //
 // 	config := &Config{
 // 		Endpoints: []string{"10.0.0.1:1234", "10.0.0.2:1234"},
 // 		Timeout: 3,
 // 	}
-// 	state, err := pgonet.InitGlobals(config)
+// 	state, err := distsys.InitGlobals(config)
 // 	if err != nil {
 // 		// handle error
 // 	}
@@ -56,11 +56,11 @@ import (
 
 type GlobalVariableType int
 
-// declares the types of global variables supported by PGoNet at the moment.
+// declares the types of global variables supported by PGo at the moment.
 const (
 	TYPE_INT = iota
 	TYPE_STRING
-	PGONET_LOCK_NAMESPACE = "/locks/"
+	ETCD_LOCK_NAMESPACE = "/locks/"
 )
 
 // A reference to our global state, created via +InitGlobals+. Used in the
@@ -83,7 +83,7 @@ type globalVariable struct {
 // strategy - that is, every request to global state is sent to the same server
 // (or collection of servers).
 //
-// Returns a reference to `pgonet.CentralizedState' on success. Fails if we
+// Returns a reference to `distsys.CentralizedState' on success. Fails if we
 // cannot establish a connection to the etcd cluster.
 func InitGlobals(cfg *Config) (*CentralizedState, error) {
 	etcdConfig := etcd.Config{
@@ -170,7 +170,7 @@ func (self *CentralizedState) GetString(name string) string {
 }
 
 // Returns a collection of ints associated with the var of given `name'. The variable should
-// be previously set to a []int using pgonet.Set.
+// be previously set to a []int using datatypes.Set.
 func (self *CentralizedState) GetIntCollection(name string) []int {
 	response, err := self.kv.Get(context.Background(), prepareKey(name), nil)
 	if err != nil {
@@ -199,7 +199,7 @@ func (self *CentralizedState) GetIntCollection(name string) []int {
 }
 
 // Returns a collection of strings associated with the var of given `name'. The variable should
-// be previously set to a []string using pgonet.Set.
+// be previously set to a []string using datatypes.Set.
 func (self *CentralizedState) GetStringCollection(name string) []string {
 	response, err := self.kv.Get(context.Background(), prepareKey(name), nil)
 	if err != nil {
@@ -305,7 +305,7 @@ func prepareKey(k string) string {
 
 // given a lock k, this method transforms it to the format expected by `etcd'
 func prepareLock(k string) string {
-	return PGONET_LOCK_NAMESPACE + k
+	return ETCD_LOCK_NAMESPACE + k
 }
 
 func serialize(v globalVariable) string {

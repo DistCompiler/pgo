@@ -21,11 +21,11 @@ public abstract class PGoMiscellaneousType extends PGoType {
 	}
 
 	public static class PGoNetCentralizedState extends PGoMiscellaneousType {
-		public PGoNetCentralizedState() { this.goType = "*pgonet.CentralizedState"; }
+		public PGoNetCentralizedState() { this.goType = "*distsys.CentralizedState"; }
 	}
 
 	public static class PGoNetConfig extends PGoMiscellaneousType {
-		public PGoNetConfig() { this.goType = "pgonet.Config"; }
+		public PGoNetConfig() { this.goType = "distsys.Config"; }
 	}
 
 	@Override
@@ -39,9 +39,9 @@ public abstract class PGoMiscellaneousType extends PGoType {
 			return new PGoWaitGroup();
 		case "sync.RWMutex":
 			return new PGoRWMutex();
-		case "pgonet.CentralizedState":
+		case "distsys.CentralizedState":
 			return new PGoNetCentralizedState();
-		case "pgonet.Config":
+		case "distsys.Config":
 			return new PGoNetConfig();
 		}
 		return PGoType.UNDETERMINED;
