@@ -1,4 +1,4 @@
-package pgoutil
+package datatypes
 
 import "testing"
 
@@ -33,8 +33,8 @@ func TestComparator(t *testing.T) {
 	y = "aaaaa"
 	assertEquals(-1, comp(&a, &b), t)
 
-	p := struct{A, B interface{}}{1, 3}
-	q := struct{A, B interface{}}{2, 2}
+	p := struct{ A, B interface{} }{1, 3}
+	q := struct{ A, B interface{} }{2, 2}
 	assertEquals(-1, comp(p, q), t)
 }
 

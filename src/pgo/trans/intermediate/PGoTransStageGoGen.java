@@ -139,7 +139,7 @@ public class PGoTransStageGoGen {
 
 		if (data.netOpts.isEnabled()) {
 			go.getImports().addImport("flag");
-			go.getImports().addImport("pgoutil");
+			go.getImports().addImport("pgo/datatypes");
 			hasArg = true;
 			PGoVariable var = PGoVariable.processIdArg();
 			var.setType(PGoPrimitiveType.PROCESS_ID);
@@ -478,7 +478,7 @@ public class PGoTransStageGoGen {
 									for (PGoTLA tla : fc.getParams()) {
 										tupleElts.add(TLAToGo(tla));
 									}
-									params.add(new FunctionCall("pgoutil.NewTuple", tupleElts));
+									params.add(new FunctionCall("datatypes.NewTuple", tupleElts));
 								}
 								params.add(new Token(sa.lhs.var + "_new"));
 								exps.add(new FunctionCall("Put", params, new Token(sa.lhs.var)));
@@ -545,7 +545,7 @@ public class PGoTransStageGoGen {
 							for (PGoTLA tla : fc.getParams()) {
 								tupleElts.add(TLAToGo(tla));
 							}
-							params.add(new FunctionCall("pgoutil.NewTuple", tupleElts));
+							params.add(new FunctionCall("datatypes.NewTuple", tupleElts));
 						}
 						params.add(rhs);
 						exps.add(new FunctionCall("Put", params, new Token(sa.lhs.var)));
@@ -1194,7 +1194,7 @@ public class PGoTransStageGoGen {
 			exp = new Vector<>();
 			exp.add(new Token("processName, processArg"));
 			exp.add(new Token(" := "));
-			exp.add(new FunctionCall("pgoutil.ParseProcessId", args));
+			exp.add(new FunctionCall("datatypes.ParseProcessId", args));
 			positionalArgs.add(new SimpleExpression(exp));
 		} else if (pv.getType().equals(PGoPrimitiveType.STRING)) {
 			// var = flag.Args()[..]

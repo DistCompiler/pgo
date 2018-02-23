@@ -1,4 +1,4 @@
-package pgoutil
+package datatypes
 
 import "testing"
 
@@ -8,37 +8,37 @@ func TestEmptySets(t *testing.T) {
 	assertEquals(
 		false,
 		Exists(func(i int) bool {
-				return true
-			}, S), t)
+			return true
+		}, S), t)
 	assertEquals(
 		true,
 		ForAll(func(i int) bool {
-				return false
-			}, S), t)
+			return false
+		}, S), t)
 
 	T := NewSet()
 	assertEquals(
 		false,
 		Exists(func(i, j int) bool {
-				return true
-			}, S), t)
+			return true
+		}, S), t)
 	assertEquals(
 		true,
 		ForAll(func(i, j int) bool {
-				return false
-			}, S), t)
+			return false
+		}, S), t)
 
 	U := NewSet(1, 2, 3)
 	assertEquals(
 		false,
 		Exists(func(i, j, k int) bool {
-				return true
-			}, S, T, U), t)
+			return true
+		}, S, T, U), t)
 	assertEquals(
 		true,
 		ForAll(func(i, j, k int) bool {
-				return false
-			}, S, T, U), t)
+			return false
+		}, S, T, U), t)
 }
 
 func TestSimpleExistsForAll(t *testing.T) {
@@ -46,25 +46,25 @@ func TestSimpleExistsForAll(t *testing.T) {
 	assertEquals(
 		true,
 		Exists(func(i int) bool {
-				return i >= 2
-			}, S), t)
+			return i >= 2
+		}, S), t)
 	assertEquals(
 		true,
 		ForAll(func(i int) bool {
-				return i >= 2
-			}, S), t)
+			return i >= 2
+		}, S), t)
 
 	S.Add(1)
 	assertEquals(
 		true,
 		Exists(func(i int) bool {
-				return i % 2 == 1
-			}, S), t)
+			return i%2 == 1
+		}, S), t)
 	assertEquals(
 		false,
 		ForAll(func(i int) bool {
-				return i % 2 == 1
-			}, S), t)
+			return i%2 == 1
+		}, S), t)
 }
 
 func TestMultipleSets(t *testing.T) {
@@ -73,25 +73,25 @@ func TestMultipleSets(t *testing.T) {
 	assertEquals(
 		true,
 		Exists(func(i, j int) bool {
-				return j - i == 5
-			}, S, T), t)
+			return j-i == 5
+		}, S, T), t)
 	assertEquals(
 		true,
 		ForAll(func(i, j int) bool {
-				return j > i
-			}, S, T), t)
+			return j > i
+		}, S, T), t)
 
 	U := NewSet(7, 8, 9)
 	assertEquals(
 		false,
 		Exists(func(i, j, k int) bool {
-				return i + j + k > 18
-			}, S, T, U), t)
+			return i+j+k > 18
+		}, S, T, U), t)
 	assertEquals(
 		false,
 		ForAll(func(i, j, k int) bool {
-				return i + j + k > 12
-			}, S, T, U), t)
+			return i+j+k > 12
+		}, S, T, U), t)
 }
 
 func TestChoose(t *testing.T) {
@@ -101,20 +101,20 @@ func TestChoose(t *testing.T) {
 	assertEquals(
 		"a",
 		Choose(func(i string) bool {
-				return true
-			}, S), t)
+			return true
+		}, S), t)
 
 	S = NewSet(2, 4, 6, 8, 9)
 	assertEquals(
 		9,
 		Choose(func(i int) bool {
-				return i % 2 == 1
-			}, S), t)
+			return i%2 == 1
+		}, S), t)
 
 	S.Add(7)
 	assertEquals(
 		7,
 		Choose(func(i int) bool {
-				return i % 2 == 1
-			}, S), t)
+			return i%2 == 1
+		}, S), t)
 }

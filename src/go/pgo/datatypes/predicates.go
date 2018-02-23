@@ -1,4 +1,4 @@
-package pgoutil
+package datatypes
 
 import "reflect"
 

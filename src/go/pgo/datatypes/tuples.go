@@ -1,5 +1,5 @@
 // A basic tuple type, which is immutable.
-package pgoutil
+package datatypes
 
 import "fmt"
 
@@ -60,7 +60,7 @@ func (t tuple) Size() int {
 }
 
 func (t tuple) Append(i ...interface{}) Tuple {
-	data := make([]interface{}, 0, t.Size() + len(i))
+	data := make([]interface{}, 0, t.Size()+len(i))
 	data = append(data, t.data...)
 	data = append(data, i)
 	return tuple{data}
@@ -93,7 +93,7 @@ func (t tuple) Iter() <-chan interface{} {
 }
 
 func (t tuple) String() string {
-	ret := "Tuple{";
+	ret := "Tuple{"
 	for _, i := range t.data {
 		ret += fmt.Sprintf("%v ", i)
 	}

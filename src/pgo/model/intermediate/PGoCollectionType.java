@@ -124,7 +124,7 @@ public abstract class PGoCollectionType extends PGoType {
 
 		@Override
 		public String toGo() {
-			return "pgoutil.Set";
+			return "datatypes.Set";
 		}
 	}
 
@@ -163,7 +163,7 @@ public abstract class PGoCollectionType extends PGoType {
 
 		@Override
 		public String toGo() {
-			return "pgoutil.Map";
+			return "datatypes.Map";
 		}
 	}
 
@@ -297,7 +297,7 @@ public abstract class PGoCollectionType extends PGoType {
 
 		@Override
 		public String toGo() {
-			return "pgoutil.Tuple";
+			return "datatypes.Tuple";
 		}
 	}
 

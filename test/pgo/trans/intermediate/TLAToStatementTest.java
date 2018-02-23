@@ -131,13 +131,13 @@ public class TLAToStatementTest {
 				add(new Token("3"));
 			}
 		}));
-		assertEquals(new FunctionCall("pgoutil.NewTuple", params), result);
+		assertEquals(new FunctionCall("datatypes.NewTuple", params), result);
 
 		var = PGoVariable.convert("channel", PGoType.inferFromGoTypeName("chan[int]"));
 		data.getLocals().clear();
 		data.getLocals().put("channel", var);
 		result = new TLAExprToGo(tla, imports, data, var).toExpression();
-		assertEquals(new FunctionCall("pgoutil.NewChan", params), result);
+		assertEquals(new FunctionCall("datatypes.NewChan", params), result);
 
 		tla = new PGoTLAArray(new Vector<TLAToken>() {
 			{
@@ -174,7 +174,7 @@ public class TLAToStatementTest {
 		params.add(f);
 		params.add(new Token("S"));
 		params.add(new Token("T"));
-		assertEquals(new FunctionCall("pgoutil.MapsTo", params), result);
+		assertEquals(new FunctionCall("datatypes.MapsTo", params), result);
 	}
 
 	@Test
@@ -210,7 +210,7 @@ public class TLAToStatementTest {
 		se = new Vector<>();
 		se.add(new TypeAssertion(new FunctionCall("Get", new Vector<Expression>() {
 			{
-				add(new FunctionCall("pgoutil.NewTuple", new Vector<Expression>() {
+				add(new FunctionCall("datatypes.NewTuple", new Vector<Expression>() {
 					{
 						add(new Token("3"));
 						add(new Token("\"a\""));
@@ -263,7 +263,7 @@ public class TLAToStatementTest {
 		Vector<Expression> args = new Vector<>();
 		args.add(new Token("1"));
 		args.add(new Token("x"));
-		expected = new FunctionCall("pgoutil.Sequence", args);
+		expected = new FunctionCall("datatypes.Sequence", args);
 		assertEquals(expected, new TLAExprToGo(tla, imports, data).toExpression());
 
 		data.globals.clear();
@@ -271,7 +271,7 @@ public class TLAToStatementTest {
 		args.clear();
 		args.add(new Token("1"));
 		args.add(new TypeConversion("int", new Token("x")));
-		expected = new FunctionCall("pgoutil.Sequence", args);
+		expected = new FunctionCall("datatypes.Sequence", args);
 		assertEquals(expected, new TLAExprToGo(tla, imports, data).toExpression());
 	}
 
@@ -302,7 +302,7 @@ public class TLAToStatementTest {
 		expr.clear();
 		expr.add(new Token("!"));
 		Vector<Expression> args = new Vector<>();
-		args.add(new FunctionCall("pgoutil.NewSet", new Vector<>()));
+		args.add(new FunctionCall("datatypes.NewSet", new Vector<>()));
 		expr.add(new FunctionCall("Equal", args, new Token("S")));
 		expected = new SimpleExpression(expr);
 		assertEquals(expected, new TLAExprToGo(tla, imports, data).toExpression());
@@ -324,7 +324,7 @@ public class TLAToStatementTest {
 	@Test
 	public void testSet() throws PGoTransException {
 		PGoTLASet tla = new PGoTLASet(new Vector<>(), 0);
-		Expression expected = new FunctionCall("pgoutil.NewSet", new Vector<>());
+		Expression expected = new FunctionCall("datatypes.NewSet", new Vector<>());
 		assertEquals(expected, new TLAExprToGo(tla, imports, null).toExpression());
 
 		Vector<TLAToken> between = new Vector<>();
@@ -336,7 +336,7 @@ public class TLAToStatementTest {
 		Vector<Expression> args = new Vector<>();
 		args.add(new Token("1"));
 		args.add(new Token("x"));
-		expected = new FunctionCall("pgoutil.NewSet", args);
+		expected = new FunctionCall("datatypes.NewSet", args);
 		assertEquals(expected, new TLAExprToGo(tla, imports, data).toExpression());
 
 		between.clear();
@@ -361,7 +361,7 @@ public class TLAToStatementTest {
 						add(new Return(new Token("true")));
 					}
 				});
-		expected = new FunctionCall("pgoutil.SetConstructor", new Vector<Expression>() {
+		expected = new FunctionCall("datatypes.SetConstructor", new Vector<Expression>() {
 			{
 				add(new Token("S"));
 				add(P);
@@ -403,7 +403,7 @@ public class TLAToStatementTest {
 						}, new Token("y"))));
 					}
 				});
-		expected = new FunctionCall("pgoutil.SetImage", new Vector<Expression>() {
+		expected = new FunctionCall("datatypes.SetImage", new Vector<Expression>() {
 			{
 				add(f);
 				add(new Token("S"));
@@ -419,7 +419,7 @@ public class TLAToStatementTest {
 		data.globals.put("A", PGoVariable.convert("A", PGoType.inferFromGoTypeName("set[int]")));
 		Expression expected;
 		Vector<Expression> args = new Vector<>();
-		args.add(new FunctionCall("pgoutil.NewSet", new Vector<>()));
+		args.add(new FunctionCall("datatypes.NewSet", new Vector<>()));
 		expected = new FunctionCall("Union", args, new Token("A"));
 		assertEquals(expected, new TLAExprToGo(tla, imports, data).toExpression());
 
@@ -429,7 +429,7 @@ public class TLAToStatementTest {
 		se.add(new Token("!"));
 		args.clear();
 		args.add(new Token("a"));
-		se.add(new FunctionCall("Contains", args, new FunctionCall("pgoutil.NewSet", new Vector<>())));
+		se.add(new FunctionCall("Contains", args, new FunctionCall("datatypes.NewSet", new Vector<>())));
 		expected = new SimpleExpression(se);
 		assertEquals(expected, new TLAExprToGo(tla, imports, data).toExpression());
 	}
@@ -479,7 +479,7 @@ public class TLAToStatementTest {
 					}
 				}));
 		params.add(new Token("S"));
-		expected = new FunctionCall("pgoutil.Choose", params);
+		expected = new FunctionCall("datatypes.Choose", params);
 		assertEquals(expected, new TLAExprToGo(tla, imports, data).toExpression());
 
 		tla = new PGoTLAUnary("\\E", new PGoTLAVariadic(":", new Vector<PGoTLA>() {
@@ -521,7 +521,7 @@ public class TLAToStatementTest {
 				}));
 		params.add(new Token("S"));
 		params.add(new Token("T"));
-		expected = new FunctionCall("pgoutil.Exists", params);
+		expected = new FunctionCall("datatypes.Exists", params);
 		assertEquals(expected, new TLAExprToGo(tla, imports, data).toExpression());
 	}
 
