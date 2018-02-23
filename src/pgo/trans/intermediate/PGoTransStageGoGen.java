@@ -129,15 +129,13 @@ public class PGoTransStageGoGen {
 			});
 			go.getMain().getBody().add(0, seed);
 		}
-
-		configureCentralizedState();
 	}
 
 	private void generateArgParsing() throws PGoTransException {
 		int argN = 0;
 		boolean hasArg = false;
 
-		Vector<Statement> positionalArgs = new Vector<Statement>();
+		Vector<Statement> positionalArgs = new Vector<>();
 
 		if (data.netOpts.isEnabled()) {
 			go.getImports().addImport("flag");
@@ -171,6 +169,8 @@ public class PGoTransStageGoGen {
 			main.addAll(positionalArgs);
 			main.add(new Token(""));
 		}
+
+		configureCentralizedState();
 	}
 
 
@@ -1336,7 +1336,6 @@ public class PGoTransStageGoGen {
 		go.getImports().addImport("pgonet");
 		Vector<Statement> topLevelMain = go.getMain().getBody();
 		String configObj = "cfg";
-		int idx = 1;
 
 		Assignment cfgDecl = new Assignment(
 				new Vector<String>() {
@@ -1375,12 +1374,12 @@ public class PGoTransStageGoGen {
 				},
 				true
 		);
-		topLevelMain.add(idx++, cfgDecl);
+		topLevelMain.add(cfgDecl);
 
 		VariableDeclaration errDecl = new VariableDeclaration(
 				"err", PGoType.inferFromGoTypeName("error"), null, false, false, false
 		);
-		topLevelMain.add(idx++, errDecl);
+		topLevelMain.add(errDecl);
 
 		Vector<Expression> params = new Vector<>();
 		params.add(new Expression() {
@@ -1400,7 +1399,7 @@ public class PGoTransStageGoGen {
 				new FunctionCall("pgonet.InitGlobals", params),
 				false
 		);
-		topLevelMain.add(idx++, stateObj);
+		topLevelMain.add(stateObj);
 
 		go.getImports().addImport("os");
 		Vector<Expression> exitParams = new Vector<Expression>() {
@@ -1432,7 +1431,7 @@ public class PGoTransStageGoGen {
 		};
 
 		pgo.model.golang.If errIf = new pgo.model.golang.If(cond, ifBody, new Vector<>());
-		topLevelMain.add(idx++, errIf);
+		topLevelMain.add(errIf);
 
 		boolean initLockInserted = false;
 		String initLockGroup = "init-lock";
@@ -1482,12 +1481,12 @@ public class PGoTransStageGoGen {
 					}
 				}, new Token(GLOBAL_STATE_OBJECT));
 
-				topLevelMain.add(idx++, pidDecl);
-				topLevelMain.add(idx++, lock);
+				topLevelMain.add(pidDecl);
+				topLevelMain.add(lock);
 				initLockInserted = true;
 			}
 
-			topLevelMain.add(idx++, initializeGlobalVariable(gVar));
+			topLevelMain.add(initializeGlobalVariable(gVar));
 		}
 
 		if (initLockInserted) {
@@ -1498,7 +1497,7 @@ public class PGoTransStageGoGen {
 				}
 			}, new Token(GLOBAL_STATE_OBJECT));
 
-			topLevelMain.add(idx, lock);
+			topLevelMain.add(lock);
 		}
 	}
 
