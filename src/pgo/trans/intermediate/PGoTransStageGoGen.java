@@ -136,6 +136,8 @@ public class PGoTransStageGoGen {
 		boolean hasArg = false;
 
 		Vector<Statement> positionalArgs = new Vector<>();
+		Vector<String> positionalArgNames = new Vector<>();
+		boolean hasFlagArgs = false;
 
 		if (data.netOpts.isEnabled()) {
 			go.getImports().addImport("flag");
@@ -143,6 +145,7 @@ public class PGoTransStageGoGen {
 			hasArg = true;
 			PGoVariable var = PGoVariable.processIdArg();
 			var.setType(PGoPrimitiveType.PROCESS_ID);
+			positionalArgNames.add("process(argument)");
 			addPositionalArgToMain(argN++, positionalArgs, var);
 		}
 
@@ -154,10 +157,10 @@ public class PGoTransStageGoGen {
 				go.getImports().addImport("flag");
 				hasArg = true;
 				if (pv.getArgInfo().isPositionalArg()) {
-					addPositionalArgToMain(argN, positionalArgs, pv);
-
-					argN++;
+					addPositionalArgToMain(argN++, positionalArgs, pv);
+					positionalArgNames.add(pv.getName());
 				} else {
+					hasFlagArgs = true;
 					addFlagArgToMain(pv);
 				}
 
@@ -165,9 +168,46 @@ public class PGoTransStageGoGen {
 		}
 
 		if (hasArg) {
+			final int fArgN = argN;
+			final boolean fHasFlagArgs = hasFlagArgs;
+			go.getImports().addImport("os");
+			go.getImports().addImport("fmt");
 			main.add(new FunctionCall("flag.Parse", new Vector<>()));
+
+			// check arguments
+			Expression cond = new SimpleExpression(new Vector<Expression>() {
+				{
+					add(new FunctionCall("flag.NArg", new Vector<>()));
+					add(new Token("<"));
+					add(new Token(Integer.toString(fArgN)));
+				}
+			});
+			Vector<Statement> thenPart = new Vector<Statement>() {
+				{
+					add(new FunctionCall("fmt.Fprintf", new Vector<Expression>() {
+						{
+							add(new Token("os.Stderr"));
+							add(new Token((fHasFlagArgs ? "\"Usage: %s [options...] " : "\"Usage: %s ") +
+									String.join(" ", positionalArgNames) +
+									(fHasFlagArgs ? "\\nOptions:" : "") +
+									"\\n\""
+							));
+							add(new Token("os.Args[0]"));
+						}
+					}));
+					add(new FunctionCall("os.Exit", new Vector<Expression>() {
+						{
+							add(new Token("1"));
+						}
+					}));
+				}
+			};
+			if (fHasFlagArgs) {
+				thenPart.add(new FunctionCall("flag.PrintDefaults", new Vector<>()));
+			}
+			main.add(new pgo.model.golang.If(cond, thenPart, new Vector<>()));
+
 			main.addAll(positionalArgs);
-			main.add(new Token(""));
 		}
 
 		configureCentralizedState();
