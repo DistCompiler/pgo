@@ -48,7 +48,7 @@ public class PGoNetOptionsTest {
 	@Test
 	public void testDefaultStateStrategy() throws PGoOptionException {
 		getNetworking().getJSONObject(PGoNetOptions.STATE_FIELD).remove("strategy");
-		assertEquals("centralized", options().getStateOptions().strategy);
+		assertEquals("centralized-etcd", options().getStateOptions().strategy);
 	}
 
 	// the developer is able to specify the timeout for operations on global state

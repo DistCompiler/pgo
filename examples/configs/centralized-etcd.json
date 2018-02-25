@@ -1,0 +1,15 @@
+{
+  "build": {
+    "output_dir": "gen",
+    "dest_file": "out.go"
+  },
+  "networking": {
+    "enabled": true,
+
+    "state": {
+      "strategy": "centralized-etcd",
+      "endpoints": ["172.28.128.7:2379", "172.28.128.8:2379", "172.28.128.9:2379"],
+      "timeout": 3
+    }
+  }
+}

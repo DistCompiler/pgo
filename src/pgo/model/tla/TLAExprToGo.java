@@ -689,7 +689,7 @@ public class TLAExprToGo {
 			@Override
 			public Vector<String> toGo() {
 				PGoVariable var = data.findPGoVariable(tla.getName());
-				return new VariableReference(var.getName(), var, data.cachedVarSet.contains(var)).toGo();
+				return new VariableReference(var.getName(), var, data.cachedVarSet.contains(var), data.netOpts.getStateStrategy()).toGo();
 			}
 		};
 	}

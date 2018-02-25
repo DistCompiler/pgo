@@ -3,9 +3,10 @@ package pgo;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+import pgo.model.distsys.CentralizedEtcdStateStrategy;
+import pgo.model.distsys.StateStrategy;
 
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.Vector;
 
 // Wraps options related to networking in the generated Go code.
@@ -32,12 +33,14 @@ public class PGoNetOptions {
 	// This class ensures that the options provided in the configuration file make
 	// sense, i.e., whether they use a known/supported state management strategy.
 	public class StateOptions {
-		private static final String STATE_CENTRALIZED = "centralized";
+		public static final String STATE_CENTRALIZED = "centralized";
+		public static final String STATE_CENTRALIZED_ETCD = "centralized-etcd";
 		private final String[] STATE_STRATEGIES = {
-				STATE_CENTRALIZED
+				STATE_CENTRALIZED,
+				STATE_CENTRALIZED_ETCD,
 		};
 
-		private static final String DEFAULT_STATE_STRATEGY = STATE_CENTRALIZED;
+		private static final String DEFAULT_STATE_STRATEGY = STATE_CENTRALIZED_ETCD;
 		private static final int DEFAULT_TIMEOUT = 3;
 
 		public String strategy;
@@ -84,6 +87,8 @@ public class PGoNetOptions {
 
 	private StateOptions stateOptions;
 
+	private StateStrategy stateStrategy;
+
 	// This constructor expects a +JSONObject+ as parameter - this should be the data structure
 	// representing the entire configuration file. Separate parts of the configuration file
 	// are then passed to specific components (see inner classes above), each of which has
@@ -105,6 +110,13 @@ public class PGoNetOptions {
 			enabled = true;
 			stateOptions = new StateOptions(stateConfig);
 
+			switch (stateOptions.strategy) {
+				default:
+				case StateOptions.STATE_CENTRALIZED_ETCD:
+					stateStrategy = new CentralizedEtcdStateStrategy(stateOptions);
+					break;
+			}
+
 		} catch (JSONException e) {
 			throw new PGoOptionException("Configuration is invalid: " + e.getMessage());
 		}
@@ -114,4 +126,5 @@ public class PGoNetOptions {
 		return this.enabled;
 	}
 	public StateOptions getStateOptions() { return this.stateOptions; }
+	public StateStrategy getStateStrategy() { return this.stateStrategy; }
 }

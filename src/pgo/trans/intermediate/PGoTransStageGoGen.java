@@ -27,9 +27,10 @@ import pgo.model.tla.PGoTLAArray;
 import pgo.model.tla.PGoTLADefinition;
 import pgo.model.tla.PGoTLAFunctionCall;
 import pgo.model.tla.TLAExprToGo;
-import pgo.parser.PGoParseException;
 import pgo.trans.PGoTransException;
 import pgo.util.PcalASTUtil;
+
+import static pgo.PGoNetOptions.StateOptions.STATE_CENTRALIZED_ETCD;
 
 /**
  * The last stage of the translation. Takes given intermediate data and converts
@@ -37,9 +38,6 @@ import pgo.util.PcalASTUtil;
  *
  */
 public class PGoTransStageGoGen {
-
-	public static final String GLOBAL_STATE_OBJECT = "globalState";
-
 	// the ast
 	private GoProgram go;
 
@@ -51,7 +49,7 @@ public class PGoTransStageGoGen {
 	// stores some local variables
 	PGoTransIntermediateData data;
 
-	public PGoTransStageGoGen(PGoTransStageAtomicity s1) throws PGoParseException, PGoTransException {
+	public PGoTransStageGoGen(PGoTransStageAtomicity s1) throws PGoTransException {
 		this.data = s1.data;
 
 		go = new GoProgram("main");
@@ -59,6 +57,7 @@ public class PGoTransStageGoGen {
 		main = go.getMain().getBody();
 
 		generateArgParsing();
+		generateDistributedStateConfig();
 		generateGlobalVariables();
 		generateFunctions();
 		generateMain();
@@ -209,8 +208,6 @@ public class PGoTransStageGoGen {
 
 			main.addAll(positionalArgs);
 		}
-
-		configureCentralizedState();
 	}
 
 
@@ -272,62 +269,6 @@ public class PGoTransStageGoGen {
 				}
 			}
 
-			private void fetchDataForCurrentLockGroup() {
-				if (curLockGroup < 0) {
-					return;
-				}
-				for (PGoVariable var : data.globals.values()) {
-				    if (var.getLockGroup() != curLockGroup) {
-						continue;
-					}
-					result.add(new Assignment(
-							new Vector<String>(){
-								{
-									add(var.getName());
-								}
-							},
-							new Expression() {
-								@Override
-								public Vector<String> toGo() {
-									return new VariableReference(var.getName(), var, false).toGo();
-								}
-							},
-							false));
-				}
-			}
-
-			private void pushDataForCurrentLockGroup() {
-				if (curLockGroup < 0) {
-					return;
-				}
-				for (PGoVariable var : data.globals.values()) {
-					if (var.getLockGroup() != curLockGroup) {
-						continue;
-					}
-					Vector<Expression> params = new Vector<>();
-					params.add(new Expression() {
-						@Override
-						public Vector<String> toGo() {
-							Vector<String> list = new Vector<>();
-							list.add("\"" + var.getName() + "\"");
-							return list;
-						}
-					});
-					params.add(new Expression() {
-						@Override
-						public Vector<String> toGo() {
-							return new Vector<String>(){
-								{
-									add(var.getName());
-								}
-							};
-						}
-					});
-					result.add(new FunctionCall("Set", params, new Token(GLOBAL_STATE_OBJECT)));
-				}
-				removeVariablesFromCache();
-			}
-
 			// DANGER: set lock group without generating lock code
 			// This is used in cases where we're still holding the lock in one code path but releasing it in another,
 			// e.g. in an await statement.
@@ -350,23 +291,11 @@ public class PGoTransStageGoGen {
 				setLockGroup();
 				if (data.needsLock) {
 					if (data.netOpts.isEnabled()) {
-						result.add(new FunctionCall("Lock", new Vector<Expression>() {
-							{
-								add(new Token("selfStr"));
-								add(new Token("\"" + ((Integer) curLockGroup).toString() + "\""));
-							}
-						}, new Token(GLOBAL_STATE_OBJECT)));
-						fetchDataForCurrentLockGroup();
+						data.netOpts.getStateStrategy().lock(curLockGroup, result,
+								data.globals.values().stream().filter(var -> var.getLockGroup() == curLockGroup));
 					} else {
-						SimpleExpression lock = new SimpleExpression(new Vector<Expression>() {
-							{
-								add(new Token("PGoLock"));
-								add(new Token("["));
-								add(new Token(((Integer) curLockGroup).toString()));
-								add(new Token("]"));
-							}
-						});
-						result.add(new FunctionCall("Lock", new Vector<>(), lock));
+						result.add(new FunctionCall("Lock", new Vector<>(),
+								new Token("PGoLock[" + Integer.toString(curLockGroup) + "]")));
 					}
 				}
 			}
@@ -374,23 +303,12 @@ public class PGoTransStageGoGen {
 			private void unlock() {
 				if (curLockGroup != -1 && data.needsLock) {
 					if (data.netOpts.isEnabled()) {
-						pushDataForCurrentLockGroup();
-						result.add(new FunctionCall("Unlock", new Vector<Expression>() {
-							{
-								add(new Token("selfStr"));
-								add(new Token("\"" + ((Integer) curLockGroup).toString() + "\""));
-							}
-						}, new Token(GLOBAL_STATE_OBJECT)));
+						data.netOpts.getStateStrategy().unlock(curLockGroup, result,
+								data.globals.values().stream().filter(var -> var.getLockGroup() == curLockGroup));
+						removeVariablesFromCache();
 					} else {
-						SimpleExpression lock = new SimpleExpression(new Vector<Expression>() {
-							{
-								add(new Token("PGoLock"));
-								add(new Token("["));
-								add(new Token(((Integer) curLockGroup).toString()));
-								add(new Token("]"));
-							}
-						});
-						result.add(new FunctionCall("Unlock", new Vector<>(), lock));
+						result.add(new FunctionCall("Unlock", new Vector<>(),
+								new Token("PGoLock[" + Integer.toString(curLockGroup) + "]")));
 					}
 					curLockGroup = -1;
 				}
@@ -398,7 +316,7 @@ public class PGoTransStageGoGen {
 
 			@Override
 			protected void init() {
-				result = new Vector<Statement>();
+				result = new Vector<>();
 			}
 
 			@Override
@@ -597,19 +515,7 @@ public class PGoTransStageGoGen {
 					PGoVariable var = data.findPGoVariable(sa.lhs.var);
 
 					if (var.isRemote() && !data.cachedVarSet.contains(var)) {
-						// assigning to a global, remote variable (managed by etcd)
-						Vector<Expression> params = new Vector<>();
-						params.add(new Expression() {
-							@Override
-							public Vector<String> toGo() {
-								Vector<String> list = new Vector<>();
-								list.add("\"" + var.getName() + "\"");
-								return list;
-							}
-						});
-						params.add(rhs);
-
-						exps.add(new FunctionCall("Set", params, new Token(GLOBAL_STATE_OBJECT)));
+						data.netOpts.getStateStrategy().setVar(var, rhs, exps);
 					} else {
 						// assigning to a regular, non-remote variable
 						exps.add(new Token(sa.lhs.var));
@@ -1174,10 +1080,7 @@ public class PGoTransStageGoGen {
 		}
 
 		if (hasRemoteState()) {
-			VariableDeclaration stateDecl = new VariableDeclaration(GLOBAL_STATE_OBJECT, new PGoNetCentralizedState(),
-					null, false, false, false);
-
-			go.addGlobal(stateDecl);
+			data.netOpts.getStateStrategy().generateGlobalVariables(go);
 		}
 	}
 
@@ -1327,36 +1230,6 @@ public class PGoTransStageGoGen {
 		}
 	}
 
-	// given a remote, global variable declaration, this generates code to initialize
-	// it with a proper value. Since multiple processes might be running at the same
-	// time, initialization must be made only once. This is achieved by making use
-	// of the locking functionality available in the `pgo/distsys' package.
-	private Statement initializeGlobalVariable(VariableDeclaration decl) {
-		Vector<Expression> params = new Vector<Expression>() {
-			{
-				add(new Token("\"" + decl.getName() + "\""));
-				add(decl.getDefaultValue());
-			}
-		};
-		FunctionCall setVar = new FunctionCall("Set", params, new Token(GLOBAL_STATE_OBJECT));
-		Vector<Statement> ifBody = new Vector<Statement>() {
-			{
-			    add(setVar);
-			}
-		};
-
-		Vector<Expression> existsParams = new Vector<Expression>() {
-			{
-			    add(new Token("\"" + decl.getName() + "\""));
-			}
-		};
-		Expression cond = new FunctionCall("Exists", existsParams, new Token(GLOBAL_STATE_OBJECT));
-		pgo.model.golang.If existenceIf = new pgo.model.golang.If(cond, ifBody, new Vector<>());
-		existenceIf.negate();
-
-		return existenceIf;
-	}
-
 	// generates initialization code for the remote global state management.
 	// Uses `pgo/distsys' package functions. Generated code code looks like:
 	//
@@ -1369,176 +1242,16 @@ public class PGoTransStageGoGen {
 	// 		if err != nil {
 	// 			// handle error
 	// 		}
-	private void configureCentralizedState() {
+	private void generateDistributedStateConfig() {
 		if (!hasRemoteState()) {
 			return;
 		}
+
 		go.getImports().addImport("pgo/distsys");
-		Vector<Statement> topLevelMain = go.getMain().getBody();
-		String configObj = "cfg";
 
-		Assignment cfgDecl = new Assignment(
-				new Vector<String>() {
-					{
-						add(configObj);
-					}
-				},
-				new Expression() {
-					@Override
-					public Vector<String> toGo() {
-						StructDefinition sdef = new StructDefinition("distsys.Config", true);
-						sdef.addField("Endpoints", new Expression() {
-							@Override
-							public Vector<String> toGo() {
-								Vector<String> endpoints = new Vector<>();
-								for (String h : data.netOpts.getStateOptions().endpoints) {
-									endpoints.add(String.format("\"http://%s\"", h));
-								}
+		data.netOpts.getStateStrategy().generateConfig(go);
 
-								return new Token(String.format("%s{%s}",
-										new PGoCollectionType.PGoSlice("string").toGo(),
-										String.join(", ", endpoints))).toGo();
-							}
-						});
-
-						sdef.addField("Timeout", new Expression() {
-							@Override
-							public Vector<String> toGo() {
-								int timeout = data.netOpts.getStateOptions().timeout;
-								return new Token(String.format("%d", timeout)).toGo();
-							}
-						});
-
-						return sdef.toGo();
-					}
-				},
-				true
-		);
-		topLevelMain.add(cfgDecl);
-
-		VariableDeclaration errDecl = new VariableDeclaration(
-				"err", PGoType.inferFromGoTypeName("error"), null, false, false, false
-		);
-		topLevelMain.add(errDecl);
-
-		Vector<Expression> params = new Vector<>();
-		params.add(new Expression() {
-			@Override
-			public Vector<String> toGo() {
-				return new Token(configObj).toGo();
-			}
-		});
-
-		Assignment stateObj = new Assignment(
-				new Vector<String>() {
-					{
-						add(GLOBAL_STATE_OBJECT);
-						add("err");
-					}
-				},
-				new FunctionCall("distsys.InitGlobals", params),
-				false
-		);
-		topLevelMain.add(stateObj);
-
-		go.getImports().addImport("os");
-		Vector<Expression> exitParams = new Vector<Expression>() {
-			{
-				add(new Expression() {
-					@Override
-					public Vector<String> toGo() {
-						return new Token("1").toGo();
-					}
-				});
-			}
-		};
-		Vector<Statement> ifBody = new Vector<Statement>() {
-			{
-				add(new Comment("handle error - could not connect to etcd", false));
-				add(new FunctionCall("os.Exit", exitParams));
-			}
-		};
-
-		Expression cond = new Expression() {
-			@Override
-			public Vector<String> toGo() {
-				return new Vector<String>() {
-					{
-						add("err != nil");
-					}
-				};
-			}
-		};
-
-		pgo.model.golang.If errIf = new pgo.model.golang.If(cond, ifBody, new Vector<>());
-		topLevelMain.add(errIf);
-
-		boolean initLockInserted = false;
-		String initLockGroup = "init-lock";
-		String pidVarName = "lockId";
-		Vector<Expression> strconvParams = new Vector<Expression>() {
-			{
-				add(new Token(pidVarName));
-			}
-		};
-
-		for (VariableDeclaration gVar : go.getGlobals()) {
-			if (!gVar.isRemote()) {
-				continue;
-			}
-
-			go.getImports().addImport("strconv");
-			if (!initLockInserted) {
-				// A lock must be acquired in order to make sure only one process
-				// initializes global variables with their default values.
-				//
-				// Since processes have no identifiers at this point (before parsing
-				// arguments passed on the command line), we generate a random identifier
-				// and use it when trying to get the lock. However, there is still a
-				// slight chance of very bad luck where two processes happen to get
-				// the same random ID and race to get the lock.
-				int maxProcesses = 10000;
-
-				Vector<Expression> randParams = new Vector<Expression>() {
-					{
-						add(new Token(((Integer) maxProcesses).toString()));
-					}
-				};
-
-				Assignment pidDecl = new Assignment(
-						new Vector<String>() {
-							{
-								add(pidVarName);
-							}
-						},
-						new FunctionCall("rand.Intn", randParams),
-						true
-				);
-				FunctionCall lock = new FunctionCall("Lock", new Vector<Expression>() {
-					{
-						add(new FunctionCall("strconv.Itoa", strconvParams));
-						add(new Token("\"" + initLockGroup + "\""));
-					}
-				}, new Token(GLOBAL_STATE_OBJECT));
-
-				topLevelMain.add(pidDecl);
-				topLevelMain.add(lock);
-				initLockInserted = true;
-			}
-
-			topLevelMain.add(initializeGlobalVariable(gVar));
-		}
-
-		if (initLockInserted) {
-			FunctionCall lock = new FunctionCall("Unlock", new Vector<Expression>() {
-				{
-					add(new FunctionCall("strconv.Itoa", strconvParams));
-					add(new Token("\"" + initLockGroup + "\""));
-				}
-			}, new Token(GLOBAL_STATE_OBJECT));
-
-			topLevelMain.add(lock);
-		}
+		data.netOpts.getStateStrategy().initializeGlobalVariables(go);
 	}
 
 	private void addFlagArgToMain(PGoVariable pv) throws PGoTransException {

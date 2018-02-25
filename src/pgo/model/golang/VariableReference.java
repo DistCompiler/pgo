@@ -1,5 +1,6 @@
 package pgo.model.golang;
 
+import pgo.model.distsys.StateStrategy;
 import pgo.model.intermediate.PGoCollectionType;
 import pgo.model.intermediate.PGoPrimitiveType;
 import pgo.model.intermediate.PGoVariable;
@@ -18,9 +19,6 @@ import java.util.Vector;
  *
  */
 public class VariableReference extends Statement {
-
-	private static final String GLOBAL_STATE = PGoTransStageGoGen.GLOBAL_STATE_OBJECT;
-
 	// the variable name
 	private String name;
 
@@ -30,10 +28,13 @@ public class VariableReference extends Statement {
 	// whether this variable is cached locally
 	private boolean cachedLocally;
 
-	public VariableReference(String name, PGoVariable var, boolean isCachedLocally) {
+	private StateStrategy stateStrategy;
+
+	public VariableReference(String name, PGoVariable var, boolean isCachedLocally, StateStrategy stateStrategy) {
 		this.name = name;
 		this.var = var;
 		this.cachedLocally = isCachedLocally;
+		this.stateStrategy = stateStrategy;
 	}
 
 	@Override
@@ -46,9 +47,6 @@ public class VariableReference extends Statement {
 			return ret;
 		}
 
-		// the function to be invoked on the global state manager
-		String fn = "";
-
 		// if the variable is remote, generate the corresponding call to the global
 		// state manager to retrieve the variable name
 		//
@@ -58,33 +56,7 @@ public class VariableReference extends Statement {
 		// the state manager once the lock is released (i.e., implementing
 		// something similar to transaction semantics)
 		if (var.isRemote() && !cachedLocally) {
-			if (var.getType() instanceof PGoPrimitiveType.PGoInt)
-				fn = "GetInt";
-
-			else if (var.getType() instanceof PGoPrimitiveType.PGoString)
-				fn = "GetString";
-
-			else if (var.getType() instanceof PGoCollectionType.PGoSlice) {
-				switch (var.getType().toString()) {
-					case "[]int":
-						fn = "GetIntCollection";
-						break;
-					case "[]string":
-						fn = "GetStringCollection";
-						break;
-					default:
-						assert(false);
-				}
-
-			}
-
-			else {
-				// should not be reachable - variable type is not supported
-				assert(false);
-			}
-
-			ret.add(String.format("%s.%s(\"%s\")", GLOBAL_STATE, fn, var.getName()));
-
+			ret.add(stateStrategy.getVar(var));
 		} else {
 			// if the variable is not remote, just use the variable name itself
 			ret.add(var.getName());

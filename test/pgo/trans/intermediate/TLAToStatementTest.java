@@ -4,11 +4,14 @@ import static org.junit.Assert.assertEquals;
 
 import java.util.Vector;
 
+import org.json.JSONObject;
 import org.junit.Before;
 import org.junit.Test;
 
 import pcal.PcalTranslate;
 import pcal.TLAToken;
+import pgo.PGoNetOptions;
+import pgo.PGoOptionException;
 import pgo.model.golang.*;
 import pgo.model.intermediate.PGoType;
 import pgo.model.intermediate.PGoVariable;
@@ -24,9 +27,9 @@ public class TLAToStatementTest {
 	private PGoTempData data;
 
 	@Before
-	public void init() {
+	public void init() throws PGoOptionException {
 		imports = new Imports();
-		data = new PGoTempData(new PGoTransIntermediateData());
+		data = new PGoTempData(PGoTransIntermediateData.buildWith(new PGoNetOptions(new JSONObject())));
 	}
 
 	@Test
