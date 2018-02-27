@@ -12,7 +12,7 @@ import java.util.stream.Stream;
 public interface StateStrategy {
 	void generateConfig(GoProgram go);
 	void generateGlobalVariables(GoProgram go);
-	void initializeGlobalVariables(GoProgram go);
+	void initializeGlobalState(GoProgram go);
 	void lock(int lockGroup, Vector<Statement> stmts, Stream<PGoVariable> vars);
 	void unlock(int lockGroup, Vector<Statement> stmts, Stream<PGoVariable> vars);
 

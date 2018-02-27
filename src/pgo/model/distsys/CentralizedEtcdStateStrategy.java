@@ -85,7 +85,7 @@ public class CentralizedEtcdStateStrategy implements StateStrategy {
 	}
 
 	@Override
-	public void initializeGlobalVariables(GoProgram go) {
+	public void initializeGlobalState(GoProgram go) {
 		Vector<Statement> topLevelMain = go.getMain().getBody();
 		boolean initLockInserted = false;
 		String initLockGroup = "init-lock";

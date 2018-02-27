@@ -7,7 +7,7 @@
     "enabled": true,
 
     "state": {
-      "strategy": "centralized",
+      "strategy": "centralized-etcd",
       "endpoints": ["10.0.0.1"],
       "timeout": 2
     }

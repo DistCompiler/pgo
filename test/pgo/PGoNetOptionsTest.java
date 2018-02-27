@@ -86,7 +86,7 @@ public class PGoNetOptionsTest {
 			}
 		};
 
-		assertEquals("centralized", net.getStateOptions().strategy);
+		assertEquals("centralized-etcd", net.getStateOptions().strategy);
 		assertEquals(expectedHosts, net.getStateOptions().endpoints);
 	}
 

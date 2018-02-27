@@ -111,10 +111,11 @@ public class PGoNetOptions {
 			stateOptions = new StateOptions(stateConfig);
 
 			switch (stateOptions.strategy) {
-				default:
 				case StateOptions.STATE_CENTRALIZED_ETCD:
 					stateStrategy = new CentralizedEtcdStateStrategy(stateOptions);
 					break;
+				default:
+					throw new PGoOptionException("Invalid state strategy: " + stateOptions.strategy);
 			}
 
 		} catch (JSONException e) {

@@ -1248,7 +1248,7 @@ public class PGoTransStageGoGen {
 
 		data.netOpts.getStateStrategy().generateConfig(go);
 
-		data.netOpts.getStateStrategy().initializeGlobalVariables(go);
+		data.netOpts.getStateStrategy().initializeGlobalState(go);
 	}
 
 	private void addFlagArgToMain(PGoVariable pv) throws PGoTransException {
