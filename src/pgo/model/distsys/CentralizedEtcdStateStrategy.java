@@ -4,6 +4,8 @@ import pgo.PGoNetOptions;
 import pgo.model.golang.*;
 import pgo.model.intermediate.*;
 
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Vector;
 import java.util.stream.Stream;
 
@@ -22,11 +24,7 @@ public class CentralizedEtcdStateStrategy implements StateStrategy {
 		String configObj = "cfg";
 
 		Assignment cfgDecl = new Assignment(
-				new Vector<String>() {
-					{
-						add(configObj);
-					}
-				},
+				new Vector<>(Collections.singletonList(configObj)),
 				new Expression() {
 					@Override
 					public Vector<String> toGo() {
@@ -44,15 +42,7 @@ public class CentralizedEtcdStateStrategy implements StateStrategy {
 										String.join(", ", endpoints))).toGo();
 							}
 						});
-
-						sdef.addField("Timeout", new Expression() {
-							@Override
-							public Vector<String> toGo() {
-								int timeout = stateOptions.timeout;
-								return new Token(String.format("%d", timeout)).toGo();
-							}
-						});
-
+						sdef.addField("Timeout", new Token(Integer.toString(stateOptions.timeout)));
 						return sdef.toGo();
 					}
 				},
@@ -65,41 +55,20 @@ public class CentralizedEtcdStateStrategy implements StateStrategy {
 		);
 		topLevelMain.add(errDecl);
 
-		Vector<Expression> params = new Vector<>();
-		params.add(new Expression() {
-			@Override
-			public Vector<String> toGo() {
-				return new Token(configObj).toGo();
-			}
-		});
-
 		Assignment stateObj = new Assignment(
-				new Vector<String>() {
-					{
-						add(GLOBAL_STATE_OBJECT);
-						add("err");
-					}
-				},
-				new FunctionCall("distsys.InitEtcdState", params),
+				new Vector<>(Arrays.asList(GLOBAL_STATE_OBJECT, "err")),
+				new FunctionCall("distsys.InitEtcdState",
+						new Vector<>(Collections.singletonList(new Token(configObj)))),
 				false
 		);
 		topLevelMain.add(stateObj);
 
 		go.getImports().addImport("os");
-		Vector<Expression> exitParams = new Vector<Expression>() {
-			{
-				add(new Expression() {
-					@Override
-					public Vector<String> toGo() {
-						return new Token("1").toGo();
-					}
-				});
-			}
-		};
 		Vector<Statement> ifBody = new Vector<Statement>() {
 			{
 				add(new Comment("handle error - could not connect to etcd", false));
-				add(new FunctionCall("os.Exit", exitParams));
+				add(new FunctionCall("os.Exit",
+						new Vector<>(Collections.singletonList(new Token("1")))));
 			}
 		};
 
@@ -121,11 +90,7 @@ public class CentralizedEtcdStateStrategy implements StateStrategy {
 		boolean initLockInserted = false;
 		String initLockGroup = "init-lock";
 		String pidVarName = "lockId";
-		Vector<Expression> strconvParams = new Vector<Expression>() {
-			{
-				add(new Token(pidVarName));
-			}
-		};
+		Vector<Expression> strconvParams = new Vector<>(Collections.singletonList(new Token(pidVarName)));
 
 		for (VariableDeclaration gVar : go.getGlobals()) {
 			if (!gVar.isRemote()) {
@@ -144,18 +109,11 @@ public class CentralizedEtcdStateStrategy implements StateStrategy {
 				// the same random ID and race to get the lock.
 				int maxProcesses = 10000;
 
-				Vector<Expression> randParams = new Vector<Expression>() {
-					{
-						add(new Token(Integer.toString(maxProcesses)));
-					}
-				};
+				Vector<Expression> randParams =
+						new Vector<>(Collections.singletonList(new Token(Integer.toString(maxProcesses))));
 
 				Assignment pidDecl = new Assignment(
-						new Vector<String>() {
-							{
-								add(pidVarName);
-							}
-						},
+						new Vector<>(Collections.singletonList(pidVarName)),
 						new FunctionCall("rand.Intn", randParams),
 						true
 				);
@@ -211,11 +169,7 @@ public class CentralizedEtcdStateStrategy implements StateStrategy {
 	@Override
 	public void setVar(PGoVariable var, Expression rhs, Vector<Expression> exps) {
 		// assigning to a global, remote variable (managed by etcd)
-		Vector<Expression> params = new Vector<Expression>() {
-			{
-				add(new Token("\"" + var.getName() + "\""));
-			}
-		};
+		Vector<Expression> params = new Vector<>(Collections.singletonList(new Token("\"" + var.getName() + "\"")));
 		params.add(rhs);
 
 		exps.add(new FunctionCall("Set", params, new Token(GLOBAL_STATE_OBJECT)));
@@ -255,41 +209,20 @@ public class CentralizedEtcdStateStrategy implements StateStrategy {
 		StateStrategy stateStrategy = this;
 		vars.forEach(var ->
 				stmts.add(new Assignment(
-						new Vector<String>(){
-							{
-								add(var.getName());
-							}
-						},
-						new Expression() {
-							@Override
-							public Vector<String> toGo() {
-								return new VariableReference(var.getName(), var, false, stateStrategy).toGo();
-							}
-						},
-						false)));
+						new Vector<>(Collections.singletonList(var.getName())),
+						new VariableReference(var.getName(), var, false, stateStrategy),
+						false))
+		);
 	}
 
 	private void pushDataForCurrentLockGroup(Vector<Statement> stmts, Stream<PGoVariable> vars) {
 		vars.forEach(var -> {
-			Vector<Expression> params = new Vector<>();
-			params.add(new Expression() {
-				@Override
-				public Vector<String> toGo() {
-					Vector<String> list = new Vector<>();
-					list.add("\"" + var.getName() + "\"");
-					return list;
+			Vector<Expression> params = new Vector<Expression>() {
+				{
+					add(new Token("\"" + var.getName() + "\""));
+					add(new Token(var.getName()));
 				}
-			});
-			params.add(new Expression() {
-				@Override
-				public Vector<String> toGo() {
-					return new Vector<String>(){
-						{
-							add(var.getName());
-						}
-					};
-				}
-			});
+			};
 			stmts.add(new FunctionCall("Set", params, new Token(GLOBAL_STATE_OBJECT)));
 		});
 	}
@@ -305,18 +238,12 @@ public class CentralizedEtcdStateStrategy implements StateStrategy {
 				add(decl.getDefaultValue());
 			}
 		};
-		FunctionCall setVar = new FunctionCall("Set", params, new Token(GLOBAL_STATE_OBJECT));
-		Vector<Statement> ifBody = new Vector<Statement>() {
-			{
-				add(setVar);
-			}
-		};
+		Vector<Statement> ifBody =
+				new Vector<>(Collections.singletonList(
+						new FunctionCall("Set", params, new Token(GLOBAL_STATE_OBJECT))));
 
-		Vector<Expression> existsParams = new Vector<Expression>() {
-			{
-				add(new Token("\"" + decl.getName() + "\""));
-			}
-		};
+		Vector<Expression> existsParams =
+				new Vector<>(Collections.singletonList(new Token("\"" + decl.getName() + "\"")));
 		Expression cond = new FunctionCall("Exists", existsParams, new Token(GLOBAL_STATE_OBJECT));
 		pgo.model.golang.If existenceIf = new pgo.model.golang.If(cond, ifBody, new Vector<>());
 		existenceIf.negate();

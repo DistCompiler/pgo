@@ -18,7 +18,7 @@ import java.util.Vector;
  * retrieve the current value of a variable.
  *
  */
-public class VariableReference extends Statement {
+public class VariableReference extends Expression {
 	// the variable name
 	private String name;
 
