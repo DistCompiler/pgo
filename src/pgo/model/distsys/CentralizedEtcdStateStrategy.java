@@ -80,7 +80,7 @@ public class CentralizedEtcdStateStrategy implements StateStrategy {
 						add("err");
 					}
 				},
-				new FunctionCall("distsys.InitGlobals", params),
+				new FunctionCall("distsys.InitEtcdState", params),
 				false
 		);
 		topLevelMain.add(stateObj);
@@ -110,8 +110,7 @@ public class CentralizedEtcdStateStrategy implements StateStrategy {
 	@Override
 	public void generateGlobalVariables(GoProgram go) {
 		VariableDeclaration stateDecl = new VariableDeclaration(GLOBAL_STATE_OBJECT,
-				new PGoMiscellaneousType.PGoNetCentralizedState(),
-				null, false, false, false);
+				new PGoMiscellaneousType.EtcdState(), null, false, false, false);
 
 		go.addGlobal(stateDecl);
 	}

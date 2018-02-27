@@ -15,7 +15,6 @@ import pgo.model.intermediate.PGoCollectionType.PGoSet;
 import pgo.model.intermediate.PGoCollectionType.PGoSlice;
 import pgo.model.intermediate.PGoCollectionType.PGoTuple;
 import pgo.model.intermediate.PGoMiscellaneousType.PGoWaitGroup;
-import pgo.model.intermediate.PGoMiscellaneousType.PGoNetCentralizedState;
 import pgo.model.intermediate.PGoPrimitiveType.PGoBool;
 import pgo.model.intermediate.PGoPrimitiveType.PGoDecimal;
 import pgo.model.intermediate.PGoPrimitiveType.PGoInt;
@@ -29,8 +28,6 @@ import pgo.model.tla.PGoTLAFunctionCall;
 import pgo.model.tla.TLAExprToGo;
 import pgo.trans.PGoTransException;
 import pgo.util.PcalASTUtil;
-
-import static pgo.PGoNetOptions.StateOptions.STATE_CENTRALIZED_ETCD;
 
 /**
  * The last stage of the translation. Takes given intermediate data and converts
@@ -1238,7 +1235,7 @@ public class PGoTransStageGoGen {
 	// 			Timeout: 2, // based on networking options
 	// 		}
 	//		var err error
-	//		globalState, err = distsys.InitGlobals(cfg)
+	//		globalState, err = distsys.InitEtcdState(cfg)
 	// 		if err != nil {
 	// 			// handle error
 	// 		}
