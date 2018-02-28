@@ -22,13 +22,13 @@ type Tuple interface {
 
 // Type tuple implements Tuple.
 type tuple struct {
-	data []interface{}
+	Data []interface{}
 }
 
 func NewTuple(elts ...interface{}) Tuple {
 	ret := tuple{make([]interface{}, len(elts))}
 	for i, elt := range elts {
-		ret.data[i] = elt
+		ret.Data[i] = elt
 	}
 	return ret
 }
@@ -40,51 +40,51 @@ func SliceToTuple(elts []interface{}) Tuple {
 }
 
 func (t tuple) At(i int) interface{} {
-	if i < 0 || i >= len(t.data) {
-		panic(fmt.Sprintf("The index %v is invalid for the tuple %v", i, t.data))
+	if i < 0 || i >= len(t.Data) {
+		panic(fmt.Sprintf("The index %v is invalid for the tuple %v", i, t.Data))
 	}
-	return t.data[i]
+	return t.Data[i]
 }
 
 func (t tuple) Set(i int, elt interface{}) Tuple {
-	if i < 0 || i >= len(t.data) {
-		panic(fmt.Sprintf("The index %v is invalid for the tuple %v", i, t.data))
+	if i < 0 || i >= len(t.Data) {
+		panic(fmt.Sprintf("The index %v is invalid for the tuple %v", i, t.Data))
 	}
-	ret := SliceToTuple(t.data)
-	ret.(tuple).data[i] = elt
+	ret := SliceToTuple(t.Data)
+	ret.(tuple).Data[i] = elt
 	return ret
 }
 
 func (t tuple) Size() int {
-	return len(t.data)
+	return len(t.Data)
 }
 
 func (t tuple) Append(i ...interface{}) Tuple {
 	data := make([]interface{}, 0, t.Size()+len(i))
-	data = append(data, t.data...)
+	data = append(data, t.Data...)
 	data = append(data, i)
 	return tuple{data}
 }
 
 func (t tuple) Head() interface{} {
-	if len(t.data) == 0 {
+	if len(t.Data) == 0 {
 		panic("Tried to take the Head of an empty tuple")
 	}
-	return t.data[0]
+	return t.Data[0]
 }
 
 func (t tuple) Tail() Tuple {
-	if len(t.data) == 0 {
+	if len(t.Data) == 0 {
 		panic("Tried to take the Tail of an empty tuple")
 	}
 	// don't need to clone since the data isn't exposed anyway
-	return tuple{t.data[1:]}
+	return tuple{t.Data[1:]}
 }
 
 func (t tuple) Iter() <-chan interface{} {
 	ret := make(chan interface{})
 	go func() {
-		for _, i := range t.data {
+		for _, i := range t.Data {
 			ret <- i
 		}
 		close(ret)
@@ -94,7 +94,7 @@ func (t tuple) Iter() <-chan interface{} {
 
 func (t tuple) String() string {
 	ret := "Tuple{"
-	for _, i := range t.data {
+	for _, i := range t.Data {
 		ret += fmt.Sprintf("%v ", i)
 	}
 	ret += "}"

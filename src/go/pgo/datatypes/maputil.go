@@ -35,8 +35,8 @@ func MapsTo(f interface{}, sets ...Set) Map {
 
 // An "except pair" data structure
 type pair struct {
-	first  interface{}
-	second interface{}
+	First  interface{}
+	Second interface{}
 }
 
 func EP(first, second interface{}) pair {
@@ -50,7 +50,7 @@ func Except(f Map, except ...pair) Map {
 		ret.Put(i.Key, i.Val)
 	}
 	for _, i := range except {
-		ret.Put(i.first, i.second)
+		ret.Put(i.First, i.Second)
 	}
 	return ret
 }
