@@ -12,8 +12,6 @@ import pcal.AST.LabelEither;
 import pcal.AST.LabelIf;
 import pcal.AST.LabeledStmt;
 import pcal.AST.SingleAssign;
-import pgo.model.intermediate.PGoCollectionType;
-import pgo.model.intermediate.PGoPrimitiveType;
 import pgo.model.intermediate.PGoVariable;
 import pgo.model.parser.AnnotatedLock;
 import pgo.trans.PGoTransException;
@@ -54,37 +52,6 @@ public class PGoTransStageAtomicity {
 		inferAtomic();
 	}
 
-	// a variable is serializable if it can be maintained remotely if networking
-	// is enabled.
-	//
-	// See the `pgo/distsys' implementation for more details.
-	private boolean isSerializable(PGoVariable var) {
-	    Vector<String> allowedCollections = new Vector<String>() {
-			{
-				add("[]int");
-				add("[]string");
-			}
-		};
-
-		if (var.getType() instanceof PGoPrimitiveType.PGoInt) {
-			return true;
-		}
-
-		if (var.getType() instanceof PGoPrimitiveType.PGoString) {
-			return true;
-		}
-
-		// Collection types are only supported if they are of one of the allowed types.
-		// There is a correspondence here between what types are allowed and what types
-		// the `pgo/distsys' Go package supports. The lists should be in sync.
-		if (var.getType() instanceof PGoCollectionType.PGoSlice &&
-				allowedCollections.contains(var.getType().toString())) {
-		    return true;
-		}
-
-		return false;
-	}
-
 	// Infer the locking groups that the variables belong to.
 	private void inferAtomic() throws PGoTransException {
 		// this will group variables that may be accessed in a single label
@@ -108,7 +75,7 @@ public class PGoTransStageAtomicity {
 			}
 
 			@Override
-			protected void visit(SingleAssign sa) throws PGoTransException {
+			protected void visit(SingleAssign sa) {
 				// we only care about global variables, so don't use
 				// findPGoVariable
 
@@ -117,14 +84,6 @@ public class PGoTransStageAtomicity {
 					result.get(curLabel).add(toInsert);
 					toInsert.setAtomic(true);
 					toInsert.setRemote(data.netOpts.isEnabled());
-
-					// if our global variable is to be stored remotely, but is not of a
-					// supported type, abort compilation
-					if (toInsert.isRemote() && !isSerializable(toInsert)) {
-						String desc = String.format("Remote variable %s is not serializable (type %s)",
-								toInsert.getName(), toInsert.getType().getClass().getName());
-						throw new PGoTransException(desc);
-					}
 				}
 			}
 

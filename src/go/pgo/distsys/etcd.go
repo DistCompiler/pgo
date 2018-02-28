@@ -39,15 +39,15 @@ package distsys
 
 // Implementation Details
 //
-// Global variables are stored in `etcd' as name => JSON object pairs. The JSON object
-// that represents a variable contains information about the variable's current value,
-// as well as its type (only ints and strings are currently supported).
+// Global variables are stored in `etcd' as name => hex-encoded string of a gob.
 //
 // This representation is internal and applications need not know about it.
 
 import (
+	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/gob"
+	"encoding/hex"
 	"fmt"
 	"time"
 
@@ -69,13 +69,6 @@ const (
 type EtcdState struct {
 	c  etcd.Client
 	kv etcd.KeysAPI
-}
-
-// a global variable, as stored in the key-value store
-type globalVariable struct {
-	Value        interface{}        `json:"value"`
-	Type         GlobalVariableType `json:"type"`
-	IsCollection bool               `json:"is_collection"`
 }
 
 // Initializes centralized global state management.
@@ -106,17 +99,17 @@ func InitEtcdState(cfg *Config) (*EtcdState, error) {
 // Sets variable `name' to a given `value'. Contacts the global variable server
 // *synchronously*
 func (self *EtcdState) Set(name string, value interface{}) {
-	switch val := value.(type) {
-	case int:
-		self.setInt(name, val)
-	case string:
-		self.setString(name, val)
-	case []int:
-		self.setIntCol(name, val)
-	case []string:
-		self.setStringCol(name, val)
-	default:
-		panic(fmt.Sprintf("Unsupported global variable type: %T\n", value))
+	buffer := bytes.Buffer{}
+	encoder := gob.NewEncoder(&buffer)
+	err := encoder.Encode(value)
+	if err != nil {
+		panic(fmt.Sprintf("Unable to GobEncode %v, err = %s", value, err.Error()))
+	}
+	s := hex.EncodeToString(buffer.Bytes())
+	key := prepareKey(name)
+	_, err = self.kv.Set(context.Background(), key, s, nil)
+	if err != nil {
+		panic(fmt.Sprintf("Unable to set %s to %s, err = %s", key, s, err))
 	}
 }
 
@@ -137,145 +130,27 @@ func (self *EtcdState) Exists(name string) bool {
 	return true
 }
 
-// Gets the value associated with a variable with the given `name'. The variable value
-// is cast to an int and returned (the method fails if the value exists and is not a
-// valid int). Contacts the global variable server *synchronously*
-func (self *EtcdState) GetInt(name string) int {
-	response, err := self.kv.Get(context.Background(), prepareKey(name), nil)
+// Gets the value associated with a variable with the given `name'. Contacts
+// the global variable server *synchronously*.
+func (self *EtcdState) Get(name string, variable interface{}) interface{} {
+	key := prepareKey(name)
+	response, err := self.kv.Get(context.Background(), key, nil)
 	if err != nil {
-		panic(err)
+		panic(fmt.Sprintf("Unable to get %s, err = %s", key, err.Error()))
 	}
 
-	gvar := parseGlobalVariable(response.Node.Value)
-	if gvar.Type != TYPE_INT {
-		panic(fmt.Sprintf("Variable %s: not an int", name))
-	}
-
-	return int(gvar.Value.(float64))
-}
-
-// Returns a string representation of the value associated with the variable with the
-// given `name'.
-func (self *EtcdState) GetString(name string) string {
-	response, err := self.kv.Get(context.Background(), prepareKey(name), nil)
+	buffer, err := hex.DecodeString(response.Node.Value)
 	if err != nil {
-		panic(err)
+		panic(fmt.Sprintf("Unable to hex.Decode %s, err = %s", response.Node.Value, err.Error()))
 	}
 
-	gvar := parseGlobalVariable(response.Node.Value)
-	if gvar.Type != TYPE_STRING {
-		panic(fmt.Sprintf("Variable %s: not a string", name))
-	}
-
-	return gvar.Value.(string)
-}
-
-// Returns a collection of ints associated with the var of given `name'. The variable should
-// be previously set to a []int using datatypes.Set.
-func (self *EtcdState) GetIntCollection(name string) []int {
-	response, err := self.kv.Get(context.Background(), prepareKey(name), nil)
+	decoder := gob.NewDecoder(bytes.NewReader(buffer))
+	err = decoder.Decode(variable)
 	if err != nil {
-		panic(err)
+		panic(fmt.Sprintf("Unable to GobDecode %v, err = %s", buffer, err.Error()))
 	}
 
-	gvar := parseGlobalVariable(response.Node.Value)
-
-	if !gvar.IsCollection {
-		panic(fmt.Sprintf("Variable %s is not a collection", name))
-	}
-
-	icol := []int{}
-	for _, el := range gvar.Value.([]interface{}) {
-		// Go serializes "int-looking" values to float64. We need to convert to that type
-		// first and then cast it to an int. Floats are currently not supported
-		floatVal, ok := el.(float64)
-		if !ok {
-			panic(fmt.Sprintf("Variable %s is not a collection of ints", name))
-		}
-
-		icol = append(icol, int(floatVal))
-	}
-
-	return icol
-}
-
-// Returns a collection of strings associated with the var of given `name'. The variable should
-// be previously set to a []string using datatypes.Set.
-func (self *EtcdState) GetStringCollection(name string) []string {
-	response, err := self.kv.Get(context.Background(), prepareKey(name), nil)
-	if err != nil {
-		panic(err)
-	}
-
-	gvar := parseGlobalVariable(response.Node.Value)
-
-	if !gvar.IsCollection {
-		panic(fmt.Sprintf("Variable %s is not a collection", name))
-	}
-
-	strCol := []string{}
-	for _, el := range gvar.Value.([]interface{}) {
-		strVal, ok := el.(string)
-		if !ok {
-			panic(fmt.Sprintf("Variable %s: not a collection of strings", name))
-		}
-
-		strCol = append(strCol, strVal)
-	}
-
-	return strCol
-}
-
-func (self *EtcdState) setInt(name string, value int) {
-	variable := globalVariable{
-		Value:        value,
-		Type:         TYPE_INT,
-		IsCollection: false,
-	}
-
-	_, err := self.kv.Set(context.Background(), prepareKey(name), serialize(variable), nil)
-	if err != nil {
-		panic(err)
-	}
-}
-
-func (self *EtcdState) setString(name, value string) {
-	variable := globalVariable{
-		Value:        value,
-		Type:         TYPE_STRING,
-		IsCollection: false,
-	}
-
-	_, err := self.kv.Set(context.Background(), prepareKey(name), serialize(variable), nil)
-	if err != nil {
-		panic(err)
-	}
-}
-
-func (self *EtcdState) setIntCol(name string, val []int) {
-	variable := globalVariable{
-		Value:        val,
-		Type:         TYPE_INT,
-		IsCollection: true,
-	}
-
-	_, err := self.kv.Set(context.Background(), prepareKey(name), serialize(variable), nil)
-	if err != nil {
-		panic(err)
-	}
-}
-
-func (self *EtcdState) setStringCol(name string, val []string) {
-	variable := globalVariable{
-		Value:        val,
-		Type:         TYPE_STRING,
-		IsCollection: true,
-	}
-
-	_, err := self.kv.Set(context.Background(), prepareKey(name), serialize(variable), nil)
-	if err != nil {
-		panic(err)
-	}
+	return variable
 }
 
 func (self *EtcdState) Lock(who, which string) error {
@@ -307,16 +182,4 @@ func prepareKey(k string) string {
 // given a lock k, this method transforms it to the format expected by `etcd'
 func prepareLock(k string) string {
 	return ETCD_LOCK_NAMESPACE + k
-}
-
-func serialize(v globalVariable) string {
-	b, _ := json.Marshal(v)
-	return string(b)
-}
-
-func parseGlobalVariable(s string) globalVariable {
-	var v globalVariable
-	json.Unmarshal([]byte(s), &v)
-
-	return v
 }
