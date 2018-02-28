@@ -28,8 +28,10 @@ public class CentralizedEtcdStateStrategy implements StateStrategy {
 	@Override
 	public void generateConfig(GoProgram go) {
 		Vector<Statement> topLevelMain = go.getMain().getBody();
-		String configObj = "cfg";
 
+		topLevelMain.add(new FunctionCall("datatypes.GobInit", new Vector<>()));
+
+		String configObj = "cfg";
 		Assignment cfgDecl = new Assignment(
 				new Vector<>(Collections.singletonList(configObj)),
 				new Expression() {
@@ -184,32 +186,9 @@ public class CentralizedEtcdStateStrategy implements StateStrategy {
 
 	@Override
 	public String getVar(PGoVariable var) {
-		String fn = "";
-		if (var.getType() instanceof PGoPrimitiveType.PGoInt) {
-			fn = "GetInt";
-		}
-		else if (var.getType() instanceof PGoPrimitiveType.PGoString) {
-			fn = "GetString";
-		}
-		else if (var.getType() instanceof PGoCollectionType.PGoSlice) {
-			switch (var.getType().toString()) {
-				case "[]int":
-					fn = "GetIntCollection";
-					break;
-				case "[]string":
-					fn = "GetStringCollection";
-					break;
-				default:
-					assert(false);
-			}
-
-		}
-		else {
-			// should not be reachable - variable type is not supported
-			assert(false);
-		}
-
-		return String.format("%s.%s(\"%s\")", GLOBAL_STATE_OBJECT, fn, var.getName());
+		// TODO this is bad for performance
+		return String.format("*%s.Get(\"%s\", &%s).(*%s)",
+				GLOBAL_STATE_OBJECT, var.getName(), var.getName(), var.getType());
 	}
 
 	private void fetchDataForCurrentLockGroup(Vector<Statement> stmts, Stream<PGoVariable> vars) {

@@ -1263,6 +1263,7 @@ public class PGoTransStageGoGen {
 		}
 
 		go.getImports().addImport("pgo/distsys");
+		go.getImports().addImport("pgo/datatypes");
 
 		data.netOpts.getStateStrategy().generateConfig(go);
 
