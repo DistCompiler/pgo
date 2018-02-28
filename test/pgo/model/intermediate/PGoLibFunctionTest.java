@@ -14,23 +14,23 @@ public class PGoLibFunctionTest {
 		Vector<PGoType> params = new Vector<>();
 		params.add(PGoType.inferFromGoTypeName("string"));
 		params.add(PGoType.inferFromGoTypeName("int"));
-		lfunc.addFuncSignature(params, "pgoutil.Foo", false, PGoPrimitiveType.VOID);
-		assertEquals("pgoutil.Foo", lfunc.getGoName(params));
+		lfunc.addFuncSignature(params, "datatypes.Foo", false, PGoPrimitiveType.VOID);
+		assertEquals("datatypes.Foo", lfunc.getGoName(params));
 		assertEquals(false, lfunc.isObjectMethod(params));
 		assertEquals(PGoPrimitiveType.VOID, lfunc.getRetType(params));
 		
 		params = new Vector<>();
 		params.add(PGoType.inferFromGoTypeName("set[int]"));
 		params.add(PGoType.inferFromGoTypeName("int"));
-		lfunc.addFuncSignature(params, "pgoutil.Bar", true, PGoType.inferFromGoTypeName("bool"));
-		assertEquals("pgoutil.Bar", lfunc.getGoName(params));
+		lfunc.addFuncSignature(params, "datatypes.Bar", true, PGoType.inferFromGoTypeName("bool"));
+		assertEquals("datatypes.Bar", lfunc.getGoName(params));
 		assertEquals(true, lfunc.isObjectMethod(params));
 		assertEquals(PGoType.inferFromGoTypeName("bool"), lfunc.getRetType(params));
 		
 		params = new Vector<>();
 		params.add(PGoType.inferFromGoTypeName("string"));
 		params.add(PGoType.inferFromGoTypeName("int"));
-		assertEquals("pgoutil.Foo", lfunc.getGoName(params));
+		assertEquals("datatypes.Foo", lfunc.getGoName(params));
 		
 		params = new Vector<>();
 		assertNull(lfunc.getGoName(params));
@@ -42,29 +42,29 @@ public class PGoLibFunctionTest {
 		Vector<PGoType> params = new Vector<>();
 		params.add(PGoType.inferFromGoTypeName("E"));
 		params.add(PGoType.inferFromGoTypeName("E"));
-		lfunc.addFuncSignature(params, "pgoutil.Foo", false, PGoType.inferFromGoTypeName("E"));
+		lfunc.addFuncSignature(params, "datatypes.Foo", false, PGoType.inferFromGoTypeName("E"));
 		
 		params = new Vector<>();
 		params.add(PGoType.inferFromGoTypeName("int"));
 		params.add(PGoType.inferFromGoTypeName("int"));
-		assertEquals("pgoutil.Foo", lfunc.getGoName(params));
+		assertEquals("datatypes.Foo", lfunc.getGoName(params));
 		assertEquals(PGoType.inferFromGoTypeName("int"), lfunc.getRetType(params));
 		
 		params = new Vector<>();
 		params.add(PGoType.inferFromGoTypeName("string"));
 		params.add(PGoType.inferFromGoTypeName("string"));
-		assertEquals("pgoutil.Foo", lfunc.getGoName(params));
+		assertEquals("datatypes.Foo", lfunc.getGoName(params));
 		assertEquals(PGoType.inferFromGoTypeName("string"), lfunc.getRetType(params));
 		
 		params = new Vector<>();
 		params.add(PGoType.inferFromGoTypeName("set[A]"));
 		params.add(PGoType.inferFromGoTypeName("[]B"));
-		lfunc.addFuncSignature(params, "pgoutil.Bar", true, PGoType.inferFromGoTypeName("tuple[A, B]"));
+		lfunc.addFuncSignature(params, "datatypes.Bar", true, PGoType.inferFromGoTypeName("tuple[A, B]"));
 		
 		params = new Vector<>();
 		params.add(PGoType.inferFromGoTypeName("set[set[int]]"));
 		params.add(PGoType.inferFromGoTypeName("[]map[int]string"));
-		assertEquals("pgoutil.Bar", lfunc.getGoName(params));
+		assertEquals("datatypes.Bar", lfunc.getGoName(params));
 		assertEquals(PGoType.inferFromGoTypeName("tuple[set[int], map[int]string]"), lfunc.getRetType(params));
 		
 		params = new Vector<>();

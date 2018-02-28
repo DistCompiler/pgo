@@ -1,4 +1,4 @@
-package pgoutil
+package datatypes
 
 func Sequence(begin, end int) Set {
 	ret := NewSet()

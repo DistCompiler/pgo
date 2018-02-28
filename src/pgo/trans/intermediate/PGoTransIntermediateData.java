@@ -146,7 +146,7 @@ class PGoTransIntermediateData {
 	Map<String, Integer> labToLockGroup;
 	// the number of lock groups there are
 	int numLockGroups;
-	PGoNetOptions netOpts;
+	public PGoNetOptions netOpts;
 
 	public static PGoTransIntermediateData buildWith(PGoNetOptions networkOptions) {
 		PGoTransIntermediateData ret = new PGoTransIntermediateData();
@@ -156,11 +156,11 @@ class PGoTransIntermediateData {
 
 	PGoTransIntermediateData() {
 
-		this.globals = new LinkedHashMap<String, PGoVariable>();
-		this.unresolvedVars = new LinkedHashMap<String, PGoVariable>();
-		this.funcs = new LinkedHashMap<String, PGoFunction>();
-		this.mainBlock = new Vector<LabeledStmt>();
-		this.goroutines = new LinkedHashMap<String, PGoRoutineInit>();
+		this.globals = new LinkedHashMap<>();
+		this.unresolvedVars = new LinkedHashMap<>();
+		this.funcs = new LinkedHashMap<>();
+		this.mainBlock = new Vector<>();
+		this.goroutines = new LinkedHashMap<>();
 		this.defns = new LinkedHashMap<>();
 		this.needsLock = false;
 		this.tlaToAST = new HashMap<>();

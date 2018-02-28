@@ -1,4 +1,4 @@
-package pgoutil
+package datatypes
 
 // Return a channel initialized with elements.
 func NewChan(elts ...interface{}) chan interface{} {

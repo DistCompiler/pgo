@@ -19,7 +19,7 @@ public class Imports extends GoAST {
 	private Set<String> importPkgs;
 
 	public Imports() {
-		importPkgs = new HashSet<String>();
+		importPkgs = new HashSet<>();
 	}
 
 	/**
@@ -28,7 +28,7 @@ public class Imports extends GoAST {
 	 */
 	@Override
 	public Vector<String> toGo() {
-		Vector<String> ret = new Vector<String>();
+		Vector<String> ret = new Vector<>();
 		if (importPkgs.size() == 0) {
 			return ret;
 		}
@@ -37,7 +37,7 @@ public class Imports extends GoAST {
 			return ret;
 		}
 
-		List<String> imports = new ArrayList<String>(importPkgs);
+		List<String> imports = new ArrayList<>(importPkgs);
 		Collections.sort(imports);
 
 		ret.add("import (");
@@ -49,7 +49,7 @@ public class Imports extends GoAST {
 	}
 	
 	public Vector<String> getImports() {
-		return new Vector<String>(importPkgs);
+		return new Vector<>(importPkgs);
 	}
 	
 	public void addImport(String pkg) {

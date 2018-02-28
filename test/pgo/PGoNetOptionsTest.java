@@ -48,7 +48,7 @@ public class PGoNetOptionsTest {
 	@Test
 	public void testDefaultStateStrategy() throws PGoOptionException {
 		getNetworking().getJSONObject(PGoNetOptions.STATE_FIELD).remove("strategy");
-		assertEquals("centralized", options().getStateOptions().strategy);
+		assertEquals("centralized-etcd", options().getStateOptions().strategy);
 	}
 
 	// the developer is able to specify the timeout for operations on global state
@@ -62,38 +62,6 @@ public class PGoNetOptionsTest {
 	public void testDefaultTimeout() throws PGoOptionException {
 		getNetworking().getJSONObject(PGoNetOptions.STATE_FIELD).remove("timeout");
 		assertEquals(3, options().getStateOptions().timeout);
-	}
-
-	// a channel where number of channels != 2 is invalid
-	@Test(expected = PGoOptionException.class)
-	public void testSingleProcessChannel() throws PGoOptionException {
-		getNetworking().
-				getJSONArray(PGoNetOptions.CHANNELS_FIELD).
-				getJSONObject(0).
-				getJSONArray("processes").
-				remove(0);
-
-		options();
-	}
-
-	// a channel where the two connected processes have the same ID is invalid
-	@Test(expected = PGoOptionException.class)
-	public void testSameProcessIdentifier() throws PGoOptionException {
-		String firstProcessId = (String) getNetworking().
-				getJSONArray(PGoNetOptions.CHANNELS_FIELD).
-				getJSONObject(0).
-				getJSONArray("processes").
-				getJSONObject(0).
-				get("id");
-
-		getNetworking().
-				getJSONArray(PGoNetOptions.CHANNELS_FIELD).
-				getJSONObject(0).
-				getJSONArray("processes").
-				getJSONObject(1).
-				put("id", firstProcessId);
-
-		options();
 	}
 
 	// when the configuration file misses a required field (e.g., "state" or "channels"),
@@ -118,26 +86,8 @@ public class PGoNetOptionsTest {
 			}
 		};
 
-		assertEquals("centralized", net.getStateOptions().strategy);
-		assertEquals(expectedHosts, net.getStateOptions().hosts);
-
-		assertEquals(1, net.getChannels().size());
-
-		PGoNetOptions.Channel channel = net.getChannels().get("msgC");
-		assertEquals("msgC", channel.name);
-		assertEquals(2, channel.processes.length);
-
-		assertEquals("S", channel.processes[0].name);
-		assertEquals(new ProcessStringArg("Sender"), channel.processes[0].arg);
-		assertEquals("sender", channel.processes[0].role);
-		assertEquals("10.0.0.2", channel.processes[0].host);
-		assertEquals(5432, channel.processes[0].port);
-
-		assertEquals("R", channel.processes[1].name);
-		assertEquals(new ProcessStringArg("Receiver"), channel.processes[1].arg);
-		assertEquals("receiver", channel.processes[1].role);
-		assertEquals("10.0.0.3", channel.processes[1].host);
-		assertEquals(3333, channel.processes[1].port);
+		assertEquals("centralized-etcd", net.getStateOptions().strategy);
+		assertEquals(expectedHosts, net.getStateOptions().endpoints);
 	}
 
 	private JSONObject getNetworking() {

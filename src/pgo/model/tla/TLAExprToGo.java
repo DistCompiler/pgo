@@ -101,7 +101,7 @@ public class TLAExprToGo {
 			}
 		}
 		if (type instanceof PGoTuple) {
-			return new FunctionCall("pgoutil.NewTuple", contents);
+			return new FunctionCall("datatypes.NewTuple", contents);
 		} else if (type instanceof PGoSlice) {
 			// << 1, 2, 3 >> -> []int{1, 2, 3}
 			Vector<Expression> se = new Vector<>();
@@ -116,7 +116,7 @@ public class TLAExprToGo {
 			se.add(new Token("}"));
 			return new SimpleExpression(se);
 		} else if (type instanceof PGoChan) {
-			return new FunctionCall("pgoutil.NewChan", contents);
+			return new FunctionCall("datatypes.NewChan", contents);
 		}
 		assert false;
 		return null;
@@ -127,7 +127,7 @@ public class TLAExprToGo {
 		switch (tla.getToken()) {
 		case "|->":
 			// tla: x \in S, y \in T |-> f(x, y)
-			// go: pgoutil.MapsTo(func(x, y type) type { return f(x, y) }, S, T)
+			// go: datatypes.MapsTo(func(x, y type) type { return f(x, y) }, S, T)
 			// func params to MapsTo
 			Vector<Expression> params = new Vector<>();
 			// params for anonymous function
@@ -158,8 +158,8 @@ public class TLAExprToGo {
 						}
 					});
 			params.add(0, f);
-			imports.addImport("pgoutil");
-			return new FunctionCall("pgoutil.MapsTo", params);
+			imports.addImport("pgo/datatypes");
+			return new FunctionCall("datatypes.MapsTo", params);
 		case "EXCEPT":
 			// tla: f EXCEPT ![x1] = y1, [x2] = y2...
 			// TODO
@@ -168,7 +168,7 @@ public class TLAExprToGo {
 			// if we are calling this, it is set constructor or set image
 			if (tla.isRightSide()) {
 				// set image { f(x, y) : x \in S, y \in T }
-				// go func: pgoutil.SetImage(func(x, y type) type { return f(x,
+				// go func: datatypes.SetImage(func(x, y type) type { return f(x,
 				// y) }, S, T)
 
 				// the set operations
@@ -203,11 +203,11 @@ public class TLAExprToGo {
 							}
 						});
 				params.add(0, f);
-				imports.addImport("pgoutil");
-				return new FunctionCall("pgoutil.SetImage", params);
+				imports.addImport("pgo/datatypes");
+				return new FunctionCall("datatypes.SetImage", params);
 			} else {
 				// set constructor { x \in S : P(x) }
-				// go func: pgoutil.SetConstructor(S, func(x type) bool { return
+				// go func: datatypes.SetConstructor(S, func(x type) bool { return
 				// P(x) })
 				// there is only a single set expression S
 
@@ -236,8 +236,8 @@ public class TLAExprToGo {
 								add(new Return(new TLAExprToGo(tla.getExpr(), imports, temp).toExpression()));
 							}
 						});
-				imports.addImport("pgoutil");
-				return new FunctionCall("pgoutil.SetConstructor", new Vector<Expression>() {
+				imports.addImport("pgo/datatypes");
+				return new FunctionCall("datatypes.SetConstructor", new Vector<Expression>() {
 					{
 						add(setTrans.toExpression());
 						add(P);
@@ -261,7 +261,7 @@ public class TLAExprToGo {
 		// we have already checked types for consistency, so can check just lhs
 		PGoType leftType = new TLAExprToType(tla.getLeft(), data, assign, true).getType();
 		if (leftType instanceof PGoSet) {
-			imports.addImport("pgoutil");
+			imports.addImport("pgo/datatypes");
 			Vector<Expression> leftExp = new Vector<>();
 			leftExp.add(leftRes);
 
@@ -396,7 +396,7 @@ public class TLAExprToGo {
 				// map
 				if (params.size() > 1) {
 					// tuple key
-					FunctionCall newTup = new FunctionCall("pgoutil.NewTuple", params);
+					FunctionCall newTup = new FunctionCall("datatypes.NewTuple", params);
 					return new TypeAssertion(new FunctionCall("Get", new Vector<Expression>() {
 						{
 							add(newTup);
@@ -437,8 +437,8 @@ public class TLAExprToGo {
 		args.add(startRes);
 		args.add(endRes);
 
-		this.imports.addImport("pgoutil");
-		return new FunctionCall("pgoutil.Sequence", args);
+		this.imports.addImport("pgo/datatypes");
+		return new FunctionCall("datatypes.Sequence", args);
 	}
 
 	protected Expression translate(PGoTLASet tla) throws PGoTransException {
@@ -453,8 +453,8 @@ public class TLAExprToGo {
 		for (PGoTLA ptla : tla.getContents()) {
 			args.add(new TLAExprToGo(ptla, imports, data, containedType).toExpression());
 		}
-		this.imports.addImport("pgoutil");
-		return new FunctionCall("pgoutil.NewSet", args);
+		this.imports.addImport("pgo/datatypes");
+		return new FunctionCall("datatypes.NewSet", args);
 	}
 
 	protected Expression translate(PGoTLASetOp tla) throws PGoTransException {
@@ -466,7 +466,7 @@ public class TLAExprToGo {
 
 		Vector<Expression> exp = new Vector<>();
 		String funcName = null;
-		// Map the set operation to the pgoutil set function. \\notin does not
+		// Map the set operation to the pgo/datatypes set function. \\notin does not
 		// have a corresponding function and is handled separately.
 		switch (tla.getToken()) {
 		case "\\cup":
@@ -499,7 +499,7 @@ public class TLAExprToGo {
 		}
 		// rightRes is the object because lhs can be an element (e.g. in
 		// Contains) except when calling Difference (not symmetric)
-		this.imports.addImport("pgoutil");
+		this.imports.addImport("pgo/datatypes");
 		if (tla.getToken().equals("\\")) {
 			exp.add(new FunctionCall(funcName, new Vector<Expression>() {
 				{
@@ -565,12 +565,12 @@ public class TLAExprToGo {
 		case "UNION":
 			expr = new TLAExprToGo(tla.getArg(), imports, data).toExpression();
 			FunctionCall fc = new FunctionCall("EltUnion", new Vector<>(), expr);
-			this.imports.addImport("pgoutil");
+			this.imports.addImport("pgo/datatypes");
 			return fc;
 		case "SUBSET":
 			expr = new TLAExprToGo(tla.getArg(), imports, data).toExpression();
 			FunctionCall fc1 = new FunctionCall("PowerSet", new Vector<>(), expr);
-			this.imports.addImport("pgoutil");
+			this.imports.addImport("pgo/datatypes");
 			return fc1;
 		// these operations are of the form OP x \in S : P(x)
 		case "CHOOSE":
@@ -601,7 +601,7 @@ public class TLAExprToGo {
 			assert (varExpr.toGo().size() == 1);
 
 			// create the anonymous function for the predicate
-			// go func: Choose(P interface{}, S pgoutil.Set) interface{}
+			// go func: Choose(P interface{}, S datatypes.Set) interface{}
 			// (P is predicate)
 			// P = func(varType) bool { return pred }
 			AnonymousFunction P = new AnonymousFunction(PGoType.inferFromGoTypeName("bool"),
@@ -623,8 +623,8 @@ public class TLAExprToGo {
 			chooseFuncParams.add(P);
 			chooseFuncParams.add(setExpr);
 
-			this.imports.addImport("pgoutil");
-			return new FunctionCall("pgoutil.Choose", chooseFuncParams);
+			this.imports.addImport("pgo/datatypes");
+			return new FunctionCall("datatypes.Choose", chooseFuncParams);
 		case "\\E":
 		case "\\A":
 			st = (PGoTLAVariadic) tla.getArg();
@@ -649,7 +649,7 @@ public class TLAExprToGo {
 				setExprs.add(new TLAExprToGo(setOp.getRight(), imports, data).toExpression());
 			}
 			// create the anonymous function for the predicate
-			// go func: Exists|ForAll(P interface{}, S ...pgoutil.Set)
+			// go func: Exists|ForAll(P interface{}, S ...datatypes.Set)
 			// interface{}
 			// (P is predicate)
 			// P = func(varType, varType...) bool { return pred }
@@ -676,8 +676,8 @@ public class TLAExprToGo {
 				funcParams.add(s);
 			}
 
-			this.imports.addImport("pgoutil");
-			return new FunctionCall((tla.getToken().equals("\\E") ? "pgoutil.Exists" : "pgoutil.ForAll"),
+			this.imports.addImport("pgo/datatypes");
+			return new FunctionCall((tla.getToken().equals("\\E") ? "datatypes.Exists" : "datatypes.ForAll"),
 					funcParams);
 		}
 		assert false;
@@ -689,7 +689,7 @@ public class TLAExprToGo {
 			@Override
 			public Vector<String> toGo() {
 				PGoVariable var = data.findPGoVariable(tla.getName());
-				return new VariableReference(var.getName(), var, data.cachedVarSet.contains(var)).toGo();
+				return new VariableReference(var.getName(), var, data.cachedVarSet.contains(var), data.netOpts.getStateStrategy()).toGo();
 			}
 		};
 	}

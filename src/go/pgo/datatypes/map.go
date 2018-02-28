@@ -1,11 +1,11 @@
 // Implements a generic, thread-safe ordered map using a red-black tree.
-package pgoutil
+package datatypes
 
 import (
 	"fmt"
 	rbt "github.com/emirpasic/gods/trees/redblacktree"
-	"sync"
 	"reflect"
+	"sync"
 )
 
 // Generic comparator function that satisfies utils.Comparator
@@ -322,7 +322,7 @@ func (m *mp) Put(key interface{}, val interface{}) {
 	if e, ok := val.(Map); ok {
 		val = e.Clone()
 	}
-	
+
 	m.Lock()
 	defer m.Unlock()
 	m.tree.Put(key, val)

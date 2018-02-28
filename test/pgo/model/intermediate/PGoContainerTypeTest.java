@@ -218,7 +218,7 @@ public class PGoContainerTypeTest {
 		assertEquals(1, tup.getContainedTypes().size());
 		assertTrue(tup.getContainedTypes().get(0) instanceof PGoInt);
 		assertEquals(s, type.toTypeName());
-		assertEquals("pgoutil.Tuple", type.toGo());
+		assertEquals("datatypes.Tuple", type.toGo());
 		
 		s = "tuple[int, map[int]string, tuple[string...], string]";
 		type = PGoType.inferFromGoTypeName(s);
@@ -230,7 +230,7 @@ public class PGoContainerTypeTest {
 		assertTrue(tup.getType(2) instanceof PGoTuple);
 		assertTrue(tup.getType(3) instanceof PGoString);
 		assertEquals(s, type.toTypeName());
-		assertEquals("pgoutil.Tuple", type.toGo());
+		assertEquals("datatypes.Tuple", type.toGo());
 		
 		s = "tuple[int, tuple[float64, string], []int]";
 		type = PGoType.inferFromGoTypeName(s);
@@ -244,7 +244,7 @@ public class PGoContainerTypeTest {
 		assertTrue(innerTup.getType(0) instanceof PGoDecimal);
 		assertTrue(innerTup.getType(1) instanceof PGoString);
 		assertEquals(s, type.toTypeName());
-		assertEquals("pgoutil.Tuple", type.toGo());
+		assertEquals("datatypes.Tuple", type.toGo());
 		
 		s = "tuple[]";
 		type = PGoType.inferFromGoTypeName(s);
@@ -252,6 +252,6 @@ public class PGoContainerTypeTest {
 		tup = (PGoTuple) type;
 		assertEquals(0, tup.getLength());
 		assertEquals(s, type.toTypeName());
-		assertEquals("pgoutil.Tuple", type.toGo());
+		assertEquals("datatypes.Tuple", type.toGo());
 	}
 }

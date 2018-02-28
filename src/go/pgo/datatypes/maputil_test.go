@@ -1,10 +1,10 @@
-package pgoutil
+package datatypes
 
 import "testing"
 
 func TestMapsTo(t *testing.T) {
 	f := func(i int) int {
-		return 2*i
+		return 2 * i
 	}
 	m := MapsTo(f, NewSet(1, 2, 3))
 	assertEquals(true, m.Contains(1), t)

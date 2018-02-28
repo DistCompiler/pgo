@@ -57,7 +57,7 @@ public class PGoTransStageAtomicity {
 	// a variable is serializable if it can be maintained remotely if networking
 	// is enabled.
 	//
-	// See the `pgonet' implementation for more details.
+	// See the `pgo/distsys' implementation for more details.
 	private boolean isSerializable(PGoVariable var) {
 	    Vector<String> allowedCollections = new Vector<String>() {
 			{
@@ -76,7 +76,7 @@ public class PGoTransStageAtomicity {
 
 		// Collection types are only supported if they are of one of the allowed types.
 		// There is a correspondence here between what types are allowed and what types
-		// the `pgonet' Go package supports. The lists should be in sync.
+		// the `pgo/distsys' Go package supports. The lists should be in sync.
 		if (var.getType() instanceof PGoCollectionType.PGoSlice &&
 				allowedCollections.contains(var.getType().toString())) {
 		    return true;

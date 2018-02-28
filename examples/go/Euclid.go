@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	"pgoutil"
+	"pgo/datatypes"
 	"strconv"
 )
 
@@ -12,12 +12,11 @@ var u int
 var v_init int
 var N int
 
-
-func main()  {
+func main() {
 	flag.Parse()
 	N, _ = strconv.Atoi(flag.Args()[0])
-	
-	for v_interface := range pgoutil.Sequence(1, N).Iter() {
+
+	for v_interface := range datatypes.Sequence(1, N).Iter() {
 		v = v_interface.(int)
 		u = 24
 		v_init = v

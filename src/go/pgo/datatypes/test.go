@@ -1,9 +1,9 @@
-package pgoutil
+package datatypes
 
 import (
-	"testing"
 	"reflect"
 	"runtime/debug"
+	"testing"
 )
 
 func assertSetEqual(expected, actual Set, t *testing.T) {

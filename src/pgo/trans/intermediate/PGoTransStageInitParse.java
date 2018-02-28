@@ -38,18 +38,6 @@ public class PGoTransStageInitParse {
 		this.data.annots = new PGoAnnotationParser(parsed.getPGoAnnotations());
 
 		trans();
-
-		// config sanitization
-		if (data.netOpts.isEnabled()) {
-			for (Map.Entry<String, PGoNetOptions.Channel> entry : data.netOpts.getChannels().entrySet()) {
-				PGoNetOptions.Channel channel = entry.getValue();
-				for (PGoNetOptions.Process p : channel.processes) {
-					if (!this.data.funcs.containsKey(p.name) || this.data.funcs.get(p.name).getType() != PGoFunction.FunctionType.Process) {
-						throw new PGoParseException("PlusCal algorithm does not contain process " + p.name);
-					}
-				}
-			}
-		}
 	}
 
 	/**

@@ -1,5 +1,5 @@
-// Implements an ordered set using the pgoutil map as a container.
-package pgoutil
+// Implements an ordered set using the pgo/datatypes map as a container.
+package datatypes
 
 import (
 	"fmt"

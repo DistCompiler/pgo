@@ -2,26 +2,26 @@ package main
 
 import (
 	"math/rand"
-	"pgoutil"
+	"pgo/datatypes"
 	"sync"
 	"time"
 )
 
 var k int
-var b pgoutil.Map
-var c pgoutil.Map
-var Proc pgoutil.Set
+var b datatypes.Map
+var c datatypes.Map
+var Proc datatypes.Set
 var PGoWait sync.WaitGroup
 var PGoStart chan bool = make(chan bool)
 
-func P(self int)  {
+func P(self int) {
 	var temp int
-	var temp2 pgoutil.Set
+	var temp2 datatypes.Set
 	defer PGoWait.Done()
 	<-PGoStart
 	for true {
 		b.Put(self, false)
-		Li1:
+	Li1:
 		if k != self {
 			c.Put(self, true)
 			temp = k
@@ -31,11 +31,11 @@ func P(self int)  {
 			goto Li1
 		}
 		c.Put(self, false)
-		temp2 = Proc.Difference(pgoutil.NewSet(self))
-		for !pgoutil.NewSet().Equal(temp2) {
+		temp2 = Proc.Difference(datatypes.NewSet(self))
+		for !datatypes.NewSet().Equal(temp2) {
 			{
 				j := temp2.ToSlice()[rand.Intn(temp2.Size())].(int)
-				temp2 = temp2.Difference(pgoutil.NewSet(j))
+				temp2 = temp2.Difference(datatypes.NewSet(j))
 				if !c.Get(j).(bool) {
 					goto Li1
 				}
@@ -48,17 +48,17 @@ func P(self int)  {
 	}
 }
 
-func main()  {
+func main() {
 	rand.Seed(time.Now().UnixNano())
 	for k_interface := range Proc.Iter() {
 		k = k_interface.(int)
-		b = pgoutil.MapsTo(func(i int) bool {
-				return true
-			}, Proc)
-		c = pgoutil.MapsTo(func(i int) bool {
-				return true
-			}, Proc)
-		Proc = pgoutil.Sequence(1, 10)
+		b = datatypes.MapsTo(func(i int) bool {
+			return true
+		}, Proc)
+		c = datatypes.MapsTo(func(i int) bool {
+			return true
+		}, Proc)
+		Proc = datatypes.Sequence(1, 10)
 		for procId := range Proc.Iter() {
 			PGoWait.Add(1)
 			go P(procId.(int))

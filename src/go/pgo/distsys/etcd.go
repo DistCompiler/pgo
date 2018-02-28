@@ -1,6 +1,6 @@
-package pgonet
+package distsys
 
-// Implements the global state management API.
+// Implements the etcd global state management API.
 //
 // Currently, PGo manages global state in a distributed environment by using the
 // `etcd' key-value store. The functions defined here wrap that behaviour by providing
@@ -11,14 +11,14 @@ package pgonet
 //
 // 	import (
 // 		"fmt"
-// 		"pgonet"
+// 		"pgo/distsys"
 // 	)
 //
-// 	config := &GlobalsConfig{
+// 	config := &Config{
 // 		Endpoints: []string{"10.0.0.1:1234", "10.0.0.2:1234"},
 // 		Timeout: 3,
 // 	}
-// 	state, err := pgonet.InitGlobals(config)
+// 	state, err := distsys.InitEtcdState(config)
 // 	if err != nil {
 // 		// handle error
 // 	}
@@ -56,22 +56,17 @@ import (
 
 type GlobalVariableType int
 
-// declares the types of global variables supported by PGoNet at the moment.
+// declares the types of global variables supported by PGo at the moment.
 const (
 	TYPE_INT = iota
 	TYPE_STRING
-	PGONET_LOCK_NAMESPACE = "/locks/"
+
+	ETCD_LOCK_NAMESPACE = "/locks/"
 )
 
-// Specifies how to connect to our global state management
-type GlobalsConfig struct {
-	Endpoints []string // a list of etcd endpoints in the IP:PORT format
-	Timeout   int      // the timeout for each operation
-}
-
-// A reference to our global state, created via +InitGlobals+. Used in the
+// A reference to our global state, created via +InitEtcdState+. Used in the
 // generated Go code to set and get the values of global variables.
-type GlobalState struct {
+type EtcdState struct {
 	c  etcd.Client
 	kv etcd.KeysAPI
 }
@@ -89,9 +84,9 @@ type globalVariable struct {
 // strategy - that is, every request to global state is sent to the same server
 // (or collection of servers).
 //
-// Returns a reference to `pgonet.GlobalState' on success. Fails if we cannot
-// establish a connection to the etcd cluster.
-func InitGlobals(cfg *GlobalsConfig) (*GlobalState, error) {
+// Returns a reference to `distsys.EtcdState' on success. Fails if we
+// cannot establish a connection to the etcd cluster.
+func InitEtcdState(cfg *Config) (*EtcdState, error) {
 	etcdConfig := etcd.Config{
 		Endpoints:               cfg.Endpoints,
 		HeaderTimeoutPerRequest: time.Duration(cfg.Timeout) * time.Second,
@@ -102,7 +97,7 @@ func InitGlobals(cfg *GlobalsConfig) (*GlobalState, error) {
 		return nil, err
 	}
 
-	return &GlobalState{
+	return &EtcdState{
 		c:  c,
 		kv: etcd.NewKeysAPI(c),
 	}, nil
@@ -110,7 +105,7 @@ func InitGlobals(cfg *GlobalsConfig) (*GlobalState, error) {
 
 // Sets variable `name' to a given `value'. Contacts the global variable server
 // *synchronously*
-func (self *GlobalState) Set(name string, value interface{}) {
+func (self *EtcdState) Set(name string, value interface{}) {
 	switch val := value.(type) {
 	case int:
 		self.setInt(name, val)
@@ -128,7 +123,7 @@ func (self *GlobalState) Set(name string, value interface{}) {
 // indicates whether a variable with the given name was previously set.
 // Caller must hold a lock before invoking this function if behavior following
 // its return lies within a critical section
-func (self *GlobalState) Exists(name string) bool {
+func (self *EtcdState) Exists(name string) bool {
 	_, err := self.kv.Get(context.Background(), prepareKey(name), nil)
 	if err != nil {
 		etcdErr := err.(etcd.Error)
@@ -145,7 +140,7 @@ func (self *GlobalState) Exists(name string) bool {
 // Gets the value associated with a variable with the given `name'. The variable value
 // is cast to an int and returned (the method fails if the value exists and is not a
 // valid int). Contacts the global variable server *synchronously*
-func (self *GlobalState) GetInt(name string) int {
+func (self *EtcdState) GetInt(name string) int {
 	response, err := self.kv.Get(context.Background(), prepareKey(name), nil)
 	if err != nil {
 		panic(err)
@@ -161,7 +156,7 @@ func (self *GlobalState) GetInt(name string) int {
 
 // Returns a string representation of the value associated with the variable with the
 // given `name'.
-func (self *GlobalState) GetString(name string) string {
+func (self *EtcdState) GetString(name string) string {
 	response, err := self.kv.Get(context.Background(), prepareKey(name), nil)
 	if err != nil {
 		panic(err)
@@ -176,8 +171,8 @@ func (self *GlobalState) GetString(name string) string {
 }
 
 // Returns a collection of ints associated with the var of given `name'. The variable should
-// be previously set to a []int using pgonet.Set.
-func (self *GlobalState) GetIntCollection(name string) []int {
+// be previously set to a []int using datatypes.Set.
+func (self *EtcdState) GetIntCollection(name string) []int {
 	response, err := self.kv.Get(context.Background(), prepareKey(name), nil)
 	if err != nil {
 		panic(err)
@@ -205,8 +200,8 @@ func (self *GlobalState) GetIntCollection(name string) []int {
 }
 
 // Returns a collection of strings associated with the var of given `name'. The variable should
-// be previously set to a []string using pgonet.Set.
-func (self *GlobalState) GetStringCollection(name string) []string {
+// be previously set to a []string using datatypes.Set.
+func (self *EtcdState) GetStringCollection(name string) []string {
 	response, err := self.kv.Get(context.Background(), prepareKey(name), nil)
 	if err != nil {
 		panic(err)
@@ -231,7 +226,7 @@ func (self *GlobalState) GetStringCollection(name string) []string {
 	return strCol
 }
 
-func (self *GlobalState) setInt(name string, value int) {
+func (self *EtcdState) setInt(name string, value int) {
 	variable := globalVariable{
 		Value:        value,
 		Type:         TYPE_INT,
@@ -244,7 +239,7 @@ func (self *GlobalState) setInt(name string, value int) {
 	}
 }
 
-func (self *GlobalState) setString(name, value string) {
+func (self *EtcdState) setString(name, value string) {
 	variable := globalVariable{
 		Value:        value,
 		Type:         TYPE_STRING,
@@ -257,7 +252,7 @@ func (self *GlobalState) setString(name, value string) {
 	}
 }
 
-func (self *GlobalState) setIntCol(name string, val []int) {
+func (self *EtcdState) setIntCol(name string, val []int) {
 	variable := globalVariable{
 		Value:        val,
 		Type:         TYPE_INT,
@@ -270,7 +265,7 @@ func (self *GlobalState) setIntCol(name string, val []int) {
 	}
 }
 
-func (self *GlobalState) setStringCol(name string, val []string) {
+func (self *EtcdState) setStringCol(name string, val []string) {
 	variable := globalVariable{
 		Value:        val,
 		Type:         TYPE_STRING,
@@ -283,7 +278,7 @@ func (self *GlobalState) setStringCol(name string, val []string) {
 	}
 }
 
-func (self *GlobalState) Lock(who, which string) error {
+func (self *EtcdState) Lock(who, which string) error {
 	key := prepareLock(which)
 	for {
 		_, err := self.kv.Create(context.Background(), key, who)
@@ -297,7 +292,7 @@ func (self *GlobalState) Lock(who, which string) error {
 	}
 }
 
-func (self *GlobalState) Unlock(who, which string) error {
+func (self *EtcdState) Unlock(who, which string) error {
 	_, err := self.kv.Delete(context.Background(), prepareLock(which), &etcd.DeleteOptions{
 		PrevValue: who,
 	})
@@ -311,7 +306,7 @@ func prepareKey(k string) string {
 
 // given a lock k, this method transforms it to the format expected by `etcd'
 func prepareLock(k string) string {
-	return PGONET_LOCK_NAMESPACE + k
+	return ETCD_LOCK_NAMESPACE + k
 }
 
 func serialize(v globalVariable) string {
