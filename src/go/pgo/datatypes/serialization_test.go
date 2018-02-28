@@ -51,3 +51,22 @@ func TestSetSerialization(t *testing.T) {
 	assertEquals(true, n.Contains(5), t)
 	assertEquals(true, n.Contains(10), t)
 }
+
+func TestTupleSerialization(t *testing.T) {
+	m := NewTuple(1, 2)
+
+	buffer := bytes.Buffer{}
+
+	encoder := gob.NewEncoder(&buffer)
+	err := encoder.Encode(&m)
+	assertEquals(nil, err, t)
+
+	var n Tuple
+	decoder := gob.NewDecoder(&buffer)
+	err = decoder.Decode(&n)
+	assertEquals(nil, err, t)
+
+	assertEquals(2, n.Size(), t)
+	assertEquals(1, n.At(0), t)
+	assertEquals(2, n.At(1), t)
+}
