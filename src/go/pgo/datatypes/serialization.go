@@ -5,6 +5,15 @@ import (
 	"encoding/gob"
 )
 
+func GobInit() {
+	gob.Register(&mp{})
+	gob.Register(&KVPair{})
+	gob.Register(&pair{})
+	gob.Register(&set{})
+	gob.Register(&tuple{})
+	gob.Register(&struct{}{})
+}
+
 func (m *mp) GobEncode() ([]byte, error) {
 	buffer := bytes.Buffer{}
 	encoder := gob.NewEncoder(&buffer)
@@ -32,10 +41,9 @@ func (m *mp) GobEncode() ([]byte, error) {
 }
 
 func (m *mp) GobDecode(buffer []byte) error {
-	tmp := NewMap()
-
 	decoder := gob.NewDecoder(bytes.NewReader(buffer))
 
+	tmp := NewMap()
 	size := int(0)
 	err := decoder.Decode(&size)
 	if err != nil {
@@ -57,5 +65,20 @@ func (m *mp) GobDecode(buffer []byte) error {
 
 	*m = *(tmp).(*mp)
 
+	return nil
+}
+
+func (s *set) GobEncode() ([]byte, error) {
+	buf, err := s.m.(*mp).GobEncode()
+	return buf, err
+}
+
+func (s *set) GobDecode(buffer []byte) error {
+	m := mp{}
+	err := (&m).GobDecode(buffer)
+	if err != nil {
+		return err
+	}
+	*s = set{&m}
 	return nil
 }
