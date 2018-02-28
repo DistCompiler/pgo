@@ -7,6 +7,14 @@ import pgo.model.intermediate.PGoVariable;
 import java.util.Vector;
 import java.util.stream.Stream;
 
+// The centralized state distribution strategy is similar to the etcd approach,
+// but instead of using etcd as a dependency for the compile project, the state
+// server is one of the PlusCal processes. The process responsible for maintaining
+// distributed state is declared in the "endpoints" field of the configuration file.
+//
+// Assumption: When this strategy is used, only one address is specified in the
+// "endpoints" array, and that is chosen to be both the process coordinator
+// and state server for the entire system.
 public class CentralizedStateStrategy implements StateStrategy {
     private PGoNetOptions.StateOptions stateOptions;
 
