@@ -1,6 +1,7 @@
 package pgo.model.distsys;
 
 import pgo.PGoNetOptions;
+import pgo.PGoOptionException;
 import pgo.model.golang.*;
 import pgo.model.intermediate.*;
 
@@ -19,7 +20,8 @@ public class CentralizedEtcdStateStrategy implements StateStrategy {
 
 	private PGoNetOptions.StateOptions stateOptions;
 
-	public CentralizedEtcdStateStrategy(PGoNetOptions.StateOptions stateOptions) {
+	public CentralizedEtcdStateStrategy(PGoNetOptions.StateOptions stateOptions) throws PGoOptionException {
+		validate(stateOptions);
 		this.stateOptions = stateOptions;
 	}
 
@@ -254,5 +256,11 @@ public class CentralizedEtcdStateStrategy implements StateStrategy {
 		existenceIf.negate();
 
 		return existenceIf;
+	}
+
+	private void validate(PGoNetOptions.StateOptions options) throws PGoOptionException {
+	    if (options.endpoints.isEmpty()) {
+	        throw new PGoOptionException("At least one etcd endpoint needs to be declared");
+		}
 	}
 }

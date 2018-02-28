@@ -1,6 +1,7 @@
 package pgo.model.distsys;
 
 import pgo.PGoNetOptions;
+import pgo.PGoOptionException;
 import pgo.model.golang.*;
 import pgo.model.intermediate.PGoVariable;
 
@@ -18,8 +19,9 @@ import java.util.stream.Stream;
 public class CentralizedStateStrategy implements StateStrategy {
     private PGoNetOptions.StateOptions stateOptions;
 
-	public CentralizedStateStrategy(PGoNetOptions.StateOptions stateOptions) {
-            this.stateOptions = stateOptions;
+	public CentralizedStateStrategy(PGoNetOptions.StateOptions stateOptions) throws PGoOptionException {
+	    validate(stateOptions);
+        this.stateOptions = stateOptions;
     }
 
     public void generateConfig(GoProgram go) {
@@ -50,5 +52,12 @@ public class CentralizedStateStrategy implements StateStrategy {
 
     public String getVar(PGoVariable var) {
 	    return "not-implemented";
+    }
+
+    private void validate(PGoNetOptions.StateOptions options) throws PGoOptionException {
+	    if (options.endpoints.size() != 1) {
+	        throw new PGoOptionException("Centralized state strategy requires only one endpoint (found " +
+                options.endpoints.size() + ")");
+        }
     }
 }

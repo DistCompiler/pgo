@@ -44,7 +44,7 @@ public class PGoNetOptions {
 		public Vector<String> endpoints;
 		public int timeout;
 
-		public StateOptions(JSONObject config) throws PGoOptionException {
+		public StateOptions(JSONObject config) {
 			int i;
 			this.endpoints = new Vector<>();
 
