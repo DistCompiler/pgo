@@ -4,6 +4,7 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 import pgo.model.distsys.CentralizedEtcdStateStrategy;
+import pgo.model.distsys.CentralizedStateStrategy;
 import pgo.model.distsys.StateStrategy;
 
 import java.util.Arrays;
@@ -101,6 +102,9 @@ public class PGoNetOptions {
 			switch (stateOptions.strategy) {
 				case StateOptions.STATE_CENTRALIZED_ETCD:
 					stateStrategy = new CentralizedEtcdStateStrategy(stateOptions);
+					break;
+				case StateOptions.STATE_CENTRALIZED:
+					stateStrategy = new CentralizedStateStrategy(stateOptions);
 					break;
 				default:
 					throw new PGoOptionException("Invalid state strategy: " + stateOptions.strategy);
