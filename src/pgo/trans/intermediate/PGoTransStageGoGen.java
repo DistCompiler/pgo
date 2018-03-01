@@ -54,8 +54,8 @@ public class PGoTransStageGoGen {
 		main = go.getMain().getBody();
 
 		generateArgParsing();
-		generateDistributedStateConfig();
 		generateGlobalVariables();
+		generateDistributedStateConfig();
 		generateFunctions();
 		generateMain();
 	}
