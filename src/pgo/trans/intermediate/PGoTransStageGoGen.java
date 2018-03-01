@@ -150,7 +150,7 @@ public class PGoTransStageGoGen {
 			addPositionalArgToMain(argN++, positionalArgs, pid);
 
 			if (!data.netOpts.getStateOptions().strategy.equals(PGoNetOptions.StateOptions.STATE_CENTRALIZED_ETCD)) {
-				// command line argument: the IP:port address this program is  going
+				// command line argument: the IP:port address this program is going
 				// to use to communicate with peers.
 				PGoVariable ipAddr = PGoVariable.processNetAddress();
 				ipAddr.setType(PGoPrimitiveType.STRING);
@@ -1104,7 +1104,8 @@ public class PGoTransStageGoGen {
 
 			go.addGlobal(new VariableDeclaration(pv, new Token(pv.getGoVal())));
 			return;
-		} else if (pv.getArgInfo() != null) {
+		}
+		if (pv.getArgInfo() != null) {
 			go.addGlobal(new VariableDeclaration(pv, null));
 			// generateMain will fill the main function
 		} else {

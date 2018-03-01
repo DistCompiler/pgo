@@ -7,7 +7,6 @@ import pgo.model.distsys.CentralizedEtcdStateStrategy;
 import pgo.model.distsys.CentralizedStateStrategy;
 import pgo.model.distsys.StateStrategy;
 
-import java.util.Arrays;
 import java.util.Vector;
 
 // Wraps options related to networking in the generated Go code.
@@ -104,6 +103,9 @@ public class PGoNetOptions {
 					stateStrategy = new CentralizedEtcdStateStrategy(stateOptions);
 					break;
 				case StateOptions.STATE_CENTRALIZED:
+					if (stateOptions.endpoints.size() != 1) {
+						throw new PGoOptionException("Multiple endpoints are not yet supported");
+					}
 					stateStrategy = new CentralizedStateStrategy(stateOptions);
 					break;
 				default:

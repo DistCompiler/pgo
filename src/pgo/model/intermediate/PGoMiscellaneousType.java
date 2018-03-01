@@ -24,6 +24,14 @@ public abstract class PGoMiscellaneousType extends PGoType {
 		public EtcdState() { this.goType = "*distsys.EtcdState"; }
 	}
 
+	public static class CentralizedState extends PGoMiscellaneousType {
+		public CentralizedState() { this.goType = "*distsys.CentralizedState"; }
+	}
+
+	public static class State extends PGoMiscellaneousType {
+		public State() { this.goType = "distsys.State"; }
+	}
+
 	public static class PGoNetConfig extends PGoMiscellaneousType {
 		public PGoNetConfig() { this.goType = "distsys.Config"; }
 	}
