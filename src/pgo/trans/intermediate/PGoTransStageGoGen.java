@@ -135,14 +135,26 @@ public class PGoTransStageGoGen {
 		Vector<String> positionalArgNames = new Vector<>();
 		boolean hasFlagArgs = false;
 
+
 		if (data.netOpts.isEnabled()) {
 			go.getImports().addImport("flag");
 			go.getImports().addImport("pgo/datatypes");
 			hasArg = true;
-			PGoVariable var = PGoVariable.processIdArg();
-			var.setType(PGoPrimitiveType.PROCESS_ID);
+
+			// command line argument: the PlusCal process identifier this program is
+			// supposed to execute
+			PGoVariable pid = PGoVariable.processIdArg();
+			pid.setType(PGoPrimitiveType.PROCESS_ID);
 			positionalArgNames.add("process(argument)");
-			addPositionalArgToMain(argN++, positionalArgs, var);
+			addPositionalArgToMain(argN++, positionalArgs, pid);
+
+
+			// command line argument: the IP:port address this program is  going
+			// to use to communicate with peers.
+			PGoVariable ipAddr = PGoVariable.processNetAddress();
+			ipAddr.setType(PGoPrimitiveType.STRING);
+			positionalArgNames.add("ip:port");
+			addPositionalArgToMain(argN++, positionalArgs, ipAddr);
 		}
 
 		for (PGoVariable pv : this.data.globals.values()) {
@@ -1140,7 +1152,13 @@ public class PGoTransStageGoGen {
 			// var = flag.Args()[..]
 			Vector<Expression> args = new Vector<>(), exp = new Vector<>();
 			exp.add(new Token(pv.getName()));
-			exp.add(new Token(" = "));
+
+			if (pv.getIsSimpleAssignInit()) {
+				exp.add(new Token(" = "));
+			} else {
+				exp.add(new Token(" := "));
+			}
+
 			exp.add(new FunctionCall("flag.Args", args));
 			exp.add(new Token("[" + argN + "]"));
 			positionalArgs.add(new SimpleExpression(exp));
