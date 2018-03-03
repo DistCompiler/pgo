@@ -7,6 +7,6 @@ public class PGoTLAOpDeclIdentifier extends PGoTLAOpDecl {
 	}
 	@Override
 	public String toString() {
-		return name;
+		return "PGoTLAOpDeclIdentifier [name=" + name + "]";
 	}
 }

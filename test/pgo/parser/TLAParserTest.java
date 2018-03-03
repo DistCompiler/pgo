@@ -13,6 +13,7 @@ import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
 import pcal.TLAToken;
+import pgo.lexer.PGoTLALexerException;
 import pgo.lexer.TLALexer;
 import pgo.model.tla.PGoTLAModule;
 
@@ -32,7 +33,7 @@ public class TLAParserTest {
 	}
 
 	@Test
-	public void test() throws IOException {
+	public void test() throws IOException, PGoTLAParseException, PGoTLALexerException {
 		Class<? extends TLAParserTest> c = getClass();
 		FileSystem fs = FileSystems.getDefault();
 		

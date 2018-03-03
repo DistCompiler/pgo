@@ -42,7 +42,7 @@ public class TLALexerFilesTest {
 	}
 	
 	@Test
-	public void test() throws IOException {
+	public void test() throws IOException, PGoTLALexerException {
 		Class<? extends TLALexerFilesTest> c = getClass();
 		FileSystem fs = FileSystems.getDefault();
 		
@@ -53,6 +53,8 @@ public class TLALexerFilesTest {
 		
 		URL expectedName = c.getResource("../../tla/tokens/"+fileName+".tokens");
 		List<String> expected = Files.readAllLines(fs.getPath(expectedName.getFile()));
+		
+		System.out.println(tokens.stream().reduce("", (String acc, TLAToken tok) -> acc + tok + "\n", (l, r) -> l+r));
 		
 		assertThat(tokens.stream()
 				.map(tok -> tok != null ? tok.toString() : "null")

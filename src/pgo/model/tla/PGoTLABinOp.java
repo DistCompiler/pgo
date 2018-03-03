@@ -16,10 +16,10 @@ public class PGoTLABinOp extends PGoTLAExpression {
 		this.rhs = rhs;
 		this.op = op;
 	}
-	
+
 	@Override
 	public String toString() {
-		return lhs.toString() + op + rhs.toString();
+		return "PGoTLABinOp [lhs=" + lhs + ", rhs=" + rhs + ", op=" + op + ", getLine()=" + getLine() + "]";
 	}
 
 	@Override

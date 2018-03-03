@@ -1,0 +1,15 @@
+package pgo.lexer;
+
+import java.util.List;
+
+import pgo.PGoException;
+
+import pcal.TLAToken;
+
+public class PGoTLALexerException extends PGoException {
+
+	public PGoTLALexerException(int lineN, String msg, List<TLAToken> tokensSoFar) {
+		super("TLA Lexer error", msg+" after parsing tokens "+tokensSoFar, lineN);
+	}
+
+}

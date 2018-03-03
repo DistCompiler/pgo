@@ -4,22 +4,20 @@ import pgo.model.golang.Expression;
 import pgo.model.intermediate.PGoType;
 import pgo.trans.PGoTransException;
 
-public class PGoTLAIf extends PGoTLAExpression {
+public class PGoTLAMaybeAction extends PGoTLAExpression {
 
-	private PGoTLAExpression cond;
-	private PGoTLAExpression tval;
-	private PGoTLAExpression fval;
+	private PGoTLAExpression body;
+	private PGoTLAExpression vars;
 	
-	public PGoTLAIf(int line, PGoTLAExpression cond, PGoTLAExpression tval, PGoTLAExpression fval) {
+	public PGoTLAMaybeAction(int line, PGoTLAExpression body, PGoTLAExpression vars) {
 		super(line);
-		this.cond = cond;
-		this.tval = tval;
-		this.fval = fval;
+		this.body = body;
+		this.vars = vars;
 	}
 
 	@Override
 	public String toString() {
-		return "PGoTLAIf [cond=" + cond + ", tval=" + tval + ", fval=" + fval + ", getLine()=" + getLine() + "]";
+		return "PGoTLAMaybeAction [body=" + body + ", vars=" + vars + ", getLine()=" + getLine() + "]";
 	}
 
 	@Override

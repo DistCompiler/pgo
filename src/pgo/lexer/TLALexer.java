@@ -66,6 +66,7 @@ public class TLALexer {
 		// brackets
 		"[",
 		"]",
+		"]_",
 		// braces
 		"{",
 		"}",
@@ -81,6 +82,7 @@ public class TLALexer {
 		// tuple delimiters
 		"<<",
 		">>",
+		">>_",
 		// infix operators (non-alpha)
 		"!!",
 		"#",
@@ -230,11 +232,10 @@ public class TLALexer {
 	}
 	
 	/**
-	 * 
-	 * @throws a runtime exception if the lexer cannot understand part of the input (TODO: fix the error type)
 	 * @return a list of tokens scanned from the lines the lexer was given
+	 * @throws PGoTLALexerException if the lexer cannot understand part of the input
 	 */
-	public List<TLAToken> readTokens(){
+	public List<TLAToken> readTokens() throws PGoTLALexerException{
 		List<TLAToken> tokens = new ArrayList<TLAToken>();
 		// nested module count*2; is 0 if we are not in a module
 		// 2 for in one module, 4 for in a nested module, etc...
@@ -252,10 +253,7 @@ public class TLALexer {
 				// test for the lexer getting stuck, either the lexer has a problem
 				// or the source file does
 				if(column == oldColumn) {
-					for(TLAToken tok : tokens) {
-						System.out.println(tok);
-					}
-					throw new RuntimeException("lexer got stuck at line "+lineNum+" col "+column);
+					throw new PGoTLALexerException(lineNum, "got stuck at column "+(column+1), tokens);
 				}
 				oldColumn = column;
 				
@@ -264,7 +262,7 @@ public class TLALexer {
 					if(m.find()) {
 						column = m.end();
 						++moduleStack;
-						tokens.add(new TLAToken(m.group(), m.start(), TLAToken.BUILTIN, lineNum));
+						tokens.add(new TLAToken(m.group(), m.start()+1, TLAToken.BUILTIN, lineNum));
 					}else {
 						column = line.length();
 					}
@@ -272,7 +270,7 @@ public class TLALexer {
 					Matcher m = PGO_ANNOTATION.matcher(line);
 					m.region(column, line.length());
 					if(m.lookingAt()) {
-						tokens.add(new TLAToken(m.group(1), m.start(1), 0xFFFF, lineNum));
+						tokens.add(new TLAToken(m.group(1), m.start(1)+1, PGoTLATokenCategory.PGO_ANNOTATION, lineNum));
 						column = m.end();
 						continue;
 					}
@@ -339,7 +337,7 @@ public class TLALexer {
 					if(m.lookingAt()) {
 						column = m.end();
 						++moduleStack;
-						tokens.add(new TLAToken(m.group(), m.start(), TLAToken.BUILTIN, lineNum));
+						tokens.add(new TLAToken(m.group(), m.start()+1, TLAToken.BUILTIN, lineNum));
 						continue;
 					}
 					
@@ -349,7 +347,7 @@ public class TLALexer {
 					if(m.lookingAt()) {
 						column = m.end();
 						moduleStack -= 2;
-						tokens.add(new TLAToken(m.group(), m.start(), TLAToken.BUILTIN, lineNum));
+						tokens.add(new TLAToken(m.group(), m.start()+1, TLAToken.BUILTIN, lineNum));
 						continue;
 					}
 					
@@ -401,28 +399,28 @@ public class TLALexer {
 					// builtin
 					if(possibleIdentifier != null && possibleBuiltin != null) {
 						if(possibleIdentifier.length() > possibleBuiltin.length()) {
-							tokens.add(new TLAToken(possibleIdentifier, column, TLAToken.IDENT, lineNum));
+							tokens.add(new TLAToken(possibleIdentifier, column+1, TLAToken.IDENT, lineNum));
 							column = possibleIdentifierEnd;
 						}else {
-							tokens.add(new TLAToken(possibleBuiltin, column, TLAToken.BUILTIN, lineNum));
+							tokens.add(new TLAToken(possibleBuiltin, column+1, TLAToken.BUILTIN, lineNum));
 							column = possibleBuiltinEnd;
 						}
 						continue;
 					}
 					// if it didn't match any builtins but could have been an identifier, it was an identifier
 					if(possibleIdentifier != null) {
-						tokens.add(new TLAToken(possibleIdentifier, column, TLAToken.IDENT, lineNum));
+						tokens.add(new TLAToken(possibleIdentifier, column+1, TLAToken.IDENT, lineNum));
 						column = possibleIdentifierEnd;
 					}
 					// numbers trump things like the dot operator
 					if(possibleNumber != null) {
-						tokens.add(new TLAToken(possibleNumber, column, TLAToken.NUMBER, lineNum));
+						tokens.add(new TLAToken(possibleNumber, column+1, TLAToken.NUMBER, lineNum));
 						column = possibleNumberEnd;
 						continue;
 					}
 					// builtins not matching any identifiers or numbers are treated as builtins
 					if(possibleBuiltin != null) {
-						tokens.add(new TLAToken(possibleBuiltin, column, TLAToken.BUILTIN, lineNum));
+						tokens.add(new TLAToken(possibleBuiltin, column+1, TLAToken.BUILTIN, lineNum));
 						column = possibleBuiltinEnd;
 						continue;
 					}
@@ -431,7 +429,7 @@ public class TLALexer {
 					m = STRING.matcher(line);
 					m.region(column, line.length());
 					if(m.lookingAt()) {
-						tokens.add(new TLAToken(m.group(), m.start(), TLAToken.STRING, lineNum));
+						tokens.add(new TLAToken(m.group(), m.start()+1, TLAToken.STRING, lineNum));
 						column = m.end();
 						continue;
 					}

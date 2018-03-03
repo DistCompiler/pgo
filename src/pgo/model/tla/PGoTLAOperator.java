@@ -14,6 +14,6 @@ public class PGoTLAOperator {
 	}
 	@Override
 	public String toString() {
-		return name+"("+String.join(", ", args.stream().map(arg -> arg.toString()).collect(Collectors.toList()))+") == "+body;
+		return "PGoTLAOperator [name=" + name + ", args=" + args + ", body=" + body + "]";
 	}
 }

@@ -16,10 +16,10 @@ public class PGoTLAOperatorCall extends PGoTLAExpression {
 		this.name = name;
 		this.args = args;
 	}
-	
+
 	@Override
 	public String toString() {
-		return name + "(" + args + ")";
+		return "PGoTLAOperatorCall [name=" + name + ", args=" + args + ", getLine()=" + getLine() + "]";
 	}
 
 	@Override
