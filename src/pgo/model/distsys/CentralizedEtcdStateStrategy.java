@@ -188,7 +188,7 @@ public class CentralizedEtcdStateStrategy implements StateStrategy {
 	public String getVar(PGoVariable var) {
 		// TODO this is bad for performance
 		return String.format("*%s.Get(\"%s\", &%s).(*%s)",
-				GLOBAL_STATE_OBJECT, var.getName(), var.getName(), var.getType());
+				GLOBAL_STATE_OBJECT, var.getName(), var.getName(), var.getType().toGo());
 	}
 
 	private void fetchDataForCurrentLockGroup(Vector<Statement> stmts, Stream<PGoVariable> vars) {
@@ -218,12 +218,11 @@ public class CentralizedEtcdStateStrategy implements StateStrategy {
 	// time, initialization must be made only once. This is achieved by making use
 	// of the locking functionality available in the `pgo/distsys' package.
 	private Statement initializeGlobalVariable(VariableDeclaration decl) {
-		Vector<Expression> params = new Vector<Expression>() {
-			{
-				add(new Token("\"" + decl.getName() + "\""));
-				add(decl.getDefaultValue());
-			}
-		};
+		Expression initVal = decl.getDefaultValue();
+		if (initVal == null) {
+			initVal = new Token(decl.getName());
+		}
+		Vector<Expression> params = new Vector<>(Arrays.asList(new Token("\"" + decl.getName() + "\""), initVal));
 		Vector<Statement> ifBody =
 				new Vector<>(Collections.singletonList(
 						new FunctionCall("Set", params, new Token(GLOBAL_STATE_OBJECT))));

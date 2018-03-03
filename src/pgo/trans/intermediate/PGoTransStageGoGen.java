@@ -8,6 +8,7 @@ import pcal.AST.*;
 import pcal.AST.If;
 import pcal.AST.Return;
 import pcal.TLAExpr;
+import pgo.PGoNetOptions;
 import pgo.model.golang.*;
 import pgo.model.intermediate.*;
 import pgo.model.intermediate.PGoCollectionType.PGoMap;
@@ -148,13 +149,14 @@ public class PGoTransStageGoGen {
 			positionalArgNames.add("process(argument)");
 			addPositionalArgToMain(argN++, positionalArgs, pid);
 
-
-			// command line argument: the IP:port address this program is  going
-			// to use to communicate with peers.
-			PGoVariable ipAddr = PGoVariable.processNetAddress();
-			ipAddr.setType(PGoPrimitiveType.STRING);
-			positionalArgNames.add("ip:port");
-			addPositionalArgToMain(argN++, positionalArgs, ipAddr);
+			if (!data.netOpts.getStateOptions().strategy.equals(PGoNetOptions.StateOptions.STATE_CENTRALIZED_ETCD)) {
+				// command line argument: the IP:port address this program is  going
+				// to use to communicate with peers.
+				PGoVariable ipAddr = PGoVariable.processNetAddress();
+				ipAddr.setType(PGoPrimitiveType.STRING);
+				positionalArgNames.add("ip:port");
+				addPositionalArgToMain(argN++, positionalArgs, ipAddr);
+			}
 		}
 
 		for (PGoVariable pv : this.data.globals.values()) {

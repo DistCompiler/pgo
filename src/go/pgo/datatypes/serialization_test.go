@@ -3,8 +3,16 @@ package datatypes
 import (
 	"bytes"
 	"encoding/gob"
+	"os"
 	"testing"
 )
+
+func TestMain(m *testing.M) {
+	GobInit()
+	ret := m.Run()
+	// teardown code here
+	os.Exit(ret)
+}
 
 func TestMapSerialization(t *testing.T) {
 	m := NewMap()
