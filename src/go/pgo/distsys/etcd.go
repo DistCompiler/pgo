@@ -54,14 +54,9 @@ import (
 	etcd "github.com/coreos/etcd/client"
 )
 
-type GlobalVariableType int
-
 // declares the types of global variables supported by PGo at the moment.
 const (
-	TYPE_INT = iota
-	TYPE_STRING
-
-	ETCD_LOCK_NAMESPACE = "/locks/"
+	LOCK_NAMESPACE = "/locks/"
 )
 
 // A reference to our global state, created via +InitEtcdState+. Used in the
@@ -153,25 +148,27 @@ func (self *EtcdState) Get(name string, variable interface{}) interface{} {
 	return variable
 }
 
-func (self *EtcdState) Lock(who, which string) error {
+func (self *EtcdState) Lock(who, which string) {
 	key := prepareLock(which)
 	for {
 		_, err := self.kv.Create(context.Background(), key, who)
 		etcdErr, ok := err.(etcd.Error)
-		if !ok {
-			return err
+		if err == nil {
+			return
 		}
-		if etcdErr.Code != etcd.ErrorCodeNodeExist {
-			return err
+		if !ok || etcdErr.Code != etcd.ErrorCodeNodeExist {
+			panic(err)
 		}
 	}
 }
 
-func (self *EtcdState) Unlock(who, which string) error {
+func (self *EtcdState) Unlock(who, which string) {
 	_, err := self.kv.Delete(context.Background(), prepareLock(which), &etcd.DeleteOptions{
 		PrevValue: who,
 	})
-	return err
+	if err != nil {
+		panic(err)
+	}
 }
 
 // given a key k, this method transforms it to the format expected by `etcd'
@@ -181,5 +178,5 @@ func prepareKey(k string) string {
 
 // given a lock k, this method transforms it to the format expected by `etcd'
 func prepareLock(k string) string {
-	return ETCD_LOCK_NAMESPACE + k
+	return LOCK_NAMESPACE + k
 }
