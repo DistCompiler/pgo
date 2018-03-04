@@ -54,4 +54,9 @@ public class PGoTLASimpleArithmetic extends PGoTLAExpression {
 		return "PGoTLASimpArith (" + this.getLine() + "): (" + left.toString() + ") " + token
 				+ " (" + right.toString() + ")";
 	}
+	
+	@Override
+	public <Result> Result walk(PGoTLAExpressionVisitor<Result> v) {
+		throw new RuntimeException("walk(PGoTLASimpleArithmetic) not implemented");
+	}
 }

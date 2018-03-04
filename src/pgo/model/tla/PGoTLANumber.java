@@ -33,4 +33,9 @@ public class PGoTLANumber extends PGoTLAExpression {
 	public String toString() {
 		return "PGoTLANumber (" + this.getLine() + "): " + val;
 	}
+	
+	@Override
+	public <Result> Result walk(PGoTLAExpressionVisitor<Result> v) {
+		return v.visit(this);
+	}
 }

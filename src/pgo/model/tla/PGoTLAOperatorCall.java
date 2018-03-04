@@ -16,6 +16,14 @@ public class PGoTLAOperatorCall extends PGoTLAExpression {
 		this.name = name;
 		this.args = args;
 	}
+	
+	public String getName() {
+		return name;
+	}
+	
+	public List<PGoTLAExpression> getArgs(){
+		return args;
+	}
 
 	@Override
 	public String toString() {
@@ -24,14 +32,17 @@ public class PGoTLAOperatorCall extends PGoTLAExpression {
 
 	@Override
 	protected Expression convert(TLAExprToGo trans) throws PGoTransException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new RuntimeException("convert unimplemented");
 	}
 
 	@Override
 	protected PGoType inferType(TLAExprToType trans) throws PGoTransException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new RuntimeException("inferType unimplemented");
+	}
+	
+	@Override
+	public <Result> Result walk(PGoTLAExpressionVisitor<Result> v) {
+		return v.visit(this);
 	}
 
 }

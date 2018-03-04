@@ -35,4 +35,9 @@ public class PGoTLABool extends PGoTLAExpression {
 	public String toString() {
 		return "PGoTLABool (" + this.getLine() + "): " + val;
 	}
+	
+	@Override
+	public <Result> Result walk(PGoTLAExpressionVisitor<Result> v) {
+		return v.visit(this);
+	}
 }

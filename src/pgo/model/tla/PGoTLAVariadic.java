@@ -104,5 +104,10 @@ public class PGoTLAVariadic extends PGoTLAExpression {
 	protected PGoType inferType(TLAExprToType trans) throws PGoTransException {
 		return trans.type(this);
 	}
+	
+	@Override
+	public <Result> Result walk(PGoTLAExpressionVisitor<Result> v) {
+		throw new RuntimeException("walk(PGoTLAVariadic) not implemented");
+	}
 
 }

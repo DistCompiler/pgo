@@ -38,4 +38,9 @@ public class PGoTLAGroup extends PGoTLAExpression {
 	public String toString() {
 		return "PGoTLAGroup (" + this.getLine() + "): (" + inner.toString() + ")";
 	}
+	
+	@Override
+	public <Result> Result walk(PGoTLAExpressionVisitor<Result> v) {
+		throw new RuntimeException("walk(PGoTLAGroup) not implemented");
+	}
 }

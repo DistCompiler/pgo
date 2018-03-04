@@ -64,5 +64,10 @@ public class PGoTLADefinition extends PGoTLAExpression {
 		assert false;
 		return null;
 	}
+	
+	@Override
+	public <Result> Result walk(PGoTLAExpressionVisitor<Result> v) {
+		throw new RuntimeException("walk(PGoTLADefinition) not implemented");
+	}
 
 }

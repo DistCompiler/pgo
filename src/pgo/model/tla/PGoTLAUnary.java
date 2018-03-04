@@ -41,4 +41,9 @@ public class PGoTLAUnary extends PGoTLAExpression {
 	public String toString() {
 		return "PGoTLAUnary (" + this.getLine() + "): " + token + " " + arg.toString();
 	}
+	
+	@Override
+	public <Result> Result walk(PGoTLAExpressionVisitor<Result> v) {
+		return v.visit(this);
+	}
 }

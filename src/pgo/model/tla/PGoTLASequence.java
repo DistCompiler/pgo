@@ -42,4 +42,9 @@ public class PGoTLASequence extends PGoTLAExpression {
 		return "PGoTLASequence (" + this.getLine() + "): (" + start.toString() + ") .. ("
 				+ end.toString() + ")";
 	}
+	
+	@Override
+	public <Result> Result walk(PGoTLAExpressionVisitor<Result> v) {
+		throw new RuntimeException("walk(PGoTLASequence) not implemented");
+	}
 }

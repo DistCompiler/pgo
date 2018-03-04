@@ -44,4 +44,9 @@ public class PGoTLASetOp extends PGoTLAExpression {
 		return "PGoTLASetOp (" + this.getLine() + "): (" + left.toString() + ") " + token + " (" + right.toString()
 				+ ")";
 	}
+	
+	@Override
+	public <Result> Result walk(PGoTLAExpressionVisitor<Result> v) {
+		throw new RuntimeException("walk(PGoTLASetOp) not implemented");
+	}
 }

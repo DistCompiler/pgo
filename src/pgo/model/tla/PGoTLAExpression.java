@@ -23,6 +23,8 @@ public abstract class PGoTLAExpression {
 	public int getLine() {
 		return line;
 	}
+	
+	public abstract <Result> Result walk(PGoTLAExpressionVisitor<Result> v);
 
 	// A class representing a blank expression (equivalent to
 	// "defaultInitValue" in PlusCal).
@@ -39,6 +41,11 @@ public abstract class PGoTLAExpression {
 		@Override
 		protected PGoType inferType(TLAExprToType trans) throws PGoTransException {
 			return trans.type(this);
+		}
+		
+		@Override
+		public <Result> Result walk(PGoTLAExpressionVisitor<Result> v) {
+			return v.visit(this);
 		}
 	}
 

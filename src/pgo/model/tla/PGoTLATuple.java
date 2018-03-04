@@ -16,6 +16,10 @@ public class PGoTLATuple extends PGoTLAExpression {
 		this.exprs = exprs;
 	}
 	
+	public List<PGoTLAExpression> getItems(){
+		return exprs;
+	}
+	
 	@Override
 	public String toString() {
 		return "<<"+String.join(", ", exprs.stream().map(e -> e.toString()).collect(Collectors.toList()))+">>";
@@ -23,14 +27,17 @@ public class PGoTLATuple extends PGoTLAExpression {
 
 	@Override
 	protected Expression convert(TLAExprToGo trans) throws PGoTransException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new RuntimeException("convert unimplemented");
 	}
 
 	@Override
 	protected PGoType inferType(TLAExprToType trans) throws PGoTransException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new RuntimeException("inferType unimplemented");
+	}
+	
+	@Override
+	public <Result> Result walk(PGoTLAExpressionVisitor<Result> v) {
+		return v.visit(this);
 	}
 
 }

@@ -1,5 +1,6 @@
 package pgo.model.tla;
 
+import java.util.List;
 import java.util.Vector;
 
 import pcal.TLAToken;
@@ -21,6 +22,12 @@ public class PGoTLASet extends PGoTLAExpression {
 		super(line);
 		contents = new TLAExprParser(between, line).getResult();
 	}
+	
+	public PGoTLASet(List<PGoTLAExpression> contents, int line) {
+		super(line);
+		this.contents = new Vector<>();
+		this.contents.addAll(contents);
+	}
 
 	public Vector<PGoTLAExpression> getContents() {
 		return contents;
@@ -40,5 +47,10 @@ public class PGoTLASet extends PGoTLAExpression {
 			ret += "(" + p.toString() + "), ";
 		}
 		return ret + "}";
+	}
+	
+	@Override
+	public <Result> Result walk(PGoTLAExpressionVisitor<Result> v) {
+		return v.visit(this);
 	}
 }
