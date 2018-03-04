@@ -4,6 +4,7 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 import pgo.model.distsys.CentralizedEtcdStateStrategy;
+import pgo.model.distsys.CentralizedStateStrategy;
 import pgo.model.distsys.StateStrategy;
 
 import java.util.Arrays;
@@ -35,10 +36,6 @@ public class PGoNetOptions {
 	public class StateOptions {
 		public static final String STATE_CENTRALIZED = "centralized";
 		public static final String STATE_CENTRALIZED_ETCD = "centralized-etcd";
-		private final String[] STATE_STRATEGIES = {
-				STATE_CENTRALIZED,
-				STATE_CENTRALIZED_ETCD,
-		};
 
 		private static final String DEFAULT_STATE_STRATEGY = STATE_CENTRALIZED_ETCD;
 		private static final int DEFAULT_TIMEOUT = 3;
@@ -47,7 +44,7 @@ public class PGoNetOptions {
 		public Vector<String> endpoints;
 		public int timeout;
 
-		public StateOptions(JSONObject config) throws PGoOptionException {
+		public StateOptions(JSONObject config) {
 			int i;
 			this.endpoints = new Vector<>();
 
@@ -66,14 +63,6 @@ public class PGoNetOptions {
 				this.timeout = config.getInt("timeout");
 			} else {
 				this.timeout = DEFAULT_TIMEOUT;
-			}
-
-			validate();
-		}
-
-		private void validate() throws PGoOptionException {
-			if (!Arrays.asList(STATE_STRATEGIES).contains(this.strategy)) {
-				throw new PGoOptionException("Invalid state strategy: " + this.strategy);
 			}
 		}
 	}
@@ -113,6 +102,9 @@ public class PGoNetOptions {
 			switch (stateOptions.strategy) {
 				case StateOptions.STATE_CENTRALIZED_ETCD:
 					stateStrategy = new CentralizedEtcdStateStrategy(stateOptions);
+					break;
+				case StateOptions.STATE_CENTRALIZED:
+					stateStrategy = new CentralizedStateStrategy(stateOptions);
 					break;
 				default:
 					throw new PGoOptionException("Invalid state strategy: " + stateOptions.strategy);

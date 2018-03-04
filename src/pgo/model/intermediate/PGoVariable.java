@@ -212,6 +212,17 @@ public class PGoVariable {
 		return r;
 	}
 
+	// Creates a variable representing the IP:Port the process should bind when executing
+	public static PGoVariable processNetAddress() {
+		PGoVariable r = new PGoVariable();
+		r.name = "ipAddr";
+		r.isSimpleAssignInit = false;
+		r.tlaExpr = PcalParams.DefaultVarInit();
+		r.line = -1;
+
+		return r;
+	}
+
 	// Creates a variable from a name and the type of the variable
 	public static PGoVariable convert(String n, PGoType tn) {
 		PGoVariable r = new PGoVariable();

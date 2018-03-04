@@ -9,6 +9,7 @@ import org.junit.Test;
 
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Vector;
 
 public class PGoNetOptionsTest {
@@ -44,11 +45,35 @@ public class PGoNetOptionsTest {
 		options();
 	}
 
-	// centralized state management is used if no strategy is declared
+	// centralized-etcd state management is used if no strategy is declared
 	@Test
 	public void testDefaultStateStrategy() throws PGoOptionException {
 		getNetworking().getJSONObject(PGoNetOptions.STATE_FIELD).remove("strategy");
 		assertEquals("centralized-etcd", options().getStateOptions().strategy);
+	}
+
+	// having no endpoints in the centralized-etcd strategy is invalid
+	@Test(expected = PGoOptionException.class)
+	public void testNoEndpointsCentralizedEtcd() throws PGoOptionException {
+		getNetworking().getJSONObject(PGoNetOptions.STATE_FIELD).put("strategy", "centralized-etcd");
+		getNetworking().getJSONObject(PGoNetOptions.STATE_FIELD).put("endpoints", new Vector<>());
+		options();
+	}
+
+	// having no endpoints in the centralized strategy is invalid
+	@Test(expected = PGoOptionException.class)
+	public void testNoEndpointsCentralized() throws PGoOptionException {
+		getNetworking().getJSONObject(PGoNetOptions.STATE_FIELD).put("strategy", "centralized");
+		getNetworking().getJSONObject(PGoNetOptions.STATE_FIELD).put("endpoints", new Vector<>());
+		options();
+	}
+
+	// having more than one endpoint in the centralized strategy is invalid
+	@Test(expected = PGoOptionException.class)
+	public void testMoreThanOneEndpointCentralized() throws PGoOptionException {
+		getNetworking().getJSONObject(PGoNetOptions.STATE_FIELD).put("strategy", "centralized");
+		getNetworking().getJSONObject(PGoNetOptions.STATE_FIELD).put("endpoints", new Vector<String>(Arrays.asList("10.10.0.10", "10.10.0.11")));
+		options();
 	}
 
 	// the developer is able to specify the timeout for operations on global state

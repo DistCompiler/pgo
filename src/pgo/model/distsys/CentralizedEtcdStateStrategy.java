@@ -1,6 +1,7 @@
 package pgo.model.distsys;
 
 import pgo.PGoNetOptions;
+import pgo.PGoOptionException;
 import pgo.model.golang.*;
 import pgo.model.intermediate.*;
 
@@ -9,12 +10,18 @@ import java.util.Collections;
 import java.util.Vector;
 import java.util.stream.Stream;
 
+// This state distribution strategy maintains all the distributed state on
+// etcd, a key-value store. When choosing this state management strategy, the
+// developer is adding etcd as a dependency for the compiled system. The programmer
+// is responsible for starting the etcd cluster and updating the "endpoints" list
+// to include the addresses of the etcd servers.
 public class CentralizedEtcdStateStrategy implements StateStrategy {
 	public static final String GLOBAL_STATE_OBJECT = "globalState";
 
 	private PGoNetOptions.StateOptions stateOptions;
 
-	public CentralizedEtcdStateStrategy(PGoNetOptions.StateOptions stateOptions) {
+	public CentralizedEtcdStateStrategy(PGoNetOptions.StateOptions stateOptions) throws PGoOptionException {
+		validate(stateOptions);
 		this.stateOptions = stateOptions;
 	}
 
@@ -249,5 +256,11 @@ public class CentralizedEtcdStateStrategy implements StateStrategy {
 		existenceIf.negate();
 
 		return existenceIf;
+	}
+
+	private void validate(PGoNetOptions.StateOptions options) throws PGoOptionException {
+	    if (options.endpoints.isEmpty()) {
+	        throw new PGoOptionException("At least one etcd endpoint needs to be declared");
+		}
 	}
 }
