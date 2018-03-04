@@ -42,9 +42,8 @@ public class TLAParserTest {
 		
 		List<TLAToken> tokens = lexer.readTokens();
 		
-		TLAParser parser = new TLAParser(tokens);
-		List<PGoTLAModule> modules = parser.readModules();
-		System.out.println(modules);
+		List<PGoTLAModule> modules = TLAParser.readModules(tokens.listIterator());
+		//System.out.println(modules);
 	}
 
 }

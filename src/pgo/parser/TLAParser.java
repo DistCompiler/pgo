@@ -3,7 +3,6 @@ package pgo.parser;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
@@ -32,8 +31,7 @@ import pgo.model.tla.PGoTLAMaybeAction;
 import pgo.model.tla.PGoTLAModule;
 import pgo.model.tla.PGoTLANumber;
 
-public class TLAParser {
-	private List<TLAToken> tokens;
+public final class TLAParser {
 	
 	static String MODULE = "MODULE";
 	static String EXTENDS = "EXTENDS";
@@ -457,11 +455,9 @@ public class TLAParser {
 		"AXIOM",
 	};
 	
-	public TLAParser(List<TLAToken> tokens){
-		this.tokens = tokens;
-	}
+	private TLAParser(){}
 	
-	private int getLineNumber(ListIterator<TLAToken> iter) {
+	private static int getLineNumber(ListIterator<TLAToken> iter) {
 		TLAToken tok = iter.previous();
 		iter.next();
 		if(tok != null) {
@@ -471,13 +467,13 @@ public class TLAParser {
 		}
 	}
 	
-	private void expectHasNext(ListIterator<TLAToken> iter) throws PGoTLAParseException {
+	private static void expectHasNext(ListIterator<TLAToken> iter) throws PGoTLAParseException {
 		if(!iter.hasNext()) {
 			throw errorUnexpected(iter, "EOF");
 		}
 	}
 	
-	private void skipNewlines(ListIterator<TLAToken> iter) {
+	private static void skipNewlines(ListIterator<TLAToken> iter) {
 		TLAToken tok = null;
 		while(tok == null && iter.hasNext()) {
 			tok = iter.next();
@@ -487,48 +483,54 @@ public class TLAParser {
 		}
 	}
 	
-	private TLAToken readNextIgnoringNewline(ListIterator<TLAToken> iter) throws PGoTLAParseException {
+	private static TLAToken readNextIgnoringNewline(ListIterator<TLAToken> iter) throws PGoTLAParseException {
 		skipNewlines(iter);
 		expectHasNext(iter);
 		return iter.next();
 	}
 	
-	private String lookaheadIdentifier(ListIterator<TLAToken> iter, boolean skipNewlines) {
+	private static void revert(ListIterator<TLAToken> iter) {
+		if(iter.hasPrevious()) {
+			iter.previous();
+		}
+	}
+	
+	private static String lookaheadIdentifier(ListIterator<TLAToken> iter, boolean skipNewlines) {
 		if(skipNewlines) skipNewlines(iter);
 		if(!iter.hasNext()) return null;
 		TLAToken tok = iter.next();
 		if(tok.type == TLAToken.IDENT) {
 			return tok.string;
 		}else {
-			iter.previous();
+			revert(iter);
 			return null;
 		}
 	}
 	
-	private boolean lookaheadNewline(ListIterator<TLAToken> iter) {
+	private static boolean lookaheadNewline(ListIterator<TLAToken> iter) {
 		if(!iter.hasNext()) return false;
 		TLAToken tok = iter.next();
 		if(tok == null) {
 			return true;
 		}else {
-			iter.previous();
+			revert(iter);
 			return false;
 		}
 	}
 	
-	private boolean lookaheadBuiltinToken(ListIterator<TLAToken> iter, String name, boolean skipNewlines) {
+	private static boolean lookaheadBuiltinToken(ListIterator<TLAToken> iter, String name, boolean skipNewlines) {
 		if(skipNewlines) skipNewlines(iter);
 		if(!iter.hasNext()) return false;
 		TLAToken tok = iter.next();
 		if(tok.type == TLAToken.BUILTIN && tok.string.equals(name)) {
 			return true;
 		}else {
-			iter.previous();
+			revert(iter);
 			return false;
 		}
 	}
 	
-	private String lookaheadBuiltinTokenOneOf(ListIterator<TLAToken> iter, String[] options, boolean skipNewlines) {
+	private static String lookaheadBuiltinTokenOneOf(ListIterator<TLAToken> iter, String[] options, boolean skipNewlines) {
 		for(String str: options) {
 			if(lookaheadBuiltinToken(iter, str, skipNewlines)) {
 				return str;
@@ -537,7 +539,7 @@ public class TLAParser {
 		return null;
 	}
 	
-	private String expectBuiltinTokenOneOf(ListIterator<TLAToken> iter, String[] options) throws PGoTLAParseException {
+	private static String expectBuiltinTokenOneOf(ListIterator<TLAToken> iter, String[] options) throws PGoTLAParseException {
 		for(String str: options) {
 			if(lookaheadBuiltinToken(iter, str, true)) {
 				return str;
@@ -546,45 +548,45 @@ public class TLAParser {
 		throw errorExpectedOneOf(iter, options);
 	}
 	
-	private void expectBuiltinToken(ListIterator<TLAToken> iter, String name) throws PGoTLAParseException {
+	private static void expectBuiltinToken(ListIterator<TLAToken> iter, String name) throws PGoTLAParseException {
 		TLAToken tok = readNextIgnoringNewline(iter);
 		if(!tok.string.equals(name)) {
 			throw errorUnexpected(iter, tok.string);
 		}
 	}
 	
-	private boolean lookahead4DashesOrMore(ListIterator<TLAToken> iter, boolean skipNewlines) {
+	private static boolean lookahead4DashesOrMore(ListIterator<TLAToken> iter, boolean skipNewlines) {
 		if(skipNewlines) skipNewlines(iter);
 		if(!iter.hasNext()) return false;
 		TLAToken tok = iter.next();
 		if(tok.type == TLAToken.BUILTIN && tok.string.startsWith("----")) {
 			return true;
 		}else {
-			iter.previous();
+			revert(iter);
 			return false;
 		}
 	}
 	
-	private void expect4DashesOrMore(ListIterator<TLAToken> iter) throws PGoTLAParseException {
+	private static void expect4DashesOrMore(ListIterator<TLAToken> iter) throws PGoTLAParseException {
 		TLAToken tok = readNextIgnoringNewline(iter);
 		if(tok.type != TLAToken.BUILTIN || !tok.string.startsWith("----")) {
 			throw errorExpectedOneOf(iter, "----+");
 		}
 	}
 	
-	private boolean lookahead4EqualsOrMore(ListIterator<TLAToken> iter, boolean skipNewlines) {
+	private static boolean lookahead4EqualsOrMore(ListIterator<TLAToken> iter, boolean skipNewlines) {
 		if(skipNewlines) skipNewlines(iter);
 		if(!iter.hasNext()) return false;
 		TLAToken tok = iter.next();
 		if(tok.type == TLAToken.BUILTIN && tok.string.startsWith("====")) {
 			return true;
 		}else {
-			iter.previous();
+			revert(iter);
 			return false;
 		}
 	}
 	
-	private String expectIdentifier(ListIterator<TLAToken> iter) throws PGoTLAParseException {
+	private static String expectIdentifier(ListIterator<TLAToken> iter) throws PGoTLAParseException {
 		TLAToken tok = readNextIgnoringNewline(iter);
 		if(tok.type == TLAToken.IDENT) {
 			return tok.string;
@@ -593,19 +595,35 @@ public class TLAParser {
 		}
 	}
 	
-	private PGoTLAParseException errorExpectedOneOf(ListIterator<TLAToken> iter, String... options) {
-		TLAToken tok = iter.previous();
-		if(tok == null) {
-			return new PGoTLAParseException(-1, "\\n", options);
+	private static PGoTLAParseException errorExpectedOneOf(ListIterator<TLAToken> iter, String... options) {
+		int line;
+		String actual;
+		boolean wasEOF = !iter.hasNext();
+		TLAToken tok = null;
+		// do our best to find the neares token so we can provide line number info
+		while(tok == null && iter.hasPrevious()) {
+			tok = iter.previous();
 		}
-		return new PGoTLAParseException(tok.source.toLocation().beginLine(), tok.string, options);
+		if(tok == null) {
+			while(tok == null && iter.hasNext()) {
+				tok = iter.next();
+			}
+		}
+		if(tok == null) {
+			actual = wasEOF ? "EOF" : "\\n";
+			line = -1;
+		}else {
+			actual = tok.string;
+			line = tok.source.toLocation().beginLine();
+		}
+		return new PGoTLAParseException(line, actual, options);
 	}
 	
-	private PGoTLAParseException errorUnexpected(ListIterator<TLAToken> iter, String desc) {
+	private static PGoTLAParseException errorUnexpected(ListIterator<TLAToken> iter, String desc) {
 		return new PGoTLAParseException(getLineNumber(iter), desc);
 	}
 	
-	private List<String> readExtends(ListIterator<TLAToken> iter) throws PGoTLAParseException{
+	private static List<String> readExtends(ListIterator<TLAToken> iter) throws PGoTLAParseException{
 		List<String> modules = new ArrayList<String>();
 		if(lookaheadBuiltinToken(iter, EXTENDS, true)) {
 			modules.add(expectIdentifier(iter));
@@ -618,7 +636,7 @@ public class TLAParser {
 		}
 	}
 	
-	private List<String> readVariables(ListIterator<TLAToken> iter) throws PGoTLAParseException{
+	private static List<String> readVariables(ListIterator<TLAToken> iter) throws PGoTLAParseException{
 		List<String> variables = new ArrayList<String>();
 		variables.add(expectIdentifier(iter));
 		while(lookaheadBuiltinToken(iter, COMMA, true)) {
@@ -627,7 +645,7 @@ public class TLAParser {
 		return variables;
 	}
 	
-	private PGoTLAOpDecl readOpDecl(ListIterator<TLAToken> iter) throws PGoTLAParseException {
+	private static PGoTLAOpDecl readOpDecl(ListIterator<TLAToken> iter) throws PGoTLAParseException {
 		String op;
 		if(lookaheadBuiltinToken(iter, UNDERSCORE, true)) {
 			op = lookaheadBuiltinTokenOneOf(iter, INFIX_OPERATORS, true);
@@ -657,7 +675,7 @@ public class TLAParser {
 		}
 	}
 	
-	private List<PGoTLAOpDecl> readConstants(ListIterator<TLAToken> iter) throws PGoTLAParseException{
+	private static List<PGoTLAOpDecl> readConstants(ListIterator<TLAToken> iter) throws PGoTLAParseException{
 		List<PGoTLAOpDecl> constants = new ArrayList<PGoTLAOpDecl>();
 		do {
 			constants.add(readOpDecl(iter));
@@ -665,7 +683,7 @@ public class TLAParser {
 		return constants;
 	}
 	
-	private void skipAnnotations(ListIterator<TLAToken> iter) {
+	private static void skipAnnotations(ListIterator<TLAToken> iter) {
 		while(iter.hasNext()) {
 			TLAToken tok = iter.next();
 			if(tok == null || tok.type != PGoTLATokenCategory.PGO_ANNOTATION) {
@@ -675,31 +693,31 @@ public class TLAParser {
 		}
 	}
 	
-	private PGoTLAExpression lookaheadString(ListIterator<TLAToken> iter, boolean skipNewlines) {
+	private static PGoTLAExpression lookaheadString(ListIterator<TLAToken> iter, boolean skipNewlines) {
 		if(skipNewlines) skipNewlines(iter);
 		if(!iter.hasNext()) return null;
 		TLAToken tok = iter.next();
 		if(tok.type == TLAToken.STRING) {
 			return new PGoTLAString(tok.string, tok.source.toLocation().beginLine());
 		}else {
-			iter.previous();
+			revert(iter);
 			return null;
 		}
 	}
 	
-	private PGoTLAExpression lookaheadNumber(ListIterator<TLAToken> iter, boolean skipNewlines) {
+	private static PGoTLAExpression lookaheadNumber(ListIterator<TLAToken> iter, boolean skipNewlines) {
 		if(skipNewlines) skipNewlines(iter);
 		if(!iter.hasNext()) return null;
 		TLAToken tok = iter.next();
 		if(tok.type == TLAToken.NUMBER) {
 			return new PGoTLANumber(tok.string, tok.source.toLocation().beginLine());
 		}else {
-			iter.previous();
+			revert(iter);
 			return null;
 		}
 	}
 	
-	private PGoTLAExpression lookaheadBoolean(ListIterator<TLAToken> iter, boolean skipNewlines) {
+	private static PGoTLAExpression lookaheadBoolean(ListIterator<TLAToken> iter, boolean skipNewlines) {
 		if(lookaheadBuiltinToken(iter, "TRUE", skipNewlines)) {
 			TLAToken tok = iter.previous();
 			iter.next();
@@ -713,7 +731,19 @@ public class TLAParser {
 		}
 	}
 	
-	private PGoTLAExpression readExpressionNoOperators(ListIterator<TLAToken> iter, int minColumn) throws PGoTLAParseException {
+	private static PGoTLAExpression lookaheadPlusCalDefaultValue(ListIterator<TLAToken> iter) {
+		if(iter.hasNext()) {
+			TLAToken tok = iter.next();
+			if(tok.type == PGoTLATokenCategory.PLUSCAL_DEFAULT_VALUE) {
+				return new PGoTLAExpression.PGoTLADefault(tok.source.toLocation().beginLine());
+			}else {
+				revert(iter);
+			}
+		}
+		return null;
+	}
+	
+	private static PGoTLAExpression readExpressionNoOperators(ListIterator<TLAToken> iter, int minColumn) throws PGoTLAParseException {
 		if(!lookaheadValidColumn(iter, minColumn)) {
 			throw errorUnexpected(iter, "end of column");
 		}
@@ -830,7 +860,7 @@ public class TLAParser {
 		throw errorExpectedOneOf(iter, "[", "IF", "\\/", "/\\", "<IDENTIFIER>", "<<", "(", "<NUMBER>", "<STRING>", "<BOOLEAN>");
 	}
 	
-	private boolean lookaheadValidColumn(ListIterator<TLAToken> iter, int minColumn) {
+	private static boolean lookaheadValidColumn(ListIterator<TLAToken> iter, int minColumn) {
 		skipNewlines(iter);
 		if(!iter.hasNext()) return true;
 		TLAToken tok = iter.next();
@@ -838,7 +868,7 @@ public class TLAParser {
 		return tok.column > minColumn;
 	}
 	
-	private PGoTLAExpression readExpressionFromPrecedence(ListIterator<TLAToken> iter, int precedence, int minColumn) throws PGoTLAParseException {
+	private static PGoTLAExpression readExpressionFromPrecedence(ListIterator<TLAToken> iter, int precedence, int minColumn) throws PGoTLAParseException {
 		if(precedence > 17) {
 			return readExpressionNoOperators(iter, minColumn);
 		}else {
@@ -892,13 +922,22 @@ public class TLAParser {
 		}
 	}
 	
-	public PGoTLAExpression readExpression(ListIterator<TLAToken> iter) throws PGoTLAParseException {
+	public static PGoTLAExpression readExpression(ListIterator<TLAToken> iter) throws PGoTLAParseException {
+		skipNewlines(iter);
+		// I actually don't know if this code is necessary, if you ever see this kind of token in the wild
+		// add it here
+		/*PGoTLAExpression e = lookaheadPlusCalDefaultValue(iter);
+		if(e != null) {
+			// only reachable when parsing tokens in the context of PlusCal, where an empty expression
+			// is valid and represented by this special token
+			return e;
+		}*/
 		PGoTLAExpression e = readExpressionFromPrecedence(iter, 1, -1);
 		System.out.println("Read expression "+e);
 		return e;
 	}
 	
-	private PGoTLAModule readModule(ListIterator<TLAToken> iter) throws PGoTLAParseException {
+	private static PGoTLAModule readModule(ListIterator<TLAToken> iter) throws PGoTLAParseException {
 		expect4DashesOrMore(iter);
 		expectBuiltinToken(iter, MODULE);
 		String name = expectIdentifier(iter);
@@ -992,10 +1031,9 @@ public class TLAParser {
 		return new PGoTLAModule(name, exts, variables, constants, operators, submodules, assumptions, theorems);
 	}
 	
-	public List<PGoTLAModule> readModules() throws PGoTLAParseException{
+	public static List<PGoTLAModule> readModules(ListIterator<TLAToken> iter) throws PGoTLAParseException{
 		List<PGoTLAModule> modules = new ArrayList<PGoTLAModule>();
-		
-		ListIterator<TLAToken> iter = tokens.listIterator();
+
 		while(iter.hasNext()) {
 			modules.add(readModule(iter));
 			skipNewlines(iter);

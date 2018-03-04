@@ -8,7 +8,7 @@ public class PGoTLAParseException extends PGoException {
 	String[] options;
 
 	public PGoTLAParseException(int line, String got, String[] options) {
-		super("TLA Parse Error", "Got "+got+" when expecting one of "+String.join(", ", options), line);
+		super("TLA Parse Error", "Parse error near "+got+" when expecting one of "+String.join(", ", options), line);
 		this.got = got;
 		this.options = options;
 	}

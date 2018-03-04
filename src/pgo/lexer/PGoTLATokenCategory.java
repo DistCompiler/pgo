@@ -9,4 +9,8 @@ public class PGoTLATokenCategory {
 	private PGoTLATokenCategory() {}
 	
 	public static int PGO_ANNOTATION = 0xFFFF;
+	/** (maybe) used to a blank expression in PlusCal, according to
+	 *  vague hints in the source. Trust sparingly.
+	 */
+	public static int PLUSCAL_DEFAULT_VALUE = 0;
 }
