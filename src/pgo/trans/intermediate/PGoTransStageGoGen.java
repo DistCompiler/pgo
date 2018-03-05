@@ -298,7 +298,7 @@ public class PGoTransStageGoGen {
 			// Add a statement to lock, if we need thread safety
 			private void lock() throws PGoTransException {
 				setLockGroup();
-				if (data.needsLock) {
+				if (curLockGroup != -1 && data.needsLock) {
 					if (data.netOpts.isEnabled()) {
 						data.netOpts.getStateStrategy().lock(curLockGroup, result,
 								data.globals.values().stream().filter(var -> var.getLockGroup() == curLockGroup));
