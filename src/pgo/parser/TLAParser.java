@@ -763,8 +763,11 @@ public final class TLAParser {
 			List<String> ids = new ArrayList<>();
 			// empty tuples are allowed, even if they are not in the
 			// official grammar
-			while(lookaheadBuiltinToken(iter, ",", true)) {
-				ids.add(expectIdentifier(iter));
+			if(!lookaheadBuiltinToken(iter, ">>", true)) {
+				do {
+					ids.add(expectIdentifier(iter));
+				}while(lookaheadBuiltinToken(iter, ",", true));
+				expectBuiltinToken(iter, ">>");
 			}
 			return new PGoTLAIdentifierTuple(ids, lineNumber);
 		}
@@ -818,8 +821,10 @@ public final class TLAParser {
 			List<PGoTLAExpression> exprs = new ArrayList<>();
 			// if you look at the grammar, empty tuples are not allowed
 			// but they exist and are used ... so we implement them
-			while(lookaheadBuiltinToken(iter, ",", true)){
-				exprs.add(readExpressionFromPrecedence(iter, 1, minColumn));
+			if(!lookaheadBuiltinToken(iter, ">>", true)) {
+				do{
+					exprs.add(readExpressionFromPrecedence(iter, 1, minColumn));
+				}while(lookaheadBuiltinToken(iter, ",", true));
 			}
 			
 			if(lookaheadBuiltinToken(iter, ">>_", true)) {
@@ -943,10 +948,12 @@ public final class TLAParser {
 			
 			List<PGoTLAExpression> members = new ArrayList<>();
 			members.add(lhs);
-			while(lookaheadValidColumn(iter, minColumn) && lookaheadBuiltinToken(iter, ",", true)) {
-				members.add(readExpressionFromPrecedence(iter, 1, minColumn));
+			if(!lookaheadBuiltinToken(iter, "}", true)) {
+				while(lookaheadValidColumn(iter, minColumn) && lookaheadBuiltinToken(iter, ",", true)) {
+					members.add(readExpressionFromPrecedence(iter, 1, minColumn));
+				}
+				expectBuiltinToken(iter, "}");
 			}
-			expectBuiltinToken(iter, "}");
 			return new PGoTLASet(members, lineNumber);
 		}
 		
