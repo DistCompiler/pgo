@@ -288,7 +288,7 @@ public class TLAToTypeTest {
 		result = new TLAExprToType(tla, data, true).getType();
 		assertEquals(PGoType.inferFromGoTypeName("bool"), result);
 
-		set = new PGoTLASet(new Vector<>(), 0);
+		set = new PGoTLASet(new Vector<TLAToken>(), 0);
 		tla = new PGoTLASetOp("\\intersect", set, new PGoTLAVariable("T", 0), 0);
 		result = new TLAExprToType(tla, data, true).getType();
 		assertEquals(PGoType.inferFromGoTypeName("set[int]"), result);

@@ -62,4 +62,16 @@ public abstract class PGoTLAExpressionVisitor<Result> {
 		throw new RuntimeException("visit(PGoTLASetRefinement) unimplemented");
 	}
 
+	public Result visit(PGoTLAExistential ex) {
+		throw new RuntimeException("visit(PGoTLAExistential) unimplemented");
+	}
+
+	public Result visit(PGoTLAUniversal ex) {
+		throw new RuntimeException("visit(PGoTLAUniversal) unimplemented");
+	}
+
+	public Result visit(PGoTLASetComprehension pGoTLASetComprehension) {
+		throw new RuntimeException("visit(PGoTLASetComprehension unimplemented");
+	}
+
 }

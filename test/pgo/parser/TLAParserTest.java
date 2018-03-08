@@ -24,6 +24,7 @@ public class TLAParserTest {
 	public static List<Object[]> data(){
 		return Arrays.asList(new Object[][] {
 			{"Euclid", },
+			{"QueensPluscal", },
 		});
 	}
 	

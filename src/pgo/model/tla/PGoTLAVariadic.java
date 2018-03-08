@@ -1,5 +1,6 @@
 package pgo.model.tla;
 
+import java.util.List;
 import java.util.Vector;
 
 import pcal.TLAToken;
@@ -27,6 +28,15 @@ public class PGoTLAVariadic extends PGoTLAExpression {
 	// true if the multi-argument side is the right one
 	private boolean rightSide;
 
+	public PGoTLAVariadic(String token, List<PGoTLAExpression> multiArgs, PGoTLAExpression single, boolean rightSide, int line) {
+		super(line);
+		this.tok = token;
+		this.multiArgs = new Vector<>();
+		this.multiArgs.addAll(multiArgs);
+		this.expr = single;
+		this.rightSide = rightSide;
+	}
+	
 	public PGoTLAVariadic(String token, Vector<PGoTLAExpression> left, Vector<TLAToken> right, int line)
 			throws PGoTransException {
 		super(line);

@@ -8,6 +8,7 @@ import pcal.AST.*;
 import pcal.AST.Process;
 import pcal.TLAExpr;
 import pcal.TLAToken;
+import pgo.model.tla.PGoTLABackwardsCompatibilityASTConverter;
 import pgo.model.tla.PGoTLAExpression;
 import pgo.parser.PGoTLAParseException;
 import pgo.parser.TLAExprParser;
@@ -162,16 +163,19 @@ public class PGoTransStageTLAParse {
 				}
 				tokens.add(null);
 			}
+			PGoTLAExpression expr = null;
 			if(tokenCount == 0) {
-				data.putPGoTLA(e, new PGoTLAExpression.PGoTLADefault(-1));
+				expr = new PGoTLAExpression.PGoTLADefault(-1);
 			}else {
 				try {
-					data.putPGoTLA(e, TLAParser.readExpression(tokens.listIterator()));
+					expr = TLAParser.readExpression(tokens.listIterator());
 				}catch(PGoTLAParseException ex) {
 					// this is a parse error during translation, so convert it to a translation exception
 					throw new PGoTransException(ex.toString());
 				}
 			}
+			expr = expr.walk(new PGoTLABackwardsCompatibilityASTConverter());
+			data.putPGoTLA(e, expr);
 		}
 	}
 }

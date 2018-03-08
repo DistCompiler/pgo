@@ -1,37 +1,33 @@
 package pgo.model.tla;
 
+import java.util.List;
+
 import pgo.model.golang.Expression;
 import pgo.model.intermediate.PGoType;
 import pgo.trans.PGoTransException;
 
-public class PGoTLASetRefinement extends PGoTLAExpression {
+public class PGoTLAExistential extends PGoTLAExpression {
+	
+	private List<PGoTLAQuantifierBound> ids;
+	private PGoTLAExpression body;
 
-	private PGoTLAIdentifierOrTuple ident;
-	private PGoTLAExpression from;
-	private PGoTLAExpression when;
-
-	public PGoTLASetRefinement(PGoTLAIdentifierOrTuple ident, PGoTLAExpression from, PGoTLAExpression when, int line) {
+	public PGoTLAExistential(List<PGoTLAQuantifierBound> ids2, PGoTLAExpression body, int line) {
 		super(line);
-		this.ident = ident;
-		this.from = from;
-		this.when = when;
+		this.ids = ids2;
+		this.body = body;
 	}
 	
-	public PGoTLAIdentifierOrTuple getIdent() {
-		return ident;
+	public List<PGoTLAQuantifierBound> getIds(){
+		return ids;
 	}
 	
-	public PGoTLAExpression getFrom() {
-		return from;
+	public PGoTLAExpression getBody() {
+		return body;
 	}
-	
+
 	@Override
 	public String toString() {
-		return "PGoTLASetRefinement [ident=" + ident + ", from=" + from + ", when=" + when + "]";
-	}
-
-	public PGoTLAExpression getWhen() {
-		return when;
+		return "PGoTLAExistential [ids=" + ids + ", body=" + body + "]";
 	}
 
 	@Override
