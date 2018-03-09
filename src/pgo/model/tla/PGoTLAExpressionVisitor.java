@@ -70,8 +70,28 @@ public abstract class PGoTLAExpressionVisitor<Result> {
 		throw new RuntimeException("visit(PGoTLAUniversal) unimplemented");
 	}
 
-	public Result visit(PGoTLASetComprehension pGoTLASetComprehension) {
+	public Result visit(PGoTLASetComprehension ex) {
 		throw new RuntimeException("visit(PGoTLASetComprehension unimplemented");
+	}
+
+	public Result visit(PGoTLAFunction ex) {
+		throw new RuntimeException("visit(PGoTLAFunction) unimplemented");
+	}
+
+	public Result visit(PGoTLARecord ex) {
+		throw new RuntimeException("visit(PGoTLARecord) unimplemented");
+	}
+
+	public Result visit(PGoTLARecordSet ex) {
+		throw new RuntimeException("visit(PGoTLARecordSet) unimplemented");
+	}
+
+	public Result visit(PGoTLAFunctionSet ex) {
+		throw new RuntimeException("visit(PGoTLAFunctionSet) unimplemented");
+	}
+
+	public Result visit(PGoTLALet ex) {
+		throw new RuntimeException("visit(PGoTLALet) unimplemented");
 	}
 
 }

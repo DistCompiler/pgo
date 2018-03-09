@@ -207,6 +207,9 @@ public class TLALexer {
 		"'",
 		// operator definition
 		"==",
+		// functions and records
+		"->",
+		"|->",
 	};
 	
 	static final Pattern IDENT = Pattern.compile("[a-z0-9_A-Z]*[a-zA-Z][a-z0-9_A-Z]*");
