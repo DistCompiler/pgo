@@ -142,6 +142,7 @@ import pgo.model.tla.PGoTLAIdentifier;
 import pgo.model.tla.PGoTLAIdentifierOrTuple;
 import pgo.model.tla.PGoTLAIdentifierTuple;
 import pgo.model.tla.PGoTLAIf;
+import pgo.model.tla.PGoTLAInstance;
 import pgo.model.tla.PGoTLALet;
 import pgo.model.tla.PGoTLAMaybeAction;
 import pgo.model.tla.PGoTLAModule;
@@ -1179,36 +1180,17 @@ public final class TLAParser {
 		
 		if(lookaheadBuiltinToken(iter, "LET", minColumn)) {
 			int startLine = getLineNumber(iter);
-			List<PGoTLAOperator> operators = new ArrayList<>();
-			Map<String, List<PGoTLAFunction>> functions = new HashMap<>();
+			Map<String, PGoTLAOperator> operators = new HashMap<>();
+			Map<String, PGoTLAFunction> functions = new HashMap<>();
+			List<PGoTLAInstance> instances = new ArrayList<>();
 			do {
-				int lineNumber = getLineNumber(iter);
-				String name = expectIdentifier(iter, minColumn);
-				// TODO: module definitions
-				if(lookaheadBuiltinToken(iter, "[", minColumn)) {
-					List<PGoTLAQuantifierBound> bounds = new ArrayList<>();
-					do {
-						bounds.add(readQuantifierBound(iter, minColumn));
-					}while(lookaheadBuiltinToken(iter, ",", minColumn));
-					expectBuiltinToken(iter, "]", minColumn);
-					expectBuiltinToken(iter, "==", minColumn);
-					
-					PGoTLAExpression body = readExpressionFromPrecedence(iter, 1, minColumn);
-					if(!functions.containsKey(name)) {
-						functions.put(name, new ArrayList<>());
-					}
-					functions.get(name).add(new PGoTLAFunction(bounds, body, lineNumber));
-				}else {
-					// TODO: this is grossly oversimplified, see readModule
-					// for proper grammar
-					expectBuiltinToken(iter, "==", minColumn);
-					PGoTLAExpression body = readExpressionFromPrecedence(iter, 1, minColumn);
-					operators.add(new PGoTLAOperator(name, new ArrayList<>(), body));
+				if(!lookaheadOperatorFunctionOrModuleDefinition(iter, operators, functions, instances, minColumn)) {
+					throw errorExpectedOneOf(iter, "OperatorDefinition", "FunctionDefinition", "ModuleDefinition");
 				}
 			}while(!lookaheadBuiltinToken(iter, "IN", minColumn));
 			
 			PGoTLAExpression body = readExpressionFromPrecedence(iter, 1, minColumn);
-			return new PGoTLALet(operators, functions, body, startLine);
+			return new PGoTLALet(operators, functions, instances, body, startLine);
 		}
 		
 		throw errorExpectedOneOf(iter, "[", "IF", "\\/", "/\\", "<IDENTIFIER>", "<<", "(", "<NUMBER>", "<STRING>", "<BOOLEAN>", "LET");
@@ -1313,10 +1295,12 @@ public final class TLAParser {
 		List<String> exts = readExtends(iter);
 		
 		// accumulators for parts of the module
-		List<String> variables = new ArrayList<String>();
-		List<PGoTLAOpDecl> constants = new ArrayList<PGoTLAOpDecl>();
-		Map<String, PGoTLAOperator> operators = new HashMap<String, PGoTLAOperator>();
-		List<PGoTLAModule> submodules = new ArrayList<PGoTLAModule>();
+		List<String> variables = new ArrayList<>();
+		List<PGoTLAOpDecl> constants = new ArrayList<>();
+		Map<String, PGoTLAOperator> operators = new HashMap<>();
+		List<PGoTLAModule> submodules = new ArrayList<>();
+		Map<String, PGoTLAFunction> functions = new HashMap<>();
+		List<PGoTLAInstance> instances = new ArrayList<>();
 		List<PGoTLAExpression> assumptions = new ArrayList<>();
 		List<PGoTLAExpression> theorems = new ArrayList<>();
 		
@@ -1343,9 +1327,9 @@ public final class TLAParser {
 				}
 				String op;
 				// instance is easy to spot
-				if(lookaheadBuiltinToken(iter, "INSTANCE", -1)) {
-					// TODO: instance
-					throw errorUnexpected(iter, "[unimplemented] INSTANCE clause");
+				PGoTLAInstance instance = null;
+				if((instance = lookaheadInstance(iter, -1)) != null) {
+					instances.add(instance);
 				// it's quite tricky to tell OperatorDefinition, FunctionDefinition and ModuleDefinition apart
 				// so we parse them all together until we can tell what we're dealing with
 				}else if((op = lookaheadBuiltinTokenOneOf(iter, PREFIX_OPERATORS, -1)) != null) {
@@ -1355,50 +1339,101 @@ public final class TLAParser {
 					List<PGoTLAOpDecl> operands = new ArrayList<>();
 					operands.add(new PGoTLAOpDeclIdentifier(operand));
 					operators.put(op, new PGoTLAOperator(op, operands, readExpression(iter)));
+				}else if(lookaheadOperatorFunctionOrModuleDefinition(iter, operators, functions, instances, -1)){
+					// success
 				}else {
-					String id = expectIdentifier(iter, -1);
-					if((op = lookaheadBuiltinTokenOneOf(iter, POSTFIX_OPERATORS, -1)) != null) {
-						System.out.println("Postfix def "+id+" "+op);
-						// operator definition
-						expectBuiltinToken(iter, "==", -1);
-						List<PGoTLAOpDecl> operands = new ArrayList<>();
-						operands.add(new PGoTLAOpDeclIdentifier(id));
-						operators.put(op,  new PGoTLAOperator(op, operands, readExpression(iter)));
-					}else if((op = lookaheadBuiltinTokenOneOf(iter, INFIX_OPERATORS, -1)) != null) {
-						System.out.println("Infix def "+id+" "+op);
-						// operator definition
-						String rhs = expectIdentifier(iter, -1);
-						expectBuiltinToken(iter, "==", -1);
-						List<PGoTLAOpDecl> operands = new ArrayList<>();
-						operands.add(new PGoTLAOpDeclIdentifier(id));
-						operands.add(new PGoTLAOpDeclIdentifier(rhs));
-						operators.put(op, new PGoTLAOperator(op, operands, readExpression(iter)));
-					}else if(lookaheadBuiltinToken(iter, "[", -1)) {
-						// TODO: function definition
-						throw errorUnexpected(iter, "[unimplemented] function definition");
-					}else{
-						System.out.println("Must be classic opdecls, id "+id);
-						List<PGoTLAOpDecl> opdecls = new ArrayList<PGoTLAOpDecl>();
-						if(lookaheadBuiltinToken(iter, "(", -1)) {
-							do {
-								opdecls.add(readOpDecl(iter, -1));
-							}while(lookaheadBuiltinToken(iter, ",", -1));
-							expectBuiltinToken(iter, ")", -1);
-						}
-						expectBuiltinToken(iter, "==", -1);
-						if(lookaheadBuiltinToken(iter, "INSTANCE", -1)) {
-							// TODO: module definition
-							throw errorUnexpected(iter, "[unimplemented] module definition");
-						}else {
-							operators.put(id, new PGoTLAOperator(id, opdecls, readExpression(iter)));
-						}
-					}
+					throw errorExpectedOneOf(iter, "OperatorDefinition", "FunctionDefinition", "ModuleDefinition");
 				}
 			}
 		}
 		return new PGoTLAModule(name, exts, variables, constants, operators, submodules, assumptions, theorems);
 	}
 	
+	private static boolean lookaheadOperatorFunctionOrModuleDefinition(ListIterator<TLAToken> iter, Map<String, PGoTLAOperator> operators, Map<String, PGoTLAFunction> functions, List<PGoTLAInstance> instances, int minColumn) throws PGoTLAParseException {
+		String op = null;
+		String id = lookaheadIdentifier(iter, minColumn);
+		if(id == null) {
+			return false;
+		}
+		if((op = lookaheadBuiltinTokenOneOf(iter, POSTFIX_OPERATORS, minColumn)) != null) {
+			System.out.println("Postfix def "+id+" "+op);
+			// operator definition
+			expectBuiltinToken(iter, "==", minColumn);
+			List<PGoTLAOpDecl> operands = new ArrayList<>();
+			operands.add(new PGoTLAOpDeclIdentifier(id));
+			if(operators.containsKey(op)) {
+				throw errorUnexpected(iter, "repeated operator definition");
+			}
+			operators.put(op, new PGoTLAOperator(op, operands, readExpressionFromPrecedence(iter, 1, minColumn)));
+			return true;
+		}else if((op = lookaheadBuiltinTokenOneOf(iter, INFIX_OPERATORS, minColumn)) != null) {
+			System.out.println("Infix def "+id+" "+op);
+			// operator definition
+			String rhs = expectIdentifier(iter, minColumn);
+			expectBuiltinToken(iter, "==", minColumn);
+			List<PGoTLAOpDecl> operands = new ArrayList<>();
+			operands.add(new PGoTLAOpDeclIdentifier(id));
+			operands.add(new PGoTLAOpDeclIdentifier(rhs));
+			operators.put(op, new PGoTLAOperator(op, operands, readExpressionFromPrecedence(iter, 1, minColumn)));
+			return true;
+		}else if(lookaheadBuiltinToken(iter, "[", minColumn)) {
+			int lineNumber = getLineNumber(iter);
+			List<PGoTLAQuantifierBound> bounds = new ArrayList<>();
+			do {
+				bounds.add(readQuantifierBound(iter, minColumn));
+			}while(lookaheadBuiltinToken(iter, ",", minColumn));
+			expectBuiltinToken(iter, "]", minColumn);
+			expectBuiltinToken(iter, "==", minColumn);
+			
+			PGoTLAExpression body = readExpressionFromPrecedence(iter, 1, minColumn);
+			if(functions.containsKey(id)) {
+				throw errorUnexpected(iter, "repeated function definition");
+			}
+			functions.put(id, new PGoTLAFunction(bounds, body, lineNumber));
+			return true;
+		}else{
+			System.out.println("Must be classic opdecls, id "+id);
+			List<PGoTLAOpDecl> opdecls = new ArrayList<PGoTLAOpDecl>();
+			if(lookaheadBuiltinToken(iter, "(", minColumn)) {
+				do {
+					opdecls.add(readOpDecl(iter, minColumn));
+				}while(lookaheadBuiltinToken(iter, ",", minColumn));
+				expectBuiltinToken(iter, ")", minColumn);
+			}
+			expectBuiltinToken(iter, "==", minColumn);
+			PGoTLAInstance instance = null;
+			if((instance = lookaheadInstance(iter, minColumn)) != null) {
+				instance.setReferenceName(id);
+				instances.add(instance);
+			}else {
+				operators.put(id, new PGoTLAOperator(id, opdecls, readExpressionFromPrecedence(iter, 1, minColumn)));
+			}
+			return true;
+		}
+	}
+	
+	private static PGoTLAInstance lookaheadInstance(ListIterator<TLAToken> iter, int minColumn) throws PGoTLAParseException {
+		if(!lookaheadBuiltinToken(iter, "INSTANCE", minColumn)) {
+			return null;
+		}
+		String name = expectIdentifier(iter, minColumn);
+		
+		Map<PGoTLAOpDecl, PGoTLAExpression> remappings = new HashMap<>();
+		if(lookaheadBuiltinToken(iter, "WITH", minColumn)) {
+			do {
+				PGoTLAOpDecl id = readOpDecl(iter, minColumn);
+				expectBuiltinToken(iter, "<-", minColumn);
+				PGoTLAExpression val = readExpressionFromPrecedence(iter, 1, minColumn);
+				if(remappings.containsKey(id)) {
+					throw errorUnexpected(iter, "repeated substitution");
+				}
+				remappings.put(id, val);
+			}while(lookaheadBuiltinToken(iter, ",", minColumn));
+		}
+		
+		return new PGoTLAInstance(null, name, remappings);
+	}
+
 	public static List<PGoTLAModule> readModules(ListIterator<TLAToken> iter) throws PGoTLAParseException{
 		List<PGoTLAModule> modules = new ArrayList<PGoTLAModule>();
 

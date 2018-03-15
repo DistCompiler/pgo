@@ -9,14 +9,16 @@ import pgo.trans.PGoTransException;
 
 public class PGoTLALet extends PGoTLAExpression {
 
-	private List<PGoTLAOperator> operators;
-	private Map<String, List<PGoTLAFunction>> functions;
+	private Map<String, PGoTLAOperator> operators;
+	private Map<String, PGoTLAFunction> functions;
 	private PGoTLAExpression body;
+	private List<PGoTLAInstance> instances;
 
-	public PGoTLALet(List<PGoTLAOperator> operators, Map<String, List<PGoTLAFunction>> functions, PGoTLAExpression body, int line) {
+	public PGoTLALet(Map<String, PGoTLAOperator> operators, Map<String, PGoTLAFunction> functions, List<PGoTLAInstance> instances, PGoTLAExpression body, int line) {
 		super(line);
 		this.operators = operators;
 		this.functions = functions;
+		this.instances = instances;
 		this.body = body;
 	}
 	
