@@ -11,11 +11,17 @@ public class PGoTLALet extends PGoTLAExpression {
 
 	private List<PGoTLAOperator> operators;
 	private Map<String, List<PGoTLAFunction>> functions;
+	private PGoTLAExpression body;
 
-	public PGoTLALet(List<PGoTLAOperator> operators, Map<String, List<PGoTLAFunction>> functions, int line) {
+	public PGoTLALet(List<PGoTLAOperator> operators, Map<String, List<PGoTLAFunction>> functions, PGoTLAExpression body, int line) {
 		super(line);
 		this.operators = operators;
 		this.functions = functions;
+		this.body = body;
+	}
+	
+	public PGoTLAExpression getBody() {
+		return body;
 	}
 
 	@Override

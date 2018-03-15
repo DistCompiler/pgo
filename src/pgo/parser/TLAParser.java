@@ -1,5 +1,106 @@
 package pgo.parser;
 
+/**
+ * 
+ *  This is an LL_k recursive descent parser for an eventually-complete
+ *  subset of the TLA+ language.
+ * 
+ *  It is written in order to match the grammar defined in Lamport's
+ *  book Specifying Systems, Part IV as much as possible.
+ * 
+ *  Some general rules on reading/modifying this code:
+ *  - all methods operator on a ListIterator<TLAToken>. The only side-effect
+ * 		a method defined in this class is expected to have it moving the
+ *  	iterator around the sequence of TLA+ tokens.
+ *  - there are generally 2 types of helper method:
+ * 		- methods matching the patter read* or expect* will unconditionally
+ * 			parse a given TLA+ construct. The expected result is that
+ * 			they will leave the iterator pointing to the first token after
+ * 			the end of the construct. If they cannot proceed they will throw
+ * 			a PGoTLAParseException containing some info on what went wrong.
+ * 		
+ * 			These methods will almost always return an AST node representing
+ * 			the tokens they consumed, except if it is completely unambiguous
+ * 			just from the function succeeding what happened.
+ * 			e.g expectBuiltinToken expects one specific token, so if it
+ * 			succeeded the token consumed must have been that token.
+ * 		- methods matching the patter lookahead* will have one of two results:
+ * 			- either they will perform identically to read* functions and
+ * 				advance the iterator over tokens corresponding to the pattern
+ * 				they are supposed to recognise, returning an AST node or true
+ * 				to indicate success.
+ * 			- or they will not advance the iterator and return either false
+ * 				or null to indicate that the pattern you are asking for is not
+ * 				present at this point in the input.
+ * 
+ * 			Similar to read* functions, if the pattern being requested is
+ * 			entirely unambiguous then a simple boolean is returned to indicate
+ * 			whether it was found. Otherwise, an AST node or null represents
+ * 			the presence or absence of the construct.
+ * 
+ * 			e.g lookaheadBuiltinToken returns a boolean as there is only one
+ * 		possible token to match, whereas lookaheadBuiltinTokenOneOf will return
+ * 		a string indicating which of the tokens was matched.
+ * 
+ * 	# Operators
+ * 
+ * 	Since TLA+ operators come in all shapes and sizes but also follow a
+ * 	fairly consistent set of rules, they are treated using a set of
+ * 	static arrays and maps.
+ * 
+ * 	The static arrays are generally lists of operators separated by parsing
+ * 	category, and the maps are used to handle operator precedence.
+ * 
+ *  # *_HI_PRECEDENCE and *_LO_PRECEDENCE	
+ * 
+ * 	    Since TLA+ operators have a range of possible precedences traditional
+ * 	    precedence handling strategies fall short. We keep maps of the low
+ * 	    and high bounds (inclusive) of each operator and instead of
+ * 	    recursing over each operator in reverse precedence order we recurse
+ * 	    directly over precedences themselves, matching any qualifying operators
+ * 	    as we go.
+ * 
+ *  # *_LEFT_ASSOCIATIVE
+ *  
+ *  	Not all operators in TLA+ support associativity. It is a parse error
+ *  	to accept non-bracketed repetition of non-associative operators.
+ *  
+ *  	So, we keep track of which operators are left-associative and only
+ *  	accept repeated instances of those in these sets.
+ *  
+ *  # Indentation sensitivity
+ * 	
+ * 		TLA+ has some unusual rules surrounding chaining of the /\
+ * 		and the \/ operators. Specifically, in all other cases the
+ * 		language can be parsed without regard for whitespace, but
+ * 		when dealing with these chains it is a parse error to unindent
+ * 		part of a nested expression to a column before any leading
+ * 		/\  or /\.
+ * 
+ * 		e.g:
+ * 
+ * 		The expression:
+ * 		foo /\ x +
+ * 		   1
+ * 		
+ * 		Parses as:
+ * 		(foo /\ (x+)) 1
+ * 
+ * 		Aside from parsing pedantry, this does affect the way the parser
+ * 		finds the end of subexpressions so we must implement this.
+ * 
+ * 		Throughout the lookahead* and expect* functions the minColumn
+ * 		argument represents this constraint - if a token is found that
+ * 		would otherwise match, but is at a column index lower than
+ * 		minColumn, the match fails instead. This enables most of the
+ * 		codebase to not have to care too much about this rule, while
+ * 		consistently enforcing it.
+ * 
+ * 		Passing minColumn = -1 is used to disable this feature for
+ * 		expressions that are not in the right hand side of /\ or \/.
+ * 
+ */
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -47,12 +148,8 @@ import pgo.model.tla.PGoTLAModule;
 import pgo.model.tla.PGoTLANumber;
 
 public final class TLAParser {
-	
-	static String MODULE = "MODULE";
-	static String EXTENDS = "EXTENDS";
-	static String COMMA = ",";
-	static String UNDERSCORE = "_";
-	static String[] PREFIX_OPERATORS = new String[] {
+
+	private static final String[] PREFIX_OPERATORS = new String[] {
 		"-",
 		"~",
 		"\\lnot",
@@ -66,7 +163,7 @@ public final class TLAParser {
 		"UNION",
 	};
 	
-	static Map<String, Integer> PREFIX_OPERATORS_LOW_PRECEDENCE = new HashMap<>();
+	private static Map<String, Integer> PREFIX_OPERATORS_LOW_PRECEDENCE = new HashMap<>();
 	static {
 		PREFIX_OPERATORS_LOW_PRECEDENCE.put("-", 12);
 		PREFIX_OPERATORS_LOW_PRECEDENCE.put("~", 4);
@@ -81,7 +178,7 @@ public final class TLAParser {
 		PREFIX_OPERATORS_LOW_PRECEDENCE.put("UNION", 8);
 	}
 	
-	static Map<String, Integer> PREFIX_OPERATORS_HI_PRECEDENCE = new HashMap<>();
+	private static Map<String, Integer> PREFIX_OPERATORS_HI_PRECEDENCE = new HashMap<>();
 	static {
 		PREFIX_OPERATORS_HI_PRECEDENCE.put("-", 12);
 		PREFIX_OPERATORS_HI_PRECEDENCE.put("~", 4);
@@ -96,7 +193,7 @@ public final class TLAParser {
 		PREFIX_OPERATORS_HI_PRECEDENCE.put("UNION", 8);
 	}
 	
-	static String[] INFIX_OPERATORS = new String[] {
+	private static final String[] INFIX_OPERATORS = new String[] {
 		// infix operators (non-alpha)
 		"!!",
 		"#",
@@ -201,7 +298,7 @@ public final class TLAParser {
 		"\\sqsupset",
 	};
 	
-	static Map<String, Integer> INFIX_OPERATORS_LOW_PRECEDENCE = new HashMap<>();
+	private static Map<String, Integer> INFIX_OPERATORS_LOW_PRECEDENCE = new HashMap<>();
 	static {
 		// infix operators (non-alpha)
 		INFIX_OPERATORS_LOW_PRECEDENCE.put("!!", 9);
@@ -307,7 +404,7 @@ public final class TLAParser {
 		INFIX_OPERATORS_LOW_PRECEDENCE.put("\\sqsupset", 5);
 	}
 	
-	static Map<String, Integer> INFIX_OPERATORS_HI_PRECEDENCE = new HashMap<>();
+	private static Map<String, Integer> INFIX_OPERATORS_HI_PRECEDENCE = new HashMap<>();
 	static {
 		// infix operators (non-alpha)
 		INFIX_OPERATORS_HI_PRECEDENCE.put("!!", 13);
@@ -413,7 +510,7 @@ public final class TLAParser {
 		INFIX_OPERATORS_HI_PRECEDENCE.put("\\sqsupset", 5);
 	}
 	
-	static Set<String> INFIX_OPERATORS_LEFT_ASSOCIATIVE = new HashSet<>();
+	private static Set<String> INFIX_OPERATORS_LEFT_ASSOCIATIVE = new HashSet<>();
 	static {
 		INFIX_OPERATORS_LEFT_ASSOCIATIVE.add("\\/");
 		INFIX_OPERATORS_LEFT_ASSOCIATIVE.add("/\\");
@@ -450,13 +547,13 @@ public final class TLAParser {
 		INFIX_OPERATORS_LEFT_ASSOCIATIVE.add(".");
 	}
 	
-	static String[] POSTFIX_OPERATORS = new String[] {
+	private static final String[] POSTFIX_OPERATORS = new String[] {
 		"^+",
 		"^*",
 		"^#",
 		"'",
 	};
-	static Map<String, Integer> POSTFIX_OPERATORS_PRECEDENCE = new HashMap<>();
+	private static Map<String, Integer> POSTFIX_OPERATORS_PRECEDENCE = new HashMap<>();
 	static {
 		POSTFIX_OPERATORS_PRECEDENCE.put("^+", 15);
 		POSTFIX_OPERATORS_PRECEDENCE.put("^*", 15);
@@ -464,10 +561,15 @@ public final class TLAParser {
 		POSTFIX_OPERATORS_PRECEDENCE.put("'", 15);
 	}
 	
-	static String[] ASSUMPTION_TOKENS = new String[] {
+	private static final String[] ASSUMPTION_TOKENS = new String[] {
 		"ASSUME",
 		"ASSUMPTION",
 		"AXIOM",
+	};
+	
+	private static final String[] CONJUNCT_DISJUNCT = new String[] {
+		"\\/",
+		"/\\",
 	};
 	
 	private TLAParser(){}
@@ -504,106 +606,132 @@ public final class TLAParser {
 		return iter.next();
 	}
 	
-	private static void revert(ListIterator<TLAToken> iter) {
-		if(iter.hasPrevious()) {
+	/**
+	 * This function is used to return from a lookahead. Since some
+	 * lookaheads are unbounded, so it this function's ability to 
+	 * go back along the input.
+	 * 
+	 * Users are expected to pass the result of a call to mark().
+	 * 
+	 * @param iter
+	 * @param position the position to return to.
+	 */
+	private static void revert(ListIterator<TLAToken> iter, int position) {
+		while(iter.nextIndex() != position) {
 			iter.previous();
 		}
 	}
 	
-	private static String lookaheadIdentifier(ListIterator<TLAToken> iter, boolean skipNewlines) {
-		if(skipNewlines) skipNewlines(iter);
+	/**
+	 * Marks the current position that iter points to such that revert
+	 * will return to that point.
+	 * 
+	 * @param iter
+	 * @return a marker that can be passed to revert
+	 */
+	private static int mark(ListIterator<TLAToken> iter) {
+		return iter.nextIndex();
+	}
+	
+	private static String lookaheadIdentifier(ListIterator<TLAToken> iter, int minColumn) {
+		int initialPos = mark(iter);
+		skipNewlines(iter);
 		if(!iter.hasNext()) return null;
 		TLAToken tok = iter.next();
-		if(tok.type == TLAToken.IDENT) {
+		if(tok.type == TLAToken.IDENT && tok.column > minColumn) {
 			return tok.string;
 		}else {
-			revert(iter);
+			revert(iter, initialPos);
 			return null;
 		}
 	}
 	
 	private static boolean lookaheadNewline(ListIterator<TLAToken> iter) {
+		int initialPos = mark(iter);
 		if(!iter.hasNext()) return false;
 		TLAToken tok = iter.next();
 		if(tok == null) {
 			return true;
 		}else {
-			revert(iter);
+			revert(iter, initialPos);
 			return false;
 		}
 	}
 	
-	private static boolean lookaheadBuiltinToken(ListIterator<TLAToken> iter, String name, boolean skipNewlines) {
-		if(skipNewlines) skipNewlines(iter);
+	private static boolean lookaheadBuiltinToken(ListIterator<TLAToken> iter, String name, int minColumn) {
+		int initialPos = mark(iter);
+		skipNewlines(iter);
 		if(!iter.hasNext()) return false;
 		TLAToken tok = iter.next();
-		if(tok.type == TLAToken.BUILTIN && tok.string.equals(name)) {
+		if(tok.type == TLAToken.BUILTIN && tok.column > minColumn && tok.string.equals(name)) {
 			return true;
 		}else {
-			revert(iter);
+			revert(iter, initialPos);
 			return false;
 		}
 	}
 	
-	private static String lookaheadBuiltinTokenOneOf(ListIterator<TLAToken> iter, String[] options, boolean skipNewlines) {
+	private static String lookaheadBuiltinTokenOneOf(ListIterator<TLAToken> iter, String[] options, int minColumn) {
 		for(String str: options) {
-			if(lookaheadBuiltinToken(iter, str, skipNewlines)) {
+			if(lookaheadBuiltinToken(iter, str, minColumn)) {
 				return str;
 			}
 		}
 		return null;
 	}
 	
-	private static String expectBuiltinTokenOneOf(ListIterator<TLAToken> iter, String[] options) throws PGoTLAParseException {
+	private static String expectBuiltinTokenOneOf(ListIterator<TLAToken> iter, String[] options, int minColumn) throws PGoTLAParseException {
 		for(String str: options) {
-			if(lookaheadBuiltinToken(iter, str, true)) {
+			if(lookaheadBuiltinToken(iter, str, minColumn)) {
 				return str;
 			}
 		}
 		throw errorExpectedOneOf(iter, options);
 	}
 	
-	private static void expectBuiltinToken(ListIterator<TLAToken> iter, String name) throws PGoTLAParseException {
+	private static void expectBuiltinToken(ListIterator<TLAToken> iter, String name, int minColumn) throws PGoTLAParseException {
 		TLAToken tok = readNextIgnoringNewline(iter);
-		if(!tok.string.equals(name)) {
+		if(tok.column > minColumn && !tok.string.equals(name)) {
 			throw errorUnexpected(iter, tok.string);
 		}
 	}
 	
-	private static boolean lookahead4DashesOrMore(ListIterator<TLAToken> iter, boolean skipNewlines) {
-		if(skipNewlines) skipNewlines(iter);
+	private static boolean lookahead4DashesOrMore(ListIterator<TLAToken> iter, int minColumn) {
+		int initialPos = mark(iter);
+		skipNewlines(iter);
 		if(!iter.hasNext()) return false;
 		TLAToken tok = iter.next();
-		if(tok.type == TLAToken.BUILTIN && tok.string.startsWith("----")) {
+		if(tok.type == TLAToken.BUILTIN && tok.column > minColumn && tok.string.startsWith("----")) {
 			return true;
 		}else {
-			revert(iter);
+			revert(iter, initialPos);
 			return false;
 		}
 	}
 	
-	private static void expect4DashesOrMore(ListIterator<TLAToken> iter) throws PGoTLAParseException {
+	private static void expect4DashesOrMore(ListIterator<TLAToken> iter, int minColumn) throws PGoTLAParseException {
 		TLAToken tok = readNextIgnoringNewline(iter);
-		if(tok.type != TLAToken.BUILTIN || !tok.string.startsWith("----")) {
+		if(tok.column <= minColumn || tok.type != TLAToken.BUILTIN  || !tok.string.startsWith("----")) {
 			throw errorExpectedOneOf(iter, "----+");
 		}
 	}
 	
-	private static boolean lookahead4EqualsOrMore(ListIterator<TLAToken> iter, boolean skipNewlines) {
-		if(skipNewlines) skipNewlines(iter);
+	private static boolean lookahead4EqualsOrMore(ListIterator<TLAToken> iter, int minColumn) {
+		int initialPos = mark(iter);
+		skipNewlines(iter);
 		if(!iter.hasNext()) return false;
 		TLAToken tok = iter.next();
-		if(tok.type == TLAToken.BUILTIN && tok.string.startsWith("====")) {
+		if(tok.type == TLAToken.BUILTIN && tok.column > minColumn && tok.string.startsWith("====")) {
 			return true;
 		}else {
-			revert(iter);
+			revert(iter, initialPos);
 			return false;
 		}
 	}
 	
-	private static String expectIdentifier(ListIterator<TLAToken> iter) throws PGoTLAParseException {
+	private static String expectIdentifier(ListIterator<TLAToken> iter, int minColumn) throws PGoTLAParseException {
 		TLAToken tok = readNextIgnoringNewline(iter);
-		if(tok.type == TLAToken.IDENT) {
+		if(tok.type == TLAToken.IDENT && tok.column > minColumn) {
 			return tok.string;
 		}else {
 			throw errorExpectedOneOf(iter, "IDENTIFIER");
@@ -640,10 +768,10 @@ public final class TLAParser {
 	
 	private static List<String> readExtends(ListIterator<TLAToken> iter) throws PGoTLAParseException{
 		List<String> modules = new ArrayList<String>();
-		if(lookaheadBuiltinToken(iter, EXTENDS, true)) {
-			modules.add(expectIdentifier(iter));
-			while(lookaheadBuiltinToken(iter, COMMA, true)) {
-				modules.add(expectIdentifier(iter));
+		if(lookaheadBuiltinToken(iter, "EXTENDS", -1)) {
+			modules.add(expectIdentifier(iter, -1));
+			while(lookaheadBuiltinToken(iter, ",", -1)) {
+				modules.add(expectIdentifier(iter, -1));
 			}
 			return modules;
 		}else {
@@ -653,36 +781,36 @@ public final class TLAParser {
 	
 	private static List<String> readVariables(ListIterator<TLAToken> iter) throws PGoTLAParseException{
 		List<String> variables = new ArrayList<String>();
-		variables.add(expectIdentifier(iter));
-		while(lookaheadBuiltinToken(iter, COMMA, true)) {
-			variables.add(expectIdentifier(iter));
+		variables.add(expectIdentifier(iter, -1));
+		while(lookaheadBuiltinToken(iter, ",", -1)) {
+			variables.add(expectIdentifier(iter, -1));
 		}
 		return variables;
 	}
 	
-	private static PGoTLAOpDecl readOpDecl(ListIterator<TLAToken> iter) throws PGoTLAParseException {
+	private static PGoTLAOpDecl readOpDecl(ListIterator<TLAToken> iter, int minColumn) throws PGoTLAParseException {
 		String op;
-		if(lookaheadBuiltinToken(iter, UNDERSCORE, true)) {
-			op = lookaheadBuiltinTokenOneOf(iter, INFIX_OPERATORS, true);
+		if(lookaheadBuiltinToken(iter, "_", minColumn)) {
+			op = lookaheadBuiltinTokenOneOf(iter, INFIX_OPERATORS, minColumn);
 			if(op != null) {
-				expectBuiltinToken(iter, UNDERSCORE);
+				expectBuiltinToken(iter, "_", minColumn);
 				return new PGoTLAOpDeclInfixOp(op);
 			}else {
-				op = expectBuiltinTokenOneOf(iter, POSTFIX_OPERATORS);
+				op = expectBuiltinTokenOneOf(iter, POSTFIX_OPERATORS, minColumn);
 				return new PGoTLAOpDeclPostfixOp(op);
 			}
-		}else if((op = lookaheadBuiltinTokenOneOf(iter, PREFIX_OPERATORS, true)) != null) {
-			expectBuiltinToken(iter, UNDERSCORE);
+		}else if((op = lookaheadBuiltinTokenOneOf(iter, PREFIX_OPERATORS, minColumn)) != null) {
+			expectBuiltinToken(iter, "_", minColumn);
 			return new PGoTLAOpDeclPrefixOp(op);
 		}else {
-			String id = expectIdentifier(iter);
-			if(lookaheadBuiltinToken(iter, "(", true)) {
+			String id = expectIdentifier(iter, minColumn);
+			if(lookaheadBuiltinToken(iter, "(", minColumn)) {
 				int argCount = 0;
 				do {
-					expectBuiltinToken(iter, UNDERSCORE);
+					expectBuiltinToken(iter, "_", minColumn);
 					++argCount;
-				}while(lookaheadBuiltinToken(iter, COMMA, true));
-				expectBuiltinToken(iter, ")");
+				}while(lookaheadBuiltinToken(iter, ",", minColumn));
+				expectBuiltinToken(iter, ")", minColumn);
 				return new PGoTLAOpDeclOperator(id, argCount);
 			}else {
 				return new PGoTLAOpDeclIdentifier(id);
@@ -693,51 +821,53 @@ public final class TLAParser {
 	private static List<PGoTLAOpDecl> readConstants(ListIterator<TLAToken> iter) throws PGoTLAParseException{
 		List<PGoTLAOpDecl> constants = new ArrayList<PGoTLAOpDecl>();
 		do {
-			constants.add(readOpDecl(iter));
-		}while(lookaheadBuiltinToken(iter, COMMA, true));
+			constants.add(readOpDecl(iter, -1));
+		}while(lookaheadBuiltinToken(iter, ",", -1));
 		return constants;
 	}
 	
 	private static void skipAnnotations(ListIterator<TLAToken> iter) {
 		while(iter.hasNext()) {
 			TLAToken tok = iter.next();
-			if(tok == null || tok.type != PGoTLATokenCategory.PGO_ANNOTATION) {
+			if(tok != null && tok.type != PGoTLATokenCategory.PGO_ANNOTATION) {
 				iter.previous();
 				return;
 			}
 		}
 	}
 	
-	private static PGoTLAExpression lookaheadString(ListIterator<TLAToken> iter, boolean skipNewlines) {
-		if(skipNewlines) skipNewlines(iter);
+	private static PGoTLAExpression lookaheadString(ListIterator<TLAToken> iter, int minColumn) {
+		int initialPos = mark(iter);
+		skipNewlines(iter);
 		if(!iter.hasNext()) return null;
 		TLAToken tok = iter.next();
-		if(tok.type == TLAToken.STRING) {
+		if(tok.type == TLAToken.STRING && tok.column > minColumn) {
 			return new PGoTLAString(tok.string, tok.source.toLocation().beginLine());
 		}else {
-			revert(iter);
+			revert(iter, initialPos);
 			return null;
 		}
 	}
 	
-	private static PGoTLAExpression lookaheadNumber(ListIterator<TLAToken> iter, boolean skipNewlines) {
-		if(skipNewlines) skipNewlines(iter);
+	private static PGoTLAExpression lookaheadNumber(ListIterator<TLAToken> iter, int minColumn) {
+		int initialPos = mark(iter);
+		skipNewlines(iter);
 		if(!iter.hasNext()) return null;
 		TLAToken tok = iter.next();
-		if(tok.type == TLAToken.NUMBER) {
+		if(tok.type == TLAToken.NUMBER && tok.column > minColumn) {
 			return new PGoTLANumber(tok.string, tok.source.toLocation().beginLine());
 		}else {
-			revert(iter);
+			revert(iter, initialPos);
 			return null;
 		}
 	}
 	
-	private static PGoTLAExpression lookaheadBoolean(ListIterator<TLAToken> iter, boolean skipNewlines) {
-		if(lookaheadBuiltinToken(iter, "TRUE", skipNewlines)) {
+	private static PGoTLAExpression lookaheadBoolean(ListIterator<TLAToken> iter, int minColumn) {
+		if(lookaheadBuiltinToken(iter, "TRUE", minColumn)) {
 			TLAToken tok = iter.previous();
 			iter.next();
 			return new PGoTLABool("TRUE", tok.source.toLocation().beginLine());
-		}else if(lookaheadBuiltinToken(iter, "FALSE", skipNewlines)) {
+		}else if(lookaheadBuiltinToken(iter, "FALSE", minColumn)) {
 			TLAToken tok = iter.previous();
 			iter.next();
 			return new PGoTLABool("FALSE", tok.source.toLocation().beginLine());
@@ -746,56 +876,55 @@ public final class TLAParser {
 		}
 	}
 	
-	private static PGoTLAExpression lookaheadPlusCalDefaultValue(ListIterator<TLAToken> iter) {
+	private static PGoTLAExpression lookaheadPlusCalDefaultValue(ListIterator<TLAToken> iter, int minColumn) {
 		if(iter.hasNext()) {
+			int initialPos = mark(iter);
 			TLAToken tok = iter.next();
-			if(tok.type == PGoTLATokenCategory.PLUSCAL_DEFAULT_VALUE) {
+			if(tok.column > minColumn && tok.type == PGoTLATokenCategory.PLUSCAL_DEFAULT_VALUE) {
 				return new PGoTLAExpression.PGoTLADefault(tok.source.toLocation().beginLine());
 			}else {
-				revert(iter);
+				revert(iter, initialPos);
 			}
 		}
 		return null;
 	}
 	
-	private static PGoTLAIdentifierOrTuple lookaheadIdentifierOrTuple(ListIterator<TLAToken> iter) throws PGoTLAParseException {
+	private static PGoTLAIdentifierOrTuple lookaheadIdentifierOrTuple(ListIterator<TLAToken> iter, int minColumn) throws PGoTLAParseException {
 		int lineNumber = getLineNumber(iter);
-		int startIndex = iter.nextIndex();
+		int startIndex = mark(iter);
 		String id;
-		if((id = lookaheadIdentifier(iter, true)) != null) {
+		if((id = lookaheadIdentifier(iter, minColumn)) != null) {
 			return new PGoTLAIdentifier(id, lineNumber);
 		}
-		if(lookaheadBuiltinToken(iter, "<<", true)) {
+		if(lookaheadBuiltinToken(iter, "<<", minColumn)) {
 			List<String> ids = new ArrayList<>();
 			// empty tuples are allowed, even if they are not in the
 			// official grammar
-			if(!lookaheadBuiltinToken(iter, ">>", true)) {
+			if(!lookaheadBuiltinToken(iter, ">>", minColumn)) {
 				do {
-					ids.add(expectIdentifier(iter));
-				}while(lookaheadBuiltinToken(iter, ",", true));
-				expectBuiltinToken(iter, ">>");
+					ids.add(expectIdentifier(iter, minColumn));
+				}while(lookaheadBuiltinToken(iter, ",", minColumn));
+				expectBuiltinToken(iter, ">>", minColumn);
 			}
 			return new PGoTLAIdentifierTuple(ids, lineNumber);
 		}
-		while(iter.nextIndex() != startIndex) {
-			iter.previous();
-		}
+		revert(iter, startIndex);
 		return null;
 	}
 	
-	private static PGoTLAIdentifierOrTuple readIdentifierOrTuple(ListIterator<TLAToken> iter) throws PGoTLAParseException {
-		PGoTLAIdentifierOrTuple result = lookaheadIdentifierOrTuple(iter);
+	private static PGoTLAIdentifierOrTuple readIdentifierOrTuple(ListIterator<TLAToken> iter, int minColumn) throws PGoTLAParseException {
+		PGoTLAIdentifierOrTuple result = lookaheadIdentifierOrTuple(iter, minColumn);
 		if(result == null) {
 			throw errorUnexpected(iter, "neither identifier nor tuple");
 		}
 		return result;
 	}
 	
-	private static PGoTLAQuantifierBound lookaheadQuantifierBound(ListIterator<TLAToken> iter) throws PGoTLAParseException {
+	private static PGoTLAQuantifierBound lookaheadQuantifierBound(ListIterator<TLAToken> iter, int minColumn) throws PGoTLAParseException {
 		int startIndex = iter.nextIndex();
 		List<PGoTLAIdentifierOrTuple> ids = new ArrayList<>();
 		do {
-			PGoTLAIdentifierOrTuple id = lookaheadIdentifierOrTuple(iter);
+			PGoTLAIdentifierOrTuple id = lookaheadIdentifierOrTuple(iter, minColumn);
 			if(id == null) {
 				while(iter.nextIndex() != startIndex) {
 					iter.previous();
@@ -803,9 +932,9 @@ public final class TLAParser {
 				return null;
 			}
 			ids.add(id);
-		}while(lookaheadBuiltinToken(iter, ",", true));
+		}while(lookaheadBuiltinToken(iter, ",", minColumn));
 		
-		if(lookaheadBuiltinToken(iter, "\\in", true)) {
+		if(lookaheadBuiltinToken(iter, "\\in", minColumn)) {
 			return new PGoTLAQuantifierBound(ids, readExpression(iter));
 		}
 		
@@ -815,8 +944,8 @@ public final class TLAParser {
 		return null;
 	}
 	
-	private static PGoTLAQuantifierBound readQuantifierBound(ListIterator<TLAToken> iter) throws PGoTLAParseException {
-		PGoTLAQuantifierBound qb = lookaheadQuantifierBound(iter);
+	private static PGoTLAQuantifierBound readQuantifierBound(ListIterator<TLAToken> iter, int minColumn) throws PGoTLAParseException {
+		PGoTLAQuantifierBound qb = lookaheadQuantifierBound(iter, minColumn);
 		if(qb == null) {
 			throw errorExpectedOneOf(iter, "<QUANTIFIER_BOUND>");
 		}
@@ -828,36 +957,36 @@ public final class TLAParser {
 			throw errorUnexpected(iter, "end of column");
 		}
 		PGoTLAExpression expr = null;
-		expr = lookaheadNumber(iter, true);
+		expr = lookaheadNumber(iter, minColumn);
 		if(expr == null) {
-			expr = lookaheadString(iter, true);
+			expr = lookaheadString(iter, minColumn);
 		}
 		if(expr == null) {
-			expr = lookaheadBoolean(iter, true);
+			expr = lookaheadBoolean(iter, minColumn);
 		}
 		if(expr != null) {
 			return expr;
 		}
 		
-		if(lookaheadBuiltinToken(iter, "(", true)) {
+		if(lookaheadBuiltinToken(iter, "(", minColumn)) {
 			expr = readExpressionFromPrecedence(iter, 1, minColumn);
-			expectBuiltinToken(iter, ")");
+			expectBuiltinToken(iter, ")", minColumn);
 			return expr;
 		}
-		if(lookaheadBuiltinToken(iter, "<<", true)) {
+		if(lookaheadBuiltinToken(iter, "<<", minColumn)) {
 			int lineNumber = getLineNumber(iter);
 			List<PGoTLAExpression> exprs = new ArrayList<>();
 			// if you look at the grammar, empty tuples are not allowed
 			// but they exist and are used ... so we implement them
-			if(!lookaheadBuiltinToken(iter, ">>", true)) {
+			if(!lookaheadBuiltinToken(iter, ">>", minColumn)) {
 				do{
 					exprs.add(readExpressionFromPrecedence(iter, 1, minColumn));
-				}while(lookaheadBuiltinToken(iter, ",", true));
+				}while(lookaheadBuiltinToken(iter, ",", minColumn));
 			}else {
 				return new PGoTLATuple(lineNumber, exprs);
 			}
 			
-			if(lookaheadBuiltinToken(iter, ">>_", true)) {
+			if(lookaheadBuiltinToken(iter, ">>_", minColumn)) {
 				if(exprs.size() != 1) {
 					throw errorUnexpected(iter, "multiple body clauses in operator [...]_...");
 				}
@@ -865,98 +994,78 @@ public final class TLAParser {
 				return new PGoTLARequiredAction(lineNumber, exprs.get(0), vars);
 			}
 			
-			expectBuiltinToken(iter, ">>");
+			expectBuiltinToken(iter, ">>", minColumn);
 			return new PGoTLATuple(lineNumber, exprs);
 		}
 		// TODO: support GeneralIdentifier, as well as General* forms of the operators
-		String id = lookaheadIdentifier(iter, true);
+		String id = lookaheadIdentifier(iter, minColumn);
 		if(id != null) {
 			int lineNumber = getLineNumber(iter);
 			if(lookaheadValidColumn(iter, minColumn)) {
-				if(lookaheadBuiltinToken(iter, "(", true)) {
+				if(lookaheadBuiltinToken(iter, "(", minColumn)) {
 					List<PGoTLAExpression> args = new ArrayList<>();
 					do {
 						args.add(readExpressionFromPrecedence(iter, 1, minColumn));
-					}while(lookaheadValidColumn(iter, minColumn) && lookaheadBuiltinToken(iter, ",", true));
-					expectBuiltinToken(iter, ")");
+					}while(lookaheadBuiltinToken(iter, ",", minColumn));
+					expectBuiltinToken(iter, ")", minColumn);
 					return new PGoTLAOperatorCall(lineNumber, id, args);
 				}
 			}
 			return new PGoTLAVariable(id, lineNumber);
 		}
-		if(lookaheadBuiltinToken(iter, "\\/", true)) {
+		
+		// /\ and /\ chains
+		String conjunctDisjunct = null;
+		if((conjunctDisjunct = lookaheadBuiltinTokenOneOf(iter, CONJUNCT_DISJUNCT, minColumn)) != null) {
 			List<PGoTLAExpression> exprs = new ArrayList<>();
 			List<Integer> lineNumbers = new ArrayList<>();
+			int newMinColumn = iter.previous().column;
+			iter.next();
 			do {
 				int lineNumber = getLineNumber(iter);
-				TLAToken tok = iter.previous();
-				iter.next();
-				if(tok.column < minColumn) {
-					iter.previous();
-					break;
-				}
 				lineNumbers.add(lineNumber);
-				exprs.add(readExpressionFromPrecedence(iter, 1, tok.column));
-			}while(lookaheadNewline(iter) && lookaheadBuiltinToken(iter, "\\/", true));
+				exprs.add(readExpressionFromPrecedence(iter, 1, newMinColumn));
+			}while(lookaheadNewline(iter) && lookaheadBuiltinToken(iter, conjunctDisjunct, minColumn));
 			
 			PGoTLAExpression lhs = exprs.get(0);
 			for(int i = 1; i < exprs.size(); ++i) {
-				lhs = new PGoTLABinOp(lineNumbers.get(i), "/\\", lhs, exprs.get(0));
+				lhs = new PGoTLABinOp(lineNumbers.get(i), conjunctDisjunct, lhs, exprs.get(0));
 			}
 			return lhs;
 		}
-		if(lookaheadBuiltinToken(iter, "/\\", true)) {
-			List<PGoTLAExpression> exprs = new ArrayList<>();
-			List<Integer> lineNumbers = new ArrayList<>();
-			do {
-				int lineNumber = getLineNumber(iter);
-				TLAToken tok = iter.previous();
-				iter.next();
-				if(tok.column < minColumn) {
-					break;
-				}
-				lineNumbers.add(lineNumber);
-				exprs.add(readExpressionFromPrecedence(iter, 1, tok.column));
-			}while(lookaheadNewline(iter) && lookaheadBuiltinToken(iter, "/\\", true));
-			
-			PGoTLAExpression lhs = exprs.get(0);
-			for(int i = 1; i < exprs.size(); ++i) {
-				lhs = new PGoTLABinOp(lineNumbers.get(i), "/\\", lhs, exprs.get(0));
-			}
-			return lhs;
-		}
-		if(lookaheadBuiltinToken(iter, "IF", true)) {
+		
+		if(lookaheadBuiltinToken(iter, "IF", minColumn)) {
 			int lineNumber = getLineNumber(iter);
 			PGoTLAExpression cond = readExpressionFromPrecedence(iter, 1, minColumn);
-			expectBuiltinToken(iter, "THEN");
+			expectBuiltinToken(iter, "THEN", minColumn);
 			PGoTLAExpression tVal = readExpressionFromPrecedence(iter, 1, minColumn);
-			expectBuiltinToken(iter, "ELSE");
+			expectBuiltinToken(iter, "ELSE", minColumn);
 			PGoTLAExpression fVal = readExpressionFromPrecedence(iter, 1, minColumn);
 			return new PGoTLAIf(lineNumber, cond, tVal, fVal);
 		}
 		// seeing a "[" at this point can mean a lot of things, some of which are not supported
 		// see the spec for details
-		if(lookaheadBuiltinToken(iter, "[", true)) {
+		if(lookaheadBuiltinToken(iter, "[", minColumn)) {
 			int lineNumber = getLineNumber(iter);
 			String name = null;
 			PGoTLAQuantifierBound qb = null;
-			int startIndex = iter.nextIndex();
-			if((qb = lookaheadQuantifierBound(iter)) != null) {
+			int startIndex = mark(iter);
+			if((qb = lookaheadQuantifierBound(iter, minColumn)) != null) {
 				List<PGoTLAQuantifierBound> bounds = new ArrayList<>();
 				bounds.add(qb);
-				while(lookaheadBuiltinToken(iter, ",", true)) {
-					bounds.add(readQuantifierBound(iter));
+				while(lookaheadBuiltinToken(iter, ",", minColumn)) {
+					bounds.add(readQuantifierBound(iter, minColumn));
 				}
-				expectBuiltinToken(iter, "|->");
+				expectBuiltinToken(iter, "|->", minColumn);
 				PGoTLAExpression body = readExpressionFromPrecedence(iter, 1, minColumn);
 				return new PGoTLAFunction(bounds, body, lineNumber);
-			}else if((name = lookaheadIdentifier(iter, true)) != null) {
+			}else if((name = lookaheadIdentifier(iter, minColumn)) != null) {
 				boolean isValid = false;
 				boolean isSet = false;
-				if(lookaheadBuiltinToken(iter, "|->", true)) {
+				if(lookaheadBuiltinToken(iter, "|->", minColumn)) {
 					isSet = false;
 					isValid = true;
-				}else if(lookaheadBuiltinToken(iter, ":", true)) {
+				}else if(lookaheadBuiltinToken(iter, ":", minColumn)) {
 					isSet = true;
 					isValid = true;
 				}
@@ -965,9 +1074,9 @@ public final class TLAParser {
 					Map<String, List<PGoTLAExpression>> map = new HashMap<>();
 					map.put(name, new ArrayList<>());
 					map.get(name).add(val);
-					while(lookaheadBuiltinToken(iter, ",", true)) {
-						name = expectIdentifier(iter);
-						expectBuiltinToken(iter, "|->");
+					while(lookaheadBuiltinToken(iter, ",", minColumn)) {
+						name = expectIdentifier(iter, minColumn);
+						expectBuiltinToken(iter, "|->", minColumn);
 						val = readExpressionFromPrecedence(iter, 1, minColumn);
 						if(!map.containsKey(name)) {
 							map.put(name, new ArrayList<>());
@@ -982,18 +1091,16 @@ public final class TLAParser {
 				}else {
 					// this is none of the cases that start with a name,
 					// try and expression instead
-					while(iter.nextIndex() != startIndex) {
-						iter.previous();
-					}
+					revert(iter, startIndex);
 				}
 			}
 			
 			PGoTLAExpression body = readExpressionFromPrecedence(iter, 1, minColumn);
-			if(lookaheadBuiltinToken(iter, "->", true)) {
+			if(lookaheadBuiltinToken(iter, "->", minColumn)) {
 				PGoTLAExpression to = readExpressionFromPrecedence(iter, 1, minColumn);
-				expectBuiltinToken(iter, "]");
+				expectBuiltinToken(iter, "]", minColumn);
 				return new PGoTLAFunctionSet(body, to, lineNumber);
-			}else if(lookaheadBuiltinToken(iter, "]_", true)) {
+			}else if(lookaheadBuiltinToken(iter, "]_", minColumn)) {
 				PGoTLAExpression vars = readExpressionFromPrecedence(iter, 1, minColumn);
 				return new PGoTLAMaybeAction(lineNumber, body, vars);
 			}else {
@@ -1001,20 +1108,20 @@ public final class TLAParser {
 			}
 		}
 		
-		if(lookaheadBuiltinToken(iter, "{", true)) {
+		if(lookaheadBuiltinToken(iter, "{", minColumn)) {
 			expectValidColumn(iter, minColumn);
-			if(lookaheadBuiltinToken(iter, "}", true)) {
+			if(lookaheadBuiltinToken(iter, "}", minColumn)) {
 				return new PGoTLASet(new ArrayList<PGoTLAExpression>(), getLineNumber(iter));
 			}
 			PGoTLAIdentifierOrTuple ident;
 			int lineNumber = getLineNumber(iter);
 			int revertIndex = iter.nextIndex();
-			if((ident = lookaheadIdentifierOrTuple(iter)) != null) {
-				if(lookaheadBuiltinToken(iter, "\\in", true)) {
+			if((ident = lookaheadIdentifierOrTuple(iter, minColumn)) != null) {
+				if(lookaheadBuiltinToken(iter, "\\in", minColumn)) {
 					PGoTLAExpression set = readExpressionFromPrecedence(iter, 1, minColumn);
-					expectBuiltinToken(iter, ":");
+					expectBuiltinToken(iter, ":", minColumn);
 					PGoTLAExpression where = readExpressionFromPrecedence(iter, 1, minColumn);
-					expectBuiltinToken(iter, "}");
+					expectBuiltinToken(iter, "}", minColumn);
 					return new PGoTLASetRefinement(ident, set, where, lineNumber);
 				}else {
 					// rewind, we might have bitten off part of an expression
@@ -1026,42 +1133,42 @@ public final class TLAParser {
 			
 			PGoTLAExpression lhs = readExpressionFromPrecedence(iter, 1, minColumn);
 			
-			if(lookaheadBuiltinToken(iter, ":", true)) {
+			if(lookaheadBuiltinToken(iter, ":", minColumn)) {
 				List<PGoTLAQuantifierBound> quantifiers = new ArrayList<>();
 				do {
-					quantifiers.add(readQuantifierBound(iter));
-				}while(lookaheadValidColumn(iter, minColumn) && lookaheadBuiltinToken(iter, ",", true));
-				expectBuiltinToken(iter, "}");
+					quantifiers.add(readQuantifierBound(iter, minColumn));
+				}while(lookaheadValidColumn(iter, minColumn) && lookaheadBuiltinToken(iter, ",", minColumn));
+				expectBuiltinToken(iter, "}", minColumn);
 				return new PGoTLASetComprehension(lhs, quantifiers, lineNumber);
 			}
 			
 			List<PGoTLAExpression> members = new ArrayList<>();
 			members.add(lhs);
-			if(!lookaheadBuiltinToken(iter, "}", true)) {
-				while(lookaheadValidColumn(iter, minColumn) && lookaheadBuiltinToken(iter, ",", true)) {
+			if(!lookaheadBuiltinToken(iter, "}", minColumn)) {
+				while(lookaheadValidColumn(iter, minColumn) && lookaheadBuiltinToken(iter, ",", minColumn)) {
 					members.add(readExpressionFromPrecedence(iter, 1, minColumn));
 				}
-				expectBuiltinToken(iter, "}");
+				expectBuiltinToken(iter, "}", minColumn);
 			}
 			return new PGoTLASet(members, lineNumber);
 		}
 		
 		boolean exists = false;
-		if(lookaheadBuiltinToken(iter, "\\E", true) || lookaheadBuiltinToken(iter, "\\EE", true)) {
+		if(lookaheadBuiltinToken(iter, "\\E", minColumn) || lookaheadBuiltinToken(iter, "\\EE", minColumn)) {
 			exists = true;
 		}
-		if(exists || lookaheadBuiltinToken(iter, "\\A", true) || lookaheadBuiltinToken(iter, "\\AA", true)) {
+		if(exists || lookaheadBuiltinToken(iter, "\\A", minColumn) || lookaheadBuiltinToken(iter, "\\AA", minColumn)) {
 			int lineNumber = getLineNumber(iter);
 			// TODO: make robust to unusual cases, this parse rule accepts
 			// things that are not valid TLA+ (like lists of tuples)
-			// or mixed lists of quantifier and unquantified identifiers
+			// or mixed lists of quantified and unquantified identifiers
 			
 			List<PGoTLAQuantifierBound> ids = new ArrayList<>();
 			do {
-				ids.add(readQuantifierBound(iter));
-			}while(lookaheadValidColumn(iter, minColumn) && lookaheadBuiltinToken(iter, ",", true));
+				ids.add(readQuantifierBound(iter, minColumn));
+			}while(lookaheadValidColumn(iter, minColumn) && lookaheadBuiltinToken(iter, ",", minColumn));
 			expectValidColumn(iter, minColumn);
-			expectBuiltinToken(iter, ":");
+			expectBuiltinToken(iter, ":", minColumn);
 			PGoTLAExpression body = readExpressionFromPrecedence(iter, 1, minColumn);
 			if(exists) {
 				return new PGoTLAExistential(ids, body, lineNumber);
@@ -1070,21 +1177,21 @@ public final class TLAParser {
 			}
 		}
 		
-		if(lookaheadBuiltinToken(iter, "LET", true)) {
+		if(lookaheadBuiltinToken(iter, "LET", minColumn)) {
 			int startLine = getLineNumber(iter);
 			List<PGoTLAOperator> operators = new ArrayList<>();
 			Map<String, List<PGoTLAFunction>> functions = new HashMap<>();
 			do {
 				int lineNumber = getLineNumber(iter);
-				String name = expectIdentifier(iter);
+				String name = expectIdentifier(iter, minColumn);
 				// TODO: module definitions
-				if(lookaheadBuiltinToken(iter, "[", true)) {
+				if(lookaheadBuiltinToken(iter, "[", minColumn)) {
 					List<PGoTLAQuantifierBound> bounds = new ArrayList<>();
 					do {
-						bounds.add(readQuantifierBound(iter));
-					}while(lookaheadValidColumn(iter, minColumn) && lookaheadBuiltinToken(iter, ",", true));
-					expectBuiltinToken(iter, "]");
-					expectBuiltinToken(iter, "==");
+						bounds.add(readQuantifierBound(iter, minColumn));
+					}while(lookaheadBuiltinToken(iter, ",", minColumn));
+					expectBuiltinToken(iter, "]", minColumn);
+					expectBuiltinToken(iter, "==", minColumn);
 					
 					PGoTLAExpression body = readExpressionFromPrecedence(iter, 1, minColumn);
 					if(!functions.containsKey(name)) {
@@ -1094,14 +1201,14 @@ public final class TLAParser {
 				}else {
 					// TODO: this is grossly oversimplified, see readModule
 					// for proper grammar
-					expectBuiltinToken(iter, "==");
+					expectBuiltinToken(iter, "==", minColumn);
 					PGoTLAExpression body = readExpressionFromPrecedence(iter, 1, minColumn);
 					operators.add(new PGoTLAOperator(name, new ArrayList<>(), body));
 				}
-			}while(!lookaheadBuiltinToken(iter, "IN", true));
+			}while(!lookaheadBuiltinToken(iter, "IN", minColumn));
 			
 			PGoTLAExpression body = readExpressionFromPrecedence(iter, 1, minColumn);
-			return new PGoTLALet(operators, functions, startLine);
+			return new PGoTLALet(operators, functions, body, startLine);
 		}
 		
 		throw errorExpectedOneOf(iter, "[", "IF", "\\/", "/\\", "<IDENTIFIER>", "<<", "(", "<NUMBER>", "<STRING>", "<BOOLEAN>", "LET");
@@ -1131,7 +1238,7 @@ public final class TLAParser {
 				throw errorUnexpected(iter, "end of column");
 			}
 			
-			if((op = lookaheadBuiltinTokenOneOf(iter, PREFIX_OPERATORS, true)) != null) {
+			if((op = lookaheadBuiltinTokenOneOf(iter, PREFIX_OPERATORS, minColumn)) != null) {
 				if(PREFIX_OPERATORS_LOW_PRECEDENCE.get(op) <= precedence && PREFIX_OPERATORS_HI_PRECEDENCE.get(op) >= precedence) {
 					int lineNumber = getLineNumber(iter);
 					lhs = new PGoTLAUnary(op, readExpressionFromPrecedence(iter, PREFIX_OPERATORS_HI_PRECEDENCE.get(op)+1, minColumn), lineNumber);
@@ -1142,24 +1249,20 @@ public final class TLAParser {
 			}else {
 				lhs = readExpressionFromPrecedence(iter, precedence + 1, minColumn);
 			}
-			// end if we hit the end of a column
-			if(!lookaheadValidColumn(iter, minColumn)) {
-				return lhs;
-			}
 			
 			// function application acts like an operator with precedence
 			// range 16-16
-			if(precedence == 16 && lookaheadBuiltinToken(iter, "[", true)) {
+			if(precedence == 16 && lookaheadBuiltinToken(iter, "[", minColumn)) {
 				int lineNumber = getLineNumber(iter);
 				List<PGoTLAExpression> params = new ArrayList<>();
 				do {
 					params.add(readExpressionFromPrecedence(iter, 1, minColumn));
-				}while(lookaheadValidColumn(iter, minColumn) && lookaheadBuiltinToken(iter, ",", true));
-				expectBuiltinToken(iter, "]");
+				}while(lookaheadBuiltinToken(iter, ",", minColumn));
+				expectBuiltinToken(iter, "]", minColumn);
 				lhs = new PGoTLAFunctionCall(lhs, params, lineNumber);
 			}
 
-			if((op = lookaheadBuiltinTokenOneOf(iter, INFIX_OPERATORS, true)) != null) {
+			if((op = lookaheadBuiltinTokenOneOf(iter, INFIX_OPERATORS, minColumn)) != null) {
 				int hiPrecedence = INFIX_OPERATORS_HI_PRECEDENCE.get(op);
 				if(INFIX_OPERATORS_LOW_PRECEDENCE.get(op) <= precedence && hiPrecedence >= precedence ) {
 					// this should handle precedence conflicts - we skip all conflicting precedence
@@ -1171,13 +1274,12 @@ public final class TLAParser {
 						lhs = new PGoTLABinOp(lineNumber, op, lhs, readExpressionFromPrecedence(iter, hiPrecedence+1, minColumn));
 					}while(
 							INFIX_OPERATORS_LEFT_ASSOCIATIVE.contains(op) &&
-							lookaheadValidColumn(iter, minColumn) &&
-							lookaheadBuiltinToken(iter, op, true));
+							lookaheadBuiltinToken(iter, op, minColumn));
 				}else {
 					iter.previous();
 				}
 			}
-			if((op = lookaheadBuiltinTokenOneOf(iter, POSTFIX_OPERATORS, true)) != null) {
+			if((op = lookaheadBuiltinTokenOneOf(iter, POSTFIX_OPERATORS, minColumn)) != null) {
 				if(POSTFIX_OPERATORS_PRECEDENCE.get(op) == precedence) {
 					lhs = new PGoTLAUnary(op, lhs, -1);
 				}else {
@@ -1204,10 +1306,10 @@ public final class TLAParser {
 	}
 	
 	private static PGoTLAModule readModule(ListIterator<TLAToken> iter) throws PGoTLAParseException {
-		expect4DashesOrMore(iter);
-		expectBuiltinToken(iter, MODULE);
-		String name = expectIdentifier(iter);
-		expect4DashesOrMore(iter);
+		expect4DashesOrMore(iter, -1);
+		expectBuiltinToken(iter, "MODULE", -1);
+		String name = expectIdentifier(iter, -1);
+		expect4DashesOrMore(iter, -1);
 		List<String> exts = readExtends(iter);
 		
 		// accumulators for parts of the module
@@ -1218,73 +1320,73 @@ public final class TLAParser {
 		List<PGoTLAExpression> assumptions = new ArrayList<>();
 		List<PGoTLAExpression> theorems = new ArrayList<>();
 		
-		while(!lookahead4EqualsOrMore(iter, true)) {
+		while(!lookahead4EqualsOrMore(iter, -1)) {
 			skipAnnotations(iter);
-			if(lookaheadBuiltinToken(iter, "VARIABLE", true) || lookaheadBuiltinToken(iter, "VARIABLES", true)) {
+			if(lookaheadBuiltinToken(iter, "VARIABLE", -1) || lookaheadBuiltinToken(iter, "VARIABLES", -1)) {
 				variables.addAll(readVariables(iter));
-			}else if(lookaheadBuiltinToken(iter, "CONSTANT", true) || lookaheadBuiltinToken(iter, "CONSTANTS", true)) {
+			}else if(lookaheadBuiltinToken(iter, "CONSTANT", -1) || lookaheadBuiltinToken(iter, "CONSTANTS", -1)) {
 				constants.addAll(readConstants(iter));
-			}else if(lookaheadBuiltinTokenOneOf(iter, ASSUMPTION_TOKENS, true) != null) {
+			}else if(lookaheadBuiltinTokenOneOf(iter, ASSUMPTION_TOKENS, -1) != null) {
 				// assumption
 				assumptions.add(readExpression(iter));
-			}else if(lookaheadBuiltinToken(iter, "THEOREM", true)) {
+			}else if(lookaheadBuiltinToken(iter, "THEOREM", -1)) {
 				// theorem
 				theorems.add(readExpression(iter));
-			}else if(lookahead4DashesOrMore(iter, true)) {
+			}else if(lookahead4DashesOrMore(iter, -1)) {
 				iter.previous();
 				submodules.add(readModule(iter));
 			}else {
 				// all things that can be local (shared optional LOCAL prefix)
-				if(lookaheadBuiltinToken(iter, "LOCAL", true)) {
+				if(lookaheadBuiltinToken(iter, "LOCAL", -1)) {
 					// TODO: proper LOCAL support
 					throw errorUnexpected(iter, "[unimplemented] LOCAL clause");
 				}
 				String op;
 				// instance is easy to spot
-				if(lookaheadBuiltinToken(iter, "INSTANCE", true)) {
+				if(lookaheadBuiltinToken(iter, "INSTANCE", -1)) {
 					// TODO: instance
 					throw errorUnexpected(iter, "[unimplemented] INSTANCE clause");
 				// it's quite tricky to tell OperatorDefinition, FunctionDefinition and ModuleDefinition apart
 				// so we parse them all together until we can tell what we're dealing with
-				}else if((op = lookaheadBuiltinTokenOneOf(iter, PREFIX_OPERATORS, true)) != null) {
+				}else if((op = lookaheadBuiltinTokenOneOf(iter, PREFIX_OPERATORS, -1)) != null) {
 					// we know this is an operator definition
-					String operand = expectIdentifier(iter);
-					expectBuiltinToken(iter, "==");
+					String operand = expectIdentifier(iter, -1);
+					expectBuiltinToken(iter, "==", -1);
 					List<PGoTLAOpDecl> operands = new ArrayList<>();
 					operands.add(new PGoTLAOpDeclIdentifier(operand));
 					operators.put(op, new PGoTLAOperator(op, operands, readExpression(iter)));
 				}else {
-					String id = expectIdentifier(iter);
-					if((op = lookaheadBuiltinTokenOneOf(iter, POSTFIX_OPERATORS, true)) != null) {
+					String id = expectIdentifier(iter, -1);
+					if((op = lookaheadBuiltinTokenOneOf(iter, POSTFIX_OPERATORS, -1)) != null) {
 						System.out.println("Postfix def "+id+" "+op);
 						// operator definition
-						expectBuiltinToken(iter, "==");
+						expectBuiltinToken(iter, "==", -1);
 						List<PGoTLAOpDecl> operands = new ArrayList<>();
 						operands.add(new PGoTLAOpDeclIdentifier(id));
 						operators.put(op,  new PGoTLAOperator(op, operands, readExpression(iter)));
-					}else if((op = lookaheadBuiltinTokenOneOf(iter, INFIX_OPERATORS, true)) != null) {
+					}else if((op = lookaheadBuiltinTokenOneOf(iter, INFIX_OPERATORS, -1)) != null) {
 						System.out.println("Infix def "+id+" "+op);
 						// operator definition
-						String rhs = expectIdentifier(iter);
-						expectBuiltinToken(iter, "==");
+						String rhs = expectIdentifier(iter, -1);
+						expectBuiltinToken(iter, "==", -1);
 						List<PGoTLAOpDecl> operands = new ArrayList<>();
 						operands.add(new PGoTLAOpDeclIdentifier(id));
 						operands.add(new PGoTLAOpDeclIdentifier(rhs));
 						operators.put(op, new PGoTLAOperator(op, operands, readExpression(iter)));
-					}else if(lookaheadBuiltinToken(iter, "[", true)) {
+					}else if(lookaheadBuiltinToken(iter, "[", -1)) {
 						// TODO: function definition
 						throw errorUnexpected(iter, "[unimplemented] function definition");
 					}else{
 						System.out.println("Must be classic opdecls, id "+id);
 						List<PGoTLAOpDecl> opdecls = new ArrayList<PGoTLAOpDecl>();
-						if(lookaheadBuiltinToken(iter, "(", true)) {
+						if(lookaheadBuiltinToken(iter, "(", -1)) {
 							do {
-								opdecls.add(readOpDecl(iter));
-							}while(lookaheadBuiltinToken(iter, COMMA, true));
-							expectBuiltinToken(iter, ")");
+								opdecls.add(readOpDecl(iter, -1));
+							}while(lookaheadBuiltinToken(iter, ",", -1));
+							expectBuiltinToken(iter, ")", -1);
 						}
-						expectBuiltinToken(iter, "==");
-						if(lookaheadBuiltinToken(iter, "INSTANCE", true)) {
+						expectBuiltinToken(iter, "==", -1);
+						if(lookaheadBuiltinToken(iter, "INSTANCE", -1)) {
 							// TODO: module definition
 							throw errorUnexpected(iter, "[unimplemented] module definition");
 						}else {
