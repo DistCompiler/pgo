@@ -2,6 +2,13 @@ package pgo.model.tla;
 
 import java.util.Map;
 
+/**
+ * 
+ * TLA AST Node:
+ * 
+ * INSTANCE ModuleName (WITH a <- <expr>, b <- <expr>)?
+ *
+ */
 public class PGoTLAInstance {
 	
 	String referenceName;

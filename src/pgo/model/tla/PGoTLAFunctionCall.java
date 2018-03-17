@@ -12,6 +12,12 @@ import pgo.trans.PGoTransException;
 /**
  * A function call in TLA. This could represent a call to a macro or map/tuple
  * access.
+ * 
+ * ## NOTE
+ * 
+ * When returned by TLAParser, this can only mean this construct:
+ * 
+ * fn[<expr>, ...]
  *
  */
 public class PGoTLAFunctionCall extends PGoTLAExpression {

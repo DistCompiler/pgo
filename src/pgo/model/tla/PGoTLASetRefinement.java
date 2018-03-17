@@ -4,6 +4,14 @@ import pgo.model.golang.Expression;
 import pgo.model.intermediate.PGoType;
 import pgo.trans.PGoTransException;
 
+/**
+ * 
+ * TLA AST Node:
+ * 
+ * { a \in <expr> : <expr> }
+ * { <<a, b, c>> \in <expr> : <expr> }
+ *
+ */
 public class PGoTLASetRefinement extends PGoTLAExpression {
 
 	private PGoTLAIdentifierOrTuple ident;

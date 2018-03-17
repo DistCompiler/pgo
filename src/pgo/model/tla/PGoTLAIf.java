@@ -4,6 +4,13 @@ import pgo.model.golang.Expression;
 import pgo.model.intermediate.PGoType;
 import pgo.trans.PGoTransException;
 
+/**
+ * 
+ * TLA AST Node:
+ * 
+ * IF <expr> THEN <expr> ELSE <expr>
+ *
+ */
 public class PGoTLAIf extends PGoTLAExpression {
 
 	private PGoTLAExpression cond;

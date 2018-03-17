@@ -3,6 +3,13 @@ package pgo.model.tla;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * 
+ * AST Node representing:
+ * 
+ * << a, b, c ... >>
+ * 
+ */
 public class PGoTLAIdentifierTuple extends PGoTLAIdentifierOrTuple {
 	
 	List<String> ids;

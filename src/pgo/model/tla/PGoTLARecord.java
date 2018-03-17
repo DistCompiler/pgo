@@ -7,6 +7,13 @@ import pgo.model.golang.Expression;
 import pgo.model.intermediate.PGoType;
 import pgo.trans.PGoTransException;
 
+/**
+ * 
+ * TLA AST Node:
+ * 
+ * [ a |-> <expr>, b |-> <expr>, ... ]
+ *
+ */
 public class PGoTLARecord extends PGoTLAExpression {
 
 	private Map<String, List<PGoTLAExpression>> fields;

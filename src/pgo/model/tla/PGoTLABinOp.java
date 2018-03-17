@@ -4,6 +4,13 @@ import pgo.model.golang.Expression;
 import pgo.model.intermediate.PGoType;
 import pgo.trans.PGoTransException;
 
+/**
+ * 
+ * AST Node:
+ * 
+ * lhs <op> rhs
+ * 
+ */
 public class PGoTLABinOp extends PGoTLAExpression {
 
 	private PGoTLAExpression lhs;

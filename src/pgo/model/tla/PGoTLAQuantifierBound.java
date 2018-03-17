@@ -4,15 +4,15 @@ import java.util.List;
 
 public class PGoTLAQuantifierBound {
 	
-	private List<PGoTLAIdentifierOrTuple> ids;
+	private List<String> ids;
 	private PGoTLAExpression set;
 
-	public PGoTLAQuantifierBound(List<PGoTLAIdentifierOrTuple> ids, PGoTLAExpression set) {
+	public PGoTLAQuantifierBound(List<String> ids, PGoTLAExpression set) {
 		this.ids = ids;
 		this.set = set;
 	}
 	
-	public List<PGoTLAIdentifierOrTuple> getIds(){
+	public List<String> getIds(){
 		return ids;
 	}
 	

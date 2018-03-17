@@ -3,6 +3,13 @@ package pgo.model.tla;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * 
+ * TLA AST Node representing a defined operator.
+ * 
+ * op(...) == ...
+ *
+ */
 public class PGoTLAOperator {
 	private String name;
 	private List<PGoTLAOpDecl> args;

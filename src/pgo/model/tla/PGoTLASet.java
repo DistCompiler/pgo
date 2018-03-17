@@ -12,6 +12,12 @@ import pgo.trans.PGoTransException;
 /**
  * Represents a set "{ ... }" in TLA. This should store what is in the set, and
  * the set notations for the set.
+ * 
+ * ## Note
+ * 
+ * With TLAParser, this will always be the result of parsing an explicit set constructor:
+ * 
+ * { <expr>, <expr>, ... }
  *
  */
 public class PGoTLASet extends PGoTLAExpression {

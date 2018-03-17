@@ -7,6 +7,13 @@ import pgo.model.golang.Expression;
 import pgo.model.intermediate.PGoType;
 import pgo.trans.PGoTransException;
 
+/**
+ * 
+ * TLA AST Node:
+ * 
+ * << <expr>, <expr>, ... >>
+ *
+ */
 public class PGoTLATuple extends PGoTLAExpression {
 
 	private List<PGoTLAExpression> exprs;

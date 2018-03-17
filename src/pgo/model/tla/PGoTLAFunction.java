@@ -6,6 +6,13 @@ import pgo.model.golang.Expression;
 import pgo.model.intermediate.PGoType;
 import pgo.trans.PGoTransException;
 
+/**
+ * 
+ * TLA AST Node:
+ * 
+ * [ a \in B, << c, d >> \in E |-> <expr> ]
+ *
+ */
 public class PGoTLAFunction extends PGoTLAExpression {
 
 	private List<PGoTLAQuantifierBound> args;

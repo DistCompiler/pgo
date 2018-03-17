@@ -4,6 +4,13 @@ import pgo.model.golang.Expression;
 import pgo.model.intermediate.PGoType;
 import pgo.trans.PGoTransException;
 
+/**
+ * 
+ * TLA AST Node:
+ * 
+ * << <expr> >>_ <expr>
+ *
+ */
 public class PGoTLARequiredAction extends PGoTLAExpression {
 
 	private PGoTLAExpression body;

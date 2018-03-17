@@ -10,6 +10,10 @@ import pgo.trans.PGoTransException;
  * Represents a TLA unary operator (negation, element union, or powerset) or a
  * predicate operation (CHOOSE, for all, exists)
  * 
+ * ## Note:
+ * 
+ * With TLAParser, this will only ever be an actual TLA+ unary operator.
+ * 
  */
 public class PGoTLAUnary extends PGoTLAExpression {
 	private String token;

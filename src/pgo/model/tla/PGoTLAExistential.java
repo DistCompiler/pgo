@@ -6,18 +6,26 @@ import pgo.model.golang.Expression;
 import pgo.model.intermediate.PGoType;
 import pgo.trans.PGoTransException;
 
+/*
+ * TLA AST Node:
+ * 
+ * \E a, b, c : <expr>
+ * or
+ * \EE a, b, c : <expr>
+ * 
+ */
 public class PGoTLAExistential extends PGoTLAExpression {
 	
-	private List<PGoTLAQuantifierBound> ids;
+	private List<String> ids;
 	private PGoTLAExpression body;
 
-	public PGoTLAExistential(List<PGoTLAQuantifierBound> ids2, PGoTLAExpression body, int line) {
+	public PGoTLAExistential(List<String> ids, PGoTLAExpression body, int line) {
 		super(line);
-		this.ids = ids2;
+		this.ids = ids;
 		this.body = body;
 	}
 	
-	public List<PGoTLAQuantifierBound> getIds(){
+	public List<String> getIds(){
 		return ids;
 	}
 	

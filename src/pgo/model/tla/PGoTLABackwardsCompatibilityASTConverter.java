@@ -136,7 +136,7 @@ public class PGoTLABackwardsCompatibilityASTConverter extends PGoTLAExpressionVi
 					// the .get(0) here corresponds to the downstream
 					// code's inability to handle cases with multiple
 					// variables or tuples
-					b.getIds().get(0).toExpression().walk(this),
+					new PGoTLAVariable(b.getIds().get(0), expr.getLine()).walk(this),
 					b.getSet().walk(this),
 					expr.getLine()));
 		}
@@ -155,11 +155,14 @@ public class PGoTLABackwardsCompatibilityASTConverter extends PGoTLAExpressionVi
 	}
 	
 	@Override
-	public PGoTLAExpression visit(PGoTLAExistential expr) {
+	public PGoTLAExpression visit(PGoTLAQuantifiedExistential expr) {
 		Vector<PGoTLAExpression> vars = new Vector<>();
 		for(PGoTLAQuantifierBound b: expr.getIds()) {
 			vars.add(new PGoTLASetOp("\\in",
-					b.getIds().get(0).toExpression().walk(this),
+					// the .get(0) here corresponds to the downstream
+					// code's inability to handle cases with multiple
+					// variables or tuples
+					new PGoTLAVariable(b.getIds().get(0), expr.getLine()),
 					b.getSet().walk(this),
 					expr.getLine()));
 		}

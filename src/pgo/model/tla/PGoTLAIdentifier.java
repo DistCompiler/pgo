@@ -1,5 +1,10 @@
 package pgo.model.tla;
 
+/**
+ * 
+ * AST Node representing a single identifier, in the context of its superclass.
+ * 
+ */
 public class PGoTLAIdentifier extends PGoTLAIdentifierOrTuple {
 	
 	String id;

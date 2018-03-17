@@ -3,6 +3,16 @@ package pgo.model.tla;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * 
+ * TLA AST Node:
+ * 
+ * ---- ModuleName ----
+ * EXTENDS ModuleA, ModuleB
+ * ...
+ * ====
+ *
+ */
 public class PGoTLAModule extends PGoTLADeclaration {
 	
 	String name;

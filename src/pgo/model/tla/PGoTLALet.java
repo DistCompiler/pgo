@@ -7,6 +7,18 @@ import pgo.model.golang.Expression;
 import pgo.model.intermediate.PGoType;
 import pgo.trans.PGoTransException;
 
+/**
+ * 
+ * TLA AST Node:
+ * 
+ * LET op(a, b, c) == <expr>
+ * 	   fn[d \in D] == <expr>
+ *     e + f == <expr>
+ *     g == INSTANCE ...
+ * IN
+ *     <expr>
+ *
+ */
 public class PGoTLALet extends PGoTLAExpression {
 
 	private Map<String, PGoTLAOperator> operators;
@@ -20,6 +32,18 @@ public class PGoTLALet extends PGoTLAExpression {
 		this.functions = functions;
 		this.instances = instances;
 		this.body = body;
+	}
+	
+	public List<PGoTLAInstance> getModuleDefinitions(){
+		return instances;
+	}
+	
+	public Map<String, PGoTLAOperator> getOperatorDefinitions(){
+		return operators;
+	}
+	
+	public Map<String, PGoTLAFunction> getFunctionDefinitions(){
+		return functions;
 	}
 	
 	public PGoTLAExpression getBody() {

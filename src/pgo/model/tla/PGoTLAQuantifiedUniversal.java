@@ -10,26 +10,26 @@ import pgo.trans.PGoTransException;
  * 
  * TLA AST Node:
  * 
- * { <expr> : a \in S1, << a, b >> \in S2, ... }
+ * \A a, b, c : <expr>
  *
  */
-public class PGoTLASetComprehension extends PGoTLAExpression {
-	
-	private PGoTLAExpression body;
-	private List<PGoTLAQuantifierBound> bounds;
+public class PGoTLAQuantifiedUniversal extends PGoTLAExpression {
 
-	public PGoTLASetComprehension(PGoTLAExpression body, List<PGoTLAQuantifierBound> bounds, int line) {
+	private List<PGoTLAQuantifierBound> ids;
+	private PGoTLAExpression body;
+
+	public PGoTLAQuantifiedUniversal(List<PGoTLAQuantifierBound> ids, PGoTLAExpression body, int line) {
 		super(line);
+		this.ids = ids;
 		this.body = body;
-		this.bounds = bounds;
+	}
+	
+	public List<PGoTLAQuantifierBound> getIds(){
+		return ids;
 	}
 	
 	public PGoTLAExpression getBody() {
 		return body;
-	}
-	
-	public List<PGoTLAQuantifierBound> getBounds(){
-		return bounds;
 	}
 
 	@Override
@@ -39,12 +39,7 @@ public class PGoTLASetComprehension extends PGoTLAExpression {
 
 	@Override
 	protected Expression convert(TLAExprToGo trans) throws PGoTransException {
-		throw new RuntimeException("convert unimplemented");
-	}
-
-	@Override
-	public String toString() {
-		return "PGoTLASetComprehension [body=" + body + ", bounds=" + bounds + "]";
+		throw new RuntimeException("convert not implemented");
 	}
 
 	@Override

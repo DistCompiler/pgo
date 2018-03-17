@@ -4,6 +4,16 @@ import pgo.model.golang.Expression;
 import pgo.model.intermediate.PGoType;
 import pgo.trans.PGoTransException;
 
+/**
+ * 
+ * TLA AST Node:
+ * 
+ * [ <expr> -> <expr> ]
+ * 
+ * While not required at the parsing level, each expr must result in a set.
+ * Defines the set of all functions having this signature.
+ *
+ */
 public class PGoTLAFunctionSet extends PGoTLAExpression {
 
 	private PGoTLAExpression from;

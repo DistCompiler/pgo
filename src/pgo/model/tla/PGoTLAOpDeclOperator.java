@@ -3,6 +3,13 @@ package pgo.model.tla;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+/**
+ * 
+ * TLA operator definitions can look like this:
+ * 
+ * op(op2(_, _, _)) == ...
+ *
+ */
 public class PGoTLAOpDeclOperator extends PGoTLAOpDecl {
 	private String name;
 	private int argCount;
