@@ -582,10 +582,17 @@ public final class TLAParser {
 		TLAToken tok = iter.previous();
 		iter.next();
 		if(tok != null) {
-			return tok.source.toLocation().beginLine();
+			return getLineNumber(tok);
 		}else {
 			return -1;
 		}
+	}
+	
+	private static int getLineNumber(TLAToken tok) {
+		if(tok.source == null) {
+			return -1; // y u leave as null :(
+		}
+		return tok.source.toLocation().beginLine();
 	}
 	
 	private static void expectHasNext(ListIterator<TLAToken> iter) throws PGoTLAParseException {
@@ -761,7 +768,7 @@ public final class TLAParser {
 			line = -1;
 		}else {
 			actual = tok.string;
-			line = tok.source.toLocation().beginLine();
+			line = getLineNumber(tok);
 		}
 		return new PGoTLAParseException(line, actual, options);
 	}
@@ -846,7 +853,7 @@ public final class TLAParser {
 		if(!iter.hasNext()) return null;
 		TLAToken tok = iter.next();
 		if(tok.type == TLAToken.STRING && tok.column > minColumn) {
-			return new PGoTLAString(tok.string, tok.source.toLocation().beginLine());
+			return new PGoTLAString(tok.string, getLineNumber(tok));
 		}else {
 			revert(iter, initialPos);
 			return null;
@@ -859,7 +866,7 @@ public final class TLAParser {
 		if(!iter.hasNext()) return null;
 		TLAToken tok = iter.next();
 		if(tok.type == TLAToken.NUMBER && tok.column > minColumn) {
-			return new PGoTLANumber(tok.string, tok.source.toLocation().beginLine());
+			return new PGoTLANumber(tok.string, getLineNumber(tok));
 		}else {
 			revert(iter, initialPos);
 			return null;
@@ -870,11 +877,11 @@ public final class TLAParser {
 		if(lookaheadBuiltinToken(iter, "TRUE", minColumn)) {
 			TLAToken tok = iter.previous();
 			iter.next();
-			return new PGoTLABool("TRUE", tok.source.toLocation().beginLine());
+			return new PGoTLABool("TRUE", getLineNumber(tok));
 		}else if(lookaheadBuiltinToken(iter, "FALSE", minColumn)) {
 			TLAToken tok = iter.previous();
 			iter.next();
-			return new PGoTLABool("FALSE", tok.source.toLocation().beginLine());
+			return new PGoTLABool("FALSE", getLineNumber(tok));
 		}else {
 			return null;
 		}
@@ -885,7 +892,7 @@ public final class TLAParser {
 			int initialPos = mark(iter);
 			TLAToken tok = iter.next();
 			if(tok.column > minColumn && tok.type == PGoTLATokenCategory.PLUSCAL_DEFAULT_VALUE) {
-				return new PGoTLAExpression.PGoTLADefault(tok.source.toLocation().beginLine());
+				return new PGoTLAExpression.PGoTLADefault(getLineNumber(tok));
 			}else {
 				revert(iter, initialPos);
 			}
@@ -1338,15 +1345,13 @@ public final class TLAParser {
 	
 	public static PGoTLAExpression readExpression(ListIterator<TLAToken> iter) throws PGoTLAParseException {
 		skipNewlines(iter);
-		// I actually don't know if this code is necessary, if you ever see this kind of token in the wild
-		// add it here
-		/*PGoTLAExpression e = lookaheadPlusCalDefaultValue(iter);
+		PGoTLAExpression e = lookaheadPlusCalDefaultValue(iter, -1);
 		if(e != null) {
 			// only reachable when parsing tokens in the context of PlusCal, where an empty expression
 			// is valid and represented by this special token
 			return e;
-		}*/
-		PGoTLAExpression e = readExpressionFromPrecedence(iter, 1, -1);
+		}
+		e = readExpressionFromPrecedence(iter, 1, -1);
 		System.out.println("Read expression "+e);
 		return e;
 	}

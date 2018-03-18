@@ -579,9 +579,7 @@ public class TLAExprToGo {
 			// the set S
 			Expression setExpr = new TLAExprToGo(((PGoTLASetOp) st.getArgs().get(0)).getRight(), imports, data)
 					.toExpression();
-			// the variable x
-			Expression varExpr = new TLAExprToGo(((PGoTLASetOp) st.getArgs().get(0)).getLeft(), imports, data)
-					.toExpression();
+			
 			// We need to add typing data to avoid TLAExprToType complaining
 			// about untyped variables
 			PGoTempData temp = new PGoTempData(data);
@@ -598,6 +596,9 @@ public class TLAExprToGo {
 			Expression pred = new TLAExprToGo(st.getExpr(), imports, temp).toExpression();
 			// most expressions can't be used as the variable (only stuff like
 			// tuples) so this should be one line
+			// the variable x
+			Expression varExpr = new TLAExprToGo(((PGoTLASetOp) st.getArgs().get(0)).getLeft(), imports, temp)
+								.toExpression();
 			assert (varExpr.toGo().size() == 1);
 
 			// create the anonymous function for the predicate
@@ -645,7 +646,7 @@ public class TLAExprToGo {
 			Vector<Expression> setExprs = new Vector<>(), varExprs = new Vector<>();
 			for (PGoTLAExpression arg : st.getArgs()) {
 				PGoTLASetOp setOp = (PGoTLASetOp) arg;
-				varExprs.add(new TLAExprToGo(setOp.getLeft(), imports, data).toExpression());
+				varExprs.add(new TLAExprToGo(setOp.getLeft(), imports, temp).toExpression());
 				setExprs.add(new TLAExprToGo(setOp.getRight(), imports, data).toExpression());
 			}
 			// create the anonymous function for the predicate

@@ -456,6 +456,9 @@ public class TLAToStatementTest {
 		expected = new FunctionCall("EltUnion", new Vector<>(), new Token("S"));
 		assertEquals(expected, new TLAExprToGo(tla, imports, data).toExpression());
 
+		data.globals.clear();
+		data.globals.put("S", PGoVariable.convert("S", PGoType.inferFromGoTypeName("set[string]")));
+		
 		tla = new PGoTLAUnary("CHOOSE", new PGoTLAVariadic(":", new Vector<PGoTLAExpression>() {
 			{
 				add(new PGoTLASetOp("\\in", new PGoTLAVariable("x", 0), new PGoTLAVariable("S", 0), 0));
@@ -469,7 +472,7 @@ public class TLAToStatementTest {
 		params.add(new AnonymousFunction(PGoType.inferFromGoTypeName("bool"),
 				new Vector<ParameterDeclaration>() {
 					{
-						add(new ParameterDeclaration("x", PGoType.inferFromGoTypeName("set[string]")));
+						add(new ParameterDeclaration("x", PGoType.inferFromGoTypeName("string")));
 					}
 				},
 				new Vector<>(),

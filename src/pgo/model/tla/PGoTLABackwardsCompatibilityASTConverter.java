@@ -79,6 +79,11 @@ public class PGoTLABackwardsCompatibilityASTConverter extends PGoTLAExpressionVi
 	}
 	
 	@Override
+	public PGoTLAExpression visit(PGoTLABool bool) {
+		return bool;
+	}
+	
+	@Override
 	public PGoTLAExpression visit(PGoTLAVariable expr) {
 		return expr;
 	}
