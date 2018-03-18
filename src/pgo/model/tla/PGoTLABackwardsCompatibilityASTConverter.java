@@ -64,7 +64,7 @@ public class PGoTLABackwardsCompatibilityASTConverter extends PGoTLAExpressionVi
 				return new PGoTLABoolOp(
 						op,
 						expr.getLHS().walk(this),
-						expr.getLHS().walk(this),
+						expr.getRHS().walk(this),
 						expr.getLine());
 			case "..":
 				return new PGoTLASequence(
