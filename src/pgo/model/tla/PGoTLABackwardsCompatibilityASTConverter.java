@@ -16,6 +16,16 @@ import java.util.Vector;
 public class PGoTLABackwardsCompatibilityASTConverter extends PGoTLAExpressionVisitor<PGoTLAExpression> {
 	public PGoTLABackwardsCompatibilityASTConverter() {}
 	
+	/**
+	 * @param expr PGoTLAVariadic to wrap in a PGoTLASet for typechecking reasons
+	 * @return the PGoTLASet
+	 */
+	private static PGoTLAExpression wrapVariadic(PGoTLAExpression expr) {
+		List<PGoTLAExpression> theExp = new ArrayList<>();
+		theExp.add(expr);
+		return new PGoTLASet(theExp, expr.getLine());
+	}
+	
 	@Override
 	public PGoTLAExpression visit(PGoTLABinOp expr) {
 		String op = expr.getOperation();
@@ -127,10 +137,10 @@ public class PGoTLABackwardsCompatibilityASTConverter extends PGoTLAExpressionVi
 		Vector<PGoTLAExpression> left = new Vector<>();
 		left.add(new PGoTLASetOp("\\in",
 				expr.getIdent().toExpression().walk(this),
-				expr.getFrom(),
+				expr.getFrom().walk(this),
 				expr.getLine()));
 		
-		return new PGoTLAVariadic(":", left, expr.getWhen().walk(this), false, expr.getLine());
+		return wrapVariadic(new PGoTLAVariadic(":", left, expr.getWhen().walk(this), false, expr.getLine()));
 	}
 	
 	@Override
@@ -146,7 +156,7 @@ public class PGoTLABackwardsCompatibilityASTConverter extends PGoTLAExpressionVi
 					expr.getLine()));
 		}
 		
-		return new PGoTLAVariadic(":", right, expr.getBody().walk(this), true, expr.getLine());
+		return wrapVariadic(new PGoTLAVariadic(":", right, expr.getBody().walk(this), true, expr.getLine()));
 	}
 	
 	@Override
