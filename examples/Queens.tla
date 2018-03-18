@@ -1,4 +1,4 @@
--------------------------- MODULE QueensPluscal -----------------------------
+-------------------------- MODULE Queens -----------------------------
 EXTENDS Naturals, Sequences
 (***************************************************************************)
 (* Formulation of the N-queens problem and an iterative algorithm to solve *)
@@ -129,5 +129,6 @@ LiveSpec == Spec /\ Liveness
 
 =============================================================================
 \* Modification History
+\* Last modified Sun Dec 31 20:32:26 EST 2017 by osboxes
 \* Last modified Sat Dec 18 18:57:03 CET 2010 by merz
 \* Created Sat Dec 11 08:50:24 CET 2010 by merz

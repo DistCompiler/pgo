@@ -53,7 +53,7 @@ CONSTANT Proc
 (*********
 Here is the PlusCal version of this algorithm.
 The algorithm was modified from the original by adding a the variable temp2, to avoid a type consistency conflict when temp changes type at Li4a.
-(*  (* @PGo{ def Proc == 1 .. 10 }@PGo *)
+(* @PGo{ def Proc == 1 .. 10 }@PGo *)
 
  --algorithm Mutex
  { variables b = [i \in Proc |-> TRUE], c = [i \in Proc |-> TRUE], k \in Proc;
@@ -340,5 +340,6 @@ DeadlockFreedom ==
 (***************************************************************************)
 =============================================================================
 \* Modification History
+\* Last modified Sun Dec 31 22:04:29 EST 2017 by osboxes
 \* Last modified Sat Jan 01 12:14:14 PST 2011 by lamport
 \* Created Fri Dec 31 14:14:14 PST 2010 by lamport
