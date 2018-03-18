@@ -12,18 +12,18 @@ import pgo.trans.PGoTransException;
  * written equivalent to TLA+, will do order of operation
  *
  */
-public class PGoTLASimpleArithmetic extends PGoTLA {
+public class PGoTLASimpleArithmetic extends PGoTLAExpression {
 
 	// the arithmetic token
 	private String token;
 
 	// the left side
-	private PGoTLA left;
+	private PGoTLAExpression left;
 
 	// the right side
-	private PGoTLA right;
+	private PGoTLAExpression right;
 
-	public PGoTLASimpleArithmetic(String t, PGoTLA prev, PGoTLA next, int line) {
+	public PGoTLASimpleArithmetic(String t, PGoTLAExpression prev, PGoTLAExpression next, int line) {
 		super(line);
 		token = t;
 		left = prev;
@@ -34,11 +34,11 @@ public class PGoTLASimpleArithmetic extends PGoTLA {
 		return token;
 	}
 
-	public PGoTLA getLeft() {
+	public PGoTLAExpression getLeft() {
 		return left;
 	}
 
-	public PGoTLA getRight() {
+	public PGoTLAExpression getRight() {
 		return right;
 	}
 	
@@ -53,5 +53,10 @@ public class PGoTLASimpleArithmetic extends PGoTLA {
 	public String toString() {
 		return "PGoTLASimpArith (" + this.getLine() + "): (" + left.toString() + ") " + token
 				+ " (" + right.toString() + ")";
+	}
+	
+	@Override
+	public <Result> Result walk(PGoTLAExpressionVisitor<Result> v) {
+		throw new RuntimeException("walk(PGoTLASimpleArithmetic) not implemented");
 	}
 }

@@ -12,7 +12,7 @@ import pgo.model.intermediate.PGoLibFunction;
 import pgo.model.intermediate.PGoRoutineInit;
 import pgo.model.intermediate.PGoType;
 import pgo.model.intermediate.PGoVariable;
-import pgo.model.tla.PGoTLA;
+import pgo.model.tla.PGoTLAExpression;
 import pgo.model.tla.PGoTLADefinition;
 import pgo.parser.PGoAnnotationParser;
 
@@ -139,7 +139,7 @@ class PGoTransIntermediateData {
 
 	// Maps all TLAExprs found in the ast to their corresponding PGoTLA
 	// representation
-	Map<TLAExprPgo, PGoTLA> tlaToAST;
+	Map<TLAExprPgo, PGoTLAExpression> tlaToAST;
 
 	// Maps the label name to the lock group that should be used when entering
 	// the label (-1 if none is needed)
@@ -213,12 +213,12 @@ class PGoTransIntermediateData {
 	}
 
 	// Find the PGoTLA corresponding to the TLA expression
-	PGoTLA findPGoTLA(TLAExpr t) {
+	PGoTLAExpression findPGoTLA(TLAExpr t) {
 		return tlaToAST.get(new TLAExprPgo(t));
 	}
 
 	// Put into the tlaToAST map
-	void putPGoTLA(TLAExpr t, PGoTLA tla) {
+	void putPGoTLA(TLAExpr t, PGoTLAExpression tla) {
 		tlaToAST.put(new TLAExprPgo(t), tla);
 	}
 

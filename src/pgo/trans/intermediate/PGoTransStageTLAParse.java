@@ -1,13 +1,18 @@
 package pgo.trans.intermediate;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Vector;
 
 import pcal.AST.*;
 import pcal.AST.Process;
 import pcal.TLAExpr;
 import pcal.TLAToken;
-import pgo.model.tla.PGoTLA;
+import pgo.model.tla.PGoTLABackwardsCompatibilityASTConverter;
+import pgo.model.tla.PGoTLAExpression;
+import pgo.parser.PGoTLAParseException;
 import pgo.parser.TLAExprParser;
+import pgo.parser.TLAParser;
 import pgo.trans.PGoTransException;
 import pgo.util.PcalASTUtil;
 
@@ -146,11 +151,31 @@ public class PGoTransStageTLAParse {
 	// Converts the TLAExpr to PGoTLA using the TLAExprParser
 	private void convert(TLAExpr e, int line) throws PGoTransException {
 		if (e != null) {
-			Vector<PGoTLA> v = new TLAExprParser(e, line).getResult();
-			assert (v.size() <= 1);
-			if (!v.isEmpty()) {
-				data.putPGoTLA(e, v.get(0));
+			// this is a consequence of pcal's implementation, nothing we can to to fix it
+			@SuppressWarnings("unchecked")
+			Vector<Vector<TLAToken>> tokensNested = e.tokens;
+			List<TLAToken> tokens = new ArrayList<>();
+			int tokenCount = 0; // does not include null
+			for(Vector<TLAToken> toks: tokensNested) {
+				for(TLAToken tok: toks) {
+					if(tok != null) tokenCount++;
+					tokens.add(tok);
+				}
+				tokens.add(null);
 			}
+			PGoTLAExpression expr = null;
+			if(tokenCount == 0) {
+				expr = new PGoTLAExpression.PGoTLADefault(-1);
+			}else {
+				try {
+					expr = TLAParser.readExpression(tokens.listIterator());
+				}catch(PGoTLAParseException ex) {
+					// this is a parse error during translation, so convert it to a translation exception
+					throw new PGoTransException(ex.toString());
+				}
+			}
+			expr = expr.walk(new PGoTLABackwardsCompatibilityASTConverter());
+			data.putPGoTLA(e, expr);
 		}
 	}
 }

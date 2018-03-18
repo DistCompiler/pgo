@@ -10,15 +10,15 @@ import pgo.trans.PGoTransException;
  * Represents a comparator or a binary boolean operation in TLA.
  *
  */
-public class PGoTLABoolOp extends PGoTLA {
+public class PGoTLABoolOp extends PGoTLAExpression {
 
 	private String token;
 
-	private PGoTLA left;
+	private PGoTLAExpression left;
 
-	private PGoTLA right;
+	private PGoTLAExpression right;
 
-	public PGoTLABoolOp(String tok, PGoTLA prev, PGoTLA next, int line) {
+	public PGoTLABoolOp(String tok, PGoTLAExpression prev, PGoTLAExpression next, int line) {
 		super(line);
 		this.token = tok;
 		left = prev;
@@ -29,11 +29,11 @@ public class PGoTLABoolOp extends PGoTLA {
 		return token;
 	}
 
-	public PGoTLA getLeft() {
+	public PGoTLAExpression getLeft() {
 		return left;
 	}
 
-	public PGoTLA getRight() {
+	public PGoTLAExpression getRight() {
 		return right;
 	}
 	
@@ -48,5 +48,10 @@ public class PGoTLABoolOp extends PGoTLA {
 	public String toString() {
 		return "PGoTLABoolOp (" + this.getLine() + "): (" + left.toString() + ") " + token
 				+ " (" + right.toString() + ")";
+	}
+	
+	@Override
+	public <Result> Result walk(PGoTLAExpressionVisitor<Result> v) {
+		throw new RuntimeException("walk(PGoTLABoolOp) not implemented");
 	}
 }

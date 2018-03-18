@@ -9,7 +9,7 @@ import pgo.model.intermediate.PGoType;
  * Variable access in TLA Expr
  *
  */
-public class PGoTLAVariable extends PGoTLA {
+public class PGoTLAVariable extends PGoTLAExpression {
 
 	private String name;
 
@@ -32,5 +32,10 @@ public class PGoTLAVariable extends PGoTLA {
 	
 	public String toString() {
 		return "PGoTLAVar (" + this.getLine() + "): " + name;
+	}
+	
+	@Override
+	public <Result> Result walk(PGoTLAExpressionVisitor<Result> v) {
+		return v.visit(this);
 	}
 }

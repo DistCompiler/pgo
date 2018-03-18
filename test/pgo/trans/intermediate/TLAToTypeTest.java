@@ -175,7 +175,7 @@ public class TLAToTypeTest {
 
 	@Test
 	public void testGroup() throws PGoTransException {
-		PGoTLAGroup tla = new PGoTLAGroup(new Vector<PGoTLA>() {
+		PGoTLAGroup tla = new PGoTLAGroup(new Vector<PGoTLAExpression>() {
 			{
 				add(new PGoTLANumber("3", 0));
 			}
@@ -288,7 +288,7 @@ public class TLAToTypeTest {
 		result = new TLAExprToType(tla, data, true).getType();
 		assertEquals(PGoType.inferFromGoTypeName("bool"), result);
 
-		set = new PGoTLASet(new Vector<>(), 0);
+		set = new PGoTLASet(new Vector<TLAToken>(), 0);
 		tla = new PGoTLASetOp("\\intersect", set, new PGoTLAVariable("T", 0), 0);
 		result = new TLAExprToType(tla, data, true).getType();
 		assertEquals(PGoType.inferFromGoTypeName("set[int]"), result);
@@ -344,7 +344,7 @@ public class TLAToTypeTest {
 
 	@Test(expected = PGoTransException.class)
 	public void testSimpleArithFail() throws PGoTransException {
-		PGoTLA tla = new PGoTLASimpleArithmetic("+", new PGoTLAString("string", 0), new PGoTLAVariable("x", 0), 0);
+		PGoTLAExpression tla = new PGoTLASimpleArithmetic("+", new PGoTLAString("string", 0), new PGoTLAVariable("x", 0), 0);
 		data.globals.put("x", PGoVariable.convert("x", PGoType.inferFromGoTypeName("string")));
 		new TLAExprToType(tla, data, true);
 	}
@@ -357,7 +357,7 @@ public class TLAToTypeTest {
 
 	@Test
 	public void testSuchThat() throws PGoTransException {
-		Vector<PGoTLA> lhs = new Vector<>();
+		Vector<PGoTLAExpression> lhs = new Vector<>();
 		lhs.add(new PGoTLASetOp("\\in", new PGoTLAVariable("x", 0), new PGoTLAVariable("S", 0), 0));
 		Vector<TLAToken> rhs = new Vector<>();
 		rhs.add(new TLAToken("TRUE", 0, TLAToken.BUILTIN, 0));
@@ -395,7 +395,7 @@ public class TLAToTypeTest {
 		tla = new PGoTLAUnary("SUBSET", new PGoTLAVariable("S", 0), 0);
 		assertEquals(PGoType.inferFromGoTypeName("set[set[set[int]]]"), new TLAExprToType(tla, data, true).getType());
 
-		Vector<PGoTLA> lhs = new Vector<>();
+		Vector<PGoTLAExpression> lhs = new Vector<>();
 		Vector<TLAToken> rhs = new Vector<>();
 		lhs.add(new PGoTLASetOp("\\in", new PGoTLAVariable("x", 0), new PGoTLAVariable("S", 0), 0));
 		rhs.add(new TLAToken("TRUE", 0, TLAToken.BUILTIN, 0));

@@ -1,5 +1,6 @@
 package pgo.model.tla;
 
+import java.util.List;
 import java.util.Vector;
 
 import pcal.TLAToken;
@@ -11,18 +12,30 @@ import pgo.trans.PGoTransException;
 /**
  * Represents a set "{ ... }" in TLA. This should store what is in the set, and
  * the set notations for the set.
+ * 
+ * ## Note
+ * 
+ * With TLAParser, this will always be the result of parsing an explicit set constructor:
+ * 
+ * { <expr>, <expr>, ... }
  *
  */
-public class PGoTLASet extends PGoTLA {
+public class PGoTLASet extends PGoTLAExpression {
 
-	private Vector<PGoTLA> contents;
+	private Vector<PGoTLAExpression> contents;
 
 	public PGoTLASet(Vector<TLAToken> between, int line) throws PGoTransException {
 		super(line);
 		contents = new TLAExprParser(between, line).getResult();
 	}
+	
+	public PGoTLASet(List<PGoTLAExpression> contents, int line) {
+		super(line);
+		this.contents = new Vector<>();
+		this.contents.addAll(contents);
+	}
 
-	public Vector<PGoTLA> getContents() {
+	public Vector<PGoTLAExpression> getContents() {
 		return contents;
 	}
 
@@ -36,9 +49,14 @@ public class PGoTLASet extends PGoTLA {
 
 	public String toString() {
 		String ret = "PGoTLASet (" + this.getLine() + "): {";
-		for (PGoTLA p : contents) {
+		for (PGoTLAExpression p : contents) {
 			ret += "(" + p.toString() + "), ";
 		}
 		return ret + "}";
+	}
+	
+	@Override
+	public <Result> Result walk(PGoTLAExpressionVisitor<Result> v) {
+		return v.visit(this);
 	}
 }

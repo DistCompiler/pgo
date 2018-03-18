@@ -8,7 +8,7 @@ import pcal.PcalParams;
 import pcal.TLAExpr;
 import pgo.model.parser.AnnotatedTLADefinition;
 import pgo.model.parser.AnnotatedVariable.ArgAnnotatedVariable;
-import pgo.model.tla.PGoTLA;
+import pgo.model.tla.PGoTLAExpression;
 import pgo.model.tla.TLAExprToType;
 import pgo.parser.TLAExprParser;
 import pgo.trans.PGoTransException;
@@ -254,7 +254,7 @@ public class PGoVariable {
 		r.isSimpleAssignInit = true;
 		r.tlaExpr = defn.getExpr();
 		// infer the type
-		Vector<PGoTLA> ptla = new TLAExprParser(r.tlaExpr, defn.getLine()).getResult();
+		Vector<PGoTLAExpression> ptla = new TLAExprParser(r.tlaExpr, defn.getLine()).getResult();
 		assert (ptla.size() == 1);
 		r.type = new TLAExprToType(ptla.get(0), varData, true).getType();
 		r.line = defn.getLine();

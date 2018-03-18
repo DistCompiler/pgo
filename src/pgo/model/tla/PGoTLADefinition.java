@@ -13,13 +13,13 @@ import pgo.trans.PGoTransException;
  * Represents a TLA definition found in an annotation.
  *
  */
-public class PGoTLADefinition extends PGoTLA {
+public class PGoTLADefinition extends PGoTLAExpression {
 
 	private String name;
 	// name and typing information for params
 	private Vector<PGoVariable> params;
 	// the expression this definition evaluates to
-	private PGoTLA expr;
+	private PGoTLAExpression expr;
 	// the type that this expression should have
 	private PGoType type;
 
@@ -42,7 +42,7 @@ public class PGoTLADefinition extends PGoTLA {
 		return new Vector<>(params);
 	}
 
-	public PGoTLA getExpr() {
+	public PGoTLAExpression getExpr() {
 		return expr;
 	}
 
@@ -63,6 +63,11 @@ public class PGoTLADefinition extends PGoTLA {
 		// We shouldn't need to determine the type of this.
 		assert false;
 		return null;
+	}
+	
+	@Override
+	public <Result> Result walk(PGoTLAExpressionVisitor<Result> v) {
+		throw new RuntimeException("walk(PGoTLADefinition) not implemented");
 	}
 
 }

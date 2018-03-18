@@ -11,11 +11,11 @@ import pgo.trans.PGoTransException;
  * of operations.
  *
  */
-public class PGoTLAGroup extends PGoTLA {
+public class PGoTLAGroup extends PGoTLAExpression {
 
-	private PGoTLA inner;
+	private PGoTLAExpression inner;
 
-	public PGoTLAGroup(Vector<PGoTLA> vector, int line) {
+	public PGoTLAGroup(Vector<PGoTLAExpression> vector, int line) {
 		super(line);
 		// should only be one PGoTLA in the vector, since any of (....) should
 		// be one complete expression inside
@@ -23,7 +23,7 @@ public class PGoTLAGroup extends PGoTLA {
 		inner = vector.get(0);
 	}
 
-	public PGoTLA getInner() {
+	public PGoTLAExpression getInner() {
 		return inner;
 	}
 	
@@ -37,5 +37,10 @@ public class PGoTLAGroup extends PGoTLA {
 	
 	public String toString() {
 		return "PGoTLAGroup (" + this.getLine() + "): (" + inner.toString() + ")";
+	}
+	
+	@Override
+	public <Result> Result walk(PGoTLAExpressionVisitor<Result> v) {
+		throw new RuntimeException("walk(PGoTLAGroup) not implemented");
 	}
 }

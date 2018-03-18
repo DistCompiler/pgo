@@ -11,22 +11,24 @@ import pgo.trans.PGoTransException;
  * Base TLA Expression representation
  *
  */
-public abstract class PGoTLA {
+public abstract class PGoTLAExpression {
 
 	// the line number
 	private int line;
 
-	public PGoTLA(int line) {
+	public PGoTLAExpression(int line) {
 		this.line = line;
 	}
 
 	public int getLine() {
 		return line;
 	}
+	
+	public abstract <Result> Result walk(PGoTLAExpressionVisitor<Result> v);
 
 	// A class representing a blank expression (equivalent to
 	// "defaultInitValue" in PlusCal).
-	public static final class PGoTLADefault extends PGoTLA {
+	public static final class PGoTLADefault extends PGoTLAExpression {
 		public PGoTLADefault(int line) {
 			super(line);
 		}
@@ -39,6 +41,11 @@ public abstract class PGoTLA {
 		@Override
 		protected PGoType inferType(TLAExprToType trans) throws PGoTransException {
 			return trans.type(this);
+		}
+		
+		@Override
+		public <Result> Result walk(PGoTLAExpressionVisitor<Result> v) {
+			return v.visit(this);
 		}
 	}
 
@@ -74,11 +81,11 @@ public abstract class PGoTLA {
 
 		protected abstract void init();
 
-		public T getResult(PGoTLA ast) throws PGoTransException {
+		public T getResult(PGoTLAExpression ast) throws PGoTransException {
 			return walk(ast);
 		}
 
-		protected T walk(PGoTLA ast) throws PGoTransException {
+		protected T walk(PGoTLAExpression ast) throws PGoTransException {
 			if (ast == null || earlyTerm) {
 				return null;
 			}
@@ -117,7 +124,7 @@ public abstract class PGoTLA {
 		}
 
 		protected T visit(PGoTLAArray a) throws PGoTransException {
-			for (PGoTLA tla : a.getContents()) {
+			for (PGoTLAExpression tla : a.getContents()) {
 				walk(tla);
 			}
 			return null;
@@ -134,7 +141,7 @@ public abstract class PGoTLA {
 		}
 
 		protected T visit(PGoTLAFunctionCall fc) throws PGoTransException {
-			for (PGoTLA tla : fc.getParams()) {
+			for (PGoTLAExpression tla : fc.getParams()) {
 				walk(tla);
 			}
 			return null;
@@ -156,7 +163,7 @@ public abstract class PGoTLA {
 		}
 
 		protected T visit(PGoTLASet set) throws PGoTransException {
-			for (PGoTLA tla : set.getContents()) {
+			for (PGoTLAExpression tla : set.getContents()) {
 				walk(tla);
 			}
 			return null;
@@ -189,7 +196,7 @@ public abstract class PGoTLA {
 
 		protected T visit(PGoTLAVariadic v) throws PGoTransException {
 			walk(v.getExpr());
-			for (PGoTLA tla : v.getArgs()) {
+			for (PGoTLAExpression tla : v.getArgs()) {
 				walk(tla);
 			}
 			return null;

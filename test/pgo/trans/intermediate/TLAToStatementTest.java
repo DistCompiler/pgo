@@ -91,7 +91,7 @@ public class TLAToStatementTest {
 
 	@Test
 	public void testGroup() throws PGoTransException {
-		PGoTLAGroup tla = new PGoTLAGroup(new Vector<PGoTLA>() {
+		PGoTLAGroup tla = new PGoTLAGroup(new Vector<PGoTLAExpression>() {
 			{
 				add(new PGoTLASimpleArithmetic("*", new PGoTLANumber("3", 0), new PGoTLAVariable("x", 0), 0));
 			}
@@ -300,7 +300,7 @@ public class TLAToStatementTest {
 		expected = new SimpleExpression(expr);
 		assertEquals(expected, new TLAExprToGo(tla, imports, data).toExpression());
 
-		tla = new PGoTLABoolOp("#", new PGoTLASet(new Vector<>(), 0), new PGoTLAVariable("S", 0), 0);
+		tla = new PGoTLABoolOp("#", new PGoTLASet(new Vector<TLAToken>(), 0), new PGoTLAVariable("S", 0), 0);
 		data.globals.put("S", PGoVariable.convert("S", PGoType.inferFromGoTypeName("set[string]")));
 		expr.clear();
 		expr.add(new Token("!"));
@@ -326,7 +326,7 @@ public class TLAToStatementTest {
 
 	@Test
 	public void testSet() throws PGoTransException {
-		PGoTLASet tla = new PGoTLASet(new Vector<>(), 0);
+		PGoTLASet tla = new PGoTLASet(new Vector<TLAToken>(), 0);
 		Expression expected = new FunctionCall("datatypes.NewSet", new Vector<>());
 		assertEquals(expected, new TLAExprToGo(tla, imports, null).toExpression());
 
@@ -418,7 +418,7 @@ public class TLAToStatementTest {
 
 	@Test
 	public void testSetOp() throws PGoTransException {
-		PGoTLASetOp tla = new PGoTLASetOp("\\union", new PGoTLASet(new Vector<>(), 0), new PGoTLAVariable("A", 0), 0);
+		PGoTLASetOp tla = new PGoTLASetOp("\\union", new PGoTLASet(new Vector<TLAToken>(), 0), new PGoTLAVariable("A", 0), 0);
 		data.globals.put("A", PGoVariable.convert("A", PGoType.inferFromGoTypeName("set[int]")));
 		Expression expected;
 		Vector<Expression> args = new Vector<>();
@@ -426,7 +426,7 @@ public class TLAToStatementTest {
 		expected = new FunctionCall("Union", args, new Token("A"));
 		assertEquals(expected, new TLAExprToGo(tla, imports, data).toExpression());
 
-		tla = new PGoTLASetOp("\\notin", new PGoTLAVariable("a", 0), new PGoTLASet(new Vector<>(), 0), 0);
+		tla = new PGoTLASetOp("\\notin", new PGoTLAVariable("a", 0), new PGoTLASet(new Vector<TLAToken>(), 0), 0);
 		data.globals.put("a", PGoVariable.convert("a", PGoType.inferFromGoTypeName("int")));
 		Vector<Expression> se = new Vector<>();
 		se.add(new Token("!"));
@@ -459,7 +459,10 @@ public class TLAToStatementTest {
 		expected = new FunctionCall("EltUnion", new Vector<>(), new Token("S"));
 		assertEquals(expected, new TLAExprToGo(tla, imports, data).toExpression());
 
-		tla = new PGoTLAUnary("CHOOSE", new PGoTLAVariadic(":", new Vector<PGoTLA>() {
+		data.globals.clear();
+		data.globals.put("S", PGoVariable.convert("S", PGoType.inferFromGoTypeName("set[string]")));
+		
+		tla = new PGoTLAUnary("CHOOSE", new PGoTLAVariadic(":", new Vector<PGoTLAExpression>() {
 			{
 				add(new PGoTLASetOp("\\in", new PGoTLAVariable("x", 0), new PGoTLAVariable("S", 0), 0));
 			}
@@ -472,7 +475,7 @@ public class TLAToStatementTest {
 		params.add(new AnonymousFunction(PGoType.inferFromGoTypeName("bool"),
 				new Vector<ParameterDeclaration>() {
 					{
-						add(new ParameterDeclaration("x", PGoType.inferFromGoTypeName("set[string]")));
+						add(new ParameterDeclaration("x", PGoType.inferFromGoTypeName("string")));
 					}
 				},
 				new Vector<>(),
@@ -485,7 +488,7 @@ public class TLAToStatementTest {
 		expected = new FunctionCall("datatypes.Choose", params);
 		assertEquals(expected, new TLAExprToGo(tla, imports, data).toExpression());
 
-		tla = new PGoTLAUnary("\\E", new PGoTLAVariadic(":", new Vector<PGoTLA>() {
+		tla = new PGoTLAUnary("\\E", new PGoTLAVariadic(":", new Vector<PGoTLAExpression>() {
 			{
 				add(new PGoTLASetOp("\\in", new PGoTLAVariable("x", 0), new PGoTLAVariable("S", 0), 0));
 				add(new PGoTLASetOp("\\in", new PGoTLAVariable("y", 0), new PGoTLAVariable("T", 0), 0));

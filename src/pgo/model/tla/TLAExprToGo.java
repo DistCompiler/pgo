@@ -34,7 +34,7 @@ public class TLAExprToGo {
 	// the variable we are assigning to, if it exists and is relevant
 	private PGoVariable assign;
 
-	public TLAExprToGo(PGoTLA tla, Imports imports, PGoTempData data) throws PGoTransException {
+	public TLAExprToGo(PGoTLAExpression tla, Imports imports, PGoTempData data) throws PGoTransException {
 		this.imports = imports;
 		this.data = data;
 		assign = null;
@@ -42,7 +42,7 @@ public class TLAExprToGo {
 		expr = tla.convert(this);
 	}
 
-	public TLAExprToGo(PGoTLA tla, Imports imports, PGoTempData data, PGoVariable assign) throws PGoTransException {
+	public TLAExprToGo(PGoTLAExpression tla, Imports imports, PGoTempData data, PGoVariable assign) throws PGoTransException {
 		this.imports = imports;
 		this.data = data;
 		this.assign = assign;
@@ -51,7 +51,7 @@ public class TLAExprToGo {
 	}
 
 	// The type is assign's type.
-	public TLAExprToGo(PGoTLA tla, Imports imports, PGoTempData data, PGoType assign) throws PGoTransException {
+	public TLAExprToGo(PGoTLAExpression tla, Imports imports, PGoTempData data, PGoType assign) throws PGoTransException {
 		this.imports = imports;
 		this.data = data;
 		if (assign != null) {
@@ -94,7 +94,7 @@ public class TLAExprToGo {
 				contents.add(e);
 			}
 		} else {
-			for (PGoTLA elt : tla.getContents()) {
+			for (PGoTLAExpression elt : tla.getContents()) {
 				Expression e = new TLAExprToGo(elt, imports, data, ((PGoCollectionType) assignType).getElementType())
 						.toExpression();
 				contents.add(e);
@@ -133,7 +133,7 @@ public class TLAExprToGo {
 			// params for anonymous function
 			Vector<ParameterDeclaration> decls = new Vector<>();
 			PGoTempData temp = new PGoTempData(data);
-			for (PGoTLA arg : tla.getArgs()) {
+			for (PGoTLAExpression arg : tla.getArgs()) {
 				assert (arg instanceof PGoTLASetOp);
 				PGoTLASetOp in = (PGoTLASetOp) arg;
 				assert (in.getToken().equals("\\in"));
@@ -179,7 +179,7 @@ public class TLAExprToGo {
 				decls = new Vector<ParameterDeclaration>();
 				// the SetImage function parameters
 				params = new Vector<Expression>();
-				for (PGoTLA arg : tla.getArgs()) {
+				for (PGoTLAExpression arg : tla.getArgs()) {
 					PGoTLASetOp setOp = (PGoTLASetOp) arg;
 					varExprs.add(new TLAExprToGo(setOp.getLeft(), imports, data).toExpression());
 					setExprs.add(new TLAExprToGo(setOp.getRight(), imports, data).toExpression());
@@ -331,7 +331,7 @@ public class TLAExprToGo {
 
 	protected Expression translate(PGoTLAFunctionCall tla) throws PGoTransException {
 		Vector<Expression> params = new Vector<>();
-		for (PGoTLA param : tla.getParams()) {
+		for (PGoTLAExpression param : tla.getParams()) {
 			params.add(new TLAExprToGo(param, imports, data).toExpression());
 		}
 		// Determine whether this is a PlusCal macro call, TLA definition call,
@@ -357,7 +357,7 @@ public class TLAExprToGo {
 			return new FunctionCall(tla.getName(), params);
 		} else if (lfunc != null) {
 			Vector<PGoType> paramTypes = new Vector<>();
-			for (PGoTLA param : tla.getParams()) {
+			for (PGoTLAExpression param : tla.getParams()) {
 				paramTypes.add(new TLAExprToType(param, data, true).getType());
 			}
 			String goName = lfunc.getGoName(paramTypes);
@@ -450,7 +450,7 @@ public class TLAExprToGo {
 		PGoType setType = this.type;
 		PGoType containedType = ((PGoSet) setType).getElementType();
 		Vector<Expression> args = new Vector<>();
-		for (PGoTLA ptla : tla.getContents()) {
+		for (PGoTLAExpression ptla : tla.getContents()) {
 			args.add(new TLAExprToGo(ptla, imports, data, containedType).toExpression());
 		}
 		this.imports.addImport("pgo/datatypes");
@@ -579,13 +579,11 @@ public class TLAExprToGo {
 			// the set S
 			Expression setExpr = new TLAExprToGo(((PGoTLASetOp) st.getArgs().get(0)).getRight(), imports, data)
 					.toExpression();
-			// the variable x
-			Expression varExpr = new TLAExprToGo(((PGoTLASetOp) st.getArgs().get(0)).getLeft(), imports, data)
-					.toExpression();
+			
 			// We need to add typing data to avoid TLAExprToType complaining
 			// about untyped variables
 			PGoTempData temp = new PGoTempData(data);
-			for (PGoTLA arg : st.getArgs()) {
+			for (PGoTLAExpression arg : st.getArgs()) {
 				PGoTLASetOp set = (PGoTLASetOp) arg;
 				// TODO handle stuff like << x, y >> \in S \X T
 				assert (set.getLeft() instanceof PGoTLAVariable);
@@ -598,6 +596,9 @@ public class TLAExprToGo {
 			Expression pred = new TLAExprToGo(st.getExpr(), imports, temp).toExpression();
 			// most expressions can't be used as the variable (only stuff like
 			// tuples) so this should be one line
+			// the variable x
+			Expression varExpr = new TLAExprToGo(((PGoTLASetOp) st.getArgs().get(0)).getLeft(), imports, temp)
+								.toExpression();
 			assert (varExpr.toGo().size() == 1);
 
 			// create the anonymous function for the predicate
@@ -630,7 +631,7 @@ public class TLAExprToGo {
 			st = (PGoTLAVariadic) tla.getArg();
 
 			temp = new PGoTempData(data);
-			for (PGoTLA arg : st.getArgs()) {
+			for (PGoTLAExpression arg : st.getArgs()) {
 				PGoTLASetOp set = (PGoTLASetOp) arg;
 				// TODO handle stuff like << x, y >> \in S \X T
 				assert (set.getLeft() instanceof PGoTLAVariable);
@@ -643,9 +644,9 @@ public class TLAExprToGo {
 			pred = new TLAExprToGo(st.getExpr(), imports, temp).toExpression();
 
 			Vector<Expression> setExprs = new Vector<>(), varExprs = new Vector<>();
-			for (PGoTLA arg : st.getArgs()) {
+			for (PGoTLAExpression arg : st.getArgs()) {
 				PGoTLASetOp setOp = (PGoTLASetOp) arg;
-				varExprs.add(new TLAExprToGo(setOp.getLeft(), imports, data).toExpression());
+				varExprs.add(new TLAExprToGo(setOp.getLeft(), imports, temp).toExpression());
 				setExprs.add(new TLAExprToGo(setOp.getRight(), imports, data).toExpression());
 			}
 			// create the anonymous function for the predicate
@@ -655,7 +656,7 @@ public class TLAExprToGo {
 			// P = func(varType, varType...) bool { return pred }
 			Vector<ParameterDeclaration> params = new Vector<>();
 			for (int i = 0; i < setExprs.size(); i++) {
-				PGoTLA setExprTLA = ((PGoTLASetOp) st.getArgs().get(i)).getRight();
+				PGoTLAExpression setExprTLA = ((PGoTLASetOp) st.getArgs().get(i)).getRight();
 				PGoType setType = new TLAExprToType(setExprTLA, data, true).getType();
 				PGoType varType = ((PGoCollectionType) setType).getElementType();
 				params.add(new ParameterDeclaration(varExprs.get(i).toGo().get(0), varType));

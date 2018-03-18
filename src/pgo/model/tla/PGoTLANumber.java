@@ -9,7 +9,7 @@ import pgo.model.intermediate.PGoType;
  * Represents a tla token for a number
  *
  */
-public class PGoTLANumber extends PGoTLA {
+public class PGoTLANumber extends PGoTLAExpression {
 
 	private String val;
 
@@ -32,5 +32,10 @@ public class PGoTLANumber extends PGoTLA {
 	
 	public String toString() {
 		return "PGoTLANumber (" + this.getLine() + "): " + val;
+	}
+	
+	@Override
+	public <Result> Result walk(PGoTLAExpressionVisitor<Result> v) {
+		return v.visit(this);
 	}
 }

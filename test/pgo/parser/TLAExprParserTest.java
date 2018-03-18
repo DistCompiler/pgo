@@ -24,7 +24,7 @@ public class TLAExprParserTest {
 		TLAExpr exp = PcalTranslate.MakeExpr(vec);
 
 		TLAExprParser parser = new TLAExprParser(exp, 0);
-		Vector<PGoTLA> result = parser.getResult();
+		Vector<PGoTLAExpression> result = parser.getResult();
 		assertEquals(1, result.size());
 		assertTrue(result.get(0) instanceof PGoTLANumber);
 		PGoTLANumber res = (PGoTLANumber) result.get(0);
@@ -40,7 +40,7 @@ public class TLAExprParserTest {
 		TLAExpr exp = PcalTranslate.MakeExpr(vec);
 
 		TLAExprParser parser = new TLAExprParser(exp, 0);
-		Vector<PGoTLA> result = parser.getResult();
+		Vector<PGoTLAExpression> result = parser.getResult();
 		assertEquals(1, result.size());
 		assertTrue(result.get(0) instanceof PGoTLAString);
 		PGoTLAString res = (PGoTLAString) result.get(0);
@@ -56,7 +56,7 @@ public class TLAExprParserTest {
 		TLAExpr exp = PcalTranslate.MakeExpr(vec);
 
 		TLAExprParser parser = new TLAExprParser(exp, 0);
-		Vector<PGoTLA> result = parser.getResult();
+		Vector<PGoTLAExpression> result = parser.getResult();
 		assertEquals(1, result.size());
 		assertTrue(result.get(0) instanceof PGoTLABool);
 		PGoTLABool res = (PGoTLABool) result.get(0);
@@ -87,7 +87,7 @@ public class TLAExprParserTest {
 		Vector<Vector<TLAToken>> v = new Vector<>();
 		v.add(toks);
 		TLAExpr exp = PcalTranslate.MakeExpr(v);
-		Vector<PGoTLA> result = new TLAExprParser(exp, 0).getResult();
+		Vector<PGoTLAExpression> result = new TLAExprParser(exp, 0).getResult();
 		assertEquals(1, result.size());
 		assertTrue(result.get(0) instanceof PGoTLASimpleArithmetic);
 		PGoTLASimpleArithmetic sa = (PGoTLASimpleArithmetic) result.get(0);
@@ -108,7 +108,7 @@ public class TLAExprParserTest {
 		Vector<Vector<TLAToken>> v = new Vector<>();
 		v.add(toks);
 		TLAExpr exp = PcalTranslate.MakeExpr(v);
-		Vector<PGoTLA> result = new TLAExprParser(exp, 0).getResult();
+		Vector<PGoTLAExpression> result = new TLAExprParser(exp, 0).getResult();
 		assertEquals(1, result.size());
 		assertTrue(result.get(0) instanceof PGoTLASetOp);
 		PGoTLASetOp so = (PGoTLASetOp) result.get(0);
@@ -129,7 +129,7 @@ public class TLAExprParserTest {
 		Vector<Vector<TLAToken>> v = new Vector<>();
 		v.add(toks);
 		TLAExpr exp = PcalTranslate.MakeExpr(v);
-		Vector<PGoTLA> result = new TLAExprParser(exp, 0).getResult();
+		Vector<PGoTLAExpression> result = new TLAExprParser(exp, 0).getResult();
 		assertEquals(1, result.size());
 		assertTrue(result.get(0) instanceof PGoTLABoolOp);
 		PGoTLABoolOp bo = (PGoTLABoolOp) result.get(0);
@@ -148,7 +148,7 @@ public class TLAExprParserTest {
 		Vector<Vector<TLAToken>> v = new Vector<>();
 		v.add(toks);
 		TLAExpr exp = PcalTranslate.MakeExpr(v);
-		Vector<PGoTLA> result = new TLAExprParser(exp, 0).getResult();
+		Vector<PGoTLAExpression> result = new TLAExprParser(exp, 0).getResult();
 		assertEquals(1, result.size());
 		assertTrue(result.get(0) instanceof PGoTLAUnary);
 		
@@ -193,7 +193,7 @@ public class TLAExprParserTest {
 		Vector<Vector<TLAToken>> v = new Vector<>();
 		v.add(toks);
 		TLAExpr exp = PcalTranslate.MakeExpr(v);
-		Vector<PGoTLA> result = new TLAExprParser(exp, 0).getResult();
+		Vector<PGoTLAExpression> result = new TLAExprParser(exp, 0).getResult();
 		assertEquals(1, result.size());
 		assertTrue(result.get(0) instanceof PGoTLABoolOp);
 		PGoTLABoolOp root = (PGoTLABoolOp) result.get(0);
@@ -236,13 +236,13 @@ public class TLAExprParserTest {
 		Vector<Vector<TLAToken>> v = new Vector<>();
 		v.add(toks);
 		TLAExpr expr = PcalTranslate.MakeExpr(v);
-		Vector<PGoTLA> result = new TLAExprParser(expr, 0).getResult();
+		Vector<PGoTLAExpression> result = new TLAExprParser(expr, 0).getResult();
 		assertEquals(1, result.size());
 		assertTrue(result.get(0) instanceof PGoTLAUnary);
 		PGoTLAUnary choose = (PGoTLAUnary) result.get(0);
 		assertTrue(choose.getArg() instanceof PGoTLAVariadic);
 		PGoTLAVariadic st = (PGoTLAVariadic) choose.getArg();
-		Vector<PGoTLA> sets = st.getArgs();
+		Vector<PGoTLAExpression> sets = st.getArgs();
 		assertTrue(sets.size() == 1);
 		assertTrue(st.getExpr() instanceof PGoTLABoolOp);
 		
@@ -293,7 +293,7 @@ public class TLAExprParserTest {
 		Vector<Vector<TLAToken>> v = new Vector<>();
 		v.add(toks);
 		TLAExpr expr = PcalTranslate.MakeExpr(v);
-		Vector<PGoTLA> result = new TLAExprParser(expr, 0).getResult();
+		Vector<PGoTLAExpression> result = new TLAExprParser(expr, 0).getResult();
 		assertEquals(1, result.size());
 		assertTrue(result.get(0) instanceof PGoTLAFunctionCall);
 		PGoTLAFunctionCall func = (PGoTLAFunctionCall) result.get(0);
