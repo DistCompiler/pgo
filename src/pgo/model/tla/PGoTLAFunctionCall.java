@@ -78,6 +78,6 @@ public class PGoTLAFunctionCall extends PGoTLAExpression {
 	
 	@Override
 	public <Result> Result walk(PGoTLAExpressionVisitor<Result> v) {
-		throw new RuntimeException("walk(PGoTLAFunctionCall) not implemented");
+		return v.visit(this);
 	}
 }

@@ -119,4 +119,8 @@ public abstract class PGoTLAExpressionVisitor<Result> {
 		throw new RuntimeException("visit(PGoTLAQuantifiedUniversal) unimplemented");
 	}
 
+	public Result visit(PGoTLAFunctionCall expr) {
+		throw new RuntimeException("visit(PGoTLAFunctionCall) unimplemented");
+	}
+
 }

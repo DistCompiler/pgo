@@ -144,6 +144,31 @@ public class PGoTLABackwardsCompatibilityASTConverter extends PGoTLAExpressionVi
 	}
 	
 	@Override
+	public PGoTLAExpression visit(PGoTLAFunction expr) {
+		List<PGoTLAExpression> left = new ArrayList<>();
+		for(PGoTLAQuantifierBound qb : expr.getArguments()) {
+			left.add(new PGoTLASetOp(
+					"\\in",
+					new PGoTLAVariable(qb.getIds().get(0), expr.getLine()),
+					qb.getSet().walk(this),
+					expr.getLine()));
+		}
+		return new PGoTLAVariadic("|->", left, expr.getBody().walk(this), false, expr.getLine());
+	}
+	
+	@Override
+	public PGoTLAExpression visit(PGoTLAFunctionCall expr) {
+		List<PGoTLAExpression> params = new ArrayList<>();
+		for(PGoTLAExpression e : expr.getParams()) {
+			params.add(e.walk(this));
+		}
+		return new PGoTLAFunctionCall(
+				new PGoTLAVariable(expr.getName(), expr.getLine()),
+				params,
+				expr.getLine());
+	}
+	
+	@Override
 	public PGoTLAExpression visit(PGoTLASetComprehension expr) {
 		Vector<PGoTLAExpression> right = new Vector<>();
 		for(PGoTLAQuantifierBound b : expr.getBounds()) {
