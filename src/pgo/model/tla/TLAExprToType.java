@@ -747,6 +747,7 @@ public class TLAExprToType {
 					return PGoType.UNDETERMINED;
 				}
 
+				System.out.println("setType: "+setType);
 				assert (setType instanceof PGoSet);
 				tupTypes.add(((PGoSet) setType).getElementType());
 

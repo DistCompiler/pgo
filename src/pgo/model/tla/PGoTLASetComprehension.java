@@ -52,4 +52,35 @@ public class PGoTLASetComprehension extends PGoTLAExpression {
 		throw new RuntimeException("inferType not implemented");
 	}
 
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ((body == null) ? 0 : body.hashCode());
+		result = prime * result + ((bounds == null) ? 0 : bounds.hashCode());
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		PGoTLASetComprehension other = (PGoTLASetComprehension) obj;
+		if (body == null) {
+			if (other.body != null)
+				return false;
+		} else if (!body.equals(other.body))
+			return false;
+		if (bounds == null) {
+			if (other.bounds != null)
+				return false;
+		} else if (!bounds.equals(other.bounds))
+			return false;
+		return true;
+	}
+
 }

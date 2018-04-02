@@ -57,4 +57,41 @@ public class PGoTLASetRefinement extends PGoTLAExpression {
 		throw new RuntimeException("inferType not implemented");
 	}
 
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ((from == null) ? 0 : from.hashCode());
+		result = prime * result + ((ident == null) ? 0 : ident.hashCode());
+		result = prime * result + ((when == null) ? 0 : when.hashCode());
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		PGoTLASetRefinement other = (PGoTLASetRefinement) obj;
+		if (from == null) {
+			if (other.from != null)
+				return false;
+		} else if (!from.equals(other.from))
+			return false;
+		if (ident == null) {
+			if (other.ident != null)
+				return false;
+		} else if (!ident.equals(other.ident))
+			return false;
+		if (when == null) {
+			if (other.when != null)
+				return false;
+		} else if (!when.equals(other.when))
+			return false;
+		return true;
+	}
+
 }

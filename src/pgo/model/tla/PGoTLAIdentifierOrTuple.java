@@ -16,4 +16,10 @@ public abstract class PGoTLAIdentifierOrTuple {
 	public abstract <Result> Result walk(PGoTLAIdentifierOrTupleVisitor<Result> v);
 
 	public abstract PGoTLAExpression toExpression();
+	
+	@Override
+	public abstract int hashCode();
+	
+	@Override
+	public abstract boolean equals(Object other);
 }

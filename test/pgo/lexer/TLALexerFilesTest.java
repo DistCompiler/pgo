@@ -4,10 +4,8 @@ import static org.junit.Assert.*;
 import static org.hamcrest.CoreMatchers.*;
 
 import java.io.IOException;
-import java.net.URL;
-import java.nio.file.FileSystem;
-import java.nio.file.FileSystems;
 import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -43,16 +41,12 @@ public class TLALexerFilesTest {
 	
 	@Test
 	public void test() throws IOException, PGoTLALexerException {
-		Class<? extends TLALexerFilesTest> c = getClass();
-		FileSystem fs = FileSystems.getDefault();
-		
-		URL tlaName = c.getResource("../../pluscal/"+fileName+".tla");
-		TLALexer lexer = new TLALexer(fs.getPath(tlaName.getFile()));
+		TLALexer lexer = new TLALexer(Paths.get("test", "pluscal", fileName+".tla"));
 		
 		List<TLAToken> tokens = lexer.readTokens();
 		
-		URL expectedName = c.getResource("../../tla/tokens/"+fileName+".tokens");
-		List<String> expected = Files.readAllLines(fs.getPath(expectedName.getFile()));
+		List<String> expected = Files.readAllLines(
+				Paths.get("test", "tla", "tokens", fileName+".tokens"));
 		
 		System.out.println(tokens.stream().reduce("", (String acc, TLAToken tok) -> acc + tok + "\n", (l, r) -> l+r));
 		
