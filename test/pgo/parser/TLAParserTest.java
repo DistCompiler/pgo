@@ -1,9 +1,7 @@
 package pgo.parser;
 
 import java.io.IOException;
-import java.net.URL;
-import java.nio.file.FileSystem;
-import java.nio.file.FileSystems;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
 
@@ -25,6 +23,7 @@ public class TLAParserTest {
 		return Arrays.asList(new Object[][] {
 			{"Euclid", },
 			{"QueensPluscal", },
+			{"TwoPhaseCommit", },
 		});
 	}
 	
@@ -35,11 +34,7 @@ public class TLAParserTest {
 
 	@Test
 	public void test() throws IOException, PGoTLAParseException, PGoTLALexerException {
-		Class<? extends TLAParserTest> c = getClass();
-		FileSystem fs = FileSystems.getDefault();
-		
-		URL tlaName = c.getResource("../../pluscal/"+fileName+".tla");
-		TLALexer lexer = new TLALexer(fs.getPath(tlaName.getFile()));
+		TLALexer lexer = new TLALexer(Paths.get("test", "pluscal", fileName+".tla"));
 		
 		List<TLAToken> tokens = lexer.readTokens();
 		

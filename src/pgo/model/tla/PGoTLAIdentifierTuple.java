@@ -28,7 +28,7 @@ public class PGoTLAIdentifierTuple extends PGoTLAIdentifierOrTuple {
 	public PGoTLAExpression toExpression() {
 		List<PGoTLAExpression> subs = new ArrayList<>();
 		for(String id : ids) {
-			subs.add(new PGoTLAVariable(id, line));
+			subs.add(new PGoTLAVariable(id, new ArrayList<>(), line));
 		}
 		return new PGoTLATuple(line, subs);
 	}
@@ -36,6 +36,31 @@ public class PGoTLAIdentifierTuple extends PGoTLAIdentifierOrTuple {
 	@Override
 	public <Result> Result walk(PGoTLAIdentifierOrTupleVisitor<Result> v) {
 		return v.visit(this);
+	}
+
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ((ids == null) ? 0 : ids.hashCode());
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		PGoTLAIdentifierTuple other = (PGoTLAIdentifierTuple) obj;
+		if (ids == null) {
+			if (other.ids != null)
+				return false;
+		} else if (!ids.equals(other.ids))
+			return false;
+		return true;
 	}
 
 }

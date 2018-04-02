@@ -43,4 +43,30 @@ public class PGoTLAGroup extends PGoTLAExpression {
 	public <Result> Result walk(PGoTLAExpressionVisitor<Result> v) {
 		throw new RuntimeException("walk(PGoTLAGroup) not implemented");
 	}
+
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ((inner == null) ? 0 : inner.hashCode());
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		PGoTLAGroup other = (PGoTLAGroup) obj;
+		if (inner == null) {
+			if (other.inner != null)
+				return false;
+		} else if (!inner.equals(other.inner))
+			return false;
+		return true;
+	}
+	
 }

@@ -65,4 +65,47 @@ public class PGoTLALet extends PGoTLAExpression {
 		throw new RuntimeException("inferType not implemented");
 	}
 
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ((body == null) ? 0 : body.hashCode());
+		result = prime * result + ((functions == null) ? 0 : functions.hashCode());
+		result = prime * result + ((instances == null) ? 0 : instances.hashCode());
+		result = prime * result + ((operators == null) ? 0 : operators.hashCode());
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		PGoTLALet other = (PGoTLALet) obj;
+		if (body == null) {
+			if (other.body != null)
+				return false;
+		} else if (!body.equals(other.body))
+			return false;
+		if (functions == null) {
+			if (other.functions != null)
+				return false;
+		} else if (!functions.equals(other.functions))
+			return false;
+		if (instances == null) {
+			if (other.instances != null)
+				return false;
+		} else if (!instances.equals(other.instances))
+			return false;
+		if (operators == null) {
+			if (other.operators != null)
+				return false;
+		} else if (!operators.equals(other.operators))
+			return false;
+		return true;
+	}
+
 }

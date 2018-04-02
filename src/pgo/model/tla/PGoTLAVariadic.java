@@ -120,4 +120,44 @@ public class PGoTLAVariadic extends PGoTLAExpression {
 		throw new RuntimeException("walk(PGoTLAVariadic) not implemented");
 	}
 
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ((expr == null) ? 0 : expr.hashCode());
+		result = prime * result + ((multiArgs == null) ? 0 : multiArgs.hashCode());
+		result = prime * result + (rightSide ? 1231 : 1237);
+		result = prime * result + ((tok == null) ? 0 : tok.hashCode());
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		PGoTLAVariadic other = (PGoTLAVariadic) obj;
+		if (expr == null) {
+			if (other.expr != null)
+				return false;
+		} else if (!expr.equals(other.expr))
+			return false;
+		if (multiArgs == null) {
+			if (other.multiArgs != null)
+				return false;
+		} else if (!multiArgs.equals(other.multiArgs))
+			return false;
+		if (rightSide != other.rightSide)
+			return false;
+		if (tok == null) {
+			if (other.tok != null)
+				return false;
+		} else if (!tok.equals(other.tok))
+			return false;
+		return true;
+	}
+
 }

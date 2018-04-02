@@ -47,6 +47,16 @@ public abstract class PGoTLAExpression {
 		public <Result> Result walk(PGoTLAExpressionVisitor<Result> v) {
 			return v.visit(this);
 		}
+
+		@Override
+		public int hashCode() {
+			return 0;
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			return obj instanceof PGoTLADefault;
+		}
 	}
 
 	/**
@@ -65,6 +75,12 @@ public abstract class PGoTLAExpression {
 	 *             if there is a type contradiction
 	 */
 	protected abstract PGoType inferType(TLAExprToType trans) throws PGoTransException;
+
+	@Override
+	public abstract int hashCode();
+
+	@Override
+	public abstract boolean equals(Object obj);
 
 	/**
 	 * Walks the TLA AST, similarly to the PcalASTUtil.Walker. Override visit()
