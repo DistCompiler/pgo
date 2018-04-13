@@ -35,6 +35,22 @@ public abstract class PGoMiscellaneousType extends PGoType {
 	public static class PGoNetConfig extends PGoMiscellaneousType {
 		public PGoNetConfig() { this.goType = "distsys.Config"; }
 	}
+	
+	public static class DosLib extends PGoMiscellaneousType {
+		public DosLib() { this.goType = "doslib.DOS"; }
+	}
+	
+	public static class DosLibReleaseSet extends PGoMiscellaneousType {
+		public DosLibReleaseSet() { this.goType = "*doslib.ReleaseSet"; }
+	}
+	
+	public static class DosLibAcquireSet extends PGoMiscellaneousType {
+		public DosLibAcquireSet() { this.goType = "doslib.AcquireSet"; }
+	}
+	
+	public static class DosLibValueMap extends PGoMiscellaneousType {
+		public DosLibValueMap() { this.goType = "map[string]interface{}"; }
+	}
 
 	@Override
 	public String toTypeName() {
@@ -51,6 +67,8 @@ public abstract class PGoMiscellaneousType extends PGoType {
 			return new EtcdState();
 		case "distsys.Config":
 			return new PGoNetConfig();
+		case "doslib.DOS":
+			return new DosLib();
 		}
 		return PGoType.UNDETERMINED;
 	}

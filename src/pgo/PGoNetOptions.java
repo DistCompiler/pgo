@@ -5,6 +5,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 import pgo.model.distsys.CentralizedEtcdStateStrategy;
 import pgo.model.distsys.CentralizedStateStrategy;
+import pgo.model.distsys.DistributedObjectStateStrategy;
 import pgo.model.distsys.StateStrategy;
 
 import java.util.Vector;
@@ -35,6 +36,7 @@ public class PGoNetOptions {
 	public class StateOptions {
 		public static final String STATE_CENTRALIZED = "centralized";
 		public static final String STATE_CENTRALIZED_ETCD = "centralized-etcd";
+		public static final String STATE_DOSLIB = "doslib";
 
 		private static final String DEFAULT_STATE_STRATEGY = STATE_CENTRALIZED_ETCD;
 		private static final int DEFAULT_TIMEOUT = 3;
@@ -107,6 +109,9 @@ public class PGoNetOptions {
 						throw new PGoOptionException("Multiple endpoints are not yet supported");
 					}
 					stateStrategy = new CentralizedStateStrategy(stateOptions);
+					break;
+				case StateOptions.STATE_DOSLIB:
+					stateStrategy = new DistributedObjectStateStrategy(stateOptions);
 					break;
 				default:
 					throw new PGoOptionException("Invalid state strategy: " + stateOptions.strategy);
