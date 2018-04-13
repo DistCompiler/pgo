@@ -125,22 +125,38 @@ public class CentralizedStateStrategy implements StateStrategy {
 
 	@Override
 	public void lock(int lockGroup, Vector<Statement> stmts, Stream<PGoVariable> vars) {
-		stmts.add(new FunctionCall("Lock", new Vector<Expression>() {
-			{
-				add(new Token("selfStr"));
-				add(new Token("\"" + Integer.toString(lockGroup) + "\""));
-			}
-		}, new Token(GLOBAL_STATE_OBJECT)));
-		fetchDataForCurrentLockGroup(stmts, vars);
+		List<PGoVariable> vs = vars.sorted(Comparator.comparing(PGoVariable::getName)).collect(Collectors.toList());
+		String lockName = "_lg" + lockGroup;
+		String varName = "_v" + lockGroup;
+		Expression acquireCall = new FunctionCall(
+				"Acquire",
+				new Vector<>(Arrays.asList(
+						new Token("[]string{}"),
+						new Token("[]string{" +
+								vs.stream().map(v -> String.format("\"%s\",", v.getName())).collect(Collectors.joining()) +
+								"}"))) ,
+				new Token(GLOBAL_STATE_OBJECT));
+		stmts.add(new Assignment(new Vector<>(Arrays.asList(lockName, varName)), acquireCall, true));
+		for (PGoVariable v : vs) {
+			stmts.add(new Assignment(
+					new Vector<>(Collections.singleton(v.getName())),
+					new Token(String.format("*%s[\"%s\"].(*%s)", varName, v.getName(), v.getType())),
+					false));
+		}
 	}
 
 	@Override
 	public void unlock(int lockGroup, Vector<Statement> stmts, Stream<PGoVariable> vars) {
-		pushDataForCurrentLockGroup(stmts, vars);
+		String lockName = "_lg" + lockGroup;
 		stmts.add(new FunctionCall(
-				"Unlock",
-				new Vector<>(Arrays.asList(new Token("selfStr"),
-						new Token("\"" + Integer.toString(lockGroup) + "\""))),
+				"Release",
+				new Vector<>(Arrays.asList(
+						new Token(lockName),
+						new Token("[]interface{}{" +
+								vars.sorted(Comparator.comparing(PGoVariable::getName))
+										.map(v -> String.format("&%s", v.getName()))
+										.collect(Collectors.joining()) +
+								"}"))) ,
 				new Token(GLOBAL_STATE_OBJECT)));
 	}
 
@@ -154,22 +170,5 @@ public class CentralizedStateStrategy implements StateStrategy {
 	@Override
 	public String getVar(PGoVariable var) {
 		return String.format("*%s.Get(\"%s\", &%s).(*%s)", GLOBAL_STATE_OBJECT, var.getName(), var.getName(), var.getType());
-	}
-
-	private void fetchDataForCurrentLockGroup(Vector<Statement> stmts, Stream<PGoVariable> vars) {
-		StateStrategy stateStrategy = this;
-		vars.forEach(var ->
-				stmts.add(new Assignment(
-						new Vector<>(Collections.singletonList(var.getName())),
-						new VariableReference(var.getName(), var, false, stateStrategy),
-						false))
-		);
-	}
-
-	private void pushDataForCurrentLockGroup(Vector<Statement> stmts, Stream<PGoVariable> vars) {
-		vars.forEach(var -> {
-			Vector<Expression> params = new Vector<>(Arrays.asList(new Token("\"" + var.getName() + "\""), new Token(var.getName())));
-			stmts.add(new FunctionCall("Set", params, new Token(GLOBAL_STATE_OBJECT)));
-		});
 	}
 }

@@ -12,16 +12,15 @@ import (
 	"time"
 )
 
+type StateServerError int
+
 const (
-	ErrorKeyNotFound = iota
+	ErrorKeyNotFound StateServerError = iota
 	ErrorUnknownClientId
 	ErrorUnknownLockId
 	ErrorTryAgain
 	ErrorInvalidRequest
 )
-
-// Error types
-type StateServerError int
 
 func (e StateServerError) Error() string {
 	switch e {
@@ -188,7 +187,7 @@ func (s *StateServer) HeartBeat(clientId string, ok *bool) error {
 
 	c, exists := s.clients[clientId]
 	if !exists {
-		return StateServerError(ErrorUnknownClientId)
+		return ErrorUnknownClientId
 	}
 	c.lastHeard = time.Now()
 	*ok = true
@@ -210,15 +209,15 @@ func (s *StateServer) SAcquire(request AcquireRequest, response *AcquireResponse
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	if _, exists := s.clients[request.ClientId]; !exists {
-		return StateServerError(ErrorUnknownClientId)
+		return ErrorUnknownClientId
 	}
 	for _, name := range names {
 		spot, exists := s.data[name]
 		if spot.locked {
-			return StateServerError(ErrorTryAgain)
+			return ErrorTryAgain
 		}
 		if !exists {
-			return StateServerError(ErrorKeyNotFound)
+			return ErrorKeyNotFound
 		}
 		m[name] = spot.value
 		spot.locked = true
@@ -248,13 +247,13 @@ func (s *StateServer) SRelease(request ReleaseRequest, ok *bool) error {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	if _, exists := s.clients[request.Lock.ClientId]; !exists {
-		return StateServerError(ErrorUnknownClientId)
+		return ErrorUnknownClientId
 	}
 	if linfo, exists := s.locks[request.Lock.LockId]; !exists {
-		return StateServerError(ErrorUnknownLockId)
+		return ErrorUnknownLockId
 	} else {
 		if linfo.clientId != request.Lock.ClientId {
-			return StateServerError(ErrorInvalidRequest)
+			return ErrorInvalidRequest
 		}
 		for i, name := range linfo.names {
 			s.data[name].value = request.Values[i]
@@ -369,6 +368,7 @@ func NewCentralizedState(ipPort string, endpoints []string) (*CentralizedState, 
 				var clientConfig ClientConfig
 				err = c.Call("Server.Register", ClientInfo{ipPort}, &clientConfig)
 				if err != nil {
+					c.Close()
 					continue
 				}
 				go heartBeat(c, clientConfig.ClientId, clientConfig.HeartBeatInterval)
