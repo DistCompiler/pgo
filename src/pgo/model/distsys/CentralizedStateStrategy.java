@@ -4,9 +4,8 @@ import pgo.PGoNetOptions;
 import pgo.model.golang.*;
 import pgo.model.intermediate.*;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Vector;
+import java.util.*;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class CentralizedStateStrategy implements StateStrategy {
@@ -34,6 +33,15 @@ public class CentralizedStateStrategy implements StateStrategy {
 				"err", PGoType.inferFromGoTypeName("error"), null, false, false, false
 		));
 
+		String globalValues = "map[string]interface{}{\n" + go.getGlobals()
+				.stream()
+				.filter(VariableDeclaration::isRemote)
+				.map(g ->String.format(
+						"\"%s\": &%s,\n",
+						g.getName(),
+						Optional.ofNullable(g.getDefaultValue()).orElse(new Token(g.getName())).toGo().get(0)))
+				.collect(Collectors.joining()) +
+				"}";
 		topLevelMain.add(new Comment("is this instance a server?", false));
 		// TODO fix state server init
 		topLevelMain.add(new For(
@@ -43,7 +51,9 @@ public class CentralizedStateStrategy implements StateStrategy {
 								new Vector<>(Arrays.asList(
 										new Assignment(
 												new Vector<>(Collections.singletonList("server")),
-												new FunctionCall("distsys.NewStateServer", new Vector<>(Collections.singletonList(new Token("ipAddr")))),
+												new FunctionCall("distsys.NewStateServer",
+														new Vector<>(Arrays.asList(new Token("ipAddr"),
+																new Token(globalValues)))),
 												true
 										),
 										new Assignment(
@@ -108,15 +118,6 @@ public class CentralizedStateStrategy implements StateStrategy {
 		// TODO
 		Vector<Statement> topLevelMain = go.getMain().getBody();
 
-		for (VariableDeclaration gVar : go.getGlobals()) {
-			if (!gVar.isRemote()) {
-				continue;
-			}
-
-			go.getImports().addImport("strconv");
-			topLevelMain.add(initializeGlobalVariable(gVar));
-		}
-
 		topLevelMain.add(new SimpleExpression(new Vector<>(Arrays.asList(
 				new Token("<-"),
 				new FunctionCall("StartChan", new Vector<>(), new Token(GLOBAL_STATE_OBJECT))))));
@@ -170,19 +171,5 @@ public class CentralizedStateStrategy implements StateStrategy {
 			Vector<Expression> params = new Vector<>(Arrays.asList(new Token("\"" + var.getName() + "\""), new Token(var.getName())));
 			stmts.add(new FunctionCall("Set", params, new Token(GLOBAL_STATE_OBJECT)));
 		});
-	}
-
-	// given a remote, global variable declaration, this generates code to initialize
-	// it with a proper value. Since multiple processes might be running at the same
-	// time, initialization must be made only once. This is achieved by making use
-	// of the locking functionality available in the `pgo/distsys' package.
-	private Statement initializeGlobalVariable(VariableDeclaration decl) {
-		// TODO
-		Expression initVal = decl.getDefaultValue();
-		if (initVal == null) {
-			initVal = new Token(decl.getName());
-		}
-		Vector<Expression> params = new Vector<>(Arrays.asList(new Token("\"" + decl.getName() + "\""), initVal));
-		return new FunctionCall("Set", params, new Token(GLOBAL_STATE_OBJECT));
 	}
 }
