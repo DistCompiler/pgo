@@ -49,7 +49,7 @@ public class PGoNetOptionsTest {
 	@Test
 	public void testDefaultStateStrategy() throws PGoOptionException {
 		getNetworking().getJSONObject(PGoNetOptions.STATE_FIELD).remove("strategy");
-		assertEquals("centralized-etcd", options().getStateOptions().strategy);
+		assertEquals(PGoNetOptions.StateOptions.STATE_ETCD, options().getStateOptions().strategy);
 	}
 
 	// having no endpoints in the centralized-etcd strategy is invalid
@@ -111,7 +111,7 @@ public class PGoNetOptionsTest {
 			}
 		};
 
-		assertEquals("centralized-etcd", net.getStateOptions().strategy);
+		assertEquals(PGoNetOptions.StateOptions.STATE_ETCD, net.getStateOptions().strategy);
 		assertEquals(expectedHosts, net.getStateOptions().endpoints);
 	}
 

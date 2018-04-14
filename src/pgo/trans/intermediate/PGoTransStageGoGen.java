@@ -149,7 +149,7 @@ public class PGoTransStageGoGen {
 			positionalArgNames.add("process(argument)");
 			addPositionalArgToMain(argN++, positionalArgs, pid);
 
-			if (!data.netOpts.getStateOptions().strategy.equals(PGoNetOptions.StateOptions.STATE_CENTRALIZED_ETCD)) {
+			if (!data.netOpts.getStateOptions().strategy.equals(PGoNetOptions.StateOptions.STATE_ETCD)) {
 				// command line argument: the IP:port address this program is going
 				// to use to communicate with peers.
 				PGoVariable ipAddr = PGoVariable.processNetAddress();
@@ -804,7 +804,7 @@ public class PGoTransStageGoGen {
 
 	/**
 	 * Generate the go routines init blocks as statements
-	 * 
+	 *
 	 * @param goroutines
 	 * @throws PGoTransException
 	 */
@@ -884,7 +884,7 @@ public class PGoTransStageGoGen {
 
 	/**
 	 * Create declarations for all functions
-	 * 
+	 *
 	 * @throws PGoTransException
 	 */
 	private void generateFunctions() throws PGoTransException {
@@ -997,7 +997,7 @@ public class PGoTransStageGoGen {
 
 	/**
 	 * Generate the code for global variables
-	 * 
+	 *
 	 * @throws PGoTransException
 	 */
 	private void generateGlobalVariables() throws PGoTransException {
@@ -1130,7 +1130,7 @@ public class PGoTransStageGoGen {
 
 	/**
 	 * Add the position based argument command line parsing code to main
-	 * 
+	 *
 	 * @param argN
 	 * @param positionalArgs
 	 * @param pv

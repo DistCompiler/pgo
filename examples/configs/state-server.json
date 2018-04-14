@@ -7,7 +7,7 @@
     "enabled": true,
 
     "state": {
-      "strategy": "doslib",
+      "strategy": "state-server",
       "endpoints": ["127.0.0.1:8080", "127.0.0.1:8081", "127.0.0.1:8082"],
       "timeout": 3
     }

@@ -24,10 +24,6 @@ public abstract class PGoMiscellaneousType extends PGoType {
 		public EtcdState() { this.goType = "*distsys.EtcdState"; }
 	}
 
-	public static class CentralizedState extends PGoMiscellaneousType {
-		public CentralizedState() { this.goType = "*distsys.CentralizedState"; }
-	}
-
 	public static class State extends PGoMiscellaneousType {
 		public State() { this.goType = "distsys.State"; }
 	}
@@ -35,21 +31,21 @@ public abstract class PGoMiscellaneousType extends PGoType {
 	public static class PGoNetConfig extends PGoMiscellaneousType {
 		public PGoNetConfig() { this.goType = "distsys.Config"; }
 	}
-	
-	public static class DosLib extends PGoMiscellaneousType {
-		public DosLib() { this.goType = "doslib.DOS"; }
+
+	public static class StateServer extends PGoMiscellaneousType {
+		public StateServer() { this.goType = "distsys.StateServer"; }
 	}
-	
-	public static class DosLibReleaseSet extends PGoMiscellaneousType {
-		public DosLibReleaseSet() { this.goType = "*doslib.ReleaseSet"; }
+
+	public static class StateServerReleaseSet extends PGoMiscellaneousType {
+		public StateServerReleaseSet() { this.goType = "*distsys.ReleaseSet"; }
 	}
-	
-	public static class DosLibAcquireSet extends PGoMiscellaneousType {
-		public DosLibAcquireSet() { this.goType = "doslib.AcquireSet"; }
+
+	public static class StateServerAcquireSet extends PGoMiscellaneousType {
+		public StateServerAcquireSet() { this.goType = "distsys.AcquireSet"; }
 	}
-	
-	public static class DosLibValueMap extends PGoMiscellaneousType {
-		public DosLibValueMap() { this.goType = "map[string]interface{}"; }
+
+	public static class StateServerValueMap extends PGoMiscellaneousType {
+		public StateServerValueMap() { this.goType = "map[string]interface{}"; }
 	}
 
 	@Override
@@ -67,8 +63,8 @@ public abstract class PGoMiscellaneousType extends PGoType {
 			return new EtcdState();
 		case "distsys.Config":
 			return new PGoNetConfig();
-		case "doslib.DOS":
-			return new DosLib();
+		case "distsys.StateServer":
+			return new StateServer();
 		}
 		return PGoType.UNDETERMINED;
 	}

@@ -25,19 +25,22 @@ import pgo.model.intermediate.PGoMiscellaneousType;
 import pgo.model.intermediate.PGoType;
 import pgo.model.intermediate.PGoVariable;
 
-public class DistributedObjectStateStrategy implements StateStrategy {
+public class StateServerStateStrategy implements StateStrategy {
+	private static final String GLOBAL_STATE_OBJECT = "globalState";
+	private static final String LOCK_OBJECT = "remoteLock";
+	private static final String VARS_OBJECT = "remoteVars";
 
 	private StateOptions stateOptions;
 
-	public DistributedObjectStateStrategy(PGoNetOptions.StateOptions stateOptions) {
+	public StateServerStateStrategy(PGoNetOptions.StateOptions stateOptions) {
 		this.stateOptions = stateOptions;
 	}
 
 	@Override
 	public void generateConfig(GoProgram go) {
-		// make sure doslib is available
-		go.getImports().addImport("doslib");
-		
+		// make sure distsys is available
+		go.getImports().addImport("pgo/distsys");
+
 		Vector<Statement> topLevelMain = go.getMain().getBody();
 		topLevelMain.add(new Assignment(
 				new Vector<>(Collections.singletonList("endpoints")),
@@ -45,16 +48,16 @@ public class DistributedObjectStateStrategy implements StateStrategy {
 						PGoType.inferFromGoTypeName("string"),
 						stateOptions.endpoints
 						.stream()
-						.map(e -> Builder.stringLiteral(e))
+						.map(Builder::stringLiteral)
 						.collect(Collectors.toList())),
 				true));
-		
+
 		SliceConstructor endpoints = Builder.sliceLiteral(
 				PGoType.inferFromGoTypeName("string"),
 				stateOptions.endpoints.stream()
-				.map(s -> Builder.stringLiteral(s))
+				.map(Builder::stringLiteral)
 				.collect(Collectors.toList()));
-		
+
 		MapConstructor globalValues = Builder.mapLiteral(
 				PGoType.inferFromGoTypeName("string"),
 				PGoType.inferFromGoTypeName("interface{}"),
@@ -68,7 +71,7 @@ public class DistributedObjectStateStrategy implements StateStrategy {
 						.orElse(
 								new Token(g.getName()))
 				}).collect(Collectors.toList()));
-		
+
 		MapConstructor variableAllocations = Builder.mapLiteral(
 				PGoType.inferFromGoTypeName("string"),
 				PGoType.inferFromGoTypeName("int"),
@@ -80,12 +83,12 @@ public class DistributedObjectStateStrategy implements StateStrategy {
 						Builder.intLiteral(0),
 				})
 				.collect(Collectors.toList()));
-		
+
 		topLevelMain.add(new If(new Token("endpoints[0] == ipAddr"),
 				Builder.stmts(
 						new Assignment(
-								new Vector<>(Arrays.asList("doslibInstance, err")),
-								new FunctionCall("doslib.MountLocalCache",
+								new Vector<>(Arrays.asList(GLOBAL_STATE_OBJECT, "err")),
+								new FunctionCall("distsys.NewStateServer",
 										new Vector<>(Arrays.asList(
 												new Token("ipAddr"),
 												new Token("ipAddr"),
@@ -96,8 +99,8 @@ public class DistributedObjectStateStrategy implements StateStrategy {
 						),
 				Builder.stmts(
 						new Assignment(
-								new Vector<>(Arrays.asList("doslibInstance", "err")),
-								new FunctionCall("doslib.MountLocalCache",
+								new Vector<>(Arrays.asList(GLOBAL_STATE_OBJECT, "err")),
+								new FunctionCall("distsys.NewStateServer",
 										new Vector<>(Arrays.asList(
 												new Token("ipAddr"),
 												new Token("ipAddr"),
@@ -110,11 +113,11 @@ public class DistributedObjectStateStrategy implements StateStrategy {
 										false)
 						)
 				));
-		
+
 		topLevelMain.add(new If(new Token("err != nil"),
 				Builder.stmts(
 						new FunctionCall("panic",
-								new Vector<>(Arrays.asList(new Token("err"))))
+								new Vector<>(Collections.singleton(new Token("err"))))
 				),
 				Builder.stmts()
 				));
@@ -130,18 +133,18 @@ public class DistributedObjectStateStrategy implements StateStrategy {
 						null, false, false, false));
 		go.addGlobal(
 				new VariableDeclaration(
-						"doslibInstance",
-						new PGoMiscellaneousType.DosLib(),
+						GLOBAL_STATE_OBJECT,
+						new PGoMiscellaneousType.StateServer(),
 						null, false, false, false));
 		go.addGlobal(
 				new VariableDeclaration(
-						"doslibLock",
-						new PGoMiscellaneousType.DosLibReleaseSet(),
+						LOCK_OBJECT,
+						new PGoMiscellaneousType.StateServerReleaseSet(),
 						null, false, false, false));
 		go.addGlobal(
 				new VariableDeclaration(
-						"doslibValues",
-						new PGoMiscellaneousType.DosLibValueMap(),
+						VARS_OBJECT,
+						new PGoMiscellaneousType.StateServerValueMap(),
 						null, false, false, false));
 
 	}
@@ -154,21 +157,21 @@ public class DistributedObjectStateStrategy implements StateStrategy {
 	@Override
 	public void lock(int lockGroup, Vector<Statement> stmts, Stream<PGoVariable> vars) {
 		List<PGoVariable> vList = vars.collect(Collectors.toList());
-		
+
 		List<Expression> varNamesStr = vList
 				.stream()
 				.map(v -> Builder.stringLiteral(v.getName()))
 				.collect(Collectors.toList());
-		
+
 		stmts.add(new Token("_ = selfStr // bad warnings bad"));
-		
+
 		stmts.add(
-				new Assignment(new Vector<String>(Arrays.asList("doslibLock", "doslibValues", "err")),
+				new Assignment(new Vector<>(Arrays.asList(LOCK_OBJECT, VARS_OBJECT, "err")),
 				new FunctionCall(
-						"doslibInstance.Acquire",
-						new Vector<>(Arrays.asList(
+						"Acquire",
+						new Vector<>(Collections.singleton(
 								Builder.structLiteral(
-										new PGoMiscellaneousType.DosLibAcquireSet(),
+										new PGoMiscellaneousType.StateServerAcquireSet(),
 										new Object[] {
 												"ReadNames", Builder.sliceLiteral(
 														PGoType.inferFromGoTypeName("string"),
@@ -179,17 +182,17 @@ public class DistributedObjectStateStrategy implements StateStrategy {
 														PGoType.inferFromGoTypeName("string"),
 														varNamesStr)
 										}
-								)
 								))),
+						new Token(GLOBAL_STATE_OBJECT)),
 				false));
-		
+
 		// pull all values out of the map and into globals
 		for(PGoVariable v : vList) {
 			stmts.add(
 					new Assignment(
-							new Vector<>(Arrays.asList(v.getName())),
+							new Vector<>(Collections.singleton(v.getName())),
 							new Token(
-									"doslibValues[" + String.join(
+									VARS_OBJECT + "[" + String.join(
 											"",
 											Builder.stringLiteral(v.getName()).toGo())
 									+ "].(" + v.getType().toGo() + ")"),
@@ -200,27 +203,23 @@ public class DistributedObjectStateStrategy implements StateStrategy {
 
 	@Override
 	public void unlock(int lockGroup, Vector<Statement> stmts, Stream<PGoVariable> vars) {
-		List<String> varNames = vars.map(v -> v.getName()).collect(Collectors.toList());
-		
+		List<String> varNames = vars.map(PGoVariable::getName).collect(Collectors.toList());
+
 		Vector<Expression> releaseNames = new Vector<>();
-		releaseNames.add(new Token("doslibLock"));
+		releaseNames.add(new Token(LOCK_OBJECT));
 		releaseNames.addAll(varNames
 				.stream()
-				.map(name -> new Token(name))
+				.map(Token::new)
 				.collect(Collectors.toList()));
-		
+
 		stmts.add(
 				new Assignment(
-						new Vector<>(Arrays.asList("err")),
-						new FunctionCall(
-								"doslibInstance.Release",
-								releaseNames),
+						new Vector<>(Collections.singleton("err")),
+						new FunctionCall("Release", releaseNames, new Token(GLOBAL_STATE_OBJECT)),
 						false));
-		
+
 		stmts.add(new If(new Token("err != nil"),
-				Builder.stmts(
-						new FunctionCall("panic", new Vector<>(Arrays.asList(new Token("err"))))
-						),
+				Builder.stmts(new FunctionCall("panic", new Vector<>(Collections.singleton(new Token("err"))))),
 				Builder.stmts()));
 	}
 
@@ -228,14 +227,9 @@ public class DistributedObjectStateStrategy implements StateStrategy {
 	public void setVar(PGoVariable var, Expression rhs, Vector<Expression> exps) {
 		// TODO: fix this mess, this is a terrible hack / abuse of the AST
 		// since for some reason you can only use expressions to set variables, not statements?
-		exps.add(
-				new Token(
-						String.join(
-								"",
-								new Assignment(
-									new Vector<>(Arrays.asList(var.getName())),
-									rhs,
-									false).toGo())));
+		exps.add(new Token(String.join(
+				"",
+				new Assignment(new Vector<>(Collections.singleton(var.getName())), rhs, false).toGo())));
 	}
 
 	@Override

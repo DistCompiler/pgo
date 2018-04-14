@@ -3,9 +3,8 @@ package pgo;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
-import pgo.model.distsys.CentralizedEtcdStateStrategy;
-import pgo.model.distsys.CentralizedStateStrategy;
-import pgo.model.distsys.DistributedObjectStateStrategy;
+import pgo.model.distsys.EtcdStateStrategy;
+import pgo.model.distsys.StateServerStateStrategy;
 import pgo.model.distsys.StateStrategy;
 
 import java.util.Vector;
@@ -34,11 +33,10 @@ public class PGoNetOptions {
 	// This class ensures that the options provided in the configuration file make
 	// sense, i.e., whether they use a known/supported state management strategy.
 	public class StateOptions {
-		public static final String STATE_CENTRALIZED = "centralized";
-		public static final String STATE_CENTRALIZED_ETCD = "centralized-etcd";
-		public static final String STATE_DOSLIB = "doslib";
+		public static final String STATE_ETCD = "etcd";
+		public static final String STATE_SERVER = "state-server";
 
-		private static final String DEFAULT_STATE_STRATEGY = STATE_CENTRALIZED_ETCD;
+		private static final String DEFAULT_STATE_STRATEGY = STATE_ETCD;
 		private static final int DEFAULT_TIMEOUT = 3;
 
 		public String strategy;
@@ -101,17 +99,11 @@ public class PGoNetOptions {
 			stateOptions = new StateOptions(stateConfig);
 
 			switch (stateOptions.strategy) {
-				case StateOptions.STATE_CENTRALIZED_ETCD:
-					stateStrategy = new CentralizedEtcdStateStrategy(stateOptions);
+				case StateOptions.STATE_ETCD:
+					stateStrategy = new EtcdStateStrategy(stateOptions);
 					break;
-				case StateOptions.STATE_CENTRALIZED:
-					if (stateOptions.endpoints.size() != 1) {
-						throw new PGoOptionException("Multiple endpoints are not yet supported");
-					}
-					stateStrategy = new CentralizedStateStrategy(stateOptions);
-					break;
-				case StateOptions.STATE_DOSLIB:
-					stateStrategy = new DistributedObjectStateStrategy(stateOptions);
+				case StateOptions.STATE_SERVER:
+					stateStrategy = new StateServerStateStrategy(stateOptions);
 					break;
 				default:
 					throw new PGoOptionException("Invalid state strategy: " + stateOptions.strategy);
