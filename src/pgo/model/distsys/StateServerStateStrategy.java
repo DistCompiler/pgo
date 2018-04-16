@@ -29,6 +29,7 @@ public class StateServerStateStrategy implements StateStrategy {
 	private static final String GLOBAL_STATE_OBJECT = "globalState";
 	private static final String LOCK_OBJECT = "remoteLock";
 	private static final String VARS_OBJECT = "remoteVars";
+	private static final String ENDPOINTS_VAR = "endpoints";
 
 	private StateOptions stateOptions;
 
@@ -43,7 +44,7 @@ public class StateServerStateStrategy implements StateStrategy {
 
 		Vector<Statement> topLevelMain = go.getMain().getBody();
 		topLevelMain.add(new Assignment(
-				new Vector<>(Collections.singletonList("endpoints")),
+				new Vector<>(Collections.singletonList(ENDPOINTS_VAR)),
 				Builder.sliceLiteral(
 						PGoType.inferFromGoTypeName("string"),
 						stateOptions.endpoints
@@ -92,7 +93,7 @@ public class StateServerStateStrategy implements StateStrategy {
 										new Vector<>(Arrays.asList(
 												new Token("ipAddr"),
 												new Token("ipAddr"),
-												endpoints,
+												new Token(ENDPOINTS_VAR),
 												variableAllocations,
 												globalValues))),
 								false)
@@ -104,7 +105,7 @@ public class StateServerStateStrategy implements StateStrategy {
 										new Vector<>(Arrays.asList(
 												new Token("ipAddr"),
 												new Token("ipAddr"),
-												endpoints,
+												new Token(ENDPOINTS_VAR),
 												variableAllocations,
 												Builder.mapLiteral(
 														PGoType.inferFromGoTypeName("string"),
