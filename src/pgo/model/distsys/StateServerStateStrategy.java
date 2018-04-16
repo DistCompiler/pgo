@@ -85,7 +85,7 @@ public class StateServerStateStrategy implements StateStrategy {
 				})
 				.collect(Collectors.toList()));
 
-		topLevelMain.add(new If(new Token("endpoints[0] == ipAddr"),
+		topLevelMain.add(new If(new Token(ENDPOINTS_VAR + "[0] == ipAddr"),
 				Builder.stmts(
 						new Assignment(
 								new Vector<>(Arrays.asList(GLOBAL_STATE_OBJECT, "err")),
