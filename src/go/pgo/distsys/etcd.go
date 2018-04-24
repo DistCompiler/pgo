@@ -62,6 +62,7 @@ const (
 // A reference to our global state, created via +InitEtcdState+. Used in the
 // generated Go code to set and get the values of global variables.
 type EtcdState struct {
+	*ProcessInitialization
 	c  etcd.Client
 	kv etcd.KeysAPI
 }
@@ -74,21 +75,28 @@ type EtcdState struct {
 //
 // Returns a reference to `distsys.EtcdState' on success. Fails if we
 // cannot establish a connection to the etcd cluster.
-func InitEtcdState(cfg *Config) (*EtcdState, error) {
-	etcdConfig := etcd.Config{
-		Endpoints:               cfg.Endpoints,
-		HeaderTimeoutPerRequest: time.Duration(cfg.Timeout) * time.Second,
-	}
-
-	c, err := etcd.New(etcdConfig)
+func NewEtcdState(endpoints []string, timeout int, peers []string, self, coordinator string, initValues map[string]interface{}) (*EtcdState, error) {
+	c, err := etcd.New(etcd.Config{
+		Endpoints:               endpoints,
+		HeaderTimeoutPerRequest: time.Duration(timeout) * time.Second,
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	return &EtcdState{
-		c:  c,
-		kv: etcd.NewKeysAPI(c),
-	}, nil
+	ret := &EtcdState{
+		NewProcessInitialization(peers, self, coordinator),
+		c,
+		etcd.NewKeysAPI(c),
+	}
+
+	if ret.isCoordinator() && len(initValues) > 0 {
+		for name, val := range initValues {
+			ret.Set(name, val)
+		}
+	}
+
+	return ret, nil
 }
 
 // Sets variable `name' to a given `value'. Contacts the global variable server

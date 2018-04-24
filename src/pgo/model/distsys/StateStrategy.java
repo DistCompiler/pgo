@@ -12,9 +12,9 @@ import java.util.stream.Stream;
 public interface StateStrategy {
 	void generateConfig(GoProgram go);
 	void generateGlobalVariables(GoProgram go);
-	void initializeGlobalState(GoProgram go);
 	void lock(int lockGroup, Vector<Statement> stmts, Stream<PGoVariable> vars);
 	void unlock(int lockGroup, Vector<Statement> stmts, Stream<PGoVariable> vars);
+	String getGlobalStateVariableName();
 
 	// FIXME flesh these out
 	void setVar(PGoVariable var, Expression rhs, Vector<Expression> exps);

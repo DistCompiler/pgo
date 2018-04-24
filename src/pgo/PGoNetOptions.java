@@ -41,11 +41,13 @@ public class PGoNetOptions {
 
 		public String strategy;
 		public Vector<String> endpoints;
+		public Vector<String> peers;
 		public int timeout;
 
 		public StateOptions(JSONObject config) {
 			int i;
 			this.endpoints = new Vector<>();
+			this.peers = new Vector<>();
 
 			if (config.has("strategy")) {
 				this.strategy = config.getString("strategy");
@@ -53,9 +55,16 @@ public class PGoNetOptions {
 				this.strategy = DEFAULT_STATE_STRATEGY;
 			}
 
-			JSONArray endpoints = config.getJSONArray("endpoints");
-			for (i = 0; i < endpoints.length(); i++) {
-				this.endpoints.add(endpoints.getString(i));
+			if (config.has("endpoints")) {
+				JSONArray endpoints = config.getJSONArray("endpoints");
+				for (i = 0; i < endpoints.length(); i++) {
+					this.endpoints.add(endpoints.getString(i));
+				}
+			}
+
+			JSONArray peers = config.getJSONArray("peers");
+			for (i = 0; i < peers.length(); i++) {
+				this.peers.add(peers.getString(i));
 			}
 
 			if (config.has("timeout")) {
@@ -108,9 +117,28 @@ public class PGoNetOptions {
 				default:
 					throw new PGoOptionException("Invalid state strategy: " + stateOptions.strategy);
 			}
-
 		} catch (JSONException e) {
 			throw new PGoOptionException("Configuration is invalid: " + e.getMessage());
+		}
+
+		validate();
+	}
+
+	private void validate() throws PGoOptionException {
+		if (stateOptions.peers.size() <= 0) {
+			throw new PGoOptionException("No peer specified");
+		}
+		switch (stateOptions.strategy) {
+			case StateOptions.STATE_ETCD:
+				if (stateOptions.endpoints.size() <= 0) {
+					throw new PGoOptionException("No endpoint specified");
+				}
+				break;
+			case StateOptions.STATE_SERVER:
+				// nothing, for now
+				break;
+			default:
+				throw new PGoOptionException("Invalid state strategy: " + stateOptions.strategy);
 		}
 	}
 

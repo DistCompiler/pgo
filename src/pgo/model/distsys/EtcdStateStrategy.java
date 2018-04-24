@@ -7,6 +7,7 @@ import pgo.model.intermediate.*;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Optional;
 import java.util.Vector;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -32,26 +33,19 @@ public class EtcdStateStrategy implements StateStrategy {
 
 		topLevelMain.add(new FunctionCall("datatypes.GobInit", new Vector<>()));
 
-		String configObj = "cfg";
-		Assignment cfgDecl = new Assignment(
-				new Vector<>(Collections.singletonList(configObj)),
-				new Expression() {
-					@Override
-					public Vector<String> toGo() {
-						StructDefinition sdef = new StructDefinition("distsys.Config", true);
-						sdef.addField("Endpoints",
-								Builder.sliceLiteral(
-										PGoType.inferFromGoTypeName("string"),
-										stateOptions.endpoints
-												.stream()
-												.map(e -> new StringLiteral("https://" + e))
-												.collect(Collectors.toList())));
-						sdef.addField("Timeout", new IntLiteral(stateOptions.timeout));
-						return sdef.toGo();
-					}
-				},
-				true);
-		topLevelMain.add(cfgDecl);
+		SliceConstructor endpoints = Builder.sliceLiteral(
+				PGoType.inferFromGoTypeName("string"),
+				stateOptions.endpoints
+						.stream()
+						.map(e -> Builder.stringLiteral("https://" + e))
+						.collect(Collectors.toList()));
+
+		SliceConstructor peers = Builder.sliceLiteral(
+				PGoType.inferFromGoTypeName("string"),
+				stateOptions.peers
+						.stream()
+						.map(Builder::stringLiteral)
+						.collect(Collectors.toList()));
 
 		VariableDeclaration errDecl = new VariableDeclaration(
 				"err",
@@ -60,8 +54,27 @@ public class EtcdStateStrategy implements StateStrategy {
 
 		Assignment stateObj = new Assignment(
 				new Vector<>(Arrays.asList(GLOBAL_STATE_OBJECT, "err")),
-				new FunctionCall("distsys.InitEtcdState",
-						new Vector<>(Collections.singletonList(new Token(configObj)))),
+				new FunctionCall("distsys.NewEtcdState",
+						new Vector<>(Arrays.asList(
+								endpoints,
+								Builder.intLiteral(stateOptions.timeout),
+								peers,
+								new Token("ipAddr"),
+								Builder.stringLiteral(stateOptions.peers.get(0)),
+								Builder.mapLiteral(
+										PGoType.inferFromGoTypeName("string"),
+										PGoType.inferFromGoTypeName("interface{}"),
+										go.getGlobals()
+												.stream()
+												.filter(VariableDeclaration::isRemote)
+												.map(g -> new Object[] {
+														Builder.stringLiteral(g.getName()),
+														Optional.ofNullable(
+																g.getDefaultValue())
+																.orElse(
+																new Token(g.getName()))
+												}).collect(Collectors.toList()))
+								))),
 				false);
 		topLevelMain.add(stateObj);
 
@@ -83,64 +96,6 @@ public class EtcdStateStrategy implements StateStrategy {
 	}
 
 	@Override
-	public void initializeGlobalState(GoProgram go) {
-		Vector<Statement> topLevelMain = go.getMain().getBody();
-		boolean initLockInserted = false;
-		String initLockGroup = "init-lock";
-		String pidVarName = "lockId";
-		Vector<Expression> strconvParams = new Vector<>(Collections.singletonList(new Token(pidVarName)));
-
-		for (VariableDeclaration gVar : go.getGlobals()) {
-			if (!gVar.isRemote()) {
-				continue;
-			}
-
-			go.getImports().addImport("strconv");
-			if (!initLockInserted) {
-				// A lock must be acquired in order to make sure only one process
-				// initializes global variables with their default values.
-				//
-				// Since processes have no identifiers at this point (before parsing
-				// arguments passed on the command line), we generate a random identifier
-				// and use it when trying to get the lock. However, there is still a
-				// slight chance of very bad luck where two processes happen to get
-				// the same random ID and race to get the lock.
-				int maxProcesses = 10000;
-
-				Vector<Expression> randParams = new Vector<>(Collections.singletonList(new IntLiteral(maxProcesses)));
-
-				Assignment pidDecl = new Assignment(
-						new Vector<>(Collections.singletonList(pidVarName)),
-						new FunctionCall("rand.Intn", randParams),
-						true);
-				FunctionCall lock = new FunctionCall(
-						"Lock",
-						new Vector<>(Arrays.asList(
-								new FunctionCall("strconv.Itoa", strconvParams),
-								new StringLiteral(initLockGroup))),
-						new Token(GLOBAL_STATE_OBJECT));
-
-				topLevelMain.add(pidDecl);
-				topLevelMain.add(lock);
-				initLockInserted = true;
-			}
-
-			topLevelMain.add(initializeGlobalVariable(gVar));
-		}
-
-		if (initLockInserted) {
-			FunctionCall lock = new FunctionCall(
-					"Unlock",
-					new Vector<>(Arrays.asList(
-							new FunctionCall("strconv.Itoa", strconvParams),
-							new StringLiteral(initLockGroup))),
-					new Token(GLOBAL_STATE_OBJECT));
-
-			topLevelMain.add(lock);
-		}
-	}
-
-	@Override
 	public void lock(int lockGroup, Vector<Statement> stmts, Stream<PGoVariable> vars) {
 		stmts.add(new FunctionCall(
 				"Lock",
@@ -156,6 +111,11 @@ public class EtcdStateStrategy implements StateStrategy {
 				"Unlock",
 				new Vector<>(Arrays.asList(new Token("selfStr"), new StringLiteral(Integer.toString(lockGroup)))),
 				new Token(GLOBAL_STATE_OBJECT)));
+	}
+
+	@Override
+	public String getGlobalStateVariableName() {
+		return GLOBAL_STATE_OBJECT;
 	}
 
 	@Override
@@ -189,27 +149,6 @@ public class EtcdStateStrategy implements StateStrategy {
 					new Token(var.getName())));
 			stmts.add(new FunctionCall("Set", params, new Token(GLOBAL_STATE_OBJECT)));
 		});
-	}
-
-	// given a remote, global variable declaration, this generates code to initialize
-	// it with a proper value. Since multiple processes might be running at the same
-	// time, initialization must be made only once. This is achieved by making use
-	// of the locking functionality available in the `pgo/distsys' package.
-	private Statement initializeGlobalVariable(VariableDeclaration decl) {
-		Expression initVal = decl.getDefaultValue();
-		if (initVal == null) {
-			initVal = new Token(decl.getName());
-		}
-		Vector<Expression> params = new Vector<>(Arrays.asList(new StringLiteral(decl.getName()), initVal));
-		Vector<Statement> ifBody = new Vector<>(Collections.singletonList(
-				new FunctionCall("Set", params, new Token(GLOBAL_STATE_OBJECT))));
-
-		Vector<Expression> existsParams = new Vector<>(Collections.singletonList(new StringLiteral(decl.getName())));
-		Expression cond = new FunctionCall("Exists", existsParams, new Token(GLOBAL_STATE_OBJECT));
-		pgo.model.golang.If existenceIf = new pgo.model.golang.If(cond, ifBody, new Vector<>());
-		existenceIf.negate();
-
-		return existenceIf;
 	}
 
 	private void validate(PGoNetOptions.StateOptions options) throws PGoOptionException {

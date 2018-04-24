@@ -53,12 +53,6 @@ public class StateServerStateStrategy implements StateStrategy {
 						.collect(Collectors.toList())),
 				true));
 
-		SliceConstructor endpoints = Builder.sliceLiteral(
-				PGoType.inferFromGoTypeName("string"),
-				stateOptions.endpoints.stream()
-				.map(Builder::stringLiteral)
-				.collect(Collectors.toList()));
-
 		MapConstructor globalValues = Builder.mapLiteral(
 				PGoType.inferFromGoTypeName("string"),
 				PGoType.inferFromGoTypeName("interface{}"),
@@ -151,11 +145,6 @@ public class StateServerStateStrategy implements StateStrategy {
 	}
 
 	@Override
-	public void initializeGlobalState(GoProgram go) {
-		// pass, done in config right now
-	}
-
-	@Override
 	public void lock(int lockGroup, Vector<Statement> stmts, Stream<PGoVariable> vars) {
 		List<PGoVariable> vList = vars.collect(Collectors.toList());
 
@@ -222,6 +211,11 @@ public class StateServerStateStrategy implements StateStrategy {
 		stmts.add(new If(new Token("err != nil"),
 				Builder.stmts(new FunctionCall("panic", new Vector<>(Collections.singleton(new Token("err"))))),
 				Builder.stmts()));
+	}
+
+	@Override
+	public String getGlobalStateVariableName() {
+		return GLOBAL_STATE_OBJECT;
 	}
 
 	@Override
