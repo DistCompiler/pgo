@@ -52,16 +52,16 @@ func (init *ProcessInitialization) isCoordinator() bool {
 	return init.Self == init.Coordinator
 }
 
-func (self *ProcessInitialization) Init() error {
+func (self *ProcessInitialization) Init() (*rpc.Server, net.Listener, error) {
 	// bind to this node's own address
 	listener, err := net.Listen("tcp", self.Self)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
 	rpcConn := rpc.NewServer()
 	if err := rpcConn.RegisterName(RPC_ID, self); err != nil {
-		return err
+		return nil, nil, err
 	}
 
 	go rpcConn.Accept(listener)
@@ -73,7 +73,7 @@ func (self *ProcessInitialization) Init() error {
 		self.helloCoordinator()
 	}
 
-	return nil
+	return rpcConn, listener, nil
 }
 
 func (init *ProcessInitialization) helloCoordinator() {

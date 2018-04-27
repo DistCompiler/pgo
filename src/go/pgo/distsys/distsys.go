@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"net/rpc"
 	"sort"
 	"sync"
 )
@@ -264,38 +263,48 @@ func (t *MostFrequentlyUsed) MigrateTo(host string, key string) bool {
 	return true
 }
 
-func NewStateServer(localAddr string, localBind string, hosts []string, identifiers map[string]int, initValues map[string]interface{}) (StateServer, error) {
+func NewStateServer(peers []string, self, coordinator string /*, identifiers map[string]int*/, initValues map[string]interface{}) (StateServer, error) {
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
 
-	owners := make(map[string]*ObjectOwner, len(identifiers))
-	for key, ownerID := range identifiers {
-		owners[key] = &ObjectOwner{
-			hostID: ownerID,
+	// FIXME this is assuming everything is centralized in one place
+	selfId := -1
+	for i, p := range peers {
+		if p == self {
+			selfId = i
 		}
+	}
+	if selfId < 0 {
+		panic("self is not in peers")
+	}
+	owners := make(map[string]*ObjectOwner, len(initValues))
+	for key, _ := range initValues {
+		owners[key] = &ObjectOwner{
+			hostID: selfId,
+		}
+	}
+	store := make(map[string]interface{})
+	if self == coordinator {
+		store = initValues
 	}
 
 	network := &Network{
-		store:     CreateSimpleDataStore(initValues),
+		store:     CreateSimpleDataStore(store),
 		owners:    owners,
-		localhost: localAddr,
-		hosts:     hosts,
+		localhost: self,
+		hosts:     peers,
 		client:    CreateNetClient(),
 		migration: &NeverMigrate{},
 	}
-	s := rpc.NewServer()
-	err := s.RegisterName("StateServer", &NetworkRPC{
-		network: network,
-	})
+	pi := NewProcessInitialization(peers, self, coordinator)
+	s, listener, err := pi.Init()
 	if err != nil {
 		return nil, err
 	}
-
-	listener, err := net.Listen("tcp", localBind)
-	if err != nil {
+	if err := s.RegisterName("StateServer", &NetworkRPC{network}); err != nil {
+		// FIXME leaking listener
 		return nil, err
 	}
 	network.listener = listener
-	go s.Accept(listener)
 
 	return network, nil
 }
