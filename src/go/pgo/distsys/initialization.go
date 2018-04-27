@@ -3,6 +3,7 @@ package distsys
 import (
 	"net"
 	"net/rpc"
+	"sync/atomic"
 	"time"
 )
 
@@ -25,7 +26,7 @@ type ProcessInitialization struct {
 	Coordinator    string                 // which host is the coordinator (IP:port)
 	Network        map[string]*rpc.Client // maps connections from peers
 	readyChan      chan bool              // underlying channel used to coordinate start
-	processesReady int                    // how many processes are ready currently (used only by the coordinator)
+	processesReady int32                  // how many processes are ready currently (used only by the coordinator)
 }
 
 func NewProcessInitialization(peers []string, self, coordinator string) *ProcessInitialization {
@@ -105,10 +106,10 @@ func (init *ProcessInitialization) helloCoordinator() {
 // ready to run. Send a message to each of them indicating that they may start running
 // their algorithms
 func (self *ProcessInitialization) ProcessReady(id []string, ok *bool) error {
-	self.processesReady += 1
+	atomic.AddInt32(&self.processesReady, 1)
 	*ok = true
 
-	if self.processesReady == len(self.Peers) {
+	if int(atomic.LoadInt32(&self.processesReady)) == len(self.Peers) {
 		for _, id := range self.Peers {
 			if id == self.Self {
 				continue
