@@ -266,6 +266,8 @@ func (t *MostFrequentlyUsed) MigrateTo(host string, key string) bool {
 func NewStateServer(peers []string, self, coordinator string /*, identifiers map[string]int*/, initValues map[string]interface{}) (StateServer, error) {
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
 
+	pi := NewProcessInitialization(peers, self, coordinator)
+
 	// FIXME this is assuming everything is centralized in one place
 	selfId := -1
 	for i, p := range peers {
@@ -277,14 +279,14 @@ func NewStateServer(peers []string, self, coordinator string /*, identifiers map
 		panic("self is not in peers")
 	}
 	owners := make(map[string]*ObjectOwner, len(initValues))
-	for key, _ := range initValues {
-		owners[key] = &ObjectOwner{
-			hostID: selfId,
-		}
-	}
 	store := make(map[string]interface{})
-	if self == coordinator {
+	if pi.isCoordinator() {
 		store = initValues
+		for key, _ := range initValues {
+			owners[key] = &ObjectOwner{
+				hostID: selfId,
+			}
+		}
 	}
 
 	network := &Network{
@@ -295,11 +297,12 @@ func NewStateServer(peers []string, self, coordinator string /*, identifiers map
 		client:    CreateNetClient(),
 		migration: &NeverMigrate{},
 	}
-	pi := NewProcessInitialization(peers, self, coordinator)
+
 	s, listener, err := pi.Init()
 	if err != nil {
 		return nil, err
 	}
+
 	if err := s.RegisterName("StateServer", &NetworkRPC{network}); err != nil {
 		// FIXME leaking listener
 		return nil, err
