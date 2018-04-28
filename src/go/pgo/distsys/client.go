@@ -78,7 +78,7 @@ func (t *Network) Acquire(set *AcquireSet) (*ReleaseSet, map[string]interface{},
 			}
 			var reply GetRemoteReply
 
-			t.client.Call(batch.addr, "StateServer.GetRemote", &args, &reply)
+			t.connections.GetConnection(batch.addr).Call("StateServer.GetRemote", &args, &reply)
 
 			log.Printf("GetRemote response from %s: %v\n", batch.addr, reply)
 
@@ -98,7 +98,7 @@ func (t *Network) Acquire(set *AcquireSet) (*ReleaseSet, map[string]interface{},
 						Key:  key,
 					}
 
-					t.client.Call(batch.addr, "StateServer.AckMigration", ack, new(bool))
+					t.connections.GetConnection(batch.addr).Call("StateServer.AckMigration", ack, new(bool))
 				}
 
 				completed = append(completed, key)
@@ -180,7 +180,7 @@ func (t *Network) Release(set *ReleaseSet, values ...interface{}) error {
 			}
 			var reply SetRemoteReply
 
-			t.client.Call(batch.addr, "StateServer.SetRemote", &args, &reply)
+			t.connections.GetConnection(batch.addr).Call("StateServer.SetRemote", &args, &reply)
 
 			for key, owner := range reply.Redirects {
 				object := t.owners[key]
@@ -205,7 +205,6 @@ func (t *Network) SetPolicy(policy IMigrationPolicy) {
 }
 
 func (t *Network) Close() error {
-	t.client.Close()
-	t.listener.Close()
+	t.connections.Close()
 	return nil
 }

@@ -96,7 +96,7 @@ func NewEtcdState(endpoints []string, timeout int, peers []string, self, coordin
 		}
 	}
 
-	if _, _, err := ret.Init(); err != nil {
+	if err := ret.Init(); err != nil {
 		return nil, err
 	}
 

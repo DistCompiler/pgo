@@ -3,7 +3,6 @@ package distsys
 import (
 	"fmt"
 	"log"
-	"net"
 	"sort"
 	"sync"
 )
@@ -32,9 +31,8 @@ type NetworkRPC struct {
 
 // Network holds the state of the network
 type Network struct {
-	// RPC
-	client   *NetClient
-	listener net.Listener
+	// Connections to other peers
+	connections *Connections
 
 	// Network
 	localhost string
@@ -294,20 +292,18 @@ func NewStateServer(peers []string, self, coordinator string /*, identifiers map
 		owners:    owners,
 		localhost: self,
 		hosts:     peers,
-		client:    CreateNetClient(),
 		migration: &NeverMigrate{},
 	}
 
-	s, listener, err := pi.Init()
+	pi := NewProcessInitialization(peers, self, coordinator)
+	err := pi.Init()
 	if err != nil {
 		return nil, err
 	}
-
-	if err := s.RegisterName("StateServer", &NetworkRPC{network}); err != nil {
-		// FIXME leaking listener
+	network.connections = pi.Network
+	if err := network.connections.ExposeImplementation("StateServer", &NetworkRPC{network}); err != nil {
 		return nil, err
 	}
-	network.listener = listener
 
 	return network, nil
 }

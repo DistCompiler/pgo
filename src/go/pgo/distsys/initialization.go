@@ -1,16 +1,5 @@
 package distsys
 
-import (
-	"net"
-	"net/rpc"
-	"sync/atomic"
-	"time"
-)
-
-const (
-	RPC_ID = "PlusCalProcess"
-)
-
 // This implements the process initialization protocol of PlusCal processes.
 // When a PlusCal specification is compiled to TLA+, the TLC model checker
 // starts every "process" defined in PlusCal at the same time.
@@ -20,13 +9,24 @@ const (
 // This is particularly useful for specifications that use (or require) fair
 // scheduling.
 
+import (
+	"sync/atomic"
+	"time"
+)
+
+const (
+	RPC_ID = "PlusCalProcess"
+)
+
+// ProcessInitialization provides an initialization protocol that allows PlusCal
+// processes to coordinate their start.
 type ProcessInitialization struct {
-	Peers          []string               // the list of peers (PlusCal processes)
-	Self           string                 // the identification of the current process (IP:port)
-	Coordinator    string                 // which host is the coordinator (IP:port)
-	Network        map[string]*rpc.Client // maps connections from peers
-	readyChan      chan bool              // underlying channel used to coordinate start
-	processesReady int32                  // how many processes are ready currently (used only by the coordinator)
+	Peers          []string     // the list of peers (PlusCal processes)
+	Self           string       // the identification of the current process (IP:port)
+	Coordinator    string       // which host is the coordinator (IP:port)
+	Network        *Connections // connections to other peers
+	readyChan      chan bool    // underlying channel used to coordinate start
+	processesReady int32        // how many processes are ready currently (used only by the coordinator)
 }
 
 func NewProcessInitialization(peers []string, self, coordinator string) *ProcessInitialization {
@@ -34,7 +34,7 @@ func NewProcessInitialization(peers []string, self, coordinator string) *Process
 		Peers:       peers,
 		Self:        self,
 		Coordinator: coordinator,
-		Network:     map[string]*rpc.Client{},
+		Network:     NewConnections(self),
 	}
 
 	// if node is the coordinator, create a buffered channel; otherwise, a
@@ -52,19 +52,11 @@ func (init *ProcessInitialization) isCoordinator() bool {
 	return init.Self == init.Coordinator
 }
 
-func (self *ProcessInitialization) Init() (*rpc.Server, net.Listener, error) {
-	// bind to this node's own address
-	listener, err := net.Listen("tcp", self.Self)
-	if err != nil {
-		return nil, nil, err
+func (self *ProcessInitialization) Init() error {
+	if err := self.Network.ExposeImplementation(RPC_ID, self); err != nil {
+		return err
 	}
 
-	rpcConn := rpc.NewServer()
-	if err := rpcConn.RegisterName(RPC_ID, self); err != nil {
-		return nil, nil, err
-	}
-
-	go rpcConn.Accept(listener)
 	// the process itself is ready. Incremented when other processes indicate they are
 	// ready via the `ProcessReady` RPC call
 	self.processesReady = 1
@@ -73,7 +65,7 @@ func (self *ProcessInitialization) Init() (*rpc.Server, net.Listener, error) {
 		self.helloCoordinator()
 	}
 
-	return rpcConn, listener, nil
+	return nil
 }
 
 func (init *ProcessInitialization) helloCoordinator() {
@@ -81,21 +73,17 @@ func (init *ProcessInitialization) helloCoordinator() {
 	// Connection errors are interpreted to mean the coordinator is not up yet,
 	// so we wait (indefinitely) for it to be.
 	for {
-		client, err := rpc.Dial("tcp", init.Coordinator)
-		if err != nil {
+		if err := init.Network.ConnectTo(init.Coordinator); err != nil {
 			time.Sleep(1)
 			continue
 		}
 
-		defer client.Close()
-
+		client := init.Network.GetConnection(init.Coordinator)
 		var ok bool
 		if err := client.Call(RPC_ID+".ProcessReady", init.Self, &ok); err != nil {
 			continue
 		}
 
-		// call succeeded -- finish
-		init.Network[init.Coordinator] = client
 		return
 	}
 }
@@ -115,17 +103,15 @@ func (self *ProcessInitialization) ProcessReady(id []string, ok *bool) error {
 				continue
 			}
 
-			client, err := rpc.Dial("tcp", id)
-			if err != nil {
+			if err := self.Network.ConnectTo(id); err != nil {
 				return err
 			}
 
+			client := self.Network.GetConnection(id)
 			var ok bool
 			if err := client.Call(RPC_ID+".Start", self.Self, &ok); err != nil {
 				return err
 			}
-
-			self.Network[id] = client
 		}
 	}
 
