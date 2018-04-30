@@ -1,6 +1,6 @@
 package pgo.model.tla;
 
-public class PGoTLACaseArm {
+public class PGoTLACaseArm extends PGoTLANode {
 	
 	private PGoTLAExpression cond;
 	private PGoTLAExpression result;

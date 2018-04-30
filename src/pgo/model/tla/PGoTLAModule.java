@@ -13,7 +13,7 @@ import java.util.Map;
  * ====
  *
  */
-public class PGoTLAModule extends PGoTLADeclaration {
+public class PGoTLAModule extends PGoTLANode {
 	
 	String name;
 	List<String> exts;

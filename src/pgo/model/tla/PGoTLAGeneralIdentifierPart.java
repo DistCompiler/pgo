@@ -2,7 +2,7 @@ package pgo.model.tla;
 
 import java.util.List;
 
-public class PGoTLAGeneralIdentifierPart {
+public class PGoTLAGeneralIdentifierPart extends PGoTLANode {
 
 	private String id;
 	private List<PGoTLAExpression> parameters;
