@@ -295,7 +295,6 @@ func NewStateServer(peers []string, self, coordinator string /*, identifiers map
 		migration: &NeverMigrate{},
 	}
 
-	pi := NewProcessInitialization(peers, self, coordinator)
 	err := pi.Init()
 	if err != nil {
 		return nil, err
