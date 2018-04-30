@@ -31,8 +31,7 @@ type NetworkRPC struct {
 
 // Network holds the state of the network
 type Network struct {
-	// Connections to other peers
-	connections *Connections
+	*ProcessInitialization
 
 	// Network
 	localhost string
@@ -191,6 +190,7 @@ type ReleaseSet struct {
 type StateServer interface {
 	Acquire(set *AcquireSet) (*ReleaseSet, map[string]interface{}, error)
 	Release(set *ReleaseSet, values ...interface{}) error
+	WaitPeers()
 
 	SetPolicy(policy IMigrationPolicy)
 
@@ -261,7 +261,7 @@ func (t *MostFrequentlyUsed) MigrateTo(host string, key string) bool {
 	return true
 }
 
-func NewStateServer(peers []string, self, coordinator string /*, identifiers map[string]int*/, initValues map[string]interface{}) (StateServer, error) {
+func NewStateServer(peers []string, self, coordinator string, initValues map[string]interface{}) (StateServer, error) {
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
 
 	pi := NewProcessInitialization(peers, self, coordinator)
@@ -288,6 +288,7 @@ func NewStateServer(peers []string, self, coordinator string /*, identifiers map
 	}
 
 	network := &Network{
+		ProcessInitialization: pi,
 		store:     CreateSimpleDataStore(store),
 		owners:    owners,
 		localhost: self,
@@ -295,11 +296,11 @@ func NewStateServer(peers []string, self, coordinator string /*, identifiers map
 		migration: &NeverMigrate{},
 	}
 
-	err := pi.Init()
+	err := network.Init()
 	if err != nil {
 		return nil, err
 	}
-	network.connections = pi.Network
+
 	if err := network.connections.ExposeImplementation("StateServer", &NetworkRPC{network}); err != nil {
 		return nil, err
 	}

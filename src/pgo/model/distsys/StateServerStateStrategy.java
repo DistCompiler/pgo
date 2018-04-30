@@ -29,7 +29,10 @@ public class StateServerStateStrategy implements StateStrategy {
 	private static final String GLOBAL_STATE_OBJECT = "globalState";
 	private static final String LOCK_OBJECT = "remoteLock";
 	private static final String VARS_OBJECT = "remoteVars";
-	private static final String ENDPOINTS_VAR = "endpoints";
+
+	private static final String PEERS_VAR = "peers";
+	private static final String COORDINATOR_VAR = "coordinator";
+	private static final String SELF_VAR = "ipAddr";
 
 	private StateOptions stateOptions;
 
@@ -44,10 +47,10 @@ public class StateServerStateStrategy implements StateStrategy {
 
 		Vector<Statement> topLevelMain = go.getMain().getBody();
 		topLevelMain.add(new Assignment(
-				new Vector<>(Collections.singletonList(ENDPOINTS_VAR)),
+				new Vector<>(Collections.singletonList(PEERS_VAR)),
 				Builder.sliceLiteral(
 						PGoType.inferFromGoTypeName("string"),
-						stateOptions.endpoints
+						stateOptions.peers
 						.stream()
 						.map(Builder::stringLiteral)
 						.collect(Collectors.toList())),
@@ -67,28 +70,20 @@ public class StateServerStateStrategy implements StateStrategy {
 								new Token(g.getName()))
 				}).collect(Collectors.toList()));
 
-		MapConstructor variableAllocations = Builder.mapLiteral(
-				PGoType.inferFromGoTypeName("string"),
-				PGoType.inferFromGoTypeName("int"),
-				go.getGlobals()
-				.stream()
-				.filter(VariableDeclaration::isRemote)
-				.map(g -> new Object[] {
-						Builder.stringLiteral(g.getName()),
-						Builder.intLiteral(0),
-				})
-				.collect(Collectors.toList()));
+		topLevelMain.add(new Assignment(
+						new Vector<>(Arrays.asList(COORDINATOR_VAR)),
+						new Token(PEERS_VAR + "[0]"),
+						true));
 
-		topLevelMain.add(new If(new Token(ENDPOINTS_VAR + "[0] == ipAddr"),
+		topLevelMain.add(new If(new Token(SELF_VAR + " == " + COORDINATOR_VAR),
 				Builder.stmts(
 						new Assignment(
 								new Vector<>(Arrays.asList(GLOBAL_STATE_OBJECT, "err")),
 								new FunctionCall("distsys.NewStateServer",
 										new Vector<>(Arrays.asList(
-												new Token("ipAddr"),
-												new Token("ipAddr"),
-												new Token(ENDPOINTS_VAR),
-												variableAllocations,
+												new Token(PEERS_VAR),
+												new Token(SELF_VAR),
+												new Token(COORDINATOR_VAR),
 												globalValues))),
 								false)
 						),
@@ -97,10 +92,9 @@ public class StateServerStateStrategy implements StateStrategy {
 								new Vector<>(Arrays.asList(GLOBAL_STATE_OBJECT, "err")),
 								new FunctionCall("distsys.NewStateServer",
 										new Vector<>(Arrays.asList(
-												new Token("ipAddr"),
-												new Token("ipAddr"),
-												new Token(ENDPOINTS_VAR),
-												variableAllocations,
+												new Token(PEERS_VAR),
+												new Token(SELF_VAR),
+												new Token(COORDINATOR_VAR),
 												Builder.mapLiteral(
 														PGoType.inferFromGoTypeName("string"),
 														PGoType.inferFromGoTypeName("interface{}")

@@ -24,7 +24,7 @@ type ProcessInitialization struct {
 	Peers          []string     // the list of peers (PlusCal processes)
 	Self           string       // the identification of the current process (IP:port)
 	Coordinator    string       // which host is the coordinator (IP:port)
-	Network        *Connections // connections to other peers
+	connections    *Connections // connections to other peers
 	readyChan      chan bool    // underlying channel used to coordinate start
 	processesReady int32        // how many processes are ready currently (used only by the coordinator)
 }
@@ -34,7 +34,7 @@ func NewProcessInitialization(peers []string, self, coordinator string) *Process
 		Peers:       peers,
 		Self:        self,
 		Coordinator: coordinator,
-		Network:     NewConnections(self),
+		connections: NewConnections(self),
 	}
 
 	// if node is the coordinator, create a buffered channel; otherwise, a
@@ -53,7 +53,7 @@ func (init *ProcessInitialization) isCoordinator() bool {
 }
 
 func (self *ProcessInitialization) Init() error {
-	if err := self.Network.ExposeImplementation(RPC_ID, self); err != nil {
+	if err := self.connections.ExposeImplementation(RPC_ID, self); err != nil {
 		return err
 	}
 
@@ -73,12 +73,12 @@ func (init *ProcessInitialization) helloCoordinator() {
 	// Connection errors are interpreted to mean the coordinator is not up yet,
 	// so we wait (indefinitely) for it to be.
 	for {
-		if err := init.Network.ConnectTo(init.Coordinator); err != nil {
+		if err := init.connections.ConnectTo(init.Coordinator); err != nil {
 			time.Sleep(1)
 			continue
 		}
 
-		client := init.Network.GetConnection(init.Coordinator)
+		client := init.connections.GetConnection(init.Coordinator)
 		var ok bool
 		if err := client.Call(RPC_ID+".ProcessReady", init.Self, &ok); err != nil {
 			continue
@@ -103,11 +103,11 @@ func (self *ProcessInitialization) ProcessReady(id []string, ok *bool) error {
 				continue
 			}
 
-			if err := self.Network.ConnectTo(id); err != nil {
+			if err := self.connections.ConnectTo(id); err != nil {
 				return err
 			}
 
-			client := self.Network.GetConnection(id)
+			client := self.connections.GetConnection(id)
 			var ok bool
 			if err := client.Call(RPC_ID+".Start", self.Self, &ok); err != nil {
 				return err
