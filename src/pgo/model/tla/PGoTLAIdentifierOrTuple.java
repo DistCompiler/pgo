@@ -11,7 +11,7 @@ package pgo.model.tla;
  * << a, b, c >>
  *
  */
-public abstract class PGoTLAIdentifierOrTuple {
+public abstract class PGoTLAIdentifierOrTuple extends PGoTLANode {
 	
 	public abstract <Result> Result walk(PGoTLAIdentifierOrTupleVisitor<Result> v);
 

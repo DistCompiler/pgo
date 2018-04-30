@@ -11,7 +11,7 @@ import pgo.trans.PGoTransException;
  * Base TLA Expression representation
  *
  */
-public abstract class PGoTLAExpression {
+public abstract class PGoTLAExpression extends PGoTLANode {
 
 	// the line number
 	private int line;

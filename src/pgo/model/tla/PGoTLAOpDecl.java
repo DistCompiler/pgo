@@ -7,6 +7,6 @@ package pgo.model.tla;
  * used for higher-order operators.
  *
  */
-public abstract class PGoTLAOpDecl {
+public abstract class PGoTLAOpDecl extends PGoTLANode {
 	// pass
 }

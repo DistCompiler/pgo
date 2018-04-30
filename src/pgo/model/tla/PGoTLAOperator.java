@@ -10,7 +10,7 @@ import java.util.stream.Collectors;
  * op(...) == ...
  *
  */
-public class PGoTLAOperator {
+public class PGoTLAOperator extends PGoTLANode {
 	private String name;
 	private List<PGoTLAOpDecl> args;
 	private PGoTLAExpression body;

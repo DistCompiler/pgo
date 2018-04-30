@@ -1,6 +1,6 @@
 package pgo.model.tla;
 
-public abstract class PGoTLASubstitutionKey {
+public abstract class PGoTLASubstitutionKey extends PGoTLANode {
 
 	public abstract <T> T accept(PGoTLASubstitutionKeyVisitor<T> visitor);
 	
