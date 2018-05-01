@@ -268,23 +268,36 @@ func NewStateServer(peers []string, self, coordinator string, initValues map[str
 
 	// FIXME this is assuming everything is centralized in one place
 	selfId := -1
+	coordinatorId := -1
 	for i, p := range peers {
 		if p == self {
 			selfId = i
 		}
+
+		if p == coordinator {
+			coordinatorId = i
+		}
 	}
+	// Make sure `self` is in the list of peers
 	if selfId < 0 {
 		panic("self is not in peers")
 	}
+	if coordinatorId < 0 {
+		panic("coodinator is not in peers")
+	}
+
 	owners := make(map[string]*ObjectOwner, len(initValues))
 	store := make(map[string]interface{})
+
+	// at first, all state is in the coordinator node
+	for key, _ := range initValues {
+		owners[key] = &ObjectOwner{
+			hostID: coordinatorId,
+		}
+	}
+
 	if pi.isCoordinator() {
 		store = initValues
-		for key, _ := range initValues {
-			owners[key] = &ObjectOwner{
-				hostID: selfId,
-			}
-		}
 	}
 
 	network := &Network{
@@ -340,6 +353,7 @@ func (t *Network) nextBatch(transaction TransactionSet) (*Batch, bool, error) {
 
 		if !ok {
 			return nil, false, KeyNotFoundError(key)
+
 		}
 
 		owner.RLock()

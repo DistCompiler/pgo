@@ -75,9 +75,7 @@ public class StateServerStateStrategy implements StateStrategy {
 						new Token(PEERS_VAR + "[0]"),
 						true));
 
-		topLevelMain.add(new If(new Token(SELF_VAR + " == " + COORDINATOR_VAR),
-				Builder.stmts(
-						new Assignment(
+		topLevelMain.add(new Assignment(
 								new Vector<>(Arrays.asList(GLOBAL_STATE_OBJECT, "err")),
 								new FunctionCall("distsys.NewStateServer",
 										new Vector<>(Arrays.asList(
@@ -86,22 +84,7 @@ public class StateServerStateStrategy implements StateStrategy {
 												new Token(COORDINATOR_VAR),
 												globalValues))),
 								false)
-						),
-				Builder.stmts(
-						new Assignment(
-								new Vector<>(Arrays.asList(GLOBAL_STATE_OBJECT, "err")),
-								new FunctionCall("distsys.NewStateServer",
-										new Vector<>(Arrays.asList(
-												new Token(PEERS_VAR),
-												new Token(SELF_VAR),
-												new Token(COORDINATOR_VAR),
-												Builder.mapLiteral(
-														PGoType.inferFromGoTypeName("string"),
-														PGoType.inferFromGoTypeName("interface{}")
-												)))),
-										false)
-						)
-				));
+						);
 
 		topLevelMain.add(new If(new Token("err != nil"),
 				Builder.stmts(

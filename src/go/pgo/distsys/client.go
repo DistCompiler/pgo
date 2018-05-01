@@ -80,8 +80,6 @@ func (t *Network) Acquire(set *AcquireSet) (*ReleaseSet, map[string]interface{},
 
 			t.connections.GetConnection(batch.addr).Call("StateServer.GetRemote", &args, &reply)
 
-			log.Printf("GetRemote response from %s: %v\n", batch.addr, reply)
-
 			for key, object := range reply.Objects {
 				if _, ok := getSet[key]; ok {
 					values[key] = object.Value
@@ -113,7 +111,6 @@ func (t *Network) Acquire(set *AcquireSet) (*ReleaseSet, map[string]interface{},
 		t.unlock(batch)
 	}
 
-	log.Printf("[%v] Acquired()=(%v, %v)\n", t.localhost, ReleaseSet{set.WriteNames, transaction}, values)
 	return &ReleaseSet{
 		WriteNames:  set.WriteNames,
 		Transaction: transaction,
