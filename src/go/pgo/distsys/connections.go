@@ -44,7 +44,7 @@ func (c *Connections) prepareRPCServer() error {
 		return err
 	}
 
-	listener, err := net.ListenTCP(c.address, tcpaddr)
+	listener, err := net.ListenTCP("tcp", tcpaddr)
 	if err != nil {
 		return err
 	}
