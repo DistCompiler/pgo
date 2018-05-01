@@ -106,7 +106,6 @@ func (t *SimpleDataStore) Get(key string) (interface{}, error) {
 	}
 
 	entry.Lock()
-	// defer entry.Unlock()
 
 	log.Printf("Got(%s)=%v", key, entry.value)
 	return entry.value, nil
