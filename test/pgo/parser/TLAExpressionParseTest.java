@@ -5,7 +5,9 @@ import static org.hamcrest.CoreMatchers.*;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -15,11 +17,11 @@ import org.junit.runners.Parameterized.Parameters;
 import pcal.TLAToken;
 import pgo.lexer.PGoTLALexerException;
 import pgo.lexer.TLALexer;
-import pgo.model.tla.PGoTLABool;
 import pgo.model.tla.PGoTLACase;
 import pgo.model.tla.PGoTLACaseArm;
 import pgo.model.tla.PGoTLAExpression;
 import pgo.model.tla.PGoTLAFunction;
+import pgo.model.tla.PGoTLAFunctionCall;
 import pgo.model.tla.PGoTLAFunctionSubstitution;
 import pgo.model.tla.PGoTLAFunctionSubstitutionPair;
 import pgo.model.tla.PGoTLAGeneralIdentifierPart;
@@ -30,6 +32,7 @@ import pgo.model.tla.PGoTLAString;
 import pgo.model.tla.PGoTLASubstitutionKey;
 import pgo.model.tla.PGoTLASubstitutionKeyIndices;
 import pgo.model.tla.PGoTLASubstitutionKeyName;
+import pgo.model.tla.PGoTLAUnary;
 import pgo.model.tla.PGoTLAVariable;
 
 @RunWith(Parameterized.class)
@@ -166,6 +169,42 @@ public class TLAExpressionParseTest {
 					}),
 					1),
 			},
+			{"[sum EXCEPT ![self] = msg_'[self]]", new PGoTLAFunctionSubstitution(
+					new PGoTLAVariable("sum", new ArrayList<>(), 1),
+					Collections.singletonList(new PGoTLAFunctionSubstitutionPair(
+							Collections.singletonList(new PGoTLASubstitutionKeyIndices(
+									Collections.singletonList(new PGoTLAVariable("self", new ArrayList<>(), 1)))),
+						new PGoTLAFunctionCall(
+							new PGoTLAUnary("'", new ArrayList<>(),
+									new PGoTLAVariable("msg_", new ArrayList<>(), 1), 1),
+							Collections.singletonList(new PGoTLAVariable("self", new ArrayList<>(), 1)),
+							1))),
+					1),
+			},
+			{"DOMAIN \\lnot a", new PGoTLAUnary(
+					"DOMAIN",
+					new ArrayList<>(),
+					new PGoTLAUnary(
+							"\\lnot",
+							new ArrayList<>(),
+							new PGoTLAVariable(
+									"a",
+									new ArrayList<>(),
+									1),
+							1),
+					1),},
+			{"\\lnot DOMAIN a", new PGoTLAUnary(
+					"\\lnot",
+					new ArrayList<>(),
+					new PGoTLAUnary(
+							"DOMAIN",
+							new ArrayList<>(),
+							new PGoTLAVariable(
+									"a",
+									new ArrayList<>(),
+									1),
+							1),
+					1),},
 		});
 	}
 	
@@ -183,6 +222,8 @@ public class TLAExpressionParseTest {
 		lexer.requireModule(false);
 		
 		List<TLAToken> tokens = lexer.readTokens();
+		
+		System.out.println(tokens.stream().map(t -> t != null ? t.string : "null").collect(Collectors.toList()));
 		
 		PGoTLAExpression expr = TLAParser.readExpression(tokens.listIterator());
 		

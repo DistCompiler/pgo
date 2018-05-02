@@ -36,6 +36,18 @@ public class PGoTLAModule extends PGoTLANode {
 		this.assumptions = assumptions;
 		this.theorems = theorems;
 	}
+	
+	public String getName() {
+		return name;
+	}
+	
+	public List<String> getExtends(){
+		return exts;
+	}
+	
+	public Map<String, PGoTLAOperator> getOperators(){
+		return operators;
+	}
 
 	@Override
 	public String toString() {
