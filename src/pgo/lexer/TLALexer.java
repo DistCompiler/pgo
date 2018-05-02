@@ -242,6 +242,9 @@ public class TLALexer {
 		this.moduleRequired = true;
 	}
 	
+	/**
+	 * @param yes whether to require that the input begins with a TLA module declaration, defaults to true
+	 */
 	public void requireModule(boolean yes) {
 		this.moduleRequired = yes;
 	}

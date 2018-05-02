@@ -11,6 +11,14 @@ public class PGoTLAGeneralIdentifierPart extends PGoTLANode {
 		this.id = id;
 		this.parameters = parameters;
 	}
+	
+	public String getId() {
+		return id;
+	}
+	
+	public List<PGoTLAExpression> getParameters(){
+		return parameters;
+	}
 
 	@Override
 	public int hashCode() {
