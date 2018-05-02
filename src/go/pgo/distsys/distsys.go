@@ -306,7 +306,7 @@ func NewStateServer(peers []string, self, coordinator string, initValues map[str
 		owners:    owners,
 		localhost: self,
 		hosts:     peers,
-		migration: &NeverMigrate{},
+		migration: &AlwaysMigrate{},
 	}
 
 	err := network.Init()
