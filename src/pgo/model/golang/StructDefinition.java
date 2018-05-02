@@ -8,7 +8,7 @@ import java.util.Vector;
  * Wraps the definition of a Golang struct
  *
  */
-public class StructDefinition extends Statement {
+public class StructDefinition extends Expression {
 
     // the struct name
     private String name;

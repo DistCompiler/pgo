@@ -71,6 +71,9 @@ public class PGoTransStageGoGen {
 		if (this.data.isMultiProcess && this.data.netOpts.isEnabled()) {
 			// Switch on `processName` to know which process/function to invoke and passing `processArg`
 			// as the argument to the process/function. They are instantiated in `addPositionalArgToMain`.
+			go.getMain().getBody().add(new FunctionCall("WaitPeers",
+					new Vector<>(),
+					new Token(data.netOpts.getStateStrategy().getGlobalStateVariableName())));
 
 			Vector<Expression> exp, args;
 			Vector<Statement> code;
@@ -149,14 +152,12 @@ public class PGoTransStageGoGen {
 			positionalArgNames.add("process(argument)");
 			addPositionalArgToMain(argN++, positionalArgs, pid);
 
-			if (!data.netOpts.getStateOptions().strategy.equals(PGoNetOptions.StateOptions.STATE_CENTRALIZED_ETCD)) {
-				// command line argument: the IP:port address this program is  going
-				// to use to communicate with peers.
-				PGoVariable ipAddr = PGoVariable.processNetAddress();
-				ipAddr.setType(PGoPrimitiveType.STRING);
-				positionalArgNames.add("ip:port");
-				addPositionalArgToMain(argN++, positionalArgs, ipAddr);
-			}
+			// command line argument: the IP:port address this program is going
+			// to use to communicate with peers.
+			PGoVariable ipAddr = PGoVariable.processNetAddress();
+			ipAddr.setType(PGoPrimitiveType.STRING);
+			positionalArgNames.add("ip:port");
+			addPositionalArgToMain(argN++, positionalArgs, ipAddr);
 		}
 
 		for (PGoVariable pv : this.data.globals.values()) {
@@ -178,41 +179,26 @@ public class PGoTransStageGoGen {
 		}
 
 		if (hasArg) {
-			final int fArgN = argN;
-			final boolean fHasFlagArgs = hasFlagArgs;
 			go.getImports().addImport("os");
 			go.getImports().addImport("fmt");
 			main.add(new FunctionCall("flag.Parse", new Vector<>()));
 
 			// check arguments
-			Expression cond = new SimpleExpression(new Vector<Expression>() {
-				{
-					add(new FunctionCall("flag.NArg", new Vector<>()));
-					add(new Token("<"));
-					add(new Token(Integer.toString(fArgN)));
-				}
-			});
-			Vector<Statement> thenPart = new Vector<Statement>() {
-				{
-					add(new FunctionCall("fmt.Fprintf", new Vector<Expression>() {
-						{
-							add(new Token("os.Stderr"));
-							add(new Token((fHasFlagArgs ? "\"Usage: %s [options...] " : "\"Usage: %s ") +
+			Expression cond = new SimpleExpression(new Vector<>(Arrays.asList(
+					new FunctionCall("flag.NArg", new Vector<>()),
+					new Token("<"),
+					new Token(Integer.toString(argN)))));
+			Vector<Statement> thenPart = new Vector<>(Arrays.asList(
+					new FunctionCall("fmt.Fprintf", new Vector<>(Arrays.asList(
+							new Token("os.Stderr"),
+							new Token((hasFlagArgs ? "\"Usage: %s [options...] " : "\"Usage: %s ") +
 									String.join(" ", positionalArgNames) +
-									(fHasFlagArgs ? "\\nOptions:" : "") +
-									"\\n\""
-							));
-							add(new Token("os.Args[0]"));
-						}
-					}));
-					add(new FunctionCall("os.Exit", new Vector<Expression>() {
-						{
-							add(new Token("1"));
-						}
-					}));
-				}
-			};
-			if (fHasFlagArgs) {
+									(hasFlagArgs ? "\\nOptions:" : "") +
+									"\\n\""),
+							new Token("os.Args[0]")))),
+					new FunctionCall("os.Exit",
+							new Vector<>(Collections.singletonList(Builder.intLiteral(1))))));
+			if (hasFlagArgs) {
 				thenPart.add(new FunctionCall("flag.PrintDefaults", new Vector<>()));
 			}
 			main.add(new pgo.model.golang.If(cond, thenPart, new Vector<>()));
@@ -804,7 +790,7 @@ public class PGoTransStageGoGen {
 
 	/**
 	 * Generate the go routines init blocks as statements
-	 * 
+	 *
 	 * @param goroutines
 	 * @throws PGoTransException
 	 */
@@ -884,7 +870,7 @@ public class PGoTransStageGoGen {
 
 	/**
 	 * Create declarations for all functions
-	 * 
+	 *
 	 * @throws PGoTransException
 	 */
 	private void generateFunctions() throws PGoTransException {
@@ -997,7 +983,7 @@ public class PGoTransStageGoGen {
 
 	/**
 	 * Generate the code for global variables
-	 * 
+	 *
 	 * @throws PGoTransException
 	 */
 	private void generateGlobalVariables() throws PGoTransException {
@@ -1104,7 +1090,8 @@ public class PGoTransStageGoGen {
 
 			go.addGlobal(new VariableDeclaration(pv, new Token(pv.getGoVal())));
 			return;
-		} else if (pv.getArgInfo() != null) {
+		}
+		if (pv.getArgInfo() != null) {
 			go.addGlobal(new VariableDeclaration(pv, null));
 			// generateMain will fill the main function
 		} else {
@@ -1129,30 +1116,24 @@ public class PGoTransStageGoGen {
 
 	/**
 	 * Add the position based argument command line parsing code to main
-	 * 
+	 *
 	 * @param argN
 	 * @param positionalArgs
 	 * @param pv
 	 */
 	private void addPositionalArgToMain(int argN, Vector<Statement> positionalArgs, PGoVariable pv) {
 		if (pv.getType().equals(PGoType.PROCESS_ID)) {
-			Vector<Expression> emptyArgs = new Vector<>();
-			Vector<Expression> exp, args;
-
-			exp = new Vector<>();
-			args = new Vector<>();
-			exp.add(new FunctionCall("flag.Args", emptyArgs));
-			exp.add(new Token("[" + argN + "]"));
+			Vector<Expression> exp = new Vector<>();
+			Vector<Expression> args = new Vector<>();
+			exp.add(new FunctionCall("flag.Arg", new Vector<>(Collections.singletonList(Builder.intLiteral(argN)))));
 			args.add(new SimpleExpression(exp));
-
-			exp = new Vector<>();
-			exp.add(new Token("processName, processArg"));
-			exp.add(new Token(" := "));
-			exp.add(new FunctionCall("datatypes.ParseProcessId", args));
-			positionalArgs.add(new SimpleExpression(exp));
+			positionalArgs.add(new Assignment(
+					new Vector<>(Arrays.asList("processName", "processArg")),
+					new FunctionCall("datatypes.ParseProcessId", args),
+					true));
 		} else if (pv.getType().equals(PGoPrimitiveType.STRING)) {
-			// var = flag.Args()[..]
-			Vector<Expression> args = new Vector<>(), exp = new Vector<>();
+			// var = flag.Arg(..)
+			Vector<Expression> exp = new Vector<>();
 			exp.add(new Token(pv.getName()));
 
 			if (pv.getIsSimpleAssignInit()) {
@@ -1161,8 +1142,7 @@ public class PGoTransStageGoGen {
 				exp.add(new Token(" := "));
 			}
 
-			exp.add(new FunctionCall("flag.Args", args));
-			exp.add(new Token("[" + argN + "]"));
+			exp.add(new FunctionCall("flag.Arg", new Vector<>(Collections.singletonList(Builder.intLiteral(argN)))));
 			positionalArgs.add(new SimpleExpression(exp));
 		} else if (pv.getType().equals(PGoPrimitiveType.INT)) {
 			// var,_ = strconv.Atoi(flag.Args()[..])
@@ -1268,8 +1248,6 @@ public class PGoTransStageGoGen {
 		go.getImports().addImport("pgo/datatypes");
 
 		data.netOpts.getStateStrategy().generateConfig(go);
-
-		data.netOpts.getStateStrategy().initializeGlobalState(go);
 	}
 
 	private void addFlagArgToMain(PGoVariable pv) throws PGoTransException {

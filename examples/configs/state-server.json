@@ -7,8 +7,8 @@
     "enabled": true,
 
     "state": {
-      "strategy": "centralized",
-      "endpoints": ["172.28.128.7:2379"],
+      "strategy": "state-server",
+      "peers": ["10.0.0.1:12345", "10.0.0.2:12345"],
       "timeout": 3
     }
   }

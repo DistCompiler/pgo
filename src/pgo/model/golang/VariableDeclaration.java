@@ -78,9 +78,9 @@ public class VariableDeclaration extends Statement {
 
 	@Override
 	public Vector<String> toGo() {
-		Vector<String> ret = new Vector<String>();
+		Vector<String> ret = new Vector<>();
 		Vector<String> comments = new Vector<>();
-		Vector<String> valStr = (defaultValue == null || remote) ? new Vector<String>() : defaultValue.toGo();
+		Vector<String> valStr = (defaultValue == null || remote) ? new Vector<>() : defaultValue.toGo();
 		String decl;
 
 		decl = (isConst ? "const " : "var ") + name + " " + type.toGo();

@@ -7,7 +7,8 @@
     "enabled": true,
 
     "state": {
-      "strategy": "centralized-etcd",
+      "strategy": "etcd",
+      "peers": ["10.0.0.1:12345", "10.0.0.2:12345"],
       "endpoints": ["10.0.0.1"],
       "timeout": 2
     }

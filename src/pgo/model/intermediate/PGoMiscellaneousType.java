@@ -24,8 +24,28 @@ public abstract class PGoMiscellaneousType extends PGoType {
 		public EtcdState() { this.goType = "*distsys.EtcdState"; }
 	}
 
+	public static class State extends PGoMiscellaneousType {
+		public State() { this.goType = "distsys.State"; }
+	}
+
 	public static class PGoNetConfig extends PGoMiscellaneousType {
 		public PGoNetConfig() { this.goType = "distsys.Config"; }
+	}
+
+	public static class StateServer extends PGoMiscellaneousType {
+		public StateServer() { this.goType = "distsys.StateServer"; }
+	}
+
+	public static class StateServerReleaseSet extends PGoMiscellaneousType {
+		public StateServerReleaseSet() { this.goType = "*distsys.ReleaseSet"; }
+	}
+
+	public static class StateServerAcquireSet extends PGoMiscellaneousType {
+		public StateServerAcquireSet() { this.goType = "distsys.AcquireSet"; }
+	}
+
+	public static class StateServerValueMap extends PGoMiscellaneousType {
+		public StateServerValueMap() { this.goType = "map[string]interface{}"; }
 	}
 
 	@Override
@@ -43,6 +63,8 @@ public abstract class PGoMiscellaneousType extends PGoType {
 			return new EtcdState();
 		case "distsys.Config":
 			return new PGoNetConfig();
+		case "distsys.StateServer":
+			return new StateServer();
 		}
 		return PGoType.UNDETERMINED;
 	}

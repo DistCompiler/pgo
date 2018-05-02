@@ -52,7 +52,7 @@ public class FunctionCall extends Expression {
 
 	@Override
 	public Vector<String> toGo() {
-		Vector<String> paramStr = new Vector<String>();
+		Vector<String> paramStr = new Vector<>();
 		for (int i = 0; i < params.size(); i++) {
 			Vector<String> e = params.get(i).toGo();
 			for (int j = 0; j < e.size(); j++) {
@@ -67,7 +67,7 @@ public class FunctionCall extends Expression {
 				}
 			}
 		}
-		Vector<String> ret = new Vector<String>();
+		Vector<String> ret = new Vector<>();
 		String first = "";
 		if (this.isObjectCall) {
 			assert (obj != null);

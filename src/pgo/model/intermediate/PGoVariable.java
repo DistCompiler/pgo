@@ -16,7 +16,7 @@ import pgo.trans.intermediate.PGoTempData;
 
 /**
  * Intermediate representation of a single pluscal and golang variable.
- * 
+ *
  * PlusCal declares variables as `variable varname=val; varname2=val2;
  * varname3...` and may include PlusCal specific syntax initialization. GoLang
  * declares variables as `type var;` or `type var = val;` or more complex
@@ -165,7 +165,7 @@ public class PGoVariable {
 	 * Converts a PlusCal AST variable into a basic PGoVariable intermediate
 	 * representation. This does not create the variable initialization
 	 * functions for Go and the type inference.
-	 * 
+	 *
 	 * @param var
 	 * @return
 	 */
@@ -263,7 +263,7 @@ public class PGoVariable {
 
 	@Override
 	public boolean equals(Object other) {
-		if (other == null || !(other instanceof PGoVariable)) {
+		if (!(other instanceof PGoVariable)) {
 			return false;
 		}
 		PGoVariable o = (PGoVariable) other;

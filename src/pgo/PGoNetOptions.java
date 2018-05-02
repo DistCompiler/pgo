@@ -3,11 +3,10 @@ package pgo;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
-import pgo.model.distsys.CentralizedEtcdStateStrategy;
-import pgo.model.distsys.CentralizedStateStrategy;
+import pgo.model.distsys.EtcdStateStrategy;
+import pgo.model.distsys.StateServerStateStrategy;
 import pgo.model.distsys.StateStrategy;
 
-import java.util.Arrays;
 import java.util.Vector;
 
 // Wraps options related to networking in the generated Go code.
@@ -34,19 +33,21 @@ public class PGoNetOptions {
 	// This class ensures that the options provided in the configuration file make
 	// sense, i.e., whether they use a known/supported state management strategy.
 	public class StateOptions {
-		public static final String STATE_CENTRALIZED = "centralized";
-		public static final String STATE_CENTRALIZED_ETCD = "centralized-etcd";
+		public static final String STATE_ETCD = "etcd";
+		public static final String STATE_SERVER = "state-server";
 
-		private static final String DEFAULT_STATE_STRATEGY = STATE_CENTRALIZED_ETCD;
+		private static final String DEFAULT_STATE_STRATEGY = STATE_ETCD;
 		private static final int DEFAULT_TIMEOUT = 3;
 
 		public String strategy;
 		public Vector<String> endpoints;
+		public Vector<String> peers;
 		public int timeout;
 
 		public StateOptions(JSONObject config) {
 			int i;
 			this.endpoints = new Vector<>();
+			this.peers = new Vector<>();
 
 			if (config.has("strategy")) {
 				this.strategy = config.getString("strategy");
@@ -54,9 +55,16 @@ public class PGoNetOptions {
 				this.strategy = DEFAULT_STATE_STRATEGY;
 			}
 
-			JSONArray endpoints = config.getJSONArray("endpoints");
-			for (i = 0; i < endpoints.length(); i++) {
-				this.endpoints.add(endpoints.getString(i));
+			if (config.has("endpoints")) {
+				JSONArray endpoints = config.getJSONArray("endpoints");
+				for (i = 0; i < endpoints.length(); i++) {
+					this.endpoints.add(endpoints.getString(i));
+				}
+			}
+
+			JSONArray peers = config.getJSONArray("peers");
+			for (i = 0; i < peers.length(); i++) {
+				this.peers.add(peers.getString(i));
 			}
 
 			if (config.has("timeout")) {
@@ -100,18 +108,37 @@ public class PGoNetOptions {
 			stateOptions = new StateOptions(stateConfig);
 
 			switch (stateOptions.strategy) {
-				case StateOptions.STATE_CENTRALIZED_ETCD:
-					stateStrategy = new CentralizedEtcdStateStrategy(stateOptions);
+				case StateOptions.STATE_ETCD:
+					stateStrategy = new EtcdStateStrategy(stateOptions);
 					break;
-				case StateOptions.STATE_CENTRALIZED:
-					stateStrategy = new CentralizedStateStrategy(stateOptions);
+				case StateOptions.STATE_SERVER:
+					stateStrategy = new StateServerStateStrategy(stateOptions);
 					break;
 				default:
 					throw new PGoOptionException("Invalid state strategy: " + stateOptions.strategy);
 			}
-
 		} catch (JSONException e) {
 			throw new PGoOptionException("Configuration is invalid: " + e.getMessage());
+		}
+
+		validate();
+	}
+
+	private void validate() throws PGoOptionException {
+		if (stateOptions.peers.size() <= 0) {
+			throw new PGoOptionException("No peer specified");
+		}
+		switch (stateOptions.strategy) {
+			case StateOptions.STATE_ETCD:
+				if (stateOptions.endpoints.size() <= 0) {
+					throw new PGoOptionException("No endpoint specified");
+				}
+				break;
+			case StateOptions.STATE_SERVER:
+				// nothing, for now
+				break;
+			default:
+				throw new PGoOptionException("Invalid state strategy: " + stateOptions.strategy);
 		}
 	}
 
