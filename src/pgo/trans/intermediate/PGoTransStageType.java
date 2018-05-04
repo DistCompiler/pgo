@@ -9,8 +9,6 @@ import pcal.AST.Process;
 import pcal.AST.SingleAssign;
 import pcal.AST.VarDecl;
 import pgo.PGoNetOptions;
-import pgo.ProcessIntArg;
-import pgo.ProcessStringArg;
 import pgo.model.intermediate.*;
 import pgo.model.intermediate.PGoCollectionType.PGoMap;
 import pgo.model.intermediate.PGoCollectionType.PGoSet;
@@ -63,7 +61,7 @@ public class PGoTransStageType {
 
 	/**
 	 * Checks that all the information is typed
-	 * 
+	 *
 	 * @throws PGoTransException
 	 *             as appropriate when not all information is typed
 	 */

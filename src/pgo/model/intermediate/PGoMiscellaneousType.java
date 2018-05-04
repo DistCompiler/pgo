@@ -24,14 +24,6 @@ public abstract class PGoMiscellaneousType extends PGoType {
 		public EtcdState() { this.goType = "*distsys.EtcdState"; }
 	}
 
-	public static class State extends PGoMiscellaneousType {
-		public State() { this.goType = "distsys.State"; }
-	}
-
-	public static class PGoNetConfig extends PGoMiscellaneousType {
-		public PGoNetConfig() { this.goType = "distsys.Config"; }
-	}
-
 	public static class StateServer extends PGoMiscellaneousType {
 		public StateServer() { this.goType = "distsys.StateServer"; }
 	}
@@ -61,8 +53,6 @@ public abstract class PGoMiscellaneousType extends PGoType {
 			return new PGoRWMutex();
 		case "distsys.EtcdState":
 			return new EtcdState();
-		case "distsys.Config":
-			return new PGoNetConfig();
 		case "distsys.StateServer":
 			return new StateServer();
 		}
