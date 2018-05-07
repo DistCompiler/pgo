@@ -69,7 +69,7 @@ public class PGoTLAFunctionCall extends PGoTLAExpression {
 
 	@Override
 	public String toString() {
-		StringBuilder ret = new StringBuilder("PGoTLAFunc(" ).append(this.getLine()).append("): ") .append(function).append("(");
+		StringBuilder ret = new StringBuilder("PGoTLAFunc(").append(this.getLine()).append("): ").append(function).append("(");
 		for (PGoTLAExpression p : params) {
 			ret.append("(").append(p.toString()).append("), ");
 		}
