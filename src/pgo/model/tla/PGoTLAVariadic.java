@@ -22,7 +22,7 @@ import pgo.trans.PGoTransException;
 public class PGoTLAVariadic extends PGoTLAExpression {
 	private String tok;
 	// the multi-argument side
-	private Vector<PGoTLAExpression> multiArgs;
+	private List<PGoTLAExpression> multiArgs;
 	// the expression on the other side
 	private PGoTLAExpression expr;
 	// true if the multi-argument side is the right one
@@ -37,11 +37,11 @@ public class PGoTLAVariadic extends PGoTLAExpression {
 		this.rightSide = rightSide;
 	}
 	
-	public PGoTLAVariadic(String token, Vector<PGoTLAExpression> left, Vector<TLAToken> right, int line)
+	public PGoTLAVariadic(String token, List<PGoTLAExpression> left, List<TLAToken> right, int line)
 			throws PGoTransException {
 		super(line);
 		multiArgs = new Vector<>();
-		Vector<PGoTLAExpression> r = new TLAExprParser(right, line).getResult();
+		List<PGoTLAExpression> r = new TLAExprParser(right, line).getResult();
 		this.tok = token;
 		
 		switch (tok) {
@@ -95,7 +95,7 @@ public class PGoTLAVariadic extends PGoTLAExpression {
 		return tok;
 	}
 
-	public Vector<PGoTLAExpression> getArgs() {
+	public List<PGoTLAExpression> getArgs() {
 		return multiArgs;
 	}
 

@@ -1,5 +1,8 @@
 package pgo.model.tla;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.Vector;
 
 import pgo.model.golang.*;
@@ -152,11 +155,7 @@ public class TLAExprToGo {
 			// Create anonymous function for f
 			TLAExprToGo trans = new TLAExprToGo(tla.getExpr(), imports, temp);
 			AnonymousFunction f = new AnonymousFunction(trans.getType(), decls, new Vector<>(),
-					new Vector<Statement>() {
-						{
-							add(new Return(trans.toExpression()));
-						}
-					});
+					Collections.singletonList(new Return(trans.toExpression())));
 			params.add(0, f);
 			imports.addImport("pgo/datatypes");
 			return new FunctionCall("datatypes.MapsTo", params);
@@ -197,11 +196,7 @@ public class TLAExprToGo {
 				}
 				trans = new TLAExprToGo(tla.getExpr(), imports, temp);
 				f = new AnonymousFunction(trans.getType(), decls, new Vector<>(),
-						new Vector<Statement>() {
-							{
-								add(new Return(trans.toExpression()));
-							}
-						});
+						Collections.singletonList(new Return(trans.toExpression())));
 				params.add(0, f);
 				imports.addImport("pgo/datatypes");
 				return new FunctionCall("datatypes.SetImage", params);
@@ -225,24 +220,11 @@ public class TLAExprToGo {
 
 				AnonymousFunction P = new AnonymousFunction(
 						PGoType.inferFromGoTypeName("bool"),
-						new Vector<ParameterDeclaration>() {
-							{
-								add(new ParameterDeclaration(var.getName(), varType));
-							}
-						},
+						Collections.singletonList(new ParameterDeclaration(var.getName(), varType)),
 						new Vector<>(),
-						new Vector<Statement>() {
-							{
-								add(new Return(new TLAExprToGo(tla.getExpr(), imports, temp).toExpression()));
-							}
-						});
+						Collections.singletonList(new Return(new TLAExprToGo(tla.getExpr(), imports, temp).toExpression())));
 				imports.addImport("pgo/datatypes");
-				return new FunctionCall("datatypes.SetConstructor", new Vector<Expression>() {
-					{
-						add(setTrans.toExpression());
-						add(P);
-					}
-				});
+				return new FunctionCall("datatypes.SetConstructor", Arrays.asList(setTrans.toExpression(), P));
 			}
 		default:
 			assert false;
@@ -397,11 +379,10 @@ public class TLAExprToGo {
 				if (params.size() > 1) {
 					// tuple key
 					FunctionCall newTup = new FunctionCall("datatypes.NewTuple", params);
-					return new TypeAssertion(new FunctionCall("Get", new Vector<Expression>() {
-						{
-							add(newTup);
-						}
-					}, new Token(tla.getName())), type);
+					return new TypeAssertion(new FunctionCall("Get",
+							Collections.singletonList(newTup),
+							new Token(tla.getName())),
+							type);
 				} else {
 					return new TypeAssertion(new FunctionCall("Get", params, new Token(tla.getName())), type);
 				}
@@ -501,11 +482,7 @@ public class TLAExprToGo {
 		// Contains) except when calling Difference (not symmetric)
 		this.imports.addImport("pgo/datatypes");
 		if (tla.getToken().equals("\\")) {
-			exp.add(new FunctionCall(funcName, new Vector<Expression>() {
-				{
-					add(rightRes);
-				}
-			}, leftRes));
+			exp.add(new FunctionCall(funcName, Collections.singletonList(rightRes), leftRes));
 		} else {
 			exp.add(new FunctionCall(funcName, lhs, rightRes));
 		}
@@ -607,18 +584,10 @@ public class TLAExprToGo {
 			// P = func(varType) bool { return pred }
 			AnonymousFunction P = new AnonymousFunction(PGoType.inferFromGoTypeName("bool"),
 					// TODO (issue 28) deal with tuples as variable declaration
-					new Vector<ParameterDeclaration>() {
-						{
-							add(new ParameterDeclaration(varExpr.toGo().get(0),
-									new TLAExprToType(tla, data, true).getType()));
-						}
-					},
+					Collections.singletonList(new ParameterDeclaration(varExpr.toGo().get(0),
+									new TLAExprToType(tla, data, true).getType())),
 					new Vector<>(),
-					new Vector<Statement>() {
-						{
-							add(new Return(pred));
-						}
-					});
+					Collections.singletonList(new Return(pred)));
 
 			Vector<Expression> chooseFuncParams = new Vector<>();
 			chooseFuncParams.add(P);
@@ -665,17 +634,11 @@ public class TLAExprToGo {
 					// TODO (issue 28) deal with tuples as variable declaration
 					params,
 					new Vector<>(),
-					new Vector<Statement>() {
-						{
-							add(new Return(pred));
-						}
-					});
+					Collections.singletonList(new Return(pred)));
 
 			Vector<Expression> funcParams = new Vector<>();
 			funcParams.add(P);
-			for (Expression s : setExprs) {
-				funcParams.add(s);
-			}
+			funcParams.addAll(setExprs);
 
 			this.imports.addImport("pgo/datatypes");
 			return new FunctionCall((tla.getToken().equals("\\E") ? "datatypes.Exists" : "datatypes.ForAll"),
@@ -688,7 +651,7 @@ public class TLAExprToGo {
 	protected Expression translate(PGoTLAVariable tla) {
 		return new Expression() {
 			@Override
-			public Vector<String> toGo() {
+			public List<String> toGo() {
 				PGoVariable var = data.findPGoVariable(tla.getName());
 				return new VariableReference(var.getName(), var, data.cachedVarSet.contains(var), data.netOpts.getStateStrategy()).toGo();
 			}

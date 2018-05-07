@@ -56,32 +56,17 @@ class PGoTransIntermediateData {
 		{
 			put("Len", new PGoLibFunction("Len") {
 				{
-					addFuncSignature(
-							new Vector<PGoType>() {
-								{
-									add(PGoType.inferFromGoTypeName("[]E"));
-								}
-							},
+					addFuncSignature(Collections.singletonList(PGoType.inferFromGoTypeName("[]E")),
 							"len",
 							false,
 							PGoType.inferFromGoTypeName("int"));
 
-					addFuncSignature(
-							new Vector<PGoType>() {
-								{
-									add(PGoType.inferFromGoTypeName("tuple[E]"));
-								}
-							},
+					addFuncSignature(Collections.singletonList(PGoType.inferFromGoTypeName("tuple[E]")),
 							"Size",
 							true,
 							PGoType.inferFromGoTypeName("int"));
 
-					addFuncSignature(
-							new Vector<PGoType>() {
-								{
-									add(PGoType.inferFromGoTypeName("string"));
-								}
-							},
+					addFuncSignature(Collections.singletonList(PGoType.inferFromGoTypeName("string")),
 							"len",
 							false,
 							PGoType.inferFromGoTypeName("int"));
@@ -90,12 +75,7 @@ class PGoTransIntermediateData {
 
 			put("Cardinality", new PGoLibFunction("Cardinality") {
 				{
-					addFuncSignature(
-							new Vector<PGoType>() {
-								{
-									add(PGoType.inferFromGoTypeName("set[E]"));
-								}
-							},
+					addFuncSignature(Collections.singletonList(PGoType.inferFromGoTypeName("set[E]")),
 							"Size",
 							true,
 							PGoType.inferFromGoTypeName("int"));
@@ -105,12 +85,7 @@ class PGoTransIntermediateData {
 			put("Append", new PGoLibFunction("Append") {
 				{
 					addFuncSignature(
-							new Vector<PGoType>() {
-								{
-									add(PGoType.inferFromGoTypeName("[]E"));
-									add(PGoType.inferFromGoTypeName("E"));
-								}
-							},
+							Arrays.asList(PGoType.inferFromGoTypeName("[]E"), PGoType.inferFromGoTypeName("E")),
 							"append",
 							false,
 							PGoType.inferFromGoTypeName("[]E"));

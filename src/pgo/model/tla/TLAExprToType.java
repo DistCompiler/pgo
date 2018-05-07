@@ -356,7 +356,7 @@ public class TLAExprToType {
 	protected PGoType type(PGoTLAFunctionCall tla) throws PGoTransException {
 		// TODO: change Head and Tail to a proper construct in the compiler
 		if (tla.getName().equals("Head") || tla.getName().equals("Tail")) {
-			Vector<PGoTLAExpression> callParams = tla.getParams();
+			List<PGoTLAExpression> callParams = tla.getParams();
 			if (callParams.size() != 1) {
 				throw new PGoTransException("Expected function call " + tla.getName() + " to have 1" +
 						" parameter but found " + callParams.size() + " instead", tla.getLine());
@@ -380,7 +380,7 @@ public class TLAExprToType {
 		if (func != null) {
 			// check params for type consistency
 			List<PGoVariable> funcParams = func.getParams();
-			Vector<PGoTLAExpression> callParams = tla.getParams();
+			List<PGoTLAExpression> callParams = tla.getParams();
 			if (funcParams.size() != callParams.size()) {
 				throw new PGoTransException("Expected function call " + tla.getName() + " to have " + funcParams.size()
 						+ " parameters but found " + callParams.size() + " instead", tla.getLine());
@@ -401,7 +401,7 @@ public class TLAExprToType {
 		PGoTLADefinition def = data.findTLADefinition(tla.getName());
 		if (def != null) {
 			Vector<PGoVariable> funcParams = def.getParams();
-			Vector<PGoTLAExpression> callParams = tla.getParams();
+			List<PGoTLAExpression> callParams = tla.getParams();
 			if (funcParams.size() != callParams.size()) {
 				throw new PGoTransException("Expected function call " + tla.getName() + " to have " + funcParams.size()
 						+ " parameters but found " + callParams.size() + " instead", tla.getLine());
@@ -717,7 +717,7 @@ public class TLAExprToType {
 			} else {
 				// if there is 1 set, the type is the contained type of the set;
 				// otherwise we don't care since this must be forall/exists
-				Vector<PGoTLAExpression> sets = tla.getArgs();
+				List<PGoTLAExpression> sets = tla.getArgs();
 				if (sets.size() > 1) {
 					return PGoType.UNDETERMINED;
 				}
@@ -734,7 +734,7 @@ public class TLAExprToType {
 			}
 		case "|->":
 			// x \in S, y \in T |-> f(x, y)
-			Vector<PGoTLAExpression> lhs = tla.getArgs();
+			List<PGoTLAExpression> lhs = tla.getArgs();
 			Vector<PGoType> tupTypes = new Vector<>();
 			// Add typing data for locals while also adding components to tuple
 			temp = new PGoTempData(data);

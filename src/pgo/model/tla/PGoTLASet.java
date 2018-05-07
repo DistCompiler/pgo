@@ -22,7 +22,7 @@ import pgo.trans.PGoTransException;
  */
 public class PGoTLASet extends PGoTLAExpression {
 
-	private Vector<PGoTLAExpression> contents;
+	private List<PGoTLAExpression> contents;
 
 	public PGoTLASet(Vector<TLAToken> between, int line) throws PGoTransException {
 		super(line);
@@ -35,7 +35,7 @@ public class PGoTLASet extends PGoTLAExpression {
 		this.contents.addAll(contents);
 	}
 
-	public Vector<PGoTLAExpression> getContents() {
+	public List<PGoTLAExpression> getContents() {
 		return contents;
 	}
 
@@ -48,11 +48,11 @@ public class PGoTLASet extends PGoTLAExpression {
 	}
 
 	public String toString() {
-		String ret = "PGoTLASet (" + this.getLine() + "): {";
+		StringBuilder ret = new StringBuilder("PGoTLASet (").append(this.getLine()).append("): {");
 		for (PGoTLAExpression p : contents) {
-			ret += "(" + p.toString() + "), ";
+			ret.append("(").append(p.toString()).append("), ");
 		}
-		return ret + "}";
+		return ret.append("}").toString();
 	}
 	
 	@Override

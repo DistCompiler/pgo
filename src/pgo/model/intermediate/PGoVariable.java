@@ -1,5 +1,6 @@
 package pgo.model.intermediate;
 
+import java.util.List;
 import java.util.Vector;
 
 import pcal.AST.PVarDecl;
@@ -254,7 +255,7 @@ public class PGoVariable {
 		r.isSimpleAssignInit = true;
 		r.tlaExpr = defn.getExpr();
 		// infer the type
-		Vector<PGoTLAExpression> ptla = new TLAExprParser(r.tlaExpr, defn.getLine()).getResult();
+		List<PGoTLAExpression> ptla = new TLAExprParser(r.tlaExpr, defn.getLine()).getResult();
 		assert (ptla.size() == 1);
 		r.type = new TLAExprToType(ptla.get(0), varData, true).getType();
 		r.line = defn.getLine();

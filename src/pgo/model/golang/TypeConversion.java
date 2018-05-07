@@ -1,6 +1,6 @@
 package pgo.model.golang;
 
-import java.util.Vector;
+import java.util.Collections;
 
 import pgo.model.intermediate.PGoType;
 
@@ -9,18 +9,10 @@ import pgo.model.intermediate.PGoType;
  */
 public class TypeConversion extends FunctionCall {
 	public TypeConversion(PGoType type, Expression param) {
-		super(type.toGo(), new Vector<Expression>() {
-			{
-				add(param);
-			}
-		});
+		super(type.toGo(), Collections.singletonList(param));
 	}
 	
 	public TypeConversion(String type, Expression param) {
-		super(type, new Vector<Expression>() {
-			{
-				add(param);
-			}
-		});
+		super(type, Collections.singletonList(param));
 	}
 }

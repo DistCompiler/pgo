@@ -4,6 +4,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Vector;
 
 import org.junit.Before;
@@ -37,15 +39,14 @@ public class TLAToTypeTest {
 
 	@Test
 	public void testArray() throws PGoTransException {
-		PGoTLAArray tla = new PGoTLAArray(new Vector<TLAToken>() {
-			{
-				add(new TLAToken("1", 0, TLAToken.NUMBER));
-				add(new TLAToken(",", 0, TLAToken.BUILTIN));
-				add(new TLAToken("2", 0, TLAToken.NUMBER));
-				add(new TLAToken("+", 0, TLAToken.BUILTIN));
-				add(new TLAToken("3", 0, TLAToken.NUMBER));
-			}
-		}, 0);
+		PGoTLAArray tla = new PGoTLAArray(
+				new Vector<>(Arrays.asList(
+						new TLAToken("1", 0, TLAToken.NUMBER),
+						new TLAToken(",", 0, TLAToken.BUILTIN),
+						new TLAToken("2", 0, TLAToken.NUMBER),
+						new TLAToken("+", 0, TLAToken.BUILTIN),
+						new TLAToken("3", 0, TLAToken.NUMBER))),
+				0);
 		PGoVariable var = PGoVariable.convert("arr", PGoType.inferFromGoTypeName("tuple[int, float64]"));
 		data.getLocals().put("arr", var);
 
@@ -61,19 +62,18 @@ public class TLAToTypeTest {
 		assertTrue(result instanceof PGoChan);
 		assertEquals(PGoType.inferFromGoTypeName("int"), ((PGoChan) result).getElementType());
 
-		tla = new PGoTLAArray(new Vector<TLAToken>() {
-			{
-				add(new TLAToken("x", 0, TLAToken.IDENT));
-				add(new TLAToken("\\in", 0, TLAToken.BUILTIN));
-				add(new TLAToken("S", 0, TLAToken.IDENT));
-				add(new TLAToken(",", 0, TLAToken.BUILTIN));
-				add(new TLAToken("y", 0, TLAToken.IDENT));
-				add(new TLAToken("\\in", 0, TLAToken.BUILTIN));
-				add(new TLAToken("T", 0, TLAToken.IDENT));
-				add(new TLAToken("|->", 0, TLAToken.BUILTIN));
-				add(new TLAToken("x", 0, TLAToken.IDENT));
-			}
-		}, 0);
+		tla = new PGoTLAArray(
+				new Vector<>(Arrays.asList(
+						new TLAToken("x", 0, TLAToken.IDENT),
+						new TLAToken("\\in", 0, TLAToken.BUILTIN),
+						new TLAToken("S", 0, TLAToken.IDENT),
+						new TLAToken(",", 0, TLAToken.BUILTIN),
+						new TLAToken("y", 0, TLAToken.IDENT),
+						new TLAToken("\\in", 0, TLAToken.BUILTIN),
+						new TLAToken("T", 0, TLAToken.IDENT),
+						new TLAToken("|->", 0, TLAToken.BUILTIN),
+						new TLAToken("x", 0, TLAToken.IDENT))),
+				0);
 		data.getLocals().clear();
 		data.getLocals().put("S", PGoVariable.convert("S", PGoType.inferFromGoTypeName("set[set[tuple[int...]]]")));
 		data.getLocals().put("T", PGoVariable.convert("T", PGoType.inferFromGoTypeName("set[string]")));
@@ -85,15 +85,14 @@ public class TLAToTypeTest {
 
 	@Test(expected = PGoTransException.class)
 	public void testArrayFail() throws PGoTransException {
-		PGoTLAArray tla = new PGoTLAArray(new Vector<TLAToken>() {
-			{
-				add(new TLAToken("1", 0, TLAToken.NUMBER));
-				add(new TLAToken(",", 0, TLAToken.BUILTIN));
-				add(new TLAToken("2", 0, TLAToken.NUMBER));
-				add(new TLAToken("+", 0, TLAToken.BUILTIN));
-				add(new TLAToken("3", 0, TLAToken.NUMBER));
-			}
-		}, 0);
+		PGoTLAArray tla = new PGoTLAArray(
+				new Vector<>(Arrays.asList(
+						new TLAToken("1", 0, TLAToken.NUMBER),
+						new TLAToken(",", 0, TLAToken.BUILTIN),
+						new TLAToken("2", 0, TLAToken.NUMBER),
+						new TLAToken("+", 0, TLAToken.BUILTIN),
+						new TLAToken("3", 0, TLAToken.NUMBER))),
+				0);
 		PGoVariable var = PGoVariable.convert("arr", PGoType.inferFromGoTypeName("tuple[int, string]"));
 		data.getLocals().put("arr", var);
 		PGoType result = new TLAExprToType(tla, data, var, true).getType();
@@ -137,12 +136,11 @@ public class TLAToTypeTest {
 		Vector<Vector<TLAToken>> foo = new Vector<>();
 		foo.add(new Vector<>());
 		foo.get(0).add(new TLAToken("b", 0, TLAToken.IDENT));
-		data.defns.put("foo", new PGoTLADefinition("foo", new Vector<PGoVariable>() {
-			{
-				add(PGoVariable.convert("a", PGoType.inferFromGoTypeName("int")));
-				add(PGoVariable.convert("b", PGoType.inferFromGoTypeName("string")));
-			}
-		}, PcalTranslate.MakeExpr(foo), null, 0));
+		data.defns.put("foo", new PGoTLADefinition("foo",
+				Arrays.asList(
+						PGoVariable.convert("a", PGoType.inferFromGoTypeName("int")),
+						PGoVariable.convert("b", PGoType.inferFromGoTypeName("string"))),
+				PcalTranslate.MakeExpr(foo), null, 0));
 		PGoType result = new TLAExprToType(tla, data, true).getType();
 		assertEquals(PGoType.inferFromGoTypeName("string"), result);
 
@@ -175,11 +173,7 @@ public class TLAToTypeTest {
 
 	@Test
 	public void testGroup() throws PGoTransException {
-		PGoTLAGroup tla = new PGoTLAGroup(new Vector<PGoTLAExpression>() {
-			{
-				add(new PGoTLANumber("3", 0));
-			}
-		}, 0);
+		PGoTLAGroup tla = new PGoTLAGroup(Collections.singletonList(new PGoTLANumber("3", 0)), 0);
 		PGoType result = new TLAExprToType(tla, data, true).getType();
 		assertEquals(PGoType.inferFromGoTypeName("int"), result);
 	}
@@ -218,39 +212,36 @@ public class TLAToTypeTest {
 
 	@Test
 	public void testSet() throws PGoTransException {
-		PGoTLASet tla = new PGoTLASet(new Vector<TLAToken>() {
-			{
-				add(new TLAToken("1", 0, TLAToken.NUMBER, 0));
-				add(new TLAToken(",", 0, TLAToken.BUILTIN, 0));
-				add(new TLAToken("2", 0, TLAToken.NUMBER, 0));
-			}
-		}, 0);
+		PGoTLASet tla = new PGoTLASet(
+				new Vector<>(Arrays.asList(
+						new TLAToken("1", 0, TLAToken.NUMBER, 0),
+						new TLAToken(",", 0, TLAToken.BUILTIN, 0),
+						new TLAToken("2", 0, TLAToken.NUMBER, 0))),
+				0);
 		PGoType result = new TLAExprToType(tla, data, true).getType();
 		assertEquals(PGoType.inferFromGoTypeName("set[int]"), result);
-		tla = new PGoTLASet(new Vector<TLAToken>() {
-			{
-				add(new TLAToken("x", 0, TLAToken.IDENT, 0));
-				add(new TLAToken("\\in", 0, TLAToken.BUILTIN, 0));
-				add(new TLAToken("Nat", 0, TLAToken.IDENT, 0));
-				add(new TLAToken(":", 0, TLAToken.BUILTIN, 0));
-				add(new TLAToken("TRUE", 0, TLAToken.BUILTIN));
-			}
-		}, 0);
+		tla = new PGoTLASet(
+				new Vector<>(Arrays.asList(
+						new TLAToken("x", 0, TLAToken.IDENT, 0),
+						new TLAToken("\\in", 0, TLAToken.BUILTIN, 0),
+						new TLAToken("Nat", 0, TLAToken.IDENT, 0),
+						new TLAToken(":", 0, TLAToken.BUILTIN, 0),
+						new TLAToken("TRUE", 0, TLAToken.BUILTIN))),
+				0);
 		result = new TLAExprToType(tla, data, true).getType();
 		assertEquals(PGoType.inferFromGoTypeName("set[natural]"), result);
 	}
 
 	@Test(expected = PGoTransException.class)
 	public void testSetFail() throws PGoTransException {
-		PGoTLASet tla = new PGoTLASet(new Vector<TLAToken>() {
-			{
-				add(new TLAToken("1", 0, TLAToken.NUMBER, 0));
-				add(new TLAToken(",", 0, TLAToken.BUILTIN, 0));
-				add(new TLAToken("2.5", 0, TLAToken.NUMBER, 0));
-				add(new TLAToken(",", 0, TLAToken.BUILTIN, 0));
-				add(new TLAToken("x", 0, TLAToken.IDENT, 0));
-			}
-		}, 0);
+		PGoTLASet tla = new PGoTLASet(
+				new Vector<>(Arrays.asList(
+						new TLAToken("1", 0, TLAToken.NUMBER, 0),
+						new TLAToken(",", 0, TLAToken.BUILTIN, 0),
+						new TLAToken("2.5", 0, TLAToken.NUMBER, 0),
+						new TLAToken(",", 0, TLAToken.BUILTIN, 0),
+						new TLAToken("x", 0, TLAToken.IDENT, 0))),
+				0);
 		data.globals.put("x", PGoVariable.convert("x", PGoType.inferFromGoTypeName("natural")));
 		try {
 			PGoType result = new TLAExprToType(tla, data, true).getType();
@@ -258,27 +249,25 @@ public class TLAToTypeTest {
 		} catch (PGoTransException e) {
 			fail("Unexpected PGoTransException");
 		}
-		tla = new PGoTLASet(new Vector<TLAToken>() {
-			{
-				add(new TLAToken("1", 0, TLAToken.NUMBER, 0));
-				add(new TLAToken(",", 0, TLAToken.BUILTIN, 0));
-				add(new TLAToken("2.5", 0, TLAToken.NUMBER, 0));
-				add(new TLAToken(",", 0, TLAToken.BUILTIN, 0));
-				add(new TLAToken("TRUE", 0, TLAToken.BUILTIN, 0));
-			}
-		}, 0);
+		tla = new PGoTLASet(
+				new Vector<>(Arrays.asList(
+						new TLAToken("1", 0, TLAToken.NUMBER, 0),
+						new TLAToken(",", 0, TLAToken.BUILTIN, 0),
+						new TLAToken("2.5", 0, TLAToken.NUMBER, 0),
+						new TLAToken(",", 0, TLAToken.BUILTIN, 0),
+						new TLAToken("TRUE", 0, TLAToken.BUILTIN, 0))),
+				0);
 		new TLAExprToType(tla, data, true);
 	}
 
 	@Test
 	public void testSetOp() throws PGoTransException {
-		PGoTLASet set = new PGoTLASet(new Vector<TLAToken>() {
-			{
-				add(new TLAToken("1", 0, TLAToken.NUMBER, 0));
-				add(new TLAToken(",", 0, TLAToken.BUILTIN, 0));
-				add(new TLAToken("2.5", 0, TLAToken.NUMBER, 0));
-			}
-		}, 0);
+		PGoTLASet set = new PGoTLASet(
+				new Vector<>(Arrays.asList(
+						new TLAToken("1", 0, TLAToken.NUMBER, 0),
+						new TLAToken(",", 0, TLAToken.BUILTIN, 0),
+						new TLAToken("2.5", 0, TLAToken.NUMBER, 0))),
+				0);
 		PGoTLASetOp tla = new PGoTLASetOp("\\union", set, new PGoTLAVariable("T", 0), 0);
 		data.globals.put("T", PGoVariable.convert("T", PGoType.inferFromGoTypeName("set[int]")));
 		PGoType result = new TLAExprToType(tla, data, true).getType();
@@ -298,18 +287,16 @@ public class TLAToTypeTest {
 	public void testSetOpFail() throws PGoTransException {
 		PGoTLASet set = null, set2 = null;
 		try {
-			set = new PGoTLASet(new Vector<TLAToken>() {
-				{
-					add(new TLAToken("1", 0, TLAToken.NUMBER, 0));
-					add(new TLAToken(",", 0, TLAToken.BUILTIN, 0));
-					add(new TLAToken("2", 0, TLAToken.NUMBER, 0));
-				}
-			}, 0);
-			set2 = new PGoTLASet(new Vector<TLAToken>() {
-				{
-					add(new TLAToken("a", 0, TLAToken.STRING, 0));
-				}
-			}, 0);
+			set = new PGoTLASet(
+					new Vector<>(Arrays.asList(
+							new TLAToken("1", 0, TLAToken.NUMBER, 0),
+							new TLAToken(",", 0, TLAToken.BUILTIN, 0),
+							new TLAToken("2", 0, TLAToken.NUMBER, 0)))
+					,
+					0);
+			set2 = new PGoTLASet(
+					new Vector<>(Collections.singletonList(new TLAToken("a", 0, TLAToken.STRING, 0))),
+					0);
 		} catch (PGoTransException e) {
 			fail("Unexpected PGoTransException: " + e.getMessage());
 		}

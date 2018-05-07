@@ -1,6 +1,7 @@
 package pgo.model.golang;
 
-import java.util.Vector;
+import java.util.Collections;
+import java.util.List;
 
 import pgo.model.intermediate.PGoType;
 
@@ -32,11 +33,7 @@ public class ParameterDeclaration extends Expression {
 	}
 
 	@Override
-	public Vector<String> toGo() {
-		return new Vector<String>() {
-			{
-				add(name + " " + type.toGo());
-			}
-		};
+	public List<String> toGo() {
+		return Collections.singletonList(name + " " + type.toGo());
 	}
 }

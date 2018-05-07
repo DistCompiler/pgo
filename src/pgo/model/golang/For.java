@@ -1,5 +1,6 @@
 package pgo.model.golang;
 
+import java.util.List;
 import java.util.Vector;
 
 /**
@@ -11,15 +12,15 @@ public class For extends Statement {
 	private Expression cond;
 
 	// inside of loop
-	private Vector<Statement> then;
+	private List<Statement> then;
 
-	public For(Expression cond, Vector<Statement> then) {
+	public For(Expression cond, List<Statement> then) {
 		this.cond = cond;
 		this.then = then;
 	}
 
 	// an infinite loop in Go
-	public For(Vector<Statement> then) {
+	public For(List<Statement> then) {
 		this.cond = null;
 		this.then = then;
 	}
@@ -32,18 +33,18 @@ public class For extends Statement {
 		this.cond = e;
 	}
 
-	public Vector<Statement> getThen() {
+	public List<Statement> getThen() {
 		return this.then;
 	}
 
-	public void setThen(Vector<Statement> e) {
+	public void setThen(List<Statement> e) {
 		this.then = e;
 	}
 
 	@Override
-	public Vector<String> toGo() {
-		Vector<String> ret = new Vector<>();
-		Vector<String> conds = cond == null ? new Vector<>() : cond.toGo();
+	public List<String> toGo() {
+		List<String> ret = new Vector<>();
+		List<String> conds = cond == null ? new Vector<>() : cond.toGo();
 		ret.add("for " + String.join("; ", conds) + " {");
 		addIndentedAST(ret, then);
 		ret.add("}");

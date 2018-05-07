@@ -1,6 +1,6 @@
 package pgo.model.golang;
 
-import java.util.Vector;
+import java.util.List;
 
 /**
  * Represents a parenthesized expression.
@@ -14,8 +14,8 @@ public class Group extends Expression {
 	}
 	
 	@Override
-	public Vector<String> toGo() {
-		Vector<String> ret = inside.toGo();
+	public List<String> toGo() {
+		List<String> ret = inside.toGo();
 		ret.set(0, "(" + ret.get(0));
 		ret.set(ret.size()-1, ret.get(ret.size()-1) + ")");
 		return ret;

@@ -1,5 +1,6 @@
 package pgo.trans.intermediate;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Vector;
 
@@ -172,7 +173,7 @@ public class PGoTransStageType {
 			if (d.getParams().isEmpty()) {
 				PGoVariable var = PGoVariable.convert(d, new PGoTempData(data));
 				this.data.globals.put(var.getName(), var);
-				Vector<PGoTLAExpression> ptla = new TLAExprParser(d.getExpr(), d.getLine()).getResult();
+				List<PGoTLAExpression> ptla = new TLAExprParser(d.getExpr(), d.getLine()).getResult();
 				assert (ptla.size() == 1);
 				this.data.putPGoTLA(d.getExpr(), ptla.get(0));
 			} else {

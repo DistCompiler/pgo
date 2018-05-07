@@ -1,5 +1,6 @@
 package pgo.model.golang;
 
+import java.util.List;
 import java.util.Vector;
 
 /**
@@ -11,19 +12,19 @@ public class FunctionCall extends Expression {
 	// the called function
 	private String fname;
 	// the parameters
-	private Vector<Expression> params;
+	private List<Expression> params;
 	// whether this is an object call
 	private boolean isObjectCall;
 	// the object the function is called on; null if this is not an object call
 	private Expression obj;
 
-	public FunctionCall(String fname, Vector<Expression> params) {
+	public FunctionCall(String fname, List<Expression> params) {
 		this.fname = fname;
 		this.params = params;
 		this.isObjectCall = false;
 	}
 	
-	public FunctionCall(String fname, Vector<Expression> params, Expression obj) {
+	public FunctionCall(String fname, List<Expression> params, Expression obj) {
 		this.fname = fname;
 		this.params = params;
 		this.obj = obj;
@@ -38,7 +39,7 @@ public class FunctionCall extends Expression {
 		this.fname = f;
 	}
 
-	public Vector<Expression> getParams() {
+	public List<Expression> getParams() {
 		return params;
 	}
 
@@ -51,10 +52,10 @@ public class FunctionCall extends Expression {
 	}
 
 	@Override
-	public Vector<String> toGo() {
+	public List<String> toGo() {
 		Vector<String> paramStr = new Vector<>();
 		for (int i = 0; i < params.size(); i++) {
-			Vector<String> e = params.get(i).toGo();
+			List<String> e = params.get(i).toGo();
 			for (int j = 0; j < e.size(); j++) {
 				if (j > 0) {
 					paramStr.add(e.get(j));

@@ -1,10 +1,10 @@
 package pgo.model.golang;
 
-import java.util.Vector;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * A tokens such as "var[2]".
- *
  */
 public class Token extends Expression {
 
@@ -28,12 +28,8 @@ public class Token extends Expression {
 	}
 
 	@Override
-	public Vector<String> toGo() {
-		return new Vector<String>() {
-			{
-				add(toks);
-			}
-		};
+	public List<String> toGo() {
+		return Collections.singletonList(toks);
 	}
 
 }

@@ -1,6 +1,6 @@
 package pgo.model.golang;
 
-import java.util.Vector;
+import java.util.List;
 
 import pgo.model.intermediate.PGoType;
 
@@ -21,9 +21,9 @@ public class TypeAssertion extends Expression {
 	}
 	
 	@Override
-	public Vector<String> toGo() {
-		Vector<String> ret = expr.toGo();
-		assert(ret.size() == 1);
+	public List<String> toGo() {
+		List<String> ret = expr.toGo();
+		assert (ret.size() == 1);
 		ret.set(0, ret.get(0) + ".(" + type.toGo() + ")");
 		return ret;
 	}

@@ -25,7 +25,7 @@ public class PGoTLAFunctionCall extends PGoTLAExpression {
 	// the function called
 	private PGoTLAExpression function;
 
-	private Vector<PGoTLAExpression> params;
+	private List<PGoTLAExpression> params;
 
 	public PGoTLAFunctionCall(String f, Vector<TLAToken> contained, int line)
 			throws PGoTransException {
@@ -53,7 +53,7 @@ public class PGoTLAFunctionCall extends PGoTLAExpression {
 		}
 	}
 
-	public Vector<PGoTLAExpression> getParams() {
+	public List<PGoTLAExpression> getParams() {
 		return params;
 	}
 
@@ -69,11 +69,11 @@ public class PGoTLAFunctionCall extends PGoTLAExpression {
 
 	@Override
 	public String toString() {
-		String ret = "PGoTLAFunc(" + this.getLine() + "): " + function + "(";
+		StringBuilder ret = new StringBuilder("PGoTLAFunc(" ).append(this.getLine()).append("): ") .append(function).append("(");
 		for (PGoTLAExpression p : params) {
-			ret += "(" + p.toString() + "), ";
+			ret.append("(").append(p.toString()).append("), ");
 		}
-		return ret + ")";
+		return ret.append(")").toString();
 	}
 	
 	@Override

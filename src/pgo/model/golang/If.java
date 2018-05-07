@@ -1,5 +1,6 @@
 package pgo.model.golang;
 
+import java.util.List;
 import java.util.Vector;
 
 /**
@@ -11,14 +12,14 @@ public class If extends Statement {
 	private Expression cond;
 
 	// true condition
-	private Vector<Statement> thenS;
+	private List<Statement> thenS;
 
 	// else
-	private Vector<Statement> elseS;
+	private List<Statement> elseS;
 
 	private boolean negation;
 
-	public If(Expression cond, Vector<Statement> thenS, Vector<Statement> elseS) {
+	public If(Expression cond, List<Statement> thenS, List<Statement> elseS) {
 		this.cond = cond;
 		this.thenS = thenS;
 		this.elseS = elseS;
@@ -35,34 +36,32 @@ public class If extends Statement {
 
 	public void negate() { this.negation = true; }
 
-	public Vector<Statement> getThen() {
+	public List<Statement> getThen() {
 		return this.thenS;
 	}
 
-	public void setThen(Vector<Statement> e) {
+	public void setThen(List<Statement> e) {
 		this.thenS = e;
 	}
 
-	public Vector<Statement> getElse() {
+	public List<Statement> getElse() {
 		return this.elseS;
 	}
 
-	public void setElse(Vector<Statement> e) {
+	public void setElse(List<Statement> e) {
 		this.elseS = e;
 	}
 
 	@Override
-	public Vector<String> toGo() {
-		Vector<String> ret = new Vector<String>();
-		Vector<String> condStr = cond.toGo();
+	public List<String> toGo() {
+		Vector<String> ret = new Vector<>();
+		List<String> condStr = cond.toGo();
 		String ifStr = negation ? "if !" : "if ";
 
 		if (cond instanceof AnonymousFunction) {
 			// in this case we want each line of func on a separate line, and we don't need semicolons
 			ret.add(ifStr + condStr.remove(0));
-			for (String s : condStr) {
-				ret.add(s);
-			}
+			ret.addAll(condStr);
 			ret.set(ret.size()-1, ret.get(ret.size()-1) + " {");
 		} else {
 			ret.add(ifStr + String.join("; ", condStr) + " {");

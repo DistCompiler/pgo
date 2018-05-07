@@ -1,11 +1,9 @@
 package pgo.model.golang;
 
 import pgo.model.distsys.StateStrategy;
-import pgo.model.intermediate.PGoCollectionType;
-import pgo.model.intermediate.PGoPrimitiveType;
 import pgo.model.intermediate.PGoVariable;
-import pgo.trans.intermediate.PGoTransStageGoGen;
 
+import java.util.List;
 import java.util.Vector;
 
 /**
@@ -38,7 +36,7 @@ public class VariableReference extends Expression {
 	}
 
 	@Override
-	public Vector<String> toGo() {
+	public List<String> toGo() {
 		Vector<String> ret = new Vector<>();
 		// if the variable is not previously known, return its name
 		// (first reference to a local variable)

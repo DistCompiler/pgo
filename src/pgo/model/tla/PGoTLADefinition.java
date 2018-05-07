@@ -1,5 +1,6 @@
 package pgo.model.tla;
 
+import java.util.List;
 import java.util.Vector;
 
 import pcal.TLAExpr;
@@ -17,13 +18,13 @@ public class PGoTLADefinition extends PGoTLAExpression {
 
 	private String name;
 	// name and typing information for params
-	private Vector<PGoVariable> params;
+	private List<PGoVariable> params;
 	// the expression this definition evaluates to
 	private PGoTLAExpression expr;
 	// the type that this expression should have
 	private PGoType type;
 
-	public PGoTLADefinition(String name, Vector<PGoVariable> params, TLAExpr expr, PGoType type, int line)
+	public PGoTLADefinition(String name, List<PGoVariable> params, TLAExpr expr, PGoType type, int line)
 			throws PGoTransException {
 		super(line);
 		this.name = name;

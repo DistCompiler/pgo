@@ -1,6 +1,7 @@
 package pgo.model.golang;
 
-import java.util.Vector;
+import java.util.Collections;
+import java.util.List;
 
 public class StringLiteral extends Expression {
 	
@@ -11,7 +12,7 @@ public class StringLiteral extends Expression {
 	}
 
 	@Override
-	public Vector<String> toGo() {
+	public List<String> toGo() {
 		StringBuilder out = new StringBuilder();
 		// TODO: more correct string escaping
 		out.append('"');
@@ -26,10 +27,7 @@ public class StringLiteral extends Expression {
 			}
 		}
 		out.append('"');
-		
-		Vector<String> result = new Vector<>();
-		result.add(out.toString());
-		return result;
+		return Collections.singletonList(out.toString());
 	}
 
 }

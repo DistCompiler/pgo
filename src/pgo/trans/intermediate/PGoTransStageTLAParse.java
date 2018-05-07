@@ -11,7 +11,6 @@ import pcal.TLAToken;
 import pgo.model.tla.PGoTLABackwardsCompatibilityASTConverter;
 import pgo.model.tla.PGoTLAExpression;
 import pgo.parser.PGoTLAParseException;
-import pgo.parser.TLAExprParser;
 import pgo.parser.TLAParser;
 import pgo.trans.PGoTransException;
 import pgo.util.PcalASTUtil;

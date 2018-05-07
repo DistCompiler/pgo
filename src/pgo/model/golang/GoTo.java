@@ -1,6 +1,7 @@
 package pgo.model.golang;
 
-import java.util.Vector;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * A Goto in pluscal and go
@@ -23,11 +24,7 @@ public class GoTo extends Expression {
 	}
 
 	@Override
-	public Vector<String> toGo() {
-		return new Vector<String>() {
-			{
-				add("goto " + to);
-			}
-		};
+	public List<String> toGo() {
+		return Collections.singletonList("goto " + to);
 	}
 }

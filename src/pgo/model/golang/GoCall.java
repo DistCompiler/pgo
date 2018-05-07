@@ -1,5 +1,6 @@
 package pgo.model.golang;
 
+import java.util.List;
 import java.util.Vector;
 
 /**
@@ -23,9 +24,9 @@ public class GoCall extends Expression {
 	}
 
 	@Override
-	public Vector<String> toGo() {
-		Vector<String> ret = new Vector<String>();
-		Vector<String> funcStr = func.toGo();
+	public List<String> toGo() {
+		Vector<String> ret = new Vector<>();
+		List<String> funcStr = func.toGo();
 		
 		ret.add("go " + funcStr.remove(0));
 		ret.addAll(funcStr);
