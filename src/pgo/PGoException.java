@@ -3,22 +3,23 @@ package pgo;
 /**
  * A PGo Exception consisting of a prefix (type of error) and a line number in
  * the pluscal file
- * 
+ *
  */
 public abstract class PGoException extends Exception {
-
 	private int line;
 	private String msg;
 	private String prefix;
 
 	public PGoException(String prefix, String msg) {
-		super(prefix + " " + msg);
+		super(prefix + ": " + msg);
+		this.prefix = prefix;
 		this.msg = msg;
 		this.line = -1;
 	}
 
 	public PGoException(String prefix, String msg, int lineN) {
 		super(prefix + ": " + msg + " at Line: " + lineN);
+		this.prefix = prefix;
 		this.line = lineN;
 		this.msg = msg;
 	}
