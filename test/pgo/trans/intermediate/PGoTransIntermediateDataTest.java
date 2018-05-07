@@ -22,7 +22,7 @@ public class PGoTransIntermediateDataTest {
 	public void SetUp() {
 		d = new PGoTransIntermediateData();
 		for (int i = 0; i < 10; i++) {
-			d.globals.put("var" + i, PGoVariable.convert("var" + i));
+			d.globals.put("var" + i, PGoVariable.convert(generator, "var" + i));
 			Procedure p = new Procedure();
 			p.params = new Vector();
 			p.decls = new Vector();

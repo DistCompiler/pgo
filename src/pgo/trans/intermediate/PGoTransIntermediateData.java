@@ -14,6 +14,8 @@ import pgo.model.intermediate.PGoType;
 import pgo.model.intermediate.PGoVariable;
 import pgo.model.tla.PGoTLAExpression;
 import pgo.model.tla.PGoTLADefinition;
+import pgo.model.type.PGoTypeGenerator;
+import pgo.model.type.PGoTypeSolver;
 import pgo.parser.PGoAnnotationParser;
 
 /**
@@ -50,6 +52,12 @@ class PGoTransIntermediateData {
 
 	// This tracks which remote variables are cached locally for processing
 	public HashSet<PGoVariable> cachedVarSet;
+
+	// The type solver
+	public PGoTypeSolver solver;
+
+	// The type generator
+	public PGoTypeGenerator typeGenerator;
 
 	// Contains information for builtin TLA funcs like Len (length of tuple).
 	private static final LinkedHashMap<String, PGoLibFunction> libFuncs = new LinkedHashMap<String, PGoLibFunction>() {
@@ -130,19 +138,19 @@ class PGoTransIntermediateData {
 	}
 
 	PGoTransIntermediateData() {
-
-		this.globals = new LinkedHashMap<>();
-		this.unresolvedVars = new LinkedHashMap<>();
-		this.funcs = new LinkedHashMap<>();
-		this.mainBlock = new Vector<>();
-		this.goroutines = new LinkedHashMap<>();
-		this.defns = new LinkedHashMap<>();
-		this.needsLock = false;
-		this.tlaToAST = new HashMap<>();
-		this.labToLockGroup = new HashMap<>();
-		this.numLockGroups = 0;
-		this.cachedVarSet = new HashSet<>();
-
+		globals = new LinkedHashMap<>();
+		unresolvedVars = new LinkedHashMap<>();
+		funcs = new LinkedHashMap<>();
+		mainBlock = new Vector<>();
+		goroutines = new LinkedHashMap<>();
+		defns = new LinkedHashMap<>();
+		needsLock = false;
+		tlaToAST = new HashMap<>();
+		labToLockGroup = new HashMap<>();
+		numLockGroups = 0;
+		cachedVarSet = new HashSet<>();
+		solver = new PGoTypeSolver();
+		typeGenerator = new PGoTypeGenerator("a");
 	}
 
 	// Finds the PGofunction of the given name, or null if none exists.

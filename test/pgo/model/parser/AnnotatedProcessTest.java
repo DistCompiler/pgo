@@ -31,7 +31,7 @@ public class AnnotatedProcessTest {
 		ap = AnnotatedProcess.parse(new String[] { "proc", "int", "Proc" }, 1);
 		ap.applyAnnotationOnFunction(f);
 		assertEquals(1, f.getParams().size());
-		assertEquals(new PGoPrimitiveType.PGoInt(), f.getParam(PGoVariable.processIdArg().getName()).getType());
+		assertEquals(new PGoPrimitiveType.PGoInt(), f.getParam(PGoVariable.processIdArg(generator, ).getName()).getType());
 
 		Procedure pc = new Procedure();
 		pc.decls = new Vector();

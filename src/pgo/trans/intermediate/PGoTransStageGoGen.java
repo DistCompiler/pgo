@@ -26,6 +26,7 @@ import pgo.model.tla.PGoTLAArray;
 import pgo.model.tla.PGoTLADefinition;
 import pgo.model.tla.PGoTLAFunctionCall;
 import pgo.model.tla.TLAExprToGo;
+import pgo.model.type.PGoTypeProcessId;
 import pgo.trans.PGoTransException;
 import pgo.util.PcalASTUtil;
 
@@ -147,15 +148,13 @@ public class PGoTransStageGoGen {
 
 			// command line argument: the PlusCal process identifier this program is
 			// supposed to execute
-			PGoVariable pid = PGoVariable.processIdArg();
-			pid.setType(PGoPrimitiveType.PROCESS_ID);
+			PGoVariable pid = PGoVariable.processIdArg(PGoTypeProcessId.getInstance());
 			positionalArgNames.add("process(argument)");
 			addPositionalArgToMain(argN++, positionalArgs, pid);
 
 			// command line argument: the IP:port address this program is going
 			// to use to communicate with peers.
 			PGoVariable ipAddr = PGoVariable.processNetAddress();
-			ipAddr.setType(PGoPrimitiveType.STRING);
 			positionalArgNames.add("ip:port");
 			addPositionalArgToMain(argN++, positionalArgs, ipAddr);
 		}
@@ -1252,7 +1251,7 @@ public class PGoTransStageGoGen {
 			args.add(new Token("\"\""));
 			main.add(new FunctionCall("flag.Float64Var", args));
 		} else {
-			throw new PGoTransException("Unsupported go argument type \"" + pv.getType().toGo()
+			throw new PGoTransException("Unsupported go argument type \"" + pv.getType().toTypeName()
 					+ "\" for variable \"" + pv.getName() + "\"", pv.getLine());
 		}
 	}

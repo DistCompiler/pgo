@@ -1,7 +1,6 @@
 package pgo.model.intermediate;
 
 import java.util.List;
-import java.util.Vector;
 
 import pcal.AST.PVarDecl;
 import pcal.AST.VarDecl;
@@ -11,8 +10,11 @@ import pgo.model.parser.AnnotatedTLADefinition;
 import pgo.model.parser.AnnotatedVariable.ArgAnnotatedVariable;
 import pgo.model.tla.PGoTLAExpression;
 import pgo.model.tla.TLAExprToType;
+import pgo.model.type.PGoType;
+import pgo.model.type.PGoTypeString;
 import pgo.parser.TLAExprParser;
 import pgo.trans.PGoTransException;
+import pgo.trans.PGoTransExpectedSingleExpressionException;
 import pgo.trans.intermediate.PGoTempData;
 
 /**
@@ -25,6 +27,8 @@ import pgo.trans.intermediate.PGoTempData;
  *
  */
 public class PGoVariable {
+	public static final String PROCESS_ARG_VAR_NAME = "self";
+
 	// the name of the variable
 	private String name;
 
@@ -38,9 +42,9 @@ public class PGoVariable {
 	private PGoType type;
 
 	// The go syntax value
-	private String goval;
+	private String goVal;
 
-	// The line number in pluscal
+	// The line number in PlusCal
 	private int line;
 
 	// Whether this variable is a constant
@@ -65,10 +69,10 @@ public class PGoVariable {
 	// compiling a distributed algorithm
 	private boolean remote;
 
-	// private constructor. only construct through converting from VarDecl
-	private PGoVariable() {
-		type = PGoType.UNDETERMINED;
-		goval = "";
+	// hide the constructor. only construct through converting from VarDecl
+	private PGoVariable(PGoType t) {
+		type = t;
+		goVal = "";
 		isConstant = false;
 		inferred = false;
 		argInfo = null;
@@ -102,12 +106,12 @@ public class PGoVariable {
 	}
 
 	public String getGoVal() {
-		return goval;
+		return goVal;
 	}
 
 	// Sets the value of this variable in go syntax
 	public void setGoVal(String val) {
-		this.goval = val;
+		this.goVal = val;
 	}
 
 	public boolean getIsConstant() {
@@ -166,13 +170,9 @@ public class PGoVariable {
 	 * Converts a PlusCal AST variable into a basic PGoVariable intermediate
 	 * representation. This does not create the variable initialization
 	 * functions for Go and the type inference.
-	 *
-	 * @param var
-	 * @return
 	 */
-	public static PGoVariable convert(VarDecl var) {
-		PGoVariable r = new PGoVariable();
-		r.name = var.var;
+	public static PGoVariable convert(VarDecl var, PGoType tn) {
+		PGoVariable r = convert(var.var, tn);
 		r.isSimpleAssignInit = var.isEq;
 		r.tlaExpr = var.val;
 		r.line = var.line;
@@ -181,9 +181,8 @@ public class PGoVariable {
 	}
 
 	// The same as above but for a PVarDecl (for process variable)
-	public static PGoVariable convert(PVarDecl var) {
-		PGoVariable r = new PGoVariable();
-		r.name = var.var;
+	public static PGoVariable convert(PVarDecl var, PGoType tn) {
+		PGoVariable r = convert(var.var, tn);
 		r.isSimpleAssignInit = var.isEq;
 		r.tlaExpr = var.val;
 		r.line = var.line;
@@ -191,43 +190,20 @@ public class PGoVariable {
 		return r;
 	}
 
-	// The same as above but with a simple String
-	public static PGoVariable convert(String var) {
-		PGoVariable r = new PGoVariable();
-		r.name = var;
-		r.isSimpleAssignInit = true;
-		r.tlaExpr = PcalParams.DefaultVarInit();
-		r.line = -1;
-
-		return r;
-	}
-
 	// Creates a variable representing the process id arguments for process functions
-	public static PGoVariable processIdArg() {
-		PGoVariable r = new PGoVariable();
-		r.name = "self";
-		r.isSimpleAssignInit = true;
-		r.tlaExpr = PcalParams.DefaultVarInit();
-		r.line = -1;
-
-		return r;
+	public static PGoVariable processIdArg(PGoType tn) {
+		return convert(PROCESS_ARG_VAR_NAME, tn);
 	}
 
 	// Creates a variable representing the IP:Port the process should bind when executing
 	public static PGoVariable processNetAddress() {
-		PGoVariable r = new PGoVariable();
-		r.name = "ipAddr";
-		r.isSimpleAssignInit = false;
-		r.tlaExpr = PcalParams.DefaultVarInit();
-		r.line = -1;
-
-		return r;
+		return convert("ipAddr", PGoTypeString.getInstance());
 	}
 
 	// Creates a variable from a name and the type of the variable
-	public static PGoVariable convert(String n, PGoType tn) {
-		PGoVariable r = new PGoVariable();
-		r.name = n;
+	public static PGoVariable convert(String name, PGoType tn) {
+		PGoVariable r = new PGoVariable(tn);
+		r.name = name;
 		r.isSimpleAssignInit = true;
 		r.tlaExpr = PcalParams.DefaultVarInit();
 		r.type = tn;
@@ -237,27 +213,26 @@ public class PGoVariable {
 
 	// Creates a variable from a name and an initial value (a primitive),
 	// inferring the type from the initial value.
-	public static PGoVariable convert(String n, String val, PGoType tn) {
-		PGoVariable r = new PGoVariable();
-		r.name = n;
-		r.isSimpleAssignInit = true;
-		r.goval = val;
-		r.type = tn;
-		r.line = -1;
+	public static PGoVariable convert(String name, String val, PGoType tn) {
+		PGoVariable r = convert(name, tn);
+		r.goVal = val;
 		return r;
 	}
 
 	// Creates a variable based on a parameterless TLA definition
 	public static PGoVariable convert(AnnotatedTLADefinition defn, PGoTempData varData) throws PGoTransException {
-		assert (defn.getParams().isEmpty());
-		PGoVariable r = new PGoVariable();
+		if (defn.getParams().isEmpty()) {
+			throw new PGoTransException("Variable annotated like a function", defn.getLine());
+		}
+		// infer the type
+		List<PGoTLAExpression> ptla = new TLAExprParser(defn.getExpr(), defn.getLine()).getResult();
+		if (ptla.size() == 1) {
+			throw new PGoTransExpectedSingleExpressionException(defn.getLine());
+		}
+		PGoVariable r = new PGoVariable(new TLAExprToType(ptla.get(0), varData, true).getType());
 		r.name = defn.getName();
 		r.isSimpleAssignInit = true;
 		r.tlaExpr = defn.getExpr();
-		// infer the type
-		List<PGoTLAExpression> ptla = new TLAExprParser(r.tlaExpr, defn.getLine()).getResult();
-		assert (ptla.size() == 1);
-		r.type = new TLAExprToType(ptla.get(0), varData, true).getType();
 		r.line = defn.getLine();
 		return r;
 	}
