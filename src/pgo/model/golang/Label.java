@@ -1,30 +1,24 @@
 package pgo.model.golang;
 
-import java.util.Vector;
-
 /**
  * A label in Go. This will be on it's own line
  *
  */
-public class Label extends Expression {
+public class Label extends Statement {
 
-	private final String labelName;
+	private final String name;
 
 	public Label(String name) {
-		labelName = name;
+		this.name = name;
 	}
 
-	public String getLabelName() {
-		return labelName;
+	public String getName() {
+		return name;
 	}
 
 	@Override
-	public Vector<String> toGo() {
-		return new Vector<String>() {
-			{
-				add(labelName + ":");
-			}
-		};
+	public <T> T accept(Visitor<T> v) {
+		return v.visit(this);
 	}
 
 }

@@ -1,52 +1,42 @@
 package pgo.model.golang;
 
-import java.util.Vector;
-
 /**
  * The for loop. Equivalent to PlusCal while
  *
  */
 public class For extends Statement {
 	// boolean condition
-	private Expression cond;
+	Statement init;
+	Expression cond;
+	Statement inc;
 
-	// inside of loop
-	private Vector<Statement> then;
+	Block body;
 
-	public For(Expression cond, Vector<Statement> then) {
+	public For(Statement init, Expression cond, Statement inc, Block body) {
+		this.init = init;
 		this.cond = cond;
-		this.then = then;
+		this.inc = inc;
+		this.body = body;
 	}
 
-	// an infinite loop in Go
-	public For(Vector<Statement> then) {
-		this.cond = null;
-		this.then = then;
+	public Statement getInit() {
+		return init;
 	}
-
-	public Expression getCond() {
+	
+	public Expression getCondition() {
 		return cond;
 	}
-
-	public void setCond(Expression e) {
-		this.cond = e;
+	
+	public Statement getIncrement() {
+		return inc;
 	}
-
-	public Vector<Statement> getThen() {
-		return this.then;
-	}
-
-	public void setThen(Vector<Statement> e) {
-		this.then = e;
+	
+	public Block getBody() {
+		return body;
 	}
 
 	@Override
-	public Vector<String> toGo() {
-		Vector<String> ret = new Vector<>();
-		Vector<String> conds = cond == null ? new Vector<>() : cond.toGo();
-		ret.add("for " + String.join("; ", conds) + " {");
-		addIndentedAST(ret, then);
-		ret.add("}");
-		return ret;
+	public <T> T accept(Visitor<T> v) {
+		return v.visit(this);
 	}
 }

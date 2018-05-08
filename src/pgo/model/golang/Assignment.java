@@ -1,41 +1,40 @@
 package pgo.model.golang;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Vector;
+import java.util.Collections;
+import java.util.List;
 
 /**
- * Assigns a value to a variable while declaring it:
+ * Assigns a value to a variable :
  *
  *
- *  goVar := {expr}
+ *  goVar = {expr}
  *
  */
 public class Assignment extends Statement {
 
-    // the variable name(s)
-    private Vector<String> lhs;
-
-    // right hand side expression
-    private Expression expr;
-
-    // are we declaring a new variable in this assignment
-    private boolean declaration;
-
-    public Assignment(Vector<String> names, Expression val, boolean declaration) {
-        this.lhs = names;
-        this.expr = val;
-        this.declaration = declaration;
+    List<VariableName> names;
+    Expression value;
+    
+    public Assignment(VariableName name, Expression value) {
+    	this.names = Collections.singletonList(name);
+    	this.value = value;
+    }
+    
+    public Assignment(List<VariableName> names, Expression value) {
+    	this.names = names;
+    	this.value = value;
+    }
+    
+    public List<VariableName> getNames() {
+    	return names;
+    }
+    
+    public Expression getValue() {
+    	return value;
     }
 
-    @Override
-    public Vector<String> toGo() {
-        Vector<String> ret = new Vector<>();
-        String decl;
-        String op = declaration ? ":=" : "=";
-
-        decl = String.format("%s %s %s", String.join(", ", this.lhs), op, expr.toGo().get(0));
-        ret.add(decl);
-        return ret;
-    }
+	@Override
+	public <T> T accept(Visitor<T> v) {
+		return v.visit(this);
+	}
 }

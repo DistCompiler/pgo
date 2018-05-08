@@ -1,7 +1,5 @@
 package pgo.model.golang;
 
-import java.util.Vector;
-
 public class IntLiteral extends Expression {
 
 	private int value;
@@ -10,11 +8,13 @@ public class IntLiteral extends Expression {
 		this.value = value;
 	}
 	
+	public int getValue() {
+		return value;
+	}
+
 	@Override
-	public Vector<String> toGo() {
-		Vector<String> result = new Vector<>();
-		result.add(Integer.toString(value));
-		return result;
+	public <T> T accept(Visitor<T> v) {
+		return v.visit(this);
 	}
 
 }

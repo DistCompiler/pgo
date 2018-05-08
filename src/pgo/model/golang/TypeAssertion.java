@@ -1,9 +1,5 @@
 package pgo.model.golang;
 
-import java.util.Vector;
-
-import pgo.model.intermediate.PGoType;
-
 /**
  * Represents a type assertion e.g. x.(int), which casts an interface to the
  * specified type.
@@ -11,20 +7,25 @@ import pgo.model.intermediate.PGoType;
  */
 public class TypeAssertion extends Expression {
 	// the expr we are casting
-	private Expression expr;
+	private Expression target;
 	
-	private PGoType type;
+	private Type type;
 	
-	public TypeAssertion(Expression expr, PGoType type) {
-		this.expr = expr;
+	public TypeAssertion(Expression target, Type type) {
+		this.target = target;
 		this.type = type;
 	}
 	
+	public Expression getTarget() {
+		return target;
+	}
+	
+	public Type getType() {
+		return type;
+	}
+
 	@Override
-	public Vector<String> toGo() {
-		Vector<String> ret = expr.toGo();
-		assert(ret.size() == 1);
-		ret.set(0, ret.get(0) + ".(" + type.toGo() + ")");
-		return ret;
+	public <T> T accept(Visitor<T> visitor) {
+		return visitor.visit(this);
 	}
 }

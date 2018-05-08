@@ -1,7 +1,5 @@
 package pgo.model.golang;
 
-import java.util.Vector;
-
 /**
  * The if statement
  *
@@ -9,49 +7,33 @@ import java.util.Vector;
 public class If extends Statement {
 	// boolean condition
 	private Expression cond;
+	private Block bThen;
+	private Block bElse;
 
-	// true condition
-	private Vector<Statement> thenS;
-
-	// else
-	private Vector<Statement> elseS;
-
-	private boolean negation;
-
-	public If(Expression cond, Vector<Statement> thenS, Vector<Statement> elseS) {
+	public If(Expression cond, Block bThen, Block bElse) {
 		this.cond = cond;
-		this.thenS = thenS;
-		this.elseS = elseS;
-		this.negation = false;
+		this.bThen = bThen;
+		this.bElse = bElse;
 	}
 
 	public Expression getCond() {
 		return cond;
 	}
-
-	public void setCond(Expression e) {
-		this.cond = e;
+	
+	public Block getThen() {
+		return bThen;
 	}
-
-	public void negate() { this.negation = true; }
-
-	public Vector<Statement> getThen() {
-		return this.thenS;
-	}
-
-	public void setThen(Vector<Statement> e) {
-		this.thenS = e;
-	}
-
-	public Vector<Statement> getElse() {
-		return this.elseS;
-	}
-
-	public void setElse(Vector<Statement> e) {
-		this.elseS = e;
+	
+	public Block getElse() {
+		return bElse;
 	}
 
 	@Override
+	public <T> T accept(Visitor<T> v) {
+		return v.visit(this);
+	}
+
+	/*@Override
 	public Vector<String> toGo() {
 		Vector<String> ret = new Vector<String>();
 		Vector<String> condStr = cond.toGo();
@@ -74,5 +56,5 @@ public class If extends Statement {
 		}
 		ret.add("}");
 		return ret;
-	}
+	}*/
 }

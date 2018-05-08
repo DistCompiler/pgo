@@ -1,7 +1,5 @@
 package pgo.model.golang;
 
-import java.util.Vector;
-
 public class StringLiteral extends Expression {
 	
 	private String value;
@@ -9,8 +7,17 @@ public class StringLiteral extends Expression {
 	public StringLiteral(String value) {
 		this.value = value;
 	}
+	
+	public String getValue() {
+		return value;
+	}
 
 	@Override
+	public <T> T accept(Visitor<T> visitor) {
+		return visitor.visit(this);
+	}
+
+	/*@Override
 	public Vector<String> toGo() {
 		StringBuilder out = new StringBuilder();
 		// TODO: more correct string escaping
@@ -30,6 +37,6 @@ public class StringLiteral extends Expression {
 		Vector<String> result = new Vector<>();
 		result.add(out.toString());
 		return result;
-	}
+	}*/
 
 }

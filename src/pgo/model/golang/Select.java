@@ -1,6 +1,7 @@
 package pgo.model.golang;
 
-import java.util.Vector;
+import java.util.LinkedHashMap;
+import java.util.List;
 
 /**
  * A select statement in go
@@ -8,47 +9,20 @@ import java.util.Vector;
  *
  */
 public class Select extends Statement {
+	
+	LinkedHashMap<Statement, List<Statement>> cases;
 
-	// the cases
-	private Vector<Expression> cases;
-
-	// the body per case
-	private Vector<Vector<Statement>> body;
-
-	public Select(Vector<Expression> cases, Vector<Vector<Statement>> body) {
-		assert (cases.size() == body.size());
+	public Select(LinkedHashMap<Statement, List<Statement>> cases) {
 		this.cases = cases;
-		this.body = body;
 	}
 
-	public Vector<Expression> getCases() {
+	public LinkedHashMap<Statement, List<Statement>> getCases() {
 		return cases;
 	}
 
-	public void setCases(Vector<Expression> cases) {
-		this.cases = cases;
-	}
-
-	public Vector<Vector<Statement>> getBodies() {
-		return this.body;
-	}
-
-	public void setBodies(Vector<Vector<Statement>> b) {
-		this.body = b;
-	}
-
 	@Override
-	public Vector<String> toGo() {
-		Vector<String> ret = new Vector<String>();
-		ret.add("select {");
-		for (int i = 0; i < cases.size(); ++i) {
-			Vector<String> caseStr = cases.get(i).toGo();
-			ret.add("case " + caseStr.remove(0));
-			addStringsAndIndent(ret, caseStr);
-			ret.add(ret.remove(ret.size() - 1) + ":");
-			addIndentedAST(ret, body.get(i));
-		}
-		ret.add("}");
-		return ret;
+	public <T> T accept(Visitor<T> v) {
+		return v.visit(this);
 	}
+
 }

@@ -1,21 +1,31 @@
 package pgo.model.golang;
 
 import java.util.List;
-import java.util.Vector;
-
-import pgo.model.intermediate.PGoType;
 
 public class SliceConstructor extends Expression {
 
 	private List<Expression> initializers;
-	private PGoType elementType;
+	private Type elementType;
 
-	public SliceConstructor(PGoType elementType, List<Expression> initializers) {
+	public SliceConstructor(Type elementType, List<Expression> initializers) {
 		this.elementType = elementType;
 		this.initializers = initializers;
 	}
+	
+	public Type getElementType() {
+		return elementType;
+	}
+	
+	public List<Expression> getInitializers(){
+		return initializers;
+	}
 
 	@Override
+	public <T> T accept(Visitor<T> visitor) {
+		return visitor.visit(this);
+	}
+
+	/*@Override
 	public Vector<String> toGo() {
 		StringBuilder out = new StringBuilder();
 		out.append("[]");
@@ -38,6 +48,6 @@ public class SliceConstructor extends Expression {
 		Vector<String> result = new Vector<>();
 		result.add(out.toString());
 		return result;
-	}
+	}*/
 
 }

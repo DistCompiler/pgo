@@ -1,36 +1,24 @@
 package pgo.model.golang;
 
-import java.util.Vector;
-
 /**
  * A goroutine call
  *
  */
-public class GoCall extends Expression {
+public class GoCall extends Statement {
 
-	private FunctionCall func;
+	private Expression target;
 
-	public GoCall(FunctionCall f) {
-		func = f;
+	public GoCall(Expression target) {
+		this.target = target;
 	}
-
-	public FunctionCall getFunctionCall() {
-		return func;
-	}
-
-	public void setFunctionCall(FunctionCall f) {
-		this.func = f;
+	
+	public Expression getTarget() {
+		return target;
 	}
 
 	@Override
-	public Vector<String> toGo() {
-		Vector<String> ret = new Vector<String>();
-		Vector<String> funcStr = func.toGo();
-		
-		ret.add("go " + funcStr.remove(0));
-		ret.addAll(funcStr);
-
-		return ret;
+	public <T> T accept(Visitor<T> v) {
+		return v.visit(this);
 	}
 
 }
