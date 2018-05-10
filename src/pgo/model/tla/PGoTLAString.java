@@ -1,9 +1,6 @@
 package pgo.model.tla;
 
-import java.util.Vector;
-
-import pgo.model.golang.Expression;
-import pgo.model.intermediate.PGoType;
+import pgo.util.SourceLocation;
 
 /**
  * Represents a TLA token string
@@ -11,31 +8,19 @@ import pgo.model.intermediate.PGoType;
  */
 public class PGoTLAString extends PGoTLAExpression {
 
-	private String string;
+	private String value;
 
-	public PGoTLAString(String string, int line) {
-		super(line);
-		this.string = string;
+	public PGoTLAString(SourceLocation location, String value) {
+		super(location);
+		this.value = value;
 	}
 
-	public String getString() {
-		return string;
-	}
-	
-	protected Expression convert(TLAExprToGo trans) {
-		return trans.translate(this);
-	}
-	
-	protected PGoType inferType(TLAExprToType trans) {
-		return trans.type(this);
-	}
-	
-	public String toString() {
-		return "PGoTLAString (" + this.getLine() + "): " + string;
+	public String getValue() {
+		return value;
 	}
 	
 	@Override
-	public <Result> Result walk(PGoTLAExpressionVisitor<Result> v) {
+	public <T> T accept(Visitor<T> v) {
 		return v.visit(this);
 	}
 
@@ -43,7 +28,7 @@ public class PGoTLAString extends PGoTLAExpression {
 	public int hashCode() {
 		final int prime = 31;
 		int result = 1;
-		result = prime * result + ((string == null) ? 0 : string.hashCode());
+		result = prime * result + ((value == null) ? 0 : value.hashCode());
 		return result;
 	}
 
@@ -56,11 +41,12 @@ public class PGoTLAString extends PGoTLAExpression {
 		if (getClass() != obj.getClass())
 			return false;
 		PGoTLAString other = (PGoTLAString) obj;
-		if (string == null) {
-			if (other.string != null)
+		if (value == null) {
+			if (other.value != null)
 				return false;
-		} else if (!string.equals(other.string))
+		} else if (!value.equals(other.value))
 			return false;
 		return true;
 	}
+	
 }

@@ -2,27 +2,25 @@ package pgo.model.tla;
 
 import java.util.List;
 
-public class PGoTLAQuantifierBound {
+import pgo.util.SourceLocation;
+
+public class PGoTLAQuantifierBound extends PGoTLANode {
 	
-	private List<String> ids;
+	private List<PGoTLAIdentifier> ids;
 	private PGoTLAExpression set;
 
-	public PGoTLAQuantifierBound(List<String> ids, PGoTLAExpression set) {
+	public PGoTLAQuantifierBound(SourceLocation location, List<PGoTLAIdentifier> ids, PGoTLAExpression set) {
+		super(location);
 		this.ids = ids;
 		this.set = set;
 	}
 	
-	public List<String> getIds(){
+	public List<PGoTLAIdentifier> getIds(){
 		return ids;
 	}
 	
 	public PGoTLAExpression getSet() {
 		return set;
-	}
-
-	@Override
-	public String toString() {
-		return "PGoTLAQuantifierBound [ids=" + ids + ", set=" + set + "]";
 	}
 
 	@Override

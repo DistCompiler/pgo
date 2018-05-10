@@ -1,11 +1,8 @@
 package pgo.model.tla;
 
-import java.util.List;
 import java.util.Map;
 
-import pgo.model.golang.Expression;
-import pgo.model.intermediate.PGoType;
-import pgo.trans.PGoTransException;
+import pgo.util.SourceLocation;
 
 /**
  * 
@@ -13,35 +10,26 @@ import pgo.trans.PGoTransException;
  * 
  * [ a : S1, b : S2, ... ]
  * 
+ * the set of all records with a given signature
  * (similar to PGoTLARecord, but S1, S2 are expected to be sets)
  *
  */
 public class PGoTLARecordSet extends PGoTLAExpression {
 
-	private Map<String, List<PGoTLAExpression>> fields;
+	private Map<PGoTLAIdentifier, PGoTLAExpression> fields;
 
-	public PGoTLARecordSet(Map<String, List<PGoTLAExpression>> fields, int line) {
-		super(line);
+	public PGoTLARecordSet(SourceLocation location, Map<PGoTLAIdentifier, PGoTLAExpression> fields) {
+		super(location);
 		this.fields = fields;
 	}
 	
-	public Map<String, List<PGoTLAExpression>> getFields(){
+	public Map<PGoTLAIdentifier, PGoTLAExpression> getFields(){
 		return fields;
 	}
 
 	@Override
-	public <Result> Result walk(PGoTLAExpressionVisitor<Result> v) {
+	public <T> T accept(Visitor<T> v) {
 		return v.visit(this);
-	}
-
-	@Override
-	protected Expression convert(TLAExprToGo trans) throws PGoTransException {
-		throw new RuntimeException("convert not implemented");
-	}
-
-	@Override
-	protected PGoType inferType(TLAExprToType trans) throws PGoTransException {
-		throw new RuntimeException("inferType not implemented");
 	}
 
 	@Override

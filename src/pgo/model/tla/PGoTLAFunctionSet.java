@@ -1,8 +1,6 @@
 package pgo.model.tla;
 
-import pgo.model.golang.Expression;
-import pgo.model.intermediate.PGoType;
-import pgo.trans.PGoTransException;
+import pgo.util.SourceLocation;
 
 /**
  * 
@@ -19,8 +17,8 @@ public class PGoTLAFunctionSet extends PGoTLAExpression {
 	private PGoTLAExpression from;
 	private PGoTLAExpression to;
 
-	public PGoTLAFunctionSet(PGoTLAExpression from, PGoTLAExpression to, int line) {
-		super(line);
+	public PGoTLAFunctionSet(SourceLocation location, PGoTLAExpression from, PGoTLAExpression to) {
+		super(location);
 		this.from = from;
 		this.to = to;
 	}
@@ -32,20 +30,10 @@ public class PGoTLAFunctionSet extends PGoTLAExpression {
 	public PGoTLAExpression getTo() {
 		return to;
 	}
-
+	
 	@Override
-	public <Result> Result walk(PGoTLAExpressionVisitor<Result> v) {
+	public <T> T accept(Visitor<T> v) {
 		return v.visit(this);
-	}
-
-	@Override
-	protected Expression convert(TLAExprToGo trans) throws PGoTransException {
-		throw new RuntimeException("convert not implemented");
-	}
-
-	@Override
-	protected PGoType inferType(TLAExprToType trans) throws PGoTransException {
-		throw new RuntimeException("inferType not implemented");
 	}
 
 	@Override

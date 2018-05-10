@@ -1,43 +1,21 @@
 package pgo.model.tla;
 
-import java.util.Vector;
-
-import pgo.model.golang.Expression;
-import pgo.model.intermediate.PGoType;
+import pgo.util.SourceLocation;
 
 public class PGoTLABool extends PGoTLAExpression {
 
-	private boolean val;
+	private boolean value;
 
-	public PGoTLABool(String b, int line) {
-		super(line);
-		if (b.equals("TRUE")) {
-			val = true;
-		} else if (b.equals("FALSE")) {
-			val = false;
-		} else {
-			assert (false);
-		}
+	public PGoTLABool(SourceLocation location, boolean value) {
+		super(location);
 	}
 
-	public boolean getVal() {
-		return val;
+	public boolean getValue() {
+		return value;
 	}
 
-	protected Expression convert(TLAExprToGo trans) {
-		return trans.translate(this);
-	}
-	
-	protected PGoType inferType(TLAExprToType trans) {
-		return trans.type(this);
-	}
-	
-	public String toString() {
-		return "PGoTLABool (" + this.getLine() + "): " + val;
-	}
-	
 	@Override
-	public <Result> Result walk(PGoTLAExpressionVisitor<Result> v) {
+	public <T> T accept(Visitor<T> v) {
 		return v.visit(this);
 	}
 
@@ -45,7 +23,7 @@ public class PGoTLABool extends PGoTLAExpression {
 	public int hashCode() {
 		final int prime = 31;
 		int result = 1;
-		result = prime * result + (val ? 1231 : 1237);
+		result = prime * result + (value ? 1231 : 1237);
 		return result;
 	}
 
@@ -58,8 +36,9 @@ public class PGoTLABool extends PGoTLAExpression {
 		if (getClass() != obj.getClass())
 			return false;
 		PGoTLABool other = (PGoTLABool) obj;
-		if (val != other.val)
+		if (value != other.value)
 			return false;
 		return true;
 	}
+	
 }

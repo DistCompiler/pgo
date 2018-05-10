@@ -2,9 +2,7 @@ package pgo.model.tla;
 
 import java.util.List;
 
-import pgo.model.golang.Expression;
-import pgo.model.intermediate.PGoType;
-import pgo.trans.PGoTransException;
+import pgo.util.SourceLocation;
 
 /**
  * 
@@ -15,18 +13,18 @@ import pgo.trans.PGoTransException;
  */
 public class PGoTLAOperatorCall extends PGoTLAExpression {
 
-	private String name;
+	private PGoTLAIdentifier name;
 	private List<PGoTLAExpression> args;
 	private List<PGoTLAGeneralIdentifierPart> prefix;
 	
-	public PGoTLAOperatorCall(int line, String name, List<PGoTLAGeneralIdentifierPart> prefix, List<PGoTLAExpression> args) {
-		super(line);
+	public PGoTLAOperatorCall(SourceLocation location, PGoTLAIdentifier name, List<PGoTLAGeneralIdentifierPart> prefix, List<PGoTLAExpression> args) {
+		super(location);
 		this.name = name;
 		this.args = args;
 		this.prefix = prefix;
 	}
 	
-	public String getName() {
+	public PGoTLAIdentifier getName() {
 		return name;
 	}
 	
@@ -34,27 +32,12 @@ public class PGoTLAOperatorCall extends PGoTLAExpression {
 		return args;
 	}
 	
-	public List<PGoTLAGeneralIdentifierPart> getGeneralIdentifierPrefix(){
+	public List<PGoTLAGeneralIdentifierPart> getPrefix(){
 		return prefix;
-	}
-
-	@Override
-	public String toString() {
-		return "PGoTLAOperatorCall [name=" + name + ", args=" + args + ", getLine()=" + getLine() + "]";
-	}
-
-	@Override
-	protected Expression convert(TLAExprToGo trans) throws PGoTransException {
-		throw new RuntimeException("convert unimplemented");
-	}
-
-	@Override
-	protected PGoType inferType(TLAExprToType trans) throws PGoTransException {
-		throw new RuntimeException("inferType unimplemented");
 	}
 	
 	@Override
-	public <Result> Result walk(PGoTLAExpressionVisitor<Result> v) {
+	public <T> T accept(Visitor<T> v) {
 		return v.visit(this);
 	}
 

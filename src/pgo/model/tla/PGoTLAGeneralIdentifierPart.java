@@ -2,17 +2,20 @@ package pgo.model.tla;
 
 import java.util.List;
 
+import pgo.util.SourceLocation;
+
 public class PGoTLAGeneralIdentifierPart extends PGoTLANode {
 
-	private String id;
+	private PGoTLAIdentifier id;
 	private List<PGoTLAExpression> parameters;
 
-	public PGoTLAGeneralIdentifierPart(String id, List<PGoTLAExpression> parameters) {
+	public PGoTLAGeneralIdentifierPart(SourceLocation location, PGoTLAIdentifier id, List<PGoTLAExpression> parameters) {
+		super(location);
 		this.id = id;
 		this.parameters = parameters;
 	}
 	
-	public String getId() {
+	public PGoTLAIdentifier getIdentifier() {
 		return id;
 	}
 	

@@ -5,6 +5,7 @@ import java.util.List;
 import pgo.model.golang.Expression;
 import pgo.model.intermediate.PGoType;
 import pgo.trans.PGoTransException;
+import pgo.util.SourceLocation;
 
 /**
  * 
@@ -20,8 +21,8 @@ public class PGoTLACase extends PGoTLAExpression {
 	private List<PGoTLACaseArm> arms;
 	private PGoTLAExpression other;
 
-	public PGoTLACase(List<PGoTLACaseArm> arms, PGoTLAExpression other, int line) {
-		super(line);
+	public PGoTLACase(SourceLocation location, List<PGoTLACaseArm> arms, PGoTLAExpression other) {
+		super(location);
 		this.arms = arms;
 		this.other = other;
 	}
@@ -39,25 +40,10 @@ public class PGoTLACase extends PGoTLAExpression {
 	}
 
 	@Override
-	public <Result> Result walk(PGoTLAExpressionVisitor<Result> v) {
+	public <T> T accept(Visitor<T> v) {
 		return v.visit(this);
 	}
-
-	@Override
-	protected Expression convert(TLAExprToGo trans) throws PGoTransException {
-		throw new RuntimeException("convert not implemented");
-	}
-
-	@Override
-	protected PGoType inferType(TLAExprToType trans) throws PGoTransException {
-		throw new RuntimeException("inferType not implemented");
-	}
-
-	@Override
-	public String toString() {
-		return "PGoTLACase [arms=" + arms + ", other=" + other + "]";
-	}
-
+	
 	@Override
 	public int hashCode() {
 		final int prime = 31;

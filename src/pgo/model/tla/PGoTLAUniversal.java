@@ -5,6 +5,7 @@ import java.util.List;
 import pgo.model.golang.Expression;
 import pgo.model.intermediate.PGoType;
 import pgo.trans.PGoTransException;
+import pgo.util.SourceLocation;
 
 /*
  * TLA AST Node:
@@ -19,8 +20,8 @@ public class PGoTLAUniversal extends PGoTLAExpression {
 	private List<String> ids;
 	private PGoTLAExpression body;
 
-	public PGoTLAUniversal(List<String> ids, PGoTLAExpression body, int line) {
-		super(line);
+	public PGoTLAUniversal(SourceLocation location, List<String> ids, PGoTLAExpression body) {
+		super(location);
 		this.ids = ids;
 		this.body = body;
 	}
@@ -34,23 +35,8 @@ public class PGoTLAUniversal extends PGoTLAExpression {
 	}
 
 	@Override
-	public String toString() {
-		return "PGoTLAUniversal [ids=" + ids + ", body=" + body + "]";
-	}
-
-	@Override
-	public <Result> Result walk(PGoTLAExpressionVisitor<Result> v) {
+	public <T> T accept(Visitor<T> v) {
 		return v.visit(this);
-	}
-
-	@Override
-	protected Expression convert(TLAExprToGo trans) throws PGoTransException {
-		throw new RuntimeException("convert not implemented");
-	}
-
-	@Override
-	protected PGoType inferType(TLAExprToType trans) throws PGoTransException {
-		throw new RuntimeException("inferType not implemented");
 	}
 
 	@Override

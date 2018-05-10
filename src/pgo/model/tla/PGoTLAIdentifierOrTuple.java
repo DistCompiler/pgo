@@ -1,5 +1,10 @@
 package pgo.model.tla;
 
+import java.util.Collections;
+import java.util.List;
+
+import pgo.util.SourceLocation;
+
 /**
  * 
  * Some parts of the grammar can either result in a single identifier or 
@@ -11,15 +16,69 @@ package pgo.model.tla;
  * << a, b, c >>
  *
  */
-public abstract class PGoTLAIdentifierOrTuple extends PGoTLANode {
+public class PGoTLAIdentifierOrTuple extends PGoTLANode {
 	
-	public abstract <Result> Result walk(PGoTLAIdentifierOrTupleVisitor<Result> v);
+	List<PGoTLAIdentifier> ids;
+	boolean isTuple;
+	
+	private PGoTLAIdentifierOrTuple(SourceLocation location, List<PGoTLAIdentifier> ids, boolean isTuple) {
+		super(location);
+		this.ids = ids;
+		this.isTuple = isTuple;
+	}
+	
+	public static PGoTLAIdentifierOrTuple Identifier(PGoTLAIdentifier id) {
+		return new PGoTLAIdentifierOrTuple(id.getLocation(), Collections.singletonList(id), false);
+	}
+	
+	public static PGoTLAIdentifierOrTuple Tuple(SourceLocation location, List<PGoTLAIdentifier> ids) {
+		return new PGoTLAIdentifierOrTuple(location, ids, true);
+	}
+	
+	public boolean getIsTuple() {
+		return isTuple;
+	}
+	
+	public PGoTLAIdentifier getId() {
+		if(ids.size() != 1 || isTuple) {
+			throw new RuntimeException("tried to treat an identifier tuple as an identifier: was "+ids);
+		}
+		return ids.get(0);
+	}
+	
+	public List<PGoTLAIdentifier> getTuple(){
+		if(!isTuple) {
+			throw new RuntimeException("tried to tread an identifier as an identifier tuple: was "+ids);
+		}
+		return ids;
+	}
 
-	public abstract PGoTLAExpression toExpression();
-	
 	@Override
-	public abstract int hashCode();
-	
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ((ids == null) ? 0 : ids.hashCode());
+		result = prime * result + (isTuple ? 1231 : 1237);
+		return result;
+	}
+
 	@Override
-	public abstract boolean equals(Object other);
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		PGoTLAIdentifierOrTuple other = (PGoTLAIdentifierOrTuple) obj;
+		if (ids == null) {
+			if (other.ids != null)
+				return false;
+		} else if (!ids.equals(other.ids))
+			return false;
+		if (isTuple != other.isTuple)
+			return false;
+		return true;
+	}
+
 }

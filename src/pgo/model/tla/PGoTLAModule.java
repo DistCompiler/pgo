@@ -1,7 +1,8 @@
 package pgo.model.tla;
 
 import java.util.List;
-import java.util.Map;
+
+import pgo.util.SourceLocation;
 
 /**
  * 
@@ -13,47 +14,71 @@ import java.util.Map;
  * ====
  *
  */
-public class PGoTLAModule extends PGoTLANode {
+public class PGoTLAModule extends PGoTLAUnit {
 	
-	String name;
-	List<String> exts;
-	List<String> variables;
-	List<PGoTLAOpDecl> constants;
-	Map<String, PGoTLAOperator> operators;
-	List<PGoTLAModule> submodules;
-	List<PGoTLAExpression> assumptions;
-	List<PGoTLAExpression> theorems;
+	PGoTLAIdentifier name;
+	List<PGoTLAIdentifier> exts;
+	List<PGoTLAUnit> units;
 
-	public PGoTLAModule(String name, List<String> exts, List<String> variables, List<PGoTLAOpDecl> constants,
-			Map<String, PGoTLAOperator> operators, List<PGoTLAModule> submodules, List<PGoTLAExpression> assumptions,
-			List<PGoTLAExpression> theorems) {
+	public PGoTLAModule(SourceLocation location, PGoTLAIdentifier name, List<PGoTLAIdentifier> exts, List<PGoTLAUnit> units) {
+		super(location);
 		this.name = name;
 		this.exts = exts;
-		this.variables = variables;
-		this.constants = constants;
-		this.operators = operators;
-		this.submodules = submodules;
-		this.assumptions = assumptions;
-		this.theorems = theorems;
+		this.units = units;
 	}
 	
-	public String getName() {
+	public PGoTLAIdentifier getName() {
 		return name;
 	}
 	
-	public List<String> getExtends(){
+	public List<PGoTLAIdentifier> getExtends(){
 		return exts;
 	}
 	
-	public Map<String, PGoTLAOperator> getOperators(){
-		return operators;
+	public List<PGoTLAUnit> getUnits(){
+		return units;
 	}
 
 	@Override
-	public String toString() {
-		return "PGoTLAModule [name=" + name + ", exts=" + exts + ", variables=" + variables + ", constants=" + constants
-				+ ", operators=" + operators + ", submodules=" + submodules + ", assumptions=" + assumptions
-				+ ", theorems=" + theorems + "]";
+	public <T> T accept(Visitor<T> v) {
+		return v.visit(this);
+	}
+
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ((exts == null) ? 0 : exts.hashCode());
+		result = prime * result + ((name == null) ? 0 : name.hashCode());
+		result = prime * result + ((units == null) ? 0 : units.hashCode());
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		PGoTLAModule other = (PGoTLAModule) obj;
+		if (exts == null) {
+			if (other.exts != null)
+				return false;
+		} else if (!exts.equals(other.exts))
+			return false;
+		if (name == null) {
+			if (other.name != null)
+				return false;
+		} else if (!name.equals(other.name))
+			return false;
+		if (units == null) {
+			if (other.units != null)
+				return false;
+		} else if (!units.equals(other.units))
+			return false;
+		return true;
 	}
 	
 }

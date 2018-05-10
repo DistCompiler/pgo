@@ -2,9 +2,7 @@ package pgo.model.tla;
 
 import java.util.List;
 
-import pgo.model.golang.Expression;
-import pgo.model.intermediate.PGoType;
-import pgo.trans.PGoTransException;
+import pgo.util.SourceLocation;
 
 /**
  * 
@@ -18,8 +16,8 @@ public class PGoTLAFunction extends PGoTLAExpression {
 	private List<PGoTLAQuantifierBound> args;
 	private PGoTLAExpression body;
 
-	public PGoTLAFunction(List<PGoTLAQuantifierBound> args, PGoTLAExpression body, int line) {
-		super(line);
+	public PGoTLAFunction(SourceLocation location, List<PGoTLAQuantifierBound> args, PGoTLAExpression body) {
+		super(location);
 		this.args = args;
 		this.body = body;
 	}
@@ -30,6 +28,11 @@ public class PGoTLAFunction extends PGoTLAExpression {
 	
 	public PGoTLAExpression getBody() {
 		return body;
+	}
+	
+	@Override
+	public <T> T accept(Visitor<T> v) {
+		return v.visit(this);
 	}
 
 	@Override
@@ -61,26 +64,6 @@ public class PGoTLAFunction extends PGoTLAExpression {
 		} else if (!body.equals(other.body))
 			return false;
 		return true;
-	}
-
-	@Override
-	public String toString() {
-		return "PGoTLAFunction [args=" + args + ", body=" + body + ", getLine()=" + getLine() + "]";
-	}
-
-	@Override
-	public <Result> Result walk(PGoTLAExpressionVisitor<Result> v) {
-		return v.visit(this);
-	}
-
-	@Override
-	protected Expression convert(TLAExprToGo trans) throws PGoTransException {
-		throw new RuntimeException("convert not implemented");
-	}
-
-	@Override
-	protected PGoType inferType(TLAExprToType trans) throws PGoTransException {
-		throw new RuntimeException("inferType not implemented");
 	}
 
 }

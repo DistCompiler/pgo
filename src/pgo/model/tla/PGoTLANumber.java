@@ -1,9 +1,6 @@
 package pgo.model.tla;
 
-import java.util.Vector;
-
-import pgo.model.golang.Expression;
-import pgo.model.intermediate.PGoType;
+import pgo.util.SourceLocation;
 
 /**
  * Represents a tla token for a number
@@ -13,8 +10,8 @@ public class PGoTLANumber extends PGoTLAExpression {
 
 	private String val;
 
-	public PGoTLANumber(String val, int line) {
-		super(line);
+	public PGoTLANumber(SourceLocation location, String val) {
+		super(location);
 		this.val = val;
 	}
 
@@ -22,20 +19,8 @@ public class PGoTLANumber extends PGoTLAExpression {
 		return val;
 	}
 	
-	protected Expression convert(TLAExprToGo trans) {
-		return trans.translate(this);
-	}
-	
-	protected PGoType inferType(TLAExprToType trans) {
-		return trans.type(this);
-	}
-	
-	public String toString() {
-		return "PGoTLANumber (" + this.getLine() + "): " + val;
-	}
-	
 	@Override
-	public <Result> Result walk(PGoTLAExpressionVisitor<Result> v) {
+	public <T> T accept(Visitor<T> v) {
 		return v.visit(this);
 	}
 

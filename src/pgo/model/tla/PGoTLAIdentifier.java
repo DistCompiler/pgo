@@ -1,34 +1,24 @@
 package pgo.model.tla;
 
-import java.util.ArrayList;
+import pgo.util.SourceLocation;
 
 /**
  * 
- * AST Node representing a single identifier, in the context of its superclass.
+ * AST Node representing a single identifier. This allows us to attach metadata at
+ * the identifier level.
  * 
  */
-public class PGoTLAIdentifier extends PGoTLAIdentifierOrTuple {
+public class PGoTLAIdentifier extends PGoTLANode {
 	
 	String id;
-	int line;
 	
-	public PGoTLAIdentifier(String id, int line) {
+	public PGoTLAIdentifier(SourceLocation location, String id) {
+		super(location);
 		this.id = id;
-		this.line = line;
 	}
 	
 	public String getId() {
 		return id;
-	}
-	
-	@Override
-	public PGoTLAExpression toExpression() {
-		return new PGoTLAVariable(id, new ArrayList<>(), line);
-	}
-
-	@Override
-	public <Result> Result walk(PGoTLAIdentifierOrTupleVisitor<Result> v) {
-		return v.visit(this);
 	}
 
 	@Override

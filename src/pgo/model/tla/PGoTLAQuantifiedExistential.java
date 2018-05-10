@@ -2,9 +2,7 @@ package pgo.model.tla;
 
 import java.util.List;
 
-import pgo.model.golang.Expression;
-import pgo.model.intermediate.PGoType;
-import pgo.trans.PGoTransException;
+import pgo.util.SourceLocation;
 
 /**
  * 
@@ -18,8 +16,8 @@ public class PGoTLAQuantifiedExistential extends PGoTLAExpression {
 	private PGoTLAExpression body;
 	private List<PGoTLAQuantifierBound> ids;
 
-	public PGoTLAQuantifiedExistential(List<PGoTLAQuantifierBound> ids, PGoTLAExpression body, int line) {
-		super(line);
+	public PGoTLAQuantifiedExistential(SourceLocation location, List<PGoTLAQuantifierBound> ids, PGoTLAExpression body) {
+		super(location);
 		this.ids = ids;
 		this.body = body;
 	}
@@ -33,23 +31,8 @@ public class PGoTLAQuantifiedExistential extends PGoTLAExpression {
 	}
 
 	@Override
-	public String toString() {
-		return "PGoTLAQuantifiedExistential [body=" + body + ", ids=" + ids + ", getLine()=" + getLine() + "]";
-	}
-
-	@Override
-	public <Result> Result walk(PGoTLAExpressionVisitor<Result> v) {
+	public <T> T accept(Visitor<T> v) {
 		return v.visit(this);
-	}
-
-	@Override
-	protected Expression convert(TLAExprToGo trans) throws PGoTransException {
-		throw new RuntimeException("convert not implemented");
-	}
-
-	@Override
-	protected PGoType inferType(TLAExprToType trans) throws PGoTransException {
-		throw new RuntimeException("inferType not implemented");
 	}
 
 	@Override

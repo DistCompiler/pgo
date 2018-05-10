@@ -2,9 +2,7 @@ package pgo.model.tla;
 
 import java.util.List;
 
-import pgo.model.golang.Expression;
-import pgo.model.intermediate.PGoType;
-import pgo.trans.PGoTransException;
+import pgo.util.SourceLocation;
 
 /**
  * 
@@ -18,8 +16,8 @@ public class PGoTLAFunctionSubstitution extends PGoTLAExpression {
 	private PGoTLAExpression source;
 	private List<PGoTLAFunctionSubstitutionPair> subs;
 
-	public PGoTLAFunctionSubstitution(PGoTLAExpression source, List<PGoTLAFunctionSubstitutionPair> subs, int line) {
-		super(line);
+	public PGoTLAFunctionSubstitution(SourceLocation location, PGoTLAExpression source, List<PGoTLAFunctionSubstitutionPair> subs) {
+		super(location);
 		this.source = source;
 		this.subs = subs;
 	}
@@ -33,23 +31,8 @@ public class PGoTLAFunctionSubstitution extends PGoTLAExpression {
 	}
 
 	@Override
-	public <Result> Result walk(PGoTLAExpressionVisitor<Result> v) {
+	public <T> T accept(Visitor<T> v) {
 		return v.visit(this);
-	}
-
-	@Override
-	protected Expression convert(TLAExprToGo trans) throws PGoTransException {
-		throw new RuntimeException("convert unimplemented");
-	}
-
-	@Override
-	protected PGoType inferType(TLAExprToType trans) throws PGoTransException {
-		throw new RuntimeException("inferType unimplemented");
-	}
-
-	@Override
-	public String toString() {
-		return "PGoTLAFunctionSubstitution [source=" + source + ", subs=" + subs + "]";
 	}
 
 	@Override

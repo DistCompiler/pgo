@@ -1,5 +1,6 @@
 package pgo.util;
 
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -39,16 +40,22 @@ import pgo.model.pcal.With;
 import pgo.model.tla.PGoTLAExpression;
 import pgo.model.tla.PGoTLAFunction;
 import pgo.model.tla.PGoTLAInstance;
-import pgo.model.tla.PGoTLAOperator;
+import pgo.model.tla.PGoTLAOperatorDefinition;
 import pgo.parser.PGoTLAParseException;
 import pgo.parser.TLAParser;
 import pgo.trans.PGoTransException;
+import tla2sany.st.Location;
 
 public class TLCToPGoPCalASTConversionVisitor extends PcalASTUtil.Visitor<List<Statement>> {
 	
 	Algorithm result;
 	Vector<String> plusLabels;
 	Vector<String> minusLabels;
+	
+	private static SourceLocation sourceLocationFromRegion(AST a) {
+		Location loc = a.getOrigin().toLocation();
+		return new SourceLocation(Paths.get(loc.source()), loc.beginLine(), loc.endLine(), loc.beginColumn(), loc.endColumn());
+	}
 	
 	private List<LabeledStatements> parseProcessBody(Vector<AST> body) throws PGoException {
 		List<LabeledStatements> result = new ArrayList<>();
@@ -84,12 +91,12 @@ public class TLCToPGoPCalASTConversionVisitor extends PcalASTUtil.Visitor<List<S
 	}
 	
 	private VariableDecl convertVarDecl(AST.VarDecl v) throws PGoTLAParseException {
-		return new VariableDecl(v.var, !v.isEq, parseTLAExpression(v.val));
+		return new VariableDecl(sourceLocationFromRegion(v), v.var, !v.isEq, parseTLAExpression(v.val));
 	}
 
 	@SuppressWarnings("unchecked")
 	private Macro convertMacro(pcal.AST.Macro m) throws PGoException {
-		return new Macro(m.name, m.params, parseStatementSequence(m.body));
+		return new Macro(sourceLocationFromRegion(m), m.name, m.params, parseStatementSequence(m.body));
 	}
 	
 	private List<VariableDecl> convertVarDecls(Vector<AST.VarDecl> decls) throws PGoTLAParseException{
@@ -113,11 +120,11 @@ public class TLCToPGoPCalASTConversionVisitor extends PcalASTUtil.Visitor<List<S
 		plusLabels = p.plusLabels;
 		minusLabels = p.minusLabels;
 		List<LabeledStatements> stmts = parseProcessBody(p.body);
-		return new Procedure(p.name, convertPVarDecls(p.params), convertPVarDecls(p.decls), stmts);
+		return new Procedure(sourceLocationFromRegion(p), p.name, convertPVarDecls(p.params), convertPVarDecls(p.decls), stmts);
 	}
 	
 	@SuppressWarnings({ "unchecked", "rawtypes" })
-	private Algorithm convertAlgorithm(String name, Vector decls, Vector macros, Vector procs, Vector defns, Processes processes) throws PGoException {
+	private Algorithm convertAlgorithm(SourceLocation loc, String name, Vector decls, Vector macros, Vector procs, Vector defns, Processes processes) throws PGoException {
 		List<VariableDecl> variables = convertVarDecls(decls);
 		
 		List<Macro> resultMacros = new ArrayList<>();
@@ -134,14 +141,13 @@ public class TLCToPGoPCalASTConversionVisitor extends PcalASTUtil.Visitor<List<S
 		for(Object tokList : defns) {
 			tokens.addAll((Vector<TLAToken>)tokList);
 		}
-		Map<String, PGoTLAOperator> operatorDefinitions = new HashMap<>();
+		Map<String, PGoTLAOperatorDefinition> operatorDefinitions = new HashMap<>();
 		Map<String, PGoTLAFunction> functionDefinitions = new HashMap<>();
 		List<PGoTLAInstance> instanceDefinitions = new ArrayList<>(); // you should never actually encounter these
 		
 		TLAParser.lookaheadOperatorFunctionOrModuleDefinition(tokens.listIterator(), operatorDefinitions, functionDefinitions, instanceDefinitions, -1);
 		
-		return new Algorithm(name, variables, macros, procedures, operatorDefinitions,
-				functionDefinitions, processes);
+		return new Algorithm(loc, name, variables, macros, procedures, units, processes);
 	}
 	
 	public Algorithm getResult() {
@@ -151,8 +157,8 @@ public class TLCToPGoPCalASTConversionVisitor extends PcalASTUtil.Visitor<List<S
 	@SuppressWarnings("unchecked")
 	@Override
 	public List<Statement> visit(AST.Uniprocess ua) throws PGoException {
-		SingleProcess proc = new SingleProcess(parseProcessBody(ua.body));
-		result = convertAlgorithm(ua.name, ua.decls, ua.macros, ua.prcds, ua.defs.tokens, proc);
+		SingleProcess proc = new SingleProcess(sourceLocationFromRegion(ua), parseProcessBody(ua.body));
+		result = convertAlgorithm(sourceLocationFromRegion(ua), ua.name, ua.decls, ua.macros, ua.prcds, ua.defs.tokens, proc);
 		return null;
 	}
 
@@ -179,12 +185,14 @@ public class TLCToPGoPCalASTConversionVisitor extends PcalASTUtil.Visitor<List<S
 			minusLabels = p.minusLabels;
 			plusLabels = p.plusLabels;
 			List<LabeledStatements> stmts = parseProcessBody(p.body);
-			procs.add(new PcalProcess(new VariableDecl(p.name, !p.isEq, parseTLAExpression(p.id)), f, convertVarDecls(p.decls), stmts));
+			procs.add(new PcalProcess(sourceLocationFromRegion(p), new VariableDecl(
+					sourceLocationFromRegion(p), p.name, !p.isEq, parseTLAExpression(p.id)),
+					f, convertVarDecls(p.decls), stmts));
 		}
 		
-		MultiProcess proc = new MultiProcess(procs);
+		MultiProcess proc = new MultiProcess(sourceLocationFromRegion(ma), procs);
 
-		result = convertAlgorithm(ma.name, ma.decls, ma.macros, ma.prcds, ma.defs.tokens, proc);
+		result = convertAlgorithm(sourceLocationFromRegion(ma), ma.name, ma.decls, ma.macros, ma.prcds, ma.defs.tokens, proc);
 		
 		return null;
 	}
@@ -223,7 +231,8 @@ public class TLCToPGoPCalASTConversionVisitor extends PcalASTUtil.Visitor<List<S
 			modifier = Label.Modifier.PLUS;
 		}
 		
-		return Collections.singletonList(new LabeledStatements(new Label(ls.label, modifier), statements));
+		return Collections.singletonList(new LabeledStatements(sourceLocationFromRegion(ls),
+				new Label(sourceLocationFromRegion(ls), ls.label, modifier), statements));
 	}
 
 	@SuppressWarnings("unchecked")
@@ -236,7 +245,8 @@ public class TLCToPGoPCalASTConversionVisitor extends PcalASTUtil.Visitor<List<S
 		for(AST a : (Vector<AST>)w.labDo) {
 			statements.addAll(PcalASTUtil.accept(a, this));
 		}
-		return Collections.singletonList(new While(parseTLAExpression(w.test), statements));
+		return Collections.singletonList(new While(sourceLocationFromRegion(w),
+				parseTLAExpression(w.test), statements));
 	}
 
 	@SuppressWarnings("unchecked")
@@ -258,7 +268,8 @@ public class TLCToPGoPCalASTConversionVisitor extends PcalASTUtil.Visitor<List<S
 			lhsTok.addAll(tokList);
 		}
 		PGoTLAExpression lhs = TLAParser.readExpression(lhsTok.listIterator());
-		return Collections.singletonList(new Assignment(lhs, parseTLAExpression(sa.rhs)));
+		return Collections.singletonList(new Assignment(sourceLocationFromRegion(sa), lhs,
+				parseTLAExpression(sa.rhs)));
 	}
 
 	@Override
@@ -269,7 +280,7 @@ public class TLCToPGoPCalASTConversionVisitor extends PcalASTUtil.Visitor<List<S
 	@SuppressWarnings("unchecked")
 	@Override
 	public List<Statement> visit(AST.If ifast) throws PGoException{
-		return Collections.singletonList(new If(parseTLAExpression(ifast.test),
+		return Collections.singletonList(new If(sourceLocationFromRegion(ifast), parseTLAExpression(ifast.test),
 				parseStatementSequence(ifast.Then), parseStatementSequence(ifast.Else)));
 	}
 
@@ -280,34 +291,34 @@ public class TLCToPGoPCalASTConversionVisitor extends PcalASTUtil.Visitor<List<S
 		for(Vector<AST> statements : (Vector<Vector<AST>>)ei.ors) {
 			cases.add(parseStatementSequence(statements));
 		}
-		return Collections.singletonList(new Either(cases));
+		return Collections.singletonList(new Either(sourceLocationFromRegion(ei), cases));
 	}
 
 	@SuppressWarnings("unchecked")
 	@Override
 	public List<Statement> visit(AST.With with) throws PGoException {
-		return Collections.singletonList(new With(new VariableDecl(with.var, !with.isEq, parseTLAExpression(with.exp)),
-				parseStatementSequence(with.Do)));
+		return Collections.singletonList(new With(sourceLocationFromRegion(with),
+				new VariableDecl(sourceLocationFromRegion(with), with.var, !with.isEq, parseTLAExpression(with.exp)), parseStatementSequence(with.Do)));
 	}
 
 	@Override
 	public List<Statement> visit(AST.When when) throws PGoException {
-		return Collections.singletonList(new Await(parseTLAExpression(when.exp)));
+		return Collections.singletonList(new Await(sourceLocationFromRegion(when), parseTLAExpression(when.exp)));
 	}
 
 	@Override
 	public List<Statement> visit(AST.PrintS ps) throws PGoException {
-		return Collections.singletonList(new Print(parseTLAExpression(ps.exp)));
+		return Collections.singletonList(new Print(sourceLocationFromRegion(ps), parseTLAExpression(ps.exp)));
 	}
 
 	@Override
 	public List<Statement> visit(AST.Assert as) throws PGoException {
-		return Collections.singletonList(new Assert(parseTLAExpression(as.exp)));
+		return Collections.singletonList(new Assert(sourceLocationFromRegion(as), parseTLAExpression(as.exp)));
 	}
 
 	@Override
 	public List<Statement> visit(AST.Skip s) throws PGoTransException {
-		return Collections.singletonList(new Skip());
+		return Collections.singletonList(new Skip(sourceLocationFromRegion(s)));
 	}
 
 	@SuppressWarnings("unchecked")
@@ -327,7 +338,8 @@ public class TLCToPGoPCalASTConversionVisitor extends PcalASTUtil.Visitor<List<S
 		for(AST a : (Vector<AST>)lif.labElse) {
 			no.addAll(PcalASTUtil.accept(a, this));
 		}
-		return Collections.singletonList(new If(parseTLAExpression(lif.test), yes, no));
+		return Collections.singletonList(new If(sourceLocationFromRegion(lif),
+				parseTLAExpression(lif.test), yes, no));
 	}
 
 	@SuppressWarnings("unchecked")
@@ -343,7 +355,7 @@ public class TLCToPGoPCalASTConversionVisitor extends PcalASTUtil.Visitor<List<S
 				statements.addAll(PcalASTUtil.accept(a, this));
 			}
 		}
-		return Collections.singletonList(new Either(cases));
+		return Collections.singletonList(new Either(sourceLocationFromRegion(le), cases));
 	}
 
 	@Override
@@ -358,12 +370,12 @@ public class TLCToPGoPCalASTConversionVisitor extends PcalASTUtil.Visitor<List<S
 		for(TLAExpr e : (Vector<TLAExpr>)c.args) {
 			args.add(parseTLAExpression(e));
 		}
-		return Collections.singletonList(new Call(c.to, args));
+		return Collections.singletonList(new Call(sourceLocationFromRegion(c), c.to, args));
 	}
 
 	@Override
 	public List<Statement> visit(AST.Return r) throws PGoTransException {
-		return Collections.singletonList(new Return());
+		return Collections.singletonList(new Return(sourceLocationFromRegion(r)));
 	}
 
 	@SuppressWarnings("unchecked")
@@ -374,14 +386,14 @@ public class TLCToPGoPCalASTConversionVisitor extends PcalASTUtil.Visitor<List<S
 		for(TLAExpr e : (Vector<TLAExpr>)cr.args) {
 			args.add(parseTLAExpression(e));
 		}
-		statements.add(new Call(cr.to, args));
-		statements.add(new Return());
+		statements.add(new Call(sourceLocationFromRegion(cr), cr.to, args));
+		statements.add(new Return(sourceLocationFromRegion(cr)));
 		return statements;
 	}
 
 	@Override
 	public List<Statement> visit(AST.Goto g) throws PGoTransException {
-		return Collections.singletonList(new Goto(g.to));
+		return Collections.singletonList(new Goto(sourceLocationFromRegion(g), g.to));
 	}
 
 	@Override
@@ -396,7 +408,7 @@ public class TLCToPGoPCalASTConversionVisitor extends PcalASTUtil.Visitor<List<S
 		for(TLAExpr e : (Vector<TLAExpr>)m.args) {
 			args.add(parseTLAExpression(e));
 		}
-		return Collections.singletonList(new MacroCall(m.name, args));
+		return Collections.singletonList(new MacroCall(sourceLocationFromRegion(m), m.name, args));
 	}
 
 }

@@ -1,11 +1,8 @@
 package pgo.model.tla;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
-import pgo.model.golang.Expression;
-import pgo.model.intermediate.PGoType;
-import pgo.trans.PGoTransException;
+import pgo.util.SourceLocation;
 
 /**
  * 
@@ -16,34 +13,19 @@ import pgo.trans.PGoTransException;
  */
 public class PGoTLATuple extends PGoTLAExpression {
 
-	private List<PGoTLAExpression> exprs;
+	private List<PGoTLAExpression> elements;
 	
-	public PGoTLATuple(int line, List<PGoTLAExpression> exprs) {
-		super(line);
-		this.exprs = exprs;
-	}
-	
-	public List<PGoTLAExpression> getItems(){
-		return exprs;
+	public PGoTLATuple(SourceLocation location, List<PGoTLAExpression> elements) {
+		super(location);
+		this.elements = elements;
 	}
 	
-	@Override
-	public String toString() {
-		return "<<"+String.join(", ", exprs.stream().map(e -> e.toString()).collect(Collectors.toList()))+">>";
-	}
-
-	@Override
-	protected Expression convert(TLAExprToGo trans) throws PGoTransException {
-		throw new RuntimeException("convert unimplemented");
-	}
-
-	@Override
-	protected PGoType inferType(TLAExprToType trans) throws PGoTransException {
-		throw new RuntimeException("inferType unimplemented");
+	public List<PGoTLAExpression> getElements(){
+		return elements;
 	}
 	
 	@Override
-	public <Result> Result walk(PGoTLAExpressionVisitor<Result> v) {
+	public <T> T accept(Visitor<T> v) {
 		return v.visit(this);
 	}
 
@@ -51,7 +33,7 @@ public class PGoTLATuple extends PGoTLAExpression {
 	public int hashCode() {
 		final int prime = 31;
 		int result = 1;
-		result = prime * result + ((exprs == null) ? 0 : exprs.hashCode());
+		result = prime * result + ((elements == null) ? 0 : elements.hashCode());
 		return result;
 	}
 
@@ -64,10 +46,10 @@ public class PGoTLATuple extends PGoTLAExpression {
 		if (getClass() != obj.getClass())
 			return false;
 		PGoTLATuple other = (PGoTLATuple) obj;
-		if (exprs == null) {
-			if (other.exprs != null)
+		if (elements == null) {
+			if (other.elements != null)
 				return false;
-		} else if (!exprs.equals(other.exprs))
+		} else if (!elements.equals(other.elements))
 			return false;
 		return true;
 	}

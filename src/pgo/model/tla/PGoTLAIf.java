@@ -1,8 +1,6 @@
 package pgo.model.tla;
 
-import pgo.model.golang.Expression;
-import pgo.model.intermediate.PGoType;
-import pgo.trans.PGoTransException;
+import pgo.util.SourceLocation;
 
 /**
  * 
@@ -17,31 +15,28 @@ public class PGoTLAIf extends PGoTLAExpression {
 	private PGoTLAExpression tval;
 	private PGoTLAExpression fval;
 	
-	public PGoTLAIf(int line, PGoTLAExpression cond, PGoTLAExpression tval, PGoTLAExpression fval) {
-		super(line);
+	public PGoTLAIf(SourceLocation location, PGoTLAExpression cond, PGoTLAExpression tval, PGoTLAExpression fval) {
+		super(location);
 		this.cond = cond;
 		this.tval = tval;
 		this.fval = fval;
 	}
-
-	@Override
-	public String toString() {
-		return "PGoTLAIf [cond=" + cond + ", tval=" + tval + ", fval=" + fval + ", getLine()=" + getLine() + "]";
-	}
-
-	@Override
-	protected Expression convert(TLAExprToGo trans) throws PGoTransException {
-		throw new RuntimeException("convert unimplemented");
-	}
-
-	@Override
-	protected PGoType inferType(TLAExprToType trans) throws PGoTransException {
-		throw new RuntimeException("inferType unimplemented");
-	}
 	
 	@Override
-	public <Result> Result walk(PGoTLAExpressionVisitor<Result> v) {
+	public <T> T accept(Visitor<T> v) {
 		return v.visit(this);
+	}
+
+	public PGoTLAExpression getCond() {
+		return cond;
+	}
+
+	public PGoTLAExpression getTval() {
+		return tval;
+	}
+
+	public PGoTLAExpression getFval() {
+		return fval;
 	}
 
 	@Override

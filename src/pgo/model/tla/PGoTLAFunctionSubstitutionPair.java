@@ -2,12 +2,15 @@ package pgo.model.tla;
 
 import java.util.List;
 
-public class PGoTLAFunctionSubstitutionPair {
+import pgo.util.SourceLocation;
+
+public class PGoTLAFunctionSubstitutionPair extends PGoTLANode {
 
 	private List<PGoTLASubstitutionKey> keys;
 	private PGoTLAExpression value;
 
-	public PGoTLAFunctionSubstitutionPair(List<PGoTLASubstitutionKey> keys, PGoTLAExpression value) {
+	public PGoTLAFunctionSubstitutionPair(SourceLocation location, List<PGoTLASubstitutionKey> keys, PGoTLAExpression value) {
+		super(location);
 		this.keys = keys;
 		this.value = value;
 	}
@@ -18,11 +21,6 @@ public class PGoTLAFunctionSubstitutionPair {
 	
 	public PGoTLAExpression getValue() {
 		return value;
-	}
-
-	@Override
-	public String toString() {
-		return "PGoTLAFunctionSubstitutionPair [keys=" + keys + ", value=" + value + "]";
 	}
 
 	@Override

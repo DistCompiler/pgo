@@ -1,11 +1,14 @@
 package pgo.model.tla;
 
+import pgo.util.SourceLocation;
+
 public class PGoTLACaseArm extends PGoTLANode {
 	
 	private PGoTLAExpression cond;
 	private PGoTLAExpression result;
 
-	public PGoTLACaseArm(PGoTLAExpression cond, PGoTLAExpression result) {
+	public PGoTLACaseArm(SourceLocation location, PGoTLAExpression cond, PGoTLAExpression result) {
+		super(location);
 		this.cond = cond;
 		this.result = result;
 	}
@@ -16,11 +19,6 @@ public class PGoTLACaseArm extends PGoTLANode {
 	
 	public PGoTLAExpression getResult() {
 		return result;
-	}
-
-	@Override
-	public String toString() {
-		return "PGoTLACaseArm [cond=" + cond + ", result=" + result + "]";
 	}
 
 	@Override

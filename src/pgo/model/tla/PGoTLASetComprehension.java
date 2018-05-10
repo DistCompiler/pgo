@@ -2,9 +2,7 @@ package pgo.model.tla;
 
 import java.util.List;
 
-import pgo.model.golang.Expression;
-import pgo.model.intermediate.PGoType;
-import pgo.trans.PGoTransException;
+import pgo.util.SourceLocation;
 
 /**
  * 
@@ -18,8 +16,8 @@ public class PGoTLASetComprehension extends PGoTLAExpression {
 	private PGoTLAExpression body;
 	private List<PGoTLAQuantifierBound> bounds;
 
-	public PGoTLASetComprehension(PGoTLAExpression body, List<PGoTLAQuantifierBound> bounds, int line) {
-		super(line);
+	public PGoTLASetComprehension(SourceLocation location, PGoTLAExpression body, List<PGoTLAQuantifierBound> bounds) {
+		super(location);
 		this.body = body;
 		this.bounds = bounds;
 	}
@@ -33,23 +31,8 @@ public class PGoTLASetComprehension extends PGoTLAExpression {
 	}
 
 	@Override
-	public <Result> Result walk(PGoTLAExpressionVisitor<Result> v) {
+	public <T> T accept(Visitor<T> v) {
 		return v.visit(this);
-	}
-
-	@Override
-	protected Expression convert(TLAExprToGo trans) throws PGoTransException {
-		throw new RuntimeException("convert unimplemented");
-	}
-
-	@Override
-	public String toString() {
-		return "PGoTLASetComprehension [body=" + body + ", bounds=" + bounds + "]";
-	}
-
-	@Override
-	protected PGoType inferType(TLAExprToType trans) throws PGoTransException {
-		throw new RuntimeException("inferType not implemented");
 	}
 
 	@Override

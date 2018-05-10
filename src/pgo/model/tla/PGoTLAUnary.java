@@ -1,64 +1,40 @@
 package pgo.model.tla;
 
-import java.util.ArrayList;
 import java.util.List;
 
-import pgo.model.golang.Expression;
-import pgo.model.intermediate.PGoType;
-import pgo.trans.PGoTransException;
+import pgo.util.SourceLocation;
 
 /**
- * Represents a TLA unary operator (negation, element union, or powerset) or a
- * predicate operation (CHOOSE, for all, exists)
  * 
- * ## Note:
- * 
- * With TLAParser, this will only ever be an actual TLA+ unary operator.
+ * This represents a TLA+ unary operator call.
  * 
  */
 public class PGoTLAUnary extends PGoTLAExpression {
-	private String token;
-	// The expression the operator operates on
-	private PGoTLAExpression arg;
+	private String operation;
+	private PGoTLAExpression operand;
 	private List<PGoTLAGeneralIdentifierPart> prefix;
 
-	public PGoTLAUnary(String tok, List<PGoTLAGeneralIdentifierPart> prefix, PGoTLAExpression arg, int line) {
-		super(line);
-		this.token = tok;
-		this.arg = arg;
+	public PGoTLAUnary(SourceLocation location, String operation, List<PGoTLAGeneralIdentifierPart> prefix, PGoTLAExpression operand) {
+		super(location);
+		this.operation = operation;
 		this.prefix = prefix;
+		this.operand = operand;
+	}
+
+	public String getOperation() {
+		return operation;
+	}
+
+	public PGoTLAExpression getOperand() {
+		return operand;
 	}
 	
-	@Deprecated
-	public PGoTLAUnary(String tok, PGoTLAExpression arg, int line) {
-		super(line);
-		this.token = tok;
-		this.arg = arg;
-		this.prefix = new ArrayList<>();
+	public List<PGoTLAGeneralIdentifierPart> getPrefix(){
+		return prefix;
 	}
 
-	public String getToken() {
-		return token;
-	}
-
-	public PGoTLAExpression getArg() {
-		return arg;
-	}
-
-	protected Expression convert(TLAExprToGo trans) throws PGoTransException {
-		return trans.translate(this);
-	}
-	
-	protected PGoType inferType(TLAExprToType trans) throws PGoTransException {
-		return trans.type(this);
-	}
-
-	public String toString() {
-		return "PGoTLAUnary (" + this.getLine() + "): " + token + " " + arg.toString();
-	}
-	
 	@Override
-	public <Result> Result walk(PGoTLAExpressionVisitor<Result> v) {
+	public <T> T accept(Visitor<T> v) {
 		return v.visit(this);
 	}
 
@@ -66,9 +42,9 @@ public class PGoTLAUnary extends PGoTLAExpression {
 	public int hashCode() {
 		final int prime = 31;
 		int result = 1;
-		result = prime * result + ((arg == null) ? 0 : arg.hashCode());
+		result = prime * result + ((operand == null) ? 0 : operand.hashCode());
+		result = prime * result + ((operation == null) ? 0 : operation.hashCode());
 		result = prime * result + ((prefix == null) ? 0 : prefix.hashCode());
-		result = prime * result + ((token == null) ? 0 : token.hashCode());
 		return result;
 	}
 
@@ -81,21 +57,22 @@ public class PGoTLAUnary extends PGoTLAExpression {
 		if (getClass() != obj.getClass())
 			return false;
 		PGoTLAUnary other = (PGoTLAUnary) obj;
-		if (arg == null) {
-			if (other.arg != null)
+		if (operand == null) {
+			if (other.operand != null)
 				return false;
-		} else if (!arg.equals(other.arg))
+		} else if (!operand.equals(other.operand))
+			return false;
+		if (operation == null) {
+			if (other.operation != null)
+				return false;
+		} else if (!operation.equals(other.operation))
 			return false;
 		if (prefix == null) {
 			if (other.prefix != null)
 				return false;
 		} else if (!prefix.equals(other.prefix))
 			return false;
-		if (token == null) {
-			if (other.token != null)
-				return false;
-		} else if (!token.equals(other.token))
-			return false;
 		return true;
 	}
+	
 }
