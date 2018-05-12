@@ -1,6 +1,6 @@
 package pgo.model.tla;
 
-import java.util.Map;
+import java.util.List;
 
 import pgo.util.SourceLocation;
 
@@ -16,14 +16,59 @@ import pgo.util.SourceLocation;
  */
 public class PGoTLARecordSet extends PGoTLAExpression {
 
-	private Map<PGoTLAIdentifier, PGoTLAExpression> fields;
+	private List<Field> fields;
 
-	public PGoTLARecordSet(SourceLocation location, Map<PGoTLAIdentifier, PGoTLAExpression> fields) {
+	public PGoTLARecordSet(SourceLocation location, List<Field> fields) {
 		super(location);
 		this.fields = fields;
 	}
 	
-	public Map<PGoTLAIdentifier, PGoTLAExpression> getFields(){
+	public static class Field extends PGoTLANode{
+		PGoTLAIdentifier name;
+		PGoTLAExpression set;
+		public Field(SourceLocation location, PGoTLAIdentifier name, PGoTLAExpression set) {
+			super(location);
+			this.name = name;
+			this.set = set;
+		}
+		public PGoTLAIdentifier getName() {
+			return name;
+		}
+		public PGoTLAExpression getSet() {
+			return set;
+		}
+		@Override
+		public int hashCode() {
+			final int prime = 31;
+			int result = 1;
+			result = prime * result + ((name == null) ? 0 : name.hashCode());
+			result = prime * result + ((set == null) ? 0 : set.hashCode());
+			return result;
+		}
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj)
+				return true;
+			if (obj == null)
+				return false;
+			if (getClass() != obj.getClass())
+				return false;
+			Field other = (Field) obj;
+			if (name == null) {
+				if (other.name != null)
+					return false;
+			} else if (!name.equals(other.name))
+				return false;
+			if (set == null) {
+				if (other.set != null)
+					return false;
+			} else if (!set.equals(other.set))
+				return false;
+			return true;
+		}
+	};
+	
+	public List<Field> getFields(){
 		return fields;
 	}
 

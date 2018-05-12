@@ -18,7 +18,20 @@ public class SourceLocation {
 		this.endColumn = endColumn;
 	}
 	
+	public static SourceLocation unknown() {
+		return new SourceLocation(null, -1, -1, -1, -1);
+	}
+	
+	public boolean isUnknown() {
+		return file == null;
+	}
+	
 	public SourceLocation combine(SourceLocation other) {
+		if(isUnknown()) {
+			return other;
+		}else if(other.isUnknown()) {
+			return this;
+		}
 		// we assume this is programmer error, as one would usually only call this method when combining parsed
 		// tokens into an AST, not later when one might reasonably combine tokens from different files
 		if(!file.equals(other.getFile())) {

@@ -3,9 +3,7 @@ package pgo.util;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Vector;
 
 import pcal.AST;
@@ -38,9 +36,7 @@ import pgo.model.pcal.VariableDecl;
 import pgo.model.pcal.While;
 import pgo.model.pcal.With;
 import pgo.model.tla.PGoTLAExpression;
-import pgo.model.tla.PGoTLAFunction;
-import pgo.model.tla.PGoTLAInstance;
-import pgo.model.tla.PGoTLAOperatorDefinition;
+import pgo.model.tla.PGoTLAUnit;
 import pgo.parser.PGoTLAParseException;
 import pgo.parser.TLAParser;
 import pgo.trans.PGoTransException;
@@ -141,11 +137,7 @@ public class TLCToPGoPCalASTConversionVisitor extends PcalASTUtil.Visitor<List<S
 		for(Object tokList : defns) {
 			tokens.addAll((Vector<TLAToken>)tokList);
 		}
-		Map<String, PGoTLAOperatorDefinition> operatorDefinitions = new HashMap<>();
-		Map<String, PGoTLAFunction> functionDefinitions = new HashMap<>();
-		List<PGoTLAInstance> instanceDefinitions = new ArrayList<>(); // you should never actually encounter these
-		
-		TLAParser.lookaheadOperatorFunctionOrModuleDefinition(tokens.listIterator(), operatorDefinitions, functionDefinitions, instanceDefinitions, -1);
+		List<PGoTLAUnit> units = TLAParser.readUnits(tokens.listIterator());
 		
 		return new Algorithm(loc, name, variables, macros, procedures, units, processes);
 	}

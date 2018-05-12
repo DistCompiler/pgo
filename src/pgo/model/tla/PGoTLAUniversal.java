@@ -2,9 +2,6 @@ package pgo.model.tla;
 
 import java.util.List;
 
-import pgo.model.golang.Expression;
-import pgo.model.intermediate.PGoType;
-import pgo.trans.PGoTransException;
 import pgo.util.SourceLocation;
 
 /*
@@ -17,16 +14,16 @@ import pgo.util.SourceLocation;
  */
 public class PGoTLAUniversal extends PGoTLAExpression {
 	
-	private List<String> ids;
+	private List<PGoTLAIdentifier> ids;
 	private PGoTLAExpression body;
 
-	public PGoTLAUniversal(SourceLocation location, List<String> ids, PGoTLAExpression body) {
+	public PGoTLAUniversal(SourceLocation location, List<PGoTLAIdentifier> ids, PGoTLAExpression body) {
 		super(location);
 		this.ids = ids;
 		this.body = body;
 	}
 	
-	public List<String> getIds(){
+	public List<PGoTLAIdentifier> getIds(){
 		return ids;
 	}
 	

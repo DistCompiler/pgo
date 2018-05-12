@@ -2,18 +2,19 @@ package pgo.model.tla;
 
 import java.util.List;
 
+import pgo.parser.LocatedList;
 import pgo.util.SourceLocation;
 
 public class PGoTLAConstantDeclaration extends PGoTLAUnit {
 	
-	List<PGoTLAIdentifier> constants;
+	List<PGoTLAOpDecl> constants;
 
-	public PGoTLAConstantDeclaration(SourceLocation location, List<PGoTLAIdentifier> constants) {
+	public PGoTLAConstantDeclaration(SourceLocation location, LocatedList<PGoTLAOpDecl> constants) {
 		super(location);
 		this.constants = constants;
 	}
 
-	public List<PGoTLAIdentifier> getConstants() {
+	public List<PGoTLAOpDecl> getConstants() {
 		return constants;
 	}
 

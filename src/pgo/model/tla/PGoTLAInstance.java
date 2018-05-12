@@ -1,6 +1,6 @@
 package pgo.model.tla;
 
-import java.util.Map;
+import java.util.List;
 
 import pgo.util.SourceLocation;
 
@@ -13,21 +13,66 @@ import pgo.util.SourceLocation;
  */
 public class PGoTLAInstance extends PGoTLAUnit {
 	PGoTLAIdentifier moduleName;
-	Map<PGoTLAOpDecl, PGoTLAExpression> remappings;
+	List<Remapping> remappings;
 	private boolean local;
 	
-	public PGoTLAInstance(SourceLocation location, PGoTLAIdentifier referenceName, PGoTLAIdentifier moduleName, Map<PGoTLAOpDecl, PGoTLAExpression> remappings, boolean isLocal) {
+	public PGoTLAInstance(SourceLocation location, PGoTLAIdentifier moduleName, List<Remapping> remappings, boolean isLocal) {
 		super(location);
 		this.moduleName = moduleName;
 		this.remappings = remappings;
 		this.local = isLocal;
 	}
 	
+	public static class Remapping extends PGoTLANode{
+		PGoTLAIdentifier from;
+		PGoTLAExpression to;
+		public Remapping(SourceLocation location, PGoTLAIdentifier from, PGoTLAExpression to) {
+			super(location);
+			this.from = from;
+			this.to = to;
+		}
+		public PGoTLAIdentifier getFrom() {
+			return from;
+		}
+		public PGoTLAExpression getTo() {
+			return to;
+		}
+		@Override
+		public int hashCode() {
+			final int prime = 31;
+			int result = 1;
+			result = prime * result + ((from == null) ? 0 : from.hashCode());
+			result = prime * result + ((to == null) ? 0 : to.hashCode());
+			return result;
+		}
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj)
+				return true;
+			if (obj == null)
+				return false;
+			if (getClass() != obj.getClass())
+				return false;
+			Remapping other = (Remapping) obj;
+			if (from == null) {
+				if (other.from != null)
+					return false;
+			} else if (!from.equals(other.from))
+				return false;
+			if (to == null) {
+				if (other.to != null)
+					return false;
+			} else if (!to.equals(other.to))
+				return false;
+			return true;
+		}
+	}
+	
 	public PGoTLAIdentifier getModuleName() {
 		return moduleName;
 	}
 	
-	public Map<PGoTLAOpDecl, PGoTLAExpression> getRemappings(){
+	public List<Remapping> getRemappings(){
 		return remappings;
 	}
 	

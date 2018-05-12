@@ -19,12 +19,12 @@ import pgo.util.SourceLocation;
 public class PGoTLAIdentifierOrTuple extends PGoTLANode {
 	
 	List<PGoTLAIdentifier> ids;
-	boolean isTuple;
+	boolean tuple;
 	
 	private PGoTLAIdentifierOrTuple(SourceLocation location, List<PGoTLAIdentifier> ids, boolean isTuple) {
 		super(location);
 		this.ids = ids;
-		this.isTuple = isTuple;
+		this.tuple = isTuple;
 	}
 	
 	public static PGoTLAIdentifierOrTuple Identifier(PGoTLAIdentifier id) {
@@ -35,19 +35,19 @@ public class PGoTLAIdentifierOrTuple extends PGoTLANode {
 		return new PGoTLAIdentifierOrTuple(location, ids, true);
 	}
 	
-	public boolean getIsTuple() {
-		return isTuple;
+	public boolean isTuple() {
+		return tuple;
 	}
 	
 	public PGoTLAIdentifier getId() {
-		if(ids.size() != 1 || isTuple) {
+		if(ids.size() != 1 || tuple) {
 			throw new RuntimeException("tried to treat an identifier tuple as an identifier: was "+ids);
 		}
 		return ids.get(0);
 	}
 	
 	public List<PGoTLAIdentifier> getTuple(){
-		if(!isTuple) {
+		if(!tuple) {
 			throw new RuntimeException("tried to tread an identifier as an identifier tuple: was "+ids);
 		}
 		return ids;
@@ -58,7 +58,7 @@ public class PGoTLAIdentifierOrTuple extends PGoTLANode {
 		final int prime = 31;
 		int result = 1;
 		result = prime * result + ((ids == null) ? 0 : ids.hashCode());
-		result = prime * result + (isTuple ? 1231 : 1237);
+		result = prime * result + (tuple ? 1231 : 1237);
 		return result;
 	}
 
@@ -76,7 +76,7 @@ public class PGoTLAIdentifierOrTuple extends PGoTLANode {
 				return false;
 		} else if (!ids.equals(other.ids))
 			return false;
-		if (isTuple != other.isTuple)
+		if (tuple != other.tuple)
 			return false;
 		return true;
 	}

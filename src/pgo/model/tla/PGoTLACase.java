@@ -2,9 +2,6 @@ package pgo.model.tla;
 
 import java.util.List;
 
-import pgo.model.golang.Expression;
-import pgo.model.intermediate.PGoType;
-import pgo.trans.PGoTransException;
 import pgo.util.SourceLocation;
 
 /**
