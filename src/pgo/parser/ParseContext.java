@@ -2,35 +2,21 @@ package pgo.parser;
 
 import java.util.ListIterator;
 
-import pcal.TLAToken;
-import pgo.util.SourceLocation;
-
-// ParseAction -> success / failure ; chainable (sequence of discrete actions with results)
-// 		; composable (a chain can be used as part of a larger action)
-// 		; repeatable (if we need to loop on the result of an action we can do it)
-//		; possible to use as lookahead (i.e failure can be trivially reacted to)
-// BranchingParse(if, else); (or series of options)
+import pgo.lexer.TLAToken;
 
 public class ParseContext {
 	
 	ListIterator<TLAToken> iter;
-	SourceLocation lastKnownPosition;
 	
 	public static class Mark{
 		int markedPosition;
-		SourceLocation lastKnownPosition;
 		
-		public Mark(int markedPosition, SourceLocation lastKnownPosition) {
+		public Mark(int markedPosition) {
 			this.markedPosition = markedPosition;
-			this.lastKnownPosition = lastKnownPosition;
 		}
 
 		public int getMarkedPosition() {
 			return markedPosition;
-		}
-
-		public SourceLocation getLastKnownPosition() {
-			return lastKnownPosition;
 		}
 		
 	}
@@ -38,17 +24,18 @@ public class ParseContext {
 	
 	public ParseContext(ListIterator<TLAToken> iter) {
 		this.iter = iter;
-		this.lastKnownPosition = null;
 	}
 
 	public Mark mark() {
-		return new Mark(iter.nextIndex(), lastKnownPosition);
+		return new Mark(iter.nextIndex());
 	}
 	
 	public TLAToken readToken() {
-		TLAToken tok = null;
-		while(iter.hasNext() &&(tok = iter.next()) == null);
-		return tok;
+		if(iter.hasNext()) {
+			return iter.next();
+		}else {
+			return null;
+		}
 	}
 	
 	public void restore(Mark mark) {
@@ -58,7 +45,6 @@ public class ParseContext {
 		while(iter.nextIndex() > mark.getMarkedPosition()) {
 			iter.previous();
 		}
-		lastKnownPosition = mark.getLastKnownPosition();
 	}
 
 }

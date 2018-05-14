@@ -38,6 +38,10 @@ public class PGoTLAInstance extends PGoTLAUnit {
 			return to;
 		}
 		@Override
+		public <T, E extends Throwable> T accept(PGoTLANodeVisitor<T, E> v) throws E {
+			return v.visit(this);
+		}
+		@Override
 		public int hashCode() {
 			final int prime = 31;
 			int result = 1;
@@ -81,7 +85,7 @@ public class PGoTLAInstance extends PGoTLAUnit {
 	}
 	
 	@Override
-	public <T> T accept(Visitor<T> v) {
+	public <T, E extends Throwable> T accept(PGoTLAUnitVisitor<T, E> v) throws E {
 		return v.visit(this);
 	}
 

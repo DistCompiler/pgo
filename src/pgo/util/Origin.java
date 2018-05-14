@@ -10,13 +10,6 @@ package pgo.util;
  */
 public interface Origin {
 	
-	public abstract class Visitor<T>{
-
-		public abstract T visit(SourceLocatable sourceLocatable);
-		public abstract T visit(Derived derived);
-		
-	}
-	
-	public <T> T accept(Visitor<T> v);
+	public <T, E extends Throwable> T accept(OriginVisitor<T, E> v) throws E;
 	
 }

@@ -26,7 +26,7 @@ public class PGoTLAOperatorDefinition extends PGoTLAUnit {
 	}
 	
 	@Override
-	public <T> T accept(Visitor<T> v) {
+	public <T, E extends Throwable> T accept(PGoTLAUnitVisitor<T, E> v) throws E {
 		return v.visit(this);
 	}
 

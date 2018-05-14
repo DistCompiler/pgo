@@ -4,10 +4,11 @@ import pgo.util.SourceLocation;
 
 public class PGoTLABool extends PGoTLAExpression {
 
-	private boolean value;
+	boolean value;
 
 	public PGoTLABool(SourceLocation location, boolean value) {
 		super(location);
+		this.value = value;
 	}
 
 	public boolean getValue() {
@@ -15,7 +16,7 @@ public class PGoTLABool extends PGoTLAExpression {
 	}
 
 	@Override
-	public <T> T accept(Visitor<T> v) {
+	public <T, E extends Throwable> T accept(PGoTLAExpressionVisitor<T, E> v) throws E {
 		return v.visit(this);
 	}
 

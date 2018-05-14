@@ -4,8 +4,6 @@ import java.util.List;
 
 import pgo.PGoException;
 
-import pcal.TLAToken;
-
 public class PGoTLALexerException extends PGoException {
 
 	public PGoTLALexerException(int lineN, String msg, List<TLAToken> tokensSoFar) {

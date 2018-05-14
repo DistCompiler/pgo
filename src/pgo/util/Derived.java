@@ -26,7 +26,7 @@ public abstract class Derived implements Origin {
 		return origins;
 	}
 	
-	public <T> T accept(Origin.Visitor<T> v) {
+	public <T, E extends Throwable> T accept(OriginVisitor<T, E> v) throws E {
 		return v.visit(this);
 	}
 	

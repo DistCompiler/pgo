@@ -30,6 +30,11 @@ public class PGoTLAOpDecl extends PGoTLANode {
 		this.arity = arity;
 	}
 	
+	@Override
+	public <T, E extends Throwable> T accept(PGoTLANodeVisitor<T, E> v) throws E {
+		return v.visit(this);
+	}
+	
 	public static PGoTLAOpDecl Infix(SourceLocation location, PGoTLAIdentifier name) {
 		return new PGoTLAOpDecl(location, name, Type.INFIX, 2);
 	}

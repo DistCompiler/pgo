@@ -15,6 +15,11 @@ public class PGoTLAFunctionSubstitutionPair extends PGoTLANode {
 		this.value = value;
 	}
 	
+	@Override
+	public <T, E extends Throwable> T accept(PGoTLANodeVisitor<T, E> v) throws E {
+		return v.visit(this);
+	}
+	
 	public List<PGoTLASubstitutionKey> getKeys(){
 		return keys;
 	}

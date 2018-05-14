@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import pcal.TLAToken;
+import pgo.util.SourceLocation;
 
 /**
  * A simple TLA+ lexer that tries to replicate the TLC's lexing behaviour.
@@ -21,9 +21,6 @@ import pcal.TLAToken;
  * be easily parsed later.
  */
 public class TLALexer {
-	List<String> lines;
-
-	private boolean moduleRequired;
 	
 	static final Pattern WHITESPACE = Pattern.compile("\\s+");
 	
@@ -31,6 +28,10 @@ public class TLALexer {
 	static final Pattern MODULE_END = Pattern.compile("====+");
 	
 	static final String[] BUILTIN = {
+		// boolean constants
+		"TRUE",
+		"FALSE",
+		
 		"ASSUME",
 		"ELSE",
 		"LOCAL",
@@ -232,14 +233,21 @@ public class TLALexer {
 	
 	static final Pattern PGO_ANNOTATION = Pattern.compile("@PGo\\{(.*)\\}@PGo");
 	
+	List<String> lines;
+	Path filename;
+
+	boolean moduleRequired;
+	
 	public TLALexer(Path filename) throws IOException {
 		lines = Files.readAllLines(filename);
 		this.moduleRequired = true;
+		this.filename = filename;
 	}
 	
-	public TLALexer(List<String> lines) {
+	public TLALexer(Path filename, List<String> lines) {
 		this.lines = lines;
 		this.moduleRequired = true;
+		this.filename = filename;
 	}
 	
 	/**
@@ -247,6 +255,10 @@ public class TLALexer {
 	 */
 	public void requireModule(boolean yes) {
 		this.moduleRequired = yes;
+	}
+	
+	private TLAToken makeToken(String value, TLATokenType type, int column, int line) {
+		return new TLAToken(value, type, new SourceLocation(filename, line, line, column, column + value.length()));
 	}
 	
 	/**
@@ -282,7 +294,7 @@ public class TLALexer {
 					if(m.find()) {
 						column = m.end();
 						++moduleStack;
-						tokens.add(new TLAToken(m.group(), m.start()+1, TLAToken.BUILTIN, lineNum));
+						tokens.add(makeToken(m.group(), TLATokenType.BUILTIN, m.start()+1, lineNum));
 					}else {
 						column = line.length();
 					}
@@ -290,7 +302,7 @@ public class TLALexer {
 					Matcher m = PGO_ANNOTATION.matcher(line);
 					m.region(column, line.length());
 					if(m.lookingAt()) {
-						tokens.add(new TLAToken(m.group(1), m.start(1)+1, PGoTLATokenCategory.PGO_ANNOTATION, lineNum));
+						//tokens.add(makeToken(m.group(1), m.start(1)+1, PGoTLATokenCategory.PGO_ANNOTATION, lineNum));
 						column = m.end();
 						continue;
 					}
@@ -357,7 +369,7 @@ public class TLALexer {
 					if(m.lookingAt()) {
 						column = m.end();
 						++moduleStack;
-						tokens.add(new TLAToken(m.group(), m.start()+1, TLAToken.BUILTIN, lineNum));
+						tokens.add(makeToken(m.group(), TLATokenType.BUILTIN, m.start()+1, lineNum));
 						continue;
 					}
 					
@@ -367,7 +379,7 @@ public class TLALexer {
 					if(m.lookingAt()) {
 						column = m.end();
 						moduleStack -= 2;
-						tokens.add(new TLAToken(m.group(), m.start()+1, TLAToken.BUILTIN, lineNum));
+						tokens.add(makeToken(m.group(), TLATokenType.BUILTIN, m.start()+1, lineNum));
 						continue;
 					}
 					
@@ -419,28 +431,28 @@ public class TLALexer {
 					// builtin
 					if(possibleIdentifier != null && possibleBuiltin != null) {
 						if(possibleIdentifier.length() > possibleBuiltin.length()) {
-							tokens.add(new TLAToken(possibleIdentifier, column+1, TLAToken.IDENT, lineNum));
+							tokens.add(makeToken(possibleIdentifier, TLATokenType.IDENT, column+1, lineNum));
 							column = possibleIdentifierEnd;
 						}else {
-							tokens.add(new TLAToken(possibleBuiltin, column+1, TLAToken.BUILTIN, lineNum));
+							tokens.add(makeToken(possibleBuiltin, TLATokenType.BUILTIN, column+1, lineNum));
 							column = possibleBuiltinEnd;
 						}
 						continue;
 					}
 					// if it didn't match any builtins but could have been an identifier, it was an identifier
 					if(possibleIdentifier != null) {
-						tokens.add(new TLAToken(possibleIdentifier, column+1, TLAToken.IDENT, lineNum));
+						tokens.add(makeToken(possibleIdentifier, TLATokenType.IDENT, column+1, lineNum));
 						column = possibleIdentifierEnd;
 					}
 					// numbers trump things like the dot operator
 					if(possibleNumber != null) {
-						tokens.add(new TLAToken(possibleNumber, column+1, TLAToken.NUMBER, lineNum));
+						tokens.add(makeToken(possibleNumber, TLATokenType.NUMBER, column+1, lineNum));
 						column = possibleNumberEnd;
 						continue;
 					}
 					// builtins not matching any identifiers or numbers are treated as builtins
 					if(possibleBuiltin != null) {
-						tokens.add(new TLAToken(possibleBuiltin, column+1, TLAToken.BUILTIN, lineNum));
+						tokens.add(makeToken(possibleBuiltin, TLATokenType.BUILTIN, column+1, lineNum));
 						column = possibleBuiltinEnd;
 						continue;
 					}
@@ -449,7 +461,7 @@ public class TLALexer {
 					m = STRING.matcher(line);
 					m.region(column, line.length());
 					if(m.lookingAt()) {
-						tokens.add(new TLAToken(m.group(1), m.start()+1, TLAToken.STRING, lineNum));
+						tokens.add(makeToken(m.group(1), TLATokenType.STRING, m.start()+1, lineNum));
 						column = m.end();
 						continue;
 					}
@@ -459,10 +471,6 @@ public class TLALexer {
 			// since we reached the end of the line
 			if(inLineComment) {
 				--commentStack;
-			}
-			// this means end of line (unless we're in a comment)
-			if(commentStack == 0) {
-				tokens.add(null);
 			}
 		}
 		return tokens;

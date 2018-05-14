@@ -32,20 +32,39 @@ public class PGoTLAFunctionCall extends PGoTLAExpression {
 	}
 
 	@Override
-	public <T> T accept(Visitor<T> v) {
+	public <T, E extends Throwable> T accept(PGoTLAExpressionVisitor<T, E> v) throws E {
 		return v.visit(this);
 	}
 
 	@Override
 	public int hashCode() {
-		// TODO Auto-generated method stub
-		return 0;
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ((function == null) ? 0 : function.hashCode());
+		result = prime * result + ((params == null) ? 0 : params.hashCode());
+		return result;
 	}
 
 	@Override
 	public boolean equals(Object obj) {
-		// TODO Auto-generated method stub
-		return false;
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		PGoTLAFunctionCall other = (PGoTLAFunctionCall) obj;
+		if (function == null) {
+			if (other.function != null)
+				return false;
+		} else if (!function.equals(other.function))
+			return false;
+		if (params == null) {
+			if (other.params != null)
+				return false;
+		} else if (!params.equals(other.params))
+			return false;
+		return true;
 	}
 
 }

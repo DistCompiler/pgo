@@ -22,6 +22,11 @@ public class PGoTLAQuantifierBound extends PGoTLANode {
 	public PGoTLAExpression getSet() {
 		return set;
 	}
+	
+	@Override
+	public <T, E extends Throwable> T accept(PGoTLANodeVisitor<T, E> v) throws E {
+		return v.visit(this);
+	}
 
 	@Override
 	public int hashCode() {

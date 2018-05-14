@@ -14,7 +14,7 @@ public abstract class SourceLocatable implements Origin {
 	
 	public abstract SourceLocation getLocation();
 	
-	public <T> T accept(Origin.Visitor<T> v) {
+	public <T, E extends Throwable> T accept(OriginVisitor<T, E> v) throws E {
 		return v.visit(this);
 	}
 

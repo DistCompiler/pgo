@@ -15,6 +15,11 @@ public class PGoTLAGeneralIdentifierPart extends PGoTLANode {
 		this.parameters = parameters;
 	}
 	
+	@Override
+	public <T, E extends Throwable> T accept(PGoTLANodeVisitor<T, E> v) throws E {
+		return v.visit(this);
+	}
+	
 	public PGoTLAIdentifier getIdentifier() {
 		return id;
 	}

@@ -17,6 +17,11 @@ public class PGoTLAIdentifier extends PGoTLANode {
 		this.id = id;
 	}
 	
+	@Override
+	public <T, E extends Throwable> T accept(PGoTLANodeVisitor<T, E> v) throws E {
+		return v.visit(this);
+	}
+	
 	public String getId() {
 		return id;
 	}

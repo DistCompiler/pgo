@@ -20,6 +20,11 @@ public class PGoTLACaseArm extends PGoTLANode {
 	public PGoTLAExpression getResult() {
 		return result;
 	}
+	
+	@Override
+	public <T, E extends Throwable> T accept(PGoTLANodeVisitor<T, E> v) throws E {
+		return v.visit(this);
+	}
 
 	@Override
 	public int hashCode() {

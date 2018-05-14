@@ -8,18 +8,11 @@ public abstract class PGoTLAUnit extends PGoTLANode {
 		super(location);
 	}
 	
-	public abstract <T> T accept(Visitor<T> v);
+	@Override
+	public <T, E extends Throwable> T accept(PGoTLANodeVisitor<T, E> v) throws E {
+		return v.visit(this);
+	}
 	
-	public abstract class Visitor<T> {
-		public abstract T visit(PGoTLAInstance pGoTLAInstance);
-		public abstract T visit(PGoTLAFunctionDefinition pGoTLAFunctionDefinition);
-		public abstract T visit(PGoTLAOperatorDefinition pGoTLAOperator);
-		public abstract T visit(PGoTLATheorem pGoTLATheorem);
-		public abstract T visit(PGoTLAModule pGoTLAModule);
-		public abstract T visit(PGoTLAVariableDeclaration pGoTLAVariableDeclaration);
-		public abstract T visit(PGoTLAConstantDeclaration pGoTLAConstantDeclaration);
-		public abstract T visit(PGoTLAModuleDefinition pGoTLAModuleDefinition);
-		public abstract T visit(PGoTLAAssumption pGoTLAAssumption);
-	};
+	public abstract <T, E extends Throwable> T accept(PGoTLAUnitVisitor<T, E> v) throws E;
 
 }

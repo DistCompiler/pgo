@@ -34,7 +34,7 @@ public class PGoTLAUnary extends PGoTLAExpression {
 	}
 
 	@Override
-	public <T> T accept(Visitor<T> v) {
+	public <T, E extends Throwable> T accept(PGoTLAExpressionVisitor<T, E> v) throws E {
 		return v.visit(this);
 	}
 

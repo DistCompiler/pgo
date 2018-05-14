@@ -1,46 +1,46 @@
 package pgo.parser;
 
-import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-import pcal.TLAToken;
+import pgo.lexer.TLAToken;
+import pgo.lexer.TLATokenType;
 import pgo.model.tla.PGoTLAIdentifier;
 import pgo.util.SourceLocatable;
-import pgo.util.SourceLocation;
-import tla2sany.st.Location;
 
 public class ParseTools {
 	
 	private ParseTools() {}
 	
-	private static SourceLocation getSourceLocation(TLAToken tok) {
+	/*private static SourceLocation getSourceLocation(TLAToken tok) {
 		if(tok.source == null) {
 			return SourceLocation.unknown();
 		}else {
-			Location loc =  tok.source.toLocation();
-			return new SourceLocation(Paths.get(loc.source()), loc.beginLine(), loc.endLine(), loc.beginColumn(), loc.endColumn());
+			PCalLocation begin = tok.source.getBegin();
+			PCalLocation end = tok.source.getEnd();
+			return new SourceLocation(
+					Paths.get("???"), begin.getLine(), end.getLine(), begin.getColumn(), end.getColumn());
 		}
-	}
+	}*/
 	
-	public static ParseAction<LocatedString> parseTokenType(int tokenType, int minColumn){
+	public static ParseAction<LocatedString> parseTokenType(TLATokenType tokenType, int minColumn){
 		return ctx -> {
 			TLAToken tok = ctx.readToken();
 			if(tok == null) {
 				return ParseResult.failure(ParseFailure.unexpectedEOF());
-			}else if(tok.column < minColumn) {
-				return ParseResult.failure(ParseFailure.insufficientlyIndented(tok.column, minColumn, getSourceLocation(tok)));
-			}else if(tok.type != tokenType) {
-				return ParseResult.failure(ParseFailure.unexpectedTokenType(tok.type, getSourceLocation(tok)));
+			}else if(tok.getLocation().getStartColumn() < minColumn) {
+				return ParseResult.failure(ParseFailure.insufficientlyIndented(minColumn, tok.getLocation()));
+			}else if(tok.getType() != tokenType) {
+				return ParseResult.failure(ParseFailure.unexpectedTokenType(tok.getType(), tok.getLocation()));
 			}else {
-				return ParseResult.success(new LocatedString(tok.string, getSourceLocation(tok)));
+				return ParseResult.success(new LocatedString(tok.getValue(), tok.getLocation()));
 			}
 		};
 	}
 	
 	public static ParseAction<LocatedString> parseBuiltinToken(String t, int minColumn){
-		return parseTokenType(TLAToken.BUILTIN, minColumn)
+		return parseTokenType(TLATokenType.BUILTIN, minColumn)
 				.chain(s -> {
 					if(s.getValue().equals(t)) {
 						return ParseAction.success(s);
@@ -52,7 +52,7 @@ public class ParseTools {
 	}
 	
 	public static ParseAction<LocatedString> parseBuiltinTokenOneOf(List<String> options, int minColumn){
-		return parseTokenType(TLAToken.BUILTIN, minColumn)
+		return parseTokenType(TLATokenType.BUILTIN, minColumn)
 				.chain(s -> {
 					if(options.contains(s.getValue())) {
 						return ParseAction.success(s);
@@ -64,16 +64,16 @@ public class ParseTools {
 	}
 	
 	public static ParseAction<PGoTLAIdentifier> parseIdentifier(int minColumn){
-		return parseTokenType(TLAToken.IDENT, minColumn)
+		return parseTokenType(TLATokenType.IDENT, minColumn)
 				.map(s -> new PGoTLAIdentifier(s.getLocation(), s.getValue()));
 	}
 	
 	public static ParseAction<LocatedString> parseString(int minColumn){
-		return parseTokenType(TLAToken.STRING, minColumn);
+		return parseTokenType(TLATokenType.STRING, minColumn);
 	}
 	
 	public static ParseAction<LocatedString> parseNumber(int minColumn){
-		return parseTokenType(TLAToken.NUMBER, minColumn);
+		return parseTokenType(TLATokenType.NUMBER, minColumn);
 	}
 	
 	public static <Result> ParseAction<Result> parseOneOf(List<ParseAction<? extends Result>> options){

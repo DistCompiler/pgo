@@ -23,6 +23,11 @@ public class PGoTLASubstitutionKey extends PGoTLANode {
 	public List<PGoTLAExpression> getIndices(){
 		return indices;
 	}
+	
+	@Override
+	public <T, E extends Throwable> T accept(PGoTLANodeVisitor<T, E> v) throws E {
+		return v.visit(this);
+	}
 
 	@Override
 	public int hashCode() {

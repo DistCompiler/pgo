@@ -1,5 +1,10 @@
 package pgo.model.tla;
 
+import java.io.IOException;
+import java.io.StringWriter;
+
+import pgo.formatters.IndentingWriter;
+import pgo.formatters.PGoTLANodeFormattingVisitor;
 import pgo.util.SourceLocatable;
 import pgo.util.SourceLocation;
 
@@ -27,5 +32,20 @@ public abstract class PGoTLANode extends SourceLocatable {
 
 	@Override
 	public abstract boolean equals(Object obj);
+	
+	@Override
+	public String toString() {
+		StringWriter out = new StringWriter();
+		try {
+			accept(new PGoTLANodeFormattingVisitor(new IndentingWriter(out)));
+		} catch (IOException e) {
+			RuntimeException ex = new RuntimeException("You should never get an IO error from a StringWriter");
+			ex.initCause(e);
+			throw ex;
+		}
+		return out.toString();
+	}
+	
+	public abstract <T, E extends Throwable> T accept(PGoTLANodeVisitor<T, E> v) throws E;
 	
 }

@@ -100,5 +100,15 @@ public class SourceLocation {
 			return false;
 		return true;
 	}
+
+	@Override
+	public String toString() {
+		if(isUnknown()) {
+			return "SourceLocation [UNKNOWN]";
+		}else {
+			return "SourceLocation [file=" + file + ", startLine=" + startLine + ", endLine=" + endLine + ", startColumn="
+					+ startColumn + ", endColumn=" + endColumn + "]";
+		}
+	}
 	
 }

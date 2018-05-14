@@ -3,37 +3,24 @@ package pgo.parser;
 import static org.junit.Assert.*;
 import static org.hamcrest.CoreMatchers.*;
 
-import java.util.ArrayList;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
-import pcal.TLAToken;
 import pgo.lexer.PGoTLALexerException;
 import pgo.lexer.TLALexer;
-import pgo.model.tla.PGoTLACase;
-import pgo.model.tla.PGoTLACaseArm;
+import pgo.lexer.TLAToken;
+import pgo.model.tla.PGoTLABool;
 import pgo.model.tla.PGoTLAExpression;
-import pgo.model.tla.PGoTLAFunction;
-import pgo.model.tla.PGoTLAFunctionCall;
-import pgo.model.tla.PGoTLAFunctionSubstitution;
-import pgo.model.tla.PGoTLAFunctionSubstitutionPair;
-import pgo.model.tla.PGoTLAGeneralIdentifierPart;
-import pgo.model.tla.PGoTLANumber;
-import pgo.model.tla.PGoTLAOperatorCall;
-import pgo.model.tla.PGoTLAQuantifierBound;
-import pgo.model.tla.PGoTLAString;
-import pgo.model.tla.PGoTLASubstitutionKey;
-import pgo.model.tla.PGoTLASubstitutionKeyIndices;
-import pgo.model.tla.PGoTLASubstitutionKeyName;
-import pgo.model.tla.PGoTLAUnary;
-import pgo.model.tla.PGoTLAVariable;
+import pgo.util.SourceLocation;
+
+import static pgo.model.tla.Builder.*;
 
 @RunWith(Parameterized.class)
 public class TLAExpressionParseTest {
@@ -41,189 +28,79 @@ public class TLAExpressionParseTest {
 	@Parameters
 	public static List<Object[]> data(){
 		return Arrays.asList(new Object[][] {
-			{"[mgr \\in managers |-> \"start\"]", new PGoTLAFunction(
-					Arrays.asList(new PGoTLAQuantifierBound[] {
-							new PGoTLAQuantifierBound(
-									Arrays.asList(new String[] {"mgr",}),
-									new PGoTLAVariable(
-											"managers",
-											new ArrayList<>(),
-											1)),
-					}),
-					new PGoTLAString("start", 1),
-					1),
+			{"1", num(1) },
+			{"TRUE", new PGoTLABool(SourceLocation.unknown(), true) },
+			{"FALSE", new PGoTLABool(SourceLocation.unknown(), false) },
+			
+			{"[mgr \\in managers |-> \"start\"]",
+				function(bounds(qb(ids(id("mgr")), idexp("managers"))), str("start")),
 			},
-			{"a!b", new PGoTLAVariable("b",
-					Arrays.asList(new PGoTLAGeneralIdentifierPart[] {
-							new PGoTLAGeneralIdentifierPart("a", new ArrayList<>()),
-					}),
-					1),
+			{"a!b", idexp(prefix(idpart("a")), "b") },
+			{"a(1,2)!b", idexp(prefix(idpart("a", num(1), num(2))), "b")},
+			{"a(1,2)!b(3,4)", opcall(prefix(idpart("a", num(1), num(2))), id("b"), num(3), num(4)) },
+			{"a!b!c!d", idexp(prefix(idpart("a"), idpart("b"), idpart("c")), "d") },
+			
+			// conjunct/disjunct cases (indent-sensitive)
+			{"/\\ a", idexp("a") },
+			{"/\\ a\n/\\ b", conjunct(idexp("a"), idexp("b")) },
+			{"  /\\ a\n  /\\ b\n/\\ c", conjunct(conjunct(idexp("a"), idexp("b")), idexp("c")) },
+			{"  /\\ a\n  /\\ b\n  /\\ c", conjunct(idexp("a"), conjunct(idexp("b"), idexp("c"))) },
+			
+			// case expressions
+			{"CASE x -> 1", caseexp(arms(arm(idexp("x"), num(1))), null) },
+			{"CASE x -> 1 [] OTHER -> foo", caseexp(arms(arm(idexp("x"), num(1))), idexp("foo")) },
+			{"CASE x -> 1 [] 2 -> 3 [] OTHER -> foo", caseexp(
+					arms(
+							arm(idexp("x"), num(1)),
+							arm(num(2), num(3))),
+					idexp("foo"))
 			},
-			{"a(1,2)!b", new PGoTLAVariable("b",
-					Arrays.asList(new PGoTLAGeneralIdentifierPart[] {
-							new PGoTLAGeneralIdentifierPart("a",
-									Arrays.asList(new PGoTLAExpression[] {
-											new PGoTLANumber("1", 1),
-											new PGoTLANumber("2", 1),
-									})),
-					}),
-					1),
+			
+			// EXCEPT expressions
+			{"[F EXCEPT !.a = 2]", except(idexp("F"), sub(keys(str("a")), num(2))) },
+			{"[F EXCEPT ![1] = 2]", except(idexp("F"), sub(keys(num(1)), num(2))) },
+			{"[F EXCEPT !.a[1] = 2]", except(idexp("F"), sub(keys(str("a"), num(1)), num(2))) },
+			{"[F EXCEPT !.a[1] = 2, !.b = 3]", except(idexp("F"),
+					sub(keys(str("a"), num(1)), num(2)),
+					sub(keys(str("b")), num(3))
+					)
 			},
-			{"a(1,2)!b(3,4)", new PGoTLAOperatorCall(-1, "b",
-					Arrays.asList(new PGoTLAGeneralIdentifierPart[] {
-							new PGoTLAGeneralIdentifierPart("a",
-									Arrays.asList(new PGoTLAExpression[] {
-											new PGoTLANumber("1", 1),
-											new PGoTLANumber("2", 1),
-									})),
-					}),
-					Arrays.asList(new PGoTLAExpression[] {
-							new PGoTLANumber("3", 1),
-							new PGoTLANumber("4", 1),
-					})),
+			{"[sum EXCEPT ![self] = msg_'[self]]", except(idexp("sum"),
+					sub(keys(idexp("self")), fncall(
+							unary("'", idexp("msg_")),
+							idexp("self"))))
 			},
-			{"CASE x -> 1", new PGoTLACase(
-					Arrays.asList(new PGoTLACaseArm[] {
-						new PGoTLACaseArm(
-								new PGoTLAVariable("x", new ArrayList<>(), 1),
-								new PGoTLANumber("1", 1)),	
-					}),
-					null,
-					1),
-			},
-			{"CASE x -> 1 [] OTHER -> foo", new PGoTLACase(
-					Arrays.asList(new PGoTLACaseArm[] {
-						new PGoTLACaseArm(
-								new PGoTLAVariable("x", new ArrayList<>(), 1),
-								new PGoTLANumber("1", 1)),	
-					}),
-					new PGoTLAVariable("foo", new ArrayList<>(), 1),
-					1),
-			},
-			{"CASE x -> 1 [] 2 -> 3 [] OTHER -> foo", new PGoTLACase(
-					Arrays.asList(new PGoTLACaseArm[] {
-						new PGoTLACaseArm(
-								new PGoTLAVariable("x", new ArrayList<>(), 1),
-								new PGoTLANumber("1", 1)),
-						new PGoTLACaseArm(
-								new PGoTLANumber("2", 1),
-								new PGoTLANumber("3", 1)),
-					}),
-					new PGoTLAVariable("foo", new ArrayList<>(), 1),
-					1),
-			},
-			{"[F EXCEPT !.a = 2]", new PGoTLAFunctionSubstitution(
-					new PGoTLAVariable("F", new ArrayList<>(), 1),
-					Arrays.asList(new PGoTLAFunctionSubstitutionPair[] {
-							new PGoTLAFunctionSubstitutionPair(
-									Arrays.asList(new PGoTLASubstitutionKey[] {
-											new PGoTLASubstitutionKeyName("a"),
-									}),
-									new PGoTLANumber("2", 1)),
-					}),
-					1),
-			},
-			{"[F EXCEPT ![1] = 2]", new PGoTLAFunctionSubstitution(
-					new PGoTLAVariable("F", new ArrayList<>(), 1),
-					Arrays.asList(new PGoTLAFunctionSubstitutionPair[] {
-							new PGoTLAFunctionSubstitutionPair(
-									Arrays.asList(new PGoTLASubstitutionKey[] {
-											new PGoTLASubstitutionKeyIndices(Arrays.asList(new PGoTLAExpression[] {
-													new PGoTLANumber("1", 1),
-											})),
-									}),
-									new PGoTLANumber("2", 1)),
-					}),
-					1),
-			},
-			{"[F EXCEPT !.a[1] = 2]", new PGoTLAFunctionSubstitution(
-					new PGoTLAVariable("F", new ArrayList<>(), 1),
-					Arrays.asList(new PGoTLAFunctionSubstitutionPair[] {
-							new PGoTLAFunctionSubstitutionPair(
-									Arrays.asList(new PGoTLASubstitutionKey[] {
-											new PGoTLASubstitutionKeyName("a"),
-											new PGoTLASubstitutionKeyIndices(Arrays.asList(new PGoTLAExpression[] {
-													new PGoTLANumber("1", 1),
-											})),
-									}),
-									new PGoTLANumber("2", 1)),
-					}),
-					1),
-			},
-			{"[F EXCEPT !.a[1] = 2, !.b = 3]", new PGoTLAFunctionSubstitution(
-					new PGoTLAVariable("F", new ArrayList<>(), 1),
-					Arrays.asList(new PGoTLAFunctionSubstitutionPair[] {
-							new PGoTLAFunctionSubstitutionPair(
-									Arrays.asList(new PGoTLASubstitutionKey[] {
-											new PGoTLASubstitutionKeyName("a"),
-											new PGoTLASubstitutionKeyIndices(Arrays.asList(new PGoTLAExpression[] {
-													new PGoTLANumber("1", 1),
-											})),
-									}),
-									new PGoTLANumber("2", 1)),
-							new PGoTLAFunctionSubstitutionPair(
-									Arrays.asList(new PGoTLASubstitutionKey[] {
-											new PGoTLASubstitutionKeyName("b"),
-									}),
-									new PGoTLANumber("3", 1)),
-					}),
-					1),
-			},
-			{"[sum EXCEPT ![self] = msg_'[self]]", new PGoTLAFunctionSubstitution(
-					new PGoTLAVariable("sum", new ArrayList<>(), 1),
-					Collections.singletonList(new PGoTLAFunctionSubstitutionPair(
-							Collections.singletonList(new PGoTLASubstitutionKeyIndices(
-									Collections.singletonList(new PGoTLAVariable("self", new ArrayList<>(), 1)))),
-						new PGoTLAFunctionCall(
-							new PGoTLAUnary("'", new ArrayList<>(),
-									new PGoTLAVariable("msg_", new ArrayList<>(), 1), 1),
-							Collections.singletonList(new PGoTLAVariable("self", new ArrayList<>(), 1)),
-							1))),
-					1),
-			},
-			{"DOMAIN \\lnot a", new PGoTLAUnary(
-					"DOMAIN",
-					new ArrayList<>(),
-					new PGoTLAUnary(
-							"\\lnot",
-							new ArrayList<>(),
-							new PGoTLAVariable(
-									"a",
-									new ArrayList<>(),
-									1),
-							1),
-					1),},
-			{"\\lnot DOMAIN a", new PGoTLAUnary(
-					"\\lnot",
-					new ArrayList<>(),
-					new PGoTLAUnary(
-							"DOMAIN",
-							new ArrayList<>(),
-							new PGoTLAVariable(
-									"a",
-									new ArrayList<>(),
-									1),
-							1),
-					1),},
+			
+			// unary operators
+			{"a'", unary(prefix(), "'", idexp("a")) },
+			{"a'[b]", fncall(unary("'", idexp("a")), idexp("b")) },
+			{"a[b]", fncall(idexp("a"), idexp("b")) },
+			
+			// precedence tests
+			{"DOMAIN \\lnot a", unary("DOMAIN", unary("\\lnot", idexp("a"))) },
+			{"\\lnot DOMAIN a", unary("\\lnot", unary("DOMAIN", idexp("a"))) },
+
 		});
 	}
 	
-	public String exprString;
-	private PGoTLAExpression exprExpected;
+	String exprString;
+	PGoTLAExpression exprExpected;
 	public TLAExpressionParseTest(String exprString, PGoTLAExpression exprExpected) {
 		this.exprString = exprString;
 		this.exprExpected = exprExpected;
 	}
+	
+	static Path testFile = Paths.get("TEST");
 
 	@Test
 	public void test() throws PGoTLAParseException, PGoTLALexerException {
-		TLALexer lexer = new TLALexer(Arrays.asList(new String[] {exprString}));
+		TLALexer lexer = new TLALexer(testFile, Arrays.asList(exprString.split("\n")));
 		// don't ignore the expression because it's not in a module
 		lexer.requireModule(false);
 		
 		List<TLAToken> tokens = lexer.readTokens();
 		
-		System.out.println(tokens.stream().map(t -> t != null ? t.string : "null").collect(Collectors.toList()));
+		System.out.println(tokens);
 		
 		PGoTLAExpression expr = TLAParser.readExpression(tokens.listIterator());
 		

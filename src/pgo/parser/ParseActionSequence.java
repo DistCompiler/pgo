@@ -19,6 +19,10 @@ public class ParseActionSequence implements ParseAction<ParseActionSequenceResul
 		public ParseFailure getFailure() {
 			return failure;
 		}
+		
+		public boolean isNull() {
+			return failure == null && sourceLocation == null;
+		}
 
 		public SourceLocation getSourceLocation() {
 			return sourceLocation;
@@ -42,7 +46,12 @@ public class ParseActionSequence implements ParseAction<ParseActionSequenceResul
 			ParseResult<Result> result = action.perform(ctx);
 			if(result.isSuccess()) {
 				mutator.setValue(result.getSuccess());
-				return new PartResult(null, result.getSuccess().getLocation());
+				if(result.getSuccess() != null) {
+					return new PartResult(null, result.getSuccess().getLocation());
+				}else {
+					return new PartResult(null, null); // allows use of null results, on the
+													   // condition they represent none of the source
+				}
 			}else {
 				return new PartResult(result.getFailure(), null);
 			}
@@ -66,7 +75,7 @@ public class ParseActionSequence implements ParseAction<ParseActionSequenceResul
 			PartResult result = part.perform(ctx);
 			if(result.getFailure() != null) {
 				return ParseResult.failure(result.getFailure());
-			}else {
+			}else if(!result.isNull()) {
 				overallLocation = overallLocation.combine(result.getSourceLocation());
 			}
 		}

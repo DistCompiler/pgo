@@ -27,6 +27,11 @@ public class PGoTLAIdentifierOrTuple extends PGoTLANode {
 		this.tuple = isTuple;
 	}
 	
+	@Override
+	public <T, E extends Throwable> T accept(PGoTLANodeVisitor<T, E> v) throws E {
+		return v.visit(this);
+	}
+	
 	public static PGoTLAIdentifierOrTuple Identifier(PGoTLAIdentifier id) {
 		return new PGoTLAIdentifierOrTuple(id.getLocation(), Collections.singletonList(id), false);
 	}

@@ -2,6 +2,7 @@ package pgo.parser;
 
 import java.util.List;
 
+import pgo.lexer.TLATokenType;
 import pgo.util.SourceLocation;
 
 public class ParseFailure {
@@ -15,16 +16,16 @@ public class ParseFailure {
 	}
 	
 	public static class UnexpectedTokenType extends ParseFailure {
-		int tokenType;
+		TLATokenType tokenType;
 		SourceLocation sourceLocation;
 		
-		public UnexpectedTokenType(int tokenType, SourceLocation sourceLocation) {
+		public UnexpectedTokenType(TLATokenType tokenType, SourceLocation sourceLocation) {
 			this.tokenType = tokenType;
 			this.sourceLocation = sourceLocation;
 		}
 	}
 	
-	public static UnexpectedTokenType unexpectedTokenType(int tokenType, SourceLocation sourceLocation) {
+	public static UnexpectedTokenType unexpectedTokenType(TLATokenType tokenType, SourceLocation sourceLocation) {
 		return new UnexpectedTokenType(tokenType, sourceLocation);
 	}
 	
@@ -55,19 +56,16 @@ public class ParseFailure {
 	}
 	
 	public static class InsufficientlyIndented extends ParseFailure {
-		int actualColumn;
 		int minColumn;
 		SourceLocation sourceLocation;
-		public InsufficientlyIndented(int actualColumn, int minColumn, SourceLocation sourceLocation) {
-			super();
-			this.actualColumn = actualColumn;
+		public InsufficientlyIndented(int minColumn, SourceLocation sourceLocation) {
 			this.minColumn = minColumn;
 			this.sourceLocation = sourceLocation;
 		}
 	}
 
-	public static InsufficientlyIndented insufficientlyIndented(int actualColumn, int minColumn, SourceLocation sourceLocation) {
-		return new InsufficientlyIndented(actualColumn, minColumn, sourceLocation);
+	public static InsufficientlyIndented insufficientlyIndented(int minColumn, SourceLocation sourceLocation) {
+		return new InsufficientlyIndented(minColumn, sourceLocation);
 	}
 	
 	public static class InsufficientOperatorPrecedence extends ParseFailure{
