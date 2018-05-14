@@ -47,7 +47,7 @@ public class PGoTransStageTypeTest {
 	}
 
 	@Test
-	public void testUniOrMultiProcess() throws PGoTransException, PGoParseException {
+	public void testUniOrMultiProcess() {
 		assertEquals(tester.isMultiProcess(), p.data.isMultiProcess);
 	}
 
@@ -123,7 +123,7 @@ public class PGoTransStageTypeTest {
 
 		assertEquals(p.data.funcs.get(af.name), f);
 
-		assertEquals(af.type, f.getType());
+		assertEquals(af.type, f.getKind());
 
 		assertEquals(af.retType, f.getReturnType());
 	}
@@ -136,7 +136,7 @@ public class PGoTransStageTypeTest {
 		assertEquals(tester.getNumGoroutineInit(), grs.size());
 
 		for (TestFunctionData f : tester.getStageOneFunctions()) {
-			if (f.type == PGoFunction.FunctionType.GoRoutine) {
+			if (f.type == PGoFunction.FunctionKind.GoRoutine) {
 				PGoRoutineInit gr = p.data.goroutines.get(f.name);
 				assertNotNull(gr);
 				assertEquals(f.name, gr.getName());

@@ -3,7 +3,7 @@ package pgo.model.golang;
 import java.util.Collections;
 import java.util.List;
 
-import pgo.model.intermediate.PGoType;
+import pgo.model.type.PGoType;
 
 public class SliceConstructor extends Expression {
 	private List<Expression> initializers;

@@ -17,84 +17,84 @@ import pgo.model.intermediate.PGoPrimitiveType;
 import pgo.model.intermediate.PGoPrimitiveType.PGoBool;
 import pgo.model.intermediate.PGoPrimitiveType.PGoInt;
 import pgo.model.intermediate.PGoPrimitiveType.PGoString;
-import pgo.model.intermediate.PGoPrimitiveType.PGoVoid;
-import pgo.model.intermediate.PGoType;
+import pgo.model.type.*;
 import pgo.parser.PGoParseException;
 import pgo.trans.PGoTransException;
 
 public class AnnotatedFunctionTest {
+	private static PGoTypeGenerator generator = new PGoTypeGenerator("test");
 
 	@Test
-	public void testVoidFunction() throws PGoParseException {
+	public void testVoidFunction() throws PGoParseException, PGoTransException {
 		String[] parts;
 		AnnotatedFunction fun;
 		Vector<PGoType> argTypes ;
 		
 		parts = new String[] { "func", "fun()" };
-		fun = AnnotatedFunction.parse(parts, 0);
+		fun = AnnotatedFunction.parse(0, parts, generator);
 		assertEquals(0, fun.getLine());
 		assertEquals("fun", fun.getName());
-		assertTrue(fun.getReturnType() instanceof PGoVoid);
+		assertTrue(fun.getReturnType() instanceof PGoTypeVoid);
 		argTypes = fun.getArgTypes();
 		assertEquals(0, argTypes.size());
 		
 		
 		parts = new String[] { "func", "foo()", "int", "string" };
-		fun = AnnotatedFunction.parse(parts, 2);
+		fun = AnnotatedFunction.parse(2, parts, generator);
 		assertEquals(2, fun.getLine());
 		assertEquals("foo", fun.getName());
-		assertTrue(fun.getReturnType() instanceof PGoVoid);
+		assertTrue(fun.getReturnType() instanceof PGoTypeVoid);
 		argTypes = fun.getArgTypes();
 		assertEquals(2, argTypes.size());
-		assertTrue(argTypes.get(0) instanceof PGoInt);
-		assertTrue(argTypes.get(1) instanceof PGoString);
+		assertTrue(argTypes.get(0) instanceof PGoTypeInt);
+		assertTrue(argTypes.get(1) instanceof PGoTypeString);
 
 		try {
 			parts = new String[] { "func", "foo()", "wrongtype", "string" };
-			AnnotatedFunction.parse(parts, 2);
+			AnnotatedFunction.parse(2, parts, generator);
 			fail("Exception expected for unknown type");
-		} catch (PGoParseException e) {
+		} catch (PGoTransException e) {
 
 		}
 	}
 
 	@Test
-	public void testReturnFunction() throws PGoParseException {
+	public void testReturnFunction() throws PGoParseException, PGoTransException {
 		String[] parts;
 		AnnotatedFunction fun;
 		Vector<PGoType> argTypes;
 
 		parts = new String[] { "func", "int", "fun()" };
-		fun = AnnotatedFunction.parse(parts, 0);
+		fun = AnnotatedFunction.parse(0, parts, generator);
 		assertEquals(0, fun.getLine());
 		assertEquals("fun", fun.getName());
-		assertTrue(fun.getReturnType() instanceof PGoInt);
+		assertTrue(fun.getReturnType() instanceof PGoTypeInt);
 		argTypes = fun.getArgTypes();
 		assertEquals(0, argTypes.size());
 
 		parts = new String[] { "func", "bool", "foo()", "int", "string" };
-		fun = AnnotatedFunction.parse(parts, 2);
+		fun = AnnotatedFunction.parse(2, parts, generator);
 		assertEquals(2, fun.getLine());
 		assertEquals("foo", fun.getName());
-		assertTrue(fun.getReturnType() instanceof PGoBool);
+		assertTrue(fun.getReturnType() instanceof PGoTypeBool);
 		argTypes = fun.getArgTypes();
 		assertEquals(2, argTypes.size());
-		assertTrue(argTypes.get(0) instanceof PGoInt);
-		assertTrue(argTypes.get(1) instanceof PGoString);
+		assertTrue(argTypes.get(0) instanceof PGoTypeInt);
+		assertTrue(argTypes.get(1) instanceof PGoTypeString);
 
 		try {
 			parts = new String[] { "func", "bool", "foo()", "wrongtype", "string" };
-			AnnotatedFunction.parse(parts, 2);
+			AnnotatedFunction.parse(2, parts, generator);
 			fail("Exception expected for unknown type");
-		} catch (PGoParseException e) {
+		} catch (PGoTransException e) {
 
 		}
 
 		try {
 			parts = new String[] { "func", "unknowntype", "foo()", "int", "string" };
-			AnnotatedFunction.parse(parts, 2);
+			AnnotatedFunction.parse(2, parts, generator);
 			fail("Exception expected for unknown type");
-		} catch (PGoParseException e) {
+		} catch (PGoTransException e) {
 
 		}
 	}
@@ -105,22 +105,22 @@ public class AnnotatedFunctionTest {
 		AnnotatedFunction af;
 		Procedure p;
 		PVarDecl pv;
-		List<AnnotatedReturnVariable> rvs = new ArrayList<AnnotatedReturnVariable>();
+		List<AnnotatedReturnVariable> rvs = new ArrayList<>();
 
 		p = new Procedure();
 		p.params = new Vector();
 		p.decls = new Vector();
 		p.name = "func";
-		f = PGoFunction.convert(p);
-		af = AnnotatedFunction.parse(new String[] { "func", "func()" }, 1);
+		f = PGoFunction.convert(p, generator);
+		af = AnnotatedFunction.parse(1, new String[] { "func", "func()" }, generator);
 		af.applyAnnotationOnFunction(f, rvs);
 		assertEquals(0, f.getParams().size());
-		assertEquals(PGoPrimitiveType.VOID, f.getReturnType());
+		assertEquals(PGoTypeVoid.getInstance(), f.getReturnType());
 
 		pv = new PVarDecl();
 		pv.var = "Param1";
 		p.params.add(pv);
-		f = PGoFunction.convert(p);
+		f = PGoFunction.convert(p, generator);
 		try {
 			af.applyAnnotationOnFunction(f, rvs);
 			fail("Exception expected for parameter size mismatch");
@@ -128,34 +128,34 @@ public class AnnotatedFunctionTest {
 
 		}
 
-		af = AnnotatedFunction.parse(new String[] { "func", "void", "func()", "int" }, 2);
+		af = AnnotatedFunction.parse(2, new String[] { "func", "void", "func()", "int" }, generator);
 		af.applyAnnotationOnFunction(f, rvs);
 		assertEquals(1, f.getParams().size());
-		assertEquals(PGoPrimitiveType.INT, f.getParam("Param1").getType());
-		assertEquals(PGoPrimitiveType.VOID, f.getReturnType());
+		assertEquals(PGoTypeInt.getInstance(), f.getParam("Param1").getType());
+		assertEquals(PGoTypeVoid.getInstance(), f.getReturnType());
 
 		pv = new PVarDecl();
 		pv.var = "Param2";
 		p.params.add(pv);
-		f = PGoFunction.convert(p);
+		f = PGoFunction.convert(p, generator);
 
-		af = AnnotatedFunction.parse(new String[] { "func", "boolean", "func()", "int", "string" }, 2);
+		af = AnnotatedFunction.parse(2, new String[] { "func", "boolean", "func()", "int", "string" }, generator);
 		af.applyAnnotationOnFunction(f, rvs);
 		assertEquals(2, f.getParams().size());
-		assertEquals(PGoPrimitiveType.INT, f.getParam("Param1").getType());
-		assertEquals(PGoPrimitiveType.STRING, f.getParam("Param2").getType());
-		assertEquals(PGoPrimitiveType.BOOL, f.getReturnType());
+		assertEquals(PGoTypeInt.getInstance(), f.getParam("Param1").getType());
+		assertEquals(PGoTypeString.getInstance(), f.getParam("Param2").getType());
+		assertEquals(PGoTypeBool.getInstance(), f.getReturnType());
 		
-		rvs.add(AnnotatedReturnVariable.parse(new String[] {"ret", "ret"}, 2));
+		rvs.add(AnnotatedReturnVariable.parse(2, new String[] {"ret", "ret"}));
 		pv = new PVarDecl();
 		pv.var = "ret";
 		p.decls.add(pv);
-		f = PGoFunction.convert(p);
+		f = PGoFunction.convert(p, generator);
 		af.applyAnnotationOnFunction(f, rvs);
 		assertEquals(2, f.getParams().size());
-		assertEquals(PGoPrimitiveType.INT, f.getParam("Param1").getType());
-		assertEquals(PGoPrimitiveType.STRING, f.getParam("Param2").getType());
-		assertEquals(PGoPrimitiveType.BOOL, f.getReturnType());
-		assertEquals(PGoPrimitiveType.BOOL, f.getVariable("ret").getType());
+		assertEquals(PGoTypeInt.getInstance(), f.getParam("Param1").getType());
+		assertEquals(PGoTypeString.getInstance(), f.getParam("Param2").getType());
+		assertEquals(PGoTypeBool.getInstance(), f.getReturnType());
+		assertEquals(PGoTypeBool.getInstance(), f.getVariable("ret").getType());
 	}
 }

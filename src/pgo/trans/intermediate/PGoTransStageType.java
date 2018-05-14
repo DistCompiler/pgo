@@ -1,36 +1,29 @@
 package pgo.trans.intermediate;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Vector;
+import java.util.*;
+import java.util.stream.Collectors;
 
 import pcal.AST;
 import pcal.AST.PVarDecl;
 import pcal.AST.Process;
 import pcal.AST.SingleAssign;
 import pcal.AST.VarDecl;
-import pgo.PGoNetOptions;
+import pcal.TLAExpr;
+import pcal.TLAExprPgo;
 import pgo.model.intermediate.*;
-import pgo.model.intermediate.PGoCollectionType.PGoMap;
-import pgo.model.intermediate.PGoCollectionType.PGoSet;
-import pgo.model.intermediate.PGoCollectionType.PGoSlice;
-import pgo.model.intermediate.PGoCollectionType.PGoTuple;
-import pgo.model.intermediate.PGoPrimitiveType.PGoInt;
-import pgo.model.intermediate.PGoPrimitiveType.PGoNatural;
 import pgo.model.parser.AnnotatedFunction;
 import pgo.model.parser.AnnotatedProcess;
 import pgo.model.parser.AnnotatedReturnVariable;
 import pgo.model.parser.AnnotatedTLADefinition;
 import pgo.model.parser.AnnotatedVariable;
 import pgo.model.parser.AnnotatedVariable.VarAnnotatedVariable;
-import pgo.model.tla.PGoTLAExpression;
-import pgo.model.tla.PGoTLADefinition;
-import pgo.model.tla.PGoTLAFunctionCall;
-import pgo.model.tla.PGoTLANumber;
-import pgo.model.tla.TLAExprToType;
-import pgo.parser.PGoParseException;
+import pgo.model.tla.*;
+import pgo.model.type.*;
+import pgo.model.type.PGoType;
 import pgo.parser.TLAExprParser;
 import pgo.trans.PGoTransException;
+import pgo.trans.PGoTransExpectedSingleExpressionException;
+import pgo.util.PGoTypeUtil;
 import pgo.util.PcalASTUtil;
 
 /**
@@ -41,12 +34,11 @@ import pgo.util.PcalASTUtil;
  *
  */
 public class PGoTransStageType {
-
 	// intermediate data, which is filled with typing information from
 	// annotations
 	PGoTransIntermediateData data;
 
-	public PGoTransStageType(PGoTransStageTLAParse s1) throws PGoParseException, PGoTransException {
+	public PGoTransStageType(PGoTransStageTLAParse s1) throws PGoTransException {
 		this.data = s1.data;
 
 		addAnnotatedDefinitions();
@@ -67,24 +59,29 @@ public class PGoTransStageType {
 	 *             as appropriate when not all information is typed
 	 */
 	private void checkAllTyped() throws PGoTransException {
-		checkVariablesTyped();
-		checkFunctionsTyped();
+		Map<PGoTypeVariable, PGoType> mapping = data.solver.getMapping();
+		checkVariablesTyped(mapping);
+		checkFunctionsTyped(mapping);
+		// checkTLAExpressionsTyped(mapping);
 	}
 
-	private void checkFunctionsTyped() throws PGoTransException {
+	private void checkFunctionsTyped(Map<PGoTypeVariable, PGoType> mapping) throws PGoTransException {
 		for (PGoFunction f : this.data.funcs.values()) {
-			if (f.getReturnType().isUndetermined()) {
+			f.setReturnType(f.getReturnType().substitute(mapping).realize());
+			if (f.getReturnType().containsVariables()) {
 				throw new PGoTransException("Unable to determine return type of function \"" + f.getName() + "()\"",
 						f.getLine());
 			}
 			for (PGoVariable v : f.getParams()) {
-				if (v.getType().isUndetermined()) {
+				PGoType varType = PGoTypeUtil.substituteRealizeAndGetVariableType(v, mapping);
+				if (varType.containsVariables()) {
 					throw new PGoTransException("Unable to determine type of parameter \"" + v.getName()
 							+ "\" in function \"" + f.getName() + "()\"", v.getLine());
 				}
 			}
 			for (PGoVariable v : f.getVariables()) {
-				if (v.getType().isUndetermined()) {
+				PGoType varType = PGoTypeUtil.substituteRealizeAndGetVariableType(v, mapping);
+				if (varType.containsVariables()) {
 					throw new PGoTransException("Unable to determine type of local variable \"" + v.getName()
 							+ "\" in function \"" + f.getName() + "()\"", v.getLine());
 				}
@@ -93,20 +90,35 @@ public class PGoTransStageType {
 
 	}
 
-	private void checkVariablesTyped() throws PGoTransException {
+	private void checkVariablesTyped(Map<PGoTypeVariable, PGoType> mapping) throws PGoTransException {
 		for (PGoVariable v : this.data.globals.values()) {
-			if (v.getType().isUndetermined()) {
+			PGoType varType = PGoTypeUtil.substituteRealizeAndGetVariableType(v, mapping);
+			if (varType.containsVariables()) {
 				throw new PGoTransException("Unable to determine type of global variable \"" + v.getName() + "\"",
 						v.getLine());
 			}
 		}
 		for (PGoVariable v : this.data.unresolvedVars.values()) {
-			if (v.getType().isUndetermined()) {
+			PGoType varType = PGoTypeUtil.substituteRealizeAndGetVariableType(v, mapping);
+			if (varType.containsVariables()) {
 				throw new PGoTransException("Unable to determine type of variable \"" + v.getName() + "\"",
 						v.getLine());
 			}
 		}
 	}
+
+	// private void checkTLAExpressionsTyped(Map<PGoTypeVariable,PGoType> mapping) throws PGoTransException {
+	// 	for (Map.Entry<TLAExprPgo, PGoTLAExpression> entry : data.tlaToAST.entrySet()) {
+	// 		PGoTLAExpression v = entry.getValue();
+	// 		if (v.getType() == null) {
+	// 			throw new PGoTransException("Unable to determine type of expression", v.getLine());
+	// 		}
+	// 		v.setType(v.getType().substitute(mapping).realize());
+	// 		if (v.getType().containsVariables()) {
+	// 			throw new PGoTransException("Unable to determine type of expression", v.getLine());
+	// 		}
+	// 	}
+	// }
 
 	// Add typing information to the process functions' ID
 	private void applyAnnotationOnProcesses() throws PGoTransException {
@@ -149,7 +161,7 @@ public class PGoTransStageType {
 		for (AnnotatedVariable v : this.data.annots.getAnnotatedVariables()) {
 			PGoVariable var = this.data.findPGoVariable(v.getName());
 			if (var == null) {
-				var = PGoVariable.convert(v.getName());
+				var = PGoVariable.convert(v.getName(), data.typeGenerator.get());
 				var.setLine(v.getLine());
 				if (v instanceof VarAnnotatedVariable) {
 					// normal variable that we haven't encountered
@@ -167,14 +179,16 @@ public class PGoTransStageType {
 	}
 
 	// Parse annotated TLA definitions and add parsed version to data
-	private void addAnnotatedDefinitions() throws PGoTransException, PGoParseException {
+	private void addAnnotatedDefinitions() throws PGoTransException {
 		for (AnnotatedTLADefinition d : this.data.annots.getAnnotatedTLADefinitions()) {
 			// if there are no parameters, compile to a variable
 			if (d.getParams().isEmpty()) {
 				PGoVariable var = PGoVariable.convert(d, new PGoTempData(data));
 				this.data.globals.put(var.getName(), var);
 				List<PGoTLAExpression> ptla = new TLAExprParser(d.getExpr(), d.getLine()).getResult();
-				assert (ptla.size() == 1);
+				if (ptla.size() != 1) {
+					throw new PGoTransExpectedSingleExpressionException(d.getLine());
+				}
 				this.data.putPGoTLA(d.getExpr(), ptla.get(0));
 			} else {
 				PGoTLADefinition tla = new PGoTLADefinition(d.getName(), d.getParams(), d.getExpr(), d.getType(),
@@ -186,67 +200,157 @@ public class PGoTransStageType {
 
 	// Infer types of variables based on the TLA expressions used in assignment.
 	private void inferVariableTypes() throws PGoTransException {
-		PcalASTUtil.Walker<Boolean> walker = new PcalASTUtil.Walker<Boolean>() {
+		new PcalASTUtil.Walker<Void>() {
+			@Override
+			protected void init() {}
 
 			@Override
-			protected void init() {
-				// whether we were able to infer something new in this pass
-				result = false;
-			}
-
-			@Override
-			public Boolean getResult(AST body) throws PGoTransException {
+			public Void getResult(AST body) throws PGoTransException {
 				init();
 				return super.getResult(body);
 			}
 
 			@Override
+			protected void visit(AST.While w) throws PGoTransException {
+				PGoTLAExpression cond = data.findPGoTLA(w.test);
+				data.solver.accept(new PGoTypeConstraint(
+						new TLAExprToType(cond, new PGoTempData(data)).getType(),
+						PGoTypeBool.getInstance(),
+						cond.getLine()));
+				super.visit(w);
+			}
+
+			@Override
+			protected void visit(AST.If ifast) throws PGoTransException {
+				PGoTLAExpression cond = data.findPGoTLA(ifast.test);
+				data.solver.accept(new PGoTypeConstraint(
+						new TLAExprToType(cond, new PGoTempData(data)).getType(),
+						PGoTypeBool.getInstance(),
+						cond.getLine()));
+				super.visit(ifast);
+			}
+
+			@Override
+			protected void visit(AST.With with) throws PGoTransException {
+				PGoTransIntermediateData oldData = data;
+				data = new PGoTempData(data);
+				AST cur = with;
+				while (cur instanceof AST.With) {
+					with = (AST.With) cur;
+					String varName = with.var;
+					PGoTLAExpression varExpr = data.findPGoTLA(with.exp);
+					if (with.isEq) {
+						// x = e
+						((PGoTempData) data).getLocals().put(
+								varName,
+								PGoVariable.convert(varName, new TLAExprToType(varExpr, (PGoTempData) data).getType()));
+					} else {
+						// x \in S
+						PGoType t = new TLAExprToType(varExpr, (PGoTempData) data).getType();
+						PGoType fresh = data.typeGenerator.get();
+						data.solver.accept(new PGoTypeConstraint(t, new PGoTypeSet(fresh), with.line));
+						((PGoTempData) data).getLocals().put( varName, PGoVariable.convert(varName, fresh));
+					}
+					// if there are multiple statements, this is no longer a nested with
+					if (with.Do.size() > 1) {
+						break;
+					}
+					cur = (AST) with.Do.get(0);
+				}
+				walk(with.Do);
+				data = oldData;
+			}
+
+			@Override
+			protected void visit(AST.When when) throws PGoTransException {
+				PGoTLAExpression cond = data.findPGoTLA(when.exp);
+				data.solver.accept(new PGoTypeConstraint(
+						new TLAExprToType(cond, new PGoTempData(data)).getType(),
+						PGoTypeBool.getInstance(),
+						cond.getLine()));
+			}
+
+			@Override
+			protected void visit(AST.PrintS ps) throws PGoTransException {
+				PGoTLAExpression exp = data.findPGoTLA(ps.exp);
+				PGoType t = new TLAExprToType(exp, new PGoTempData(data)).getType();
+				if (exp instanceof PGoTLAArray) {
+					List<PGoType> elemTypes = ((PGoTLAArray) exp).getContents()
+							.stream()
+							.map(e -> data.typeGenerator.get())
+							.collect(Collectors.toList());
+					data.solver.accept(new PGoTypeConstraint(t, new PGoTypeTuple(elemTypes), exp.getLine()));
+				}
+			}
+
+			@Override
+			protected void visit(AST.LabelIf lif) throws PGoTransException {
+				PGoTLAExpression cond = data.findPGoTLA(lif.test);
+				data.solver.accept(new PGoTypeConstraint(
+						new TLAExprToType(cond, new PGoTempData(data)).getType(),
+						PGoTypeBool.getInstance(),
+						cond.getLine()));
+				super.visit(lif);
+			}
+
+			@Override
+			protected void visit(AST.Call c) throws PGoTransException {
+				PGoFunction func = data.findPGoFunction(c.to);
+				if (func == null) {
+					throw new PGoTransException("Unknown procedure " + c.to, c.line);
+				}
+				List<PGoType> callParams = new Vector<>();
+				for (TLAExpr e : (Vector<TLAExpr>) c.args) {
+					callParams.add(new TLAExprToType(data.findPGoTLA(e), new PGoTempData(data)).getType());
+				}
+				List<PGoType> funcParams = func.getParams().stream().map(PGoVariable::getType).collect(Collectors.toList());
+				data.solver.accept(new PGoTypeConstraint(
+						new PGoTypeFunction(callParams, func.getReturnType()),
+						new PGoTypeFunction(funcParams, func.getReturnType()),
+						c.line));
+			}
+
+			@Override
+			protected void visit(AST.CallReturn cr) throws PGoTransException {
+				PGoFunction func = data.findPGoFunction(cr.to);
+				if (func == null) {
+					throw new PGoTransException("Unknown procedure " + cr.to, cr.line);
+				}
+				List<PGoType> callParams = new Vector<>();
+				for (TLAExpr e : (Vector<TLAExpr>) cr.args) {
+					callParams.add(new TLAExprToType(data.findPGoTLA(e), new PGoTempData(data)).getType());
+				}
+				List<PGoType> funcParams = func.getParams().stream().map(PGoVariable::getType).collect(Collectors.toList());
+				data.solver.accept(new PGoTypeConstraint(
+						new PGoTypeFunction(callParams, func.getReturnType()),
+						new PGoTypeFunction(funcParams, func.getReturnType()),
+						cr.line));
+			}
+
+			@Override
 			protected void visit(Process p) throws PGoTransException {
-				// infer the type of the process id
+				Map<PGoTypeVariable, PGoType> mapping = PGoTypeUtil.unifyAndGetMapping(data.solver);
 				PGoTLAExpression tla = data.findPGoTLA(p.id);
 				PGoFunction fun = data.findPGoFunction(p.name);
-				PGoVariable pId = fun.getParam(PGoVariable.processIdArg().getName());
+				PGoVariable pId = fun.getParam(PGoVariable.PROCESS_VAR_ARG);
 
-				PGoType type;
+				PGoType type = new TLAExprToType(tla, new PGoTempData(data)).getType();
 				if (p.isEq) {
-					type = new TLAExprToType(tla, new PGoTempData(data), pId, false).getType();
+					data.solver.accept(new PGoTypeConstraint(
+							PGoTypeUtil.substituteAndGetVariableType(pId, mapping),
+							type,
+							tla.getLine()));
 				} else {
-					type = new TLAExprToType(tla, new PGoTempData(data),
-							PGoType.inferFromGoTypeName("set[" + pId.getType().toTypeName() + "]"), false).getType();
+					data.solver.accept(new PGoTypeConstraint(
+							new PGoTypeSet(PGoTypeUtil.substituteAndGetVariableType(pId, mapping)),
+							type,
+							tla.getLine()));
 				}
-
-				if (type != PGoType.UNDETERMINED) {
-					if (!p.isEq) {
-						// this is var \in set
-						assert (type instanceof PGoSet);
-						type = ((PGoSet) type).getElementType();
-					}
-
-					if (!type.equals(pId.getType())) {
-						if (pId.getType() == PGoType.UNDETERMINED) {
-							pId.setType(type);
-							pId.setAsInferredType();
-						} else {
-							// already checked for type consistency in
-							// TLAExprToType
-							assert (TLAExprToType.compatibleType(type, pId.getType()) != null);
-							// if the variable type didn't change, don't flag as
-							// changed
-							if (!pId.getType().equals(TLAExprToType.compatibleType(type, pId.getType()))) {
-								pId.setType(TLAExprToType.compatibleType(type, pId.getType()));
-								pId.setAsInferredType();
-								result = true;
-							}
-						}
-					}
-
-				}
-
 				// add "self" to data
 				PGoTempData temp = new PGoTempData(data);
 				PGoTransIntermediateData oldData = data;
 				data = temp;
-				temp.globals.put("self", pId);
+				temp.globals.put(PGoVariable.PROCESS_VAR_ARG, pId);
 				// walk process ast
 				super.visit(p);
 				data = oldData;
@@ -259,176 +363,97 @@ public class PGoTransStageType {
 
 			@Override
 			protected void visit(VarDecl a) throws PGoTransException {
+				Map<PGoTypeVariable, PGoType> mapping = PGoTypeUtil.unifyAndGetMapping(data.solver);
 				PGoTLAExpression tla = data.findPGoTLA(a.val);
-				PGoVariable var = data.findPGoVariable(a.var);
-				PGoType type;
+				PGoType varType = PGoTypeUtil.substituteAndGetVariableType(data.findPGoVariable(a.var), mapping);
+				PGoType type = new TLAExprToType(tla, new PGoTempData(data)).getType();
 				if (a.isEq) {
-					type = new TLAExprToType(tla, new PGoTempData(data), var, false).getType();
+					data.solver.accept(new PGoTypeConstraint(varType, type, tla.getLine()));
 				} else {
-					type = new TLAExprToType(tla, new PGoTempData(data),
-							PGoType.inferFromGoTypeName("set[" + var.getType().toTypeName() + "]"), false).getType();
+					data.solver.accept(new PGoTypeConstraint(type, new PGoTypeSet(varType), tla.getLine()));
 				}
-
-				if (type == PGoType.UNDETERMINED) {
-					return;
-				}
-
-				if (!a.isEq) {
-					// this is var \in set
-					assert (type instanceof PGoSet);
-					type = ((PGoSet) type).getElementType();
-				}
-
-				if (type.equals(var.getType())) {
-					return;
-				}
-
-				if (var.getType() == PGoType.UNDETERMINED) {
-					var.setType(type);
-					var.setAsInferredType();
-				} else {
-					// already checked for type consistency in TLAExprToType
-					assert (TLAExprToType.compatibleType(type, var.getType()) != null);
-					// if the variable type didn't change, don't flag as changed
-					if (var.getType().equals(TLAExprToType.compatibleType(type, var.getType()))) {
-						return;
-					}
-					var.setType(TLAExprToType.compatibleType(type, var.getType()));
-					var.setAsInferredType();
-				}
-
-				result = true;
 			}
 
 			@Override
 			protected void visit(SingleAssign sa) throws PGoTransException {
+				Map<PGoTypeVariable, PGoType> mapping = PGoTypeUtil.unifyAndGetMapping(data.solver);
 				PGoTLAExpression tla = data.findPGoTLA(sa.rhs);
 				PGoVariable var = data.findPGoVariable(sa.lhs.var);
-				PGoType type;
+				PGoType varType = PGoTypeUtil.substituteAndGetVariableType(var, mapping);
+				PGoType type = new TLAExprToType(tla, new PGoTempData(data)).getType();
 				if (sa.lhs.sub.tokens.isEmpty()) {
 					// no sub
-					type = new TLAExprToType(tla, new PGoTempData(data), var, false).getType();
-
-					if (type == PGoType.UNDETERMINED || var.getType().equals(type)) {
-						return;
-					}
-
-					if (var.getType() == PGoType.UNDETERMINED) {
-						var.setType(type);
-						var.setAsInferredType();
-					} else {
-						assert (TLAExprToType.compatibleType(type, var.getType()) != null);
-						// if the variable type didn't change, don't flag as
-						// changed
-						if (var.getType().equals(TLAExprToType.compatibleType(type, var.getType()))) {
-							return;
-						}
-						var.setType(TLAExprToType.compatibleType(type, var.getType()));
-						var.setAsInferredType();
-					}
-					result = true;
-				} else {
-					// the sub is [expr, expr...] (map/array access) or
-					// .<name> for a record field
-
-					PGoTLAExpression ptla = data.findPGoTLA(sa.lhs.sub);
-					// TODO handle record fields
-					PGoTLAFunctionCall fc = (PGoTLAFunctionCall) ptla;
-
-					// the element type of the variable
-					PGoType givenType = PGoType.UNDETERMINED;
-					if (var.getType() instanceof PGoMap || var.getType() instanceof PGoSlice) {
-						givenType = ((PGoCollectionType) var.getType()).getElementType();
-					}
-					type = new TLAExprToType(ptla, new PGoTempData(data), givenType, false).getType();
-
-					if (type == PGoType.UNDETERMINED) {
-						return;
-					}
-
-					if (var.getType() == PGoType.UNDETERMINED) {
-						// if there are multiple indices, or the index is not an
-						// integer, then this is a map
-						if (fc.getParams().size() > 1) {
-							var.setType(new PGoMap("undetermined", "undetermined"));
-							var.setAsInferredType();
-						} else {
-							PGoType indexType = new TLAExprToType(fc.getParams().get(0), new PGoTempData(data), false)
-									.getType();
-							if (indexType != PGoType.UNDETERMINED && !(indexType instanceof PGoNatural)
-									&& !(indexType instanceof PGoInt)) {
-								var.setType(new PGoMap(indexType.toTypeName(), "undetermined"));
-								var.setAsInferredType();
-							} else {
-								return;
-							}
-						}
-					}
-
-					if (var.getType() instanceof PGoTuple) {
-						if (fc.getParams().get(0) instanceof PGoTLANumber) {
-							int index = Integer.parseInt(((PGoTLANumber) fc.getParams().get(0)).getVal());
-							PGoType toSet = ((PGoTuple) var.getType()).getType(index);
-
-							if (TLAExprToType.compatibleType(toSet, type).equals(toSet)) {
-								return;
-							}
-							((PGoTuple) var.getType()).setType(index, type);
-							var.setAsInferredType();
-						} else {
-							return;
-						}
-					} else if (var.getType() instanceof PGoSlice) {
-						PGoType toSet = ((PGoSlice) var.getType()).getElementType();
-
-						if (TLAExprToType.compatibleType(toSet, type).equals(toSet)) {
-							return;
-						}
-						((PGoSlice) var.getType()).setElementType(type);
-						var.setAsInferredType();
-					} else if (var.getType() instanceof PGoMap) {
-						PGoType eType = ((PGoMap) var.getType()).getElementType();
-						PGoType kType = ((PGoMap) var.getType()).getKeyType();
-
-						// we should also try to infer the key type
-						Vector<PGoType> key = new Vector<>();
-						for (PGoTLAExpression param : fc.getParams()) {
-							key.add(new TLAExprToType(param, new PGoTempData(data), false).getType());
-						}
-
-						PGoType kTypeInferred;
-						if (key.size() == 1) {
-							kTypeInferred = key.get(0);
-						} else {
-							kTypeInferred = new PGoTuple(key, false);
-						}
-
-						PGoType kNew = TLAExprToType.compatibleType(kTypeInferred, kType),
-								eNew = TLAExprToType.compatibleType(type, eType);
-
-						if ((type == PGoType.UNDETERMINED || eNew.equals(eType))
-								&& (kTypeInferred == PGoType.UNDETERMINED || kNew.equals(kType))) {
-							return;
-						}
-
-						((PGoMap) var.getType()).setElementType(eNew);
-						((PGoMap) var.getType()).setKeyType(kNew);
-
-						var.setAsInferredType();
-					}
+					data.solver.accept(new PGoTypeConstraint(varType, type, tla.getLine()));
+					return;
 				}
 
-				result = true;
+				// the sub is [expr, expr...] (map/array access) or
+				// .<name> for a record field
 
+				PGoTLAExpression ptla = data.findPGoTLA(sa.lhs.sub);
+				// TODO handle record fields
+				PGoTLAFunctionCall fc = (PGoTLAFunctionCall) ptla;
+
+				// if varType is an unrealized tuple representing a slice, it can be treated as a slice
+				if (varType instanceof PGoTypeUnrealizedTuple &&
+						((PGoTypeUnrealizedTuple) varType).getRealType() == PGoTypeUnrealizedTuple.RealType.Slice) {
+					var.setType(varType.realize());
+					varType = var.getType();
+				}
+				if (varType instanceof PGoTypeSlice) {
+					data.solver.accept(new PGoTypeConstraint(varType, new PGoTypeSlice(type), tla.getLine()));
+					return;
+				}
+
+				if (varType instanceof PGoTypeTuple || varType instanceof PGoTypeUnrealizedTuple) {
+					if (!(fc.getParams().get(0) instanceof PGoTLANumber)) {
+						return;
+					}
+					int index = Integer.parseInt(((PGoTLANumber) fc.getParams().get(0)).getVal());
+					if (index < 0) {
+						throw new PGoTransException("Trying to access a negative index of a tuple", tla.getLine());
+					}
+					if (varType instanceof PGoTypeTuple) {
+						List<PGoType> elementTypes =  ((PGoTypeTuple) varType).getElementTypes();
+						if (elementTypes.size() <= index) {
+							throw new PGoTransException("Trying to access index " + index + " of " + varType.toTypeName(), tla.getLine());
+						}
+						data.solver.accept(new PGoTypeConstraint(varType, elementTypes.get(index), tla.getLine()));
+					} else {
+						Map<Integer, PGoType> elementTypes = ((PGoTypeUnrealizedTuple) varType).getElementTypes();
+						if (elementTypes.containsKey(index)) {
+							data.solver.accept(new PGoTypeConstraint(elementTypes.get(index), varType, tla.getLine()));
+						}
+					}
+					return;
+				}
+
+				// if there are multiple indices, or the index is not an integer, then this is also a map
+				PGoType indexType = new TLAExprToType(fc.getParams().get(0), new PGoTempData(data)).getType();
+				if (varType instanceof PGoTypeMap || fc.getParams().size() > 1 ||
+						!(indexType instanceof PGoTypeVariable) && !indexType.equals(PGoTypeNatural.getInstance()) &&
+								!indexType.equals(PGoTypeInt.getInstance()) &&
+								!indexType.equals(new PGoTypeUnrealizedNumber(PGoTypeDecimal.getInstance())) &&
+								!indexType.equals(new PGoTypeUnrealizedNumber(PGoTypeInt.getInstance()))) {
+					// we should also try to infer the key type
+					Map<Integer, PGoType> key = new HashMap<>();
+					List<PGoTLAExpression> params = fc.getParams();
+					for (int i = 0; i < params.size(); i++) {
+						PGoTLAExpression param = params.get(i);
+						key.put(i, new TLAExprToType(param, new PGoTempData(data)).getType());
+					}
+					PGoType kTypeInferred;
+					if (key.size() == 1) {
+						kTypeInferred = key.get(0);
+					} else {
+						kTypeInferred = new PGoTypeUnrealizedTuple(key);
+					}
+					data.solver.accept(new PGoTypeConstraint(varType, new PGoTypeMap(kTypeInferred, type), tla.getLine()));
+				}
 			}
 
-		};
-		// walk the ast repeatedly, filling type information, until we cannot
-		// infer any more types
-		while (true) {
-			if (!walker.getResult(data.ast)) {
-				break;
-			}
-		}
+		}.getResult(data.ast);
+		data.solver.unify();
+		data.solver.simplify();
 	}
 }

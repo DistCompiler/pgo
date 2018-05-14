@@ -20,9 +20,8 @@ import pgo.model.golang.MapConstructor;
 import pgo.model.golang.Statement;
 import pgo.model.golang.Token;
 import pgo.model.golang.VariableDeclaration;
-import pgo.model.intermediate.PGoMiscellaneousType;
-import pgo.model.intermediate.PGoType;
 import pgo.model.intermediate.PGoVariable;
+import pgo.model.type.*;
 
 public class StateServerStateStrategy implements StateStrategy {
 	private static final String GLOBAL_STATE_OBJECT = "globalState";
@@ -48,7 +47,7 @@ public class StateServerStateStrategy implements StateStrategy {
 		topLevelMain.add(new Assignment(
 				new Vector<>(Collections.singletonList(PEERS_VAR)),
 				Builder.sliceLiteral(
-						PGoType.inferFromGoTypeName("string"),
+						PGoTypeString.getInstance(),
 						stateOptions.peers
 						.stream()
 						.map(Builder::stringLiteral)
@@ -56,8 +55,8 @@ public class StateServerStateStrategy implements StateStrategy {
 				true));
 
 		MapConstructor globalValues = Builder.mapLiteral(
-				PGoType.inferFromGoTypeName("string"),
-				PGoType.inferFromGoTypeName("interface{}"),
+				PGoTypeString.getInstance(),
+				PGoTypeInterface.getInstance(),
 				go.getGlobals()
 				.stream()
 				.filter(VariableDeclaration::isRemote)
@@ -70,7 +69,7 @@ public class StateServerStateStrategy implements StateStrategy {
 				}).collect(Collectors.toList()));
 
 		topLevelMain.add(new Assignment(
-						new Vector<>(Arrays.asList(COORDINATOR_VAR)),
+						new Vector<>(Collections.singletonList(COORDINATOR_VAR)),
 						new Token(PEERS_VAR + "[0]"),
 						true));
 
@@ -100,22 +99,22 @@ public class StateServerStateStrategy implements StateStrategy {
 		go.addGlobal(
 				new VariableDeclaration(
 						"err",
-						PGoType.inferFromGoTypeName("error"),
+						PGoTypeError.getInstance(),
 						null, false, false, false));
 		go.addGlobal(
 				new VariableDeclaration(
 						GLOBAL_STATE_OBJECT,
-						new PGoMiscellaneousType.StateServer(),
+						PGoTypeStateServer.getInstance(),
 						null, false, false, false));
 		go.addGlobal(
 				new VariableDeclaration(
 						LOCK_OBJECT,
-						new PGoMiscellaneousType.StateServerReleaseSet(),
+						PGoTypeReleaseSet.getInstance(),
 						null, false, false, false));
 		go.addGlobal(
 				new VariableDeclaration(
 						VARS_OBJECT,
-						new PGoMiscellaneousType.StateServerValueMap(),
+						PGoTypeValueMap.getInstance(),
 						null, false, false, false));
 
 	}
@@ -137,15 +136,15 @@ public class StateServerStateStrategy implements StateStrategy {
 						"Acquire",
 						new Vector<>(Collections.singleton(
 								Builder.structLiteral(
-										new PGoMiscellaneousType.StateServerAcquireSet(),
+										PGoTypeAcquireSet.getInstance(),
 										new Object[] {
 												"ReadNames", Builder.sliceLiteral(
-														PGoType.inferFromGoTypeName("string"),
+														PGoTypeString.getInstance(),
 														varNamesStr)
 										},
 										new Object[] {
 												"WriteNames", Builder.sliceLiteral(
-														PGoType.inferFromGoTypeName("string"),
+														PGoTypeString.getInstance(),
 														varNamesStr)
 										}
 								))),

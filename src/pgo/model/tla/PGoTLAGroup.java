@@ -1,7 +1,7 @@
 package pgo.model.tla;
 
 import pgo.model.golang.Expression;
-import pgo.model.intermediate.PGoType;
+import pgo.model.type.PGoType;
 import pgo.trans.PGoTransException;
 
 import java.util.List;

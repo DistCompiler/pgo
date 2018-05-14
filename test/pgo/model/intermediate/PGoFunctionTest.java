@@ -17,8 +17,10 @@ import pcal.AST.Procedure;
 import pcal.AST.Process;
 import pcal.AST.Skip;
 import pcal.PcalParams;
+import pgo.model.type.PGoTypeGenerator;
 
 public class PGoFunctionTest {
+	private static PGoTypeGenerator generator = new PGoTypeGenerator("test");
 
 	// Test basic conversion of procedure to PGo equivalent
 	@Test
@@ -32,8 +34,8 @@ public class PGoFunctionTest {
 		p.decls = new Vector<PVarDecl>();
 		p.body = new Vector<LabeledStmt>();
 
-		PGoFunction f = PGoFunction.convert(p);
-		assertEquals(PGoFunction.FunctionType.Normal, f.getType());
+		PGoFunction f = PGoFunction.convert(p, generator);
+		assertEquals(PGoFunction.FunctionKind.Normal, f.getKind());
 		assertEquals(p.name, f.getName());
 		assertEquals(1, f.getParams().size());
 		assertParam(f, "param1");
@@ -45,9 +47,9 @@ public class PGoFunctionTest {
 		}
 
 		p.name = "proc2";
-		f = PGoFunction.convert(p);
+		f = PGoFunction.convert(p, generator);
 		assertEquals(p.name, f.getName());
-		assertEquals(PGoFunction.FunctionType.Normal, f.getType());
+		assertEquals(PGoFunction.FunctionKind.Normal, f.getKind());
 		assertEquals(1, f.getParams().size());
 		assertParam(f, "param1");
 		assertEquals(0, f.getVariables().size());
@@ -60,9 +62,9 @@ public class PGoFunctionTest {
 		param = new PVarDecl();
 		param.var = "param2";
 		p.params.add(param);
-		f = PGoFunction.convert(p);
+		f = PGoFunction.convert(p, generator);
 		assertEquals(p.name, f.getName());
-		assertEquals(PGoFunction.FunctionType.Normal, f.getType());
+		assertEquals(PGoFunction.FunctionKind.Normal, f.getKind());
 		assertEquals(2, f.getParams().size());
 		assertParam(f, "param1");
 		assertEquals(0, f.getVariables().size());
@@ -76,9 +78,9 @@ public class PGoFunctionTest {
 		decl.var = "var1";
 		decl.val = PcalParams.DefaultVarInit();
 		p.decls.add(decl);
-		f = PGoFunction.convert(p);
+		f = PGoFunction.convert(p, generator);
 		assertEquals(p.name, f.getName());
-		assertEquals(PGoFunction.FunctionType.Normal, f.getType());
+		assertEquals(PGoFunction.FunctionKind.Normal, f.getKind());
 		assertEquals(2, f.getParams().size());
 		assertParam(f, "param1", 0);
 		assertParam(f, "param2", 1);
@@ -100,9 +102,9 @@ public class PGoFunctionTest {
 		stmt.stmts.add(new Skip());
 
 		p.body.add(stmt);
-		f = PGoFunction.convert(p);
+		f = PGoFunction.convert(p, generator);
 		assertEquals(p.name, f.getName());
-		assertEquals(PGoFunction.FunctionType.Normal, f.getType());
+		assertEquals(PGoFunction.FunctionKind.Normal, f.getKind());
 		assertEquals(2, f.getParams().size());
 		assertParam(f, "param1", 0);
 		assertParam(f, "param2", 1);
@@ -129,9 +131,9 @@ public class PGoFunctionTest {
 		m.body = new Vector<AST>();
 		m.body.add(new Skip());
 		
-		PGoFunction f = PGoFunction.convert(m);
+		PGoFunction f = PGoFunction.convert(m, generator);
 		assertEquals(m.name, f.getName());
-		assertEquals(PGoFunction.FunctionType.Macro, f.getType());
+		assertEquals(PGoFunction.FunctionKind.Macro, f.getKind());
 		assertEquals(1, f.getParams().size());
 		assertParam(f, "param1");
 
@@ -141,9 +143,9 @@ public class PGoFunctionTest {
 		}
 
 		m.name = "another";
-		f = PGoFunction.convert(m);
+		f = PGoFunction.convert(m, generator);
 		assertEquals(m.name, f.getName());
-		assertEquals(PGoFunction.FunctionType.Macro, f.getType());
+		assertEquals(PGoFunction.FunctionKind.Macro, f.getKind());
 		assertEquals(1, f.getParams().size());
 		assertParam(f, "param1");
 
@@ -153,9 +155,9 @@ public class PGoFunctionTest {
 		}
 
 		m.params.add("param2");
-		f = PGoFunction.convert(m);
+		f = PGoFunction.convert(m, generator);
 		assertEquals(m.name, f.getName());
-		assertEquals(PGoFunction.FunctionType.Macro, f.getType());
+		assertEquals(PGoFunction.FunctionKind.Macro, f.getKind());
 		assertEquals(2, f.getParams().size());
 		assertParam(f, "param1", 0);
 		assertParam(f, "param2", 1);
@@ -168,9 +170,9 @@ public class PGoFunctionTest {
 		PrintS stmt = new PrintS();
 		stmt.exp = PcalParams.DefaultVarInit();
 		m.body.add(stmt);
-		f = PGoFunction.convert(m);
+		f = PGoFunction.convert(m, generator);
 		assertEquals(m.name, f.getName());
-		assertEquals(PGoFunction.FunctionType.Macro, f.getType());
+		assertEquals(PGoFunction.FunctionKind.Macro, f.getKind());
 		assertEquals(2, f.getParams().size());
 		assertParam(f, "param1", 0);
 		assertParam(f, "param2", 1);
@@ -189,9 +191,9 @@ public class PGoFunctionTest {
 		p.body = new Vector<AST>();
 		p.body.add(new Skip());
 
-		PGoFunction f = PGoFunction.convert(p, PGoFunction.FunctionType.GoRoutine);
+		PGoFunction f = PGoFunction.convert(p, PGoFunction.FunctionKind.GoRoutine, generator);
 		assertEquals(p.name, f.getName());
-		assertEquals(PGoFunction.FunctionType.GoRoutine, f.getType());
+		assertEquals(PGoFunction.FunctionKind.GoRoutine, f.getKind());
 		assertEquals(1, f.getParams().size());
 		assertParam(f, "self");
 

@@ -3,7 +3,7 @@ package pgo.model.golang;
 import java.util.List;
 import java.util.Vector;
 
-import pgo.model.intermediate.PGoType;
+import pgo.model.type.PGoType;
 
 /**
  * Represents an anonymous function in go

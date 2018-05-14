@@ -1,6 +1,5 @@
 package pgo.trans.intermediate;
 
-import java.util.Map;
 import java.util.Vector;
 
 import pcal.AST;
@@ -35,7 +34,7 @@ public class PGoTransStageInitParse {
 	public PGoTransStageInitParse(ParsedPcal parsed, PGoNetOptions networkingOptions) throws PGoTransException, PGoParseException {
 		data = PGoTransIntermediateData.buildWith(networkingOptions);
 		this.data.ast = parsed.getAST();
-		this.data.annots = new PGoAnnotationParser(parsed.getPGoAnnotations());
+		this.data.annots = new PGoAnnotationParser(parsed.getPGoAnnotations(), data.typeGenerator);
 
 		trans();
 	}
@@ -103,12 +102,12 @@ public class PGoTransStageInitParse {
 
 		if (data.netOpts.isEnabled()) {
 			for (Process p : (Vector<Process>) ast.procs) {
-				PGoFunction f = PGoFunction.convert(p, PGoFunction.FunctionType.Process);
+				PGoFunction f = PGoFunction.convert(p, PGoFunction.FunctionKind.Process, data.typeGenerator);
 				data.funcs.put(f.getName(), f);
 			}
 		} else {
 			for (Process p : (Vector<Process>) ast.procs) {
-				PGoFunction f = PGoFunction.convert(p, PGoFunction.FunctionType.GoRoutine);
+				PGoFunction f = PGoFunction.convert(p, PGoFunction.FunctionKind.GoRoutine, data.typeGenerator);
 				data.funcs.put(f.getName(), f);
 
 				data.goroutines.put(f.getName(), PGoRoutineInit.convert(p));
@@ -145,16 +144,16 @@ public class PGoTransStageInitParse {
 	private void transCommon(BaseAlgAST ast) {
 		this.data.algName = ast.name;
 		for (VarDecl var : (Vector<VarDecl>) ast.decls) {
-			PGoVariable pvar = PGoVariable.convert(var);
+			PGoVariable pvar = PGoVariable.convert(var, data.typeGenerator.get());
 			data.globals.put(pvar.getName(), pvar);
 		}
 		this.data.tlaExpr = ast.defs;
 		for (Macro m : (Vector<Macro>) ast.macros) {
-			PGoFunction f = PGoFunction.convert(m);
+			PGoFunction f = PGoFunction.convert(m, data.typeGenerator);
 			data.funcs.put(f.getName(), f);
 		}
 		for (Procedure m : (Vector<Procedure>) ast.prcds) {
-			PGoFunction f = PGoFunction.convert(m);
+			PGoFunction f = PGoFunction.convert(m, data.typeGenerator);
 			data.funcs.put(f.getName(), f);
 		}
 	}

@@ -4,6 +4,7 @@ import pgo.PGoNetOptions;
 import pgo.PGoOptionException;
 import pgo.model.golang.*;
 import pgo.model.intermediate.*;
+import pgo.model.type.*;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -31,14 +32,14 @@ public class EtcdStateStrategy implements StateStrategy {
 		topLevelMain.add(new FunctionCall("datatypes.GobInit", new Vector<>()));
 
 		SliceConstructor endpoints = Builder.sliceLiteral(
-				PGoType.inferFromGoTypeName("string"),
+				PGoTypeString.getInstance(),
 				stateOptions.endpoints
 						.stream()
 						.map(e -> Builder.stringLiteral("https://" + e))
 						.collect(Collectors.toList()));
 
 		SliceConstructor peers = Builder.sliceLiteral(
-				PGoType.inferFromGoTypeName("string"),
+				PGoTypeString.getInstance(),
 				stateOptions.peers
 						.stream()
 						.map(Builder::stringLiteral)
@@ -46,21 +47,21 @@ public class EtcdStateStrategy implements StateStrategy {
 
 		VariableDeclaration errDecl = new VariableDeclaration(
 				"err",
-				PGoType.inferFromGoTypeName("error"), null, false, false, false);
+				PGoTypeError.getInstance(), null, false, false, false);
 		topLevelMain.add(errDecl);
 
 		Assignment stateObj = new Assignment(
 				new Vector<>(Arrays.asList(GLOBAL_STATE_OBJECT, "err")),
 				new FunctionCall("distsys.NewEtcdState",
-						new Vector<>(Arrays.asList(
+						Arrays.asList(
 								endpoints,
 								Builder.intLiteral(stateOptions.timeout),
 								peers,
 								new Token("ipAddr"),
 								Builder.stringLiteral(stateOptions.peers.get(0)),
 								Builder.mapLiteral(
-										PGoType.inferFromGoTypeName("string"),
-										PGoType.inferFromGoTypeName("interface{}"),
+										PGoTypeString.getInstance(),
+										PGoTypeInterface.getInstance(),
 										go.getGlobals()
 												.stream()
 												.filter(VariableDeclaration::isRemote)
@@ -71,7 +72,7 @@ public class EtcdStateStrategy implements StateStrategy {
 																.orElse(
 																new Token(g.getName()))
 												}).collect(Collectors.toList()))
-								))),
+								)),
 				false);
 		topLevelMain.add(stateObj);
 
@@ -87,7 +88,7 @@ public class EtcdStateStrategy implements StateStrategy {
 	@Override
 	public void generateGlobalVariables(GoProgram go) {
 		VariableDeclaration stateDecl = new VariableDeclaration(GLOBAL_STATE_OBJECT,
-				new PGoMiscellaneousType.EtcdState(), null, false, false, false);
+				PGoTypeEtcdState.getInstance(), null, false, false, false);
 
 		go.addGlobal(stateDecl);
 	}

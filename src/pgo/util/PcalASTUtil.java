@@ -290,7 +290,7 @@ public class PcalASTUtil {
 	 * @param name
 	 * @return
 	 */
-	public static boolean containsAssignmentToVar(Vector<AST> body, String name) {
+	public static boolean containsAssignmentToVar(List<AST> body, String name) {
 		Walker<Boolean> av = new Walker<Boolean>() {
 
 			@Override

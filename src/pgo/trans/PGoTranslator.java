@@ -1,23 +1,17 @@
 package pgo.trans;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.List;
-import java.util.Vector;
-import java.util.logging.Logger;
-
 import org.apache.commons.io.FileUtils;
-
 import pgo.PGoNetOptions;
 import pgo.PGoOptions;
 import pgo.model.golang.GoProgram;
 import pgo.parser.PGoParseException;
 import pgo.parser.PcalParser.ParsedPcal;
-import pgo.trans.intermediate.PGoTransStageAtomicity;
-import pgo.trans.intermediate.PGoTransStageGoGen;
-import pgo.trans.intermediate.PGoTransStageInitParse;
-import pgo.trans.intermediate.PGoTransStageTLAParse;
-import pgo.trans.intermediate.PGoTransStageType;
+import pgo.trans.intermediate.*;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.List;
+import java.util.logging.Logger;
 
 /**
  * Performs the translation of the PlusCal AST into a Golang AST

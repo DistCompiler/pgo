@@ -4,7 +4,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-import pgo.model.intermediate.PGoType;
+import pgo.model.type.PGoType;
 
 public class MapConstructor extends Expression {
 	

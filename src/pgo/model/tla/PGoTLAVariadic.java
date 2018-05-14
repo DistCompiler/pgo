@@ -5,7 +5,7 @@ import java.util.Vector;
 
 import pcal.TLAToken;
 import pgo.model.golang.Expression;
-import pgo.model.intermediate.PGoType;
+import pgo.model.type.PGoType;
 import pgo.parser.TLAExprParser;
 import pgo.trans.PGoTransException;
 

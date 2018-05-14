@@ -2,6 +2,7 @@ package pgo.model.intermediate;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Vector;
 
 import pcal.AST;
@@ -10,6 +11,9 @@ import pcal.AST.PVarDecl;
 import pcal.AST.Procedure;
 import pcal.AST.Process;
 import pcal.AST.VarDecl;
+import pgo.model.type.PGoType;
+import pgo.model.type.PGoTypeGenerator;
+import pgo.model.type.PGoTypeVoid;
 
 /**
  * Intermediate representation of a single pluscal and golang function.
@@ -20,7 +24,6 @@ import pcal.AST.VarDecl;
  *
  */
 public class PGoFunction {
-
 	// The function name
 	private String funcName;
 
@@ -31,18 +34,17 @@ public class PGoFunction {
 	private LinkedHashMap<String, PGoVariable> vars;
 
 	// The body of the function
-	private Vector<AST> body;
+	private List<AST> body;
 
-	// Whether this function is a goroutine or procese, or a macro, or a
-	// standard function
-	private FunctionType type;
+	public enum FunctionKind {
+		GoRoutine, Macro, Normal, Process
+	}
+
+	// Whether this function is a goroutine, a macro, a standard function, or a process
+	private FunctionKind kind;
 
 	// The return type of the function
 	private PGoType rType;
-
-	public enum FunctionType {
-		GoRoutine, Macro, Normal, Process
-	}
 
 	// The line number at start of function
 	private int line;
@@ -56,7 +58,7 @@ public class PGoFunction {
 		return rType;
 	}
 
-	// set the return type
+	// set the return kind
 	public void setReturnType(PGoType t) {
 		this.rType = t;
 	}
@@ -67,7 +69,7 @@ public class PGoFunction {
 	}
 
 	public ArrayList<PGoVariable> getParams() {
-		return new ArrayList<PGoVariable>(params.values());
+		return new ArrayList<>(params.values());
 	}
 
 	public PGoVariable getParam(String p) {
@@ -75,7 +77,7 @@ public class PGoFunction {
 	}
 
 	public ArrayList<PGoVariable> getVariables() {
-		return new ArrayList<PGoVariable>(vars.values());
+		return new ArrayList<>(vars.values());
 	}
 
 	public PGoVariable getVariable(String v) {
@@ -86,84 +88,70 @@ public class PGoFunction {
 		vars.put(retVar.getName(), retVar);
 	}
 
-	public Vector<AST> getBody() {
+	public List<AST> getBody() {
 		return body;
 	}
 
-	public FunctionType getType() {
-		return type;
+	public FunctionKind getKind() {
+		return kind;
 	}
 
 	public int getLine() {
 		return line;
 	}
 
-	// private constructor
-	private PGoFunction() {
-		params = new LinkedHashMap<String, PGoVariable>();
-		vars = new LinkedHashMap<String, PGoVariable>();
-		body = new Vector<AST>();
-		type = FunctionType.Normal;
-		rType = PGoType.UNDETERMINED;
+	// hide the constructor
+	private PGoFunction(String name, PGoType returnType, List<AST> body) {
+		funcName = name;
+		params = new LinkedHashMap<>();
+		vars = new LinkedHashMap<>();
+		this.body = body;
+		kind = FunctionKind.Normal;
+		rType = returnType;
 	}
 
 	// Converts a procedure from pluscal into a golang function
-	public static PGoFunction convert(Procedure m) {
-		PGoFunction ret = new PGoFunction();
-		ret.funcName = m.name;
+	public static PGoFunction convert(Procedure m, PGoTypeGenerator generator) {
+		PGoFunction ret = new PGoFunction(m.name, generator.get(), m.body);
 		for (PVarDecl var : (Vector<PVarDecl>) m.params) {
-			PGoVariable pvar = PGoVariable.convert(var);
+			PGoVariable pvar = PGoVariable.convert(var, generator.get());
+			pvar.setLine(m.line);
 			ret.params.put(pvar.getName(), pvar);
 		}
 		for (PVarDecl var : (Vector<PVarDecl>) m.decls) {
-			PGoVariable pvar = PGoVariable.convert(var);
+			PGoVariable pvar = PGoVariable.convert(var, generator.get());
 			ret.vars.put(pvar.getName(), pvar);
 		}
-
-		ret.body = m.body;
 		ret.line = m.line;
-
 		return ret;
 	}
 
 	// Converts a macro from pluscal into a golang function
-	public static PGoFunction convert(Macro m) {
-		PGoFunction ret = new PGoFunction();
-		ret.funcName = m.name;
+	public static PGoFunction convert(Macro m, PGoTypeGenerator generator) {
+		PGoFunction ret = new PGoFunction(m.name, PGoTypeVoid.getInstance(), m.body);
 		for (String var : (Vector<String>) m.params) {
-			PGoVariable pvar = PGoVariable.convert(var);
+			PGoVariable pvar = PGoVariable.convert(var, generator.get());
 			pvar.setLine(m.line);
 			ret.params.put(pvar.getName(), pvar);
 		}
-
-		ret.body = m.body;
-		ret.type = FunctionType.Macro;
+		ret.kind = FunctionKind.Macro;
 		ret.line = m.line;
-		ret.rType = PGoPrimitiveType.VOID;
-
 		return ret;
 	}
 
 	// Converts a process from a multiprocessed pluscal algorithm to a go
 	// function that we can run as a goroutine
-	public static PGoFunction convert(Process p, FunctionType type) {
-		PGoFunction ret = new PGoFunction();
-		ret.funcName = p.name;
-
+	public static PGoFunction convert(Process p, FunctionKind kind, PGoTypeGenerator generator) {
+		PGoFunction ret = new PGoFunction(p.name, PGoTypeVoid.getInstance(), p.body);
 		// process function argument is just the process id
-		PGoVariable id = PGoVariable.processIdArg();
+		PGoVariable id = PGoVariable.processIdArg(generator.get());
 		ret.params.put(id.getName(), id);
-
 		for (VarDecl var : (Vector<VarDecl>) p.decls) {
-			PGoVariable pvar = PGoVariable.convert(var);
+			PGoVariable pvar = PGoVariable.convert(var, generator.get());
 			ret.vars.put(pvar.getName(), pvar);
 		}
-
-		ret.body = p.body;
 		ret.line = p.line;
-		ret.type = type;
-		ret.rType = PGoPrimitiveType.VOID;
-
+		ret.kind = kind;
 		return ret;
 	}
 

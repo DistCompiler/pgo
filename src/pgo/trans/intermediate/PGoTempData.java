@@ -1,12 +1,12 @@
 package pgo.trans.intermediate;
 
-import java.util.*;
-
 import pgo.model.intermediate.PGoFunction;
 import pgo.model.intermediate.PGoLibFunction;
-import pgo.model.intermediate.PGoType;
 import pgo.model.intermediate.PGoVariable;
 import pgo.model.tla.PGoTLADefinition;
+import pgo.model.type.*;
+
+import java.util.*;
 
 /**
  * A class that holds the same data as the PGoTransIntermediateData, in addition
@@ -21,12 +21,12 @@ public class PGoTempData extends PGoTransIntermediateData {
 	// Contains some TLA constants like "Nat" (the set of naturals).
 	private static final LinkedHashMap<String, PGoVariable> constants = new LinkedHashMap<String, PGoVariable>() {
 		{
-			put("Nat", PGoVariable.convert("Nat", PGoType.inferFromGoTypeName("set[natural]")));
-			put("Int", PGoVariable.convert("Int", PGoType.inferFromGoTypeName("set[int]")));
-			put("Real", PGoVariable.convert("Real", PGoType.inferFromGoTypeName("set[float64]")));
-			put("Infinity", PGoVariable.convert("Infinity", PGoType.inferFromGoTypeName("float64")));
-			put("STRING", PGoVariable.convert("STRING", PGoType.inferFromGoTypeName("set[string]")));
-			put("BOOLEAN", PGoVariable.convert("BOOLEAN", PGoType.inferFromGoTypeName("set[bool]")));
+			put("Nat", PGoVariable.convert("Nat", new PGoTypeSet(PGoTypeNatural.getInstance())));
+			put("Int", PGoVariable.convert("Int", new PGoTypeSet(PGoTypeInt.getInstance())));
+			put("Real", PGoVariable.convert("Real", new PGoTypeSet(PGoTypeDecimal.getInstance())));
+			put("Infinity", PGoVariable.convert("Infinity", PGoTypeDecimal.getInstance()));
+			put("STRING", PGoVariable.convert("STRING", new PGoTypeSet(PGoTypeString.getInstance())));
+			put("BOOLEAN", PGoVariable.convert("BOOLEAN", new PGoTypeSet(PGoTypeBool.getInstance())));
 		}
 	};
 
@@ -48,6 +48,8 @@ public class PGoTempData extends PGoTransIntermediateData {
 		locals = new LinkedHashMap<>();
 		netOpts = data.netOpts;
 		cachedVarSet = new HashSet<>(data.cachedVarSet);
+		solver = data.solver;
+		typeGenerator = data.typeGenerator;
 	}
 
 	// Clone the data passed in.
@@ -69,6 +71,8 @@ public class PGoTempData extends PGoTransIntermediateData {
 		locals = new LinkedHashMap<>(data.getLocals());
 		netOpts = data.netOpts;
 		cachedVarSet = new HashSet<>(data.cachedVarSet);
+		solver = data.solver;
+		typeGenerator = data.typeGenerator;
 	}
 
 	public Map<String, PGoVariable> getLocals() {

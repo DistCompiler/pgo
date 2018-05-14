@@ -1,9 +1,8 @@
 package pgo.model.tla;
 
-import java.util.Vector;
-
 import pgo.model.golang.Expression;
-import pgo.model.intermediate.PGoType;
+import pgo.model.type.PGoType;
+import pgo.trans.PGoTransException;
 
 /**
  * Variable access in TLA Expr
@@ -22,7 +21,7 @@ public class PGoTLAVariable extends PGoTLAExpression {
 		return name;
 	}
 	
-	protected Expression convert(TLAExprToGo trans) {
+	protected Expression convert(TLAExprToGo trans) throws PGoTransException {
 		return trans.translate(this);
 	}
 	

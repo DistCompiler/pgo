@@ -9,10 +9,12 @@ import pcal.PcalCharReaderPgo;
 import pcal.TLAExpr;
 import pcal.Tokenize;
 import pcal.exception.TokenizerException;
-import pgo.model.intermediate.PGoType;
 import pgo.model.intermediate.PGoVariable;
+import pgo.model.type.PGoType;
+import pgo.model.type.PGoTypeGenerator;
 import pgo.parser.PGoParseException;
 import pgo.parser.PcalParser;
+import pgo.trans.PGoTransException;
 
 /**
  * Represents an annotated TLA definition of a macro which is called in the
@@ -40,7 +42,7 @@ public class AnnotatedTLADefinition {
 		this.line = l;
 	}
 
-	public static AnnotatedTLADefinition parse(String s, int l) throws PGoParseException {
+	public static AnnotatedTLADefinition parse(int l, String s, PGoTypeGenerator generator) throws PGoParseException, PGoTransException {
 		// of the form def <name>(<params>) == <TLA expression>
 		Pattern regex = Pattern.compile("def ([^(\\s]+)(\\(.+\\))?\\s*(.+)*?\\s*==\\s*([\\s\\S]+)");
 		Matcher m = regex.matcher(s);
@@ -68,7 +70,7 @@ public class AnnotatedTLADefinition {
 					throw new PGoParseException("Expected parameter to be fo the form \"name <type>\", but found "
 							+ parts.length + " parts instead.", l);
 				}
-				paramVars.add(PGoVariable.convert(parts[0], PGoType.inferFromGoTypeName(parts[1])));
+				paramVars.add(PGoVariable.convert(parts[0], generator.inferFrom(parts[1])));
 			}
 		}
 
@@ -76,11 +78,7 @@ public class AnnotatedTLADefinition {
 
 		if (typeString != null) {
 			typeString = typeString.trim();
-			type = PGoType.inferFromGoTypeName(typeString);
-			if (type.isUndetermined()) {
-				throw new PGoParseException(
-						"Unknown type annotation " + typeString + " encountered in annotation for TLA definition", l);
-			}
+			type = generator.inferFrom(typeString);
 		}
 
 		// parse the expression into TLATokens

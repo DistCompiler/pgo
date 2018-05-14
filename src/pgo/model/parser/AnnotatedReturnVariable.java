@@ -35,8 +35,10 @@ public class AnnotatedReturnVariable {
 		return line;
 	}
 
-	public static AnnotatedReturnVariable parse(String[] parts, int line) throws PGoParseException {
-		assert (parts[0].toLowerCase().equals("ret"));
+	public static AnnotatedReturnVariable parse(int line, String[] parts) throws PGoParseException {
+		if (!parts[0].toLowerCase().equals("ret")) {
+			throw new PGoParseException("Unknown annotation", line);
+		}
 
 		if (parts.length != 2) {
 			throw new PGoParseException("Annotation attribute \"ret\" expects argument <varname>. None provided",
@@ -61,7 +63,7 @@ public class AnnotatedReturnVariable {
 		globals.remove(name);
 		boolean found = false;
 		for (PGoFunction f : funcs) {
-			if (f.getType() == PGoFunction.FunctionType.Normal) {
+			if (f.getKind() == PGoFunction.FunctionKind.Normal) {
 				if (f.getVariable(name) == null) {
 					if (PcalASTUtil.containsAssignmentToVar(f.getBody(), name)) {
 						PGoVariable retVar = PGoVariable.convert(name, f.getReturnType());
