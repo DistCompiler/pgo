@@ -8,8 +8,9 @@ import java.util.Vector;
 
 import pcal.AST;
 import pcal.TLAExpr;
-import pcal.TLAToken;
 import pgo.PGoException;
+import pgo.lexer.TLAToken;
+import pgo.lexer.TLATokenType;
 import pgo.model.pcal.Algorithm;
 import pgo.model.pcal.Assert;
 import pgo.model.pcal.Assignment;
@@ -77,11 +78,41 @@ public class TLCToPGoPCalASTConversionVisitor extends PcalASTUtil.Visitor<List<S
 		return result;
 	}
 	
+	private static TLAToken convertToken(pcal.TLAToken tok){
+		SourceLocation loc;
+		if(tok.source == null) {
+			loc = SourceLocation.unknown();
+		}else {
+			Location l = tok.source.toLocation();
+			loc = new SourceLocation(Paths.get("TLA"), l.beginLine(), l.endLine(), l.beginColumn(), l.endColumn());
+		}
+		TLATokenType type;
+		switch(tok.type) {
+		case pcal.TLAToken.BUILTIN:
+			type = TLATokenType.BUILTIN;
+			break;
+		case pcal.TLAToken.IDENT:
+			type = TLATokenType.IDENT;
+			break;
+		case pcal.TLAToken.NUMBER:
+			type = TLATokenType.NUMBER;
+			break;
+		case pcal.TLAToken.STRING:
+			type = TLATokenType.STRING;
+			break;
+		default:
+			throw new RuntimeException("unreachable");
+		}
+		return new TLAToken(tok.string, type, loc);
+	}
+	
 	@SuppressWarnings("unchecked")
 	private static PGoTLAExpression parseTLAExpression(TLAExpr e) throws PGoTLAParseException {
 		List<TLAToken> tokens = new ArrayList<>();
 		for(Object tokList : e.tokens) {
-			tokens.addAll((Vector<TLAToken>)tokList);
+			for(pcal.TLAToken tok : (Vector<pcal.TLAToken>)tokList) {
+				tokens.add(convertToken(tok));
+			}
 		}
 		return TLAParser.readExpression(tokens.listIterator());
 	}
@@ -135,7 +166,9 @@ public class TLCToPGoPCalASTConversionVisitor extends PcalASTUtil.Visitor<List<S
 		
 		List<TLAToken> tokens = new ArrayList<>();
 		for(Object tokList : defns) {
-			tokens.addAll((Vector<TLAToken>)tokList);
+			for(pcal.TLAToken tok : (Vector<pcal.TLAToken>)tokList) {
+				tokens.add(convertToken(tok));
+			}
 		}
 		List<PGoTLAUnit> units = TLAParser.readUnits(tokens.listIterator());
 		
@@ -255,9 +288,11 @@ public class TLCToPGoPCalASTConversionVisitor extends PcalASTUtil.Visitor<List<S
 	@Override
 	public List<Statement> visit(AST.SingleAssign sa) throws PGoException {
 		List<TLAToken> lhsTok = new ArrayList<>();
-		lhsTok.add(new TLAToken(sa.lhs.var, sa.lhs.col, TLAToken.IDENT, sa.lhs.line));
-		for(Vector<TLAToken> tokList : (Vector<Vector<TLAToken>>)sa.lhs.sub.tokens){
-			lhsTok.addAll(tokList);
+		lhsTok.add(new TLAToken(sa.lhs.var, TLATokenType.IDENT, SourceLocation.unknown()));
+		for(Vector<pcal.TLAToken> tokList : (Vector<Vector<pcal.TLAToken>>)sa.lhs.sub.tokens){
+			for(pcal.TLAToken tok : tokList) {
+				lhsTok.add(convertToken(tok));
+			}
 		}
 		PGoTLAExpression lhs = TLAParser.readExpression(lhsTok.listIterator());
 		return Collections.singletonList(new Assignment(sourceLocationFromRegion(sa), lhs,
