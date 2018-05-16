@@ -6,13 +6,24 @@ import pgo.util.SourceLocation;
 
 public class PGoTLAQuantifierBound extends PGoTLANode {
 	
-	private List<PGoTLAIdentifier> ids;
-	private PGoTLAExpression set;
+	List<PGoTLAIdentifier> ids;
+	PGoTLAExpression set;
+	Type type;
 
-	public PGoTLAQuantifierBound(SourceLocation location, List<PGoTLAIdentifier> ids, PGoTLAExpression set) {
+	public PGoTLAQuantifierBound(SourceLocation location, Type type, List<PGoTLAIdentifier> ids, PGoTLAExpression set) {
 		super(location);
+		this.type = type;
 		this.ids = ids;
 		this.set = set;
+	}
+	
+	public enum Type{
+		IDS,
+		TUPLE,
+	}
+	
+	public Type getType() {
+		return type;
 	}
 	
 	public List<PGoTLAIdentifier> getIds(){

@@ -9,7 +9,7 @@ import pgo.model.tla.PGoTLAFunctionSubstitutionPair;
 import pgo.model.tla.PGoTLAGeneralIdentifierPart;
 import pgo.model.tla.PGoTLAIdentifier;
 import pgo.model.tla.PGoTLAIdentifierOrTuple;
-import pgo.model.tla.PGoTLAInstance.Remapping;
+import pgo.model.tla.PGoTLAInstance;
 import pgo.model.tla.PGoTLAOpDecl;
 import pgo.model.tla.PGoTLAQuantifierBound;
 import pgo.model.tla.PGoTLARecordConstructor;
@@ -34,19 +34,49 @@ public class PGoTLANodeFormattingVisitor extends PGoTLANodeVisitor<Void, IOExcep
 
 	@Override
 	public Void visit(PGoTLAUnit pGoTLAUnit) throws IOException {
-		// TODO Auto-generated method stub
+		pGoTLAUnit.accept(new PGoTLAUnitFormattingVisitor(out));
 		return null;
 	}
 
 	@Override
 	public Void visit(PGoTLACaseArm pGoTLACaseArm) throws IOException {
-		// TODO Auto-generated method stub
+		out.write("[] ");
+		pGoTLACaseArm.getCondition().accept(new PGoTLAExpressionFormattingVisitor(out));
+		out.write(" -> ");
+		pGoTLACaseArm.getResult().accept(new PGoTLAExpressionFormattingVisitor(out));
 		return null;
 	}
 
 	@Override
 	public Void visit(PGoTLAOpDecl pGoTLAOpDecl) throws IOException {
-		// TODO Auto-generated method stub
+		switch(pGoTLAOpDecl.getType()) {
+		case ID:
+			pGoTLAOpDecl.getName().accept(this);
+			break;
+		case INFIX:
+			out.write("_");
+			pGoTLAOpDecl.getName().accept(this);
+			out.write("_");
+			break;
+		case NAMED:
+			pGoTLAOpDecl.getName().accept(this);
+			out.write("(_");
+			for(int i = 1; i<pGoTLAOpDecl.getArity(); ++i) {
+				out.write(",_");
+			}
+			out.write(")");
+			break;
+		case POSTFIX:
+			out.write("_");
+			pGoTLAOpDecl.getName().accept(this);
+			break;
+		case PREFIX:
+			pGoTLAOpDecl.getName().accept(this);
+			out.write("_");
+			break;
+		default:
+			throw new RuntimeException("unreachable");
+		}
 		return null;
 	}
 
@@ -62,25 +92,48 @@ public class PGoTLANodeFormattingVisitor extends PGoTLANodeVisitor<Void, IOExcep
 
 	@Override
 	public Void visit(PGoTLARecordSet.Field field) throws IOException {
-		// TODO Auto-generated method stub
+		field.getName().accept(this);
+		out.write(":");
+		field.getSet().accept(new PGoTLAExpressionFormattingVisitor(out));
 		return null;
 	}
 
 	@Override
 	public Void visit(PGoTLARecordConstructor.Field field) throws IOException {
-		// TODO Auto-generated method stub
+		field.getName().accept(this);
+		out.write("|->");
+		field.getValue().accept(new PGoTLAExpressionFormattingVisitor(out));
 		return null;
 	}
 
 	@Override
 	public Void visit(PGoTLAQuantifierBound pGoTLAQuantifierBound) throws IOException {
-		// TODO Auto-generated method stub
+		switch(pGoTLAQuantifierBound.getType()) {
+		case IDS:
+			FormattingTools.writeCommaSeparated(out, pGoTLAQuantifierBound.getIds(), id -> {
+				id.accept(this);
+			});
+			break;
+		case TUPLE:
+			out.write("<<");
+			FormattingTools.writeCommaSeparated(out, pGoTLAQuantifierBound.getIds(), id -> {
+				id.accept(this);
+			});
+			out.write(">>");
+			break;
+		default:
+			throw new RuntimeException("unreachable");
+		}
+		out.write(" \\in ");
+		pGoTLAQuantifierBound.getSet().accept(new PGoTLAExpressionFormattingVisitor(out));
 		return null;
 	}
 
 	@Override
-	public Void visit(Remapping remapping) throws IOException {
-		// TODO Auto-generated method stub
+	public Void visit(PGoTLAInstance.Remapping remapping) throws IOException {
+		remapping.getFrom().accept(this);
+		out.write(" <- ");
+		remapping.getTo().accept(new PGoTLAExpressionFormattingVisitor(out));
 		return null;
 	}
 

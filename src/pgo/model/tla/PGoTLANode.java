@@ -5,6 +5,7 @@ import java.io.StringWriter;
 
 import pgo.formatters.IndentingWriter;
 import pgo.formatters.PGoTLANodeFormattingVisitor;
+import pgo.scope.UID;
 import pgo.util.SourceLocatable;
 import pgo.util.SourceLocation;
 
@@ -17,14 +18,21 @@ import pgo.util.SourceLocation;
  */
 public abstract class PGoTLANode extends SourceLocatable {
 	SourceLocation location;
+	UID uid;
 	
 	public PGoTLANode(SourceLocation location) {
 		this.location = location;
+		this.uid = new UID();
+		this.uid.addOrigin(this);
 	}
 	
 	@Override
 	public SourceLocation getLocation() {
 		return location;
+	}
+	
+	public UID getUID() {
+		return uid;
 	}
 	
 	@Override

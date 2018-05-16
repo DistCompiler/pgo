@@ -1,5 +1,7 @@
 package pgo.parser;
 
+import java.nio.file.Paths;
+
 /**
  * 
  *  This is an LL_k recursive descent parser for an eventually-complete
@@ -623,17 +625,22 @@ public final class TLAParser {
 	private static ParseAction<PGoTLAQuantifierBound> parseQuantifierBound(int minColumn){
 		Mutator<LocatedList<PGoTLAIdentifier>> ids = new Mutator<>();
 		Mutator<PGoTLAExpression> expr = new Mutator<>();
+		Mutator<PGoTLAQuantifierBound.Type> type = new Mutator<>();
 		return sequence(
 				part(ids, parseOneOf(
 					parseIdentifierTuple(minColumn).map(tuple -> {
+						type.setValue(PGoTLAQuantifierBound.Type.TUPLE);
 						return new LocatedList<PGoTLAIdentifier>(tuple.getLocation(), tuple.getTuple());
 					}),
-					parseCommaList(parseIdentifier(minColumn), minColumn)
+					parseCommaList(parseIdentifier(minColumn), minColumn).map(list -> {
+						type.setValue(PGoTLAQuantifierBound.Type.IDS);
+						return list;
+					})
 					)),
 				drop(parseBuiltinToken("\\in", minColumn)),
 				part(expr, nop().chain(v -> parseExpression(minColumn))))
 				.map(seqResult -> {
-					return new PGoTLAQuantifierBound(seqResult.getLocation(), ids.getValue(), expr.getValue());
+					return new PGoTLAQuantifierBound(seqResult.getLocation(), type.getValue(), ids.getValue(), expr.getValue());
 				});
 	}
 	
@@ -1481,7 +1488,7 @@ public final class TLAParser {
 				drop(parseBuiltinToken("==", minColumn)),
 				part(instance, parseInstance(minColumn, isLocal))
 				).map(seqResult -> {
-					return new PGoTLAModuleDefinition(seqResult.getLocation(), name.getValue(), instance.getValue(), isLocal);
+					return new PGoTLAModuleDefinition(seqResult.getLocation(), name.getValue(), args.getValue(), instance.getValue(), isLocal);
 				});
 	}
 	
@@ -1588,7 +1595,7 @@ public final class TLAParser {
 				part(exts, parseOneOf(
 						parseExtends(),
 						nop().map(v -> new LocatedList<PGoTLAIdentifier>(SourceLocation.unknown(), Collections.emptyList())))),
-				part(units, repeat(parseUnit())),
+				part(units, repeat(nop().chain(v -> parseUnit()))),
 				drop(parse4EqualsOrMore())
 				).map(seqResult -> {
 					return new PGoTLAModule(seqResult.getLocation(), name.getValue(), exts.getValue(), units.getValue());
@@ -1610,6 +1617,13 @@ public final class TLAParser {
 		ParseContext ctx = new ParseContext(iter);
 		ParseAction<LocatedList<PGoTLAUnit>> action = repeat(parseUnit());
 		ParseResult<LocatedList<PGoTLAUnit>> result = action.perform(ctx);
+		return result.getSuccess();
+	}
+
+	public static List<PGoTLAModule> readModules(ListIterator<TLAToken> iter) {
+		ParseContext ctx = new ParseContext(iter);
+		ParseAction<LocatedList<PGoTLAModule>> action = repeat(parseModule());
+		ParseResult<LocatedList<PGoTLAModule>> result = action.perform(ctx);
 		return result.getSuccess();
 	}
 }

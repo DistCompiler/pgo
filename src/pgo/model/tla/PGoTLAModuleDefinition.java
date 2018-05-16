@@ -1,22 +1,30 @@
 package pgo.model.tla;
 
+import java.util.List;
+
 import pgo.util.SourceLocation;
 
 public class PGoTLAModuleDefinition extends PGoTLAUnit {
 	
 	PGoTLAIdentifier name;
+	List<PGoTLAOpDecl> args;
 	PGoTLAInstance instance;
 	boolean local;
 
-	public PGoTLAModuleDefinition(SourceLocation location, PGoTLAIdentifier name, PGoTLAInstance instance, boolean isLocal) {
+	public PGoTLAModuleDefinition(SourceLocation location, PGoTLAIdentifier name, List<PGoTLAOpDecl> args, PGoTLAInstance instance, boolean isLocal) {
 		super(location);
 		this.name = name;
+		this.args = args;
 		this.instance = instance;
 		this.local = isLocal;
 	}
 
 	public PGoTLAIdentifier getName() {
 		return name;
+	}
+	
+	public List<PGoTLAOpDecl> getArgs(){
+		return args;
 	}
 
 	public PGoTLAInstance getInstance() {
@@ -36,6 +44,7 @@ public class PGoTLAModuleDefinition extends PGoTLAUnit {
 	public int hashCode() {
 		final int prime = 31;
 		int result = 1;
+		result = prime * result + ((args == null) ? 0 : args.hashCode());
 		result = prime * result + ((instance == null) ? 0 : instance.hashCode());
 		result = prime * result + (local ? 1231 : 1237);
 		result = prime * result + ((name == null) ? 0 : name.hashCode());
@@ -51,6 +60,11 @@ public class PGoTLAModuleDefinition extends PGoTLAUnit {
 		if (getClass() != obj.getClass())
 			return false;
 		PGoTLAModuleDefinition other = (PGoTLAModuleDefinition) obj;
+		if (args == null) {
+			if (other.args != null)
+				return false;
+		} else if (!args.equals(other.args))
+			return false;
 		if (instance == null) {
 			if (other.instance != null)
 				return false;

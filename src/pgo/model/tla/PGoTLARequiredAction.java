@@ -24,6 +24,14 @@ public class PGoTLARequiredAction extends PGoTLAExpression {
 	public <T, E extends Throwable> T accept(PGoTLAExpressionVisitor<T, E> v) throws E {
 		return v.visit(this);
 	}
+	
+	public PGoTLAExpression getBody() {
+		return body;
+	}
+	
+	public PGoTLAExpression getVars() {
+		return vars;
+	}
 
 	@Override
 	public int hashCode() {

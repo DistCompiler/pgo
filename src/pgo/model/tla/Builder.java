@@ -22,8 +22,12 @@ public class Builder {
 		return Arrays.asList(ids);
 	}
 	
-	public static PGoTLAQuantifierBound qb(List<PGoTLAIdentifier> ids, PGoTLAExpression set) {
-		return new PGoTLAQuantifierBound(SourceLocation.unknown(), ids, set);
+	public static PGoTLAQuantifierBound qbIds(List<PGoTLAIdentifier> ids, PGoTLAExpression set) {
+		return new PGoTLAQuantifierBound(SourceLocation.unknown(), PGoTLAQuantifierBound.Type.IDS, ids, set);
+	}
+	
+	public static PGoTLAQuantifierBound qbTuple(List<PGoTLAIdentifier> ids, PGoTLAExpression set) {
+		return new PGoTLAQuantifierBound(SourceLocation.unknown(), PGoTLAQuantifierBound.Type.TUPLE, ids, set);
 	}
 	
 	public static PGoTLAIdentifier id(String name) {
@@ -122,6 +126,38 @@ public class Builder {
 	
 	public static PGoTLAUnary unary(String op, PGoTLAExpression arg) {
 		return unary(prefix(), op, arg);
+	}
+	
+	public static PGoTLAModule module(String name, List<PGoTLAIdentifier> exts, PGoTLAUnit... units) {
+		return new PGoTLAModule(SourceLocation.unknown(), id(name), exts, Arrays.asList(units));
+	}
+	
+	public static List<PGoTLAOpDecl> opdecls(PGoTLAOpDecl... opdecls){
+		return Arrays.asList(opdecls);
+	}
+	
+	public static PGoTLAOpDecl opdecl(PGoTLAIdentifier name) {
+		return PGoTLAOpDecl.Id(SourceLocation.unknown(), name);
+	}
+	
+	public static PGoTLAOpDecl opdeclPrefix(PGoTLAIdentifier name) {
+		return PGoTLAOpDecl.Prefix(SourceLocation.unknown(), name);
+	}
+	
+	public static PGoTLAOpDecl opdeclPostfix(PGoTLAIdentifier name) {
+		return PGoTLAOpDecl.Postfix(SourceLocation.unknown(), name);
+	}
+	
+	public static PGoTLAOpDecl opdeclInfix(PGoTLAIdentifier name) {
+		return PGoTLAOpDecl.Infix(SourceLocation.unknown(), name);
+	}
+	
+	public static PGoTLAOpDecl opdeclNamed(PGoTLAIdentifier name, int arity) {
+		return PGoTLAOpDecl.Named(SourceLocation.unknown(), name, arity);
+	}
+	
+	public static PGoTLAOperatorDefinition opdef(boolean isLocal, PGoTLAIdentifier id, List<PGoTLAOpDecl> args, PGoTLAExpression body) {
+		return new PGoTLAOperatorDefinition(SourceLocation.unknown(), id, args, body, isLocal);
 	}
 
 }
