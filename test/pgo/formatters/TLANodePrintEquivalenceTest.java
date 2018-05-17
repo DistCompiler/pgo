@@ -4,6 +4,7 @@ import static org.junit.Assert.*;
 
 import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import static org.hamcrest.CoreMatchers.*;
@@ -30,11 +31,29 @@ public class TLANodePrintEquivalenceTest {
 	@Parameters
 	public static List<Object[]> data(){
 		return Arrays.asList(new Object[][] {
-			{ module("TEST", ids(id("foo"), id("bar"))) },
-			{ module("TEST", ids()) },
-			{ module("TEST", ids(id("aaa")), 
-					opdef(false, id("foo"), opdecls(opdecl(id("a")), opdecl(id("b"))),
-							num(1)
+			{ module("TEST", ids(id("foo"), id("bar")), Collections.emptyList(), Collections.emptyList(), Collections.emptyList()) },
+			{ module("TEST", ids(), Collections.emptyList(), Collections.emptyList(), Collections.emptyList()) },
+			{ module("TEST", ids(id("aaa")),
+					Arrays.asList(
+						opdef(false, id("foo"), opdecls(opdecl(id("a")), opdecl(id("b"))),
+								num(1)
+								)
+						),
+					Collections.emptyList(),
+					Collections.emptyList()
+					)
+			},
+			{ module("TEST", ids(id("aaa")),
+					Arrays.asList(
+							opdef(false, id("foo"), opdecls(opdecl(id("a")), opdecl(id("b"))),
+									num(1)
+									)
+							),
+					Arrays.asList(
+							opdef(false, id("a"), opdecls(), num(1))
+							),
+					Arrays.asList(
+							opdef(false, id("b"), opdecls(), num(2))
 							)
 					)
 			},
@@ -49,16 +68,17 @@ public class TLANodePrintEquivalenceTest {
 	@Test
 	public void test() throws PGoTLALexerException {
 		String str = ast.toString();
+		System.out.println(str);
 		TLALexer lexer = new TLALexer(Paths.get("TEST"), Arrays.asList(str.split("\n")));
 		lexer.requireModule(ast instanceof PGoTLAModule);
 		List<TLAToken> tokens = lexer.readTokens();
 		PGoTLANode actual;
 		if(ast instanceof PGoTLAExpression) {
 			actual = TLAParser.readExpression(tokens.listIterator());
-		}else if(ast instanceof PGoTLAUnit) {
-			actual = TLAParser.readUnits(tokens.listIterator()).get(0);
 		}else if(ast instanceof PGoTLAModule) {
 			actual = TLAParser.readModules(tokens.listIterator()).get(0);
+		}else if(ast instanceof PGoTLAUnit) {
+			actual = TLAParser.readUnits(tokens.listIterator()).get(0);
 		}else {
 			throw new RuntimeException("you can only directly write tests for modules, units and expressions");
 		}

@@ -33,7 +33,7 @@ public class TLAExpressionParseTest {
 			{"FALSE", new PGoTLABool(SourceLocation.unknown(), false) },
 			
 			{"[mgr \\in managers |-> \"start\"]",
-				function(bounds(qb(ids(id("mgr")), idexp("managers"))), str("start")),
+				function(bounds(qbIds(ids(id("mgr")), idexp("managers"))), str("start")),
 			},
 			{"a!b", idexp(prefix(idpart("a")), "b") },
 			{"a(1,2)!b", idexp(prefix(idpart("a", num(1), num(2))), "b")},

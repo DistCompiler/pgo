@@ -18,13 +18,18 @@ public class PGoTLAModule extends PGoTLAUnit {
 	
 	PGoTLAIdentifier name;
 	List<PGoTLAIdentifier> exts;
-	List<PGoTLAUnit> units;
+	List<PGoTLAUnit> preTranslationUnits;
+	List<PGoTLAUnit> translatedUnits;
+	List<PGoTLAUnit> postTranslationUnits;
 
-	public PGoTLAModule(SourceLocation location, PGoTLAIdentifier name, List<PGoTLAIdentifier> exts, List<PGoTLAUnit> units) {
+	public PGoTLAModule(SourceLocation location, PGoTLAIdentifier name, List<PGoTLAIdentifier> exts,
+			List<PGoTLAUnit> preTranslationUnits, List<PGoTLAUnit> translatedUnits, List<PGoTLAUnit> postTranslationUnits) {
 		super(location);
 		this.name = name;
 		this.exts = exts;
-		this.units = units;
+		this.preTranslationUnits = preTranslationUnits;
+		this.translatedUnits = translatedUnits;
+		this.postTranslationUnits = postTranslationUnits;
 	}
 	
 	public PGoTLAIdentifier getName() {
@@ -34,9 +39,17 @@ public class PGoTLAModule extends PGoTLAUnit {
 	public List<PGoTLAIdentifier> getExtends(){
 		return exts;
 	}
-	
-	public List<PGoTLAUnit> getUnits(){
-		return units;
+
+	public List<PGoTLAUnit> getPreTranslationUnits() {
+		return preTranslationUnits;
+	}
+
+	public List<PGoTLAUnit> getTranslatedUnits() {
+		return translatedUnits;
+	}
+
+	public List<PGoTLAUnit> getPostTranslationUnits() {
+		return postTranslationUnits;
 	}
 
 	@Override
@@ -50,7 +63,9 @@ public class PGoTLAModule extends PGoTLAUnit {
 		int result = 1;
 		result = prime * result + ((exts == null) ? 0 : exts.hashCode());
 		result = prime * result + ((name == null) ? 0 : name.hashCode());
-		result = prime * result + ((units == null) ? 0 : units.hashCode());
+		result = prime * result + ((postTranslationUnits == null) ? 0 : postTranslationUnits.hashCode());
+		result = prime * result + ((preTranslationUnits == null) ? 0 : preTranslationUnits.hashCode());
+		result = prime * result + ((translatedUnits == null) ? 0 : translatedUnits.hashCode());
 		return result;
 	}
 
@@ -73,10 +88,20 @@ public class PGoTLAModule extends PGoTLAUnit {
 				return false;
 		} else if (!name.equals(other.name))
 			return false;
-		if (units == null) {
-			if (other.units != null)
+		if (postTranslationUnits == null) {
+			if (other.postTranslationUnits != null)
 				return false;
-		} else if (!units.equals(other.units))
+		} else if (!postTranslationUnits.equals(other.postTranslationUnits))
+			return false;
+		if (preTranslationUnits == null) {
+			if (other.preTranslationUnits != null)
+				return false;
+		} else if (!preTranslationUnits.equals(other.preTranslationUnits))
+			return false;
+		if (translatedUnits == null) {
+			if (other.translatedUnits != null)
+				return false;
+		} else if (!translatedUnits.equals(other.translatedUnits))
 			return false;
 		return true;
 	}

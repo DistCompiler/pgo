@@ -233,6 +233,9 @@ public class TLALexer {
 	
 	static final Pattern PGO_ANNOTATION = Pattern.compile("@PGo\\{(.*)\\}@PGo");
 	
+	static final Pattern BEGIN_TRANSLATION = Pattern.compile("\\\\\\* BEGIN TRANSLATION$");
+	static final Pattern END_TRANSLATION = Pattern.compile("\\\\\\* END TRANSLATION$");
+	
 	List<String> lines;
 	Path filename;
 
@@ -345,6 +348,26 @@ public class TLALexer {
 						continue;
 					}
 					
+					m = BEGIN_TRANSLATION.matcher(line);
+					m.region(column, line.length());
+					if(m.lookingAt()) {
+						column = m.end();
+						tokens.add(makeToken(m.group(), TLATokenType.BEGIN_TRANSLATION, m.start()+1, lineNum));
+						++commentStack;
+						inLineComment = true;
+						continue;
+					}
+					
+					m = END_TRANSLATION.matcher(line);
+					m.region(column, line.length());
+					if(m.lookingAt()) {
+						column = m.end();
+						tokens.add(makeToken(m.group(), TLATokenType.END_TRANSLATION, m.start()+1, lineNum));
+						++commentStack;
+						inLineComment = true;
+						continue;
+					}
+					
 					// handle reaching the beginning of a comment (both line and delimited)
 					m = COMMENT_START.matcher(line);
 					m.region(column, line.length());
@@ -355,7 +378,7 @@ public class TLALexer {
 					}
 					
 					m = LINE_COMMENT.matcher(line);
-					m.region(column,  line.length());
+					m.region(column, line.length());
 					if(m.lookingAt()) {
 						column = m.end();
 						++commentStack;

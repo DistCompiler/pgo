@@ -67,11 +67,15 @@ public class PGoTLAUnitFormattingVisitor extends PGoTLAUnitVisitor<Void, IOExcep
 		}
 		// TODO: handle infix, etc
 		pGoTLAOperator.getName().accept(new PGoTLANodeFormattingVisitor(out));
-		out.write("(");
-		FormattingTools.writeCommaSeparated(out, pGoTLAOperator.getArgs(), arg -> {
-			arg.accept(new PGoTLANodeFormattingVisitor(out));
-		});
-		out.write(") == ");
+		List<PGoTLAOpDecl> args = pGoTLAOperator.getArgs();
+		if(!args.isEmpty()) {
+			out.write("(");
+			FormattingTools.writeCommaSeparated(out, args, arg -> {
+				arg.accept(new PGoTLANodeFormattingVisitor(out));
+			});
+			out.write(")");
+		}
+		out.write(" == ");
 		pGoTLAOperator.getBody().accept(new PGoTLAExpressionFormattingVisitor(out));
 		return null;
 	}
@@ -97,7 +101,19 @@ public class PGoTLAUnitFormattingVisitor extends PGoTLAUnitVisitor<Void, IOExcep
 			});
 			out.newLine();
 		}
-		for(PGoTLAUnit unit : pGoTLAModule.getUnits()) {
+		for(PGoTLAUnit unit : pGoTLAModule.getPreTranslationUnits()) {
+			unit.accept(this);
+			out.newLine();
+		}
+		out.write("\\* BEGIN TRANSLATION");
+		out.newLine();
+		for(PGoTLAUnit unit : pGoTLAModule.getTranslatedUnits()) {
+			unit.accept(this);
+			out.newLine();
+		}
+		out.write("\\* END TRANSLATION");
+		out.newLine();
+		for(PGoTLAUnit unit : pGoTLAModule.getPostTranslationUnits()) {
 			unit.accept(this);
 			out.newLine();
 		}

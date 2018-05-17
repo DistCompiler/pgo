@@ -1,7 +1,5 @@
 package pgo.parser;
 
-import java.nio.file.Paths;
-
 /**
  * 
  *  This is an LL_k recursive descent parser for an eventually-complete
@@ -1587,7 +1585,9 @@ public final class TLAParser {
 	private static ParseAction<PGoTLAModule> parseModule(){
 		Mutator<PGoTLAIdentifier> name = new Mutator<>();
 		Mutator<LocatedList<PGoTLAIdentifier>> exts = new Mutator<>();
-		Mutator<LocatedList<PGoTLAUnit>> units = new Mutator<>();
+		Mutator<LocatedList<PGoTLAUnit>> preTranslationUnits = new Mutator<>();
+		Mutator<LocatedList<PGoTLAUnit>> translatedUnits = new Mutator<>();
+		Mutator<LocatedList<PGoTLAUnit>> postTranslationUnits = new Mutator<>();
 		return sequence(
 				drop(parse4DashesOrMore()),
 				part(name, parseIdentifier(-1)),
@@ -1595,10 +1595,22 @@ public final class TLAParser {
 				part(exts, parseOneOf(
 						parseExtends(),
 						nop().map(v -> new LocatedList<PGoTLAIdentifier>(SourceLocation.unknown(), Collections.emptyList())))),
-				part(units, repeat(nop().chain(v -> parseUnit()))),
+				part(preTranslationUnits, repeat(nop().chain(v -> parseUnit()))),
+				part(translatedUnits, parseOneOf(
+						sequence(
+								drop(parseTokenType(TLATokenType.BEGIN_TRANSLATION, -1)),
+								part(translatedUnits, repeat(nop().chain(v -> parseUnit()))),
+								drop(parseTokenType(TLATokenType.END_TRANSLATION, -1))
+								).map(seqResult -> {
+									return translatedUnits.getValue();
+								}),
+						nop().map(v -> new LocatedList<PGoTLAUnit>(SourceLocation.unknown(), Collections.emptyList()))
+						)),
+				part(postTranslationUnits, repeat(nop().chain(v -> parseUnit()))),
 				drop(parse4EqualsOrMore())
 				).map(seqResult -> {
-					return new PGoTLAModule(seqResult.getLocation(), name.getValue(), exts.getValue(), units.getValue());
+					return new PGoTLAModule(seqResult.getLocation(), name.getValue(), exts.getValue(),
+							preTranslationUnits.getValue(), translatedUnits.getValue(), postTranslationUnits.getValue());
 				});
 	}
 	

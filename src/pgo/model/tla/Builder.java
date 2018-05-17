@@ -128,8 +128,8 @@ public class Builder {
 		return unary(prefix(), op, arg);
 	}
 	
-	public static PGoTLAModule module(String name, List<PGoTLAIdentifier> exts, PGoTLAUnit... units) {
-		return new PGoTLAModule(SourceLocation.unknown(), id(name), exts, Arrays.asList(units));
+	public static PGoTLAModule module(String name, List<PGoTLAIdentifier> exts, List<PGoTLAUnit> preTranslationUnits, List<PGoTLAUnit> translatedUnits, List<PGoTLAUnit> postTranslationUnits) {
+		return new PGoTLAModule(SourceLocation.unknown(), id(name), exts, preTranslationUnits, translatedUnits, postTranslationUnits);
 	}
 	
 	public static List<PGoTLAOpDecl> opdecls(PGoTLAOpDecl... opdecls){
