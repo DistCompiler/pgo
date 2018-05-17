@@ -10,6 +10,8 @@ import org.junit.Test;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.Vector;
 
 public class PGoNetOptionsTest {
@@ -105,12 +107,7 @@ public class PGoNetOptionsTest {
 		PGoNetOptions net = options();
 
 		assert(net.isEnabled());
-		Vector<String> expectedHosts = new Vector<String>() {
-			{
-				add("10.0.0.1");
-			}
-		};
-
+		List<String> expectedHosts = Collections.singletonList("10.0.0.1");
 		assertEquals(PGoNetOptions.StateOptions.STATE_ETCD, net.getStateOptions().strategy);
 		assertEquals(expectedHosts, net.getStateOptions().endpoints);
 	}

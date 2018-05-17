@@ -1,6 +1,7 @@
 package pgo.model.golang;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Vector;
 
@@ -16,7 +17,7 @@ public class StructDefinition extends Expression {
     // are we creating a reference to a struct?
     private boolean reference;
 
-    private HashMap<String, Expression> fields;
+    private Map<String, Expression> fields;
 
     public StructDefinition(String name, boolean reference) {
         this.name = name;
@@ -29,17 +30,16 @@ public class StructDefinition extends Expression {
     }
 
     @Override
-    public Vector<String> toGo() {
+    public List<String> toGo() {
         Vector<String> ret = new Vector<>();
-        String decl = reference ? "&" : "";
-        decl += String.format("%s{\n", name);
+        StringBuilder decl = new StringBuilder(reference ? "&" : "");
+        decl.append(name).append("{\n");
 
         for (Map.Entry<String, Expression> entry : fields.entrySet()) {
-            decl += String.format("%s: %s,\n", entry.getKey(), entry.getValue().toGo().get(0));
+            decl.append(entry.getKey()).append(": ").append(entry.getValue().toGo().get(0)).append(",\n");
         }
-        decl += "}";
-
-        ret.add(decl);
+        decl.append("}");
+        ret.add(decl.toString());
         return ret;
     }
 }

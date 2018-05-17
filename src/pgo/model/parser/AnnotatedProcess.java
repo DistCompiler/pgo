@@ -1,9 +1,11 @@
 package pgo.model.parser;
 
 import pgo.model.intermediate.PGoFunction;
-import pgo.model.intermediate.PGoType;
 import pgo.model.intermediate.PGoVariable;
+import pgo.model.type.PGoType;
+import pgo.model.type.PGoTypeGenerator;
 import pgo.parser.PGoParseException;
+import pgo.trans.PGoAnnotationWrongNameException;
 import pgo.trans.PGoTransException;
 
 /**
@@ -21,12 +23,9 @@ public class AnnotatedProcess {
 	// the line number of the annotation
 	private int line;
 
-	protected AnnotatedProcess(String[] parts, int l) throws PGoParseException {
+	protected AnnotatedProcess(int l, String[] parts, PGoTypeGenerator generator) throws PGoParseException, PGoTransException {
 		name = parts[2];
-		idType = PGoType.inferFromGoTypeName(parts[1]);
-		if (idType.isUndetermined()) {
-			throw new PGoParseException("Unknown type name \"" + parts[1] + "\" for process \"" + name + "\"", line);
-		}
+		idType = generator.inferFrom(parts[1]);
 		line = l;
 	}
 
@@ -42,15 +41,17 @@ public class AnnotatedProcess {
 		return idType;
 	}
 
-	public static AnnotatedProcess parse(String[] parts, int line) throws PGoParseException {
-		assert (parts[0].toLowerCase().equals("proc"));
+	public static AnnotatedProcess parse(int line, String[] parts, PGoTypeGenerator generator) throws PGoParseException, PGoTransException {
+		if (!parts[0].toLowerCase().equals("proc")) {
+			throw new PGoParseException("Unknown annotation", line);
+		}
 
 		if (parts.length != 3) {
 			throw new PGoParseException(
 					"Annotation attribute \"proc\" expects argument <procname> <idtype>. " + parts.length + " provided",
 					line);
 		}
-		return new AnnotatedProcess(parts, line);
+		return new AnnotatedProcess(line, parts, generator);
 	}
 
 	/**
@@ -64,14 +65,14 @@ public class AnnotatedProcess {
 	 * @throws PGoTransException
 	 */
 	public void applyAnnotationOnFunction(PGoFunction fun) throws PGoTransException {
-		assert (fun.getName().equals(name));
-
-		PGoVariable v = fun.getParam(PGoVariable.processIdArg().getName());
-		if (v == null || fun.getType() != PGoFunction.FunctionType.GoRoutine) {
+		if (!fun.getName().equals(name)) {
+			throw new PGoAnnotationWrongNameException(name, fun.getName(), line);
+		}
+		PGoVariable v = fun.getParam(PGoVariable.PROCESS_VAR_ARG);
+		if (v == null || fun.getKind() != PGoFunction.FunctionKind.GoRoutine) {
 			throw new PGoTransException("Got annotation on line " + line + " for function \"" + name
 					+ "\" as a process goroutine function, but actually isn't", fun.getLine());
 		}
-
 		v.setType(idType);
 	}
 

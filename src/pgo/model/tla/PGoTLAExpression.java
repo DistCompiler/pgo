@@ -4,7 +4,7 @@ import java.util.Vector;
 
 import pgo.model.golang.Expression;
 import pgo.model.golang.SimpleExpression;
-import pgo.model.intermediate.PGoType;
+import pgo.model.type.PGoType;
 import pgo.trans.PGoTransException;
 
 /**
@@ -16,6 +16,9 @@ public abstract class PGoTLAExpression {
 	// the line number
 	private int line;
 
+	// the calculated type
+	protected PGoType type;
+
 	public PGoTLAExpression(int line) {
 		this.line = line;
 	}
@@ -23,7 +26,15 @@ public abstract class PGoTLAExpression {
 	public int getLine() {
 		return line;
 	}
-	
+
+	public PGoType getType() {
+		return type;
+	}
+
+	public void setType(PGoType t) {
+		type = t;
+	}
+
 	public abstract <Result> Result walk(PGoTLAExpressionVisitor<Result> v);
 
 	// A class representing a blank expression (equivalent to

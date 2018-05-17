@@ -3,7 +3,7 @@ package pgo.model.tla;
 import java.util.Vector;
 
 import pgo.model.golang.Expression;
-import pgo.model.intermediate.PGoType;
+import pgo.model.type.PGoType;
 
 /**
  * Represents a tla token for a number

@@ -14,11 +14,11 @@ public class AnnotatedLockTest {
 	@Test
 	public void testParse() throws PGoParseException {
 		String[] annot = new String[] { "lock", "true" };
-		AnnotatedLock l = AnnotatedLock.parse(annot, 0);
+		AnnotatedLock l = AnnotatedLock.parse(0, annot);
 		assertTrue(l.needsLock());
 		assertEquals(0, l.getLine());
 		annot[1] = "false";
-		l = AnnotatedLock.parse(annot, 4);
+		l = AnnotatedLock.parse(4, annot);
 		assertFalse(l.needsLock());
 		assertEquals(4, l.getLine());
 	}
@@ -27,11 +27,11 @@ public class AnnotatedLockTest {
 	public void testParseFail() throws PGoParseException {
 		String[] annot = new String[] { "lock", "bad" };
 		try {
-			AnnotatedLock l = AnnotatedLock.parse(annot, 0);
+			AnnotatedLock l = AnnotatedLock.parse(0, annot);
 			fail("Expected PGoParseException");
 		} catch (PGoParseException e) {
 			annot = new String[] { "lock", "true", "too many" };
-			AnnotatedLock l = AnnotatedLock.parse(annot, 0);
+			AnnotatedLock l = AnnotatedLock.parse(0, annot);
 		}
 	}
 }

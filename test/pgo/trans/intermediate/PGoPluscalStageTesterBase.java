@@ -5,7 +5,7 @@ import java.util.ArrayList;
 import pcal.AST;
 import pgo.PGoPluscalTesterBase;
 import pgo.model.intermediate.PGoFunction;
-import pgo.model.intermediate.PGoType;
+import pgo.model.type.PGoType;
 import pgo.parser.PGoParseException;
 
 /**
@@ -94,7 +94,7 @@ public abstract class PGoPluscalStageTesterBase extends PGoPluscalTesterBase {
 		public final String body;
 
 		// The type of the function
-		public final PGoFunction.FunctionType type;
+		public final PGoFunction.FunctionKind type;
 
 		// The below is only present if its a goroutine
 		// Whether the goroutine id is a simple initialization (just an assign)
@@ -105,7 +105,7 @@ public abstract class PGoPluscalStageTesterBase extends PGoPluscalTesterBase {
 		public final PGoType retType;
 
 		public TestFunctionData(String n, ArrayList<TestVariableData> p, ArrayList<TestVariableData> v, String b,
-				PGoFunction.FunctionType ftype, boolean isSimple, String init, PGoType rType) {
+								PGoFunction.FunctionKind ftype, boolean isSimple, String init, PGoType rType) {
 			name = n;
 			params = p;
 			vars = v;

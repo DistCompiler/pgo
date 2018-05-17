@@ -9,7 +9,7 @@ import java.util.Vector;
 import org.apache.commons.io.IOUtils;
 
 import pgo.PGoPluscalTesterBase;
-import pgo.model.intermediate.PGoType;
+import pgo.model.type.PGoType;
 import pgo.model.parser.PGoAnnotation;
 
 /**

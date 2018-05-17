@@ -1,49 +1,49 @@
 package pgo.model.golang;
 
+import java.util.List;
 import java.util.Vector;
 
 /**
  * A select statement in go
- *
- *
  */
 public class Select extends Statement {
 
 	// the cases
-	private Vector<Expression> cases;
+	private List<Expression> cases;
 
 	// the body per case
-	private Vector<Vector<Statement>> body;
+	private List<List<Statement>> body;
 
-	public Select(Vector<Expression> cases, Vector<Vector<Statement>> body) {
+	public Select(List<Expression> cases, List<List<Statement>> body) {
 		assert (cases.size() == body.size());
 		this.cases = cases;
 		this.body = body;
 	}
 
-	public Vector<Expression> getCases() {
+	public List<Expression> getCases() {
 		return cases;
 	}
 
-	public void setCases(Vector<Expression> cases) {
+	public void setCases(List<Expression> cases) {
 		this.cases = cases;
 	}
 
-	public Vector<Vector<Statement>> getBodies() {
+	public List<List<Statement>> getBodies() {
 		return this.body;
 	}
 
-	public void setBodies(Vector<Vector<Statement>> b) {
+	public void setBodies(List<List<Statement>> b) {
 		this.body = b;
 	}
 
 	@Override
-	public Vector<String> toGo() {
-		Vector<String> ret = new Vector<String>();
+	public List<String> toGo() {
+		Vector<String> ret = new Vector<>();
 		ret.add("select {");
 		for (int i = 0; i < cases.size(); ++i) {
-			Vector<String> caseStr = cases.get(i).toGo();
-			ret.add("case " + caseStr.remove(0));
+			List<String> caseStr = cases.get(i).toGo();
+			ret.add("case " + caseStr.get(0));
+			caseStr = caseStr.subList(1, caseStr.size());
 			addStringsAndIndent(ret, caseStr);
 			ret.add(ret.remove(ret.size() - 1) + ":");
 			addIndentedAST(ret, body.get(i));

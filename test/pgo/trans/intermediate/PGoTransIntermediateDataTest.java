@@ -13,16 +13,19 @@ import pcal.AST.PVarDecl;
 import pcal.AST.Procedure;
 import pgo.model.intermediate.PGoFunction;
 import pgo.model.intermediate.PGoVariable;
+import pgo.model.type.PGoTypeGenerator;
 
 public class PGoTransIntermediateDataTest {
 
 	private PGoTransIntermediateData d;
+	private PGoTypeGenerator generator;
 
 	@Before
 	public void SetUp() {
 		d = new PGoTransIntermediateData();
+		generator = new PGoTypeGenerator("test");
 		for (int i = 0; i < 10; i++) {
-			d.globals.put("var" + i, PGoVariable.convert("var" + i));
+			d.globals.put("var" + i, PGoVariable.convert("var" + i, generator.get()));
 			Procedure p = new Procedure();
 			p.params = new Vector();
 			p.decls = new Vector();
@@ -31,7 +34,7 @@ public class PGoTransIntermediateDataTest {
 			p.decls.add(pv);
 			p.name = "func" + i;
 
-			d.funcs.put("func" + i, PGoFunction.convert(p));
+			d.funcs.put("func" + i, PGoFunction.convert(p, generator));
 		}
 		for (int i = 0; i < 10; i++) {
 			Procedure p = new Procedure();
@@ -41,7 +44,7 @@ public class PGoTransIntermediateDataTest {
 			PVarDecl pv = new PVarDecl();
 			pv.var = "OtherOtherVar" + i;
 			p.decls.add(pv);
-			d.funcs.put("PGoOtherFunc" + i, PGoFunction.convert(p));
+			d.funcs.put("PGoOtherFunc" + i, PGoFunction.convert(p, generator));
 		}
 	}
 

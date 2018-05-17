@@ -1,5 +1,7 @@
 package pgo.model.golang;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Vector;
 
 /**
@@ -24,17 +26,14 @@ public class Return extends Expression {
 	}
 
 	@Override
-	public Vector<String> toGo() {
+	public List<String> toGo() {
 		if (value == null) {
-			return new Vector<String>() {
-				{
-					add("return");
-				}
-			};
+			return Collections.singletonList("return");
 		}
-		Vector<String> valStr = value.toGo();
-		Vector<String> ret = new Vector<String>();
-		ret.add("return " + valStr.remove(0));
+		List<String> valStr = value.toGo();
+		Vector<String> ret = new Vector<>();
+		ret.add("return " + valStr.get(0));
+		valStr = valStr.subList(1, valStr.size());
 		addStringsAndIndent(ret, valStr);
 		return ret;
 	}

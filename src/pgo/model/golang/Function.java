@@ -1,8 +1,9 @@
 package pgo.model.golang;
 
+import java.util.List;
 import java.util.Vector;
 
-import pgo.model.intermediate.PGoType;
+import pgo.model.type.PGoType;
 
 /**
  * Represents a function in go
@@ -16,16 +17,16 @@ public class Function extends GoAST {
 	private PGoType retType;
 
 	// the list of params
-	private Vector<ParameterDeclaration> params;
+	private List<ParameterDeclaration> params;
 
 	// the local variables
-	private Vector<VariableDeclaration> localVars;
+	private List<VariableDeclaration> localVars;
 
 	// the body
-	private Vector<Statement> body;
+	private List<Statement> body;
 
-	public Function(String name, PGoType ret, Vector<ParameterDeclaration> params,
-			Vector<VariableDeclaration> locals, Vector<Statement> vector) {
+	public Function(String name, PGoType ret, List<ParameterDeclaration> params,
+					List<VariableDeclaration> locals, List<Statement> vector) {
 		this.fname = name;
 		this.retType = ret;
 		this.params = params;
@@ -45,7 +46,7 @@ public class Function extends GoAST {
 		this.retType = t;
 	}
 
-	public Vector<ParameterDeclaration> getParameter() {
+	public List<ParameterDeclaration> getParameter() {
 		return params;
 	}
 
@@ -61,29 +62,29 @@ public class Function extends GoAST {
 		params.remove(p);
 	}
 
-	public Vector<VariableDeclaration> getLocalVariables() {
-		return new Vector<VariableDeclaration>(localVars);
+	public List<VariableDeclaration> getLocalVariables() {
+		return new Vector<>(localVars);
 	}
 
 	public void setLocalVariables(Vector<VariableDeclaration> s) {
 		this.localVars = s;
 	}
 
-	public Vector<Statement> getBody() {
+	public List<Statement> getBody() {
 		return body;
 	}
 
-	public void setBody(Vector<Statement> body) {
+	public void setBody(List<Statement> body) {
 		this.body = body;
 	}
 
 	@Override
-	public Vector<String> toGo() {
-		Vector<String> ret = new Vector<String>();
-		Vector<String> paramStr = new Vector<String>();
+	public List<String> toGo() {
+		Vector<String> ret = new Vector<>();
+		Vector<String> paramStr = new Vector<>();
 
 		for (int i = 0; i < params.size(); i++) {
-			Vector<String> e = params.get(i).toGo();
+			List<String> e = params.get(i).toGo();
 			for (int j = 0; j < e.size(); j++) {
 				if (j > 0) {
 					paramStr.add(e.get(j));

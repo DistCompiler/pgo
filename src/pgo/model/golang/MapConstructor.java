@@ -1,9 +1,10 @@
 package pgo.model.golang;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
-import java.util.Vector;
 
-import pgo.model.intermediate.PGoType;
+import pgo.model.type.PGoType;
 
 public class MapConstructor extends Expression {
 	
@@ -18,7 +19,7 @@ public class MapConstructor extends Expression {
 	}
 
 	@Override
-	public Vector<String> toGo() {
+	public List<String> toGo() {
 		StringBuilder out = new StringBuilder();
 		out.append("map[");
 		out.append(keyType.toGo());
@@ -33,7 +34,7 @@ public class MapConstructor extends Expression {
 				out.append(",");
 			}
 			
-			Vector<String> tmp = pair.getKey().toGo();
+			List<String> tmp = pair.getKey().toGo();
 			for(String s : tmp) {
 				out.append(s);
 			}
@@ -46,10 +47,7 @@ public class MapConstructor extends Expression {
 			}
 		}
 		out.append("}");
-		
-		Vector<String> result = new Vector<>();
-		result.add(out.toString());
-		return result;
+		return Collections.singletonList(out.toString());
 	}
 
 }

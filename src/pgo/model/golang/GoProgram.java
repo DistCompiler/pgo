@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Vector;
 import java.util.Set;
 
-import pgo.model.intermediate.PGoPrimitiveType;
+import pgo.model.type.PGoTypeVoid;
 
 /**
  * The AST root that contains the whole program
@@ -35,15 +35,15 @@ public class GoProgram extends GoAST {
 	public GoProgram(String pkgName) {
 		this.pkgName = pkgName;
 		this.imports = new Imports();
-		this.globals = new LinkedHashMap<String, VariableDeclaration>();
-		this.funcs = new LinkedHashMap<String, Function>();
-		this.main = new Function("main", PGoPrimitiveType.VOID, new Vector<ParameterDeclaration>(),
-				new Vector<VariableDeclaration>(), new Vector<Statement>());
+		this.globals = new LinkedHashMap<>();
+		this.funcs = new LinkedHashMap<>();
+		this.main = new Function("main", PGoTypeVoid.getInstance(), new Vector<>(), new Vector<>(), new Vector<>());
 		this.labels = new HashSet<>();
 	}
 
-	public Vector<String> toGo() {
-		Vector<String> lines = new Vector<String>();
+	@Override
+	public List<String> toGo() {
+		Vector<String> lines = new Vector<>();
 		lines.add("package " + pkgName);
 		lines.add("");
 		lines.addAll(this.imports.toGo());
@@ -71,7 +71,7 @@ public class GoProgram extends GoAST {
 	}
 
 	public List<Function> getFunctions() {
-		return new ArrayList<Function>(funcs.values());
+		return new ArrayList<>(funcs.values());
 	}
 
 	public Function getFunction(String f) {
@@ -91,7 +91,7 @@ public class GoProgram extends GoAST {
 	}
 
 	public List<VariableDeclaration> getGlobals() {
-		return new ArrayList<VariableDeclaration>(globals.values());
+		return new ArrayList<>(globals.values());
 	}
 
 	public VariableDeclaration getGlobal(String v) {

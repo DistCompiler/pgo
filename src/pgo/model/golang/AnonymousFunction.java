@@ -1,8 +1,9 @@
 package pgo.model.golang;
 
+import java.util.List;
 import java.util.Vector;
 
-import pgo.model.intermediate.PGoType;
+import pgo.model.type.PGoType;
 
 /**
  * Represents an anonymous function in go
@@ -14,22 +15,22 @@ public class AnonymousFunction extends Expression {
 	private PGoType retType;
 
 	// the list of params
-	private Vector<ParameterDeclaration> params;
+	private List<ParameterDeclaration> params;
 
 	// the local variables
-	private Vector<VariableDeclaration> localVars;
+	private List<VariableDeclaration> localVars;
 
 	// the body
-	private Vector<Statement> body;
+	private List<Statement> body;
 
 	// whether we call the function at declaration
 	private boolean isCall;
 
 	// the parameters the func is called with, if it is a function call; null otherwise
-	private Vector<Expression> callParams;
+	private List<Expression> callParams;
 
-	public AnonymousFunction(PGoType ret, Vector<ParameterDeclaration> params, Vector<VariableDeclaration> locals,
-			Vector<Statement> vector) {
+	public AnonymousFunction(PGoType ret, List<ParameterDeclaration> params, List<VariableDeclaration> locals,
+							 List<Statement> vector) {
 		this.retType = ret;
 		this.params = params;
 		this.localVars = locals;
@@ -37,8 +38,8 @@ public class AnonymousFunction extends Expression {
 		this.isCall = false;
 	}
 
-	public AnonymousFunction(PGoType ret, Vector<ParameterDeclaration> params, Vector<VariableDeclaration> locals,
-			Vector<Statement> body, Vector<Expression> callParams) {
+	public AnonymousFunction(PGoType ret, List<ParameterDeclaration> params, List<VariableDeclaration> locals,
+							 List<Statement> body, List<Expression> callParams) {
 		this.retType = ret;
 		this.params = params;
 		this.localVars = locals;
@@ -55,7 +56,7 @@ public class AnonymousFunction extends Expression {
 		this.retType = t;
 	}
 
-	public Vector<ParameterDeclaration> getParameter() {
+	public List<ParameterDeclaration> getParameter() {
 		return params;
 	}
 
@@ -80,12 +81,12 @@ public class AnonymousFunction extends Expression {
 	}
 
 	@Override
-	public Vector<String> toGo() {
-		Vector<String> ret = new Vector<String>();
-		Vector<String> paramStr = new Vector<String>();
+	public List<String> toGo() {
+		List<String> ret = new Vector<>();
+		List<String> paramStr = new Vector<>();
 
 		for (int i = 0; i < params.size(); i++) {
-			Vector<String> e = params.get(i).toGo();
+			List<String> e = params.get(i).toGo();
 			for (int j = 0; j < e.size(); j++) {
 				if (j > 0) {
 					paramStr.add(e.get(j));
@@ -112,7 +113,7 @@ public class AnonymousFunction extends Expression {
 		if (this.isCall) {
 			Vector<String> cParamStr = new Vector<String>();
 			for (int i = 0; i < callParams.size(); i++) {
-				Vector<String> e = callParams.get(i).toGo();
+				List<String> e = callParams.get(i).toGo();
 				for (int j = 0; j < e.size(); j++) {
 					if (j > 0) {
 						cParamStr.add(e.get(j));

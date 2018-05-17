@@ -1,13 +1,16 @@
 package pgo.model.tla;
 
+import java.util.List;
 import java.util.Vector;
 
 import pcal.TLAExpr;
 import pgo.model.golang.Expression;
-import pgo.model.intermediate.PGoType;
 import pgo.model.intermediate.PGoVariable;
+import pgo.model.type.PGoType;
 import pgo.parser.TLAExprParser;
 import pgo.trans.PGoTransException;
+import pgo.trans.PGoTransIllegalConversionException;
+import pgo.trans.PGoTransIllegalTypeInferenceException;
 
 /**
  * Represents a TLA definition found in an annotation.
@@ -17,13 +20,13 @@ public class PGoTLADefinition extends PGoTLAExpression {
 
 	private String name;
 	// name and typing information for params
-	private Vector<PGoVariable> params;
+	private List<PGoVariable> params;
 	// the expression this definition evaluates to
 	private PGoTLAExpression expr;
 	// the type that this expression should have
 	private PGoType type;
 
-	public PGoTLADefinition(String name, Vector<PGoVariable> params, TLAExpr expr, PGoType type, int line)
+	public PGoTLADefinition(String name, List<PGoVariable> params, TLAExpr expr, PGoType type, int line)
 			throws PGoTransException {
 		super(line);
 		this.name = name;
@@ -54,15 +57,13 @@ public class PGoTLADefinition extends PGoTLAExpression {
 	protected Expression convert(TLAExprToGo trans) throws PGoTransException {
 		// This is not an expression, and we shouldn't try to convert it with
 		// this translator anyway.
-		assert false;
-		return null;
+		throw new PGoTransIllegalConversionException("PGoTLADefinition", getLine());
 	}
 
 	@Override
 	protected PGoType inferType(TLAExprToType trans) throws PGoTransException {
 		// We shouldn't need to determine the type of this.
-		assert false;
-		return null;
+		throw new PGoTransIllegalTypeInferenceException("PGoTLADefinition", getLine());
 	}
 	
 	@Override

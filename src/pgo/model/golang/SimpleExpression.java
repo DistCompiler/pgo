@@ -1,5 +1,6 @@
 package pgo.model.golang;
 
+import java.util.List;
 import java.util.Vector;
 
 /**
@@ -9,31 +10,25 @@ import java.util.Vector;
 public class SimpleExpression extends Expression {
 
 	// the tokens in this expression
-	private Vector<Expression> exps;
+	private List<Expression> exps;
 
-	public SimpleExpression(Vector<Expression> exps) {
+	public SimpleExpression(List<Expression> exps) {
 		this.exps = exps;
 	}
 
-	public Vector<Expression> getExpressions() {
+	public List<Expression> getExpressions() {
 		return this.exps;
 	}
 
-	public void setExpressions(Vector<Expression> exps) {
+	public void setExpressions(List<Expression> exps) {
 		this.exps = exps;
 	}
 
-	public void merge(SimpleExpression s) {
-		exps.addAll(s.exps);
-	}
-
 	@Override
-	public Vector<String> toGo() {
-
-		Vector<String> eStr = new Vector<String>();
-
+	public List<String> toGo() {
+		Vector<String> eStr = new Vector<>();
 		for (int i = 0; i < exps.size(); i++) {
-			Vector<String> e = exps.get(i).toGo();
+			List<String> e = exps.get(i).toGo();
 			for (int j = 0; j < e.size(); j++) {
 				if (j > 0) {
 					eStr.add(e.get(j));
@@ -47,7 +42,6 @@ public class SimpleExpression extends Expression {
 				}
 			}
 		}
-
 		return eStr;
 	}
 

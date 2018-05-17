@@ -1,6 +1,7 @@
 package pgo.model.golang;
 
-import java.util.Vector;
+import java.util.Collections;
+import java.util.List;
 
 public class IntLiteral extends Expression {
 
@@ -11,10 +12,8 @@ public class IntLiteral extends Expression {
 	}
 	
 	@Override
-	public Vector<String> toGo() {
-		Vector<String> result = new Vector<>();
-		result.add(Integer.toString(value));
-		return result;
+	public List<String> toGo() {
+		return Collections.singletonList(Integer.toString(value));
 	}
 
 }

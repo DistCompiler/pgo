@@ -1,5 +1,6 @@
 package pgo.model.golang;
 
+import java.util.List;
 import java.util.Vector;
 
 /**
@@ -15,12 +16,12 @@ public class CodeBlock extends Statement {
 		stmts = inside;
 	}
 	
-	public Vector<Statement> getInside() {
+	public List<Statement> getInside() {
 		return stmts;
 	}
 
 	@Override
-	public Vector<String> toGo() {
+	public List<String> toGo() {
 		Vector<String> ret = new Vector<>();
 		ret.add("{");
 		addIndentedAST(ret, stmts);

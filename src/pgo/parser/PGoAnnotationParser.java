@@ -11,13 +11,14 @@ import pgo.model.parser.AnnotatedReturnVariable;
 import pgo.model.parser.AnnotatedTLADefinition;
 import pgo.model.parser.AnnotatedVariable;
 import pgo.model.parser.PGoAnnotation;
+import pgo.model.type.PGoTypeGenerator;
+import pgo.trans.PGoTransException;
 
 /**
  * Parses the annotations of the pluscal algorithm for pgo
  *
  */
 public class PGoAnnotationParser {
-
 	private static final String FUNC_KW = "func";
 	private static final String RET_KW = "ret";
 	private static final String PROC_KW = "proc";
@@ -32,50 +33,50 @@ public class PGoAnnotationParser {
 	// null if there is no lock annotation
 	private AnnotatedLock lock;
 
-	public PGoAnnotationParser(Vector<PGoAnnotation> pGoAnnotations) throws PGoParseException {
-		vars = new LinkedHashMap<String, AnnotatedVariable>();
-		funcs = new LinkedHashMap<String, AnnotatedFunction>();
-		procs = new LinkedHashMap<String, AnnotatedProcess>();
-		retVars = new LinkedHashMap<String, AnnotatedReturnVariable>();
+	public PGoAnnotationParser(Vector<PGoAnnotation> pGoAnnotations, PGoTypeGenerator generator) throws PGoParseException, PGoTransException {
+		vars = new LinkedHashMap<>();
+		funcs = new LinkedHashMap<>();
+		procs = new LinkedHashMap<>();
+		retVars = new LinkedHashMap<>();
 		defns = new LinkedHashMap<>();
 		lock = null;
 
 		for (PGoAnnotation annot : pGoAnnotations) {
-			parseAnnote(annot);
+			parseAnnotation(annot, generator);
 		}
 	}
 
 	// Parses a single annotation
-	private void parseAnnote(PGoAnnotation annot) throws PGoParseException {
+	private void parseAnnotation(PGoAnnotation annot, PGoTypeGenerator generator) throws PGoParseException, PGoTransException {
 		String[] parts = annot.getString().split("\\s");
 		switch (parts[0].toLowerCase()) {
 		case AnnotatedVariable.CONST:
 		case AnnotatedVariable.ARG:
 		case AnnotatedVariable.VAR:
-			AnnotatedVariable av = AnnotatedVariable.parse(parts, annot.getLine());
+			AnnotatedVariable av = AnnotatedVariable.parse(annot.getLine(), parts, generator);
 			vars.put(av.getName(), av);
 			break;
 		case FUNC_KW:
-			AnnotatedFunction af = AnnotatedFunction.parse(parts, annot.getLine());
+			AnnotatedFunction af = AnnotatedFunction.parse(annot.getLine(), parts, generator);
 			funcs.put(af.getName(), af);
 			break;
 		case RET_KW:
-			AnnotatedReturnVariable ar = AnnotatedReturnVariable.parse(parts, annot.getLine());
+			AnnotatedReturnVariable ar = AnnotatedReturnVariable.parse(annot.getLine(), parts);
 			retVars.put(ar.getName(), ar);
 			break;
         case PROC_KW:
-			AnnotatedProcess ap = AnnotatedProcess.parse(parts, annot.getLine());
+			AnnotatedProcess ap = AnnotatedProcess.parse(annot.getLine(), parts, generator);
 			procs.put(ap.getName(), ap);
 			break;
         case DEF_KW:
-			AnnotatedTLADefinition ad = AnnotatedTLADefinition.parse(annot.getString(), annot.getLine());
+			AnnotatedTLADefinition ad = AnnotatedTLADefinition.parse(annot.getLine(), annot.getString(), generator);
 			defns.put(ad.getName(), ad);
 			break;
         case LOCK_KW:
 			if (lock != null) {
 				throw new PGoParseException("Found more than one lock annotation", annot.getLine());
 			}
-			lock = AnnotatedLock.parse(parts, annot.getLine());
+			lock = AnnotatedLock.parse(annot.getLine(), parts);
 			break;
 		default:
 			throw new PGoParseException("Unknown annotation attribute \"" + parts[0] + "\"", annot.getLine());
@@ -97,12 +98,12 @@ public class PGoAnnotationParser {
 
 	// Returns all the annotated functions
 	public ArrayList<AnnotatedFunction> getAnnotatedFunctions() {
-		return new ArrayList<AnnotatedFunction>(funcs.values());
+		return new ArrayList<>(funcs.values());
 	}
 
 	// Returns all the return variables
 	public ArrayList<AnnotatedReturnVariable> getReturnVariables() {
-		return new ArrayList<AnnotatedReturnVariable>(retVars.values());
+		return new ArrayList<>(retVars.values());
 	}
 
 	public AnnotatedReturnVariable getReturnVariable(String name) {
@@ -111,7 +112,7 @@ public class PGoAnnotationParser {
 
 	// Returns all the annotated processes
 	public ArrayList<AnnotatedProcess> getAnnotatedProcesses() {
-		return new ArrayList<AnnotatedProcess>(procs.values());
+		return new ArrayList<>(procs.values());
 	}
 
 	public AnnotatedProcess getAnnotatedProcess(String name) {

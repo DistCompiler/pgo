@@ -10,6 +10,7 @@ import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 import java.util.Vector;
 import java.util.logging.Logger;
 
@@ -25,7 +26,7 @@ public class IOUtil {
 	 * Writes the Vector of strings inputVec to file named fileName, with * each
 	 * element of inputVec written on a new line. *
 	 ***********************************************************************/
-	public static void WriteStringVectorToFile(Vector inputVec, String fileName) throws StringVectorToFileException {
+	public static void WriteStringVectorToFile(List<String> inputVec, String fileName) throws StringVectorToFileException {
 		try {
 			Path filePath = Paths.get(fileName);
 			if(!Files.exists(filePath.getParent())){
@@ -33,13 +34,10 @@ public class IOUtil {
 				Files.createFile(filePath);
 			}
 			BufferedWriter fileW = new BufferedWriter(new FileWriter(fileName));
-			int lineNum = 0;
-			while (lineNum < inputVec.size()) {
-				fileW.write((String) inputVec.elementAt(lineNum));
+			for (String line : inputVec) {
+				fileW.write(line);
 				fileW.newLine();
-				lineNum = lineNum + 1;
 			}
-
 			fileW.close();
 		} catch (Exception e) {
 			throw new StringVectorToFileException("Could not write file " + fileName);

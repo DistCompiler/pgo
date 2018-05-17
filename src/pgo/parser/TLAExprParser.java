@@ -1,6 +1,7 @@
 package pgo.parser;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Stack;
 import java.util.Vector;
 
@@ -11,8 +12,6 @@ import pgo.trans.PGoTransException;
 
 /**
  * TLAExpr Parser
- *
- *
  */
 public class TLAExprParser {
 
@@ -23,13 +22,13 @@ public class TLAExprParser {
 	private int line;
 
 	// the parsed result. Each element represents one complete clause
-	private Vector<PGoTLAExpression> result;
+	private List<PGoTLAExpression> result;
 
 	// which row of array to store result
 	private int resultRow;
 
 	// the tokens we are parsing
-	private Vector<TLAToken> tokens;
+	private List<TLAToken> tokens;
 
 	// the stack of operators we encountered
 	private Stack<TLAToken> ops;
@@ -50,7 +49,7 @@ public class TLAExprParser {
 		parse();
 	}
 
-	public TLAExprParser(Vector<TLAToken> t, int line) throws PGoTransException {
+	public TLAExprParser(List<TLAToken> t, int line) throws PGoTransException {
 		init(line);
 		tokens = t;
 
@@ -504,7 +503,7 @@ public class TLAExprParser {
 		}
 	};
 
-	public Vector<PGoTLAExpression> getResult() {
+	public List<PGoTLAExpression> getResult() {
 		return result;
 	}
 }

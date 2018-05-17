@@ -10,10 +10,11 @@ import pgo.PGoNetOptions;
 import pgo.model.intermediate.PGoFunction;
 import pgo.model.intermediate.PGoLibFunction;
 import pgo.model.intermediate.PGoRoutineInit;
-import pgo.model.intermediate.PGoType;
 import pgo.model.intermediate.PGoVariable;
 import pgo.model.tla.PGoTLAExpression;
 import pgo.model.tla.PGoTLADefinition;
+import pgo.model.type.*;
+import pgo.model.type.PGoType;
 import pgo.parser.PGoAnnotationParser;
 
 /**
@@ -51,69 +52,51 @@ class PGoTransIntermediateData {
 	// This tracks which remote variables are cached locally for processing
 	public HashSet<PGoVariable> cachedVarSet;
 
+	public PGoTypeSolver solver;
+
+	public PGoTypeGenerator typeGenerator;
+
 	// Contains information for builtin TLA funcs like Len (length of tuple).
 	private static final LinkedHashMap<String, PGoLibFunction> libFuncs = new LinkedHashMap<String, PGoLibFunction>() {
 		{
+			PGoTypeGenerator generator = new PGoTypeGenerator("b");
 			put("Len", new PGoLibFunction("Len") {
 				{
-					addFuncSignature(
-							new Vector<PGoType>() {
-								{
-									add(PGoType.inferFromGoTypeName("[]E"));
-								}
-							},
+					addFuncSignature(Collections.singletonList(new PGoTypeSlice(generator.get())),
 							"len",
 							false,
-							PGoType.inferFromGoTypeName("int"));
+							PGoTypeInt.getInstance());
 
 					addFuncSignature(
-							new Vector<PGoType>() {
-								{
-									add(PGoType.inferFromGoTypeName("tuple[E]"));
-								}
-							},
+							Collections.singletonList(new PGoTypeUnrealizedTuple()),
 							"Size",
 							true,
-							PGoType.inferFromGoTypeName("int"));
+							PGoTypeInt.getInstance());
 
-					addFuncSignature(
-							new Vector<PGoType>() {
-								{
-									add(PGoType.inferFromGoTypeName("string"));
-								}
-							},
+					addFuncSignature(Collections.singletonList(PGoTypeString.getInstance()),
 							"len",
 							false,
-							PGoType.inferFromGoTypeName("int"));
+							PGoTypeInt.getInstance());
 				}
 			});
 
 			put("Cardinality", new PGoLibFunction("Cardinality") {
 				{
-					addFuncSignature(
-							new Vector<PGoType>() {
-								{
-									add(PGoType.inferFromGoTypeName("set[E]"));
-								}
-							},
+					addFuncSignature(Collections.singletonList(new PGoTypeSet(generator.get())),
 							"Size",
 							true,
-							PGoType.inferFromGoTypeName("int"));
+							PGoTypeInt.getInstance());
 				}
 			});
 
 			put("Append", new PGoLibFunction("Append") {
 				{
+					PGoType t = generator.get();
 					addFuncSignature(
-							new Vector<PGoType>() {
-								{
-									add(PGoType.inferFromGoTypeName("[]E"));
-									add(PGoType.inferFromGoTypeName("E"));
-								}
-							},
+							Arrays.asList(new PGoTypeSlice(t), t),
 							"append",
 							false,
-							PGoType.inferFromGoTypeName("[]E"));
+							new PGoTypeSlice(t));
 				}
 			});
 		}
@@ -155,19 +138,19 @@ class PGoTransIntermediateData {
 	}
 
 	PGoTransIntermediateData() {
-
-		this.globals = new LinkedHashMap<>();
-		this.unresolvedVars = new LinkedHashMap<>();
-		this.funcs = new LinkedHashMap<>();
-		this.mainBlock = new Vector<>();
-		this.goroutines = new LinkedHashMap<>();
-		this.defns = new LinkedHashMap<>();
-		this.needsLock = false;
-		this.tlaToAST = new HashMap<>();
-		this.labToLockGroup = new HashMap<>();
-		this.numLockGroups = 0;
-		this.cachedVarSet = new HashSet<>();
-
+		globals = new LinkedHashMap<>();
+		unresolvedVars = new LinkedHashMap<>();
+		funcs = new LinkedHashMap<>();
+		mainBlock = new Vector<>();
+		goroutines = new LinkedHashMap<>();
+		defns = new LinkedHashMap<>();
+		needsLock = false;
+		tlaToAST = new HashMap<>();
+		labToLockGroup = new HashMap<>();
+		numLockGroups = 0;
+		cachedVarSet = new HashSet<>();
+		solver = new PGoTypeSolver();
+		typeGenerator = new PGoTypeGenerator("a");
 	}
 
 	// Finds the PGofunction of the given name, or null if none exists.

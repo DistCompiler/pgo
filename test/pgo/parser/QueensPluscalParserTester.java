@@ -4,9 +4,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Vector;
 
-import pgo.model.intermediate.PGoCollectionType;
-import pgo.model.intermediate.PGoPrimitiveType;
 import pgo.model.parser.PGoAnnotation;
+import pgo.model.type.PGoTypeInt;
+import pgo.model.type.PGoTypeSet;
+import pgo.model.type.PGoTypeSlice;
 
 /**
  * Tester class for the Queens pluscal algorithm
@@ -45,20 +46,20 @@ public class QueensPluscalParserTester extends PGoPluscalParserTesterBase {
 	@Override
 	public List<ArgAnnotatedVariableData> getArgAnnotatedVariables() {
 		ArrayList<ArgAnnotatedVariableData> ret = new ArrayList<ArgAnnotatedVariableData>();
-		ret.add(new ArgAnnotatedVariableData(new PGoPrimitiveType.PGoInt(), "N", 45, true, ""));
+		ret.add(new ArgAnnotatedVariableData(PGoTypeInt.getInstance(), "N", 45, true, ""));
 
 		return ret;
 	}
 
 	@Override
 	public List<VarAnnotatedVariableData> getVarAnnotatedVariables() {
-		ArrayList<VarAnnotatedVariableData> ret = new ArrayList<VarAnnotatedVariableData>();
-		ret.add(new VarAnnotatedVariableData(new PGoCollectionType.PGoSet("[]int"), "todo", 46));
-		ret.add(new VarAnnotatedVariableData(new PGoCollectionType.PGoSet("[]int"), "sols", 47));
-		ret.add(new VarAnnotatedVariableData(new PGoCollectionType.PGoSlice("int"), "queens", 62));
-		ret.add(new VarAnnotatedVariableData(new PGoPrimitiveType.PGoInt(), "nxtQ", 63));
-		ret.add(new VarAnnotatedVariableData(new PGoCollectionType.PGoSet("int"), "cols", 64));
-		ret.add(new VarAnnotatedVariableData(new PGoCollectionType.PGoSet("[]int"), "exts", 65));
+		ArrayList<VarAnnotatedVariableData> ret = new ArrayList<>();
+		ret.add(new VarAnnotatedVariableData(new PGoTypeSet(new PGoTypeSlice(PGoTypeInt.getInstance())), "todo", 46));
+		ret.add(new VarAnnotatedVariableData(new PGoTypeSet(new PGoTypeSlice(PGoTypeInt.getInstance())), "sols", 47));
+		ret.add(new VarAnnotatedVariableData(new PGoTypeSlice(PGoTypeInt.getInstance()), "queens", 62));
+		ret.add(new VarAnnotatedVariableData(PGoTypeInt.getInstance(), "nxtQ", 63));
+		ret.add(new VarAnnotatedVariableData(new PGoTypeSet(PGoTypeInt.getInstance()), "cols", 64));
+		ret.add(new VarAnnotatedVariableData(new PGoTypeSet(new PGoTypeSlice(PGoTypeInt.getInstance())), "exts", 65));
 
 		return ret;
 	}

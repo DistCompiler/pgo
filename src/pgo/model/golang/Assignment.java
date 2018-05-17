@@ -1,7 +1,6 @@
 package pgo.model.golang;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.List;
 import java.util.Vector;
 
 /**
@@ -14,7 +13,7 @@ import java.util.Vector;
 public class Assignment extends Statement {
 
     // the variable name(s)
-    private Vector<String> lhs;
+    private List<String> lhs;
 
     // right hand side expression
     private Expression expr;
@@ -22,15 +21,15 @@ public class Assignment extends Statement {
     // are we declaring a new variable in this assignment
     private boolean declaration;
 
-    public Assignment(Vector<String> names, Expression val, boolean declaration) {
+    public Assignment(List<String> names, Expression val, boolean declaration) {
         this.lhs = names;
         this.expr = val;
         this.declaration = declaration;
     }
 
     @Override
-    public Vector<String> toGo() {
-        Vector<String> ret = new Vector<>();
+    public List<String> toGo() {
+        List<String> ret = new Vector<>();
         String decl;
         String op = declaration ? ":=" : "=";
 

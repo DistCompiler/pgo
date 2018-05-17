@@ -27,7 +27,7 @@ public class Imports extends GoAST {
 	 * pkg2 ... )
 	 */
 	@Override
-	public Vector<String> toGo() {
+	public List<String> toGo() {
 		Vector<String> ret = new Vector<>();
 		if (importPkgs.size() == 0) {
 			return ret;
@@ -48,7 +48,7 @@ public class Imports extends GoAST {
 		return ret;
 	}
 	
-	public Vector<String> getImports() {
+	public List<String> getImports() {
 		return new Vector<>(importPkgs);
 	}
 	

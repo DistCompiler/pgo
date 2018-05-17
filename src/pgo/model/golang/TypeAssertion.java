@@ -1,8 +1,9 @@
 package pgo.model.golang;
 
-import java.util.Vector;
+import java.util.Collections;
+import java.util.List;
 
-import pgo.model.intermediate.PGoType;
+import pgo.model.type.PGoType;
 
 /**
  * Represents a type assertion e.g. x.(int), which casts an interface to the
@@ -21,10 +22,9 @@ public class TypeAssertion extends Expression {
 	}
 	
 	@Override
-	public Vector<String> toGo() {
-		Vector<String> ret = expr.toGo();
-		assert(ret.size() == 1);
-		ret.set(0, ret.get(0) + ".(" + type.toGo() + ")");
-		return ret;
+	public List<String> toGo() {
+		List<String> ret = expr.toGo();
+		assert (ret.size() == 1);
+		return Collections.singletonList(ret.get(0) + ".(" + type.toGo() + ")");
 	}
 }

@@ -1,41 +1,28 @@
 package pgo.trans;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.Vector;
-import java.util.logging.Logger;
-
 import org.apache.commons.io.FileUtils;
-
 import pgo.PGoNetOptions;
 import pgo.PGoOptions;
 import pgo.model.golang.GoProgram;
 import pgo.parser.PGoParseException;
 import pgo.parser.PcalParser.ParsedPcal;
-import pgo.trans.intermediate.PGoTransStageAtomicity;
-import pgo.trans.intermediate.PGoTransStageGoGen;
-import pgo.trans.intermediate.PGoTransStageInitParse;
-import pgo.trans.intermediate.PGoTransStageTLAParse;
-import pgo.trans.intermediate.PGoTransStageType;
+import pgo.trans.intermediate.*;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.List;
+import java.util.logging.Logger;
 
 /**
  * Performs the translation of the PlusCal AST into a Golang AST
  * 
  */
 public class PGoTranslator {
-
-	// The pluscal AST to be translated
-	private ParsedPcal pluscal;
-
 	// the translated go ast
 	private GoProgram go;
 
-	private Logger logger;
-
 	public PGoTranslator(ParsedPcal pcal, PGoNetOptions opts) throws PGoTransException, PGoParseException {
-		this.pluscal = pcal;
-
-		logger = Logger.getGlobal();
+		Logger logger = Logger.getGlobal();
 
 		logger.info("Entering Stage One: Inferring intermediate data structures");
 		PGoTransStageInitParse s1 = new PGoTransStageInitParse(pcal, opts);
@@ -51,7 +38,7 @@ public class PGoTranslator {
 		go = s5.getGo();
 	}
 
-	public Vector<String> getGoLines() {
+	public List<String> getGoLines() {
 		return go.toGo();
 	}
 

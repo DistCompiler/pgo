@@ -1,10 +1,10 @@
 package pgo.model.tla;
 
-import java.util.Vector;
-
 import pgo.model.golang.Expression;
-import pgo.model.intermediate.PGoType;
+import pgo.model.type.PGoType;
 import pgo.trans.PGoTransException;
+
+import java.util.List;
 
 /**
  * Represents a grouped clause of TLAExpr found in a parenthesis. This let's us preserve order
@@ -15,12 +15,12 @@ public class PGoTLAGroup extends PGoTLAExpression {
 
 	private PGoTLAExpression inner;
 
-	public PGoTLAGroup(Vector<PGoTLAExpression> vector, int line) {
+	public PGoTLAGroup(List<PGoTLAExpression> list, int line) {
 		super(line);
-		// should only be one PGoTLA in the vector, since any of (....) should
+		// should only be one PGoTLA in the list, since any of (....) should
 		// be one complete expression inside
-		assert (vector.size() == 1);
-		inner = vector.get(0);
+		assert (list.size() == 1);
+		inner = list.get(0);
 	}
 
 	public PGoTLAExpression getInner() {

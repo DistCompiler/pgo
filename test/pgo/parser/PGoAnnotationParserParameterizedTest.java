@@ -1,17 +1,8 @@
 package pgo.parser;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
-
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.Collection;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
-
 import pgo.model.parser.AnnotatedFunction;
 import pgo.model.parser.AnnotatedProcess;
 import pgo.model.parser.AnnotatedReturnVariable;
@@ -19,22 +10,26 @@ import pgo.model.parser.AnnotatedVariable;
 import pgo.model.parser.AnnotatedVariable.ArgAnnotatedVariable;
 import pgo.model.parser.AnnotatedVariable.ConstAnnotatedVariable;
 import pgo.model.parser.AnnotatedVariable.VarAnnotatedVariable;
-import pgo.parser.PGoPluscalParserTesterBase.AnnotatedFunctionData;
-import pgo.parser.PGoPluscalParserTesterBase.AnnotatedProcessData;
-import pgo.parser.PGoPluscalParserTesterBase.ArgAnnotatedVariableData;
-import pgo.parser.PGoPluscalParserTesterBase.ConstAnnotatedVariableData;
-import pgo.parser.PGoPluscalParserTesterBase.ReturnVariableData;
-import pgo.parser.PGoPluscalParserTesterBase.VarAnnotatedVariableData;
+import pgo.model.type.PGoTypeGenerator;
+import pgo.parser.PGoPluscalParserTesterBase.*;
 import pgo.parser.PcalParser.ParsedPcal;
+import pgo.trans.PGoTransException;
+
+import java.util.Arrays;
+import java.util.Collection;
+
+import static org.junit.Assert.*;
 
 // Parameterized annotation parser test class that checks each pluscal file
 @RunWith(Parameterized.class)
 public class PGoAnnotationParserParameterizedTest {
 
 	protected PGoPluscalParserTesterBase tester;
+	protected PGoTypeGenerator generator;
 
 	public PGoAnnotationParserParameterizedTest(PGoPluscalParserTesterBase tester) {
 		this.tester = tester;
+		this.generator = new PGoTypeGenerator("test");
 	}
 
 	@Parameterized.Parameters
@@ -47,11 +42,11 @@ public class PGoAnnotationParserParameterizedTest {
 	}
 
 	@Test
-	public void testParse() throws IOException, PGoParseException {
+	public void testParse() throws PGoParseException, PGoTransException {
 		PcalParser p = new PcalParser(tester.getPcalPath());
 
 		ParsedPcal pp = p.parse();
-		PGoAnnotationParser pa = new PGoAnnotationParser(pp.getPGoAnnotations());
+		PGoAnnotationParser pa = new PGoAnnotationParser(pp.getPGoAnnotations(), generator);
 
 		assertEquals(tester.getNumberAnnotatedVariables(), pa.getAnnotatedVariables().size());
 		for (ConstAnnotatedVariableData tv : tester.getConstAnnotatedVariables()) {

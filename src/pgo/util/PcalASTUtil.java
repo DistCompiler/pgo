@@ -1,6 +1,7 @@
 package pgo.util;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.Vector;
 
@@ -39,7 +40,7 @@ public class PcalASTUtil {
 
 		protected abstract void init();
 
-		public T getResult(Vector<AST> body) throws PGoTransException {
+		public T getResult(List<AST> body) throws PGoTransException {
 			walk(body);
 			return result;
 		}
@@ -58,7 +59,7 @@ public class PcalASTUtil {
 		 * 
 		 * @param ast
 		 */
-		protected void walk(Vector<AST> ast) throws PGoTransException {
+		protected void walk(List<AST> ast) throws PGoTransException {
 			if (ast == null || earlyTerm) {
 				return;
 			}
@@ -289,7 +290,7 @@ public class PcalASTUtil {
 	 * @param name
 	 * @return
 	 */
-	public static boolean containsAssignmentToVar(Vector<AST> body, String name) {
+	public static boolean containsAssignmentToVar(List<AST> body, String name) {
 		Walker<Boolean> av = new Walker<Boolean>() {
 
 			@Override
@@ -319,7 +320,7 @@ public class PcalASTUtil {
 	 * Finds all the function calls (procedure and macro calls) made in body of
 	 * code
 	 * 
-	 * @param newBodies
+	 * @param body
 	 * @return
 	 */
 	public static Vector<String> collectFunctionCalls(Vector<AST> body) {
@@ -359,8 +360,9 @@ public class PcalASTUtil {
 
 	/**
 	 * Finds all the labels that are used in goto statements.
+	 * @param body
 	 */
-	public static Set<String> collectUsedLabels(Vector<AST> body) {
+	public static Set<String> collectUsedLabels(List<AST> body) {
 		Walker<Set<String>> av = new Walker<Set<String>>() {
 
 			@Override

@@ -18,19 +18,22 @@ public class AnnotatedLock {
 		line = l;
 	}
 
-	public static AnnotatedLock parse(String[] parts, int l) throws PGoParseException {
+	public static AnnotatedLock parse(int line, String[] parts) throws PGoParseException {
 		if (parts.length != 2) {
 			throw new PGoParseException(
-					"Expected the lock annotation to have 2 parts but found " + parts.length + " instead", l);
+					"Expected the lock annotation to have 2 parts but found " + parts.length + " instead", line);
 		}
-		assert (parts[0].toLowerCase().equals("lock"));
+		if (!parts[0].toLowerCase().equals("lock")) {
+			throw new PGoParseException("Unknown annotation", line);
+		}
 		if (parts[1].toLowerCase().equals("true")) {
-			return new AnnotatedLock(true, l);
-		} else if (parts[1].toLowerCase().equals("false")) {
-			return new AnnotatedLock(false, l);
+			return new AnnotatedLock(true, line);
+		}
+		if (parts[1].toLowerCase().equals("false")) {
+			return new AnnotatedLock(false, line);
 		}
 		throw new PGoParseException(
-				"Expected lock annotation to be \"true\" or \"false\" but found " + parts[1] + " instead", l);
+				"Expected lock annotation to be \"true\" or \"false\" but found " + parts[1] + " instead", line);
 	}
 
 	public boolean needsLock() {

@@ -4,11 +4,9 @@ import pgo.PGoNetOptions;
 import pgo.PGoOptionException;
 import pgo.model.golang.*;
 import pgo.model.intermediate.*;
+import pgo.model.type.*;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Optional;
-import java.util.Vector;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -29,19 +27,19 @@ public class EtcdStateStrategy implements StateStrategy {
 
 	@Override
 	public void generateConfig(GoProgram go) {
-		Vector<Statement> topLevelMain = go.getMain().getBody();
+		List<Statement> topLevelMain = go.getMain().getBody();
 
 		topLevelMain.add(new FunctionCall("datatypes.GobInit", new Vector<>()));
 
 		SliceConstructor endpoints = Builder.sliceLiteral(
-				PGoType.inferFromGoTypeName("string"),
+				PGoTypeString.getInstance(),
 				stateOptions.endpoints
 						.stream()
 						.map(e -> Builder.stringLiteral("https://" + e))
 						.collect(Collectors.toList()));
 
 		SliceConstructor peers = Builder.sliceLiteral(
-				PGoType.inferFromGoTypeName("string"),
+				PGoTypeString.getInstance(),
 				stateOptions.peers
 						.stream()
 						.map(Builder::stringLiteral)
@@ -49,21 +47,21 @@ public class EtcdStateStrategy implements StateStrategy {
 
 		VariableDeclaration errDecl = new VariableDeclaration(
 				"err",
-				PGoType.inferFromGoTypeName("error"), null, false, false, false);
+				PGoTypeError.getInstance(), null, false, false, false);
 		topLevelMain.add(errDecl);
 
 		Assignment stateObj = new Assignment(
 				new Vector<>(Arrays.asList(GLOBAL_STATE_OBJECT, "err")),
 				new FunctionCall("distsys.NewEtcdState",
-						new Vector<>(Arrays.asList(
+						Arrays.asList(
 								endpoints,
 								Builder.intLiteral(stateOptions.timeout),
 								peers,
 								new Token("ipAddr"),
 								Builder.stringLiteral(stateOptions.peers.get(0)),
 								Builder.mapLiteral(
-										PGoType.inferFromGoTypeName("string"),
-										PGoType.inferFromGoTypeName("interface{}"),
+										PGoTypeString.getInstance(),
+										PGoTypeInterface.getInstance(),
 										go.getGlobals()
 												.stream()
 												.filter(VariableDeclaration::isRemote)
@@ -74,14 +72,14 @@ public class EtcdStateStrategy implements StateStrategy {
 																.orElse(
 																new Token(g.getName()))
 												}).collect(Collectors.toList()))
-								))),
+								)),
 				false);
 		topLevelMain.add(stateObj);
 
 		go.getImports().addImport("os");
 		Vector<Statement> ifBody = new Vector<>(Arrays.asList(
 				new Comment("handle error - could not connect to etcd", false),
-				new FunctionCall("os.Exit", new Vector<>(Collections.singletonList(new IntLiteral(1))))));
+				new FunctionCall("os.Exit", Collections.singletonList(new IntLiteral(1)))));
 
 		pgo.model.golang.If errIf = new pgo.model.golang.If(new Token("err != nil"), ifBody, new Vector<>());
 		topLevelMain.add(errIf);
@@ -90,13 +88,13 @@ public class EtcdStateStrategy implements StateStrategy {
 	@Override
 	public void generateGlobalVariables(GoProgram go) {
 		VariableDeclaration stateDecl = new VariableDeclaration(GLOBAL_STATE_OBJECT,
-				new PGoMiscellaneousType.EtcdState(), null, false, false, false);
+				PGoTypeEtcdState.getInstance(), null, false, false, false);
 
 		go.addGlobal(stateDecl);
 	}
 
 	@Override
-	public void lock(int lockGroup, Vector<Statement> stmts, Stream<PGoVariable> vars) {
+	public void lock(int lockGroup, List<Statement> stmts, Stream<PGoVariable> vars) {
 		stmts.add(new FunctionCall(
 				"Lock",
 				new Vector<>(Arrays.asList(new Token("selfStr"), new StringLiteral(Integer.toString(lockGroup)))),
@@ -105,7 +103,7 @@ public class EtcdStateStrategy implements StateStrategy {
 	}
 
 	@Override
-	public void unlock(int lockGroup, Vector<Statement> stmts, Stream<PGoVariable> vars) {
+	public void unlock(int lockGroup, List<Statement> stmts, Stream<PGoVariable> vars) {
 		pushDataForCurrentLockGroup(stmts, vars);
 		stmts.add(new FunctionCall(
 				"Unlock",
@@ -119,7 +117,7 @@ public class EtcdStateStrategy implements StateStrategy {
 	}
 
 	@Override
-	public void setVar(PGoVariable var, Expression rhs, Vector<Expression> exps) {
+	public void setVar(PGoVariable var, Expression rhs, List<Expression> exps) {
 		// assigning to a global, remote variable (managed by etcd)
 		Vector<Expression> params = new Vector<>(Arrays.asList(new StringLiteral(var.getName()), rhs));
 		exps.add(new FunctionCall("Set", params, new Token(GLOBAL_STATE_OBJECT)));
@@ -132,17 +130,17 @@ public class EtcdStateStrategy implements StateStrategy {
 				GLOBAL_STATE_OBJECT, var.getName(), var.getName(), var.getType().toGo());
 	}
 
-	private void fetchDataForCurrentLockGroup(Vector<Statement> stmts, Stream<PGoVariable> vars) {
+	private void fetchDataForCurrentLockGroup(List<Statement> stmts, Stream<PGoVariable> vars) {
 		StateStrategy stateStrategy = this;
 		vars.forEach(var ->
 				stmts.add(new Assignment(
-						new Vector<>(Collections.singletonList(var.getName())),
+						Collections.singletonList(var.getName()),
 						new VariableReference(var.getName(), var, false, stateStrategy),
 						false))
 		);
 	}
 
-	private void pushDataForCurrentLockGroup(Vector<Statement> stmts, Stream<PGoVariable> vars) {
+	private void pushDataForCurrentLockGroup(List<Statement> stmts, Stream<PGoVariable> vars) {
 		vars.forEach(var -> {
 			Vector<Expression> params = new Vector<>(Arrays.asList(
 					new StringLiteral(var.getName()),

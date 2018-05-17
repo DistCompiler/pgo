@@ -1,9 +1,11 @@
 package pgo.model.golang;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Vector;
 
-import pgo.model.intermediate.PGoType;
 import pgo.model.intermediate.PGoVariable;
+import pgo.model.type.PGoType;
 
 /**
  * Represents a variable declaration
@@ -77,10 +79,10 @@ public class VariableDeclaration extends Statement {
 	}
 
 	@Override
-	public Vector<String> toGo() {
+	public List<String> toGo() {
 		Vector<String> ret = new Vector<>();
 		Vector<String> comments = new Vector<>();
-		Vector<String> valStr = (defaultValue == null || remote) ? new Vector<>() : defaultValue.toGo();
+		List<String> valStr = new Vector<>((defaultValue == null || remote) ? Collections.emptyList() : defaultValue.toGo());
 		String decl;
 
 		decl = (isConst ? "const " : "var ") + name + " " + type.toGo();

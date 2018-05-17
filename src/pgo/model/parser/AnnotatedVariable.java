@@ -3,9 +3,12 @@ package pgo.model.parser;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import pgo.model.intermediate.PGoType;
 import pgo.model.intermediate.PGoVariable;
+import pgo.model.type.PGoType;
+import pgo.model.type.PGoTypeGenerator;
 import pgo.parser.PGoParseException;
+import pgo.trans.PGoAnnotationWrongNameException;
+import pgo.trans.PGoTransException;
 
 /**
  * Represents the information of a variable from annotations The
@@ -13,7 +16,6 @@ import pgo.parser.PGoParseException;
  * 
  */
 public abstract class AnnotatedVariable {
-
 	public static final String CONST = "const";
 	public static final String ARG = "arg";
 	public static final String VAR = "var";
@@ -27,30 +29,26 @@ public abstract class AnnotatedVariable {
 	// the line number of annotation
 	protected int line;
 
-	protected AnnotatedVariable(String[] parts, int line) throws PGoParseException {
+	protected AnnotatedVariable(int line, String[] parts, PGoTypeGenerator generator) throws PGoParseException, PGoTransException {
 		if (parts.length >= 3) {
-			type = PGoType.inferFromGoTypeName(parts[2]);
-			if (type.isUndetermined()) {
-				throw new PGoParseException("Unknown type \"" + parts[2] + "\" given for variable annotation", line);
-			}
+			type = generator.inferFrom(parts[2]);
 			name = parts[1];
 			this.line = line;
 		}
 	}
 
 	// parses a const, arg, or var annotation for a variable
-	public static AnnotatedVariable parse(String[] parts, int line) throws PGoParseException {
+	public static AnnotatedVariable parse(int line, String[] parts, PGoTypeGenerator generator) throws PGoParseException, PGoTransException {
 		switch (parts[0].toLowerCase()) {
 		case CONST:
-			return new ConstAnnotatedVariable(parts, line);
+			return new ConstAnnotatedVariable(line, parts, generator);
 		case ARG:
-			return new ArgAnnotatedVariable(parts, line);
+			return new ArgAnnotatedVariable(line, parts, generator);
 		case VAR:
-			return new VarAnnotatedVariable(parts, line);
+			return new VarAnnotatedVariable(line, parts, generator);
 		default:
+			throw new PGoParseException("Unknown annotation", line);
 		}
-		assert (false);
-		return null;
 	}
 
 	public String getName() {
@@ -76,8 +74,8 @@ public abstract class AnnotatedVariable {
 
 		private String val;
 
-		public ConstAnnotatedVariable(String[] parts, int line) throws PGoParseException {
-			super(parts, line);
+		public ConstAnnotatedVariable(int line, String[] parts, PGoTypeGenerator generator) throws PGoParseException, PGoTransException {
+			super(line, parts, generator);
 			if (parts.length != 4) {
 				throw new PGoParseException("Annotation of \"const\" expects " + "<type> <varname> <val>. Got only "
 						+ parts.length + " arguments instead", line);
@@ -87,7 +85,9 @@ public abstract class AnnotatedVariable {
 
 		@Override
 		public void applyAnnotationOnVariable(PGoVariable var) {
-			assert (var.getName().equals(this.name));
+			if (!var.getName().equals(this.name)) {
+				throw new PGoAnnotationWrongNameException(name, var.getName(), line);
+			}
 			var.setType(this.getType());
 			var.setIsSimpleAssign(true);
 			var.setGoVal(this.getVal());
@@ -112,8 +112,8 @@ public abstract class AnnotatedVariable {
 		private boolean positional;
 		private String argname;
 
-		public ArgAnnotatedVariable(String[] parts, int line) throws PGoParseException {
-			super(parts, line);
+		public ArgAnnotatedVariable(int line, String[] parts, PGoTypeGenerator generator) throws PGoParseException, PGoTransException {
+			super(line, parts, generator);
 			if (parts.length < 3 || parts.length > 4) {
 				throw new PGoParseException("Annotation of \"arg\" expects "
 						+ "<type> <varname> (<flagname>)?. Got only "
@@ -130,7 +130,9 @@ public abstract class AnnotatedVariable {
 
 		@Override
 		public void applyAnnotationOnVariable(PGoVariable var) {
-			assert (var.getName().equals(this.name));
+			if (!var.getName().equals(this.name)) {
+				throw new PGoAnnotationWrongNameException(name, var.getName(), line);
+			}
 			var.setType(this.getType());
 			var.setArgInfo(this);
 
@@ -153,8 +155,8 @@ public abstract class AnnotatedVariable {
 	 */
 	public static class VarAnnotatedVariable extends AnnotatedVariable {
 
-		public VarAnnotatedVariable(String[] parts, int line) throws PGoParseException {
-			super(parts, line);
+		public VarAnnotatedVariable(int line, String[] parts, PGoTypeGenerator generator) throws PGoParseException, PGoTransException {
+			super(line, parts, generator);
 			if (parts.length != 3) {
 				throw new PGoParseException("Annotation of \"var\" expects <type> <varname>. Got only "
 						+ parts.length + " arguments instead", line);
@@ -163,9 +165,10 @@ public abstract class AnnotatedVariable {
 
 		@Override
 		public void applyAnnotationOnVariable(PGoVariable var) {
-			assert (var.getName().equals(this.name) || this.name.split("\\.")[1].equals(var.getName()));
+			if (!var.getName().equals(this.name) && !this.name.split("\\.")[1].equals(var.getName())) {
+				throw new PGoAnnotationWrongNameException(name, var.getName(), line);
+			}
 			var.setType(this.getType());
-
 			Logger.getLogger("PGo Stage Typing").log(Level.INFO, "filling in variable \"" + var.getName()
 					+ "\" based on annotation as a standard variable from line: " + this.getLine());
 		}

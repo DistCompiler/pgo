@@ -10,15 +10,15 @@ CONSTANT MAXINT, RUNS, N
  *)
 
 --algorithm Sum  {
-\** @PGo{ var network []chan[[2]interface] }@PGo
+\** @PGo{ var network []chan[[]interface{}] }@PGo
 variables network = [i \in 1 .. N+1 |-> <<>>];
 
-\** @PGo{ func SendTo() uint64 uint64 interface }@PGo
+\** @PGo{ func SendTo() uint64 uint64 interface{} }@PGo
 macro SendTo(from, to, msg) {
     network[to] := Append(network[to], <<from, msg>>);
 }
 
-\** @PGo{ func Recv() uint64 uint64 interface }@PGo
+\** @PGo{ func Recv() uint64 uint64 interface{} }@PGo
 macro Recv(to, id, msg) {
     await network[to] # <<>>;
     id := Head(network[to])[1];
@@ -58,7 +58,7 @@ process (Server = N+1)
   \** @PGo{ var a uint64 }@PGo
   \** @PGo{ var b uint64 }@PGo
   \** @PGo{ var Server.id uint64 }@PGo
-  \** @PGo{ var Server.msg [2]uint64  }@PGo
+  \** @PGo{ var Server.msg []uint64  }@PGo
   variable a, b, id, msg;
   {
   sr:

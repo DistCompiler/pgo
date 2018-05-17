@@ -111,7 +111,7 @@ public class PGoTransStageOneTest {
 
 		assertEquals(p.data.funcs.get(af.name), f);
 
-		assertEquals(af.type, f.getType());
+		assertEquals(af.type, f.getKind());
 	}
 
 	@Test
@@ -122,7 +122,7 @@ public class PGoTransStageOneTest {
 		assertEquals(tester.getNumGoroutineInit(), grs.size());
 
 		for (TestFunctionData f : tester.getStageOneFunctions()) {
-			if (f.type == PGoFunction.FunctionType.GoRoutine) {
+			if (f.type == PGoFunction.FunctionKind.GoRoutine) {
 				PGoRoutineInit gr = p.data.goroutines.get(f.name);
 				assertNotNull(gr);
 				assertEquals(f.name, gr.getName());
