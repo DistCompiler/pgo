@@ -4,7 +4,6 @@ import java.util.List;
 import java.util.Vector;
 
 import pgo.model.intermediate.PGoFunction;
-import pgo.model.intermediate.PGoPrimitiveType;
 import pgo.model.intermediate.PGoVariable;
 import pgo.model.type.PGoType;
 import pgo.model.type.PGoTypeGenerator;

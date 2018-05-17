@@ -10,7 +10,6 @@ import pcal.TLAToken;
 
 import java.util.Vector;
 
-import pgo.model.intermediate.PGoType;
 import pgo.model.intermediate.PGoVariable;
 import pgo.model.type.PGoTypeGenerator;
 import pgo.model.type.PGoTypeInt;

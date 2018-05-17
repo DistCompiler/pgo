@@ -5,15 +5,13 @@ import java.util.ArrayList;
 import pcal.AST.Macro;
 import pcal.AST.Multiprocess;
 import pcal.AST.Process;
-import pgo.model.intermediate.PGoCollectionType;
 import pgo.model.intermediate.PGoFunction;
-import pgo.model.intermediate.PGoPrimitiveType;
 import pgo.model.type.*;
 import pgo.parser.PGoParseException;
 
 /**
  * Tester class for the TwoPhaseCommit pluscal algorithm
- * 
+ *
  * This class stores the variables, functions and other data of the pluscal
  * algorithm to be used for validating the parsed and translated version of the
  * algorithm with the actual data.
@@ -37,7 +35,7 @@ public class TwoPhaseCommitIntermediateTester extends PGoPluscalStageTesterBase 
 				+ " \",\", \"\\\"\", \"chuck\", \"\\\"\", \",\", \"\\\"\", \"dave\", "
 				+ "\"\\\"\", \",\", \"\\\"\", \"everett\", \"\\\"\", \",\", \"\\\"\","
 				+ " \"fred\", \"\\\"\", \"}\" >>", "", false, new PGoTypeSet(PGoTypeString.getInstance()), false, "", false));
-				
+
 		ret.add(new TestVariableData("restaurant_stage", true,
 				"<< \"[\", \"mgr\", \"\\\\in\", \"managers\", \"|->\", \"\\\"\", \"start\", \"\\\"\", \"]\" >>", "",
 				false, new PGoTypeMap(PGoTypeString.getInstance(), PGoTypeString.getInstance()), false, "", true));
@@ -78,12 +76,12 @@ public class TwoPhaseCommitIntermediateTester extends PGoPluscalStageTesterBase 
 				new PGoTypeSet(PGoTypeString.getInstance()), false, "", false));
 		vars.add(new TestVariableData("aborted", true, "<< \"FALSE\" >>", "", false, PGoTypeBool.getInstance(),
 				false, "", false));
-		
+
 		b = ((Process) ((Multiprocess) getAST()).procs.get(1)).body.toString();
 
 		ret.add(new TestFunctionData("Controller", params, vars, b, PGoFunction.FunctionKind.GoRoutine, true,
 				"<< \"\\\"\", \"alice\", \"\\\"\" >>", PGoTypeVoid.getInstance()));
-		
+
 		return ret;
 	}
 

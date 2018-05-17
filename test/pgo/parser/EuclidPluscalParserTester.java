@@ -4,13 +4,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Vector;
 
-import pgo.model.intermediate.PGoPrimitiveType;
 import pgo.model.parser.PGoAnnotation;
 import pgo.model.type.PGoTypeInt;
 
 /**
  * Tester class for the Euclid pluscal algorithm
- * 
+ *
  * This class stores the annotations, exceptions if any, and ast that is
  * expected.
  *

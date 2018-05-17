@@ -13,10 +13,6 @@ import org.junit.Test;
 import pcal.AST.PVarDecl;
 import pcal.AST.Procedure;
 import pgo.model.intermediate.PGoFunction;
-import pgo.model.intermediate.PGoPrimitiveType;
-import pgo.model.intermediate.PGoPrimitiveType.PGoBool;
-import pgo.model.intermediate.PGoPrimitiveType.PGoInt;
-import pgo.model.intermediate.PGoPrimitiveType.PGoString;
 import pgo.model.type.*;
 import pgo.parser.PGoParseException;
 import pgo.trans.PGoTransException;
@@ -29,7 +25,7 @@ public class AnnotatedFunctionTest {
 		String[] parts;
 		AnnotatedFunction fun;
 		Vector<PGoType> argTypes ;
-		
+
 		parts = new String[] { "func", "fun()" };
 		fun = AnnotatedFunction.parse(0, parts, generator);
 		assertEquals(0, fun.getLine());
@@ -37,8 +33,8 @@ public class AnnotatedFunctionTest {
 		assertTrue(fun.getReturnType() instanceof PGoTypeVoid);
 		argTypes = fun.getArgTypes();
 		assertEquals(0, argTypes.size());
-		
-		
+
+
 		parts = new String[] { "func", "foo()", "int", "string" };
 		fun = AnnotatedFunction.parse(2, parts, generator);
 		assertEquals(2, fun.getLine());
@@ -145,7 +141,7 @@ public class AnnotatedFunctionTest {
 		assertEquals(PGoTypeInt.getInstance(), f.getParam("Param1").getType());
 		assertEquals(PGoTypeString.getInstance(), f.getParam("Param2").getType());
 		assertEquals(PGoTypeBool.getInstance(), f.getReturnType());
-		
+
 		rvs.add(AnnotatedReturnVariable.parse(2, new String[] {"ret", "ret"}));
 		pv = new PVarDecl();
 		pv.var = "ret";

@@ -2,12 +2,11 @@ package pgo.trans.intermediate;
 
 import java.util.ArrayList;
 
-import pgo.model.intermediate.PGoPrimitiveType;
 import pgo.model.type.PGoTypeInt;
 
 /**
  * Tester class for the Euclid pluscal algorithm
- * 
+ *
  * This class stores the variables, functions and other data of the pluscal
  * algorithm to be used for validating the parsed and translated version of the
  * algorithm with the actual data.

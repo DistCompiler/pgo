@@ -8,9 +8,6 @@ import static org.junit.Assert.fail;
 
 import org.junit.Test;
 
-import pgo.model.intermediate.PGoPrimitiveType;
-import pgo.model.intermediate.PGoPrimitiveType.PGoInt;
-import pgo.model.intermediate.PGoPrimitiveType.PGoString;
 import pgo.model.intermediate.PGoVariable;
 import pgo.model.parser.AnnotatedVariable.ArgAnnotatedVariable;
 import pgo.model.parser.AnnotatedVariable.ConstAnnotatedVariable;
@@ -18,7 +15,6 @@ import pgo.model.parser.AnnotatedVariable.VarAnnotatedVariable;
 import pgo.model.type.PGoTypeGenerator;
 import pgo.model.type.PGoTypeInt;
 import pgo.model.type.PGoTypeString;
-import pgo.model.type.PGoTypeVariable;
 import pgo.parser.PGoParseException;
 import pgo.trans.PGoTransException;
 

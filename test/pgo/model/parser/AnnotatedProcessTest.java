@@ -11,7 +11,6 @@ import pcal.AST.Procedure;
 import pcal.AST.Process;
 import pcal.AST.VarDecl;
 import pgo.model.intermediate.PGoFunction;
-import pgo.model.intermediate.PGoPrimitiveType;
 import pgo.model.intermediate.PGoVariable;
 import pgo.model.type.PGoTypeGenerator;
 import pgo.model.type.PGoTypeInt;

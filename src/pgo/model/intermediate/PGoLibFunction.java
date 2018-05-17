@@ -1,17 +1,8 @@
 package pgo.model.intermediate;
 
 import java.util.*;
-import java.util.Map.Entry;
-import java.util.stream.Collectors;
 
-import pgo.model.intermediate.PGoCollectionType.PGoChan;
-import pgo.model.intermediate.PGoCollectionType.PGoMap;
-import pgo.model.intermediate.PGoCollectionType.PGoSet;
-import pgo.model.intermediate.PGoCollectionType.PGoSlice;
-import pgo.model.intermediate.PGoCollectionType.PGoTuple;
-import pgo.model.intermediate.PGoPrimitiveType.PGoTemplateArgument;
 import pgo.model.type.*;
-import pgo.model.tla.TLAExprToType;
 import pgo.model.type.PGoType;
 
 /**

@@ -11,12 +11,6 @@ import org.junit.Test;
 
 import pcal.PcalTranslate;
 import pcal.TLAToken;
-import pgo.model.intermediate.PGoCollectionType.PGoChan;
-import pgo.model.intermediate.PGoCollectionType.PGoMap;
-import pgo.model.intermediate.PGoCollectionType.PGoTuple;
-import pgo.model.intermediate.PGoPrimitiveType.PGoDecimal;
-import pgo.model.intermediate.PGoPrimitiveType.PGoInt;
-import pgo.model.intermediate.PGoPrimitiveType.PGoString;
 import pgo.model.intermediate.PGoVariable;
 import pgo.model.tla.*;
 import pgo.model.type.*;

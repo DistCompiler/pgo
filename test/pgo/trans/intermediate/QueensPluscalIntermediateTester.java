@@ -2,15 +2,13 @@ package pgo.trans.intermediate;
 
 import java.util.ArrayList;
 
-import pgo.model.intermediate.PGoCollectionType;
-import pgo.model.intermediate.PGoPrimitiveType;
 import pgo.model.type.PGoTypeInt;
 import pgo.model.type.PGoTypeSet;
 import pgo.model.type.PGoTypeSlice;
 
 /**
  * Tester class for the QueensPluscal pluscal algorithm
- * 
+ *
  * This class stores the variables, functions and other data of the pluscal
  * algorithm to be used for validating the parsed and translated version of the
  * algorithm with the actual data.
