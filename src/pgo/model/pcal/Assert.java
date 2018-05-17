@@ -17,7 +17,7 @@ public class Assert extends Statement {
 	}
 
 	@Override
-	public <T> T accept(Visitor<T> v) {
+	public <T, E extends Throwable> T accept(StatementVisitor<T, E> v) throws E {
 		return v.visit(this);
 	}
 

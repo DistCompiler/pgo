@@ -18,7 +18,7 @@ public class MultiProcess extends Processes {
 	}
 
 	@Override
-	public <T> T accept(Visitor<T> v) {
+	public <T, E extends Throwable> T accept(ProcessesVisitor<T, E> v) throws E {
 		return v.visit(this);
 	}
 
