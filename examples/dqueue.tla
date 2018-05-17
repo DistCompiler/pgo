@@ -7,7 +7,6 @@ EXTENDS Integers, Sequences, TLC
 --algorithm DistributedQueue {
     \* Globals
     variables
-    \** @PGo{ var queue []string }@PGo
     queue = <<>>;
 
     process (Producer = 2)
