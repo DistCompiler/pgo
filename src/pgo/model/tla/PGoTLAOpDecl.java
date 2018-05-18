@@ -31,6 +31,11 @@ public class PGoTLAOpDecl extends PGoTLANode {
 	}
 	
 	@Override
+	public PGoTLAOpDecl copy() {
+		return new PGoTLAOpDecl(getLocation(), name.copy(), type, arity);
+	}
+	
+	@Override
 	public <T, E extends Throwable> T accept(PGoTLANodeVisitor<T, E> v) throws E {
 		return v.visit(this);
 	}

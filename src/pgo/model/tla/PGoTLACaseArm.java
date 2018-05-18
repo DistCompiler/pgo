@@ -13,6 +13,11 @@ public class PGoTLACaseArm extends PGoTLANode {
 		this.result = result;
 	}
 	
+	@Override
+	public PGoTLACaseArm copy() {
+		return new PGoTLACaseArm(getLocation(), cond.copy(), result.copy());
+	}
+	
 	public PGoTLAExpression getCondition() {
 		return cond;
 	}

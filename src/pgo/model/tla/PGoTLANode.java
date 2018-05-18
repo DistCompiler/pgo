@@ -17,8 +17,8 @@ import pgo.util.SourceLocation;
  *
  */
 public abstract class PGoTLANode extends SourceLocatable {
-	SourceLocation location;
-	UID uid;
+	private SourceLocation location;
+	private UID uid;
 	
 	public PGoTLANode(SourceLocation location) {
 		this.location = location;
@@ -53,6 +53,8 @@ public abstract class PGoTLANode extends SourceLocatable {
 		}
 		return out.toString();
 	}
+	
+	public abstract PGoTLANode copy();
 	
 	public abstract <T, E extends Throwable> T accept(PGoTLANodeVisitor<T, E> v) throws E;
 	

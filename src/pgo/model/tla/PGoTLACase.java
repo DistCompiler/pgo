@@ -1,6 +1,7 @@
 package pgo.model.tla;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import pgo.util.SourceLocation;
 
@@ -22,6 +23,11 @@ public class PGoTLACase extends PGoTLAExpression {
 		super(location);
 		this.arms = arms;
 		this.other = other;
+	}
+	
+	@Override
+	public PGoTLACase copy() {
+		return new PGoTLACase(getLocation(), arms.stream().map(PGoTLACaseArm::copy).collect(Collectors.toList()), other.copy());
 	}
 	
 	public List<PGoTLACaseArm> getArms(){

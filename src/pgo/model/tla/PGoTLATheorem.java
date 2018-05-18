@@ -10,6 +10,11 @@ public class PGoTLATheorem extends PGoTLAUnit {
 		super(location);
 		this.theorem = theorem;
 	}
+	
+	@Override
+	public PGoTLATheorem copy() {
+		return new PGoTLATheorem(getLocation(), theorem.copy());
+	}
 
 	public PGoTLAExpression getTheorem() {
 		return theorem;

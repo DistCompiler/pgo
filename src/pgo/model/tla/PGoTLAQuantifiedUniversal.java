@@ -1,6 +1,7 @@
 package pgo.model.tla;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import pgo.util.SourceLocation;
 
@@ -20,6 +21,11 @@ public class PGoTLAQuantifiedUniversal extends PGoTLAExpression {
 		super(location);
 		this.ids = ids;
 		this.body = body;
+	}
+	
+	@Override
+	public PGoTLAQuantifiedUniversal copy() {
+		return new PGoTLAQuantifiedUniversal(getLocation(), ids.stream().map(PGoTLAQuantifierBound::copy).collect(Collectors.toList()), body.copy());
 	}
 	
 	public List<PGoTLAQuantifierBound> getIds(){

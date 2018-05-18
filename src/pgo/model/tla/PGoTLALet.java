@@ -1,6 +1,7 @@
 package pgo.model.tla;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import pgo.util.SourceLocation;
 
@@ -25,6 +26,11 @@ public class PGoTLALet extends PGoTLAExpression {
 		super(location);
 		this.defs = defs;
 		this.body = body;
+	}
+	
+	@Override
+	public PGoTLALet copy() {
+		return new PGoTLALet(getLocation(), defs.stream().map(PGoTLAUnit::copy).collect(Collectors.toList()), body.copy());
 	}
 	
 	public List<PGoTLAUnit> getDefinitions(){

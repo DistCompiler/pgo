@@ -4,11 +4,16 @@ import pgo.util.SourceLocation;
 
 public class PGoTLABool extends PGoTLAExpression {
 
-	boolean value;
+	private boolean value;
 
 	public PGoTLABool(SourceLocation location, boolean value) {
 		super(location);
 		this.value = value;
+	}
+	
+	@Override
+	public PGoTLABool copy() {
+		return new PGoTLABool(getLocation(), value);
 	}
 
 	public boolean getValue() {

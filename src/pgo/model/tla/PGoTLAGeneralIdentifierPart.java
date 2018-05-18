@@ -1,6 +1,7 @@
 package pgo.model.tla;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import pgo.util.SourceLocation;
 
@@ -13,6 +14,11 @@ public class PGoTLAGeneralIdentifierPart extends PGoTLANode {
 		super(location);
 		this.id = id;
 		this.parameters = parameters;
+	}
+	
+	@Override
+	public PGoTLAGeneralIdentifierPart copy() {
+		return new PGoTLAGeneralIdentifierPart(getLocation(), id.copy(), parameters.stream().map(p -> p.copy()).collect(Collectors.toList()));
 	}
 	
 	@Override

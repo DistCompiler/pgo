@@ -4,11 +4,16 @@ import pgo.util.SourceLocation;
 
 public class PGoTLAAssumption extends PGoTLAUnit {
 	
-	PGoTLAExpression assumption;
+	private PGoTLAExpression assumption;
 
 	public PGoTLAAssumption(SourceLocation location, PGoTLAExpression assumption) {
 		super(location);
 		this.assumption = assumption;
+	}
+	
+	@Override
+	public PGoTLAAssumption copy() {
+		return new PGoTLAAssumption(getLocation(), assumption.copy());
 	}
 
 	public PGoTLAExpression getAssumption() {

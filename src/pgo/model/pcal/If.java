@@ -1,6 +1,7 @@
 package pgo.model.pcal;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import pgo.model.tla.PGoTLAExpression;
 import pgo.util.SourceLocation;
@@ -16,6 +17,13 @@ public class If extends Statement {
 		this.condition = condition;
 		this.yes = yes;
 		this.no = no;
+	}
+	
+	@Override
+	public If copy() {
+		return new If(getLocation(), condition.copy(),
+				yes.stream().map(Statement::copy).collect(Collectors.toList()),
+				no.stream().map(Statement::copy).collect(Collectors.toList()));
 	}
 	
 	public PGoTLAExpression getCondition() {

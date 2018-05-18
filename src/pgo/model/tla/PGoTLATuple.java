@@ -1,6 +1,7 @@
 package pgo.model.tla;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import pgo.util.SourceLocation;
 
@@ -18,6 +19,11 @@ public class PGoTLATuple extends PGoTLAExpression {
 	public PGoTLATuple(SourceLocation location, List<PGoTLAExpression> elements) {
 		super(location);
 		this.elements = elements;
+	}
+	
+	@Override
+	public PGoTLATuple copy() {
+		return new PGoTLATuple(getLocation(), elements.stream().map(PGoTLAExpression::copy).collect(Collectors.toList()));
 	}
 	
 	public List<PGoTLAExpression> getElements(){

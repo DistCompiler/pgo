@@ -1,16 +1,24 @@
 package pgo.model.pcal;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import pgo.util.SourceLocation;
 
 public class Either extends Statement {
 
-	List<List<Statement>> cases;
+	private List<List<Statement>> cases;
 	
 	public Either(SourceLocation location, List<List<Statement>> cases) {
 		super(location);
 		this.cases = cases;
+	}
+	
+	@Override
+	public Either copy() {
+		return new Either(getLocation(), cases.stream().map(stmts -> {
+			return stmts.stream().map(Statement::copy).collect(Collectors.toList());
+		}).collect(Collectors.toList()));
 	}
 	
 	public List<List<Statement>> getCases(){

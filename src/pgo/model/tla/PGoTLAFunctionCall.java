@@ -1,6 +1,7 @@
 package pgo.model.tla;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import pgo.util.SourceLocation;
 
@@ -21,6 +22,11 @@ public class PGoTLAFunctionCall extends PGoTLAExpression {
 		super(location);
 		this.function = function;
 		this.params = params;
+	}
+	
+	@Override
+	public PGoTLAFunctionCall copy() {
+		return new PGoTLAFunctionCall(getLocation(), function.copy(), params.stream().map(PGoTLAExpression::copy).collect(Collectors.toList()));
 	}
 	
 	public PGoTLAExpression getFunction() {

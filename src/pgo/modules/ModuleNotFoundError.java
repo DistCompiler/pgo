@@ -5,10 +5,6 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class ModuleNotFoundError extends Exception {
-	/**
-	 * Serial version ID
-	 */
-	private static final long serialVersionUID = -7527234825656001085L;
 	
 	String moduleName;
 	List<Path> pathsChecked;

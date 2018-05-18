@@ -1,19 +1,25 @@
 package pgo.model.pcal;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import pgo.model.tla.PGoTLAExpression;
 import pgo.util.SourceLocation;
 
 public class Call extends Statement {
 	
-	String target;
-	List<PGoTLAExpression> arguments;
+	private String target;
+	private List<PGoTLAExpression> arguments;
 	
 	public Call(SourceLocation location, String target, List<PGoTLAExpression> arguments) {
 		super(location);
 		this.target = target;
 		this.arguments = arguments;
+	}
+	
+	@Override
+	public Call copy() {
+		return new Call(getLocation(), target, arguments.stream().map(PGoTLAExpression::copy).collect(Collectors.toList()));
 	}
 	
 	public String getTarget() {

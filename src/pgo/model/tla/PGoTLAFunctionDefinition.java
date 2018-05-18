@@ -4,15 +4,20 @@ import pgo.util.SourceLocation;
 
 public class PGoTLAFunctionDefinition extends PGoTLAUnit {
 	
-	PGoTLAIdentifier name;
-	PGoTLAFunction function;
-	boolean local;
+	private PGoTLAIdentifier name;
+	private PGoTLAFunction function;
+	private boolean local;
 	
 	public PGoTLAFunctionDefinition(SourceLocation location, PGoTLAIdentifier name, PGoTLAFunction function, boolean isLocal) {
 		super(location);
 		this.name = name;
 		this.function = function;
 		this.local = isLocal;
+	}
+	
+	@Override
+	public PGoTLAFunctionDefinition copy() {
+		return new PGoTLAFunctionDefinition(getLocation(), name.copy(), function.copy(), local);
 	}
 
 	public PGoTLAIdentifier getName() {

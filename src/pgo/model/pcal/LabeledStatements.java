@@ -1,18 +1,24 @@
 package pgo.model.pcal;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import pgo.util.SourceLocation;
 
 public class LabeledStatements extends Statement {
 	
-	Label label;
-	List<Statement> statements;
+	private Label label;
+	private List<Statement> statements;
 	
 	public LabeledStatements(SourceLocation location, Label label, List<Statement> statements) {
 		super(location);
 		this.label = label;
 		this.statements = statements;
+	}
+	
+	@Override
+	public LabeledStatements copy() {
+		return new LabeledStatements(getLocation(), label.copy(), statements.stream().map(Statement::copy).collect(Collectors.toList()));
 	}
 	
 	public Label getLabel() {

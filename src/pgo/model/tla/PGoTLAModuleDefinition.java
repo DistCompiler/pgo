@@ -1,15 +1,16 @@
 package pgo.model.tla;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import pgo.util.SourceLocation;
 
 public class PGoTLAModuleDefinition extends PGoTLAUnit {
 	
-	PGoTLAIdentifier name;
-	List<PGoTLAOpDecl> args;
-	PGoTLAInstance instance;
-	boolean local;
+	private PGoTLAIdentifier name;
+	private List<PGoTLAOpDecl> args;
+	private PGoTLAInstance instance;
+	private boolean local;
 
 	public PGoTLAModuleDefinition(SourceLocation location, PGoTLAIdentifier name, List<PGoTLAOpDecl> args, PGoTLAInstance instance, boolean isLocal) {
 		super(location);
@@ -17,6 +18,11 @@ public class PGoTLAModuleDefinition extends PGoTLAUnit {
 		this.args = args;
 		this.instance = instance;
 		this.local = isLocal;
+	}
+	
+	@Override
+	public PGoTLAModuleDefinition copy() {
+		return new PGoTLAModuleDefinition(getLocation(), name.copy(), args.stream().map(PGoTLAOpDecl::copy).collect(Collectors.toList()), instance.copy(), local);
 	}
 
 	public PGoTLAIdentifier getName() {

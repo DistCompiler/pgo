@@ -23,6 +23,11 @@ public class PGoTLAIf extends PGoTLAExpression {
 	}
 	
 	@Override
+	public PGoTLAIf copy() {
+		return new PGoTLAIf(getLocation(), cond.copy(), tval.copy(), fval.copy());
+	}
+	
+	@Override
 	public <T, E extends Throwable> T accept(PGoTLAExpressionVisitor<T, E> v) throws E {
 		return v.visit(this);
 	}

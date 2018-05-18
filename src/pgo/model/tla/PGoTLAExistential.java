@@ -1,6 +1,7 @@
 package pgo.model.tla;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import pgo.util.SourceLocation;
 
@@ -21,6 +22,11 @@ public class PGoTLAExistential extends PGoTLAExpression {
 		super(location);
 		this.ids = ids;
 		this.body = body;
+	}
+	
+	@Override
+	public PGoTLAExistential copy() {
+		return new PGoTLAExistential(getLocation(), ids.stream().map(PGoTLAIdentifier::copy).collect(Collectors.toList()), body.copy());
 	}
 	
 	public List<PGoTLAIdentifier> getIds(){

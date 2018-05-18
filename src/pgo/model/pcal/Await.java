@@ -5,11 +5,16 @@ import pgo.util.SourceLocation;
 
 public class Await extends Statement {
 	
-	PGoTLAExpression condition;
+	private PGoTLAExpression condition;
 	
 	public Await(SourceLocation location, PGoTLAExpression condition) {
 		super(location);
 		this.condition = condition;
+	}
+	
+	@Override
+	public Await copy() {
+		return new Await(getLocation(), condition.copy());
 	}
 	
 	public PGoTLAExpression getCondition() {

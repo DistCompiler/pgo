@@ -1,6 +1,7 @@
 package pgo.model.pcal;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import pgo.util.SourceLocation;
 
@@ -17,6 +18,16 @@ public class Procedure extends Node {
 		this.arguments = arguments;
 		this.variables = variables;
 		this.body = body;
+	}
+	
+	@Override
+	public Procedure copy() {
+		return new Procedure(
+				getLocation(),
+				name,
+				arguments.stream().map(VariableDecl::copy).collect(Collectors.toList()),
+				variables.stream().map(VariableDecl::copy).collect(Collectors.toList()),
+				body.stream().map(LabeledStatements::copy).collect(Collectors.toList()));
 	}
 	
 	public String getName() {

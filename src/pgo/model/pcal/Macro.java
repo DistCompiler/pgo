@@ -1,6 +1,8 @@
 package pgo.model.pcal;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import pgo.util.SourceLocation;
 
@@ -15,6 +17,15 @@ public class Macro extends Node {
 		this.name = name;
 		this.params = params;
 		this.body = body;
+	}
+	
+	@Override
+	public Macro copy() {
+		return new Macro(
+				getLocation(),
+				name,
+				new ArrayList<>(params),
+				body.stream().map(Statement::copy).collect(Collectors.toList()));
 	}
 	
 	public String getName() {

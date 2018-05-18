@@ -4,11 +4,16 @@ import pgo.util.SourceLocation;
 
 public class Goto extends Statement {
 	
-	String target;
+	private String target;
 	
 	public Goto(SourceLocation location, String target) {
 		super(location);
 		this.target = target;
+	}
+	
+	@Override
+	public Goto copy() {
+		return new Goto(getLocation(), target);
 	}
 	
 	public String getTarget() {

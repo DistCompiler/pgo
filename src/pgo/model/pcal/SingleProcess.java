@@ -1,16 +1,22 @@
 package pgo.model.pcal;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import pgo.util.SourceLocation;
 
 public class SingleProcess extends Processes {
 	
-	List<LabeledStatements> labeledStatements;
+	private List<LabeledStatements> labeledStatements;
 	
 	public SingleProcess(SourceLocation location, List<LabeledStatements> labeledStatements) {
 		super(location);
 		this.labeledStatements = labeledStatements;
+	}
+	
+	@Override
+	public SingleProcess copy() {
+		return new SingleProcess(getLocation(), labeledStatements.stream().map(LabeledStatements::copy).collect(Collectors.toList()));
 	}
 	
 	public List<LabeledStatements> getLabeledStatements() {

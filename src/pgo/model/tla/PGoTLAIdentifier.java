@@ -10,11 +10,16 @@ import pgo.util.SourceLocation;
  */
 public class PGoTLAIdentifier extends PGoTLANode {
 	
-	String id;
+	private String id;
 	
 	public PGoTLAIdentifier(SourceLocation location, String id) {
 		super(location);
 		this.id = id;
+	}
+	
+	@Override
+	public PGoTLAIdentifier copy() {
+		return new PGoTLAIdentifier(getLocation(), id);
 	}
 	
 	@Override

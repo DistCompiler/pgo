@@ -1,6 +1,7 @@
 package pgo.model.tla;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import pgo.util.SourceLocation;
 
@@ -22,6 +23,13 @@ public class PGoTLAOperatorCall extends PGoTLAExpression {
 		this.name = name;
 		this.args = args;
 		this.prefix = prefix;
+	}
+	
+	@Override
+	public PGoTLAOperatorCall copy() {
+		return new PGoTLAOperatorCall(getLocation(), name.copy(),
+				prefix.stream().map(PGoTLAGeneralIdentifierPart::copy).collect(Collectors.toList()),
+				args.stream().map(PGoTLAExpression::copy).collect(Collectors.toList()));
 	}
 	
 	public PGoTLAIdentifier getName() {

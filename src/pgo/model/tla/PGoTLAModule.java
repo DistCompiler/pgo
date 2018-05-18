@@ -1,6 +1,7 @@
 package pgo.model.tla;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import pgo.util.SourceLocation;
 
@@ -16,11 +17,11 @@ import pgo.util.SourceLocation;
  */
 public class PGoTLAModule extends PGoTLAUnit {
 	
-	PGoTLAIdentifier name;
-	List<PGoTLAIdentifier> exts;
-	List<PGoTLAUnit> preTranslationUnits;
-	List<PGoTLAUnit> translatedUnits;
-	List<PGoTLAUnit> postTranslationUnits;
+	private PGoTLAIdentifier name;
+	private List<PGoTLAIdentifier> exts;
+	private List<PGoTLAUnit> preTranslationUnits;
+	private List<PGoTLAUnit> translatedUnits;
+	private List<PGoTLAUnit> postTranslationUnits;
 
 	public PGoTLAModule(SourceLocation location, PGoTLAIdentifier name, List<PGoTLAIdentifier> exts,
 			List<PGoTLAUnit> preTranslationUnits, List<PGoTLAUnit> translatedUnits, List<PGoTLAUnit> postTranslationUnits) {
@@ -30,6 +31,15 @@ public class PGoTLAModule extends PGoTLAUnit {
 		this.preTranslationUnits = preTranslationUnits;
 		this.translatedUnits = translatedUnits;
 		this.postTranslationUnits = postTranslationUnits;
+	}
+	
+	@Override
+	public PGoTLAModule copy() {
+		return new PGoTLAModule(getLocation(), name.copy(),
+				exts.stream().map(PGoTLAIdentifier::copy).collect(Collectors.toList()),
+				preTranslationUnits.stream().map(PGoTLAUnit::copy).collect(Collectors.toList()),
+				translatedUnits.stream().map(PGoTLAUnit::copy).collect(Collectors.toList()),
+				postTranslationUnits.stream().map(PGoTLAUnit::copy).collect(Collectors.toList()));
 	}
 	
 	public PGoTLAIdentifier getName() {

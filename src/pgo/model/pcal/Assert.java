@@ -5,7 +5,7 @@ import pgo.util.SourceLocation;
 
 public class Assert extends Statement {
 	
-	PGoTLAExpression condition;
+	private PGoTLAExpression condition;
 	
 	public Assert(SourceLocation location, PGoTLAExpression condition) {
 		super(location);
@@ -14,6 +14,11 @@ public class Assert extends Statement {
 	
 	public PGoTLAExpression getCondition() {
 		return condition;
+	}
+	
+	@Override
+	public Assert copy() {
+		return new Assert(getLocation(), condition.copy());
 	}
 
 	@Override

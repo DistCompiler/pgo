@@ -7,6 +7,11 @@ public class Skip extends Statement {
 	public Skip(SourceLocation location) {
 		super(location);
 	}
+	
+	@Override
+	public Skip copy() {
+		return new Skip(getLocation());
+	}
 
 	@Override
 	public <T, E extends Throwable> T accept(StatementVisitor<T, E> v) throws E {

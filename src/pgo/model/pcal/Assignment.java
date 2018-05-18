@@ -5,13 +5,18 @@ import pgo.util.SourceLocation;
 
 public class Assignment extends Statement {
 	
-	PGoTLAExpression lhs;
-	PGoTLAExpression rhs;
+	private PGoTLAExpression lhs;
+	private PGoTLAExpression rhs;
 	
 	public Assignment(SourceLocation location, PGoTLAExpression lhs, PGoTLAExpression rhs) {
 		super(location);
 		this.lhs = lhs;
 		this.rhs = rhs;
+	}
+	
+	@Override
+	public Assignment copy() {
+		return new Assignment(getLocation(), lhs.copy(), rhs.copy());
 	}
 	
 	public PGoTLAExpression getLHS() {

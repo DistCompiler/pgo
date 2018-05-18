@@ -1,6 +1,7 @@
 package pgo.model.tla;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import pgo.util.SourceLocation;
 
@@ -20,6 +21,11 @@ public class PGoTLAQuantifierBound extends PGoTLANode {
 	public enum Type{
 		IDS,
 		TUPLE,
+	}
+	
+	@Override
+	public PGoTLAQuantifierBound copy() {
+		return new PGoTLAQuantifierBound(getLocation(), type, ids.stream().map(PGoTLAIdentifier::copy).collect(Collectors.toList()), set.copy());
 	}
 	
 	public Type getType() {

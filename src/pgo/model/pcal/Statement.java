@@ -8,6 +8,9 @@ public abstract class Statement extends Node {
 		super(location);
 	}
 	
+	@Override
+	public abstract Statement copy();
+	
 	public abstract <T, E extends Throwable> T accept(StatementVisitor<T, E> v) throws E;
 
 }

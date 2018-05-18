@@ -7,6 +7,11 @@ public class Return extends Statement {
 	public Return(SourceLocation location) {
 		super(location);
 	}
+	
+	@Override
+	public Return copy() {
+		return new Return(getLocation());
+	}
 
 	@Override
 	public <T, E extends Throwable> T accept(StatementVisitor<T, E> v) throws E {

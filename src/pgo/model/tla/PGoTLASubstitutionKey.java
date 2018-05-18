@@ -1,6 +1,7 @@
 package pgo.model.tla;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import pgo.util.SourceLocation;
 
@@ -18,6 +19,11 @@ public class PGoTLASubstitutionKey extends PGoTLANode {
 	public PGoTLASubstitutionKey(SourceLocation location, List<PGoTLAExpression> indices) {
 		super(location);
 		this.indices = indices;
+	}
+	
+	@Override
+	public PGoTLASubstitutionKey copy() {
+		return new PGoTLASubstitutionKey(getLocation(), indices.stream().map(PGoTLAExpression::copy).collect(Collectors.toList()));
 	}
 	
 	public List<PGoTLAExpression> getIndices(){

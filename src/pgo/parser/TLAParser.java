@@ -1590,6 +1590,7 @@ public final class TLAParser {
 		Mutator<LocatedList<PGoTLAUnit>> postTranslationUnits = new Mutator<>();
 		return sequence(
 				drop(parse4DashesOrMore()),
+				drop(parseBuiltinToken("MODULE", -1)),
 				part(name, parseIdentifier(-1)),
 				drop(parse4DashesOrMore()),
 				part(exts, parseOneOf(
@@ -1614,28 +1615,27 @@ public final class TLAParser {
 				});
 	}
 	
-	public static ParseAction<LocatedList<PGoTLAModule>> parseModules(){
-		return repeat(parseModule());
+	// external interfaces
+	
+	private static <T> T readOrExcept(ListIterator<TLAToken> iter, ParseAction<T> action) throws TLAParseException{
+		ParseContext ctx = new ParseContext(iter);
+		ParseResult<T> result = action.perform(ctx);
+		if(result.isSuccess()) {
+			return result.getSuccess();
+		}else {
+			throw new TLAParseException(result.getFailure());
+		}
 	}
 	
-	public static PGoTLAExpression readExpression(ListIterator<TLAToken> iter) {
-		ParseContext ctx = new ParseContext(iter);
-		ParseAction<PGoTLAExpression> action = parseExpression(-1);
-		ParseResult<PGoTLAExpression> result = action.perform(ctx);
-		return result.getSuccess();
+	public static PGoTLAExpression readExpression(ListIterator<TLAToken> iter) throws TLAParseException {
+		return readOrExcept(iter, parseExpression(-1));
 	}
 	
-	public static List<PGoTLAUnit> readUnits(ListIterator<TLAToken> iter){
-		ParseContext ctx = new ParseContext(iter);
-		ParseAction<LocatedList<PGoTLAUnit>> action = repeat(parseUnit());
-		ParseResult<LocatedList<PGoTLAUnit>> result = action.perform(ctx);
-		return result.getSuccess();
+	public static List<PGoTLAUnit> readUnits(ListIterator<TLAToken> iter) throws TLAParseException{
+		return readOrExcept(iter, repeat(parseUnit()));
 	}
 
-	public static List<PGoTLAModule> readModules(ListIterator<TLAToken> iter) {
-		ParseContext ctx = new ParseContext(iter);
-		ParseAction<LocatedList<PGoTLAModule>> action = repeat(parseModule());
-		ParseResult<LocatedList<PGoTLAModule>> result = action.perform(ctx);
-		return result.getSuccess();
+	public static List<PGoTLAModule> readModules(ListIterator<TLAToken> iter) throws TLAParseException {
+		return readOrExcept(iter, repeatOneOrMore(parseModule()));
 	}
 }

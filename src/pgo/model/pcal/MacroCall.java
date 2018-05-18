@@ -1,19 +1,25 @@
 package pgo.model.pcal;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import pgo.model.tla.PGoTLAExpression;
 import pgo.util.SourceLocation;
 
 public class MacroCall extends Statement {
 	
-	String target;
-	List<PGoTLAExpression> arguments;
+	private String target;
+	private List<PGoTLAExpression> arguments;
 	
 	public MacroCall(SourceLocation location, String target, List<PGoTLAExpression> arguments) {
 		super(location);
 		this.target = target;
 		this.arguments = arguments;
+	}
+	
+	@Override
+	public MacroCall copy() {
+		return new MacroCall(getLocation(), target, arguments.stream().map(PGoTLAExpression::copy).collect(Collectors.toList()));
 	}
 	
 	public String getTarget() {

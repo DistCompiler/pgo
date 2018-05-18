@@ -1,61 +1,75 @@
 package pgo.trans.intermediate;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
+import java.util.HashSet;
 import java.util.Map;
 
+import pgo.errors.IssueContext;
+import pgo.errors.TopLevelIssueContext;
 import pgo.model.pcal.Algorithm;
 import pgo.model.pcal.LabeledStatements;
 import pgo.model.pcal.Procedure;
 import pgo.model.pcal.VariableDecl;
 import pgo.model.tla.PGoTLAModule;
 import pgo.model.tla.PGoTLAUnit;
+import pgo.modules.TLAModuleLoader;
+import pgo.scope.ChainMap;
 import pgo.scope.UID;
 
 public class PGoScopingPass {
 	
 	private PGoScopingPass() {}
 	
-	TLAModuleScope findTLAModuleScope(PGoTLAModule module, Algorithm algorithm){
-		// TODO: look up extended modules
-		Map<String, UID> declarations = new HashMap<>();
-		Map<QualifiedName, UID> definitions = new HashMap<>();
-		Map<UID, UID> references = new HashMap<>();
+	public static void perform(PGoTLAModule module, Algorithm algorithm, TLAModuleLoader loader){
+		IssueContext ctx = new TopLevelIssueContext();
+		DefinitionRegistryBuilder regBuilder = new DefinitionRegistryBuilder();
+		TLAScopeBuilder tlaScope = new TLAScopeBuilder(ctx);
 		
-		List<ScopeConflict> conflicts = new ArrayList<>();
-		List<UID> danglingReferences = new ArrayList<>();
+		PGoTLAUnitScopingVisitor.scopeModule(module, ctx, tlaScope, regBuilder, loader, new HashSet<>());
 		
-		ScopeInfoBuilder scope = new ScopeInfoBuilder(declarations, definitions, conflicts, references, danglingReferences);
-		for(PGoTLAUnit unit : module.getPreTranslationUnits()) {
-			unit.accept(new PGoTLAUnitScopingVisitor(scope));
-		}
-		
-		Map<String, UID> globalVariables = new HashMap<>();
-		PlusCalScopeBuilder pcalScope = new PlusCalScopeBuilder(declarations, definitions, globalVariables, references, danglingReferences, conflicts);
+		TLAScopeBuilder pcalScope = tlaScope.makeNestedScope();
 		
 		for(VariableDecl decl : algorithm.getVariables()) {
 			pcalScope.declare(decl.getName(), decl.getUID());
 		}
-		algorithm.getProcesses().accept(new PlusCalProcessesScopingVisitor(pcalScope));
+		
+		for(PGoTLAUnit unit : algorithm.getUnits()) {
+			unit.accept(new PGoTLAUnitScopingVisitor(ctx, pcalScope, regBuilder, loader, new HashSet<>()));
+		}
+		
+		algorithm.getProcesses().accept(new PlusCalProcessesScopingVisitor(ctx, pcalScope, tlaScope));
 		
 		for(Procedure proc : algorithm.getProcedures()) {
-			PlusCalScopeBuilder procScope = pcalScope.makeNestedScope();
+			
+			pcalScope.defineGlobal(proc.getName(), proc.getUID());
+			
+			TLAScopeBuilder argScope = new TLAScopeBuilder(ctx, new ChainMap<>(tlaScope.getDeclarations()), new HashMap<>(), pcalScope.getReferences());
+			Map<String, UID> args = new ChainMap<>(tlaScope.getDeclarations());
+			
 			for(VariableDecl arg : proc.getArguments()) {
-				arg.getValue().accept(new PGoTLAExpressionScopingVisitor(scope));
-				procScope.declare(arg.getName(), arg.getUID());
+				arg.getValue().accept(new PGoTLAExpressionScopingVisitor(tlaScope));
+				if(argScope.declare(arg.getName(), arg.getUID())) {
+					args.put(arg.getName(), arg.getUID());
+				}
 			}
-			for(VariableDecl arg : proc.getVariables()) {
+			// TODO: wait those aren't in the spec...
+			/*for(VariableDecl arg : proc.getVariables()) {
 				if(arg.getValue() != null) {
-					arg.getValue().accept(new PGoTLAExpressionScopingVisitor(scope));
+					arg.getValue().accept(new PGoTLAExpressionScopingVisitor(tlaScope));
 				}
 				procScope.declare(arg.getName(), arg.getUID());
-			}
+			}*/
+			
+			TLAScopeBuilder procScope = new TLAScopeBuilder(ctx, args, new ChainMap<>(pcalScope.getDefinitions()), pcalScope.getReferences());
+			
 			for(LabeledStatements stmts : proc.getBody()) {
-				stmts.accept(new PlusCalStatementScopingVisitor(procScope));
+				stmts.accept(new PlusCalStatementLabelCaptureVisitor(ctx, procScope));
+			}
+			
+			for(LabeledStatements stmts : proc.getBody()) {
+				stmts.accept(new PlusCalStatementScopingVisitor(ctx, procScope));
 			}
 		}
-		return null;
 	}
 
 }

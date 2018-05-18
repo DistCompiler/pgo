@@ -1,18 +1,24 @@
 package pgo.model.pcal;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import pgo.util.SourceLocation;
 
 public class With extends Statement {
 	
-	VariableDecl variable;
-	List<Statement> body;
+	private VariableDecl variable;
+	private List<Statement> body;
 	
 	public With(SourceLocation location, VariableDecl variable, List<Statement> body) {
 		super(location);
 		this.variable = variable;
 		this.body = body;
+	}
+	
+	@Override
+	public With copy() {
+		return new With(getLocation(), variable.copy(), body.stream().map(Statement::copy).collect(Collectors.toList()));
 	}
 	
 	public VariableDecl getVariable() {

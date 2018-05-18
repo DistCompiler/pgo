@@ -19,6 +19,11 @@ public class PGoTLAMaybeAction extends PGoTLAExpression {
 		this.body = body;
 		this.vars = vars;
 	}
+	
+	@Override
+	public PGoTLAMaybeAction copy() {
+		return new PGoTLAMaybeAction(getLocation(), body.copy(), vars.copy());
+	}
 
 	@Override
 	public <T, E extends Throwable> T accept(PGoTLAExpressionVisitor<T, E> v) throws E {

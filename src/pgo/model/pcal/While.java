@@ -1,18 +1,24 @@
 package pgo.model.pcal;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import pgo.model.tla.PGoTLAExpression;
 import pgo.util.SourceLocation;
 
 public class While extends Statement {
-	PGoTLAExpression condition;
-	List<Statement> body;
+	private PGoTLAExpression condition;
+	private List<Statement> body;
 	
 	public While(SourceLocation location, PGoTLAExpression condition, List<Statement> body) {
 		super(location);
 		this.condition = condition;
 		this.body = body;
+	}
+	
+	@Override
+	public While copy() {
+		return new While(getLocation(), condition.copy(), body.stream().map(Statement::copy).collect(Collectors.toList()));
 	}
 	
 	public PGoTLAExpression getCondition() {

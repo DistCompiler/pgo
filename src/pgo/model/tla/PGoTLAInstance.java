@@ -1,6 +1,7 @@
 package pgo.model.tla;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import pgo.util.SourceLocation;
 
@@ -12,8 +13,8 @@ import pgo.util.SourceLocation;
  *
  */
 public class PGoTLAInstance extends PGoTLAUnit {
-	PGoTLAIdentifier moduleName;
-	List<Remapping> remappings;
+	private PGoTLAIdentifier moduleName;
+	private List<Remapping> remappings;
 	private boolean local;
 	
 	public PGoTLAInstance(SourceLocation location, PGoTLAIdentifier moduleName, List<Remapping> remappings, boolean isLocal) {
@@ -21,6 +22,11 @@ public class PGoTLAInstance extends PGoTLAUnit {
 		this.moduleName = moduleName;
 		this.remappings = remappings;
 		this.local = isLocal;
+	}
+	
+	@Override
+	public PGoTLAInstance copy() {
+		return new PGoTLAInstance(getLocation(), moduleName.copy(), remappings.stream().map(Remapping::copy).collect(Collectors.toList()), local);
 	}
 	
 	public static class Remapping extends PGoTLANode{
@@ -36,6 +42,10 @@ public class PGoTLAInstance extends PGoTLAUnit {
 		}
 		public PGoTLAExpression getTo() {
 			return to;
+		}
+		@Override
+		public Remapping copy() {
+			return new Remapping(getLocation(), from.copy(), to.copy());
 		}
 		@Override
 		public <T, E extends Throwable> T accept(PGoTLANodeVisitor<T, E> v) throws E {

@@ -1,6 +1,7 @@
 package pgo.model.tla;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import pgo.util.SourceLocation;
 
@@ -17,6 +18,11 @@ public class PGoTLAGeneralIdentifier extends PGoTLAExpression {
 		super(location);
 		this.name = name;
 		this.prefix = prefix;
+	}
+	
+	@Override
+	public PGoTLAGeneralIdentifier copy() {
+		return new PGoTLAGeneralIdentifier(getLocation(), name.copy(), prefix.stream().map(PGoTLAGeneralIdentifierPart::copy).collect(Collectors.toList()));
 	}
 
 	public PGoTLAIdentifier getName() {

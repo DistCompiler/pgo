@@ -1,14 +1,15 @@
 package pgo.model.pcal;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import pgo.util.SourceLocation;
 
 public class PcalProcess extends Node {
-	VariableDecl name;
-	Fairness fairness;
-	List<VariableDecl> variables;
-	List<LabeledStatements> labeledStatements;
+	private VariableDecl name;
+	private Fairness fairness;
+	private List<VariableDecl> variables;
+	private List<LabeledStatements> labeledStatements;
 	
 	public PcalProcess(SourceLocation location, VariableDecl name, Fairness fairness, List<VariableDecl> variables, List<LabeledStatements> labeledStatements) {
 		super(location);
@@ -16,6 +17,13 @@ public class PcalProcess extends Node {
 		this.fairness = fairness;
 		this.variables = variables;
 		this.labeledStatements = labeledStatements;
+	}
+	
+	@Override
+	public PcalProcess copy() {
+		return new PcalProcess(getLocation(), name.copy(), fairness,
+				variables.stream().map(VariableDecl::copy).collect(Collectors.toList()),
+				labeledStatements.stream().map(LabeledStatements::copy).collect(Collectors.toList()));
 	}
 
 	public VariableDecl getName() {

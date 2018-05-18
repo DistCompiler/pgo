@@ -1,6 +1,7 @@
 package pgo.model.tla;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import pgo.util.SourceLocation;
 
@@ -23,6 +24,11 @@ public class PGoTLAOperatorDefinition extends PGoTLAUnit {
 		this.args = args;
 		this.body = body;
 		this.local = isLocal;
+	}
+	
+	@Override
+	public PGoTLAOperatorDefinition copy() {
+		return new PGoTLAOperatorDefinition(getLocation(), name.copy(), args.stream().map(PGoTLAOpDecl::copy).collect(Collectors.toList()), body.copy(), local);
 	}
 	
 	@Override

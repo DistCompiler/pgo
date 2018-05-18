@@ -2,6 +2,7 @@ package pgo.model.tla;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import pgo.util.SourceLocation;
@@ -158,6 +159,10 @@ public class Builder {
 	
 	public static PGoTLAOperatorDefinition opdef(boolean isLocal, PGoTLAIdentifier id, List<PGoTLAOpDecl> args, PGoTLAExpression body) {
 		return new PGoTLAOperatorDefinition(SourceLocation.unknown(), id, args, body, isLocal);
+	}
+	
+	public static PGoTLABinOp binop(String op, PGoTLAExpression lhs, PGoTLAExpression rhs) {
+		return new PGoTLABinOp(SourceLocation.unknown(), op, Collections.emptyList(), lhs, rhs);
 	}
 
 }

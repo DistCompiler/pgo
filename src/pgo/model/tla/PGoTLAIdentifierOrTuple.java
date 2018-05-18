@@ -2,6 +2,7 @@ package pgo.model.tla;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import pgo.util.SourceLocation;
 
@@ -18,13 +19,18 @@ import pgo.util.SourceLocation;
  */
 public class PGoTLAIdentifierOrTuple extends PGoTLANode {
 	
-	List<PGoTLAIdentifier> ids;
-	boolean tuple;
+	private List<PGoTLAIdentifier> ids;
+	private boolean tuple;
 	
 	private PGoTLAIdentifierOrTuple(SourceLocation location, List<PGoTLAIdentifier> ids, boolean isTuple) {
 		super(location);
 		this.ids = ids;
 		this.tuple = isTuple;
+	}
+	
+	@Override
+	public PGoTLAIdentifierOrTuple copy() {
+		return new PGoTLAIdentifierOrTuple(getLocation(), ids.stream().map(PGoTLAIdentifier::copy).collect(Collectors.toList()), tuple);
 	}
 	
 	@Override

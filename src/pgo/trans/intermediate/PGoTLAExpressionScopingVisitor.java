@@ -37,9 +37,9 @@ import pgo.model.tla.PGoTLAUniversal;
 
 public class PGoTLAExpressionScopingVisitor extends PGoTLAExpressionVisitor<Void, RuntimeException> {
 
-	TLAScopeBuilderInterface builder;
+	TLAScopeBuilder builder;
 
-	public PGoTLAExpressionScopingVisitor(TLAScopeBuilderInterface builder) {
+	public PGoTLAExpressionScopingVisitor(TLAScopeBuilder builder) {
 		this.builder = builder;
 	}
 
@@ -80,7 +80,7 @@ public class PGoTLAExpressionScopingVisitor extends PGoTLAExpressionVisitor<Void
 
 	@Override
 	public Void visit(PGoTLAExistential pGoTLAExistential) throws RuntimeException {
-		TLAScopeBuilderInterface nested = builder.makeNestedScope();
+		TLAScopeBuilder nested = builder.makeNestedScope();
 		for(PGoTLAIdentifier id : pGoTLAExistential.getIds()) {
 			nested.defineLocal(id.getId(), id.getUID());
 		}
@@ -90,7 +90,7 @@ public class PGoTLAExpressionScopingVisitor extends PGoTLAExpressionVisitor<Void
 
 	@Override
 	public Void visit(PGoTLAFunction pGoTLAFunction) throws RuntimeException {
-		TLAScopeBuilderInterface argScope = builder.makeNestedScope();
+		TLAScopeBuilder argScope = builder.makeNestedScope();
 		for(PGoTLAQuantifierBound qb : pGoTLAFunction.getArguments()) {
 			for(PGoTLAIdentifier id : qb.getIds()) {
 				argScope.defineLocal(id.getId(), id.getUID());
@@ -127,7 +127,7 @@ public class PGoTLAExpressionScopingVisitor extends PGoTLAExpressionVisitor<Void
 
 	@Override
 	public Void visit(PGoTLALet pGoTLALet) throws RuntimeException {
-		TLAScopeBuilderInterface nested = builder.makeNestedScope();
+		TLAScopeBuilder nested = builder.makeNestedScope();
 		for(PGoTLAUnit unit : pGoTLALet.getDefinitions()) {
 			// TODO: fix this part
 			//unit.accept(new PGoTLAUnitScopingVisitor(nested));
@@ -174,7 +174,7 @@ public class PGoTLAExpressionScopingVisitor extends PGoTLAExpressionVisitor<Void
 
 	@Override
 	public Void visit(PGoTLAQuantifiedExistential pGoTLAQuantifiedExistential) throws RuntimeException {
-		TLAScopeBuilderInterface nested = builder.makeNestedScope();
+		TLAScopeBuilder nested = builder.makeNestedScope();
 		for(PGoTLAQuantifierBound qb : pGoTLAQuantifiedExistential.getIds()) {
 			for(PGoTLAIdentifier id : qb.getIds()) {
 				nested.defineLocal(id.getId(), id.getUID());
@@ -187,7 +187,7 @@ public class PGoTLAExpressionScopingVisitor extends PGoTLAExpressionVisitor<Void
 
 	@Override
 	public Void visit(PGoTLAQuantifiedUniversal pGoTLAQuantifiedUniversal) throws RuntimeException {
-		TLAScopeBuilderInterface nested = builder.makeNestedScope();
+		TLAScopeBuilder nested = builder.makeNestedScope();
 		for(PGoTLAQuantifierBound qb : pGoTLAQuantifiedUniversal.getIds()) {
 			for(PGoTLAIdentifier id : qb.getIds()) {
 				nested.defineLocal(id.getId(), id.getUID());
@@ -231,7 +231,7 @@ public class PGoTLAExpressionScopingVisitor extends PGoTLAExpressionVisitor<Void
 
 	@Override
 	public Void visit(PGoTLASetComprehension pGoTLASetComprehension) throws RuntimeException {
-		TLAScopeBuilderInterface nested = builder.makeNestedScope();
+		TLAScopeBuilder nested = builder.makeNestedScope();
 		for(PGoTLAQuantifierBound qb : pGoTLASetComprehension.getBounds()) {
 			for(PGoTLAIdentifier id : qb.getIds()) {
 				nested.defineLocal(id.getId(), id.getUID());
@@ -245,7 +245,7 @@ public class PGoTLAExpressionScopingVisitor extends PGoTLAExpressionVisitor<Void
 	@Override
 	public Void visit(PGoTLASetRefinement pGoTLASetRefinement) throws RuntimeException {
 		pGoTLASetRefinement.getFrom().accept(this);
-		TLAScopeBuilderInterface nested = builder.makeNestedScope();
+		TLAScopeBuilder nested = builder.makeNestedScope();
 		PGoTLAIdentifierOrTuple ident = pGoTLASetRefinement.getIdent();
 		if(ident.isTuple()) {
 			for(PGoTLAIdentifier id : ident.getTuple()) {
@@ -273,7 +273,7 @@ public class PGoTLAExpressionScopingVisitor extends PGoTLAExpressionVisitor<Void
 
 	@Override
 	public Void visit(PGoTLAUniversal pGoTLAUniversal) throws RuntimeException {
-		TLAScopeBuilderInterface nested = builder.makeNestedScope();
+		TLAScopeBuilder nested = builder.makeNestedScope();
 		for(PGoTLAIdentifier id : pGoTLAUniversal.getIds()) {
 			nested.defineLocal(id.getId(), id.getUID());
 		}

@@ -1,6 +1,7 @@
 package pgo.model.tla;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import pgo.util.SourceLocation;
 
@@ -20,6 +21,11 @@ public class PGoTLARecordConstructor extends PGoTLAExpression {
 		this.fields = fields;
 	}
 	
+	@Override
+	public PGoTLARecordConstructor copy() {
+		return new PGoTLARecordConstructor(getLocation(), fields.stream().map(Field::copy).collect(Collectors.toList()));
+	}
+	
 	public static class Field extends PGoTLANode {
 		PGoTLAIdentifier name;
 		PGoTLAExpression value;
@@ -27,6 +33,10 @@ public class PGoTLARecordConstructor extends PGoTLAExpression {
 			super(location);
 			this.name = name;
 			this.value = value;
+		}
+		@Override
+		public Field copy() {
+			return new Field(getLocation(), name.copy(), value.copy());
 		}
 		public PGoTLAIdentifier getName() {
 			return name;

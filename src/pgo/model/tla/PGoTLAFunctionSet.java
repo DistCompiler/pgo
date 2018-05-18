@@ -23,6 +23,11 @@ public class PGoTLAFunctionSet extends PGoTLAExpression {
 		this.to = to;
 	}
 	
+	@Override
+	public PGoTLAFunctionSet copy() {
+		return new PGoTLAFunctionSet(getLocation(), from.copy(), to.copy());
+	}
+	
 	public PGoTLAExpression getFrom() {
 		return from;
 	}

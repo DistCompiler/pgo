@@ -5,11 +5,16 @@ import pgo.util.SourceLocation;
 
 public class Print extends Statement {
 	
-	PGoTLAExpression value;
+	private PGoTLAExpression value;
 	
 	public Print(SourceLocation location, PGoTLAExpression value) {
 		super(location);
 		this.value = value;
+	}
+	
+	@Override
+	public Print copy() {
+		return new Print(getLocation(), value.copy());
 	}
 	
 	public PGoTLAExpression getValue() {

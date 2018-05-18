@@ -6,22 +6,27 @@ import pgo.util.SourceLocation;
 public class VariableDecl extends Node {
 	
 	String name;
-	boolean isSet;
+	boolean set;
 	PGoTLAExpression value;
 	
 	public VariableDecl(SourceLocation location, String name, boolean isSet, PGoTLAExpression value) {
 		super(location);
 		this.name = name;
-		this.isSet = isSet;
+		this.set = isSet;
 		this.value = value;
+	}
+	
+	@Override
+	public VariableDecl copy() {
+		return new VariableDecl(getLocation(), name, set, value.copy());
 	}
 	
 	public String getName() {
 		return name;
 	}
 	
-	public boolean getIsSet() {
-		return isSet;
+	public boolean isSet() {
+		return set;
 	}
 	
 	public PGoTLAExpression getValue(){
@@ -32,7 +37,7 @@ public class VariableDecl extends Node {
 	public int hashCode() {
 		final int prime = 31;
 		int result = 1;
-		result = prime * result + (isSet ? 1231 : 1237);
+		result = prime * result + (set ? 1231 : 1237);
 		result = prime * result + ((name == null) ? 0 : name.hashCode());
 		result = prime * result + ((value == null) ? 0 : value.hashCode());
 		return result;
@@ -47,7 +52,7 @@ public class VariableDecl extends Node {
 		if (getClass() != obj.getClass())
 			return false;
 		VariableDecl other = (VariableDecl) obj;
-		if (isSet != other.isSet)
+		if (set != other.set)
 			return false;
 		if (name == null) {
 			if (other.name != null)

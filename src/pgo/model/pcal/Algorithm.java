@@ -1,20 +1,21 @@
 package pgo.model.pcal;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import pgo.model.tla.PGoTLAUnit;
 import pgo.util.SourceLocation;
 
 public class Algorithm extends Node {
 	
-	String name;
+	private String name;
 	
-	List<VariableDecl> variables;
-	List<Macro> macros;
-	List<Procedure> procedures;
-	List<PGoTLAUnit> units;
+	private List<VariableDecl> variables;
+	private List<Macro> macros;
+	private List<Procedure> procedures;
+	private List<PGoTLAUnit> units;
 	
-	Processes processes;
+	private Processes processes;
 	
 	public Algorithm(SourceLocation location, String name, List<VariableDecl> variables, List<Macro> macros,
 			List<Procedure> procedures, List<PGoTLAUnit> units, Processes processes) {
@@ -25,6 +26,18 @@ public class Algorithm extends Node {
 		this.procedures = procedures;
 		this.units = units;
 		this.processes = processes;
+	}
+	
+	@Override
+	public Algorithm copy() {
+		return new Algorithm(
+				getLocation(),
+				name,
+				variables.stream().map(VariableDecl::copy).collect(Collectors.toList()),
+				macros.stream().map(Macro::copy).collect(Collectors.toList()),
+				procedures.stream().map(Procedure::copy).collect(Collectors.toList()),
+				units.stream().map(PGoTLAUnit::copy).collect(Collectors.toList()),
+				processes.copy());
 	}
 
 	public String getName() {

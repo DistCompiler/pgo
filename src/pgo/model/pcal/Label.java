@@ -18,6 +18,11 @@ public class Label extends Node {
 		this.modifier = modifier;
 	}
 	
+	@Override
+	public Label copy() {
+		return new Label(getLocation(), name, modifier);
+	}
+	
 	public String getName() {
 		return name;
 	}

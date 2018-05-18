@@ -1,6 +1,7 @@
 package pgo.model.tla;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import pgo.util.SourceLocation;
 
@@ -19,6 +20,11 @@ public class PGoTLAUnary extends PGoTLAExpression {
 		this.operation = operation;
 		this.prefix = prefix;
 		this.operand = operand;
+	}
+	
+	@Override
+	public PGoTLAUnary copy() {
+		return new PGoTLAUnary(getLocation(), operation, prefix.stream().map(PGoTLAGeneralIdentifierPart::copy).collect(Collectors.toList()), operand.copy());
 	}
 
 	public String getOperation() {

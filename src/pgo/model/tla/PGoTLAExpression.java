@@ -13,6 +13,9 @@ public abstract class PGoTLAExpression extends PGoTLANode {
 	}
 	
 	@Override
+	public abstract PGoTLAExpression copy();
+	
+	@Override
 	public <T, E extends Throwable> T accept(PGoTLANodeVisitor<T, E> v) throws E {
 		return v.visit(this);
 	}

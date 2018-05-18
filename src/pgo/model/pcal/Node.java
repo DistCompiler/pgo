@@ -6,14 +6,16 @@ import pgo.util.SourceLocation;
 
 public abstract class Node extends SourceLocatable {
 	
-	SourceLocation location;
-	UID uid;
+	private SourceLocation location;
+	private UID uid;
 	
 	public Node(SourceLocation location) {
 		this.location = location;
 		this.uid = new UID();
 		this.uid.addOrigin(this);
 	}
+	
+	public abstract Node copy();
 
 	@Override
 	public SourceLocation getLocation() {

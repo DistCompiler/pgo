@@ -23,6 +23,11 @@ public class PGoTLASetRefinement extends PGoTLAExpression {
 		this.when = when;
 	}
 	
+	@Override
+	public PGoTLASetRefinement copy() {
+		return new PGoTLASetRefinement(getLocation(), ident.copy(), from.copy(), when.copy());
+	}
+	
 	public PGoTLAIdentifierOrTuple getIdent() {
 		return ident;
 	}

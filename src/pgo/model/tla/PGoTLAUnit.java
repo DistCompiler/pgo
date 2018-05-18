@@ -13,6 +13,9 @@ public abstract class PGoTLAUnit extends PGoTLANode {
 		return v.visit(this);
 	}
 	
+	@Override
+	public abstract PGoTLAUnit copy();
+	
 	public abstract <T, E extends Throwable> T accept(PGoTLAUnitVisitor<T, E> v) throws E;
 
 }

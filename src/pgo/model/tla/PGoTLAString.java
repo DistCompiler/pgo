@@ -14,6 +14,11 @@ public class PGoTLAString extends PGoTLAExpression {
 		super(location);
 		this.value = value;
 	}
+	
+	@Override
+	public PGoTLAString copy() {
+		return new PGoTLAString(getLocation(), value);
+	}
 
 	public String getValue() {
 		return value;

@@ -19,6 +19,11 @@ public class PGoTLARequiredAction extends PGoTLAExpression {
 		this.body = body;
 		this.vars = vars;
 	}
+	
+	@Override
+	public PGoTLARequiredAction copy() {
+		return new PGoTLARequiredAction(getLocation(), body.copy(), vars.copy());
+	}
 
 	@Override
 	public <T, E extends Throwable> T accept(PGoTLAExpressionVisitor<T, E> v) throws E {

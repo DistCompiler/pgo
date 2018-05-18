@@ -1,5 +1,8 @@
 package pgo.trans.intermediate;
 
+import java.util.List;
+
+import pgo.errors.IssueContext;
 import pgo.model.pcal.Assert;
 import pgo.model.pcal.Assignment;
 import pgo.model.pcal.Await;
@@ -12,99 +15,123 @@ import pgo.model.pcal.MacroCall;
 import pgo.model.pcal.Print;
 import pgo.model.pcal.Return;
 import pgo.model.pcal.Skip;
+import pgo.model.pcal.Statement;
 import pgo.model.pcal.StatementVisitor;
 import pgo.model.pcal.While;
 import pgo.model.pcal.With;
+import pgo.model.tla.PGoTLAExpression;
 
 public class PlusCalStatementScopingVisitor extends StatementVisitor<Void, RuntimeException> {
 	
-	PlusCalScopeBuilder builder;
+	IssueContext ctx;
+	TLAScopeBuilder builder;
 	
-	public PlusCalStatementScopingVisitor(PlusCalScopeBuilder builder) {
+	public PlusCalStatementScopingVisitor(IssueContext ctx, TLAScopeBuilder builder) {
+		this.ctx = ctx;
 		this.builder = builder;
 	}
 
 	@Override
 	public Void visit(LabeledStatements labeledStatements) throws RuntimeException {
-		// TODO Auto-generated method stub
+		for(Statement stmt : labeledStatements.getStatements()) {
+			stmt.accept(this);
+		}
 		return null;
 	}
 
 	@Override
 	public Void visit(While while1) throws RuntimeException {
-		// TODO Auto-generated method stub
+		while1.getCondition().accept(new PGoTLAExpressionScopingVisitor(builder));
+		for(Statement stmt : while1.getBody()) {
+			stmt.accept(this);
+		}
 		return null;
 	}
 
 	@Override
 	public Void visit(If if1) throws RuntimeException {
-		// TODO Auto-generated method stub
+		if1.getCondition().accept(new PGoTLAExpressionScopingVisitor(builder));
+		for(Statement stmt : if1.getYes()) {
+			stmt.accept(this);
+		}
+		for(Statement stmt : if1.getNo()) {
+			stmt.accept(this);
+		}
 		return null;
 	}
 
 	@Override
 	public Void visit(Either either) throws RuntimeException {
-		// TODO Auto-generated method stub
+		for(List<Statement> list : either.getCases()) {
+			for(Statement stmt : list) {
+				stmt.accept(this);
+			}
+		}
 		return null;
 	}
 
 	@Override
 	public Void visit(Assignment assignment) throws RuntimeException {
-		// TODO Auto-generated method stub
+		assignment.getLHS().accept(new PGoTLAExpressionScopingVisitor(builder));
+		assignment.getLHS().accept(new PGoTLAExpressionScopingVisitor(builder));
 		return null;
 	}
 
 	@Override
 	public Void visit(Return return1) throws RuntimeException {
-		// TODO Auto-generated method stub
 		return null;
 	}
 
 	@Override
 	public Void visit(Skip skip) throws RuntimeException {
-		// TODO Auto-generated method stub
 		return null;
 	}
 
 	@Override
 	public Void visit(Call call) throws RuntimeException {
-		// TODO Auto-generated method stub
+		for(PGoTLAExpression expr : call.getArguments()) {
+			expr.accept(new PGoTLAExpressionScopingVisitor(builder));
+		}
 		return null;
 	}
 
 	@Override
 	public Void visit(MacroCall macroCall) throws RuntimeException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new RuntimeException("unreachable");
 	}
 
 	@Override
 	public Void visit(With with) throws RuntimeException {
-		// TODO Auto-generated method stub
+		with.getVariable().getValue().accept(new PGoTLAExpressionScopingVisitor(builder));
+		TLAScopeBuilder nested = builder.makeNestedScope();
+		nested.defineLocal(with.getVariable().getName(), with.getVariable().getUID());
+		for(Statement stmt : with.getBody()) {
+			stmt.accept(new PlusCalStatementScopingVisitor(ctx, nested));
+		}
 		return null;
 	}
 
 	@Override
 	public Void visit(Print print) throws RuntimeException {
-		// TODO Auto-generated method stub
+		print.getValue().accept(new PGoTLAExpressionScopingVisitor(builder));
 		return null;
 	}
 
 	@Override
 	public Void visit(Assert assert1) throws RuntimeException {
-		// TODO Auto-generated method stub
+		assert1.getCondition().accept(new PGoTLAExpressionScopingVisitor(builder));
 		return null;
 	}
 
 	@Override
 	public Void visit(Await await) throws RuntimeException {
-		// TODO Auto-generated method stub
+		await.getCondition().accept(new PGoTLAExpressionScopingVisitor(builder));
 		return null;
 	}
 
 	@Override
 	public Void visit(Goto goto1) throws RuntimeException {
-		// TODO Auto-generated method stub
+		builder.reference(goto1.getTarget(), goto1.getUID());
 		return null;
 	}
 

@@ -93,7 +93,7 @@ public class TLAExpressionParseTest {
 	static Path testFile = Paths.get("TEST");
 
 	@Test
-	public void test() throws PGoTLAParseException, PGoTLALexerException {
+	public void test() throws PGoTLALexerException, TLAParseException {
 		TLALexer lexer = new TLALexer(testFile, Arrays.asList(exprString.split("\n")));
 		// don't ignore the expression because it's not in a module
 		lexer.requireModule(false);

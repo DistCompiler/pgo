@@ -1,16 +1,22 @@
 package pgo.model.pcal;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import pgo.util.SourceLocation;
 
 public class MultiProcess extends Processes {
 	
-	List<PcalProcess> processes;
+	private List<PcalProcess> processes;
 	
 	public MultiProcess(SourceLocation location, List<PcalProcess> processes) {
 		super(location);
 		this.processes = processes;
+	}
+	
+	@Override
+	public MultiProcess copy() {
+		return new MultiProcess(getLocation(), processes.stream().map(PcalProcess::copy).collect(Collectors.toList()));
 	}
 	
 	public List<PcalProcess> getProcesses(){

@@ -1,6 +1,7 @@
 package pgo.model.tla;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import pgo.util.SourceLocation;
 
@@ -13,6 +14,11 @@ public class PGoTLAFunctionSubstitutionPair extends PGoTLANode {
 		super(location);
 		this.keys = keys;
 		this.value = value;
+	}
+	
+	@Override
+	public PGoTLAFunctionSubstitutionPair copy() {
+		return new PGoTLAFunctionSubstitutionPair(getLocation(), keys.stream().map(PGoTLASubstitutionKey::copy).collect(Collectors.toList()), value.copy());
 	}
 	
 	@Override

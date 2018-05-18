@@ -1,6 +1,7 @@
 package pgo.model.tla;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import pgo.util.SourceLocation;
 
@@ -11,6 +12,11 @@ public class PGoTLAVariableDeclaration extends PGoTLAUnit {
 	public PGoTLAVariableDeclaration(SourceLocation location, List<PGoTLAIdentifier> variables) {
 		super(location);
 		this.variables = variables;
+	}
+	
+	@Override
+	public PGoTLAVariableDeclaration copy() {
+		return new PGoTLAVariableDeclaration(getLocation(), variables.stream().map(PGoTLAIdentifier::copy).collect(Collectors.toList()));
 	}
 
 	public List<PGoTLAIdentifier> getVariables() {
