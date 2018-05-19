@@ -7,17 +7,17 @@ CONSTANT procs, iters
 (*
 
 --algorithm Alternating {
-  (** @PGo{ var procs int }@PGo
-      @PGo{ var iters int }@PGo
+  (** @PGo{ arg procs int }@PGo
+      @PGo{ arg iters int }@PGo
    **)
   variables counter = 0,
-            token = -1;
+            token = 0;
 
-  fair process (P \in {0,1})
+  fair process (P \in 1..procs)
   variables i = 0;
   {
       w: while (i < iters) {
-          inc: await token = -1 \/ token = self;
+          inc: await token = 0 \/ token = self;
                counter := counter + 1;
                token := (self + 1) % procs;
                i := i + 1;
