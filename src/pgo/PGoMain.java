@@ -51,7 +51,7 @@ public class PGoMain {
 
 	// Top-level workhorse method.
 	public void run() {
-		PcalParser parser = new PcalParser(opts.infile);
+		PcalParser parser = new PcalParser(opts.inputFilePath);
 
 		/*********************************************************************
 		 * For -writeAST option, just write the file AST.tla and halt. *
