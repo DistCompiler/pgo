@@ -16,8 +16,8 @@ public class NestedIssueContext extends IssueContext {
 	}
 
 	@Override
-	public boolean hasIssues() {
-		return parent.hasIssues();
+	public boolean hasErrors() {
+		return parent.hasErrors();
 	}
 
 }

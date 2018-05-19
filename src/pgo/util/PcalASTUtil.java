@@ -1,15 +1,9 @@
 package pgo.util;
 
-import java.util.HashSet;
-import java.util.Set;
-import java.util.Vector;
-
 import pcal.AST;
 import pcal.AST.*;
 import pcal.AST.Process;
 import pgo.PGoException;
-import pgo.model.pcal.Algorithm;
-import pgo.trans.PGoTransException;
 
 /**
  * Utils package for PlusCal AST traversal and manipulation
@@ -131,115 +125,5 @@ public class PcalASTUtil {
 		public abstract T visit(MacroCall m) throws PGoException;
 
 	}
-	
-	public static Algorithm convertTLCASTtoPGoAST(AST a) throws PGoException {
-		TLCToPGoPCalASTConversionVisitor v = new TLCToPGoPCalASTConversionVisitor();
-		accept(a, v);
-		if(v.getResult() == null) {
-			throw new RuntimeException("Error converting TLC PlusCal AST, no process block found?");
-		}
-		return v.getResult();
-	}
 
-	/**
-	 * Determines whether the given body of code contains an assignment
-	 * operation to the variable of name
-	 * 
-	 * @param body
-	 * @param name
-	 * @return
-	 */
-	public static boolean containsAssignmentToVar(Vector<AST> body, String name) {
-		Walker<Boolean> av = new Walker<Boolean>() {
-
-			@Override
-			protected void init() {
-				result = false;
-			}
-
-			@Override
-			public void visit(Lhs lhs) {
-				if (lhs.var.equals(name)) {
-					result = true;
-					earlyTerm = true;
-				}
-			}
-
-		};
-
-		try {
-			return av.getResult(body);
-		} catch (PGoTransException e) {
-			assert (false); // shouldn't throw
-		}
-		return false;
-	}
-
-	/**
-	 * Finds all the function calls (procedure and macro calls) made in body of
-	 * code
-	 * 
-	 * @param newBodies
-	 * @return
-	 */
-	public static Vector<String> collectFunctionCalls(Vector<AST> body) {
-		Walker<Vector<String>> av = new Walker<Vector<String>>() {
-
-			@Override
-			protected void init() {
-				result = new Vector<String>();
-			}
-
-			@Override
-			public void visit(Call call) {
-				result.add(call.to);
-			}
-
-			@Override
-			public void visit(CallReturn call) {
-				result.add(call.to);
-			}
-
-			@Override
-			public void visit(MacroCall mc) {
-				// TODO pluscal actually already expanded the macro. we need to
-				// handle it before this is useful. Right now, this will never
-				// be reached as MacroCalls are replaced with the actual code
-				result.add(mc.name);
-			}
-		};
-
-		try {
-			return av.getResult(body);
-		} catch (PGoTransException e) {
-			assert (false);
-		}
-		return null;
-	}
-
-	/**
-	 * Finds all the labels that are used in goto statements.
-	 */
-	public static Set<String> collectUsedLabels(Vector<AST> body) {
-		Walker<Set<String>> av = new Walker<Set<String>>() {
-
-			@Override
-			protected void init() {
-				result = new HashSet<>();
-			}
-
-			@Override
-			protected void visit(Goto g) {
-				result.add(g.to);
-			}
-
-		};
-
-		try {
-			return av.getResult(body);
-		} catch (PGoTransException e) {
-			assert false;
-		}
-		return null;
-	}
 }

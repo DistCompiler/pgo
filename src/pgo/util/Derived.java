@@ -30,4 +30,6 @@ public abstract class Derived implements Origin {
 		return v.visit(this);
 	}
 	
+	public abstract <T, E extends Throwable> T accept(DerivedVisitor<T, E> v) throws E;
+	
 }

@@ -5,7 +5,6 @@ import java.util.HashSet;
 import java.util.Map;
 
 import pgo.errors.IssueContext;
-import pgo.errors.TopLevelIssueContext;
 import pgo.model.pcal.Algorithm;
 import pgo.model.pcal.LabeledStatements;
 import pgo.model.pcal.Procedure;
@@ -20,8 +19,7 @@ public class PGoScopingPass {
 	
 	private PGoScopingPass() {}
 	
-	public static void perform(PGoTLAModule module, Algorithm algorithm, TLAModuleLoader loader){
-		IssueContext ctx = new TopLevelIssueContext();
+	public static void perform(IssueContext ctx, PGoTLAModule module, Algorithm algorithm, TLAModuleLoader loader){
 		DefinitionRegistryBuilder regBuilder = new DefinitionRegistryBuilder();
 		TLAScopeBuilder tlaScope = new TLAScopeBuilder(ctx);
 		

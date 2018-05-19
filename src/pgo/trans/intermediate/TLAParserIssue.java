@@ -6,13 +6,13 @@ import pgo.parser.ParseFailure;
 
 public class TLAParserIssue extends Issue {
 
-	ParseFailure error;
+	private ParseFailure error;
 	
 	public TLAParserIssue(ParseFailure error) {
 		this.error = error;
 	}
 	
-	ParseFailure getError() {
+	public ParseFailure getError() {
 		return error;
 	}
 	

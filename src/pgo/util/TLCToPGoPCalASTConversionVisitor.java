@@ -9,6 +9,7 @@ import java.util.Vector;
 import pcal.AST;
 import pcal.TLAExpr;
 import pgo.PGoException;
+import pgo.errors.IssueContext;
 import pgo.lexer.TLAToken;
 import pgo.lexer.TLATokenType;
 import pgo.model.pcal.Algorithm;
@@ -38,16 +39,22 @@ import pgo.model.pcal.While;
 import pgo.model.pcal.With;
 import pgo.model.tla.PGoTLAExpression;
 import pgo.model.tla.PGoTLAUnit;
-import pgo.parser.PGoTLAParseException;
+import pgo.parser.TLAParseException;
 import pgo.parser.TLAParser;
 import pgo.trans.PGoTransException;
+import pgo.trans.intermediate.TLAParserIssue;
 import tla2sany.st.Location;
 
 public class TLCToPGoPCalASTConversionVisitor extends PcalASTUtil.Visitor<List<Statement>> {
 	
-	Algorithm result;
-	Vector<String> plusLabels;
-	Vector<String> minusLabels;
+	private IssueContext ctx;
+	private Algorithm result;
+	private Vector<String> plusLabels;
+	private Vector<String> minusLabels;
+	
+	public TLCToPGoPCalASTConversionVisitor(IssueContext ctx) {
+		this.ctx = ctx;
+	}
 	
 	private static SourceLocation sourceLocationFromRegion(AST a) {
 		Location loc = a.getOrigin().toLocation();
@@ -107,17 +114,22 @@ public class TLCToPGoPCalASTConversionVisitor extends PcalASTUtil.Visitor<List<S
 	}
 	
 	@SuppressWarnings("unchecked")
-	private static PGoTLAExpression parseTLAExpression(TLAExpr e) throws PGoTLAParseException {
+	private PGoTLAExpression parseTLAExpression(TLAExpr e) {
 		List<TLAToken> tokens = new ArrayList<>();
 		for(Object tokList : e.tokens) {
 			for(pcal.TLAToken tok : (Vector<pcal.TLAToken>)tokList) {
 				tokens.add(convertToken(tok));
 			}
 		}
-		return TLAParser.readExpression(tokens.listIterator());
+		try {
+			return TLAParser.readExpression(tokens.listIterator());
+		} catch (TLAParseException e1) {
+			ctx.error(new TLAParserIssue(e1.getReason()));
+			return null;
+		}
 	}
 	
-	private VariableDecl convertVarDecl(AST.VarDecl v) throws PGoTLAParseException {
+	private VariableDecl convertVarDecl(AST.VarDecl v) {
 		return new VariableDecl(sourceLocationFromRegion(v), v.var, !v.isEq, parseTLAExpression(v.val));
 	}
 
@@ -126,7 +138,7 @@ public class TLCToPGoPCalASTConversionVisitor extends PcalASTUtil.Visitor<List<S
 		return new Macro(sourceLocationFromRegion(m), m.name, m.params, parseStatementSequence(m.body));
 	}
 	
-	private List<VariableDecl> convertVarDecls(Vector<AST.VarDecl> decls) throws PGoTLAParseException{
+	private List<VariableDecl> convertVarDecls(Vector<AST.VarDecl> decls) {
 		List<VariableDecl> result = new ArrayList<>();
 		for(AST.VarDecl d : decls) {
 			result.add(convertVarDecl(d));
@@ -134,7 +146,7 @@ public class TLCToPGoPCalASTConversionVisitor extends PcalASTUtil.Visitor<List<S
 		return result;
 	}
 	
-	private List<VariableDecl> convertPVarDecls(Vector<AST.PVarDecl> decls) throws PGoTLAParseException{
+	private List<VariableDecl> convertPVarDecls(Vector<AST.PVarDecl> decls) {
 		List<VariableDecl> result = new ArrayList<>();
 		for(AST.PVarDecl d : decls) {
 			result.add(convertVarDecl(d.toVarDecl()));
@@ -170,7 +182,13 @@ public class TLCToPGoPCalASTConversionVisitor extends PcalASTUtil.Visitor<List<S
 				tokens.add(convertToken(tok));
 			}
 		}
-		List<PGoTLAUnit> units = TLAParser.readUnits(tokens.listIterator());
+		List<PGoTLAUnit> units;
+		try {
+			units = TLAParser.readUnits(tokens.listIterator());
+		} catch (TLAParseException e) {
+			ctx.error(new TLAParserIssue(e.getReason()));
+			units = Collections.emptyList();
+		}
 		
 		return new Algorithm(loc, name, variables, macros, procedures, units, processes);
 	}
@@ -294,7 +312,13 @@ public class TLCToPGoPCalASTConversionVisitor extends PcalASTUtil.Visitor<List<S
 				lhsTok.add(convertToken(tok));
 			}
 		}
-		PGoTLAExpression lhs = TLAParser.readExpression(lhsTok.listIterator());
+		PGoTLAExpression lhs;
+		try {
+			lhs = TLAParser.readExpression(lhsTok.listIterator());
+		} catch (TLAParseException e) {
+			ctx.error(new TLAParserIssue(e.getReason()));
+			lhs = null;
+		}
 		return Collections.singletonList(new Assignment(sourceLocationFromRegion(sa), lhs,
 				parseTLAExpression(sa.rhs)));
 	}
