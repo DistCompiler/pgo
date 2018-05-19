@@ -81,6 +81,14 @@ public class Builder {
 		return new PGoTLAFunctionCall(SourceLocation.unknown(), fn, Arrays.asList(args));
 	}
 	
+	public static PGoTLASetRefinement setRefinement(String id, PGoTLAExpression set, PGoTLAExpression condition) {
+		return new PGoTLASetRefinement(SourceLocation.unknown(), PGoTLAIdentifierOrTuple.Identifier(id(id)), set, condition);
+	}
+	
+	public static PGoTLAFunctionSet functionSet(PGoTLAExpression from, PGoTLAExpression to) {
+		return new PGoTLAFunctionSet(SourceLocation.unknown(), from, to);
+	}
+	
 	public static PGoTLABinOp conjunct(PGoTLAExpression lhs, PGoTLAExpression rhs) {
 		return new PGoTLABinOp(SourceLocation.unknown(), "/\\", prefix(), lhs, rhs);
 	}
@@ -129,6 +137,10 @@ public class Builder {
 		return unary(prefix(), op, arg);
 	}
 	
+	public static PGoTLAQuantifiedUniversal universal(List<PGoTLAQuantifierBound> bounds, PGoTLAExpression expr) {
+		return new PGoTLAQuantifiedUniversal(SourceLocation.unknown(), bounds, expr);
+	}
+	
 	public static PGoTLAModule module(String name, List<PGoTLAIdentifier> exts, List<PGoTLAUnit> preTranslationUnits, List<PGoTLAUnit> translatedUnits, List<PGoTLAUnit> postTranslationUnits) {
 		return new PGoTLAModule(SourceLocation.unknown(), id(name), exts, preTranslationUnits, translatedUnits, postTranslationUnits);
 	}
@@ -164,5 +176,5 @@ public class Builder {
 	public static PGoTLABinOp binop(String op, PGoTLAExpression lhs, PGoTLAExpression rhs) {
 		return new PGoTLABinOp(SourceLocation.unknown(), op, Collections.emptyList(), lhs, rhs);
 	}
-
+	
 }

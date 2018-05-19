@@ -9,6 +9,10 @@ public interface ParseAction<Result> {
 	public interface Mapping<Result, ChainResult>{
 		public ChainResult perform(Result r);
 	}
+	
+	public interface ContextGenerator{
+		public ActionContext getContext();
+	}
 
 	default public <ChainResult> ParseAction<ChainResult> chain(Operation<Result, ChainResult> operation){
 		return new ParseActionChain<Result, ChainResult>(this, operation);
@@ -18,8 +22,12 @@ public interface ParseAction<Result> {
 		return chain(result -> success(operation.perform(result)));
 	}
 	
-	default public ParseAction<Result> recover(Operation<ParseFailure, Result> operation){
-		return new ParseActionRecovery<Result>(this, operation);
+	default public ParseAction<Result> withContext(ActionContext ctx){
+		return withContext(() -> ctx);
+	}
+	
+	default public ParseAction<Result> withContext(ContextGenerator gen){
+		return new ParseActionWithContext<Result>(this, gen);
 	}
 	
 	public static <Result> ParseAction<Result> success(Result result){

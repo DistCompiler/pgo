@@ -243,6 +243,7 @@ public final class TLAParser {
 		":>",
 		"<",
 		"<:",
+		"<=",
 		"<=>",
 		"=",
 		"=<",
@@ -349,6 +350,7 @@ public final class TLAParser {
 		INFIX_OPERATORS_LOW_PRECEDENCE.put(":>", 7);
 		INFIX_OPERATORS_LOW_PRECEDENCE.put("<", 5);
 		INFIX_OPERATORS_LOW_PRECEDENCE.put("<:", 7);
+		INFIX_OPERATORS_LOW_PRECEDENCE.put("<=", 5);
 		INFIX_OPERATORS_LOW_PRECEDENCE.put("<=>", 5);
 		INFIX_OPERATORS_LOW_PRECEDENCE.put("=", 5);
 		INFIX_OPERATORS_LOW_PRECEDENCE.put("=<", 5);
@@ -455,6 +457,7 @@ public final class TLAParser {
 		INFIX_OPERATORS_HI_PRECEDENCE.put(":>", 7);
 		INFIX_OPERATORS_HI_PRECEDENCE.put("<", 5);
 		INFIX_OPERATORS_HI_PRECEDENCE.put("<:", 7);
+		INFIX_OPERATORS_HI_PRECEDENCE.put("<=", 5);
 		INFIX_OPERATORS_HI_PRECEDENCE.put("<=>", 5);
 		INFIX_OPERATORS_HI_PRECEDENCE.put("=", 5);
 		INFIX_OPERATORS_HI_PRECEDENCE.put("=<", 5);
@@ -888,7 +891,7 @@ public final class TLAParser {
 				part(from, nop().chain(v -> parseExpression(minColumn))),
 				drop(parseBuiltinToken("->", minColumn)),
 				part(to, nop().chain(v -> parseExpression(minColumn))),
-				drop(parseBuiltinToken("[", minColumn))
+				drop(parseBuiltinToken("]", minColumn))
 				).map(seqResult -> {
 					return new PGoTLAFunctionSet(seqResult.getLocation(), from.getValue(), to.getValue());
 				});
@@ -1491,7 +1494,9 @@ public final class TLAParser {
 	}
 	
 	private static ParseAction<LocatedString> parse4DashesOrMore(){
-		return parseTokenType(TLATokenType.BUILTIN, -1).chain(s -> {
+		return parseTokenType(TLATokenType.BUILTIN, -1)
+				.withContext(new WhileParsingBuiltinToken("----+"))
+				.chain(s -> {
 			if(s.getValue().startsWith("----")) {
 				return ParseAction.success(s);
 			}else {
@@ -1502,7 +1507,9 @@ public final class TLAParser {
 	}
 	
 	private static ParseAction<LocatedString> parse4EqualsOrMore(){
-		return parseTokenType(TLATokenType.BUILTIN, -1).chain(s -> {
+		return parseTokenType(TLATokenType.BUILTIN, -1)
+				.withContext(new WhileParsingBuiltinToken("====+"))
+				.chain(s -> {
 			if(s.getValue().startsWith("====")) {
 				return ParseAction.success(s);
 			}else {
@@ -1582,6 +1589,17 @@ public final class TLAParser {
 				);
 	}
 	
+	@SafeVarargs
+	private static PGoTLAUnit getLastUnit(Mutator<LocatedList<PGoTLAUnit>>... mutators) {
+		PGoTLAUnit lastUnit = null;
+		for(Mutator<LocatedList<PGoTLAUnit>> mut : mutators) {
+			if(mut.getValue() != null && !mut.getValue().isEmpty()) {
+				lastUnit = mut.getValue().get(mut.getValue().size()-1);
+			}
+		}
+		return lastUnit;
+	}
+	
 	private static ParseAction<PGoTLAModule> parseModule(){
 		Mutator<PGoTLAIdentifier> name = new Mutator<>();
 		Mutator<LocatedList<PGoTLAIdentifier>> exts = new Mutator<>();
@@ -1609,7 +1627,9 @@ public final class TLAParser {
 						)),
 				part(postTranslationUnits, repeat(nop().chain(v -> parseUnit()))),
 				drop(parse4EqualsOrMore())
-				).map(seqResult -> {
+				)
+				.withContext(() -> new AfterParsingUnit(getLastUnit(preTranslationUnits, translatedUnits, postTranslationUnits)))
+				.map(seqResult -> {
 					return new PGoTLAModule(seqResult.getLocation(), name.getValue(), exts.getValue(),
 							preTranslationUnits.getValue(), translatedUnits.getValue(), postTranslationUnits.getValue());
 				});
@@ -1633,6 +1653,10 @@ public final class TLAParser {
 	
 	public static List<PGoTLAUnit> readUnits(ListIterator<TLAToken> iter) throws TLAParseException{
 		return readOrExcept(iter, repeat(parseUnit()));
+	}
+	
+	public static PGoTLAUnit readUnit(ListIterator<TLAToken> iter) throws TLAParseException{
+		return readOrExcept(iter, parseUnit());
 	}
 
 	public static List<PGoTLAModule> readModules(ListIterator<TLAToken> iter) throws TLAParseException {

@@ -32,7 +32,7 @@ public class ParseTools {
 			}else if(tok.getLocation().getStartColumn() < minColumn) {
 				return ParseResult.failure(ParseFailure.insufficientlyIndented(minColumn, tok.getLocation()));
 			}else if(tok.getType() != tokenType) {
-				return ParseResult.failure(ParseFailure.unexpectedTokenType(tok.getType(), tok.getLocation()));
+				return ParseResult.failure(ParseFailure.unexpectedTokenType(tok.getType(), tokenType, tok.getLocation()));
 			}else {
 				return ParseResult.success(new LocatedString(tok.getValue(), tok.getLocation()));
 			}
@@ -41,6 +41,7 @@ public class ParseTools {
 	
 	public static ParseAction<LocatedString> parseBuiltinToken(String t, int minColumn){
 		return parseTokenType(TLATokenType.BUILTIN, minColumn)
+				.withContext(new WhileParsingBuiltinToken(t))
 				.chain(s -> {
 					if(s.getValue().equals(t)) {
 						return ParseAction.success(s);

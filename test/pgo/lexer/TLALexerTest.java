@@ -80,6 +80,7 @@ public class TLALexerTest {
 					tok("b", ident(), 1, 3)
 					)
 			},
+			{ "<=", Arrays.asList(tok("<=", builtin(), 1, 1)) },
 		});
 	}
 

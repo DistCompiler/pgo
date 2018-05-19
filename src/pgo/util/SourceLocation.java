@@ -2,13 +2,13 @@ package pgo.util;
 
 import java.nio.file.Path;
 
-public class SourceLocation {
+public class SourceLocation implements Comparable<SourceLocation> {
 	
-	Path file;
-	int startLine;
-	int endLine;
-	int startColumn;
-	int endColumn;
+	private Path file;
+	private int startLine;
+	private int endLine;
+	private int startColumn;
+	private int endColumn;
 	
 	public SourceLocation(Path file, int startLine, int endLine, int startColumn, int endColumn) {
 		this.file = file;
@@ -108,6 +108,25 @@ public class SourceLocation {
 		}else {
 			return "SourceLocation [file=" + file + ", startLine=" + startLine + ", endLine=" + endLine + ", startColumn="
 					+ startColumn + ", endColumn=" + endColumn + "]";
+		}
+	}
+
+	@Override
+	public int compareTo(SourceLocation o) {
+		if(isUnknown()) {
+			return -1;
+		}
+		if(o.isUnknown()) {
+			return 1;
+		}
+		if(getFile().equals(getFile())) {
+			if(getStartLine() == o.getStartLine()) {
+				return Integer.compare(getStartColumn(), o.getStartColumn());
+			}else {
+				return Integer.compare(getStartLine(), o.getStartLine());
+			}
+		}else {
+			return getFile().compareTo(o.getFile());
 		}
 	}
 	

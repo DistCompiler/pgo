@@ -108,7 +108,7 @@ public class TLAToTypeTest {
 
 	@Test
 	public void testBoolOp() throws PGoTransException {
-		PGoTLABoolOp tla = new PGoTLABoolOp("/\\", new PGoTLABool("TRUE", 0), new PGoTLAVariable("x", 0), 0);
+		PGoTLABoolOp tla = new PGoTLABoolOp("/\\", new PGoTLABool("TRUE", 0), new PGoTLAGeneralIdentifier("x", 0), 0);
 		data.globals.put("x", PGoVariable.convert("x", PGoType.inferFromGoTypeName("bool")));
 		PGoType result = new TLAExprToType(tla, data, true).getType();
 		assertEquals(PGoType.inferFromGoTypeName("bool"), result);
@@ -122,7 +122,7 @@ public class TLAToTypeTest {
 
 	@Test(expected = PGoTransException.class)
 	public void testComparatorFail() throws PGoTransException {
-		PGoTLABoolOp tla = new PGoTLABoolOp("<=", new PGoTLAVariable("x", 0), new PGoTLANumber("1.5", 0), 0);
+		PGoTLABoolOp tla = new PGoTLABoolOp("<=", new PGoTLAGeneralIdentifier("x", 0), new PGoTLANumber("1.5", 0), 0);
 		data.globals.put("x", PGoVariable.convert("x", PGoType.inferFromGoTypeName("bool")));
 		new TLAExprToType(tla, data, true);
 	}
@@ -196,7 +196,7 @@ public class TLAToTypeTest {
 
 	@Test
 	public void testSequence() throws PGoTransException {
-		PGoTLASequence tla = new PGoTLASequence(new PGoTLANumber("0", 0), new PGoTLAVariable("x", 0), 0);
+		PGoTLASequence tla = new PGoTLASequence(new PGoTLANumber("0", 0), new PGoTLAGeneralIdentifier("x", 0), 0);
 		data.globals.put("x", PGoVariable.convert("x", PGoType.inferFromGoTypeName("natural")));
 		PGoType result = new TLAExprToType(tla, data, true).getType();
 		assertEquals(PGoType.inferFromGoTypeName("set[int]"), result);
@@ -204,7 +204,7 @@ public class TLAToTypeTest {
 
 	@Test(expected = PGoTransException.class)
 	public void testSequenceFail() throws PGoTransException {
-		PGoTLASequence tla = new PGoTLASequence(new PGoTLANumber("-1", 0), new PGoTLAVariable("x", 0), 0);
+		PGoTLASequence tla = new PGoTLASequence(new PGoTLANumber("-1", 0), new PGoTLAGeneralIdentifier("x", 0), 0);
 		data.globals.put("x", PGoVariable.convert("x", PGoType.inferFromGoTypeName("natural")));
 		try {
 			new TLAExprToType(tla, data, true);
@@ -279,7 +279,7 @@ public class TLAToTypeTest {
 				add(new TLAToken("2.5", 0, TLAToken.NUMBER, 0));
 			}
 		}, 0);
-		PGoTLASetOp tla = new PGoTLASetOp("\\union", set, new PGoTLAVariable("T", 0), 0);
+		PGoTLASetOp tla = new PGoTLASetOp("\\union", set, new PGoTLAGeneralIdentifier("T", 0), 0);
 		data.globals.put("T", PGoVariable.convert("T", PGoType.inferFromGoTypeName("set[int]")));
 		PGoType result = new TLAExprToType(tla, data, true).getType();
 		assertEquals(PGoType.inferFromGoTypeName("set[float64]"), result);
@@ -289,7 +289,7 @@ public class TLAToTypeTest {
 		assertEquals(PGoType.inferFromGoTypeName("bool"), result);
 
 		set = new PGoTLASet(new Vector<TLAToken>(), 0);
-		tla = new PGoTLASetOp("\\intersect", set, new PGoTLAVariable("T", 0), 0);
+		tla = new PGoTLASetOp("\\intersect", set, new PGoTLAGeneralIdentifier("T", 0), 0);
 		result = new TLAExprToType(tla, data, true).getType();
 		assertEquals(PGoType.inferFromGoTypeName("set[int]"), result);
 	}
@@ -320,7 +320,7 @@ public class TLAToTypeTest {
 
 	@Test(expected = PGoTransException.class)
 	public void testSetInFail() throws PGoTransException {
-		PGoTLAVariable l = new PGoTLAVariable("l", 0), r = new PGoTLAVariable("r", 0);
+		PGoTLAGeneralIdentifier l = new PGoTLAGeneralIdentifier("l", 0), r = new PGoTLAGeneralIdentifier("r", 0);
 		data.globals.put("l", PGoVariable.convert("l", PGoType.inferFromGoTypeName("string")));
 		data.globals.put("r", PGoVariable.convert("r", PGoType.inferFromGoTypeName("set[set[string]]")));
 		PGoTLASetOp tla = new PGoTLASetOp("\\in", l, r, 0);
@@ -336,7 +336,7 @@ public class TLAToTypeTest {
 		tla = new PGoTLASimpleArithmetic("/", new PGoTLANumber("3", 0), new PGoTLANumber("4", 0), 0);
 		result = new TLAExprToType(tla, data, true).getType();
 		assertEquals(PGoType.inferFromGoTypeName("float64"), result);
-		tla = new PGoTLASimpleArithmetic("+", new PGoTLANumber("2", 0), new PGoTLAVariable("x", 0), 0);
+		tla = new PGoTLASimpleArithmetic("+", new PGoTLANumber("2", 0), new PGoTLAGeneralIdentifier("x", 0), 0);
 		data.globals.put("x", PGoVariable.convert("x", PGoType.inferFromGoTypeName("float64")));
 		result = new TLAExprToType(tla, data, true).getType();
 		assertEquals(PGoType.inferFromGoTypeName("float64"), result);
@@ -344,7 +344,7 @@ public class TLAToTypeTest {
 
 	@Test(expected = PGoTransException.class)
 	public void testSimpleArithFail() throws PGoTransException {
-		PGoTLAExpression tla = new PGoTLASimpleArithmetic("+", new PGoTLAString("string", 0), new PGoTLAVariable("x", 0), 0);
+		PGoTLAExpression tla = new PGoTLASimpleArithmetic("+", new PGoTLAString("string", 0), new PGoTLAGeneralIdentifier("x", 0), 0);
 		data.globals.put("x", PGoVariable.convert("x", PGoType.inferFromGoTypeName("string")));
 		new TLAExprToType(tla, data, true);
 	}
@@ -358,7 +358,7 @@ public class TLAToTypeTest {
 	@Test
 	public void testSuchThat() throws PGoTransException {
 		Vector<PGoTLAExpression> lhs = new Vector<>();
-		lhs.add(new PGoTLASetOp("\\in", new PGoTLAVariable("x", 0), new PGoTLAVariable("S", 0), 0));
+		lhs.add(new PGoTLASetOp("\\in", new PGoTLAGeneralIdentifier("x", 0), new PGoTLAGeneralIdentifier("S", 0), 0));
 		Vector<TLAToken> rhs = new Vector<>();
 		rhs.add(new TLAToken("TRUE", 0, TLAToken.BUILTIN, 0));
 		PGoTLAVariadic tla = new PGoTLAVariadic(":", lhs, rhs, 0);
@@ -367,7 +367,7 @@ public class TLAToTypeTest {
 		assertEquals(PGoType.inferFromGoTypeName("set[int]"), result);
 
 		lhs = new Vector<>();
-		lhs.add(new PGoTLASimpleArithmetic("*", new PGoTLAVariable("x", 0), new PGoTLAVariable("y", 0), 0));
+		lhs.add(new PGoTLASimpleArithmetic("*", new PGoTLAGeneralIdentifier("x", 0), new PGoTLAGeneralIdentifier("y", 0), 0));
 		rhs = new Vector<>();
 		rhs.add(new TLAToken("x", 0, TLAToken.IDENT, 0));
 		rhs.add(new TLAToken("\\in", 0, TLAToken.BUILTIN, 0));
@@ -388,16 +388,16 @@ public class TLAToTypeTest {
 		PGoTLAUnary tla = new PGoTLAUnary("~", new PGoTLABool("FALSE", 0), 0);
 		assertEquals(PGoType.inferFromGoTypeName("bool"), new TLAExprToType(tla, data, true).getType());
 
-		tla = new PGoTLAUnary("UNION", new PGoTLAVariable("S", 0), 0);
+		tla = new PGoTLAUnary("UNION", new PGoTLAGeneralIdentifier("S", 0), 0);
 		data.globals.put("S", PGoVariable.convert("S", PGoType.inferFromGoTypeName("set[set[int]]")));
 		assertEquals(PGoType.inferFromGoTypeName("set[int]"), new TLAExprToType(tla, data, true).getType());
 
-		tla = new PGoTLAUnary("SUBSET", new PGoTLAVariable("S", 0), 0);
+		tla = new PGoTLAUnary("SUBSET", new PGoTLAGeneralIdentifier("S", 0), 0);
 		assertEquals(PGoType.inferFromGoTypeName("set[set[set[int]]]"), new TLAExprToType(tla, data, true).getType());
 
 		Vector<PGoTLAExpression> lhs = new Vector<>();
 		Vector<TLAToken> rhs = new Vector<>();
-		lhs.add(new PGoTLASetOp("\\in", new PGoTLAVariable("x", 0), new PGoTLAVariable("S", 0), 0));
+		lhs.add(new PGoTLASetOp("\\in", new PGoTLAGeneralIdentifier("x", 0), new PGoTLAGeneralIdentifier("S", 0), 0));
 		rhs.add(new TLAToken("TRUE", 0, TLAToken.BUILTIN, 0));
 		PGoTLAVariadic arg = new PGoTLAVariadic(":", lhs, rhs, 0);
 		tla = new PGoTLAUnary("CHOOSE", arg, 0);
@@ -406,14 +406,14 @@ public class TLAToTypeTest {
 
 	@Test(expected = PGoTransException.class)
 	public void testEltUnionFail() throws PGoTransException {
-		PGoTLAUnary tla = new PGoTLAUnary("UNION", new PGoTLAVariable("S", 0), 0);
+		PGoTLAUnary tla = new PGoTLAUnary("UNION", new PGoTLAGeneralIdentifier("S", 0), 0);
 		data.globals.put("S", PGoVariable.convert("S", PGoType.inferFromGoTypeName("set[[]int]")));
 		new TLAExprToType(tla, data, true);
 	}
 
 	@Test(expected = PGoTransException.class)
 	public void testPowersetFail() throws PGoTransException {
-		PGoTLAUnary tla = new PGoTLAUnary("SUBSET", new PGoTLAVariable("S", 0), 0);
+		PGoTLAUnary tla = new PGoTLAUnary("SUBSET", new PGoTLAGeneralIdentifier("S", 0), 0);
 		data.globals.put("S", PGoVariable.convert("S", PGoType.inferFromGoTypeName("map[string]int")));
 		new TLAExprToType(tla, data, true);
 	}
@@ -426,7 +426,7 @@ public class TLAToTypeTest {
 
 	@Test
 	public void testVar() throws PGoTransException {
-		PGoTLAVariable tla = new PGoTLAVariable("A", 0);
+		PGoTLAGeneralIdentifier tla = new PGoTLAGeneralIdentifier("A", 0);
 		data.globals.put("A", PGoVariable.convert("A", PGoType.inferFromGoTypeName("set[[][]int]")));
 		assertEquals(PGoType.inferFromGoTypeName("set[[][]int]"), new TLAExprToType(tla, data, true).getType());
 	}
