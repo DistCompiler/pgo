@@ -11,14 +11,15 @@ import org.apache.commons.io.FileUtils;
 
 import pgo.PGoNetOptions;
 import pgo.PGoOptions;
-import pgo.errors.IssueContext;
 import pgo.errors.TopLevelIssueContext;
-import pgo.model.golang.GoProgram;
 import pgo.model.pcal.Algorithm;
 import pgo.model.tla.PGoTLAModule;
 import pgo.modules.TLAModuleLoader;
+import pgo.parser.PGoAnnotationParser;
 import pgo.parser.PGoParseException;
 import pgo.parser.PcalParser.ParsedPcal;
+import pgo.trans.intermediate.AnnotationParsingPass;
+import pgo.trans.intermediate.CheckOptionsPass;
 import pgo.trans.intermediate.PGoScopingPass;
 import pgo.trans.intermediate.PGoTransStageAtomicity;
 import pgo.trans.intermediate.PGoTransStageGoGen;
@@ -51,6 +52,13 @@ public class PGoTranslator {
 		logger.info("Cleaning up PlusCal AST");
 		Algorithm pcalAlgorithm = PlusCalConversionPass.perform(ctx, pcal);
 		if(ctx.hasErrors()) throw new PGoTransException(ctx.format());
+		
+		logger.info("Parsing PGo annotations");
+		PGoAnnotationParser annotations = AnnotationParsingPass.perform(pcal);
+		
+		logger.info("Checking compile options for sanity");
+		CheckOptionsPass.perform(ctx, pcalAlgorithm, opts);
+		if(ctx.hasErrors()) throw new PGoTransException(ctx.format());
 
 		logger.info("Expanding PlusCal macros");
 		pcalAlgorithm = PlusCalMacroExpansionPass.perform(ctx, pcalAlgorithm);
@@ -60,10 +68,10 @@ public class PGoTranslator {
 		PGoScopingPass.perform(ctx, tlaModule, pcalAlgorithm, loader);
 		if(ctx.hasErrors()) throw new PGoTransException(ctx.format());
 		
-		logger.info("Entering Stage One: Inferring intermediate data structures");
+		/*logger.info("Entering Stage One: Inferring intermediate data structures");
 		PGoTransStageInitParse s1 = new PGoTransStageInitParse(pcal, opts);
 		logger.info("Entering Stage Two: Parsing TLA expressions");
-		PGoTransStageTLAParse s2 = new PGoTransStageTLAParse(s1);
+		PGoTransStageTLAParse s2 = new PGoTransStageTLAParse(s1);*/
 		logger.info("Entering Stage Three: Inferring types");
 		PGoTransStageType s3 = new PGoTransStageType(s2);
 		logger.info("Entering Stage Four: Inferring atomicity constraints");
