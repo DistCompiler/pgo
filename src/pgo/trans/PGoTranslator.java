@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.Collections;
+import java.util.List;
 import java.util.Vector;
 import java.util.logging.Logger;
 
@@ -81,7 +82,7 @@ public class PGoTranslator {
 		logger.info("Entering Stage Six: Generating Go Code");
 	}
 
-	public Vector<String> getGoLines() {
+	public List<String> getGoLines() {
 		return null; // TODO
 	}
 

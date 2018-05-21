@@ -171,7 +171,7 @@ public class AnnotatedVariableTest {
 		PGoVariable v;
 		AnnotatedVariable av;
 
-		v = PGoVariable.convert("var");
+		v = PGoVariable.convert(generator, "var");
 		av = AnnotatedVariable.parse(new String[] { "const", "var", "int", "50" }, 2);
 		av.applyAnnotationOnVariable(v);
 		assertTrue(v.getIsConstant());
@@ -180,7 +180,7 @@ public class AnnotatedVariableTest {
 		assertEquals("50", v.getGoVal());
 		assertNull(v.getArgInfo());
 
-		v = PGoVariable.convert("var");
+		v = PGoVariable.convert(generator, "var");
 		av = AnnotatedVariable.parse(new String[] { "arg", "var", "int" }, 2);
 		av.applyAnnotationOnVariable(v);
 		assertFalse(v.getIsConstant());
@@ -188,7 +188,7 @@ public class AnnotatedVariableTest {
 		assertTrue(v.getIsSimpleAssignInit());
 		assertEquals(av, v.getArgInfo());
 
-		v = PGoVariable.convert("var");
+		v = PGoVariable.convert(generator, "var");
 		av = AnnotatedVariable.parse(new String[] { "arg", "var", "int", "varflag" }, 2);
 		av.applyAnnotationOnVariable(v);
 		assertFalse(v.getIsConstant());
@@ -196,7 +196,7 @@ public class AnnotatedVariableTest {
 		assertTrue(v.getIsSimpleAssignInit());
 		assertEquals(av, v.getArgInfo());
 
-		v = PGoVariable.convert("var");
+		v = PGoVariable.convert(generator, "var");
 		av = AnnotatedVariable.parse(new String[] { "var", "var", "string" }, 2);
 		av.applyAnnotationOnVariable(v);
 		assertFalse(v.getIsConstant());

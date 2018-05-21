@@ -1,6 +1,7 @@
 package pgo.model.intermediate;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Vector;
@@ -24,7 +25,7 @@ public class PGoLibFunction {
 	// the TLA name
 	private String name;
 	// the parameters, which map to the equivalent Go function
-	private Map<Vector<PGoType>, LibFuncInfo> paramsToGo;
+	private Map<List<PGoType>, LibFuncInfo> paramsToGo;
 	// When getting a LibFuncInfo, maps the template argument from the info to
 	// the actual type.
 	private Map<PGoTemplateArgument, PGoType> argsToType;
@@ -51,8 +52,8 @@ public class PGoLibFunction {
 		argsToType = new HashMap<>();
 	}
 
-	public void addFuncSignature(Vector<PGoType> params, String goFuncName, boolean isObj, PGoType retType) {
-		paramsToGo.put(new Vector<>(params), new LibFuncInfo(goFuncName, isObj, retType));
+	public void addFuncSignature(List<PGoType> params, String goFuncName, boolean isObj, PGoType retType) {
+		paramsToGo.put(params, new LibFuncInfo(goFuncName, isObj, retType));
 	}
 
 	public String getName() {
@@ -71,7 +72,7 @@ public class PGoLibFunction {
 			return ret;
 		}
 		// check if we can match template arguments
-		for (Entry<Vector<PGoType>, LibFuncInfo> sig : paramsToGo.entrySet()) {
+		for (Entry<List<PGoType>, LibFuncInfo> sig : paramsToGo.entrySet()) {
 			if (params.size() != sig.getKey().size()) {
 				continue;
 			}

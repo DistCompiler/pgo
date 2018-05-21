@@ -42,9 +42,7 @@ public class If extends Statement {
 		if (cond instanceof AnonymousFunction) {
 			// in this case we want each line of func on a separate line, and we don't need semicolons
 			ret.add(ifStr + condStr.remove(0));
-			for (String s : condStr) {
-				ret.add(s);
-			}
+			ret.addAll(condStr);
 			ret.set(ret.size()-1, ret.get(ret.size()-1) + " {");
 		} else {
 			ret.add(ifStr + String.join("; ", condStr) + " {");

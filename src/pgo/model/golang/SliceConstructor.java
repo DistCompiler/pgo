@@ -3,7 +3,6 @@ package pgo.model.golang;
 import java.util.List;
 
 public class SliceConstructor extends Expression {
-
 	private List<Expression> initializers;
 	private Type elementType;
 
@@ -26,7 +25,7 @@ public class SliceConstructor extends Expression {
 	}
 
 	/*@Override
-	public Vector<String> toGo() {
+	public List<String> toGo() {
 		StringBuilder out = new StringBuilder();
 		out.append("[]");
 		out.append(elementType.toGo());
@@ -38,16 +37,13 @@ public class SliceConstructor extends Expression {
 			}else {
 				out.append(",");
 			}
-			Vector<String> lines = expr.toGo();
+			List<String> lines = expr.toGo();
 			for(String l : lines) {
 				out.append(l);
 			}
 		}
 		out.append("}");
-		
-		Vector<String> result = new Vector<>();
-		result.add(out.toString());
-		return result;
+		return Collections.singletonList(out.toString());
 	}*/
 
 }

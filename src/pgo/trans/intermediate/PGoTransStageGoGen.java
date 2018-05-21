@@ -8,7 +8,6 @@ import pcal.AST.*;
 import pcal.AST.If;
 import pcal.AST.Return;
 import pcal.TLAExpr;
-import pgo.PGoNetOptions;
 import pgo.model.golang.*;
 import pgo.model.intermediate.*;
 import pgo.model.intermediate.PGoCollectionType.PGoMap;
@@ -27,6 +26,7 @@ import pgo.model.tla.PGoTLAArray;
 import pgo.model.tla.PGoTLADefinition;
 import pgo.model.tla.PGoTLAFunctionCall;
 import pgo.model.tla.TLAExprToGo;
+import pgo.model.type.PGoTypeProcessId;
 import pgo.trans.PGoTransException;
 import pgo.util.PcalASTUtil;
 
@@ -40,7 +40,7 @@ public class PGoTransStageGoGen {
 	private GoProgram go;
 
 	// the main block pointer
-	private Vector<Statement> main;
+	private List<Statement> main;
 
 	// the intermediate data, which we use to generate the Go AST
 	// when translating, this may be temporarily replaced by a PGoTempData which
@@ -109,7 +109,7 @@ public class PGoTransStageGoGen {
 			main.addAll(convertGoRoutinesToGo(this.data.goroutines.values()));
 		} else {
 			Vector block = this.data.mainBlock;
-			Vector<Statement> stmts = convertStatementToGo(block);
+			List<Statement> stmts = convertStatementToGo(block);
 			main.addAll(stmts);
 		}
 
@@ -122,11 +122,12 @@ public class PGoTransStageGoGen {
 		// if we use math/rand we also need to set a seed
 		if (go.getImports().containsPackage("math/rand")) {
 			go.getImports().addImport("time");
-			FunctionCall seed = new FunctionCall("rand.Seed", new Vector<Expression>() {
-				{
-					add(new FunctionCall("UnixNano", new Vector<>(), new FunctionCall("time.Now", new Vector<>())));
-				}
-			});
+			FunctionCall seed = new FunctionCall(
+					"rand.Seed",
+					Collections.singletonList(new FunctionCall(
+							"UnixNano",
+							new Vector<>(),
+							new FunctionCall("time.Now", new Vector<>()))));
 			go.getMain().getBody().add(0, seed);
 		}
 	}
@@ -147,15 +148,13 @@ public class PGoTransStageGoGen {
 
 			// command line argument: the PlusCal process identifier this program is
 			// supposed to execute
-			PGoVariable pid = PGoVariable.processIdArg();
-			pid.setType(PGoPrimitiveType.PROCESS_ID);
+			PGoVariable pid = PGoVariable.processIdArg(PGoTypeProcessId.getInstance());
 			positionalArgNames.add("process(argument)");
 			addPositionalArgToMain(argN++, positionalArgs, pid);
 
 			// command line argument: the IP:port address this program is going
 			// to use to communicate with peers.
 			PGoVariable ipAddr = PGoVariable.processNetAddress();
-			ipAddr.setType(PGoPrimitiveType.STRING);
 			positionalArgNames.add("ip:port");
 			addPositionalArgToMain(argN++, positionalArgs, ipAddr);
 		}
@@ -240,9 +239,9 @@ public class PGoTransStageGoGen {
 	 * @return
 	 * @throws PGoTransException
 	 */
-	private Vector<Statement> convertStatementToGo(Vector<AST> stmts) throws PGoTransException {
+	private List<Statement> convertStatementToGo(List<AST> stmts) throws PGoTransException {
 		go.addUsedLabels(PcalASTUtil.collectUsedLabels(stmts));
-		return new PcalASTUtil.Walker<Vector<Statement>>() {
+		return new PcalASTUtil.Walker<List<Statement>>() {
 			// the current label that we are in
 			String curLabel = null;
 			// the current lock group we are in (-1 if no lock)
@@ -317,7 +316,7 @@ public class PGoTransStageGoGen {
 			}
 
 			@Override
-			public Vector<Statement> getResult(Vector<AST> stmts) throws PGoTransException {
+			public List<Statement> getResult(List<AST> stmts) throws PGoTransException {
 				// fill the result
 				super.getResult(stmts);
 				// add an unlock, if we need it
@@ -356,7 +355,7 @@ public class PGoTransStageGoGen {
 				Vector<Statement> loopBody = new Vector<>();
 
 				// Store the result so far temporarily
-				Vector<Statement> tempRes = result;
+				List<Statement> tempRes = result;
 				result = loopBody; // we send the loop body to be filled
 
 				if (!w.unlabDo.isEmpty()) {
@@ -530,7 +529,7 @@ public class PGoTransStageGoGen {
 				Vector<Statement> thenS = new Vector<>(), elseS = new Vector<>();
 
 				// Store the result so far temporarily
-				Vector<Statement> tempRes = result;
+				List<Statement> tempRes = result;
 				result = thenS; // we send the loop body to be filled
 				walk(ifast.Then);
 				result = elseS;
@@ -544,7 +543,7 @@ public class PGoTransStageGoGen {
 
 			@Override
 			protected void visit(Either ei) {
-				for (Vector v : (Vector<Vector>) ei.ors) {
+				for (List v : (List<List>) ei.ors) {
 					// either has vector of vectors
 					// walk(v);
 					// TODO handle either
@@ -590,11 +589,8 @@ public class PGoTransStageGoGen {
 						Vector<Expression> rhs = new Vector<>();
 						rhs.add(new FunctionCall("ToSlice", new Vector<>(), trans.toExpression()));
 						rhs.add(new Token("["));
-						rhs.add(new FunctionCall("rand.Intn", new Vector<Expression>() {
-							{
-								add(new FunctionCall("Size", new Vector<>(), trans.toExpression()));
-							}
-						}));
+						rhs.add(new FunctionCall("rand.Intn",
+								Collections.singletonList(new FunctionCall("Size", new Vector<>(), trans.toExpression()))));
 						rhs.add(new Token("]"));
 
 						VariableDeclaration v = new VariableDeclaration(varName, containedType,
@@ -612,7 +608,7 @@ public class PGoTransStageGoGen {
 					cur = (AST) with.Do.get(0);
 				}
 				CodeBlock cb = new CodeBlock(pre);
-				Vector<Statement> tempRes = result;
+				List<Statement> tempRes = result;
 				// put the with body in the code block
 				result = cb.getInside();
 				walk(with.Do);
@@ -638,12 +634,8 @@ public class PGoTransStageGoGen {
 				// we're about to enter an infinite loop so unlock for safety
 				unlock();
 				Vector<Statement> body = new Vector<>();
-				Vector<Statement> then = new Vector<Statement>() {
-					{
-						add(new Token("break"));
-					}
-				};
-				Vector<Statement> oldResult = result;
+				List<Statement> then = Collections.singletonList(new Token("break"));
+				List<Statement> oldResult = result;
 				result = body;
 				lock();
 				body.add(new pgo.model.golang.If(TLAToGo(data.findPGoTLA(when.exp)), then, new Vector<>()));
@@ -705,7 +697,7 @@ public class PGoTransStageGoGen {
 				Vector<Statement> thenS = new Vector<>(), elseS = new Vector<>();
 
 				// Store the result so far temporarily
-				Vector<Statement> tempRes = result;
+				List<Statement> tempRes = result;
 				result = thenS; // we send the loop body to be filled
 				walk(lif.unlabThen);
 				walk(lif.labThen);
@@ -801,21 +793,18 @@ public class PGoTransStageGoGen {
 				// The waitgroup was added in generateGlobalVariables()
 				// PGoWait.Add(1)
 				// go foo(id)
-				ret.add(new FunctionCall("Add", new Vector<Expression>() {
-					{
-						add(new Token("1"));
-					}
-				}, new Token("PGoWait")));
+				ret.add(new FunctionCall(
+						"Add",
+						Collections.singletonList(Builder.intLiteral(1))
+						, new Token("PGoWait")));
 
 				Vector<Expression> se = new Vector<>();
 				se.add(new Token("go "));
 				PGoTLAExpression id = data.findPGoTLA(goroutine.getInitTLA());
-				se.add(new FunctionCall(goroutine.getName(), new Vector<Expression>() {
-					{
-						add(new TLAExprToGo(id, go.getImports(), new PGoTempData(data))
-								.toExpression());
-					}
-				}));
+				se.add(new FunctionCall(
+						goroutine.getName(),
+						Collections.singletonList(
+								new TLAExprToGo(id, go.getImports(), new PGoTempData(data)).toExpression())));
 				ret.add(new SimpleExpression(se));
 			} else {
 				// for procId := range set.Iter() {
@@ -836,21 +825,16 @@ public class PGoTransStageGoGen {
 				range.add(new FunctionCall("Iter", new Vector<>(), trans.toExpression()));
 
 				Vector<Statement> forBody = new Vector<>();
-				forBody.add(new FunctionCall("Add", new Vector<Expression>() {
-					{
-						add(new Token("1"));
-					}
-				}, new Token("PGoWait")));
+				forBody.add(new FunctionCall(
+						"Add",
+						Collections.singletonList(Builder.intLiteral(1)),
+						new Token("PGoWait")));
 
 				TypeAssertion param = new TypeAssertion(new Token("procId"), eltType);
 
 				Vector<Expression> se = new Vector<>();
 				se.add(new Token("go "));
-				se.add(new FunctionCall(goroutine.getName(), new Vector<Expression>() {
-					{
-						add(param);
-					}
-				}));
+				se.add(new FunctionCall(goroutine.getName(), Collections.singletonList(param)));
 				forBody.add(new SimpleExpression(se));
 
 				For loop = new For(new SimpleExpression(range), forBody);
@@ -859,11 +843,7 @@ public class PGoTransStageGoGen {
 		}
 		// close(PGoStart)
 		// PGoWait.Wait()
-		ret.add(new FunctionCall("close", new Vector<Expression>() {
-			{
-				add(new Token("PGoStart"));
-			}
-		}));
+		ret.add(new FunctionCall("close", Collections.singletonList(new Token("PGoStart"))));
 		ret.add(new FunctionCall("Wait", new Vector<>(), new Token("PGoWait")));
 		return ret;
 	}
@@ -919,34 +899,26 @@ public class PGoTransStageGoGen {
 			}
 			if (pf.getType() == PGoFunction.FunctionType.Process) {
 				if (pf.getParams().get(0).getType().equals(PGoPrimitiveType.STRING)) {
-					body.add(new SimpleExpression(new Vector<Expression>() {
-						{
-							add(new Token("selfStr"));
-							add(new Token(" := "));
-							add(new Token("\"" + pf.getName() + "(\""));
-							add(new Token(" + "));
-							add(new Token("self"));
-							add(new Token(" + "));
-							add(new Token("\")\""));
-						}
-					}));
+					body.add(new SimpleExpression(
+							Arrays.asList(
+									new Token("selfStr"),
+									new Token(" := "),
+									new Token("\"" + pf.getName() + "(\""),
+									new Token(" + "),
+									new Token("self"),
+									new Token(" + "),
+									new Token("\")\""))));
 				} else if (pf.getParams().get(0).getType().equals(PGoPrimitiveType.INT)) {
 					go.getImports().addImport("strconv");
-					body.add(new SimpleExpression(new Vector<Expression>() {
-						{
-							add(new Token("selfStr"));
-							add(new Token(" := "));
-							add(new Token("\"" + pf.getName() + "(\""));
-							add(new Token(" + "));
-							add(new FunctionCall("strconv.Itoa", new Vector<Expression>() {
-								{
-									add(new Token("self"));
-								}
-							}));
-							add(new Token(" + "));
-							add(new Token("\")\""));
-						}
-					}));
+					body.add(new SimpleExpression(
+							Arrays.asList(
+									new Token("selfStr"),
+									new Token(" := "),
+									new Token("\"" + pf.getName() + "(\""),
+									new Token(" + "),
+									new FunctionCall("strconv.Itoa", Collections.singletonList(new Token("self"))),
+									new Token(" + "),
+									new Token("\")\""))));
 				} else {
 					throw new PGoTransException("Unsupported argument type " + pf.getParams().get(0).getType() +
 							" for process " + pf.getName(), pf.getLine());
@@ -1066,11 +1038,8 @@ public class PGoTransStageGoGen {
 			go.getImports().addImport("sync");
 			go.addGlobal(new VariableDeclaration("PGoWait", new PGoWaitGroup(), null, false, false, false));
 
-			Expression init = new FunctionCall("make", new Vector<Expression>() {
-				{
-					add(new Token(PGoType.inferFromGoTypeName("chan[bool]").toGo()));
-				}
-			});
+			Expression init = new FunctionCall("make",
+					Collections.singletonList(new Token(PGoType.inferFromGoTypeName("chan[bool]").toGo())));
 			VariableDeclaration chanDecl = new VariableDeclaration("PGoStart",
 					PGoType.inferFromGoTypeName("chan[bool]"), init, false, false, false);
 			go.addGlobal(chanDecl);
@@ -1282,7 +1251,7 @@ public class PGoTransStageGoGen {
 			args.add(new Token("\"\""));
 			main.add(new FunctionCall("flag.Float64Var", args));
 		} else {
-			throw new PGoTransException("Unsupported go argument type \"" + pv.getType().toGo()
+			throw new PGoTransException("Unsupported go argument type \"" + pv.getType().toTypeName()
 					+ "\" for variable \"" + pv.getName() + "\"", pv.getLine());
 		}
 	}

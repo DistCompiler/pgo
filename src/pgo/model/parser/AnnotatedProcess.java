@@ -1,8 +1,8 @@
 package pgo.model.parser;
 
 import pgo.model.intermediate.PGoFunction;
-import pgo.model.intermediate.PGoType;
 import pgo.model.intermediate.PGoVariable;
+import pgo.model.type.PGoType;
 import pgo.parser.PGoParseException;
 import pgo.trans.PGoTransException;
 
@@ -66,7 +66,7 @@ public class AnnotatedProcess {
 	public void applyAnnotationOnFunction(PGoFunction fun) throws PGoTransException {
 		assert (fun.getName().equals(name));
 
-		PGoVariable v = fun.getParam(PGoVariable.processIdArg().getName());
+		PGoVariable v = fun.getParam(PGoVariable.PROCESS_ARG_VAR_NAME);
 		if (v == null || fun.getType() != PGoFunction.FunctionType.GoRoutine) {
 			throw new PGoTransException("Got annotation on line " + line + " for function \"" + name
 					+ "\" as a process goroutine function, but actually isn't", fun.getLine());

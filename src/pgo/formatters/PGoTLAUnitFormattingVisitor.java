@@ -90,6 +90,7 @@ public class PGoTLAUnitFormattingVisitor extends PGoTLAUnitVisitor<Void, IOExcep
 	@Override
 	public Void visit(PGoTLAModule pGoTLAModule) throws IOException {
 		out.write("----");
+		out.write(" MODULE ");
 		pGoTLAModule.getName().accept(new PGoTLANodeFormattingVisitor(out));
 		out.write("----");
 		out.newLine();

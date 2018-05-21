@@ -125,5 +125,4 @@ public class PcalASTUtil {
 		public abstract T visit(MacroCall m) throws PGoException;
 
 	}
-
 }

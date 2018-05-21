@@ -1,6 +1,6 @@
 package pgo.trans.intermediate;
 
-import java.util.Map;
+import java.util.List;
 import java.util.Vector;
 
 import pcal.AST;
@@ -8,9 +8,6 @@ import pcal.AST.PVarDecl;
 import pcal.AST.Process;
 import pcal.AST.SingleAssign;
 import pcal.AST.VarDecl;
-import pgo.PGoNetOptions;
-import pgo.ProcessIntArg;
-import pgo.ProcessStringArg;
 import pgo.model.intermediate.*;
 import pgo.model.intermediate.PGoCollectionType.PGoMap;
 import pgo.model.intermediate.PGoCollectionType.PGoSet;
@@ -29,9 +26,9 @@ import pgo.model.tla.PGoTLADefinition;
 import pgo.model.tla.PGoTLAFunctionCall;
 import pgo.model.tla.PGoTLANumber;
 import pgo.model.tla.TLAExprToType;
-import pgo.parser.PGoParseException;
 import pgo.parser.TLAExprParser;
 import pgo.trans.PGoTransException;
+import pgo.trans.PGoTransExpectedSingleExpressionException;
 import pgo.util.PcalASTUtil;
 
 /**
@@ -42,12 +39,11 @@ import pgo.util.PcalASTUtil;
  *
  */
 public class PGoTransStageType {
-
 	// intermediate data, which is filled with typing information from
 	// annotations
 	PGoTransIntermediateData data;
 
-	public PGoTransStageType(PGoTransStageTLAParse s1) throws PGoParseException, PGoTransException {
+	public PGoTransStageType(PGoTransStageTLAParse s1) throws PGoTransException {
 		this.data = s1.data;
 
 		addAnnotatedDefinitions();
@@ -63,7 +59,7 @@ public class PGoTransStageType {
 
 	/**
 	 * Checks that all the information is typed
-	 * 
+	 *
 	 * @throws PGoTransException
 	 *             as appropriate when not all information is typed
 	 */
@@ -150,7 +146,7 @@ public class PGoTransStageType {
 		for (AnnotatedVariable v : this.data.annots.getAnnotatedVariables()) {
 			PGoVariable var = this.data.findPGoVariable(v.getName());
 			if (var == null) {
-				var = PGoVariable.convert(v.getName());
+				var = PGoVariable.convert(v.getName(), data.sup);
 				var.setLine(v.getLine());
 				if (v instanceof VarAnnotatedVariable) {
 					// normal variable that we haven't encountered
@@ -168,14 +164,16 @@ public class PGoTransStageType {
 	}
 
 	// Parse annotated TLA definitions and add parsed version to data
-	private void addAnnotatedDefinitions() throws PGoTransException, PGoParseException {
+	private void addAnnotatedDefinitions() throws PGoTransException {
 		for (AnnotatedTLADefinition d : this.data.annots.getAnnotatedTLADefinitions()) {
 			// if there are no parameters, compile to a variable
 			if (d.getParams().isEmpty()) {
-				PGoVariable var = PGoVariable.convert(d, new PGoTempData(data));
+				PGoVariable var = PGoVariable.convert(, d, new PGoTempData(data));
 				this.data.globals.put(var.getName(), var);
-				Vector<PGoTLAExpression> ptla = new TLAExprParser(d.getExpr(), d.getLine()).getResult();
-				assert (ptla.size() == 1);
+				List<PGoTLAExpression> ptla = new TLAExprParser(d.getExpr(), d.getLine()).getResult();
+				if (ptla.size() == 1) {
+					throw new PGoTransExpectedSingleExpressionException(d.getLine());
+				}
 				this.data.putPGoTLA(d.getExpr(), ptla.get(0));
 			} else {
 				PGoTLADefinition tla = new PGoTLADefinition(d.getName(), d.getParams(), d.getExpr(), d.getType(),
@@ -206,7 +204,7 @@ public class PGoTransStageType {
 				// infer the type of the process id
 				PGoTLAExpression tla = data.findPGoTLA(p.id);
 				PGoFunction fun = data.findPGoFunction(p.name);
-				PGoVariable pId = fun.getParam(PGoVariable.processIdArg().getName());
+				PGoVariable pId = fun.getParam(PGoVariable.PROCESS_ARG_VAR_NAME);
 
 				PGoType type;
 				if (p.isEq) {

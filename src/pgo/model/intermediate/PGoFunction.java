@@ -112,11 +112,11 @@ public class PGoFunction {
 		PGoFunction ret = new PGoFunction();
 		ret.funcName = m.name;
 		for (PVarDecl var : (Vector<PVarDecl>) m.params) {
-			PGoVariable pvar = PGoVariable.convert(var);
+			PGoVariable pvar = PGoVariable.convert(var, generator);
 			ret.params.put(pvar.getName(), pvar);
 		}
 		for (PVarDecl var : (Vector<PVarDecl>) m.decls) {
-			PGoVariable pvar = PGoVariable.convert(var);
+			PGoVariable pvar = PGoVariable.convert(var, generator);
 			ret.vars.put(pvar.getName(), pvar);
 		}
 
@@ -131,7 +131,7 @@ public class PGoFunction {
 		PGoFunction ret = new PGoFunction();
 		ret.funcName = m.name;
 		for (String var : (Vector<String>) m.params) {
-			PGoVariable pvar = PGoVariable.convert(var);
+			PGoVariable pvar = PGoVariable.convert(generator, var);
 			pvar.setLine(m.line);
 			ret.params.put(pvar.getName(), pvar);
 		}

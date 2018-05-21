@@ -31,7 +31,7 @@ public class AnnotatedReturnVariableTest {
 		funcs = new ArrayList<PGoFunction>();
 
 		for (int i = 0; i < 10; i++) {
-			globals.put("var" + i, PGoVariable.convert("var" + i));
+			globals.put("var" + i, PGoVariable.convert(generator, "var" + i));
 			Procedure p = new Procedure();
 			p.params = new Vector();
 			p.decls = new Vector();

@@ -3,6 +3,7 @@ package pgo.model.golang;
 import static org.junit.Assert.assertEquals;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Vector;
 
 import org.junit.Test;
@@ -142,7 +143,7 @@ public class GoASTTest {
 	public void testGoTo() {
 		GoTo g = new GoTo("L");
 		assertEquals(1, g.toGo().size());
-		assertEquals("goto L", g.toGo().firstElement());
+		assertEquals("goto L", g.toGo().get(0));
 	}
 
 	@Test
@@ -206,14 +207,14 @@ public class GoASTTest {
 	public void testLabel() {
 		Label l = new Label("L");
 		assertEquals(1, l.toGo().size());
-		assertEquals("L:", l.toGo().firstElement());
+		assertEquals("L:", l.toGo().get(0));
 	}
 
 	@Test
 	public void testParameterDeclaration() {
 		ParameterDeclaration pd = new ParameterDeclaration("p1", new PGoPrimitiveType.PGoInt());
 		assertEquals(1, pd.toGo().size());
-		assertEquals("p1 int", pd.toGo().firstElement());
+		assertEquals("p1 int", pd.toGo().get(0));
 		assertEquals(new Vector<>(Collections.singletonList("p1 int")), pd.toGo());
 	}
 
@@ -221,11 +222,11 @@ public class GoASTTest {
 	public void testReturn() {
 		Return r = new Return(null);
 		assertEquals(1, r.toGo().size());
-		assertEquals("return", r.toGo().firstElement());
+		assertEquals("return", r.toGo().get(0));
 
 		r = new Return(new Token("ret"));
 		assertEquals(1, r.toGo().size());
-		assertEquals("return ret", r.toGo().firstElement());
+		assertEquals("return ret", r.toGo().get(0));
 	}
 
 	@Test
@@ -233,7 +234,7 @@ public class GoASTTest {
 		Vector<Expression> cases = new Vector<>();
 		cases.add(new Token("<-chan1"));
 		cases.add(new Token("<-chan2"));
-		Vector<Vector<Statement>> body = new Vector<>();
+		List<List<Statement>> body = new Vector<>();
 		Vector<Statement> b1 = new Vector<>();
 		b1.add(new Token("x = 0"));
 		body.add(b1);
@@ -293,18 +294,18 @@ public class GoASTTest {
 	public void testTokenExpression() {
 		Token te = new Token("");
 		assertEquals(1, te.toGo().size());
-		assertEquals("", te.toGo().firstElement());
+		assertEquals("", te.toGo().get(0));
 
 		te.setExpressions("var");
 		assertEquals(1, te.toGo().size());
-		assertEquals("var", te.toGo().firstElement());
+		assertEquals("var", te.toGo().get(0));
 
 		Token t2 = new Token("[2]");
 
 		te.merge(t2);
 
 		assertEquals(1, te.toGo().size());
-		assertEquals("var[2]", te.toGo().firstElement());
+		assertEquals("var[2]", te.toGo().get(0));
 	}
 
 	@Test

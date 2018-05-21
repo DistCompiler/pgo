@@ -5,8 +5,6 @@ import java.util.List;
 
 /**
  * A select statement in go
- *
- *
  */
 public class Select extends Statement {
 	

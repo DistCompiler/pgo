@@ -1,6 +1,5 @@
 package pgo.trans.intermediate;
 
-import java.util.Map;
 import java.util.Vector;
 
 import pcal.AST;
@@ -145,7 +144,7 @@ public class PGoTransStageInitParse {
 	private void transCommon(BaseAlgAST ast) {
 		this.data.algName = ast.name;
 		for (VarDecl var : (Vector<VarDecl>) ast.decls) {
-			PGoVariable pvar = PGoVariable.convert(var);
+			PGoVariable pvar = PGoVariable.convert(generator, var);
 			data.globals.put(pvar.getName(), pvar);
 		}
 		this.data.tlaExpr = ast.defs;

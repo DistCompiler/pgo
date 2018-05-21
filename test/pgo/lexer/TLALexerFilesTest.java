@@ -15,8 +15,6 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
-import pcal.TLAToken;
-
 /**
  * A coarse regression test mainly designed to alert anyone if 
  * the output of the lexer changes. Establishes expected outputs

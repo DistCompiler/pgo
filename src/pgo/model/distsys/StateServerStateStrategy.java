@@ -17,7 +17,6 @@ import pgo.model.golang.FunctionCall;
 import pgo.model.golang.GoProgram;
 import pgo.model.golang.If;
 import pgo.model.golang.MapConstructor;
-import pgo.model.golang.SliceConstructor;
 import pgo.model.golang.Statement;
 import pgo.model.golang.Token;
 import pgo.model.golang.VariableDeclaration;
@@ -45,7 +44,7 @@ public class StateServerStateStrategy implements StateStrategy {
 		// make sure distsys is available
 		go.getImports().addImport("pgo/distsys");
 
-		Vector<Statement> topLevelMain = go.getMain().getBody();
+		List<Statement> topLevelMain = go.getMain().getBody();
 		topLevelMain.add(new Assignment(
 				new Vector<>(Collections.singletonList(PEERS_VAR)),
 				Builder.sliceLiteral(
@@ -122,7 +121,7 @@ public class StateServerStateStrategy implements StateStrategy {
 	}
 
 	@Override
-	public void lock(int lockGroup, Vector<Statement> stmts, Stream<PGoVariable> vars) {
+	public void lock(int lockGroup, List<Statement> stmts, Stream<PGoVariable> vars) {
 		List<PGoVariable> vList = vars.collect(Collectors.toList());
 
 		List<Expression> varNamesStr = vList
@@ -169,7 +168,7 @@ public class StateServerStateStrategy implements StateStrategy {
 	}
 
 	@Override
-	public void unlock(int lockGroup, Vector<Statement> stmts, Stream<PGoVariable> vars) {
+	public void unlock(int lockGroup, List<Statement> stmts, Stream<PGoVariable> vars) {
 		List<String> varNames = vars.map(PGoVariable::getName).collect(Collectors.toList());
 
 		Vector<Expression> releaseNames = new Vector<>();
@@ -196,7 +195,7 @@ public class StateServerStateStrategy implements StateStrategy {
 	}
 
 	@Override
-	public void setVar(PGoVariable var, Expression rhs, Vector<Expression> exps) {
+	public void setVar(PGoVariable var, Expression rhs, List<Expression> exps) {
 		// TODO: fix this mess, this is a terrible hack / abuse of the AST
 		// since for some reason you can only use expressions to set variables, not statements?
 		exps.add(new Token(String.join(

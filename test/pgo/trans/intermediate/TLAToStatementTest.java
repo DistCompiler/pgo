@@ -2,6 +2,8 @@ package pgo.trans.intermediate;
 
 import static org.junit.Assert.assertEquals;
 
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Vector;
 
 import org.json.JSONObject;
@@ -91,11 +93,18 @@ public class TLAToStatementTest {
 
 	@Test
 	public void testGroup() throws PGoTransException {
+<<<<<<< HEAD
 		PGoTLAGroup tla = new PGoTLAGroup(new Vector<PGoTLAExpression>() {
 			{
 				add(new PGoTLASimpleArithmetic("*", new PGoTLANumber("3", 0), new PGoTLAGeneralIdentifier("x", 0), 0));
 			}
 		}, 0);
+=======
+		PGoTLAGroup tla = new PGoTLAGroup(
+				Collections.singletonList(new PGoTLASimpleArithmetic(
+						"*", new PGoTLANumber("3", 0), new PGoTLAVariable("x", 0), 0))
+				, 0);
+>>>>>>> type-system
 		data.globals.put("x", PGoVariable.convert("x", PGoType.inferFromGoTypeName("int")));
 		Expression expected;
 		Expression result = new TLAExprToGo(tla, imports, data).toExpression();
@@ -111,15 +120,14 @@ public class TLAToStatementTest {
 
 	@Test
 	public void testArray() throws PGoTransException {
-		PGoTLAArray tla = new PGoTLAArray(new Vector<TLAToken>() {
-			{
-				add(new TLAToken("1", 0, TLAToken.NUMBER));
-				add(new TLAToken(",", 0, TLAToken.BUILTIN));
-				add(new TLAToken("2", 0, TLAToken.NUMBER));
-				add(new TLAToken("+", 0, TLAToken.BUILTIN));
-				add(new TLAToken("3", 0, TLAToken.NUMBER));
-			}
-		}, 0);
+		PGoTLAArray tla = new PGoTLAArray(
+				new Vector<>(Arrays.asList(
+						new TLAToken("1", 0, TLAToken.NUMBER),
+						new TLAToken(",", 0, TLAToken.BUILTIN),
+						new TLAToken("2", 0, TLAToken.NUMBER),
+						new TLAToken("+", 0, TLAToken.BUILTIN),
+						new TLAToken("3", 0, TLAToken.NUMBER)))
+				, 0);
 
 		PGoVariable var = PGoVariable.convert("arr", PGoType.inferFromGoTypeName("tuple[int, int]"));
 		data.getLocals().put("arr", var);
@@ -127,13 +135,10 @@ public class TLAToStatementTest {
 
 		Vector<Expression> params = new Vector<>();
 		params.add(new Token("1"));
-		params.add(new SimpleExpression(new Vector<Expression>() {
-			{
-				add(new Token("2"));
-				add(new Token(" + "));
-				add(new Token("3"));
-			}
-		}));
+		params.add(new SimpleExpression(Arrays.asList(
+				new Token("2"),
+				new Token(" + "),
+				new Token("3"))));
 		assertEquals(new FunctionCall("datatypes.NewTuple", params), result);
 
 		var = PGoVariable.convert("channel", PGoType.inferFromGoTypeName("chan[int]"));
@@ -142,37 +147,29 @@ public class TLAToStatementTest {
 		result = new TLAExprToGo(tla, imports, data, var).toExpression();
 		assertEquals(new FunctionCall("datatypes.NewChan", params), result);
 
-		tla = new PGoTLAArray(new Vector<TLAToken>() {
-			{
-				add(new TLAToken("x", 0, TLAToken.IDENT));
-				add(new TLAToken("\\in", 0, TLAToken.BUILTIN));
-				add(new TLAToken("S", 0, TLAToken.IDENT));
-				add(new TLAToken(",", 0, TLAToken.BUILTIN));
-				add(new TLAToken("y", 0, TLAToken.IDENT));
-				add(new TLAToken("\\in", 0, TLAToken.BUILTIN));
-				add(new TLAToken("T", 0, TLAToken.IDENT));
-				add(new TLAToken("|->", 0, TLAToken.BUILTIN));
-				add(new TLAToken("x", 0, TLAToken.IDENT));
-			}
-		}, 0);
+		tla = new PGoTLAArray(
+				new Vector<>(Arrays.asList(
+						new TLAToken("x", 0, TLAToken.IDENT),
+						new TLAToken("\\in", 0, TLAToken.BUILTIN),
+						new TLAToken("S", 0, TLAToken.IDENT),
+						new TLAToken(",", 0, TLAToken.BUILTIN),
+						new TLAToken("y", 0, TLAToken.IDENT),
+						new TLAToken("\\in", 0, TLAToken.BUILTIN),
+						new TLAToken("T", 0, TLAToken.IDENT),
+						new TLAToken("|->", 0, TLAToken.BUILTIN),
+						new TLAToken("x", 0, TLAToken.IDENT)))
+				, 0);
 		data.getLocals().clear();
 		data.getLocals().put("S", PGoVariable.convert("S", PGoType.inferFromGoTypeName("set[set[tuple[int...]]]")));
 		data.getLocals().put("T", PGoVariable.convert("T", PGoType.inferFromGoTypeName("set[string]")));
 		result = new TLAExprToGo(tla, imports, data).toExpression();
 		AnonymousFunction f = new AnonymousFunction(
 				PGoType.inferFromGoTypeName("set[tuple[int...]]"),
-				new Vector<ParameterDeclaration>() {
-					{
-						add(new ParameterDeclaration("x", PGoType.inferFromGoTypeName("set[tuple[int...]]")));
-						add(new ParameterDeclaration("y", PGoType.inferFromGoTypeName("string")));
-					}
-				},
+				Arrays.asList(
+						new ParameterDeclaration("x", PGoType.inferFromGoTypeName("set[tuple[int...]]")),
+						new ParameterDeclaration("y", PGoType.inferFromGoTypeName("string"))),
 				new Vector<>(),
-				new Vector<Statement>() {
-					{
-						add(new Return(new Token("x")));
-					}
-				});
+				Collections.singletonList(new Return(new Token("x"))));
 		params.clear();
 		params.add(f);
 		params.add(new Token("S"));
@@ -190,20 +187,14 @@ public class TLAToStatementTest {
 		Vector<Vector<TLAToken>> foo = new Vector<>();
 		foo.add(new Vector<>());
 		foo.get(0).add(new TLAToken("b", 0, TLAToken.IDENT));
-		data.defns.put("foo", new PGoTLADefinition("foo", new Vector<PGoVariable>() {
-			{
-				add(PGoVariable.convert("a", PGoType.inferFromGoTypeName("int")));
-				add(PGoVariable.convert("b", PGoType.inferFromGoTypeName("string")));
-			}
-		}, PcalTranslate.MakeExpr(foo), null, 0));
+		data.defns.put("foo", new PGoTLADefinition("foo",
+				Arrays.asList(
+						PGoVariable.convert("a", PGoType.inferFromGoTypeName("int")),
+						PGoVariable.convert("b", PGoType.inferFromGoTypeName("string"))),
+				PcalTranslate.MakeExpr(foo), null, 0));
 		Expression result = new TLAExprToGo(tla, imports, data).toExpression();
 		Vector<Expression> se = new Vector<>();
-		se.add(new FunctionCall("foo", new Vector<Expression>() {
-			{
-				add(new Token("3"));
-				add(new Token("\"a\""));
-			}
-		}));
+		se.add(new FunctionCall("foo", Arrays.asList(new Token("3"), new Token("\"a\""))));
 		assertEquals(new SimpleExpression(se), result);
 
 		data.defns.clear();
@@ -211,16 +202,12 @@ public class TLAToStatementTest {
 				PGoVariable.convert("foo", PGoType.inferFromGoTypeName("map[tuple[int, string]]set[int]")));
 		result = new TLAExprToGo(tla, imports, data).toExpression();
 		se = new Vector<>();
-		se.add(new TypeAssertion(new FunctionCall("Get", new Vector<Expression>() {
-			{
-				add(new FunctionCall("datatypes.NewTuple", new Vector<Expression>() {
-					{
-						add(new Token("3"));
-						add(new Token("\"a\""));
-					}
-				}));
-			}
-		}, new Token("foo")), PGoType.inferFromGoTypeName("set[int]")));
+		se.add(new TypeAssertion(new FunctionCall("Get",
+				Collections.singletonList(new FunctionCall(
+						"datatypes.NewTuple",
+						Arrays.asList(new Token("3"), new Token("\"a\"")))),
+				new Token("foo")),
+				PGoType.inferFromGoTypeName("set[int]")));
 		assertEquals(new SimpleExpression(se), result);
 
 		data.globals.clear();
@@ -230,11 +217,7 @@ public class TLAToStatementTest {
 		data.globals.put("a", PGoVariable.convert("a", PGoType.inferFromGoTypeName("string")));
 		result = new TLAExprToGo(tla, imports, data).toExpression();
 		se = new Vector<>();
-		se.add(new FunctionCall("len", new Vector<Expression>() {
-			{
-				add(new Token("a"));
-			}
-		}));
+		se.add(new FunctionCall("len", Collections.singletonList(new Token("a"))));
 		assertEquals(new SimpleExpression(se), result);
 
 		data.globals.clear();
@@ -353,23 +336,10 @@ public class TLAToStatementTest {
 		data.globals.put("S", PGoVariable.convert("S", PGoType.inferFromGoTypeName("set[set[string]]")));
 		AnonymousFunction P = new AnonymousFunction(
 				PGoType.inferFromGoTypeName("bool"),
-				new Vector<ParameterDeclaration>() {
-					{
-						add(new ParameterDeclaration("x", PGoType.inferFromGoTypeName("set[string]")));
-					}
-				},
+				Collections.singletonList(new ParameterDeclaration("x", PGoType.inferFromGoTypeName("set[string]"))),
 				new Vector<>(),
-				new Vector<Statement>() {
-					{
-						add(new Return(new Token("true")));
-					}
-				});
-		expected = new FunctionCall("datatypes.SetConstructor", new Vector<Expression>() {
-			{
-				add(new Token("S"));
-				add(P);
-			}
-		});
+				Collections.singletonList(new Return(new Token("true"))));
+		expected = new FunctionCall("datatypes.SetConstructor", Arrays.asList(new Token("S"), P));
 		assertEquals(expected, new TLAExprToGo(tla, imports, data).toExpression());
 
 		between.clear();
@@ -390,29 +360,15 @@ public class TLAToStatementTest {
 		data.globals.put("T", PGoVariable.convert("T", PGoType.inferFromGoTypeName("set[set[float64]]")));
 		AnonymousFunction f = new AnonymousFunction(
 				PGoType.inferFromGoTypeName("set[float64]"),
-				new Vector<ParameterDeclaration>() {
-					{
-						add(new ParameterDeclaration("x", PGoType.inferFromGoTypeName("set[float64]")));
-						add(new ParameterDeclaration("y", PGoType.inferFromGoTypeName("set[float64]")));
-					}
-				},
+				Arrays.asList(
+						new ParameterDeclaration("x", PGoType.inferFromGoTypeName("set[float64]")),
+						new ParameterDeclaration("y", PGoType.inferFromGoTypeName("set[float64]"))),
 				new Vector<>(),
-				new Vector<Statement>() {
-					{
-						add(new Return(new FunctionCall("Union", new Vector<Expression>() {
-							{
-								add(new Token("x"));
-							}
-						}, new Token("y"))));
-					}
-				});
-		expected = new FunctionCall("datatypes.SetImage", new Vector<Expression>() {
-			{
-				add(f);
-				add(new Token("S"));
-				add(new Token("T"));
-			}
-		});
+				Collections.singletonList(new Return(new FunctionCall(
+						"Union",
+						Collections.singletonList(new Token("x")),
+						new Token("y")))));
+		expected = new FunctionCall("datatypes.SetImage", Arrays.asList(f, new Token("S"), new Token("T")));
 		assertEquals(expected, new TLAExprToGo(tla, imports, data).toExpression());
 	}
 
@@ -462,6 +418,7 @@ public class TLAToStatementTest {
 		data.globals.clear();
 		data.globals.put("S", PGoVariable.convert("S", PGoType.inferFromGoTypeName("set[string]")));
 		
+<<<<<<< HEAD
 		tla = new PGoTLAUnary("CHOOSE", new PGoTLAVariadic(":", new Vector<PGoTLAExpression>() {
 			{
 				add(new PGoTLASetOp("\\in", new PGoTLAGeneralIdentifier("x", 0), new PGoTLAGeneralIdentifier("S", 0), 0));
@@ -471,23 +428,21 @@ public class TLAToStatementTest {
 				add(new TLAToken("TRUE", 0, TLAToken.BUILTIN, 0));
 			}
 		}, 0), 0);
+=======
+		tla = new PGoTLAUnary("CHOOSE", new PGoTLAVariadic(":",
+				Collections.singletonList(new PGoTLASetOp("\\in", new PGoTLAVariable("x", 0), new PGoTLAVariable("S", 0), 0)),
+				Collections.singletonList(new TLAToken("TRUE", 0, TLAToken.BUILTIN, 0)), 0), 0);
+>>>>>>> type-system
 		Vector<Expression> params = new Vector<>();
 		params.add(new AnonymousFunction(PGoType.inferFromGoTypeName("bool"),
-				new Vector<ParameterDeclaration>() {
-					{
-						add(new ParameterDeclaration("x", PGoType.inferFromGoTypeName("string")));
-					}
-				},
+				Collections.singletonList(new ParameterDeclaration("x", PGoType.inferFromGoTypeName("string"))),
 				new Vector<>(),
-				new Vector<Statement>() {
-					{
-						add(new Return(new Token("true")));
-					}
-				}));
+				Collections.singletonList(new Return(new Token("true")))));
 		params.add(new Token("S"));
 		expected = new FunctionCall("datatypes.Choose", params);
 		assertEquals(expected, new TLAExprToGo(tla, imports, data).toExpression());
 
+<<<<<<< HEAD
 		tla = new PGoTLAUnary("\\E", new PGoTLAVariadic(":", new Vector<PGoTLAExpression>() {
 			{
 				add(new PGoTLASetOp("\\in", new PGoTLAGeneralIdentifier("x", 0), new PGoTLAGeneralIdentifier("S", 0), 0));
@@ -502,6 +457,18 @@ public class TLAToStatementTest {
 				add(new TLAToken("4", 0, TLAToken.NUMBER, 0));
 			}
 		}, 0), 0);
+=======
+		tla = new PGoTLAUnary("\\E", new PGoTLAVariadic(":",
+				Arrays.asList(
+						new PGoTLASetOp("\\in", new PGoTLAVariable("x", 0), new PGoTLAVariable("S", 0), 0),
+						new PGoTLASetOp("\\in", new PGoTLAVariable("y", 0), new PGoTLAVariable("T", 0), 0)),
+				Arrays.asList(
+						new TLAToken("x", 0, TLAToken.IDENT, 0),
+						new TLAToken("*", 0, TLAToken.BUILTIN, 0),
+						new TLAToken("y", 0, TLAToken.IDENT, 0),
+						new TLAToken("=", 0, TLAToken.BUILTIN, 0),
+						new TLAToken("4", 0, TLAToken.NUMBER, 0)),0), 0);
+>>>>>>> type-system
 		data.globals.clear();
 		data.globals.put("S", PGoVariable.convert("S", PGoType.inferFromGoTypeName("set[int]")));
 		data.globals.put("T", PGoVariable.convert("T", PGoType.inferFromGoTypeName("set[float64]")));
@@ -513,18 +480,11 @@ public class TLAToStatementTest {
 		retExpr.add(new Token(" == "));
 		retExpr.add(new Token("4"));
 		params.add(new AnonymousFunction(PGoType.inferFromGoTypeName("bool"),
-				new Vector<ParameterDeclaration>() {
-					{
-						add(new ParameterDeclaration("x", PGoType.inferFromGoTypeName("int")));
-						add(new ParameterDeclaration("y", PGoType.inferFromGoTypeName("float64")));
-					}
-				},
+				Arrays.asList(
+						new ParameterDeclaration("x", PGoType.inferFromGoTypeName("int")),
+						new ParameterDeclaration("y", PGoType.inferFromGoTypeName("float64"))),
 				new Vector<>(),
-				new Vector<Statement>() {
-					{
-						add(new Return(new SimpleExpression(retExpr)));
-					}
-				}));
+				Collections.singletonList(new Return(new SimpleExpression(retExpr)))));
 		params.add(new Token("S"));
 		params.add(new Token("T"));
 		expected = new FunctionCall("datatypes.Exists", params);

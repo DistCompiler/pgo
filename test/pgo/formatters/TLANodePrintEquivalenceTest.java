@@ -21,6 +21,7 @@ import pgo.model.tla.PGoTLAExpression;
 import pgo.model.tla.PGoTLAModule;
 import pgo.model.tla.PGoTLANode;
 import pgo.model.tla.PGoTLAUnit;
+import pgo.parser.TLAParseException;
 import pgo.parser.TLAParser;
 
 import static pgo.model.tla.Builder.*;
@@ -66,12 +67,13 @@ public class TLANodePrintEquivalenceTest {
 	}
 
 	@Test
-	public void test() throws PGoTLALexerException {
+	public void test() throws PGoTLALexerException, TLAParseException {
 		String str = ast.toString();
 		System.out.println(str);
 		TLALexer lexer = new TLALexer(Paths.get("TEST"), Arrays.asList(str.split("\n")));
 		lexer.requireModule(ast instanceof PGoTLAModule);
 		List<TLAToken> tokens = lexer.readTokens();
+		System.out.println(tokens);
 		PGoTLANode actual;
 		if(ast instanceof PGoTLAExpression) {
 			actual = TLAParser.readExpression(tokens.listIterator());
