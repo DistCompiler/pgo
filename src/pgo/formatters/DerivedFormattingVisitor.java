@@ -3,6 +3,7 @@ package pgo.formatters;
 import java.io.IOException;
 
 import pgo.model.type.PGoType;
+import pgo.model.type.PGoTypeConstraint;
 import pgo.scope.UID;
 import pgo.trans.intermediate.OperatorAccessor;
 import pgo.util.Derived;
@@ -18,37 +19,51 @@ public class DerivedFormattingVisitor extends DerivedVisitor<Void, IOException> 
 	}
 	
 	private void writeOrigins(Derived d) throws IOException {
-		boolean first = true;
-		try(IndentingWriter.Indent i_ = out.indent()){
-			for(Origin o : d.getOrigins()) {
-				if(first) {
-					first = false;
-				}else {
-					out.write(", ");
+		if(d.getOrigins().isEmpty()) {
+			out.write(" derived from ???");
+		}else {
+			out.write(" derived from ");
+			boolean first = true;
+			try(IndentingWriter.Indent i_ = out.indent()){
+				for(Origin o : d.getOrigins()) {
+					if(first) {
+						first = false;
+					}else {
+						out.write(", ");
+					}
+					o.accept(new OriginFormattingVisitor(out));
 				}
-				o.accept(new OriginFormattingVisitor(out));
 			}
 		}
 	}
 
 	@Override
 	public Void visit(UID uid) throws IOException {
-		out.write("derived from ");
+		out.write("symbol");
 		writeOrigins(uid);
 		return null;
 	}
 
 	@Override
 	public Void visit(PGoType pGoType) throws IOException {
-		out.write("type derived from ");
+		out.write("type [");
+		out.write(pGoType.toString());
+		out.write("]");
 		writeOrigins(pGoType);
 		return null;
 	}
 
 	@Override
 	public Void visit(OperatorAccessor operatorAccessor) throws IOException {
-		out.write("TLA operator derived from ");
+		out.write("TLA operator");
 		writeOrigins(operatorAccessor);
+		return null;
+	}
+
+	@Override
+	public Void visit(PGoTypeConstraint pGoTypeConstraint) throws IOException {
+		out.write("type constraint");
+		writeOrigins(pGoTypeConstraint);
 		return null;
 	}
 

@@ -271,7 +271,9 @@ public class TLAExpressionScopingVisitor extends PGoTLAExpressionVisitor<Void, R
 
 	@Override
 	public Void visit(PGoTLAUnary pGoTLAUnary) throws RuntimeException {
-		builder.reference(QualifiedName.fromTLAPrefix(pGoTLAUnary.getPrefix(), pGoTLAUnary.getOperation().getValue()), pGoTLAUnary.getOperation().getUID());
+		builder.reference(
+				QualifiedName.fromTLAPrefix(pGoTLAUnary.getPrefix(), pGoTLAUnary.getOperation().getValue()),
+				pGoTLAUnary.getOperation().getUID());
 		pGoTLAUnary.getOperand().accept(this);
 		return null;
 	}

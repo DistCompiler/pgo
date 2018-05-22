@@ -6,6 +6,7 @@ import java.nio.file.Path;
 import pgo.errors.IssueVisitor;
 import pgo.errors.IssueWithContext;
 import pgo.model.pcal.Macro;
+import pgo.model.type.UnsatisfiableConstraintIssue;
 import pgo.trans.intermediate.CircularModuleReferenceIssue;
 import pgo.trans.intermediate.DanglingReferenceIssue;
 import pgo.trans.intermediate.IOErrorIssue;
@@ -187,6 +188,17 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 		out.write(" column ");
 		out.write(macroNameConflictIssue.getSecond().getLocation().getStartColumn());
 		out.write(" share the same name");
+		return null;
+	}
+
+	@Override
+	public Void visit(UnsatisfiableConstraintIssue unsatisfiableConstraintIssue) throws IOException {
+		out.write("could not unify types ");
+		unsatisfiableConstraintIssue.getLhs().accept(new DerivedFormattingVisitor(out));
+		out.write(" and ");
+		unsatisfiableConstraintIssue.getRhs().accept(new DerivedFormattingVisitor(out));
+		out.write("; constraint derived from ");
+		unsatisfiableConstraintIssue.getConstraint().accept(new DerivedFormattingVisitor(out));
 		return null;
 	}
 

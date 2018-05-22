@@ -1,5 +1,6 @@
 package pgo.errors;
 
+import pgo.model.type.UnsatisfiableConstraintIssue;
 import pgo.trans.intermediate.CircularModuleReferenceIssue;
 import pgo.trans.intermediate.DanglingReferenceIssue;
 import pgo.trans.intermediate.IOErrorIssue;
@@ -36,5 +37,6 @@ public abstract class IssueVisitor<T, E extends Throwable> {
 	public abstract T visit(MacroArgumentInnerScopeConflictIssue macroArgumentInnerScopeConflictIssue) throws E;
 	public abstract T visit(MultiplyDeclaredLabelIssue multiplyDeclaredLabelIssue) throws E;
 	public abstract T visit(MacroNameConflictIssue macroNameConflictIssue) throws E;
+	public abstract T visit(UnsatisfiableConstraintIssue unsatisfiableConstraintIssue) throws E;
 
 }

@@ -3,6 +3,8 @@ package pgo.model.type;
 import java.util.*;
 import java.util.function.Consumer;
 
+import pgo.errors.IssueContext;
+
 /**
  * A constraint solver for PGo's type system. It does not support recursive types.
  */
@@ -14,16 +16,16 @@ public class PGoTypeSolver implements Consumer<PGoTypeConstraint> {
 		return Collections.unmodifiableMap(mapping);
 	}
 
-	public static Map<PGoTypeVariable, PGoType> unify(int line, PGoType... types) {
+	public static Map<PGoTypeVariable, PGoType> unify(IssueContext ctx, PGoType... types) {
 		if (types.length == 0) {
 			return new HashMap<>();
 		}
 		PGoTypeSolver solver = new PGoTypeSolver();
 		PGoType ty = types[0];
 		for (PGoType t : types) {
-			solver.accept(new PGoTypeConstraint(ty, t));
+			solver.accept(new PGoTypeConstraint(t, ty, t));
 		}
-		solver.unify();
+		solver.unify(ctx);
 		return solver.getMapping();
 	}
 
@@ -48,7 +50,7 @@ public class PGoTypeSolver implements Consumer<PGoTypeConstraint> {
 		}
 	}
 
-	public void unify() {
+	public void unify(IssueContext ctx) {
 		while (constraints.size() != 0) {
 			PGoTypeConstraint constraint = constraints.remove(constraints.size() - 1);
 			// a and b must not be null
@@ -68,55 +70,70 @@ public class PGoTypeSolver implements Consumer<PGoTypeConstraint> {
 				((PGoTypeUnrealizedNumber) b).harmonize((PGoNumberType) a);
 			} else if (a instanceof PGoSimpleContainerType && b instanceof PGoSimpleContainerType) {
 				if (!a.getClass().equals(b.getClass())) {
-					throw new PGoTypeUnificationException(a, b);
+					ctx.error(new UnsatisfiableConstraintIssue(constraint, a, b));
+					return;
 				}
 				accept(new PGoTypeConstraint(
+						constraint,
 						((PGoSimpleContainerType) a).getElementType(),
 						((PGoSimpleContainerType) b).getElementType()));
 			} else if (a instanceof PGoTypeMap && b instanceof PGoTypeMap) {
 				accept(new PGoTypeConstraint(
+						constraint,
 						((PGoTypeMap) a).getKeyType(),
 						((PGoTypeMap) b).getKeyType()));
 				accept(new PGoTypeConstraint(
+						constraint,
 						((PGoTypeMap) a).getValueType(),
 						((PGoTypeMap) b).getValueType()));
 			} else if (a instanceof PGoTypeTuple && b instanceof PGoTypeTuple) {
 				PGoTypeTuple ta = (PGoTypeTuple) a;
 				PGoTypeTuple tb = (PGoTypeTuple) b;
 				if (ta.getElementTypes().size() != tb.getElementTypes().size()) {
-					throw new PGoTypeUnificationException(ta, tb);
+					ctx.error(new UnsatisfiableConstraintIssue(constraint, a, b));
+					return;
 				}
 				for (int i = 0; i < ta.getElementTypes().size(); i++) {
 					accept(new PGoTypeConstraint(
+							constraint,
 							ta.getElementTypes().get(i),
 							tb.getElementTypes().get(i)));
 				}
 			} else if (a instanceof PGoTypeUnrealizedTuple && b instanceof PGoSimpleContainerType) {
-				((PGoTypeUnrealizedTuple) a).harmonize(this, (PGoSimpleContainerType) b);
+				((PGoTypeUnrealizedTuple) a).harmonize(ctx, this, (PGoSimpleContainerType) b);
+				if(ctx.hasErrors()) return;
 			} else if (a instanceof PGoSimpleContainerType && b instanceof PGoTypeUnrealizedTuple) {
-				((PGoTypeUnrealizedTuple) b).harmonize( this, (PGoSimpleContainerType) a);
+				((PGoTypeUnrealizedTuple) b).harmonize(ctx, this, (PGoSimpleContainerType) a);
+				if(ctx.hasErrors()) return;
 			} else if (a instanceof PGoTypeUnrealizedTuple && b instanceof PGoTypeTuple) {
-				((PGoTypeUnrealizedTuple) a).harmonize(this, (PGoTypeTuple) b);
+				((PGoTypeUnrealizedTuple) a).harmonize(ctx, this, (PGoTypeTuple) b);
+				if(ctx.hasErrors()) return;
 			} else if (a instanceof PGoTypeTuple && b instanceof PGoTypeUnrealizedTuple) {
-				((PGoTypeUnrealizedTuple) b).harmonize(this, (PGoTypeTuple) a);
+				((PGoTypeUnrealizedTuple) b).harmonize(ctx, this, (PGoTypeTuple) a);
+				if(ctx.hasErrors()) return;
 			} else if (a instanceof PGoTypeUnrealizedTuple && b instanceof PGoTypeUnrealizedTuple) {
-				((PGoTypeUnrealizedTuple) a).harmonize(this, (PGoTypeUnrealizedTuple) b);
+				((PGoTypeUnrealizedTuple) a).harmonize(ctx, this, (PGoTypeUnrealizedTuple) b);
+				if(ctx.hasErrors()) return;
 			} else if (a instanceof PGoTypeFunction && b instanceof PGoTypeFunction) {
 				PGoTypeFunction fa = (PGoTypeFunction) a;
 				PGoTypeFunction fb = (PGoTypeFunction) b;
 				if (fa.getParamTypes().size() != fb.getParamTypes().size()) {
-					throw new PGoTypeUnificationException(fa, fb);
+					ctx.error(new UnsatisfiableConstraintIssue(constraint, a, b));
+					return;
 				}
 				for (int i = 0; i < fa.getParamTypes().size(); i++) {
 					accept(new PGoTypeConstraint(
+							constraint,
 							fa.getParamTypes().get(i),
 							fb.getParamTypes().get(i)));
 				}
 				accept(new PGoTypeConstraint(
+						constraint,
 						fa.getReturnType(),
 						fb.getReturnType()));
 			} else {
-				throw new PGoTypeUnificationException(a, b);
+				ctx.error(new UnsatisfiableConstraintIssue(constraint, a, b));
+				return;
 			}
 		}
 		simplify();

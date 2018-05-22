@@ -8,11 +8,12 @@ import pgo.model.type.PGoTypeGenerator;
 import pgo.model.type.PGoTypeSolver;
 import pgo.model.type.PGoTypeVariable;
 import pgo.scope.UID;
+import pgo.util.Origin;
 
 public class BuiltinOperator extends OperatorAccessor {
 	
 	public interface TypeConstraintGenerator{
-		PGoType generate(List<PGoType> argTypes, PGoTypeSolver solver, PGoTypeGenerator generator);
+		PGoType generate(Origin origin, List<PGoType> argTypes, PGoTypeSolver solver, PGoTypeGenerator generator);
 	}
 	
 	private int argumentCount;
@@ -35,9 +36,9 @@ public class BuiltinOperator extends OperatorAccessor {
 	}
 	
 	@Override
-	public PGoType constrainTypes(DefinitionRegistry registry, List<PGoType> argTypes, PGoTypeSolver solver,
+	public PGoType constrainTypes(Origin origin, DefinitionRegistry registry, List<PGoType> argTypes, PGoTypeSolver solver,
 			PGoTypeGenerator generator, Map<UID, PGoTypeVariable> mapping) {
-		return typeConstraintGenerator.generate(argTypes, solver, generator);
+		return typeConstraintGenerator.generate(origin, argTypes, solver, generator);
 	}
 
 }

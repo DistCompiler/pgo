@@ -3,6 +3,7 @@ package pgo.trans.intermediate;
 import java.util.HashMap;
 import java.util.Map;
 
+import pgo.errors.IssueContext;
 import pgo.model.pcal.Algorithm;
 import pgo.model.pcal.LabeledStatements;
 import pgo.model.pcal.MultiProcess;
@@ -37,14 +38,14 @@ public class TypeInferencePass {
 				.wrappedVisit(var.getValue());
 		if(var.isSet()) {
 			PGoTypeVariable member = generator.get();
-			solver.accept(new PGoTypeConstraint(new PGoTypeSet(member), valueType));
-			solver.accept(new PGoTypeConstraint(v, member));
+			solver.accept(new PGoTypeConstraint(var, new PGoTypeSet(member), valueType));
+			solver.accept(new PGoTypeConstraint(var, v, member));
 		}else {
-			solver.accept(new PGoTypeConstraint(v, valueType));
+			solver.accept(new PGoTypeConstraint(var, v, valueType));
 		}
 	}
 	
-	public static Map<UID, PGoType> perform(DefinitionRegistry registry, Algorithm pcal) {
+	public static Map<UID, PGoType> perform(IssueContext ctx, DefinitionRegistry registry, Algorithm pcal) {
 		
 		PGoTypeSolver solver = new PGoTypeSolver();
 		PGoTypeGenerator generator = new PGoTypeGenerator("type");
@@ -88,7 +89,8 @@ public class TypeInferencePass {
 			
 		});
 		
-		solver.unify();
+		solver.unify(ctx);
+		if(ctx.hasErrors()) return null;
 		Map<PGoTypeVariable, PGoType> typeMapping = solver.getMapping();
 		
 		Map<UID, PGoType> resultingTypeMapping = new HashMap<>();

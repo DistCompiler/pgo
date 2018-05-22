@@ -11,6 +11,7 @@ import pgo.model.type.PGoTypeGenerator;
 import pgo.model.type.PGoTypeSolver;
 import pgo.model.type.PGoTypeVariable;
 import pgo.scope.UID;
+import pgo.util.Origin;
 
 public class CompiledOperatorAccessor extends OperatorAccessor {
 
@@ -21,7 +22,7 @@ public class CompiledOperatorAccessor extends OperatorAccessor {
 	}
 
 	@Override
-	public PGoType constrainTypes(DefinitionRegistry registry, List<PGoType> args, PGoTypeSolver solver, PGoTypeGenerator generator,
+	public PGoType constrainTypes(Origin origin, DefinitionRegistry registry, List<PGoType> args, PGoTypeSolver solver, PGoTypeGenerator generator,
 			Map<UID, PGoTypeVariable> mapping) {
 		// TODO argument-based polymorphism?
 		List<PGoTLAOpDecl> defArgs = def.getArgs();
@@ -30,7 +31,7 @@ public class CompiledOperatorAccessor extends OperatorAccessor {
 			if(arg.getType() == PGoTLAOpDecl.Type.ID) {
 				PGoTypeVariable v = generator.get();
 				mapping.put(arg.getUID(), v);
-				solver.accept(new PGoTypeConstraint(v, args.get(i)));
+				solver.accept(new PGoTypeConstraint(origin, v, args.get(i)));
 			}else {
 				// TODO: error
 			}

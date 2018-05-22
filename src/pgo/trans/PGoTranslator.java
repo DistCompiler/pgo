@@ -66,7 +66,8 @@ public class PGoTranslator {
 		if(ctx.hasErrors()) throw new PGoTransException(ctx.format());
 		
 		logger.info("Inferring types");
-		Map<UID, PGoType> typeMap = TypeInferencePass.perform(registry, pcalAlgorithm);
+		Map<UID, PGoType> typeMap = TypeInferencePass.perform(ctx, registry, pcalAlgorithm);
+		if(ctx.hasErrors()) throw new PGoTransException(ctx.format());
 		
 		/*logger.info("Entering Stage Four: Inferring atomicity constraints");
 		PGoTransStageAtomicity s4 = new PGoTransStageAtomicity(s3);

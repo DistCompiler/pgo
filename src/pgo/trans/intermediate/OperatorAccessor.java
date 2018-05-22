@@ -10,10 +10,11 @@ import pgo.model.type.PGoTypeVariable;
 import pgo.scope.UID;
 import pgo.util.Derived;
 import pgo.util.DerivedVisitor;
+import pgo.util.Origin;
 
 public abstract class OperatorAccessor extends Derived {
 	
-	public abstract PGoType constrainTypes(DefinitionRegistry registry, List<PGoType> args, PGoTypeSolver solver,
+	public abstract PGoType constrainTypes(Origin origin, DefinitionRegistry registry, List<PGoType> args, PGoTypeSolver solver,
 			PGoTypeGenerator generator, Map<UID, PGoTypeVariable> mapping);
 	
 	public abstract int getArgumentCount();
