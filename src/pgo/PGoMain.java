@@ -1,15 +1,27 @@
 package pgo;
 
+import java.io.File;
 import java.io.IOException;
+import java.nio.file.Paths;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.apache.commons.io.FileUtils;
 import pcal.exception.StringVectorToFileException;
+import pgo.errors.TopLevelIssueContext;
+import pgo.model.pcal.Algorithm;
+import pgo.model.tla.PGoTLAModule;
+import pgo.model.type.PGoType;
+import pgo.modules.TLAModuleLoader;
 import pgo.parser.PGoParseException;
 import pgo.parser.PcalParser;
 import pgo.parser.PcalParser.ParsedPcal;
+import pgo.scope.UID;
 import pgo.trans.PGoTransException;
-import pgo.trans.PGoTranslator;
+import pgo.trans.intermediate.*;
 import pgo.util.IOUtil;
 
 public class PGoMain {
@@ -70,11 +82,46 @@ public class PGoMain {
 		}
 
 		try {
-			PGoTranslator trans = new PGoTranslator(pcal, opts);
+			TopLevelIssueContext ctx = new TopLevelIssueContext();
+			TLAModuleLoader loader = new TLAModuleLoader(Collections.singletonList(Paths.get(opts.infile).getParent()));
+
+			logger.info("Parsing TLA+ module");
+			PGoTLAModule tlaModule = TLAParsingPass.perform(ctx, Paths.get(opts.infile));
+			checkErrors(ctx);
+
+			logger.info("Cleaning up PlusCal AST");
+			Algorithm pcalAlgorithm = PlusCalConversionPass.perform(ctx, pcal);
+			checkErrors(ctx);
+
+			/*logger.info("Parsing PGo annotations");
+			PGoAnnotationParser annotations = AnnotationParsingPass.perform(pcal);
+			checkErrors(ctx);*/
+
+			logger.info("Checking compile options for sanity");
+			CheckOptionsPass.perform(ctx, pcalAlgorithm, opts);
+			checkErrors(ctx);
+
+			logger.info("Expanding PlusCal macros");
+			pcalAlgorithm = PlusCalMacroExpansionPass.perform(ctx, pcalAlgorithm);
+			checkErrors(ctx);
+
+			logger.info("Resolving TLA+ and PlusCal scoping");
+			DefinitionRegistry registry = PGoScopingPass.perform(ctx, tlaModule, pcalAlgorithm, loader);
+			checkErrors(ctx);
+
+			logger.info("Inferring types");
+			Map<UID, PGoType> typeMap = TypeInferencePass.perform(ctx, registry, pcalAlgorithm);
+			checkErrors(ctx);
+
+			/*logger.info("Entering Stage Four: Inferring atomicity constraints");
+			PGoTransStageAtomicity s4 = new PGoTransStageAtomicity(s3);
+			logger.info("Entering Stage Five: Generating Go AST");
+			PGoTransStageGoGen s5 = new PGoTransStageGoGen(s4);
+			logger.info("Entering Stage Six: Generating Go Code");*/
 			logger.info("Writing Go to \"" + opts.buildFile + "\" in folder \"" + opts.buildDir + "\"");
-			IOUtil.WriteStringVectorToFile(trans.getGoLines(), opts.buildDir + "/" + opts.buildFile);
+			IOUtil.WriteStringVectorToFile(getGoLines(), opts.buildDir + "/" + opts.buildFile);
 			logger.info("Copying necessary Go packages to folder \"" + opts.buildDir + "\"");
-			trans.copyPackages(opts);
+			copyPackages(opts);
 
 			logger.info("Formatting generated Go code");
 			try {
@@ -83,13 +130,29 @@ public class PGoMain {
 				logger.warning(String.format("Failed to format Go code. Error: %s", e.getMessage()));
 			}
 
-		} catch (PGoTransException | PGoParseException | StringVectorToFileException | IOException e) {
+		} catch (PGoTransException | StringVectorToFileException | IOException e) {
 			logger.severe(e.getMessage());
 			e.printStackTrace();
 		}
 	}
 
-	public static void setUpLogging(PGoOptions opts) {
+	private static void checkErrors(TopLevelIssueContext ctx) throws PGoTransException {
+		if (ctx.hasErrors()) {
+			throw new PGoTransException(ctx.format());
+		}
+	}
+
+	private static List<String> getGoLines() {
+		return null; // TODO
+	}
+
+	private static void copyPackages(PGoOptions opts) throws IOException {
+		FileUtils.copyDirectory(new File("src/go/pgo"), new File(opts.buildDir + "/src/pgo"));
+		FileUtils.copyDirectory(new File("src/go/github.com/emirpasic"),
+				new File(opts.buildDir + "/src/github.com/emirpasic"));
+	}
+
+	private static void setUpLogging(PGoOptions opts) {
 		// Set the logger's log level based on command line arguments
 		if (opts.logLvlQuiet) {
 			logger.setLevel(Level.WARNING);
@@ -98,7 +161,6 @@ public class PGoMain {
 		} else {
 			logger.setLevel(Level.INFO);
 		}
-		return;
 	}
 
 	private void goFmt() throws IOException, InterruptedException {
@@ -108,6 +170,5 @@ public class PGoMain {
 		Process p = Runtime.getRuntime().exec(command);
 		p.waitFor();
 	}
-
 
 }
