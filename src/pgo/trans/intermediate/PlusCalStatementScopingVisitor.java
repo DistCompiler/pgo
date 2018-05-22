@@ -1,6 +1,7 @@
 package pgo.trans.intermediate;
 
 import java.util.List;
+import java.util.Set;
 
 import pgo.errors.IssueContext;
 import pgo.model.pcal.Assert;
@@ -20,15 +21,23 @@ import pgo.model.pcal.StatementVisitor;
 import pgo.model.pcal.While;
 import pgo.model.pcal.With;
 import pgo.model.tla.PGoTLAExpression;
+import pgo.modules.TLAModuleLoader;
 
 public class PlusCalStatementScopingVisitor extends StatementVisitor<Void, RuntimeException> {
 	
-	IssueContext ctx;
-	TLAScopeBuilder builder;
+	private IssueContext ctx;
+	private TLAScopeBuilder builder;
+	private DefinitionRegistry regBuilder;
+	private TLAModuleLoader loader;
+	private Set<String> moduleRecursionSet;
 	
-	public PlusCalStatementScopingVisitor(IssueContext ctx, TLAScopeBuilder builder) {
+	public PlusCalStatementScopingVisitor(IssueContext ctx, TLAScopeBuilder builder, DefinitionRegistry regBuilder,
+			TLAModuleLoader loader, Set<String> moduleRecursionSet) {
 		this.ctx = ctx;
 		this.builder = builder;
+		this.regBuilder = regBuilder;
+		this.loader = loader;
+		this.moduleRecursionSet = moduleRecursionSet;
 	}
 
 	@Override
@@ -41,7 +50,7 @@ public class PlusCalStatementScopingVisitor extends StatementVisitor<Void, Runti
 
 	@Override
 	public Void visit(While while1) throws RuntimeException {
-		while1.getCondition().accept(new TLAExpressionScopingVisitor(builder));
+		while1.getCondition().accept(new TLAExpressionScopingVisitor(builder, regBuilder, loader, moduleRecursionSet));
 		for(Statement stmt : while1.getBody()) {
 			stmt.accept(this);
 		}
@@ -50,7 +59,7 @@ public class PlusCalStatementScopingVisitor extends StatementVisitor<Void, Runti
 
 	@Override
 	public Void visit(If if1) throws RuntimeException {
-		if1.getCondition().accept(new TLAExpressionScopingVisitor(builder));
+		if1.getCondition().accept(new TLAExpressionScopingVisitor(builder, regBuilder, loader, moduleRecursionSet));
 		for(Statement stmt : if1.getYes()) {
 			stmt.accept(this);
 		}
@@ -72,8 +81,8 @@ public class PlusCalStatementScopingVisitor extends StatementVisitor<Void, Runti
 
 	@Override
 	public Void visit(Assignment assignment) throws RuntimeException {
-		assignment.getLHS().accept(new TLAExpressionScopingVisitor(builder));
-		assignment.getRHS().accept(new TLAExpressionScopingVisitor(builder));
+		assignment.getLHS().accept(new TLAExpressionScopingVisitor(builder, regBuilder, loader, moduleRecursionSet));
+		assignment.getRHS().accept(new TLAExpressionScopingVisitor(builder, regBuilder, loader, moduleRecursionSet));
 		return null;
 	}
 
@@ -90,7 +99,7 @@ public class PlusCalStatementScopingVisitor extends StatementVisitor<Void, Runti
 	@Override
 	public Void visit(Call call) throws RuntimeException {
 		for(PGoTLAExpression expr : call.getArguments()) {
-			expr.accept(new TLAExpressionScopingVisitor(builder));
+			expr.accept(new TLAExpressionScopingVisitor(builder, null, null, null));
 		}
 		return null;
 	}
@@ -102,30 +111,30 @@ public class PlusCalStatementScopingVisitor extends StatementVisitor<Void, Runti
 
 	@Override
 	public Void visit(With with) throws RuntimeException {
-		with.getVariable().getValue().accept(new TLAExpressionScopingVisitor(builder));
+		with.getVariable().getValue().accept(new TLAExpressionScopingVisitor(builder, regBuilder, loader, moduleRecursionSet));
 		TLAScopeBuilder nested = builder.makeNestedScope();
 		nested.defineLocal(with.getVariable().getName(), with.getVariable().getUID());
 		for(Statement stmt : with.getBody()) {
-			stmt.accept(new PlusCalStatementScopingVisitor(ctx, nested));
+			stmt.accept(new PlusCalStatementScopingVisitor(ctx, nested, regBuilder, loader, moduleRecursionSet));
 		}
 		return null;
 	}
 
 	@Override
 	public Void visit(Print print) throws RuntimeException {
-		print.getValue().accept(new TLAExpressionScopingVisitor(builder));
+		print.getValue().accept(new TLAExpressionScopingVisitor(builder, regBuilder, loader, moduleRecursionSet));
 		return null;
 	}
 
 	@Override
 	public Void visit(Assert assert1) throws RuntimeException {
-		assert1.getCondition().accept(new TLAExpressionScopingVisitor(builder));
+		assert1.getCondition().accept(new TLAExpressionScopingVisitor(builder, regBuilder, loader, moduleRecursionSet));
 		return null;
 	}
 
 	@Override
 	public Void visit(Await await) throws RuntimeException {
-		await.getCondition().accept(new TLAExpressionScopingVisitor(builder));
+		await.getCondition().accept(new TLAExpressionScopingVisitor(builder, regBuilder, loader, moduleRecursionSet));
 		return null;
 	}
 

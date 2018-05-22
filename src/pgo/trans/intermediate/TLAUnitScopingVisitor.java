@@ -39,7 +39,8 @@ public class TLAUnitScopingVisitor extends PGoTLAUnitVisitor<Void, RuntimeExcept
 	private TLAModuleLoader loader;
 	private Set<String> moduleRecursionSet;
 
-	public TLAUnitScopingVisitor(IssueContext ctx, TLAScopeBuilder builder, DefinitionRegistry regBuilder, TLAModuleLoader loader, Set<String> moduleRecursionSet) {
+	public TLAUnitScopingVisitor(IssueContext ctx, TLAScopeBuilder builder, DefinitionRegistry regBuilder,
+			TLAModuleLoader loader, Set<String> moduleRecursionSet) {
 		this.ctx = ctx;
 		this.builder = builder;
 		this.regBuilder = regBuilder;
@@ -47,7 +48,8 @@ public class TLAUnitScopingVisitor extends PGoTLAUnitVisitor<Void, RuntimeExcept
 		this.moduleRecursionSet = moduleRecursionSet;
 	}
 	
-	public static void scopeModule(PGoTLAModule module, IssueContext ctx, TLAScopeBuilder scope, DefinitionRegistry regBuilder, TLAModuleLoader loader, Set<String> recursionSet) {
+	public static void scopeModule(PGoTLAModule module, IssueContext ctx, TLAScopeBuilder scope,
+			DefinitionRegistry regBuilder, TLAModuleLoader loader, Set<String> recursionSet) {
 		Set<String> innerRecursionSet = new HashSet<>(recursionSet);
 		innerRecursionSet.add(module.getName().getId());
 		
@@ -62,7 +64,8 @@ public class TLAUnitScopingVisitor extends PGoTLAUnitVisitor<Void, RuntimeExcept
 			}else {
 				IssueContext nestedCtx = ctx.withContext(new WhileLoadingUnit(ext));
 				// take all variables, but only global definitions
-				TLAScopeBuilder extendingScope = new TLAExtendsScopeBuilder(nestedCtx, scope.getDeclarations(), TLABuiltins.getInitialDefinitions(), scope.getReferences(), scope, false);
+				TLAScopeBuilder extendingScope = new TLAExtendsScopeBuilder(nestedCtx, scope.getDeclarations(),
+						TLABuiltins.getInitialDefinitions(), scope.getReferences(), scope, false);
 				loadModule(ext.getId(), nestedCtx, extendingScope, regBuilder, loader, innerRecursionSet);
 			}
 		}
@@ -104,12 +107,12 @@ public class TLAUnitScopingVisitor extends PGoTLAUnitVisitor<Void, RuntimeExcept
 		}
 	}
 	
-	private static void checkInstanceSubstitutions(IssueContext ctx, Map<String, UID> decls, List<PGoTLAInstance.Remapping> remappings, TLAScopeBuilder outerScope) {
+	private void checkInstanceSubstitutions(IssueContext ctx, Map<String, UID> decls, List<PGoTLAInstance.Remapping> remappings, TLAScopeBuilder outerScope) {
 		Set<String> remapped = new HashSet<>();
 		
 		for(PGoTLAInstance.Remapping remap : remappings) {
 			// make sure the expressions we're substituting in are also well scoped
-			remap.getTo().accept(new TLAExpressionScopingVisitor(outerScope));
+			remap.getTo().accept(new TLAExpressionScopingVisitor(outerScope, regBuilder, loader, moduleRecursionSet));
 			
 			if(decls.containsKey(remap.getFrom().getId())) {
 				remapped.add(remap.getFrom().getId());
@@ -154,9 +157,9 @@ public class TLAUnitScopingVisitor extends PGoTLAUnitVisitor<Void, RuntimeExcept
 			for(PGoTLAIdentifier id : qb.getIds()) {
 				argScope.defineLocal(id.getId(), id.getUID());
 			}
-			qb.getSet().accept(new TLAExpressionScopingVisitor(builder));
+			qb.getSet().accept(new TLAExpressionScopingVisitor(builder, regBuilder, loader, moduleRecursionSet));
 		}
-		fn.getBody().accept(new TLAExpressionScopingVisitor(argScope));
+		fn.getBody().accept(new TLAExpressionScopingVisitor(argScope, regBuilder, loader, moduleRecursionSet));
 		return null;
 	}
 
@@ -173,13 +176,13 @@ public class TLAUnitScopingVisitor extends PGoTLAUnitVisitor<Void, RuntimeExcept
 		for(PGoTLAOpDecl op : pGoTLAOperator.getArgs()) {
 			argScope.defineLocal(op.getName().getId(), op.getName().getUID());
 		}
-		pGoTLAOperator.getBody().accept(new TLAExpressionScopingVisitor(argScope));
+		pGoTLAOperator.getBody().accept(new TLAExpressionScopingVisitor(argScope, regBuilder, loader, moduleRecursionSet));
 		return null;
 	}
 
 	@Override
 	public Void visit(PGoTLATheorem pGoTLATheorem) throws RuntimeException {
-		pGoTLATheorem.getTheorem().accept(new TLAExpressionScopingVisitor(builder));
+		pGoTLATheorem.getTheorem().accept(new TLAExpressionScopingVisitor(builder, regBuilder, loader, moduleRecursionSet));
 		return null;
 	}
 
@@ -225,7 +228,7 @@ public class TLAUnitScopingVisitor extends PGoTLAUnitVisitor<Void, RuntimeExcept
 
 	@Override
 	public Void visit(PGoTLAAssumption pGoTLAAssumption) throws RuntimeException {
-		pGoTLAAssumption.getAssumption().accept(new TLAExpressionScopingVisitor(builder));
+		pGoTLAAssumption.getAssumption().accept(new TLAExpressionScopingVisitor(builder, regBuilder, loader, moduleRecursionSet));
 		return null;
 	}
 

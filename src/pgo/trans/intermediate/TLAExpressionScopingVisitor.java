@@ -1,5 +1,7 @@
 package pgo.trans.intermediate;
 
+import java.util.Set;
+
 import pgo.model.tla.PGoTLABinOp;
 import pgo.model.tla.PGoTLABool;
 import pgo.model.tla.PGoTLACase;
@@ -35,13 +37,21 @@ import pgo.model.tla.PGoTLAUnary;
 import pgo.model.tla.PGoTLAUnit;
 import pgo.model.tla.PGoTLAUniversal;
 import pgo.model.tla.PlusCalDefaultInitValue;
+import pgo.modules.TLAModuleLoader;
 
 public class TLAExpressionScopingVisitor extends PGoTLAExpressionVisitor<Void, RuntimeException> {
 
-	TLAScopeBuilder builder;
+	private TLAScopeBuilder builder;
+	private DefinitionRegistry regBuilder;
+	private TLAModuleLoader loader;
+	private Set<String> moduleRecursionSet;
 
-	public TLAExpressionScopingVisitor(TLAScopeBuilder builder) {
+	public TLAExpressionScopingVisitor(TLAScopeBuilder builder, DefinitionRegistry regBuilder, TLAModuleLoader loader,
+			Set<String> moduleRecursionSet) {
 		this.builder = builder;
+		this.regBuilder = regBuilder;
+		this.loader = loader;
+		this.moduleRecursionSet = moduleRecursionSet;
 	}
 
 	@Override
@@ -87,7 +97,7 @@ public class TLAExpressionScopingVisitor extends PGoTLAExpressionVisitor<Void, R
 		for(PGoTLAIdentifier id : pGoTLAExistential.getIds()) {
 			nested.defineLocal(id.getId(), id.getUID());
 		}
-		pGoTLAExistential.getBody().accept(new TLAExpressionScopingVisitor(nested));
+		pGoTLAExistential.getBody().accept(new TLAExpressionScopingVisitor(nested, regBuilder, loader, moduleRecursionSet));
 		return null;
 	}
 
@@ -100,7 +110,7 @@ public class TLAExpressionScopingVisitor extends PGoTLAExpressionVisitor<Void, R
 			}
 			qb.getSet().accept(this);
 		}
-		pGoTLAFunction.getBody().accept(new TLAExpressionScopingVisitor(argScope));
+		pGoTLAFunction.getBody().accept(new TLAExpressionScopingVisitor(argScope, regBuilder, loader, moduleRecursionSet));
 		return null;
 	}
 
@@ -132,10 +142,9 @@ public class TLAExpressionScopingVisitor extends PGoTLAExpressionVisitor<Void, R
 	public Void visit(PGoTLALet pGoTLALet) throws RuntimeException {
 		TLAScopeBuilder nested = builder.makeNestedScope();
 		for(PGoTLAUnit unit : pGoTLALet.getDefinitions()) {
-			// TODO: fix this part
-			//unit.accept(new PGoTLAUnitScopingVisitor(nested));
+			unit.accept(new TLAUnitScopingVisitor(nested.getIssueContext(), nested, null, null, null));
 		}
-		pGoTLALet.getBody().accept(new TLAExpressionScopingVisitor(nested));
+		pGoTLALet.getBody().accept(new TLAExpressionScopingVisitor(nested, regBuilder, loader, moduleRecursionSet));
 		return null;
 	}
 
@@ -186,7 +195,7 @@ public class TLAExpressionScopingVisitor extends PGoTLAExpressionVisitor<Void, R
 			}
 			qb.getSet().accept(this);
 		}
-		pGoTLAQuantifiedExistential.getBody().accept(new TLAExpressionScopingVisitor(nested));
+		pGoTLAQuantifiedExistential.getBody().accept(new TLAExpressionScopingVisitor(nested, regBuilder, loader, moduleRecursionSet));
 		return null;
 	}
 
@@ -199,7 +208,7 @@ public class TLAExpressionScopingVisitor extends PGoTLAExpressionVisitor<Void, R
 			}
 			qb.getSet().accept(this);
 		}
-		pGoTLAQuantifiedUniversal.getBody().accept(new TLAExpressionScopingVisitor(nested));
+		pGoTLAQuantifiedUniversal.getBody().accept(new TLAExpressionScopingVisitor(nested, regBuilder, loader, moduleRecursionSet));
 		return null;
 	}
 
@@ -243,7 +252,7 @@ public class TLAExpressionScopingVisitor extends PGoTLAExpressionVisitor<Void, R
 			}
 			qb.getSet().accept(this);
 		}
-		pGoTLASetComprehension.getBody().accept(new TLAExpressionScopingVisitor(nested));
+		pGoTLASetComprehension.getBody().accept(new TLAExpressionScopingVisitor(nested, regBuilder, loader, moduleRecursionSet));
 		return null;
 	}
 
@@ -259,7 +268,7 @@ public class TLAExpressionScopingVisitor extends PGoTLAExpressionVisitor<Void, R
 		}else {
 			nested.defineLocal(ident.getId().getId(), ident.getId().getUID());
 		}
-		pGoTLASetRefinement.getWhen().accept(new TLAExpressionScopingVisitor(nested));
+		pGoTLASetRefinement.getWhen().accept(new TLAExpressionScopingVisitor(nested, regBuilder, loader, moduleRecursionSet));
 		return null;
 	}
 
@@ -284,7 +293,7 @@ public class TLAExpressionScopingVisitor extends PGoTLAExpressionVisitor<Void, R
 		for(PGoTLAIdentifier id : pGoTLAUniversal.getIds()) {
 			nested.defineLocal(id.getId(), id.getUID());
 		}
-		pGoTLAUniversal.getBody().accept(new TLAExpressionScopingVisitor(nested));
+		pGoTLAUniversal.getBody().accept(new TLAExpressionScopingVisitor(nested, regBuilder, loader, moduleRecursionSet));
 		return null;
 	}
 

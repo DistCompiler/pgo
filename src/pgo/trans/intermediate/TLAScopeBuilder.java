@@ -39,6 +39,10 @@ public class TLAScopeBuilder {
 		return new TLAScopeBuilder(ctx.withContext(context), declarations, new ChainMap<>(definitions), references);
 	}
 	
+	public IssueContext getIssueContext() {
+		return ctx;
+	}
+	
 	public Map<String, UID> getDeclarations(){
 		return declarations;
 	}

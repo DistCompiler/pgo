@@ -35,7 +35,8 @@ public class PGoScopingPass {
 			unit.accept(new TLAUnitScopingVisitor(ctx, pcalScope, regBuilder, loader, new HashSet<>()));
 		}
 		
-		algorithm.getProcesses().accept(new PlusCalProcessesScopingVisitor(ctx, pcalScope, tlaScope));
+		algorithm.getProcesses().accept(
+				new PlusCalProcessesScopingVisitor(ctx, pcalScope, tlaScope, regBuilder, loader, new HashSet<>()));
 		
 		for(Procedure proc : algorithm.getProcedures()) {
 			
@@ -45,7 +46,7 @@ public class PGoScopingPass {
 			Map<String, UID> args = new ChainMap<>(tlaScope.getDeclarations());
 			
 			for(VariableDecl arg : proc.getArguments()) {
-				arg.getValue().accept(new TLAExpressionScopingVisitor(tlaScope));
+				arg.getValue().accept(new TLAExpressionScopingVisitor(tlaScope, regBuilder, loader, new HashSet<>()));
 				if(argScope.declare(arg.getName(), arg.getUID())) {
 					args.put(arg.getName(), arg.getUID());
 				}
@@ -65,7 +66,7 @@ public class PGoScopingPass {
 			}
 			
 			for(LabeledStatements stmts : proc.getBody()) {
-				stmts.accept(new PlusCalStatementScopingVisitor(ctx, procScope));
+				stmts.accept(new PlusCalStatementScopingVisitor(ctx, procScope, regBuilder, loader, new HashSet<>()));
 			}
 		}
 		
