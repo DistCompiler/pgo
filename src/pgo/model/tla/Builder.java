@@ -130,7 +130,7 @@ public class Builder {
 	}
 	
 	public static PGoTLAUnary unary(List<PGoTLAGeneralIdentifierPart> prefix, String op, PGoTLAExpression arg) {
-		return new PGoTLAUnary(SourceLocation.unknown(), op, prefix, arg);
+		return new PGoTLAUnary(SourceLocation.unknown(), new PGoTLASymbol(SourceLocation.unknown(), op), prefix, arg);
 	}
 	
 	public static PGoTLAUnary unary(String op, PGoTLAExpression arg) {

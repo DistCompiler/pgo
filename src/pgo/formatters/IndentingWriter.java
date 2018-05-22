@@ -56,7 +56,7 @@ public class IndentingWriter extends Writer {
 	 * @return an AutoCloseable the will reverse the indent when closed
 	 */
 	public Indent indentToPosition(int position) {
-		return indentToPosition(position - indent);
+		return indent(position - indent);
 	}
 	
 	public void unindent(int spaces) {

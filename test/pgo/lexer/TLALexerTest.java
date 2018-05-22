@@ -81,6 +81,7 @@ public class TLALexerTest {
 					)
 			},
 			{ "<=", Arrays.asList(tok("<=", builtin(), 1, 1)) },
+			{ "\\** BEGIN TRANSLATION", Arrays.asList(tok("\\** BEGIN TRANSLATION", TLATokenType.BEGIN_TRANSLATION, 1, 1)) },
 		});
 	}
 

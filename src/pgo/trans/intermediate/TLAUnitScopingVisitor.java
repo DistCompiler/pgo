@@ -144,9 +144,9 @@ public class TLAUnitScopingVisitor extends PGoTLAUnitVisitor<Void, RuntimeExcept
 		regBuilder.addFunctionDefinition(pGoTLAFunctionDefinition);
 		
 		if(pGoTLAFunctionDefinition.isLocal()) {
-			builder.defineLocal(pGoTLAFunctionDefinition.getName().getId(), pGoTLAFunctionDefinition.getUID());
+			builder.defineLocal(pGoTLAFunctionDefinition.getName().getId(), pGoTLAFunctionDefinition.getName().getUID());
 		}else {
-			builder.defineGlobal(pGoTLAFunctionDefinition.getName().getId(), pGoTLAFunctionDefinition.getUID());
+			builder.defineGlobal(pGoTLAFunctionDefinition.getName().getId(), pGoTLAFunctionDefinition.getName().getUID());
 		}
 		TLAScopeBuilder argScope = builder.makeNestedScope();
 		PGoTLAFunction fn = pGoTLAFunctionDefinition.getFunction();
@@ -162,12 +162,12 @@ public class TLAUnitScopingVisitor extends PGoTLAUnitVisitor<Void, RuntimeExcept
 
 	@Override
 	public Void visit(PGoTLAOperatorDefinition pGoTLAOperator) throws RuntimeException {
-		regBuilder.addOperatorDefinition(pGoTLAOperator);
+		regBuilder.addOperator(pGoTLAOperator.getName().getUID(), new CompiledOperatorAccessor(pGoTLAOperator));
 		
 		if(pGoTLAOperator.isLocal()) {
-			builder.defineLocal(pGoTLAOperator.getName().getId(), pGoTLAOperator.getUID());
+			builder.defineLocal(pGoTLAOperator.getName().getId(), pGoTLAOperator.getName().getUID());
 		}else {
-			builder.defineGlobal(pGoTLAOperator.getName().getId(), pGoTLAOperator.getUID());
+			builder.defineGlobal(pGoTLAOperator.getName().getId(), pGoTLAOperator.getName().getUID());
 		}
 		TLAScopeBuilder argScope = builder.makeNestedScope();
 		for(PGoTLAOpDecl op : pGoTLAOperator.getArgs()) {

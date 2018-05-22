@@ -180,7 +180,7 @@ public class PGoTLAExpressionFormattingVisitor extends PGoTLAExpressionVisitor<V
 		}
 		out.newLine();
 		try(IndentingWriter.Indent i_ = out.indentToPosition(indentFrom)){
-			out.write("IN");
+			out.write("IN ");
 			try(IndentingWriter.Indent ii__ = out.indent()){
 				pGoTLALet.getBody().accept(this);
 			}
@@ -327,18 +327,18 @@ public class PGoTLAExpressionFormattingVisitor extends PGoTLAExpressionVisitor<V
 
 	@Override
 	public Void visit(PGoTLAUnary pGoTLAUnary) throws IOException {
-		if(TLAParser.PREFIX_OPERATORS.contains(pGoTLAUnary.getOperation())) {
+		if(TLAParser.PREFIX_OPERATORS.contains(pGoTLAUnary.getOperation().getValue())) {
 			formatPrefix(pGoTLAUnary.getPrefix());
-			out.write(pGoTLAUnary.getOperation());
+			out.write(pGoTLAUnary.getOperation().getValue());
 			out.write("(");
 			pGoTLAUnary.getOperand().accept(this);
 			out.write(")");
-		}else if(TLAParser.POSTFIX_OPERATORS.contains(pGoTLAUnary.getOperation())) {
+		}else if(TLAParser.POSTFIX_OPERATORS.contains(pGoTLAUnary.getOperation().getValue())) {
 			out.write("(");
 			pGoTLAUnary.getOperand().accept(this);
 			out.write(")");
 			formatPrefix(pGoTLAUnary.getPrefix());
-			out.write(pGoTLAUnary.getOperation());
+			out.write(pGoTLAUnary.getOperation().getValue());
 		}else {
 			throw new RuntimeException(pGoTLAUnary.getOperation()+" is not a valid prefix or postfix operator");
 		}

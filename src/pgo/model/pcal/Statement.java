@@ -11,6 +11,11 @@ public abstract class Statement extends Node {
 	@Override
 	public abstract Statement copy();
 	
+	@Override
+	public <T, E extends Throwable> T accept(NodeVisitor<T, E> v) throws E{
+		return v.visit(this);
+	}
+	
 	public abstract <T, E extends Throwable> T accept(StatementVisitor<T, E> v) throws E;
 
 }

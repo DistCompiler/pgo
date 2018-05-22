@@ -709,7 +709,8 @@ public final class TLAParser {
 				part(expr, nop().chain(v -> parseExpression(minColumn)))
 				).map(seqResult -> {
 					return new PGoTLAUnary(
-							seqResult.getLocation(), token.getValue().getValue(),
+							seqResult.getLocation(),
+							new PGoTLASymbol(token.getValue().getLocation(), token.getValue().getValue()),
 							prefix.getValue(), expr.getValue());
 				});
 	}
@@ -1162,7 +1163,10 @@ public final class TLAParser {
 					String opStr = op.getValue().getValue();
 					if(PREFIX_OPERATORS_LOW_PRECEDENCE.get(opStr) <= precedence && PREFIX_OPERATORS_HI_PRECEDENCE.get(opStr) >= precedence) {
 						return parseExpressionFromPrecedence(minColumn, PREFIX_OPERATORS_HI_PRECEDENCE.get(opStr) + 1).map(exp -> {
-							return new PGoTLAUnary(seqResult.getLocation(), op.getValue().getValue(), prefix.getValue(), exp);
+							return new PGoTLAUnary(
+									seqResult.getLocation(),
+									new PGoTLASymbol(op.getValue().getLocation(), op.getValue().getValue()),
+									prefix.getValue(), exp);
 						});
 					}else {
 						return ParseAction.failure(
@@ -1240,7 +1244,7 @@ public final class TLAParser {
 									lhs.setValue(
 											new PGoTLAUnary(
 													seqResult.getLocation(),
-													opStr,
+													new PGoTLASymbol(op.getValue().getLocation(), opStr),
 													prefix.getValue(),
 													lhs.getValue()));
 									return ParseAction.success(lhs.getValue());
@@ -1296,7 +1300,6 @@ public final class TLAParser {
 	}
 	
 	public static ParseAction<PGoTLAExpression> parseExpression(int minColumn){
-		// TODO: PGoTLATokenCategory.PLUSCAL_DEFAULT_VALUE
 		return parseExpressionFromPrecedence(minColumn, 1);
 	}
 	

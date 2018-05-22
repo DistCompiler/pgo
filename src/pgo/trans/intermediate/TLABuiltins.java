@@ -5,7 +5,9 @@ import java.util.Map;
 
 import pgo.model.type.PGoTypeBool;
 import pgo.model.type.PGoTypeConstraint;
+import pgo.model.type.PGoTypeInt;
 import pgo.model.type.PGoTypeNatural;
+import pgo.model.type.PGoTypeSet;
 import pgo.model.type.PGoTypeSlice;
 import pgo.model.type.PGoTypeUnrealizedTuple;
 import pgo.model.type.PGoTypeVariable;
@@ -24,6 +26,38 @@ public class TLABuiltins {
 		universalBuiltins.addOperator("#", new BuiltinOperator(2, (args, solver, generator) -> {
 			solver.accept(new PGoTypeConstraint(args.get(0), args.get(1)));
 			return PGoTypeBool.getInstance();
+		}));
+		universalBuiltins.addOperator("\\in", new BuiltinOperator(2, (args, solver, generator) -> {
+			PGoTypeVariable memberType = generator.get();
+			solver.accept(new PGoTypeConstraint(args.get(0), memberType));
+			solver.accept(new PGoTypeConstraint(args.get(1), new PGoTypeSet(memberType)));
+			return PGoTypeBool.getInstance();
+		}));
+		universalBuiltins.addOperator("\\", new BuiltinOperator(2, (args, solver, generator) -> {
+			PGoTypeVariable memberType = generator.get();
+			solver.accept(new PGoTypeConstraint(args.get(0), new PGoTypeSet(memberType)));
+			solver.accept(new PGoTypeConstraint(args.get(1), new PGoTypeSet(memberType)));
+			return new PGoTypeSet(memberType);
+		}));
+		universalBuiltins.addOperator("~", new BuiltinOperator(1, (args, solver, generator) -> {
+			solver.accept(new PGoTypeConstraint(args.get(0), PGoTypeBool.getInstance()));
+			return PGoTypeBool.getInstance();
+		}));
+		universalBuiltins.addOperator("\\/", new BuiltinOperator(2, (args, solver, generator) -> {
+			solver.accept(new PGoTypeConstraint(args.get(0), PGoTypeBool.getInstance()));
+			solver.accept(new PGoTypeConstraint(args.get(1), PGoTypeBool.getInstance()));
+			return PGoTypeBool.getInstance();
+		}));
+		universalBuiltins.addOperator("/\\", new BuiltinOperator(2, (args, solver, generator) -> {
+			solver.accept(new PGoTypeConstraint(args.get(0), PGoTypeBool.getInstance()));
+			solver.accept(new PGoTypeConstraint(args.get(1), PGoTypeBool.getInstance()));
+			return PGoTypeBool.getInstance();
+		}));
+		universalBuiltins.addOperator("\\union", new BuiltinOperator(2, (args, solver, generator) -> {
+			PGoTypeVariable memberType = generator.get();
+			solver.accept(new PGoTypeConstraint(args.get(0), new PGoTypeSet(memberType)));
+			solver.accept(new PGoTypeConstraint(args.get(1), new PGoTypeSet(memberType)));
+			return new PGoTypeSet(memberType);
 		}));
 	}
 	
@@ -56,12 +90,67 @@ public class TLABuiltins {
 			return new PGoTypeSlice(elementType);
 		}));
 		
-		BuiltinModule Integers = new BuiltinModule();
-		builtinModules.put("Integers", Integers);
-		Integers.addOperator("<", new BuiltinOperator(2, (args, solver, generator) -> {
+		BuiltinModule Naturals = new BuiltinModule();
+		builtinModules.put("Naturals", Naturals);
+		Naturals.addOperator("-", new BuiltinOperator(2, (args, solver, generator) -> {
+			solver.accept(new PGoTypeConstraint(args.get(0), PGoTypeNatural.getInstance()));
+			solver.accept(new PGoTypeConstraint(args.get(1), PGoTypeNatural.getInstance()));
+			return PGoTypeNatural.getInstance();
+		}));
+		Naturals.addOperator("+", new BuiltinOperator(2, (args, solver, generator) -> {
+			solver.accept(new PGoTypeConstraint(args.get(0), PGoTypeNatural.getInstance()));
+			solver.accept(new PGoTypeConstraint(args.get(1), PGoTypeNatural.getInstance()));
+			return PGoTypeNatural.getInstance();
+		}));
+		Naturals.addOperator("%", new BuiltinOperator(2, (args, solver, generator) -> {
+			solver.accept(new PGoTypeConstraint(args.get(0), PGoTypeNatural.getInstance()));
+			solver.accept(new PGoTypeConstraint(args.get(1), PGoTypeNatural.getInstance()));
+			return PGoTypeNatural.getInstance();
+		}));
+		Naturals.addOperator("*", new BuiltinOperator(2, (args, solver, generator) -> {
+			solver.accept(new PGoTypeConstraint(args.get(0), PGoTypeNatural.getInstance()));
+			solver.accept(new PGoTypeConstraint(args.get(1), PGoTypeNatural.getInstance()));
+			return PGoTypeNatural.getInstance();
+		}));
+		Naturals.addOperator("<", new BuiltinOperator(2, (args, solver, generator) -> {
 			solver.accept(new PGoTypeConstraint(args.get(0), PGoTypeNatural.getInstance()));
 			solver.accept(new PGoTypeConstraint(args.get(1), PGoTypeNatural.getInstance()));
 			return PGoTypeBool.getInstance();
+		}));
+		Naturals.addOperator(">", new BuiltinOperator(2, (args, solver, generator) -> {
+			solver.accept(new PGoTypeConstraint(args.get(0), PGoTypeNatural.getInstance()));
+			solver.accept(new PGoTypeConstraint(args.get(1), PGoTypeNatural.getInstance()));
+			return PGoTypeBool.getInstance();
+		}));
+		// TODO: \leq =<
+		Naturals.addOperator("<=", new BuiltinOperator(2, (args, solver, generator) -> {
+			solver.accept(new PGoTypeConstraint(args.get(0), PGoTypeNatural.getInstance()));
+			solver.accept(new PGoTypeConstraint(args.get(1), PGoTypeNatural.getInstance()));
+			return PGoTypeBool.getInstance();
+		}));
+		// TODO: \geq
+		Naturals.addOperator(">=", new BuiltinOperator(2, (args, solver, generator) -> {
+			solver.accept(new PGoTypeConstraint(args.get(0), PGoTypeNatural.getInstance()));
+			solver.accept(new PGoTypeConstraint(args.get(1), PGoTypeNatural.getInstance()));
+			return PGoTypeBool.getInstance();
+		}));
+		Naturals.addOperator("Nat", new BuiltinOperator(0, (args, solver, generator) -> {
+			return new PGoTypeSet(PGoTypeNatural.getInstance());
+		}));
+		Naturals.addOperator("..", new BuiltinOperator(2, (args, solver, generator) -> {
+			solver.accept(new PGoTypeConstraint(args.get(0), PGoTypeNatural.getInstance()));
+			solver.accept(new PGoTypeConstraint(args.get(1), PGoTypeNatural.getInstance()));
+			return new PGoTypeSlice(PGoTypeNatural.getInstance());
+		}));
+		
+		BuiltinModule Integers = new BuiltinModule(Naturals);
+		builtinModules.put("Integers", Integers);
+		Integers.addOperator("-", new BuiltinOperator(1, (args, solver, generator) -> {
+			solver.accept(new PGoTypeConstraint(args.get(0), PGoTypeNatural.getInstance()));
+			return PGoTypeInt.getInstance();
+		}));
+		Integers.addOperator("Int", new BuiltinOperator(0, (args, solver, generator) -> {
+			return new PGoTypeSet(PGoTypeInt.getInstance());
 		}));
 		
 	}

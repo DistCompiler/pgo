@@ -3,12 +3,18 @@ package pgo.trans.intermediate;
 import java.util.HashMap;
 import java.util.Map;
 
+import pgo.scope.ChainMap;
+
 public class BuiltinModule {
 	
 	Map<String, BuiltinOperator> operators;
 	
 	public BuiltinModule() {
 		this.operators = new HashMap<>();
+	}
+	
+	public BuiltinModule(BuiltinModule exts) {
+		this.operators = new ChainMap<>(exts.operators);
 	}
 	
 	public void addOperator(String name, BuiltinOperator op) {

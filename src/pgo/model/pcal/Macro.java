@@ -39,6 +39,11 @@ public class Macro extends Node {
 	public List<Statement> getBody(){
 		return body;
 	}
+	
+	@Override
+	public <T, E extends Throwable> T accept(NodeVisitor<T, E> v) throws E{
+		return v.visit(this);
+	}
 
 	@Override
 	public int hashCode() {

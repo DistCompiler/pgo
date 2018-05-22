@@ -63,6 +63,11 @@ public class Algorithm extends Node {
 	public Processes getProcesses() {
 		return processes;
 	}
+	
+	@Override
+	public <T, E extends Throwable> T accept(NodeVisitor<T, E> v) throws E{
+		return v.visit(this);
+	}
 
 	@Override
 	public int hashCode() {

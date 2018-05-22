@@ -13,8 +13,8 @@ import pgo.util.DerivedVisitor;
 
 public abstract class OperatorAccessor extends Derived {
 	
-	public abstract PGoType constrainTypes(List<PGoType> args, PGoTypeSolver solver, PGoTypeGenerator generator, Map<UID,
-			PGoTypeVariable> mapping);
+	public abstract PGoType constrainTypes(DefinitionRegistry registry, List<PGoType> args, PGoTypeSolver solver,
+			PGoTypeGenerator generator, Map<UID, PGoTypeVariable> mapping);
 	
 	public abstract int getArgumentCount();
 	

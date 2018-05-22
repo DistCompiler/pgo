@@ -45,6 +45,11 @@ public class Procedure extends Node {
 	public List<LabeledStatements> getBody() {
 		return body;
 	}
+	
+	@Override
+	public <T, E extends Throwable> T accept(NodeVisitor<T, E> v) throws E{
+		return v.visit(this);
+	}
 
 	@Override
 	public int hashCode() {

@@ -11,11 +11,11 @@ import pgo.util.SourceLocation;
  * 
  */
 public class PGoTLAUnary extends PGoTLAExpression {
-	private String operation;
+	private PGoTLASymbol operation;
 	private PGoTLAExpression operand;
 	private List<PGoTLAGeneralIdentifierPart> prefix;
 
-	public PGoTLAUnary(SourceLocation location, String operation, List<PGoTLAGeneralIdentifierPart> prefix, PGoTLAExpression operand) {
+	public PGoTLAUnary(SourceLocation location, PGoTLASymbol operation, List<PGoTLAGeneralIdentifierPart> prefix, PGoTLAExpression operand) {
 		super(location);
 		this.operation = operation;
 		this.prefix = prefix;
@@ -27,7 +27,7 @@ public class PGoTLAUnary extends PGoTLAExpression {
 		return new PGoTLAUnary(getLocation(), operation, prefix.stream().map(PGoTLAGeneralIdentifierPart::copy).collect(Collectors.toList()), operand.copy());
 	}
 
-	public String getOperation() {
+	public PGoTLASymbol getOperation() {
 		return operation;
 	}
 

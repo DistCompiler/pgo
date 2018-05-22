@@ -273,9 +273,9 @@ public class TLCToPGoPCalASTConversionVisitor extends PcalASTUtil.Visitor<List<S
 			statements.addAll(PcalASTUtil.accept(a, this));
 		}
 		Label.Modifier modifier = Label.Modifier.NONE;
-		if(minusLabels.contains(ls.label)) {
+		if(minusLabels != null && minusLabels.contains(ls.label)) {
 			modifier = Label.Modifier.MINUS;
-		}else if(plusLabels.contains(ls.label)) {
+		}else if(plusLabels != null && plusLabels.contains(ls.label)) {
 			modifier = Label.Modifier.PLUS;
 		}
 		

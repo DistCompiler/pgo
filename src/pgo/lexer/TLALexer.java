@@ -234,8 +234,8 @@ public class TLALexer {
 	
 	static final Pattern PGO_ANNOTATION = Pattern.compile("@PGo\\{(.*)\\}@PGo");
 	
-	static final Pattern BEGIN_TRANSLATION = Pattern.compile("\\\\\\* BEGIN TRANSLATION$");
-	static final Pattern END_TRANSLATION = Pattern.compile("\\\\\\* END TRANSLATION$");
+	static final Pattern BEGIN_TRANSLATION = Pattern.compile("\\\\\\*+ BEGIN TRANSLATION$");
+	static final Pattern END_TRANSLATION = Pattern.compile("\\\\\\*+ END TRANSLATION$");
 	
 	List<String> lines;
 	Path filename;

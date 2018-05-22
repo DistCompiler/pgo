@@ -30,6 +30,11 @@ public class Label extends Node {
 	public Modifier getModifier() {
 		return modifier;
 	}
+	
+	@Override
+	public <T, E extends Throwable> T accept(NodeVisitor<T, E> v) throws E{
+		return v.visit(this);
+	}
 
 	@Override
 	public int hashCode() {

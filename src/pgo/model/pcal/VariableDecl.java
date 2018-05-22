@@ -32,6 +32,11 @@ public class VariableDecl extends Node {
 	public PGoTLAExpression getValue(){
 		return value;
 	}
+	
+	@Override
+	public <T, E extends Throwable> T accept(NodeVisitor<T, E> v) throws E{
+		return v.visit(this);
+	}
 
 	@Override
 	public int hashCode() {

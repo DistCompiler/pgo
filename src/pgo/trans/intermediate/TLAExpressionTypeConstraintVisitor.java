@@ -44,6 +44,7 @@ import pgo.model.type.PGoTypeNatural;
 import pgo.model.type.PGoTypeSet;
 import pgo.model.type.PGoTypeSolver;
 import pgo.model.type.PGoTypeString;
+import pgo.model.type.PGoTypeUnrealizedNumber;
 import pgo.model.type.PGoTypeUnrealizedTuple;
 import pgo.model.type.PGoTypeVariable;
 import pgo.scope.UID;
@@ -82,6 +83,7 @@ public class TLAExpressionTypeConstraintVisitor extends PGoTLAExpressionVisitor<
 		OperatorAccessor op = registry.findOperator(
 				registry.followReference(pGoTLABinOp.getOperation().getUID()));
 		return op.constrainTypes(
+				registry,
 				Arrays.asList(wrappedVisit(pGoTLABinOp.getLHS()), wrappedVisit(pGoTLABinOp.getRHS())),
 				solver, generator, mapping);
 	}
@@ -167,7 +169,7 @@ public class TLAExpressionTypeConstraintVisitor extends PGoTLAExpressionVisitor<
 
 	@Override
 	public PGoType visit(PGoTLANumber pGoTLANumber) throws RuntimeException {
-		return PGoTypeNatural.getInstance();
+		return new PGoTypeUnrealizedNumber();
 	}
 
 	@Override
@@ -178,7 +180,7 @@ public class TLAExpressionTypeConstraintVisitor extends PGoTLAExpressionVisitor<
 		}
 		OperatorAccessor op = registry.findOperator(
 				registry.followReference(pGoTLAOperatorCall.getName().getUID()));
-		return op.constrainTypes(arguments, solver, generator, mapping);
+		return op.constrainTypes(registry, arguments, solver, generator, mapping);
 	}
 
 	@Override
@@ -222,6 +224,13 @@ public class TLAExpressionTypeConstraintVisitor extends PGoTLAExpressionVisitor<
 
 	@Override
 	public PGoType visit(PGoTLASetRefinement pGoTLASetRefinement) throws RuntimeException {
+		PGoType from = wrappedVisit(pGoTLASetRefinement.getFrom());
+		PGoTypeVariable elementType = generator.get();
+		solver.accept(new PGoTypeConstraint(from, new PGoTypeSet(elementType)));
+		if(pGoTLASetRefinement.getIdent().isTuple()) {
+			
+		}
+		// TODO: WIP
 		throw new RuntimeException("TODO");
 	}
 

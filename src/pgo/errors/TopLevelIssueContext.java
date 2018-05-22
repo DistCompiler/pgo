@@ -33,7 +33,11 @@ public class TopLevelIssueContext extends IssueContext {
 	public void format(IndentingWriter out) throws IOException {
 		out.write("Detected ");
 		out.write(Integer.toString(errors.size()));
-		out.write(" issue(s):");
+		if(errors.size() == 1) {
+			out.write(" issue:");
+		}else {
+			out.write(" issues:");
+		}
 		for(Issue e : errors) {
 			out.newLine();
 			e.accept(new IssueFormattingVisitor(out));

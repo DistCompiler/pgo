@@ -35,8 +35,8 @@ public class BuiltinOperator extends OperatorAccessor {
 	}
 	
 	@Override
-	public PGoType constrainTypes(List<PGoType> argTypes, PGoTypeSolver solver, PGoTypeGenerator generator,
-			Map<UID, PGoTypeVariable> mapping) {
+	public PGoType constrainTypes(DefinitionRegistry registry, List<PGoType> argTypes, PGoTypeSolver solver,
+			PGoTypeGenerator generator, Map<UID, PGoTypeVariable> mapping) {
 		return typeConstraintGenerator.generate(argTypes, solver, generator);
 	}
 
