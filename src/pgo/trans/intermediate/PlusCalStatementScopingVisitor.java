@@ -73,7 +73,7 @@ public class PlusCalStatementScopingVisitor extends StatementVisitor<Void, Runti
 	@Override
 	public Void visit(Assignment assignment) throws RuntimeException {
 		assignment.getLHS().accept(new TLAExpressionScopingVisitor(builder));
-		assignment.getLHS().accept(new TLAExpressionScopingVisitor(builder));
+		assignment.getRHS().accept(new TLAExpressionScopingVisitor(builder));
 		return null;
 	}
 

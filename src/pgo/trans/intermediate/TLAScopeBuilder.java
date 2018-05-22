@@ -16,11 +16,11 @@ public class TLAScopeBuilder {
 	
 	IssueContext ctx;
 	
-	public TLAScopeBuilder(IssueContext ctx) {
+	public TLAScopeBuilder(IssueContext ctx, Map<UID, UID> references) {
 		this.ctx = ctx;
 		this.declarations = new HashMap<>();
-		this.definitions = new HashMap<>();
-		this.references = new HashMap<>();
+		this.definitions = TLABuiltins.getInitialDefinitions();
+		this.references = references;
 	}
 	
 	public TLAScopeBuilder(IssueContext ctx, Map<String, UID> declarations, Map<QualifiedName, UID> definitions, Map<UID, UID> references) {

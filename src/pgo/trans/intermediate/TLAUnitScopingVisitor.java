@@ -35,11 +35,11 @@ public class TLAUnitScopingVisitor extends PGoTLAUnitVisitor<Void, RuntimeExcept
 
 	private IssueContext ctx;
 	private TLAScopeBuilder builder;
-	private DefinitionRegistryBuilder regBuilder;
+	private DefinitionRegistry regBuilder;
 	private TLAModuleLoader loader;
 	private Set<String> moduleRecursionSet;
 
-	public TLAUnitScopingVisitor(IssueContext ctx, TLAScopeBuilder builder, DefinitionRegistryBuilder regBuilder, TLAModuleLoader loader, Set<String> moduleRecursionSet) {
+	public TLAUnitScopingVisitor(IssueContext ctx, TLAScopeBuilder builder, DefinitionRegistry regBuilder, TLAModuleLoader loader, Set<String> moduleRecursionSet) {
 		this.ctx = ctx;
 		this.builder = builder;
 		this.regBuilder = regBuilder;
@@ -47,17 +47,24 @@ public class TLAUnitScopingVisitor extends PGoTLAUnitVisitor<Void, RuntimeExcept
 		this.moduleRecursionSet = moduleRecursionSet;
 	}
 	
-	public static void scopeModule(PGoTLAModule module, IssueContext ctx, TLAScopeBuilder scope, DefinitionRegistryBuilder regBuilder, TLAModuleLoader loader, Set<String> recursionSet) {
+	public static void scopeModule(PGoTLAModule module, IssueContext ctx, TLAScopeBuilder scope, DefinitionRegistry regBuilder, TLAModuleLoader loader, Set<String> recursionSet) {
 		Set<String> innerRecursionSet = new HashSet<>(recursionSet);
 		innerRecursionSet.add(module.getName().getId());
 		
 		module = module.copy();
+		TLABuiltins.getUniversalBuiltins().addDefinitionsToRegistry(regBuilder);
 		
 		for(PGoTLAIdentifier ext : module.getExtends()) {
-			IssueContext nestedCtx = ctx.withContext(new WhileLoadingUnit(ext));
-			// take all variables, but only global definitions
-			TLAScopeBuilder extendingScope = new TLAExtendsScopeBuilder(nestedCtx, scope.getDeclarations(), new HashMap<>(), scope.getReferences(), scope, false);
-			loadModule(ext.getId(), nestedCtx, extendingScope, regBuilder, loader, innerRecursionSet);
+			if(TLABuiltins.isBuiltinModule(ext.getId())) {
+				BuiltinModule m = TLABuiltins.findBuiltinModule(ext.getId());
+				m.addDefinitionsToScope(scope);
+				m.addDefinitionsToRegistry(regBuilder);
+			}else {
+				IssueContext nestedCtx = ctx.withContext(new WhileLoadingUnit(ext));
+				// take all variables, but only global definitions
+				TLAScopeBuilder extendingScope = new TLAExtendsScopeBuilder(nestedCtx, scope.getDeclarations(), TLABuiltins.getInitialDefinitions(), scope.getReferences(), scope, false);
+				loadModule(ext.getId(), nestedCtx, extendingScope, regBuilder, loader, innerRecursionSet);
+			}
 		}
 		
 		for(PGoTLAUnit unit : module.getPreTranslationUnits()) {
@@ -66,8 +73,10 @@ public class TLAUnitScopingVisitor extends PGoTLAUnitVisitor<Void, RuntimeExcept
 		// TODO: do something more interesting with the rest of the units
 	}
 	
-	public static PGoTLAModule loadModule(String name, IssueContext ctx, TLAScopeBuilder scope, DefinitionRegistryBuilder regBuilder, TLAModuleLoader loader, Set<String> recursionSet) {
-		if(recursionSet.contains(name)) {
+	public static void loadModule(String name, IssueContext ctx, TLAScopeBuilder scope, DefinitionRegistry regBuilder, TLAModuleLoader loader, Set<String> recursionSet) {
+		if(TLABuiltins.isBuiltinModule(name)) {
+			TLABuiltins.findBuiltinModule(name).addDefinitionsToScope(scope);
+		}else if(recursionSet.contains(name)) {
 			ctx.error(new CircularModuleReferenceIssue(name));
 		}else {
 			try {
@@ -81,7 +90,6 @@ public class TLAUnitScopingVisitor extends PGoTLAUnitVisitor<Void, RuntimeExcept
 				
 				scopeModule(module, ctx, scope, regBuilder, loader, recursionSet);
 				
-				return module;
 			} catch (PGoTLALexerException e) {
 				ctx.error(new TLALexerIssue(e));
 			} catch (ModuleNotFoundError e) {
@@ -94,7 +102,6 @@ public class TLAUnitScopingVisitor extends PGoTLAUnitVisitor<Void, RuntimeExcept
 				ctx.error(new NoModulesFoundInFileIssue());
 			}
 		}
-		return null;
 	}
 	
 	private static void checkInstanceSubstitutions(IssueContext ctx, Map<String, UID> decls, List<PGoTLAInstance.Remapping> remappings, TLAScopeBuilder outerScope) {

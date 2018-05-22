@@ -21,12 +21,14 @@ import pgo.scope.UID;
 
 public class TLAUnitTypeConstraintVisitor extends PGoTLAUnitVisitor<Void, RuntimeException> {
 
+	private DefinitionRegistry registry;
 	private Map<UID, PGoTypeVariable> mapping;
 	private PGoTypeGenerator generator;
 	private PGoTypeSolver solver;
 
-	public TLAUnitTypeConstraintVisitor(PGoTypeSolver solver, PGoTypeGenerator generator,
+	public TLAUnitTypeConstraintVisitor(DefinitionRegistry registry, PGoTypeSolver solver, PGoTypeGenerator generator,
 			Map<UID, PGoTypeVariable> mapping) {
+		this.registry = registry;
 		this.solver = solver;
 		this.generator = generator;
 		this.mapping = mapping;
@@ -47,7 +49,10 @@ public class TLAUnitTypeConstraintVisitor extends PGoTLAUnitVisitor<Void, Runtim
 			v = generator.get();
 			mapping.put(id, v);
 		}
-		solver.accept(new PGoTypeConstraint(v, pGoTLAFunctionDefinition.getFunction().accept(new TLAExpressionTypeConstraintVisitor(solver, generator, mapping))));
+		solver.accept(
+				new PGoTypeConstraint(v,
+						new TLAExpressionTypeConstraintVisitor(registry, solver, generator, mapping)
+						.wrappedVisit(pGoTLAFunctionDefinition.getFunction())));
 		return null;
 	}
 
@@ -60,7 +65,7 @@ public class TLAUnitTypeConstraintVisitor extends PGoTLAUnitVisitor<Void, Runtim
 				mapping.put(arg.getUID(), generator.get());
 			}
 		}
-		pGoTLAOperator.getBody().accept(new TLAExpressionTypeConstraintVisitor(solver, generator, mapping));
+		new TLAExpressionTypeConstraintVisitor(registry, solver, generator, mapping).wrappedVisit(pGoTLAOperator.getBody());
 		return null;
 	}
 

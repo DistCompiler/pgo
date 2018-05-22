@@ -27,16 +27,18 @@ import pgo.scope.UID;
 
 public class PlusCalStatementTypeConstraintVisitor extends StatementVisitor<Void, RuntimeException> {
 	
+	private DefinitionRegistry registry;
 	private PGoTypeSolver solver;
 	private PGoTypeGenerator generator;
 	private Map<UID, PGoTypeVariable> mapping;
 	private TLAExpressionTypeConstraintVisitor exprVisitor;
 
-	public PlusCalStatementTypeConstraintVisitor(PGoTypeSolver solver, PGoTypeGenerator generator, Map<UID, PGoTypeVariable> mapping) {
+	public PlusCalStatementTypeConstraintVisitor(DefinitionRegistry registry, PGoTypeSolver solver, PGoTypeGenerator generator, Map<UID, PGoTypeVariable> mapping) {
+		this.registry = registry;
 		this.solver = solver;
 		this.generator = generator;
 		this.mapping = mapping;
-		this.exprVisitor = new TLAExpressionTypeConstraintVisitor(solver, generator, mapping);
+		this.exprVisitor = new TLAExpressionTypeConstraintVisitor(registry, solver, generator, mapping);
 	}
 	
 	@Override
@@ -49,7 +51,7 @@ public class PlusCalStatementTypeConstraintVisitor extends StatementVisitor<Void
 
 	@Override
 	public Void visit(While while1) throws RuntimeException {
-		solver.accept(new PGoTypeConstraint(while1.getCondition().accept(exprVisitor), PGoTypeBool.getInstance()));
+		solver.accept(new PGoTypeConstraint(exprVisitor.wrappedVisit(while1.getCondition()), PGoTypeBool.getInstance()));
 		for(Statement stmt : while1.getBody()) {
 			stmt.accept(this);
 		}
@@ -58,7 +60,7 @@ public class PlusCalStatementTypeConstraintVisitor extends StatementVisitor<Void
 
 	@Override
 	public Void visit(If if1) throws RuntimeException {
-		solver.accept(new PGoTypeConstraint(if1.getCondition().accept(exprVisitor), PGoTypeBool.getInstance()));
+		solver.accept(new PGoTypeConstraint(exprVisitor.wrappedVisit(if1.getCondition()), PGoTypeBool.getInstance()));
 		for(Statement stmt : if1.getYes()) {
 			stmt.accept(this);
 		}
@@ -76,7 +78,8 @@ public class PlusCalStatementTypeConstraintVisitor extends StatementVisitor<Void
 
 	@Override
 	public Void visit(Assignment assignment) throws RuntimeException {
-		solver.accept(new PGoTypeConstraint(assignment.getLHS().accept(exprVisitor), assignment.getRHS().accept(exprVisitor)));
+		solver.accept(new PGoTypeConstraint(
+				exprVisitor.wrappedVisit(assignment.getLHS()), exprVisitor.wrappedVisit(assignment.getRHS())));
 		return null;
 	}
 
@@ -105,7 +108,7 @@ public class PlusCalStatementTypeConstraintVisitor extends StatementVisitor<Void
 
 	@Override
 	public Void visit(With with) throws RuntimeException {
-		TypeInferencePass.constrainVariableDecl(with.getVariable(), solver, generator, mapping);
+		TypeInferencePass.constrainVariableDecl(registry, with.getVariable(), solver, generator, mapping);
 		for(Statement stmt : with.getBody()) {
 			stmt.accept(this);
 		}
@@ -114,19 +117,19 @@ public class PlusCalStatementTypeConstraintVisitor extends StatementVisitor<Void
 
 	@Override
 	public Void visit(Print print) throws RuntimeException {
-		print.getValue().accept(exprVisitor);
+		exprVisitor.wrappedVisit(print.getValue());
 		return null;
 	}
 
 	@Override
 	public Void visit(Assert assert1) throws RuntimeException {
-		solver.accept(new PGoTypeConstraint(assert1.getCondition().accept(exprVisitor), PGoTypeBool.getInstance()));
+		solver.accept(new PGoTypeConstraint(exprVisitor.wrappedVisit(assert1.getCondition()), PGoTypeBool.getInstance()));
 		return null;
 	}
 
 	@Override
 	public Void visit(Await await) throws RuntimeException {
-		solver.accept(new PGoTypeConstraint(await.getCondition().accept(exprVisitor), PGoTypeBool.getInstance()));
+		solver.accept(new PGoTypeConstraint(exprVisitor.wrappedVisit(await.getCondition()), PGoTypeBool.getInstance()));
 		return null;
 	}
 

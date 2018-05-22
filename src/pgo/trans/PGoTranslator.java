@@ -24,6 +24,7 @@ import pgo.parser.PcalParser.ParsedPcal;
 import pgo.scope.UID;
 import pgo.trans.intermediate.AnnotationParsingPass;
 import pgo.trans.intermediate.CheckOptionsPass;
+import pgo.trans.intermediate.DefinitionRegistry;
 import pgo.trans.intermediate.PGoScopingPass;
 import pgo.trans.intermediate.PGoTransStageAtomicity;
 import pgo.trans.intermediate.PGoTransStageGoGen;
@@ -70,11 +71,11 @@ public class PGoTranslator {
 		if(ctx.hasErrors()) throw new PGoTransException(ctx.format());
 		
 		logger.info("Resolving TLA+ and PlusCal scoping");
-		PGoScopingPass.perform(ctx, tlaModule, pcalAlgorithm, loader);
+		DefinitionRegistry registry = PGoScopingPass.perform(ctx, tlaModule, pcalAlgorithm, loader);
 		if(ctx.hasErrors()) throw new PGoTransException(ctx.format());
 		
 		logger.info("Inferring types");
-		Map<UID, PGoType> typeMap = TypeInferencePass.perform(pcalAlgorithm);
+		Map<UID, PGoType> typeMap = TypeInferencePass.perform(registry, pcalAlgorithm);
 		
 		/*logger.info("Entering Stage Four: Inferring atomicity constraints");
 		PGoTransStageAtomicity s4 = new PGoTransStageAtomicity(s3);

@@ -19,9 +19,9 @@ public class PGoScopingPass {
 	
 	private PGoScopingPass() {}
 	
-	public static void perform(IssueContext ctx, PGoTLAModule module, Algorithm algorithm, TLAModuleLoader loader){
-		DefinitionRegistryBuilder regBuilder = new DefinitionRegistryBuilder();
-		TLAScopeBuilder tlaScope = new TLAScopeBuilder(ctx);
+	public static DefinitionRegistry perform(IssueContext ctx, PGoTLAModule module, Algorithm algorithm, TLAModuleLoader loader){
+		DefinitionRegistry regBuilder = new DefinitionRegistry();
+		TLAScopeBuilder tlaScope = new TLAScopeBuilder(ctx, regBuilder.getReferences());
 		
 		TLAUnitScopingVisitor.scopeModule(module, ctx, tlaScope, regBuilder, loader, new HashSet<>());
 		
@@ -68,6 +68,8 @@ public class PGoScopingPass {
 				stmts.accept(new PlusCalStatementScopingVisitor(ctx, procScope));
 			}
 		}
+		
+		return regBuilder;
 	}
 
 }

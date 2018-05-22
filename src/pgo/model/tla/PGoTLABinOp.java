@@ -3,7 +3,6 @@ package pgo.model.tla;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import pgo.parser.LocatedString;
 import pgo.util.SourceLocation;
 
 /**

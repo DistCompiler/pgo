@@ -1,6 +1,8 @@
 package pgo.trans.intermediate;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -41,7 +43,8 @@ import pgo.model.type.PGoTypeGenerator;
 import pgo.model.type.PGoTypeNatural;
 import pgo.model.type.PGoTypeSet;
 import pgo.model.type.PGoTypeSolver;
-import pgo.model.type.PGoTypeTuple;
+import pgo.model.type.PGoTypeString;
+import pgo.model.type.PGoTypeUnrealizedTuple;
 import pgo.model.type.PGoTypeVariable;
 import pgo.scope.UID;
 
@@ -50,23 +53,37 @@ public class TLAExpressionTypeConstraintVisitor extends PGoTLAExpressionVisitor<
 	private PGoTypeSolver solver;
 	private PGoTypeGenerator generator;
 	private Map<UID, PGoTypeVariable> mapping;
+	private DefinitionRegistry registry;
 
-	public TLAExpressionTypeConstraintVisitor(PGoTypeSolver solver, PGoTypeGenerator generator, Map<UID, PGoTypeVariable> mapping) {
+	public TLAExpressionTypeConstraintVisitor(DefinitionRegistry registry, PGoTypeSolver solver, PGoTypeGenerator generator, Map<UID, PGoTypeVariable> mapping) {
+		this.registry = registry;
 		this.solver = solver;
 		this.generator = generator;
 		this.mapping = mapping;
 	}
+	
+	public PGoType wrappedVisit(PGoTLAExpression expr) {
+		PGoType result = expr.accept(this);
+		if(!mapping.containsKey(expr.getUID())) {
+			PGoTypeVariable self = generator.get();
+			solver.accept(new PGoTypeConstraint(result, self));
+			mapping.put(expr.getUID(), self);
+		}
+		return result;
+	}
 
 	@Override
 	public PGoType visit(PGoTLAFunctionCall pGoTLAFunctionCall) throws RuntimeException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new RuntimeException("TODO");
 	}
 
 	@Override
 	public PGoType visit(PGoTLABinOp pGoTLABinOp) throws RuntimeException {
-		// TODO
-		return null;
+		OperatorAccessor op = registry.findOperator(
+				registry.followReference(pGoTLABinOp.getOperation().getUID()));
+		return op.constrainTypes(
+				Arrays.asList(wrappedVisit(pGoTLABinOp.getLHS()), wrappedVisit(pGoTLABinOp.getRHS())),
+				solver, generator, mapping);
 	}
 
 	@Override
@@ -76,43 +93,39 @@ public class TLAExpressionTypeConstraintVisitor extends PGoTLAExpressionVisitor<
 
 	@Override
 	public PGoType visit(PGoTLACase pGoTLACase) throws RuntimeException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new RuntimeException("TODO");
 	}
 
 	@Override
 	public PGoType visit(PGoTLAExistential pGoTLAExistential) throws RuntimeException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new RuntimeException("TODO");
 	}
 
 	@Override
 	public PGoType visit(PGoTLAFunction pGoTLAFunction) throws RuntimeException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new RuntimeException("TODO");
 	}
 
 	@Override
 	public PGoType visit(PGoTLAFunctionSet pGoTLAFunctionSet) throws RuntimeException {
-		PGoType from = pGoTLAFunctionSet.getFrom().accept(this);
-		PGoType to = pGoTLAFunctionSet.getTo().accept(this);
+		PGoType from = wrappedVisit(pGoTLAFunctionSet.getFrom());
+		PGoType to = wrappedVisit(pGoTLAFunctionSet.getTo());
 		solver.accept(new PGoTypeConstraint(from, new PGoTypeSet(generator.get())));
 		solver.accept(new PGoTypeConstraint(to, new PGoTypeSet(generator.get())));
-		return null;
+		throw new RuntimeException("TODO");
 	}
 
 	@Override
 	public PGoType visit(PGoTLAFunctionSubstitution pGoTLAFunctionSubstitution) throws RuntimeException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new RuntimeException("TODO");
 	}
 
 	@Override
 	public PGoType visit(PGoTLAIf pGoTLAIf) throws RuntimeException {
-		solver.accept(new PGoTypeConstraint(pGoTLAIf.getCond().accept(this), PGoTypeBool.getInstance()));
+		solver.accept(new PGoTypeConstraint(wrappedVisit(pGoTLAIf.getCond()), PGoTypeBool.getInstance()));
 		PGoTypeVariable v = generator.get();
-		solver.accept(new PGoTypeConstraint(pGoTLAIf.getTval().accept(this), v));
-		solver.accept(new PGoTypeConstraint(pGoTLAIf.getFval().accept(this), v));
+		solver.accept(new PGoTypeConstraint(wrappedVisit(pGoTLAIf.getTval()), v));
+		solver.accept(new PGoTypeConstraint(wrappedVisit(pGoTLAIf.getFval()), v));
 		return v;
 	}
 
@@ -120,35 +133,36 @@ public class TLAExpressionTypeConstraintVisitor extends PGoTLAExpressionVisitor<
 	public PGoType visit(PGoTLALet pGoTLALet) throws RuntimeException {
 		// TODO: let polymorphism
 		for(PGoTLAUnit unit : pGoTLALet.getDefinitions()) {
-			unit.accept(new TLAUnitTypeConstraintVisitor(solver, generator, mapping));
+			unit.accept(new TLAUnitTypeConstraintVisitor(registry, solver, generator, mapping));
 		}
-		return pGoTLALet.getBody().accept(this);
+		return wrappedVisit(pGoTLALet.getBody());
 	}
 
 	@Override
 	public PGoType visit(PGoTLAGeneralIdentifier pGoTLAVariable) throws RuntimeException {
-		if(mapping.containsKey(pGoTLAVariable.getUID())){
-			return mapping.get(pGoTLAVariable.getUID());
+		UID uid = registry.followReference(pGoTLAVariable.getUID());
+		if(mapping.containsKey(uid)){
+			return mapping.get(uid);
 		}else {
 			PGoTypeVariable v = generator.get();
-			mapping.put(pGoTLAVariable.getUID(), v);
+			mapping.put(uid, v);
 			return v;
 		}
 	}
 
 	@Override
 	public PGoType visit(PGoTLATuple pGoTLATuple) throws RuntimeException {
-		List<PGoType> elementTypes = new ArrayList<>();
-		for(PGoTLAExpression element : pGoTLATuple.getElements()) {
-			elementTypes.add(element.accept(this));
+		Map<Integer, PGoType> elementTypes = new HashMap<>();
+		List<PGoTLAExpression> elements = pGoTLATuple.getElements();
+		for(int i = 0; i < elements.size(); ++i) {
+			elementTypes.put(i, wrappedVisit(elements.get(i)));
 		}
-		return new PGoTypeTuple(elementTypes);
+		return new PGoTypeUnrealizedTuple(elementTypes);
 	}
 
 	@Override
 	public PGoType visit(PGoTLAMaybeAction pGoTLAMaybeAction) throws RuntimeException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new RuntimeException("TODO");
 	}
 
 	@Override
@@ -158,80 +172,79 @@ public class TLAExpressionTypeConstraintVisitor extends PGoTLAExpressionVisitor<
 
 	@Override
 	public PGoType visit(PGoTLAOperatorCall pGoTLAOperatorCall) throws RuntimeException {
-		// TODO Auto-generated method stub
-		return null;
+		List<PGoType> arguments = new ArrayList<>();
+		for(PGoTLAExpression arg : pGoTLAOperatorCall.getArgs()) {
+			arguments.add(wrappedVisit(arg));
+		}
+		OperatorAccessor op = registry.findOperator(
+				registry.followReference(pGoTLAOperatorCall.getName().getUID()));
+		return op.constrainTypes(arguments, solver, generator, mapping);
 	}
 
 	@Override
 	public PGoType visit(PGoTLAQuantifiedExistential pGoTLAQuantifiedExistential) throws RuntimeException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new RuntimeException("TODO");
 	}
 
 	@Override
 	public PGoType visit(PGoTLAQuantifiedUniversal pGoTLAQuantifiedUniversal) throws RuntimeException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new RuntimeException("TODO");
 	}
 
 	@Override
 	public PGoType visit(PGoTLARecordConstructor pGoTLARecordConstructor) throws RuntimeException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new RuntimeException("TODO");
 	}
 
 	@Override
 	public PGoType visit(PGoTLARecordSet pGoTLARecordSet) throws RuntimeException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new RuntimeException("TODO");
 	}
 
 	@Override
 	public PGoType visit(PGoTLARequiredAction pGoTLARequiredAction) throws RuntimeException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new RuntimeException("TODO");
 	}
 
 	@Override
 	public PGoType visit(PGoTLASetConstructor pGoTLASetConstructor) throws RuntimeException {
-		// TODO Auto-generated method stub
-		return null;
+		PGoTypeVariable elementType = generator.get();
+		for(PGoTLAExpression element : pGoTLASetConstructor.getContents()) {
+			solver.accept(new PGoTypeConstraint(elementType, wrappedVisit(element)));
+		}
+		return new PGoTypeSet(elementType);
 	}
 
 	@Override
 	public PGoType visit(PGoTLASetComprehension pGoTLASetComprehension) throws RuntimeException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new RuntimeException("TODO");
 	}
 
 	@Override
 	public PGoType visit(PGoTLASetRefinement pGoTLASetRefinement) throws RuntimeException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new RuntimeException("TODO");
 	}
 
 	@Override
 	public PGoType visit(PGoTLAString pGoTLAString) throws RuntimeException {
-		// TODO Auto-generated method stub
-		return null;
+		return PGoTypeString.getInstance();
 	}
 
 	@Override
 	public PGoType visit(PGoTLAUnary pGoTLAUnary) throws RuntimeException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new RuntimeException("TODO");
 	}
 
 	@Override
 	public PGoType visit(PGoTLAUniversal pGoTLAUniversal) throws RuntimeException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new RuntimeException("TODO");
 	}
 
 	@Override
 	public PGoType visit(PlusCalDefaultInitValue plusCalDefaultInitValue) throws RuntimeException {
-		// this expression should never have any effect on variable type
-		return generator.get();
+		PGoTypeVariable v = generator.get();
+		mapping.put(plusCalDefaultInitValue.getUID(), v);
+		return v;
 	}
 
 }
