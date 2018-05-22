@@ -21,7 +21,7 @@ public class PGoTypeSolver implements Consumer<PGoTypeConstraint> {
 		PGoTypeSolver solver = new PGoTypeSolver();
 		PGoType ty = types[0];
 		for (PGoType t : types) {
-			solver.accept(new PGoTypeConstraint(ty, t, line));
+			solver.accept(new PGoTypeConstraint(ty, t));
 		}
 		solver.unify();
 		return solver.getMapping();
@@ -63,66 +63,60 @@ public class PGoTypeSolver implements Consumer<PGoTypeConstraint> {
 			} else if (b instanceof PGoTypeVariable && !a.contains((PGoTypeVariable) b)) {
 				mapping.put(((PGoTypeVariable) b), a);
 			} else if (a instanceof PGoTypeUnrealizedNumber && b instanceof PGoNumberType) {
-				((PGoTypeUnrealizedNumber) a).harmonize(constraint.getLine(), (PGoNumberType) b);
+				((PGoTypeUnrealizedNumber) a).harmonize((PGoNumberType) b);
 			} else if (b instanceof PGoTypeUnrealizedNumber && a instanceof PGoNumberType) {
-				((PGoTypeUnrealizedNumber) b).harmonize(constraint.getLine(), (PGoNumberType) a);
+				((PGoTypeUnrealizedNumber) b).harmonize((PGoNumberType) a);
 			} else if (a instanceof PGoSimpleContainerType && b instanceof PGoSimpleContainerType) {
 				if (!a.getClass().equals(b.getClass())) {
-					throw new PGoTypeUnificationException(a, b, constraint.getLine());
+					throw new PGoTypeUnificationException(a, b);
 				}
 				accept(new PGoTypeConstraint(
 						((PGoSimpleContainerType) a).getElementType(),
-						((PGoSimpleContainerType) b).getElementType(),
-						constraint.getLine()));
+						((PGoSimpleContainerType) b).getElementType()));
 			} else if (a instanceof PGoTypeMap && b instanceof PGoTypeMap) {
 				accept(new PGoTypeConstraint(
 						((PGoTypeMap) a).getKeyType(),
-						((PGoTypeMap) b).getKeyType(),
-						constraint.getLine()));
+						((PGoTypeMap) b).getKeyType()));
 				accept(new PGoTypeConstraint(
 						((PGoTypeMap) a).getValueType(),
-						((PGoTypeMap) b).getValueType(),
-						constraint.getLine()));
+						((PGoTypeMap) b).getValueType()));
 			} else if (a instanceof PGoTypeTuple && b instanceof PGoTypeTuple) {
 				PGoTypeTuple ta = (PGoTypeTuple) a;
 				PGoTypeTuple tb = (PGoTypeTuple) b;
 				if (ta.getElementTypes().size() != tb.getElementTypes().size()) {
-					throw new PGoTypeUnificationException(ta, tb, constraint.getLine());
+					throw new PGoTypeUnificationException(ta, tb);
 				}
 				for (int i = 0; i < ta.getElementTypes().size(); i++) {
 					accept(new PGoTypeConstraint(
 							ta.getElementTypes().get(i),
-							tb.getElementTypes().get(i),
-							constraint.getLine()));
+							tb.getElementTypes().get(i)));
 				}
 			} else if (a instanceof PGoTypeUnrealizedTuple && b instanceof PGoSimpleContainerType) {
-				((PGoTypeUnrealizedTuple) a).harmonize(constraint.getLine(), this, (PGoSimpleContainerType) b);
+				((PGoTypeUnrealizedTuple) a).harmonize(this, (PGoSimpleContainerType) b);
 			} else if (a instanceof PGoSimpleContainerType && b instanceof PGoTypeUnrealizedTuple) {
-				((PGoTypeUnrealizedTuple) b).harmonize(constraint.getLine(), this, (PGoSimpleContainerType) a);
+				((PGoTypeUnrealizedTuple) b).harmonize( this, (PGoSimpleContainerType) a);
 			} else if (a instanceof PGoTypeUnrealizedTuple && b instanceof PGoTypeTuple) {
-				((PGoTypeUnrealizedTuple) a).harmonize(constraint.getLine(), this, (PGoTypeTuple) b);
+				((PGoTypeUnrealizedTuple) a).harmonize(this, (PGoTypeTuple) b);
 			} else if (a instanceof PGoTypeTuple && b instanceof PGoTypeUnrealizedTuple) {
-				((PGoTypeUnrealizedTuple) b).harmonize(constraint.getLine(), this, (PGoTypeTuple) a);
+				((PGoTypeUnrealizedTuple) b).harmonize(this, (PGoTypeTuple) a);
 			} else if (a instanceof PGoTypeUnrealizedTuple && b instanceof PGoTypeUnrealizedTuple) {
-				((PGoTypeUnrealizedTuple) a).harmonize(constraint.getLine(), this, (PGoTypeUnrealizedTuple) b);
+				((PGoTypeUnrealizedTuple) a).harmonize(this, (PGoTypeUnrealizedTuple) b);
 			} else if (a instanceof PGoTypeFunction && b instanceof PGoTypeFunction) {
 				PGoTypeFunction fa = (PGoTypeFunction) a;
 				PGoTypeFunction fb = (PGoTypeFunction) b;
 				if (fa.getParamTypes().size() != fb.getParamTypes().size()) {
-					throw new PGoTypeUnificationException(fa, fb, constraint.getLine());
+					throw new PGoTypeUnificationException(fa, fb);
 				}
 				for (int i = 0; i < fa.getParamTypes().size(); i++) {
 					accept(new PGoTypeConstraint(
 							fa.getParamTypes().get(i),
-							fb.getParamTypes().get(i),
-							constraint.getLine()));
+							fb.getParamTypes().get(i)));
 				}
 				accept(new PGoTypeConstraint(
 						fa.getReturnType(),
-						fb.getReturnType(),
-						constraint.getLine()));
+						fb.getReturnType()));
 			} else {
-				throw new PGoTypeUnificationException(a, b, constraint.getLine());
+				throw new PGoTypeUnificationException(a, b);
 			}
 		}
 		simplify();

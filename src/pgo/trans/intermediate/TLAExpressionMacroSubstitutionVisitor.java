@@ -41,6 +41,7 @@ import pgo.model.tla.PGoTLASubstitutionKey;
 import pgo.model.tla.PGoTLATuple;
 import pgo.model.tla.PGoTLAUnary;
 import pgo.model.tla.PGoTLAUniversal;
+import pgo.model.tla.PlusCalDefaultInitValue;
 
 public class TLAExpressionMacroSubstitutionVisitor extends PGoTLAExpressionVisitor<PGoTLAExpression, RuntimeException> {
 
@@ -273,6 +274,11 @@ public class TLAExpressionMacroSubstitutionVisitor extends PGoTLAExpressionVisit
 	@Override
 	public PGoTLAExpression visit(PGoTLAUniversal pGoTLAUniversal) throws RuntimeException {
 		return new PGoTLAUniversal(pGoTLAUniversal.getLocation(), substituteIdentifiers(pGoTLAUniversal.getIds()), pGoTLAUniversal.getBody().accept(this));
+	}
+
+	@Override
+	public PGoTLAExpression visit(PlusCalDefaultInitValue plusCalDefaultInitValue) throws RuntimeException {
+		return plusCalDefaultInitValue.copy();
 	}
 
 	

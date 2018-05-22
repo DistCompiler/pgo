@@ -27,4 +27,5 @@ public abstract class PGoTLAExpressionVisitor<T, E extends Throwable>{
 	public abstract T visit(PGoTLAString pGoTLAString) throws E;
 	public abstract T visit(PGoTLAUnary pGoTLAUnary) throws E;
 	public abstract T visit(PGoTLAUniversal pGoTLAUniversal) throws E;
+	public abstract T visit(PlusCalDefaultInitValue plusCalDefaultInitValue) throws E;
 }

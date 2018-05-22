@@ -34,6 +34,7 @@ import pgo.model.tla.PGoTLATuple;
 import pgo.model.tla.PGoTLAUnary;
 import pgo.model.tla.PGoTLAUnit;
 import pgo.model.tla.PGoTLAUniversal;
+import pgo.model.tla.PlusCalDefaultInitValue;
 import pgo.parser.TLAParser;
 
 public class PGoTLAExpressionFormattingVisitor extends PGoTLAExpressionVisitor<Void, IOException> {
@@ -67,7 +68,7 @@ public class PGoTLAExpressionFormattingVisitor extends PGoTLAExpressionVisitor<V
 		pGoTLABinOp.getLHS().accept(this);
 		out.write(")");
 		formatPrefix(pGoTLABinOp.getPrefix());
-		out.write(pGoTLABinOp.getOperation());
+		pGoTLABinOp.getOperation().accept(new PGoTLANodeFormattingVisitor(out));
 		out.write("(");
 		pGoTLABinOp.getRHS().accept(this);
 		out.write(")");
@@ -352,6 +353,12 @@ public class PGoTLAExpressionFormattingVisitor extends PGoTLAExpressionVisitor<V
 		});
 		out.write(" : ");
 		pGoTLAUniversal.getBody().accept(this);
+		return null;
+	}
+
+	@Override
+	public Void visit(PlusCalDefaultInitValue plusCalDefaultInitValue) throws IOException {
+		out.write("defaultInitValue");
 		return null;
 	}
 

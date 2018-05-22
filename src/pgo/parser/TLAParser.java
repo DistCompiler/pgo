@@ -124,6 +124,7 @@ import pgo.model.tla.PGoTLASetConstructor;
 import pgo.model.tla.PGoTLASetRefinement;
 import pgo.model.tla.PGoTLAString;
 import pgo.model.tla.PGoTLASubstitutionKey;
+import pgo.model.tla.PGoTLASymbol;
 import pgo.model.tla.PGoTLATheorem;
 import pgo.model.tla.PGoTLATuple;
 import pgo.model.tla.PGoTLAUnary;
@@ -746,7 +747,10 @@ public final class TLAParser {
 			return parseExpression(innerMinColumn+1).chain(expr -> {
 				return parseOneOf(
 						parseConjunct(innerMinColumn).map(
-								rhs -> new PGoTLABinOp(str.getLocation(), "/\\", Collections.emptyList(), expr, rhs)),
+								rhs -> new PGoTLABinOp(
+										str.getLocation(),
+										new PGoTLASymbol(str.getLocation(), "/\\"),
+										Collections.emptyList(), expr, rhs)),
 						nop().map(v -> expr));
 			});
 		});
@@ -758,7 +762,10 @@ public final class TLAParser {
 			return parseExpression(innerMinColumn+1).chain(expr -> {
 				return parseOneOf(
 						parseDisjunct(innerMinColumn).map(
-								rhs -> new PGoTLABinOp(str.getLocation(), "\\/", Collections.emptyList(), expr, rhs)),
+								rhs -> new PGoTLABinOp(
+										str.getLocation(),
+										new PGoTLASymbol(str.getLocation(), "\\/"),
+										Collections.emptyList(), expr, rhs)),
 						nop().map(v -> expr));
 			});
 		});
@@ -1185,7 +1192,7 @@ public final class TLAParser {
 							Mutator<PGoTLAExpression> lhsAcc = new Mutator<>(
 									new PGoTLABinOp(
 											seqResult.getLocation(),
-											op.getValue().getValue(),
+											new PGoTLASymbol(op.getValue().getLocation(), op.getValue().getValue()),
 											prefix.getValue(), lhs, rhs));
 							Mutator<PGoTLAExpression> repeatRHS = new Mutator<>();
 							return repeat(
@@ -1196,7 +1203,7 @@ public final class TLAParser {
 											).map(seqResult2 -> {
 												lhsAcc.setValue(new PGoTLABinOp(
 														seqResult2.getLocation(),
-														op.getValue().getValue(),
+														new PGoTLASymbol(op.getValue().getLocation(), op.getValue().getValue()),
 														prefix.getValue(),
 														lhsAcc.getValue(),
 														repeatRHS.getValue()

@@ -27,7 +27,7 @@ public class PGoTLACase extends PGoTLAExpression {
 	
 	@Override
 	public PGoTLACase copy() {
-		return new PGoTLACase(getLocation(), arms.stream().map(PGoTLACaseArm::copy).collect(Collectors.toList()), other.copy());
+		return new PGoTLACase(getLocation(), arms.stream().map(PGoTLACaseArm::copy).collect(Collectors.toList()), other != null ? other.copy() : null);
 	}
 	
 	public List<PGoTLACaseArm> getArms(){

@@ -6,12 +6,10 @@ package pgo.model.type;
  */
 public class PGoTypeConstraint {
 	private PGoType lhs, rhs;
-	private int line;
 
-	public PGoTypeConstraint(PGoType lhs, PGoType rhs, int line) {
+	public PGoTypeConstraint(PGoType lhs, PGoType rhs) {
 		this.lhs = lhs;
 		this.rhs = rhs;
-		this.line = line;
 	}
 
 	public PGoType getLhs() {
@@ -20,9 +18,5 @@ public class PGoTypeConstraint {
 
 	public PGoType getRhs() {
 		return rhs;
-	}
-
-	public int getLine() {
-		return line;
 	}
 }

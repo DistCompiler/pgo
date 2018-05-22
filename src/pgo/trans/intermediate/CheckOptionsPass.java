@@ -1,6 +1,6 @@
 package pgo.trans.intermediate;
 
-import pgo.PGoNetOptions;
+import pgo.PGoOptions;
 import pgo.errors.IssueContext;
 import pgo.model.pcal.Algorithm;
 import pgo.model.pcal.MultiProcess;
@@ -11,12 +11,12 @@ public class CheckOptionsPass {
 	
 	private CheckOptionsPass() {}
 	
-	public static void perform(IssueContext ctx, Algorithm algorithm, PGoNetOptions options) {
+	public static void perform(IssueContext ctx, Algorithm algorithm, PGoOptions options) {
 		algorithm.getProcesses().accept(new ProcessesVisitor<Void, RuntimeException>() {
 
 			@Override
 			public Void visit(SingleProcess singleProcess) throws RuntimeException {
-				if(options.isEnabled()) {
+				if(options.net.isEnabled()) {
 					ctx.error(new UnsupportedFeatureIssue("networked single-process algorithm"));
 				}
 				return null;

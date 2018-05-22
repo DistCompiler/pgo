@@ -14,4 +14,5 @@ public abstract class PGoTLANodeVisitor<T, E extends Throwable>{
 	public abstract T visit(PGoTLAIdentifier pGoTLAIdentifier) throws E;
 	public abstract T visit(PGoTLAGeneralIdentifierPart pGoTLAGeneralIdentifierPart) throws E;
 	public abstract T visit(PGoTLAFunctionSubstitutionPair pGoTLAFunctionSubstitutionPair) throws E;
+	public abstract T visit(PGoTLASymbol pGoTLASymbol) throws E;
 }

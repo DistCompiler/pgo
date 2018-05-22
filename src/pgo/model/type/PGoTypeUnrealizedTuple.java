@@ -39,15 +39,15 @@ public class PGoTypeUnrealizedTuple extends PGoType {
 		return elementTypes.keySet().stream().max(Comparator.naturalOrder()).orElse(-1) + 1;
 	}
 
-	public void harmonize(int line, Consumer<PGoTypeConstraint> constraints, PGoSimpleContainerType other) {
+	public void harmonize(Consumer<PGoTypeConstraint> constraints, PGoSimpleContainerType other) {
 		if (sizeKnown || getProbableSize() > 1 || elementTypes.size() > 1) {
-			throw new PGoTypeUnificationException(this, other, line);
+			throw new PGoTypeUnificationException(this, other);
 		}
 		PGoType elemType = other.getElementType();
 		if (elementTypes.size() > 0) {
 			PGoTypeSolver solver = new PGoTypeSolver();
 			elementTypes.forEach((k, v) -> {
-				solver.accept(new PGoTypeConstraint(elemType, v, line));
+				solver.accept(new PGoTypeConstraint(elemType, v));
 			});
 			solver.unify();
 		}
@@ -60,26 +60,26 @@ public class PGoTypeUnrealizedTuple extends PGoType {
 		} else if (other instanceof PGoTypeSlice) {
 			realType = RealType.Slice;
 		} else {
-			throw new PGoTypeRealizationException(this, line);
+			throw new PGoTypeRealizationException(this);
 		}
 		if (elementTypes.size() > 0) {
 			elementTypes.forEach((k, v) -> {
-				constraints.accept(new PGoTypeConstraint(elemType, v, line));
+				constraints.accept(new PGoTypeConstraint(elemType, v));
 			});
 		}
 		elementTypes.clear();
 		elementTypes.put(0, elemType);
 	}
 
-	public void harmonize(int line, Consumer<PGoTypeConstraint> constraints, PGoTypeTuple other) {
+	public void harmonize(Consumer<PGoTypeConstraint> constraints, PGoTypeTuple other) {
 		List<PGoType> elemTypes = other.getElementTypes();
 		int probableSize = getProbableSize();
 		if (probableSize > elemTypes.size() || (sizeKnown && probableSize < elemTypes.size())) {
-			throw new PGoTypeUnificationException(this, other, line);
+			throw new PGoTypeUnificationException(this, other);
 		}
 		PGoTypeSolver solver = new PGoTypeSolver();
 		elementTypes.forEach((k, v) -> {
-			solver.accept(new PGoTypeConstraint(elemTypes.get(k), v, line));
+			solver.accept(new PGoTypeConstraint(elemTypes.get(k), v));
 		});
 		solver.unify();
 		// from this point onward, type unification was successful
@@ -87,26 +87,26 @@ public class PGoTypeUnrealizedTuple extends PGoType {
 		realType = RealType.Tuple;
 		for (int i = 0; i < elemTypes.size(); i++) {
 			if (elementTypes.containsKey(i)) {
-				constraints.accept(new PGoTypeConstraint(elementTypes.get(i), elemTypes.get(i), line));
+				constraints.accept(new PGoTypeConstraint(elementTypes.get(i), elemTypes.get(i)));
 			} else {
 				elementTypes.put(i, elemTypes.get(i));
 			}
 		}
 	}
 
-	public void harmonize(int line, Consumer<PGoTypeConstraint> constraints, PGoTypeUnrealizedTuple other) {
+	public void harmonize(Consumer<PGoTypeConstraint> constraints, PGoTypeUnrealizedTuple other) {
 		if (sizeKnown && other.sizeKnown && getProbableSize() != other.getProbableSize()) {
-			throw new PGoTypeUnificationException(this, other, line);
+			throw new PGoTypeUnificationException(this, other);
 		}
 		if (realType != RealType.Unknown && other.realType != RealType.Unknown && realType != other.realType) {
-			throw new PGoTypeUnificationException(this, other, line);
+			throw new PGoTypeUnificationException(this, other);
 		}
 		boolean isSizeKnown = sizeKnown || other.sizeKnown;
 		int probableSize = Integer.max(getProbableSize(), other.getProbableSize());
 		PGoTypeSolver solver = new PGoTypeSolver();
 		for (int i = 0; i < probableSize; i++) {
 			if (elementTypes.containsKey(i) && other.elementTypes.containsKey(i)) {
-				solver.accept(new PGoTypeConstraint(elementTypes.get(i), other.elementTypes.get(i), line));
+				solver.accept(new PGoTypeConstraint(elementTypes.get(i), other.elementTypes.get(i)));
 			}
 		}
 		solver.unify();
@@ -122,7 +122,7 @@ public class PGoTypeUnrealizedTuple extends PGoType {
 		HashMap<Integer, PGoType> m = new HashMap<>();
 		for (int i = 0; i < probableSize; i++) {
 			if (elementTypes.containsKey(i) && other.elementTypes.containsKey(i)) {
-				constraints.accept(new PGoTypeConstraint(elementTypes.get(i), other.elementTypes.get(i), line));
+				constraints.accept(new PGoTypeConstraint(elementTypes.get(i), other.elementTypes.get(i)));
 			}
 			if (elementTypes.containsKey(i)) {
 				m.put(i, elementTypes.get(i));

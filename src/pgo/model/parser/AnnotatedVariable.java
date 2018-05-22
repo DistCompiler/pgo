@@ -3,8 +3,8 @@ package pgo.model.parser;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import pgo.model.intermediate.PGoType;
 import pgo.model.intermediate.PGoVariable;
+import pgo.model.type.PGoType;
 import pgo.parser.PGoParseException;
 
 /**

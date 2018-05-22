@@ -15,6 +15,7 @@ import pgo.model.tla.PGoTLAQuantifierBound;
 import pgo.model.tla.PGoTLARecordConstructor;
 import pgo.model.tla.PGoTLARecordSet;
 import pgo.model.tla.PGoTLASubstitutionKey;
+import pgo.model.tla.PGoTLASymbol;
 import pgo.model.tla.PGoTLAUnit;
 import pgo.model.tla.PGoTLANodeVisitor;
 
@@ -179,6 +180,12 @@ public class PGoTLANodeFormattingVisitor extends PGoTLANodeVisitor<Void, IOExcep
 		}
 		out.write("=");
 		pGoTLAFunctionSubstitutionPair.getValue().accept(new PGoTLAExpressionFormattingVisitor(out));
+		return null;
+	}
+
+	@Override
+	public Void visit(PGoTLASymbol pGoTLASymbol) throws IOException {
+		out.write(pGoTLASymbol.getValue());
 		return null;
 	}
 

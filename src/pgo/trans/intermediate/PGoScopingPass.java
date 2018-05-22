@@ -23,7 +23,7 @@ public class PGoScopingPass {
 		DefinitionRegistryBuilder regBuilder = new DefinitionRegistryBuilder();
 		TLAScopeBuilder tlaScope = new TLAScopeBuilder(ctx);
 		
-		PGoTLAUnitScopingVisitor.scopeModule(module, ctx, tlaScope, regBuilder, loader, new HashSet<>());
+		TLAUnitScopingVisitor.scopeModule(module, ctx, tlaScope, regBuilder, loader, new HashSet<>());
 		
 		TLAScopeBuilder pcalScope = tlaScope.makeNestedScope();
 		
@@ -32,7 +32,7 @@ public class PGoScopingPass {
 		}
 		
 		for(PGoTLAUnit unit : algorithm.getUnits()) {
-			unit.accept(new PGoTLAUnitScopingVisitor(ctx, pcalScope, regBuilder, loader, new HashSet<>()));
+			unit.accept(new TLAUnitScopingVisitor(ctx, pcalScope, regBuilder, loader, new HashSet<>()));
 		}
 		
 		algorithm.getProcesses().accept(new PlusCalProcessesScopingVisitor(ctx, pcalScope, tlaScope));
@@ -45,7 +45,7 @@ public class PGoScopingPass {
 			Map<String, UID> args = new ChainMap<>(tlaScope.getDeclarations());
 			
 			for(VariableDecl arg : proc.getArguments()) {
-				arg.getValue().accept(new PGoTLAExpressionScopingVisitor(tlaScope));
+				arg.getValue().accept(new TLAExpressionScopingVisitor(tlaScope));
 				if(argScope.declare(arg.getName(), arg.getUID())) {
 					args.put(arg.getName(), arg.getUID());
 				}

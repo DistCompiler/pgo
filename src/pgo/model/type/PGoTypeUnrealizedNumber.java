@@ -29,7 +29,7 @@ public class PGoTypeUnrealizedNumber extends PGoNumberType {
 		return t;
 	}
 
-	public void harmonize(int line, PGoNumberType other) {
+	public void harmonize(PGoNumberType other) {
 		int mySpecificity = num.getSpecificity();
 		int otherSpecificity = other.getSpecificity();
 		PGoNumberType otherNum = other;
@@ -41,12 +41,12 @@ public class PGoTypeUnrealizedNumber extends PGoNumberType {
 			higher = otherNum;
 		}
 		if (higher instanceof PGoTypeDecimal && isIntegralType) {
-			throw new PGoTypeUnificationException(PGoTypeInt.getInstance(), PGoTypeDecimal.getInstance(), line);
+			throw new PGoTypeUnificationException(PGoTypeInt.getInstance(), PGoTypeDecimal.getInstance());
 		}
 		num = higher;
 		if (other instanceof PGoTypeUnrealizedNumber) {
 			if (((PGoTypeUnrealizedNumber) other).isIntegralType) {
-				throw new PGoTypeUnificationException(PGoTypeInt.getInstance(), PGoTypeDecimal.getInstance(), line);
+				throw new PGoTypeUnificationException(PGoTypeInt.getInstance(), PGoTypeDecimal.getInstance());
 			}
 			((PGoTypeUnrealizedNumber) other).num = higher;
 		}

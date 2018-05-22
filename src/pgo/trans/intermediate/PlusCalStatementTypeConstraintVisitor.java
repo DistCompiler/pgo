@@ -1,8 +1,7 @@
 package pgo.trans.intermediate;
 
-import java.util.List;
+import java.util.Map;
 
-import pgo.errors.IssueContext;
 import pgo.model.pcal.Assert;
 import pgo.model.pcal.Assignment;
 import pgo.model.pcal.Await;
@@ -19,18 +18,27 @@ import pgo.model.pcal.Statement;
 import pgo.model.pcal.StatementVisitor;
 import pgo.model.pcal.While;
 import pgo.model.pcal.With;
-import pgo.model.tla.PGoTLAExpression;
+import pgo.model.type.PGoTypeBool;
+import pgo.model.type.PGoTypeConstraint;
+import pgo.model.type.PGoTypeGenerator;
+import pgo.model.type.PGoTypeSolver;
+import pgo.model.type.PGoTypeVariable;
+import pgo.scope.UID;
 
-public class PlusCalStatementScopingVisitor extends StatementVisitor<Void, RuntimeException> {
+public class PlusCalStatementTypeConstraintVisitor extends StatementVisitor<Void, RuntimeException> {
 	
-	IssueContext ctx;
-	TLAScopeBuilder builder;
-	
-	public PlusCalStatementScopingVisitor(IssueContext ctx, TLAScopeBuilder builder) {
-		this.ctx = ctx;
-		this.builder = builder;
+	private PGoTypeSolver solver;
+	private PGoTypeGenerator generator;
+	private Map<UID, PGoTypeVariable> mapping;
+	private TLAExpressionTypeConstraintVisitor exprVisitor;
+
+	public PlusCalStatementTypeConstraintVisitor(PGoTypeSolver solver, PGoTypeGenerator generator, Map<UID, PGoTypeVariable> mapping) {
+		this.solver = solver;
+		this.generator = generator;
+		this.mapping = mapping;
+		this.exprVisitor = new TLAExpressionTypeConstraintVisitor(solver, generator, mapping);
 	}
-
+	
 	@Override
 	public Void visit(LabeledStatements labeledStatements) throws RuntimeException {
 		for(Statement stmt : labeledStatements.getStatements()) {
@@ -41,7 +49,7 @@ public class PlusCalStatementScopingVisitor extends StatementVisitor<Void, Runti
 
 	@Override
 	public Void visit(While while1) throws RuntimeException {
-		while1.getCondition().accept(new TLAExpressionScopingVisitor(builder));
+		solver.accept(new PGoTypeConstraint(while1.getCondition().accept(exprVisitor), PGoTypeBool.getInstance()));
 		for(Statement stmt : while1.getBody()) {
 			stmt.accept(this);
 		}
@@ -50,7 +58,7 @@ public class PlusCalStatementScopingVisitor extends StatementVisitor<Void, Runti
 
 	@Override
 	public Void visit(If if1) throws RuntimeException {
-		if1.getCondition().accept(new TLAExpressionScopingVisitor(builder));
+		solver.accept(new PGoTypeConstraint(if1.getCondition().accept(exprVisitor), PGoTypeBool.getInstance()));
 		for(Statement stmt : if1.getYes()) {
 			stmt.accept(this);
 		}
@@ -62,36 +70,31 @@ public class PlusCalStatementScopingVisitor extends StatementVisitor<Void, Runti
 
 	@Override
 	public Void visit(Either either) throws RuntimeException {
-		for(List<Statement> list : either.getCases()) {
-			for(Statement stmt : list) {
-				stmt.accept(this);
-			}
-		}
+		// TODO Auto-generated method stub
 		return null;
 	}
 
 	@Override
 	public Void visit(Assignment assignment) throws RuntimeException {
-		assignment.getLHS().accept(new TLAExpressionScopingVisitor(builder));
-		assignment.getLHS().accept(new TLAExpressionScopingVisitor(builder));
+		solver.accept(new PGoTypeConstraint(assignment.getLHS().accept(exprVisitor), assignment.getRHS().accept(exprVisitor)));
 		return null;
 	}
 
 	@Override
 	public Void visit(Return return1) throws RuntimeException {
+		// pass
 		return null;
 	}
 
 	@Override
 	public Void visit(Skip skip) throws RuntimeException {
+		// pass
 		return null;
 	}
 
 	@Override
 	public Void visit(Call call) throws RuntimeException {
-		for(PGoTLAExpression expr : call.getArguments()) {
-			expr.accept(new TLAExpressionScopingVisitor(builder));
-		}
+		// TODO: properly compile procedure calls
 		return null;
 	}
 
@@ -102,36 +105,34 @@ public class PlusCalStatementScopingVisitor extends StatementVisitor<Void, Runti
 
 	@Override
 	public Void visit(With with) throws RuntimeException {
-		with.getVariable().getValue().accept(new TLAExpressionScopingVisitor(builder));
-		TLAScopeBuilder nested = builder.makeNestedScope();
-		nested.defineLocal(with.getVariable().getName(), with.getVariable().getUID());
+		TypeInferencePass.constrainVariableDecl(with.getVariable(), solver, generator, mapping);
 		for(Statement stmt : with.getBody()) {
-			stmt.accept(new PlusCalStatementScopingVisitor(ctx, nested));
+			stmt.accept(this);
 		}
 		return null;
 	}
 
 	@Override
 	public Void visit(Print print) throws RuntimeException {
-		print.getValue().accept(new TLAExpressionScopingVisitor(builder));
+		print.getValue().accept(exprVisitor);
 		return null;
 	}
 
 	@Override
 	public Void visit(Assert assert1) throws RuntimeException {
-		assert1.getCondition().accept(new TLAExpressionScopingVisitor(builder));
+		solver.accept(new PGoTypeConstraint(assert1.getCondition().accept(exprVisitor), PGoTypeBool.getInstance()));
 		return null;
 	}
 
 	@Override
 	public Void visit(Await await) throws RuntimeException {
-		await.getCondition().accept(new TLAExpressionScopingVisitor(builder));
+		solver.accept(new PGoTypeConstraint(await.getCondition().accept(exprVisitor), PGoTypeBool.getInstance()));
 		return null;
 	}
 
 	@Override
 	public Void visit(Goto goto1) throws RuntimeException {
-		builder.reference(goto1.getTarget(), goto1.getUID());
+		// pass
 		return null;
 	}
 

@@ -16,10 +16,12 @@ public class OriginFormattingVisitor extends OriginVisitor<Void, IOException> {
 
 	@Override
 	public Void visit(SourceLocatable sourceLocatable) throws IOException {
-		out.write("source at line ");
-		out.write(sourceLocatable.getLocation().getStartLine());
+		out.write("source [");
+		out.write(sourceLocatable.toString());		
+		out.write("] at line ");
+		out.write(Integer.toString(sourceLocatable.getLocation().getStartLine()));
 		out.write(" column ");
-		out.write(sourceLocatable.getLocation().getStartColumn());
+		out.write(Integer.toString(sourceLocatable.getLocation().getStartColumn()));
 		return null;
 	}
 

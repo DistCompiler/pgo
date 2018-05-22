@@ -35,6 +35,7 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 	public Void visit(IssueWithContext issueWithContext) throws IOException {
 		issueWithContext.getContext().accept(new ContextFormattingVisitor(out));
 		try(IndentingWriter.Indent i_ = out.indent()){
+			out.newLine();
 			issueWithContext.getIssue().accept(this);
 		}
 		return null;
@@ -54,9 +55,9 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 		out.write("TLA module ");
 		out.write(moduleNotFoundIssue.getModuleName());
 		out.write(" not found; looked in:");
-		out.newLine();
 		try(IndentingWriter.Indent i_ = out.indent()){
 			for(Path path : moduleNotFoundIssue.getPathsChecked()) {
+				out.newLine();
 				out.write("- ");
 				out.write(path.toString());
 			}

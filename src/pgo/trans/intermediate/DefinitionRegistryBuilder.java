@@ -1,5 +1,6 @@
 package pgo.trans.intermediate;
 
+import java.util.HashMap;
 import java.util.Map;
 
 import pgo.model.tla.PGoTLAFunctionDefinition;
@@ -13,6 +14,12 @@ public class DefinitionRegistryBuilder {
 	Map<UID, DefinitionType> types;
 	Map<String, PGoTLAModule> modules;
 	Map<UID, PGoTLAUnit> definitions;
+	
+	public DefinitionRegistryBuilder() {
+		this.types = new HashMap<>();
+		this.modules = new HashMap<>();
+		this.definitions = new HashMap<>();
+	}
 	
 	public void addModule(PGoTLAModule module) {
 		if(!modules.containsKey(module.getName().getId())){

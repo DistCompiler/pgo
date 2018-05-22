@@ -34,12 +34,13 @@ import pgo.model.tla.PGoTLATuple;
 import pgo.model.tla.PGoTLAUnary;
 import pgo.model.tla.PGoTLAUnit;
 import pgo.model.tla.PGoTLAUniversal;
+import pgo.model.tla.PlusCalDefaultInitValue;
 
-public class PGoTLAExpressionScopingVisitor extends PGoTLAExpressionVisitor<Void, RuntimeException> {
+public class TLAExpressionScopingVisitor extends PGoTLAExpressionVisitor<Void, RuntimeException> {
 
 	TLAScopeBuilder builder;
 
-	public PGoTLAExpressionScopingVisitor(TLAScopeBuilder builder) {
+	public TLAExpressionScopingVisitor(TLAScopeBuilder builder) {
 		this.builder = builder;
 	}
 
@@ -54,7 +55,9 @@ public class PGoTLAExpressionScopingVisitor extends PGoTLAExpressionVisitor<Void
 
 	@Override
 	public Void visit(PGoTLABinOp pGoTLABinOp) throws RuntimeException {
-		builder.reference(QualifiedName.fromTLAPrefix(pGoTLABinOp.getPrefix(), pGoTLABinOp.getOperation()), pGoTLABinOp.getUID());
+		builder.reference(
+				QualifiedName.fromTLAPrefix(pGoTLABinOp.getPrefix(), pGoTLABinOp.getOperation().getValue()),
+				pGoTLABinOp.getOperation().getUID());
 		pGoTLABinOp.getLHS().accept(this);
 		pGoTLABinOp.getRHS().accept(this);
 		return null;
@@ -84,7 +87,7 @@ public class PGoTLAExpressionScopingVisitor extends PGoTLAExpressionVisitor<Void
 		for(PGoTLAIdentifier id : pGoTLAExistential.getIds()) {
 			nested.defineLocal(id.getId(), id.getUID());
 		}
-		pGoTLAExistential.getBody().accept(new PGoTLAExpressionScopingVisitor(nested));
+		pGoTLAExistential.getBody().accept(new TLAExpressionScopingVisitor(nested));
 		return null;
 	}
 
@@ -97,7 +100,7 @@ public class PGoTLAExpressionScopingVisitor extends PGoTLAExpressionVisitor<Void
 			}
 			qb.getSet().accept(this);
 		}
-		pGoTLAFunction.getBody().accept(new PGoTLAExpressionScopingVisitor(argScope));
+		pGoTLAFunction.getBody().accept(new TLAExpressionScopingVisitor(argScope));
 		return null;
 	}
 
@@ -132,7 +135,7 @@ public class PGoTLAExpressionScopingVisitor extends PGoTLAExpressionVisitor<Void
 			// TODO: fix this part
 			//unit.accept(new PGoTLAUnitScopingVisitor(nested));
 		}
-		pGoTLALet.getBody().accept(new PGoTLAExpressionScopingVisitor(nested));
+		pGoTLALet.getBody().accept(new TLAExpressionScopingVisitor(nested));
 		return null;
 	}
 
@@ -165,7 +168,9 @@ public class PGoTLAExpressionScopingVisitor extends PGoTLAExpressionVisitor<Void
 
 	@Override
 	public Void visit(PGoTLAOperatorCall pGoTLAOperatorCall) throws RuntimeException {
-		builder.reference(QualifiedName.fromTLAPrefix(pGoTLAOperatorCall.getPrefix(), pGoTLAOperatorCall.getName().getId()), pGoTLAOperatorCall.getUID());
+		builder.reference(
+				QualifiedName.fromTLAPrefix(pGoTLAOperatorCall.getPrefix(), pGoTLAOperatorCall.getName().getId()),
+				pGoTLAOperatorCall.getName().getUID());
 		for(PGoTLAExpression arg : pGoTLAOperatorCall.getArgs()) {
 			arg.accept(this);
 		}
@@ -181,7 +186,7 @@ public class PGoTLAExpressionScopingVisitor extends PGoTLAExpressionVisitor<Void
 			}
 			qb.getSet().accept(this);
 		}
-		pGoTLAQuantifiedExistential.getBody().accept(new PGoTLAExpressionScopingVisitor(nested));
+		pGoTLAQuantifiedExistential.getBody().accept(new TLAExpressionScopingVisitor(nested));
 		return null;
 	}
 
@@ -194,7 +199,7 @@ public class PGoTLAExpressionScopingVisitor extends PGoTLAExpressionVisitor<Void
 			}
 			qb.getSet().accept(this);
 		}
-		pGoTLAQuantifiedUniversal.getBody().accept(new PGoTLAExpressionScopingVisitor(nested));
+		pGoTLAQuantifiedUniversal.getBody().accept(new TLAExpressionScopingVisitor(nested));
 		return null;
 	}
 
@@ -238,7 +243,7 @@ public class PGoTLAExpressionScopingVisitor extends PGoTLAExpressionVisitor<Void
 			}
 			qb.getSet().accept(this);
 		}
-		pGoTLASetComprehension.getBody().accept(new PGoTLAExpressionScopingVisitor(nested));
+		pGoTLASetComprehension.getBody().accept(new TLAExpressionScopingVisitor(nested));
 		return null;
 	}
 
@@ -254,7 +259,7 @@ public class PGoTLAExpressionScopingVisitor extends PGoTLAExpressionVisitor<Void
 		}else {
 			nested.defineLocal(ident.getId().getId(), ident.getId().getUID());
 		}
-		pGoTLASetRefinement.getWhen().accept(new PGoTLAExpressionScopingVisitor(nested));
+		pGoTLASetRefinement.getWhen().accept(new TLAExpressionScopingVisitor(nested));
 		return null;
 	}
 
@@ -277,7 +282,13 @@ public class PGoTLAExpressionScopingVisitor extends PGoTLAExpressionVisitor<Void
 		for(PGoTLAIdentifier id : pGoTLAUniversal.getIds()) {
 			nested.defineLocal(id.getId(), id.getUID());
 		}
-		pGoTLAUniversal.getBody().accept(new PGoTLAExpressionScopingVisitor(nested));
+		pGoTLAUniversal.getBody().accept(new TLAExpressionScopingVisitor(nested));
+		return null;
+	}
+
+	@Override
+	public Void visit(PlusCalDefaultInitValue plusCalDefaultInitValue) throws RuntimeException {
+		// has no effect on scoping
 		return null;
 	}
 

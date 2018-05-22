@@ -17,18 +17,18 @@ public class ContextFormattingVisitor extends ContextVisitor<Void, IOException> 
 	@Override
 	public Void visit(WhileLoadingUnit whileLoadingUnit) throws IOException {
 		out.write("while loading unit required from line ");
-		out.write(whileLoadingUnit.getUnit().getLocation().getStartLine());
+		out.write(Integer.toString(whileLoadingUnit.getUnit().getLocation().getStartLine()));
 		out.write(" column ");
-		out.write(whileLoadingUnit.getUnit().getLocation().getStartColumn());
+		out.write(Integer.toString(whileLoadingUnit.getUnit().getLocation().getStartColumn()));
 		return null;
 	}
 
 	@Override
 	public Void visit(ExpandingMacroCall expandingMacroCall) throws IOException {
 		out.write("while expanding macro call at line ");
-		out.write(expandingMacroCall.getMacroCall().getLocation().getStartLine());
+		out.write(Integer.toString(expandingMacroCall.getMacroCall().getLocation().getStartLine()));
 		out.write(" column ");
-		out.write(expandingMacroCall.getMacroCall().getLocation().getStartColumn());
+		out.write(Integer.toString(expandingMacroCall.getMacroCall().getLocation().getStartColumn()));
 		return null;
 	}
 

@@ -39,6 +39,7 @@ import pgo.model.pcal.While;
 import pgo.model.pcal.With;
 import pgo.model.tla.PGoTLAExpression;
 import pgo.model.tla.PGoTLAUnit;
+import pgo.model.tla.PlusCalDefaultInitValue;
 import pgo.parser.TLAParseException;
 import pgo.parser.TLAParser;
 import pgo.trans.PGoTransException;
@@ -58,7 +59,7 @@ public class TLCToPGoPCalASTConversionVisitor extends PcalASTUtil.Visitor<List<S
 	
 	private static SourceLocation sourceLocationFromRegion(AST a) {
 		Location loc = a.getOrigin().toLocation();
-		return new SourceLocation(Paths.get(loc.source()), loc.beginLine(), loc.endLine(), loc.beginColumn(), loc.endColumn());
+		return new SourceLocation(Paths.get("PLUSCAL"), loc.beginLine(), loc.endLine(), loc.beginColumn(), loc.endColumn());
 	}
 	
 	private List<LabeledStatements> parseProcessBody(Vector<AST> body) throws PGoException {
@@ -115,6 +116,10 @@ public class TLCToPGoPCalASTConversionVisitor extends PcalASTUtil.Visitor<List<S
 	
 	@SuppressWarnings("unchecked")
 	private PGoTLAExpression parseTLAExpression(TLAExpr e) {
+		if(e.isOneToken() && e.firstToken().string.equals("defaultInitValue")) {
+			return new PlusCalDefaultInitValue(SourceLocation.unknown());
+		}
+		
 		List<TLAToken> tokens = new ArrayList<>();
 		for(Object tokList : e.tokens) {
 			for(pcal.TLAToken tok : (Vector<pcal.TLAToken>)tokList) {

@@ -90,7 +90,7 @@ public class Builder {
 	}
 	
 	public static PGoTLABinOp conjunct(PGoTLAExpression lhs, PGoTLAExpression rhs) {
-		return new PGoTLABinOp(SourceLocation.unknown(), "/\\", prefix(), lhs, rhs);
+		return new PGoTLABinOp(SourceLocation.unknown(), new PGoTLASymbol(SourceLocation.unknown(), "/\\"), prefix(), lhs, rhs);
 	}
 	
 	public static PGoTLACaseArm arm(PGoTLAExpression cond, PGoTLAExpression result) {
@@ -174,7 +174,7 @@ public class Builder {
 	}
 	
 	public static PGoTLABinOp binop(String op, PGoTLAExpression lhs, PGoTLAExpression rhs) {
-		return new PGoTLABinOp(SourceLocation.unknown(), op, Collections.emptyList(), lhs, rhs);
+		return new PGoTLABinOp(SourceLocation.unknown(), new PGoTLASymbol(SourceLocation.unknown(), op), Collections.emptyList(), lhs, rhs);
 	}
 	
 }

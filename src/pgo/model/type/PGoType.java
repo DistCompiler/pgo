@@ -3,7 +3,10 @@ package pgo.model.type;
 import java.util.Map;
 import java.util.Set;
 
-public abstract class PGoType {
+import pgo.util.Derived;
+import pgo.util.DerivedVisitor;
+
+public abstract class PGoType extends Derived {
 	/**
 	 * @param v the type variable to check for
 	 * @return whether this contains the type variable v
@@ -45,5 +48,10 @@ public abstract class PGoType {
 	@Override
 	public String toString() {
 		return toTypeName();
+	}
+	
+	@Override
+	public <T, E extends Throwable> T accept(DerivedVisitor<T, E> v) throws E{
+		return v.visit(this);
 	}
 }

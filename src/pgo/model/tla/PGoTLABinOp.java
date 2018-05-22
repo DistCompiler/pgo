@@ -3,6 +3,7 @@ package pgo.model.tla;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import pgo.parser.LocatedString;
 import pgo.util.SourceLocation;
 
 /**
@@ -16,10 +17,10 @@ public class PGoTLABinOp extends PGoTLAExpression {
 
 	private PGoTLAExpression lhs;
 	private PGoTLAExpression rhs;
-	private String op;
+	private PGoTLASymbol op;
 	private List<PGoTLAGeneralIdentifierPart> prefix;
 	
-	public PGoTLABinOp(SourceLocation location, String op, List<PGoTLAGeneralIdentifierPart> prefix, PGoTLAExpression lhs, PGoTLAExpression rhs) {
+	public PGoTLABinOp(SourceLocation location, PGoTLASymbol op, List<PGoTLAGeneralIdentifierPart> prefix, PGoTLAExpression lhs, PGoTLAExpression rhs) {
 		super(location);
 		this.lhs = lhs;
 		this.rhs = rhs;
@@ -32,7 +33,7 @@ public class PGoTLABinOp extends PGoTLAExpression {
 		return new PGoTLABinOp(getLocation(), op, prefix.stream().map(PGoTLAGeneralIdentifierPart::copy).collect(Collectors.toList()), lhs.copy(), rhs.copy());
 	}
 	
-	public String getOperation() {
+	public PGoTLASymbol getOperation() {
 		return op;
 	}
 	
