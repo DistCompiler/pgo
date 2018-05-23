@@ -16,19 +16,6 @@ public class PGoTypeSolver {
 		return Collections.unmodifiableMap(mapping);
 	}
 
-	private static Map<PGoTypeVariable, PGoType> unify(IssueContext ctx, PGoType... types) {
-		if (types.length == 0) {
-			return new HashMap<>();
-		}
-		PGoTypeSolver solver = new PGoTypeSolver();
-		PGoType ty = types[0];
-		for (PGoType t : types) {
-			solver.addConstraint(ctx, new PGoTypeConstraint(t, ty, t));
-		}
-		solver.simplify(ctx);
-		return solver.getMapping();
-	}
-
 	public static List<PGoType> substitute(Map<PGoTypeVariable, PGoType> mapping, PGoType... types) {
 		return substitute(mapping, Arrays.asList(types));
 	}
