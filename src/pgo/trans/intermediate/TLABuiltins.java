@@ -3,14 +3,7 @@ package pgo.trans.intermediate;
 import java.util.HashMap;
 import java.util.Map;
 
-import pgo.model.type.PGoTypeBool;
-import pgo.model.type.PGoTypeConstraint;
-import pgo.model.type.PGoTypeInt;
-import pgo.model.type.PGoTypeNatural;
-import pgo.model.type.PGoTypeSet;
-import pgo.model.type.PGoTypeSlice;
-import pgo.model.type.PGoTypeUnrealizedTuple;
-import pgo.model.type.PGoTypeVariable;
+import pgo.model.type.*;
 import pgo.scope.UID;
 
 public class TLABuiltins {
@@ -71,7 +64,7 @@ public class TLABuiltins {
 		builtinModules.put("Sequences", Sequences);
 		Sequences.addOperator("Len", new BuiltinOperator(1, (origin, args, solver, generator) -> {
 			solver.accept(new PGoTypeConstraint(origin, args.get(0), new PGoTypeUnrealizedTuple()));
-			return PGoTypeNatural.getInstance();
+			return PGoTypeInt.getInstance();
 		}));
 		Sequences.addOperator("Append", new BuiltinOperator(2, (origin, args, solver, generator) -> {
 			PGoTypeVariable elementType = generator.get();
@@ -93,60 +86,70 @@ public class TLABuiltins {
 		BuiltinModule Naturals = new BuiltinModule();
 		builtinModules.put("Naturals", Naturals);
 		Naturals.addOperator("-", new BuiltinOperator(2, (origin, args, solver, generator) -> {
-			solver.accept(new PGoTypeConstraint(origin, args.get(0), PGoTypeNatural.getInstance()));
-			solver.accept(new PGoTypeConstraint(origin, args.get(1), PGoTypeNatural.getInstance()));
-			return PGoTypeNatural.getInstance();
+			PGoType fresh = new PGoTypeUnrealizedNumber();
+			solver.accept(new PGoTypeConstraint(origin, args.get(0), fresh));
+			solver.accept(new PGoTypeConstraint(origin, args.get(1), fresh));
+			return fresh;
 		}));
 		Naturals.addOperator("+", new BuiltinOperator(2, (origin, args, solver, generator) -> {
-			solver.accept(new PGoTypeConstraint(origin, args.get(0), PGoTypeNatural.getInstance()));
-			solver.accept(new PGoTypeConstraint(origin, args.get(1), PGoTypeNatural.getInstance()));
-			return PGoTypeNatural.getInstance();
+			PGoType fresh = new PGoTypeUnrealizedNumber();
+			solver.accept(new PGoTypeConstraint(origin, args.get(0), fresh));
+			solver.accept(new PGoTypeConstraint(origin, args.get(1), fresh));
+			return fresh;
 		}));
 		Naturals.addOperator("%", new BuiltinOperator(2, (origin, args, solver, generator) -> {
-			solver.accept(new PGoTypeConstraint(origin, args.get(0), PGoTypeNatural.getInstance()));
-			solver.accept(new PGoTypeConstraint(origin, args.get(1), PGoTypeNatural.getInstance()));
-			return PGoTypeNatural.getInstance();
+			PGoType fresh = PGoTypeUnrealizedNumber.integralType();
+			solver.accept(new PGoTypeConstraint(origin, args.get(0), fresh));
+			solver.accept(new PGoTypeConstraint(origin, args.get(1), fresh));
+			return fresh;
 		}));
 		Naturals.addOperator("*", new BuiltinOperator(2, (origin, args, solver, generator) -> {
-			solver.accept(new PGoTypeConstraint(origin, args.get(0), PGoTypeNatural.getInstance()));
-			solver.accept(new PGoTypeConstraint(origin, args.get(1), PGoTypeNatural.getInstance()));
-			return PGoTypeNatural.getInstance();
+			PGoType fresh = new PGoTypeUnrealizedNumber();
+			solver.accept(new PGoTypeConstraint(origin, args.get(0), fresh));
+			solver.accept(new PGoTypeConstraint(origin, args.get(1), fresh));
+			return fresh;
 		}));
 		Naturals.addOperator("<", new BuiltinOperator(2, (origin, args, solver, generator) -> {
-			solver.accept(new PGoTypeConstraint(origin, args.get(0), PGoTypeNatural.getInstance()));
-			solver.accept(new PGoTypeConstraint(origin, args.get(1), PGoTypeNatural.getInstance()));
+			PGoType fresh = new PGoTypeUnrealizedNumber();
+			solver.accept(new PGoTypeConstraint(origin, args.get(0), fresh));
+			solver.accept(new PGoTypeConstraint(origin, args.get(1), fresh));
 			return PGoTypeBool.getInstance();
 		}));
 		Naturals.addOperator(">", new BuiltinOperator(2, (origin, args, solver, generator) -> {
-			solver.accept(new PGoTypeConstraint(origin, args.get(0), PGoTypeNatural.getInstance()));
-			solver.accept(new PGoTypeConstraint(origin, args.get(1), PGoTypeNatural.getInstance()));
+			PGoType fresh = new PGoTypeUnrealizedNumber();
+			solver.accept(new PGoTypeConstraint(origin, args.get(0), fresh));
+			solver.accept(new PGoTypeConstraint(origin, args.get(1), fresh));
 			return PGoTypeBool.getInstance();
 		}));
 		// TODO: \leq =<
 		Naturals.addOperator("<=", new BuiltinOperator(2, (origin, args, solver, generator) -> {
-			solver.accept(new PGoTypeConstraint(origin, args.get(0), PGoTypeNatural.getInstance()));
-			solver.accept(new PGoTypeConstraint(origin, args.get(1), PGoTypeNatural.getInstance()));
+			PGoType fresh = new PGoTypeUnrealizedNumber();
+			solver.accept(new PGoTypeConstraint(origin, args.get(0), fresh));
+			solver.accept(new PGoTypeConstraint(origin, args.get(1), fresh));
 			return PGoTypeBool.getInstance();
 		}));
 		// TODO: \geq
 		Naturals.addOperator(">=", new BuiltinOperator(2, (origin, args, solver, generator) -> {
-			solver.accept(new PGoTypeConstraint(origin, args.get(0), PGoTypeNatural.getInstance()));
-			solver.accept(new PGoTypeConstraint(origin, args.get(1), PGoTypeNatural.getInstance()));
+			PGoType fresh = new PGoTypeUnrealizedNumber();
+			solver.accept(new PGoTypeConstraint(origin, args.get(0), fresh));
+			solver.accept(new PGoTypeConstraint(origin, args.get(1), fresh));
 			return PGoTypeBool.getInstance();
 		}));
 		Naturals.addOperator("Nat", new BuiltinOperator(0, (origin, args, solver, generator) ->
 				new PGoTypeSet(PGoTypeNatural.getInstance())));
 		Naturals.addOperator("..", new BuiltinOperator(2, (origin, args, solver, generator) -> {
-			solver.accept(new PGoTypeConstraint(origin, args.get(0), PGoTypeNatural.getInstance()));
-			solver.accept(new PGoTypeConstraint(origin, args.get(1), PGoTypeNatural.getInstance()));
+			PGoType fresh = PGoTypeUnrealizedNumber.integralType();
+			solver.accept(new PGoTypeConstraint(origin, args.get(0), fresh));
+			solver.accept(new PGoTypeConstraint(origin, args.get(1), fresh));
 			return new PGoTypeSet(PGoTypeNatural.getInstance());
 		}));
 
 		BuiltinModule Integers = new BuiltinModule(Naturals);
 		builtinModules.put("Integers", Integers);
 		Integers.addOperator("-", new BuiltinOperator(1, (origin, args, solver, generator) -> {
-			solver.accept(new PGoTypeConstraint(origin, args.get(0), PGoTypeNatural.getInstance()));
-			return PGoTypeInt.getInstance();
+			PGoType fresh = new PGoTypeUnrealizedNumber(PGoTypeInt.getInstance());
+			solver.accept(new PGoTypeConstraint(origin, args.get(0), fresh));
+			return fresh;
 		}));
 		Integers.addOperator("Int", new BuiltinOperator(0, (origin, args, solver, generator) ->
 				new PGoTypeSet(PGoTypeInt.getInstance())));
