@@ -16,7 +16,7 @@ import pgo.scope.UID;
 public class TLABuiltins {
 
 	private TLABuiltins() {}
-	
+
 	private static BuiltinModule universalBuiltins = new BuiltinModule();
 	static {
 		universalBuiltins.addOperator("=", new BuiltinOperator(2, (origin, args, solver, generator) -> {
@@ -60,13 +60,13 @@ public class TLABuiltins {
 			return new PGoTypeSet(memberType);
 		}));
 	}
-	
+
 	private static Map<String, BuiltinModule> builtinModules = new HashMap<>();
 	static {
 		BuiltinModule TLC = new BuiltinModule();
 		builtinModules.put("TLC", TLC);
-		
-		
+
+
 		BuiltinModule Sequences = new BuiltinModule();
 		builtinModules.put("Sequences", Sequences);
 		Sequences.addOperator("Len", new BuiltinOperator(1, (origin, args, solver, generator) -> {
@@ -89,7 +89,7 @@ public class TLABuiltins {
 			solver.accept(new PGoTypeConstraint(origin, args.get(0), new PGoTypeSlice(elementType)));
 			return new PGoTypeSlice(elementType);
 		}));
-		
+
 		BuiltinModule Naturals = new BuiltinModule();
 		builtinModules.put("Naturals", Naturals);
 		Naturals.addOperator("-", new BuiltinOperator(2, (origin, args, solver, generator) -> {
@@ -134,35 +134,33 @@ public class TLABuiltins {
 			solver.accept(new PGoTypeConstraint(origin, args.get(1), PGoTypeNatural.getInstance()));
 			return PGoTypeBool.getInstance();
 		}));
-		Naturals.addOperator("Nat", new BuiltinOperator(0, (origin, args, solver, generator) -> {
-			return new PGoTypeSet(PGoTypeNatural.getInstance());
-		}));
+		Naturals.addOperator("Nat", new BuiltinOperator(0, (origin, args, solver, generator) ->
+				new PGoTypeSet(PGoTypeNatural.getInstance())));
 		Naturals.addOperator("..", new BuiltinOperator(2, (origin, args, solver, generator) -> {
 			solver.accept(new PGoTypeConstraint(origin, args.get(0), PGoTypeNatural.getInstance()));
 			solver.accept(new PGoTypeConstraint(origin, args.get(1), PGoTypeNatural.getInstance()));
 			return new PGoTypeSet(PGoTypeNatural.getInstance());
 		}));
-		
+
 		BuiltinModule Integers = new BuiltinModule(Naturals);
 		builtinModules.put("Integers", Integers);
 		Integers.addOperator("-", new BuiltinOperator(1, (origin, args, solver, generator) -> {
 			solver.accept(new PGoTypeConstraint(origin, args.get(0), PGoTypeNatural.getInstance()));
 			return PGoTypeInt.getInstance();
 		}));
-		Integers.addOperator("Int", new BuiltinOperator(0, (origin, args, solver, generator) -> {
-			return new PGoTypeSet(PGoTypeInt.getInstance());
-		}));
-		
+		Integers.addOperator("Int", new BuiltinOperator(0, (origin, args, solver, generator) ->
+				new PGoTypeSet(PGoTypeInt.getInstance())));
+
 	}
-	
+
 	public static BuiltinModule getUniversalBuiltins() {
 		return universalBuiltins;
 	}
-	
+
 	public static BuiltinModule findBuiltinModule(String name) {
 		return builtinModules.get(name);
 	}
-	
+
 	public static boolean isBuiltinModule(String name) {
 		return builtinModules.containsKey(name);
 	}
@@ -174,5 +172,5 @@ public class TLABuiltins {
 		}
 		return defs;
 	}
-	
+
 }

@@ -39,22 +39,11 @@ import pgo.model.tla.PGoTLAUnary;
 import pgo.model.tla.PGoTLAUnit;
 import pgo.model.tla.PGoTLAUniversal;
 import pgo.model.tla.PlusCalDefaultInitValue;
-import pgo.model.type.PGoType;
-import pgo.model.type.PGoTypeBool;
-import pgo.model.type.PGoTypeConstraint;
-import pgo.model.type.PGoTypeFunction;
-import pgo.model.type.PGoTypeGenerator;
-import pgo.model.type.PGoTypeSet;
-import pgo.model.type.PGoTypeSolver;
-import pgo.model.type.PGoTypeString;
-import pgo.model.type.PGoTypeTuple;
-import pgo.model.type.PGoTypeUnrealizedNumber;
-import pgo.model.type.PGoTypeUnrealizedTuple;
-import pgo.model.type.PGoTypeVariable;
+import pgo.model.type.*;
 import pgo.scope.UID;
 
 public class TLAExpressionTypeConstraintVisitor extends PGoTLAExpressionVisitor<PGoType, RuntimeException> {
-	
+
 	private PGoTypeSolver solver;
 	private PGoTypeGenerator generator;
 	private Map<UID, PGoTypeVariable> mapping;
@@ -66,7 +55,7 @@ public class TLAExpressionTypeConstraintVisitor extends PGoTLAExpressionVisitor<
 		this.generator = generator;
 		this.mapping = mapping;
 	}
-	
+
 	public PGoType wrappedVisit(PGoTLAExpression expr) {
 		PGoType result = expr.accept(this);
 		if(!mapping.containsKey(expr.getUID())) {
@@ -76,7 +65,7 @@ public class TLAExpressionTypeConstraintVisitor extends PGoTLAExpressionVisitor<
 		}
 		return result;
 	}
-	
+
 	private void processQuantifierBound(PGoTLAQuantifierBound qb) {
 		PGoTypeVariable elementType = generator.get();
 		solver.accept(new PGoTypeConstraint(qb, new PGoTypeSet(elementType), wrappedVisit(qb.getSet())));
@@ -206,7 +195,11 @@ public class TLAExpressionTypeConstraintVisitor extends PGoTLAExpressionVisitor<
 
 	@Override
 	public PGoType visit(PGoTLANumber pGoTLANumber) throws RuntimeException {
-		return new PGoTypeUnrealizedNumber();
+		// TODO this check should be more sophisticated
+		if (pGoTLANumber.getVal().contains(".")) {
+			return PGoTypeDecimal.getInstance();
+		}
+		return new PGoTypeUnrealizedNumber(PGoTypeInt.getInstance());
 	}
 
 	@Override

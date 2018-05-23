@@ -30,7 +30,7 @@ public class PlusCalStatementTypeConstraintVisitor extends StatementVisitor<Void
 
 	@Override
 	public Void visit(LabeledStatements labeledStatements) throws RuntimeException {
-		for(Statement stmt : labeledStatements.getStatements()) {
+		for (Statement stmt : labeledStatements.getStatements()) {
 			stmt.accept(this);
 		}
 		return null;
@@ -39,7 +39,7 @@ public class PlusCalStatementTypeConstraintVisitor extends StatementVisitor<Void
 	@Override
 	public Void visit(While while1) throws RuntimeException {
 		solver.accept(new PGoTypeConstraint(while1, exprVisitor.wrappedVisit(while1.getCondition()), PGoTypeBool.getInstance()));
-		for(Statement stmt : while1.getBody()) {
+		for (Statement stmt : while1.getBody()) {
 			stmt.accept(this);
 		}
 		return null;
@@ -48,10 +48,10 @@ public class PlusCalStatementTypeConstraintVisitor extends StatementVisitor<Void
 	@Override
 	public Void visit(If if1) throws RuntimeException {
 		solver.accept(new PGoTypeConstraint(if1, exprVisitor.wrappedVisit(if1.getCondition()), PGoTypeBool.getInstance()));
-		for(Statement stmt : if1.getYes()) {
+		for (Statement stmt : if1.getYes()) {
 			stmt.accept(this);
 		}
-		for(Statement stmt : if1.getNo()) {
+		for (Statement stmt : if1.getNo()) {
 			stmt.accept(this);
 		}
 		return null;
@@ -86,7 +86,6 @@ public class PlusCalStatementTypeConstraintVisitor extends StatementVisitor<Void
 
 	@Override
 	public Void visit(Call call) throws RuntimeException {
-		// TODO: properly compile procedure calls
 		Procedure proc = registry.findProcedure(call.getTarget());
 		if (proc == null) {
 			ctx.error(new ProcedureNotFoundIssue(call, call.getTarget()));
@@ -113,7 +112,7 @@ public class PlusCalStatementTypeConstraintVisitor extends StatementVisitor<Void
 	@Override
 	public Void visit(With with) throws RuntimeException {
 		TypeInferencePass.constrainVariableDecl(registry, with.getVariable(), solver, generator, mapping);
-		for(Statement stmt : with.getBody()) {
+		for (Statement stmt : with.getBody()) {
 			stmt.accept(this);
 		}
 		return null;
