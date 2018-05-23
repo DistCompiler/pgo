@@ -39,6 +39,8 @@ public class PGoScopingPass {
 				new PlusCalProcessesScopingVisitor(ctx, pcalScope, tlaScope, regBuilder, loader, new HashSet<>()));
 		
 		for(Procedure proc : algorithm.getProcedures()) {
+
+			regBuilder.addProcedure(proc);
 			
 			pcalScope.defineGlobal(proc.getName(), proc.getUID());
 			
