@@ -3,6 +3,7 @@ package pgo.trans.intermediate;
 import java.util.List;
 import java.util.Map;
 
+import pgo.errors.IssueContext;
 import pgo.model.tla.PGoTLAOpDecl;
 import pgo.model.tla.PGoTLAOperatorDefinition;
 import pgo.model.type.PGoType;
@@ -22,8 +23,8 @@ public class CompiledOperatorAccessor extends OperatorAccessor {
 	}
 
 	@Override
-	public PGoType constrainTypes(Origin origin, DefinitionRegistry registry, List<PGoType> args, PGoTypeSolver solver, PGoTypeGenerator generator,
-			Map<UID, PGoTypeVariable> mapping) {
+	public PGoType constrainTypes(IssueContext ctx, Origin origin, DefinitionRegistry registry, List<PGoType> args, PGoTypeSolver solver, PGoTypeGenerator generator,
+	                              Map<UID, PGoTypeVariable> mapping) {
 		// TODO argument-based polymorphism?
 		List<PGoTLAOpDecl> defArgs = def.getArgs();
 		for(int i = 0; i < defArgs.size(); ++i) {
@@ -36,7 +37,7 @@ public class CompiledOperatorAccessor extends OperatorAccessor {
 				// TODO: error
 			}
 		}
-		PGoType result = new TLAExpressionTypeConstraintVisitor(registry, solver, generator, mapping)
+		PGoType result = new TLAExpressionTypeConstraintVisitor(ctx, registry, solver, generator, mapping)
 				.wrappedVisit(def.getBody());
 		return result;
 	}

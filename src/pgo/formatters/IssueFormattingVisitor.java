@@ -7,6 +7,7 @@ import pgo.errors.IssueVisitor;
 import pgo.errors.IssueWithContext;
 import pgo.model.pcal.Macro;
 import pgo.model.type.UnsatisfiableConstraintIssue;
+import pgo.model.type.UnsatisfiablePolymorphicConstraintIssue;
 import pgo.trans.intermediate.*;
 
 public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
@@ -184,6 +185,15 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 		unsatisfiableConstraintIssue.getRhs().accept(new DerivedFormattingVisitor(out));
 		out.write("; constraint derived from ");
 		unsatisfiableConstraintIssue.getConstraint().accept(new DerivedFormattingVisitor(out));
+		return null;
+	}
+
+	@Override
+	public Void visit(UnsatisfiablePolymorphicConstraintIssue unsatisfiablePolymorphicConstraintIssue) throws IOException {
+		out.write("could not satisfy polymorphic constraint for ");
+		out.write(unsatisfiablePolymorphicConstraintIssue.getArgTypes().toString());
+		out.write(" from ");
+		unsatisfiablePolymorphicConstraintIssue.getOrigin().accept(new OriginFormattingVisitor(out));
 		return null;
 	}
 

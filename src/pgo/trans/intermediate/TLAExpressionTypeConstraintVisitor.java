@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import pgo.errors.IssueContext;
 import pgo.model.tla.PGoTLABinOp;
 import pgo.model.tla.PGoTLABool;
 import pgo.model.tla.PGoTLACase;
@@ -44,12 +45,14 @@ import pgo.scope.UID;
 
 public class TLAExpressionTypeConstraintVisitor extends PGoTLAExpressionVisitor<PGoType, RuntimeException> {
 
+	private IssueContext ctx;
 	private PGoTypeSolver solver;
 	private PGoTypeGenerator generator;
 	private Map<UID, PGoTypeVariable> mapping;
 	private DefinitionRegistry registry;
 
-	public TLAExpressionTypeConstraintVisitor(DefinitionRegistry registry, PGoTypeSolver solver, PGoTypeGenerator generator, Map<UID, PGoTypeVariable> mapping) {
+	public TLAExpressionTypeConstraintVisitor(IssueContext ctx, DefinitionRegistry registry, PGoTypeSolver solver, PGoTypeGenerator generator, Map<UID, PGoTypeVariable> mapping) {
+		this.ctx = ctx;
 		this.registry = registry;
 		this.solver = solver;
 		this.generator = generator;
@@ -108,7 +111,7 @@ public class TLAExpressionTypeConstraintVisitor extends PGoTLAExpressionVisitor<
 		OperatorAccessor op = registry.findOperator(
 				registry.followReference(pGoTLABinOp.getOperation().getUID()));
 		return op.constrainTypes(
-				pGoTLABinOp.getOperation(),
+				ctx, pGoTLABinOp.getOperation(),
 				registry,
 				Arrays.asList(wrappedVisit(pGoTLABinOp.getLHS()), wrappedVisit(pGoTLABinOp.getRHS())),
 				solver, generator, mapping);
@@ -210,7 +213,7 @@ public class TLAExpressionTypeConstraintVisitor extends PGoTLAExpressionVisitor<
 		}
 		OperatorAccessor op = registry.findOperator(
 				registry.followReference(pGoTLAOperatorCall.getName().getUID()));
-		return op.constrainTypes(pGoTLAOperatorCall, registry, arguments, solver, generator, mapping);
+		return op.constrainTypes(ctx, pGoTLAOperatorCall, registry, arguments, solver, generator, mapping);
 	}
 
 	@Override
@@ -292,7 +295,7 @@ public class TLAExpressionTypeConstraintVisitor extends PGoTLAExpressionVisitor<
 		UID ref = registry.followReference(pGoTLAUnary.getOperation().getUID());
 		OperatorAccessor op = registry.findOperator(ref);
 		List<PGoType> args = Collections.singletonList(wrappedVisit(pGoTLAUnary.getOperand()));
-		return op.constrainTypes(pGoTLAUnary.getOperation(), registry, args, solver, generator, mapping);
+		return op.constrainTypes(ctx, pGoTLAUnary.getOperation(), registry, args, solver, generator, mapping);
 	}
 
 	@Override

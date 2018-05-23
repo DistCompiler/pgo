@@ -1,5 +1,6 @@
 package pgo.trans.intermediate;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -62,10 +63,19 @@ public class TLABuiltins {
 
 		BuiltinModule Sequences = new BuiltinModule();
 		builtinModules.put("Sequences", Sequences);
-		Sequences.addOperator("Len", new BuiltinOperator(1, (origin, args, solver, generator) -> {
-			solver.accept(new PGoTypeConstraint(origin, args.get(0), new PGoTypeUnrealizedTuple()));
-			return PGoTypeInt.getInstance();
-		}));
+		Sequences.addOperator("Len", new PolymorphicBuiltinOperator(1, Arrays.asList(
+				(origin, args, solver, generator) -> {
+					solver.accept(new PGoTypeConstraint(origin, args.get(0), PGoTypeString.getInstance()));
+					return PGoTypeInt.getInstance();
+				},
+				(origin, args, solver, generator) -> {
+					solver.accept(new PGoTypeConstraint(origin, args.get(0), new PGoTypeSlice(generator.get())));
+					return PGoTypeInt.getInstance();
+				},
+				(origin, args, solver, generator) -> {
+					solver.accept(new PGoTypeConstraint(origin, args.get(0), new PGoTypeUnrealizedTuple()));
+					return PGoTypeInt.getInstance();
+				})));
 		Sequences.addOperator("Append", new BuiltinOperator(2, (origin, args, solver, generator) -> {
 			PGoTypeVariable elementType = generator.get();
 			solver.accept(new PGoTypeConstraint(origin, args.get(0), new PGoTypeSlice(elementType)));

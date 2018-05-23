@@ -53,7 +53,7 @@ public class TLAUnitTypeConstraintVisitor extends PGoTLAUnitVisitor<Void, Runtim
 				new PGoTypeConstraint(
 						pGoTLAFunctionDefinition,
 						v,
-						new TLAExpressionTypeConstraintVisitor(registry, solver, generator, mapping)
+						new TLAExpressionTypeConstraintVisitor(ctx, registry, solver, generator, mapping)
 						.wrappedVisit(pGoTLAFunctionDefinition.getFunction())));
 		return null;
 	}
@@ -67,7 +67,7 @@ public class TLAUnitTypeConstraintVisitor extends PGoTLAUnitVisitor<Void, Runtim
 				mapping.put(arg.getUID(), generator.get());
 			}
 		}
-		new TLAExpressionTypeConstraintVisitor(registry, solver, generator, mapping).wrappedVisit(pGoTLAOperator.getBody());
+		new TLAExpressionTypeConstraintVisitor(ctx, registry, solver, generator, mapping).wrappedVisit(pGoTLAOperator.getBody());
 		return null;
 	}
 

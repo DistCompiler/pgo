@@ -15,7 +15,7 @@ public class TypeInferencePass {
 
 	private TypeInferencePass() {}
 
-	static void constrainVariableDecl(DefinitionRegistry registry, VariableDecl var, PGoTypeSolver solver, PGoTypeGenerator generator, Map<UID, PGoTypeVariable> mapping) {
+	static void constrainVariableDecl(IssueContext ctx, DefinitionRegistry registry, VariableDecl var, PGoTypeSolver solver, PGoTypeGenerator generator, Map<UID, PGoTypeVariable> mapping) {
 		PGoTypeVariable v;
 		if(mapping.containsKey(var.getUID())) {
 			v = mapping.get(var.getUID());
@@ -24,7 +24,7 @@ public class TypeInferencePass {
 			mapping.put(var.getUID(), v);
 		}
 
-		PGoType valueType = new TLAExpressionTypeConstraintVisitor(registry, solver, generator, mapping)
+		PGoType valueType = new TLAExpressionTypeConstraintVisitor(ctx, registry, solver, generator, mapping)
 				.wrappedVisit(var.getValue());
 		if(var.isSet()) {
 			PGoTypeVariable member = generator.get();
@@ -42,7 +42,7 @@ public class TypeInferencePass {
 		Map<UID, PGoTypeVariable> mapping = new HashMap<>();
 
 		for (VariableDecl var : pcal.getVariables()) {
-			constrainVariableDecl(registry, var, solver, generator, mapping);
+			constrainVariableDecl(ctx, registry, var, solver, generator, mapping);
 		}
 
 		for (PGoTLAUnit unit : pcal.getUnits()) {
@@ -52,7 +52,7 @@ public class TypeInferencePass {
 		for (Procedure p : pcal.getProcedures()) {
 			List<PGoType> paramTypes = new ArrayList<>();
 			for (VariableDecl var : p.getArguments()) {
-				constrainVariableDecl(registry, var, solver, generator, mapping);
+				constrainVariableDecl(ctx, registry, var, solver, generator, mapping);
 				paramTypes.add(mapping.get(var.getUID()));
 			}
 			PlusCalStatementTypeConstraintVisitor v =
@@ -81,9 +81,9 @@ public class TypeInferencePass {
 			public Void visit(MultiProcess multiProcess) throws RuntimeException {
 				for (PcalProcess proc : multiProcess.getProcesses()) {
 					for (VariableDecl var : proc.getVariables()) {
-						constrainVariableDecl(registry, var, solver, generator, mapping);
+						constrainVariableDecl(ctx, registry, var, solver, generator, mapping);
 					}
-					constrainVariableDecl(registry, proc.getName(), solver, generator, mapping);
+					constrainVariableDecl(ctx, registry, proc.getName(), solver, generator, mapping);
 					for (LabeledStatements stmts : proc.getLabeledStatements()) {
 						for (Statement stmt : stmts.getStatements()) {
 							stmt.accept(new PlusCalStatementTypeConstraintVisitor(ctx, registry, solver, generator, mapping));

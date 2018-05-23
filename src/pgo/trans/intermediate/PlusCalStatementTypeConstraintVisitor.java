@@ -25,7 +25,7 @@ public class PlusCalStatementTypeConstraintVisitor extends StatementVisitor<Void
 		this.solver = solver;
 		this.generator = generator;
 		this.mapping = mapping;
-		this.exprVisitor = new TLAExpressionTypeConstraintVisitor(registry, solver, generator, mapping);
+		this.exprVisitor = new TLAExpressionTypeConstraintVisitor(ctx, registry, solver, generator, mapping);
 	}
 
 	@Override
@@ -93,7 +93,7 @@ public class PlusCalStatementTypeConstraintVisitor extends StatementVisitor<Void
 		List<PGoType> callArgs = new ArrayList<>();
 		for (PGoTLAExpression e : call.getArguments()) {
 			TLAExpressionTypeConstraintVisitor v =
-					new TLAExpressionTypeConstraintVisitor(registry, solver, generator, mapping);
+					new TLAExpressionTypeConstraintVisitor(ctx, registry, solver, generator, mapping);
 			e.accept(v);
 			callArgs.add(mapping.get(e.getUID()));
 		}
@@ -111,7 +111,7 @@ public class PlusCalStatementTypeConstraintVisitor extends StatementVisitor<Void
 
 	@Override
 	public Void visit(With with) throws RuntimeException {
-		TypeInferencePass.constrainVariableDecl(registry, with.getVariable(), solver, generator, mapping);
+		TypeInferencePass.constrainVariableDecl(ctx, registry, with.getVariable(), solver, generator, mapping);
 		for (Statement stmt : with.getBody()) {
 			stmt.accept(this);
 		}
