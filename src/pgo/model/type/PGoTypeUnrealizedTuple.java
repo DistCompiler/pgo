@@ -8,12 +8,12 @@ import pgo.errors.IssueContext;
  * Represents an unrealized tuple.
  */
 public class PGoTypeUnrealizedTuple extends PGoType {
-	private HashMap<Integer, PGoType> elementTypes = new HashMap<>();
-	private boolean sizeKnown = false;
-	private enum RealType {
+	private Map<Integer, PGoType> elementTypes;
+	private boolean sizeKnown;
+	public enum RealType {
 		Unknown, Chan, Set, Slice, Tuple
 	}
-	private RealType realType = RealType.Unknown;
+	private RealType realType;
 
 	public PGoTypeUnrealizedTuple() {
 		this(new HashMap<>());
@@ -24,8 +24,9 @@ public class PGoTypeUnrealizedTuple extends PGoType {
 	}
 
 	public PGoTypeUnrealizedTuple(Map<Integer, PGoType> elementTypes, boolean sizeKnown) {
-		this.elementTypes.putAll(elementTypes);
+		this.elementTypes = new HashMap<>(elementTypes);
 		this.sizeKnown = sizeKnown;
+		this.realType = RealType.Unknown;
 	}
 
 	public Map<Integer, PGoType> getElementTypes() {
@@ -50,11 +51,9 @@ public class PGoTypeUnrealizedTuple extends PGoType {
 
 	public void harmonize(IssueContext ctx, PGoTypeSolver solver, PGoSimpleContainerType other) {
 		PGoType elemType = other.getElementType();
-		if (elementTypes.size() > 0) {
-			elementTypes.forEach((k, v) -> solver.addConstraint(ctx, new PGoTypeConstraint(this, elemType, v)));
-			if (ctx.hasErrors()) {
-				return;
-			}
+		elementTypes.forEach((k, v) -> solver.addConstraint(ctx, new PGoTypeConstraint(this, elemType, v)));
+		if (ctx.hasErrors()) {
+			return;
 		}
 		// from this point onward, type unification was successful
 		sizeKnown = true;
@@ -68,7 +67,6 @@ public class PGoTypeUnrealizedTuple extends PGoType {
 			ctx.error(new UnrealizableTypeIssue(this));
 			return;
 		}
-		elementTypes.forEach((k, v) -> solver.addConstraint(ctx, new PGoTypeConstraint(this, elemType, v)));
 		elementTypes.clear();
 		elementTypes.put(0, elemType);
 	}
@@ -134,7 +132,7 @@ public class PGoTypeUnrealizedTuple extends PGoType {
 					solver.addConstraint(ctx, new PGoTypeConstraint(this, first, t));
 				}
 			}
-			// constraint types of unrealized tuples
+			// constraint types of the unrealized tuples
 			if (ts.size() > 0) {
 				HashMap<Integer, PGoType> m = new HashMap<>(Collections.singletonMap(0, ts.get(0)));
 				elementTypes = m;

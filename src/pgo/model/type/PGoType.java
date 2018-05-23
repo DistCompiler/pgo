@@ -32,8 +32,8 @@ public abstract class PGoType extends Derived {
 
 	/**
 	 * Realizes all PGoTypeUnrealizedNumbers
+	 * @param ctx the issue reporting context
 	 * @return the type with all PGoTypeUnrealizedNumbers realized
-	 * @param ctx
 	 */
 	public abstract PGoType realize(IssueContext ctx);
 
@@ -51,7 +51,7 @@ public abstract class PGoType extends Derived {
 	public String toString() {
 		return toTypeName();
 	}
-	
+
 	@Override
 	public <T, E extends Throwable> T accept(DerivedVisitor<T, E> v) throws E{
 		return v.visit(this);

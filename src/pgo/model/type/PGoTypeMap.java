@@ -67,6 +67,6 @@ public class PGoTypeMap extends PGoType {
 
 	@Override
 	public String toGo() {
-		return "map[" + keyType.toGo() + "]" + valueType.toGo();
+		return "datatypes.Map";
 	}
 }
