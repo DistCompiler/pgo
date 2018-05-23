@@ -2,6 +2,7 @@ package pgo.trans.intermediate;
 
 import java.util.Map;
 
+import pgo.errors.IssueContext;
 import pgo.model.tla.PGoTLAAssumption;
 import pgo.model.tla.PGoTLAConstantDeclaration;
 import pgo.model.tla.PGoTLAFunctionDefinition;
@@ -21,13 +22,15 @@ import pgo.scope.UID;
 
 public class TLAUnitTypeConstraintVisitor extends PGoTLAUnitVisitor<Void, RuntimeException> {
 
+	private IssueContext ctx;
 	private DefinitionRegistry registry;
 	private Map<UID, PGoTypeVariable> mapping;
 	private PGoTypeGenerator generator;
 	private PGoTypeSolver solver;
 
-	public TLAUnitTypeConstraintVisitor(DefinitionRegistry registry, PGoTypeSolver solver, PGoTypeGenerator generator,
-			Map<UID, PGoTypeVariable> mapping) {
+	public TLAUnitTypeConstraintVisitor(IssueContext ctx, DefinitionRegistry registry, PGoTypeSolver solver,
+	                                    PGoTypeGenerator generator, Map<UID, PGoTypeVariable> mapping) {
+		this.ctx = ctx;
 		this.registry = registry;
 		this.solver = solver;
 		this.generator = generator;
@@ -50,7 +53,8 @@ public class TLAUnitTypeConstraintVisitor extends PGoTLAUnitVisitor<Void, Runtim
 			mapping.put(id, v);
 		}
 		solver.addConstraint(
-				ctx, new PGoTypeConstraint(
+				ctx,
+				new PGoTypeConstraint(
 						pGoTLAFunctionDefinition,
 						v,
 						new TLAExpressionTypeConstraintVisitor(ctx, registry, solver, generator, mapping)

@@ -2,7 +2,6 @@ package pgo.trans.intermediate;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -166,7 +165,7 @@ public class TLAExpressionTypeConstraintVisitor extends PGoTLAExpressionVisitor<
 	public PGoType visit(PGoTLALet pGoTLALet) throws RuntimeException {
 		// TODO: let polymorphism
 		for(PGoTLAUnit unit : pGoTLALet.getDefinitions()) {
-			unit.accept(new TLAUnitTypeConstraintVisitor(registry, solver, generator, mapping));
+			unit.accept(new TLAUnitTypeConstraintVisitor(ctx, registry, solver, generator, mapping));
 		}
 		return wrappedVisit(pGoTLALet.getBody());
 	}

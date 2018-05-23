@@ -46,7 +46,7 @@ public class TypeInferencePass {
 		}
 
 		for (PGoTLAUnit unit : pcal.getUnits()) {
-			unit.accept(new TLAUnitTypeConstraintVisitor(registry, solver, generator, mapping));
+			unit.accept(new TLAUnitTypeConstraintVisitor(ctx, registry, solver, generator, mapping));
 		}
 
 		for (Procedure p : pcal.getProcedures()) {
