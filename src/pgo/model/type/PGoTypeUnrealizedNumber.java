@@ -48,8 +48,8 @@ public class PGoTypeUnrealizedNumber extends PGoNumberType {
 		}
 		num = higher;
 		if (other instanceof PGoTypeUnrealizedNumber) {
-			if (((PGoTypeUnrealizedNumber) other).isIntegralType) {
-				ctx.error(new UnsatisfiableConstraintIssue(constraint, PGoTypeInt.getInstance(), PGoTypeDecimal.getInstance()));
+			if (higher instanceof PGoTypeDecimal && ((PGoTypeUnrealizedNumber) other).isIntegralType) {
+				ctx.error(new UnsatisfiableConstraintIssue(constraint, PGoTypeDecimal.getInstance(), PGoTypeInt.getInstance()));
 				return;
 			}
 			((PGoTypeUnrealizedNumber) other).num = higher;

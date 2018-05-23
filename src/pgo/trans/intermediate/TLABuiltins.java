@@ -4,7 +4,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
-import pgo.errors.IssueContext;
 import pgo.model.type.*;
 import pgo.scope.UID;
 
