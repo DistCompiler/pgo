@@ -1,46 +1,33 @@
 package pgo.trans.intermediate;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
-import pgo.model.pcal.Assert;
-import pgo.model.pcal.Assignment;
-import pgo.model.pcal.Await;
-import pgo.model.pcal.Call;
-import pgo.model.pcal.Either;
-import pgo.model.pcal.Goto;
-import pgo.model.pcal.If;
-import pgo.model.pcal.LabeledStatements;
-import pgo.model.pcal.MacroCall;
-import pgo.model.pcal.Print;
-import pgo.model.pcal.Return;
-import pgo.model.pcal.Skip;
-import pgo.model.pcal.Statement;
-import pgo.model.pcal.StatementVisitor;
-import pgo.model.pcal.While;
-import pgo.model.pcal.With;
-import pgo.model.type.PGoTypeBool;
-import pgo.model.type.PGoTypeConstraint;
-import pgo.model.type.PGoTypeGenerator;
-import pgo.model.type.PGoTypeSolver;
-import pgo.model.type.PGoTypeVariable;
+import pgo.errors.IssueContext;
+import pgo.model.pcal.*;
+import pgo.model.tla.PGoTLAExpression;
+import pgo.model.type.*;
 import pgo.scope.UID;
 
 public class PlusCalStatementTypeConstraintVisitor extends StatementVisitor<Void, RuntimeException> {
-	
+
+	private IssueContext ctx;
 	private DefinitionRegistry registry;
 	private PGoTypeSolver solver;
 	private PGoTypeGenerator generator;
 	private Map<UID, PGoTypeVariable> mapping;
 	private TLAExpressionTypeConstraintVisitor exprVisitor;
 
-	public PlusCalStatementTypeConstraintVisitor(DefinitionRegistry registry, PGoTypeSolver solver, PGoTypeGenerator generator, Map<UID, PGoTypeVariable> mapping) {
+	public PlusCalStatementTypeConstraintVisitor(IssueContext ctx, DefinitionRegistry registry, PGoTypeSolver solver, PGoTypeGenerator generator, Map<UID, PGoTypeVariable> mapping) {
+		this.ctx = ctx;
 		this.registry = registry;
 		this.solver = solver;
 		this.generator = generator;
 		this.mapping = mapping;
 		this.exprVisitor = new TLAExpressionTypeConstraintVisitor(registry, solver, generator, mapping);
 	}
-	
+
 	@Override
 	public Void visit(LabeledStatements labeledStatements) throws RuntimeException {
 		for(Statement stmt : labeledStatements.getStatements()) {
@@ -100,6 +87,21 @@ public class PlusCalStatementTypeConstraintVisitor extends StatementVisitor<Void
 	@Override
 	public Void visit(Call call) throws RuntimeException {
 		// TODO: properly compile procedure calls
+		Procedure proc = registry.findProcedure(call.getTarget());
+		if (proc == null) {
+			ctx.error(new ProcedureNotFoundIssue(call, call.getTarget()));
+		}
+		List<PGoType> callArgs = new ArrayList<>();
+		for (PGoTLAExpression e : call.getArguments()) {
+			TLAExpressionTypeConstraintVisitor v =
+					new TLAExpressionTypeConstraintVisitor(registry, solver, generator, mapping);
+			e.accept(v);
+			callArgs.add(mapping.get(e.getUID()));
+		}
+		solver.accept(new PGoTypeConstraint(
+				call,
+				mapping.get(proc.getUID()),
+				new PGoTypeFunction(callArgs, PGoTypeVoid.getInstance())));
 		return null;
 	}
 

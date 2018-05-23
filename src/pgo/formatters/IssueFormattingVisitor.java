@@ -7,22 +7,7 @@ import pgo.errors.IssueVisitor;
 import pgo.errors.IssueWithContext;
 import pgo.model.pcal.Macro;
 import pgo.model.type.UnsatisfiableConstraintIssue;
-import pgo.trans.intermediate.CircularModuleReferenceIssue;
-import pgo.trans.intermediate.DanglingReferenceIssue;
-import pgo.trans.intermediate.IOErrorIssue;
-import pgo.trans.intermediate.MacroArgumentCountMismatchIssue;
-import pgo.trans.intermediate.MacroArgumentInnerScopeConflictIssue;
-import pgo.trans.intermediate.MacroNameConflictIssue;
-import pgo.trans.intermediate.ModuleNotFoundIssue;
-import pgo.trans.intermediate.ModuleSubstitutionNotFound;
-import pgo.trans.intermediate.MultiplyDeclaredLabelIssue;
-import pgo.trans.intermediate.NoModulesFoundInFileIssue;
-import pgo.trans.intermediate.RecursiveMacroCallIssue;
-import pgo.trans.intermediate.ScopeConflictIssue;
-import pgo.trans.intermediate.TLALexerIssue;
-import pgo.trans.intermediate.TLAParserIssue;
-import pgo.trans.intermediate.UnresolvableMacroCallIssue;
-import pgo.trans.intermediate.UnsupportedFeatureIssue;
+import pgo.trans.intermediate.*;
 
 public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 
@@ -35,7 +20,7 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 	@Override
 	public Void visit(IssueWithContext issueWithContext) throws IOException {
 		issueWithContext.getContext().accept(new ContextFormattingVisitor(out));
-		try(IndentingWriter.Indent i_ = out.indent()){
+		try(IndentingWriter.Indent ignored = out.indent()){
 			out.newLine();
 			issueWithContext.getIssue().accept(this);
 		}
@@ -56,7 +41,7 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 		out.write("TLA module ");
 		out.write(moduleNotFoundIssue.getModuleName());
 		out.write(" not found; looked in:");
-		try(IndentingWriter.Indent i_ = out.indent()){
+		try(IndentingWriter.Indent ignored = out.indent()){
 			for(Path path : moduleNotFoundIssue.getPathsChecked()) {
 				out.newLine();
 				out.write("- ");
@@ -89,7 +74,7 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 	@Override
 	public Void visit(TLAParserIssue tlaParserIssue) throws IOException {
 		out.write("could not parse TLA: ");
-		try(IndentingWriter.Indent i_ = out.indent()){
+		try(IndentingWriter.Indent ignored = out.indent()){
 			out.write(tlaParserIssue.getError().toString());
 		}
 		return null;
@@ -199,6 +184,15 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 		unsatisfiableConstraintIssue.getRhs().accept(new DerivedFormattingVisitor(out));
 		out.write("; constraint derived from ");
 		unsatisfiableConstraintIssue.getConstraint().accept(new DerivedFormattingVisitor(out));
+		return null;
+	}
+
+	@Override
+	public Void visit(ProcedureNotFoundIssue procedureNotFoundIssue) throws IOException {
+		out.write("could not find procedure with name ");
+		out.write(procedureNotFoundIssue.getProcedureName());
+		out.write(" from ");
+		procedureNotFoundIssue.getOrigin().accept(new OriginFormattingVisitor(out));
 		return null;
 	}
 

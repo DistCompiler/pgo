@@ -17,14 +17,14 @@ public class DerivedFormattingVisitor extends DerivedVisitor<Void, IOException> 
 	public DerivedFormattingVisitor(IndentingWriter out) {
 		this.out = out;
 	}
-	
+
 	private void writeOrigins(Derived d) throws IOException {
 		if(d.getOrigins().isEmpty()) {
 			out.write(" derived from ???");
 		}else {
 			out.write(" derived from ");
 			boolean first = true;
-			try(IndentingWriter.Indent i_ = out.indent()){
+			try(IndentingWriter.Indent ignored = out.indent()){
 				for(Origin o : d.getOrigins()) {
 					if(first) {
 						first = false;

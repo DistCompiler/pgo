@@ -1,31 +1,21 @@
 package pgo.trans.intermediate;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import pgo.errors.IssueContext;
-import pgo.model.pcal.Algorithm;
-import pgo.model.pcal.LabeledStatements;
-import pgo.model.pcal.MultiProcess;
-import pgo.model.pcal.PcalProcess;
-import pgo.model.pcal.ProcessesVisitor;
-import pgo.model.pcal.SingleProcess;
-import pgo.model.pcal.Statement;
-import pgo.model.pcal.VariableDecl;
+import pgo.model.pcal.*;
 import pgo.model.tla.PGoTLAUnit;
-import pgo.model.type.PGoType;
-import pgo.model.type.PGoTypeConstraint;
-import pgo.model.type.PGoTypeGenerator;
-import pgo.model.type.PGoTypeSet;
-import pgo.model.type.PGoTypeSolver;
-import pgo.model.type.PGoTypeVariable;
+import pgo.model.type.*;
 import pgo.scope.UID;
 
 public class TypeInferencePass {
-	
+
 	private TypeInferencePass() {}
-	
-	public static void constrainVariableDecl(DefinitionRegistry registry, VariableDecl var, PGoTypeSolver solver, PGoTypeGenerator generator, Map<UID, PGoTypeVariable> mapping) {
+
+	static void constrainVariableDecl(DefinitionRegistry registry, VariableDecl var, PGoTypeSolver solver, PGoTypeGenerator generator, Map<UID, PGoTypeVariable> mapping) {
 		PGoTypeVariable v;
 		if(mapping.containsKey(var.getUID())) {
 			v = mapping.get(var.getUID());
@@ -33,7 +23,7 @@ public class TypeInferencePass {
 			v = generator.get();
 			mapping.put(var.getUID(), v);
 		}
-		
+
 		PGoType valueType = new TLAExpressionTypeConstraintVisitor(registry, solver, generator, mapping)
 				.wrappedVisit(var.getValue());
 		if(var.isSet()) {
@@ -44,28 +34,44 @@ public class TypeInferencePass {
 			solver.accept(new PGoTypeConstraint(var, v, valueType));
 		}
 	}
-	
+
 	public static Map<UID, PGoType> perform(IssueContext ctx, DefinitionRegistry registry, Algorithm pcal) {
-		
+
 		PGoTypeSolver solver = new PGoTypeSolver();
 		PGoTypeGenerator generator = new PGoTypeGenerator("type");
 		Map<UID, PGoTypeVariable> mapping = new HashMap<>();
-		
-		for(VariableDecl var : pcal.getVariables()) {
+
+		for (VariableDecl var : pcal.getVariables()) {
 			constrainVariableDecl(registry, var, solver, generator, mapping);
 		}
-		
-		for(PGoTLAUnit unit : pcal.getUnits()) {
+
+		for (PGoTLAUnit unit : pcal.getUnits()) {
 			unit.accept(new TLAUnitTypeConstraintVisitor(registry, solver, generator, mapping));
 		}
-		
+
+		for (Procedure p : pcal.getProcedures()) {
+			List<PGoType> paramTypes = new ArrayList<>();
+			for (VariableDecl var : p.getArguments()) {
+				constrainVariableDecl(registry, var, solver, generator, mapping);
+				paramTypes.add(mapping.get(var.getUID()));
+			}
+			PlusCalStatementTypeConstraintVisitor v =
+					new PlusCalStatementTypeConstraintVisitor(ctx, registry, solver, generator, mapping);
+			for (Statement stmt : p.getBody()) {
+				stmt.accept(v);
+			}
+			PGoTypeVariable fresh = generator.get();
+			solver.accept(new PGoTypeConstraint(p, fresh, new PGoTypeFunction(paramTypes, PGoTypeVoid.getInstance())));
+			mapping.put(p.getUID(), fresh);
+		}
+
 		pcal.getProcesses().accept(new ProcessesVisitor<Void, RuntimeException>(){
 
 			@Override
 			public Void visit(SingleProcess singleProcess) throws RuntimeException {
-				for(LabeledStatements stmts : singleProcess.getLabeledStatements()) {
-					for(Statement stmt : stmts.getStatements()) {
-						stmt.accept(new PlusCalStatementTypeConstraintVisitor(registry, solver, generator, mapping));
+				for (LabeledStatements stmts : singleProcess.getLabeledStatements()) {
+					for (Statement stmt : stmts.getStatements()) {
+						stmt.accept(new PlusCalStatementTypeConstraintVisitor(ctx, registry, solver, generator, mapping));
 					}
 				}
 				return null;
@@ -73,34 +79,36 @@ public class TypeInferencePass {
 
 			@Override
 			public Void visit(MultiProcess multiProcess) throws RuntimeException {
-				for(PcalProcess proc : multiProcess.getProcesses()) {
-					for(VariableDecl var : proc.getVariables()) {
+				for (PcalProcess proc : multiProcess.getProcesses()) {
+					for (VariableDecl var : proc.getVariables()) {
 						constrainVariableDecl(registry, var, solver, generator, mapping);
 					}
 					constrainVariableDecl(registry, proc.getName(), solver, generator, mapping);
-					for(LabeledStatements stmts : proc.getLabeledStatements()) {
-						for(Statement stmt : stmts.getStatements()) {
-							stmt.accept(new PlusCalStatementTypeConstraintVisitor(registry, solver, generator, mapping));
+					for (LabeledStatements stmts : proc.getLabeledStatements()) {
+						for (Statement stmt : stmts.getStatements()) {
+							stmt.accept(new PlusCalStatementTypeConstraintVisitor(ctx, registry, solver, generator, mapping));
 						}
 					}
 				}
 				return null;
 			}
-			
+
 		});
-		
+
 		solver.unify(ctx);
-		if(ctx.hasErrors()) return null;
+		if (ctx.hasErrors()) {
+			return null;
+		}
 		Map<PGoTypeVariable, PGoType> typeMapping = solver.getMapping();
-		
+
 		Map<UID, PGoType> resultingTypeMapping = new HashMap<>();
-		
-		for(Map.Entry<UID, PGoTypeVariable> m : mapping.entrySet()) {
+
+		for (Map.Entry<UID, PGoTypeVariable> m : mapping.entrySet()) {
 			resultingTypeMapping.put(m.getKey(), typeMapping.get(m.getValue()));
 		}
-		
+
 		System.out.println(resultingTypeMapping);
-		
+
 		return resultingTypeMapping;
 	}
 
