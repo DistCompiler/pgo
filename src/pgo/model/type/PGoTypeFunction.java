@@ -1,5 +1,7 @@
 package pgo.model.type;
 
+import pgo.errors.IssueContext;
+
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -58,9 +60,9 @@ public class PGoTypeFunction extends PGoType {
 	}
 
 	@Override
-	public PGoType realize() {
-		List<PGoType> sub = paramTypes.stream().map(PGoType::realize).collect(Collectors.toList());
-		return new PGoTypeFunction(sub, returnType.realize());
+	public PGoType realize(IssueContext ctx) {
+		List<PGoType> sub = paramTypes.stream().map(pGoType -> pGoType.realize(ctx)).collect(Collectors.toList());
+		return new PGoTypeFunction(sub, returnType.realize(ctx));
 	}
 
 	@Override

@@ -9,7 +9,5 @@ package pgo.util;
  *
  */
 public interface Origin {
-	
-	public <T, E extends Throwable> T accept(OriginVisitor<T, E> v) throws E;
-	
+	<T, E extends Throwable> T accept(OriginVisitor<T, E> v) throws E;
 }

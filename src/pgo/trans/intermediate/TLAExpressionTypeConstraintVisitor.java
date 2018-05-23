@@ -6,6 +6,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import pgo.errors.IssueContext;
 import pgo.model.tla.PGoTLABinOp;
@@ -63,7 +64,7 @@ public class TLAExpressionTypeConstraintVisitor extends PGoTLAExpressionVisitor<
 		PGoType result = expr.accept(this);
 		if(!mapping.containsKey(expr.getUID())) {
 			PGoTypeVariable self = generator.get();
-			solver.accept(new PGoTypeConstraint(expr, result, self));
+			solver.addConstraint(ctx, new PGoTypeConstraint(expr, result, self));
 			mapping.put(expr.getUID(), self);
 		}
 		return result;
@@ -71,13 +72,13 @@ public class TLAExpressionTypeConstraintVisitor extends PGoTLAExpressionVisitor<
 
 	private void processQuantifierBound(PGoTLAQuantifierBound qb) {
 		PGoTypeVariable elementType = generator.get();
-		solver.accept(new PGoTypeConstraint(qb, new PGoTypeSet(elementType), wrappedVisit(qb.getSet())));
+		solver.addConstraint(ctx, new PGoTypeConstraint(qb, new PGoTypeSet(elementType), wrappedVisit(qb.getSet())));
 		switch(qb.getType()) {
 		case IDS:
 			for(PGoTLAIdentifier id : qb.getIds()) {
 				PGoTypeVariable idType = generator.get();
 				mapping.put(id.getUID(), idType);
-				solver.accept(new PGoTypeConstraint(qb, elementType, idType));
+				solver.addConstraint(ctx, new PGoTypeConstraint(qb, elementType, idType));
 			}
 			break;
 		case TUPLE:
@@ -87,7 +88,7 @@ public class TLAExpressionTypeConstraintVisitor extends PGoTLAExpressionVisitor<
 				mapping.put(id.getUID(), idType);
 				tupleTypes.add(idType);
 			}
-			solver.accept(new PGoTypeConstraint(qb, elementType, new PGoTypeTuple(tupleTypes)));
+			solver.addConstraint(ctx, new PGoTypeConstraint(qb, elementType, new PGoTypeTuple(tupleTypes)));
 			break;
 		default:
 			throw new RuntimeException("unreachable");
@@ -102,7 +103,7 @@ public class TLAExpressionTypeConstraintVisitor extends PGoTLAExpressionVisitor<
 			paramTypes.add(wrappedVisit(param));
 		}
 		PGoTypeVariable returnType = generator.get();
-		solver.accept(new PGoTypeConstraint(pGoTLAFunctionCall, fnType, new PGoTypeFunction(paramTypes, returnType)));
+		solver.addConstraint(ctx, new PGoTypeConstraint(pGoTLAFunctionCall, fnType, new PGoTypeFunction(paramTypes, returnType)));
 		return returnType;
 	}
 
@@ -110,10 +111,11 @@ public class TLAExpressionTypeConstraintVisitor extends PGoTLAExpressionVisitor<
 	public PGoType visit(PGoTLABinOp pGoTLABinOp) throws RuntimeException {
 		OperatorAccessor op = registry.findOperator(
 				registry.followReference(pGoTLABinOp.getOperation().getUID()));
+		List<PGoType> args = Arrays.asList(wrappedVisit(pGoTLABinOp.getLHS()), wrappedVisit(pGoTLABinOp.getRHS()));
+		// substitution has to be done here because we want to collect more constraints in the wrappedVisit call
 		return op.constrainTypes(
-				ctx, pGoTLABinOp.getOperation(),
-				registry,
-				Arrays.asList(wrappedVisit(pGoTLABinOp.getLHS()), wrappedVisit(pGoTLABinOp.getRHS())),
+				ctx, pGoTLABinOp.getOperation(), registry,
+				PGoTypeSolver.substitute(solver.getMapping(), args),
 				solver, generator, mapping);
 	}
 
@@ -141,8 +143,8 @@ public class TLAExpressionTypeConstraintVisitor extends PGoTLAExpressionVisitor<
 	public PGoType visit(PGoTLAFunctionSet pGoTLAFunctionSet) throws RuntimeException {
 		PGoType from = wrappedVisit(pGoTLAFunctionSet.getFrom());
 		PGoType to = wrappedVisit(pGoTLAFunctionSet.getTo());
-		solver.accept(new PGoTypeConstraint(pGoTLAFunctionSet, from, new PGoTypeSet(generator.get())));
-		solver.accept(new PGoTypeConstraint(pGoTLAFunctionSet, to, new PGoTypeSet(generator.get())));
+		solver.addConstraint(ctx, new PGoTypeConstraint(pGoTLAFunctionSet, from, new PGoTypeSet(generator.get())));
+		solver.addConstraint(ctx, new PGoTypeConstraint(pGoTLAFunctionSet, to, new PGoTypeSet(generator.get())));
 		throw new RuntimeException("TODO");
 	}
 
@@ -153,10 +155,10 @@ public class TLAExpressionTypeConstraintVisitor extends PGoTLAExpressionVisitor<
 
 	@Override
 	public PGoType visit(PGoTLAIf pGoTLAIf) throws RuntimeException {
-		solver.accept(new PGoTypeConstraint(pGoTLAIf, wrappedVisit(pGoTLAIf.getCond()), PGoTypeBool.getInstance()));
+		solver.addConstraint(ctx, new PGoTypeConstraint(pGoTLAIf, wrappedVisit(pGoTLAIf.getCond()), PGoTypeBool.getInstance()));
 		PGoTypeVariable v = generator.get();
-		solver.accept(new PGoTypeConstraint(pGoTLAIf, wrappedVisit(pGoTLAIf.getTval()), v));
-		solver.accept(new PGoTypeConstraint(pGoTLAIf, wrappedVisit(pGoTLAIf.getFval()), v));
+		solver.addConstraint(ctx, new PGoTypeConstraint(pGoTLAIf, wrappedVisit(pGoTLAIf.getTval()), v));
+		solver.addConstraint(ctx, new PGoTypeConstraint(pGoTLAIf, wrappedVisit(pGoTLAIf.getFval()), v));
 		return v;
 	}
 
@@ -207,13 +209,16 @@ public class TLAExpressionTypeConstraintVisitor extends PGoTLAExpressionVisitor<
 
 	@Override
 	public PGoType visit(PGoTLAOperatorCall pGoTLAOperatorCall) throws RuntimeException {
-		List<PGoType> arguments = new ArrayList<>();
-		for(PGoTLAExpression arg : pGoTLAOperatorCall.getArgs()) {
-			arguments.add(wrappedVisit(arg));
-		}
+		List<PGoType> args = pGoTLAOperatorCall.getArgs().stream()
+				.map(this::wrappedVisit)
+				.collect(Collectors.toList());
 		OperatorAccessor op = registry.findOperator(
 				registry.followReference(pGoTLAOperatorCall.getName().getUID()));
-		return op.constrainTypes(ctx, pGoTLAOperatorCall, registry, arguments, solver, generator, mapping);
+		// substitution has to be done here because we want to collect more constraints in the wrappedVisit call
+		return op.constrainTypes(
+				ctx, pGoTLAOperatorCall, registry,
+				PGoTypeSolver.substitute(solver.getMapping(), args),
+				solver, generator, mapping);
 	}
 
 	@Override
@@ -249,7 +254,7 @@ public class TLAExpressionTypeConstraintVisitor extends PGoTLAExpressionVisitor<
 	public PGoType visit(PGoTLASetConstructor pGoTLASetConstructor) throws RuntimeException {
 		PGoTypeVariable elementType = generator.get();
 		for(PGoTLAExpression element : pGoTLASetConstructor.getContents()) {
-			solver.accept(new PGoTypeConstraint(pGoTLASetConstructor, elementType, wrappedVisit(element)));
+			solver.addConstraint(ctx, new PGoTypeConstraint(pGoTLASetConstructor, elementType, wrappedVisit(element)));
 		}
 		return new PGoTypeSet(elementType);
 	}
@@ -267,7 +272,7 @@ public class TLAExpressionTypeConstraintVisitor extends PGoTLAExpressionVisitor<
 	public PGoType visit(PGoTLASetRefinement pGoTLASetRefinement) throws RuntimeException {
 		PGoType from = wrappedVisit(pGoTLASetRefinement.getFrom());
 		PGoTypeVariable elementType = generator.get();
-		solver.accept(new PGoTypeConstraint(pGoTLASetRefinement, from, new PGoTypeSet(elementType)));
+		solver.addConstraint(ctx, new PGoTypeConstraint(pGoTLASetRefinement, from, new PGoTypeSet(elementType)));
 		if(pGoTLASetRefinement.getIdent().isTuple()) {
 			List<PGoType> elements = new ArrayList<>();
 			for(PGoTLAIdentifier id : pGoTLASetRefinement.getIdent().getTuple()) {
@@ -275,13 +280,13 @@ public class TLAExpressionTypeConstraintVisitor extends PGoTLAExpressionVisitor<
 				mapping.put(id.getUID(), v);
 				elements.add(v);
 			}
-			solver.accept(new PGoTypeConstraint(pGoTLASetRefinement, elementType, new PGoTypeTuple(elements)));
+			solver.addConstraint(ctx, new PGoTypeConstraint(pGoTLASetRefinement, elementType, new PGoTypeTuple(elements)));
 		}else {
 			PGoTLAIdentifier id = pGoTLASetRefinement.getIdent().getId();
 			mapping.put(id.getUID(), elementType);
 		}
 		PGoType condition = wrappedVisit(pGoTLASetRefinement.getWhen());
-		solver.accept(new PGoTypeConstraint(pGoTLASetRefinement, condition, PGoTypeBool.getInstance()));
+		solver.addConstraint(ctx, new PGoTypeConstraint(pGoTLASetRefinement, condition, PGoTypeBool.getInstance()));
 		return new PGoTypeSet(elementType);
 	}
 
@@ -294,8 +299,12 @@ public class TLAExpressionTypeConstraintVisitor extends PGoTLAExpressionVisitor<
 	public PGoType visit(PGoTLAUnary pGoTLAUnary) throws RuntimeException {
 		UID ref = registry.followReference(pGoTLAUnary.getOperation().getUID());
 		OperatorAccessor op = registry.findOperator(ref);
-		List<PGoType> args = Collections.singletonList(wrappedVisit(pGoTLAUnary.getOperand()));
-		return op.constrainTypes(ctx, pGoTLAUnary.getOperation(), registry, args, solver, generator, mapping);
+		PGoType arg = wrappedVisit(pGoTLAUnary.getOperand());
+		// substitution has to be done here because we want to collect more constraints in the wrappedVisit call
+		return op.constrainTypes(
+				ctx, pGoTLAUnary.getOperation(), registry,
+				PGoTypeSolver.substitute(solver.getMapping(), arg),
+				solver, generator, mapping);
 	}
 
 	@Override

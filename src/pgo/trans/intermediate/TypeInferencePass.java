@@ -28,10 +28,10 @@ public class TypeInferencePass {
 				.wrappedVisit(var.getValue());
 		if(var.isSet()) {
 			PGoTypeVariable member = generator.get();
-			solver.accept(new PGoTypeConstraint(var, new PGoTypeSet(member), valueType));
-			solver.accept(new PGoTypeConstraint(var, v, member));
+			solver.addConstraint(ctx, new PGoTypeConstraint(var, new PGoTypeSet(member), valueType));
+			solver.addConstraint(ctx, new PGoTypeConstraint(var, v, member));
 		}else {
-			solver.accept(new PGoTypeConstraint(var, v, valueType));
+			solver.addConstraint(ctx, new PGoTypeConstraint(var, v, valueType));
 		}
 	}
 
@@ -61,7 +61,7 @@ public class TypeInferencePass {
 				stmt.accept(v);
 			}
 			PGoTypeVariable fresh = generator.get();
-			solver.accept(new PGoTypeConstraint(p, fresh, new PGoTypeFunction(paramTypes, PGoTypeVoid.getInstance())));
+			solver.addConstraint(ctx, new PGoTypeConstraint(p, fresh, new PGoTypeFunction(paramTypes, PGoTypeVoid.getInstance())));
 			mapping.put(p.getUID(), fresh);
 		}
 
@@ -95,7 +95,7 @@ public class TypeInferencePass {
 
 		});
 
-		solver.unify(ctx);
+		solver.simplify(ctx);
 		if (ctx.hasErrors()) {
 			return null;
 		}

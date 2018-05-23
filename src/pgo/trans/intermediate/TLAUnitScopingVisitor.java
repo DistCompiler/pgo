@@ -117,7 +117,7 @@ public class TLAUnitScopingVisitor extends PGoTLAUnitVisitor<Void, RuntimeExcept
 			if(decls.containsKey(remap.getFrom().getId())) {
 				remapped.add(remap.getFrom().getId());
 			}else {
-				ctx.error(new ModuleSubstitutionNotFound(remap.getFrom()));
+				ctx.error(new ModuleSubstitutionNotFoundIssue(remap.getFrom()));
 			}
 		}
 		

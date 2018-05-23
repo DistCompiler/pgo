@@ -4,11 +4,11 @@ import pgo.errors.Issue;
 import pgo.errors.IssueVisitor;
 import pgo.model.tla.PGoTLAIdentifier;
 
-public class ModuleSubstitutionNotFound extends Issue {
+public class ModuleSubstitutionNotFoundIssue extends Issue {
 
 	PGoTLAIdentifier from;
 
-	public ModuleSubstitutionNotFound(PGoTLAIdentifier from) {
+	public ModuleSubstitutionNotFoundIssue(PGoTLAIdentifier from) {
 		this.from = from;
 	}
 	

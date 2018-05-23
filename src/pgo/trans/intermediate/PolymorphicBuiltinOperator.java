@@ -6,13 +6,12 @@ import pgo.model.type.*;
 import pgo.scope.UID;
 import pgo.util.Origin;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 public class PolymorphicBuiltinOperator extends BuiltinOperator {
 
-	protected List<TypeConstraintGenerator> generators;
+	protected List<TypeConstraintGenerator> typeConstraintGenerators;
 
 	// disable super's constructor
 	private PolymorphicBuiltinOperator(int argumentCount, TypeConstraintGenerator typeConstraintGenerator) {
@@ -20,34 +19,33 @@ public class PolymorphicBuiltinOperator extends BuiltinOperator {
 		super(argumentCount, typeConstraintGenerator);
 	}
 
-	public PolymorphicBuiltinOperator(int argumentCount, List<TypeConstraintGenerator> generators) {
+	public PolymorphicBuiltinOperator(int argumentCount, List<TypeConstraintGenerator> typeConstraintGenerators) {
 		// this is here only to appease the Java compiler :(
-		super(argumentCount, generators.get(0));
+		super(argumentCount, typeConstraintGenerators.get(0));
 
 		this.uid = new UID();
 		this.argumentCount = argumentCount;
-		this.generators = generators;
+		this.typeConstraintGenerators = typeConstraintGenerators;
 	}
 
 	@Override
 	public PGoType constrainTypes(IssueContext ctx, Origin origin, DefinitionRegistry registry, List<PGoType> argTypes, PGoTypeSolver solver, PGoTypeGenerator generator, Map<UID, PGoTypeVariable> mapping) {
 		int i = 0;
-		for ( ; i < generators.size(); i++) {
-			TypeConstraintGenerator g = generators.get(i);
+		for (; i < typeConstraintGenerators.size(); i++) {
+			TypeConstraintGenerator g = typeConstraintGenerators.get(i);
 			PGoTypeSolver innerSolver = new PGoTypeSolver();
 			PGoTypeGenerator innerGenerator = new PGoTypeGenerator("poly");
 			IssueContext innerCtx = new TopLevelIssueContext();
-			g.generate(origin, argTypes, innerSolver, innerGenerator);
-			innerSolver.unify(innerCtx);
+			g.generate(innerCtx, origin, argTypes, innerSolver, innerGenerator);
 			if (!innerCtx.hasErrors()) {
 				break;
 			}
 		}
-		if (i >= generators.size()) {
+		if (i >= typeConstraintGenerators.size()) {
 			ctx.error(new UnsatisfiablePolymorphicConstraintIssue(origin, argTypes));
 			return generator.get();
 		}
-		return generators.get(i).generate(origin, argTypes, solver, generator);
+		return typeConstraintGenerators.get(i).generate(ctx, origin, argTypes, solver, generator);
 	}
 
 }

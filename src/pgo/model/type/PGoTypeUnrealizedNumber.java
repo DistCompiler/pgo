@@ -1,5 +1,7 @@
 package pgo.model.type;
 
+import pgo.errors.IssueContext;
+
 /**
  * Implements promotion for number types.
  */
@@ -29,7 +31,7 @@ public class PGoTypeUnrealizedNumber extends PGoNumberType {
 		return t;
 	}
 
-	public void harmonize(PGoNumberType other) {
+	public void harmonize(IssueContext ctx, PGoTypeConstraint constraint, PGoNumberType other) {
 		int mySpecificity = num.getSpecificity();
 		int otherSpecificity = other.getSpecificity();
 		PGoNumberType otherNum = other;
@@ -41,12 +43,14 @@ public class PGoTypeUnrealizedNumber extends PGoNumberType {
 			higher = otherNum;
 		}
 		if (higher instanceof PGoTypeDecimal && isIntegralType) {
-			throw new PGoTypeUnificationException(PGoTypeInt.getInstance(), PGoTypeDecimal.getInstance());
+			ctx.error(new UnsatisfiableConstraintIssue(constraint, PGoTypeInt.getInstance(), PGoTypeDecimal.getInstance()));
+			return;
 		}
 		num = higher;
 		if (other instanceof PGoTypeUnrealizedNumber) {
 			if (((PGoTypeUnrealizedNumber) other).isIntegralType) {
-				throw new PGoTypeUnificationException(PGoTypeInt.getInstance(), PGoTypeDecimal.getInstance());
+				ctx.error(new UnsatisfiableConstraintIssue(constraint, PGoTypeInt.getInstance(), PGoTypeDecimal.getInstance()));
+				return;
 			}
 			((PGoTypeUnrealizedNumber) other).num = higher;
 		}
@@ -61,7 +65,7 @@ public class PGoTypeUnrealizedNumber extends PGoNumberType {
 	}
 
 	@Override
-	public PGoType realize() {
+	public PGoType realize(IssueContext ctx) {
 		return num;
 	}
 

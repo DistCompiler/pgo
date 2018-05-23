@@ -3,6 +3,7 @@ package pgo.model.type;
 import java.util.Map;
 import java.util.Set;
 
+import pgo.errors.IssueContext;
 import pgo.util.Derived;
 import pgo.util.DerivedVisitor;
 
@@ -32,8 +33,9 @@ public abstract class PGoType extends Derived {
 	/**
 	 * Realizes all PGoTypeUnrealizedNumbers
 	 * @return the type with all PGoTypeUnrealizedNumbers realized
+	 * @param ctx
 	 */
-	public abstract PGoType realize();
+	public abstract PGoType realize(IssueContext ctx);
 
 	/**
 	 * @return the string representation of the type

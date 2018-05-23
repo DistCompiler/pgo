@@ -49,8 +49,8 @@ public class TLAUnitTypeConstraintVisitor extends PGoTLAUnitVisitor<Void, Runtim
 			v = generator.get();
 			mapping.put(id, v);
 		}
-		solver.accept(
-				new PGoTypeConstraint(
+		solver.addConstraint(
+				ctx, new PGoTypeConstraint(
 						pGoTLAFunctionDefinition,
 						v,
 						new TLAExpressionTypeConstraintVisitor(ctx, registry, solver, generator, mapping)

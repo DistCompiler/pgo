@@ -1,5 +1,7 @@
 package pgo.model.type;
 
+import pgo.errors.IssueContext;
+
 import java.util.Map;
 import java.util.Set;
 
@@ -54,8 +56,8 @@ public class PGoTypeMap extends PGoType {
 	}
 
 	@Override
-	public PGoType realize() {
-		return new PGoTypeMap(keyType.realize(), valueType.realize());
+	public PGoType realize(IssueContext ctx) {
+		return new PGoTypeMap(keyType.realize(ctx), valueType.realize(ctx));
 	}
 
 	@Override

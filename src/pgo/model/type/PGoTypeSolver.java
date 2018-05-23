@@ -1,14 +1,14 @@
 package pgo.model.type;
 
 import java.util.*;
-import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import pgo.errors.IssueContext;
 
 /**
  * A constraint solver for PGo's type system. It does not support recursive types.
  */
-public class PGoTypeSolver implements Consumer<PGoTypeConstraint> {
+public class PGoTypeSolver {
 	private List<PGoTypeConstraint> constraints = new ArrayList<>();
 	private HashMap<PGoTypeVariable, PGoType> mapping = new HashMap<>();
 
@@ -16,32 +16,40 @@ public class PGoTypeSolver implements Consumer<PGoTypeConstraint> {
 		return Collections.unmodifiableMap(mapping);
 	}
 
-	public static Map<PGoTypeVariable, PGoType> unify(IssueContext ctx, PGoType... types) {
+	private static Map<PGoTypeVariable, PGoType> unify(IssueContext ctx, PGoType... types) {
 		if (types.length == 0) {
 			return new HashMap<>();
 		}
 		PGoTypeSolver solver = new PGoTypeSolver();
 		PGoType ty = types[0];
 		for (PGoType t : types) {
-			solver.accept(new PGoTypeConstraint(t, ty, t));
+			solver.addConstraint(ctx, new PGoTypeConstraint(t, ty, t));
 		}
-		solver.unify(ctx);
+		solver.simplify(ctx);
 		return solver.getMapping();
 	}
 
-	@Override
-	public void accept(PGoTypeConstraint constraint) {
-		constraints.add(constraint);
+	public static List<PGoType> substitute(Map<PGoTypeVariable, PGoType> mapping, PGoType... types) {
+		return substitute(mapping, Arrays.asList(types));
 	}
 
-	private void simplify() {
+	public static List<PGoType> substitute(Map<PGoTypeVariable, PGoType> mapping, List<PGoType> types) {
+		return types.stream().map(t -> t.substitute(mapping)).collect(Collectors.toList());
+	}
+
+	public void addConstraint(IssueContext ctx, PGoTypeConstraint constraint) {
+		constraints.add(constraint);
+		unify(ctx);
+	}
+
+	public void simplify(IssueContext ctx) {
 		boolean changed = true;
 		while (changed) {
 			changed = false;
 			for (Map.Entry<PGoTypeVariable, PGoType> entry : mapping.entrySet()) {
 				PGoTypeVariable k = entry.getKey();
 				PGoType v = entry.getValue();
-				PGoType newV = v.substitute(mapping).realize();
+				PGoType newV = v.substitute(mapping).realize(ctx);
 				if (!newV.equals(v)) {
 					changed = true;
 					mapping.put(k, newV);
@@ -50,7 +58,7 @@ public class PGoTypeSolver implements Consumer<PGoTypeConstraint> {
 		}
 	}
 
-	public void unify(IssueContext ctx) {
+	private void unify(IssueContext ctx) {
 		while (constraints.size() != 0) {
 			PGoTypeConstraint constraint = constraints.remove(constraints.size() - 1);
 			// a and b are substituted so that we gain more information about their structures
@@ -71,10 +79,10 @@ public class PGoTypeSolver implements Consumer<PGoTypeConstraint> {
 				mapping.put(((PGoTypeVariable) b), a);
 			} else if (a instanceof PGoTypeUnrealizedNumber && b instanceof PGoNumberType) {
 				// attempt to promote the unrealized number a to the number b
-				((PGoTypeUnrealizedNumber) a).harmonize((PGoNumberType) b);
+				((PGoTypeUnrealizedNumber) a).harmonize(ctx, constraint, (PGoNumberType) b);
 			} else if (b instanceof PGoTypeUnrealizedNumber && a instanceof PGoNumberType) {
 				// attempt to promote the unrealized number b to the number a
-				((PGoTypeUnrealizedNumber) b).harmonize((PGoNumberType) a);
+				((PGoTypeUnrealizedNumber) b).harmonize(ctx, constraint, (PGoNumberType) a);
 			} else if (a instanceof PGoSimpleContainerType && b instanceof PGoSimpleContainerType) {
 				// a simple container is a container with a single element type, e.g. Set[a], Slice[a], etc.
 				// in order for SimpleContainer[a] = SimpleContainer[b],
@@ -84,19 +92,19 @@ public class PGoTypeSolver implements Consumer<PGoTypeConstraint> {
 					return;
 				}
 				//   (2) the element types must be the same
-				accept(new PGoTypeConstraint(
+				addConstraint(ctx, new PGoTypeConstraint(
 						constraint,
 						((PGoSimpleContainerType) a).getElementType(),
 						((PGoSimpleContainerType) b).getElementType()));
 			} else if (a instanceof PGoTypeMap && b instanceof PGoTypeMap) {
 				// for two map types to be the same,
 				//   (1) the key types must be the same, and
-				accept(new PGoTypeConstraint(
+				addConstraint(ctx, new PGoTypeConstraint(
 						constraint,
 						((PGoTypeMap) a).getKeyType(),
 						((PGoTypeMap) b).getKeyType()));
 				//   (2) the value types must be the same
-				accept(new PGoTypeConstraint(
+				addConstraint(ctx, new PGoTypeConstraint(
 						constraint,
 						((PGoTypeMap) a).getValueType(),
 						((PGoTypeMap) b).getValueType()));
@@ -111,7 +119,7 @@ public class PGoTypeSolver implements Consumer<PGoTypeConstraint> {
 				}
 				//   (2) each pair of corresponding element types must be the same
 				for (int i = 0; i < ta.getElementTypes().size(); i++) {
-					accept(new PGoTypeConstraint(
+					addConstraint(ctx, new PGoTypeConstraint(
 							constraint,
 							ta.getElementTypes().get(i),
 							tb.getElementTypes().get(i)));
@@ -124,13 +132,13 @@ public class PGoTypeSolver implements Consumer<PGoTypeConstraint> {
 				((PGoTypeUnrealizedTuple) b).harmonize(ctx, this, (PGoSimpleContainerType) a);
 				if(ctx.hasErrors()) return;
 			} else if (a instanceof PGoTypeUnrealizedTuple && b instanceof PGoTypeTuple) {
-				((PGoTypeUnrealizedTuple) a).harmonize(ctx, this, (PGoTypeTuple) b);
+				((PGoTypeUnrealizedTuple) a).harmonize(ctx, constraint, this, (PGoTypeTuple) b);
 				if(ctx.hasErrors()) return;
 			} else if (a instanceof PGoTypeTuple && b instanceof PGoTypeUnrealizedTuple) {
-				((PGoTypeUnrealizedTuple) b).harmonize(ctx, this, (PGoTypeTuple) a);
+				((PGoTypeUnrealizedTuple) b).harmonize(ctx, constraint, this, (PGoTypeTuple) a);
 				if(ctx.hasErrors()) return;
 			} else if (a instanceof PGoTypeUnrealizedTuple && b instanceof PGoTypeUnrealizedTuple) {
-				((PGoTypeUnrealizedTuple) a).harmonize(ctx, this, (PGoTypeUnrealizedTuple) b);
+				((PGoTypeUnrealizedTuple) a).harmonize(ctx, constraint, this, (PGoTypeUnrealizedTuple) b);
 				if(ctx.hasErrors()) return;
 			} else if (a instanceof PGoTypeFunction && b instanceof PGoTypeFunction) {
 				// in order for two function types to be the same,
@@ -143,13 +151,13 @@ public class PGoTypeSolver implements Consumer<PGoTypeConstraint> {
 				}
 				//   (2) each pair of corresponding parameter types must be the same, and
 				for (int i = 0; i < fa.getParamTypes().size(); i++) {
-					accept(new PGoTypeConstraint(
+					addConstraint(ctx, new PGoTypeConstraint(
 							constraint,
 							fa.getParamTypes().get(i),
 							fb.getParamTypes().get(i)));
 				}
 				//   (3) the return types must be the same
-				accept(new PGoTypeConstraint(
+				addConstraint(ctx, new PGoTypeConstraint(
 						constraint,
 						fa.getReturnType(),
 						fb.getReturnType()));
@@ -159,6 +167,5 @@ public class PGoTypeSolver implements Consumer<PGoTypeConstraint> {
 				return;
 			}
 		}
-		simplify();
 	}
 }

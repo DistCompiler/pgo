@@ -32,7 +32,7 @@ public class CompiledOperatorAccessor extends OperatorAccessor {
 			if(arg.getType() == PGoTLAOpDecl.Type.ID) {
 				PGoTypeVariable v = generator.get();
 				mapping.put(arg.getUID(), v);
-				solver.accept(new PGoTypeConstraint(origin, v, args.get(i)));
+				solver.addConstraint(ctx, new PGoTypeConstraint(origin, v, args.get(i)));
 			}else {
 				// TODO: error
 			}

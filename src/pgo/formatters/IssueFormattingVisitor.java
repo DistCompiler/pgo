@@ -6,6 +6,7 @@ import java.nio.file.Path;
 import pgo.errors.IssueVisitor;
 import pgo.errors.IssueWithContext;
 import pgo.model.pcal.Macro;
+import pgo.model.type.UnrealizableTypeIssue;
 import pgo.model.type.UnsatisfiableConstraintIssue;
 import pgo.model.type.UnsatisfiablePolymorphicConstraintIssue;
 import pgo.trans.intermediate.*;
@@ -88,9 +89,9 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 	}
 
 	@Override
-	public Void visit(ModuleSubstitutionNotFound moduleSubstitutionNotFound) throws IOException {
+	public Void visit(ModuleSubstitutionNotFoundIssue moduleSubstitutionNotFoundIssue) throws IOException {
 		out.write("module instantiation provided a substitution (");
-		out.write(moduleSubstitutionNotFound.getFrom().getId());
+		out.write(moduleSubstitutionNotFoundIssue.getFrom().getId());
 		out.write(" that does not match and variables/constants declared by that module");
 		return null;
 	}
@@ -174,6 +175,13 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 		out.write(" column ");
 		out.write(macroNameConflictIssue.getSecond().getLocation().getStartColumn());
 		out.write(" share the same name");
+		return null;
+	}
+
+	@Override
+	public Void visit(UnrealizableTypeIssue unrealizableTypeIssue) throws IOException {
+		out.write("could not realize the type ");
+		unrealizableTypeIssue.getType().accept(new DerivedFormattingVisitor(out));
 		return null;
 	}
 

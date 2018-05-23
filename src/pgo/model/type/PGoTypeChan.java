@@ -1,5 +1,7 @@
 package pgo.model.type;
 
+import pgo.errors.IssueContext;
+
 import java.util.Map;
 
 /**
@@ -24,8 +26,8 @@ public class PGoTypeChan extends PGoSimpleContainerType {
 	}
 
 	@Override
-	public PGoType realize() {
-		return new PGoTypeChan(elementType.realize());
+	public PGoType realize(IssueContext ctx) {
+		return new PGoTypeChan(elementType.realize(ctx));
 	}
 
 	@Override
