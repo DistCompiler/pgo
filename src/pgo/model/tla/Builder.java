@@ -68,6 +68,10 @@ public class Builder {
 	public static PGoTLANumber num(int value) {
 		return new PGoTLANumber(SourceLocation.unknown(), Integer.toString(value));
 	}
+
+	public static PGoTLASetConstructor set(PGoTLAExpression... members) {
+		return new PGoTLASetConstructor(SourceLocation.unknown(), Arrays.asList(members));
+	}
 	
 	public static PGoTLAOperatorCall opcall(List<PGoTLAGeneralIdentifierPart> prefix, PGoTLAIdentifier name, PGoTLAExpression... args) {
 		return new PGoTLAOperatorCall(SourceLocation.unknown(), name, prefix, Arrays.asList(args));
@@ -140,7 +144,11 @@ public class Builder {
 	public static PGoTLAQuantifiedUniversal universal(List<PGoTLAQuantifierBound> bounds, PGoTLAExpression expr) {
 		return new PGoTLAQuantifiedUniversal(SourceLocation.unknown(), bounds, expr);
 	}
-	
+
+	public static PGoTLAQuantifiedExistential existential(List<PGoTLAQuantifierBound> bounds, PGoTLAExpression expr) {
+		return new PGoTLAQuantifiedExistential(SourceLocation.unknown(), bounds, expr);
+	}
+
 	public static PGoTLAModule module(String name, List<PGoTLAIdentifier> exts, List<PGoTLAUnit> preTranslationUnits, List<PGoTLAUnit> translatedUnits, List<PGoTLAUnit> postTranslationUnits) {
 		return new PGoTLAModule(SourceLocation.unknown(), id(name), exts, preTranslationUnits, translatedUnits, postTranslationUnits);
 	}

@@ -276,6 +276,7 @@ public final class TLAParser {
 		"\\star",
 		"\\bigcirc",
 		"\\in",
+		"\\notin",
 		"\\prec",
 		"\\subset",
 		"\\bullet",
@@ -383,6 +384,7 @@ public final class TLAParser {
 		INFIX_OPERATORS_LOW_PRECEDENCE.put("\\star", 13);
 		INFIX_OPERATORS_LOW_PRECEDENCE.put("\\bigcirc", 13);
 		INFIX_OPERATORS_LOW_PRECEDENCE.put("\\in", 5);
+		INFIX_OPERATORS_LOW_PRECEDENCE.put("\\notin", 5);
 		INFIX_OPERATORS_LOW_PRECEDENCE.put("\\prec", 5);
 		INFIX_OPERATORS_LOW_PRECEDENCE.put("\\subset", 5);
 		INFIX_OPERATORS_LOW_PRECEDENCE.put("\\bullet", 13);
@@ -490,6 +492,7 @@ public final class TLAParser {
 		INFIX_OPERATORS_HI_PRECEDENCE.put("\\star", 13);
 		INFIX_OPERATORS_HI_PRECEDENCE.put("\\bigcirc", 13);
 		INFIX_OPERATORS_HI_PRECEDENCE.put("\\in", 5);
+		INFIX_OPERATORS_HI_PRECEDENCE.put("\\notin", 5);
 		INFIX_OPERATORS_HI_PRECEDENCE.put("\\prec", 5);
 		INFIX_OPERATORS_HI_PRECEDENCE.put("\\subset", 5);
 		INFIX_OPERATORS_HI_PRECEDENCE.put("\\bullet", 13);
@@ -1578,25 +1581,26 @@ public final class TLAParser {
 	}
 	
 	private static ParseAction<PGoTLAUnit> parseUnit(){
-		return parseOneOf(
-				// all units that can be declared local
-				parseOneOf(
-					parseBuiltinToken("LOCAL", -1).map(s -> true),
-					nop().map(v -> false)
-					).chain(isLocal -> {
-						return parseOneOf(
-								parseInstance(-1, isLocal),
-								parseModuleDefinition(-1, isLocal),
-								parseFunctionDefinition(-1, isLocal),
-								parseOperatorDefinition(-1, isLocal)
-								);
-					}),
-				parseVariableDeclaration(),
-				parseConstantDeclaration(),
-				parseAssumption(),
-				parseTheorem(),
-				parseModule()
-				);
+		Mutator<PGoTLAUnit> unit = new Mutator<>();
+		return sequence(
+				drop(parseOneOf(parse4DashesOrMore(), nop().map(v -> null))),
+				part(unit, parseOneOf(
+						// all units that can be declared local
+						parseOneOf(
+								parseBuiltinToken("LOCAL", -1).map(s -> true),
+								nop().map(v -> false)
+						).chain(isLocal ->
+								parseOneOf(
+										parseInstance(-1, isLocal),
+										parseModuleDefinition(-1, isLocal),
+										parseFunctionDefinition(-1, isLocal),
+										parseOperatorDefinition(-1, isLocal))),
+						parseVariableDeclaration(),
+						parseConstantDeclaration(),
+						parseAssumption(),
+						parseTheorem(),
+						parseModule()
+				))).map(seqResult -> unit.getValue());
 	}
 	
 	@SafeVarargs

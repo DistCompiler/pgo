@@ -6,6 +6,7 @@ import static org.junit.Assert.*;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import org.junit.Test;
@@ -82,6 +83,7 @@ public class TLALexerTest {
 			},
 			{ "<=", Arrays.asList(tok("<=", builtin(), 1, 1)) },
 			{ "\\** BEGIN TRANSLATION", Arrays.asList(tok("\\** BEGIN TRANSLATION", TLATokenType.BEGIN_TRANSLATION, 1, 1)) },
+			{ "\\notin", Collections.singletonList(tok("\\notin", builtin(), 1, 1))},
 		});
 	}
 

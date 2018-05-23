@@ -37,7 +37,36 @@ public class TLAUnitParseTest {
 			{"Solutions == { queens \\in [1..N -> 1..N] : IsSolution(queens) }",
 				opdef(false, id("Solutions"), opdecls(),
 						setRefinement("queens", functionSet(binop("..", num(1), idexp("N")), binop("..", num(1), idexp("N"))), opcall("IsSolution", idexp("queens"))))
-			}
+			},
+			{"-----------------------------------------------------------------------------\n" +
+					"MutualExclusion == \\A i, j \\in Proc :\n" +
+					"                     (i # j) => ~ /\\ pc[i] = \"cs\"\n" +
+					"                                  /\\ pc[j] = \"cs\"\n",
+					opdef(false, id("MutualExclusion"), opdecls(),
+							universal(bounds(qbIds(ids(id("i"), id("j")), idexp("Proc"))),
+									binop("=>", binop("#", idexp("i"), idexp("j")),
+											unary("~", conjunct(
+													binop("=",
+															fncall(idexp("pc"), idexp("i")),
+															str("cs")),
+													binop("=",
+															fncall(idexp("pc"), idexp("j")),
+															str("cs")))))))
+			},
+			{"DeadlockFreedom ==\n" +
+					"    \\A i \\in Proc :\n" +
+					"      (pc[i] \\notin {\"Li5\", \"Li6\", \"ncs\"}) ~> (\\E j \\in Proc : pc[j] = \"cs\")\n",
+					opdef(false, id("DeadlockFreedom"), opdecls(),
+							universal(bounds(qbIds(ids(id("i")), idexp("Proc"))),
+									binop("~>",
+											binop("\\notin",
+													fncall(idexp("pc"), idexp("i")),
+													set(str("Li5"), str("Li6"), str("ncs"))),
+											existential(bounds(qbIds(ids(id("j")), idexp("Proc"))),
+													binop("=",
+															fncall(idexp("pc"), idexp("j")),
+															str("cs"))))))
+			},
 		});
 	}
 	

@@ -152,6 +152,7 @@ public class TLALexer {
 		"\\star",
 		"\\bigcirc",
 		"\\in",
+		"\\notin",
 		"\\prec",
 		"\\subset",
 		"\\bullet",
