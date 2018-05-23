@@ -5,16 +5,33 @@ import (
 	"sync"
 )
 
+const (
+	readOnlyMode = iota
+	writeMode
+)
+
+// DataEntry represents a single piece of global state that is
+// contained in this node. Entries are protected by a read-write lock
+// in order to make sure that two different nodes trying to read
+// from/write to the same piece of global state concurrently will not
+// lead to inconsistencies in program execution (race conditions)
 type DataEntry struct {
-	sync.Mutex
-	value interface{}
+	sync.RWMutex             // protects access to `value`
+	value        interface{} // value, which can be of any type
 }
 
+// SimpleDataStore implements a volatile store that can be used to keep
+// track of global state of applications compiled by PGo. State is modeled
+// as a table that maps names (such as variable names) to values of any type,
+// encapsulated as `DataEntry` structs.
 type SimpleDataStore struct {
-	sync.RWMutex
-	store map[string]*DataEntry
+	sync.RWMutex                       // protects access to the variable table
+	store        map[string]*DataEntry // maps variable names to their values
 }
 
+// CreateSimpleStore creates a new `SimpleDataStore` struct. An initial state
+// can be given in the `initValues` parameter, which makes sure the state local
+// to this node will contain the data passed to this function.
 func CreateSimpleDataStore(initValues map[string]interface{}) *SimpleDataStore {
 	store := make(map[string]*DataEntry, len(initValues))
 	for key, value := range initValues {
@@ -28,132 +45,65 @@ func CreateSimpleDataStore(initValues map[string]interface{}) *SimpleDataStore {
 	}
 }
 
-// acquire exclusive access to the key, safe handling of contention
-
-// leaves the entry locked, thus the caller should unlock the entry when applicable
-// leaves the store locked, thus the caller should unlock the store
-// func (t *SimpleDataStore) access(key string, acquire bool) (*DataEntry, error) {
-// 	t.RLock()
-// 	// t.Lock()
-// 	entry, ok := t.store[key]
-// 	// t.Unlock()
-
-// 	if !ok {
-// 		t.Lock()
-// 		return nil, KeyNotFoundError(key)
-// 	}
-
-// 	if acquire {
-// 		// this lock must happen outside the critical section, or if we block here
-// 		// the future unlocker will not be able to get into the critical section
-// 		// to unlock it
-// 		entry.Lock()
-// 	}
-
-// 	// lock the data store until an action has been completed
-// 	// t.Lock()
-// 	return entry, nil
-// }
-
-// Removes the key from the store, any further requests for it will fail
-// ASSUMES: key has acquired
-func (t *SimpleDataStore) remove(key string) {
-	log.Printf("Remove(%s)\n", key)
-
-	t.Lock()
-	defer t.Unlock()
-	entry, ok := t.store[key]
-
-	if !ok {
-		log.Panic(KeyNotFoundError(key))
-	}
-
-	delete(t.store, key)
-	entry.Unlock()
+// Hold reads a `name` from the data store for non-exclusive access (i.e., read only).
+func (data *SimpleDataStore) Hold(name string) (interface{}, error) {
+	log.Printf("Hold(%s)\n", name)
+	data.hold(name, readOnlyMode)
 }
 
-// Creates key, but locks it so it must be set before it
-// can be read
-func (t *SimpleDataStore) create(key string, value interface{}) {
-	log.Printf("Create(%s)\n", key)
-
-	t.Lock()
-	defer t.Unlock()
-	_, ok := t.store[key]
-
-	if ok {
-		log.Panicf("Tried to create key %s, already exists\n", key)
-	}
-
-	entry := &DataEntry{
-		value: value,
-	}
-
-	entry.Lock()
-	t.store[key] = entry
+// HoldExclusive reads a `name` from the data store and prohibits anyone else from
+// reading or writing to that name
+func (data *SimpleDataStore) HoldExclusive(name string) (interface{}, error) {
+	log.Printf("HoldExclusive(%s)\n", name)
+	data.hold(name, writeMode)
 }
 
-// return the value, unlocking the entry
-func (t *SimpleDataStore) Get(key string) (interface{}, error) {
-	log.Printf("Get(%s)\n", key)
+func (data *SimpleDataStore) hold(name string, mode int) (interface{}, error) {
+	data.RLock()
+	defer data.RUnlock()
 
-	t.RLock()
-	defer t.RUnlock()
-	entry, ok := t.store[key]
+	entry, inStore := data.store[name]
 
-	if !ok {
-		return nil, KeyNotFoundError(key)
+	if !inStore {
+		return nil, KeyNotFoundError(name)
 	}
 
-	entry.Lock()
+	if mode == readOnlyMode {
+		entry.RLock()
+	} else {
+		entry.Lock()
+	}
 
-	log.Printf("Got(%s)=%v", key, entry.value)
 	return entry.value, nil
 }
 
-// return the value, keeping the entry locked
-func (t *SimpleDataStore) GetExclusive(key string) (interface{}, error) {
-	log.Printf("GetExclusive(%s)\n", key)
-
-	t.RLock()
-	defer t.RUnlock()
-	entry, ok := t.store[key]
-
-	if !ok {
-		return nil, KeyNotFoundError(key)
-	}
-
-	entry.Lock()
-
-	log.Printf("Got(%s)=%v", key, entry.value)
-	return entry.value, nil
+// Release indicates that a variable previously held with non-exclusive access
+// is no longer being used
+func (data *SimpleDataStore) Release(name string) {
+	log.Printf("Release(%s)\n", name)
+	release(name, readOnlyMode)
 }
 
-func (t *SimpleDataStore) Set(key string, value interface{}) {
-	log.Printf("Set(%s)=%v\n", key, value)
-
-	t.RLock()
-	defer t.RUnlock()
-	entry, ok := t.store[key]
-
-	if !ok {
-		log.Panic(KeyNotFoundError(key))
-	}
-
-	entry.value = value
-	entry.Unlock()
+// ReleaseExclusive indicates that a variable previously held with exclusive
+// access is no longer being used
+func (data *SimpleDataStore) ReleaseExclusive(name string) {
+	log.Printf("ReleaseExclusive(%s)\n", name)
+	release(name, writeMode)
 }
 
-func (t *SimpleDataStore) Release(key string) {
-	log.Printf("Release(%s)\n", key)
+func (data *SimpleDataStore) release(name string, mode int) {
+	data.RLock()
+	defer data.RUnlock()
 
-	t.RLock()
-	defer t.RUnlock()
-	entry, ok := t.store[key]
+	entry, inStore := data.store[name]
 
-	if !ok {
-		log.Panic(KeyNotFoundError(key))
+	if !inStore {
+		log.Panic(KeyNotFoundError(name))
 	}
 
-	entry.Unlock()
+	if mode == readOnlyMode {
+		entry.RUnlock()
+	} else {
+		entry.Unlock()
+	}
 }
