@@ -29,11 +29,9 @@ func (t *NetworkRPC) GetRemote(args *GetRemoteArgs, reply *GetRemoteReply) error
 			var val interface{}
 
 			if args.Transaction.isExclusive(key) {
-				val, err = t.network.store.GetExclusive(key)
+				val, err = t.network.store.HoldExclusive(key)
 			} else {
-				val, err = t.network.store.GetExclusive(key)
-				// TODO: for non-exclusive reads
-				// val, err = t.network.store.Get(key)
+				val, err = t.network.store.Hold(key)
 			}
 
 			if err != nil {
@@ -179,7 +177,6 @@ func (t *NetworkRPC) SetRemote(args *SetRemoteArgs, reply *SetRemoteReply) error
 		}
 
 		owner.RLock()
-		// log.Printf("locked key owner %v\n", key)
 
 		// disallow object access after redirecting, ensures locking order
 		// local requests will redirect to itself
@@ -202,7 +199,6 @@ func (t *NetworkRPC) SetRemote(args *SetRemoteArgs, reply *SetRemoteReply) error
 			redirects[key] = owner.getHost(t.network)
 		}
 
-		// log.Printf("unlocked key owner %v\n", key)
 		owner.RUnlock()
 	}
 

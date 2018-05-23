@@ -4,8 +4,8 @@ import (
 	"log"
 )
 
-func (t *Network) Acquire(set *AcquireSet) (*ReleaseSet, map[string]interface{}, error) {
-	log.Printf("[%v] Acquire(%v)\n", t.localhost, set)
+func (net *Network) Acquire(set *AcquireSet) (*ReleaseSet, map[string]interface{}, error) {
+	log.Printf("[%v] Acquire(%v)\n", net.localhost, set)
 
 	keys := make(map[string]bool)
 	getSet := make(map[string]bool)
@@ -36,7 +36,7 @@ func (t *Network) Acquire(set *AcquireSet) (*ReleaseSet, map[string]interface{},
 			break
 		}
 
-		batch, incomplete, err := t.nextBatch(remaining)
+		batch, incomplete, err := net.nextBatch(remaining)
 
 		if err != nil {
 			return nil, nil, err
@@ -46,24 +46,22 @@ func (t *Network) Acquire(set *AcquireSet) (*ReleaseSet, map[string]interface{},
 			break
 		}
 
-		if batch.isLocalhost(t) {
+		if batch.isLocalhost(net) {
 			for _, key := range batch.transaction.sorted() {
 				var val interface{}
 				var err error
 
 				if batch.transaction.isExclusive(key) {
-					val, err = t.store.GetExclusive(key)
+					val, err = net.store.HoldExclusive(key)
 				} else {
-					val, err = t.store.GetExclusive(key)
-					// TODO: for non-exclusive reads
-					// val, err = t.store.Get(key)
+					val, err = net.store.Hold(key)
 				}
 
 				if err != nil {
 					return nil, nil, err
 				}
 
-				t.migration.OnGet(t.localhost, key)
+				net.migration.OnGet(net.localhost, key)
 
 				if _, ok := getSet[key]; ok {
 					values[key] = val
@@ -73,12 +71,12 @@ func (t *Network) Acquire(set *AcquireSet) (*ReleaseSet, map[string]interface{},
 			}
 		} else {
 			args := GetRemoteArgs{
-				Host:        t.localhost,
+				Host:        net.localhost,
 				Transaction: batch.transaction,
 			}
 			var reply GetRemoteReply
 
-			t.connections.GetConnection(batch.addr).Call("StateServer.GetRemote", &args, &reply)
+			net.connections.GetConnection(batch.addr).Call("StateServer.GetRemote", &args, &reply)
 
 			for key, object := range reply.Objects {
 				if _, ok := getSet[key]; ok {
@@ -86,29 +84,29 @@ func (t *Network) Acquire(set *AcquireSet) (*ReleaseSet, map[string]interface{},
 				}
 
 				if object.Migrated {
-					owner := t.owners[key]
+					owner := net.owners[key]
 
-					owner.hostID, _ = t.getOwnerID(t.localhost)
-					t.store.create(key, object.Value)
+					owner.hostID, _ = net.getOwnerID(net.localhost)
+					net.store.create(key, object.Value)
 
 					ack := AckMigrationArgs{
-						Host: t.localhost,
+						Host: net.localhost,
 						Key:  key,
 					}
 
-					t.connections.GetConnection(batch.addr).Call("StateServer.AckMigration", ack, new(bool))
+					net.connections.GetConnection(batch.addr).Call("StateServer.AckMigration", ack, new(bool))
 				}
 
 				completed = append(completed, key)
 			}
 
 			for key, owner := range reply.Redirects {
-				object := t.owners[key]
-				object.hostID, _ = t.getOwnerID(owner)
+				object := net.owners[key]
+				object.hostID, _ = net.getOwnerID(owner)
 			}
 		}
 
-		t.unlock(batch)
+		net.unlock(batch)
 	}
 
 	return &ReleaseSet{
@@ -117,8 +115,8 @@ func (t *Network) Acquire(set *AcquireSet) (*ReleaseSet, map[string]interface{},
 	}, values, nil
 }
 
-func (t *Network) Release(set *ReleaseSet, values ...interface{}) error {
-	log.Printf("[%v] Release(%v) = %v\n", t.localhost, set, values)
+func (net *Network) Release(set *ReleaseSet, values ...interface{}) error {
+	log.Printf("[%v] Release(%v) = %v\n", net.localhost, set, values)
 
 	if len(set.WriteNames) != len(values) {
 		return RangeMismatchError{}
@@ -141,7 +139,7 @@ func (t *Network) Release(set *ReleaseSet, values ...interface{}) error {
 			break
 		}
 
-		batch, incomplete, err := t.nextBatch(remaining)
+		batch, incomplete, err := net.nextBatch(remaining)
 
 		if err != nil {
 			return err
@@ -151,37 +149,37 @@ func (t *Network) Release(set *ReleaseSet, values ...interface{}) error {
 			break
 		}
 
-		if batch.isLocalhost(t) {
+		if batch.isLocalhost(net) {
 			for _, key := range batch.transaction.sorted() {
 				var err error
 
 				if val, ok := setSet[key]; ok {
-					t.store.Set(key, val)
+					net.store.Set(key, val)
 				} else if batch.transaction.isExclusive(key) {
-					t.store.Release(key)
+					net.store.Release(key)
 				}
 
 				if err != nil {
 					log.Panic(err)
 				}
 
-				t.migration.OnSet(t.localhost, key)
+				net.migration.OnSet(net.localhost, key)
 
 				completed = append(completed, key)
 			}
 		} else {
 			args := SetRemoteArgs{
-				Host:        t.localhost,
+				Host:        net.localhost,
 				Transaction: batch.transaction,
 				Values:      setSet,
 			}
 			var reply SetRemoteReply
 
-			t.connections.GetConnection(batch.addr).Call("StateServer.SetRemote", &args, &reply)
+			net.connections.GetConnection(batch.addr).Call("StateServer.SetRemote", &args, &reply)
 
 			for key, owner := range reply.Redirects {
-				object := t.owners[key]
-				object.hostID, _ = t.getOwnerID(owner)
+				object := net.owners[key]
+				object.hostID, _ = net.getOwnerID(owner)
 			}
 
 			for _, key := range batch.transaction.sorted() {
@@ -191,17 +189,17 @@ func (t *Network) Release(set *ReleaseSet, values ...interface{}) error {
 			}
 		}
 
-		t.unlock(batch)
+		net.unlock(batch)
 	}
 
 	return nil
 }
 
-func (t *Network) SetPolicy(policy IMigrationPolicy) {
-	t.migration = policy
+func (net *Network) SetPolicy(policy IMigrationPolicy) {
+	net.migration = policy
 }
 
-func (t *Network) Close() error {
-	t.connections.Close()
+func (net *Network) Close() error {
+	net.connections.Close()
 	return nil
 }

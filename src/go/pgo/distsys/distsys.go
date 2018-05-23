@@ -39,7 +39,7 @@ type Network struct {
 	owners    map[string]*ObjectOwner
 
 	// Other
-	store     LocalDataStore
+	store     *SimpleDataStore
 	migration IMigrationPolicy
 }
 
@@ -203,16 +203,6 @@ type IMigrationPolicy interface {
 	MigrateTo(host string, key string) bool
 }
 
-type LocalDataStore interface {
-	Get(key string) (interface{}, error)
-	GetExclusive(key string) (interface{}, error)
-	Set(key string, value interface{})
-	Release(key string)
-
-	remove(key string)
-	create(key string, value interface{})
-}
-
 func (t *MostFrequentlyUsed) OnGet(host string, key string) {
 	entry, ok := t.Keys[key]
 
@@ -306,7 +296,7 @@ func NewStateServer(peers []string, self, coordinator string, initValues map[str
 		owners:    owners,
 		localhost: self,
 		hosts:     peers,
-		migration: &AlwaysMigrate{},
+		migration: &NeverMigrate{},
 	}
 
 	err := network.Init()

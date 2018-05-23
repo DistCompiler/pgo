@@ -48,14 +48,14 @@ func CreateSimpleDataStore(initValues map[string]interface{}) *SimpleDataStore {
 // Hold reads a `name` from the data store for non-exclusive access (i.e., read only).
 func (data *SimpleDataStore) Hold(name string) (interface{}, error) {
 	log.Printf("Hold(%s)\n", name)
-	data.hold(name, readOnlyMode)
+	return data.hold(name, readOnlyMode)
 }
 
 // HoldExclusive reads a `name` from the data store and prohibits anyone else from
 // reading or writing to that name
 func (data *SimpleDataStore) HoldExclusive(name string) (interface{}, error) {
 	log.Printf("HoldExclusive(%s)\n", name)
-	data.hold(name, writeMode)
+	return data.hold(name, writeMode)
 }
 
 func (data *SimpleDataStore) hold(name string, mode int) (interface{}, error) {
@@ -81,14 +81,14 @@ func (data *SimpleDataStore) hold(name string, mode int) (interface{}, error) {
 // is no longer being used
 func (data *SimpleDataStore) Release(name string) {
 	log.Printf("Release(%s)\n", name)
-	release(name, readOnlyMode)
+	data.release(name, readOnlyMode)
 }
 
 // ReleaseExclusive indicates that a variable previously held with exclusive
 // access is no longer being used
 func (data *SimpleDataStore) ReleaseExclusive(name string) {
 	log.Printf("ReleaseExclusive(%s)\n", name)
-	release(name, writeMode)
+	data.release(name, writeMode)
 }
 
 func (data *SimpleDataStore) release(name string, mode int) {
@@ -106,4 +106,55 @@ func (data *SimpleDataStore) release(name string, mode int) {
 	} else {
 		entry.Unlock()
 	}
+}
+
+// Set changes the value associated with the variable of a given `name` to
+// an specified `value`
+func (data *SimpleDataStore) Set(name string, value interface{}) {
+	log.Printf("Set(%s)=%v\n", name, value)
+
+	data.RLock()
+	defer data.RUnlock()
+
+	entry, inStore := data.store[name]
+
+	if !inStore {
+		log.Panic(KeyNotFoundError(name))
+	}
+
+	entry.value = value
+	entry.Unlock()
+}
+
+func (data *SimpleDataStore) create(name string, value interface{}) {
+	log.Printf("Create(%s)\n", name)
+
+	data.Lock()
+	defer data.Unlock()
+
+	if _, inStore := data.store[name]; !inStore {
+		log.Panicf("Attempt to create existing key: %s\n", name)
+	}
+
+	entry := &DataEntry{
+		value: value,
+	}
+
+	entry.Lock()
+	data.store[name] = entry
+}
+
+func (data *SimpleDataStore) remove(name string) {
+	log.Printf("Remove(%s)\n", name)
+
+	data.Lock()
+	defer data.Unlock()
+
+	entry, inStore := data.store[name]
+	if !inStore {
+		log.Panic(KeyNotFoundError(name))
+	}
+
+	delete(data.store, name)
+	entry.Unlock()
 }
