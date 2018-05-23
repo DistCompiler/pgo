@@ -64,6 +64,7 @@ public class PlusCalProcessesScopingVisitor extends ProcessesVisitor<Void, Runti
 			}
 			
 			TLAScopeBuilder procScope = new TLAScopeBuilder(ctx, procVars, new ChainMap<>(builder.getDefinitions()), builder.getReferences());
+			procScope.defineLocal("self", proc.getName().getUID());
 			
 			for(LabeledStatements stmts : proc.getLabeledStatements()) {
 				stmts.accept(new PlusCalStatementLabelCaptureVisitor(ctx, procScope));
