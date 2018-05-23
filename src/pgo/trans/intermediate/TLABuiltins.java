@@ -151,7 +151,7 @@ public class TLABuiltins {
 			PGoType fresh = PGoTypeUnrealizedNumber.integralType();
 			solver.accept(new PGoTypeConstraint(origin, args.get(0), fresh));
 			solver.accept(new PGoTypeConstraint(origin, args.get(1), fresh));
-			return new PGoTypeSet(PGoTypeNatural.getInstance());
+			return new PGoTypeSet(fresh);
 		}));
 
 		BuiltinModule Integers = new BuiltinModule(Naturals);
