@@ -1,13 +1,10 @@
 package pgo.scope;
 
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * 
+ *
  * A map that extends another map. It is exactly like a normal map, but modifications only affect
  * the local map, not the parent.
  *
@@ -17,12 +14,12 @@ import java.util.stream.Collectors;
 public class ChainMap<K, V> implements Map<K, V> {
 	private Map<K, V> parent;
 	private Map<K, V> members;
-	
+
 	public ChainMap(Map<K, V> parent) {
 		this.parent = parent;
 		this.members = new HashMap<>();
 	}
-	
+
 	public Map<K, V> getParent(){
 		return parent;
 	}
@@ -44,17 +41,16 @@ public class ChainMap<K, V> implements Map<K, V> {
 
 	@Override
 	public Set<Entry<K, V>> entrySet() {
-		Set<Entry<K, V>> result = members.entrySet();
-		Set<K> keysUsed = members.keySet();
+		// do not overwrite members
+		Map<K, V> result = new HashMap<>(members);
 		Set<Entry<K, V>> parentSet = parent.entrySet();
 		for(Entry<K, V> e : parentSet) {
 			// add only if we haven't encountered that key before
-			if(!keysUsed.contains(e.getKey())) {
-				keysUsed.add(e.getKey());
-				result.add(e);
+			if(!result.containsKey(e.getKey())) {
+				result.put(e.getKey(), e.getValue());
 			}
 		}
-		return result;
+		return result.entrySet();
 	}
 
 	@Override
@@ -74,7 +70,7 @@ public class ChainMap<K, V> implements Map<K, V> {
 	@Override
 	public Set<K> keySet() {
 		Set<K> result = members.keySet();
-		
+
 		result.addAll(parent.keySet());
 		return result;
 	}
@@ -103,6 +99,6 @@ public class ChainMap<K, V> implements Map<K, V> {
 	public Collection<V> values() {
 		return entrySet().stream().map(Entry<K, V>::getValue).collect(Collectors.toList());
 	}
-	
-	
+
+
 }
