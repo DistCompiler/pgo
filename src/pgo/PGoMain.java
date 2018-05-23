@@ -113,6 +113,8 @@ public class PGoMain {
 			Map<UID, PGoType> typeMap = TypeInferencePass.perform(ctx, registry, pcalAlgorithm);
 			checkErrors(ctx);
 
+			System.out.println(typeMap);
+
 			/*logger.info("Entering Stage Four: Inferring atomicity constraints");
 			PGoTransStageAtomicity s4 = new PGoTransStageAtomicity(s3);
 			logger.info("Entering Stage Five: Generating Go AST");

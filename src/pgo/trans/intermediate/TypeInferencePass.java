@@ -107,8 +107,6 @@ public class TypeInferencePass {
 			resultingTypeMapping.put(m.getKey(), typeMapping.get(m.getValue()));
 		}
 
-		System.out.println(resultingTypeMapping);
-
 		return resultingTypeMapping;
 	}
 
