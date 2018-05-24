@@ -4,375 +4,223 @@ import (
 	"fmt"
 	"log"
 	"sort"
+	"strings"
 	"sync"
 )
 
-type ObjectOwner struct {
+// OwnershipTable maps variable names to host addresses that own them at
+// different moments in time
+type OwnershipTable struct {
 	sync.RWMutex
-	hostID int
+	table map[string]string
 }
 
-func (t *ObjectOwner) getHost(network *Network) string {
-	if t.hostID > len(network.hosts) {
-		log.Panicf("invalid host id %v\n", t.hostID)
+func NewOwnershipTable(ownership map[string]string) *OwnershipTable {
+	return &OwnershipTable{
+		table: ownership,
+	}
+}
+
+// UnknownOwnerError happens when a lookup for a certain piece of global
+// state on the ownership table does not yield any result
+type UnknownOwnerError struct {
+	name string
+}
+
+func (e *UnknownOwnerError) Error() string {
+	return fmt.Sprintf("Ownership table lookup failed: no owner for variable %s", e.name)
+}
+
+// Lookup searches for the address of the peer in the system that currently owns
+// the variable with the given name. Panics if the information is unknown
+func (ownership *OwnershipTable) Lookup(name string) string {
+	peer, found := ownership.table[name]
+	if !found {
+		log.Panicf("%v", UnknownOwnerError{name})
 	}
 
-	return network.hosts[t.hostID]
+	return peer
 }
 
-func (t *ObjectOwner) isLocalhost(network *Network) bool {
-	return t.getHost(network) == network.localhost
+// Network represents the state of the distributed system at a given point in
+// time. It includes the lists of nodes running in the system, as well as the
+// underlying store for global state.
+type Network struct {
+	*ProcessInitialization
+
+	self   string          // the identifier of the running node
+	hosts  []string        // the list of addresses of all nodes in the system
+	owners OwnershipTable  // the current state ownership table
+	store  SimpleDataStore // the underlying store for state owned by the running node
 }
 
-// NetworkRPC is a thin Network wrapper
+// NetworkRPC is a thin wrapper around the `Network` struct such that only a
+// few methods are exposed to via RPC to other nodes
 type NetworkRPC struct {
 	network *Network
 }
 
-// Network holds the state of the network
-type Network struct {
-	*ProcessInitialization
-
-	// Network
-	localhost string
-	hosts     []string
-	owners    map[string]*ObjectOwner
-
-	// Other
-	store     *SimpleDataStore
-	migration IMigrationPolicy
+// BorrowSpec specifies a borrow request from a node to another. It includes a list
+// of variables names for which exclusive access is required, as well as a list of
+// names for which non-exclusive access is sufficient
+type BorrowSpec struct {
+	ReadNames  []string // which variables we are reading (non-exclusive access)
+	WriteNames []string // which variables we are writing (exclusive access)
 }
 
-// A TransactionSet is a set of keys in a transaction
-type TransactionSet struct {
-	Keys map[string]bool
+// BorrowSpecVariable represents a the borrowing requirements of a single variable
+// within a `BorrowSpec`
+type BorrowSpecVariable struct {
+	Name      string
+	Exclusive bool
 }
 
-func (t *TransactionSet) isEmpty() bool {
-	return len(t.Keys) == 0
+type SortedBorrowSpec []*BorrowSpecVariable
+
+func (spec SortedBorrowSpec) Len() int {
+	return len(spec)
 }
 
-func (t *TransactionSet) sorted() []string {
-	keys := make([]string, 0, len(t.Keys))
+func (spec SortedBorrowSpec) Swap(i, j int) {
+	spec[i], spec[j] = spec[j], spec[i]
+}
 
-	for key := range t.Keys {
-		keys = append(keys, key)
+func (spec SortedBorrowSpec) Less(i, j int) bool {
+	return strings.Compare(spec[i].Name, spec[j].Name) < 0
+}
+
+// SortedNames returns a list of requested names in the borrow spec in alphabetical
+// order.
+func (spec *BorrowSpec) Sorted() SortedBorrowSpec {
+	// remove duplicates across read and write names
+	namesSet := map[string]bool{}
+
+	for _, readVar := range spec.ReadNames {
+		namesSet[readVar] = true
 	}
 
-	sort.Strings(keys)
-	return keys
-}
+	for _, writeVar := range spec.WriteNames {
+		namesSet[writeVar] = true
+	}
 
-func (t *TransactionSet) isExclusive(key string) bool {
-	exclusive, ok := t.Keys[key]
-	return ok && exclusive
-}
+	names := []*BorrowSpecVariable{}
+	for name, _ := range namesSet {
+		writeVariable := false
 
-func (t *TransactionSet) subset(keys []string) TransactionSet {
-	filtered := make(map[string]bool)
-
-	for _, key := range keys {
-		if exclusive, ok := t.Keys[key]; ok {
-			filtered[key] = exclusive
+		// if the current variable is a write-variable, access to
+		// it must be declared exclusive
+		for _, writeVar := range spec.WriteNames {
+			if writeVar == name {
+				writeVariable = true
+				break
+			}
 		}
+
+		names = append(names, &BorrowSpecVariable{
+			Name:      name,
+			Exclusive: writeVariable,
+		})
 	}
 
-	return TransactionSet{
-		Keys: filtered,
-	}
+	sort.Sort(SortedBorrowSpec(names))
+	return SortedBorrowSpec(names)
 }
 
-func (t *TransactionSet) remove(keys []string) TransactionSet {
-	filtered := t.subset(keys).Keys
+// Reference represents a variable reference. It indicates the current variable
+// value and whether the reference is exclusive (no other node has access to
+// it, and allows the node to mutate the value).
+type Reference struct {
+	Value     interface{} // the value of a variable reference
+	exclusive bool        // whether access to this value is exclusive
+}
 
-	for key, exclusive := range t.Keys {
-		if _, ok := filtered[key]; ok {
-			delete(filtered, key)
+// VarReferences maps variable names to references. Can be used when a node is
+// transferring state it knows about to another node in the system
+type VarReferences map[string]Reference
+
+// GlobalStateOperation represents an attempt to get access to a set of variables
+// from the system's global state. Depending on which variables are requested and
+// who owns each part of it, this struct is able to group variables together
+// in order to minimize the number of requests necessary to get access to the
+// state requested
+type GlobalStateOperation struct {
+	spec      *BorrowSpec
+	ownership *OwnershipTable
+}
+
+// VarReq represents a request to be sent to another peer in the system. It encapsulates
+// the address of the peer as well as the pieces of state required from it
+type VarReq struct {
+	Peer  string                // the host to which this request should be sent
+	Names []*BorrowSpecVariable // maps state names to whether exclusive access is required or not
+}
+
+// Groups places the variables contained in a `BorrowSpec` in groupings that minimize
+// the number of network calls necessary to get access to the global state required.
+// Given the state of the ownership table at the time of call, this function will
+// group variables based on ownership.
+//
+// Examples:
+//   ownershipTable := NewOwnershipTable(map[string]string{
+//     "a": "10.10.10.1",
+//     "b": "10.10.10.1",
+//     "c": "10.10.10.3",
+//   })
+//
+//   borrowSpec := BorrowSpec{
+//     ReadNames:  []string{"a", "b", "c"},
+//     WriteNames: []string{"b"},
+//   }
+//
+//   op := GlobalStateOperation(spec: &spec, ownership: ownershipTable)
+//   op.Groups() // =>
+//     []*VarReq{
+//       *VarReq{Peer: "10.10.10.1", Names: []*BorrowSpecVariable{{Name: "a", Exclusive: false}, ... },
+//       *VarReq{Peer: "10.10.10.3", Names: []*BorrowSpecVariable{{Name: "c", Exclusive: false}, ...}
+//     }
+func (op *GlobalStateOperation) Groups() []*VarReq {
+	reqs := []*VarReq{}
+	sorted := op.spec.Sorted()
+
+	// if borrow spec is empty, return early
+	if len(sorted) == 0 {
+		return reqs
+	}
+
+	// prevent migrations while we are grouping requests
+	op.ownership.RLock()
+	defer op.ownership.RUnlock()
+
+	var currentPeer string
+	var currVarReq *VarReq
+	for _, borrowVar := range sorted {
+		owner := op.ownership.Lookup(borrowVar.Name)
+
+		// if this is the first iteration, the current peer is the owner
+		// of the current variable
+		if len(currentPeer) == 0 {
+			currentPeer = owner
+			currVarReq = &VarReq{
+				Peer:  currentPeer,
+				Names: []*BorrowSpecVariable{},
+			}
+		}
+
+		if owner == currentPeer {
+			currVarReq.Names = append(currVarReq.Names, borrowVar)
 		} else {
-			filtered[key] = exclusive
+			reqs = append(reqs, currVarReq)
+
+			currentPeer = owner
+			currVarReq = &VarReq{
+				Peer:  currentPeer,
+				Names: []*BorrowSpecVariable{borrowVar},
+			}
 		}
 	}
 
-	return TransactionSet{
-		Keys: filtered,
-	}
-}
+	// add last group to the list of requests
+	reqs = append(reqs, currVarReq)
 
-type RemoteObject struct {
-	Value    interface{}
-	Migrated bool
-	Acquired bool
-}
-
-type GetRemoteArgs struct {
-	Host        string
-	Transaction TransactionSet
-}
-
-type SetRemoteArgs struct {
-	Host        string
-	Transaction TransactionSet
-	Values      map[string]interface{}
-}
-
-type AckMigrationArgs struct {
-	Host string
-	Key  string
-}
-
-type GetRemoteReply struct {
-	Objects   map[string]RemoteObject
-	Redirects map[string]string
-}
-
-type SetRemoteReply struct {
-	Redirects map[string]string
-	Errors    map[string]error
-}
-
-type NeverMigrate struct{}
-type AlwaysMigrate struct{}
-
-func (t *AlwaysMigrate) OnGet(host string, key string) {}
-func (t *AlwaysMigrate) OnSet(host string, key string) {}
-func (t *AlwaysMigrate) MigrateTo(host string, key string) bool {
-	return true
-}
-
-func (t *NeverMigrate) OnGet(host string, key string) {}
-func (t *NeverMigrate) OnSet(host string, key string) {}
-func (t *NeverMigrate) MigrateTo(host string, key string) bool {
-	return false
-}
-
-type HostFrequency struct {
-	Frequency map[string]int
-}
-
-type MostFrequentlyUsed struct {
-	Keys map[string]HostFrequency
-}
-
-type DisconnectedError string
-type KeyNotFoundError string
-type RangeMismatchError struct{}
-
-// A TransactionError accounts for different errors that can occur while operating on a key
-// eg. KeyNotFoundError, Mutex panics..., etc...
-type TransactionError map[string]error
-
-func (e DisconnectedError) Error() string {
-	return fmt.Sprintf("Disconnected error [%s]", string(e))
-}
-
-func (e KeyNotFoundError) Error() string {
-	return fmt.Sprintf("Key not found error [%v]", string(e))
-}
-
-func (e RangeMismatchError) Error() string {
-	return fmt.Sprintf("Range mismatch error")
-}
-
-func (e TransactionError) Error() string {
-	return fmt.Sprintf("Transaction error [%v]", e)
-}
-
-type AcquireSet struct {
-	ReadNames  []string
-	WriteNames []string
-}
-
-type ReleaseSet struct {
-	WriteNames  []string
-	Transaction TransactionSet
-}
-
-type StateServer interface {
-	Acquire(set *AcquireSet) (*ReleaseSet, map[string]interface{}, error)
-	Release(set *ReleaseSet, values ...interface{}) error
-	WaitPeers()
-
-	SetPolicy(policy IMigrationPolicy)
-
-	Close() error
-}
-
-type IMigrationPolicy interface {
-	OnGet(host string, key string)
-	OnSet(host string, key string)
-	MigrateTo(host string, key string) bool
-}
-
-func (t *MostFrequentlyUsed) OnGet(host string, key string) {
-	entry, ok := t.Keys[key]
-
-	if !ok {
-		entry = HostFrequency{
-			Frequency: make(map[string]int),
-		}
-	}
-
-	freq, ok := entry.Frequency[host]
-	if !ok {
-		freq = 0
-	}
-
-	freq++
-
-	entry.Frequency[host] = freq
-	t.Keys[key] = entry
-}
-
-func (t *MostFrequentlyUsed) OnSet(host string, key string) {
-	t.OnGet(host, key)
-}
-
-func (t *MostFrequentlyUsed) MigrateTo(host string, key string) bool {
-	entry, ok := t.Keys[key]
-
-	if !ok {
-		return false
-	}
-
-	var maxHost string
-	var maxFreq int
-
-	for curr, freq := range entry.Frequency {
-		if freq > maxFreq {
-			maxHost = curr
-			maxFreq = freq
-		}
-	}
-
-	if host != maxHost {
-		return false
-	}
-
-	return true
-}
-
-func NewStateServer(peers []string, self, coordinator string, initValues map[string]interface{}) (StateServer, error) {
-	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
-
-	pi := NewProcessInitialization(peers, self, coordinator)
-
-	// FIXME this is assuming everything is centralized in one place
-	selfId := -1
-	coordinatorId := -1
-	for i, p := range peers {
-		if p == self {
-			selfId = i
-		}
-
-		if p == coordinator {
-			coordinatorId = i
-		}
-	}
-	// Make sure `self` is in the list of peers
-	if selfId < 0 {
-		panic("self is not in peers")
-	}
-	if coordinatorId < 0 {
-		panic("coodinator is not in peers")
-	}
-
-	owners := make(map[string]*ObjectOwner, len(initValues))
-	store := make(map[string]interface{})
-
-	// at first, all state is in the coordinator node
-	for key, _ := range initValues {
-		owners[key] = &ObjectOwner{
-			hostID: coordinatorId,
-		}
-	}
-
-	if pi.isCoordinator() {
-		store = initValues
-	}
-
-	network := &Network{
-		ProcessInitialization: pi,
-		store:     CreateSimpleDataStore(store),
-		owners:    owners,
-		localhost: self,
-		hosts:     peers,
-		migration: &NeverMigrate{},
-	}
-
-	err := network.Init()
-	if err != nil {
-		return nil, err
-	}
-
-	if err := network.connections.ExposeImplementation("StateServer", &NetworkRPC{network}); err != nil {
-		return nil, err
-	}
-
-	return network, nil
-}
-
-func (t *Network) getOwnerID(host string) (int, bool) {
-	for ownerID, hostname := range t.hosts {
-		if host == hostname {
-			return ownerID, true
-		}
-	}
-
-	return -1, false
-}
-
-type Batch struct {
-	addr        string
-	transaction TransactionSet
-}
-
-func (b *Batch) isLocalhost(t *Network) bool {
-	return b.addr == t.localhost
-}
-
-func (t *Network) nextBatch(transaction TransactionSet) (*Batch, bool, error) {
-	if len(transaction.Keys) == 0 {
-		return nil, false, nil
-	}
-
-	var host string
-	var keys []string
-
-	for _, key := range transaction.sorted() {
-		owner, ok := t.owners[key]
-
-		if !ok {
-			return nil, false, KeyNotFoundError(key)
-
-		}
-
-		owner.RLock()
-
-		if len(keys) == 0 || host == owner.getHost(t) {
-			host = owner.getHost(t)
-			keys = append(keys, key)
-		} else {
-			owner.RUnlock()
-			break
-		}
-	}
-
-	return &Batch{
-		addr:        host,
-		transaction: transaction.subset(keys),
-	}, len(keys) > 0, nil
-}
-
-func (t *Network) unlock(batch *Batch) error {
-	for _, key := range batch.transaction.sorted() {
-		owner, ok := t.owners[key]
-
-		if !ok {
-			return KeyNotFoundError(key)
-		}
-
-		owner.RUnlock()
-	}
-
-	return nil
+	return reqs
 }
