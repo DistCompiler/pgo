@@ -45,7 +45,7 @@ public class PGoTypeUnrealizedTuple extends PGoType {
 		return realType == RealType.Chan || realType == RealType.Set || realType == RealType.Slice;
 	}
 
-	private int getProbableSize() {
+	public int getProbableSize() {
 		return elementTypes.keySet().stream().max(Comparator.naturalOrder()).orElse(-1) + 1;
 	}
 
