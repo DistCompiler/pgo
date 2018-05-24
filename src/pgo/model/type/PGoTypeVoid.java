@@ -1,13 +1,24 @@
 package pgo.model.type;
 
+import pgo.util.Origin;
+
+import java.util.List;
+
 /**
  * Represents nothingness.
  */
 public class PGoTypeVoid extends PGoPrimitiveType {
-	private static final PGoTypeVoid instance = new PGoTypeVoid();
-	private PGoTypeVoid() {}
-	public static PGoTypeVoid getInstance() {
-		return instance;
+	public PGoTypeVoid(Origin... origins) {
+		super(origins);
+	}
+
+	public PGoTypeVoid(List<Origin> origins) {
+		super(origins);
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		return obj instanceof PGoTypeVoid;
 	}
 
 	@Override

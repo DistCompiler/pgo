@@ -1,13 +1,24 @@
 package pgo.model.type;
 
+import pgo.util.Origin;
+
+import java.util.List;
+
 /**
  * Represents the interface type.
  */
 public class PGoTypeInterface extends PGoPrimitiveType {
-	private static final PGoTypeInterface instance = new PGoTypeInterface();
-	private PGoTypeInterface() {}
-	public static PGoTypeInterface getInstance() {
-		return instance;
+	public PGoTypeInterface(Origin... origins) {
+		super(origins);
+	}
+
+	public PGoTypeInterface(List<Origin> origins) {
+		super(origins);
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		return obj instanceof PGoTypeInterface;
 	}
 
 	@Override

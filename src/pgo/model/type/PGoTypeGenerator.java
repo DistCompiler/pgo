@@ -1,5 +1,6 @@
 package pgo.model.type;
 
+import pgo.scope.UID;
 import pgo.trans.PGoTransException;
 
 import java.util.*;
@@ -44,48 +45,50 @@ public class PGoTypeGenerator implements Supplier<PGoTypeVariable> {
 	}
 
 	private PGoType inferFrom(String s, Map<String, PGoTypeVariable> nameToTypeVar) throws PGoTransException {
+		// FIXME deal with this
+		UID dummyUID = new UID();
 		// infer primitive types
 		String lowered = s.toLowerCase();
 		switch (lowered) {
 			case "int":
 			case "integer":
-				return PGoTypeInt.getInstance();
+				return new PGoTypeInt(dummyUID);
 			case "bool":
 			case "boolean":
-				return PGoTypeBool.getInstance();
+				return new PGoTypeBool(dummyUID);
 			case "natural":
 			case "uint64":
-				return PGoTypeNatural.getInstance();
+				return new PGoTypeNatural(dummyUID);
 			case "decimal":
 			case "float64":
-				return PGoTypeDecimal.getInstance();
+				return new PGoTypeDecimal(dummyUID);
 			case "string":
-				return PGoTypeString.getInstance();
+				return new PGoTypeString(dummyUID);
 			case "void":
-				return PGoTypeVoid.getInstance();
+				return new PGoTypeVoid(dummyUID);
 			case "interface":
 			case "interface{}":
-				return PGoTypeInterface.getInstance();
+				return new PGoTypeInterface(dummyUID);
 			case "error":
-				return PGoTypeError.getInstance();
+				return new PGoTypeError(dummyUID);
 		}
 
 		// infer miscellaneous types
 		switch (s) {
 			case "sync.WaitGroup":
-				return PGoTypeWaitGroup.getInstance();
+				return new PGoTypeWaitGroup(dummyUID);
 			case "sync.RWMutex":
-				return PGoTypeRWMutex.getInstance();
+				return new PGoTypeRWMutex(dummyUID);
 			case "distsys.EtcdState":
-				return PGoTypeEtcdState.getInstance();
+				return new PGoTypeEtcdState(dummyUID);
 			case "distsys.StateServer":
-				return PGoTypeEtcdState.getInstance();
+				return new PGoTypeEtcdState(dummyUID);
 			case "distsys.ReleaseSet":
-				return PGoTypeReleaseSet.getInstance();
+				return new PGoTypeReleaseSet(dummyUID);
 			case "distsys.AcquireSet":
-				return PGoTypeAcquireSet.getInstance();
+				return new PGoTypeAcquireSet(dummyUID);
 			case "distsys.ValueMap":
-				return PGoTypeValueMap.getInstance();
+				return new PGoTypeValueMap(dummyUID);
 		}
 
 		// infer container types
@@ -93,21 +96,21 @@ public class PGoTypeGenerator implements Supplier<PGoTypeVariable> {
 		Pattern rgex = Pattern.compile("\\[](.+)");
 		Matcher m = rgex.matcher(s);
 		if (m.matches()) {
-			return new PGoTypeSlice(inferFrom(m.group(1), nameToTypeVar));
+			return new PGoTypeSlice(inferFrom(m.group(1), nameToTypeVar), dummyUID);
 		}
 
 		// matches chan[<type>]
 		rgex = Pattern.compile("(?i)chan\\[(.+)]");
 		m = rgex.matcher(s);
 		if (m.matches()) {
-			return new PGoTypeChan(inferFrom(m.group(1), nameToTypeVar));
+			return new PGoTypeChan(inferFrom(m.group(1), nameToTypeVar), dummyUID);
 		}
 
 		// matches set[<type>]
 		rgex = Pattern.compile("(?i)set\\[(.+)]");
 		m = rgex.matcher(s);
 		if (m.matches()) {
-			return new PGoTypeSet(inferFrom(m.group(1), nameToTypeVar));
+			return new PGoTypeSet(inferFrom(m.group(1), nameToTypeVar), dummyUID);
 		}
 
 		// matches map[<type>]<type>
@@ -134,9 +137,9 @@ public class PGoTypeGenerator implements Supplier<PGoTypeVariable> {
 			}
 			if (key.toString().equals(val)) {
 				PGoType tn = inferFrom(val, nameToTypeVar);
-				return new PGoTypeMap(tn, tn);
+				return new PGoTypeMap(tn, tn, dummyUID);
 			}
-			return new PGoTypeMap(inferFrom(key.toString(), nameToTypeVar), inferFrom(val, nameToTypeVar));
+			return new PGoTypeMap(inferFrom(key.toString(), nameToTypeVar), inferFrom(val, nameToTypeVar), dummyUID);
 		}
 
 		// matches tuple[type1, type2, ..., typeN] or tuple[]
@@ -178,7 +181,7 @@ public class PGoTypeGenerator implements Supplier<PGoTypeVariable> {
 			if (!t.equals("")) {
 				types.add(inferFrom(t, nameToTypeVar));
 			}
-			return new PGoTypeTuple(types);
+			return new PGoTypeTuple(types, dummyUID);
 		}
 
 		if (s.length() == 1 && 'A' <= s.charAt(0) && s.charAt(0) <= 'Z') {

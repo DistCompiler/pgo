@@ -1,6 +1,10 @@
 package pgo.model.type;
 
 import pgo.errors.IssueContext;
+import pgo.util.Origin;
+
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * Implements promotion for number types.
@@ -9,24 +13,30 @@ public class PGoTypeUnrealizedNumber extends PGoNumberType {
 	private PGoNumberType num;
 	private boolean isIntegralType;
 
-	public PGoTypeUnrealizedNumber() {
-		this(PGoTypeNatural.getInstance());
+	public PGoTypeUnrealizedNumber(PGoTypeNatural num, Origin... origins) {
+		this(num, Arrays.asList(origins));
 	}
 
-	public PGoTypeUnrealizedNumber(PGoTypeNatural num) {
+	public PGoTypeUnrealizedNumber(PGoTypeNatural num, List<Origin> origins) {
+		super(origins);
 		this.num = num;
 	}
 
-	public PGoTypeUnrealizedNumber(PGoTypeInt num) {
+	public PGoTypeUnrealizedNumber(PGoTypeInt num, Origin... origins) {
+		this(num, Arrays.asList(origins));
+	}
+
+	public PGoTypeUnrealizedNumber(PGoTypeInt num, List<Origin> origins) {
+		super(origins);
 		this.num = num;
 	}
 
-	public PGoTypeUnrealizedNumber(PGoTypeDecimal num) {
-		this.num = num;
+	public static PGoTypeUnrealizedNumber integralType(Origin... origins) {
+		return integralType(Arrays.asList(origins));
 	}
 
-	public static PGoTypeUnrealizedNumber integralType() {
-		PGoTypeUnrealizedNumber t = new PGoTypeUnrealizedNumber();
+	public static PGoTypeUnrealizedNumber integralType(List<Origin> origins) {
+		PGoTypeUnrealizedNumber t = new PGoTypeUnrealizedNumber(new PGoTypeNatural(origins), origins);
 		t.isIntegralType = true;
 		return t;
 	}
@@ -43,13 +53,13 @@ public class PGoTypeUnrealizedNumber extends PGoNumberType {
 			higher = otherNum;
 		}
 		if (higher instanceof PGoTypeDecimal && isIntegralType) {
-			ctx.error(new UnsatisfiableConstraintIssue(constraint, PGoTypeInt.getInstance(), PGoTypeDecimal.getInstance()));
+			ctx.error(new UnsatisfiableConstraintIssue(constraint, num, higher));
 			return;
 		}
 		num = higher;
 		if (other instanceof PGoTypeUnrealizedNumber) {
 			if (higher instanceof PGoTypeDecimal && ((PGoTypeUnrealizedNumber) other).isIntegralType) {
-				ctx.error(new UnsatisfiableConstraintIssue(constraint, PGoTypeDecimal.getInstance(), PGoTypeInt.getInstance()));
+				ctx.error(new UnsatisfiableConstraintIssue(constraint, higher, ((PGoTypeUnrealizedNumber) other).num));
 				return;
 			}
 			((PGoTypeUnrealizedNumber) other).num = higher;
@@ -66,12 +76,17 @@ public class PGoTypeUnrealizedNumber extends PGoNumberType {
 
 	@Override
 	public PGoType realize(IssueContext ctx) {
-		return num;
+		return num.copyWithOrigins(getOrigins());
 	}
 
 	@Override
 	public int getSpecificity() {
 		return num.getSpecificity();
+	}
+
+	@Override
+	public PGoNumberType copyWithOrigins(List<Origin> origins) {
+		throw new IllegalStateException("internal compiler error");
 	}
 
 	@Override

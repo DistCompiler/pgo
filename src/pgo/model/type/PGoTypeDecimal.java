@@ -1,13 +1,24 @@
 package pgo.model.type;
 
+import pgo.util.Origin;
+
+import java.util.List;
+
 /**
  * Represents the floating point number type.
  */
 public class PGoTypeDecimal extends PGoNumberType {
-	private static final PGoTypeDecimal instance = new PGoTypeDecimal();
-	private PGoTypeDecimal() {}
-	public static PGoTypeDecimal getInstance() {
-		return instance;
+	public PGoTypeDecimal(Origin... origins) {
+		super(origins);
+	}
+
+	public PGoTypeDecimal(List<Origin> origins) {
+		super(origins);
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		return obj instanceof PGoTypeDecimal;
 	}
 
 	@Override
@@ -23,5 +34,10 @@ public class PGoTypeDecimal extends PGoNumberType {
 	@Override
 	public int getSpecificity() {
 		return 3;
+	}
+
+	@Override
+	public PGoTypeDecimal copyWithOrigins(List<Origin> origins) {
+		return new PGoTypeDecimal(origins);
 	}
 }

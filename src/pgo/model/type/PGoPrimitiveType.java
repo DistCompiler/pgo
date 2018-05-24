@@ -1,7 +1,9 @@
 package pgo.model.type;
 
 import pgo.errors.IssueContext;
+import pgo.util.Origin;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -9,6 +11,14 @@ import java.util.Set;
  * Contains overloaded methods for a primitive type, for convenience.
  */
 public abstract class PGoPrimitiveType extends PGoType {
+	public PGoPrimitiveType(Origin... origins) {
+		super(origins);
+	}
+
+	public PGoPrimitiveType(List<Origin> origins) {
+		super(origins);
+	}
+
 	@Override
 	public boolean contains(PGoTypeVariable v) {
 		return false;

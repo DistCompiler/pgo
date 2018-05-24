@@ -1,13 +1,30 @@
 package pgo.model.type;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 import pgo.errors.IssueContext;
 import pgo.util.Derived;
 import pgo.util.DerivedVisitor;
+import pgo.util.Origin;
 
 public abstract class PGoType extends Derived {
+	/**
+	 * @param origins track where this type come from
+	 */
+	public PGoType(Origin... origins) {
+		this(Arrays.asList(origins));
+	}
+
+	/**
+	 * @param origins track where this type come from
+	 */
+	public PGoType(List<Origin> origins) {
+		origins.forEach(this::addOrigin);
+	}
+
 	/**
 	 * @param v the type variable to check for
 	 * @return whether this contains the type variable v

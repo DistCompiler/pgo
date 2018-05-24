@@ -1,11 +1,9 @@
 package pgo.model.type;
 
 import pgo.errors.IssueContext;
+import pgo.util.Origin;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -14,7 +12,12 @@ import java.util.stream.Collectors;
 public class PGoTypeTuple extends PGoType {
 	private List<PGoType> elementTypes;
 
-	public PGoTypeTuple(List<PGoType> elementTypes) {
+	public PGoTypeTuple(List<PGoType> elementTypes, Origin... origins) {
+		this(elementTypes, Arrays.asList(origins));
+	}
+
+	public PGoTypeTuple(List<PGoType> elementTypes, List<Origin> origins) {
+		super(origins);
 		this.elementTypes = Collections.unmodifiableList(elementTypes);
 	}
 
@@ -47,14 +50,14 @@ public class PGoTypeTuple extends PGoType {
 
 	@Override
 	public PGoType substitute(Map<PGoTypeVariable, PGoType> mapping) {
-		List<PGoType> sub = elementTypes.stream().map(t -> t.substitute(mapping)).collect(Collectors.toList());
-		return new PGoTypeTuple(sub);
+		elementTypes = elementTypes.stream().map(t -> t.substitute(mapping)).collect(Collectors.toList());
+		return this;
 	}
 
 	@Override
 	public PGoType realize(IssueContext ctx) {
-		List<PGoType> sub = elementTypes.stream().map(pGoType -> pGoType.realize(ctx)).collect(Collectors.toList());
-		return new PGoTypeTuple(sub);
+		elementTypes = elementTypes.stream().map(pGoType -> pGoType.realize(ctx)).collect(Collectors.toList());
+		return this;
 	}
 
 	@Override

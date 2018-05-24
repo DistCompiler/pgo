@@ -1,13 +1,24 @@
 package pgo.model.type;
 
+import pgo.util.Origin;
+
+import java.util.List;
+
 /**
  * Represents the default integer type.
  */
 public class PGoTypeError extends PGoPrimitiveType {
-	private static final PGoTypeError instance = new PGoTypeError();
-	private PGoTypeError() {}
-	public static PGoTypeError getInstance() {
-		return instance;
+	public PGoTypeError(Origin... origins) {
+		super(origins);
+	}
+
+	public PGoTypeError(List<Origin> origins) {
+		super(origins);
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		return obj instanceof PGoTypeError;
 	}
 
 	@Override

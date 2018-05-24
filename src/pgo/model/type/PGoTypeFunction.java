@@ -1,11 +1,9 @@
 package pgo.model.type;
 
 import pgo.errors.IssueContext;
+import pgo.util.Origin;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -15,7 +13,12 @@ public class PGoTypeFunction extends PGoType {
 	private List<PGoType> paramTypes;
 	private PGoType returnType;
 
-	public PGoTypeFunction(List<PGoType> paramTypes, PGoType returnType) {
+	public PGoTypeFunction(List<PGoType> paramTypes, PGoType returnType, Origin... origins) {
+		this(paramTypes, returnType, Arrays.asList(origins));
+	}
+
+	public PGoTypeFunction(List<PGoType> paramTypes, PGoType returnType, List<Origin> origins) {
+		super(origins);
 		this.paramTypes = paramTypes;
 		this.returnType = returnType;
 	}
@@ -55,14 +58,16 @@ public class PGoTypeFunction extends PGoType {
 
 	@Override
 	public PGoType substitute(Map<PGoTypeVariable, PGoType> mapping) {
-		List<PGoType> sub = paramTypes.stream().map(t -> t.substitute(mapping)).collect(Collectors.toList());
-		return new PGoTypeFunction(sub, returnType.substitute(mapping));
+		paramTypes = paramTypes.stream().map(t -> t.substitute(mapping)).collect(Collectors.toList());
+		returnType = returnType.substitute(mapping);
+		return this;
 	}
 
 	@Override
 	public PGoType realize(IssueContext ctx) {
-		List<PGoType> sub = paramTypes.stream().map(pGoType -> pGoType.realize(ctx)).collect(Collectors.toList());
-		return new PGoTypeFunction(sub, returnType.realize(ctx));
+		paramTypes = paramTypes.stream().map(pGoType -> pGoType.realize(ctx)).collect(Collectors.toList());
+		returnType = returnType.realize(ctx);
+		return this;
 	}
 
 	@Override

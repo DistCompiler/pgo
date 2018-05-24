@@ -1,9 +1,9 @@
 package pgo.model.type;
 
 import pgo.errors.IssueContext;
+import pgo.util.Origin;
 
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 /**
  * Represents a type variable.
@@ -11,9 +11,10 @@ import java.util.Set;
 public class PGoTypeVariable extends PGoType {
 	private String name;
 
-	// The constructor must be kept package protected so that
+	// The constructors must be kept package protected so that
 	// PGoTypeGenerator can safely do its job
 	PGoTypeVariable(String name) {
+		super(Collections.emptyList());
 		this.name = name;
 	}
 

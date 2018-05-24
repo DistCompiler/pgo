@@ -1,13 +1,24 @@
 package pgo.model.type;
 
+import pgo.util.Origin;
+
+import java.util.List;
+
 /**
  * Represents the boolean type.
  */
 public class PGoTypeBool extends PGoPrimitiveType {
-	private static final PGoTypeBool instance = new PGoTypeBool();
-	private PGoTypeBool() {}
-	public static PGoTypeBool getInstance() {
-		return instance;
+	public PGoTypeBool(Origin... origins) {
+		super(origins);
+	}
+
+	public PGoTypeBool(List<Origin> origins) {
+		super(origins);
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		return obj instanceof PGoTypeBool;
 	}
 
 	@Override

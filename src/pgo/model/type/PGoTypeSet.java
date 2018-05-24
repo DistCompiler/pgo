@@ -1,15 +1,19 @@
 package pgo.model.type;
 
-import pgo.errors.IssueContext;
+import pgo.util.Origin;
 
-import java.util.Map;
+import java.util.List;
 
 /**
  * Represents a set.
  */
 public class PGoTypeSet extends PGoSimpleContainerType {
-	public PGoTypeSet(PGoType elementType) {
-		this.elementType = elementType;
+	public PGoTypeSet(PGoType elementType, Origin... origins) {
+		super(elementType, origins);
+	}
+
+	public PGoTypeSet(PGoType elementType, List<Origin> origins) {
+		super(elementType, origins);
 	}
 
 	@Override
@@ -18,16 +22,6 @@ public class PGoTypeSet extends PGoSimpleContainerType {
 			return false;
 		}
 		return super.equals(p);
-	}
-
-	@Override
-	public PGoType substitute(Map<PGoTypeVariable, PGoType> mapping) {
-		return new PGoTypeSet(elementType.substitute(mapping));
-	}
-
-	@Override
-	public PGoType realize(IssueContext ctx) {
-		return new PGoTypeSet(elementType.realize(ctx));
 	}
 
 	@Override

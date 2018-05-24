@@ -3,6 +3,7 @@ package pgo.model.type;
 import java.util.*;
 
 import pgo.errors.IssueContext;
+import pgo.util.Origin;
 
 /**
  * Represents an unrealized tuple.
@@ -15,15 +16,28 @@ public class PGoTypeUnrealizedTuple extends PGoType {
 	}
 	private RealType realType;
 
-	public PGoTypeUnrealizedTuple() {
-		this(new HashMap<>());
+	public PGoTypeUnrealizedTuple(Origin... origins) {
+		this(Arrays.asList(origins));
 	}
 
-	public PGoTypeUnrealizedTuple(Map<Integer, PGoType> elementTypes) {
-		this(elementTypes, false);
+	public PGoTypeUnrealizedTuple(List<Origin> origins) {
+		this(new HashMap<>(), origins);
 	}
 
-	public PGoTypeUnrealizedTuple(Map<Integer, PGoType> elementTypes, boolean sizeKnown) {
+	public PGoTypeUnrealizedTuple(Map<Integer, PGoType> elementTypes, Origin... origins) {
+		this(elementTypes, false, origins);
+	}
+
+	public PGoTypeUnrealizedTuple(Map<Integer, PGoType> elementTypes, List<Origin> origins) {
+		this(elementTypes, false, origins);
+	}
+
+	public PGoTypeUnrealizedTuple(Map<Integer, PGoType> elementTypes, boolean sizeKnown, Origin... origins) {
+		this(elementTypes, sizeKnown, Arrays.asList(origins));
+	}
+
+	public PGoTypeUnrealizedTuple(Map<Integer, PGoType> elementTypes, boolean sizeKnown, List<Origin> origins) {
+		super(origins);
 		this.elementTypes = new HashMap<>(elementTypes);
 		this.sizeKnown = sizeKnown;
 		this.realType = RealType.Unknown;
@@ -49,7 +63,7 @@ public class PGoTypeUnrealizedTuple extends PGoType {
 		return elementTypes.keySet().stream().max(Comparator.naturalOrder()).orElse(-1) + 1;
 	}
 
-	public void harmonize(IssueContext ctx, PGoTypeSolver solver, PGoSimpleContainerType other) {
+	public void harmonize(IssueContext ctx, PGoTypeConstraint constraint, PGoTypeSolver solver, PGoSimpleContainerType other) {
 		PGoType elemType = other.getElementType();
 		elementTypes.forEach((k, v) -> solver.addConstraint(ctx, new PGoTypeConstraint(this, elemType, v)));
 		if (ctx.hasErrors()) {
@@ -203,16 +217,16 @@ public class PGoTypeUnrealizedTuple extends PGoType {
 				}
 				sub.add(elementTypes.get(i).realize(ctx));
 			}
-			return new PGoTypeTuple(sub);
+			return new PGoTypeTuple(sub, getOrigins());
 		}
 		PGoType elemType = elementTypes.get(0);
 		switch (realType) {
 			case Chan:
-				return new PGoTypeChan(elemType);
+				return new PGoTypeChan(elemType, getOrigins());
 			case Set:
-				return new PGoTypeSet(elemType);
+				return new PGoTypeSet(elemType, getOrigins());
 			case Slice:
-				return new PGoTypeSlice(elemType);
+				return new PGoTypeSlice(elemType, getOrigins());
 			case Tuple:
 			case Unknown:
 			default:

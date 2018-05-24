@@ -1,5 +1,11 @@
 package pgo.model.type;
 
+import pgo.errors.IssueContext;
+import pgo.util.Origin;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -7,6 +13,15 @@ import java.util.Set;
  */
 public abstract class PGoSimpleContainerType extends PGoType {
 	protected PGoType elementType;
+
+	public PGoSimpleContainerType(PGoType elementType, Origin... origins) {
+		this(elementType, Arrays.asList(origins));
+	}
+
+	public PGoSimpleContainerType(PGoType elementType, List<Origin> origins) {
+		super(origins);
+		this.elementType = elementType;
+	}
 
 	public PGoType getElementType() {
 		return elementType;
@@ -33,5 +48,17 @@ public abstract class PGoSimpleContainerType extends PGoType {
 	@Override
 	public void collectVariables(Set<PGoTypeVariable> vars) {
 		elementType.collectVariables(vars);
+	}
+
+	@Override
+	public PGoType substitute(Map<PGoTypeVariable, PGoType> mapping) {
+		elementType = elementType.substitute(mapping);
+		return this;
+	}
+
+	@Override
+	public PGoType realize(IssueContext ctx) {
+		elementType = elementType.realize(ctx);
+		return this;
 	}
 }
