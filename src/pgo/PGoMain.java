@@ -28,7 +28,7 @@ import pgo.util.IOUtil;
 public class PGoMain {
 
 	private static Logger logger;
-	private PGoOptions opts = null;
+	private PGoOptions opts;
 	private static PGoMain instance = null;
 
 	// Check options, sets up logging.
@@ -64,7 +64,7 @@ public class PGoMain {
 
 	// Top-level workhorse method.
 	public void run() {
-		PcalParser parser = new PcalParser(opts.infile);
+		PcalParser parser = new PcalParser(opts.inputFilePath);
 
 		ParsedPcal pcal;
 		try {
@@ -82,10 +82,10 @@ public class PGoMain {
 
 		try {
 			TopLevelIssueContext ctx = new TopLevelIssueContext();
-			TLAModuleLoader loader = new TLAModuleLoader(Collections.singletonList(Paths.get(opts.infile).getParent()));
+			TLAModuleLoader loader = new TLAModuleLoader(Collections.singletonList(Paths.get(opts.inputFilePath).getParent()));
 
 			logger.info("Parsing TLA+ module");
-			PGoTLAModule tlaModule = TLAParsingPass.perform(ctx, Paths.get(opts.infile));
+			PGoTLAModule tlaModule = TLAParsingPass.perform(ctx, Paths.get(opts.inputFilePath));
 			checkErrors(ctx);
 
 			logger.info("Cleaning up PlusCal AST");
@@ -111,7 +111,7 @@ public class PGoMain {
 			logger.info("Inferring types");
 			Map<UID, PGoType> typeMap = TypeInferencePass.perform(ctx, registry, pcalAlgorithm);
 			checkErrors(ctx);
-			
+
 			Module module = CodeGenPass.perform(pcalAlgorithm, registry, typeMap);
 
 			System.out.println(module);
@@ -149,12 +149,6 @@ public class PGoMain {
 		return null; // TODO
 	}
 
-	private static void copyPackages(PGoOptions opts) throws IOException {
-		FileUtils.copyDirectory(new File("src/go/pgo"), new File(opts.buildDir + "/src/pgo"));
-		FileUtils.copyDirectory(new File("src/go/github.com/emirpasic"),
-				new File(opts.buildDir + "/src/github.com/emirpasic"));
-	}
-
 	private static void setUpLogging(PGoOptions opts) {
 		// Set the logger's log level based on command line arguments
 		if (opts.logLvlQuiet) {
@@ -164,6 +158,12 @@ public class PGoMain {
 		} else {
 			logger.setLevel(Level.INFO);
 		}
+	}
+
+	private static void copyPackages(PGoOptions opts) throws IOException {
+		FileUtils.copyDirectory(new File("src/go/pgo"), new File(opts.buildDir + "/src/pgo"));
+		FileUtils.copyDirectory(new File("src/go/github.com/emirpasic"),
+				new File(opts.buildDir + "/src/github.com/emirpasic"));
 	}
 
 	private void goFmt() throws IOException, InterruptedException {

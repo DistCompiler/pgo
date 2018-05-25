@@ -1,0 +1,63 @@
+\documentclass[notitlepage]{article}
+
+\usepackage{listings}
+\usepackage{color}
+\usepackage{hyperref}
+\usepackage[labelformat=empty]{caption}
+\usepackage[letterpaper, margin=2cm]{geometry}
+\usepackage{multicol}
+
+\lstdefinelanguage{pcal}{
+	morekeywords={CHOOSE, CONSTANT, EXCEPT, UNION, SUBSET, assert, await, begin, call, define, do, either, else, elsif, end, goto, if, macro, or, print, procedure, process, return, skip, then, variable, variables, when, while, with},
+	morecomment=[l]{\\*},
+	morecomment=[s]{(*}{*)},
+	morestring=[b]"
+}
+
+\lstdefinelanguage{golang}{
+	morekeywords={break, case, chan, const, continue, default, defer, else, fallthrough, for, func, go, goto, if, import, interface, map, package, range, return, select, struct, switch, type, var},
+	morecomment=[l]{//},
+	morecomment=[s]{/*}{*/},
+	morestring=[b]"
+}
+
+\definecolor{darkred}{RGB}{184, 5, 69}
+\definecolor{gray}{gray}{0.25}
+
+\lstdefinestyle{mystyle}{
+	basicstyle=\small\ttfamily,
+	keywordstyle=\small\color{darkred}\ttfamily,
+	commentstyle=\small\color{gray}\ttfamily,
+	stringstyle=\small\color{blue}\ttfamily,
+	columns=fullflexible,
+	frame=tlrb,
+	numbers=left,
+	tabsize=4,
+	showstringspaces=false
+}
+\lstset{style=mystyle}
+
+\setlength{\parskip}{6pt}
+
+\title{PGo Manual\\
+	\normalsize{For commit d0241d3}}
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+\input{chapters/introduction}
+
+\section{Using PGo}
+\input{chapters/using}
+
+\section{Translation}
+\input{chapters/translation}
+
+\section{Notes on the Go library}
+\input{chapters/libnotes}
+
+\section{Example programs}
+\input{chapters/examples}
+
+\end{document}
