@@ -11,5 +11,10 @@ public class LabelName extends Node {
 	public String getName() {
 		return name;
 	}
+	
+	@Override
+	public <T, E extends Throwable> T accept(NodeVisitor<T, E> v) throws E {
+		return v.visit(this);
+	}
 
 }

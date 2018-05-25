@@ -15,6 +15,7 @@ import pgo.lexer.TLATokenType;
 import pgo.model.pcal.Algorithm;
 import pgo.model.pcal.Assert;
 import pgo.model.pcal.Assignment;
+import pgo.model.pcal.AssignmentPair;
 import pgo.model.pcal.Await;
 import pgo.model.pcal.Call;
 import pgo.model.pcal.Either;
@@ -296,36 +297,45 @@ public class TLCToPGoPCalASTConversionVisitor extends PcalASTUtil.Visitor<List<S
 		return Collections.singletonList(new While(sourceLocationFromRegion(w),
 				parseTLAExpression(w.test), statements));
 	}
+	
+	@SuppressWarnings("unchecked")
+	private PGoTLAExpression parseLHS(AST.Lhs lhs) {
+		List<TLAToken> lhsTok = new ArrayList<>();
+		lhsTok.add(new TLAToken(lhs.var, TLATokenType.IDENT, SourceLocation.unknown()));
+		for(Vector<pcal.TLAToken> tokList : (Vector<Vector<pcal.TLAToken>>)lhs.sub.tokens){
+			for(pcal.TLAToken tok : tokList) {
+				lhsTok.add(convertToken(tok));
+			}
+		}
+		try {
+			return TLAParser.readExpression(lhsTok.listIterator());
+		} catch (TLAParseException e) {
+			ctx.error(new TLAParserIssue(e.getReason()));
+			return null;
+		}
+	}
 
 	@SuppressWarnings("unchecked")
 	@Override
 	public List<Statement> visit(AST.Assign as) throws PGoException {
-		List<Statement> statements = new ArrayList<>();
+		List<AssignmentPair> assignments = new ArrayList<>();
 		for(AST.SingleAssign a : (Vector<AST.SingleAssign>)as.ass) {
-			statements.addAll(PcalASTUtil.accept(a, this));
+			assignments.add(new AssignmentPair(
+					sourceLocationFromRegion(a), parseLHS(a.lhs), parseTLAExpression(a.rhs)));
 		}
-		return statements;
+		return Collections.singletonList(new Assignment(sourceLocationFromRegion(as), assignments));
 	}
 
 	@SuppressWarnings("unchecked")
 	@Override
 	public List<Statement> visit(AST.SingleAssign sa) throws PGoException {
-		List<TLAToken> lhsTok = new ArrayList<>();
-		lhsTok.add(new TLAToken(sa.lhs.var, TLATokenType.IDENT, SourceLocation.unknown()));
-		for(Vector<pcal.TLAToken> tokList : (Vector<Vector<pcal.TLAToken>>)sa.lhs.sub.tokens){
-			for(pcal.TLAToken tok : tokList) {
-				lhsTok.add(convertToken(tok));
-			}
-		}
-		PGoTLAExpression lhs;
-		try {
-			lhs = TLAParser.readExpression(lhsTok.listIterator());
-		} catch (TLAParseException e) {
-			ctx.error(new TLAParserIssue(e.getReason()));
-			lhs = null;
-		}
-		return Collections.singletonList(new Assignment(sourceLocationFromRegion(sa), lhs,
-				parseTLAExpression(sa.rhs)));
+		return Collections.singletonList(new Assignment(
+				sourceLocationFromRegion(sa),
+				Collections.singletonList(
+						new AssignmentPair(
+								sourceLocationFromRegion(sa),
+								parseLHS(sa.lhs),
+								parseTLAExpression(sa.rhs)))));
 	}
 
 	@Override

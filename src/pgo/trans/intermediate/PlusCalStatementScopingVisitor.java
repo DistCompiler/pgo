@@ -6,6 +6,7 @@ import java.util.Set;
 import pgo.errors.IssueContext;
 import pgo.model.pcal.Assert;
 import pgo.model.pcal.Assignment;
+import pgo.model.pcal.AssignmentPair;
 import pgo.model.pcal.Await;
 import pgo.model.pcal.Call;
 import pgo.model.pcal.Either;
@@ -81,8 +82,10 @@ public class PlusCalStatementScopingVisitor extends StatementVisitor<Void, Runti
 
 	@Override
 	public Void visit(Assignment assignment) throws RuntimeException {
-		assignment.getLHS().accept(new TLAExpressionScopingVisitor(builder, regBuilder, loader, moduleRecursionSet));
-		assignment.getRHS().accept(new TLAExpressionScopingVisitor(builder, regBuilder, loader, moduleRecursionSet));
+		for(AssignmentPair pair : assignment.getPairs()) {
+			pair.getLhs().accept(new TLAExpressionScopingVisitor(builder, regBuilder, loader, moduleRecursionSet));
+			pair.getRhs().accept(new TLAExpressionScopingVisitor(builder, regBuilder, loader, moduleRecursionSet));
+		}
 		return null;
 	}
 

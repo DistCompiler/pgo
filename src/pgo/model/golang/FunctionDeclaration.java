@@ -40,4 +40,9 @@ public class FunctionDeclaration extends Declaration {
 	public Block getBody() {
 		return body;
 	}
+
+	@Override
+	public <T, E extends Throwable> T accept(DeclarationVisitor<T, E> v) throws E {
+		return v.visit(this);
+	}
 }

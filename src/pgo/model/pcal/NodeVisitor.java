@@ -10,5 +10,6 @@ public abstract class NodeVisitor<T, E extends Throwable> {
 	public abstract T visit(PcalProcess pcalProcess) throws E;
 	public abstract T visit(Procedure procedure) throws E;
 	public abstract T visit(VariableDecl variableDecl) throws E;
+	public abstract T visit(AssignmentPair assignmentPair) throws E;
 
 }

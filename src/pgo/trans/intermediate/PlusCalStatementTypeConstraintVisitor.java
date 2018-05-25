@@ -65,10 +65,12 @@ public class PlusCalStatementTypeConstraintVisitor extends StatementVisitor<Void
 
 	@Override
 	public Void visit(Assignment assignment) throws RuntimeException {
-		solver.addConstraint(ctx, new PGoTypeConstraint(
-				assignment,
-				exprVisitor.wrappedVisit(assignment.getLHS()),
-				exprVisitor.wrappedVisit(assignment.getRHS())));
+		for(AssignmentPair pair : assignment.getPairs()) {
+			solver.addConstraint(ctx, new PGoTypeConstraint(
+					pair,
+					exprVisitor.wrappedVisit(pair.getLhs()),
+					exprVisitor.wrappedVisit(pair.getRhs())));
+		}
 		return null;
 	}
 

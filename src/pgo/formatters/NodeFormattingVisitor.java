@@ -3,6 +3,7 @@ package pgo.formatters;
 import java.io.IOException;
 
 import pgo.model.pcal.Algorithm;
+import pgo.model.pcal.AssignmentPair;
 import pgo.model.pcal.Label;
 import pgo.model.pcal.Macro;
 import pgo.model.pcal.NodeVisitor;
@@ -86,6 +87,11 @@ public class NodeFormattingVisitor extends NodeVisitor<Void, IOException> {
 		}
 		variableDecl.getValue().accept(new PGoTLAExpressionFormattingVisitor(out));
 		return null;
+	}
+
+	@Override
+	public Void visit(AssignmentPair assignmentPair) throws IOException {
+		throw new RuntimeException("TODO");
 	}
 
 }

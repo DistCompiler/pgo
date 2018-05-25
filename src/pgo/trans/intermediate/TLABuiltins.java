@@ -296,10 +296,10 @@ public class TLABuiltins {
 					// TODO scope i correctly
 					Expression acc = builder.getFreshName("i");
 					try(BlockBuilder body = builder.forLoop(
-							new Assignment(Collections.singletonList(acc), true, from),
+							new Assignment(Collections.singletonList(acc), true, Collections.singletonList(from)),
 							new Binop(Binop.Operation.LEQ, acc, to),
 							new IncDec(true, acc))){
-						body.assign(Collections.singletonList(new Index(tmpRange, acc)), acc);
+						body.assign(Collections.singletonList(new Index(tmpRange, acc)), Collections.singletonList(acc));
 					}
 					return tmpRange;
 				}));

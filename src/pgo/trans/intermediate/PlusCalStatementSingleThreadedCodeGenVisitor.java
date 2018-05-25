@@ -1,6 +1,8 @@
 package pgo.trans.intermediate;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 import pgo.model.golang.BlockBuilder;
@@ -8,6 +10,7 @@ import pgo.model.golang.Expression;
 import pgo.model.golang.IfBuilder;
 import pgo.model.pcal.Assert;
 import pgo.model.pcal.Assignment;
+import pgo.model.pcal.AssignmentPair;
 import pgo.model.pcal.Await;
 import pgo.model.pcal.Call;
 import pgo.model.pcal.Either;
@@ -82,10 +85,13 @@ public class PlusCalStatementSingleThreadedCodeGenVisitor extends StatementVisit
 
 	@Override
 	public Void visit(Assignment assignment) throws RuntimeException {
-		builder.assign(
-				Collections.singletonList(
-						assignment.getLHS().accept(new TLAExpressionSingleThreadedCodeGenVisitor(builder, registry, typeMap))),
-				assignment.getRHS().accept(new TLAExpressionSingleThreadedCodeGenVisitor(builder, registry, typeMap)));
+		List<Expression> lhs = new ArrayList<>();
+		List<Expression> rhs = new ArrayList<>();
+		for(AssignmentPair pair : assignment.getPairs()) {
+			lhs.add(pair.getLhs().accept(new TLAExpressionSingleThreadedCodeGenVisitor(builder, registry, typeMap)));
+			rhs.add(pair.getRhs().accept(new TLAExpressionSingleThreadedCodeGenVisitor(builder, registry, typeMap)));
+		}
+		builder.assign(lhs, rhs);
 		return null;
 	}
 

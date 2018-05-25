@@ -1,9 +1,14 @@
 package pgo.trans.intermediate;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.TreeMap;
 
 import pgo.model.golang.BlockBuilder;
+import pgo.model.golang.Expression;
+import pgo.model.golang.Index;
+import pgo.model.golang.IntLiteral;
 import pgo.model.golang.ModuleBuilder;
 import pgo.model.golang.VariableName;
 import pgo.model.pcal.Algorithm;
@@ -31,12 +36,36 @@ public class PlusCalProcessesSingleThreadedCodeGenVisitor extends ProcessesVisit
 
 	@Override
 	public Void visit(SingleProcess singleProcess) throws RuntimeException {
+		
+		// set up constants (as command-line arguments)
+		Map<String, PGoType> constants = new TreeMap<>(); // sort constants for deterministic compiler output
+		Map<String, UID> constantIds = new HashMap<>();
+		for(UID id : registry.getConstants()) {
+			constants.put(registry.getConstantName(id), typeMap.get(id));
+			constantIds.put(registry.getConstantName(id), id);
+		}
+		
+		for(Map.Entry<String, PGoType> pair : constants.entrySet()) {
+			moduleBuilder.defineGlobal(
+					constantIds.get(pair.getKey()),
+					pair.getKey(),
+					// TODO: WARNING stupid hack fix now
+					new IntLiteral(42));
+		}
+		
 		try(BlockBuilder fnBuilder = moduleBuilder.defineFunction("main", Collections.emptyList(), Collections.emptyList())){
+			
+			// set up variables
 			for(VariableDecl var : algorithm.getVariables()) {
-				VariableName name = fnBuilder.varDecl(var.getName(), var.getValue().accept(
-						new TLAExpressionSingleThreadedCodeGenVisitor(fnBuilder, registry, typeMap)));
+				Expression value = var.getValue().accept(
+						new TLAExpressionSingleThreadedCodeGenVisitor(fnBuilder, registry, typeMap));
+				if(var.isSet()) {
+					value = new Index(value, new IntLiteral(0));
+				}
+				VariableName name = fnBuilder.varDecl(var.getName(), value);
 				fnBuilder.linkUID(var.getUID(), name);
 			}
+			
 			for(LabeledStatements stmts : singleProcess.getLabeledStatements()) {
 				stmts.accept(new PlusCalStatementSingleThreadedCodeGenVisitor(fnBuilder, registry, typeMap));
 			}

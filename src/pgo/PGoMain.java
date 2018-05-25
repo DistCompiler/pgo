@@ -112,17 +112,15 @@ public class PGoMain {
 			Map<UID, PGoType> typeMap = TypeInferencePass.perform(ctx, registry, pcalAlgorithm);
 			checkErrors(ctx);
 			
+			logger.info("Initial code generation");
 			Module module = CodeGenPass.perform(pcalAlgorithm, registry, typeMap);
 
-			System.out.println(module);
+			logger.info("Normalising generated code");
+			Module normalisedModule = CodeNormalisingPass.perform(module);
 
-			/*logger.info("Entering Stage Four: Inferring atomicity constraints");
-			PGoTransStageAtomicity s4 = new PGoTransStageAtomicity(s3);
-			logger.info("Entering Stage Five: Generating Go AST");
-			PGoTransStageGoGen s5 = new PGoTransStageGoGen(s4);
-			logger.info("Entering Stage Six: Generating Go Code");*/
+			
 			logger.info("Writing Go to \"" + opts.buildFile + "\" in folder \"" + opts.buildDir + "\"");
-			IOUtil.WriteStringVectorToFile(getGoLines(), opts.buildDir + "/" + opts.buildFile);
+			IOUtil.WriteStringVectorToFile(Collections.singletonList(normalisedModule.toString()), opts.buildDir + "/" + opts.buildFile);
 			logger.info("Copying necessary Go packages to folder \"" + opts.buildDir + "\"");
 			copyPackages(opts);
 

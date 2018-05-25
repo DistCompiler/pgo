@@ -10,6 +10,7 @@ import pgo.model.golang.BlockBuilder;
 import pgo.model.golang.Builtins;
 import pgo.model.golang.Expression;
 import pgo.model.golang.IntLiteral;
+import pgo.model.golang.InterfaceType;
 import pgo.model.golang.SliceLiteral;
 import pgo.model.golang.StringLiteral;
 import pgo.model.golang.Type;
@@ -44,6 +45,7 @@ import pgo.model.tla.PGoTLAUnary;
 import pgo.model.tla.PGoTLAUniversal;
 import pgo.model.tla.PlusCalDefaultInitValue;
 import pgo.model.type.PGoType;
+import pgo.model.type.PGoTypeTuple;
 import pgo.scope.UID;
 
 public class TLAExpressionSingleThreadedCodeGenVisitor extends PGoTLAExpressionVisitor<Expression, RuntimeException> {
@@ -123,8 +125,8 @@ public class TLAExpressionSingleThreadedCodeGenVisitor extends PGoTLAExpressionV
 			VariableName name = builder.findUID(ref);
 			return name;
 		}else if(registry.isConstant(ref)) {
-			// TODO: do constants, this is a stub and will never work
-			return Builtins.Nil;
+			VariableName name = builder.findUID(ref);
+			return name;
 		}else {
 			System.out.println(pGoTLAVariable);
 			System.out.println(ref);
@@ -135,13 +137,13 @@ public class TLAExpressionSingleThreadedCodeGenVisitor extends PGoTLAExpressionV
 
 	@Override
 	public Expression visit(PGoTLATuple pGoTLATuple) throws RuntimeException {
-		PGoType pgoType = typeMap.get(pGoTLATuple.getUID());
-		Type type = pgoType.accept(new PGoTypeGoTypeConversionVisitor());
+		// TODO: make this general
+		Type elementType = new InterfaceType(Collections.emptyList());
 		List<Expression> elements = new ArrayList<>();
 		for(PGoTLAExpression element : pGoTLATuple.getElements()) {
 			elements.add(element.accept(this));
 		}
-		return new SliceLiteral(type, elements);
+		return new SliceLiteral(elementType, elements);
 	}
 
 	@Override

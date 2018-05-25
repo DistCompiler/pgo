@@ -16,4 +16,9 @@ public class StructTypeField extends Node {
 	public Type getType() {
 		return type;
 	}
+
+	@Override
+	public <T, E extends Throwable> T accept(NodeVisitor<T, E> v) throws E {
+		return v.visit(this);
+	}
 }

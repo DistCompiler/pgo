@@ -13,23 +13,24 @@ public class Assignment extends Statement {
 
 	private List<Expression> names;
 	private boolean defines;
-	private Expression value;
+	private List<Expression> values;
     
-    public Assignment(List<Expression> names, boolean defines, Expression value) {
+    public Assignment(List<Expression> names, boolean defines, List<Expression> values) {
     	this.names = names;
-    	this.value = value;
+    	this.defines = defines;
+    	this.values = values;
     }
     
     public List<Expression> getNames() {
     	return names;
     }
     
-    public boolean getDefines() {
+    public boolean isDefinition() {
     	return defines;
     }
     
-    public Expression getValue() {
-    	return value;
+    public List<Expression> getValues() {
+    	return values;
     }
 
     @Override

@@ -56,8 +56,8 @@ public class BlockBuilder extends ASTBuilder implements Closeable {
 		statements.add(new Label(name));
 	}
 	
-	public void assign(List<Expression> names, Expression value) {
-		addStatement(new Assignment(names, false, value));
+	public void assign(List<Expression> names, List<Expression> values) {
+		addStatement(new Assignment(names, false, values));
 	}
 	
 	public ASTBuilder getParent() {
@@ -71,10 +71,11 @@ public class BlockBuilder extends ASTBuilder implements Closeable {
 	public void print(Expression value) {
 		addImport("fmt");
 		addStatement(
-				new Call(
-						new Selector(
-								new VariableName("fmt"), "Printf"),
-						Arrays.asList(new StringLiteral("\"%v\""), value)));
+				new ExpressionStatement(
+						new Call(
+								new Selector(
+										new VariableName("fmt"), "Printf"),
+								Arrays.asList(new StringLiteral("%v\\n"), value))));
 	}
 	
 	public BlockBuilder forLoop(Expression condition) {
@@ -91,7 +92,7 @@ public class BlockBuilder extends ASTBuilder implements Closeable {
 	
 	public VariableName varDecl(String nameHint, Expression value) {
 		VariableName name = getFreshName(nameHint);
-		addStatement(new Assignment(Collections.singletonList(name), true, value));
+		addStatement(new Assignment(Collections.singletonList(name), true, Collections.singletonList(value)));
 		return name;
 	}
 	

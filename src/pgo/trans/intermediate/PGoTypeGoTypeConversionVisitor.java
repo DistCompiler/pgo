@@ -31,7 +31,7 @@ public class PGoTypeGoTypeConversionVisitor extends PGoTypeVisitor<Type, Runtime
 
 	@Override
 	public Type visit(PGoTypeTuple pGoTypeTuple) throws RuntimeException {
-		return new SliceType(new InterfaceType());
+		return new SliceType(new InterfaceType(Collections.emptyList()));
 	}
 
 	@Override

@@ -20,7 +20,7 @@ public class DefinitionRegistry {
 	private Map<UID, OperatorAccessor> operators;
 	private Set<UID> globalVariables;
 	private Set<UID> localVariables;
-	private Set<UID> constants;
+	private Map<UID, String> constants;
 	private Map<UID, UID> references;
 	private Map<String, Procedure> procedures;
 
@@ -33,7 +33,7 @@ public class DefinitionRegistry {
 		this.procedures = new HashMap<>();
 		this.globalVariables = new HashSet<>();
 		this.localVariables = new HashSet<>();
-		this.constants = new HashSet<>();
+		this.constants = new HashMap<>();
 	}
 
 	public Map<UID, UID> getReferences(){
@@ -74,8 +74,8 @@ public class DefinitionRegistry {
 		localVariables.add(uid);
 	}
 	
-	public void addConstant(UID uid) {
-		constants.add(uid);
+	public void addConstant(UID uid, String name) {
+		constants.put(uid, name);
 	}
 
 	public UID followReference(UID from) {
@@ -109,7 +109,18 @@ public class DefinitionRegistry {
 	}
 	
 	public boolean isConstant(UID ref) {
-		return constants.contains(ref);
+		return constants.containsKey(ref);
+	}
+	
+	public Set<UID> getConstants(){
+		return constants.keySet();
+	}
+	
+	public String getConstantName(UID id) {
+		if(!constants.containsKey(id)) {
+			throw new RuntimeException("internal compiler error");
+		}
+		return constants.get(id);
 	}
 
 }

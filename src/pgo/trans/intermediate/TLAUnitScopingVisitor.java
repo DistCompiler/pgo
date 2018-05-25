@@ -205,7 +205,7 @@ public class TLAUnitScopingVisitor extends PGoTLAUnitVisitor<Void, RuntimeExcept
 	public Void visit(PGoTLAConstantDeclaration pGoTLAConstantDeclaration) throws RuntimeException {
 		for(PGoTLAOpDecl op : pGoTLAConstantDeclaration.getConstants()) {
 			builder.declare(op.getName().getId(), op.getName().getUID());
-			regBuilder.addConstant(op.getName().getUID());
+			regBuilder.addConstant(op.getName().getUID(), op.getName().getId());
 		}
 		return null;
 	}

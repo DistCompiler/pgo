@@ -13,7 +13,7 @@ public abstract class StatementVisitor<T, E extends Throwable>{
 	public abstract T visit(GoCall goCall) throws E;
 	public abstract T visit(Select select) throws E;
 	public abstract T visit(GoTo goTo) throws E;
-	public abstract T visit(Expression expression) throws E;
 	public abstract T visit(IncDec incDec) throws E;
+	public abstract T visit(ExpressionStatement expressionStatement) throws E;
 	
 }

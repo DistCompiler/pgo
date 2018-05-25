@@ -1,30 +1,26 @@
 package pgo.model.pcal;
 
-import pgo.model.tla.PGoTLAExpression;
+import java.util.List;
+import java.util.stream.Collectors;
+
 import pgo.util.SourceLocation;
 
 public class Assignment extends Statement {
 	
-	private PGoTLAExpression lhs;
-	private PGoTLAExpression rhs;
+	private List<AssignmentPair> pairs;
 	
-	public Assignment(SourceLocation location, PGoTLAExpression lhs, PGoTLAExpression rhs) {
+	public Assignment(SourceLocation location, List<AssignmentPair> pairs) {
 		super(location);
-		this.lhs = lhs;
-		this.rhs = rhs;
+		this.pairs = pairs;
 	}
 	
 	@Override
 	public Assignment copy() {
-		return new Assignment(getLocation(), lhs.copy(), rhs.copy());
+		return new Assignment(getLocation(), pairs.stream().map(AssignmentPair::copy).collect(Collectors.toList()));
 	}
-	
-	public PGoTLAExpression getLHS() {
-		return lhs;
-	}
-	
-	public PGoTLAExpression getRHS() {
-		return rhs;
+
+	public List<AssignmentPair> getPairs() {
+		return pairs;
 	}
 
 	@Override
@@ -36,8 +32,7 @@ public class Assignment extends Statement {
 	public int hashCode() {
 		final int prime = 31;
 		int result = 1;
-		result = prime * result + ((lhs == null) ? 0 : lhs.hashCode());
-		result = prime * result + ((rhs == null) ? 0 : rhs.hashCode());
+		result = prime * result + ((pairs == null) ? 0 : pairs.hashCode());
 		return result;
 	}
 
@@ -50,15 +45,10 @@ public class Assignment extends Statement {
 		if (getClass() != obj.getClass())
 			return false;
 		Assignment other = (Assignment) obj;
-		if (lhs == null) {
-			if (other.lhs != null)
+		if (pairs == null) {
+			if (other.pairs != null)
 				return false;
-		} else if (!lhs.equals(other.lhs))
-			return false;
-		if (rhs == null) {
-			if (other.rhs != null)
-				return false;
-		} else if (!rhs.equals(other.rhs))
+		} else if (!pairs.equals(other.pairs))
 			return false;
 		return true;
 	}

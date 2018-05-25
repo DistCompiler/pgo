@@ -12,6 +12,7 @@ import java.util.stream.Collectors;
 import pgo.errors.IssueContext;
 import pgo.model.pcal.Assert;
 import pgo.model.pcal.Assignment;
+import pgo.model.pcal.AssignmentPair;
 import pgo.model.pcal.Await;
 import pgo.model.pcal.Call;
 import pgo.model.pcal.Either;
@@ -80,8 +81,15 @@ public class PlusCalMacroExpansionVisitor extends StatementVisitor<List<Statemen
 
 	@Override
 	public List<Statement> visit(Assignment assignment) throws RuntimeException {
+		List<AssignmentPair> pairs = new ArrayList<>();
+		for(AssignmentPair pair : assignment.getPairs()) {
+			pairs.add(new AssignmentPair(
+					pair.getLocation(),
+					pair.getLhs().accept(macroSubst),
+					pair.getRhs().accept(macroSubst)));
+		}
 		return Collections.singletonList(new Assignment(
-				assignment.getLocation(), assignment.getLHS().accept(macroSubst), assignment.getRHS().accept(macroSubst)));
+				assignment.getLocation(), pairs));
 	}
 
 	@Override

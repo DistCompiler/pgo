@@ -17,5 +17,10 @@ public class SwitchCase extends Node {
 	public Statement getBranch() {
 		return branch;
 	}
+	
+	@Override
+	public <T, E extends Throwable> T accept(NodeVisitor<T, E> v) throws E {
+		return v.visit(this);
+	}
 
 }
