@@ -5,8 +5,6 @@ import org.junit.Test;
 import pgo.errors.IssueContext;
 import pgo.errors.TopLevelIssueContext;
 import pgo.scope.UID;
-import pgo.util.Derived;
-import pgo.util.DerivedVisitor;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -53,13 +51,13 @@ public class PGoTypeSolverTest {
 	public void boolSlice() {
 		PGoTypeVariable a = typeGenerator.get();
 		PGoTypeVariable b = typeGenerator.get();
-		solver.addConstraint(ctx, new PGoTypeConstraint(dummyUID, a, PGoTypeBool.getInstance()));
+		solver.addConstraint(ctx, new PGoTypeConstraint(dummyUID, a, new PGoTypeBool()));
 		solver.addConstraint(ctx, new PGoTypeConstraint(dummyUID, b, new PGoTypeSlice(a)));
 		solver.simplify(ctx);
 		assertFalse(ctx.hasErrors());
 		assertEquals(new HashMap<PGoTypeVariable, PGoType>() {{
-			put(a, PGoTypeBool.getInstance());
-			put(b, new PGoTypeSlice(PGoTypeBool.getInstance()));
+			put(a, new PGoTypeBool());
+			put(b, new PGoTypeSlice(new PGoTypeBool()));
 		}}, solver.getMapping());
 	}
 
@@ -69,13 +67,13 @@ public class PGoTypeSolverTest {
 		PGoTypeVariable b = typeGenerator.get();
 		solver.addConstraint(ctx, new PGoTypeConstraint(
 				dummyUID,
-				new PGoTypeMap(PGoTypeString.getInstance(), PGoTypeInterface.getInstance()),
+				new PGoTypeMap(new PGoTypeString(), new PGoTypeString()),
 				new PGoTypeMap(a, b)));
 		solver.simplify(ctx);
 		assertFalse(ctx.hasErrors());
 		assertEquals(new HashMap<PGoTypeVariable, PGoType>() {{
-			put(a, PGoTypeString.getInstance());
-			put(b, PGoTypeInterface.getInstance());
+			put(a, new PGoTypeString());
+			put(b, new PGoTypeString());
 		}}, solver.getMapping());
 	}
 
@@ -108,8 +106,8 @@ public class PGoTypeSolverTest {
 		PGoTypeVariable a = typeGenerator.get();
 		solver.addConstraint(ctx, new PGoTypeConstraint(
 				dummyUID,
-				PGoTypeError.getInstance(),
-				new PGoTypeMap(PGoTypeError.getInstance(), a)));
+				new PGoTypeBool(),
+				new PGoTypeMap(new PGoTypeBool(), a)));
 		solver.simplify(ctx);
 		assertTrue(ctx.hasErrors());
 	}
@@ -117,7 +115,7 @@ public class PGoTypeSolverTest {
 	@Test
 	public void infiniteType() {
 		PGoTypeVariable a = typeGenerator.get();
-		solver.addConstraint(ctx, new PGoTypeConstraint(dummyUID, a, new PGoTypeMap(PGoTypeInt.getInstance(), a)));
+		solver.addConstraint(ctx, new PGoTypeConstraint(dummyUID, a, new PGoTypeMap(new PGoTypeInt(), a)));
 		solver.simplify(ctx);
 		assertTrue(ctx.hasErrors());
 	}
@@ -168,14 +166,14 @@ public class PGoTypeSolverTest {
 	public void numberPromotion() {
 		PGoTypeVariable a = typeGenerator.get();
 		PGoTypeVariable b = typeGenerator.get();
-		solver.addConstraint(ctx, new PGoTypeConstraint(dummyUID, b, new PGoTypeUnrealizedNumber(PGoTypeDecimal.getInstance())));
-		solver.addConstraint(ctx, new PGoTypeConstraint(dummyUID, a, new PGoTypeUnrealizedNumber()));
+		solver.addConstraint(ctx, new PGoTypeConstraint(dummyUID, b, new PGoTypeDecimal()));
+		solver.addConstraint(ctx, new PGoTypeConstraint(dummyUID, a, new PGoTypeUnrealizedNumber(new PGoTypeNatural())));
 		solver.addConstraint(ctx, new PGoTypeConstraint(dummyUID, a, b));
 		solver.simplify(ctx);
 		assertFalse(ctx.hasErrors());
 		assertEquals(new HashMap<PGoTypeVariable, PGoType>() {{
-			put(a, PGoTypeDecimal.getInstance());
-			put(b, PGoTypeDecimal.getInstance());
+			put(a, new PGoTypeDecimal());
+			put(b, new PGoTypeDecimal());
 		}}, solver.getMapping());
 	}
 
@@ -183,7 +181,7 @@ public class PGoTypeSolverTest {
 	public void boundedNumberPromotion() {
 		PGoTypeVariable a = typeGenerator.get();
 		PGoTypeVariable b = typeGenerator.get();
-		solver.addConstraint(ctx, new PGoTypeConstraint(dummyUID, b, new PGoTypeUnrealizedNumber(PGoTypeDecimal.getInstance())));
+		solver.addConstraint(ctx, new PGoTypeConstraint(dummyUID, b, new PGoTypeDecimal()));
 		solver.addConstraint(ctx, new PGoTypeConstraint(dummyUID, a, PGoTypeUnrealizedNumber.integralType()));
 		solver.addConstraint(ctx, new PGoTypeConstraint(dummyUID, a, b));
 		solver.simplify(ctx);
@@ -196,7 +194,7 @@ public class PGoTypeSolverTest {
 		PGoTypeVariable b = typeGenerator.get();
 		solver.addConstraint(ctx, new PGoTypeConstraint(
 				dummyUID,
-				new PGoTypeTuple(Arrays.asList(PGoTypeInt.getInstance(), PGoTypeString.getInstance())),
+				new PGoTypeTuple(Arrays.asList(new PGoTypeInt(), new PGoTypeString())),
 				a));
 		solver.addConstraint(ctx, new PGoTypeConstraint(
 				dummyUID,
@@ -206,8 +204,8 @@ public class PGoTypeSolverTest {
 		solver.simplify(ctx);
 		assertFalse(ctx.hasErrors());
 		assertEquals(new HashMap<PGoTypeVariable, PGoType>() {{
-			put(a, new PGoTypeTuple(Arrays.asList(PGoTypeInt.getInstance(), PGoTypeString.getInstance())));
-			put(b, new PGoTypeTuple(Arrays.asList(PGoTypeInt.getInstance(), PGoTypeString.getInstance())));
+			put(a, new PGoTypeTuple(Arrays.asList(new PGoTypeInt(), new PGoTypeString())));
+			put(b, new PGoTypeTuple(Arrays.asList(new PGoTypeInt(), new PGoTypeString())));
 		}}, solver.getMapping());
 	}
 
@@ -219,7 +217,7 @@ public class PGoTypeSolverTest {
 		PGoTypeVariable d = typeGenerator.get();
 		solver.addConstraint(ctx, new PGoTypeConstraint(
 				dummyUID,
-				new PGoTypeTuple(Arrays.asList(PGoTypeInt.getInstance(), d)),
+				new PGoTypeTuple(Arrays.asList(new PGoTypeInt(), d)),
 				a));
 		solver.addConstraint(ctx, new PGoTypeConstraint(
 				dummyUID,
@@ -227,17 +225,17 @@ public class PGoTypeSolverTest {
 				b));
 		solver.addConstraint(ctx, new PGoTypeConstraint(
 				dummyUID,
-				new PGoTypeUnrealizedTuple(Collections.singletonMap(1, PGoTypeString.getInstance())),
+				new PGoTypeUnrealizedTuple(Collections.singletonMap(1, new PGoTypeString())),
 				c));
 		solver.addConstraint(ctx, new PGoTypeConstraint(dummyUID, a, b));
 		solver.addConstraint(ctx, new PGoTypeConstraint(dummyUID, b, c));
 		solver.simplify(ctx);
 		assertFalse(ctx.hasErrors());
 		assertEquals(new HashMap<PGoTypeVariable, PGoType>() {{
-			put(a, new PGoTypeTuple(Arrays.asList(PGoTypeInt.getInstance(), PGoTypeString.getInstance())));
-			put(b, new PGoTypeTuple(Arrays.asList(PGoTypeInt.getInstance(), PGoTypeString.getInstance())));
-			put(c, new PGoTypeTuple(Arrays.asList(PGoTypeInt.getInstance(), PGoTypeString.getInstance())));
-			put(d, PGoTypeString.getInstance());
+			put(a, new PGoTypeTuple(Arrays.asList(new PGoTypeInt(), new PGoTypeString())));
+			put(b, new PGoTypeTuple(Arrays.asList(new PGoTypeInt(), new PGoTypeString())));
+			put(c, new PGoTypeTuple(Arrays.asList(new PGoTypeInt(), new PGoTypeString())));
+			put(d, new PGoTypeString());
 		}}, solver.getMapping());
 	}
 
@@ -251,17 +249,17 @@ public class PGoTypeSolverTest {
 		solver.addConstraint(ctx, new PGoTypeConstraint(dummyUID, new PGoTypeUnrealizedTuple(), b));
 		solver.addConstraint(ctx, new PGoTypeConstraint(
 				dummyUID,
-				new PGoTypeUnrealizedTuple(Collections.singletonMap(0, PGoTypeString.getInstance())),
+				new PGoTypeUnrealizedTuple(Collections.singletonMap(0, new PGoTypeString())),
 				c));
 		solver.addConstraint(ctx, new PGoTypeConstraint(dummyUID, a, b));
 		solver.addConstraint(ctx, new PGoTypeConstraint(dummyUID, b, c));
 		solver.simplify(ctx);
 		assertFalse(ctx.hasErrors());
 		assertEquals(new HashMap<PGoTypeVariable, PGoType>() {{
-			put(a, new PGoTypeChan(PGoTypeString.getInstance()));
-			put(b, new PGoTypeChan(PGoTypeString.getInstance()));
-			put(c, new PGoTypeChan(PGoTypeString.getInstance()));
-			put(d, PGoTypeString.getInstance());
+			put(a, new PGoTypeChan(new PGoTypeString()));
+			put(b, new PGoTypeChan(new PGoTypeString()));
+			put(c, new PGoTypeChan(new PGoTypeString()));
+			put(d, new PGoTypeString());
 		}}, solver.getMapping());
 	}
 
@@ -276,11 +274,11 @@ public class PGoTypeSolverTest {
 		solver.addConstraint(ctx, new PGoTypeConstraint(dummyUID, new PGoTypeUnrealizedTuple(), b));
 		solver.addConstraint(ctx, new PGoTypeConstraint(
 				dummyUID,
-				new PGoTypeUnrealizedTuple(Collections.singletonMap(1, PGoTypeString.getInstance())),
+				new PGoTypeUnrealizedTuple(Collections.singletonMap(1, new PGoTypeString())),
 				c));
 		solver.addConstraint(ctx, new PGoTypeConstraint(
 				dummyUID,
-				new PGoTypeUnrealizedTuple(Collections.singletonMap(0, PGoTypeInt.getInstance())),
+				new PGoTypeUnrealizedTuple(Collections.singletonMap(0, new PGoTypeInt())),
 				e));
 		solver.addConstraint(ctx, new PGoTypeConstraint(dummyUID, a, b));
 		solver.addConstraint(ctx, new PGoTypeConstraint(dummyUID, b, c));
