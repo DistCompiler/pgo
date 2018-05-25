@@ -35,13 +35,13 @@ corresponding compilable and runnable Go code.
 See `manual.pdf` in the repository for a snapshot of the latest version
 of the manual that details implemented features and several examples.
 
-## How does it work
+## How it works
 
 PGo is a source to source compiler written in Java. It uses TLA+
 toolset to parse PlusCal into an AST, which is then translated to a Go
 AST, and finally written to a .go file.
 
-## How to install it?
+## How to install
 
 Requirements: Eclipse or Ant 1.9
 
@@ -56,14 +56,25 @@ Dependencies:
 
 - The [TLA+ tools](https://github.com/tlaplus/tlaplus/tree/master/tlatools/src).
 
+- The [JSON reference implementation](https://github.com/stleary/JSON-java).
+
 - The [Go Data Structures library](https://github.com/emirpasic/gods).
 
 PGo was tested on JRE8 and Go 1.8.3.
 
 ## How to run
 
-Run with eclipse. Arguments `-h` for help.
-Alternatively, run the compiler with `./pgo.sh`.
+Use `pgo.sh` to invoke the compiler. Below are the options that the compiler accepts.
+
+```bash
+$ ./pgo.sh -h
+Usage: pgo [options] pcalfile
+  -h --help=<boolean>          - Print usage information [default false]
+  -q --logLvlQuiet=<boolean>   - Reduce printing during execution [default false]
+  -v --logLvlVerbose=<boolean> - Print detailed information during execution  [default false]
+  -c --configFilePath=<string> - path to the configuration file, if any [default ]
+  --writeAST=<boolean>         - write the AST generated and skip the rest [default false]
+```
 
 ## For developers
 
@@ -85,4 +96,3 @@ assertions as a default for all projects, go to Window -> Preferences
 ## Usage Documentation
 
 For more details, see `manual.pdf` in the repository.
-

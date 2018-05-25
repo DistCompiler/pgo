@@ -49,36 +49,26 @@ public class IOUtil {
 	 * Reads file fileName into a StringVector, a vector in which each * element
 	 * is a line of the file. *
 	 ***********************************************************************/
-	public static Vector fileToStringVector(String fileName) throws FileToStringVectorException {
-		Vector inputVec = new Vector(100);
+	public static Vector<String> fileToStringVector(Path fileName) throws FileToStringVectorException {
+		Vector<String> inputVec = new Vector<>(100);
 		try {
-			BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(new FileInputStream(fileName)));
-			try {
-				String nextLine = bufferedReader.readLine();
-				while (nextLine != null) {
-					inputVec.addElement(nextLine);
-					nextLine = bufferedReader.readLine();
-				}
-				;
-				bufferedReader.close();
-			} catch (IOException e) {
-				/*********************************************************
-				 * Error while reading input file. *
-				 *********************************************************/
-				throw new FileToStringVectorException("Error reading file " + fileName + ".");
+			BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(Files.newInputStream(fileName)));
+			String nextLine = bufferedReader.readLine();
+			while (nextLine != null) {
+				inputVec.add(nextLine);
+				nextLine = bufferedReader.readLine();
 			}
-		}
-
-		catch (FileNotFoundException e) {
-			/**************************************************************
-			 * Input file could not be found. *
-			 **************************************************************/
-			throw new FileToStringVectorException("Input file " + fileName + " not found.");
+			bufferedReader.close();
+		} catch (IOException e) {
+			/*********************************************************
+			 * Error while reading input file. *
+			 *********************************************************/
+			throw new FileToStringVectorException("Error reading file " + fileName.toString() + ".");
 		}
 
 		return inputVec;
 	}
-	
+
 	/**********************
 	 * Writing the AST
 	 ************************************/

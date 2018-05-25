@@ -1,0 +1,48 @@
+The \texttt{pgo/datatypes} Go package provides some useful data structures and methods that correspond to PlusCal language features. The data structures are generic and provide no runtime type safety. PGo guarantees at compile-time that the compiled code does not contain any type assertions that will panic. This section contains some useful information about these containers for developers wishing to modify and optimize the compiled Go code.
+
+\subsection{Maps}
+The Go library map is mutable, but the PlusCal map is not. An assignment to a component of a PlusCal map does not change the value of other references to that map:
+
+\begin{minipage}[t]{\textwidth}
+\begin{lstlisting}[language=pcal]
+variables
+	S = {1, 2, 3};
+	M = [x \in S |-> 2 * x];
+	T = {M};
+{
+	print M \in T; \* TRUE
+	M[2] := 3;
+	print M \in T; \* FALSE
+}
+\end{lstlisting}
+\end{minipage}
+
+The \texttt{datatypes.Map} clones any map that is to be inserted into a map or a set. This preserves semantics but may unnecessarily slow the program, if the map is never mutated. Similarly, since slices are mutable but PlusCal tuples are immutable, slices are cloned before being used as map keys or values.
+
+The Go map provides three iterators: \texttt{Keys} and \texttt{Values} range over the keys and values stored in the map ordered by keys, and \texttt{Iter} ranges over \texttt{KVPair}s, which are \texttt{struct}s with two fields: \texttt{Key} and \texttt{Val}.
+
+If a PlusCal map is indexed by multiple indices, the Go map internally uses a \texttt{Tuple} of the indices as its key. The value \verb|M[a, b]| in PlusCal can be recovered in Go by calling \verb|M.Get(datatypes.NewTuple(a, b))|.
+
+The \texttt{datatypes.MapsTo} method makes extensive use of reflection. Performance-critical sections of the application should be rewritten to avoid the use of this method. The \texttt{datatypes.Map}'s comparator function also uses reflection, which may slow the program especially when using slices or structs as map keys.
+
+The \texttt{datatypes} package exposes a \texttt{Map} interface. A custom data type which implements \texttt{datatypes.Map} is interoperable with the builtin type.
+
+\subsection{Sets and predicates}
+The \texttt{datatypes.Set} is implemented using the \texttt{datatypes.Map} as a base, so much of the same semantics apply.
+
+The sets in the Go set library are mutable, whereas TLA+ sets are immutable. However, all operations equivalent to TLA+ set operations are implemented as methods which do not mutate the Go set. For performance purposes, sets are not cloned when inserted into a map or a set. The developer modifying the compiled Go program should exercise caution when making sets of sets or maps with sets if mutating the sets that are inserted. The sets should be copied with the \texttt{Clone} method before insertion.
+
+Simple optimizations that can be made by the developer when dealing with sets include replacing the PlusCal \verb|S := S \union {elt}| with simply adding \texttt{elt} to \texttt{S} and similarly replacing \verb|S := S \ {elt}| with removing \texttt{elt} from \texttt{S}. Since this mutates the set, the set must be cloned if it is inserted into a set or used with a map.
+
+Elements inserted into a set must be of the same type; otherwise, the program will panic at runtime. This is the same behaviour as TLC, which throws an error when one set contains elements of different types. At compile-time, PGo will throw an error if elements in a set are not of the same type.
+
+The \texttt{SetConstructor} and \texttt{SetImage} methods, along with the quantifiers \texttt{ForAll} and \texttt{Exists} and the \texttt{Choose} method, make use of the \texttt{reflect} package. This drastically improves the readability of the compiled Go program, but it also incurs a significant performance penalty. Performance-critical sections of the application should be rewritten to avoid use of these methods.
+
+Since slices are mutable, but PlusCal tuples are immutable, slices are cloned before insertion into a set.
+
+The \texttt{pgo/datatypes} library exposes a \texttt{Set} interface. The developer modifying the Go code may wish to write a custom set container (say, which is specialized for a specific data type). If this container implements the \texttt{datatypes.Set} interface, it is interoperable with the builtin set.
+
+\subsection{Tuples}
+The \texttt{datatypes.Tuple} implements an immutable tuple type which holds elements of arbitrary type, backed by a slice. The \texttt{At} and \texttt{Set} tuple methods panic if the index accessed is out of range. The \texttt{Set} and \texttt{Append} tuple methods create a copy of the tuple, to preserve immutability. (However, the \texttt{Head} and \texttt{Tail} methods do not.)
+
+The \texttt{pgo/datatypes} library exposes a \texttt{Tuple} interface. Any custom container implementing this interface is \emph{not} interoperable with the builtin tuple.

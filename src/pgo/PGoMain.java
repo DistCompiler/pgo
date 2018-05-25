@@ -26,70 +26,50 @@ import pgo.trans.intermediate.*;
 import pgo.util.IOUtil;
 
 public class PGoMain {
-
+	private String[] cmdArgs;
 	private static Logger logger;
-	private PGoOptions opts = null;
-	private static PGoMain instance = null;
 
-	// Check options, sets up logging.
-	public PGoMain(String[] args) throws PGoOptionException {
-		opts = new PGoOptions(args);
-		try {
-			opts.checkOptions();
-		} catch (PGoOptionException e) {
-			logger.severe(e.getMessage());
-			opts.printHelp();
-			System.exit(-1);
-		}
-
-		// set up logging with correct verbosity
-		setUpLogging(opts);
+	public PGoMain(String[] args) {
+		cmdArgs = args;
 	}
 
 	// Creates a PGoMain instance, and initiates run() below.
 	public static void main(String[] args) {
 		// Get the top Logger instance
 		logger = Logger.getLogger("PGoMain");
-
-		try {
-			instance = new PGoMain(args);
-		} catch (PGoOptionException e) {
-			logger.severe(e.getMessage());
-			System.exit(-1);
-		}
-
-		instance.run();
+		new PGoMain(args).run();
 		logger.info("Finished");
 	}
 
 	// Top-level workhorse method.
 	public void run() {
-		PcalParser parser = new PcalParser(opts.infile);
-
-		ParsedPcal pcal;
-		try {
-			pcal = parser.parse();
-		} catch (PGoParseException e) {
-			logger.severe(e.getMessage());
-			return;
-		}
-
-		// for -writeAST option, just write the file AST.tla and halt.
-		if (opts.writeAST) {
-			IOUtil.WriteAST(pcal.getAST(), opts.buildDir + "/" + opts.buildFile);
-			return; // added for testing
-		}
-
 		try {
 			TopLevelIssueContext ctx = new TopLevelIssueContext();
-			TLAModuleLoader loader = new TLAModuleLoader(Collections.singletonList(Paths.get(opts.infile).getParent()));
 
-			logger.info("Parsing TLA+ module");
-			PGoTLAModule tlaModule = TLAParsingPass.perform(ctx, Paths.get(opts.infile));
+			// Check options, set up logging.
+			PGoOptions opts = OptionParsingPass.perform(ctx, logger, cmdArgs);
+			if (ctx.hasErrors()) {
+				System.err.println(ctx.format());
+				opts.printHelp();
+				System.exit(1);
+			}
+
+			logger.info("Parsing PlusCal code");
+			ParsedPcal pcal = PlusCalParsingPass.perform(ctx, Paths.get(opts.inputFilePath));
 			checkErrors(ctx);
+
+			// for -writeAST option, just write the file AST.tla and halt.
+			if (opts.writeAST) {
+				IOUtil.WriteAST(pcal.getAST(), opts.buildDir + "/" + opts.buildFile);
+				return; // added for testing
+			}
 
 			logger.info("Cleaning up PlusCal AST");
 			Algorithm pcalAlgorithm = PlusCalConversionPass.perform(ctx, pcal);
+			checkErrors(ctx);
+
+			logger.info("Parsing TLA+ module");
+			PGoTLAModule tlaModule = TLAParsingPass.perform(ctx, Paths.get(opts.inputFilePath));
 			checkErrors(ctx);
 
 			/*logger.info("Parsing PGo annotations");
@@ -105,6 +85,7 @@ public class PGoMain {
 			checkErrors(ctx);
 
 			logger.info("Resolving TLA+ and PlusCal scoping");
+			TLAModuleLoader loader = new TLAModuleLoader(Collections.singletonList(Paths.get(opts.inputFilePath).getParent()));
 			DefinitionRegistry registry = PGoScopingPass.perform(ctx, tlaModule, pcalAlgorithm, loader);
 			checkErrors(ctx);
 
@@ -122,11 +103,11 @@ public class PGoMain {
 			logger.info("Writing Go to \"" + opts.buildFile + "\" in folder \"" + opts.buildDir + "\"");
 			IOUtil.WriteStringVectorToFile(Collections.singletonList(normalisedModule.toString()), opts.buildDir + "/" + opts.buildFile);
 			logger.info("Copying necessary Go packages to folder \"" + opts.buildDir + "\"");
-			copyPackages(opts);
+			copyPackages(opts.buildDir);
 
 			logger.info("Formatting generated Go code");
 			try {
-				goFmt();
+				goFmt(opts.buildDir + "/" + opts.buildFile);
 			} catch (Exception e) {
 				logger.warning(String.format("Failed to format Go code. Error: %s", e.getMessage()));
 			}
@@ -147,29 +128,15 @@ public class PGoMain {
 		return null; // TODO
 	}
 
-	private static void copyPackages(PGoOptions opts) throws IOException {
-		FileUtils.copyDirectory(new File("src/go/pgo"), new File(opts.buildDir + "/src/pgo"));
+	private static void copyPackages(String buildDir) throws IOException {
+		FileUtils.copyDirectory(new File("src/go/pgo"), new File(buildDir + "/src/pgo"));
 		FileUtils.copyDirectory(new File("src/go/github.com/emirpasic"),
-				new File(opts.buildDir + "/src/github.com/emirpasic"));
+				new File(buildDir + "/src/github.com/emirpasic"));
 	}
 
-	private static void setUpLogging(PGoOptions opts) {
-		// Set the logger's log level based on command line arguments
-		if (opts.logLvlQuiet) {
-			logger.setLevel(Level.WARNING);
-		} else if (opts.logLvlVerbose) {
-			logger.setLevel(Level.FINE);
-		} else {
-			logger.setLevel(Level.INFO);
-		}
-	}
-
-	private void goFmt() throws IOException, InterruptedException {
-		String destFile = String.format("%s/%s", opts.buildDir, opts.buildFile);
-		String command = String.format("gofmt -w %s", destFile);
-
+	private void goFmt(String... files) throws IOException, InterruptedException {
+		String command = "gofmt -w " + String.join(" ", files);
 		Process p = Runtime.getRuntime().exec(command);
 		p.waitFor();
 	}
-
 }

@@ -30,6 +30,20 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 	}
 
 	@Override
+	public Void visit(OptionParserIssue optionParserIssue) throws IOException {
+		out.write("unable to parse options: ");
+		out.write(optionParserIssue.getMessage());
+		return null;
+	}
+
+	@Override
+	public Void visit(PlusCalParserIssue plusCalParserIssue) throws IOException {
+		out.write("unable to parse PlusCal code: ");
+		out.write(plusCalParserIssue.getMessage());
+		return null;
+	}
+
+	@Override
 	public Void visit(ScopeConflictIssue scopeConflictIssue) throws IOException {
 		out.write("scoping conflict between ");
 		scopeConflictIssue.getFirst().accept(new OriginFormattingVisitor(out));
