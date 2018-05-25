@@ -96,13 +96,25 @@ public class TLAExpressionTypeConstraintVisitor extends PGoTLAExpressionVisitor<
 
 	@Override
 	public PGoType visit(PGoTLAFunctionCall pGoTLAFunctionCall) throws RuntimeException {
-		PGoType fnType = wrappedVisit(pGoTLAFunctionCall.getFunction());
+		PGoType fnType = wrappedVisit(pGoTLAFunctionCall.getFunction()).substitute(solver.getMapping());
 		List<PGoType> paramTypes = new ArrayList<>();
 		for(PGoTLAExpression param : pGoTLAFunctionCall.getParams()) {
 			paramTypes.add(wrappedVisit(param));
 		}
 		PGoTypeVariable returnType = generator.get();
-		solver.addConstraint(ctx, new PGoTypeConstraint(pGoTLAFunctionCall, fnType, new PGoTypeFunction(paramTypes, returnType, pGoTLAFunctionCall)));
+		if (fnType instanceof PGoTypeMap && paramTypes.size() == 1) {
+			solver.addConstraint(ctx, new PGoTypeConstraint(
+					pGoTLAFunctionCall,
+					fnType,
+					new PGoTypeMap(paramTypes.get(0), returnType, pGoTLAFunctionCall)));
+		} else if (fnType instanceof PGoTypeMap && paramTypes.size() > 1) {
+			solver.addConstraint(ctx, new PGoTypeConstraint(
+					pGoTLAFunctionCall,
+					fnType,
+					new PGoTypeMap(new PGoTypeTuple(paramTypes, pGoTLAFunctionCall), returnType, pGoTLAFunctionCall)));
+		} else {
+			solver.addConstraint(ctx, new PGoTypeConstraint(pGoTLAFunctionCall, fnType, new PGoTypeFunction(paramTypes, returnType, pGoTLAFunctionCall)));
+		}
 		return returnType;
 	}
 
@@ -135,7 +147,23 @@ public class TLAExpressionTypeConstraintVisitor extends PGoTLAExpressionVisitor<
 
 	@Override
 	public PGoType visit(PGoTLAFunction pGoTLAFunction) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		boolean isEnumerable = true;
+		List<PGoType> keyTypes = new ArrayList<>();
+		for (PGoTLAQuantifierBound qb : pGoTLAFunction.getArguments()) {
+			processQuantifierBound(qb);
+			PGoTypeSet setType = (PGoTypeSet) mapping.get(qb.getSet().getUID()).substitute(solver.getMapping());
+			isEnumerable = isEnumerable && setType.isEnumerable();
+			keyTypes.add(setType.getElementType().substitute(solver.getMapping()));
+		}
+		wrappedVisit(pGoTLAFunction.getBody());
+		PGoType valueType = mapping.get(pGoTLAFunction.getBody().getUID());
+		if (isEnumerable && keyTypes.size() == 1) {
+			return new PGoTypeMap(keyTypes.get(0), valueType, pGoTLAFunction);
+		}
+		if (isEnumerable && keyTypes.size() > 1) {
+			return new PGoTypeMap(new PGoTypeTuple(keyTypes, pGoTLAFunction), valueType, pGoTLAFunction);
+		}
+		return new PGoTypeFunction(keyTypes, valueType, pGoTLAFunction);
 	}
 
 	@Override

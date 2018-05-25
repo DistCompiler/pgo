@@ -152,7 +152,7 @@ public class TLABuiltins {
 			return new PGoTypeBool(origin);
 		}));
 		Naturals.addOperator("Nat", new BuiltinOperator(0, (ctx, origin, args, solver, generator) ->
-				new PGoTypeSet(new PGoTypeNatural(origin), origin)));
+				new PGoTypeNonEnumerableSet(new PGoTypeNatural(origin), origin)));
 		Naturals.addOperator("..", new BuiltinOperator(2, (ctx, origin, args, solver, generator) -> {
 			PGoType fresh = PGoTypeUnrealizedNumber.integralType(origin);
 			solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(0), fresh));
@@ -168,7 +168,7 @@ public class TLABuiltins {
 			return fresh;
 		}));
 		Integers.addOperator("Int", new BuiltinOperator(0, (ctx, origin, args, solver, generator) ->
-				new PGoTypeSet(new PGoTypeInt(origin), origin)));
+				new PGoTypeNonEnumerableSet(new PGoTypeInt(origin), origin)));
 
 	}
 

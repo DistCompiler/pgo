@@ -5,7 +5,7 @@ import pgo.util.Origin;
 import java.util.List;
 
 /**
- * Represents a set.
+ * Represents an enumerable set.
  */
 public class PGoTypeSet extends PGoSimpleContainerType {
 	public PGoTypeSet(PGoType elementType, Origin... origins) {
@@ -32,5 +32,9 @@ public class PGoTypeSet extends PGoSimpleContainerType {
 	@Override
 	public String toGo() {
 		return "datatypes.Set";
+	}
+
+	public boolean isEnumerable() {
+		return true;
 	}
 }
