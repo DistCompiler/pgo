@@ -1,11 +1,11 @@
 package pgo.model.golang;
 
-public class Dot extends Expression {
+public class Selector extends Expression {
 	
 	Expression lhs;
 	String name;
 	
-	public Dot(Expression lhs, String name) {
+	public Selector(Expression lhs, String name) {
 		this.lhs = lhs;
 		this.name = name;
 	}
@@ -19,7 +19,7 @@ public class Dot extends Expression {
 	}
 
 	@Override
-	public <T> T accept(Visitor<T> visitor) {
+	public <T, E extends Throwable> T accept(ExpressionVisitor<T, E> visitor) throws E {
 		return visitor.visit(this);
 	}
 

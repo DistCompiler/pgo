@@ -56,4 +56,6 @@ public abstract class PGoType extends Derived {
 	public <T, E extends Throwable> T accept(DerivedVisitor<T, E> v) throws E{
 		return v.visit(this);
 	}
+	
+	public abstract <T, E extends Throwable> T accept(PGoTypeVisitor<T, E> v) throws E;
 }

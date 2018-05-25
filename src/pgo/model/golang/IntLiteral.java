@@ -13,8 +13,8 @@ public class IntLiteral extends Expression {
 	}
 
 	@Override
-	public <T> T accept(Visitor<T> v) {
-		return v.visit(this);
+	public <T, E extends Throwable> T accept(ExpressionVisitor<T, E> visitor) throws E {
+		return visitor.visit(this);
 	}
 
 }

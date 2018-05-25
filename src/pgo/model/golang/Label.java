@@ -6,7 +6,7 @@ package pgo.model.golang;
  */
 public class Label extends Statement {
 
-	private final String name;
+	private String name;
 
 	public Label(String name) {
 		this.name = name;
@@ -17,7 +17,7 @@ public class Label extends Statement {
 	}
 
 	@Override
-	public <T> T accept(Visitor<T> v) {
+	public <T, E extends Throwable> T accept(StatementVisitor<T, E> v) throws E {
 		return v.visit(this);
 	}
 

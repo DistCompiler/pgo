@@ -63,4 +63,9 @@ public class PGoTypeVariable extends PGoType {
 	public String toGo() {
 		throw new RuntimeException("Trying to convert type variable to Go");
 	}
+
+	@Override
+	public <T, E extends Throwable> T accept(PGoTypeVisitor<T, E> v) throws E {
+		return v.visit(this);
+	}
 }

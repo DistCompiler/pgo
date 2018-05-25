@@ -7,9 +7,9 @@ import java.util.List;
  *
  */
 public class AnonymousFunction extends Expression {
-	List<Type> returnTypes;
-	List<FunctionArgument> arguments;
-	Block body;
+	private List<Type> returnTypes;
+	private List<FunctionArgument> arguments;
+	private Block body;
 	
 	public AnonymousFunction(List<FunctionArgument> arguments, List<Type> returnTypes, Block body) {
 		this.arguments = arguments;
@@ -30,7 +30,7 @@ public class AnonymousFunction extends Expression {
 	}
 
 	@Override
-	public <T> T accept(Visitor<T> visitor) {
+	public <T, E extends Throwable> T accept(ExpressionVisitor<T, E> visitor) throws E {
 		return visitor.visit(this);
 	}
 }

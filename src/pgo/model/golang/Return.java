@@ -20,8 +20,8 @@ public class Return extends Statement {
 	}
 
 	@Override
-	public <T> T accept(Visitor<T> visitor) {
-		return visitor.visit(this);
+	public <T, E extends Throwable> T accept(StatementVisitor<T, E> v) throws E {
+		return v.visit(this);
 	}
 
 }

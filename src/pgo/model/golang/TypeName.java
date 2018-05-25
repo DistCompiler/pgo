@@ -2,20 +2,19 @@ package pgo.model.golang;
 
 public class TypeName extends Type {
 	
-	String name;
-	Type type;
+	private String name;
 	
-	public TypeName(String name, Type type) {
+	public TypeName(String name) {
 		this.name = name;
-		this.type = type;
 	}
 	
 	public String getName() {
 		return name;
 	}
 	
-	public Type getType() {
-		return type;
+	@Override
+	public <T, E extends Throwable> T accept(TypeVisitor<T, E> v) throws E {
+		return v.visit(this);
 	}
 
 	@Override
@@ -23,7 +22,6 @@ public class TypeName extends Type {
 		final int prime = 31;
 		int result = 1;
 		result = prime * result + ((name == null) ? 0 : name.hashCode());
-		result = prime * result + ((type == null) ? 0 : type.hashCode());
 		return result;
 	}
 
@@ -40,11 +38,6 @@ public class TypeName extends Type {
 			if (other.name != null)
 				return false;
 		} else if (!name.equals(other.name))
-			return false;
-		if (type == null) {
-			if (other.type != null)
-				return false;
-		} else if (!type.equals(other.type))
 			return false;
 		return true;
 	}

@@ -12,12 +12,12 @@ import pgo.scope.UID;
 
 public class DefinitionRegistry {
 
-	Map<UID, DefinitionType> types;
-	Map<String, PGoTLAModule> modules;
-	Map<UID, PGoTLAUnit> definitions;
-	Map<UID, OperatorAccessor> operators;
-	Map<UID, UID> references;
-	Map<String, Procedure> procedures;
+	private Map<UID, DefinitionType> types;
+	private Map<String, PGoTLAModule> modules;
+	private Map<UID, PGoTLAUnit> definitions;
+	private Map<UID, OperatorAccessor> operators;
+	private Map<UID, UID> references;
+	private Map<String, Procedure> procedures;
 
 	public DefinitionRegistry() {
 		this.types = new HashMap<>();

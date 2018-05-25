@@ -39,4 +39,9 @@ public class PGoTypeSlice extends PGoSimpleContainerType {
 	public String toGo() {
 		return "[]" + elementType.toGo();
 	}
+	
+	@Override
+	public <T, E extends Throwable> T accept(PGoTypeVisitor<T, E> v) throws E {
+		return v.visit(this);
+	}
 }

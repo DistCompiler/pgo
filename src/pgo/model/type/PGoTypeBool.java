@@ -19,4 +19,9 @@ public class PGoTypeBool extends PGoPrimitiveType {
 	public String toGo() {
 		return "bool";
 	}
+	
+	@Override
+	public <T, E extends Throwable> T accept(PGoTypeVisitor<T, E> v) throws E {
+		return v.visit(this);
+	}
 }

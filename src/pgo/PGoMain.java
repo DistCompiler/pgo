@@ -12,6 +12,7 @@ import java.util.logging.Logger;
 import org.apache.commons.io.FileUtils;
 import pcal.exception.StringVectorToFileException;
 import pgo.errors.TopLevelIssueContext;
+import pgo.model.golang.Module;
 import pgo.model.pcal.Algorithm;
 import pgo.model.tla.PGoTLAModule;
 import pgo.model.type.PGoType;
@@ -112,6 +113,8 @@ public class PGoMain {
 			logger.info("Inferring types");
 			Map<UID, PGoType> typeMap = TypeInferencePass.perform(ctx, registry, pcalAlgorithm);
 			checkErrors(ctx);
+			
+			Module module = CodeGenPass.perform(pcalAlgorithm, registry, typeMap);
 
 			System.out.println(typeMap);
 

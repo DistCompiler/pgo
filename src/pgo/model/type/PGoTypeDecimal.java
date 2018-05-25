@@ -19,6 +19,11 @@ public class PGoTypeDecimal extends PGoNumberType {
 	public String toGo() {
 		return "float64";
 	}
+	
+	@Override
+	public <T, E extends Throwable> T accept(PGoTypeVisitor<T, E> v) throws E {
+		return v.visit(this);
+	}
 
 	@Override
 	public int getSpecificity() {

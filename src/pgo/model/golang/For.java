@@ -6,11 +6,11 @@ package pgo.model.golang;
  */
 public class For extends Statement {
 	// boolean condition
-	Statement init;
-	Expression cond;
-	Statement inc;
+	private Statement init;
+	private Expression cond;
+	private Statement inc;
 
-	Block body;
+	private Block body;
 
 	public For(Statement init, Expression cond, Statement inc, Block body) {
 		this.init = init;
@@ -36,7 +36,7 @@ public class For extends Statement {
 	}
 
 	@Override
-	public <T> T accept(Visitor<T> v) {
+	public <T, E extends Throwable> T accept(StatementVisitor<T, E> v) throws E {
 		return v.visit(this);
 	}
 }

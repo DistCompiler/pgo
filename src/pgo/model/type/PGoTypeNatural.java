@@ -19,6 +19,11 @@ public class PGoTypeNatural extends PGoNumberType {
 	public String toGo() {
 		return "uint64";
 	}
+	
+	@Override
+	public <T, E extends Throwable> T accept(PGoTypeVisitor<T, E> v) throws E {
+		return v.visit(this);
+	}
 
 	@Override
 	public int getSpecificity() {

@@ -1,10 +1,15 @@
 package pgo.model.golang;
 
 public class PtrType extends Type {
-	Type pointee;
+	private Type pointee;
 	
 	public PtrType(Type pointee) {
 		this.pointee = pointee;
+	}
+	
+	@Override
+	public <T, E extends Throwable> T accept(TypeVisitor<T, E> v) throws E {
+		return v.visit(this);
 	}
 	
 	public Type getPointee() {

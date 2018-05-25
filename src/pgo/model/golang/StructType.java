@@ -3,33 +3,20 @@ package pgo.model.golang;
 import java.util.List;
 
 public class StructType extends Type {
-	
-	public static class StructField{
-		String name;
-		Type type;
-		
-		public StructField(String name, Type type) {
-			this.name = name;
-			this.type = type;
-		}
-		
-		public String getName() {
-			return name;
-		}
-		
-		public Type getType() {
-			return type;
-		}
-	}
 
-	private List<StructField> fields;
+	private List<StructTypeField> fields;
 	
-	public StructType(List<StructField> fields) {
+	public StructType(List<StructTypeField> fields) {
 		this.fields = fields;
 	}
 	
-	public List<StructField> getFields(){
+	public List<StructTypeField> getFields(){
 		return fields;
+	}
+	
+	@Override
+	public <T, E extends Throwable> T accept(TypeVisitor<T, E> v) throws E {
+		return v.visit(this);
 	}
 
 	@Override

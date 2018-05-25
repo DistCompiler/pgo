@@ -21,4 +21,9 @@ public class PGoTypeVoid extends PGoPrimitiveType {
 		// perfectly valid
 		return "";
 	}
+	
+	@Override
+	public <T, E extends Throwable> T accept(PGoTypeVisitor<T, E> v) throws E {
+		return v.visit(this);
+	}
 }

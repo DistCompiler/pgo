@@ -2,9 +2,9 @@ package pgo.model.golang;
 
 public class Binop extends Expression {
 	
-	Expression lhs;
-	Expression rhs;
-	Operation op;
+	private Expression lhs;
+	private Expression rhs;
+	private Operation op;
 	
 	public static enum Operation{
 		// grouped by precedence
@@ -51,7 +51,7 @@ public class Binop extends Expression {
 	}
 
 	@Override
-	public <T> T accept(Visitor<T> visitor) {
+	public <T, E extends Throwable> T accept(ExpressionVisitor<T, E> visitor) throws E {
 		return visitor.visit(this);
 	}
 

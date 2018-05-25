@@ -4,7 +4,7 @@ package pgo.model.golang;
  * A Goto in pluscal and go
  *
  */
-public class GoTo extends Expression {
+public class GoTo extends Statement {
 	// the to label location
 	private LabelName to;
 
@@ -15,9 +15,10 @@ public class GoTo extends Expression {
 	public LabelName getTo() {
 		return to;
 	}
-
+	
 	@Override
-	public <T> T accept(Visitor<T> visitor) {
-		return visitor.visit(this);
+	public <T, E extends Throwable> T accept(StatementVisitor<T, E> v) throws E {
+		return v.visit(this);
 	}
+
 }

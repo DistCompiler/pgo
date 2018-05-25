@@ -1,6 +1,6 @@
 package pgo.model.golang;
 
-public class LabelName {
+public class LabelName extends Node {
 	
 	private String name;
 

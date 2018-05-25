@@ -267,4 +267,9 @@ public class PGoTypeUnrealizedTuple extends PGoType {
 	public String toGo() {
 		throw new IllegalStateException("Trying to convert an unrealized tuple to Go");
 	}
+	
+	@Override
+	public <T, E extends Throwable> T accept(PGoTypeVisitor<T, E> v) throws E {
+		return v.visit(this);
+	}
 }

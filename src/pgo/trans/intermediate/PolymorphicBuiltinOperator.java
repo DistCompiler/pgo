@@ -2,30 +2,31 @@ package pgo.trans.intermediate;
 
 import pgo.errors.IssueContext;
 import pgo.errors.TopLevelIssueContext;
+import pgo.model.golang.BlockBuilder;
+import pgo.model.golang.Expression;
+import pgo.model.tla.PGoTLAExpression;
 import pgo.model.type.*;
 import pgo.scope.UID;
+import pgo.trans.intermediate.BuiltinOperator.GoGenerator;
+import pgo.trans.intermediate.BuiltinOperator.TypeConstraintGenerator;
 import pgo.util.Origin;
 
 import java.util.List;
 import java.util.Map;
 
-public class PolymorphicBuiltinOperator extends BuiltinOperator {
+public class PolymorphicBuiltinOperator extends OperatorAccessor {
 
-	protected List<TypeConstraintGenerator> typeConstraintGenerators;
+	private int argumentCount;
+	private List<TypeConstraintGenerator> typeConstraintGenerators;
+	private GoGenerator goGenerator;
+	private UID uid;
 
-	// disable super's constructor
-	private PolymorphicBuiltinOperator(int argumentCount, TypeConstraintGenerator typeConstraintGenerator) {
-		// this is here only to appease the Java compiler :(
-		super(argumentCount, typeConstraintGenerator);
-	}
-
-	public PolymorphicBuiltinOperator(int argumentCount, List<TypeConstraintGenerator> typeConstraintGenerators) {
-		// this is here only to appease the Java compiler :(
-		super(argumentCount, typeConstraintGenerators.get(0));
-
+	public PolymorphicBuiltinOperator(int argumentCount, List<TypeConstraintGenerator> typeConstraintGenerators,
+			GoGenerator goGenerator) {
 		this.uid = new UID();
 		this.argumentCount = argumentCount;
 		this.typeConstraintGenerators = typeConstraintGenerators;
+		this.goGenerator = goGenerator;
 	}
 
 	@Override
@@ -46,6 +47,22 @@ public class PolymorphicBuiltinOperator extends BuiltinOperator {
 			return generator.get();
 		}
 		return typeConstraintGenerators.get(i).generate(ctx, origin, argTypes, solver, generator);
+	}
+
+	@Override
+	public int getArgumentCount() {
+		return argumentCount;
+	}
+
+	@Override
+	public Expression generateGo(BlockBuilder builder, PGoTLAExpression origin, DefinitionRegistry registry,
+			List<Expression> arguments, Map<UID, PGoType> typeMap) {
+		return goGenerator.generate(builder, origin, registry, arguments, typeMap);
+	}
+
+	@Override
+	public UID getUID() {
+		return uid;
 	}
 
 }

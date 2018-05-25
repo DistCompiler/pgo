@@ -56,6 +56,11 @@ public class PGoTypeTuple extends PGoType {
 		List<PGoType> sub = elementTypes.stream().map(pGoType -> pGoType.realize(ctx)).collect(Collectors.toList());
 		return new PGoTypeTuple(sub);
 	}
+	
+	@Override
+	public <T, E extends Throwable> T accept(PGoTypeVisitor<T, E> v) throws E {
+		return v.visit(this);
+	}
 
 	@Override
 	public String toTypeName() {

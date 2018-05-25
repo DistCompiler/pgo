@@ -25,8 +25,8 @@ public class StructLiteral extends Expression {
     	return fields;
     }
 
-	@Override
-	public <T> T accept(Visitor<T> visitor) {
+    @Override
+	public <T, E extends Throwable> T accept(ExpressionVisitor<T, E> visitor) throws E {
 		return visitor.visit(this);
 	}
 }

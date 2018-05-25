@@ -4,6 +4,9 @@ import java.util.List;
 import java.util.Map;
 
 import pgo.errors.IssueContext;
+import pgo.model.golang.BlockBuilder;
+import pgo.model.golang.Expression;
+import pgo.model.tla.PGoTLAExpression;
 import pgo.model.type.PGoType;
 import pgo.model.type.PGoTypeGenerator;
 import pgo.model.type.PGoTypeSolver;
@@ -24,5 +27,10 @@ public abstract class OperatorAccessor extends Derived {
 	public <T, E extends Throwable> T accept(DerivedVisitor<T, E> v) throws E {
 		return v.visit(this);
 	}
+	
+	public abstract UID getUID();
+
+	public abstract Expression generateGo(BlockBuilder builder, PGoTLAExpression origin, DefinitionRegistry registry,
+			List<Expression> args, Map<UID, PGoType> typeMap);
 
 }

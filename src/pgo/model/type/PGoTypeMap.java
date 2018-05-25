@@ -64,6 +64,11 @@ public class PGoTypeMap extends PGoType {
 	public String toTypeName() {
 		return "Map[" + keyType.toTypeName() + "]" + valueType.toTypeName();
 	}
+	
+	@Override
+	public <T, E extends Throwable> T accept(PGoTypeVisitor<T, E> v) throws E {
+		return v.visit(this);
+	}
 
 	@Override
 	public String toGo() {

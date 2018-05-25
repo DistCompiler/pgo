@@ -1,9 +1,24 @@
 package pgo.trans.intermediate;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+import pgo.model.golang.Assignment;
+import pgo.model.golang.Binop;
+import pgo.model.golang.BlockBuilder;
+import pgo.model.golang.Builtins;
+import pgo.model.golang.Call;
+import pgo.model.golang.Expression;
+import pgo.model.golang.IncDec;
+import pgo.model.golang.Index;
+import pgo.model.golang.IntLiteral;
+import pgo.model.golang.Make;
+import pgo.model.golang.SliceOperator;
+import pgo.model.golang.SliceType;
+import pgo.model.golang.Unary;
+import pgo.model.golang.VariableName;
 import pgo.model.type.*;
 import pgo.scope.UID;
 
@@ -13,46 +28,94 @@ public class TLABuiltins {
 
 	private static BuiltinModule universalBuiltins = new BuiltinModule();
 	static {
-		universalBuiltins.addOperator("=", new BuiltinOperator(2, (ctx, origin, args, solver, generator) -> {
-			solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(0), args.get(1)));
-			return PGoTypeBool.getInstance();
-		}));
-		universalBuiltins.addOperator("#", new BuiltinOperator(2, (ctx, origin, args, solver, generator) -> {
-			solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(0), args.get(1)));
-			return PGoTypeBool.getInstance();
-		}));
-		universalBuiltins.addOperator("\\in", new BuiltinOperator(2, (ctx, origin, args, solver, generator) -> {
-			PGoTypeVariable memberType = generator.get();
-			solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(0), memberType));
-			solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(1), new PGoTypeSet(memberType)));
-			return PGoTypeBool.getInstance();
-		}));
-		universalBuiltins.addOperator("\\", new BuiltinOperator(2, (ctx, origin, args, solver, generator) -> {
-			PGoTypeVariable memberType = generator.get();
-			solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(0), new PGoTypeSet(memberType)));
-			solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(1), new PGoTypeSet(memberType)));
-			return new PGoTypeSet(memberType);
-		}));
-		universalBuiltins.addOperator("~", new BuiltinOperator(1, (ctx, origin, args, solver, generator) -> {
-			solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(0), PGoTypeBool.getInstance()));
-			return PGoTypeBool.getInstance();
-		}));
-		universalBuiltins.addOperator("\\/", new BuiltinOperator(2, (ctx, origin, args, solver, generator) -> {
-			solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(0), PGoTypeBool.getInstance()));
-			solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(1), PGoTypeBool.getInstance()));
-			return PGoTypeBool.getInstance();
-		}));
-		universalBuiltins.addOperator("/\\", new BuiltinOperator(2, (ctx, origin, args, solver, generator) -> {
-			solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(0), PGoTypeBool.getInstance()));
-			solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(1), PGoTypeBool.getInstance()));
-			return PGoTypeBool.getInstance();
-		}));
-		universalBuiltins.addOperator("\\union", new BuiltinOperator(2, (ctx, origin, args, solver, generator) -> {
-			PGoTypeVariable memberType = generator.get();
-			solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(0), new PGoTypeSet(memberType)));
-			solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(1), new PGoTypeSet(memberType)));
-			return new PGoTypeSet(memberType);
-		}));
+		universalBuiltins.addOperator("=", new BuiltinOperator(
+				2,
+				(ctx, origin, args, solver, generator) -> {
+					solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(0), args.get(1)));
+					return PGoTypeBool.getInstance();
+				},
+				(builder, origin, registry, arguments, typeMap) -> {
+					return typeMap.get(origin.getUID()).accept(
+							new PGoTypeEqualityCodeGenVisitor(
+									builder, false, registry, arguments.get(0), arguments.get(1)));
+				}
+				));
+		universalBuiltins.addOperator("#", new BuiltinOperator(
+				2,
+				(ctx, origin, args, solver, generator) -> {
+					solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(0), args.get(1)));
+					return PGoTypeBool.getInstance();
+				},
+				(builder, origin, registry, arguments, typeMap) -> {
+					return typeMap.get(origin.getUID()).accept(
+							new PGoTypeEqualityCodeGenVisitor(
+									builder, true, registry, arguments.get(0), arguments.get(1)));
+				}
+				));
+		universalBuiltins.addOperator("\\in", new BuiltinOperator(
+				2,
+				(ctx, origin, args, solver, generator) -> {
+					PGoTypeVariable memberType = generator.get();
+					solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(0), memberType));
+					solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(1), new PGoTypeSet(memberType)));
+					return PGoTypeBool.getInstance();
+				},
+				(builder, origin, registry, arguments, typeMap) -> {
+					throw new RuntimeException("TODO");
+				}
+				));
+		universalBuiltins.addOperator("\\", new BuiltinOperator(
+				2,
+				(ctx, origin, args, solver, generator) -> {
+					PGoTypeVariable memberType = generator.get();
+					solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(0), new PGoTypeSet(memberType)));
+					solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(1), new PGoTypeSet(memberType)));
+					return new PGoTypeSet(memberType);
+				},
+				(builder, origin, registry, arguments, typeMap) -> {
+					throw new RuntimeException("TODO");
+				}
+				));
+		universalBuiltins.addOperator("~", new BuiltinOperator(
+				1,
+				(ctx, origin, args, solver, generator) -> {
+					solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(0), PGoTypeBool.getInstance()));
+					return PGoTypeBool.getInstance();
+				},
+				(builder, origin, registry, arguments, typeMap) -> new Unary(Unary.Operation.NOT, arguments.get(0))
+				));
+		universalBuiltins.addOperator("\\/", new BuiltinOperator(
+				2,
+				(ctx, origin, args, solver, generator) -> {
+					solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(0), PGoTypeBool.getInstance()));
+					solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(1), PGoTypeBool.getInstance()));
+					return PGoTypeBool.getInstance();
+				},
+				(builder, origin, registry, arguments, typeMap) -> new Binop(
+						Binop.Operation.OR, arguments.get(0), arguments.get(1))
+				));
+		universalBuiltins.addOperator("/\\", new BuiltinOperator(
+				2,
+				(ctx, origin, args, solver, generator) -> {
+					solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(0), PGoTypeBool.getInstance()));
+					solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(1), PGoTypeBool.getInstance()));
+					return PGoTypeBool.getInstance();
+				},
+				(builder, origin, registry, arguments, typeMap) -> new Binop(
+						Binop.Operation.AND, arguments.get(0), arguments.get(1))
+				));
+		universalBuiltins.addOperator("\\union", new BuiltinOperator(
+				2,
+				(ctx, origin, args, solver, generator) -> {
+					PGoTypeVariable memberType = generator.get();
+					solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(0), new PGoTypeSet(memberType)));
+					solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(1), new PGoTypeSet(memberType)));
+					return new PGoTypeSet(memberType);
+				},
+				(builder, origin, registry, arguments, typeMap) -> {
+					throw new RuntimeException("TODO");
+				}
+				));
 	}
 
 	private static Map<String, BuiltinModule> builtinModules = new HashMap<>();
@@ -63,106 +126,196 @@ public class TLABuiltins {
 
 		BuiltinModule Sequences = new BuiltinModule();
 		builtinModules.put("Sequences", Sequences);
-		Sequences.addOperator("Len", new PolymorphicBuiltinOperator(1, Arrays.asList(
+		Sequences.addOperator("Len", new PolymorphicBuiltinOperator(
+				1,
+				Arrays.asList(
+					(ctx, origin, args, solver, generator) -> {
+						solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(0), PGoTypeString.getInstance()));
+						return PGoTypeInt.getInstance();
+					},
+					(ctx, origin, args, solver, generator) -> {
+						solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(0), new PGoTypeSlice(generator.get())));
+						return PGoTypeInt.getInstance();
+					},
+					(ctx, origin, args, solver, generator) -> {
+						solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(0), new PGoTypeUnrealizedTuple()));
+						return PGoTypeInt.getInstance();
+					}),
+				(builder, origin, registry, arguments, typeMap) -> new Call(
+						new VariableName("len"), Collections.singletonList(arguments.get(0)))
+				));
+		Sequences.addOperator("Append", new BuiltinOperator(
+				2,
 				(ctx, origin, args, solver, generator) -> {
-					solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(0), PGoTypeString.getInstance()));
-					return PGoTypeInt.getInstance();
+					PGoTypeVariable elementType = generator.get();
+					solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(0), new PGoTypeSlice(elementType)));
+					solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(1), elementType));
+					return new PGoTypeSlice(elementType);
 				},
+				(builder, origin, registry, arguments, typeMap) -> new Call(
+						new VariableName("append"), Arrays.asList(arguments.get(0), arguments.get(1)))
+				));
+		Sequences.addOperator("Head", new BuiltinOperator(
+				1,
 				(ctx, origin, args, solver, generator) -> {
-					solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(0), new PGoTypeSlice(generator.get())));
-					return PGoTypeInt.getInstance();
+					PGoTypeVariable elementType = generator.get();
+					solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(0), new PGoTypeSlice(elementType)));
+					return elementType;
 				},
+				(builder, origin, registry, arguments, typeMap) -> new Index(arguments.get(0), new IntLiteral(0))
+				));
+		Sequences.addOperator("Tail", new BuiltinOperator(
+				1,
 				(ctx, origin, args, solver, generator) -> {
-					solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(0), new PGoTypeUnrealizedTuple()));
-					return PGoTypeInt.getInstance();
-				})));
-		Sequences.addOperator("Append", new BuiltinOperator(2, (ctx, origin, args, solver, generator) -> {
-			PGoTypeVariable elementType = generator.get();
-			solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(0), new PGoTypeSlice(elementType)));
-			solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(1), elementType));
-			return new PGoTypeSlice(elementType);
-		}));
-		Sequences.addOperator("Head", new BuiltinOperator(1, (ctx, origin, args, solver, generator) -> {
-			PGoTypeVariable elementType = generator.get();
-			solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(0), new PGoTypeSlice(elementType)));
-			return elementType;
-		}));
-		Sequences.addOperator("Tail", new BuiltinOperator(1, (ctx, origin, args, solver, generator) -> {
-			PGoTypeVariable elementType = generator.get();
-			solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(0), new PGoTypeSlice(elementType)));
-			return new PGoTypeSlice(elementType);
-		}));
+					PGoTypeVariable elementType = generator.get();
+					solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(0), new PGoTypeSlice(elementType)));
+					return new PGoTypeSlice(elementType);
+				},
+				(builder, origin, registry, arguments, typeMap) -> new SliceOperator(
+						arguments.get(0), new IntLiteral(1), null, null)
+				));
 
 		BuiltinModule Naturals = new BuiltinModule();
 		builtinModules.put("Naturals", Naturals);
-		Naturals.addOperator("-", new BuiltinOperator(2, (ctx, origin, args, solver, generator) -> {
-			PGoType fresh = new PGoTypeUnrealizedNumber();
-			solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(0), fresh));
-			solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(1), fresh));
-			return fresh;
-		}));
-		Naturals.addOperator("+", new BuiltinOperator(2, (ctx, origin, args, solver, generator) -> {
-			PGoType fresh = new PGoTypeUnrealizedNumber();
-			solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(0), fresh));
-			solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(1), fresh));
-			return fresh;
-		}));
-		Naturals.addOperator("%", new BuiltinOperator(2, (ctx, origin, args, solver, generator) -> {
-			PGoType fresh = PGoTypeUnrealizedNumber.integralType();
-			solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(0), fresh));
-			solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(1), fresh));
-			return fresh;
-		}));
-		Naturals.addOperator("*", new BuiltinOperator(2, (ctx, origin, args, solver, generator) -> {
-			PGoType fresh = new PGoTypeUnrealizedNumber();
-			solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(0), fresh));
-			solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(1), fresh));
-			return fresh;
-		}));
-		Naturals.addOperator("<", new BuiltinOperator(2, (ctx, origin, args, solver, generator) -> {
-			PGoType fresh = new PGoTypeUnrealizedNumber();
-			solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(0), fresh));
-			solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(1), fresh));
-			return PGoTypeBool.getInstance();
-		}));
-		Naturals.addOperator(">", new BuiltinOperator(2, (ctx, origin, args, solver, generator) -> {
-			PGoType fresh = new PGoTypeUnrealizedNumber();
-			solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(0), fresh));
-			solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(1), fresh));
-			return PGoTypeBool.getInstance();
-		}));
+		Naturals.addOperator("-", new BuiltinOperator(
+				2,
+				(ctx, origin, args, solver, generator) -> {
+					PGoType fresh = new PGoTypeUnrealizedNumber();
+					solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(0), fresh));
+					solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(1), fresh));
+					return fresh;
+				},
+				(builder, origin, registry, arguments, typeMap) -> new Binop(
+						Binop.Operation.MINUS, arguments.get(0), arguments.get(1))
+				));
+		Naturals.addOperator("+", new BuiltinOperator(
+				2,
+				(ctx, origin, args, solver, generator) -> {
+					PGoType fresh = new PGoTypeUnrealizedNumber();
+					solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(0), fresh));
+					solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(1), fresh));
+					return fresh;
+				},
+				(builder, origin, registry, arguments, typeMap) -> new Binop(
+						Binop.Operation.PLUS, arguments.get(0), arguments.get(1))
+				));
+		Naturals.addOperator("%", new BuiltinOperator(
+				2,
+				(ctx, origin, args, solver, generator) -> {
+					PGoType fresh = PGoTypeUnrealizedNumber.integralType();
+					solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(0), fresh));
+					solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(1), fresh));
+					return fresh;
+				},
+				(builder, origin, registry, arguments, typeMap) -> new Binop(
+						Binop.Operation.MOD, arguments.get(0), arguments.get(1))
+				));
+		Naturals.addOperator("*", new BuiltinOperator(
+				2,
+				(ctx, origin, args, solver, generator) -> {
+					PGoType fresh = new PGoTypeUnrealizedNumber();
+					solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(0), fresh));
+					solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(1), fresh));
+					return fresh;
+				},
+				(builder, origin, registry, arguments, typeMap) -> new Binop(
+						Binop.Operation.TIMES, arguments.get(0), arguments.get(1))
+				));
+		Naturals.addOperator("<", new BuiltinOperator(
+				2,
+				(ctx, origin, args, solver, generator) -> {
+					PGoType fresh = new PGoTypeUnrealizedNumber();
+					solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(0), fresh));
+					solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(1), fresh));
+					return PGoTypeBool.getInstance();
+				},
+				(builder, origin, registry, arguments, typeMap) -> new Binop(
+						Binop.Operation.LT, arguments.get(0), arguments.get(1))
+				));
+		Naturals.addOperator(">", new BuiltinOperator(
+				2,
+				(ctx, origin, args, solver, generator) -> {
+					PGoType fresh = new PGoTypeUnrealizedNumber();
+					solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(0), fresh));
+					solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(1), fresh));
+					return PGoTypeBool.getInstance();
+				},
+				(builder, origin, registry, arguments, typeMap) -> new Binop(
+						Binop.Operation.GT, arguments.get(0), arguments.get(1))
+				));
 		// TODO: \leq =<
-		Naturals.addOperator("<=", new BuiltinOperator(2, (ctx, origin, args, solver, generator) -> {
-			PGoType fresh = new PGoTypeUnrealizedNumber();
-			solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(0), fresh));
-			solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(1), fresh));
-			return PGoTypeBool.getInstance();
-		}));
+		Naturals.addOperator("<=", new BuiltinOperator(
+				2,
+				(ctx, origin, args, solver, generator) -> {
+					PGoType fresh = new PGoTypeUnrealizedNumber();
+					solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(0), fresh));
+					solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(1), fresh));
+					return PGoTypeBool.getInstance();
+				},
+				(builder, origin, registry, arguments, typeMap) -> new Binop(
+						Binop.Operation.LEQ, arguments.get(0), arguments.get(1))
+				));
 		// TODO: \geq
-		Naturals.addOperator(">=", new BuiltinOperator(2, (ctx, origin, args, solver, generator) -> {
-			PGoType fresh = new PGoTypeUnrealizedNumber();
-			solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(0), fresh));
-			solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(1), fresh));
-			return PGoTypeBool.getInstance();
-		}));
-		Naturals.addOperator("Nat", new BuiltinOperator(0, (ctx, origin, args, solver, generator) ->
-				new PGoTypeSet(PGoTypeNatural.getInstance())));
-		Naturals.addOperator("..", new BuiltinOperator(2, (ctx, origin, args, solver, generator) -> {
-			PGoType fresh = PGoTypeUnrealizedNumber.integralType();
-			solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(0), fresh));
-			solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(1), fresh));
-			return new PGoTypeSet(fresh);
-		}));
+		Naturals.addOperator(">=", new BuiltinOperator(
+				2,
+				(ctx, origin, args, solver, generator) -> {
+					PGoType fresh = new PGoTypeUnrealizedNumber();
+					solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(0), fresh));
+					solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(1), fresh));
+					return PGoTypeBool.getInstance();
+				},
+				(builder, origin, registry, arguments, typeMap) -> new Binop(
+						Binop.Operation.GEQ, arguments.get(0), arguments.get(1))
+				));
+		Naturals.addOperator("Nat", new BuiltinOperator(
+				0,
+				(ctx, origin, args, solver, generator) -> new PGoTypeSet(PGoTypeNatural.getInstance()),
+				(builder, origin, registry, arguments, typeMap) -> {
+					throw new RuntimeException("TODO");
+				}
+				));
+		Naturals.addOperator("..", new BuiltinOperator(
+				2,
+				(ctx, origin, args, solver, generator) -> {
+					PGoType fresh = PGoTypeUnrealizedNumber.integralType();
+					solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(0), fresh));
+					solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(1), fresh));
+					return new PGoTypeSet(fresh);
+				},
+				(builder, origin, registry, arguments, typeMap) -> {
+					Expression from = arguments.get(0);
+					Expression to = arguments.get(1);
+					Expression tmpRange = builder.varDecl("tmpRange", new Make(
+							new SliceType(Builtins.Int), new Binop(Binop.Operation.MINUS, to, from), null));
+					// TODO scope i correctly
+					Expression acc = builder.getFreshName("i");
+					try(BlockBuilder body = builder.forLoop(
+							new Assignment(Collections.singletonList(acc), true, from),
+							new Binop(Binop.Operation.LEQ, acc, to),
+							new IncDec(true, acc))){
+						body.assign(Collections.singletonList(new Index(tmpRange, acc)), acc);
+					}
+					return tmpRange;
+				}));
 
 		BuiltinModule Integers = new BuiltinModule(Naturals);
 		builtinModules.put("Integers", Integers);
-		Integers.addOperator("-", new BuiltinOperator(1, (ctx, origin, args, solver, generator) -> {
-			PGoType fresh = new PGoTypeUnrealizedNumber(PGoTypeInt.getInstance());
-			solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(0), fresh));
-			return fresh;
-		}));
-		Integers.addOperator("Int", new BuiltinOperator(0, (ctx, origin, args, solver, generator) ->
-				new PGoTypeSet(PGoTypeInt.getInstance())));
+		Integers.addOperator("-", new BuiltinOperator(
+				1,
+				(ctx, origin, args, solver, generator) -> {
+					PGoType fresh = new PGoTypeUnrealizedNumber(PGoTypeInt.getInstance());
+					solver.addConstraint(ctx, new PGoTypeConstraint(origin, args.get(0), fresh));
+					return fresh;
+				},
+				(builder, origin, registry, arguments, typeMap) -> new Unary(Unary.Operation.NEG, arguments.get(0))
+				));
+		Integers.addOperator("Int", new BuiltinOperator(
+				0,
+				(ctx, origin, args, solver, generator) -> new PGoTypeSet(PGoTypeInt.getInstance()),
+				(builder, origin, registry, arguments, typeMap) -> {
+					throw new RuntimeException("TODO");
+				}
+				));
 
 	}
 
@@ -180,7 +333,7 @@ public class TLABuiltins {
 
 	public static Map<QualifiedName, UID> getInitialDefinitions() {
 		Map<QualifiedName, UID> defs = new HashMap<>();
-		for(Map.Entry<String, BuiltinOperator> op : universalBuiltins.getOperators().entrySet()) {
+		for(Map.Entry<String, OperatorAccessor> op : universalBuiltins.getOperators().entrySet()) {
 			defs.put(new QualifiedName(op.getKey()), op.getValue().getUID());
 		}
 		return defs;

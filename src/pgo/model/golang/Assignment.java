@@ -1,6 +1,5 @@
 package pgo.model.golang;
 
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -12,29 +11,29 @@ import java.util.List;
  */
 public class Assignment extends Statement {
 
-    List<VariableName> names;
-    Expression value;
+	private List<Expression> names;
+	private boolean defines;
+	private Expression value;
     
-    public Assignment(VariableName name, Expression value) {
-    	this.names = Collections.singletonList(name);
-    	this.value = value;
-    }
-    
-    public Assignment(List<VariableName> names, Expression value) {
+    public Assignment(List<Expression> names, boolean defines, Expression value) {
     	this.names = names;
     	this.value = value;
     }
     
-    public List<VariableName> getNames() {
+    public List<Expression> getNames() {
     	return names;
+    }
+    
+    public boolean getDefines() {
+    	return defines;
     }
     
     public Expression getValue() {
     	return value;
     }
 
-	@Override
-	public <T> T accept(Visitor<T> v) {
+    @Override
+	public <T, E extends Throwable> T accept(StatementVisitor<T, E> v) throws E {
 		return v.visit(this);
 	}
 }

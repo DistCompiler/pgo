@@ -76,4 +76,9 @@ public class PGoTypeFunction extends PGoType {
 		return "func(" + paramTypes.stream().map(PGoType::toGo).collect(Collectors.joining(", ")) +
 				") " + returnType.toGo();
 	}
+	
+	@Override
+	public <T, E extends Throwable> T accept(PGoTypeVisitor<T, E> v) throws E {
+		return v.visit(this);
+	}
 }

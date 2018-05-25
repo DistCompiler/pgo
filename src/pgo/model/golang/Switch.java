@@ -1,22 +1,23 @@
 package pgo.model.golang;
 
-import java.util.LinkedHashMap;
+import java.util.List;
 
 public class Switch extends Statement {
     Expression switchExp;
-    LinkedHashMap<Expression, Statement> cases;
+    List<SwitchCase> cases;
     Statement defaultCase;
 
-    public Switch(Expression exp) {
+    public Switch(Expression exp, List<SwitchCase> cases, Statement defaultCase) {
         this.switchExp = exp;
-        this.cases = new LinkedHashMap<>();
+        this.cases = cases;
+        this.defaultCase = defaultCase;
     }
     
     public Expression getCondition() {
     	return switchExp;
     }
     
-    public LinkedHashMap<Expression, Statement> getCases(){
+    public List<SwitchCase> getCases(){
     	return cases;
     }
     
@@ -24,16 +25,8 @@ public class Switch extends Statement {
     	return defaultCase;
     }
 
-    public void addCase(Expression exp, Statement code) {
-        cases.put(exp, code);
-    }
-
-    public void addDefaultCase(Statement code) {
-        defaultCase = code;
-    }
-
-	@Override
-	public <T> T accept(Visitor<T> v) {
+    @Override
+	public <T, E extends Throwable> T accept(StatementVisitor<T, E> v) throws E {
 		return v.visit(this);
 	}
 

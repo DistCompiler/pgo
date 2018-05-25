@@ -34,6 +34,11 @@ public class PGoTypeSet extends PGoSimpleContainerType {
 	public String toTypeName() {
 		return "Set[" + elementType.toTypeName() + "]";
 	}
+	
+	@Override
+	public <T, E extends Throwable> T accept(PGoTypeVisitor<T, E> v) throws E {
+		return v.visit(this);
+	}
 
 	@Override
 	public String toGo() {

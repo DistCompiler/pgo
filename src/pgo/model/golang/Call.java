@@ -4,8 +4,8 @@ import java.util.List;
 
 public class Call extends Expression {
 	
-	Expression target;
-	List<Expression> arguments;
+	private Expression target;
+	private List<Expression> arguments;
 	
 	public Call(Expression target, List<Expression> arguments) {
 		this.target = target;
@@ -21,7 +21,7 @@ public class Call extends Expression {
 	}
 
 	@Override
-	public <T> T accept(Visitor<T> visitor) {
+	public <T, E extends Throwable> T accept(ExpressionVisitor<T, E> visitor) throws E {
 		return visitor.visit(this);
 	}
 
