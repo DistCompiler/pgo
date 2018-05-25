@@ -142,7 +142,11 @@ public class TLAExpressionTypeConstraintVisitor extends PGoTLAExpressionVisitor<
 
 	@Override
 	public PGoType visit(PGoTLAExistential pGoTLAExistential) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		for (PGoTLAIdentifier id : pGoTLAExistential.getIds()) {
+			mapping.putIfAbsent(id.getUID(), generator.get());
+		}
+		wrappedVisit(pGoTLAExistential.getBody());
+		return new PGoTypeBool(pGoTLAExistential);
 	}
 
 	@Override
@@ -340,7 +344,11 @@ public class TLAExpressionTypeConstraintVisitor extends PGoTLAExpressionVisitor<
 
 	@Override
 	public PGoType visit(PGoTLAUniversal pGoTLAUniversal) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		for (PGoTLAIdentifier id : pGoTLAUniversal.getIds()) {
+			mapping.putIfAbsent(id.getUID(), generator.get());
+		}
+		wrappedVisit(pGoTLAUniversal.getBody());
+		return new PGoTypeBool(pGoTLAUniversal);
 	}
 
 	@Override
