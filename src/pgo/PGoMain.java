@@ -66,9 +66,6 @@ public class PGoMain {
 	public void run() {
 		PcalParser parser = new PcalParser(opts.infile);
 
-		/*********************************************************************
-		 * For -writeAST option, just write the file AST.tla and halt. *
-		 *********************************************************************/
 		ParsedPcal pcal;
 		try {
 			pcal = parser.parse();
@@ -77,8 +74,9 @@ public class PGoMain {
 			return;
 		}
 
+		// for -writeAST option, just write the file AST.tla and halt.
 		if (opts.writeAST) {
-			IOUtil.WriteAST(pcal.getAST(), opts.buildDir +"/"+ opts.buildFile);
+			IOUtil.WriteAST(pcal.getAST(), opts.buildDir + "/" + opts.buildFile);
 			return; // added for testing
 		}
 

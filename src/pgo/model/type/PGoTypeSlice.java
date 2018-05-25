@@ -1,15 +1,19 @@
 package pgo.model.type;
 
-import pgo.errors.IssueContext;
+import pgo.util.Origin;
 
-import java.util.Map;
+import java.util.List;
 
 /**
  * Represents a slice.
  */
 public class PGoTypeSlice extends PGoSimpleContainerType {
-	public PGoTypeSlice(PGoType elementType) {
-		this.elementType = elementType;
+	public PGoTypeSlice(PGoType elementType, Origin... origins) {
+		super(elementType, origins);
+	}
+
+	public PGoTypeSlice(PGoType elementType, List<Origin> origins) {
+		super(elementType, origins);
 	}
 
 	@Override
@@ -18,16 +22,6 @@ public class PGoTypeSlice extends PGoSimpleContainerType {
 			return false;
 		}
 		return super.equals(p);
-	}
-
-	@Override
-	public PGoType substitute(Map<PGoTypeVariable, PGoType> mapping) {
-		return new PGoTypeSlice(elementType.substitute(mapping));
-	}
-
-	@Override
-	public PGoType realize(IssueContext ctx) {
-		return new PGoTypeSlice(elementType.realize(ctx));
 	}
 
 	@Override

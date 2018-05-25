@@ -1,7 +1,10 @@
 package pgo.model.type;
 
 import pgo.errors.IssueContext;
+import pgo.util.Origin;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -12,7 +15,12 @@ public class PGoTypeMap extends PGoType {
 	private PGoType keyType;
 	private PGoType valueType;
 
-	public PGoTypeMap(PGoType keyType, PGoType valueType) {
+	public PGoTypeMap(PGoType keyType, PGoType valueType, Origin... origins) {
+		this(keyType, valueType, Arrays.asList(origins));
+	}
+
+	public PGoTypeMap(PGoType keyType, PGoType valueType, List<Origin> origins) {
+		super(origins);
 		this.keyType = keyType;
 		this.valueType = valueType;
 	}
@@ -52,12 +60,16 @@ public class PGoTypeMap extends PGoType {
 
 	@Override
 	public PGoType substitute(Map<PGoTypeVariable, PGoType> mapping) {
-		return new PGoTypeMap(keyType.substitute(mapping), valueType.substitute(mapping));
+		keyType = keyType.substitute(mapping);
+		valueType = valueType.substitute(mapping);
+		return this;
 	}
 
 	@Override
 	public PGoType realize(IssueContext ctx) {
-		return new PGoTypeMap(keyType.realize(ctx), valueType.realize(ctx));
+		keyType = keyType.realize(ctx);
+		valueType = valueType.realize(ctx);
+		return this;
 	}
 
 	@Override

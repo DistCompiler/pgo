@@ -1,13 +1,24 @@
 package pgo.model.type;
 
+import pgo.util.Origin;
+
+import java.util.List;
+
 /**
  * Represents the default integer type.
  */
 public class PGoTypeNatural extends PGoNumberType {
-	private static final PGoTypeNatural instance = new PGoTypeNatural();
-	private PGoTypeNatural() {}
-	public static PGoTypeNatural getInstance() {
-		return instance;
+	public PGoTypeNatural(Origin... origins) {
+		super(origins);
+	}
+
+	public PGoTypeNatural(List<Origin> origins) {
+		super(origins);
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		return obj instanceof PGoTypeNatural;
 	}
 
 	@Override
@@ -28,5 +39,10 @@ public class PGoTypeNatural extends PGoNumberType {
 	@Override
 	public int getSpecificity() {
 		return 1;
+	}
+
+	@Override
+	public PGoTypeNatural copyWithOrigins(List<Origin> origins) {
+		return new PGoTypeNatural(origins);
 	}
 }

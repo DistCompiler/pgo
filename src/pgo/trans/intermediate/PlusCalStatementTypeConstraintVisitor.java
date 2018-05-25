@@ -38,7 +38,7 @@ public class PlusCalStatementTypeConstraintVisitor extends StatementVisitor<Void
 
 	@Override
 	public Void visit(While while1) throws RuntimeException {
-		solver.addConstraint(ctx, new PGoTypeConstraint(while1, exprVisitor.wrappedVisit(while1.getCondition()), PGoTypeBool.getInstance()));
+		solver.addConstraint(ctx, new PGoTypeConstraint(while1, exprVisitor.wrappedVisit(while1.getCondition()), new PGoTypeBool(while1)));
 		for (Statement stmt : while1.getBody()) {
 			stmt.accept(this);
 		}
@@ -47,7 +47,7 @@ public class PlusCalStatementTypeConstraintVisitor extends StatementVisitor<Void
 
 	@Override
 	public Void visit(If if1) throws RuntimeException {
-		solver.addConstraint(ctx, new PGoTypeConstraint(if1, exprVisitor.wrappedVisit(if1.getCondition()), PGoTypeBool.getInstance()));
+		solver.addConstraint(ctx, new PGoTypeConstraint(if1, exprVisitor.wrappedVisit(if1.getCondition()), new PGoTypeBool(if1)));
 		for (Statement stmt : if1.getYes()) {
 			stmt.accept(this);
 		}
@@ -100,7 +100,7 @@ public class PlusCalStatementTypeConstraintVisitor extends StatementVisitor<Void
 		solver.addConstraint(ctx, new PGoTypeConstraint(
 				call,
 				mapping.get(proc.getUID()),
-				new PGoTypeFunction(callArgs, PGoTypeVoid.getInstance())));
+				new PGoTypeFunction(callArgs, new PGoTypeVoid(call))));
 		return null;
 	}
 
@@ -120,19 +120,28 @@ public class PlusCalStatementTypeConstraintVisitor extends StatementVisitor<Void
 
 	@Override
 	public Void visit(Print print) throws RuntimeException {
-		exprVisitor.wrappedVisit(print.getValue());
+		PGoTLAExpression expr = print.getValue();
+		PGoType t = exprVisitor.wrappedVisit(expr);
+		if (t instanceof PGoTypeUnrealizedTuple) {
+			int probableSize = ((PGoTypeUnrealizedTuple) t).getProbableSize();
+			List<PGoType> elemTypes = new ArrayList<>();
+			for (int i = 0; i < probableSize; i++) {
+				elemTypes.add(generator.get());
+			}
+			solver.addConstraint(ctx, new PGoTypeConstraint(expr, t, new PGoTypeTuple(elemTypes, print)));
+		}
 		return null;
 	}
 
 	@Override
 	public Void visit(Assert assert1) throws RuntimeException {
-		solver.addConstraint(ctx, new PGoTypeConstraint(assert1, exprVisitor.wrappedVisit(assert1.getCondition()), PGoTypeBool.getInstance()));
+		solver.addConstraint(ctx, new PGoTypeConstraint(assert1, exprVisitor.wrappedVisit(assert1.getCondition()), new PGoTypeBool(assert1)));
 		return null;
 	}
 
 	@Override
 	public Void visit(Await await) throws RuntimeException {
-		solver.addConstraint(ctx, new PGoTypeConstraint(await, exprVisitor.wrappedVisit(await.getCondition()), PGoTypeBool.getInstance()));
+		solver.addConstraint(ctx, new PGoTypeConstraint(await, exprVisitor.wrappedVisit(await.getCondition()), new PGoTypeBool(await)));
 		return null;
 	}
 

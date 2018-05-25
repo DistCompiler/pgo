@@ -45,10 +45,7 @@ public class ChainMap<K, V> implements Map<K, V> {
 		Map<K, V> result = new HashMap<>(members);
 		Set<Entry<K, V>> parentSet = parent.entrySet();
 		for(Entry<K, V> e : parentSet) {
-			// add only if we haven't encountered that key before
-			if(!result.containsKey(e.getKey())) {
-				result.put(e.getKey(), e.getValue());
-			}
+			result.putIfAbsent(e.getKey(), e.getValue());
 		}
 		return result.entrySet();
 	}

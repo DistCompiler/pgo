@@ -180,7 +180,7 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 
 	@Override
 	public Void visit(UnrealizableTypeIssue unrealizableTypeIssue) throws IOException {
-		out.write("could not realize the type ");
+		out.write("could not realize ");
 		unrealizableTypeIssue.getType().accept(new DerivedFormattingVisitor(out));
 		return null;
 	}

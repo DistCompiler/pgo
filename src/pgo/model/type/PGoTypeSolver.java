@@ -60,16 +60,29 @@ public class PGoTypeSolver {
 				// the constraint is of the form "a = some type", so assign a to that type
 				// the containment check prevents the occurrence of recursive types
 				mapping.put(((PGoTypeVariable) a), b);
+				constraint.getOrigins().forEach(a::addOrigin);
 			} else if (b instanceof PGoTypeVariable && !a.contains((PGoTypeVariable) b)) {
 				// the constraint is of the form "some type = b", so assign b to that type
 				// the containment check prevents the occurrence of recursive types
 				mapping.put(((PGoTypeVariable) b), a);
+				constraint.getOrigins().forEach(b::addOrigin);
 			} else if (a instanceof PGoTypeUnrealizedNumber && b instanceof PGoNumberType) {
 				// attempt to promote the unrealized number a to the number b
 				((PGoTypeUnrealizedNumber) a).harmonize(ctx, constraint, (PGoNumberType) b);
+				if (ctx.hasErrors()) {
+					return;
+				}
+				constraint.getOrigins().forEach(a::addOrigin);
+				if (b instanceof PGoTypeUnrealizedNumber) {
+					constraint.getOrigins().forEach(b::addOrigin);
+				}
 			} else if (b instanceof PGoTypeUnrealizedNumber && a instanceof PGoNumberType) {
 				// attempt to promote the unrealized number b to the number a
 				((PGoTypeUnrealizedNumber) b).harmonize(ctx, constraint, (PGoNumberType) a);
+				if (ctx.hasErrors()) {
+					return;
+				}
+				constraint.getOrigins().forEach(b::addOrigin);
 			} else if (a instanceof PGoSimpleContainerType && b instanceof PGoSimpleContainerType) {
 				// a simple container is a container with a single element type, e.g. Set[a], Slice[a], etc.
 				// in order for SimpleContainer[a] = SimpleContainer[b],
@@ -113,20 +126,36 @@ public class PGoTypeSolver {
 				}
 			} else if (a instanceof PGoTypeUnrealizedTuple && b instanceof PGoSimpleContainerType) {
 				// attempt to promote an unrealized tuple to a simple container type
-				((PGoTypeUnrealizedTuple) a).harmonize(ctx, this, (PGoSimpleContainerType) b);
-				if(ctx.hasErrors()) return;
+				((PGoTypeUnrealizedTuple) a).harmonize(ctx, constraint, this, (PGoSimpleContainerType) b);
+				if (ctx.hasErrors()) {
+					return;
+				}
+				constraint.getOrigins().forEach(a::addOrigin);
 			} else if (a instanceof PGoSimpleContainerType && b instanceof PGoTypeUnrealizedTuple) {
-				((PGoTypeUnrealizedTuple) b).harmonize(ctx, this, (PGoSimpleContainerType) a);
-				if(ctx.hasErrors()) return;
+				((PGoTypeUnrealizedTuple) b).harmonize(ctx, constraint, this, (PGoSimpleContainerType) a);
+				if (ctx.hasErrors()) {
+					return;
+				}
+				constraint.getOrigins().forEach(b::addOrigin);
 			} else if (a instanceof PGoTypeUnrealizedTuple && b instanceof PGoTypeTuple) {
 				((PGoTypeUnrealizedTuple) a).harmonize(ctx, constraint, this, (PGoTypeTuple) b);
-				if(ctx.hasErrors()) return;
+				if (ctx.hasErrors()) {
+					return;
+				}
+				constraint.getOrigins().forEach(a::addOrigin);
 			} else if (a instanceof PGoTypeTuple && b instanceof PGoTypeUnrealizedTuple) {
 				((PGoTypeUnrealizedTuple) b).harmonize(ctx, constraint, this, (PGoTypeTuple) a);
-				if(ctx.hasErrors()) return;
+				if (ctx.hasErrors()) {
+					return;
+				}
+				constraint.getOrigins().forEach(b::addOrigin);
 			} else if (a instanceof PGoTypeUnrealizedTuple && b instanceof PGoTypeUnrealizedTuple) {
 				((PGoTypeUnrealizedTuple) a).harmonize(ctx, constraint, this, (PGoTypeUnrealizedTuple) b);
-				if(ctx.hasErrors()) return;
+				if (ctx.hasErrors()) {
+					return;
+				}
+				constraint.getOrigins().forEach(a::addOrigin);
+				constraint.getOrigins().forEach(b::addOrigin);
 			} else if (a instanceof PGoTypeFunction && b instanceof PGoTypeFunction) {
 				// in order for two function types to be the same,
 				PGoTypeFunction fa = (PGoTypeFunction) a;

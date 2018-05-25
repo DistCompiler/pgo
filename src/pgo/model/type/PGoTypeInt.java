@@ -1,13 +1,24 @@
 package pgo.model.type;
 
+import pgo.util.Origin;
+
+import java.util.List;
+
 /**
  * Represents a fallback integer type.
  */
 public class PGoTypeInt extends PGoNumberType {
-	private static final PGoTypeInt instance = new PGoTypeInt();
-	private PGoTypeInt() {}
-	public static PGoTypeInt getInstance() {
-		 return instance;
+	public PGoTypeInt(Origin... origins) {
+		super(origins);
+	}
+
+	public PGoTypeInt(List<Origin> origins) {
+		super(origins);
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		return obj instanceof PGoTypeInt;
 	}
 
 	@Override
@@ -28,5 +39,10 @@ public class PGoTypeInt extends PGoNumberType {
 	@Override
 	public <T, E extends Throwable> T accept(PGoTypeVisitor<T, E> v) throws E {
 		return v.visit(this);
+	}
+
+	@Override
+	public PGoTypeInt copyWithOrigins(List<Origin> origins) {
+		return new PGoTypeInt(origins);
 	}
 }
