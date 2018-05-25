@@ -1,7 +1,9 @@
 package pgo.trans.intermediate;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 import pgo.model.pcal.Procedure;
 import pgo.model.tla.PGoTLAFunctionDefinition;
@@ -16,6 +18,9 @@ public class DefinitionRegistry {
 	private Map<String, PGoTLAModule> modules;
 	private Map<UID, PGoTLAUnit> definitions;
 	private Map<UID, OperatorAccessor> operators;
+	private Set<UID> globalVariables;
+	private Set<UID> localVariables;
+	private Set<UID> constants;
 	private Map<UID, UID> references;
 	private Map<String, Procedure> procedures;
 
@@ -26,6 +31,9 @@ public class DefinitionRegistry {
 		this.operators = new HashMap<>();
 		this.references = new HashMap<>();
 		this.procedures = new HashMap<>();
+		this.globalVariables = new HashSet<>();
+		this.localVariables = new HashSet<>();
+		this.constants = new HashSet<>();
 	}
 
 	public Map<UID, UID> getReferences(){
@@ -57,6 +65,18 @@ public class DefinitionRegistry {
 	public void addProcedure(Procedure proc) {
 		procedures.put(proc.getName(), proc);
 	}
+	
+	public void addGlobalVariable(UID uid) {
+		globalVariables.add(uid);
+	}
+	
+	public void addLocalVariable(UID uid) {
+		localVariables.add(uid);
+	}
+	
+	public void addConstant(UID uid) {
+		constants.add(uid);
+	}
 
 	public UID followReference(UID from) {
 		if(!references.containsKey(from)) {
@@ -78,6 +98,18 @@ public class DefinitionRegistry {
 
 	public Procedure findProcedure(String name) {
 		return procedures.get(name);
+	}
+
+	public boolean isGlobalVariable(UID ref) {
+		return globalVariables.contains(ref);
+	}
+	
+	public boolean isLocalVariable(UID ref) {
+		return localVariables.contains(ref);
+	}
+	
+	public boolean isConstant(UID ref) {
+		return constants.contains(ref);
 	}
 
 }

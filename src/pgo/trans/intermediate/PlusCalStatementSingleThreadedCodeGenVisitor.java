@@ -1,5 +1,6 @@
 package pgo.trans.intermediate;
 
+import java.util.Collections;
 import java.util.Map;
 
 import pgo.model.golang.BlockBuilder;
@@ -76,20 +77,21 @@ public class PlusCalStatementSingleThreadedCodeGenVisitor extends StatementVisit
 
 	@Override
 	public Void visit(Either either) throws RuntimeException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new RuntimeException("TODO");
 	}
 
 	@Override
 	public Void visit(Assignment assignment) throws RuntimeException {
-		// TODO Auto-generated method stub
+		builder.assign(
+				Collections.singletonList(
+						assignment.getLHS().accept(new TLAExpressionSingleThreadedCodeGenVisitor(builder, registry, typeMap))),
+				assignment.getRHS().accept(new TLAExpressionSingleThreadedCodeGenVisitor(builder, registry, typeMap)));
 		return null;
 	}
 
 	@Override
 	public Void visit(Return return1) throws RuntimeException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new RuntimeException("TODO");
 	}
 
 	@Override
@@ -100,43 +102,38 @@ public class PlusCalStatementSingleThreadedCodeGenVisitor extends StatementVisit
 
 	@Override
 	public Void visit(Call call) throws RuntimeException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new RuntimeException("TODO");
 	}
 
 	@Override
 	public Void visit(MacroCall macroCall) throws RuntimeException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new RuntimeException("unreachable");
 	}
 
 	@Override
 	public Void visit(With with) throws RuntimeException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new RuntimeException("TODO");
 	}
 
 	@Override
 	public Void visit(Print print) throws RuntimeException {
-		// TODO Auto-generated method stub
+		builder.print(print.getValue().accept(
+				new TLAExpressionSingleThreadedCodeGenVisitor(builder, registry, typeMap)));
 		return null;
 	}
 
 	@Override
 	public Void visit(Assert assert1) throws RuntimeException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new RuntimeException("TODO");
 	}
 
 	@Override
 	public Void visit(Await await) throws RuntimeException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new RuntimeException("TODO");
 	}
 
 	@Override
 	public Void visit(Goto goto1) throws RuntimeException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new RuntimeException("TODO");
 	}
 }

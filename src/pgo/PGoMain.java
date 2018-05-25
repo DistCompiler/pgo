@@ -114,7 +114,7 @@ public class PGoMain {
 			
 			Module module = CodeGenPass.perform(pcalAlgorithm, registry, typeMap);
 
-			System.out.println(typeMap);
+			System.out.println(module);
 
 			/*logger.info("Entering Stage Four: Inferring atomicity constraints");
 			PGoTransStageAtomicity s4 = new PGoTransStageAtomicity(s3);

@@ -71,4 +71,9 @@ public class ModuleBuilder extends ASTBuilder {
 	protected void addStatement(Statement s) {
 		throw new RuntimeException("internal compiler error");
 	}
+
+	@Override
+	public void addImport(String name) {
+		imports.add(name);
+	}
 }

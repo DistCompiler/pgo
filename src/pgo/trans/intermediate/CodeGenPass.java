@@ -15,7 +15,7 @@ public class CodeGenPass {
 	public static Module perform(Algorithm algorithm, DefinitionRegistry registry, Map<UID, PGoType> typeMap) {
 		ModuleBuilder moduleBuilder = new ModuleBuilder(algorithm.getName());
 		
-		algorithm.getProcesses().accept(new PlusCalProcessesSingleThreadedCodeGenVisitor(moduleBuilder, registry, typeMap));
+		algorithm.getProcesses().accept(new PlusCalProcessesSingleThreadedCodeGenVisitor(algorithm, moduleBuilder, registry, typeMap));
 		
 		return moduleBuilder.getModule();
 	}

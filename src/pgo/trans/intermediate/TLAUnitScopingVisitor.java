@@ -196,6 +196,7 @@ public class TLAUnitScopingVisitor extends PGoTLAUnitVisitor<Void, RuntimeExcept
 	public Void visit(PGoTLAVariableDeclaration pGoTLAVariableDeclaration) throws RuntimeException {
 		for(PGoTLAIdentifier id : pGoTLAVariableDeclaration.getVariables()) {
 			builder.declare(id.getId(), id.getUID());
+			regBuilder.addGlobalVariable(id.getUID());
 		}
 		return null;
 	}
@@ -204,6 +205,7 @@ public class TLAUnitScopingVisitor extends PGoTLAUnitVisitor<Void, RuntimeExcept
 	public Void visit(PGoTLAConstantDeclaration pGoTLAConstantDeclaration) throws RuntimeException {
 		for(PGoTLAOpDecl op : pGoTLAConstantDeclaration.getConstants()) {
 			builder.declare(op.getName().getId(), op.getName().getUID());
+			regBuilder.addConstant(op.getName().getUID());
 		}
 		return null;
 	}

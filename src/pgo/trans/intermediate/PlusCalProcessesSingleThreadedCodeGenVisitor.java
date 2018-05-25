@@ -5,20 +5,25 @@ import java.util.Map;
 
 import pgo.model.golang.BlockBuilder;
 import pgo.model.golang.ModuleBuilder;
+import pgo.model.golang.VariableName;
+import pgo.model.pcal.Algorithm;
 import pgo.model.pcal.LabeledStatements;
 import pgo.model.pcal.MultiProcess;
 import pgo.model.pcal.ProcessesVisitor;
 import pgo.model.pcal.SingleProcess;
+import pgo.model.pcal.VariableDecl;
 import pgo.model.type.PGoType;
 import pgo.scope.UID;
 
 public class PlusCalProcessesSingleThreadedCodeGenVisitor extends ProcessesVisitor<Void, RuntimeException> {
 
+	private Algorithm algorithm;
 	private ModuleBuilder moduleBuilder;
 	private DefinitionRegistry registry;
 	private Map<UID, PGoType> typeMap;
 
-	public PlusCalProcessesSingleThreadedCodeGenVisitor(ModuleBuilder moduleBuilder, DefinitionRegistry registry, Map<UID, PGoType> typeMap) {
+	public PlusCalProcessesSingleThreadedCodeGenVisitor(Algorithm algorithm, ModuleBuilder moduleBuilder, DefinitionRegistry registry, Map<UID, PGoType> typeMap) {
+		this.algorithm = algorithm;
 		this.moduleBuilder = moduleBuilder;
 		this.registry = registry;
 		this.typeMap = typeMap;
@@ -27,6 +32,11 @@ public class PlusCalProcessesSingleThreadedCodeGenVisitor extends ProcessesVisit
 	@Override
 	public Void visit(SingleProcess singleProcess) throws RuntimeException {
 		try(BlockBuilder fnBuilder = moduleBuilder.defineFunction("main", Collections.emptyList(), Collections.emptyList())){
+			for(VariableDecl var : algorithm.getVariables()) {
+				VariableName name = fnBuilder.varDecl(var.getName(), var.getValue().accept(
+						new TLAExpressionSingleThreadedCodeGenVisitor(fnBuilder, registry, typeMap)));
+				fnBuilder.linkUID(var.getUID(), name);
+			}
 			for(LabeledStatements stmts : singleProcess.getLabeledStatements()) {
 				stmts.accept(new PlusCalStatementSingleThreadedCodeGenVisitor(fnBuilder, registry, typeMap));
 			}

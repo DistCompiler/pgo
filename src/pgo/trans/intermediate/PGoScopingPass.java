@@ -29,6 +29,7 @@ public class PGoScopingPass {
 		
 		for(VariableDecl decl : algorithm.getVariables()) {
 			pcalScope.declare(decl.getName(), decl.getUID());
+			regBuilder.addGlobalVariable(decl.getUID());
 			decl.getValue().accept(new TLAExpressionScopingVisitor(tlaScope, regBuilder, loader, new HashSet<>()));
 		}
 		
@@ -50,6 +51,7 @@ public class PGoScopingPass {
 			
 			for(VariableDecl arg : proc.getArguments()) {
 				arg.getValue().accept(new TLAExpressionScopingVisitor(tlaScope, regBuilder, loader, new HashSet<>()));
+				regBuilder.addLocalVariable(arg.getUID());
 				if(argScope.declare(arg.getName(), arg.getUID())) {
 					args.put(arg.getName(), arg.getUID());
 				}

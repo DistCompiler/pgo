@@ -68,6 +68,15 @@ public class BlockBuilder extends ASTBuilder implements Closeable {
 		return new IfBuilder(this, new ChainSet<>(variableScope), nameMap, labelScope, condition);
 	}
 	
+	public void print(Expression value) {
+		addImport("fmt");
+		addStatement(
+				new Call(
+						new Selector(
+								new VariableName("fmt"), "Printf"),
+						Arrays.asList(new StringLiteral("\"%v\""), value)));
+	}
+	
 	public BlockBuilder forLoop(Expression condition) {
 		return new BlockBuilder(
 				this, new ChainSet<>(variableScope), nameMap, labelScope,
@@ -145,5 +154,10 @@ public class BlockBuilder extends ASTBuilder implements Closeable {
 			throw new RuntimeException("internal compiler error");
 		}
 		return nameMap.get(uid);
+	}
+
+	@Override
+	public void addImport(String name) {
+		builder.addImport(name);
 	}
 }

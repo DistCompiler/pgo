@@ -1,15 +1,24 @@
 package pgo.trans.intermediate;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 import pgo.model.golang.BlockBuilder;
 import pgo.model.golang.Builtins;
 import pgo.model.golang.Expression;
+import pgo.model.golang.IntLiteral;
+import pgo.model.golang.SliceLiteral;
+import pgo.model.golang.StringLiteral;
+import pgo.model.golang.Type;
+import pgo.model.golang.VariableName;
 import pgo.model.tla.PGoTLABinOp;
 import pgo.model.tla.PGoTLABool;
 import pgo.model.tla.PGoTLACase;
 import pgo.model.tla.PGoTLAExistential;
+import pgo.model.tla.PGoTLAExpression;
 import pgo.model.tla.PGoTLAExpressionVisitor;
 import pgo.model.tla.PGoTLAFunction;
 import pgo.model.tla.PGoTLAFunctionCall;
@@ -108,12 +117,31 @@ public class TLAExpressionSingleThreadedCodeGenVisitor extends PGoTLAExpressionV
 
 	@Override
 	public Expression visit(PGoTLAGeneralIdentifier pGoTLAVariable) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		UID ref = registry.followReference(pGoTLAVariable.getUID());
+		if(registry.isGlobalVariable(ref) || registry.isLocalVariable(ref)) {
+			// TODO: implement proper variable accessing
+			VariableName name = builder.findUID(ref);
+			return name;
+		}else if(registry.isConstant(ref)) {
+			// TODO: do constants, this is a stub and will never work
+			return Builtins.Nil;
+		}else {
+			System.out.println(pGoTLAVariable);
+			System.out.println(ref);
+			return registry.findOperator(ref).generateGo(
+					builder, pGoTLAVariable, registry, Collections.emptyList(), typeMap);
+		}
 	}
 
 	@Override
 	public Expression visit(PGoTLATuple pGoTLATuple) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		PGoType pgoType = typeMap.get(pGoTLATuple.getUID());
+		Type type = pgoType.accept(new PGoTypeGoTypeConversionVisitor());
+		List<Expression> elements = new ArrayList<>();
+		for(PGoTLAExpression element : pGoTLATuple.getElements()) {
+			elements.add(element.accept(this));
+		}
+		return new SliceLiteral(type, elements);
 	}
 
 	@Override
@@ -123,7 +151,7 @@ public class TLAExpressionSingleThreadedCodeGenVisitor extends PGoTLAExpressionV
 
 	@Override
 	public Expression visit(PGoTLANumber pGoTLANumber) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		return new IntLiteral(Integer.valueOf(pGoTLANumber.getVal()));
 	}
 
 	@Override
@@ -173,7 +201,7 @@ public class TLAExpressionSingleThreadedCodeGenVisitor extends PGoTLAExpressionV
 
 	@Override
 	public Expression visit(PGoTLAString pGoTLAString) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		return new StringLiteral(pGoTLAString.getValue());
 	}
 
 	@Override

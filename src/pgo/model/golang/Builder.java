@@ -9,12 +9,12 @@ public final class Builder {
 
 	private Builder() {}
 	
-	public static SliceConstructor sliceLiteral(Type elementType, Expression... values) {
+	public static SliceLiteral sliceLiteral(Type elementType, Expression... values) {
 		return sliceLiteral(elementType, Arrays.asList(values));
 	}
 	
-	public static SliceConstructor sliceLiteral(Type elementType, List<Expression> values) {
-		return new SliceConstructor(elementType, values);
+	public static SliceLiteral sliceLiteral(Type elementType, List<Expression> values) {
+		return new SliceLiteral(elementType, values);
 	}
 	
 	public static StringLiteral stringLiteral(String value) {

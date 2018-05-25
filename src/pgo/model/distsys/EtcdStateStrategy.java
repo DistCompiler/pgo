@@ -30,14 +30,14 @@ public class EtcdStateStrategy implements StateStrategy {
 
 		topLevelMain.add(new FunctionCall("datatypes.GobInit", new Vector<>()));
 
-		SliceConstructor endpoints = Builder.sliceLiteral(
+		SliceLiteral endpoints = Builder.sliceLiteral(
 				PGoType.inferFromGoTypeName("string"),
 				stateOptions.endpoints
 						.stream()
 						.map(e -> Builder.stringLiteral("https://" + e))
 						.collect(Collectors.toList()));
 
-		SliceConstructor peers = Builder.sliceLiteral(
+		SliceLiteral peers = Builder.sliceLiteral(
 				PGoType.inferFromGoTypeName("string"),
 				stateOptions.peers
 						.stream()

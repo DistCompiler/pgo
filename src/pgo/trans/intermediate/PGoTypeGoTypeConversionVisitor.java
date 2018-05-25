@@ -1,5 +1,9 @@
 package pgo.trans.intermediate;
 
+import java.util.Collections;
+
+import pgo.model.golang.InterfaceType;
+import pgo.model.golang.SliceType;
 import pgo.model.golang.Type;
 import pgo.model.type.PGoTypeBool;
 import pgo.model.type.PGoTypeChan;
@@ -27,7 +31,7 @@ public class PGoTypeGoTypeConversionVisitor extends PGoTypeVisitor<Type, Runtime
 
 	@Override
 	public Type visit(PGoTypeTuple pGoTypeTuple) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		return new SliceType(new InterfaceType());
 	}
 
 	@Override

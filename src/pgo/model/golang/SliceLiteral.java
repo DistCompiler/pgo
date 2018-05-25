@@ -2,11 +2,11 @@ package pgo.model.golang;
 
 import java.util.List;
 
-public class SliceConstructor extends Expression {
+public class SliceLiteral extends Expression {
 	private List<Expression> initializers;
 	private Type elementType;
 
-	public SliceConstructor(Type elementType, List<Expression> initializers) {
+	public SliceLiteral(Type elementType, List<Expression> initializers) {
 		this.elementType = elementType;
 		this.initializers = initializers;
 	}
