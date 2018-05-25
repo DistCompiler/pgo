@@ -231,7 +231,11 @@ public class TLAExpressionTypeConstraintVisitor extends PGoTLAExpressionVisitor<
 
 	@Override
 	public PGoType visit(PGoTLAQuantifiedUniversal pGoTLAQuantifiedUniversal) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		for(PGoTLAQuantifierBound qb : pGoTLAQuantifiedUniversal.getIds()) {
+			processQuantifierBound(qb);
+		}
+		wrappedVisit(pGoTLAQuantifiedUniversal.getBody());
+		return new PGoTypeBool(pGoTLAQuantifiedUniversal);
 	}
 
 	@Override
