@@ -61,7 +61,7 @@ public class TypeInferencePass {
 				stmt.accept(v);
 			}
 			PGoTypeVariable fresh = generator.get();
-			solver.addConstraint(ctx, new PGoTypeConstraint(p, fresh, new PGoTypeFunction(paramTypes, new PGoTypeVoid(p))));
+			solver.addConstraint(ctx, new PGoTypeConstraint(p, fresh, new PGoTypeProcedure(paramTypes, p)));
 			mapping.put(p.getUID(), fresh);
 		}
 

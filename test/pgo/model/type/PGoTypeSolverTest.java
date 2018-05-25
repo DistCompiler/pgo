@@ -117,7 +117,7 @@ public class PGoTypeSolverTest {
 	@Test
 	public void infiniteType() {
 		PGoTypeVariable a = typeGenerator.get();
-		solver.addConstraint(ctx, new PGoTypeConstraint(dummyUID, a, new PGoTypeMap(PGoTypeVoid.getInstance(), a)));
+		solver.addConstraint(ctx, new PGoTypeConstraint(dummyUID, a, new PGoTypeMap(PGoTypeInt.getInstance(), a)));
 		solver.simplify(ctx);
 		assertTrue(ctx.hasErrors());
 	}

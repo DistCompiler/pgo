@@ -64,8 +64,6 @@ public class PGoTypeGenerator implements Supplier<PGoTypeVariable> {
 				return new PGoTypeDecimal(dummyUID);
 			case "string":
 				return new PGoTypeString(dummyUID);
-			case "void":
-				return new PGoTypeVoid(dummyUID);
 			case "interface":
 			case "interface{}":
 				return new PGoTypeInterface(dummyUID);

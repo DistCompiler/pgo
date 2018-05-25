@@ -100,7 +100,7 @@ public class PlusCalStatementTypeConstraintVisitor extends StatementVisitor<Void
 		solver.addConstraint(ctx, new PGoTypeConstraint(
 				call,
 				mapping.get(proc.getUID()),
-				new PGoTypeFunction(callArgs, new PGoTypeVoid(call))));
+				new PGoTypeProcedure(callArgs, call)));
 		return null;
 	}
 

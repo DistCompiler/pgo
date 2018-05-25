@@ -40,7 +40,6 @@ public class PGoTypeGeneratorPrimitiveTypeTest {
 				{ "bool", PGoTypeBool.getInstance() },
 				{ "boolean", PGoTypeBool.getInstance() },
 				{ "String", PGoTypeString.getInstance() },
-				{ "void", PGoTypeVoid.getInstance() },
 		});
 	}
 }
