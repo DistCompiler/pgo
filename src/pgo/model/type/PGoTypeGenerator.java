@@ -1,8 +1,5 @@
 package pgo.model.type;
 
-import pgo.scope.UID;
-import pgo.trans.PGoTransException;
-
 import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;

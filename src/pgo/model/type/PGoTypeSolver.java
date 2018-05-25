@@ -177,6 +177,22 @@ public class PGoTypeSolver {
 						constraint,
 						fa.getReturnType(),
 						fb.getReturnType()));
+			} else if (a instanceof PGoTypeProcedure && b instanceof PGoTypeProcedure) {
+				// in order for two procedure types to be the same,
+				PGoTypeProcedure pa = (PGoTypeProcedure) a;
+				PGoTypeProcedure pb = (PGoTypeProcedure) b;
+				//   (1) their parameter lists must be of the same size, and
+				if (pa.getParamTypes().size() != pb.getParamTypes().size()) {
+					ctx.error(new UnsatisfiableConstraintIssue(constraint, a, b));
+					return;
+				}
+				//   (2) each pair of corresponding parameter types must be the same
+				for (int i = 0; i < pa.getParamTypes().size(); i++) {
+					addConstraint(ctx, new PGoTypeConstraint(
+							constraint,
+							pa.getParamTypes().get(i),
+							pb.getParamTypes().get(i)));
+				}
 			} else {
 				// there is no other case for type equality, hence, record error
 				ctx.error(new UnsatisfiableConstraintIssue(constraint, a, b));

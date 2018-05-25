@@ -10,6 +10,7 @@ import pgo.model.type.PGoTypeFunction;
 import pgo.model.type.PGoTypeInt;
 import pgo.model.type.PGoTypeMap;
 import pgo.model.type.PGoTypeNatural;
+import pgo.model.type.PGoTypeProcedure;
 import pgo.model.type.PGoTypeSet;
 import pgo.model.type.PGoTypeSlice;
 import pgo.model.type.PGoTypeString;
@@ -18,7 +19,6 @@ import pgo.model.type.PGoTypeUnrealizedNumber;
 import pgo.model.type.PGoTypeUnrealizedTuple;
 import pgo.model.type.PGoTypeVariable;
 import pgo.model.type.PGoTypeVisitor;
-import pgo.model.type.PGoTypeVoid;
 
 public class PGoTypeEqualityCodeGenVisitor extends PGoTypeVisitor<Expression, RuntimeException> {
 	
@@ -107,7 +107,7 @@ public class PGoTypeEqualityCodeGenVisitor extends PGoTypeVisitor<Expression, Ru
 	}
 
 	@Override
-	public Expression visit(PGoTypeVoid pGoTypeVoid) throws RuntimeException {
+	public Expression visit(PGoTypeProcedure pGoTypeProcedure) throws RuntimeException {
 		throw new RuntimeException("TODO");
 	}
 
