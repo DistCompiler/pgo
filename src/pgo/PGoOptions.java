@@ -9,7 +9,6 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 
 public class PGoOptions {
-
 	@Option(value = "-h Print usage information", aliases = { "-help" })
 	public boolean help = false;
 
@@ -36,32 +35,29 @@ public class PGoOptions {
 	public PGoNetOptions net;
 
 	private Options plumeOptions;
+	private String[] remainingArgs;
 
 	public void printHelp() {
 		plumeOptions.print_usage();
 	}
 
-	public PGoOptions(String[] args) throws PGoOptionException {
+	public PGoOptions(String[] args) {
 		plumeOptions = new Options("pgo [options] pcalfile", this);
-		String[] remainingArgs = plumeOptions.parse_or_usage(args);
+		remainingArgs = plumeOptions.parse_or_usage(args);
+	}
 
+	public void parse() throws PGoOptionException {
 		if (help) {
 			printHelp();
 			System.exit(0);
 		}
 
+		inputFilePath = remainingArgs[0];
+
 		if (configFilePath.isEmpty()) {
 			throw new PGoOptionException("Configuration file is required");
 		}
 
-		if (remainingArgs.length != 1) {
-			throw new PGoOptionException("Invalid command line parameters");
-		}
-
-		inputFilePath = remainingArgs[0];
-	}
-
-	public void checkOptions() throws PGoOptionException {
 		String s;
 
 		try {
