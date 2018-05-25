@@ -1,5 +1,6 @@
 package pgo.parser;
 
+import java.nio.file.Path;
 import java.util.Vector;
 import java.util.logging.Logger;
 
@@ -25,11 +26,11 @@ public class PcalParser {
 
 	private Logger logger;
 	// the file to parse
-	private String file;
+	private Path filename;
 
-	public PcalParser(String file) {
+	public PcalParser(Path filename) {
 		logger = Logger.getLogger("PlusCal Parser");
-		this.file = file;
+		this.filename = filename;
 	}
 
 	public static class ParsedPcal {
@@ -81,9 +82,9 @@ public class PcalParser {
 		 * contents, where inputVec[i] is the string containing the contents *
 		 * of line i+1 of the input file. *
 		 *********************************************************************/
-		Vector inputVec = null;
+		Vector<String> inputVec;
 		try {
-			inputVec = IOUtil.fileToStringVector(file);
+			inputVec = IOUtil.fileToStringVector(filename);
 		} catch (FileToStringVectorException e) {
 			throw new PGoParseException(e.getMessage());
 		}
@@ -242,8 +243,6 @@ public class PcalParser {
 	 * of format "@PGo{<string>}@PGo"
 	 *
 	 * @param untabInputVec
-	 * @param algCol
-	 * @param algLine
 	 * @return the parsed go annotations
 	 * @throws PGoParseException
 	 */

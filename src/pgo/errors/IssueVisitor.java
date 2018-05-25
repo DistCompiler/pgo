@@ -8,6 +8,7 @@ import pgo.trans.intermediate.*;
 public abstract class IssueVisitor<T, E extends Throwable> {
 
 	public abstract T visit(IssueWithContext issueWithContext) throws E;
+	public abstract T visit(PlusCalParserIssue plusCalParserIssue) throws E;
 	public abstract T visit(ScopeConflictIssue scopeConflictIssue) throws E;
 	public abstract T visit(ModuleNotFoundIssue moduleNotFoundIssue) throws E;
 	public abstract T visit(TLALexerIssue tlaLexerIssue) throws E;

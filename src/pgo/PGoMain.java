@@ -64,32 +64,26 @@ public class PGoMain {
 
 	// Top-level workhorse method.
 	public void run() {
-		PcalParser parser = new PcalParser(opts.inputFilePath);
-
-		ParsedPcal pcal;
-		try {
-			pcal = parser.parse();
-		} catch (PGoParseException e) {
-			logger.severe(e.getMessage());
-			return;
-		}
-
-		// for -writeAST option, just write the file AST.tla and halt.
-		if (opts.writeAST) {
-			IOUtil.WriteAST(pcal.getAST(), opts.buildDir + "/" + opts.buildFile);
-			return; // added for testing
-		}
-
 		try {
 			TopLevelIssueContext ctx = new TopLevelIssueContext();
 			TLAModuleLoader loader = new TLAModuleLoader(Collections.singletonList(Paths.get(opts.inputFilePath).getParent()));
 
-			logger.info("Parsing TLA+ module");
-			PGoTLAModule tlaModule = TLAParsingPass.perform(ctx, Paths.get(opts.inputFilePath));
+			logger.info("Parsing PlusCal code");
+			ParsedPcal pcal = PlusCalParsingPass.perform(ctx, Paths.get(opts.inputFilePath));
 			checkErrors(ctx);
+
+			// for -writeAST option, just write the file AST.tla and halt.
+			if (opts.writeAST) {
+				IOUtil.WriteAST(pcal.getAST(), opts.buildDir + "/" + opts.buildFile);
+				return; // added for testing
+			}
 
 			logger.info("Cleaning up PlusCal AST");
 			Algorithm pcalAlgorithm = PlusCalConversionPass.perform(ctx, pcal);
+			checkErrors(ctx);
+
+			logger.info("Parsing TLA+ module");
+			PGoTLAModule tlaModule = TLAParsingPass.perform(ctx, Paths.get(opts.inputFilePath));
 			checkErrors(ctx);
 
 			/*logger.info("Parsing PGo annotations");
