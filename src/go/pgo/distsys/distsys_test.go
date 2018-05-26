@@ -174,6 +174,25 @@ var _ = Describe("GlobalStateOperation", func() {
 	})
 })
 
+var _ = Describe("VarReferences", func() {
+	It("is able to generate a corresponding BorrowSpec", func() {
+		refs := VarReferences(map[string]Reference{
+			"a": Reference{Value: 10, Exclusive: false},
+			"b": Reference{Value: "PGo", Exclusive: true},
+			"c": Reference{Value: []int{1, 2, 3}, Exclusive: true},
+		})
+
+		spec := refs.ToBorrowSpec()
+
+		Expect(len(spec.ReadNames)).To(Equal(1))
+		Expect(spec.ReadNames[0]).To(Equal("a"))
+
+		Expect(len(spec.WriteNames)).To(Equal(2))
+		Expect(spec.WriteNames[0]).To(Equal("b"))
+		Expect(spec.WriteNames[1]).To(Equal("c"))
+	})
+})
+
 func TestBorrowSpec(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "BorrowSpec")

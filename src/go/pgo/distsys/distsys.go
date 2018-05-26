@@ -42,24 +42,6 @@ func (ownership *OwnershipTable) Lookup(name string) string {
 	return peer
 }
 
-// Network represents the state of the distributed system at a given point in
-// time. It includes the lists of nodes running in the system, as well as the
-// underlying store for global state.
-type Network struct {
-	*ProcessInitialization
-
-	self   string          // the identifier of the running node
-	hosts  []string        // the list of addresses of all nodes in the system
-	owners OwnershipTable  // the current state ownership table
-	store  SimpleDataStore // the underlying store for state owned by the running node
-}
-
-// NetworkRPC is a thin wrapper around the `Network` struct such that only a
-// few methods are exposed to via RPC to other nodes
-type NetworkRPC struct {
-	network *Network
-}
-
 // BorrowSpec specifies a borrow request from a node to another. It includes a list
 // of variables names for which exclusive access is required, as well as a list of
 // names for which non-exclusive access is sufficient
@@ -131,12 +113,45 @@ func (spec *BorrowSpec) Sorted() SortedBorrowSpec {
 // it, and allows the node to mutate the value).
 type Reference struct {
 	Value     interface{} // the value of a variable reference
-	exclusive bool        // whether access to this value is exclusive
+	Exclusive bool        // whether access to this value is exclusive
 }
 
 // VarReferences maps variable names to references. Can be used when a node is
 // transferring state it knows about to another node in the system
 type VarReferences map[string]Reference
+
+// Merge takes another VarReferences object and merges it with the receiver.
+// Returns a new VarReferences struct that includes references from both objects
+func (self VarReferences) Merge(other VarReferences) VarReferences {
+	newrefs := map[string]Reference{}
+
+	for name, ref := range self {
+		newrefs[name] = ref
+	}
+
+	for name, ref := range other {
+		newrefs[name] = ref
+	}
+
+	return VarReferences(newrefs)
+}
+
+func (self VarReferences) ToBorrowSpec() *BorrowSpec {
+	spec := BorrowSpec{
+		ReadNames:  []string{},
+		WriteNames: []string{},
+	}
+
+	for name, ref := range self {
+		if ref.Exclusive {
+			spec.WriteNames = append(spec.WriteNames, name)
+		} else {
+			spec.ReadNames = append(spec.ReadNames, name)
+		}
+	}
+
+	return &spec
+}
 
 // GlobalStateOperation represents an attempt to get access to a set of variables
 // from the system's global state. Depending on which variables are requested and
@@ -223,4 +238,21 @@ func (op *GlobalStateOperation) Groups() []*VarReq {
 	reqs = append(reqs, currVarReq)
 
 	return reqs
+}
+
+// Network represents the current state of the system at a given instant and groups
+// different parts of the PGo runtime together
+type StateServer struct {
+	*ProcessInitialization
+
+	self      string          // the address of the running node
+	peers     []string        // a list of addresses of all peers in the system
+	ownership *OwnershipTable // the ownership table, mapping variable names to its owner
+	store     SimpleDataStore // the underlying state store
+}
+
+// StateServerRPC wraps the StateServer struct so that only a few methods are
+// exposed as RPC methods to other peers in the network
+type StateServerRPC struct {
+	*StateServer
 }

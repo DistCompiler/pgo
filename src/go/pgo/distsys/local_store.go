@@ -1,6 +1,7 @@
 package distsys
 
 import (
+	"fmt"
 	"log"
 	"sync"
 )
@@ -9,6 +10,13 @@ const (
 	readOnlyMode = iota
 	writeMode
 )
+
+// NameNotFoundError occurs when a lookup for an unknown name in the store is made
+type NameNotFoundError string
+
+func (e NameNotFoundError) Error() string {
+	return fmt.Sprintf("Local store: name not found: %s", e)
+}
 
 // DataEntry represents a single piece of global state that is
 // contained in this node. Entries are protected by a read-write lock
@@ -65,7 +73,7 @@ func (data *SimpleDataStore) hold(name string, mode int) (interface{}, error) {
 	entry, inStore := data.store[name]
 
 	if !inStore {
-		return nil, KeyNotFoundError(name)
+		return nil, NameNotFoundError(name)
 	}
 
 	if mode == readOnlyMode {
@@ -98,7 +106,7 @@ func (data *SimpleDataStore) release(name string, mode int) {
 	entry, inStore := data.store[name]
 
 	if !inStore {
-		log.Panic(KeyNotFoundError(name))
+		log.Panic(NameNotFoundError(name))
 	}
 
 	if mode == readOnlyMode {
@@ -108,53 +116,9 @@ func (data *SimpleDataStore) release(name string, mode int) {
 	}
 }
 
-// Set changes the value associated with the variable of a given `name` to
-// an specified `value`
-func (data *SimpleDataStore) Set(name string, value interface{}) {
-	log.Printf("Set(%s)=%v\n", name, value)
-
-	data.RLock()
-	defer data.RUnlock()
-
-	entry, inStore := data.store[name]
-
-	if !inStore {
-		log.Panic(KeyNotFoundError(name))
-	}
-
-	entry.value = value
-	entry.Unlock()
-}
-
-func (data *SimpleDataStore) create(name string, value interface{}) {
-	log.Printf("Create(%s)\n", name)
-
-	data.Lock()
-	defer data.Unlock()
-
-	if _, inStore := data.store[name]; !inStore {
-		log.Panicf("Attempt to create existing key: %s\n", name)
-	}
-
-	entry := &DataEntry{
-		value: value,
-	}
-
-	entry.Lock()
-	data.store[name] = entry
-}
-
-func (data *SimpleDataStore) remove(name string) {
-	log.Printf("Remove(%s)\n", name)
-
-	data.Lock()
-	defer data.Unlock()
-
-	entry, inStore := data.store[name]
-	if !inStore {
-		log.Panic(KeyNotFoundError(name))
-	}
-
-	delete(data.store, name)
-	entry.Unlock()
+// Set updates the value associated with a given `name` in the underlying store.
+// Invoking this function is only safe if the caller has previously called
+// HoldExclusive.
+func (data *SimpleDataStore) Set(name string, val interface{}) {
+	data.store[name] = &DataEntry{value: val}
 }
