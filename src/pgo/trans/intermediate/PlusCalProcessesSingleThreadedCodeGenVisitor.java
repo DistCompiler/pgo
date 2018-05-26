@@ -17,6 +17,7 @@ import pgo.model.pcal.MultiProcess;
 import pgo.model.pcal.ProcessesVisitor;
 import pgo.model.pcal.SingleProcess;
 import pgo.model.pcal.VariableDecl;
+import pgo.model.tla.PGoTLAExpression;
 import pgo.model.type.PGoType;
 import pgo.scope.UID;
 
@@ -41,16 +42,23 @@ public class PlusCalProcessesSingleThreadedCodeGenVisitor extends ProcessesVisit
 		Map<String, PGoType> constants = new TreeMap<>(); // sort constants for deterministic compiler output
 		Map<String, UID> constantIds = new HashMap<>();
 		for(UID id : registry.getConstants()) {
-			constants.put(registry.getConstantName(id), typeMap.get(id));
-			constantIds.put(registry.getConstantName(id), id);
+			String name = registry.getConstantName(id);
+			constants.put(name, typeMap.get(id));
+			constantIds.put(name, id);
 		}
 		
-		for(Map.Entry<String, PGoType> pair : constants.entrySet()) {
-			moduleBuilder.defineGlobal(
-					constantIds.get(pair.getKey()),
-					pair.getKey(),
-					// TODO: WARNING stupid hack fix now
-					new IntLiteral(42));
+		try(BlockBuilder initBuilder = moduleBuilder.defineFunction("init", Collections.emptyList(), Collections.emptyList())){
+			for(Map.Entry<String, PGoType> pair : constants.entrySet()) {
+				PGoTLAExpression value = registry.getConstantValue(constantIds.get(pair.getKey()));
+				PGoType type = typeMap.get(constantIds.get(pair.getKey()));
+				VariableName name = moduleBuilder.defineGlobal(
+						constantIds.get(pair.getKey()),
+						pair.getKey(),
+						type.accept(new PGoTypeGoTypeConversionVisitor()));
+				initBuilder.assign(
+						name,
+						value.accept(new TLAExpressionSingleThreadedCodeGenVisitor(initBuilder, registry, typeMap)));
+			}
 		}
 		
 		try(BlockBuilder fnBuilder = moduleBuilder.defineFunction("main", Collections.emptyList(), Collections.emptyList())){

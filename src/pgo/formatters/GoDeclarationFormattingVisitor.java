@@ -50,8 +50,14 @@ public class GoDeclarationFormattingVisitor extends DeclarationVisitor<Void, IOE
 	public Void visit(VariableDeclaration variableDeclaration) throws IOException {
 		out.write("var ");
 		out.write(variableDeclaration.getName());
-		out.write(" = ");
-		variableDeclaration.getValue().accept(new GoExpressionFormattingVisitor(out));
+		if(variableDeclaration.getType() != null) {
+			out.write(" ");
+			variableDeclaration.getType().accept(new GoTypeFormattingVisitor(out));
+		}
+		if(variableDeclaration.getValue() != null) {
+			out.write(" = ");
+			variableDeclaration.getValue().accept(new GoExpressionFormattingVisitor(out));
+		}
 		return null;
 	}
 

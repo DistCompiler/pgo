@@ -14,6 +14,7 @@ import pcal.exception.StringVectorToFileException;
 import pgo.errors.TopLevelIssueContext;
 import pgo.model.golang.Module;
 import pgo.model.pcal.Algorithm;
+import pgo.model.tla.PGoTLAExpression;
 import pgo.model.tla.PGoTLAModule;
 import pgo.model.type.PGoType;
 import pgo.modules.TLAModuleLoader;
@@ -71,6 +72,11 @@ public class PGoMain {
 			logger.info("Parsing TLA+ module");
 			PGoTLAModule tlaModule = TLAParsingPass.perform(ctx, Paths.get(opts.inputFilePath));
 			checkErrors(ctx);
+			
+			logger.info("Parsing constant definitions from configuration");
+			Map<String, PGoTLAExpression> constantDefinitions = ConstantDefinitionParsingPass.perform(
+					ctx, opts.constants.getConstants());
+			checkErrors(ctx);
 
 			/*logger.info("Parsing PGo annotations");
 			PGoAnnotationParser annotations = AnnotationParsingPass.perform(pcal);
@@ -86,7 +92,7 @@ public class PGoMain {
 
 			logger.info("Resolving TLA+ and PlusCal scoping");
 			TLAModuleLoader loader = new TLAModuleLoader(Collections.singletonList(Paths.get(opts.inputFilePath).getParent()));
-			DefinitionRegistry registry = PGoScopingPass.perform(ctx, tlaModule, pcalAlgorithm, loader);
+			DefinitionRegistry registry = PGoScopingPass.perform(ctx, tlaModule, pcalAlgorithm, loader, constantDefinitions);
 			checkErrors(ctx);
 
 			logger.info("Inferring types");

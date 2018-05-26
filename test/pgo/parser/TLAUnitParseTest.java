@@ -81,7 +81,7 @@ public class TLAUnitParseTest {
 
 	@Test
 	public void test() throws PGoTLALexerException, TLAParseException {
-		TLALexer lexer = new TLALexer(testFile, Arrays.asList(unitString.split("\n")));
+		TLALexer lexer = new TLALexer(testFile, 1, 1, Arrays.asList(unitString.split("\n")));
 		// don't ignore the expression because it's not in a module
 		lexer.requireModule(false);
 		

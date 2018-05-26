@@ -33,6 +33,7 @@ public class PGoOptions {
 	public String buildDir;
 	public String buildFile;
 	public PGoNetOptions net;
+	public PGoConstantDefs constants;
 
 	private Options plumeOptions;
 	private String[] remainingArgs;
@@ -78,5 +79,6 @@ public class PGoOptions {
 		buildDir = config.getJSONObject("build").getString("output_dir");
 		buildFile = config.getJSONObject("build").getString("dest_file");
 		net = new PGoNetOptions(config);
+		constants = new PGoConstantDefs(config, configFilePath);
 	}
 }

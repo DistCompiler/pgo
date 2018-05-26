@@ -30,5 +30,6 @@ public abstract class IssueVisitor<T, E extends Throwable> {
 	public abstract T visit(UnsatisfiableConstraintIssue unsatisfiableConstraintIssue) throws E;
 	public abstract T visit(UnsatisfiablePolymorphicConstraintIssue unsatisfiablePolymorphicConstraintIssue) throws E;
 	public abstract T visit(ProcedureNotFoundIssue procedureNotFoundIssue) throws E;
+	public abstract T visit(ConstantWithNoValueIssue constantWithNoValueIssue) throws E;
 
 }

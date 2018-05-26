@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.Set;
 
 import pgo.model.pcal.Procedure;
+import pgo.model.tla.PGoTLAExpression;
 import pgo.model.tla.PGoTLAFunctionDefinition;
 import pgo.model.tla.PGoTLAModule;
 import pgo.model.tla.PGoTLAOperatorDefinition;
@@ -14,18 +15,17 @@ import pgo.scope.UID;
 
 public class DefinitionRegistry {
 
-	private Map<UID, DefinitionType> types;
 	private Map<String, PGoTLAModule> modules;
 	private Map<UID, PGoTLAUnit> definitions;
 	private Map<UID, OperatorAccessor> operators;
 	private Set<UID> globalVariables;
 	private Set<UID> localVariables;
 	private Map<UID, String> constants;
+	private Map<UID, PGoTLAExpression> constantValues;
 	private Map<UID, UID> references;
 	private Map<String, Procedure> procedures;
 
 	public DefinitionRegistry() {
-		this.types = new HashMap<>();
 		this.modules = new HashMap<>();
 		this.definitions = new HashMap<>();
 		this.operators = new HashMap<>();
@@ -34,6 +34,7 @@ public class DefinitionRegistry {
 		this.globalVariables = new HashSet<>();
 		this.localVariables = new HashSet<>();
 		this.constants = new HashMap<>();
+		this.constantValues = new HashMap<>();
 	}
 
 	public Map<UID, UID> getReferences(){
@@ -121,6 +122,17 @@ public class DefinitionRegistry {
 			throw new RuntimeException("internal compiler error");
 		}
 		return constants.get(id);
+	}
+
+	public void setConstantValue(UID id, PGoTLAExpression value) {
+		constantValues.put(id, value);
+	}
+	
+	public PGoTLAExpression getConstantValue(UID id) {
+		if(!constantValues.containsKey(id)) {
+			throw new RuntimeException("internal compiler error");
+		}
+		return constantValues.get(id);
 	}
 
 }

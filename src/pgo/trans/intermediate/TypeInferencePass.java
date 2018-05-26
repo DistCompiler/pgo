@@ -7,6 +7,7 @@ import java.util.Map;
 
 import pgo.errors.IssueContext;
 import pgo.model.pcal.*;
+import pgo.model.tla.PGoTLAExpression;
 import pgo.model.tla.PGoTLAUnit;
 import pgo.model.type.*;
 import pgo.scope.UID;
@@ -43,6 +44,15 @@ public class TypeInferencePass {
 
 		for (VariableDecl var : pcal.getVariables()) {
 			constrainVariableDecl(ctx, registry, var, solver, generator, mapping);
+		}
+		
+		// make sure the user-provided constant values typecheck
+		for(UID id : registry.getConstants()) {
+			PGoTypeVariable fresh = generator.get();
+			mapping.put(id, fresh);
+			PGoTLAExpression value = registry.getConstantValue(id);
+			PGoType type = value.accept(new TLAExpressionTypeConstraintVisitor(ctx, registry, solver, generator, mapping));
+			solver.addConstraint(ctx, new PGoTypeConstraint(value, fresh, type));
 		}
 
 		for (PGoTLAUnit unit : pcal.getUnits()) {

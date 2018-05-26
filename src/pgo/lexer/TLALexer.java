@@ -242,15 +242,22 @@ public class TLALexer {
 	Path filename;
 
 	boolean moduleRequired;
+
+	private int startLine;
+	private int startColumn;
 	
 	public TLALexer(Path filename) throws IOException {
 		lines = Files.readAllLines(filename);
 		this.moduleRequired = true;
 		this.filename = filename;
+		this.startLine = 0;
+		this.startColumn = 0;
 	}
 	
-	public TLALexer(Path filename, List<String> lines) {
+	public TLALexer(Path filename, int startLine, int startColumn, List<String> lines) {
 		this.lines = lines;
+		this.startLine = startLine-1;
+		this.startColumn = startColumn-1;
 		this.moduleRequired = true;
 		this.filename = filename;
 	}
@@ -280,10 +287,10 @@ public class TLALexer {
 		// nested comment count, 0 for no comment, 1 for comment, 2
 		// for comment in a comment, etc...
 		int commentStack = 0;
-		int lineNum = 0;
+		int lineNum = startLine;
 		for(String line : lines) {
 			++lineNum;
-			int column = 0;
+			int column = startColumn;
 			boolean inLineComment = false;
 			int oldColumn = -1;
 			while(column < line.length()) {

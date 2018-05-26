@@ -9,6 +9,7 @@ import pgo.model.golang.InterfaceTypeField;
 import pgo.model.golang.LabelName;
 import pgo.model.golang.Module;
 import pgo.model.golang.NodeVisitor;
+import pgo.model.golang.SelectCase;
 import pgo.model.golang.Statement;
 import pgo.model.golang.StructTypeField;
 import pgo.model.golang.SwitchCase;
@@ -97,6 +98,11 @@ public class GoNodeFormattingVisitor extends NodeVisitor<Void, IOException> {
 
 	@Override
 	public Void visit(InterfaceTypeField interfaceTypeField) throws IOException {
+		throw new RuntimeException("TODO");
+	}
+
+	@Override
+	public Void visit(SelectCase selectCase) throws IOException {
 		throw new RuntimeException("TODO");
 	}
 

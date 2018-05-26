@@ -70,7 +70,7 @@ public class TLANodePrintEquivalenceTest {
 	public void test() throws PGoTLALexerException, TLAParseException {
 		String str = ast.toString();
 		System.out.println(str);
-		TLALexer lexer = new TLALexer(Paths.get("TEST"), Arrays.asList(str.split("\n")));
+		TLALexer lexer = new TLALexer(Paths.get("TEST"), 1, 1, Arrays.asList(str.split("\n")));
 		lexer.requireModule(ast instanceof PGoTLAModule);
 		List<TLAToken> tokens = lexer.readTokens();
 		System.out.println(tokens);

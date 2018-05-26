@@ -53,12 +53,20 @@ public class ModuleBuilder extends ASTBuilder {
 				block -> addFunction(new FunctionDeclaration(actualName, null, arguments, returnTypes, block)));
 	}
 	
-	public VariableName defineGlobal(UID uid, String nameHint, Expression value) {
+	public VariableName defineGlobal(UID uid, String nameHint, Type type, Expression value) {
 		String actualName = cleanName(nameHint);
 		VariableName vName = new VariableName(actualName);
 		nameMap.put(uid, vName);
-		declarations.add(new VariableDeclaration(actualName, value));
+		declarations.add(new VariableDeclaration(actualName, type, value));
 		return vName;
+	}
+	
+	public VariableName defineGlobal(UID uid, String nameHint, Expression value) {
+		return defineGlobal(uid, nameHint, null, value);
+	}
+	
+	public VariableName defineGlobal(UID uid, String nameHint, Type type) {
+		return defineGlobal(uid, nameHint, type, null);
 	}
 	
 	public Module getModule() {

@@ -97,7 +97,7 @@ public class TLALexerTest {
 	
 	@Test
 	public void test() throws PGoTLALexerException {
-		TLALexer lexer = new TLALexer(testFile, Arrays.asList(input.split("\n")));
+		TLALexer lexer = new TLALexer(testFile, 1, 1, Arrays.asList(input.split("\n")));
 		// don't ignore the expression because it's not in a module
 		lexer.requireModule(false);
 		

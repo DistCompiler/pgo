@@ -2,6 +2,7 @@ package pgo.trans.intermediate;
 
 import java.util.Collections;
 
+import pgo.model.golang.Builtins;
 import pgo.model.golang.InterfaceType;
 import pgo.model.golang.SliceType;
 import pgo.model.golang.Type;
@@ -81,7 +82,7 @@ public class PGoTypeGoTypeConversionVisitor extends PGoTypeVisitor<Type, Runtime
 
 	@Override
 	public Type visit(PGoTypeInt pGoTypeInt) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		return Builtins.Int;
 	}
 
 	@Override

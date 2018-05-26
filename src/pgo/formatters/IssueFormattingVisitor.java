@@ -228,4 +228,13 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 		return null;
 	}
 
+	@Override
+	public Void visit(ConstantWithNoValueIssue constantWithNoValueIssue) throws IOException {
+		out.write("could not find value for constant ");
+		out.write(constantWithNoValueIssue.getName());
+		out.write(" in configuration file; ");
+		constantWithNoValueIssue.getDefinition().accept(new OriginFormattingVisitor(out));
+		return null;
+	}
+
 }

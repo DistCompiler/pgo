@@ -9,6 +9,7 @@ import pgo.model.pcal.Algorithm;
 import pgo.model.pcal.LabeledStatements;
 import pgo.model.pcal.Procedure;
 import pgo.model.pcal.VariableDecl;
+import pgo.model.tla.PGoTLAExpression;
 import pgo.model.tla.PGoTLAModule;
 import pgo.model.tla.PGoTLAUnit;
 import pgo.modules.TLAModuleLoader;
@@ -19,11 +20,24 @@ public class PGoScopingPass {
 	
 	private PGoScopingPass() {}
 	
-	public static DefinitionRegistry perform(IssueContext ctx, PGoTLAModule module, Algorithm algorithm, TLAModuleLoader loader){
+	public static DefinitionRegistry perform(IssueContext ctx, PGoTLAModule module, Algorithm algorithm,
+			TLAModuleLoader loader, Map<String, PGoTLAExpression> constantDefinitions){
 		DefinitionRegistry regBuilder = new DefinitionRegistry();
 		TLAScopeBuilder tlaScope = new TLAScopeBuilder(ctx, regBuilder.getReferences());
 		
 		TLAUnitScopingVisitor.scopeModule(module, ctx, tlaScope, regBuilder, loader, new HashSet<>());
+		
+		// resolve user-provided constant values from the config file
+		for(UID id : regBuilder.getConstants()) {
+			String name = regBuilder.getConstantName(id);
+			if(!constantDefinitions.containsKey(name)) {
+				ctx.error(new ConstantWithNoValueIssue(name, id));
+			}else {
+				PGoTLAExpression value = constantDefinitions.get(name);
+				value.accept(new TLAExpressionScopingVisitor(tlaScope, regBuilder, loader, new HashSet<>()));
+				regBuilder.setConstantValue(id, value);
+			}
+		}
 		
 		TLAScopeBuilder pcalScope = tlaScope.makeNestedScope();
 		
