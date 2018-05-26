@@ -1,6 +1,5 @@
 package pgo.model.golang;
 
-import java.util.LinkedHashMap;
 import java.util.List;
 
 /**
@@ -8,13 +7,13 @@ import java.util.List;
  */
 public class Select extends Statement {
 	
-	LinkedHashMap<Statement, List<Statement>> cases;
+	List<SelectCase> cases;
 
-	public Select(LinkedHashMap<Statement, List<Statement>> cases) {
+	public Select(List<SelectCase> cases) {
 		this.cases = cases;
 	}
 
-	public LinkedHashMap<Statement, List<Statement>> getCases() {
+	public List<SelectCase> getCases() {
 		return cases;
 	}
 

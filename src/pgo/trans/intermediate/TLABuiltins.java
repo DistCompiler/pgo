@@ -292,14 +292,21 @@ public class TLABuiltins {
 					Expression from = arguments.get(0);
 					Expression to = arguments.get(1);
 					Expression tmpRange = builder.varDecl("tmpRange", new Make(
-							new SliceType(Builtins.Int), new Binop(Binop.Operation.MINUS, to, from), null));
+							new SliceType(Builtins.Int),
+							new Binop(
+									Binop.Operation.PLUS,
+									new Binop(Binop.Operation.MINUS, to, from),
+									new IntLiteral(1)),
+							null));
 					// TODO scope i correctly
 					Expression acc = builder.getFreshName("i");
 					try(BlockBuilder body = builder.forLoop(
 							new Assignment(Collections.singletonList(acc), true, Collections.singletonList(from)),
 							new Binop(Binop.Operation.LEQ, acc, to),
 							new IncDec(true, acc))){
-						body.assign(Collections.singletonList(new Index(tmpRange, acc)), Collections.singletonList(acc));
+						body.assign(
+								new Index(tmpRange, new Binop(Binop.Operation.MINUS, acc, from)),
+								acc);
 					}
 					return tmpRange;
 				}));

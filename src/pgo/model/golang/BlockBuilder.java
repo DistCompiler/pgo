@@ -56,6 +56,10 @@ public class BlockBuilder extends ASTBuilder implements Closeable {
 		statements.add(new Label(name));
 	}
 	
+	public void assign(Expression name, Expression value) {
+		addStatement(new Assignment(Collections.singletonList(name), false, Collections.singletonList(value)));
+	}
+	
 	public void assign(List<Expression> names, List<Expression> values) {
 		addStatement(new Assignment(names, false, values));
 	}

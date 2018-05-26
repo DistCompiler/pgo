@@ -5,12 +5,12 @@ import java.util.List;
 public class Switch extends Statement {
     Expression switchExp;
     List<SwitchCase> cases;
-    Statement defaultCase;
+    List<Statement> defaultBlock;
 
-    public Switch(Expression exp, List<SwitchCase> cases, Statement defaultCase) {
+    public Switch(Expression exp, List<SwitchCase> cases, List<Statement> defaultBlock) {
         this.switchExp = exp;
         this.cases = cases;
-        this.defaultCase = defaultCase;
+        this.defaultBlock = defaultBlock;
     }
     
     public Expression getCondition() {
@@ -21,8 +21,8 @@ public class Switch extends Statement {
     	return cases;
     }
     
-    public Statement getDefaultCase() {
-    	return defaultCase;
+    public List<Statement> getDefaultBlock() {
+    	return defaultBlock;
     }
 
     @Override

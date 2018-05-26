@@ -1,4 +1,4 @@
-package pgo;
+package pgo.trans.intermediate;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -13,8 +13,7 @@ public class CodeNormalisingPass {
 	public static Module perform(Module module) {
 		List<Declaration> decls = new ArrayList<>();
 		for(Declaration decl : module.getDeclarations()) {
-			//decls.add(decl.accept(new GoDeclarationNormalisingVisitor()));
-			decls.add(decl); // TODO
+			decls.add(decl.accept(new GoDeclarationNormalisingVisitor()));
 		}
 		return new Module(module.getName(), module.getPackage(), module.getImports(), decls);
 	}

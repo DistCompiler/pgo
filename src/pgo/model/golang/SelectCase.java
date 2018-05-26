@@ -2,24 +2,25 @@ package pgo.model.golang;
 
 import java.util.List;
 
-public class SwitchCase extends Node {
-	private Expression condition;
-	private List<Statement> block;
+public class SelectCase extends Node {
 	
-	public SwitchCase(Expression condition, List<Statement> block) {
+	private Statement condition;
+	private List<Statement> block;
+
+	public SelectCase(Statement condition, List<Statement> block) {
 		super();
 		this.condition = condition;
 		this.block = block;
 	}
 
-	public Expression getCondition() {
+	public Statement getCondition() {
 		return condition;
 	}
 
 	public List<Statement> getBlock() {
 		return block;
 	}
-	
+
 	@Override
 	public <T, E extends Throwable> T accept(NodeVisitor<T, E> v) throws E {
 		return v.visit(this);
