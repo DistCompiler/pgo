@@ -1,6 +1,7 @@
 package distsys
 
 import (
+	"bytes"
 	"fmt"
 	"log"
 	"sync"
@@ -37,10 +38,10 @@ type SimpleDataStore struct {
 	store        map[string]*DataEntry // maps variable names to their values
 }
 
-// CreateSimpleStore creates a new `SimpleDataStore` struct. An initial state
+// NewSimpleStore creates a new `SimpleDataStore` struct. An initial state
 // can be given in the `initValues` parameter, which makes sure the state local
 // to this node will contain the data passed to this function.
-func CreateSimpleDataStore(initValues map[string]interface{}) *SimpleDataStore {
+func NewSimpleDataStore(initValues map[string]interface{}) *SimpleDataStore {
 	store := make(map[string]*DataEntry, len(initValues))
 	for key, value := range initValues {
 		store[key] = &DataEntry{
@@ -67,6 +68,7 @@ func (data *SimpleDataStore) HoldExclusive(name string) (interface{}, error) {
 }
 
 func (data *SimpleDataStore) hold(name string, mode int) (interface{}, error) {
+	log.Printf("%v", data)
 	data.RLock()
 	defer data.RUnlock()
 
@@ -100,6 +102,7 @@ func (data *SimpleDataStore) ReleaseExclusive(name string) {
 }
 
 func (data *SimpleDataStore) release(name string, mode int) {
+	log.Printf("%v", data)
 	data.RLock()
 	defer data.RUnlock()
 
@@ -120,5 +123,26 @@ func (data *SimpleDataStore) release(name string, mode int) {
 // Invoking this function is only safe if the caller has previously called
 // HoldExclusive.
 func (data *SimpleDataStore) Set(name string, val interface{}) {
-	data.store[name] = &DataEntry{value: val}
+	entry, inStore := data.store[name]
+	if !inStore {
+		log.Panic(NameNotFoundError(name))
+	}
+
+	entry.value = val
+}
+
+func (data *SimpleDataStore) String() string {
+	var buf bytes.Buffer
+	var i int
+
+	for name, entry := range data.store {
+		if i > 0 {
+			buf.WriteString(", ")
+		}
+
+		buf.WriteString(fmt.Sprintf("%s => %v (%p)", name, entry.value, entry))
+		i++
+	}
+
+	return fmt.Sprintf("Store(%s)", buf.String())
 }

@@ -1,66 +1,22 @@
 package distsys
 
+import "log"
+
 type stateHandler interface {
 	GetState() (VarReferences, error)
 	ReleaseState(VarReferences) error
 }
 
-type baseHandler struct {
+type remoteHandler struct {
 	group       *VarReq
 	stateServer *StateServer
 }
 
-type localHandler struct {
-	*baseHandler
-}
-
-type remoteHandler struct {
-	*baseHandler
-}
-
-func (local localHandler) GetState() (VarReferences, error) {
-	refs := map[string]Reference{}
-
-	for _, borrowVar := range local.group.Names {
-		var hold func(string) (interface{}, error)
-
-		if borrowVar.Exclusive {
-			hold = local.stateServer.store.HoldExclusive
-		} else {
-			hold = local.stateServer.store.Hold
-		}
-
-		val, err := hold(borrowVar.Name)
-		if err != nil {
-			return nil, err
-		}
-
-		refs[borrowVar.Name] = Reference{
-			Value:     val,
-			Exclusive: borrowVar.Exclusive,
-		}
-	}
-
-	return refs, nil
-}
-
-func (local localHandler) ReleaseState(refs VarReferences) error {
-	for name, ref := range refs {
-		if ref.Exclusive {
-			local.stateServer.store.ReleaseExclusive(name)
-		} else {
-			local.stateServer.store.Release(name)
-		}
-	}
-
-	return nil
-}
-
 func (remote remoteHandler) GetState() (VarReferences, error) {
 	conn := remote.stateServer.connections.GetConnection(remote.group.Peer)
-	refs := VarReferences(map[string]Reference{})
+	refs := VarReferences(map[string]*Reference{})
 
-	if err := conn.Call("StateServer.GetState", remote.group, refs); err != nil {
+	if err := conn.Call("StateServer.GetState", remote.group, &refs); err != nil {
 		return nil, err
 	}
 
@@ -71,7 +27,7 @@ func (remote remoteHandler) ReleaseState(refs VarReferences) error {
 	var ok bool
 	conn := remote.stateServer.connections.GetConnection(remote.group.Peer)
 
-	if err := conn.Call("StateServer.ReleaseState", refs, &ok); err != nil {
+	if err := conn.Call("StateServer.ReleaseState", &refs, &ok); err != nil {
 		return err
 	}
 
@@ -80,10 +36,10 @@ func (remote remoteHandler) ReleaseState(refs VarReferences) error {
 
 func stateBuilder(group *VarReq, ss *StateServer) stateHandler {
 	if group.Peer == ss.self {
-		return localHandler{&baseHandler{group, ss}}
+		return localStateHandler{group, ss.store}
 	}
 
-	return remoteHandler{&baseHandler{group, ss}}
+	return remoteHandler{group, ss}
 }
 
 func (ss *StateServer) Acquire(spec *BorrowSpec) (VarReferences, error) {
@@ -96,13 +52,15 @@ func (ss *StateServer) Acquire(spec *BorrowSpec) (VarReferences, error) {
 	ss.ownership.RLock()
 	defer ss.ownership.RUnlock()
 
-	allRefs := VarReferences(map[string]Reference{})
+	allRefs := VarReferences(map[string]*Reference{})
 
 	for _, group := range op.Groups() {
 		refs, err := stateBuilder(group, ss).GetState()
 		if err != nil {
 			return nil, err
 		}
+
+		log.Printf("Got references: %v", refs)
 
 		allRefs = allRefs.Merge(refs)
 	}

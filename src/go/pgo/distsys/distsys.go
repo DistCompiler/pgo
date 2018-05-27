@@ -1,6 +1,7 @@
 package distsys
 
 import (
+	"bytes"
 	"fmt"
 	"log"
 	"sort"
@@ -57,7 +58,32 @@ type BorrowSpecVariable struct {
 	Exclusive bool
 }
 
+func (specv *BorrowSpecVariable) String() string {
+	var exclusive string
+	if specv.Exclusive {
+		exclusive = " [exclusive]"
+	}
+
+	return fmt.Sprintf("BorrowSpecVariable(%s%s)", specv.Name, exclusive)
+}
+
 type SortedBorrowSpec []*BorrowSpecVariable
+
+func (sbs SortedBorrowSpec) String() string {
+	var buf bytes.Buffer
+	var i int
+
+	for _, specv := range sbs {
+		if i > 0 {
+			buf.WriteString(", ")
+		}
+
+		buf.WriteString(fmt.Sprintf("%v", specv))
+		i++
+	}
+
+	return fmt.Sprintf("[%s]", buf.String())
+}
 
 func (spec SortedBorrowSpec) Len() int {
 	return len(spec)
@@ -108,6 +134,11 @@ func (spec *BorrowSpec) Sorted() SortedBorrowSpec {
 	return SortedBorrowSpec(names)
 }
 
+func (spec *BorrowSpec) String() string {
+	return fmt.Sprintf("BorrowSpec[ReadNames=(%s) | WriteNames=(%s)]",
+		strings.Join(spec.ReadNames, ","), strings.Join(spec.WriteNames, ","))
+}
+
 // Reference represents a variable reference. It indicates the current variable
 // value and whether the reference is exclusive (no other node has access to
 // it, and allows the node to mutate the value).
@@ -116,14 +147,44 @@ type Reference struct {
 	Exclusive bool        // whether access to this value is exclusive
 }
 
+func (ref Reference) String() string {
+	var exclusive string
+	if ref.Exclusive {
+		exclusive = " [exclusive]"
+	}
+
+	return fmt.Sprintf("Ref(%v%s)", ref.Value, exclusive)
+}
+
 // VarReferences maps variable names to references. Can be used when a node is
 // transferring state it knows about to another node in the system
-type VarReferences map[string]Reference
+type VarReferences map[string]*Reference
+
+func (self VarReferences) insert(name string, ref *Reference) {
+	self[name] = ref
+}
+
+func (self VarReferences) Set(name string, val interface{}) {
+	ref, found := self[name]
+	if !found {
+		log.Panicf("Attempt to set unknown variable: %s", name)
+	}
+
+	ref.Value = val
+}
+
+func (self VarReferences) Get(name string) interface{} {
+	if _, found := self[name]; !found {
+		log.Panicf("Attempt to set unknown variable: %s", name)
+	}
+
+	return self[name].Value
+}
 
 // Merge takes another VarReferences object and merges it with the receiver.
 // Returns a new VarReferences struct that includes references from both objects
 func (self VarReferences) Merge(other VarReferences) VarReferences {
-	newrefs := map[string]Reference{}
+	newrefs := map[string]*Reference{}
 
 	for name, ref := range self {
 		newrefs[name] = ref
@@ -153,6 +214,22 @@ func (self VarReferences) ToBorrowSpec() *BorrowSpec {
 	return &spec
 }
 
+func (self VarReferences) String() string {
+	var buf bytes.Buffer
+	var i int
+
+	for name, ref := range self {
+		if i > 0 {
+			buf.WriteString(", ")
+		}
+
+		buf.WriteString(fmt.Sprintf("%s => %v", name, ref))
+		i++
+	}
+
+	return fmt.Sprintf("VarReferences(%s)", buf.String())
+}
+
 // GlobalStateOperation represents an attempt to get access to a set of variables
 // from the system's global state. Depending on which variables are requested and
 // who owns each part of it, this struct is able to group variables together
@@ -168,6 +245,10 @@ type GlobalStateOperation struct {
 type VarReq struct {
 	Peer  string                // the host to which this request should be sent
 	Names []*BorrowSpecVariable // maps state names to whether exclusive access is required or not
+}
+
+func (req *VarReq) String() string {
+	return fmt.Sprintf("VarReq(Peer=%s, Names=%s)", req.Peer, SortedBorrowSpec(req.Names).String())
 }
 
 // Groups places the variables contained in a `BorrowSpec` in groupings that minimize
@@ -240,19 +321,120 @@ func (op *GlobalStateOperation) Groups() []*VarReq {
 	return reqs
 }
 
-// Network represents the current state of the system at a given instant and groups
-// different parts of the PGo runtime together
+type localStateHandler struct {
+	group *VarReq
+	store *SimpleDataStore
+}
+
+func (handler localStateHandler) GetState() (VarReferences, error) {
+	refs := VarReferences(map[string]*Reference{})
+
+	for _, borrowVar := range handler.group.Names {
+		var hold func(string) (interface{}, error)
+
+		if borrowVar.Exclusive {
+			hold = handler.store.HoldExclusive
+		} else {
+			hold = handler.store.Hold
+		}
+
+		val, err := hold(borrowVar.Name)
+		if err != nil {
+			return nil, err
+		}
+
+		refs.insert(borrowVar.Name, &Reference{
+			Value:     val,
+			Exclusive: borrowVar.Exclusive,
+		})
+	}
+
+	return refs, nil
+}
+
+func (handler localStateHandler) ReleaseState(refs VarReferences) error {
+	for name, ref := range refs {
+		if ref.Exclusive {
+			handler.store.Set(name, ref.Value)
+			handler.store.ReleaseExclusive(name)
+		} else {
+			handler.store.Release(name)
+		}
+	}
+
+	return nil
+}
+
+// StateServer represents the current state of the global state at a given time, including
+// all the information the running node currently stores, as well as ownership information
+// for all pieces of global state
 type StateServer struct {
 	*ProcessInitialization
 
-	self      string          // the address of the running node
-	peers     []string        // a list of addresses of all peers in the system
-	ownership *OwnershipTable // the ownership table, mapping variable names to its owner
-	store     SimpleDataStore // the underlying state store
+	self      string           // the address of the running node
+	peers     []string         // a list of addresses of all peers in the system
+	ownership *OwnershipTable  // the ownership table, mapping variable names to its owner
+	store     *SimpleDataStore // the underlying state store
 }
 
 // StateServerRPC wraps the StateServer struct so that only a few methods are
 // exposed as RPC methods to other peers in the network
 type StateServerRPC struct {
-	*StateServer
+	server *StateServer
+}
+
+func NewStateServer(peers []string, self, coordinator string, initValues map[string]interface{}) (*StateServer, error) {
+	log.SetPrefix(self)
+	pi := NewProcessInitialization(peers, self, coordinator)
+
+	// FIXME this is assuming everything is centralized in one place
+	selfId := -1
+	coordinatorId := -1
+	for i, p := range peers {
+		if p == self {
+			selfId = i
+		}
+
+		if p == coordinator {
+			coordinatorId = i
+		}
+	}
+	// Make sure `self` is in the list of peers
+	if selfId < 0 {
+		panic("self is not in peers")
+	}
+	if coordinatorId < 0 {
+		panic("coodinator is not in peers")
+	}
+
+	owners := make(map[string]string, len(initValues))
+	store := make(map[string]interface{})
+
+	// at first, all state is in the coordinator node
+	for name, _ := range initValues {
+		owners[name] = coordinator
+	}
+
+	if pi.isCoordinator() {
+		store = initValues
+	}
+
+	stateServer := &StateServer{
+		ProcessInitialization: pi,
+
+		self:      self,
+		peers:     peers,
+		ownership: NewOwnershipTable(owners),
+		store:     NewSimpleDataStore(store),
+	}
+
+	if err := stateServer.Init(); err != nil {
+		return nil, err
+	}
+
+	if err := stateServer.connections.ExposeImplementation("StateServer", &StateServerRPC{stateServer}); err != nil {
+		return nil, err
+	}
+
+	return stateServer, nil
 }

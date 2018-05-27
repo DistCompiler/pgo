@@ -1,45 +1,22 @@
 package distsys
 
-import (
-	"log"
-)
+func (iface *StateServerRPC) GetState(req *VarReq, refs *VarReferences) error {
+	handler := localStateHandler{req, iface.server.store}
 
-func (ss *StateServerRPC) GetState(req *VarReq, refs VarReferences) error {
-	for _, borrowVar := range req.Names {
-		owner := ss.ownership.Lookup(borrowVar.Name)
-		if owner != ss.self {
-			log.Panicf("Owner of variable %s is %s. No migration. Internal error!", borrowVar.Name, owner)
-		}
-
-		var hold func(string) (interface{}, error)
-		if borrowVar.Exclusive {
-			hold = ss.store.HoldExclusive
-		} else {
-			hold = ss.store.Hold
-		}
-
-		val, err := hold(borrowVar.Name)
-		if err != nil {
-			return err
-		}
-
-		refs[borrowVar.Name] = Reference{
-			Value:     val,
-			Exclusive: borrowVar.Exclusive,
-		}
+	state, err := handler.GetState()
+	if err != nil {
+		return err
 	}
 
+	*refs = state
 	return nil
 }
 
-func (ss *StateServerRPC) ReleaseState(refs VarReferences, ok *bool) error {
-	for name, reference := range refs {
-		if reference.Exclusive {
-			ss.store.Set(name, reference.Value)
-			ss.store.ReleaseExclusive(name)
-		} else {
-			ss.store.Release(name)
-		}
+func (iface *StateServerRPC) ReleaseState(refs VarReferences, ok *bool) error {
+	handler := localStateHandler{store: iface.server.store}
+
+	if err := handler.ReleaseState(refs); err != nil {
+		return err
 	}
 
 	*ok = true

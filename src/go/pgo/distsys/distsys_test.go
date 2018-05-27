@@ -175,11 +175,39 @@ var _ = Describe("GlobalStateOperation", func() {
 })
 
 var _ = Describe("VarReferences", func() {
+	It("updates its contents", func() {
+		refs := VarReferences(map[string]*Reference{
+			"a": &Reference{Value: "old", Exclusive: true},
+		})
+
+		refs.Set("a", "new")
+
+		Expect(refs).To(Equal(VarReferences(map[string]*Reference{
+			"a": &Reference{Value: "new", Exclusive: true},
+		})))
+	})
+
+	It("is able to merge with another VarReferences", func() {
+		refs1 := VarReferences(map[string]*Reference{
+			"a": &Reference{Value: "refs1:a", Exclusive: true},
+			"b": &Reference{Value: "refs1:b", Exclusive: false},
+		})
+
+		refs2 := VarReferences(map[string]*Reference{
+			"b": &Reference{Value: "refs2:b", Exclusive: true},
+		})
+
+		Expect(refs1.Merge(refs2)).To(Equal(VarReferences(map[string]*Reference{
+			"a": &Reference{Value: "refs1:a", Exclusive: true},
+			"b": &Reference{Value: "refs2:b", Exclusive: true},
+		})))
+	})
+
 	It("is able to generate a corresponding BorrowSpec", func() {
-		refs := VarReferences(map[string]Reference{
-			"a": Reference{Value: 10, Exclusive: false},
-			"b": Reference{Value: "PGo", Exclusive: true},
-			"c": Reference{Value: []int{1, 2, 3}, Exclusive: true},
+		refs := VarReferences(map[string]*Reference{
+			"a": &Reference{Value: 10, Exclusive: false},
+			"b": &Reference{Value: "PGo", Exclusive: true},
+			"c": &Reference{Value: []int{1, 2, 3}, Exclusive: true},
 		})
 
 		spec := refs.ToBorrowSpec()
@@ -193,7 +221,7 @@ var _ = Describe("VarReferences", func() {
 	})
 })
 
-func TestBorrowSpec(t *testing.T) {
+func TestDistsys(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "BorrowSpec")
+	RunSpecs(t, "Distsys")
 }
