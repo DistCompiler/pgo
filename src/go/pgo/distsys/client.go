@@ -1,7 +1,5 @@
 package distsys
 
-import "log"
-
 type stateHandler interface {
 	GetState() (VarReferences, error)
 	ReleaseState(VarReferences) error
@@ -59,8 +57,6 @@ func (ss *StateServer) Acquire(spec *BorrowSpec) (VarReferences, error) {
 		if err != nil {
 			return nil, err
 		}
-
-		log.Printf("Got references: %v", refs)
 
 		allRefs = allRefs.Merge(refs)
 	}

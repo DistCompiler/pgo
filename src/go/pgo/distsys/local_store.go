@@ -56,19 +56,16 @@ func NewSimpleDataStore(initValues map[string]interface{}) *SimpleDataStore {
 
 // Hold reads a `name` from the data store for non-exclusive access (i.e., read only).
 func (data *SimpleDataStore) Hold(name string) (interface{}, error) {
-	log.Printf("Hold(%s)\n", name)
 	return data.hold(name, readOnlyMode)
 }
 
 // HoldExclusive reads a `name` from the data store and prohibits anyone else from
 // reading or writing to that name
 func (data *SimpleDataStore) HoldExclusive(name string) (interface{}, error) {
-	log.Printf("HoldExclusive(%s)\n", name)
 	return data.hold(name, writeMode)
 }
 
 func (data *SimpleDataStore) hold(name string, mode int) (interface{}, error) {
-	log.Printf("%v", data)
 	data.RLock()
 	defer data.RUnlock()
 
@@ -90,19 +87,16 @@ func (data *SimpleDataStore) hold(name string, mode int) (interface{}, error) {
 // Release indicates that a variable previously held with non-exclusive access
 // is no longer being used
 func (data *SimpleDataStore) Release(name string) {
-	log.Printf("Release(%s)\n", name)
 	data.release(name, readOnlyMode)
 }
 
 // ReleaseExclusive indicates that a variable previously held with exclusive
 // access is no longer being used
 func (data *SimpleDataStore) ReleaseExclusive(name string) {
-	log.Printf("ReleaseExclusive(%s)\n", name)
 	data.release(name, writeMode)
 }
 
 func (data *SimpleDataStore) release(name string, mode int) {
-	log.Printf("%v", data)
 	data.RLock()
 	defer data.RUnlock()
 

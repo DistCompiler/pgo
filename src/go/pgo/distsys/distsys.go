@@ -384,7 +384,6 @@ type StateServerRPC struct {
 }
 
 func NewStateServer(peers []string, self, coordinator string, initValues map[string]interface{}) (*StateServer, error) {
-	log.SetPrefix(self)
 	pi := NewProcessInitialization(peers, self, coordinator)
 
 	// FIXME this is assuming everything is centralized in one place
