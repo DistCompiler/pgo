@@ -6,7 +6,6 @@ import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.apache.commons.io.FileUtils;
@@ -18,8 +17,6 @@ import pgo.model.tla.PGoTLAExpression;
 import pgo.model.tla.PGoTLAModule;
 import pgo.model.type.PGoType;
 import pgo.modules.TLAModuleLoader;
-import pgo.parser.PGoParseException;
-import pgo.parser.PcalParser;
 import pgo.parser.PcalParser.ParsedPcal;
 import pgo.scope.UID;
 import pgo.trans.PGoTransException;
@@ -72,7 +69,7 @@ public class PGoMain {
 			logger.info("Parsing TLA+ module");
 			PGoTLAModule tlaModule = TLAParsingPass.perform(ctx, Paths.get(opts.inputFilePath));
 			checkErrors(ctx);
-			
+
 			logger.info("Parsing constant definitions from configuration");
 			Map<String, PGoTLAExpression> constantDefinitions = ConstantDefinitionParsingPass.perform(
 					ctx, opts.constants.getConstants());
@@ -128,10 +125,6 @@ public class PGoMain {
 		if (ctx.hasErrors()) {
 			throw new PGoTransException(ctx.format());
 		}
-	}
-
-	private static List<String> getGoLines() {
-		return null; // TODO
 	}
 
 	private static void copyPackages(String buildDir) throws IOException {
