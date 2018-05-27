@@ -95,14 +95,16 @@ public class PGoMain {
 			logger.info("Inferring types");
 			Map<UID, PGoType> typeMap = TypeInferencePass.perform(ctx, registry, pcalAlgorithm);
 			checkErrors(ctx);
-			
+
+			logger.info("Inferring atomicity requirements");
+			AtomicityInferencePass.perform(registry, pcalAlgorithm);
+
 			logger.info("Initial code generation");
 			Module module = CodeGenPass.perform(pcalAlgorithm, registry, typeMap, opts);
 
 			logger.info("Normalising generated code");
 			Module normalisedModule = CodeNormalisingPass.perform(module);
 
-			
 			logger.info("Writing Go to \"" + opts.buildFile + "\" in folder \"" + opts.buildDir + "\"");
 			IOUtil.WriteStringVectorToFile(Collections.singletonList(normalisedModule.toString()), opts.buildDir + "/" + opts.buildFile);
 			logger.info("Copying necessary Go packages to folder \"" + opts.buildDir + "\"");

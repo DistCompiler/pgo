@@ -1,9 +1,6 @@
 package pgo.trans.intermediate;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 import pgo.model.pcal.Procedure;
 import pgo.model.tla.PGoTLAExpression;
@@ -14,7 +11,6 @@ import pgo.model.tla.PGoTLAUnit;
 import pgo.scope.UID;
 
 public class DefinitionRegistry {
-
 	private Map<String, PGoTLAModule> modules;
 	private Map<UID, PGoTLAUnit> definitions;
 	private Map<UID, OperatorAccessor> operators;
@@ -24,6 +20,9 @@ public class DefinitionRegistry {
 	private Map<UID, PGoTLAExpression> constantValues;
 	private Map<UID, UID> references;
 	private Map<String, Procedure> procedures;
+	private Map<UID, Set<UID>> ownersToLabels;
+	private Map<UID, Set<UID>> labelsToGlobalVarReads;
+	private Map<UID, Set<UID>> labelsToGlobalVarWrites;
 
 	public DefinitionRegistry() {
 		this.modules = new HashMap<>();
@@ -35,6 +34,9 @@ public class DefinitionRegistry {
 		this.localVariables = new HashSet<>();
 		this.constants = new HashMap<>();
 		this.constantValues = new HashMap<>();
+		this.ownersToLabels = new HashMap<>();
+		this.labelsToGlobalVarReads = new HashMap<>();
+		this.labelsToGlobalVarWrites = new HashMap<>();
 	}
 
 	public Map<UID, UID> getReferences(){
@@ -66,15 +68,15 @@ public class DefinitionRegistry {
 	public void addProcedure(Procedure proc) {
 		procedures.put(proc.getName(), proc);
 	}
-	
+
 	public void addGlobalVariable(UID uid) {
 		globalVariables.add(uid);
 	}
-	
+
 	public void addLocalVariable(UID uid) {
 		localVariables.add(uid);
 	}
-	
+
 	public void addConstant(UID uid, String name) {
 		constants.put(uid, name);
 	}
@@ -104,19 +106,19 @@ public class DefinitionRegistry {
 	public boolean isGlobalVariable(UID ref) {
 		return globalVariables.contains(ref);
 	}
-	
+
 	public boolean isLocalVariable(UID ref) {
 		return localVariables.contains(ref);
 	}
-	
+
 	public boolean isConstant(UID ref) {
 		return constants.containsKey(ref);
 	}
-	
+
 	public Set<UID> getConstants(){
 		return constants.keySet();
 	}
-	
+
 	public String getConstantName(UID id) {
 		if(!constants.containsKey(id)) {
 			throw new RuntimeException("internal compiler error");
@@ -127,7 +129,7 @@ public class DefinitionRegistry {
 	public void setConstantValue(UID id, PGoTLAExpression value) {
 		constantValues.put(id, value);
 	}
-	
+
 	public PGoTLAExpression getConstantValue(UID id) {
 		if(!constantValues.containsKey(id)) {
 			throw new RuntimeException("internal compiler error");
@@ -135,4 +137,30 @@ public class DefinitionRegistry {
 		return constantValues.get(id);
 	}
 
+	public void addLabel(UID ownerUID, UID labelUID) {
+		ownersToLabels.putIfAbsent(ownerUID, new HashSet<>());
+		ownersToLabels.get(labelUID).add(labelUID);
+	}
+
+	public Set<UID> getLabels(UID ownerUID, UID labelUID) {
+		return Collections.unmodifiableSet(ownersToLabels.getOrDefault(ownerUID, Collections.emptySet()));
+	}
+
+	public void addGlobalVarRead(UID labelUID, UID varUID) {
+		labelsToGlobalVarReads.putIfAbsent(labelUID, new HashSet<>());
+		labelsToGlobalVarReads.get(labelUID).add(varUID);
+	}
+
+	public Set<UID> findGlobalVarReads(UID labelUID) {
+		return Collections.unmodifiableSet(labelsToGlobalVarReads.getOrDefault(labelUID, Collections.emptySet()));
+	}
+
+
+	public void addGlobalVarWrite(UID labelUID, UID varUID) {
+		labelsToGlobalVarWrites.putIfAbsent(labelUID, new HashSet<>());
+		labelsToGlobalVarWrites.get(labelUID).add(varUID);
+	}
+	public Set<UID> findGlobalVarWrites(UID labelUID) {
+		return Collections.unmodifiableSet(labelsToGlobalVarWrites.getOrDefault(labelUID, Collections.emptySet()));
+	}
 }
