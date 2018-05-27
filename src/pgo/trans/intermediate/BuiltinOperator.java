@@ -54,7 +54,7 @@ public class BuiltinOperator extends OperatorAccessor {
 
 	@Override
 	public Expression generateGo(BlockBuilder builder, PGoTLAExpression origin, DefinitionRegistry registry,
-			List<Expression> args, Map<UID, PGoType> typeMap) {
+			List<Expression> args, Map<UID, PGoType> typeMap, GlobalVariableStrategy globalStrategy) {
 		return goGenerator.generate(builder, origin, registry, args, typeMap);
 	}
 

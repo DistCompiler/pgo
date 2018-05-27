@@ -58,7 +58,8 @@ public class CompiledOperatorAccessor extends OperatorAccessor {
 	}
 
 	@Override
-	public Expression generateGo(BlockBuilder builder, PGoTLAExpression origin, DefinitionRegistry registry, List<Expression> args, Map<UID, PGoType> typeMap) {
+	public Expression generateGo(BlockBuilder builder, PGoTLAExpression origin, DefinitionRegistry registry,
+			List<Expression> args, Map<UID, PGoType> typeMap, GlobalVariableStrategy globalStrategy) {
 		Type returnType = typeMap.get(def.getBody().getUID()).accept(new PGoTypeGoTypeConversionVisitor());
 		
 		List<FunctionArgument> definedArguments = new ArrayList<>();
@@ -76,7 +77,7 @@ public class CompiledOperatorAccessor extends OperatorAccessor {
 				Collections.singletonList(new FunctionArgument(null, returnType)))){
 			fnBuilder.returnStmt(
 					def.getBody().accept(
-							new TLAExpressionSingleThreadedCodeGenVisitor(fnBuilder, registry, typeMap)));
+							new TLAExpressionCodeGenVisitor(fnBuilder, registry, typeMap, globalStrategy)));
 		}
 		
 		VariableName functionName = builder.findUID(def.getName().getUID());

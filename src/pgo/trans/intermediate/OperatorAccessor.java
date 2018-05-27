@@ -31,6 +31,6 @@ public abstract class OperatorAccessor extends Derived {
 	public abstract UID getUID();
 
 	public abstract Expression generateGo(BlockBuilder builder, PGoTLAExpression origin, DefinitionRegistry registry,
-			List<Expression> args, Map<UID, PGoType> typeMap);
+			List<Expression> args, Map<UID, PGoType> typeMap, GlobalVariableStrategy globalStrategy);
 
 }

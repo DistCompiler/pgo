@@ -100,7 +100,7 @@ public class PGoMain {
 			checkErrors(ctx);
 			
 			logger.info("Initial code generation");
-			Module module = CodeGenPass.perform(pcalAlgorithm, registry, typeMap);
+			Module module = CodeGenPass.perform(pcalAlgorithm, registry, typeMap, opts);
 
 			logger.info("Normalising generated code");
 			Module normalisedModule = CodeNormalisingPass.perform(module);

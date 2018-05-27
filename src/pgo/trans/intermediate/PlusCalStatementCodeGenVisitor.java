@@ -28,16 +28,19 @@ import pgo.model.pcal.With;
 import pgo.model.type.PGoType;
 import pgo.scope.UID;
 
-public class PlusCalStatementSingleThreadedCodeGenVisitor extends StatementVisitor<Void, RuntimeException> {
+public class PlusCalStatementCodeGenVisitor extends StatementVisitor<Void, RuntimeException> {
 
 	private BlockBuilder builder;
 	private DefinitionRegistry registry;
 	private Map<UID, PGoType> typeMap;
+	private GlobalVariableStrategy globalStrategy;
 
-	public PlusCalStatementSingleThreadedCodeGenVisitor(BlockBuilder builder, DefinitionRegistry registry, Map<UID, PGoType> typeMap) {
+	public PlusCalStatementCodeGenVisitor(BlockBuilder builder, DefinitionRegistry registry,
+			Map<UID, PGoType> typeMap, GlobalVariableStrategy globalStrategy) {
 		this.builder = builder;
 		this.registry = registry;
 		this.typeMap = typeMap;
+		this.globalStrategy = globalStrategy;
 	}
 
 	@Override
@@ -52,9 +55,9 @@ public class PlusCalStatementSingleThreadedCodeGenVisitor extends StatementVisit
 	@Override
 	public Void visit(While while1) throws RuntimeException {
 		try(BlockBuilder fb = builder.forLoop(
-				while1.getCondition().accept(new TLAExpressionSingleThreadedCodeGenVisitor(builder, registry, typeMap)))){
+				while1.getCondition().accept(new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy)))){
 			for(Statement stmt : while1.getBody()) {
-				stmt.accept(new PlusCalStatementSingleThreadedCodeGenVisitor(fb, registry, typeMap));
+				stmt.accept(new PlusCalStatementCodeGenVisitor(fb, registry, typeMap, globalStrategy));
 			}
 		}
 		return null;
@@ -62,16 +65,16 @@ public class PlusCalStatementSingleThreadedCodeGenVisitor extends StatementVisit
 
 	@Override
 	public Void visit(If if1) throws RuntimeException {
-		Expression condition = if1.getCondition().accept(new TLAExpressionSingleThreadedCodeGenVisitor(builder, registry, typeMap));
+		Expression condition = if1.getCondition().accept(new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
 		try(IfBuilder b = builder.ifStmt(condition)){
 			try(BlockBuilder yes = b.whenTrue()){
 				for(Statement stmt : if1.getYes()) {
-					stmt.accept(new PlusCalStatementSingleThreadedCodeGenVisitor(yes, registry, typeMap));
+					stmt.accept(new PlusCalStatementCodeGenVisitor(yes, registry, typeMap, globalStrategy));
 				}
 			}
 			try(BlockBuilder no = b.whenFalse()){
 				for(Statement stmt : if1.getNo()) {
-					stmt.accept(new PlusCalStatementSingleThreadedCodeGenVisitor(no, registry, typeMap));
+					stmt.accept(new PlusCalStatementCodeGenVisitor(no, registry, typeMap, globalStrategy));
 				}
 			}
 		}
@@ -87,11 +90,19 @@ public class PlusCalStatementSingleThreadedCodeGenVisitor extends StatementVisit
 	public Void visit(Assignment assignment) throws RuntimeException {
 		List<Expression> lhs = new ArrayList<>();
 		List<Expression> rhs = new ArrayList<>();
+		List<GlobalVariableStrategy.GlobalVariableWrite> lhsWrites = new ArrayList<>();
 		for(AssignmentPair pair : assignment.getPairs()) {
-			lhs.add(pair.getLhs().accept(new TLAExpressionSingleThreadedCodeGenVisitor(builder, registry, typeMap)));
-			rhs.add(pair.getRhs().accept(new TLAExpressionSingleThreadedCodeGenVisitor(builder, registry, typeMap)));
+			GlobalVariableStrategy.GlobalVariableWrite lhsWrite = pair.getLhs().accept(
+					new TLAExpressionAssignmentLHSCodeGenVisitor(builder, registry, typeMap, globalStrategy));
+			lhsWrites.add(lhsWrite);
+			lhs.add(lhsWrite.getValueSink(builder));
+			rhs.add(pair.getRhs().accept(
+					new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy)));
 		}
 		builder.assign(lhs, rhs);
+		for(GlobalVariableStrategy.GlobalVariableWrite lhsWrite : lhsWrites) {
+			lhsWrite.writeAfter(builder);
+		}
 		return null;
 	}
 
@@ -124,7 +135,7 @@ public class PlusCalStatementSingleThreadedCodeGenVisitor extends StatementVisit
 	@Override
 	public Void visit(Print print) throws RuntimeException {
 		builder.print(print.getValue().accept(
-				new TLAExpressionSingleThreadedCodeGenVisitor(builder, registry, typeMap)));
+				new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy)));
 		return null;
 	}
 

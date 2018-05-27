@@ -2,6 +2,7 @@ package pgo.trans.intermediate;
 
 import java.util.Map;
 
+import pgo.PGoOptions;
 import pgo.model.golang.Module;
 import pgo.model.golang.ModuleBuilder;
 import pgo.model.pcal.Algorithm;
@@ -12,10 +13,13 @@ public class CodeGenPass {
 	
 	private CodeGenPass() {}
 	
-	public static Module perform(Algorithm algorithm, DefinitionRegistry registry, Map<UID, PGoType> typeMap) {
+	public static Module perform(Algorithm algorithm, DefinitionRegistry registry, Map<UID, PGoType> typeMap, PGoOptions opts) {
 		ModuleBuilder moduleBuilder = new ModuleBuilder(algorithm.getName());
 		
-		algorithm.getProcesses().accept(new PlusCalProcessesSingleThreadedCodeGenVisitor(algorithm, moduleBuilder, registry, typeMap));
+		GlobalVariableStrategy globalStrategy = new SingleFunctionGlobalVariableStrategy(algorithm, registry, typeMap);
+		
+		algorithm.getProcesses().accept(
+				new PlusCalProcessesSingleThreadedCodeGenVisitor(algorithm, moduleBuilder, registry, typeMap, globalStrategy));
 		
 		return moduleBuilder.getModule();
 	}

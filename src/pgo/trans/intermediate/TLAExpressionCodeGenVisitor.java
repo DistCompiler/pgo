@@ -45,19 +45,20 @@ import pgo.model.tla.PGoTLAUnary;
 import pgo.model.tla.PGoTLAUniversal;
 import pgo.model.tla.PlusCalDefaultInitValue;
 import pgo.model.type.PGoType;
-import pgo.model.type.PGoTypeTuple;
 import pgo.scope.UID;
 
-public class TLAExpressionSingleThreadedCodeGenVisitor extends PGoTLAExpressionVisitor<Expression, RuntimeException> {
+public class TLAExpressionCodeGenVisitor extends PGoTLAExpressionVisitor<Expression, RuntimeException> {
 
 	private BlockBuilder builder;
 	private DefinitionRegistry registry;
 	private Map<UID, PGoType> typeMap;
+	private GlobalVariableStrategy globalStrategy;
 
-	public TLAExpressionSingleThreadedCodeGenVisitor(BlockBuilder builder, DefinitionRegistry registry, Map<UID, PGoType> typeMap) {
+	public TLAExpressionCodeGenVisitor(BlockBuilder builder, DefinitionRegistry registry, Map<UID, PGoType> typeMap, GlobalVariableStrategy globalStrategy) {
 		this.builder = builder;
 		this.registry = registry;
 		this.typeMap = typeMap;
+		this.globalStrategy = globalStrategy;
 	}
 
 	@Override
@@ -74,7 +75,8 @@ public class TLAExpressionSingleThreadedCodeGenVisitor extends PGoTLAExpressionV
 				Arrays.asList(
 						pGoTLABinOp.getLHS().accept(this),
 						pGoTLABinOp.getRHS().accept(this)),
-				typeMap);
+				typeMap,
+				globalStrategy);
 	}
 
 	@Override
@@ -120,18 +122,17 @@ public class TLAExpressionSingleThreadedCodeGenVisitor extends PGoTLAExpressionV
 	@Override
 	public Expression visit(PGoTLAGeneralIdentifier pGoTLAVariable) throws RuntimeException {
 		UID ref = registry.followReference(pGoTLAVariable.getUID());
-		if(registry.isGlobalVariable(ref) || registry.isLocalVariable(ref)) {
-			// TODO: implement proper variable accessing
+		if(registry.isGlobalVariable(ref)) {
+			return globalStrategy.readGlobalVariable(builder, ref);
+		}else if(registry.isLocalVariable(ref)) {
 			VariableName name = builder.findUID(ref);
 			return name;
 		}else if(registry.isConstant(ref)) {
 			VariableName name = builder.findUID(ref);
 			return name;
 		}else {
-			System.out.println(pGoTLAVariable);
-			System.out.println(ref);
 			return registry.findOperator(ref).generateGo(
-					builder, pGoTLAVariable, registry, Collections.emptyList(), typeMap);
+					builder, pGoTLAVariable, registry, Collections.emptyList(), typeMap, globalStrategy);
 		}
 	}
 
