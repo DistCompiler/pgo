@@ -23,7 +23,7 @@ public abstract class PGoTLAExpression {
 	public int getLine() {
 		return line;
 	}
-	
+
 	public abstract <Result> Result walk(PGoTLAExpressionVisitor<Result> v);
 
 	// A class representing a blank expression (equivalent to
@@ -42,7 +42,7 @@ public abstract class PGoTLAExpression {
 		protected PGoType inferType(TLAExprToType trans) throws PGoTransException {
 			return trans.type(this);
 		}
-		
+
 		@Override
 		public <Result> Result walk(PGoTLAExpressionVisitor<Result> v) {
 			return v.visit(this);
@@ -82,124 +82,116 @@ public abstract class PGoTLAExpression {
 		protected abstract void init();
 
 		public T getResult(PGoTLAExpression ast) throws PGoTransException {
-			return walk(ast);
+			init();
+			walk(ast);
+			return result;
 		}
 
-		protected T walk(PGoTLAExpression ast) throws PGoTransException {
+		protected void walk(PGoTLAExpression ast) throws PGoTransException {
 			if (ast == null || earlyTerm) {
-				return null;
+				return;
 			}
 			if (ast instanceof PGoTLAArray) {
-				return visit((PGoTLAArray) ast);
+				visit((PGoTLAArray) ast);
 			} else if (ast instanceof PGoTLABool) {
-				return visit((PGoTLABool) ast);
+				visit((PGoTLABool) ast);
 			} else if (ast instanceof PGoTLABoolOp) {
-				return visit((PGoTLABoolOp) ast);
+				visit((PGoTLABoolOp) ast);
 			} else if (ast instanceof PGoTLAFunctionCall) {
-				return visit((PGoTLAFunctionCall) ast);
+				visit((PGoTLAFunctionCall) ast);
 			} else if (ast instanceof PGoTLAGroup) {
-				return visit((PGoTLAGroup) ast);
+				visit((PGoTLAGroup) ast);
 			} else if (ast instanceof PGoTLANumber) {
-				return visit((PGoTLANumber) ast);
+				visit((PGoTLANumber) ast);
 			} else if (ast instanceof PGoTLASequence) {
-				return visit((PGoTLASequence) ast);
+				visit((PGoTLASequence) ast);
 			} else if (ast instanceof PGoTLASet) {
-				return visit((PGoTLASet) ast);
+				visit((PGoTLASet) ast);
 			} else if (ast instanceof PGoTLASetOp) {
-				return visit((PGoTLASetOp) ast);
+				visit((PGoTLASetOp) ast);
 			} else if (ast instanceof PGoTLASimpleArithmetic) {
-				return visit((PGoTLASimpleArithmetic) ast);
+				visit((PGoTLASimpleArithmetic) ast);
 			} else if (ast instanceof PGoTLAString) {
-				return visit((PGoTLAString) ast);
+				visit((PGoTLAString) ast);
 			} else if (ast instanceof PGoTLAUnary) {
-				return visit((PGoTLAUnary) ast);
+				visit((PGoTLAUnary) ast);
 			} else if (ast instanceof PGoTLAVariable) {
-				return visit((PGoTLAVariable) ast);
+				visit((PGoTLAVariable) ast);
 			} else if (ast instanceof PGoTLAVariadic) {
-				return visit((PGoTLAVariadic) ast);
+				visit((PGoTLAVariadic) ast);
+			} else if (ast instanceof PGoTLADefault) {
+				visit((PGoTLADefault) ast);
 			} else {
 				assert false;
-				return null;
 			}
 		}
 
-		protected T visit(PGoTLAArray a) throws PGoTransException {
+		protected void visit(PGoTLAArray a) throws PGoTransException {
 			for (PGoTLAExpression tla : a.getContents()) {
 				walk(tla);
 			}
-			return null;
 		}
 
-		protected T visit(PGoTLABool b) throws PGoTransException {
-			return null;
+		protected void visit(PGoTLABool b) throws PGoTransException {
 		}
 
-		protected T visit(PGoTLABoolOp bo) throws PGoTransException {
+		protected void visit(PGoTLABoolOp bo) throws PGoTransException {
 			walk(bo.getLeft());
 			walk(bo.getRight());
-			return null;
 		}
 
-		protected T visit(PGoTLAFunctionCall fc) throws PGoTransException {
+		protected void visit(PGoTLAFunctionCall fc) throws PGoTransException {
 			for (PGoTLAExpression tla : fc.getParams()) {
 				walk(tla);
 			}
-			return null;
 		}
 
-		protected T visit(PGoTLAGroup g) throws PGoTransException {
+		protected void visit(PGoTLAGroup g) throws PGoTransException {
 			walk(g.getInner());
-			return null;
 		}
 
-		protected T visit(PGoTLANumber num) throws PGoTransException {
-			return null;
+		protected void visit(PGoTLANumber num) throws PGoTransException {
 		}
 
-		protected T visit(PGoTLASequence seq) throws PGoTransException {
+		protected void visit(PGoTLASequence seq) throws PGoTransException {
 			walk(seq.getStart());
 			walk(seq.getEnd());
-			return null;
 		}
 
-		protected T visit(PGoTLASet set) throws PGoTransException {
+		protected void visit(PGoTLASet set) throws PGoTransException {
 			for (PGoTLAExpression tla : set.getContents()) {
 				walk(tla);
 			}
-			return null;
 		}
 
-		protected T visit(PGoTLASetOp so) throws PGoTransException {
+		protected void visit(PGoTLASetOp so) throws PGoTransException {
 			walk(so.getLeft());
 			walk(so.getRight());
-			return null;
 		}
 
-		protected T visit(PGoTLASimpleArithmetic sa) throws PGoTransException {
+		protected void visit(PGoTLASimpleArithmetic sa) throws PGoTransException {
 			walk(sa.getLeft());
 			walk(sa.getRight());
-			return null;
 		}
 
-		protected T visit(PGoTLAString s) throws PGoTransException {
-			return null;
+		protected void visit(PGoTLAString s) throws PGoTransException {
 		}
 
-		protected T visit(PGoTLAUnary u) throws PGoTransException {
+		protected void visit(PGoTLAUnary u) throws PGoTransException {
 			walk(u.getArg());
-			return null;
 		}
 
-		protected T visit(PGoTLAVariable v) throws PGoTransException {
-			return null;
+		protected void visit(PGoTLAVariable v) throws PGoTransException {
 		}
 
-		protected T visit(PGoTLAVariadic v) throws PGoTransException {
+		protected void visit(PGoTLAVariadic v) throws PGoTransException {
 			walk(v.getExpr());
 			for (PGoTLAExpression tla : v.getArgs()) {
 				walk(tla);
 			}
-			return null;
+		}
+
+		private void visit(PGoTLADefault ast) {
 		}
 	}
 }
