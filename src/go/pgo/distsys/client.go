@@ -63,10 +63,6 @@ func (ss *StateServer) Acquire(spec *BorrowSpec) (VarReferences, error) {
 		ownership: ss.ownership,
 	}
 
-	// prevent migrations while we determine state ownership
-	ss.ownership.RLock()
-	defer ss.ownership.RUnlock()
-
 	allRefs := VarReferences(map[string]*Reference{})
 
 	for _, group := range op.Groups() {
@@ -89,10 +85,6 @@ func (ss *StateServer) Release(refs VarReferences) error {
 		spec:      refs.ToBorrowSpec(),
 		ownership: ss.ownership,
 	}
-
-	// prevent migrations while we determine state ownership
-	ss.ownership.RLock()
-	defer ss.ownership.RUnlock()
 
 	for _, group := range op.Groups() {
 		if err := stateBuilder(group, ss).ReleaseState(refs); err != nil {

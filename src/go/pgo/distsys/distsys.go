@@ -294,10 +294,6 @@ func (op *GlobalStateOperation) Groups() []*VarReq {
 		return reqs
 	}
 
-	// prevent migrations while we are grouping requests
-	op.ownership.RLock()
-	defer op.ownership.RUnlock()
-
 	var currentPeer string
 	var currVarReq *VarReq
 	for _, borrowVar := range sorted {
