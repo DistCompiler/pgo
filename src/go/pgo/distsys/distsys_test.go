@@ -7,218 +7,237 @@ import (
 	"testing"
 )
 
-var ownershipTable = NewOwnershipTable(map[string]string{
-	"a": "10.10.10.1",
-	"b": "10.10.10.2",
-	"c": "10.10.10.3",
-})
+var (
+	ownershipTable *OwnershipTable
+)
 
-var _ = Describe("OwnershipTable", func() {
-	It("panics when you lookup a nonexisting variable", func() {
-		invalidVariable := func() {
-			ownershipTable.Lookup("invalid-variable")
-		}
-
-		Expect(invalidVariable).To(Panic())
+var _ = Describe("Distsys package", func() {
+	BeforeEach(func() {
+		ownershipTable = NewOwnershipTable(map[string]string{
+			"a": "10.10.10.1",
+			"b": "10.10.10.2",
+			"c": "10.10.10.3",
+		}, "10.10.10.2")
 	})
 
-	It("returns the owner for a variable in the ownership table", func() {
-		Expect(ownershipTable.Lookup("a")).To(Equal("10.10.10.1"))
-	})
-})
-
-var _ = Describe("BorrowSpec", func() {
-	Context("Sorting entries", func() {
-		It("Sorts an empty spec", func() {
-			spec := BorrowSpec{
-				ReadNames:  []string{},
-				WriteNames: []string{},
-			}
-
-			sorted := spec.Sorted()
-			Expect(len(sorted)).To(Equal(0))
+	var _ = Describe("OwnershipTable", func() {
+		Context("IsMine", func() {
+			It("detects when the running node owns a variable", func() {
+				Expect(ownershipTable.IsMine("a")).To(Equal(false))
+				Expect(ownershipTable.IsMine("b")).To(Equal(true))
+				Expect(ownershipTable.IsMine("c")).To(Equal(false))
+			})
 		})
 
-		It("Sorts disjoint read and write names", func() {
-			spec := BorrowSpec{
-				ReadNames:  []string{"a", "c"},
-				WriteNames: []string{"d", "b"},
-			}
+		Context("Lookup", func() {
+			It("panics when you lookup a nonexisting variable", func() {
+				invalidVariable := func() {
+					ownershipTable.Lookup("invalid-variable")
+				}
 
-			sorted := spec.Sorted()
-			Expect(len(sorted)).To(Equal(4))
+				Expect(invalidVariable).To(Panic())
+			})
 
-			Expect(sorted[0].Name).To(Equal("a"))
-			Expect(sorted[0].Exclusive).To(Equal(false))
-
-			Expect(sorted[1].Name).To(Equal("b"))
-			Expect(sorted[1].Exclusive).To(Equal(true))
-
-			Expect(sorted[2].Name).To(Equal("c"))
-			Expect(sorted[2].Exclusive).To(Equal(false))
-
-			Expect(sorted[3].Name).To(Equal("d"))
-			Expect(sorted[3].Exclusive).To(Equal(true))
-		})
-
-		It("Sorts read and write names with non-empty intersections", func() {
-			spec := BorrowSpec{
-				ReadNames:  []string{"b", "a"},
-				WriteNames: []string{"c", "b"},
-			}
-
-			sorted := spec.Sorted()
-			Expect(len(sorted)).To(Equal(3))
-
-			Expect(sorted[0].Name).To(Equal("a"))
-			Expect(sorted[0].Exclusive).To(Equal(false))
-
-			Expect(sorted[1].Name).To(Equal("b"))
-			Expect(sorted[1].Exclusive).To(Equal(true))
-
-			Expect(sorted[2].Name).To(Equal("c"))
-			Expect(sorted[2].Exclusive).To(Equal(true))
+			It("returns the owner for a variable in the ownership table", func() {
+				Expect(ownershipTable.Lookup("a")).To(Equal("10.10.10.1"))
+			})
 		})
 	})
-})
 
-var _ = Describe("GlobalStateOperation", func() {
-	Context("Grouping variables", func() {
-		It("Groups an empty spec", func() {
-			op := GlobalStateOperation{
-				spec:      &BorrowSpec{},
-				ownership: ownershipTable,
-			}
+	var _ = Describe("BorrowSpec", func() {
+		Context("Sorting entries", func() {
+			It("Sorts an empty spec", func() {
+				spec := BorrowSpec{
+					ReadNames:  []string{},
+					WriteNames: []string{},
+				}
 
-			groups := op.Groups()
-			Expect(len(groups)).To(Equal(0))
-		})
+				sorted := spec.Sorted()
+				Expect(len(sorted)).To(Equal(0))
+			})
 
-		It("Groups a spec where no grouping is possible", func() {
-			spec := &BorrowSpec{ReadNames: []string{"a", "b", "c"}, WriteNames: []string{"b"}}
-			op := GlobalStateOperation{
-				spec:      spec,
-				ownership: ownershipTable,
-			}
+			It("Sorts disjoint read and write names", func() {
+				spec := BorrowSpec{
+					ReadNames:  []string{"a", "c"},
+					WriteNames: []string{"d", "b"},
+				}
 
-			groups := op.Groups()
-			Expect(len(groups)).To(Equal(3))
+				sorted := spec.Sorted()
+				Expect(len(sorted)).To(Equal(4))
 
-			Expect(groups[0].Peer).To(Equal("10.10.10.1"))
-			Expect(len(groups[0].Names)).To(Equal(1))
-			Expect(groups[0].Names[0].Name).To(Equal("a"))
-			Expect(groups[0].Names[0].Exclusive).To(Equal(false))
+				Expect(sorted[0].Name).To(Equal("a"))
+				Expect(sorted[0].Exclusive).To(Equal(false))
 
-			Expect(groups[1].Peer).To(Equal("10.10.10.2"))
-			Expect(len(groups[1].Names)).To(Equal(1))
-			Expect(groups[1].Names[0].Name).To(Equal("b"))
-			Expect(groups[1].Names[0].Exclusive).To(Equal(true))
+				Expect(sorted[1].Name).To(Equal("b"))
+				Expect(sorted[1].Exclusive).To(Equal(true))
 
-			Expect(groups[2].Peer).To(Equal("10.10.10.3"))
-			Expect(len(groups[2].Names)).To(Equal(1))
-			Expect(groups[2].Names[0].Name).To(Equal("c"))
-			Expect(groups[2].Names[0].Exclusive).To(Equal(false))
-		})
+				Expect(sorted[2].Name).To(Equal("c"))
+				Expect(sorted[2].Exclusive).To(Equal(false))
 
-		It("Groups a spec where some grouping of variables is possible", func() {
-			spec := &BorrowSpec{ReadNames: []string{"a", "b", "c"}, WriteNames: []string{"b"}}
-			op := GlobalStateOperation{
-				spec:      spec,
-				ownership: ownershipTable,
-			}
+				Expect(sorted[3].Name).To(Equal("d"))
+				Expect(sorted[3].Exclusive).To(Equal(true))
+			})
 
-			// co-locate variables 'a' and 'b'
-			ownershipTable.table["b"] = ownershipTable.table["a"]
+			It("Sorts read and write names with non-empty intersections", func() {
+				spec := BorrowSpec{
+					ReadNames:  []string{"b", "a"},
+					WriteNames: []string{"c", "b"},
+				}
 
-			groups := op.Groups()
-			Expect(len(groups)).To(Equal(2))
+				sorted := spec.Sorted()
+				Expect(len(sorted)).To(Equal(3))
 
-			// group 1: 'a' (non-exclusive) and 'b' (exclusive)
-			Expect(groups[0].Peer).To(Equal("10.10.10.1"))
-			Expect(len(groups[0].Names)).To(Equal(2))
-			Expect(groups[0].Names[0].Name).To(Equal("a"))
-			Expect(groups[0].Names[0].Exclusive).To(Equal(false))
-			Expect(groups[0].Names[1].Name).To(Equal("b"))
-			Expect(groups[0].Names[1].Exclusive).To(Equal(true))
+				Expect(sorted[0].Name).To(Equal("a"))
+				Expect(sorted[0].Exclusive).To(Equal(false))
 
-			// group 2: 'c' (non-exclusive)
-			Expect(groups[1].Peer).To(Equal("10.10.10.3"))
-			Expect(len(groups[1].Names)).To(Equal(1))
-			Expect(groups[1].Names[0].Name).To(Equal("c"))
-			Expect(groups[1].Names[0].Exclusive).To(Equal(false))
-		})
+				Expect(sorted[1].Name).To(Equal("b"))
+				Expect(sorted[1].Exclusive).To(Equal(true))
 
-		It("Groups a spec where every variable is owned by the same peer", func() {
-			spec := &BorrowSpec{ReadNames: []string{"a", "b", "c"}, WriteNames: []string{"b"}}
-			op := GlobalStateOperation{
-				spec:      spec,
-				ownership: ownershipTable,
-			}
-
-			// co-locate variables 'a', 'b' and 'c'
-			ownershipTable.table["b"] = ownershipTable.table["a"]
-			ownershipTable.table["c"] = ownershipTable.table["a"]
-
-			groups := op.Groups()
-			Expect(len(groups)).To(Equal(1))
-
-			Expect(groups[0].Peer).To(Equal("10.10.10.1"))
-			Expect(len(groups[0].Names)).To(Equal(3))
-			Expect(groups[0].Names[0].Name).To(Equal("a"))
-			Expect(groups[0].Names[0].Exclusive).To(Equal(false))
-			Expect(groups[0].Names[1].Name).To(Equal("b"))
-			Expect(groups[0].Names[1].Exclusive).To(Equal(true))
-			Expect(groups[0].Names[2].Name).To(Equal("c"))
-			Expect(groups[0].Names[2].Exclusive).To(Equal(false))
+				Expect(sorted[2].Name).To(Equal("c"))
+				Expect(sorted[2].Exclusive).To(Equal(true))
+			})
 		})
 	})
-})
 
-var _ = Describe("VarReferences", func() {
-	It("updates its contents", func() {
-		refs := VarReferences(map[string]*Reference{
-			"a": &Reference{Value: "old", Exclusive: true},
+	var _ = Describe("GlobalStateOperation", func() {
+		Context("Grouping variables", func() {
+			It("Groups an empty spec", func() {
+				op := GlobalStateOperation{
+					spec:      &BorrowSpec{},
+					ownership: ownershipTable,
+				}
+
+				groups := op.Groups()
+				Expect(len(groups)).To(Equal(0))
+			})
+
+			It("Groups a spec where no grouping is possible", func() {
+				spec := &BorrowSpec{ReadNames: []string{"a", "b", "c"}, WriteNames: []string{"b"}}
+				op := GlobalStateOperation{
+					spec:      spec,
+					ownership: ownershipTable,
+				}
+
+				groups := op.Groups()
+				Expect(len(groups)).To(Equal(3))
+
+				Expect(groups[0].Peer).To(Equal("10.10.10.1"))
+				Expect(len(groups[0].Names)).To(Equal(1))
+				Expect(groups[0].Names[0].Name).To(Equal("a"))
+				Expect(groups[0].Names[0].Exclusive).To(Equal(false))
+
+				Expect(groups[1].Peer).To(Equal("10.10.10.2"))
+				Expect(len(groups[1].Names)).To(Equal(1))
+				Expect(groups[1].Names[0].Name).To(Equal("b"))
+				Expect(groups[1].Names[0].Exclusive).To(Equal(true))
+
+				Expect(groups[2].Peer).To(Equal("10.10.10.3"))
+				Expect(len(groups[2].Names)).To(Equal(1))
+				Expect(groups[2].Names[0].Name).To(Equal("c"))
+				Expect(groups[2].Names[0].Exclusive).To(Equal(false))
+			})
+
+			It("Groups a spec where some grouping of variables is possible", func() {
+				spec := &BorrowSpec{ReadNames: []string{"a", "b", "c"}, WriteNames: []string{"b"}}
+				op := GlobalStateOperation{
+					spec:      spec,
+					ownership: ownershipTable,
+				}
+
+				// co-locate variables 'a' and 'b'
+				ownershipTable.table["b"] = ownershipTable.table["a"]
+
+				groups := op.Groups()
+				Expect(len(groups)).To(Equal(2))
+
+				// group 1: 'a' (non-exclusive) and 'b' (exclusive)
+				Expect(groups[0].Peer).To(Equal("10.10.10.1"))
+				Expect(len(groups[0].Names)).To(Equal(2))
+				Expect(groups[0].Names[0].Name).To(Equal("a"))
+				Expect(groups[0].Names[0].Exclusive).To(Equal(false))
+				Expect(groups[0].Names[1].Name).To(Equal("b"))
+				Expect(groups[0].Names[1].Exclusive).To(Equal(true))
+
+				// group 2: 'c' (non-exclusive)
+				Expect(groups[1].Peer).To(Equal("10.10.10.3"))
+				Expect(len(groups[1].Names)).To(Equal(1))
+				Expect(groups[1].Names[0].Name).To(Equal("c"))
+				Expect(groups[1].Names[0].Exclusive).To(Equal(false))
+			})
+
+			It("Groups a spec where every variable is owned by the same peer", func() {
+				spec := &BorrowSpec{ReadNames: []string{"a", "b", "c"}, WriteNames: []string{"b"}}
+				op := GlobalStateOperation{
+					spec:      spec,
+					ownership: ownershipTable,
+				}
+
+				// co-locate variables 'a', 'b' and 'c'
+				ownershipTable.table["b"] = ownershipTable.table["a"]
+				ownershipTable.table["c"] = ownershipTable.table["a"]
+
+				groups := op.Groups()
+				Expect(len(groups)).To(Equal(1))
+
+				Expect(groups[0].Peer).To(Equal("10.10.10.1"))
+				Expect(len(groups[0].Names)).To(Equal(3))
+				Expect(groups[0].Names[0].Name).To(Equal("a"))
+				Expect(groups[0].Names[0].Exclusive).To(Equal(false))
+				Expect(groups[0].Names[1].Name).To(Equal("b"))
+				Expect(groups[0].Names[1].Exclusive).To(Equal(true))
+				Expect(groups[0].Names[2].Name).To(Equal("c"))
+				Expect(groups[0].Names[2].Exclusive).To(Equal(false))
+			})
 		})
-
-		refs.Set("a", "new")
-
-		Expect(refs).To(Equal(VarReferences(map[string]*Reference{
-			"a": &Reference{Value: "new", Exclusive: true},
-		})))
 	})
 
-	It("is able to merge with another VarReferences", func() {
-		refs1 := VarReferences(map[string]*Reference{
-			"a": &Reference{Value: "refs1:a", Exclusive: true},
-			"b": &Reference{Value: "refs1:b", Exclusive: false},
+	var _ = Describe("VarReferences", func() {
+		It("updates its contents", func() {
+			refs := VarReferences(map[string]*Reference{
+				"a": &Reference{Value: "old", Exclusive: true},
+			})
+
+			refs.Set("a", "new")
+
+			Expect(refs).To(Equal(VarReferences(map[string]*Reference{
+				"a": &Reference{Value: "new", Exclusive: true},
+			})))
 		})
 
-		refs2 := VarReferences(map[string]*Reference{
-			"b": &Reference{Value: "refs2:b", Exclusive: true},
+		It("is able to merge with another VarReferences", func() {
+			refs1 := VarReferences(map[string]*Reference{
+				"a": &Reference{Value: "refs1:a", Exclusive: true},
+				"b": &Reference{Value: "refs1:b", Exclusive: false},
+			})
+
+			refs2 := VarReferences(map[string]*Reference{
+				"b": &Reference{Value: "refs2:b", Exclusive: true},
+			})
+
+			Expect(refs1.Merge(refs2)).To(Equal(VarReferences(map[string]*Reference{
+				"a": &Reference{Value: "refs1:a", Exclusive: true},
+				"b": &Reference{Value: "refs2:b", Exclusive: true},
+			})))
 		})
 
-		Expect(refs1.Merge(refs2)).To(Equal(VarReferences(map[string]*Reference{
-			"a": &Reference{Value: "refs1:a", Exclusive: true},
-			"b": &Reference{Value: "refs2:b", Exclusive: true},
-		})))
+		It("is able to generate a corresponding BorrowSpec", func() {
+			refs := VarReferences(map[string]*Reference{
+				"c": &Reference{Value: []int{1, 2, 3}, Exclusive: true},
+				"a": &Reference{Value: 10, Exclusive: false},
+				"b": &Reference{Value: "PGo", Exclusive: true},
+			})
+
+			spec := refs.ToBorrowSpec()
+
+			Expect(len(spec.ReadNames)).To(Equal(1))
+			Expect(spec.ReadNames[0]).To(Equal("a"))
+
+			Expect(len(spec.WriteNames)).To(Equal(2))
+			Expect(spec.WriteNames[0]).To(Equal("b"))
+			Expect(spec.WriteNames[1]).To(Equal("c"))
+		})
 	})
 
-	It("is able to generate a corresponding BorrowSpec", func() {
-		refs := VarReferences(map[string]*Reference{
-			"a": &Reference{Value: 10, Exclusive: false},
-			"b": &Reference{Value: "PGo", Exclusive: true},
-			"c": &Reference{Value: []int{1, 2, 3}, Exclusive: true},
-		})
-
-		spec := refs.ToBorrowSpec()
-
-		Expect(len(spec.ReadNames)).To(Equal(1))
-		Expect(spec.ReadNames[0]).To(Equal("a"))
-
-		Expect(len(spec.WriteNames)).To(Equal(2))
-		Expect(spec.WriteNames[0]).To(Equal("b"))
-		Expect(spec.WriteNames[1]).To(Equal("c"))
-	})
 })
 
 func TestDistsys(t *testing.T) {

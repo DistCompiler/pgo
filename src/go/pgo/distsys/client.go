@@ -48,7 +48,12 @@ func (remote remoteHandler) ReleaseState(refs VarReferences) error {
 // in the VarReq struct.
 func stateBuilder(group *VarReq, ss *StateServer) stateHandler {
 	if group.Peer == ss.self {
-		return localStateHandler{group, ss.store}
+		return localStateHandler{
+			group:             group,
+			store:             ss.store,
+			ownership:         ss.ownership,
+			migrationStrategy: ss.migrationStrategy,
+		}
 	}
 
 	return remoteHandler{group, ss}
