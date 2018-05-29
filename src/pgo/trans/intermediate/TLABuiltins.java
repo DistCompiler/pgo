@@ -11,6 +11,7 @@ import pgo.model.golang.BlockBuilder;
 import pgo.model.golang.Builtins;
 import pgo.model.golang.Call;
 import pgo.model.golang.Expression;
+import pgo.model.golang.ForStatementClauseBuilder;
 import pgo.model.golang.IncDec;
 import pgo.model.golang.Index;
 import pgo.model.golang.IntLiteral;
@@ -298,12 +299,13 @@ public class TLABuiltins {
 									new Binop(Binop.Operation.MINUS, to, from),
 									new IntLiteral(1)),
 							null));
-					// TODO scope i correctly
-					Expression acc = builder.getFreshName("i");
-					try(BlockBuilder body = builder.forLoop(
-							new Assignment(Collections.singletonList(acc), true, Collections.singletonList(from)),
-							new Binop(Binop.Operation.LEQ, acc, to),
-							new IncDec(true, acc))){
+					
+					ForStatementClauseBuilder clauseBuilder = builder.forLoopWithClauses();
+					VariableName acc = clauseBuilder.initVariable("i", from);
+					clauseBuilder.setCondition(new Binop(Binop.Operation.LEQ, acc, to));
+					clauseBuilder.setInc(new IncDec(true, acc));
+					
+					try(BlockBuilder body = clauseBuilder.getBlockBuilder()){
 						body.assign(
 								new Index(tmpRange, new Binop(Binop.Operation.MINUS, acc, from)),
 								acc);

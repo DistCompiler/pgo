@@ -87,10 +87,8 @@ public class BlockBuilder extends ASTBuilder implements Closeable {
 				block -> addStatement(new For(null, condition, null, block)));
 	}
 	
-	public BlockBuilder forLoop(Statement init, Expression condition, Statement inc) {
-		return new BlockBuilder(
-				this, nameCleaner.child(), nameMap, labelScope,
-				block -> addStatement(new For(init, condition, inc, block)));
+	public ForStatementClauseBuilder forLoopWithClauses() {
+		return new ForStatementClauseBuilder(this, nameCleaner.child(), nameMap, labelScope);
 	}
 	
 	public VariableName varDecl(String nameHint, Expression value) {
