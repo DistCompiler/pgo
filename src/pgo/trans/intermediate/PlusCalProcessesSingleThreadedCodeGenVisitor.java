@@ -1,6 +1,5 @@
 package pgo.trans.intermediate;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
@@ -45,7 +44,7 @@ public class PlusCalProcessesSingleThreadedCodeGenVisitor extends ProcessesVisit
 			constantIds.put(name, id);
 		}
 		
-		try(BlockBuilder initBuilder = moduleBuilder.defineFunction("init", Collections.emptyList(), Collections.emptyList())){
+		try(BlockBuilder initBuilder = moduleBuilder.defineFunction("init").getBlockBuilder()){
 			for(Map.Entry<String, PGoType> pair : constants.entrySet()) {
 				PGoTLAExpression value = registry.getConstantValue(constantIds.get(pair.getKey()));
 				PGoType type = typeMap.get(constantIds.get(pair.getKey()));
@@ -59,7 +58,7 @@ public class PlusCalProcessesSingleThreadedCodeGenVisitor extends ProcessesVisit
 			}
 		}
 		
-		try(BlockBuilder fnBuilder = moduleBuilder.defineFunction("main", Collections.emptyList(), Collections.emptyList())){
+		try(BlockBuilder fnBuilder = moduleBuilder.defineFunction("main").getBlockBuilder()){
 			
 			globalStrategy.generateSetup(fnBuilder);
 			

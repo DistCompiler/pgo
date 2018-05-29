@@ -8,53 +8,40 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 
-import pgo.scope.ChainSet;
 import pgo.scope.UID;
 
 public class ModuleBuilder extends ASTBuilder {
 	
 	private String name;
-	private Set<String> names;
 	private Set<String> imports;
 	private Map<UID, VariableName> nameMap;
 	private List<Declaration> declarations;
+	private NameCleaner nameCleaner;
 	
 	public ModuleBuilder(String name) {
 		this.name = name;
-		this.names = new HashSet<>();
+		this.nameCleaner = new NameCleaner(new HashSet<>());
 		this.imports = new TreeSet<>();
 		this.nameMap = new HashMap<>();
 		this.declarations = new ArrayList<>();
 	}
 	
-	private String cleanName(String nameHint) {
-		String actualName = nameHint;
-		int count = 0;
-		while(names.contains(nameHint)) {
-			actualName = nameHint + count;
-			++count;
-		}
-		return actualName;
-	}
-	
 	@Override
 	public TypeName defineType(String nameHint, Type type) {
-		String actualName = cleanName(nameHint);
+		String actualName = nameCleaner.cleanName(nameHint);
 		declarations.add(new TypeDeclaration(actualName, type));
 		return new TypeName(actualName);
 	}
 	
 	@Override
-	public BlockBuilder defineFunction(UID uid, String nameHint, List<FunctionArgument> arguments, List<FunctionArgument> returnTypes) {
-		String actualName = cleanName(nameHint);
+	public FunctionDeclarationBuilder defineFunction(UID uid, String nameHint) {
+		String actualName = nameCleaner.cleanName(nameHint);
 		nameMap.put(uid, new VariableName(actualName));
-		return new BlockBuilder(
-				this, new ChainSet<>(names), nameMap, new HashSet<>(),
-				block -> addFunction(new FunctionDeclaration(actualName, null, arguments, returnTypes, block)));
+		return new FunctionDeclarationBuilder(this, actualName, nameCleaner.child(), nameMap);
 	}
 	
 	public VariableName defineGlobal(UID uid, String nameHint, Type type, Expression value) {
-		String actualName = cleanName(nameHint);
+		String actualName = nameCleaner.cleanName(nameHint);
 		VariableName vName = new VariableName(actualName);
 		nameMap.put(uid, vName);
 		declarations.add(new VariableDeclaration(actualName, type, value));

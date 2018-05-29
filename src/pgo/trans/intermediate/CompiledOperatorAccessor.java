@@ -1,8 +1,5 @@
 package pgo.trans.intermediate;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -10,7 +7,7 @@ import pgo.errors.IssueContext;
 import pgo.model.golang.BlockBuilder;
 import pgo.model.golang.Call;
 import pgo.model.golang.Expression;
-import pgo.model.golang.FunctionArgument;
+import pgo.model.golang.FunctionDeclarationBuilder;
 import pgo.model.golang.Type;
 import pgo.model.golang.VariableName;
 import pgo.model.tla.PGoTLAExpression;
@@ -60,21 +57,22 @@ public class CompiledOperatorAccessor extends OperatorAccessor {
 	@Override
 	public Expression generateGo(BlockBuilder builder, PGoTLAExpression origin, DefinitionRegistry registry,
 			List<Expression> args, Map<UID, PGoType> typeMap, GlobalVariableStrategy globalStrategy) {
-		Type returnType = typeMap.get(def.getBody().getUID()).accept(new PGoTypeGoTypeConversionVisitor());
 		
-		List<FunctionArgument> definedArguments = new ArrayList<>();
-		Map<UID, VariableName> argNames = new HashMap<>();
+		FunctionDeclarationBuilder declBuilder = builder.defineFunction(def.getName().getUID(), def.getName().getId());
+		
+		// return type
+		Type returnType = typeMap.get(def.getBody().getUID()).accept(new PGoTypeGoTypeConversionVisitor());
+		declBuilder.addReturn(returnType);
+		
+		// arguments
 		for(PGoTLAOpDecl arg : def.getArgs()) {
 			PGoType argType = typeMap.get(registry.followReference(arg.getUID()));
 			Type goType = argType.accept(new PGoTypeGoTypeConversionVisitor());
-			VariableName name = builder.getFreshName(arg.getName().getId());
-			definedArguments.add(new FunctionArgument(name.getName(), goType));
+			VariableName name = declBuilder.addArgument(arg.getName().getId(), goType);
 			builder.linkUID(arg.getUID(), name);
 		}
 		
-		try(BlockBuilder fnBuilder = builder.defineFunction(
-				def.getName().getUID(), def.getName().getId(), definedArguments,
-				Collections.singletonList(new FunctionArgument(null, returnType)))){
+		try(BlockBuilder fnBuilder = declBuilder.getBlockBuilder()){
 			fnBuilder.returnStmt(
 					def.getBody().accept(
 							new TLAExpressionCodeGenVisitor(fnBuilder, registry, typeMap, globalStrategy)));

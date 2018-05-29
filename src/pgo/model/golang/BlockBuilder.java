@@ -8,13 +8,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import pgo.scope.ChainSet;
 import pgo.scope.UID;
 
 public class BlockBuilder extends ASTBuilder implements Closeable {
 	
 	private ASTBuilder builder;
-	private Set<String> variableScope;
+	private NameCleaner nameCleaner;
 	private Map<UID, VariableName> nameMap;
 	private List<Statement> statements;
 	
@@ -25,9 +24,9 @@ public class BlockBuilder extends ASTBuilder implements Closeable {
 	private OnSuccess onSuccess;
 	private Set<String> labelScope;
 
-	public BlockBuilder(ASTBuilder builder, Set<String> variableScope, Map<UID, VariableName> nameMap, Set<String> labelScope) {
+	public BlockBuilder(ASTBuilder builder, NameCleaner nameCleaner, Map<UID, VariableName> nameMap, Set<String> labelScope) {
 		this.builder = builder;
-		this.variableScope = variableScope;
+		this.nameCleaner = nameCleaner;
 		this.nameMap = nameMap;
 		this.labelScope = labelScope;
 		this.statements = new ArrayList<>();
@@ -36,9 +35,9 @@ public class BlockBuilder extends ASTBuilder implements Closeable {
 		};
 	}
 	
-	public BlockBuilder(ASTBuilder builder, Set<String> variableScope, Map<UID, VariableName> nameMap, Set<String> labelScope, OnSuccess onSuccess) {
+	public BlockBuilder(ASTBuilder builder, NameCleaner nameCleaner, Map<UID, VariableName> nameMap, Set<String> labelScope, OnSuccess onSuccess) {
 		this.builder = builder;
-		this.variableScope = variableScope;
+		this.nameCleaner = nameCleaner;
 		this.nameMap = nameMap;
 		this.labelScope = labelScope;
 		this.statements = new ArrayList<>();
@@ -69,7 +68,7 @@ public class BlockBuilder extends ASTBuilder implements Closeable {
 	}
 	
 	public IfBuilder ifStmt(Expression condition) {
-		return new IfBuilder(this, new ChainSet<>(variableScope), nameMap, labelScope, condition);
+		return new IfBuilder(this, nameCleaner.child(), nameMap, labelScope, condition);
 	}
 	
 	public void print(Expression value) {
@@ -84,13 +83,13 @@ public class BlockBuilder extends ASTBuilder implements Closeable {
 	
 	public BlockBuilder forLoop(Expression condition) {
 		return new BlockBuilder(
-				this, new ChainSet<>(variableScope), nameMap, labelScope,
+				this, nameCleaner.child(), nameMap, labelScope,
 				block -> addStatement(new For(null, condition, null, block)));
 	}
 	
 	public BlockBuilder forLoop(Statement init, Expression condition, Statement inc) {
 		return new BlockBuilder(
-				this, new ChainSet<>(variableScope), nameMap, labelScope,
+				this, nameCleaner.child(), nameMap, labelScope,
 				block -> addStatement(new For(init, condition, inc, block)));
 	}
 	
@@ -101,23 +100,13 @@ public class BlockBuilder extends ASTBuilder implements Closeable {
 	}
 	
 	public VariableName getFreshName(String nameHint) {
-		String actualName = nameHint;
-		int count = 0;
-		while(variableScope.contains(actualName)) {
-			actualName = nameHint + count;
-			++count;
-		}
-		variableScope.add(actualName);
+		String actualName = nameCleaner.cleanName(nameHint);
 		return new VariableName(actualName);
 	}
 	
 	@Override
 	protected void addStatement(Statement s) {
 		statements.add(s);
-	}
-	
-	protected void addVariable(String name) {
-		variableScope.add(name);
 	}
 	
 	@Override
@@ -141,9 +130,8 @@ public class BlockBuilder extends ASTBuilder implements Closeable {
 	}
 
 	@Override
-	public BlockBuilder defineFunction(UID uid, String nameHint, List<FunctionArgument> arguments,
-			List<FunctionArgument> returnTypes) {
-		return builder.defineFunction(uid, nameHint, arguments, returnTypes);
+	public FunctionDeclarationBuilder defineFunction(UID uid, String nameHint) {
+		return builder.defineFunction(uid, nameHint);
 	}
 
 	public void returnStmt(Expression... values) {
