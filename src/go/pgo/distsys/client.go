@@ -21,6 +21,7 @@ type remoteHandler struct {
 // moved.
 func (remote remoteHandler) GetState() (VarReferences, error) {
 	conn := remote.stateServer.connections.GetConnection(remote.group.Peer)
+	remote.group.Requester = remote.stateServer.self
 	refs := VarReferences(map[string]*Reference{})
 
 	if err := conn.Call("StateServer.GetState", remote.group, &refs); err != nil {
@@ -49,10 +50,9 @@ func (remote remoteHandler) ReleaseState(refs VarReferences) error {
 func stateBuilder(group *VarReq, ss *StateServer) stateHandler {
 	if group.Peer == ss.self {
 		return localStateHandler{
-			group:             group,
-			store:             ss.store,
-			ownership:         ss.ownership,
-			migrationStrategy: ss.migrationStrategy,
+			group: group,
+			store: ss.store,
+			self:  ss.self,
 		}
 	}
 
@@ -63,12 +63,15 @@ func stateBuilder(group *VarReq, ss *StateServer) stateHandler {
 // the values of the variables in the spec given, with the requested permissions (i.e.,
 // exclusive or non-exclusive (read-only) access).
 func (ss *StateServer) Acquire(spec *BorrowSpec) (VarReferences, error) {
-	op := NewGlobalStateOperation(spec, ss.ownership)
+	op := NewGlobalStateOperation(spec, ss.store, ss.self, ss.connections)
 	allRefs := VarReferences(map[string]*Reference{})
+
+	// lock every variable that is being requested to avoid migrations
+	// while we determine request groups
+	op.Lock()
 
 	for op.HasNext() {
 		group := op.Next()
-		group.Requester = ss.self
 
 		refs, err := stateBuilder(group, ss).GetState()
 		if err != nil {
@@ -76,6 +79,7 @@ func (ss *StateServer) Acquire(spec *BorrowSpec) (VarReferences, error) {
 		}
 
 		holds := op.UpdateRefs(refs)
+		op.AckMigrations()
 		allRefs = allRefs.Merge(holds)
 	}
 
@@ -86,16 +90,16 @@ func (ss *StateServer) Acquire(spec *BorrowSpec) (VarReferences, error) {
 // the application (after a call to Acquire), and releases any locks that were
 // held, either locally or remotely on a different node in the system.
 func (ss *StateServer) Release(refs VarReferences) error {
-	op := GlobalStateOperation{
-		spec:      refs.ToBorrowSpec(),
-		ownership: ss.ownership,
-	}
+	op := NewGlobalStateOperation(refs.ToBorrowSpec(), ss.store, ss.self, ss.connections)
 
 	for _, group := range op.Groups() {
 		if err := stateBuilder(group, ss).ReleaseState(refs); err != nil {
 			return err
 		}
 	}
+
+	// unlock local entries after releasing our locks remotely
+	op.Unlock()
 
 	return nil
 }

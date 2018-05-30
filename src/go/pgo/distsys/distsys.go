@@ -129,12 +129,24 @@ type Reference struct {
 }
 
 func (ref Reference) String() string {
-	var exclusive string
-	if ref.Exclusive {
-		exclusive = " [exclusive]"
+	var owns, exclusive, typeDesc string
+	if ref.Ownership {
+		owns = " [owns]"
 	}
 
-	return fmt.Sprintf("Ref(%v%s)", ref.Value, exclusive)
+	if ref.Exclusive {
+		exclusive = "*"
+	}
+
+	if ref.Type == REF_VAL {
+		typeDesc = "VAL"
+	} else if ref.Type == REF_MOVED {
+		typeDesc = fmt.Sprintf("MOVED:%s", ref.Peer)
+	} else {
+		typeDesc = "SKIP"
+	}
+
+	return fmt.Sprintf("Ref(%v%s%s (%s))", ref.Value, exclusive, owns, typeDesc)
 }
 
 // VarReferences maps variable names to references. Can be used when a node is
@@ -237,13 +249,18 @@ func (self VarReferences) String() string {
 // in order to minimize the number of requests necessary to get access to the
 // state requested
 type GlobalStateOperation struct {
-	spec      *BorrowSpec
-	ownership *OwnershipTable
+	spec        *BorrowSpec
+	store       DataStore
+	self        string
+	connections *Connections
+
+	ownerships     []string
+	ackMigrationTo string
 }
 
 // NewGlobalStateOperation returns a new instance of GlobalStateOperation for
 // the borrow specification passed as argument.
-func NewGlobalStateOperation(spec *BorrowSpec, ownership *OwnershipTable) *GlobalStateOperation {
+func NewGlobalStateOperation(spec *BorrowSpec, store DataStore, self string, connections *Connections) *GlobalStateOperation {
 	readNames := make([]string, len(spec.ReadNames))
 	writeNames := make([]string, len(spec.WriteNames))
 
@@ -257,8 +274,28 @@ func NewGlobalStateOperation(spec *BorrowSpec, ownership *OwnershipTable) *Globa
 	}
 
 	return &GlobalStateOperation{
-		spec:      specCopy,
-		ownership: ownership,
+		spec:        specCopy,
+		store:       store,
+		self:        self,
+		connections: connections,
+
+		ownerships: []string{},
+	}
+}
+
+// Lock acquires exclusive access to all variables contained in the
+// BorrowSpec
+func (global *GlobalStateOperation) Lock() {
+	for _, borrowVar := range global.spec.Sorted() {
+		global.store.Lock(borrowVar.Name)
+	}
+}
+
+// Unlock releases exclusive access, previously held with Lock(), to
+// the variables in this BorrowSpec
+func (global *GlobalStateOperation) Unlock() {
+	for _, borrowVar := range global.spec.Sorted() {
+		global.store.Unlock(borrowVar.Name)
 	}
 }
 
@@ -284,17 +321,18 @@ func (global *GlobalStateOperation) UpdateRefs(refs VarReferences) VarReferences
 		switch ref.Type {
 		case REF_VAL:
 			holds[name] = ref
+
+			// if the ownership of this piece of state was transmitted with the
+			// reference itself, update our state accordingly
+			if ref.Ownership {
+				global.owns(name, ref)
+			}
+
 			global.deleteFromSpec(name)
 
 		case REF_MOVED:
 			// update ownership table
-
-			// make sure nobody else is reading the entry
-			owner := global.ownership.table[name]
-
-			owner.Lock()
-			global.ownership.Update(name, ref.Peer)
-			owner.Unlock()
+			global.store.UpdateOwner(name, ref.Peer)
 
 		case REF_SKIP:
 			// skip
@@ -302,6 +340,37 @@ func (global *GlobalStateOperation) UpdateRefs(refs VarReferences) VarReferences
 	}
 
 	return holds
+}
+
+// updates internal data structures when the reference given includes ownership
+// of the state it contains
+func (global *GlobalStateOperation) owns(name string, ref *Reference) {
+	global.store.UpdateOwner(name, global.self)
+	global.store.SetVal(name, ref.Value)
+
+	// collect all ownerships gained
+	global.ownerships = append(global.ownerships, name)
+	global.ackMigrationTo = ref.Peer
+}
+
+func (global *GlobalStateOperation) AckMigrations() {
+	if len(global.ownerships) == 0 {
+		return
+	}
+
+	req := VarReq{Names: []*BorrowSpecVariable{}}
+	for _, name := range global.ownerships {
+		req.Names = append(req.Names, &BorrowSpecVariable{
+			Name: name,
+		})
+	}
+
+	var ok bool
+	conn := global.connections.GetConnection(global.ackMigrationTo)
+
+	if err := conn.Call("StateServer.OwnershipMoved", &req, &ok); err != nil {
+		log.Panic(err)
+	}
 }
 
 func (global *GlobalStateOperation) deleteFromSpec(name string) {
@@ -359,9 +428,9 @@ func (global *GlobalStateOperation) deleteFromCollection(name string, collection
 //       *VarReq{Peer: "10.10.10.1", Names: []*BorrowSpecVariable{{Name: "a", Exclusive: false}, ... },
 //       *VarReq{Peer: "10.10.10.3", Names: []*BorrowSpecVariable{{Name: "c", Exclusive: false}, ...}
 //     }
-func (op *GlobalStateOperation) Groups() []*VarReq {
+func (global *GlobalStateOperation) Groups() []*VarReq {
 	reqs := []*VarReq{}
-	sorted := op.spec.Sorted()
+	sorted := global.spec.Sorted()
 
 	// if borrow spec is empty, return early
 	if len(sorted) == 0 {
@@ -371,7 +440,7 @@ func (op *GlobalStateOperation) Groups() []*VarReq {
 	var currentPeer string
 	var currVarReq *VarReq
 	for _, borrowVar := range sorted {
-		owner := op.ownership.Lookup(borrowVar.Name)
+		owner := global.store.OwnerOf(borrowVar.Name)
 
 		// if this is the first iteration, the current peer is the owner
 		// of the current variable
@@ -420,10 +489,9 @@ func (req *VarReq) String() string {
 type StateServer struct {
 	*ProcessInitialization
 
-	self      string           // the address of the running node
-	peers     []string         // a list of addresses of all peers in the system
-	ownership *OwnershipTable  // the ownership table, mapping variable names to its owner
-	store     *SimpleDataStore // the underlying state store
+	self  string    // the address of the running node
+	peers []string  // a list of addresses of all peers in the system
+	store DataStore // the underlying state store
 
 	migrationStrategy MigrationStrategy // determines when to migrate data from a node to another
 }
@@ -462,26 +530,26 @@ func NewStateServer(peers []string, self, coordinator string, initValues map[str
 		panic("coodinator is not in peers")
 	}
 
-	owners := make(map[string]string, len(initValues))
-	store := make(map[string]interface{})
+	entries := map[string]*DataEntry{}
 
-	// at first, all state is in the coordinator node
+	// at first, all state is owned by the coordinator node
 	for name, _ := range initValues {
-		owners[name] = coordinator
-	}
+		var val interface{}
+		if pi.isCoordinator() {
+			val = initValues[name]
+		}
 
-	if pi.isCoordinator() {
-		store = initValues
+		entries[name] = &DataEntry{Value: val, Owner: coordinator}
 	}
 
 	stateServer := &StateServer{
 		ProcessInitialization: pi,
 
-		self:              self,
-		peers:             peers,
-		ownership:         NewOwnershipTable(owners, self),
-		store:             NewSimpleDataStore(store),
-		migrationStrategy: NeverMigrate(self),
+		self:  self,
+		peers: peers,
+		store: NewDataStore(entries),
+
+		migrationStrategy: AlwaysMigrate(self),
 	}
 
 	if err := stateServer.Init(); err != nil {

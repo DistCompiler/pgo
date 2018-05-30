@@ -9,42 +9,15 @@ import (
 
 var _ = Describe("Distsys package", func() {
 	var (
-		ownershipTable *OwnershipTable
-		self           = "10.10.10.1"
+		store DataStore
+		self  = "10.10.10.1"
 	)
 
 	BeforeEach(func() {
-		ownershipTable = NewOwnershipTable(map[string]string{
-			"a": "10.10.10.10",
-			"b": "10.10.10.20",
-			"c": "10.10.10.30",
-		}, self)
-	})
-
-	var _ = Describe("OwnershipTable", func() {
-		Context("IsMine", func() {
-			It("detects when the running node owns a variable", func() {
-				// running node only owns variable 'b'
-				ownershipTable.table["b"].address = self
-
-				Expect(ownershipTable.IsMine("a")).To(Equal(false))
-				Expect(ownershipTable.IsMine("b")).To(Equal(true))
-				Expect(ownershipTable.IsMine("c")).To(Equal(false))
-			})
-		})
-
-		Context("Lookup", func() {
-			It("panics when you lookup a nonexisting variable", func() {
-				invalidVariable := func() {
-					ownershipTable.Lookup("invalid-variable")
-				}
-
-				Expect(invalidVariable).To(Panic())
-			})
-
-			It("returns the owner for a variable in the ownership table", func() {
-				Expect(ownershipTable.Lookup("a")).To(Equal("10.10.10.10"))
-			})
+		store = NewDataStore(map[string]*DataEntry{
+			"a": &DataEntry{Owner: "10.10.10.10"},
+			"b": &DataEntry{Owner: "10.10.10.20"},
+			"c": &DataEntry{Owner: "10.10.10.30"},
 		})
 	})
 
@@ -106,7 +79,7 @@ var _ = Describe("Distsys package", func() {
 	var _ = Describe("GlobalStateOperation", func() {
 		Context("Grouping variables", func() {
 			It("panics if Next() is called on an empty spec", func() {
-				op := NewGlobalStateOperation(&BorrowSpec{}, ownershipTable)
+				op := NewGlobalStateOperation(&BorrowSpec{}, store, self, nil)
 
 				getNext := func() {
 					op.Next()
@@ -118,7 +91,7 @@ var _ = Describe("Distsys package", func() {
 
 			It("Groups a spec where no grouping is possible", func() {
 				spec := &BorrowSpec{ReadNames: []string{"a", "b", "c"}, WriteNames: []string{"b"}}
-				op := NewGlobalStateOperation(spec, ownershipTable)
+				op := NewGlobalStateOperation(spec, store, self, nil)
 
 				groups := op.Groups()
 				Expect(len(groups)).To(Equal(3))
@@ -141,10 +114,10 @@ var _ = Describe("Distsys package", func() {
 
 			It("Groups a spec where some grouping of variables is possible", func() {
 				spec := &BorrowSpec{ReadNames: []string{"a", "b", "c"}, WriteNames: []string{"b"}}
-				op := NewGlobalStateOperation(spec, ownershipTable)
+				op := NewGlobalStateOperation(spec, store, self, nil)
 
 				// co-locate variables 'a' and 'b'
-				ownershipTable.table["b"] = ownershipTable.table["a"]
+				store.UpdateOwner("b", store.OwnerOf("a"))
 
 				groups := op.Groups()
 				Expect(len(groups)).To(Equal(2))
@@ -166,11 +139,11 @@ var _ = Describe("Distsys package", func() {
 
 			It("Groups a spec where every variable is owned by the same peer", func() {
 				spec := &BorrowSpec{ReadNames: []string{"a", "b", "c"}, WriteNames: []string{"b"}}
-				op := NewGlobalStateOperation(spec, ownershipTable)
+				op := NewGlobalStateOperation(spec, store, self, nil)
 
 				// co-locate variables 'a', 'b' and 'c'
-				ownershipTable.table["b"] = ownershipTable.table["a"]
-				ownershipTable.table["c"] = ownershipTable.table["a"]
+				store.UpdateOwner("b", store.OwnerOf("a"))
+				store.UpdateOwner("c", store.OwnerOf("a"))
 
 				groups := op.Groups()
 				Expect(len(groups)).To(Equal(1))
@@ -192,7 +165,7 @@ var _ = Describe("Distsys package", func() {
 		var _ = Describe("UpdateRefs", func() {
 			It("Detects no more variables are left if all references are present", func() {
 				spec := &BorrowSpec{ReadNames: []string{"a", "b", "c"}, WriteNames: []string{"b"}}
-				op := NewGlobalStateOperation(spec, ownershipTable)
+				op := NewGlobalStateOperation(spec, store, self, nil)
 
 				refs := VarReferences(map[string]*Reference{
 					"a": &Reference{Type: REF_VAL, Value: 10},
@@ -208,7 +181,7 @@ var _ = Describe("Distsys package", func() {
 
 			It("Updates the ownership table when a moved references are received", func() {
 				spec := &BorrowSpec{ReadNames: []string{"a", "b", "c"}, WriteNames: []string{"b"}}
-				op := NewGlobalStateOperation(spec, ownershipTable)
+				op := NewGlobalStateOperation(spec, store, self, nil)
 
 				refs := VarReferences(map[string]*Reference{
 					"a": &Reference{Type: REF_VAL, Value: 10},
@@ -231,6 +204,42 @@ var _ = Describe("Distsys package", func() {
 						&BorrowSpecVariable{Name: "c", Exclusive: false},
 					},
 				}))
+			})
+
+			It("updates the ownership table and local store when ownership is received", func() {
+				spec := &BorrowSpec{ReadNames: []string{"a", "b", "c"}, WriteNames: []string{"b"}}
+				op := NewGlobalStateOperation(spec, store, self, nil)
+
+				refs := VarReferences(map[string]*Reference{
+					"a": &Reference{Type: REF_VAL, Value: 10, Ownership: true, Peer: "10.10.10.40"},
+					"b": &Reference{Type: REF_MOVED, Peer: "10.10.10.10"},
+					"c": &Reference{Type: REF_SKIP},
+				})
+
+				holds := op.UpdateRefs(refs)
+				Expect(len(holds)).To(Equal(1))
+
+				Expect(holds).To(Equal(VarReferences(map[string]*Reference{
+					"a": &Reference{Type: REF_VAL, Value: 10, Ownership: true, Peer: "10.10.10.40"},
+				})))
+
+				Expect(op.HasNext()).To(Equal(true))
+				Expect(op.Next()).To(Equal(&VarReq{
+					Peer: "10.10.10.10",
+					Names: []*BorrowSpecVariable{
+						&BorrowSpecVariable{Name: "b", Exclusive: true},
+					},
+				}))
+
+				// updates the ownership table to indicate that the current node
+				// now owns variable 'a'
+				Expect(store.OwnerOf("a")).To(Equal(self))
+
+				// updates the local store with the value received
+				Expect(store.GetVal("a")).To(Equal(10))
+
+				// has a list of variables to acknowledge ownership about
+				Expect(op.ownerships).To(Equal([]string{"a"}))
 			})
 		})
 	})

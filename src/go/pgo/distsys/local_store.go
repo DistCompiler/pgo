@@ -7,16 +7,11 @@ import (
 	"sync"
 )
 
-const (
-	readOnlyMode = iota
-	writeMode
-)
-
 // NameNotFoundError occurs when a lookup for an unknown name in the store is made
 type NameNotFoundError string
 
 func (e NameNotFoundError) Error() string {
-	return fmt.Sprintf("Local store: name not found: %s", e)
+	return fmt.Sprintf("Local store: name not found: %s", string(e))
 }
 
 // DataEntry represents a single piece of global state that is
@@ -25,127 +20,84 @@ func (e NameNotFoundError) Error() string {
 // from/write to the same piece of global state concurrently will not
 // lead to inconsistencies in program execution (race conditions)
 type DataEntry struct {
-	sync.RWMutex             // protects access to `value`
-	value        interface{} // value, which can be of any type
+	sync.RWMutex             // protects access this entry
+	Value        interface{} // value, which can be of any type
+	Owner        string      // address of the node that currently owns this entry
 }
 
-// SimpleDataStore implements a volatile store that can be used to keep
-// track of global state of applications compiled by PGo. State is modeled
-// as a table that maps names (such as variable names) to values of any type,
-// encapsulated as `DataEntry` structs.
-type SimpleDataStore struct {
-	sync.RWMutex                       // protects access to the variable table
-	store        map[string]*DataEntry // maps variable names to their values
+// DataStore implements a volatile store that can be used to keep
+// track of global state of applications compiled by PGo. State is
+// modeled as a table that maps names (such as variable names) to
+// values of any type, encapsulated as `DataEntry` structs.
+type DataStore map[string]*DataEntry
+
+// NewDataStore creates a new `DataStore` struct. An initial state can
+// be given in the `initValues` parameter, which makes sure the state
+// local to this node will contain the data passed to this function.
+func NewDataStore(initValues map[string]*DataEntry) DataStore {
+	return DataStore(initValues)
 }
 
-// NewSimpleStore creates a new `SimpleDataStore` struct. An initial state
-// can be given in the `initValues` parameter, which makes sure the state local
-// to this node will contain the data passed to this function.
-func NewSimpleDataStore(initValues map[string]interface{}) *SimpleDataStore {
-	store := make(map[string]*DataEntry, len(initValues))
-	for key, value := range initValues {
-		store[key] = &DataEntry{
-			value: value,
-		}
-	}
-
-	return &SimpleDataStore{
-		store: store,
-	}
+// Lock gives the caller exclusive access to the entry associated with
+// the  given `name`.  Blocks if  another thread  currently holds  the
+// lock.
+func (store DataStore) Lock(name string) {
+	store.findOrPanic(name).Lock()
 }
 
-// Hold reads a `name` from the data store for non-exclusive access (i.e., read only).
-func (data *SimpleDataStore) Hold(name string) (interface{}, error) {
-	return data.hold(name, readOnlyMode)
+// Unlock releases exclusive access previously held by `Lock()`. It is
+// an error to call this function without a previous call to Lock().
+func (store DataStore) Unlock(name string) {
+	store.findOrPanic(name).Unlock()
 }
 
-// HoldExclusive reads a `name` from the data store and prohibits anyone else from
-// reading or writing to that name
-func (data *SimpleDataStore) HoldExclusive(name string) (interface{}, error) {
-	return data.hold(name, writeMode)
+// GetVal returns the value associated with the name in the underlying
+// store.  Panics if the name does not exist.
+func (store DataStore) GetVal(name string) interface{} {
+	return store.findOrPanic(name).Value
 }
 
-func (data *SimpleDataStore) hold(name string, mode int) (interface{}, error) {
-	data.RLock()
-	defer data.RUnlock()
-
-	entry, inStore := data.store[name]
-
-	if !inStore {
-		return nil, NameNotFoundError(name)
-	}
-
-	if mode == readOnlyMode {
-		entry.RLock()
-	} else {
-		entry.Lock()
-	}
-
-	return entry.value, nil
+// SetVal updates the value associated with a given `name` in the
+// underlying store.  Invoking this function is only safe if the
+// caller has previously called Lock() on the same name. Panics if the
+// name does not exist in the store.
+func (store DataStore) SetVal(name string, val interface{}) {
+	store.findOrPanic(name).Value = val
 }
 
-// Release indicates that a variable previously held with non-exclusive access
-// is no longer being used
-func (data *SimpleDataStore) Release(name string) {
-	data.release(name, readOnlyMode)
+// OwnerOf returns the address of the node that is believed to own the
+// given `name`. Panics if the name does not exist.
+func (store DataStore) OwnerOf(name string) string {
+	return store.findOrPanic(name).Owner
 }
 
-// ReleaseExclusive indicates that a variable previously held with exclusive
-// access is no longer being used
-func (data *SimpleDataStore) ReleaseExclusive(name string) {
-	data.release(name, writeMode)
+// UpdateOwner updates the address of the node that is believed to own
+// the `name` given. Invoking this function is only safe if the caller
+// has previously called Lock() on the same name. Panics if the name
+// does not exist in the store.
+func (store DataStore) UpdateOwner(name, owner string) {
+	store.findOrPanic(name).Owner = owner
 }
 
-func (data *SimpleDataStore) release(name string, mode int) {
-	data.RLock()
-	defer data.RUnlock()
-
-	entry, inStore := data.store[name]
-
+func (store DataStore) findOrPanic(name string) *DataEntry {
+	entry, inStore := store[name]
 	if !inStore {
 		log.Panic(NameNotFoundError(name))
 	}
 
-	if mode == readOnlyMode {
-		entry.RUnlock()
-	} else {
-		entry.Unlock()
-	}
+	return entry
 }
 
-// Set updates the value associated with a given `name` in the underlying store.
-// Invoking this function is only safe if the caller has previously called
-// HoldExclusive.
-func (data *SimpleDataStore) Set(name string, val interface{}) {
-	entry, inStore := data.store[name]
-	if !inStore {
-		log.Panic(NameNotFoundError(name))
-	}
-
-	entry.value = val
-}
-
-// Delete removes the entry associated with the `name` given. Panics if the
-// name is not found. The caller must have successfully called `HoldExclusive`
-// on the same name prior to calling this function.
-func (data *SimpleDataStore) Delete(name string) {
-	if _, inStore := data.store[name]; !inStore {
-		log.Panic(NameNotFoundError(name))
-	}
-
-	delete(data.store, name)
-}
-
-func (data *SimpleDataStore) String() string {
+func (data DataStore) String() string {
 	var buf bytes.Buffer
 	var i int
 
-	for name, entry := range data.store {
+	for name, entry := range data {
 		if i > 0 {
 			buf.WriteString(", ")
 		}
 
-		buf.WriteString(fmt.Sprintf("%s => %v (%p)", name, entry.value, entry))
+		buf.WriteString(fmt.Sprintf("%s => %v [%s]", name, entry.Value, entry.Owner))
 		i++
 	}
 
