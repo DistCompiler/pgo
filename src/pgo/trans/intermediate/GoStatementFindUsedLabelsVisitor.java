@@ -4,23 +4,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
-import pgo.model.golang.Assignment;
-import pgo.model.golang.Block;
-import pgo.model.golang.Comment;
-import pgo.model.golang.ExpressionStatement;
-import pgo.model.golang.For;
-import pgo.model.golang.GoCall;
-import pgo.model.golang.GoTo;
-import pgo.model.golang.If;
-import pgo.model.golang.IncDec;
-import pgo.model.golang.Label;
-import pgo.model.golang.Return;
-import pgo.model.golang.Select;
-import pgo.model.golang.SelectCase;
-import pgo.model.golang.Statement;
-import pgo.model.golang.StatementVisitor;
-import pgo.model.golang.Switch;
-import pgo.model.golang.SwitchCase;
+import pgo.model.golang.*;
 
 public class GoStatementFindUsedLabelsVisitor extends StatementVisitor<Set<String>, RuntimeException> {
 
@@ -54,10 +38,17 @@ public class GoStatementFindUsedLabelsVisitor extends StatementVisitor<Set<Strin
 	}
 
 	@Override
+	public Set<String> visit(ForRange forRange) throws RuntimeException {
+		return forRange.getBody().accept(this);
+	}
+
+	@Override
 	public Set<String> visit(If if1) throws RuntimeException {
 		Set<String> result = new HashSet<>();
 		result.addAll(if1.getThen().accept(this));
-		result.addAll(if1.getElse().accept(this));
+		if (if1.getElse() != null) {
+			result.addAll(if1.getElse().accept(this));
+		}
 		return result;
 	}
 

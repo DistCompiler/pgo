@@ -10,14 +10,14 @@ public class IfBuilder implements Closeable {
 
 	private ASTBuilder builder;
 	private NameCleaner nameCleaner;
-	private Set<String> labelScope;
+	private NameCleaner labelScope;
 	private Expression condition;
 	private Block trueBranch;
 	private Block falseBranch;
 	private Map<UID, VariableName> nameMap;
 
 	public IfBuilder(ASTBuilder builder, NameCleaner nameCleaner, Map<UID, VariableName> nameMap,
-			Set<String> labelScope, Expression condition) {
+			NameCleaner labelScope, Expression condition) {
 		this.builder = builder;
 		this.nameCleaner = nameCleaner;
 		this.nameMap = nameMap;
@@ -36,11 +36,11 @@ public class IfBuilder implements Closeable {
 	}
 	
 	public BlockBuilder whenTrue() {
-		return new BlockBuilder(builder, nameCleaner.child(), nameMap, labelScope, (block) -> addTrue(block));
+		return new BlockBuilder(builder, nameCleaner.child(), nameMap, labelScope, this::addTrue);
 	}
 	
 	public BlockBuilder whenFalse() {
-		return new BlockBuilder(builder, nameCleaner.child(), nameMap, labelScope, (block) -> addFalse(block));
+		return new BlockBuilder(builder, nameCleaner.child(), nameMap, labelScope, this::addFalse);
 	}
 
 	@Override

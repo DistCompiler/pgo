@@ -35,11 +35,9 @@ public class TypeName extends Type {
 			return false;
 		TypeName other = (TypeName) obj;
 		if (name == null) {
-			if (other.name != null)
-				return false;
-		} else if (!name.equals(other.name))
-			return false;
-		return true;
+			return other.name == null;
+		}
+		return name.equals(other.name);
 	}
 
 }

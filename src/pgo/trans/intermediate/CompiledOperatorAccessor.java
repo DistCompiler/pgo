@@ -3,7 +3,6 @@ package pgo.trans.intermediate;
 import java.util.List;
 import java.util.Map;
 
-import pgo.errors.IssueContext;
 import pgo.model.golang.BlockBuilder;
 import pgo.model.golang.Call;
 import pgo.model.golang.Expression;
@@ -13,11 +12,7 @@ import pgo.model.golang.VariableName;
 import pgo.model.tla.PGoTLAExpression;
 import pgo.model.tla.PGoTLAOpDecl;
 import pgo.model.tla.PGoTLAOperatorDefinition;
-import pgo.model.type.PGoType;
-import pgo.model.type.PGoTypeConstraint;
-import pgo.model.type.PGoTypeGenerator;
-import pgo.model.type.PGoTypeSolver;
-import pgo.model.type.PGoTypeVariable;
+import pgo.model.type.*;
 import pgo.scope.UID;
 import pgo.util.Origin;
 
@@ -30,21 +25,21 @@ public class CompiledOperatorAccessor extends OperatorAccessor {
 	}
 
 	@Override
-	public PGoType constrainTypes(IssueContext ctx, Origin origin, DefinitionRegistry registry, List<PGoType> args, PGoTypeSolver solver, PGoTypeGenerator generator,
+	public PGoType constrainTypes(Origin origin, DefinitionRegistry registry, List<PGoType> args, PGoTypeSolver solver, PGoTypeGenerator generator,
 	                              Map<UID, PGoTypeVariable> mapping) {
 		// TODO argument-based polymorphism?
 		List<PGoTLAOpDecl> defArgs = def.getArgs();
-		for(int i = 0; i < defArgs.size(); ++i) {
+		for (int i = 0; i < defArgs.size(); ++i) {
 			PGoTLAOpDecl arg = defArgs.get(i);
-			if(arg.getType() == PGoTLAOpDecl.Type.ID) {
+			if (arg.getType() == PGoTLAOpDecl.Type.ID) {
 				PGoTypeVariable v = generator.get();
-				mapping.put(arg.getUID(), v);
-				solver.addConstraint(ctx, new PGoTypeConstraint(origin, v, args.get(i)));
-			}else {
+				mapping.put(arg.getName().getUID(), v);
+				solver.addConstraint(new PGoTypeMonomorphicConstraint(origin, v, args.get(i)));
+			} else {
 				// TODO: error
 			}
 		}
-		PGoType result = new TLAExpressionTypeConstraintVisitor(ctx, registry, solver, generator, mapping)
+		PGoType result = new TLAExpressionTypeConstraintVisitor(registry, solver, generator, mapping)
 				.wrappedVisit(def.getBody());
 		return result;
 	}
@@ -57,27 +52,27 @@ public class CompiledOperatorAccessor extends OperatorAccessor {
 	@Override
 	public Expression generateGo(BlockBuilder builder, PGoTLAExpression origin, DefinitionRegistry registry,
 			List<Expression> args, Map<UID, PGoType> typeMap, GlobalVariableStrategy globalStrategy) {
-		
+
 		FunctionDeclarationBuilder declBuilder = builder.defineFunction(def.getName().getUID(), def.getName().getId());
-		
+
 		// return type
 		Type returnType = typeMap.get(def.getBody().getUID()).accept(new PGoTypeGoTypeConversionVisitor());
 		declBuilder.addReturn(returnType);
-		
+
 		// arguments
-		for(PGoTLAOpDecl arg : def.getArgs()) {
-			PGoType argType = typeMap.get(registry.followReference(arg.getUID()));
+		for (PGoTLAOpDecl arg : def.getArgs()) {
+			PGoType argType = typeMap.get(arg.getName().getUID());
 			Type goType = argType.accept(new PGoTypeGoTypeConversionVisitor());
 			VariableName name = declBuilder.addArgument(arg.getName().getId(), goType);
-			builder.linkUID(arg.getUID(), name);
+			builder.linkUID(arg.getName().getUID(), name);
 		}
-		
-		try(BlockBuilder fnBuilder = declBuilder.getBlockBuilder()){
+
+		try (BlockBuilder fnBuilder = declBuilder.getBlockBuilder()){
 			fnBuilder.returnStmt(
 					def.getBody().accept(
 							new TLAExpressionCodeGenVisitor(fnBuilder, registry, typeMap, globalStrategy)));
 		}
-		
+
 		VariableName functionName = builder.findUID(def.getName().getUID());
 		return new Call(functionName, args);
 	}

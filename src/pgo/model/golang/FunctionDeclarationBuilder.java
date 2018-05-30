@@ -1,6 +1,5 @@
 package pgo.model.golang;
 
-import java.io.Closeable;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -53,7 +52,7 @@ public class FunctionDeclarationBuilder {
 	}
 	
 	public BlockBuilder getBlockBuilder() {
-		return new BlockBuilder(parent, nameCleaner, nameMap, new HashSet<>(), block -> {
+		return new BlockBuilder(parent, nameCleaner, nameMap, new NameCleaner(), block -> {
 			parent.addFunction(new FunctionDeclaration(name, receiver, arguments, returnValues, block));
 		});
 	}

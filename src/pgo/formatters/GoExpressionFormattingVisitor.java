@@ -72,7 +72,21 @@ public class GoExpressionFormattingVisitor extends ExpressionVisitor<Void, IOExc
 
 	@Override
 	public Void visit(SliceOperator slice) throws IOException {
-		throw new RuntimeException("TODO");
+		slice.getTarget().accept(this);
+		out.write("[");
+		if (slice.getLow() != null) {
+			slice.getLow().accept(this);
+		}
+		out.write(":");
+		if (slice.getHigh() != null) {
+			slice.getHigh().accept(this);
+		}
+		if (slice.getMax() != null) {
+			out.write(":");
+			slice.getMax().accept(this);
+		}
+		out.write("]");
+		return null;
 	}
 
 	@Override
@@ -106,9 +120,10 @@ public class GoExpressionFormattingVisitor extends ExpressionVisitor<Void, IOExc
 	public Void visit(Call call) throws IOException {
 		call.getTarget().accept(this);
 		out.write("(");
-		FormattingTools.writeCommaSeparated(out, call.getArguments(), arg -> {
-			arg.accept(this);
-		});
+		FormattingTools.writeCommaSeparated(out, call.getArguments(), arg -> arg.accept(this));
+		if (call.hasEllipsis()) {
+			out.write("...");
+		}
 		out.write(")");
 		return null;
 	}
@@ -197,7 +212,33 @@ public class GoExpressionFormattingVisitor extends ExpressionVisitor<Void, IOExc
 
 	@Override
 	public Void visit(Unary unary) throws IOException {
-		throw new RuntimeException("TODO");
+		switch (unary.getOperation()) {
+			case POS:
+				out.write("+");
+				break;
+			case NEG:
+				out.write("-");
+				break;
+			case NOT:
+				out.write("!");
+				break;
+			case COMPLEMENT:
+				out.write("^");
+				break;
+			case DEREF:
+				out.write("*");
+				break;
+			case ADDR:
+				out.write("&");
+				break;
+			case RECV:
+				out.write("<-");
+				break;
+			default:
+				throw new RuntimeException("unreachable");
+		}
+		unary.getTarget().accept(this);
+		return null;
 	}
 
 	@Override

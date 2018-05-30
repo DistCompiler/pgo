@@ -1,6 +1,5 @@
 package pgo.model.type;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -11,13 +10,6 @@ import pgo.util.DerivedVisitor;
 import pgo.util.Origin;
 
 public abstract class PGoType extends Derived {
-	/**
-	 * @param origins track where this type come from
-	 */
-	public PGoType(Origin... origins) {
-		this(Arrays.asList(origins));
-	}
-
 	/**
 	 * @param origins track where this type come from
 	 */
@@ -48,9 +40,9 @@ public abstract class PGoType extends Derived {
 	public abstract PGoType substitute(Map<PGoTypeVariable, PGoType> mapping);
 
 	/**
-	 * Realizes all PGoTypeUnrealizedNumbers
+	 * Realizes all PGoTypeUnrealizedNumbers and PGoTypeUnrealizedTuples
 	 * @param ctx the issue reporting context
-	 * @return the type with all PGoTypeUnrealizedNumbers realized
+	 * @return the realized type
 	 */
 	public abstract PGoType realize(IssueContext ctx);
 
@@ -58,11 +50,6 @@ public abstract class PGoType extends Derived {
 	 * @return the string representation of the type
 	 */
 	public abstract String toTypeName();
-
-	/**
-	 * @return the Go type as a string
-	 */
-	public abstract String toGo();
 
 	@Override
 	public String toString() {
@@ -73,6 +60,6 @@ public abstract class PGoType extends Derived {
 	public <T, E extends Throwable> T accept(DerivedVisitor<T, E> v) throws E{
 		return v.visit(this);
 	}
-	
+
 	public abstract <T, E extends Throwable> T accept(PGoTypeVisitor<T, E> v) throws E;
 }

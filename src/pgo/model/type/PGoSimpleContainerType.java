@@ -14,10 +14,6 @@ import java.util.Set;
 public abstract class PGoSimpleContainerType extends PGoType {
 	protected PGoType elementType;
 
-	public PGoSimpleContainerType(PGoType elementType, Origin... origins) {
-		this(elementType, Arrays.asList(origins));
-	}
-
 	public PGoSimpleContainerType(PGoType elementType, List<Origin> origins) {
 		super(origins);
 		this.elementType = elementType;

@@ -3,33 +3,48 @@ package pgo.model.type;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import pgo.errors.Issue;
 import pgo.errors.IssueContext;
 
 /**
  * A constraint solver for PGo's type system. It does not support recursive types.
  */
 public class PGoTypeSolver {
-	private List<PGoTypeConstraint> constraints = new ArrayList<>();
-	private HashMap<PGoTypeVariable, PGoType> mapping = new HashMap<>();
+	private Deque<PGoTypeConstraint> constraints = new ArrayDeque<>();
+	private Map<PGoTypeVariable, PGoType> mapping = new HashMap<>();
+	private Deque<PGoTypeSolver> stateStack = new ArrayDeque<>();
 
 	public Map<PGoTypeVariable, PGoType> getMapping() {
 		return Collections.unmodifiableMap(mapping);
 	}
 
-	public static List<PGoType> substitute(Map<PGoTypeVariable, PGoType> mapping, PGoType... types) {
-		return substitute(mapping, Arrays.asList(types));
+	public void addConstraint(PGoTypeConstraint constraint) {
+		constraints.addLast(constraint);
 	}
 
-	public static List<PGoType> substitute(Map<PGoTypeVariable, PGoType> mapping, List<PGoType> types) {
-		return types.stream().map(t -> t.substitute(mapping)).collect(Collectors.toList());
+	private boolean backtrack() {
+		if (stateStack.size() <= 0) {
+			// unsuccessful
+			return false;
+		}
+		PGoTypeSolver old = stateStack.pop();
+		constraints = old.constraints;
+		mapping = old.mapping;
+		stateStack = old.stateStack;
+		return true;
 	}
 
-	public void addConstraint(IssueContext ctx, PGoTypeConstraint constraint) {
-		constraints.add(constraint);
-		unify(ctx);
+	private PGoTypeSolver copy() {
+		PGoTypeSolver copy = new PGoTypeSolver();
+		copy.stateStack = new ArrayDeque<>(stateStack);
+		copy.constraints = constraints.stream()
+				.map(PGoTypeConstraint::copy)
+				.collect(Collectors.toCollection(ArrayDeque::new));
+		copy.mapping = new HashMap<>(mapping);
+		return copy;
 	}
 
-	public void simplify(IssueContext ctx) {
+	private void simplify(IssueContext ctx) {
 		boolean changed = true;
 		while (changed) {
 			changed = false;
@@ -45,13 +60,36 @@ public class PGoTypeSolver {
 		}
 	}
 
-	private void unify(IssueContext ctx) {
+	Optional<Issue> unify() {
 		while (constraints.size() != 0) {
-			PGoTypeConstraint constraint = constraints.remove(constraints.size() - 1);
+			PGoTypeConstraint constraint = constraints.removeFirst();
+			PGoType a;
+			PGoType b;
+			if (constraint instanceof PGoTypeMonomorphicConstraint) {
+				a = ((PGoTypeMonomorphicConstraint) constraint).getLhs();
+				b = ((PGoTypeMonomorphicConstraint) constraint).getRhs();
+			} else if (constraint instanceof PGoTypePolymorphicConstraint) {
+				if (!((PGoTypePolymorphicConstraint) constraint).hasNext()) {
+					return Optional.of(new BacktrackingFailureIssue((PGoTypePolymorphicConstraint) constraint));
+				}
+				// extract first constraint
+				PGoTypeEqualityConstraint equalityConstraint = ((PGoTypePolymorphicConstraint) constraint).next();
+				// snapshot state if there are any constraints left
+				if (((PGoTypePolymorphicConstraint) constraint).hasNext()) {
+					// push copy with current constraint added at front
+					PGoTypeSolver copy = copy();
+					copy.constraints.addFirst(constraint);
+					stateStack.push(copy);
+				}
+				// populate lhs and rhs
+				a = equalityConstraint.getLhs();
+				b = equalityConstraint.getRhs();
+			} else {
+				throw new RuntimeException("unreachable");
+			}
 			// a and b are substituted so that we gain more information about their structures
-			// a and b must not be null
-			PGoType a = constraint.getLhs().substitute(mapping);
-			PGoType b = constraint.getRhs().substitute(mapping);
+			a = a.substitute(mapping);
+			b = b.substitute(mapping);
 			if (a.equals(b)) {
 				// nothing to do
 				continue;
@@ -68,9 +106,9 @@ public class PGoTypeSolver {
 				constraint.getOrigins().forEach(b::addOrigin);
 			} else if (a instanceof PGoTypeUnrealizedNumber && b instanceof PGoNumberType) {
 				// attempt to promote the unrealized number a to the number b
-				((PGoTypeUnrealizedNumber) a).harmonize(ctx, constraint, (PGoNumberType) b);
-				if (ctx.hasErrors()) {
-					return;
+				Optional<Issue> issue = ((PGoTypeUnrealizedNumber) a).harmonize((PGoNumberType) b);
+				if (issue.isPresent() && !backtrack()) {
+					return issue;
 				}
 				constraint.getOrigins().forEach(a::addOrigin);
 				if (b instanceof PGoTypeUnrealizedNumber) {
@@ -78,33 +116,32 @@ public class PGoTypeSolver {
 				}
 			} else if (b instanceof PGoTypeUnrealizedNumber && a instanceof PGoNumberType) {
 				// attempt to promote the unrealized number b to the number a
-				((PGoTypeUnrealizedNumber) b).harmonize(ctx, constraint, (PGoNumberType) a);
-				if (ctx.hasErrors()) {
-					return;
+				Optional<Issue> issue = ((PGoTypeUnrealizedNumber) b).harmonize((PGoNumberType) a);
+				if (issue.isPresent() && !backtrack()) {
+					return issue;
 				}
 				constraint.getOrigins().forEach(b::addOrigin);
 			} else if (a instanceof PGoSimpleContainerType && b instanceof PGoSimpleContainerType) {
 				// a simple container is a container with a single element type, e.g. Set[a], Slice[a], etc.
 				// in order for SimpleContainer[a] = SimpleContainer[b],
 				//   (1) the container types must be the same, and
-				if (!a.getClass().equals(b.getClass())) {
-					ctx.error(new UnsatisfiableConstraintIssue(constraint, a, b));
-					return;
+				if (!a.getClass().equals(b.getClass()) && !backtrack()) {
+					return Optional.of(new UnsatisfiableConstraintIssue(constraint, a, b));
 				}
 				//   (2) the element types must be the same
-				addConstraint(ctx, new PGoTypeConstraint(
+				constraints.addFirst(new PGoTypeMonomorphicConstraint(
 						constraint,
 						((PGoSimpleContainerType) a).getElementType(),
 						((PGoSimpleContainerType) b).getElementType()));
 			} else if (a instanceof PGoTypeMap && b instanceof PGoTypeMap) {
 				// for two map types to be the same,
 				//   (1) the key types must be the same, and
-				addConstraint(ctx, new PGoTypeConstraint(
+				constraints.addFirst(new PGoTypeMonomorphicConstraint(
 						constraint,
 						((PGoTypeMap) a).getKeyType(),
 						((PGoTypeMap) b).getKeyType()));
 				//   (2) the value types must be the same
-				addConstraint(ctx, new PGoTypeConstraint(
+				constraints.addFirst(new PGoTypeMonomorphicConstraint(
 						constraint,
 						((PGoTypeMap) a).getValueType(),
 						((PGoTypeMap) b).getValueType()));
@@ -113,46 +150,45 @@ public class PGoTypeSolver {
 				PGoTypeTuple ta = (PGoTypeTuple) a;
 				PGoTypeTuple tb = (PGoTypeTuple) b;
 				//   (1) they must have the same number of element types
-				if (ta.getElementTypes().size() != tb.getElementTypes().size()) {
-					ctx.error(new UnsatisfiableConstraintIssue(constraint, a, b));
-					return;
+				if (ta.getElementTypes().size() != tb.getElementTypes().size() && !backtrack()) {
+					return Optional.of(new UnsatisfiableConstraintIssue(constraint, a, b));
 				}
 				//   (2) each pair of corresponding element types must be the same
 				for (int i = 0; i < ta.getElementTypes().size(); i++) {
-					addConstraint(ctx, new PGoTypeConstraint(
+					constraints.addFirst(new PGoTypeMonomorphicConstraint(
 							constraint,
 							ta.getElementTypes().get(i),
 							tb.getElementTypes().get(i)));
 				}
 			} else if (a instanceof PGoTypeUnrealizedTuple && b instanceof PGoSimpleContainerType) {
 				// attempt to promote an unrealized tuple to a simple container type
-				((PGoTypeUnrealizedTuple) a).harmonize(ctx, constraint, this, (PGoSimpleContainerType) b);
-				if (ctx.hasErrors()) {
-					return;
+				Optional<Issue> issue = ((PGoTypeUnrealizedTuple) a).harmonize(this, (PGoSimpleContainerType) b);
+				if (issue.isPresent() && !backtrack()) {
+					return issue;
 				}
 				constraint.getOrigins().forEach(a::addOrigin);
 			} else if (a instanceof PGoSimpleContainerType && b instanceof PGoTypeUnrealizedTuple) {
-				((PGoTypeUnrealizedTuple) b).harmonize(ctx, constraint, this, (PGoSimpleContainerType) a);
-				if (ctx.hasErrors()) {
-					return;
+				Optional<Issue> issue = ((PGoTypeUnrealizedTuple) b).harmonize(this, (PGoSimpleContainerType) a);
+				if (issue.isPresent() && !backtrack()) {
+					return issue;
 				}
 				constraint.getOrigins().forEach(b::addOrigin);
 			} else if (a instanceof PGoTypeUnrealizedTuple && b instanceof PGoTypeTuple) {
-				((PGoTypeUnrealizedTuple) a).harmonize(ctx, constraint, this, (PGoTypeTuple) b);
-				if (ctx.hasErrors()) {
-					return;
+				Optional<Issue> issue = ((PGoTypeUnrealizedTuple) a).harmonize(constraint, this, (PGoTypeTuple) b);
+				if (issue.isPresent() && !backtrack()) {
+					return issue;
 				}
 				constraint.getOrigins().forEach(a::addOrigin);
 			} else if (a instanceof PGoTypeTuple && b instanceof PGoTypeUnrealizedTuple) {
-				((PGoTypeUnrealizedTuple) b).harmonize(ctx, constraint, this, (PGoTypeTuple) a);
-				if (ctx.hasErrors()) {
-					return;
+				Optional<Issue> issue = ((PGoTypeUnrealizedTuple) b).harmonize(constraint, this, (PGoTypeTuple) a);
+				if (issue.isPresent() && !backtrack()) {
+					return issue;
 				}
 				constraint.getOrigins().forEach(b::addOrigin);
 			} else if (a instanceof PGoTypeUnrealizedTuple && b instanceof PGoTypeUnrealizedTuple) {
-				((PGoTypeUnrealizedTuple) a).harmonize(ctx, constraint, this, (PGoTypeUnrealizedTuple) b);
-				if (ctx.hasErrors()) {
-					return;
+				Optional<Issue> issue = ((PGoTypeUnrealizedTuple) a).harmonize(constraint, this, (PGoTypeUnrealizedTuple) b);
+				if (issue.isPresent() && !backtrack()) {
+					return issue;
 				}
 				constraint.getOrigins().forEach(a::addOrigin);
 				constraint.getOrigins().forEach(b::addOrigin);
@@ -162,18 +198,17 @@ public class PGoTypeSolver {
 				PGoTypeFunction fb = (PGoTypeFunction) b;
 				//   (1) their parameter lists must be of the same size, and
 				if (fa.getParamTypes().size() != fb.getParamTypes().size()) {
-					ctx.error(new UnsatisfiableConstraintIssue(constraint, a, b));
-					return;
+					return Optional.of(new UnsatisfiableConstraintIssue(constraint, a, b));
 				}
 				//   (2) each pair of corresponding parameter types must be the same, and
 				for (int i = 0; i < fa.getParamTypes().size(); i++) {
-					addConstraint(ctx, new PGoTypeConstraint(
+					constraints.addFirst(new PGoTypeMonomorphicConstraint(
 							constraint,
 							fa.getParamTypes().get(i),
 							fb.getParamTypes().get(i)));
 				}
 				//   (3) the return types must be the same
-				addConstraint(ctx, new PGoTypeConstraint(
+				constraints.addFirst(new PGoTypeMonomorphicConstraint(
 						constraint,
 						fa.getReturnType(),
 						fb.getReturnType()));
@@ -183,21 +218,30 @@ public class PGoTypeSolver {
 				PGoTypeProcedure pb = (PGoTypeProcedure) b;
 				//   (1) their parameter lists must be of the same size, and
 				if (pa.getParamTypes().size() != pb.getParamTypes().size()) {
-					ctx.error(new UnsatisfiableConstraintIssue(constraint, a, b));
-					return;
+					return Optional.of(new UnsatisfiableConstraintIssue(constraint, a, b));
 				}
 				//   (2) each pair of corresponding parameter types must be the same
 				for (int i = 0; i < pa.getParamTypes().size(); i++) {
-					addConstraint(ctx, new PGoTypeConstraint(
+					constraints.addFirst(new PGoTypeMonomorphicConstraint(
 							constraint,
 							pa.getParamTypes().get(i),
 							pb.getParamTypes().get(i)));
 				}
-			} else {
+			} else if (!backtrack()) {
 				// there is no other case for type equality, hence, record error
-				ctx.error(new UnsatisfiableConstraintIssue(constraint, a, b));
-				return;
+				return Optional.of(new UnsatisfiableConstraintIssue(constraint, a, b));
 			}
+			// we backtracked successfully, continue solving
 		}
+		return Optional.empty();
+	}
+
+	public void unify(IssueContext ctx) {
+		Optional<Issue> issue = unify();
+		if (issue.isPresent()) {
+			ctx.error(issue.get());
+			return;
+		}
+		simplify(ctx);
 	}
 }

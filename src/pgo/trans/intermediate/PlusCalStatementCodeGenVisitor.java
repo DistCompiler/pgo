@@ -1,32 +1,20 @@
 package pgo.trans.intermediate;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-
-import pgo.model.golang.BlockBuilder;
-import pgo.model.golang.Expression;
-import pgo.model.golang.IfBuilder;
-import pgo.model.pcal.Assert;
+import pgo.model.golang.*;
+import pgo.model.pcal.*;
 import pgo.model.pcal.Assignment;
-import pgo.model.pcal.AssignmentPair;
-import pgo.model.pcal.Await;
 import pgo.model.pcal.Call;
-import pgo.model.pcal.Either;
-import pgo.model.pcal.Goto;
 import pgo.model.pcal.If;
-import pgo.model.pcal.LabeledStatements;
-import pgo.model.pcal.MacroCall;
-import pgo.model.pcal.Print;
 import pgo.model.pcal.Return;
-import pgo.model.pcal.Skip;
 import pgo.model.pcal.Statement;
 import pgo.model.pcal.StatementVisitor;
-import pgo.model.pcal.While;
-import pgo.model.pcal.With;
+import pgo.model.pcal.VariableDeclaration;
 import pgo.model.type.PGoType;
 import pgo.scope.UID;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 public class PlusCalStatementCodeGenVisitor extends StatementVisitor<Void, RuntimeException> {
 
@@ -129,7 +117,31 @@ public class PlusCalStatementCodeGenVisitor extends StatementVisitor<Void, Runti
 
 	@Override
 	public Void visit(With with) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		// with statements with multiple declarations such as
+		//     with (v1 = e1, v2 \in e2, v3 = e3)
+		//         body
+		// are structured as
+		//     with (v1 = e1)
+		//         with (v2 \in e2)
+		//             with (v3 = e3)
+		//                 body
+		while (true) {
+			VariableDeclaration decl = with.getVariable();
+			Expression value = decl.getValue().accept(new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
+			if (decl.isSet()) {
+				value = new Index(value, new IntLiteral(0));
+			}
+			builder.linkUID(decl.getUID(), builder.varDecl(decl.getName(), value));
+			if (with.getBody().size() != 1 || !(with.getBody().get(0) instanceof With)) {
+				break;
+			}
+			// flatten out the nested withs
+			with = (With) with.getBody().get(0);
+		}
+		for (Statement statement : with.getBody()) {
+			statement.accept(new PlusCalStatementCodeGenVisitor(builder, registry, typeMap, globalStrategy));
+		}
+		return null;
 	}
 
 	@Override

@@ -1,7 +1,6 @@
 package pgo.model.type;
 
 import pgo.errors.IssueContext;
-import pgo.util.Origin;
 
 import java.util.*;
 
@@ -58,11 +57,6 @@ public class PGoTypeVariable extends PGoType {
 	@Override
 	public String toTypeName() {
 		return name;
-	}
-
-	@Override
-	public String toGo() {
-		throw new RuntimeException("Trying to convert type variable to Go");
 	}
 
 	@Override

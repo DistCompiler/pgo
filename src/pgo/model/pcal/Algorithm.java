@@ -7,18 +7,18 @@ import pgo.model.tla.PGoTLAUnit;
 import pgo.util.SourceLocation;
 
 public class Algorithm extends Node {
-	
+
 	private String name;
-	
-	private List<VariableDecl> variables;
+
+	private List<VariableDeclaration> variables;
 	private List<Macro> macros;
 	private List<Procedure> procedures;
 	private List<PGoTLAUnit> units;
-	
+
 	private Processes processes;
-	
-	public Algorithm(SourceLocation location, String name, List<VariableDecl> variables, List<Macro> macros,
-			List<Procedure> procedures, List<PGoTLAUnit> units, Processes processes) {
+
+	public Algorithm(SourceLocation location, String name, List<VariableDeclaration> variables, List<Macro> macros,
+	                 List<Procedure> procedures, List<PGoTLAUnit> units, Processes processes) {
 		super(location);
 		this.name = name;
 		this.variables = variables;
@@ -27,13 +27,13 @@ public class Algorithm extends Node {
 		this.units = units;
 		this.processes = processes;
 	}
-	
+
 	@Override
 	public Algorithm copy() {
 		return new Algorithm(
 				getLocation(),
 				name,
-				variables.stream().map(VariableDecl::copy).collect(Collectors.toList()),
+				variables.stream().map(VariableDeclaration::copy).collect(Collectors.toList()),
 				macros.stream().map(Macro::copy).collect(Collectors.toList()),
 				procedures.stream().map(Procedure::copy).collect(Collectors.toList()),
 				units.stream().map(PGoTLAUnit::copy).collect(Collectors.toList()),
@@ -44,7 +44,7 @@ public class Algorithm extends Node {
 		return name;
 	}
 
-	public List<VariableDecl> getVariables() {
+	public List<VariableDeclaration> getVariables() {
 		return variables;
 	}
 
@@ -63,7 +63,7 @@ public class Algorithm extends Node {
 	public Processes getProcesses() {
 		return processes;
 	}
-	
+
 	@Override
 	public <T, E extends Throwable> T accept(NodeVisitor<T, E> v) throws E{
 		return v.visit(this);

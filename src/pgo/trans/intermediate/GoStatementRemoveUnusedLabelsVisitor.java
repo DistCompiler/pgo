@@ -4,23 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-import pgo.model.golang.Assignment;
-import pgo.model.golang.Block;
-import pgo.model.golang.Comment;
-import pgo.model.golang.ExpressionStatement;
-import pgo.model.golang.For;
-import pgo.model.golang.GoCall;
-import pgo.model.golang.GoTo;
-import pgo.model.golang.If;
-import pgo.model.golang.IncDec;
-import pgo.model.golang.Label;
-import pgo.model.golang.Return;
-import pgo.model.golang.Select;
-import pgo.model.golang.SelectCase;
-import pgo.model.golang.Statement;
-import pgo.model.golang.StatementVisitor;
-import pgo.model.golang.Switch;
-import pgo.model.golang.SwitchCase;
+import pgo.model.golang.*;
 
 public class GoStatementRemoveUnusedLabelsVisitor extends StatementVisitor<Statement, RuntimeException> {
 
@@ -29,7 +13,7 @@ public class GoStatementRemoveUnusedLabelsVisitor extends StatementVisitor<State
 	public GoStatementRemoveUnusedLabelsVisitor(Set<String> usedLabels) {
 		this.usedLabels = usedLabels;
 	}
-	
+
 	private List<Statement> filterBlock(List<Statement> block){
 		List<Statement> result = new ArrayList<>();
 		for(Statement stmt : block) {
@@ -67,8 +51,17 @@ public class GoStatementRemoveUnusedLabelsVisitor extends StatementVisitor<State
 	}
 
 	@Override
+	public Statement visit(ForRange forRange) throws RuntimeException {
+		return new ForRange(forRange.getLhs(), forRange.isDefinition(), forRange.getRangeExpr(),
+				(Block) forRange.getBody().accept(this));
+	}
+
+	@Override
 	public Statement visit(If if1) throws RuntimeException {
-		return new If(if1.getCond(), (Block)if1.getThen().accept(this), (Block)if1.getElse().accept(this));
+		return new If(
+				if1.getCond(),
+				(Block)if1.getThen().accept(this),
+				if1.getElse() != null ? (Block)if1.getElse().accept(this) : null);
 	}
 
 	@Override

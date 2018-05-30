@@ -19,11 +19,11 @@ public class If extends Statement {
 	public Expression getCond() {
 		return cond;
 	}
-	
+
 	public Block getThen() {
 		return bThen;
 	}
-	
+
 	public Block getElse() {
 		return bElse;
 	}

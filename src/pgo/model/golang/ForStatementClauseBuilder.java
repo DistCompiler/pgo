@@ -11,14 +11,14 @@ public class ForStatementClauseBuilder {
 	private ASTBuilder parent;
 	private NameCleaner nameCleaner;
 	private Map<UID, VariableName> nameMap;
-	private Set<String> labelScope;
+	private NameCleaner labelScope;
 	
 	private Statement init;
 	private Expression condition;
 	private Statement inc;
 
 	public ForStatementClauseBuilder(ASTBuilder parent, NameCleaner nameCleaner, Map<UID, VariableName> nameMap,
-			Set<String> labelScope) {
+			NameCleaner labelScope) {
 		this.parent = parent;
 		this.nameCleaner = nameCleaner;
 		this.nameMap = nameMap;

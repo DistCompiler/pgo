@@ -3,7 +3,6 @@ package pgo.trans.intermediate;
 import java.util.List;
 import java.util.Map;
 
-import pgo.errors.IssueContext;
 import pgo.model.golang.BlockBuilder;
 import pgo.model.golang.Expression;
 import pgo.model.tla.PGoTLAExpression;
@@ -17,8 +16,8 @@ import pgo.util.Origin;
 public class BuiltinOperator extends OperatorAccessor {
 
 	public interface TypeConstraintGenerator {
-		PGoType generate(IssueContext ctx, Origin origin, List<PGoType> argTypes, PGoTypeSolver solver,
-				PGoTypeGenerator generator);
+		PGoType generate(Origin origin, List<PGoType> argTypes, PGoTypeSolver solver,
+		                 PGoTypeGenerator generator);
 	}
 	public interface GoGenerator {
 		Expression generate(BlockBuilder builder, PGoTLAExpression expr, DefinitionRegistry registry,
@@ -47,9 +46,9 @@ public class BuiltinOperator extends OperatorAccessor {
 	}
 
 	@Override
-	public PGoType constrainTypes(IssueContext ctx, Origin origin, DefinitionRegistry registry, List<PGoType> argTypes, PGoTypeSolver solver,
+	public PGoType constrainTypes(Origin origin, DefinitionRegistry registry, List<PGoType> argTypes, PGoTypeSolver solver,
 	                              PGoTypeGenerator generator, Map<UID, PGoTypeVariable> mapping) {
-		return typeConstraintGenerator.generate(ctx, origin, argTypes, solver, generator);
+		return typeConstraintGenerator.generate(origin, argTypes, solver, generator);
 	}
 
 	@Override

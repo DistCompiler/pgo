@@ -10,12 +10,12 @@ import pgo.model.golang.Index;
 import pgo.model.golang.IntLiteral;
 import pgo.model.golang.VariableName;
 import pgo.model.pcal.Algorithm;
-import pgo.model.pcal.VariableDecl;
+import pgo.model.pcal.VariableDeclaration;
 import pgo.model.type.PGoType;
 import pgo.scope.UID;
 
 public class SingleFunctionGlobalVariableStrategy implements GlobalVariableStrategy {
-	
+
 	private Algorithm algorithm;
 	private DefinitionRegistry registry;
 	private Map<UID, PGoType> typeMap;
@@ -29,7 +29,7 @@ public class SingleFunctionGlobalVariableStrategy implements GlobalVariableStrat
 	@Override
 	public void generateSetup(BlockBuilder builder) {
 		// set up variables
-		for(VariableDecl var : algorithm.getVariables()) {
+		for(VariableDeclaration var : algorithm.getVariables()) {
 			Expression value = var.getValue().accept(
 					new TLAExpressionCodeGenVisitor(builder, registry, typeMap, this));
 			if(var.isSet()) {
@@ -78,7 +78,7 @@ public class SingleFunctionGlobalVariableStrategy implements GlobalVariableStrat
 			public void writeAfter(BlockBuilder builder) {
 				// pass
 			}
-			
+
 		};
 	}
 

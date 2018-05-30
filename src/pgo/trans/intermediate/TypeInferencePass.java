@@ -1,9 +1,6 @@
 package pgo.trans.intermediate;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import pgo.errors.IssueContext;
 import pgo.model.pcal.*;
@@ -16,23 +13,23 @@ public class TypeInferencePass {
 
 	private TypeInferencePass() {}
 
-	static void constrainVariableDecl(IssueContext ctx, DefinitionRegistry registry, VariableDecl var, PGoTypeSolver solver, PGoTypeGenerator generator, Map<UID, PGoTypeVariable> mapping) {
+	static void constrainVariableDeclaration(DefinitionRegistry registry, VariableDeclaration var, PGoTypeSolver solver, PGoTypeGenerator generator, Map<UID, PGoTypeVariable> mapping) {
 		PGoTypeVariable v;
-		if(mapping.containsKey(var.getUID())) {
+		if (mapping.containsKey(var.getUID())) {
 			v = mapping.get(var.getUID());
-		}else {
+		} else {
 			v = generator.get();
 			mapping.put(var.getUID(), v);
 		}
 
-		PGoType valueType = new TLAExpressionTypeConstraintVisitor(ctx, registry, solver, generator, mapping)
+		PGoType valueType = new TLAExpressionTypeConstraintVisitor(registry, solver, generator, mapping)
 				.wrappedVisit(var.getValue());
-		if(var.isSet()) {
+		if (var.isSet()) {
 			PGoTypeVariable member = generator.get();
-			solver.addConstraint(ctx, new PGoTypeConstraint(var, new PGoTypeSet(member), valueType));
-			solver.addConstraint(ctx, new PGoTypeConstraint(var, v, member));
-		}else {
-			solver.addConstraint(ctx, new PGoTypeConstraint(var, v, valueType));
+			solver.addConstraint(new PGoTypeMonomorphicConstraint(var, new PGoTypeSet(member, Collections.singletonList(valueType)), valueType));
+			solver.addConstraint(new PGoTypeMonomorphicConstraint(var, v, member));
+		} else {
+			solver.addConstraint(new PGoTypeMonomorphicConstraint(var, v, valueType));
 		}
 	}
 
@@ -42,27 +39,27 @@ public class TypeInferencePass {
 		PGoTypeGenerator generator = new PGoTypeGenerator("type");
 		Map<UID, PGoTypeVariable> mapping = new HashMap<>();
 
-		for (VariableDecl var : pcal.getVariables()) {
-			constrainVariableDecl(ctx, registry, var, solver, generator, mapping);
+		for (VariableDeclaration var : pcal.getVariables()) {
+			constrainVariableDeclaration(registry, var, solver, generator, mapping);
 		}
-		
+
 		// make sure the user-provided constant values typecheck
-		for(UID id : registry.getConstants()) {
+		for (UID id : registry.getConstants()) {
 			PGoTypeVariable fresh = generator.get();
 			mapping.put(id, fresh);
 			PGoTLAExpression value = registry.getConstantValue(id);
-			PGoType type = value.accept(new TLAExpressionTypeConstraintVisitor(ctx, registry, solver, generator, mapping));
-			solver.addConstraint(ctx, new PGoTypeConstraint(value, fresh, type));
+			PGoType type = value.accept(new TLAExpressionTypeConstraintVisitor(registry, solver, generator, mapping));
+			solver.addConstraint(new PGoTypeMonomorphicConstraint(value, fresh, type));
 		}
 
 		for (PGoTLAUnit unit : pcal.getUnits()) {
-			unit.accept(new TLAUnitTypeConstraintVisitor(ctx, registry, solver, generator, mapping));
+			unit.accept(new TLAUnitTypeConstraintVisitor(registry, solver, generator, mapping));
 		}
 
 		for (Procedure p : pcal.getProcedures()) {
 			List<PGoType> paramTypes = new ArrayList<>();
-			for (VariableDecl var : p.getArguments()) {
-				constrainVariableDecl(ctx, registry, var, solver, generator, mapping);
+			for (VariableDeclaration var : p.getArguments()) {
+				constrainVariableDeclaration(registry, var, solver, generator, mapping);
 				paramTypes.add(mapping.get(var.getUID()));
 			}
 			PlusCalStatementTypeConstraintVisitor v =
@@ -71,7 +68,7 @@ public class TypeInferencePass {
 				stmt.accept(v);
 			}
 			PGoTypeVariable fresh = generator.get();
-			solver.addConstraint(ctx, new PGoTypeConstraint(p, fresh, new PGoTypeProcedure(paramTypes, p)));
+			solver.addConstraint(new PGoTypeMonomorphicConstraint(p, fresh, new PGoTypeProcedure(paramTypes, Collections.singletonList(p))));
 			mapping.put(p.getUID(), fresh);
 		}
 
@@ -90,10 +87,10 @@ public class TypeInferencePass {
 			@Override
 			public Void visit(MultiProcess multiProcess) throws RuntimeException {
 				for (PcalProcess proc : multiProcess.getProcesses()) {
-					for (VariableDecl var : proc.getVariables()) {
-						constrainVariableDecl(ctx, registry, var, solver, generator, mapping);
+					for (VariableDeclaration var : proc.getVariables()) {
+						constrainVariableDeclaration(registry, var, solver, generator, mapping);
 					}
-					constrainVariableDecl(ctx, registry, proc.getName(), solver, generator, mapping);
+					constrainVariableDeclaration(registry, proc.getName(), solver, generator, mapping);
 					for (LabeledStatements stmts : proc.getLabeledStatements()) {
 						for (Statement stmt : stmts.getStatements()) {
 							stmt.accept(new PlusCalStatementTypeConstraintVisitor(ctx, registry, solver, generator, mapping));
@@ -105,7 +102,7 @@ public class TypeInferencePass {
 
 		});
 
-		solver.simplify(ctx);
+		solver.unify(ctx);
 		if (ctx.hasErrors()) {
 			return null;
 		}

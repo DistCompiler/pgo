@@ -10,10 +10,6 @@ import java.util.List;
 public abstract class PGoMiscellaneousType extends PGoPrimitiveType {
 	protected String goType;
 
-	public PGoMiscellaneousType(Origin... origins) {
-		super(origins);
-	}
-
 	public PGoMiscellaneousType(List<Origin> origins) {
 		super(origins);
 	}
@@ -23,8 +19,4 @@ public abstract class PGoMiscellaneousType extends PGoPrimitiveType {
 		return goType;
 	}
 
-	@Override
-	public String toGo() {
-		return goType;
-	}
 }

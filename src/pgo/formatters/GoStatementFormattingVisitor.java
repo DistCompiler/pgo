@@ -1,22 +1,9 @@
 package pgo.formatters;
 
 import java.io.IOException;
+import java.util.List;
 
-import pgo.model.golang.Assignment;
-import pgo.model.golang.Block;
-import pgo.model.golang.Comment;
-import pgo.model.golang.ExpressionStatement;
-import pgo.model.golang.For;
-import pgo.model.golang.GoCall;
-import pgo.model.golang.GoTo;
-import pgo.model.golang.If;
-import pgo.model.golang.IncDec;
-import pgo.model.golang.Label;
-import pgo.model.golang.Return;
-import pgo.model.golang.Select;
-import pgo.model.golang.Statement;
-import pgo.model.golang.StatementVisitor;
-import pgo.model.golang.Switch;
+import pgo.model.golang.*;
 
 public class GoStatementFormattingVisitor extends StatementVisitor<Void, IOException> {
 
@@ -36,9 +23,9 @@ public class GoStatementFormattingVisitor extends StatementVisitor<Void, IOExcep
 		FormattingTools.writeCommaSeparated(out, assignment.getNames(), name -> {
 			name.accept(new GoExpressionFormattingVisitor(out));
 		});
-		if(assignment.isDefinition()) {
+		if (assignment.isDefinition()) {
 			out.write(" := ");
-		}else {
+		} else {
 			out.write(" = ");
 		}
 		FormattingTools.writeCommaSeparated(out, assignment.getValues(), val -> {
@@ -49,15 +36,22 @@ public class GoStatementFormattingVisitor extends StatementVisitor<Void, IOExcep
 
 	@Override
 	public Void visit(Return return1) throws IOException {
-		throw new RuntimeException("TODO");
+		out.write("return");
+		List<Expression> expressions = return1.getValues();
+		if (expressions.size() == 0) {
+			return null;
+		}
+		out.write(" ");
+		FormattingTools.writeCommaSeparated(out, expressions, e -> e.accept(new GoExpressionFormattingVisitor(out)));
+		return null;
 	}
 
 	@Override
 	public Void visit(Block block) throws IOException {
 		out.write("{");
 		out.newLine();
-		try(IndentingWriter.Indent i_ = out.indent()){
-			for(Statement stmt : block.getStatements()) {
+		try (IndentingWriter.Indent ignored = out.indent()) {
+			for (Statement stmt : block.getStatements()) {
 				stmt.accept(this);
 				out.newLine();
 			}
@@ -69,21 +63,38 @@ public class GoStatementFormattingVisitor extends StatementVisitor<Void, IOExcep
 	@Override
 	public Void visit(For for1) throws IOException {
 		out.write("for ");
-		if(for1.getInit() != null) {
+		if (for1.getInit() != null) {
 			for1.getInit().accept(this);
 			out.write("; ");
 		}
-		if(for1.getCondition() != null) {
+		if (for1.getCondition() != null) {
 			for1.getCondition().accept(new GoExpressionFormattingVisitor(out));
 		}
-		if(for1.getIncrement() != null) {
+		if (for1.getIncrement() != null) {
 			out.write("; ");
 			for1.getIncrement().accept(this);
 		}
-		if(for1.getCondition() != null) {
+		if (for1.getCondition() != null) {
 			out.write(" ");
 		}
 		for1.getBody().accept(this);
+		return null;
+	}
+
+	@Override
+	public Void visit(ForRange forRange) throws IOException {
+		out.write("for ");
+		FormattingTools.writeCommaSeparated(
+				out,
+				forRange.getLhs(),
+				e -> e.accept(new GoExpressionFormattingVisitor(out)));
+		if (forRange.isDefinition()) {
+			out.write(" := range ");
+		} else {
+			out.write(" = range ");
+		}
+		forRange.getRangeExpr().accept(new GoExpressionFormattingVisitor(out));
+		forRange.getBody().accept(this);
 		return null;
 	}
 
@@ -93,7 +104,7 @@ public class GoStatementFormattingVisitor extends StatementVisitor<Void, IOExcep
 		if1.getCond().accept(new GoExpressionFormattingVisitor(out));
 		out.write(" ");
 		if1.getThen().accept(this);
-		if(!if1.getElse().getStatements().isEmpty()) {
+		if (if1.getElse() != null && !if1.getElse().getStatements().isEmpty()) {
 			out.write(" else ");
 			if1.getElse().accept(this);
 		}
@@ -124,15 +135,17 @@ public class GoStatementFormattingVisitor extends StatementVisitor<Void, IOExcep
 
 	@Override
 	public Void visit(GoTo goTo) throws IOException {
-		throw new RuntimeException("TODO");
+		out.write("goto ");
+		out.write(goTo.getTo().getName());
+		return null;
 	}
 
 	@Override
 	public Void visit(IncDec incDec) throws IOException {
 		incDec.getExpression().accept(new GoExpressionFormattingVisitor(out));
-		if(incDec.isInc()) {
+		if (incDec.isInc()) {
 			out.write("++");
-		}else {
+		} else {
 			out.write("--");
 		}
 		return null;

@@ -8,10 +8,6 @@ import java.util.List;
  * Represents a channel.
  */
 public class PGoTypeChan extends PGoSimpleContainerType {
-	public PGoTypeChan(PGoType elementType, Origin... origins) {
-		super(elementType, origins);
-	}
-
 	public PGoTypeChan(PGoType elementType, List<Origin> origins) {
 		super(elementType, origins);
 	}
@@ -29,11 +25,6 @@ public class PGoTypeChan extends PGoSimpleContainerType {
 		return "Chan[" + elementType.toTypeName() + "]";
 	}
 
-	@Override
-	public String toGo() {
-		return "chan " + elementType.toGo();
-	}
-	
 	@Override
 	public <T, E extends Throwable> T accept(PGoTypeVisitor<T, E> v) throws E {
 		return v.visit(this);

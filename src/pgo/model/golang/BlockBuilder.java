@@ -6,36 +6,33 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import pgo.scope.UID;
 
 public class BlockBuilder extends ASTBuilder implements Closeable {
-	
+
 	private ASTBuilder builder;
 	private NameCleaner nameCleaner;
 	private Map<UID, VariableName> nameMap;
 	private List<Statement> statements;
-	
+
 	public interface OnSuccess {
 		void action(Block block);
 	}
-	
-	private OnSuccess onSuccess;
-	private Set<String> labelScope;
 
-	public BlockBuilder(ASTBuilder builder, NameCleaner nameCleaner, Map<UID, VariableName> nameMap, Set<String> labelScope) {
+	private OnSuccess onSuccess;
+	private NameCleaner labelScope;
+
+	public BlockBuilder(ASTBuilder builder, NameCleaner nameCleaner, Map<UID, VariableName> nameMap, NameCleaner labelScope) {
 		this.builder = builder;
 		this.nameCleaner = nameCleaner;
 		this.nameMap = nameMap;
 		this.labelScope = labelScope;
 		this.statements = new ArrayList<>();
-		this.onSuccess = (block) -> {
-			builder.addBlock(block);
-		};
+		this.onSuccess = builder::addBlock;
 	}
-	
-	public BlockBuilder(ASTBuilder builder, NameCleaner nameCleaner, Map<UID, VariableName> nameMap, Set<String> labelScope, OnSuccess onSuccess) {
+
+	public BlockBuilder(ASTBuilder builder, NameCleaner nameCleaner, Map<UID, VariableName> nameMap, NameCleaner labelScope, OnSuccess onSuccess) {
 		this.builder = builder;
 		this.nameCleaner = nameCleaner;
 		this.nameMap = nameMap;
@@ -43,34 +40,41 @@ public class BlockBuilder extends ASTBuilder implements Closeable {
 		this.statements = new ArrayList<>();
 		this.onSuccess = onSuccess;
 	}
-	
+
 	public Block getBlock() {
 		return new Block(statements);
 	}
-	
+
+	public LabelName newLabel(String nameHint) {
+		String name = labelScope.cleanName(nameHint);
+		return new LabelName(name);
+	}
+
+	public void label(LabelName label) {
+		addStatement(new Label(label.getName()));
+	}
+
 	public void labelIsUnique(String name) {
-		if(labelScope.contains(name)) {
-			throw new RuntimeException("internal compiler error");
-		}
+		labelScope.requireCleanName(name);
 		statements.add(new Label(name));
 	}
-	
+
 	public void assign(Expression name, Expression value) {
 		addStatement(new Assignment(Collections.singletonList(name), false, Collections.singletonList(value)));
 	}
-	
+
 	public void assign(List<Expression> names, List<Expression> values) {
 		addStatement(new Assignment(names, false, values));
 	}
-	
+
 	public ASTBuilder getParent() {
 		return builder;
 	}
-	
+
 	public IfBuilder ifStmt(Expression condition) {
 		return new IfBuilder(this, nameCleaner.child(), nameMap, labelScope, condition);
 	}
-	
+
 	public void print(Expression value) {
 		addImport("fmt");
 		addStatement(
@@ -80,38 +84,41 @@ public class BlockBuilder extends ASTBuilder implements Closeable {
 										new VariableName("fmt"), "Printf"),
 								Arrays.asList(new StringLiteral("%v\\n"), value))));
 	}
-	
+
 	public BlockBuilder forLoop(Expression condition) {
 		return new BlockBuilder(
 				this, nameCleaner.child(), nameMap, labelScope,
 				block -> addStatement(new For(null, condition, null, block)));
 	}
-	
+
 	public ForStatementClauseBuilder forLoopWithClauses() {
 		return new ForStatementClauseBuilder(this, nameCleaner.child(), nameMap, labelScope);
 	}
-	
+
+	public ForRangeBuilder forRange(Expression rangeExp) {
+		return new ForRangeBuilder(this, nameCleaner.child(), nameMap, labelScope, rangeExp);
+	}
+
 	public VariableName varDecl(String nameHint, Expression value) {
 		VariableName name = getFreshName(nameHint);
 		addStatement(new Assignment(Collections.singletonList(name), true, Collections.singletonList(value)));
 		return name;
 	}
-	
+
 	public VariableName getFreshName(String nameHint) {
 		String actualName = nameCleaner.cleanName(nameHint);
 		return new VariableName(actualName);
 	}
-	
+
 	@Override
-	protected void addStatement(Statement s) {
+	public void addStatement(Statement s) {
 		statements.add(s);
 	}
-	
 	@Override
 	protected void addBlock(Block block) {
 		statements.add(block);
 	}
-	
+
 	@Override
 	protected void addFunction(FunctionDeclaration fn) {
 		builder.addFunction(fn);

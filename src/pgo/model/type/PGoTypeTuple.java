@@ -12,10 +12,6 @@ import java.util.stream.Collectors;
 public class PGoTypeTuple extends PGoType {
 	private List<PGoType> elementTypes;
 
-	public PGoTypeTuple(List<PGoType> elementTypes, Origin... origins) {
-		this(elementTypes, Arrays.asList(origins));
-	}
-
 	public PGoTypeTuple(List<PGoType> elementTypes, List<Origin> origins) {
 		super(origins);
 		this.elementTypes = Collections.unmodifiableList(elementTypes);
@@ -59,7 +55,7 @@ public class PGoTypeTuple extends PGoType {
 		elementTypes = elementTypes.stream().map(pGoType -> pGoType.realize(ctx)).collect(Collectors.toList());
 		return this;
 	}
-	
+
 	@Override
 	public <T, E extends Throwable> T accept(PGoTypeVisitor<T, E> v) throws E {
 		return v.visit(this);
@@ -70,8 +66,4 @@ public class PGoTypeTuple extends PGoType {
 		return "Tuple[" + elementTypes.stream().map(PGoType::toTypeName).collect(Collectors.joining(", ")) + "]";
 	}
 
-	@Override
-	public String toGo() {
-		return "datatypes.Tuple";
-	}
 }

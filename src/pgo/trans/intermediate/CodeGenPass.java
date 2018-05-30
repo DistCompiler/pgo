@@ -10,17 +10,17 @@ import pgo.model.type.PGoType;
 import pgo.scope.UID;
 
 public class CodeGenPass {
-	
+
 	private CodeGenPass() {}
-	
+
 	public static Module perform(Algorithm algorithm, DefinitionRegistry registry, Map<UID, PGoType> typeMap, PGoOptions opts) {
 		ModuleBuilder moduleBuilder = new ModuleBuilder(algorithm.getName());
-		
+
 		GlobalVariableStrategy globalStrategy = new SingleFunctionGlobalVariableStrategy(algorithm, registry, typeMap);
-		
+
 		algorithm.getProcesses().accept(
-				new PlusCalProcessesSingleThreadedCodeGenVisitor(algorithm, moduleBuilder, registry, typeMap, globalStrategy));
-		
+				new PlusCalProcessesSingleThreadedCodeGenVisitor(moduleBuilder, registry, typeMap, globalStrategy));
+
 		return moduleBuilder.getModule();
 	}
 

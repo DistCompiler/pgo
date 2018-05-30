@@ -19,7 +19,7 @@ public final class Builtins {
 		public <T, E extends Throwable> T accept(ExpressionVisitor<T, E> visitor) throws E {
 			return visitor.visit(this);
 		}
-	};
+	}
 
 	public static TypeName Bool = new TypeName("bool");
 	public static TypeName String = new TypeName("string");
@@ -35,7 +35,7 @@ public final class Builtins {
 	public static TypeName Int64 = new TypeName("int64");
 	public static TypeName Complex32 = new TypeName("complex32");
 	public static TypeName Complex64 = new TypeName("complex64");
-	
+
 	// types that aren't real, but may be useful to mark that an algorithm doesn't care
 	// about 32 vs. 64 bit floats for example
 	public static Type Float = Float32;
@@ -52,6 +52,8 @@ public final class Builtins {
 	// built-in constants
 	public static Expression True = new BuiltinConstant("true");
 	public static Expression False = new BuiltinConstant("false");
-	
+
+	public static Expression EmptyString = new BuiltinConstant("\"\"");
+
 	public static Expression Nil = new BuiltinConstant("nil");
 }

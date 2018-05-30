@@ -3,36 +3,36 @@ package pgo.model.pcal;
 import pgo.model.tla.PGoTLAExpression;
 import pgo.util.SourceLocation;
 
-public class VariableDecl extends Node {
-	
+public class VariableDeclaration extends Node {
+
 	String name;
 	boolean set;
 	PGoTLAExpression value;
-	
-	public VariableDecl(SourceLocation location, String name, boolean isSet, PGoTLAExpression value) {
+
+	public VariableDeclaration(SourceLocation location, String name, boolean isSet, PGoTLAExpression value) {
 		super(location);
 		this.name = name;
 		this.set = isSet;
 		this.value = value;
 	}
-	
+
 	@Override
-	public VariableDecl copy() {
-		return new VariableDecl(getLocation(), name, set, value.copy());
+	public VariableDeclaration copy() {
+		return new VariableDeclaration(getLocation(), name, set, value.copy());
 	}
-	
+
 	public String getName() {
 		return name;
 	}
-	
+
 	public boolean isSet() {
 		return set;
 	}
-	
+
 	public PGoTLAExpression getValue(){
 		return value;
 	}
-	
+
 	@Override
 	public <T, E extends Throwable> T accept(NodeVisitor<T, E> v) throws E{
 		return v.visit(this);
@@ -56,7 +56,7 @@ public class VariableDecl extends Node {
 			return false;
 		if (getClass() != obj.getClass())
 			return false;
-		VariableDecl other = (VariableDecl) obj;
+		VariableDeclaration other = (VariableDeclaration) obj;
 		if (set != other.set)
 			return false;
 		if (name == null) {
@@ -65,11 +65,9 @@ public class VariableDecl extends Node {
 		} else if (!name.equals(other.name))
 			return false;
 		if (value == null) {
-			if (other.value != null)
-				return false;
-		} else if (!value.equals(other.value))
-			return false;
-		return true;
+			return other.value == null;
+		}
+		return value.equals(other.value);
 	}
 
 }

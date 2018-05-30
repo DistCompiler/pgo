@@ -25,25 +25,25 @@ import pgo.model.tla.PGoTLAExpression;
 import pgo.modules.TLAModuleLoader;
 
 public class PlusCalStatementScopingVisitor extends StatementVisitor<Void, RuntimeException> {
-	
+
 	private IssueContext ctx;
 	private TLAScopeBuilder builder;
-	private DefinitionRegistry regBuilder;
+	private DefinitionRegistry registry;
 	private TLAModuleLoader loader;
 	private Set<String> moduleRecursionSet;
-	
-	public PlusCalStatementScopingVisitor(IssueContext ctx, TLAScopeBuilder builder, DefinitionRegistry regBuilder,
+
+	public PlusCalStatementScopingVisitor(IssueContext ctx, TLAScopeBuilder builder, DefinitionRegistry registry,
 			TLAModuleLoader loader, Set<String> moduleRecursionSet) {
 		this.ctx = ctx;
 		this.builder = builder;
-		this.regBuilder = regBuilder;
+		this.registry = registry;
 		this.loader = loader;
 		this.moduleRecursionSet = moduleRecursionSet;
 	}
 
 	@Override
 	public Void visit(LabeledStatements labeledStatements) throws RuntimeException {
-		for(Statement stmt : labeledStatements.getStatements()) {
+		for (Statement stmt : labeledStatements.getStatements()) {
 			stmt.accept(this);
 		}
 		return null;
@@ -51,8 +51,8 @@ public class PlusCalStatementScopingVisitor extends StatementVisitor<Void, Runti
 
 	@Override
 	public Void visit(While while1) throws RuntimeException {
-		while1.getCondition().accept(new TLAExpressionScopingVisitor(builder, regBuilder, loader, moduleRecursionSet));
-		for(Statement stmt : while1.getBody()) {
+		while1.getCondition().accept(new TLAExpressionScopingVisitor(builder, registry, loader, moduleRecursionSet));
+		for (Statement stmt : while1.getBody()) {
 			stmt.accept(this);
 		}
 		return null;
@@ -60,11 +60,11 @@ public class PlusCalStatementScopingVisitor extends StatementVisitor<Void, Runti
 
 	@Override
 	public Void visit(If if1) throws RuntimeException {
-		if1.getCondition().accept(new TLAExpressionScopingVisitor(builder, regBuilder, loader, moduleRecursionSet));
-		for(Statement stmt : if1.getYes()) {
+		if1.getCondition().accept(new TLAExpressionScopingVisitor(builder, registry, loader, moduleRecursionSet));
+		for (Statement stmt : if1.getYes()) {
 			stmt.accept(this);
 		}
-		for(Statement stmt : if1.getNo()) {
+		for (Statement stmt : if1.getNo()) {
 			stmt.accept(this);
 		}
 		return null;
@@ -72,8 +72,8 @@ public class PlusCalStatementScopingVisitor extends StatementVisitor<Void, Runti
 
 	@Override
 	public Void visit(Either either) throws RuntimeException {
-		for(List<Statement> list : either.getCases()) {
-			for(Statement stmt : list) {
+		for (List<Statement> list : either.getCases()) {
+			for (Statement stmt : list) {
 				stmt.accept(this);
 			}
 		}
@@ -82,9 +82,9 @@ public class PlusCalStatementScopingVisitor extends StatementVisitor<Void, Runti
 
 	@Override
 	public Void visit(Assignment assignment) throws RuntimeException {
-		for(AssignmentPair pair : assignment.getPairs()) {
-			pair.getLhs().accept(new TLAExpressionScopingVisitor(builder, regBuilder, loader, moduleRecursionSet));
-			pair.getRhs().accept(new TLAExpressionScopingVisitor(builder, regBuilder, loader, moduleRecursionSet));
+		for (AssignmentPair pair : assignment.getPairs()) {
+			pair.getLhs().accept(new TLAExpressionScopingVisitor(builder, registry, loader, moduleRecursionSet));
+			pair.getRhs().accept(new TLAExpressionScopingVisitor(builder, registry, loader, moduleRecursionSet));
 		}
 		return null;
 	}
@@ -101,7 +101,7 @@ public class PlusCalStatementScopingVisitor extends StatementVisitor<Void, Runti
 
 	@Override
 	public Void visit(Call call) throws RuntimeException {
-		for(PGoTLAExpression expr : call.getArguments()) {
+		for (PGoTLAExpression expr : call.getArguments()) {
 			expr.accept(new TLAExpressionScopingVisitor(builder, null, null, null));
 		}
 		return null;
@@ -114,30 +114,31 @@ public class PlusCalStatementScopingVisitor extends StatementVisitor<Void, Runti
 
 	@Override
 	public Void visit(With with) throws RuntimeException {
-		with.getVariable().getValue().accept(new TLAExpressionScopingVisitor(builder, regBuilder, loader, moduleRecursionSet));
+		with.getVariable().getValue().accept(new TLAExpressionScopingVisitor(builder, registry, loader, moduleRecursionSet));
 		TLAScopeBuilder nested = builder.makeNestedScope();
 		nested.defineLocal(with.getVariable().getName(), with.getVariable().getUID());
-		for(Statement stmt : with.getBody()) {
-			stmt.accept(new PlusCalStatementScopingVisitor(ctx, nested, regBuilder, loader, moduleRecursionSet));
+		registry.addLocalVariable(with.getVariable().getUID());
+		for (Statement stmt : with.getBody()) {
+			stmt.accept(new PlusCalStatementScopingVisitor(ctx, nested, registry, loader, moduleRecursionSet));
 		}
 		return null;
 	}
 
 	@Override
 	public Void visit(Print print) throws RuntimeException {
-		print.getValue().accept(new TLAExpressionScopingVisitor(builder, regBuilder, loader, moduleRecursionSet));
+		print.getValue().accept(new TLAExpressionScopingVisitor(builder, registry, loader, moduleRecursionSet));
 		return null;
 	}
 
 	@Override
 	public Void visit(Assert assert1) throws RuntimeException {
-		assert1.getCondition().accept(new TLAExpressionScopingVisitor(builder, regBuilder, loader, moduleRecursionSet));
+		assert1.getCondition().accept(new TLAExpressionScopingVisitor(builder, registry, loader, moduleRecursionSet));
 		return null;
 	}
 
 	@Override
 	public Void visit(Await await) throws RuntimeException {
-		await.getCondition().accept(new TLAExpressionScopingVisitor(builder, regBuilder, loader, moduleRecursionSet));
+		await.getCondition().accept(new TLAExpressionScopingVisitor(builder, registry, loader, moduleRecursionSet));
 		return null;
 	}
 

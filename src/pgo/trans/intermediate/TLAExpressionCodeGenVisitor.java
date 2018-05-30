@@ -5,46 +5,12 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
-import pgo.model.golang.BlockBuilder;
-import pgo.model.golang.Builtins;
-import pgo.model.golang.Expression;
-import pgo.model.golang.IntLiteral;
-import pgo.model.golang.InterfaceType;
-import pgo.model.golang.SliceLiteral;
-import pgo.model.golang.StringLiteral;
-import pgo.model.golang.Type;
-import pgo.model.golang.VariableName;
-import pgo.model.tla.PGoTLABinOp;
-import pgo.model.tla.PGoTLABool;
-import pgo.model.tla.PGoTLACase;
-import pgo.model.tla.PGoTLAExistential;
-import pgo.model.tla.PGoTLAExpression;
-import pgo.model.tla.PGoTLAExpressionVisitor;
-import pgo.model.tla.PGoTLAFunction;
-import pgo.model.tla.PGoTLAFunctionCall;
-import pgo.model.tla.PGoTLAFunctionSet;
-import pgo.model.tla.PGoTLAFunctionSubstitution;
-import pgo.model.tla.PGoTLAGeneralIdentifier;
-import pgo.model.tla.PGoTLAIf;
-import pgo.model.tla.PGoTLALet;
-import pgo.model.tla.PGoTLAMaybeAction;
-import pgo.model.tla.PGoTLANumber;
-import pgo.model.tla.PGoTLAOperatorCall;
-import pgo.model.tla.PGoTLAQuantifiedExistential;
-import pgo.model.tla.PGoTLAQuantifiedUniversal;
-import pgo.model.tla.PGoTLARecordConstructor;
-import pgo.model.tla.PGoTLARecordSet;
-import pgo.model.tla.PGoTLARequiredAction;
-import pgo.model.tla.PGoTLASetComprehension;
-import pgo.model.tla.PGoTLASetConstructor;
-import pgo.model.tla.PGoTLASetRefinement;
-import pgo.model.tla.PGoTLAString;
-import pgo.model.tla.PGoTLATuple;
-import pgo.model.tla.PGoTLAUnary;
-import pgo.model.tla.PGoTLAUniversal;
-import pgo.model.tla.PlusCalDefaultInitValue;
-import pgo.model.type.PGoType;
+import pgo.model.golang.*;
+import pgo.model.tla.*;
+import pgo.model.type.*;
 import pgo.scope.UID;
 
 public class TLAExpressionCodeGenVisitor extends PGoTLAExpressionVisitor<Expression, RuntimeException> {
@@ -61,9 +27,39 @@ public class TLAExpressionCodeGenVisitor extends PGoTLAExpressionVisitor<Express
 		this.globalStrategy = globalStrategy;
 	}
 
+	private void unfoldQuantifierBounds(List<PGoTLAQuantifierBound> bounds, Consumer<BlockBuilder> action) {
+		BlockBuilder currentBuilder = builder;
+		List<BlockBuilder> accumulatedBuilders = new ArrayList<>();
+		for (PGoTLAQuantifierBound bound : bounds) {
+			if (bound.getIds().size() != 1) {
+				throw new RuntimeException("TODO");
+			}
+			TLABuiltins.ensureSetType(typeMap, bound.getSet().getUID());
+			Expression set = bound.getSet().accept(this);
+			PGoTLAIdentifier id = bound.getIds().get(0);
+			ForRangeBuilder forRangeBuilder = currentBuilder.forRange(set);
+			VariableName name = forRangeBuilder.initVariables(Collections.singletonList(id.getId())).get(0);
+			currentBuilder.linkUID(id.getUID(), name);
+			currentBuilder = forRangeBuilder.getBlockBuilder();
+			accumulatedBuilders.add(currentBuilder);
+		}
+		action.accept(currentBuilder);
+		for (int i = accumulatedBuilders.size() - 1; i >= 0; i--) {
+			accumulatedBuilders.get(i).close();
+		}
+	}
+
 	@Override
 	public Expression visit(PGoTLAFunctionCall pGoTLAFunctionCall) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		PGoType type = typeMap.get(pGoTLAFunctionCall.getFunction().getUID());
+		if (!(type instanceof PGoTypeSlice)) {
+			throw new RuntimeException("TODO");
+		}
+
+		if (pGoTLAFunctionCall.getParams().size() != 1) {
+			throw new RuntimeException("TODO");
+		}
+		return new Index(pGoTLAFunctionCall.getFunction().accept(this), pGoTLAFunctionCall.getParams().get(0).accept(this));
 	}
 
 	@Override
@@ -122,18 +118,17 @@ public class TLAExpressionCodeGenVisitor extends PGoTLAExpressionVisitor<Express
 	@Override
 	public Expression visit(PGoTLAGeneralIdentifier pGoTLAVariable) throws RuntimeException {
 		UID ref = registry.followReference(pGoTLAVariable.getUID());
-		if(registry.isGlobalVariable(ref)) {
+		if (registry.isGlobalVariable(ref)) {
 			return globalStrategy.readGlobalVariable(builder, ref);
-		}else if(registry.isLocalVariable(ref)) {
-			VariableName name = builder.findUID(ref);
-			return name;
-		}else if(registry.isConstant(ref)) {
-			VariableName name = builder.findUID(ref);
-			return name;
-		}else {
-			return registry.findOperator(ref).generateGo(
-					builder, pGoTLAVariable, registry, Collections.emptyList(), typeMap, globalStrategy);
 		}
+		if (registry.isLocalVariable(ref)) {
+			return builder.findUID(ref);
+		}
+		if (registry.isConstant(ref)) {
+			return builder.findUID(ref);
+		}
+		return registry.findOperator(ref).generateGo(
+				builder, pGoTLAVariable, registry, Collections.emptyList(), typeMap, globalStrategy);
 	}
 
 	@Override
@@ -141,7 +136,7 @@ public class TLAExpressionCodeGenVisitor extends PGoTLAExpressionVisitor<Express
 		// TODO: make this general
 		Type elementType = new InterfaceType(Collections.emptyList());
 		List<Expression> elements = new ArrayList<>();
-		for(PGoTLAExpression element : pGoTLATuple.getElements()) {
+		for (PGoTLAExpression element : pGoTLATuple.getElements()) {
 			elements.add(element.accept(this));
 		}
 		return new SliceLiteral(elementType, elements);
@@ -159,12 +154,30 @@ public class TLAExpressionCodeGenVisitor extends PGoTLAExpressionVisitor<Express
 
 	@Override
 	public Expression visit(PGoTLAOperatorCall pGoTLAOperatorCall) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		return registry
+				.findOperator(registry.followReference(pGoTLAOperatorCall.getName().getUID()))
+				.generateGo(
+						builder, pGoTLAOperatorCall, registry,
+						pGoTLAOperatorCall.getArgs().stream().map(a -> a.accept(this)).collect(Collectors.toList()),
+						typeMap, globalStrategy);
 	}
 
 	@Override
 	public Expression visit(PGoTLAQuantifiedExistential pGoTLAQuantifiedExistential) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		LabelName labelName = builder.newLabel("yes");
+		VariableName exists = builder.varDecl("exists", Builtins.False);
+		unfoldQuantifierBounds(pGoTLAQuantifiedExistential.getIds(), innerBlock -> {
+			// needs a new visitor because we must write to the inner block rather than the outer block
+			try (IfBuilder ifBuilder = innerBlock.ifStmt(pGoTLAQuantifiedExistential.getBody()
+					.accept(new TLAExpressionCodeGenVisitor(innerBlock, registry, typeMap, globalStrategy)))) {
+				try (BlockBuilder yes = ifBuilder.whenTrue()) {
+					yes.assign(exists, Builtins.True);
+					yes.addStatement(new GoTo(labelName));
+				}
+			}
+		});
+		builder.label(labelName);
+		return exists;
 	}
 
 	@Override
@@ -189,17 +202,59 @@ public class TLAExpressionCodeGenVisitor extends PGoTLAExpressionVisitor<Express
 
 	@Override
 	public Expression visit(PGoTLASetConstructor pGoTLASetConstructor) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		Type elementType = TLABuiltins.ensureSetType(typeMap, pGoTLASetConstructor.getUID());
+		VariableName tmpSet = builder.varDecl(
+				"tmpSet",
+				new SliceLiteral(
+						elementType,
+						pGoTLASetConstructor.getContents().stream()
+								.map(e -> e.accept(this))
+								.collect(Collectors.toList())));
+		TLABuiltins.ensureUniqueSorted(builder, elementType, tmpSet);
+		return tmpSet;
 	}
 
 	@Override
 	public Expression visit(PGoTLASetComprehension pGoTLASetComprehension) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		Type elementType = TLABuiltins.ensureSetType(typeMap, pGoTLASetComprehension.getUID());
+		VariableName accumulator = builder.varDecl(
+				"tmpSet", new Make(new SliceType(elementType), new IntLiteral(0), null));
+		unfoldQuantifierBounds(pGoTLASetComprehension.getBounds(), innerBuilder -> {
+			Expression body = pGoTLASetComprehension.getBody().accept(new TLAExpressionCodeGenVisitor(
+					innerBuilder, registry, typeMap, globalStrategy));
+			innerBuilder.assign(accumulator, new Call(new VariableName("append"), Arrays.asList(accumulator, body)));
+		});
+		TLABuiltins.ensureUniqueSorted(builder, elementType, accumulator);
+		return accumulator;
 	}
 
 	@Override
 	public Expression visit(PGoTLASetRefinement pGoTLASetRefinement) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		Type elementType = TLABuiltins.ensureSetType(typeMap, pGoTLASetRefinement.getUID());
+		if (pGoTLASetRefinement.getIdent().isTuple()) {
+			throw new RuntimeException("TODO");
+		}
+		// Go code
+		// tmpSet := make([]Type, 0)
+		// for _, v := range pGoTLASetRefinement.getFrom() {
+		// 	if pGoTLASetRefinement.getWhen() {
+		// 		tmpSet = append(tmpSet, v)
+		// 	}
+		// }
+		VariableName tmpSet = builder.varDecl(
+				"tmpSet", new Make(new SliceType(elementType), new IntLiteral(0), null));
+		ForRangeBuilder forRangeBuilder = builder.forRange(pGoTLASetRefinement.getFrom().accept(this));
+		VariableName v = forRangeBuilder.initVariables(Arrays.asList("_", "v")).get(1);
+		builder.linkUID(pGoTLASetRefinement.getIdent().getId().getUID(), v);
+		try (BlockBuilder forBody = forRangeBuilder.getBlockBuilder()) {
+			try (IfBuilder ifBuilder = forBody.ifStmt(pGoTLASetRefinement.getWhen().accept(this))) {
+				try (BlockBuilder yes = ifBuilder.whenTrue()) {
+					yes.assign(tmpSet, new Call(new VariableName("append"), Arrays.asList(tmpSet, v)));
+				}
+			}
+		}
+		// no need to ensure uniqueness and sortedness, we're just removing elements
+		return tmpSet;
 	}
 
 	@Override
@@ -209,7 +264,12 @@ public class TLAExpressionCodeGenVisitor extends PGoTLAExpressionVisitor<Express
 
 	@Override
 	public Expression visit(PGoTLAUnary pGoTLAUnary) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		return registry
+				.findOperator(registry.followReference(pGoTLAUnary.getOperation().getUID()))
+				.generateGo(
+						builder, pGoTLAUnary, registry,
+						Collections.singletonList(pGoTLAUnary.getOperand().accept(this)),
+						typeMap, globalStrategy);
 	}
 
 	@Override

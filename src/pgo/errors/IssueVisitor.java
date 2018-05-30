@@ -1,8 +1,8 @@
 package pgo.errors;
 
+import pgo.model.type.BacktrackingFailureIssue;
 import pgo.model.type.UnrealizableTypeIssue;
 import pgo.model.type.UnsatisfiableConstraintIssue;
-import pgo.model.type.UnsatisfiablePolymorphicConstraintIssue;
 import pgo.trans.intermediate.*;
 
 public abstract class IssueVisitor<T, E extends Throwable> {
@@ -26,9 +26,9 @@ public abstract class IssueVisitor<T, E extends Throwable> {
 	public abstract T visit(MacroArgumentInnerScopeConflictIssue macroArgumentInnerScopeConflictIssue) throws E;
 	public abstract T visit(MultiplyDeclaredLabelIssue multiplyDeclaredLabelIssue) throws E;
 	public abstract T visit(MacroNameConflictIssue macroNameConflictIssue) throws E;
+	public abstract T visit(BacktrackingFailureIssue backtrackingFailureIssue) throws E;
 	public abstract T visit(UnrealizableTypeIssue unrealizableTypeIssue) throws E;
 	public abstract T visit(UnsatisfiableConstraintIssue unsatisfiableConstraintIssue) throws E;
-	public abstract T visit(UnsatisfiablePolymorphicConstraintIssue unsatisfiablePolymorphicConstraintIssue) throws E;
 	public abstract T visit(ProcedureNotFoundIssue procedureNotFoundIssue) throws E;
 	public abstract T visit(ConstantWithNoValueIssue constantWithNoValueIssue) throws E;
 

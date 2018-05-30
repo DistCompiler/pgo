@@ -1,12 +1,6 @@
 package pgo.model.golang;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeSet;
+import java.util.*;
 
 import pgo.scope.UID;
 
@@ -20,7 +14,32 @@ public class ModuleBuilder extends ASTBuilder {
 	
 	public ModuleBuilder(String name) {
 		this.name = name;
-		this.nameCleaner = new NameCleaner(new HashSet<>());
+		this.nameCleaner = new NameCleaner(new HashSet<>(Arrays.asList(
+				"break",
+				"default",
+				"func",
+				"interface",
+				"select",
+				"case",
+				"defer",
+				"go",
+				"map",
+				"struct",
+				"chan",
+				"else",
+				"goto",
+				"package",
+				"switch",
+				"const",
+				"fallthrough",
+				"if",
+				"range",
+				"type",
+				"continue",
+				"for",
+				"import",
+				"return",
+				"var")));
 		this.imports = new TreeSet<>();
 		this.nameMap = new HashMap<>();
 		this.declarations = new ArrayList<>();
@@ -71,7 +90,7 @@ public class ModuleBuilder extends ASTBuilder {
 	}
 
 	@Override
-	protected void addStatement(Statement s) {
+	public void addStatement(Statement s) {
 		throw new RuntimeException("internal compiler error");
 	}
 

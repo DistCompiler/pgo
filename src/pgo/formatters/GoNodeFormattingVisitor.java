@@ -16,7 +16,7 @@ import pgo.model.golang.SwitchCase;
 import pgo.model.golang.Type;
 
 public class GoNodeFormattingVisitor extends NodeVisitor<Void, IOException> {
-	
+
 	private IndentingWriter out;
 
 	public GoNodeFormattingVisitor(IndentingWriter out) {
@@ -87,7 +87,12 @@ public class GoNodeFormattingVisitor extends NodeVisitor<Void, IOException> {
 
 	@Override
 	public Void visit(FunctionArgument functionArgument) throws IOException {
-		throw new RuntimeException("TODO");
+		if (functionArgument.getName() != null) {
+			out.write(functionArgument.getName());
+			out.write(" ");
+		}
+		functionArgument.getType().accept(this);
+		return null;
 	}
 
 	@Override

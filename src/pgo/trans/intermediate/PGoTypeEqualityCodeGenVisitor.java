@@ -9,7 +9,6 @@ import pgo.model.type.PGoTypeDecimal;
 import pgo.model.type.PGoTypeFunction;
 import pgo.model.type.PGoTypeInt;
 import pgo.model.type.PGoTypeMap;
-import pgo.model.type.PGoTypeNatural;
 import pgo.model.type.PGoTypeProcedure;
 import pgo.model.type.PGoTypeSet;
 import pgo.model.type.PGoTypeSlice;
@@ -21,7 +20,7 @@ import pgo.model.type.PGoTypeVariable;
 import pgo.model.type.PGoTypeVisitor;
 
 public class PGoTypeEqualityCodeGenVisitor extends PGoTypeVisitor<Expression, RuntimeException> {
-	
+
 	private BlockBuilder builder;
 	private boolean neq;
 	private DefinitionRegistry registry;
@@ -73,11 +72,6 @@ public class PGoTypeEqualityCodeGenVisitor extends PGoTypeVisitor<Expression, Ru
 
 	@Override
 	public Expression visit(PGoTypeDecimal pGoTypeDecimal) throws RuntimeException {
-		return new Binop(neq ? Binop.Operation.NEQ : Binop.Operation.EQ, lhs, rhs);
-	}
-
-	@Override
-	public Expression visit(PGoTypeNatural pGoTypeNatural) throws RuntimeException {
 		return new Binop(neq ? Binop.Operation.NEQ : Binop.Operation.EQ, lhs, rhs);
 	}
 

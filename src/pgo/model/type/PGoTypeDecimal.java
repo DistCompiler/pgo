@@ -8,10 +8,6 @@ import java.util.List;
  * Represents the floating point number type.
  */
 public class PGoTypeDecimal extends PGoNumberType {
-	public PGoTypeDecimal(Origin... origins) {
-		super(origins);
-	}
-
 	public PGoTypeDecimal(List<Origin> origins) {
 		super(origins);
 	}
@@ -26,11 +22,6 @@ public class PGoTypeDecimal extends PGoNumberType {
 		return "Decimal";
 	}
 
-	@Override
-	public String toGo() {
-		return "float64";
-	}
-	
 	@Override
 	public <T, E extends Throwable> T accept(PGoTypeVisitor<T, E> v) throws E {
 		return v.visit(this);

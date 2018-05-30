@@ -13,10 +13,6 @@ public class PGoTypeFunction extends PGoType {
 	private List<PGoType> paramTypes;
 	private PGoType returnType;
 
-	public PGoTypeFunction(List<PGoType> paramTypes, PGoType returnType, Origin... origins) {
-		this(paramTypes, returnType, Arrays.asList(origins));
-	}
-
 	public PGoTypeFunction(List<PGoType> paramTypes, PGoType returnType, List<Origin> origins) {
 		super(origins);
 		this.paramTypes = paramTypes;
@@ -76,12 +72,6 @@ public class PGoTypeFunction extends PGoType {
 				") " + returnType.toTypeName();
 	}
 
-	@Override
-	public String toGo() {
-		return "func(" + paramTypes.stream().map(PGoType::toGo).collect(Collectors.joining(", ")) +
-				") " + returnType.toGo();
-	}
-	
 	@Override
 	public <T, E extends Throwable> T accept(PGoTypeVisitor<T, E> v) throws E {
 		return v.visit(this);

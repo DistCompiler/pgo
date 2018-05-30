@@ -11,7 +11,7 @@ import pgo.model.pcal.PcalProcess;
 import pgo.model.pcal.Procedure;
 import pgo.model.pcal.Processes;
 import pgo.model.pcal.Statement;
-import pgo.model.pcal.VariableDecl;
+import pgo.model.pcal.VariableDeclaration;
 
 public class NodeFormattingVisitor extends NodeVisitor<Void, IOException> {
 
@@ -78,14 +78,14 @@ public class NodeFormattingVisitor extends NodeVisitor<Void, IOException> {
 	}
 
 	@Override
-	public Void visit(VariableDecl variableDecl) throws IOException {
-		out.write(variableDecl.getName());
-		if(variableDecl.isSet()) {
+	public Void visit(VariableDeclaration variableDeclaration) throws IOException {
+		out.write(variableDeclaration.getName());
+		if(variableDeclaration.isSet()) {
 			out.write(" \\in ");
 		}else {
 			out.write(" = ");
 		}
-		variableDecl.getValue().accept(new PGoTLAExpressionFormattingVisitor(out));
+		variableDeclaration.getValue().accept(new PGoTLAExpressionFormattingVisitor(out));
 		return null;
 	}
 

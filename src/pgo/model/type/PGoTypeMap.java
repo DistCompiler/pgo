@@ -15,10 +15,6 @@ public class PGoTypeMap extends PGoType {
 	private PGoType keyType;
 	private PGoType valueType;
 
-	public PGoTypeMap(PGoType keyType, PGoType valueType, Origin... origins) {
-		this(keyType, valueType, Arrays.asList(origins));
-	}
-
 	public PGoTypeMap(PGoType keyType, PGoType valueType, List<Origin> origins) {
 		super(origins);
 		this.keyType = keyType;
@@ -76,14 +72,10 @@ public class PGoTypeMap extends PGoType {
 	public String toTypeName() {
 		return "Map[" + keyType.toTypeName() + "]" + valueType.toTypeName();
 	}
-	
+
 	@Override
 	public <T, E extends Throwable> T accept(PGoTypeVisitor<T, E> v) throws E {
 		return v.visit(this);
 	}
 
-	@Override
-	public String toGo() {
-		return "datatypes.Map";
-	}
 }

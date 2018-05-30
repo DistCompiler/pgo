@@ -18,6 +18,6 @@ public abstract class ASTBuilder {
 	
 	protected abstract void addFunction(FunctionDeclaration fn);
 
-	protected abstract void addStatement(Statement s);
+	public abstract void addStatement(Statement s);
 
 }

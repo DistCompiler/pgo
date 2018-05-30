@@ -6,27 +6,27 @@ import java.util.stream.Collectors;
 import pgo.util.SourceLocation;
 
 public class PcalProcess extends Node {
-	private VariableDecl name;
+	private VariableDeclaration name;
 	private Fairness fairness;
-	private List<VariableDecl> variables;
+	private List<VariableDeclaration> variables;
 	private List<LabeledStatements> labeledStatements;
-	
-	public PcalProcess(SourceLocation location, VariableDecl name, Fairness fairness, List<VariableDecl> variables, List<LabeledStatements> labeledStatements) {
+
+	public PcalProcess(SourceLocation location, VariableDeclaration name, Fairness fairness, List<VariableDeclaration> variables, List<LabeledStatements> labeledStatements) {
 		super(location);
 		this.name = name;
 		this.fairness = fairness;
 		this.variables = variables;
 		this.labeledStatements = labeledStatements;
 	}
-	
+
 	@Override
 	public PcalProcess copy() {
 		return new PcalProcess(getLocation(), name.copy(), fairness,
-				variables.stream().map(VariableDecl::copy).collect(Collectors.toList()),
+				variables.stream().map(VariableDeclaration::copy).collect(Collectors.toList()),
 				labeledStatements.stream().map(LabeledStatements::copy).collect(Collectors.toList()));
 	}
 
-	public VariableDecl getName() {
+	public VariableDeclaration getName() {
 		return name;
 	}
 
@@ -34,14 +34,14 @@ public class PcalProcess extends Node {
 		return fairness;
 	}
 
-	public List<VariableDecl> getVariables() {
+	public List<VariableDeclaration> getVariables() {
 		return variables;
 	}
 
 	public List<LabeledStatements> getLabeledStatements() {
 		return labeledStatements;
 	}
-	
+
 	@Override
 	public <T, E extends Throwable> T accept(NodeVisitor<T, E> v) throws E{
 		return v.visit(this);

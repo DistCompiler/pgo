@@ -8,10 +8,6 @@ import java.util.List;
  * Represents a fallback integer type.
  */
 public class PGoTypeInt extends PGoNumberType {
-	public PGoTypeInt(Origin... origins) {
-		super(origins);
-	}
-
 	public PGoTypeInt(List<Origin> origins) {
 		super(origins);
 	}
@@ -27,15 +23,10 @@ public class PGoTypeInt extends PGoNumberType {
 	}
 
 	@Override
-	public String toGo() {
-		return "int";
-	}
-
-	@Override
 	public int getSpecificity() {
 		return 2;
 	}
-	
+
 	@Override
 	public <T, E extends Throwable> T accept(PGoTypeVisitor<T, E> v) throws E {
 		return v.visit(this);

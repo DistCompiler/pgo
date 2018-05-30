@@ -12,10 +12,6 @@ import java.util.stream.Collectors;
 public class PGoTypeProcedure extends PGoType {
 	private List<PGoType> paramTypes;
 
-	public PGoTypeProcedure(List<PGoType> paramTypes, Origin... origins) {
-		this(paramTypes, Arrays.asList(origins));
-	}
-
 	public PGoTypeProcedure(List<PGoType> paramTypes, List<Origin> origins) {
 		super(origins);
 		this.paramTypes = paramTypes;
@@ -65,11 +61,6 @@ public class PGoTypeProcedure extends PGoType {
 		return "Procedure(" +
 				paramTypes.stream().map(PGoType::toTypeName).collect(Collectors.joining(", ")) +
 				")";
-	}
-
-	@Override
-	public String toGo() {
-		return "func(" + paramTypes.stream().map(PGoType::toGo).collect(Collectors.joining(", ")) + ")";
 	}
 
 	@Override

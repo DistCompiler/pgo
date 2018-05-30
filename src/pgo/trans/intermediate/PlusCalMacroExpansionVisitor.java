@@ -26,19 +26,19 @@ import pgo.model.pcal.Return;
 import pgo.model.pcal.Skip;
 import pgo.model.pcal.Statement;
 import pgo.model.pcal.StatementVisitor;
-import pgo.model.pcal.VariableDecl;
+import pgo.model.pcal.VariableDeclaration;
 import pgo.model.pcal.While;
 import pgo.model.pcal.With;
 import pgo.model.tla.PGoTLAExpression;
 
 public class PlusCalMacroExpansionVisitor extends StatementVisitor<List<Statement>, RuntimeException> {
-	
+
 	private IssueContext ctx;
 	private Map<String, Macro> macros;
 	private Set<String> recursionSet;
 	private Map<String, PGoTLAExpression> macroArgs;
 	private TLAExpressionMacroSubstitutionVisitor macroSubst;
-	
+
 	public PlusCalMacroExpansionVisitor(IssueContext ctx, Map<String, Macro> macros, Set<String> recursionSet, Map<String, PGoTLAExpression> macroArgs) {
 		this.ctx = ctx;
 		this.macros = macros;
@@ -46,7 +46,7 @@ public class PlusCalMacroExpansionVisitor extends StatementVisitor<List<Statemen
 		this.macroArgs = macroArgs;
 		this.macroSubst = new TLAExpressionMacroSubstitutionVisitor(ctx, macroArgs);
 	}
-	
+
 	private List<Statement> substituteStatements(List<Statement> stmts){
 		List<Statement> result = new ArrayList<>();
 		for(Statement stmt : stmts) {
@@ -123,7 +123,7 @@ public class PlusCalMacroExpansionVisitor extends StatementVisitor<List<Statemen
 				}
 				Set<String> innerRecursionSet = new HashSet<>(recursionSet);
 				innerRecursionSet.add(macro.getName());
-				
+
 				PlusCalMacroExpansionVisitor innerVisitor = new PlusCalMacroExpansionVisitor(ctx.withContext(new ExpandingMacroCall(macroCall)), macros, innerRecursionSet, argsMap);
 				List<Statement> statements = new ArrayList<>();
 				for(Statement stmt : macro.getBody()) {
@@ -139,11 +139,11 @@ public class PlusCalMacroExpansionVisitor extends StatementVisitor<List<Statemen
 
 	@Override
 	public List<Statement> visit(With with) throws RuntimeException {
-		VariableDecl oldVariable = with.getVariable();
+		VariableDeclaration oldVariable = with.getVariable();
 		if(macroArgs.containsKey(oldVariable.getName())) {
 			// TODO: error reporting in this case?
 		}
-		VariableDecl newVariable = new VariableDecl(oldVariable.getLocation(), oldVariable.getName(),
+		VariableDeclaration newVariable = new VariableDeclaration(oldVariable.getLocation(), oldVariable.getName(),
 				oldVariable.isSet(), oldVariable.getValue().accept(macroSubst));
 		return Collections.singletonList(new With(with.getLocation(), newVariable, substituteStatements(with.getBody())));
 	}

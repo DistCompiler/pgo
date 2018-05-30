@@ -8,10 +8,6 @@ import java.util.List;
  * Represents the base number type.
  */
 public abstract class PGoNumberType extends PGoPrimitiveType {
-	public PGoNumberType(Origin... origins) {
-		super(origins);
-	}
-
 	public PGoNumberType(List<Origin> origins) {
 		super(origins);
 	}

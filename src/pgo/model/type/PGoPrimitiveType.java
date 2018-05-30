@@ -11,10 +11,6 @@ import java.util.Set;
  * Contains overloaded methods for a primitive type, for convenience.
  */
 public abstract class PGoPrimitiveType extends PGoType {
-	public PGoPrimitiveType(Origin... origins) {
-		super(origins);
-	}
-
 	public PGoPrimitiveType(List<Origin> origins) {
 		super(origins);
 	}

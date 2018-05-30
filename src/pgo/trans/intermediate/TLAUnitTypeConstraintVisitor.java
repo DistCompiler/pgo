@@ -2,7 +2,6 @@ package pgo.trans.intermediate;
 
 import java.util.Map;
 
-import pgo.errors.IssueContext;
 import pgo.model.tla.PGoTLAAssumption;
 import pgo.model.tla.PGoTLAConstantDeclaration;
 import pgo.model.tla.PGoTLAFunctionDefinition;
@@ -14,7 +13,7 @@ import pgo.model.tla.PGoTLAOperatorDefinition;
 import pgo.model.tla.PGoTLATheorem;
 import pgo.model.tla.PGoTLAUnitVisitor;
 import pgo.model.tla.PGoTLAVariableDeclaration;
-import pgo.model.type.PGoTypeConstraint;
+import pgo.model.type.PGoTypeMonomorphicConstraint;
 import pgo.model.type.PGoTypeGenerator;
 import pgo.model.type.PGoTypeSolver;
 import pgo.model.type.PGoTypeVariable;
@@ -22,15 +21,13 @@ import pgo.scope.UID;
 
 public class TLAUnitTypeConstraintVisitor extends PGoTLAUnitVisitor<Void, RuntimeException> {
 
-	private IssueContext ctx;
 	private DefinitionRegistry registry;
 	private Map<UID, PGoTypeVariable> mapping;
 	private PGoTypeGenerator generator;
 	private PGoTypeSolver solver;
 
-	public TLAUnitTypeConstraintVisitor(IssueContext ctx, DefinitionRegistry registry, PGoTypeSolver solver,
+	public TLAUnitTypeConstraintVisitor(DefinitionRegistry registry, PGoTypeSolver solver,
 	                                    PGoTypeGenerator generator, Map<UID, PGoTypeVariable> mapping) {
-		this.ctx = ctx;
 		this.registry = registry;
 		this.solver = solver;
 		this.generator = generator;
@@ -46,19 +43,18 @@ public class TLAUnitTypeConstraintVisitor extends PGoTLAUnitVisitor<Void, Runtim
 	public Void visit(PGoTLAFunctionDefinition pGoTLAFunctionDefinition) throws RuntimeException {
 		UID id = pGoTLAFunctionDefinition.getName().getUID();
 		PGoTypeVariable v;
-		if(mapping.containsKey(id)) {
+		if (mapping.containsKey(id)) {
 			v = mapping.get(id);
-		}else {
+		} else {
 			v = generator.get();
 			mapping.put(id, v);
 		}
 		solver.addConstraint(
-				ctx,
-				new PGoTypeConstraint(
+				new PGoTypeMonomorphicConstraint(
 						pGoTLAFunctionDefinition,
 						v,
-						new TLAExpressionTypeConstraintVisitor(ctx, registry, solver, generator, mapping)
-						.wrappedVisit(pGoTLAFunctionDefinition.getFunction())));
+						new TLAExpressionTypeConstraintVisitor(registry, solver, generator, mapping)
+								.wrappedVisit(pGoTLAFunctionDefinition.getFunction())));
 		return null;
 	}
 
@@ -66,12 +62,12 @@ public class TLAUnitTypeConstraintVisitor extends PGoTLAUnitVisitor<Void, Runtim
 	public Void visit(PGoTLAOperatorDefinition pGoTLAOperator) throws RuntimeException {
 		// TODO: what about polymorphic operators?
 		// i.e same operator called from two different places with different argument types
-		for(PGoTLAOpDecl arg : pGoTLAOperator.getArgs()) {
-			if(!mapping.containsKey(arg.getUID())) {
-				mapping.put(arg.getUID(), generator.get());
+		for (PGoTLAOpDecl arg : pGoTLAOperator.getArgs()) {
+			if (!mapping.containsKey(arg.getName().getUID())) {
+				mapping.put(arg.getName().getUID(), generator.get());
 			}
 		}
-		new TLAExpressionTypeConstraintVisitor(ctx, registry, solver, generator, mapping).wrappedVisit(pGoTLAOperator.getBody());
+		new TLAExpressionTypeConstraintVisitor(registry, solver, generator, mapping).wrappedVisit(pGoTLAOperator.getBody());
 		return null;
 	}
 

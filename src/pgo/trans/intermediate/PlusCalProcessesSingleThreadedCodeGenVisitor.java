@@ -7,7 +7,6 @@ import java.util.TreeMap;
 import pgo.model.golang.BlockBuilder;
 import pgo.model.golang.ModuleBuilder;
 import pgo.model.golang.VariableName;
-import pgo.model.pcal.Algorithm;
 import pgo.model.pcal.LabeledStatements;
 import pgo.model.pcal.MultiProcess;
 import pgo.model.pcal.ProcessesVisitor;
@@ -18,15 +17,13 @@ import pgo.scope.UID;
 
 public class PlusCalProcessesSingleThreadedCodeGenVisitor extends ProcessesVisitor<Void, RuntimeException> {
 
-	private Algorithm algorithm;
 	private ModuleBuilder moduleBuilder;
 	private DefinitionRegistry registry;
 	private Map<UID, PGoType> typeMap;
 	private GlobalVariableStrategy globalStrategy;
 
-	public PlusCalProcessesSingleThreadedCodeGenVisitor(Algorithm algorithm, ModuleBuilder moduleBuilder,
-			DefinitionRegistry registry, Map<UID, PGoType> typeMap, GlobalVariableStrategy globalStrategy) {
-		this.algorithm = algorithm;
+	public PlusCalProcessesSingleThreadedCodeGenVisitor(ModuleBuilder moduleBuilder, DefinitionRegistry registry,
+	                                                    Map<UID, PGoType> typeMap, GlobalVariableStrategy globalStrategy) {
 		this.moduleBuilder = moduleBuilder;
 		this.registry = registry;
 		this.typeMap = typeMap;
@@ -35,7 +32,7 @@ public class PlusCalProcessesSingleThreadedCodeGenVisitor extends ProcessesVisit
 
 	@Override
 	public Void visit(SingleProcess singleProcess) throws RuntimeException {
-		
+
 		Map<String, PGoType> constants = new TreeMap<>(); // sort constants for deterministic compiler output
 		Map<String, UID> constantIds = new HashMap<>();
 		for(UID id : registry.getConstants()) {
@@ -43,7 +40,7 @@ public class PlusCalProcessesSingleThreadedCodeGenVisitor extends ProcessesVisit
 			constants.put(name, typeMap.get(id));
 			constantIds.put(name, id);
 		}
-		
+
 		try(BlockBuilder initBuilder = moduleBuilder.defineFunction("init").getBlockBuilder()){
 			for(Map.Entry<String, PGoType> pair : constants.entrySet()) {
 				PGoTLAExpression value = registry.getConstantValue(constantIds.get(pair.getKey()));
@@ -57,11 +54,11 @@ public class PlusCalProcessesSingleThreadedCodeGenVisitor extends ProcessesVisit
 						value.accept(new TLAExpressionCodeGenVisitor(initBuilder, registry, typeMap, globalStrategy)));
 			}
 		}
-		
+
 		try(BlockBuilder fnBuilder = moduleBuilder.defineFunction("main").getBlockBuilder()){
-			
+
 			globalStrategy.generateSetup(fnBuilder);
-			
+
 			for(LabeledStatements stmts : singleProcess.getLabeledStatements()) {
 				stmts.accept(new PlusCalStatementCodeGenVisitor(fnBuilder, registry, typeMap, globalStrategy));
 			}

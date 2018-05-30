@@ -6,46 +6,46 @@ import java.util.stream.Collectors;
 import pgo.util.SourceLocation;
 
 public class Procedure extends Node {
-	
+
 	String name;
-	List<VariableDecl> arguments;
-	List<VariableDecl> variables;
+	List<VariableDeclaration> arguments;
+	List<VariableDeclaration> variables;
 	List<LabeledStatements> body;
-	
-	public Procedure(SourceLocation location, String name, List<VariableDecl> arguments, List<VariableDecl> variables, List<LabeledStatements> body) {
+
+	public Procedure(SourceLocation location, String name, List<VariableDeclaration> arguments, List<VariableDeclaration> variables, List<LabeledStatements> body) {
 		super(location);
 		this.name = name;
 		this.arguments = arguments;
 		this.variables = variables;
 		this.body = body;
 	}
-	
+
 	@Override
 	public Procedure copy() {
 		return new Procedure(
 				getLocation(),
 				name,
-				arguments.stream().map(VariableDecl::copy).collect(Collectors.toList()),
-				variables.stream().map(VariableDecl::copy).collect(Collectors.toList()),
+				arguments.stream().map(VariableDeclaration::copy).collect(Collectors.toList()),
+				variables.stream().map(VariableDeclaration::copy).collect(Collectors.toList()),
 				body.stream().map(LabeledStatements::copy).collect(Collectors.toList()));
 	}
-	
+
 	public String getName() {
 		return name;
 	}
-	
-	public List<VariableDecl> getArguments(){
+
+	public List<VariableDeclaration> getArguments(){
 		return arguments;
 	}
-	
-	public List<VariableDecl> getVariables(){
+
+	public List<VariableDeclaration> getVariables(){
 		return variables;
 	}
-	
+
 	public List<LabeledStatements> getBody() {
 		return body;
 	}
-	
+
 	@Override
 	public <T, E extends Throwable> T accept(NodeVisitor<T, E> v) throws E{
 		return v.visit(this);

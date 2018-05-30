@@ -12,32 +12,8 @@ import pgo.PGoException;
 import pgo.errors.IssueContext;
 import pgo.lexer.TLAToken;
 import pgo.lexer.TLATokenType;
-import pgo.model.pcal.Algorithm;
-import pgo.model.pcal.Assert;
-import pgo.model.pcal.Assignment;
-import pgo.model.pcal.AssignmentPair;
-import pgo.model.pcal.Await;
-import pgo.model.pcal.Call;
-import pgo.model.pcal.Either;
-import pgo.model.pcal.Fairness;
-import pgo.model.pcal.Goto;
-import pgo.model.pcal.If;
-import pgo.model.pcal.Label;
-import pgo.model.pcal.LabeledStatements;
-import pgo.model.pcal.Macro;
-import pgo.model.pcal.MacroCall;
-import pgo.model.pcal.MultiProcess;
-import pgo.model.pcal.PcalProcess;
-import pgo.model.pcal.Print;
-import pgo.model.pcal.Procedure;
-import pgo.model.pcal.Processes;
-import pgo.model.pcal.Return;
-import pgo.model.pcal.SingleProcess;
-import pgo.model.pcal.Skip;
-import pgo.model.pcal.Statement;
-import pgo.model.pcal.VariableDecl;
-import pgo.model.pcal.While;
-import pgo.model.pcal.With;
+import pgo.model.pcal.*;
+import pgo.model.pcal.VariableDeclaration;
 import pgo.model.tla.PGoTLAExpression;
 import pgo.model.tla.PGoTLAUnit;
 import pgo.model.tla.PlusCalDefaultInitValue;
@@ -48,45 +24,45 @@ import pgo.trans.intermediate.TLAParserIssue;
 import tla2sany.st.Location;
 
 public class TLCToPGoPCalASTConversionVisitor extends PcalASTUtil.Visitor<List<Statement>> {
-	
+
 	private IssueContext ctx;
 	private Algorithm result;
 	private Vector<String> plusLabels;
 	private Vector<String> minusLabels;
-	
+
 	public TLCToPGoPCalASTConversionVisitor(IssueContext ctx) {
 		this.ctx = ctx;
 	}
-	
+
 	private static SourceLocation sourceLocationFromRegion(AST a) {
 		Location loc = a.getOrigin().toLocation();
 		return new SourceLocation(Paths.get("PLUSCAL"), loc.beginLine(), loc.endLine(), loc.beginColumn(), loc.endColumn());
 	}
-	
+
 	private List<LabeledStatements> parseProcessBody(Vector<AST> body) throws PGoException {
 		List<LabeledStatements> result = new ArrayList<>();
-		
+
 		for(AST a : body) {
 			List<Statement> statements = PcalASTUtil.accept(a, this);
 			for(Statement s : statements) {
 				result.add((LabeledStatements)s);
 			}
 		}
-		
+
 		return result;
 	}
-	
+
 	private List<Statement> parseStatementSequence(Vector<AST> body) throws PGoException{
 		List<Statement> result = new ArrayList<>();
-		
+
 		for(AST a : body) {
 			List<Statement> statements = PcalASTUtil.accept(a, this);
 			result.addAll(statements);
 		}
-		
+
 		return result;
 	}
-	
+
 	private static TLAToken convertToken(pcal.TLAToken tok){
 		SourceLocation loc;
 		if(tok.source == null) {
@@ -114,13 +90,13 @@ public class TLCToPGoPCalASTConversionVisitor extends PcalASTUtil.Visitor<List<S
 		}
 		return new TLAToken(tok.string, type, loc);
 	}
-	
+
 	@SuppressWarnings("unchecked")
 	private PGoTLAExpression parseTLAExpression(TLAExpr e) {
 		if(e.isOneToken() && e.firstToken().string.equals("defaultInitValue")) {
 			return new PlusCalDefaultInitValue(SourceLocation.unknown());
 		}
-		
+
 		List<TLAToken> tokens = new ArrayList<>();
 		for(Object tokList : e.tokens) {
 			for(pcal.TLAToken tok : (Vector<pcal.TLAToken>)tokList) {
@@ -134,32 +110,32 @@ public class TLCToPGoPCalASTConversionVisitor extends PcalASTUtil.Visitor<List<S
 			return null;
 		}
 	}
-	
-	private VariableDecl convertVarDecl(AST.VarDecl v) {
-		return new VariableDecl(sourceLocationFromRegion(v), v.var, !v.isEq, parseTLAExpression(v.val));
+
+	private VariableDeclaration convertVarDecl(AST.VarDecl v) {
+		return new VariableDeclaration(sourceLocationFromRegion(v), v.var, !v.isEq, parseTLAExpression(v.val));
 	}
 
 	@SuppressWarnings("unchecked")
 	private Macro convertMacro(pcal.AST.Macro m) throws PGoException {
 		return new Macro(sourceLocationFromRegion(m), m.name, m.params, parseStatementSequence(m.body));
 	}
-	
-	private List<VariableDecl> convertVarDecls(Vector<AST.VarDecl> decls) {
-		List<VariableDecl> result = new ArrayList<>();
+
+	private List<VariableDeclaration> convertVarDecls(Vector<AST.VarDecl> decls) {
+		List<VariableDeclaration> result = new ArrayList<>();
 		for(AST.VarDecl d : decls) {
 			result.add(convertVarDecl(d));
 		}
 		return result;
 	}
-	
-	private List<VariableDecl> convertPVarDecls(Vector<AST.PVarDecl> decls) {
-		List<VariableDecl> result = new ArrayList<>();
+
+	private List<VariableDeclaration> convertPVarDecls(Vector<AST.PVarDecl> decls) {
+		List<VariableDeclaration> result = new ArrayList<>();
 		for(AST.PVarDecl d : decls) {
 			result.add(convertVarDecl(d.toVarDecl()));
 		}
 		return result;
 	}
-	
+
 	@SuppressWarnings("unchecked")
 	private Procedure convertProcedure(pcal.AST.Procedure p) throws PGoException {
 		plusLabels = p.plusLabels;
@@ -167,21 +143,21 @@ public class TLCToPGoPCalASTConversionVisitor extends PcalASTUtil.Visitor<List<S
 		List<LabeledStatements> stmts = parseProcessBody(p.body);
 		return new Procedure(sourceLocationFromRegion(p), p.name, convertPVarDecls(p.params), convertPVarDecls(p.decls), stmts);
 	}
-	
+
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	private Algorithm convertAlgorithm(SourceLocation loc, String name, Vector decls, Vector macros, Vector procs, Vector defns, Processes processes) throws PGoException {
-		List<VariableDecl> variables = convertVarDecls(decls);
-		
+		List<VariableDeclaration> variables = convertVarDecls(decls);
+
 		List<Macro> resultMacros = new ArrayList<>();
 		for(Object m : macros) {
 			resultMacros.add(convertMacro((AST.Macro)m));
 		}
-		
+
 		List<Procedure> procedures = new ArrayList<>();
 		for(Object p : procs) {
 			procedures.add(convertProcedure((AST.Procedure)p));
 		}
-		
+
 		List<TLAToken> tokens = new ArrayList<>();
 		for(Object tokList : defns) {
 			for(pcal.TLAToken tok : (Vector<pcal.TLAToken>)tokList) {
@@ -195,10 +171,10 @@ public class TLCToPGoPCalASTConversionVisitor extends PcalASTUtil.Visitor<List<S
 			ctx.error(new TLAParserIssue(e.getReason()));
 			units = Collections.emptyList();
 		}
-		
+
 		return new Algorithm(loc, name, variables, macros, procedures, units, processes);
 	}
-	
+
 	public Algorithm getResult() {
 		return result;
 	}
@@ -215,7 +191,7 @@ public class TLCToPGoPCalASTConversionVisitor extends PcalASTUtil.Visitor<List<S
 	@Override
 	public List<Statement> visit(AST.Multiprocess ma) throws PGoException {
 		List<PcalProcess> procs = new ArrayList<>();
-		
+
 		for(AST.Process p : (Vector<AST.Process>)ma.procs) {
 			Fairness f;
 			switch(p.fairness) {
@@ -234,15 +210,15 @@ public class TLCToPGoPCalASTConversionVisitor extends PcalASTUtil.Visitor<List<S
 			minusLabels = p.minusLabels;
 			plusLabels = p.plusLabels;
 			List<LabeledStatements> stmts = parseProcessBody(p.body);
-			procs.add(new PcalProcess(sourceLocationFromRegion(p), new VariableDecl(
+			procs.add(new PcalProcess(sourceLocationFromRegion(p), new VariableDeclaration(
 					sourceLocationFromRegion(p), p.name, !p.isEq, parseTLAExpression(p.id)),
 					f, convertVarDecls(p.decls), stmts));
 		}
-		
+
 		MultiProcess proc = new MultiProcess(sourceLocationFromRegion(ma), procs);
 
 		result = convertAlgorithm(sourceLocationFromRegion(ma), ma.name, ma.decls, ma.macros, ma.prcds, ma.defs.tokens, proc);
-		
+
 		return null;
 	}
 
@@ -279,7 +255,7 @@ public class TLCToPGoPCalASTConversionVisitor extends PcalASTUtil.Visitor<List<S
 		}else if(plusLabels != null && plusLabels.contains(ls.label)) {
 			modifier = Label.Modifier.PLUS;
 		}
-		
+
 		return Collections.singletonList(new LabeledStatements(sourceLocationFromRegion(ls),
 				new Label(sourceLocationFromRegion(ls), ls.label, modifier), statements));
 	}
@@ -297,7 +273,7 @@ public class TLCToPGoPCalASTConversionVisitor extends PcalASTUtil.Visitor<List<S
 		return Collections.singletonList(new While(sourceLocationFromRegion(w),
 				parseTLAExpression(w.test), statements));
 	}
-	
+
 	@SuppressWarnings("unchecked")
 	private PGoTLAExpression parseLHS(AST.Lhs lhs) {
 		List<TLAToken> lhsTok = new ArrayList<>();
@@ -364,7 +340,7 @@ public class TLCToPGoPCalASTConversionVisitor extends PcalASTUtil.Visitor<List<S
 	@Override
 	public List<Statement> visit(AST.With with) throws PGoException {
 		return Collections.singletonList(new With(sourceLocationFromRegion(with),
-				new VariableDecl(sourceLocationFromRegion(with), with.var, !with.isEq, parseTLAExpression(with.exp)), parseStatementSequence(with.Do)));
+				new VariableDeclaration(sourceLocationFromRegion(with), with.var, !with.isEq, parseTLAExpression(with.exp)), parseStatementSequence(with.Do)));
 	}
 
 	@Override

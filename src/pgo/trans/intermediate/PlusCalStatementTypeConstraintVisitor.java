@@ -1,6 +1,7 @@
 package pgo.trans.intermediate;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -25,7 +26,7 @@ public class PlusCalStatementTypeConstraintVisitor extends StatementVisitor<Void
 		this.solver = solver;
 		this.generator = generator;
 		this.mapping = mapping;
-		this.exprVisitor = new TLAExpressionTypeConstraintVisitor(ctx, registry, solver, generator, mapping);
+		this.exprVisitor = new TLAExpressionTypeConstraintVisitor(registry, solver, generator, mapping);
 	}
 
 	@Override
@@ -38,7 +39,7 @@ public class PlusCalStatementTypeConstraintVisitor extends StatementVisitor<Void
 
 	@Override
 	public Void visit(While while1) throws RuntimeException {
-		solver.addConstraint(ctx, new PGoTypeConstraint(while1, exprVisitor.wrappedVisit(while1.getCondition()), new PGoTypeBool(while1)));
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(while1, exprVisitor.wrappedVisit(while1.getCondition()), new PGoTypeBool(Collections.singletonList(while1))));
 		for (Statement stmt : while1.getBody()) {
 			stmt.accept(this);
 		}
@@ -47,7 +48,7 @@ public class PlusCalStatementTypeConstraintVisitor extends StatementVisitor<Void
 
 	@Override
 	public Void visit(If if1) throws RuntimeException {
-		solver.addConstraint(ctx, new PGoTypeConstraint(if1, exprVisitor.wrappedVisit(if1.getCondition()), new PGoTypeBool(if1)));
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(if1, exprVisitor.wrappedVisit(if1.getCondition()), new PGoTypeBool(Collections.singletonList(if1))));
 		for (Statement stmt : if1.getYes()) {
 			stmt.accept(this);
 		}
@@ -66,7 +67,7 @@ public class PlusCalStatementTypeConstraintVisitor extends StatementVisitor<Void
 	@Override
 	public Void visit(Assignment assignment) throws RuntimeException {
 		for(AssignmentPair pair : assignment.getPairs()) {
-			solver.addConstraint(ctx, new PGoTypeConstraint(
+			solver.addConstraint(new PGoTypeMonomorphicConstraint(
 					pair,
 					exprVisitor.wrappedVisit(pair.getLhs()),
 					exprVisitor.wrappedVisit(pair.getRhs())));
@@ -95,14 +96,14 @@ public class PlusCalStatementTypeConstraintVisitor extends StatementVisitor<Void
 		List<PGoType> callArgs = new ArrayList<>();
 		for (PGoTLAExpression e : call.getArguments()) {
 			TLAExpressionTypeConstraintVisitor v =
-					new TLAExpressionTypeConstraintVisitor(ctx, registry, solver, generator, mapping);
+					new TLAExpressionTypeConstraintVisitor(registry, solver, generator, mapping);
 			e.accept(v);
 			callArgs.add(mapping.get(e.getUID()));
 		}
-		solver.addConstraint(ctx, new PGoTypeConstraint(
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(
 				call,
 				mapping.get(proc.getUID()),
-				new PGoTypeProcedure(callArgs, call)));
+				new PGoTypeProcedure(callArgs, Collections.singletonList(call))));
 		return null;
 	}
 
@@ -113,7 +114,7 @@ public class PlusCalStatementTypeConstraintVisitor extends StatementVisitor<Void
 
 	@Override
 	public Void visit(With with) throws RuntimeException {
-		TypeInferencePass.constrainVariableDecl(ctx, registry, with.getVariable(), solver, generator, mapping);
+		TypeInferencePass.constrainVariableDeclaration(registry, with.getVariable(), solver, generator, mapping);
 		for (Statement stmt : with.getBody()) {
 			stmt.accept(this);
 		}
@@ -130,20 +131,20 @@ public class PlusCalStatementTypeConstraintVisitor extends StatementVisitor<Void
 			for (int i = 0; i < probableSize; i++) {
 				elemTypes.add(generator.get());
 			}
-			solver.addConstraint(ctx, new PGoTypeConstraint(expr, t, new PGoTypeTuple(elemTypes, print)));
+			solver.addConstraint(new PGoTypeMonomorphicConstraint(expr, t, new PGoTypeTuple(elemTypes, Collections.singletonList(print))));
 		}
 		return null;
 	}
 
 	@Override
 	public Void visit(Assert assert1) throws RuntimeException {
-		solver.addConstraint(ctx, new PGoTypeConstraint(assert1, exprVisitor.wrappedVisit(assert1.getCondition()), new PGoTypeBool(assert1)));
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(assert1, exprVisitor.wrappedVisit(assert1.getCondition()), new PGoTypeBool(Collections.singletonList(assert1))));
 		return null;
 	}
 
 	@Override
 	public Void visit(Await await) throws RuntimeException {
-		solver.addConstraint(ctx, new PGoTypeConstraint(await, exprVisitor.wrappedVisit(await.getCondition()), new PGoTypeBool(await)));
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(await, exprVisitor.wrappedVisit(await.getCondition()), new PGoTypeBool(Collections.singletonList(await))));
 		return null;
 	}
 

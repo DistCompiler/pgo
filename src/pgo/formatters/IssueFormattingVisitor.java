@@ -6,9 +6,7 @@ import java.nio.file.Path;
 import pgo.errors.IssueVisitor;
 import pgo.errors.IssueWithContext;
 import pgo.model.pcal.Macro;
-import pgo.model.type.UnrealizableTypeIssue;
-import pgo.model.type.UnsatisfiableConstraintIssue;
-import pgo.model.type.UnsatisfiablePolymorphicConstraintIssue;
+import pgo.model.type.*;
 import pgo.trans.intermediate.*;
 
 public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
@@ -193,6 +191,28 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 	}
 
 	@Override
+	public Void visit(BacktrackingFailureIssue backtrackingFailureIssue) throws IOException {
+		PGoTypePolymorphicConstraint polymorphicConstraint = backtrackingFailureIssue.getPolymorphicConstraint();
+		out.write("could not satisfy ");
+		polymorphicConstraint.accept(new DerivedFormattingVisitor(out));
+		out.write("; constraint is ");
+		boolean first = true;
+		for (PGoTypeEqualityConstraint equalityConstraint : polymorphicConstraint) {
+			if (first) {
+				first = false;
+			} else {
+				out.write(" OR ");
+			}
+			out.write("[");
+			out.write(equalityConstraint.getLhs().toString());
+			out.write("] = [");
+			out.write(equalityConstraint.getRhs().toString());
+			out.write("]");
+		}
+		return null;
+	}
+
+	@Override
 	public Void visit(UnrealizableTypeIssue unrealizableTypeIssue) throws IOException {
 		out.write("could not realize ");
 		unrealizableTypeIssue.getType().accept(new DerivedFormattingVisitor(out));
@@ -201,21 +221,12 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 
 	@Override
 	public Void visit(UnsatisfiableConstraintIssue unsatisfiableConstraintIssue) throws IOException {
-		out.write("could not unify types ");
+		out.write("could not unify ");
 		unsatisfiableConstraintIssue.getLhs().accept(new DerivedFormattingVisitor(out));
 		out.write(" and ");
 		unsatisfiableConstraintIssue.getRhs().accept(new DerivedFormattingVisitor(out));
-		out.write("; constraint derived from ");
+		out.write("; ");
 		unsatisfiableConstraintIssue.getConstraint().accept(new DerivedFormattingVisitor(out));
-		return null;
-	}
-
-	@Override
-	public Void visit(UnsatisfiablePolymorphicConstraintIssue unsatisfiablePolymorphicConstraintIssue) throws IOException {
-		out.write("could not satisfy polymorphic constraint for ");
-		out.write(unsatisfiablePolymorphicConstraintIssue.getArgTypes().toString());
-		out.write(" from ");
-		unsatisfiablePolymorphicConstraintIssue.getOrigin().accept(new OriginFormattingVisitor(out));
 		return null;
 	}
 
