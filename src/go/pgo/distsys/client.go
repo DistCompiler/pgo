@@ -68,6 +68,7 @@ func (ss *StateServer) Acquire(spec *BorrowSpec) (VarReferences, error) {
 
 	for op.HasNext() {
 		group := op.Next()
+		group.Requester = ss.self
 
 		refs, err := stateBuilder(group, ss).GetState()
 		if err != nil {

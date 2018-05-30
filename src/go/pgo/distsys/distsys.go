@@ -405,8 +405,9 @@ func (op *GlobalStateOperation) Groups() []*VarReq {
 // VarReq represents a request to be sent to another peer in the system. It encapsulates
 // the address of the peer as well as the pieces of state required from it
 type VarReq struct {
-	Peer  string                // the host to which this request should be sent
-	Names []*BorrowSpecVariable // maps state names to whether exclusive access is required or not
+	Peer      string                // the node to which this request should be sent
+	Requester string                // the node sending the request
+	Names     []*BorrowSpecVariable // maps state names to whether exclusive access is required or not
 }
 
 func (req *VarReq) String() string {

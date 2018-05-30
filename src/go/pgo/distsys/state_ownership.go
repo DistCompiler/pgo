@@ -12,12 +12,12 @@ const (
 )
 
 type MigrationStrategy interface {
-	ShouldMigrate(name string) bool
+	ShouldMigrate(name, requester string) bool
 }
 
 type NeverMigrate string
 
-func (never NeverMigrate) ShouldMigrate(_ string) bool {
+func (never NeverMigrate) ShouldMigrate(_, _ string) bool {
 	return false
 }
 
@@ -87,6 +87,7 @@ func refBuilder(handler *localStateHandler, variable *BorrowSpecVariable) RefHan
 
 		return RefValHandler{
 			name:              variable.Name,
+			requester:         handler.requester,
 			exclusive:         variable.Exclusive,
 			store:             handler.store,
 			ownership:         handler.ownership,
@@ -100,6 +101,7 @@ func refBuilder(handler *localStateHandler, variable *BorrowSpecVariable) RefHan
 
 type RefValHandler struct {
 	name              string
+	requester         string
 	exclusive         bool
 	store             *SimpleDataStore
 	ownership         *OwnershipTable
@@ -120,7 +122,7 @@ func (refhandler RefValHandler) GetRef() *Reference {
 		log.Panic(err)
 	}
 
-	moveOwnership := refhandler.migrationStrategy.ShouldMigrate(refhandler.name)
+	moveOwnership := refhandler.migrationStrategy.ShouldMigrate(refhandler.name, refhandler.requester)
 
 	if moveOwnership {
 		// if we are moving this name, make sure we have exclusive access
@@ -130,8 +132,8 @@ func (refhandler RefValHandler) GetRef() *Reference {
 
 		refhandler.store.Delete(refhandler.name)
 
-		// TODO migrate requester information when requesting global state
-		refhandler.ownership.Update(refhandler.name, "10.10.10.10")
+		// update our ownership table to reflect the migration
+		refhandler.ownership.Update(refhandler.name, refhandler.requester)
 	}
 
 	return &Reference{
@@ -166,6 +168,7 @@ func (refhandler RefSkipHandler) GetRef() *Reference {
 // to be present in this node's local store.
 type localStateHandler struct {
 	group             *VarReq           // the variables to be manipulated, including their permissions
+	requester         string            // address of the node who sent the request for this group of variables
 	store             *SimpleDataStore  // the underlying data store
 	ownership         *OwnershipTable   // the current state of the ownership table
 	migrationStrategy MigrationStrategy // when to migrate state

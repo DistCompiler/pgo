@@ -3,6 +3,7 @@ package distsys
 func (iface *StateServerRPC) GetState(req *VarReq, refs *VarReferences) error {
 	handler := localStateHandler{
 		group:             req,
+		requester:         req.Requester,
 		store:             iface.server.store,
 		ownership:         iface.server.ownership,
 		migrationStrategy: iface.server.migrationStrategy,
