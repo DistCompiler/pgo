@@ -125,6 +125,17 @@ func (data *SimpleDataStore) Set(name string, val interface{}) {
 	entry.value = val
 }
 
+// Delete removes the entry associated with the `name` given. Panics if the
+// name is not found. The caller must have successfully called `HoldExclusive`
+// on the same name prior to calling this function.
+func (data *SimpleDataStore) Delete(name string) {
+	if _, inStore := data.store[name]; !inStore {
+		log.Panic(NameNotFoundError(name))
+	}
+
+	delete(data.store, name)
+}
+
 func (data *SimpleDataStore) String() string {
 	var buf bytes.Buffer
 	var i int

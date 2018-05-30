@@ -62,6 +62,17 @@ func (ownership *OwnershipTable) IsMine(name string) bool {
 	return ownership.Lookup(name) == ownership.self
 }
 
+// Update changes the ownership of variable `name` to the `address` given.
+// Assumes that the caller has an appropriate write lock to the entry.
+func (ownership *OwnershipTable) Update(name, address string) {
+	peer, found := ownership.table[name]
+	if !found {
+		log.Panicf("%v", UnknownOwnerError{name})
+	}
+
+	peer.address = address
+}
+
 type RefHandler interface {
 	GetRef() *Reference
 }
@@ -78,6 +89,7 @@ func refBuilder(handler *localStateHandler, variable *BorrowSpecVariable) RefHan
 			name:              variable.Name,
 			exclusive:         variable.Exclusive,
 			store:             handler.store,
+			ownership:         handler.ownership,
 			migrationStrategy: handler.migrationStrategy,
 		}
 	}
@@ -90,6 +102,7 @@ type RefValHandler struct {
 	name              string
 	exclusive         bool
 	store             *SimpleDataStore
+	ownership         *OwnershipTable
 	migrationStrategy MigrationStrategy
 }
 
@@ -108,6 +121,18 @@ func (refhandler RefValHandler) GetRef() *Reference {
 	}
 
 	moveOwnership := refhandler.migrationStrategy.ShouldMigrate(refhandler.name)
+
+	if moveOwnership {
+		// if we are moving this name, make sure we have exclusive access
+		// to it first
+		refhandler.store.HoldExclusive(refhandler.name)
+		defer refhandler.store.ReleaseExclusive(refhandler.name)
+
+		refhandler.store.Delete(refhandler.name)
+
+		// TODO migrate requester information when requesting global state
+		refhandler.ownership.Update(refhandler.name, "10.10.10.10")
+	}
 
 	return &Reference{
 		Type: REF_VAL,

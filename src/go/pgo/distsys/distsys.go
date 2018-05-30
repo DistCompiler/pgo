@@ -173,6 +173,12 @@ func (self VarReferences) Get(name string) interface{} {
 // Merge takes another VarReferences object and merges it with the receiver.
 // Returns a new VarReferences struct that includes references from both objects
 func (self VarReferences) Merge(other VarReferences) VarReferences {
+	// optimization: if the VarReferences passed as argument to this function
+	// does not contain any reference, just return the target unmodified
+	if len(other) == 0 {
+		return self
+	}
+
 	newrefs := map[string]*Reference{}
 
 	for name, ref := range self {
@@ -235,15 +241,99 @@ type GlobalStateOperation struct {
 	ownership *OwnershipTable
 }
 
-// VarReq represents a request to be sent to another peer in the system. It encapsulates
-// the address of the peer as well as the pieces of state required from it
-type VarReq struct {
-	Peer  string                // the host to which this request should be sent
-	Names []*BorrowSpecVariable // maps state names to whether exclusive access is required or not
+// NewGlobalStateOperation returns a new instance of GlobalStateOperation for
+// the borrow specification passed as argument.
+func NewGlobalStateOperation(spec *BorrowSpec, ownership *OwnershipTable) *GlobalStateOperation {
+	readNames := make([]string, len(spec.ReadNames))
+	writeNames := make([]string, len(spec.WriteNames))
+
+	// create an internal copy of the borrow spec being used since it is modified internally
+	// on calls to `UpdateRefs`
+	copy(readNames, spec.ReadNames)
+	copy(writeNames, spec.WriteNames)
+	specCopy := &BorrowSpec{
+		ReadNames:  readNames,
+		WriteNames: writeNames,
+	}
+
+	return &GlobalStateOperation{
+		spec:      specCopy,
+		ownership: ownership,
+	}
 }
 
-func (req *VarReq) String() string {
-	return fmt.Sprintf("VarReq(Peer=%s, Names=%s)", req.Peer, SortedBorrowSpec(req.Names).String())
+// HasNext returns true when there are more variables to be processed
+// (i.e., get a `REF_VALUE`) in the BorrowSpec passed on initialization
+func (global *GlobalStateOperation) HasNext() bool {
+	return len(global.spec.ReadNames) > 0 || len(global.spec.WriteNames) > 0
+}
+
+// Next returns the next group of variables to be processed by
+// the caller. Should be used before a call to `Next` is made.
+func (global *GlobalStateOperation) Next() *VarReq {
+	return global.Groups()[0]
+}
+
+// UpdateRefs updates the global state operation with a set of references
+// obtained either from the local state handler, or from a remote node
+// in the system.
+func (global *GlobalStateOperation) UpdateRefs(refs VarReferences) VarReferences {
+	holds := VarReferences(map[string]*Reference{})
+
+	for name, ref := range refs {
+		switch ref.Type {
+		case REF_VAL:
+			holds[name] = ref
+			global.deleteFromSpec(name)
+
+		case REF_MOVED:
+			// update ownership table
+
+			// make sure nobody else is reading the entry
+			owner := global.ownership.table[name]
+
+			owner.Lock()
+			global.ownership.Update(name, ref.Peer)
+			owner.Unlock()
+
+		case REF_SKIP:
+			// skip
+		}
+	}
+
+	return holds
+}
+
+func (global *GlobalStateOperation) deleteFromSpec(name string) {
+	deleted := global.deleteFromCollection(name, &global.spec.ReadNames)
+	deleted += global.deleteFromCollection(name, &global.spec.WriteNames)
+
+	if deleted == 0 {
+		log.Panicf("Expected to find '%s' in borrow spec, but couldn't", name)
+	}
+}
+
+// deleteFromCollection looks for the given `name` in the `collection` given,
+// and removes it from the slice. Returns the number of elements deleted from
+// the collection (i.e., 1 when the name is in the collection, 0 otherwise)
+func (global *GlobalStateOperation) deleteFromCollection(name string, collection *[]string) int {
+	nameIndex := -1
+
+	for i, rname := range *collection {
+		if name == rname {
+			nameIndex = i
+			break
+		}
+	}
+
+	if nameIndex == -1 {
+		return 0
+	}
+
+	(*collection)[nameIndex] = (*collection)[len(*collection)-1]
+	*collection = (*collection)[:len(*collection)-1]
+
+	return 1
 }
 
 // Groups places the variables contained in a `BorrowSpec` in groupings that minimize
@@ -310,6 +400,17 @@ func (op *GlobalStateOperation) Groups() []*VarReq {
 	reqs = append(reqs, currVarReq)
 
 	return reqs
+}
+
+// VarReq represents a request to be sent to another peer in the system. It encapsulates
+// the address of the peer as well as the pieces of state required from it
+type VarReq struct {
+	Peer  string                // the host to which this request should be sent
+	Names []*BorrowSpecVariable // maps state names to whether exclusive access is required or not
+}
+
+func (req *VarReq) String() string {
+	return fmt.Sprintf("VarReq(Peer=%s, Names=%s)", req.Peer, SortedBorrowSpec(req.Names).String())
 }
 
 // StateServer represents the current state of the global state at a given time, including

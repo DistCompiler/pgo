@@ -63,20 +63,19 @@ func stateBuilder(group *VarReq, ss *StateServer) stateHandler {
 // the values of the variables in the spec given, with the requested permissions (i.e.,
 // exclusive or non-exclusive (read-only) access).
 func (ss *StateServer) Acquire(spec *BorrowSpec) (VarReferences, error) {
-	op := GlobalStateOperation{
-		spec:      spec,
-		ownership: ss.ownership,
-	}
-
+	op := NewGlobalStateOperation(spec, ss.ownership)
 	allRefs := VarReferences(map[string]*Reference{})
 
-	for _, group := range op.Groups() {
+	for op.HasNext() {
+		group := op.Next()
+
 		refs, err := stateBuilder(group, ss).GetState()
 		if err != nil {
 			return nil, err
 		}
 
-		allRefs = allRefs.Merge(refs)
+		holds := op.UpdateRefs(refs)
+		allRefs = allRefs.Merge(holds)
 	}
 
 	return allRefs, nil
