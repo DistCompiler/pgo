@@ -3,19 +3,14 @@ package pgo.trans.intermediate;
 import java.util.List;
 import java.util.Map;
 
-import pgo.model.golang.BlockBuilder;
-import pgo.model.golang.Expression;
-import pgo.model.golang.FunctionArgument;
-import pgo.model.golang.Index;
-import pgo.model.golang.IntLiteral;
-import pgo.model.golang.VariableName;
+import pgo.model.golang.*;
 import pgo.model.pcal.Algorithm;
 import pgo.model.pcal.VariableDeclaration;
+import pgo.model.tla.PGoTLAExpression;
 import pgo.model.type.PGoType;
 import pgo.scope.UID;
 
 public class SingleFunctionGlobalVariableStrategy implements GlobalVariableStrategy {
-
 	private Algorithm algorithm;
 	private DefinitionRegistry registry;
 	private Map<UID, PGoType> typeMap;
@@ -29,10 +24,10 @@ public class SingleFunctionGlobalVariableStrategy implements GlobalVariableStrat
 	@Override
 	public void generateSetup(BlockBuilder builder) {
 		// set up variables
-		for(VariableDeclaration var : algorithm.getVariables()) {
+		for (VariableDeclaration var : algorithm.getVariables()) {
 			Expression value = var.getValue().accept(
 					new TLAExpressionCodeGenVisitor(builder, registry, typeMap, this));
-			if(var.isSet()) {
+			if (var.isSet()) {
 				value = new Index(value, new IntLiteral(0));
 			}
 			VariableName name = builder.varDecl(var.getName(), value);
@@ -68,7 +63,6 @@ public class SingleFunctionGlobalVariableStrategy implements GlobalVariableStrat
 	@Override
 	public GlobalVariableWrite writeGlobalVariable(UID id) {
 		return new GlobalVariableWrite() {
-
 			@Override
 			public Expression getValueSink(BlockBuilder builder) {
 				return builder.findUID(id);
@@ -78,8 +72,11 @@ public class SingleFunctionGlobalVariableStrategy implements GlobalVariableStrat
 			public void writeAfter(BlockBuilder builder) {
 				// pass
 			}
-
 		};
 	}
 
+	@Override
+	public AwaitFailure awaitFailure() {
+		return (builder, condition) -> builder.addPanic(new StringLiteral(condition.toString()));
+	}
 }

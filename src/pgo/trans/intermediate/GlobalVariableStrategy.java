@@ -5,31 +5,35 @@ import java.util.List;
 import pgo.model.golang.BlockBuilder;
 import pgo.model.golang.Expression;
 import pgo.model.golang.FunctionArgument;
+import pgo.model.tla.PGoTLAExpression;
 import pgo.scope.UID;
 
-public interface GlobalVariableStrategy {
-	
-	public void generateSetup(BlockBuilder builder);
-	
-	public List<FunctionArgument> getExtraProcessArguments();
-	
-	public void startCriticalSection(BlockBuilder builder);
-	
-	public void abortCriticalSection(BlockBuilder builder);
-	
-	public void endCriticalSection(BlockBuilder builder);
-	
-	public Expression readGlobalVariable(BlockBuilder builder, UID id);
-	
-	public interface GlobalVariableWrite{
-		
-		public Expression getValueSink(BlockBuilder builder);
-		
-		public void writeAfter(BlockBuilder builder);
+interface GlobalVariableStrategy {
+	void generateSetup(BlockBuilder builder);
+
+	List<FunctionArgument> getExtraProcessArguments();
+
+	void startCriticalSection(BlockBuilder builder);
+
+	void abortCriticalSection(BlockBuilder builder);
+
+	void endCriticalSection(BlockBuilder builder);
+
+	Expression readGlobalVariable(BlockBuilder builder, UID id);
+
+	interface GlobalVariableWrite {
+		Expression getValueSink(BlockBuilder builder);
+		void writeAfter(BlockBuilder builder);
 	}
-	
-	public GlobalVariableWrite writeGlobalVariable(UID id);
-	
+
+	GlobalVariableWrite writeGlobalVariable(UID id);
+
+	interface AwaitFailure {
+		void write(BlockBuilder builder, PGoTLAExpression condition);
+	}
+
+	AwaitFailure awaitFailure();
+
 	// map global variables to locals
 	// commit on success
 	// rollback on failure

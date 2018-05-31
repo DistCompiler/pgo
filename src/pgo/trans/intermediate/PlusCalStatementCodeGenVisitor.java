@@ -10,8 +10,6 @@ import pgo.model.pcal.Statement;
 import pgo.model.pcal.StatementVisitor;
 import pgo.model.pcal.VariableDeclaration;
 import pgo.model.tla.PGoTLAExpression;
-import pgo.model.tla.PGoTLASymbol;
-import pgo.model.tla.PGoTLAUnary;
 import pgo.model.type.PGoType;
 import pgo.scope.UID;
 
@@ -165,11 +163,8 @@ public class PlusCalStatementCodeGenVisitor extends StatementVisitor<Void, Runti
 	@Override
 	public Void visit(Assert assert1) throws RuntimeException {
 		PGoTLAExpression cond = assert1.getCondition();
-		PGoTLAUnary invertedCond = new PGoTLAUnary(
-				cond.getLocation(), new PGoTLASymbol(cond.getLocation(), "~"), Collections.emptyList(), cond);
-		Expression invertedCondExpr = invertedCond
-				.accept(new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
-		try (IfBuilder ifBuilder = builder.ifStmt(invertedCondExpr)) {
+		try (IfBuilder ifBuilder = builder.ifStmt(CodeGenUtil.invertCondition(
+				builder, registry, typeMap, globalStrategy, cond))) {
 			try (BlockBuilder yes = ifBuilder.whenTrue()) {
 				yes.addPanic(new StringLiteral(cond.toString()));
 			}
@@ -179,7 +174,14 @@ public class PlusCalStatementCodeGenVisitor extends StatementVisitor<Void, Runti
 
 	@Override
 	public Void visit(Await await) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		PGoTLAExpression cond = await.getCondition();
+		try (IfBuilder ifBuilder = builder.ifStmt(CodeGenUtil.invertCondition(
+				builder, registry, typeMap, globalStrategy, cond))) {
+			try (BlockBuilder yes = ifBuilder.whenTrue()) {
+				globalStrategy.awaitFailure().write(yes, cond);
+			}
+		}
+		return null;
 	}
 
 	@Override
