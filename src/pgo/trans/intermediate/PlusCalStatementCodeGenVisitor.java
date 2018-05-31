@@ -9,10 +9,14 @@ import pgo.model.pcal.Return;
 import pgo.model.pcal.Statement;
 import pgo.model.pcal.StatementVisitor;
 import pgo.model.pcal.VariableDeclaration;
+import pgo.model.tla.PGoTLAExpression;
+import pgo.model.tla.PGoTLASymbol;
+import pgo.model.tla.PGoTLAUnary;
 import pgo.model.type.PGoType;
 import pgo.scope.UID;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -153,7 +157,17 @@ public class PlusCalStatementCodeGenVisitor extends StatementVisitor<Void, Runti
 
 	@Override
 	public Void visit(Assert assert1) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		PGoTLAExpression cond = assert1.getCondition();
+		PGoTLAUnary invertedCond = new PGoTLAUnary(
+				cond.getLocation(), new PGoTLASymbol(cond.getLocation(), "~"), Collections.emptyList(), cond);
+		Expression invertedCondExpr = invertedCond
+				.accept(new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
+		try (IfBuilder ifBuilder = builder.ifStmt(invertedCondExpr)) {
+			try (BlockBuilder yes = ifBuilder.whenTrue()) {
+				yes.addPanic(new StringLiteral(cond.toString()));
+			}
+		}
+		return null;
 	}
 
 	@Override
