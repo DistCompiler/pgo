@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public class PlusCalStatementCodeGenVisitor extends StatementVisitor<Void, RuntimeException> {
 
@@ -100,7 +101,8 @@ public class PlusCalStatementCodeGenVisitor extends StatementVisitor<Void, Runti
 
 	@Override
 	public Void visit(Return return1) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		builder.addStatement(new pgo.model.golang.Return(Collections.emptyList()));
+		return null;
 	}
 
 	@Override
@@ -111,7 +113,12 @@ public class PlusCalStatementCodeGenVisitor extends StatementVisitor<Void, Runti
 
 	@Override
 	public Void visit(Call call) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		builder.addStatement(new ExpressionStatement(new pgo.model.golang.Call(
+				new VariableName(call.getTarget()),
+				call.getArguments().stream()
+						.map(a ->a.accept(new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy)))
+						.collect(Collectors.toList()))));
+		return null;
 	}
 
 	@Override
@@ -177,6 +184,7 @@ public class PlusCalStatementCodeGenVisitor extends StatementVisitor<Void, Runti
 
 	@Override
 	public Void visit(Goto goto1) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		builder.goTo(new LabelName(goto1.getTarget()));
+		return null;
 	}
 }

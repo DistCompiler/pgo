@@ -172,7 +172,7 @@ public class TLAExpressionCodeGenVisitor extends PGoTLAExpressionVisitor<Express
 					.accept(new TLAExpressionCodeGenVisitor(innerBlock, registry, typeMap, globalStrategy)))) {
 				try (BlockBuilder yes = ifBuilder.whenTrue()) {
 					yes.assign(exists, Builtins.True);
-					yes.addStatement(new GoTo(labelName));
+					yes.goTo(labelName);
 				}
 			}
 		});

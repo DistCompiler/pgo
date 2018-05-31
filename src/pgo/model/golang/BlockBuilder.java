@@ -110,6 +110,10 @@ public class BlockBuilder extends ASTBuilder implements Closeable {
 		return new VariableName(actualName);
 	}
 
+	public void goTo(LabelName name) {
+		addStatement(new GoTo(name));
+	}
+
 	public void addPanic(Expression e) {
 		addStatement(new ExpressionStatement(new Call(new VariableName("panic"), Collections.singletonList(e))));
 	}
