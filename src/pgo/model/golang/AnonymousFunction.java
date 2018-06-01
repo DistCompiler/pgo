@@ -7,17 +7,17 @@ import java.util.List;
  *
  */
 public class AnonymousFunction extends Expression {
-	private List<Type> returnTypes;
 	private List<FunctionArgument> arguments;
+	private List<FunctionArgument> returnTypes;
 	private Block body;
 	
-	public AnonymousFunction(List<FunctionArgument> arguments, List<Type> returnTypes, Block body) {
+	public AnonymousFunction(List<FunctionArgument> arguments, List<FunctionArgument> returnTypes, Block body) {
 		this.arguments = arguments;
 		this.returnTypes = returnTypes;
 		this.body = body;
 	}
 	
-	public List<Type> getReturnTypes(){
+	public List<FunctionArgument> getReturnTypes(){
 		return returnTypes;
 	}
 	

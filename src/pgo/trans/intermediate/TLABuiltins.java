@@ -10,12 +10,9 @@ public class TLABuiltins {
 
 	private TLABuiltins() {}
 
-	public static Type ensureSetType(Map<UID, PGoType> typeMap, UID uid) {
-		Type elementType = ((PGoTypeSet) typeMap.get(uid)).getElementType().accept(new PGoTypeGoTypeConversionVisitor());
-		if (!elementType.equals(Builtins.Int) && !elementType.equals(Builtins.Float64) && !elementType.equals(Builtins.String)) {
-			throw new RuntimeException("TODO");
-		}
-		return elementType;
+	public static Type getSetElementType(PGoType setType) {
+		PGoType elementType = ((PGoTypeSet)setType).getElementType();
+		return elementType.accept(new PGoTypeGoTypeConversionVisitor());
 	}
 
 	public static void ensureUniqueSorted(BlockBuilder builder, Type elementType, VariableName set) {
@@ -28,10 +25,32 @@ public class TLABuiltins {
 		} else if (elementType.equals(Builtins.String)) {
 			sortFunction = "Strings";
 		} else {
-			throw new RuntimeException("unreachable");
+			sortFunction = "Slice";
 		}
-		builder.addStatement(new ExpressionStatement(new Call(
-				new Selector(new VariableName("sort"), sortFunction), Collections.singletonList(set))));
+		if(sortFunction.equals("Slice")) {
+			AnonymousFunctionBuilder comparatorBuilder = builder.anonymousFunction();
+			VariableName i = comparatorBuilder.addArgument("i", Builtins.Int);
+			VariableName j = comparatorBuilder.addArgument("j", Builtins.Int);
+			comparatorBuilder.addReturn(Builtins.Bool);
+			try(BlockBuilder comparatorBody = comparatorBuilder.getBlockBuilder()){
+				comparatorBody.addStatement(
+						new Return(
+								Collections.singletonList(
+										elementType.accept(
+												new LessThanCodeGenVisitor(
+														comparatorBody,
+														new Index(set, i),
+														new Index(set, j))))));
+			}
+			builder.addStatement(new ExpressionStatement(new Call(
+					new Selector(new VariableName("sort"), sortFunction),
+					Arrays.asList(
+							set,
+							comparatorBuilder.getFunction()))));
+		}else {
+			builder.addStatement(new ExpressionStatement(new Call(
+					new Selector(new VariableName("sort"), sortFunction), Collections.singletonList(set))));
+		}
 		// make elements unique with the following Go code
 		//
 		// if len(set) > 1 {
@@ -55,11 +74,10 @@ public class TLABuiltins {
 						"previousValue", new Index(set, new IntLiteral(0)));
 				VariableName currentIndex = yes.varDecl("currentIndex", new IntLiteral(1));
 				ForRangeBuilder forRangeBuilder = yes.forRange(new SliceOperator(set, new IntLiteral(1), null, null));
-				List<VariableName> names = forRangeBuilder.initVariables(Arrays.asList("i", "v"));
-				VariableName i = names.get(0);
-				VariableName v = names.get(1);
+				VariableName v = forRangeBuilder.initVariables(Arrays.asList("_", "v")).get(1);
 				try (BlockBuilder forBody = forRangeBuilder.getBlockBuilder()) {
-					try (IfBuilder innerIf = forBody.ifStmt(new Binop(Binop.Operation.NEQ, v, previousValue))) {
+					try (IfBuilder innerIf = forBody.ifStmt(elementType.accept(
+							new EqCodeGenVisitor(forBody, previousValue, v, true)))) {
 						try (BlockBuilder innerYes = innerIf.whenTrue()) {
 							innerYes.assign(new Index(set, currentIndex), v);
 							innerYes.addStatement(new IncDec(true, currentIndex));
@@ -80,20 +98,30 @@ public class TLABuiltins {
 					solver.addConstraint(new PGoTypeMonomorphicConstraint(origin, args.get(0), args.get(1)));
 					return new PGoTypeBool(Collections.singletonList(origin));
 				},
-				(builder, origin, registry, arguments, typeMap) -> typeMap.get(origin.getUID()).accept(
-						new PGoTypeEqualityCodeGenVisitor(
-								builder, false, registry, arguments.get(0), arguments.get(1)))
-				));
+				(builder, origin, registry, arguments, typeMap, globalStrategy) -> {
+					Expression lhs = arguments.get(0).accept(
+							new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
+					Expression rhs = arguments.get(1).accept(
+							new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
+					return typeMap.get(arguments.get(0).getUID())
+							.accept(new PGoTypeGoTypeConversionVisitor())
+							.accept(new EqCodeGenVisitor(builder, lhs, rhs, false));
+				}));
 		universalBuiltins.addOperator("#", new BuiltinOperator(
 				2,
 				(origin, args, solver, generator) -> {
 					solver.addConstraint(new PGoTypeMonomorphicConstraint(origin, args.get(0), args.get(1)));
 					return new PGoTypeBool(Collections.singletonList(origin));
 				},
-				(builder, origin, registry, arguments, typeMap) -> typeMap.get(origin.getUID()).accept(
-						new PGoTypeEqualityCodeGenVisitor(
-								builder, true, registry, arguments.get(0), arguments.get(1)))
-				));
+				(builder, origin, registry, arguments, typeMap, globalStrategy) -> {
+					Expression lhs = arguments.get(0).accept(
+							new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
+					Expression rhs = arguments.get(1).accept(
+							new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
+					return typeMap.get(arguments.get(0).getUID())
+							.accept(new PGoTypeGoTypeConversionVisitor())
+							.accept(new EqCodeGenVisitor(builder, lhs, rhs, true));
+				}));
 		universalBuiltins.addOperator("\\in", new BuiltinOperator(
 				2,
 				(origin, args, solver, generator) -> {
@@ -103,7 +131,7 @@ public class TLABuiltins {
 							origin, args.get(1), new PGoTypeSet(memberType, Collections.singletonList(origin))));
 					return new PGoTypeBool(Collections.singletonList(origin));
 				},
-				(builder, origin, registry, arguments, typeMap) -> {
+				(builder, origin, registry, arguments, typeMap, globalStrategy) -> {
 					throw new RuntimeException("TODO");
 				}
 				));
@@ -115,21 +143,21 @@ public class TLABuiltins {
 					solver.addConstraint(new PGoTypeMonomorphicConstraint(origin, args.get(1), fresh));
 					return fresh;
 				},
-				(builder, origin, registry, arguments, typeMap) -> {
+				(builder, origin, registry, arguments, typeMap, globalStrategy) -> {
 					// lenLhs = len(lhs)
-					// tmpSet := make([]type, lenLhs)
-					// currentIndex := 0
-					// for i := 0; i < lenLhs; i++ {
-					// 	index := sort.SearchTypes(rhs, lhs[i])
-					// 	if index >= lenLhs || rhs[index] != lhs[i] {
-					// 		// keep lhs[i]
-					// 		lhs[currentIndex] = lhs[i]
-					// 		currentIndex += 1
+					// tmpSet := make([]type, 0, lenLhs)
+					// for _, v := range lhs {
+					// 	index := sort.SearchTypes(rhs, v)
+					// 	if index < len(rhs) {
+					//		if rhs[index] == v {
+					//			continue
+					//		}
 					// 	}
+					//  // keep the element
+					//  tmpSet = append(tmpSet, v)
 					// }
-					// tmpSet = tmpSet[:currentIndex]
 					builder.addImport("sort");
-					Type elementType = ensureSetType(typeMap, origin.getUID());
+					Type elementType = getSetElementType(typeMap.get(origin.getUID()));
 					String searchFunction;
 					if (elementType.equals(Builtins.Int)) {
 						searchFunction = "SearchInts";
@@ -138,53 +166,84 @@ public class TLABuiltins {
 					} else if (elementType.equals(Builtins.String)) {
 						searchFunction = "SearchStrings";
 					} else {
-						throw new RuntimeException("unreachable");
+						searchFunction = "Search";
 					}
-					Expression lhs = arguments.get(0);
-					Expression rhs = arguments.get(1);
-					VariableName lenLhs = builder.varDecl(
-							"lenLhs",
-							new Call(new VariableName("len"), Collections.singletonList(lhs)));
+					Expression lhs = arguments.get(0).accept(
+							new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
+					Expression rhs = arguments.get(1).accept(
+							new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
+					Expression lenLhs = new Call(new VariableName("len"), Collections.singletonList(lhs));
+					Expression lenRhs = new Call(new VariableName("len"), Collections.singletonList(rhs));
 					VariableName tmpSet = builder.varDecl(
 							"tmpSet",
 							new Make(
 									new SliceType(elementType),
-									lenLhs,
-									null));
-					VariableName currentIndex = builder.varDecl("currentIndex", new IntLiteral(0));
-					ForStatementClauseBuilder forBuilder = builder.forLoopWithClauses();
-					VariableName i = forBuilder.initVariable("i", new IntLiteral(0));
-					forBuilder.setCondition(new Binop(Binop.Operation.LT, i, lenLhs));
-					forBuilder.setInc(new IncDec(true, i));
+									new IntLiteral(0),
+									lenLhs));
+					ForRangeBuilder forBuilder = builder.forRange(lhs);
+					VariableName v = forBuilder.initVariables(Arrays.asList("_", "v")).get(1);
 					try (BlockBuilder forBody = forBuilder.getBlockBuilder()) {
-						VariableName index = forBody.varDecl(
-								"index",
-								new Call(
-										new Selector(new VariableName("sort"), searchFunction),
-										Arrays.asList(rhs, new Index(lhs, i))));
+						VariableName index;
+						if(searchFunction.equals("Search")) {
+							AnonymousFunctionBuilder checkBuilder = forBody.anonymousFunction();
+							VariableName j = checkBuilder.addArgument("j", Builtins.Int);
+							checkBuilder.addReturn(Builtins.Bool);
+							try(BlockBuilder checkBody = checkBuilder.getBlockBuilder()){
+								checkBody.addStatement(
+										new Return(
+												Collections.singletonList(
+														new Unary(
+																Unary.Operation.NOT,
+																elementType.accept(new LessThanCodeGenVisitor(
+																		checkBody,
+																		new Index(rhs, j),
+																		v))))));
+							}
+							index = forBody.varDecl(
+									"index",
+									new Call(
+											new Selector(
+													new VariableName("sort"), "Search"),
+											Arrays.asList(
+													new Call(new VariableName("len"), Collections.singletonList(rhs)),
+													checkBuilder.getFunction())));
+						}else {
+							index = forBody.varDecl(
+									"index",
+									new Call(
+											new Selector(new VariableName("sort"), searchFunction),
+											Arrays.asList(rhs, v)));
+						}
 						try (IfBuilder ifBuilder = forBody.ifStmt(
-								new Binop(Binop.Operation.OR,
-										new Binop(Binop.Operation.GEQ, index, lenLhs),
-										new Binop(Binop.Operation.NEQ, new Index(rhs, index), new Index(lhs, i))))) {
-							try (BlockBuilder yes = ifBuilder.whenTrue()) {
-								yes.assign(new Index(tmpSet, currentIndex), new Index(lhs, i));
-								yes.addStatement(new IncDec(true, currentIndex));
+								new Binop(Binop.Operation.LT, index, lenRhs))){
+							try(BlockBuilder yes = ifBuilder.whenTrue()){
+								try(IfBuilder isEqBuilder = yes.ifStmt(elementType.accept(
+												new EqCodeGenVisitor(
+														yes,
+														new Index(rhs, index),
+														v,
+														true)))){
+									try(BlockBuilder yes2 = isEqBuilder.whenTrue()){
+										yes2.addStatement(new Continue());
+									}
+								}
 							}
 						}
+						forBody.assign(tmpSet, new Call(new VariableName("append"), Arrays.asList(tmpSet, v)));
 					}
-					builder.assign(tmpSet, new SliceOperator(tmpSet, null, currentIndex, null));
 					return tmpSet;
 				}));
-		universalBuiltins.addOperator("~", new BuiltinOperator(
+		universalBuiltins.addOperator("~", new TypelessBuiltinOperator(
 				1,
 				(origin, args, solver, generator) -> {
 					PGoType fresh = new PGoTypeBool(Collections.singletonList(origin));
 					solver.addConstraint(new PGoTypeMonomorphicConstraint(origin, args.get(0), fresh));
 					return fresh;
 				},
-				(builder, origin, registry, arguments, typeMap) -> new Unary(Unary.Operation.NOT, arguments.get(0))
+				(builder, origin, registry, arguments, typeMap) -> new Unary(
+						Unary.Operation.NOT, arguments.get(0))
 				));
-		universalBuiltins.addOperator("\\/", new BuiltinOperator(
+		universalBuiltins.addOperator("\\/", new TypelessBuiltinOperator(
 				2,
 				(origin, args, solver, generator) -> {
 					PGoType fresh = new PGoTypeBool(Collections.singletonList(origin));
@@ -195,7 +254,7 @@ public class TLABuiltins {
 				(builder, origin, registry, arguments, typeMap) -> new Binop(
 						Binop.Operation.OR, arguments.get(0), arguments.get(1))
 				));
-		universalBuiltins.addOperator("/\\", new BuiltinOperator(
+		universalBuiltins.addOperator("/\\", new TypelessBuiltinOperator(
 				2,
 				(origin, args, solver, generator) -> {
 					PGoType fresh = new PGoTypeBool(Collections.singletonList(origin));
@@ -206,7 +265,7 @@ public class TLABuiltins {
 				(builder, origin, registry, arguments, typeMap) -> new Binop(
 						Binop.Operation.AND, arguments.get(0), arguments.get(1))
 				));
-		universalBuiltins.addOperator("\\union", new BuiltinOperator(
+		universalBuiltins.addOperator("\\union", new TypelessBuiltinOperator(
 				2,
 				(origin, args, solver, generator) -> {
 					PGoType fresh = new PGoTypeSet(generator.get(), Collections.singletonList(origin));
@@ -215,7 +274,7 @@ public class TLABuiltins {
 					return fresh;
 				},
 				(builder, origin, registry, arguments, typeMap) -> {
-					Type elementType = ensureSetType(typeMap, origin.getUID());
+					Type elementType = getSetElementType(typeMap.get(origin.getUID()));
 					Expression lhs = arguments.get(0);
 					Expression rhs = arguments.get(1);
 					VariableName tmpSet = builder.varDecl(
@@ -234,7 +293,7 @@ public class TLABuiltins {
 
 		BuiltinModule Sequences = new BuiltinModule();
 		builtinModules.put("Sequences", Sequences);
-		Sequences.addOperator("Len", new BuiltinOperator(
+		Sequences.addOperator("Len", new TypelessBuiltinOperator(
 				1,
 				(origin, args, solver, generator) -> {
 					solver.addConstraint(new PGoTypePolymorphicConstraint(origin, Arrays.asList(
@@ -247,7 +306,7 @@ public class TLABuiltins {
 				(builder, origin, registry, arguments, typeMap) -> new Call(
 						new VariableName("len"), Collections.singletonList(arguments.get(0)))
 				));
-		Sequences.addOperator("Append", new BuiltinOperator(
+		Sequences.addOperator("Append", new TypelessBuiltinOperator(
 				2,
 				(origin, args, solver, generator) -> {
 					PGoTypeVariable elementType = generator.get();
@@ -259,7 +318,7 @@ public class TLABuiltins {
 				(builder, origin, registry, arguments, typeMap) -> new Call(
 						new VariableName("append"), Arrays.asList(arguments.get(0), arguments.get(1)))
 				));
-		Sequences.addOperator("Head", new BuiltinOperator(
+		Sequences.addOperator("Head", new TypelessBuiltinOperator(
 				1,
 				(origin, args, solver, generator) -> {
 					PGoTypeVariable elementType = generator.get();
@@ -268,7 +327,7 @@ public class TLABuiltins {
 				},
 				(builder, origin, registry, arguments, typeMap) -> new Index(arguments.get(0), new IntLiteral(0))
 				));
-		Sequences.addOperator("Tail", new BuiltinOperator(
+		Sequences.addOperator("Tail", new TypelessBuiltinOperator(
 				1,
 				(origin, args, solver, generator) -> {
 					PGoTypeVariable elementType = generator.get();
@@ -282,7 +341,7 @@ public class TLABuiltins {
 
 		BuiltinModule Naturals = new BuiltinModule();
 		builtinModules.put("Naturals", Naturals);
-		Naturals.addOperator("-", new BuiltinOperator(
+		Naturals.addOperator("-", new TypelessBuiltinOperator(
 				2,
 				(origin, args, solver, generator) -> {
 					PGoType fresh = new PGoTypeUnrealizedNumber(new PGoTypeInt(Collections.singletonList(origin)), Collections.singletonList(origin));
@@ -293,7 +352,7 @@ public class TLABuiltins {
 				(builder, origin, registry, arguments, typeMap) -> new Binop(
 						Binop.Operation.MINUS, arguments.get(0), arguments.get(1))
 				));
-		Naturals.addOperator("+", new BuiltinOperator(
+		Naturals.addOperator("+", new TypelessBuiltinOperator(
 				2,
 				(origin, args, solver, generator) -> {
 					PGoType fresh = new PGoTypeUnrealizedNumber(new PGoTypeInt(Collections.singletonList(origin)), Collections.singletonList(origin));
@@ -304,7 +363,7 @@ public class TLABuiltins {
 				(builder, origin, registry, arguments, typeMap) -> new Binop(
 						Binop.Operation.PLUS, arguments.get(0), arguments.get(1))
 				));
-		Naturals.addOperator("%", new BuiltinOperator(
+		Naturals.addOperator("%", new TypelessBuiltinOperator(
 				2,
 				(origin, args, solver, generator) -> {
 					PGoType fresh = new PGoTypeUnrealizedNumber(new PGoTypeInt(Collections.singletonList(origin)), Collections.singletonList(origin));
@@ -315,7 +374,7 @@ public class TLABuiltins {
 				(builder, origin, registry, arguments, typeMap) -> new Binop(
 						Binop.Operation.MOD, arguments.get(0), arguments.get(1))
 				));
-		Naturals.addOperator("*", new BuiltinOperator(
+		Naturals.addOperator("*", new TypelessBuiltinOperator(
 				2,
 				(origin, args, solver, generator) -> {
 					PGoType fresh = new PGoTypeUnrealizedNumber(new PGoTypeInt(Collections.singletonList(origin)), Collections.singletonList(origin));
@@ -326,7 +385,7 @@ public class TLABuiltins {
 				(builder, origin, registry, arguments, typeMap) -> new Binop(
 						Binop.Operation.TIMES, arguments.get(0), arguments.get(1))
 				));
-		Naturals.addOperator("<", new BuiltinOperator(
+		Naturals.addOperator("<", new TypelessBuiltinOperator(
 				2,
 				(origin, args, solver, generator) -> {
 					PGoType fresh = new PGoTypeUnrealizedNumber(new PGoTypeInt(Collections.singletonList(origin)), Collections.singletonList(origin));
@@ -337,7 +396,7 @@ public class TLABuiltins {
 				(builder, origin, registry, arguments, typeMap) -> new Binop(
 						Binop.Operation.LT, arguments.get(0), arguments.get(1))
 				));
-		Naturals.addOperator(">", new BuiltinOperator(
+		Naturals.addOperator(">", new TypelessBuiltinOperator(
 				2,
 				(origin, args, solver, generator) -> {
 					PGoType fresh = new PGoTypeUnrealizedNumber(new PGoTypeInt(Collections.singletonList(origin)), Collections.singletonList(origin));
@@ -349,7 +408,7 @@ public class TLABuiltins {
 						Binop.Operation.GT, arguments.get(0), arguments.get(1))
 				));
 		// TODO: \leq =<
-		Naturals.addOperator("<=", new BuiltinOperator(
+		Naturals.addOperator("<=", new TypelessBuiltinOperator(
 				2,
 				(origin, args, solver, generator) -> {
 					PGoType fresh = new PGoTypeUnrealizedNumber(new PGoTypeInt(Collections.singletonList(origin)), Collections.singletonList(origin));
@@ -361,7 +420,7 @@ public class TLABuiltins {
 						Binop.Operation.LEQ, arguments.get(0), arguments.get(1))
 				));
 		// TODO: \geq
-		Naturals.addOperator(">=", new BuiltinOperator(
+		Naturals.addOperator(">=", new TypelessBuiltinOperator(
 				2,
 				(origin, args, solver, generator) -> {
 					PGoType fresh = new PGoTypeUnrealizedNumber(new PGoTypeInt(Collections.singletonList(origin)), Collections.singletonList(origin));
@@ -372,14 +431,14 @@ public class TLABuiltins {
 				(builder, origin, registry, arguments, typeMap) -> new Binop(
 						Binop.Operation.GEQ, arguments.get(0), arguments.get(1))
 				));
-		Naturals.addOperator("Nat", new BuiltinOperator(
+		Naturals.addOperator("Nat", new TypelessBuiltinOperator(
 				0,
 				(origin, args, solver, generator) -> new PGoTypeNonEnumerableSet(new PGoTypeInt(Collections.singletonList(origin)), Collections.singletonList(origin)),
 				(builder, origin, registry, arguments, typeMap) -> {
 					throw new RuntimeException("TODO");
 				}
 				));
-		Naturals.addOperator("..", new BuiltinOperator(
+		Naturals.addOperator("..", new TypelessBuiltinOperator(
 				2,
 				(origin, args, solver, generator) -> {
 					PGoType intType = new PGoTypeInt(Collections.singletonList(origin));
@@ -413,7 +472,7 @@ public class TLABuiltins {
 
 		BuiltinModule Integers = new BuiltinModule(Naturals);
 		builtinModules.put("Integers", Integers);
-		Integers.addOperator("-", new BuiltinOperator(
+		Integers.addOperator("-", new TypelessBuiltinOperator(
 				1,
 				(origin, args, solver, generator) -> {
 					PGoType fresh = new PGoTypeUnrealizedNumber(new PGoTypeInt(Collections.singletonList(origin)), Collections.singletonList(origin));
@@ -422,7 +481,7 @@ public class TLABuiltins {
 				},
 				(builder, origin, registry, arguments, typeMap) -> new Unary(Unary.Operation.NEG, arguments.get(0))
 				));
-		Integers.addOperator("Int", new BuiltinOperator(
+		Integers.addOperator("Int", new TypelessBuiltinOperator(
 				0,
 				(origin, args, solver, generator) -> new PGoTypeNonEnumerableSet(new PGoTypeInt(Collections.singletonList(origin)), Collections.singletonList(origin)),
 				(builder, origin, registry, arguments, typeMap) -> {

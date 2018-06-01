@@ -146,6 +146,10 @@ public class BlockBuilder extends ASTBuilder implements Closeable {
 	public FunctionDeclarationBuilder defineFunction(UID uid, String nameHint) {
 		return builder.defineFunction(uid, nameHint);
 	}
+	
+	public AnonymousFunctionBuilder anonymousFunction() {
+		return new AnonymousFunctionBuilder(this, nameCleaner, nameMap);
+	}
 
 	public void returnStmt(Expression... values) {
 		addStatement(new Return(Arrays.asList(values)));

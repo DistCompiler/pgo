@@ -16,5 +16,7 @@ public abstract class StatementVisitor<T, E extends Throwable>{
 	public abstract T visit(GoTo goTo) throws E;
 	public abstract T visit(IncDec incDec) throws E;
 	public abstract T visit(ExpressionStatement expressionStatement) throws E;
+	public abstract T visit(Break break1) throws E;
+	public abstract T visit(Continue continue1) throws E;
 
 }

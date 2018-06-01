@@ -31,16 +31,30 @@ public class TLAExpressionCodeGenVisitor extends PGoTLAExpressionVisitor<Express
 		BlockBuilder currentBuilder = builder;
 		List<BlockBuilder> accumulatedBuilders = new ArrayList<>();
 		for (PGoTLAQuantifierBound bound : bounds) {
-			if (bound.getIds().size() != 1) {
-				throw new RuntimeException("TODO");
-			}
-			TLABuiltins.ensureSetType(typeMap, bound.getSet().getUID());
-			Expression set = bound.getSet().accept(this);
-			PGoTLAIdentifier id = bound.getIds().get(0);
+			// evaluate the set in the correct loop block
+			Expression set = bound.getSet().accept(
+					new TLAExpressionCodeGenVisitor(currentBuilder, registry, typeMap, globalStrategy));
 			ForRangeBuilder forRangeBuilder = currentBuilder.forRange(set);
-			VariableName name = forRangeBuilder.initVariables(Collections.singletonList(id.getId())).get(0);
-			currentBuilder.linkUID(id.getUID(), name);
-			currentBuilder = forRangeBuilder.getBlockBuilder();
+			
+			if (bound.getType() == PGoTLAQuantifierBound.Type.TUPLE) {
+				VariableName v = forRangeBuilder.initVariables(Arrays.asList("_", "v")).get(1);
+				currentBuilder = forRangeBuilder.getBlockBuilder();
+				
+				List<PGoTLAIdentifier> ids = bound.getIds();
+				for(int i = 0; i < ids.size(); ++i) {
+					VariableName name = currentBuilder.varDecl(ids.get(i).getId(), new Index(v, new IntLiteral(i)));
+					currentBuilder.linkUID(ids.get(i).getUID(), name);
+				}
+			}else {
+				if (bound.getIds().size() != 1) {
+					throw new RuntimeException("TODO");
+				}
+				
+				PGoTLAIdentifier id = bound.getIds().get(0);
+				VariableName name = forRangeBuilder.initVariables(Arrays.asList("_", id.getId())).get(1);
+				currentBuilder.linkUID(id.getUID(), name);
+				currentBuilder = forRangeBuilder.getBlockBuilder();
+			}
 			accumulatedBuilders.add(currentBuilder);
 		}
 		action.accept(currentBuilder);
@@ -59,7 +73,12 @@ public class TLAExpressionCodeGenVisitor extends PGoTLAExpressionVisitor<Express
 		if (pGoTLAFunctionCall.getParams().size() != 1) {
 			throw new RuntimeException("TODO");
 		}
-		return new Index(pGoTLAFunctionCall.getFunction().accept(this), pGoTLAFunctionCall.getParams().get(0).accept(this));
+		return new Index(
+				pGoTLAFunctionCall.getFunction().accept(this),
+				new Binop(
+						Binop.Operation.MINUS,
+						pGoTLAFunctionCall.getParams().get(0).accept(this),
+						new IntLiteral(1)));
 	}
 
 	@Override
@@ -69,8 +88,8 @@ public class TLAExpressionCodeGenVisitor extends PGoTLAExpressionVisitor<Express
 		return op.generateGo(
 				builder, pGoTLABinOp, registry,
 				Arrays.asList(
-						pGoTLABinOp.getLHS().accept(this),
-						pGoTLABinOp.getRHS().accept(this)),
+						pGoTLABinOp.getLHS(),
+						pGoTLABinOp.getRHS()),
 				typeMap,
 				globalStrategy);
 	}
@@ -133,13 +152,12 @@ public class TLAExpressionCodeGenVisitor extends PGoTLAExpressionVisitor<Express
 
 	@Override
 	public Expression visit(PGoTLATuple pGoTLATuple) throws RuntimeException {
-		// TODO: make this general
-		Type elementType = new InterfaceType(Collections.emptyList());
+		Type sliceType = typeMap.get(pGoTLATuple.getUID()).accept(new PGoTypeGoTypeConversionVisitor());
 		List<Expression> elements = new ArrayList<>();
 		for (PGoTLAExpression element : pGoTLATuple.getElements()) {
 			elements.add(element.accept(this));
 		}
-		return new SliceLiteral(elementType, elements);
+		return sliceType.accept(new TLATupleCodeGenVisitor(builder, elements));
 	}
 
 	@Override
@@ -158,7 +176,7 @@ public class TLAExpressionCodeGenVisitor extends PGoTLAExpressionVisitor<Express
 				.findOperator(registry.followReference(pGoTLAOperatorCall.getName().getUID()))
 				.generateGo(
 						builder, pGoTLAOperatorCall, registry,
-						pGoTLAOperatorCall.getArgs().stream().map(a -> a.accept(this)).collect(Collectors.toList()),
+						pGoTLAOperatorCall.getArgs(),
 						typeMap, globalStrategy);
 	}
 
@@ -172,11 +190,17 @@ public class TLAExpressionCodeGenVisitor extends PGoTLAExpressionVisitor<Express
 					.accept(new TLAExpressionCodeGenVisitor(innerBlock, registry, typeMap, globalStrategy)))) {
 				try (BlockBuilder yes = ifBuilder.whenTrue()) {
 					yes.assign(exists, Builtins.True);
-					yes.goTo(labelName);
+					if(pGoTLAQuantifiedExistential.getIds().size() == 1) {
+						yes.addStatement(new Break());
+					}else {
+						yes.goTo(labelName);
+					}
 				}
 			}
 		});
-		builder.label(labelName);
+		if(pGoTLAQuantifiedExistential.getIds().size() != 1) {
+			builder.label(labelName);
+		}
 		return exists;
 	}
 
@@ -202,7 +226,7 @@ public class TLAExpressionCodeGenVisitor extends PGoTLAExpressionVisitor<Express
 
 	@Override
 	public Expression visit(PGoTLASetConstructor pGoTLASetConstructor) throws RuntimeException {
-		Type elementType = TLABuiltins.ensureSetType(typeMap, pGoTLASetConstructor.getUID());
+		Type elementType = TLABuiltins.getSetElementType(typeMap.get(pGoTLASetConstructor.getUID()));
 		VariableName tmpSet = builder.varDecl(
 				"tmpSet",
 				new SliceLiteral(
@@ -216,7 +240,7 @@ public class TLAExpressionCodeGenVisitor extends PGoTLAExpressionVisitor<Express
 
 	@Override
 	public Expression visit(PGoTLASetComprehension pGoTLASetComprehension) throws RuntimeException {
-		Type elementType = TLABuiltins.ensureSetType(typeMap, pGoTLASetComprehension.getUID());
+		Type elementType = TLABuiltins.getSetElementType(typeMap.get(pGoTLASetComprehension.getUID()));
 		VariableName accumulator = builder.varDecl(
 				"tmpSet", new Make(new SliceType(elementType), new IntLiteral(0), null));
 		unfoldQuantifierBounds(pGoTLASetComprehension.getBounds(), innerBuilder -> {
@@ -230,10 +254,7 @@ public class TLAExpressionCodeGenVisitor extends PGoTLAExpressionVisitor<Express
 
 	@Override
 	public Expression visit(PGoTLASetRefinement pGoTLASetRefinement) throws RuntimeException {
-		Type elementType = TLABuiltins.ensureSetType(typeMap, pGoTLASetRefinement.getUID());
-		if (pGoTLASetRefinement.getIdent().isTuple()) {
-			throw new RuntimeException("TODO");
-		}
+		Type elementType = TLABuiltins.getSetElementType(typeMap.get(pGoTLASetRefinement.getUID()));
 		// Go code
 		// tmpSet := make([]Type, 0)
 		// for _, v := range pGoTLASetRefinement.getFrom() {
@@ -244,10 +265,28 @@ public class TLAExpressionCodeGenVisitor extends PGoTLAExpressionVisitor<Express
 		VariableName tmpSet = builder.varDecl(
 				"tmpSet", new Make(new SliceType(elementType), new IntLiteral(0), null));
 		ForRangeBuilder forRangeBuilder = builder.forRange(pGoTLASetRefinement.getFrom().accept(this));
-		VariableName v = forRangeBuilder.initVariables(Arrays.asList("_", "v")).get(1);
-		builder.linkUID(pGoTLASetRefinement.getIdent().getId().getUID(), v);
+		
+		VariableName v;
+		if(pGoTLASetRefinement.getIdent().isTuple()) {
+			v = forRangeBuilder.initVariables(Arrays.asList("_", "v")).get(1);
+		}else {
+			PGoTLAIdentifier id = pGoTLASetRefinement.getIdent().getId();
+			VariableName name = forRangeBuilder.initVariables(Arrays.asList("_", id.getId())).get(1);
+			v = name;
+			builder.linkUID(id.getUID(), name);
+		}
+		
 		try (BlockBuilder forBody = forRangeBuilder.getBlockBuilder()) {
-			try (IfBuilder ifBuilder = forBody.ifStmt(pGoTLASetRefinement.getWhen().accept(this))) {
+			if(pGoTLASetRefinement.getIdent().isTuple()) {
+				List<PGoTLAIdentifier> ids = pGoTLASetRefinement.getIdent().getTuple();
+				for(int i = 0; i < ids.size(); ++i) {
+					VariableName elem = forBody.varDecl(ids.get(i).getId(), new Index(v, new IntLiteral(i)));
+					forBody.linkUID(ids.get(i).getUID(), elem);
+				}
+			}
+			
+			try (IfBuilder ifBuilder = forBody.ifStmt(pGoTLASetRefinement.getWhen().accept(
+					new TLAExpressionCodeGenVisitor(forBody, registry, typeMap, globalStrategy)))) {
 				try (BlockBuilder yes = ifBuilder.whenTrue()) {
 					yes.assign(tmpSet, new Call(new VariableName("append"), Arrays.asList(tmpSet, v)));
 				}
@@ -268,7 +307,7 @@ public class TLAExpressionCodeGenVisitor extends PGoTLAExpressionVisitor<Express
 				.findOperator(registry.followReference(pGoTLAUnary.getOperation().getUID()))
 				.generateGo(
 						builder, pGoTLAUnary, registry,
-						Collections.singletonList(pGoTLAUnary.getOperand().accept(this)),
+						Collections.singletonList(pGoTLAUnary.getOperand()),
 						typeMap, globalStrategy);
 	}
 

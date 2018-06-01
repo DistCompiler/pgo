@@ -104,4 +104,14 @@ public class GoStatementFindUsedLabelsVisitor extends StatementVisitor<Set<Strin
 		return Collections.emptySet();
 	}
 
+	@Override
+	public Set<String> visit(Break break1) throws RuntimeException {
+		return Collections.emptySet();
+	}
+
+	@Override
+	public Set<String> visit(Continue continue1) throws RuntimeException {
+		return Collections.emptySet();
+	}
+
 }

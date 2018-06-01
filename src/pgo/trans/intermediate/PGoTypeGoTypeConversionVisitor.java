@@ -48,7 +48,7 @@ public class PGoTypeGoTypeConversionVisitor extends PGoTypeVisitor<Type, Runtime
 
 	@Override
 	public Type visit(PGoTypeSet pGoTypeSet) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		return new SliceType(pGoTypeSet.getElementType().accept(this));
 	}
 
 	@Override

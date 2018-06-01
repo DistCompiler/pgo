@@ -3,13 +3,24 @@ package pgo.model.golang;
 public class TypeName extends Type {
 	
 	private String name;
+	private boolean builtin;
 	
 	public TypeName(String name) {
 		this.name = name;
+		this.builtin = false;
+	}
+	
+	public TypeName(String name, boolean builtin) {
+		this.name = name;
+		this.builtin = builtin;
 	}
 	
 	public String getName() {
 		return name;
+	}
+	
+	public boolean isBuiltin() {
+		return builtin;
 	}
 	
 	@Override

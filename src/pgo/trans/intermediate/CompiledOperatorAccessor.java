@@ -2,6 +2,7 @@ package pgo.trans.intermediate;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import pgo.model.golang.BlockBuilder;
 import pgo.model.golang.Call;
@@ -51,7 +52,7 @@ public class CompiledOperatorAccessor extends OperatorAccessor {
 
 	@Override
 	public Expression generateGo(BlockBuilder builder, PGoTLAExpression origin, DefinitionRegistry registry,
-			List<Expression> args, Map<UID, PGoType> typeMap, GlobalVariableStrategy globalStrategy) {
+			List<PGoTLAExpression> args, Map<UID, PGoType> typeMap, GlobalVariableStrategy globalStrategy) {
 
 		FunctionDeclarationBuilder declBuilder = builder.defineFunction(def.getName().getUID(), def.getName().getId());
 
@@ -74,7 +75,11 @@ public class CompiledOperatorAccessor extends OperatorAccessor {
 		}
 
 		VariableName functionName = builder.findUID(def.getName().getUID());
-		return new Call(functionName, args);
+		return new Call(
+				functionName,
+				args.stream().map(a -> a.accept(
+						new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy)))
+				.collect(Collectors.toList()));
 	}
 
 	@Override

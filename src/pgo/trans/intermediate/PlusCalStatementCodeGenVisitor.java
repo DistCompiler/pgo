@@ -45,8 +45,19 @@ public class PlusCalStatementCodeGenVisitor extends StatementVisitor<Void, Runti
 
 	@Override
 	public Void visit(While while1) throws RuntimeException {
+		AnonymousFunctionBuilder conditionBuilder = builder.anonymousFunction();
+		conditionBuilder.addReturn(Builtins.Bool);
+		try(BlockBuilder conditionBody = conditionBuilder.getBlockBuilder()){
+			conditionBody.addStatement(
+					new pgo.model.golang.Return(
+							Collections.singletonList(
+									while1.getCondition().accept(
+											new TLAExpressionCodeGenVisitor(
+													conditionBody, registry, typeMap, globalStrategy)))));
+		}
+		
 		try(BlockBuilder fb = builder.forLoop(
-				while1.getCondition().accept(new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy)))){
+				new pgo.model.golang.Call(conditionBuilder.getFunction(), Collections.emptyList()))){
 			for(Statement stmt : while1.getBody()) {
 				stmt.accept(new PlusCalStatementCodeGenVisitor(fb, registry, typeMap, globalStrategy));
 			}

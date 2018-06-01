@@ -156,4 +156,16 @@ public class GoStatementFormattingVisitor extends StatementVisitor<Void, IOExcep
 		expressionStatement.getExpression().accept(new GoExpressionFormattingVisitor(out));
 		return null;
 	}
+
+	@Override
+	public Void visit(Break break1) throws IOException {
+		out.write("break");
+		return null;
+	}
+
+	@Override
+	public Void visit(Continue continue1) throws IOException {
+		out.write("continue");
+		return null;
+	}
 }

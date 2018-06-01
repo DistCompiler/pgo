@@ -21,7 +21,7 @@ public class BuiltinOperator extends OperatorAccessor {
 	}
 	public interface GoGenerator {
 		Expression generate(BlockBuilder builder, PGoTLAExpression expr, DefinitionRegistry registry,
-				List<Expression> arguments, Map<UID, PGoType> typeMap);
+				List<PGoTLAExpression> arguments, Map<UID, PGoType> typeMap, GlobalVariableStrategy globalStrategy);
 	}
 
 	private int argumentCount;
@@ -53,8 +53,8 @@ public class BuiltinOperator extends OperatorAccessor {
 
 	@Override
 	public Expression generateGo(BlockBuilder builder, PGoTLAExpression origin, DefinitionRegistry registry,
-			List<Expression> args, Map<UID, PGoType> typeMap, GlobalVariableStrategy globalStrategy) {
-		return goGenerator.generate(builder, origin, registry, args, typeMap);
+			List<PGoTLAExpression> args, Map<UID, PGoType> typeMap, GlobalVariableStrategy globalStrategy) {
+		return goGenerator.generate(builder, origin, registry, args, typeMap, globalStrategy);
 	}
 
 }

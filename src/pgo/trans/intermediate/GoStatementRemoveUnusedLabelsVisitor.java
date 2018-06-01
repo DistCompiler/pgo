@@ -115,4 +115,14 @@ public class GoStatementRemoveUnusedLabelsVisitor extends StatementVisitor<State
 		return expressionStatement;
 	}
 
+	@Override
+	public Statement visit(Break break1) throws RuntimeException {
+		return break1;
+	}
+
+	@Override
+	public Statement visit(Continue continue1) throws RuntimeException {
+		return continue1;
+	}
+
 }
