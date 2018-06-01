@@ -1,42 +1,71 @@
 package pgo.trans.intermediate;
 
-import pgo.model.pcal.Algorithm;
-import pgo.model.pcal.LabeledStatements;
-import pgo.model.pcal.MultiProcess;
-import pgo.model.pcal.Procedure;
+import pgo.UnionFind;
+import pgo.model.pcal.*;
 import pgo.scope.UID;
+
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.BiConsumer;
 
 public class AtomicityInferencePass {
 	private AtomicityInferencePass() {}
 
-	private static void addGlobalVarRead(DefinitionRegistry registry, UID labelUID, UID varUID) {
-		if (registry.isGlobalVariable(varUID)) {
-			registry.addGlobalVarRead(labelUID, varUID);
+	private static void trackGlobalVar(DefinitionRegistry registry, Map<UID, Set<UID>> map, UID varUID, UID labelUID) {
+		UID definitionUID = registry.followReference(varUID);
+		if (registry.isGlobalVariable(definitionUID)) {
+			map.putIfAbsent(definitionUID, new HashSet<>());
+			map.get(definitionUID).add(labelUID);
 		}
 	}
 
-	private static void addGlobalVarWrite(DefinitionRegistry registry, UID labelUID, UID varUID) {
-		if (registry.isGlobalVariable(varUID)) {
-			registry.addGlobalVarWrite(labelUID, varUID);
+	private static void addToUnionFind(UnionFind<UID> unionFind, Map<UID, Set<UID>> map) {
+		for (Map.Entry<UID, Set<UID>> entry : map.entrySet()) {
+			UID varUID = entry.getKey();
+			for (UID labelUID : entry.getValue()) {
+				unionFind.union(labelUID, varUID);
+			}
 		}
 	}
 
-	public static void perform(DefinitionRegistry registry, Algorithm pcalAlgorithm) {
+	public static Map<UID, Integer> perform(DefinitionRegistry registry, Algorithm pcalAlgorithm) {
+		Map<UID, Integer> labelsToLockGroups = new HashMap<>();
 		if (pcalAlgorithm.getProcesses() instanceof MultiProcess) {
+			Map<UID, Set<UID>> globalVarReadsToLabel = new HashMap<>();
+			Map<UID, Set<UID>> globalVarWritesToLabel = new HashMap<>();
+			BiConsumer<UID, UID> captureLabelRead = (varUID, labelUID) ->
+					trackGlobalVar(registry, globalVarReadsToLabel, varUID, labelUID);
+			BiConsumer<UID, UID> captureLabelWrite = (varUID, labelUID) ->
+					trackGlobalVar(registry, globalVarWritesToLabel, varUID, labelUID);
+			Set<UID> foundLabels = new HashSet<>();
 			for (Procedure p : pcalAlgorithm.getProcedures()) {
 				for (LabeledStatements statements : p.getBody()) {
-					UID labelUID = statements.getLabel().getUID();
-					registry.addLabel(p.getUID(), labelUID);
 					statements.accept(new PlusCalStatementAtomicityInferenceVisitor(
-							varUID -> addGlobalVarRead(registry, labelUID, varUID),
-							varUID -> addGlobalVarWrite(registry, labelUID, varUID)));
+							new UID(), captureLabelRead, captureLabelWrite, foundLabels));
 				}
 			}
-
-			pcalAlgorithm.getProcesses().accept(new PlusCalProcessesAtomicityInferenceVisitor(
-					registry::addLabel,
-					labelUID -> varUID -> addGlobalVarRead(registry, labelUID, varUID),
-					labelUID -> varUID -> addGlobalVarWrite(registry, labelUID, varUID)));
+			for (PcalProcess p : ((MultiProcess) pcalAlgorithm.getProcesses()).getProcesses()) {
+				for (LabeledStatements statements : p.getLabeledStatements()) {
+					statements.accept(new PlusCalStatementAtomicityInferenceVisitor(
+							new UID(), captureLabelRead, captureLabelWrite, foundLabels));
+				}
+			}
+			UnionFind<UID> unionFind = new UnionFind<>();
+			addToUnionFind(unionFind, globalVarReadsToLabel);
+			addToUnionFind(unionFind, globalVarWritesToLabel);
+			Map<UID, Integer> seenRoots = new HashMap<>();
+			for (UID labelUID : foundLabels) {
+				if (unionFind.getRank(labelUID) > 0) {
+					UID rootUID = unionFind.find(labelUID);
+					if (!seenRoots.containsKey(rootUID)) {
+						seenRoots.put(rootUID, seenRoots.size());
+					}
+					labelsToLockGroups.put(labelUID, seenRoots.get(rootUID));
+				}
+			}
 		}
+		return labelsToLockGroups;
 	}
 }

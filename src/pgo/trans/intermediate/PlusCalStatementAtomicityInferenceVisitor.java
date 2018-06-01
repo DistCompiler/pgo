@@ -3,22 +3,33 @@ package pgo.trans.intermediate;
 import pgo.model.pcal.*;
 import pgo.scope.UID;
 
-import java.util.function.Consumer;
+import java.util.Set;
+import java.util.function.BiConsumer;
 
 public class PlusCalStatementAtomicityInferenceVisitor extends StatementVisitor<Void, RuntimeException> {
-	Consumer<UID> captureRead;
-	Consumer<UID> captureWrite;
-	TLAExpressionAtomicityInferenceVisitor visitor;
+	private UID currentLabelUID;
+	private BiConsumer<UID, UID> captureLabelRead;
+	private BiConsumer<UID, UID> captureLabelWrite;
+	private Set<UID> foundLabels;
+	private TLAExpressionAtomicityInferenceVisitor visitor;
 
-	public PlusCalStatementAtomicityInferenceVisitor(Consumer<UID> captureRead, Consumer<UID> captureWrite) {
-		this.captureRead = captureRead;
-		this.captureWrite = captureWrite;
-		this.visitor = new TLAExpressionAtomicityInferenceVisitor(captureRead);
+	public PlusCalStatementAtomicityInferenceVisitor(UID currentLabelUID, BiConsumer<UID, UID> captureLabelRead,
+	                                                 BiConsumer<UID, UID> captureLabelWrite, Set<UID> foundLabels) {
+		this.currentLabelUID = currentLabelUID;
+		this.captureLabelRead = captureLabelRead;
+		this.captureLabelWrite = captureLabelWrite;
+		this.foundLabels = foundLabels;
+		this.visitor = new TLAExpressionAtomicityInferenceVisitor(varUID ->
+				captureLabelRead.accept(varUID, currentLabelUID));
 	}
 
 	@Override
 	public Void visit(LabeledStatements labeledStatements) throws RuntimeException {
-		labeledStatements.getStatements().forEach(s -> s.accept(this));
+		UID labelUID = labeledStatements.getLabel().getUID();
+		foundLabels.add(labelUID);
+		PlusCalStatementAtomicityInferenceVisitor statementVisitor =
+				new PlusCalStatementAtomicityInferenceVisitor(labelUID, captureLabelRead, captureLabelWrite, foundLabels);
+		labeledStatements.getStatements().forEach(s -> s.accept(statementVisitor));
 		return null;
 	}
 
@@ -46,7 +57,7 @@ public class PlusCalStatementAtomicityInferenceVisitor extends StatementVisitor<
 	@Override
 	public Void visit(Assignment assignment) throws RuntimeException {
 		for (AssignmentPair pair : assignment.getPairs()) {
-			pair.getLhs().accept(visitor).forEach(this.captureWrite);
+			pair.getLhs().accept(visitor).forEach(varUID -> captureLabelWrite.accept(varUID, currentLabelUID));
 			pair.getRhs().accept(visitor);
 		}
 		return null;

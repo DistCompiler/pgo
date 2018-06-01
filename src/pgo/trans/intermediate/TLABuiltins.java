@@ -28,7 +28,7 @@ public class TLABuiltins {
 		} else if (elementType.equals(Builtins.String)) {
 			sortFunction = "Strings";
 		} else {
-			throw new RuntimeException("impossible");
+			throw new RuntimeException("unreachable");
 		}
 		builder.addStatement(new ExpressionStatement(new Call(
 				new Selector(new VariableName("sort"), sortFunction), Collections.singletonList(set))));

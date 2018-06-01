@@ -4,7 +4,6 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
 
@@ -97,7 +96,7 @@ public class PGoMain {
 			checkErrors(ctx);
 
 			logger.info("Inferring atomicity requirements");
-			AtomicityInferencePass.perform(registry, pcalAlgorithm);
+			Map<UID, Integer> labelsToLockGroup = AtomicityInferencePass.perform(registry, pcalAlgorithm);
 
 			logger.info("Initial code generation");
 			Module module = CodeGenPass.perform(pcalAlgorithm, registry, typeMap, opts);
