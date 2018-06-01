@@ -1,5 +1,10 @@
 package distsys
 
+import (
+	"math/rand"
+	"time"
+)
+
 const (
 	REF_VAL = iota
 	REF_MOVED
@@ -20,6 +25,17 @@ type AlwaysMigrate string
 
 func (always AlwaysMigrate) ShouldMigrate(_, _ string) bool {
 	return true
+}
+
+type RandomMigrate string
+
+func NewRandomMigrate(self string) RandomMigrate {
+	rand.Seed(time.Now().UTC().UnixNano())
+	return RandomMigrate(self)
+}
+
+func (random RandomMigrate) ShouldMigrate(_, _ string) bool {
+	return rand.Float64() > 0.5
 }
 
 type RefHandler interface {
@@ -70,11 +86,11 @@ func (refhandler RefValHandler) GetRef() *Reference {
 		// since we are no longer the owners of this variable, free
 		// any memory being taken by it
 		refhandler.store.SetVal(refhandler.name, nil)
-
-		// indicate the source of the variable ownership so that an
-		// ACK can be sent back
-		peer = refhandler.self
 	}
+
+	// indicate the source of the variable ownership so that an
+	// ACK can be sent back
+	peer = refhandler.self
 
 	return &Reference{
 		Type: REF_VAL,
@@ -133,6 +149,7 @@ func (handler localStateHandler) GetState() (VarReferences, error) {
 		handler := RefValHandler{
 			name:      borrowVar.Name,
 			exclusive: borrowVar.Exclusive,
+			self:      handler.self,
 			store:     handler.store,
 
 			// no migrations since this is a local request

@@ -24,6 +24,11 @@ func (remote remoteHandler) GetState() (VarReferences, error) {
 	remote.group.Requester = remote.stateServer.self
 	refs := VarReferences(map[string]*Reference{})
 
+	// unlock local references before we request remote state
+	for _, borrowVar := range remote.group.Names {
+		remote.stateServer.store.Unlock(borrowVar.Name)
+	}
+
 	if err := conn.Call("StateServer.GetState", remote.group, &refs); err != nil {
 		return nil, err
 	}
@@ -37,7 +42,24 @@ func (remote remoteHandler) ReleaseState(refs VarReferences) error {
 	var ok bool
 	conn := remote.stateServer.connections.GetConnection(remote.group.Peer)
 
-	if err := conn.Call("StateServer.ReleaseState", &refs, &ok); err != nil {
+	// include only references for variables included in the group
+	// being released
+	releaseNames := []string{}
+	for _, borrowVar := range remote.group.Names {
+		releaseNames = append(releaseNames, borrowVar.Name)
+	}
+
+	refSlice := VarReferences(map[string]*Reference{})
+	for name, ref := range refs {
+		for _, releaseName := range releaseNames {
+			if releaseName == name {
+				refSlice[name] = ref
+				break
+			}
+		}
+	}
+
+	if err := conn.Call("StateServer.ReleaseState", &refSlice, &ok); err != nil {
 		return err
 	}
 
@@ -72,6 +94,7 @@ func (ss *StateServer) Acquire(spec *BorrowSpec) (VarReferences, error) {
 
 	for op.HasNext() {
 		group := op.Next()
+		op.UnlockExcept(group)
 
 		refs, err := stateBuilder(group, ss).GetState()
 		if err != nil {
@@ -81,6 +104,8 @@ func (ss *StateServer) Acquire(spec *BorrowSpec) (VarReferences, error) {
 		holds := op.UpdateRefs(refs)
 		op.AckMigrations()
 		allRefs = allRefs.Merge(holds)
+
+		op.Lock()
 	}
 
 	return allRefs, nil

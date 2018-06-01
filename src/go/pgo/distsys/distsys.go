@@ -299,6 +299,30 @@ func (global *GlobalStateOperation) Unlock() {
 	}
 }
 
+// UnlockExcept unlocks every variable in the BorrowSpec of the receiver
+// except for the ones contained in the VarReq struct given as
+// parameters. This is used when the caller wants to process a group
+// of variables (owned by the same node) at a time.
+func (global *GlobalStateOperation) UnlockExcept(req *VarReq) {
+	for _, borrowVar := range global.spec.Sorted() {
+		// if variable is in the group, skip
+		skip := false
+		for _, reqVar := range req.Names {
+			if reqVar.Name == borrowVar.Name {
+				skip = true
+				break
+			}
+		}
+
+		if skip {
+			continue
+		}
+
+		// if variable is not in the group, unlock it
+		global.store.Unlock(borrowVar.Name)
+	}
+}
+
 // HasNext returns true when there are more variables to be processed
 // (i.e., get a `REF_VALUE`) in the BorrowSpec passed on initialization
 func (global *GlobalStateOperation) HasNext() bool {
@@ -317,9 +341,18 @@ func (global *GlobalStateOperation) Next() *VarReq {
 func (global *GlobalStateOperation) UpdateRefs(refs VarReferences) VarReferences {
 	holds := VarReferences(map[string]*Reference{})
 
+	// Updating references for a new group -- clean any previously held
+	// data about past ownership moves.
+	global.ownerships = []string{}
+	global.ackMigrationTo = ""
+
 	for name, ref := range refs {
 		switch ref.Type {
 		case REF_VAL:
+			if ref.Peer != global.self {
+				global.store.Lock(name)
+			}
+
 			holds[name] = ref
 
 			// if the ownership of this piece of state was transmitted with the
@@ -358,7 +391,7 @@ func (global *GlobalStateOperation) AckMigrations() {
 		return
 	}
 
-	req := VarReq{Names: []*BorrowSpecVariable{}}
+	req := VarReq{Peer: global.self, Names: []*BorrowSpecVariable{}}
 	for _, name := range global.ownerships {
 		req.Names = append(req.Names, &BorrowSpecVariable{
 			Name: name,
@@ -549,7 +582,7 @@ func NewStateServer(peers []string, self, coordinator string, initValues map[str
 		peers: peers,
 		store: NewDataStore(entries),
 
-		migrationStrategy: AlwaysMigrate(self),
+		migrationStrategy: NewRandomMigrate(self),
 	}
 
 	if err := stateServer.Init(); err != nil {
