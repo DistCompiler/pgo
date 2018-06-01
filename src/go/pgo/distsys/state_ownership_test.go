@@ -60,6 +60,7 @@ var _ = Describe("State Ownership", func() {
 				Expect(refs["a"]).To(Equal(&Reference{
 					Type: REF_VAL,
 
+					Peer:      self,
 					Value:     10,
 					Exclusive: true,
 					Ownership: false,
@@ -67,6 +68,7 @@ var _ = Describe("State Ownership", func() {
 				Expect(refs["c"]).To(Equal(&Reference{
 					Type: REF_VAL,
 
+					Peer:      self,
 					Value:     30,
 					Exclusive: false,
 					Ownership: false,
@@ -82,6 +84,7 @@ var _ = Describe("State Ownership", func() {
 
 				Expect(refs["a"]).To(Equal(&Reference{
 					Type:      REF_VAL,
+					Peer:      self,
 					Value:     10,
 					Exclusive: true,
 					Ownership: false,
@@ -106,6 +109,7 @@ var _ = Describe("State Ownership", func() {
 
 				Expect(refs["a"]).To(Equal(&Reference{
 					Type:      REF_VAL,
+					Peer:      self,
 					Value:     10,
 					Exclusive: true,
 					Ownership: false,
@@ -134,6 +138,7 @@ var _ = Describe("State Ownership", func() {
 
 				Expect(refs["a"]).To(Equal(&Reference{
 					Type:      REF_VAL,
+					Peer:      self,
 					Value:     10,
 					Exclusive: true,
 					Ownership: false,
