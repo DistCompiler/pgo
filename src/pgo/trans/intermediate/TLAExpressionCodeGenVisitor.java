@@ -226,15 +226,19 @@ public class TLAExpressionCodeGenVisitor extends PGoTLAExpressionVisitor<Express
 	@Override
 	public Expression visit(PGoTLASetConstructor pGoTLASetConstructor) throws RuntimeException {
 		Type elementType = TLABuiltins.getSetElementType(typeMap.get(pGoTLASetConstructor.getUID()));
-		VariableName tmpSet = builder.varDecl(
-				"tmpSet",
-				new SliceLiteral(
-						elementType,
-						pGoTLASetConstructor.getContents().stream()
-								.map(e -> e.accept(this))
-								.collect(Collectors.toList())));
-		TLABuiltins.ensureUniqueSorted(builder, elementType, tmpSet);
-		return tmpSet;
+		Expression result = new SliceLiteral(
+				elementType,
+				pGoTLASetConstructor.getContents().stream()
+						.map(e -> e.accept(this))
+						.collect(Collectors.toList()));
+		if(pGoTLASetConstructor.getContents().size() <= 1) {
+			// single-element or empty sets don't need any sorting or deduplication
+			return result;
+		}else {
+			VariableName tmpSet = builder.varDecl("tmpSet", result);
+			TLABuiltins.ensureUniqueSorted(builder, elementType, tmpSet);
+			return tmpSet;
+		}
 	}
 
 	@Override

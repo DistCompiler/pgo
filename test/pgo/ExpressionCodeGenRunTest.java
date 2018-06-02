@@ -212,7 +212,7 @@ public class ExpressionCodeGenRunTest {
 			});
 			
 			// try to run the compiled Go code, check that it prints the right thing
-			IntegrationTestingUtils.testRunGoCode(generatedCodePath, expected);
+			IntegrationTestingUtils.testRunGoCode(compiledOutputPath, expected);
 			
 		} finally {
 			IntegrationTestingUtils.expungeFile(tempDir);
