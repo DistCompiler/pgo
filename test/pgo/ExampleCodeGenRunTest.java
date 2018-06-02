@@ -52,12 +52,67 @@ public class ExampleCodeGenRunTest {
 					root.put("networking", networking);
 					
 					JSONObject constants = new JSONObject();
+					constants.put("N", "1");
+					root.put("constants", constants);
+				}),
+				Arrays.asList(
+						"[[1]]"),
+			},
+			{
+				Paths.get("Queens.tla"),
+				json(root -> {
+					JSONObject networking = new JSONObject();
+					networking.put("enabled", false);
+					root.put("networking", networking);
+					
+					JSONObject constants = new JSONObject();
+					constants.put("N", "2");
+					root.put("constants", constants);
+				}),
+				Arrays.asList(
+						"[]"),
+			},
+			{
+				Paths.get("Queens.tla"),
+				json(root -> {
+					JSONObject networking = new JSONObject();
+					networking.put("enabled", false);
+					root.put("networking", networking);
+					
+					JSONObject constants = new JSONObject();
+					constants.put("N", "3");
+					root.put("constants", constants);
+				}),
+				Arrays.asList(
+						"[]"),
+			},
+			{
+				Paths.get("Queens.tla"),
+				json(root -> {
+					JSONObject networking = new JSONObject();
+					networking.put("enabled", false);
+					root.put("networking", networking);
+					
+					JSONObject constants = new JSONObject();
+					constants.put("N", "4");
+					root.put("constants", constants);
+				}),
+				Arrays.asList(
+						"[[2 4 1 3] [3 1 4 2]]"),
+			},
+			{
+				Paths.get("Queens.tla"),
+				json(root -> {
+					JSONObject networking = new JSONObject();
+					networking.put("enabled", false);
+					root.put("networking", networking);
+					
+					JSONObject constants = new JSONObject();
 					constants.put("N", "5");
 					root.put("constants", constants);
 				}),
 				Arrays.asList(
-						"[[1 3 5 2 4] [1 4 2 5 3] [2 4 1 3 5] [2 5 3 1 4] [3 1 4 2 5] [3 5 2 4 1] "
-								+"[4 1 3 5 2] [4 2 5 3 1] [5 2 4 1 3] [5 3 1 4 2]]"),
+						"[[1 3 5 2 4] [1 4 2 5 3] [2 4 1 3 5] [2 5 3 1 4] [3 1 4 2 5] [3 5 2 4 1] [4 1 3 5 2] [4 2 5 3 1] [5 2 4 1 3] [5 3 1 4 2]]"),
 			},
 		});
 	}
