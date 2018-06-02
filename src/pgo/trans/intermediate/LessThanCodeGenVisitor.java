@@ -78,7 +78,9 @@ public class LessThanCodeGenVisitor extends TypeVisitor<Expression, RuntimeExcep
 											loopBody,
 											new Index(lhs, i),
 											new Index(rhs, i))));
-					try(IfBuilder shouldStop = loopBody.ifStmt(less)){
+					try(IfBuilder shouldStop = loopBody.ifStmt(
+							sliceType.getElementType().accept(
+									new EqCodeGenVisitor(loopBody, new Index(lhs, i), new Index(rhs, i), true)))){
 						try(BlockBuilder body = shouldStop.whenTrue()){
 							body.addStatement(new Break());
 						}

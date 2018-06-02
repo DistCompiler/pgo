@@ -34,12 +34,15 @@ public class PGoMain {
 	public static void main(String[] args) {
 		// Get the top Logger instance
 		logger = Logger.getLogger("PGoMain");
-		new PGoMain(args).run();
-		logger.info("Finished");
+		if(new PGoMain(args).run()) {
+			logger.info("Finished");
+		}else {
+			logger.info("Terminated with errors");
+		}
 	}
 
 	// Top-level workhorse method.
-	public void run() {
+	public boolean run() {
 		try {
 			TopLevelIssueContext ctx = new TopLevelIssueContext();
 
@@ -48,7 +51,7 @@ public class PGoMain {
 			if (ctx.hasErrors()) {
 				System.err.println(ctx.format());
 				opts.printHelp();
-				System.exit(1);
+				return false;
 			}
 
 			logger.info("Parsing PlusCal code");
@@ -58,7 +61,7 @@ public class PGoMain {
 			// for -writeAST option, just write the file AST.tla and halt.
 			if (opts.writeAST) {
 				IOUtil.WriteAST(pcal.getAST(), opts.buildDir + "/" + opts.buildFile);
-				return; // added for testing
+				return true; // added for testing
 			}
 
 			logger.info("Cleaning up PlusCal AST");
@@ -115,10 +118,12 @@ public class PGoMain {
 			} catch (Exception e) {
 				logger.warning(String.format("Failed to format Go code. Error: %s", e.getMessage()));
 			}
+			return true;
 
 		} catch (PGoTransException | StringVectorToFileException | IOException e) {
 			logger.severe(e.getMessage());
 			e.printStackTrace();
+			return false;
 		}
 	}
 

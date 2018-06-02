@@ -185,4 +185,8 @@ public class Builder {
 		return new PGoTLABinOp(SourceLocation.unknown(), new PGoTLASymbol(SourceLocation.unknown(), op), Collections.emptyList(), lhs, rhs);
 	}
 	
+	public static PGoTLATuple tuple(PGoTLAExpression... expressions) {
+		return new PGoTLATuple(SourceLocation.unknown(), Arrays.asList(expressions));
+	}
+	
 }
