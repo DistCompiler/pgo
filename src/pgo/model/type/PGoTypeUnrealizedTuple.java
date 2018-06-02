@@ -52,7 +52,10 @@ public class PGoTypeUnrealizedTuple extends PGoType {
 		return elementTypes.keySet().stream().max(Comparator.naturalOrder()).orElse(-1) + 1;
 	}
 
-	public Optional<Issue> harmonize(PGoTypeSolver solver, PGoSimpleContainerType other) {
+	public Optional<Issue> harmonize(PGoTypeSolver solver, PGoTypeConstraint constraint, PGoSimpleContainerType other) {
+		if (realType != RealType.Unknown && realType != other.getRealType()) {
+			return Optional.of(new UnsatisfiableConstraintIssue(constraint, this, other));
+		}
 		PGoType elemType = other.getElementType();
 		elementTypes.forEach((k, v) -> solver.addConstraint(new PGoTypeMonomorphicConstraint(this, elemType, v)));
 		Optional<Issue> issue = solver.unify();
@@ -80,6 +83,9 @@ public class PGoTypeUnrealizedTuple extends PGoType {
 	}
 
 	public Optional<Issue> harmonize(PGoTypeConstraint constraint, PGoTypeSolver solver, PGoTypeTuple other) {
+		if (isSimpleContainerType()) {
+			return Optional.of(new UnsatisfiableConstraintIssue(constraint, this, other));
+		}
 		List<PGoType> elemTypes = other.getElementTypes();
 		int probableSize = getProbableSize();
 		if (probableSize > elemTypes.size() || (sizeKnown && probableSize < elemTypes.size())) {
@@ -222,7 +228,7 @@ public class PGoTypeUnrealizedTuple extends PGoType {
 			case Tuple:
 			case Unknown:
 			default:
-				throw new RuntimeException("Impossible");
+				throw new RuntimeException("unreachable");
 		}
 	}
 

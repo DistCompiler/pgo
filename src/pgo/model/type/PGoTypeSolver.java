@@ -153,13 +153,13 @@ public class PGoTypeSolver {
 				}
 			} else if (a instanceof PGoTypeUnrealizedTuple && b instanceof PGoSimpleContainerType) {
 				// attempt to promote an unrealized tuple to a simple container type
-				Optional<Issue> issue = ((PGoTypeUnrealizedTuple) a).harmonize(this, (PGoSimpleContainerType) b);
+				Optional<Issue> issue = ((PGoTypeUnrealizedTuple) a).harmonize(this, constraint, (PGoSimpleContainerType) b);
 				if (issue.isPresent() && !backtrack()) {
 					return issue;
 				}
 				constraint.getOrigins().forEach(a::addOrigin);
 			} else if (a instanceof PGoSimpleContainerType && b instanceof PGoTypeUnrealizedTuple) {
-				Optional<Issue> issue = ((PGoTypeUnrealizedTuple) b).harmonize(this, (PGoSimpleContainerType) a);
+				Optional<Issue> issue = ((PGoTypeUnrealizedTuple) b).harmonize(this, constraint, (PGoSimpleContainerType) a);
 				if (issue.isPresent() && !backtrack()) {
 					return issue;
 				}

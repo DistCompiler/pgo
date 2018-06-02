@@ -14,6 +14,11 @@ public class PGoTypeSlice extends PGoSimpleContainerType {
 	}
 
 	@Override
+	public PGoTypeUnrealizedTuple.RealType getRealType() {
+		return PGoTypeUnrealizedTuple.RealType.Slice;
+	}
+
+	@Override
 	public boolean equals(Object p) {
 		if (!(p instanceof PGoTypeSlice)) {
 			return false;

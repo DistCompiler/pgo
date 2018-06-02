@@ -23,6 +23,8 @@ public abstract class PGoSimpleContainerType extends PGoType {
 		return elementType;
 	}
 
+	public abstract PGoTypeUnrealizedTuple.RealType getRealType();
+
 	@Override
 	public boolean equals(Object p) {
 		if (!(p instanceof PGoSimpleContainerType)) {

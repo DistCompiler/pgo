@@ -13,6 +13,11 @@ public class PGoTypeChan extends PGoSimpleContainerType {
 	}
 
 	@Override
+	public PGoTypeUnrealizedTuple.RealType getRealType() {
+		return PGoTypeUnrealizedTuple.RealType.Chan;
+	}
+
+	@Override
 	public boolean equals(Object p) {
 		if (!(p instanceof PGoTypeChan)) {
 			return false;
