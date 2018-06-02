@@ -2,6 +2,8 @@ package pgo.formatters;
 
 import java.io.IOException;
 
+import pgo.TODO;
+import pgo.Unreachable;
 import pgo.model.pcal.Algorithm;
 import pgo.model.pcal.AssignmentPair;
 import pgo.model.pcal.Label;
@@ -23,20 +25,17 @@ public class NodeFormattingVisitor extends NodeVisitor<Void, IOException> {
 
 	@Override
 	public Void visit(Algorithm algorithm) throws IOException {
-		// TODO
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
 	public Void visit(Processes processes) throws IOException {
-		// TODO
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
 	public Void visit(Statement statement) throws IOException {
-		// TODO
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
@@ -52,7 +51,7 @@ public class NodeFormattingVisitor extends NodeVisitor<Void, IOException> {
 			out.write("+");
 			break;
 		default:
-			throw new RuntimeException("unreachable");
+			throw new Unreachable();
 		}
 		out.write(label.getName());
 		out.write(":");
@@ -61,20 +60,17 @@ public class NodeFormattingVisitor extends NodeVisitor<Void, IOException> {
 
 	@Override
 	public Void visit(Macro macro) throws IOException {
-		// TODO
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
 	public Void visit(PcalProcess pcalProcess) throws IOException {
-		// TODO
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
 	public Void visit(Procedure procedure) throws IOException {
-		// TODO
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
@@ -91,7 +87,7 @@ public class NodeFormattingVisitor extends NodeVisitor<Void, IOException> {
 
 	@Override
 	public Void visit(AssignmentPair assignmentPair) throws IOException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 }

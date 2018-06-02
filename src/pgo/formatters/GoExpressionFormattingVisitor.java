@@ -1,8 +1,9 @@
 package pgo.formatters;
 
 import java.io.IOException;
-import java.util.regex.Matcher;
 
+import pgo.TODO;
+import pgo.Unreachable;
 import pgo.model.golang.AnonymousFunction;
 import pgo.model.golang.Binop;
 import pgo.model.golang.Builtins.BuiltinConstant;
@@ -51,7 +52,7 @@ public class GoExpressionFormattingVisitor extends ExpressionVisitor<Void, IOExc
 
 	@Override
 	public Void visit(MapLiteral mapConstructor) throws IOException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
@@ -104,12 +105,12 @@ public class GoExpressionFormattingVisitor extends ExpressionVisitor<Void, IOExc
 
 	@Override
 	public Void visit(GoTo goTo) throws IOException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
 	public Void visit(TypeAssertion typeAssertion) throws IOException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
@@ -149,12 +150,12 @@ public class GoExpressionFormattingVisitor extends ExpressionVisitor<Void, IOExc
 
 	@Override
 	public Void visit(TypeCast typeCast) throws IOException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
 	public Void visit(StructLiteral structLiteral) throws IOException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
@@ -221,7 +222,7 @@ public class GoExpressionFormattingVisitor extends ExpressionVisitor<Void, IOExc
 			out.write("*");
 			break;
 		default:
-			throw new RuntimeException("unreachable");
+			throw new Unreachable();
 		}
 		out.write(" (");
 		binop.getRHS().accept(this);
@@ -254,7 +255,7 @@ public class GoExpressionFormattingVisitor extends ExpressionVisitor<Void, IOExc
 				out.write("<-");
 				break;
 			default:
-				throw new RuntimeException("unreachable");
+				throw new Unreachable();
 		}
 		out.write("(");
 		unary.getTarget().accept(this);

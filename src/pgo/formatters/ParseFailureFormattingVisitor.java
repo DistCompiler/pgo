@@ -2,6 +2,7 @@ package pgo.formatters;
 
 import java.io.IOException;
 
+import pgo.Unreachable;
 import pgo.parser.ParseFailure.InsufficientOperatorPrecedence;
 import pgo.parser.ParseFailure.InsufficientlyIndented;
 import pgo.parser.ParseFailure.NoBranchesMatched;
@@ -13,11 +14,11 @@ import pgo.parser.ParseFailureVisitor;
 public class ParseFailureFormattingVisitor extends ParseFailureVisitor<Void, IOException> {
 
 	private IndentingWriter out;
-	
+
 	public ParseFailureFormattingVisitor(IndentingWriter out) {
 		this.out = out;
 	}
-	
+
 	@Override
 	public Void visit(UnexpectedEOF unexpectedEOF) throws IOException {
 		out.write("unexpected EOF");
@@ -53,7 +54,7 @@ public class ParseFailureFormattingVisitor extends ParseFailureVisitor<Void, IOE
 
 	@Override
 	public Void visit(NoBranchesMatched noBranchesMatched) throws IOException {
-		throw new RuntimeException("unreachable");
+		throw new Unreachable();
 	}
 
 	@Override

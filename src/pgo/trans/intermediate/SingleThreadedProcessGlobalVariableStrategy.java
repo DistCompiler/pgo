@@ -3,6 +3,7 @@ package pgo.trans.intermediate;
 import java.util.List;
 import java.util.Map;
 
+import pgo.InternalCompilerError;
 import pgo.model.golang.*;
 import pgo.model.pcal.Algorithm;
 import pgo.model.pcal.PcalProcess;
@@ -28,7 +29,7 @@ public class SingleThreadedProcessGlobalVariableStrategy extends GlobalVariableS
 
 	@Override
 	public void processPrelude(BlockBuilder processBody, PcalProcess process, String processName, VariableName self, Type selfType) {
-		throw new RuntimeException("internal compiler error");
+		throw new InternalCompilerError();
 	}
 
 	@Override
@@ -38,7 +39,7 @@ public class SingleThreadedProcessGlobalVariableStrategy extends GlobalVariableS
 
 	@Override
 	public List<FunctionArgument> getExtraProcessArguments() {
-		throw new RuntimeException("internal compiler error");
+		throw new InternalCompilerError();
 	}
 
 	@Override

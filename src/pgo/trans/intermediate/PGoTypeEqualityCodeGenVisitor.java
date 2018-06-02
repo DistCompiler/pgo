@@ -1,5 +1,6 @@
 package pgo.trans.intermediate;
 
+import pgo.TODO;
 import pgo.model.golang.Binop;
 import pgo.model.golang.BlockBuilder;
 import pgo.model.golang.Expression;
@@ -36,12 +37,12 @@ public class PGoTypeEqualityCodeGenVisitor extends PGoTypeVisitor<Expression, Ru
 
 	@Override
 	public Expression visit(PGoTypeVariable pGoTypeVariable) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
 	public Expression visit(PGoTypeTuple pGoTypeTuple) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
@@ -51,17 +52,17 @@ public class PGoTypeEqualityCodeGenVisitor extends PGoTypeVisitor<Expression, Ru
 
 	@Override
 	public Expression visit(PGoTypeUnrealizedTuple pGoTypeUnrealizedTuple) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
 	public Expression visit(PGoTypeUnrealizedNumber pGoTypeUnrealizedNumber) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
 	public Expression visit(PGoTypeSet pGoTypeSet) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
@@ -76,12 +77,12 @@ public class PGoTypeEqualityCodeGenVisitor extends PGoTypeVisitor<Expression, Ru
 
 	@Override
 	public Expression visit(PGoTypeFunction pGoTypeFunction) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
 	public Expression visit(PGoTypeChan pGoTypeChan) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
@@ -91,12 +92,12 @@ public class PGoTypeEqualityCodeGenVisitor extends PGoTypeVisitor<Expression, Ru
 
 	@Override
 	public Expression visit(PGoTypeSlice pGoTypeSlice) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
 	public Expression visit(PGoTypeProcedure pGoTypeProcedure) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 }

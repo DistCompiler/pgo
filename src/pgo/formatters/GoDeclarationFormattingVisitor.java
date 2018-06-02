@@ -2,8 +2,8 @@ package pgo.formatters;
 
 import java.io.IOException;
 
+import pgo.TODO;
 import pgo.model.golang.DeclarationVisitor;
-import pgo.model.golang.FunctionArgument;
 import pgo.model.golang.FunctionDeclaration;
 import pgo.model.golang.TypeDeclaration;
 import pgo.model.golang.VariableDeclaration;
@@ -43,7 +43,7 @@ public class GoDeclarationFormattingVisitor extends DeclarationVisitor<Void, IOE
 
 	@Override
 	public Void visit(TypeDeclaration typeDeclaration) throws IOException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override

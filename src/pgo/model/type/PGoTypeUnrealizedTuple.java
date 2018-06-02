@@ -2,6 +2,7 @@ package pgo.model.type;
 
 import java.util.*;
 
+import pgo.Unreachable;
 import pgo.errors.Issue;
 import pgo.errors.IssueContext;
 import pgo.util.Origin;
@@ -71,7 +72,7 @@ public class PGoTypeUnrealizedTuple extends PGoType {
 		} else if (other instanceof PGoTypeSlice) {
 			realType = RealType.Slice;
 		} else {
-			throw new RuntimeException("unreachable");
+			throw new Unreachable();
 		}
 		// we have to link the element types here again because this constraint may be the only link between the element
 		// type and the rest of the types
@@ -228,7 +229,7 @@ public class PGoTypeUnrealizedTuple extends PGoType {
 			case Tuple:
 			case Unknown:
 			default:
-				throw new RuntimeException("unreachable");
+				throw new Unreachable();
 		}
 	}
 

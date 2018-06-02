@@ -2,6 +2,7 @@ package pgo.formatters;
 
 import java.io.IOException;
 
+import pgo.TODO;
 import pgo.model.golang.*;
 
 public class GoTypeFormattingVisitor extends TypeVisitor<Void, IOException> {
@@ -20,12 +21,12 @@ public class GoTypeFormattingVisitor extends TypeVisitor<Void, IOException> {
 
 	@Override
 	public Void visit(StructType structType) throws IOException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
 	public Void visit(PtrType ptrType) throws IOException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override

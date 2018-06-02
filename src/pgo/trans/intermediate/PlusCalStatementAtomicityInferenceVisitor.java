@@ -1,5 +1,6 @@
 package pgo.trans.intermediate;
 
+import pgo.Unreachable;
 import pgo.model.pcal.*;
 import pgo.scope.UID;
 
@@ -83,7 +84,7 @@ public class PlusCalStatementAtomicityInferenceVisitor extends StatementVisitor<
 
 	@Override
 	public Void visit(MacroCall macroCall) throws RuntimeException {
-		throw new RuntimeException("unreachable");
+		throw new Unreachable();
 	}
 
 	@Override

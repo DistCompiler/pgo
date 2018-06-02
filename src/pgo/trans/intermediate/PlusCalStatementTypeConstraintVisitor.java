@@ -5,6 +5,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
+import pgo.Unreachable;
 import pgo.errors.IssueContext;
 import pgo.model.pcal.*;
 import pgo.model.tla.PGoTLAExpression;
@@ -109,7 +110,7 @@ public class PlusCalStatementTypeConstraintVisitor extends StatementVisitor<Void
 
 	@Override
 	public Void visit(MacroCall macroCall) throws RuntimeException {
-		throw new RuntimeException("unreachable");
+		throw new Unreachable();
 	}
 
 	@Override

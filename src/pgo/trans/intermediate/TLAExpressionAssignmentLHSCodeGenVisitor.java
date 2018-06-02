@@ -2,6 +2,7 @@ package pgo.trans.intermediate;
 
 import java.util.Map;
 
+import pgo.TODO;
 import pgo.model.golang.BlockBuilder;
 import pgo.model.golang.Expression;
 import pgo.model.golang.VariableName;
@@ -82,7 +83,7 @@ public class TLAExpressionAssignmentLHSCodeGenVisitor extends PGoTLAExpressionVi
 				}
 			};
 		} else {
-			throw new RuntimeException("TODO");
+			throw new TODO();
 		}
 	}
 

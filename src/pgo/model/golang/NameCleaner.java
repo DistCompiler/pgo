@@ -3,6 +3,7 @@ package pgo.model.golang;
 import java.util.HashSet;
 import java.util.Set;
 
+import pgo.InternalCompilerError;
 import pgo.scope.ChainSet;
 
 public class NameCleaner {
@@ -33,7 +34,7 @@ public class NameCleaner {
 
 	public String requireCleanName(String requiredName) {
 		if (existingNames.contains(requiredName)) {
-			throw new RuntimeException("internal compiler error");
+			throw new InternalCompilerError();
 		}
 		return requiredName;
 	}

@@ -1,5 +1,7 @@
 package pgo.trans.intermediate;
 
+import pgo.TODO;
+import pgo.Unreachable;
 import pgo.model.golang.*;
 import pgo.model.pcal.PcalProcess;
 import pgo.scope.UID;
@@ -12,7 +14,7 @@ public class EtcdGlobalVariableStrategy extends GlobalVariableStrategy {
 
 	@Override
 	public void initPostlude(ModuleBuilder moduleBuilder, BlockBuilder initBuilder) {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
@@ -43,43 +45,43 @@ public class EtcdGlobalVariableStrategy extends GlobalVariableStrategy {
 											Collections.singletonList(self))),
 							new StringLiteral(")")));
 		} else {
-			throw new RuntimeException("unreachable");
+			throw new Unreachable();
 		}
 	}
 
 	@Override
 	public void mainPrelude(BlockBuilder builder) {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
 	public List<FunctionArgument> getExtraProcessArguments() {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
 	public void startCriticalSection(BlockBuilder builder, UID labelUID, LabelName labelName) {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
 	public void abortCriticalSection(BlockBuilder builder) {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
 	public void endCriticalSection(BlockBuilder builder) {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
 	public Expression readGlobalVariable(BlockBuilder builder, UID uid) {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
 	public GlobalVariableWrite writeGlobalVariable(UID uid) {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 }

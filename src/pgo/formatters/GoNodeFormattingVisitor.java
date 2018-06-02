@@ -2,6 +2,7 @@ package pgo.formatters;
 
 import java.io.IOException;
 
+import pgo.TODO;
 import pgo.model.golang.Declaration;
 import pgo.model.golang.Expression;
 import pgo.model.golang.FunctionArgument;
@@ -72,17 +73,17 @@ public class GoNodeFormattingVisitor extends NodeVisitor<Void, IOException> {
 
 	@Override
 	public Void visit(StructTypeField structTypeField) throws IOException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
 	public Void visit(SwitchCase switchCase) throws IOException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
 	public Void visit(LabelName labelName) throws IOException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
@@ -103,12 +104,12 @@ public class GoNodeFormattingVisitor extends NodeVisitor<Void, IOException> {
 
 	@Override
 	public Void visit(InterfaceTypeField interfaceTypeField) throws IOException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
 	public Void visit(SelectCase selectCase) throws IOException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 }

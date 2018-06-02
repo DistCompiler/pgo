@@ -3,6 +3,7 @@ package pgo.model.type;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import pgo.Unreachable;
 import pgo.errors.Issue;
 import pgo.errors.IssueContext;
 
@@ -88,7 +89,7 @@ public class PGoTypeSolver {
 				// solve the newly added constraints
 				continue;
 			} else {
-				throw new RuntimeException("unreachable");
+				throw new Unreachable();
 			}
 			// a and b are substituted so that we gain more information about their structures
 			a = a.substitute(mapping);

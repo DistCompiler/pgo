@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
+import pgo.TODO;
 import pgo.model.golang.*;
 import pgo.model.tla.*;
 import pgo.model.type.*;
@@ -46,7 +47,7 @@ public class TLAExpressionCodeGenVisitor extends PGoTLAExpressionVisitor<Express
 				}
 			}else {
 				if (bound.getIds().size() != 1) {
-					throw new RuntimeException("TODO");
+					throw new TODO();
 				}
 
 				PGoTLAIdentifier id = bound.getIds().get(0);
@@ -66,11 +67,11 @@ public class TLAExpressionCodeGenVisitor extends PGoTLAExpressionVisitor<Express
 	public Expression visit(PGoTLAFunctionCall pGoTLAFunctionCall) throws RuntimeException {
 		PGoType type = typeMap.get(pGoTLAFunctionCall.getFunction().getUID());
 		if (!(type instanceof PGoTypeSlice)) {
-			throw new RuntimeException("TODO");
+			throw new TODO();
 		}
 
 		if (pGoTLAFunctionCall.getParams().size() != 1) {
-			throw new RuntimeException("TODO");
+			throw new TODO();
 		}
 		return new Index(
 				pGoTLAFunctionCall.getFunction().accept(this),
@@ -100,37 +101,37 @@ public class TLAExpressionCodeGenVisitor extends PGoTLAExpressionVisitor<Express
 
 	@Override
 	public Expression visit(PGoTLACase pGoTLACase) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
 	public Expression visit(PGoTLAExistential pGoTLAExistential) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
 	public Expression visit(PGoTLAFunction pGoTLAFunction) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
 	public Expression visit(PGoTLAFunctionSet pGoTLAFunctionSet) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
 	public Expression visit(PGoTLAFunctionSubstitution pGoTLAFunctionSubstitution) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
 	public Expression visit(PGoTLAIf pGoTLAIf) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
 	public Expression visit(PGoTLALet pGoTLALet) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
@@ -161,7 +162,7 @@ public class TLAExpressionCodeGenVisitor extends PGoTLAExpressionVisitor<Express
 
 	@Override
 	public Expression visit(PGoTLAMaybeAction pGoTLAMaybeAction) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
@@ -205,22 +206,22 @@ public class TLAExpressionCodeGenVisitor extends PGoTLAExpressionVisitor<Express
 
 	@Override
 	public Expression visit(PGoTLAQuantifiedUniversal pGoTLAQuantifiedUniversal) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
 	public Expression visit(PGoTLARecordConstructor pGoTLARecordConstructor) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
 	public Expression visit(PGoTLARecordSet pGoTLARecordSet) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
 	public Expression visit(PGoTLARequiredAction pGoTLARequiredAction) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
@@ -316,7 +317,7 @@ public class TLAExpressionCodeGenVisitor extends PGoTLAExpressionVisitor<Express
 
 	@Override
 	public Expression visit(PGoTLAUniversal pGoTLAUniversal) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override

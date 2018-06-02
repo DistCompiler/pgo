@@ -9,6 +9,7 @@ import java.util.Vector;
 import pcal.AST;
 import pcal.TLAExpr;
 import pgo.PGoException;
+import pgo.Unreachable;
 import pgo.errors.IssueContext;
 import pgo.lexer.TLAToken;
 import pgo.lexer.TLATokenType;
@@ -86,7 +87,7 @@ public class TLCToPGoPCalASTConversionVisitor extends PcalASTUtil.Visitor<List<S
 			type = TLATokenType.STRING;
 			break;
 		default:
-			throw new RuntimeException("unreachable");
+			throw new Unreachable();
 		}
 		return new TLAToken(tok.string, type, loc);
 	}
@@ -205,7 +206,7 @@ public class TLCToPGoPCalASTConversionVisitor extends PcalASTUtil.Visitor<List<S
 				f = Fairness.STRONG_FAIR;
 				break;
 			default:
-				throw new RuntimeException("unreachable");
+				throw new Unreachable();
 			}
 			minusLabels = p.minusLabels;
 			plusLabels = p.plusLabels;
@@ -224,22 +225,22 @@ public class TLCToPGoPCalASTConversionVisitor extends PcalASTUtil.Visitor<List<S
 
 	@Override
 	public List<Statement> visit(AST.Procedure p) throws PGoTransException {
-		throw new RuntimeException("unreachable");
+		throw new Unreachable();
 	}
 
 	@Override
 	public List<Statement> visit(AST.Process p) throws PGoTransException {
-		throw new RuntimeException("unreachable");
+		throw new Unreachable();
 	}
 
 	@Override
 	public List<Statement> visit(AST.PVarDecl a) throws PGoTransException {
-		throw new RuntimeException("unreachable");
+		throw new Unreachable();
 	}
 
 	@Override
 	public List<Statement> visit(AST.VarDecl a) throws PGoTransException {
-		throw new RuntimeException("unreachable");
+		throw new Unreachable();
 	}
 
 	@SuppressWarnings("unchecked")
@@ -316,7 +317,7 @@ public class TLCToPGoPCalASTConversionVisitor extends PcalASTUtil.Visitor<List<S
 
 	@Override
 	public List<Statement> visit(AST.Lhs lhs) throws PGoTransException {
-		throw new RuntimeException("unreachable");
+		throw new Unreachable();
 	}
 
 	@SuppressWarnings("unchecked")
@@ -402,7 +403,7 @@ public class TLCToPGoPCalASTConversionVisitor extends PcalASTUtil.Visitor<List<S
 
 	@Override
 	public List<Statement> visit(AST.Clause c) throws PGoTransException {
-		throw new RuntimeException("unreachable");
+		throw new Unreachable();
 	}
 
 	@SuppressWarnings("unchecked")
@@ -440,7 +441,7 @@ public class TLCToPGoPCalASTConversionVisitor extends PcalASTUtil.Visitor<List<S
 
 	@Override
 	public List<Statement> visit(AST.Macro m) throws PGoTransException {
-		throw new RuntimeException("unreachable");
+		throw new Unreachable();
 	}
 
 	@SuppressWarnings("unchecked")

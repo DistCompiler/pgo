@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import pgo.TODO;
 import pgo.model.golang.*;
 
 public class EqCodeGenVisitor extends TypeVisitor<Expression, RuntimeException> {
@@ -25,7 +26,7 @@ public class EqCodeGenVisitor extends TypeVisitor<Expression, RuntimeException> 
 		if(typeName.isBuiltin()) {
 			return new Binop(invert ? Binop.Operation.NEQ : Binop.Operation.EQ, lhs, rhs);
 		}
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
@@ -98,12 +99,12 @@ public class EqCodeGenVisitor extends TypeVisitor<Expression, RuntimeException> 
 
 	@Override
 	public Expression visit(ChanType chanType) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
 	public Expression visit(InterfaceType interfaceType) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 }

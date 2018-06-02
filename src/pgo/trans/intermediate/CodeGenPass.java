@@ -4,6 +4,8 @@ import java.util.Map;
 
 import pgo.PGoNetOptions;
 import pgo.PGoOptions;
+import pgo.TODO;
+import pgo.Unreachable;
 import pgo.model.golang.Module;
 import pgo.model.golang.ModuleBuilder;
 import pgo.model.pcal.Algorithm;
@@ -32,9 +34,9 @@ public class CodeGenPass {
 				case PGoNetOptions.StateOptions.STATE_SERVER:
 					break;
 				default:
-					throw new RuntimeException("unreachable");
+					throw new Unreachable();
 			}
-			throw new RuntimeException("TODO");
+			throw new TODO();
 		}
 		processes.accept(new PlusCalProcessesCodeGenVisitor(
 				registry, typeMap, globalVariableStrategy, algorithm, moduleBuilder));

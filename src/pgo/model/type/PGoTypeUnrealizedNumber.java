@@ -1,5 +1,6 @@
 package pgo.model.type;
 
+import pgo.InternalCompilerError;
 import pgo.errors.Issue;
 import pgo.errors.IssueContext;
 import pgo.util.Origin;
@@ -61,7 +62,7 @@ public class PGoTypeUnrealizedNumber extends PGoNumberType {
 
 	@Override
 	public PGoNumberType copyWithOrigins(List<Origin> origins) {
-		throw new IllegalStateException("internal compiler error");
+		throw new InternalCompilerError();
 	}
 
 	@Override

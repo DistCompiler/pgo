@@ -3,6 +3,7 @@ package pgo.formatters;
 import java.io.IOException;
 import java.util.List;
 
+import pgo.Unreachable;
 import pgo.model.tla.PGoTLACaseArm;
 import pgo.model.tla.PGoTLAExpression;
 import pgo.model.tla.PGoTLAFunctionSubstitutionPair;
@@ -20,7 +21,7 @@ import pgo.model.tla.PGoTLAUnit;
 import pgo.model.tla.PGoTLANodeVisitor;
 
 public class PGoTLANodeFormattingVisitor extends PGoTLANodeVisitor<Void, IOException> {
-	
+
 	IndentingWriter out;
 
 	public PGoTLANodeFormattingVisitor(IndentingWriter out) {
@@ -76,7 +77,7 @@ public class PGoTLANodeFormattingVisitor extends PGoTLANodeVisitor<Void, IOExcep
 			out.write("_");
 			break;
 		default:
-			throw new RuntimeException("unreachable");
+			throw new Unreachable();
 		}
 		return null;
 	}
@@ -123,7 +124,7 @@ public class PGoTLANodeFormattingVisitor extends PGoTLANodeVisitor<Void, IOExcep
 			out.write(">>");
 			break;
 		default:
-			throw new RuntimeException("unreachable");
+			throw new Unreachable();
 		}
 		out.write(" \\in ");
 		pGoTLAQuantifierBound.getSet().accept(new PGoTLAExpressionFormattingVisitor(out));
@@ -144,7 +145,7 @@ public class PGoTLANodeFormattingVisitor extends PGoTLANodeVisitor<Void, IOExcep
 			out.write("<<");
 			FormattingTools.writeCommaSeparated(out, pGoTLAIdentifierOrTuple.getTuple(), elem -> elem.accept(this));
 			out.write(">>");
-			
+
 		}else {
 			pGoTLAIdentifierOrTuple.getId().accept(this);
 		}

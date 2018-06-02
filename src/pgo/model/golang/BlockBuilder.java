@@ -7,6 +7,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
+import pgo.InternalCompilerError;
 import pgo.scope.UID;
 
 public class BlockBuilder extends ASTBuilder implements Closeable {
@@ -174,7 +175,7 @@ public class BlockBuilder extends ASTBuilder implements Closeable {
 
 	public VariableName findUID(UID uid) {
 		if(!nameMap.containsKey(uid)) {
-			throw new RuntimeException("internal compiler error");
+			throw new InternalCompilerError();
 		}
 		return nameMap.get(uid);
 	}

@@ -3,6 +3,8 @@ package pgo.trans.intermediate;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import pgo.TODO;
+import pgo.Unreachable;
 import pgo.model.tla.PGoTLABinOp;
 import pgo.model.tla.PGoTLABool;
 import pgo.model.tla.PGoTLACase;
@@ -83,7 +85,7 @@ public class TLAExpressionTypeConstraintVisitor extends PGoTLAExpressionVisitor<
 			solver.addConstraint(new PGoTypeMonomorphicConstraint(qb, elementType, new PGoTypeTuple(tupleTypes, Collections.singletonList(qb))));
 			break;
 		default:
-			throw new RuntimeException("unreachable");
+			throw new Unreachable();
 		}
 		return elementType;
 	}
@@ -141,7 +143,7 @@ public class TLAExpressionTypeConstraintVisitor extends PGoTLAExpressionVisitor<
 
 	@Override
 	public PGoType visit(PGoTLACase pGoTLACase) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
@@ -170,12 +172,12 @@ public class TLAExpressionTypeConstraintVisitor extends PGoTLAExpressionVisitor<
 		PGoType to = wrappedVisit(pGoTLAFunctionSet.getTo());
 		solver.addConstraint(new PGoTypeMonomorphicConstraint(pGoTLAFunctionSet, from, new PGoTypeSet(generator.get(), Collections.singletonList(pGoTLAFunctionSet))));
 		solver.addConstraint(new PGoTypeMonomorphicConstraint(pGoTLAFunctionSet, to, new PGoTypeSet(generator.get(), Collections.singletonList(pGoTLAFunctionSet))));
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
 	public PGoType visit(PGoTLAFunctionSubstitution pGoTLAFunctionSubstitution) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
@@ -220,7 +222,7 @@ public class TLAExpressionTypeConstraintVisitor extends PGoTLAExpressionVisitor<
 
 	@Override
 	public PGoType visit(PGoTLAMaybeAction pGoTLAMaybeAction) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
@@ -264,17 +266,17 @@ public class TLAExpressionTypeConstraintVisitor extends PGoTLAExpressionVisitor<
 
 	@Override
 	public PGoType visit(PGoTLARecordConstructor pGoTLARecordConstructor) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
 	public PGoType visit(PGoTLARecordSet pGoTLARecordSet) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
 	public PGoType visit(PGoTLARequiredAction pGoTLARequiredAction) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override

@@ -3,6 +3,7 @@ package pgo.formatters;
 import java.io.IOException;
 import java.util.List;
 
+import pgo.TODO;
 import pgo.model.golang.*;
 
 public class GoStatementFormattingVisitor extends StatementVisitor<Void, IOException> {
@@ -15,7 +16,7 @@ public class GoStatementFormattingVisitor extends StatementVisitor<Void, IOExcep
 
 	@Override
 	public Void visit(Comment comment) throws IOException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
@@ -113,7 +114,7 @@ public class GoStatementFormattingVisitor extends StatementVisitor<Void, IOExcep
 
 	@Override
 	public Void visit(Switch switch1) throws IOException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
@@ -125,12 +126,12 @@ public class GoStatementFormattingVisitor extends StatementVisitor<Void, IOExcep
 
 	@Override
 	public Void visit(GoCall goCall) throws IOException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
 	public Void visit(Select select) throws IOException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override

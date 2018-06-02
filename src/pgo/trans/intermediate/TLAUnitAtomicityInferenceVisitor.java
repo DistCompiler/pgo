@@ -1,5 +1,6 @@
 package pgo.trans.intermediate;
 
+import pgo.Unreachable;
 import pgo.model.tla.*;
 
 public class TLAUnitAtomicityInferenceVisitor extends PGoTLAUnitVisitor<Void, RuntimeException> {
@@ -11,7 +12,7 @@ public class TLAUnitAtomicityInferenceVisitor extends PGoTLAUnitVisitor<Void, Ru
 
 	@Override
 	public Void visit(PGoTLAInstance pGoTLAInstance) throws RuntimeException {
-		throw new RuntimeException("unreachable");
+		throw new Unreachable();
 	}
 
 	@Override
@@ -28,31 +29,31 @@ public class TLAUnitAtomicityInferenceVisitor extends PGoTLAUnitVisitor<Void, Ru
 
 	@Override
 	public Void visit(PGoTLATheorem pGoTLATheorem) throws RuntimeException {
-		throw new RuntimeException("unreachable");
+		throw new Unreachable();
 	}
 
 	@Override
 	public Void visit(PGoTLAModule pGoTLAModule) throws RuntimeException {
-		throw new RuntimeException("unreachable");
+		throw new Unreachable();
 	}
 
 	@Override
 	public Void visit(PGoTLAVariableDeclaration pGoTLAVariableDeclaration) throws RuntimeException {
-		throw new RuntimeException("unreachable");
+		throw new Unreachable();
 	}
 
 	@Override
 	public Void visit(PGoTLAConstantDeclaration pGoTLAConstantDeclaration) throws RuntimeException {
-		throw new RuntimeException("unreachable");
+		throw new Unreachable();
 	}
 
 	@Override
 	public Void visit(PGoTLAModuleDefinition pGoTLAModuleDefinition) throws RuntimeException {
-		throw new RuntimeException("unreachable");
+		throw new Unreachable();
 	}
 
 	@Override
 	public Void visit(PGoTLAAssumption pGoTLAAssumption) throws RuntimeException {
-		throw new RuntimeException("unreachable");
+		throw new Unreachable();
 	}
 }

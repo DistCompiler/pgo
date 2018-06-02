@@ -2,6 +2,7 @@ package pgo.trans.intermediate;
 
 import java.util.*;
 
+import pgo.InternalCompilerError;
 import pgo.model.pcal.Procedure;
 import pgo.model.tla.PGoTLAExpression;
 import pgo.model.tla.PGoTLAFunctionDefinition;
@@ -77,14 +78,14 @@ public class DefinitionRegistry {
 
 	public UID followReference(UID from) {
 		if (!references.containsKey(from)) {
-			throw new RuntimeException("internal compiler error");
+			throw new InternalCompilerError();
 		}
 		return references.get(from);
 	}
 
 	public OperatorAccessor findOperator(UID id) {
 		if (!operators.containsKey(id)) {
-			throw new RuntimeException("internal compiler error");
+			throw new InternalCompilerError();
 		}
 		return operators.get(id);
 	}
@@ -115,7 +116,7 @@ public class DefinitionRegistry {
 
 	public String getConstantName(UID id) {
 		if (!constants.containsKey(id)) {
-			throw new RuntimeException("internal compiler error");
+			throw new InternalCompilerError();
 		}
 		return constants.get(id);
 	}
@@ -126,7 +127,7 @@ public class DefinitionRegistry {
 
 	public PGoTLAExpression getConstantValue(UID id) {
 		if (!constantValues.containsKey(id)) {
-			throw new RuntimeException("internal compiler error");
+			throw new InternalCompilerError();
 		}
 		return constantValues.get(id);
 	}

@@ -2,6 +2,7 @@ package pgo.trans.intermediate;
 
 import java.util.*;
 
+import pgo.TODO;
 import pgo.model.golang.*;
 import pgo.model.type.*;
 import pgo.scope.UID;
@@ -131,7 +132,7 @@ public class TLABuiltins {
 					return new PGoTypeBool(Collections.singletonList(origin));
 				},
 				(builder, origin, registry, arguments, typeMap, globalStrategy) -> {
-					throw new RuntimeException("TODO");
+					throw new TODO();
 				}
 				));
 		universalBuiltIns.addOperator("\\", new BuiltinOperator(
@@ -330,7 +331,7 @@ public class TLABuiltins {
 					Type baseType = typeMap.get(arguments.get(0).getUID()).accept(new PGoTypeGoTypeConversionVisitor());
 					Expression base = arguments.get(0).accept(new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
 					Expression extra = arguments.get(1).accept(new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
-					
+
 					Expression baseLen = new Call(new VariableName("len"), Collections.singletonList(base));
 					// since append may reuse the underlying slice, it is possible that appending two different
 					// things to the same original slice will causes unintended mutations in the results of previous
@@ -462,7 +463,7 @@ public class TLABuiltins {
 				0,
 				(origin, args, solver, generator) -> new PGoTypeSet(new PGoTypeInt(Collections.singletonList(origin)), Collections.singletonList(origin)),
 				(builder, origin, registry, arguments, typeMap) -> {
-					throw new RuntimeException("TODO");
+					throw new TODO();
 				}
 				));
 		Naturals.addOperator("..", new TypelessBuiltinOperator(
@@ -512,7 +513,7 @@ public class TLABuiltins {
 				0,
 				(origin, args, solver, generator) -> new PGoTypeSet(new PGoTypeInt(Collections.singletonList(origin)), Collections.singletonList(origin)),
 				(builder, origin, registry, arguments, typeMap) -> {
-					throw new RuntimeException("TODO");
+					throw new TODO();
 				}));
 
 	}

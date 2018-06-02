@@ -3,6 +3,7 @@ package pgo.trans.intermediate;
 import java.util.List;
 import java.util.Set;
 
+import pgo.Unreachable;
 import pgo.errors.IssueContext;
 import pgo.model.pcal.Assert;
 import pgo.model.pcal.Assignment;
@@ -109,7 +110,7 @@ public class PlusCalStatementScopingVisitor extends StatementVisitor<Void, Runti
 
 	@Override
 	public Void visit(MacroCall macroCall) throws RuntimeException {
-		throw new RuntimeException("unreachable");
+		throw new Unreachable();
 	}
 
 	@Override

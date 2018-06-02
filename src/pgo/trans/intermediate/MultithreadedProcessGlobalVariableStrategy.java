@@ -1,5 +1,7 @@
 package pgo.trans.intermediate;
 
+import pgo.InternalCompilerError;
+import pgo.TODO;
 import pgo.model.golang.*;
 import pgo.model.pcal.Algorithm;
 import pgo.model.pcal.MultiProcess;
@@ -25,14 +27,14 @@ public class MultithreadedProcessGlobalVariableStrategy extends GlobalVariableSt
 
 	private void addSynchronizedVariable(UID uid, VariableName name) {
 		if (synchronizedVariables.containsKey(uid)) {
-			throw new RuntimeException("internal compiler error");
+			throw new InternalCompilerError();
 		}
 		synchronizedVariables.put(uid, name);
 	}
 
 	private VariableName findSynchronizedVariable(UID uid) {
 		if (!synchronizedVariables.containsKey(uid)) {
-			throw new RuntimeException("internal compiler error");
+			throw new InternalCompilerError();
 		}
 		return synchronizedVariables.get(uid);
 	}
@@ -112,14 +114,14 @@ public class MultithreadedProcessGlobalVariableStrategy extends GlobalVariableSt
 
 	@Override
 	public List<FunctionArgument> getExtraProcessArguments() {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
 	public void startCriticalSection(BlockBuilder builder, UID labelUID, LabelName labelName) {
 		int lockGroup = labelsToLockGroups.getOrDefault(labelUID, -1);
 		if (currentLockGroup != -1 && currentLockGroup != lockGroup) {
-			throw new RuntimeException("internal compiler error");
+			throw new InternalCompilerError();
 		}
 		if (currentLockGroup == lockGroup) {
 			// TODO recursive lock

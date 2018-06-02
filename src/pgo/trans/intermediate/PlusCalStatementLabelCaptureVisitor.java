@@ -2,6 +2,7 @@ package pgo.trans.intermediate;
 
 import java.util.List;
 
+import pgo.Unreachable;
 import pgo.errors.IssueContext;
 import pgo.model.pcal.Assert;
 import pgo.model.pcal.Assignment;
@@ -25,7 +26,7 @@ public class PlusCalStatementLabelCaptureVisitor extends StatementVisitor<Void, 
 
 	IssueContext ctx;
 	TLAScopeBuilder builder;
-	
+
 	public PlusCalStatementLabelCaptureVisitor(IssueContext ctx, TLAScopeBuilder builder) {
 		this.ctx = ctx;
 		this.builder = builder;
@@ -36,11 +37,11 @@ public class PlusCalStatementLabelCaptureVisitor extends StatementVisitor<Void, 
 		String name = labeledStatements.getLabel().getName();
 		Label label = labeledStatements.getLabel();
 		builder.declare(name, label.getUID());
-		
+
 		for(Statement stmt : labeledStatements.getStatements()) {
 			stmt.accept(this);
 		}
-		
+
 		return null;
 	}
 
@@ -95,7 +96,7 @@ public class PlusCalStatementLabelCaptureVisitor extends StatementVisitor<Void, 
 
 	@Override
 	public Void visit(MacroCall macroCall) throws RuntimeException {
-		throw new RuntimeException("unreachable");
+		throw new Unreachable();
 	}
 
 	@Override
@@ -125,5 +126,5 @@ public class PlusCalStatementLabelCaptureVisitor extends StatementVisitor<Void, 
 	public Void visit(Goto goto1) throws RuntimeException {
 		return null;
 	}
-	
+
 }

@@ -1,5 +1,7 @@
 package pgo.trans.intermediate;
 
+import pgo.TODO;
+import pgo.Unreachable;
 import pgo.model.golang.*;
 import pgo.model.pcal.*;
 import pgo.model.pcal.Assignment;
@@ -89,7 +91,7 @@ public class PlusCalStatementCodeGenVisitor extends StatementVisitor<Void, Runti
 
 	@Override
 	public Void visit(Either either) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
@@ -136,7 +138,7 @@ public class PlusCalStatementCodeGenVisitor extends StatementVisitor<Void, Runti
 
 	@Override
 	public Void visit(MacroCall macroCall) throws RuntimeException {
-		throw new RuntimeException("unreachable");
+		throw new Unreachable();
 	}
 
 	@Override

@@ -2,6 +2,8 @@ package pgo.trans.intermediate;
 
 import java.util.Collections;
 
+import pgo.InternalCompilerError;
+import pgo.TODO;
 import pgo.model.golang.*;
 import pgo.model.type.PGoTypeBool;
 import pgo.model.type.PGoTypeChan;
@@ -22,7 +24,7 @@ public class PGoTypeGoTypeConversionVisitor extends PGoTypeVisitor<Type, Runtime
 
 	@Override
 	public Type visit(PGoTypeVariable pGoTypeVariable) throws RuntimeException {
-		throw new RuntimeException("internal compiler error");
+		throw new InternalCompilerError();
 	}
 
 	@Override
@@ -37,12 +39,12 @@ public class PGoTypeGoTypeConversionVisitor extends PGoTypeVisitor<Type, Runtime
 
 	@Override
 	public Type visit(PGoTypeUnrealizedTuple pGoTypeUnrealizedTuple) throws RuntimeException {
-		throw new RuntimeException("internal compiler error");
+		throw new InternalCompilerError();
 	}
 
 	@Override
 	public Type visit(PGoTypeUnrealizedNumber pGoTypeUnrealizedNumber) throws RuntimeException {
-		throw new RuntimeException("internal compiler error");
+		throw new InternalCompilerError();
 	}
 
 	@Override
@@ -62,12 +64,12 @@ public class PGoTypeGoTypeConversionVisitor extends PGoTypeVisitor<Type, Runtime
 
 	@Override
 	public Type visit(PGoTypeFunction pGoTypeFunction) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
 	public Type visit(PGoTypeChan pGoTypeChan) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
@@ -82,7 +84,7 @@ public class PGoTypeGoTypeConversionVisitor extends PGoTypeVisitor<Type, Runtime
 
 	@Override
 	public Type visit(PGoTypeProcedure pGoTypeProcedure) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 }

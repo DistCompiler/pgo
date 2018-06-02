@@ -2,6 +2,7 @@ package pgo.trans.intermediate;
 
 import java.util.Collections;
 
+import pgo.TODO;
 import pgo.model.golang.*;
 
 public class LessThanCodeGenVisitor extends TypeVisitor<Expression, RuntimeException> {
@@ -21,7 +22,7 @@ public class LessThanCodeGenVisitor extends TypeVisitor<Expression, RuntimeExcep
 		if(typeName.isBuiltin()) {
 			return new Binop(Binop.Operation.LT, lhs, rhs);
 		}else {
-			throw new RuntimeException("TODO");
+			throw new TODO();
 		}
 	}
 
@@ -38,7 +39,7 @@ public class LessThanCodeGenVisitor extends TypeVisitor<Expression, RuntimeExcep
 								new Selector(rhs, "key")));
 			}
 		}
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
@@ -93,12 +94,12 @@ public class LessThanCodeGenVisitor extends TypeVisitor<Expression, RuntimeExcep
 
 	@Override
 	public Expression visit(ChanType chanType) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
 	public Expression visit(InterfaceType interfaceType) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 }

@@ -1,5 +1,6 @@
 package pgo.trans.intermediate;
 
+import pgo.TODO;
 import pgo.model.tla.*;
 import pgo.scope.UID;
 
@@ -36,7 +37,7 @@ public class TLAExpressionAtomicityInferenceVisitor extends PGoTLAExpressionVisi
 
 	@Override
 	public Set<UID> visit(PGoTLACase pGoTLACase) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
@@ -59,7 +60,7 @@ public class TLAExpressionAtomicityInferenceVisitor extends PGoTLAExpressionVisi
 
 	@Override
 	public Set<UID> visit(PGoTLAFunctionSubstitution pGoTLAFunctionSubstitution) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		throw new TODO();
 	}
 
 	@Override
