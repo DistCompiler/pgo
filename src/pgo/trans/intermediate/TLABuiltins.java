@@ -276,9 +276,18 @@ public class TLABuiltins {
 					Type elementType = getSetElementType(typeMap.get(origin.getUID()));
 					Expression lhs = arguments.get(0);
 					Expression rhs = arguments.get(1);
+					Expression lhsLen = new Call(new VariableName("len"), Collections.singletonList(lhs));
+					Expression combinedLen = new Binop(
+							Binop.Operation.PLUS,
+							lhsLen,
+							new Call(new VariableName("len"), Collections.singletonList(rhs)));
 					VariableName tmpSet = builder.varDecl(
 							"tmpSet",
-							new Call(new VariableName("append"), Arrays.asList(lhs, rhs), true));
+							new Make(new SliceType(elementType), lhsLen, combinedLen));
+					// since append may re-use the same memory, we have to copy lhs in order to be sure
+					// that we are not going to overwrite the original slice when we sort
+					builder.addStatement(new Call(new VariableName("copy"), Arrays.asList(tmpSet, lhs)));
+					builder.assign(tmpSet, new Call(new VariableName("append"), Arrays.asList(tmpSet, rhs), true));
 					ensureUniqueSorted(builder, elementType, tmpSet);
 					return tmpSet;
 				}));
@@ -308,7 +317,7 @@ public class TLABuiltins {
 				(builder, origin, registry, arguments, typeMap) -> new Call(
 						new VariableName("len"), Collections.singletonList(arguments.get(0)))
 				));
-		Sequences.addOperator("Append", new TypelessBuiltinOperator(
+		Sequences.addOperator("Append", new BuiltinOperator(
 				2,
 				(origin, args, solver, generator) -> {
 					PGoTypeVariable elementType = generator.get();
@@ -317,9 +326,25 @@ public class TLABuiltins {
 					solver.addConstraint(new PGoTypeMonomorphicConstraint(origin, args.get(1), elementType));
 					return fresh;
 				},
-				(builder, origin, registry, arguments, typeMap) -> new Call(
-						new VariableName("append"), Arrays.asList(arguments.get(0), arguments.get(1)))
-				));
+				(builder, origin, registry, arguments, typeMap, globalStrategy) -> {
+					Type baseType = typeMap.get(arguments.get(0).getUID()).accept(new PGoTypeGoTypeConversionVisitor());
+					Expression base = arguments.get(0).accept(new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
+					Expression extra = arguments.get(1).accept(new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
+					
+					Expression baseLen = new Call(new VariableName("len"), Collections.singletonList(base));
+					// since append may reuse the underlying slice, it is possible that appending two different
+					// things to the same original slice will causes unintended mutations in the results of previous
+					// appends. copy the original slice to be sure.
+					VariableName tmpSlice = builder.varDecl(
+							"tmpSlice",
+							new Make(
+									baseType,
+									baseLen,
+									new Binop(Binop.Operation.PLUS, baseLen, new IntLiteral(1))));
+					builder.addStatement(new Call(new VariableName("copy"), Arrays.asList(tmpSlice, base)));
+					builder.assign(tmpSlice, new Call(new VariableName("append"), Arrays.asList(tmpSlice, extra)));
+					return tmpSlice;
+				}));
 		Sequences.addOperator("Head", new TypelessBuiltinOperator(
 				1,
 				(origin, args, solver, generator) -> {
