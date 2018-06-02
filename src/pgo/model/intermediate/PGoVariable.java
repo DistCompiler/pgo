@@ -15,7 +15,6 @@ import pgo.model.type.PGoTypeString;
 import pgo.parser.TLAExprParser;
 import pgo.trans.PGoTransException;
 import pgo.trans.PGoTransExpectedSingleExpressionException;
-import pgo.trans.intermediate.PGoTempData;
 
 /**
  * Intermediate representation of a single pluscal and golang variable.
