@@ -125,4 +125,14 @@ public class GoStatementRemoveUnusedLabelsVisitor extends StatementVisitor<State
 		return continue1;
 	}
 
+	@Override
+	public Statement visit(Defer defer) throws RuntimeException {
+		return defer;
+	}
+
+	@Override
+	public Statement visit(Go go) throws RuntimeException {
+		return go;
+	}
+
 }

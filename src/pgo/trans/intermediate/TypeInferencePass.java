@@ -10,7 +10,6 @@ import pgo.model.type.*;
 import pgo.scope.UID;
 
 public class TypeInferencePass {
-
 	private TypeInferencePass() {}
 
 	static void constrainVariableDeclaration(DefinitionRegistry registry, VariableDeclaration var, PGoTypeSolver solver, PGoTypeGenerator generator, Map<UID, PGoTypeVariable> mapping) {
@@ -34,7 +33,6 @@ public class TypeInferencePass {
 	}
 
 	public static Map<UID, PGoType> perform(IssueContext ctx, DefinitionRegistry registry, Algorithm pcal) {
-
 		PGoTypeSolver solver = new PGoTypeSolver();
 		PGoTypeGenerator generator = new PGoTypeGenerator("type");
 		Map<UID, PGoTypeVariable> mapping = new HashMap<>();
@@ -73,7 +71,6 @@ public class TypeInferencePass {
 		}
 
 		pcal.getProcesses().accept(new ProcessesVisitor<Void, RuntimeException>(){
-
 			@Override
 			public Void visit(SingleProcess singleProcess) throws RuntimeException {
 				for (LabeledStatements stmts : singleProcess.getLabeledStatements()) {
@@ -87,10 +84,19 @@ public class TypeInferencePass {
 			@Override
 			public Void visit(MultiProcess multiProcess) throws RuntimeException {
 				for (PcalProcess proc : multiProcess.getProcesses()) {
+					constrainVariableDeclaration(registry, proc.getName(), solver, generator, mapping);
+					UID processVariableUID = proc.getName().getUID();
+					PGoType processVariableType = mapping.get(processVariableUID);
+					solver.addConstraint(new PGoTypePolymorphicConstraint(proc.getName().getUID(), Arrays.asList(
+							new PGoTypeEqualityConstraint(
+									processVariableType,
+									new PGoTypeInt(Collections.singletonList(proc.getName()))),
+							new PGoTypeEqualityConstraint(
+									processVariableType,
+									new PGoTypeString(Collections.singletonList(proc.getName()))))));
 					for (VariableDeclaration var : proc.getVariables()) {
 						constrainVariableDeclaration(registry, var, solver, generator, mapping);
 					}
-					constrainVariableDeclaration(registry, proc.getName(), solver, generator, mapping);
 					for (LabeledStatements stmts : proc.getLabeledStatements()) {
 						for (Statement stmt : stmts.getStatements()) {
 							stmt.accept(new PlusCalStatementTypeConstraintVisitor(ctx, registry, solver, generator, mapping));
@@ -99,7 +105,6 @@ public class TypeInferencePass {
 				}
 				return null;
 			}
-
 		});
 
 		solver.unify(ctx);
@@ -116,5 +121,4 @@ public class TypeInferencePass {
 
 		return resultingTypeMapping;
 	}
-
 }

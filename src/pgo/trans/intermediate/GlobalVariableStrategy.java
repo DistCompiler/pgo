@@ -1,38 +1,37 @@
 package pgo.trans.intermediate;
 
 import java.util.List;
+import java.util.Map;
 
-import pgo.model.golang.BlockBuilder;
-import pgo.model.golang.Expression;
-import pgo.model.golang.FunctionArgument;
-import pgo.model.tla.PGoTLAExpression;
+import pgo.model.golang.*;
+import pgo.model.pcal.PcalProcess;
+import pgo.model.pcal.VariableDeclaration;
+import pgo.model.type.PGoType;
 import pgo.scope.UID;
 
-interface GlobalVariableStrategy {
-	void generateSetup(BlockBuilder builder);
+public abstract class GlobalVariableStrategy {
+	public abstract void initPostlude(ModuleBuilder moduleBuilder, BlockBuilder initBuilder);
 
-	List<FunctionArgument> getExtraProcessArguments();
+	public abstract void processPrelude(BlockBuilder processBody, PcalProcess process, String processName, VariableName self, Type selfType);
 
-	void startCriticalSection(BlockBuilder builder);
+	public abstract void mainPrelude(BlockBuilder builder);
 
-	void abortCriticalSection(BlockBuilder builder);
+	public abstract List<FunctionArgument> getExtraProcessArguments();
 
-	void endCriticalSection(BlockBuilder builder);
+	public abstract void startCriticalSection(BlockBuilder builder, UID labelUID, LabelName labelName);
 
-	Expression readGlobalVariable(BlockBuilder builder, UID id);
+	public abstract void abortCriticalSection(BlockBuilder builder);
 
-	interface GlobalVariableWrite {
+	public abstract void endCriticalSection(BlockBuilder builder);
+
+	public abstract Expression readGlobalVariable(BlockBuilder builder, UID uid);
+
+	public interface GlobalVariableWrite {
 		Expression getValueSink(BlockBuilder builder);
 		void writeAfter(BlockBuilder builder);
 	}
 
-	GlobalVariableWrite writeGlobalVariable(UID id);
-
-	interface AwaitFailure {
-		void write(BlockBuilder builder, PGoTLAExpression condition);
-	}
-
-	AwaitFailure awaitFailure();
+	public abstract GlobalVariableWrite writeGlobalVariable(UID uid);
 
 	// map global variables to locals
 	// commit on success
@@ -44,4 +43,18 @@ interface GlobalVariableStrategy {
 	// - when a section ends
 	// - when a section rolls back
 	// - ability to inform global var lookups and sets
+
+	protected void generateLocalVariableDefinitions(DefinitionRegistry registry, Map<UID, PGoType> typeMap,
+	                                                BlockBuilder processBody,
+	                                                List<VariableDeclaration> variableDeclarations) {
+		for (VariableDeclaration variableDeclaration : variableDeclarations) {
+			Expression value = variableDeclaration.getValue().accept(
+					new TLAExpressionCodeGenVisitor(processBody, registry, typeMap, this));
+			if (variableDeclaration.isSet()) {
+				value = new Index(value, new IntLiteral(0));
+			}
+			VariableName name = processBody.varDecl(variableDeclaration.getName(), value);
+			processBody.linkUID(variableDeclaration.getUID(), name);
+		}
+	}
 }

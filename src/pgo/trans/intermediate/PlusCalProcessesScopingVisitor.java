@@ -62,11 +62,13 @@ public class PlusCalProcessesScopingVisitor extends ProcessesVisitor<Void, Runti
 			for (VariableDeclaration var : proc.getVariables()) {
 				if (procTLAScope.declare(var.getName(), var.getUID())) {
 					procVars.put(var.getName(), var.getUID());
+					registry.addLocalVariable(var.getUID());
 				}
 			}
 
 			TLAScopeBuilder procScope = new TLAScopeBuilder(ctx, procVars, new ChainMap<>(builder.getDefinitions()), builder.getReferences());
 			procScope.defineLocal("self", proc.getName().getUID());
+			registry.addLocalVariable(proc.getName().getUID());
 
 			for (LabeledStatements stmts : proc.getLabeledStatements()) {
 				stmts.accept(new PlusCalStatementLabelCaptureVisitor(ctx, procScope));

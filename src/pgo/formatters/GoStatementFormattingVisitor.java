@@ -168,4 +168,18 @@ public class GoStatementFormattingVisitor extends StatementVisitor<Void, IOExcep
 		out.write("continue");
 		return null;
 	}
+
+	@Override
+	public Void visit(Defer defer) throws IOException {
+		out.write("defer ");
+		defer.getExpression().accept(new GoExpressionFormattingVisitor(out));
+		return null;
+	}
+
+	@Override
+	public Void visit(Go go) throws IOException {
+		out.write("go ");
+		go.getExpression().accept(new GoExpressionFormattingVisitor(out));
+		return null;
+	}
 }

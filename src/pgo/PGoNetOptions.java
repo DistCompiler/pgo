@@ -84,8 +84,6 @@ public class PGoNetOptions {
 
 	private StateOptions stateOptions;
 
-	private StateStrategy stateStrategy;
-
 	// This constructor expects a +JSONObject+ as parameter - this should be the data structure
 	// representing the entire configuration file. Separate parts of the configuration file
 	// are then passed to specific components (see inner classes above), each of which has
@@ -106,17 +104,6 @@ public class PGoNetOptions {
 			JSONObject stateConfig = netConfig.getJSONObject(STATE_FIELD);
 			enabled = true;
 			stateOptions = new StateOptions(stateConfig);
-
-			switch (stateOptions.strategy) {
-				case StateOptions.STATE_ETCD:
-					stateStrategy = new EtcdStateStrategy(stateOptions);
-					break;
-				case StateOptions.STATE_SERVER:
-					stateStrategy = new StateServerStateStrategy(stateOptions);
-					break;
-				default:
-					throw new PGoOptionException("Invalid state strategy: " + stateOptions.strategy);
-			}
 		} catch (JSONException e) {
 			throw new PGoOptionException("Configuration is invalid: " + e.getMessage());
 		}
@@ -146,5 +133,4 @@ public class PGoNetOptions {
 		return this.enabled;
 	}
 	public StateOptions getStateOptions() { return this.stateOptions; }
-	public StateStrategy getStateStrategy() { return this.stateStrategy; }
 }

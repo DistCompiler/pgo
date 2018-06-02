@@ -5,6 +5,7 @@ import pgo.model.pcal.*;
 import pgo.model.pcal.Assignment;
 import pgo.model.pcal.Call;
 import pgo.model.pcal.If;
+import pgo.model.pcal.Label;
 import pgo.model.pcal.Return;
 import pgo.model.pcal.Statement;
 import pgo.model.pcal.StatementVisitor;
@@ -26,8 +27,8 @@ public class PlusCalStatementCodeGenVisitor extends StatementVisitor<Void, Runti
 	private Map<UID, PGoType> typeMap;
 	private GlobalVariableStrategy globalStrategy;
 
-	public PlusCalStatementCodeGenVisitor(BlockBuilder builder, DefinitionRegistry registry,
-			Map<UID, PGoType> typeMap, GlobalVariableStrategy globalStrategy) {
+	public PlusCalStatementCodeGenVisitor(DefinitionRegistry registry, Map<UID, PGoType> typeMap,
+	                                      GlobalVariableStrategy globalStrategy, BlockBuilder builder) {
 		this.builder = builder;
 		this.registry = registry;
 		this.typeMap = typeMap;
@@ -36,10 +37,13 @@ public class PlusCalStatementCodeGenVisitor extends StatementVisitor<Void, Runti
 
 	@Override
 	public Void visit(LabeledStatements labeledStatements) throws RuntimeException {
-		builder.labelIsUnique(labeledStatements.getLabel().getName());
-		for(Statement stmt : labeledStatements.getStatements()) {
+		Label label = labeledStatements.getLabel();
+		builder.labelIsUnique(label.getName());
+		globalStrategy.startCriticalSection(builder, label.getUID(), new LabelName(label.getName()));
+		for (Statement stmt : labeledStatements.getStatements()) {
 			stmt.accept(this);
 		}
+		globalStrategy.endCriticalSection(builder);
 		return null;
 	}
 
@@ -47,7 +51,7 @@ public class PlusCalStatementCodeGenVisitor extends StatementVisitor<Void, Runti
 	public Void visit(While while1) throws RuntimeException {
 		AnonymousFunctionBuilder conditionBuilder = builder.anonymousFunction();
 		conditionBuilder.addReturn(Builtins.Bool);
-		try(BlockBuilder conditionBody = conditionBuilder.getBlockBuilder()){
+		try (BlockBuilder conditionBody = conditionBuilder.getBlockBuilder()) {
 			conditionBody.addStatement(
 					new pgo.model.golang.Return(
 							Collections.singletonList(
@@ -55,11 +59,11 @@ public class PlusCalStatementCodeGenVisitor extends StatementVisitor<Void, Runti
 											new TLAExpressionCodeGenVisitor(
 													conditionBody, registry, typeMap, globalStrategy)))));
 		}
-		
-		try(BlockBuilder fb = builder.forLoop(
-				new pgo.model.golang.Call(conditionBuilder.getFunction(), Collections.emptyList()))){
-			for(Statement stmt : while1.getBody()) {
-				stmt.accept(new PlusCalStatementCodeGenVisitor(fb, registry, typeMap, globalStrategy));
+
+		try (BlockBuilder fb = builder.forLoop(
+				new pgo.model.golang.Call(conditionBuilder.getFunction(), Collections.emptyList()))) {
+			for (Statement stmt : while1.getBody()) {
+				stmt.accept(new PlusCalStatementCodeGenVisitor(registry, typeMap, globalStrategy, fb));
 			}
 		}
 		return null;
@@ -68,15 +72,15 @@ public class PlusCalStatementCodeGenVisitor extends StatementVisitor<Void, Runti
 	@Override
 	public Void visit(If if1) throws RuntimeException {
 		Expression condition = if1.getCondition().accept(new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
-		try(IfBuilder b = builder.ifStmt(condition)){
-			try(BlockBuilder yes = b.whenTrue()){
-				for(Statement stmt : if1.getYes()) {
-					stmt.accept(new PlusCalStatementCodeGenVisitor(yes, registry, typeMap, globalStrategy));
+		try (IfBuilder b = builder.ifStmt(condition)) {
+			try (BlockBuilder yes = b.whenTrue()) {
+				for (Statement stmt : if1.getYes()) {
+					stmt.accept(new PlusCalStatementCodeGenVisitor(registry, typeMap, globalStrategy, yes));
 				}
 			}
-			try(BlockBuilder no = b.whenFalse()){
-				for(Statement stmt : if1.getNo()) {
-					stmt.accept(new PlusCalStatementCodeGenVisitor(no, registry, typeMap, globalStrategy));
+			try (BlockBuilder no = b.whenFalse()) {
+				for (Statement stmt : if1.getNo()) {
+					stmt.accept(new PlusCalStatementCodeGenVisitor(registry, typeMap, globalStrategy, no));
 				}
 			}
 		}
@@ -93,7 +97,7 @@ public class PlusCalStatementCodeGenVisitor extends StatementVisitor<Void, Runti
 		List<Expression> lhs = new ArrayList<>();
 		List<Expression> rhs = new ArrayList<>();
 		List<GlobalVariableStrategy.GlobalVariableWrite> lhsWrites = new ArrayList<>();
-		for(AssignmentPair pair : assignment.getPairs()) {
+		for (AssignmentPair pair : assignment.getPairs()) {
 			GlobalVariableStrategy.GlobalVariableWrite lhsWrite = pair.getLhs().accept(
 					new TLAExpressionAssignmentLHSCodeGenVisitor(builder, registry, typeMap, globalStrategy));
 			lhsWrites.add(lhsWrite);
@@ -102,7 +106,7 @@ public class PlusCalStatementCodeGenVisitor extends StatementVisitor<Void, Runti
 					new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy)));
 		}
 		builder.assign(lhs, rhs);
-		for(GlobalVariableStrategy.GlobalVariableWrite lhsWrite : lhsWrites) {
+		for (GlobalVariableStrategy.GlobalVariableWrite lhsWrite : lhsWrites) {
 			lhsWrite.writeAfter(builder);
 		}
 		return null;
@@ -159,7 +163,7 @@ public class PlusCalStatementCodeGenVisitor extends StatementVisitor<Void, Runti
 			with = (With) with.getBody().get(0);
 		}
 		for (Statement statement : with.getBody()) {
-			statement.accept(new PlusCalStatementCodeGenVisitor(builder, registry, typeMap, globalStrategy));
+			statement.accept(this);
 		}
 		return null;
 	}
@@ -189,7 +193,7 @@ public class PlusCalStatementCodeGenVisitor extends StatementVisitor<Void, Runti
 		try (IfBuilder ifBuilder = builder.ifStmt(CodeGenUtil.invertCondition(
 				builder, registry, typeMap, globalStrategy, cond))) {
 			try (BlockBuilder yes = ifBuilder.whenTrue()) {
-				globalStrategy.awaitFailure().write(yes, cond);
+				globalStrategy.abortCriticalSection(yes);
 			}
 		}
 		return null;

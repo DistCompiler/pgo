@@ -2,26 +2,7 @@ package pgo.trans.intermediate;
 
 import java.util.Collections;
 
-import pgo.model.golang.Binop;
-import pgo.model.golang.BlockBuilder;
-import pgo.model.golang.Break;
-import pgo.model.golang.Call;
-import pgo.model.golang.Expression;
-import pgo.model.golang.ForStatementClauseBuilder;
-import pgo.model.golang.IfBuilder;
-import pgo.model.golang.IncDec;
-import pgo.model.golang.Index;
-import pgo.model.golang.IntLiteral;
-import pgo.model.golang.InterfaceType;
-import pgo.model.golang.PtrType;
-import pgo.model.golang.Selector;
-import pgo.model.golang.SliceType;
-import pgo.model.golang.StructType;
-import pgo.model.golang.StructTypeField;
-import pgo.model.golang.TypeName;
-import pgo.model.golang.TypeVisitor;
-import pgo.model.golang.Unary;
-import pgo.model.golang.VariableName;
+import pgo.model.golang.*;
 
 public class LessThanCodeGenVisitor extends TypeVisitor<Expression, RuntimeException> {
 
@@ -106,6 +87,11 @@ public class LessThanCodeGenVisitor extends TypeVisitor<Expression, RuntimeExcep
 			}
 		}
 		return less;
+	}
+
+	@Override
+	public Expression visit(ChanType chanType) throws RuntimeException {
+		throw new RuntimeException("TODO");
 	}
 
 	@Override

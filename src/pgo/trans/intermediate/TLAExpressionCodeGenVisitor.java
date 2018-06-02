@@ -14,7 +14,6 @@ import pgo.model.type.*;
 import pgo.scope.UID;
 
 public class TLAExpressionCodeGenVisitor extends PGoTLAExpressionVisitor<Expression, RuntimeException> {
-
 	private BlockBuilder builder;
 	private DefinitionRegistry registry;
 	private Map<UID, PGoType> typeMap;
@@ -35,11 +34,11 @@ public class TLAExpressionCodeGenVisitor extends PGoTLAExpressionVisitor<Express
 			Expression set = bound.getSet().accept(
 					new TLAExpressionCodeGenVisitor(currentBuilder, registry, typeMap, globalStrategy));
 			ForRangeBuilder forRangeBuilder = currentBuilder.forRange(set);
-			
+
 			if (bound.getType() == PGoTLAQuantifierBound.Type.TUPLE) {
 				VariableName v = forRangeBuilder.initVariables(Arrays.asList("_", "v")).get(1);
 				currentBuilder = forRangeBuilder.getBlockBuilder();
-				
+
 				List<PGoTLAIdentifier> ids = bound.getIds();
 				for(int i = 0; i < ids.size(); ++i) {
 					VariableName name = currentBuilder.varDecl(ids.get(i).getId(), new Index(v, new IntLiteral(i)));
@@ -49,7 +48,7 @@ public class TLAExpressionCodeGenVisitor extends PGoTLAExpressionVisitor<Express
 				if (bound.getIds().size() != 1) {
 					throw new RuntimeException("TODO");
 				}
-				
+
 				PGoTLAIdentifier id = bound.getIds().get(0);
 				VariableName name = forRangeBuilder.initVariables(Arrays.asList("_", id.getId())).get(1);
 				currentBuilder.linkUID(id.getUID(), name);
@@ -265,7 +264,7 @@ public class TLAExpressionCodeGenVisitor extends PGoTLAExpressionVisitor<Express
 		VariableName tmpSet = builder.varDecl(
 				"tmpSet", new Make(new SliceType(elementType), new IntLiteral(0), null));
 		ForRangeBuilder forRangeBuilder = builder.forRange(pGoTLASetRefinement.getFrom().accept(this));
-		
+
 		VariableName v;
 		if(pGoTLASetRefinement.getIdent().isTuple()) {
 			v = forRangeBuilder.initVariables(Arrays.asList("_", "v")).get(1);
@@ -275,7 +274,7 @@ public class TLAExpressionCodeGenVisitor extends PGoTLAExpressionVisitor<Express
 			v = name;
 			builder.linkUID(id.getUID(), name);
 		}
-		
+
 		try (BlockBuilder forBody = forRangeBuilder.getBlockBuilder()) {
 			if(pGoTLASetRefinement.getIdent().isTuple()) {
 				List<PGoTLAIdentifier> ids = pGoTLASetRefinement.getIdent().getTuple();
@@ -284,7 +283,7 @@ public class TLAExpressionCodeGenVisitor extends PGoTLAExpressionVisitor<Express
 					forBody.linkUID(ids.get(i).getUID(), elem);
 				}
 			}
-			
+
 			try (IfBuilder ifBuilder = forBody.ifStmt(pGoTLASetRefinement.getWhen().accept(
 					new TLAExpressionCodeGenVisitor(forBody, registry, typeMap, globalStrategy)))) {
 				try (BlockBuilder yes = ifBuilder.whenTrue()) {
@@ -318,7 +317,6 @@ public class TLAExpressionCodeGenVisitor extends PGoTLAExpressionVisitor<Express
 
 	@Override
 	public Expression visit(PlusCalDefaultInitValue plusCalDefaultInitValue) throws RuntimeException {
-		throw new RuntimeException("TODO");
+		return typeMap.get(plusCalDefaultInitValue.getUID()).accept(new PGoTypeGoTypeDefaultValueVisitor());
 	}
-
 }

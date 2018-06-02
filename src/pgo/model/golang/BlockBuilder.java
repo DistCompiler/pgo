@@ -118,10 +118,15 @@ public class BlockBuilder extends ASTBuilder implements Closeable {
 		addStatement(new ExpressionStatement(new Call(new VariableName("panic"), Collections.singletonList(e))));
 	}
 
+	public void addStatement(Expression expression) {
+		addStatement(new ExpressionStatement(expression));
+	}
+
 	@Override
 	public void addStatement(Statement s) {
 		statements.add(s);
 	}
+
 	@Override
 	protected void addBlock(Block block) {
 		statements.add(block);
@@ -146,9 +151,17 @@ public class BlockBuilder extends ASTBuilder implements Closeable {
 	public FunctionDeclarationBuilder defineFunction(UID uid, String nameHint) {
 		return builder.defineFunction(uid, nameHint);
 	}
-	
+
 	public AnonymousFunctionBuilder anonymousFunction() {
 		return new AnonymousFunctionBuilder(this, nameCleaner, nameMap);
+	}
+
+	public void goStmt(Expression expression) {
+		addStatement(new Go(expression));
+	}
+
+	public void deferStmt(Expression expression) {
+		addStatement(new Defer(expression));
 	}
 
 	public void returnStmt(Expression... values) {

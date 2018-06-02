@@ -55,9 +55,9 @@ public class TLAExpressionAssignmentLHSCodeGenVisitor extends PGoTLAExpressionVi
 	@Override
 	public GlobalVariableWrite visit(PGoTLAGeneralIdentifier pGoTLAVariable) throws RuntimeException {
 		UID ref = registry.followReference(pGoTLAVariable.getUID());
-		if(registry.isGlobalVariable(ref)) {
+		if (registry.isGlobalVariable(ref)) {
 			return globalStrategy.writeGlobalVariable(ref);
-		}else if(registry.isLocalVariable(ref)) {
+		} else if (registry.isLocalVariable(ref)) {
 			VariableName name = builder.findUID(ref);
 			return new GlobalVariableWrite() {
 				@Override
@@ -69,7 +69,7 @@ public class TLAExpressionAssignmentLHSCodeGenVisitor extends PGoTLAExpressionVi
 					// pass
 				}
 			};
-		}else if(registry.isConstant(ref)) {
+		} else if (registry.isConstant(ref)) {
 			VariableName name = builder.findUID(ref);
 			return new GlobalVariableWrite() {
 				@Override
@@ -81,7 +81,7 @@ public class TLAExpressionAssignmentLHSCodeGenVisitor extends PGoTLAExpressionVi
 					// pass
 				}
 			};
-		}else {
+		} else {
 			throw new RuntimeException("TODO");
 		}
 	}

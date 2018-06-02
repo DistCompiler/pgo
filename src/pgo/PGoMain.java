@@ -99,7 +99,7 @@ public class PGoMain {
 			Map<UID, Integer> labelsToLockGroup = AtomicityInferencePass.perform(registry, pcalAlgorithm);
 
 			logger.info("Initial code generation");
-			Module module = CodeGenPass.perform(pcalAlgorithm, registry, typeMap, opts);
+			Module module = CodeGenPass.perform(registry, typeMap, labelsToLockGroup, opts, pcalAlgorithm);
 
 			logger.info("Normalising generated code");
 			Module normalisedModule = CodeNormalisingPass.perform(module);

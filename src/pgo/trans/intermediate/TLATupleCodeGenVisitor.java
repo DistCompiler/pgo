@@ -2,15 +2,7 @@ package pgo.trans.intermediate;
 
 import java.util.List;
 
-import pgo.model.golang.BlockBuilder;
-import pgo.model.golang.Expression;
-import pgo.model.golang.InterfaceType;
-import pgo.model.golang.PtrType;
-import pgo.model.golang.SliceLiteral;
-import pgo.model.golang.SliceType;
-import pgo.model.golang.StructType;
-import pgo.model.golang.TypeName;
-import pgo.model.golang.TypeVisitor;
+import pgo.model.golang.*;
 
 public class TLATupleCodeGenVisitor extends TypeVisitor<Expression, RuntimeException> {
 
@@ -40,6 +32,11 @@ public class TLATupleCodeGenVisitor extends TypeVisitor<Expression, RuntimeExcep
 	@Override
 	public Expression visit(SliceType sliceType) throws RuntimeException {
 		return new SliceLiteral(sliceType.getElementType(), elements);
+	}
+
+	@Override
+	public Expression visit(ChanType chanType) throws RuntimeException {
+		throw new RuntimeException("TODO");
 	}
 
 	@Override

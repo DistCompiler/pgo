@@ -2,12 +2,7 @@ package pgo.formatters;
 
 import java.io.IOException;
 
-import pgo.model.golang.InterfaceType;
-import pgo.model.golang.PtrType;
-import pgo.model.golang.SliceType;
-import pgo.model.golang.StructType;
-import pgo.model.golang.TypeName;
-import pgo.model.golang.TypeVisitor;
+import pgo.model.golang.*;
 
 public class GoTypeFormattingVisitor extends TypeVisitor<Void, IOException> {
 
@@ -37,6 +32,13 @@ public class GoTypeFormattingVisitor extends TypeVisitor<Void, IOException> {
 	public Void visit(SliceType sliceType) throws IOException {
 		out.write("[]");
 		sliceType.getElementType().accept(this);
+		return null;
+	}
+
+	@Override
+	public Void visit(ChanType chanType) throws IOException {
+		out.write("chan ");
+		chanType.getElementType().accept(this);
 		return null;
 	}
 

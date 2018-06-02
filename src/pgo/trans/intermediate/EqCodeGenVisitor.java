@@ -4,26 +4,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import pgo.model.golang.Binop;
-import pgo.model.golang.BlockBuilder;
-import pgo.model.golang.Break;
-import pgo.model.golang.Builtins;
-import pgo.model.golang.Call;
-import pgo.model.golang.Expression;
-import pgo.model.golang.ForStatementClauseBuilder;
-import pgo.model.golang.IfBuilder;
-import pgo.model.golang.IncDec;
-import pgo.model.golang.Index;
-import pgo.model.golang.IntLiteral;
-import pgo.model.golang.InterfaceType;
-import pgo.model.golang.PtrType;
-import pgo.model.golang.SliceType;
-import pgo.model.golang.StructType;
-import pgo.model.golang.StructTypeField;
-import pgo.model.golang.TypeName;
-import pgo.model.golang.TypeVisitor;
-import pgo.model.golang.Unary;
-import pgo.model.golang.VariableName;
+import pgo.model.golang.*;
 
 public class EqCodeGenVisitor extends TypeVisitor<Expression, RuntimeException> {
 
@@ -107,7 +88,7 @@ public class EqCodeGenVisitor extends TypeVisitor<Expression, RuntimeException> 
 				}
 			}
 		}
-		
+
 		if(invert) {
 			return new Unary(Unary.Operation.NOT, result);
 		}else {
@@ -116,8 +97,13 @@ public class EqCodeGenVisitor extends TypeVisitor<Expression, RuntimeException> 
 	}
 
 	@Override
+	public Expression visit(ChanType chanType) throws RuntimeException {
+		throw new RuntimeException("TODO");
+	}
+
+	@Override
 	public Expression visit(InterfaceType interfaceType) throws RuntimeException {
 		throw new RuntimeException("TODO");
 	}
-	
+
 }

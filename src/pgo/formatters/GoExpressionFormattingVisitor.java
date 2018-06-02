@@ -1,6 +1,7 @@
 package pgo.formatters;
 
 import java.io.IOException;
+import java.util.regex.Matcher;
 
 import pgo.model.golang.AnonymousFunction;
 import pgo.model.golang.Binop;
@@ -56,7 +57,7 @@ public class GoExpressionFormattingVisitor extends ExpressionVisitor<Void, IOExc
 	@Override
 	public Void visit(StringLiteral stringLiteral) throws IOException {
 		out.write("\"");
-		out.write(stringLiteral.getValue()); // TODO escaping
+		out.write(stringLiteral.getValue().replace("\"", "\\\"")); // TODO escaping
 		out.write("\"");
 		return null;
 	}
@@ -129,7 +130,7 @@ public class GoExpressionFormattingVisitor extends ExpressionVisitor<Void, IOExc
 			});
 			out.write(") ");
 		}
-		
+
 		anonymousFunction.getBody().accept(new GoStatementFormattingVisitor(out));
 		return null;
 	}
@@ -255,7 +256,9 @@ public class GoExpressionFormattingVisitor extends ExpressionVisitor<Void, IOExc
 			default:
 				throw new RuntimeException("unreachable");
 		}
+		out.write("(");
 		unary.getTarget().accept(this);
+		out.write(")");
 		return null;
 	}
 
