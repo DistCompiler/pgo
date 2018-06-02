@@ -1,5 +1,10 @@
 package distsys
 
+/////////////////////////////////////////////////////////////////////////////////////
+// Details on distributed global state and how the underlying protocol works can  //
+// be found at https://github.com/UBC-NSS/pgo/wiki/Distributed-Global-State      //
+//////////////////////////////////////////////////////////////////////////////////
+
 // GetState is an RPC call used by nodes in the system to request parts
 // of the global state that are believed to be owned by the running node.
 // Not all variables contained in the VarReq struct passed as argument
