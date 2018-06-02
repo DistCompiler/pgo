@@ -136,18 +136,6 @@ public class PGoTypeSolver {
 						constraint,
 						((PGoSimpleContainerType) a).getElementType(),
 						((PGoSimpleContainerType) b).getElementType()));
-			} else if (a instanceof PGoTypeMap && b instanceof PGoTypeMap) {
-				// for two map types to be the same,
-				//   (1) the key types must be the same, and
-				constraints.addFirst(new PGoTypeMonomorphicConstraint(
-						constraint,
-						((PGoTypeMap) a).getKeyType(),
-						((PGoTypeMap) b).getKeyType()));
-				//   (2) the value types must be the same
-				constraints.addFirst(new PGoTypeMonomorphicConstraint(
-						constraint,
-						((PGoTypeMap) a).getValueType(),
-						((PGoTypeMap) b).getValueType()));
 			} else if (a instanceof PGoTypeTuple && b instanceof PGoTypeTuple) {
 				// for two tuple types to be the same,
 				PGoTypeTuple ta = (PGoTypeTuple) a;

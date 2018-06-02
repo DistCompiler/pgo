@@ -8,7 +8,6 @@ import pgo.model.type.PGoTypeChan;
 import pgo.model.type.PGoTypeDecimal;
 import pgo.model.type.PGoTypeFunction;
 import pgo.model.type.PGoTypeInt;
-import pgo.model.type.PGoTypeMap;
 import pgo.model.type.PGoTypeProcedure;
 import pgo.model.type.PGoTypeSet;
 import pgo.model.type.PGoTypeSlice;
@@ -74,11 +73,6 @@ public class PGoTypeGoTypeConversionVisitor extends PGoTypeVisitor<Type, Runtime
 	@Override
 	public Type visit(PGoTypeInt pGoTypeInt) throws RuntimeException {
 		return Builtins.Int;
-	}
-
-	@Override
-	public Type visit(PGoTypeMap pGoTypeMap) throws RuntimeException {
-		throw new RuntimeException("TODO");
 	}
 
 	@Override

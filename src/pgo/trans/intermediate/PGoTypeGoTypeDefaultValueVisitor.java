@@ -62,11 +62,6 @@ public class PGoTypeGoTypeDefaultValueVisitor extends PGoTypeVisitor<Expression,
 	}
 
 	@Override
-	public Expression visit(PGoTypeMap pGoTypeMap) throws RuntimeException {
-		throw new RuntimeException("TODO");
-	}
-
-	@Override
 	public Expression visit(PGoTypeSlice pGoTypeSlice) throws RuntimeException {
 		throw new RuntimeException("TODO");
 	}

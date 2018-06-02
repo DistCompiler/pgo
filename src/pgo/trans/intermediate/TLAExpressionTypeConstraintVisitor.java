@@ -62,7 +62,7 @@ public class TLAExpressionTypeConstraintVisitor extends PGoTLAExpressionVisitor<
 		return result;
 	}
 
-	private void processQuantifierBound(PGoTLAQuantifierBound qb) {
+	private PGoType processQuantifierBound(PGoTLAQuantifierBound qb) {
 		PGoTypeVariable elementType = generator.get();
 		solver.addConstraint(new PGoTypeMonomorphicConstraint(qb, new PGoTypeSet(elementType, Collections.singletonList(qb)), wrappedVisit(qb.getSet())));
 		switch(qb.getType()) {
@@ -85,6 +85,7 @@ public class TLAExpressionTypeConstraintVisitor extends PGoTLAExpressionVisitor<
 		default:
 			throw new RuntimeException("unreachable");
 		}
+		return elementType;
 	}
 
 	@Override
@@ -106,16 +107,14 @@ public class TLAExpressionTypeConstraintVisitor extends PGoTLAExpressionVisitor<
 									new PGoTypeInt(Collections.singletonList(pGoTLAFunctionCall)))),
 					Collections.singletonList(new PGoTypeEqualityConstraint(
 							fnType,
-							new PGoTypeMap(paramTypes.get(0), returnType, Collections.singletonList(pGoTLAFunctionCall)))),
-					Collections.singletonList(new PGoTypeEqualityConstraint(
-							fnType,
 							new PGoTypeFunction(paramTypes, returnType, Collections.singletonList(pGoTLAFunctionCall)))))));
 		} else {
 			solver.addConstraint(new PGoTypePolymorphicConstraint(pGoTLAFunctionCall, Arrays.asList(
 					Collections.singletonList(new PGoTypeEqualityConstraint(
 							fnType,
-							new PGoTypeMap(
-									new PGoTypeTuple(paramTypes, Collections.singletonList(pGoTLAFunctionCall)),
+							new PGoTypeFunction(
+									Collections.singletonList(new PGoTypeTuple(
+											paramTypes, Collections.singletonList(pGoTLAFunctionCall))),
 									returnType,
 									Collections.singletonList(pGoTLAFunctionCall)))),
 					Collections.singletonList(new PGoTypeEqualityConstraint(
@@ -156,22 +155,12 @@ public class TLAExpressionTypeConstraintVisitor extends PGoTLAExpressionVisitor<
 
 	@Override
 	public PGoType visit(PGoTLAFunction pGoTLAFunction) throws RuntimeException {
-		boolean isEnumerable = true;
 		List<PGoType> keyTypes = new ArrayList<>();
 		for (PGoTLAQuantifierBound qb : pGoTLAFunction.getArguments()) {
-			processQuantifierBound(qb);
-			PGoTypeSet setType = (PGoTypeSet) mapping.get(qb.getSet().getUID()).substitute(solver.getMapping());
-			isEnumerable = isEnumerable && setType.isEnumerable();
-			keyTypes.add(setType.getElementType());
+			keyTypes.add(processQuantifierBound(qb));
 		}
 		wrappedVisit(pGoTLAFunction.getBody());
 		PGoType valueType = mapping.get(pGoTLAFunction.getBody().getUID());
-		if (isEnumerable && keyTypes.size() == 1) {
-			return new PGoTypeMap(keyTypes.get(0), valueType, Collections.singletonList(pGoTLAFunction));
-		}
-		if (isEnumerable && keyTypes.size() > 1) {
-			return new PGoTypeMap(new PGoTypeTuple(keyTypes, Collections.singletonList(pGoTLAFunction)), valueType, Collections.singletonList(pGoTLAFunction));
-		}
 		return new PGoTypeFunction(keyTypes, valueType, Collections.singletonList(pGoTLAFunction));
 	}
 

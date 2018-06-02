@@ -435,7 +435,7 @@ public class TLABuiltins {
 				));
 		Naturals.addOperator("Nat", new TypelessBuiltinOperator(
 				0,
-				(origin, args, solver, generator) -> new PGoTypeNonEnumerableSet(new PGoTypeInt(Collections.singletonList(origin)), Collections.singletonList(origin)),
+				(origin, args, solver, generator) -> new PGoTypeSet(new PGoTypeInt(Collections.singletonList(origin)), Collections.singletonList(origin)),
 				(builder, origin, registry, arguments, typeMap) -> {
 					throw new RuntimeException("TODO");
 				}
@@ -485,7 +485,7 @@ public class TLABuiltins {
 						new Unary(Unary.Operation.NEG, arguments.get(0))));
 		Integers.addOperator("Int", new TypelessBuiltinOperator(
 				0,
-				(origin, args, solver, generator) -> new PGoTypeNonEnumerableSet(new PGoTypeInt(Collections.singletonList(origin)), Collections.singletonList(origin)),
+				(origin, args, solver, generator) -> new PGoTypeSet(new PGoTypeInt(Collections.singletonList(origin)), Collections.singletonList(origin)),
 				(builder, origin, registry, arguments, typeMap) -> {
 					throw new RuntimeException("TODO");
 				}));

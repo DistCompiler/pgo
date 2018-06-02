@@ -62,22 +62,6 @@ public class PGoTypeSolverTest {
 	}
 
 	@Test
-	public void mapStringInterface() {
-		PGoTypeVariable a = typeGenerator.get();
-		PGoTypeVariable b = typeGenerator.get();
-		solver.addConstraint(new PGoTypeMonomorphicConstraint(
-				dummyUID,
-				new PGoTypeMap(new PGoTypeString(), new PGoTypeString()),
-				new PGoTypeMap(a, b)));
-		solver.unify(ctx);
-		assertFalse(ctx.hasErrors());
-		assertEquals(new HashMap<PGoTypeVariable, PGoType>() {{
-			put(a, new PGoTypeString());
-			put(b, new PGoTypeString());
-		}}, solver.getMapping());
-	}
-
-	@Test
 	public void chainedFunctions() {
 		PGoTypeVariable a = typeGenerator.get();
 		PGoTypeVariable b = typeGenerator.get();
@@ -107,7 +91,7 @@ public class PGoTypeSolverTest {
 		solver.addConstraint(new PGoTypeMonomorphicConstraint(
 				dummyUID,
 				new PGoTypeBool(),
-				new PGoTypeMap(new PGoTypeBool(), a)));
+				new PGoTypeSet(new PGoTypeBool(), a)));
 		solver.unify(ctx);
 		assertTrue(ctx.hasErrors());
 	}
@@ -115,7 +99,7 @@ public class PGoTypeSolverTest {
 	@Test
 	public void infiniteType() {
 		PGoTypeVariable a = typeGenerator.get();
-		solver.addConstraint(new PGoTypeMonomorphicConstraint(dummyUID, a, new PGoTypeMap(new PGoTypeInt(), a)));
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(dummyUID, a, new PGoTypeFunction(Collections.singletonList(new PGoTypeInt()), a)));
 		solver.unify(ctx);
 		assertTrue(ctx.hasErrors());
 	}
