@@ -7,7 +7,6 @@ import pgo.model.type.*;
 import pgo.scope.UID;
 
 public class TLABuiltins {
-
 	private TLABuiltins() {}
 
 	public static Type getSetElementType(PGoType setType) {
@@ -27,12 +26,12 @@ public class TLABuiltins {
 		} else {
 			sortFunction = "Slice";
 		}
-		if(sortFunction.equals("Slice")) {
+		if (sortFunction.equals("Slice")) {
 			AnonymousFunctionBuilder comparatorBuilder = builder.anonymousFunction();
 			VariableName i = comparatorBuilder.addArgument("i", Builtins.Int);
 			VariableName j = comparatorBuilder.addArgument("j", Builtins.Int);
 			comparatorBuilder.addReturn(Builtins.Bool);
-			try(BlockBuilder comparatorBody = comparatorBuilder.getBlockBuilder()){
+			try (BlockBuilder comparatorBody = comparatorBuilder.getBlockBuilder()) {
 				comparatorBody.addStatement(
 						new Return(
 								Collections.singletonList(
@@ -90,9 +89,9 @@ public class TLABuiltins {
 		}
 	}
 
-	private static BuiltinModule universalBuiltins = new BuiltinModule();
+	private static BuiltinModule universalBuiltIns = new BuiltinModule();
 	static {
-		universalBuiltins.addOperator("=", new BuiltinOperator(
+		universalBuiltIns.addOperator("=", new BuiltinOperator(
 				2,
 				(origin, args, solver, generator) -> {
 					solver.addConstraint(new PGoTypeMonomorphicConstraint(origin, args.get(0), args.get(1)));
@@ -107,7 +106,7 @@ public class TLABuiltins {
 							.accept(new PGoTypeGoTypeConversionVisitor())
 							.accept(new EqCodeGenVisitor(builder, lhs, rhs, false));
 				}));
-		universalBuiltins.addOperator("#", new BuiltinOperator(
+		universalBuiltIns.addOperator("#", new BuiltinOperator(
 				2,
 				(origin, args, solver, generator) -> {
 					solver.addConstraint(new PGoTypeMonomorphicConstraint(origin, args.get(0), args.get(1)));
@@ -122,7 +121,7 @@ public class TLABuiltins {
 							.accept(new PGoTypeGoTypeConversionVisitor())
 							.accept(new EqCodeGenVisitor(builder, lhs, rhs, true));
 				}));
-		universalBuiltins.addOperator("\\in", new BuiltinOperator(
+		universalBuiltIns.addOperator("\\in", new BuiltinOperator(
 				2,
 				(origin, args, solver, generator) -> {
 					PGoTypeVariable memberType = generator.get();
@@ -135,7 +134,7 @@ public class TLABuiltins {
 					throw new RuntimeException("TODO");
 				}
 				));
-		universalBuiltins.addOperator("\\", new BuiltinOperator(
+		universalBuiltIns.addOperator("\\", new BuiltinOperator(
 				2,
 				(origin, args, solver, generator) -> {
 					PGoType fresh = new PGoTypeSet(generator.get(), Collections.singletonList(origin));
@@ -184,11 +183,11 @@ public class TLABuiltins {
 					VariableName v = forBuilder.initVariables(Arrays.asList("_", "v")).get(1);
 					try (BlockBuilder forBody = forBuilder.getBlockBuilder()) {
 						VariableName index;
-						if(searchFunction.equals("Search")) {
+						if (searchFunction.equals("Search")) {
 							AnonymousFunctionBuilder checkBuilder = forBody.anonymousFunction();
 							VariableName j = checkBuilder.addArgument("j", Builtins.Int);
 							checkBuilder.addReturn(Builtins.Bool);
-							try(BlockBuilder checkBody = checkBuilder.getBlockBuilder()){
+							try (BlockBuilder checkBody = checkBuilder.getBlockBuilder()) {
 								checkBody.addStatement(
 										new Return(
 												Collections.singletonList(
@@ -215,15 +214,15 @@ public class TLABuiltins {
 											Arrays.asList(rhs, v)));
 						}
 						try (IfBuilder ifBuilder = forBody.ifStmt(
-								new Binop(Binop.Operation.LT, index, lenRhs))){
-							try(BlockBuilder yes = ifBuilder.whenTrue()){
-								try(IfBuilder isEqBuilder = yes.ifStmt(elementType.accept(
+								new Binop(Binop.Operation.LT, index, lenRhs))) {
+							try (BlockBuilder yes = ifBuilder.whenTrue()) {
+								try (IfBuilder isEqBuilder = yes.ifStmt(elementType.accept(
 												new EqCodeGenVisitor(
 														yes,
 														new Index(rhs, index),
 														v,
-														true)))){
-									try(BlockBuilder yes2 = isEqBuilder.whenTrue()){
+														true)))) {
+									try (BlockBuilder yes2 = isEqBuilder.whenTrue()) {
 										yes2.addStatement(new Continue());
 									}
 								}
@@ -233,7 +232,7 @@ public class TLABuiltins {
 					}
 					return tmpSet;
 				}));
-		universalBuiltins.addOperator("~", new TypelessBuiltinOperator(
+		universalBuiltIns.addOperator("~", new TypelessBuiltinOperator(
 				1,
 				(origin, args, solver, generator) -> {
 					PGoType fresh = new PGoTypeBool(Collections.singletonList(origin));
@@ -243,7 +242,7 @@ public class TLABuiltins {
 				(builder, origin, registry, arguments, typeMap) -> new Unary(
 						Unary.Operation.NOT, arguments.get(0))
 				));
-		universalBuiltins.addOperator("\\/", new TypelessBuiltinOperator(
+		universalBuiltIns.addOperator("\\/", new TypelessBuiltinOperator(
 				2,
 				(origin, args, solver, generator) -> {
 					PGoType fresh = new PGoTypeBool(Collections.singletonList(origin));
@@ -254,7 +253,7 @@ public class TLABuiltins {
 				(builder, origin, registry, arguments, typeMap) -> new Binop(
 						Binop.Operation.OR, arguments.get(0), arguments.get(1))
 				));
-		universalBuiltins.addOperator("/\\", new TypelessBuiltinOperator(
+		universalBuiltIns.addOperator("/\\", new TypelessBuiltinOperator(
 				2,
 				(origin, args, solver, generator) -> {
 					PGoType fresh = new PGoTypeBool(Collections.singletonList(origin));
@@ -265,7 +264,7 @@ public class TLABuiltins {
 				(builder, origin, registry, arguments, typeMap) -> new Binop(
 						Binop.Operation.AND, arguments.get(0), arguments.get(1))
 				));
-		universalBuiltins.addOperator("\\union", new TypelessBuiltinOperator(
+		universalBuiltIns.addOperator("\\union", new TypelessBuiltinOperator(
 				2,
 				(origin, args, solver, generator) -> {
 					PGoType fresh = new PGoTypeSet(generator.get(), Collections.singletonList(origin));
@@ -297,9 +296,12 @@ public class TLABuiltins {
 				1,
 				(origin, args, solver, generator) -> {
 					solver.addConstraint(new PGoTypePolymorphicConstraint(origin, Arrays.asList(
-							new PGoTypeEqualityConstraint(args.get(0), new PGoTypeString(Collections.singletonList(origin))),
-							new PGoTypeEqualityConstraint(args.get(0), new PGoTypeSlice(generator.get(), Collections.singletonList(origin))),
-							new PGoTypeEqualityConstraint(args.get(0), new PGoTypeUnrealizedTuple(Collections.singletonList(origin)))
+							Collections.singletonList(new PGoTypeEqualityConstraint(
+									args.get(0), new PGoTypeString(Collections.singletonList(origin)))),
+							Collections.singletonList(new PGoTypeEqualityConstraint(
+									args.get(0), new PGoTypeSlice(generator.get(), Collections.singletonList(origin)))),
+							Collections.singletonList(new PGoTypeEqualityConstraint(
+									args.get(0), new PGoTypeUnrealizedTuple(Collections.singletonList(origin))))
 					)));
 					return new PGoTypeInt(Collections.singletonList(origin));
 				},
@@ -462,7 +464,7 @@ public class TLABuiltins {
 					clauseBuilder.setCondition(new Binop(Binop.Operation.LEQ, acc, to));
 					clauseBuilder.setInc(new IncDec(true, acc));
 
-					try(BlockBuilder body = clauseBuilder.getBlockBuilder()){
+					try (BlockBuilder body = clauseBuilder.getBlockBuilder()) {
 						body.assign(
 								new Index(tmpRange, new Binop(Binop.Operation.MINUS, acc, from)),
 								acc);
@@ -479,20 +481,19 @@ public class TLABuiltins {
 					solver.addConstraint(new PGoTypeMonomorphicConstraint(origin, args.get(0), fresh));
 					return fresh;
 				},
-				(builder, origin, registry, arguments, typeMap) -> new Unary(Unary.Operation.NEG, arguments.get(0))
-				));
+				(builder, origin, registry, arguments, typeMap) ->
+						new Unary(Unary.Operation.NEG, arguments.get(0))));
 		Integers.addOperator("Int", new TypelessBuiltinOperator(
 				0,
 				(origin, args, solver, generator) -> new PGoTypeNonEnumerableSet(new PGoTypeInt(Collections.singletonList(origin)), Collections.singletonList(origin)),
 				(builder, origin, registry, arguments, typeMap) -> {
 					throw new RuntimeException("TODO");
-				}
-				));
+				}));
 
 	}
 
-	public static BuiltinModule getUniversalBuiltins() {
-		return universalBuiltins;
+	public static BuiltinModule getUniversalBuiltIns() {
+		return universalBuiltIns;
 	}
 
 	public static BuiltinModule findBuiltinModule(String name) {
@@ -505,10 +506,9 @@ public class TLABuiltins {
 
 	public static Map<QualifiedName, UID> getInitialDefinitions() {
 		Map<QualifiedName, UID> defs = new HashMap<>();
-		for(Map.Entry<String, OperatorAccessor> op : universalBuiltins.getOperators().entrySet()) {
+		for(Map.Entry<String, OperatorAccessor> op : universalBuiltIns.getOperators().entrySet()) {
 			defs.put(new QualifiedName(op.getKey()), op.getValue().getUID());
 		}
 		return defs;
 	}
-
 }

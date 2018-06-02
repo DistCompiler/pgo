@@ -3,17 +3,23 @@ package pgo.model.type;
 import pgo.util.DerivedVisitor;
 import pgo.util.Origin;
 
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
 
-public class PGoTypePolymorphicConstraint extends PGoTypeConstraint implements Iterator<PGoTypeEqualityConstraint>, Iterable<PGoTypeEqualityConstraint> {
-	private List<PGoTypeEqualityConstraint> equalityConstraints;
-	private int currentIndex = 0;
+public class PGoTypePolymorphicConstraint extends PGoTypeConstraint implements Iterator<List<PGoTypeEqualityConstraint>>, Iterable<List<PGoTypeEqualityConstraint>> {
+	private List<List<PGoTypeEqualityConstraint>> constraints;
+	private int currentIndex;
 
-	public PGoTypePolymorphicConstraint(Origin origin, List<PGoTypeEqualityConstraint> equalityConstraints) {
-		addOrigin(origin);
-		this.equalityConstraints = equalityConstraints;
+	public PGoTypePolymorphicConstraint(Origin origin, List<List<PGoTypeEqualityConstraint>> constraints) {
+		this(Collections.singletonList(origin), constraints);
+	}
+
+	PGoTypePolymorphicConstraint(List<Origin> origins, List<List<PGoTypeEqualityConstraint>> constraints) {
+		origins.forEach(this::addOrigin);
+		this.constraints = constraints;
+		this.currentIndex = 0;
 	}
 
 	@Override
@@ -23,15 +29,15 @@ public class PGoTypePolymorphicConstraint extends PGoTypeConstraint implements I
 
 	@Override
 	public boolean hasNext() {
-		return currentIndex < equalityConstraints.size();
+		return currentIndex < constraints.size();
 	}
 
 	@Override
-	public PGoTypeEqualityConstraint next() {
+	public List<PGoTypeEqualityConstraint> next() {
 		int index = currentIndex;
 		currentIndex += 1;
 		try {
-			return equalityConstraints.get(index);
+			return constraints.get(index);
 		} catch (IndexOutOfBoundsException e) {
 			throw new NoSuchElementException();
 		}
@@ -39,32 +45,40 @@ public class PGoTypePolymorphicConstraint extends PGoTypeConstraint implements I
 
 	@Override
 	public PGoTypePolymorphicConstraint copy() {
-		List<Origin> origins = getOrigins();
-		PGoTypePolymorphicConstraint copy = new PGoTypePolymorphicConstraint(origins.get(0), equalityConstraints);
-		origins.subList(1, origins.size()).forEach(copy::addOrigin);
+		PGoTypePolymorphicConstraint copy = new PGoTypePolymorphicConstraint(getOrigins(), constraints);
 		copy.currentIndex = currentIndex;
 		return copy;
 	}
 
 	@Override
-	public Iterator<PGoTypeEqualityConstraint> iterator() {
-		return equalityConstraints.listIterator();
+	public Iterator<List<PGoTypeEqualityConstraint>> iterator() {
+		return constraints.listIterator();
 	}
 
 	@Override
 	public String toString() {
 		StringBuilder builder = new StringBuilder();
 		boolean first = true;
-		for (PGoTypeEqualityConstraint equalityConstraint : equalityConstraints) {
+		builder.append("(");
+		for (List<PGoTypeEqualityConstraint> constraintList : constraints) {
 			if (first) {
 				first = false;
 			} else {
-				builder.append(" OR ");
+				builder.append(") OR (");
 			}
-			builder.append(equalityConstraint.getLhs());
-			builder.append(" = ");
-			builder.append(equalityConstraint.getRhs());
+			boolean innerFirst = true;
+			for (PGoTypeEqualityConstraint constraint : constraintList) {
+				if (innerFirst) {
+					innerFirst = false;
+				} else {
+					builder.append(" AND ");
+				}
+				builder.append(constraint.getLhs());
+				builder.append(" = ");
+				builder.append(constraint.getRhs());
+			}
 		}
+		builder.append(")");
 		return builder.toString();
 	}
 }

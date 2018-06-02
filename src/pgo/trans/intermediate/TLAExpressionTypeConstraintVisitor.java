@@ -97,26 +97,30 @@ public class TLAExpressionTypeConstraintVisitor extends PGoTLAExpressionVisitor<
 		PGoTypeVariable returnType = generator.get();
 		if (paramTypes.size() == 1) {
 			solver.addConstraint(new PGoTypePolymorphicConstraint(pGoTLAFunctionCall, Arrays.asList(
-					new PGoTypeEqualityConstraint(
+					Arrays.asList(
+							new PGoTypeEqualityConstraint(
+									fnType,
+									new PGoTypeSlice(returnType, Collections.singletonList(pGoTLAFunctionCall))),
+							new PGoTypeEqualityConstraint(
+									paramTypes.get(0),
+									new PGoTypeInt(Collections.singletonList(pGoTLAFunctionCall)))),
+					Collections.singletonList(new PGoTypeEqualityConstraint(
 							fnType,
-							new PGoTypeSlice(returnType, Collections.singletonList(pGoTLAFunctionCall))),
-					new PGoTypeEqualityConstraint(
+							new PGoTypeMap(paramTypes.get(0), returnType, Collections.singletonList(pGoTLAFunctionCall)))),
+					Collections.singletonList(new PGoTypeEqualityConstraint(
 							fnType,
-							new PGoTypeMap(paramTypes.get(0), returnType, Collections.singletonList(pGoTLAFunctionCall))),
-					new PGoTypeEqualityConstraint(
-							fnType,
-							new PGoTypeFunction(paramTypes, returnType, Collections.singletonList(pGoTLAFunctionCall))))));
+							new PGoTypeFunction(paramTypes, returnType, Collections.singletonList(pGoTLAFunctionCall)))))));
 		} else {
 			solver.addConstraint(new PGoTypePolymorphicConstraint(pGoTLAFunctionCall, Arrays.asList(
-					new PGoTypeEqualityConstraint(
+					Collections.singletonList(new PGoTypeEqualityConstraint(
 							fnType,
 							new PGoTypeMap(
 									new PGoTypeTuple(paramTypes, Collections.singletonList(pGoTLAFunctionCall)),
 									returnType,
-									Collections.singletonList(pGoTLAFunctionCall))),
-					new PGoTypeEqualityConstraint(
+									Collections.singletonList(pGoTLAFunctionCall)))),
+					Collections.singletonList(new PGoTypeEqualityConstraint(
 							fnType,
-							new PGoTypeFunction(paramTypes, returnType, Collections.singletonList(pGoTLAFunctionCall))))));
+							new PGoTypeFunction(paramTypes, returnType, Collections.singletonList(pGoTLAFunctionCall)))))));
 		}
 		return returnType;
 	}

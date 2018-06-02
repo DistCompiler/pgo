@@ -72,18 +72,21 @@ public class PGoTypeSolver {
 				if (!((PGoTypePolymorphicConstraint) constraint).hasNext()) {
 					return Optional.of(new BacktrackingFailureIssue((PGoTypePolymorphicConstraint) constraint));
 				}
-				// extract first constraint
-				PGoTypeEqualityConstraint equalityConstraint = ((PGoTypePolymorphicConstraint) constraint).next();
+				// extract first constraints
+				List<PGoTypeEqualityConstraint> equalityConstraints = ((PGoTypePolymorphicConstraint) constraint).next();
 				// snapshot state if there are any constraints left
 				if (((PGoTypePolymorphicConstraint) constraint).hasNext()) {
 					// push copy with current constraint added at front
 					PGoTypeSolver copy = copy();
-					copy.constraints.addFirst(constraint);
+					copy.constraints.addFirst(constraint.copy());
 					stateStack.push(copy);
 				}
-				// populate lhs and rhs
-				a = equalityConstraint.getLhs();
-				b = equalityConstraint.getRhs();
+				// add the first constraints
+				for (PGoTypeEqualityConstraint equalityConstraint : equalityConstraints) {
+					constraints.addFirst(new PGoTypeMonomorphicConstraint(constraint.getOrigins(), equalityConstraint));
+				}
+				// solve the newly added constraints
+				continue;
 			} else {
 				throw new RuntimeException("unreachable");
 			}

@@ -88,12 +88,12 @@ public class TypeInferencePass {
 					UID processVariableUID = proc.getName().getUID();
 					PGoType processVariableType = mapping.get(processVariableUID);
 					solver.addConstraint(new PGoTypePolymorphicConstraint(proc.getName().getUID(), Arrays.asList(
-							new PGoTypeEqualityConstraint(
+							Collections.singletonList(new PGoTypeEqualityConstraint(
 									processVariableType,
-									new PGoTypeInt(Collections.singletonList(proc.getName()))),
-							new PGoTypeEqualityConstraint(
+									new PGoTypeInt(Collections.singletonList(proc.getName())))),
+							Collections.singletonList(new PGoTypeEqualityConstraint(
 									processVariableType,
-									new PGoTypeString(Collections.singletonList(proc.getName()))))));
+									new PGoTypeString(Collections.singletonList(proc.getName())))))));
 					for (VariableDeclaration var : proc.getVariables()) {
 						constrainVariableDeclaration(registry, var, solver, generator, mapping);
 					}

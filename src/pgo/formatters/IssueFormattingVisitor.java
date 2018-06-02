@@ -196,19 +196,7 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 		out.write("could not satisfy ");
 		polymorphicConstraint.accept(new DerivedFormattingVisitor(out));
 		out.write("; constraint is ");
-		boolean first = true;
-		for (PGoTypeEqualityConstraint equalityConstraint : polymorphicConstraint) {
-			if (first) {
-				first = false;
-			} else {
-				out.write(" OR ");
-			}
-			out.write("[");
-			out.write(equalityConstraint.getLhs().toString());
-			out.write("] = [");
-			out.write(equalityConstraint.getRhs().toString());
-			out.write("]");
-		}
+		out.write(polymorphicConstraint.toString());
 		return null;
 	}
 

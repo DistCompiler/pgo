@@ -1,19 +1,21 @@
 package pgo.model.type;
 
-import pgo.formatters.DerivedFormattingVisitor;
-import pgo.formatters.IndentingWriter;
 import pgo.util.DerivedVisitor;
 import pgo.util.Origin;
 
-import java.io.IOException;
-import java.io.StringWriter;
+import java.util.Collections;
+import java.util.List;
 
 public class PGoTypeMonomorphicConstraint extends PGoTypeConstraint {
 	private PGoTypeEqualityConstraint equalityConstraint;
 
 	public PGoTypeMonomorphicConstraint(Origin origin, PGoType lhs, PGoType rhs) {
-		addOrigin(origin);
-		equalityConstraint = new PGoTypeEqualityConstraint(lhs, rhs);
+		this(Collections.singletonList(origin), new PGoTypeEqualityConstraint(lhs, rhs));
+	}
+
+	public PGoTypeMonomorphicConstraint(List<Origin> origins, PGoTypeEqualityConstraint equalityConstraint) {
+		origins.forEach(this::addOrigin);
+		this.equalityConstraint = equalityConstraint;
 	}
 
 	public PGoType getLhs() {

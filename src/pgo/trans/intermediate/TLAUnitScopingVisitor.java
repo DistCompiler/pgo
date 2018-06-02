@@ -55,7 +55,7 @@ public class TLAUnitScopingVisitor extends PGoTLAUnitVisitor<Void, RuntimeExcept
 		innerRecursionSet.add(module.getName().getId());
 
 		module = module.copy();
-		TLABuiltins.getUniversalBuiltins().addDefinitionsToRegistry(registry);
+		TLABuiltins.getUniversalBuiltIns().addDefinitionsToRegistry(registry);
 
 		for (PGoTLAIdentifier ext : module.getExtends()) {
 			if (TLABuiltins.isBuiltinModule(ext.getId())) {
