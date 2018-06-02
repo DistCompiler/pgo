@@ -270,6 +270,15 @@ public class PGoTypeUnrealizedTuple extends PGoType {
 	}
 
 	@Override
+	public PGoType copy() {
+		PGoTypeUnrealizedTuple copy = new PGoTypeUnrealizedTuple(getOrigins());
+		elementTypes.forEach((k, v) -> copy.elementTypes.put(k, v.copy()));
+		copy.sizeKnown = sizeKnown;
+		copy.realType = realType;
+		return copy;
+	}
+
+	@Override
 	public <T, E extends Throwable> T accept(PGoTypeVisitor<T, E> v) throws E {
 		return v.visit(this);
 	}

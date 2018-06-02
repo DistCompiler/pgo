@@ -64,6 +64,12 @@ public class PGoTypeProcedure extends PGoType {
 	}
 
 	@Override
+	public PGoType copy() {
+		List<PGoType> params = paramTypes.stream().map(PGoType::copy).collect(Collectors.toList());
+		return new PGoTypeProcedure(params, getOrigins());
+	}
+
+	@Override
 	public <T, E extends Throwable> T accept(PGoTypeVisitor<T, E> v) throws E {
 		return v.visit(this);
 	}

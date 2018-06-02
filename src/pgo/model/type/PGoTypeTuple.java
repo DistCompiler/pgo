@@ -66,4 +66,9 @@ public class PGoTypeTuple extends PGoType {
 		return "Tuple[" + elementTypes.stream().map(PGoType::toTypeName).collect(Collectors.joining(", ")) + "]";
 	}
 
+	@Override
+	public PGoType copy() {
+		return new PGoTypeTuple(elementTypes.stream().map(PGoType::copy).collect(Collectors.toList()), getOrigins());
+	}
+
 }

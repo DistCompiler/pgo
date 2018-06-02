@@ -33,7 +33,7 @@ public class PGoTypeMonomorphicConstraint extends PGoTypeConstraint {
 
 	@Override
 	public PGoTypeMonomorphicConstraint copy() {
-		return this;
+		return new PGoTypeMonomorphicConstraint(getOrigins(), equalityConstraint.copy());
 	}
 
 	@Override

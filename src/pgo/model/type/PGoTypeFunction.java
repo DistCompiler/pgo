@@ -67,6 +67,12 @@ public class PGoTypeFunction extends PGoType {
 	}
 
 	@Override
+	public PGoType copy() {
+		List<PGoType> params = paramTypes.stream().map(PGoType::copy).collect(Collectors.toList());
+		return new PGoTypeFunction(params, returnType.copy(), getOrigins());
+	}
+
+	@Override
 	public String toTypeName() {
 		return "Func(" + paramTypes.stream().map(PGoType::toTypeName).collect(Collectors.joining(", ")) +
 				") " + returnType.toTypeName();

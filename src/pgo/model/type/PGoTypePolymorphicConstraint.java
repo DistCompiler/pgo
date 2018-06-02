@@ -3,10 +3,8 @@ package pgo.model.type;
 import pgo.util.DerivedVisitor;
 import pgo.util.Origin;
 
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.List;
-import java.util.NoSuchElementException;
+import java.util.*;
+import java.util.stream.Collectors;
 
 public class PGoTypePolymorphicConstraint extends PGoTypeConstraint implements Iterator<List<PGoTypeEqualityConstraint>>, Iterable<List<PGoTypeEqualityConstraint>> {
 	private List<List<PGoTypeEqualityConstraint>> constraints;
@@ -45,7 +43,11 @@ public class PGoTypePolymorphicConstraint extends PGoTypeConstraint implements I
 
 	@Override
 	public PGoTypePolymorphicConstraint copy() {
-		PGoTypePolymorphicConstraint copy = new PGoTypePolymorphicConstraint(getOrigins(), constraints);
+		List<List<PGoTypeEqualityConstraint>> cs = new ArrayList<>();
+		for (List<PGoTypeEqualityConstraint> equalityConstraints : constraints) {
+			cs.add(equalityConstraints.stream().map(PGoTypeEqualityConstraint::copy).collect(Collectors.toList()));
+		}
+		PGoTypePolymorphicConstraint copy = new PGoTypePolymorphicConstraint(getOrigins(), cs);
 		copy.currentIndex = currentIndex;
 		return copy;
 	}

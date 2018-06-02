@@ -51,6 +51,8 @@ public abstract class PGoType extends Derived {
 	 */
 	public abstract String toTypeName();
 
+	public abstract PGoType copy();
+
 	@Override
 	public String toString() {
 		return toTypeName();

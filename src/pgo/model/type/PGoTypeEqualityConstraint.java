@@ -19,4 +19,8 @@ public class PGoTypeEqualityConstraint {
 	public PGoType getRhs() {
 		return rhs;
 	}
+
+	public PGoTypeEqualityConstraint copy() {
+		return new PGoTypeEqualityConstraint(lhs.copy(), rhs.copy());
+	}
 }

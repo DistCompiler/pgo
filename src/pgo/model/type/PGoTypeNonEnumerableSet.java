@@ -13,6 +13,11 @@ public class PGoTypeNonEnumerableSet extends PGoTypeSet {
 	}
 
 	@Override
+	public PGoType copy() {
+		return new PGoTypeNonEnumerableSet(elementType.copy(), getOrigins());
+	}
+
+	@Override
 	public boolean isEnumerable() {
 		return false;
 	}

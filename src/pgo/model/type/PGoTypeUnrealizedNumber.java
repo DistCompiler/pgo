@@ -15,6 +15,10 @@ public class PGoTypeUnrealizedNumber extends PGoNumberType {
 	private PGoNumberType num;
 
 	public PGoTypeUnrealizedNumber(PGoTypeInt num, List<Origin> origins) {
+		this((PGoNumberType) num, origins);
+	}
+
+	private PGoTypeUnrealizedNumber(PGoNumberType num, List<Origin> origins) {
 		super(origins);
 		this.num = num;
 	}
@@ -63,6 +67,11 @@ public class PGoTypeUnrealizedNumber extends PGoNumberType {
 	@Override
 	public String toTypeName() {
 		return "UnrealizedNumber[" + num.toTypeName() + "]";
+	}
+
+	@Override
+	public PGoType copy() {
+		return new PGoTypeUnrealizedNumber(num, getOrigins());
 	}
 
 	@Override

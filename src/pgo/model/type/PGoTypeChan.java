@@ -26,6 +26,11 @@ public class PGoTypeChan extends PGoSimpleContainerType {
 	}
 
 	@Override
+	public PGoType copy() {
+		return new PGoTypeChan(elementType.copy(), getOrigins());
+	}
+
+	@Override
 	public <T, E extends Throwable> T accept(PGoTypeVisitor<T, E> v) throws E {
 		return v.visit(this);
 	}

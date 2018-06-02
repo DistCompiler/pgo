@@ -37,4 +37,9 @@ public abstract class PGoPrimitiveType extends PGoType {
 	public PGoType realize(IssueContext ctx) {
 		return this;
 	}
+
+	@Override
+	public PGoType copy() {
+		return this;
+	}
 }
