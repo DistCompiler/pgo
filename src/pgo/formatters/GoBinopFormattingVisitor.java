@@ -126,10 +126,12 @@ public class GoBinopFormattingVisitor extends ExpressionVisitor<Void, IOExceptio
 	@Override
 	public Void visit(Binop binop) throws IOException {
 		int newPrecedence = operatorPrecedence.get(binop.getOperation());
-		if(newPrecedence <= precedence){
+		int nextPrecedence = newPrecedence;
+		if(newPrecedence < precedence){
+			nextPrecedence = 0;
 			out.write("(");
 		}
-		binop.getLHS().accept(new GoBinopFormattingVisitor(out, newPrecedence));
+		binop.getLHS().accept(new GoBinopFormattingVisitor(out, nextPrecedence));
 		out.write(" ");
 		switch(binop.getOperation()) {
 			case AND:
@@ -193,8 +195,8 @@ public class GoBinopFormattingVisitor extends ExpressionVisitor<Void, IOExceptio
 				throw new Unreachable();
 		}
 		out.write(" ");
-		binop.getRHS().accept(new GoBinopFormattingVisitor(out, newPrecedence));
-		if(newPrecedence <= precedence){
+		binop.getRHS().accept(new GoBinopFormattingVisitor(out, nextPrecedence));
+		if(newPrecedence < precedence){
 			out.write(")");
 		}
 		return null;

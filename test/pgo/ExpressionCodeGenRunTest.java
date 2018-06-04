@@ -50,6 +50,7 @@ public class ExpressionCodeGenRunTest {
 	@Parameters
 	public static List<Object[]> data(){
 		return Arrays.asList(new Object[][] {
+			// operator precedence tests
 			{
 				binop("*", idexp("a"), binop("+", idexp("b"), idexp("c"))),
 				Arrays.asList(
@@ -58,6 +59,15 @@ public class ExpressionCodeGenRunTest {
 						kv("c", num(3))),
 				Collections.singletonList("10"),
 			},
+			{
+				binop("*", idexp("a"), binop("+", idexp("b"), binop("*", idexp("c"), idexp("c")))),
+				Arrays.asList(
+						kv("a", num(2)),
+						kv("b", num(2)),
+						kv("c", num(3))),
+				Collections.singletonList("22"),
+			},
+			// set op tests
 			{
 				binop("\\union", idexp("lhs"), idexp("rhs")),
 				Arrays.asList(kv("lhs", set(num(1), num(2))), kv("rhs", set(num(3)))),
