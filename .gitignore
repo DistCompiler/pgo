@@ -63,6 +63,7 @@ fabric.properties
 # Reason: https://github.com/joeblau/gitignore.io/issues/186#issuecomment-249601023
 
 *.iml
+*.eml
 modules.xml
 .idea/misc.xml
 *.ipr
