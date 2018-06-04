@@ -13,5 +13,5 @@ public abstract class NodeVisitor<T, E extends Throwable> {
 	public abstract T visit(Expression expression) throws E;
 	public abstract T visit(InterfaceTypeField interfaceTypeField) throws E;
 	public abstract T visit(SelectCase selectCase) throws E;
-
+	public abstract T visit(StructLiteralField structLiteralField) throws E;
 }

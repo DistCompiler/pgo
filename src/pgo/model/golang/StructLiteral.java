@@ -1,6 +1,6 @@
 package pgo.model.golang;
 
-import java.util.LinkedHashMap;
+import java.util.List;
 
 /**
  * Wraps the definition of a Golang struct
@@ -10,9 +10,9 @@ public class StructLiteral extends Expression {
 	
 	Type type;
 	
-	LinkedHashMap<String, Expression> fields;
+	List<StructLiteralField> fields;
 
-    public StructLiteral(Type type, LinkedHashMap<String, Expression> fields) {
+    public StructLiteral(Type type, List<StructLiteralField> fields) {
         this.type = type;
         this.fields = fields;
     }
@@ -21,7 +21,7 @@ public class StructLiteral extends Expression {
     	return type;
     }
     
-    public LinkedHashMap<String, Expression> getFields(){
+    public List<StructLiteralField> getFields(){
     	return fields;
     }
 

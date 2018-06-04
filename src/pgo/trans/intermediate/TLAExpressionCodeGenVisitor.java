@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
+import pgo.InternalCompilerError;
 import pgo.TODO;
 import pgo.model.golang.*;
 import pgo.model.tla.*;
@@ -27,23 +28,42 @@ public class TLAExpressionCodeGenVisitor extends PGoTLAExpressionVisitor<Express
 		this.globalStrategy = globalStrategy;
 	}
 
-	private void unfoldQuantifierBounds(List<PGoTLAQuantifierBound> bounds, Consumer<BlockBuilder> action) {
+	private List<Expression> evaluateQuantifierBoundSets(List<PGoTLAQuantifierBound> bounds){
+		List<Expression> sets = new ArrayList<>();
+		for(PGoTLAQuantifierBound qb : bounds){
+			sets.add(qb.getSet().accept(this));
+		}
+		return sets;
+	}
+
+	private static Type getFunctionKeyType(Type fnType){
+		Type keyValuePairType = ((SliceType)fnType).getElementType();
+		return ((StructType)keyValuePairType).getFields().get(0).getType();
+	}
+
+	private void unfoldQuantifierBounds(List<PGoTLAQuantifierBound> bounds, Consumer<BlockBuilder> action){
+		unfoldQuantifierBounds(bounds, evaluateQuantifierBoundSets(bounds), action);
+	}
+
+	private void unfoldQuantifierBounds(List<PGoTLAQuantifierBound> bounds, List<Expression> evaluatedSets, Consumer<BlockBuilder> action) {
 		BlockBuilder currentBuilder = builder;
 		List<BlockBuilder> accumulatedBuilders = new ArrayList<>();
-		for (PGoTLAQuantifierBound bound : bounds) {
-			// evaluate the set in the correct loop block
-			Expression set = bound.getSet().accept(
-					new TLAExpressionCodeGenVisitor(currentBuilder, registry, typeMap, globalStrategy));
+		for (int i = 0; i < bounds.size(); ++i) {
+			Expression set = evaluatedSets.get(i);
+			PGoTLAQuantifierBound bound = bounds.get(i);
 			ForRangeBuilder forRangeBuilder = currentBuilder.forRange(set);
 
 			if (bound.getType() == PGoTLAQuantifierBound.Type.TUPLE) {
 				VariableName v = forRangeBuilder.initVariables(Arrays.asList("_", "v")).get(1);
 				currentBuilder = forRangeBuilder.getBlockBuilder();
 
+				// useful for some internal codegen, not needed by user code
+				currentBuilder.linkUID(bound.getUID(), v);
+
 				List<PGoTLAIdentifier> ids = bound.getIds();
-				for(int i = 0; i < ids.size(); ++i) {
-					VariableName name = currentBuilder.varDecl(ids.get(i).getId(), new Index(v, new IntLiteral(i)));
-					currentBuilder.linkUID(ids.get(i).getUID(), name);
+				for(int j = 0; j < ids.size(); ++j) {
+					VariableName name = currentBuilder.varDecl(ids.get(j).getId(), new Index(v, new IntLiteral(j)));
+					currentBuilder.linkUID(ids.get(j).getUID(), name);
 				}
 			}else {
 				if (bound.getIds().size() != 1) {
@@ -53,6 +73,9 @@ public class TLAExpressionCodeGenVisitor extends PGoTLAExpressionVisitor<Express
 				PGoTLAIdentifier id = bound.getIds().get(0);
 				VariableName name = forRangeBuilder.initVariables(Arrays.asList("_", id.getId())).get(1);
 				currentBuilder.linkUID(id.getUID(), name);
+				// useful for some internal codegen, not needed by user code
+				currentBuilder.linkUID(bound.getUID(), name);
+
 				currentBuilder = forRangeBuilder.getBlockBuilder();
 			}
 			accumulatedBuilders.add(currentBuilder);
@@ -66,19 +89,64 @@ public class TLAExpressionCodeGenVisitor extends PGoTLAExpressionVisitor<Express
 	@Override
 	public Expression visit(PGoTLAFunctionCall pGoTLAFunctionCall) throws RuntimeException {
 		PGoType type = typeMap.get(pGoTLAFunctionCall.getFunction().getUID());
-		if (!(type instanceof PGoTypeSlice)) {
-			throw new TODO();
-		}
+		if(type instanceof PGoTypeFunction){
+			Expression function = pGoTLAFunctionCall.getFunction().accept(this);
+			List<Expression> params = new ArrayList<>();
+			for(PGoTLAExpression param : pGoTLAFunctionCall.getParams()){
+				params.add(param.accept(this));
+			}
 
-		if (pGoTLAFunctionCall.getParams().size() != 1) {
-			throw new TODO();
+			Type keyType = getFunctionKeyType(type.accept(new PGoTypeGoTypeConversionVisitor()));
+			VariableName key;
+			if(pGoTLAFunctionCall.getParams().size() == 1){
+				key = builder.varDecl("key", params.get(0));
+			}else{
+				if(keyType instanceof SliceType){
+					Type elementType = ((SliceType)keyType).getElementType();
+					key = builder.varDecl("key", new SliceLiteral(elementType, params));
+				}else if(keyType instanceof StructType){
+					List<StructLiteralField> fields = new ArrayList<>();
+					for(Expression param : params){
+						fields.add(new StructLiteralField(null, param));
+					}
+					key = builder.varDecl("key", new StructLiteral(keyType, fields));
+				}else {
+					throw new InternalCompilerError();
+				}
+			}
+
+			AnonymousFunctionBuilder comparatorBuilder = builder.anonymousFunction();
+			VariableName i = comparatorBuilder.addArgument("i", Builtins.Int);
+			comparatorBuilder.addReturn(Builtins.Bool);
+			try(BlockBuilder comparatorBody = comparatorBuilder.getBlockBuilder()){
+				comparatorBody.addStatement(
+						new Return(Collections.singletonList(
+								new Unary(
+										Unary.Operation.NOT,
+										keyType.accept(new LessThanCodeGenVisitor(
+												comparatorBody,
+												new Selector(new Index(function, i), "key"),
+												key))))));
+			}
+			VariableName index = builder.varDecl("index", new Call(
+					new Selector(new VariableName("sort"), "Search"),
+					Arrays.asList(
+							new Call(new VariableName("len"), Collections.singletonList(function)),
+							comparatorBuilder.getFunction())));
+			return new Selector(new Index(function, index), "value");
+		}else if(type instanceof PGoTypeSlice){
+			if (pGoTLAFunctionCall.getParams().size() != 1) {
+				throw new InternalCompilerError(); // slices fundamentally cannot be indexed by multiple parameters
+			}
+			return new Index(
+					pGoTLAFunctionCall.getFunction().accept(this),
+					new Binop(
+							Binop.Operation.MINUS,
+							pGoTLAFunctionCall.getParams().get(0).accept(this),
+							new IntLiteral(1)));
+		}else{
+			throw new InternalCompilerError();
 		}
-		return new Index(
-				pGoTLAFunctionCall.getFunction().accept(this),
-				new Binop(
-						Binop.Operation.MINUS,
-						pGoTLAFunctionCall.getParams().get(0).accept(this),
-						new IntLiteral(1)));
 	}
 
 	@Override
@@ -111,7 +179,42 @@ public class TLAExpressionCodeGenVisitor extends PGoTLAExpressionVisitor<Express
 
 	@Override
 	public Expression visit(PGoTLAFunction pGoTLAFunction) throws RuntimeException {
-		throw new TODO();
+		Type mapType = typeMap.get(pGoTLAFunction.getUID()).accept(new PGoTypeGoTypeConversionVisitor());
+		Expression capacity = null;
+		List<PGoTLAQuantifierBound> args = pGoTLAFunction.getArguments();
+		List<Expression> domains = evaluateQuantifierBoundSets(args);
+		for(int argPos = 0; argPos < args.size(); ++argPos){
+			Expression domain = domains.get(argPos);
+			Expression currentTerm = new Call(new VariableName("len"), Collections.singletonList(domain));
+			if(capacity == null){
+				capacity = currentTerm;
+			}else{
+				capacity = new Binop(Binop.Operation.TIMES, capacity, currentTerm);
+			}
+		}
+		VariableName function = builder.varDecl("function", new Make(mapType, new IntLiteral(0), capacity));
+		unfoldQuantifierBounds(pGoTLAFunction.getArguments(), domains, innerBuilder -> {
+			Type keyValuePairType = ((SliceType)mapType).getElementType();
+			Expression key;
+			if(args.size() == 1){
+				key = innerBuilder.findUID(args.get(0).getUID());
+			}else{
+				Type keyType = ((StructType)keyValuePairType).getFields().get(0).getType();
+				List<StructLiteralField> keyFields = new ArrayList<>();
+				for(PGoTLAQuantifierBound qb : args){
+					keyFields.add(new StructLiteralField(null, innerBuilder.findUID(qb.getUID())));
+				}
+				key = new StructLiteral(keyType, keyFields);
+			}
+			Expression value = pGoTLAFunction.getBody().accept(
+					new TLAExpressionCodeGenVisitor(innerBuilder, registry, typeMap, globalStrategy));
+			Expression keyValuePair = new StructLiteral(keyValuePairType, Arrays.asList(
+					new StructLiteralField("key", key),
+					new StructLiteralField("value", value)
+			));
+			innerBuilder.assign(function, new Call(new VariableName("append"), Arrays.asList(function, keyValuePair)));
+		});
+		return function;
 	}
 
 	@Override

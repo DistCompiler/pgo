@@ -147,6 +147,29 @@ public class ExpressionCodeGenRunTest {
 				Collections.emptyList(),
 				Collections.singletonList("[{1 1} {2 2} {3 3}]"),
 			},
+			{
+				fncall(idexp("fn"), num(2)),
+				Collections.singletonList(
+						kv("fn", function(
+								bounds(qbIds(ids(id("x")), set(num(1), num(2), num(3)))),
+								binop("+", idexp("x"), num(1))))),
+				Collections.singletonList("3"),
+			},
+			// TODO: also chokes on typecheck
+			{
+				fncall(idexp("fn"), num(2), num(5)),
+				Collections.singletonList(
+						kv("fn", function(
+								bounds(
+										qbIds(
+												ids(id("x")),
+												set(num(1), num(2), num(3))),
+										qbIds(
+												ids(id("y")),
+												set(num(4), num(5), num(6)))),
+								binop("+", idexp("x"), idexp("y"))))),
+				Collections.singletonList("7"),
+			},
 		});
 	}
 

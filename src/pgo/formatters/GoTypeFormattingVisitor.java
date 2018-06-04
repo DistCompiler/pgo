@@ -21,12 +21,22 @@ public class GoTypeFormattingVisitor extends TypeVisitor<Void, IOException> {
 
 	@Override
 	public Void visit(StructType structType) throws IOException {
-		throw new TODO();
+		out.write("struct{");
+		for(StructTypeField field : structType.getFields()){
+			out.write(field.getName());
+			out.write(" ");
+			field.getType().accept(this);
+			out.write("; ");
+		}
+		out.write("}");
+		return null;
 	}
 
 	@Override
 	public Void visit(PtrType ptrType) throws IOException {
-		throw new TODO();
+		out.write("*");
+		ptrType.getPointee().accept(this);
+		return null;
 	}
 
 	@Override

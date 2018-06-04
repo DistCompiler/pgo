@@ -1,24 +1,14 @@
 package pgo.trans.intermediate;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 
 import pgo.InternalCompilerError;
 import pgo.TODO;
 import pgo.model.golang.*;
-import pgo.model.type.PGoTypeBool;
-import pgo.model.type.PGoTypeChan;
-import pgo.model.type.PGoTypeDecimal;
-import pgo.model.type.PGoTypeFunction;
-import pgo.model.type.PGoTypeInt;
-import pgo.model.type.PGoTypeProcedure;
-import pgo.model.type.PGoTypeSet;
-import pgo.model.type.PGoTypeSlice;
-import pgo.model.type.PGoTypeString;
-import pgo.model.type.PGoTypeTuple;
-import pgo.model.type.PGoTypeUnrealizedNumber;
-import pgo.model.type.PGoTypeUnrealizedTuple;
-import pgo.model.type.PGoTypeVariable;
-import pgo.model.type.PGoTypeVisitor;
+import pgo.model.type.*;
 
 public class PGoTypeGoTypeConversionVisitor extends PGoTypeVisitor<Type, RuntimeException> {
 
@@ -29,7 +19,12 @@ public class PGoTypeGoTypeConversionVisitor extends PGoTypeVisitor<Type, Runtime
 
 	@Override
 	public Type visit(PGoTypeTuple pGoTypeTuple) throws RuntimeException {
-		return new SliceType(new InterfaceType(Collections.emptyList()));
+		List<StructTypeField> fields = new ArrayList<>();
+		List<PGoType> eTypes = pGoTypeTuple.getElementTypes();
+		for(int i = 0; i < eTypes.size(); ++i){
+			fields.add(new StructTypeField("e"+i, eTypes.get(i).accept(this)));
+		}
+		return new StructType(fields);
 	}
 
 	@Override
@@ -64,7 +59,16 @@ public class PGoTypeGoTypeConversionVisitor extends PGoTypeVisitor<Type, Runtime
 
 	@Override
 	public Type visit(PGoTypeFunction pGoTypeFunction) throws RuntimeException {
-		throw new TODO();
+		List<PGoType> pTypes = pGoTypeFunction.getParamTypes();
+		Type keyType;
+		if(pTypes.size() == 1){
+			keyType = pTypes.get(0).accept(this);
+		}else {
+			keyType = new PGoTypeTuple(pTypes, pGoTypeFunction.getOrigins()).accept(this);
+		}
+		return new SliceType(new StructType(Arrays.asList(
+				new StructTypeField("key", keyType),
+				new StructTypeField("value", pGoTypeFunction.getReturnType().accept(this)))));
 	}
 
 	@Override

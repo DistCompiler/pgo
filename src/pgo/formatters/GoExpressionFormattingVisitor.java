@@ -150,7 +150,17 @@ public class GoExpressionFormattingVisitor extends ExpressionVisitor<Void, IOExc
 
 	@Override
 	public Void visit(StructLiteral structLiteral) throws IOException {
-		throw new TODO();
+		structLiteral.getType().accept(new GoTypeFormattingVisitor(out));
+		out.write("{");
+		FormattingTools.writeCommaSeparated(out, structLiteral.getFields(), field -> {
+			if(field.getName() != null){
+				out.write(field.getName());
+				out.write(": ");
+			}
+			field.getValue().accept(this);
+		});
+		out.write("}");
+		return null;
 	}
 
 	@Override

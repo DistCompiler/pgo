@@ -60,7 +60,6 @@ public class TLAExpressionScopingVisitor extends PGoTLAExpressionVisitor<Void, R
 		for (PGoTLAQuantifierBound qb : bounds) {
 			for (PGoTLAIdentifier id : qb.getIds()) {
 				scope.defineLocal(id.getId(), id.getUID());
-				// TODO: BAD BAD, make pattern matching over tuples work
 				registry.addLocalVariable(id.getUID());
 			}
 			qb.getSet().accept(this);
@@ -117,12 +116,7 @@ public class TLAExpressionScopingVisitor extends PGoTLAExpressionVisitor<Void, R
 	@Override
 	public Void visit(PGoTLAFunction pGoTLAFunction) throws RuntimeException {
 		TLAScopeBuilder argScope = builder.makeNestedScope();
-		for (PGoTLAQuantifierBound qb : pGoTLAFunction.getArguments()) {
-			for (PGoTLAIdentifier id : qb.getIds()) {
-				argScope.defineLocal(id.getId(), id.getUID());
-			}
-			qb.getSet().accept(this);
-		}
+		handleQuantifierBounds(argScope, pGoTLAFunction.getArguments());
 		pGoTLAFunction.getBody().accept(new TLAExpressionScopingVisitor(argScope, registry, loader, moduleRecursionSet));
 		return null;
 	}

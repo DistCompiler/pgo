@@ -1,5 +1,6 @@
 package pgo.trans.intermediate;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import pgo.InternalCompilerError;
@@ -23,7 +24,11 @@ public class TLATupleCodeGenVisitor extends TypeVisitor<Expression, RuntimeExcep
 
 	@Override
 	public Expression visit(StructType structType) throws RuntimeException {
-		throw new TODO();
+		List<StructLiteralField> fields = new ArrayList<>();
+		for(Expression element : elements){
+			fields.add(new StructLiteralField(null, element));
+		}
+		return new StructLiteral(structType, fields);
 	}
 
 	@Override
