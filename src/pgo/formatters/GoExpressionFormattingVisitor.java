@@ -65,7 +65,7 @@ public class GoExpressionFormattingVisitor extends ExpressionVisitor<Void, IOExc
 
 	@Override
 	public Void visit(Index index) throws IOException {
-		index.getTarget().accept(this);
+		index.getTarget().accept(new GoBinopFormattingVisitor(out, 6));
 		out.write("[");
 		index.getIndex().accept(this);
 		out.write("]");
@@ -74,7 +74,7 @@ public class GoExpressionFormattingVisitor extends ExpressionVisitor<Void, IOExc
 
 	@Override
 	public Void visit(SliceOperator slice) throws IOException {
-		slice.getTarget().accept(this);
+		slice.getTarget().accept(new GoBinopFormattingVisitor(out, 6));
 		out.write("[");
 		if (slice.getLow() != null) {
 			slice.getLow().accept(this);
@@ -101,11 +101,6 @@ public class GoExpressionFormattingVisitor extends ExpressionVisitor<Void, IOExc
 		});
 		out.write("}");
 		return null;
-	}
-
-	@Override
-	public Void visit(GoTo goTo) throws IOException {
-		throw new TODO();
 	}
 
 	@Override
@@ -138,7 +133,7 @@ public class GoExpressionFormattingVisitor extends ExpressionVisitor<Void, IOExc
 
 	@Override
 	public Void visit(Call call) throws IOException {
-		call.getTarget().accept(this);
+		call.getTarget().accept(new GoBinopFormattingVisitor(out, 6));
 		out.write("(");
 		FormattingTools.writeCommaSeparated(out, call.getArguments(), arg -> arg.accept(this));
 		if (call.hasEllipsis()) {
@@ -160,112 +155,19 @@ public class GoExpressionFormattingVisitor extends ExpressionVisitor<Void, IOExc
 
 	@Override
 	public Void visit(Binop binop) throws IOException {
-		out.write("(");
-		binop.getLHS().accept(this);
-		out.write(") ");
-		switch(binop.getOperation()) {
-		case AND:
-			out.write("&&");
-			break;
-		case BAND:
-			out.write("&");
-			break;
-		case BCLEAR:
-			out.write("&^");
-			break;
-		case BOR:
-			out.write("|");
-			break;
-		case BXOR:
-			out.write("^");
-			break;
-		case DIVIDE:
-			out.write("/");
-			break;
-		case EQ:
-			out.write("==");
-			break;
-		case GEQ:
-			out.write(">=");
-			break;
-		case GT:
-			out.write(">");
-			break;
-		case LEQ:
-			out.write("<=");
-			break;
-		case LSHIFT:
-			out.write("<<");
-			break;
-		case LT:
-			out.write("<");
-			break;
-		case MINUS:
-			out.write("-");
-			break;
-		case MOD:
-			out.write("%");
-			break;
-		case NEQ:
-			out.write("!=");
-			break;
-		case OR:
-			out.write("||");
-			break;
-		case PLUS:
-			out.write("+");
-			break;
-		case RSHIFT:
-			out.write(">>");
-			break;
-		case TIMES:
-			out.write("*");
-			break;
-		default:
-			throw new Unreachable();
-		}
-		out.write(" (");
-		binop.getRHS().accept(this);
-		out.write(")");
+		binop.accept(new GoBinopFormattingVisitor(out, 0));
 		return null;
 	}
 
 	@Override
 	public Void visit(Unary unary) throws IOException {
-		switch (unary.getOperation()) {
-			case POS:
-				out.write("+");
-				break;
-			case NEG:
-				out.write("-");
-				break;
-			case NOT:
-				out.write("!");
-				break;
-			case COMPLEMENT:
-				out.write("^");
-				break;
-			case DEREF:
-				out.write("*");
-				break;
-			case ADDR:
-				out.write("&");
-				break;
-			case RECV:
-				out.write("<-");
-				break;
-			default:
-				throw new Unreachable();
-		}
-		out.write("(");
-		unary.getTarget().accept(this);
-		out.write(")");
+		unary.accept(new GoBinopFormattingVisitor(out, 0));
 		return null;
 	}
 
 	@Override
 	public Void visit(Selector dot) throws IOException {
-		dot.getLHS().accept(this);
+		dot.getLHS().accept(new GoBinopFormattingVisitor(out, 6));
 		out.write(".");
 		out.write(dot.getName());
 		return null;

@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import org.json.JSONObject;
@@ -50,42 +51,50 @@ public class ExpressionCodeGenRunTest {
 	public static List<Object[]> data(){
 		return Arrays.asList(new Object[][] {
 			{
+				binop("*", idexp("a"), binop("+", idexp("b"), idexp("c"))),
+				Arrays.asList(
+						kv("a", num(2)),
+						kv("b", num(2)),
+						kv("c", num(3))),
+				Collections.singletonList("10"),
+			},
+			{
 				binop("\\union", idexp("lhs"), idexp("rhs")),
 				Arrays.asList(kv("lhs", set(num(1), num(2))), kv("rhs", set(num(3)))),
-				Arrays.asList("[1 2 3]"),
+				Collections.singletonList("[1 2 3]"),
 			},
 			{
 				binop("\\union", idexp("lhs"), idexp("rhs")),
 				Arrays.asList(kv("lhs", set(num(1), num(2))), kv("rhs", set(num(3), num(2)))),
-				Arrays.asList("[1 2 3]"),
+				Collections.singletonList("[1 2 3]"),
 			},
 			{
 				binop("\\", idexp("lhs"), idexp("rhs")),
 				Arrays.asList(kv("lhs", set(num(1), num(2))), kv("rhs", set(num(3)))),
-				Arrays.asList("[1 2]"),
+				Collections.singletonList("[1 2]"),
 			},
 			{
 				binop("\\", idexp("lhs"), idexp("rhs")),
 				Arrays.asList(kv("lhs", set(num(1), num(2))), kv("rhs", set(num(3), num(2)))),
-				Arrays.asList("[1]"),
+				Collections.singletonList("[1]"),
 			},
 			// pseudo-lexicographical sorting tests
 			{
 				idexp("value"),
-				Arrays.asList(kv("value", set(set(), set(num(1), num(2)), set(num(2))))),
-				Arrays.asList("[[] [2] [1 2]]")
+				Collections.singletonList(kv("value", set(set(), set(num(1), num(2)), set(num(2))))),
+				Collections.singletonList("[[] [2] [1 2]]")
 			},
 			{
 				idexp("value"),
-				Arrays.asList(kv("value", set(tuple(), tuple(num(1), num(2)), tuple(num(2))))),
-				Arrays.asList("[[] [2] [1 2]]")
+				Collections.singletonList(kv("value", set(tuple(), tuple(num(1), num(2)), tuple(num(2))))),
+				Collections.singletonList("[[] [2] [1 2]]")
 			},
 			{
 				binop("\\union", idexp("lhs"), idexp("rhs")),
 				Arrays.asList(
 						kv("lhs", set(set(num(5), num(3)), set(num(2)), set(num(1), num(10)))),
 						kv("rhs", set(set(), set(num(2), num(2))))),
-				Arrays.asList("[[] [2] [1 10] [3 5]]")
+				Collections.singletonList("[[] [2] [1 10] [3 5]]")
 			},
 			// TODO: fun typing bug(s)
 			{
@@ -98,7 +107,7 @@ public class ExpressionCodeGenRunTest {
 								tuple(),
 								tuple(num(2)),
 								tuple(num(1), num(2))))),
-				Arrays.asList("[[1]]"),
+				Collections.singletonList("[[1]]"),
 			},
 			{
 				binop("\\", idexp("lhs"), idexp("rhs")),
@@ -108,7 +117,7 @@ public class ExpressionCodeGenRunTest {
 						kv("rhs", set(
 								tuple(num(2)),
 								tuple(num(1), num(2))))),
-				Arrays.asList("[[1]]"),
+				Collections.singletonList("[[1]]"),
 			},
 			// TODO: even hinting that they should be slices with Append doesn't work
 			{
@@ -118,7 +127,15 @@ public class ExpressionCodeGenRunTest {
 						kv("rhs", set(tuple(), tuple(num(2)), tuple(num(1), num(2)))),
 						kv("workaround1", opcall("Append", idexp("lhs"), num(5))),
 						kv("workaround2", opcall("Append", idexp("rhs"), num(5)))),
-				Arrays.asList("[[1]]"),
+				Collections.singletonList("[[1]]"),
+			},
+			// function tests
+			{
+				function(
+						bounds(qbIds(ids(id("x")), set(num(1), num(2), num(3)))),
+						idexp("x")),
+				Collections.emptyList(),
+				Collections.singletonList("[{1 1} {2 2} {3 3}]"),
 			},
 		});
 	}
@@ -147,7 +164,7 @@ public class ExpressionCodeGenRunTest {
 					IndentingWriter out = new IndentingWriter(w);){
 				out.write("---- MODULE Test ----");
 				out.newLine();
-				out.write("EXTENDS Sequences");
+				out.write("EXTENDS Sequences, Integers");
 				out.newLine();
 				
 				out.write("(* --algorithm Test {");
