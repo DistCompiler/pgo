@@ -20,6 +20,7 @@ import pgo.parser.PcalParser.ParsedPcal;
 import pgo.scope.UID;
 import pgo.trans.PGoTransException;
 import pgo.trans.intermediate.*;
+import pgo.trans.passes.type.TypeInferencePass;
 import pgo.util.IOUtil;
 
 public class PGoMain {

@@ -8,6 +8,7 @@ import pgo.errors.IssueWithContext;
 import pgo.model.pcal.Macro;
 import pgo.model.type.*;
 import pgo.trans.intermediate.*;
+import pgo.trans.passes.type.TypeInferenceFailureIssue;
 
 public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 
@@ -215,6 +216,15 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 		unsatisfiableConstraintIssue.getRhs().accept(new DerivedFormattingVisitor(out));
 		out.write("; ");
 		unsatisfiableConstraintIssue.getConstraint().accept(new DerivedFormattingVisitor(out));
+		return null;
+	}
+
+	@Override
+	public Void visit(TypeInferenceFailureIssue typeInferenceFailureIssue) throws IOException {
+		out.write("could not infer type for ");
+		typeInferenceFailureIssue.getUID().accept(new DerivedFormattingVisitor(out));
+		out.write("; got");
+		typeInferenceFailureIssue.getType().accept(new DerivedFormattingVisitor(out));
 		return null;
 	}
 

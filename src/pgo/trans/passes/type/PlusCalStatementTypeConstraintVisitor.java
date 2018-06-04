@@ -1,4 +1,4 @@
-package pgo.trans.intermediate;
+package pgo.trans.passes.type;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -11,6 +11,10 @@ import pgo.model.pcal.*;
 import pgo.model.tla.PGoTLAExpression;
 import pgo.model.type.*;
 import pgo.scope.UID;
+import pgo.trans.intermediate.DefinitionRegistry;
+import pgo.trans.intermediate.ProcedureNotFoundIssue;
+import pgo.trans.passes.type.TLAExpressionTypeConstraintVisitor;
+import pgo.trans.passes.type.TypeInferencePass;
 
 public class PlusCalStatementTypeConstraintVisitor extends StatementVisitor<Void, RuntimeException> {
 

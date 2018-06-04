@@ -1,4 +1,4 @@
-package pgo.trans.intermediate;
+package pgo.trans.passes.type;
 
 import java.util.Map;
 
@@ -19,6 +19,8 @@ import pgo.model.type.PGoTypeGenerator;
 import pgo.model.type.PGoTypeSolver;
 import pgo.model.type.PGoTypeVariable;
 import pgo.scope.UID;
+import pgo.trans.intermediate.DefinitionRegistry;
+import pgo.trans.passes.type.TLAExpressionTypeConstraintVisitor;
 
 public class TLAUnitTypeConstraintVisitor extends PGoTLAUnitVisitor<Void, RuntimeException> {
 

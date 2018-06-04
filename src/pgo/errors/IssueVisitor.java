@@ -4,6 +4,7 @@ import pgo.model.type.BacktrackingFailureIssue;
 import pgo.model.type.UnrealizableTypeIssue;
 import pgo.model.type.UnsatisfiableConstraintIssue;
 import pgo.trans.intermediate.*;
+import pgo.trans.passes.type.TypeInferenceFailureIssue;
 
 public abstract class IssueVisitor<T, E extends Throwable> {
 
@@ -29,6 +30,7 @@ public abstract class IssueVisitor<T, E extends Throwable> {
 	public abstract T visit(BacktrackingFailureIssue backtrackingFailureIssue) throws E;
 	public abstract T visit(UnrealizableTypeIssue unrealizableTypeIssue) throws E;
 	public abstract T visit(UnsatisfiableConstraintIssue unsatisfiableConstraintIssue) throws E;
+	public abstract T visit(TypeInferenceFailureIssue typeInferenceFailureIssue) throws E;
 	public abstract T visit(ProcedureNotFoundIssue procedureNotFoundIssue) throws E;
 	public abstract T visit(ConstantWithNoValueIssue constantWithNoValueIssue) throws E;
 

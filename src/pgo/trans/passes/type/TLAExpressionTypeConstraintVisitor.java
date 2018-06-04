@@ -1,4 +1,4 @@
-package pgo.trans.intermediate;
+package pgo.trans.passes.type;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -39,6 +39,8 @@ import pgo.model.tla.PGoTLAUniversal;
 import pgo.model.tla.PlusCalDefaultInitValue;
 import pgo.model.type.*;
 import pgo.scope.UID;
+import pgo.trans.intermediate.DefinitionRegistry;
+import pgo.trans.intermediate.OperatorAccessor;
 
 public class TLAExpressionTypeConstraintVisitor extends PGoTLAExpressionVisitor<PGoType, RuntimeException> {
 
