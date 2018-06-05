@@ -128,16 +128,7 @@ public class PlusCalStatementTypeConstraintVisitor extends StatementVisitor<Void
 
 	@Override
 	public Void visit(Print print) throws RuntimeException {
-		PGoTLAExpression expr = print.getValue();
-		PGoType t = exprVisitor.wrappedVisit(expr);
-		if (t instanceof PGoTypeUnrealizedTuple) {
-			int probableSize = ((PGoTypeUnrealizedTuple) t).getProbableSize();
-			List<PGoType> elemTypes = new ArrayList<>();
-			for (int i = 0; i < probableSize; i++) {
-				elemTypes.add(generator.get());
-			}
-			solver.addConstraint(new PGoTypeMonomorphicConstraint(expr, t, new PGoTypeTuple(elemTypes, Collections.singletonList(print))));
-		}
+		exprVisitor.wrappedVisit(print.getValue());
 		return null;
 	}
 

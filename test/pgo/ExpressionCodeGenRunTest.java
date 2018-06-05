@@ -23,11 +23,11 @@ import static pgo.model.tla.Builder.*;
 
 @RunWith(Parameterized.class)
 public class ExpressionCodeGenRunTest {
-	
+
 	static class KeyValue {
 		private String key;
 		private PGoTLAExpression value;
-		
+
 		public KeyValue(String key, PGoTLAExpression value) {
 			super();
 			this.key = key;
@@ -42,7 +42,7 @@ public class ExpressionCodeGenRunTest {
 			return value;
 		}
 	}
-	
+
 	static KeyValue kv(String key, PGoTLAExpression value) {
 		return new KeyValue(key, value);
 	}
@@ -96,7 +96,9 @@ public class ExpressionCodeGenRunTest {
 			},
 			{
 				idexp("value"),
-				Collections.singletonList(kv("value", set(tuple(), tuple(num(1), num(2)), tuple(num(2))))),
+				Arrays.asList(
+						kv("workaround", opcall("Append", tuple(), num(2))),
+						kv("value", set(tuple(), tuple(num(1), num(2)), idexp("workaround")))),
 				Collections.singletonList("[[] [2] [1 2]]")
 			},
 			{
@@ -106,37 +108,13 @@ public class ExpressionCodeGenRunTest {
 						kv("rhs", set(set(), set(num(2), num(2))))),
 				Collections.singletonList("[[] [2] [1 10] [3 5]]")
 			},
-			// TODO: fun typing bug(s)
 			{
 				binop("\\", idexp("lhs"), idexp("rhs")),
 				Arrays.asList(
-						kv("lhs", set(
-								tuple(),
-								tuple(num(1)))),
-						kv("rhs", set(
-								tuple(),
-								tuple(num(2)),
-								tuple(num(1), num(2))))),
-				Collections.singletonList("[[1]]"),
-			},
-			{
-				binop("\\", idexp("lhs"), idexp("rhs")),
-				Arrays.asList(
-						kv("lhs", set(
-								tuple(num(1)))),
-						kv("rhs", set(
-								tuple(num(2)),
-								tuple(num(1), num(2))))),
-				Collections.singletonList("[[1]]"),
-			},
-			// TODO: even hinting that they should be slices with Append doesn't work
-			{
-				binop("\\", idexp("lhs"), idexp("rhs")),
-				Arrays.asList(
-						kv("lhs", set(tuple(), tuple(num(1)))),
-						kv("rhs", set(tuple(), tuple(num(2)), tuple(num(1), num(2)))),
-						kv("workaround1", opcall("Append", idexp("lhs"), num(5))),
-						kv("workaround2", opcall("Append", idexp("rhs"), num(5)))),
+						kv("workaround1", opcall("Append", tuple(), num(1))),
+						kv("workaround2", opcall("Append", tuple(), num(2))),
+						kv("lhs", set(tuple(), idexp("workaround1"))),
+						kv("rhs", set(tuple(), idexp("workaround2"), tuple(num(1), num(2))))),
 				Collections.singletonList("[[1]]"),
 			},
 			// function tests
@@ -155,7 +133,7 @@ public class ExpressionCodeGenRunTest {
 								binop("+", idexp("x"), num(1))))),
 				Collections.singletonList("3"),
 			},
-			// TODO: also chokes on typecheck
+			// TODO: chokes on codegen
 			{
 				fncall(idexp("fn"), num(2), num(5)),
 				Collections.singletonList(
@@ -176,20 +154,20 @@ public class ExpressionCodeGenRunTest {
 	private PGoTLAExpression result;
 	private List<KeyValue> vars;
 	private List<String> expected;
-	
+
 	public ExpressionCodeGenRunTest(PGoTLAExpression result, List<KeyValue> vars, List<String> expected) {
 		this.result = result;
 		this.vars = vars;
 		this.expected = expected;
 	}
-	
+
 	@Test
 	public void test() throws IOException {
 		Path tempDirPath = Files.createTempDirectory("pgotest");
 		File tempDir = tempDirPath.toFile();
 		Path generatedCodePath = tempDirPath.resolve("Test.tla");
 		Path generatedConfigPath = tempDirPath.resolve("config.json");
-		
+
 		Path compiledOutputPath = tempDirPath.resolve("test.go");
 		try{
 			// generate test TLA+ file
@@ -199,7 +177,7 @@ public class ExpressionCodeGenRunTest {
 				out.newLine();
 				out.write("EXTENDS Sequences, Integers");
 				out.newLine();
-				
+
 				out.write("(* --algorithm Test {");
 				out.newLine();
 				try(IndentingWriter.Indent i_ = out.indent()){
@@ -228,45 +206,45 @@ public class ExpressionCodeGenRunTest {
 				out.write("}");
 				out.newLine();
 				out.write("*)");
-				
+
 				out.newLine();
 				out.write("====");
 			}
-			
+
 			// generate config file
 			try(BufferedWriter w = Files.newBufferedWriter(generatedConfigPath)){
 				JSONObject config = new JSONObject();
-				
+
 				JSONObject build = new JSONObject();
 				build.put("output_dir", tempDirPath.toString());
 				build.put("dest_file", "test.go");
 				config.put("build", build);
-				
+
 				JSONObject networking = new JSONObject();
 				networking.put("enabled", false);
 				config.put("networking", networking);
-				
+
 				config.write(w);
 			}
-			
+
 			// invoke the compiler
 			PGoMain.main(new String[] {
 					"-c",
 					generatedConfigPath.toString(),
 					generatedCodePath.toString(),
 			});
-			
+
 			// display the compiled code for inspection
 			Files.lines(compiledOutputPath).forEach(line -> {
 				System.out.println("source: "+line);
 			});
-			
+
 			// try to run the compiled Go code, check that it prints the right thing
 			IntegrationTestingUtils.testRunGoCode(compiledOutputPath, expected);
-			
+
 		} finally {
 			IntegrationTestingUtils.expungeFile(tempDir);
 		}
 	}
-	
+
 }

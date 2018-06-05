@@ -2,7 +2,6 @@ package pgo.model.type;
 
 import org.junit.Before;
 import org.junit.Test;
-import pgo.errors.IssueContext;
 import pgo.errors.TopLevelIssueContext;
 import pgo.scope.UID;
 
@@ -15,7 +14,7 @@ import static org.junit.Assert.*;
 public class PGoTypeSolverTest {
 	private PGoTypeSolver solver;
 	private PGoTypeGenerator typeGenerator;
-	private IssueContext ctx;
+	private TopLevelIssueContext ctx;
 	private UID dummyUID;
 
 	@Before
@@ -257,5 +256,35 @@ public class PGoTypeSolverTest {
 		solver.addConstraint(new PGoTypeMonomorphicConstraint(dummyUID, a, e));
 		solver.unify(ctx);
 		assertTrue(ctx.hasErrors());
+	}
+
+	@Test
+	public void setConstructionWithSlices() {
+		// this represents code like the following
+		//
+		// a := Append(<<>>, 1);
+		// b := {<<>>, <<1, 2>>, a};
+		PGoTypeVariable a = typeGenerator.get();
+		PGoTypeVariable b = typeGenerator.get();
+		PGoTypeVariable c = typeGenerator.get();
+		PGoTypeVariable d = typeGenerator.get();
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(dummyUID, a, new PGoTypeUnrealizedTuple(Collections.emptyList())));
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(dummyUID, new PGoTypeSlice(c, Collections.emptyList()), a));
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(dummyUID, new PGoTypeUnrealizedNumber(new PGoTypeInt(Collections.emptyList()), Collections.emptyList()), c));
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(dummyUID, b, new PGoTypeSlice(c, Collections.emptyList())));
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(dummyUID, d, new PGoTypeUnrealizedTuple(Collections.emptyList())));
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(dummyUID, d, new PGoTypeUnrealizedTuple(new HashMap<Integer, PGoType>() {{
+			put(0, new PGoTypeUnrealizedNumber(new PGoTypeInt(Collections.emptyList()), Collections.emptyList()));
+			put(1, new PGoTypeUnrealizedNumber(new PGoTypeInt(Collections.emptyList()), Collections.emptyList()));
+		}}, Collections.emptyList())));
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(dummyUID, d, a));
+		solver.unify(ctx);
+		assertFalse(ctx.hasErrors());
+		assertEquals(new HashMap<PGoTypeVariable, PGoType>() {{
+			put(a, new PGoTypeSlice(new PGoTypeInt(Collections.emptyList()), Collections.emptyList()));
+			put(b, new PGoTypeSlice(new PGoTypeInt(Collections.emptyList()), Collections.emptyList()));
+			put(c, new PGoTypeInt(Collections.emptyList()));
+			put(d, new PGoTypeSlice(new PGoTypeInt(Collections.emptyList()), Collections.emptyList()));
+		}}, solver.getMapping());
 	}
 }

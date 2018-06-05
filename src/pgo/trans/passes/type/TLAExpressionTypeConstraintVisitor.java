@@ -1,6 +1,7 @@
 package pgo.trans.passes.type;
 
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import pgo.TODO;
@@ -113,17 +114,10 @@ public class TLAExpressionTypeConstraintVisitor extends PGoTLAExpressionVisitor<
 							fnType,
 							new PGoTypeFunction(paramTypes, returnType, Collections.singletonList(pGoTLAFunctionCall)))))));
 		} else {
-			solver.addConstraint(new PGoTypePolymorphicConstraint(pGoTLAFunctionCall, Arrays.asList(
-					Collections.singletonList(new PGoTypeEqualityConstraint(
-							fnType,
-							new PGoTypeFunction(
-									Collections.singletonList(new PGoTypeTuple(
-											paramTypes, Collections.singletonList(pGoTLAFunctionCall))),
-									returnType,
-									Collections.singletonList(pGoTLAFunctionCall)))),
-					Collections.singletonList(new PGoTypeEqualityConstraint(
-							fnType,
-							new PGoTypeFunction(paramTypes, returnType, Collections.singletonList(pGoTLAFunctionCall)))))));
+			solver.addConstraint(new PGoTypeMonomorphicConstraint(
+					pGoTLAFunctionCall,
+					fnType,
+					new PGoTypeFunction(paramTypes, returnType, Collections.singletonList(pGoTLAFunctionCall))));
 		}
 		return returnType;
 	}
@@ -214,12 +208,29 @@ public class TLAExpressionTypeConstraintVisitor extends PGoTLAExpressionVisitor<
 
 	@Override
 	public PGoType visit(PGoTLATuple pGoTLATuple) throws RuntimeException {
-		Map<Integer, PGoType> elementTypes = new HashMap<>();
-		List<PGoTLAExpression> elements = pGoTLATuple.getElements();
-		for (int i = 0; i < elements.size(); ++i) {
-			elementTypes.put(i, wrappedVisit(elements.get(i)));
-		}
-		return new PGoTypeUnrealizedTuple(elementTypes, Collections.singletonList(pGoTLATuple));
+		PGoType fresh = generator.get();
+		PGoType elementType = generator.get();
+		List<PGoType> contents = pGoTLATuple.getElements().stream()
+				.map(this::wrappedVisit)
+				.collect(Collectors.toList());
+		List<PGoTypeEqualityConstraint> commonConstraints = contents.stream()
+				.map(t -> new PGoTypeEqualityConstraint(t, elementType))
+				.collect(Collectors.toList());
+		List<PGoTypeEqualityConstraint> constraintsForChanType = new ArrayList<>(commonConstraints);
+		constraintsForChanType.add(new PGoTypeEqualityConstraint(
+				fresh,
+				new PGoTypeChan(elementType, Collections.singletonList(pGoTLATuple))));
+		List<PGoTypeEqualityConstraint> constraintsForSliceType = new ArrayList<>(commonConstraints);
+		constraintsForSliceType.add(new PGoTypeEqualityConstraint(
+				fresh,
+				new PGoTypeSlice(elementType, Collections.singletonList(pGoTLATuple))));
+		solver.addConstraint(new PGoTypePolymorphicConstraint(pGoTLATuple, Arrays.asList(
+				constraintsForChanType,
+				constraintsForSliceType,
+				Collections.singletonList(new PGoTypeEqualityConstraint(
+						fresh,
+						new PGoTypeTuple(contents, Collections.singletonList(pGoTLATuple)))))));
+		return fresh;
 	}
 
 	@Override

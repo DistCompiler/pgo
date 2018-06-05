@@ -41,7 +41,8 @@ public class PGoTypeSolver {
 		copy.constraints = constraints.stream()
 				.map(PGoTypeConstraint::copy)
 				.collect(Collectors.toCollection(ArrayDeque::new));
-		copy.mapping = new HashMap<>(mapping);
+		copy.mapping = new HashMap<>();
+		mapping.forEach((k, v) -> copy.mapping.put(k, v.copy()));
 		return copy;
 	}
 

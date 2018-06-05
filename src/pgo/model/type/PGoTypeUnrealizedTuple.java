@@ -58,8 +58,9 @@ public class PGoTypeUnrealizedTuple extends PGoType {
 			return Optional.of(new UnsatisfiableConstraintIssue(constraint, this, other));
 		}
 		PGoType elemType = other.getElementType();
-		elementTypes.forEach((k, v) -> solver.addConstraint(new PGoTypeMonomorphicConstraint(this, elemType, v)));
-		Optional<Issue> issue = solver.unify();
+		PGoTypeSolver innerSolver = new PGoTypeSolver();
+		elementTypes.forEach((k, v) -> innerSolver.addConstraint(new PGoTypeMonomorphicConstraint(this, elemType, v)));
+		Optional<Issue> issue = innerSolver.unify();
 		if (issue.isPresent()) {
 			return issue;
 		}
@@ -74,10 +75,7 @@ public class PGoTypeUnrealizedTuple extends PGoType {
 		} else {
 			throw new Unreachable();
 		}
-		// we have to link the element types here again because this constraint may be the only link between the element
-		// type and the rest of the types
 		elementTypes.forEach((k, v) -> solver.addConstraint(new PGoTypeMonomorphicConstraint(this, elemType, v)));
-		// once the link has been made, we can safely throw away what's in elementTypes
 		elementTypes.clear();
 		elementTypes.put(0, elemType);
 		return Optional.empty();
@@ -92,8 +90,9 @@ public class PGoTypeUnrealizedTuple extends PGoType {
 		if (probableSize > elemTypes.size() || (sizeKnown && probableSize < elemTypes.size())) {
 			return Optional.of(new UnsatisfiableConstraintIssue(constraint, this, other));
 		}
-		elementTypes.forEach((k, v) -> solver.addConstraint(new PGoTypeMonomorphicConstraint(this, elemTypes.get(k), v)));
-		Optional<Issue> issue = solver.unify();
+		PGoTypeSolver innerSolver = new PGoTypeSolver();
+		elementTypes.forEach((k, v) -> innerSolver.addConstraint(new PGoTypeMonomorphicConstraint(this, elemTypes.get(k), v)));
+		Optional<Issue> issue = innerSolver.unify();
 		if (issue.isPresent()) {
 			return issue;
 		}
@@ -119,12 +118,13 @@ public class PGoTypeUnrealizedTuple extends PGoType {
 		}
 		boolean isSizeKnown = sizeKnown || other.sizeKnown;
 		int probableSize = Integer.max(getProbableSize(), other.getProbableSize());
+		PGoTypeSolver innerSolver = new PGoTypeSolver();
 		for (int i = 0; i < probableSize; i++) {
 			if (elementTypes.containsKey(i) && other.elementTypes.containsKey(i)) {
-				solver.addConstraint(new PGoTypeMonomorphicConstraint(this, elementTypes.get(i), other.elementTypes.get(i)));
+				innerSolver.addConstraint(new PGoTypeMonomorphicConstraint(this, elementTypes.get(i), other.elementTypes.get(i)));
 			}
 		}
-		Optional<Issue> issue = solver.unify();
+		Optional<Issue> issue = innerSolver.unify();
 		if (issue.isPresent()) {
 			return issue;
 		}
@@ -137,16 +137,16 @@ public class PGoTypeUnrealizedTuple extends PGoType {
 		if (other.realType == RealType.Unknown) {
 			other.realType = realType;
 		}
-		if (isSimpleContainerType() && other.isSimpleContainerType()) {
+		if (isSimpleContainerType()) {
 			List<PGoType> ts = new ArrayList<>(elementTypes.values());
 			ts.addAll(other.elementTypes.values());
 			// collect constraints if ts.size() > 0
 			if (ts.size() > 0) {
 				PGoType first = ts.get(0);
-				for (PGoType t : ts.subList(1, ts.size())) {
+				for (PGoType t : ts) {
 					solver.addConstraint(new PGoTypeMonomorphicConstraint(this, first, t));
 				}
-				HashMap<Integer, PGoType> m = new HashMap<>(Collections.singletonMap(0, ts.get(0)));
+				HashMap<Integer, PGoType> m = new HashMap<>(Collections.singletonMap(0, first));
 				elementTypes = m;
 				other.elementTypes = m;
 				return Optional.empty();
