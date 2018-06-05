@@ -62,24 +62,36 @@ public class PlusCalStatementCodeGenVisitor extends StatementVisitor<Void, Runti
 
 	@Override
 	public Void visit(While while1) throws RuntimeException {
+		// note: here we don't directly compile the loop condition into the Go loop condition due to
+		// difficulties with intermediate variables and critical sections (if the condition is false
+		// we may have to end the critical section after checking the condition)
+		CriticalSectionTracker loopConditionCriticalSectionTracker = criticalSectionTracker.copy();
 		try (BlockBuilder fb = builder.forLoop(Builtins.True)) {
-			try (IfBuilder conditionCheck = fb.ifStmt(
-					CodeGenUtil.invertCondition(fb, registry, typeMap, globalStrategy, while1.getCondition()))) {
-				try (BlockBuilder yes = conditionCheck.whenTrue()) {
-					criticalSectionTracker.abort(yes);
+			try(IfBuilder loopCondition = fb.ifStmt(CodeGenUtil.invertCondition(
+					fb, registry, typeMap, globalStrategy, while1.getCondition()))) {
+				try (BlockBuilder loopConditionBody = loopCondition.whenTrue()) {
+					// if there are labels inside the loop, ensure that we end the critical section
+					// when the loop condition fails as there must be a new label after the loop
+					// if there are no labels inside the loop however, the critical section from before continues
+					// uninterrupted
+					if (while1.accept(new PlusCalStatementContainsLabelVisitor())) {
+						loopConditionCriticalSectionTracker.end(loopConditionBody);
+					}
+					loopConditionBody.addStatement(new Break());
 				}
 			}
 			for (Statement statement : while1.getBody()) {
 				statement.accept(new PlusCalStatementCodeGenVisitor(
 						registry, typeMap, labelsToLockGroups, globalStrategy, fb, criticalSectionTracker));
 			}
-			return null;
 		}
+		return null;
 	}
 
 	@Override
 	public Void visit(If if1) throws RuntimeException {
 		Expression condition = if1.getCondition().accept(new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
+		boolean containsLabels = if1.accept(new PlusCalStatementContainsLabelVisitor());
 		try (IfBuilder b = builder.ifStmt(condition)) {
 			criticalSectionTracker.beginIfStatement((yesTracker, noTracker) -> {
 				try (BlockBuilder yes = b.whenTrue()) {
@@ -87,16 +99,19 @@ public class PlusCalStatementCodeGenVisitor extends StatementVisitor<Void, Runti
 						stmt.accept(new PlusCalStatementCodeGenVisitor(
 								registry, typeMap, labelsToLockGroups, globalStrategy, yes, yesTracker));
 					}
-					// this is legal because the statement after an if statement must be labelled
-					yesTracker.end(yes);
+					// if an if statement contains a label, then the statement(s) after it must be labeled
+					// if the statement after must be labeled, we know this critical section ends here (and
+					// may be different between true and false branches). otherwise, leave the critical section
+					// as is
+					if(containsLabels)yesTracker.end(yes);
 				}
 				try (BlockBuilder no = b.whenFalse()) {
 					for (Statement stmt : if1.getNo()) {
 						stmt.accept(new PlusCalStatementCodeGenVisitor(
 								registry, typeMap, labelsToLockGroups, globalStrategy, no, noTracker));
 					}
-					// this is legal because the statement after an if statement must be labelled
-					noTracker.end(no);
+					// see description for true case
+					if(containsLabels)noTracker.end(no);
 				}
 			});
 		}

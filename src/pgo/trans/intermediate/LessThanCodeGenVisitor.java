@@ -1,6 +1,8 @@
 package pgo.trans.intermediate;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 
 import pgo.TODO;
 import pgo.model.golang.*;
@@ -26,20 +28,34 @@ public class LessThanCodeGenVisitor extends TypeVisitor<Expression, RuntimeExcep
 		}
 	}
 
-	@Override
-	public Expression visit(StructType structType) throws RuntimeException {
-		if(structType.getFields().size() == 2) {
-			StructTypeField key = structType.getFields().get(0);
-			StructTypeField value = structType.getFields().get(1);
-			if(key.getName().equals("key") && value.getName().equals("value")) {
-				return key.getType().accept(
+	private Expression constructStructComparison(int i, List<StructTypeField> fields){
+		StructTypeField field = fields.get(i);
+		if(fields.size() == i+1){
+			return field.getType().accept(
+					new LessThanCodeGenVisitor(
+							builder,
+							new Selector(lhs, field.getName()),
+							new Selector(rhs, field.getName())));
+		}else{
+			return new Binop(Binop.Operation.OR,
+					field.getType().accept(
 						new LessThanCodeGenVisitor(
 								builder,
-								new Selector(lhs, "key"),
-								new Selector(rhs, "key")));
-			}
+								new Selector(lhs, field.getName()),
+								new Selector(rhs, field.getName()))),
+					new Binop(Binop.Operation.AND,
+							field.getType().accept(new EqCodeGenVisitor(
+									builder,
+									new Selector(lhs, field.getName()),
+									new Selector(rhs, field.getName()),
+									false)),
+							constructStructComparison(i+1, fields)));
 		}
-		throw new TODO();
+	}
+
+	@Override
+	public Expression visit(StructType structType) throws RuntimeException {
+		return constructStructComparison(0, structType.getFields());
 	}
 
 	@Override

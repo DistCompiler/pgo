@@ -3,18 +3,7 @@ package pgo.formatters;
 import java.io.IOException;
 
 import pgo.TODO;
-import pgo.model.golang.Declaration;
-import pgo.model.golang.Expression;
-import pgo.model.golang.FunctionArgument;
-import pgo.model.golang.InterfaceTypeField;
-import pgo.model.golang.LabelName;
-import pgo.model.golang.Module;
-import pgo.model.golang.NodeVisitor;
-import pgo.model.golang.SelectCase;
-import pgo.model.golang.Statement;
-import pgo.model.golang.StructTypeField;
-import pgo.model.golang.SwitchCase;
-import pgo.model.golang.Type;
+import pgo.model.golang.*;
 
 public class GoNodeFormattingVisitor extends NodeVisitor<Void, IOException> {
 
@@ -110,6 +99,16 @@ public class GoNodeFormattingVisitor extends NodeVisitor<Void, IOException> {
 	@Override
 	public Void visit(SelectCase selectCase) throws IOException {
 		throw new TODO();
+	}
+
+	@Override
+	public Void visit(StructLiteralField structLiteralField) throws IOException {
+		if(structLiteralField.getName() != null){
+			out.write(structLiteralField.getName());
+			out.write(": ");
+		}
+		structLiteralField.getValue().accept(new GoExpressionFormattingVisitor(out));
+		return null;
 	}
 
 }
