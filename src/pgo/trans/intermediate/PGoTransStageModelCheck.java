@@ -168,7 +168,7 @@ public class PGoTransStageModelCheck {
 			// Return a list of assignments for each variable name in vars of
 			// the form
 			// map[varname, label] := map[varname, label] modifier
-			private Vector<SingleAssign> assignStmts(Set<String> vars, String map, String label, String modifier) {
+			private Assign assignStmts(Set<String> vars, String map, String label, String modifier) {
 				Vector<SingleAssign> ret = new Vector<>();
 				for (String var : vars) {
 					Lhs l = new Lhs();
@@ -189,7 +189,11 @@ public class PGoTransStageModelCheck {
 						}
 					});
 				}
-				return ret;
+				return new Assign() {
+					{
+						ass = ret;
+					}
+				};
 			}
 
 			@Override
@@ -197,41 +201,93 @@ public class PGoTransStageModelCheck {
 				Set<String> read = findReadVars(ls), write = findWriteVars(ls);
 				// variables written to are also "read"
 				read.addAll(write);
-				if (ls.stmts.get(0) instanceof LabelIf) {
-					// need to put the statements in the unlab part of the
-					// LabelIf
-				}
-				// add statements to end of current statement
-				ls.stmts.add(new Assign() {
-					{
-						ass = assignStmts(read, "pgo_read", ls.label, " + 1");
-					}
-				});
-				ls.stmts.add(new Assign() {
-					{
-						ass = assignStmts(write, "pgo_write", ls.label, " + 1");
-					}
-				});
+				if (!read.isEmpty()) {
+					// deal with unlab parts of the statement
+					if (ls.stmts.get(0) instanceof LabelIf) {
+						// need to put the statements inside the if, since
+						// otherwise the AST is invalid
+						LabelIf li = (LabelIf) ls.stmts.get(0);
+						li.unlabThen.add(assignStmts(read, "pgo_read", ls.label, " + 1"));
+						li.unlabThen.add(assignStmts(write, "pgo_write", ls.label, " + 1"));
+						li.unlabElse.add(assignStmts(read, "pgo_read", ls.label, " + 1"));
+						li.unlabElse.add(assignStmts(write, "pgo_write", ls.label, " + 1"));
+						// add statements resetting state afterwards, since we
+						// don't want to walk them
+						recurse(ls.stmts);
 
-				// add new statements resetting the state
-				toFill.peek().add(new Pair<>(
-						new LabeledStmt() {
+						li.labThen.add(0, new LabeledStmt() {
 							{
+								label = "pgo_" + ls.label + "_then";
 								stmts = new Vector<>();
-								stmts.add(new Assign() {
-									{
-										ass = assignStmts(read, "pgo_read", ls.label, " - 1");
-									}
-								});
-								stmts.add(new Assign() {
-									{
-										ass = assignStmts(write, "pgo_write", ls.label, " - 1");
-									}
-								});
+								stmts.add(assignStmts(read, "pgo_read", ls.label, " - 1"));
+								stmts.add(assignStmts(write, "pgo_write", ls.label, " - 1"));
 							}
-						},
-						pos + 1));
-				recurse(ls.stmts);
+						});
+						li.labElse.add(0, new LabeledStmt() {
+							{
+								label = "pgo_ " + ls.label + "_else";
+								stmts = new Vector<>();
+								stmts.add(assignStmts(read, "pgo_read", ls.label, " - 1"));
+								stmts.add(assignStmts(write, "pgo_write", ls.label, " - 1"));
+							}
+						});
+					} else if (ls.stmts.get(0) instanceof While) {
+						While w = (While) ls.stmts.get(0);
+						w.unlabDo.add(assignStmts(read, "pgo_read", ls.label, " + 1"));
+						w.unlabDo.add(assignStmts(write, "pgo_write", ls.label, " + 1"));
+
+						recurse(ls.stmts);
+
+						w.labDo.add(0, new LabeledStmt() {
+							{
+								label = "pgo_" + ls.label;
+								stmts = new Vector<>();
+								stmts.add(assignStmts(read, "pgo_read", ls.label, " - 1"));
+								stmts.add(assignStmts(write, "pgo_write", ls.label, " - 1"));
+							}
+						});
+					} else if (ls.stmts.get(0) instanceof LabelEither) {
+						LabelEither le = (LabelEither) ls.stmts.get(0);
+						for (Clause c : (Vector<Clause>) le.clauses) {
+							c.unlabOr.add(assignStmts(read, "pgo_read", ls.label, " + 1"));
+							c.unlabOr.add(assignStmts(write, "pgo_write", ls.label, " + 1"));
+						}
+
+						recurse(ls.stmts);
+
+						for (Clause c : (Vector<Clause>) le.clauses) {
+							c.labOr.add(0, new LabeledStmt() {
+								{
+									label = "pgo_" + ls.label;
+									stmts = new Vector<>();
+									stmts.add(assignStmts(read, "pgo_read", ls.label, " - 1"));
+									stmts.add(assignStmts(write, "pgo_write", ls.label, " - 1"));
+								}
+							});
+						}
+					} else {
+						// normal; no labels inside ls.stmts
+
+						// add statements to end of current statement
+						ls.stmts.add(assignStmts(read, "pgo_read", ls.label, " + 1"));
+						ls.stmts.add(assignStmts(write, "pgo_write", ls.label, " + 1"));
+
+						// add new statements resetting the state
+						toFill.peek().add(new Pair<>(
+								new LabeledStmt() {
+									{
+										label = "pgo_" + ls.label;
+										stmts = new Vector<>();
+										stmts.add(assignStmts(read, "pgo_read", ls.label, " - 1"));
+										stmts.add(assignStmts(write, "pgo_write", ls.label, " - 1"));
+									}
+								},
+								pos + 1));
+						recurse(ls.stmts);
+					}
+				} else {
+					recurse(ls.stmts);
+				}
 			}
 
 			// we dealt with the unlab parts when visiting the corresponding
