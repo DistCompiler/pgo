@@ -89,7 +89,7 @@ public class TLAExpressionCodeGenVisitor extends PGoTLAExpressionVisitor<Express
 	@Override
 	public Expression visit(PGoTLAFunctionCall pGoTLAFunctionCall) throws RuntimeException {
 		PGoType type = typeMap.get(pGoTLAFunctionCall.getFunction().getUID());
-		if(type instanceof PGoTypeFunction){
+		if(type instanceof PGoTypeMap){
 			Expression function = pGoTLAFunctionCall.getFunction().accept(this);
 			List<Expression> params = new ArrayList<>();
 			for(PGoTLAExpression param : pGoTLAFunctionCall.getParams()){

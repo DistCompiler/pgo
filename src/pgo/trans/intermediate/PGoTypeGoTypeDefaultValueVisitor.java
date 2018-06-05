@@ -5,7 +5,10 @@ import pgo.TODO;
 import pgo.model.golang.Builtins;
 import pgo.model.golang.Expression;
 import pgo.model.golang.IntLiteral;
+import pgo.model.golang.SliceLiteral;
 import pgo.model.type.*;
+
+import java.util.Collections;
 
 public class PGoTypeGoTypeDefaultValueVisitor extends PGoTypeVisitor<Expression, RuntimeException> {
 	@Override
@@ -24,17 +27,19 @@ public class PGoTypeGoTypeDefaultValueVisitor extends PGoTypeVisitor<Expression,
 	}
 
 	@Override
-	public Expression visit(PGoTypeUnrealizedTuple pGoTypeUnrealizedTuple) throws RuntimeException {
-		throw new InternalCompilerError();
-	}
-
-	@Override
 	public Expression visit(PGoTypeUnrealizedNumber pGoTypeUnrealizedNumber) throws RuntimeException {
 		throw new InternalCompilerError();
 	}
 
 	@Override
 	public Expression visit(PGoTypeSet pGoTypeSet) throws RuntimeException {
+		return new SliceLiteral(
+				pGoTypeSet.getElementType().accept(new PGoTypeGoTypeConversionVisitor()),
+				Collections.emptyList());
+	}
+
+	@Override
+	public Expression visit(PGoTypeNonEnumerableSet pGoTypeNonEnumerableSet) throws RuntimeException {
 		throw new TODO();
 	}
 
@@ -61,6 +66,11 @@ public class PGoTypeGoTypeDefaultValueVisitor extends PGoTypeVisitor<Expression,
 	@Override
 	public Expression visit(PGoTypeInt pGoTypeInt) throws RuntimeException {
 		return new IntLiteral(0);
+	}
+
+	@Override
+	public Expression visit(PGoTypeMap pGoTypeMap) throws RuntimeException {
+		throw new TODO();
 	}
 
 	@Override

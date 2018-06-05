@@ -138,6 +138,18 @@ public class PGoTypeSolver {
 						constraint,
 						((PGoSimpleContainerType) a).getElementType(),
 						((PGoSimpleContainerType) b).getElementType()));
+			} else if (a instanceof PGoTypeMap && b instanceof PGoTypeMap) {
+				// for two map types to be the same,
+				//   (1) the key types must be the same, and
+				constraints.addFirst(new PGoTypeMonomorphicConstraint(
+						constraint,
+						((PGoTypeMap) a).getKeyType(),
+						((PGoTypeMap) b).getKeyType()));
+				//   (2) the value types must be the same
+				constraints.addFirst(new PGoTypeMonomorphicConstraint(
+						constraint,
+						((PGoTypeMap) a).getValueType(),
+						((PGoTypeMap) b).getValueType()));
 			} else if (a instanceof PGoTypeTuple && b instanceof PGoTypeTuple) {
 				// for two tuple types to be the same,
 				PGoTypeTuple ta = (PGoTypeTuple) a;
@@ -153,38 +165,6 @@ public class PGoTypeSolver {
 							ta.getElementTypes().get(i),
 							tb.getElementTypes().get(i)));
 				}
-			} else if (a instanceof PGoTypeUnrealizedTuple && b instanceof PGoSimpleContainerType) {
-				// attempt to promote an unrealized tuple to a simple container type
-				Optional<Issue> issue = ((PGoTypeUnrealizedTuple) a).harmonize(this, constraint, (PGoSimpleContainerType) b);
-				if (issue.isPresent() && !backtrack()) {
-					return issue;
-				}
-				constraint.getOrigins().forEach(a::addOrigin);
-			} else if (a instanceof PGoSimpleContainerType && b instanceof PGoTypeUnrealizedTuple) {
-				Optional<Issue> issue = ((PGoTypeUnrealizedTuple) b).harmonize(this, constraint, (PGoSimpleContainerType) a);
-				if (issue.isPresent() && !backtrack()) {
-					return issue;
-				}
-				constraint.getOrigins().forEach(b::addOrigin);
-			} else if (a instanceof PGoTypeUnrealizedTuple && b instanceof PGoTypeTuple) {
-				Optional<Issue> issue = ((PGoTypeUnrealizedTuple) a).harmonize(constraint, this, (PGoTypeTuple) b);
-				if (issue.isPresent() && !backtrack()) {
-					return issue;
-				}
-				constraint.getOrigins().forEach(a::addOrigin);
-			} else if (a instanceof PGoTypeTuple && b instanceof PGoTypeUnrealizedTuple) {
-				Optional<Issue> issue = ((PGoTypeUnrealizedTuple) b).harmonize(constraint, this, (PGoTypeTuple) a);
-				if (issue.isPresent() && !backtrack()) {
-					return issue;
-				}
-				constraint.getOrigins().forEach(b::addOrigin);
-			} else if (a instanceof PGoTypeUnrealizedTuple && b instanceof PGoTypeUnrealizedTuple) {
-				Optional<Issue> issue = ((PGoTypeUnrealizedTuple) a).harmonize(constraint, this, (PGoTypeUnrealizedTuple) b);
-				if (issue.isPresent() && !backtrack()) {
-					return issue;
-				}
-				constraint.getOrigins().forEach(a::addOrigin);
-				constraint.getOrigins().forEach(b::addOrigin);
 			} else if (a instanceof PGoTypeFunction && b instanceof PGoTypeFunction) {
 				// in order for two function types to be the same,
 				PGoTypeFunction fa = (PGoTypeFunction) a;

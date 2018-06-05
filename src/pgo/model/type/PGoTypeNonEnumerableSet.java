@@ -5,16 +5,16 @@ import pgo.util.Origin;
 import java.util.List;
 
 /**
- * Represents a channel.
+ * Represents a non-enumerable set, e.g. Nat, Int, Real.
  */
-public class PGoTypeChan extends PGoSimpleContainerType {
-	public PGoTypeChan(PGoType elementType, List<Origin> origins) {
+public class PGoTypeNonEnumerableSet extends PGoSimpleContainerType {
+	public PGoTypeNonEnumerableSet(PGoType elementType, List<Origin> origins) {
 		super(elementType, origins);
 	}
 
 	@Override
 	public boolean equals(Object p) {
-		if (!(p instanceof PGoTypeChan)) {
+		if (!(p instanceof PGoTypeNonEnumerableSet)) {
 			return false;
 		}
 		return super.equals(p);
@@ -22,12 +22,12 @@ public class PGoTypeChan extends PGoSimpleContainerType {
 
 	@Override
 	public String toTypeName() {
-		return "Chan[" + elementType.toTypeName() + "]";
+		return "NonEnumerableSet[" + elementType.toTypeName() + "]";
 	}
 
 	@Override
 	public PGoType copy() {
-		return new PGoTypeChan(elementType.copy(), getOrigins());
+		return new PGoTypeNonEnumerableSet(elementType.copy(), getOrigins());
 	}
 
 	@Override

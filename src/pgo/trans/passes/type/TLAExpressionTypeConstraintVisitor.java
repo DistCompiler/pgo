@@ -1,7 +1,6 @@
 package pgo.trans.passes.type;
 
 import java.util.*;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import pgo.TODO;
@@ -69,7 +68,13 @@ public class TLAExpressionTypeConstraintVisitor extends PGoTLAExpressionVisitor<
 
 	private PGoType processQuantifierBound(PGoTLAQuantifierBound qb) {
 		PGoTypeVariable elementType = generator.get();
-		solver.addConstraint(new PGoTypeMonomorphicConstraint(qb, new PGoTypeSet(elementType, Collections.singletonList(qb)), wrappedVisit(qb.getSet())));
+		solver.addConstraint(new PGoTypePolymorphicConstraint(qb, Arrays.asList(
+				Collections.singletonList(new PGoTypeEqualityConstraint(
+						new PGoTypeSet(elementType, Collections.singletonList(qb)),
+						wrappedVisit(qb.getSet()))),
+				Collections.singletonList(new PGoTypeEqualityConstraint(
+						new PGoTypeNonEnumerableSet(elementType, Collections.singletonList(qb)),
+						wrappedVisit(qb.getSet()))))));
 		switch(qb.getType()) {
 		case IDS:
 			for (PGoTLAIdentifier id : qb.getIds()) {
@@ -112,12 +117,21 @@ public class TLAExpressionTypeConstraintVisitor extends PGoTLAExpressionVisitor<
 									new PGoTypeInt(Collections.singletonList(pGoTLAFunctionCall)))),
 					Collections.singletonList(new PGoTypeEqualityConstraint(
 							fnType,
+							new PGoTypeMap(paramTypes.get(0), returnType, Collections.singletonList(pGoTLAFunctionCall)))),
+					Collections.singletonList(new PGoTypeEqualityConstraint(
+							fnType,
 							new PGoTypeFunction(paramTypes, returnType, Collections.singletonList(pGoTLAFunctionCall)))))));
 		} else {
-			solver.addConstraint(new PGoTypeMonomorphicConstraint(
-					pGoTLAFunctionCall,
-					fnType,
-					new PGoTypeFunction(paramTypes, returnType, Collections.singletonList(pGoTLAFunctionCall))));
+			solver.addConstraint(new PGoTypePolymorphicConstraint(pGoTLAFunctionCall, Arrays.asList(
+					Collections.singletonList(new PGoTypeEqualityConstraint(
+							fnType,
+							new PGoTypeMap(
+									new PGoTypeTuple(paramTypes, Collections.singletonList(pGoTLAFunctionCall)),
+									returnType,
+									Collections.singletonList(pGoTLAFunctionCall)))),
+					Collections.singletonList(new PGoTypeEqualityConstraint(
+							fnType,
+							new PGoTypeFunction(paramTypes, returnType, Collections.singletonList(pGoTLAFunctionCall)))))));
 		}
 		return returnType;
 	}
@@ -157,8 +171,48 @@ public class TLAExpressionTypeConstraintVisitor extends PGoTLAExpressionVisitor<
 		for (PGoTLAQuantifierBound qb : pGoTLAFunction.getArguments()) {
 			keyTypes.add(processQuantifierBound(qb));
 		}
-		wrappedVisit(pGoTLAFunction.getBody());
-		PGoType valueType = mapping.get(pGoTLAFunction.getBody().getUID());
+		PGoType valueType = wrappedVisit(pGoTLAFunction.getBody());
+		PGoType fresh = generator.get();
+		if (keyTypes.size() == 1) {
+			solver.addConstraint(new PGoTypePolymorphicConstraint(pGoTLAFunction, Arrays.asList(
+					Arrays.asList(
+							new PGoTypeEqualityConstraint(
+									mapping.get(pGoTLAFunction.getArguments().get(0).getSet().getUID()),
+									new PGoTypeSet(generator.get(), Collections.singletonList(pGoTLAFunction))),
+							new PGoTypeEqualityConstraint(
+									fresh,
+									new PGoTypeMap(
+											keyTypes.get(0),
+											valueType,
+											Collections.singletonList(pGoTLAFunction)))),
+					Collections.singletonList(new PGoTypeEqualityConstraint(
+							fresh,
+							new PGoTypeFunction(keyTypes, valueType, Collections.singletonList(pGoTLAFunction)))))));
+			return fresh;
+		}
+		if (keyTypes.size() > 1) {
+			List<PGoTypeEqualityConstraint> constraintsForMap = new ArrayList<>();
+			for (PGoTLAQuantifierBound arg : pGoTLAFunction.getArguments()) {
+				constraintsForMap.add(new PGoTypeEqualityConstraint(
+						mapping.get(arg.getSet().getUID()),
+						new PGoTypeSet(generator.get(), Collections.singletonList(pGoTLAFunction))));
+			}
+			constraintsForMap.add(new PGoTypeEqualityConstraint(
+					fresh,
+					new PGoTypeMap(
+							new PGoTypeTuple(keyTypes, Collections.singletonList(pGoTLAFunction)),
+							valueType,
+							Collections.singletonList(pGoTLAFunction))));
+			solver.addConstraint(new PGoTypePolymorphicConstraint(pGoTLAFunction, Arrays.asList(
+					constraintsForMap,
+					Collections.singletonList(new PGoTypeEqualityConstraint(
+							fresh,
+							new PGoTypeFunction(
+									keyTypes,
+									valueType,
+									Collections.singletonList(pGoTLAFunction)))))));
+			return fresh;
+		}
 		return new PGoTypeFunction(keyTypes, valueType, Collections.singletonList(pGoTLAFunction));
 	}
 

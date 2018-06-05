@@ -2,7 +2,6 @@ package pgo.model.type;
 
 import pgo.util.Origin;
 
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -11,11 +10,6 @@ import java.util.List;
 public class PGoTypeSlice extends PGoSimpleContainerType {
 	public PGoTypeSlice(PGoType elementType, List<Origin> origins) {
 		super(elementType, origins);
-	}
-
-	@Override
-	public PGoTypeUnrealizedTuple.RealType getRealType() {
-		return PGoTypeUnrealizedTuple.RealType.Slice;
 	}
 
 	@Override

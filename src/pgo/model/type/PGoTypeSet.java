@@ -13,11 +13,6 @@ public class PGoTypeSet extends PGoSimpleContainerType {
 	}
 
 	@Override
-	public PGoTypeUnrealizedTuple.RealType getRealType() {
-		return PGoTypeUnrealizedTuple.RealType.Set;
-	}
-
-	@Override
 	public boolean equals(Object p) {
 		if (!(p instanceof PGoTypeSet)) {
 			return false;
@@ -38,9 +33,5 @@ public class PGoTypeSet extends PGoSimpleContainerType {
 	@Override
 	public <T, E extends Throwable> T accept(PGoTypeVisitor<T, E> v) throws E {
 		return v.visit(this);
-	}
-
-	public boolean isEnumerable() {
-		return true;
 	}
 }

@@ -39,7 +39,6 @@ import pgo.scope.UID;
 import pgo.trans.intermediate.GlobalVariableStrategy.GlobalVariableWrite;
 
 public class TLAExpressionAssignmentLHSCodeGenVisitor extends PGoTLAExpressionVisitor<GlobalVariableStrategy.GlobalVariableWrite, RuntimeException> {
-
 	private BlockBuilder builder;
 	private DefinitionRegistry registry;
 	private Map<UID, PGoType> typeMap;
@@ -89,158 +88,131 @@ public class TLAExpressionAssignmentLHSCodeGenVisitor extends PGoTLAExpressionVi
 
 	@Override
 	public GlobalVariableWrite visit(PGoTLAFunctionCall pGoTLAFunctionCall) throws RuntimeException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new TODO();
 	}
 
 	@Override
 	public GlobalVariableWrite visit(PGoTLABinOp pGoTLABinOp) throws RuntimeException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new TODO();
 	}
 
 	@Override
 	public GlobalVariableWrite visit(PGoTLABool pGoTLABool) throws RuntimeException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new TODO();
 	}
 
 	@Override
 	public GlobalVariableWrite visit(PGoTLACase pGoTLACase) throws RuntimeException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new TODO();
 	}
 
 	@Override
 	public GlobalVariableWrite visit(PGoTLAExistential pGoTLAExistential) throws RuntimeException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new TODO();
 	}
 
 	@Override
 	public GlobalVariableWrite visit(PGoTLAFunction pGoTLAFunction) throws RuntimeException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new TODO();
 	}
 
 	@Override
 	public GlobalVariableWrite visit(PGoTLAFunctionSet pGoTLAFunctionSet) throws RuntimeException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new TODO();
 	}
 
 	@Override
 	public GlobalVariableWrite visit(PGoTLAFunctionSubstitution pGoTLAFunctionSubstitution) throws RuntimeException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new TODO();
 	}
 
 	@Override
 	public GlobalVariableWrite visit(PGoTLAIf pGoTLAIf) throws RuntimeException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new TODO();
 	}
 
 	@Override
 	public GlobalVariableWrite visit(PGoTLALet pGoTLALet) throws RuntimeException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new TODO();
 	}
 
 	@Override
 	public GlobalVariableWrite visit(PGoTLATuple pGoTLATuple) throws RuntimeException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new TODO();
 	}
 
 	@Override
 	public GlobalVariableWrite visit(PGoTLAMaybeAction pGoTLAMaybeAction) throws RuntimeException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new TODO();
 	}
 
 	@Override
 	public GlobalVariableWrite visit(PGoTLANumber pGoTLANumber) throws RuntimeException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new TODO();
 	}
 
 	@Override
 	public GlobalVariableWrite visit(PGoTLAOperatorCall pGoTLAOperatorCall) throws RuntimeException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new TODO();
 	}
 
 	@Override
 	public GlobalVariableWrite visit(PGoTLAQuantifiedExistential pGoTLAQuantifiedExistential) throws RuntimeException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new TODO();
 	}
 
 	@Override
 	public GlobalVariableWrite visit(PGoTLAQuantifiedUniversal pGoTLAQuantifiedUniversal) throws RuntimeException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new TODO();
 	}
 
 	@Override
 	public GlobalVariableWrite visit(PGoTLARecordConstructor pGoTLARecordConstructor) throws RuntimeException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new TODO();
 	}
 
 	@Override
 	public GlobalVariableWrite visit(PGoTLARecordSet pGoTLARecordSet) throws RuntimeException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new TODO();
 	}
 
 	@Override
 	public GlobalVariableWrite visit(PGoTLARequiredAction pGoTLARequiredAction) throws RuntimeException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new TODO();
 	}
 
 	@Override
 	public GlobalVariableWrite visit(PGoTLASetConstructor pGoTLASetConstructor) throws RuntimeException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new TODO();
 	}
 
 	@Override
 	public GlobalVariableWrite visit(PGoTLASetComprehension pGoTLASetComprehension) throws RuntimeException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new TODO();
 	}
 
 	@Override
 	public GlobalVariableWrite visit(PGoTLASetRefinement pGoTLASetRefinement) throws RuntimeException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new TODO();
 	}
 
 	@Override
 	public GlobalVariableWrite visit(PGoTLAString pGoTLAString) throws RuntimeException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new TODO();
 	}
 
 	@Override
 	public GlobalVariableWrite visit(PGoTLAUnary pGoTLAUnary) throws RuntimeException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new TODO();
 	}
 
 	@Override
 	public GlobalVariableWrite visit(PGoTLAUniversal pGoTLAUniversal) throws RuntimeException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new TODO();
 	}
 
 	@Override
 	public GlobalVariableWrite visit(PlusCalDefaultInitValue plusCalDefaultInitValue) throws RuntimeException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new TODO();
 	}
-
 }

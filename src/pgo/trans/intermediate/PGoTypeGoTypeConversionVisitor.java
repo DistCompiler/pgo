@@ -2,13 +2,27 @@ package pgo.trans.intermediate;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
 import pgo.InternalCompilerError;
 import pgo.TODO;
 import pgo.model.golang.*;
-import pgo.model.type.*;
+import pgo.model.type.PGoType;
+import pgo.model.type.PGoTypeBool;
+import pgo.model.type.PGoTypeChan;
+import pgo.model.type.PGoTypeDecimal;
+import pgo.model.type.PGoTypeFunction;
+import pgo.model.type.PGoTypeInt;
+import pgo.model.type.PGoTypeMap;
+import pgo.model.type.PGoTypeProcedure;
+import pgo.model.type.PGoTypeSet;
+import pgo.model.type.PGoTypeNonEnumerableSet;
+import pgo.model.type.PGoTypeSlice;
+import pgo.model.type.PGoTypeString;
+import pgo.model.type.PGoTypeTuple;
+import pgo.model.type.PGoTypeUnrealizedNumber;
+import pgo.model.type.PGoTypeVariable;
+import pgo.model.type.PGoTypeVisitor;
 
 public class PGoTypeGoTypeConversionVisitor extends PGoTypeVisitor<Type, RuntimeException> {
 
@@ -33,11 +47,6 @@ public class PGoTypeGoTypeConversionVisitor extends PGoTypeVisitor<Type, Runtime
 	}
 
 	@Override
-	public Type visit(PGoTypeUnrealizedTuple pGoTypeUnrealizedTuple) throws RuntimeException {
-		throw new InternalCompilerError();
-	}
-
-	@Override
 	public Type visit(PGoTypeUnrealizedNumber pGoTypeUnrealizedNumber) throws RuntimeException {
 		throw new InternalCompilerError();
 	}
@@ -45,6 +54,11 @@ public class PGoTypeGoTypeConversionVisitor extends PGoTypeVisitor<Type, Runtime
 	@Override
 	public Type visit(PGoTypeSet pGoTypeSet) throws RuntimeException {
 		return new SliceType(pGoTypeSet.getElementType().accept(this));
+	}
+
+	@Override
+	public Type visit(PGoTypeNonEnumerableSet pGoTypeNonEnumerableSet) throws RuntimeException {
+		throw new TODO();
 	}
 
 	@Override
@@ -79,6 +93,13 @@ public class PGoTypeGoTypeConversionVisitor extends PGoTypeVisitor<Type, Runtime
 	@Override
 	public Type visit(PGoTypeInt pGoTypeInt) throws RuntimeException {
 		return Builtins.Int;
+	}
+
+	@Override
+	public Type visit(PGoTypeMap pGoTypeMap) throws RuntimeException {
+		return new SliceType(new StructType(Arrays.asList(
+				new StructTypeField("key", pGoTypeMap.getKeyType().accept(this)),
+				new StructTypeField("value", pGoTypeMap.getValueType().accept(this)))));
 	}
 
 	@Override

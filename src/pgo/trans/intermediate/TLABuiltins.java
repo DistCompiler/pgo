@@ -6,6 +6,7 @@ import pgo.TODO;
 import pgo.model.golang.*;
 import pgo.model.type.*;
 import pgo.scope.UID;
+import pgo.util.Origin;
 
 public class TLABuiltins {
 	private TLABuiltins() {}
@@ -13,6 +14,18 @@ public class TLABuiltins {
 	public static Type getSetElementType(PGoType setType) {
 		PGoType elementType = ((PGoTypeSet)setType).getElementType();
 		return elementType.accept(new PGoTypeGoTypeConversionVisitor());
+	}
+
+	private static PGoType constraintNumberOperation(Origin origin, List<PGoType> args, PGoTypeSolver solver, PGoTypeGenerator generator) {
+		PGoType fresh = new PGoTypeUnrealizedNumber(new PGoTypeInt(Collections.singletonList(origin)), Collections.singletonList(origin));
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(origin, args.get(0), fresh));
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(origin, args.get(1), fresh));
+		return fresh;
+	}
+
+	private static PGoType constraintBooleanNumberOperation(Origin origin, List<PGoType> args, PGoTypeSolver solver, PGoTypeGenerator generator) {
+		constraintNumberOperation(origin, args, solver, generator);
+		return new PGoTypeBool(Collections.singletonList(origin));
 	}
 
 	public static void ensureUniqueSorted(BlockBuilder builder, Type elementType, VariableName set) {
@@ -309,9 +322,7 @@ public class TLABuiltins {
 							Collections.singletonList(new PGoTypeEqualityConstraint(
 									args.get(0), new PGoTypeString(Collections.singletonList(origin)))),
 							Collections.singletonList(new PGoTypeEqualityConstraint(
-									args.get(0), new PGoTypeSlice(generator.get(), Collections.singletonList(origin)))),
-							Collections.singletonList(new PGoTypeEqualityConstraint(
-									args.get(0), new PGoTypeUnrealizedTuple(Collections.singletonList(origin))))
+									args.get(0), new PGoTypeSlice(generator.get(), Collections.singletonList(origin))))
 					)));
 					return new PGoTypeInt(Collections.singletonList(origin));
 				},
@@ -371,97 +382,57 @@ public class TLABuiltins {
 		builtinModules.put("Naturals", Naturals);
 		Naturals.addOperator("-", new TypelessBuiltinOperator(
 				2,
-				(origin, args, solver, generator) -> {
-					PGoType fresh = new PGoTypeUnrealizedNumber(new PGoTypeInt(Collections.singletonList(origin)), Collections.singletonList(origin));
-					solver.addConstraint(new PGoTypeMonomorphicConstraint(origin, args.get(0), fresh));
-					solver.addConstraint(new PGoTypeMonomorphicConstraint(origin, args.get(1), fresh));
-					return fresh;
-				},
+				TLABuiltins::constraintNumberOperation,
 				(builder, origin, registry, arguments, typeMap) -> new Binop(
 						Binop.Operation.MINUS, arguments.get(0), arguments.get(1))
 				));
 		Naturals.addOperator("+", new TypelessBuiltinOperator(
 				2,
-				(origin, args, solver, generator) -> {
-					PGoType fresh = new PGoTypeUnrealizedNumber(new PGoTypeInt(Collections.singletonList(origin)), Collections.singletonList(origin));
-					solver.addConstraint(new PGoTypeMonomorphicConstraint(origin, args.get(0), fresh));
-					solver.addConstraint(new PGoTypeMonomorphicConstraint(origin, args.get(1), fresh));
-					return fresh;
-				},
+				TLABuiltins::constraintNumberOperation,
 				(builder, origin, registry, arguments, typeMap) -> new Binop(
 						Binop.Operation.PLUS, arguments.get(0), arguments.get(1))
 				));
 		Naturals.addOperator("%", new TypelessBuiltinOperator(
 				2,
-				(origin, args, solver, generator) -> {
-					PGoType fresh = new PGoTypeUnrealizedNumber(new PGoTypeInt(Collections.singletonList(origin)), Collections.singletonList(origin));
-					solver.addConstraint(new PGoTypeMonomorphicConstraint(origin, args.get(0), fresh));
-					solver.addConstraint(new PGoTypeMonomorphicConstraint(origin, args.get(1), fresh));
-					return fresh;
-				},
+				TLABuiltins::constraintNumberOperation,
 				(builder, origin, registry, arguments, typeMap) -> new Binop(
 						Binop.Operation.MOD, arguments.get(0), arguments.get(1))
 				));
 		Naturals.addOperator("*", new TypelessBuiltinOperator(
 				2,
-				(origin, args, solver, generator) -> {
-					PGoType fresh = new PGoTypeUnrealizedNumber(new PGoTypeInt(Collections.singletonList(origin)), Collections.singletonList(origin));
-					solver.addConstraint(new PGoTypeMonomorphicConstraint(origin, args.get(0), fresh));
-					solver.addConstraint(new PGoTypeMonomorphicConstraint(origin, args.get(1), fresh));
-					return fresh;
-				},
+				TLABuiltins::constraintNumberOperation,
 				(builder, origin, registry, arguments, typeMap) -> new Binop(
 						Binop.Operation.TIMES, arguments.get(0), arguments.get(1))
 				));
 		Naturals.addOperator("<", new TypelessBuiltinOperator(
 				2,
-				(origin, args, solver, generator) -> {
-					PGoType fresh = new PGoTypeUnrealizedNumber(new PGoTypeInt(Collections.singletonList(origin)), Collections.singletonList(origin));
-					solver.addConstraint(new PGoTypeMonomorphicConstraint(origin, args.get(0), fresh));
-					solver.addConstraint(new PGoTypeMonomorphicConstraint(origin, args.get(1), fresh));
-					return new PGoTypeBool(Collections.singletonList(origin));
-				},
+				TLABuiltins::constraintBooleanNumberOperation,
 				(builder, origin, registry, arguments, typeMap) -> new Binop(
 						Binop.Operation.LT, arguments.get(0), arguments.get(1))
 				));
 		Naturals.addOperator(">", new TypelessBuiltinOperator(
 				2,
-				(origin, args, solver, generator) -> {
-					PGoType fresh = new PGoTypeUnrealizedNumber(new PGoTypeInt(Collections.singletonList(origin)), Collections.singletonList(origin));
-					solver.addConstraint(new PGoTypeMonomorphicConstraint(origin, args.get(0), fresh));
-					solver.addConstraint(new PGoTypeMonomorphicConstraint(origin, args.get(1), fresh));
-					return new PGoTypeBool(Collections.singletonList(origin));
-				},
+				TLABuiltins::constraintBooleanNumberOperation,
 				(builder, origin, registry, arguments, typeMap) -> new Binop(
 						Binop.Operation.GT, arguments.get(0), arguments.get(1))
 				));
 		// TODO: \leq =<
 		Naturals.addOperator("<=", new TypelessBuiltinOperator(
 				2,
-				(origin, args, solver, generator) -> {
-					PGoType fresh = new PGoTypeUnrealizedNumber(new PGoTypeInt(Collections.singletonList(origin)), Collections.singletonList(origin));
-					solver.addConstraint(new PGoTypeMonomorphicConstraint(origin, args.get(0), fresh));
-					solver.addConstraint(new PGoTypeMonomorphicConstraint(origin, args.get(1), fresh));
-					return new PGoTypeBool(Collections.singletonList(origin));
-				},
+				TLABuiltins::constraintBooleanNumberOperation,
 				(builder, origin, registry, arguments, typeMap) -> new Binop(
 						Binop.Operation.LEQ, arguments.get(0), arguments.get(1))
 				));
 		// TODO: \geq
 		Naturals.addOperator(">=", new TypelessBuiltinOperator(
 				2,
-				(origin, args, solver, generator) -> {
-					PGoType fresh = new PGoTypeUnrealizedNumber(new PGoTypeInt(Collections.singletonList(origin)), Collections.singletonList(origin));
-					solver.addConstraint(new PGoTypeMonomorphicConstraint(origin, args.get(0), fresh));
-					solver.addConstraint(new PGoTypeMonomorphicConstraint(origin, args.get(1), fresh));
-					return new PGoTypeBool(Collections.singletonList(origin));
-				},
+				TLABuiltins::constraintBooleanNumberOperation,
 				(builder, origin, registry, arguments, typeMap) -> new Binop(
 						Binop.Operation.GEQ, arguments.get(0), arguments.get(1))
 				));
 		Naturals.addOperator("Nat", new TypelessBuiltinOperator(
 				0,
-				(origin, args, solver, generator) -> new PGoTypeSet(new PGoTypeInt(Collections.singletonList(origin)), Collections.singletonList(origin)),
+				(origin, args, solver, generator) -> new PGoTypeNonEnumerableSet(new PGoTypeInt(Collections.singletonList(origin)), Collections.singletonList(origin)),
 				(builder, origin, registry, arguments, typeMap) -> {
 					throw new TODO();
 				}
@@ -511,7 +482,7 @@ public class TLABuiltins {
 						new Unary(Unary.Operation.NEG, arguments.get(0))));
 		Integers.addOperator("Int", new TypelessBuiltinOperator(
 				0,
-				(origin, args, solver, generator) -> new PGoTypeSet(new PGoTypeInt(Collections.singletonList(origin)), Collections.singletonList(origin)),
+				(origin, args, solver, generator) -> new PGoTypeNonEnumerableSet(new PGoTypeInt(Collections.singletonList(origin)), Collections.singletonList(origin)),
 				(builder, origin, registry, arguments, typeMap) -> {
 					throw new TODO();
 				}));

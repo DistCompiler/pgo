@@ -40,7 +40,7 @@ public abstract class PGoType extends Derived {
 	public abstract PGoType substitute(Map<PGoTypeVariable, PGoType> mapping);
 
 	/**
-	 * Realizes all PGoTypeUnrealizedNumbers and PGoTypeUnrealizedTuples
+	 * Realizes all PGoTypeUnrealizedNumbers
 	 * @param ctx the issue reporting context
 	 * @return the realized type
 	 */

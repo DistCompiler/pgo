@@ -3,7 +3,6 @@ package pgo.model.type;
 import pgo.errors.IssueContext;
 import pgo.util.Origin;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -22,8 +21,6 @@ public abstract class PGoSimpleContainerType extends PGoType {
 	public PGoType getElementType() {
 		return elementType;
 	}
-
-	public abstract PGoTypeUnrealizedTuple.RealType getRealType();
 
 	@Override
 	public boolean equals(Object p) {
