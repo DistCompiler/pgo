@@ -20,8 +20,6 @@ public class MultithreadedProcessGlobalVariableStrategy extends GlobalVariableSt
 	private UID pGoWaitUID;
 	private UID pGoStartUID;
 	private Map<UID, VariableName> synchronizedVariables;
-	private int currentLockGroup;
-	private LabelName currentLabelName;
 
 	private static final Type PGO_LOCK_TYPE = new SliceType(new TypeName("sync.Mutex"));
 
@@ -49,8 +47,6 @@ public class MultithreadedProcessGlobalVariableStrategy extends GlobalVariableSt
 		this.pGoWaitUID = new UID();
 		this.pGoStartUID = new UID();
 		this.synchronizedVariables = new HashMap<>();
-		this.currentLockGroup = -1;
-		this.currentLabelName = null;
 	}
 
 	@Override
@@ -118,51 +114,23 @@ public class MultithreadedProcessGlobalVariableStrategy extends GlobalVariableSt
 	}
 
 	@Override
-	public void startCriticalSection(BlockBuilder builder, UID labelUID, LabelName labelName) {
-		int lockGroup = labelsToLockGroups.getOrDefault(labelUID, -1);
-		if (currentLockGroup != -1 && currentLockGroup != lockGroup) {
-			throw new InternalCompilerError();
-		}
-		if (currentLockGroup == lockGroup) {
-			// TODO recursive lock
-			return;
-		}
+	public void startCriticalSection(BlockBuilder builder, int lockGroup, UID labelUID, LabelName labelName) {
 		builder.addStatement(new Call(
-				new Selector(
-						new Index(findSynchronizedVariable(pGoLockUID),
-								new IntLiteral(lockGroup)),"Lock"),
+				new Selector(new Index(findSynchronizedVariable(pGoLockUID), new IntLiteral(lockGroup)),"Lock"),
 				Collections.emptyList()));
-		currentLockGroup = lockGroup;
-		currentLabelName = labelName;
 	}
 
 	@Override
-	public void abortCriticalSection(BlockBuilder builder) {
-		if (currentLockGroup == -1) {
-			// nothing to do
-			return;
-		}
-		builder.addStatement(new Call(
-				new Selector(
-						new Index(findSynchronizedVariable(pGoLockUID),
-								new IntLiteral(currentLockGroup)),"Unlock"),
-				Collections.emptyList()));
-		builder.goTo(currentLabelName);
+	public void abortCriticalSection(BlockBuilder builder, int lockGroup, UID labelUID, LabelName labelName) {
+		endCriticalSection(builder, lockGroup, labelUID, labelName);
+		builder.goTo(labelName);
 	}
 
 	@Override
-	public void endCriticalSection(BlockBuilder builder) {
-		if (currentLockGroup == -1) {
-			// nothing to do
-			return;
-		}
+	public void endCriticalSection(BlockBuilder builder, int lockGroup, UID labelUID, LabelName labelName) {
 		builder.addStatement(new Call(
-				new Selector(
-						new Index(findSynchronizedVariable(pGoLockUID),
-								new IntLiteral(currentLockGroup)),"Unlock"),
+				new Selector(new Index(findSynchronizedVariable(pGoLockUID), new IntLiteral(lockGroup)),"Unlock"),
 				Collections.emptyList()));
-		currentLockGroup = -1;
-		currentLabelName = null;
 	}
 
 	@Override

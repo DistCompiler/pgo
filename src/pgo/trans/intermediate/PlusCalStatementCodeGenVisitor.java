@@ -15,6 +15,7 @@ import pgo.model.pcal.VariableDeclaration;
 import pgo.model.tla.PGoTLAExpression;
 import pgo.model.type.PGoType;
 import pgo.scope.UID;
+import pgo.trans.passes.codegen.CriticalSectionTracker;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -23,68 +24,81 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 public class PlusCalStatementCodeGenVisitor extends StatementVisitor<Void, RuntimeException> {
-
 	private BlockBuilder builder;
 	private DefinitionRegistry registry;
 	private Map<UID, PGoType> typeMap;
+	private Map<UID, Integer> labelsToLockGroups;
 	private GlobalVariableStrategy globalStrategy;
+	private CriticalSectionTracker criticalSectionTracker;
 
-	public PlusCalStatementCodeGenVisitor(DefinitionRegistry registry, Map<UID, PGoType> typeMap,
-	                                      GlobalVariableStrategy globalStrategy, BlockBuilder builder) {
-		this.builder = builder;
+	private PlusCalStatementCodeGenVisitor(DefinitionRegistry registry, Map<UID, PGoType> typeMap,
+	                                       Map<UID, Integer> labelsToLockGroups,GlobalVariableStrategy globalStrategy,
+	                                       BlockBuilder builder, CriticalSectionTracker criticalSectionTracker) {
 		this.registry = registry;
 		this.typeMap = typeMap;
+		this.labelsToLockGroups = labelsToLockGroups;
 		this.globalStrategy = globalStrategy;
+		this.builder = builder;
+		this.criticalSectionTracker = criticalSectionTracker;
+	}
+
+	public PlusCalStatementCodeGenVisitor(DefinitionRegistry registry, Map<UID, PGoType> typeMap,
+	                                      Map<UID, Integer> labelsToLockGroups,GlobalVariableStrategy globalStrategy,
+	                                      BlockBuilder builder) {
+		this(registry, typeMap, labelsToLockGroups, globalStrategy, builder,
+				new CriticalSectionTracker(labelsToLockGroups, globalStrategy));
 	}
 
 	@Override
 	public Void visit(LabeledStatements labeledStatements) throws RuntimeException {
 		Label label = labeledStatements.getLabel();
-		builder.labelIsUnique(label.getName());
-		globalStrategy.startCriticalSection(builder, label.getUID(), new LabelName(label.getName()));
+		criticalSectionTracker.start(builder, label.getUID(), new LabelName(label.getName()));
 		for (Statement stmt : labeledStatements.getStatements()) {
 			stmt.accept(this);
 		}
-		globalStrategy.endCriticalSection(builder);
+		criticalSectionTracker.end(builder);
 		return null;
 	}
 
 	@Override
 	public Void visit(While while1) throws RuntimeException {
-		AnonymousFunctionBuilder conditionBuilder = builder.anonymousFunction();
-		conditionBuilder.addReturn(Builtins.Bool);
-		try (BlockBuilder conditionBody = conditionBuilder.getBlockBuilder()) {
-			conditionBody.addStatement(
-					new pgo.model.golang.Return(
-							Collections.singletonList(
-									while1.getCondition().accept(
-											new TLAExpressionCodeGenVisitor(
-													conditionBody, registry, typeMap, globalStrategy)))));
-		}
-
-		try (BlockBuilder fb = builder.forLoop(
-				new pgo.model.golang.Call(conditionBuilder.getFunction(), Collections.emptyList()))) {
-			for (Statement stmt : while1.getBody()) {
-				stmt.accept(new PlusCalStatementCodeGenVisitor(registry, typeMap, globalStrategy, fb));
+		try (BlockBuilder fb = builder.forLoop(Builtins.True)) {
+			try (IfBuilder conditionCheck = fb.ifStmt(
+					CodeGenUtil.invertCondition(fb, registry, typeMap, globalStrategy, while1.getCondition()))) {
+				try (BlockBuilder yes = conditionCheck.whenTrue()) {
+					criticalSectionTracker.abort(yes);
+				}
 			}
+			for (Statement statement : while1.getBody()) {
+				statement.accept(new PlusCalStatementCodeGenVisitor(
+						registry, typeMap, labelsToLockGroups, globalStrategy, fb, criticalSectionTracker));
+			}
+			return null;
 		}
-		return null;
 	}
 
 	@Override
 	public Void visit(If if1) throws RuntimeException {
 		Expression condition = if1.getCondition().accept(new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
 		try (IfBuilder b = builder.ifStmt(condition)) {
-			try (BlockBuilder yes = b.whenTrue()) {
-				for (Statement stmt : if1.getYes()) {
-					stmt.accept(new PlusCalStatementCodeGenVisitor(registry, typeMap, globalStrategy, yes));
+			criticalSectionTracker.beginIfStatement((yesTracker, noTracker) -> {
+				try (BlockBuilder yes = b.whenTrue()) {
+					for (Statement stmt : if1.getYes()) {
+						stmt.accept(new PlusCalStatementCodeGenVisitor(
+								registry, typeMap, labelsToLockGroups, globalStrategy, yes, yesTracker));
+					}
+					// this is legal because the statement after an if statement must be labelled
+					yesTracker.end(yes);
 				}
-			}
-			try (BlockBuilder no = b.whenFalse()) {
-				for (Statement stmt : if1.getNo()) {
-					stmt.accept(new PlusCalStatementCodeGenVisitor(registry, typeMap, globalStrategy, no));
+				try (BlockBuilder no = b.whenFalse()) {
+					for (Statement stmt : if1.getNo()) {
+						stmt.accept(new PlusCalStatementCodeGenVisitor(
+								registry, typeMap, labelsToLockGroups, globalStrategy, no, noTracker));
+					}
+					// this is legal because the statement after an if statement must be labelled
+					noTracker.end(no);
 				}
-			}
+			});
 		}
 		return null;
 	}
@@ -195,7 +209,7 @@ public class PlusCalStatementCodeGenVisitor extends StatementVisitor<Void, Runti
 		try (IfBuilder ifBuilder = builder.ifStmt(CodeGenUtil.invertCondition(
 				builder, registry, typeMap, globalStrategy, cond))) {
 			try (BlockBuilder yes = ifBuilder.whenTrue()) {
-				globalStrategy.abortCriticalSection(yes);
+				criticalSectionTracker.abort(yes);
 			}
 		}
 		return null;
@@ -203,6 +217,7 @@ public class PlusCalStatementCodeGenVisitor extends StatementVisitor<Void, Runti
 
 	@Override
 	public Void visit(Goto goto1) throws RuntimeException {
+		criticalSectionTracker.end(builder);
 		builder.goTo(new LabelName(goto1.getTarget()));
 		return null;
 	}

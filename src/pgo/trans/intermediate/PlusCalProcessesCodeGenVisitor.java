@@ -15,15 +15,17 @@ import pgo.scope.UID;
 public class PlusCalProcessesCodeGenVisitor extends ProcessesVisitor<Void, RuntimeException> {
 	private DefinitionRegistry registry;
 	private Map<UID, PGoType> typeMap;
+	private Map<UID, Integer> labelsToLockGroups;
 	private GlobalVariableStrategy globalStrategy;
 	private Algorithm algorithm;
 	private ModuleBuilder moduleBuilder;
 
 	public PlusCalProcessesCodeGenVisitor(DefinitionRegistry registry, Map<UID, PGoType> typeMap,
-	                                      GlobalVariableStrategy globalStrategy, Algorithm algorithm,
+	                                      Map<UID, Integer> labelsToLockGroups, GlobalVariableStrategy globalStrategy, Algorithm algorithm,
 	                                      ModuleBuilder moduleBuilder) {
 		this.registry = registry;
 		this.typeMap = typeMap;
+		this.labelsToLockGroups = labelsToLockGroups;
 		this.globalStrategy = globalStrategy;
 		this.algorithm = algorithm;
 		this.moduleBuilder = moduleBuilder;
@@ -62,7 +64,7 @@ public class PlusCalProcessesCodeGenVisitor extends ProcessesVisitor<Void, Runti
 		try (BlockBuilder fnBuilder = moduleBuilder.defineFunction("main").getBlockBuilder()) {
 			globalStrategy.mainPrelude(fnBuilder);
 			for (LabeledStatements statements : singleProcess.getLabeledStatements()) {
-				statements.accept(new PlusCalStatementCodeGenVisitor(registry, typeMap, globalStrategy, fnBuilder));
+				statements.accept(new PlusCalStatementCodeGenVisitor(registry, typeMap, labelsToLockGroups, globalStrategy, fnBuilder));
 			}
 		}
 		return null;
@@ -77,9 +79,19 @@ public class PlusCalProcessesCodeGenVisitor extends ProcessesVisitor<Void, Runti
 				Type type = typeMap.get(variableDeclaration.getUID()).accept(new PGoTypeGoTypeConversionVisitor());
 				VariableName name = moduleBuilder.defineGlobal(
 						variableDeclaration.getUID(), variableDeclaration.getName(), type);
-				initBuilder.assign(
-						name,
-						value.accept(new TLAExpressionCodeGenVisitor(initBuilder, registry, typeMap, globalStrategy)));
+				if (variableDeclaration.isSet()) {
+					initBuilder.assign(
+							name,
+							new Index(
+									value.accept(new TLAExpressionCodeGenVisitor(
+											initBuilder,registry, typeMap, globalStrategy)),
+									new IntLiteral(0)));
+				} else {
+					initBuilder.assign(
+							name,
+							value.accept(new TLAExpressionCodeGenVisitor(
+									initBuilder, registry, typeMap, globalStrategy)));
+				}
 			}
 		});
 		for (PcalProcess process : multiProcess.getProcesses()) {
@@ -88,9 +100,10 @@ public class PlusCalProcessesCodeGenVisitor extends ProcessesVisitor<Void, Runti
 			Type selfType = typeMap.get(process.getName().getUID()).accept(new PGoTypeGoTypeConversionVisitor());
 			VariableName self = functionBuilder.addArgument("self", selfType);
 			try (BlockBuilder processBody = functionBuilder.getBlockBuilder()) {
+				processBody.linkUID(process.getName().getUID(), self);
 				globalStrategy.processPrelude(processBody, process, process.getName().getName(), self, selfType);
 		 		for (LabeledStatements statements : process.getLabeledStatements()) {
-					statements.accept(new PlusCalStatementCodeGenVisitor(registry, typeMap, globalStrategy, processBody));
+					statements.accept(new PlusCalStatementCodeGenVisitor(registry, typeMap, labelsToLockGroups, globalStrategy, processBody));
 				}
 			}
 		}

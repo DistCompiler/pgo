@@ -60,17 +60,17 @@ public class EtcdGlobalVariableStrategy extends GlobalVariableStrategy {
 	}
 
 	@Override
-	public void startCriticalSection(BlockBuilder builder, UID labelUID, LabelName labelName) {
+	public void startCriticalSection(BlockBuilder builder, int lockGroup, UID labelUID, LabelName labelName) {
 		throw new TODO();
 	}
 
 	@Override
-	public void abortCriticalSection(BlockBuilder builder) {
+	public void abortCriticalSection(BlockBuilder builder, int lockGroup, UID labelUID, LabelName labelName) {
 		throw new TODO();
 	}
 
 	@Override
-	public void endCriticalSection(BlockBuilder builder) {
+	public void endCriticalSection(BlockBuilder builder, int lockGroup, UID labelUID, LabelName labelName) {
 		throw new TODO();
 	}
 

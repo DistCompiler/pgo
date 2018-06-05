@@ -43,17 +43,17 @@ public class SingleThreadedProcessGlobalVariableStrategy extends GlobalVariableS
 	}
 
 	@Override
-	public void startCriticalSection(BlockBuilder builder, UID labelUID, LabelName labelName) {
+	public void startCriticalSection(BlockBuilder builder, int lockGroup, UID labelUID, LabelName labelName) {
 		// pass
 	}
 
 	@Override
-	public void abortCriticalSection(BlockBuilder builder) {
+	public void abortCriticalSection(BlockBuilder builder, int lockGroup, UID labelUID, LabelName labelName) {
 		builder.addPanic(new StringLiteral("Something went wrong"));
 	}
 
 	@Override
-	public void endCriticalSection(BlockBuilder builder) {
+	public void endCriticalSection(BlockBuilder builder, int lockGroup, UID labelUID, LabelName labelName) {
 		// pass
 	}
 

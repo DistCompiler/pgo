@@ -39,7 +39,7 @@ public class CodeGenPass {
 			throw new TODO();
 		}
 		processes.accept(new PlusCalProcessesCodeGenVisitor(
-				registry, typeMap, globalVariableStrategy, algorithm, moduleBuilder));
+				registry, typeMap, labelsToLockGroups, globalVariableStrategy, algorithm, moduleBuilder));
 		return moduleBuilder.getModule();
 	}
 }

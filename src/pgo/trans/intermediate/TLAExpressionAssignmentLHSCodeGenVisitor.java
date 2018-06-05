@@ -35,6 +35,7 @@ import pgo.model.tla.PGoTLAUnary;
 import pgo.model.tla.PGoTLAUniversal;
 import pgo.model.tla.PlusCalDefaultInitValue;
 import pgo.model.type.PGoType;
+import pgo.model.type.PGoTypeMap;
 import pgo.scope.UID;
 import pgo.trans.intermediate.GlobalVariableStrategy.GlobalVariableWrite;
 
@@ -88,7 +89,19 @@ public class TLAExpressionAssignmentLHSCodeGenVisitor extends PGoTLAExpressionVi
 
 	@Override
 	public GlobalVariableWrite visit(PGoTLAFunctionCall pGoTLAFunctionCall) throws RuntimeException {
-		throw new TODO();
+		Expression expression = pGoTLAFunctionCall
+				.accept(new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
+		return new GlobalVariableWrite() {
+			@Override
+			public Expression getValueSink(BlockBuilder builder) {
+				return expression;
+			}
+
+			@Override
+			public void writeAfter(BlockBuilder builder) {
+				// nothing to do
+			}
+		};
 	}
 
 	@Override

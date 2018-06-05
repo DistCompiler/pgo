@@ -8,8 +8,9 @@ import pgo.model.pcal.PcalProcess;
 import pgo.model.pcal.VariableDeclaration;
 import pgo.model.type.PGoType;
 import pgo.scope.UID;
+import pgo.trans.passes.codegen.CriticalSection;
 
-public abstract class GlobalVariableStrategy {
+public abstract class GlobalVariableStrategy implements CriticalSection {
 	public abstract void initPostlude(ModuleBuilder moduleBuilder, BlockBuilder initBuilder);
 
 	public abstract void processPrelude(BlockBuilder processBody, PcalProcess process, String processName, VariableName self, Type selfType);
@@ -18,11 +19,14 @@ public abstract class GlobalVariableStrategy {
 
 	public abstract List<FunctionArgument> getExtraProcessArguments();
 
-	public abstract void startCriticalSection(BlockBuilder builder, UID labelUID, LabelName labelName);
+	@Override
+	public abstract void startCriticalSection(BlockBuilder builder, int lockGroup, UID labelUID, LabelName labelName);
 
-	public abstract void abortCriticalSection(BlockBuilder builder);
+	@Override
+	public abstract void abortCriticalSection(BlockBuilder builder, int lockGroup, UID labelUID, LabelName labelName);
 
-	public abstract void endCriticalSection(BlockBuilder builder);
+	@Override
+	public abstract void endCriticalSection(BlockBuilder builder, int lockGroup, UID labelUID, LabelName labelName);
 
 	public abstract Expression readGlobalVariable(BlockBuilder builder, UID uid);
 
