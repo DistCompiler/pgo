@@ -10,12 +10,16 @@ import java.util.Vector;
 import pcal.AST;
 import pcal.AST.*;
 import pcal.AST.Process;
+import pcal.PCalTLAGenerator;
 import pcal.PcalTranslate;
 import pcal.TLAExpr;
 import pcal.TLAToken;
+import pcal.exception.RemoveNameConflictsException;
+import pcal.exception.StringVectorToFileException;
 import pgo.model.tla.PGoTLAExpression;
 import pgo.model.tla.PGoTLAVariable;
 import pgo.trans.PGoTransException;
+import pgo.util.IOUtil;
 import pgo.util.Pair;
 import pgo.util.PcalASTUtil;
 
@@ -27,10 +31,19 @@ import pgo.util.PcalASTUtil;
 public class PGoTransStageModelCheck {
 
 	PGoTransIntermediateData data;
+	// The path to the generated TLA+ file to model check.
+	private static final String TLA_PATH = "temp/";
 
 	public PGoTransStageModelCheck(PGoTransStageTLAParse s) throws PGoTransException {
 		this.data = s.data;
+		// Remove naming conflicts, since the AST modifications rely on names.
+		try {
+			new PCalTLAGenerator(data.ast).removeNameConflicts();
+		} catch (RemoveNameConflictsException e) {
+			throw new PGoTransException("Error removing naming conflicts in model checking stage");
+		}
 		modifyAST();
+		generateTLA();
 	}
 
 	/**
@@ -307,6 +320,25 @@ public class PGoTransStageModelCheck {
 				recurse(w.labDo);
 			}
 		}.getResult(data.ast);
+	}
+
+	/**
+	 * Generate the TLA+ file corresponding to the PlusCal AST.
+	 * 
+	 * @throws RemoveNameConflictsException
+	 * @throws StringVectorToFileException
+	 */
+	private void generateTLA() throws PGoTransException {
+		PCalTLAGenerator gen = new PCalTLAGenerator(data.ast);
+		try {
+			gen.removeNameConflicts();
+			Vector<String> tla = gen.translate();
+			IOUtil.WriteStringVectorToFile(tla, TLA_PATH + data.algName + ".tla");
+		} catch (RemoveNameConflictsException e) {
+			throw new PGoTransException("Error removing name conflicts when generating TLA+ in model check stage");
+		} catch (StringVectorToFileException e) {
+			throw new PGoTransException("Error writing TLA+ file in model check stage");
+		}
 	}
 
 	/**
