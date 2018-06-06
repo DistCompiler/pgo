@@ -87,6 +87,10 @@ public class CriticalSectionTracker {
 			return ignored -> {};
 		}
 		return builder -> {
+			if (currentLockGroup == lockGroup) {
+				// we're still in the critical section, nothing to do
+				return;
+			}
 			if (currentLockGroup != -1) {
 				end(builder);
 			}
