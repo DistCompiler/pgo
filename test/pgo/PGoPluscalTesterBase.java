@@ -31,6 +31,10 @@ public abstract class PGoPluscalTesterBase {
 		return "./test/pluscal/" + getAlg() + ".tla";
 	}
 
+	public void clearPcal() {
+		parsedPcal.remove(getAlg());
+	}
+
 	// The name of the algorithm
 	protected abstract String getAlg();
 }

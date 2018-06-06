@@ -16,7 +16,6 @@ import pcal.TLAToken;
 import pgo.model.tla.PGoTLAExpression;
 import pgo.model.tla.PGoTLAVariable;
 import pgo.trans.PGoTransException;
-import pgo.util.IOUtil;
 import pgo.util.Pair;
 import pgo.util.PcalASTUtil;
 
@@ -308,8 +307,6 @@ public class PGoTransStageModelCheck {
 				recurse(w.labDo);
 			}
 		}.getResult(data.ast);
-		// debug
-		IOUtil.WriteAST(data.ast, "./AST.tla");
 	}
 
 	/**
