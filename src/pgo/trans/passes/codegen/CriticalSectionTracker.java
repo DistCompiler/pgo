@@ -6,7 +6,7 @@ import pgo.model.golang.LabelName;
 import pgo.scope.UID;
 
 import java.util.Map;
-import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 public class CriticalSectionTracker {
 	private Map<UID, Integer> labelsToLockGroups;
@@ -64,17 +64,33 @@ public class CriticalSectionTracker {
 		currentLabelName = null;
 	}
 
-	public void beginIfStatement(BiConsumer<CriticalSectionTracker, CriticalSectionTracker> consumer) {
-		CriticalSectionTracker yesTracker = copy();
-		CriticalSectionTracker noTracker = copy();
-		consumer.accept(yesTracker, noTracker);
-		currentLockGroup = -1;
-		currentLabelUID = null;
-		currentLabelName = null;
+	public void checkCompatibility(CriticalSectionTracker other) {
+		if (labelsToLockGroups != other.labelsToLockGroups || criticalSection != other.criticalSection ||
+				currentLockGroup != other.currentLockGroup || currentLabelUID != other.currentLabelUID ||
+				(currentLabelName != null && !currentLabelName.getName().equals(other.currentLabelName.getName()))) {
+			throw new InternalCompilerError();
+		}
 	}
 
 	public CriticalSectionTracker copy() {
 		return new CriticalSectionTracker(labelsToLockGroups, criticalSection, currentLockGroup, currentLabelUID,
 				currentLabelName);
+	}
+
+	public Consumer<BlockBuilder> actionAtLoopEnd() {
+		// since we're compiling while loops to infinite loops with a conditional break, we have to reacquire
+		// the critical section at loop end
+		int lockGroup = currentLockGroup;
+		UID labelUID = currentLabelUID;
+		LabelName labelName = currentLabelName;
+		if (lockGroup < 0) {
+			return ignored -> {};
+		}
+		return builder -> {
+			if (currentLockGroup != -1) {
+				end(builder);
+			}
+			start(builder, labelUID, labelName);
+		};
 	}
 }

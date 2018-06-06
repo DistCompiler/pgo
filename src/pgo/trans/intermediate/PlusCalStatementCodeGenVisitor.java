@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 public class PlusCalStatementCodeGenVisitor extends StatementVisitor<Void, RuntimeException> {
@@ -66,7 +67,8 @@ public class PlusCalStatementCodeGenVisitor extends StatementVisitor<Void, Runti
 		// difficulties with intermediate variables and critical sections (if the condition is false
 		// we may have to end the critical section after checking the condition)
 		CriticalSectionTracker loopConditionCriticalSectionTracker = criticalSectionTracker.copy();
-		try (BlockBuilder fb = builder.forLoop(Builtins.True)) {
+		Consumer<BlockBuilder> actionAtLoopEnd = criticalSectionTracker.actionAtLoopEnd();
+		try (BlockBuilder fb = builder.forLoop(null)) {
 			try(IfBuilder loopCondition = fb.ifStmt(CodeGenUtil.invertCondition(
 					fb, registry, typeMap, globalStrategy, while1.getCondition()))) {
 				try (BlockBuilder loopConditionBody = loopCondition.whenTrue()) {
@@ -84,6 +86,7 @@ public class PlusCalStatementCodeGenVisitor extends StatementVisitor<Void, Runti
 				statement.accept(new PlusCalStatementCodeGenVisitor(
 						registry, typeMap, labelsToLockGroups, globalStrategy, fb, criticalSectionTracker));
 			}
+			actionAtLoopEnd.accept(fb);
 		}
 		return null;
 	}
@@ -93,27 +96,31 @@ public class PlusCalStatementCodeGenVisitor extends StatementVisitor<Void, Runti
 		Expression condition = if1.getCondition().accept(new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
 		boolean containsLabels = if1.accept(new PlusCalStatementContainsLabelVisitor());
 		try (IfBuilder b = builder.ifStmt(condition)) {
-			criticalSectionTracker.beginIfStatement((yesTracker, noTracker) -> {
-				try (BlockBuilder yes = b.whenTrue()) {
-					for (Statement stmt : if1.getYes()) {
-						stmt.accept(new PlusCalStatementCodeGenVisitor(
-								registry, typeMap, labelsToLockGroups, globalStrategy, yes, yesTracker));
-					}
-					// if an if statement contains a label, then the statement(s) after it must be labeled
-					// if the statement after must be labeled, we know this critical section ends here (and
-					// may be different between true and false branches). otherwise, leave the critical section
-					// as is
-					if(containsLabels)yesTracker.end(yes);
+			CriticalSectionTracker noTracker = criticalSectionTracker.copy();
+			try (BlockBuilder yes = b.whenTrue()) {
+				for (Statement stmt : if1.getYes()) {
+					stmt.accept(new PlusCalStatementCodeGenVisitor(
+							registry, typeMap, labelsToLockGroups, globalStrategy, yes, criticalSectionTracker));
 				}
-				try (BlockBuilder no = b.whenFalse()) {
-					for (Statement stmt : if1.getNo()) {
-						stmt.accept(new PlusCalStatementCodeGenVisitor(
-								registry, typeMap, labelsToLockGroups, globalStrategy, no, noTracker));
-					}
-					// see description for true case
-					if(containsLabels)noTracker.end(no);
+				// if an if statement contains a label, then the statement(s) after it must be labeled
+				// if the statement after must be labeled, we know this critical section ends here (and
+				// may be different between true and false branches). otherwise, leave the critical section
+				// as is
+				if (containsLabels) {
+					criticalSectionTracker.end(yes);
 				}
-			});
+			}
+			try (BlockBuilder no = b.whenFalse()) {
+				for (Statement stmt : if1.getNo()) {
+					stmt.accept(new PlusCalStatementCodeGenVisitor(
+							registry, typeMap, labelsToLockGroups, globalStrategy, no, noTracker));
+				}
+				// see description for true case
+				if (containsLabels) {
+					noTracker.end(no);
+				}
+			}
+			criticalSectionTracker.checkCompatibility(noTracker);
 		}
 		return null;
 	}
@@ -232,8 +239,12 @@ public class PlusCalStatementCodeGenVisitor extends StatementVisitor<Void, Runti
 
 	@Override
 	public Void visit(Goto goto1) throws RuntimeException {
-		criticalSectionTracker.end(builder);
+		// fork out an execution path for this goto
+		CriticalSectionTracker tracker = criticalSectionTracker.copy();
+		// this critical section ends here
+		tracker.end(builder);
 		builder.goTo(new LabelName(goto1.getTarget()));
+		// continue with the previous critical section
 		return null;
 	}
 }
