@@ -102,6 +102,39 @@ public class PGoTransStageModelCheck {
 				}
 			}
 
+			// Helpers to generate AST nodes, since anonymous types cause issues
+			// with the PCalTLAGenerator.
+			private VarDecl makeVarDecl(String var, boolean isEq, TLAExpr val) {
+				VarDecl ret = new VarDecl();
+				ret.var = var;
+				ret.isEq = isEq;
+				ret.val = val;
+				return ret;
+			}
+
+			private SingleAssign makeSingleAssign(Lhs lhs, TLAExpr rhs) {
+				SingleAssign ret = new SingleAssign();
+				ret.lhs = lhs;
+				ret.rhs = rhs;
+				return ret;
+			}
+
+			private Assign makeAssign(Vector<SingleAssign> ass) {
+				Assign ret = new Assign();
+				ret.ass = ass;
+				return ret;
+			}
+
+			private LabeledStmt makeLabeledStmt(String label, AST... asts) {
+				LabeledStmt ret = new LabeledStmt();
+				ret.label = label;
+				ret.stmts = new Vector<>();
+				for (AST ast : asts) {
+					ret.stmts.add(ast);
+				}
+				return ret;
+			}
+
 			@Override
 			protected void visit(Uniprocess ua) throws PGoTransException {
 				// add globals
@@ -116,20 +149,8 @@ public class PGoTransStageModelCheck {
 				toks.add(new TLAToken(init, 0, 0, TLAToken.BUILTIN));
 				Vector<Vector<TLAToken>> expr = new Vector<>();
 				expr.add(toks);
-				ua.decls.add(new VarDecl() {
-					{
-						var = "pgo_read";
-						isEq = true;
-						val = PcalTranslate.MakeExpr(expr);
-					}
-				});
-				ua.decls.add(new VarDecl() {
-					{
-						var = "pgo_write";
-						isEq = true;
-						val = PcalTranslate.MakeExpr(expr);
-					}
-				});
+				ua.decls.add(makeVarDecl("pgo_read", true, PcalTranslate.MakeExpr(expr)));
+				ua.decls.add(makeVarDecl("pgo_write", true, PcalTranslate.MakeExpr(expr)));
 
 				walk(ua.prcds);
 
@@ -150,20 +171,9 @@ public class PGoTransStageModelCheck {
 				toks.add(new TLAToken(init, 0, 0, TLAToken.BUILTIN));
 				Vector<Vector<TLAToken>> expr = new Vector<>();
 				expr.add(toks);
-				ma.decls.add(new VarDecl() {
-					{
-						var = "pgo_read";
-						isEq = true;
-						val = PcalTranslate.MakeExpr(expr);
-					}
-				});
-				ma.decls.add(new VarDecl() {
-					{
-						var = "pgo_write";
-						isEq = true;
-						val = PcalTranslate.MakeExpr(expr);
-					}
-				});
+				ma.decls.add(makeVarDecl("pgo_read", true, PcalTranslate.MakeExpr(expr)));
+				ma.decls.add(makeVarDecl("pgo_write", true, PcalTranslate.MakeExpr(expr)));
+
 				super.visit(ma);
 			}
 
@@ -194,18 +204,9 @@ public class PGoTransStageModelCheck {
 					r.add(new Vector<>());
 					r.get(0).add(new TLAToken(map + "[ \"" + var + "\", \"" + label + "\" ]" + modifier, 0, 0,
 							TLAToken.BUILTIN));
-					ret.add(new SingleAssign() {
-						{
-							lhs = l;
-							rhs = PcalTranslate.MakeExpr(r);
-						}
-					});
+					ret.add(makeSingleAssign(l, PcalTranslate.MakeExpr(r)));
 				}
-				return new Assign() {
-					{
-						ass = ret;
-					}
-				};
+				return makeAssign(ret);
 			}
 
 			@Override
@@ -227,22 +228,14 @@ public class PGoTransStageModelCheck {
 						// don't want to walk them
 						recurse(ls.stmts);
 
-						li.labThen.add(0, new LabeledStmt() {
-							{
-								label = "pgo_" + ls.label + "_then";
-								stmts = new Vector<>();
-								stmts.add(assignStmts(read, "pgo_read", ls.label, " - 1"));
-								stmts.add(assignStmts(write, "pgo_write", ls.label, " - 1"));
-							}
-						});
-						li.labElse.add(0, new LabeledStmt() {
-							{
-								label = "pgo_ " + ls.label + "_else";
-								stmts = new Vector<>();
-								stmts.add(assignStmts(read, "pgo_read", ls.label, " - 1"));
-								stmts.add(assignStmts(write, "pgo_write", ls.label, " - 1"));
-							}
-						});
+						li.labThen.add(0, makeLabeledStmt(
+								"pgo_" + ls.label + "_then",
+								assignStmts(read, "pgo_read", ls.label, " - 1"),
+								assignStmts(write, "pgo_write", ls.label, " - 1")));
+						li.labElse.add(0, makeLabeledStmt(
+								"pgo_ " + ls.label + "_else",
+								assignStmts(read, "pgo_read", ls.label, " - 1"),
+								assignStmts(write, "pgo_write", ls.label, " - 1")));
 					} else if (ls.stmts.get(0) instanceof While) {
 						While w = (While) ls.stmts.get(0);
 						w.unlabDo.add(assignStmts(read, "pgo_read", ls.label, " + 1"));
@@ -250,14 +243,10 @@ public class PGoTransStageModelCheck {
 
 						recurse(ls.stmts);
 
-						w.labDo.add(0, new LabeledStmt() {
-							{
-								label = "pgo_" + ls.label;
-								stmts = new Vector<>();
-								stmts.add(assignStmts(read, "pgo_read", ls.label, " - 1"));
-								stmts.add(assignStmts(write, "pgo_write", ls.label, " - 1"));
-							}
-						});
+						w.labDo.add(0, makeLabeledStmt(
+								"pgo_" + ls.label,
+								assignStmts(read, "pgo_read", ls.label, " - 1"),
+								assignStmts(write, "pgo_write", ls.label, " - 1")));
 					} else if (ls.stmts.get(0) instanceof LabelEither) {
 						LabelEither le = (LabelEither) ls.stmts.get(0);
 						for (Clause c : (Vector<Clause>) le.clauses) {
@@ -268,14 +257,10 @@ public class PGoTransStageModelCheck {
 						recurse(ls.stmts);
 
 						for (Clause c : (Vector<Clause>) le.clauses) {
-							c.labOr.add(0, new LabeledStmt() {
-								{
-									label = "pgo_" + ls.label;
-									stmts = new Vector<>();
-									stmts.add(assignStmts(read, "pgo_read", ls.label, " - 1"));
-									stmts.add(assignStmts(write, "pgo_write", ls.label, " - 1"));
-								}
-							});
+							c.labOr.add(0, makeLabeledStmt(
+									"pgo_" + ls.label,
+									assignStmts(read, "pgo_read", ls.label, " - 1"),
+									assignStmts(write, "pgo_write", ls.label, " - 1")));
 						}
 					} else {
 						// normal; no labels inside ls.stmts
@@ -286,14 +271,10 @@ public class PGoTransStageModelCheck {
 
 						// add new statements resetting the state
 						toFill.peek().add(new Pair<>(
-								new LabeledStmt() {
-									{
-										label = "pgo_" + ls.label;
-										stmts = new Vector<>();
-										stmts.add(assignStmts(read, "pgo_read", ls.label, " - 1"));
-										stmts.add(assignStmts(write, "pgo_write", ls.label, " - 1"));
-									}
-								},
+								makeLabeledStmt(
+										"pgo_" + ls.label,
+										assignStmts(read, "pgo_read", ls.label, " - 1"),
+										assignStmts(write, "pgo_write", ls.label, " - 1")),
 								pos + 1));
 						recurse(ls.stmts);
 					}
