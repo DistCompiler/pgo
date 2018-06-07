@@ -62,7 +62,7 @@ const (
 // A reference to our global state, created via +InitEtcdState+. Used in the
 // generated Go code to set and get the values of global variables.
 type EtcdState struct {
-	*ProcessInitialization
+	*SyncBarrier
 	c  etcd.Client
 	kv etcd.KeysAPI
 }
@@ -85,7 +85,7 @@ func NewEtcdState(endpoints []string, timeout int, peers []string, self, coordin
 	}
 
 	ret := &EtcdState{
-		NewProcessInitialization(peers, self, coordinator),
+		NewSyncBarrier(peers, self, coordinator),
 		c,
 		etcd.NewKeysAPI(c),
 	}
