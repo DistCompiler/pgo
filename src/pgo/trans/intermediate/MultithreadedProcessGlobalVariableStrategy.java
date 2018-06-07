@@ -11,6 +11,7 @@ import pgo.scope.UID;
 
 import java.util.*;
 
+// FIXME this strategy, for efficiency reasons, does not implement abortCriticalSection correctly
 public class MultithreadedProcessGlobalVariableStrategy extends GlobalVariableStrategy {
 	private DefinitionRegistry registry;
 	private Map<UID, PGoType> typeMap;
