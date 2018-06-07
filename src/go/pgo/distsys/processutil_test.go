@@ -1,4 +1,4 @@
-package datatypes
+package distsys
 
 import "testing"
 

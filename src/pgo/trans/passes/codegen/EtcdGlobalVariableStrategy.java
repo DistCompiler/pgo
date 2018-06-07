@@ -1,10 +1,11 @@
-package pgo.trans.intermediate;
+package pgo.trans.passes.codegen;
 
 import pgo.TODO;
 import pgo.Unreachable;
 import pgo.model.golang.*;
 import pgo.model.pcal.PcalProcess;
 import pgo.scope.UID;
+import pgo.trans.intermediate.GlobalVariableStrategy;
 
 import java.util.Collections;
 import java.util.List;

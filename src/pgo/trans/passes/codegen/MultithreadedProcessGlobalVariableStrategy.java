@@ -1,4 +1,4 @@
-package pgo.trans.intermediate;
+package pgo.trans.passes.codegen;
 
 import pgo.InternalCompilerError;
 import pgo.TODO;
@@ -8,6 +8,9 @@ import pgo.model.pcal.MultiProcess;
 import pgo.model.pcal.PcalProcess;
 import pgo.model.type.PGoType;
 import pgo.scope.UID;
+import pgo.trans.intermediate.DefinitionRegistry;
+import pgo.trans.intermediate.GlobalVariableStrategy;
+import pgo.trans.intermediate.TLAExpressionCodeGenVisitor;
 
 import java.util.*;
 

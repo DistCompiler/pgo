@@ -13,6 +13,7 @@ import pgo.model.pcal.Processes;
 import pgo.model.pcal.SingleProcess;
 import pgo.model.type.PGoType;
 import pgo.scope.UID;
+import pgo.trans.passes.codegen.MultithreadedProcessGlobalVariableStrategy;
 
 public class CodeGenPass {
 	private CodeGenPass() {}

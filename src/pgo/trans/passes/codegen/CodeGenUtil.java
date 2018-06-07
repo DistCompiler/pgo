@@ -1,4 +1,4 @@
-package pgo.trans.intermediate;
+package pgo.trans.passes.codegen;
 
 import pgo.model.golang.BlockBuilder;
 import pgo.model.golang.Expression;
@@ -6,6 +6,9 @@ import pgo.model.golang.Unary;
 import pgo.model.tla.PGoTLAExpression;
 import pgo.model.type.PGoType;
 import pgo.scope.UID;
+import pgo.trans.intermediate.DefinitionRegistry;
+import pgo.trans.intermediate.GlobalVariableStrategy;
+import pgo.trans.intermediate.TLAExpressionCodeGenVisitor;
 
 import java.util.Map;
 

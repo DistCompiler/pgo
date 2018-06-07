@@ -15,6 +15,7 @@ import pgo.model.pcal.VariableDeclaration;
 import pgo.model.tla.PGoTLAExpression;
 import pgo.model.type.PGoType;
 import pgo.scope.UID;
+import pgo.trans.passes.codegen.CodeGenUtil;
 import pgo.trans.passes.codegen.CriticalSectionTracker;
 
 import java.util.ArrayList;
