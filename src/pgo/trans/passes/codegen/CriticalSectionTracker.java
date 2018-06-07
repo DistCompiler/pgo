@@ -31,11 +31,10 @@ public class CriticalSectionTracker {
 	public void start(BlockBuilder builder, UID labelUID, LabelName labelName) {
 		int lockGroup = labelsToLockGroups.getOrDefault(labelUID, -1);
 		if (currentLockGroup != -1 && currentLockGroup != lockGroup) {
-			// FIXME this is VERY WRONG
 			end(builder);
 		}
 		if (currentLockGroup == lockGroup) {
-			// FIXME recursive lock
+			// nothing to do
 			return;
 		}
 		builder.labelIsUnique(labelName.getName());
@@ -86,15 +85,6 @@ public class CriticalSectionTracker {
 		if (lockGroup < 0) {
 			return ignored -> {};
 		}
-		return builder -> {
-			if (currentLockGroup == lockGroup) {
-				// we're still in the critical section, nothing to do
-				return;
-			}
-			if (currentLockGroup != -1) {
-				end(builder);
-			}
-			start(builder, labelUID, labelName);
-		};
+		return builder -> start(builder, labelUID, labelName);
 	}
 }
