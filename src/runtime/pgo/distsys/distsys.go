@@ -540,10 +540,9 @@ type StateServerRPC struct {
 // nodes in the system is known, as well as the initial values for every piece of global state
 // in the system. This function will block until all other nodes in the system are also started
 // and invoke their corresponding NewStateServer function on their ends.
-func NewStateServer(peers []string, self, coordinator string, initValues map[string]interface{}) (*StateServer, error) {
+func NewStateServer(peers []string, self, coordinator string, initValues map[string]interface{}, migration MigrationStrategy) (*StateServer, error) {
 	barrier := NewSyncBarrier(peers, self, coordinator)
 
-	// FIXME this is assuming everything is centralized in one place
 	selfId := -1
 	coordinatorId := -1
 	for i, p := range peers {
@@ -582,7 +581,7 @@ func NewStateServer(peers []string, self, coordinator string, initValues map[str
 		peers: peers,
 		store: NewDataStore(entries),
 
-		migrationStrategy: NewRandomMigrate(self),
+		migrationStrategy: migration,
 	}
 
 	if err := stateServer.connections.ExposeImplementation("StateServer", &StateServerRPC{stateServer}); err != nil {

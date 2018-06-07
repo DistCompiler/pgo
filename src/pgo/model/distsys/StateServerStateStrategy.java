@@ -82,7 +82,10 @@ public class StateServerStateStrategy implements StateStrategy {
 												new Token(PEERS_VAR),
 												new Token(SELF_VAR),
 												new Token(COORDINATOR_VAR),
-												globalValues))),
+												globalValues,
+												new FunctionCall("distsys.NewRandomMigrate",
+														new Vector<>(Arrays.asList(
+																		new Token(SELF_VAR))))))),
 								false)
 						);
 
