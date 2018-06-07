@@ -69,6 +69,11 @@ func (c *Connections) ExposeImplementation(name string, impl interface{}) error 
 
 // ConnectTo builds a TCP connection to a given node in the address given.
 func (c *Connections) ConnectTo(addr string) error {
+	// if the connection already exists, nothing to do here
+	if _, connected := c.network[addr]; connected {
+		return nil
+	}
+
 	client, err := rpc.Dial("tcp", addr)
 	if err != nil {
 		return err

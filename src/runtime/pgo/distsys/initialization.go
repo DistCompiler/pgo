@@ -27,6 +27,7 @@ type ProcessInitializationState struct {
 	processesReady int32        // how many processes are ready currently (used only by the coordinator)
 	readyChan      chan bool    // underlying channel used to coordinate start
 	connections    *Connections // connections to other peers
+	setup          bool         // whether the RPC configuration has been performed
 }
 
 type ProcessInitialization struct {
@@ -41,6 +42,7 @@ func NewProcessInitialization(peers []string, self, coordinator string) *Process
 		processesReady: 0,
 		readyChan:      make(chan bool, 1),
 		connections:    NewConnections(self),
+		setup:          false,
 	}
 
 	return &ProcessInitialization{state}
@@ -50,17 +52,62 @@ func (init *ProcessInitialization) isCoordinator() bool {
 	return init.Self == init.Coordinator
 }
 
-func (self *ProcessInitialization) Init() error {
-	if err := self.connections.ExposeImplementation(RPC_ID, self.ProcessInitializationState); err != nil {
-		return err
+// Waits for all PlusCall processes to be up and ready to run
+func (init *ProcessInitialization) WaitPeers() error {
+	if !init.setup {
+		init.init()
 	}
 
 	// the process itself is ready. Incremented when other processes indicate they are
 	// ready via the `ProcessReady` RPC call
-	self.processesReady = 1
+	atomic.AddInt32(&init.processesReady, 1)
 
-	if !self.isCoordinator() {
-		self.helloCoordinator()
+	if init.isCoordinator() {
+		// if this is the coordinator process and every other process already "checked-in",
+		// we are ready to move on
+		if err := init.checkBarrier(); err != nil {
+			return err
+		}
+
+	} else {
+		init.helloCoordinator()
+	}
+
+	// wait for all processes to be ready
+	<-init.readyChan
+
+	// reset counter of processes ready so that this method can be called multiple
+	// times whenever a synchronization barrier is required across all processes
+	// in the system
+	atomic.StoreInt32(&init.processesReady, 0)
+
+	return nil
+}
+
+func (self *ProcessInitialization) init() error {
+	self.setup = true
+	return self.connections.ExposeImplementation(RPC_ID, self.ProcessInitializationState)
+}
+
+func (init *ProcessInitializationState) checkBarrier() error {
+	if int(atomic.LoadInt32(&init.processesReady)) == len(init.Peers) {
+		for _, id := range init.Peers {
+			if id == init.Self {
+				continue
+			}
+
+			if err := init.connections.ConnectTo(id); err != nil {
+				return err
+			}
+
+			client := init.connections.GetConnection(id)
+			var ok bool
+			if err := client.Call(RPC_ID+".Start", 0, &ok); err != nil {
+				return err
+			}
+		}
+
+		init.readyChan <- true
 	}
 
 	return nil
@@ -95,27 +142,7 @@ func (self *ProcessInitializationState) ProcessReady(id string, ok *bool) error 
 	atomic.AddInt32(&self.processesReady, 1)
 	*ok = true
 
-	if int(atomic.LoadInt32(&self.processesReady)) == len(self.Peers) {
-		for _, id := range self.Peers {
-			if id == self.Self {
-				continue
-			}
-
-			if err := self.connections.ConnectTo(id); err != nil {
-				return err
-			}
-
-			client := self.connections.GetConnection(id)
-			var ok bool
-			if err := client.Call(RPC_ID+".Start", 0, &ok); err != nil {
-				return err
-			}
-		}
-
-		self.readyChan <- true
-	}
-
-	return nil
+	return self.checkBarrier()
 }
 
 // Coordinator sends this message to every process when it detects that every
@@ -125,9 +152,4 @@ func (init *ProcessInitializationState) Start(_ int, ok *bool) error {
 	*ok = true
 
 	return nil
-}
-
-// Waits for all PlusCall processes to be up and ready to run
-func (init *ProcessInitialization) WaitPeers() {
-	<-init.readyChan
 }

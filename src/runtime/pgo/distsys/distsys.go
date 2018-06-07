@@ -585,10 +585,6 @@ func NewStateServer(peers []string, self, coordinator string, initValues map[str
 		migrationStrategy: NewRandomMigrate(self),
 	}
 
-	if err := stateServer.Init(); err != nil {
-		return nil, err
-	}
-
 	if err := stateServer.connections.ExposeImplementation("StateServer", &StateServerRPC{stateServer}); err != nil {
 		return nil, err
 	}
