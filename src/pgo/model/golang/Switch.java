@@ -1,6 +1,7 @@
 package pgo.model.golang;
 
 import java.util.List;
+import java.util.Objects;
 
 public class Switch extends Statement {
     Expression switchExp;
@@ -30,4 +31,19 @@ public class Switch extends Statement {
 		return v.visit(this);
 	}
 
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		Switch aSwitch = (Switch) o;
+		return Objects.equals(switchExp, aSwitch.switchExp) &&
+				Objects.equals(cases, aSwitch.cases) &&
+				Objects.equals(defaultBlock, aSwitch.defaultBlock);
+	}
+
+	@Override
+	public int hashCode() {
+
+		return Objects.hash(switchExp, cases, defaultBlock);
+	}
 }

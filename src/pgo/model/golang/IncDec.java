@@ -1,5 +1,7 @@
 package pgo.model.golang;
 
+import java.util.Objects;
+
 public class IncDec extends Statement {
 	
 	private boolean inc;
@@ -23,4 +25,18 @@ public class IncDec extends Statement {
 		return v.visit(this);
 	}
 
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		IncDec incDec = (IncDec) o;
+		return inc == incDec.inc &&
+				Objects.equals(expression, incDec.expression);
+	}
+
+	@Override
+	public int hashCode() {
+
+		return Objects.hash(inc, expression);
+	}
 }

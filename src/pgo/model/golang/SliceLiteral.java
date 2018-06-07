@@ -1,6 +1,7 @@
 package pgo.model.golang;
 
 import java.util.List;
+import java.util.Objects;
 
 public class SliceLiteral extends Expression {
 	private List<Expression> initializers;
@@ -24,26 +25,18 @@ public class SliceLiteral extends Expression {
 		return visitor.visit(this);
 	}
 
-	/*@Override
-	public List<String> toGo() {
-		StringBuilder out = new StringBuilder();
-		out.append("[]");
-		out.append(elementType.toGo());
-		out.append("{");
-		boolean first = true;
-		for(Expression expr : initializers) {
-			if(first) {
-				first = false;
-			}else {
-				out.append(",");
-			}
-			List<String> lines = expr.toGo();
-			for(String l : lines) {
-				out.append(l);
-			}
-		}
-		out.append("}");
-		return Collections.singletonList(out.toString());
-	}*/
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		SliceLiteral that = (SliceLiteral) o;
+		return Objects.equals(initializers, that.initializers) &&
+				Objects.equals(elementType, that.elementType);
+	}
 
+	@Override
+	public int hashCode() {
+
+		return Objects.hash(initializers, elementType);
+	}
 }

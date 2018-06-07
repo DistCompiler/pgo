@@ -1,5 +1,7 @@
 package pgo.model.golang;
 
+import java.util.Objects;
+
 public class SliceOperator extends Expression {
 	
 	Expression target;
@@ -35,4 +37,20 @@ public class SliceOperator extends Expression {
 		return visitor.visit(this);
 	}
 
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		SliceOperator that = (SliceOperator) o;
+		return Objects.equals(target, that.target) &&
+				Objects.equals(low, that.low) &&
+				Objects.equals(high, that.high) &&
+				Objects.equals(max, that.max);
+	}
+
+	@Override
+	public int hashCode() {
+
+		return Objects.hash(target, low, high, max);
+	}
 }

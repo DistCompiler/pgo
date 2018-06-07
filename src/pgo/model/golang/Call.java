@@ -1,6 +1,7 @@
 package pgo.model.golang;
 
 import java.util.List;
+import java.util.Objects;
 
 public class Call extends Expression {
 
@@ -33,5 +34,21 @@ public class Call extends Expression {
 	@Override
 	public <T, E extends Throwable> T accept(ExpressionVisitor<T, E> visitor) throws E {
 		return visitor.visit(this);
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		Call call = (Call) o;
+		return ellipsis == call.ellipsis &&
+				Objects.equals(target, call.target) &&
+				Objects.equals(arguments, call.arguments);
+	}
+
+	@Override
+	public int hashCode() {
+
+		return Objects.hash(target, arguments, ellipsis);
 	}
 }

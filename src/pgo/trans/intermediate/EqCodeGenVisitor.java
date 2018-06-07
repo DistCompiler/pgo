@@ -3,9 +3,11 @@ package pgo.trans.intermediate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import pgo.TODO;
 import pgo.model.golang.*;
+import pgo.trans.passes.codegen.GoExpressionIsConstantVisitor;
 
 public class EqCodeGenVisitor extends TypeVisitor<Expression, RuntimeException> {
 
@@ -56,6 +58,32 @@ public class EqCodeGenVisitor extends TypeVisitor<Expression, RuntimeException> 
 
 	@Override
 	public Expression visit(SliceType sliceType) throws RuntimeException {
+		// special-case nicer looking comparison when one slice is a literal
+		boolean lhsIsConstant = lhs instanceof SliceLiteral;
+		boolean rhsIsConstant = rhs instanceof SliceLiteral;
+		if(lhsIsConstant || rhsIsConstant){
+			Expression constant = lhsIsConstant ? lhs : rhs;
+			Expression other = lhsIsConstant ? rhs : lhs;
+			SliceLiteral constantSlice = (SliceLiteral)constant;
+			Expression comparison = new Binop(
+					invert ? Binop.Operation.NEQ : Binop.Operation.EQ,
+					new Call(new VariableName("len"), Collections.singletonList(other)),
+					new IntLiteral(constantSlice.getInitializers().size()));
+			List<Expression> constantInitialisers = constantSlice.getInitializers();
+			for (int i = 0; i < constantInitialisers.size(); ++i) {
+				comparison = new Binop(invert ? Binop.Operation.OR : Binop.Operation.AND,
+						comparison,
+						sliceType.getElementType().accept(
+								new EqCodeGenVisitor(
+										builder,
+										new Index(other, new IntLiteral(i)),
+										constantInitialisers.get(i),
+										invert)));
+			}
+			return comparison;
+		}
+
+		// general case long-form comparison
 		VariableName result = builder.varDecl(
 				"eq",
 				new Binop(

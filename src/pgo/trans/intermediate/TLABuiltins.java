@@ -185,6 +185,12 @@ public class TLABuiltins {
 							new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
 					Expression rhs = arguments.get(1).accept(
 							new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
+
+					// special case: rhs is an empty literal, compiles to noop
+					if(rhs instanceof SliceLiteral && ((SliceLiteral)rhs).getInitializers().size() == 0){
+						return lhs;
+					}
+
 					Expression lenLhs = new Call(new VariableName("len"), Collections.singletonList(lhs));
 					Expression lenRhs = new Call(new VariableName("len"), Collections.singletonList(rhs));
 					VariableName tmpSet = builder.varDecl(
@@ -196,6 +202,30 @@ public class TLABuiltins {
 					ForRangeBuilder forBuilder = builder.forRange(lhs);
 					VariableName v = forBuilder.initVariables(Arrays.asList("_", "v")).get(1);
 					try (BlockBuilder forBody = forBuilder.getBlockBuilder()) {
+						// special case where rhs is a slice literal, we just unroll the entire literal instead
+						// of searching through it
+						if(rhs instanceof SliceLiteral){
+							SliceLiteral rhsLiteral = (SliceLiteral)rhs;
+							Expression condition = null;
+							for(Expression option : rhsLiteral.getInitializers()){
+								Expression part = elementType.accept(new EqCodeGenVisitor(
+										forBody, v, option, true));
+								if(condition == null){
+									condition = part;
+								}else{
+									condition = new Binop(Binop.Operation.AND, condition, part);
+								}
+							}
+							try(IfBuilder shouldIncludeBuilder = forBody.ifStmt(condition)){
+								try(BlockBuilder shouldIncludeBody = shouldIncludeBuilder.whenTrue()){
+									shouldIncludeBody.assign(
+											tmpSet, new Call(new VariableName("append"), Arrays.asList(tmpSet, v)));
+								}
+							}
+							return tmpSet;
+						}
+
+						// general case, requires search operation
 						VariableName index;
 						if (searchFunction.equals("Search")) {
 							AnonymousFunctionBuilder checkBuilder = forBody.anonymousFunction();

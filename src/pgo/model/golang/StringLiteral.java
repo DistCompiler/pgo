@@ -1,5 +1,7 @@
 package pgo.model.golang;
 
+import java.util.Objects;
+
 public class StringLiteral extends Expression {
 	
 	private String value;
@@ -17,23 +19,17 @@ public class StringLiteral extends Expression {
 		return visitor.visit(this);
 	}
 
-	/*@Override
-	public List<String> toGo() {
-		StringBuilder out = new StringBuilder();
-		// TODO: more correct string escaping
-		out.append('"');
-		for(int i = 0; i < value.length(); ++i) {
-			char c = value.charAt(i);
-			switch(c) {
-				case '"':
-					out.append("\\\"");
-					break;
-				default:
-					out.append(c);
-			}
-		}
-		out.append('"');
-		return Collections.singletonList(out.toString());
-	}*/
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		StringLiteral that = (StringLiteral) o;
+		return Objects.equals(value, that.value);
+	}
 
+	@Override
+	public int hashCode() {
+
+		return Objects.hash(value);
+	}
 }

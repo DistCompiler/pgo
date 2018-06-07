@@ -1,5 +1,7 @@
 package pgo.model.golang;
 
+import java.util.Objects;
+
 public final class Builtins {
 	
 	private Builtins() {}
@@ -18,6 +20,20 @@ public final class Builtins {
 		@Override
 		public <T, E extends Throwable> T accept(ExpressionVisitor<T, E> visitor) throws E {
 			return visitor.visit(this);
+		}
+
+		@Override
+		public boolean equals(Object o) {
+			if (this == o) return true;
+			if (o == null || getClass() != o.getClass()) return false;
+			BuiltinConstant that = (BuiltinConstant) o;
+			return Objects.equals(value, that.value);
+		}
+
+		@Override
+		public int hashCode() {
+
+			return Objects.hash(value);
 		}
 	}
 
@@ -52,8 +68,6 @@ public final class Builtins {
 	// built-in constants
 	public static Expression True = new BuiltinConstant("true");
 	public static Expression False = new BuiltinConstant("false");
-
-	public static Expression EmptyString = new BuiltinConstant("\"\"");
 
 	public static Expression Nil = new BuiltinConstant("nil");
 }

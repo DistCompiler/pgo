@@ -14,6 +14,8 @@ import pgo.model.golang.*;
 import pgo.model.tla.*;
 import pgo.model.type.*;
 import pgo.scope.UID;
+import pgo.trans.passes.codegen.CodeGenUtil;
+import pgo.trans.passes.codegen.GoExpressionIsConstantVisitor;
 
 public class TLAExpressionCodeGenVisitor extends PGoTLAExpressionVisitor<Expression, RuntimeException> {
 	private BlockBuilder builder;
@@ -90,6 +92,7 @@ public class TLAExpressionCodeGenVisitor extends PGoTLAExpressionVisitor<Express
 	public Expression visit(PGoTLAFunctionCall pGoTLAFunctionCall) throws RuntimeException {
 		PGoType type = typeMap.get(pGoTLAFunctionCall.getFunction().getUID());
 		if(type instanceof PGoTypeMap){
+			builder.addImport("sort");
 			Expression function = pGoTLAFunctionCall.getFunction().accept(this);
 			List<Expression> params = new ArrayList<>();
 			for(PGoTLAExpression param : pGoTLAFunctionCall.getParams()){
@@ -339,6 +342,9 @@ public class TLAExpressionCodeGenVisitor extends PGoTLAExpressionVisitor<Express
 			// single-element or empty sets don't need any sorting or deduplication
 			return result;
 		}else {
+			if(result.accept(new GoExpressionIsConstantVisitor())){
+				return CodeGenUtil.staticallySortSlice((SliceLiteral)result);
+			}
 			VariableName tmpSet = builder.varDecl("tmpSet", result);
 			TLABuiltins.ensureUniqueSorted(builder, elementType, tmpSet);
 			return tmpSet;

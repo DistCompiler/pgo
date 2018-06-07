@@ -1,5 +1,7 @@
 package pgo.model.golang;
 
+import java.util.Objects;
+
 public class VariableDeclaration extends Declaration {
 
 	private String name;
@@ -29,4 +31,19 @@ public class VariableDeclaration extends Declaration {
 		return v.visit(this);
 	}
 
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		VariableDeclaration that = (VariableDeclaration) o;
+		return Objects.equals(name, that.name) &&
+				Objects.equals(type, that.type) &&
+				Objects.equals(value, that.value);
+	}
+
+	@Override
+	public int hashCode() {
+
+		return Objects.hash(name, type, value);
+	}
 }

@@ -1,5 +1,7 @@
 package pgo.model.golang;
 
+import java.util.Objects;
+
 /**
  * A Goto in pluscal and go
  *
@@ -21,4 +23,17 @@ public class GoTo extends Statement {
 		return v.visit(this);
 	}
 
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		GoTo goTo = (GoTo) o;
+		return Objects.equals(to, goTo.to);
+	}
+
+	@Override
+	public int hashCode() {
+
+		return Objects.hash(to);
+	}
 }

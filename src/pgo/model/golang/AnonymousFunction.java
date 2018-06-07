@@ -1,6 +1,7 @@
 package pgo.model.golang;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Represents an anonymous function in go
@@ -32,5 +33,21 @@ public class AnonymousFunction extends Expression {
 	@Override
 	public <T, E extends Throwable> T accept(ExpressionVisitor<T, E> visitor) throws E {
 		return visitor.visit(this);
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		AnonymousFunction that = (AnonymousFunction) o;
+		return Objects.equals(arguments, that.arguments) &&
+				Objects.equals(returnTypes, that.returnTypes) &&
+				Objects.equals(body, that.body);
+	}
+
+	@Override
+	public int hashCode() {
+
+		return Objects.hash(arguments, returnTypes, body);
 	}
 }

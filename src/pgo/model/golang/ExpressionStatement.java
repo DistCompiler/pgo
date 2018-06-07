@@ -1,5 +1,7 @@
 package pgo.model.golang;
 
+import java.util.Objects;
+
 public class ExpressionStatement extends Statement {
 
 	private Expression expression;
@@ -17,4 +19,17 @@ public class ExpressionStatement extends Statement {
 		return v.visit(this);
 	}
 
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		ExpressionStatement that = (ExpressionStatement) o;
+		return Objects.equals(expression, that.expression);
+	}
+
+	@Override
+	public int hashCode() {
+
+		return Objects.hash(expression);
+	}
 }

@@ -1,5 +1,7 @@
 package pgo.model.golang;
 
+import java.util.Objects;
+
 /**
  * The if statement
  *
@@ -33,26 +35,19 @@ public class If extends Statement {
 		return v.visit(this);
 	}
 
-	/*@Override
-	public Vector<String> toGo() {
-		Vector<String> ret = new Vector<String>();
-		Vector<String> condStr = cond.toGo();
-		String ifStr = negation ? "if !" : "if ";
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		If anIf = (If) o;
+		return Objects.equals(cond, anIf.cond) &&
+				Objects.equals(bThen, anIf.bThen) &&
+				Objects.equals(bElse, anIf.bElse);
+	}
 
-		if (cond instanceof AnonymousFunction) {
-			// in this case we want each line of func on a separate line, and we don't need semicolons
-			ret.add(ifStr + condStr.remove(0));
-			ret.addAll(condStr);
-			ret.set(ret.size()-1, ret.get(ret.size()-1) + " {");
-		} else {
-			ret.add(ifStr + String.join("; ", condStr) + " {");
-		}
-		addIndentedAST(ret, thenS);
-		if (elseS.size() > 0) {
-			ret.add("} else {");
-			addIndentedAST(ret, elseS);
-		}
-		ret.add("}");
-		return ret;
-	}*/
+	@Override
+	public int hashCode() {
+
+		return Objects.hash(cond, bThen, bElse);
+	}
 }

@@ -1,6 +1,7 @@
 package pgo.model.golang;
 
 import java.util.List;
+import java.util.Objects;
 
 public class Module extends Node {
 	private String name;
@@ -35,5 +36,21 @@ public class Module extends Node {
 	public <T, E extends Throwable> T accept(NodeVisitor<T, E> v) throws E {
 		return v.visit(this);
 	}
-	
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		Module module = (Module) o;
+		return Objects.equals(name, module.name) &&
+				Objects.equals(declarations, module.declarations) &&
+				Objects.equals(imports, module.imports) &&
+				Objects.equals(pack, module.pack);
+	}
+
+	@Override
+	public int hashCode() {
+
+		return Objects.hash(name, declarations, imports, pack);
+	}
 }

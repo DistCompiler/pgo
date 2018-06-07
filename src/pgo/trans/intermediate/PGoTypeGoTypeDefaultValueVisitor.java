@@ -2,10 +2,7 @@ package pgo.trans.intermediate;
 
 import pgo.InternalCompilerError;
 import pgo.TODO;
-import pgo.model.golang.Builtins;
-import pgo.model.golang.Expression;
-import pgo.model.golang.IntLiteral;
-import pgo.model.golang.SliceLiteral;
+import pgo.model.golang.*;
 import pgo.model.type.*;
 
 import java.util.Collections;
@@ -23,7 +20,7 @@ public class PGoTypeGoTypeDefaultValueVisitor extends PGoTypeVisitor<Expression,
 
 	@Override
 	public Expression visit(PGoTypeString pGoTypeString) throws RuntimeException {
-		return Builtins.EmptyString;
+		return new StringLiteral("");
 	}
 
 	@Override

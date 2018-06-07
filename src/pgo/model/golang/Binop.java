@@ -1,5 +1,7 @@
 package pgo.model.golang;
 
+import java.util.Objects;
+
 public class Binop extends Expression {
 	
 	private Expression lhs;
@@ -55,4 +57,19 @@ public class Binop extends Expression {
 		return visitor.visit(this);
 	}
 
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		Binop binop = (Binop) o;
+		return Objects.equals(lhs, binop.lhs) &&
+				Objects.equals(rhs, binop.rhs) &&
+				op == binop.op;
+	}
+
+	@Override
+	public int hashCode() {
+
+		return Objects.hash(lhs, rhs, op);
+	}
 }

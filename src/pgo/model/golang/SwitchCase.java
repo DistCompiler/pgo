@@ -1,6 +1,7 @@
 package pgo.model.golang;
 
 import java.util.List;
+import java.util.Objects;
 
 public class SwitchCase extends Node {
 	private Expression condition;
@@ -25,4 +26,18 @@ public class SwitchCase extends Node {
 		return v.visit(this);
 	}
 
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		SwitchCase that = (SwitchCase) o;
+		return Objects.equals(condition, that.condition) &&
+				Objects.equals(block, that.block);
+	}
+
+	@Override
+	public int hashCode() {
+
+		return Objects.hash(condition, block);
+	}
 }

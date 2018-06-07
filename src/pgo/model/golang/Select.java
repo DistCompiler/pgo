@@ -1,6 +1,7 @@
 package pgo.model.golang;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
  * A select statement in go
@@ -22,4 +23,17 @@ public class Select extends Statement {
 		return v.visit(this);
 	}
 
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		Select select = (Select) o;
+		return Objects.equals(cases, select.cases);
+	}
+
+	@Override
+	public int hashCode() {
+
+		return Objects.hash(cases);
+	}
 }

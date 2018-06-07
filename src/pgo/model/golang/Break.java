@@ -7,4 +7,14 @@ public class Break extends Statement {
 		return v.visit(this);
 	}
 
+	@Override
+	public boolean equals(Object other){
+		return other instanceof Break;
+	}
+
+	@Override
+	public int hashCode(){
+		return 0;
+	}
+
 }

@@ -1,6 +1,7 @@
 package pgo.model.golang;
 
 import java.util.Map;
+import java.util.Objects;
 
 public class MapLiteral extends Expression {
 	
@@ -31,4 +32,19 @@ public class MapLiteral extends Expression {
 		return visitor.visit(this);
 	}
 
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		MapLiteral that = (MapLiteral) o;
+		return Objects.equals(pairs, that.pairs) &&
+				Objects.equals(keyType, that.keyType) &&
+				Objects.equals(valueType, that.valueType);
+	}
+
+	@Override
+	public int hashCode() {
+
+		return Objects.hash(pairs, keyType, valueType);
+	}
 }

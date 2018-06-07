@@ -3,12 +3,19 @@ package pgo.model.golang;
 import java.io.IOException;
 import java.io.StringWriter;
 
+import checkers.oigj.quals.O;
 import pgo.formatters.GoNodeFormattingVisitor;
 import pgo.formatters.IndentingWriter;
 
 public abstract class Node {
 	
 	public abstract <T, E extends Throwable> T accept(NodeVisitor<T, E> v) throws E;
+
+	@Override
+	public abstract boolean equals(Object other);
+
+	@Override
+	public abstract int hashCode();
 	
 	@Override
 	public String toString() {

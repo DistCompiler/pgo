@@ -1,6 +1,7 @@
 package pgo.model.golang;
 
 import java.util.List;
+import java.util.Objects;
 
 public class InterfaceTypeField extends Node {
 	
@@ -31,4 +32,19 @@ public class InterfaceTypeField extends Node {
 		return v.visit(this);
 	}
 
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		InterfaceTypeField that = (InterfaceTypeField) o;
+		return Objects.equals(name, that.name) &&
+				Objects.equals(arguments, that.arguments) &&
+				Objects.equals(returnTypes, that.returnTypes);
+	}
+
+	@Override
+	public int hashCode() {
+
+		return Objects.hash(name, arguments, returnTypes);
+	}
 }
