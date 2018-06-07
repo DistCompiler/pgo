@@ -520,7 +520,7 @@ func (req *VarReq) String() string {
 // all the information the running node currently stores, as well as ownership information
 // for all pieces of global state
 type StateServer struct {
-	*ProcessInitialization
+	*SyncBarrier
 
 	self  string    // the address of the running node
 	peers []string  // a list of addresses of all peers in the system
@@ -541,7 +541,7 @@ type StateServerRPC struct {
 // in the system. This function will block until all other nodes in the system are also started
 // and invoke their corresponding NewStateServer function on their ends.
 func NewStateServer(peers []string, self, coordinator string, initValues map[string]interface{}) (*StateServer, error) {
-	pi := NewProcessInitialization(peers, self, coordinator)
+	barrier := NewSyncBarrier(peers, self, coordinator)
 
 	// FIXME this is assuming everything is centralized in one place
 	selfId := -1
@@ -568,7 +568,7 @@ func NewStateServer(peers []string, self, coordinator string, initValues map[str
 	// at first, all state is owned by the coordinator node
 	for name, _ := range initValues {
 		var val interface{}
-		if pi.isCoordinator() {
+		if barrier.isCoordinator() {
 			val = initValues[name]
 		}
 
@@ -576,17 +576,13 @@ func NewStateServer(peers []string, self, coordinator string, initValues map[str
 	}
 
 	stateServer := &StateServer{
-		ProcessInitialization: pi,
+		SyncBarrier: barrier,
 
 		self:  self,
 		peers: peers,
 		store: NewDataStore(entries),
 
 		migrationStrategy: NewRandomMigrate(self),
-	}
-
-	if err := stateServer.Init(); err != nil {
-		return nil, err
 	}
 
 	if err := stateServer.connections.ExposeImplementation("StateServer", &StateServerRPC{stateServer}); err != nil {
