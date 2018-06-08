@@ -21,7 +21,7 @@ public class PGoNetOptionsTest {
 
 	@Before
 	public void setup() throws IOException {
-		FileInputStream configIs = new FileInputStream("./config-sample.json");
+		FileInputStream configIs = new FileInputStream("./examples/configs/etcd.json");
 		String configStr = IOUtils.toString(configIs);
 		config = new JSONObject(configStr);
 	}
@@ -107,7 +107,7 @@ public class PGoNetOptionsTest {
 		PGoNetOptions net = options();
 
 		assert(net.isEnabled());
-		List<String> expectedHosts = Collections.singletonList("10.0.0.1");
+		List<String> expectedHosts = Arrays.asList("172.28.128.7:2379", "172.28.128.8:2379", "172.28.128.9:2379");
 		assertEquals(PGoNetOptions.StateOptions.STATE_ETCD, net.getStateOptions().strategy);
 		assertEquals(expectedHosts, net.getStateOptions().endpoints);
 	}
