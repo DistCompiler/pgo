@@ -47,7 +47,7 @@ public class CriticalSectionTracker {
 	}
 
 	public void abort(BlockBuilder builder) {
-		if (currentLockGroup > 0) {
+		if (currentLockGroup > -1) {
 			criticalSection.abortCriticalSection(
 					builder, processUID, currentLockGroup, currentLabelUID, currentLabelName);
 		}

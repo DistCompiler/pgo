@@ -230,7 +230,9 @@ public class PlusCalStatementCodeGenVisitor extends StatementVisitor<Void, Runti
 		try (IfBuilder ifBuilder = builder.ifStmt(CodeGenUtil.invertCondition(
 				builder, registry, typeMap, globalStrategy, cond))) {
 			try (BlockBuilder yes = ifBuilder.whenTrue()) {
-				criticalSectionTracker.abort(yes);
+				// fork out an execution path for aborting
+				CriticalSectionTracker tracker = criticalSectionTracker.copy();
+				tracker.abort(yes);
 			}
 		}
 		return null;
