@@ -132,8 +132,6 @@ public class PGoMain {
 
 	private static void copyPackages(String buildDir) throws IOException {
 		FileUtils.copyDirectory(new File("src/runtime/pgo"), new File(buildDir + "/src/pgo"));
-		FileUtils.copyDirectory(new File("src/runtime/github.com/emirpasic"),
-				new File(buildDir + "/src/github.com/emirpasic"));
 	}
 
 	private void goFmt(String... files) throws IOException, InterruptedException {
