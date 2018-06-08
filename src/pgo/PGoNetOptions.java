@@ -3,9 +3,6 @@ package pgo;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
-import pgo.model.distsys.EtcdStateStrategy;
-import pgo.model.distsys.StateServerStateStrategy;
-import pgo.model.distsys.StateStrategy;
 
 import java.util.Vector;
 

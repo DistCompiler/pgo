@@ -78,10 +78,6 @@ public class PGoMain {
 					ctx, opts.constants.getConstants());
 			checkErrors(ctx);
 
-			/*logger.info("Parsing PGo annotations");
-			PGoAnnotationParser annotations = AnnotationParsingPass.perform(pcal);
-			checkErrors(ctx);*/
-
 			logger.info("Checking compile options for sanity");
 			CheckOptionsPass.perform(ctx, pcalAlgorithm, opts);
 			checkErrors(ctx);

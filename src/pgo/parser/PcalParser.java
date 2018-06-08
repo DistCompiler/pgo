@@ -12,9 +12,10 @@ import pcal.PcalParams;
 import pcal.TLAtoPCalMapping;
 import pcal.exception.FileToStringVectorException;
 import pcal.exception.ParseAlgorithmException;
-import pgo.model.parser.PGoAnnotation;
 import pgo.util.IOUtil;
 import util.ToolIO;
+
+// import pgo.model.parser.PGoAnnotation;
 
 /**
  * The pluscal parser.
@@ -35,19 +36,19 @@ public class PcalParser {
 
 	public static class ParsedPcal {
 		// the list of PGo annotations
-		private Vector<PGoAnnotation> annotations;
+		// private Vector<PGoAnnotation> annotations;
 
 		// the AST
 		private AST ast;
 
-		private ParsedPcal(AST ast, Vector<PGoAnnotation> annotations) {
+		private ParsedPcal(AST ast/*, Vector<PGoAnnotation> annotations*/) {
 			this.ast = ast;
-			this.annotations = annotations;
+			// this.annotations = annotations;
 		}
 
-		public Vector<PGoAnnotation> getPGoAnnotations() {
-			return annotations;
-		}
+		// public Vector<PGoAnnotation> getPGoAnnotations() {
+		// 	return annotations;
+		// }
 
 		public AST getAST() {
 			return ast;
@@ -90,12 +91,6 @@ public class PcalParser {
 		}
 
 		/*********************************************************************
-		 * outputVec is an alias for inputVec if the input is a .tla file, *
-		 * which was not always the case in the aborted version 1.31. *
-		 *********************************************************************/
-		Vector outputVec = inputVec;
-
-		/*********************************************************************
 		 * Set untabInputVec to be the vector of strings obtained from *
 		 * inputVec by replacing tabs with spaces. * * Tabs are date from the
 		 * days when memory cost $1 per bit and are a * stupid anachronism. They
@@ -109,7 +104,7 @@ public class PcalParser {
 		 * by the * translator are copied from inputVec, so any tabs the user
 		 * wants * are kept. *
 		 *********************************************************************/
-		Vector untabInputVec = removeTabs(inputVec);
+		Vector<String> untabInputVec = removeTabs(inputVec);
 
 		/**
 		 * Look through the file for PlusCal options. They are put anywhere in
@@ -203,7 +198,7 @@ public class PcalParser {
         mapping.algLine = algLine;
 
 		// Get the annotations for PGo
-		Vector<PGoAnnotation> annotations = findPGoAnnotations(untabInputVec);
+		// Vector<PGoAnnotation> annotations = findPGoAnnotations(untabInputVec);
 
 		/*********************************************************************
 		 * Added by LL on 18 Feb 2006 to fix bugs related to handling of *
@@ -227,7 +222,7 @@ public class PcalParser {
 		/*********************************************************************
 		 * Set ast to the AST node representing the entire algorithm. *
 		 *********************************************************************/
-		AST ast = null;
+		AST ast;
 		try {
 			ast = ParseAlgorithm.getAlgorithm(reader, foundFairBegin);
 		} catch (ParseAlgorithmException e) {
@@ -235,7 +230,7 @@ public class PcalParser {
 		}
 		logger.info("Parsing completed.");
 
-		return new ParsedPcal(ast, annotations);
+		return new ParsedPcal(ast/*, annotations*/);
 	}
 
 	/**
@@ -246,100 +241,100 @@ public class PcalParser {
 	 * @return the parsed go annotations
 	 * @throws PGoParseException
 	 */
-	private Vector<PGoAnnotation> findPGoAnnotations(Vector untabInputVec) throws PGoParseException {
-		Vector<PGoAnnotation> annotations = new Vector<PGoAnnotation>();
-		// We only parse comments inside the commented PlusCal algorithm block.
-		// We also consider the algorithm block not to be a comment block.
-		boolean insidePlusCal = false;
-		boolean isCommentBlock = false;
-		boolean isCommentLine = false;
-		boolean isPGo = false;
-		StringBuilder sb = null;
-		for (int l = 0; l < untabInputVec.size(); l++) {
-			String line = (String) untabInputVec.get(l);
-			for (int i = 0; i < line.length(); ++i) {
-				char c = line.charAt(i);
-				if (!isCommentLine && !isCommentBlock) {
-					if (c == '(') {
-						if (i + 1 < line.length() && line.charAt(i + 1) == '*') {
-							if (!insidePlusCal) {
-								insidePlusCal = true;
-							} else {
-								isCommentBlock = true;
-							}
-						}
-					} else if (c == '\\') {
-						if (i + 1 < line.length() && line.charAt(i + 1) == '*') {
-							isCommentLine = true;
-						}
-					}
-					if (isCommentBlock || isCommentLine) {
-						++i;
-						while (i + 1 < line.length() && line.charAt(++i) == '*') {
-						}
-						continue;
-					}
-				} else if (isPGo) {
-					if (c == '}') {
-						if (i + 4 < line.length() && line.charAt(i + 1) == '@' && line.charAt(i + 2) == 'P'
-								&& line.charAt(i + 3) == 'G' && line.charAt(i + 4) == 'o') {
-							isPGo = false;
-							i += 4;
-							annotations.add(new PGoAnnotation(sb.toString(), l + 1));
-							continue;
-						}
-					} else if (c == '@') {
-						if (i + 4 < line.length() && line.charAt(i + 1) == 'P' && line.charAt(i + 2) == 'G'
-								&& line.charAt(i + 3) == 'o' && line.charAt(i + 4) == '{') {
-							throw new PGoParseException("Opened new annotation before the previous one was closed", l);
-						}
-					}
-					sb.append(c);
-				} else if (isCommentBlock || isCommentLine) {
-					if (c == '@') {
-						if (i + 4 < line.length() && line.charAt(i + 1) == 'P' && line.charAt(i + 2) == 'G'
-								&& line.charAt(i + 3) == 'o' && line.charAt(i + 4) == '{') {
-							isPGo = true;
-							i += 4;
-							sb = new StringBuilder();
-							continue;
-						}
-					} else if (c == '}') {
-						if (i + 4 < line.length() && line.charAt(i + 1) == '@' && line.charAt(i + 2) == 'P'
-								&& line.charAt(i + 3) == 'G' && line.charAt(i + 4) == 'o') {
-							throw new PGoParseException("Closed a non-existent annotation block", l);
-						}
-					} else if (c == '*') {
-						if (i + 1 < line.length() && line.charAt(i + 1) == ')') {
-							if (isCommentBlock) {
-								isCommentBlock = false;
-							} else if (insidePlusCal) {
-								insidePlusCal = false;
-							} else {
-								throw new PGoParseException("Mismatched comment block delimiters", l);
-							}
-							i++;
-						}
-					}
-				}
+	// private Vector<PGoAnnotation> findPGoAnnotations(Vector untabInputVec) throws PGoParseException {
+	// 	Vector<PGoAnnotation> annotations = new Vector<PGoAnnotation>();
+	// 	// We only parse comments inside the commented PlusCal algorithm block.
+	// 	// We also consider the algorithm block not to be a comment block.
+	// 	boolean insidePlusCal = false;
+	// 	boolean isCommentBlock = false;
+	// 	boolean isCommentLine = false;
+	// 	boolean isPGo = false;
+	// 	StringBuilder sb = null;
+	// 	for (int l = 0; l < untabInputVec.size(); l++) {
+	// 		String line = (String) untabInputVec.get(l);
+	// 		for (int i = 0; i < line.length(); ++i) {
+	// 			char c = line.charAt(i);
+	// 			if (!isCommentLine && !isCommentBlock) {
+	// 				if (c == '(') {
+	// 					if (i + 1 < line.length() && line.charAt(i + 1) == '*') {
+	// 						if (!insidePlusCal) {
+	// 							insidePlusCal = true;
+	// 						} else {
+	// 							isCommentBlock = true;
+	// 						}
+	// 					}
+	// 				} else if (c == '\\') {
+	// 					if (i + 1 < line.length() && line.charAt(i + 1) == '*') {
+	// 						isCommentLine = true;
+	// 					}
+	// 				}
+	// 				if (isCommentBlock || isCommentLine) {
+	// 					++i;
+	// 					while (i + 1 < line.length() && line.charAt(++i) == '*') {
+	// 					}
+	// 					continue;
+	// 				}
+	// 			} else if (isPGo) {
+	// 				if (c == '}') {
+	// 					if (i + 4 < line.length() && line.charAt(i + 1) == '@' && line.charAt(i + 2) == 'P'
+	// 							&& line.charAt(i + 3) == 'G' && line.charAt(i + 4) == 'o') {
+	// 						isPGo = false;
+	// 						i += 4;
+	// 						annotations.add(new PGoAnnotation(sb.toString(), l + 1));
+	// 						continue;
+	// 					}
+	// 				} else if (c == '@') {
+	// 					if (i + 4 < line.length() && line.charAt(i + 1) == 'P' && line.charAt(i + 2) == 'G'
+	// 							&& line.charAt(i + 3) == 'o' && line.charAt(i + 4) == '{') {
+	// 						throw new PGoParseException("Opened new annotation before the previous one was closed", l);
+	// 					}
+	// 				}
+	// 				sb.append(c);
+	// 			} else if (isCommentBlock || isCommentLine) {
+	// 				if (c == '@') {
+	// 					if (i + 4 < line.length() && line.charAt(i + 1) == 'P' && line.charAt(i + 2) == 'G'
+	// 							&& line.charAt(i + 3) == 'o' && line.charAt(i + 4) == '{') {
+	// 						isPGo = true;
+	// 						i += 4;
+	// 						sb = new StringBuilder();
+	// 						continue;
+	// 					}
+	// 				} else if (c == '}') {
+	// 					if (i + 4 < line.length() && line.charAt(i + 1) == '@' && line.charAt(i + 2) == 'P'
+	// 							&& line.charAt(i + 3) == 'G' && line.charAt(i + 4) == 'o') {
+	// 						throw new PGoParseException("Closed a non-existent annotation block", l);
+	// 					}
+	// 				} else if (c == '*') {
+	// 					if (i + 1 < line.length() && line.charAt(i + 1) == ')') {
+	// 						if (isCommentBlock) {
+	// 							isCommentBlock = false;
+	// 						} else if (insidePlusCal) {
+	// 							insidePlusCal = false;
+	// 						} else {
+	// 							throw new PGoParseException("Mismatched comment block delimiters", l);
+	// 						}
+	// 						i++;
+	// 					}
+	// 				}
+	// 			}
 
 
-			}
-			if (isCommentLine) {
-				isCommentLine = false;
-			}
-			if (isPGo && !(isCommentBlock || isCommentLine)) {
-				throw new PGoParseException(
-					"Reached end of comment block before \"}@PGo\" ended annotation block",
-					l + 1);
-			}
-			if (isPGo) {
-				sb.append('\n');
-			}
-		}
+	// 		}
+	// 		if (isCommentLine) {
+	// 			isCommentLine = false;
+	// 		}
+	// 		if (isPGo && !(isCommentBlock || isCommentLine)) {
+	// 			throw new PGoParseException(
+	// 				"Reached end of comment block before \"}@PGo\" ended annotation block",
+	// 				l + 1);
+	// 		}
+	// 		if (isPGo) {
+	// 			sb.append('\n');
+	// 		}
+	// 	}
 
-		return annotations;
-	}
+	// 	return annotations;
+	// }
 
 	/********************************************************************
 	 * Returns a string vector obtained from the string vector vec by *
@@ -349,59 +344,29 @@ public class PcalParser {
 	 * congruent to 0 mod 8. This is what * Emacs does when told to remove tabs,
 	 * which makes it good enough * for me. *
 	 ********************************************************************/
-	public static Vector removeTabs(Vector vec) {
-
-		Vector newVec = new Vector();
+	public static Vector<String> removeTabs(Vector vec) {
+		Vector<String> newVec = new Vector<>();
 		int i = 0;
 		while (i < vec.size()) {
 			String oldline = (String) vec.elementAt(i);
-			String newline = "";
+			StringBuilder newline = new StringBuilder();
 			int next = 0;
 			while (next < oldline.length()) {
 				if (oldline.charAt(next) == '\t') {
 					int toAdd = 8 - (newline.length() % 8);
 					while (toAdd > 0) {
-						newline = newline + " ";
+						newline.append(" ");
 						toAdd = toAdd - 1;
 					}
 				} else {
-					newline = newline + oldline.substring(next, next + 1);
+					newline.append(oldline, next, next + 1);
 				}
-				;
 				next = next + 1;
 			}
-			newVec.addElement(newline);
+			newVec.addElement(newline.toString());
 			i = i + 1;
 		}
 		;
 		return newVec;
 	}
-
-	/*********************************************************************
-	 * Returns the number of the first line at or after lineNum in the * vector
-	 * of strings vec containing tok1 followed by 1 or more * spaces followed by
-	 * tok2. Returns -1 if such a line is not found. *
-	 *********************************************************************/
-	private static int findTokenPair(Vector vec, int lineNum, String tok1, String tok2) {
-		int i = lineNum;
-		while (i < vec.size()) {
-			String line = (String) vec.elementAt(i);
-			int col = line.indexOf(tok1);
-			int nextcol = col + tok1.length();
-			if (col != -1) {
-				while ((nextcol < line.length()) && (line.charAt(nextcol) == ' ')) {
-					nextcol = nextcol + 1;
-				}
-				;
-				if ((nextcol < line.length()) && (nextcol == line.indexOf(tok2))) {
-					return i;
-				}
-			}
-			;
-			i = i + 1;
-		}
-		;
-		return -1;
-	}
-
 }
