@@ -9,7 +9,7 @@ import java.util.Map;
  * INSTANCE ModuleName (WITH a <- <expr>, b <- <expr>)?
  *
  */
-public class PGoTLAInstance {
+public class PGoTLAInstance extends PGoTLANode {
 	
 	String referenceName;
 	String moduleName;

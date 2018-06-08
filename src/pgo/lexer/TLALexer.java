@@ -22,6 +22,8 @@ import pcal.TLAToken;
  */
 public class TLALexer {
 	List<String> lines;
+
+	private boolean moduleRequired;
 	
 	static final Pattern WHITESPACE = Pattern.compile("\\s+");
 	
@@ -222,7 +224,7 @@ public class TLALexer {
 		Pattern.compile("\\[hH][0-9a-fA-F]+"),
 	};
 	
-	static final Pattern STRING = Pattern.compile("\"[^\"]*\"");
+	static final Pattern STRING = Pattern.compile("\"([^\"]*)\"");
 	
 	static final Pattern COMMENT_START = Pattern.compile("\\(\\*");
 	static final Pattern COMMENT_END = Pattern.compile("\\*\\)");
@@ -232,6 +234,19 @@ public class TLALexer {
 	
 	public TLALexer(Path filename) throws IOException {
 		lines = Files.readAllLines(filename);
+		this.moduleRequired = true;
+	}
+	
+	public TLALexer(List<String> lines) {
+		this.lines = lines;
+		this.moduleRequired = true;
+	}
+	
+	/**
+	 * @param yes whether to require that the input begins with a TLA module declaration, defaults to true
+	 */
+	public void requireModule(boolean yes) {
+		this.moduleRequired = yes;
 	}
 	
 	/**
@@ -242,7 +257,9 @@ public class TLALexer {
 		List<TLAToken> tokens = new ArrayList<TLAToken>();
 		// nested module count*2; is 0 if we are not in a module
 		// 2 for in one module, 4 for in a nested module, etc...
-		int moduleStack = 0;
+		// note: moduleRequired is used to get the lexer to read subsets of files,
+		// like expressions
+		int moduleStack = moduleRequired? 0 : 2;
 		// nested comment count, 0 for no comment, 1 for comment, 2
 		// for comment in a comment, etc...
 		int commentStack = 0;
@@ -432,7 +449,7 @@ public class TLALexer {
 					m = STRING.matcher(line);
 					m.region(column, line.length());
 					if(m.lookingAt()) {
-						tokens.add(new TLAToken(m.group(), m.start()+1, TLAToken.STRING, lineNum));
+						tokens.add(new TLAToken(m.group(1), m.start()+1, TLAToken.STRING, lineNum));
 						column = m.end();
 						continue;
 					}

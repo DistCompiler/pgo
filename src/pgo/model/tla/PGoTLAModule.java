@@ -13,7 +13,7 @@ import java.util.Map;
  * ====
  *
  */
-public class PGoTLAModule extends PGoTLADeclaration {
+public class PGoTLAModule extends PGoTLANode {
 	
 	String name;
 	List<String> exts;
@@ -35,6 +35,18 @@ public class PGoTLAModule extends PGoTLADeclaration {
 		this.submodules = submodules;
 		this.assumptions = assumptions;
 		this.theorems = theorems;
+	}
+	
+	public String getName() {
+		return name;
+	}
+	
+	public List<String> getExtends(){
+		return exts;
+	}
+	
+	public Map<String, PGoTLAOperator> getOperators(){
+		return operators;
 	}
 
 	@Override

@@ -25,4 +25,35 @@ public class PGoTLAQuantifierBound {
 		return "PGoTLAQuantifierBound [ids=" + ids + ", set=" + set + "]";
 	}
 
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ((ids == null) ? 0 : ids.hashCode());
+		result = prime * result + ((set == null) ? 0 : set.hashCode());
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		PGoTLAQuantifierBound other = (PGoTLAQuantifierBound) obj;
+		if (ids == null) {
+			if (other.ids != null)
+				return false;
+		} else if (!ids.equals(other.ids))
+			return false;
+		if (set == null) {
+			if (other.set != null)
+				return false;
+		} else if (!set.equals(other.set))
+			return false;
+		return true;
+	}
+
 }
