@@ -67,6 +67,12 @@ public class ExpressionCodeGenRunTest {
 						kv("c", num(3))),
 				Collections.singletonList("22"),
 			},
+			// set construction
+			{
+				binop("..", num(0), binop("-", idexp("a"), num(1))),
+				Collections.singletonList(kv("a", num(10))),
+				Collections.singletonList("[0 1 2 3 4 5 6 7 8 9]"),
+			},
 			// set op tests
 			{
 				binop("\\union", idexp("lhs"), idexp("rhs")),

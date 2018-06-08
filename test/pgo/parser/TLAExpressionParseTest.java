@@ -80,6 +80,9 @@ public class TLAExpressionParseTest {
 			{"DOMAIN \\lnot a", unary("DOMAIN", unary("\\lnot", idexp("a"))) },
 			{"\\lnot DOMAIN a", unary("\\lnot", unary("DOMAIN", idexp("a"))) },
 
+			// set construction
+			{"0..procs-1", binop("..", num(0), binop("-", idexp("procs"), num(1)))},
+
 			// TODO desc
 			{"(pc[i] \\notin {\"Li5\", \"Li6\", \"ncs\"})",
 					binop("\\notin",
