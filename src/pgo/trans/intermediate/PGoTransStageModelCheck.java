@@ -12,6 +12,7 @@ import pcal.AST.*;
 import pcal.AST.Process;
 import pcal.PCalTLAGenerator;
 import pcal.PcalTranslate;
+import pcal.Region;
 import pcal.TLAExpr;
 import pcal.TLAToken;
 import pcal.exception.RemoveNameConflictsException;
@@ -109,6 +110,7 @@ public class PGoTransStageModelCheck {
 				ret.var = var;
 				ret.isEq = isEq;
 				ret.val = val;
+				ret.setOrigin(new Region(0, 0, 1));
 				return ret;
 			}
 
@@ -116,12 +118,14 @@ public class PGoTransStageModelCheck {
 				SingleAssign ret = new SingleAssign();
 				ret.lhs = lhs;
 				ret.rhs = rhs;
+				ret.setOrigin(new Region(0, 0, 1));
 				return ret;
 			}
 
 			private Assign makeAssign(Vector<SingleAssign> ass) {
 				Assign ret = new Assign();
 				ret.ass = ass;
+				ret.setOrigin(new Region(0, 0, 1));
 				return ret;
 			}
 
@@ -132,6 +136,7 @@ public class PGoTransStageModelCheck {
 				for (AST ast : asts) {
 					ret.stmts.add(ast);
 				}
+				ret.setOrigin(new Region(0, 0, 1));
 				return ret;
 			}
 
