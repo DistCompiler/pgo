@@ -4,6 +4,7 @@ import java.io.IOException;
 
 import pgo.TODO;
 import pgo.model.golang.*;
+import pgo.model.golang.type.MapType;
 
 public class GoTypeFormattingVisitor extends TypeVisitor<Void, IOException> {
 
@@ -50,6 +51,15 @@ public class GoTypeFormattingVisitor extends TypeVisitor<Void, IOException> {
 	public Void visit(ChanType chanType) throws IOException {
 		out.write("chan ");
 		chanType.getElementType().accept(this);
+		return null;
+	}
+
+	@Override
+	public Void visit(MapType mapType) throws IOException {
+		out.write("map[");
+		mapType.getKeyType().accept(this);
+		out.write("]");
+		mapType.getValueType().accept(this);
 		return null;
 	}
 

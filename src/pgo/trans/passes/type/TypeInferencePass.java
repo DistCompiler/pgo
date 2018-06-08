@@ -9,6 +9,7 @@ import pgo.model.tla.PGoTLAUnit;
 import pgo.model.type.*;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
+import pgo.trans.intermediate.PGoTypeGoTypeConversionVisitor;
 
 public class TypeInferencePass {
 	private TypeInferencePass() {}
@@ -33,7 +34,7 @@ public class TypeInferencePass {
 		}
 	}
 
-	public static Map<UID, PGoType> perform(IssueContext ctx, DefinitionRegistry registry, Algorithm pcal) {
+	public static Map<UID, PGoType> perform(IssueContext ctx, DefinitionRegistry registry, Algorithm algorithm) {
 		PGoTypeSolver solver = new PGoTypeSolver();
 		PGoTypeGenerator generator = new PGoTypeGenerator("type");
 		Map<UID, PGoTypeVariable> mapping = new HashMap<>();
@@ -47,15 +48,15 @@ public class TypeInferencePass {
 			solver.addConstraint(new PGoTypeMonomorphicConstraint(value, fresh, type));
 		}
 
-		for (VariableDeclaration var : pcal.getVariables()) {
+		for (VariableDeclaration var : algorithm.getVariables()) {
 			constrainVariableDeclaration(registry, var, solver, generator, mapping);
 		}
 
-		for (PGoTLAUnit unit : pcal.getUnits()) {
+		for (PGoTLAUnit unit : algorithm.getUnits()) {
 			unit.accept(new TLAUnitTypeConstraintVisitor(registry, solver, generator, mapping));
 		}
 
-		for (Procedure p : pcal.getProcedures()) {
+		for (Procedure p : algorithm.getProcedures()) {
 			List<PGoType> paramTypes = new ArrayList<>();
 			for (VariableDeclaration var : p.getArguments()) {
 				constrainVariableDeclaration(registry, var, solver, generator, mapping);
@@ -71,7 +72,7 @@ public class TypeInferencePass {
 			mapping.put(p.getUID(), fresh);
 		}
 
-		pcal.getProcesses().accept(new ProcessesVisitor<Void, RuntimeException>(){
+		algorithm.getProcesses().accept(new ProcessesVisitor<Void, RuntimeException>(){
 			@Override
 			public Void visit(SingleProcess singleProcess) throws RuntimeException {
 				for (LabeledStatements statements : singleProcess.getLabeledStatements()) {
@@ -119,6 +120,11 @@ public class TypeInferencePass {
 			if (type.containsVariables()) {
 				ctx.error(new TypeInferenceFailureIssue(uid, type));
 			}
+		}
+
+		for (UID varUID : registry.globalVariables()) {
+			registry.updateGlobalVariableType(
+					varUID, resultingTypeMapping.get(varUID).accept(new PGoTypeGoTypeConversionVisitor()));
 		}
 
 		return resultingTypeMapping;

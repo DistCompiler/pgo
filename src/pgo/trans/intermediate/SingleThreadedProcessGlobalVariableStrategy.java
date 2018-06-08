@@ -1,27 +1,11 @@
 package pgo.trans.intermediate;
 
-import java.util.List;
-import java.util.Map;
-
 import pgo.InternalCompilerError;
 import pgo.model.golang.*;
-import pgo.model.pcal.Algorithm;
 import pgo.model.pcal.PcalProcess;
-import pgo.model.type.PGoType;
 import pgo.scope.UID;
 
 public class SingleThreadedProcessGlobalVariableStrategy extends GlobalVariableStrategy {
-	private DefinitionRegistry registry;
-	private Map<UID, PGoType> typeMap;
-	private Algorithm algorithm;
-
-	public SingleThreadedProcessGlobalVariableStrategy(DefinitionRegistry registry, Map<UID, PGoType> typeMap,
-	                                                   Algorithm algorithm) {
-		this.registry = registry;
-		this.typeMap = typeMap;
-		this.algorithm = algorithm;
-	}
-
 	@Override
 	public void initPostlude(ModuleBuilder moduleBuilder, BlockBuilder initBuilder) {
 		// nothing to do
@@ -34,26 +18,21 @@ public class SingleThreadedProcessGlobalVariableStrategy extends GlobalVariableS
 
 	@Override
 	public void mainPrelude(BlockBuilder builder) {
-		generateLocalVariableDefinitions(registry, typeMap, builder, algorithm.getVariables());
+		// nothing to do
 	}
 
 	@Override
-	public List<FunctionArgument> getExtraProcessArguments() {
-		throw new InternalCompilerError();
-	}
-
-	@Override
-	public void startCriticalSection(BlockBuilder builder, int lockGroup, UID labelUID, LabelName labelName) {
+	public void startCriticalSection(BlockBuilder builder, UID processUID, int lockGroup, UID labelUID, LabelName labelName) {
 		// pass
 	}
 
 	@Override
-	public void abortCriticalSection(BlockBuilder builder, int lockGroup, UID labelUID, LabelName labelName) {
+	public void abortCriticalSection(BlockBuilder builder, UID processUID, int lockGroup, UID labelUID, LabelName labelName) {
 		builder.addPanic(new StringLiteral("Something went wrong"));
 	}
 
 	@Override
-	public void endCriticalSection(BlockBuilder builder, int lockGroup, UID labelUID, LabelName labelName) {
+	public void endCriticalSection(BlockBuilder builder, UID processUID, int lockGroup, UID labelUID, LabelName labelName) {
 		// pass
 	}
 
@@ -76,5 +55,4 @@ public class SingleThreadedProcessGlobalVariableStrategy extends GlobalVariableS
 			}
 		};
 	}
-
 }

@@ -20,5 +20,6 @@ public abstract class StatementVisitor<T, E extends Throwable>{
 	public abstract T visit(Continue continue1) throws E;
 	public abstract T visit(Defer defer) throws E;
 	public abstract T visit(Go go) throws E;
+	public abstract T visit(VariableDeclarationStatement variableDeclarationStatement) throws E;
 
 }

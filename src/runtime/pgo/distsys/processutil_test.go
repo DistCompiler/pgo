@@ -7,7 +7,7 @@ func TestIntArgument(t *testing.T) {
 	if processName != "P" {
 		t.Errorf("Expected P, found %s", processName)
 	}
-	if argument != 1 {
+	if argument != "1" {
 		t.Errorf("Expected 1, found %v", argument)
 	}
 }

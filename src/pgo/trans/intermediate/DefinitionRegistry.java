@@ -3,6 +3,7 @@ package pgo.trans.intermediate;
 import java.util.*;
 
 import pgo.InternalCompilerError;
+import pgo.model.golang.Type;
 import pgo.model.pcal.Procedure;
 import pgo.model.tla.PGoTLAExpression;
 import pgo.model.tla.PGoTLAFunctionDefinition;
@@ -15,12 +16,15 @@ public class DefinitionRegistry {
 	private Map<String, PGoTLAModule> modules;
 	private Map<UID, PGoTLAUnit> definitions;
 	private Map<UID, OperatorAccessor> operators;
-	private Set<UID> globalVariables;
+	private Map<UID, Type> globalVariableTypes;
 	private Set<UID> localVariables;
 	private Map<UID, String> constants;
 	private Map<UID, PGoTLAExpression> constantValues;
 	private Map<UID, UID> references;
 	private Map<String, Procedure> procedures;
+	private Map<UID, Integer> labelsToLockGroups;
+	private Map<Integer, Set<UID>> lockGroupsToVariables;
+	private Set<UID> protectedGlobalVariables;
 
 	public DefinitionRegistry() {
 		this.modules = new HashMap<>();
@@ -28,10 +32,13 @@ public class DefinitionRegistry {
 		this.operators = new HashMap<>();
 		this.references = new HashMap<>();
 		this.procedures = new HashMap<>();
-		this.globalVariables = new HashSet<>();
+		this.globalVariableTypes = new HashMap<>();
 		this.localVariables = new HashSet<>();
 		this.constants = new HashMap<>();
 		this.constantValues = new HashMap<>();
+		this.labelsToLockGroups = new HashMap<>();
+		this.lockGroupsToVariables = new HashMap<>();
+		this.protectedGlobalVariables = new HashSet<>();
 	}
 
 	public Map<UID, UID> getReferences() {
@@ -65,7 +72,14 @@ public class DefinitionRegistry {
 	}
 
 	public void addGlobalVariable(UID uid) {
-		globalVariables.add(uid);
+		globalVariableTypes.put(uid, null);
+	}
+
+	public void updateGlobalVariableType(UID uid, Type type) {
+		if (!globalVariableTypes.containsKey(uid)) {
+			throw new InternalCompilerError();
+		}
+		globalVariableTypes.put(uid, type);
 	}
 
 	public void addLocalVariable(UID uid) {
@@ -99,7 +113,11 @@ public class DefinitionRegistry {
 	}
 
 	public boolean isGlobalVariable(UID ref) {
-		return globalVariables.contains(ref);
+		return globalVariableTypes.containsKey(ref);
+	}
+
+	public Type getGlobalVariableType(UID uid) {
+		return globalVariableTypes.get(uid);
 	}
 
 	public boolean isLocalVariable(UID ref) {
@@ -130,5 +148,51 @@ public class DefinitionRegistry {
 			throw new InternalCompilerError();
 		}
 		return constantValues.get(id);
+	}
+
+	public Set<UID> globalVariables() {
+		return globalVariableTypes.keySet();
+	}
+
+	public void addLabelToLockGroup(UID labelUID, int lockGroup) {
+		if (labelsToLockGroups.containsKey(labelUID)) {
+			throw new InternalCompilerError();
+		}
+		labelsToLockGroups.put(labelUID, lockGroup);
+	}
+
+	public int getLockGroup(UID labelUID) {
+		return labelsToLockGroups.get(labelUID);
+	}
+
+	public int getNumberOfLockGroups() {
+		return 1 + labelsToLockGroups.values().stream()
+				.max(Comparator.comparingInt(Integer::intValue))
+				.orElse(-1);
+	}
+
+	public int getLockGroupOrDefault(UID labelUID, int defaultValue) {
+		return labelsToLockGroups.getOrDefault(labelUID, defaultValue);
+	}
+
+	public void addVariableToLockGroup(UID varUID, int lockGroup) {
+		lockGroupsToVariables.putIfAbsent(lockGroup, new HashSet<>());
+		lockGroupsToVariables.get(lockGroup).add(varUID);
+	}
+
+	public Set<UID> getVariablesInLockGroup(int lockGroup) {
+		return Collections.unmodifiableSet(lockGroupsToVariables.getOrDefault(lockGroup, new TreeSet<>()));
+	}
+
+	public void addProtectedGlobalVariable(UID varUID) {
+		protectedGlobalVariables.add(varUID);
+	}
+
+	public boolean isGlobalVariableProtected(UID varUID) {
+		return protectedGlobalVariables.contains(varUID);
+	}
+
+	public Set<UID> protectedGlobalVariables() {
+		return Collections.unmodifiableSet(protectedGlobalVariables);
 	}
 }

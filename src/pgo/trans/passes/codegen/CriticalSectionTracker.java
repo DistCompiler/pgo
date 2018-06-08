@@ -4,32 +4,34 @@ import pgo.InternalCompilerError;
 import pgo.model.golang.BlockBuilder;
 import pgo.model.golang.LabelName;
 import pgo.scope.UID;
+import pgo.trans.intermediate.DefinitionRegistry;
 
-import java.util.Map;
 import java.util.function.Consumer;
 
 public class CriticalSectionTracker {
-	private Map<UID, Integer> labelsToLockGroups;
+	private DefinitionRegistry registry;
+	private UID processUID;
 	private CriticalSection criticalSection;
 	private int currentLockGroup;
 	private UID currentLabelUID;
 	private LabelName currentLabelName;
 
-	private CriticalSectionTracker(Map<UID, Integer> labelsToLockGroups, CriticalSection criticalSection,
+	private CriticalSectionTracker(DefinitionRegistry registry, UID processUID, CriticalSection criticalSection,
 	                               int currentLockGroup, UID currentLabelUID, LabelName currentLabelName) {
-		this.labelsToLockGroups = labelsToLockGroups;
+		this.registry = registry;
+		this.processUID = processUID;
 		this.criticalSection = criticalSection;
 		this.currentLockGroup = currentLockGroup;
 		this.currentLabelUID = currentLabelUID;
 		this.currentLabelName = currentLabelName;
 	}
 
-	public CriticalSectionTracker(Map<UID, Integer> labelsToLockGroups, CriticalSection criticalSection) {
-		this(labelsToLockGroups, criticalSection, -1, null, null);
+	public CriticalSectionTracker(DefinitionRegistry registry, UID processUID, CriticalSection criticalSection) {
+		this(registry, processUID, criticalSection, -1, null, null);
 	}
 
 	public void start(BlockBuilder builder, UID labelUID, LabelName labelName) {
-		int lockGroup = labelsToLockGroups.getOrDefault(labelUID, -1);
+		int lockGroup = registry.getLockGroupOrDefault(labelUID, -1);
 		if (currentLockGroup != -1 && currentLockGroup != lockGroup) {
 			end(builder);
 		}
@@ -38,18 +40,21 @@ public class CriticalSectionTracker {
 			return;
 		}
 		builder.labelIsUnique(labelName.getName());
-		criticalSection.startCriticalSection(builder, lockGroup, labelUID, labelName);
+		criticalSection.startCriticalSection(builder, processUID, lockGroup, labelUID, labelName);
 		currentLockGroup = lockGroup;
 		currentLabelUID = labelUID;
 		currentLabelName = labelName;
 	}
 
 	public void abort(BlockBuilder builder) {
-		if (currentLockGroup == -1) {
-			// nothing to do
-			return;
+		if (currentLockGroup > 0) {
+			criticalSection.abortCriticalSection(
+					builder, processUID, currentLockGroup, currentLabelUID, currentLabelName);
 		}
-		criticalSection.abortCriticalSection(builder, currentLockGroup, currentLabelUID, currentLabelName);
+		builder.goTo(currentLabelName);
+		currentLockGroup = -1;
+		currentLabelUID = null;
+		currentLabelName = null;
 	}
 
 	public void end(BlockBuilder builder) {
@@ -57,14 +62,14 @@ public class CriticalSectionTracker {
 			// nothing to do
 			return;
 		}
-		criticalSection.endCriticalSection(builder, currentLockGroup, currentLabelUID, currentLabelName);
+		criticalSection.endCriticalSection(builder, processUID, currentLockGroup, currentLabelUID, currentLabelName);
 		currentLockGroup = -1;
 		currentLabelUID = null;
 		currentLabelName = null;
 	}
 
 	public void checkCompatibility(CriticalSectionTracker other) {
-		if (labelsToLockGroups != other.labelsToLockGroups || criticalSection != other.criticalSection ||
+		if (registry != other.registry || criticalSection != other.criticalSection ||
 				currentLockGroup != other.currentLockGroup || currentLabelUID != other.currentLabelUID ||
 				(currentLabelName != null && !currentLabelName.getName().equals(other.currentLabelName.getName()))) {
 			throw new InternalCompilerError();
@@ -72,8 +77,8 @@ public class CriticalSectionTracker {
 	}
 
 	public CriticalSectionTracker copy() {
-		return new CriticalSectionTracker(labelsToLockGroups, criticalSection, currentLockGroup, currentLabelUID,
-				currentLabelName);
+		return new CriticalSectionTracker(
+				registry, processUID, criticalSection, currentLockGroup, currentLabelUID, currentLabelName);
 	}
 
 	public Consumer<BlockBuilder> actionAtLoopEnd() {

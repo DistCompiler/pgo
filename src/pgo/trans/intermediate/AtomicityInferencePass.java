@@ -30,8 +30,7 @@ public class AtomicityInferencePass {
 		}
 	}
 
-	public static Map<UID, Integer> perform(DefinitionRegistry registry, Algorithm pcalAlgorithm) {
-		Map<UID, Integer> labelsToLockGroups = new HashMap<>();
+	public static void perform(DefinitionRegistry registry, Algorithm pcalAlgorithm) {
 		if (pcalAlgorithm.getProcesses() instanceof MultiProcess) {
 			Map<UID, Set<UID>> globalVarReadsToLabel = new HashMap<>();
 			Map<UID, Set<UID>> globalVarWritesToLabel = new HashMap<>();
@@ -62,10 +61,15 @@ public class AtomicityInferencePass {
 					if (!seenRoots.containsKey(rootUID)) {
 						seenRoots.put(rootUID, seenRoots.size());
 					}
-					labelsToLockGroups.put(labelUID, seenRoots.get(rootUID));
+					registry.addLabelToLockGroup(labelUID, seenRoots.get(rootUID));
+				}
+			}
+			for (UID varUID : registry.globalVariables()) {
+				if (unionFind.getRank(varUID) > 0) {
+					registry.addProtectedGlobalVariable(varUID);
+					registry.addVariableToLockGroup(varUID, seenRoots.get(unionFind.find(varUID)));
 				}
 			}
 		}
-		return labelsToLockGroups;
 	}
 }

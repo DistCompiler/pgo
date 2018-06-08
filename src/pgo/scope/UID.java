@@ -5,12 +5,11 @@ import pgo.util.DerivedVisitor;
 import pgo.util.Origin;
 
 public class UID extends Derived {
-
 	@Override
 	public <T, E extends Throwable> T accept(DerivedVisitor<T, E> v) throws E {
 		return v.visit(this);
 	}
-	
+
 	@Override
 	public String toString() {
 		StringBuilder b = new StringBuilder(super.toString());
@@ -27,5 +26,4 @@ public class UID extends Derived {
 		b.append(")");
 		return b.toString();
 	}
-
 }

@@ -6,6 +6,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import pgo.InternalCompilerError;
 import pgo.scope.UID;
@@ -61,7 +62,11 @@ public class BlockBuilder extends ASTBuilder implements Closeable {
 	}
 
 	public void assign(Expression name, Expression value) {
-		addStatement(new Assignment(Collections.singletonList(name), false, Collections.singletonList(value)));
+		assign(Collections.singletonList(name), Collections.singletonList(value));
+	}
+
+	public void assign(List<Expression> names, Expression value) {
+		assign(names, Collections.singletonList(value));
 	}
 
 	public void assign(List<Expression> names, List<Expression> values) {
@@ -100,10 +105,24 @@ public class BlockBuilder extends ASTBuilder implements Closeable {
 		return new ForRangeBuilder(this, nameCleaner.child(), nameMap, labelScope, rangeExp);
 	}
 
+	public SwitchBuilder switchStmt(Expression switchExp) {
+		return new SwitchBuilder(this, nameCleaner.child(), nameMap, labelScope, switchExp);
+	}
+
+	public List<VariableName> varDecl(List<String> nameHints, Expression value) {
+		List<VariableName> ret = new ArrayList<>();
+		List<Expression> names = new ArrayList<>();
+		for (String hint : nameHints) {
+			VariableName variableName = getFreshName(hint);
+			ret.add(variableName);
+			names.add(variableName);
+		}
+		addStatement(new Assignment(names, true, Collections.singletonList(value)));
+		return ret;
+	}
+
 	public VariableName varDecl(String nameHint, Expression value) {
-		VariableName name = getFreshName(nameHint);
-		addStatement(new Assignment(Collections.singletonList(name), true, Collections.singletonList(value)));
-		return name;
+		return varDecl(Collections.singletonList(nameHint), value).get(0);
 	}
 
 	public VariableName getFreshName(String nameHint) {

@@ -26,29 +26,27 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 public class PlusCalStatementCodeGenVisitor extends StatementVisitor<Void, RuntimeException> {
-	private BlockBuilder builder;
 	private DefinitionRegistry registry;
 	private Map<UID, PGoType> typeMap;
-	private Map<UID, Integer> labelsToLockGroups;
 	private GlobalVariableStrategy globalStrategy;
+	private UID processUID;
+	private BlockBuilder builder;
 	private CriticalSectionTracker criticalSectionTracker;
 
 	private PlusCalStatementCodeGenVisitor(DefinitionRegistry registry, Map<UID, PGoType> typeMap,
-	                                       Map<UID, Integer> labelsToLockGroups,GlobalVariableStrategy globalStrategy,
-	                                       BlockBuilder builder, CriticalSectionTracker criticalSectionTracker) {
+	                                       GlobalVariableStrategy globalStrategy, UID processUID, BlockBuilder builder,
+	                                       CriticalSectionTracker criticalSectionTracker) {
 		this.registry = registry;
 		this.typeMap = typeMap;
-		this.labelsToLockGroups = labelsToLockGroups;
 		this.globalStrategy = globalStrategy;
+		this.processUID = processUID;
 		this.builder = builder;
 		this.criticalSectionTracker = criticalSectionTracker;
 	}
 
 	public PlusCalStatementCodeGenVisitor(DefinitionRegistry registry, Map<UID, PGoType> typeMap,
-	                                      Map<UID, Integer> labelsToLockGroups,GlobalVariableStrategy globalStrategy,
-	                                      BlockBuilder builder) {
-		this(registry, typeMap, labelsToLockGroups, globalStrategy, builder,
-				new CriticalSectionTracker(labelsToLockGroups, globalStrategy));
+	                                      GlobalVariableStrategy globalStrategy, UID processUID, BlockBuilder builder) {
+		this(registry, typeMap, globalStrategy, processUID, builder, new CriticalSectionTracker(registry, processUID, globalStrategy));
 	}
 
 	@Override
@@ -85,7 +83,7 @@ public class PlusCalStatementCodeGenVisitor extends StatementVisitor<Void, Runti
 			}
 			for (Statement statement : while1.getBody()) {
 				statement.accept(new PlusCalStatementCodeGenVisitor(
-						registry, typeMap, labelsToLockGroups, globalStrategy, fb, criticalSectionTracker));
+						registry, typeMap, globalStrategy, processUID, fb, criticalSectionTracker));
 			}
 			actionAtLoopEnd.accept(fb);
 		}
@@ -101,7 +99,7 @@ public class PlusCalStatementCodeGenVisitor extends StatementVisitor<Void, Runti
 			try (BlockBuilder yes = b.whenTrue()) {
 				for (Statement stmt : if1.getYes()) {
 					stmt.accept(new PlusCalStatementCodeGenVisitor(
-							registry, typeMap, labelsToLockGroups, globalStrategy, yes, criticalSectionTracker));
+							registry, typeMap, globalStrategy, processUID, yes, criticalSectionTracker));
 				}
 				// if an if statement contains a label, then the statement(s) after it must be labeled
 				// if the statement after must be labeled, we know this critical section ends here (and
@@ -114,7 +112,7 @@ public class PlusCalStatementCodeGenVisitor extends StatementVisitor<Void, Runti
 			try (BlockBuilder no = b.whenFalse()) {
 				for (Statement stmt : if1.getNo()) {
 					stmt.accept(new PlusCalStatementCodeGenVisitor(
-							registry, typeMap, labelsToLockGroups, globalStrategy, no, noTracker));
+							registry, typeMap, globalStrategy, processUID, no, noTracker));
 				}
 				// see description for true case
 				if (containsLabels) {

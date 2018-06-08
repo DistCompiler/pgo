@@ -1,6 +1,7 @@
 package pgo.trans.intermediate;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.function.Consumer;
@@ -15,17 +16,15 @@ import pgo.scope.UID;
 public class PlusCalProcessesCodeGenVisitor extends ProcessesVisitor<Void, RuntimeException> {
 	private DefinitionRegistry registry;
 	private Map<UID, PGoType> typeMap;
-	private Map<UID, Integer> labelsToLockGroups;
 	private GlobalVariableStrategy globalStrategy;
 	private Algorithm algorithm;
 	private ModuleBuilder moduleBuilder;
 
 	public PlusCalProcessesCodeGenVisitor(DefinitionRegistry registry, Map<UID, PGoType> typeMap,
-	                                      Map<UID, Integer> labelsToLockGroups, GlobalVariableStrategy globalStrategy, Algorithm algorithm,
+	                                      GlobalVariableStrategy globalStrategy, Algorithm algorithm,
 	                                      ModuleBuilder moduleBuilder) {
 		this.registry = registry;
 		this.typeMap = typeMap;
-		this.labelsToLockGroups = labelsToLockGroups;
 		this.globalStrategy = globalStrategy;
 		this.algorithm = algorithm;
 		this.moduleBuilder = moduleBuilder;
@@ -58,13 +57,29 @@ public class PlusCalProcessesCodeGenVisitor extends ProcessesVisitor<Void, Runti
 		}
 	}
 
+	private static void generateLocalVariableDefinitions(DefinitionRegistry registry, Map<UID, PGoType> typeMap,
+	                                                     GlobalVariableStrategy globalStrategy, BlockBuilder processBody,
+	                                                     List<VariableDeclaration> variableDeclarations) {
+		for (VariableDeclaration variableDeclaration : variableDeclarations) {
+			Expression value = variableDeclaration.getValue().accept(
+					new TLAExpressionCodeGenVisitor(processBody, registry, typeMap, globalStrategy));
+			if (variableDeclaration.isSet()) {
+				value = new Index(value, new IntLiteral(0));
+			}
+			VariableName name = processBody.varDecl(variableDeclaration.getName(), value);
+			processBody.linkUID(variableDeclaration.getUID(), name);
+		}
+	}
+
 	@Override
 	public Void visit(SingleProcess singleProcess) throws RuntimeException {
 		generateInit(ignored -> {});
 		try (BlockBuilder fnBuilder = moduleBuilder.defineFunction("main").getBlockBuilder()) {
 			globalStrategy.mainPrelude(fnBuilder);
+			generateLocalVariableDefinitions(registry, typeMap, globalStrategy, fnBuilder, algorithm.getVariables());
 			for (LabeledStatements statements : singleProcess.getLabeledStatements()) {
-				statements.accept(new PlusCalStatementCodeGenVisitor(registry, typeMap, labelsToLockGroups, globalStrategy, fnBuilder));
+				statements.accept(new PlusCalStatementCodeGenVisitor(
+						registry, typeMap, globalStrategy, singleProcess.getUID(), fnBuilder));
 			}
 		}
 		return null;
@@ -95,15 +110,18 @@ public class PlusCalProcessesCodeGenVisitor extends ProcessesVisitor<Void, Runti
 			}
 		});
 		for (PcalProcess process : multiProcess.getProcesses()) {
+			UID processUID = process.getName().getUID();
 			FunctionDeclarationBuilder functionBuilder = moduleBuilder.defineFunction(
-					process.getName().getUID(), process.getName().getName());
-			Type selfType = typeMap.get(process.getName().getUID()).accept(new PGoTypeGoTypeConversionVisitor());
+					processUID, process.getName().getName());
+			Type selfType = typeMap.get(processUID).accept(new PGoTypeGoTypeConversionVisitor());
 			VariableName self = functionBuilder.addArgument("self", selfType);
 			try (BlockBuilder processBody = functionBuilder.getBlockBuilder()) {
-				processBody.linkUID(process.getName().getUID(), self);
+				processBody.linkUID(processUID, self);
 				globalStrategy.processPrelude(processBody, process, process.getName().getName(), self, selfType);
+				generateLocalVariableDefinitions(registry, typeMap, globalStrategy, processBody, process.getVariables());
 		 		for (LabeledStatements statements : process.getLabeledStatements()) {
-					statements.accept(new PlusCalStatementCodeGenVisitor(registry, typeMap, labelsToLockGroups, globalStrategy, processBody));
+					statements.accept(new PlusCalStatementCodeGenVisitor(
+							registry, typeMap, globalStrategy, processUID, processBody));
 				}
 			}
 		}

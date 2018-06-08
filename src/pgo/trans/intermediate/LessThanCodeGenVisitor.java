@@ -1,11 +1,11 @@
 package pgo.trans.intermediate;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
 import pgo.TODO;
 import pgo.model.golang.*;
+import pgo.model.golang.type.MapType;
 
 public class LessThanCodeGenVisitor extends TypeVisitor<Expression, RuntimeException> {
 
@@ -110,6 +110,11 @@ public class LessThanCodeGenVisitor extends TypeVisitor<Expression, RuntimeExcep
 
 	@Override
 	public Expression visit(ChanType chanType) throws RuntimeException {
+		throw new TODO();
+	}
+
+	@Override
+	public Expression visit(MapType mapType) throws RuntimeException {
 		throw new TODO();
 	}
 

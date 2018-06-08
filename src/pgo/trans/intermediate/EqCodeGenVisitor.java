@@ -7,6 +7,7 @@ import java.util.stream.Collectors;
 
 import pgo.TODO;
 import pgo.model.golang.*;
+import pgo.model.golang.type.MapType;
 import pgo.trans.passes.codegen.GoExpressionIsConstantVisitor;
 
 public class EqCodeGenVisitor extends TypeVisitor<Expression, RuntimeException> {
@@ -127,6 +128,11 @@ public class EqCodeGenVisitor extends TypeVisitor<Expression, RuntimeException> 
 
 	@Override
 	public Expression visit(ChanType chanType) throws RuntimeException {
+		throw new TODO();
+	}
+
+	@Override
+	public Expression visit(MapType mapType) throws RuntimeException {
 		throw new TODO();
 	}
 

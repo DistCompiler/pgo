@@ -114,7 +114,31 @@ public class GoStatementFormattingVisitor extends StatementVisitor<Void, IOExcep
 
 	@Override
 	public Void visit(Switch switch1) throws IOException {
-		throw new TODO();
+		out.write("switch ");
+		if (switch1.getCondition() != null) {
+			switch1.getCondition().accept(new GoExpressionFormattingVisitor(out));
+		}
+		out.write(" {");
+		out.newLine();
+		for (SwitchCase switchCase : switch1.getCases()) {
+			out.write("case ");
+			switchCase.getCondition().accept(new GoExpressionFormattingVisitor(out));
+			out.write(":");
+			out.newLine();
+			for (Statement statement : switchCase.getBlock()) {
+				statement.accept(this);
+				out.newLine();
+			}
+		}
+		if (switch1.getDefaultBlock() != null) {
+			out.write("default:");
+			for (Statement statement : switch1.getDefaultBlock()) {
+				statement.accept(this);
+				out.newLine();
+			}
+		}
+		out.write("}");
+		return null;
 	}
 
 	@Override
@@ -181,6 +205,20 @@ public class GoStatementFormattingVisitor extends StatementVisitor<Void, IOExcep
 	public Void visit(Go go) throws IOException {
 		out.write("go ");
 		go.getExpression().accept(new GoExpressionFormattingVisitor(out));
+		return null;
+	}
+
+	@Override
+	public Void visit(VariableDeclarationStatement variableDeclarationStatement) throws IOException {
+		VariableDeclaration variableDeclaration = variableDeclarationStatement.getVariableDeclaration();
+		out.write("var ");
+		out.write(variableDeclaration.getName());
+		out.write(" ");
+		variableDeclaration.getType().accept(new GoTypeFormattingVisitor(out));
+		if (variableDeclaration.getValue() != null) {
+			out.write(" = ");
+			variableDeclaration.getValue().accept(new GoExpressionFormattingVisitor(out));
+		}
 		return null;
 	}
 }

@@ -1,30 +1,25 @@
 package distsys
 
 import (
-	"strconv"
 	"strings"
 )
 
-func ParseProcessId(processId string) (string, interface{}) {
+func ParseProcessId(processId string) (string, string) {
 	leftParens := strings.Index(processId, "(")
 	if leftParens < 0 {
-		panic("Missing left parenthesis")
+		panic("Missing left parenthesis for process ID " + processId)
 	}
 	processName := processId[:leftParens]
 	if processName == "" {
-		panic("Missing process name")
+		panic("Missing process name for process ID " + processId)
 	}
 	rightParens := strings.LastIndex(processId, ")")
 	if rightParens < 0 {
-		panic("Missing right parenthesis")
+		panic("Missing right parenthesis for process ID " + processId)
 	}
 	argument := processId[leftParens+1 : rightParens]
 	if argument == "" {
-		panic("Missing processs argument")
+		panic("Missing processs argument for process ID " + processId)
 	}
-	i, err := strconv.Atoi(argument)
-	if err != nil {
-		return processName, argument
-	}
-	return processName, i
+	return processName, argument
 }

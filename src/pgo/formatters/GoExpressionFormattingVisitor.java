@@ -1,28 +1,13 @@
 package pgo.formatters;
 
 import java.io.IOException;
+import java.util.Map;
 
 import pgo.TODO;
 import pgo.Unreachable;
-import pgo.model.golang.AnonymousFunction;
-import pgo.model.golang.Binop;
+import pgo.model.golang.*;
 import pgo.model.golang.Builtins.BuiltinConstant;
-import pgo.model.golang.Call;
-import pgo.model.golang.ExpressionVisitor;
-import pgo.model.golang.GoTo;
-import pgo.model.golang.Index;
-import pgo.model.golang.IntLiteral;
-import pgo.model.golang.Make;
-import pgo.model.golang.MapLiteral;
-import pgo.model.golang.Selector;
-import pgo.model.golang.SliceLiteral;
-import pgo.model.golang.SliceOperator;
-import pgo.model.golang.StringLiteral;
-import pgo.model.golang.StructLiteral;
-import pgo.model.golang.TypeAssertion;
-import pgo.model.golang.TypeCast;
-import pgo.model.golang.Unary;
-import pgo.model.golang.VariableName;
+import pgo.model.golang.type.MapType;
 
 public class GoExpressionFormattingVisitor extends ExpressionVisitor<Void, IOException> {
 
@@ -52,7 +37,19 @@ public class GoExpressionFormattingVisitor extends ExpressionVisitor<Void, IOExc
 
 	@Override
 	public Void visit(MapLiteral mapConstructor) throws IOException {
-		throw new TODO();
+		(new MapType(mapConstructor.getKeyType(), mapConstructor.getValueType()))
+				.accept(new GoTypeFormattingVisitor(out));
+		out.write("{");
+		out.newLine();
+		for (Map.Entry<Expression, Expression> entry : mapConstructor.getPairs().entrySet()) {
+			entry.getKey().accept(this);
+			out.write(": ");
+			entry.getValue().accept(this);
+			out.write(",");
+			out.newLine();
+		}
+		out.write("}");
+		return null;
 	}
 
 	@Override
@@ -105,7 +102,11 @@ public class GoExpressionFormattingVisitor extends ExpressionVisitor<Void, IOExc
 
 	@Override
 	public Void visit(TypeAssertion typeAssertion) throws IOException {
-		throw new TODO();
+		typeAssertion.getTarget().accept(this);
+		out.write(".(");
+		typeAssertion.getType().accept(new GoTypeFormattingVisitor(out));
+		out.write(")");
+		return null;
 	}
 
 	@Override

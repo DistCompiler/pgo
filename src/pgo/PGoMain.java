@@ -100,10 +100,10 @@ public class PGoMain {
 			checkErrors(ctx);
 
 			logger.info("Inferring atomicity requirements");
-			Map<UID, Integer> labelsToLockGroup = AtomicityInferencePass.perform(registry, pcalAlgorithm);
+			AtomicityInferencePass.perform(registry, pcalAlgorithm);
 
 			logger.info("Initial code generation");
-			Module module = CodeGenPass.perform(registry, typeMap, labelsToLockGroup, opts, pcalAlgorithm);
+			Module module = CodeGenPass.perform(registry, typeMap, opts, pcalAlgorithm);
 
 			logger.info("Normalising generated code");
 			Module normalisedModule = CodeNormalisingPass.perform(module);

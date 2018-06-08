@@ -1,7 +1,5 @@
 package pgo.trans.passes.codegen;
 
-import pgo.InternalCompilerError;
-import pgo.TODO;
 import pgo.model.golang.*;
 import pgo.model.pcal.Algorithm;
 import pgo.model.pcal.MultiProcess;
@@ -12,75 +10,56 @@ import pgo.trans.intermediate.DefinitionRegistry;
 import pgo.trans.intermediate.GlobalVariableStrategy;
 import pgo.trans.intermediate.TLAExpressionCodeGenVisitor;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Map;
 
 // FIXME this strategy, for efficiency reasons, does not implement abortCriticalSection correctly
 public class MultithreadedProcessGlobalVariableStrategy extends GlobalVariableStrategy {
 	private DefinitionRegistry registry;
 	private Map<UID, PGoType> typeMap;
-	private Map<UID, Integer> labelsToLockGroups;
 	private Algorithm algorithm;
 	private UID pGoLockUID;
 	private UID pGoWaitUID;
 	private UID pGoStartUID;
-	private Map<UID, VariableName> synchronizedVariables;
 
 	private static final Type PGO_LOCK_TYPE = new SliceType(new TypeName("sync.Mutex"));
 
-	private void addSynchronizedVariable(UID uid, VariableName name) {
-		if (synchronizedVariables.containsKey(uid)) {
-			throw new InternalCompilerError();
-		}
-		synchronizedVariables.put(uid, name);
-	}
-
-	private VariableName findSynchronizedVariable(UID uid) {
-		if (!synchronizedVariables.containsKey(uid)) {
-			throw new InternalCompilerError();
-		}
-		return synchronizedVariables.get(uid);
-	}
-
 	public MultithreadedProcessGlobalVariableStrategy(DefinitionRegistry registry, Map<UID, PGoType> typeMap,
-	                                                  Map<UID, Integer> labelsToLockGroups, Algorithm algorithm) {
+	                                                  Algorithm algorithm) {
 		this.registry = registry;
 		this.typeMap = typeMap;
-		this.labelsToLockGroups = labelsToLockGroups;
 		this.algorithm = algorithm;
 		this.pGoLockUID = new UID();
 		this.pGoWaitUID = new UID();
 		this.pGoStartUID = new UID();
-		this.synchronizedVariables = new HashMap<>();
 	}
 
 	@Override
 	public void initPostlude(ModuleBuilder moduleBuilder, BlockBuilder initBuilder) {
-		int nLock = 1 + labelsToLockGroups.values().stream()
-				.max(Comparator.comparingInt(Integer::intValue))
-				.orElse(-1);
+		int nLock = registry.getNumberOfLockGroups();
 		if (nLock <= 0) {
 			// nothing to do
 			return;
 		}
 		moduleBuilder.addImport("sync");
 		VariableName pGoLock = moduleBuilder.defineGlobal(pGoLockUID, "pGoLock", PGO_LOCK_TYPE);
-		addSynchronizedVariable(pGoLockUID, pGoLock);
+		addVariable(pGoLockUID, pGoLock);
 		initBuilder.assign(pGoLock, new Make(PGO_LOCK_TYPE, new IntLiteral(nLock), null));
 		VariableName pGoStart = moduleBuilder.defineGlobal(pGoStartUID, "pGoStart", new ChanType(Builtins.Bool));
-		addSynchronizedVariable(pGoStartUID, pGoStart);
+		addVariable(pGoStartUID, pGoStart);
 		initBuilder.assign(pGoStart, new Make(new ChanType(Builtins.Bool), null, null));
 		VariableName pGoWait = moduleBuilder.defineGlobal(pGoWaitUID, "pGoWait", new TypeName("sync.WaitGroup"));
-		addSynchronizedVariable(pGoWaitUID, pGoWait);
+		addVariable(pGoWaitUID, pGoWait);
 	}
 
 	@Override
 	public void processPrelude(BlockBuilder processBody, PcalProcess process, String processName, VariableName self,
 	                           Type selfType) {
 		processBody.deferStmt(new Call(
-				new Selector(findSynchronizedVariable(pGoWaitUID), "Done"),
+				new Selector(findVariable(pGoWaitUID), "Done"),
 				Collections.emptyList()));
-		processBody.addStatement(new Unary(Unary.Operation.RECV, findSynchronizedVariable(pGoStartUID)));
-		generateLocalVariableDefinitions(registry, typeMap, processBody, process.getVariables());
+		processBody.addStatement(new Unary(Unary.Operation.RECV, findVariable(pGoStartUID)));
 	}
 
 	@Override
@@ -94,46 +73,41 @@ public class MultithreadedProcessGlobalVariableStrategy extends GlobalVariableSt
 				VariableName v = forRangeBuilder.initVariables(Arrays.asList("_", "v")).get(1);
 				try (BlockBuilder forBody = forRangeBuilder.getBlockBuilder()) {
 					forBody.addStatement(new Call(
-							new Selector(findSynchronizedVariable(pGoWaitUID), "Add"),
+							new Selector(findVariable(pGoWaitUID), "Add"),
 							Collections.singletonList(new IntLiteral(1))));
 					forBody.goStmt(new Call(new VariableName(processName), Collections.singletonList(v)));
 				}
 				continue;
 			}
 			builder.addStatement(new Call(
-					new Selector(findSynchronizedVariable(pGoWaitUID), "Add"),
+					new Selector(findVariable(pGoWaitUID), "Add"),
 					Collections.singletonList(new IntLiteral(1))));
 			builder.goStmt(new Call(new VariableName(processName), Collections.singletonList(value)));
 		}
 		builder.addStatement(new Call(
 				new VariableName("close"),
-				Collections.singletonList(findSynchronizedVariable(pGoStartUID))));
-		VariableName pGoWait = findSynchronizedVariable(pGoWaitUID);
+				Collections.singletonList(findVariable(pGoStartUID))));
+		VariableName pGoWait = findVariable(pGoWaitUID);
 		builder.addStatement(new Call(new Selector(pGoWait, "Wait"), Collections.emptyList()));
 	}
 
 	@Override
-	public List<FunctionArgument> getExtraProcessArguments() {
-		throw new TODO();
-	}
-
-	@Override
-	public void startCriticalSection(BlockBuilder builder, int lockGroup, UID labelUID, LabelName labelName) {
+	public void startCriticalSection(BlockBuilder builder, UID processUID, int lockGroup, UID labelUID, LabelName labelName) {
 		builder.addStatement(new Call(
-				new Selector(new Index(findSynchronizedVariable(pGoLockUID), new IntLiteral(lockGroup)),"Lock"),
+				new Selector(new Index(findVariable(pGoLockUID), new IntLiteral(lockGroup)),"Lock"),
 				Collections.emptyList()));
 	}
 
 	@Override
-	public void abortCriticalSection(BlockBuilder builder, int lockGroup, UID labelUID, LabelName labelName) {
-		endCriticalSection(builder, lockGroup, labelUID, labelName);
-		builder.goTo(labelName);
+	public void abortCriticalSection(BlockBuilder builder, UID processUID, int lockGroup, UID labelUID, LabelName labelName) {
+		// FIXME
+		endCriticalSection(builder, processUID, lockGroup, labelUID, labelName);
 	}
 
 	@Override
-	public void endCriticalSection(BlockBuilder builder, int lockGroup, UID labelUID, LabelName labelName) {
+	public void endCriticalSection(BlockBuilder builder, UID processUID, int lockGroup, UID labelUID, LabelName labelName) {
 		builder.addStatement(new Call(
-				new Selector(new Index(findSynchronizedVariable(pGoLockUID), new IntLiteral(lockGroup)),"Unlock"),
+				new Selector(new Index(findVariable(pGoLockUID), new IntLiteral(lockGroup)),"Unlock"),
 				Collections.emptyList()));
 	}
 

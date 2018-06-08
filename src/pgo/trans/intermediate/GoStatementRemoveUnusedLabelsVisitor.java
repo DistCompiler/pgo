@@ -135,4 +135,9 @@ public class GoStatementRemoveUnusedLabelsVisitor extends StatementVisitor<State
 		return go;
 	}
 
+	@Override
+	public Statement visit(VariableDeclarationStatement variableDeclarationStatement) throws RuntimeException {
+		return variableDeclarationStatement;
+	}
+
 }
