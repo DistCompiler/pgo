@@ -176,7 +176,7 @@ func (self VarReferences) Set(name string, val interface{}) {
 // does not exist in the VarReferences struct.
 func (self VarReferences) Get(name string) interface{} {
 	if _, found := self[name]; !found {
-		log.Panicf("Attempt to set unknown variable: %s", name)
+		log.Panicf("Attempt to get unknown variable: %s", name)
 	}
 
 	return self[name].Value
