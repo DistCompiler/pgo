@@ -27,8 +27,7 @@ public class StateServerGlobalVariableStrategy extends GlobalVariableStrategy {
 	private UID processArgumentUID;
 	private UID errUID;
 	private UID globalStateUID;
-	private UID remoteLockUID;
-	private UID remoteVarsUID;
+	private UID refsUID;
 
 	public StateServerGlobalVariableStrategy(DefinitionRegistry registry, Map<UID, PGoType> typeMap,
 	                                         PGoNetOptions.StateOptions stateOptions, Algorithm algorithm) {
@@ -41,8 +40,7 @@ public class StateServerGlobalVariableStrategy extends GlobalVariableStrategy {
 		this.processArgumentUID = new UID();
 		this.errUID = new UID();
 		this.globalStateUID = new UID();
-		this.remoteLockUID = new UID();
-		this.remoteVarsUID = new UID();
+		this.refsUID = new UID();
 	}
 
 	static void generateProcessSwitch(Map<UID, PGoType> typeMap, Algorithm algorithm, BlockBuilder builder,
@@ -89,6 +87,19 @@ public class StateServerGlobalVariableStrategy extends GlobalVariableStrategy {
 		}
 	}
 
+	private void releaseRefs(BlockBuilder builder) {
+		VariableName refs = findVariable(refsUID);
+		VariableName err = findVariable(errUID);
+		builder.assign(err, new Call(
+				new Selector(findVariable(globalStateUID), "Release"),
+				Collections.singletonList(refs)));
+		try (IfBuilder ifBuilder = builder.ifStmt(new Binop(Binop.Operation.NEQ, err, Builtins.Nil))) {
+			try (BlockBuilder yes = ifBuilder.whenTrue()) {
+				yes.addPanic(err);
+			}
+		}
+	}
+
 	@Override
 	public void initPostlude(ModuleBuilder moduleBuilder, BlockBuilder initBuilder) {
 		VariableName processName = moduleBuilder.defineGlobal(processNameUID, "processName", Builtins.String);
@@ -106,7 +117,7 @@ public class StateServerGlobalVariableStrategy extends GlobalVariableStrategy {
 		VariableName err = moduleBuilder.defineGlobal(errUID, "err", Builtins.Error);
 		addVariable(errUID, err);
 		VariableName globalState = moduleBuilder.defineGlobal(
-				globalStateUID, "globalState", new TypeName("distsys.StateServer"));
+				globalStateUID, "globalState", new PtrType(new TypeName("distsys.StateServer")));
 		addVariable(globalStateUID, globalState);
 		VariableName peers = initBuilder.varDecl(
 				"peers",
@@ -139,12 +150,9 @@ public class StateServerGlobalVariableStrategy extends GlobalVariableStrategy {
 				yes.addPanic(err);
 			}
 		}
-		VariableName remoteLock = moduleBuilder.defineGlobal(
-				remoteLockUID, "remoteLock", new PtrType(new TypeName("distsys.ReleaseSet")));
-		addVariable(remoteLockUID, remoteLock);
-		VariableName remoteVars = moduleBuilder.defineGlobal(
-				remoteVarsUID, "remoteVars", new MapType(Builtins.String, Builtins.Interface));
-		addVariable(remoteVarsUID, remoteVars);
+		VariableName refs = moduleBuilder.defineGlobal(
+				refsUID, "refs", new TypeName("distsys.VarReferences"));
+		addVariable(refsUID, refs);
 	}
 
 	@Override
@@ -154,33 +162,51 @@ public class StateServerGlobalVariableStrategy extends GlobalVariableStrategy {
 
 	@Override
 	public void mainPrelude(BlockBuilder builder) {
+		VariableName err = findVariable(errUID);
+		builder.assign(
+				err,
+				new Call(new Selector(findVariable(globalStateUID), "WaitPeers"), Collections.emptyList()));
+		try (IfBuilder ifBuilder = builder.ifStmt(new Binop(Binop.Operation.NEQ, err, Builtins.Nil))) {
+			try (BlockBuilder yes = ifBuilder.whenTrue()) {
+				yes.addPanic(err);
+			}
+		}
 		generateProcessSwitch(
 				typeMap, algorithm, builder, findVariable(processNameUID), findVariable(processArgumentUID));
+		builder.assign(
+				err,
+				new Call(new Selector(findVariable(globalStateUID), "WaitPeers"), Collections.emptyList()));
+		try (IfBuilder ifBuilder = builder.ifStmt(new Binop(Binop.Operation.NEQ, err, Builtins.Nil))) {
+			try (BlockBuilder yes = ifBuilder.whenTrue()) {
+				yes.addPanic(err);
+			}
+		}
 	}
 
 	@Override
 	public void startCriticalSection(BlockBuilder builder, UID processUID, int lockGroup, UID labelUID, LabelName labelName) {
 		ArrayList<UID> variableUIDs = new ArrayList<>(registry.getVariablesInLockGroup(lockGroup));
-		variableUIDs.sort(Comparator.comparing(a -> builder.findUID(a).getName()));
 		List<VariableName> variableNames = variableUIDs.stream().map(builder::findUID).collect(Collectors.toList());
 		List<Expression> variableNameStrings = variableNames.stream()
 				.map(v -> new StringLiteral(v.getName()))
 				.collect(Collectors.toList());
-		VariableName remoteVars = findVariable(remoteVarsUID);
+		VariableName refs = findVariable(refsUID);
 		VariableName err = findVariable(errUID);
 		builder.assign(
-				Arrays.asList(findVariable(remoteLockUID), remoteVars, err),
+				Arrays.asList(refs, err),
 				new Call(
 						new Selector(findVariable(globalStateUID), "Acquire"),
-						Collections.singletonList(new StructLiteral(
-								new TypeName("distsys.AcquireSet"),
-								Arrays.asList(
-										new StructLiteralField(
-												"ReadNames",
-												new SliceLiteral(Builtins.String, variableNameStrings)),
-										new StructLiteralField(
-												"WriteNames",
-												new SliceLiteral(Builtins.String, variableNameStrings)))))));
+						Collections.singletonList(new Unary(
+								Unary.Operation.ADDR,
+								new StructLiteral(
+										new TypeName("distsys.BorrowSpec"),
+										Arrays.asList(
+												new StructLiteralField(
+														"ReadNames",
+														new SliceLiteral(Builtins.String, variableNameStrings)),
+												new StructLiteralField(
+														"WriteNames",
+														new SliceLiteral(Builtins.String, variableNameStrings))))))));
 		try (IfBuilder ifBuilder = builder.ifStmt(new Binop(Binop.Operation.NEQ, err, Builtins.Nil))) {
 			try (BlockBuilder yes = ifBuilder.whenTrue()) {
 				yes.addPanic(err);
@@ -191,32 +217,28 @@ public class StateServerGlobalVariableStrategy extends GlobalVariableStrategy {
 			builder.assign(
 					variableNames.get(i),
 					new TypeAssertion(
-							new Index(remoteVars, variableNameStrings.get(i)),
+							new Call(
+									new Selector(refs, "Get"),
+									Collections.singletonList(new StringLiteral(variableNames.get(i).getName()))),
 							registry.getGlobalVariableType(variableUIDs.get(i))));
 		}
 	}
 
 	@Override
 	public void abortCriticalSection(BlockBuilder builder, UID processUID, int lockGroup, UID labelUID, LabelName labelName) {
-		throw new TODO();
+		releaseRefs(builder);
 	}
 
 	@Override
 	public void endCriticalSection(BlockBuilder builder, UID processUID, int lockGroup, UID labelUID, LabelName labelName) {
-		ArrayList<UID> variableUIDs = new ArrayList<>(registry.getVariablesInLockGroup(lockGroup));
-		variableUIDs.sort(Comparator.comparing(a -> builder.findUID(a).getName()));
-		List<Expression> arguments = new ArrayList<>();
-		arguments.add(findVariable(remoteLockUID));
-		for (UID varUID : variableUIDs) {
-			arguments.add(builder.findUID(varUID));
+		VariableName refs = findVariable(refsUID);
+		for (UID varUID : registry.getVariablesInLockGroup(lockGroup)) {
+			VariableName name = builder.findUID(varUID);
+			builder.addStatement(new Call(
+					new Selector(refs, "Set"),
+					Arrays.asList(new StringLiteral(name.getName()), name)));
 		}
-		VariableName err = findVariable(errUID);
-		builder.assign(err, new Call(new Selector(findVariable(globalStateUID), "Release"), arguments));
-		try (IfBuilder ifBuilder = builder.ifStmt(new Binop(Binop.Operation.NEQ, err, Builtins.Nil))) {
-			try (BlockBuilder yes = ifBuilder.whenTrue()) {
-				yes.addPanic(err);
-			}
-		}
+		releaseRefs(builder);
 	}
 
 	@Override
