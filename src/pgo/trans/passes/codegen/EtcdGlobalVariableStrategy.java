@@ -153,7 +153,6 @@ public class EtcdGlobalVariableStrategy extends GlobalVariableStrategy {
 		builder.addStatement(new Call(
 				new Selector(findVariable(globalStateUID), "Unlock"),
 				Arrays.asList(findVariable(processUID), new StringLiteral(Integer.toString(lockGroup)))));
-		builder.goTo(labelName);
 	}
 
 	@Override

@@ -198,7 +198,6 @@ public class StateServerGlobalVariableStrategy extends GlobalVariableStrategy {
 
 	@Override
 	public void abortCriticalSection(BlockBuilder builder, UID processUID, int lockGroup, UID labelUID, LabelName labelName) {
-		builder.goTo(labelName);
 		throw new TODO();
 	}
 
