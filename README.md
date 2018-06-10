@@ -58,8 +58,6 @@ Dependencies:
 
 - The [JSON reference implementation](https://github.com/stleary/JSON-java).
 
-- The [Go Data Structures library](https://github.com/emirpasic/gods).
-
 PGo was tested on JRE8 and Go 1.8.3.
 
 ## How to run
