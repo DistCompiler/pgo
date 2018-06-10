@@ -257,6 +257,20 @@ var _ = Describe("Distsys package", func() {
 			})))
 		})
 
+		It("gets the correct content", func() {
+			refs := VarReferences(map[string]*Reference{
+				"a": &Reference{Value: "old", Exclusive: true},
+			})
+
+			s := refs.Get("a").(string)
+
+			Expect(refs).To(Equal(VarReferences(map[string]*Reference{
+				"a": &Reference{Value: "old", Exclusive: true},
+			})))
+
+			Expect(s).To(Equal("old"))
+		})
+
 		var _ = Describe("Merge", func() {
 			var target VarReferences
 

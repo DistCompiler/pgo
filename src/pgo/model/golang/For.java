@@ -1,6 +1,6 @@
 package pgo.model.golang;
 
-import java.util.Vector;
+import java.util.Objects;
 
 /**
  * The for loop. Equivalent to PlusCal while
@@ -8,45 +8,54 @@ import java.util.Vector;
  */
 public class For extends Statement {
 	// boolean condition
+	private Statement init;
 	private Expression cond;
+	private Statement inc;
 
-	// inside of loop
-	private Vector<Statement> then;
+	private Block body;
 
-	public For(Expression cond, Vector<Statement> then) {
+	public For(Statement init, Expression cond, Statement inc, Block body) {
+		this.init = init;
 		this.cond = cond;
-		this.then = then;
+		this.inc = inc;
+		this.body = body;
 	}
 
-	// an infinite loop in Go
-	public For(Vector<Statement> then) {
-		this.cond = null;
-		this.then = then;
+	public Statement getInit() {
+		return init;
 	}
-
-	public Expression getCond() {
+	
+	public Expression getCondition() {
 		return cond;
 	}
-
-	public void setCond(Expression e) {
-		this.cond = e;
+	
+	public Statement getIncrement() {
+		return inc;
 	}
-
-	public Vector<Statement> getThen() {
-		return this.then;
-	}
-
-	public void setThen(Vector<Statement> e) {
-		this.then = e;
+	
+	public Block getBody() {
+		return body;
 	}
 
 	@Override
-	public Vector<String> toGo() {
-		Vector<String> ret = new Vector<>();
-		Vector<String> conds = cond == null ? new Vector<>() : cond.toGo();
-		ret.add("for " + String.join("; ", conds) + " {");
-		addIndentedAST(ret, then);
-		ret.add("}");
-		return ret;
+	public <T, E extends Throwable> T accept(StatementVisitor<T, E> v) throws E {
+		return v.visit(this);
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		For aFor = (For) o;
+		return Objects.equals(init, aFor.init) &&
+				Objects.equals(cond, aFor.cond) &&
+				Objects.equals(inc, aFor.inc) &&
+				Objects.equals(body, aFor.body);
+	}
+
+	@Override
+	public int hashCode() {
+
+		return Objects.hash(init, cond, inc, body);
 	}
 }

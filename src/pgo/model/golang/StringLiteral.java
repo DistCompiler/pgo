@@ -1,6 +1,6 @@
 package pgo.model.golang;
 
-import java.util.Vector;
+import java.util.Objects;
 
 public class StringLiteral extends Expression {
 	
@@ -9,27 +9,27 @@ public class StringLiteral extends Expression {
 	public StringLiteral(String value) {
 		this.value = value;
 	}
-
-	@Override
-	public Vector<String> toGo() {
-		StringBuilder out = new StringBuilder();
-		// TODO: more correct string escaping
-		out.append('"');
-		for(int i = 0; i < value.length(); ++i) {
-			char c = value.charAt(i);
-			switch(c) {
-				case '"':
-					out.append("\\\"");
-					break;
-				default:
-					out.append(c);
-			}
-		}
-		out.append('"');
-		
-		Vector<String> result = new Vector<>();
-		result.add(out.toString());
-		return result;
+	
+	public String getValue() {
+		return value;
 	}
 
+	@Override
+	public <T, E extends Throwable> T accept(ExpressionVisitor<T, E> visitor) throws E {
+		return visitor.visit(this);
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		StringLiteral that = (StringLiteral) o;
+		return Objects.equals(value, that.value);
+	}
+
+	@Override
+	public int hashCode() {
+
+		return Objects.hash(value);
+	}
 }

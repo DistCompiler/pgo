@@ -1,41 +1,57 @@
 package pgo.model.golang;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Vector;
+import java.util.List;
+import java.util.Objects;
 
 /**
- * Assigns a value to a variable while declaring it:
+ * Assigns a value to a variable :
  *
  *
- *  goVar := {expr}
+ *  goVar = {expr}
  *
  */
 public class Assignment extends Statement {
 
-    // the variable name(s)
-    private Vector<String> lhs;
-
-    // right hand side expression
-    private Expression expr;
-
-    // are we declaring a new variable in this assignment
-    private boolean declaration;
-
-    public Assignment(Vector<String> names, Expression val, boolean declaration) {
-        this.lhs = names;
-        this.expr = val;
-        this.declaration = declaration;
+	private List<Expression> names;
+	private boolean defines;
+	private List<Expression> values;
+    
+    public Assignment(List<Expression> names, boolean defines, List<Expression> values) {
+    	this.names = names;
+    	this.defines = defines;
+    	this.values = values;
+    }
+    
+    public List<Expression> getNames() {
+    	return names;
+    }
+    
+    public boolean isDefinition() {
+    	return defines;
+    }
+    
+    public List<Expression> getValues() {
+    	return values;
     }
 
     @Override
-    public Vector<String> toGo() {
-        Vector<String> ret = new Vector<>();
-        String decl;
-        String op = declaration ? ":=" : "=";
+	public <T, E extends Throwable> T accept(StatementVisitor<T, E> v) throws E {
+		return v.visit(this);
+	}
 
-        decl = String.format("%s %s %s", String.join(", ", this.lhs), op, expr.toGo().get(0));
-        ret.add(decl);
-        return ret;
-    }
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		Assignment that = (Assignment) o;
+		return defines == that.defines &&
+				Objects.equals(names, that.names) &&
+				Objects.equals(values, that.values);
+	}
+
+	@Override
+	public int hashCode() {
+
+		return Objects.hash(names, defines, values);
+	}
 }

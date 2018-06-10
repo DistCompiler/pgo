@@ -1,110 +1,49 @@
 package pgo.model.golang;
 
-import java.util.Vector;
+import java.util.Objects;
 
-import pgo.model.intermediate.PGoType;
-import pgo.model.intermediate.PGoVariable;
+public class VariableDeclaration extends Declaration {
 
-/**
- * Represents a variable declaration
- *
- */
-public class VariableDeclaration extends Statement {
-	// name of variable
-	private final String name;
-	// type of variable
-	private PGoType type;
-	// the init default value
-	private Expression defaultValue;
-	// whether this is a constant
-	private boolean isConst;
-	// whether this type was inferred in the typing stage (should print a
-	// comment with the inferred type)
-	private boolean wasInferred;
-	// the lock group this belongs to (should print a comment)
-	private int lockGroup;
+	private String name;
+	private Type type;
+	private Expression value;
 
-	private boolean remote;
-
-	public VariableDeclaration(String n, PGoType t, Expression val, boolean isConst, boolean inferred, boolean remote) {
-		name = n;
-		type = t;
-		defaultValue = val;
-		this.isConst = isConst;
-		wasInferred = inferred;
-		this.remote = remote;
-		lockGroup = -1;
-	}
-
-	public VariableDeclaration(PGoVariable var, Expression val) {
-		name = var.getName();
-		type = var.getType();
-		defaultValue = val;
-		isConst = var.getIsConstant();
-		wasInferred = var.wasInferred();
-		lockGroup = var.getLockGroup();
-		remote = var.isRemote();
+	public VariableDeclaration(String name, Type type, Expression value) {
+		this.name = name;
+		this.type = type;
+		this.value = value;
 	}
 
 	public String getName() {
 		return name;
 	}
-
-	public PGoType getType() {
+	
+	public Type getType() {
 		return type;
 	}
 
-	public boolean isConst() {
-		return isConst;
-	}
-
-	public boolean isRemote() { return remote; }
-
-	public void setIsConst(boolean b) {
-		this.isConst = b;
-	}
-
-	public void setType(PGoType t) {
-		this.type = t;
-	}
-
-	public Expression getDefaultValue() {
-		return defaultValue;
-	}
-
-	public void setDefaultValue(Expression v) {
-		this.defaultValue = v;
+	public Expression getValue() {
+		return value;
 	}
 
 	@Override
-	public Vector<String> toGo() {
-		Vector<String> ret = new Vector<>();
-		Vector<String> comments = new Vector<>();
-		Vector<String> valStr = (defaultValue == null || remote) ? new Vector<>() : defaultValue.toGo();
-		String decl;
+	public <T, E extends Throwable> T accept(DeclarationVisitor<T, E> v) throws E {
+		return v.visit(this);
+	}
 
-		decl = (isConst ? "const " : "var ") + name + " " + type.toGo();
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		VariableDeclaration that = (VariableDeclaration) o;
+		return Objects.equals(name, that.name) &&
+				Objects.equals(type, that.type) &&
+				Objects.equals(value, that.value);
+	}
 
-		if (valStr.size() > 0) {
-			decl += " = " + valStr.remove(0);
-		}
+	@Override
+	public int hashCode() {
 
-		if (wasInferred) {
-			comments.add("PGo inferred type " + type.toTypeName());
-		}
-		if (!remote && lockGroup != -1) {
-			comments.add("Lock group " + lockGroup);
-		}
-		if (remote) {
-			decl += "// remotely stored in etcd";
-		}
-
-		if (comments.size() > 0) {
-			decl += " // " + String.join("; ", comments);
-		}
-
-		ret.add(decl);
-		addStringsAndIndent(ret, valStr);
-		return ret;
+		return Objects.hash(name, type, value);
 	}
 }

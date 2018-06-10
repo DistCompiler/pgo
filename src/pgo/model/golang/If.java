@@ -1,6 +1,6 @@
 package pgo.model.golang;
 
-import java.util.Vector;
+import java.util.Objects;
 
 /**
  * The if statement
@@ -9,70 +9,45 @@ import java.util.Vector;
 public class If extends Statement {
 	// boolean condition
 	private Expression cond;
+	private Block bThen;
+	private Block bElse;
 
-	// true condition
-	private Vector<Statement> thenS;
-
-	// else
-	private Vector<Statement> elseS;
-
-	private boolean negation;
-
-	public If(Expression cond, Vector<Statement> thenS, Vector<Statement> elseS) {
+	public If(Expression cond, Block bThen, Block bElse) {
 		this.cond = cond;
-		this.thenS = thenS;
-		this.elseS = elseS;
-		this.negation = false;
+		this.bThen = bThen;
+		this.bElse = bElse;
 	}
 
 	public Expression getCond() {
 		return cond;
 	}
 
-	public void setCond(Expression e) {
-		this.cond = e;
+	public Block getThen() {
+		return bThen;
 	}
 
-	public void negate() { this.negation = true; }
-
-	public Vector<Statement> getThen() {
-		return this.thenS;
-	}
-
-	public void setThen(Vector<Statement> e) {
-		this.thenS = e;
-	}
-
-	public Vector<Statement> getElse() {
-		return this.elseS;
-	}
-
-	public void setElse(Vector<Statement> e) {
-		this.elseS = e;
+	public Block getElse() {
+		return bElse;
 	}
 
 	@Override
-	public Vector<String> toGo() {
-		Vector<String> ret = new Vector<String>();
-		Vector<String> condStr = cond.toGo();
-		String ifStr = negation ? "if !" : "if ";
+	public <T, E extends Throwable> T accept(StatementVisitor<T, E> v) throws E {
+		return v.visit(this);
+	}
 
-		if (cond instanceof AnonymousFunction) {
-			// in this case we want each line of func on a separate line, and we don't need semicolons
-			ret.add(ifStr + condStr.remove(0));
-			for (String s : condStr) {
-				ret.add(s);
-			}
-			ret.set(ret.size()-1, ret.get(ret.size()-1) + " {");
-		} else {
-			ret.add(ifStr + String.join("; ", condStr) + " {");
-		}
-		addIndentedAST(ret, thenS);
-		if (elseS.size() > 0) {
-			ret.add("} else {");
-			addIndentedAST(ret, elseS);
-		}
-		ret.add("}");
-		return ret;
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		If anIf = (If) o;
+		return Objects.equals(cond, anIf.cond) &&
+				Objects.equals(bThen, anIf.bThen) &&
+				Objects.equals(bElse, anIf.bElse);
+	}
+
+	@Override
+	public int hashCode() {
+
+		return Objects.hash(cond, bThen, bElse);
 	}
 }

@@ -1,30 +1,39 @@
 package pgo.model.golang;
 
-import java.util.Vector;
+import java.util.Objects;
 
 /**
  * A label in Go. This will be on it's own line
  *
  */
-public class Label extends Expression {
+public class Label extends Statement {
 
-	private final String labelName;
+	private String name;
 
 	public Label(String name) {
-		labelName = name;
+		this.name = name;
 	}
 
-	public String getLabelName() {
-		return labelName;
+	public String getName() {
+		return name;
 	}
 
 	@Override
-	public Vector<String> toGo() {
-		return new Vector<String>() {
-			{
-				add(labelName + ":");
-			}
-		};
+	public <T, E extends Throwable> T accept(StatementVisitor<T, E> v) throws E {
+		return v.visit(this);
 	}
 
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		Label label = (Label) o;
+		return Objects.equals(name, label.name);
+	}
+
+	@Override
+	public int hashCode() {
+
+		return Objects.hash(name);
+	}
 }

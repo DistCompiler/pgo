@@ -10,6 +10,7 @@ import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 import java.util.Vector;
 import java.util.logging.Logger;
 
@@ -25,7 +26,7 @@ public class IOUtil {
 	 * Writes the Vector of strings inputVec to file named fileName, with * each
 	 * element of inputVec written on a new line. *
 	 ***********************************************************************/
-	public static void WriteStringVectorToFile(Vector inputVec, String fileName) throws StringVectorToFileException {
+	public static void WriteStringVectorToFile(List<String> inputVec, String fileName) throws StringVectorToFileException {
 		try {
 			Path filePath = Paths.get(fileName);
 			if(!Files.exists(filePath.getParent())){
@@ -33,13 +34,10 @@ public class IOUtil {
 				Files.createFile(filePath);
 			}
 			BufferedWriter fileW = new BufferedWriter(new FileWriter(fileName));
-			int lineNum = 0;
-			while (lineNum < inputVec.size()) {
-				fileW.write((String) inputVec.elementAt(lineNum));
+			for (String line : inputVec) {
+				fileW.write(line);
 				fileW.newLine();
-				lineNum = lineNum + 1;
 			}
-
 			fileW.close();
 		} catch (Exception e) {
 			throw new StringVectorToFileException("Could not write file " + fileName);
@@ -51,36 +49,26 @@ public class IOUtil {
 	 * Reads file fileName into a StringVector, a vector in which each * element
 	 * is a line of the file. *
 	 ***********************************************************************/
-	public static Vector fileToStringVector(String fileName) throws FileToStringVectorException {
-		Vector inputVec = new Vector(100);
+	public static Vector<String> fileToStringVector(Path fileName) throws FileToStringVectorException {
+		Vector<String> inputVec = new Vector<>(100);
 		try {
-			BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(new FileInputStream(fileName)));
-			try {
-				String nextLine = bufferedReader.readLine();
-				while (nextLine != null) {
-					inputVec.addElement(nextLine);
-					nextLine = bufferedReader.readLine();
-				}
-				;
-				bufferedReader.close();
-			} catch (IOException e) {
-				/*********************************************************
-				 * Error while reading input file. *
-				 *********************************************************/
-				throw new FileToStringVectorException("Error reading file " + fileName + ".");
+			BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(Files.newInputStream(fileName)));
+			String nextLine = bufferedReader.readLine();
+			while (nextLine != null) {
+				inputVec.add(nextLine);
+				nextLine = bufferedReader.readLine();
 			}
-		}
-
-		catch (FileNotFoundException e) {
-			/**************************************************************
-			 * Input file could not be found. *
-			 **************************************************************/
-			throw new FileToStringVectorException("Input file " + fileName + " not found.");
+			bufferedReader.close();
+		} catch (IOException e) {
+			/*********************************************************
+			 * Error while reading input file. *
+			 *********************************************************/
+			throw new FileToStringVectorException("Error reading file " + fileName.toString() + ".");
 		}
 
 		return inputVec;
 	}
-	
+
 	/**********************
 	 * Writing the AST
 	 ************************************/

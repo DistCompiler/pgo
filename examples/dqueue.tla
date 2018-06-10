@@ -7,8 +7,7 @@ EXTENDS Integers, Sequences, TLC
 --algorithm DistributedQueue {
     \* Globals
     variables
-    \** @PGo{ var queue []string }@PGo
-    queue = <<>>;
+      queue = <<>>;
 
     process (Producer = 2)
     { p: while (TRUE) {
@@ -17,8 +16,7 @@ EXTENDS Integers, Sequences, TLC
                }}}
 
     process (Consumer \in {0,1})
-        \** @PGo{ var resource string }@PGo
-        variables resource;
+      variables resource;
     { c: while (TRUE) {
       c1:  if (Len(queue) # 0) {
               resource := Head(queue);

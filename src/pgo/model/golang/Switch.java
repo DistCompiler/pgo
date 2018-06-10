@@ -1,46 +1,49 @@
 package pgo.model.golang;
 
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.Vector;
+import java.util.List;
+import java.util.Objects;
 
 public class Switch extends Statement {
     Expression switchExp;
-    LinkedHashMap<Expression, Vector<Statement>> cases;
-    Vector<Statement> defaultCase;
+    List<SwitchCase> cases;
+    List<Statement> defaultBlock;
 
-    public Switch(Expression exp) {
+    public Switch(Expression exp, List<SwitchCase> cases, List<Statement> defaultBlock) {
         this.switchExp = exp;
-        this.cases = new LinkedHashMap<>();
+        this.cases = cases;
+        this.defaultBlock = defaultBlock;
     }
-
-    public void addCase(Expression exp, Vector<Statement> code) {
-        cases.put(exp, code);
+    
+    public Expression getCondition() {
+    	return switchExp;
     }
-
-    public void addDefaultCase(Vector<Statement> code) {
-        defaultCase = code;
+    
+    public List<SwitchCase> getCases(){
+    	return cases;
+    }
+    
+    public List<Statement> getDefaultBlock() {
+    	return defaultBlock;
     }
 
     @Override
-    public Vector<String> toGo() {
-        Vector<String> ret = new Vector<>();
-        if (switchExp == null) {
-            ret.add("switch {");
-        } else {
-            ret.add("switch (" + String.join(";", switchExp.toGo()) + ") {");
-        }
-        for (Map.Entry<Expression, Vector<Statement>> entry: cases.entrySet()) {
-            Expression label = entry.getKey();
-            Vector<Statement> code = entry.getValue();
-            ret.add("case " + String.join(";", label.toGo()) + ":");
-            addIndentedAST(ret, code);
-        }
-        if (defaultCase != null) {
-            ret.add("default:");
-            addIndentedAST(ret, defaultCase);
-        }
-        ret.add("}");
-        return ret;
-    }
+	public <T, E extends Throwable> T accept(StatementVisitor<T, E> v) throws E {
+		return v.visit(this);
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		Switch aSwitch = (Switch) o;
+		return Objects.equals(switchExp, aSwitch.switchExp) &&
+				Objects.equals(cases, aSwitch.cases) &&
+				Objects.equals(defaultBlock, aSwitch.defaultBlock);
+	}
+
+	@Override
+	public int hashCode() {
+
+		return Objects.hash(switchExp, cases, defaultBlock);
+	}
 }

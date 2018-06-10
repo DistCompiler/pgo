@@ -1,33 +1,39 @@
 package pgo.model.golang;
 
-import java.util.Vector;
+import java.util.Objects;
 
 /**
  * A Goto in pluscal and go
  *
  */
-public class GoTo extends Expression {
-	// the to lable location
-	private String to;
+public class GoTo extends Statement {
+	// the to label location
+	private LabelName to;
 
-	public GoTo(String to) {
+	public GoTo(LabelName to) {
 		this.to = to;
 	}
 
-	public String getTo() {
+	public LabelName getTo() {
 		return to;
 	}
-
-	public void setTo(String to) {
-		this.to = to;
+	
+	@Override
+	public <T, E extends Throwable> T accept(StatementVisitor<T, E> v) throws E {
+		return v.visit(this);
 	}
 
 	@Override
-	public Vector<String> toGo() {
-		return new Vector<String>() {
-			{
-				add("goto " + to);
-			}
-		};
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		GoTo goTo = (GoTo) o;
+		return Objects.equals(to, goTo.to);
+	}
+
+	@Override
+	public int hashCode() {
+
+		return Objects.hash(to);
 	}
 }

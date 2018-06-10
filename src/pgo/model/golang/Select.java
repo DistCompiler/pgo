@@ -1,54 +1,39 @@
 package pgo.model.golang;
 
-import java.util.Vector;
+import java.util.List;
+import java.util.Objects;
 
 /**
  * A select statement in go
- *
- *
  */
 public class Select extends Statement {
+	
+	List<SelectCase> cases;
 
-	// the cases
-	private Vector<Expression> cases;
-
-	// the body per case
-	private Vector<Vector<Statement>> body;
-
-	public Select(Vector<Expression> cases, Vector<Vector<Statement>> body) {
-		assert (cases.size() == body.size());
+	public Select(List<SelectCase> cases) {
 		this.cases = cases;
-		this.body = body;
 	}
 
-	public Vector<Expression> getCases() {
+	public List<SelectCase> getCases() {
 		return cases;
 	}
 
-	public void setCases(Vector<Expression> cases) {
-		this.cases = cases;
-	}
-
-	public Vector<Vector<Statement>> getBodies() {
-		return this.body;
-	}
-
-	public void setBodies(Vector<Vector<Statement>> b) {
-		this.body = b;
+	@Override
+	public <T, E extends Throwable> T accept(StatementVisitor<T, E> v) throws E {
+		return v.visit(this);
 	}
 
 	@Override
-	public Vector<String> toGo() {
-		Vector<String> ret = new Vector<String>();
-		ret.add("select {");
-		for (int i = 0; i < cases.size(); ++i) {
-			Vector<String> caseStr = cases.get(i).toGo();
-			ret.add("case " + caseStr.remove(0));
-			addStringsAndIndent(ret, caseStr);
-			ret.add(ret.remove(ret.size() - 1) + ":");
-			addIndentedAST(ret, body.get(i));
-		}
-		ret.add("}");
-		return ret;
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		Select select = (Select) o;
+		return Objects.equals(cases, select.cases);
+	}
+
+	@Override
+	public int hashCode() {
+
+		return Objects.hash(cases);
 	}
 }

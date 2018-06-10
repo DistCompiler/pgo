@@ -1,42 +1,41 @@
 package pgo.model.golang;
 
-import java.util.Vector;
+import java.util.List;
+import java.util.Objects;
 
 /**
  * A return keyword in go
  *
  */
-public class Return extends Expression {
+public class Return extends Statement {
 
 	// the return value if any
-	private Expression value;
+	private List<Expression> values;
 
-	public Return(Expression value) {
-		this.value = value;
+	public Return(List<Expression> values) {
+		this.values = values;
 	}
 
-	public Expression getExpression() {
-		return value;
-	}
-
-	public void setExpression(Expression e) {
-		this.value = e;
+	public List<Expression> getValues() {
+		return values;
 	}
 
 	@Override
-	public Vector<String> toGo() {
-		if (value == null) {
-			return new Vector<String>() {
-				{
-					add("return");
-				}
-			};
-		}
-		Vector<String> valStr = value.toGo();
-		Vector<String> ret = new Vector<String>();
-		ret.add("return " + valStr.remove(0));
-		addStringsAndIndent(ret, valStr);
-		return ret;
+	public <T, E extends Throwable> T accept(StatementVisitor<T, E> v) throws E {
+		return v.visit(this);
 	}
 
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		Return aReturn = (Return) o;
+		return Objects.equals(values, aReturn.values);
+	}
+
+	@Override
+	public int hashCode() {
+
+		return Objects.hash(values);
+	}
 }

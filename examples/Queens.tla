@@ -1,5 +1,5 @@
 -------------------------- MODULE Queens -----------------------------
-EXTENDS Naturals, Sequences
+EXTENDS Naturals, Sequences, TLC
 (***************************************************************************)
 (* Formulation of the N-queens problem and an iterative algorithm to solve *)
 (* the problem in TLA+. Since there must be exactly one queen in every row *)
@@ -71,6 +71,7 @@ nxtQ:  while todo # {}
            end if;
          end with;
        end while;
+       print sols;
      end algorithm
 *)
 
@@ -95,9 +96,10 @@ nxtQ == /\ pc = "nxtQ"
                                  THEN /\ todo' = todo \ {queens}
                                       /\ sols' = (sols \union exts)
                                  ELSE /\ todo' = ((todo \ {queens}) \union exts)
-                                      /\ UNCHANGED sols
+                                      /\ sols' = sols
                    /\ pc' = "nxtQ"
-              ELSE /\ pc' = "Done"
+              ELSE /\ PrintT(sols)
+                   /\ pc' = "Done"
                    /\ UNCHANGED << todo, sols >>
 
 Next == nxtQ
@@ -129,6 +131,6 @@ LiveSpec == Spec /\ Liveness
 
 =============================================================================
 \* Modification History
-\* Last modified Sun Dec 31 20:32:26 EST 2017 by osboxes
+\* Last modified Sat Jun 02 07:28:16 EDT 2018 by osboxes
 \* Last modified Sat Dec 18 18:57:03 CET 2010 by merz
 \* Created Sat Dec 11 08:50:24 CET 2010 by merz

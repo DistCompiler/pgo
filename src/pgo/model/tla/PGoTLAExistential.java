@@ -1,10 +1,9 @@
 package pgo.model.tla;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
-import pgo.model.golang.Expression;
-import pgo.model.intermediate.PGoType;
-import pgo.trans.PGoTransException;
+import pgo.util.SourceLocation;
 
 /*
  * TLA AST Node:
@@ -16,41 +15,62 @@ import pgo.trans.PGoTransException;
  */
 public class PGoTLAExistential extends PGoTLAExpression {
 	
-	private List<String> ids;
+	private List<PGoTLAIdentifier> ids;
 	private PGoTLAExpression body;
 
-	public PGoTLAExistential(List<String> ids, PGoTLAExpression body, int line) {
-		super(line);
+	public PGoTLAExistential(SourceLocation location, List<PGoTLAIdentifier> ids, PGoTLAExpression body) {
+		super(location);
 		this.ids = ids;
 		this.body = body;
 	}
 	
-	public List<String> getIds(){
+	@Override
+	public PGoTLAExistential copy() {
+		return new PGoTLAExistential(getLocation(), ids.stream().map(PGoTLAIdentifier::copy).collect(Collectors.toList()), body.copy());
+	}
+	
+	public List<PGoTLAIdentifier> getIds(){
 		return ids;
 	}
 	
 	public PGoTLAExpression getBody() {
 		return body;
 	}
-
+	
 	@Override
-	public String toString() {
-		return "PGoTLAExistential [ids=" + ids + ", body=" + body + "]";
-	}
-
-	@Override
-	public <Result> Result walk(PGoTLAExpressionVisitor<Result> v) {
+	public <T, E extends Throwable> T accept(PGoTLAExpressionVisitor<T, E> v) throws E {
 		return v.visit(this);
 	}
 
 	@Override
-	protected Expression convert(TLAExprToGo trans) throws PGoTransException {
-		throw new RuntimeException("convert not implemented");
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ((body == null) ? 0 : body.hashCode());
+		result = prime * result + ((ids == null) ? 0 : ids.hashCode());
+		return result;
 	}
 
 	@Override
-	protected PGoType inferType(TLAExprToType trans) throws PGoTransException {
-		throw new RuntimeException("inferType not implemented");
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		PGoTLAExistential other = (PGoTLAExistential) obj;
+		if (body == null) {
+			if (other.body != null)
+				return false;
+		} else if (!body.equals(other.body))
+			return false;
+		if (ids == null) {
+			if (other.ids != null)
+				return false;
+		} else if (!ids.equals(other.ids))
+			return false;
+		return true;
 	}
 
 }
