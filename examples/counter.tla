@@ -20,6 +20,7 @@ CONSTANT procs, iters
           waitToken:  await token = -1 \/ token = self;
           incCounter: counter := counter + 1;
                       token := (self + 1) % procs;
+                      print counter;
           nextIter:   i := i + 1;
       }
   }
