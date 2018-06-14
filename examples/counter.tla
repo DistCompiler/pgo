@@ -1,4 +1,4 @@
---------------------------- MODULE round_robin ---------------------------
+--------------------------- MODULE counter ---------------------------
 
 EXTENDS Integers, TLC
 
@@ -6,7 +6,7 @@ CONSTANT procs, iters
 
 (*
 
---algorithm round_robin {
+--algorithm counter {
   (** @PGo{ arg procs int }@PGo
       @PGo{ arg iters int }@PGo
    **)
@@ -23,5 +23,50 @@ CONSTANT procs, iters
   }
 }
 *)
+\* BEGIN TRANSLATION
+VARIABLES counter, pc, i
+
+vars == << counter, pc, i >>
+
+ProcSet == (0..procs-1)
+
+Init == (* Global variables *)
+        /\ counter = 0
+        (* Process P *)
+        /\ i = [self \in 0..procs-1 |-> 0]
+        /\ pc = [self \in ProcSet |-> "w"]
+
+w(self) == /\ pc[self] = "w"
+           /\ IF i[self] < iters
+                 THEN /\ pc' = [pc EXCEPT ![self] = "incCounter"]
+                 ELSE /\ pc' = [pc EXCEPT ![self] = "Done"]
+           /\ UNCHANGED << counter, i >>
+
+incCounter(self) == /\ pc[self] = "incCounter"
+                    /\ counter' = counter + 1
+                    /\ PrintT(counter')
+                    /\ pc' = [pc EXCEPT ![self] = "nextIter"]
+                    /\ i' = i
+
+nextIter(self) == /\ pc[self] = "nextIter"
+                  /\ i' = [i EXCEPT ![self] = i[self] + 1]
+                  /\ pc' = [pc EXCEPT ![self] = "w"]
+                  /\ UNCHANGED counter
+
+P(self) == w(self) \/ incCounter(self) \/ nextIter(self)
+
+Next == (\E self \in 0..procs-1: P(self))
+           \/ (* Disjunct to prevent deadlock on termination *)
+              ((\A self \in ProcSet: pc[self] = "Done") /\ UNCHANGED vars)
+
+Spec == /\ Init /\ [][Next]_vars
+        /\ \A self \in 0..procs-1 : WF_vars(P(self))
+
+Termination == <>(\A self \in ProcSet: pc[self] = "Done")
+
+\* END TRANSLATION
+
+CounterConverges ==
+    Termination => (counter = procs * iters)
 
 ====
