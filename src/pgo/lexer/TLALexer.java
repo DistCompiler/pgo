@@ -1,7 +1,5 @@
 package pgo.lexer;
 
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -238,20 +236,16 @@ public class TLALexer {
 	static final Pattern BEGIN_TRANSLATION = Pattern.compile("\\\\\\*+ BEGIN TRANSLATION$");
 	static final Pattern END_TRANSLATION = Pattern.compile("\\\\\\*+ END TRANSLATION$");
 	
-	List<String> lines;
-	Path filename;
+	private List<String> lines;
+	private Path filename;
 
-	boolean moduleRequired;
+	private boolean moduleRequired;
 
 	private int startLine;
 	private int startColumn;
 	
-	public TLALexer(Path filename) throws IOException {
-		lines = Files.readAllLines(filename);
-		this.moduleRequired = true;
-		this.filename = filename;
-		this.startLine = 0;
-		this.startColumn = 0;
+	public TLALexer(Path filename, List<String> lines) {
+		this(filename, 1, 1, lines);
 	}
 	
 	public TLALexer(Path filename, int startLine, int startColumn, List<String> lines) {
@@ -278,7 +272,7 @@ public class TLALexer {
 	 * @throws PGoTLALexerException if the lexer cannot understand part of the input
 	 */
 	public List<TLAToken> readTokens() throws PGoTLALexerException{
-		List<TLAToken> tokens = new ArrayList<TLAToken>();
+		List<TLAToken> tokens = new ArrayList<>();
 		// nested module count*2; is 0 if we are not in a module
 		// 2 for in one module, 4 for in a nested module, etc...
 		// note: moduleRequired is used to get the lexer to read subsets of files,
@@ -288,7 +282,7 @@ public class TLALexer {
 		// for comment in a comment, etc...
 		int commentStack = 0;
 		int lineNum = startLine;
-		for(String line : lines) {
+		for (String line : lines) {
 			++lineNum;
 			int column = startColumn;
 			boolean inLineComment = false;
@@ -296,24 +290,24 @@ public class TLALexer {
 			while(column < line.length()) {
 				// test for the lexer getting stuck, either the lexer has a problem
 				// or the source file does
-				if(column == oldColumn) {
+				if (column == oldColumn) {
 					throw new PGoTLALexerException(lineNum, "got stuck at column "+(column+1), tokens);
 				}
 				oldColumn = column;
 				
-				if(moduleStack == 0) {
+				if (moduleStack == 0) {
 					Matcher m = MODULE_START.matcher(line);
-					if(m.find()) {
+					if (m.find()) {
 						column = m.end();
 						++moduleStack;
 						tokens.add(makeToken(m.group(), TLATokenType.BUILTIN, m.start()+1, lineNum));
-					}else {
+					} else {
 						column = line.length();
 					}
-				}else if(commentStack > 0) {
+				} else if (commentStack > 0) {
 					Matcher m = PGO_ANNOTATION.matcher(line);
 					m.region(column, line.length());
-					if(m.lookingAt()) {
+					if (m.lookingAt()) {
 						//tokens.add(makeToken(m.group(1), m.start(1)+1, PGoTLATokenCategory.PGO_ANNOTATION, lineNum));
 						column = m.end();
 						continue;
@@ -323,7 +317,7 @@ public class TLALexer {
 					// holds the correct value till the end of the line
 					m = LINE_COMMENT.matcher(line);
 					m.region(column, line.length());
-					if(m.lookingAt()) {
+					if (m.lookingAt()) {
 						++commentStack;
 						inLineComment = true;
 						column = m.end();
@@ -332,7 +326,7 @@ public class TLALexer {
 					
 					m = COMMENT_END.matcher(line);
 					m.region(column, line.length());
-					if(m.lookingAt()) {
+					if (m.lookingAt()) {
 						--commentStack;
 						column = m.end();
 						continue;
@@ -340,7 +334,7 @@ public class TLALexer {
 					
 					m = COMMENT_START.matcher(line);
 					m.region(column, line.length());
-					if(m.lookingAt()) {
+					if (m.lookingAt()) {
 						++commentStack;
 						column = m.end();
 						continue;
@@ -349,17 +343,17 @@ public class TLALexer {
 					// if no comment operators are found, move to the next character and try again
 					// this is inefficient, but alternatives make the code complicated
 					++column;
-				}else {
+				} else {
 					Matcher m = WHITESPACE.matcher(line);
 					m.region(column, line.length());
-					if(m.lookingAt()) {
+					if (m.lookingAt()) {
 						column = m.end();
 						continue;
 					}
 					
 					m = BEGIN_TRANSLATION.matcher(line);
 					m.region(column, line.length());
-					if(m.lookingAt()) {
+					if (m.lookingAt()) {
 						column = m.end();
 						tokens.add(makeToken(m.group(), TLATokenType.BEGIN_TRANSLATION, m.start()+1, lineNum));
 						++commentStack;
@@ -369,7 +363,7 @@ public class TLALexer {
 					
 					m = END_TRANSLATION.matcher(line);
 					m.region(column, line.length());
-					if(m.lookingAt()) {
+					if (m.lookingAt()) {
 						column = m.end();
 						tokens.add(makeToken(m.group(), TLATokenType.END_TRANSLATION, m.start()+1, lineNum));
 						++commentStack;
@@ -380,7 +374,7 @@ public class TLALexer {
 					// handle reaching the beginning of a comment (both line and delimited)
 					m = COMMENT_START.matcher(line);
 					m.region(column, line.length());
-					if(m.lookingAt()) {
+					if (m.lookingAt()) {
 						column = m.end();
 						++commentStack;
 						continue;
@@ -388,7 +382,7 @@ public class TLALexer {
 					
 					m = LINE_COMMENT.matcher(line);
 					m.region(column, line.length());
-					if(m.lookingAt()) {
+					if (m.lookingAt()) {
 						column = m.end();
 						++commentStack;
 						inLineComment = true;
@@ -398,7 +392,7 @@ public class TLALexer {
 					// check for the "-----..." that is part of MODULE ...
 					m = MODULE_START.matcher(line);
 					m.region(column, line.length());
-					if(m.lookingAt()) {
+					if (m.lookingAt()) {
 						column = m.end();
 						++moduleStack;
 						tokens.add(makeToken(m.group(), TLATokenType.BUILTIN, m.start()+1, lineNum));
@@ -408,7 +402,7 @@ public class TLALexer {
 					// check for the end of the module
 					m = MODULE_END.matcher(line);
 					m.region(column, line.length());
-					if(m.lookingAt()) {
+					if (m.lookingAt()) {
 						column = m.end();
 						moduleStack -= 2;
 						tokens.add(makeToken(m.group(), TLATokenType.BUILTIN, m.start()+1, lineNum));
@@ -420,7 +414,7 @@ public class TLALexer {
 					int possibleIdentifierEnd = 0;
 					m = IDENT.matcher(line);
 					m.region(column, line.length());
-					if(m.lookingAt()) {
+					if (m.lookingAt()) {
 						possibleIdentifier = m.group();
 						possibleIdentifierEnd = m.end();
 					}
@@ -428,17 +422,17 @@ public class TLALexer {
 					// try to match the biggest number we can
 					String possibleNumber = null;
 					int possibleNumberEnd = 0;
-					for(Pattern numberPattern : NUMBER) {
+					for (Pattern numberPattern : NUMBER) {
 						m = numberPattern.matcher(line);
 						m.region(column, line.length());
-						if(m.lookingAt()) {
+						if (m.lookingAt()) {
 							String group = m.group();
-							if(possibleNumber != null) {
-								if(group.length() > possibleNumber.length()) {
+							if (possibleNumber != null) {
+								if (group.length() > possibleNumber.length()) {
 									possibleNumber = group;
 									possibleNumberEnd = m.end();
 								}
-							}else {
+							} else {
 								possibleNumber = group;
 								possibleNumberEnd = m.end();
 							}
@@ -448,11 +442,11 @@ public class TLALexer {
 					// match the longest alphanumeric builtin we can
 					String possibleBuiltin = null;
 					int possibleBuiltinEnd = 0;
-					for(String builtin : BUILTIN) {
-						if(possibleBuiltin != null && builtin.length() < possibleBuiltin.length()) {
+					for (String builtin : BUILTIN) {
+						if (possibleBuiltin != null && builtin.length() < possibleBuiltin.length()) {
 							continue;
 						}
-						if(line.regionMatches(column, builtin, 0, builtin.length())){
+						if (line.regionMatches(column, builtin, 0, builtin.length())) {
 							possibleBuiltin = builtin;
 							possibleBuiltinEnd = column + builtin.length();
 						}
@@ -461,29 +455,29 @@ public class TLALexer {
 					// now reconcile the tokens we generated:
 					// if a possible identifier is longer than a builtin, it's an identifier. Otherwise it's the
 					// builtin
-					if(possibleIdentifier != null && possibleBuiltin != null) {
-						if(possibleIdentifier.length() > possibleBuiltin.length()) {
+					if (possibleIdentifier != null && possibleBuiltin != null) {
+						if (possibleIdentifier.length() > possibleBuiltin.length()) {
 							tokens.add(makeToken(possibleIdentifier, TLATokenType.IDENT, column+1, lineNum));
 							column = possibleIdentifierEnd;
-						}else {
+						} else {
 							tokens.add(makeToken(possibleBuiltin, TLATokenType.BUILTIN, column+1, lineNum));
 							column = possibleBuiltinEnd;
 						}
 						continue;
 					}
 					// if it didn't match any builtins but could have been an identifier, it was an identifier
-					if(possibleIdentifier != null) {
+					if (possibleIdentifier != null) {
 						tokens.add(makeToken(possibleIdentifier, TLATokenType.IDENT, column+1, lineNum));
 						column = possibleIdentifierEnd;
 					}
 					// numbers trump things like the dot operator
-					if(possibleNumber != null) {
+					if (possibleNumber != null) {
 						tokens.add(makeToken(possibleNumber, TLATokenType.NUMBER, column+1, lineNum));
 						column = possibleNumberEnd;
 						continue;
 					}
 					// builtins not matching any identifiers or numbers are treated as builtins
-					if(possibleBuiltin != null) {
+					if (possibleBuiltin != null) {
 						tokens.add(makeToken(possibleBuiltin, TLATokenType.BUILTIN, column+1, lineNum));
 						column = possibleBuiltinEnd;
 						continue;
@@ -492,7 +486,7 @@ public class TLALexer {
 					// test for strings
 					m = STRING.matcher(line);
 					m.region(column, line.length());
-					if(m.lookingAt()) {
+					if (m.lookingAt()) {
 						tokens.add(makeToken(m.group(1), TLATokenType.STRING, m.start()+1, lineNum));
 						column = m.end();
 						continue;
@@ -501,7 +495,7 @@ public class TLALexer {
 			}
 			// if we were in a line comment, we aren't anymore
 			// since we reached the end of the line
-			if(inLineComment) {
+			if (inLineComment) {
 				--commentStack;
 			}
 		}

@@ -1,8 +1,12 @@
 package pgo.parser;
 
 import java.io.IOException;
+import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import static org.hamcrest.CoreMatchers.*;
@@ -41,7 +45,9 @@ public class TLAParserTest {
 
 	@Test
 	public void test() throws IOException, PGoTLALexerException, TLAParseException {
-		TLALexer lexer = new TLALexer(Paths.get("test", "pluscal", fileName+".tla"));
+		Path inputFilePath = Paths.get("test", "pluscal", fileName+".tla");
+		List<String> lines = Collections.unmodifiableList(Files.readAllLines(inputFilePath, Charset.forName("utf-8")));
+		TLALexer lexer = new TLALexer(inputFilePath, lines);
 		
 		List<TLAToken> tokens = lexer.readTokens();
 		

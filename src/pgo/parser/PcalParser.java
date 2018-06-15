@@ -1,6 +1,6 @@
 package pgo.parser;
 
-import java.nio.file.Path;
+import java.util.List;
 import java.util.Vector;
 import java.util.logging.Logger;
 
@@ -10,12 +10,8 @@ import pcal.ParseAlgorithm;
 import pcal.PcalCharReaderPgo;
 import pcal.PcalParams;
 import pcal.TLAtoPCalMapping;
-import pcal.exception.FileToStringVectorException;
 import pcal.exception.ParseAlgorithmException;
-import pgo.util.IOUtil;
 import util.ToolIO;
-
-// import pgo.model.parser.PGoAnnotation;
 
 /**
  * The pluscal parser.
@@ -24,38 +20,11 @@ import util.ToolIO;
  *
  */
 public class PcalParser {
+	private PcalParser() {}
 
-	private Logger logger;
-	// the file to parse
-	private Path filename;
+	public static AST parse(List<String> lines) throws PGoParseException {
+		Logger logger = Logger.getLogger("PlusCal Parser");
 
-	public PcalParser(Path filename) {
-		logger = Logger.getLogger("PlusCal Parser");
-		this.filename = filename;
-	}
-
-	public static class ParsedPcal {
-		// the list of PGo annotations
-		// private Vector<PGoAnnotation> annotations;
-
-		// the AST
-		private AST ast;
-
-		private ParsedPcal(AST ast/*, Vector<PGoAnnotation> annotations*/) {
-			this.ast = ast;
-			// this.annotations = annotations;
-		}
-
-		// public Vector<PGoAnnotation> getPGoAnnotations() {
-		// 	return annotations;
-		// }
-
-		public AST getAST() {
-			return ast;
-		}
-	}
-
-	public ParsedPcal parse() throws PGoParseException {
 		if (ToolIO.getMode() == ToolIO.SYSTEM) {
 			logger.info("pcal.trans Version " + PcalParams.version + " of " + PcalParams.modDate);
 		}
@@ -79,18 +48,6 @@ public class PcalParser {
 		PcalParams.tlaPcalMapping = mapping;
 
 		/*********************************************************************
-		 * Read the input file, and set the Vector inputVec equal to its *
-		 * contents, where inputVec[i] is the string containing the contents *
-		 * of line i+1 of the input file. *
-		 *********************************************************************/
-		Vector<String> inputVec;
-		try {
-			inputVec = IOUtil.fileToStringVector(filename);
-		} catch (FileToStringVectorException e) {
-			throw new PGoParseException(e.getMessage());
-		}
-
-		/*********************************************************************
 		 * Set untabInputVec to be the vector of strings obtained from *
 		 * inputVec by replacing tabs with spaces. * * Tabs are date from the
 		 * days when memory cost $1 per bit and are a * stupid anachronism. They
@@ -104,7 +61,7 @@ public class PcalParser {
 		 * by the * translator are copied from inputVec, so any tabs the user
 		 * wants * are kept. *
 		 *********************************************************************/
-		Vector<String> untabInputVec = removeTabs(inputVec);
+		Vector<String> untabInputVec = removeTabs(lines);
 
 		/**
 		 * Look through the file for PlusCal options. They are put anywhere in
@@ -162,7 +119,7 @@ public class PcalParser {
 		boolean foundBegin = false;
 		boolean foundFairBegin = false;
 		while ((algLine < untabInputVec.size()) && !foundBegin) {
-			String line = (String) untabInputVec.elementAt(algLine);
+			String line = untabInputVec.elementAt(algLine);
 			algCol = line.indexOf(PcalParams.BeginAlg);
 			if (algCol != -1) {
 				algCol = algCol + PcalParams.BeginAlg.length();
@@ -217,7 +174,7 @@ public class PcalParser {
 		 * the previous translation removed), starting right after the *
 		 * PcalParams.BeginAlg string. *
 		 *********************************************************************/
-		PcalCharReaderPgo reader = new PcalCharReaderPgo(untabInputVec, algLine, algCol, inputVec.size(), 0);
+		PcalCharReaderPgo reader = new PcalCharReaderPgo(untabInputVec, algLine, algCol, lines.size(), 0);
 
 		/*********************************************************************
 		 * Set ast to the AST node representing the entire algorithm. *
@@ -230,7 +187,7 @@ public class PcalParser {
 		}
 		logger.info("Parsing completed.");
 
-		return new ParsedPcal(ast/*, annotations*/);
+		return ast;
 	}
 
 	/**
@@ -344,29 +301,27 @@ public class PcalParser {
 	 * congruent to 0 mod 8. This is what * Emacs does when told to remove tabs,
 	 * which makes it good enough * for me. *
 	 ********************************************************************/
-	public static Vector<String> removeTabs(Vector vec) {
+	private static Vector<String> removeTabs(List<String> lines) {
 		Vector<String> newVec = new Vector<>();
 		int i = 0;
-		while (i < vec.size()) {
-			String oldline = (String) vec.elementAt(i);
+		for (String oldLine : lines) {
 			StringBuilder newline = new StringBuilder();
 			int next = 0;
-			while (next < oldline.length()) {
-				if (oldline.charAt(next) == '\t') {
+			while (next < oldLine.length()) {
+				if (oldLine.charAt(next) == '\t') {
 					int toAdd = 8 - (newline.length() % 8);
 					while (toAdd > 0) {
 						newline.append(" ");
 						toAdd = toAdd - 1;
 					}
 				} else {
-					newline.append(oldline, next, next + 1);
+					newline.append(oldLine, next, next + 1);
 				}
 				next = next + 1;
 			}
 			newVec.addElement(newline.toString());
 			i = i + 1;
 		}
-		;
 		return newVec;
 	}
 }

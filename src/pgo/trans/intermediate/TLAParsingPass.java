@@ -1,6 +1,5 @@
 package pgo.trans.intermediate;
 
-import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
 
@@ -16,15 +15,12 @@ public class TLAParsingPass {
 	
 	private TLAParsingPass() {}
 	
-	public static PGoTLAModule perform(IssueContext ctx, Path filename) {
+	public static PGoTLAModule perform(IssueContext ctx, Path filename, List<String> lines) {
 		try {
-			TLALexer lexer = new TLALexer(filename);
+			TLALexer lexer = new TLALexer(filename, lines);
 			List<TLAToken> tokens = lexer.readTokens();
 			List<PGoTLAModule> modules = TLAParser.readModules(tokens.listIterator());
 			return modules.get(0);
-		} catch (IOException e) {
-			ctx.error(new IOErrorIssue(e));
-			return null;
 		} catch (PGoTLALexerException e) {
 			ctx.error(new TLALexerIssue(e));
 			return null;

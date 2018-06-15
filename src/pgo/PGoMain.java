@@ -2,12 +2,17 @@ package pgo;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
 
 import org.apache.commons.io.FileUtils;
+import pcal.AST;
 import pcal.exception.StringVectorToFileException;
 import pgo.errors.TopLevelIssueContext;
 import pgo.model.golang.Module;
@@ -16,7 +21,6 @@ import pgo.model.tla.PGoTLAExpression;
 import pgo.model.tla.PGoTLAModule;
 import pgo.model.type.PGoType;
 import pgo.modules.TLAModuleLoader;
-import pgo.parser.PcalParser.ParsedPcal;
 import pgo.scope.UID;
 import pgo.trans.PGoTransException;
 import pgo.trans.intermediate.*;
@@ -55,22 +59,27 @@ public class PGoMain {
 				return false;
 			}
 
+			logger.info("Reading lines from source file");
+			Path inputFilePath = Paths.get(opts.inputFilePath);
+			List<String> lines = Collections.unmodifiableList(
+					Files.readAllLines(inputFilePath, Charset.forName("utf-8")));
+
 			logger.info("Parsing PlusCal code");
-			ParsedPcal pcal = PlusCalParsingPass.perform(ctx, Paths.get(opts.inputFilePath));
+			AST pCalAST = PlusCalParsingPass.perform(ctx, lines);
 			checkErrors(ctx);
 
 			// for -writeAST option, just write the file AST.tla and halt.
 			if (opts.writeAST) {
-				IOUtil.WriteAST(pcal.getAST(), opts.buildDir + "/" + opts.buildFile);
+				IOUtil.WriteAST(pCalAST, opts.buildDir + "/" + opts.buildFile);
 				return true; // added for testing
 			}
 
 			logger.info("Cleaning up PlusCal AST");
-			Algorithm pcalAlgorithm = PlusCalConversionPass.perform(ctx, pcal);
+			Algorithm algorithm = PlusCalConversionPass.perform(ctx, pCalAST);
 			checkErrors(ctx);
 
 			logger.info("Parsing TLA+ module");
-			PGoTLAModule tlaModule = TLAParsingPass.perform(ctx, Paths.get(opts.inputFilePath));
+			PGoTLAModule tlaModule = TLAParsingPass.perform(ctx, inputFilePath, lines);
 			checkErrors(ctx);
 
 			logger.info("Parsing constant definitions from configuration");
@@ -79,27 +88,27 @@ public class PGoMain {
 			checkErrors(ctx);
 
 			logger.info("Checking compile options for sanity");
-			CheckOptionsPass.perform(ctx, pcalAlgorithm, opts);
+			CheckOptionsPass.perform(ctx, algorithm, opts);
 			checkErrors(ctx);
 
 			logger.info("Expanding PlusCal macros");
-			pcalAlgorithm = PlusCalMacroExpansionPass.perform(ctx, pcalAlgorithm);
+			algorithm = PlusCalMacroExpansionPass.perform(ctx, algorithm);
 			checkErrors(ctx);
 
 			logger.info("Resolving TLA+ and PlusCal scoping");
-			TLAModuleLoader loader = new TLAModuleLoader(Collections.singletonList(Paths.get(opts.inputFilePath).getParent()));
-			DefinitionRegistry registry = PGoScopingPass.perform(ctx, tlaModule, pcalAlgorithm, loader, constantDefinitions);
+			TLAModuleLoader loader = new TLAModuleLoader(Collections.singletonList(inputFilePath.getParent()));
+			DefinitionRegistry registry = PGoScopingPass.perform(ctx, tlaModule, algorithm, loader, constantDefinitions);
 			checkErrors(ctx);
 
 			logger.info("Inferring types");
-			Map<UID, PGoType> typeMap = TypeInferencePass.perform(ctx, registry, pcalAlgorithm);
+			Map<UID, PGoType> typeMap = TypeInferencePass.perform(ctx, registry, algorithm);
 			checkErrors(ctx);
 
 			logger.info("Inferring atomicity requirements");
-			AtomicityInferencePass.perform(registry, pcalAlgorithm);
+			AtomicityInferencePass.perform(registry, algorithm);
 
 			logger.info("Initial code generation");
-			Module module = CodeGenPass.perform(registry, typeMap, opts, pcalAlgorithm);
+			Module module = CodeGenPass.perform(registry, typeMap, opts, algorithm);
 
 			logger.info("Normalising generated code");
 			Module normalisedModule = CodeNormalisingPass.perform(module);
