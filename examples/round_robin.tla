@@ -81,7 +81,7 @@ TokenWithinBounds ==
   token = -1 \/ token \in 0..procs-1
 
 CounterConverges ==
-    Termination => (counter = procs * iters)
+    (\A self \in ProcSet: pc[self] = "Done") => (counter = procs * iters)
 
 ProcessesGetToken ==
     \A self \in ProcSet : <>(token = self)

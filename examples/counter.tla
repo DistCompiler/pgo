@@ -66,7 +66,9 @@ Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 
 \* END TRANSLATION
 
+(* If all processes are done, the counter should be equal the
+   number of processes times the number of iterations each performed *)
 CounterConverges ==
-    Termination => (counter = procs * iters)
+    (\A self \in ProcSet: pc[self] = "Done") => (counter = procs * iters)
 
-====
+======================================================================
