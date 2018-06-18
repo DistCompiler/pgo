@@ -173,7 +173,7 @@ public class TLCToPGoPCalASTConversionVisitor extends PcalASTUtil.Visitor<List<S
 			units = Collections.emptyList();
 		}
 
-		return new Algorithm(loc, name, variables, macros, procedures, units, processes);
+		return new Algorithm(loc, name, variables, resultMacros, procedures, units, processes);
 	}
 
 	public Algorithm getResult() {
