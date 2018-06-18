@@ -501,7 +501,7 @@ public class TLABuiltins {
 
 		BuiltinModule Integers = new BuiltinModule(Naturals);
 		builtinModules.put("Integers", Integers);
-		Integers.addOperator("-", new TypelessBuiltinOperator(
+		Integers.addOperator("-_", new TypelessBuiltinOperator(
 				1,
 				(origin, args, solver, generator) -> {
 					PGoType fresh = new PGoTypeUnrealizedNumber(new PGoTypeInt(Collections.singletonList(origin)), Collections.singletonList(origin));

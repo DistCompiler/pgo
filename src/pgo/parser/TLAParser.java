@@ -1166,9 +1166,12 @@ public final class TLAParser {
 					String opStr = op.getValue().getValue();
 					if(PREFIX_OPERATORS_LOW_PRECEDENCE.get(opStr) <= precedence && PREFIX_OPERATORS_HI_PRECEDENCE.get(opStr) >= precedence) {
 						return parseExpressionFromPrecedence(minColumn, PREFIX_OPERATORS_HI_PRECEDENCE.get(opStr) + 1).map(exp -> {
+							// operator - is the only operator that is both unary and binary, and can be defined as
+							// both simultaneously. We special-case the unary version by renaming it.
+							String value = op.getValue().getValue().equals("-") ? "-_" : op.getValue().getValue();
 							return new PGoTLAUnary(
 									seqResult.getLocation(),
-									new PGoTLASymbol(op.getValue().getLocation(), op.getValue().getValue()),
+									new PGoTLASymbol(op.getValue().getLocation(), value),
 									prefix.getValue(), exp);
 						});
 					}else {
@@ -1326,9 +1329,12 @@ public final class TLAParser {
 						part(op, parseBuiltinTokenOneOf(PREFIX_OPERATORS, minColumn)),
 						drop(parseBuiltinToken("_", minColumn))
 						).map(seqResult -> {
+							// operator - is the only operator that is both unary and binary, and can be defined as
+							// both simultaneously. We special-case the unary version by renaming it.
+							String value = op.getValue().getValue().equals("-") ? "-_" : op.getValue().getValue();
 							return PGoTLAOpDecl.Prefix(
 									seqResult.getLocation(),
-									new PGoTLAIdentifier(op.getValue().getLocation(), op.getValue().getValue()));
+									new PGoTLAIdentifier(op.getValue().getLocation(), value));
 						}),
 				sequence(
 						drop(parseBuiltinToken("_", minColumn)),
@@ -1363,7 +1369,12 @@ public final class TLAParser {
 									part(op, parseBuiltinTokenOneOf(PREFIX_OPERATORS, minColumn)),
 									part(rhs, parseIdentifier(minColumn))
 									).map(seqResult -> {
-										name.setValue(new PGoTLAIdentifier(op.getValue().getLocation(), op.getValue().getValue()));
+										// operator - is the only operator that is both unary and binary, and can
+										// be defined as both simultaneously. We special-case the unary version by
+										// renaming it.
+										String value =
+												op.getValue().getValue().equals("-") ? "-_" : op.getValue().getValue();
+										name.setValue(new PGoTLAIdentifier(op.getValue().getLocation(), value));
 										SourceLocation loc = rhs.getValue().getLocation();
 										return new LocatedList<PGoTLAOpDecl>(
 												seqResult.getLocation(),
