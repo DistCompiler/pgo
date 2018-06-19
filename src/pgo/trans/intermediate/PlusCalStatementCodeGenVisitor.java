@@ -163,11 +163,18 @@ public class PlusCalStatementCodeGenVisitor extends StatementVisitor<Void, Runti
 
 	@Override
 	public Void visit(Call call) throws RuntimeException {
+		List<Expression> arguments = new ArrayList<>();
+		List<PGoTLAExpression> args = call.getArguments();
+		for (int i = 0; i < args.size(); i++) {
+			PGoTLAExpression arg = args.get(i);
+			Expression e = arg.accept(new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
+			arguments.add(builder.varDecl("arg" + Integer.toString(i + 1), e));
+		}
+		// the critical section ends here because the procedure has to have a label on the first line of its body
+		criticalSectionTracker.end(builder);
 		builder.addStatement(new ExpressionStatement(new pgo.model.golang.Call(
 				new VariableName(call.getTarget()),
-				call.getArguments().stream()
-						.map(a ->a.accept(new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy)))
-						.collect(Collectors.toList()))));
+				arguments)));
 		return null;
 	}
 
