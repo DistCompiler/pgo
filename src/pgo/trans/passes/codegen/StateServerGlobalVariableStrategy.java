@@ -1,10 +1,8 @@
 package pgo.trans.passes.codegen;
 
 import pgo.PGoNetOptions;
-import pgo.TODO;
 import pgo.Unreachable;
 import pgo.model.golang.*;
-import pgo.model.golang.type.MapType;
 import pgo.model.pcal.Algorithm;
 import pgo.model.pcal.MultiProcess;
 import pgo.model.pcal.PcalProcess;
@@ -185,9 +183,17 @@ public class StateServerGlobalVariableStrategy extends GlobalVariableStrategy {
 
 	@Override
 	public void startCriticalSection(BlockBuilder builder, UID processUID, int lockGroup, UID labelUID, LabelName labelName) {
-		ArrayList<UID> variableUIDs = new ArrayList<>(registry.getVariablesInLockGroup(lockGroup));
-		List<VariableName> variableNames = variableUIDs.stream().map(builder::findUID).collect(Collectors.toList());
-		List<Expression> variableNameStrings = variableNames.stream()
+		Set<UID> readSet = new HashSet<>(registry.getVariableReadsInLockGroup(lockGroup));
+		Set<UID> writeSet = registry.getVariableWritesInLockGroup(lockGroup);
+		readSet.removeAll(writeSet);
+		ArrayList<UID> readVariableUIDs = new ArrayList<>(readSet);
+		List<VariableName> readVariableNames = readVariableUIDs.stream().map(builder::findUID).collect(Collectors.toList());
+		List<Expression> readVariableNameStrings = readVariableNames.stream()
+				.map(v -> new StringLiteral(v.getName()))
+				.collect(Collectors.toList());
+		ArrayList<UID> writeVariableUIDs = new ArrayList<>(writeSet);
+		List<VariableName> writeVariableNames = writeVariableUIDs.stream().map(builder::findUID).collect(Collectors.toList());
+		List<Expression> writeVariableNameStrings = writeVariableNames.stream()
 				.map(v -> new StringLiteral(v.getName()))
 				.collect(Collectors.toList());
 		VariableName refs = findVariable(refsUID);
@@ -203,24 +209,33 @@ public class StateServerGlobalVariableStrategy extends GlobalVariableStrategy {
 										Arrays.asList(
 												new StructLiteralField(
 														"ReadNames",
-														new SliceLiteral(Builtins.String, variableNameStrings)),
+														new SliceLiteral(Builtins.String, readVariableNameStrings)),
 												new StructLiteralField(
 														"WriteNames",
-														new SliceLiteral(Builtins.String, variableNameStrings))))))));
+														new SliceLiteral(Builtins.String, writeVariableNameStrings))))))));
 		try (IfBuilder ifBuilder = builder.ifStmt(new Binop(Binop.Operation.NEQ, err, Builtins.Nil))) {
 			try (BlockBuilder yes = ifBuilder.whenTrue()) {
 				yes.addPanic(err);
 			}
 		}
 		// pull all values out of the map and into globals
-		for (int i = 0; i < variableNames.size(); i++) {
+		for (int i = 0; i < writeVariableNames.size(); i++) {
 			builder.assign(
-					variableNames.get(i),
+					writeVariableNames.get(i),
 					new TypeAssertion(
 							new Call(
 									new Selector(refs, "Get"),
-									Collections.singletonList(new StringLiteral(variableNames.get(i).getName()))),
-							registry.getGlobalVariableType(variableUIDs.get(i))));
+									Collections.singletonList(new StringLiteral(writeVariableNames.get(i).getName()))),
+							registry.getGlobalVariableType(writeVariableUIDs.get(i))));
+		}
+		for (int i = 0; i < readVariableNames.size(); i++) {
+			builder.assign(
+					readVariableNames.get(i),
+					new TypeAssertion(
+							new Call(
+									new Selector(refs, "Get"),
+									Collections.singletonList(new StringLiteral(readVariableNames.get(i).getName()))),
+							registry.getGlobalVariableType(readVariableUIDs.get(i))));
 		}
 	}
 
@@ -232,7 +247,7 @@ public class StateServerGlobalVariableStrategy extends GlobalVariableStrategy {
 	@Override
 	public void endCriticalSection(BlockBuilder builder, UID processUID, int lockGroup, UID labelUID, LabelName labelName) {
 		VariableName refs = findVariable(refsUID);
-		for (UID varUID : registry.getVariablesInLockGroup(lockGroup)) {
+		for (UID varUID : registry.getVariableWritesInLockGroup(lockGroup)) {
 			VariableName name = builder.findUID(varUID);
 			builder.addStatement(new Call(
 					new Selector(refs, "Set"),

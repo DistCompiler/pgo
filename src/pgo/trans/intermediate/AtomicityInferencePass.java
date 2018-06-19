@@ -1,14 +1,13 @@
 package pgo.trans.intermediate;
 
+import pgo.InternalCompilerError;
 import pgo.UnionFind;
 import pgo.model.pcal.*;
 import pgo.scope.UID;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.function.BiConsumer;
+import java.util.stream.Collectors;
 
 public class AtomicityInferencePass {
 	private AtomicityInferencePass() {}
@@ -67,7 +66,24 @@ public class AtomicityInferencePass {
 			for (UID varUID : registry.globalVariables()) {
 				if (unionFind.getRank(varUID) > 0) {
 					registry.addProtectedGlobalVariable(varUID);
-					registry.addVariableToLockGroup(varUID, seenRoots.get(unionFind.find(varUID)));
+					int lockGroup = seenRoots.get(unionFind.find(varUID));
+					boolean isRead = globalVarReadsToLabel.getOrDefault(varUID, Collections.emptySet())
+							.stream()
+							.map(registry::getLockGroup)
+							.anyMatch(i -> i.equals(lockGroup));
+					boolean isWritten = globalVarWritesToLabel.getOrDefault(varUID, Collections.emptySet())
+							.stream()
+							.map(registry::getLockGroup)
+							.anyMatch(i -> i.equals(lockGroup));
+					if (!isRead && !isWritten) {
+						throw new InternalCompilerError();
+					}
+					if (isRead) {
+						registry.addVariableReadToLockGroup(varUID, lockGroup);
+					}
+					if (isWritten) {
+						registry.addVariableWriteToLockGroup(varUID, lockGroup);
+					}
 				}
 			}
 		}

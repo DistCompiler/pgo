@@ -23,7 +23,7 @@ public class MultithreadedProcessGlobalVariableStrategy extends GlobalVariableSt
 	private UID pGoWaitUID;
 	private UID pGoStartUID;
 
-	private static final Type PGO_LOCK_TYPE = new SliceType(new TypeName("sync.Mutex"));
+	private static final Type PGO_LOCK_TYPE = new SliceType(new TypeName("sync.RWMutex"));
 
 	public MultithreadedProcessGlobalVariableStrategy(DefinitionRegistry registry, Map<UID, PGoType> typeMap,
 	                                                  Algorithm algorithm) {
@@ -93,8 +93,12 @@ public class MultithreadedProcessGlobalVariableStrategy extends GlobalVariableSt
 
 	@Override
 	public void startCriticalSection(BlockBuilder builder, UID processUID, int lockGroup, UID labelUID, LabelName labelName) {
+		String functionName = "Lock";
+		if (registry.getVariableWritesInLockGroup(lockGroup).isEmpty()) {
+			functionName = "RLock";
+		}
 		builder.addStatement(new Call(
-				new Selector(new Index(findVariable(pGoLockUID), new IntLiteral(lockGroup)),"Lock"),
+				new Selector(new Index(findVariable(pGoLockUID), new IntLiteral(lockGroup)), functionName),
 				Collections.emptyList()));
 	}
 
@@ -106,8 +110,12 @@ public class MultithreadedProcessGlobalVariableStrategy extends GlobalVariableSt
 
 	@Override
 	public void endCriticalSection(BlockBuilder builder, UID processUID, int lockGroup, UID labelUID, LabelName labelName) {
+		String functionName = "Unlock";
+		if (registry.getVariableWritesInLockGroup(lockGroup).isEmpty()) {
+			functionName = "RUnlock";
+		}
 		builder.addStatement(new Call(
-				new Selector(new Index(findVariable(pGoLockUID), new IntLiteral(lockGroup)),"Unlock"),
+				new Selector(new Index(findVariable(pGoLockUID), new IntLiteral(lockGroup)), functionName),
 				Collections.emptyList()));
 	}
 

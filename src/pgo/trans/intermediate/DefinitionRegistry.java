@@ -23,7 +23,8 @@ public class DefinitionRegistry {
 	private Map<UID, UID> references;
 	private Map<String, Procedure> procedures;
 	private Map<UID, Integer> labelsToLockGroups;
-	private Map<Integer, Set<UID>> lockGroupsToVariables;
+	private Map<Integer, Set<UID>> lockGroupsToVariableReads;
+	private Map<Integer, Set<UID>> lockGroupsToVariableWrites;
 	private Set<UID> protectedGlobalVariables;
 
 	public DefinitionRegistry() {
@@ -37,7 +38,8 @@ public class DefinitionRegistry {
 		this.constants = new HashMap<>();
 		this.constantValues = new HashMap<>();
 		this.labelsToLockGroups = new HashMap<>();
-		this.lockGroupsToVariables = new HashMap<>();
+		this.lockGroupsToVariableReads = new HashMap<>();
+		this.lockGroupsToVariableWrites = new HashMap<>();
 		this.protectedGlobalVariables = new HashSet<>();
 	}
 
@@ -175,13 +177,22 @@ public class DefinitionRegistry {
 		return labelsToLockGroups.getOrDefault(labelUID, defaultValue);
 	}
 
-	public void addVariableToLockGroup(UID varUID, int lockGroup) {
-		lockGroupsToVariables.putIfAbsent(lockGroup, new HashSet<>());
-		lockGroupsToVariables.get(lockGroup).add(varUID);
+	public void addVariableReadToLockGroup(UID varUID, int lockGroup) {
+		lockGroupsToVariableReads.putIfAbsent(lockGroup, new HashSet<>());
+		lockGroupsToVariableReads.get(lockGroup).add(varUID);
 	}
 
-	public Set<UID> getVariablesInLockGroup(int lockGroup) {
-		return Collections.unmodifiableSet(lockGroupsToVariables.getOrDefault(lockGroup, new TreeSet<>()));
+	public void addVariableWriteToLockGroup(UID varUID, int lockGroup) {
+		lockGroupsToVariableWrites.putIfAbsent(lockGroup, new HashSet<>());
+		lockGroupsToVariableWrites.get(lockGroup).add(varUID);
+	}
+
+	public Set<UID> getVariableReadsInLockGroup(int lockGroup) {
+		return Collections.unmodifiableSet(lockGroupsToVariableReads.getOrDefault(lockGroup, Collections.emptySet()));
+	}
+
+	public Set<UID> getVariableWritesInLockGroup(int lockGroup) {
+		return Collections.unmodifiableSet(lockGroupsToVariableWrites.getOrDefault(lockGroup, Collections.emptySet()));
 	}
 
 	public void addProtectedGlobalVariable(UID varUID) {

@@ -134,11 +134,22 @@ public class EtcdGlobalVariableStrategy extends GlobalVariableStrategy {
 
 	@Override
 	public void startCriticalSection(BlockBuilder builder, UID processUID, int lockGroup, UID labelUID, LabelName labelName) {
+		Set<UID> readSet = new HashSet<>(registry.getVariableReadsInLockGroup(lockGroup));
+		Set<UID> writeSet = registry.getVariableWritesInLockGroup(lockGroup);
+		readSet.removeAll(writeSet);
 		VariableName globalState = findVariable(globalStateUID);
 		builder.addStatement(new Call(
 				new Selector(findVariable(globalStateUID), "Lock"),
 				Arrays.asList(findVariable(processUID), new StringLiteral(Integer.toString(lockGroup)))));
-		for (UID varUID : registry.getVariablesInLockGroup(lockGroup)) {
+		for (UID varUID : writeSet) {
+			VariableName variableName = builder.findUID(varUID);
+			builder.addStatement(new Call(
+					new Selector(globalState, "Get"),
+					Arrays.asList(
+							new StringLiteral(variableName.getName()),
+							new Unary(Unary.Operation.ADDR, variableName))));
+		}
+		for (UID varUID : readSet) {
 			VariableName variableName = builder.findUID(varUID);
 			builder.addStatement(new Call(
 					new Selector(globalState, "Get"),
@@ -158,7 +169,7 @@ public class EtcdGlobalVariableStrategy extends GlobalVariableStrategy {
 	@Override
 	public void endCriticalSection(BlockBuilder builder, UID processUID, int lockGroup, UID labelUID, LabelName labelName) {
 		VariableName globalState = findVariable(globalStateUID);
-		for (UID varUID : registry.getVariablesInLockGroup(lockGroup)) {
+		for (UID varUID : registry.getVariableWritesInLockGroup(lockGroup)) {
 			VariableName variableName = builder.findUID(varUID);
 			builder.addStatement(new Call(
 					new Selector(globalState, "Set"),
