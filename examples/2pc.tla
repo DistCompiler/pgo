@@ -15,186 +15,305 @@
 (*     deciding to abort. That makes the spec closer to an implementation. *)
 (***************************************************************************)
 
+EXTENDS Naturals, Sequences, FiniteSets
+
 CONSTANT RM \* The set of resource managers
 CONSTANT TM \* The transaction manager
-
 CONSTANT data
 
-(* ASSUME TM \notin RM *)
+ASSUME TM \notin RM
+ASSUME IsFiniteSet(RM)
+
+NumProcs == Cardinality(RM) + 1
 
 (***************************************************************************
 --algorithm TwoPhaseCommit {
-  variables rmState = [rm \in RM |-> "working"],
-            msgs = {} ;
-  macro SendMsg(m) { msgs := msgs \cup {m} }
-  macro RcvMsg(m) { await m \in msgs }
-  macro TMRcvPrepared() {
-    (***********************************************************************)
-    (* The TM receives a "Prepared" message from some resource manager.    *)
-    (***********************************************************************)
-    await tmState = "init";
-    with (rm \in RM) {
-      RcvMsg([type |-> "Prepared", rm |-> rm]);
-      tmPrepared := tmPrepared \cup {rm}
-     }
-   }
+  variable network = [from \in 1..NumProcs |-> [to \in 1..NumProcs |-> <<>>]];
+
+  define {
+    send(from, to, msg) == [network EXCEPT ![from][to] = Append(@, msg)]
+    broadcast(from, msg) == [network EXCEPT ![from] = [to \in 1..NumProcs |-> IF from = to THEN network[from][to] ELSE Append(network[from][to], msg)]]
+  }
+
+  macro rcv(to, buf) {
+    with (from \in { j \in 1..NumProcs : Len(network[j][to]) > 0 }) {
+      buf := Head(network[from][to]);
+      network[from][to] := Tail(@)
+    }
+  }
 
   macro TMPropose() {
-    SendMsg([type |-> "Propose", data |-> data])
+    tmState := "init";
+    network := broadcast(TM, [type |-> "Prepare", data |-> data]);
   }
 
   macro TMCommit() {
-    (***********************************************************************)
-    (* The TM commits the transaction; enabled iff the TM is in its        *)
-    (* initial state and every RM has sent a "Prepared" message.           *)
-    (***********************************************************************)
-    await /\ tmState = "init"
-          /\ tmPrepared = RM ;
-    tmState := "committed" ;
-    SendMsg([type |-> "Commit"])
-   }
+    tmState := "committed";
+    network := broadcast(TM, [type |-> "Commit"]);
+    rmState := [ rm \in RM |-> "committed" ];
+  }
+
   macro TMAbort() {
-    (***********************************************************************)
-    (* The TM spontaneously aborts the transaction.                        *)
-    (***********************************************************************)
-    await tmState = "init" /\ ([type |-> "RMAborted"] \in msgs);
-    tmState := "aborted" ;
-    SendMsg([type |-> "Abort"])
-   }
-  macro RMPrepare(rm) {
-    (***********************************************************************)
-    (* Resource manager rm prepares.                                       *)
-    (***********************************************************************)
-    await rmState[rm] = "working" /\ ([type |-> "Propose", data |-> data] \in msgs);
-    rmState[rm] := "prepared" ;
-    SendMsg([type |-> "RMPrepared", rm |-> rm])
-   }
-  macro RMChooseToAbort(rm) {
-    (***********************************************************************)
-    (* Resource manager rm spontaneously decides to abort.  As noted       *)
-    (* above, rm does not send any message in our simplified spec.         *)
-    (***********************************************************************)
-    await rmState[rm] = "working" ;
-    rmState[rm] := "aborted";
-    SendMsg([type |-> "RMAborted"]);
-   }
+    tmState := "aborted";
+    network := broadcast(TM, [type |-> "Abort"]);
+  }
+
+  macro RMPrepare(rm, decision) {
+    await state = "working";
+
+    (* PGo: func CheckQuery() string *)
+    either {
+      decision := "prepared"
+    } or {
+      decision := "aborted"
+    };
+
+    state := decision;
+    network := send(rm, TM, [type |-> decision, rm |-> rm]);
+  }
+
   macro RMRcvCommitMsg(rm) {
-    (***********************************************************************)
-    (* Resource manager rm is told by the TM to commit.                    *)
-    (***********************************************************************)
-    RcvMsg([type |-> "Commit"]) ;
-    rmState[rm] := "committed"
-   }
+    state := "committed"
+  }
+
   macro RMRcvAbortMsg(rm) {
-    (***********************************************************************)
-    (* Resource manager rm is told by the TM to abort.                     *)
-    (***********************************************************************)
-    RcvMsg ([type |-> "Abort"]) ;
-    rmState[rm] := "aborted"
+    state := "aborted"
   }
 
   process (TManager = TM)
   variables tmState = "init",
-            tmPrepared = {};
+            rmState = [rm \in RM |-> "working"],
+            received = 0,
+            tmsg = "";
   {
-    tmstart: while (TRUE) {
-               either { TMPropose() }
-               or     { TMCommit() }
-               or     { TMAbort() }
-               or     { TMRcvPrepared() }
-             }
+               propose: TMPropose();
+
+               loop: while (received < NumProcs - 1) {
+                 tmRcv: rcv(TM, tmsg);
+
+                 tmPrep: if (tmsg.type = "prepared") {
+                       rmState[tmsg.rm] := "prepared";
+                     };
+
+                 tmAbort: if (tmsg.type = "aborted") {
+                        rmState[tmsg.rm] := "aborted";
+                      };
+
+                 incReceived: received := received +1;
+              };
+
+              checkResult: if (\A rm \in RM : rmState[rm] = "prepared") {
+                             TMCommit();
+                           } else {
+                             TMAbort();
+                           }
    }
-  process (RManager \in RM) {
-    rmstart: while (TRUE) {
-               either { RMPrepare(self) }
-               or     { RMChooseToAbort(self) }
-               or     { RMRcvCommitMsg(self) }
-               or     { RMRcvAbortMsg(self) }
+  process (RManager \in RM)
+  variables rmsg = "",
+            decision = "",
+            state = "working",
+            consensus = 0;
+  {
+    rmstart: while (consensus = 0) {
+               rcvLbl: rcv(self, rmsg);
+
+               rmPrep: if (rmsg.type = "Prepare") {
+                 RMPrepare(self, decision);
+               };
+
+               rmCommit: if (rmsg.type = "Commit") {
+                 consensus := 1;
+                 RMRcvCommitMsg(self);
+               };
+
+               rmAbort: if (rmsg.type = "Abort") {
+                 consensus := 1;
+                 RMRcvAbortMsg(self);
+               }
              }
    }
 }
 ***************************************************************************)
 
 \* BEGIN TRANSLATION
-VARIABLES rmState, msgs, tmState, tmPrepared
+VARIABLES network, pc
 
-vars == << rmState, msgs, tmState, tmPrepared >>
+(* define statement *)
+send(from, to, msg) == [network EXCEPT ![from][to] = Append(@, msg)]
+broadcast(from, msg) == [network EXCEPT ![from] = [to \in 1..NumProcs |-> IF from = to THEN network[from][to] ELSE Append(network[from][to], msg)]]
+
+VARIABLES tmState, rmState, received, tmsg, rmsg, decision, state, consensus
+
+vars == << network, pc, tmState, rmState, received, tmsg, rmsg, decision,
+           state, consensus >>
 
 ProcSet == {TM} \cup (RM)
 
 Init == (* Global variables *)
-        /\ rmState = [rm \in RM |-> "working"]
-        /\ msgs = {}
+        /\ network = [from \in 1..NumProcs |-> [to \in 1..NumProcs |-> <<>>]]
         (* Process TManager *)
         /\ tmState = "init"
-        /\ tmPrepared = {}
+        /\ rmState = [rm \in RM |-> "working"]
+        /\ received = 0
+        /\ tmsg = ""
+        (* Process RManager *)
+        /\ rmsg = [self \in RM |-> ""]
+        /\ decision = [self \in RM |-> ""]
+        /\ state = [self \in RM |-> "working"]
+        /\ consensus = [self \in RM |-> 0]
+        /\ pc = [self \in ProcSet |-> CASE self = TM -> "propose"
+                                        [] self \in RM -> "rmstart"]
 
-TManager == /\ \/ /\ msgs' = (msgs \cup {([type |-> "Propose", data |-> data])})
-                  /\ UNCHANGED <<tmState, tmPrepared>>
-               \/ /\ /\ tmState = "init"
-                     /\ tmPrepared = RM
-                  /\ tmState' = "committed"
-                  /\ msgs' = (msgs \cup {([type |-> "Commit"])})
-                  /\ UNCHANGED tmPrepared
-               \/ /\ tmState = "init" /\ ([type |-> "RMAborted"] \in msgs)
-                  /\ tmState' = "aborted"
-                  /\ msgs' = (msgs \cup {([type |-> "Abort"])})
-                  /\ UNCHANGED tmPrepared
-               \/ /\ tmState = "init"
-                  /\ \E rm \in RM:
-                       /\ ([type |-> "Prepared", rm |-> rm]) \in msgs
-                       /\ tmPrepared' = (tmPrepared \cup {rm})
-                  /\ UNCHANGED <<msgs, tmState>>
-            /\ UNCHANGED rmState
+propose == /\ pc[TM] = "propose"
+           /\ tmState' = "init"
+           /\ network' = broadcast(TM, [type |-> "Prepare", data |-> data])
+           /\ pc' = [pc EXCEPT ![TM] = "loop"]
+           /\ UNCHANGED << rmState, received, tmsg, rmsg, decision, state,
+                           consensus >>
 
-RManager(self) == /\ \/ /\ rmState[self] = "working" /\ ([type |-> "Propose", data |-> data] \in msgs)
-                        /\ rmState' = [rmState EXCEPT ![self] = "prepared"]
-                        /\ msgs' = (msgs \cup {([type |-> "RMPrepared", rm |-> self])})
-                     \/ /\ rmState[self] = "working"
-                        /\ rmState' = [rmState EXCEPT ![self] = "aborted"]
-                        /\ msgs' = (msgs \cup {([type |-> "RMAborted"])})
-                     \/ /\ ([type |-> "Commit"]) \in msgs
-                        /\ rmState' = [rmState EXCEPT ![self] = "committed"]
-                        /\ msgs' = msgs
-                     \/ /\ ([type |-> "Abort"]) \in msgs
-                        /\ rmState' = [rmState EXCEPT ![self] = "aborted"]
-                        /\ msgs' = msgs
-                  /\ UNCHANGED << tmState, tmPrepared >>
+loop == /\ pc[TM] = "loop"
+        /\ IF received < NumProcs - 1
+              THEN /\ pc' = [pc EXCEPT ![TM] = "tmRcv"]
+              ELSE /\ pc' = [pc EXCEPT ![TM] = "checkResult"]
+        /\ UNCHANGED << network, tmState, rmState, received, tmsg, rmsg,
+                        decision, state, consensus >>
+
+tmRcv == /\ pc[TM] = "tmRcv"
+         /\ \E from \in { j \in 1..NumProcs : Len(network[j][TM]) > 0 }:
+              /\ tmsg' = Head(network[from][TM])
+              /\ network' = [network EXCEPT ![from][TM] = Tail(@)]
+         /\ pc' = [pc EXCEPT ![TM] = "tmPrep"]
+         /\ UNCHANGED << tmState, rmState, received, rmsg, decision, state,
+                         consensus >>
+
+tmPrep == /\ pc[TM] = "tmPrep"
+          /\ IF tmsg.type = "prepared"
+                THEN /\ rmState' = [rmState EXCEPT ![tmsg.rm] = "prepared"]
+                ELSE /\ TRUE
+                     /\ UNCHANGED rmState
+          /\ pc' = [pc EXCEPT ![TM] = "tmAbort"]
+          /\ UNCHANGED << network, tmState, received, tmsg, rmsg, decision,
+                          state, consensus >>
+
+tmAbort == /\ pc[TM] = "tmAbort"
+           /\ IF tmsg.type = "aborted"
+                 THEN /\ rmState' = [rmState EXCEPT ![tmsg.rm] = "aborted"]
+                 ELSE /\ TRUE
+                      /\ UNCHANGED rmState
+           /\ pc' = [pc EXCEPT ![TM] = "incReceived"]
+           /\ UNCHANGED << network, tmState, received, tmsg, rmsg, decision,
+                           state, consensus >>
+
+incReceived == /\ pc[TM] = "incReceived"
+               /\ received' = received +1
+               /\ pc' = [pc EXCEPT ![TM] = "loop"]
+               /\ UNCHANGED << network, tmState, rmState, tmsg, rmsg, decision,
+                               state, consensus >>
+
+checkResult == /\ pc[TM] = "checkResult"
+               /\ IF \A rm \in RM : rmState[rm] = "prepared"
+                     THEN /\ tmState' = "committed"
+                          /\ network' = broadcast(TM, [type |-> "Commit"])
+                          /\ rmState' = [ rm \in RM |-> "committed" ]
+                     ELSE /\ tmState' = "aborted"
+                          /\ network' = broadcast(TM, [type |-> "Abort"])
+                          /\ UNCHANGED rmState
+               /\ pc' = [pc EXCEPT ![TM] = "Done"]
+               /\ UNCHANGED << received, tmsg, rmsg, decision, state,
+                               consensus >>
+
+TManager == propose \/ loop \/ tmRcv \/ tmPrep \/ tmAbort \/ incReceived
+               \/ checkResult
+
+rmstart(self) == /\ pc[self] = "rmstart"
+                 /\ IF consensus[self] = 0
+                       THEN /\ pc' = [pc EXCEPT ![self] = "rcvLbl"]
+                       ELSE /\ pc' = [pc EXCEPT ![self] = "Done"]
+                 /\ UNCHANGED << network, tmState, rmState, received, tmsg,
+                                 rmsg, decision, state, consensus >>
+
+rcvLbl(self) == /\ pc[self] = "rcvLbl"
+                /\ \E from \in { j \in 1..NumProcs : Len(network[j][self]) > 0 }:
+                     /\ rmsg' = [rmsg EXCEPT ![self] = Head(network[from][self])]
+                     /\ network' = [network EXCEPT ![from][self] = Tail(@)]
+                /\ pc' = [pc EXCEPT ![self] = "rmPrep"]
+                /\ UNCHANGED << tmState, rmState, received, tmsg, decision,
+                                state, consensus >>
+
+rmPrep(self) == /\ pc[self] = "rmPrep"
+                /\ IF rmsg[self].type = "Prepare"
+                      THEN /\ state[self] = "working"
+                           /\ \/ /\ decision' = [decision EXCEPT ![self] = "prepared"]
+                              \/ /\ decision' = [decision EXCEPT ![self] = "aborted"]
+                           /\ state' = [state EXCEPT ![self] = decision'[self]]
+                           /\ network' = send(self, TM, [type |-> decision'[self], rm |-> self])
+                      ELSE /\ TRUE
+                           /\ UNCHANGED << network, decision, state >>
+                /\ pc' = [pc EXCEPT ![self] = "rmCommit"]
+                /\ UNCHANGED << tmState, rmState, received, tmsg, rmsg,
+                                consensus >>
+
+rmCommit(self) == /\ pc[self] = "rmCommit"
+                  /\ IF rmsg[self].type = "Commit"
+                        THEN /\ consensus' = [consensus EXCEPT ![self] = 1]
+                             /\ state' = [state EXCEPT ![self] = "committed"]
+                        ELSE /\ TRUE
+                             /\ UNCHANGED << state, consensus >>
+                  /\ pc' = [pc EXCEPT ![self] = "rmAbort"]
+                  /\ UNCHANGED << network, tmState, rmState, received, tmsg,
+                                  rmsg, decision >>
+
+rmAbort(self) == /\ pc[self] = "rmAbort"
+                 /\ IF rmsg[self].type = "Abort"
+                       THEN /\ consensus' = [consensus EXCEPT ![self] = 1]
+                            /\ state' = [state EXCEPT ![self] = "aborted"]
+                       ELSE /\ TRUE
+                            /\ UNCHANGED << state, consensus >>
+                 /\ pc' = [pc EXCEPT ![self] = "rmstart"]
+                 /\ UNCHANGED << network, tmState, rmState, received, tmsg,
+                                 rmsg, decision >>
+
+RManager(self) == rmstart(self) \/ rcvLbl(self) \/ rmPrep(self)
+                     \/ rmCommit(self) \/ rmAbort(self)
 
 Next == TManager
            \/ (\E self \in RM: RManager(self))
+           \/ (* Disjunct to prevent deadlock on termination *)
+              ((\A self \in ProcSet: pc[self] = "Done") /\ UNCHANGED vars)
 
 Spec == Init /\ [][Next]_vars
+
+Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 
 \* END TRANSLATION
 
 Message ==
-  [type : {"RMPrepared"}, rm : RM]  \cup  [type : {"RMAborted", "Commit", "Abort"}] \cup [type: {"Propose"}, data: {data}]
+  {[type |-> "Prepare", data |-> data]} \cup
+  [type : {"Commit", "Abort"}]          \cup
+  [type : {"prepared", "aborted"}, rm : RM]
 
 TypeOK ==
   /\ rmState \in [RM -> {"working", "prepared", "committed", "aborted"}]
   /\ tmState \in {"init", "committed", "aborted"}
-  /\ tmPrepared \subseteq RM  \* \in SUBSET RM
-  /\ msgs \subseteq Message   \* \in SUBSET Message
+  /\ \A src \in 1..NumProcs, dst \in 1..NumProcs : (\A i \in 1..Len(network[src][dst]) : network[src][dst][i] \in Message)
 
 
 (* invariant for the transaction manager *)
-TMInv == /\ (tmState = "committed") => (tmPrepared = RM)
-         /\ ([type |-> "Commit"] \in msgs) => (tmState = "committed")
-         /\ ([type |-> "Abort"] \in msgs) => (tmState = "aborted")
+TMInv == /\ (tmState = "committed") => (\A rm \in RM : rmState[rm] = "prepared")
+         /\ (tmState = "aborted") => (\E rm \in RM : rmState[rm] = "aborted")
+         /\ (\E dst \in 1..NumProcs : (\E i \in 1..Len(network[TM][dst]) : network[TM][dst][i] = [type |-> "Commit"])) => (tmState =  "committed")
+         /\ (\E dst \in 1..NumProcs : (\E i \in 1..Len(network[TM][dst]) : network[TM][dst][i] = [type |-> "Abort"])) => (tmState = "aborted")
 
 (* invariant for the resource managers *)
 RMInv(rm) ==
-  /\ (rm \in tmPrepared) => ([type |-> "Prepared", rm |-> rm] \in msgs)
-  /\ ([type |-> "Prepared", rm |-> rm] \in msgs) =>
-         /\ rmState[rm] # "working"
-         /\ (rmState[rm] = "aborted") => ([type |-> "Abort"] \in msgs)
-  /\ (rmState[rm]= "committed") => ([type |-> "Commit"] \in msgs)
+  /\ (\E i \in 1..Len(network[rm][TM]) : network[rm][TM][i] = [type |-> "prepared", rm |-> rm]) => (state[rm] = "prepared")
+  /\ (state[rm]= "committed") => (tmState = "committed")
+  /\ (state[rm]= "aborted") => (tmState = "aborted")
 
 Inv == TypeOK /\ TMInv /\ (\A rm \in RM : RMInv(rm))
 
 =============================================================================
 \* Modification History
-\* Last modified Tue Jun 19 14:29:09 PDT 2018 by rmc
+\* Last modified Thu Jun 21 14:59:52 PDT 2018 by rmc
 \* Last modified Wed Oct 12 02:41:48 PDT 2011 by lamport
 \* Created Mon Oct 10 06:26:47 PDT 2011 by lamport
