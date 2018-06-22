@@ -44,9 +44,9 @@ public class TLALexerTest {
 	@Parameters
 	public static List<Object[]> data(){
 		return Arrays.asList(new Object[][] {
-			{ "TRUE", Arrays.asList(tok("TRUE", builtin(), 1, 1)) },
-			{ "FALSE", Arrays.asList(tok("FALSE", builtin(), 1, 1)) },
-			{ "a", Arrays.asList(tok("a", ident(), 1, 1)) },
+			{ "TRUE", Collections.singletonList(tok("TRUE", builtin(), 1, 1))},
+			{ "FALSE", Collections.singletonList(tok("FALSE", builtin(), 1, 1))},
+			{ "a", Collections.singletonList(tok("a", ident(), 1, 1))},
 			{ "a b", Arrays.asList(tok("a", ident(), 1, 1), tok("b", ident(), 3, 1)) },
 			{ "  /\\ a\n  /\\ b\n  /\\ c", Arrays.asList(
 					tok("/\\", builtin(), 3, 1),
@@ -57,8 +57,8 @@ public class TLALexerTest {
 					tok("c", ident(), 6, 3)
 					)
 			},
-			{ ".2", Arrays.asList(tok(".2", num(), 1, 1)) },
-			{ "\"abc.+#\"", Arrays.asList(tok("abc.+#", str(), 1, 1)) },
+			{ ".2", Collections.singletonList(tok(".2", num(), 1, 1))},
+			{ "\"abc.+#\"", Collections.singletonList(tok("abc.+#", str(), 1, 1))},
 			{ "a\n\\* BEGIN TRANSLATION\nb", Arrays.asList(
 					tok("a", ident(), 1, 1),
 					tok("\\* BEGIN TRANSLATION", TLATokenType.BEGIN_TRANSLATION, 1, 2),
@@ -81,9 +81,15 @@ public class TLALexerTest {
 					tok("b", ident(), 1, 3)
 					)
 			},
-			{ "<=", Arrays.asList(tok("<=", builtin(), 1, 1)) },
-			{ "\\** BEGIN TRANSLATION", Arrays.asList(tok("\\** BEGIN TRANSLATION", TLATokenType.BEGIN_TRANSLATION, 1, 1)) },
+			{ "<=", Collections.singletonList(tok("<=", builtin(), 1, 1))},
+			{ "\\** BEGIN TRANSLATION", Collections.singletonList(tok("\\** BEGIN TRANSLATION", TLATokenType.BEGIN_TRANSLATION, 1, 1))},
 			{ "\\notin", Collections.singletonList(tok("\\notin", builtin(), 1, 1))},
+			{ "CONSTANT procs (* @PGo{ arg int }@PGo *), iters (* @PGo{ arg int }@PGo *)",
+					Arrays.asList(
+							tok("CONSTANT", builtin(), 1, 1),
+							tok("procs", ident(), 10, 1),
+							tok(",", builtin(), 41, 1),
+							tok("iters", ident(), 43, 1))},
 		});
 	}
 

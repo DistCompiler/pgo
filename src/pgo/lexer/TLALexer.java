@@ -231,7 +231,7 @@ public class TLALexer {
 	static final Pattern COMMENT_END = Pattern.compile("\\*\\)");
 	static final Pattern LINE_COMMENT = Pattern.compile("\\\\\\*");
 	
-	static final Pattern PGO_ANNOTATION = Pattern.compile("@PGo\\{(.*)\\}@PGo");
+	static final Pattern PGO_ANNOTATION = Pattern.compile("@PGo\\{(.*?)}@PGo");
 	
 	static final Pattern BEGIN_TRANSLATION = Pattern.compile("\\\\\\*+ BEGIN TRANSLATION$");
 	static final Pattern END_TRANSLATION = Pattern.compile("\\\\\\*+ END TRANSLATION$");
