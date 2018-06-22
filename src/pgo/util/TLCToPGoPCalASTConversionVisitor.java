@@ -21,7 +21,7 @@ import pgo.model.tla.PlusCalDefaultInitValue;
 import pgo.parser.TLAParseException;
 import pgo.parser.TLAParser;
 import pgo.trans.PGoTransException;
-import pgo.trans.intermediate.TLAParserIssue;
+import pgo.trans.passes.tlaparse.TLAParserIssue;
 import tla2sany.st.Location;
 
 public class TLCToPGoPCalASTConversionVisitor extends PcalASTUtil.Visitor<List<Statement>> {

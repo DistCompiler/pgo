@@ -1,4 +1,4 @@
-package pgo.trans.intermediate;
+package pgo.trans.passes.tlaparse;
 
 import java.nio.file.Path;
 import java.util.List;

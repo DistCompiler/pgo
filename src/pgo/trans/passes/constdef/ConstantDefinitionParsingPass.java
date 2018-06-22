@@ -1,4 +1,4 @@
-package pgo.trans.intermediate;
+package pgo.trans.passes.constdef;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -13,6 +13,8 @@ import pgo.model.tla.PGoTLAExpression;
 import pgo.parser.LocatedString;
 import pgo.parser.TLAParseException;
 import pgo.parser.TLAParser;
+import pgo.trans.passes.tlaparse.TLALexerIssue;
+import pgo.trans.passes.tlaparse.TLAParserIssue;
 
 public class ConstantDefinitionParsingPass {
 	

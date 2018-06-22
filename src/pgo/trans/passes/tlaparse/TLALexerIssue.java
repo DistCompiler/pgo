@@ -1,4 +1,4 @@
-package pgo.trans.intermediate;
+package pgo.trans.passes.tlaparse;
 
 import pgo.errors.Issue;
 import pgo.errors.IssueVisitor;

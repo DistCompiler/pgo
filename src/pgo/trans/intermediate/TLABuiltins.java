@@ -120,7 +120,7 @@ public class TLABuiltins {
 							.accept(new PGoTypeGoTypeConversionVisitor())
 							.accept(new EqCodeGenVisitor(builder, lhs, rhs, false));
 				}));
-		universalBuiltIns.addOperator("#", new BuiltinOperator(
+		universalBuiltIns.addOperators(Arrays.asList("#", "/="), new BuiltinOperator(
 				2,
 				(origin, args, solver, generator) -> {
 					solver.addConstraint(new PGoTypeMonomorphicConstraint(origin, args.get(0), args.get(1)));
@@ -276,7 +276,7 @@ public class TLABuiltins {
 					}
 					return tmpSet;
 				}));
-		universalBuiltIns.addOperator("~", new TypelessBuiltinOperator(
+		universalBuiltIns.addOperators(Arrays.asList("~", "\\lnot", "\\neg"), new TypelessBuiltinOperator(
 				1,
 				(origin, args, solver, generator) -> {
 					PGoType fresh = new PGoTypeBool(Collections.singletonList(origin));
@@ -286,7 +286,7 @@ public class TLABuiltins {
 				(builder, origin, registry, arguments, typeMap) -> new Unary(
 						Unary.Operation.NOT, arguments.get(0))
 				));
-		universalBuiltIns.addOperator("\\/", new TypelessBuiltinOperator(
+		universalBuiltIns.addOperators(Arrays.asList("\\/", "\\lor"), new TypelessBuiltinOperator(
 				2,
 				(origin, args, solver, generator) -> {
 					PGoType fresh = new PGoTypeBool(Collections.singletonList(origin));
@@ -297,7 +297,7 @@ public class TLABuiltins {
 				(builder, origin, registry, arguments, typeMap) -> new Binop(
 						Binop.Operation.OR, arguments.get(0), arguments.get(1))
 				));
-		universalBuiltIns.addOperator("/\\", new TypelessBuiltinOperator(
+		universalBuiltIns.addOperators(Arrays.asList("/\\", "\\land"), new TypelessBuiltinOperator(
 				2,
 				(origin, args, solver, generator) -> {
 					PGoType fresh = new PGoTypeBool(Collections.singletonList(origin));
@@ -308,7 +308,7 @@ public class TLABuiltins {
 				(builder, origin, registry, arguments, typeMap) -> new Binop(
 						Binop.Operation.AND, arguments.get(0), arguments.get(1))
 				));
-		universalBuiltIns.addOperator("\\union", new TypelessBuiltinOperator(
+		universalBuiltIns.addOperators(Arrays.asList("\\union", "\\cup"), new TypelessBuiltinOperator(
 				2,
 				(origin, args, solver, generator) -> {
 					PGoType fresh = new PGoTypeSet(generator.get(), Collections.singletonList(origin));
@@ -446,15 +446,13 @@ public class TLABuiltins {
 				(builder, origin, registry, arguments, typeMap) -> new Binop(
 						Binop.Operation.GT, arguments.get(0), arguments.get(1))
 				));
-		// TODO: \leq =<
-		Naturals.addOperator("<=", new TypelessBuiltinOperator(
+		Naturals.addOperators(Arrays.asList("<=", "\\leq"), new TypelessBuiltinOperator(
 				2,
 				TLABuiltins::constraintBooleanNumberOperation,
 				(builder, origin, registry, arguments, typeMap) -> new Binop(
 						Binop.Operation.LEQ, arguments.get(0), arguments.get(1))
 				));
-		// TODO: \geq
-		Naturals.addOperator(">=", new TypelessBuiltinOperator(
+		Naturals.addOperators(Arrays.asList(">=", "\\geq"), new TypelessBuiltinOperator(
 				2,
 				TLABuiltins::constraintBooleanNumberOperation,
 				(builder, origin, registry, arguments, typeMap) -> new Binop(

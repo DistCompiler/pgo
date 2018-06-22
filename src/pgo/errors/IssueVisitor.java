@@ -4,6 +4,8 @@ import pgo.model.type.BacktrackingFailureIssue;
 import pgo.model.type.UnrealizableTypeIssue;
 import pgo.model.type.UnsatisfiableConstraintIssue;
 import pgo.trans.intermediate.*;
+import pgo.trans.passes.tlaparse.TLALexerIssue;
+import pgo.trans.passes.tlaparse.TLAParserIssue;
 import pgo.trans.passes.type.TypeInferenceFailureIssue;
 
 public abstract class IssueVisitor<T, E extends Throwable> {
