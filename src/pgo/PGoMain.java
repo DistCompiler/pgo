@@ -24,6 +24,8 @@ import pgo.modules.TLAModuleLoader;
 import pgo.scope.UID;
 import pgo.trans.PGoTransException;
 import pgo.trans.intermediate.*;
+import pgo.trans.passes.constdef.ConstantDefinitionParsingPass;
+import pgo.trans.passes.tlaparse.TLAParsingPass;
 import pgo.trans.passes.type.TypeInferencePass;
 import pgo.util.IOUtil;
 

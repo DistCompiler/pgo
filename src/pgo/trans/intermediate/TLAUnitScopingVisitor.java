@@ -30,6 +30,8 @@ import pgo.modules.NoModulesFoundInFileError;
 import pgo.modules.TLAModuleLoader;
 import pgo.parser.TLAParseException;
 import pgo.scope.UID;
+import pgo.trans.passes.tlaparse.TLALexerIssue;
+import pgo.trans.passes.tlaparse.TLAParserIssue;
 
 public class TLAUnitScopingVisitor extends PGoTLAUnitVisitor<Void, RuntimeException> {
 
