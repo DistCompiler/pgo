@@ -35,10 +35,10 @@ NumProcs == Cardinality(RM) + 1
     broadcast(from, msg) == [network EXCEPT ![from] = [to \in 1..NumProcs |-> IF from = to THEN network[from][to] ELSE Append(network[from][to], msg)]]
   }
 
-  macro rcv(to, buf) {
-    with (from \in { j \in 1..NumProcs : Len(network[j][to]) > 0 }) {
-      buf := Head(network[from][to]);
-      network[from][to] := Tail(@)
+  macro rcv(dst, buf) {
+    with (src \in { s \in 1..NumProcs : Len(network[s][dst]) > 0 }) {
+      buf := Head(network[src][dst]);
+      network[src][dst] := Tail(@)
     }
   }
 
@@ -58,7 +58,7 @@ NumProcs == Cardinality(RM) + 1
     network := broadcast(TM, [type |-> "Abort"]);
   }
 
-  (* PGo: func CheckQuery() string *)
+  (* PGo: func CheckQuery() *)
   macro CheckQuery(data) {
     either {
       state := "prepared";
@@ -168,9 +168,9 @@ loop == /\ pc[TM] = "loop"
         /\ UNCHANGED << network, tmState, rmState, received, tmsg, rmsg, state >>
 
 tmRcv == /\ pc[TM] = "tmRcv"
-         /\ \E from \in { j \in 1..NumProcs : Len(network[j][TM]) > 0 }:
-              /\ tmsg' = Head(network[from][TM])
-              /\ network' = [network EXCEPT ![from][TM] = Tail(@)]
+         /\ \E src \in { s \in 1..NumProcs : Len(network[s][TM]) > 0 }:
+              /\ tmsg' = Head(network[src][TM])
+              /\ network' = [network EXCEPT ![src][TM] = Tail(@)]
          /\ pc' = [pc EXCEPT ![TM] = "tmPrep"]
          /\ UNCHANGED << tmState, rmState, received, rmsg, state >>
 
@@ -210,9 +210,9 @@ TManager == propose \/ loop \/ tmRcv \/ tmPrep \/ tmAbort \/ incReceived
                \/ checkResult
 
 rcvPrepare(self) == /\ pc[self] = "rcvPrepare"
-                    /\ \E from \in { j \in 1..NumProcs : Len(network[j][self]) > 0 }:
-                         /\ rmsg' = [rmsg EXCEPT ![self] = Head(network[from][self])]
-                         /\ network' = [network EXCEPT ![from][self] = Tail(@)]
+                    /\ \E src \in { s \in 1..NumProcs : Len(network[s][self]) > 0 }:
+                         /\ rmsg' = [rmsg EXCEPT ![self] = Head(network[src][self])]
+                         /\ network' = [network EXCEPT ![src][self] = Tail(@)]
                     /\ pc' = [pc EXCEPT ![self] = "rmPrep"]
                     /\ UNCHANGED << tmState, rmState, received, tmsg, state >>
 
@@ -226,9 +226,9 @@ rmPrep(self) == /\ pc[self] = "rmPrep"
                 /\ UNCHANGED << tmState, rmState, received, tmsg, rmsg >>
 
 rcvDecision(self) == /\ pc[self] = "rcvDecision"
-                     /\ \E from \in { j \in 1..NumProcs : Len(network[j][self]) > 0 }:
-                          /\ rmsg' = [rmsg EXCEPT ![self] = Head(network[from][self])]
-                          /\ network' = [network EXCEPT ![from][self] = Tail(@)]
+                     /\ \E src \in { s \in 1..NumProcs : Len(network[s][self]) > 0 }:
+                          /\ rmsg' = [rmsg EXCEPT ![self] = Head(network[src][self])]
+                          /\ network' = [network EXCEPT ![src][self] = Tail(@)]
                      /\ pc' = [pc EXCEPT ![self] = "rmUpdate"]
                      /\ UNCHANGED << tmState, rmState, received, tmsg, state >>
 
@@ -283,6 +283,6 @@ Inv == TypeOK /\ TMInv /\ (\A rm \in RM : RMInv(rm))
 
 =============================================================================
 \* Modification History
-\* Last modified Fri Jun 22 09:13:44 PDT 2018 by rmc
+\* Last modified Fri Jun 22 10:29:27 PDT 2018 by rmc
 \* Last modified Wed Oct 12 02:41:48 PDT 2011 by lamport
 \* Created Mon Oct 10 06:26:47 PDT 2011 by lamport
