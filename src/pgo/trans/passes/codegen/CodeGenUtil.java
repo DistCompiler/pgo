@@ -7,7 +7,6 @@ import pgo.model.type.PGoType;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
 import pgo.trans.intermediate.GlobalVariableStrategy;
-import pgo.trans.intermediate.TLAExpressionCodeGenVisitor;
 
 import java.util.Arrays;
 import java.util.Collections;

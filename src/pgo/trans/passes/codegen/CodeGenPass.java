@@ -1,4 +1,4 @@
-package pgo.trans.intermediate;
+package pgo.trans.passes.codegen;
 
 import pgo.PGoNetOptions;
 import pgo.PGoOptions;
@@ -10,9 +10,9 @@ import pgo.model.pcal.PlusCalProcesses;
 import pgo.model.pcal.PlusCalSingleProcess;
 import pgo.model.type.PGoType;
 import pgo.scope.UID;
-import pgo.trans.passes.codegen.EtcdGlobalVariableStrategy;
-import pgo.trans.passes.codegen.MultithreadedProcessGlobalVariableStrategy;
-import pgo.trans.passes.codegen.StateServerGlobalVariableStrategy;
+import pgo.trans.intermediate.DefinitionRegistry;
+import pgo.trans.intermediate.GlobalVariableStrategy;
+import pgo.trans.intermediate.SingleThreadedProcessGlobalVariableStrategy;
 
 import java.util.Map;
 

@@ -1,4 +1,4 @@
-package pgo.trans.intermediate;
+package pgo.trans.passes.codegen;
 
 import pgo.InternalCompilerError;
 import pgo.TODO;
@@ -14,8 +14,7 @@ import pgo.model.type.PGoType;
 import pgo.model.type.PGoTypeMap;
 import pgo.model.type.PGoTypeSlice;
 import pgo.scope.UID;
-import pgo.trans.passes.codegen.CodeGenUtil;
-import pgo.trans.passes.codegen.GoExpressionIsConstantVisitor;
+import pgo.trans.intermediate.*;
 
 import java.util.*;
 import java.util.function.Consumer;

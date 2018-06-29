@@ -1,4 +1,4 @@
-package pgo.trans.intermediate;
+package pgo.trans.passes.codegen;
 
 import pgo.TODO;
 import pgo.Unreachable;
@@ -8,8 +8,8 @@ import pgo.model.pcal.*;
 import pgo.model.tla.TLAExpression;
 import pgo.model.type.PGoType;
 import pgo.scope.UID;
-import pgo.trans.passes.codegen.CodeGenUtil;
-import pgo.trans.passes.codegen.CriticalSectionTracker;
+import pgo.trans.intermediate.DefinitionRegistry;
+import pgo.trans.intermediate.GlobalVariableStrategy;
 
 import java.util.ArrayList;
 import java.util.Collections;

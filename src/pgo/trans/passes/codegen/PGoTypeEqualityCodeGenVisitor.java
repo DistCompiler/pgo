@@ -1,10 +1,11 @@
-package pgo.trans.intermediate;
+package pgo.trans.passes.codegen;
 
 import pgo.TODO;
 import pgo.model.golang.GoBinop;
 import pgo.model.golang.GoExpression;
 import pgo.model.golang.builder.GoBlockBuilder;
 import pgo.model.type.*;
+import pgo.trans.intermediate.DefinitionRegistry;
 
 public class PGoTypeEqualityCodeGenVisitor extends PGoTypeVisitor<GoExpression, RuntimeException> {
 
