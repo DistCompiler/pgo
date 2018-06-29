@@ -35,15 +35,15 @@ public class CriticalSectionTracker {
 		if (currentLockGroup != -1 && currentLockGroup != lockGroup) {
 			end(builder);
 		}
+		currentLabelUID = labelUID;
+		currentLabelName = labelName;
+		builder.labelIsUnique(labelName.getName());
 		if (currentLockGroup == lockGroup) {
 			// nothing to do
 			return;
 		}
-		builder.labelIsUnique(labelName.getName());
 		criticalSection.startCriticalSection(builder, processUID, lockGroup, labelUID, labelName);
 		currentLockGroup = lockGroup;
-		currentLabelUID = labelUID;
-		currentLabelName = labelName;
 	}
 
 	public void abort(GoBlockBuilder builder) {
