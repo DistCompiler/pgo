@@ -201,8 +201,12 @@ public class GoBlockBuilder extends GoASTBuilder implements Closeable {
 		nameMap.put(uid, name);
 	}
 
+	public boolean isInScope(UID uid) {
+		return nameMap.containsKey(uid);
+	}
+
 	public GoVariableName findUID(UID uid) {
-		if(!nameMap.containsKey(uid)) {
+		if (!nameMap.containsKey(uid)) {
 			throw new InternalCompilerError();
 		}
 		return nameMap.get(uid);

@@ -91,10 +91,7 @@ public class ExampleCodeGenRunTest {
 							constants.put("iters", "1");
 							root.put("constants", constants);
 						}),
-						Arrays.asList(
-								"1",
-								"2"
-						),
+						Arrays.asList("1", "2"),
 				},
 				{
 						Paths.get("counter.tla"),
@@ -142,6 +139,15 @@ public class ExampleCodeGenRunTest {
 								.boxed().map(Object::toString).collect(Collectors.toList()),
 				},
 				{
+						Paths.get("either.tla"),
+						json(root -> {
+							JSONObject networking = new JSONObject();
+							networking.put("enabled", false);
+							root.put("networking", networking);
+						}),
+						Arrays.asList("[1 30]", "[1 30]", "[1 30]"),
+				},
+				{
 						Paths.get("Queens.tla"),
 						json(root -> {
 							JSONObject networking = new JSONObject();
@@ -178,8 +184,7 @@ public class ExampleCodeGenRunTest {
 							constants.put("N", "3");
 							root.put("constants", constants);
 						}),
-						Collections.singletonList(
-								"[]"),
+						Collections.singletonList("[]"),
 				},
 				{
 						Paths.get("Queens.tla"),
@@ -192,8 +197,7 @@ public class ExampleCodeGenRunTest {
 							constants.put("N", "4");
 							root.put("constants", constants);
 						}),
-						Collections.singletonList(
-								"[[2 4 1 3] [3 1 4 2]]"),
+						Collections.singletonList("[[2 4 1 3] [3 1 4 2]]"),
 				},
 				{
 						Paths.get("Queens.tla"),
