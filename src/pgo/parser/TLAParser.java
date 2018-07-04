@@ -1,106 +1,5 @@
 package pgo.parser;
 
-/**
- * 
- *  This is an LL_k recursive descent parser for an eventually-complete
- *  subset of the TLA+ language.
- * 
- *  It is written in order to match the grammar defined in Lamport's
- *  book Specifying Systems, Part IV as much as possible.
- * 
- *  Some general rules on reading/modifying this code:
- *  - all methods operator on a ListIterator<TLAToken>. The only side-effect
- * 		a method defined in this class is expected to have it moving the
- *  	iterator around the sequence of TLA+ tokens.
- *  - there are generally 2 types of helper method:
- * 		- methods matching the patter read* or expect* will unconditionally
- * 			parse a given TLA+ construct. The expected result is that
- * 			they will leave the iterator pointing to the first token after
- * 			the end of the construct. If they cannot proceed they will throw
- * 			a PGoTLAParseException containing some info on what went wrong.
- * 		
- * 			These methods will almost always return an AST node representing
- * 			the tokens they consumed, except if it is completely unambiguous
- * 			just from the function succeeding what happened.
- * 			e.g expectBuiltinToken expects one specific token, so if it
- * 			succeeded the token consumed must have been that token.
- * 		- methods matching the patter lookahead* will have one of two results:
- * 			- either they will perform identically to read* functions and
- * 				advance the iterator over tokens corresponding to the pattern
- * 				they are supposed to recognise, returning an AST node or true
- * 				to indicate success.
- * 			- or they will not advance the iterator and return either false
- * 				or null to indicate that the pattern you are asking for is not
- * 				present at this point in the input.
- * 
- * 			Similar to read* functions, if the pattern being requested is
- * 			entirely unambiguous then a simple boolean is returned to indicate
- * 			whether it was found. Otherwise, an AST node or null represents
- * 			the presence or absence of the construct.
- * 
- * 			e.g lookaheadBuiltinToken returns a boolean as there is only one
- * 		possible token to match, whereas lookaheadBuiltinTokenOneOf will return
- * 		a string indicating which of the tokens was matched.
- * 
- * 	# Operators
- * 
- * 	Since TLA+ operators come in all shapes and sizes but also follow a
- * 	fairly consistent set of rules, they are treated using a set of
- * 	static arrays and maps.
- * 
- * 	The static arrays are generally lists of operators separated by parsing
- * 	category, and the maps are used to handle operator precedence.
- * 
- *  # *_HI_PRECEDENCE and *_LO_PRECEDENCE	
- * 
- * 	    Since TLA+ operators have a range of possible precedences traditional
- * 	    precedence handling strategies fall short. We keep maps of the low
- * 	    and high bounds (inclusive) of each operator and instead of
- * 	    recursing over each operator in reverse precedence order we recurse
- * 	    directly over precedences themselves, matching any qualifying operators
- * 	    as we go.
- * 
- *  # *_LEFT_ASSOCIATIVE
- *  
- *  	Not all operators in TLA+ support associativity. It is a parse error
- *  	to accept non-bracketed repetition of non-associative operators.
- *  
- *  	So, we keep track of which operators are left-associative and only
- *  	accept repeated instances of those in these sets.
- *  
- *  # Indentation sensitivity
- * 	
- * 		TLA+ has some unusual rules surrounding chaining of the /\
- * 		and the \/ operators. Specifically, in all other cases the
- * 		language can be parsed without regard for whitespace, but
- * 		when dealing with these chains it is a parse error to unindent
- * 		part of a nested expression to a column before any leading
- * 		/\  or /\.
- * 
- * 		e.g:
- * 
- * 		The expression:
- * 		foo /\ x +
- * 		   1
- * 		
- * 		Parses as:
- * 		(foo /\ (x+)) 1
- * 
- * 		Aside from parsing pedantry, this does affect the way the parser
- * 		finds the end of subexpressions so we must implement this.
- * 
- * 		Throughout the lookahead* and expect* functions the minColumn
- * 		argument represents this constraint - if a token is found that
- * 		would otherwise match, but is at a column index lower than
- * 		minColumn, the match fails instead. This enables most of the
- * 		codebase to not have to care too much about this rule, while
- * 		consistently enforcing it.
- * 
- * 		Passing minColumn = -1 is used to disable this feature for
- * 		expressions that are not in the right hand side of /\ or \/.
- * 
- */
-
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -163,21 +62,115 @@ import pgo.model.tla.PGoTLANumber;
 
 import static pgo.parser.ParseTools.*;
 
+/**
+ *
+ *  <p>
+ *  This is a backtracking LL_k parser for the TLA+ language.
+ *  </p>
+ *
+ *  <p>
+ *  It is written in order to match the grammar defined in Lamport's
+ *  book Specifying Systems, Part IV as much as possible.
+ *  </p>
+ *
+ *  <h3> Notes to the reader </h3>
+ *
+ *  <p>
+ *  The grammar has been transcribed into parse* functions that return {@see pgo.parser.ParseAction}.
+ *  Start reading with {@link pgo.parser.TLAParser#parseModule}.
+ *  </p>
+ *
+ *  <p>
+ *  Endpoints that are actually called elsewhere begin with read* and perform the necessary operations to convert
+ *  from returning {@link pgo.parser.ParseAction} instances to returning results and throwing errors.
+ *  </p>
+ *
+ *  <p>
+ *  Everything is defined in terms of a common vocabulary of operations, the most general of which can be found in
+ *  {@link pgo.parser.ParseTools}. For an overview of the basic mechanics of the system, look at
+ *  {@link pgo.parser.ParseAction}.
+ *  </p>
+ *
+ * 	<h3> Operators </h3>
+ *
+ * 	<p>Since TLA+ operators come in all shapes and sizes but also follow a
+ * 	fairly consistent set of rules, they are treated using a set of
+ * 	static arrays and maps.</p>
+ *
+ * 	<p>The static arrays are generally lists of operators separated by parsing
+ * 	category, and the maps are used to handle operator precedence.</p>
+ *
+ *  <h4> *_HI_PRECEDENCE and *_LO_PRECEDENCE </h4>
+ *
+ * 	    <p>Since TLA+ operators have a range of possible precedences traditional
+ * 	    precedence handling strategies fall short. We keep maps of the low
+ * 	    and high bounds (inclusive) of each operator and instead of
+ * 	    recursing over each operator in reverse precedence order we recurse
+ * 	    directly over precedences themselves, matching any qualifying operators
+ * 	    as we go.</p>
+ *
+ *  <h4> *_LEFT_ASSOCIATIVE </h4>
+ *
+ *  	<p>Not all operators in TLA+ support associativity. It is a parse error
+ *  	to accept non-bracketed repetition of non-associative operators.</p>
+ *
+ *  	<p>So, we keep track of which operators are left-associative and only
+ *  	accept repeated instances of those in these sets.</p>
+ *
+ *  <h4> Indentation sensitivity </h4>
+ *
+ * 		<p>TLA+ has some unusual rules surrounding chaining of the {@code /\}
+ * 		and the {@code \/} operators. Specifically, in all other cases the
+ * 		language can be parsed without regard for whitespace, but
+ * 		when dealing with these chains it is a parse error to unindent
+ * 		part of a nested expression to a column before any leading
+ * 		{@code /\}  or {@code /\}.</p>
+ *
+ * 		<p>e.g:</p>
+ *
+ * 		<p>The expression:</p>
+ * 	    <pre>
+ * 		foo /\ x +
+ * 		   1
+ * 		</pre>
+ *
+ * 		<p>Parses as:</p>
+ * 	    <pre>
+ * 		(foo /\ (x+)) 1
+ * 	    </pre>
+ *
+ *      <p>
+ * 		Aside from parsing pedantry, this does affect the way the parser
+ * 		finds the end of subexpressions so we must implement this.
+ * 	    </p>
+ *
+ *      <p>
+ * 		The minColumn argument represents this constraint - if a token is found that
+ * 		would otherwise match, but is at a column index lower than
+ * 		minColumn, the match fails instead. This enables most of the
+ * 		codebase to not have to care too much about this rule, while
+ * 		consistently enforcing it.
+ * 	    </p>
+ *
+ *      <p>
+ * 		Passing {@code minColumn = -1} is used to disable this feature for
+ * 		expressions that are not on the right hand side of {@code /\} or {@code \/}.
+ * 	    </p>
+ *
+ */
 public final class TLAParser {
 
-	public static final List<String> PREFIX_OPERATORS = Arrays.asList(new String[] {
-		"-",
-		"~",
-		"\\lnot",
-		"\\neg",
-		"[]",
-		"<>",
-		"DOMAIN",
-		"ENABLED",
-		"SUBSET",
-		"UNCHANGED",
-		"UNION",
-	});
+	public static final List<String> PREFIX_OPERATORS = Arrays.asList("-",
+			"~",
+			"\\lnot",
+			"\\neg",
+			"[]",
+			"<>",
+			"DOMAIN",
+			"ENABLED",
+			"SUBSET",
+			"UNCHANGED",
+			"UNION");
 	
 	public static Map<String, Integer> PREFIX_OPERATORS_LOW_PRECEDENCE = new HashMap<>();
 	static {
@@ -209,112 +202,110 @@ public final class TLAParser {
 		PREFIX_OPERATORS_HI_PRECEDENCE.put("UNION", 8);
 	}
 	
-	public static final List<String> INFIX_OPERATORS = Arrays.asList(new String[] {
-		// infix operators (non-alpha)
-		"!!",
-		"#",
-		"##",
-		"$",
-		"$$",
-		"%",
-		"%%",
-		"&",
-		"&&",
-		"(+)",
-		"(-)",
-		"(.)",
-		"(/)",
-		"(\\X)",
-		"*",
-		"**",
-		"+",
-		"++",
-		"-",
-		"-+->",
-		"--",
-		"-|",
-		"..",
-		"...",
-		"/",
-		"//",
-		"/=",
-		"/\\",
-		"::=",
-		":=",
-		":>",
-		"<",
-		"<:",
-		"<=",
-		"<=>",
-		"=",
-		"=<",
-		"=>",
-		"=|",
-		">",
-		">=",
-		"?",
-		"??",
-		"@@",
-		"\\",
-		"\\/",
-		"^",
-		"^^",
-		"|",
-		"|-",
-		"|=",
-		"||",
-		"~>",
-		".",
-		// infix operators (alpha)
-		"\\approx",
-		"\\geq",
-		"\\oslash",
-		"\\sqsupseteq",
-		"\\asymp",
-		"\\gg",
-		"\\otimes",
-		"\\star",
-		"\\bigcirc",
-		"\\in",
-		"\\notin",
-		"\\prec",
-		"\\subset",
-		"\\bullet",
-		"\\intersect",
-		"\\preceq",
-		"\\subseteq",
-		"\\cap",
-		"\\land",
-		"\\propto",
-		"\\succ",
-		"\\cdot",
-		"\\leq",
-		"\\sim",
-		"\\succeq",
-		"\\circ",
-		"\\ll",
-		"\\simeq",
-		"\\supset",
-		"\\cong",
-		"\\lor",
-		"\\sqcap",
-		"\\supseteq",
-		"\\cup",
-		"\\o",
-		"\\sqcup",
-		"\\union",
-		"\\div",
-		"\\odot",
-		"\\sqsubset",
-		"\\uplus",
-		"\\doteq",
-		"\\ominus",
-		"\\sqsubseteq",
-		"\\wr",
-		"\\equiv",
-		"\\oplus",
-		"\\sqsupset",
-	});
+	public static final List<String> INFIX_OPERATORS = Arrays.asList(// infix operators (non-alpha)
+			"!!",
+			"#",
+			"##",
+			"$",
+			"$$",
+			"%",
+			"%%",
+			"&",
+			"&&",
+			"(+)",
+			"(-)",
+			"(.)",
+			"(/)",
+			"(\\X)",
+			"*",
+			"**",
+			"+",
+			"++",
+			"-",
+			"-+->",
+			"--",
+			"-|",
+			"..",
+			"...",
+			"/",
+			"//",
+			"/=",
+			"/\\",
+			"::=",
+			":=",
+			":>",
+			"<",
+			"<:",
+			"<=",
+			"<=>",
+			"=",
+			"=<",
+			"=>",
+			"=|",
+			">",
+			">=",
+			"?",
+			"??",
+			"@@",
+			"\\",
+			"\\/",
+			"^",
+			"^^",
+			"|",
+			"|-",
+			"|=",
+			"||",
+			"~>",
+			".",
+			// infix operators (alpha)
+			"\\approx",
+			"\\geq",
+			"\\oslash",
+			"\\sqsupseteq",
+			"\\asymp",
+			"\\gg",
+			"\\otimes",
+			"\\star",
+			"\\bigcirc",
+			"\\in",
+			"\\notin",
+			"\\prec",
+			"\\subset",
+			"\\bullet",
+			"\\intersect",
+			"\\preceq",
+			"\\subseteq",
+			"\\cap",
+			"\\land",
+			"\\propto",
+			"\\succ",
+			"\\cdot",
+			"\\leq",
+			"\\sim",
+			"\\succeq",
+			"\\circ",
+			"\\ll",
+			"\\simeq",
+			"\\supset",
+			"\\cong",
+			"\\lor",
+			"\\sqcap",
+			"\\supseteq",
+			"\\cup",
+			"\\o",
+			"\\sqcup",
+			"\\union",
+			"\\div",
+			"\\odot",
+			"\\sqsubset",
+			"\\uplus",
+			"\\doteq",
+			"\\ominus",
+			"\\sqsubseteq",
+			"\\wr",
+			"\\equiv",
+			"\\oplus",
+			"\\sqsupset");
 	
 	public static Map<String, Integer> INFIX_OPERATORS_LOW_PRECEDENCE = new HashMap<>();
 	static {
@@ -569,12 +560,10 @@ public final class TLAParser {
 		INFIX_OPERATORS_LEFT_ASSOCIATIVE.add(".");
 	}
 	
-	public static final List<String> POSTFIX_OPERATORS = Arrays.asList(new String[] {
-		"^+",
-		"^*",
-		"^#",
-		"'",
-	});
+	public static final List<String> POSTFIX_OPERATORS = Arrays.asList("^+",
+			"^*",
+			"^#",
+			"'");
 	public static Map<String, Integer> POSTFIX_OPERATORS_PRECEDENCE = new HashMap<>();
 	static {
 		POSTFIX_OPERATORS_PRECEDENCE.put("^+", 15);
@@ -623,7 +612,7 @@ public final class TLAParser {
 	private static ParseAction<PGoTLAIdentifierOrTuple> parseIdentifierOrTuple(int minColumn) {
 		return parseOneOf(
 				parseIdentifier(minColumn)
-						.map(id -> PGoTLAIdentifierOrTuple.Identifier(id)),
+						.map(PGoTLAIdentifierOrTuple::Identifier),
 				parseIdentifierTuple(minColumn));
 	}
 	
