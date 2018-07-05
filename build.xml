@@ -24,6 +24,8 @@
 
   <!-- The set of jars pgo depends on, in classpath format. -->
   <path id="pgo.depjars.classpath">
+    <pathelement location="lib/hamcrest-all-1.3.jar"/>
+    <pathelement location="lib/junit-4.12.jar"/>
     <pathelement location="lib/tlatools.jar"/>
     <pathelement location="lib/plume.jar"/>
     <pathelement location="lib/json.jar"/>
@@ -175,7 +177,7 @@
     <target name="tests" depends="build">
       <mkdir dir="${junit.output.dir}"/>
 
-      <junit fork="no" printsummary="withOutAndErr" showoutput="true">
+      <junit fork="no" printsummary="withOutAndErr" showoutput="true" failureproperty="tests.failure">
         <classpath refid="pgo.classpath"/>
         <formatter type="xml"/>
 
@@ -186,6 +188,8 @@
         </batchtest>
 
       </junit>
+
+      <fail message="tests failed" if="tests.failure"/>
     </target>
 
     <!--=====================================================================-->
