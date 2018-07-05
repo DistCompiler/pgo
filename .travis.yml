@@ -1,0 +1,4 @@
+language: java
+script:
+  - eval "$(gimme 1.10)" && go version
+  - eval "$(gimme 1.10)" && ant tests

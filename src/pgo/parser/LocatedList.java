@@ -19,6 +19,16 @@ public class LocatedList<T> extends SourceLocatable implements List<T> {
 	}
 
 	@Override
+	public boolean equals(Object other){
+		return list.equals(other);
+	}
+
+	@Override
+	public int hashCode(){
+		return list.hashCode();
+	}
+
+	@Override
 	public SourceLocation getLocation() {
 		return location;
 	}
