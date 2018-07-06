@@ -76,7 +76,7 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 
 	@Override
 	public Void visit(DanglingReferenceIssue danglingReferenceIssue) throws IOException {
-		out.write("could not resolve symbol ");
+		out.write("could not resolve ");
 		danglingReferenceIssue.getFrom().accept(new OriginFormattingVisitor(out));
 		return null;
 	}
