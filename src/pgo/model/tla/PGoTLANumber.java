@@ -8,21 +8,32 @@ import pgo.util.SourceLocation;
  */
 public class PGoTLANumber extends PGoTLAExpression {
 
-	private String val;
+	public enum Base {
+		DECIMAL,
+		BINARY,
+		OCTAL,
+		HEXADECIMAL
+	}
 
-	public PGoTLANumber(SourceLocation location, String val) {
+	private String val;
+	private Base base;
+
+	public PGoTLANumber(SourceLocation location, String val, Base base) {
 		super(location);
 		this.val = val;
+		this.base = base;
 	}
 	
 	@Override
 	public PGoTLANumber copy() {
-		return new PGoTLANumber(getLocation(), val);
+		return new PGoTLANumber(getLocation(), val, base);
 	}
 
 	public String getVal() {
 		return val;
 	}
+
+	public Base getBase() { return base; }
 	
 	@Override
 	public <T, E extends Throwable> T accept(PGoTLAExpressionVisitor<T, E> v) throws E {

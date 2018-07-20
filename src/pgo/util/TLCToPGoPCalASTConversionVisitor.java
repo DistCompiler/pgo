@@ -1,10 +1,7 @@
 package pgo.util;
 
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Vector;
+import java.util.*;
 
 import pcal.AST;
 import pcal.TLAExpr;
@@ -18,6 +15,7 @@ import pgo.model.pcal.VariableDeclaration;
 import pgo.model.tla.PGoTLAExpression;
 import pgo.model.tla.PGoTLAUnit;
 import pgo.model.tla.PlusCalDefaultInitValue;
+import pgo.parser.ParseContext;
 import pgo.parser.TLAParseException;
 import pgo.parser.TLAParser;
 import pgo.trans.PGoTransException;
@@ -51,6 +49,32 @@ public class TLCToPGoPCalASTConversionVisitor extends PcalASTUtil.Visitor<List<S
 		}
 
 		return result;
+	}
+
+	private ParseContext tokensToParseContext(List<TLAToken> tokens){
+		int col = 1;
+		int line = 1;
+		StringBuilder builder = new StringBuilder();
+		for(TLAToken tok : tokens){
+			for(; line < tok.getLocation().getStartLine(); ++line){
+				builder.append(System.lineSeparator());
+			}
+			for(; col < tok.getLocation().getStartColumn(); ++col){
+				builder.append(" ");
+			}
+			col += tok.getValue().length();
+			switch(tok.getType()){
+				case STRING:
+					builder.append("\"");
+					builder.append(tok.getValue());
+					builder.append("\"");
+					break;
+				default:
+					builder.append(tok.getValue());
+					break;
+			}
+		}
+		return new ParseContext(Paths.get("TLA"), builder);
 	}
 
 	private List<Statement> parseStatementSequence(Vector<AST> body) throws PGoException{
@@ -105,7 +129,7 @@ public class TLCToPGoPCalASTConversionVisitor extends PcalASTUtil.Visitor<List<S
 			}
 		}
 		try {
-			return TLAParser.readExpression(tokens.listIterator());
+			return TLAParser.readExpression(tokensToParseContext(tokens));
 		} catch (TLAParseException e1) {
 			ctx.error(new TLAParserIssue(e1.getReason()));
 			return null;
@@ -167,7 +191,7 @@ public class TLCToPGoPCalASTConversionVisitor extends PcalASTUtil.Visitor<List<S
 		}
 		List<PGoTLAUnit> units;
 		try {
-			units = TLAParser.readUnits(tokens.listIterator());
+			units = TLAParser.readUnits(tokensToParseContext(tokens));
 		} catch (TLAParseException e) {
 			ctx.error(new TLAParserIssue(e.getReason()));
 			units = Collections.emptyList();
@@ -284,10 +308,11 @@ public class TLCToPGoPCalASTConversionVisitor extends PcalASTUtil.Visitor<List<S
 				lhsTok.add(convertToken(tok));
 			}
 		}
-		try {
-			return TLAParser.readExpression(lhsTok.listIterator());
-		} catch (TLAParseException e) {
-			ctx.error(new TLAParserIssue(e.getReason()));
+
+		try{
+			return TLAParser.readExpression(tokensToParseContext(lhsTok));
+		}catch(TLAParseException ex){
+			ctx.error(new TLAParserIssue(ex.getReason()));
 			return null;
 		}
 	}

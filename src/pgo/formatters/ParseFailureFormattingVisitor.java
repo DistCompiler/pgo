@@ -3,12 +3,11 @@ package pgo.formatters;
 import java.io.IOException;
 
 import pgo.Unreachable;
+import pgo.parser.ParseFailure;
 import pgo.parser.ParseFailure.InsufficientOperatorPrecedence;
 import pgo.parser.ParseFailure.InsufficientlyIndented;
 import pgo.parser.ParseFailure.NoBranchesMatched;
-import pgo.parser.ParseFailure.UnexpectedBuiltinToken;
 import pgo.parser.ParseFailure.UnexpectedEOF;
-import pgo.parser.ParseFailure.UnexpectedTokenType;
 import pgo.parser.ParseFailureVisitor;
 
 public class ParseFailureFormattingVisitor extends ParseFailureVisitor<Void, IOException> {
@@ -22,33 +21,6 @@ public class ParseFailureFormattingVisitor extends ParseFailureVisitor<Void, IOE
 	@Override
 	public Void visit(UnexpectedEOF unexpectedEOF) throws IOException {
 		out.write("unexpected EOF");
-		return null;
-	}
-
-	@Override
-	public Void visit(UnexpectedTokenType unexpectedTokenType) throws IOException {
-		out.write("unexpected token of type ");
-		out.write(unexpectedTokenType.getTokenType().toString());
-		out.write("; expected ");
-		out.write(unexpectedTokenType.getExpectedTokenType().toString());
-		return null;
-	}
-
-	@Override
-	public Void visit(UnexpectedBuiltinToken unexpectedBuiltinToken) throws IOException {
-		out.write("unexpected builtin token \"");
-		out.write(unexpectedBuiltinToken.getActual().getValue());
-		out.write("\", expected one of [");
-		boolean first = true;
-		for(String opt : unexpectedBuiltinToken.getOptions()) {
-			if(first) {
-				first = false;
-			}else {
-				out.write(", ");
-			}
-			out.write(opt);
-		}
-		out.write("]");
 		return null;
 	}
 
@@ -70,6 +42,24 @@ public class ParseFailureFormattingVisitor extends ParseFailureVisitor<Void, IOE
 		out.write(Integer.toString(insufficientOperatorPrecedence.getActualPrecedence()));
 		out.write("; required precedence ");
 		out.write(Integer.toString(insufficientOperatorPrecedence.getRequiredPrecedence()));
+		return null;
+	}
+
+	@Override
+	public Void visit(ParseFailure.StringMatchFailure stringMatchFailure) throws IOException {
+		out.write("failed to match string \""+stringMatchFailure.getString()+"\"");
+		return null;
+	}
+
+	@Override
+	public Void visit(ParseFailure.PatternMatchFailure patternMatchFailure) throws IOException {
+		out.write("failed to match pattern "+patternMatchFailure.getPattern());
+		return null;
+	}
+
+	@Override
+	public Void visit(ParseFailure.ParseSuccess parseSuccess) throws IOException {
+		out.write("parse success");
 		return null;
 	}
 

@@ -7,6 +7,8 @@ import java.util.List;
 
 import pgo.util.SourceLocation;
 
+import javax.xml.transform.Source;
+
 public class Builder {
 	
 	private Builder() {}
@@ -66,7 +68,7 @@ public class Builder {
 	}
 	
 	public static PGoTLANumber num(int value) {
-		return new PGoTLANumber(SourceLocation.unknown(), Integer.toString(value));
+		return new PGoTLANumber(SourceLocation.unknown(), Integer.toString(value), PGoTLANumber.Base.DECIMAL);
 	}
 
 	public static PGoTLASetConstructor set(PGoTLAExpression... members) {
@@ -187,6 +189,10 @@ public class Builder {
 	
 	public static PGoTLATuple tuple(PGoTLAExpression... expressions) {
 		return new PGoTLATuple(SourceLocation.unknown(), Arrays.asList(expressions));
+	}
+
+	public static TLAFairness fairness(TLAFairness.Type type, PGoTLAExpression vars, PGoTLAExpression expression){
+		return new TLAFairness(SourceLocation.unknown(), type, vars, expression);
 	}
 	
 }

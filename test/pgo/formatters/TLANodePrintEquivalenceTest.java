@@ -21,6 +21,7 @@ import pgo.model.tla.PGoTLAExpression;
 import pgo.model.tla.PGoTLAModule;
 import pgo.model.tla.PGoTLANode;
 import pgo.model.tla.PGoTLAUnit;
+import pgo.parser.ParseContext;
 import pgo.parser.TLAParseException;
 import pgo.parser.TLAParser;
 
@@ -70,17 +71,15 @@ public class TLANodePrintEquivalenceTest {
 	public void test() throws PGoTLALexerException, TLAParseException {
 		String str = ast.toString();
 		System.out.println(str);
-		TLALexer lexer = new TLALexer(Paths.get("TEST"), 1, 1, Arrays.asList(str.split("\n")));
-		lexer.requireModule(ast instanceof PGoTLAModule);
-		List<TLAToken> tokens = lexer.readTokens();
-		System.out.println(tokens);
+		ParseContext ctx = new ParseContext(
+				Paths.get("TEST"), String.join(System.lineSeparator(), str.split("\n")));
 		PGoTLANode actual;
 		if(ast instanceof PGoTLAExpression) {
-			actual = TLAParser.readExpression(tokens.listIterator());
+			actual = TLAParser.readExpression(ctx);
 		}else if(ast instanceof PGoTLAModule) {
-			actual = TLAParser.readModules(tokens.listIterator()).get(0);
+			actual = TLAParser.readModules(ctx).get(0);
 		}else if(ast instanceof PGoTLAUnit) {
-			actual = TLAParser.readUnits(tokens.listIterator()).get(0);
+			actual = TLAParser.readUnits(ctx).get(0);
 		}else {
 			throw new RuntimeException("you can only directly write tests for modules, units and expressions");
 		}

@@ -1,64 +1,15 @@
 package pgo.parser;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.ListIterator;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
+import java.util.regex.MatchResult;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
-import pgo.model.tla.PGoTLAOpDecl;
-import pgo.model.tla.PGoTLAOperatorDefinition;
-import pgo.model.tla.PGoTLAOperatorCall;
-import pgo.model.tla.PGoTLAQuantifiedExistential;
-import pgo.model.tla.PGoTLAQuantifiedUniversal;
-import pgo.model.tla.PGoTLAQuantifierBound;
-import pgo.model.tla.PGoTLARecordConstructor;
-import pgo.model.tla.PGoTLARecordSet;
-import pgo.model.tla.PGoTLARequiredAction;
-import pgo.model.tla.PGoTLASetComprehension;
-import pgo.model.tla.PGoTLASetConstructor;
-import pgo.model.tla.PGoTLASetRefinement;
-import pgo.model.tla.PGoTLAString;
-import pgo.model.tla.PGoTLASubstitutionKey;
-import pgo.model.tla.PGoTLASymbol;
-import pgo.model.tla.PGoTLATheorem;
-import pgo.model.tla.PGoTLATuple;
-import pgo.model.tla.PGoTLAUnary;
-import pgo.model.tla.PGoTLAUnit;
-import pgo.model.tla.PGoTLAUniversal;
-import pgo.model.tla.PGoTLAVariableDeclaration;
-import pgo.model.tla.PGoTLAGeneralIdentifier;
+import pgo.model.tla.*;
 import pgo.util.SourceLocatable;
 import pgo.util.SourceLocation;
 import pgo.lexer.TLAToken;
 import pgo.lexer.TLATokenType;
-import pgo.model.tla.PGoTLAAssumption;
-import pgo.model.tla.PGoTLABinOp;
-import pgo.model.tla.PGoTLABool;
-import pgo.model.tla.PGoTLACase;
-import pgo.model.tla.PGoTLACaseArm;
-import pgo.model.tla.PGoTLAConstantDeclaration;
-import pgo.model.tla.PGoTLAExistential;
-import pgo.model.tla.PGoTLAExpression;
-import pgo.model.tla.PGoTLAFunction;
-import pgo.model.tla.PGoTLAFunctionCall;
-import pgo.model.tla.PGoTLAFunctionDefinition;
-import pgo.model.tla.PGoTLAFunctionSet;
-import pgo.model.tla.PGoTLAFunctionSubstitution;
-import pgo.model.tla.PGoTLAFunctionSubstitutionPair;
-import pgo.model.tla.PGoTLAGeneralIdentifierPart;
-import pgo.model.tla.PGoTLAIdentifier;
-import pgo.model.tla.PGoTLAIdentifierOrTuple;
-import pgo.model.tla.PGoTLAIf;
-import pgo.model.tla.PGoTLAInstance;
-import pgo.model.tla.PGoTLALet;
-import pgo.model.tla.PGoTLAMaybeAction;
-import pgo.model.tla.PGoTLAModule;
-import pgo.model.tla.PGoTLAModuleDefinition;
-import pgo.model.tla.PGoTLANumber;
 
 import static pgo.parser.ParseTools.*;
 
@@ -170,7 +121,10 @@ public final class TLAParser {
 			"ENABLED",
 			"SUBSET",
 			"UNCHANGED",
-			"UNION");
+			"UNION")
+			.stream()
+			.sorted(Comparator.comparingInt(String::length).reversed())
+			.collect(Collectors.toList());
 	
 	public static Map<String, Integer> PREFIX_OPERATORS_LOW_PRECEDENCE = new HashMap<>();
 	static {
@@ -305,7 +259,10 @@ public final class TLAParser {
 			"\\wr",
 			"\\equiv",
 			"\\oplus",
-			"\\sqsupset");
+			"\\sqsupset")
+			.stream()
+			.sorted(Comparator.comparingInt(String::length).reversed())
+			.collect(Collectors.toList());
 	
 	public static Map<String, Integer> INFIX_OPERATORS_LOW_PRECEDENCE = new HashMap<>();
 	static {
@@ -563,7 +520,11 @@ public final class TLAParser {
 	public static final List<String> POSTFIX_OPERATORS = Arrays.asList("^+",
 			"^*",
 			"^#",
-			"'");
+			"'")
+			.stream()
+			.sorted(Comparator.comparingInt(String::length).reversed())
+			.collect(Collectors.toList());
+
 	public static Map<String, Integer> POSTFIX_OPERATORS_PRECEDENCE = new HashMap<>();
 	static {
 		POSTFIX_OPERATORS_PRECEDENCE.put("^+", 15);
@@ -572,9 +533,9 @@ public final class TLAParser {
 		POSTFIX_OPERATORS_PRECEDENCE.put("'", 15);
 	}
 	
-	private TLAParser(){}
+	TLAParser(){}
 	
-	private static <AST extends SourceLocatable> ParseAction<LocatedList<AST>> parseCommaList(ParseAction<AST> element, int minColumn){
+	static <AST extends SourceLocatable> ParseAction<LocatedList<AST>> parseCommaList(ParseAction<AST> element, int minColumn){
 		return element.chain(first -> {
 			return repeat(nop().chain((Void v) -> {
 					Mutator<AST> ast = new Mutator<>();
@@ -586,12 +547,13 @@ public final class TLAParser {
 							});
 			})).map((LocatedList<AST> list) -> {
 				list.add(0, first);
+				list.addLocation(first.getLocation());
 				return list;
 			});	
 		});
 	}
 	
-	private static ParseAction<PGoTLAIdentifierOrTuple> parseIdentifierTuple(int minColumn){
+	static ParseAction<PGoTLAIdentifierOrTuple> parseIdentifierTuple(int minColumn){
 		Mutator<LocatedList<PGoTLAIdentifier>> ids = new Mutator<>();
 		return sequence(
 				drop(parseBuiltinToken("<<", minColumn)),
@@ -609,14 +571,14 @@ public final class TLAParser {
 				});
 	}
 	
-	private static ParseAction<PGoTLAIdentifierOrTuple> parseIdentifierOrTuple(int minColumn) {
+	static ParseAction<PGoTLAIdentifierOrTuple> parseIdentifierOrTuple(int minColumn) {
 		return parseOneOf(
 				parseIdentifier(minColumn)
 						.map(PGoTLAIdentifierOrTuple::Identifier),
 				parseIdentifierTuple(minColumn));
 	}
 	
-	private static ParseAction<PGoTLAQuantifierBound> parseQuantifierBound(int minColumn){
+	static ParseAction<PGoTLAQuantifierBound> parseQuantifierBound(int minColumn){
 		Mutator<LocatedList<PGoTLAIdentifier>> ids = new Mutator<>();
 		Mutator<PGoTLAExpression> expr = new Mutator<>();
 		Mutator<PGoTLAQuantifierBound.Type> type = new Mutator<>();
@@ -638,7 +600,7 @@ public final class TLAParser {
 				});
 	}
 	
-	private static ParseAction<LocatedList<PGoTLAGeneralIdentifierPart>> parseInstancePrefix(int minColumn){
+	static ParseAction<LocatedList<PGoTLAGeneralIdentifierPart>> parseInstancePrefix(int minColumn){
 		return repeat(nop().chain(v -> {
 			Mutator<PGoTLAIdentifier> id = new Mutator<>();
 			Mutator<LocatedList<PGoTLAExpression>> args = new Mutator<>();
@@ -664,7 +626,7 @@ public final class TLAParser {
 		}));
 	}
 	
-	private static ParseAction<PGoTLAExpression> parseTupleExpression(int minColumn){
+	static ParseAction<PGoTLAExpression> parseTupleExpression(int minColumn){
 		Mutator<LocatedList<PGoTLAExpression>> exprs = new Mutator<>();
 		return sequence(
 				drop(parseBuiltinToken("<<", minColumn)),
@@ -678,7 +640,7 @@ public final class TLAParser {
 				});
 	}
 	
-	private static ParseAction<PGoTLAExpression> parseRequiredActionExpression(int minColumn){
+	static ParseAction<PGoTLAExpression> parseRequiredActionExpression(int minColumn){
 		Mutator<PGoTLAExpression> expr = new Mutator<>();
 		Mutator<PGoTLAExpression> vars = new Mutator<>();
 		return sequence(
@@ -691,9 +653,9 @@ public final class TLAParser {
 				});
 	}
 	
-	private static ParseAction<PGoTLAExpression> parseInnerPrefixOperator(int minColumn){
+	static ParseAction<PGoTLAExpression> parseInnerPrefixOperator(int minColumn){
 		Mutator<LocatedList<PGoTLAGeneralIdentifierPart>> prefix = new Mutator<>();
-		Mutator<LocatedString> token = new Mutator<>();
+		Mutator<Located<String>> token = new Mutator<>();
 		Mutator<PGoTLAExpression> expr = new Mutator<>();
 		return sequence(
 				part(prefix, parseInstancePrefix(minColumn)),
@@ -707,7 +669,7 @@ public final class TLAParser {
 				});
 	}
 	
-	private static ParseAction<PGoTLAExpression> parseOperatorCall(int minColumn){
+	static ParseAction<PGoTLAExpression> parseOperatorCall(int minColumn){
 		Mutator<LocatedList<PGoTLAGeneralIdentifierPart>> prefix = new Mutator<>();
 		Mutator<PGoTLAIdentifier> id = new Mutator<>();
 		Mutator<LocatedList<PGoTLAExpression>> args = new Mutator<>();
@@ -723,7 +685,7 @@ public final class TLAParser {
 				});
 	}
 	
-	private static ParseAction<PGoTLAExpression> parseGeneralIdentifier(int minColumn){
+	static ParseAction<PGoTLAExpression> parseGeneralIdentifier(int minColumn){
 		Mutator<LocatedList<PGoTLAGeneralIdentifierPart>> prefix = new Mutator<>();
 		Mutator<PGoTLAIdentifier> id = new Mutator<>();
 		return sequence(
@@ -734,14 +696,16 @@ public final class TLAParser {
 				});
 	}
 	
-	private static ParseAction<PGoTLAExpression> parseConjunct(int minColumn){
+	static ParseAction<PGoTLAExpression> parseConjunct(int minColumn){
 		return parseBuiltinToken("/\\", minColumn).chain(str -> {
 			int innerMinColumn = str.getLocation().getStartColumn();
 			return parseExpression(innerMinColumn+1).chain(expr -> {
 				return parseOneOf(
 						parseConjunct(innerMinColumn).map(
 								rhs -> new PGoTLABinOp(
-										str.getLocation(),
+										str.getLocation()
+												.combine(expr.getLocation())
+												.combine(rhs.getLocation()),
 										new PGoTLASymbol(str.getLocation(), "/\\"),
 										Collections.emptyList(), expr, rhs)),
 						nop().map(v -> expr));
@@ -749,14 +713,16 @@ public final class TLAParser {
 		});
 	}
 	
-	private static ParseAction<PGoTLAExpression> parseDisjunct(int minColumn){
+	static ParseAction<PGoTLAExpression> parseDisjunct(int minColumn){
 		return parseBuiltinToken("\\/", minColumn).chain(str -> {
 			int innerMinColumn = str.getLocation().getStartColumn();
 			return parseExpression(innerMinColumn+1).chain(expr -> {
 				return parseOneOf(
-						parseDisjunct(innerMinColumn).map(
+						parseConjunct(innerMinColumn).map(
 								rhs -> new PGoTLABinOp(
-										str.getLocation(),
+										str.getLocation()
+												.combine(expr.getLocation())
+												.combine(rhs.getLocation()),
 										new PGoTLASymbol(str.getLocation(), "\\/"),
 										Collections.emptyList(), expr, rhs)),
 						nop().map(v -> expr));
@@ -764,7 +730,7 @@ public final class TLAParser {
 		});
 	}
 	
-	private static ParseAction<PGoTLAExpression> parseIfExpression(int minColumn){
+	static ParseAction<PGoTLAExpression> parseIfExpression(int minColumn){
 		Mutator<PGoTLAExpression> ifexpr = new Mutator<>();
 		Mutator<PGoTLAExpression> thenexpr = new Mutator<>();
 		Mutator<PGoTLAExpression> elseexpr = new Mutator<>();
@@ -827,7 +793,7 @@ public final class TLAParser {
 				});
 	}
 	
-	private static ParseAction<PGoTLAExpression> parseFunctionExpression(int minColumn){
+	static ParseAction<PGoTLAExpression> parseFunctionExpression(int minColumn){
 		Mutator<LocatedList<PGoTLAQuantifierBound>> bounds = new Mutator<>();
 		Mutator<PGoTLAExpression> body = new Mutator<>();
 		return sequence(
@@ -841,7 +807,7 @@ public final class TLAParser {
 				});
 	}
 	
-	private static ParseAction<PGoTLAExpression> parseRecordSetExpression(int minColumn){
+	static ParseAction<PGoTLAExpression> parseRecordSetExpression(int minColumn){
 		Mutator<LocatedList<PGoTLARecordSet.Field>> fields = new Mutator<>();
 		return sequence(
 				drop(parseBuiltinToken("[", minColumn)),
@@ -862,7 +828,7 @@ public final class TLAParser {
 				});
 	}
 	
-	private static ParseAction<PGoTLAExpression> parseRecordConstructorExpression(int minColumn){
+	static ParseAction<PGoTLAExpression> parseRecordConstructorExpression(int minColumn){
 		Mutator<LocatedList<PGoTLARecordConstructor.Field>> fields = new Mutator<>();
 		return sequence(
 				drop(parseBuiltinToken("[", minColumn)),
@@ -883,7 +849,7 @@ public final class TLAParser {
 				});
 	}
 	
-	private static ParseAction<PGoTLAExpression> parseFunctionSetExpression(int minColumn){
+	static ParseAction<PGoTLAExpression> parseFunctionSetExpression(int minColumn){
 		Mutator<PGoTLAExpression> from = new Mutator<>();
 		Mutator<PGoTLAExpression> to = new Mutator<>();
 		return sequence(
@@ -897,7 +863,7 @@ public final class TLAParser {
 				});
 	}
 	
-	private static ParseAction<PGoTLAExpression> parseMaybeActionExpression(int minColumn){
+	static ParseAction<PGoTLAExpression> parseMaybeActionExpression(int minColumn){
 		Mutator<PGoTLAExpression> expr = new Mutator<>();
 		Mutator<PGoTLAExpression> vars = new Mutator<>();
 		return sequence(
@@ -910,7 +876,7 @@ public final class TLAParser {
 				});
 	}
 	
-	private static ParseAction<PGoTLAExpression> parseFunctionSubstitutionExpression(int minColumn){
+	static ParseAction<PGoTLAExpression> parseFunctionSubstitutionExpression(int minColumn){
 		Mutator<PGoTLAExpression> expr = new Mutator<>();
 		Mutator<LocatedList<PGoTLAFunctionSubstitutionPair>> subs = new Mutator<>();
 		return sequence(
@@ -965,7 +931,7 @@ public final class TLAParser {
 				});
 	}
 	
-	private static ParseAction<PGoTLAExpression> parseGroupExpression(int minColumn){
+	static ParseAction<PGoTLAExpression> parseGroupExpression(int minColumn){
 		Mutator<PGoTLAExpression> expr = new Mutator<>();
 		return sequence(
 				drop(parseBuiltinToken("(", minColumn)),
@@ -976,7 +942,7 @@ public final class TLAParser {
 				});
 	}
 	
-	private static ParseAction<PGoTLAExpression> parseQuantifiedExistentialExpression(int minColumn){
+	static ParseAction<PGoTLAExpression> parseQuantifiedExistentialExpression(int minColumn){
 		Mutator<LocatedList<PGoTLAQuantifierBound>> bounds = new Mutator<>();
 		Mutator<PGoTLAExpression> expr = new Mutator<>();
 		return sequence(
@@ -989,7 +955,7 @@ public final class TLAParser {
 				});
 	}
 	
-	private static ParseAction<PGoTLAExpression> parseQuantifiedUniversalExpression(int minColumn){
+	static ParseAction<PGoTLAExpression> parseQuantifiedUniversalExpression(int minColumn){
 		Mutator<LocatedList<PGoTLAQuantifierBound>> bounds = new Mutator<>();
 		Mutator<PGoTLAExpression> expr = new Mutator<>();
 		return sequence(
@@ -1002,7 +968,7 @@ public final class TLAParser {
 				});
 	}
 	
-	private static ParseAction<PGoTLAExpression> parseUnquantifiedExistentialExpression(int minColumn){
+	static ParseAction<PGoTLAExpression> parseUnquantifiedExistentialExpression(int minColumn){
 		Mutator<LocatedList<PGoTLAIdentifier>> bounds = new Mutator<>();
 		Mutator<PGoTLAExpression> expr = new Mutator<>();
 		return sequence(
@@ -1017,7 +983,7 @@ public final class TLAParser {
 				});
 	}
 	
-	private static ParseAction<PGoTLAExpression> parseUnquantifiedUniversalExpression(int minColumn){
+	static ParseAction<PGoTLAExpression> parseUnquantifiedUniversalExpression(int minColumn){
 		Mutator<LocatedList<PGoTLAIdentifier>> bounds = new Mutator<>();
 		Mutator<PGoTLAExpression> expr = new Mutator<>();
 		return sequence(
@@ -1032,7 +998,7 @@ public final class TLAParser {
 				});
 	}
 	
-	private static ParseAction<PGoTLAExpression> parseSetConstructorExpression(int minColumn){
+	static ParseAction<PGoTLAExpression> parseSetConstructorExpression(int minColumn){
 		Mutator<LocatedList<PGoTLAExpression>> members = new Mutator<>();
 		return sequence(
 				drop(parseBuiltinToken("{", minColumn)),
@@ -1046,7 +1012,7 @@ public final class TLAParser {
 				});
 	}
 	
-	private static ParseAction<PGoTLAExpression> parseSetRefinementExpression(int minColumn){
+	static ParseAction<PGoTLAExpression> parseSetRefinementExpression(int minColumn){
 		Mutator<PGoTLAIdentifierOrTuple> ids = new Mutator<>();
 		Mutator<PGoTLAExpression> set = new Mutator<>();
 		Mutator<PGoTLAExpression> condition = new Mutator<>();
@@ -1063,7 +1029,7 @@ public final class TLAParser {
 				});
 	}
 	
-	private static ParseAction<PGoTLAExpression> parseSetComprehensionExpression(int minColumn){
+	static ParseAction<PGoTLAExpression> parseSetComprehensionExpression(int minColumn){
 		Mutator<PGoTLAExpression> generator = new Mutator<>();
 		Mutator<LocatedList<PGoTLAQuantifierBound>> sets = new Mutator<>();
 		return sequence(
@@ -1077,7 +1043,7 @@ public final class TLAParser {
 				});
 	}
 	
-	private static ParseAction<PGoTLAExpression> parseLetExpression(int minColumn){
+	static ParseAction<PGoTLAExpression> parseLetExpression(int minColumn){
 		Mutator<LocatedList<PGoTLAUnit>> units = new Mutator<>();
 		Mutator<PGoTLAExpression> body = new Mutator<>();
 		return sequence(
@@ -1094,11 +1060,30 @@ public final class TLAParser {
 					return new PGoTLALet(seqResult.getLocation(), units.getValue(), body.getValue());
 				});
 	}
+
+	static ParseAction<PGoTLAExpression> parseFairnessConstraint(int minColumn){
+		Mutator<Located<TLAFairness.Type>> type = new Mutator<>();
+		Mutator<PGoTLAExpression> vars = new Mutator<>();
+		Mutator<PGoTLAExpression> expression = new Mutator<>();
+		return sequence(
+				part(type, parseOneOf(
+						parseBuiltinToken("WF_", minColumn).map(v ->
+								new Located<>(v.getLocation(), TLAFairness.Type.WEAK)),
+						parseBuiltinToken("SF_", minColumn).map(v ->
+								new Located<>(v.getLocation(), TLAFairness.Type.STRONG))
+				)),
+				part(vars, nop().chain(v -> parseExpressionNoOperatorsNoCall(minColumn))),
+				drop(parseBuiltinToken("(", minColumn)),
+				part(expression, nop().chain(v -> parseExpression(minColumn))),
+				drop(parseBuiltinToken(")", minColumn))
+		).map(seq -> new TLAFairness(
+				seq.getLocation(), type.getValue().getValue(), vars.getValue(), expression.getValue()));
+	}
 	
-	private static ParseAction<PGoTLAExpression> parseExpressionNoOperators(int minColumn){
+	static ParseAction<PGoTLAExpression> parseExpressionNoOperatorsNoCall(int minColumn){
 		return parseOneOf(
-				parseNumber(minColumn).map(n -> new PGoTLANumber(n.getLocation(), n.getValue())),
-				parseString(minColumn).map(s -> new PGoTLAString(s.getLocation(), s.getValue())),
+				parseNumber(minColumn),
+				parseString(minColumn),
 				parseBuiltinTokenOneOf(
 						Arrays.asList("TRUE", "FALSE"), minColumn).map(b -> {
 							return new PGoTLABool(b.getLocation(), b.getValue().equals("TRUE"));
@@ -1113,15 +1098,16 @@ public final class TLAParser {
 				// a higher precedence prefix operator followed by a lower precedence prefix operator
 				// we parse the second operator here as there is no good way to notice it "on the way down"
 				parseInnerPrefixOperator(minColumn),
-				
-				parseOperatorCall(minColumn),
-				
-				parseGeneralIdentifier(minColumn),
+
+				// looks like an operator call but is different (WF_.*|SF_.*)
+				parseFairnessConstraint(minColumn),
 				
 				parseConjunct(minColumn),
 				parseDisjunct(minColumn),
 				
 				parseIfExpression(minColumn),
+
+				parseGeneralIdentifier(minColumn),
 				
 				parseLetExpression(minColumn),
 				
@@ -1144,10 +1130,17 @@ public final class TLAParser {
 				parseSetComprehensionExpression(minColumn)
 				);
 	}
+
+	static ParseAction<PGoTLAExpression> parseExpressionNoOperators(int minColumn){
+		return parseOneOf(
+				parseOperatorCall(minColumn),
+				parseExpressionNoOperatorsNoCall(minColumn)
+		);
+	}
 	
-	private static ParseAction<PGoTLAExpression> parsePrefixOperatorFromPrecedence(int minColumn, int precedence){
+	static ParseAction<PGoTLAExpression> parsePrefixOperatorFromPrecedence(int minColumn, int precedence){
 		Mutator<LocatedList<PGoTLAGeneralIdentifierPart>> prefix = new Mutator<>();
-		Mutator<LocatedString> op = new Mutator<>();
+		Mutator<Located<String>> op = new Mutator<>();
 		return sequence(
 				part(prefix, parseInstancePrefix(minColumn)),
 				part(op, parseBuiltinTokenOneOf(PREFIX_OPERATORS, minColumn))
@@ -1171,9 +1164,9 @@ public final class TLAParser {
 				});
 	}
 	
-	private static ParseAction<PGoTLAExpression> parseInfixOperatorFromPrecedence(PGoTLAExpression lhs, int minColumn, int precedence){
+	static ParseAction<PGoTLAExpression> parseInfixOperatorFromPrecedence(PGoTLAExpression lhs, int minColumn, int precedence){
 		Mutator<LocatedList<PGoTLAGeneralIdentifierPart>> prefix = new Mutator<>();
-		Mutator<LocatedString> op = new Mutator<>();
+		Mutator<Located<String>> op = new Mutator<>();
 		
 		return sequence(
 				part(prefix, parseInstancePrefix(minColumn)),
@@ -1185,24 +1178,26 @@ public final class TLAParser {
 						String sameOperator = op.getValue().getValue();
 						// this should handle precedence conflicts - we skip all conflicting precedence
 						// levels when we recurse. We then allow back in repeats of the same operator
-						// manually via the do-while, only if the operator we're reading allows left
+						// manually, only if the operator we're reading allows left
 						// associativity
 						return parseExpressionFromPrecedence(minColumn, hiPrecedence).chain(rhs -> {
 							Mutator<PGoTLAExpression> lhsAcc = new Mutator<>(
 									new PGoTLABinOp(
-											seqResult.getLocation(),
+											seqResult.getLocation().combine(rhs.getLocation()),
 											new PGoTLASymbol(op.getValue().getLocation(), op.getValue().getValue()),
 											prefix.getValue(), lhs, rhs));
 							Mutator<PGoTLAExpression> repeatRHS = new Mutator<>();
+							Mutator<Located<Void>> sameOp = new Mutator<>();
 							return repeat(
 									sequence(
 											part(prefix, parseInstancePrefix(minColumn)),
-											part(op, parseBuiltinToken(sameOperator, minColumn)),
+											part(sameOp, parseBuiltinToken(sameOperator, minColumn)),
 											part(repeatRHS, parseExpressionFromPrecedence(minColumn, hiPrecedence))
 											).map(seqResult2 -> {
 												lhsAcc.setValue(new PGoTLABinOp(
-														seqResult2.getLocation(),
-														new PGoTLASymbol(op.getValue().getLocation(), op.getValue().getValue()),
+														lhsAcc.getValue().getLocation()
+																.combine(seqResult2.getLocation()),
+														new PGoTLASymbol(sameOp.getValue().getLocation(), sameOperator),
 														prefix.getValue(),
 														lhsAcc.getValue(),
 														repeatRHS.getValue()
@@ -1218,12 +1213,12 @@ public final class TLAParser {
 				});
 	}
 	
-	private static ParseAction<PGoTLAExpression> parsePostfixOperatorFromPrecedence(PGoTLAExpression lhsInit, int minColumn, int precedence){
+	static ParseAction<PGoTLAExpression> parsePostfixOperatorFromPrecedence(PGoTLAExpression lhsInit, int minColumn, int precedence){
 		Mutator<PGoTLAExpression> lhs = new Mutator<>(lhsInit);
 		
 		Mutator<LocatedList<PGoTLAExpression>> functionArguments = new Mutator<>();
 		
-		Mutator<LocatedString> op = new Mutator<>();
+		Mutator<Located<String>> op = new Mutator<>();
 		Mutator<LocatedList<PGoTLAGeneralIdentifierPart>> prefix = new Mutator<>();
 		// in order to catch high-precedence operators that were hidden by operators with a lower
 		// precedence, keep trying to read operators with a higher or equal precedence until we run out
@@ -1298,10 +1293,10 @@ public final class TLAParser {
 		return parseExpressionFromPrecedence(minColumn, 1);
 	}
 	
-	private static ParseAction<PGoTLAOpDecl> parseOpDecl(int minColumn){
+	static ParseAction<PGoTLAOpDecl> parseOpDecl(int minColumn){
 		Mutator<PGoTLAIdentifier> name = new Mutator<>();
-		Mutator<LocatedString> op = new Mutator<>();
-		Mutator<LocatedList<LocatedString>> args = new Mutator<>();
+		Mutator<Located<String>> op = new Mutator<>();
+		Mutator<LocatedList<Located<Void>>> args = new Mutator<>();
 		return parseOneOf(
 				sequence(
 						part(name, parseIdentifier(minColumn)),
@@ -1345,14 +1340,14 @@ public final class TLAParser {
 				);
 	}
 	
-	private static ParseAction<PGoTLAUnit> parseOperatorDefinition(int minColumn, boolean isLocal){
+	static ParseAction<PGoTLAUnit> parseOperatorDefinition(int minColumn, boolean isLocal){
 		Mutator<PGoTLAIdentifier> name = new Mutator<>();
 		Mutator<LocatedList<PGoTLAOpDecl>> args = new Mutator<>();
 		Mutator<PGoTLAExpression> body = new Mutator<>();
 		return sequence(
 				part(args, parseOneOf(
 						nop().chain(v -> {
-							Mutator<LocatedString> op = new Mutator<>();
+							Mutator<Located<String>> op = new Mutator<>();
 							Mutator<PGoTLAIdentifier> rhs = new Mutator<>();
 							return sequence(
 									part(op, parseBuiltinTokenOneOf(PREFIX_OPERATORS, minColumn)),
@@ -1372,7 +1367,7 @@ public final class TLAParser {
 						}),
 						nop().chain(v -> {
 							Mutator<PGoTLAIdentifier> lhs = new Mutator<>();
-							Mutator<LocatedString> op = new Mutator<>();
+							Mutator<Located<String>> op = new Mutator<>();
 							Mutator<PGoTLAIdentifier> rhs = new Mutator<>();
 							return sequence(
 									part(lhs, parseIdentifier(minColumn)),
@@ -1392,7 +1387,7 @@ public final class TLAParser {
 						}),
 						nop().chain(v -> {
 							Mutator<PGoTLAIdentifier> lhs = new Mutator<>();
-							Mutator<LocatedString> op = new Mutator<>();
+							Mutator<Located<String>> op = new Mutator<>();
 							return sequence(
 									part(lhs, parseIdentifier(minColumn)),
 									part(op, parseBuiltinTokenOneOf(POSTFIX_OPERATORS, minColumn))
@@ -1425,7 +1420,7 @@ public final class TLAParser {
 				});
 	}
 	
-	private static ParseAction<PGoTLAUnit> parseFunctionDefinition(int minColumn, boolean isLocal){
+	static ParseAction<PGoTLAUnit> parseFunctionDefinition(int minColumn, boolean isLocal){
 		Mutator<PGoTLAIdentifier> name = new Mutator<>();
 		Mutator<LocatedList<PGoTLAQuantifierBound>> args = new Mutator<>();
 		Mutator<PGoTLAExpression> body = new Mutator<>();
@@ -1445,7 +1440,7 @@ public final class TLAParser {
 				});
 	}
 	
-	private static ParseAction<PGoTLAInstance> parseInstance(int minColumn, boolean isLocal){
+	static ParseAction<PGoTLAInstance> parseInstance(int minColumn, boolean isLocal){
 		Mutator<PGoTLAIdentifier> name = new Mutator<>();
 		Mutator<LocatedList<PGoTLAInstance.Remapping>> remappings = new Mutator<>();
 		return sequence(
@@ -1484,7 +1479,7 @@ public final class TLAParser {
 				});
 	}
 	
-	private static ParseAction<PGoTLAUnit> parseModuleDefinition(int minColumn, boolean isLocal){
+	static ParseAction<PGoTLAUnit> parseModuleDefinition(int minColumn, boolean isLocal){
 		Mutator<PGoTLAIdentifier> name = new Mutator<>();
 		Mutator<LocatedList<PGoTLAOpDecl>> args = new Mutator<>();
 		Mutator<PGoTLAInstance> instance = new Mutator<>();
@@ -1506,33 +1501,7 @@ public final class TLAParser {
 				});
 	}
 	
-	private static ParseAction<LocatedString> parse4DashesOrMore(){
-		return parseTokenType(TLATokenType.BUILTIN, -1)
-				.withContext(new WhileParsingBuiltinToken("----+"))
-				.chain(s -> {
-			if(s.getValue().startsWith("----")) {
-				return ParseAction.success(s);
-			}else {
-				return ParseAction.failure(
-						ParseFailure.unexpectedBuiltinToken(s, Collections.singletonList("----+")));
-			}
-		});
-	}
-	
-	private static ParseAction<LocatedString> parse4EqualsOrMore(){
-		return parseTokenType(TLATokenType.BUILTIN, -1)
-				.withContext(new WhileParsingBuiltinToken("====+"))
-				.chain(s -> {
-			if(s.getValue().startsWith("====")) {
-				return ParseAction.success(s);
-			}else {
-				return ParseAction.failure(
-						ParseFailure.unexpectedBuiltinToken(s, Collections.singletonList("====+")));
-			}
-		});
-	}
-	
-	private static ParseAction<LocatedList<PGoTLAIdentifier>> parseExtends(){
+	static ParseAction<LocatedList<PGoTLAIdentifier>> parseExtends(){
 		Mutator<LocatedList<PGoTLAIdentifier>> exts = new Mutator<>();
 		return sequence(
 				drop(parseBuiltinToken("EXTENDS", -1)),
@@ -1540,27 +1509,27 @@ public final class TLAParser {
 				).map(seqResult -> exts.getValue());
 	}
 	
-	private static ParseAction<PGoTLAUnit> parseVariableDeclaration() {
+	static ParseAction<PGoTLAUnit> parseVariableDeclaration() {
 		Mutator<LocatedList<PGoTLAIdentifier>> vars = new Mutator<>();
 		return sequence(
-				drop(parseBuiltinTokenOneOf(Arrays.asList("VARIABLE", "VARIABLES"), -1)),
+				drop(parseBuiltinTokenOneOf(Arrays.asList("VARIABLES", "VARIABLE"), -1)),
 				part(vars, parseCommaList(parseIdentifier(-1), -1))
 				).map(seqResult -> {
 					return new PGoTLAVariableDeclaration(seqResult.getLocation(), vars.getValue());
 				});
 	}
 	
-	private static ParseAction<PGoTLAUnit> parseConstantDeclaration(){
+	static ParseAction<PGoTLAUnit> parseConstantDeclaration(){
 		Mutator<LocatedList<PGoTLAOpDecl>> decls = new Mutator<>();
 		return sequence(
-				drop(parseBuiltinTokenOneOf(Arrays.asList("CONSTANT", "CONSTANTS"), -1)),
+				drop(parseBuiltinTokenOneOf(Arrays.asList("CONSTANTS", "CONSTANT"), -1)),
 				part(decls, parseCommaList(parseOpDecl(-1), -1))
 				).map(seqResult -> {
 					return new PGoTLAConstantDeclaration(seqResult.getLocation(), decls.getValue());
 				});
 	}
 	
-	private static ParseAction<PGoTLAUnit> parseAssumption(){
+	static ParseAction<PGoTLAUnit> parseAssumption(){
 		Mutator<PGoTLAExpression> assumption = new Mutator<>();
 		return sequence(
 				drop(parseBuiltinTokenOneOf(Arrays.asList("ASSUME", "ASSUMPTION", "AXIOM"), -1)),
@@ -1570,7 +1539,7 @@ public final class TLAParser {
 				});
 	}
 	
-	private static ParseAction<PGoTLAUnit> parseTheorem(){
+	static ParseAction<PGoTLAUnit> parseTheorem(){
 		Mutator<PGoTLAExpression> theorem = new Mutator<>();
 		return sequence(
 				drop(parseBuiltinToken("THEOREM", -1)),
@@ -1580,7 +1549,7 @@ public final class TLAParser {
 				});
 	}
 	
-	private static ParseAction<PGoTLAUnit> parseUnit(){
+	static ParseAction<PGoTLAUnit> parseUnit(){
 		Mutator<PGoTLAUnit> unit = new Mutator<>();
 		return sequence(
 				drop(parseOneOf(parse4DashesOrMore(), nop().map(v -> null))),
@@ -1604,7 +1573,7 @@ public final class TLAParser {
 	}
 	
 	@SafeVarargs
-	private static PGoTLAUnit getLastUnit(Mutator<LocatedList<PGoTLAUnit>>... mutators) {
+	static PGoTLAUnit getLastUnit(Mutator<LocatedList<PGoTLAUnit>>... mutators) {
 		PGoTLAUnit lastUnit = null;
 		for(Mutator<LocatedList<PGoTLAUnit>> mut : mutators) {
 			if(mut.getValue() != null && !mut.getValue().isEmpty()) {
@@ -1613,46 +1582,76 @@ public final class TLAParser {
 		}
 		return lastUnit;
 	}
+
+	static final Pattern TLA_BEGIN_TRANSLATION = Pattern.compile("\\\\\\*+\\s+BEGIN TRANSLATION$", Pattern.MULTILINE);
+	static final Pattern TLA_END_TRANSLATION = Pattern.compile("\\\\\\*+\\s+END TRANSLATION$", Pattern.MULTILINE);
+
+	static ParseAction<Located<Void>> parseStartTranslation(){
+		Mutator<Located<MatchResult>> begin = new Mutator<>();
+		return sequence(
+				drop(repeat(parseOneOf(
+						matchWhitespace(),
+						matchTLAMultilineComment()
+				))),
+				part(begin, matchPattern(TLA_BEGIN_TRANSLATION))
+		).map(seq -> new Located<>(begin.getValue().getLocation(), null));
+	}
+
+	static ParseAction<Located<Void>> parseEndTranslation(){
+		Mutator<Located<MatchResult>> end = new Mutator<>();
+		return sequence(
+				drop(repeat(parseOneOf(
+						matchWhitespace(),
+						matchTLAMultilineComment()
+				))),
+				part(end, matchPattern(TLA_END_TRANSLATION))
+		).map(seq -> new Located<>(end.getValue().getLocation(), null));
+	}
 	
-	private static ParseAction<PGoTLAModule> parseModule(){
+	static ParseAction<PGoTLAModule> parseModule(){
 		Mutator<PGoTLAIdentifier> name = new Mutator<>();
 		Mutator<LocatedList<PGoTLAIdentifier>> exts = new Mutator<>();
 		Mutator<LocatedList<PGoTLAUnit>> preTranslationUnits = new Mutator<>();
 		Mutator<LocatedList<PGoTLAUnit>> translatedUnits = new Mutator<>();
 		Mutator<LocatedList<PGoTLAUnit>> postTranslationUnits = new Mutator<>();
 		return sequence(
+				drop(findModuleStart()),
 				drop(parse4DashesOrMore()),
 				drop(parseBuiltinToken("MODULE", -1)),
 				part(name, parseIdentifier(-1)),
 				drop(parse4DashesOrMore()),
 				part(exts, parseOneOf(
 						parseExtends(),
-						nop().map(v -> new LocatedList<PGoTLAIdentifier>(SourceLocation.unknown(), Collections.emptyList())))),
-				part(preTranslationUnits, repeat(nop().chain(v -> parseUnit()))),
+						nop().map(v -> new LocatedList<>(SourceLocation.unknown(), Collections.emptyList())))),
+				part(preTranslationUnits, repeat(
+						nop().chain(v -> {
+							Mutator<PGoTLAUnit> unit = new Mutator<>();
+							return sequence(
+									// make sure we don't accidentally parse the beginning of the TLA+ translation
+									drop(reject(parseStartTranslation())),
+									part(unit, parseUnit())
+							).map(seq -> unit.getValue());
+						}))),
 				part(translatedUnits, parseOneOf(
 						sequence(
-								drop(parseTokenType(TLATokenType.BEGIN_TRANSLATION, -1)),
-								part(translatedUnits, repeat(nop().chain(v -> parseUnit()))),
-								drop(parseTokenType(TLATokenType.END_TRANSLATION, -1))
-								).map(seqResult -> {
-									return translatedUnits.getValue();
-								}),
-						nop().map(v -> new LocatedList<PGoTLAUnit>(SourceLocation.unknown(), Collections.emptyList()))
+								drop(parseStartTranslation()),
+								part(translatedUnits, repeat(reject(parseEndTranslation()).chain(v -> parseUnit()))),
+								drop(parseEndTranslation())
+								).map(seqResult -> translatedUnits.getValue()),
+						nop().map(v -> new LocatedList<>(SourceLocation.unknown(), Collections.emptyList()))
 						)),
 				part(postTranslationUnits, repeat(nop().chain(v -> parseUnit()))),
 				drop(parse4EqualsOrMore())
 				)
 				.withContext(() -> new AfterParsingUnit(getLastUnit(preTranslationUnits, translatedUnits, postTranslationUnits)))
-				.map(seqResult -> {
-					return new PGoTLAModule(seqResult.getLocation(), name.getValue(), exts.getValue(),
-							preTranslationUnits.getValue(), translatedUnits.getValue(), postTranslationUnits.getValue());
-				});
+				.map(seqResult ->
+						new PGoTLAModule(seqResult.getLocation(), name.getValue(), exts.getValue(),
+							preTranslationUnits.getValue(), translatedUnits.getValue(), postTranslationUnits.getValue()));
 	}
 	
 	// external interfaces
 	
-	private static <T> T readOrExcept(ListIterator<TLAToken> iter, ParseAction<T> action) throws TLAParseException{
-		ParseContext ctx = new ParseContext(iter);
+	static <T> T readOrExcept(ParseContext ctx, ParseAction<T> action) throws TLAParseException{
 		ParseResult<T> result = action.perform(ctx);
 		if(result.isSuccess()) {
 			return result.getSuccess();
@@ -1661,19 +1660,19 @@ public final class TLAParser {
 		}
 	}
 	
-	public static PGoTLAExpression readExpression(ListIterator<TLAToken> iter) throws TLAParseException {
-		return readOrExcept(iter, parseExpression(-1));
+	public static PGoTLAExpression readExpression(ParseContext ctx) throws TLAParseException {
+		return readOrExcept(ctx, parseExpression(-1));
 	}
 	
-	public static List<PGoTLAUnit> readUnits(ListIterator<TLAToken> iter) throws TLAParseException{
-		return readOrExcept(iter, repeat(parseUnit()));
+	public static List<PGoTLAUnit> readUnits(ParseContext ctx) throws TLAParseException{
+		return readOrExcept(ctx, repeat(parseUnit()));
 	}
 	
-	public static PGoTLAUnit readUnit(ListIterator<TLAToken> iter) throws TLAParseException{
-		return readOrExcept(iter, parseUnit());
+	public static PGoTLAUnit readUnit(ParseContext ctx) throws TLAParseException{
+		return readOrExcept(ctx, parseUnit());
 	}
 
-	public static List<PGoTLAModule> readModules(ListIterator<TLAToken> iter) throws TLAParseException {
-		return readOrExcept(iter, repeatOneOrMore(parseModule()));
+	public static List<PGoTLAModule> readModules(ParseContext ctx) throws TLAParseException {
+		return readOrExcept(ctx, repeatOneOrMore(parseModule()));
 	}
 }

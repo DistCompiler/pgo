@@ -8,9 +8,7 @@ import java.util.TreeMap;
 import pgo.parser.ParseFailure.InsufficientOperatorPrecedence;
 import pgo.parser.ParseFailure.InsufficientlyIndented;
 import pgo.parser.ParseFailure.NoBranchesMatched;
-import pgo.parser.ParseFailure.UnexpectedBuiltinToken;
 import pgo.parser.ParseFailure.UnexpectedEOF;
-import pgo.parser.ParseFailure.UnexpectedTokenType;
 import pgo.util.SourceLocation;
 
 public class ParseFailureOrderingVisitor extends ParseFailureVisitor<Void, RuntimeException> {
@@ -39,18 +37,6 @@ public class ParseFailureOrderingVisitor extends ParseFailureVisitor<Void, Runti
 	}
 
 	@Override
-	public Void visit(UnexpectedTokenType unexpectedTokenType) throws RuntimeException {
-		add(unexpectedTokenType.getSourceLocation(), unexpectedTokenType);
-		return null;
-	}
-
-	@Override
-	public Void visit(UnexpectedBuiltinToken unexpectedBuiltinToken) throws RuntimeException {
-		add(unexpectedBuiltinToken.getActual().getLocation(), unexpectedBuiltinToken);
-		return null;
-	}
-
-	@Override
 	public Void visit(NoBranchesMatched noBranchesMatched) throws RuntimeException {
 		for(ParseFailure f : noBranchesMatched.getFailures()) {
 			f.accept(this);
@@ -69,5 +55,23 @@ public class ParseFailureOrderingVisitor extends ParseFailureVisitor<Void, Runti
 		add(insufficientOperatorPrecedence.getSourceLocation(), insufficientOperatorPrecedence);
 		return null;
 	}
-	
+
+	@Override
+	public Void visit(ParseFailure.StringMatchFailure stringMatchFailure) throws RuntimeException {
+		add(stringMatchFailure.getLocation(), stringMatchFailure);
+		return null;
+	}
+
+	@Override
+	public Void visit(ParseFailure.PatternMatchFailure patternMatchFailure) throws RuntimeException {
+		add(patternMatchFailure.getLocation(), patternMatchFailure);
+		return null;
+	}
+
+	@Override
+	public Void visit(ParseFailure.ParseSuccess parseSuccess) throws RuntimeException {
+		add(SourceLocation.unknown(), parseSuccess);
+		return null;
+	}
+
 }

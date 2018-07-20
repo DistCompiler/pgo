@@ -1,7 +1,11 @@
 package pgo.parser;
 
 import java.io.IOException;
+import java.io.RandomAccessFile;
+import java.nio.MappedByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -46,12 +50,12 @@ public class TLAParserTest {
 	@Test
 	public void test() throws IOException, PGoTLALexerException, TLAParseException {
 		Path inputFilePath = Paths.get("test", "pluscal", fileName+".tla");
-		List<String> lines = Collections.unmodifiableList(Files.readAllLines(inputFilePath, Charset.forName("utf-8")));
-		TLALexer lexer = new TLALexer(inputFilePath, lines);
+		FileChannel fileChannel = new RandomAccessFile(inputFilePath.toFile(), "r").getChannel();
+		MappedByteBuffer buffer = fileChannel.map(FileChannel.MapMode.READ_ONLY, 0, fileChannel.size());
+		// assume UTF-8, though technically TLA+ is ASCII only according to the book
+		ParseContext ctx = new ParseContext(inputFilePath, StandardCharsets.UTF_8.decode(buffer));
 		
-		List<TLAToken> tokens = lexer.readTokens();
-		
-		List<PGoTLAModule> modules = TLAParser.readModules(tokens.listIterator());
+		List<PGoTLAModule> modules = TLAParser.readModules(ctx);
 		
 		assertThat(modules.size(), is(1));
 	}

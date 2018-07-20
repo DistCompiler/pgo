@@ -5,12 +5,15 @@ import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 import pgo.formatters.IndentingWriter;
 import pgo.formatters.ParseActionContextFormattingVisitor;
 import pgo.formatters.ParseFailureFormattingVisitor;
 import pgo.lexer.TLATokenType;
 import pgo.util.SourceLocation;
+
+import javax.xml.transform.Source;
 
 public abstract class ParseFailure {
 	
@@ -75,66 +78,6 @@ public abstract class ParseFailure {
 	
 	public static UnexpectedEOF unexpectedEOF() {
 		return new UnexpectedEOF();
-	}
-	
-	public static class UnexpectedTokenType extends ParseFailure {
-		private TLATokenType tokenType;
-		private TLATokenType expected;
-		private SourceLocation sourceLocation;
-		
-		public UnexpectedTokenType(TLATokenType tokenType, TLATokenType expected, SourceLocation sourceLocation) {
-			this.tokenType = tokenType;
-			this.expected = expected;
-			this.sourceLocation = sourceLocation;
-		}
-
-		public TLATokenType getTokenType() {
-			return tokenType;
-		}
-
-		public TLATokenType getExpectedTokenType() {
-			return expected;
-		}
-		
-		public SourceLocation getSourceLocation() {
-			return sourceLocation;
-		}
-
-		@Override
-		public <T, E extends Throwable> T accept(ParseFailureVisitor<T, E> v) throws E {
-			return v.visit(this);
-		}
-	}
-	
-	public static UnexpectedTokenType unexpectedTokenType(TLATokenType tokenType, TLATokenType expected, SourceLocation sourceLocation) {
-		return new UnexpectedTokenType(tokenType, expected, sourceLocation);
-	}
-	
-	public static class UnexpectedBuiltinToken extends ParseFailure {
-		private LocatedString actual;
-		private List<String> options;
-		
-		public UnexpectedBuiltinToken(LocatedString actual, List<String> options) {
-			this.actual = actual;
-			this.options = options;
-		}
-
-		public LocatedString getActual() {
-			return actual;
-		}
-
-		public List<String> getOptions() {
-			return options;
-		}
-
-		@Override
-		public <T, E extends Throwable> T accept(ParseFailureVisitor<T, E> v) throws E {
-			return v.visit(this);
-		}
-	}
-	
-	public static UnexpectedBuiltinToken unexpectedBuiltinToken(LocatedString actual, List<String> options) {
-		return new UnexpectedBuiltinToken(actual, options);
 	}
 	
 	public static class NoBranchesMatched extends ParseFailure {
@@ -219,5 +162,70 @@ public abstract class ParseFailure {
 	public static InsufficientOperatorPrecedence insufficientOperatorPrecedence(int actualPrecedence, int requiredPrecedence, SourceLocation sourceLocation) {
 		return new InsufficientOperatorPrecedence(actualPrecedence, requiredPrecedence, sourceLocation);
 	}
+
+	public static class StringMatchFailure extends ParseFailure{
+
+		private SourceLocation location;
+		private String string;
+
+		public StringMatchFailure(SourceLocation location, String string){
+			this.location = location;
+			this.string = string;
+		}
+
+		public SourceLocation getLocation() {
+			return location;
+		}
+
+		public String getString(){
+			return string;
+		}
+
+		@Override
+		public <T, E extends Throwable> T accept(ParseFailureVisitor<T, E> v) throws E {
+			return v.visit(this);
+		}
+	}
+
+	public static StringMatchFailure stringMatchFailure(SourceLocation location, String string) {
+		return new StringMatchFailure(location, string);
+	}
+
+	public static class PatternMatchFailure extends ParseFailure{
+
+		private SourceLocation location;
+		private Pattern pattern;
+
+		public PatternMatchFailure(SourceLocation location, Pattern pattern){
+			this.location = location;
+			this.pattern = pattern;
+		}
+
+		public SourceLocation getLocation(){
+			return location;
+		}
+
+		public Pattern getPattern(){
+			return pattern;
+		}
+
+		@Override
+		public <T, E extends Throwable> T accept(ParseFailureVisitor<T, E> v) throws E {
+			return v.visit(this);
+		}
+	}
+
+	public static PatternMatchFailure patternMatchFailure(SourceLocation location, Pattern pattern) {
+		return new PatternMatchFailure(location, pattern);
+	}
+
+	public static class ParseSuccess extends ParseFailure {
+		@Override
+		public <T, E extends Throwable> T accept(ParseFailureVisitor<T, E> v) throws E {
+			return v.visit(this);
+		}
+	}
+
+	public static ParseSuccess parseSuccess() { return new ParseSuccess(); }
 
 }
