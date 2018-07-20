@@ -10,10 +10,7 @@ import java.util.regex.Pattern;
 import pgo.formatters.IndentingWriter;
 import pgo.formatters.ParseActionContextFormattingVisitor;
 import pgo.formatters.ParseFailureFormattingVisitor;
-import pgo.lexer.TLATokenType;
 import pgo.util.SourceLocation;
-
-import javax.xml.transform.Source;
 
 public abstract class ParseFailure {
 	

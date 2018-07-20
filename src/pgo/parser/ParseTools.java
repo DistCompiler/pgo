@@ -2,6 +2,7 @@ package pgo.parser;
 
 import java.util.*;
 import java.util.regex.MatchResult;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -26,6 +27,11 @@ public final class ParseTools {
 			"VARIABLES", "WF_", "WITH"
 	).stream().sorted(Comparator.comparing(String::length).reversed()).collect(Collectors.toList());
 
+	/**
+	 * Returns a parse action that matches exactly the string token
+	 * @param token the string to match
+	 * @return the parse action, yielding the location at which the string was matched
+	 */
 	public static ParseAction<Located<Void>> matchString(String token){
 		return ctx -> {
 			if(ctx.isEOF()){
@@ -40,6 +46,14 @@ public final class ParseTools {
 		};
 	}
 
+	/**
+	 * Returns a parse action that matches exactly any one of the strings provided. Though this is trivially
+	 * expressible as a combination of {@link ParseTools#matchString(String)} and {@link ParseTools#parseOneOf}, this
+	 * is taken as a primitive for efficiency reasons.
+	 * reasons of efficiency.
+	 * @param options the set of strings to match
+	 * @return the parse action, yielding which of the strings matched
+	 */
 	public static ParseAction<Located<String>> matchStringOneOf(List<String> options){
 		return ctx -> {
 			if(ctx.isEOF()){
@@ -60,6 +74,12 @@ public final class ParseTools {
 		};
 	}
 
+	/**
+	 * Returns a parse action that matches the regex pattern given at the current position, using the semantics of
+	 * {@link Matcher#lookingAt()}. The action yields the {@link MatchResult} on success.
+	 * @param pattern the pattern to match
+	 * @return the parse action
+	 */
 	public static ParseAction<Located<MatchResult>> matchPattern(Pattern pattern){
 		return ctx -> {
 			if(ctx.isEOF()){
@@ -74,6 +94,11 @@ public final class ParseTools {
 		};
 	}
 
+	/**
+	 * Returns a parse action that matches exactly count characters, yielding the matched string on success.
+	 * @param count the number of characters to match
+	 * @return the parse action
+	 */
 	public static ParseAction<Located<String>> matchCharacters(int count){
 		return ctx -> {
 			if(ctx.isEOF()){
@@ -83,7 +108,7 @@ public final class ParseTools {
 			if(result != null){
 				return ParseResult.success(result);
 			}else{
-				return ParseResult.failure(ParseFailure.unexpectedEOF()); // FIXME
+				return ParseResult.failure(ParseFailure.unexpectedEOF());
 			}
 		};
 	}
@@ -96,6 +121,11 @@ public final class ParseTools {
 	private static final Pattern TLA_NOT_A_COMMENT_MARKER_LINE = Pattern.compile(
 			".*?$", Pattern.MULTILINE);
 
+	/**
+	 * Returns a parse action that matches a TLA+ multi-line, nestable comment. Matches anything between a balanced
+	 * pair of (* and *).
+	 * @return the parse action
+	 */
 	public static ParseAction<Located<Void>> matchTLAMultilineComment(){
 		return sequence(
 				drop(matchString("(*")),
@@ -110,6 +140,10 @@ public final class ParseTools {
 		).map(seq -> new Located<>(seq.getLocation(), null));
 	}
 
+	/**
+	 * Returns a parse action that matches a TLA+ single-line comment starting with \*
+	 * @return the parse action
+	 */
 	public static ParseAction<Located<Void>> matchTLALineComment(){
 		return sequence(
 				drop(matchString("\\*")),
@@ -117,6 +151,10 @@ public final class ParseTools {
 		).map(seq -> new Located<>(seq.getLocation(), null));
 	}
 
+	/**
+	 * Returns a parse action that matches either of the two styles of TLA+ comment.
+	 * @return the parse action
+	 */
 	public static ParseAction<Located<Void>> matchTLAComment(){
 		return parseOneOf(
 				matchTLAMultilineComment(),
@@ -124,10 +162,19 @@ public final class ParseTools {
 		);
 	}
 
+	/**
+	 * Returns a parse action that matches and discards one or more characters of whitespace, defined as the regex
+	 * class \s
+	 * @return the parse action
+	 */
 	public static ParseAction<Located<Void>> matchWhitespace(){
 		return matchPattern(WHITESPACE).map(res -> new Located<>(res.getLocation(), null));
 	}
 
+	/**
+	 * Returns a parse action that accepts and discards any sequence of whitespace and TLA+ comments.
+	 * @return the parse action
+	 */
 	public static ParseAction<Located<Void>> skipWhitespaceAndTLAComments(){
 		return repeat(parseOneOf(
 				matchWhitespace(),
@@ -135,6 +182,15 @@ public final class ParseTools {
 		)).map(list -> new Located<>(list.getLocation(), null));
 	}
 
+	/**
+	 * Returns a parse action that matches a TLA+ identifier. This is defined to be anything matching the regex
+	 * {@link ParseTools#TLA_IDENTIFIER}, except for the following cases:
+	 * <ul>
+	 *     <li>Anything beginning with "WF_" or "SF_"</li>
+	 *     <li>Any TLA+ reserved words, defined at {@link ParseTools#TLA_RESERVED_WORDS}</li>
+	 * </ul>
+	 * @return the parse action
+	 */
 	public static ParseAction<Located<String>> matchTLAIdentifier(){
 		Mutator<Located<MatchResult>> result = new Mutator<>();
 		return sequence(
@@ -150,6 +206,19 @@ public final class ParseTools {
 
 	private static final Pattern TLA_STRING_CONTENTS = Pattern.compile("[a-zA-Z0-9~@#$%^&*_ \\-+=(){}\\[\\]<>|/,.?:;`']");
 
+	/**
+	 * Returns a parse action that will match a TLA+ string. This is defined as anything between quotation marks
+	 * matching the regex {@link ParseTools#TLA_STRING_CONTENTS}, with the addition of the following escape sequences:
+	 * <ul>
+	 *     <li>\", for a quotation mark</li>
+	 *     <li>\\, for a backslash</li>
+	 *     <li>\t, for a tab character</li>
+	 *     <li>\n, for a new line</li>
+	 *     <li>\f, for a form feed</li>
+	 *     <li>\r, for a carriage return</li>
+	 * </ul>
+	 * @return the parse action
+	 */
 	public static ParseAction<PGoTLAString> matchTLAString(){
 		Mutator<Located<String>> nonEscape = new Mutator<>();
 		Mutator<LocatedList<Located<String>>> parts = new Mutator<>();
@@ -180,6 +249,23 @@ public final class ParseTools {
 	private static final Pattern TLA_NUMBER_OCT = Pattern.compile("\\\\[oO]([0-7]+)");
 	private static final Pattern TLA_NUMBER_HEX = Pattern.compile("\\\\[hH]([0-9a-fA-F]+)");
 
+	/**
+	 * Returns a parse action that matches any of the TLA+ number syntaxes.
+	 *
+	 * These are represented by the regexes:
+	 * <ul>
+	 *  <li>{@link ParseTools#TLA_NUMBER_INT}: integer, mapped to the number type {@link PGoTLANumber.Base#DECIMAL}</li>
+	 *  <li>{@link ParseTools#TLA_NUMBER_FLOAT}: floating point, mapped to the number type {@link PGoTLANumber.Base#DECIMAL}</li>
+	 *  <li>{@link ParseTools#TLA_NUMBER_BIN}: binary, mapped to the number type {@link PGoTLANumber.Base#BINARY}</li>
+	 *  <li>{@link ParseTools#TLA_NUMBER_OCT}: octal, mapped to the number type {@link PGoTLANumber.Base#OCTAL}</li>
+	 *  <li>{@link ParseTools#TLA_NUMBER_HEX}: hexadecimal, mapped to the number type {@link PGoTLANumber.Base#HEXADECIMAL}</li>
+	 * </ul>
+	 *
+	 * In each case the representation will be stripped of any prefix, so for example the TLA+ binary notation
+	 * "\b0110" will be stored as "0110".
+	 *
+	 * @return the parse action
+	 */
 	public static ParseAction<PGoTLANumber> matchTLANumber(){
 		return parseOneOf(
 				matchPattern(TLA_NUMBER_INT).map(res ->
@@ -202,10 +288,21 @@ public final class ParseTools {
 	// DOTALL allows us to munch newlines
 	private static final Pattern TLA_BEFORE_MODULE = Pattern.compile(".*?(?=----+)", Pattern.DOTALL);
 
+	/**
+	 * Returns a parse action that consumes any text up till the beginning of a TLA+ module, defined to be 4 or more
+	 * '-' characters in a row. It does not however consume those characters, making this safe to use before
+	 * {@link ParseTools#parse4DashesOrMore()}}.
+	 * @return a parse action yielding the range of text skipped
+	 */
 	public static ParseAction<Located<Void>> findModuleStart(){
 		return matchPattern(TLA_BEFORE_MODULE).map(v -> new Located<>(v.getLocation(), null));
 	}
 
+	/**
+	 * Returns a parse actions that matches a series of 4 or more dashes (-), skipping any preceding whitespace or
+	 * TLA+ comments.
+	 * @return the parse action
+	 */
 	public static ParseAction<Located<Void>> parse4DashesOrMore(){
 		Mutator<Located<MatchResult>> res = new Mutator<>();
 		return sequence(
@@ -214,6 +311,11 @@ public final class ParseTools {
 		).map(seq -> new Located<>(res.getValue().getLocation(), null));
 	}
 
+	/**
+	 * Returns a parse actions that matches a series of 4 or more equals signs (=), skipping any preceding whitespace or
+	 * TLA+ comments.
+	 * @return the parse action
+	 */
 	public static ParseAction<Located<Void>> parse4EqualsOrMore(){
 		return sequence(
 				drop(skipWhitespaceAndTLAComments()),
@@ -221,6 +323,14 @@ public final class ParseTools {
 		).map(seq -> new Located<>(seq.getLocation(), null));
 	}
 
+	/**
+	 * Returns a parse action that behaves exactly like the provided action, but fails with
+	 * {@link ParseFailure.InsufficientlyIndented} if the result is not indented at or beyond minColumn.
+	 * @param action the action to perform
+	 * @param minColumn the minimum column to accept
+	 * @param <ParseResult> the result type of action
+	 * @return the new parse action
+	 */
 	public static <ParseResult extends SourceLocatable> ParseAction<ParseResult> checkMinColumn(ParseAction<ParseResult> action, int minColumn){
 		return action.chain(result -> {
 			if(result.getLocation().getStartColumn() < minColumn){
@@ -232,28 +342,8 @@ public final class ParseTools {
 	}
 
 	/**
-	 * Creates a parse action that accepts a token of the specified type, with a minimum column position of minColumn.
-	 * @param tokenType the expected token type
-	 * @param minColumn the minimum accepted column position
-	 * @return the parse action
-	 */
-	/*public static ParseAction<LocatedString> parseTokenType(TLATokenType tokenType, int minColumn){
-		return ctx -> {
-			TLAToken tok = ctx.readToken();
-			if(tok == null) {
-				return ParseResult.failure(ParseFailure.unexpectedEOF());
-			}else if(tok.getLocation().getStartColumn() < minColumn) {
-				return ParseResult.failure(ParseFailure.insufficientlyIndented(minColumn, tok.getLocation()));
-			}else if(tok.getType() != tokenType) {
-				return ParseResult.failure(ParseFailure.unexpectedTokenType(tok.getType(), tokenType, tok.getLocation()));
-			}else {
-				return ParseResult.success(new LocatedString(tok.getValue(), tok.getLocation()));
-			}
-		};
-	}*/
-
-	/**
-	 * Creates a parse action that accepts a token with type {@link pgo.lexer.TLATokenType#BUILTIN} and value t
+	 * Creates a parse action that accepts string t as long as it is at minColumn or more, skipping any preceding
+	 * comments or whitespace.
 	 * @param t the string representation that should be accepted
 	 * @param minColumn the minimum column at which to accept a token
 	 * @return the parse action
@@ -267,8 +357,8 @@ public final class ParseTools {
 	}
 
 	/**
-	 * Creates a parse action that accepts a token with type {@link pgo.lexer.TLATokenType#BUILTIN} and a value that is
-	 * one of options
+	 * Creates a parse action that accepts a any of the strings in options as long as they are located at or beyond
+	 * minColumn, skipping any preceding comments or whitespace.
 	 * @param options a list of acceptable token values
 	 * @param minColumn the minimum column at which to accept a token
 	 * @return the parse action
@@ -282,7 +372,9 @@ public final class ParseTools {
 	}
 
 	/**
-	 * Creates a parse action that accepts a token with type {@link pgo.lexer.TLATokenType#IDENT}.
+	 * Creates a parse action that accepts a TLA+ identifier as long as it is located at or after minColumn, skipping
+	 * any preceding whitespace. See {@link ParseTools#matchTLAIdentifier()} for a precise definition of what a TLA+
+	 * identifier is.
 	 * @param minColumn the minimum column at which to accept a token
 	 * @return the parse action
 	 */
@@ -295,7 +387,9 @@ public final class ParseTools {
 	}
 
 	/**
-	 * Creates a parse action that accepts a token with type {@link pgo.lexer.TLATokenType#STRING}.
+	 * Creates a parse action that accepts a TLA+ string as long as it is located after minColumn, skipping any
+	 * preceding whitespace. See {@link ParseTools#matchTLAString()} for a precise definition of what we consider a
+	 * TLA+ string.
 	 * @param minColumn the minimum column at which to accept a token
 	 * @return the parse action
 	 */
@@ -308,7 +402,9 @@ public final class ParseTools {
 	}
 
 	/**
-	 * Creates a parse action that accepts a token with type {@link pgo.lexer.TLATokenType#NUMBER}.
+	 * Creates a parse action that accepts a TLA+ number as long as it is located after minColumn, skipping any
+	 * preceding whitespace. See {@link ParseTools#matchTLANumber()} for a precise definition of what we consider a
+	 * TLA+ number.
 	 * @param minColumn the minimum column at which to accept a token
 	 * @return the parse action
 	 */
