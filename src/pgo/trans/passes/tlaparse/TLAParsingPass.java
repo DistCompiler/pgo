@@ -4,9 +4,6 @@ import java.nio.file.Path;
 import java.util.List;
 
 import pgo.errors.IssueContext;
-import pgo.lexer.PGoTLALexerException;
-import pgo.lexer.TLALexer;
-import pgo.lexer.TLAToken;
 import pgo.model.tla.PGoTLAModule;
 import pgo.parser.ParseContext;
 import pgo.parser.TLAParseException;

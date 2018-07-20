@@ -4,16 +4,10 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Collections;
 import java.util.List;
 
-import pgo.lexer.PGoTLALexerException;
-import pgo.lexer.TLALexer;
-import pgo.lexer.TLAToken;
 import pgo.model.tla.PGoTLAModule;
 import pgo.parser.ParseContext;
 import pgo.parser.TLAParseException;
@@ -37,7 +31,7 @@ public class TLAModuleLoader {
 		throw new ModuleNotFoundError(name, lookupPaths);
 	}
 	
-	public PGoTLAModule loadModule(String name) throws ModuleNotFoundError, IOException, PGoTLALexerException, TLAParseException, NoModulesFoundInFileError {
+	public PGoTLAModule loadModule(String name) throws ModuleNotFoundError, IOException, TLAParseException, NoModulesFoundInFileError {
 		Path modulePath = findModule(name);
 		FileChannel fileChannel = new RandomAccessFile(modulePath.toFile(), "r").getChannel();
 		MappedByteBuffer buffer = fileChannel.map(FileChannel.MapMode.READ_ONLY, 0, fileChannel.size());

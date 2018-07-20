@@ -10,14 +10,13 @@ import java.util.Arrays;
 
 import org.junit.Test;
 
-import pgo.lexer.PGoTLALexerException;
 import pgo.model.tla.PGoTLAModule;
 import pgo.parser.TLAParseException;
 
 public class TLAModuleLoaderTest {
 
 	@Test
-	public void testModuleNotFound() throws PGoTLALexerException, IOException, TLAParseException, NoModulesFoundInFileError {
+	public void testModuleNotFound() throws IOException, TLAParseException, NoModulesFoundInFileError {
 		TLAModuleLoader loader = new TLAModuleLoader(Arrays.asList());
 		try {
 			loader.loadModule("Test");
@@ -28,7 +27,7 @@ public class TLAModuleLoaderTest {
 	}
 	
 	@Test
-	public void testModuleFoundOneOption() throws PGoTLALexerException, ModuleNotFoundError, IOException, TLAParseException, NoModulesFoundInFileError {
+	public void testModuleFoundOneOption() throws ModuleNotFoundError, IOException, TLAParseException, NoModulesFoundInFileError {
 		TLAModuleLoader loader = new TLAModuleLoader(Arrays.asList(new Path[] {
 				Paths.get("test", "pluscal"),
 		}));
@@ -38,7 +37,7 @@ public class TLAModuleLoaderTest {
 	}
 	
 	@Test
-	public void testModuleFoundFailOver() throws PGoTLALexerException, ModuleNotFoundError, IOException, TLAParseException, NoModulesFoundInFileError {
+	public void testModuleFoundFailOver() throws ModuleNotFoundError, IOException, TLAParseException, NoModulesFoundInFileError {
 		TLAModuleLoader loader = new TLAModuleLoader(Arrays.asList(new Path[] {
 				Paths.get("test", "tla", "tokens"),
 				Paths.get("test", "pluscal"),

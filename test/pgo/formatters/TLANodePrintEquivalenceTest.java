@@ -14,9 +14,6 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
-import pgo.lexer.PGoTLALexerException;
-import pgo.lexer.TLALexer;
-import pgo.lexer.TLAToken;
 import pgo.model.tla.PGoTLAExpression;
 import pgo.model.tla.PGoTLAModule;
 import pgo.model.tla.PGoTLANode;
@@ -68,7 +65,7 @@ public class TLANodePrintEquivalenceTest {
 	}
 
 	@Test
-	public void test() throws PGoTLALexerException, TLAParseException {
+	public void test() throws TLAParseException {
 		String str = ast.toString();
 		System.out.println(str);
 		ParseContext ctx = new ParseContext(

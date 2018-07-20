@@ -13,9 +13,6 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
-import pgo.lexer.PGoTLALexerException;
-import pgo.lexer.TLALexer;
-import pgo.lexer.TLAToken;
 import pgo.model.tla.PGoTLAUnit;
 import pgo.model.tla.TLAFairness;
 
@@ -105,7 +102,7 @@ public class TLAUnitParseTest {
 	static Path testFile = Paths.get("TEST");
 
 	@Test
-	public void test() throws PGoTLALexerException, TLAParseException {
+	public void test() throws TLAParseException {
 		ParseContext ctx = new ParseContext(testFile, String.join(System.lineSeparator(), unitString.split("\n")));
 		
 		PGoTLAUnit unit = TLAParser.readUnit(ctx);

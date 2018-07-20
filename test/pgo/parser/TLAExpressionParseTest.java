@@ -13,9 +13,6 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
-import pgo.lexer.PGoTLALexerException;
-import pgo.lexer.TLALexer;
-import pgo.lexer.TLAToken;
 import pgo.model.tla.PGoTLABool;
 import pgo.model.tla.PGoTLAExpression;
 import pgo.model.tla.TLAFairness;
@@ -159,7 +156,7 @@ public class TLAExpressionParseTest {
 	static Path testFile = Paths.get("TEST");
 
 	@Test
-	public void test() throws PGoTLALexerException, TLAParseException {
+	public void test() throws TLAParseException {
 		ParseContext ctx = new ParseContext(testFile, String.join(System.lineSeparator(), exprString.split("\n")));
 
 		PGoTLAExpression expr = TLAParser.readExpression(ctx);
