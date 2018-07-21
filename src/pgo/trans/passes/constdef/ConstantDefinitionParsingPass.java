@@ -5,20 +5,17 @@ import java.util.Map;
 
 import pgo.errors.IssueContext;
 import pgo.model.tla.PGoTLAExpression;
-import pgo.parser.LocatedString;
-import pgo.parser.ParseContext;
-import pgo.parser.TLAParseException;
-import pgo.parser.TLAParser;
+import pgo.parser.*;
 import pgo.trans.passes.tlaparse.TLAParserIssue;
 
 public class ConstantDefinitionParsingPass {
 	
 	private ConstantDefinitionParsingPass() {}
 	
-	public static Map<String, PGoTLAExpression> perform(IssueContext ctx, Map<String, LocatedString> defs){
+	public static Map<String, PGoTLAExpression> perform(IssueContext ctx, Map<String, Located<String>> defs){
 		Map<String, PGoTLAExpression> result = new HashMap<>();
 		
-		for(Map.Entry<String, LocatedString> def : defs.entrySet()) {
+		for(Map.Entry<String, Located<String>> def : defs.entrySet()) {
 			ParseContext parseContext = new ParseContext(
 					def.getValue().getLocation().getFile(),
 					def.getValue().getValue());
