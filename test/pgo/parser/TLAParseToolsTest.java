@@ -152,7 +152,7 @@ public class TLAParseToolsTest {
 				"\n" +
 				"(* If all processes are done, the counter should be equal the\n" +
 				"   number of processes times the number of iterations each performed *)")),
-				1, 19, 2, 2);
+				1, 1, 2, 3);
 	}
 
 	@Test
