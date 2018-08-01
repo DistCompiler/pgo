@@ -79,12 +79,10 @@ public class ParseContext {
 		Matcher m = pattern.matcher(chars);
 		m.region(index, chars.length());
 		if(m.lookingAt()){
-			//System.out.println("S pattern " + line + " " + column + ": "+pattern+" ; \""+m.group()+"\"");
 			return new Located<>(
 					updateLocation(m.group()),
 					m.toMatchResult());
 		}else{
-			//System.out.println("F pattern " + line + " " + column + " : "+pattern+" ; \""+chars.subSequence(index, Integer.min(chars.length(), index + 10)).toString()+"\"");
 			return null;
 		}
 	}
@@ -92,12 +90,10 @@ public class ParseContext {
 	public Located<String> matchCharacters(int count){
 		if(index + count <= chars.length()){
 			String value = chars.subSequence(index, index+count).toString();
-			//System.out.println("S chars " + line + " " + column + ": "+count+"; \""+value+"\"");
 			return new Located<>(
 					updateLocation(value),
 					value);
 		}else{
-			//System.out.println("F chars: "+count);
 			return null;
 		}
 	}
@@ -105,10 +101,8 @@ public class ParseContext {
 	public SourceLocation matchString(String string){
 		if(index + string.length() <= chars.length()
 				&& chars.subSequence(index, index+string.length()).toString().equals(string)){
-			//System.out.println("S string " + line + " " + column + ": \""+string+"\"");
 			return updateLocation(string);
 		}else{
-			//System.out.println("F str: \""+string+"\""+" \""+chars.subSequence(index, Integer.min(chars.length(), index + 10)).toString()+"\"");
 			return null;
 		}
 	}
