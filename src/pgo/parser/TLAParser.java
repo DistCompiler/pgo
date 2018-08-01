@@ -1583,8 +1583,8 @@ public final class TLAParser {
 		return lastUnit;
 	}
 
-	static final Pattern TLA_BEGIN_TRANSLATION = Pattern.compile("\\\\\\*+\\s+BEGIN TRANSLATION\\s+$", Pattern.MULTILINE);
-	static final Pattern TLA_END_TRANSLATION = Pattern.compile("\\\\\\*+\\s+END TRANSLATION\\s+$", Pattern.MULTILINE);
+	static final Pattern TLA_BEGIN_TRANSLATION = Pattern.compile("\\\\\\*+\\s+BEGIN TRANSLATION\\s*$", Pattern.MULTILINE);
+	static final Pattern TLA_END_TRANSLATION = Pattern.compile("\\\\\\*+\\s+END TRANSLATION\\s*$", Pattern.MULTILINE);
 
 	static ParseAction<Located<Void>> parseStartTranslation(){
 		Mutator<Located<MatchResult>> begin = new Mutator<>();
