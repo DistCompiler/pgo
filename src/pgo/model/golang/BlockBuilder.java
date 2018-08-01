@@ -109,20 +109,31 @@ public class BlockBuilder extends ASTBuilder implements Closeable {
 		return new SwitchBuilder(this, nameCleaner.child(), nameMap, labelScope, switchExp);
 	}
 
-	public List<VariableName> varDecl(List<String> nameHints, Expression value) {
+	private List<VariableName> getFreshNames(List<String> nameHints) {
 		List<VariableName> ret = new ArrayList<>();
-		List<Expression> names = new ArrayList<>();
 		for (String hint : nameHints) {
 			VariableName variableName = getFreshName(hint);
 			ret.add(variableName);
-			names.add(variableName);
 		}
+		return ret;
+	}
+
+	public List<VariableName> varDecl(List<String> nameHints, Expression value) {
+		List<VariableName> ret = getFreshNames(nameHints);
+		List<Expression> names = new ArrayList<>(ret);
 		addStatement(new Assignment(names, true, Collections.singletonList(value)));
 		return ret;
 	}
 
 	public VariableName varDecl(String nameHint, Expression value) {
 		return varDecl(Collections.singletonList(nameHint), value).get(0);
+	}
+
+	public VariableName varDecl(String nameHint, Type type) {
+		VariableName ret = getFreshNames(Collections.singletonList(nameHint)).get(0);
+		String name = ret.getName();
+		addStatement(new VariableDeclarationStatement(new VariableDeclaration(name, type, null)));
+		return ret;
 	}
 
 	public VariableName getFreshName(String nameHint) {

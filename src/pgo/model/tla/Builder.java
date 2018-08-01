@@ -188,5 +188,13 @@ public class Builder {
 	public static PGoTLATuple tuple(PGoTLAExpression... expressions) {
 		return new PGoTLATuple(SourceLocation.unknown(), Arrays.asList(expressions));
 	}
-	
+
+	public static PGoTLAIf ifexp(PGoTLAExpression cond, PGoTLAExpression tval, PGoTLAExpression fval) {
+		return new PGoTLAIf(SourceLocation.unknown(), cond, tval, fval);
+	}
+
+	public static PGoTLABool bool(Boolean value) {
+		return new PGoTLABool(SourceLocation.unknown(), value);
+	}
+
 }
