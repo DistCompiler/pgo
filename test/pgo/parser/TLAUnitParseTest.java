@@ -103,7 +103,7 @@ public class TLAUnitParseTest {
 
 	@Test
 	public void test() throws TLAParseException {
-		ParseContext ctx = new ParseContext(testFile, String.join(System.lineSeparator(), unitString.split("\n")));
+		LexicalContext ctx = new LexicalContext(testFile, String.join(System.lineSeparator(), unitString.split("\n")));
 		
 		PGoTLAUnit unit = TLAParser.readUnit(ctx);
 		

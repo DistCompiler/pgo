@@ -75,7 +75,7 @@ public class NodeFormattingVisitor extends NodeVisitor<Void, IOException> {
 
 	@Override
 	public Void visit(VariableDeclaration variableDeclaration) throws IOException {
-		out.write(variableDeclaration.getName());
+		out.write(variableDeclaration.getName().getValue());
 		if(variableDeclaration.isSet()) {
 			out.write(" \\in ");
 		}else {

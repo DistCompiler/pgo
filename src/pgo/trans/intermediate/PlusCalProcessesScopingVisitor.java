@@ -54,14 +54,14 @@ public class PlusCalProcessesScopingVisitor extends ProcessesVisitor<Void, Runti
 	public Void visit(MultiProcess multiProcess) throws RuntimeException {
 		for (PcalProcess proc : multiProcess.getProcesses()) {
 
-			builder.defineGlobal(proc.getName().getName(), proc.getName().getUID());
+			builder.defineGlobal(proc.getName().getName().getValue(), proc.getName().getUID());
 			TLAScopeBuilder procTLAScope = new TLAScopeBuilder(ctx, new ChainMap<>(tlaBuilder.getDeclarations()), builder.getDefinitions(), builder.getReferences());
 			proc.getName().getValue().accept(new TLAExpressionScopingVisitor(tlaBuilder, registry, loader, new HashSet<>()));
 			Map<String, UID> procVars = new ChainMap<>(builder.getDeclarations());
 
 			for (VariableDeclaration var : proc.getVariables()) {
-				if (procTLAScope.declare(var.getName(), var.getUID())) {
-					procVars.put(var.getName(), var.getUID());
+				if (procTLAScope.declare(var.getName().getValue(), var.getUID())) {
+					procVars.put(var.getName().getValue(), var.getUID());
 					registry.addLocalVariable(var.getUID());
 				}
 			}

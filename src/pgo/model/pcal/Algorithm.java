@@ -4,11 +4,12 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import pgo.model.tla.PGoTLAUnit;
+import pgo.parser.Located;
 import pgo.util.SourceLocation;
 
 public class Algorithm extends Node {
 
-	private String name;
+	private Located<String> name;
 
 	private List<VariableDeclaration> variables;
 	private List<Macro> macros;
@@ -17,8 +18,8 @@ public class Algorithm extends Node {
 
 	private Processes processes;
 
-	public Algorithm(SourceLocation location, String name, List<VariableDeclaration> variables, List<Macro> macros,
-	                 List<Procedure> procedures, List<PGoTLAUnit> units, Processes processes) {
+	public Algorithm(SourceLocation location, Located<String> name, List<VariableDeclaration> variables,
+					 List<Macro> macros, List<Procedure> procedures, List<PGoTLAUnit> units, Processes processes) {
 		super(location);
 		this.name = name;
 		this.variables = variables;
@@ -40,7 +41,7 @@ public class Algorithm extends Node {
 				processes.copy());
 	}
 
-	public String getName() {
+	public Located<String> getName() {
 		return name;
 	}
 

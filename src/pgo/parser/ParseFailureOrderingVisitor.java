@@ -7,7 +7,6 @@ import java.util.TreeMap;
 
 import pgo.parser.ParseFailure.InsufficientOperatorPrecedence;
 import pgo.parser.ParseFailure.InsufficientlyIndented;
-import pgo.parser.ParseFailure.NoBranchesMatched;
 import pgo.parser.ParseFailure.UnexpectedEOF;
 import pgo.util.SourceLocation;
 
@@ -33,14 +32,6 @@ public class ParseFailureOrderingVisitor extends ParseFailureVisitor<Void, Runti
 	@Override
 	public Void visit(UnexpectedEOF unexpectedEOF) throws RuntimeException {
 		add(SourceLocation.unknown(), unexpectedEOF);
-		return null;
-	}
-
-	@Override
-	public Void visit(NoBranchesMatched noBranchesMatched) throws RuntimeException {
-		for(ParseFailure f : noBranchesMatched.getFailures()) {
-			f.accept(this);
-		}
 		return null;
 	}
 

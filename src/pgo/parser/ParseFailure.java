@@ -5,6 +5,7 @@ import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.regex.Pattern;
 
 import pgo.formatters.IndentingWriter;
@@ -27,6 +28,12 @@ public abstract class ParseFailure {
 	public void addContext(ActionContext ctx) {
 		context.add(ctx);
 	}
+
+	@Override
+	public abstract boolean equals(Object other);
+
+	@Override
+	public abstract int hashCode();
 	
 	public abstract <T, E extends Throwable> T accept(ParseFailureVisitor<T, E> v) throws E;
 	
@@ -67,6 +74,12 @@ public abstract class ParseFailure {
 	public static class UnexpectedEOF extends ParseFailure {
 
 		@Override
+		public boolean equals(Object other) { return other instanceof UnexpectedEOF; }
+
+		@Override
+		public int hashCode() { return 0; }
+
+		@Override
 		public <T, E extends Throwable> T accept(ParseFailureVisitor<T, E> v) throws E {
 			return v.visit(this);
 		}
@@ -76,27 +89,7 @@ public abstract class ParseFailure {
 	public static UnexpectedEOF unexpectedEOF() {
 		return new UnexpectedEOF();
 	}
-	
-	public static class NoBranchesMatched extends ParseFailure {
-		private List<ParseFailure> failures;
 
-		public NoBranchesMatched(List<ParseFailure> failures) {
-			this.failures = failures;
-		}
-
-		public List<ParseFailure> getFailures() {
-			return failures;
-		}
-
-		@Override
-		public <T, E extends Throwable> T accept(ParseFailureVisitor<T, E> v) throws E {
-			return v.visit(this);
-		}
-	}
-
-	public static NoBranchesMatched noBranchesMatched(List<ParseFailure> failures) {
-		return new NoBranchesMatched(failures);
-	}
 	
 	public static class InsufficientlyIndented extends ParseFailure {
 		private int minColumn;
@@ -118,6 +111,20 @@ public abstract class ParseFailure {
 		@Override
 		public <T, E extends Throwable> T accept(ParseFailureVisitor<T, E> v) throws E {
 			return v.visit(this);
+		}
+
+		@Override
+		public boolean equals(Object o) {
+			if (this == o) return true;
+			if (o == null || getClass() != o.getClass()) return false;
+			InsufficientlyIndented that = (InsufficientlyIndented) o;
+			return minColumn == that.minColumn &&
+					Objects.equals(sourceLocation, that.sourceLocation);
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(minColumn, sourceLocation);
 		}
 	}
 
@@ -153,7 +160,22 @@ public abstract class ParseFailure {
 		public <T, E extends Throwable> T accept(ParseFailureVisitor<T, E> v) throws E {
 			return v.visit(this);
 		}
-		
+
+		@Override
+		public boolean equals(Object o) {
+			if (this == o) return true;
+			if (o == null || getClass() != o.getClass()) return false;
+			InsufficientOperatorPrecedence that = (InsufficientOperatorPrecedence) o;
+			return actualPrecedence == that.actualPrecedence &&
+					requiredPrecedence == that.requiredPrecedence &&
+					Objects.equals(sourceLocation, that.sourceLocation);
+		}
+
+		@Override
+		public int hashCode() {
+
+			return Objects.hash(actualPrecedence, requiredPrecedence, sourceLocation);
+		}
 	}
 	
 	public static InsufficientOperatorPrecedence insufficientOperatorPrecedence(int actualPrecedence, int requiredPrecedence, SourceLocation sourceLocation) {
@@ -181,6 +203,20 @@ public abstract class ParseFailure {
 		@Override
 		public <T, E extends Throwable> T accept(ParseFailureVisitor<T, E> v) throws E {
 			return v.visit(this);
+		}
+
+		@Override
+		public boolean equals(Object o) {
+			if (this == o) return true;
+			if (o == null || getClass() != o.getClass()) return false;
+			StringMatchFailure that = (StringMatchFailure) o;
+			return Objects.equals(location, that.location) &&
+					Objects.equals(string, that.string);
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(location, string);
 		}
 	}
 
@@ -210,6 +246,21 @@ public abstract class ParseFailure {
 		public <T, E extends Throwable> T accept(ParseFailureVisitor<T, E> v) throws E {
 			return v.visit(this);
 		}
+
+		@Override
+		public boolean equals(Object o) {
+			if (this == o) return true;
+			if (o == null || getClass() != o.getClass()) return false;
+			PatternMatchFailure that = (PatternMatchFailure) o;
+			return Objects.equals(location, that.location) &&
+					Objects.equals(pattern, that.pattern);
+		}
+
+		@Override
+		public int hashCode() {
+
+			return Objects.hash(location, pattern);
+		}
 	}
 
 	public static PatternMatchFailure patternMatchFailure(SourceLocation location, Pattern pattern) {
@@ -217,6 +268,13 @@ public abstract class ParseFailure {
 	}
 
 	public static class ParseSuccess extends ParseFailure {
+
+		@Override
+		public boolean equals(Object other){ return other instanceof ParseSuccess; }
+
+		@Override
+		public int hashCode() { return 0; }
+
 		@Override
 		public <T, E extends Throwable> T accept(ParseFailureVisitor<T, E> v) throws E {
 			return v.visit(this);

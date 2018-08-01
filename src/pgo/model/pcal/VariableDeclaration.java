@@ -1,15 +1,16 @@
 package pgo.model.pcal;
 
 import pgo.model.tla.PGoTLAExpression;
+import pgo.parser.Located;
 import pgo.util.SourceLocation;
 
 public class VariableDeclaration extends Node {
 
-	String name;
-	boolean set;
-	PGoTLAExpression value;
+	private Located<String> name;
+	private boolean set;
+	private PGoTLAExpression value;
 
-	public VariableDeclaration(SourceLocation location, String name, boolean isSet, PGoTLAExpression value) {
+	public VariableDeclaration(SourceLocation location, Located<String> name, boolean isSet, PGoTLAExpression value) {
 		super(location);
 		this.name = name;
 		this.set = isSet;
@@ -21,7 +22,7 @@ public class VariableDeclaration extends Node {
 		return new VariableDeclaration(getLocation(), name, set, value.copy());
 	}
 
-	public String getName() {
+	public Located<String> getName() {
 		return name;
 	}
 

@@ -42,7 +42,7 @@ public class PGoScopingPass {
 		TLAScopeBuilder pcalScope = tlaScope.makeNestedScope();
 
 		for (VariableDeclaration decl : algorithm.getVariables()) {
-			pcalScope.declare(decl.getName(), decl.getUID());
+			pcalScope.declare(decl.getName().getValue(), decl.getUID());
 			registry.addGlobalVariable(decl.getUID());
 			decl.getValue().accept(new TLAExpressionScopingVisitor(tlaScope, registry, loader, new HashSet<>()));
 		}
@@ -66,8 +66,8 @@ public class PGoScopingPass {
 			for (VariableDeclaration arg : proc.getArguments()) {
 				arg.getValue().accept(new TLAExpressionScopingVisitor(tlaScope, registry, loader, new HashSet<>()));
 				registry.addLocalVariable(arg.getUID());
-				if (argScope.declare(arg.getName(), arg.getUID())) {
-					args.put(arg.getName(), arg.getUID());
+				if (argScope.declare(arg.getName().getValue(), arg.getUID())) {
+					args.put(arg.getName().getValue(), arg.getUID());
 				}
 			}
 			// TODO: wait those aren't in the spec...

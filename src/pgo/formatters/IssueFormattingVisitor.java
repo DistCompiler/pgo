@@ -2,11 +2,13 @@ package pgo.formatters;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.Set;
 
 import pgo.errors.IssueVisitor;
 import pgo.errors.IssueWithContext;
 import pgo.model.pcal.Macro;
 import pgo.model.type.*;
+import pgo.parser.ParseFailure;
 import pgo.trans.intermediate.*;
 import pgo.trans.passes.tlaparse.TLAParserIssue;
 import pgo.trans.passes.type.TypeInferenceFailureIssue;
@@ -85,7 +87,11 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 	public Void visit(TLAParserIssue tlaParserIssue) throws IOException {
 		out.write("could not parse TLA: ");
 		try(IndentingWriter.Indent ignored = out.indent()){
-			out.write(tlaParserIssue.getError().toString());
+			Set<ParseFailure> lastFailures = tlaParserIssue.getError().lastEntry().getValue();
+			for(ParseFailure f : lastFailures){
+				out.newLine();
+				out.write(f.toString());
+			}
 		}
 		return null;
 	}

@@ -9,7 +9,7 @@ import java.nio.file.Path;
 import java.util.List;
 
 import pgo.model.tla.PGoTLAModule;
-import pgo.parser.ParseContext;
+import pgo.parser.LexicalContext;
 import pgo.parser.TLAParseException;
 import pgo.parser.TLAParser;
 
@@ -36,7 +36,7 @@ public class TLAModuleLoader {
 		FileChannel fileChannel = new RandomAccessFile(modulePath.toFile(), "r").getChannel();
 		MappedByteBuffer buffer = fileChannel.map(FileChannel.MapMode.READ_ONLY, 0, fileChannel.size());
 		// assume UTF-8, though technically TLA+ is ASCII only according to the book
-		ParseContext ctx = new ParseContext(modulePath, StandardCharsets.UTF_8.decode(buffer));
+		LexicalContext ctx = new LexicalContext(modulePath, StandardCharsets.UTF_8.decode(buffer));
 		List<PGoTLAModule> modules = TLAParser.readModules(ctx);
 		if(modules.size() == 0) {
 			throw new NoModulesFoundInFileError();

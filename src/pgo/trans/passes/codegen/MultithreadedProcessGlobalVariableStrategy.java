@@ -65,7 +65,7 @@ public class MultithreadedProcessGlobalVariableStrategy extends GlobalVariableSt
 	@Override
 	public void mainPrelude(BlockBuilder builder) {
 		for (PcalProcess process : ((MultiProcess) algorithm.getProcesses()).getProcesses()) {
-			String processName = process.getName().getName();
+			String processName = process.getName().getName().getValue();
 			Expression value = process.getName().getValue().accept(
 					new TLAExpressionCodeGenVisitor(builder, registry, typeMap, this));
 			if (process.getName().isSet()) {

@@ -1,17 +1,17 @@
 package pgo.parser;
 
-import java.util.List;
-import java.util.Vector;
-import java.util.logging.Logger;
+import pgo.Unreachable;
+import pgo.model.pcal.*;
+import pgo.model.tla.PGoTLAExpression;
+import pgo.model.tla.PlusCalDefaultInitValue;
+import pgo.util.SourceLocatable;
+import pgo.util.SourceLocation;
 
-import pcal.AST;
-import pcal.IntPair;
-import pcal.ParseAlgorithm;
-import pcal.PcalCharReaderPgo;
-import pcal.PcalParams;
-import pcal.TLAtoPCalMapping;
-import pcal.exception.ParseAlgorithmException;
-import util.ToolIO;
+import java.util.*;
+import java.util.regex.Pattern;
+
+import static pgo.parser.ParseTools.*;
+import static pgo.parser.TLAParser.*;
 
 /**
  * The pluscal parser.
@@ -19,309 +19,443 @@ import util.ToolIO;
  * This class takes a given pluscal file and parses it into the pluscal AST.
  *
  */
-public class PcalParser {
+public final class PcalParser {
 	private PcalParser() {}
 
-	public static AST parse(List<String> lines) throws PGoParseException {
-		Logger logger = Logger.getLogger("PlusCal Parser");
+	private static final Pattern PCAL_FIND_ALGORITHM = Pattern.compile(".*?\\(\\*.*?(?=--algorithm)", Pattern.DOTALL);
 
-		if (ToolIO.getMode() == ToolIO.SYSTEM) {
-			logger.info("pcal.trans Version " + PcalParams.version + " of " + PcalParams.modDate);
-		}
-
-		/*
-		 * This method is called in order to make sure, that the parameters are
-		 * not sticky because these are could have been initialized by the
-		 * previous run
-		 */
-		PcalParams.resetParams();
-
-		/*********************************************************************
-		 * Get and process arguments.
-		 *********************************************************************/
-
-		/**
-		 * Create the new TLAtoPCalMapping object, call it mapping here and set
-		 * PcalParams.tlaPcalMapping to point to it.
-		 */
-		TLAtoPCalMapping mapping = new TLAtoPCalMapping();
-		PcalParams.tlaPcalMapping = mapping;
-
-		/*********************************************************************
-		 * Set untabInputVec to be the vector of strings obtained from *
-		 * inputVec by replacing tabs with spaces. * * Tabs are date from the
-		 * days when memory cost $1 per bit and are a * stupid anachronism. They
-		 * should be banned. Although the various * methods taken from TLATeX
-		 * should deal with tabs, there are * undoubtedly corner cases that
-		 * don't work right. In particular, I * think there's one case where
-		 * PcalCharReader.backspace() might be * called to backspace over a tab.
-		 * It's easier to simply get rid of * the tabs than to try to make it
-		 * work. * * Since the user might be evil enough to prefer tabs, with
-		 * tla-file * input, the parts of the output file that are not produced
-		 * by the * translator are copied from inputVec, so any tabs the user
-		 * wants * are kept. *
-		 *********************************************************************/
-		Vector<String> untabInputVec = removeTabs(lines);
-
-		/**
-		 * Look through the file for PlusCal options. They are put anywhere in
-		 * the file (either before or after the module or in a comment) with the
-		 * following sequence PlusCal <optional white space> options <optional
-		 * white space> ( <options> )
-		 *
-		 * where <options> has the same format as options on the command line.
-		 */
-		IntPair searchLoc = new IntPair(0, 0);
-		boolean done = false;
-		while (!done) {
-			try {
-				ParseAlgorithm.FindToken("PlusCal", untabInputVec, searchLoc, "");
-				String line = ParseAlgorithm.GotoNextNonSpace(untabInputVec, searchLoc);
-				String restOfLine = line.substring(searchLoc.two);
-				if (restOfLine.startsWith("options")) {
-					// The first string after "PlusCal" not starting with a
-					// space character is "options"
-					if (ParseAlgorithm.NextNonIdChar(restOfLine, 0) == 7) {
-						// The "options" should begin an options line
-						PcalParams.optionsInFile = true;
-						ParseAlgorithm.ProcessOptions(untabInputVec, searchLoc);
-						done = true;
-					}
-				}
-			} catch (ParseAlgorithmException e) {
-				// The token "PlusCal" not found.
-				done = true;
-			}
-		}
-
-		/*********************************************************************
-		 * Set algLine, algCol to the line and column just after the string *
-		 * [--]algorithm that begins the algorithm. (These are Java * ordinals,
-		 * in which counting begins at 0.) * * Modified by LL on 18 Feb 2006 to
-		 * use untabInputVec instead of * inputVec, to correct bug that occurred
-		 * when tabs preceded the * "--algorithm". * * For the code to handle
-		 * pcal-input, I introduced the use of * IntPair objects to hold <line,
-		 * column> Java coordinates (counting * from zero) in a file (or an
-		 * image of a file in a String Vector). * For methods that advance
-		 * through the file, the IntPair object is * passed as an argument and
-		 * is advanced by the method. This is * what I should have been doing
-		 * from the start, but I wasn't smart * enough The IntPair curLoc is the
-		 * main one used in the part of the * following code that handles
-		 * pcal-file input. *
-		 *********************************************************************/
-		int algLine = 0;
-		int algCol = -1;
-
-		// Search for "--algorithm" or "--fair".
-		// If found set algLine and algCol right after the last char,
-		// set foundBegin true, and set foundFairBegin true iff it
-		// was "--fair". Otherwise, set foundBegin false.
-		boolean foundBegin = false;
-		boolean foundFairBegin = false;
-		while ((algLine < untabInputVec.size()) && !foundBegin) {
-			String line = untabInputVec.elementAt(algLine);
-			algCol = line.indexOf(PcalParams.BeginAlg);
-			if (algCol != -1) {
-				algCol = algCol + PcalParams.BeginAlg.length();
-				foundBegin = true;
-			} else {
-				algCol = line.indexOf(PcalParams.BeginFairAlg);
-				if (algCol != -1) {
-					// Found the "--fair". The more structurally nice thing to
-					// do here would be to move past the following "algorithm".
-					// However, it's easier to pass a parameter to the
-					// ParseAlgorithm
-					// class's GetAlgorithm method that tells it to go past the
-					// "algorithm" token.
-					algCol = algCol + PcalParams.BeginFairAlg.length();
-					foundBegin = true;
-					foundFairBegin = true;
-
-				} else {
-					algLine = algLine + 1;
-				}
-			}
-
-		}
-
-		if (!foundBegin) {
-			throw new PGoParseException("Beginning of algorithm string " + PcalParams.BeginAlg + " not found.");
-		}
-
-        /*
-         * Set the algColumn and algLine fields of the mapping object.
-         */
-        mapping.algColumn = algCol;
-        mapping.algLine = algLine;
-
-		// Get the annotations for PGo
-		// Vector<PGoAnnotation> annotations = findPGoAnnotations(untabInputVec);
-
-		/*********************************************************************
-		 * Added by LL on 18 Feb 2006 to fix bugs related to handling of *
-		 * comments. * * Remove all comments from the algorithm in
-		 * untabInputVec, * replacing (* *) comments by spaces to keep the
-		 * algorithm tokens * in the same positions for error reporting. *
-		 *********************************************************************/
-		try {
-			ParseAlgorithm.uncomment(untabInputVec, algLine, algCol);
-		} catch (ParseAlgorithmException e) {
-			throw new PGoParseException(e.getMessage());
-		}
-
-		/*********************************************************************
-		 * Set reader to a PcalCharReader for the input file (with tabs and *
-		 * the previous translation removed), starting right after the *
-		 * PcalParams.BeginAlg string. *
-		 *********************************************************************/
-		PcalCharReaderPgo reader = new PcalCharReaderPgo(untabInputVec, algLine, algCol, lines.size(), 0);
-
-		/*********************************************************************
-		 * Set ast to the AST node representing the entire algorithm. *
-		 *********************************************************************/
-		AST ast;
-		try {
-			ast = ParseAlgorithm.getAlgorithm(reader, foundFairBegin);
-		} catch (ParseAlgorithmException e) {
-			throw new PGoParseException(e.getMessage());
-		}
-		logger.info("Parsing completed.");
-
-		return ast;
+	private enum SyntaxVariant {
+		P_SYNTAX,
+		C_SYNTAX,
 	}
 
-	/**
-	 * Finds all comments that are pgo annotations PGo annotations are comments
-	 * of format "@PGo{<string>}@PGo"
-	 *
-	 * @param untabInputVec
-	 * @return the parsed go annotations
-	 * @throws PGoParseException
-	 */
-	// private Vector<PGoAnnotation> findPGoAnnotations(Vector untabInputVec) throws PGoParseException {
-	// 	Vector<PGoAnnotation> annotations = new Vector<PGoAnnotation>();
-	// 	// We only parse comments inside the commented PlusCal algorithm block.
-	// 	// We also consider the algorithm block not to be a comment block.
-	// 	boolean insidePlusCal = false;
-	// 	boolean isCommentBlock = false;
-	// 	boolean isCommentLine = false;
-	// 	boolean isPGo = false;
-	// 	StringBuilder sb = null;
-	// 	for (int l = 0; l < untabInputVec.size(); l++) {
-	// 		String line = (String) untabInputVec.get(l);
-	// 		for (int i = 0; i < line.length(); ++i) {
-	// 			char c = line.charAt(i);
-	// 			if (!isCommentLine && !isCommentBlock) {
-	// 				if (c == '(') {
-	// 					if (i + 1 < line.length() && line.charAt(i + 1) == '*') {
-	// 						if (!insidePlusCal) {
-	// 							insidePlusCal = true;
-	// 						} else {
-	// 							isCommentBlock = true;
-	// 						}
-	// 					}
-	// 				} else if (c == '\\') {
-	// 					if (i + 1 < line.length() && line.charAt(i + 1) == '*') {
-	// 						isCommentLine = true;
-	// 					}
-	// 				}
-	// 				if (isCommentBlock || isCommentLine) {
-	// 					++i;
-	// 					while (i + 1 < line.length() && line.charAt(++i) == '*') {
-	// 					}
-	// 					continue;
-	// 				}
-	// 			} else if (isPGo) {
-	// 				if (c == '}') {
-	// 					if (i + 4 < line.length() && line.charAt(i + 1) == '@' && line.charAt(i + 2) == 'P'
-	// 							&& line.charAt(i + 3) == 'G' && line.charAt(i + 4) == 'o') {
-	// 						isPGo = false;
-	// 						i += 4;
-	// 						annotations.add(new PGoAnnotation(sb.toString(), l + 1));
-	// 						continue;
-	// 					}
-	// 				} else if (c == '@') {
-	// 					if (i + 4 < line.length() && line.charAt(i + 1) == 'P' && line.charAt(i + 2) == 'G'
-	// 							&& line.charAt(i + 3) == 'o' && line.charAt(i + 4) == '{') {
-	// 						throw new PGoParseException("Opened new annotation before the previous one was closed", l);
-	// 					}
-	// 				}
-	// 				sb.append(c);
-	// 			} else if (isCommentBlock || isCommentLine) {
-	// 				if (c == '@') {
-	// 					if (i + 4 < line.length() && line.charAt(i + 1) == 'P' && line.charAt(i + 2) == 'G'
-	// 							&& line.charAt(i + 3) == 'o' && line.charAt(i + 4) == '{') {
-	// 						isPGo = true;
-	// 						i += 4;
-	// 						sb = new StringBuilder();
-	// 						continue;
-	// 					}
-	// 				} else if (c == '}') {
-	// 					if (i + 4 < line.length() && line.charAt(i + 1) == '@' && line.charAt(i + 2) == 'P'
-	// 							&& line.charAt(i + 3) == 'G' && line.charAt(i + 4) == 'o') {
-	// 						throw new PGoParseException("Closed a non-existent annotation block", l);
-	// 					}
-	// 				} else if (c == '*') {
-	// 					if (i + 1 < line.length() && line.charAt(i + 1) == ')') {
-	// 						if (isCommentBlock) {
-	// 							isCommentBlock = false;
-	// 						} else if (insidePlusCal) {
-	// 							insidePlusCal = false;
-	// 						} else {
-	// 							throw new PGoParseException("Mismatched comment block delimiters", l);
-	// 						}
-	// 						i++;
-	// 					}
-	// 				}
-	// 			}
-
-
-	// 		}
-	// 		if (isCommentLine) {
-	// 			isCommentLine = false;
-	// 		}
-	// 		if (isPGo && !(isCommentBlock || isCommentLine)) {
-	// 			throw new PGoParseException(
-	// 				"Reached end of comment block before \"}@PGo\" ended annotation block",
-	// 				l + 1);
-	// 		}
-	// 		if (isPGo) {
-	// 			sb.append('\n');
-	// 		}
-	// 	}
-
-	// 	return annotations;
-	// }
-
-	/********************************************************************
-	 * Returns a string vector obtained from the string vector vec by *
-	 * replacing any evil tabs with the appropriate number of spaces, * where
-	 * "appropriate" means adding from 1 to 8 spaces in order to * make the next
-	 * character fall on a column with Java column * number (counting from 0)
-	 * congruent to 0 mod 8. This is what * Emacs does when told to remove tabs,
-	 * which makes it good enough * for me. *
-	 ********************************************************************/
-	private static Vector<String> removeTabs(List<String> lines) {
-		Vector<String> newVec = new Vector<>();
-		int i = 0;
-		for (String oldLine : lines) {
-			StringBuilder newline = new StringBuilder();
-			int next = 0;
-			while (next < oldLine.length()) {
-				if (oldLine.charAt(next) == '\t') {
-					int toAdd = 8 - (newline.length() % 8);
-					while (toAdd > 0) {
-						newline.append(" ");
-						toAdd = toAdd - 1;
-					}
-				} else {
-					newline.append(oldLine, next, next + 1);
-				}
-				next = next + 1;
-			}
-			newVec.addElement(newline.toString());
-			i = i + 1;
+	static Grammar<Located<Void>> parseBlockBegin(SyntaxVariant syntax, Grammar<Located<Void>> altMarker) {
+		switch(syntax){
+			case P_SYNTAX:
+				return altMarker;
+			case C_SYNTAX:
+				return parsePlusCalToken("{");
 		}
-		return newVec;
+		throw new Unreachable();
 	}
+
+	static Grammar<Located<Void>> parseBlockEnd(SyntaxVariant syntax, Grammar<Located<Void>> altMarker) {
+		switch(syntax){
+			case P_SYNTAX:
+				return altMarker;
+			case C_SYNTAX:
+				return parsePlusCalToken("}");
+		}
+		throw new Unreachable();
+	}
+
+	static <AST extends SourceLocatable> Grammar<LocatedList<AST>> parseCommaList(Grammar<AST> element){
+		return parseListOf(element, parsePlusCalToken(","));
+	}
+
+	static Grammar<Located<Void>> parseEnd(Grammar<Located<Void>> thing){
+		return sequence(
+				drop(parsePlusCalToken("end")),
+				drop(thing)
+		).map(seq -> new Located<>(seq.getLocation(), null));
+	}
+
+	static <Result extends SourceLocatable> Grammar<Result> parseBracketed(SyntaxVariant syntax, Grammar<Result> action){
+		switch(syntax){
+			case P_SYNTAX:
+				return action;
+			case C_SYNTAX:
+				Mutator<Result> result = new Mutator<>();
+				return sequence(
+						drop(parsePlusCalToken("(")),
+						part(result, action),
+						drop(parsePlusCalToken(")"))
+				).map(seq -> result.getValue());
+		}
+		throw new Unreachable();
+	}
+
+	static Grammar<VariableDeclaration> parseVariableDeclaration(){
+		Mutator<Located<String>> id = new Mutator<>();
+		Mutator<Located<Boolean>> isSet = new Mutator<>();
+		Mutator<PGoTLAExpression> expression = new Mutator<>();
+		Mutator<VariableDeclaration> result = new Mutator<>();
+		return sequence(
+				part(id, parsePlusCalIdentifier()),
+				part(expression, parseOneOf(
+						sequence(
+								part(isSet, parsePlusCalToken("=").map(v ->
+										new Located<>(v.getLocation(), false))),
+								part(expression, parseExpression(-1))
+						).map(seq -> expression.getValue()),
+						sequence(
+								part(isSet, parsePlusCalToken("\\in").map(v ->
+										new Located<>(v.getLocation(), true))),
+								part(expression, parseExpression(-1))
+						).map(seq -> expression.getValue()),
+						nop().map(v -> new PlusCalDefaultInitValue(id.getValue().getLocation()))
+				))
+		).map(seq -> new VariableDeclaration(
+				seq.getLocation(), id.getValue(), isSet.getValue().getValue(), expression.getValue()));
+	}
+
+	static Grammar<LocatedList<VariableDeclaration>> parseVariablesDeclaration(){
+		Mutator<LocatedList<VariableDeclaration>> variables = new Mutator<>();
+		return sequence(
+				drop(parsePlusCalTokenOneOf(Arrays.asList("variables", "variable"))),
+				part(variables, parseCommaList(parseVariableDeclaration())),
+				drop(parsePlusCalToken(";"))
+		).map(seq -> new LocatedList<>(seq.getLocation(), variables.getValue()));
+	}
+
+	static Grammar<Label> parseLabel(){
+		Mutator<Located<String>> labelName = new Mutator<>();
+		Mutator<Located<Label.Modifier>> fairness = new Mutator<>();
+		return sequence(
+				part(labelName, parsePlusCalIdentifier()),
+				drop(parsePlusCalToken(":")),
+				part(fairness, parseOneOf(
+						parsePlusCalToken("+").map(v -> new Located<>(v.getLocation(), Label.Modifier.PLUS)),
+						parsePlusCalToken("-").map(v -> new Located<>(v.getLocation(), Label.Modifier.MINUS)),
+						nop().map(v -> new Located<>(v.getLocation(), Label.Modifier.NONE))
+				))
+		).map(seq -> new Label(seq.getLocation(), labelName.getValue().getValue(), fairness.getValue().getValue()));
+	}
+
+	static Grammar<LocatedList<Statement>> parseStatementList(SyntaxVariant syntax){
+		switch(syntax){
+			case P_SYNTAX:
+				return parseListOf(parseStatement(syntax), parsePlusCalToken(";"));
+			case C_SYNTAX:
+				// used in C-style syntax for either { stmts... } or exactly one statement
+				Mutator<LocatedList<Statement>> statements = new Mutator<>();
+				return parseOneOf(
+						sequence(
+								drop(parsePlusCalToken("{")),
+								part(statements, nop().chain(v ->
+										repeatOneOrMore(parseStatementList(syntax)).map(seq -> {
+											LocatedList<Statement> flattened = new LocatedList<>(
+													SourceLocation.unknown(), new ArrayList<>());
+											for(LocatedList<Statement> list : seq){
+												flattened.addLocation(list.getLocation());
+												flattened.addAll(list);
+											}
+											return flattened;
+										}))),
+								drop(parsePlusCalToken("}"))
+						).map(seq -> statements.getValue()),
+						parseStatement(SyntaxVariant.C_SYNTAX).map(s ->
+								new LocatedList<>(s.getLocation(), Collections.singletonList(s)))
+				);
+		}
+		throw new Unreachable();
+	}
+
+	static Grammar<LabeledStatements> parseLabeledStatements(SyntaxVariant syntax){
+		Mutator<Label> label = new Mutator<>();
+		Mutator<LocatedList<Statement>> statements = new Mutator<>();
+		return sequence(
+				part(label, parseLabel()),
+				part(statements, nop().chain(v ->
+						sequence(
+								part(statements, parseListOf(parseStatement(syntax), parsePlusCalToken(";"))),
+								drop(parseOneOf(parsePlusCalToken(";"), nop()))
+						).map(seq -> statements.getValue())))
+		).map(seq -> new LabeledStatements(seq.getLocation(), label.getValue(), statements.getValue()));
+	}
+
+	static Grammar<If> parseElsifPart(){
+		Mutator<PGoTLAExpression> condition = new Mutator<>();
+		Mutator<LocatedList<Statement>> thenStatements = new Mutator<>();
+		Mutator<LocatedList<Statement>> elseStatements = new Mutator<>();
+		return sequence(
+				drop(parsePlusCalToken("elsif")),
+				part(condition, parseExpression(-1)),
+				drop(parsePlusCalToken("then")),
+				part(thenStatements, nop().chain(v -> parseStatementList(SyntaxVariant.P_SYNTAX))),
+				part(elseStatements, parseOneOf(
+						sequence(
+								drop(parsePlusCalToken("else")),
+								part(elseStatements, nop().chain(v -> parseStatementList(SyntaxVariant.P_SYNTAX)))
+						).map(seq -> elseStatements.getValue()),
+						nop().chain(v -> parseElsifPart().map(f ->
+								new LocatedList<>(f.getLocation(), Collections.singletonList(f)))),
+						nop().map(v ->
+								new LocatedList<>(v.getLocation(), Collections.singletonList(new Skip(v.getLocation()))))
+				))
+		).map(seq -> new If(
+				seq.getLocation(), condition.getValue(), thenStatements.getValue(), elseStatements.getValue()));
+	}
+
+	static Grammar<If> parseIfStatement(SyntaxVariant syntax){
+		Mutator<PGoTLAExpression> condition = new Mutator<>();
+		Mutator<LocatedList<Statement>> thenStatements = new Mutator<>();
+		Mutator<LocatedList<Statement>> elseStatements = new Mutator<>();
+		switch(syntax){
+			case P_SYNTAX:
+				return sequence(
+						drop(parsePlusCalToken("if")),
+						part(condition, parseExpression(-1)),
+						drop(parsePlusCalToken("then")),
+						part(thenStatements, nop().chain(v -> parseStatementList(syntax))),
+						part(elseStatements, parseOneOf(
+								parseElsifPart().map(f -> new LocatedList<>(
+										f.getLocation(), Collections.singletonList(f))),
+								sequence(
+										drop(parsePlusCalToken("else")),
+										part(elseStatements, nop().chain(v -> parseStatementList(syntax)))
+								).map(seq -> elseStatements.getValue()),
+								nop().map(v -> new LocatedList<>(
+										v.getLocation(), Collections.singletonList(new Skip(v.getLocation()))))
+						)),
+						drop(sequence(
+								drop(parsePlusCalToken("end")),
+								drop(parsePlusCalToken("if"))
+						))
+				).map(seq -> new If(
+						seq.getLocation(), condition.getValue(), thenStatements.getValue(),
+						elseStatements.getValue()));
+			case C_SYNTAX:
+				return sequence(
+						drop(parsePlusCalToken("if")),
+						drop(parsePlusCalToken("(")),
+						part(condition, parseExpression(-1)),
+						drop(parsePlusCalToken(")")),
+						part(thenStatements, nop().chain(v -> nop().chain(vv -> parseStatementList(syntax)))),
+						part(elseStatements, parseOneOf(
+								sequence(
+										drop(parsePlusCalToken("else")),
+										part(elseStatements, nop().chain(v -> parseStatementList(syntax)))
+								).map(seq -> elseStatements.getValue()),
+								nop().map(v -> new LocatedList<>(
+										v.getLocation(), Collections.singletonList(new Skip(v.getLocation()))))
+						))
+				).map(seq -> new If(
+						seq.getLocation(), condition.getValue(), thenStatements.getValue(), elseStatements.getValue()));
+			default:
+				throw new Unreachable();
+		}
+	}
+
+	static Grammar<Either> parseEitherStatement(SyntaxVariant syntax){
+		Mutator<LocatedList<Statement>> firstClause = new Mutator<>();
+		Mutator<LocatedList<Statement>> tmpClause = new Mutator<>();
+ 		Mutator<LocatedList<LocatedList<Statement>>> restClauses = new Mutator<>();
+		return sequence(
+				drop(parsePlusCalToken("either")),
+				part(firstClause, nop().chain(v -> parseStatementList(syntax))),
+				part(restClauses, repeat(
+						sequence(
+							drop(parsePlusCalToken("or")),
+							part(tmpClause, nop().chain(v -> parseStatementList(syntax)))
+						).map(seq -> tmpClause.getValue()))),
+				drop(syntax == SyntaxVariant.C_SYNTAX ? nop() : parseEnd(parsePlusCalToken("either")))
+		).map(seq -> {
+			List<List<Statement>> clauses = new ArrayList<>();
+			clauses.add(firstClause.getValue());
+			clauses.addAll(restClauses.getValue());
+			return new Either(seq.getLocation(), clauses);
+		});
+	}
+
+	static Grammar<While> parseWhileStatement(SyntaxVariant syntax){
+		Mutator<PGoTLAExpression> condition = new Mutator<>();
+		Mutator<LocatedList<Statement>> body = new Mutator<>();
+		return sequence(
+				drop(parsePlusCalToken("while")),
+				part(condition, parseBracketed(syntax, parseExpression(-1))),
+				drop(syntax == SyntaxVariant.C_SYNTAX ? nop() : parsePlusCalToken("do")),
+				part(body, nop().chain(v -> parseStatementList(syntax))),
+				drop(syntax == SyntaxVariant.C_SYNTAX ? nop() : parseEnd(parsePlusCalToken("while")))
+		).map(seq -> new While(seq.getLocation(), condition.getValue(), body.getValue()));
+	}
+
+	static Grammar<Await> parseAwaitStatement(){
+		Mutator<PGoTLAExpression> condition = new Mutator<>();
+		return sequence(
+				drop(parsePlusCalTokenOneOf(Arrays.asList("await", "when"))),
+				part(condition, parseExpression(-1))
+		).map(seq -> new Await(seq.getLocation(), condition.getValue()));
+	}
+
+	static Grammar<With> parseWithStatement(SyntaxVariant syntax){
+		Mutator<LocatedList<VariableDeclaration>> decls = new Mutator<>();
+		Mutator<LocatedList<Statement>> body = new Mutator<>();
+		return sequence(
+				drop(parsePlusCalToken("with")),
+				part(decls, parseBracketed(
+						syntax,
+						parseListOf(parseVariableDeclaration(), parsePlusCalToken(";")))),
+				drop(syntax == SyntaxVariant.C_SYNTAX ? nop() : parsePlusCalToken("do")),
+				part(body, nop().chain(v -> parseStatementList(syntax))),
+				drop(syntax == SyntaxVariant.C_SYNTAX ? nop() : parseEnd(parsePlusCalToken("with")))
+		).map(seq -> {
+			// navigate through the list of bindings in reverse to produce the proper recursive structure
+			// of single-binding AST nodes
+			LocatedList<VariableDeclaration> ds = decls.getValue();
+			With with = new With(
+					ds.get(ds.size()-1).getLocation().combine(body.getValue().getLocation()),
+					ds.get(ds.size()-1), body.getValue());
+			for(int i = ds.size() - 2; i >= 0; --i){
+				with = new With(ds.get(i).getLocation(), ds.get(i), Collections.singletonList(with));
+			}
+			return with;
+		});
+	}
+
+	static Grammar<Skip> parseSkipStatement(){
+		return parsePlusCalToken("skip")
+				.map(seq -> new Skip(seq.getLocation()));
+	}
+
+	static Grammar<Print> parsePrintStatement(){
+		Mutator<PGoTLAExpression> value = new Mutator<>();
+		return sequence(
+				drop(parsePlusCalToken("print")),
+				part(value, parseExpression(-1))
+		).map(seq -> new Print(seq.getLocation(), value.getValue()));
+	}
+
+	static Grammar<Assert> parseAssertStatement(){
+		Mutator<PGoTLAExpression> condition = new Mutator<>();
+		return sequence(
+				drop(parsePlusCalToken("assert")),
+				part(condition, parseExpression(-1))
+		).map(seq -> new Assert(seq.getLocation(), condition.getValue()));
+	}
+
+	static Grammar<Call> parseCallStatement(){
+		Mutator<Located<String>> target = new Mutator<>();
+		Mutator<LocatedList<PGoTLAExpression>> arguments = new Mutator<>();
+		return sequence(
+				drop(parsePlusCalToken("call")),
+				part(target, parsePlusCalIdentifier()),
+				drop(parsePlusCalToken("(")),
+				part(arguments, parseCommaList(parseExpression(-1))),
+				drop(parsePlusCalToken(")"))
+		).map(seq -> new Call(seq.getLocation(), target.getValue().getValue(), arguments.getValue()));
+	}
+	
+	static Grammar<Return> parseReturnStatement(){
+		return parsePlusCalToken("return")
+				.map(seq -> new Return(seq.getLocation()));
+	}
+	
+	static Grammar<Goto> parseGotoStatement(){
+		Mutator<Located<String>> target = new Mutator<>();
+		return sequence(
+				drop(parsePlusCalToken("goto")),
+				part(target, parsePlusCalIdentifier())
+		).map(seq -> new Goto(seq.getLocation(), target.getValue().getValue()));
+	}
+
+	static Grammar<AssignmentPair> parseAssignmentPair(){
+		Mutator<PGoTLAExpression> lhs = new Mutator<>();
+		Mutator<PGoTLAExpression> rhs = new Mutator<>();
+		return sequence(
+				part(lhs, parseExpression(-1)),
+				drop(parsePlusCalToken(":=")),
+				part(rhs, parseExpression(-1))
+		).map(seq -> new AssignmentPair(seq.getLocation(), lhs.getValue(), rhs.getValue()));
+	}
+
+	static Grammar<Assignment> parseAssignmentStatement(){
+		return parseListOf(parseAssignmentPair(), parsePlusCalToken("||"))
+				.map(seq -> new Assignment(seq.getLocation(), seq));
+	}
+
+	static Grammar<Statement> parseStatement(SyntaxVariant syntax){
+		return parseOneOf(
+				parseLabeledStatements(syntax),
+				parseIfStatement(syntax),
+				parseEitherStatement(syntax),
+				parseWhileStatement(syntax),
+				parseAwaitStatement(),
+				parseWithStatement(syntax),
+				parseSkipStatement(),
+				parsePrintStatement(),
+				parseAssertStatement(),
+				parseCallStatement(),
+				parseReturnStatement(),
+				parseGotoStatement(),
+				parseAssignmentStatement()
+		);
+	}
+
+	static Grammar<SingleProcess> parseSingleProcess(SyntaxVariant syntax){
+		Mutator<LocatedList<LabeledStatements>> labeledStatements = new Mutator<>();
+		return sequence(
+				drop(parseBlockBegin(syntax, parsePlusCalToken("begin"))),
+				part(labeledStatements, repeat(parseLabeledStatements(syntax)))
+		).map(seq -> new SingleProcess(seq.getLocation(), labeledStatements.getValue()));
+	}
+
+	static Grammar<PcalProcess> parseProcess(SyntaxVariant syntax){
+		Mutator<Located<Fairness>> fairness = new Mutator<>();
+		Mutator<VariableDeclaration> name = new Mutator<>();
+		Mutator<LocatedList<VariableDeclaration>> variables = new Mutator<>();
+		Mutator<LocatedList<LabeledStatements>> labeledStatements = new Mutator<>();
+		return sequence(
+				part(fairness, parseOneOf(
+						parsePlusCalToken("fair").chain(v -> parseOneOf(
+								parsePlusCalToken("+").map(vv ->
+										new Located<>(v.getLocation().combine(vv.getLocation()), Fairness.STRONG_FAIR)),
+								nop().map(vv -> new Located<>(v.getLocation(), Fairness.WEAK_FAIR))
+						)),
+						nop().map(v -> new Located<>(SourceLocation.unknown(), Fairness.UNFAIR))
+				)),
+				drop(parsePlusCalToken("process")),
+				part(name, parseBracketed(syntax, parseVariableDeclaration())),
+				part(variables, parseVariablesDeclaration()),
+				drop(parseBlockBegin(syntax, parsePlusCalToken("begin"))),
+				part(labeledStatements, parseListOf(parseLabeledStatements(syntax), parsePlusCalToken(";"))),
+				drop(parseOneOf(parsePlusCalToken(";"), nop())),
+				drop(parseBlockEnd(syntax, parseEnd(parsePlusCalToken("process"))))
+		).map(seq -> new PcalProcess(
+				seq.getLocation(), name.getValue(), fairness.getValue().getValue(), variables.getValue(),
+				labeledStatements.getValue()));
+	}
+
+	static Grammar<MultiProcess> parseMultiProcess(SyntaxVariant syntax){
+		return repeat(parseProcess(syntax)).map(procs -> new MultiProcess(procs.getLocation(), procs));
+	}
+
+	static Grammar<Processes> parseProcesses(SyntaxVariant syntax){
+		return parseOneOf(
+				parseSingleProcess(syntax),
+				parseMultiProcess(syntax)
+		);
+	}
+
+	static Grammar<Algorithm> parseAlgorithm(){
+		Mutator<Located<String>> name = new Mutator<>();
+		Mutator<Located<SyntaxVariant>> syntax = new Mutator<>();
+		Mutator<LocatedList<VariableDeclaration>> variables = new Mutator<>();
+		Mutator<Processes> processes = new Mutator<>();
+		return sequence(
+				drop(matchPattern(PCAL_FIND_ALGORITHM).map(v -> new Located<>(SourceLocation.unknown(), null))),
+				drop(parsePlusCalToken("--algorithm")),
+				part(name, parsePlusCalIdentifier()),
+				part(syntax, parseOneOf(
+						parsePlusCalToken("{").map(v ->
+								new Located<>(v.getLocation(), SyntaxVariant.C_SYNTAX)),
+						nop().map(v -> new Located<>(SourceLocation.unknown(), SyntaxVariant.P_SYNTAX))
+				))
+		).chain(seq1 -> sequence( // defer the rest until we know the syntax version from the above parse rule
+				part(variables, parseVariablesDeclaration()),
+				part(processes, parseProcesses(syntax.getValue().getValue())),
+				drop(parseBlockEnd(
+						syntax.getValue().getValue(),
+						parseEnd(parsePlusCalToken("algorithm"))))
+		).map(seq -> new Algorithm(seq1.getLocation().combine(seq.getLocation()), name.getValue(),
+				variables.getValue(), Collections.emptyList(), Collections.emptyList(), Collections.emptyList(),
+				processes.getValue())));
+	}
+
+	// public interface
+
+	public static Algorithm readAlgorithm(LexicalContext ctx) throws TLAParseException {
+		return readOrExcept(ctx, parseAlgorithm());
+	}
+
 }

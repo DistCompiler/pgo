@@ -5,9 +5,8 @@ import java.util.regex.MatchResult;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
-import pgo.lexer.TLAToken;
-import pgo.lexer.TLATokenType;
 import pgo.model.tla.PGoTLAIdentifier;
 import pgo.model.tla.PGoTLANumber;
 import pgo.model.tla.PGoTLAString;
@@ -32,18 +31,8 @@ public final class ParseTools {
 	 * @param token the string to match
 	 * @return the parse action, yielding the location at which the string was matched
 	 */
-	public static ParseAction<Located<Void>> matchString(String token){
-		return ctx -> {
-			if(ctx.isEOF()){
-				return ParseResult.failure(ParseFailure.unexpectedEOF());
-			}
-			SourceLocation loc = ctx.matchString(token);
-			if(loc != null){
-				return ParseResult.success(new Located<>(loc, null));
-			}else{
-				return ParseResult.failure(ParseFailure.stringMatchFailure(ctx.getSourceLocation(), token));
-			}
-		};
+	public static Grammar<Located<Void>> matchString(String token){
+		return resultMutator -> Collections.singletonList(new StringParseAction(token, resultMutator));
 	}
 
 	/**
@@ -54,24 +43,12 @@ public final class ParseTools {
 	 * @param options the set of strings to match
 	 * @return the parse action, yielding which of the strings matched
 	 */
-	public static ParseAction<Located<String>> matchStringOneOf(List<String> options){
-		return ctx -> {
-			if(ctx.isEOF()){
-				return ParseResult.failure(ParseFailure.unexpectedEOF());
-			}
-			for(String option : options){
-				SourceLocation loc = ctx.matchString(option);
-				if(loc != null){
-					return ParseResult.success(new Located<>(loc, option));
-				}
-			}
-			return ParseResult.failure(
-					ParseFailure.noBranchesMatched(
-							options
-									.stream()
-									.map(option -> ParseFailure.stringMatchFailure(ctx.getSourceLocation(), option))
-									.collect(Collectors.toList())));
-		};
+	public static Grammar<Located<String>> matchStringOneOf(List<String> options){
+		List<Grammar<? extends Located<String>>> compiledOptions = new ArrayList<>(options.size());
+		for(String option : options) {
+			compiledOptions.add(matchString(option).map(v -> new Located<>(v.getLocation(), option)));
+		}
+		return parseOneOf(compiledOptions);
 	}
 
 	/**
@@ -80,37 +57,8 @@ public final class ParseTools {
 	 * @param pattern the pattern to match
 	 * @return the parse action
 	 */
-	public static ParseAction<Located<MatchResult>> matchPattern(Pattern pattern){
-		return ctx -> {
-			if(ctx.isEOF()){
-				return ParseResult.failure(ParseFailure.unexpectedEOF());
-			}
-			Located<MatchResult> res = ctx.matchPattern(pattern);
-			if(res != null){
-				return ParseResult.success(res);
-			}else{
-				return ParseResult.failure(ParseFailure.patternMatchFailure(ctx.getSourceLocation(), pattern));
-			}
-		};
-	}
-
-	/**
-	 * Returns a parse action that matches exactly count characters, yielding the matched string on success.
-	 * @param count the number of characters to match
-	 * @return the parse action
-	 */
-	public static ParseAction<Located<String>> matchCharacters(int count){
-		return ctx -> {
-			if(ctx.isEOF()){
-				return ParseResult.failure(ParseFailure.unexpectedEOF());
-			}
-			Located<String> result = ctx.matchCharacters(count);
-			if(result != null){
-				return ParseResult.success(result);
-			}else{
-				return ParseResult.failure(ParseFailure.unexpectedEOF());
-			}
-		};
+	public static Grammar<Located<MatchResult>> matchPattern(Pattern pattern){
+		return resultMutator -> Collections.singletonList(new PatternParseAction(pattern, resultMutator));
 	}
 
 	// this matches the inside of a comment - must not contain any comment delimiters, but must be followed by either
@@ -126,7 +74,7 @@ public final class ParseTools {
 	 * pair of (* and *).
 	 * @return the parse action
 	 */
-	public static ParseAction<Located<Void>> matchTLAMultilineComment(){
+	public static Grammar<Located<Void>> matchTLAMultilineComment(){
 		return sequence(
 				drop(matchString("(*")),
 				drop(matchPattern(TLA_NOT_A_COMMENT_MARKER_MULTILINE)),
@@ -144,7 +92,7 @@ public final class ParseTools {
 	 * Returns a parse action that matches a TLA+ single-line comment starting with \*
 	 * @return the parse action
 	 */
-	public static ParseAction<Located<Void>> matchTLALineComment(){
+	public static Grammar<Located<Void>> matchTLALineComment(){
 		return sequence(
 				drop(matchString("\\*")),
 				drop(matchPattern(TLA_NOT_A_COMMENT_MARKER_LINE))
@@ -155,7 +103,7 @@ public final class ParseTools {
 	 * Returns a parse action that matches either of the two styles of TLA+ comment.
 	 * @return the parse action
 	 */
-	public static ParseAction<Located<Void>> matchTLAComment(){
+	public static Grammar<Located<Void>> matchTLAComment(){
 		return parseOneOf(
 				matchTLAMultilineComment(),
 				matchTLALineComment()
@@ -167,7 +115,7 @@ public final class ParseTools {
 	 * class \s
 	 * @return the parse action
 	 */
-	public static ParseAction<Located<Void>> matchWhitespace(){
+	public static Grammar<Located<Void>> matchWhitespace(){
 		return matchPattern(WHITESPACE).map(res -> new Located<>(res.getLocation(), null));
 	}
 
@@ -175,7 +123,7 @@ public final class ParseTools {
 	 * Returns a parse action that accepts and discards any sequence of whitespace and TLA+ comments.
 	 * @return the parse action
 	 */
-	public static ParseAction<Located<Void>> skipWhitespaceAndTLAComments(){
+	public static Grammar<Located<Void>> skipWhitespaceAndTLAComments(){
 		return repeat(parseOneOf(
 				matchWhitespace(),
 				matchTLAComment()
@@ -191,7 +139,7 @@ public final class ParseTools {
 	 * </ul>
 	 * @return the parse action
 	 */
-	public static ParseAction<Located<String>> matchTLAIdentifier(){
+	public static Grammar<Located<String>> matchTLAIdentifier(){
 		Mutator<Located<MatchResult>> result = new Mutator<>();
 		return sequence(
 				drop(reject(matchStringOneOf(Arrays.asList("WF_", "SF_")))),
@@ -219,7 +167,7 @@ public final class ParseTools {
 	 * </ul>
 	 * @return the parse action
 	 */
-	public static ParseAction<PGoTLAString> matchTLAString(){
+	public static Grammar<PGoTLAString> matchTLAString(){
 		Mutator<Located<String>> nonEscape = new Mutator<>();
 		Mutator<LocatedList<Located<String>>> parts = new Mutator<>();
 		return sequence(
@@ -266,7 +214,7 @@ public final class ParseTools {
 	 *
 	 * @return the parse action
 	 */
-	public static ParseAction<PGoTLANumber> matchTLANumber(){
+	public static Grammar<PGoTLANumber> matchTLANumber(){
 		return parseOneOf(
 				matchPattern(TLA_NUMBER_INT).map(res ->
 						new PGoTLANumber(res.getLocation(), res.getValue().group(), PGoTLANumber.Base.DECIMAL)),
@@ -294,7 +242,7 @@ public final class ParseTools {
 	 * {@link ParseTools#parse4DashesOrMore()}}.
 	 * @return a parse action yielding the range of text skipped
 	 */
-	public static ParseAction<Located<Void>> findModuleStart(){
+	public static Grammar<Located<Void>> findModuleStart(){
 		return matchPattern(TLA_BEFORE_MODULE).map(v -> new Located<>(v.getLocation(), null));
 	}
 
@@ -303,7 +251,7 @@ public final class ParseTools {
 	 * TLA+ comments.
 	 * @return the parse action
 	 */
-	public static ParseAction<Located<Void>> parse4DashesOrMore(){
+	public static Grammar<Located<Void>> parse4DashesOrMore(){
 		Mutator<Located<MatchResult>> res = new Mutator<>();
 		return sequence(
 				drop(skipWhitespaceAndTLAComments()),
@@ -316,7 +264,7 @@ public final class ParseTools {
 	 * TLA+ comments.
 	 * @return the parse action
 	 */
-	public static ParseAction<Located<Void>> parse4EqualsOrMore(){
+	public static Grammar<Located<Void>> parse4EqualsOrMore(){
 		return sequence(
 				drop(skipWhitespaceAndTLAComments()),
 				drop(matchPattern(TLA_4_EQUALS_OR_MORE))
@@ -331,12 +279,12 @@ public final class ParseTools {
 	 * @param <ParseResult> the result type of action
 	 * @return the new parse action
 	 */
-	public static <ParseResult extends SourceLocatable> ParseAction<ParseResult> checkMinColumn(ParseAction<ParseResult> action, int minColumn){
+	public static <ParseResult extends SourceLocatable> Grammar<ParseResult> checkMinColumn(Grammar<ParseResult> action, int minColumn){
 		return action.chain(result -> {
 			if(result.getLocation().getStartColumn() < minColumn){
-				return ParseAction.failure(ParseFailure.insufficientlyIndented(minColumn, result.getLocation()));
+				return Grammar.failure(ParseFailure.insufficientlyIndented(minColumn, result.getLocation()));
 			}else{
-				return ParseAction.success(result);
+				return Grammar.success(result);
 			}
 		});
 	}
@@ -348,7 +296,7 @@ public final class ParseTools {
 	 * @param minColumn the minimum column at which to accept a token
 	 * @return the parse action
 	 */
-	public static ParseAction<Located<Void>> parseBuiltinToken(String t, int minColumn){
+	public static Grammar<Located<Void>> parseBuiltinToken(String t, int minColumn){
 		Mutator<Located<Void>> token = new Mutator<>();
 		return sequence(
 				drop(skipWhitespaceAndTLAComments()),
@@ -357,17 +305,43 @@ public final class ParseTools {
 	}
 
 	/**
-	 * Creates a parse action that accepts a any of the strings in options as long as they are located at or beyond
+	 * Creates a parse action that accepts the string t, skipping any preceding comments or whitespace.
+	 * @param t the token to accept
+	 * @return the parse action
+	 */
+	public static Grammar<Located<Void>> parsePlusCalToken(String t){
+		Mutator<Located<Void>> token = new Mutator<>();
+		return sequence(
+				drop(skipWhitespaceAndTLAComments()),
+				part(token, matchString(t))
+		).map(seq -> new Located<>(token.getValue().getLocation(), null));
+	}
+
+	/**
+	 * Creates a parse action that accepts any of the strings in options as long as they are located at or beyond
 	 * minColumn, skipping any preceding comments or whitespace.
 	 * @param options a list of acceptable token values
 	 * @param minColumn the minimum column at which to accept a token
 	 * @return the parse action
 	 */
-	public static ParseAction<Located<String>> parseBuiltinTokenOneOf(List<String> options, int minColumn){
+	public static Grammar<Located<String>> parseBuiltinTokenOneOf(List<String> options, int minColumn){
 		Mutator<Located<String>> result = new Mutator<>();
 		return sequence(
 				drop(skipWhitespaceAndTLAComments()),
 				part(result, checkMinColumn(matchStringOneOf(options), minColumn))
+		).map(seq -> result.getValue());
+	}
+
+	/**
+	 * Creates a parse action that accepts any of the string in options, skipping any preceding comments or whitespace.
+	 * @param options a list of token values to accept
+	 * @return the parse action, yielding which token was accepted
+	 */
+	public static Grammar<Located<String>> parsePlusCalTokenOneOf(List<String> options){
+		Mutator<Located<String>> result = new Mutator<>();
+		return sequence(
+				drop(skipWhitespaceAndTLAComments()),
+				part(result,matchStringOneOf(options))
 		).map(seq -> result.getValue());
 	}
 
@@ -378,12 +352,25 @@ public final class ParseTools {
 	 * @param minColumn the minimum column at which to accept a token
 	 * @return the parse action
 	 */
-	public static ParseAction<PGoTLAIdentifier> parseIdentifier(int minColumn){
+	public static Grammar<PGoTLAIdentifier> parseIdentifier(int minColumn){
 		Mutator<Located<String>> result = new Mutator<>();
 		return sequence(
 				drop(skipWhitespaceAndTLAComments()),
 				part(result, checkMinColumn(matchTLAIdentifier(), minColumn))
 		).map(seq -> new PGoTLAIdentifier(result.getValue().getLocation(), result.getValue().getValue()));
+	}
+
+	/**
+	 * Creates a parse action that accepts a PlusCal identifier (identical to a TLA+ identifier, but with a more
+	 * convenient return type).
+	 * @return the parse action
+	 */
+	public static Grammar<Located<String>> parsePlusCalIdentifier(){
+		Mutator<Located<String>> result = new Mutator<>();
+		return sequence(
+				drop(skipWhitespaceAndTLAComments()),
+				part(result, matchTLAIdentifier())
+		).map(seq -> result.getValue());
 	}
 
 	/**
@@ -393,7 +380,7 @@ public final class ParseTools {
 	 * @param minColumn the minimum column at which to accept a token
 	 * @return the parse action
 	 */
-	public static ParseAction<PGoTLAString> parseString(int minColumn){
+	public static Grammar<PGoTLAString> parseString(int minColumn){
 		Mutator<PGoTLAString> result = new Mutator<>();
 		return sequence(
 				drop(skipWhitespaceAndTLAComments()),
@@ -408,12 +395,27 @@ public final class ParseTools {
 	 * @param minColumn the minimum column at which to accept a token
 	 * @return the parse action
 	 */
-	public static ParseAction<PGoTLANumber> parseNumber(int minColumn){
+	public static Grammar<PGoTLANumber> parseNumber(int minColumn){
 		Mutator<PGoTLANumber> result = new Mutator<>();
 		return sequence(
 				drop(skipWhitespaceAndTLAComments()),
 				part(result, checkMinColumn(matchTLANumber(), minColumn))
 		).map(seq -> result.getValue());
+	}
+
+	private static Stream<ParseAction> flattenActionTrie(ActionTrie trie) {
+		Stream.Builder<ParseAction> builder = Stream.builder();
+		for(ParseAction action : trie.getPrefix()) {
+			builder.add(action);
+		}
+		List<List<ParseAction>> options = new ArrayList<>();
+		for(ActionTrie t : trie.getSuccessors()) {
+			options.add(flattenActionTrie(t).collect(Collectors.toList()));
+		}
+		if(!options.isEmpty()) {
+			builder.add(new BranchParseAction(options));
+		}
+		return builder.build();
 	}
 
 	/**
@@ -424,18 +426,32 @@ public final class ParseTools {
 	 * @param <Result> the common result type of all the parse actions
 	 * @return the combined parse action
 	 */
-	public static <Result> ParseAction<Result> parseOneOf(List<ParseAction<? extends Result>> options){
-		return new ParseActionOneOf<Result>(options);
+	public static <Result> Grammar<Result> parseOneOf(List<Grammar<? extends Result>> options){
+		/*return resultMutator -> {
+			ActionTrie trie = new ActionTrie(options.get(0).getActions(resultMutator).collect(Collectors.toList()));
+			Iterator<Grammar<? extends Result>> optiontIt = options.listIterator(1);
+			while(optiontIt.hasNext()) {
+				List<ParseAction> option = optiontIt.next().getActions(resultMutator).collect(Collectors.toList());
+				trie.addActionSequence(option);
+			}
+			return flattenActionTrie(trie);
+		};*/
+		return resultMutator -> {
+			List<List<ParseAction>> compiledOptions = new ArrayList<>(options.size());
+			for(Grammar<? extends Result> option : options) {
+				compiledOptions.add(option.getActions(resultMutator));
+			}
+			return Collections.singletonList(new BranchParseAction(compiledOptions));
+		};
 	}
 
 	/**
-	 * The varargs version of {@link pgo.parser.ParseTools#parseOneOf(List<ParseAction<? extends Result>)}.
+	 * The varargs version of {@link pgo.parser.ParseTools#parseOneOf(List< Grammar <? extends Result>)}.
 	 * @param options an array of parse actions to try
 	 * @param <Result> the common result type of all the parse actions
 	 * @return the combined parse action
 	 */
-	@SafeVarargs
-	public static <Result> ParseAction<Result> parseOneOf(ParseAction<? extends Result>... options){
+	public static <Result> Grammar<Result> parseOneOf(Grammar<? extends Result>... options){
 		return parseOneOf(Arrays.asList(options));
 	}
 
@@ -451,17 +467,30 @@ public final class ParseTools {
 	 * @param <Result> the element type of the resulting LocatedList
 	 * @return the parse action
 	 */
-	public static <Result extends SourceLocatable> ParseAction<LocatedList<Result>> repeat(ParseAction<Result> element){
-		return new ParseActionRepeated<Result>(element);
+	public static <Result extends SourceLocatable> Grammar<LocatedList<Result>> repeat(Grammar<Result> element){
+		LocatedList<Result> theList = new LocatedList<>(SourceLocation.unknown(), new ArrayList<>());
+
+		Mutator<Grammar.Operation<Result, Located<Void>>> opSelf = new Mutator<>();
+		Grammar.Operation<Result, Located<Void>> op = e -> {
+			theList.addLocation(e.getLocation());
+			theList.add(e);
+			return parseOneOf(element.chain(opSelf.getValue()), nop());
+		};
+		opSelf.setValue(op);
+
+		return parseOneOf(element.chain(op), nop().map(v -> {
+			theList.addLocation(v.getLocation());
+			return v;
+		})).map(v -> theList);
 	}
 
 	/**
-	 * Similar to {@link pgo.parser.ParseTools#repeat(ParseAction<Result>)}, but only accepting sequences of at least one element.
+	 * Similar to {@link pgo.parser.ParseTools#repeat(Grammar <Result>)}, but only accepting sequences of at least one element.
 	 * @param element a parse action representing one element of the list
 	 * @param <Result> the element type of the resulting LocatedList
 	 * @return the parse action
 	 */
-	public static <Result extends SourceLocatable> ParseAction<LocatedList<Result>> repeatOneOrMore(ParseAction<Result> element){
+	public static <Result extends SourceLocatable> Grammar<LocatedList<Result>> repeatOneOrMore(Grammar<Result> element){
 		Mutator<Result> first = new Mutator<>();
 		Mutator<LocatedList<Result>> rest = new Mutator<>();
 		return sequence(
@@ -478,7 +507,7 @@ public final class ParseTools {
 	 * <p>A tool for expressing a sequence of consecutive parse actions.</p>
 	 *
 	 * <p>In order to work better within the context of Java, we do some unusual things here. The sequence of actions
-	 * is expressed as a series of {@link pgo.parser.ParseActionSequence.Part} objects. Here is some example code:</p>
+	 * is expressed as a series of {@link GrammarSequencePart} objects. Here is some example code:</p>
 	 *
 	 * <pre>{@code
 	 * Mutator<Result> mut = new Mutator<>();
@@ -503,42 +532,56 @@ public final class ParseTools {
 	 *
 	 * <p>
 	 * Since for accurate source location tracking we want to know the location of everything we parsed,
-	 * {@link pgo.parser.ParseActionSequence} yields a {@link pgo.parser.ParseActionSequenceResult} which holds metadata
+	 * the sequence yields a {@link pgo.parser.ParseActionSequenceResult} which holds metadata
 	 * for the entire parse including dropped elements, currently only the entire source location.
 	 * </p>
 	 *
 	 * @param parts a list of parts of the sequence to parse
-	 * @see pgo.parser.ParseTools#sequence(ParseActionSequence.Part...)
+	 * @see pgo.parser.ParseTools#sequence(GrammarSequencePart...)
 	 * @return a parse action that will yield parse metadata for the entire sequence, use mutators and
-	 * 		{@link pgo.parser.ParseAction#map} to transform this result into the desired data structure as described
+	 * 		{@link Grammar#map} to transform this result into the desired data structure as described
 	 * 		above.
 	 */
-	public static ParseAction<ParseActionSequenceResult> sequence(List<ParseActionSequence.Part> parts){
-		return new ParseActionSequence(parts);
+	public static Grammar<ParseActionSequenceResult> sequence(List<GrammarSequencePart> parts){
+		return resultMutator -> {
+			List<ParseAction> actions = new ArrayList<>();
+			for(GrammarSequencePart part : parts) {
+				actions.addAll(part.getActions());
+			}
+			actions.add(new ExecutorParseAction(() -> {
+				SourceLocation loc = SourceLocation.unknown();
+				for(GrammarSequencePart part : parts) {
+					loc = loc.combine(part.getLocation());
+				}
+				resultMutator.setValue(new ParseActionSequenceResult(loc));
+				return Collections.emptyList();
+			}));
+			return actions;
+		};
 	}
 
 	/**
-	 * The varargs version of {@link pgo.parser.ParseTools#sequence(List<ParseActionSequence.Part)}
+	 * The varargs version of {@link pgo.parser.ParseTools#sequence(List< GrammarSequencePart)}
 	 * @param parts an array of sequence parts, representing the sequence the parse action should recognise
 	 * @return the parse action
 	 */
-	public static ParseAction<ParseActionSequenceResult> sequence(ParseActionSequence.Part... parts){
+	public static Grammar<ParseActionSequenceResult> sequence(GrammarSequencePart... parts){
 		return sequence(Arrays.asList(parts));
 	}
 
 	/**
-	 * Creates a {@link pgo.parser.ParseActionSequence.Part}. This represents a part of the sequence that is of interest.
+	 * Creates a {@link GrammarSequencePart}. This represents a part of the sequence that is of interest.
 	 * @param mutator the mutator in which to store the result of parsing this part of the sequence
 	 * @param action the parse action to execute as this part of the sequence
 	 * @param <Result> the type of the parse action's result (also the type of the mutator's value)
 	 * @return a part of a parse action sequence
 	 */
-	public static <Result extends SourceLocatable> ParseActionSequence.Part part(Mutator<Result> mutator, ParseAction<Result> action){
-		return ParseActionSequence.part(mutator, action);
+	public static <Result extends SourceLocatable> GrammarSequencePart part(Mutator<Result> mutator, Grammar<Result> action){
+		return new GrammarSequencePart(mutator, action);
 	}
 
 	/**
-	 * Creates a part of a {@link pgo.parser.ParseActionSequence}. This represents a part of a sequence that is not of
+	 * Creates a part of a sequence. This represents a part of a sequence that is not of
 	 * interest but still part of the grammar like punctuation, brackets, etc...
 	 *
 	 * Executes the parse action then discards the result.
@@ -547,8 +590,8 @@ public final class ParseTools {
 	 * @param <Result> the type of the discarded result
 	 * @return a part of a parse action sequence
 	 */
-	public static <Result extends SourceLocatable> ParseActionSequence.Part drop(ParseAction<Result> action){
-		return ParseActionSequence.part(new DropMutator<Result>(), action);
+	public static <Result extends SourceLocatable> GrammarSequencePart drop(Grammar<Result> action){
+		return new GrammarSequencePart(new Mutator<>(), action);
 	}
 
 	/**
@@ -557,17 +600,21 @@ public final class ParseTools {
 	 * @param action the parse action to be inverted
 	 * @return a parse action that will successfully parse anything that is rejected by the given action
 	 */
-	public static ParseAction<Located<Void>> reject(ParseAction<?> action){
-		return ctx -> {
-			ParseContext.Mark mark = ctx.mark();
-			ParseResult<?> result = action.perform(ctx);
-			if(result.isSuccess()){
-				return ParseResult.failure(ParseFailure.parseSuccess()); // FIXME
-			}else{
-				ctx.restore(mark);
-				return ParseResult.success(null);
-			}
-		};
+	public static <Result> Grammar<Located<Void>> reject(Grammar<Result> action){
+		Mutator<Boolean> success = new Mutator<>(false);
+		return parseOneOf(
+				action.chain(val -> {
+					success.setValue(true);
+					return Grammar.failure(ParseFailure.parseSuccess());
+				}),
+				nop().chain(v -> {
+					if(success.getValue()){
+						return Grammar.failure(ParseFailure.parseSuccess());
+					}else{
+						return Grammar.success(v);
+					}
+				})
+		);
 	}
 
 	/**
@@ -582,10 +629,34 @@ public final class ParseTools {
 	 * call.
 	 * </p>
 	 *
-	 * @return a parse action that successfully parses no tokens and yields null.
+	 * @return a parse action that successfully parses no tokens and yields null, located at the current parse location.
 	 */
-	public static ParseAction<Void> nop(){
-		return ParseAction.success(null);
+	public static Grammar<Located<Void>> nop() {
+		return resultMutator -> Collections.singletonList(new QueryPositionParseAction(resultMutator));
+	}
+
+	public static <T> T readOrExcept(LexicalContext ctx, Grammar<T> grammar) throws TLAParseException{
+		return grammar.parse(ctx);
+	}
+
+	public static <AST extends SourceLocatable> Grammar<LocatedList<AST>> parseListOf(Grammar<AST> element, Grammar<? extends SourceLocatable> sep){
+		return element.chain(first ->
+				repeat(nop().chain(v -> {
+					Mutator<AST> ast = new Mutator<>();
+					return sequence(
+							drop(sep),
+							part(ast, element)
+					).map(seqResult -> ast.getValue());
+				})).map((LocatedList<AST> list) -> {
+					list.add(0, first);
+					list.addLocation(first.getLocation());
+					return list;
+				})
+		);
+	}
+
+	public static <AST extends SourceLocatable> Grammar<LocatedList<AST>> parseCommaList(Grammar<AST> element, int minColumn){
+		return parseListOf(element, parseBuiltinToken(",", minColumn));
 	}
 
 }

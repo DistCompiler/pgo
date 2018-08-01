@@ -1,6 +1,7 @@
 package pgo.parser;
 
 public interface MutatorInterface<T> {
-	public void setValue(T value);
-	public T getValue();
+	boolean hasValue();
+	void setValue(T value);
+	T getValue();
 }

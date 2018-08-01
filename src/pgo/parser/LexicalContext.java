@@ -3,6 +3,7 @@ package pgo.parser;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.Optional;
 import java.util.regex.MatchResult;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -10,7 +11,7 @@ import java.util.regex.Pattern;
 import pgo.lexer.TLAToken;
 import pgo.util.SourceLocation;
 
-public class ParseContext {
+public class LexicalContext {
 
 	private Path filePath;
 	private CharSequence chars;
@@ -35,7 +36,7 @@ public class ParseContext {
 	}
 	
 	
-	public ParseContext(Path filePath, CharSequence chars) {
+	public LexicalContext(Path filePath, CharSequence chars) {
 		this.filePath = filePath;
 		this.chars = chars;
 		this.line = 0;
@@ -74,36 +75,25 @@ public class ParseContext {
 	 * @param pattern the pattern to match
 	 * @return the result of the match, or null on failure
 	 */
-	public Located<MatchResult> matchPattern(Pattern pattern){
-		if(index > chars.length()) return null;
+	public Optional<Located<MatchResult>> matchPattern(Pattern pattern){
+		if(index > chars.length()) return Optional.empty();
 		Matcher m = pattern.matcher(chars);
 		m.region(index, chars.length());
 		if(m.lookingAt()){
-			return new Located<>(
+			return Optional.of(new Located<>(
 					updateLocation(m.group()),
-					m.toMatchResult());
+					m.toMatchResult()));
 		}else{
-			return null;
+			return Optional.empty();
 		}
 	}
 
-	public Located<String> matchCharacters(int count){
-		if(index + count <= chars.length()){
-			String value = chars.subSequence(index, index+count).toString();
-			return new Located<>(
-					updateLocation(value),
-					value);
-		}else{
-			return null;
-		}
-	}
-
-	public SourceLocation matchString(String string){
+	public Optional<Located<Void>> matchString(String string){
 		if(index + string.length() <= chars.length()
 				&& chars.subSequence(index, index+string.length()).toString().equals(string)){
-			return updateLocation(string);
+			return Optional.of(new Located<>(updateLocation(string), null));
 		}else{
-			return null;
+			return Optional.empty();
 		}
 	}
 

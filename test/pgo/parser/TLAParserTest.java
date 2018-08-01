@@ -47,7 +47,7 @@ public class TLAParserTest {
 		FileChannel fileChannel = new RandomAccessFile(inputFilePath.toFile(), "r").getChannel();
 		MappedByteBuffer buffer = fileChannel.map(FileChannel.MapMode.READ_ONLY, 0, fileChannel.size());
 		// assume UTF-8, though technically TLA+ is ASCII only according to the book
-		ParseContext ctx = new ParseContext(inputFilePath, StandardCharsets.UTF_8.decode(buffer));
+		LexicalContext ctx = new LexicalContext(inputFilePath, StandardCharsets.UTF_8.decode(buffer));
 		
 		List<PGoTLAModule> modules = TLAParser.readModules(ctx);
 		

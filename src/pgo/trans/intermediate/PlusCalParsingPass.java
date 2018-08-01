@@ -1,20 +1,20 @@
 package pgo.trans.intermediate;
 
-import pcal.AST;
 import pgo.errors.IssueContext;
-import pgo.parser.PGoParseException;
-import pgo.parser.PcalParser;
+import pgo.model.pcal.Algorithm;
+import pgo.parser.*;
+import pgo.trans.passes.tlaparse.TLAParserIssue;
 
-import java.util.List;
+import java.nio.file.Path;
 
 public class PlusCalParsingPass {
 	private PlusCalParsingPass() {}
 
-	public static AST perform(IssueContext ctx, List<String> lines) {
+	public static Algorithm perform(IssueContext ctx, Path inputFileName, CharSequence inputFileContents) {
 		try {
-			return PcalParser.parse(lines);
-		} catch (PGoParseException e) {
-			ctx.error(new PlusCalParserIssue(e.getMessage()));
+			return PcalParser.readAlgorithm(new LexicalContext(inputFileName, inputFileContents));
+		} catch (TLAParseException e) {
+			ctx.error(new TLAParserIssue(e.getReason()));
 			return null;
 		}
 	}

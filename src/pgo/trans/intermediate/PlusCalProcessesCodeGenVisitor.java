@@ -66,7 +66,7 @@ public class PlusCalProcessesCodeGenVisitor extends ProcessesVisitor<Void, Runti
 			if (variableDeclaration.isSet()) {
 				value = new Index(value, new IntLiteral(0));
 			}
-			VariableName name = processBody.varDecl(variableDeclaration.getName(), value);
+			VariableName name = processBody.varDecl(variableDeclaration.getName().getValue(), value);
 			processBody.linkUID(variableDeclaration.getUID(), name);
 		}
 	}
@@ -93,7 +93,7 @@ public class PlusCalProcessesCodeGenVisitor extends ProcessesVisitor<Void, Runti
 				PGoTLAExpression value = variableDeclaration.getValue();
 				Type type = typeMap.get(variableDeclaration.getUID()).accept(new PGoTypeGoTypeConversionVisitor());
 				VariableName name = moduleBuilder.defineGlobal(
-						variableDeclaration.getUID(), variableDeclaration.getName(), type);
+						variableDeclaration.getUID(), variableDeclaration.getName().getValue(), type);
 				if (variableDeclaration.isSet()) {
 					initBuilder.assign(
 							name,
@@ -112,12 +112,12 @@ public class PlusCalProcessesCodeGenVisitor extends ProcessesVisitor<Void, Runti
 		for (PcalProcess process : multiProcess.getProcesses()) {
 			UID processUID = process.getName().getUID();
 			FunctionDeclarationBuilder functionBuilder = moduleBuilder.defineFunction(
-					processUID, process.getName().getName());
+					processUID, process.getName().getName().getValue());
 			Type selfType = typeMap.get(processUID).accept(new PGoTypeGoTypeConversionVisitor());
 			VariableName self = functionBuilder.addArgument("self", selfType);
 			try (BlockBuilder processBody = functionBuilder.getBlockBuilder()) {
 				processBody.linkUID(processUID, self);
-				globalStrategy.processPrelude(processBody, process, process.getName().getName(), self, selfType);
+				globalStrategy.processPrelude(processBody, process, process.getName().getName().getValue(), self, selfType);
 				generateLocalVariableDefinitions(registry, typeMap, globalStrategy, processBody, process.getVariables());
 		 		for (LabeledStatements statements : process.getLabeledStatements()) {
 					statements.accept(new PlusCalStatementCodeGenVisitor(

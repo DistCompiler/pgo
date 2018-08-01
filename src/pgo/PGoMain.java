@@ -6,18 +6,14 @@ import java.io.RandomAccessFile;
 import java.nio.CharBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
 
 import org.apache.commons.io.FileUtils;
-import pcal.AST;
 import pcal.exception.StringVectorToFileException;
 import pgo.errors.TopLevelIssueContext;
 import pgo.model.golang.Module;
@@ -26,7 +22,6 @@ import pgo.model.tla.PGoTLAExpression;
 import pgo.model.tla.PGoTLAModule;
 import pgo.model.type.PGoType;
 import pgo.modules.TLAModuleLoader;
-import pgo.parser.ParseContext;
 import pgo.scope.UID;
 import pgo.trans.PGoTransException;
 import pgo.trans.intermediate.*;
@@ -74,22 +69,15 @@ public class PGoMain {
 			// assume UTF-8, though technically TLA+ is ASCII only according to the book
 			CharBuffer inputFileContents = StandardCharsets.UTF_8.decode(buffer);
 
-			List<String> lines = Collections.unmodifiableList(
-					Files.readAllLines(inputFilePath, Charset.forName("utf-8")));
-
 			logger.info("Parsing PlusCal code");
-			AST pCalAST = PlusCalParsingPass.perform(ctx, lines);
+			Algorithm algorithm = PlusCalParsingPass.perform(ctx, inputFilePath, inputFileContents);
 			checkErrors(ctx);
 
 			// for -writeAST option, just write the file AST.tla and halt.
-			if (opts.writeAST) {
+			/*if (opts.writeAST) {
 				IOUtil.WriteAST(pCalAST, opts.buildDir + "/" + opts.buildFile);
 				return true; // added for testing
-			}
-
-			logger.info("Cleaning up PlusCal AST");
-			Algorithm algorithm = PlusCalConversionPass.perform(ctx, pCalAST);
-			checkErrors(ctx);
+			}*/
 
 			logger.info("Parsing TLA+ module");
 			PGoTLAModule tlaModule = TLAParsingPass.perform(ctx, inputFilePath, inputFileContents);

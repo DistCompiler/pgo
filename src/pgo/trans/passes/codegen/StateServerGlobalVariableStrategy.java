@@ -45,7 +45,7 @@ public class StateServerGlobalVariableStrategy extends GlobalVariableStrategy {
 	                                  VariableName processName, VariableName processArgument) {
 		try (SwitchBuilder switchBuilder = builder.switchStmt(processName)) {
 			for (PcalProcess process : ((MultiProcess) algorithm.getProcesses()).getProcesses()) {
-				String name = process.getName().getName();
+				String name = process.getName().getName().getValue();
 				Type type = typeMap.get(process.getName().getUID()).accept(new PGoTypeGoTypeConversionVisitor());
 				try (BlockBuilder caseBody = switchBuilder.addCase(new StringLiteral(name))) {
 					if (type.equals(Builtins.Int)) {

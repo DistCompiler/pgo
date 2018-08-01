@@ -199,7 +199,7 @@ public class PlusCalStatementCodeGenVisitor extends StatementVisitor<Void, Runti
 			if (decl.isSet()) {
 				value = new Index(value, new IntLiteral(0));
 			}
-			builder.linkUID(decl.getUID(), builder.varDecl(decl.getName(), value));
+			builder.linkUID(decl.getUID(), builder.varDecl(decl.getName().getValue(), value));
 			if (with.getBody().size() != 1 || !(with.getBody().get(0) instanceof With)) {
 				break;
 			}

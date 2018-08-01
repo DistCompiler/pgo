@@ -1,5 +1,8 @@
 package pgo.parser;
 
+import javax.swing.text.html.Option;
+import java.util.Optional;
+
 /**
  * 
  * This class is designed to work around the effectively-final scoping
@@ -13,7 +16,7 @@ package pgo.parser;
  */
 public class Mutator<T> implements MutatorInterface<T> {
 
-	T value;
+	private T value;
 	
 	public Mutator() {
 		this.value = null;
@@ -22,11 +25,18 @@ public class Mutator<T> implements MutatorInterface<T> {
 	public Mutator(T value) {
 		this.value = value;
 	}
-	
+
+	@Override
+	public boolean hasValue() {
+		return value != null;
+	}
+
+	@Override
 	public void setValue(T value) {
 		this.value = value;
 	}
-	
+
+	@Override
 	public T getValue() {
 		return value;
 	}

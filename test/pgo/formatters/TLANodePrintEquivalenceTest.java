@@ -18,7 +18,7 @@ import pgo.model.tla.PGoTLAExpression;
 import pgo.model.tla.PGoTLAModule;
 import pgo.model.tla.PGoTLANode;
 import pgo.model.tla.PGoTLAUnit;
-import pgo.parser.ParseContext;
+import pgo.parser.LexicalContext;
 import pgo.parser.TLAParseException;
 import pgo.parser.TLAParser;
 
@@ -68,7 +68,7 @@ public class TLANodePrintEquivalenceTest {
 	public void test() throws TLAParseException {
 		String str = ast.toString();
 		System.out.println(str);
-		ParseContext ctx = new ParseContext(
+		LexicalContext ctx = new LexicalContext(
 				Paths.get("TEST"), String.join(System.lineSeparator(), str.split("\n")));
 		PGoTLANode actual;
 		if(ast instanceof PGoTLAExpression) {

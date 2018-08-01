@@ -16,11 +16,11 @@ public class ConstantDefinitionParsingPass {
 		Map<String, PGoTLAExpression> result = new HashMap<>();
 		
 		for(Map.Entry<String, Located<String>> def : defs.entrySet()) {
-			ParseContext parseContext = new ParseContext(
+			LexicalContext lexicalContext = new LexicalContext(
 					def.getValue().getLocation().getFile(),
 					def.getValue().getValue());
 			try {
-				PGoTLAExpression expr = TLAParser.readExpression(parseContext);
+				PGoTLAExpression expr = TLAParser.readExpression(lexicalContext);
 				result.put(def.getKey(), expr);
 			} catch (TLAParseException e) {
 				ctx.error(new TLAParserIssue(e.getReason()));

@@ -6,7 +6,6 @@ import pgo.Unreachable;
 import pgo.parser.ParseFailure;
 import pgo.parser.ParseFailure.InsufficientOperatorPrecedence;
 import pgo.parser.ParseFailure.InsufficientlyIndented;
-import pgo.parser.ParseFailure.NoBranchesMatched;
 import pgo.parser.ParseFailure.UnexpectedEOF;
 import pgo.parser.ParseFailureVisitor;
 
@@ -22,11 +21,6 @@ public class ParseFailureFormattingVisitor extends ParseFailureVisitor<Void, IOE
 	public Void visit(UnexpectedEOF unexpectedEOF) throws IOException {
 		out.write("unexpected EOF");
 		return null;
-	}
-
-	@Override
-	public Void visit(NoBranchesMatched noBranchesMatched) throws IOException {
-		throw new Unreachable();
 	}
 
 	@Override

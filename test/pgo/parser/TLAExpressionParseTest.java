@@ -157,7 +157,9 @@ public class TLAExpressionParseTest {
 
 	@Test
 	public void test() throws TLAParseException {
-		ParseContext ctx = new ParseContext(testFile, String.join(System.lineSeparator(), exprString.split("\n")));
+		LexicalContext ctx = new LexicalContext(testFile, String.join(System.lineSeparator(), exprString.split("\n")));
+
+		System.out.println(exprString);
 
 		PGoTLAExpression expr = TLAParser.readExpression(ctx);
 

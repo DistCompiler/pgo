@@ -1,6 +1,11 @@
 package pgo.parser;
 
+import pgo.InternalCompilerError;
+
 public class DropMutator<T> implements MutatorInterface<T> {
+
+	@Override
+	public boolean hasValue() { return false; }
 
 	@Override
 	public void setValue(T value) {
@@ -9,8 +14,7 @@ public class DropMutator<T> implements MutatorInterface<T> {
 
 	@Override
 	public T getValue() {
-		// pass
-		return null;
+		throw new InternalCompilerError();
 	}
 
 }

@@ -5,7 +5,7 @@ import java.util.List;
 
 import pgo.errors.IssueContext;
 import pgo.model.tla.PGoTLAModule;
-import pgo.parser.ParseContext;
+import pgo.parser.LexicalContext;
 import pgo.parser.TLAParseException;
 import pgo.parser.TLAParser;
 
@@ -15,8 +15,8 @@ public class TLAParsingPass {
 	
 	public static PGoTLAModule perform(IssueContext ctx, Path filename, CharSequence fileContents) {
 		try {
-			ParseContext parseContext = new ParseContext(filename, fileContents);
-			List<PGoTLAModule> modules = TLAParser.readModules(parseContext);
+			LexicalContext lexicalContext = new LexicalContext(filename, fileContents);
+			List<PGoTLAModule> modules = TLAParser.readModules(lexicalContext);
 			return modules.get(0);
 		} catch (TLAParseException e) {
 			ctx.error(new TLAParserIssue(e.getReason()));

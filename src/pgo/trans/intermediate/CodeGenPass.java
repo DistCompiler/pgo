@@ -21,7 +21,7 @@ public class CodeGenPass {
 
 	public static Module perform(DefinitionRegistry registry, Map<UID, PGoType> typeMap, PGoOptions opts,
 	                             Algorithm algorithm) {
-		ModuleBuilder moduleBuilder = new ModuleBuilder(algorithm.getName());
+		ModuleBuilder moduleBuilder = new ModuleBuilder(algorithm.getName().getValue());
 		Processes processes = algorithm.getProcesses();
 		GlobalVariableStrategy globalVariableStrategy;
 		if (processes instanceof SingleProcess) {
