@@ -3,40 +3,10 @@ package pgo.trans.passes.type;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import pgo.InternalCompilerError;
 import pgo.TODO;
 import pgo.Unreachable;
-import pgo.model.tla.PGoTLABinOp;
-import pgo.model.tla.PGoTLABool;
-import pgo.model.tla.PGoTLACase;
-import pgo.model.tla.PGoTLAExistential;
-import pgo.model.tla.PGoTLAExpression;
-import pgo.model.tla.PGoTLAExpressionVisitor;
-import pgo.model.tla.PGoTLAFunction;
-import pgo.model.tla.PGoTLAFunctionCall;
-import pgo.model.tla.PGoTLAFunctionSet;
-import pgo.model.tla.PGoTLAFunctionSubstitution;
-import pgo.model.tla.PGoTLAGeneralIdentifier;
-import pgo.model.tla.PGoTLAIdentifier;
-import pgo.model.tla.PGoTLAIf;
-import pgo.model.tla.PGoTLALet;
-import pgo.model.tla.PGoTLAMaybeAction;
-import pgo.model.tla.PGoTLANumber;
-import pgo.model.tla.PGoTLAOperatorCall;
-import pgo.model.tla.PGoTLAQuantifiedExistential;
-import pgo.model.tla.PGoTLAQuantifiedUniversal;
-import pgo.model.tla.PGoTLAQuantifierBound;
-import pgo.model.tla.PGoTLARecordConstructor;
-import pgo.model.tla.PGoTLARecordSet;
-import pgo.model.tla.PGoTLARequiredAction;
-import pgo.model.tla.PGoTLASetComprehension;
-import pgo.model.tla.PGoTLASetConstructor;
-import pgo.model.tla.PGoTLASetRefinement;
-import pgo.model.tla.PGoTLAString;
-import pgo.model.tla.PGoTLATuple;
-import pgo.model.tla.PGoTLAUnary;
-import pgo.model.tla.PGoTLAUnit;
-import pgo.model.tla.PGoTLAUniversal;
-import pgo.model.tla.PlusCalDefaultInitValue;
+import pgo.model.tla.*;
 import pgo.model.type.*;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
@@ -415,6 +385,11 @@ public class TLAExpressionTypeConstraintVisitor extends PGoTLAExpressionVisitor<
 		PGoTypeVariable v = generator.get();
 		mapping.put(plusCalDefaultInitValue.getUID(), v);
 		return v;
+	}
+
+	@Override
+	public PGoType visit(TLAFairness fairness) throws RuntimeException{
+		throw new InternalCompilerError();
 	}
 
 }

@@ -8,7 +8,6 @@ import pgo.errors.IssueWithContext;
 import pgo.model.pcal.Macro;
 import pgo.model.type.*;
 import pgo.trans.intermediate.*;
-import pgo.trans.passes.tlaparse.TLALexerIssue;
 import pgo.trans.passes.tlaparse.TLAParserIssue;
 import pgo.trans.passes.type.TypeInferenceFailureIssue;
 
@@ -65,12 +64,6 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 				out.write(path.toString());
 			}
 		}
-		return null;
-	}
-
-	@Override
-	public Void visit(TLALexerIssue tlaLexerIssue) throws IOException {
-		out.write(tlaLexerIssue.getError().toString());
 		return null;
 	}
 

@@ -172,4 +172,9 @@ public class TLAExpressionAtomicityInferenceVisitor extends PGoTLAExpressionVisi
 	public Set<UID> visit(PlusCalDefaultInitValue plusCalDefaultInitValue) throws RuntimeException {
 		return Collections.emptySet();
 	}
+
+	@Override
+	public Set<UID> visit(TLAFairness fairness) throws RuntimeException{
+		throw new TODO();
+	}
 }
