@@ -9,7 +9,6 @@ import java.util.Map;
 import java.util.Set;
 
 import pgo.errors.IssueContext;
-import pgo.lexer.PGoTLALexerException;
 import pgo.model.tla.PGoTLAAssumption;
 import pgo.model.tla.PGoTLAConstantDeclaration;
 import pgo.model.tla.PGoTLAFunction;
@@ -30,7 +29,6 @@ import pgo.modules.NoModulesFoundInFileError;
 import pgo.modules.TLAModuleLoader;
 import pgo.parser.TLAParseException;
 import pgo.scope.UID;
-import pgo.trans.passes.tlaparse.TLALexerIssue;
 import pgo.trans.passes.tlaparse.TLAParserIssue;
 
 public class TLAUnitScopingVisitor extends PGoTLAUnitVisitor<Void, RuntimeException> {
@@ -97,8 +95,6 @@ public class TLAUnitScopingVisitor extends PGoTLAUnitVisitor<Void, RuntimeExcept
 
 				scopeModule(module, ctx, scope, registry, loader, recursionSet);
 
-			} catch (PGoTLALexerException e) {
-				ctx.error(new TLALexerIssue(e));
 			} catch (ModuleNotFoundError e) {
 				ctx.error(new ModuleNotFoundIssue(e.getModuleName(), e.getPathsChecked()));
 			} catch (IOException e) {

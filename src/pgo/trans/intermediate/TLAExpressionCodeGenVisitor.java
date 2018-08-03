@@ -442,4 +442,9 @@ public class TLAExpressionCodeGenVisitor extends PGoTLAExpressionVisitor<Express
 	public Expression visit(PlusCalDefaultInitValue plusCalDefaultInitValue) throws RuntimeException {
 		return typeMap.get(plusCalDefaultInitValue.getUID()).accept(new PGoTypeGoTypeDefaultValueVisitor());
 	}
+
+	@Override
+	public Expression visit(TLAFairness fairness) throws RuntimeException {
+		throw new TODO();
+	}
 }

@@ -37,11 +37,22 @@ public class SourceLocation implements Comparable<SourceLocation> {
 		if(!file.equals(other.getFile())) {
 			throw new RuntimeException("Tried to combine source locations from two different files: " + file + ", " + other.getFile());
 		}
+		int mStartColumn, mEndColumn;
+		if(startLine == other.getEndLine()){
+			mStartColumn = Integer.min(startColumn, other.getStartColumn());
+			mEndColumn = Integer.max(endColumn, other.getEndColumn());
+		}else if(startLine < other.getEndLine()){
+			mStartColumn = startColumn;
+			mEndColumn = other.getEndColumn();
+		}else{
+			mStartColumn = other.getStartColumn();
+			mEndColumn = endColumn;
+		}
 		return new SourceLocation(file,
 				Integer.min(startLine, other.getStartLine()),
 				Integer.max(endLine, other.getEndLine()),
-				Integer.min(startColumn, other.getStartColumn()),
-				Integer.max(endColumn, other.getEndColumn()));
+				mStartColumn,
+				mEndColumn);
 	}
 
 	public Path getFile() {
@@ -113,6 +124,7 @@ public class SourceLocation implements Comparable<SourceLocation> {
 
 	@Override
 	public int compareTo(SourceLocation o) {
+		if(isUnknown() && o.isUnknown()) return 0;
 		if(isUnknown()) {
 			return -1;
 		}
