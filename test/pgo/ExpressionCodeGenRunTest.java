@@ -50,6 +50,29 @@ public class ExpressionCodeGenRunTest {
 	@Parameters
 	public static List<Object[]> data(){
 		return Arrays.asList(new Object[][] {
+			// if expression tests
+			{
+				ifexp(bool(true), str("Then Branch"), str("Else Branch")),
+				Arrays.asList(),
+				Collections.singletonList("Then Branch"),
+			},
+			{
+					ifexp(bool(false), str("Then Branch"), str("Else Branch")),
+					Arrays.asList(),
+					Collections.singletonList("Else Branch"),
+			},
+			{
+				ifexp(binop(">", idexp("a"), idexp("b")), idexp("a"), idexp("b")),
+				Arrays.asList(
+						kv("a", num(3)),
+						kv("b", num(1))),
+				Collections.singletonList("3"),
+			},
+			{
+				ifexp(bool(false), str("Then Branch"), ifexp(bool(true), str("Else Branch -> Then Branch"), str("Else Branch -> Else Branch"))),
+				Arrays.asList(),
+				Collections.singletonList("Else Branch -> Then Branch"),
+			},
 			// operator precedence tests
 			{
 				binop("*", idexp("a"), binop("+", idexp("b"), idexp("c"))),

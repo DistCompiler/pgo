@@ -189,8 +189,15 @@ public class Builder {
 		return new PGoTLATuple(SourceLocation.unknown(), Arrays.asList(expressions));
 	}
 
+	public static PGoTLAIf ifexp(PGoTLAExpression cond, PGoTLAExpression tval, PGoTLAExpression fval) {
+		return new PGoTLAIf(SourceLocation.unknown(), cond, tval, fval);
+	}
+
+	public static PGoTLABool bool(Boolean value) {
+		return new PGoTLABool(SourceLocation.unknown(), value);
+	}
+
 	public static TLAFairness fairness(TLAFairness.Type type, PGoTLAExpression vars, PGoTLAExpression expression){
 		return new TLAFairness(SourceLocation.unknown(), type, vars, expression);
 	}
-	
 }

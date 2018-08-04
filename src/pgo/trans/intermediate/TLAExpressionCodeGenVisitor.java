@@ -232,7 +232,16 @@ public class TLAExpressionCodeGenVisitor extends PGoTLAExpressionVisitor<Express
 
 	@Override
 	public Expression visit(PGoTLAIf pGoTLAIf) throws RuntimeException {
-		throw new TODO();
+		VariableName result = builder.varDecl("result", typeMap.get(pGoTLAIf.getTval().getUID()).accept(new PGoTypeGoTypeConversionVisitor()));
+		try(IfBuilder ifBuilder = builder.ifStmt(pGoTLAIf.getCond().accept(this))) {
+			try (BlockBuilder yes = ifBuilder.whenTrue()) {
+				yes.assign(result, pGoTLAIf.getTval().accept(this));
+				try (BlockBuilder no = ifBuilder.whenFalse()) {
+					no.assign(result, pGoTLAIf.getFval().accept(this));
+				}
+			}
+		}
+		return result;
 	}
 
 	@Override
