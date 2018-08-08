@@ -1,34 +1,16 @@
 package pgo.parser;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
+import pgo.util.SourceLocatable;
+
+import java.util.function.Function;
+import java.util.function.Predicate;
 
 /**
  * Represents a parsing action that consumes tokens from a {@link LexicalContext} and either successfully
  * yields a result of type {@code Result} or fails with a {@link pgo.parser.ParseFailure}.
  * @param <Result> the type of an object representing a successful parse
  */
-interface Grammar<Result> {
-
-	/**
-	 * Produces a further parsing action based on an existing parsing result.
-	 * @param <Result> the type of the existing parsing result
-	 * @param <ChainResult> the result type of the new parse action
-	 */
-	interface Operation<Result, ChainResult>{
-		Grammar<ChainResult> perform(Result r);
-	}
-
-	/**
-	 * A direct mapping between one parsing result and another.
-	 * @param <Result> the type of the original parse result
-	 * @param <ChainResult> the type of the transformed parse result
-	 */
-	interface Mapping<Result, ChainResult>{
-		ChainResult perform(Result r);
-	}
+public abstract class Grammar<Result extends SourceLocatable> {
 
 	/**
 	 * This method allows chaining of parse actions based on previous parsing results. Whenever a parse action fails,
@@ -39,7 +21,7 @@ interface Grammar<Result> {
 	 * @return a new parse action that yields the result of performing this parse action, followed by the parse action
 	 * 	returned by {@code operation.perform(currentResult)}.
 	 */
-	default <ChainResult> Grammar<ChainResult> chain(Operation<Result, ChainResult> operation){
+	/*default <ChainResult> Grammar<ChainResult> chain(Operation<Result, ChainResult> operation){
 		return resultMutator -> {
 			Mutator<Result> parentResult = new Mutator<>();
 			List<ParseAction> parentActions = this.getActions(parentResult);
@@ -50,7 +32,7 @@ interface Grammar<Result> {
 			));
 			return actions;
 		};
-	}
+	}*/
 
 	/**
 	 * Transforms the result of one Grammar. Use this method when no further parsing needs to be done, but the
@@ -59,18 +41,12 @@ interface Grammar<Result> {
 	 * @param <MapResult> the type of the mapped parse action
 	 * @return a new parse action that yields the result of {@code operation.perform(originalResult)}
 	 */
-	default <MapResult> Grammar<MapResult> map(Mapping<Result, MapResult> operation){
-		return resultMutator -> {
-			Mutator<Result> parentResult = new Mutator<>();
-			List<ParseAction> parentActions = getActions(parentResult);
-			List<ParseAction> actions = new ArrayList<>(parentActions.size() + 1);
-			actions.addAll(parentActions);
-			actions.add(new ExecutorParseAction(() -> {
-				resultMutator.setValue(operation.perform(parentResult.getValue()));
-				return Collections.emptyList();
-			}));
-			return actions;
-		};
+	public <MappingResult extends SourceLocatable> Grammar<MappingResult> map(Function<Result, MappingResult> mapping){
+		return new MappingGrammar<>(this, mapping);
+	}
+
+	public Grammar<Result> filter(Predicate<ParseInfo<Result>> predicate) {
+		return new PredicateGrammar<>(this, predicate);
 	}
 
 	/**
@@ -79,42 +55,23 @@ interface Grammar<Result> {
 	 * @param <Result> the type of the result
 	 * @return a parse action that will always succeed, yielding {@code result}
 	 */
-	static <Result> Grammar<Result> success(Result result){
-		return resultMutator -> Collections.singletonList(new ExecutorParseAction(() -> {
-			resultMutator.setValue(result);
-			return Collections.emptyList();
-		}));
+	static <Result extends SourceLocatable> Grammar<Result> success(Result result){
+		return ParseTools.matchString("").map(v -> result);
 	}
 
-	static <Result> Grammar<Result> failure(ParseFailure failure) {
-		return resultMutator -> Collections.singletonList(new FailParseAction(failure));
+	static <Result extends SourceLocatable> Grammar<Result> failure(ParseFailure failure) {
+		return null;
 	}
 
-	/**
-	 * Performs the parsing action, returning a result representing either a successful parse or a failure.
-	 *
-	 * FIXME
-	 *
-	 * @param resultMutator the Mutator to fill with the result of parsing this Grammar
-	 * @return the result of attempting this parsing action
-	 */
-	List<ParseAction> getActions(MutatorInterface<? super Result> resultMutator);
-
-	default Result parse(LexicalContext lexicalContext) throws TLAParseException {
-		Mutator<Result> resultMutator = new Mutator<>();
-		ParsingContext parsingContext = new ParsingContext(lexicalContext);
-		ParseActionExecutor exec = new ParseActionExecutor(lexicalContext, parsingContext);
-		parsingContext.preQueueActions(getActions(resultMutator));
-
-		Optional<ParseAction> currentAction;
-		while((currentAction = parsingContext.dequeueAction()).isPresent()) {
-			if(!currentAction.get().accept(exec)){
-				if(!parsingContext.backtrack()){
-					throw new TLAParseException(parsingContext.getFailures());
-				}
-			}
-		}
-
-		return resultMutator.getValue();
+	public CompiledGrammar<Result> compile() {
+		GrammarCompileVisitor<Result> v = new GrammarCompileVisitor<>();
+		accept(v);
+		return v.getCompiledGrammar();
 	}
+
+	public Result parse(LexicalContext lexicalContext) throws TLAParseException {
+		return compile().parse(lexicalContext);
+	}
+
+	public abstract <Result, Except extends Throwable> Result accept(GrammarVisitor<Result, Except> visitor) throws Except;
 }

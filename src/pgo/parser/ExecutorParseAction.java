@@ -26,16 +26,6 @@ public class ExecutorParseAction extends ParseAction {
 	}
 
 	@Override
-	public boolean mergeCompatible(ParseAction other) {
-		return false;
-	}
-
-	@Override
-	protected void mergeImpl(ParseAction other) {
-		throw new InternalCompilerError();
-	}
-
-	@Override
 	public boolean accept(ParseActionExecutor exec) {
 		return exec.visit(this);
 	}

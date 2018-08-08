@@ -25,16 +25,6 @@ public class QueryPositionParseAction extends ParseAction {
 	}
 
 	@Override
-	public boolean mergeCompatible(ParseAction other) {
-		return other instanceof QueryPositionParseAction;
-	}
-
-	@Override
-	protected void mergeImpl(ParseAction other) {
-		resultMutators.addAll(((QueryPositionParseAction)other).resultMutators);
-	}
-
-	@Override
 	public boolean accept(ParseActionExecutor exec) {
 		return exec.visit(this);
 	}

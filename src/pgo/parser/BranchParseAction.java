@@ -23,16 +23,6 @@ public final class BranchParseAction extends ParseAction {
 	}
 
 	@Override
-	public boolean mergeCompatible(ParseAction other) {
-		return other instanceof BranchParseAction;
-	}
-
-	@Override
-	protected void mergeImpl(ParseAction other) {
-		branches.addAll(((BranchParseAction)other).getBranches());
-	}
-
-	@Override
 	public boolean accept(ParseActionExecutor exec) {
 		return exec.visit(this);
 	}

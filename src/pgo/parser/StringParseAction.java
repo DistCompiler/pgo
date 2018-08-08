@@ -1,17 +1,13 @@
 package pgo.parser;
 
-import java.util.ArrayList;
-import java.util.List;
-
 public final class StringParseAction extends ParseAction {
 
 	private String toMatch;
-	private List<MutatorInterface<? super Located<Void>>> resultMutators;
+	private int resultLocation;
 
-	public StringParseAction(String toMatch, MutatorInterface<? super Located<Void>> resultMutator){
+	public StringParseAction(String toMatch, int resultLocation){
 		this.toMatch = toMatch;
-		this.resultMutators = new ArrayList<>();
-		this.resultMutators.add(resultMutator);
+		this.resultLocation = resultLocation;
 	}
 
 	@Override
@@ -20,21 +16,11 @@ public final class StringParseAction extends ParseAction {
 	}
 
 	public String getToMatch() { return toMatch; }
-	public List<MutatorInterface<? super Located<Void>>> getResultMutators() { return resultMutators; }
+	public int getResultLocation() { return resultLocation; }
 
 	@Override
 	public boolean isDecidable() {
 		return true;
-	}
-
-	@Override
-	public boolean mergeCompatible(ParseAction other) {
-		return other instanceof StringParseAction && toMatch.equals(((StringParseAction)other).toMatch);
-	}
-
-	@Override
-	protected void mergeImpl(ParseAction other) {
-		resultMutators.addAll(((StringParseAction)other).resultMutators);
 	}
 
 	@Override

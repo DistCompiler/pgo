@@ -14,6 +14,11 @@ public class Located<T> extends SourceLocatable {
 	}
 
 	@Override
+	public String toString() {
+		return ""+value+" at "+location;
+	}
+
+	@Override
 	public SourceLocation getLocation() {
 		return location;
 	}

@@ -89,6 +89,49 @@ public class TLAUnitParseTest {
 														opcall("P", idexp("self"))))
 										))
 				},
+				{"c1(self) == /\\ pc[self] = \"c1\"\n" +
+						"            /\\ (restaurant_stage[self] = \"commit\") \\/\n" +
+						"               (restaurant_stage[self] = \"abort\")\n" +
+						"            /\\ IF restaurant_stage[self] = \"commit\"\n" +
+						"                  THEN /\\ restaurant_stage' = [restaurant_stage EXCEPT ![self] = \"committed\"]\n" +
+						"                  ELSE /\\ restaurant_stage' = [restaurant_stage EXCEPT ![self] = \"aborted\"]\n" +
+						"            /\\ pc' = [pc EXCEPT ![self] = \"Done\"]\n" +
+						"            /\\ UNCHANGED << managers, rstMgrs, aborted >>",
+						opdef(false, id("c1"), opdecls(opdecl(id("self"))),
+								binop("/\\",
+										binop("/\\",
+												binop("/\\",
+														binop("/\\",
+																binop("=", fncall(idexp("pc"), idexp("self")), str("c1")),
+																binop("\\/",
+																		binop("=",
+																				fncall(idexp("restaurant_stage"), idexp("self")),
+																				str("commit")),
+																		binop("=",
+																				fncall(idexp("restaurant_stage"), idexp("self")),
+																				str("abort")))),
+														ifexp(
+																binop("=",
+																		fncall(idexp("restaurant_stage"), idexp("self")),
+																		str("commit")),
+																binop("=",
+																		unary("'", idexp("restaurant_stage")),
+																		except(
+																				idexp("restaurant_stage"),
+																				sub(keys(idexp("self")), str("committed")))),
+																binop("=",
+																		unary("'", idexp("restaurant_stage")),
+																		except(
+																				idexp("restaurant_stage"),
+																				sub(keys(idexp("self")), str("aborted")))))),
+												binop("=",
+														unary("'", idexp("pc")),
+														except(
+																idexp("pc"),
+																sub(keys(idexp("self")), str("Done"))))),
+										unary("UNCHANGED",
+												tuple(idexp("managers"), idexp("rstMgrs"), idexp("aborted")))))
+				},
 		});
 	}
 	

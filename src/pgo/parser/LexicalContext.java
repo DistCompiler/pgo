@@ -18,7 +18,7 @@ public class LexicalContext {
 	private int line;
 	private int column;
 	private int index;
-	
+
 	public static class Mark{
 		private int markedLine;
 		private int markedColumn;

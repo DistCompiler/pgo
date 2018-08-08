@@ -20,7 +20,7 @@ public abstract class ParseFailure {
 	public ParseFailure() {
 		this.context = new ArrayList<>();
 	}
-	
+
 	public List<ActionContext> getContext() {
 		return context;
 	}
@@ -39,34 +39,12 @@ public abstract class ParseFailure {
 	
 	@Override
 	public String toString() {
-		ParseFailureOrderingVisitor v = new ParseFailureOrderingVisitor();
-		accept(v);
 		StringWriter w = new StringWriter();
 		IndentingWriter out = new IndentingWriter(w);
-		boolean first = true;
-		for(Map.Entry<SourceLocation, List<ParseFailure>> e : v.getFailures().entrySet()) {
-			try {
-				if(first) {
-					first = false;
-				}else {
-					out.newLine();
-				}
-				out.write("Parse failure at line " + e.getKey().getStartLine() + " column " + e.getKey().getStartColumn() + ":");
-				try(IndentingWriter.Indent i_ = out.indent()){
-					for(ParseFailure f : e.getValue()) {
-						out.newLine();
-						f.accept(new ParseFailureFormattingVisitor(out));
-						try(IndentingWriter.Indent ii_ = out.indent()){
-							for(ActionContext ctx : f.getContext()) {
-								out.newLine();
-								ctx.accept(new ParseActionContextFormattingVisitor(out));
-							}
-						}
-					}
-				}
-			} catch (IOException e1) {
-				throw new RuntimeException("string writers should not throw IO exceptions", e1);
-			}
+		try{
+			accept(new ParseFailureFormattingVisitor(out));
+		} catch (IOException e1) {
+			throw new RuntimeException("string writers should not throw IO exceptions", e1);
 		}
 		return w.toString();
 	}
@@ -283,4 +261,58 @@ public abstract class ParseFailure {
 
 	public static ParseSuccess parseSuccess() { return new ParseSuccess(); }
 
+	public static ParseFailure eofMatchFailure() {
+		return new EOFMatchFailure();
+	}
+
+	public static class EOFMatchFailure extends ParseFailure {
+		@Override
+		public boolean equals(Object other) {
+			return other instanceof EOFMatchFailure;
+		}
+
+		@Override
+		public int hashCode() {
+			return 0;
+		}
+
+		@Override
+		public <T, E extends Throwable> T accept(ParseFailureVisitor<T, E> v) throws E {
+			return v.visit(this);
+		}
+	}
+
+	public static ParseFailure rejectFailure(List<ParseAction> toReject) {
+		return new RejectFailure(toReject);
+	}
+
+	public static class RejectFailure extends ParseFailure {
+		private List<ParseAction> toReject;
+
+		public RejectFailure(List<ParseAction> toReject) {
+			this.toReject = toReject;
+		}
+
+		public List<ParseAction> getToReject() {
+			return toReject;
+		}
+
+		@Override
+		public <T, E extends Throwable> T accept(ParseFailureVisitor<T, E> v) throws E {
+			return v.visit(this);
+		}
+
+		@Override
+		public boolean equals(Object o) {
+			if (this == o) return true;
+			if (o == null || getClass() != o.getClass()) return false;
+			RejectFailure that = (RejectFailure) o;
+			return Objects.equals(toReject, that.toReject);
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(toReject);
+		}
+	}
 }

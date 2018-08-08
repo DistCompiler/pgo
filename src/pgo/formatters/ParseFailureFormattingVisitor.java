@@ -57,4 +57,16 @@ public class ParseFailureFormattingVisitor extends ParseFailureVisitor<Void, IOE
 		return null;
 	}
 
+	@Override
+	public Void visit(ParseFailure.EOFMatchFailure eofMatchFailure) throws IOException {
+		out.write("failed to match EOF");
+		return null;
+	}
+
+	@Override
+	public Void visit(ParseFailure.RejectFailure rejectFailure) throws IOException {
+		out.write("failed to reject "+rejectFailure.getToReject());
+		return null;
+	}
+
 }

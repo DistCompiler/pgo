@@ -25,16 +25,6 @@ public class FailParseAction extends ParseAction {
 	}
 
 	@Override
-	public boolean mergeCompatible(ParseAction other) {
-		return other instanceof FailParseAction;
-	}
-
-	@Override
-	protected void mergeImpl(ParseAction other) {
-		failures.addAll(((FailParseAction)other).getFailures());
-	}
-
-	@Override
 	public boolean accept(ParseActionExecutor exec) {
 		return exec.visit(this);
 	}

@@ -74,9 +74,11 @@ public class TLANodePrintEquivalenceTest {
 		if(ast instanceof PGoTLAExpression) {
 			actual = TLAParser.readExpression(ctx);
 		}else if(ast instanceof PGoTLAModule) {
-			actual = TLAParser.readModules(ctx).get(0);
+			List<PGoTLAModule> modules = TLAParser.readModules(ctx);
+			actual = modules.get(0);
 		}else if(ast instanceof PGoTLAUnit) {
-			actual = TLAParser.readUnits(ctx).get(0);
+			List<PGoTLAUnit> units = TLAParser.readUnits(ctx);
+			actual = units.get(0);
 		}else {
 			throw new RuntimeException("you can only directly write tests for modules, units and expressions");
 		}

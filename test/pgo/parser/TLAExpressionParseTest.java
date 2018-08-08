@@ -40,9 +40,19 @@ public class TLAExpressionParseTest {
 
 				// conjunct/disjunct cases (indent-sensitive)
 				{"/\\ a", idexp("a") },
-				{"/\\ a\n/\\ b", conjunct(idexp("a"), idexp("b")) },
-				{"  /\\ a\n  /\\ b\n/\\ c", conjunct(conjunct(idexp("a"), idexp("b")), idexp("c")) },
-				{"  /\\ a\n  /\\ b\n  /\\ c", conjunct(idexp("a"), conjunct(idexp("b"), idexp("c"))) },
+				{
+					"/\\ a\n"
+						+"/\\ b", conjunct(idexp("a"), idexp("b")) },
+				{
+					"  /\\ a\n"
+						+"  /\\ b\n"
+						+"/\\ c", conjunct(conjunct(idexp("a"), idexp("b")), idexp("c")) },
+				{"  /\\ a\n"
+						+"  /\\ b\n"
+						+"  /\\ c", conjunct(conjunct(idexp("a"), idexp("b")), idexp("c")) },
+				{"  /\\ a\n"
+						+"/\\ b\n"
+						+"  /\\ c", conjunct(conjunct(idexp("a"), idexp("b")), idexp("c")) },
 
 				// case expressions
 				{"CASE x -> 1", caseexp(arms(arm(idexp("x"), num(1))), null) },
@@ -79,6 +89,7 @@ public class TLAExpressionParseTest {
 				{"\\lnot DOMAIN a", unary("\\lnot", unary("DOMAIN", idexp("a"))) },
 
 				// set construction
+				{"0..1", binop("..", num(0), num(1))},
 				{"0..procs-1", binop("..", num(0), binop("-", idexp("procs"), num(1)))},
 
 				// TODO desc
@@ -138,6 +149,17 @@ public class TLAExpressionParseTest {
 				{"<<24, v_init, \"have gcd\", v>>",
 						tuple(num(24), idexp("v_init"), str("have gcd"), idexp("v"))
 				},
+
+				// postfix / performance
+				{"msg'[1]",
+						fncall(unary("'", idexp("msg")), num(1))
+				},
+				{"Append(output, msg'[1])",
+						opcall("Append", idexp("output"), fncall(unary("'", idexp("msg")), num(1)))
+				},
+				/*{"Append(network[(N+1)], <<self, (<<a_init[self],b_init[self]>>)>>)",
+						opcall("Append", )
+				},*/
 
 				// a string with spaces in it
 				{"\"have gcd\"",

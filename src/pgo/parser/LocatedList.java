@@ -29,6 +29,11 @@ public class LocatedList<T> extends SourceLocatable implements List<T> {
 	}
 
 	@Override
+	public String toString() {
+		return list.toString() + " at " + location;
+	}
+
+	@Override
 	public SourceLocation getLocation() {
 		return location;
 	}
