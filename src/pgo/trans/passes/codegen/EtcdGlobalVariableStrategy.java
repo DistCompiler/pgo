@@ -3,8 +3,12 @@ package pgo.trans.passes.codegen;
 import pgo.PGoNetOptions;
 import pgo.Unreachable;
 import pgo.model.golang.*;
-import pgo.model.pcal.Algorithm;
-import pgo.model.pcal.PcalProcess;
+import pgo.model.golang.builder.GoBlockBuilder;
+import pgo.model.golang.builder.GoModuleBuilder;
+import pgo.model.golang.type.GoType;
+import pgo.model.golang.type.GoTypeName;
+import pgo.model.pcal.PlusCalAlgorithm;
+import pgo.model.pcal.PlusCalProcess;
 import pgo.model.type.PGoType;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
@@ -17,7 +21,7 @@ public class EtcdGlobalVariableStrategy extends GlobalVariableStrategy {
 	private DefinitionRegistry registry;
 	private Map<UID, PGoType> typeMap;
 	private PGoNetOptions.StateOptions stateOptions;
-	private Algorithm algorithm;
+	private PlusCalAlgorithm plusCalAlgorithm;
 	private GoCommandLineArgumentParser commandLineArgumentParser;
 	private UID processNameUID;
 	private UID processArgumentUID;
@@ -25,11 +29,11 @@ public class EtcdGlobalVariableStrategy extends GlobalVariableStrategy {
 	private UID globalStateUID;
 
 	public EtcdGlobalVariableStrategy(DefinitionRegistry registry, Map<UID, PGoType> typeMap,
-	                                  PGoNetOptions.StateOptions stateOptions, Algorithm algorithm) {
+	                                  PGoNetOptions.StateOptions stateOptions, PlusCalAlgorithm plusCalAlgorithm) {
 		this.registry = registry;
 		this.typeMap = typeMap;
 		this.stateOptions = stateOptions;
-		this.algorithm = algorithm;
+		this.plusCalAlgorithm = plusCalAlgorithm;
 		this.commandLineArgumentParser = new GoCommandLineArgumentParser();
 		this.processNameUID = new UID();
 		this.processArgumentUID = new UID();
@@ -38,88 +42,88 @@ public class EtcdGlobalVariableStrategy extends GlobalVariableStrategy {
 	}
 
 	@Override
-	public void initPostlude(ModuleBuilder moduleBuilder, BlockBuilder initBuilder) {
-		VariableName processName = moduleBuilder.defineGlobal(processNameUID, "processName", Builtins.String);
+	public void initPostlude(GoModuleBuilder moduleBuilder, GoBlockBuilder initBuilder) {
+		GoVariableName processName = moduleBuilder.defineGlobal(processNameUID, "processName", GoBuiltins.String);
 		addVariable(processNameUID, processName);
-		VariableName processArgument = moduleBuilder.defineGlobal(processArgumentUID, "processArgument", Builtins.String);
+		GoVariableName processArgument = moduleBuilder.defineGlobal(processArgumentUID, "processArgument", GoBuiltins.String);
 		addVariable(processArgumentUID, processArgument);
 		commandLineArgumentParser.addPositionalArgument("processPlusArgument", "processName(processArgument)");
 		commandLineArgumentParser.addPositionalArgument("ipPort", "ip:port");
-		List<VariableName> commandLineArguments = commandLineArgumentParser.generateArgumentParsingCode(initBuilder);
-		VariableName processPlusArgument = commandLineArguments.get(0);
-		VariableName ipPort = commandLineArguments.get(1);
+		List<GoVariableName> commandLineArguments = commandLineArgumentParser.generateArgumentParsingCode(initBuilder);
+		GoVariableName processPlusArgument = commandLineArguments.get(0);
+		GoVariableName ipPort = commandLineArguments.get(1);
 		CodeGenUtil.generateArgumentParsing(initBuilder, processPlusArgument, processName, processArgument);
 
 		moduleBuilder.addImport("pgo/distsys");
-		VariableName err = moduleBuilder.defineGlobal(errUID, "err", Builtins.Error);
+		GoVariableName err = moduleBuilder.defineGlobal(errUID, "err", GoBuiltins.Error);
 		addVariable(errUID, err);
-		VariableName globalState = moduleBuilder.defineGlobal(
-				globalStateUID, "globalState", new PtrType(new TypeName("distsys.EtcdState")));
+		GoVariableName globalState = moduleBuilder.defineGlobal(
+				globalStateUID, "globalState", new GoPtrType(new GoTypeName("distsys.EtcdState")));
 		addVariable(globalStateUID, globalState);
-		VariableName peers = initBuilder.varDecl(
+		GoVariableName peers = initBuilder.varDecl(
 				"peers",
-				new SliceLiteral(
-						Builtins.String,
-						stateOptions.peers.stream().map(StringLiteral::new) .collect(Collectors.toList())));
-		VariableName coordinator = initBuilder.varDecl("coordinator", new Index(peers, new IntLiteral(0)));
+				new GoSliceLiteral(
+						GoBuiltins.String,
+						stateOptions.peers.stream().map(GoStringLiteral::new) .collect(Collectors.toList())));
+		GoVariableName coordinator = initBuilder.varDecl("coordinator", new GoIndexExpression(peers, new GoIntLiteral(0)));
 		initBuilder.assign(
 				Arrays.asList(globalState, err),
-				new Call(
-						new Selector(new VariableName("distsys"), "NewEtcdState"),
+				new GoCall(
+						new GoSelectorExpression(new GoVariableName("distsys"), "NewEtcdState"),
 						Arrays.asList(
-								new SliceLiteral(
-										Builtins.String,
+								new GoSliceLiteral(
+										GoBuiltins.String,
 										stateOptions.endpoints.stream()
-												.map(e -> new StringLiteral("http://" + e))
+												.map(e -> new GoStringLiteral("http://" + e))
 												.collect(Collectors.toList())),
-								new IntLiteral(stateOptions.timeout),
+								new GoIntLiteral(stateOptions.timeout),
 								peers,
 								ipPort,
 								coordinator,
-								new MapLiteral(
-										Builtins.String,
-										Builtins.Interface,
-										new HashMap<Expression, Expression>() {{
+								new GoMapLiteral(
+										GoBuiltins.String,
+										GoBuiltins.Interface,
+										new HashMap<GoExpression, GoExpression>() {{
 											for (UID varUID : registry.protectedGlobalVariables()) {
-												VariableName variableName = initBuilder.findUID(varUID);
-												put(new StringLiteral(variableName.getName()), variableName);
+												GoVariableName variableName = initBuilder.findUID(varUID);
+												put(new GoStringLiteral(variableName.getName()), variableName);
 											}
 										}}))));
-		try (IfBuilder ifBuilder = initBuilder.ifStmt(new Binop(Binop.Operation.NEQ, err, Builtins.Nil))) {
-			try (BlockBuilder yes = ifBuilder.whenTrue()) {
+		try (GoIfBuilder ifBuilder = initBuilder.ifStmt(new GoBinop(GoBinop.Operation.NEQ, err, GoBuiltins.Nil))) {
+			try (GoBlockBuilder yes = ifBuilder.whenTrue()) {
 				yes.addPanic(err);
 			}
 		}
 	}
 
 	@Override
-	public void processPrelude(BlockBuilder processBody, PcalProcess process, String processName, VariableName self, Type selfType) {
-		VariableName selfStr;
-		if (selfType.equals(Builtins.Int)) {
+	public void processPrelude(GoBlockBuilder processBody, PlusCalProcess process, String processName, GoVariableName self, GoType selfType) {
+		GoVariableName selfStr;
+		if (selfType.equals(GoBuiltins.Int)) {
 			// selfStr := "processName(" + strconv.Itoa(self) + ")"
 			processBody.addImport("strconv");
 			selfStr = processBody.varDecl(
 					"selfStr",
-					new Binop(
-							Binop.Operation.PLUS,
-							new Binop(
-									Binop.Operation.PLUS,
-									new StringLiteral(processName + "("),
-									new Call(
-											new Selector(new VariableName("strconv"), "Itoa"),
+					new GoBinop(
+							GoBinop.Operation.PLUS,
+							new GoBinop(
+									GoBinop.Operation.PLUS,
+									new GoStringLiteral(processName + "("),
+									new GoCall(
+											new GoSelectorExpression(new GoVariableName("strconv"), "Itoa"),
 											Collections.singletonList(self))),
-							new StringLiteral(")")));
-		} else if (selfType.equals(Builtins.String)) {
+							new GoStringLiteral(")")));
+		} else if (selfType.equals(GoBuiltins.String)) {
 			// selfStr := "processName(" + self + ")"
 			selfStr = processBody.varDecl(
 					"selfStr",
-					new Binop(
-							Binop.Operation.PLUS,
-							new Binop(
-									Binop.Operation.PLUS,
-									new StringLiteral(processName + "("),
+					new GoBinop(
+							GoBinop.Operation.PLUS,
+							new GoBinop(
+									GoBinop.Operation.PLUS,
+									new GoStringLiteral(processName + "("),
 									self),
-							new StringLiteral(")")));
+							new GoStringLiteral(")")));
 		} else {
 			throw new Unreachable();
 		}
@@ -127,63 +131,63 @@ public class EtcdGlobalVariableStrategy extends GlobalVariableStrategy {
 	}
 
 	@Override
-	public void mainPrelude(BlockBuilder builder) {
+	public void mainPrelude(GoBlockBuilder builder) {
 		StateServerGlobalVariableStrategy.generateProcessSwitch(
-				typeMap, algorithm, builder, findVariable(processNameUID), findVariable(processArgumentUID));
+				typeMap, plusCalAlgorithm, builder, findVariable(processNameUID), findVariable(processArgumentUID));
 	}
 
 	@Override
-	public void startCriticalSection(BlockBuilder builder, UID processUID, int lockGroup, UID labelUID, LabelName labelName) {
+	public void startCriticalSection(GoBlockBuilder builder, UID processUID, int lockGroup, UID labelUID, GoLabelName labelName) {
 		Set<UID> readSet = new HashSet<>(registry.getVariableReadsInLockGroup(lockGroup));
 		Set<UID> writeSet = registry.getVariableWritesInLockGroup(lockGroup);
 		readSet.removeAll(writeSet);
-		VariableName globalState = findVariable(globalStateUID);
-		builder.addStatement(new Call(
-				new Selector(findVariable(globalStateUID), "Lock"),
-				Arrays.asList(findVariable(processUID), new StringLiteral(Integer.toString(lockGroup)))));
+		GoVariableName globalState = findVariable(globalStateUID);
+		builder.addStatement(new GoCall(
+				new GoSelectorExpression(findVariable(globalStateUID), "Lock"),
+				Arrays.asList(findVariable(processUID), new GoStringLiteral(Integer.toString(lockGroup)))));
 		for (UID varUID : writeSet) {
-			VariableName variableName = builder.findUID(varUID);
-			builder.addStatement(new Call(
-					new Selector(globalState, "Get"),
+			GoVariableName variableName = builder.findUID(varUID);
+			builder.addStatement(new GoCall(
+					new GoSelectorExpression(globalState, "Get"),
 					Arrays.asList(
-							new StringLiteral(variableName.getName()),
-							new Unary(Unary.Operation.ADDR, variableName))));
+							new GoStringLiteral(variableName.getName()),
+							new GoUnary(GoUnary.Operation.ADDR, variableName))));
 		}
 		for (UID varUID : readSet) {
-			VariableName variableName = builder.findUID(varUID);
-			builder.addStatement(new Call(
-					new Selector(globalState, "Get"),
+			GoVariableName variableName = builder.findUID(varUID);
+			builder.addStatement(new GoCall(
+					new GoSelectorExpression(globalState, "Get"),
 					Arrays.asList(
-							new StringLiteral(variableName.getName()),
-							new Unary(Unary.Operation.ADDR, variableName))));
+							new GoStringLiteral(variableName.getName()),
+							new GoUnary(GoUnary.Operation.ADDR, variableName))));
 		}
 	}
 
 	@Override
-	public void abortCriticalSection(BlockBuilder builder, UID processUID, int lockGroup, UID labelUID, LabelName labelName) {
-		builder.addStatement(new Call(
-				new Selector(findVariable(globalStateUID), "Unlock"),
-				Arrays.asList(findVariable(processUID), new StringLiteral(Integer.toString(lockGroup)))));
+	public void abortCriticalSection(GoBlockBuilder builder, UID processUID, int lockGroup, UID labelUID, GoLabelName labelName) {
+		builder.addStatement(new GoCall(
+				new GoSelectorExpression(findVariable(globalStateUID), "Unlock"),
+				Arrays.asList(findVariable(processUID), new GoStringLiteral(Integer.toString(lockGroup)))));
 	}
 
 	@Override
-	public void endCriticalSection(BlockBuilder builder, UID processUID, int lockGroup, UID labelUID, LabelName labelName) {
-		VariableName globalState = findVariable(globalStateUID);
+	public void endCriticalSection(GoBlockBuilder builder, UID processUID, int lockGroup, UID labelUID, GoLabelName labelName) {
+		GoVariableName globalState = findVariable(globalStateUID);
 		for (UID varUID : registry.getVariableWritesInLockGroup(lockGroup)) {
-			VariableName variableName = builder.findUID(varUID);
-			builder.addStatement(new Call(
-					new Selector(globalState, "Set"),
+			GoVariableName variableName = builder.findUID(varUID);
+			builder.addStatement(new GoCall(
+					new GoSelectorExpression(globalState, "Set"),
 					Arrays.asList(
-							new StringLiteral(variableName.getName()),
+							new GoStringLiteral(variableName.getName()),
 							variableName)));
 		}
-		builder.addStatement(new Call(
-				new Selector(findVariable(globalStateUID), "Unlock"),
-				Arrays.asList(findVariable(processUID), new StringLiteral(Integer.toString(lockGroup)))));
+		builder.addStatement(new GoCall(
+				new GoSelectorExpression(findVariable(globalStateUID), "Unlock"),
+				Arrays.asList(findVariable(processUID), new GoStringLiteral(Integer.toString(lockGroup)))));
 	}
 
 	@Override
-	public Expression readGlobalVariable(BlockBuilder builder, UID uid) {
+	public GoExpression readGlobalVariable(GoBlockBuilder builder, UID uid) {
 		return builder.findUID(uid);
 	}
 
@@ -191,12 +195,12 @@ public class EtcdGlobalVariableStrategy extends GlobalVariableStrategy {
 	public GlobalVariableWrite writeGlobalVariable(UID uid) {
 		return new GlobalVariableWrite() {
 			@Override
-			public Expression getValueSink(BlockBuilder builder) {
+			public GoExpression getValueSink(GoBlockBuilder builder) {
 				return builder.findUID(uid);
 			}
 
 			@Override
-			public void writeAfter(BlockBuilder builder) {
+			public void writeAfter(GoBlockBuilder builder) {
 
 			}
 		};

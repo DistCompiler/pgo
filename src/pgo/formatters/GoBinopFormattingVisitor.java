@@ -8,36 +8,36 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
-public class GoBinopFormattingVisitor extends ExpressionVisitor<Void, IOException> {
+public class GoBinopFormattingVisitor extends GoExpressionVisitor<Void, IOException> {
 
 	private final IndentingWriter out;
 	private final int precedence;
 
-	private static Map<Binop.Operation, Integer> operatorPrecedence = new HashMap<>();
+	private static Map<GoBinop.Operation, Integer> operatorPrecedence = new HashMap<>();
 	static{
 		// *  /  %  <<  >>  &  &^
-		for(Binop.Operation op : Arrays.asList(
-				Binop.Operation.TIMES, Binop.Operation.DIVIDE,
-				Binop.Operation.MOD, Binop.Operation.LSHIFT,
-				Binop.Operation.RSHIFT, Binop.Operation.BAND,
-				Binop.Operation.BCLEAR)){
+		for(GoBinop.Operation op : Arrays.asList(
+				GoBinop.Operation.TIMES, GoBinop.Operation.DIVIDE,
+				GoBinop.Operation.MOD, GoBinop.Operation.LSHIFT,
+				GoBinop.Operation.RSHIFT, GoBinop.Operation.BAND,
+				GoBinop.Operation.BCLEAR)){
 			operatorPrecedence.put(op, 5);
 		}
 		// +  -  |  ^
-		for(Binop.Operation op : Arrays.asList(Binop.Operation.PLUS, Binop.Operation.MINUS,
-				Binop.Operation.BOR, Binop.Operation.BXOR)){
+		for(GoBinop.Operation op : Arrays.asList(GoBinop.Operation.PLUS, GoBinop.Operation.MINUS,
+				GoBinop.Operation.BOR, GoBinop.Operation.BXOR)){
 			operatorPrecedence.put(op, 4);
 		}
 		// ==  !=  <  <=  >  >=
-		for(Binop.Operation op : Arrays.asList(Binop.Operation.EQ, Binop.Operation.NEQ,
-				Binop.Operation.LT, Binop.Operation.LEQ,
-				Binop.Operation.GT, Binop.Operation.GEQ)){
+		for(GoBinop.Operation op : Arrays.asList(GoBinop.Operation.EQ, GoBinop.Operation.NEQ,
+				GoBinop.Operation.LT, GoBinop.Operation.LEQ,
+				GoBinop.Operation.GT, GoBinop.Operation.GEQ)){
 			operatorPrecedence.put(op, 3);
 		}
 		// &&
-		operatorPrecedence.put(Binop.Operation.AND, 2);
+		operatorPrecedence.put(GoBinop.Operation.AND, 2);
 		// ||
-		operatorPrecedence.put(Binop.Operation.OR, 1);
+		operatorPrecedence.put(GoBinop.Operation.OR, 1);
 	}
 
 	public GoBinopFormattingVisitor(IndentingWriter out, int precedence){
@@ -46,85 +46,85 @@ public class GoBinopFormattingVisitor extends ExpressionVisitor<Void, IOExceptio
 	}
 
 	@Override
-	public Void visit(VariableName v) throws IOException {
+	public Void visit(GoVariableName v) throws IOException {
 		v.accept(new GoExpressionFormattingVisitor(out));
 		return null;
 	}
 
 	@Override
-	public Void visit(Builtins.BuiltinConstant v) throws IOException {
+	public Void visit(GoBuiltins.BuiltinConstant v) throws IOException {
 		v.accept(new GoExpressionFormattingVisitor(out));
 		return null;
 	}
 
 	@Override
-	public Void visit(IntLiteral intLiteral) throws IOException {
+	public Void visit(GoIntLiteral intLiteral) throws IOException {
 		intLiteral.accept(new GoExpressionFormattingVisitor(out));
 		return null;
 	}
 
 	@Override
-	public Void visit(MapLiteral mapConstructor) throws IOException {
+	public Void visit(GoMapLiteral mapConstructor) throws IOException {
 		mapConstructor.accept(new GoExpressionFormattingVisitor(out));
 		return null;
 	}
 
 	@Override
-	public Void visit(StringLiteral stringLiteral) throws IOException {
+	public Void visit(GoStringLiteral stringLiteral) throws IOException {
 		stringLiteral.accept(new GoExpressionFormattingVisitor(out));
 		return null;
 	}
 
 	@Override
-	public Void visit(Index index) throws IOException {
+	public Void visit(GoIndexExpression index) throws IOException {
 		index.accept(new GoExpressionFormattingVisitor(out));
 		return null;
 	}
 
 	@Override
-	public Void visit(SliceOperator slice) throws IOException {
+	public Void visit(GoSliceOperator slice) throws IOException {
 		slice.accept(new GoExpressionFormattingVisitor(out));
 		return null;
 	}
 
 	@Override
-	public Void visit(SliceLiteral sliceConstructor) throws IOException {
+	public Void visit(GoSliceLiteral sliceConstructor) throws IOException {
 		sliceConstructor.accept(new GoExpressionFormattingVisitor(out));
 		return null;
 	}
 
 	@Override
-	public Void visit(TypeAssertion typeAssertion) throws IOException {
+	public Void visit(GoTypeAssertion typeAssertion) throws IOException {
 		typeAssertion.accept(new GoExpressionFormattingVisitor(out));
 		return null;
 	}
 
 	@Override
-	public Void visit(AnonymousFunction anonymousFunction) throws IOException {
+	public Void visit(GoAnonymousFunction anonymousFunction) throws IOException {
 		anonymousFunction.accept(new GoExpressionFormattingVisitor(out));
 		return null;
 	}
 
 	@Override
-	public Void visit(Call call) throws IOException {
+	public Void visit(GoCall call) throws IOException {
 		call.accept(new GoExpressionFormattingVisitor(out));
 		return null;
 	}
 
 	@Override
-	public Void visit(TypeCast typeCast) throws IOException {
+	public Void visit(GoTypeCast typeCast) throws IOException {
 		typeCast.accept(new GoExpressionFormattingVisitor(out));
 		return null;
 	}
 
 	@Override
-	public Void visit(StructLiteral structLiteral) throws IOException {
+	public Void visit(GoStructLiteral structLiteral) throws IOException {
 		structLiteral.accept(new GoExpressionFormattingVisitor(out));
 		return null;
 	}
 
 	@Override
-	public Void visit(Binop binop) throws IOException {
+	public Void visit(GoBinop binop) throws IOException {
 		int newPrecedence = operatorPrecedence.get(binop.getOperation());
 		int nextPrecedence = newPrecedence;
 		if(newPrecedence < precedence){
@@ -203,7 +203,7 @@ public class GoBinopFormattingVisitor extends ExpressionVisitor<Void, IOExceptio
 	}
 
 	@Override
-	public Void visit(Unary unary) throws IOException {
+	public Void visit(GoUnary unary) throws IOException {
 		switch (unary.getOperation()) {
 			case POS:
 				out.write("+");
@@ -234,13 +234,13 @@ public class GoBinopFormattingVisitor extends ExpressionVisitor<Void, IOExceptio
 	}
 
 	@Override
-	public Void visit(Selector dot) throws IOException {
+	public Void visit(GoSelectorExpression dot) throws IOException {
 		dot.accept(new GoExpressionFormattingVisitor(out));
 		return null;
 	}
 
 	@Override
-	public Void visit(Make make) throws IOException {
+	public Void visit(GoMakeExpression make) throws IOException {
 		make.accept(new GoExpressionFormattingVisitor(out));
 		return null;
 	}

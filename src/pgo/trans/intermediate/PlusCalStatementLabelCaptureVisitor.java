@@ -4,25 +4,10 @@ import java.util.List;
 
 import pgo.Unreachable;
 import pgo.errors.IssueContext;
-import pgo.model.pcal.Assert;
-import pgo.model.pcal.Assignment;
-import pgo.model.pcal.Await;
-import pgo.model.pcal.Call;
-import pgo.model.pcal.Either;
-import pgo.model.pcal.Goto;
-import pgo.model.pcal.If;
-import pgo.model.pcal.Label;
-import pgo.model.pcal.LabeledStatements;
-import pgo.model.pcal.MacroCall;
-import pgo.model.pcal.Print;
-import pgo.model.pcal.Return;
-import pgo.model.pcal.Skip;
-import pgo.model.pcal.Statement;
-import pgo.model.pcal.StatementVisitor;
-import pgo.model.pcal.While;
-import pgo.model.pcal.With;
+import pgo.model.pcal.*;
+import pgo.model.pcal.PlusCalAssert;
 
-public class PlusCalStatementLabelCaptureVisitor extends StatementVisitor<Void, RuntimeException> {
+public class PlusCalStatementLabelCaptureVisitor extends PlusCalStatementVisitor<Void, RuntimeException> {
 
 	IssueContext ctx;
 	TLAScopeBuilder builder;
@@ -33,12 +18,12 @@ public class PlusCalStatementLabelCaptureVisitor extends StatementVisitor<Void, 
 	}
 
 	@Override
-	public Void visit(LabeledStatements labeledStatements) throws RuntimeException {
+	public Void visit(PlusCalLabeledStatements labeledStatements) throws RuntimeException {
 		String name = labeledStatements.getLabel().getName();
-		Label label = labeledStatements.getLabel();
+		PlusCalLabel label = labeledStatements.getLabel();
 		builder.declare(name, label.getUID());
 
-		for(Statement stmt : labeledStatements.getStatements()) {
+		for(PlusCalStatement stmt : labeledStatements.getStatements()) {
 			stmt.accept(this);
 		}
 
@@ -46,28 +31,28 @@ public class PlusCalStatementLabelCaptureVisitor extends StatementVisitor<Void, 
 	}
 
 	@Override
-	public Void visit(While while1) throws RuntimeException {
-		for(Statement stmt : while1.getBody()) {
+	public Void visit(PlusCalWhile plusCalWhile) throws RuntimeException {
+		for(PlusCalStatement stmt : plusCalWhile.getBody()) {
 			stmt.accept(this);
 		}
 		return null;
 	}
 
 	@Override
-	public Void visit(If if1) throws RuntimeException {
-		for(Statement stmt : if1.getYes()) {
+	public Void visit(PlusCalIf plusCalIf) throws RuntimeException {
+		for(PlusCalStatement stmt : plusCalIf.getYes()) {
 			stmt.accept(this);
 		}
-		for(Statement stmt : if1.getNo()) {
+		for(PlusCalStatement stmt : plusCalIf.getNo()) {
 			stmt.accept(this);
 		}
 		return null;
 	}
 
 	@Override
-	public Void visit(Either either) throws RuntimeException {
-		for(List<Statement> list : either.getCases()) {
-			for(Statement stmt : list) {
+	public Void visit(PlusCalEither plusCalEither) throws RuntimeException {
+		for(List<PlusCalStatement> list : plusCalEither.getCases()) {
+			for(PlusCalStatement stmt : list) {
 				stmt.accept(this);
 			}
 		}
@@ -75,55 +60,55 @@ public class PlusCalStatementLabelCaptureVisitor extends StatementVisitor<Void, 
 	}
 
 	@Override
-	public Void visit(Assignment assignment) throws RuntimeException {
+	public Void visit(PlusCalAssignment plusCalAssignment) throws RuntimeException {
 		return null;
 	}
 
 	@Override
-	public Void visit(Return return1) throws RuntimeException {
+	public Void visit(PlusCalReturn plusCalReturn) throws RuntimeException {
 		return null;
 	}
 
 	@Override
-	public Void visit(Skip skip) throws RuntimeException {
+	public Void visit(PlusCalSkip skip) throws RuntimeException {
 		return null;
 	}
 
 	@Override
-	public Void visit(Call call) throws RuntimeException {
+	public Void visit(PlusCalCall plusCalCall) throws RuntimeException {
 		return null;
 	}
 
 	@Override
-	public Void visit(MacroCall macroCall) throws RuntimeException {
+	public Void visit(PlusCalMacroCall macroCall) throws RuntimeException {
 		throw new Unreachable();
 	}
 
 	@Override
-	public Void visit(With with) throws RuntimeException {
-		for(Statement stmt : with.getBody()) {
+	public Void visit(PlusCalWith with) throws RuntimeException {
+		for(PlusCalStatement stmt : with.getBody()) {
 			stmt.accept(this);
 		}
 		return null;
 	}
 
 	@Override
-	public Void visit(Print print) throws RuntimeException {
+	public Void visit(PlusCalPrint plusCalPrint) throws RuntimeException {
 		return null;
 	}
 
 	@Override
-	public Void visit(Assert assert1) throws RuntimeException {
+	public Void visit(PlusCalAssert plusCalAssert) throws RuntimeException {
 		return null;
 	}
 
 	@Override
-	public Void visit(Await await) throws RuntimeException {
+	public Void visit(PlusCalAwait plusCalAwait) throws RuntimeException {
 		return null;
 	}
 
 	@Override
-	public Void visit(Goto goto1) throws RuntimeException {
+	public Void visit(PlusCalGoto plusCalGoto) throws RuntimeException {
 		return null;
 	}
 

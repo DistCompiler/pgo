@@ -6,62 +6,62 @@ import java.util.Set;
 
 import pgo.model.golang.*;
 
-public class GoStatementFindUsedLabelsVisitor extends StatementVisitor<Set<String>, RuntimeException> {
+public class GoStatementFindUsedLabelsVisitor extends GoStatementVisitor<Set<String>, RuntimeException> {
 
 	@Override
-	public Set<String> visit(Comment comment) throws RuntimeException {
+	public Set<String> visit(GoComment comment) throws RuntimeException {
 		return Collections.emptySet();
 	}
 
 	@Override
-	public Set<String> visit(Assignment assignment) throws RuntimeException {
+	public Set<String> visit(GoAssignmentStatement assignment) throws RuntimeException {
 		return Collections.emptySet();
 	}
 
 	@Override
-	public Set<String> visit(Return return1) throws RuntimeException {
+	public Set<String> visit(GoReturn goReturn) throws RuntimeException {
 		return Collections.emptySet();
 	}
 
 	@Override
-	public Set<String> visit(Block block) throws RuntimeException {
+	public Set<String> visit(GoBlock block) throws RuntimeException {
 		Set<String> result = new HashSet<>();
-		for(Statement stmt : block.getStatements()) {
+		for(GoStatement stmt : block.getStatements()) {
 			result.addAll(stmt.accept(this));
 		}
 		return result;
 	}
 
 	@Override
-	public Set<String> visit(For for1) throws RuntimeException {
-		return for1.getBody().accept(this);
+	public Set<String> visit(GoFor goFor) throws RuntimeException {
+		return goFor.getBody().accept(this);
 	}
 
 	@Override
-	public Set<String> visit(ForRange forRange) throws RuntimeException {
+	public Set<String> visit(GoForRange forRange) throws RuntimeException {
 		return forRange.getBody().accept(this);
 	}
 
 	@Override
-	public Set<String> visit(If if1) throws RuntimeException {
+	public Set<String> visit(GoIf goIf) throws RuntimeException {
 		Set<String> result = new HashSet<>();
-		result.addAll(if1.getThen().accept(this));
-		if (if1.getElse() != null) {
-			result.addAll(if1.getElse().accept(this));
+		result.addAll(goIf.getThen().accept(this));
+		if (goIf.getElse() != null) {
+			result.addAll(goIf.getElse().accept(this));
 		}
 		return result;
 	}
 
 	@Override
-	public Set<String> visit(Switch switch1) throws RuntimeException {
+	public Set<String> visit(GoSwitch goSwitch) throws RuntimeException {
 		Set<String> result = new HashSet<>();
-		for(SwitchCase c : switch1.getCases()) {
-			for(Statement stmt : c.getBlock()) {
+		for(GoSwitchCase c : goSwitch.getCases()) {
+			for(GoStatement stmt : c.getBlock()) {
 				result.addAll(stmt.accept(this));
 			}
 		}
-		if(switch1.getDefaultBlock() != null) {
-			for(Statement stmt : switch1.getDefaultBlock()) {
+		if(goSwitch.getDefaultBlock() != null) {
+			for(GoStatement stmt : goSwitch.getDefaultBlock()) {
 				result.addAll(stmt.accept(this));
 			}
 		}
@@ -69,20 +69,15 @@ public class GoStatementFindUsedLabelsVisitor extends StatementVisitor<Set<Strin
 	}
 
 	@Override
-	public Set<String> visit(Label label) throws RuntimeException {
+	public Set<String> visit(GoLabel label) throws RuntimeException {
 		return Collections.emptySet();
 	}
 
 	@Override
-	public Set<String> visit(GoCall goCall) throws RuntimeException {
-		return Collections.emptySet();
-	}
-
-	@Override
-	public Set<String> visit(Select select) throws RuntimeException {
+	public Set<String> visit(GoSelect select) throws RuntimeException {
 		Set<String> result = new HashSet<>();
-		for(SelectCase c : select.getCases()) {
-			for(Statement stmt : c.getBlock()) {
+		for(GoSelectCase c : select.getCases()) {
+			for(GoStatement stmt : c.getBlock()) {
 				result.addAll(stmt.accept(this));
 			}
 		}
@@ -95,37 +90,37 @@ public class GoStatementFindUsedLabelsVisitor extends StatementVisitor<Set<Strin
 	}
 
 	@Override
-	public Set<String> visit(IncDec incDec) throws RuntimeException {
+	public Set<String> visit(GoIncDec incDec) throws RuntimeException {
 		return Collections.emptySet();
 	}
 
 	@Override
-	public Set<String> visit(ExpressionStatement expressionStatement) throws RuntimeException {
+	public Set<String> visit(GoExpressionStatement expressionStatement) throws RuntimeException {
 		return Collections.emptySet();
 	}
 
 	@Override
-	public Set<String> visit(Break break1) throws RuntimeException {
+	public Set<String> visit(GoBreak break1) throws RuntimeException {
 		return Collections.emptySet();
 	}
 
 	@Override
-	public Set<String> visit(Continue continue1) throws RuntimeException {
+	public Set<String> visit(GoContinue continue1) throws RuntimeException {
 		return Collections.emptySet();
 	}
 
 	@Override
-	public Set<String> visit(Defer defer) throws RuntimeException {
+	public Set<String> visit(GoDefer defer) throws RuntimeException {
 		return Collections.emptySet();
 	}
 
 	@Override
-	public Set<String> visit(Go go) throws RuntimeException {
+	public Set<String> visit(GoRoutineStatement go) throws RuntimeException {
 		return Collections.emptySet();
 	}
 
 	@Override
-	public Set<String> visit(VariableDeclarationStatement variableDeclarationStatement) throws RuntimeException {
+	public Set<String> visit(GoVariableDeclarationStatement variableDeclarationStatement) throws RuntimeException {
 		return Collections.emptySet();
 	}
 

@@ -1,8 +1,8 @@
 package pgo.trans.passes.codegen;
 
 import pgo.InternalCompilerError;
-import pgo.model.golang.BlockBuilder;
-import pgo.model.golang.LabelName;
+import pgo.model.golang.builder.GoBlockBuilder;
+import pgo.model.golang.GoLabelName;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
 
@@ -14,10 +14,10 @@ public class CriticalSectionTracker {
 	private CriticalSection criticalSection;
 	private int currentLockGroup;
 	private UID currentLabelUID;
-	private LabelName currentLabelName;
+	private GoLabelName currentLabelName;
 
 	private CriticalSectionTracker(DefinitionRegistry registry, UID processUID, CriticalSection criticalSection,
-	                               int currentLockGroup, UID currentLabelUID, LabelName currentLabelName) {
+	                               int currentLockGroup, UID currentLabelUID, GoLabelName currentLabelName) {
 		this.registry = registry;
 		this.processUID = processUID;
 		this.criticalSection = criticalSection;
@@ -30,7 +30,7 @@ public class CriticalSectionTracker {
 		this(registry, processUID, criticalSection, -1, null, null);
 	}
 
-	public void start(BlockBuilder builder, UID labelUID, LabelName labelName) {
+	public void start(GoBlockBuilder builder, UID labelUID, GoLabelName labelName) {
 		int lockGroup = registry.getLockGroupOrDefault(labelUID, -1);
 		if (currentLockGroup != -1 && currentLockGroup != lockGroup) {
 			end(builder);
@@ -46,7 +46,7 @@ public class CriticalSectionTracker {
 		currentLabelName = labelName;
 	}
 
-	public void abort(BlockBuilder builder) {
+	public void abort(GoBlockBuilder builder) {
 		if (currentLockGroup > -1) {
 			criticalSection.abortCriticalSection(
 					builder, processUID, currentLockGroup, currentLabelUID, currentLabelName);
@@ -57,7 +57,7 @@ public class CriticalSectionTracker {
 		currentLabelName = null;
 	}
 
-	public void end(BlockBuilder builder) {
+	public void end(GoBlockBuilder builder) {
 		if (currentLockGroup == -1) {
 			// nothing to do
 			return;
@@ -81,12 +81,12 @@ public class CriticalSectionTracker {
 				registry, processUID, criticalSection, currentLockGroup, currentLabelUID, currentLabelName);
 	}
 
-	public Consumer<BlockBuilder> actionAtLoopEnd() {
+	public Consumer<GoBlockBuilder> actionAtLoopEnd() {
 		// since we're compiling while loops to infinite loops with a conditional break, we have to reacquire
 		// the critical section at loop end
 		int lockGroup = currentLockGroup;
 		UID labelUID = currentLabelUID;
-		LabelName labelName = currentLabelName;
+		GoLabelName labelName = currentLabelName;
 		if (lockGroup < 0) {
 			return ignored -> {};
 		}

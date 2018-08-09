@@ -2,17 +2,17 @@ package pgo.trans.intermediate;
 
 import pgo.errors.Context;
 import pgo.errors.ContextVisitor;
-import pgo.model.pcal.MacroCall;
+import pgo.model.pcal.PlusCalMacroCall;
 
 public class ExpandingMacroCall extends Context {
 
-	private MacroCall macroCall;
+	private PlusCalMacroCall macroCall;
 
-	public ExpandingMacroCall(MacroCall macroCall) {
+	public ExpandingMacroCall(PlusCalMacroCall macroCall) {
 		this.macroCall = macroCall;
 	}
 
-	public MacroCall getMacroCall() {
+	public PlusCalMacroCall getMacroCall() {
 		return macroCall;
 	}
 

@@ -69,7 +69,7 @@ public abstract class Grammar<Result extends SourceLocatable> {
 		return v.getCompiledGrammar();
 	}
 
-	public Result parse(LexicalContext lexicalContext) throws TLAParseException {
+	public Result parse(LexicalContext lexicalContext) throws ParseFailureException {
 		return compile().parse(lexicalContext);
 	}
 

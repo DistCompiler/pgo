@@ -4,6 +4,12 @@ import java.util.*;
 
 import pgo.TODO;
 import pgo.model.golang.*;
+import pgo.model.golang.builder.GoAnonymousFunctionBuilder;
+import pgo.model.golang.builder.GoBlockBuilder;
+import pgo.model.golang.builder.GoForRangeBuilder;
+import pgo.model.golang.builder.GoForStatementClauseBuilder;
+import pgo.model.golang.type.GoSliceType;
+import pgo.model.golang.type.GoType;
 import pgo.model.type.*;
 import pgo.scope.UID;
 import pgo.util.Origin;
@@ -11,7 +17,7 @@ import pgo.util.Origin;
 public class TLABuiltins {
 	private TLABuiltins() {}
 
-	public static Type getSetElementType(PGoType setType) {
+	public static GoType getSetElementType(PGoType setType) {
 		PGoType elementType = ((PGoTypeSet)setType).getElementType();
 		return elementType.accept(new PGoTypeGoTypeConversionVisitor());
 	}
@@ -28,43 +34,43 @@ public class TLABuiltins {
 		return new PGoTypeBool(Collections.singletonList(origin));
 	}
 
-	public static void ensureUniqueSorted(BlockBuilder builder, Type elementType, VariableName set) {
+	public static void ensureUniqueSorted(GoBlockBuilder builder, GoType elementType, GoVariableName set) {
 		builder.addImport("sort");
 		String sortFunction;
-		if (elementType.equals(Builtins.Int)) {
+		if (elementType.equals(GoBuiltins.Int)) {
 			sortFunction = "Ints";
-		} else if (elementType.equals(Builtins.Float64)) {
+		} else if (elementType.equals(GoBuiltins.Float64)) {
 			sortFunction = "Float64s";
-		} else if (elementType.equals(Builtins.String)) {
+		} else if (elementType.equals(GoBuiltins.String)) {
 			sortFunction = "Strings";
 		} else {
 			sortFunction = "Slice";
 		}
 		if (sortFunction.equals("Slice")) {
-			AnonymousFunctionBuilder comparatorBuilder = builder.anonymousFunction();
-			VariableName i = comparatorBuilder.addArgument("i", Builtins.Int);
-			VariableName j = comparatorBuilder.addArgument("j", Builtins.Int);
-			comparatorBuilder.addReturn(Builtins.Bool);
-			try (BlockBuilder comparatorBody = comparatorBuilder.getBlockBuilder()) {
+			GoAnonymousFunctionBuilder comparatorBuilder = builder.anonymousFunction();
+			GoVariableName i = comparatorBuilder.addArgument("i", GoBuiltins.Int);
+			GoVariableName j = comparatorBuilder.addArgument("j", GoBuiltins.Int);
+			comparatorBuilder.addReturn(GoBuiltins.Bool);
+			try (GoBlockBuilder comparatorBody = comparatorBuilder.getBlockBuilder()) {
 				comparatorBody.addStatement(
-						new Return(
+						new GoReturn(
 								Collections.singletonList(
 										elementType.accept(
 												new LessThanCodeGenVisitor(
 														comparatorBody,
-														new Index(set, i),
-														new Index(set, j))))));
+														new GoIndexExpression(set, i),
+														new GoIndexExpression(set, j))))));
 			}
-			builder.addStatement(new ExpressionStatement(new Call(
-					new Selector(new VariableName("sort"), sortFunction),
+			builder.addStatement(new GoExpressionStatement(new GoCall(
+					new GoSelectorExpression(new GoVariableName("sort"), sortFunction),
 					Arrays.asList(
 							set,
 							comparatorBuilder.getFunction()))));
 		}else {
-			builder.addStatement(new ExpressionStatement(new Call(
-					new Selector(new VariableName("sort"), sortFunction), Collections.singletonList(set))));
+			builder.addStatement(new GoExpressionStatement(new GoCall(
+					new GoSelectorExpression(new GoVariableName("sort"), sortFunction), Collections.singletonList(set))));
 		}
-		// make elements unique with the following Go code
+		// make elements unique with the following GoRoutineStatement code
 		//
 		// if len(set) > 1 {
 		// 	previousValue := set[0]
@@ -78,27 +84,27 @@ public class TLABuiltins {
 		// 	}
 		// 	set = set[:currentIndex]
 		// }
-		try (IfBuilder ifBuilder = builder.ifStmt(new Binop(
-				Binop.Operation.GT,
-				new Call(new VariableName("len"), Collections.singletonList(set)),
-				new IntLiteral(1)))) {
-			try (BlockBuilder yes = ifBuilder.whenTrue()) {
-				VariableName previousValue = yes.varDecl(
-						"previousValue", new Index(set, new IntLiteral(0)));
-				VariableName currentIndex = yes.varDecl("currentIndex", new IntLiteral(1));
-				ForRangeBuilder forRangeBuilder = yes.forRange(new SliceOperator(set, new IntLiteral(1), null, null));
-				VariableName v = forRangeBuilder.initVariables(Arrays.asList("_", "v")).get(1);
-				try (BlockBuilder forBody = forRangeBuilder.getBlockBuilder()) {
-					try (IfBuilder innerIf = forBody.ifStmt(elementType.accept(
+		try (GoIfBuilder ifBuilder = builder.ifStmt(new GoBinop(
+				GoBinop.Operation.GT,
+				new GoCall(new GoVariableName("len"), Collections.singletonList(set)),
+				new GoIntLiteral(1)))) {
+			try (GoBlockBuilder yes = ifBuilder.whenTrue()) {
+				GoVariableName previousValue = yes.varDecl(
+						"previousValue", new GoIndexExpression(set, new GoIntLiteral(0)));
+				GoVariableName currentIndex = yes.varDecl("currentIndex", new GoIntLiteral(1));
+				GoForRangeBuilder forRangeBuilder = yes.forRange(new GoSliceOperator(set, new GoIntLiteral(1), null, null));
+				GoVariableName v = forRangeBuilder.initVariables(Arrays.asList("_", "v")).get(1);
+				try (GoBlockBuilder forBody = forRangeBuilder.getBlockBuilder()) {
+					try (GoIfBuilder innerIf = forBody.ifStmt(elementType.accept(
 							new EqCodeGenVisitor(forBody, previousValue, v, true)))) {
-						try (BlockBuilder innerYes = innerIf.whenTrue()) {
-							innerYes.assign(new Index(set, currentIndex), v);
-							innerYes.addStatement(new IncDec(true, currentIndex));
+						try (GoBlockBuilder innerYes = innerIf.whenTrue()) {
+							innerYes.assign(new GoIndexExpression(set, currentIndex), v);
+							innerYes.addStatement(new GoIncDec(true, currentIndex));
 						}
 					}
 					forBody.assign(previousValue, v);
 				}
-				yes.assign(set, new SliceOperator(set, null, currentIndex, null));
+				yes.assign(set, new GoSliceOperator(set, null, currentIndex, null));
 			}
 		}
 	}
@@ -112,9 +118,9 @@ public class TLABuiltins {
 					return new PGoTypeBool(Collections.singletonList(origin));
 				},
 				(builder, origin, registry, arguments, typeMap, globalStrategy) -> {
-					Expression lhs = arguments.get(0).accept(
+					GoExpression lhs = arguments.get(0).accept(
 							new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
-					Expression rhs = arguments.get(1).accept(
+					GoExpression rhs = arguments.get(1).accept(
 							new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
 					return typeMap.get(arguments.get(0).getUID())
 							.accept(new PGoTypeGoTypeConversionVisitor())
@@ -127,9 +133,9 @@ public class TLABuiltins {
 					return new PGoTypeBool(Collections.singletonList(origin));
 				},
 				(builder, origin, registry, arguments, typeMap, globalStrategy) -> {
-					Expression lhs = arguments.get(0).accept(
+					GoExpression lhs = arguments.get(0).accept(
 							new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
-					Expression rhs = arguments.get(1).accept(
+					GoExpression rhs = arguments.get(1).accept(
 							new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
 					return typeMap.get(arguments.get(0).getUID())
 							.accept(new PGoTypeGoTypeConversionVisitor())
@@ -170,109 +176,109 @@ public class TLABuiltins {
 					//  tmpSet = append(tmpSet, v)
 					// }
 					builder.addImport("sort");
-					Type elementType = getSetElementType(typeMap.get(origin.getUID()));
+					GoType elementType = getSetElementType(typeMap.get(origin.getUID()));
 					String searchFunction;
-					if (elementType.equals(Builtins.Int)) {
+					if (elementType.equals(GoBuiltins.Int)) {
 						searchFunction = "SearchInts";
-					} else if (elementType.equals(Builtins.Float64)) {
+					} else if (elementType.equals(GoBuiltins.Float64)) {
 						searchFunction = "SearchFloat64s";
-					} else if (elementType.equals(Builtins.String)) {
+					} else if (elementType.equals(GoBuiltins.String)) {
 						searchFunction = "SearchStrings";
 					} else {
 						searchFunction = "Search";
 					}
-					Expression lhs = arguments.get(0).accept(
+					GoExpression lhs = arguments.get(0).accept(
 							new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
-					Expression rhs = arguments.get(1).accept(
+					GoExpression rhs = arguments.get(1).accept(
 							new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
 
 					// special case: rhs is an empty literal, compiles to noop
-					if(rhs instanceof SliceLiteral && ((SliceLiteral)rhs).getInitializers().size() == 0){
+					if(rhs instanceof GoSliceLiteral && ((GoSliceLiteral)rhs).getInitializers().size() == 0){
 						return lhs;
 					}
 
-					Expression lenLhs = new Call(new VariableName("len"), Collections.singletonList(lhs));
-					Expression lenRhs = new Call(new VariableName("len"), Collections.singletonList(rhs));
-					VariableName tmpSet = builder.varDecl(
+					GoExpression lenLhs = new GoCall(new GoVariableName("len"), Collections.singletonList(lhs));
+					GoExpression lenRhs = new GoCall(new GoVariableName("len"), Collections.singletonList(rhs));
+					GoVariableName tmpSet = builder.varDecl(
 							"tmpSet",
-							new Make(
-									new SliceType(elementType),
-									new IntLiteral(0),
+							new GoMakeExpression(
+									new GoSliceType(elementType),
+									new GoIntLiteral(0),
 									lenLhs));
-					ForRangeBuilder forBuilder = builder.forRange(lhs);
-					VariableName v = forBuilder.initVariables(Arrays.asList("_", "v")).get(1);
-					try (BlockBuilder forBody = forBuilder.getBlockBuilder()) {
+					GoForRangeBuilder forBuilder = builder.forRange(lhs);
+					GoVariableName v = forBuilder.initVariables(Arrays.asList("_", "v")).get(1);
+					try (GoBlockBuilder forBody = forBuilder.getBlockBuilder()) {
 						// special case where rhs is a slice literal, we just unroll the entire literal instead
 						// of searching through it
-						if(rhs instanceof SliceLiteral){
-							SliceLiteral rhsLiteral = (SliceLiteral)rhs;
-							Expression condition = null;
-							for(Expression option : rhsLiteral.getInitializers()){
-								Expression part = elementType.accept(new EqCodeGenVisitor(
+						if(rhs instanceof GoSliceLiteral){
+							GoSliceLiteral rhsLiteral = (GoSliceLiteral)rhs;
+							GoExpression condition = null;
+							for(GoExpression option : rhsLiteral.getInitializers()){
+								GoExpression part = elementType.accept(new EqCodeGenVisitor(
 										forBody, v, option, true));
 								if(condition == null){
 									condition = part;
 								}else{
-									condition = new Binop(Binop.Operation.AND, condition, part);
+									condition = new GoBinop(GoBinop.Operation.AND, condition, part);
 								}
 							}
-							try(IfBuilder shouldIncludeBuilder = forBody.ifStmt(condition)){
-								try(BlockBuilder shouldIncludeBody = shouldIncludeBuilder.whenTrue()){
+							try(GoIfBuilder shouldIncludeBuilder = forBody.ifStmt(condition)){
+								try(GoBlockBuilder shouldIncludeBody = shouldIncludeBuilder.whenTrue()){
 									shouldIncludeBody.assign(
-											tmpSet, new Call(new VariableName("append"), Arrays.asList(tmpSet, v)));
+											tmpSet, new GoCall(new GoVariableName("append"), Arrays.asList(tmpSet, v)));
 								}
 							}
 							return tmpSet;
 						}
 
 						// general case, requires search operation
-						VariableName index;
+						GoVariableName index;
 						if (searchFunction.equals("Search")) {
-							AnonymousFunctionBuilder checkBuilder = forBody.anonymousFunction();
-							VariableName j = checkBuilder.addArgument("j", Builtins.Int);
-							checkBuilder.addReturn(Builtins.Bool);
-							try (BlockBuilder checkBody = checkBuilder.getBlockBuilder()) {
+							GoAnonymousFunctionBuilder checkBuilder = forBody.anonymousFunction();
+							GoVariableName j = checkBuilder.addArgument("j", GoBuiltins.Int);
+							checkBuilder.addReturn(GoBuiltins.Bool);
+							try (GoBlockBuilder checkBody = checkBuilder.getBlockBuilder()) {
 								checkBody.addStatement(
-										new Return(
+										new GoReturn(
 												Collections.singletonList(
-														new Unary(
-																Unary.Operation.NOT,
+														new GoUnary(
+																GoUnary.Operation.NOT,
 																elementType.accept(new LessThanCodeGenVisitor(
 																		checkBody,
-																		new Index(rhs, j),
+																		new GoIndexExpression(rhs, j),
 																		v))))));
 							}
 							index = forBody.varDecl(
 									"index",
-									new Call(
-											new Selector(
-													new VariableName("sort"), "Search"),
+									new GoCall(
+											new GoSelectorExpression(
+													new GoVariableName("sort"), "Search"),
 											Arrays.asList(
-													new Call(new VariableName("len"), Collections.singletonList(rhs)),
+													new GoCall(new GoVariableName("len"), Collections.singletonList(rhs)),
 													checkBuilder.getFunction())));
 						}else {
 							index = forBody.varDecl(
 									"index",
-									new Call(
-											new Selector(new VariableName("sort"), searchFunction),
+									new GoCall(
+											new GoSelectorExpression(new GoVariableName("sort"), searchFunction),
 											Arrays.asList(rhs, v)));
 						}
-						try (IfBuilder ifBuilder = forBody.ifStmt(
-								new Binop(Binop.Operation.LT, index, lenRhs))) {
-							try (BlockBuilder yes = ifBuilder.whenTrue()) {
-								try (IfBuilder isEqBuilder = yes.ifStmt(elementType.accept(
+						try (GoIfBuilder ifBuilder = forBody.ifStmt(
+								new GoBinop(GoBinop.Operation.LT, index, lenRhs))) {
+							try (GoBlockBuilder yes = ifBuilder.whenTrue()) {
+								try (GoIfBuilder isEqBuilder = yes.ifStmt(elementType.accept(
 												new EqCodeGenVisitor(
 														yes,
-														new Index(rhs, index),
+														new GoIndexExpression(rhs, index),
 														v,
 														false)))) {
-									try (BlockBuilder yes2 = isEqBuilder.whenTrue()) {
-										yes2.addStatement(new Continue());
+									try (GoBlockBuilder yes2 = isEqBuilder.whenTrue()) {
+										yes2.addStatement(new GoContinue());
 									}
 								}
 							}
 						}
-						forBody.assign(tmpSet, new Call(new VariableName("append"), Arrays.asList(tmpSet, v)));
+						forBody.assign(tmpSet, new GoCall(new GoVariableName("append"), Arrays.asList(tmpSet, v)));
 					}
 					return tmpSet;
 				}));
@@ -283,8 +289,8 @@ public class TLABuiltins {
 					solver.addConstraint(new PGoTypeMonomorphicConstraint(origin, args.get(0), fresh));
 					return fresh;
 				},
-				(builder, origin, registry, arguments, typeMap) -> new Unary(
-						Unary.Operation.NOT, arguments.get(0))
+				(builder, origin, registry, arguments, typeMap) -> new GoUnary(
+						GoUnary.Operation.NOT, arguments.get(0))
 				));
 		universalBuiltIns.addOperators(Arrays.asList("\\/", "\\lor"), new TypelessBuiltinOperator(
 				2,
@@ -294,8 +300,8 @@ public class TLABuiltins {
 					solver.addConstraint(new PGoTypeMonomorphicConstraint(origin, args.get(1), fresh));
 					return fresh;
 				},
-				(builder, origin, registry, arguments, typeMap) -> new Binop(
-						Binop.Operation.OR, arguments.get(0), arguments.get(1))
+				(builder, origin, registry, arguments, typeMap) -> new GoBinop(
+						GoBinop.Operation.OR, arguments.get(0), arguments.get(1))
 				));
 		universalBuiltIns.addOperators(Arrays.asList("/\\", "\\land"), new TypelessBuiltinOperator(
 				2,
@@ -305,8 +311,8 @@ public class TLABuiltins {
 					solver.addConstraint(new PGoTypeMonomorphicConstraint(origin, args.get(1), fresh));
 					return fresh;
 				},
-				(builder, origin, registry, arguments, typeMap) -> new Binop(
-						Binop.Operation.AND, arguments.get(0), arguments.get(1))
+				(builder, origin, registry, arguments, typeMap) -> new GoBinop(
+						GoBinop.Operation.AND, arguments.get(0), arguments.get(1))
 				));
 		universalBuiltIns.addOperators(Arrays.asList("\\union", "\\cup"), new TypelessBuiltinOperator(
 				2,
@@ -317,21 +323,21 @@ public class TLABuiltins {
 					return fresh;
 				},
 				(builder, origin, registry, arguments, typeMap) -> {
-					Type elementType = getSetElementType(typeMap.get(origin.getUID()));
-					Expression lhs = arguments.get(0);
-					Expression rhs = arguments.get(1);
-					Expression lhsLen = new Call(new VariableName("len"), Collections.singletonList(lhs));
-					Expression combinedLen = new Binop(
-							Binop.Operation.PLUS,
+					GoType elementType = getSetElementType(typeMap.get(origin.getUID()));
+					GoExpression lhs = arguments.get(0);
+					GoExpression rhs = arguments.get(1);
+					GoExpression lhsLen = new GoCall(new GoVariableName("len"), Collections.singletonList(lhs));
+					GoExpression combinedLen = new GoBinop(
+							GoBinop.Operation.PLUS,
 							lhsLen,
-							new Call(new VariableName("len"), Collections.singletonList(rhs)));
-					VariableName tmpSet = builder.varDecl(
+							new GoCall(new GoVariableName("len"), Collections.singletonList(rhs)));
+					GoVariableName tmpSet = builder.varDecl(
 							"tmpSet",
-							new Make(new SliceType(elementType), lhsLen, combinedLen));
+							new GoMakeExpression(new GoSliceType(elementType), lhsLen, combinedLen));
 					// since append may re-use the same memory, we have to copy lhs in order to be sure
 					// that we are not going to overwrite the original slice when we sort
-					builder.addStatement(new Call(new VariableName("copy"), Arrays.asList(tmpSet, lhs)));
-					builder.assign(tmpSet, new Call(new VariableName("append"), Arrays.asList(tmpSet, rhs), true));
+					builder.addStatement(new GoCall(new GoVariableName("copy"), Arrays.asList(tmpSet, lhs)));
+					builder.assign(tmpSet, new GoCall(new GoVariableName("append"), Arrays.asList(tmpSet, rhs), true));
 					ensureUniqueSorted(builder, elementType, tmpSet);
 					return tmpSet;
 				}));
@@ -356,8 +362,8 @@ public class TLABuiltins {
 					)));
 					return new PGoTypeInt(Collections.singletonList(origin));
 				},
-				(builder, origin, registry, arguments, typeMap) -> new Call(
-						new VariableName("len"), Collections.singletonList(arguments.get(0)))
+				(builder, origin, registry, arguments, typeMap) -> new GoCall(
+						new GoVariableName("len"), Collections.singletonList(arguments.get(0)))
 				));
 		Sequences.addOperator("Append", new BuiltinOperator(
 				2,
@@ -369,22 +375,22 @@ public class TLABuiltins {
 					return fresh;
 				},
 				(builder, origin, registry, arguments, typeMap, globalStrategy) -> {
-					Type baseType = typeMap.get(arguments.get(0).getUID()).accept(new PGoTypeGoTypeConversionVisitor());
-					Expression base = arguments.get(0).accept(new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
-					Expression extra = arguments.get(1).accept(new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
+					GoType baseType = typeMap.get(arguments.get(0).getUID()).accept(new PGoTypeGoTypeConversionVisitor());
+					GoExpression base = arguments.get(0).accept(new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
+					GoExpression extra = arguments.get(1).accept(new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
 
-					Expression baseLen = new Call(new VariableName("len"), Collections.singletonList(base));
+					GoExpression baseLen = new GoCall(new GoVariableName("len"), Collections.singletonList(base));
 					// since append may reuse the underlying slice, it is possible that appending two different
 					// things to the same original slice will causes unintended mutations in the results of previous
 					// appends. copy the original slice to be sure.
-					VariableName tmpSlice = builder.varDecl(
+					GoVariableName tmpSlice = builder.varDecl(
 							"tmpSlice",
-							new Make(
+							new GoMakeExpression(
 									baseType,
 									baseLen,
-									new Binop(Binop.Operation.PLUS, baseLen, new IntLiteral(1))));
-					builder.addStatement(new Call(new VariableName("copy"), Arrays.asList(tmpSlice, base)));
-					builder.assign(tmpSlice, new Call(new VariableName("append"), Arrays.asList(tmpSlice, extra)));
+									new GoBinop(GoBinop.Operation.PLUS, baseLen, new GoIntLiteral(1))));
+					builder.addStatement(new GoCall(new GoVariableName("copy"), Arrays.asList(tmpSlice, base)));
+					builder.assign(tmpSlice, new GoCall(new GoVariableName("append"), Arrays.asList(tmpSlice, extra)));
 					return tmpSlice;
 				}));
 		Sequences.addOperator("Head", new TypelessBuiltinOperator(
@@ -394,7 +400,7 @@ public class TLABuiltins {
 					solver.addConstraint(new PGoTypeMonomorphicConstraint(origin, args.get(0), new PGoTypeSlice(elementType, Collections.singletonList(origin))));
 					return elementType;
 				},
-				(builder, origin, registry, arguments, typeMap) -> new Index(arguments.get(0), new IntLiteral(0))
+				(builder, origin, registry, arguments, typeMap) -> new GoIndexExpression(arguments.get(0), new GoIntLiteral(0))
 				));
 		Sequences.addOperator("Tail", new TypelessBuiltinOperator(
 				1,
@@ -404,8 +410,8 @@ public class TLABuiltins {
 					solver.addConstraint(new PGoTypeMonomorphicConstraint(origin, args.get(0), fresh));
 					return fresh;
 				},
-				(builder, origin, registry, arguments, typeMap) -> new SliceOperator(
-						arguments.get(0), new IntLiteral(1), null, null)
+				(builder, origin, registry, arguments, typeMap) -> new GoSliceOperator(
+						arguments.get(0), new GoIntLiteral(1), null, null)
 				));
 
 		BuiltinModule Naturals = new BuiltinModule();
@@ -413,50 +419,50 @@ public class TLABuiltins {
 		Naturals.addOperator("-", new TypelessBuiltinOperator(
 				2,
 				TLABuiltins::constraintNumberOperation,
-				(builder, origin, registry, arguments, typeMap) -> new Binop(
-						Binop.Operation.MINUS, arguments.get(0), arguments.get(1))
+				(builder, origin, registry, arguments, typeMap) -> new GoBinop(
+						GoBinop.Operation.MINUS, arguments.get(0), arguments.get(1))
 				));
 		Naturals.addOperator("+", new TypelessBuiltinOperator(
 				2,
 				TLABuiltins::constraintNumberOperation,
-				(builder, origin, registry, arguments, typeMap) -> new Binop(
-						Binop.Operation.PLUS, arguments.get(0), arguments.get(1))
+				(builder, origin, registry, arguments, typeMap) -> new GoBinop(
+						GoBinop.Operation.PLUS, arguments.get(0), arguments.get(1))
 				));
 		Naturals.addOperator("%", new TypelessBuiltinOperator(
 				2,
 				TLABuiltins::constraintNumberOperation,
-				(builder, origin, registry, arguments, typeMap) -> new Binop(
-						Binop.Operation.MOD, arguments.get(0), arguments.get(1))
+				(builder, origin, registry, arguments, typeMap) -> new GoBinop(
+						GoBinop.Operation.MOD, arguments.get(0), arguments.get(1))
 				));
 		Naturals.addOperator("*", new TypelessBuiltinOperator(
 				2,
 				TLABuiltins::constraintNumberOperation,
-				(builder, origin, registry, arguments, typeMap) -> new Binop(
-						Binop.Operation.TIMES, arguments.get(0), arguments.get(1))
+				(builder, origin, registry, arguments, typeMap) -> new GoBinop(
+						GoBinop.Operation.TIMES, arguments.get(0), arguments.get(1))
 				));
 		Naturals.addOperator("<", new TypelessBuiltinOperator(
 				2,
 				TLABuiltins::constraintBooleanNumberOperation,
-				(builder, origin, registry, arguments, typeMap) -> new Binop(
-						Binop.Operation.LT, arguments.get(0), arguments.get(1))
+				(builder, origin, registry, arguments, typeMap) -> new GoBinop(
+						GoBinop.Operation.LT, arguments.get(0), arguments.get(1))
 				));
 		Naturals.addOperator(">", new TypelessBuiltinOperator(
 				2,
 				TLABuiltins::constraintBooleanNumberOperation,
-				(builder, origin, registry, arguments, typeMap) -> new Binop(
-						Binop.Operation.GT, arguments.get(0), arguments.get(1))
+				(builder, origin, registry, arguments, typeMap) -> new GoBinop(
+						GoBinop.Operation.GT, arguments.get(0), arguments.get(1))
 				));
 		Naturals.addOperators(Arrays.asList("<=", "\\leq"), new TypelessBuiltinOperator(
 				2,
 				TLABuiltins::constraintBooleanNumberOperation,
-				(builder, origin, registry, arguments, typeMap) -> new Binop(
-						Binop.Operation.LEQ, arguments.get(0), arguments.get(1))
+				(builder, origin, registry, arguments, typeMap) -> new GoBinop(
+						GoBinop.Operation.LEQ, arguments.get(0), arguments.get(1))
 				));
 		Naturals.addOperators(Arrays.asList(">=", "\\geq"), new TypelessBuiltinOperator(
 				2,
 				TLABuiltins::constraintBooleanNumberOperation,
-				(builder, origin, registry, arguments, typeMap) -> new Binop(
-						Binop.Operation.GEQ, arguments.get(0), arguments.get(1))
+				(builder, origin, registry, arguments, typeMap) -> new GoBinop(
+						GoBinop.Operation.GEQ, arguments.get(0), arguments.get(1))
 				));
 		Naturals.addOperator("Nat", new TypelessBuiltinOperator(
 				0,
@@ -474,24 +480,24 @@ public class TLABuiltins {
 					return new PGoTypeSet(intType, Collections.singletonList(origin));
 				},
 				(builder, origin, registry, arguments, typeMap) -> {
-					Expression from = arguments.get(0);
-					Expression to = arguments.get(1);
-					Expression tmpRange = builder.varDecl("tmpRange", new Make(
-							new SliceType(Builtins.Int),
-							new Binop(
-									Binop.Operation.PLUS,
-									new Binop(Binop.Operation.MINUS, to, from),
-									new IntLiteral(1)),
+					GoExpression from = arguments.get(0);
+					GoExpression to = arguments.get(1);
+					GoExpression tmpRange = builder.varDecl("tmpRange", new GoMakeExpression(
+							new GoSliceType(GoBuiltins.Int),
+							new GoBinop(
+									GoBinop.Operation.PLUS,
+									new GoBinop(GoBinop.Operation.MINUS, to, from),
+									new GoIntLiteral(1)),
 							null));
 
-					ForStatementClauseBuilder clauseBuilder = builder.forLoopWithClauses();
-					VariableName acc = clauseBuilder.initVariable("i", from);
-					clauseBuilder.setCondition(new Binop(Binop.Operation.LEQ, acc, to));
-					clauseBuilder.setInc(new IncDec(true, acc));
+					GoForStatementClauseBuilder clauseBuilder = builder.forLoopWithClauses();
+					GoVariableName acc = clauseBuilder.initVariable("i", from);
+					clauseBuilder.setCondition(new GoBinop(GoBinop.Operation.LEQ, acc, to));
+					clauseBuilder.setInc(new GoIncDec(true, acc));
 
-					try (BlockBuilder body = clauseBuilder.getBlockBuilder()) {
+					try (GoBlockBuilder body = clauseBuilder.getBlockBuilder()) {
 						body.assign(
-								new Index(tmpRange, new Binop(Binop.Operation.MINUS, acc, from)),
+								new GoIndexExpression(tmpRange, new GoBinop(GoBinop.Operation.MINUS, acc, from)),
 								acc);
 					}
 					return tmpRange;
@@ -507,7 +513,7 @@ public class TLABuiltins {
 					return fresh;
 				},
 				(builder, origin, registry, arguments, typeMap) ->
-						new Unary(Unary.Operation.NEG, arguments.get(0))));
+						new GoUnary(GoUnary.Operation.NEG, arguments.get(0))));
 		Integers.addOperator("Int", new TypelessBuiltinOperator(
 				0,
 				(origin, args, solver, generator) -> new PGoTypeNonEnumerableSet(new PGoTypeInt(Collections.singletonList(origin)), Collections.singletonList(origin)),

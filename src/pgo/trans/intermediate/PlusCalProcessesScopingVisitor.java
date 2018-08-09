@@ -6,17 +6,13 @@ import java.util.Map;
 import java.util.Set;
 
 import pgo.errors.IssueContext;
-import pgo.model.pcal.LabeledStatements;
-import pgo.model.pcal.MultiProcess;
-import pgo.model.pcal.PcalProcess;
-import pgo.model.pcal.ProcessesVisitor;
-import pgo.model.pcal.SingleProcess;
-import pgo.model.pcal.VariableDeclaration;
+import pgo.model.pcal.*;
+import pgo.model.pcal.PlusCalMultiProcess;
 import pgo.modules.TLAModuleLoader;
 import pgo.scope.ChainMap;
 import pgo.scope.UID;
 
-public class PlusCalProcessesScopingVisitor extends ProcessesVisitor<Void, RuntimeException> {
+public class PlusCalProcessesScopingVisitor extends PlusCalProcessesVisitor<Void, RuntimeException> {
 
 	private IssueContext ctx;
 	private TLAScopeBuilder builder;
@@ -36,30 +32,30 @@ public class PlusCalProcessesScopingVisitor extends ProcessesVisitor<Void, Runti
 	}
 
 	@Override
-	public Void visit(SingleProcess singleProcess) throws RuntimeException {
+	public Void visit(PlusCalSingleProcess singleProcess) throws RuntimeException {
 		TLAScopeBuilder labelScope = new TLAScopeBuilder(ctx, new HashMap<>(), new ChainMap<>(builder.getDefinitions()), builder.getReferences());
 
-		for (LabeledStatements stmts : singleProcess.getLabeledStatements()) {
+		for (PlusCalLabeledStatements stmts : singleProcess.getLabeledStatements()) {
 			stmts.accept(new PlusCalStatementLabelCaptureVisitor(ctx, labelScope));
 		}
 
 		TLAScopeBuilder procScope = new TLAScopeBuilder(ctx, builder.getDeclarations(), labelScope.getDefinitions(), builder.getReferences());
-		for (LabeledStatements stmts : singleProcess.getLabeledStatements()) {
+		for (PlusCalLabeledStatements stmts : singleProcess.getLabeledStatements()) {
 			stmts.accept(new PlusCalStatementScopingVisitor(ctx, procScope, registry, loader, moduleRecursionSet));
 		}
 		return null;
 	}
 
 	@Override
-	public Void visit(MultiProcess multiProcess) throws RuntimeException {
-		for (PcalProcess proc : multiProcess.getProcesses()) {
+	public Void visit(PlusCalMultiProcess multiProcess) throws RuntimeException {
+		for (PlusCalProcess proc : multiProcess.getProcesses()) {
 
 			builder.defineGlobal(proc.getName().getName().getValue(), proc.getName().getUID());
 			TLAScopeBuilder procTLAScope = new TLAScopeBuilder(ctx, new ChainMap<>(tlaBuilder.getDeclarations()), builder.getDefinitions(), builder.getReferences());
 			proc.getName().getValue().accept(new TLAExpressionScopingVisitor(tlaBuilder, registry, loader, new HashSet<>()));
 			Map<String, UID> procVars = new ChainMap<>(builder.getDeclarations());
 
-			for (VariableDeclaration var : proc.getVariables()) {
+			for (PlusCalVariableDeclaration var : proc.getVariables()) {
 				if (procTLAScope.declare(var.getName().getValue(), var.getUID())) {
 					procVars.put(var.getName().getValue(), var.getUID());
 					registry.addLocalVariable(var.getUID());
@@ -70,11 +66,11 @@ public class PlusCalProcessesScopingVisitor extends ProcessesVisitor<Void, Runti
 			procScope.defineLocal("self", proc.getName().getUID());
 			registry.addLocalVariable(proc.getName().getUID());
 
-			for (LabeledStatements stmts : proc.getLabeledStatements()) {
+			for (PlusCalLabeledStatements stmts : proc.getLabeledStatements()) {
 				stmts.accept(new PlusCalStatementLabelCaptureVisitor(ctx, procScope));
 			}
 
-			for (LabeledStatements stmts : proc.getLabeledStatements()) {
+			for (PlusCalLabeledStatements stmts : proc.getLabeledStatements()) {
 				stmts.accept(new PlusCalStatementScopingVisitor(ctx, procScope, registry, loader, moduleRecursionSet));
 			}
 		}

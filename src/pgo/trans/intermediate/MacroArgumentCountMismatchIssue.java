@@ -2,24 +2,24 @@ package pgo.trans.intermediate;
 
 import pgo.errors.Issue;
 import pgo.errors.IssueVisitor;
-import pgo.model.pcal.Macro;
-import pgo.model.pcal.MacroCall;
+import pgo.model.pcal.PlusCalMacro;
+import pgo.model.pcal.PlusCalMacroCall;
 
 public class MacroArgumentCountMismatchIssue extends Issue {
 
-	private MacroCall macroCall;
-	private Macro macro;
+	private PlusCalMacroCall macroCall;
+	private PlusCalMacro macro;
 
-	public MacroArgumentCountMismatchIssue(MacroCall macroCall, Macro macro) {
+	public MacroArgumentCountMismatchIssue(PlusCalMacroCall macroCall, PlusCalMacro macro) {
 		this.macroCall = macroCall;
 		this.macro = macro;
 	}
 
-	public MacroCall getMacroCall() {
+	public PlusCalMacroCall getMacroCall() {
 		return macroCall;
 	}
 
-	public Macro getMacro() {
+	public PlusCalMacro getMacro() {
 		return macro;
 	}
 

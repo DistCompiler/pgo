@@ -5,21 +5,24 @@ import java.util.Map;
 
 import pgo.InternalCompilerError;
 import pgo.model.golang.*;
-import pgo.model.pcal.PcalProcess;
+import pgo.model.golang.builder.GoBlockBuilder;
+import pgo.model.golang.builder.GoModuleBuilder;
+import pgo.model.golang.type.GoType;
+import pgo.model.pcal.PlusCalProcess;
 import pgo.scope.UID;
 import pgo.trans.passes.codegen.CriticalSection;
 
 public abstract class GlobalVariableStrategy implements CriticalSection {
-	private Map<UID, VariableName> variables = new HashMap<>();
+	private Map<UID, GoVariableName> variables = new HashMap<>();
 
-	protected void addVariable(UID uid, VariableName variableName) {
+	protected void addVariable(UID uid, GoVariableName variableName) {
 		if (variables.containsKey(uid)) {
 			throw new InternalCompilerError();
 		}
 		variables.put(uid, variableName);
 	}
 
-	protected VariableName findVariable(UID uid) {
+	protected GoVariableName findVariable(UID uid) {
 		if (!variables.containsKey(uid)) {
 			throw new InternalCompilerError();
 		}
@@ -27,26 +30,26 @@ public abstract class GlobalVariableStrategy implements CriticalSection {
 	}
 
 
-	public abstract void initPostlude(ModuleBuilder moduleBuilder, BlockBuilder initBuilder);
+	public abstract void initPostlude(GoModuleBuilder moduleBuilder, GoBlockBuilder initBuilder);
 
-	public abstract void processPrelude(BlockBuilder processBody, PcalProcess process, String processName, VariableName self, Type selfType);
+	public abstract void processPrelude(GoBlockBuilder processBody, PlusCalProcess process, String processName, GoVariableName self, GoType selfType);
 
-	public abstract void mainPrelude(BlockBuilder builder);
-
-	@Override
-	public abstract void startCriticalSection(BlockBuilder builder, UID processUID, int lockGroup, UID labelUID, LabelName labelName);
+	public abstract void mainPrelude(GoBlockBuilder builder);
 
 	@Override
-	public abstract void abortCriticalSection(BlockBuilder builder, UID processUID, int lockGroup, UID labelUID, LabelName labelName);
+	public abstract void startCriticalSection(GoBlockBuilder builder, UID processUID, int lockGroup, UID labelUID, GoLabelName labelName);
 
 	@Override
-	public abstract void endCriticalSection(BlockBuilder builder, UID processUID, int lockGroup, UID labelUID, LabelName labelName);
+	public abstract void abortCriticalSection(GoBlockBuilder builder, UID processUID, int lockGroup, UID labelUID, GoLabelName labelName);
 
-	public abstract Expression readGlobalVariable(BlockBuilder builder, UID uid);
+	@Override
+	public abstract void endCriticalSection(GoBlockBuilder builder, UID processUID, int lockGroup, UID labelUID, GoLabelName labelName);
+
+	public abstract GoExpression readGlobalVariable(GoBlockBuilder builder, UID uid);
 
 	public interface GlobalVariableWrite {
-		Expression getValueSink(BlockBuilder builder);
-		void writeAfter(BlockBuilder builder);
+		GoExpression getValueSink(GoBlockBuilder builder);
+		void writeAfter(GoBlockBuilder builder);
 	}
 
 	public abstract GlobalVariableWrite writeGlobalVariable(UID uid);

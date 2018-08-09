@@ -2,20 +2,16 @@ package pgo.trans.intermediate;
 
 import java.util.Set;
 
-import pgo.model.golang.Block;
-import pgo.model.golang.Declaration;
-import pgo.model.golang.DeclarationVisitor;
-import pgo.model.golang.FunctionDeclaration;
-import pgo.model.golang.TypeDeclaration;
-import pgo.model.golang.VariableDeclaration;
+import pgo.model.golang.*;
+import pgo.model.golang.GoDeclaration;
 
-public class GoDeclarationNormalisingVisitor extends DeclarationVisitor<Declaration, RuntimeException> {
+public class GoDeclarationNormalisingVisitor extends GoDeclarationVisitor<GoDeclaration, RuntimeException> {
 
 	@Override
-	public Declaration visit(FunctionDeclaration functionDeclaration) throws RuntimeException {
+	public GoDeclaration visit(GoFunctionDeclaration functionDeclaration) throws RuntimeException {
 		Set<String> usedLabels = functionDeclaration.getBody().accept(new GoStatementFindUsedLabelsVisitor());
-		Block body = (Block)functionDeclaration.getBody().accept(new GoStatementRemoveUnusedLabelsVisitor(usedLabels));
-		return new FunctionDeclaration(
+		GoBlock body = (GoBlock)functionDeclaration.getBody().accept(new GoStatementRemoveUnusedLabelsVisitor(usedLabels));
+		return new GoFunctionDeclaration(
 				functionDeclaration.getName(),
 				functionDeclaration.getReceiver(),
 				functionDeclaration.getArguments(),
@@ -24,12 +20,12 @@ public class GoDeclarationNormalisingVisitor extends DeclarationVisitor<Declarat
 	}
 
 	@Override
-	public Declaration visit(TypeDeclaration typeDeclaration) throws RuntimeException {
+	public GoDeclaration visit(GoTypeDeclaration typeDeclaration) throws RuntimeException {
 		return typeDeclaration;
 	}
 
 	@Override
-	public Declaration visit(VariableDeclaration variableDeclaration) throws RuntimeException {
+	public GoDeclaration visit(GoVariableDeclaration variableDeclaration) throws RuntimeException {
 		return variableDeclaration;
 	}
 

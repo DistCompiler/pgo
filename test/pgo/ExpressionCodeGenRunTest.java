@@ -10,13 +10,14 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
-import pgo.model.tla.PGoTLAExpression;
+import pgo.model.tla.TLAExpression;
 
-import static pgo.model.tla.Builder.*;
+import static pgo.model.tla.TLABuilder.*;
 
 @RunWith(Parameterized.class)
 public class ExpressionCodeGenRunTest {
-	static IntegrationTestingUtils.KeyValue kv(String key, PGoTLAExpression value) {
+
+	static IntegrationTestingUtils.KeyValue kv(String key, TLAExpression value) {
 		return new IntegrationTestingUtils.KeyValue(key, value);
 	}
 
@@ -187,11 +188,11 @@ public class ExpressionCodeGenRunTest {
 		});
 	}
 
-	private PGoTLAExpression result;
+	private TLAExpression result;
 	private List<IntegrationTestingUtils.KeyValue> vars;
 	private List<String> expected;
 
-	public ExpressionCodeGenRunTest(PGoTLAExpression result, List<IntegrationTestingUtils.KeyValue> vars, List<String> expected) {
+	public ExpressionCodeGenRunTest(TLAExpression result, List<IntegrationTestingUtils.KeyValue> vars, List<String> expected) {
 		this.result = result;
 		this.vars = vars;
 		this.expected = expected;

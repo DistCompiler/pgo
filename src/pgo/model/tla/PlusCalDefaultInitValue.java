@@ -2,19 +2,19 @@ package pgo.model.tla;
 
 import pgo.util.SourceLocation;
 
-public class PlusCalDefaultInitValue extends PGoTLAExpression {
+public class PlusCalDefaultInitValue extends TLAExpression {
 
 	public PlusCalDefaultInitValue(SourceLocation location) {
 		super(location);
 	}
 
 	@Override
-	public PGoTLAExpression copy() {
+	public TLAExpression copy() {
 		return new PlusCalDefaultInitValue(getLocation());
 	}
 
 	@Override
-	public <T, E extends Throwable> T accept(PGoTLAExpressionVisitor<T, E> v) throws E {
+	public <T, E extends Throwable> T accept(TLAExpressionVisitor<T, E> v) throws E {
 		return v.visit(this);
 	}
 

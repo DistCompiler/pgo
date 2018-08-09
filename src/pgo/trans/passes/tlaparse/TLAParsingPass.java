@@ -4,21 +4,21 @@ import java.nio.file.Path;
 import java.util.List;
 
 import pgo.errors.IssueContext;
-import pgo.model.tla.PGoTLAModule;
+import pgo.model.tla.TLAModule;
 import pgo.parser.LexicalContext;
-import pgo.parser.TLAParseException;
+import pgo.parser.ParseFailureException;
 import pgo.parser.TLAParser;
 
 public class TLAParsingPass {
 	
 	private TLAParsingPass() {}
 	
-	public static PGoTLAModule perform(IssueContext ctx, Path filename, CharSequence fileContents) {
+	public static TLAModule perform(IssueContext ctx, Path filename, CharSequence fileContents) {
 		try {
 			LexicalContext lexicalContext = new LexicalContext(filename, fileContents);
-			List<PGoTLAModule> modules = TLAParser.readModules(lexicalContext);
+			List<TLAModule> modules = TLAParser.readModules(lexicalContext);
 			return modules.get(0);
-		} catch (TLAParseException e) {
+		} catch (ParseFailureException e) {
 			ctx.error(new TLAParserIssue(e.getReason()));
 			return null;
 		}

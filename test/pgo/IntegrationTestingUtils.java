@@ -2,8 +2,8 @@ package pgo;
 
 import org.json.JSONObject;
 import pgo.formatters.IndentingWriter;
-import pgo.formatters.PGoTLAExpressionFormattingVisitor;
-import pgo.model.tla.PGoTLAExpression;
+import pgo.formatters.TLAExpressionFormattingVisitor;
+import pgo.model.tla.TLAExpression;
 
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertThat;
@@ -20,9 +20,9 @@ public class IntegrationTestingUtils {
 
 	static class KeyValue {
 		private String key;
-		private PGoTLAExpression value;
+		private TLAExpression value;
 
-		public KeyValue(String key, PGoTLAExpression value) {
+		public KeyValue(String key, TLAExpression value) {
 			super();
 			this.key = key;
 			this.value = value;
@@ -32,13 +32,13 @@ public class IntegrationTestingUtils {
 			return key;
 		}
 
-		public PGoTLAExpression getValue() {
+		public TLAExpression getValue() {
 			return value;
 		}
 	}
 
 	public interface TestRunner<T> {
-		public void run(T t) throws IOException;
+		void run(T t) throws IOException;
 	}
 	
 	public static void expungeFile(File file) {
@@ -53,7 +53,7 @@ public class IntegrationTestingUtils {
 	}
 
 	// See testRunGoCode and testRunGoCodeShouldPanic below for runner examples
-	public static void testCompileExpression(PGoTLAExpression result, List<KeyValue> vars,
+	public static void testCompileExpression(TLAExpression result, List<KeyValue> vars,
 											 TestRunner<Path> runner) throws IOException {
 		Path tempDirPath = Files.createTempDirectory("pgotest");
 		File tempDir = tempDirPath.toFile();
@@ -79,7 +79,7 @@ public class IntegrationTestingUtils {
 							for(KeyValue var : vars) {
 								out.write(var.getKey());
 								out.write(" = ");
-								var.getValue().accept(new PGoTLAExpressionFormattingVisitor(out));
+								var.getValue().accept(new TLAExpressionFormattingVisitor(out));
 								out.write(";");
 								out.newLine();
 							}
@@ -89,7 +89,7 @@ public class IntegrationTestingUtils {
 					out.newLine();
 					try(IndentingWriter.Indent i2_ = out.indent()){
 						out.write("print ");
-						result.accept(new PGoTLAExpressionFormattingVisitor(out));
+						result.accept(new TLAExpressionFormattingVisitor(out));
 					}
 					out.newLine();
 					out.write("}");
@@ -139,7 +139,7 @@ public class IntegrationTestingUtils {
 	}
 	
 	public static void testRunGoCode(Path codePath, List<String> expected) throws IOException {
-		// try to run the compiled Go code, check that it prints the right thing
+		// try to run the compiled GoRoutineStatement code, check that it prints the right thing
 		ProcessBuilder pb = new ProcessBuilder("go", "run", codePath.toString());
 		Process p = pb.start();
 		// print stderr in case it says something interesting

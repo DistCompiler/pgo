@@ -10,7 +10,7 @@ public abstract class GrammarVisitor<Result, Except extends Throwable> {
 	public abstract Result visit(StringGrammar stringGrammar) throws Except;
 	public abstract <GrammarResult extends SourceLocatable> Result visit(BranchGrammar<GrammarResult> branchGrammar) throws Except;
 	public abstract Result visit(SequenceGrammar sequenceGrammar) throws Except;
-	public abstract Result visit(AssignmentGrammar assignmentGrammar) throws Except;
+	public abstract <GrammarResult extends SourceLocatable> Result visit(AssignmentGrammar<GrammarResult> assignmentGrammar) throws Except;
 	public abstract <GrammarResult extends SourceLocatable> Result visit(PredicateGrammar<GrammarResult> predicateGrammar) throws Except;
 	public abstract <GrammarResult extends SourceLocatable> Result visit(RejectGrammar<GrammarResult> rejectGrammar) throws Except;
 	public abstract Result visit(EOFGrammar eofGrammar) throws Except;

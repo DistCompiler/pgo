@@ -1,39 +1,54 @@
 package pgo.model.golang;
 
+import java.util.List;
 import java.util.Objects;
 
-/**
- * A goroutine call
- *
- */
-public class GoCall extends Statement {
+public class GoCall extends GoExpression {
 
-	private Expression target;
+	private GoExpression target;
+	private List<GoExpression> arguments;
+	private boolean ellipsis;
 
-	public GoCall(Expression target) {
-		this.target = target;
+	public GoCall(GoExpression target, List<GoExpression> arguments) {
+		this(target, arguments, false);
 	}
-	
-	public Expression getTarget() {
+
+	public GoCall(GoExpression target, List<GoExpression> arguments, boolean ellipsis) {
+		this.target = target;
+		this.arguments = arguments;
+		this.ellipsis = ellipsis;
+	}
+
+	public GoExpression getTarget() {
 		return target;
 	}
 
+	public List<GoExpression> getArguments(){
+		return arguments;
+	}
+
+	public boolean hasEllipsis() {
+		return ellipsis;
+	}
+
 	@Override
-	public <T, E extends Throwable> T accept(StatementVisitor<T, E> v) throws E {
-		return v.visit(this);
+	public <T, E extends Throwable> T accept(GoExpressionVisitor<T, E> visitor) throws E {
+		return visitor.visit(this);
 	}
 
 	@Override
 	public boolean equals(Object o) {
 		if (this == o) return true;
 		if (o == null || getClass() != o.getClass()) return false;
-		GoCall goCall = (GoCall) o;
-		return Objects.equals(target, goCall.target);
+		GoCall call = (GoCall) o;
+		return ellipsis == call.ellipsis &&
+				Objects.equals(target, call.target) &&
+				Objects.equals(arguments, call.arguments);
 	}
 
 	@Override
 	public int hashCode() {
 
-		return Objects.hash(target);
+		return Objects.hash(target, arguments, ellipsis);
 	}
 }

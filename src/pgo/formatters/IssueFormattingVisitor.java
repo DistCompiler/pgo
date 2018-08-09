@@ -6,7 +6,7 @@ import java.util.Set;
 
 import pgo.errors.IssueVisitor;
 import pgo.errors.IssueWithContext;
-import pgo.model.pcal.Macro;
+import pgo.model.pcal.PlusCalMacro;
 import pgo.model.type.*;
 import pgo.parser.ParseFailure;
 import pgo.trans.intermediate.*;
@@ -136,7 +136,7 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 	@Override
 	public Void visit(MacroArgumentCountMismatchIssue macroArgumentCountMismatchIssue) throws IOException {
 		out.write("macro argument mismatch while calling macro ");
-		Macro macro = macroArgumentCountMismatchIssue.getMacro();
+		PlusCalMacro macro = macroArgumentCountMismatchIssue.getMacro();
 		out.write(macro.getName());
 		out.write(" defined at line ");
 		out.write(macro.getLocation().getStartLine());

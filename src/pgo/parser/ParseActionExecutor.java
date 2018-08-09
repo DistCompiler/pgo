@@ -5,8 +5,6 @@ public interface ParseActionExecutor {
 	boolean visit(PatternParseAction patternParseAction);
 	boolean visit(FailParseAction failParseAction);
 	boolean visit(BranchParseAction branchParseAction);
-	boolean visit(ExecutorParseAction executorParseAction);
-	boolean visit(QueryPositionParseAction queryPositionParseAction);
 	boolean visit(MappingParseAction mappingParseAction);
 	boolean visit(ReturnParseAction returnParseAction);
 	boolean visit(ReferenceParseAction referenceParseAction);

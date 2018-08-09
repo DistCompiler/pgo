@@ -6,20 +6,20 @@ import pgo.model.golang.*;
 
 import java.util.List;
 
-public class GoExpressionStaticComparisonVisitor extends ExpressionVisitor<Integer, RuntimeException> {
+public class GoExpressionStaticComparisonVisitor extends GoExpressionVisitor<Integer, RuntimeException> {
 
-	private final Expression rhs;
+	private final GoExpression rhs;
 
-	public GoExpressionStaticComparisonVisitor(Expression rhs) {
+	public GoExpressionStaticComparisonVisitor(GoExpression rhs) {
 		this.rhs = rhs;
 	}
 
 	@Override
-	public Integer visit(VariableName v) throws RuntimeException {
+	public Integer visit(GoVariableName v) throws RuntimeException {
 		throw new InternalCompilerError();
 	}
 
-	private <T> T getRhs(Expression lhs){
+	private <T> T getRhs(GoExpression lhs){
 		if(lhs.getClass().isInstance(rhs)){
 			return (T)rhs;
 		}
@@ -27,8 +27,8 @@ public class GoExpressionStaticComparisonVisitor extends ExpressionVisitor<Integ
 	}
 
 	@Override
-	public Integer visit(Builtins.BuiltinConstant v) throws RuntimeException {
-		Builtins.BuiltinConstant rhs = getRhs(v);
+	public Integer visit(GoBuiltins.BuiltinConstant v) throws RuntimeException {
+		GoBuiltins.BuiltinConstant rhs = getRhs(v);
 		if(v.getValue().equals(rhs.getValue())) return 0;
 		if(rhs.getValue().equals("true")) return -1;
 		if(rhs.getValue().equals("false")) return 1;
@@ -36,37 +36,37 @@ public class GoExpressionStaticComparisonVisitor extends ExpressionVisitor<Integ
 	}
 
 	@Override
-	public Integer visit(IntLiteral intLiteral) throws RuntimeException {
-		IntLiteral rhs = getRhs(intLiteral);
+	public Integer visit(GoIntLiteral intLiteral) throws RuntimeException {
+		GoIntLiteral rhs = getRhs(intLiteral);
 		return intLiteral.getValue() - rhs.getValue();
 	}
 
 	@Override
-	public Integer visit(MapLiteral mapConstructor) throws RuntimeException {
+	public Integer visit(GoMapLiteral mapConstructor) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public Integer visit(StringLiteral stringLiteral) throws RuntimeException {
-		StringLiteral rhs = getRhs(stringLiteral);
+	public Integer visit(GoStringLiteral stringLiteral) throws RuntimeException {
+		GoStringLiteral rhs = getRhs(stringLiteral);
 		return stringLiteral.getValue().compareTo(rhs.getValue());
 	}
 
 	@Override
-	public Integer visit(Index index) throws RuntimeException {
+	public Integer visit(GoIndexExpression index) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public Integer visit(SliceOperator slice) throws RuntimeException {
+	public Integer visit(GoSliceOperator slice) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public Integer visit(SliceLiteral sliceConstructor) throws RuntimeException {
-		SliceLiteral rhs = getRhs(sliceConstructor);
-		List<Expression> lhsInitializers = sliceConstructor.getInitializers();
-		List<Expression> rhsInitializers = rhs.getInitializers();
+	public Integer visit(GoSliceLiteral sliceConstructor) throws RuntimeException {
+		GoSliceLiteral rhs = getRhs(sliceConstructor);
+		List<GoExpression> lhsInitializers = sliceConstructor.getInitializers();
+		List<GoExpression> rhsInitializers = rhs.getInitializers();
 		int sizeDiff = lhsInitializers.size() - rhsInitializers.size();
 		if(sizeDiff == 0){
 			for(int i = 0; i < lhsInitializers.size(); ++i){
@@ -83,31 +83,31 @@ public class GoExpressionStaticComparisonVisitor extends ExpressionVisitor<Integ
 	}
 
 	@Override
-	public Integer visit(TypeAssertion typeAssertion) throws RuntimeException {
+	public Integer visit(GoTypeAssertion typeAssertion) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public Integer visit(AnonymousFunction anonymousFunction) throws RuntimeException {
+	public Integer visit(GoAnonymousFunction anonymousFunction) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public Integer visit(Call call) throws RuntimeException {
+	public Integer visit(GoCall call) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public Integer visit(TypeCast typeCast) throws RuntimeException {
+	public Integer visit(GoTypeCast typeCast) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public Integer visit(StructLiteral structLiteral) throws RuntimeException {
-		StructLiteral rhs = getRhs(structLiteral);
+	public Integer visit(GoStructLiteral structLiteral) throws RuntimeException {
+		GoStructLiteral rhs = getRhs(structLiteral);
 		// TODO: this only works is all fields are specified
-		List<StructLiteralField> lhsFields = structLiteral.getFields();
-		List<StructLiteralField> rhsFields = rhs.getFields();
+		List<GoStructLiteralField> lhsFields = structLiteral.getFields();
+		List<GoStructLiteralField> rhsFields = rhs.getFields();
 		if(lhsFields.size() != rhsFields.size()){
 			throw new InternalCompilerError();
 		}
@@ -122,22 +122,22 @@ public class GoExpressionStaticComparisonVisitor extends ExpressionVisitor<Integ
 	}
 
 	@Override
-	public Integer visit(Binop binop) throws RuntimeException {
+	public Integer visit(GoBinop binop) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public Integer visit(Unary unary) throws RuntimeException {
+	public Integer visit(GoUnary unary) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public Integer visit(Selector dot) throws RuntimeException {
+	public Integer visit(GoSelectorExpression dot) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public Integer visit(Make make) throws RuntimeException {
+	public Integer visit(GoMakeExpression make) throws RuntimeException {
 		throw new TODO();
 	}
 }

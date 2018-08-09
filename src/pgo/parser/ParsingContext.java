@@ -189,9 +189,9 @@ public class ParsingContext implements ParseActionExecutor {
 		String token = stringParseAction.getToMatch();
 		Optional<Located<Void>> loc = lexicalContext.matchString(token);
 		if(loc.isPresent()){
-			/*if(stringParseAction.getToMatch().length() != 0 && !Arrays.asList("\\*", "(*", "*)").contains(stringParseAction.getToMatch())) {
+			if(stringParseAction.getToMatch().length() != 0 && !Arrays.asList("\\*", "(*", "*)").contains(stringParseAction.getToMatch())) {
 				System.out.println("match string \"" + token + "\" " + loc.get().getLocation());
-			}*/
+			}
 			currentState.setStoreObject(stringParseAction.getResultLocation(), loc.get());
 			return true;
 		}else{
@@ -206,10 +206,10 @@ public class ParsingContext implements ParseActionExecutor {
 		Pattern pattern = patternParseAction.getToMatch();
 		Optional<Located<MatchResult>> res = lexicalContext.matchPattern(pattern);
 		if(res.isPresent()){
-			/*String s = res.get().getValue().group();
+			String s = res.get().getValue().group();
 			if(!s.startsWith(" ") && !s.startsWith("\n")){
 				System.out.println("match pat "+s+" "+res.get().getLocation());
-			}*/
+			}
 			//System.out.println("match pattern \""+pattern+"\" "+res.get().getLocation());
 			currentState.setStoreObject(patternParseAction.getResultLocation(), res.get());
 			return true;
@@ -240,21 +240,8 @@ public class ParsingContext implements ParseActionExecutor {
 
 		for(int i = branches.size()-1; i >= 0; --i){
 			List<ParseAction> branch = branches.get(i);
-			// optimisation: is we can immediately try a parse action with no side-effects, try it in case it fails
-			// if it fails we can drop the entire branch, saving a lot of work
-			/*if(!branch.isEmpty() && branch.get(0).isDecidable()) {
-				if(!branch.get(0).accept(exec)){
-					continue;
-				}
-				thisMark = lexicalContext.mark();
-				lexicalContext.restore(mark);
-				branch = branch.subList(1, branch.size());
-			}*/
 			success |= speculateBranch(branch, Collections.emptyList());
 			lexicalContext.restore(mark);
-			/*NoCopyQueue<ParseAction> copy = queue.duplicate();
-			copy.prepend(branch);
-			stateStack.push(new State(mark, copy));*/
 		}
 
 		// if any branch resulted in a deferral, backtrack so that it will be the next one selected
@@ -263,24 +250,6 @@ public class ParsingContext implements ParseActionExecutor {
 		}else{
 			return false;
 		}
-	}
-
-	@Override
-	public boolean visit(ExecutorParseAction executorParseAction) {
-		List<ParseAction> actions = executorParseAction.getToExecute().get();
-		if(!actions.isEmpty()) {
-			preQueueActions(actions);
-		}
-		return true;
-	}
-
-	@Override
-	public boolean visit(QueryPositionParseAction queryPositionParseAction) {
-		Located<Void> result = new Located<>(lexicalContext.getSourceLocation(), null);
-		for(MutatorInterface<? super Located<Void>> mutator : queryPositionParseAction.getResultMutators()){
-			mutator.setValue(result);
-		}
-		return true;
 	}
 
 	@Override

@@ -8,9 +8,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.List;
 
-import pgo.model.tla.PGoTLAModule;
+import pgo.model.tla.TLAModule;
 import pgo.parser.LexicalContext;
-import pgo.parser.TLAParseException;
+import pgo.parser.ParseFailureException;
 import pgo.parser.TLAParser;
 
 public class TLAModuleLoader {
@@ -31,13 +31,13 @@ public class TLAModuleLoader {
 		throw new ModuleNotFoundError(name, lookupPaths);
 	}
 	
-	public PGoTLAModule loadModule(String name) throws ModuleNotFoundError, IOException, TLAParseException, NoModulesFoundInFileError {
+	public TLAModule loadModule(String name) throws ModuleNotFoundError, IOException, ParseFailureException, NoModulesFoundInFileError {
 		Path modulePath = findModule(name);
 		FileChannel fileChannel = new RandomAccessFile(modulePath.toFile(), "r").getChannel();
 		MappedByteBuffer buffer = fileChannel.map(FileChannel.MapMode.READ_ONLY, 0, fileChannel.size());
 		// assume UTF-8, though technically TLA+ is ASCII only according to the book
 		LexicalContext ctx = new LexicalContext(modulePath, StandardCharsets.UTF_8.decode(buffer));
-		List<PGoTLAModule> modules = TLAParser.readModules(ctx);
+		List<TLAModule> modules = TLAParser.readModules(ctx);
 		if(modules.size() == 0) {
 			throw new NoModulesFoundInFileError();
 		}

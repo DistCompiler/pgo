@@ -8,38 +8,38 @@ import java.util.stream.Collectors;
 import pgo.errors.IssueContext;
 import pgo.model.tla.*;
 
-public class TLAExpressionMacroSubstitutionVisitor extends PGoTLAExpressionVisitor<PGoTLAExpression, RuntimeException> {
+public class TLAExpressionMacroSubstitutionVisitor extends TLAExpressionVisitor<TLAExpression, RuntimeException> {
 
 	private IssueContext ctx;
-	private Map<String, PGoTLAExpression> macroArgs;
+	private Map<String, TLAExpression> macroArgs;
 
-	public TLAExpressionMacroSubstitutionVisitor(IssueContext ctx, Map<String, PGoTLAExpression> macroArgs) {
+	public TLAExpressionMacroSubstitutionVisitor(IssueContext ctx, Map<String, TLAExpression> macroArgs) {
 		this.ctx= ctx;
 		this.macroArgs = macroArgs;
 	}
 	
-	private List<PGoTLAGeneralIdentifierPart> substitutePrefix(List<PGoTLAGeneralIdentifierPart> prefix){
-		List<PGoTLAGeneralIdentifierPart> result = new ArrayList<>();
-		for(PGoTLAGeneralIdentifierPart part : prefix) {
+	private List<TLAGeneralIdentifierPart> substitutePrefix(List<TLAGeneralIdentifierPart> prefix){
+		List<TLAGeneralIdentifierPart> result = new ArrayList<>();
+		for(TLAGeneralIdentifierPart part : prefix) {
 			// TODO: what would TLC do if the identifier part's name matched an argument?
-			result.add(new PGoTLAGeneralIdentifierPart(part.getLocation(), part.getIdentifier().copy(),
+			result.add(new TLAGeneralIdentifierPart(part.getLocation(), part.getIdentifier().copy(),
 					part.getParameters().stream().map(p -> p.accept(this)).collect(Collectors.toList())));
 		}
 		return result;
 	}
 	
-	private List<PGoTLAQuantifierBound> substituteQuantifierBounds(List<PGoTLAQuantifierBound> bounds){
-		List<PGoTLAQuantifierBound> result = new ArrayList<>();
-		for(PGoTLAQuantifierBound qb : bounds) {
-			List<PGoTLAIdentifier> ids = substituteIdentifiers(qb.getIds());
-			result.add(new PGoTLAQuantifierBound(qb.getLocation(), qb.getType(), ids, qb.getSet().accept(this)));
+	private List<TLAQuantifierBound> substituteQuantifierBounds(List<TLAQuantifierBound> bounds){
+		List<TLAQuantifierBound> result = new ArrayList<>();
+		for(TLAQuantifierBound qb : bounds) {
+			List<TLAIdentifier> ids = substituteIdentifiers(qb.getIds());
+			result.add(new TLAQuantifierBound(qb.getLocation(), qb.getType(), ids, qb.getSet().accept(this)));
 		}
 		return result;
 	}
 	
-	private List<PGoTLAIdentifier> substituteIdentifiers(List<PGoTLAIdentifier> ids){
-		List<PGoTLAIdentifier> result = new ArrayList<>();
-		for(PGoTLAIdentifier id : ids) {
+	private List<TLAIdentifier> substituteIdentifiers(List<TLAIdentifier> ids){
+		List<TLAIdentifier> result = new ArrayList<>();
+		for(TLAIdentifier id : ids) {
 			if(macroArgs.containsKey(id.getId())) {
 				ctx.error(new MacroArgumentInnerScopeConflictIssue(id));
 			}
@@ -49,75 +49,75 @@ public class TLAExpressionMacroSubstitutionVisitor extends PGoTLAExpressionVisit
 	}
 
 	@Override
-	public PGoTLAExpression visit(PGoTLAFunctionCall pGoTLAFunctionCall) throws RuntimeException {
-		return new PGoTLAFunctionCall(pGoTLAFunctionCall.getLocation(), pGoTLAFunctionCall.getFunction().accept(this),
+	public TLAExpression visit(TLAFunctionCall pGoTLAFunctionCall) throws RuntimeException {
+		return new TLAFunctionCall(pGoTLAFunctionCall.getLocation(), pGoTLAFunctionCall.getFunction().accept(this),
 				pGoTLAFunctionCall.getParams().stream().map(p -> p.accept(this)).collect(Collectors.toList()));
 	}
 
 	@Override
-	public PGoTLAExpression visit(PGoTLABinOp pGoTLABinOp) throws RuntimeException {
-		return new PGoTLABinOp(pGoTLABinOp.getLocation(), pGoTLABinOp.getOperation(),
-				substitutePrefix(pGoTLABinOp.getPrefix()), pGoTLABinOp.getLHS().accept(this),
-				pGoTLABinOp.getRHS().accept(this));
+	public TLAExpression visit(TLABinOp TLABinOp) throws RuntimeException {
+		return new TLABinOp(TLABinOp.getLocation(), TLABinOp.getOperation(),
+				substitutePrefix(TLABinOp.getPrefix()), TLABinOp.getLHS().accept(this),
+				TLABinOp.getRHS().accept(this));
 	}
 
 	@Override
-	public PGoTLAExpression visit(PGoTLABool pGoTLABool) throws RuntimeException {
-		return pGoTLABool.copy();
+	public TLAExpression visit(TLABool TLABool) throws RuntimeException {
+		return TLABool.copy();
 	}
 
 	@Override
-	public PGoTLAExpression visit(PGoTLACase pGoTLACase) throws RuntimeException {
-		return new PGoTLACase(
-				pGoTLACase.getLocation(),
-				pGoTLACase.getArms().stream().map( arm -> {
-					return new PGoTLACaseArm(arm.getLocation(), arm.getCondition().accept(this), arm.getResult().accept(this));
+	public TLAExpression visit(TLACase TLACase) throws RuntimeException {
+		return new TLACase(
+				TLACase.getLocation(),
+				TLACase.getArms().stream().map(arm -> {
+					return new TLACaseArm(arm.getLocation(), arm.getCondition().accept(this), arm.getResult().accept(this));
 					}).collect(Collectors.toList()),
-				pGoTLACase.getOther() != null ? pGoTLACase.getOther().accept(this) : null);
+				TLACase.getOther() != null ? TLACase.getOther().accept(this) : null);
 	}
 
 	@Override
-	public PGoTLAExpression visit(PGoTLAExistential pGoTLAExistential) throws RuntimeException {
-		return new PGoTLAExistential(pGoTLAExistential.getLocation(), substituteIdentifiers(pGoTLAExistential.getIds()),
-				pGoTLAExistential.getBody().accept(this));
+	public TLAExpression visit(TLAExistential TLAExistential) throws RuntimeException {
+		return new TLAExistential(TLAExistential.getLocation(), substituteIdentifiers(TLAExistential.getIds()),
+				TLAExistential.getBody().accept(this));
 	}
 
 	@Override
-	public PGoTLAExpression visit(PGoTLAFunction pGoTLAFunction) throws RuntimeException {
-		return new PGoTLAFunction(pGoTLAFunction.getLocation(), substituteQuantifierBounds(pGoTLAFunction.getArguments()),
+	public TLAExpression visit(TLAFunction pGoTLAFunction) throws RuntimeException {
+		return new TLAFunction(pGoTLAFunction.getLocation(), substituteQuantifierBounds(pGoTLAFunction.getArguments()),
 				pGoTLAFunction.getBody().accept(this));
 	}
 
 	@Override
-	public PGoTLAExpression visit(PGoTLAFunctionSet pGoTLAFunctionSet) throws RuntimeException {
-		return new PGoTLAFunctionSet(pGoTLAFunctionSet.getLocation(), pGoTLAFunctionSet.getFrom().accept(this), pGoTLAFunctionSet.getTo().accept(this));
+	public TLAExpression visit(TLAFunctionSet pGoTLAFunctionSet) throws RuntimeException {
+		return new TLAFunctionSet(pGoTLAFunctionSet.getLocation(), pGoTLAFunctionSet.getFrom().accept(this), pGoTLAFunctionSet.getTo().accept(this));
 	}
 
 	@Override
-	public PGoTLAExpression visit(PGoTLAFunctionSubstitution pGoTLAFunctionSubstitution) throws RuntimeException {
-		return new PGoTLAFunctionSubstitution(
+	public TLAExpression visit(TLAFunctionSubstitution pGoTLAFunctionSubstitution) throws RuntimeException {
+		return new TLAFunctionSubstitution(
 				pGoTLAFunctionSubstitution.getLocation(),
 				pGoTLAFunctionSubstitution.getSource().accept(this),
 				pGoTLAFunctionSubstitution.getSubstitutions().stream().map(pair -> {
-					return new PGoTLAFunctionSubstitutionPair(
+					return new TLAFunctionSubstitutionPair(
 							pair.getLocation(),
-							pair.getKeys().stream().map(PGoTLASubstitutionKey::copy).collect(Collectors.toList()),
+							pair.getKeys().stream().map(TLASubstitutionKey::copy).collect(Collectors.toList()),
 							pair.getValue().accept(this));
 				}).collect(Collectors.toList()));
 	}
 
 	@Override
-	public PGoTLAExpression visit(PGoTLAIf pGoTLAIf) throws RuntimeException {
-		return new PGoTLAIf(pGoTLAIf.getLocation(), pGoTLAIf.getCond().accept(this), pGoTLAIf.getTval().accept(this), pGoTLAIf.getFval().accept(this));
+	public TLAExpression visit(TLAIf pGoTLAIf) throws RuntimeException {
+		return new TLAIf(pGoTLAIf.getLocation(), pGoTLAIf.getCond().accept(this), pGoTLAIf.getTval().accept(this), pGoTLAIf.getFval().accept(this));
 	}
 
 	@Override
-	public PGoTLAExpression visit(PGoTLALet pGoTLALet) throws RuntimeException {
-		return new PGoTLALet(pGoTLALet.getLocation(), null, pGoTLALet.getBody().accept(this));
+	public TLAExpression visit(TLALet pGoTLALet) throws RuntimeException {
+		return new TLALet(pGoTLALet.getLocation(), null, pGoTLALet.getBody().accept(this));
 	}
 
 	@Override
-	public PGoTLAExpression visit(PGoTLAGeneralIdentifier pGoTLAVariable) throws RuntimeException {
+	public TLAExpression visit(TLAGeneralIdentifier pGoTLAVariable) throws RuntimeException {
 		if(pGoTLAVariable.getGeneralIdentifierPrefix().isEmpty()) {
 			if(macroArgs.containsKey(pGoTLAVariable.getName().getId())) {
 				return macroArgs.get(pGoTLAVariable.getName().getId()).copy();
@@ -127,93 +127,93 @@ public class TLAExpressionMacroSubstitutionVisitor extends PGoTLAExpressionVisit
 				ctx.error(new MacroArgumentInnerScopeConflictIssue(pGoTLAVariable.getName()));
 			}
 		}
-		return new PGoTLAGeneralIdentifier(pGoTLAVariable.getLocation(), pGoTLAVariable.getName().copy(),
+		return new TLAGeneralIdentifier(pGoTLAVariable.getLocation(), pGoTLAVariable.getName().copy(),
 				substitutePrefix(pGoTLAVariable.getGeneralIdentifierPrefix()));
 	}
 
 	@Override
-	public PGoTLAExpression visit(PGoTLATuple pGoTLATuple) throws RuntimeException {
-		return new PGoTLATuple(pGoTLATuple.getLocation(), pGoTLATuple.getElements().stream().map(e -> e.accept(this)).collect(Collectors.toList()));
+	public TLAExpression visit(TLATuple pGoTLATuple) throws RuntimeException {
+		return new TLATuple(pGoTLATuple.getLocation(), pGoTLATuple.getElements().stream().map(e -> e.accept(this)).collect(Collectors.toList()));
 	}
 
 	@Override
-	public PGoTLAExpression visit(PGoTLAMaybeAction pGoTLAMaybeAction) throws RuntimeException {
-		return new PGoTLAMaybeAction(pGoTLAMaybeAction.getLocation(), pGoTLAMaybeAction.getBody().accept(this), pGoTLAMaybeAction.getVars().accept(this));
+	public TLAExpression visit(TLAMaybeAction pGoTLAMaybeAction) throws RuntimeException {
+		return new TLAMaybeAction(pGoTLAMaybeAction.getLocation(), pGoTLAMaybeAction.getBody().accept(this), pGoTLAMaybeAction.getVars().accept(this));
 	}
 
 	@Override
-	public PGoTLAExpression visit(PGoTLANumber pGoTLANumber) throws RuntimeException {
+	public TLAExpression visit(TLANumber pGoTLANumber) throws RuntimeException {
 		return pGoTLANumber.copy();
 	}
 
 	@Override
-	public PGoTLAExpression visit(PGoTLAOperatorCall pGoTLAOperatorCall) throws RuntimeException {
+	public TLAExpression visit(TLAOperatorCall pGoTLAOperatorCall) throws RuntimeException {
 		if(macroArgs.containsKey(pGoTLAOperatorCall.getName().getId())) {
 			ctx.error(new MacroArgumentInnerScopeConflictIssue(pGoTLAOperatorCall.getName()));
 		}
-		return new PGoTLAOperatorCall(pGoTLAOperatorCall.getLocation(),
+		return new TLAOperatorCall(pGoTLAOperatorCall.getLocation(),
 				pGoTLAOperatorCall.getName().copy(),
 				substitutePrefix(pGoTLAOperatorCall.getPrefix()),
 				pGoTLAOperatorCall.getArgs().stream().map(a -> a.accept(this)).collect(Collectors.toList()));
 	}
 
 	@Override
-	public PGoTLAExpression visit(PGoTLAQuantifiedExistential pGoTLAQuantifiedExistential) throws RuntimeException {
-		return new PGoTLAQuantifiedExistential(pGoTLAQuantifiedExistential.getLocation(),
+	public TLAExpression visit(TLAQuantifiedExistential pGoTLAQuantifiedExistential) throws RuntimeException {
+		return new TLAQuantifiedExistential(pGoTLAQuantifiedExistential.getLocation(),
 				substituteQuantifierBounds(pGoTLAQuantifiedExistential.getIds()),
 				pGoTLAQuantifiedExistential.getBody().accept(this));
 	}
 
 	@Override
-	public PGoTLAExpression visit(PGoTLAQuantifiedUniversal pGoTLAQuantifiedUniversal) throws RuntimeException {
-		return new PGoTLAQuantifiedExistential(pGoTLAQuantifiedUniversal.getLocation(),
+	public TLAExpression visit(TLAQuantifiedUniversal pGoTLAQuantifiedUniversal) throws RuntimeException {
+		return new TLAQuantifiedExistential(pGoTLAQuantifiedUniversal.getLocation(),
 				substituteQuantifierBounds(pGoTLAQuantifiedUniversal.getIds()),
 				pGoTLAQuantifiedUniversal.getBody().accept(this));
 	}
 
 	@Override
-	public PGoTLAExpression visit(PGoTLARecordConstructor pGoTLARecordConstructor) throws RuntimeException {
-		return new PGoTLARecordConstructor(pGoTLARecordConstructor.getLocation(), pGoTLARecordConstructor.getFields().stream().map( field -> {
+	public TLAExpression visit(TLARecordConstructor pGoTLARecordConstructor) throws RuntimeException {
+		return new TLARecordConstructor(pGoTLARecordConstructor.getLocation(), pGoTLARecordConstructor.getFields().stream().map(field -> {
 			if(macroArgs.containsKey(field.getName().getId())) {
 				ctx.error(new MacroArgumentInnerScopeConflictIssue(field.getName()));
 			}
-			return new PGoTLARecordConstructor.Field(field.getLocation(), field.getName().copy(), field.getValue().accept(this));
+			return new TLARecordConstructor.Field(field.getLocation(), field.getName().copy(), field.getValue().accept(this));
 		}).collect(Collectors.toList()));
 	}
 
 	@Override
-	public PGoTLAExpression visit(PGoTLARecordSet pGoTLARecordSet) throws RuntimeException {
-		return new PGoTLARecordSet(pGoTLARecordSet.getLocation(), pGoTLARecordSet.getFields().stream().map( field -> {
+	public TLAExpression visit(TLARecordSet pGoTLARecordSet) throws RuntimeException {
+		return new TLARecordSet(pGoTLARecordSet.getLocation(), pGoTLARecordSet.getFields().stream().map(field -> {
 			if(macroArgs.containsKey(field.getName().getId())) {
 				ctx.error(new MacroArgumentInnerScopeConflictIssue(field.getName()));
 			}
-			return new PGoTLARecordSet.Field(field.getLocation(), field.getName().copy(), field.getSet().accept(this));
+			return new TLARecordSet.Field(field.getLocation(), field.getName().copy(), field.getSet().accept(this));
 		}).collect(Collectors.toList()));
 	}
 
 	@Override
-	public PGoTLAExpression visit(PGoTLARequiredAction pGoTLARequiredAction) throws RuntimeException {
-		return new PGoTLARequiredAction(
+	public TLAExpression visit(TLARequiredAction pGoTLARequiredAction) throws RuntimeException {
+		return new TLARequiredAction(
 				pGoTLARequiredAction.getLocation(),
 				pGoTLARequiredAction.getBody().accept(this),
 				pGoTLARequiredAction.getVars().accept(this));
 	}
 
 	@Override
-	public PGoTLAExpression visit(PGoTLASetConstructor pGoTLASetConstructor) throws RuntimeException {
-		return new PGoTLASetConstructor(pGoTLASetConstructor.getLocation(),
+	public TLAExpression visit(TLASetConstructor pGoTLASetConstructor) throws RuntimeException {
+		return new TLASetConstructor(pGoTLASetConstructor.getLocation(),
 				pGoTLASetConstructor.getContents().stream().map(c -> c.accept(this)).collect(Collectors.toList()));
 	}
 
 	@Override
-	public PGoTLAExpression visit(PGoTLASetComprehension pGoTLASetComprehension) throws RuntimeException {
-		return new PGoTLASetComprehension(pGoTLASetComprehension.getLocation(),
+	public TLAExpression visit(TLASetComprehension pGoTLASetComprehension) throws RuntimeException {
+		return new TLASetComprehension(pGoTLASetComprehension.getLocation(),
 				pGoTLASetComprehension.getBody().accept(this), substituteQuantifierBounds(pGoTLASetComprehension.getBounds()));
 	}
 
 	@Override
-	public PGoTLAExpression visit(PGoTLASetRefinement pGoTLASetRefinement) throws RuntimeException {
-		PGoTLAIdentifierOrTuple ident = pGoTLASetRefinement.getIdent();
+	public TLAExpression visit(TLASetRefinement pGoTLASetRefinement) throws RuntimeException {
+		TLAIdentifierOrTuple ident = pGoTLASetRefinement.getIdent();
 		if(ident.isTuple()) {
 			substituteIdentifiers(ident.getTuple());
 		}else {
@@ -221,33 +221,33 @@ public class TLAExpressionMacroSubstitutionVisitor extends PGoTLAExpressionVisit
 				ctx.error(new MacroArgumentInnerScopeConflictIssue(ident.getId()));
 			}
 		}
-		return new PGoTLASetRefinement(pGoTLASetRefinement.getLocation(), pGoTLASetRefinement.getIdent().copy(),
+		return new TLASetRefinement(pGoTLASetRefinement.getLocation(), pGoTLASetRefinement.getIdent().copy(),
 				pGoTLASetRefinement.getFrom().accept(this), pGoTLASetRefinement.getWhen().accept(this));
 	}
 
 	@Override
-	public PGoTLAExpression visit(PGoTLAString pGoTLAString) throws RuntimeException {
+	public TLAExpression visit(TLAString pGoTLAString) throws RuntimeException {
 		return pGoTLAString.copy();
 	}
 
 	@Override
-	public PGoTLAExpression visit(PGoTLAUnary pGoTLAUnary) throws RuntimeException {
-		return new PGoTLAUnary(pGoTLAUnary.getLocation(), pGoTLAUnary.getOperation(), substitutePrefix(pGoTLAUnary.getPrefix()),
+	public TLAExpression visit(TLAUnary pGoTLAUnary) throws RuntimeException {
+		return new TLAUnary(pGoTLAUnary.getLocation(), pGoTLAUnary.getOperation(), substitutePrefix(pGoTLAUnary.getPrefix()),
 				pGoTLAUnary.getOperand().accept(this));
 	}
 
 	@Override
-	public PGoTLAExpression visit(PGoTLAUniversal pGoTLAUniversal) throws RuntimeException {
-		return new PGoTLAUniversal(pGoTLAUniversal.getLocation(), substituteIdentifiers(pGoTLAUniversal.getIds()), pGoTLAUniversal.getBody().accept(this));
+	public TLAExpression visit(TLAUniversal pGoTLAUniversal) throws RuntimeException {
+		return new TLAUniversal(pGoTLAUniversal.getLocation(), substituteIdentifiers(pGoTLAUniversal.getIds()), pGoTLAUniversal.getBody().accept(this));
 	}
 
 	@Override
-	public PGoTLAExpression visit(PlusCalDefaultInitValue plusCalDefaultInitValue) throws RuntimeException {
+	public TLAExpression visit(PlusCalDefaultInitValue plusCalDefaultInitValue) throws RuntimeException {
 		return plusCalDefaultInitValue.copy();
 	}
 
 	@Override
-	public PGoTLAExpression visit(TLAFairness fairness) throws RuntimeException {
+	public TLAExpression visit(TLAFairness fairness) throws RuntimeException {
 		return new TLAFairness(
 				fairness.getLocation(), fairness.getType(), fairness.getVars().accept(this),
 				fairness.getExpression().accept(this));

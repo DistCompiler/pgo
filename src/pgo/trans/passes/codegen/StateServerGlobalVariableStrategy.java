@@ -3,9 +3,14 @@ package pgo.trans.passes.codegen;
 import pgo.PGoNetOptions;
 import pgo.Unreachable;
 import pgo.model.golang.*;
-import pgo.model.pcal.Algorithm;
-import pgo.model.pcal.MultiProcess;
-import pgo.model.pcal.PcalProcess;
+import pgo.model.golang.builder.GoBlockBuilder;
+import pgo.model.golang.builder.GoModuleBuilder;
+import pgo.model.golang.builder.GoSwitchBuilder;
+import pgo.model.golang.type.GoType;
+import pgo.model.golang.type.GoTypeName;
+import pgo.model.pcal.PlusCalAlgorithm;
+import pgo.model.pcal.PlusCalMultiProcess;
+import pgo.model.pcal.PlusCalProcess;
 import pgo.model.type.PGoType;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
@@ -19,7 +24,7 @@ public class StateServerGlobalVariableStrategy extends GlobalVariableStrategy {
 	private DefinitionRegistry registry;
 	private Map<UID, PGoType> typeMap;
 	private PGoNetOptions.StateOptions stateOptions;
-	private Algorithm algorithm;
+	private PlusCalAlgorithm plusCalAlgorithm;
 	private GoCommandLineArgumentParser commandLineArgumentParser;
 	private UID processNameUID;
 	private UID processArgumentUID;
@@ -28,11 +33,11 @@ public class StateServerGlobalVariableStrategy extends GlobalVariableStrategy {
 	private UID refsUID;
 
 	public StateServerGlobalVariableStrategy(DefinitionRegistry registry, Map<UID, PGoType> typeMap,
-	                                         PGoNetOptions.StateOptions stateOptions, Algorithm algorithm) {
+	                                         PGoNetOptions.StateOptions stateOptions, PlusCalAlgorithm plusCalAlgorithm) {
 		this.registry = registry;
 		this.typeMap = typeMap;
 		this.stateOptions = stateOptions;
-		this.algorithm = algorithm;
+		this.plusCalAlgorithm = plusCalAlgorithm;
 		this.commandLineArgumentParser = new GoCommandLineArgumentParser();
 		this.processNameUID = new UID();
 		this.processArgumentUID = new UID();
@@ -41,180 +46,180 @@ public class StateServerGlobalVariableStrategy extends GlobalVariableStrategy {
 		this.refsUID = new UID();
 	}
 
-	static void generateProcessSwitch(Map<UID, PGoType> typeMap, Algorithm algorithm, BlockBuilder builder,
-	                                  VariableName processName, VariableName processArgument) {
-		try (SwitchBuilder switchBuilder = builder.switchStmt(processName)) {
-			for (PcalProcess process : ((MultiProcess) algorithm.getProcesses()).getProcesses()) {
+	static void generateProcessSwitch(Map<UID, PGoType> typeMap, PlusCalAlgorithm plusCalAlgorithm, GoBlockBuilder builder,
+									  GoVariableName processName, GoVariableName processArgument) {
+		try (GoSwitchBuilder switchBuilder = builder.switchStmt(processName)) {
+			for (PlusCalProcess process : ((PlusCalMultiProcess) plusCalAlgorithm.getProcesses()).getProcesses()) {
 				String name = process.getName().getName().getValue();
-				Type type = typeMap.get(process.getName().getUID()).accept(new PGoTypeGoTypeConversionVisitor());
-				try (BlockBuilder caseBody = switchBuilder.addCase(new StringLiteral(name))) {
-					if (type.equals(Builtins.Int)) {
+				GoType type = typeMap.get(process.getName().getUID()).accept(new PGoTypeGoTypeConversionVisitor());
+				try (GoBlockBuilder caseBody = switchBuilder.addCase(new GoStringLiteral(name))) {
+					if (type.equals(GoBuiltins.Int)) {
 						builder.addImport("strconv");
-						List<VariableName> names = caseBody.varDecl(
+						List<GoVariableName> names = caseBody.varDecl(
 								Arrays.asList("i", "err"),
-								new Call(
-										new Selector(new VariableName("strconv"), "Atoi"),
+								new GoCall(
+										new GoSelectorExpression(new GoVariableName("strconv"), "Atoi"),
 										Collections.singletonList(processArgument)));
-						VariableName i = names.get(0);
-						VariableName err = names.get(1);
-						try (IfBuilder ifBuilder = caseBody.ifStmt(new Binop(Binop.Operation.NEQ, err, Builtins.Nil))) {
-							try (BlockBuilder yes = ifBuilder.whenTrue()) {
-								yes.addPanic(new Binop(
-										Binop.Operation.PLUS,
-										new StringLiteral("Process " + name +
+						GoVariableName i = names.get(0);
+						GoVariableName err = names.get(1);
+						try (GoIfBuilder ifBuilder = caseBody.ifStmt(new GoBinop(GoBinop.Operation.NEQ, err, GoBuiltins.Nil))) {
+							try (GoBlockBuilder yes = ifBuilder.whenTrue()) {
+								yes.addPanic(new GoBinop(
+										GoBinop.Operation.PLUS,
+										new GoStringLiteral("Process " + name +
 												" requires an integer argument; err = "),
-										new Call(new Selector(err, "Error"), Collections.emptyList())));
+										new GoCall(new GoSelectorExpression(err, "Error"), Collections.emptyList())));
 							}
 						}
-						caseBody.addStatement(new Call(new VariableName(name), Collections.singletonList(i)));
-					} else if (type.equals(Builtins.String)) {
-						caseBody.addStatement(new Call(
-								new VariableName(name),
+						caseBody.addStatement(new GoCall(new GoVariableName(name), Collections.singletonList(i)));
+					} else if (type.equals(GoBuiltins.String)) {
+						caseBody.addStatement(new GoCall(
+								new GoVariableName(name),
 								Collections.singletonList(processArgument)));
 					} else {
 						throw new Unreachable();
 					}
 				}
 			}
-			try (BlockBuilder defaultCaseBody = switchBuilder.defaultCase()) {
-				defaultCaseBody.addPanic(new Binop(
-						Binop.Operation.PLUS,
-						new StringLiteral("Unknown process "),
+			try (GoBlockBuilder defaultCaseBody = switchBuilder.defaultCase()) {
+				defaultCaseBody.addPanic(new GoBinop(
+						GoBinop.Operation.PLUS,
+						new GoStringLiteral("Unknown process "),
 						processName));
 			}
 		}
 	}
 
-	private void releaseRefs(BlockBuilder builder) {
-		VariableName refs = findVariable(refsUID);
-		VariableName err = findVariable(errUID);
-		builder.assign(err, new Call(
-				new Selector(findVariable(globalStateUID), "Release"),
+	private void releaseRefs(GoBlockBuilder builder) {
+		GoVariableName refs = findVariable(refsUID);
+		GoVariableName err = findVariable(errUID);
+		builder.assign(err, new GoCall(
+				new GoSelectorExpression(findVariable(globalStateUID), "Release"),
 				Collections.singletonList(refs)));
-		try (IfBuilder ifBuilder = builder.ifStmt(new Binop(Binop.Operation.NEQ, err, Builtins.Nil))) {
-			try (BlockBuilder yes = ifBuilder.whenTrue()) {
+		try (GoIfBuilder ifBuilder = builder.ifStmt(new GoBinop(GoBinop.Operation.NEQ, err, GoBuiltins.Nil))) {
+			try (GoBlockBuilder yes = ifBuilder.whenTrue()) {
 				yes.addPanic(err);
 			}
 		}
 	}
 
 	@Override
-	public void initPostlude(ModuleBuilder moduleBuilder, BlockBuilder initBuilder) {
-		VariableName processName = moduleBuilder.defineGlobal(processNameUID, "processName", Builtins.String);
+	public void initPostlude(GoModuleBuilder moduleBuilder, GoBlockBuilder initBuilder) {
+		GoVariableName processName = moduleBuilder.defineGlobal(processNameUID, "processName", GoBuiltins.String);
 		addVariable(processNameUID, processName);
-		VariableName processArgument = moduleBuilder.defineGlobal(processArgumentUID, "processArgument", Builtins.String);
+		GoVariableName processArgument = moduleBuilder.defineGlobal(processArgumentUID, "processArgument", GoBuiltins.String);
 		addVariable(processArgumentUID, processArgument);
 		commandLineArgumentParser.addPositionalArgument("processPlusArgument", "processName(processArgument)");
 		commandLineArgumentParser.addPositionalArgument("ipPort", "ip:port");
-		List<VariableName> commandLineArguments = commandLineArgumentParser.generateArgumentParsingCode(initBuilder);
-		VariableName processPlusArgument = commandLineArguments.get(0);
-		VariableName ipPort = commandLineArguments.get(1);
+		List<GoVariableName> commandLineArguments = commandLineArgumentParser.generateArgumentParsingCode(initBuilder);
+		GoVariableName processPlusArgument = commandLineArguments.get(0);
+		GoVariableName ipPort = commandLineArguments.get(1);
 		CodeGenUtil.generateArgumentParsing(initBuilder, processPlusArgument, processName, processArgument);
 
 		moduleBuilder.addImport("pgo/distsys");
-		VariableName err = moduleBuilder.defineGlobal(errUID, "err", Builtins.Error);
+		GoVariableName err = moduleBuilder.defineGlobal(errUID, "err", GoBuiltins.Error);
 		addVariable(errUID, err);
-		VariableName globalState = moduleBuilder.defineGlobal(
-				globalStateUID, "globalState", new PtrType(new TypeName("distsys.StateServer")));
+		GoVariableName globalState = moduleBuilder.defineGlobal(
+				globalStateUID, "globalState", new GoPtrType(new GoTypeName("distsys.StateServer")));
 		addVariable(globalStateUID, globalState);
-		VariableName peers = initBuilder.varDecl(
+		GoVariableName peers = initBuilder.varDecl(
 				"peers",
-				new SliceLiteral(Builtins.String, stateOptions.peers.stream()
-						.map(StringLiteral::new)
+				new GoSliceLiteral(GoBuiltins.String, stateOptions.peers.stream()
+						.map(GoStringLiteral::new)
 						.collect(Collectors.toList())));
-		VariableName coordinator = initBuilder.varDecl("coordinator", new Index(peers, new IntLiteral(0)));
+		GoVariableName coordinator = initBuilder.varDecl("coordinator", new GoIndexExpression(peers, new GoIntLiteral(0)));
 		initBuilder.assign(
 				Arrays.asList(globalState, err),
-				new Call(
-						new Selector(new VariableName("distsys"), "NewStateServer"),
+				new GoCall(
+						new GoSelectorExpression(new GoVariableName("distsys"), "NewStateServer"),
 						Arrays.asList(
 								peers,
 								ipPort,
 								coordinator,
-								new MapLiteral(
-										Builtins.String,
-										Builtins.Interface,
-										new HashMap<Expression, Expression>() {{
+								new GoMapLiteral(
+										GoBuiltins.String,
+										GoBuiltins.Interface,
+										new HashMap<GoExpression, GoExpression>() {{
 											for (UID varUID : registry.protectedGlobalVariables()) {
-												VariableName variableName = initBuilder.findUID(varUID);
-												put(new StringLiteral(variableName.getName()), variableName);
+												GoVariableName variableName = initBuilder.findUID(varUID);
+												put(new GoStringLiteral(variableName.getName()), variableName);
 											}
 										}}),
-								new Call(
-										new Selector(new VariableName("distsys"), "NewRandomMigrate"),
+								new GoCall(
+										new GoSelectorExpression(new GoVariableName("distsys"), "NewRandomMigrate"),
 										Collections.singletonList(ipPort)))));
-		try (IfBuilder ifBuilder = initBuilder.ifStmt(new Binop(Binop.Operation.NEQ, err, Builtins.Nil))) {
-			try (BlockBuilder yes = ifBuilder.whenTrue()) {
+		try (GoIfBuilder ifBuilder = initBuilder.ifStmt(new GoBinop(GoBinop.Operation.NEQ, err, GoBuiltins.Nil))) {
+			try (GoBlockBuilder yes = ifBuilder.whenTrue()) {
 				yes.addPanic(err);
 			}
 		}
-		VariableName refs = moduleBuilder.defineGlobal(
-				refsUID, "refs", new TypeName("distsys.VarReferences"));
+		GoVariableName refs = moduleBuilder.defineGlobal(
+				refsUID, "refs", new GoTypeName("distsys.VarReferences"));
 		addVariable(refsUID, refs);
 	}
 
 	@Override
-	public void processPrelude(BlockBuilder processBody, PcalProcess process, String processName, VariableName self, Type selfType) {
+	public void processPrelude(GoBlockBuilder processBody, PlusCalProcess process, String processName, GoVariableName self, GoType selfType) {
 		// nothing to do
 	}
 
 	@Override
-	public void mainPrelude(BlockBuilder builder) {
-		VariableName err = findVariable(errUID);
+	public void mainPrelude(GoBlockBuilder builder) {
+		GoVariableName err = findVariable(errUID);
 		builder.assign(
 				err,
-				new Call(new Selector(findVariable(globalStateUID), "WaitPeers"), Collections.emptyList()));
-		try (IfBuilder ifBuilder = builder.ifStmt(new Binop(Binop.Operation.NEQ, err, Builtins.Nil))) {
-			try (BlockBuilder yes = ifBuilder.whenTrue()) {
+				new GoCall(new GoSelectorExpression(findVariable(globalStateUID), "WaitPeers"), Collections.emptyList()));
+		try (GoIfBuilder ifBuilder = builder.ifStmt(new GoBinop(GoBinop.Operation.NEQ, err, GoBuiltins.Nil))) {
+			try (GoBlockBuilder yes = ifBuilder.whenTrue()) {
 				yes.addPanic(err);
 			}
 		}
 		generateProcessSwitch(
-				typeMap, algorithm, builder, findVariable(processNameUID), findVariable(processArgumentUID));
+				typeMap, plusCalAlgorithm, builder, findVariable(processNameUID), findVariable(processArgumentUID));
 		builder.assign(
 				err,
-				new Call(new Selector(findVariable(globalStateUID), "WaitPeers"), Collections.emptyList()));
-		try (IfBuilder ifBuilder = builder.ifStmt(new Binop(Binop.Operation.NEQ, err, Builtins.Nil))) {
-			try (BlockBuilder yes = ifBuilder.whenTrue()) {
+				new GoCall(new GoSelectorExpression(findVariable(globalStateUID), "WaitPeers"), Collections.emptyList()));
+		try (GoIfBuilder ifBuilder = builder.ifStmt(new GoBinop(GoBinop.Operation.NEQ, err, GoBuiltins.Nil))) {
+			try (GoBlockBuilder yes = ifBuilder.whenTrue()) {
 				yes.addPanic(err);
 			}
 		}
 	}
 
 	@Override
-	public void startCriticalSection(BlockBuilder builder, UID processUID, int lockGroup, UID labelUID, LabelName labelName) {
+	public void startCriticalSection(GoBlockBuilder builder, UID processUID, int lockGroup, UID labelUID, GoLabelName labelName) {
 		Set<UID> readSet = new HashSet<>(registry.getVariableReadsInLockGroup(lockGroup));
 		Set<UID> writeSet = registry.getVariableWritesInLockGroup(lockGroup);
 		readSet.removeAll(writeSet);
 		ArrayList<UID> readVariableUIDs = new ArrayList<>(readSet);
-		List<VariableName> readVariableNames = readVariableUIDs.stream().map(builder::findUID).collect(Collectors.toList());
-		List<Expression> readVariableNameStrings = readVariableNames.stream()
-				.map(v -> new StringLiteral(v.getName()))
+		List<GoVariableName> readVariableNames = readVariableUIDs.stream().map(builder::findUID).collect(Collectors.toList());
+		List<GoExpression> readVariableNameStrings = readVariableNames.stream()
+				.map(v -> new GoStringLiteral(v.getName()))
 				.collect(Collectors.toList());
 		ArrayList<UID> writeVariableUIDs = new ArrayList<>(writeSet);
-		List<VariableName> writeVariableNames = writeVariableUIDs.stream().map(builder::findUID).collect(Collectors.toList());
-		List<Expression> writeVariableNameStrings = writeVariableNames.stream()
-				.map(v -> new StringLiteral(v.getName()))
+		List<GoVariableName> writeVariableNames = writeVariableUIDs.stream().map(builder::findUID).collect(Collectors.toList());
+		List<GoExpression> writeVariableNameStrings = writeVariableNames.stream()
+				.map(v -> new GoStringLiteral(v.getName()))
 				.collect(Collectors.toList());
-		VariableName refs = findVariable(refsUID);
-		VariableName err = findVariable(errUID);
+		GoVariableName refs = findVariable(refsUID);
+		GoVariableName err = findVariable(errUID);
 		builder.assign(
 				Arrays.asList(refs, err),
-				new Call(
-						new Selector(findVariable(globalStateUID), "Acquire"),
-						Collections.singletonList(new Unary(
-								Unary.Operation.ADDR,
-								new StructLiteral(
-										new TypeName("distsys.BorrowSpec"),
+				new GoCall(
+						new GoSelectorExpression(findVariable(globalStateUID), "Acquire"),
+						Collections.singletonList(new GoUnary(
+								GoUnary.Operation.ADDR,
+								new GoStructLiteral(
+										new GoTypeName("distsys.BorrowSpec"),
 										Arrays.asList(
-												new StructLiteralField(
+												new GoStructLiteralField(
 														"ReadNames",
-														new SliceLiteral(Builtins.String, readVariableNameStrings)),
-												new StructLiteralField(
+														new GoSliceLiteral(GoBuiltins.String, readVariableNameStrings)),
+												new GoStructLiteralField(
 														"WriteNames",
-														new SliceLiteral(Builtins.String, writeVariableNameStrings))))))));
-		try (IfBuilder ifBuilder = builder.ifStmt(new Binop(Binop.Operation.NEQ, err, Builtins.Nil))) {
-			try (BlockBuilder yes = ifBuilder.whenTrue()) {
+														new GoSliceLiteral(GoBuiltins.String, writeVariableNameStrings))))))));
+		try (GoIfBuilder ifBuilder = builder.ifStmt(new GoBinop(GoBinop.Operation.NEQ, err, GoBuiltins.Nil))) {
+			try (GoBlockBuilder yes = ifBuilder.whenTrue()) {
 				yes.addPanic(err);
 			}
 		}
@@ -222,42 +227,42 @@ public class StateServerGlobalVariableStrategy extends GlobalVariableStrategy {
 		for (int i = 0; i < writeVariableNames.size(); i++) {
 			builder.assign(
 					writeVariableNames.get(i),
-					new TypeAssertion(
-							new Call(
-									new Selector(refs, "Get"),
-									Collections.singletonList(new StringLiteral(writeVariableNames.get(i).getName()))),
+					new GoTypeAssertion(
+							new GoCall(
+									new GoSelectorExpression(refs, "Get"),
+									Collections.singletonList(new GoStringLiteral(writeVariableNames.get(i).getName()))),
 							registry.getGlobalVariableType(writeVariableUIDs.get(i))));
 		}
 		for (int i = 0; i < readVariableNames.size(); i++) {
 			builder.assign(
 					readVariableNames.get(i),
-					new TypeAssertion(
-							new Call(
-									new Selector(refs, "Get"),
-									Collections.singletonList(new StringLiteral(readVariableNames.get(i).getName()))),
+					new GoTypeAssertion(
+							new GoCall(
+									new GoSelectorExpression(refs, "Get"),
+									Collections.singletonList(new GoStringLiteral(readVariableNames.get(i).getName()))),
 							registry.getGlobalVariableType(readVariableUIDs.get(i))));
 		}
 	}
 
 	@Override
-	public void abortCriticalSection(BlockBuilder builder, UID processUID, int lockGroup, UID labelUID, LabelName labelName) {
+	public void abortCriticalSection(GoBlockBuilder builder, UID processUID, int lockGroup, UID labelUID, GoLabelName labelName) {
 		releaseRefs(builder);
 	}
 
 	@Override
-	public void endCriticalSection(BlockBuilder builder, UID processUID, int lockGroup, UID labelUID, LabelName labelName) {
-		VariableName refs = findVariable(refsUID);
+	public void endCriticalSection(GoBlockBuilder builder, UID processUID, int lockGroup, UID labelUID, GoLabelName labelName) {
+		GoVariableName refs = findVariable(refsUID);
 		for (UID varUID : registry.getVariableWritesInLockGroup(lockGroup)) {
-			VariableName name = builder.findUID(varUID);
-			builder.addStatement(new Call(
-					new Selector(refs, "Set"),
-					Arrays.asList(new StringLiteral(name.getName()), name)));
+			GoVariableName name = builder.findUID(varUID);
+			builder.addStatement(new GoCall(
+					new GoSelectorExpression(refs, "Set"),
+					Arrays.asList(new GoStringLiteral(name.getName()), name)));
 		}
 		releaseRefs(builder);
 	}
 
 	@Override
-	public Expression readGlobalVariable(BlockBuilder builder, UID uid) {
+	public GoExpression readGlobalVariable(GoBlockBuilder builder, UID uid) {
 		return builder.findUID(uid);
 	}
 
@@ -265,12 +270,12 @@ public class StateServerGlobalVariableStrategy extends GlobalVariableStrategy {
 	public GlobalVariableWrite writeGlobalVariable(UID uid) {
 		return new GlobalVariableWrite() {
 			@Override
-			public Expression getValueSink(BlockBuilder builder) {
+			public GoExpression getValueSink(GoBlockBuilder builder) {
 				return builder.findUID(uid);
 			}
 
 			@Override
-			public void writeAfter(BlockBuilder builder) {
+			public void writeAfter(GoBlockBuilder builder) {
 
 			}
 		};

@@ -7,6 +7,10 @@ import java.util.List;
 import pgo.InternalCompilerError;
 import pgo.TODO;
 import pgo.model.golang.*;
+import pgo.model.golang.type.GoSliceType;
+import pgo.model.golang.type.GoStructType;
+import pgo.model.golang.type.GoStructTypeField;
+import pgo.model.golang.type.GoType;
 import pgo.model.type.PGoType;
 import pgo.model.type.PGoTypeBool;
 import pgo.model.type.PGoTypeChan;
@@ -24,91 +28,91 @@ import pgo.model.type.PGoTypeUnrealizedNumber;
 import pgo.model.type.PGoTypeVariable;
 import pgo.model.type.PGoTypeVisitor;
 
-public class PGoTypeGoTypeConversionVisitor extends PGoTypeVisitor<Type, RuntimeException> {
+public class PGoTypeGoTypeConversionVisitor extends PGoTypeVisitor<GoType, RuntimeException> {
 
 	@Override
-	public Type visit(PGoTypeVariable pGoTypeVariable) throws RuntimeException {
+	public GoType visit(PGoTypeVariable pGoTypeVariable) throws RuntimeException {
 		throw new InternalCompilerError();
 	}
 
 	@Override
-	public Type visit(PGoTypeTuple pGoTypeTuple) throws RuntimeException {
-		List<StructTypeField> fields = new ArrayList<>();
+	public GoType visit(PGoTypeTuple pGoTypeTuple) throws RuntimeException {
+		List<GoStructTypeField> fields = new ArrayList<>();
 		List<PGoType> eTypes = pGoTypeTuple.getElementTypes();
 		for(int i = 0; i < eTypes.size(); ++i){
-			fields.add(new StructTypeField("e"+i, eTypes.get(i).accept(this)));
+			fields.add(new GoStructTypeField("e"+i, eTypes.get(i).accept(this)));
 		}
-		return new StructType(fields);
+		return new GoStructType(fields);
 	}
 
 	@Override
-	public Type visit(PGoTypeString pGoTypeString) throws RuntimeException {
-		return Builtins.String;
+	public GoType visit(PGoTypeString pGoTypeString) throws RuntimeException {
+		return GoBuiltins.String;
 	}
 
 	@Override
-	public Type visit(PGoTypeUnrealizedNumber pGoTypeUnrealizedNumber) throws RuntimeException {
+	public GoType visit(PGoTypeUnrealizedNumber pGoTypeUnrealizedNumber) throws RuntimeException {
 		throw new InternalCompilerError();
 	}
 
 	@Override
-	public Type visit(PGoTypeSet pGoTypeSet) throws RuntimeException {
-		return new SliceType(pGoTypeSet.getElementType().accept(this));
+	public GoType visit(PGoTypeSet pGoTypeSet) throws RuntimeException {
+		return new GoSliceType(pGoTypeSet.getElementType().accept(this));
 	}
 
 	@Override
-	public Type visit(PGoTypeNonEnumerableSet pGoTypeNonEnumerableSet) throws RuntimeException {
+	public GoType visit(PGoTypeNonEnumerableSet pGoTypeNonEnumerableSet) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public Type visit(PGoTypeBool pGoTypeBool) throws RuntimeException {
-		return Builtins.Bool;
+	public GoType visit(PGoTypeBool pGoTypeBool) throws RuntimeException {
+		return GoBuiltins.Bool;
 	}
 
 	@Override
-	public Type visit(PGoTypeDecimal pGoTypeDecimal) throws RuntimeException {
-		return Builtins.Float64;
+	public GoType visit(PGoTypeDecimal pGoTypeDecimal) throws RuntimeException {
+		return GoBuiltins.Float64;
 	}
 
 	@Override
-	public Type visit(PGoTypeFunction pGoTypeFunction) throws RuntimeException {
+	public GoType visit(PGoTypeFunction pGoTypeFunction) throws RuntimeException {
 		List<PGoType> pTypes = pGoTypeFunction.getParamTypes();
-		Type keyType;
+		GoType keyType;
 		if(pTypes.size() == 1){
 			keyType = pTypes.get(0).accept(this);
 		}else {
 			keyType = new PGoTypeTuple(pTypes, pGoTypeFunction.getOrigins()).accept(this);
 		}
-		return new SliceType(new StructType(Arrays.asList(
-				new StructTypeField("key", keyType),
-				new StructTypeField("value", pGoTypeFunction.getReturnType().accept(this)))));
+		return new GoSliceType(new GoStructType(Arrays.asList(
+				new GoStructTypeField("key", keyType),
+				new GoStructTypeField("value", pGoTypeFunction.getReturnType().accept(this)))));
 	}
 
 	@Override
-	public Type visit(PGoTypeChan pGoTypeChan) throws RuntimeException {
+	public GoType visit(PGoTypeChan pGoTypeChan) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public Type visit(PGoTypeInt pGoTypeInt) throws RuntimeException {
-		return Builtins.Int;
+	public GoType visit(PGoTypeInt pGoTypeInt) throws RuntimeException {
+		return GoBuiltins.Int;
 	}
 
 	@Override
-	public Type visit(PGoTypeMap pGoTypeMap) throws RuntimeException {
-		return new SliceType(new StructType(Arrays.asList(
-				new StructTypeField("key", pGoTypeMap.getKeyType().accept(this)),
-				new StructTypeField("value", pGoTypeMap.getValueType().accept(this)))));
+	public GoType visit(PGoTypeMap pGoTypeMap) throws RuntimeException {
+		return new GoSliceType(new GoStructType(Arrays.asList(
+				new GoStructTypeField("key", pGoTypeMap.getKeyType().accept(this)),
+				new GoStructTypeField("value", pGoTypeMap.getValueType().accept(this)))));
 	}
 
 	@Override
-	public Type visit(PGoTypeSlice pGoTypeSlice) throws RuntimeException {
-		return new SliceType(pGoTypeSlice.getElementType().accept(this));
+	public GoType visit(PGoTypeSlice pGoTypeSlice) throws RuntimeException {
+		return new GoSliceType(pGoTypeSlice.getElementType().accept(this));
 	}
 
 	@Override
-	public Type visit(PGoTypeProcedure pGoTypeProcedure) throws RuntimeException {
+	public GoType visit(PGoTypeProcedure pGoTypeProcedure) throws RuntimeException {
 		throw new TODO();
 	}
 

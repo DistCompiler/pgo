@@ -5,7 +5,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import pgo.model.tla.PGoTLAGeneralIdentifierPart;
+import pgo.model.tla.TLAGeneralIdentifierPart;
 
 public class QualifiedName {
 	String base;
@@ -21,7 +21,7 @@ public class QualifiedName {
 		this.prefix = Collections.emptyList();
 	}
 	
-	public static QualifiedName fromTLAPrefix(List<PGoTLAGeneralIdentifierPart> prefix, String base) {
+	public static QualifiedName fromTLAPrefix(List<TLAGeneralIdentifierPart> prefix, String base) {
 		return new QualifiedName(prefix.stream().map(p -> p.getIdentifier().getId()).collect(Collectors.toList()), base);
 	}
 	

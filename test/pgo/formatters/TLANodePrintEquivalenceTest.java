@@ -14,15 +14,15 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
-import pgo.model.tla.PGoTLAExpression;
-import pgo.model.tla.PGoTLAModule;
-import pgo.model.tla.PGoTLANode;
-import pgo.model.tla.PGoTLAUnit;
+import pgo.model.tla.TLAExpression;
+import pgo.model.tla.TLAModule;
+import pgo.model.tla.TLANode;
+import pgo.model.tla.TLAUnit;
 import pgo.parser.LexicalContext;
-import pgo.parser.TLAParseException;
+import pgo.parser.ParseFailureException;
 import pgo.parser.TLAParser;
 
-import static pgo.model.tla.Builder.*;
+import static pgo.model.tla.TLABuilder.*;
 
 @RunWith(Parameterized.class)
 public class TLANodePrintEquivalenceTest {
@@ -59,25 +59,25 @@ public class TLANodePrintEquivalenceTest {
 		});
 	}
 	
-	PGoTLANode ast;
-	public TLANodePrintEquivalenceTest(PGoTLANode ast) {
+	TLANode ast;
+	public TLANodePrintEquivalenceTest(TLANode ast) {
 		this.ast = ast;
 	}
 
 	@Test
-	public void test() throws TLAParseException {
+	public void test() throws ParseFailureException {
 		String str = ast.toString();
 		System.out.println(str);
 		LexicalContext ctx = new LexicalContext(
 				Paths.get("TEST"), String.join(System.lineSeparator(), str.split("\n")));
-		PGoTLANode actual;
-		if(ast instanceof PGoTLAExpression) {
+		TLANode actual;
+		if(ast instanceof TLAExpression) {
 			actual = TLAParser.readExpression(ctx);
-		}else if(ast instanceof PGoTLAModule) {
-			List<PGoTLAModule> modules = TLAParser.readModules(ctx);
+		}else if(ast instanceof TLAModule) {
+			List<TLAModule> modules = TLAParser.readModules(ctx);
 			actual = modules.get(0);
-		}else if(ast instanceof PGoTLAUnit) {
-			List<PGoTLAUnit> units = TLAParser.readUnits(ctx);
+		}else if(ast instanceof TLAUnit) {
+			List<TLAUnit> units = TLAParser.readUnits(ctx);
 			actual = units.get(0);
 		}else {
 			throw new RuntimeException("you can only directly write tests for modules, units and expressions");

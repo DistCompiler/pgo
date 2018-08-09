@@ -4,8 +4,11 @@ import java.io.IOException;
 
 import pgo.TODO;
 import pgo.model.golang.*;
+import pgo.model.golang.type.GoInterfaceTypeField;
+import pgo.model.golang.type.GoStructTypeField;
+import pgo.model.golang.type.GoType;
 
-public class GoNodeFormattingVisitor extends NodeVisitor<Void, IOException> {
+public class GoNodeFormattingVisitor extends GoNodeVisitor<Void, IOException> {
 
 	private IndentingWriter out;
 
@@ -14,7 +17,7 @@ public class GoNodeFormattingVisitor extends NodeVisitor<Void, IOException> {
 	}
 
 	@Override
-	public Void visit(Module module) throws IOException {
+	public Void visit(GoModule module) throws IOException {
 		out.write("package ");
 		module.getPackage().accept(new GoExpressionFormattingVisitor(out));
 		out.newLine();
@@ -34,7 +37,7 @@ public class GoNodeFormattingVisitor extends NodeVisitor<Void, IOException> {
 			out.newLine();
 		}
 		out.newLine();
-		for(Declaration decl : module.getDeclarations()) {
+		for(GoDeclaration decl : module.getDeclarations()) {
 			decl.accept(this);
 			out.newLine();
 			out.newLine();
@@ -43,40 +46,40 @@ public class GoNodeFormattingVisitor extends NodeVisitor<Void, IOException> {
 	}
 
 	@Override
-	public Void visit(Statement statement) throws IOException {
+	public Void visit(GoStatement statement) throws IOException {
 		statement.accept(new GoStatementFormattingVisitor(out));
 		return null;
 	}
 
 	@Override
-	public Void visit(Declaration declaration) throws IOException {
+	public Void visit(GoDeclaration declaration) throws IOException {
 		declaration.accept(new GoDeclarationFormattingVisitor(out));
 		return null;
 	}
 
 	@Override
-	public Void visit(Type type) throws IOException {
+	public Void visit(GoType type) throws IOException {
 		type.accept(new GoTypeFormattingVisitor(out));
 		return null;
 	}
 
 	@Override
-	public Void visit(StructTypeField structTypeField) throws IOException {
+	public Void visit(GoStructTypeField structTypeField) throws IOException {
 		throw new TODO();
 	}
 
 	@Override
-	public Void visit(SwitchCase switchCase) throws IOException {
+	public Void visit(GoSwitchCase switchCase) throws IOException {
 		throw new TODO();
 	}
 
 	@Override
-	public Void visit(LabelName labelName) throws IOException {
+	public Void visit(GoLabelName labelName) throws IOException {
 		throw new TODO();
 	}
 
 	@Override
-	public Void visit(FunctionArgument functionArgument) throws IOException {
+	public Void visit(GoFunctionArgument functionArgument) throws IOException {
 		if (functionArgument.getName() != null) {
 			out.write(functionArgument.getName());
 			out.write(" ");
@@ -86,23 +89,23 @@ public class GoNodeFormattingVisitor extends NodeVisitor<Void, IOException> {
 	}
 
 	@Override
-	public Void visit(Expression expression) throws IOException {
+	public Void visit(GoExpression expression) throws IOException {
 		expression.accept(new GoExpressionFormattingVisitor(out));
 		return null;
 	}
 
 	@Override
-	public Void visit(InterfaceTypeField interfaceTypeField) throws IOException {
+	public Void visit(GoInterfaceTypeField interfaceTypeField) throws IOException {
 		throw new TODO();
 	}
 
 	@Override
-	public Void visit(SelectCase selectCase) throws IOException {
+	public Void visit(GoSelectCase selectCase) throws IOException {
 		throw new TODO();
 	}
 
 	@Override
-	public Void visit(StructLiteralField structLiteralField) throws IOException {
+	public Void visit(GoStructLiteralField structLiteralField) throws IOException {
 		if(structLiteralField.getName() != null){
 			out.write(structLiteralField.getName());
 			out.write(": ");

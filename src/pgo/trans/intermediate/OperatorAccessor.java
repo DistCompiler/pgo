@@ -3,9 +3,9 @@ package pgo.trans.intermediate;
 import java.util.List;
 import java.util.Map;
 
-import pgo.model.golang.BlockBuilder;
-import pgo.model.golang.Expression;
-import pgo.model.tla.PGoTLAExpression;
+import pgo.model.golang.builder.GoBlockBuilder;
+import pgo.model.golang.GoExpression;
+import pgo.model.tla.TLAExpression;
 import pgo.model.type.PGoType;
 import pgo.model.type.PGoTypeGenerator;
 import pgo.model.type.PGoTypeSolver;
@@ -30,7 +30,7 @@ public abstract class OperatorAccessor extends Derived {
 
 	public abstract UID getUID();
 
-	public abstract Expression generateGo(BlockBuilder builder, PGoTLAExpression origin, DefinitionRegistry registry,
-			List<PGoTLAExpression> args, Map<UID, PGoType> typeMap, GlobalVariableStrategy globalStrategy);
+	public abstract GoExpression generateGo(GoBlockBuilder builder, TLAExpression origin, DefinitionRegistry registry,
+											List<TLAExpression> args, Map<UID, PGoType> typeMap, GlobalVariableStrategy globalStrategy);
 
 }

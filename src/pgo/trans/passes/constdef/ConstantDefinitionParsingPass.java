@@ -4,7 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import pgo.errors.IssueContext;
-import pgo.model.tla.PGoTLAExpression;
+import pgo.model.tla.TLAExpression;
 import pgo.parser.*;
 import pgo.trans.passes.tlaparse.TLAParserIssue;
 
@@ -12,17 +12,17 @@ public class ConstantDefinitionParsingPass {
 	
 	private ConstantDefinitionParsingPass() {}
 	
-	public static Map<String, PGoTLAExpression> perform(IssueContext ctx, Map<String, Located<String>> defs){
-		Map<String, PGoTLAExpression> result = new HashMap<>();
+	public static Map<String, TLAExpression> perform(IssueContext ctx, Map<String, Located<String>> defs){
+		Map<String, TLAExpression> result = new HashMap<>();
 		
 		for(Map.Entry<String, Located<String>> def : defs.entrySet()) {
 			LexicalContext lexicalContext = new LexicalContext(
 					def.getValue().getLocation().getFile(),
 					def.getValue().getValue());
 			try {
-				PGoTLAExpression expr = TLAParser.readExpression(lexicalContext);
+				TLAExpression expr = TLAParser.readExpression(lexicalContext);
 				result.put(def.getKey(), expr);
-			} catch (TLAParseException e) {
+			} catch (ParseFailureException e) {
 				ctx.error(new TLAParserIssue(e.getReason()));
 			}
 		}

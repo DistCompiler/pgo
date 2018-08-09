@@ -58,7 +58,7 @@ public class PGoTypeProcedure extends PGoType {
 
 	@Override
 	public String toTypeName() {
-		return "Procedure(" +
+		return "PlusCalProcedure(" +
 				paramTypes.stream().map(PGoType::toTypeName).collect(Collectors.joining(", ")) +
 				")";
 	}

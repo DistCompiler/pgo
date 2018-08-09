@@ -4,6 +4,7 @@ import pgo.util.SourceLocatable;
 
 import java.util.Collections;
 import java.util.Map;
+import java.util.Objects;
 
 public class ReferenceGrammar<Result extends SourceLocatable> extends Grammar<Result> {
 
@@ -14,10 +15,12 @@ public class ReferenceGrammar<Result extends SourceLocatable> extends Grammar<Re
 	}
 
 	public ReferenceGrammar(CompiledGrammar<Result> referencedGrammar) {
+		Objects.requireNonNull(referencedGrammar);
 		this.referencedGrammar = new Mutator<>(referencedGrammar);
 	}
 
 	public void setReferencedGrammar(CompiledGrammar<Result> referencedGrammar) {
+		Objects.requireNonNull(referencedGrammar);
 		this.referencedGrammar.setValue(referencedGrammar);
 	}
 

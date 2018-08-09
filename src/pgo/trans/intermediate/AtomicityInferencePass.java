@@ -7,7 +7,6 @@ import pgo.scope.UID;
 
 import java.util.*;
 import java.util.function.BiConsumer;
-import java.util.stream.Collectors;
 
 public class AtomicityInferencePass {
 	private AtomicityInferencePass() {}
@@ -29,8 +28,8 @@ public class AtomicityInferencePass {
 		}
 	}
 
-	public static void perform(DefinitionRegistry registry, Algorithm pcalAlgorithm) {
-		if (pcalAlgorithm.getProcesses() instanceof MultiProcess) {
+	public static void perform(DefinitionRegistry registry, PlusCalAlgorithm plusCalAlgorithm) {
+		if (plusCalAlgorithm.getProcesses() instanceof PlusCalMultiProcess) {
 			Map<UID, Set<UID>> globalVarReadsToLabel = new HashMap<>();
 			Map<UID, Set<UID>> globalVarWritesToLabel = new HashMap<>();
 			BiConsumer<UID, UID> captureLabelRead = (varUID, labelUID) ->
@@ -38,14 +37,14 @@ public class AtomicityInferencePass {
 			BiConsumer<UID, UID> captureLabelWrite = (varUID, labelUID) ->
 					trackGlobalVar(registry, globalVarWritesToLabel, varUID, labelUID);
 			Set<UID> foundLabels = new HashSet<>();
-			for (Procedure p : pcalAlgorithm.getProcedures()) {
-				for (LabeledStatements statements : p.getBody()) {
+			for (PlusCalProcedure p : plusCalAlgorithm.getProcedures()) {
+				for (PlusCalLabeledStatements statements : p.getBody()) {
 					statements.accept(new PlusCalStatementAtomicityInferenceVisitor(
 							new UID(), captureLabelRead, captureLabelWrite, foundLabels));
 				}
 			}
-			for (PcalProcess p : ((MultiProcess) pcalAlgorithm.getProcesses()).getProcesses()) {
-				for (LabeledStatements statements : p.getLabeledStatements()) {
+			for (PlusCalProcess p : ((PlusCalMultiProcess) plusCalAlgorithm.getProcesses()).getProcesses()) {
+				for (PlusCalLabeledStatements statements : p.getLabeledStatements()) {
 					statements.accept(new PlusCalStatementAtomicityInferenceVisitor(
 							new UID(), captureLabelRead, captureLabelWrite, foundLabels));
 				}

@@ -22,7 +22,7 @@ public class CompiledGrammar<Result extends SourceLocatable> {
 	public List<ParseAction> getActions() { return actions; }
 	public Map<Variable, Integer> getVariableLocations() { return variableLocations; }
 
-	public Result parse(LexicalContext lexicalContext) throws TLAParseException {
+	public Result parse(LexicalContext lexicalContext) throws ParseFailureException {
 		ParsingContext parsingContext = new ParsingContext(lexicalContext, this);
 		parsingContext.preQueueActions(getActions());
 
@@ -31,7 +31,7 @@ public class CompiledGrammar<Result extends SourceLocatable> {
 			//System.out.println("try "+currentAction);
 			if(!currentAction.get().accept(parsingContext)) {
 				if (!parsingContext.backtrack()) {
-					throw new TLAParseException(parsingContext.getFailures());
+					throw new ParseFailureException(parsingContext.getFailures());
 				}
 			}
 		}

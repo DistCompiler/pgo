@@ -105,13 +105,8 @@ public class GrammarCompileVisitor<Result extends SourceLocatable> extends Gramm
 	}
 
 	@Override
-	public Void visit(AssignmentGrammar assignmentGrammar) throws RuntimeException {
-		try {
-			assignmentGrammar.getGrammar().accept(this);
-		}catch(Throwable t) {
-			// type system pacification code
-			throw (RuntimeException)t;
-		}
+	public <GrammarResult extends SourceLocatable> Void visit(AssignmentGrammar<GrammarResult> assignmentGrammar) throws RuntimeException {
+		assignmentGrammar.getGrammar().accept(this);
 		variableMap.putIfAbsent(assignmentGrammar.getVariable(), variableMap.size());
 		actions.add(new StoreValueParseAction(storeSize-1, variableMap.get(assignmentGrammar.getVariable()),
 				assignmentGrammar.getVariable()));

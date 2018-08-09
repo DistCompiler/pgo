@@ -13,10 +13,10 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
-import pgo.model.tla.PGoTLAUnit;
+import pgo.model.tla.TLAUnit;
 import pgo.model.tla.TLAFairness;
 
-import static pgo.model.tla.Builder.*;
+import static pgo.model.tla.TLABuilder.*;
 
 @RunWith(Parameterized.class)
 public class TLAUnitParseTest {
@@ -136,8 +136,8 @@ public class TLAUnitParseTest {
 	}
 	
 	private String unitString;
-	private PGoTLAUnit unitExpected;
-	public TLAUnitParseTest(String unitString, PGoTLAUnit unitExpected) {
+	private TLAUnit unitExpected;
+	public TLAUnitParseTest(String unitString, TLAUnit unitExpected) {
 		this.unitString = unitString;
 		this.unitExpected = unitExpected;
 	}
@@ -145,10 +145,10 @@ public class TLAUnitParseTest {
 	static Path testFile = Paths.get("TEST");
 
 	@Test
-	public void test() throws TLAParseException {
+	public void test() throws ParseFailureException {
 		LexicalContext ctx = new LexicalContext(testFile, String.join(System.lineSeparator(), unitString.split("\n")));
 		
-		PGoTLAUnit unit = TLAParser.readUnit(ctx);
+		TLAUnit unit = TLAParser.readUnit(ctx);
 		
 		assertThat(unit, is(unitExpected));
 	}

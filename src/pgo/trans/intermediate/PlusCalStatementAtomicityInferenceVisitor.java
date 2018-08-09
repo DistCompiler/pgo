@@ -7,7 +7,7 @@ import pgo.scope.UID;
 import java.util.Set;
 import java.util.function.BiConsumer;
 
-public class PlusCalStatementAtomicityInferenceVisitor extends StatementVisitor<Void, RuntimeException> {
+public class PlusCalStatementAtomicityInferenceVisitor extends PlusCalStatementVisitor<Void, RuntimeException> {
 	private UID currentLabelUID;
 	private BiConsumer<UID, UID> captureLabelRead;
 	private BiConsumer<UID, UID> captureLabelWrite;
@@ -25,7 +25,7 @@ public class PlusCalStatementAtomicityInferenceVisitor extends StatementVisitor<
 	}
 
 	@Override
-	public Void visit(LabeledStatements labeledStatements) throws RuntimeException {
+	public Void visit(PlusCalLabeledStatements labeledStatements) throws RuntimeException {
 		UID labelUID = labeledStatements.getLabel().getUID();
 		foundLabels.add(labelUID);
 		PlusCalStatementAtomicityInferenceVisitor statementVisitor =
@@ -35,29 +35,29 @@ public class PlusCalStatementAtomicityInferenceVisitor extends StatementVisitor<
 	}
 
 	@Override
-	public Void visit(While while1) throws RuntimeException {
-		while1.getCondition().accept(visitor);
-		while1.getBody().forEach(s -> s.accept(this));
+	public Void visit(PlusCalWhile plusCalWhile) throws RuntimeException {
+		plusCalWhile.getCondition().accept(visitor);
+		plusCalWhile.getBody().forEach(s -> s.accept(this));
 		return null;
 	}
 
 	@Override
-	public Void visit(If if1) throws RuntimeException {
-		if1.getCondition().accept(visitor);
-		if1.getYes().forEach(s -> s.accept(this));
-		if1.getNo().forEach(s -> s.accept(this));
+	public Void visit(PlusCalIf plusCalIf) throws RuntimeException {
+		plusCalIf.getCondition().accept(visitor);
+		plusCalIf.getYes().forEach(s -> s.accept(this));
+		plusCalIf.getNo().forEach(s -> s.accept(this));
 		return null;
 	}
 
 	@Override
-	public Void visit(Either either) throws RuntimeException {
-		either.getCases().forEach(c -> c.forEach(s -> s.accept(this)));
+	public Void visit(PlusCalEither plusCalEither) throws RuntimeException {
+		plusCalEither.getCases().forEach(c -> c.forEach(s -> s.accept(this)));
 		return null;
 	}
 
 	@Override
-	public Void visit(Assignment assignment) throws RuntimeException {
-		for (AssignmentPair pair : assignment.getPairs()) {
+	public Void visit(PlusCalAssignment plusCalAssignment) throws RuntimeException {
+		for (PlusCalAssignmentPair pair : plusCalAssignment.getPairs()) {
 			pair.getLhs().accept(visitor).forEach(varUID -> captureLabelWrite.accept(varUID, currentLabelUID));
 			pair.getRhs().accept(visitor);
 		}
@@ -65,55 +65,55 @@ public class PlusCalStatementAtomicityInferenceVisitor extends StatementVisitor<
 	}
 
 	@Override
-	public Void visit(Return return1) throws RuntimeException {
+	public Void visit(PlusCalReturn plusCalReturn) throws RuntimeException {
 		// nothing to do
 		return null;
 	}
 
 	@Override
-	public Void visit(Skip skip) throws RuntimeException {
+	public Void visit(PlusCalSkip skip) throws RuntimeException {
 		// nothing to do
 		return null;
 	}
 
 	@Override
-	public Void visit(Call call) throws RuntimeException {
-		call.getArguments().forEach(a -> a.accept(visitor));
+	public Void visit(PlusCalCall plusCalCall) throws RuntimeException {
+		plusCalCall.getArguments().forEach(a -> a.accept(visitor));
 		return null;
 	}
 
 	@Override
-	public Void visit(MacroCall macroCall) throws RuntimeException {
+	public Void visit(PlusCalMacroCall macroCall) throws RuntimeException {
 		throw new Unreachable();
 	}
 
 	@Override
-	public Void visit(With with) throws RuntimeException {
+	public Void visit(PlusCalWith with) throws RuntimeException {
 		with.getVariable().getValue().accept(visitor);
 		with.getBody().forEach(s -> s.accept(this));
 		return null;
 	}
 
 	@Override
-	public Void visit(Print print) throws RuntimeException {
-		print.getValue().accept(visitor);
+	public Void visit(PlusCalPrint plusCalPrint) throws RuntimeException {
+		plusCalPrint.getValue().accept(visitor);
 		return null;
 	}
 
 	@Override
-	public Void visit(Assert assert1) throws RuntimeException {
-		assert1.getCondition().accept(visitor);
+	public Void visit(PlusCalAssert plusCalAssert) throws RuntimeException {
+		plusCalAssert.getCondition().accept(visitor);
 		return null;
 	}
 
 	@Override
-	public Void visit(Await await) throws RuntimeException {
-		await.getCondition().accept(visitor);
+	public Void visit(PlusCalAwait plusCalAwait) throws RuntimeException {
+		plusCalAwait.getCondition().accept(visitor);
 		return null;
 	}
 
 	@Override
-	public Void visit(Goto goto1) throws RuntimeException {
+	public Void visit(PlusCalGoto plusCalGoto) throws RuntimeException {
 		// nothing to do
 		return null;
 	}

@@ -6,7 +6,7 @@ import java.util.List;
 import pgo.TODO;
 import pgo.model.golang.*;
 
-public class GoStatementFormattingVisitor extends StatementVisitor<Void, IOException> {
+public class GoStatementFormattingVisitor extends GoStatementVisitor<Void, IOException> {
 
 	private IndentingWriter out;
 
@@ -15,12 +15,12 @@ public class GoStatementFormattingVisitor extends StatementVisitor<Void, IOExcep
 	}
 
 	@Override
-	public Void visit(Comment comment) throws IOException {
+	public Void visit(GoComment comment) throws IOException {
 		throw new TODO();
 	}
 
 	@Override
-	public Void visit(Assignment assignment) throws IOException {
+	public Void visit(GoAssignmentStatement assignment) throws IOException {
 		FormattingTools.writeCommaSeparated(out, assignment.getNames(), name -> {
 			name.accept(new GoExpressionFormattingVisitor(out));
 		});
@@ -36,9 +36,9 @@ public class GoStatementFormattingVisitor extends StatementVisitor<Void, IOExcep
 	}
 
 	@Override
-	public Void visit(Return return1) throws IOException {
+	public Void visit(GoReturn goReturn) throws IOException {
 		out.write("return");
-		List<Expression> expressions = return1.getValues();
+		List<GoExpression> expressions = goReturn.getValues();
 		if (expressions.size() == 0) {
 			return null;
 		}
@@ -48,11 +48,11 @@ public class GoStatementFormattingVisitor extends StatementVisitor<Void, IOExcep
 	}
 
 	@Override
-	public Void visit(Block block) throws IOException {
+	public Void visit(GoBlock block) throws IOException {
 		out.write("{");
 		out.newLine();
 		try (IndentingWriter.Indent ignored = out.indent()) {
-			for (Statement stmt : block.getStatements()) {
+			for (GoStatement stmt : block.getStatements()) {
 				stmt.accept(this);
 				out.newLine();
 			}
@@ -62,28 +62,28 @@ public class GoStatementFormattingVisitor extends StatementVisitor<Void, IOExcep
 	}
 
 	@Override
-	public Void visit(For for1) throws IOException {
+	public Void visit(GoFor goFor) throws IOException {
 		out.write("for ");
-		if (for1.getInit() != null) {
-			for1.getInit().accept(this);
+		if (goFor.getInit() != null) {
+			goFor.getInit().accept(this);
 			out.write("; ");
 		}
-		if (for1.getCondition() != null) {
-			for1.getCondition().accept(new GoExpressionFormattingVisitor(out));
+		if (goFor.getCondition() != null) {
+			goFor.getCondition().accept(new GoExpressionFormattingVisitor(out));
 		}
-		if (for1.getIncrement() != null) {
+		if (goFor.getIncrement() != null) {
 			out.write("; ");
-			for1.getIncrement().accept(this);
+			goFor.getIncrement().accept(this);
 		}
-		if (for1.getCondition() != null) {
+		if (goFor.getCondition() != null) {
 			out.write(" ");
 		}
-		for1.getBody().accept(this);
+		goFor.getBody().accept(this);
 		return null;
 	}
 
 	@Override
-	public Void visit(ForRange forRange) throws IOException {
+	public Void visit(GoForRange forRange) throws IOException {
 		out.write("for ");
 		FormattingTools.writeCommaSeparated(
 				out,
@@ -100,39 +100,39 @@ public class GoStatementFormattingVisitor extends StatementVisitor<Void, IOExcep
 	}
 
 	@Override
-	public Void visit(If if1) throws IOException {
+	public Void visit(GoIf goIf) throws IOException {
 		out.write("if ");
-		if1.getCond().accept(new GoExpressionFormattingVisitor(out));
+		goIf.getCond().accept(new GoExpressionFormattingVisitor(out));
 		out.write(" ");
-		if1.getThen().accept(this);
-		if (if1.getElse() != null && !if1.getElse().getStatements().isEmpty()) {
+		goIf.getThen().accept(this);
+		if (goIf.getElse() != null && !goIf.getElse().getStatements().isEmpty()) {
 			out.write(" else ");
-			if1.getElse().accept(this);
+			goIf.getElse().accept(this);
 		}
 		return null;
 	}
 
 	@Override
-	public Void visit(Switch switch1) throws IOException {
+	public Void visit(GoSwitch goSwitch) throws IOException {
 		out.write("switch ");
-		if (switch1.getCondition() != null) {
-			switch1.getCondition().accept(new GoExpressionFormattingVisitor(out));
+		if (goSwitch.getCondition() != null) {
+			goSwitch.getCondition().accept(new GoExpressionFormattingVisitor(out));
 		}
 		out.write(" {");
 		out.newLine();
-		for (SwitchCase switchCase : switch1.getCases()) {
+		for (GoSwitchCase switchCase : goSwitch.getCases()) {
 			out.write("case ");
 			switchCase.getCondition().accept(new GoExpressionFormattingVisitor(out));
 			out.write(":");
 			out.newLine();
-			for (Statement statement : switchCase.getBlock()) {
+			for (GoStatement statement : switchCase.getBlock()) {
 				statement.accept(this);
 				out.newLine();
 			}
 		}
-		if (switch1.getDefaultBlock() != null) {
+		if (goSwitch.getDefaultBlock() != null) {
 			out.write("default:");
-			for (Statement statement : switch1.getDefaultBlock()) {
+			for (GoStatement statement : goSwitch.getDefaultBlock()) {
 				statement.accept(this);
 				out.newLine();
 			}
@@ -142,19 +142,14 @@ public class GoStatementFormattingVisitor extends StatementVisitor<Void, IOExcep
 	}
 
 	@Override
-	public Void visit(Label label) throws IOException {
+	public Void visit(GoLabel label) throws IOException {
 		out.write(label.getName());
 		out.write(":");
 		return null;
 	}
 
 	@Override
-	public Void visit(GoCall goCall) throws IOException {
-		throw new TODO();
-	}
-
-	@Override
-	public Void visit(Select select) throws IOException {
+	public Void visit(GoSelect select) throws IOException {
 		throw new TODO();
 	}
 
@@ -166,7 +161,7 @@ public class GoStatementFormattingVisitor extends StatementVisitor<Void, IOExcep
 	}
 
 	@Override
-	public Void visit(IncDec incDec) throws IOException {
+	public Void visit(GoIncDec incDec) throws IOException {
 		incDec.getExpression().accept(new GoExpressionFormattingVisitor(out));
 		if (incDec.isInc()) {
 			out.write("++");
@@ -177,40 +172,40 @@ public class GoStatementFormattingVisitor extends StatementVisitor<Void, IOExcep
 	}
 
 	@Override
-	public Void visit(ExpressionStatement expressionStatement) throws IOException {
+	public Void visit(GoExpressionStatement expressionStatement) throws IOException {
 		expressionStatement.getExpression().accept(new GoExpressionFormattingVisitor(out));
 		return null;
 	}
 
 	@Override
-	public Void visit(Break break1) throws IOException {
+	public Void visit(GoBreak break1) throws IOException {
 		out.write("break");
 		return null;
 	}
 
 	@Override
-	public Void visit(Continue continue1) throws IOException {
+	public Void visit(GoContinue continue1) throws IOException {
 		out.write("continue");
 		return null;
 	}
 
 	@Override
-	public Void visit(Defer defer) throws IOException {
+	public Void visit(GoDefer defer) throws IOException {
 		out.write("defer ");
 		defer.getExpression().accept(new GoExpressionFormattingVisitor(out));
 		return null;
 	}
 
 	@Override
-	public Void visit(Go go) throws IOException {
+	public Void visit(GoRoutineStatement go) throws IOException {
 		out.write("go ");
 		go.getExpression().accept(new GoExpressionFormattingVisitor(out));
 		return null;
 	}
 
 	@Override
-	public Void visit(VariableDeclarationStatement variableDeclarationStatement) throws IOException {
-		VariableDeclaration variableDeclaration = variableDeclarationStatement.getVariableDeclaration();
+	public Void visit(GoVariableDeclarationStatement variableDeclarationStatement) throws IOException {
+		GoVariableDeclaration variableDeclaration = variableDeclarationStatement.getVariableDeclaration();
 		out.write("var ");
 		out.write(variableDeclaration.getName());
 		out.write(" ");

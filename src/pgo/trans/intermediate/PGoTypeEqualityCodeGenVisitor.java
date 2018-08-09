@@ -1,9 +1,9 @@
 package pgo.trans.intermediate;
 
 import pgo.TODO;
-import pgo.model.golang.Binop;
-import pgo.model.golang.BlockBuilder;
-import pgo.model.golang.Expression;
+import pgo.model.golang.GoBinop;
+import pgo.model.golang.builder.GoBlockBuilder;
+import pgo.model.golang.GoExpression;
 import pgo.model.type.PGoTypeBool;
 import pgo.model.type.PGoTypeChan;
 import pgo.model.type.PGoTypeDecimal;
@@ -20,15 +20,15 @@ import pgo.model.type.PGoTypeUnrealizedNumber;
 import pgo.model.type.PGoTypeVariable;
 import pgo.model.type.PGoTypeVisitor;
 
-public class PGoTypeEqualityCodeGenVisitor extends PGoTypeVisitor<Expression, RuntimeException> {
+public class PGoTypeEqualityCodeGenVisitor extends PGoTypeVisitor<GoExpression, RuntimeException> {
 
-	private BlockBuilder builder;
+	private GoBlockBuilder builder;
 	private boolean neq;
 	private DefinitionRegistry registry;
-	private Expression lhs;
-	private Expression rhs;
+	private GoExpression lhs;
+	private GoExpression rhs;
 
-	public PGoTypeEqualityCodeGenVisitor(BlockBuilder builder, boolean neq, DefinitionRegistry registry, Expression lhs, Expression rhs) {
+	public PGoTypeEqualityCodeGenVisitor(GoBlockBuilder builder, boolean neq, DefinitionRegistry registry, GoExpression lhs, GoExpression rhs) {
 		this.builder = builder;
 		this.neq = neq;
 		this.registry = registry;
@@ -37,72 +37,72 @@ public class PGoTypeEqualityCodeGenVisitor extends PGoTypeVisitor<Expression, Ru
 	}
 
 	@Override
-	public Expression visit(PGoTypeVariable pGoTypeVariable) throws RuntimeException {
+	public GoExpression visit(PGoTypeVariable pGoTypeVariable) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public Expression visit(PGoTypeTuple pGoTypeTuple) throws RuntimeException {
+	public GoExpression visit(PGoTypeTuple pGoTypeTuple) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public Expression visit(PGoTypeString pGoTypeString) throws RuntimeException {
-		return new Binop(neq ? Binop.Operation.NEQ : Binop.Operation.EQ, lhs, rhs);
+	public GoExpression visit(PGoTypeString pGoTypeString) throws RuntimeException {
+		return new GoBinop(neq ? GoBinop.Operation.NEQ : GoBinop.Operation.EQ, lhs, rhs);
 	}
 
 	@Override
-	public Expression visit(PGoTypeUnrealizedNumber pGoTypeUnrealizedNumber) throws RuntimeException {
+	public GoExpression visit(PGoTypeUnrealizedNumber pGoTypeUnrealizedNumber) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public Expression visit(PGoTypeSet pGoTypeSet) throws RuntimeException {
+	public GoExpression visit(PGoTypeSet pGoTypeSet) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public Expression visit(PGoTypeNonEnumerableSet pGoTypeNonEnumerableSet) throws RuntimeException {
+	public GoExpression visit(PGoTypeNonEnumerableSet pGoTypeNonEnumerableSet) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public Expression visit(PGoTypeBool pGoTypeBool) throws RuntimeException {
-		return new Binop(neq ? Binop.Operation.NEQ : Binop.Operation.EQ, lhs, rhs);
+	public GoExpression visit(PGoTypeBool pGoTypeBool) throws RuntimeException {
+		return new GoBinop(neq ? GoBinop.Operation.NEQ : GoBinop.Operation.EQ, lhs, rhs);
 	}
 
 	@Override
-	public Expression visit(PGoTypeDecimal pGoTypeDecimal) throws RuntimeException {
-		return new Binop(neq ? Binop.Operation.NEQ : Binop.Operation.EQ, lhs, rhs);
+	public GoExpression visit(PGoTypeDecimal pGoTypeDecimal) throws RuntimeException {
+		return new GoBinop(neq ? GoBinop.Operation.NEQ : GoBinop.Operation.EQ, lhs, rhs);
 	}
 
 	@Override
-	public Expression visit(PGoTypeFunction pGoTypeFunction) throws RuntimeException {
+	public GoExpression visit(PGoTypeFunction pGoTypeFunction) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public Expression visit(PGoTypeChan pGoTypeChan) throws RuntimeException {
+	public GoExpression visit(PGoTypeChan pGoTypeChan) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public Expression visit(PGoTypeInt pGoTypeInt) throws RuntimeException {
-		return new Binop(neq ? Binop.Operation.NEQ : Binop.Operation.EQ, lhs, rhs);
+	public GoExpression visit(PGoTypeInt pGoTypeInt) throws RuntimeException {
+		return new GoBinop(neq ? GoBinop.Operation.NEQ : GoBinop.Operation.EQ, lhs, rhs);
 	}
 
 	@Override
-	public Expression visit(PGoTypeMap pGoTypeMap) throws RuntimeException {
+	public GoExpression visit(PGoTypeMap pGoTypeMap) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public Expression visit(PGoTypeSlice pGoTypeSlice) throws RuntimeException {
+	public GoExpression visit(PGoTypeSlice pGoTypeSlice) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public Expression visit(PGoTypeProcedure pGoTypeProcedure) throws RuntimeException {
+	public GoExpression visit(PGoTypeProcedure pGoTypeProcedure) throws RuntimeException {
 		throw new TODO();
 	}
 

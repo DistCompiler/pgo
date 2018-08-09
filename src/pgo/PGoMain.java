@@ -16,10 +16,10 @@ import java.util.logging.Logger;
 import org.apache.commons.io.FileUtils;
 import pcal.exception.StringVectorToFileException;
 import pgo.errors.TopLevelIssueContext;
-import pgo.model.golang.Module;
-import pgo.model.pcal.Algorithm;
-import pgo.model.tla.PGoTLAExpression;
-import pgo.model.tla.PGoTLAModule;
+import pgo.model.golang.GoModule;
+import pgo.model.pcal.PlusCalAlgorithm;
+import pgo.model.tla.TLAExpression;
+import pgo.model.tla.TLAModule;
 import pgo.model.type.PGoType;
 import pgo.modules.TLAModuleLoader;
 import pgo.scope.UID;
@@ -70,7 +70,7 @@ public class PGoMain {
 			CharBuffer inputFileContents = StandardCharsets.UTF_8.decode(buffer);
 
 			logger.info("Parsing PlusCal code");
-			Algorithm algorithm = PlusCalParsingPass.perform(ctx, inputFilePath, inputFileContents);
+			PlusCalAlgorithm plusCalAlgorithm = PlusCalParsingPass.perform(ctx, inputFilePath, inputFileContents);
 			checkErrors(ctx);
 
 			// for -writeAST option, just write the file AST.tla and halt.
@@ -80,50 +80,50 @@ public class PGoMain {
 			}*/
 
 			logger.info("Parsing TLA+ module");
-			PGoTLAModule tlaModule = TLAParsingPass.perform(ctx, inputFilePath, inputFileContents);
+			TLAModule tlaModule = TLAParsingPass.perform(ctx, inputFilePath, inputFileContents);
 			checkErrors(ctx);
 
 			logger.info("Parsing constant definitions from configuration");
-			Map<String, PGoTLAExpression> constantDefinitions = ConstantDefinitionParsingPass.perform(
+			Map<String, TLAExpression> constantDefinitions = ConstantDefinitionParsingPass.perform(
 					ctx, opts.constants.getConstants());
 			checkErrors(ctx);
 
 			logger.info("Checking compile options for sanity");
-			CheckOptionsPass.perform(ctx, algorithm, opts);
+			CheckOptionsPass.perform(ctx, plusCalAlgorithm, opts);
 			checkErrors(ctx);
 
 			logger.info("Expanding PlusCal macros");
-			algorithm = PlusCalMacroExpansionPass.perform(ctx, algorithm);
+			plusCalAlgorithm = PlusCalMacroExpansionPass.perform(ctx, plusCalAlgorithm);
 			checkErrors(ctx);
 
 			logger.info("Resolving TLA+ and PlusCal scoping");
 			TLAModuleLoader loader = new TLAModuleLoader(Collections.singletonList(inputFilePath.getParent()));
-			DefinitionRegistry registry = PGoScopingPass.perform(ctx, tlaModule, algorithm, loader, constantDefinitions);
+			DefinitionRegistry registry = PGoScopingPass.perform(ctx, tlaModule, plusCalAlgorithm, loader, constantDefinitions);
 			checkErrors(ctx);
 
 			logger.info("Inferring types");
-			Map<UID, PGoType> typeMap = TypeInferencePass.perform(ctx, registry, algorithm);
+			Map<UID, PGoType> typeMap = TypeInferencePass.perform(ctx, registry, plusCalAlgorithm);
 			checkErrors(ctx);
 
 			logger.info("Inferring atomicity requirements");
-			AtomicityInferencePass.perform(registry, algorithm);
+			AtomicityInferencePass.perform(registry, plusCalAlgorithm);
 
 			logger.info("Initial code generation");
-			Module module = CodeGenPass.perform(registry, typeMap, opts, algorithm);
+			GoModule module = CodeGenPass.perform(registry, typeMap, opts, plusCalAlgorithm);
 
 			logger.info("Normalising generated code");
-			Module normalisedModule = CodeNormalisingPass.perform(module);
+			GoModule normalisedModule = CodeNormalisingPass.perform(module);
 
-			logger.info("Writing Go to \"" + opts.buildFile + "\" in folder \"" + opts.buildDir + "\"");
+			logger.info("Writing GoRoutineStatement to \"" + opts.buildFile + "\" in folder \"" + opts.buildDir + "\"");
 			IOUtil.WriteStringVectorToFile(Collections.singletonList(normalisedModule.toString()), opts.buildDir + "/" + opts.buildFile);
-			logger.info("Copying necessary Go packages to folder \"" + opts.buildDir + "\"");
+			logger.info("Copying necessary GoRoutineStatement packages to folder \"" + opts.buildDir + "\"");
 			copyPackages(opts.buildDir);
 
-			logger.info("Formatting generated Go code");
+			logger.info("Formatting generated GoRoutineStatement code");
 			try {
 				goFmt(opts.buildDir + "/" + opts.buildFile);
 			} catch (Exception e) {
-				logger.warning(String.format("Failed to format Go code. Error: %s", e.getMessage()));
+				logger.warning(String.format("Failed to format GoRoutineStatement code. Error: %s", e.getMessage()));
 			}
 			return true;
 

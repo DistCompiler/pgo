@@ -3,12 +3,11 @@ package pgo.formatters;
 import java.io.IOException;
 
 import pgo.TODO;
-import pgo.model.golang.DeclarationVisitor;
-import pgo.model.golang.FunctionDeclaration;
-import pgo.model.golang.TypeDeclaration;
-import pgo.model.golang.VariableDeclaration;
+import pgo.model.golang.*;
+import pgo.model.golang.GoTypeDeclaration;
+import pgo.model.golang.GoVariableDeclaration;
 
-public class GoDeclarationFormattingVisitor extends DeclarationVisitor<Void, IOException> {
+public class GoDeclarationFormattingVisitor extends GoDeclarationVisitor<Void, IOException> {
 
 	private IndentingWriter out;
 
@@ -17,7 +16,7 @@ public class GoDeclarationFormattingVisitor extends DeclarationVisitor<Void, IOE
 	}
 
 	@Override
-	public Void visit(FunctionDeclaration functionDeclaration) throws IOException {
+	public Void visit(GoFunctionDeclaration functionDeclaration) throws IOException {
 		out.write("func ");
 		if(functionDeclaration.getReceiver() != null) {
 			out.write("(");
@@ -42,12 +41,12 @@ public class GoDeclarationFormattingVisitor extends DeclarationVisitor<Void, IOE
 	}
 
 	@Override
-	public Void visit(TypeDeclaration typeDeclaration) throws IOException {
+	public Void visit(GoTypeDeclaration typeDeclaration) throws IOException {
 		throw new TODO();
 	}
 
 	@Override
-	public Void visit(VariableDeclaration variableDeclaration) throws IOException {
+	public Void visit(GoVariableDeclaration variableDeclaration) throws IOException {
 		out.write("var ");
 		out.write(variableDeclaration.getName());
 		if(variableDeclaration.getType() != null) {

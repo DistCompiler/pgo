@@ -13,12 +13,12 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
-import pgo.model.tla.PGoTLABool;
-import pgo.model.tla.PGoTLAExpression;
+import pgo.model.tla.TLABool;
+import pgo.model.tla.TLAExpression;
 import pgo.model.tla.TLAFairness;
 import pgo.util.SourceLocation;
 
-import static pgo.model.tla.Builder.*;
+import static pgo.model.tla.TLABuilder.*;
 
 @RunWith(Parameterized.class)
 public class TLAExpressionParseTest {
@@ -27,8 +27,8 @@ public class TLAExpressionParseTest {
 	public static List<Object[]> data(){
 		return Arrays.asList(new Object[][] {
 				{"1", num(1) },
-				{"TRUE", new PGoTLABool(SourceLocation.unknown(), true) },
-				{"FALSE", new PGoTLABool(SourceLocation.unknown(), false) },
+				{"TRUE", new TLABool(SourceLocation.unknown(), true) },
+				{"FALSE", new TLABool(SourceLocation.unknown(), false) },
 
 				{"[mgr \\in managers |-> \"start\"]",
 					function(bounds(qbIds(ids(id("mgr")), idexp("managers"))), str("start")),
@@ -118,6 +118,12 @@ public class TLAExpressionParseTest {
 						"        /\\ 3\n",
 						binop("/\\", binop("/\\", num(1), unary("[]", num(2))), num(3))
 				},
+				{"        /\\ 1 /\\ []2 /\\ 3\n",
+						binop("/\\", binop("/\\", num(1), unary("[]", num(2))), num(3))
+				},
+				{"[] 2 /\\ 3",
+						binop("/\\", unary("[]", num(2)), num(3))
+				},
 				{"        /\\ Init /\\ 4\n" +
 						"        /\\ WF_vars(P(self))",
 						binop("/\\",
@@ -165,12 +171,55 @@ public class TLAExpressionParseTest {
 				{"\"have gcd\"",
 						str("have gcd")
 				},
+
+				{"            /\\ pc[self] = \"c1\"\n" +
+						"            /\\ (restaurant_stage[self] = \"commit\") \\/\n" +
+						"               (restaurant_stage[self] = \"abort\")\n" +
+						"            /\\ IF restaurant_stage[self] = \"commit\"\n" +
+						"                  THEN /\\ restaurant_stage' = [restaurant_stage EXCEPT ![self] = \"committed\"]\n" +
+						"                  ELSE /\\ restaurant_stage' = [restaurant_stage EXCEPT ![self] = \"aborted\"]\n" +
+						"            /\\ pc' = [pc EXCEPT ![self] = \"Done\"]\n" +
+						"            /\\ UNCHANGED << managers, rstMgrs, aborted >>",
+						binop("/\\",
+								binop("/\\",
+										binop("/\\",
+												binop("/\\",
+														binop("=", fncall(idexp("pc"), idexp("self")), str("c1")),
+														binop("\\/",
+																binop("=",
+																		fncall(idexp("restaurant_stage"), idexp("self")),
+																		str("commit")),
+																binop("=",
+																		fncall(idexp("restaurant_stage"), idexp("self")),
+																		str("abort")))),
+												ifexp(
+														binop("=",
+																fncall(idexp("restaurant_stage"), idexp("self")),
+																str("commit")),
+														binop("=",
+																unary("'", idexp("restaurant_stage")),
+																except(
+																		idexp("restaurant_stage"),
+																		sub(keys(idexp("self")), str("committed")))),
+														binop("=",
+																unary("'", idexp("restaurant_stage")),
+																except(
+																		idexp("restaurant_stage"),
+																		sub(keys(idexp("self")), str("aborted")))))),
+										binop("=",
+												unary("'", idexp("pc")),
+												except(
+														idexp("pc"),
+														sub(keys(idexp("self")), str("Done"))))),
+								unary("UNCHANGED",
+										tuple(idexp("managers"), idexp("rstMgrs"), idexp("aborted"))))
+				},
 		});
 	}
 
 	String exprString;
-	PGoTLAExpression exprExpected;
-	public TLAExpressionParseTest(String exprString, PGoTLAExpression exprExpected) {
+	TLAExpression exprExpected;
+	public TLAExpressionParseTest(String exprString, TLAExpression exprExpected) {
 		this.exprString = exprString;
 		this.exprExpected = exprExpected;
 	}
@@ -178,12 +227,12 @@ public class TLAExpressionParseTest {
 	static Path testFile = Paths.get("TEST");
 
 	@Test
-	public void test() throws TLAParseException {
+	public void test() throws ParseFailureException {
 		LexicalContext ctx = new LexicalContext(testFile, String.join(System.lineSeparator(), exprString.split("\n")));
 
 		System.out.println(exprString);
 
-		PGoTLAExpression expr = TLAParser.readExpression(ctx);
+		TLAExpression expr = TLAParser.readExpression(ctx);
 
 		assertThat(expr, is(exprExpected));
 	}
