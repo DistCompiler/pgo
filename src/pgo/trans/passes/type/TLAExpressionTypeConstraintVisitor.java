@@ -123,7 +123,17 @@ public class TLAExpressionTypeConstraintVisitor extends PGoTLAExpressionVisitor<
 
 	@Override
 	public PGoType visit(PGoTLACase pGoTLACase) throws RuntimeException {
-		throw new TODO();
+		PGoTypeVariable v = generator.get();
+		for (PGoTLACaseArm caseArm : pGoTLACase.getArms()) {
+			solver.addConstraint(new PGoTypeMonomorphicConstraint(pGoTLACase, wrappedVisit(caseArm.getCondition()), new PGoTypeBool(Collections.singletonList(caseArm.getCondition()))));
+			solver.addConstraint(new PGoTypeMonomorphicConstraint(pGoTLACase, wrappedVisit(caseArm.getResult()), v));
+		}
+
+		if (pGoTLACase.getOther() != null) {
+			solver.addConstraint(new PGoTypeMonomorphicConstraint(pGoTLACase, wrappedVisit(pGoTLACase.getOther()), v));
+		}
+
+		return v;
 	}
 
 	@Override
