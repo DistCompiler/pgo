@@ -15,4 +15,5 @@ public abstract class GrammarVisitor<Result, Except extends Throwable> {
 	public abstract <GrammarResult extends SourceLocatable> Result visit(RejectGrammar<GrammarResult> rejectGrammar) throws Except;
 	public abstract Result visit(EOFGrammar eofGrammar) throws Except;
 	public abstract <GrammarResult extends SourceLocatable> Result visit(ArgumentGrammar<GrammarResult> argumentGrammar) throws Except;
+	public abstract <GrammarResult extends SourceLocatable> Result visit(CallGrammar<GrammarResult> callGrammar) throws Except;
 }

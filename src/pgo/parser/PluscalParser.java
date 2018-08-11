@@ -8,6 +8,8 @@ import pgo.util.SourceLocatable;
 import pgo.util.SourceLocation;
 
 import java.util.*;
+import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
 import static pgo.parser.ParseTools.*;
@@ -23,6 +25,7 @@ public final class PluscalParser {
 	private PluscalParser() {}
 
 	private static final Pattern PCAL_FIND_ALGORITHM = Pattern.compile(".*?\\(\\*.*?(?=--algorithm)", Pattern.DOTALL);
+	private static final Pattern PCAL_AFTER_ALGORITHM = Pattern.compile(".*?\\*\\).*$", Pattern.DOTALL);
 
 	/**
 	 * Creates a parse action that accepts the string t, skipping any preceding comments or whitespace.
@@ -68,24 +71,59 @@ public final class PluscalParser {
 		C_SYNTAX,
 	}
 
-	static Grammar<Located<Void>> parseBlockBegin(SyntaxVariant syntax, Grammar<Located<Void>> altMarker) {
-		switch(syntax){
-			case P_SYNTAX:
-				return altMarker;
-			case C_SYNTAX:
-				return parsePlusCalToken("{");
-		}
-		throw new Unreachable();
-	}
+	private static final Variable<Located<CompiledGrammar<LocatedList<PlusCalStatement>>>> UNLABELED_STATEMENTS_TAIL =
+			new Variable<>("UNLABELED_STATEMENT_TAIL");
+	private static final Variable<Located<CompiledGrammar<LocatedList<PlusCalLabeledStatements>>>> LABELED_STATEMENTS_TAIL =
+			new Variable<>("LABELED_STATEMENTS_TAIL");
 
-	static Grammar<Located<Void>> parseBlockEnd(SyntaxVariant syntax, Grammar<Located<Void>> altMarker) {
-		switch(syntax){
-			case P_SYNTAX:
-				return altMarker;
-			case C_SYNTAX:
-				return parsePlusCalToken("}");
-		}
-		throw new Unreachable();
+	public static final ReferenceGrammar<PlusCalStatement> UNLABELED_STATEMENT_C_SYNTAX = new ReferenceGrammar<>();
+	public static final ReferenceGrammar<PlusCalStatement> UNLABELED_STATEMENT_P_SYNTAX = new ReferenceGrammar<>();
+	/*static {
+		UNLABELED_STATEMENT_C_SYNTAX.setReferencedGrammar(
+				parseOneOf(
+						//parseIfStatement(syntax),
+						//parseEitherStatement(syntax),
+						//parseWhileStatement(syntax),
+						parseCSyntaxWhileStatement(),
+						parseAwaitStatement(),
+						//parseWithStatement(syntax),
+						parseSkipStatement(),
+						parsePrintStatement(),
+						parseAssertStatement(),
+						parseCallStatement(),
+						parseReturnStatement(),
+						parseGotoStatement(),
+						parseAssignmentStatement()
+				).compile());
+		UNLABELED_STATEMENT_P_SYNTAX.setReferencedGrammar(
+				parseOneOf(
+						//parseIfStatement(syntax),
+						//parseEitherStatement(syntax),
+						//parseWhileStatement(syntax),
+						parseAwaitStatement(),
+						//parseWithStatement(syntax),
+						parseSkipStatement(),
+						parsePrintStatement(),
+						parseAssertStatement(),
+						parseCallStatement(),
+						parseReturnStatement(),
+						parseGotoStatement(),
+						parseAssignmentStatement()
+				).compile());
+	}*/
+
+	static Grammar<LocatedList<PlusCalStatement>> parseUnlabeledStatement(SyntaxVariant syntax, Grammar<LocatedList<PlusCalStatement>> tail) {
+		Variable<PlusCalStatement> stmt = new Variable<>("stmt");
+		Variable<LocatedList<PlusCalStatement>> rest = new Variable<>("rest");
+		return sequence(
+				part(stmt, syntax == SyntaxVariant.C_SYNTAX ? UNLABELED_STATEMENT_C_SYNTAX : UNLABELED_STATEMENT_P_SYNTAX),
+				part(rest, tail)
+		).map(seqResult -> {
+			LocatedList<PlusCalStatement> lst = new LocatedList<>(seqResult.getLocation(), new ArrayList<>());
+			lst.add(seqResult.get(stmt));
+			lst.addAll(seqResult.get(rest));
+			return lst;
+		});
 	}
 
 	static <AST extends SourceLocatable> Grammar<LocatedList<AST>> parseCommaList(Grammar<AST> element){
@@ -141,7 +179,7 @@ public final class PluscalParser {
 		Variable<LocatedList<PlusCalVariableDeclaration>> variables = new Variable<>("variables");
 		return sequence(
 				drop(parsePlusCalTokenOneOf(Arrays.asList("variables", "variable"))),
-				part(variables, parseCommaList(parseVariableDeclaration())),
+				part(variables, parseListOf(parseVariableDeclaration(), parsePlusCalToken(";"))),
 				drop(parsePlusCalToken(";"))
 		).map(seq -> new LocatedList<>(seq.getLocation(), seq.get(variables)));
 	}
@@ -160,49 +198,137 @@ public final class PluscalParser {
 		).map(seq -> new PlusCalLabel(seq.getLocation(), seq.get(labelName).getValue(), seq.get(fairness).getValue()));
 	}
 
-	static Grammar<LocatedList<PlusCalStatement>> parseStatementList(SyntaxVariant syntax){
-		switch(syntax){
-			case P_SYNTAX:
-				return parseListOf(parseStatement(syntax), parsePlusCalToken(";"));
-			case C_SYNTAX:
-				// used in C-style syntax for either { stmts... } or exactly one statement
-				Variable<LocatedList<PlusCalStatement>> statements = new Variable<>("statements");
-				return parseOneOf(
-						sequence(
-								drop(parsePlusCalToken("{")),
-								part(statements, scope(() ->
-										repeatOneOrMore(parseStatementList(syntax)).map(seq -> {
-											LocatedList<PlusCalStatement> flattened = new LocatedList<>(
-													SourceLocation.unknown(), new ArrayList<>());
-											for(LocatedList<PlusCalStatement> list : seq){
-												flattened.addLocation(list.getLocation());
-												flattened.addAll(list);
-											}
-											return flattened;
-										}))),
-								drop(parsePlusCalToken("}"))
-						).map(seq -> seq.get(statements)),
-						parseStatement(SyntaxVariant.C_SYNTAX).map(s ->
-								new LocatedList<>(s.getLocation(), Collections.singletonList(s)))
-				);
-		}
-		throw new Unreachable();
+	static Grammar<PlusCalStatement> parseUnlabeledPlusCalStatement(SyntaxVariant syntax) {
+		return parseOneOf(
+				//parseIfStatement(syntax),
+				//parseEitherStatement(syntax),
+				//parseWhileStatement(syntax),
+				parseAwaitStatement(),
+				//parseWithStatement(syntax),
+				parseSkipStatement(),
+				parsePrintStatement(),
+				parseAssertStatement(),
+				parseCallStatement(),
+				parseReturnStatement(),
+				parseGotoStatement(),
+				parseAssignmentStatement()
+		);
 	}
+
+	static Grammar<LocatedList<PlusCalStatement>> parseUnlabeledCSyntaxStatementList() {
+
+		ReferenceGrammar<LocatedList<PlusCalStatement>> matchStatement = new ReferenceGrammar<>();
+		ReferenceGrammar<LocatedList<PlusCalStatement>> matchBlock = new ReferenceGrammar<>();
+
+		matchStatement.setReferencedGrammar(scope(() -> {
+			Variable<PlusCalStatement> stmt = new Variable<>("stmt");
+			Variable<LocatedList<PlusCalStatement>> rest = new Variable<>("rest");
+			return sequence(
+					part(stmt, parseUnlabeledPlusCalStatement(SyntaxVariant.C_SYNTAX)),
+					part(rest, parseOneOf(
+							sequence(
+									parsePlusCalToken(";"),
+									part(rest, parseOneOf(
+											matchStatement,
+											matchBlock,
+											nop().map(v ->
+													new LocatedList<>(v.getLocation(), Collections.emptyList()))
+									))
+							).map(seqResult -> seqResult.get(rest)),
+							nop().map(v -> new LocatedList<>(v.getLocation(), Collections.emptyList()))
+					))
+			).map(seqResult -> {
+				LocatedList<PlusCalStatement> lst = new LocatedList<>(seqResult.getLocation(), new ArrayList<>());
+				lst.add(seqResult.get(stmt));
+				lst.addAll(seqResult.get(rest));
+				return lst;
+			});
+		}).compile());
+
+		matchBlock.setReferencedGrammar(scope(() -> {
+			Variable<LocatedList<PlusCalStatement>> blockStatements = new Variable<>("blockStatements");
+			Variable<LocatedList<PlusCalStatement>> rest = new Variable<>("rest");
+			return sequence(
+					parsePlusCalToken("{"),
+					part(blockStatements, parseOneOf(matchBlock, matchStatement)),
+					parsePlusCalToken("}"),
+					part(rest, parseOneOf(
+							scope(() -> {
+								Variable<LocatedList<PlusCalStatement>> rest2 = new Variable<>("rest2");
+								return sequence(
+										parsePlusCalToken(";"),
+										part(rest2, parseOneOf(
+												matchBlock,
+												matchStatement,
+												nop().map(v ->
+														new LocatedList<>(v.getLocation(), Collections.emptyList()))
+										))
+								).map(seqResult -> seqResult.get(rest2));
+							}),
+							matchBlock,
+							nop().map(v -> new LocatedList<>(v.getLocation(), Collections.emptyList()))
+					))
+			).map(seqResult -> {
+				LocatedList<PlusCalStatement> result = new LocatedList<>(seqResult.getLocation(), new ArrayList<>());
+				result.addAll(seqResult.get(blockStatements));
+				result.addAll(seqResult.get(rest));
+				return result;
+			});
+		}).compile());
+
+		return parseOneOf(
+				matchStatement,
+				matchBlock
+		);
+	}
+
+	static Grammar<LocatedList<PlusCalStatement>> parseUnlabeledCSyntaxClause(Grammar<Located<Void>> delimiter) {
+		return parseOneOf(
+				scope(() -> {
+					Variable<LocatedList<PlusCalStatement>> blockStmts = new Variable<>("blockStmts");
+					return sequence(
+							parsePlusCalToken("{"),
+							part(blockStmts, parseUnlabeledCSyntaxStatementList()),
+							parsePlusCalToken("}"),
+							delimiter
+					).map(seqResult -> seqResult.get(blockStmts));
+				}),
+				scope(() -> {
+					Variable<PlusCalStatement> stmt = new Variable<>("stmt");
+					return sequence(
+							part(stmt, parseUnlabeledPlusCalStatement(SyntaxVariant.C_SYNTAX)),
+							delimiter
+					).map(seqResult -> {
+						PlusCalStatement stmtV = seqResult.get(stmt);
+						return new LocatedList<>(stmtV.getLocation(), Collections.singletonList(stmtV));
+					});
+				})
+		);
+	}
+
+	static Grammar<LocatedList<PlusCalStatement>> parseUnlabeledPSyntaxStatementList() {
+		Variable<LocatedList<PlusCalStatement>> stmts = new Variable<>("stmts");
+		return sequence(
+				part(stmts, parseListOf(
+						parseUnlabeledPlusCalStatement(SyntaxVariant.P_SYNTAX),
+						parsePlusCalToken(";"))),
+				parseOneOf(parsePlusCalToken(";"), nop())
+		).map(seqResult -> seqResult.get(stmts));
+	}
+
 
 	static Grammar<PlusCalLabeledStatements> parseLabeledStatements(SyntaxVariant syntax){
 		Variable<PlusCalLabel> label = new Variable<>("label");
 		Variable<LocatedList<PlusCalStatement>> statements = new Variable<>("statements");
 		return sequence(
 				part(label, parseLabel()),
-				part(statements, scope(() ->
-						sequence(
-								part(statements, parseListOf(parseStatement(syntax), parsePlusCalToken(";"))),
-								drop(parseOneOf(parsePlusCalToken(";"), nop()))
-						).map(seq -> seq.get(statements))))
+				part(statements, syntax == SyntaxVariant.C_SYNTAX ?
+						parseUnlabeledCSyntaxStatementList()
+						: parseUnlabeledPSyntaxStatementList())
 		).map(seq -> new PlusCalLabeledStatements(seq.getLocation(), seq.get(label), seq.get(statements)));
 	}
 
-	static Grammar<PlusCalIf> parseElsifPart(){
+	/*static Grammar<PlusCalIf> parseElsifPart(){
 		Variable<TLAExpression> condition = new Variable<>("condition");
 		Variable<LocatedList<PlusCalStatement>> thenStatements = new Variable<>("thenStatements");
 		Variable<LocatedList<PlusCalStatement>> elseStatements = new Variable<>("elseStatements");
@@ -223,9 +349,9 @@ public final class PluscalParser {
 				))
 		).map(seq -> new PlusCalIf(
 				seq.getLocation(), seq.get(condition), seq.get(thenStatements), seq.get(elseStatements)));
-	}
+	}*/
 
-	static Grammar<PlusCalIf> parseIfStatement(SyntaxVariant syntax){
+	/*static Grammar<PlusCalIf> parseIfStatement(SyntaxVariant syntax){
 		Variable<TLAExpression> condition = new Variable<>("condition");
 		Variable<LocatedList<PlusCalStatement>> thenStatements = new Variable<>("thenStatements");
 		Variable<LocatedList<PlusCalStatement>> elseStatements = new Variable<>("elseStatements");
@@ -273,9 +399,9 @@ public final class PluscalParser {
 			default:
 				throw new Unreachable();
 		}
-	}
+	}*/
 
-	static Grammar<PlusCalEither> parseEitherStatement(SyntaxVariant syntax){
+	/*static Grammar<PlusCalEither> parseEitherStatement(SyntaxVariant syntax){
 		Variable<LocatedList<PlusCalStatement>> firstClause = new Variable<>("firstClause");
 		Variable<LocatedList<PlusCalStatement>> tmpClause = new Variable<>("tmpClause");
  		Variable<LocatedList<LocatedList<PlusCalStatement>>> restClauses = new Variable<>("restClauses");
@@ -294,9 +420,9 @@ public final class PluscalParser {
 			clauses.addAll(seq.get(restClauses));
 			return new PlusCalEither(seq.getLocation(), clauses);
 		});
-	}
+	}*/
 
-	static Grammar<PlusCalWhile> parseWhileStatement(SyntaxVariant syntax){
+	/*static Grammar<PlusCalWhile> parseWhileStatement(SyntaxVariant syntax){
 		Variable<TLAExpression> condition = new Variable<>("condition");
 		Variable<LocatedList<PlusCalStatement>> body = new Variable<>("body");
 		return sequence(
@@ -306,7 +432,7 @@ public final class PluscalParser {
 				part(body, parseStatementList(syntax)),
 				drop(syntax == SyntaxVariant.C_SYNTAX ? nop() : parseEnd(parsePlusCalToken("while")))
 		).map(seq -> new PlusCalWhile(seq.getLocation(), seq.get(condition), seq.get(body)));
-	}
+	}*/
 
 	static Grammar<PlusCalAwait> parseAwaitStatement(){
 		Variable<TLAExpression> condition = new Variable<>("condition");
@@ -316,7 +442,7 @@ public final class PluscalParser {
 		).map(seq -> new PlusCalAwait(seq.getLocation(), seq.get(condition)));
 	}
 
-	static Grammar<PlusCalWith> parseWithStatement(SyntaxVariant syntax){
+	/*static Grammar<PlusCalWith> parseWithStatement(SyntaxVariant syntax){
 		Variable<LocatedList<PlusCalVariableDeclaration>> decls = new Variable<>("decls");
 		Variable<LocatedList<PlusCalStatement>> body = new Variable<>("body");
 		return sequence(
@@ -339,7 +465,7 @@ public final class PluscalParser {
 			}
 			return with;
 		});
-	}
+	}*/
 
 	static Grammar<PlusCalSkip> parseSkipStatement(){
 		return parsePlusCalToken("skip")
@@ -405,11 +531,11 @@ public final class PluscalParser {
 	static Grammar<PlusCalStatement> parseStatement(SyntaxVariant syntax){
 		return parseOneOf(
 				parseLabeledStatements(syntax),
-				parseIfStatement(syntax),
-				parseEitherStatement(syntax),
-				parseWhileStatement(syntax),
+				//parseIfStatement(syntax),
+				//parseEitherStatement(syntax),
+				//parseWhileStatement(syntax),
 				parseAwaitStatement(),
-				parseWithStatement(syntax),
+				//parseWithStatement(syntax),
 				parseSkipStatement(),
 				parsePrintStatement(),
 				parseAssertStatement(),
@@ -420,27 +546,21 @@ public final class PluscalParser {
 		);
 	}
 
-	static Grammar<PlusCalSingleProcess> parseSingleProcess(SyntaxVariant syntax){
+	/*static Grammar<PlusCalSingleProcess> parseSingleProcess(SyntaxVariant syntax){
 		Variable<LocatedList<PlusCalLabeledStatements>> labeledStatements = new Variable<>("labeledStatements");
 		return sequence(
 				drop(parseBlockBegin(syntax, parsePlusCalToken("begin"))),
 				part(labeledStatements, repeat(parseLabeledStatements(syntax)))
 		).map(seq -> new PlusCalSingleProcess(seq.getLocation(), seq.get(labeledStatements)));
-	}
+	}*/
 
-	static Grammar<PlusCalProcess> parseProcess(SyntaxVariant syntax){
+	/*static Grammar<PlusCalProcess> parseProcess(SyntaxVariant syntax){
 		Variable<Located<PlusCalFairness>> fairness = new Variable<>("fairness");
 		Variable<PlusCalVariableDeclaration> name = new Variable<>("name");
 		Variable<LocatedList<PlusCalVariableDeclaration>> variables = new Variable<>("variables");
 		Variable<LocatedList<PlusCalLabeledStatements>> labeledStatements = new Variable<>("labeledStatements");
 		return sequence(
 				part(fairness, parseOneOf(
-						/*parsePlusCalToken("fair").chain(v -> parseOneOf(
-								parsePlusCalToken("+").map(vv ->
-										new Located<>(v.getLocation().combine(vv.getLocation()), PlusCalFairness.STRONG_FAIR)),
-								nop().map(vv -> new Located<>(v.getLocation(), PlusCalFairness.WEAK_FAIR))
-						)),
-						nop().map(v -> new Located<>(SourceLocation.unknown(), PlusCalFairness.UNFAIR))*/
 				)),
 				drop(parsePlusCalToken("process")),
 				part(name, parseBracketed(syntax, parseVariableDeclaration())),
@@ -452,46 +572,235 @@ public final class PluscalParser {
 		).map(seq -> new PlusCalProcess(
 				seq.getLocation(), seq.get(name), seq.get(fairness).getValue(), seq.get(variables),
 				seq.get(labeledStatements)));
-	}
+	}*/
 
-	static Grammar<PlusCalMultiProcess> parseMultiProcess(SyntaxVariant syntax){
+	/*static Grammar<PlusCalMultiProcess> parseMultiProcess(SyntaxVariant syntax){
 		return repeat(parseProcess(syntax)).map(procs -> new PlusCalMultiProcess(procs.getLocation(), procs));
+	}*/
+
+	static Grammar<LocatedList<PlusCalStatement>> parseCSyntaxMinStatements() {
+		return parseOneOf(
+				C_SYNTAX_STATEMENT.map(stmt ->
+						new LocatedList<>(stmt.getLocation(), Collections.singletonList(stmt))),
+				parseCSyntaxBlock()
+		);
 	}
 
-	static Grammar<PlusCalProcesses> parseProcesses(SyntaxVariant syntax){
+	static Grammar<LocatedList<PlusCalStatement>> parseCSyntaxBlock() {
+		Variable<LocatedList<PlusCalStatement>> body = new Variable<>("body");
+		Variable<LocatedList<PlusCalLabeledStatements>> labeled = new Variable<>("labeled");
+		return sequence(
+				parsePlusCalToken("{"),
+				part(body, C_SYNTAX_STATEMENTS),
+				// this allows us to catch labels inside blocks. semantically there is no such thing but this
+				// keeps the grammar context-free
+				part(labeled, parseOneOf(
+						scope(() -> {
+							Variable<LocatedList<PlusCalLabeledStatements>> tmp = new Variable<>("tmp");
+							return sequence(
+									parsePlusCalToken(";"),
+									part(tmp, parseListOf(parseCSyntaxLabeledStatements(), parsePlusCalToken(";")))
+							).map(seqResult -> seqResult.get(tmp));
+						}),
+						nop().map(v -> new LocatedList<>(v.getLocation(), Collections.emptyList()))
+				)),
+				parseOneOf(
+						parsePlusCalToken("}"),
+						drop(sequence(parsePlusCalToken(";"), parsePlusCalToken("}")))
+				)
+		).map(seqResult -> {
+			LocatedList<PlusCalStatement> result = new LocatedList<>(seqResult.getLocation(), new ArrayList<>());
+			result.addAll(seqResult.get(body));
+			result.addAll(seqResult.get(labeled));
+			return result;
+		});
+	}
+
+	static Grammar<PlusCalStatement> parseCSyntaxIfStatement() {
+		Variable<TLAExpression> cond = new Variable<>("cond");
+		Variable<LocatedList<PlusCalStatement>> whenTrue = new Variable<>("whenTrue");
+		Variable<LocatedList<PlusCalStatement>> whenFalse = new Variable<>("whenFalse");
+		return sequence(
+				parsePlusCalToken("if"),
+				parsePlusCalToken("("),
+				part(cond, parseExpression()),
+				parsePlusCalToken(")"),
+				part(whenTrue, parseCSyntaxMinStatements()),
+				part(whenFalse, parseOneOf(
+						sequence(
+								parseOneOf(
+										drop(sequence(parsePlusCalToken(";"), parsePlusCalToken("else"))),
+										parsePlusCalToken("else")
+								),
+								part(whenFalse, parseCSyntaxMinStatements())
+						).map(seqResult -> seqResult.get(whenFalse)),
+						nop().map(v -> new LocatedList<>(v.getLocation(), Collections.emptyList()))
+				))
+		).map(seqResult ->
+				new PlusCalIf(
+						seqResult.getLocation(), seqResult.get(cond), seqResult.get(whenTrue),
+						seqResult.get(whenFalse)));
+	}
+
+	static Grammar<PlusCalStatement> parseCSyntaxWhileStatement() {
+		Variable<TLAExpression> cond = new Variable<>("cond");
+		Variable<LocatedList<PlusCalStatement>> body = new Variable<>("body");
+
+		return sequence(
+				parsePlusCalToken("while"),
+				parsePlusCalToken("("),
+				part(cond, parseExpression()),
+				parsePlusCalToken(")"),
+				part(body, parseCSyntaxMinStatements())
+		).map(seqResult -> new PlusCalWhile(seqResult.getLocation(), seqResult.get(cond), seqResult.get(body)));
+	}
+
+	private static final ReferenceGrammar<PlusCalStatement> C_SYNTAX_STATEMENT = new ReferenceGrammar<>();
+	static final ReferenceGrammar<LocatedList<PlusCalStatement>> C_SYNTAX_STATEMENTS = new ReferenceGrammar<>();
+
+	static {
+		C_SYNTAX_STATEMENT.setReferencedGrammar(
+				parseOneOf(
+						parseCSyntaxIfStatement(),
+						//parseEitherStatement(syntax),
+						parseCSyntaxWhileStatement(),
+						parseAwaitStatement(),
+						//parseWithStatement(syntax),
+						parseSkipStatement(),
+						parsePrintStatement(),
+						parseAssertStatement(),
+						parseCallStatement(),
+						parseReturnStatement(),
+						parseGotoStatement(),
+						parseAssignmentStatement()
+				).map(stmt -> {
+					System.out.println("statement "+stmt);
+					return stmt;
+				}).compile()
+		);
+	}
+
+	static {
+		ReferenceGrammar<LocatedList<PlusCalStatement>> restGrammar = new ReferenceGrammar<>();
+
+		restGrammar.setReferencedGrammar(
+				scope(() -> {
+					Variable<LocatedList<PlusCalStatement>> currentPart = new Variable<>("currentPart");
+					Variable<LocatedList<PlusCalStatement>> restPart = new Variable<>("restPart");
+					Function<ParseInfo<Located<Void>>, LocatedList<PlusCalStatement>> aggregator = seqResult -> {
+						LocatedList<PlusCalStatement> result = new LocatedList<>(
+								seqResult.getLocation(), new ArrayList<>());
+						result.addAll(seqResult.get(currentPart));
+						result.addAll(seqResult.get(restPart));
+						return result;
+					};
+
+					return ParseTools.<LocatedList<PlusCalStatement>>parseOneOf(
+							sequence(
+									part(currentPart, parseCSyntaxBlock()),
+									part(restPart, restGrammar)
+							).map(aggregator),
+							sequence(
+									parsePlusCalToken(";"),
+									part(currentPart, C_SYNTAX_STATEMENT
+											.map(stmt -> new LocatedList<>(
+													stmt.getLocation(), Collections.singletonList(stmt)))),
+									part(restPart, restGrammar)
+							).map(aggregator),
+							nop().map(v -> new LocatedList<>(v.getLocation(), Collections.emptyList()))
+					);
+				}).compile()
+		);
+
+		Variable<LocatedList<PlusCalStatement>> first = new Variable<>("first");
+		Variable<LocatedList<PlusCalStatement>> rest = new Variable<>("rest");
+		C_SYNTAX_STATEMENTS.setReferencedGrammar(
+				sequence(
+						part(first, parseOneOf(
+								C_SYNTAX_STATEMENT
+										.map(stmt -> new LocatedList<>(stmt.getLocation(), Collections.singletonList(stmt))),
+								parseCSyntaxBlock()
+						)),
+						part(rest, restGrammar)
+				).map(seqResult -> {
+					LocatedList<PlusCalStatement> result = new LocatedList<>(seqResult.getLocation(), new ArrayList<>());
+					result.addAll(seqResult.get(first));
+					result.addAll(seqResult.get(rest));
+					return result;
+				}).compile()
+		);
+	}
+
+	static Grammar<PlusCalLabeledStatements> parseCSyntaxLabeledStatements() {
+		Variable<PlusCalLabel> label = new Variable<>("label");
+		Variable<LocatedList<PlusCalStatement>> statements = new Variable<>("statements");
+		return sequence(
+				part(label, parseLabel()),
+				part(statements, C_SYNTAX_STATEMENTS)
+		).map(seqResult -> new PlusCalLabeledStatements(
+				seqResult.getLocation(), seqResult.get(label), seqResult.get(statements)));
+	}
+
+	static Grammar<LocatedList<PlusCalLabeledStatements>> parseCSyntaxProcessBody() {
+		Variable<LocatedList<PlusCalLabeledStatements>> labeledStmts = new Variable<>("labeledStmts");
+		return sequence(
+				parsePlusCalToken("{"),
+				part(labeledStmts, parseListOf(parseCSyntaxLabeledStatements(), parsePlusCalToken(";"))),
+				parseOneOf(
+						parsePlusCalToken("}"),
+						drop(sequence(parsePlusCalToken(";"), parsePlusCalToken("}")))
+				)
+		).map(seqResult -> seqResult.get(labeledStmts));
+	}
+
+	static Grammar<PlusCalSingleProcess> parseCSyntaxSingleProcess(){
+		return parseCSyntaxProcessBody()
+				.map(stmts -> new PlusCalSingleProcess(stmts.getLocation(), stmts));
+	}
+
+	static Grammar<PlusCalProcesses> parseCSyntaxProcesses(){
 		return parseOneOf(
-				parseSingleProcess(syntax),
-				parseMultiProcess(syntax)
+				parseCSyntaxSingleProcess()
 		);
 	}
 
 	static Grammar<PlusCalAlgorithm> parseCSyntaxAlgorithm(){
 		Variable<Located<String>> name = new Variable<>("name");
-		Variable<Located<SyntaxVariant>> syntax = new Variable<>("syntax");
 		Variable<LocatedList<PlusCalVariableDeclaration>> variables = new Variable<>("variables");
 		Variable<PlusCalProcesses> processes = new Variable<>("processes");
 		return sequence(
-				drop(matchPattern(PCAL_FIND_ALGORITHM).map(v -> new Located<>(SourceLocation.unknown(), null))),
 				drop(parsePlusCalToken("--algorithm")),
 				part(name, parsePlusCalIdentifier()),
-				part(syntax, parseOneOf(
-						parsePlusCalToken("{").map(v ->
-								new Located<>(v.getLocation(), SyntaxVariant.C_SYNTAX)),
-						nop().map(v -> new Located<>(SourceLocation.unknown(), SyntaxVariant.P_SYNTAX))
-				)),
+				parsePlusCalToken("{"),
 				part(variables, parseVariablesDeclaration()),
-				part(processes, parseProcesses(/* TODO */ null)),
-				drop(parseBlockEnd(
-						/* TODO */ null,
-						parseEnd(parsePlusCalToken("algorithm"))))
+				part(processes, parseCSyntaxProcesses()),
+				parsePlusCalToken("}")
 		).map(seq -> new PlusCalAlgorithm(seq.getLocation().combine(seq.getLocation()), seq.get(name),
 				seq.get(variables), Collections.emptyList(), Collections.emptyList(), Collections.emptyList(),
 				seq.get(processes)));
 	}
 
+	// ## P-Syntax ##
+
+	/*private static Grammar<PlusCalProcesses> parsePSyntaxProcesses() {
+		return parseOneOf(
+				parsePSyntaxSingleProcess()
+				//parsePSyntaxMultiProcess()
+		);
+	}*/
+
+	private static Grammar<PlusCalMultiProcess> parsePSyntaxMultiProcess() {
+		return null;/*nop().map(v -> );*/
+	}
+
+	/*private static Grammar<PlusCalSingleProcess> parsePSyntaxSingleProcess() {
+		return repeatOneOrMore(parseLabeledStatements(SyntaxVariant.P_SYNTAX)).map(stmts ->
+				new PlusCalSingleProcess(stmts.getLocation(), stmts));
+	}*/
+
 	static Grammar<PlusCalAlgorithm> parsePSyntaxAlgorithm(){
-		Variable<Located<String>> name = new Variable<>("name");
-		Variable<Located<SyntaxVariant>> syntax = new Variable<>("syntax");
+		return nop().map(v -> null);
+		/*Variable<Located<String>> name = new Variable<>("name");
 		Variable<LocatedList<PlusCalVariableDeclaration>> variables = new Variable<>("variables");
 		Variable<PlusCalProcesses> processes = new Variable<>("processes");
 		return sequence(
@@ -500,17 +809,20 @@ public final class PluscalParser {
 				part(name, parsePlusCalIdentifier()),
 				reject(parsePlusCalToken("{")), // at this point we know which syntax it is
 				part(variables, parseVariablesDeclaration()),
-				part(processes, parseProcesses(/* TODO */ null)),
-				drop(parseBlockEnd(
-						/* TODO */ null,
-						parseEnd(parsePlusCalToken("algorithm"))))
+				part(processes, parsePSyntaxProcesses()),
+				parsePlusCalToken("end"), parsePlusCalToken("algorithm")
 		).map(seq -> new PlusCalAlgorithm(seq.getLocation().combine(seq.getLocation()), seq.get(name),
 				seq.get(variables), Collections.emptyList(), Collections.emptyList(), Collections.emptyList(),
-				seq.get(processes)));
+				seq.get(processes)));*/
 	}
 
 	private static Grammar<PlusCalAlgorithm> parseAlgorithm() {
-		return parseOneOf(parsePSyntaxAlgorithm(), parseCSyntaxAlgorithm());
+		Variable<PlusCalAlgorithm> theAlgorithm = new Variable<>("theAlgorithm");
+		return sequence(
+				drop(matchPattern(PCAL_FIND_ALGORITHM)),
+				part(theAlgorithm,  parseOneOf(parsePSyntaxAlgorithm(), parseCSyntaxAlgorithm())),
+				drop(matchPattern(PCAL_AFTER_ALGORITHM))
+		).map(seqResult -> seqResult.get(theAlgorithm));
 	}
 
 	// public interface

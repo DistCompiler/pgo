@@ -282,10 +282,7 @@ public class ParsingContext implements ParseActionExecutor {
 		return true;
 	}
 
-	@Override
-	public boolean visit(ReferenceParseAction referenceParseAction) {
-		Map<Variable, Variable> substitutions = referenceParseAction.getSubstitutions();
-
+	private void callCompiledGrammar(CompiledGrammar grammar, Map<Variable, Variable> substitutions, int returnDest) {
 		// pull values of variables we want to propagate
 		List<SourceLocatable> values = new ArrayList<>(substitutions.size());
 		List<Variable> locations = new ArrayList<>(substitutions.size());
@@ -295,12 +292,11 @@ public class ParsingContext implements ParseActionExecutor {
 		}
 
 		// push callstack
-		CompiledGrammar grammar = referenceParseAction.getReferencedGrammar();
 		currentState.getStoreStack().push(new SourceLocatable[grammar.getStoreSize()]);
 		currentState.getVariableStoreStack().push(new SourceLocatable[grammar.getVariableLocations().size()]);
 		currentState.getVariableMapStack().push(grammar.getVariableLocations());
 		currentState.getQueue().prepend(grammar.getActions());
-		currentState.getReturnDestStack().push(referenceParseAction.getReturnDest());
+		currentState.getReturnDestStack().push(returnDest);
 
 		//System.out.println("reference "+locations+" == "+values);
 
@@ -313,6 +309,12 @@ public class ParsingContext implements ParseActionExecutor {
 			//System.out.println("propagating "+loc+" = "+val);
 			currentState.setVariable(loc, val);
 		}
+	}
+
+	@Override
+	public boolean visit(ReferenceParseAction referenceParseAction) {
+		callCompiledGrammar(referenceParseAction.getReferencedGrammar(), referenceParseAction.getSubstitutions(),
+				referenceParseAction.getReturnDest());
 		return true;
 	}
 
@@ -395,6 +397,15 @@ public class ParsingContext implements ParseActionExecutor {
 			addFailure(ParseFailure.eofMatchFailure());
 			return false;
 		}
+		return true;
+	}
+
+	@Override
+	public boolean visit(IndirectReferenceParseAction indirectReferenceParseAction) {
+		Located<CompiledGrammar> grammar = (Located<CompiledGrammar>)currentState.getVariable(
+				indirectReferenceParseAction.getTarget());
+		callCompiledGrammar(grammar.getValue(), indirectReferenceParseAction.getSubstitutions(),
+				indirectReferenceParseAction.getReturnPos());
 		return true;
 	}
 

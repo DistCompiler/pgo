@@ -27,7 +27,8 @@ public class PlusCalNodeFormattingVisitor extends PlusCalNodeVisitor<Void, IOExc
 
 	@Override
 	public Void visit(PlusCalStatement statement) throws IOException {
-		throw new TODO();
+		statement.accept(new PlusCalStatementFormattingVisitor(out));
+		return null;
 	}
 
 	@Override
@@ -79,7 +80,10 @@ public class PlusCalNodeFormattingVisitor extends PlusCalNodeVisitor<Void, IOExc
 
 	@Override
 	public Void visit(PlusCalAssignmentPair plusCalAssignmentPair) throws IOException {
-		throw new TODO();
+		plusCalAssignmentPair.getLhs().accept(new TLAExpressionFormattingVisitor(out));
+		out.write(" := ");
+		plusCalAssignmentPair.getRhs().accept(new TLAExpressionFormattingVisitor(out));
+		return null;
 	}
 
 }

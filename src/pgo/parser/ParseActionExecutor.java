@@ -14,4 +14,5 @@ public interface ParseActionExecutor {
 	boolean visit(PredicateParseAction predicateParseAction);
 	boolean visit(RejectParseAction rejectParseAction);
 	boolean visit(EOFParseAction eofParseAction);
+	boolean visit(IndirectReferenceParseAction indirectReferenceParseAction);
 }

@@ -146,4 +146,12 @@ public class GrammarCompileVisitor<Result extends SourceLocatable> extends Gramm
 		argumentGrammar.getGrammar().accept(this);
 		return null;
 	}
+
+	@Override
+	public <GrammarResult extends SourceLocatable> Void visit(CallGrammar<GrammarResult> callGrammar) throws RuntimeException {
+		int target = variableMap.putIfAbsent(callGrammar.getTarget(), variableMap.size());
+		actions.add(new IndirectReferenceParseAction(target, storeSize, callGrammar.getSubstitutions()));
+		++storeSize;
+		return null;
+	}
 }

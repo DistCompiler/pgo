@@ -916,23 +916,6 @@ public final class TLAParser {
 				new TLARequiredAction(seqResult.getLocation(), seqResult.get(expr), seqResult.get(vars)));
 	}
 	
-	static Grammar<TLAExpression> parseInnerPrefixOperator(){
-		Variable<LocatedList<TLAGeneralIdentifierPart>> prefix = new Variable<>("prefix");
-		Variable<Located<String>> token = new Variable<>("token");
-		Variable<TLAExpression> expr = new Variable<>("expr");
-		return sequence(
-				part(prefix, parseInstancePrefix()),
-				part(token, parseTLATokenOneOf(PREFIX_OPERATORS)),
-				part(expr, EXPRESSION)
-		).map(seqResult -> {
-			Located<String> tokenV = seqResult.get(token);
-			return new TLAUnary(
-					seqResult.getLocation(),
-					new TLASymbol(tokenV.getLocation(), tokenV.getValue()),
-					seqResult.get(prefix), seqResult.get(expr));
-		});
-	}
-	
 	static Grammar<TLAExpression> parseOperatorCall(){
 		Variable<LocatedList<TLAGeneralIdentifierPart>> prefix = new Variable<>("prefix");
 		Variable<TLAIdentifier> id = new Variable<>("id");
@@ -1408,8 +1391,6 @@ public final class TLAParser {
 								&& */precedence <= PREFIX_OPERATORS_HI_PRECEDENCE.get(op))
 				.collect(Collectors.toList());
 
-		System.out.println("prefix precedence "+precedence+" "+operatorOptions);
-
 		if(operatorOptions.isEmpty()) return parseOneOf(Collections.emptyList());
 
 		ReferenceGrammar<TLAExpression> self = new ReferenceGrammar<>();
@@ -1421,7 +1402,6 @@ public final class TLAParser {
 			options.add(scope(() -> {
 				Variable<Located<Void>> op = new Variable<>("op");
 				Variable<TLAExpression> expr = new Variable<>("expr");
-				System.out.println("prefix recurse "+operator+" "+(PREFIX_OPERATORS_HI_PRECEDENCE.get(operator)+1));
 				return sequence(
 						part(op, parseTLAToken(operator)),
 						part(expr, parseOneOf(
@@ -1432,7 +1412,6 @@ public final class TLAParser {
 					int p = precedence;
 					LocatedList<TLAGeneralIdentifierPart> prefixV = seqResult.get(prefix);
 					Located<Void> opV = seqResult.get(op);
-					//System.out.println("prefix "+precedence+" "+operator);
 					return new TLAUnary(
 							prefixV.getLocation().combine(seqResult.getLocation()),
 							new TLASymbol(opV.getLocation(), operator),
@@ -1479,7 +1458,6 @@ public final class TLAParser {
 		for(String operator : INFIX_OPERATORS) {
 			if(INFIX_OPERATORS_LOW_PRECEDENCE.get(operator) <= precedence
 					&& INFIX_OPERATORS_HI_PRECEDENCE.get(operator) >= precedence) {
-				System.out.println("precedence "+precedence+" "+operator);
 				Variable<Located<Void>> op = new Variable<>("op");
 				Variable<TLAExpression> rhs = new Variable<>("rhs");
 				Variable<LocatedList<Located<InfixOperatorPart>>> leftAssociativeParts = new Variable<>("leftAssociativeParts");
@@ -1488,20 +1466,19 @@ public final class TLAParser {
 								part(op, parseInfixOperator(operator)),
 								part(rhs, OPERATORS_BY_PRECEDENCE.get(INFIX_OPERATORS_HI_PRECEDENCE.get(operator)+1)),
 								part(leftAssociativeParts, INFIX_OPERATORS_LEFT_ASSOCIATIVE.contains(operator) ?
-										scope(() -> {
+										repeat(scope(() -> {
 											Variable<LocatedList<TLAGeneralIdentifierPart>> prefix2 = new Variable<>("prefix2");
 											Variable<Located<Void>> op2 = new Variable<>("op2");
 											Variable<TLAExpression> rhs2 = new Variable<>("rhs2");
-											return repeat(sequence(
+											return sequence(
 													part(prefix2, parseInstancePrefix()),
 													part(op2, parseInfixOperator(operator)),
 													part(rhs2, OPERATORS_BY_PRECEDENCE.get(INFIX_OPERATORS_HI_PRECEDENCE.get(operator)+1))
 											).map(seqResult -> new Located<>(seqResult.getLocation(), new InfixOperatorPart(
-													seqResult.get(prefix2), seqResult.get(op2), seqResult.get(rhs2), null))));
-										})
+													seqResult.get(prefix2), seqResult.get(op2), seqResult.get(rhs2), null)));
+										}))
 										: nop().map(v -> new LocatedList<>(v.getLocation(), Collections.emptyList())))
 						).map(seqResult -> {
-							int p = precedence;
 							TLAExpression lhsV = seqResult.get(lhs);
 							LocatedList<TLAGeneralIdentifierPart> prefixV = seqResult.get(prefix);
 							Located<Void> opV = seqResult.get(op);
@@ -2007,10 +1984,7 @@ public final class TLAParser {
 								parseAssumption(),
 								parseTheorem(),
 								MODULE)
-				))).map(seqResult -> {
-					System.out.println("unit parsed "+seqResult.get(unit));
-					return seqResult.get(unit);
-				});
+				))).map(seqResult -> seqResult.get(unit));
 	}
 
 	static final Pattern TLA_BEGIN_TRANSLATION = Pattern.compile("\\\\\\*+\\s+BEGIN TRANSLATION\\s*$", Pattern.MULTILINE);
@@ -2067,10 +2041,6 @@ public final class TLAParser {
 				part(translatedUnits, parseOneOf(
 						sequence(
 								drop(parseStartTranslation()),
-								nop().map(v -> {
-									System.out.println("BEGIN TRANSLATION");
-									return v;
-								}),
 								part(translatedUnits, repeat(scope(() -> {
 									Variable<TLAUnit> translatedUnit = new Variable<>("translatedUnit");
 									return sequence(
@@ -2078,20 +2048,12 @@ public final class TLAParser {
 													part(translatedUnit, UNIT)
 									).map(seq -> seq.get(translatedUnit));
 								}))),
-								nop().map(v -> {
-									System.out.println("END TRANSLATION");
-									return v;
-								}),
 								drop(parseEndTranslation())
 						).map(seqResult -> seqResult.get(translatedUnits)),
 						nop().map(v -> new LocatedList<>(v.getLocation(), Collections.emptyList()))
 				)),
 				part(postTranslationUnits, repeat(UNIT)),
 				drop(parse4EqualsOrMore()),
-				nop().map(v -> {
-					System.out.println("COMPLETED MODULE");
-					return v;
-				}),
 				consumeAfterModuleEnd() // consume any left-over text (that is not the beginning of another module)
 		).map(seqResult ->
 				new TLAModule(seqResult.getLocation(), seqResult.get(name), seqResult.get(exts),

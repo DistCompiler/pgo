@@ -4,7 +4,7 @@ import pgo.model.type.BacktrackingFailureIssue;
 import pgo.model.type.UnrealizableTypeIssue;
 import pgo.model.type.UnsatisfiableConstraintIssue;
 import pgo.trans.intermediate.*;
-import pgo.trans.passes.tlaparse.TLAParserIssue;
+import pgo.trans.passes.tlaparse.ParsingIssue;
 import pgo.trans.passes.type.TypeInferenceFailureIssue;
 
 public abstract class IssueVisitor<T, E extends Throwable> {
@@ -16,7 +16,7 @@ public abstract class IssueVisitor<T, E extends Throwable> {
 	public abstract T visit(ModuleNotFoundIssue moduleNotFoundIssue) throws E;
 	public abstract T visit(DanglingReferenceIssue danglingReferenceIssue) throws E;
 	public abstract T visit(IOErrorIssue ioErrorIssue) throws E;
-	public abstract T visit(TLAParserIssue tlaParserIssue) throws E;
+	public abstract T visit(ParsingIssue parsingIssue) throws E;
 	public abstract T visit(NoModulesFoundInFileIssue noModulesFoundInFileIssue) throws E;
 	public abstract T visit(ModuleSubstitutionNotFoundIssue moduleSubstitutionNotFoundIssue) throws E;
 	public abstract T visit(CircularModuleReferenceIssue circularModuleReferenceIssue) throws E;

@@ -29,7 +29,7 @@ import pgo.modules.NoModulesFoundInFileError;
 import pgo.modules.TLAModuleLoader;
 import pgo.parser.ParseFailureException;
 import pgo.scope.UID;
-import pgo.trans.passes.tlaparse.TLAParserIssue;
+import pgo.trans.passes.tlaparse.ParsingIssue;
 
 public class TLAUnitScopingVisitor extends TLAUnitVisitor<Void, RuntimeException> {
 
@@ -100,7 +100,7 @@ public class TLAUnitScopingVisitor extends TLAUnitVisitor<Void, RuntimeException
 			} catch (IOException e) {
 				ctx.error(new IOErrorIssue(e));
 			} catch (ParseFailureException e) {
-				ctx.error(new TLAParserIssue(e.getReason()));
+				ctx.error(new ParsingIssue("TLA+", e.getReason()));
 			} catch (NoModulesFoundInFileError e) {
 				ctx.error(new NoModulesFoundInFileIssue());
 			}

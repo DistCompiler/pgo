@@ -21,7 +21,6 @@ import org.junit.runners.Parameterized.Parameters;
 
 import javax.xml.bind.annotation.adapters.CollapsedStringAdapter;
 
-@Ignore
 @RunWith(Parameterized.class)
 public class ExampleCodeGenRunTest {
 

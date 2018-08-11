@@ -19,7 +19,7 @@ public class TLAParsingPass {
 			List<TLAModule> modules = TLAParser.readModules(lexicalContext);
 			return modules.get(0);
 		} catch (ParseFailureException e) {
-			ctx.error(new TLAParserIssue(e.getReason()));
+			ctx.error(new ParsingIssue("TLA+", e.getReason()));
 			return null;
 		}
 	}

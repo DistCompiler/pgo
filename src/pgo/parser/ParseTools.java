@@ -99,6 +99,10 @@ public final class ParseTools {
 		return fn.get();
 	}
 
+	public static <Result extends SourceLocatable> Grammar<Result> call(Variable<Located<CompiledGrammar<Result>>> target) {
+		return new CallGrammar<>(target);
+	}
+
 	/**
 	 * <p>Creates a parse action that repeatedly attempts the parse action element until it fails. The result of each
 	 * attempt will be combined into a {@link pgo.parser.LocatedList}. This action has a similar behaviour to

@@ -3,7 +3,7 @@ package pgo.trans.intermediate;
 import pgo.errors.IssueContext;
 import pgo.model.pcal.PlusCalAlgorithm;
 import pgo.parser.*;
-import pgo.trans.passes.tlaparse.TLAParserIssue;
+import pgo.trans.passes.tlaparse.ParsingIssue;
 
 import java.nio.file.Path;
 
@@ -14,7 +14,7 @@ public class PlusCalParsingPass {
 		try {
 			return PluscalParser.readAlgorithm(new LexicalContext(inputFileName, inputFileContents));
 		} catch (ParseFailureException e) {
-			ctx.error(new TLAParserIssue(e.getReason()));
+			ctx.error(new ParsingIssue("PlusCal", e.getReason()));
 			return null;
 		}
 	}

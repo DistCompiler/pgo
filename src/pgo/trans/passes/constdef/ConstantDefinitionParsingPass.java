@@ -6,7 +6,7 @@ import java.util.Map;
 import pgo.errors.IssueContext;
 import pgo.model.tla.TLAExpression;
 import pgo.parser.*;
-import pgo.trans.passes.tlaparse.TLAParserIssue;
+import pgo.trans.passes.tlaparse.ParsingIssue;
 
 public class ConstantDefinitionParsingPass {
 	
@@ -23,7 +23,7 @@ public class ConstantDefinitionParsingPass {
 				TLAExpression expr = TLAParser.readExpression(lexicalContext);
 				result.put(def.getKey(), expr);
 			} catch (ParseFailureException e) {
-				ctx.error(new TLAParserIssue(e.getReason()));
+				ctx.error(new ParsingIssue("TLA+ constant", e.getReason()));
 			}
 		}
 		

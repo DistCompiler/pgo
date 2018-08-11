@@ -2,6 +2,7 @@ package pgo.formatters;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.Map;
 import java.util.Set;
 
 import pgo.errors.IssueVisitor;
@@ -10,8 +11,9 @@ import pgo.model.pcal.PlusCalMacro;
 import pgo.model.type.*;
 import pgo.parser.ParseFailure;
 import pgo.trans.intermediate.*;
-import pgo.trans.passes.tlaparse.TLAParserIssue;
+import pgo.trans.passes.tlaparse.ParsingIssue;
 import pgo.trans.passes.type.TypeInferenceFailureIssue;
+import pgo.util.SourceLocation;
 
 public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 
@@ -84,10 +86,11 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 	}
 
 	@Override
-	public Void visit(TLAParserIssue tlaParserIssue) throws IOException {
-		out.write("could not parse TLA: ");
+	public Void visit(ParsingIssue parsingIssue) throws IOException {
+		Map.Entry<SourceLocation, Set<ParseFailure>> lastEntry = parsingIssue.getError().lastEntry();
+		out.write("could not parse "+parsingIssue.getLanguage()+" at "+lastEntry.getKey()+": ");
 		try(IndentingWriter.Indent ignored = out.indent()){
-			Set<ParseFailure> lastFailures = tlaParserIssue.getError().lastEntry().getValue();
+			Set<ParseFailure> lastFailures = lastEntry.getValue();
 			for(ParseFailure f : lastFailures){
 				out.newLine();
 				out.write(f.toString());
