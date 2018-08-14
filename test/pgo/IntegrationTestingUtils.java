@@ -36,6 +36,10 @@ public class IntegrationTestingUtils {
 			return value;
 		}
 	}
+
+	public interface TestRunner<T> {
+		public void run(T t) throws IOException;
+	}
 	
 	public static void expungeFile(File file) {
 		if(file.isDirectory()) {
@@ -48,8 +52,9 @@ public class IntegrationTestingUtils {
 		}
 	}
 
+	// See testRunGoCode and testRunGoCodeShouldPanic below for runner examples
 	public static void testCompileExpression(PGoTLAExpression result, List<KeyValue> vars,
-											 List<String> expected, Boolean panic) throws IOException {
+											 TestRunner<Path> runner) throws IOException {
 		Path tempDirPath = Files.createTempDirectory("pgotest");
 		File tempDir = tempDirPath.toFile();
 		Path generatedCodePath = tempDirPath.resolve("Test.tla");
@@ -126,14 +131,8 @@ public class IntegrationTestingUtils {
 				System.out.println("source: "+line);
 			});
 
-			System.out.println("Got here ok");
-
 			// try to run the compiled Go code, check that it prints the right thing
-			if (!panic) {
-				IntegrationTestingUtils.testRunGoCode(compiledOutputPath, expected);
-			} else {
-				IntegrationTestingUtils.testRunGoCodeShouldPanic(compiledOutputPath, expected);
-			}
+			runner.run(compiledOutputPath);
 		} finally {
 			IntegrationTestingUtils.expungeFile(tempDir);
 		}

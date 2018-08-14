@@ -44,6 +44,7 @@ public class ExpressionCodeGenRunFailureTest {
 	@Test
 	public void test() throws IOException {
 		// try to run the compiled Go code, check that it prints the right thing
-		IntegrationTestingUtils.testCompileExpression(result, vars, expected, true);
+		IntegrationTestingUtils.testCompileExpression(result, vars, compiledOutputPath ->
+			IntegrationTestingUtils.testRunGoCodeShouldPanic(compiledOutputPath, expected));
 	}
 }
