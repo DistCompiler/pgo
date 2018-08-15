@@ -9,6 +9,11 @@ public class MappingGrammar<PredecessorResult extends SourceLocatable, Result ex
 	private Grammar<PredecessorResult> predecessorGrammar;
 	private Function<PredecessorResult, Result> mapping;
 
+	@Override
+	public String toString() {
+		return "MAP "+predecessorGrammar;
+	}
+
 	public MappingGrammar(Grammar<PredecessorResult> predecessorGrammar, Function<PredecessorResult, Result> mapping) {
 		this.predecessorGrammar = predecessorGrammar;
 		this.mapping = mapping;

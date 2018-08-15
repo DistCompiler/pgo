@@ -4,6 +4,11 @@ public class StringGrammar extends Grammar<Located<Void>> {
 
 	private String string;
 
+	@Override
+	public String toString() {
+		return "STR "+string;
+	}
+
 	public StringGrammar(String string) {
 		this.string = string;
 	}

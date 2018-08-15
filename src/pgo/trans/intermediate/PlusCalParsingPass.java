@@ -12,7 +12,7 @@ public class PlusCalParsingPass {
 
 	public static PlusCalAlgorithm perform(IssueContext ctx, Path inputFileName, CharSequence inputFileContents) {
 		try {
-			return PluscalParser.readAlgorithm(new LexicalContext(inputFileName, inputFileContents));
+			return PlusCalParser.readAlgorithm(new LexicalContext(inputFileName, inputFileContents));
 		} catch (ParseFailureException e) {
 			ctx.error(new ParsingIssue("PlusCal", e.getReason()));
 			return null;

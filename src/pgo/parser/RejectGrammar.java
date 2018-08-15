@@ -6,6 +6,11 @@ public class RejectGrammar<Result extends SourceLocatable> extends Grammar<Locat
 
 	private Grammar<Result> toReject;
 
+	@Override
+	public String toString() {
+		return "REJECT ["+toReject+"]";
+	}
+
 	public RejectGrammar(Grammar<Result> toReject) {
 		this.toReject = toReject;
 	}

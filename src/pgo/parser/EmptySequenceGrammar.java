@@ -1,9 +1,9 @@
 package pgo.parser;
 
-public class EOFGrammar extends Grammar<Located<Void>> {
+public class EmptySequenceGrammar extends AbstractSequenceGrammar<EmptyHeterogenousList> {
 	@Override
-	public String toString(){
-		return "EOF";
+	public String toString() {
+		return "EMPTY_SEQ";
 	}
 	@Override
 	public <Result, Except extends Throwable> Result accept(GrammarVisitor<Result, Except> visitor) throws Except {

@@ -1,8 +1,6 @@
 package pgo.parser;
 
-import pgo.util.SourceLocatable;
-
-public final class Variable<Type extends SourceLocatable> {
+public final class Variable<Type> {
 	private final String name;
 
 	public Variable(String name) { this.name = name; }

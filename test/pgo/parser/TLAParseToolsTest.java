@@ -25,11 +25,9 @@ public class TLAParseToolsTest {
 	}
 
 	private <Result extends SourceLocatable> Result executeGrammar(Grammar<Result> grammar, LexicalContext ctx) throws ParseFailureException {
-		Variable<Result> result = new Variable<>("checkLocationResult");
-		Grammar<Result> nested = sequence(
-				part(MIN_COLUMN, nop().map(v -> new Located<>(v.getLocation(), -1))),
-				part(result, grammar)
-		).map(seqResult -> seqResult.get(result));
+		Grammar<Result> nested = emptySequence()
+				.dependentPart(grammar, ignore -> new VariableMap().put(MIN_COLUMN, -1))
+				.map(seq -> seq.getValue().getFirst());
 
 		return nested.parse(ctx);
 	}
@@ -225,19 +223,80 @@ public class TLAParseToolsTest {
 
 	@Test
 	public void testRejectString2() throws ParseFailureException {
-		checkLocation(sequence(reject(matchString("b")), matchString("a")), ctx("a"),
+		checkLocation(
+				emptySequence()
+						.drop(reject(matchString("b")))
+						.drop(matchString("a")),
+				ctx("a"),
 				1, 2, 1, 1);
 	}
 
 	@Test
-	public void testParseGeneralIdentifier() throws ParseFailureException {
-		Variable<TLAExpression> expr = new Variable<>("expr");
-		Grammar<TLAExpression> grammar = sequence(
-				part(MIN_COLUMN, nop().map(v -> new Located<>(v.getLocation(), -1))),
-				part(expr, parseGeneralIdentifier())
-		).map(seqResult -> seqResult.get(expr));
+	public void testChoice1() throws ParseFailureException {
+		checkLocation(
+				parseOneOf(matchString("a"), matchString("b")),
+				ctx("a"),
+				1, 2, 1, 1);
+	}
 
-		checkLocation(grammar, ctx("a(1,2)!b"),
+	@Test
+	public void testChoice2() throws ParseFailureException {
+		checkLocation(
+				parseOneOf(matchString("a"), matchString("b")),
+				ctx("b"),
+				1, 2, 1, 1);
+	}
+
+	@Test
+	public void testChoice3() throws ParseFailureException {
+		checkLocation(
+				emptySequence()
+						.drop(matchString("a"))
+						.drop(parseOneOf(
+								matchString("a"),
+								matchString("b")
+						))
+						.drop(matchString("c")),
+				ctx("abc"),
+				1, 4, 1, 1);
+	}
+
+	@Test
+	public void testChoice4() throws ParseFailureException {
+		checkLocation(
+				emptySequence()
+						.drop(matchString("a"))
+						.drop(parseOneOf(
+								matchString("bc"),
+								matchString("b")
+						).map(v -> v))
+						.drop(matchString("c")),
+				ctx("abc"),
+				1, 4, 1, 1);
+	}
+
+	@Test
+	public void testChoice5() throws ParseFailureException {
+		checkLocation(
+				parseFairnessConstraint(),
+				ctx("WF_foo(bar)"),
+				1, 12, 1, 1);
+	}
+
+	@Test
+	public void testChoice6() throws ParseFailureException {
+		checkLocation(
+				emptySequence()
+						.drop(parseOneOf(matchString("a"), matchString("b")))
+						.drop(parseOneOf(matchString("bc"), matchString("b")))
+						.drop(matchString("c")),
+				ctx("abc"),
+				1, 4, 1, 1);
+	}
+
+	@Test
+	public void testParseGeneralIdentifier() throws ParseFailureException {
+		checkLocation(parseGeneralIdentifier(), ctx("a(1,2)!b"),
 				1, 9, 1, 1);
 	}
 

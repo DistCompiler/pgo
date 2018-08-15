@@ -11,6 +11,11 @@ public class PatternGrammar extends Grammar<Located<MatchResult>> {
 		this.pattern = pattern;
 	}
 
+	@Override
+	public String toString() {
+		return "PATTERN "+pattern;
+	}
+
 	public Pattern getPattern() { return pattern; }
 
 	@Override

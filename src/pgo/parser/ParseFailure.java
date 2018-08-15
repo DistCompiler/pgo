@@ -139,13 +139,13 @@ public abstract class ParseFailure {
 	}
 
 	public static class RejectFailure extends ParseFailure {
-		private List<ParseAction> toReject;
+		private final Grammar toReject;
 
-		public RejectFailure(List<ParseAction> toReject) {
+		public RejectFailure(Grammar toReject) {
 			this.toReject = toReject;
 		}
 
-		public List<ParseAction> getToReject() {
+		public Grammar getToReject() {
 			return toReject;
 		}
 
@@ -168,7 +168,7 @@ public abstract class ParseFailure {
 		}
 	}
 
-	public static ParseFailure rejectFailure(List<ParseAction> toReject) {
+	public static ParseFailure rejectFailure(Grammar toReject) {
 		return new RejectFailure(toReject);
 	}
 }

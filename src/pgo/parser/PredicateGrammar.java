@@ -9,6 +9,11 @@ public class PredicateGrammar<Result extends SourceLocatable> extends Grammar<Re
 	private Grammar<Result> toFilter;
 	private Predicate<ParseInfo<Result>> predicate;
 
+	@Override
+	public String toString() {
+		return "PRED";
+	}
+
 	public PredicateGrammar(Grammar<Result> toFilter, Predicate<ParseInfo<Result>> predicate) {
 		this.toFilter = toFilter;
 		this.predicate = predicate;

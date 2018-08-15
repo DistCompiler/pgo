@@ -4,11 +4,11 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-public class ConsList<T> {
+public final class ConsList<T> {
 
 	private static final class Node<T> {
-		private T value;
-		private Node<T> next;
+		private final T value;
+		private final Node<T> next;
 
 		public Node(T value, Node<T> next) {
 			this.value = value;
@@ -19,7 +19,7 @@ public class ConsList<T> {
 		public Node<T> getNext() { return next; }
 	}
 
-	private Node<T> root;
+	private final Node<T> root;
 
 	public ConsList() {
 		this.root = null;

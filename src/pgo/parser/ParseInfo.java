@@ -3,18 +3,20 @@ package pgo.parser;
 import pgo.util.SourceLocatable;
 import pgo.util.SourceLocation;
 
+import java.util.Map;
+
 public class ParseInfo<Result extends SourceLocatable> extends SourceLocatable {
 
-	private Result result;
-	private ParsingContext ctx;
+	private final Result result;
+	private final VariableMap variableMap;
 
-	public ParseInfo(Result result, ParsingContext ctx) {
+	public ParseInfo(Result result, VariableMap variableMap) {
 		this.result = result;
-		this.ctx = ctx;
+		this.variableMap = variableMap;
 	}
 
-	public <Type extends SourceLocatable> Type get(Variable<Type> v) {
-		return ctx.getVariableValue(v);
+	public <Type> Type get(Variable<Type> k) {
+		return variableMap.get(k);
 	}
 
 	public Result getResult() { return result; }

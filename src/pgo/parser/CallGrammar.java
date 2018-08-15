@@ -2,48 +2,35 @@ package pgo.parser;
 
 import pgo.util.SourceLocatable;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.function.Function;
 
-public class CallGrammar<GrammarResult extends SourceLocatable> extends Grammar<GrammarResult> {
+public class CallGrammar<GrammarResult extends SourceLocatable,
+		PredecessorResult extends AbstractHeterogenousList<?, ?>>
+		extends AbstractSequenceGrammar<AbstractHeterogenousList<GrammarResult, PredecessorResult>> {
 
-	private CallGrammar<GrammarResult> parent;
-	private Variable<Located<CompiledGrammar<GrammarResult>>> target;
-	private Variable from;
-	private Variable to;
+	private final Grammar<Located<PredecessorResult>> predecessor;
+	private final Grammar<GrammarResult> target;
+	private final Function<ParseInfo<Located<PredecessorResult>>, VariableMap> mappingGenerator;
 
-	public CallGrammar(Variable<Located<CompiledGrammar<GrammarResult>>> target) {
-		this.parent = null;
+	public CallGrammar(Grammar<Located<PredecessorResult>> predecessor, Grammar<GrammarResult> target, Function<ParseInfo<Located<PredecessorResult>>, VariableMap> mappingGenerator) {
+		this.predecessor = predecessor;
 		this.target = target;
-
-		this.from = null;
-		this.to = null;
+		this.mappingGenerator = mappingGenerator;
 	}
 
-	private CallGrammar(CallGrammar<GrammarResult> parent, Variable from, Variable to, Variable<Located<CompiledGrammar<GrammarResult>>> target) {
-		this.parent = parent;
-		this.target = target;
-
-		this.from = from;
-		this.to = to;
+	@Override
+	public String toString() {
+		return predecessor.toString()+"\nCALL "+target;
 	}
 
-	public Map<Variable, Variable> getSubstitutions() {
-		if(parent == null) {
-			return new HashMap<>();
-		}else{
-			Map<Variable, Variable> subs = parent.getSubstitutions();
-			subs.put(from, to);
-			return subs;
-		}
-	}
+	public Grammar<Located<PredecessorResult>> getPredecessor() { return predecessor; }
 
-	public Variable<Located<CompiledGrammar<GrammarResult>>> getTarget() {
+	public Grammar<GrammarResult> getTarget() {
 		return target;
 	}
 
-	public CallGrammar<GrammarResult> substitute(Variable from, Variable to) {
-		return new CallGrammar<>(this, from, to, getTarget());
+	public Function<ParseInfo<Located<PredecessorResult>>, VariableMap> getMappingGenerator() {
+		return mappingGenerator;
 	}
 
 	@Override

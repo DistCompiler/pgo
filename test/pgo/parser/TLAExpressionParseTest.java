@@ -214,6 +214,15 @@ public class TLAExpressionParseTest {
 								unary("UNCHANGED",
 										tuple(idexp("managers"), idexp("rstMgrs"), idexp("aborted"))))
 				},
+
+				{
+					"(2)",
+						num(2)
+				},
+				{
+					"(restaurant_stage[self] = \"commit\")",
+						binop("=", fncall(idexp("restaurant_stage"), idexp("self")), str("commit"))
+				}
 		});
 	}
 
