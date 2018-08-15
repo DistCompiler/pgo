@@ -1,6 +1,6 @@
 package pgo.parser;
 
-public final class HeterogenousList<First, Rest extends AbstractHeterogenousList<?, ?>> extends AbstractHeterogenousList<First, Rest> {
+public final class HeterogenousList<First, Rest extends EmptyHeterogenousList> extends EmptyHeterogenousList {
 
 	private final First first;
 	private final Rest rest;
@@ -10,17 +10,14 @@ public final class HeterogenousList<First, Rest extends AbstractHeterogenousList
 		this.rest = rest;
 	}
 
-	@Override
 	public First getFirst() {
 		return first;
 	}
 
-	@Override
 	public Rest getRest() {
 		return rest;
 	}
 
-	@Override
 	public boolean isEmpty() {
 		return false;
 	}

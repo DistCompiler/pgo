@@ -5,8 +5,8 @@ import pgo.util.SourceLocatable;
 import java.util.function.Function;
 
 public class CallGrammar<GrammarResult extends SourceLocatable,
-		PredecessorResult extends AbstractHeterogenousList<?, ?>>
-		extends AbstractSequenceGrammar<AbstractHeterogenousList<GrammarResult, PredecessorResult>> {
+		PredecessorResult extends EmptyHeterogenousList>
+		extends AbstractSequenceGrammar<HeterogenousList<GrammarResult, PredecessorResult>> {
 
 	private final Grammar<Located<PredecessorResult>> predecessor;
 	private final Grammar<GrammarResult> target;

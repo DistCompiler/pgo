@@ -12,7 +12,7 @@ public abstract class GrammarVisitor<Result, Except extends Throwable> {
 	public abstract <GrammarResult extends SourceLocatable> Result visit(RejectGrammar<GrammarResult> rejectGrammar) throws Except;
 	public abstract Result visit(EOFGrammar eofGrammar) throws Except;
 	public abstract Result visit(EmptySequenceGrammar emptySequenceGrammar);
-	public abstract <Dropped extends SourceLocatable, PrevResult extends AbstractHeterogenousList<?, ?>> Result visit(DropSequenceGrammar<Dropped,PrevResult> propSequenceGrammar) throws Except;
-	public abstract <Part extends SourceLocatable, PrevResult extends AbstractHeterogenousList<?, ?>> Result visit(PartSequenceGrammar<Part,PrevResult> partSequenceGrammar) throws Except;
-	public abstract <GrammarResult extends SourceLocatable, PredecessorResult extends AbstractHeterogenousList<?, ?>> Result visit(CallGrammar<GrammarResult, PredecessorResult> callGrammar);
+	public abstract <Dropped extends SourceLocatable, PrevResult extends EmptyHeterogenousList> Result visit(DropSequenceGrammar<Dropped,PrevResult> propSequenceGrammar) throws Except;
+	public abstract <Part extends SourceLocatable, PrevResult extends EmptyHeterogenousList> Result visit(PartSequenceGrammar<Part,PrevResult> partSequenceGrammar) throws Except;
+	public abstract <GrammarResult extends SourceLocatable, PredecessorResult extends EmptyHeterogenousList> Result visit(CallGrammar<GrammarResult, PredecessorResult> callGrammar);
 }

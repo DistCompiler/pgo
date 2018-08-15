@@ -133,6 +133,10 @@ public class TLAExpressionParseTest {
 								fairness(TLAFairness.Type.WEAK, idexp("vars"),
 										opcall("P", idexp("self"))))
 				},
+				{"/\\ 1 \\/ 2\n"
+						+"/\\ 3",
+						binop("/\\", binop("\\/", num(1), num(2)), num(3))
+				},
 				{"        /\\ Init /\\ 4\n" +
 						"        /\\ \\A self \\in 0..procs-1 : WF_vars(P(self))",
 						binop("/\\",
@@ -170,6 +174,10 @@ public class TLAExpressionParseTest {
 				// a string with spaces in it
 				{"\"have gcd\"",
 						str("have gcd")
+				},
+
+				{"pc[self] = \"c1\"",
+						binop("=", fncall(idexp("pc"), idexp("self")), str("c1"))
 				},
 
 				{"            /\\ pc[self] = \"c1\"\n" +

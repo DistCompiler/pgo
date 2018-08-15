@@ -33,18 +33,12 @@ public class GrammarExecuteVisitor extends GrammarVisitor<GrammarExecuteVisitor.
 	static final class MemoizeKey {
 		private final SourceLocation sourceLocation;
 		private final Grammar grammar;
+		private final FrozenVariableMap variableMap;
 
-		public MemoizeKey(SourceLocation sourceLocation, Grammar grammar) {
+		public MemoizeKey(SourceLocation sourceLocation, Grammar grammar, FrozenVariableMap variableMap) {
 			this.sourceLocation = sourceLocation;
 			this.grammar = grammar;
-		}
-
-		public SourceLocation getSourceLocation() {
-			return sourceLocation;
-		}
-
-		public Grammar getGrammar() {
-			return grammar;
+			this.variableMap = variableMap;
 		}
 
 		@Override
@@ -53,12 +47,13 @@ public class GrammarExecuteVisitor extends GrammarVisitor<GrammarExecuteVisitor.
 			if (o == null || getClass() != o.getClass()) return false;
 			MemoizeKey that = (MemoizeKey) o;
 			return Objects.equals(sourceLocation, that.sourceLocation) &&
-					Objects.equals(grammar, that.grammar);
+					Objects.equals(grammar, that.grammar) &&
+					Objects.equals(variableMap, that.variableMap);
 		}
 
 		@Override
 		public int hashCode() {
-			return Objects.hash(sourceLocation, grammar);
+			return Objects.hash(sourceLocation, grammar, variableMap);
 		}
 	}
 
@@ -81,14 +76,14 @@ public class GrammarExecuteVisitor extends GrammarVisitor<GrammarExecuteVisitor.
 	}
 
 	private final Map<MemoizeKey, MemoizeRecord> memoizeTable;
-	private final VariableMap variableMap;
+	private final FrozenVariableMap variableMap;
 	private final LexicalContext lexicalContext;
 	private final NavigableMap<SourceLocation, Set<ParseFailure>> failures;
 
-	public GrammarExecuteVisitor(LexicalContext lexicalContext, VariableMap variableMap, NavigableMap<SourceLocation, Set<ParseFailure>> failures) {
+	public GrammarExecuteVisitor(LexicalContext lexicalContext, FrozenVariableMap variableMap, NavigableMap<SourceLocation, Set<ParseFailure>> failures, Map<MemoizeKey, MemoizeRecord> memoizeTable) {
 		this.lexicalContext = lexicalContext;
 		this.variableMap = variableMap;
-		this.memoizeTable = new HashMap<>();
+		this.memoizeTable = memoizeTable;
 		this.failures = failures;
 	}
 
@@ -104,7 +99,7 @@ public class GrammarExecuteVisitor extends GrammarVisitor<GrammarExecuteVisitor.
 	}
 
 	private ParsingResult tryMemoize(Grammar<? extends SourceLocatable> grammar) {
-		MemoizeKey key = new MemoizeKey(lexicalContext.getSourceLocation(), grammar);
+		MemoizeKey key = new MemoizeKey(lexicalContext.getSourceLocation(), grammar, variableMap);
 		MemoizeRecord record;
 		if((record = memoizeTable.get(key)) != null) {
 			lexicalContext.restore(record.getMark());
@@ -125,9 +120,9 @@ public class GrammarExecuteVisitor extends GrammarVisitor<GrammarExecuteVisitor.
 		Optional<Located<MatchResult>> result = lexicalContext.matchPattern(patternGrammar.getPattern());
 		if(result.isPresent()) {
 			String s = result.get().getValue().group();
-			if(!s.startsWith(" ") && !s.startsWith("\n")) {
+			/*if(!s.startsWith(" ") && !s.startsWith("\n")) {
 				System.out.println("pat " + s + " at " + result.get().getLocation());
-			}
+			}*/
 			return new ParsingResult(result.get(), null);
 		}else{
 			//System.out.println("pat fail "+ patternGrammar.getPattern() + " at "+lexicalContext.getSourceLocation());
@@ -191,9 +186,9 @@ public class GrammarExecuteVisitor extends GrammarVisitor<GrammarExecuteVisitor.
 	public ParsingResult visit(StringGrammar stringGrammar) throws RuntimeException {
 		Optional<Located<Void>> result = lexicalContext.matchString(stringGrammar.getString());
 		if(result.isPresent()) {
-			if(stringGrammar.getString().length() != 0) {
+			/*if(stringGrammar.getString().length() != 0) {
 				System.out.println("str " + stringGrammar.getString() + " at " + result.get().getLocation());
-			}
+			}*/
 			return new ParsingResult(result.get(), null);
 		}else{
 			//System.out.println("fail str "+stringGrammar.getString() + " at "+ lexicalContext.getSourceLocation());
@@ -340,7 +335,7 @@ public class GrammarExecuteVisitor extends GrammarVisitor<GrammarExecuteVisitor.
 	}
 
 	@Override
-	public <Dropped extends SourceLocatable, Rest extends AbstractHeterogenousList<?, ?>> ParsingResult visit(DropSequenceGrammar<Dropped, Rest> dropSequenceGrammar) {
+	public <Dropped extends SourceLocatable, Rest extends EmptyHeterogenousList> ParsingResult visit(DropSequenceGrammar<Dropped, Rest> dropSequenceGrammar) {
 		ParsingResult restResult = tryMemoize(dropSequenceGrammar.getPrevious());
 		if(restResult.getResult() == null) {
 			assert restResult.getRetry() == null;
@@ -358,7 +353,7 @@ public class GrammarExecuteVisitor extends GrammarVisitor<GrammarExecuteVisitor.
 	}
 
 	@Override
-	public <Part extends SourceLocatable, Rest extends AbstractHeterogenousList<?, ?>> ParsingResult visit(PartSequenceGrammar<Part, Rest> partSequenceGrammar) {
+	public <Part extends SourceLocatable, Rest extends EmptyHeterogenousList> ParsingResult visit(PartSequenceGrammar<Part, Rest> partSequenceGrammar) {
 		ParsingResult restResult = tryMemoize(partSequenceGrammar.getPrevGrammar());
 		if(restResult.getResult() == null) {
 			assert restResult.getRetry() == null;
@@ -369,8 +364,8 @@ public class GrammarExecuteVisitor extends GrammarVisitor<GrammarExecuteVisitor.
 				restResult,
 				() -> tryMemoize(partSequenceGrammar.getCurrent()),
 				(part, rest) -> {
-					Located<? extends AbstractHeterogenousList<?, ?>> restV =
-							(Located<? extends AbstractHeterogenousList<?, ?>>)rest;
+					Located<? extends EmptyHeterogenousList> restV =
+							(Located<? extends EmptyHeterogenousList>)rest;
 					return new Located<>(
 							part.getLocation().combine(rest.getLocation()),
 							HeterogenousListTools.cons(part, restV.getValue()));
@@ -379,28 +374,30 @@ public class GrammarExecuteVisitor extends GrammarVisitor<GrammarExecuteVisitor.
 	}
 
 	@Override
-	public <GrammarResult extends SourceLocatable, PredecessorResult extends AbstractHeterogenousList<?, ?>> ParsingResult visit(CallGrammar<GrammarResult, PredecessorResult> callGrammar) {
+	public <GrammarResult extends SourceLocatable, PredecessorResult extends EmptyHeterogenousList> ParsingResult visit(CallGrammar<GrammarResult, PredecessorResult> callGrammar) {
 		ParsingResult precedessorResult = tryMemoize(callGrammar.getPredecessor());
 		if(precedessorResult.getResult() == null) {
 			assert precedessorResult.getRetry() == null;
 			return precedessorResult;
 		}
-		Function<SourceLocatable, ParsingResult> executor = prevResult -> callGrammar.getTarget().accept(
+		Function<SourceLocatable, ParsingResult> executor = prevResult ->
 				new GrammarExecuteVisitor(
 						lexicalContext,
 						callGrammar
 								.getMappingGenerator()
 								.apply(new ParseInfo<>(
 										(Located<PredecessorResult>) prevResult,
-										variableMap)),
-						failures));
+										variableMap))
+								.freeze(),
+						failures,
+						memoizeTable).tryMemoize(callGrammar.getTarget());
 		return new SequenceRetry(
 				executor,
 				precedessorResult,
 				() -> executor.apply(precedessorResult.getResult()),
 				(part, rest) -> {
-					Located<? extends AbstractHeterogenousList<?, ?>> restV =
-							(Located<? extends AbstractHeterogenousList<?, ?>>)rest;
+					Located<? extends EmptyHeterogenousList> restV =
+							(Located<? extends EmptyHeterogenousList>)rest;
 					return new Located<>(
 							part.getLocation().combine(rest.getLocation()),
 							HeterogenousListTools.cons(part, restV.getValue()));
@@ -411,9 +408,9 @@ public class GrammarExecuteVisitor extends GrammarVisitor<GrammarExecuteVisitor.
 	private static final class PredicateRetry implements Supplier<ParsingResult> {
 		private final Supplier<ParsingResult> retry;
 		private final Predicate<ParseInfo<SourceLocatable>> predicate;
-		private final VariableMap variableMap;
+		private final FrozenVariableMap variableMap;
 
-		public PredicateRetry(Supplier<ParsingResult> retry, Predicate<? extends ParseInfo<? extends SourceLocatable>> predicate, VariableMap variableMap) {
+		public PredicateRetry(Supplier<ParsingResult> retry, Predicate<? extends ParseInfo<? extends SourceLocatable>> predicate, FrozenVariableMap variableMap) {
 			this.retry = retry;
 			this.predicate = (Predicate<ParseInfo<SourceLocatable>>)predicate;
 			this.variableMap = variableMap;
@@ -453,7 +450,7 @@ public class GrammarExecuteVisitor extends GrammarVisitor<GrammarExecuteVisitor.
 	public <GrammarResult extends SourceLocatable> ParsingResult visit(RejectGrammar<GrammarResult> rejectGrammar) throws RuntimeException {
 		Grammar<GrammarResult> toReject = rejectGrammar.getToReject();
 		LexicalContext.Mark mark = lexicalContext.mark();
-		ParsingResult result = toReject.accept(new GrammarExecuteVisitor(lexicalContext, variableMap, new TreeMap<>()));
+		ParsingResult result = toReject.accept(new GrammarExecuteVisitor(lexicalContext, variableMap, new TreeMap<>(), memoizeTable));
 		lexicalContext.restore(mark);
 		if(result.getResult() != null) {
 			// if the grammar succceeds in any way, fail

@@ -2,7 +2,7 @@ package pgo.parser;
 
 import pgo.util.SourceLocatable;
 
-public class DropSequenceGrammar<Dropped extends SourceLocatable, PrevResult extends AbstractHeterogenousList<?, ?>> extends AbstractSequenceGrammar<PrevResult> {
+public class DropSequenceGrammar<Dropped extends SourceLocatable, PrevResult extends EmptyHeterogenousList> extends AbstractSequenceGrammar<PrevResult> {
 
 	private final Grammar<Located<PrevResult>> previous;
 	private final Grammar<Dropped> dropped;

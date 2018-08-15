@@ -8,9 +8,9 @@ import java.util.Map;
 public class ParseInfo<Result extends SourceLocatable> extends SourceLocatable {
 
 	private final Result result;
-	private final VariableMap variableMap;
+	private final FrozenVariableMap variableMap;
 
-	public ParseInfo(Result result, VariableMap variableMap) {
+	public ParseInfo(Result result, FrozenVariableMap variableMap) {
 		this.result = result;
 		this.variableMap = variableMap;
 	}

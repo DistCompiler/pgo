@@ -972,7 +972,7 @@ public final class TLAParser {
 										.part(EXPRESSION)
 						),
 						info -> new VariableMap()
-								.put(MIN_COLUMN, info.getResult().getValue().getFirst().getLocation().getStartColumn()))
+								.put(MIN_COLUMN, info.getResult().getValue().getRest().getFirst().getLocation().getStartColumn()))
 				.map(seq -> {
 					if(seq.getValue().getFirst().isEmpty()) {
 						return seq.getValue().getRest().getFirst();
@@ -980,8 +980,8 @@ public final class TLAParser {
 						Located<Void> firstSym = seq.getValue().getRest().getRest().getFirst();
 						TLAExpression lhs = seq.getValue().getRest().getFirst();
 						LocatedList<
-								Located<AbstractHeterogenousList<
-										TLAExpression, AbstractHeterogenousList<
+								Located<HeterogenousList<
+										TLAExpression, HeterogenousList<
 										Located<Void>, EmptyHeterogenousList>>>> rest = seq.getValue().getFirst();
 						lhs = new TLABinOp(
 								lhs.getLocation()
@@ -991,8 +991,8 @@ public final class TLAParser {
 								Collections.emptyList(),
 								lhs,
 								seq.getValue().getFirst().get(0).getValue().getFirst());
-						for(Located<AbstractHeterogenousList<
-								TLAExpression, AbstractHeterogenousList<
+						for(Located<HeterogenousList<
+								TLAExpression, HeterogenousList<
 								Located<Void>, EmptyHeterogenousList>>> part : rest.subList(1, rest.size())) {
 							lhs = new TLABinOp(
 									lhs.getLocation().combine(part.getLocation()),
@@ -1476,13 +1476,13 @@ public final class TLAParser {
 												.map(seq -> {
 													TLAExpression lhs = seq.getValue().getRest().getFirst();
 													for(Located<
-															? extends AbstractHeterogenousList<
+															HeterogenousList<
 																	TLAExpression,
-																	? extends AbstractHeterogenousList<
+																	HeterogenousList<
 																			Located<Void>,
-																			? extends AbstractHeterogenousList<
+																			HeterogenousList<
 																					LocatedList<TLAGeneralIdentifierPart>,
-																					?>>>> e :
+																					EmptyHeterogenousList>>>> e :
 															seq.getValue().getFirst()) {
 														lhs = new TLABinOp(
 																lhs.getLocation().combine(e.getLocation()),

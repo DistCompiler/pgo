@@ -2,6 +2,7 @@ package pgo.parser;
 
 import pgo.util.SourceLocatable;
 
+import java.util.HashMap;
 import java.util.TreeMap;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -39,7 +40,8 @@ public abstract class Grammar<Result extends SourceLocatable> {
 	}
 
 	public Result parse(LexicalContext lexicalContext) throws ParseFailureException {
-		GrammarExecuteVisitor visitor = new GrammarExecuteVisitor(lexicalContext, new VariableMap(), new TreeMap<>());
+		GrammarExecuteVisitor visitor = new GrammarExecuteVisitor(
+				lexicalContext, new VariableMap().freeze(), new TreeMap<>(), new HashMap<>());
 		GrammarExecuteVisitor.ParsingResult parsingResult = accept(visitor);
 		if(parsingResult.getResult() == null) {
 			throw new ParseFailureException(visitor.getFailures());

@@ -4,7 +4,7 @@ import pgo.util.SourceLocatable;
 
 import java.util.function.Function;
 
-public abstract class AbstractSequenceGrammar<Sequence extends AbstractHeterogenousList<?, ?>> extends Grammar<Located<Sequence>> {
+public abstract class AbstractSequenceGrammar<Sequence extends EmptyHeterogenousList> extends Grammar<Located<Sequence>> {
 
 	public <Result extends SourceLocatable> PartSequenceGrammar<Result, Sequence> part(Grammar<Result> grammar) {
 		return new PartSequenceGrammar<>(this, grammar);
