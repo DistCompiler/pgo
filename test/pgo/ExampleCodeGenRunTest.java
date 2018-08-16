@@ -1,230 +1,123 @@
 package pgo;
 
-import java.io.BufferedWriter;
-import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import org.json.JSONObject;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
-import javax.xml.bind.annotation.adapters.CollapsedStringAdapter;
+import static pgo.IntegrationTestingUtils.testCompileFile;
+import static pgo.IntegrationTestingUtils.testRunGoCode;
 
 @RunWith(Parameterized.class)
 public class ExampleCodeGenRunTest {
-
-	private interface JSONMaker {
-		void make(JSONObject json);
-	}
-
-	private static JSONObject json(JSONMaker maker) {
-		JSONObject result = new JSONObject();
-		maker.make(result);
-		return result;
-	}
-
 	@Parameters
 	public static List<Object[]> data() {
 		return Arrays.asList(new Object[][]{
 				{
-						Paths.get("Euclid.tla"),
-						json(root -> {
-							JSONObject networking = new JSONObject();
-							networking.put("enabled", false);
-							root.put("networking", networking);
-
-							JSONObject constants = new JSONObject();
-							constants.put("N", "5");
-							root.put("constants", constants);
-						}),
+						"Euclid.tla",
+						Collections.singletonMap("N", "5"),
 						Collections.singletonList("{24 1 have gcd 1}"),
 				},
 				{
-						Paths.get("counter.tla"),
-						json(root -> {
-							JSONObject networking = new JSONObject();
-							networking.put("enabled", false);
-							root.put("networking", networking);
-
-							JSONObject constants = new JSONObject();
-							constants.put("procs", "1");
-							constants.put("iters", "1");
-							root.put("constants", constants);
-						}),
+						"counter.tla",
+						new HashMap<String, String>() {
+							{
+								put("procs", "1");
+								put("iters", "1");
+							}
+						},
 						Collections.singletonList("1"),
 				},
 				{
-						Paths.get("counter.tla"),
-						json(root -> {
-							JSONObject networking = new JSONObject();
-							networking.put("enabled", false);
-							root.put("networking", networking);
-
-							JSONObject constants = new JSONObject();
-							constants.put("procs", "1");
-							constants.put("iters", "64");
-							root.put("constants", constants);
-						}),
+						"counter.tla",
+						new HashMap<String, String>() {
+							{
+								put("procs", "1");
+								put("iters", "64");
+							}
+						},
 						IntStream.rangeClosed(1, 64)
 								.boxed().map(Object::toString).collect(Collectors.toList()),
 				},
 				{
-						Paths.get("counter.tla"),
-						json(root -> {
-							JSONObject networking = new JSONObject();
-							networking.put("enabled", false);
-							root.put("networking", networking);
-
-							JSONObject constants = new JSONObject();
-							constants.put("procs", "2");
-							constants.put("iters", "1");
-							root.put("constants", constants);
-						}),
+						"counter.tla",
+						new HashMap<String, String>() {
+							{
+								put("procs", "2");
+								put("iters", "1");
+							}
+						},
 						Arrays.asList("1", "2"),
 				},
 				{
-						Paths.get("counter.tla"),
-						json(root -> {
-							JSONObject networking = new JSONObject();
-							networking.put("enabled", false);
-							root.put("networking", networking);
-
-							JSONObject constants = new JSONObject();
-							constants.put("procs", "64");
-							constants.put("iters", "1");
-							root.put("constants", constants);
-						}),
+						"counter.tla",
+						new HashMap<String, String>() {
+							{
+								put("procs", "64");
+								put("iters", "1");
+							}
+						},
 						IntStream.rangeClosed(1, 64)
 								.boxed().map(Object::toString).collect(Collectors.toList()),
 				},
 				{
-						Paths.get("counter.tla"),
-						json(root -> {
-							JSONObject networking = new JSONObject();
-							networking.put("enabled", false);
-							root.put("networking", networking);
-
-							JSONObject constants = new JSONObject();
-							constants.put("procs", "32");
-							constants.put("iters", "32");
-							root.put("constants", constants);
-						}),
+						"counter.tla",
+						new HashMap<String, String>() {
+							{
+								put("procs", "32");
+								put("iters", "32");
+							}
+						},
 						IntStream.rangeClosed(1, 32*32)
 								.boxed().map(Object::toString).collect(Collectors.toList()),
 				},
 				{
-						Paths.get("counter.tla"),
-						json(root -> {
-							JSONObject networking = new JSONObject();
-							networking.put("enabled", false);
-							root.put("networking", networking);
-
-							JSONObject constants = new JSONObject();
-							constants.put("procs", "64");
-							constants.put("iters", "64");
-							root.put("constants", constants);
-						}),
+						"counter.tla",
+						new HashMap<String, String>() {
+							{
+								put("procs", "64");
+								put("iters", "64");
+							}
+						},
 						IntStream.rangeClosed(1, 64*64)
 								.boxed().map(Object::toString).collect(Collectors.toList()),
 				},
 				{
-						Paths.get("either.tla"),
-						json(root -> {
-							JSONObject networking = new JSONObject();
-							networking.put("enabled", false);
-							root.put("networking", networking);
-						}),
-						Arrays.asList("[1 30]", "[1 30]", "[1 30]"),
-				},
-				{
-						Paths.get("Queens.tla"),
-						json(root -> {
-							JSONObject networking = new JSONObject();
-							networking.put("enabled", false);
-							root.put("networking", networking);
-
-							JSONObject constants = new JSONObject();
-							constants.put("N", "1");
-							root.put("constants", constants);
-						}),
+						"Queens.tla",
+						Collections.singletonMap("N", "1"),
 						Collections.singletonList("[[1]]"),
 				},
 				{
-						Paths.get("Queens.tla"),
-						json(root -> {
-							JSONObject networking = new JSONObject();
-							networking.put("enabled", false);
-							root.put("networking", networking);
-
-							JSONObject constants = new JSONObject();
-							constants.put("N", "2");
-							root.put("constants", constants);
-						}),
+						"Queens.tla",
+						Collections.singletonMap("N", "2"),
 						Collections.singletonList("[]"),
 				},
 				{
-						Paths.get("Queens.tla"),
-						json(root -> {
-							JSONObject networking = new JSONObject();
-							networking.put("enabled", false);
-							root.put("networking", networking);
-
-							JSONObject constants = new JSONObject();
-							constants.put("N", "3");
-							root.put("constants", constants);
-						}),
+						"Queens.tla",
+						Collections.singletonMap("N", "3"),
 						Collections.singletonList("[]"),
 				},
 				{
-						Paths.get("Queens.tla"),
-						json(root -> {
-							JSONObject networking = new JSONObject();
-							networking.put("enabled", false);
-							root.put("networking", networking);
-
-							JSONObject constants = new JSONObject();
-							constants.put("N", "4");
-							root.put("constants", constants);
-						}),
+						"Queens.tla",
+						Collections.singletonMap("N", "4"),
 						Collections.singletonList("[[2 4 1 3] [3 1 4 2]]"),
 				},
 				{
-						Paths.get("Queens.tla"),
-						json(root -> {
-							JSONObject networking = new JSONObject();
-							networking.put("enabled", false);
-							root.put("networking", networking);
-
-							JSONObject constants = new JSONObject();
-							constants.put("N", "5");
-							root.put("constants", constants);
-						}),
+						"Queens.tla",
+						Collections.singletonMap("N", "5"),
 						Collections.singletonList(
 								"[[1 3 5 2 4] [1 4 2 5 3] [2 4 1 3 5] [2 5 3 1 4] [3 1 4 2 5]"
 										+ " [3 5 2 4 1] [4 1 3 5 2] [4 2 5 3 1] [5 2 4 1 3] [5 3 1 4 2]]"),
 				},
 				{
-						Paths.get("Queens.tla"),
-						json(root -> {
-							JSONObject networking = new JSONObject();
-							networking.put("enabled", false);
-							root.put("networking", networking);
-
-							JSONObject constants = new JSONObject();
-							constants.put("N", "9");
-							root.put("constants", constants);
-						}),
+						"Queens.tla",
+						Collections.singletonMap("N", "9"),
 						Collections.singletonList(
 								"[[1 3 6 8 2 4 9 7 5] [1 3 7 2 8 5 9 4 6] [1 3 8 6 9 2 5 7 4] [1 4 2 8 6 9 3 5 7] "
 										+ "[1 4 6 3 9 2 8 5 7] [1 4 6 8 2 5 3 9 7] [1 4 7 3 8 2 5 9 6] [1 4 7 9 2 5 8 6 3] "
@@ -318,56 +211,19 @@ public class ExampleCodeGenRunTest {
 		});
 	}
 
-	private Path fileName;
-	private JSONObject config;
+	private String fileName;
+	private Map<String, String> constants;
 	private List<String> expected;
 
-	public ExampleCodeGenRunTest(Path fileName, JSONObject config, List<String> expected) {
+	public ExampleCodeGenRunTest(String fileName, Map<String, String> constants, List<String> expected) {
 		this.fileName = fileName;
-		this.config = config;
+		this.constants = constants;
 		this.expected = expected;
 	}
 
 	@Test
 	public void test() throws IOException {
-		Path tempDirPath = Files.createTempDirectory("pgotest");
-		File tempDir = tempDirPath.toFile();
-		Path exampleCodePath = Paths.get("examples").resolve(fileName);
-		Path generatedConfigPath = tempDirPath.resolve("config.json");
-
-		Path compiledOutputPath = tempDirPath.resolve("test.go");
-		try {
-
-			// write out config file
-			try (BufferedWriter w = Files.newBufferedWriter(generatedConfigPath)) {
-				// ensure the build info is specified. it never changes so no point
-				// in requiring it to be added to each test spec
-				JSONObject build = new JSONObject();
-				build.put("output_dir", tempDirPath.toString());
-				build.put("dest_file", "test.go");
-				config.put("build", build);
-
-				config.write(w);
-			}
-
-			// invoke the compiler
-			PGoMain.main(new String[]{
-					"-c",
-					generatedConfigPath.toString(),
-					exampleCodePath.toString(),
-			});
-
-			// display the compiled code for inspection
-			Files.lines(compiledOutputPath).forEach(line -> {
-				System.out.println("source: " + line);
-			});
-
-			// try to run the result
-			IntegrationTestingUtils.testRunGoCode(compiledOutputPath, expected);
-
-		} finally {
-			IntegrationTestingUtils.expungeFile(tempDir);
-		}
+		testCompileFile(Paths.get("examples", fileName), constants, compiledOutputPath ->
+				testRunGoCode(compiledOutputPath, expected));
 	}
-
 }

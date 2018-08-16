@@ -11,7 +11,9 @@ import static org.junit.Assert.assertThat;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 public class IntegrationTestingUtils {
@@ -22,17 +24,17 @@ public class IntegrationTestingUtils {
 		private String key;
 		private TLAExpression value;
 
-		public KeyValue(String key, TLAExpression value) {
+		KeyValue(String key, TLAExpression value) {
 			super();
 			this.key = key;
 			this.value = value;
 		}
 
-		public String getKey() {
+		String getKey() {
 			return key;
 		}
 
-		public TLAExpression getValue() {
+		TLAExpression getValue() {
 			return value;
 		}
 	}
@@ -40,31 +42,36 @@ public class IntegrationTestingUtils {
 	public interface TestRunner<T> {
 		void run(T t) throws IOException;
 	}
-	
-	public static void expungeFile(File file) {
-		if(file.isDirectory()) {
-			for(File f : file.listFiles()) {
+
+	public interface TestSetup {
+		Path setup(Path tempDirPath) throws IOException;
+	}
+
+	private static void expungeFile(File file) {
+		if (file.isDirectory()) {
+			for (File f : file.listFiles()) {
 				expungeFile(f);
 			}
 		}
-		if(!file.delete()) {
+		if (!file.delete()) {
 			System.err.println("WARNING: could not delete file "+file+"; check your temp folder");
 		}
 	}
 
 	// See testRunGoCode and testRunGoCodeShouldPanic below for runner examples
-	public static void testCompileExpression(TLAExpression result, List<KeyValue> vars,
-											 TestRunner<Path> runner) throws IOException {
-		Path tempDirPath = Files.createTempDirectory("pgotest");
-		File tempDir = tempDirPath.toFile();
-		Path generatedCodePath = tempDirPath.resolve("Test.tla");
-		Path generatedConfigPath = tempDirPath.resolve("config.json");
+	static void testCompileFile(Path filePath, Map<String, String> constants, TestRunner<Path> runner)
+			throws IOException {
+		testCompile(ignored -> filePath, constants, runner);
+	}
 
-		Path compiledOutputPath = tempDirPath.resolve("test.go");
-		try{
+	// See testRunGoCode and testRunGoCodeShouldPanic below for runner examples
+	static void testCompileExpression(TLAExpression result, List<KeyValue> vars, TestRunner<Path> runner)
+			throws IOException {
+		testCompile(tempDirPath -> {
+			Path inputFilePath = tempDirPath.resolve("Test.tla");
 			// generate test TLA+ file
-			try(BufferedWriter w = Files.newBufferedWriter(generatedCodePath);
-				IndentingWriter out = new IndentingWriter(w);){
+			try (BufferedWriter w = Files.newBufferedWriter(inputFilePath);
+			     IndentingWriter out = new IndentingWriter(w)) {
 				out.write("---- MODULE Test ----");
 				out.newLine();
 				out.write("EXTENDS Sequences, Integers");
@@ -72,11 +79,11 @@ public class IntegrationTestingUtils {
 
 				out.write("(* --algorithm Test {");
 				out.newLine();
-				try(IndentingWriter.Indent i_ = out.indent()){
-					if(!vars.isEmpty()) {
+				try (IndentingWriter.Indent i_ = out.indent()) {
+					if (!vars.isEmpty()) {
 						out.write("variables ");
-						try(IndentingWriter.Indent i2_ = out.indentToPosition()){
-							for(KeyValue var : vars) {
+						try (IndentingWriter.Indent i2_ = out.indentToPosition()) {
+							for (KeyValue var : vars) {
 								out.write(var.getKey());
 								out.write(" = ");
 								var.getValue().accept(new TLAExpressionFormattingVisitor(out));
@@ -87,7 +94,7 @@ public class IntegrationTestingUtils {
 					}
 					out.write("{");
 					out.newLine();
-					try(IndentingWriter.Indent i2_ = out.indent()){
+					try (IndentingWriter.Indent i2_ = out.indent()) {
 						out.write("print ");
 						result.accept(new TLAExpressionFormattingVisitor(out));
 					}
@@ -102,9 +109,21 @@ public class IntegrationTestingUtils {
 				out.newLine();
 				out.write("====");
 			}
+			return inputFilePath;
+		}, Collections.emptyMap(), runner);
+	}
 
+	private static void testCompile(TestSetup setup, Map<String, String> constants, TestRunner<Path> runner)
+			throws IOException {
+		Path tempDirPath = Files.createTempDirectory("pgotest");
+		File tempDir = tempDirPath.toFile();
+		Path generatedConfigPath = tempDirPath.resolve("config.json");
+
+		Path compiledOutputPath = tempDirPath.resolve("test.go");
+		try {
+			Path inputFilePath = setup.setup(tempDirPath);
 			// generate config file
-			try(BufferedWriter w = Files.newBufferedWriter(generatedConfigPath)){
+			try (BufferedWriter w = Files.newBufferedWriter(generatedConfigPath)) {
 				JSONObject config = new JSONObject();
 
 				JSONObject build = new JSONObject();
@@ -116,6 +135,12 @@ public class IntegrationTestingUtils {
 				networking.put("enabled", false);
 				config.put("networking", networking);
 
+				if (constants.size() > 0) {
+					JSONObject consts = new JSONObject();
+					constants.forEach(consts::put);
+					config.put("constants", consts);
+				}
+
 				config.write(w);
 			}
 
@@ -123,13 +148,11 @@ public class IntegrationTestingUtils {
 			PGoMain.main(new String[] {
 					"-c",
 					generatedConfigPath.toString(),
-					generatedCodePath.toString(),
+					inputFilePath.toString(),
 			});
 
 			// display the compiled code for inspection
-			Files.lines(compiledOutputPath).forEach(line -> {
-				System.out.println("source: "+line);
-			});
+			Files.lines(compiledOutputPath).forEach(line -> System.out.println("source: " + line));
 
 			// try to run the compiled Go code, check that it prints the right thing
 			runner.run(compiledOutputPath);
@@ -137,37 +160,34 @@ public class IntegrationTestingUtils {
 			IntegrationTestingUtils.expungeFile(tempDir);
 		}
 	}
-	
-	public static void testRunGoCode(Path codePath, List<String> expected) throws IOException {
+
+	static void testRunGoCode(Path codePath, List<String> expected) throws IOException {
 		// try to run the compiled Go code, check that it prints the right thing
 		ProcessBuilder pb = new ProcessBuilder("go", "run", codePath.toString());
 		Process p = pb.start();
 		// print stderr in case it says something interesting
-		try(InputStream err = p.getErrorStream();
-				InputStreamReader r = new InputStreamReader(err);
-				BufferedReader bw = new BufferedReader(r)){
-			bw.lines().forEach(line -> {
-				System.out.println("stderr: "+line);
-			});
+		try (InputStream err = p.getErrorStream();
+		    InputStreamReader r = new InputStreamReader(err);
+		    BufferedReader bw = new BufferedReader(r)) {
+			bw.lines().forEach(line -> System.out.println("stderr: "+line));
 		}
-		try(InputStream results = p.getInputStream();
-				InputStreamReader r = new InputStreamReader(results);
-				BufferedReader bw = new BufferedReader(r)){
+		try (InputStream results = p.getInputStream();
+		    InputStreamReader r = new InputStreamReader(results);
+		    BufferedReader bw = new BufferedReader(r)) {
 			List<String> lines = bw.lines().collect(Collectors.toList());
 			assertThat(lines, is(expected));
 		}
 	}
 
-	public static void testRunGoCodeShouldPanic(Path codePath, List<String> expected) throws IOException {
+	static void testRunGoCodeShouldPanic(Path codePath, List<String> expected) throws IOException {
 		// try to run the compiled Go code, check that it panics
 		ProcessBuilder pb = new ProcessBuilder("go", "run", codePath.toString());
 		Process p = pb.start();
-		try(InputStream err = p.getErrorStream();
+		try (InputStream err = p.getErrorStream();
 			InputStreamReader r = new InputStreamReader(err);
-			BufferedReader bw = new BufferedReader(r)){
+			BufferedReader bw = new BufferedReader(r)) {
 			List<String> lines = bw.lines().collect(Collectors.toList());
 			assertThat(lines.subList(0, expected.size()), is(expected));
 		}
 	}
-
 }
