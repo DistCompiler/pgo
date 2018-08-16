@@ -1,5 +1,6 @@
 package pgo.parser;
 
+import pgo.TODO;
 import pgo.util.SourceLocatable;
 import pgo.util.SourceLocation;
 
@@ -75,12 +76,37 @@ public class GrammarExecuteVisitor extends GrammarVisitor<GrammarExecuteVisitor.
 		}
 	}
 
-	private final Map<MemoizeKey, MemoizeRecord> memoizeTable;
+	static final class MemoizeTable {
+		private final Deque<MemoizeKey> lru;
+		private final Map<MemoizeKey, MemoizeRecord> table;
+		private static final int MAX_SIZE = 1000000;
+
+		public MemoizeTable() {
+			this.lru = new ArrayDeque<>(MAX_SIZE);
+			this.table = new HashMap<>(MAX_SIZE);
+		}
+
+		public MemoizeRecord get(MemoizeKey k) {
+			return table.get(k);
+		}
+
+		public void put(MemoizeKey k, MemoizeRecord rec) {
+			if(table.put(k, rec) == null) {
+				if(table.size() >= MAX_SIZE) {
+					//System.out.println("size "+table.size());
+					table.remove(lru.removeFirst());
+				}
+				lru.addLast(k);
+			}
+		}
+	}
+
+	private final MemoizeTable memoizeTable;
 	private final FrozenVariableMap variableMap;
 	private final LexicalContext lexicalContext;
 	private final NavigableMap<SourceLocation, Set<ParseFailure>> failures;
 
-	public GrammarExecuteVisitor(LexicalContext lexicalContext, FrozenVariableMap variableMap, NavigableMap<SourceLocation, Set<ParseFailure>> failures, Map<MemoizeKey, MemoizeRecord> memoizeTable) {
+	public GrammarExecuteVisitor(LexicalContext lexicalContext, FrozenVariableMap variableMap, NavigableMap<SourceLocation, Set<ParseFailure>> failures, MemoizeTable memoizeTable) {
 		this.lexicalContext = lexicalContext;
 		this.variableMap = variableMap;
 		this.memoizeTable = memoizeTable;
@@ -99,6 +125,10 @@ public class GrammarExecuteVisitor extends GrammarVisitor<GrammarExecuteVisitor.
 	}
 
 	private ParsingResult tryMemoize(Grammar<? extends SourceLocatable> grammar) {
+		if(grammar instanceof StringGrammar || grammar instanceof PatternGrammar) {
+			return grammar.accept(this);
+		}
+
 		MemoizeKey key = new MemoizeKey(lexicalContext.getSourceLocation(), grammar, variableMap);
 		MemoizeRecord record;
 		if((record = memoizeTable.get(key)) != null) {
@@ -125,7 +155,9 @@ public class GrammarExecuteVisitor extends GrammarVisitor<GrammarExecuteVisitor.
 			}*/
 			return new ParsingResult(result.get(), null);
 		}else{
-			//System.out.println("pat fail "+ patternGrammar.getPattern() + " at "+lexicalContext.getSourceLocation());
+			/*if(patternGrammar.getPattern() != ParseTools.WHITESPACE) {
+				System.out.println("pat fail " + patternGrammar.getPattern() + " at " + lexicalContext.getSourceLocation());
+			}*/
 			addFailure(ParseFailure.patternMatchFailure(lexicalContext.getSourceLocation(), patternGrammar.getPattern()));
 			return new ParsingResult(null, null);
 		}
@@ -191,7 +223,9 @@ public class GrammarExecuteVisitor extends GrammarVisitor<GrammarExecuteVisitor.
 			}*/
 			return new ParsingResult(result.get(), null);
 		}else{
-			//System.out.println("fail str "+stringGrammar.getString() + " at "+ lexicalContext.getSourceLocation());
+			/*if(!Arrays.asList("(*", "*)", "\\*").contains(stringGrammar.getString())) {
+				System.out.println("fail str " + stringGrammar.getString() + " at " + lexicalContext.getSourceLocation());
+			}*/
 			addFailure(ParseFailure.stringMatchFailure(lexicalContext.getSourceLocation(), stringGrammar.getString()));
 			return new ParsingResult(null, null);
 		}
@@ -240,7 +274,6 @@ public class GrammarExecuteVisitor extends GrammarVisitor<GrammarExecuteVisitor.
 		public ParsingResult get() {
 			for(int i = 0; i < branches.size()-1; ++i){
 				visitor.lexicalContext.restore(mark);
-				//System.out.println("try "+branches.get(i));
 				ParsingResult branchResult = visitor.tryMemoize(branches.get(i));
 				if(branchResult.getResult() != null) {
 					return new ParsingResult(
@@ -255,7 +288,6 @@ public class GrammarExecuteVisitor extends GrammarVisitor<GrammarExecuteVisitor.
 			// on the last branch, don't even bother setting up retries. either it fails with no retry or succeeds
 			// with its own retries
 			visitor.lexicalContext.restore(mark);
-			//System.out.println("fallthrough "+branches.get(branches.size()-1));
 			return visitor.tryMemoize(branches.get(branches.size()-1));
 		}
 	}
@@ -403,6 +435,12 @@ public class GrammarExecuteVisitor extends GrammarVisitor<GrammarExecuteVisitor.
 							HeterogenousListTools.cons(part, restV.getValue()));
 				})
 				.get();
+	}
+
+	@Override
+	public <GrammarResult extends SourceLocatable> ParsingResult visit(CutGrammar<GrammarResult> cutGrammar) throws RuntimeException {
+		ParsingResult result = tryMemoize(cutGrammar.getToCut());
+		return new ParsingResult(result.getResult(), null);
 	}
 
 	private static final class PredicateRetry implements Supplier<ParsingResult> {

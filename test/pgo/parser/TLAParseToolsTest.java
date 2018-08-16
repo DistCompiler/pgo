@@ -2,19 +2,21 @@ package pgo.parser;
 
 import org.junit.Ignore;
 import org.junit.Test;
-import pgo.model.tla.TLAExpression;
+import pgo.model.tla.TLAFairness;
 import pgo.util.SourceLocatable;
 import pgo.util.SourceLocation;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.Collections;
 
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertThat;
 
 import static pgo.parser.ParseTools.*;
 import static pgo.parser.TLAParser.*;
+import static pgo.model.tla.TLABuilder.*;
 
 public class TLAParseToolsTest {
 
@@ -25,11 +27,13 @@ public class TLAParseToolsTest {
 	}
 
 	private <Result extends SourceLocatable> Result executeGrammar(Grammar<Result> grammar, LexicalContext ctx) throws ParseFailureException {
-		Grammar<Result> nested = emptySequence()
+		return wrapMinColumn(grammar).parse(ctx);
+	}
+
+	private <Result extends SourceLocatable> Grammar<Result> wrapMinColumn(Grammar<Result> grammar) {
+		return emptySequence()
 				.dependentPart(grammar, ignore -> new VariableMap().put(MIN_COLUMN, -1))
 				.map(seq -> seq.getValue().getFirst());
-
-		return nested.parse(ctx);
 	}
 
 	private <Result extends SourceLocatable> void checkLocation(Grammar<Result> grammar, LexicalContext ctx, int startColumn, int endColumn, int startLine, int endLine) throws ParseFailureException {
@@ -284,6 +288,16 @@ public class TLAParseToolsTest {
 	}
 
 	@Test
+	public void testChoice5Enumeration() throws ParseFailureException {
+		assertThat(
+				wrapMinColumn(parseFairnessConstraint())
+						.enumerate(ctx("WF_foo(bar)")),
+				is(Arrays.asList(
+						fairness(TLAFairness.Type.WEAK, idexp("foo"), idexp("bar"))
+				)));
+	}
+
+	@Test
 	public void testChoice6() throws ParseFailureException {
 		checkLocation(
 				emptySequence()
@@ -298,6 +312,48 @@ public class TLAParseToolsTest {
 	public void testParseGeneralIdentifier() throws ParseFailureException {
 		checkLocation(parseGeneralIdentifier(), ctx("a(1,2)!b"),
 				1, 9, 1, 1);
+	}
+
+	@Test
+	public void testEnumerate1() {
+		assertThat(wrapMinColumn(EXPRESSION).enumerate(ctx("foo")),
+				is(Arrays.asList(idexp("foo"))));
+	}
+
+	@Test
+	public void testEnumerate2() {
+		assertThat(wrapMinColumn(EXPRESSION).enumerate(ctx("/\\ foo")),
+				is(Arrays.asList(idexp("foo"))));
+	}
+
+	@Test
+	public void testEnumerate3() {
+		assertThat(repeat(matchString("a")).enumerate(ctx("")),
+				is(Arrays.asList(
+						Collections.emptyList()
+				)));
+	}
+
+	@Test
+	public void testEnumerate4() {
+		assertThat(repeat(matchString("a")).enumerate(ctx("a")),
+				is(Arrays.asList(
+						Collections.singletonList(new Located<>(new SourceLocation(Paths.get("TEST"), 1, 1, 1, 2), null)),
+						Collections.emptyList()
+				)));
+	}
+
+	@Test
+	public void testEnumerate5() {
+		assertThat(repeat(matchString("a")).enumerate(ctx("aa")),
+				is(Arrays.asList(
+						Arrays.asList(
+								new Located<>(new SourceLocation(Paths.get("TEST"), 1, 1, 1, 2), null),
+								new Located<>(new SourceLocation(Paths.get("TEST"), 1, 1, 2, 3), null)
+						),
+						Collections.singletonList(new Located<>(new SourceLocation(Paths.get("TEST"), 1, 1, 1, 2), null)),
+						Collections.emptyList()
+				)));
 	}
 
 	@Test

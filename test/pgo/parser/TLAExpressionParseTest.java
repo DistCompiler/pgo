@@ -93,6 +93,22 @@ public class TLAExpressionParseTest {
 				{"0..procs-1", binop("..", num(0), binop("-", idexp("procs"), num(1)))},
 
 				// TODO desc
+				{"x'",
+						unary("'", idexp("x"))
+				},
+				{"x' \\notin y",
+						binop("\\notin", unary("'", idexp("x")), idexp("y"))
+				},
+				{"pc[i] \\notin x",
+						binop("\\notin",
+								fncall(idexp("pc"), idexp("i")),
+								idexp("x"))
+				},
+				{"pc[i] \\notin {\"Li5\", \"Li6\", \"ncs\"}",
+						binop("\\notin",
+								fncall(idexp("pc"), idexp("i")),
+								set(str("Li5"), str("Li6"), str("ncs")))
+				},
 				{"(pc[i] \\notin {\"Li5\", \"Li6\", \"ncs\"})",
 						binop("\\notin",
 								fncall(idexp("pc"), idexp("i")),

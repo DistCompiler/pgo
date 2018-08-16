@@ -12,7 +12,7 @@ public final class ParseTools {
 	
 	private ParseTools() {}
 
-	private static final Pattern WHITESPACE = Pattern.compile("\\s+");
+	public static final Pattern WHITESPACE = Pattern.compile("\\s+");
 
 	/**
 	 * Returns a parse action that matches exactly the string token
@@ -166,6 +166,10 @@ public final class ParseTools {
 	 */
 	public static <Result extends SourceLocatable> Grammar<Located<Void>> reject(Grammar<Result> action){
 		return new RejectGrammar<>(action);
+	}
+
+	public static <Result extends SourceLocatable> Grammar<Result> cut(Grammar<Result> grammar) {
+		return new CutGrammar<>(grammar);
 	}
 
 	/**

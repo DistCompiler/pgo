@@ -831,7 +831,7 @@ public final class TLAParser {
 		}
 	}
 	public static final ReferenceGrammar<TLAExpression> EXPRESSION_NO_OPERATORS = new ReferenceGrammar<>();
-	public static final ReferenceGrammar<TLAExpression> EXPRESSION = OPERATORS_BY_PRECEDENCE.get(1);
+	public static final Grammar<TLAExpression> EXPRESSION = OPERATORS_BY_PRECEDENCE.get(1);
 	
 	static Grammar<TLAIdentifierOrTuple> parseIdentifierTuple(){
 		return emptySequence()
@@ -856,7 +856,7 @@ public final class TLAParser {
 				emptySequence()
 						.part(parseIdentifierTuple().map(t -> new LocatedList<>(t.getLocation(), t.getTuple())))
 						.drop(parseTLAToken("\\in"))
-						.part(EXPRESSION)
+						.part(cut(EXPRESSION))
 						.map(seq -> new TLAQuantifierBound(
 								seq.getLocation(),
 								TLAQuantifierBound.Type.TUPLE,
@@ -865,7 +865,7 @@ public final class TLAParser {
 				emptySequence()
 						.part(parseCommaList(parseTLAIdentifier()))
 						.drop(parseTLAToken("\\in"))
-						.part(EXPRESSION)
+						.part(cut(EXPRESSION))
 						.map(seq -> new TLAQuantifierBound(
 								seq.getLocation(),
 								TLAQuantifierBound.Type.IDS,
@@ -875,13 +875,13 @@ public final class TLAParser {
 	}
 	
 	static final Grammar<LocatedList<TLAGeneralIdentifierPart>> INSTANCE_PREFIX =
-			repeat(
+			cut(repeat(
 				emptySequence()
 						.part(parseTLAIdentifier())
 						.part(parseOneOf(
 								emptySequence()
 										.drop(parseTLAToken("("))
-										.part(parseCommaList(EXPRESSION))
+										.part(parseCommaList(cut(EXPRESSION)))
 										.drop(parseTLAToken(")"))
 										.map(seq -> seq.getValue().getFirst()),
 								nop().map(v -> new LocatedList<TLAExpression>(v.getLocation(), Collections.emptyList()))
@@ -890,14 +890,13 @@ public final class TLAParser {
 						.map(seq -> new TLAGeneralIdentifierPart(
 								seq.getLocation(),
 								seq.getValue().getRest().getFirst(),
-								seq.getValue().getFirst()))
-		);
+								seq.getValue().getFirst()))));
 	
 	static Grammar<TLAExpression> parseTupleExpression(){
 		return emptySequence()
 				.drop(parseTLAToken("<<"))
 				.part(parseOneOf(
-						parseCommaList(EXPRESSION),
+						parseCommaList(cut(EXPRESSION)),
 						nop().map(v -> new LocatedList<TLAExpression>(v.getLocation(), Collections.emptyList()))
 				))
 				.drop(parseTLAToken(">>"))
@@ -907,9 +906,9 @@ public final class TLAParser {
 	static Grammar<TLAExpression> parseRequiredActionExpression(){
 		return emptySequence()
 				.drop(parseTLAToken("<<"))
-				.part(EXPRESSION)
+				.part(cut(EXPRESSION))
 				.drop(parseTLAToken(">>_"))
-				.part(EXPRESSION)
+				.part(cut(EXPRESSION))
 				.map(seq -> new TLARequiredAction(
 						seq.getLocation(),
 						seq.getValue().getRest().getFirst(),
@@ -921,7 +920,7 @@ public final class TLAParser {
 				.part(INSTANCE_PREFIX)
 				.part(parseTLAIdentifier())
 				.drop(parseTLAToken("("))
-				.part(parseCommaList(EXPRESSION))
+				.part(parseCommaList(cut(EXPRESSION)))
 				.drop(parseTLAToken(")"))
 				.map(seq -> new TLAOperatorCall(
 						seq.getLocation(),
@@ -963,16 +962,19 @@ public final class TLAParser {
 	static Grammar<TLAExpression> parseConjunctOrDisjunct(String which){
 		return emptySequence()
 				.part(parseTLAToken(which))
-				.dependentPart(EXPRESSION, info -> new VariableMap()
+				.dependentPart(cut(EXPRESSION), info -> new VariableMap()
 						.put(MIN_COLUMN,info.getResult().getValue().getFirst().getLocation().getStartColumn()+1))
 				.dependentPart(
 						repeat(
 								emptySequence()
 										.part(parseTLAToken(which))
-										.part(EXPRESSION)
+										.dependentPart(
+												cut(EXPRESSION),
+												info -> new VariableMap().put(MIN_COLUMN, info.get(MIN_COLUMN)+1))
 						),
 						info -> new VariableMap()
-								.put(MIN_COLUMN, info.getResult().getValue().getRest().getFirst().getLocation().getStartColumn()))
+								.put(MIN_COLUMN,
+										info.getResult().getValue().getRest().getFirst().getLocation().getStartColumn()))
 				.map(seq -> {
 					if(seq.getValue().getFirst().isEmpty()) {
 						return seq.getValue().getRest().getFirst();
@@ -1013,11 +1015,11 @@ public final class TLAParser {
 	static Grammar<TLAExpression> parseIfExpression(){
 		return emptySequence()
 				.drop(parseTLAToken("IF"))
-				.part(EXPRESSION)
+				.part(cut(EXPRESSION))
 				.drop(parseTLAToken("THEN"))
-				.part(EXPRESSION)
+				.part(cut(EXPRESSION))
 				.drop(parseTLAToken("ELSE"))
-				.part(EXPRESSION)
+				.part(cut(EXPRESSION))
 				.map(seq -> new TLAIf(
 						seq.getLocation(),
 						seq.getValue().getRest().getRest().getFirst(),
@@ -1029,9 +1031,9 @@ public final class TLAParser {
 		return emptySequence()
 				.drop(parseTLAToken("CASE"))
 				.part(emptySequence()
-						.part(EXPRESSION)
+						.part(cut(EXPRESSION))
 						.drop(parseTLAToken("->"))
-						.part(EXPRESSION)
+						.part(cut(EXPRESSION))
 						.map(seq -> new TLACaseArm(
 								seq.getLocation(),
 								seq.getValue().getRest().getFirst(),
@@ -1039,9 +1041,9 @@ public final class TLAParser {
 				.part(repeat(
 						emptySequence()
 								.drop(parseTLAToken("[]"))
-								.part(EXPRESSION)
+								.part(cut(EXPRESSION))
 								.drop(parseTLAToken("->"))
-								.part(EXPRESSION)
+								.part(cut(EXPRESSION))
 								.map(seq -> new TLACaseArm(
 										seq.getLocation(),
 										seq.getValue().getRest().getFirst(),
@@ -1052,7 +1054,7 @@ public final class TLAParser {
 								.drop(parseTLAToken("[]"))
 								.drop(parseTLAToken("OTHER"))
 								.drop(parseTLAToken("->"))
-								.part(EXPRESSION)
+								.part(cut(EXPRESSION))
 								.map(seq -> new Located<>(seq.getLocation(), seq.getValue().getFirst())),
 						nop().map(v -> new Located<TLAExpression>(v.getLocation(), null))
 				))
@@ -1071,7 +1073,7 @@ public final class TLAParser {
 				.drop(parseTLAToken("["))
 				.part(parseCommaList(parseQuantifierBound()))
 				.drop(parseTLAToken("|->"))
-				.part(EXPRESSION)
+				.part(cut(EXPRESSION))
 				.drop(parseTLAToken("]"))
 				.map(seq -> new TLAFunction(
 						seq.getLocation(),
@@ -1086,7 +1088,7 @@ public final class TLAParser {
 						emptySequence()
 								.part(parseTLAIdentifier())
 								.drop(parseTLAToken(":"))
-								.part(EXPRESSION)
+								.part(cut(EXPRESSION))
 								.map(seq -> new TLARecordSet.Field(
 										seq.getLocation(),
 										seq.getValue().getRest().getFirst(),
@@ -1103,7 +1105,7 @@ public final class TLAParser {
 						emptySequence()
 								.part(parseTLAIdentifier())
 								.drop(parseTLAToken("|->"))
-								.part(EXPRESSION)
+								.part(cut(EXPRESSION))
 								.map(seq -> new TLARecordConstructor.Field(
 										seq.getLocation(),
 										seq.getValue().getRest().getFirst(),
@@ -1116,9 +1118,9 @@ public final class TLAParser {
 	static Grammar<TLAExpression> parseFunctionSetExpression(){
 		return emptySequence()
 				.drop(parseTLAToken("["))
-				.part(EXPRESSION)
+				.part(cut(EXPRESSION))
 				.drop(parseTLAToken("->"))
-				.part(EXPRESSION)
+				.part(cut(EXPRESSION))
 				.drop(parseTLAToken("]"))
 				.map(seq -> new TLAFunctionSet(
 						seq.getLocation(),
@@ -1129,9 +1131,9 @@ public final class TLAParser {
 	static Grammar<TLAExpression> parseMaybeActionExpression(){
 		return emptySequence()
 				.drop(parseTLAToken("["))
-				.part(EXPRESSION)
+				.part(cut(EXPRESSION))
 				.drop(parseTLAToken("]_"))
-				.part(EXPRESSION)
+				.part(cut(EXPRESSION))
 				.map(seq -> new TLAMaybeAction(
 						seq.getLocation(),
 						seq.getValue().getRest().getFirst(),
@@ -1141,7 +1143,7 @@ public final class TLAParser {
 	static Grammar<TLAExpression> parseFunctionSubstitutionExpression(){
 		return emptySequence()
 				.drop(parseTLAToken("["))
-				.part(EXPRESSION)
+				.part(cut(EXPRESSION))
 				.drop(parseTLAToken("EXCEPT"))
 				.part(parseCommaList(
 						emptySequence()
@@ -1159,7 +1161,7 @@ public final class TLAParser {
 																				seq.getValue().getFirst().getId())))),
 												emptySequence()
 														.drop(parseTLAToken("["))
-														.part(parseCommaList(EXPRESSION))
+														.part(parseCommaList(cut(EXPRESSION)))
 														.drop(parseTLAToken("]"))
 														.map(seq -> new TLASubstitutionKey(
 																seq.getLocation(),
@@ -1167,7 +1169,7 @@ public final class TLAParser {
 										)
 								))
 								.drop(parseTLAToken("="))
-								.part(EXPRESSION)
+								.part(cut(EXPRESSION))
 								.map(seq -> new TLAFunctionSubstitutionPair(
 										seq.getLocation(),
 										seq.getValue().getRest().getFirst(),
@@ -1183,7 +1185,7 @@ public final class TLAParser {
 	static Grammar<TLAExpression> parseGroupExpression(){
 		return emptySequence()
 				.drop(parseTLAToken("("))
-				.part(EXPRESSION)
+				.part(cut(EXPRESSION))
 				.drop(parseTLAToken(")"))
 				.map(seq -> seq.getValue().getFirst());
 	}
@@ -1193,7 +1195,7 @@ public final class TLAParser {
 				.drop(parseTLAToken("\\E"))
 				.part(parseCommaList(parseQuantifierBound()))
 				.drop(parseTLAToken(":"))
-				.part(EXPRESSION)
+				.part(cut(EXPRESSION))
 				.map(seq -> new TLAQuantifiedExistential(
 						seq.getLocation(),
 						seq.getValue().getRest().getFirst(),
@@ -1205,7 +1207,7 @@ public final class TLAParser {
 				.drop(parseTLAToken("\\A"))
 				.part(parseCommaList(parseQuantifierBound()))
 				.drop(parseTLAToken(":"))
-				.part(EXPRESSION)
+				.part(cut(EXPRESSION))
 				.map(seq -> new TLAQuantifiedUniversal(
 						seq.getLocation(),
 						seq.getValue().getRest().getFirst(),
@@ -1217,7 +1219,7 @@ public final class TLAParser {
 				.drop(parseOneOf(parseTLAToken("\\EE"), parseTLAToken("\\E")))
 				.part(parseCommaList(parseTLAIdentifier()))
 				.drop(parseTLAToken(":"))
-				.part(EXPRESSION)
+				.part(cut(EXPRESSION))
 				.map(seq -> new TLAExistential(
 						seq.getLocation(),
 						seq.getValue().getRest().getFirst(),
@@ -1229,7 +1231,7 @@ public final class TLAParser {
 				.drop(parseOneOf(parseTLAToken("\\AA"), parseTLAToken("\\A")))
 				.part(parseCommaList(parseTLAIdentifier()))
 				.drop(parseTLAToken(":"))
-				.part(EXPRESSION)
+				.part(cut(EXPRESSION))
 				.map(seq -> new TLAUniversal(
 						seq.getLocation(),
 						seq.getValue().getRest().getFirst(),
@@ -1240,7 +1242,7 @@ public final class TLAParser {
 		return emptySequence()
 				.drop(parseTLAToken("{"))
 				.part(parseOneOf(
-						parseCommaList(EXPRESSION),
+						parseCommaList(cut(EXPRESSION)),
 						nop().map(v -> new LocatedList<TLAExpression>(v.getLocation(), Collections.emptyList()))
 				))
 				.drop(parseTLAToken("}"))
@@ -1252,9 +1254,9 @@ public final class TLAParser {
 				.drop(parseTLAToken("{"))
 				.part(parseIdentifierOrTuple())
 				.drop(parseTLAToken("\\in"))
-				.part(EXPRESSION)
+				.part(cut(EXPRESSION))
 				.drop(parseTLAToken(":"))
-				.part(EXPRESSION)
+				.part(cut(EXPRESSION))
 				.drop(parseTLAToken("}"))
 				.map(seq -> new TLASetRefinement(
 						seq.getLocation(),
@@ -1266,7 +1268,7 @@ public final class TLAParser {
 	static Grammar<TLAExpression> parseSetComprehensionExpression(){
 		return emptySequence()
 				.drop(parseTLAToken("{"))
-				.part(EXPRESSION)
+				.part(cut(EXPRESSION))
 				.drop(parseTLAToken(":"))
 				.part(parseCommaList(parseQuantifierBound()))
 				.drop(parseTLAToken("}"))
@@ -1287,7 +1289,7 @@ public final class TLAParser {
 						)
 				))
 				.drop(parseTLAToken("IN"))
-				.part(EXPRESSION)
+				.part(cut(EXPRESSION))
 				.map(seq -> new TLALet(
 						seq.getLocation(),
 						seq.getValue().getRest().getFirst(),
@@ -1300,7 +1302,7 @@ public final class TLAParser {
 						parseTLAToken("WF_").map(v -> new Located<>(v.getLocation(), TLAFairness.Type.WEAK)),
 						parseTLAToken("SF_").map(v -> new Located<>(v.getLocation(), TLAFairness.Type.STRONG))
 				))
-				.part(EXPRESSION)
+				.part(EXPRESSION) // no cut here, as this part is liable to overparse into the (EXPR) after
 				.drop(parseTLAToken("("))
 				.part(EXPRESSION)
 				.drop(parseTLAToken(")"))
@@ -1420,7 +1422,7 @@ public final class TLAParser {
 			postfixOperatorPartOptions.add(
 					emptySequence()
 							.drop(parseTLAToken("["))
-							.part(parseCommaList(EXPRESSION))
+							.part(parseCommaList(cut(EXPRESSION)))
 							.drop(parseTLAToken("]"))
 							.map(seq -> new Located<>(
 									seq.getLocation(),
@@ -1454,7 +1456,7 @@ public final class TLAParser {
 												&& INFIX_OPERATORS_HI_PRECEDENCE.get(operator) >= precedence)
 								.map(operator ->
 										emptySequence()
-												.part(OPERATORS_BY_PRECEDENCE.get(precedence+1))
+												.part(OPERATORS_BY_PRECEDENCE.get(INFIX_OPERATORS_HI_PRECEDENCE.get(operator)+1))
 												.part(INFIX_OPERATORS_LEFT_ASSOCIATIVE.contains(operator) ?
 														repeatOneOrMore(
 																emptySequence()
@@ -1497,15 +1499,13 @@ public final class TLAParser {
 												}))
 								.collect(Collectors.toList())
 				),
-				// postfix operators
+				// postfix operators and no operators
 				emptySequence()
 						.part(OPERATORS_BY_PRECEDENCE.get(precedence+1))
-						.part(repeatOneOrMore(parseOneOf(postfixOperatorPartOptions)))
+						.part(cut(repeat(parseOneOf(postfixOperatorPartOptions))))
 						.map(seq -> buildPostfixExpression(
 								seq.getValue().getRest().getFirst(),
-								seq.getValue().getFirst())),
-				// actually nothing, just go to the next precedence level
-				OPERATORS_BY_PRECEDENCE.get(precedence+1)
+								seq.getValue().getFirst()))
 		);
 	}
 
@@ -1531,11 +1531,12 @@ public final class TLAParser {
 
 	static {
 		for(int i = 1; i <= 17; ++i){
-			int j = i;
 			OPERATORS_BY_PRECEDENCE.get(i).setReferencedGrammar(
 					parseOneOf(
 							parseExpressionFromPrecedence(i),
-							parsePrefixOperator(i)
+							parsePrefixOperator(i) // only try prefix operators after everything else has failed
+							// or you might match a really high precedence immediately instead of catching it
+							// as the LHS of some lower-precedence infix or postfix operator
 					)
 			);
 		}
@@ -1622,7 +1623,7 @@ public final class TLAParser {
 
 	public static Grammar<TLAExpression> parseExpression(){
 		return emptySequence()
-				.dependentPart(EXPRESSION, ignore -> new VariableMap().put(MIN_COLUMN, -1))
+				.dependentPart(cut(EXPRESSION), ignore -> new VariableMap().put(MIN_COLUMN, -1))
 				.map(seq -> seq.getValue().getFirst());
 	}
 	
@@ -1676,7 +1677,7 @@ public final class TLAParser {
 						.part(parseTLATokenOneOf(PREFIX_OPERATORS))
 						.part(parseTLAIdentifier())
 						.drop(parseTLAToken("=="))
-						.part(EXPRESSION)
+						.part(cut(EXPRESSION))
 						.map(seq -> {
 							Located<String> op = seq.getValue().getRest().getRest().getFirst();
 							// operator - is the only operator that is both unary and binary, and can
@@ -1696,7 +1697,7 @@ public final class TLAParser {
 						.part(parseTLATokenOneOf(INFIX_OPERATORS))
 						.part(parseTLAIdentifier())
 						.drop(parseTLAToken("=="))
-						.part(EXPRESSION)
+						.part(cut(EXPRESSION))
 						.map(seq -> {
 							TLAIdentifier lhs = seq.getValue().getRest().getRest().getRest().getFirst();
 							Located<String> op = seq.getValue().getRest().getRest().getFirst();
@@ -1714,7 +1715,7 @@ public final class TLAParser {
 						.part(parseTLAIdentifier())
 						.part(parseTLATokenOneOf(POSTFIX_OPERATORS))
 						.drop(parseTLAToken("=="))
-						.part(EXPRESSION)
+						.part(cut(EXPRESSION))
 						.map(seq -> {
 							TLAIdentifier lhs = seq.getValue().getRest().getRest().getFirst();
 							Located<String> op = seq.getValue().getRest().getFirst();
@@ -1736,7 +1737,7 @@ public final class TLAParser {
 								nop().map(v -> new LocatedList<TLAOpDecl>(v.getLocation(), Collections.emptyList()))
 						))
 						.drop(parseTLAToken("=="))
-						.part(EXPRESSION)
+						.part(cut(EXPRESSION))
 						.map(seq -> new TLAOperatorDefinition(
 								seq.getLocation(),
 								seq.getValue().getRest().getRest().getFirst(),
@@ -1752,7 +1753,7 @@ public final class TLAParser {
 				.part(parseCommaList(parseQuantifierBound()))
 				.drop(parseTLAToken("]"))
 				.drop(parseTLAToken("=="))
-				.part(EXPRESSION)
+				.part(cut(EXPRESSION))
 				.map(seq -> new TLAFunctionDefinition(
 						seq.getLocation(),
 						seq.getValue().getRest().getRest().getFirst(),
@@ -1782,7 +1783,7 @@ public final class TLAParser {
 																new TLAIdentifier(op.getLocation(), op.getValue()))
 												))
 												.drop(parseTLAToken("<-"))
-												.part(EXPRESSION)
+												.part(cut(EXPRESSION))
 												.map(seq -> new TLAInstance.Remapping(
 														seq.getLocation(),
 														seq.getValue().getRest().getFirst(),
@@ -1844,23 +1845,23 @@ public final class TLAParser {
 	static Grammar<TLAUnit> parseAssumption(){
 		return emptySequence()
 				.drop(parseTLATokenOneOf(Arrays.asList("ASSUME", "ASSUMPTION", "AXIOM")))
-				.part(EXPRESSION)
+				.part(cut(EXPRESSION))
 				.map(seq -> new TLAAssumption(seq.getLocation(), seq.getValue().getFirst()));
 	}
 	
 	static Grammar<TLAUnit> parseTheorem(){
 		return emptySequence()
 				.drop(parseTLAToken("THEOREM"))
-				.part(EXPRESSION)
+				.part(cut(EXPRESSION))
 				.map(seq -> new TLATheorem(seq.getLocation(), seq.getValue().getFirst()));
 	}
 	
 	static Grammar<TLAUnit> parseUnit(){
 		return emptySequence()
-				.drop(parseOneOf(parse4DashesOrMore(), nop()))
+				.drop(cut(parseOneOf(parse4DashesOrMore(), nop())))
 				.part(parseOneOf(
 						// all LOCAL declarations
-						emptySequence()
+						cut(emptySequence()
 								.drop(parseTLAToken("LOCAL"))
 								.part(parseOneOf(
 										parseInstance(true),
@@ -1868,9 +1869,9 @@ public final class TLAParser {
 										parseFunctionDefinition(true),
 										parseOperatorDefinition(true)
 								))
-								.map(seq -> seq.getValue().getFirst()),
+								.map(seq -> seq.getValue().getFirst())),
 						// all other declarations
-						parseOneOf(
+						cut(parseOneOf(
 								parseInstance(false),
 								parseModuleDefinition(false),
 								parseFunctionDefinition(false),
@@ -1879,7 +1880,7 @@ public final class TLAParser {
 								parseConstantDeclaration(),
 								parseAssumption(),
 								parseTheorem(),
-								MODULE)
+								MODULE))
 				)).map(seq -> seq.getValue().getFirst());
 	}
 
@@ -1913,17 +1914,17 @@ public final class TLAParser {
 				.drop(parseTLAToken("MODULE"))
 				.part(parseTLAIdentifier())
 				.drop(parse4DashesOrMore())
-				.part(parseOneOf(
+				.part(cut(parseOneOf(
 						parseExtends(),
 						nop().map(v -> new LocatedList<TLAIdentifier>(v.getLocation(), Collections.emptyList()))
-				))
-				.part(repeat(
+				)))
+				.part(cut(repeat(
 						emptySequence()
 								.drop(reject(parseStartTranslation()))
 								.part(UNIT)
 								.map(seq -> seq.getValue().getFirst())
-				))
-				.part(
+				)))
+				.part(cut(
 						emptySequence()
 								.drop(parseStartTranslation())
 								.part(repeat(
@@ -1934,8 +1935,8 @@ public final class TLAParser {
 								))
 								.drop(parseEndTranslation())
 								.map(seq -> seq.getValue().getFirst())
-				)
-				.part(repeat(UNIT))
+				))
+				.part(cut(repeat(UNIT)))
 				.drop(parse4EqualsOrMore())
 				.drop(consumeAfterModuleEnd())
 				.map(seq -> new TLAModule(
@@ -1950,8 +1951,14 @@ public final class TLAParser {
 	private static final ReferenceGrammar<TLAUnit> UNIT = new ReferenceGrammar<>();
 	private static final ReferenceGrammar<TLAModule> MODULE = new ReferenceGrammar<>();
 	static {
-		UNIT.setReferencedGrammar(parseUnit());
-		MODULE.setReferencedGrammar(parseModule());
+		UNIT.setReferencedGrammar(
+				cut(emptySequence()
+						.dependentPart(parseUnit(), ignore -> new VariableMap().put(MIN_COLUMN, -1))
+						.map(seq -> seq.getValue().getFirst())));
+		MODULE.setReferencedGrammar(
+				cut(emptySequence()
+						.dependentPart(parseModule(), ignore -> new VariableMap().put(MIN_COLUMN, -1))
+						.map(seq -> seq.getValue().getFirst())));
 	}
 	
 	// external interfaces
