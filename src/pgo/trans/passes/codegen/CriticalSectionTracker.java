@@ -34,6 +34,10 @@ public class CriticalSectionTracker {
 		return currentLabelName;
 	}
 
+	public int getCurrentLockGroup() {
+		return currentLockGroup;
+	}
+
 	public void start(GoBlockBuilder builder, UID labelUID, GoLabelName labelName) {
 		int lockGroup = registry.getLockGroupOrDefault(labelUID, -1);
 		if (currentLockGroup != -1 && currentLockGroup != lockGroup) {
@@ -70,6 +74,14 @@ public class CriticalSectionTracker {
 		currentLockGroup = -1;
 		currentLabelUID = null;
 		currentLabelName = null;
+	}
+
+	public void restore(GoBlockBuilder builder) {
+		if (currentLockGroup == -1) {
+			// nothing to do
+			return;
+		}
+		criticalSection.startCriticalSection(builder, processUID, currentLockGroup, currentLabelUID, currentLabelName);
 	}
 
 	public void checkCompatibility(CriticalSectionTracker other) {

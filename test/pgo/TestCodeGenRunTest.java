@@ -30,6 +30,10 @@ public class TestCodeGenRunTest {
 						"SimpleEither.tla",
 						Arrays.asList("[1 30]", "[1 30]", "[1 30]"),
 				},
+				{
+						"EitherBothBranches.tla",
+						Arrays.asList("[10 20]", "[10 20]"),
+				},
 		});
 	}
 

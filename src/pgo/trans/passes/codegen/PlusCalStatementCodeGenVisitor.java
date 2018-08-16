@@ -176,6 +176,13 @@ public class PlusCalStatementCodeGenVisitor extends PlusCalStatementVisitor<Void
 				localVarNames.put(name, copyName);
 			}
 		}
+		// make copies of global variables which are written to
+		Map<GoVariableName, GoVariableName> globalVarNames = new HashMap<>();
+		for (UID varUID : registry.getVariableWritesInLockGroup(criticalSectionTracker.getCurrentLockGroup())) {
+			GoVariableName name = builder.findUID(varUID);
+			GoVariableName copyName = builder.varDecl(name.getName() + "Copy", name);
+			globalVarNames.put(name, copyName);
+		}
 		// generate labels
 		List<GoLabelName> labels = new ArrayList<>();
 		for (int i = 0; i < cases.size(); i++) {
@@ -193,13 +200,19 @@ public class PlusCalStatementCodeGenVisitor extends PlusCalStatementVisitor<Void
 			Function<GoBlockBuilder, GoLabelName> oldAwaitAction;
 			CriticalSectionTracker tracker = criticalSectionTracker;
 			PlusCalStatementCodeGenVisitor caseVisitor = this;
+			if (i != 0) {
+				// we arrived here via a failure of an await condition
+				// restore the critical section back to when we first entered case 0
+				criticalSectionTracker.restore(builder);
+			}
 			if (i != cases.size() - 1) {
 				int j = i + 1;
 				tracker = criticalSectionTracker.copy();
 				caseVisitor = new PlusCalStatementCodeGenVisitor(
 						registry, typeMap, globalStrategy, processUID, builder, tracker, builder -> {
-					// restore local variables
+					// restore variables
 					localVarNames.forEach(builder::assign);
+					globalVarNames.forEach(builder::assign);
 					return labels.get(j);
 				});
 				oldAwaitAction = ignored -> null;
@@ -210,8 +223,9 @@ public class PlusCalStatementCodeGenVisitor extends PlusCalStatementVisitor<Void
 				}
 				oldAwaitAction = awaitAction;
 				awaitAction = builder -> {
-					// restore local variables
+					// restore variables
 					localVarNames.forEach(builder::assign);
+					globalVarNames.forEach(builder::assign);
 					return eitherLabel;
 				};
 			}
