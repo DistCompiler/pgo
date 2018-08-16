@@ -34,6 +34,10 @@ public class TestCodeGenRunTest {
 						"EitherBothBranches.tla",
 						Arrays.asList("[10 20]", "[10 20]"),
 				},
+				{
+						"EitherRepeatedExec.tla",
+						Arrays.asList("[3 3]", "[3 3]"),
+				},
 		});
 	}
 
