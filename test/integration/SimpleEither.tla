@@ -1,8 +1,8 @@
----- MODULE either ----
+---- MODULE SimpleEither ----
 EXTENDS Integers, Sequences, TLC
 
 (*
---algorithm either {
+--algorithm SimpleEither {
   process (P \in 1..3)
   variables a = 1, b = 2;
   {

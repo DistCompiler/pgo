@@ -27,7 +27,7 @@ public class TestCodeGenRunTest {
 	public static List<Object[]> data() {
 		return Arrays.asList(new Object[][] {
 				{
-						"either.tla",
+						"SimpleEither.tla",
 						Arrays.asList("[1 30]", "[1 30]", "[1 30]"),
 				},
 		});
