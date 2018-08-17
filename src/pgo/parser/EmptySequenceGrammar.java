@@ -6,7 +6,7 @@ public class EmptySequenceGrammar extends AbstractSequenceGrammar<EmptyHeterogen
 		return "EMPTY_SEQ";
 	}
 	@Override
-	public <Result, Except extends Throwable> Result accept(GrammarVisitor<Result, Except> visitor) throws Except {
+	public <Result, Except extends Throwable> Result accept(GrammarVisitor<Result, Except> visitor) {
 		return visitor.visit(this);
 	}
 }

@@ -63,11 +63,8 @@ public class QualifiedName {
 		} else if (!base.equals(other.base))
 			return false;
 		if (prefix == null) {
-			if (other.prefix != null)
-				return false;
-		} else if (!prefix.equals(other.prefix))
-			return false;
-		return true;
+			return other.prefix == null;
+		} else return prefix.equals(other.prefix);
 	}
 	
 }

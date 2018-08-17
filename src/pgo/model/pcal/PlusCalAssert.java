@@ -44,11 +44,8 @@ public class PlusCalAssert extends PlusCalStatement {
 			return false;
 		PlusCalAssert other = (PlusCalAssert) obj;
 		if (condition == null) {
-			if (other.condition != null)
-				return false;
-		} else if (!condition.equals(other.condition))
-			return false;
-		return true;
+			return other.condition == null;
+		} else return condition.equals(other.condition);
 	}
 
 }

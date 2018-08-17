@@ -11,7 +11,7 @@ import pgo.util.SourceLocation;
  */
 public class TLAOpDecl extends TLANode {
 	
-	public static enum Type{
+	public enum Type{
 		INFIX,
 		PREFIX,
 		POSTFIX,
@@ -98,9 +98,7 @@ public class TLAOpDecl extends TLANode {
 				return false;
 		} else if (!name.equals(other.name))
 			return false;
-		if (type != other.type)
-			return false;
-		return true;
+		return type == other.type;
 	}
 
 }

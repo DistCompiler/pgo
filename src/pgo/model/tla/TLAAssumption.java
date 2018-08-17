@@ -43,11 +43,8 @@ public class TLAAssumption extends TLAUnit {
 			return false;
 		TLAAssumption other = (TLAAssumption) obj;
 		if (assumption == null) {
-			if (other.assumption != null)
-				return false;
-		} else if (!assumption.equals(other.assumption))
-			return false;
-		return true;
+			return other.assumption == null;
+		} else return assumption.equals(other.assumption);
 	}
 
 }

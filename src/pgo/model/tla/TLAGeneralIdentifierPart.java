@@ -58,11 +58,8 @@ public class TLAGeneralIdentifierPart extends TLANode {
 		} else if (!id.equals(other.id))
 			return false;
 		if (parameters == null) {
-			if (other.parameters != null)
-				return false;
-		} else if (!parameters.equals(other.parameters))
-			return false;
-		return true;
+			return other.parameters == null;
+		} else return parameters.equals(other.parameters);
 	}
 
 }

@@ -74,14 +74,11 @@ public class TLARecordSet extends TLAExpression {
 			} else if (!name.equals(other.name))
 				return false;
 			if (set == null) {
-				if (other.set != null)
-					return false;
-			} else if (!set.equals(other.set))
-				return false;
-			return true;
+				return other.set == null;
+			} else return set.equals(other.set);
 		}
-	};
-	
+	}
+
 	public List<Field> getFields(){
 		return fields;
 	}
@@ -109,11 +106,8 @@ public class TLARecordSet extends TLAExpression {
 			return false;
 		TLARecordSet other = (TLARecordSet) obj;
 		if (fields == null) {
-			if (other.fields != null)
-				return false;
-		} else if (!fields.equals(other.fields))
-			return false;
-		return true;
+			return other.fields == null;
+		} else return fields.equals(other.fields);
 	}
 
 }

@@ -69,11 +69,8 @@ public class TLAQuantifierBound extends TLANode {
 		} else if (!ids.equals(other.ids))
 			return false;
 		if (set == null) {
-			if (other.set != null)
-				return false;
-		} else if (!set.equals(other.set))
-			return false;
-		return true;
+			return other.set == null;
+		} else return set.equals(other.set);
 	}
 
 }

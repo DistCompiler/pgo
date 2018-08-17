@@ -65,11 +65,8 @@ public class TLAFunction extends TLAExpression {
 		} else if (!args.equals(other.args))
 			return false;
 		if (body == null) {
-			if (other.body != null)
-				return false;
-		} else if (!body.equals(other.body))
-			return false;
-		return true;
+			return other.body == null;
+		} else return body.equals(other.body);
 	}
 
 }

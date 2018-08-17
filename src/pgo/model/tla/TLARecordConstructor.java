@@ -71,11 +71,8 @@ public class TLARecordConstructor extends TLAExpression {
 			} else if (!name.equals(other.name))
 				return false;
 			if (value == null) {
-				if (other.value != null)
-					return false;
-			} else if (!value.equals(other.value))
-				return false;
-			return true;
+				return other.value == null;
+			} else return value.equals(other.value);
 		}
 	}
 	
@@ -106,11 +103,8 @@ public class TLARecordConstructor extends TLAExpression {
 			return false;
 		TLARecordConstructor other = (TLARecordConstructor) obj;
 		if (fields == null) {
-			if (other.fields != null)
-				return false;
-		} else if (!fields.equals(other.fields))
-			return false;
-		return true;
+			return other.fields == null;
+		} else return fields.equals(other.fields);
 	}
 
 }

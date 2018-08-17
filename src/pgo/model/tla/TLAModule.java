@@ -109,11 +109,8 @@ public class TLAModule extends TLAUnit {
 		} else if (!preTranslationUnits.equals(other.preTranslationUnits))
 			return false;
 		if (translatedUnits == null) {
-			if (other.translatedUnits != null)
-				return false;
-		} else if (!translatedUnits.equals(other.translatedUnits))
-			return false;
-		return true;
+			return other.translatedUnits == null;
+		} else return translatedUnits.equals(other.translatedUnits);
 	}
 	
 }

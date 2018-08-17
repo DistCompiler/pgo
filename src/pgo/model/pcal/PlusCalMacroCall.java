@@ -59,11 +59,8 @@ public class PlusCalMacroCall extends PlusCalStatement {
 		} else if (!arguments.equals(other.arguments))
 			return false;
 		if (target == null) {
-			if (other.target != null)
-				return false;
-		} else if (!target.equals(other.target))
-			return false;
-		return true;
+			return other.target == null;
+		} else return target.equals(other.target);
 	}
 
 }

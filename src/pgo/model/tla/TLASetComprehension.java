@@ -65,11 +65,8 @@ public class TLASetComprehension extends TLAExpression {
 		} else if (!body.equals(other.body))
 			return false;
 		if (bounds == null) {
-			if (other.bounds != null)
-				return false;
-		} else if (!bounds.equals(other.bounds))
-			return false;
-		return true;
+			return other.bounds == null;
+		} else return bounds.equals(other.bounds);
 	}
 
 }

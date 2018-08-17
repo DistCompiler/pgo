@@ -28,9 +28,7 @@ public class TLAModuleLoaderTest {
 	
 	@Test
 	public void testModuleFoundOneOption() throws ModuleNotFoundError, IOException, ParseFailureException, NoModulesFoundInFileError {
-		TLAModuleLoader loader = new TLAModuleLoader(Arrays.asList(new Path[] {
-				Paths.get("test", "pluscal"),
-		}));
+		TLAModuleLoader loader = new TLAModuleLoader(Arrays.asList(Paths.get("test", "pluscal")));
 		
 		TLAModule m = loader.loadModule("Sum");
 		assertThat(m.getName().getId(), is("Sum"));
@@ -38,10 +36,8 @@ public class TLAModuleLoaderTest {
 	
 	@Test
 	public void testModuleFoundFailOver() throws ModuleNotFoundError, IOException, ParseFailureException, NoModulesFoundInFileError {
-		TLAModuleLoader loader = new TLAModuleLoader(Arrays.asList(new Path[] {
-				Paths.get("test", "tla", "tokens"),
-				Paths.get("test", "pluscal"),
-		}));
+		TLAModuleLoader loader = new TLAModuleLoader(Arrays.asList(Paths.get("test", "tla", "tokens"),
+				Paths.get("test", "pluscal")));
 		
 		TLAModule m = loader.loadModule("Sum");
 		assertThat(m.getName().getId(), is("Sum"));

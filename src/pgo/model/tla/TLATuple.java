@@ -53,11 +53,8 @@ public class TLATuple extends TLAExpression {
 			return false;
 		TLATuple other = (TLATuple) obj;
 		if (elements == null) {
-			if (other.elements != null)
-				return false;
-		} else if (!elements.equals(other.elements))
-			return false;
-		return true;
+			return other.elements == null;
+		} else return elements.equals(other.elements);
 	}
 
 }

@@ -822,14 +822,8 @@ public final class TLAParser {
 	
 	private TLAParser(){}
 
-	public static final Map<Integer, ReferenceGrammar<TLAExpression>> OPERATORS_BY_PRECEDENCE = new HashMap<>(17);
-	static {
-		for(int i = 1; i <= 18; ++i){
-			OPERATORS_BY_PRECEDENCE.put(i, new ReferenceGrammar<>());
-		}
-	}
 	public static final ReferenceGrammar<TLAExpression> EXPRESSION_NO_OPERATORS = new ReferenceGrammar<>();
-	public static final Grammar<TLAExpression> EXPRESSION = OPERATORS_BY_PRECEDENCE.get(1);
+	public static final ReferenceGrammar<TLAExpression> EXPRESSION = new ReferenceGrammar<>();
 	
 	static Grammar<TLAIdentifierOrTuple> parseIdentifierTuple(){
 		return emptySequence()
@@ -936,26 +930,6 @@ public final class TLAParser {
 						seq.getValue().getFirst(),
 						seq.getValue().getRest().getFirst()));
 	}
-
-	static Grammar<TLAExpression> parseConjunct() {
-		return parseConjunctOrDisjunct("/\\");
-	}
-
-	private static final class ConjunctDisjunctPart {
-		private Located<Void> symLocation;
-		private TLAExpression expr;
-
-		public ConjunctDisjunctPart(Located<Void> symLocation, TLAExpression expr) {
-			this.symLocation = symLocation;
-			this.expr = expr;
-		}
-
-		public Located<Void> getSymLocation() {
-			return symLocation;
-		}
-
-		public TLAExpression getExpr() { return expr; }
-	}
 	
 	static Grammar<TLAExpression> parseConjunctOrDisjunct(String which){
 		return emptySequence()
@@ -1005,10 +979,10 @@ public final class TLAParser {
 					}
 				});
 	}
+
+	static Grammar<TLAExpression> parseConjunct() { return parseConjunctOrDisjunct("/\\"); }
 	
-	static Grammar<TLAExpression> parseDisjunct(){
-		return parseConjunctOrDisjunct("\\/");
-	}
+	static Grammar<TLAExpression> parseDisjunct(){ return parseConjunctOrDisjunct("\\/"); }
 	
 	static Grammar<TLAExpression> parseIfExpression(){
 		return emptySequence()
@@ -1311,85 +1285,6 @@ public final class TLAParser {
 						seq.getValue().getFirst()));
 	}
 
-	private static final class InfixOperatorPart {
-
-		private LocatedList<TLAGeneralIdentifierPart> prefix;
-		private Located<Void> symLocation;
-		private TLAExpression rhs;
-		private Located<InfixOperatorPart> next;
-
-		public InfixOperatorPart(LocatedList<TLAGeneralIdentifierPart> prefix, Located<Void> symLocation,
-								 TLAExpression rhs, Located<InfixOperatorPart> next) {
-			this.prefix = prefix;
-			this.symLocation = symLocation;
-			this.rhs = rhs;
-			this.next = next;
-		}
-
-		public void setNext(Located<InfixOperatorPart> next) {
-			this.next = next;
-		}
-
-		public LocatedList<TLAGeneralIdentifierPart> getPrefix() {
-			return prefix;
-		}
-
-		public Located<Void> getSymLocation() {
-			return symLocation;
-		}
-
-		public TLAExpression getRhs() {
-			return rhs;
-		}
-
-		public TLAExpression applyLhs(SourceLocation loc, TLAExpression lhs, String opName) {
-			if(next.getValue() != null) {
-				lhs = next.getValue().applyLhs(next.getLocation(), lhs, opName);
-			}
-			return new TLABinOp(
-					lhs.getLocation().combine(loc),
-					new TLASymbol(symLocation.getLocation(), opName),
-					prefix, lhs, rhs);
-		}
-	}
-
-	private static Grammar<TLAExpression> parsePrefixOperator(int precedence) {
-		List<String> operatorOptions = PREFIX_OPERATORS
-				.stream()
-				.filter(op ->
-						/*precedence >= PREFIX_OPERATORS_LOW_PRECEDENCE.get(op)
-								&& */precedence <= PREFIX_OPERATORS_HI_PRECEDENCE.get(op))
-				.collect(Collectors.toList());
-
-		if(operatorOptions.isEmpty()) return parseOneOf(Collections.emptyList());
-
-		ReferenceGrammar<TLAExpression> self = new ReferenceGrammar<>();
-
-		self.setReferencedGrammar(
-				emptySequence()
-						.part(memoize(INSTANCE_PREFIX))
-						.part(parseOneOf(
-								operatorOptions
-										.stream()
-										.map(operator -> emptySequence()
-												.part(parseTLAToken(operator)
-														.map(v -> new TLASymbol(v.getLocation(), operator)))
-												.part(parseOneOf(
-														self,
-														OPERATORS_BY_PRECEDENCE
-																.get(PREFIX_OPERATORS_HI_PRECEDENCE.get(operator)+1)
-												)))
-										.collect(Collectors.toList())
-						))
-						.map(seq -> new TLAUnary(
-								seq.getLocation(),
-								seq.getValue().getFirst().getValue().getRest().getFirst(),
-								seq.getValue().getRest().getFirst(),
-								seq.getValue().getFirst().getValue().getFirst())));
-
-		return self;
-	}
-
 	private static TLAExpression buildPostfixExpression(TLAExpression lhs, LocatedList<Located<PostfixOperatorPart>> parts) {
 		for(Located<PostfixOperatorPart> part : parts) {
 			if(part.getValue().isFunctionCall()) {
@@ -1408,9 +1303,12 @@ public final class TLAParser {
 		return lhs;
 	}
 
-	private static Grammar<TLAExpression> parseExpressionFromPrecedence(int precedence) {
+	private static Grammar<TLAExpression> parseExpressionFromPrecedence(int precedence,
+																		Map<Integer, ? extends Grammar<TLAExpression>> operatorsByPrecedence,
+																		List<String> prefixOperators, List<String> infixOperators,
+																		List<String> postfixOperators) {
 
-		List<String> relevantPostfixOperators = POSTFIX_OPERATORS
+		List<String> relevantPostfixOperators = postfixOperators
 				.stream()
 				.filter(operator -> POSTFIX_OPERATORS_PRECEDENCE.get(operator) >= precedence)
 				.collect(Collectors.toList());
@@ -1445,28 +1343,57 @@ public final class TLAParser {
 						)
 		);
 
+		List<String> relevantPrefixOperators = prefixOperators
+				.stream()
+				.filter(op -> precedence <= PREFIX_OPERATORS_HI_PRECEDENCE.get(op))
+				.collect(Collectors.toList());
+
+		ReferenceGrammar<TLAExpression> prefixOptions = new ReferenceGrammar<>();
+
+		prefixOptions.setReferencedGrammar(
+				emptySequence()
+						.part(memoize(INSTANCE_PREFIX))
+						.part(parseOneOf(
+								relevantPrefixOperators
+										.stream()
+										.map(operator -> emptySequence()
+												.part(parseTLAToken(operator)
+														.map(v -> new TLASymbol(v.getLocation(), operator)))
+												.part(parseOneOf(
+														prefixOptions,
+														operatorsByPrecedence
+																.get(PREFIX_OPERATORS_HI_PRECEDENCE.get(operator)+1)
+												)))
+										.collect(Collectors.toList())
+						))
+						.map(seq -> new TLAUnary(
+								seq.getLocation(),
+								seq.getValue().getFirst().getValue().getRest().getFirst(),
+								seq.getValue().getRest().getFirst(),
+								seq.getValue().getFirst().getValue().getFirst())));
+
 		return parseOneOf(
 				// infix operators
 				parseOneOf(
-						INFIX_OPERATORS.stream()
+						infixOperators.stream()
 								.filter(operator ->
 										INFIX_OPERATORS_LOW_PRECEDENCE.get(operator) <= precedence
 												&& INFIX_OPERATORS_HI_PRECEDENCE.get(operator) >= precedence)
 								.map(operator ->
 										emptySequence()
-												.part(memoize(OPERATORS_BY_PRECEDENCE.get(INFIX_OPERATORS_HI_PRECEDENCE.get(operator)+1)))
+												.part(memoize(operatorsByPrecedence.get(INFIX_OPERATORS_HI_PRECEDENCE.get(operator)+1)))
 												.part(INFIX_OPERATORS_LEFT_ASSOCIATIVE.contains(operator) ?
 														repeatOneOrMore(
 																emptySequence()
 																		.part(memoize(INSTANCE_PREFIX))
 																		.part(parseInfixOperator(operator))
-																		.part(OPERATORS_BY_PRECEDENCE
+																		.part(operatorsByPrecedence
 																				.get(INFIX_OPERATORS_HI_PRECEDENCE
 																						.get(operator)+1))
 														) : emptySequence()
 																.part(memoize(INSTANCE_PREFIX))
 																.part(parseInfixOperator(operator))
-																.part(OPERATORS_BY_PRECEDENCE
+																.part(operatorsByPrecedence
 																		.get(INFIX_OPERATORS_HI_PRECEDENCE
 																				.get(operator)+1))
 																.map(seq -> new LocatedList<>(
@@ -1499,11 +1426,15 @@ public final class TLAParser {
 				),
 				// postfix operators and no operators
 				emptySequence()
-						.part(memoize(OPERATORS_BY_PRECEDENCE.get(precedence+1)))
+						.part(memoize(operatorsByPrecedence.get(precedence+1)))
 						.part(cut(repeat(parseOneOf(postfixOperatorPartOptions))))
 						.map(seq -> buildPostfixExpression(
 								seq.getValue().getRest().getFirst(),
-								seq.getValue().getFirst()))
+								seq.getValue().getFirst())),
+				// only try prefix operators after everything else has failed
+				// or you might match a really high precedence immediately instead of catching it
+				// as the LHS of some lower-precedence infix or postfix operator
+				prefixOptions
 		);
 	}
 
@@ -1527,19 +1458,24 @@ public final class TLAParser {
 				.map(seq -> seq.getValue().getFirst());
 	}
 
-	static {
-		for(int i = 1; i <= 17; ++i){
-			OPERATORS_BY_PRECEDENCE.get(i).setReferencedGrammar(
-					parseOneOf(
-							parseExpressionFromPrecedence(i),
-							parsePrefixOperator(i) // only try prefix operators after everything else has failed
-							// or you might match a really high precedence immediately instead of catching it
-							// as the LHS of some lower-precedence infix or postfix operator
-					)
-			);
+	public static Grammar<TLAExpression> parseExpression(List<String> prefixOperators, List<String> infixOperators, List<String> postfixOperators) {
+		Map<Integer, ReferenceGrammar<TLAExpression>> operatorsByPrecedence = new HashMap<>(18);
+		for(int precedence = 1; precedence < 18; ++precedence) {
+			operatorsByPrecedence.put(precedence, new ReferenceGrammar<>());
 		}
-		OPERATORS_BY_PRECEDENCE.get(18).setReferencedGrammar(EXPRESSION_NO_OPERATORS);
+		operatorsByPrecedence.put(18, EXPRESSION_NO_OPERATORS);
+		for(int precedence = 1; precedence < 18; ++precedence) {
+			operatorsByPrecedence.get(precedence).setReferencedGrammar(parseExpressionFromPrecedence(
+					precedence, operatorsByPrecedence, prefixOperators,
+					infixOperators, postfixOperators));
+		}
+		return operatorsByPrecedence.get(1);
 	}
+
+	static {
+		EXPRESSION.setReferencedGrammar(parseExpression(PREFIX_OPERATORS, INFIX_OPERATORS, POSTFIX_OPERATORS));
+	}
+
 	static {
 		EXPRESSION_NO_OPERATORS.setReferencedGrammar(
 				parseOneOf(
@@ -1889,7 +1825,10 @@ public final class TLAParser {
 		return emptySequence()
 				.drop(repeat(parseOneOf(
 						matchWhitespace(),
-						matchTLAMultilineComment()
+						matchTLAMultilineComment(),
+						emptySequence()
+								.drop(reject(matchPattern(TLA_BEGIN_TRANSLATION)))
+								.drop(matchTLALineComment())
 				)))
 				.part(matchPattern(TLA_BEGIN_TRANSLATION))
 				.map(seq -> new Located<>(seq.getValue().getFirst().getLocation(), null));
@@ -1899,7 +1838,10 @@ public final class TLAParser {
 		return emptySequence()
 				.drop(repeat(parseOneOf(
 						matchWhitespace(),
-						matchTLAMultilineComment()
+						matchTLAMultilineComment(),
+						emptySequence()
+								.drop(reject(matchPattern(TLA_END_TRANSLATION)))
+								.drop(matchTLALineComment())
 				)))
 				.part(matchPattern(TLA_END_TRANSLATION))
 				.map(seq -> new Located<>(seq.getValue().getFirst().getLocation(), null));

@@ -71,11 +71,8 @@ public class TLACase extends TLAExpression {
 		} else if (!arms.equals(other.arms))
 			return false;
 		if (this.other == null) {
-			if (other.other != null)
-				return false;
-		} else if (!this.other.equals(other.other))
-			return false;
-		return true;
+			return other.other == null;
+		} else return this.other.equals(other.other);
 	}
 
 }

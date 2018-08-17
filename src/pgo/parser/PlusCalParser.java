@@ -47,6 +47,18 @@ public final class PlusCalParser {
 
 	// common
 
+	static final Grammar<TLAExpression> TLA_EXPRESSION = emptySequence()
+			.dependentPart(
+					TLAParser.parseExpression(
+							TLAParser.PREFIX_OPERATORS,
+							TLAParser.INFIX_OPERATORS
+									.stream()
+									.filter(op -> !Arrays.asList("||", ":=").contains(op))
+									.collect(Collectors.toList()),
+							TLAParser.POSTFIX_OPERATORS),
+					info -> new VariableMap().put(MIN_COLUMN, -1))
+			.map(seq -> seq.getValue().getFirst());
+
 	static final Grammar<Located<String>> IDENTIFIER = emptySequence()
 			.drop(TLAParser.skipWhitespaceAndTLAComments())
 			.part(TLAParser.matchTLAIdentifier())
@@ -60,7 +72,7 @@ public final class PlusCalParser {
 					parsePlusCalToken("=")
 							.map(v -> new Located<>(v.getLocation(), false))
 			))
-			.part(cut(TLAParser.parseExpression()))
+			.part(cut(TLA_EXPRESSION))
 			.map(seq -> new PlusCalVariableDeclaration(
 					seq.getLocation(),
 					seq.getValue().getRest().getRest().getFirst(),
@@ -82,7 +94,7 @@ public final class PlusCalParser {
 			.part(parseOneOf(
 					emptySequence()
 							.drop(parsePlusCalToken("="))
-							.part(TLAParser.parseExpression())
+							.part(TLA_EXPRESSION)
 							.map(seq -> seq.getValue().getFirst()),
 					nop().map(v -> new PlusCalDefaultInitValue(v.getLocation()))
 			))
@@ -112,7 +124,7 @@ public final class PlusCalParser {
 			emptySequence()
 					.part(TLA_IDEXPR)
 					.drop(parsePlusCalToken("["))
-					.part(parseListOf(TLAParser.parseExpression(), parsePlusCalToken(",")))
+					.part(parseListOf(TLA_EXPRESSION, parsePlusCalToken(",")))
 					.drop(parsePlusCalToken("]"))
 					.map(seq -> new TLAFunctionCall(
 							seq.getLocation(),
@@ -136,7 +148,7 @@ public final class PlusCalParser {
 			emptySequence()
 					.part(LHS)
 					.drop(parsePlusCalToken(":="))
-					.part(TLAParser.parseExpression())
+					.part(TLA_EXPRESSION)
 					.map(seq -> new PlusCalAssignmentPair(
 							seq.getLocation(),
 							seq.getValue().getRest().getFirst(),
@@ -146,17 +158,17 @@ public final class PlusCalParser {
 
 	static final Grammar<PlusCalAwait> AWAIT = emptySequence()
 			.drop(parsePlusCalTokenOneOf(Arrays.asList("await", "when")))
-			.part(TLAParser.parseExpression())
+			.part(TLA_EXPRESSION)
 			.map(seq -> new PlusCalAwait(seq.getLocation(), seq.getValue().getFirst()));
 
 	static final Grammar<PlusCalPrint> PRINT = emptySequence()
 			.drop(parsePlusCalToken("print"))
-			.part(TLAParser.parseExpression())
+			.part(TLA_EXPRESSION)
 			.map(seq -> new PlusCalPrint(seq.getLocation(), seq.getValue().getFirst()));
 
 	static final Grammar<PlusCalAssert> ASSERT = emptySequence()
 			.drop(parsePlusCalToken("assert"))
-			.part(TLAParser.parseExpression())
+			.part(TLA_EXPRESSION)
 			.map(seq -> new PlusCalAssert(seq.getLocation(), seq.getValue().getFirst()));
 
 	static final Grammar<PlusCalSkip> SKIP = parsePlusCalToken("skip").map(v -> new PlusCalSkip(v.getLocation()));
@@ -174,7 +186,7 @@ public final class PlusCalParser {
 			.part(IDENTIFIER)
 			.drop(parsePlusCalToken("("))
 			.part(parseOneOf(
-					parseListOf(TLAParser.parseExpression(), parsePlusCalToken(",")),
+					parseListOf(TLA_EXPRESSION, parsePlusCalToken(",")),
 					nop().map(v -> new LocatedList<TLAExpression>(v.getLocation(), Collections.emptyList()))))
 			.drop(parsePlusCalToken(")"))
 			.map(seq -> new PlusCalCall(
@@ -186,7 +198,7 @@ public final class PlusCalParser {
 			.part(IDENTIFIER)
 			.drop(parsePlusCalToken("("))
 			.part(parseOneOf(
-					parseListOf(TLAParser.parseExpression(), parsePlusCalToken(",")),
+					parseListOf(TLA_EXPRESSION, parsePlusCalToken(",")),
 					nop().map(v -> new LocatedList<TLAExpression>(v.getLocation(), Collections.emptyList()))))
 			.drop(parsePlusCalToken(")"))
 			.map(seq -> new PlusCalMacroCall(
@@ -202,7 +214,7 @@ public final class PlusCalParser {
 	static final Grammar<PlusCalIf> C_SYNTAX_IF = emptySequence()
 			.drop(parsePlusCalToken("if"))
 			.drop(parsePlusCalToken("("))
-			.part(TLAParser.parseExpression())
+			.part(TLA_EXPRESSION)
 			.drop(parsePlusCalToken(")"))
 			.part(C_SYNTAX_STMT)
 			.part(parseOneOf(
@@ -221,7 +233,7 @@ public final class PlusCalParser {
 	static final Grammar<PlusCalWhile> C_SYNTAX_WHILE = emptySequence()
 			.drop(parsePlusCalToken("while"))
 			.drop(parsePlusCalToken("("))
-			.part(TLAParser.parseExpression())
+			.part(TLA_EXPRESSION)
 			.drop(parsePlusCalToken(")"))
 			.part(C_SYNTAX_STMT)
 			.map(seq -> new PlusCalWhile(
@@ -430,7 +442,7 @@ public final class PlusCalParser {
 				parseOneOf(
 						emptySequence()
 								.drop(parsePlusCalToken("elsif"))
-								.part(TLAParser.parseExpression())
+								.part(TLA_EXPRESSION)
 								.drop(parsePlusCalToken("then"))
 								.part(repeatOneOrMore(P_SYNTAX_STMT))
 								.part(P_SYNTAX_IF_ELSE)
@@ -452,7 +464,7 @@ public final class PlusCalParser {
 
 	static final Grammar<PlusCalIf> P_SYNTAX_IF = emptySequence()
 			.drop(parsePlusCalToken("if"))
-			.part(TLAParser.parseExpression())
+			.part(TLA_EXPRESSION)
 			.drop(parsePlusCalToken("then"))
 			.part(repeatOneOrMore(P_SYNTAX_STMT))
 			.part(P_SYNTAX_IF_ELSE)
@@ -466,7 +478,7 @@ public final class PlusCalParser {
 
 	static final Grammar<PlusCalWhile> P_SYNTAX_WHILE = emptySequence()
 			.drop(parsePlusCalToken("while"))
-			.part(cut(TLAParser.parseExpression()))
+			.part(cut(TLA_EXPRESSION))
 			.drop(parsePlusCalToken("do"))
 			.part(cut(repeatOneOrMore(P_SYNTAX_STMT)))
 			.drop(parsePlusCalToken("end"))

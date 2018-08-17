@@ -47,8 +47,7 @@ public abstract class TLANode extends SourceLocatable {
 		try {
 			accept(new TLANodeFormattingVisitor(new IndentingWriter(out)));
 		} catch (IOException e) {
-			RuntimeException ex = new RuntimeException("You should never get an IO error from a StringWriter");
-			ex.initCause(e);
+			RuntimeException ex = new RuntimeException("You should never get an IO error from a StringWriter", e);
 			throw ex;
 		}
 		return out.toString();

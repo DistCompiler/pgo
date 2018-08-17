@@ -65,11 +65,8 @@ public class TLAFunctionSubstitution extends TLAExpression {
 		} else if (!source.equals(other.source))
 			return false;
 		if (subs == null) {
-			if (other.subs != null)
-				return false;
-		} else if (!subs.equals(other.subs))
-			return false;
-		return true;
+			return other.subs == null;
+		} else return subs.equals(other.subs);
 	}
 
 }

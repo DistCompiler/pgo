@@ -73,11 +73,8 @@ public class PlusCalIf extends PlusCalStatement {
 		} else if (!no.equals(other.no))
 			return false;
 		if (yes == null) {
-			if (other.yes != null)
-				return false;
-		} else if (!yes.equals(other.yes))
-			return false;
-		return true;
+			return other.yes == null;
+		} else return yes.equals(other.yes);
 	}
 
 }

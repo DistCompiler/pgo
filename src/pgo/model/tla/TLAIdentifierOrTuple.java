@@ -87,9 +87,7 @@ public class TLAIdentifierOrTuple extends TLANode {
 				return false;
 		} else if (!ids.equals(other.ids))
 			return false;
-		if (tuple != other.tuple)
-			return false;
-		return true;
+		return tuple == other.tuple;
 	}
 
 }

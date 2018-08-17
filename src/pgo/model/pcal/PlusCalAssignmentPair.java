@@ -56,11 +56,8 @@ public class PlusCalAssignmentPair extends PlusCalNode {
 		} else if (!lhs.equals(other.lhs))
 			return false;
 		if (rhs == null) {
-			if (other.rhs != null)
-				return false;
-		} else if (!rhs.equals(other.rhs))
-			return false;
-		return true;
+			return other.rhs == null;
+		} else return rhs.equals(other.rhs);
 	}
 
 }

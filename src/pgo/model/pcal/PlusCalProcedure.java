@@ -87,11 +87,8 @@ public class PlusCalProcedure extends PlusCalNode {
 		} else if (!name.equals(other.name))
 			return false;
 		if (variables == null) {
-			if (other.variables != null)
-				return false;
-		} else if (!variables.equals(other.variables))
-			return false;
-		return true;
+			return other.variables == null;
+		} else return variables.equals(other.variables);
 	}
 
 }

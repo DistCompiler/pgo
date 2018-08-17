@@ -163,13 +163,12 @@ public class TLAParseToolsTest {
 	}
 
 	@Test
-	@Ignore
 	public void testParseStartTranslation3() throws ParseFailureException {
 		checkLocation(parseStartTranslation(), ctx("\n" +
 						"\n" +
 						"\\*\n" +
 						"\\* BEGIN TRANSLATION\n"),
-				1, 21, 22, 22);
+				1, 21, 4, 4);
 	}
 
 	@Test
@@ -288,7 +287,7 @@ public class TLAParseToolsTest {
 	}
 
 	@Test
-	public void testChoice5Enumeration() throws ParseFailureException {
+	public void testChoice5Enumeration() {
 		assertThat(
 				wrapMinColumn(parseFairnessConstraint())
 						.enumerate(ctx("WF_foo(bar)")),
@@ -379,24 +378,6 @@ public class TLAParseToolsTest {
 				"\\* BEGIN TRANSLATION\n" +
 				"VARIABLES"),
 				1, 1, 1, 20);
-	}
-
-	@Test
-	public void testRelativeOperatorPrecedence1() throws ParseFailureException {
-		checkLocation(OPERATORS_BY_PRECEDENCE.get(4), ctx("2 /\\ 3"),
-				1, 2, 1, 1);
-	}
-
-	@Test
-	public void testRelativeOperatorPrecedence2() throws ParseFailureException {
-		checkLocation(OPERATORS_BY_PRECEDENCE.get(4), ctx("[] 2 /\\ 3"),
-				1, 5, 1, 1);
-	}
-
-	@Test
-	public void testRelativeOperatorPrecedence3() throws ParseFailureException {
-		checkLocation(OPERATORS_BY_PRECEDENCE.get(16), ctx("2 /\\ 3"),
-				1, 2, 1, 1);
 	}
 
 	@Test

@@ -53,11 +53,8 @@ public class TLASetConstructor extends TLAExpression {
 			return false;
 		TLASetConstructor other = (TLASetConstructor) obj;
 		if (contents == null) {
-			if (other.contents != null)
-				return false;
-		} else if (!contents.equals(other.contents))
-			return false;
-		return true;
+			return other.contents == null;
+		} else return contents.equals(other.contents);
 	}
 
 }

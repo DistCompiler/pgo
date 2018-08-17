@@ -42,6 +42,7 @@ public abstract class Grammar<Result extends SourceLocatable> {
 		return ParseTools.matchString("").map(v -> result);
 	}
 
+	@SuppressWarnings("unchecked")
 	public Result parse(LexicalContext lexicalContext) throws ParseFailureException {
 		GrammarExecuteVisitor visitor = new GrammarExecuteVisitor(
 				lexicalContext, new VariableMap().freeze(), new TreeMap<>(), new GrammarExecuteVisitor.MemoizeTable());
@@ -54,6 +55,7 @@ public abstract class Grammar<Result extends SourceLocatable> {
 		}
 	}
 
+	@SuppressWarnings("unchecked")
 	public List<Result> enumerate(LexicalContext lexicalContext) {
 		GrammarExecuteVisitor visitor = new GrammarExecuteVisitor(
 				lexicalContext, new VariableMap().freeze(), new TreeMap<>(), new GrammarExecuteVisitor.MemoizeTable());
@@ -61,5 +63,5 @@ public abstract class Grammar<Result extends SourceLocatable> {
 		return parsingResult.getResults().stream().map(p -> (Result)p.getResult()).collect(Collectors.toList());
 	}
 
-	public abstract <Result, Except extends Throwable> Result accept(GrammarVisitor<Result, Except> visitor) throws Except;
+	public abstract <GrammarResult, Except extends Throwable> GrammarResult accept(GrammarVisitor<GrammarResult, Except> visitor) throws Except;
 }

@@ -65,11 +65,8 @@ public class TLAQuantifiedUniversal extends TLAExpression {
 		} else if (!body.equals(other.body))
 			return false;
 		if (ids == null) {
-			if (other.ids != null)
-				return false;
-		} else if (!ids.equals(other.ids))
-			return false;
-		return true;
+			return other.ids == null;
+		} else return ids.equals(other.ids);
 	}
 
 }

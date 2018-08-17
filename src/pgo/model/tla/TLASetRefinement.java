@@ -75,11 +75,8 @@ public class TLASetRefinement extends TLAExpression {
 		} else if (!ident.equals(other.ident))
 			return false;
 		if (when == null) {
-			if (other.when != null)
-				return false;
-		} else if (!when.equals(other.when))
-			return false;
-		return true;
+			return other.when == null;
+		} else return when.equals(other.when);
 	}
 
 }

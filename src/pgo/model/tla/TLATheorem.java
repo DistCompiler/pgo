@@ -43,11 +43,8 @@ public class TLATheorem extends TLAUnit {
 			return false;
 		TLATheorem other = (TLATheorem) obj;
 		if (theorem == null) {
-			if (other.theorem != null)
-				return false;
-		} else if (!theorem.equals(other.theorem))
-			return false;
-		return true;
+			return other.theorem == null;
+		} else return theorem.equals(other.theorem);
 	}
 
 }

@@ -46,11 +46,8 @@ public class PlusCalAssignment extends PlusCalStatement {
 			return false;
 		PlusCalAssignment other = (PlusCalAssignment) obj;
 		if (pairs == null) {
-			if (other.pairs != null)
-				return false;
-		} else if (!pairs.equals(other.pairs))
-			return false;
-		return true;
+			return other.pairs == null;
+		} else return pairs.equals(other.pairs);
 	}
 
 }

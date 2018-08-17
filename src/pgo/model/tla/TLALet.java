@@ -70,11 +70,8 @@ public class TLALet extends TLAExpression {
 		} else if (!body.equals(other.body))
 			return false;
 		if (defs == null) {
-			if (other.defs != null)
-				return false;
-		} else if (!defs.equals(other.defs))
-			return false;
-		return true;
+			return other.defs == null;
+		} else return defs.equals(other.defs);
 	}
 
 }

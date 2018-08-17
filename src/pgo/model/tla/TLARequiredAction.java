@@ -62,11 +62,8 @@ public class TLARequiredAction extends TLAExpression {
 		} else if (!body.equals(other.body))
 			return false;
 		if (vars == null) {
-			if (other.vars != null)
-				return false;
-		} else if (!vars.equals(other.vars))
-			return false;
-		return true;
+			return other.vars == null;
+		} else return vars.equals(other.vars);
 	}
 
 }

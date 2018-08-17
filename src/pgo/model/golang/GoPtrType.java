@@ -37,11 +37,8 @@ public class GoPtrType extends GoType {
 			return false;
 		GoPtrType other = (GoPtrType) obj;
 		if (pointee == null) {
-			if (other.pointee != null)
-				return false;
-		} else if (!pointee.equals(other.pointee))
-			return false;
-		return true;
+			return other.pointee == null;
+		} else return pointee.equals(other.pointee);
 	}
 
 }

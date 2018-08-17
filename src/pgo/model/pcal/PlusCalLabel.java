@@ -6,7 +6,7 @@ public class PlusCalLabel extends PlusCalNode {
 	String name;
 	Modifier modifier;
 	
-	public static enum Modifier{
+	public enum Modifier{
 		PLUS,
 		MINUS,
 		NONE,
@@ -57,10 +57,7 @@ public class PlusCalLabel extends PlusCalNode {
 		if (modifier != other.modifier)
 			return false;
 		if (name == null) {
-			if (other.name != null)
-				return false;
-		} else if (!name.equals(other.name))
-			return false;
-		return true;
+			return other.name == null;
+		} else return name.equals(other.name);
 	}
 }

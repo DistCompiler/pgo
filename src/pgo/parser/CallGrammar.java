@@ -35,7 +35,7 @@ public class CallGrammar<GrammarResult extends SourceLocatable,
 	}
 
 	@Override
-	public <Result, Except extends Throwable> Result accept(GrammarVisitor<Result, Except> visitor) throws Except {
+	public <Result, Except extends Throwable> Result accept(GrammarVisitor<Result, Except> visitor) {
 		return visitor.visit(this);
 	}
 }

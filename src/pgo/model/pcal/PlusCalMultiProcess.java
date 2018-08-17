@@ -46,11 +46,8 @@ public class PlusCalMultiProcess extends PlusCalProcesses {
 			return false;
 		PlusCalMultiProcess other = (PlusCalMultiProcess) obj;
 		if (processes == null) {
-			if (other.processes != null)
-				return false;
-		} else if (!processes.equals(other.processes))
-			return false;
-		return true;
+			return other.processes == null;
+		} else return processes.equals(other.processes);
 	}
 
 }

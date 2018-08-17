@@ -48,11 +48,8 @@ public class PlusCalEither extends PlusCalStatement {
 			return false;
 		PlusCalEither other = (PlusCalEither) obj;
 		if (cases == null) {
-			if (other.cases != null)
-				return false;
-		} else if (!cases.equals(other.cases))
-			return false;
-		return true;
+			return other.cases == null;
+		} else return cases.equals(other.cases);
 	}
 
 }

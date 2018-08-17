@@ -89,11 +89,8 @@ public class TLABinOp extends TLAExpression {
 		} else if (!prefix.equals(other.prefix))
 			return false;
 		if (rhs == null) {
-			if (other.rhs != null)
-				return false;
-		} else if (!rhs.equals(other.rhs))
-			return false;
-		return true;
+			return other.rhs == null;
+		} else return rhs.equals(other.rhs);
 	}
 
 }

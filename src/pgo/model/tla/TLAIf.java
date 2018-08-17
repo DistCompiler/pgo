@@ -74,11 +74,8 @@ public class TLAIf extends TLAExpression {
 		} else if (!fval.equals(other.fval))
 			return false;
 		if (tval == null) {
-			if (other.tval != null)
-				return false;
-		} else if (!tval.equals(other.tval))
-			return false;
-		return true;
+			return other.tval == null;
+		} else return tval.equals(other.tval);
 	}
 
 }

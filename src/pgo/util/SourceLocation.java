@@ -111,9 +111,7 @@ public class SourceLocation implements Comparable<SourceLocation> {
 			return false;
 		if (startColumn != other.startColumn)
 			return false;
-		if (startLine != other.startLine)
-			return false;
-		return true;
+		return startLine == other.startLine;
 	}
 
 	@Override

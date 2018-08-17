@@ -35,11 +35,8 @@ public class GoSliceType extends GoType {
 			return false;
 		GoSliceType other = (GoSliceType) obj;
 		if (elementType == null) {
-			if (other.elementType != null)
-				return false;
-		} else if (!elementType.equals(other.elementType))
-			return false;
-		return true;
+			return other.elementType == null;
+		} else return elementType.equals(other.elementType);
 	}
 
 }

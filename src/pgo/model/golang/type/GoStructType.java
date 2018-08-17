@@ -37,11 +37,8 @@ public class GoStructType extends GoType {
 			return false;
 		GoStructType other = (GoStructType) obj;
 		if (fields == null) {
-			if (other.fields != null)
-				return false;
-		} else if (!fields.equals(other.fields))
-			return false;
-		return true;
+			return other.fields == null;
+		} else return fields.equals(other.fields);
 	}
 
 }

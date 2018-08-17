@@ -53,11 +53,8 @@ public class TLASubstitutionKey extends TLANode {
 			return false;
 		TLASubstitutionKey other = (TLASubstitutionKey) obj;
 		if (indices == null) {
-			if (other.indices != null)
-				return false;
-		} else if (!indices.equals(other.indices))
-			return false;
-		return true;
+			return other.indices == null;
+		} else return indices.equals(other.indices);
 	}
 
 }

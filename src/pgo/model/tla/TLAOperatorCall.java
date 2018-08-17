@@ -79,11 +79,8 @@ public class TLAOperatorCall extends TLAExpression {
 		} else if (!name.equals(other.name))
 			return false;
 		if (prefix == null) {
-			if (other.prefix != null)
-				return false;
-		} else if (!prefix.equals(other.prefix))
-			return false;
-		return true;
+			return other.prefix == null;
+		} else return prefix.equals(other.prefix);
 	}
 
 }

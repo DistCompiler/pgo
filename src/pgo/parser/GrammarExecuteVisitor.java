@@ -12,7 +12,7 @@ public class GrammarExecuteVisitor extends GrammarVisitor<GrammarExecuteVisitor.
 		private final LexicalContext.Mark mark;
 		private final SourceLocatable result;
 
-		public ParsingResultPair(LexicalContext.Mark mark, SourceLocatable result) {
+		ParsingResultPair(LexicalContext.Mark mark, SourceLocatable result) {
 			this.mark = mark;
 			this.result = result;
 		}
@@ -29,7 +29,7 @@ public class GrammarExecuteVisitor extends GrammarVisitor<GrammarExecuteVisitor.
 	static final class ParsingResult {
 		private final List<ParsingResultPair> results;
 
-		public ParsingResult(List<ParsingResultPair> results) {
+		ParsingResult(List<ParsingResultPair> results) {
 			this.results = results;
 		}
 
@@ -42,7 +42,7 @@ public class GrammarExecuteVisitor extends GrammarVisitor<GrammarExecuteVisitor.
 		private final Grammar grammar;
 		private final FrozenVariableMap variableMap;
 
-		public MemoizeKey(Grammar grammar, FrozenVariableMap variableMap) {
+		MemoizeKey(Grammar grammar, FrozenVariableMap variableMap) {
 			this.grammar = grammar;
 			this.variableMap = variableMap;
 		}
@@ -66,7 +66,7 @@ public class GrammarExecuteVisitor extends GrammarVisitor<GrammarExecuteVisitor.
 		private final ParsingResult result;
 		private final LexicalContext.Mark mark;
 
-		public MemoizeRecord(ParsingResult result, LexicalContext.Mark mark) {
+		MemoizeRecord(ParsingResult result, LexicalContext.Mark mark) {
 			this.result = result;
 			this.mark = mark;
 		}
@@ -84,12 +84,12 @@ public class GrammarExecuteVisitor extends GrammarVisitor<GrammarExecuteVisitor.
 		private final NavigableMap<SourceLocation, Integer> minLocations;
 		private final NavigableMap<SourceLocation, Map<MemoizeKey, MemoizeRecord>> table;
 
-		public MemoizeTable() {
+		MemoizeTable() {
 			this.minLocations = new TreeMap<>();
 			this.table = new TreeMap<>();
 		}
 
-		public void setMinLocation(SourceLocation loc) {
+		void setMinLocation(SourceLocation loc) {
 			Integer old = minLocations.putIfAbsent(loc, 1);
 			if(old != null) {
 				minLocations.put(loc, old+1);
@@ -104,7 +104,7 @@ public class GrammarExecuteVisitor extends GrammarVisitor<GrammarExecuteVisitor.
 			}
 		}
 
-		public void clearMinLocation(SourceLocation loc) {
+		void clearMinLocation(SourceLocation loc) {
 			Integer val = minLocations.get(loc);
 			if(val == 1) {
 				minLocations.remove(loc);
@@ -121,11 +121,7 @@ public class GrammarExecuteVisitor extends GrammarVisitor<GrammarExecuteVisitor.
 		}
 
 		public void put(SourceLocation loc, MemoizeKey k, MemoizeRecord rec) {
-			Map<MemoizeKey, MemoizeRecord> nested = table.get(loc);
-			if(nested == null) {
-				nested = new HashMap<>();
-				table.put(loc, nested);
-			}
+			Map<MemoizeKey, MemoizeRecord> nested = table.computeIfAbsent(loc, k1 -> new HashMap<>());
 			nested.put(k, rec);
 		}
 	}
@@ -135,7 +131,8 @@ public class GrammarExecuteVisitor extends GrammarVisitor<GrammarExecuteVisitor.
 	private final LexicalContext lexicalContext;
 	private final NavigableMap<SourceLocation, Set<ParseFailure>> failures;
 
-	public GrammarExecuteVisitor(LexicalContext lexicalContext, FrozenVariableMap variableMap, NavigableMap<SourceLocation, Set<ParseFailure>> failures, MemoizeTable memoizeTable) {
+	GrammarExecuteVisitor(LexicalContext lexicalContext, FrozenVariableMap variableMap,
+						  NavigableMap<SourceLocation, Set<ParseFailure>> failures, MemoizeTable memoizeTable) {
 		this.lexicalContext = lexicalContext;
 		this.variableMap = variableMap;
 		this.memoizeTable = memoizeTable;
@@ -175,22 +172,16 @@ public class GrammarExecuteVisitor extends GrammarVisitor<GrammarExecuteVisitor.
 	public ParsingResult visit(PatternGrammar patternGrammar) throws RuntimeException {
 		Optional<Located<MatchResult>> result = lexicalContext.matchPattern(patternGrammar.getPattern());
 		if(result.isPresent()) {
-			String s = result.get().getValue().group();
-			/*if(!s.startsWith(" ") && !s.startsWith("\n")) {
-				System.out.println("pat " + s + " at " + result.get().getLocation());
-			}*/
 			return new ParsingResult(Collections.singletonList(
 					new ParsingResultPair(lexicalContext.mark(), result.get())));
 		}else{
-			/*if(patternGrammar.getPattern() != ParseTools.WHITESPACE) {
-				System.out.println("pat fail " + patternGrammar.getPattern() + " at " + lexicalContext.getSourceLocation());
-			}*/
 			addFailure(ParseFailure.patternMatchFailure(lexicalContext.getSourceLocation(), patternGrammar.getPattern()));
 			return new ParsingResult(Collections.emptyList());
 		}
 	}
 
 	@Override
+	@SuppressWarnings("unchecked")
 	public <
 			GrammarPredecessorResult extends SourceLocatable,
 			GrammarResult extends SourceLocatable
@@ -203,18 +194,6 @@ public class GrammarExecuteVisitor extends GrammarVisitor<GrammarExecuteVisitor.
 			GrammarResult mappedResult = mappingGrammar
 					.getMapping()
 					.apply((GrammarPredecessorResult)theResult.getResult());
-			/*if(mappedResult instanceof Located) {
-				Object v = ((Located<?>)mappedResult).getValue();
-				if(!(v instanceof ConsList) && v != null) {
-					System.out.println("map " + mappedResult);
-				}
-			}else if(mappedResult instanceof LocatedList) {
-				if(!((LocatedList<?>)mappedResult).isEmpty()){
-					System.out.println("map "+mappedResult);
-				}
-			}else{
-				System.out.println("map "+mappedResult);
-			}*/
 			return new ParsingResult(
 					Collections.singletonList(
 							new ParsingResultPair(
@@ -240,15 +219,9 @@ public class GrammarExecuteVisitor extends GrammarVisitor<GrammarExecuteVisitor.
 	public ParsingResult visit(StringGrammar stringGrammar) throws RuntimeException {
 		Optional<Located<Void>> result = lexicalContext.matchString(stringGrammar.getString());
 		if(result.isPresent()) {
-			/*if(stringGrammar.getString().length() != 0) {
-				System.out.println("str " + stringGrammar.getString() + " at " + result.get().getLocation());
-			}*/
 			return new ParsingResult(Collections.singletonList(
 					new ParsingResultPair(lexicalContext.mark(), result.get())));
 		}else{
-			/*if(!Arrays.asList("(*", "*)", "\\*").contains(stringGrammar.getString())) {
-				System.out.println("fail str " + stringGrammar.getString() + " at " + lexicalContext.getSourceLocation());
-			}*/
 			addFailure(ParseFailure.stringMatchFailure(lexicalContext.getSourceLocation(), stringGrammar.getString()));
 			return new ParsingResult(Collections.emptyList());
 		}
@@ -266,7 +239,6 @@ public class GrammarExecuteVisitor extends GrammarVisitor<GrammarExecuteVisitor.
 			results.addAll(branch.accept(this).getResults());
 		}
 		memoizeTable.clearMinLocation(possibleMinLocation);
-		//System.out.println("branched "+results.stream().map(p -> p.getResult()).collect(Collectors.toList()));
 		return new ParsingResult(results);
 	}
 
@@ -296,6 +268,7 @@ public class GrammarExecuteVisitor extends GrammarVisitor<GrammarExecuteVisitor.
 	}
 
 	@Override
+	@SuppressWarnings("unchecked")
 	public <Part extends SourceLocatable, Rest extends EmptyHeterogenousList> ParsingResult visit(PartSequenceGrammar<Part, Rest> partSequenceGrammar) {
 		ParsingResult restResult = partSequenceGrammar.getPrevGrammar().accept(this);
 		List<ParsingResultPair> results = new ArrayList<>();
@@ -316,6 +289,7 @@ public class GrammarExecuteVisitor extends GrammarVisitor<GrammarExecuteVisitor.
 	}
 
 	@Override
+	@SuppressWarnings("unchecked")
 	public <GrammarResult extends SourceLocatable, PredecessorResult extends EmptyHeterogenousList> ParsingResult visit(CallGrammar<GrammarResult, PredecessorResult> callGrammar) {
 		ParsingResult precedessorResult = callGrammar.getPredecessor().accept(this);
 		List<ParsingResultPair> results = new ArrayList<>();
@@ -360,6 +334,7 @@ public class GrammarExecuteVisitor extends GrammarVisitor<GrammarExecuteVisitor.
 	}
 
 	@Override
+	@SuppressWarnings("unchecked")
 	public <GrammarResult extends SourceLocatable> ParsingResult visit(PredicateGrammar<GrammarResult> predicateGrammar) throws RuntimeException {
 		ParsingResult prevResult = predicateGrammar.getToFilter().accept(this);
 		List<ParsingResultPair> results = new ArrayList<>(prevResult.getResults().size());

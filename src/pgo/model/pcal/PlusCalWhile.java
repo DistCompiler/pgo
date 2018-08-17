@@ -58,11 +58,8 @@ public class PlusCalWhile extends PlusCalStatement {
 		} else if (!body.equals(other.body))
 			return false;
 		if (condition == null) {
-			if (other.condition != null)
-				return false;
-		} else if (!condition.equals(other.condition))
-			return false;
-		return true;
+			return other.condition == null;
+		} else return condition.equals(other.condition);
 	}
 
 }

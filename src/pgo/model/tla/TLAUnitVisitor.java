@@ -10,4 +10,4 @@ public abstract class TLAUnitVisitor<T, E extends Throwable> {
 	public abstract T visit(TLAConstantDeclaration TLAConstantDeclaration) throws E;
 	public abstract T visit(TLAModuleDefinition pGoTLAModuleDefinition) throws E;
 	public abstract T visit(TLAAssumption TLAAssumption) throws E;
-};
+}

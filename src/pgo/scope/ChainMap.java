@@ -94,7 +94,7 @@ public class ChainMap<K, V> implements Map<K, V> {
 
 	@Override
 	public Collection<V> values() {
-		return entrySet().stream().map(Entry<K, V>::getValue).collect(Collectors.toList());
+		return entrySet().stream().map(Entry::getValue).collect(Collectors.toList());
 	}
 
 

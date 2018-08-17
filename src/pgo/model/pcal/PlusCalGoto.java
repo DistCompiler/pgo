@@ -43,11 +43,8 @@ public class PlusCalGoto extends PlusCalStatement {
 			return false;
 		PlusCalGoto other = (PlusCalGoto) obj;
 		if (target == null) {
-			if (other.target != null)
-				return false;
-		} else if (!target.equals(other.target))
-			return false;
-		return true;
+			return other.target == null;
+		} else return target.equals(other.target);
 	}
 
 }

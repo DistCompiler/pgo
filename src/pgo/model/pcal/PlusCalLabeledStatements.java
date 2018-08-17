@@ -58,11 +58,8 @@ public class PlusCalLabeledStatements extends PlusCalStatement {
 		} else if (!label.equals(other.label))
 			return false;
 		if (statements == null) {
-			if (other.statements != null)
-				return false;
-		} else if (!statements.equals(other.statements))
-			return false;
-		return true;
+			return other.statements == null;
+		} else return statements.equals(other.statements);
 	}
 
 }

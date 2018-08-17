@@ -46,11 +46,8 @@ public class TLAConstantDeclaration extends TLAUnit {
 			return false;
 		TLAConstantDeclaration other = (TLAConstantDeclaration) obj;
 		if (constants == null) {
-			if (other.constants != null)
-				return false;
-		} else if (!constants.equals(other.constants))
-			return false;
-		return true;
+			return other.constants == null;
+		} else return constants.equals(other.constants);
 	}
 
 }

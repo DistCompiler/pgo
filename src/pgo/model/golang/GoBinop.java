@@ -8,7 +8,7 @@ public class GoBinop extends GoExpression {
 	private GoExpression rhs;
 	private Operation op;
 	
-	public static enum Operation{
+	public enum Operation{
 		// grouped by precedence
 		OR,
 		AND,
