@@ -81,7 +81,7 @@ public class PlusCalProcessesCodeGenVisitor extends PlusCalProcessesVisitor<Void
 		try (GoBlockBuilder fnBuilder = moduleBuilder.defineFunction("main").getBlockBuilder()) {
 			globalStrategy.mainPrelude(fnBuilder);
 			generateLocalVariableDefinitions(registry, typeMap, globalStrategy, fnBuilder, plusCalAlgorithm.getVariables());
-			for (PlusCalLabeledStatements statements : singleProcess.getLabeledStatements()) {
+			for (PlusCalStatement statements : singleProcess.getBody()) {
 				statements.accept(new PlusCalStatementCodeGenVisitor(
 						registry, typeMap, globalStrategy, singleProcess.getUID(), fnBuilder));
 			}
@@ -123,7 +123,7 @@ public class PlusCalProcessesCodeGenVisitor extends PlusCalProcessesVisitor<Void
 				processBody.linkUID(processUID, self);
 				globalStrategy.processPrelude(processBody, process, process.getName().getName().getValue(), self, selfType);
 				generateLocalVariableDefinitions(registry, typeMap, globalStrategy, processBody, process.getVariables());
-		 		for (PlusCalLabeledStatements statements : process.getLabeledStatements()) {
+		 		for (PlusCalStatement statements : process.getBody()) {
 					statements.accept(new PlusCalStatementCodeGenVisitor(
 							registry, typeMap, globalStrategy, processUID, processBody));
 				}

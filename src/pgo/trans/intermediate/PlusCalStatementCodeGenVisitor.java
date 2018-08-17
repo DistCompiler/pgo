@@ -185,26 +185,13 @@ public class PlusCalStatementCodeGenVisitor extends PlusCalStatementVisitor<Void
 
 	@Override
 	public Void visit(PlusCalWith with) throws RuntimeException {
-		// with statements with multiple declarations such as
-		//     with (v1 = e1, v2 \in e2, v3 = e3)
-		//         body
-		// are structured as
-		//     with (v1 = e1)
-		//         with (v2 \in e2)
-		//             with (v3 = e3)
-		//                 body
-		while (true) {
-			PlusCalVariableDeclaration decl = with.getVariable();
-			GoExpression value = decl.getValue().accept(new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
+		for(PlusCalVariableDeclaration decl : with.getVariables()) {
+			GoExpression value = decl.getValue().accept(
+					new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
 			if (decl.isSet()) {
 				value = new GoIndexExpression(value, new GoIntLiteral(0));
 			}
 			builder.linkUID(decl.getUID(), builder.varDecl(decl.getName().getValue(), value));
-			if (with.getBody().size() != 1 || !(with.getBody().get(0) instanceof PlusCalWith)) {
-				break;
-			}
-			// flatten out the nested withs
-			with = (PlusCalWith) with.getBody().get(0);
 		}
 		for (PlusCalStatement statement : with.getBody()) {
 			statement.accept(this);

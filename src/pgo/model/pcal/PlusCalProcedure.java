@@ -10,9 +10,9 @@ public class PlusCalProcedure extends PlusCalNode {
 	String name;
 	List<PlusCalVariableDeclaration> arguments;
 	List<PlusCalVariableDeclaration> variables;
-	List<PlusCalLabeledStatements> body;
+	List<PlusCalStatement> body;
 
-	public PlusCalProcedure(SourceLocation location, String name, List<PlusCalVariableDeclaration> arguments, List<PlusCalVariableDeclaration> variables, List<PlusCalLabeledStatements> body) {
+	public PlusCalProcedure(SourceLocation location, String name, List<PlusCalVariableDeclaration> arguments, List<PlusCalVariableDeclaration> variables, List<PlusCalStatement> body) {
 		super(location);
 		this.name = name;
 		this.arguments = arguments;
@@ -27,7 +27,7 @@ public class PlusCalProcedure extends PlusCalNode {
 				name,
 				arguments.stream().map(PlusCalVariableDeclaration::copy).collect(Collectors.toList()),
 				variables.stream().map(PlusCalVariableDeclaration::copy).collect(Collectors.toList()),
-				body.stream().map(PlusCalLabeledStatements::copy).collect(Collectors.toList()));
+				body.stream().map(PlusCalStatement::copy).collect(Collectors.toList()));
 	}
 
 	public String getName() {
@@ -42,7 +42,7 @@ public class PlusCalProcedure extends PlusCalNode {
 		return variables;
 	}
 
-	public List<PlusCalLabeledStatements> getBody() {
+	public List<PlusCalStatement> getBody() {
 		return body;
 	}
 

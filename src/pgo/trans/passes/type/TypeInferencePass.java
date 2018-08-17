@@ -75,7 +75,7 @@ public class TypeInferencePass {
 		plusCalAlgorithm.getProcesses().accept(new PlusCalProcessesVisitor<Void, RuntimeException>(){
 			@Override
 			public Void visit(PlusCalSingleProcess singleProcess) throws RuntimeException {
-				for (PlusCalLabeledStatements statements : singleProcess.getLabeledStatements()) {
+				for (PlusCalStatement statements : singleProcess.getBody()) {
 					statements.accept(new PlusCalStatementTypeConstraintVisitor(ctx, registry, solver, generator, mapping));
 				}
 				return null;
@@ -97,7 +97,7 @@ public class TypeInferencePass {
 					for (PlusCalVariableDeclaration var : process.getVariables()) {
 						constrainVariableDeclaration(registry, var, solver, generator, mapping);
 					}
-					for (PlusCalLabeledStatements statements : process.getLabeledStatements()) {
+					for (PlusCalStatement statements : process.getBody()) {
 						statements.accept(new PlusCalStatementTypeConstraintVisitor(ctx, registry, solver, generator, mapping));
 					}
 				}

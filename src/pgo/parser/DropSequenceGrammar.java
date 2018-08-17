@@ -2,6 +2,8 @@ package pgo.parser;
 
 import pgo.util.SourceLocatable;
 
+import java.util.Objects;
+
 public class DropSequenceGrammar<Dropped extends SourceLocatable, PrevResult extends EmptyHeterogenousList> extends AbstractSequenceGrammar<PrevResult> {
 
 	private final Grammar<Located<PrevResult>> previous;

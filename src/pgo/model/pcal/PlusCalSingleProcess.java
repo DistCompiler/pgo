@@ -1,26 +1,29 @@
 package pgo.model.pcal;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import pgo.util.SourceLocation;
 
 public class PlusCalSingleProcess extends PlusCalProcesses {
 	
-	private List<PlusCalLabeledStatements> labeledStatements;
+	private List<PlusCalStatement> body;
 	
-	public PlusCalSingleProcess(SourceLocation location, List<PlusCalLabeledStatements> labeledStatements) {
+	public PlusCalSingleProcess(SourceLocation location, List<PlusCalStatement> body) {
 		super(location);
-		this.labeledStatements = labeledStatements;
+		this.body = body;
 	}
 	
 	@Override
 	public PlusCalSingleProcess copy() {
-		return new PlusCalSingleProcess(getLocation(), labeledStatements.stream().map(PlusCalLabeledStatements::copy).collect(Collectors.toList()));
+		return new PlusCalSingleProcess(
+				getLocation(),
+				body.stream().map(PlusCalStatement::copy).collect(Collectors.toList()));
 	}
 	
-	public List<PlusCalLabeledStatements> getLabeledStatements() {
-		return labeledStatements;
+	public List<PlusCalStatement> getBody() {
+		return body;
 	}
 
 	@Override
@@ -29,28 +32,15 @@ public class PlusCalSingleProcess extends PlusCalProcesses {
 	}
 
 	@Override
-	public int hashCode() {
-		final int prime = 31;
-		int result = 1;
-		result = prime * result + ((labeledStatements == null) ? 0 : labeledStatements.hashCode());
-		return result;
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		PlusCalSingleProcess that = (PlusCalSingleProcess) o;
+		return Objects.equals(body, that.body);
 	}
 
 	@Override
-	public boolean equals(Object obj) {
-		if (this == obj)
-			return true;
-		if (obj == null)
-			return false;
-		if (getClass() != obj.getClass())
-			return false;
-		PlusCalSingleProcess other = (PlusCalSingleProcess) obj;
-		if (labeledStatements == null) {
-			if (other.labeledStatements != null)
-				return false;
-		} else if (!labeledStatements.equals(other.labeledStatements))
-			return false;
-		return true;
+	public int hashCode() {
+		return Objects.hash(body);
 	}
-
 }

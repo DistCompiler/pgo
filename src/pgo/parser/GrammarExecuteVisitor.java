@@ -1,43 +1,48 @@
 package pgo.parser;
 
-import pgo.TODO;
 import pgo.util.SourceLocatable;
 import pgo.util.SourceLocation;
 
 import java.util.*;
-import java.util.function.BiFunction;
-import java.util.function.Function;
-import java.util.function.Predicate;
-import java.util.function.Supplier;
 import java.util.regex.MatchResult;
 
 public class GrammarExecuteVisitor extends GrammarVisitor<GrammarExecuteVisitor.ParsingResult, RuntimeException> {
 
-	static final class ParsingResult {
+	static final class ParsingResultPair {
+		private final LexicalContext.Mark mark;
 		private final SourceLocatable result;
-		private final Supplier<ParsingResult> retry;
 
-		public ParsingResult(SourceLocatable result, Supplier<ParsingResult> retry) {
+		public ParsingResultPair(LexicalContext.Mark mark, SourceLocatable result) {
+			this.mark = mark;
 			this.result = result;
-			this.retry = retry;
+		}
+
+		public LexicalContext.Mark getMark() {
+			return mark;
 		}
 
 		public SourceLocatable getResult() {
 			return result;
 		}
+	}
 
-		public Supplier<ParsingResult> getRetry() {
-			return retry;
+	static final class ParsingResult {
+		private final List<ParsingResultPair> results;
+
+		public ParsingResult(List<ParsingResultPair> results) {
+			this.results = results;
+		}
+
+		public List<ParsingResultPair> getResults() {
+			return results;
 		}
 	}
 
 	static final class MemoizeKey {
-		private final SourceLocation sourceLocation;
 		private final Grammar grammar;
 		private final FrozenVariableMap variableMap;
 
-		public MemoizeKey(SourceLocation sourceLocation, Grammar grammar, FrozenVariableMap variableMap) {
-			this.sourceLocation = sourceLocation;
+		public MemoizeKey(Grammar grammar, FrozenVariableMap variableMap) {
 			this.grammar = grammar;
 			this.variableMap = variableMap;
 		}
@@ -47,14 +52,13 @@ public class GrammarExecuteVisitor extends GrammarVisitor<GrammarExecuteVisitor.
 			if (this == o) return true;
 			if (o == null || getClass() != o.getClass()) return false;
 			MemoizeKey that = (MemoizeKey) o;
-			return Objects.equals(sourceLocation, that.sourceLocation) &&
-					Objects.equals(grammar, that.grammar) &&
+			return Objects.equals(grammar, that.grammar) &&
 					Objects.equals(variableMap, that.variableMap);
 		}
 
 		@Override
 		public int hashCode() {
-			return Objects.hash(sourceLocation, grammar, variableMap);
+			return Objects.hash(grammar, variableMap);
 		}
 	}
 
@@ -77,27 +81,52 @@ public class GrammarExecuteVisitor extends GrammarVisitor<GrammarExecuteVisitor.
 	}
 
 	static final class MemoizeTable {
-		private final Deque<MemoizeKey> lru;
-		private final Map<MemoizeKey, MemoizeRecord> table;
-		private static final int MAX_SIZE = 1000000;
+		private final NavigableMap<SourceLocation, Integer> minLocations;
+		private final NavigableMap<SourceLocation, Map<MemoizeKey, MemoizeRecord>> table;
 
 		public MemoizeTable() {
-			this.lru = new ArrayDeque<>(MAX_SIZE);
-			this.table = new HashMap<>(MAX_SIZE);
+			this.minLocations = new TreeMap<>();
+			this.table = new TreeMap<>();
 		}
 
-		public MemoizeRecord get(MemoizeKey k) {
-			return table.get(k);
-		}
-
-		public void put(MemoizeKey k, MemoizeRecord rec) {
-			if(table.put(k, rec) == null) {
-				if(table.size() >= MAX_SIZE) {
-					//System.out.println("size "+table.size());
-					table.remove(lru.removeFirst());
-				}
-				lru.addLast(k);
+		public void setMinLocation(SourceLocation loc) {
+			Integer old = minLocations.putIfAbsent(loc, 1);
+			if(old != null) {
+				minLocations.put(loc, old+1);
 			}
+		}
+
+		public void gc() {
+			if(minLocations.isEmpty()) {
+				table.clear();
+			}else {
+				table.headMap(minLocations.firstKey()).clear();
+			}
+		}
+
+		public void clearMinLocation(SourceLocation loc) {
+			Integer val = minLocations.get(loc);
+			if(val == 1) {
+				minLocations.remove(loc);
+				gc();
+			}else{
+				minLocations.put(loc, val-1);
+			}
+		}
+
+		public MemoizeRecord get(SourceLocation location, MemoizeKey k) {
+			Map<MemoizeKey, MemoizeRecord> nested = table.get(location);
+			if(nested == null) return null;
+			return nested.get(k);
+		}
+
+		public void put(SourceLocation loc, MemoizeKey k, MemoizeRecord rec) {
+			Map<MemoizeKey, MemoizeRecord> nested = table.get(loc);
+			if(nested == null) {
+				nested = new HashMap<>();
+				table.put(loc, nested);
+			}
+			nested.put(k, rec);
 		}
 	}
 
@@ -125,18 +154,15 @@ public class GrammarExecuteVisitor extends GrammarVisitor<GrammarExecuteVisitor.
 	}
 
 	private ParsingResult tryMemoize(Grammar<? extends SourceLocatable> grammar) {
-		if(grammar instanceof StringGrammar || grammar instanceof PatternGrammar) {
-			return grammar.accept(this);
-		}
-
-		MemoizeKey key = new MemoizeKey(lexicalContext.getSourceLocation(), grammar, variableMap);
+		SourceLocation loc = lexicalContext.getSourceLocation();
+		MemoizeKey key = new MemoizeKey(grammar, variableMap);
 		MemoizeRecord record;
-		if((record = memoizeTable.get(key)) != null) {
+		if((record = memoizeTable.get(loc, key)) != null) {
 			lexicalContext.restore(record.getMark());
 			return record.getResult();
 		}else{
 			ParsingResult result = grammar.accept(this);
-			memoizeTable.put(key, new MemoizeRecord(result, lexicalContext.mark()));
+			memoizeTable.put(loc, key, new MemoizeRecord(result, lexicalContext.mark()));
 			return result;
 		}
 	}
@@ -153,38 +179,14 @@ public class GrammarExecuteVisitor extends GrammarVisitor<GrammarExecuteVisitor.
 			/*if(!s.startsWith(" ") && !s.startsWith("\n")) {
 				System.out.println("pat " + s + " at " + result.get().getLocation());
 			}*/
-			return new ParsingResult(result.get(), null);
+			return new ParsingResult(Collections.singletonList(
+					new ParsingResultPair(lexicalContext.mark(), result.get())));
 		}else{
 			/*if(patternGrammar.getPattern() != ParseTools.WHITESPACE) {
 				System.out.println("pat fail " + patternGrammar.getPattern() + " at " + lexicalContext.getSourceLocation());
 			}*/
 			addFailure(ParseFailure.patternMatchFailure(lexicalContext.getSourceLocation(), patternGrammar.getPattern()));
-			return new ParsingResult(null, null);
-		}
-	}
-
-	private static final class MappingRetry implements Supplier<ParsingResult> {
-
-		private final Function<SourceLocatable, SourceLocatable> mapping;
-		private final Supplier<ParsingResult> nestedRetry;
-
-		public MappingRetry(Function<SourceLocatable, SourceLocatable> mapping, Supplier<ParsingResult> nestedRetry) {
-			this.mapping = mapping;
-			this.nestedRetry = nestedRetry;
-		}
-
-		@Override
-		public ParsingResult get() {
-			ParsingResult nestedResult = nestedRetry.get();
-			if(nestedResult.getResult() != null) {
-				return new ParsingResult(
-						mapping.apply(nestedResult.getResult()),
-						nestedResult.getRetry() != null ?
-								new MappingRetry(mapping, nestedResult.getRetry())
-								: null);
-			}
-			assert nestedResult.getRetry() == null;
-			return nestedResult;
+			return new ParsingResult(Collections.emptyList());
 		}
 	}
 
@@ -193,25 +195,45 @@ public class GrammarExecuteVisitor extends GrammarVisitor<GrammarExecuteVisitor.
 			GrammarPredecessorResult extends SourceLocatable,
 			GrammarResult extends SourceLocatable
 			> ParsingResult visit(MappingGrammar<GrammarPredecessorResult, GrammarResult> mappingGrammar) throws RuntimeException {
-		ParsingResult predecessorResult = tryMemoize(mappingGrammar.getPredecessorGrammar());
-
-		if(predecessorResult.getResult() != null) {
+		ParsingResult predecessorResult = mappingGrammar.getPredecessorGrammar().accept(this);
+		if(predecessorResult.getResults().isEmpty()) {
+			return predecessorResult;
+		}else if(predecessorResult.getResults().size() == 1) {
+			ParsingResultPair theResult = predecessorResult.getResults().get(0);
+			GrammarResult mappedResult = mappingGrammar
+					.getMapping()
+					.apply((GrammarPredecessorResult)theResult.getResult());
+			/*if(mappedResult instanceof Located) {
+				Object v = ((Located<?>)mappedResult).getValue();
+				if(!(v instanceof ConsList) && v != null) {
+					System.out.println("map " + mappedResult);
+				}
+			}else if(mappedResult instanceof LocatedList) {
+				if(!((LocatedList<?>)mappedResult).isEmpty()){
+					System.out.println("map "+mappedResult);
+				}
+			}else{
+				System.out.println("map "+mappedResult);
+			}*/
 			return new ParsingResult(
-					Objects.requireNonNull(
-							mappingGrammar.getMapping().apply((GrammarPredecessorResult)predecessorResult.getResult())),
-					predecessorResult.getRetry() != null ?
-							new MappingRetry(
-									(Function<SourceLocatable, SourceLocatable>)mappingGrammar.getMapping(),
-									predecessorResult.getRetry())
-							: null);
+					Collections.singletonList(
+							new ParsingResultPair(
+									theResult.getMark(),
+									mappedResult)));
+		}else{
+			List<ParsingResultPair> mapped = new ArrayList<>();
+			for(ParsingResultPair prev : predecessorResult.getResults()) {
+				mapped.add(new ParsingResultPair(
+						prev.getMark(),
+						mappingGrammar.getMapping().apply((GrammarPredecessorResult)prev.getResult())));
+			}
+			return new ParsingResult(mapped);
 		}
-		assert predecessorResult.getRetry() == null;
-		return predecessorResult;
 	}
 
 	@Override
 	public <GrammarResult extends SourceLocatable> ParsingResult visit(ReferenceGrammar<GrammarResult> referenceGrammar) throws RuntimeException {
-		return tryMemoize(referenceGrammar.getReferencedGrammar());
+		return referenceGrammar.getReferencedGrammar().accept(this);
 	}
 
 	@Override
@@ -221,267 +243,132 @@ public class GrammarExecuteVisitor extends GrammarVisitor<GrammarExecuteVisitor.
 			/*if(stringGrammar.getString().length() != 0) {
 				System.out.println("str " + stringGrammar.getString() + " at " + result.get().getLocation());
 			}*/
-			return new ParsingResult(result.get(), null);
+			return new ParsingResult(Collections.singletonList(
+					new ParsingResultPair(lexicalContext.mark(), result.get())));
 		}else{
 			/*if(!Arrays.asList("(*", "*)", "\\*").contains(stringGrammar.getString())) {
 				System.out.println("fail str " + stringGrammar.getString() + " at " + lexicalContext.getSourceLocation());
 			}*/
 			addFailure(ParseFailure.stringMatchFailure(lexicalContext.getSourceLocation(), stringGrammar.getString()));
-			return new ParsingResult(null, null);
-		}
-	}
-
-	private static class ChainRetry implements Supplier<ParsingResult> {
-
-		private final Supplier<ParsingResult> before;
-		private final Supplier<ParsingResult> after;
-
-		ChainRetry(Supplier<ParsingResult> before, Supplier<ParsingResult> after) {
-			this.before = before;
-			this.after = after;
-		}
-
-		@Override
-		public ParsingResult get() {
-			ParsingResult retryResult = before.get();
-			// if the parse succeeded, either make another chain with more retries from before, or just have them
-			// retry after
-			if(retryResult.getResult() != null) {
-				return new ParsingResult(
-						retryResult.getResult(),
-						retryResult.getRetry() != null ?
-								new ChainRetry(retryResult.getRetry(), after)
-								: after);
-			}
-			// if before fails, try after immediately
-			return after.get();
-		}
-	}
-
-	private static class BranchRetry implements Supplier<ParsingResult> {
-
-		private final LexicalContext.Mark mark;
-		private final GrammarExecuteVisitor visitor;
-		private final List<? extends Grammar<? extends SourceLocatable>> branches;
-
-		BranchRetry(LexicalContext.Mark mark, GrammarExecuteVisitor visitor, List<? extends Grammar<? extends SourceLocatable>> branches) {
-			this.mark = mark;
-			this.visitor = visitor;
-			this.branches = branches;
-		}
-
-		@Override
-		public ParsingResult get() {
-			for(int i = 0; i < branches.size()-1; ++i){
-				visitor.lexicalContext.restore(mark);
-				ParsingResult branchResult = visitor.tryMemoize(branches.get(i));
-				if(branchResult.getResult() != null) {
-					return new ParsingResult(
-							branchResult.getResult(),
-							branchResult.getRetry() != null ?
-									new ChainRetry(branchResult.getRetry(), new BranchRetry(
-											mark, visitor, branches.subList(i+1, branches.size())))
-									: new BranchRetry(mark, visitor, branches.subList(i+1, branches.size())));
-				}
-				assert branchResult.getRetry() == null;
-			}
-			// on the last branch, don't even bother setting up retries. either it fails with no retry or succeeds
-			// with its own retries
-			visitor.lexicalContext.restore(mark);
-			return visitor.tryMemoize(branches.get(branches.size()-1));
+			return new ParsingResult(Collections.emptyList());
 		}
 	}
 
 	@Override
 	public <GrammarResult extends SourceLocatable> ParsingResult visit(BranchGrammar<GrammarResult> branchGrammar) throws RuntimeException {
 		List<? extends Grammar<? extends GrammarResult>> branches = branchGrammar.getBranches();
-		if(branches.isEmpty()) return new ParsingResult(null, null);
-		return new BranchRetry(lexicalContext.mark(), this, branches).get();
+		List<ParsingResultPair> results = new ArrayList<>();
+		SourceLocation possibleMinLocation = lexicalContext.getSourceLocation();
+		memoizeTable.setMinLocation(possibleMinLocation);
+		LexicalContext.Mark mark = lexicalContext.mark();
+		for(Grammar<? extends GrammarResult> branch : branches) {
+			lexicalContext.restore(mark);
+			results.addAll(branch.accept(this).getResults());
+		}
+		memoizeTable.clearMinLocation(possibleMinLocation);
+		//System.out.println("branched "+results.stream().map(p -> p.getResult()).collect(Collectors.toList()));
+		return new ParsingResult(results);
 	}
 
 	@Override
 	public ParsingResult visit(EmptySequenceGrammar emptySequenceGrammar) throws RuntimeException {
-		return new ParsingResult(new Located<Void>(SourceLocation.unknown(), null), null);
-	}
-
-	private static final class SequenceRetry implements Supplier<ParsingResult> {
-		private final Function<SourceLocatable, ParsingResult> executor;
-		private final ParsingResult previousResult;
-		private final Supplier<ParsingResult> partRetry;
-		private final BiFunction<SourceLocatable, SourceLocatable, SourceLocatable> combinator;
-
-		public SequenceRetry(Function<SourceLocatable, ParsingResult> executor, ParsingResult previousResult, Supplier<ParsingResult> partRetry, BiFunction<SourceLocatable, SourceLocatable, SourceLocatable> combinator) {
-			this.executor = executor;
-			this.previousResult = previousResult;
-			this.partRetry = partRetry;
-			this.combinator = combinator;
-		}
-
-		@Override
-		public ParsingResult get() {
-			ParsingResult partResult = partRetry.get();
-			ParsingResult prevResult = previousResult;
-			while(partResult.getResult() == null) {
-				if(prevResult.getRetry() == null) {
-					assert partResult.getRetry() == null;
-					return partResult;
-				}
-				prevResult = prevResult.getRetry().get();
-				if(prevResult.getResult() == null) {
-					assert prevResult.getRetry() == null;
-					return prevResult;
-				}
-				partResult = executor.apply(prevResult.getResult());
-				if (partResult.getResult() != null) {
-					break;
-				}
-			}
-
-			Located<?> prevResultVal = (Located<?>)prevResult.getResult();
-			SourceLocatable currentResult = combinator.apply(partResult.getResult(), prevResultVal);
-
-			if(prevResult.getRetry() == null) {
-				if(partResult.getRetry() != null) {
-					// if our current part has retries but prev doesn't, use a mapping retry to just keep replacing
-					// the current part's result(s) with the previous (and updating the previous result's source location)
-					return new ParsingResult(
-							currentResult,
-							new MappingRetry(
-									newPartResult -> combinator.apply(newPartResult, prevResultVal),
-									partResult.getRetry()));
-				}else{
-					return new ParsingResult(currentResult, null);
-				}
-			}
-
-			return new ParsingResult(
-					currentResult,
-					new SequenceRetry(
-							executor,
-							prevResult,
-							partResult.getRetry() != null ?
-									partResult.getRetry()
-									: () -> new ParsingResult(null, null),
-							combinator));
-		}
+		return new ParsingResult(Collections.singletonList(new ParsingResultPair(
+				lexicalContext.mark(), new Located<Void>(SourceLocation.unknown(), null))));
 	}
 
 	@Override
 	public <Dropped extends SourceLocatable, Rest extends EmptyHeterogenousList> ParsingResult visit(DropSequenceGrammar<Dropped, Rest> dropSequenceGrammar) {
-		ParsingResult restResult = tryMemoize(dropSequenceGrammar.getPrevious());
-		if(restResult.getResult() == null) {
-			assert restResult.getRetry() == null;
-			return restResult;
+		ParsingResult restResult = dropSequenceGrammar.getPrevious().accept(this);
+		List<ParsingResultPair> results = new ArrayList<>();
+		for(ParsingResultPair prevResult : restResult.getResults()) {
+			lexicalContext.restore(prevResult.getMark());
+			ParsingResult currentResult = dropSequenceGrammar.getDropped().accept(this);
+			for(ParsingResultPair p : currentResult.getResults()) {
+				Located<?> nResult = (Located<?>)prevResult.getResult();
+				results.add(new ParsingResultPair(
+						p.getMark(),
+						new Located<>(
+								p.getResult().getLocation().combine(nResult.getLocation()),
+								nResult.getValue())));
+			}
 		}
-		return new SequenceRetry(
-				ignored -> tryMemoize(dropSequenceGrammar.getDropped()),
-				restResult,
-				() -> tryMemoize(dropSequenceGrammar.getDropped()),
-				(part, rest) -> {
-					Located<?> restV = (Located<?>)rest;
-					return new Located<>(rest.getLocation().combine(part.getLocation()), restV.getValue());
-				})
-				.get();
+		return new ParsingResult(results);
 	}
 
 	@Override
 	public <Part extends SourceLocatable, Rest extends EmptyHeterogenousList> ParsingResult visit(PartSequenceGrammar<Part, Rest> partSequenceGrammar) {
-		ParsingResult restResult = tryMemoize(partSequenceGrammar.getPrevGrammar());
-		if(restResult.getResult() == null) {
-			assert restResult.getRetry() == null;
-			return restResult;
+		ParsingResult restResult = partSequenceGrammar.getPrevGrammar().accept(this);
+		List<ParsingResultPair> results = new ArrayList<>();
+		for(ParsingResultPair prevResult : restResult.getResults()) {
+			lexicalContext.restore(prevResult.getMark());
+			ParsingResult currentResult = partSequenceGrammar.getCurrent().accept(this);
+			for(ParsingResultPair p : currentResult.getResults()) {
+				Located<Rest> prev = (Located<Rest>)prevResult.getResult();
+				results.add(new ParsingResultPair(
+						p.getMark(),
+						new Located<>(
+								p.getResult().getLocation().combine(prev.getLocation()),
+								HeterogenousListTools.cons(p.getResult(), prev.getValue()))
+				));
+			}
 		}
-		return new SequenceRetry(
-				ignored -> tryMemoize(partSequenceGrammar.getCurrent()),
-				restResult,
-				() -> tryMemoize(partSequenceGrammar.getCurrent()),
-				(part, rest) -> {
-					Located<? extends EmptyHeterogenousList> restV =
-							(Located<? extends EmptyHeterogenousList>)rest;
-					return new Located<>(
-							part.getLocation().combine(rest.getLocation()),
-							HeterogenousListTools.cons(part, restV.getValue()));
-				})
-				.get();
+		return new ParsingResult(results);
 	}
 
 	@Override
 	public <GrammarResult extends SourceLocatable, PredecessorResult extends EmptyHeterogenousList> ParsingResult visit(CallGrammar<GrammarResult, PredecessorResult> callGrammar) {
-		ParsingResult precedessorResult = tryMemoize(callGrammar.getPredecessor());
-		if(precedessorResult.getResult() == null) {
-			assert precedessorResult.getRetry() == null;
-			return precedessorResult;
+		ParsingResult precedessorResult = callGrammar.getPredecessor().accept(this);
+		List<ParsingResultPair> results = new ArrayList<>();
+		for(ParsingResultPair prevResult : precedessorResult.getResults()) {
+			lexicalContext.restore(prevResult.getMark());
+			ParsingResult currentResult = callGrammar.getTarget().accept(new GrammarExecuteVisitor(
+					lexicalContext,
+					callGrammar
+							.getMappingGenerator()
+							.apply(new ParseInfo<>(
+									(Located<PredecessorResult>) prevResult.getResult(),
+									variableMap))
+							.freeze(),
+					failures,
+					memoizeTable));
+			for(ParsingResultPair p : currentResult.getResults()) {
+				Located<PredecessorResult> prev = (Located<PredecessorResult>)prevResult.getResult();
+				results.add(new ParsingResultPair(
+						p.getMark(),
+						new Located<>(
+								prev.getLocation().combine(p.getResult().getLocation()),
+								HeterogenousListTools.cons(p.getResult(), prev.getValue()))
+				));
+			}
 		}
-		Function<SourceLocatable, ParsingResult> executor = prevResult ->
-				new GrammarExecuteVisitor(
-						lexicalContext,
-						callGrammar
-								.getMappingGenerator()
-								.apply(new ParseInfo<>(
-										(Located<PredecessorResult>) prevResult,
-										variableMap))
-								.freeze(),
-						failures,
-						memoizeTable).tryMemoize(callGrammar.getTarget());
-		return new SequenceRetry(
-				executor,
-				precedessorResult,
-				() -> executor.apply(precedessorResult.getResult()),
-				(part, rest) -> {
-					Located<? extends EmptyHeterogenousList> restV =
-							(Located<? extends EmptyHeterogenousList>)rest;
-					return new Located<>(
-							part.getLocation().combine(rest.getLocation()),
-							HeterogenousListTools.cons(part, restV.getValue()));
-				})
-				.get();
+		return new ParsingResult(results);
 	}
 
 	@Override
 	public <GrammarResult extends SourceLocatable> ParsingResult visit(CutGrammar<GrammarResult> cutGrammar) throws RuntimeException {
-		ParsingResult result = tryMemoize(cutGrammar.getToCut());
-		return new ParsingResult(result.getResult(), null);
+		ParsingResult result = cutGrammar.getToCut().accept(this);
+		if(result.getResults().isEmpty()) {
+			return result;
+		}else{
+			return new ParsingResult(Collections.singletonList(result.getResults().get(0)));
+		}
 	}
 
-	private static final class PredicateRetry implements Supplier<ParsingResult> {
-		private final Supplier<ParsingResult> retry;
-		private final Predicate<ParseInfo<SourceLocatable>> predicate;
-		private final FrozenVariableMap variableMap;
-
-		public PredicateRetry(Supplier<ParsingResult> retry, Predicate<? extends ParseInfo<? extends SourceLocatable>> predicate, FrozenVariableMap variableMap) {
-			this.retry = retry;
-			this.predicate = (Predicate<ParseInfo<SourceLocatable>>)predicate;
-			this.variableMap = variableMap;
-		}
-
-		@Override
-		public ParsingResult get() {
-			ParsingResult retryResult = retry.get();
-			while(retryResult.getResult() != null){
-				if(predicate.test(new ParseInfo<>(retryResult.getResult(), variableMap))){
-					return new ParsingResult(
-							retryResult.getResult(),
-							retryResult.getRetry() != null ?
-									new PredicateRetry(retryResult.getRetry(), predicate, variableMap)
-									: null);
-				}else{
-					if(retryResult.getRetry() != null) {
-						// try to see if the next alternative passes the filter
-						retryResult = retryResult.getRetry().get();
-					}else{
-						return new ParsingResult(null, null);
-					}
-				}
-			}
-			assert retryResult.getRetry() == null;
-			return retryResult;
-		}
+	@Override
+	public <GrammarResult extends SourceLocatable> ParsingResult visit(MemoizeGrammar<GrammarResult> memoizeGrammar) throws RuntimeException {
+		return tryMemoize(memoizeGrammar.getToMemoize());
 	}
 
 	@Override
 	public <GrammarResult extends SourceLocatable> ParsingResult visit(PredicateGrammar<GrammarResult> predicateGrammar) throws RuntimeException {
 		ParsingResult prevResult = predicateGrammar.getToFilter().accept(this);
-		return new PredicateRetry(() -> prevResult, predicateGrammar.getPredicate(), variableMap).get();
+		List<ParsingResultPair> results = new ArrayList<>(prevResult.getResults().size());
+		for(ParsingResultPair p : prevResult.getResults()) {
+			if(predicateGrammar.getPredicate().test(new ParseInfo<>((GrammarResult)p.getResult(), variableMap))) {
+				results.add(p);
+			}
+		}
+		return new ParsingResult(results);
 	}
 
 	@Override
@@ -489,23 +376,26 @@ public class GrammarExecuteVisitor extends GrammarVisitor<GrammarExecuteVisitor.
 		Grammar<GrammarResult> toReject = rejectGrammar.getToReject();
 		LexicalContext.Mark mark = lexicalContext.mark();
 		ParsingResult result = toReject.accept(new GrammarExecuteVisitor(lexicalContext, variableMap, new TreeMap<>(), memoizeTable));
-		lexicalContext.restore(mark);
-		if(result.getResult() != null) {
+		if(result.getResults().isEmpty()) {
+			return new ParsingResult(Collections.singletonList(
+					new ParsingResultPair(mark, new Located<Void>(lexicalContext.getSourceLocation(), null))));
+		}else{
 			// if the grammar succceeds in any way, fail
 			addFailure(ParseFailure.rejectFailure(toReject));
-			return new ParsingResult(null, null);
-		}else{
-			return new ParsingResult(new Located<Void>(lexicalContext.getSourceLocation(), null), null);
+			return new ParsingResult(Collections.emptyList());
 		}
 	}
 
 	@Override
 	public ParsingResult visit(EOFGrammar eofGrammar) throws RuntimeException {
 		if(lexicalContext.isEOF()) {
-			return new ParsingResult(new Located<>(lexicalContext.getSourceLocation(), null), null);
+			return new ParsingResult(Collections.singletonList(
+					new ParsingResultPair(
+							lexicalContext.mark(),
+							new Located<>(lexicalContext.getSourceLocation(), null))));
 		}else{
 			addFailure(ParseFailure.eofMatchFailure());
-			return new ParsingResult(null, null);
+			return new ParsingResult(Collections.emptyList());
 		}
 	}
 }

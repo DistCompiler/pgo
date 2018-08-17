@@ -1,6 +1,7 @@
 package pgo.model.pcal;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import pgo.util.SourceLocation;
@@ -9,21 +10,22 @@ public class PlusCalProcess extends PlusCalNode {
 	private PlusCalVariableDeclaration name;
 	private PlusCalFairness fairness;
 	private List<PlusCalVariableDeclaration> variables;
-	private List<PlusCalLabeledStatements> labeledStatements;
+	private List<PlusCalStatement> body;
 
-	public PlusCalProcess(SourceLocation location, PlusCalVariableDeclaration name, PlusCalFairness fairness, List<PlusCalVariableDeclaration> variables, List<PlusCalLabeledStatements> labeledStatements) {
+	public PlusCalProcess(SourceLocation location, PlusCalVariableDeclaration name, PlusCalFairness fairness,
+						  List<PlusCalVariableDeclaration> variables, List<PlusCalStatement> body) {
 		super(location);
 		this.name = name;
 		this.fairness = fairness;
 		this.variables = variables;
-		this.labeledStatements = labeledStatements;
+		this.body = body;
 	}
 
 	@Override
 	public PlusCalProcess copy() {
 		return new PlusCalProcess(getLocation(), name.copy(), fairness,
 				variables.stream().map(PlusCalVariableDeclaration::copy).collect(Collectors.toList()),
-				labeledStatements.stream().map(PlusCalLabeledStatements::copy).collect(Collectors.toList()));
+				body.stream().map(PlusCalStatement::copy).collect(Collectors.toList()));
 	}
 
 	public PlusCalVariableDeclaration getName() {
@@ -38,8 +40,8 @@ public class PlusCalProcess extends PlusCalNode {
 		return variables;
 	}
 
-	public List<PlusCalLabeledStatements> getLabeledStatements() {
-		return labeledStatements;
+	public List<PlusCalStatement> getBody() {
+		return body;
 	}
 
 	@Override
@@ -48,42 +50,18 @@ public class PlusCalProcess extends PlusCalNode {
 	}
 
 	@Override
-	public int hashCode() {
-		final int prime = 31;
-		int result = 1;
-		result = prime * result + ((fairness == null) ? 0 : fairness.hashCode());
-		result = prime * result + ((labeledStatements == null) ? 0 : labeledStatements.hashCode());
-		result = prime * result + ((name == null) ? 0 : name.hashCode());
-		result = prime * result + ((variables == null) ? 0 : variables.hashCode());
-		return result;
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		PlusCalProcess that = (PlusCalProcess) o;
+		return Objects.equals(name, that.name) &&
+				fairness == that.fairness &&
+				Objects.equals(variables, that.variables) &&
+				Objects.equals(body, that.body);
 	}
 
 	@Override
-	public boolean equals(Object obj) {
-		if (this == obj)
-			return true;
-		if (obj == null)
-			return false;
-		if (getClass() != obj.getClass())
-			return false;
-		PlusCalProcess other = (PlusCalProcess) obj;
-		if (fairness != other.fairness)
-			return false;
-		if (labeledStatements == null) {
-			if (other.labeledStatements != null)
-				return false;
-		} else if (!labeledStatements.equals(other.labeledStatements))
-			return false;
-		if (name == null) {
-			if (other.name != null)
-				return false;
-		} else if (!name.equals(other.name))
-			return false;
-		if (variables == null) {
-			if (other.variables != null)
-				return false;
-		} else if (!variables.equals(other.variables))
-			return false;
-		return true;
+	public int hashCode() {
+		return Objects.hash(name, fairness, variables, body);
 	}
 }

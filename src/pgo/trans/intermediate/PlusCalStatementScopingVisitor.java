@@ -100,10 +100,13 @@ public class PlusCalStatementScopingVisitor extends PlusCalStatementVisitor<Void
 
 	@Override
 	public Void visit(PlusCalWith with) throws RuntimeException {
-		with.getVariable().getValue().accept(new TLAExpressionScopingVisitor(builder, registry, loader, moduleRecursionSet));
 		TLAScopeBuilder nested = builder.makeNestedScope();
-		nested.defineLocal(with.getVariable().getName().getValue(), with.getVariable().getUID());
-		registry.addLocalVariable(with.getVariable().getUID());
+		for(PlusCalVariableDeclaration decl : with.getVariables()) {
+			decl.getValue().accept(new TLAExpressionScopingVisitor(nested, registry, loader, moduleRecursionSet));
+			nested.defineLocal(decl.getName().getValue(), decl.getUID());
+			registry.addLocalVariable(decl.getUID());
+		}
+
 		for (PlusCalStatement stmt : with.getBody()) {
 			stmt.accept(new PlusCalStatementScopingVisitor(ctx, nested, registry, loader, moduleRecursionSet));
 		}

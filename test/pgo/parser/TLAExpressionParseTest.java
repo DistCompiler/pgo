@@ -137,6 +137,10 @@ public class TLAExpressionParseTest {
 				{"        /\\ 1 /\\ []2 /\\ 3\n",
 						binop("/\\", binop("/\\", num(1), unary("[]", num(2))), num(3))
 				},
+				{"~ /\\ 1\n"
+						+"  /\\ 2",
+						unary("~", binop("/\\", num(1), num(2)))
+				},
 				{"[] 2 /\\ 3",
 						binop("/\\", unary("[]", num(2)), num(3))
 				},

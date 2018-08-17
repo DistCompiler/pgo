@@ -13,13 +13,15 @@ public class PlusCalBuilder {
 	private PlusCalBuilder() {}
 
 	public static PlusCalAlgorithm algorithm(String name, List<PlusCalVariableDeclaration> vars, List<PlusCalMacro> macros, List<PlusCalProcedure> procedures, List<TLAUnit> units, PlusCalLabeledStatements... statements) {
-		return new PlusCalAlgorithm(SourceLocation.unknown(), new Located<>(SourceLocation.unknown(), name), vars, macros,
-				procedures, units, new PlusCalSingleProcess(SourceLocation.unknown(), Arrays.asList(statements)));
+		return new PlusCalAlgorithm(SourceLocation.unknown(), PlusCalFairness.UNFAIR,
+				new Located<>(SourceLocation.unknown(), name), vars, macros, procedures, units,
+				new PlusCalSingleProcess(SourceLocation.unknown(), Arrays.asList(statements)));
 	}
 
 	public static PlusCalAlgorithm algorithm(String name, List<PlusCalVariableDeclaration> vars, List<PlusCalMacro> macros, List<PlusCalProcedure> procedures, List<TLAUnit> units, PlusCalProcess... processes) {
-		return new PlusCalAlgorithm(SourceLocation.unknown(), new Located<>(SourceLocation.unknown(), name), vars, macros,
-				procedures, units, new PlusCalMultiProcess(SourceLocation.unknown(), Arrays.asList(processes)));
+		return new PlusCalAlgorithm(SourceLocation.unknown(), PlusCalFairness.UNFAIR,
+				new Located<>(SourceLocation.unknown(), name), vars, macros, procedures, units,
+				new PlusCalMultiProcess(SourceLocation.unknown(), Arrays.asList(processes)));
 	}
 
 	public static PlusCalMacro macro(String name, List<String> args, PlusCalStatement... statements) {

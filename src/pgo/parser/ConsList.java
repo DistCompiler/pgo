@@ -36,6 +36,11 @@ public final class ConsList<T> {
 		return new ConsList<>(new Node<>(value, root));
 	}
 
+	@Override
+	public String toString() {
+		return toList().toString();
+	}
+
 	public List<T> toList() {
 		List<T> result = new ArrayList<>();
 		Node<T> rootCopy = root;

@@ -2,7 +2,7 @@ package pgo.parser;
 
 public class StringGrammar extends Grammar<Located<Void>> {
 
-	private String string;
+	private final String string;
 
 	@Override
 	public String toString() {

@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.TreeMap;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 /**
  * Represents a parsing action that consumes tokens from a {@link LexicalContext} and either successfully
@@ -45,10 +46,11 @@ public abstract class Grammar<Result extends SourceLocatable> {
 		GrammarExecuteVisitor visitor = new GrammarExecuteVisitor(
 				lexicalContext, new VariableMap().freeze(), new TreeMap<>(), new GrammarExecuteVisitor.MemoizeTable());
 		GrammarExecuteVisitor.ParsingResult parsingResult = accept(visitor);
-		if(parsingResult.getResult() == null) {
+		if(parsingResult.getResults().isEmpty()) {
 			throw new ParseFailureException(visitor.getFailures());
 		}else{
-			return (Result)parsingResult.getResult();
+			lexicalContext.restore(parsingResult.getResults().get(0).getMark());
+			return (Result)parsingResult.getResults().get(0).getResult();
 		}
 	}
 
@@ -56,16 +58,7 @@ public abstract class Grammar<Result extends SourceLocatable> {
 		GrammarExecuteVisitor visitor = new GrammarExecuteVisitor(
 				lexicalContext, new VariableMap().freeze(), new TreeMap<>(), new GrammarExecuteVisitor.MemoizeTable());
 		GrammarExecuteVisitor.ParsingResult parsingResult = accept(visitor);
-		List<Result> results = new ArrayList<>();
-		while(parsingResult.getResult() != null) {
-			results.add((Result)parsingResult.getResult());
-			if(parsingResult.getRetry() != null) {
-				parsingResult = parsingResult.getRetry().get();
-			}else{
-				break;
-			}
-		}
-		return results;
+		return parsingResult.getResults().stream().map(p -> (Result)p.getResult()).collect(Collectors.toList());
 	}
 
 	public abstract <Result, Except extends Throwable> Result accept(GrammarVisitor<Result, Except> visitor) throws Except;

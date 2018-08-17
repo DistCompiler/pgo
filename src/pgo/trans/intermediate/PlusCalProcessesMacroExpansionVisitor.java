@@ -23,10 +23,10 @@ public class PlusCalProcessesMacroExpansionVisitor extends PlusCalProcessesVisit
 	@Override
 	public PlusCalProcesses visit(PlusCalSingleProcess singleProcess) throws RuntimeException {
 		PlusCalMacroExpansionVisitor v = new PlusCalMacroExpansionVisitor(ctx, macros, new HashSet<>(), new HashMap<>());
-		List<PlusCalLabeledStatements> stmts = new ArrayList<>();
-		for(PlusCalLabeledStatements stmt : singleProcess.getLabeledStatements()) {
+		List<PlusCalStatement> stmts = new ArrayList<>();
+		for(PlusCalStatement stmt : singleProcess.getBody()) {
 			for(PlusCalStatement s : stmt.accept(v)) {
-				stmts.add((PlusCalLabeledStatements)s);
+				stmts.add(s);
 			}
 		}
 		return new PlusCalSingleProcess(singleProcess.getLocation(), stmts);
@@ -37,13 +37,14 @@ public class PlusCalProcessesMacroExpansionVisitor extends PlusCalProcessesVisit
 		PlusCalMacroExpansionVisitor v = new PlusCalMacroExpansionVisitor(ctx, macros, new HashSet<>(), new HashMap<>());
 		List<PlusCalProcess> procs = new ArrayList<>();
 		for(PlusCalProcess proc : multiProcess.getProcesses()) {
-			List<PlusCalLabeledStatements> stmts = new ArrayList<>();
-			for(PlusCalLabeledStatements stmt : proc.getLabeledStatements()) {
+			List<PlusCalStatement> stmts = new ArrayList<>();
+			for(PlusCalStatement stmt : proc.getBody()) {
 				for(PlusCalStatement s : stmt.accept(v)) {
-					stmts.add((PlusCalLabeledStatements)s);
+					stmts.add(s);
 				}
 			}
-			procs.add(new PlusCalProcess(proc.getLocation(), proc.getName(), proc.getFairness(), proc.getVariables(), stmts));
+			procs.add(new PlusCalProcess(
+					proc.getLocation(), proc.getName(), proc.getFairness(), proc.getVariables(), stmts));
 		}
 		return new PlusCalMultiProcess(multiProcess.getLocation(), procs);
 	}

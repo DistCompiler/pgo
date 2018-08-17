@@ -6,6 +6,7 @@ import static org.hamcrest.CoreMatchers.*;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import org.junit.Test;
@@ -132,6 +133,23 @@ public class TLAUnitParseTest {
 										unary("UNCHANGED",
 												tuple(idexp("managers"), idexp("rstMgrs"), idexp("aborted")))))
 				},
+
+				{"----- MODULE Test ---- \n" +
+						"EXTENDS Sequences, Integers\n" +
+						"(* --algorithm Test {\n" +
+						"    variables a = 2; \n" +
+						"          b = 2; \n" +
+						"          c = 3; \n" +
+						"    {    \n" +
+						"        print (a)*((b)+(c))\n" +
+						"    }    \n" +
+						"}\n" +
+						"*)\n" +
+						"====\n",
+						module("Test",
+								Arrays.asList(id("Sequences"), id("Integers")),
+								Collections.emptyList(), Collections.emptyList(), Collections.EMPTY_LIST)
+				}
 		});
 	}
 	
@@ -147,7 +165,9 @@ public class TLAUnitParseTest {
 	@Test
 	public void test() throws ParseFailureException {
 		LexicalContext ctx = new LexicalContext(testFile, String.join(System.lineSeparator(), unitString.split("\n")));
-		
+
+		System.out.println(unitString);
+
 		TLAUnit unit = TLAParser.readUnit(ctx);
 		
 		assertThat(unit, is(unitExpected));

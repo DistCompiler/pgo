@@ -5,7 +5,7 @@ import java.util.regex.Pattern;
 
 public class PatternGrammar extends Grammar<Located<MatchResult>> {
 
-	private Pattern pattern;
+	private final Pattern pattern;
 
 	public PatternGrammar(Pattern pattern) {
 		this.pattern = pattern;

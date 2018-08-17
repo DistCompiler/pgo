@@ -1,28 +1,32 @@
 package pgo.model.pcal;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import pgo.util.SourceLocation;
 
 public class PlusCalWith extends PlusCalStatement {
 
-	private PlusCalVariableDeclaration variable;
+	private List<PlusCalVariableDeclaration> variables;
 	private List<PlusCalStatement> body;
 
-	public PlusCalWith(SourceLocation location, PlusCalVariableDeclaration variable, List<PlusCalStatement> body) {
+	public PlusCalWith(SourceLocation location, List<PlusCalVariableDeclaration> variables, List<PlusCalStatement> body) {
 		super(location);
-		this.variable = variable;
+		this.variables = variables;
 		this.body = body;
 	}
 
 	@Override
 	public PlusCalWith copy() {
-		return new PlusCalWith(getLocation(), variable.copy(), body.stream().map(PlusCalStatement::copy).collect(Collectors.toList()));
+		return new PlusCalWith(
+				getLocation(),
+				variables.stream().map(PlusCalVariableDeclaration::copy).collect(Collectors.toList()),
+				body.stream().map(PlusCalStatement::copy).collect(Collectors.toList()));
 	}
 
-	public PlusCalVariableDeclaration getVariable() {
-		return variable;
+	public List<PlusCalVariableDeclaration> getVariables() {
+		return variables;
 	}
 
 	public List<PlusCalStatement> getBody(){
@@ -35,34 +39,16 @@ public class PlusCalWith extends PlusCalStatement {
 	}
 
 	@Override
-	public int hashCode() {
-		final int prime = 31;
-		int result = 1;
-		result = prime * result + ((body == null) ? 0 : body.hashCode());
-		result = prime * result + ((variable == null) ? 0 : variable.hashCode());
-		return result;
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		PlusCalWith that = (PlusCalWith) o;
+		return Objects.equals(variables, that.variables) &&
+				Objects.equals(body, that.body);
 	}
 
 	@Override
-	public boolean equals(Object obj) {
-		if (this == obj)
-			return true;
-		if (obj == null)
-			return false;
-		if (getClass() != obj.getClass())
-			return false;
-		PlusCalWith other = (PlusCalWith) obj;
-		if (body == null) {
-			if (other.body != null)
-				return false;
-		} else if (!body.equals(other.body))
-			return false;
-		if (variable == null) {
-			if (other.variable != null)
-				return false;
-		} else if (!variable.equals(other.variable))
-			return false;
-		return true;
+	public int hashCode() {
+		return Objects.hash(variables, body);
 	}
-
 }

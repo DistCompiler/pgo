@@ -87,7 +87,7 @@ public class LexicalContext {
 
 	public Optional<Located<Void>> matchString(String string){
 		if(index + string.length() <= chars.length()
-				&& chars.subSequence(index, index+string.length()).toString().equals(string)){
+				&& string.contentEquals(chars.subSequence(index, index+string.length()))){
 			return Optional.of(new Located<>(updateLocation(string), null));
 		}else{
 			return Optional.empty();

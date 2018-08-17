@@ -38,13 +38,13 @@ public class AtomicityInferencePass {
 					trackGlobalVar(registry, globalVarWritesToLabel, varUID, labelUID);
 			Set<UID> foundLabels = new HashSet<>();
 			for (PlusCalProcedure p : plusCalAlgorithm.getProcedures()) {
-				for (PlusCalLabeledStatements statements : p.getBody()) {
+				for (PlusCalStatement statements : p.getBody()) {
 					statements.accept(new PlusCalStatementAtomicityInferenceVisitor(
 							new UID(), captureLabelRead, captureLabelWrite, foundLabels));
 				}
 			}
 			for (PlusCalProcess p : ((PlusCalMultiProcess) plusCalAlgorithm.getProcesses()).getProcesses()) {
-				for (PlusCalLabeledStatements statements : p.getLabeledStatements()) {
+				for (PlusCalStatement statements : p.getBody()) {
 					statements.accept(new PlusCalStatementAtomicityInferenceVisitor(
 							new UID(), captureLabelRead, captureLabelWrite, foundLabels));
 				}

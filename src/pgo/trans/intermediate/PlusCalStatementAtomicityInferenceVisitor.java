@@ -89,7 +89,9 @@ public class PlusCalStatementAtomicityInferenceVisitor extends PlusCalStatementV
 
 	@Override
 	public Void visit(PlusCalWith with) throws RuntimeException {
-		with.getVariable().getValue().accept(visitor);
+		for(PlusCalVariableDeclaration decl : with.getVariables()) {
+			decl.getValue().accept(visitor);
+		}
 		with.getBody().forEach(s -> s.accept(this));
 		return null;
 	}

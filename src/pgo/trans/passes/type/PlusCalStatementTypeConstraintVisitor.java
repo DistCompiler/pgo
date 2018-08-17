@@ -117,7 +117,9 @@ public class PlusCalStatementTypeConstraintVisitor extends PlusCalStatementVisit
 
 	@Override
 	public Void visit(PlusCalWith with) throws RuntimeException {
-		TypeInferencePass.constrainVariableDeclaration(registry, with.getVariable(), solver, generator, mapping);
+		for(PlusCalVariableDeclaration decl : with.getVariables()) {
+			TypeInferencePass.constrainVariableDeclaration(registry, decl, solver, generator, mapping);
+		}
 		for (PlusCalStatement stmt : with.getBody()) {
 			stmt.accept(this);
 		}

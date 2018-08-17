@@ -122,13 +122,16 @@ public class PlusCalMacroExpansionVisitor extends PlusCalStatementVisitor<List<P
 
 	@Override
 	public List<PlusCalStatement> visit(PlusCalWith with) throws RuntimeException {
-		PlusCalVariableDeclaration oldVariable = with.getVariable();
-		if(macroArgs.containsKey(oldVariable.getName())) {
-			// TODO: error reporting in this case?
-		}
-		PlusCalVariableDeclaration newVariable = new PlusCalVariableDeclaration(oldVariable.getLocation(), oldVariable.getName(),
-				oldVariable.isSet(), oldVariable.getValue().accept(macroSubst));
-		return Collections.singletonList(new PlusCalWith(with.getLocation(), newVariable, substituteStatements(with.getBody())));
+		return Collections.singletonList(new PlusCalWith(
+				with.getLocation(),
+				with.getVariables().stream().map(v -> {
+					if(macroArgs.containsKey(v.getName())) {
+						// TODO: error reporting in this case?
+					}
+					return new PlusCalVariableDeclaration(v.getLocation(), v.getName(),
+							v.isSet(), v.getValue().accept(macroSubst));
+				}).collect(Collectors.toList()),
+				substituteStatements(with.getBody())));
 	}
 
 	@Override

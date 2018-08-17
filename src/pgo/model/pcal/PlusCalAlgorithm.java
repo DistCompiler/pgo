@@ -1,6 +1,7 @@
 package pgo.model.pcal;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import pgo.model.tla.TLAUnit;
@@ -9,18 +10,20 @@ import pgo.util.SourceLocation;
 
 public class PlusCalAlgorithm extends PlusCalNode {
 
-	private Located<String> name;
+	private final Located<String> name;
 
-	private List<PlusCalVariableDeclaration> variables;
-	private List<PlusCalMacro> macros;
-	private List<PlusCalProcedure> procedures;
-	private List<TLAUnit> units;
+	private final PlusCalFairness fairness;
+	private final List<PlusCalVariableDeclaration> variables;
+	private final List<PlusCalMacro> macros;
+	private final List<PlusCalProcedure> procedures;
+	private final List<TLAUnit> units;
 
-	private PlusCalProcesses processes;
+	private final PlusCalProcesses processes;
 
-	public PlusCalAlgorithm(SourceLocation location, Located<String> name, List<PlusCalVariableDeclaration> variables,
+	public PlusCalAlgorithm(SourceLocation location, PlusCalFairness fairness, Located<String> name, List<PlusCalVariableDeclaration> variables,
 							List<PlusCalMacro> macros, List<PlusCalProcedure> procedures, List<TLAUnit> units, PlusCalProcesses processes) {
 		super(location);
+		this.fairness = fairness;
 		this.name = name;
 		this.variables = variables;
 		this.macros = macros;
@@ -33,6 +36,7 @@ public class PlusCalAlgorithm extends PlusCalNode {
 	public PlusCalAlgorithm copy() {
 		return new PlusCalAlgorithm(
 				getLocation(),
+				fairness,
 				name,
 				variables.stream().map(PlusCalVariableDeclaration::copy).collect(Collectors.toList()),
 				macros.stream().map(PlusCalMacro::copy).collect(Collectors.toList()),
@@ -40,6 +44,8 @@ public class PlusCalAlgorithm extends PlusCalNode {
 				units.stream().map(TLAUnit::copy).collect(Collectors.toList()),
 				processes.copy());
 	}
+
+	public PlusCalFairness getFairness() { return fairness; }
 
 	public Located<String> getName() {
 		return name;
@@ -71,58 +77,21 @@ public class PlusCalAlgorithm extends PlusCalNode {
 	}
 
 	@Override
-	public int hashCode() {
-		final int prime = 31;
-		int result = 1;
-		result = prime * result + ((macros == null) ? 0 : macros.hashCode());
-		result = prime * result + ((name == null) ? 0 : name.hashCode());
-		result = prime * result + ((procedures == null) ? 0 : procedures.hashCode());
-		result = prime * result + ((processes == null) ? 0 : processes.hashCode());
-		result = prime * result + ((units == null) ? 0 : units.hashCode());
-		result = prime * result + ((variables == null) ? 0 : variables.hashCode());
-		return result;
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		PlusCalAlgorithm that = (PlusCalAlgorithm) o;
+		return Objects.equals(name, that.name) &&
+				fairness == that.fairness &&
+				Objects.equals(variables, that.variables) &&
+				Objects.equals(macros, that.macros) &&
+				Objects.equals(procedures, that.procedures) &&
+				Objects.equals(units, that.units) &&
+				Objects.equals(processes, that.processes);
 	}
 
 	@Override
-	public boolean equals(Object obj) {
-		if (this == obj)
-			return true;
-		if (obj == null)
-			return false;
-		if (getClass() != obj.getClass())
-			return false;
-		PlusCalAlgorithm other = (PlusCalAlgorithm) obj;
-		if (macros == null) {
-			if (other.macros != null)
-				return false;
-		} else if (!macros.equals(other.macros))
-			return false;
-		if (name == null) {
-			if (other.name != null)
-				return false;
-		} else if (!name.equals(other.name))
-			return false;
-		if (procedures == null) {
-			if (other.procedures != null)
-				return false;
-		} else if (!procedures.equals(other.procedures))
-			return false;
-		if (processes == null) {
-			if (other.processes != null)
-				return false;
-		} else if (!processes.equals(other.processes))
-			return false;
-		if (units == null) {
-			if (other.units != null)
-				return false;
-		} else if (!units.equals(other.units))
-			return false;
-		if (variables == null) {
-			if (other.variables != null)
-				return false;
-		} else if (!variables.equals(other.variables))
-			return false;
-		return true;
+	public int hashCode() {
+		return Objects.hash(name, fairness, variables, macros, procedures, units, processes);
 	}
-
 }

@@ -2,12 +2,13 @@ package pgo.parser;
 
 import pgo.util.SourceLocatable;
 
+import java.util.Objects;
 import java.util.function.Predicate;
 
 public class PredicateGrammar<Result extends SourceLocatable> extends Grammar<Result> {
 
-	private Grammar<Result> toFilter;
-	private Predicate<ParseInfo<Result>> predicate;
+	private final Grammar<Result> toFilter;
+	private final Predicate<ParseInfo<Result>> predicate;
 
 	@Override
 	public String toString() {

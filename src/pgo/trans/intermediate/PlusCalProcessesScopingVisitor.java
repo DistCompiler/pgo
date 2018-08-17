@@ -35,12 +35,12 @@ public class PlusCalProcessesScopingVisitor extends PlusCalProcessesVisitor<Void
 	public Void visit(PlusCalSingleProcess singleProcess) throws RuntimeException {
 		TLAScopeBuilder labelScope = new TLAScopeBuilder(ctx, new HashMap<>(), new ChainMap<>(builder.getDefinitions()), builder.getReferences());
 
-		for (PlusCalLabeledStatements stmts : singleProcess.getLabeledStatements()) {
+		for (PlusCalStatement stmts : singleProcess.getBody()) {
 			stmts.accept(new PlusCalStatementLabelCaptureVisitor(ctx, labelScope));
 		}
 
 		TLAScopeBuilder procScope = new TLAScopeBuilder(ctx, builder.getDeclarations(), labelScope.getDefinitions(), builder.getReferences());
-		for (PlusCalLabeledStatements stmts : singleProcess.getLabeledStatements()) {
+		for (PlusCalStatement stmts : singleProcess.getBody()) {
 			stmts.accept(new PlusCalStatementScopingVisitor(ctx, procScope, registry, loader, moduleRecursionSet));
 		}
 		return null;
@@ -66,11 +66,11 @@ public class PlusCalProcessesScopingVisitor extends PlusCalProcessesVisitor<Void
 			procScope.defineLocal("self", proc.getName().getUID());
 			registry.addLocalVariable(proc.getName().getUID());
 
-			for (PlusCalLabeledStatements stmts : proc.getLabeledStatements()) {
+			for (PlusCalStatement stmts : proc.getBody()) {
 				stmts.accept(new PlusCalStatementLabelCaptureVisitor(ctx, procScope));
 			}
 
-			for (PlusCalLabeledStatements stmts : proc.getLabeledStatements()) {
+			for (PlusCalStatement stmts : proc.getBody()) {
 				stmts.accept(new PlusCalStatementScopingVisitor(ctx, procScope, registry, loader, moduleRecursionSet));
 			}
 		}

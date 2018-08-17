@@ -125,6 +125,10 @@ public final class ParseTools {
 		return recur.map(seq -> new LocatedList<>(seq.getLocation(), seq.getValue().toList()));
 	}
 
+	public static <Result extends SourceLocatable> Grammar<Result> memoize(Grammar<Result> grammar) {
+		return new MemoizeGrammar<>(grammar);
+	}
+
 	/**
 	 * Similar to {@link pgo.parser.ParseTools#repeat(Grammar <Result>)}, but only accepting sequences of at least one element.
 	 * @param element a parse action representing one element of the list

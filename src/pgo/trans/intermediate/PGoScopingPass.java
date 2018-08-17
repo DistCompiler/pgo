@@ -5,10 +5,7 @@ import java.util.HashSet;
 import java.util.Map;
 
 import pgo.errors.IssueContext;
-import pgo.model.pcal.PlusCalAlgorithm;
-import pgo.model.pcal.PlusCalLabeledStatements;
-import pgo.model.pcal.PlusCalProcedure;
-import pgo.model.pcal.PlusCalVariableDeclaration;
+import pgo.model.pcal.*;
 import pgo.model.tla.TLAExpression;
 import pgo.model.tla.TLAModule;
 import pgo.model.tla.TLAUnit;
@@ -80,11 +77,11 @@ public class PGoScopingPass {
 
 			TLAScopeBuilder procScope = new TLAScopeBuilder(ctx, args, new ChainMap<>(pcalScope.getDefinitions()), pcalScope.getReferences());
 
-			for (PlusCalLabeledStatements stmts : proc.getBody()) {
+			for (PlusCalStatement stmts : proc.getBody()) {
 				stmts.accept(new PlusCalStatementLabelCaptureVisitor(ctx, procScope));
 			}
 
-			for (PlusCalLabeledStatements stmts : proc.getBody()) {
+			for (PlusCalStatement stmts : proc.getBody()) {
 				stmts.accept(new PlusCalStatementScopingVisitor(ctx, procScope, registry, loader, new HashSet<>()));
 			}
 		}

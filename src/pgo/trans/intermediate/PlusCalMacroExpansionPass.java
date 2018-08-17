@@ -23,6 +23,7 @@ public class PlusCalMacroExpansionPass {
 		}
 		return new PlusCalAlgorithm(
 				plusCalAlgorithm.getLocation(),
+				plusCalAlgorithm.getFairness(),
 				plusCalAlgorithm.getName(),
 				plusCalAlgorithm.getVariables(),
 				Collections.emptyList(),

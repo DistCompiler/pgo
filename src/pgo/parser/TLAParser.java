@@ -5,8 +5,6 @@ import pgo.util.SourceLocatable;
 import pgo.util.SourceLocation;
 
 import java.util.*;
-import java.util.function.Supplier;
-import java.util.regex.MatchResult;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -110,7 +108,7 @@ import static pgo.parser.ParseTools.*;
  */
 public final class TLAParser {
 
-	private static final Pattern TLA_IDENTIFIER = Pattern.compile("[a-z0-9_A-Z]*[a-zA-Z][a-z0-9_A-Z]*");
+	private static final Pattern TLA_IDENTIFIER = Pattern.compile("(?!WF_)(?!SF_)[a-z0-9_A-Z]*[a-zA-Z][a-z0-9_A-Z]*");
 	private static final List<String> TLA_RESERVED_WORDS = Arrays.asList(
 			"ASSUME", "ASSUMPTION", "AXIOM", "CASE", "CHOOSE", "CONSTANT", "CONSTANTS", "DOMAIN",
 			"ELSE", "ENABLED", "EXCEPT", "EXTENDS", "IF", "IN", "INSTANCE", "LET", "LOCAL",
@@ -188,10 +186,10 @@ public final class TLAParser {
 	 * @return the parse action
 	 */
 	public static Grammar<Located<Void>> skipWhitespaceAndTLAComments(){
-		return repeat(parseOneOf(
+		return cut(repeat(parseOneOf(
 				matchWhitespace(),
 				matchTLAComment()
-		)).map(list -> new Located<>(list.getLocation(), null));
+		))).map(list -> new Located<>(list.getLocation(), null));
 	}
 
 	/**
@@ -298,7 +296,7 @@ public final class TLAParser {
 
 	// matches anything until it reaches ----+, then stops (look up reluctant quantifiers for the semantics of "*?")
 	// DOTALL allows us to munch newlines
-	private static final Pattern TLA_BEFORE_MODULE = Pattern.compile(".*?(?=----+)", Pattern.DOTALL);
+	private static final Pattern TLA_BEFORE_MODULE = Pattern.compile(".*?(?=----)", Pattern.DOTALL);
 
 	/**
 	 * Returns a parse action that consumes any text up till the beginning of a TLA+ module, defined to be 4 or more
@@ -896,7 +894,7 @@ public final class TLAParser {
 		return emptySequence()
 				.drop(parseTLAToken("<<"))
 				.part(parseOneOf(
-						parseCommaList(cut(EXPRESSION)),
+						parseCommaList(cut(memoize(EXPRESSION))),
 						nop().map(v -> new LocatedList<TLAExpression>(v.getLocation(), Collections.emptyList()))
 				))
 				.drop(parseTLAToken(">>"))
@@ -906,7 +904,7 @@ public final class TLAParser {
 	static Grammar<TLAExpression> parseRequiredActionExpression(){
 		return emptySequence()
 				.drop(parseTLAToken("<<"))
-				.part(cut(EXPRESSION))
+				.part(cut(memoize(EXPRESSION)))
 				.drop(parseTLAToken(">>_"))
 				.part(cut(EXPRESSION))
 				.map(seq -> new TLARequiredAction(
@@ -917,7 +915,7 @@ public final class TLAParser {
 	
 	static Grammar<TLAExpression> parseOperatorCall(){
 		return emptySequence()
-				.part(INSTANCE_PREFIX)
+				.part(memoize(INSTANCE_PREFIX))
 				.part(parseTLAIdentifier())
 				.drop(parseTLAToken("("))
 				.part(parseCommaList(cut(EXPRESSION)))
@@ -931,7 +929,7 @@ public final class TLAParser {
 	
 	static Grammar<TLAExpression> parseGeneralIdentifier(){
 		return emptySequence()
-				.part(INSTANCE_PREFIX)
+				.part(memoize(INSTANCE_PREFIX))
 				.part(parseTLAIdentifier())
 				.map(seq -> new TLAGeneralIdentifier(
 						seq.getLocation(),
@@ -965,13 +963,13 @@ public final class TLAParser {
 				.dependentPart(cut(EXPRESSION), info -> new VariableMap()
 						.put(MIN_COLUMN,info.getResult().getValue().getFirst().getLocation().getStartColumn()+1))
 				.dependentPart(
-						repeat(
+						cut(repeat( // this cut is important - removing this will cause ~ (/\ 1 /\ 2) -> (~ 1) /\ 2
 								emptySequence()
 										.part(parseTLAToken(which))
 										.dependentPart(
 												cut(EXPRESSION),
 												info -> new VariableMap().put(MIN_COLUMN, info.get(MIN_COLUMN)+1))
-						),
+						)),
 						info -> new VariableMap()
 								.put(MIN_COLUMN,
 										info.getResult().getValue().getRest().getFirst().getLocation().getStartColumn()))
@@ -1118,7 +1116,7 @@ public final class TLAParser {
 	static Grammar<TLAExpression> parseFunctionSetExpression(){
 		return emptySequence()
 				.drop(parseTLAToken("["))
-				.part(cut(EXPRESSION))
+				.part(cut(memoize(EXPRESSION)))
 				.drop(parseTLAToken("->"))
 				.part(cut(EXPRESSION))
 				.drop(parseTLAToken("]"))
@@ -1131,7 +1129,7 @@ public final class TLAParser {
 	static Grammar<TLAExpression> parseMaybeActionExpression(){
 		return emptySequence()
 				.drop(parseTLAToken("["))
-				.part(cut(EXPRESSION))
+				.part(cut(memoize(EXPRESSION)))
 				.drop(parseTLAToken("]_"))
 				.part(cut(EXPRESSION))
 				.map(seq -> new TLAMaybeAction(
@@ -1143,7 +1141,7 @@ public final class TLAParser {
 	static Grammar<TLAExpression> parseFunctionSubstitutionExpression(){
 		return emptySequence()
 				.drop(parseTLAToken("["))
-				.part(cut(EXPRESSION))
+				.part(cut(memoize(EXPRESSION)))
 				.drop(parseTLAToken("EXCEPT"))
 				.part(parseCommaList(
 						emptySequence()
@@ -1242,7 +1240,7 @@ public final class TLAParser {
 		return emptySequence()
 				.drop(parseTLAToken("{"))
 				.part(parseOneOf(
-						parseCommaList(cut(EXPRESSION)),
+						parseCommaList(cut(memoize(EXPRESSION))),
 						nop().map(v -> new LocatedList<TLAExpression>(v.getLocation(), Collections.emptyList()))
 				))
 				.drop(parseTLAToken("}"))
@@ -1268,7 +1266,7 @@ public final class TLAParser {
 	static Grammar<TLAExpression> parseSetComprehensionExpression(){
 		return emptySequence()
 				.drop(parseTLAToken("{"))
-				.part(cut(EXPRESSION))
+				.part(cut(memoize(EXPRESSION)))
 				.drop(parseTLAToken(":"))
 				.part(parseCommaList(parseQuantifierBound()))
 				.drop(parseTLAToken("}"))
@@ -1369,7 +1367,7 @@ public final class TLAParser {
 
 		self.setReferencedGrammar(
 				emptySequence()
-						.part(INSTANCE_PREFIX)
+						.part(memoize(INSTANCE_PREFIX))
 						.part(parseOneOf(
 								operatorOptions
 										.stream()
@@ -1456,17 +1454,17 @@ public final class TLAParser {
 												&& INFIX_OPERATORS_HI_PRECEDENCE.get(operator) >= precedence)
 								.map(operator ->
 										emptySequence()
-												.part(OPERATORS_BY_PRECEDENCE.get(INFIX_OPERATORS_HI_PRECEDENCE.get(operator)+1))
+												.part(memoize(OPERATORS_BY_PRECEDENCE.get(INFIX_OPERATORS_HI_PRECEDENCE.get(operator)+1)))
 												.part(INFIX_OPERATORS_LEFT_ASSOCIATIVE.contains(operator) ?
 														repeatOneOrMore(
 																emptySequence()
-																		.part(INSTANCE_PREFIX)
+																		.part(memoize(INSTANCE_PREFIX))
 																		.part(parseInfixOperator(operator))
 																		.part(OPERATORS_BY_PRECEDENCE
 																				.get(INFIX_OPERATORS_HI_PRECEDENCE
 																						.get(operator)+1))
 														) : emptySequence()
-																.part(INSTANCE_PREFIX)
+																.part(memoize(INSTANCE_PREFIX))
 																.part(parseInfixOperator(operator))
 																.part(OPERATORS_BY_PRECEDENCE
 																		.get(INFIX_OPERATORS_HI_PRECEDENCE
@@ -1501,7 +1499,7 @@ public final class TLAParser {
 				),
 				// postfix operators and no operators
 				emptySequence()
-						.part(OPERATORS_BY_PRECEDENCE.get(precedence+1))
+						.part(memoize(OPERATORS_BY_PRECEDENCE.get(precedence+1)))
 						.part(cut(repeat(parseOneOf(postfixOperatorPartOptions))))
 						.map(seq -> buildPostfixExpression(
 								seq.getValue().getRest().getFirst(),
@@ -1858,7 +1856,7 @@ public final class TLAParser {
 	
 	static Grammar<TLAUnit> parseUnit(){
 		return emptySequence()
-				.drop(cut(parseOneOf(parse4DashesOrMore(), nop())))
+				.drop(parseOneOf(parse4DashesOrMore(), nop()))
 				.part(parseOneOf(
 						// all LOCAL declarations
 						cut(emptySequence()
@@ -1906,10 +1904,18 @@ public final class TLAParser {
 				.part(matchPattern(TLA_END_TRANSLATION))
 				.map(seq -> new Located<>(seq.getValue().getFirst().getLocation(), null));
 	}
+
+	public static final ReferenceGrammar<TLAUnit> UNIT = new ReferenceGrammar<>();
+	public static final ReferenceGrammar<TLAModule> MODULE = new ReferenceGrammar<>();
+
+	static final Grammar<TLAModule> ROOT_MODULE = emptySequence()
+			.drop(findModuleStart())
+			.part(MODULE)
+			.drop(consumeAfterModuleEnd())
+			.map(seq -> seq.getValue().getFirst());
 	
 	static Grammar<TLAModule> parseModule(){
 		return emptySequence()
-				.drop(findModuleStart())
 				.drop(parse4DashesOrMore())
 				.drop(parseTLAToken("MODULE"))
 				.part(parseTLAIdentifier())
@@ -1925,20 +1931,22 @@ public final class TLAParser {
 								.map(seq -> seq.getValue().getFirst())
 				)))
 				.part(cut(
-						emptySequence()
-								.drop(parseStartTranslation())
-								.part(repeat(
-										emptySequence()
-												.drop(reject(parseEndTranslation()))
-												.part(UNIT)
-												.map(seq -> seq.getValue().getFirst())
-								))
-								.drop(parseEndTranslation())
-								.map(seq -> seq.getValue().getFirst())
+						parseOneOf(
+								emptySequence()
+										.drop(parseStartTranslation())
+										.part(repeat(
+												emptySequence()
+														.drop(reject(parseEndTranslation()))
+														.part(UNIT)
+														.map(seq -> seq.getValue().getFirst())
+										))
+										.drop(parseEndTranslation())
+										.map(seq -> seq.getValue().getFirst()),
+								nop().map(v -> new LocatedList<TLAUnit>(v.getLocation(), Collections.emptyList()))
+						)
 				))
 				.part(cut(repeat(UNIT)))
 				.drop(parse4EqualsOrMore())
-				.drop(consumeAfterModuleEnd())
 				.map(seq -> new TLAModule(
 						seq.getLocation(),
 						seq.getValue().getRest().getRest().getRest().getRest().getFirst(),
@@ -1948,8 +1956,6 @@ public final class TLAParser {
 						seq.getValue().getFirst()));
 	}
 
-	private static final ReferenceGrammar<TLAUnit> UNIT = new ReferenceGrammar<>();
-	private static final ReferenceGrammar<TLAModule> MODULE = new ReferenceGrammar<>();
 	static {
 		UNIT.setReferencedGrammar(
 				cut(emptySequence()
@@ -1976,6 +1982,6 @@ public final class TLAParser {
 	}
 
 	public static List<TLAModule> readModules(LexicalContext ctx) throws ParseFailureException {
-		return readOrExcept(ctx, repeatOneOrMore(MODULE));
+		return readOrExcept(ctx, repeatOneOrMore(ROOT_MODULE));
 	}
 }

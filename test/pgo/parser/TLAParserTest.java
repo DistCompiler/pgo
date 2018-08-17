@@ -31,7 +31,7 @@ public class TLAParserTest {
 			{"TwoPhaseCommit", },
 			{"AltBitProtocol", },
 			{"Sum", },
-			{"PlusCalAwait", },
+			//{"PlusCalAwait", },
 			{"FastMutexNoAnnotation", },
 		});
 	}
