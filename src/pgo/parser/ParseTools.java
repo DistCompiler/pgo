@@ -1,15 +1,18 @@
 package pgo.parser;
 
-import java.util.*;
+import pgo.util.ConsList;
+import pgo.util.SourceLocatable;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.regex.MatchResult;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-
-import pgo.util.ConsList;
-import pgo.util.SourceLocatable;
 
 public final class ParseTools {
 	

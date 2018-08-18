@@ -1,10 +1,10 @@
 package pgo.trans.intermediate;
 
+import pgo.scope.ChainMap;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import pgo.scope.ChainMap;
 
 public class BuiltinModule {
 

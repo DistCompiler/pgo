@@ -1,20 +1,13 @@
 package pgo.util;
 
-import javax.swing.text.html.Option;
-import java.util.Optional;
-
 /**
  * 
- * This class is designed to work around the effectively-final scoping
- * limitation of lambdas.
- * 
- * PlusCalIf we are using ParseTools to build up an AST object, it makes a lot of
- * sense to just use the function scope to store temporaries when we are
- * in the middle of parsing a particular node.
+ * This class is intended to work as a layer of indirection if/when it is needed. If is a mutable cell you
+ * can give references to, then write to/read from later.
  *
  * @param <T> the type of the thing we are mutating
  */
-public class Mutator<T> {
+public final class Mutator<T> {
 
 	private T value;
 	

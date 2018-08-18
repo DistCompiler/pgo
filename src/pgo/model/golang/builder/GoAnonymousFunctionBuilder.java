@@ -1,12 +1,12 @@
 package pgo.model.golang.builder;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-
 import pgo.model.golang.*;
 import pgo.model.golang.type.GoType;
 import pgo.scope.UID;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 public class GoAnonymousFunctionBuilder {
 	

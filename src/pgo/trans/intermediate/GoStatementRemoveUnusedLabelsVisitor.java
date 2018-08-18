@@ -1,10 +1,10 @@
 package pgo.trans.intermediate;
 
+import pgo.model.golang.*;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-
-import pgo.model.golang.*;
 
 public class GoStatementRemoveUnusedLabelsVisitor extends GoStatementVisitor<GoStatement, RuntimeException> {
 

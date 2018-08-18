@@ -1,16 +1,12 @@
 package pgo.trans.intermediate;
 
-import java.util.*;
-
 import pgo.InternalCompilerError;
 import pgo.model.golang.type.GoType;
 import pgo.model.pcal.PlusCalProcedure;
-import pgo.model.tla.TLAExpression;
-import pgo.model.tla.TLAFunctionDefinition;
-import pgo.model.tla.TLAModule;
-import pgo.model.tla.TLAOperatorDefinition;
-import pgo.model.tla.TLAUnit;
+import pgo.model.tla.*;
 import pgo.scope.UID;
+
+import java.util.*;
 
 public class DefinitionRegistry {
 	private Map<String, TLAModule> modules;

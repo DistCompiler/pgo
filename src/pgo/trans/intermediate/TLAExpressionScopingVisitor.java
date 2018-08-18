@@ -1,11 +1,11 @@
 package pgo.trans.intermediate;
 
-import java.util.List;
-import java.util.Set;
-
 import pgo.model.tla.*;
 import pgo.modules.TLAModuleLoader;
 import pgo.scope.UID;
+
+import java.util.List;
+import java.util.Set;
 
 public class TLAExpressionScopingVisitor extends TLAExpressionVisitor<Void, RuntimeException> {
 

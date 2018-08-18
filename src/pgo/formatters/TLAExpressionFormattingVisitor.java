@@ -1,10 +1,10 @@
 package pgo.formatters;
 
-import java.io.IOException;
-import java.util.List;
-
 import pgo.model.tla.*;
 import pgo.parser.TLAParser;
+
+import java.io.IOException;
+import java.util.List;
 
 public class TLAExpressionFormattingVisitor extends TLAExpressionVisitor<Void, IOException> {
 	

@@ -1,14 +1,13 @@
 package pgo.trans.intermediate;
 
-import java.util.List;
-import java.util.Set;
-
 import pgo.Unreachable;
 import pgo.errors.IssueContext;
 import pgo.model.pcal.*;
-import pgo.model.pcal.PlusCalAssignment;
 import pgo.model.tla.TLAExpression;
 import pgo.modules.TLAModuleLoader;
+
+import java.util.List;
+import java.util.Set;
 
 public class PlusCalStatementScopingVisitor extends PlusCalStatementVisitor<Void, RuntimeException> {
 

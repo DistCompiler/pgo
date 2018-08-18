@@ -1,12 +1,12 @@
 package pgo.trans.intermediate;
 
+import pgo.errors.IssueContext;
+import pgo.model.tla.*;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-
-import pgo.errors.IssueContext;
-import pgo.model.tla.*;
 
 public class TLAExpressionMacroSubstitutionVisitor extends TLAExpressionVisitor<TLAExpression, RuntimeException> {
 

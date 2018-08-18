@@ -1,10 +1,10 @@
 package pgo.trans.intermediate;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import pgo.model.golang.GoDeclaration;
 import pgo.model.golang.GoModule;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class CodeNormalisingPass {
 	

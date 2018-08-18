@@ -1,10 +1,10 @@
 package pgo.trans.intermediate;
 
+import pgo.model.golang.*;
+
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
-
-import pgo.model.golang.*;
 
 public class GoStatementFindUsedLabelsVisitor extends GoStatementVisitor<Set<String>, RuntimeException> {
 

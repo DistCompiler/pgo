@@ -1,12 +1,12 @@
 package pgo.trans.intermediate;
 
-import java.util.HashMap;
-import java.util.Map;
-
 import pgo.errors.Context;
 import pgo.errors.IssueContext;
 import pgo.scope.ChainMap;
 import pgo.scope.UID;
+
+import java.util.HashMap;
+import java.util.Map;
 
 public class TLAScopeBuilder {
 	Map<String, UID> declarations;

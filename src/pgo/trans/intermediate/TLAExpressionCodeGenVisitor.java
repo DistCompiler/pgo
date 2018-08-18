@@ -1,13 +1,5 @@
 package pgo.trans.intermediate;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.function.Consumer;
-import java.util.stream.Collectors;
-
 import pgo.InternalCompilerError;
 import pgo.TODO;
 import pgo.model.golang.*;
@@ -18,10 +10,16 @@ import pgo.model.golang.type.GoSliceType;
 import pgo.model.golang.type.GoStructType;
 import pgo.model.golang.type.GoType;
 import pgo.model.tla.*;
-import pgo.model.type.*;
+import pgo.model.type.PGoType;
+import pgo.model.type.PGoTypeMap;
+import pgo.model.type.PGoTypeSlice;
 import pgo.scope.UID;
 import pgo.trans.passes.codegen.CodeGenUtil;
 import pgo.trans.passes.codegen.GoExpressionIsConstantVisitor;
+
+import java.util.*;
+import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpression, RuntimeException> {
 	private GoBlockBuilder builder;

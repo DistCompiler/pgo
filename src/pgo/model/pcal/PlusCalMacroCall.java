@@ -1,10 +1,10 @@
 package pgo.model.pcal;
 
-import java.util.List;
-import java.util.stream.Collectors;
-
 import pgo.model.tla.TLAExpression;
 import pgo.util.SourceLocation;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 public class PlusCalMacroCall extends PlusCalStatement {
 	

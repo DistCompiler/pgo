@@ -1,12 +1,10 @@
 package pgo.model.golang.builder;
 
+import pgo.model.golang.*;
+import pgo.scope.UID;
+
 import java.util.Collections;
 import java.util.Map;
-
-import pgo.model.golang.*;
-import pgo.model.golang.builder.GoASTBuilder;
-import pgo.model.golang.builder.GoBlockBuilder;
-import pgo.scope.UID;
 
 public class GoForStatementClauseBuilder {
 

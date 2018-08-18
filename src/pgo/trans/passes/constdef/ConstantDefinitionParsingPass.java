@@ -1,12 +1,15 @@
 package pgo.trans.passes.constdef;
 
-import java.util.HashMap;
-import java.util.Map;
-
 import pgo.errors.IssueContext;
 import pgo.model.tla.TLAExpression;
-import pgo.parser.*;
+import pgo.parser.LexicalContext;
+import pgo.parser.Located;
+import pgo.parser.ParseFailureException;
+import pgo.parser.TLAParser;
 import pgo.trans.passes.tlaparse.ParsingIssue;
+
+import java.util.HashMap;
+import java.util.Map;
 
 public class ConstantDefinitionParsingPass {
 	

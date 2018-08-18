@@ -1,14 +1,14 @@
 package pgo.model.pcal;
 
-import java.io.IOException;
-import java.io.StringWriter;
-
 import pgo.Unreachable;
 import pgo.formatters.IndentingWriter;
 import pgo.formatters.PlusCalNodeFormattingVisitor;
 import pgo.scope.UID;
 import pgo.util.SourceLocatable;
 import pgo.util.SourceLocation;
+
+import java.io.IOException;
+import java.io.StringWriter;
 
 public abstract class PlusCalNode extends SourceLocatable {
 

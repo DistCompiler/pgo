@@ -1,12 +1,12 @@
 package pgo.model.pcal;
 
-import java.util.List;
-import java.util.Objects;
-import java.util.stream.Collectors;
-
 import pgo.model.tla.TLAUnit;
 import pgo.parser.Located;
 import pgo.util.SourceLocation;
+
+import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 public class PlusCalAlgorithm extends PlusCalNode {
 

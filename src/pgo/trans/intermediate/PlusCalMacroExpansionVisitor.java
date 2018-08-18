@@ -1,18 +1,11 @@
 package pgo.trans.intermediate;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
-
 import pgo.errors.IssueContext;
 import pgo.model.pcal.*;
-import pgo.model.pcal.PlusCalAssert;
 import pgo.model.tla.TLAExpression;
+
+import java.util.*;
+import java.util.stream.Collectors;
 
 public class PlusCalMacroExpansionVisitor extends PlusCalStatementVisitor<List<PlusCalStatement>, RuntimeException> {
 

@@ -1,32 +1,17 @@
 package pgo.trans.intermediate;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-
 import pgo.InternalCompilerError;
 import pgo.TODO;
-import pgo.model.golang.*;
+import pgo.model.golang.GoBuiltins;
 import pgo.model.golang.type.GoSliceType;
 import pgo.model.golang.type.GoStructType;
 import pgo.model.golang.type.GoStructTypeField;
 import pgo.model.golang.type.GoType;
-import pgo.model.type.PGoType;
-import pgo.model.type.PGoTypeBool;
-import pgo.model.type.PGoTypeChan;
-import pgo.model.type.PGoTypeDecimal;
-import pgo.model.type.PGoTypeFunction;
-import pgo.model.type.PGoTypeInt;
-import pgo.model.type.PGoTypeMap;
-import pgo.model.type.PGoTypeProcedure;
-import pgo.model.type.PGoTypeSet;
-import pgo.model.type.PGoTypeNonEnumerableSet;
-import pgo.model.type.PGoTypeSlice;
-import pgo.model.type.PGoTypeString;
-import pgo.model.type.PGoTypeTuple;
-import pgo.model.type.PGoTypeUnrealizedNumber;
-import pgo.model.type.PGoTypeVariable;
-import pgo.model.type.PGoTypeVisitor;
+import pgo.model.type.*;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 public class PGoTypeGoTypeConversionVisitor extends PGoTypeVisitor<GoType, RuntimeException> {
 

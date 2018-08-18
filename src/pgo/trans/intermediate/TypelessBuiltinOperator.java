@@ -1,14 +1,14 @@
 package pgo.trans.intermediate;
 
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
-
-import pgo.model.golang.builder.GoBlockBuilder;
 import pgo.model.golang.GoExpression;
+import pgo.model.golang.builder.GoBlockBuilder;
 import pgo.model.tla.TLAExpression;
 import pgo.model.type.PGoType;
 import pgo.scope.UID;
+
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 public class TypelessBuiltinOperator extends BuiltinOperator {
 	

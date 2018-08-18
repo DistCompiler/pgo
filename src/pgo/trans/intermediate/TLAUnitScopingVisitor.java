@@ -1,35 +1,17 @@
 package pgo.trans.intermediate;
 
 
-import java.io.IOException;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
 import pgo.errors.IssueContext;
-import pgo.model.tla.TLAAssumption;
-import pgo.model.tla.TLAConstantDeclaration;
-import pgo.model.tla.TLAFunction;
-import pgo.model.tla.TLAFunctionDefinition;
-import pgo.model.tla.TLAIdentifier;
-import pgo.model.tla.TLAInstance;
-import pgo.model.tla.TLAModule;
-import pgo.model.tla.TLAModuleDefinition;
-import pgo.model.tla.TLAOpDecl;
-import pgo.model.tla.TLAOperatorDefinition;
-import pgo.model.tla.TLAQuantifierBound;
-import pgo.model.tla.TLATheorem;
-import pgo.model.tla.TLAUnit;
-import pgo.model.tla.TLAUnitVisitor;
-import pgo.model.tla.TLAVariableDeclaration;
+import pgo.model.tla.*;
 import pgo.modules.ModuleNotFoundError;
 import pgo.modules.NoModulesFoundInFileError;
 import pgo.modules.TLAModuleLoader;
 import pgo.parser.ParseFailureException;
 import pgo.scope.UID;
 import pgo.trans.passes.tlaparse.ParsingIssue;
+
+import java.io.IOException;
+import java.util.*;
 
 public class TLAUnitScopingVisitor extends TLAUnitVisitor<Void, RuntimeException> {
 

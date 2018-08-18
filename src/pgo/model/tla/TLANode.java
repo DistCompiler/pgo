@@ -1,13 +1,13 @@
 package pgo.model.tla;
 
-import java.io.IOException;
-import java.io.StringWriter;
-
 import pgo.formatters.IndentingWriter;
 import pgo.formatters.TLANodeFormattingVisitor;
 import pgo.scope.UID;
 import pgo.util.SourceLocatable;
 import pgo.util.SourceLocation;
+
+import java.io.IOException;
+import java.io.StringWriter;
 
 /**
  * 

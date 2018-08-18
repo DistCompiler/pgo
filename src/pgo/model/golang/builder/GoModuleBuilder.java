@@ -1,12 +1,12 @@
 package pgo.model.golang.builder;
 
-import java.util.*;
-
 import pgo.InternalCompilerError;
 import pgo.model.golang.*;
 import pgo.model.golang.type.GoType;
 import pgo.model.golang.type.GoTypeName;
 import pgo.scope.UID;
+
+import java.util.*;
 
 public class GoModuleBuilder extends GoASTBuilder {
 

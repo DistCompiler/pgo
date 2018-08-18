@@ -1,10 +1,10 @@
 package pgo.trans.intermediate;
 
-import java.util.List;
-import java.util.Map;
-
 import pgo.model.tla.TLAModule;
 import pgo.scope.UID;
+
+import java.util.List;
+import java.util.Map;
 
 public class TLAModuleRecord {
 	

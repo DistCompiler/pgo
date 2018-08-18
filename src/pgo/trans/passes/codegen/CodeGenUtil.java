@@ -1,10 +1,7 @@
 package pgo.trans.passes.codegen;
 
-import pgo.model.golang.builder.GoBlockBuilder;
-import pgo.model.golang.GoExpression;
-import pgo.model.golang.GoSliceLiteral;
-import pgo.model.golang.GoUnary;
 import pgo.model.golang.*;
+import pgo.model.golang.builder.GoBlockBuilder;
 import pgo.model.tla.TLAExpression;
 import pgo.model.type.PGoType;
 import pgo.scope.UID;

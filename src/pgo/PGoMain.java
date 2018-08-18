@@ -1,20 +1,5 @@
 package pgo;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.IOException;
-import java.io.RandomAccessFile;
-import java.nio.CharBuffer;
-import java.nio.MappedByteBuffer;
-import java.nio.channels.FileChannel;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.Collections;
-import java.util.Map;
-import java.util.logging.Logger;
-
 import org.apache.commons.io.FileUtils;
 import pgo.errors.TopLevelIssueContext;
 import pgo.formatters.GoNodeFormattingVisitor;
@@ -31,6 +16,21 @@ import pgo.trans.intermediate.*;
 import pgo.trans.passes.constdef.ConstantDefinitionParsingPass;
 import pgo.trans.passes.tlaparse.TLAParsingPass;
 import pgo.trans.passes.type.TypeInferencePass;
+
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.IOException;
+import java.io.RandomAccessFile;
+import java.nio.CharBuffer;
+import java.nio.MappedByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Collections;
+import java.util.Map;
+import java.util.logging.Logger;
 
 public class PGoMain {
 	private String[] cmdArgs;

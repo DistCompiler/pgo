@@ -1,7 +1,5 @@
 package pgo.trans.intermediate;
 
-import java.util.*;
-
 import pgo.TODO;
 import pgo.model.golang.*;
 import pgo.model.golang.builder.GoAnonymousFunctionBuilder;
@@ -13,6 +11,8 @@ import pgo.model.golang.type.GoType;
 import pgo.model.type.*;
 import pgo.scope.UID;
 import pgo.util.Origin;
+
+import java.util.*;
 
 public class TLABuiltins {
 	private TLABuiltins() {}

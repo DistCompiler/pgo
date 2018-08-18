@@ -1,24 +1,10 @@
 package pgo.formatters;
 
+import pgo.Unreachable;
+import pgo.model.tla.*;
+
 import java.io.IOException;
 import java.util.List;
-
-import pgo.Unreachable;
-import pgo.model.tla.TLACaseArm;
-import pgo.model.tla.TLAExpression;
-import pgo.model.tla.TLAFunctionSubstitutionPair;
-import pgo.model.tla.TLAGeneralIdentifierPart;
-import pgo.model.tla.TLAIdentifier;
-import pgo.model.tla.TLAIdentifierOrTuple;
-import pgo.model.tla.TLAInstance;
-import pgo.model.tla.TLAOpDecl;
-import pgo.model.tla.TLAQuantifierBound;
-import pgo.model.tla.TLARecordConstructor;
-import pgo.model.tla.TLARecordSet;
-import pgo.model.tla.TLASubstitutionKey;
-import pgo.model.tla.TLASymbol;
-import pgo.model.tla.TLAUnit;
-import pgo.model.tla.TLANodeVisitor;
 
 public class TLANodeFormattingVisitor extends TLANodeVisitor<Void, IOException> {
 

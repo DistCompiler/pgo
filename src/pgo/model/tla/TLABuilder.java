@@ -1,11 +1,11 @@
 package pgo.model.tla;
 
+import pgo.util.SourceLocation;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-
-import pgo.util.SourceLocation;
 
 public class TLABuilder {
 	

@@ -1,9 +1,9 @@
 package pgo.formatters;
 
-import java.io.IOException;
-
 import pgo.parser.ParseFailure;
 import pgo.parser.ParseFailureVisitor;
+
+import java.io.IOException;
 
 public class ParseFailureFormattingVisitor extends ParseFailureVisitor<Void, IOException> {
 

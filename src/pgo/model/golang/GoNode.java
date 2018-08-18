@@ -1,10 +1,10 @@
 package pgo.model.golang;
 
-import java.io.IOException;
-import java.io.StringWriter;
-
 import pgo.formatters.GoNodeFormattingVisitor;
 import pgo.formatters.IndentingWriter;
+
+import java.io.IOException;
+import java.io.StringWriter;
 
 public abstract class GoNode {
 	

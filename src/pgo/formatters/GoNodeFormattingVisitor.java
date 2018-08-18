@@ -1,12 +1,12 @@
 package pgo.formatters;
 
-import java.io.IOException;
-
 import pgo.TODO;
 import pgo.model.golang.*;
 import pgo.model.golang.type.GoInterfaceTypeField;
 import pgo.model.golang.type.GoStructTypeField;
 import pgo.model.golang.type.GoType;
+
+import java.io.IOException;
 
 public class GoNodeFormattingVisitor extends GoNodeVisitor<Void, IOException> {
 

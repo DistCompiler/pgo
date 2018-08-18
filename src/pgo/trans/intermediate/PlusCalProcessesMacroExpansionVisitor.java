@@ -1,14 +1,9 @@
 package pgo.trans.intermediate;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-
 import pgo.errors.IssueContext;
 import pgo.model.pcal.*;
-import pgo.model.pcal.PlusCalProcesses;
+
+import java.util.*;
 
 public class PlusCalProcessesMacroExpansionVisitor extends PlusCalProcessesVisitor<PlusCalProcesses, RuntimeException> {
 

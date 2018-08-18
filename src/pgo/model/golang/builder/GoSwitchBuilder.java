@@ -1,8 +1,6 @@
 package pgo.model.golang.builder;
 
 import pgo.model.golang.*;
-import pgo.model.golang.builder.GoASTBuilder;
-import pgo.model.golang.builder.GoBlockBuilder;
 import pgo.scope.UID;
 
 import java.io.Closeable;

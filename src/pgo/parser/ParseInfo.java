@@ -3,8 +3,6 @@ package pgo.parser;
 import pgo.util.SourceLocatable;
 import pgo.util.SourceLocation;
 
-import java.util.Map;
-
 public class ParseInfo<Result extends SourceLocatable> extends SourceLocatable {
 
 	private final Result result;

@@ -1,25 +1,15 @@
 package pgo.trans.passes.type;
 
-import java.util.Map;
-
 import pgo.Unreachable;
-import pgo.model.tla.TLAAssumption;
-import pgo.model.tla.TLAConstantDeclaration;
-import pgo.model.tla.TLAFunctionDefinition;
-import pgo.model.tla.TLAInstance;
-import pgo.model.tla.TLAModule;
-import pgo.model.tla.TLAModuleDefinition;
-import pgo.model.tla.TLAOpDecl;
-import pgo.model.tla.TLAOperatorDefinition;
-import pgo.model.tla.TLATheorem;
-import pgo.model.tla.TLAUnitVisitor;
-import pgo.model.tla.TLAVariableDeclaration;
-import pgo.model.type.PGoTypeMonomorphicConstraint;
+import pgo.model.tla.*;
 import pgo.model.type.PGoTypeGenerator;
+import pgo.model.type.PGoTypeMonomorphicConstraint;
 import pgo.model.type.PGoTypeSolver;
 import pgo.model.type.PGoTypeVariable;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
+
+import java.util.Map;
 
 public class TLAUnitTypeConstraintVisitor extends TLAUnitVisitor<Void, RuntimeException> {
 

@@ -1,11 +1,11 @@
 package pgo.model.golang;
 
-import java.io.Closeable;
-import java.util.Map;
-
 import pgo.model.golang.builder.GoASTBuilder;
 import pgo.model.golang.builder.GoBlockBuilder;
 import pgo.scope.UID;
+
+import java.io.Closeable;
+import java.util.Map;
 
 public class GoIfBuilder implements Closeable {
 

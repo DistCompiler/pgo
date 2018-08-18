@@ -1,22 +1,9 @@
 package pgo.formatters;
 
+import pgo.model.tla.*;
+
 import java.io.IOException;
 import java.util.List;
-
-import pgo.model.tla.TLAAssumption;
-import pgo.model.tla.TLAConstantDeclaration;
-import pgo.model.tla.TLAFunctionDefinition;
-import pgo.model.tla.TLAIdentifier;
-import pgo.model.tla.TLAInstance;
-import pgo.model.tla.TLAModule;
-import pgo.model.tla.TLAModuleDefinition;
-import pgo.model.tla.TLAOpDecl;
-import pgo.model.tla.TLAOperatorDefinition;
-import pgo.model.tla.TLAQuantifierBound;
-import pgo.model.tla.TLATheorem;
-import pgo.model.tla.TLAUnit;
-import pgo.model.tla.TLAUnitVisitor;
-import pgo.model.tla.TLAVariableDeclaration;
 
 public class TLAUnitFormattingVisitor extends TLAUnitVisitor<Void, IOException> {
 	

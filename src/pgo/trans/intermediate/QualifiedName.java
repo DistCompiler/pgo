@@ -1,11 +1,11 @@
 package pgo.trans.intermediate;
 
+import pgo.model.tla.TLAGeneralIdentifierPart;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
-
-import pgo.model.tla.TLAGeneralIdentifierPart;
 
 public class QualifiedName {
 	String base;

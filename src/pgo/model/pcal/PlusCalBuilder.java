@@ -1,12 +1,12 @@
 package pgo.model.pcal;
 
-import java.util.Arrays;
-import java.util.List;
-
 import pgo.model.tla.TLAExpression;
 import pgo.model.tla.TLAUnit;
 import pgo.parser.Located;
 import pgo.util.SourceLocation;
+
+import java.util.Arrays;
+import java.util.List;
 
 public class PlusCalBuilder {
 

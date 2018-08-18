@@ -2,8 +2,6 @@ package pgo.parser;
 
 import pgo.util.SourceLocatable;
 
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.TreeMap;
 import java.util.function.Function;

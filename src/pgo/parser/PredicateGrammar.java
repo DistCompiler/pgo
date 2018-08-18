@@ -2,7 +2,6 @@ package pgo.parser;
 
 import pgo.util.SourceLocatable;
 
-import java.util.Objects;
 import java.util.function.Predicate;
 
 public class PredicateGrammar<Result extends SourceLocatable> extends Grammar<Result> {

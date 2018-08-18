@@ -1,17 +1,13 @@
 package pgo.model.golang.builder;
 
-import java.io.Closeable;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-
 import pgo.InternalCompilerError;
 import pgo.model.golang.*;
 import pgo.model.golang.type.GoType;
 import pgo.model.golang.type.GoTypeName;
 import pgo.scope.UID;
+
+import java.io.Closeable;
+import java.util.*;
 
 public class GoBlockBuilder extends GoASTBuilder implements Closeable {
 

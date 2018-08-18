@@ -1,21 +1,23 @@
 package pgo.trans.intermediate;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.TreeMap;
-import java.util.function.Consumer;
-
-import pgo.model.golang.*;
+import pgo.model.golang.GoExpression;
+import pgo.model.golang.GoIndexExpression;
+import pgo.model.golang.GoIntLiteral;
+import pgo.model.golang.GoVariableName;
 import pgo.model.golang.builder.GoBlockBuilder;
 import pgo.model.golang.builder.GoFunctionDeclarationBuilder;
 import pgo.model.golang.builder.GoModuleBuilder;
 import pgo.model.golang.type.GoType;
 import pgo.model.pcal.*;
-import pgo.model.pcal.PlusCalVariableDeclaration;
 import pgo.model.tla.TLAExpression;
 import pgo.model.type.PGoType;
 import pgo.scope.UID;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
+import java.util.function.Consumer;
 
 public class PlusCalProcessesCodeGenVisitor extends PlusCalProcessesVisitor<Void, RuntimeException> {
 	private DefinitionRegistry registry;

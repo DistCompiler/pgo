@@ -1,12 +1,12 @@
 package pgo.trans.intermediate;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-
 import pgo.errors.IssueContext;
 import pgo.model.pcal.PlusCalAlgorithm;
 import pgo.model.pcal.PlusCalMacro;
+
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 public class PlusCalMacroExpansionPass {
 	

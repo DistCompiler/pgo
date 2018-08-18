@@ -1,10 +1,7 @@
 package pgo.trans.intermediate;
 
-import java.util.List;
-import java.util.Map;
-
-import pgo.model.golang.builder.GoBlockBuilder;
 import pgo.model.golang.GoExpression;
+import pgo.model.golang.builder.GoBlockBuilder;
 import pgo.model.tla.TLAExpression;
 import pgo.model.type.PGoType;
 import pgo.model.type.PGoTypeGenerator;
@@ -14,6 +11,9 @@ import pgo.scope.UID;
 import pgo.util.Derived;
 import pgo.util.DerivedVisitor;
 import pgo.util.Origin;
+
+import java.util.List;
+import java.util.Map;
 
 public abstract class OperatorAccessor extends Derived {
 

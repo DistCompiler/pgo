@@ -1,7 +1,6 @@
 package pgo.parser;
 
 import pgo.util.EmptyHeterogenousList;
-import pgo.util.HeterogenousListTools;
 import pgo.util.SourceLocatable;
 import pgo.util.SourceLocation;
 
@@ -247,7 +246,7 @@ public class GrammarExecuteVisitor extends GrammarVisitor<GrammarExecuteVisitor.
 	@Override
 	public ParsingResult visit(EmptySequenceGrammar emptySequenceGrammar) throws RuntimeException {
 		return new ParsingResult(Collections.singletonList(new ParsingResultPair(
-				lexicalContext.mark(), new Located<Void>(SourceLocation.unknown(), null))));
+				lexicalContext.mark(), new Located<>(SourceLocation.unknown(), new EmptyHeterogenousList()))));
 	}
 
 	@Override
@@ -283,7 +282,7 @@ public class GrammarExecuteVisitor extends GrammarVisitor<GrammarExecuteVisitor.
 						p.getMark(),
 						new Located<>(
 								p.getResult().getLocation().combine(prev.getLocation()),
-								HeterogenousListTools.cons(p.getResult(), prev.getValue()))
+								prev.getValue().cons(p.getResult()))
 				));
 			}
 		}
@@ -313,7 +312,7 @@ public class GrammarExecuteVisitor extends GrammarVisitor<GrammarExecuteVisitor.
 						p.getMark(),
 						new Located<>(
 								prev.getLocation().combine(p.getResult().getLocation()),
-								HeterogenousListTools.cons(p.getResult(), prev.getValue()))
+								prev.getValue().cons(p.getResult()))
 				));
 			}
 		}

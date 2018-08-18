@@ -1,8 +1,8 @@
 package pgo.trans.passes.codegen;
 
 import pgo.InternalCompilerError;
-import pgo.model.golang.builder.GoBlockBuilder;
 import pgo.model.golang.GoLabelName;
+import pgo.model.golang.builder.GoBlockBuilder;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
 

@@ -1,9 +1,9 @@
 package pgo.model.pcal;
 
+import pgo.util.SourceLocation;
+
 import java.util.List;
 import java.util.stream.Collectors;
-
-import pgo.util.SourceLocation;
 
 public class PlusCalMultiProcess extends PlusCalProcesses {
 	

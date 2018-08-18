@@ -1,7 +1,10 @@
 package pgo.trans.intermediate;
 
 import pgo.InternalCompilerError;
-import pgo.model.golang.*;
+import pgo.model.golang.GoExpression;
+import pgo.model.golang.GoLabelName;
+import pgo.model.golang.GoStringLiteral;
+import pgo.model.golang.GoVariableName;
 import pgo.model.golang.builder.GoBlockBuilder;
 import pgo.model.golang.builder.GoModuleBuilder;
 import pgo.model.golang.type.GoType;

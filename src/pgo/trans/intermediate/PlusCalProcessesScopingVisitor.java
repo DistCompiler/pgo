@@ -1,16 +1,15 @@
 package pgo.trans.intermediate;
 
+import pgo.errors.IssueContext;
+import pgo.model.pcal.*;
+import pgo.modules.TLAModuleLoader;
+import pgo.scope.ChainMap;
+import pgo.scope.UID;
+
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-
-import pgo.errors.IssueContext;
-import pgo.model.pcal.*;
-import pgo.model.pcal.PlusCalMultiProcess;
-import pgo.modules.TLAModuleLoader;
-import pgo.scope.ChainMap;
-import pgo.scope.UID;
 
 public class PlusCalProcessesScopingVisitor extends PlusCalProcessesVisitor<Void, RuntimeException> {
 

@@ -1,7 +1,5 @@
 package pgo.trans.passes.type;
 
-import java.util.*;
-
 import pgo.errors.IssueContext;
 import pgo.model.pcal.*;
 import pgo.model.tla.TLAExpression;
@@ -10,6 +8,8 @@ import pgo.model.type.*;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
 import pgo.trans.intermediate.PGoTypeGoTypeConversionVisitor;
+
+import java.util.*;
 
 public class TypeInferencePass {
 	private TypeInferencePass() {}

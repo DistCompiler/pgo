@@ -2,7 +2,6 @@ package pgo.parser;
 
 import pgo.util.SourceLocatable;
 
-import java.util.Objects;
 import java.util.function.Function;
 
 public class MappingGrammar<PredecessorResult extends SourceLocatable, Result extends SourceLocatable> extends Grammar<Result> {

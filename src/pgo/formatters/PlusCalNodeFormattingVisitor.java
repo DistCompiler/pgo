@@ -1,11 +1,10 @@
 package pgo.formatters;
 
-import java.io.IOException;
-
 import pgo.TODO;
 import pgo.Unreachable;
 import pgo.model.pcal.*;
-import pgo.model.pcal.PlusCalLabel;
+
+import java.io.IOException;
 
 public class PlusCalNodeFormattingVisitor extends PlusCalNodeVisitor<Void, IOException> {
 

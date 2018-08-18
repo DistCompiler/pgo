@@ -1,9 +1,9 @@
 package pgo.formatters;
 
-import java.io.IOException;
-
-import pgo.model.golang.*;
+import pgo.model.golang.GoPtrType;
 import pgo.model.golang.type.*;
+
+import java.io.IOException;
 
 public class GoTypeFormattingVisitor extends GoTypeVisitor<Void, IOException> {
 

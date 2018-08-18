@@ -2,7 +2,9 @@ package pgo.trans.intermediate;
 
 import pgo.errors.IssueContext;
 import pgo.model.pcal.PlusCalAlgorithm;
-import pgo.parser.*;
+import pgo.parser.LexicalContext;
+import pgo.parser.ParseFailureException;
+import pgo.parser.PlusCalParser;
 import pgo.trans.passes.tlaparse.ParsingIssue;
 
 import java.nio.file.Path;

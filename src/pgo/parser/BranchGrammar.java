@@ -3,7 +3,6 @@ package pgo.parser;
 import pgo.util.SourceLocatable;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.stream.Collectors;
 
 public class BranchGrammar<Result extends SourceLocatable> extends Grammar<Result> {

@@ -1,12 +1,12 @@
 package pgo.parser;
 
+import pgo.util.SourceLocation;
+
 import java.nio.file.Path;
 import java.util.Optional;
 import java.util.regex.MatchResult;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import pgo.util.SourceLocation;
 
 public class LexicalContext {
 

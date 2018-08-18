@@ -1,7 +1,7 @@
 package pgo.trans.passes.codegen;
 
-import pgo.model.golang.builder.GoBlockBuilder;
 import pgo.model.golang.GoLabelName;
+import pgo.model.golang.builder.GoBlockBuilder;
 import pgo.scope.UID;
 
 public interface CriticalSection {

@@ -1,10 +1,10 @@
 package pgo.formatters;
 
-import java.io.IOException;
-
 import pgo.util.Derived;
 import pgo.util.OriginVisitor;
 import pgo.util.SourceLocatable;
+
+import java.io.IOException;
 
 public class OriginFormattingVisitor extends OriginVisitor<Void, IOException> {
 

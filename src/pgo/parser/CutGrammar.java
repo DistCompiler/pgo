@@ -2,8 +2,6 @@ package pgo.parser;
 
 import pgo.util.SourceLocatable;
 
-import java.util.Objects;
-
 public class CutGrammar<Result extends SourceLocatable> extends Grammar<Result> {
 
 	private final Grammar<Result> toCut;

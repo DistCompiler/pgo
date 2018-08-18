@@ -1,7 +1,5 @@
 package pgo.trans.intermediate;
 
-import java.util.Map;
-
 import pgo.PGoNetOptions;
 import pgo.PGoOptions;
 import pgo.Unreachable;
@@ -15,6 +13,8 @@ import pgo.scope.UID;
 import pgo.trans.passes.codegen.EtcdGlobalVariableStrategy;
 import pgo.trans.passes.codegen.MultithreadedProcessGlobalVariableStrategy;
 import pgo.trans.passes.codegen.StateServerGlobalVariableStrategy;
+
+import java.util.Map;
 
 public class CodeGenPass {
 	private CodeGenPass() {}

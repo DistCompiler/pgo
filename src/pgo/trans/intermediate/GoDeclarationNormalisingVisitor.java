@@ -1,9 +1,8 @@
 package pgo.trans.intermediate;
 
-import java.util.Set;
-
 import pgo.model.golang.*;
-import pgo.model.golang.GoDeclaration;
+
+import java.util.Set;
 
 public class GoDeclarationNormalisingVisitor extends GoDeclarationVisitor<GoDeclaration, RuntimeException> {
 

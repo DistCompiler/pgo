@@ -1,10 +1,10 @@
 package pgo.model.tla;
 
+import pgo.util.SourceLocation;
+
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
-
-import pgo.util.SourceLocation;
 
 /**
  * 

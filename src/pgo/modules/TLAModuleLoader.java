@@ -1,5 +1,10 @@
 package pgo.modules;
 
+import pgo.model.tla.TLAModule;
+import pgo.parser.LexicalContext;
+import pgo.parser.ParseFailureException;
+import pgo.parser.TLAParser;
+
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.MappedByteBuffer;
@@ -7,11 +12,6 @@ import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.List;
-
-import pgo.model.tla.TLAModule;
-import pgo.parser.LexicalContext;
-import pgo.parser.ParseFailureException;
-import pgo.parser.TLAParser;
 
 public class TLAModuleLoader {
 	

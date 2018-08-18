@@ -1,14 +1,13 @@
 package pgo.parser;
 
-import java.io.IOException;
-import java.io.StringWriter;
-import java.util.List;
-import java.util.Objects;
-import java.util.regex.Pattern;
-
 import pgo.formatters.IndentingWriter;
 import pgo.formatters.ParseFailureFormattingVisitor;
 import pgo.util.SourceLocation;
+
+import java.io.IOException;
+import java.io.StringWriter;
+import java.util.Objects;
+import java.util.regex.Pattern;
 
 public abstract class ParseFailure {
 

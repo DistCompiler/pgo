@@ -1,15 +1,15 @@
 package pgo.trans.intermediate;
 
-import java.util.Map;
-
 import pgo.TODO;
-import pgo.model.golang.builder.GoBlockBuilder;
 import pgo.model.golang.GoExpression;
 import pgo.model.golang.GoVariableName;
+import pgo.model.golang.builder.GoBlockBuilder;
 import pgo.model.tla.*;
 import pgo.model.type.PGoType;
 import pgo.scope.UID;
 import pgo.trans.intermediate.GlobalVariableStrategy.GlobalVariableWrite;
+
+import java.util.Map;
 
 public class TLAExpressionAssignmentLHSCodeGenVisitor extends TLAExpressionVisitor<GlobalVariableWrite, RuntimeException> {
 	private GoBlockBuilder builder;

@@ -1,8 +1,5 @@
 package pgo.trans.passes.type;
 
-import java.util.*;
-import java.util.stream.Collectors;
-
 import pgo.InternalCompilerError;
 import pgo.TODO;
 import pgo.Unreachable;
@@ -11,6 +8,9 @@ import pgo.model.type.*;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
 import pgo.trans.intermediate.OperatorAccessor;
+
+import java.util.*;
+import java.util.stream.Collectors;
 
 public class TLAExpressionTypeConstraintVisitor extends TLAExpressionVisitor<PGoType, RuntimeException> {
 

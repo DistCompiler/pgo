@@ -4,11 +4,11 @@ import pgo.model.golang.GoExpression;
 import pgo.model.golang.GoForRange;
 import pgo.model.golang.GoVariableName;
 import pgo.model.golang.NameCleaner;
-import pgo.model.golang.builder.GoASTBuilder;
-import pgo.model.golang.builder.GoBlockBuilder;
 import pgo.scope.UID;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 public class GoForRangeBuilder {
 	private GoASTBuilder parent;

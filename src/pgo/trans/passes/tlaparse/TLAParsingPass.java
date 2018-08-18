@@ -1,13 +1,13 @@
 package pgo.trans.passes.tlaparse;
 
-import java.nio.file.Path;
-import java.util.List;
-
 import pgo.errors.IssueContext;
 import pgo.model.tla.TLAModule;
 import pgo.parser.LexicalContext;
 import pgo.parser.ParseFailureException;
 import pgo.parser.TLAParser;
+
+import java.nio.file.Path;
+import java.util.List;
 
 public class TLAParsingPass {
 	

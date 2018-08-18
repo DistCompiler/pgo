@@ -3,7 +3,10 @@ package pgo.model.type;
 import pgo.errors.IssueContext;
 import pgo.util.Origin;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**

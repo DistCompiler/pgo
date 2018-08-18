@@ -1,11 +1,8 @@
 package pgo.trans.intermediate;
 
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
-
-import pgo.model.golang.*;
+import pgo.model.golang.GoCall;
 import pgo.model.golang.GoExpression;
+import pgo.model.golang.GoVariableName;
 import pgo.model.golang.builder.GoBlockBuilder;
 import pgo.model.golang.builder.GoFunctionDeclarationBuilder;
 import pgo.model.golang.type.GoType;
@@ -16,6 +13,10 @@ import pgo.model.type.*;
 import pgo.scope.UID;
 import pgo.trans.passes.type.TLAExpressionTypeConstraintVisitor;
 import pgo.util.Origin;
+
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 public class CompiledOperatorAccessor extends OperatorAccessor {
 

@@ -1,13 +1,13 @@
 package pgo.trans.intermediate;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import pgo.InternalCompilerError;
 import pgo.TODO;
 import pgo.model.golang.*;
 import pgo.model.golang.builder.GoBlockBuilder;
 import pgo.model.golang.type.*;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class TLATupleCodeGenVisitor extends GoTypeVisitor<GoExpression, RuntimeException> {
 

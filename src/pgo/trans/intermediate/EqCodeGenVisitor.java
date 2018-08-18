@@ -1,14 +1,14 @@
 package pgo.trans.intermediate;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-
 import pgo.TODO;
 import pgo.model.golang.*;
 import pgo.model.golang.builder.GoBlockBuilder;
 import pgo.model.golang.builder.GoForStatementClauseBuilder;
 import pgo.model.golang.type.*;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 public class EqCodeGenVisitor extends GoTypeVisitor<GoExpression, RuntimeException> {
 

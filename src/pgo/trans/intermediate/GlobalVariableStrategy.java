@@ -1,16 +1,18 @@
 package pgo.trans.intermediate;
 
-import java.util.HashMap;
-import java.util.Map;
-
 import pgo.InternalCompilerError;
-import pgo.model.golang.*;
+import pgo.model.golang.GoExpression;
+import pgo.model.golang.GoLabelName;
+import pgo.model.golang.GoVariableName;
 import pgo.model.golang.builder.GoBlockBuilder;
 import pgo.model.golang.builder.GoModuleBuilder;
 import pgo.model.golang.type.GoType;
 import pgo.model.pcal.PlusCalProcess;
 import pgo.scope.UID;
 import pgo.trans.passes.codegen.CriticalSection;
+
+import java.util.HashMap;
+import java.util.Map;
 
 public abstract class GlobalVariableStrategy implements CriticalSection {
 	private Map<UID, GoVariableName> variables = new HashMap<>();

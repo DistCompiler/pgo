@@ -1,10 +1,5 @@
 package pgo.trans.passes.type;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-
 import pgo.Unreachable;
 import pgo.errors.IssueContext;
 import pgo.model.pcal.*;
@@ -13,6 +8,11 @@ import pgo.model.type.*;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
 import pgo.trans.intermediate.ProcedureNotFoundIssue;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
 public class PlusCalStatementTypeConstraintVisitor extends PlusCalStatementVisitor<Void, RuntimeException> {
 

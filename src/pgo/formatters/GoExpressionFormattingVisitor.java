@@ -1,12 +1,12 @@
 package pgo.formatters;
 
-import java.io.IOException;
-import java.util.Map;
-
 import pgo.TODO;
 import pgo.model.golang.*;
 import pgo.model.golang.GoBuiltins.BuiltinConstant;
 import pgo.model.golang.type.GoMapType;
+
+import java.io.IOException;
+import java.util.Map;
 
 public class GoExpressionFormattingVisitor extends GoExpressionVisitor<Void, IOException> {
 

@@ -1,9 +1,9 @@
 package pgo.trans.intermediate;
 
-import java.io.IOException;
-
 import pgo.errors.Issue;
 import pgo.errors.IssueVisitor;
+
+import java.io.IOException;
 
 public class IOErrorIssue extends Issue {
 	

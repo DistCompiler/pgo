@@ -1,11 +1,11 @@
 package pgo.model.type;
 
-import java.util.*;
-import java.util.stream.Collectors;
-
 import pgo.Unreachable;
 import pgo.errors.Issue;
 import pgo.errors.IssueContext;
+
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * A constraint solver for PGo's type system. It does not support recursive types.

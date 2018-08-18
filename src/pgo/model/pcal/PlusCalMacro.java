@@ -1,10 +1,10 @@
 package pgo.model.pcal;
 
+import pgo.util.SourceLocation;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
-
-import pgo.util.SourceLocation;
 
 public class PlusCalMacro extends PlusCalNode {
 	

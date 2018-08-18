@@ -1,19 +1,22 @@
 package pgo.formatters;
 
-import java.io.IOException;
-import java.nio.file.Path;
-import java.util.Map;
-import java.util.Set;
-
 import pgo.errors.IssueVisitor;
 import pgo.errors.IssueWithContext;
 import pgo.model.pcal.PlusCalMacro;
-import pgo.model.type.*;
+import pgo.model.type.BacktrackingFailureIssue;
+import pgo.model.type.PGoTypePolymorphicConstraint;
+import pgo.model.type.UnrealizableTypeIssue;
+import pgo.model.type.UnsatisfiableConstraintIssue;
 import pgo.parser.ParseFailure;
 import pgo.trans.intermediate.*;
 import pgo.trans.passes.tlaparse.ParsingIssue;
 import pgo.trans.passes.type.TypeInferenceFailureIssue;
 import pgo.util.SourceLocation;
+
+import java.io.IOException;
+import java.nio.file.Path;
+import java.util.Map;
+import java.util.Set;
 
 public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 

@@ -1,11 +1,12 @@
 package pgo.formatters;
 
-import java.io.IOException;
-
 import pgo.TODO;
-import pgo.model.golang.*;
+import pgo.model.golang.GoDeclarationVisitor;
+import pgo.model.golang.GoFunctionDeclaration;
 import pgo.model.golang.GoTypeDeclaration;
 import pgo.model.golang.GoVariableDeclaration;
+
+import java.io.IOException;
 
 public class GoDeclarationFormattingVisitor extends GoDeclarationVisitor<Void, IOException> {
 

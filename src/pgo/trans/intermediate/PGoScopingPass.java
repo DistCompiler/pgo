@@ -1,17 +1,20 @@
 package pgo.trans.intermediate;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-
 import pgo.errors.IssueContext;
-import pgo.model.pcal.*;
+import pgo.model.pcal.PlusCalAlgorithm;
+import pgo.model.pcal.PlusCalProcedure;
+import pgo.model.pcal.PlusCalStatement;
+import pgo.model.pcal.PlusCalVariableDeclaration;
 import pgo.model.tla.TLAExpression;
 import pgo.model.tla.TLAModule;
 import pgo.model.tla.TLAUnit;
 import pgo.modules.TLAModuleLoader;
 import pgo.scope.ChainMap;
 import pgo.scope.UID;
+
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
 
 public class PGoScopingPass {
 

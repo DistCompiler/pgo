@@ -1,6 +1,8 @@
 package pgo.model.golang.builder;
 
-import pgo.model.golang.*;
+import pgo.model.golang.GoBlock;
+import pgo.model.golang.GoFunctionDeclaration;
+import pgo.model.golang.GoStatement;
 import pgo.model.golang.type.GoType;
 import pgo.model.golang.type.GoTypeName;
 import pgo.scope.UID;

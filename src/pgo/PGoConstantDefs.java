@@ -1,13 +1,12 @@
 package pgo;
 
+import org.json.JSONObject;
+import pgo.parser.Located;
+import pgo.util.SourceLocation;
+
 import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
-
-import org.json.JSONObject;
-
-import pgo.parser.Located;
-import pgo.util.SourceLocation;
 
 public class PGoConstantDefs {
 	

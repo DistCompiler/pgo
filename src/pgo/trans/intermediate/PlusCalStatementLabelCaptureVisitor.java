@@ -1,11 +1,10 @@
 package pgo.trans.intermediate;
 
-import java.util.List;
-
 import pgo.Unreachable;
 import pgo.errors.IssueContext;
 import pgo.model.pcal.*;
-import pgo.model.pcal.PlusCalAssert;
+
+import java.util.List;
 
 public class PlusCalStatementLabelCaptureVisitor extends PlusCalStatementVisitor<Void, RuntimeException> {
 
