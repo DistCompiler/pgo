@@ -26,7 +26,6 @@
   <path id="pgo.depjars.classpath">
     <pathelement location="lib/hamcrest-all-1.3.jar"/>
     <pathelement location="lib/junit-4.12.jar"/>
-    <pathelement location="lib/tlatools.jar"/>
     <pathelement location="lib/plume.jar"/>
     <pathelement location="lib/json.jar"/>
   </path>

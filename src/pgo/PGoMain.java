@@ -1,5 +1,6 @@
 package pgo;
 
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
@@ -7,6 +8,7 @@ import java.nio.CharBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collections;
@@ -14,8 +16,9 @@ import java.util.Map;
 import java.util.logging.Logger;
 
 import org.apache.commons.io.FileUtils;
-import pcal.exception.StringVectorToFileException;
 import pgo.errors.TopLevelIssueContext;
+import pgo.formatters.GoNodeFormattingVisitor;
+import pgo.formatters.IndentingWriter;
 import pgo.model.golang.GoModule;
 import pgo.model.pcal.PlusCalAlgorithm;
 import pgo.model.tla.TLAExpression;
@@ -28,7 +31,6 @@ import pgo.trans.intermediate.*;
 import pgo.trans.passes.constdef.ConstantDefinitionParsingPass;
 import pgo.trans.passes.tlaparse.TLAParsingPass;
 import pgo.trans.passes.type.TypeInferencePass;
-import pgo.util.IOUtil;
 
 public class PGoMain {
 	private String[] cmdArgs;
@@ -62,26 +64,23 @@ public class PGoMain {
 				return false;
 			}
 
-			logger.info("Reading lines from source file");
+			logger.info("Opening source file");
 			Path inputFilePath = Paths.get(opts.inputFilePath);
-			FileChannel fileChannel = new RandomAccessFile(inputFilePath.toFile(), "r").getChannel();
-			MappedByteBuffer buffer = fileChannel.map(FileChannel.MapMode.READ_ONLY, 0, fileChannel.size());
-			// assume UTF-8, though technically TLA+ is ASCII only according to the book
-			CharBuffer inputFileContents = StandardCharsets.UTF_8.decode(buffer);
+			final PlusCalAlgorithm plusCalAlgorithm;
+			final TLAModule tlaModule;
+			try(FileChannel fileChannel = new RandomAccessFile(inputFilePath.toFile(), "r").getChannel()) {
+				MappedByteBuffer buffer = fileChannel.map(FileChannel.MapMode.READ_ONLY, 0, fileChannel.size());
+				// assume UTF-8, though technically TLA+ is ASCII only according to the book
+				CharBuffer inputFileContents = StandardCharsets.UTF_8.decode(buffer);
 
-			logger.info("Parsing PlusCal code");
-			PlusCalAlgorithm plusCalAlgorithm = PlusCalParsingPass.perform(ctx, inputFilePath, inputFileContents);
-			checkErrors(ctx);
+				logger.info("Parsing PlusCal code");
+				plusCalAlgorithm = PlusCalParsingPass.perform(ctx, inputFilePath, inputFileContents);
+				checkErrors(ctx);
 
-			// for -writeAST option, just write the file AST.tla and halt.
-			/*if (opts.writeAST) {
-				IOUtil.WriteAST(pCalAST, opts.buildDir + "/" + opts.buildFile);
-				return true; // added for testing
-			}*/
-
-			logger.info("Parsing TLA+ module");
-			TLAModule tlaModule = TLAParsingPass.perform(ctx, inputFilePath, inputFileContents);
-			checkErrors(ctx);
+				logger.info("Parsing TLA+ module");
+				tlaModule = TLAParsingPass.perform(ctx, inputFilePath, inputFileContents);
+				checkErrors(ctx);
+			}
 
 			logger.info("Parsing constant definitions from configuration");
 			Map<String, TLAExpression> constantDefinitions = ConstantDefinitionParsingPass.perform(
@@ -93,41 +92,49 @@ public class PGoMain {
 			checkErrors(ctx);
 
 			logger.info("Expanding PlusCal macros");
-			plusCalAlgorithm = PlusCalMacroExpansionPass.perform(ctx, plusCalAlgorithm);
+			final PlusCalAlgorithm macroExpandedPlusCalAlgorithm = PlusCalMacroExpansionPass.perform(
+					ctx, plusCalAlgorithm);
 			checkErrors(ctx);
 
 			logger.info("Resolving TLA+ and PlusCal scoping");
 			TLAModuleLoader loader = new TLAModuleLoader(Collections.singletonList(inputFilePath.getParent()));
-			DefinitionRegistry registry = PGoScopingPass.perform(ctx, tlaModule, plusCalAlgorithm, loader, constantDefinitions);
+			DefinitionRegistry registry = PGoScopingPass.perform(
+					ctx, tlaModule, macroExpandedPlusCalAlgorithm, loader, constantDefinitions);
 			checkErrors(ctx);
 
 			logger.info("Inferring types");
-			Map<UID, PGoType> typeMap = TypeInferencePass.perform(ctx, registry, plusCalAlgorithm);
+			Map<UID, PGoType> typeMap = TypeInferencePass.perform(ctx, registry, macroExpandedPlusCalAlgorithm);
 			checkErrors(ctx);
 
 			logger.info("Inferring atomicity requirements");
-			AtomicityInferencePass.perform(registry, plusCalAlgorithm);
+			AtomicityInferencePass.perform(registry, macroExpandedPlusCalAlgorithm);
 
 			logger.info("Initial code generation");
-			GoModule module = CodeGenPass.perform(registry, typeMap, opts, plusCalAlgorithm);
+			GoModule goModule = CodeGenPass.perform(registry, typeMap, opts, macroExpandedPlusCalAlgorithm);
 
 			logger.info("Normalising generated code");
-			GoModule normalisedModule = CodeNormalisingPass.perform(module);
+			GoModule normalisedGoModule = CodeNormalisingPass.perform(goModule);
 
-			logger.info("Writing GoRoutineStatement to \"" + opts.buildFile + "\" in folder \"" + opts.buildDir + "\"");
-			IOUtil.WriteStringVectorToFile(Collections.singletonList(normalisedModule.toString()), opts.buildDir + "/" + opts.buildFile);
-			logger.info("Copying necessary GoRoutineStatement packages to folder \"" + opts.buildDir + "\"");
+			logger.info("Writing Go module to \"" + opts.buildFile + "\" in folder \"" + opts.buildDir + "\"");
+			try(
+					BufferedWriter writer = Files.newBufferedWriter(Paths.get(opts.buildDir+"/"+opts.buildFile));
+					IndentingWriter out = new IndentingWriter(writer)
+			) {
+				normalisedGoModule.accept(new GoNodeFormattingVisitor(out));
+			}
+
+			logger.info("Copying necessary Go packages to folder \"" + opts.buildDir + "\"");
 			copyPackages(opts.buildDir);
 
-			logger.info("Formatting generated GoRoutineStatement code");
+			logger.info("Formatting generated Go code");
 			try {
 				goFmt(opts.buildDir + "/" + opts.buildFile);
 			} catch (Exception e) {
-				logger.warning(String.format("Failed to format GoRoutineStatement code. Error: %s", e.getMessage()));
+				logger.warning(String.format("Failed to format Go code. Error: %s", e.getMessage()));
 			}
 			return true;
 
-		} catch (PGoTransException | StringVectorToFileException | IOException e) {
+		} catch (PGoTransException | IOException e) {
 			logger.severe(e.getMessage());
 			e.printStackTrace();
 			return false;

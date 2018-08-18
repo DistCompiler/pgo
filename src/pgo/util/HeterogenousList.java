@@ -1,4 +1,4 @@
-package pgo.parser;
+package pgo.util;
 
 public final class HeterogenousList<First, Rest extends EmptyHeterogenousList> extends EmptyHeterogenousList {
 

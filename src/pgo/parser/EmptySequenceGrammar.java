@@ -1,5 +1,7 @@
 package pgo.parser;
 
+import pgo.util.EmptyHeterogenousList;
+
 public class EmptySequenceGrammar extends AbstractSequenceGrammar<EmptyHeterogenousList> {
 	@Override
 	public String toString() {

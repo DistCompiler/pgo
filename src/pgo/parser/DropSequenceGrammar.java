@@ -1,8 +1,7 @@
 package pgo.parser;
 
+import pgo.util.EmptyHeterogenousList;
 import pgo.util.SourceLocatable;
-
-import java.util.Objects;
 
 public class DropSequenceGrammar<Dropped extends SourceLocatable, PrevResult extends EmptyHeterogenousList> extends AbstractSequenceGrammar<PrevResult> {
 

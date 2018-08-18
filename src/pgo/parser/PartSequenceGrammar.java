@@ -1,5 +1,7 @@
 package pgo.parser;
 
+import pgo.util.EmptyHeterogenousList;
+import pgo.util.HeterogenousList;
 import pgo.util.SourceLocatable;
 
 public class PartSequenceGrammar<Result extends SourceLocatable, PrevResult extends EmptyHeterogenousList> extends AbstractSequenceGrammar<HeterogenousList<Result, PrevResult>> {

@@ -1,5 +1,6 @@
 package pgo.parser;
 
+import pgo.util.EmptyHeterogenousList;
 import pgo.util.SourceLocatable;
 
 public abstract class GrammarVisitor<Result, Except extends Throwable> {

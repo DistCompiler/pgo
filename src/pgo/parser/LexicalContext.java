@@ -17,9 +17,9 @@ public class LexicalContext {
 	private int index;
 
 	public static class Mark{
-		private int markedLine;
-		private int markedColumn;
-		private int markedIndex;
+		private final int markedLine;
+		private final int markedColumn;
+		private final int markedIndex;
 		
 		public Mark(int markedLine, int markedColumn, int markedIndex) {
 			this.markedLine = markedLine;

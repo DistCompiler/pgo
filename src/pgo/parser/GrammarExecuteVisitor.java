@@ -1,5 +1,7 @@
 package pgo.parser;
 
+import pgo.util.EmptyHeterogenousList;
+import pgo.util.HeterogenousListTools;
 import pgo.util.SourceLocatable;
 import pgo.util.SourceLocation;
 

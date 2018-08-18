@@ -1,7 +1,6 @@
-package pgo.parser;
+package pgo.util;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 public final class ConsList<T> {

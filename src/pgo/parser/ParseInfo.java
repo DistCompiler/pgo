@@ -15,6 +15,13 @@ public class ParseInfo<Result extends SourceLocatable> extends SourceLocatable {
 		this.variableMap = variableMap;
 	}
 
+	/**
+	 * Retrieves any stored parser state associated with {@param k}. The retrieval is type-safe
+	 * as the type depends on the {@param <Type>} attached to {@param k}. Returns null if there is no such state.
+	 * @param k the key to search for
+	 * @param <Type> the type of the data to return
+	 * @return the value associated with {@param k}, or null if there is no such value
+	 */
 	public <Type> Type get(Variable<Type> k) {
 		return variableMap.get(k);
 	}

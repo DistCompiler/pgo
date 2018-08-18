@@ -1,3 +1,3 @@
-package pgo.parser;
+package pgo.util;
 
 public class EmptyHeterogenousList { }

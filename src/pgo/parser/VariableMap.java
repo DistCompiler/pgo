@@ -12,6 +12,7 @@ public final class VariableMap {
 		this.implementation = new HashMap<>();
 	}
 
+	@SuppressWarnings("unchecked")
 	public <Type> Type get(Variable<Type> k) {
 		return (Type)implementation.get(k);
 	}

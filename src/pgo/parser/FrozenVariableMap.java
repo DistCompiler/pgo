@@ -12,6 +12,7 @@ public final class FrozenVariableMap {
 		this.hashCode = implementation.hashCode();
 	}
 
+	@SuppressWarnings("unchecked")
 	public <Type> Type get(Variable<Type> k) {
 		return (Type)implementation.get(k);
 	}

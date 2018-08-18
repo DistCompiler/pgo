@@ -11,23 +11,29 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 /**
- * Represents a parsing action that consumes tokens from a {@link LexicalContext} and either successfully
- * yields a result of type {@code Result} or fails with a {@link pgo.parser.ParseFailure}.
+ * This class represents a strategy for parsing text into an object of type Result.
  * @param <Result> the type of an object representing a successful parse
  */
 public abstract class Grammar<Result extends SourceLocatable> {
 
 	/**
-	 * Transforms the result of one Grammar. Use this method when no further parsing needs to be done, but the
-	 * format of the parsed data structure needs adjusting.
-	 * @param operation a mapping from the actual parse result to an adjusted parse result
-	 * @param <MapResult> the type of the mapped parse action
-	 * @return a new parse action that yields the result of {@code operation.perform(originalResult)}
+	 * Generates a further Grammar object that "maps" the output of this grammar to the output of {@param mapping}
+	 * when applied to any objects yielded by the current grammar.
+	 * @param mapping a mapping from the actual parse result to an adjusted parse result of type MappingResult
+	 * @param <MappingResult> the result type of the new grammar
+	 * @return an new grammar that yields the corresponding mapping
 	 */
 	public <MappingResult extends SourceLocatable> Grammar<MappingResult> map(Function<Result, MappingResult> mapping){
 		return new MappingGrammar<>(this, mapping);
 	}
 
+	/**
+	 * Generates a grammar that only succeeds if both this grammar succeeds and {@param predicate} succeeds. The
+	 * predicate is provided with both the parser's current state (as last set by
+	 * {@link AbstractSequenceGrammar#dependentPart(Grammar, Function)}) and the current parsing result.
+	 * @param predicate the predicate to test
+	 * @return a new grammar that implements the corresponding filter operation
+	 */
 	public Grammar<Result> filter(Predicate<ParseInfo<Result>> predicate) {
 		return new PredicateGrammar<>(this, predicate);
 	}
@@ -36,12 +42,21 @@ public abstract class Grammar<Result extends SourceLocatable> {
 	 * A shorthand for generating parsing successes.
 	 * @param result the result of this successful parse
 	 * @param <Result> the type of the result
-	 * @return a parse action that will always succeed, yielding {@code result}
+	 * @return a grammar that will always succeed with value {@param result}
 	 */
-	static <Result extends SourceLocatable> Grammar<Result> success(Result result){
+	public static <Result extends SourceLocatable> Grammar<Result> success(Result result){
 		return ParseTools.matchString("").map(v -> result);
 	}
 
+	/**
+	 * Attempts to parse this grammar against the current state of the provided {@param lexicalContext}. If there
+	 * exist one or more valid parses the first one will be returned. If no valid parses exist, a
+	 * {@link ParseFailureException} will be thrown.
+	 * @param lexicalContext the lexical context in which to attempt to parse this grammar
+	 * @return the "first" result yielded by the grammar (if there is more than one valid parse)
+	 * @throws ParseFailureException thrown if no valid parses exist, indicates the furthest error(s) encountered
+	 * during unsuccessful parses
+	 */
 	@SuppressWarnings("unchecked")
 	public Result parse(LexicalContext lexicalContext) throws ParseFailureException {
 		GrammarExecuteVisitor visitor = new GrammarExecuteVisitor(
@@ -55,6 +70,12 @@ public abstract class Grammar<Result extends SourceLocatable> {
 		}
 	}
 
+	/**
+	 * Returns a list of all possible interpretations of the {@param lexicalContext}. This list may be empty if no
+	 * valid parses exist.
+	 * @param lexicalContext the context in which to evaluate this grammar
+	 * @return a list of all valid parses in the provided {@param lexicalContext}
+	 */
 	@SuppressWarnings("unchecked")
 	public List<Result> enumerate(LexicalContext lexicalContext) {
 		GrammarExecuteVisitor visitor = new GrammarExecuteVisitor(

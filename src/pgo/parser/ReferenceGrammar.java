@@ -1,5 +1,6 @@
 package pgo.parser;
 
+import pgo.util.Mutator;
 import pgo.util.SourceLocatable;
 
 import java.util.Objects;

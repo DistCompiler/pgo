@@ -1,6 +1,8 @@
 package pgo.parser;
 
 import pgo.model.tla.*;
+import pgo.util.EmptyHeterogenousList;
+import pgo.util.HeterogenousList;
 import pgo.util.SourceLocatable;
 import pgo.util.SourceLocation;
 
@@ -955,8 +957,8 @@ public final class TLAParser {
 						TLAExpression lhs = seq.getValue().getRest().getFirst();
 						LocatedList<
 								Located<HeterogenousList<
-										TLAExpression, HeterogenousList<
-										Located<Void>, EmptyHeterogenousList>>>> rest = seq.getValue().getFirst();
+																		TLAExpression, HeterogenousList<
+																		Located<Void>, EmptyHeterogenousList>>>> rest = seq.getValue().getFirst();
 						lhs = new TLABinOp(
 								lhs.getLocation()
 										.combine(firstSym.getLocation())
