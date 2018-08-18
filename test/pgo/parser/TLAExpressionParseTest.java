@@ -250,7 +250,22 @@ public class TLAExpressionParseTest {
 				{
 					"(restaurant_stage[self] = \"commit\")",
 						binop("=", fncall(idexp("restaurant_stage"), idexp("self")), str("commit"))
-				}
+				},
+
+				{"\\A x \\in set,y \\in (1)..(3) : (((x)+(y))%(2))=(1)",
+						universal(
+								bounds(
+										qbIds(ids(id("x")), idexp("set")),
+										qbIds(ids(id("y")), binop("..", num(1), num(3)))),
+								binop("=",
+										binop("%",
+												binop("+",
+														idexp("x"),
+														idexp("y")),
+												num(2)),
+										num(1))
+						)
+				},
 		});
 	}
 
