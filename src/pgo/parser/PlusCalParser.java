@@ -80,7 +80,11 @@ public final class PlusCalParser {
 					seq.getValue().getFirst()));
 
 	static final Grammar<PlusCalVariableDeclaration> VARDECL = emptySequence()
-			.part(VARIABLE_DECLARATION)
+			.part(parseOneOf(
+					VARIABLE_DECLARATION,
+					IDENTIFIER.map(id -> new PlusCalVariableDeclaration(
+							id.getLocation(), id, false, new PlusCalDefaultInitValue(id.getLocation())))
+			))
 			.drop(parseOneOf(parsePlusCalToken(";"), parsePlusCalToken(",")))
 			.map(seq -> seq.getValue().getFirst());
 
@@ -217,6 +221,7 @@ public final class PlusCalParser {
 			.part(TLA_EXPRESSION)
 			.drop(parsePlusCalToken(")"))
 			.part(C_SYNTAX_STMT)
+			.drop(parseOneOf(parsePlusCalToken(";"), nop())) // not in the grammar, but apparently an optional semicolon is valid here
 			.part(parseOneOf(
 					emptySequence()
 							.drop(parsePlusCalToken("else"))
@@ -261,7 +266,8 @@ public final class PlusCalParser {
 			.drop(parsePlusCalToken("with"))
 			.drop(parsePlusCalToken("("))
 			.part(parseListOf(VARIABLE_DECLARATION, parsePlusCalTokenOneOf(Arrays.asList(";", ","))))
-			.drop(parsePlusCalTokenOneOf(Arrays.asList(";", ",")))
+			.drop(parseOneOf(parsePlusCalToken(";"), parsePlusCalToken(","), nop()))
+			.drop(parsePlusCalToken(")"))
 			.part(C_SYNTAX_STMT)
 			.map(seq -> new PlusCalWith(
 					seq.getLocation(),

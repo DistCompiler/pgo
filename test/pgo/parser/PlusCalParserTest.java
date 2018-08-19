@@ -1,5 +1,11 @@
 package pgo.parser;
 
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import pgo.model.pcal.PlusCalAlgorithm;
+import pgo.model.tla.TLAModule;
+
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.MappedByteBuffer;
@@ -10,20 +16,9 @@ import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
 
-import static org.hamcrest.CoreMatchers.*;
-import static org.junit.Assert.*;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameters;
-
-import pgo.model.tla.TLAModule;
-
 @RunWith(Parameterized.class)
-public class TLAParserTest {
-
-	@Parameters
+public class PlusCalParserTest {
+	@Parameterized.Parameters
 	public static List<Object[]> data(){
 		return Arrays.asList(new Object[][] {
 				{"Euclid", },
@@ -36,9 +31,9 @@ public class TLAParserTest {
 				{"pgo2pc", },
 		});
 	}
-	
+
 	public String fileName;
-	public TLAParserTest(String name) {
+	public PlusCalParserTest(String name) {
 		fileName = name;
 	}
 
@@ -49,10 +44,8 @@ public class TLAParserTest {
 		MappedByteBuffer buffer = fileChannel.map(FileChannel.MapMode.READ_ONLY, 0, fileChannel.size());
 		// assume UTF-8, though technically TLA+ is ASCII only according to the book
 		LexicalContext ctx = new LexicalContext(inputFilePath, StandardCharsets.UTF_8.decode(buffer));
-		
-		List<TLAModule> modules = TLAParser.readModules(ctx);
-		
-		assertThat(modules.size(), is(1));
-	}
 
+		// basic smoke test, ensure that we at least seem to parse all our example files correctly
+		PlusCalAlgorithm modules = PlusCalParser.readAlgorithm(ctx);
+	}
 }
