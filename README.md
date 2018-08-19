@@ -30,7 +30,8 @@ semantically equivalent Go program.
 
 Actively under development. PGo supports compilation of most
 uni-process and very simple multiprocess PlusCal algorithms into
-corresponding compilable and runnable Go code.
+corresponding compilable and runnable Go code. See [this Google doc](https://docs.google.com/document/d/1nqcqIVzmfA3LhX7C2Tf1FbbFApLnEHx0JbXkVqcn68w/edit)
+for the PlusCal/TLA+ constructs that are supported by PGo.
 
 See `manual.pdf` in the repository for a snapshot of the latest version
 of the manual that details implemented features and several examples.
