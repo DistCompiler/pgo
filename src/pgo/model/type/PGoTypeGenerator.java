@@ -6,7 +6,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
 /**
- * Generates fresh PGoTypeVariables and infers types from GoRoutineStatement type names.
+ * Generates fresh PGoTypeVariables and infers types from Go type names.
  */
 public class PGoTypeGenerator implements Supplier<PGoTypeVariable> {
 	private AtomicLong current = new AtomicLong(0);

@@ -170,7 +170,6 @@ public class ExpressionCodeGenRunTest {
 								binop("+", idexp("x"), num(1))))),
 				Collections.singletonList("3"),
 			},
-			// TODO: chokes on codegen
 			{
 				fncall(idexp("fn"), num(2), num(5)),
 				Collections.singletonList(

@@ -139,7 +139,7 @@ public class IntegrationTestingUtils {
 	}
 	
 	public static void testRunGoCode(Path codePath, List<String> expected) throws IOException {
-		// try to run the compiled GoRoutineStatement code, check that it prints the right thing
+		// try to run the compiled Go code, check that it prints the right thing
 		ProcessBuilder pb = new ProcessBuilder("go", "run", codePath.toString());
 		Process p = pb.start();
 		// print stderr in case it says something interesting

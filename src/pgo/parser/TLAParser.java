@@ -15,7 +15,7 @@ import static pgo.parser.ParseTools.*;
 /**
  *
  *  <p>
- *  This is a backtracking LL_k parser for the TLA+ language.
+ *  This is a backtracking parser for the TLA+ language.
  *  </p>
  *
  *  <p>
@@ -37,7 +37,7 @@ import static pgo.parser.ParseTools.*;
  *
  *  <p>
  *  Everything is defined in terms of a common vocabulary of operations, the most general of which can be found in
- *  {@link pgo.parser.ParseTools}. GoFor an overview of the basic mechanics of the system, look at
+ *  {@link pgo.parser.ParseTools}. For an overview of the basic mechanics of the system, look at
  *  {@link Grammar}.
  *  </p>
  *
@@ -95,7 +95,7 @@ import static pgo.parser.ParseTools.*;
  * 	    </p>
  *
  *      <p>
- * 		The  argument represents this constraint - if a token is found that
+ * 		The MIN_COLUMN parser state represents this constraint - if a token is found that
  * 		would otherwise match, but is at a column index lower than
  * 		, the match fails instead. This enables most of the
  * 		codebase to not have to care too much about this rule, while
@@ -103,8 +103,9 @@ import static pgo.parser.ParseTools.*;
  * 	    </p>
  *
  *      <p>
- * 		Passing {@code  = -1} is used to disable this feature for
+ * 		Setting {@code MIN_COLUMN = -1} is used to disable this feature for
  * 		expressions that are not on the right hand side of {@code /\} or {@code \/}.
+ * 		See {@link ParseTools#checkMinColumn(Grammar)} for specifics.
  * 	    </p>
  *
  */

@@ -10,7 +10,7 @@
  import java.nio.file.Paths;
 
 public class PGoOptions {
-	@Option(value = "-h PlusCalPrint usage information", aliases = { "-help" })
+	@Option(value = "-h Print usage information", aliases = { "-help" })
 	public boolean help = false;
 
 	@Option(value = "-q Reduce printing during execution", aliases = { "-quiet" })
@@ -19,7 +19,7 @@ public class PGoOptions {
 	/**
 	 * Be verbose, print extra detailed information. Sets the log level to FINE.
 	 */
-	@Option(value = "-v PlusCalPrint detailed information during execution ", aliases = { "-verbose" })
+	@Option(value = "-v Print detailed information during execution ", aliases = { "-verbose" })
 	public boolean logLvlVerbose = false;
 
 	@Option(value = "-c path to the configuration file, if any")
