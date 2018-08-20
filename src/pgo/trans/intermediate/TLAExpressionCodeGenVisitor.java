@@ -172,13 +172,8 @@ public class TLAExpressionCodeGenVisitor extends PGoTLAExpressionVisitor<Express
 
 	@Override
 	public Expression visit(PGoTLACase pGoTLACase) throws RuntimeException {
-		VariableName result = null;
-		if (pGoTLACase.getOther() != null) {
-			result = builder.varDecl("result", pGoTLACase.getOther().accept(this));
-		} else {
-			UID uid = pGoTLACase.getArms().get(0).getResult().getUID();
-			result = builder.varDecl("result", typeMap.get(uid).accept(new PGoTypeGoTypeConversionVisitor()));
-		}
+		UID uid = pGoTLACase.getArms().get(0).getResult().getUID();
+		VariableName result = builder.varDecl("result", typeMap.get(uid).accept(new PGoTypeGoTypeConversionVisitor()));
 		LabelName matched = builder.newLabel("matched");
 
 		for (PGoTLACaseArm caseArm : pGoTLACase.getArms()) {
@@ -192,6 +187,8 @@ public class TLAExpressionCodeGenVisitor extends PGoTLAExpressionVisitor<Express
 
 		if (pGoTLACase.getOther() == null) {
 			builder.addPanic(new StringLiteral("No matching case!"));
+		} else {
+			builder.assign(result, pGoTLACase.getOther().accept(this));
 		}
 
 		builder.label(matched);
