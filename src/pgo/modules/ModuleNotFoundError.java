@@ -11,7 +11,7 @@ public class ModuleNotFoundError extends Exception {
 	
 	public ModuleNotFoundError(String moduleName, List<Path> pathsChecked) {
 		super(
-				"Module not found: \"" + moduleName + "\", looked in " +
+				"GoModule not found: \"" + moduleName + "\", looked in " +
 						pathsChecked.stream()
 						.map(Path::toString)
 						.collect(Collectors.joining(", ")));

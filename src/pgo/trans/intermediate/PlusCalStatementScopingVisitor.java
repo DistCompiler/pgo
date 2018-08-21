@@ -1,31 +1,15 @@
 package pgo.trans.intermediate;
 
+import pgo.Unreachable;
+import pgo.errors.IssueContext;
+import pgo.model.pcal.*;
+import pgo.model.tla.TLAExpression;
+import pgo.modules.TLAModuleLoader;
+
 import java.util.List;
 import java.util.Set;
 
-import pgo.Unreachable;
-import pgo.errors.IssueContext;
-import pgo.model.pcal.Assert;
-import pgo.model.pcal.Assignment;
-import pgo.model.pcal.AssignmentPair;
-import pgo.model.pcal.Await;
-import pgo.model.pcal.Call;
-import pgo.model.pcal.Either;
-import pgo.model.pcal.Goto;
-import pgo.model.pcal.If;
-import pgo.model.pcal.LabeledStatements;
-import pgo.model.pcal.MacroCall;
-import pgo.model.pcal.Print;
-import pgo.model.pcal.Return;
-import pgo.model.pcal.Skip;
-import pgo.model.pcal.Statement;
-import pgo.model.pcal.StatementVisitor;
-import pgo.model.pcal.While;
-import pgo.model.pcal.With;
-import pgo.model.tla.PGoTLAExpression;
-import pgo.modules.TLAModuleLoader;
-
-public class PlusCalStatementScopingVisitor extends StatementVisitor<Void, RuntimeException> {
+public class PlusCalStatementScopingVisitor extends PlusCalStatementVisitor<Void, RuntimeException> {
 
 	private IssueContext ctx;
 	private TLAScopeBuilder builder;
@@ -43,38 +27,38 @@ public class PlusCalStatementScopingVisitor extends StatementVisitor<Void, Runti
 	}
 
 	@Override
-	public Void visit(LabeledStatements labeledStatements) throws RuntimeException {
-		for (Statement stmt : labeledStatements.getStatements()) {
+	public Void visit(PlusCalLabeledStatements labeledStatements) throws RuntimeException {
+		for (PlusCalStatement stmt : labeledStatements.getStatements()) {
 			stmt.accept(this);
 		}
 		return null;
 	}
 
 	@Override
-	public Void visit(While while1) throws RuntimeException {
-		while1.getCondition().accept(new TLAExpressionScopingVisitor(builder, registry, loader, moduleRecursionSet));
-		for (Statement stmt : while1.getBody()) {
+	public Void visit(PlusCalWhile plusCalWhile) throws RuntimeException {
+		plusCalWhile.getCondition().accept(new TLAExpressionScopingVisitor(builder, registry, loader, moduleRecursionSet));
+		for (PlusCalStatement stmt : plusCalWhile.getBody()) {
 			stmt.accept(this);
 		}
 		return null;
 	}
 
 	@Override
-	public Void visit(If if1) throws RuntimeException {
-		if1.getCondition().accept(new TLAExpressionScopingVisitor(builder, registry, loader, moduleRecursionSet));
-		for (Statement stmt : if1.getYes()) {
+	public Void visit(PlusCalIf plusCalIf) throws RuntimeException {
+		plusCalIf.getCondition().accept(new TLAExpressionScopingVisitor(builder, registry, loader, moduleRecursionSet));
+		for (PlusCalStatement stmt : plusCalIf.getYes()) {
 			stmt.accept(this);
 		}
-		for (Statement stmt : if1.getNo()) {
+		for (PlusCalStatement stmt : plusCalIf.getNo()) {
 			stmt.accept(this);
 		}
 		return null;
 	}
 
 	@Override
-	public Void visit(Either either) throws RuntimeException {
-		for (List<Statement> list : either.getCases()) {
-			for (Statement stmt : list) {
+	public Void visit(PlusCalEither plusCalEither) throws RuntimeException {
+		for (List<PlusCalStatement> list : plusCalEither.getCases()) {
+			for (PlusCalStatement stmt : list) {
 				stmt.accept(this);
 			}
 		}
@@ -82,8 +66,8 @@ public class PlusCalStatementScopingVisitor extends StatementVisitor<Void, Runti
 	}
 
 	@Override
-	public Void visit(Assignment assignment) throws RuntimeException {
-		for (AssignmentPair pair : assignment.getPairs()) {
+	public Void visit(PlusCalAssignment plusCalAssignment) throws RuntimeException {
+		for (PlusCalAssignmentPair pair : plusCalAssignment.getPairs()) {
 			pair.getLhs().accept(new TLAExpressionScopingVisitor(builder, registry, loader, moduleRecursionSet));
 			pair.getRhs().accept(new TLAExpressionScopingVisitor(builder, registry, loader, moduleRecursionSet));
 		}
@@ -91,61 +75,64 @@ public class PlusCalStatementScopingVisitor extends StatementVisitor<Void, Runti
 	}
 
 	@Override
-	public Void visit(Return return1) throws RuntimeException {
+	public Void visit(PlusCalReturn plusCalReturn) throws RuntimeException {
 		return null;
 	}
 
 	@Override
-	public Void visit(Skip skip) throws RuntimeException {
+	public Void visit(PlusCalSkip skip) throws RuntimeException {
 		return null;
 	}
 
 	@Override
-	public Void visit(Call call) throws RuntimeException {
-		for (PGoTLAExpression expr : call.getArguments()) {
+	public Void visit(PlusCalCall plusCalCall) throws RuntimeException {
+		for (TLAExpression expr : plusCalCall.getArguments()) {
 			expr.accept(new TLAExpressionScopingVisitor(builder, null, null, null));
 		}
 		return null;
 	}
 
 	@Override
-	public Void visit(MacroCall macroCall) throws RuntimeException {
+	public Void visit(PlusCalMacroCall macroCall) throws RuntimeException {
 		throw new Unreachable();
 	}
 
 	@Override
-	public Void visit(With with) throws RuntimeException {
-		with.getVariable().getValue().accept(new TLAExpressionScopingVisitor(builder, registry, loader, moduleRecursionSet));
+	public Void visit(PlusCalWith with) throws RuntimeException {
 		TLAScopeBuilder nested = builder.makeNestedScope();
-		nested.defineLocal(with.getVariable().getName(), with.getVariable().getUID());
-		registry.addLocalVariable(with.getVariable().getUID());
-		for (Statement stmt : with.getBody()) {
+		for(PlusCalVariableDeclaration decl : with.getVariables()) {
+			decl.getValue().accept(new TLAExpressionScopingVisitor(nested, registry, loader, moduleRecursionSet));
+			nested.defineLocal(decl.getName().getValue(), decl.getUID());
+			registry.addLocalVariable(decl.getUID());
+		}
+
+		for (PlusCalStatement stmt : with.getBody()) {
 			stmt.accept(new PlusCalStatementScopingVisitor(ctx, nested, registry, loader, moduleRecursionSet));
 		}
 		return null;
 	}
 
 	@Override
-	public Void visit(Print print) throws RuntimeException {
-		print.getValue().accept(new TLAExpressionScopingVisitor(builder, registry, loader, moduleRecursionSet));
+	public Void visit(PlusCalPrint plusCalPrint) throws RuntimeException {
+		plusCalPrint.getValue().accept(new TLAExpressionScopingVisitor(builder, registry, loader, moduleRecursionSet));
 		return null;
 	}
 
 	@Override
-	public Void visit(Assert assert1) throws RuntimeException {
-		assert1.getCondition().accept(new TLAExpressionScopingVisitor(builder, registry, loader, moduleRecursionSet));
+	public Void visit(PlusCalAssert plusCalAssert) throws RuntimeException {
+		plusCalAssert.getCondition().accept(new TLAExpressionScopingVisitor(builder, registry, loader, moduleRecursionSet));
 		return null;
 	}
 
 	@Override
-	public Void visit(Await await) throws RuntimeException {
-		await.getCondition().accept(new TLAExpressionScopingVisitor(builder, registry, loader, moduleRecursionSet));
+	public Void visit(PlusCalAwait plusCalAwait) throws RuntimeException {
+		plusCalAwait.getCondition().accept(new TLAExpressionScopingVisitor(builder, registry, loader, moduleRecursionSet));
 		return null;
 	}
 
 	@Override
-	public Void visit(Goto goto1) throws RuntimeException {
-		builder.reference(goto1.getTarget(), goto1.getUID());
+	public Void visit(PlusCalGoto plusCalGoto) throws RuntimeException {
+		builder.reference(plusCalGoto.getTarget(), plusCalGoto.getUID());
 		return null;
 	}
 

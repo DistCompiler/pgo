@@ -1,27 +1,23 @@
 package pgo.trans.intermediate;
 
-import java.util.*;
-
 import pgo.InternalCompilerError;
-import pgo.model.golang.Type;
-import pgo.model.pcal.Procedure;
-import pgo.model.tla.PGoTLAExpression;
-import pgo.model.tla.PGoTLAFunctionDefinition;
-import pgo.model.tla.PGoTLAModule;
-import pgo.model.tla.PGoTLAOperatorDefinition;
-import pgo.model.tla.PGoTLAUnit;
+import pgo.model.golang.type.GoType;
+import pgo.model.pcal.PlusCalProcedure;
+import pgo.model.tla.*;
 import pgo.scope.UID;
 
+import java.util.*;
+
 public class DefinitionRegistry {
-	private Map<String, PGoTLAModule> modules;
-	private Map<UID, PGoTLAUnit> definitions;
+	private Map<String, TLAModule> modules;
+	private Map<UID, TLAUnit> definitions;
 	private Map<UID, OperatorAccessor> operators;
-	private Map<UID, Type> globalVariableTypes;
+	private Map<UID, GoType> globalVariableTypes;
 	private Set<UID> localVariables;
 	private Map<UID, String> constants;
-	private Map<UID, PGoTLAExpression> constantValues;
+	private Map<UID, TLAExpression> constantValues;
 	private Map<UID, UID> references;
-	private Map<String, Procedure> procedures;
+	private Map<String, PlusCalProcedure> procedures;
 	private Map<UID, Integer> labelsToLockGroups;
 	private Map<Integer, Set<UID>> lockGroupsToVariableReads;
 	private Map<Integer, Set<UID>> lockGroupsToVariableWrites;
@@ -47,13 +43,13 @@ public class DefinitionRegistry {
 		return references;
 	}
 
-	public void addModule(PGoTLAModule module) {
+	public void addModule(TLAModule module) {
 		if (!modules.containsKey(module.getName().getId())) {
 			modules.put(module.getName().getId(), module);
 		}
 	}
 
-	public void addOperatorDefinition(PGoTLAOperatorDefinition def) {
+	public void addOperatorDefinition(TLAOperatorDefinition def) {
 		if (!definitions.containsKey(def.getUID())) {
 			definitions.put(def.getUID(), def);
 		}
@@ -63,13 +59,13 @@ public class DefinitionRegistry {
 		operators.put(uid, op);
 	}
 
-	public void addFunctionDefinition(PGoTLAFunctionDefinition def) {
+	public void addFunctionDefinition(TLAFunctionDefinition def) {
 		if (!definitions.containsKey(def.getUID())) {
 			definitions.put(def.getUID(), def);
 		}
 	}
 
-	public void addProcedure(Procedure proc) {
+	public void addProcedure(PlusCalProcedure proc) {
 		procedures.put(proc.getName(), proc);
 	}
 
@@ -77,7 +73,7 @@ public class DefinitionRegistry {
 		globalVariableTypes.put(uid, null);
 	}
 
-	public void updateGlobalVariableType(UID uid, Type type) {
+	public void updateGlobalVariableType(UID uid, GoType type) {
 		if (!globalVariableTypes.containsKey(uid)) {
 			throw new InternalCompilerError();
 		}
@@ -106,11 +102,11 @@ public class DefinitionRegistry {
 		return operators.get(id);
 	}
 
-	public PGoTLAModule findModule(String name) {
+	public TLAModule findModule(String name) {
 		return modules.get(name);
 	}
 
-	public Procedure findProcedure(String name) {
+	public PlusCalProcedure findProcedure(String name) {
 		return procedures.get(name);
 	}
 
@@ -118,7 +114,7 @@ public class DefinitionRegistry {
 		return globalVariableTypes.containsKey(ref);
 	}
 
-	public Type getGlobalVariableType(UID uid) {
+	public GoType getGlobalVariableType(UID uid) {
 		return globalVariableTypes.get(uid);
 	}
 
@@ -141,11 +137,11 @@ public class DefinitionRegistry {
 		return constants.get(id);
 	}
 
-	public void setConstantValue(UID id, PGoTLAExpression value) {
+	public void setConstantValue(UID id, TLAExpression value) {
 		constantValues.put(id, value);
 	}
 
-	public PGoTLAExpression getConstantValue(UID id) {
+	public TLAExpression getConstantValue(UID id) {
 		if (!constantValues.containsKey(id)) {
 			throw new InternalCompilerError();
 		}

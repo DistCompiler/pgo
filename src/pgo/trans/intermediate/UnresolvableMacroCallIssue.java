@@ -2,17 +2,17 @@ package pgo.trans.intermediate;
 
 import pgo.errors.Issue;
 import pgo.errors.IssueVisitor;
-import pgo.model.pcal.MacroCall;
+import pgo.model.pcal.PlusCalMacroCall;
 
 public class UnresolvableMacroCallIssue extends Issue {
 
-	private MacroCall macroCall;
+	private PlusCalMacroCall macroCall;
 
-	public UnresolvableMacroCallIssue(MacroCall macroCall) {
+	public UnresolvableMacroCallIssue(PlusCalMacroCall macroCall) {
 		this.macroCall = macroCall;
 	}
 
-	public MacroCall getMacroCall() {
+	public PlusCalMacroCall getMacroCall() {
 		return macroCall;
 	}
 

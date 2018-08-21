@@ -1,12 +1,13 @@
  package pgo;
 
-import plume.Option;
-import plume.Options;
-import org.json.*;
+ import org.json.JSONException;
+ import org.json.JSONObject;
+ import plume.Option;
+ import plume.Options;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
+ import java.io.IOException;
+ import java.nio.file.Files;
+ import java.nio.file.Paths;
 
 public class PGoOptions {
 	@Option(value = "-h Print usage information", aliases = { "-help" })

@@ -5,7 +5,6 @@ import pgo.errors.Issue;
 import pgo.errors.IssueContext;
 import pgo.util.Origin;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 

@@ -1,12 +1,11 @@
 package pgo.formatters;
 
+import pgo.model.golang.GoPtrType;
+import pgo.model.golang.type.*;
+
 import java.io.IOException;
 
-import pgo.TODO;
-import pgo.model.golang.*;
-import pgo.model.golang.type.MapType;
-
-public class GoTypeFormattingVisitor extends TypeVisitor<Void, IOException> {
+public class GoTypeFormattingVisitor extends GoTypeVisitor<Void, IOException> {
 
 	private IndentingWriter out;
 
@@ -15,15 +14,15 @@ public class GoTypeFormattingVisitor extends TypeVisitor<Void, IOException> {
 	}
 
 	@Override
-	public Void visit(TypeName typeName) throws IOException {
+	public Void visit(GoTypeName typeName) throws IOException {
 		out.write(typeName.getName());
 		return null;
 	}
 
 	@Override
-	public Void visit(StructType structType) throws IOException {
+	public Void visit(GoStructType structType) throws IOException {
 		out.write("struct{");
-		for(StructTypeField field : structType.getFields()){
+		for(GoStructTypeField field : structType.getFields()){
 			out.write(field.getName());
 			out.write(" ");
 			field.getType().accept(this);
@@ -34,28 +33,28 @@ public class GoTypeFormattingVisitor extends TypeVisitor<Void, IOException> {
 	}
 
 	@Override
-	public Void visit(PtrType ptrType) throws IOException {
+	public Void visit(GoPtrType ptrType) throws IOException {
 		out.write("*");
 		ptrType.getPointee().accept(this);
 		return null;
 	}
 
 	@Override
-	public Void visit(SliceType sliceType) throws IOException {
+	public Void visit(GoSliceType sliceType) throws IOException {
 		out.write("[]");
 		sliceType.getElementType().accept(this);
 		return null;
 	}
 
 	@Override
-	public Void visit(ChanType chanType) throws IOException {
+	public Void visit(GoChanType chanType) throws IOException {
 		out.write("chan ");
 		chanType.getElementType().accept(this);
 		return null;
 	}
 
 	@Override
-	public Void visit(MapType mapType) throws IOException {
+	public Void visit(GoMapType mapType) throws IOException {
 		out.write("map[");
 		mapType.getKeyType().accept(this);
 		out.write("]");
@@ -64,7 +63,7 @@ public class GoTypeFormattingVisitor extends TypeVisitor<Void, IOException> {
 	}
 
 	@Override
-	public Void visit(InterfaceType interfaceType) throws IOException {
+	public Void visit(GoInterfaceType interfaceType) throws IOException {
 		// TODO: complete this
 		out.write("interface{}");
 		return null;

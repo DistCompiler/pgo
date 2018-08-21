@@ -1,10 +1,10 @@
 package pgo.model.golang;
 
-import java.util.HashSet;
-import java.util.Set;
-
 import pgo.InternalCompilerError;
 import pgo.scope.ChainSet;
+
+import java.util.HashSet;
+import java.util.Set;
 
 public class NameCleaner {
 

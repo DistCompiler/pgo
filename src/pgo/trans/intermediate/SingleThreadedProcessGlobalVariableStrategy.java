@@ -1,43 +1,49 @@
 package pgo.trans.intermediate;
 
 import pgo.InternalCompilerError;
-import pgo.model.golang.*;
-import pgo.model.pcal.PcalProcess;
+import pgo.model.golang.GoExpression;
+import pgo.model.golang.GoLabelName;
+import pgo.model.golang.GoStringLiteral;
+import pgo.model.golang.GoVariableName;
+import pgo.model.golang.builder.GoBlockBuilder;
+import pgo.model.golang.builder.GoModuleBuilder;
+import pgo.model.golang.type.GoType;
+import pgo.model.pcal.PlusCalProcess;
 import pgo.scope.UID;
 
 public class SingleThreadedProcessGlobalVariableStrategy extends GlobalVariableStrategy {
 	@Override
-	public void initPostlude(ModuleBuilder moduleBuilder, BlockBuilder initBuilder) {
+	public void initPostlude(GoModuleBuilder moduleBuilder, GoBlockBuilder initBuilder) {
 		// nothing to do
 	}
 
 	@Override
-	public void processPrelude(BlockBuilder processBody, PcalProcess process, String processName, VariableName self, Type selfType) {
+	public void processPrelude(GoBlockBuilder processBody, PlusCalProcess process, String processName, GoVariableName self, GoType selfType) {
 		throw new InternalCompilerError();
 	}
 
 	@Override
-	public void mainPrelude(BlockBuilder builder) {
+	public void mainPrelude(GoBlockBuilder builder) {
 		// nothing to do
 	}
 
 	@Override
-	public void startCriticalSection(BlockBuilder builder, UID processUID, int lockGroup, UID labelUID, LabelName labelName) {
+	public void startCriticalSection(GoBlockBuilder builder, UID processUID, int lockGroup, UID labelUID, GoLabelName labelName) {
 		// pass
 	}
 
 	@Override
-	public void abortCriticalSection(BlockBuilder builder, UID processUID, int lockGroup, UID labelUID, LabelName labelName) {
-		builder.addPanic(new StringLiteral("Something went wrong"));
+	public void abortCriticalSection(GoBlockBuilder builder, UID processUID, int lockGroup, UID labelUID, GoLabelName labelName) {
+		builder.addPanic(new GoStringLiteral("Something went wrong"));
 	}
 
 	@Override
-	public void endCriticalSection(BlockBuilder builder, UID processUID, int lockGroup, UID labelUID, LabelName labelName) {
+	public void endCriticalSection(GoBlockBuilder builder, UID processUID, int lockGroup, UID labelUID, GoLabelName labelName) {
 		// pass
 	}
 
 	@Override
-	public Expression readGlobalVariable(BlockBuilder builder, UID uid) {
+	public GoExpression readGlobalVariable(GoBlockBuilder builder, UID uid) {
 		return builder.findUID(uid);
 	}
 
@@ -45,12 +51,12 @@ public class SingleThreadedProcessGlobalVariableStrategy extends GlobalVariableS
 	public GlobalVariableWrite writeGlobalVariable(UID uid) {
 		return new GlobalVariableWrite() {
 			@Override
-			public Expression getValueSink(BlockBuilder builder) {
+			public GoExpression getValueSink(GoBlockBuilder builder) {
 				return builder.findUID(uid);
 			}
 
 			@Override
-			public void writeAfter(BlockBuilder builder) {
+			public void writeAfter(GoBlockBuilder builder) {
 				// pass
 			}
 		};

@@ -2,17 +2,17 @@ package pgo.trans.intermediate;
 
 import pgo.errors.Issue;
 import pgo.errors.IssueVisitor;
-import pgo.model.tla.PGoTLAIdentifier;
+import pgo.model.tla.TLAIdentifier;
 
 public class ModuleSubstitutionNotFoundIssue extends Issue {
 
-	PGoTLAIdentifier from;
+	TLAIdentifier from;
 
-	public ModuleSubstitutionNotFoundIssue(PGoTLAIdentifier from) {
+	public ModuleSubstitutionNotFoundIssue(TLAIdentifier from) {
 		this.from = from;
 	}
 	
-	public PGoTLAIdentifier getFrom() {
+	public TLAIdentifier getFrom() {
 		return from;
 	}
 

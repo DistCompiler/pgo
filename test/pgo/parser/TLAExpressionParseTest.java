@@ -13,12 +13,12 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
-import pgo.model.tla.PGoTLABool;
-import pgo.model.tla.PGoTLAExpression;
+import pgo.model.tla.TLABool;
+import pgo.model.tla.TLAExpression;
 import pgo.model.tla.TLAFairness;
 import pgo.util.SourceLocation;
 
-import static pgo.model.tla.Builder.*;
+import static pgo.model.tla.TLABuilder.*;
 
 @RunWith(Parameterized.class)
 public class TLAExpressionParseTest {
@@ -27,8 +27,8 @@ public class TLAExpressionParseTest {
 	public static List<Object[]> data(){
 		return Arrays.asList(new Object[][] {
 				{"1", num(1) },
-				{"TRUE", new PGoTLABool(SourceLocation.unknown(), true) },
-				{"FALSE", new PGoTLABool(SourceLocation.unknown(), false) },
+				{"TRUE", new TLABool(SourceLocation.unknown(), true) },
+				{"FALSE", new TLABool(SourceLocation.unknown(), false) },
 
 				{"[mgr \\in managers |-> \"start\"]",
 					function(bounds(qbIds(ids(id("mgr")), idexp("managers"))), str("start")),
@@ -40,9 +40,19 @@ public class TLAExpressionParseTest {
 
 				// conjunct/disjunct cases (indent-sensitive)
 				{"/\\ a", idexp("a") },
-				{"/\\ a\n/\\ b", conjunct(idexp("a"), idexp("b")) },
-				{"  /\\ a\n  /\\ b\n/\\ c", conjunct(conjunct(idexp("a"), idexp("b")), idexp("c")) },
-				{"  /\\ a\n  /\\ b\n  /\\ c", conjunct(idexp("a"), conjunct(idexp("b"), idexp("c"))) },
+				{
+					"/\\ a\n"
+						+"/\\ b", conjunct(idexp("a"), idexp("b")) },
+				{
+					"  /\\ a\n"
+						+"  /\\ b\n"
+						+"/\\ c", conjunct(conjunct(idexp("a"), idexp("b")), idexp("c")) },
+				{"  /\\ a\n"
+						+"  /\\ b\n"
+						+"  /\\ c", conjunct(conjunct(idexp("a"), idexp("b")), idexp("c")) },
+				{"  /\\ a\n"
+						+"/\\ b\n"
+						+"  /\\ c", conjunct(conjunct(idexp("a"), idexp("b")), idexp("c")) },
 
 				// case expressions
 				{"CASE x -> 1", caseexp(arms(arm(idexp("x"), num(1))), null) },
@@ -79,9 +89,26 @@ public class TLAExpressionParseTest {
 				{"\\lnot DOMAIN a", unary("\\lnot", unary("DOMAIN", idexp("a"))) },
 
 				// set construction
+				{"0..1", binop("..", num(0), num(1))},
 				{"0..procs-1", binop("..", num(0), binop("-", idexp("procs"), num(1)))},
 
 				// TODO desc
+				{"x'",
+						unary("'", idexp("x"))
+				},
+				{"x' \\notin y",
+						binop("\\notin", unary("'", idexp("x")), idexp("y"))
+				},
+				{"pc[i] \\notin x",
+						binop("\\notin",
+								fncall(idexp("pc"), idexp("i")),
+								idexp("x"))
+				},
+				{"pc[i] \\notin {\"Li5\", \"Li6\", \"ncs\"}",
+						binop("\\notin",
+								fncall(idexp("pc"), idexp("i")),
+								set(str("Li5"), str("Li6"), str("ncs")))
+				},
 				{"(pc[i] \\notin {\"Li5\", \"Li6\", \"ncs\"})",
 						binop("\\notin",
 								fncall(idexp("pc"), idexp("i")),
@@ -107,6 +134,16 @@ public class TLAExpressionParseTest {
 						"        /\\ 3\n",
 						binop("/\\", binop("/\\", num(1), unary("[]", num(2))), num(3))
 				},
+				{"        /\\ 1 /\\ []2 /\\ 3\n",
+						binop("/\\", binop("/\\", num(1), unary("[]", num(2))), num(3))
+				},
+				{"~ /\\ 1\n"
+						+"  /\\ 2",
+						unary("~", binop("/\\", num(1), num(2)))
+				},
+				{"[] 2 /\\ 3",
+						binop("/\\", unary("[]", num(2)), num(3))
+				},
 				{"        /\\ Init /\\ 4\n" +
 						"        /\\ WF_vars(P(self))",
 						binop("/\\",
@@ -115,6 +152,10 @@ public class TLAExpressionParseTest {
 										num(4)),
 								fairness(TLAFairness.Type.WEAK, idexp("vars"),
 										opcall("P", idexp("self"))))
+				},
+				{"/\\ 1 \\/ 2\n"
+						+"/\\ 3",
+						binop("/\\", binop("\\/", num(1), num(2)), num(3))
 				},
 				{"        /\\ Init /\\ 4\n" +
 						"        /\\ \\A self \\in 0..procs-1 : WF_vars(P(self))",
@@ -139,16 +180,98 @@ public class TLAExpressionParseTest {
 						tuple(num(24), idexp("v_init"), str("have gcd"), idexp("v"))
 				},
 
+				// postfix / performance
+				{"msg'[1]",
+						fncall(unary("'", idexp("msg")), num(1))
+				},
+				{"Append(output, msg'[1])",
+						opcall("Append", idexp("output"), fncall(unary("'", idexp("msg")), num(1)))
+				},
+				/*{"Append(network[(N+1)], <<self, (<<a_init[self],b_init[self]>>)>>)",
+						opcall("Append", )
+				},*/
+
 				// a string with spaces in it
 				{"\"have gcd\"",
 						str("have gcd")
+				},
+
+				{"pc[self] = \"c1\"",
+						binop("=", fncall(idexp("pc"), idexp("self")), str("c1"))
+				},
+
+				{"            /\\ pc[self] = \"c1\"\n" +
+						"            /\\ (restaurant_stage[self] = \"commit\") \\/\n" +
+						"               (restaurant_stage[self] = \"abort\")\n" +
+						"            /\\ IF restaurant_stage[self] = \"commit\"\n" +
+						"                  THEN /\\ restaurant_stage' = [restaurant_stage EXCEPT ![self] = \"committed\"]\n" +
+						"                  ELSE /\\ restaurant_stage' = [restaurant_stage EXCEPT ![self] = \"aborted\"]\n" +
+						"            /\\ pc' = [pc EXCEPT ![self] = \"Done\"]\n" +
+						"            /\\ UNCHANGED << managers, rstMgrs, aborted >>",
+						binop("/\\",
+								binop("/\\",
+										binop("/\\",
+												binop("/\\",
+														binop("=", fncall(idexp("pc"), idexp("self")), str("c1")),
+														binop("\\/",
+																binop("=",
+																		fncall(idexp("restaurant_stage"), idexp("self")),
+																		str("commit")),
+																binop("=",
+																		fncall(idexp("restaurant_stage"), idexp("self")),
+																		str("abort")))),
+												ifexp(
+														binop("=",
+																fncall(idexp("restaurant_stage"), idexp("self")),
+																str("commit")),
+														binop("=",
+																unary("'", idexp("restaurant_stage")),
+																except(
+																		idexp("restaurant_stage"),
+																		sub(keys(idexp("self")), str("committed")))),
+														binop("=",
+																unary("'", idexp("restaurant_stage")),
+																except(
+																		idexp("restaurant_stage"),
+																		sub(keys(idexp("self")), str("aborted")))))),
+										binop("=",
+												unary("'", idexp("pc")),
+												except(
+														idexp("pc"),
+														sub(keys(idexp("self")), str("Done"))))),
+								unary("UNCHANGED",
+										tuple(idexp("managers"), idexp("rstMgrs"), idexp("aborted"))))
+				},
+
+				{
+					"(2)",
+						num(2)
+				},
+				{
+					"(restaurant_stage[self] = \"commit\")",
+						binop("=", fncall(idexp("restaurant_stage"), idexp("self")), str("commit"))
+				},
+
+				{"\\A x \\in set,y \\in (1)..(3) : (((x)+(y))%(2))=(1)",
+						universal(
+								bounds(
+										qbIds(ids(id("x")), idexp("set")),
+										qbIds(ids(id("y")), binop("..", num(1), num(3)))),
+								binop("=",
+										binop("%",
+												binop("+",
+														idexp("x"),
+														idexp("y")),
+												num(2)),
+										num(1))
+						)
 				},
 		});
 	}
 
 	String exprString;
-	PGoTLAExpression exprExpected;
-	public TLAExpressionParseTest(String exprString, PGoTLAExpression exprExpected) {
+	TLAExpression exprExpected;
+	public TLAExpressionParseTest(String exprString, TLAExpression exprExpected) {
 		this.exprString = exprString;
 		this.exprExpected = exprExpected;
 	}
@@ -156,10 +279,12 @@ public class TLAExpressionParseTest {
 	static Path testFile = Paths.get("TEST");
 
 	@Test
-	public void test() throws TLAParseException {
-		ParseContext ctx = new ParseContext(testFile, String.join(System.lineSeparator(), exprString.split("\n")));
+	public void test() throws ParseFailureException {
+		LexicalContext ctx = new LexicalContext(testFile, String.join(System.lineSeparator(), exprString.split("\n")));
 
-		PGoTLAExpression expr = TLAParser.readExpression(ctx);
+		System.out.println(exprString);
+
+		TLAExpression expr = TLAParser.readExpression(ctx);
 
 		assertThat(expr, is(exprExpected));
 	}

@@ -1,10 +1,10 @@
 package pgo.formatters;
 
-import java.io.IOException;
-
 import pgo.errors.ContextVisitor;
 import pgo.trans.intermediate.ExpandingMacroCall;
 import pgo.trans.intermediate.WhileLoadingUnit;
+
+import java.io.IOException;
 
 public class ContextFormattingVisitor extends ContextVisitor<Void, IOException> {
 

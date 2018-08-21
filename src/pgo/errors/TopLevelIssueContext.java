@@ -1,12 +1,12 @@
 package pgo.errors;
 
+import pgo.formatters.IndentingWriter;
+import pgo.formatters.IssueFormattingVisitor;
+
 import java.io.IOException;
 import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.List;
-
-import pgo.formatters.IndentingWriter;
-import pgo.formatters.IssueFormattingVisitor;
 
 public class TopLevelIssueContext extends IssueContext {
 

@@ -1,6 +1,0 @@
-# Never check-in models
-*.tla
-*.cfg
-*.properties
-/InJarFilenameToStream.class
-/ModelInJar.class

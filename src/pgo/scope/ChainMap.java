@@ -1,6 +1,9 @@
 package pgo.scope;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -94,7 +97,7 @@ public class ChainMap<K, V> implements Map<K, V> {
 
 	@Override
 	public Collection<V> values() {
-		return entrySet().stream().map(Entry<K, V>::getValue).collect(Collectors.toList());
+		return entrySet().stream().map(Entry::getValue).collect(Collectors.toList());
 	}
 
 

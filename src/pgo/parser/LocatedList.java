@@ -1,12 +1,12 @@
 package pgo.parser;
 
+import pgo.util.SourceLocatable;
+import pgo.util.SourceLocation;
+
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
-
-import pgo.util.SourceLocatable;
-import pgo.util.SourceLocation;
 
 public class LocatedList<T> extends SourceLocatable implements List<T> {
 	
@@ -26,6 +26,11 @@ public class LocatedList<T> extends SourceLocatable implements List<T> {
 	@Override
 	public int hashCode(){
 		return list.hashCode();
+	}
+
+	@Override
+	public String toString() {
+		return list.toString() + " at " + location;
 	}
 
 	@Override

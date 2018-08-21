@@ -2,17 +2,17 @@ package pgo.trans.intermediate;
 
 import pgo.errors.Issue;
 import pgo.errors.IssueVisitor;
-import pgo.model.tla.PGoTLAIdentifier;
+import pgo.model.tla.TLAIdentifier;
 
 public class MacroArgumentInnerScopeConflictIssue extends Issue {
 
-	private PGoTLAIdentifier id;
+	private TLAIdentifier id;
 
-	public MacroArgumentInnerScopeConflictIssue(PGoTLAIdentifier id) {
+	public MacroArgumentInnerScopeConflictIssue(TLAIdentifier id) {
 		this.id = id;
 	}
 	
-	public PGoTLAIdentifier getIdentifier() {
+	public TLAIdentifier getIdentifier() {
 		return id;
 	}
 

@@ -3,7 +3,7 @@ package pgo.trans.intermediate;
 import pgo.Unreachable;
 import pgo.model.tla.*;
 
-public class TLAUnitAtomicityInferenceVisitor extends PGoTLAUnitVisitor<Void, RuntimeException> {
+public class TLAUnitAtomicityInferenceVisitor extends TLAUnitVisitor<Void, RuntimeException> {
 	protected TLAExpressionAtomicityInferenceVisitor visitor;
 
 	public TLAUnitAtomicityInferenceVisitor(TLAExpressionAtomicityInferenceVisitor visitor) {
@@ -11,49 +11,49 @@ public class TLAUnitAtomicityInferenceVisitor extends PGoTLAUnitVisitor<Void, Ru
 	}
 
 	@Override
-	public Void visit(PGoTLAInstance pGoTLAInstance) throws RuntimeException {
+	public Void visit(TLAInstance pGoTLAInstance) throws RuntimeException {
 		throw new Unreachable();
 	}
 
 	@Override
-	public Void visit(PGoTLAFunctionDefinition pGoTLAFunctionDefinition) throws RuntimeException {
+	public Void visit(TLAFunctionDefinition pGoTLAFunctionDefinition) throws RuntimeException {
 		pGoTLAFunctionDefinition.getFunction().accept(visitor);
 		return null;
 	}
 
 	@Override
-	public Void visit(PGoTLAOperatorDefinition pGoTLAOperator) throws RuntimeException {
+	public Void visit(TLAOperatorDefinition pGoTLAOperator) throws RuntimeException {
 		pGoTLAOperator.getBody().accept(visitor);
 		return null;
 	}
 
 	@Override
-	public Void visit(PGoTLATheorem pGoTLATheorem) throws RuntimeException {
+	public Void visit(TLATheorem pGoTLATheorem) throws RuntimeException {
 		throw new Unreachable();
 	}
 
 	@Override
-	public Void visit(PGoTLAModule pGoTLAModule) throws RuntimeException {
+	public Void visit(TLAModule pGoTLAModule) throws RuntimeException {
 		throw new Unreachable();
 	}
 
 	@Override
-	public Void visit(PGoTLAVariableDeclaration pGoTLAVariableDeclaration) throws RuntimeException {
+	public Void visit(TLAVariableDeclaration pGoTLAVariableDeclaration) throws RuntimeException {
 		throw new Unreachable();
 	}
 
 	@Override
-	public Void visit(PGoTLAConstantDeclaration pGoTLAConstantDeclaration) throws RuntimeException {
+	public Void visit(TLAConstantDeclaration TLAConstantDeclaration) throws RuntimeException {
 		throw new Unreachable();
 	}
 
 	@Override
-	public Void visit(PGoTLAModuleDefinition pGoTLAModuleDefinition) throws RuntimeException {
+	public Void visit(TLAModuleDefinition pGoTLAModuleDefinition) throws RuntimeException {
 		throw new Unreachable();
 	}
 
 	@Override
-	public Void visit(PGoTLAAssumption pGoTLAAssumption) throws RuntimeException {
+	public Void visit(TLAAssumption TLAAssumption) throws RuntimeException {
 		throw new Unreachable();
 	}
 }

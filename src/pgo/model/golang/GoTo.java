@@ -3,23 +3,23 @@ package pgo.model.golang;
 import java.util.Objects;
 
 /**
- * A Goto in pluscal and go
+ * A PlusCalGoto in pluscal and go
  *
  */
-public class GoTo extends Statement {
+public class GoTo extends GoStatement {
 	// the to label location
-	private LabelName to;
+	private GoLabelName to;
 
-	public GoTo(LabelName to) {
+	public GoTo(GoLabelName to) {
 		this.to = to;
 	}
 
-	public LabelName getTo() {
+	public GoLabelName getTo() {
 		return to;
 	}
 	
 	@Override
-	public <T, E extends Throwable> T accept(StatementVisitor<T, E> v) throws E {
+	public <T, E extends Throwable> T accept(GoStatementVisitor<T, E> v) throws E {
 		return v.visit(this);
 	}
 

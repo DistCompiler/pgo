@@ -4,7 +4,7 @@ import pgo.util.SourceLocation;
 
 import java.util.Objects;
 
-public class TLAFairness extends PGoTLAExpression {
+public class TLAFairness extends TLAExpression {
 
 	public enum Type {
 		STRONG,
@@ -12,10 +12,10 @@ public class TLAFairness extends PGoTLAExpression {
 	}
 
 	private Type type;
-	private PGoTLAExpression vars;
-	private PGoTLAExpression expression;
+	private TLAExpression vars;
+	private TLAExpression expression;
 
-	public TLAFairness(SourceLocation location, Type type, PGoTLAExpression vars, PGoTLAExpression expression){
+	public TLAFairness(SourceLocation location, Type type, TLAExpression vars, TLAExpression expression){
 		super(location);
 		this.type = type;
 		this.vars = vars;
@@ -26,21 +26,21 @@ public class TLAFairness extends PGoTLAExpression {
 		return type;
 	}
 
-	public PGoTLAExpression getVars(){
+	public TLAExpression getVars(){
 		return vars;
 	}
 
-	public PGoTLAExpression getExpression(){
+	public TLAExpression getExpression(){
 		return expression;
 	}
 
 	@Override
-	public PGoTLAExpression copy() {
+	public TLAExpression copy() {
 		return new TLAFairness(getLocation(), type, vars.copy(), expression.copy());
 	}
 
 	@Override
-	public <T, E extends Throwable> T accept(PGoTLAExpressionVisitor<T, E> v) throws E {
+	public <T, E extends Throwable> T accept(TLAExpressionVisitor<T, E> v) throws E {
 		return v.visit(this);
 	}
 

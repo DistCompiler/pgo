@@ -9,7 +9,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.function.Consumer;
 
-public class TLAExpressionAtomicityInferenceVisitor extends PGoTLAExpressionVisitor<Set<UID>, RuntimeException> {
+public class TLAExpressionAtomicityInferenceVisitor extends TLAExpressionVisitor<Set<UID>, RuntimeException> {
 	protected Consumer<UID> captureRead;
 
 	public TLAExpressionAtomicityInferenceVisitor(Consumer<UID> captureRead) {
@@ -17,54 +17,54 @@ public class TLAExpressionAtomicityInferenceVisitor extends PGoTLAExpressionVisi
 	}
 
 	@Override
-	public Set<UID> visit(PGoTLAFunctionCall pGoTLAFunctionCall) throws RuntimeException {
+	public Set<UID> visit(TLAFunctionCall pGoTLAFunctionCall) throws RuntimeException {
 		pGoTLAFunctionCall.getFunction().accept(this);
 		pGoTLAFunctionCall.getParams().forEach(e -> e.accept(this));
 		return Collections.singleton(pGoTLAFunctionCall.getFunction().getUID());
 	}
 
 	@Override
-	public Set<UID> visit(PGoTLABinOp pGoTLABinOp) throws RuntimeException {
-		pGoTLABinOp.getLHS().accept(this);
-		pGoTLABinOp.getRHS().accept(this);
+	public Set<UID> visit(TLABinOp TLABinOp) throws RuntimeException {
+		TLABinOp.getLHS().accept(this);
+		TLABinOp.getRHS().accept(this);
 		return Collections.emptySet();
 	}
 
 	@Override
-	public Set<UID> visit(PGoTLABool pGoTLABool) throws RuntimeException {
+	public Set<UID> visit(TLABool TLABool) throws RuntimeException {
 		return Collections.emptySet();
 	}
 
 	@Override
-	public Set<UID> visit(PGoTLACase pGoTLACase) throws RuntimeException {
+	public Set<UID> visit(TLACase TLACase) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public Set<UID> visit(PGoTLAExistential pGoTLAExistential) throws RuntimeException {
-		return pGoTLAExistential.getBody().accept(this);
+	public Set<UID> visit(TLAExistential TLAExistential) throws RuntimeException {
+		return TLAExistential.getBody().accept(this);
 	}
 
 	@Override
-	public Set<UID> visit(PGoTLAFunction pGoTLAFunction) throws RuntimeException {
+	public Set<UID> visit(TLAFunction pGoTLAFunction) throws RuntimeException {
 		pGoTLAFunction.getArguments().forEach(a -> a.getSet().accept(this));
 		return pGoTLAFunction.getBody().accept(this);
 	}
 
 	@Override
-	public Set<UID> visit(PGoTLAFunctionSet pGoTLAFunctionSet) throws RuntimeException {
+	public Set<UID> visit(TLAFunctionSet pGoTLAFunctionSet) throws RuntimeException {
 		pGoTLAFunctionSet.getFrom().accept(this);
 		pGoTLAFunctionSet.getTo().accept(this);
 		return Collections.emptySet();
 	}
 
 	@Override
-	public Set<UID> visit(PGoTLAFunctionSubstitution pGoTLAFunctionSubstitution) throws RuntimeException {
+	public Set<UID> visit(TLAFunctionSubstitution pGoTLAFunctionSubstitution) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public Set<UID> visit(PGoTLAIf pGoTLAIf) throws RuntimeException {
+	public Set<UID> visit(TLAIf pGoTLAIf) throws RuntimeException {
 		pGoTLAIf.getCond().accept(this);
 		Set<UID> ret = new HashSet<>(pGoTLAIf.getTval().accept(this));
 		ret.addAll(pGoTLAIf.getFval().accept(this));
@@ -72,99 +72,99 @@ public class TLAExpressionAtomicityInferenceVisitor extends PGoTLAExpressionVisi
 	}
 
 	@Override
-	public Set<UID> visit(PGoTLALet pGoTLALet) throws RuntimeException {
+	public Set<UID> visit(TLALet pGoTLALet) throws RuntimeException {
 		pGoTLALet.getDefinitions().forEach(def -> def.accept(new TLAUnitAtomicityInferenceVisitor(this)));
 		return pGoTLALet.getBody().accept(this);
 	}
 
 	@Override
-	public Set<UID> visit(PGoTLAGeneralIdentifier pGoTLAVariable) throws RuntimeException {
+	public Set<UID> visit(TLAGeneralIdentifier pGoTLAVariable) throws RuntimeException {
 		captureRead.accept(pGoTLAVariable.getUID());
 		return Collections.singleton(pGoTLAVariable.getUID());
 	}
 
 	@Override
-	public Set<UID> visit(PGoTLATuple pGoTLATuple) throws RuntimeException {
+	public Set<UID> visit(TLATuple pGoTLATuple) throws RuntimeException {
 		pGoTLATuple.getElements().forEach(e -> e.accept(this));
 		return Collections.emptySet();
 	}
 
 	@Override
-	public Set<UID> visit(PGoTLAMaybeAction pGoTLAMaybeAction) throws RuntimeException {
+	public Set<UID> visit(TLAMaybeAction pGoTLAMaybeAction) throws RuntimeException {
 		return pGoTLAMaybeAction.getBody().accept(this);
 	}
 
 	@Override
-	public Set<UID> visit(PGoTLANumber pGoTLANumber) throws RuntimeException {
+	public Set<UID> visit(TLANumber pGoTLANumber) throws RuntimeException {
 		return Collections.emptySet();
 	}
 
 	@Override
-	public Set<UID> visit(PGoTLAOperatorCall pGoTLAOperatorCall) throws RuntimeException {
+	public Set<UID> visit(TLAOperatorCall pGoTLAOperatorCall) throws RuntimeException {
 		pGoTLAOperatorCall.getArgs().forEach(a -> a.accept(this));
 		return Collections.emptySet();
 	}
 
 	@Override
-	public Set<UID> visit(PGoTLAQuantifiedExistential pGoTLAQuantifiedExistential) throws RuntimeException {
+	public Set<UID> visit(TLAQuantifiedExistential pGoTLAQuantifiedExistential) throws RuntimeException {
 		return pGoTLAQuantifiedExistential.getBody().accept(this);
 	}
 
 	@Override
-	public Set<UID> visit(PGoTLAQuantifiedUniversal pGoTLAQuantifiedUniversal) throws RuntimeException {
+	public Set<UID> visit(TLAQuantifiedUniversal pGoTLAQuantifiedUniversal) throws RuntimeException {
 		return pGoTLAQuantifiedUniversal.getBody().accept(this);
 	}
 
 	@Override
-	public Set<UID> visit(PGoTLARecordConstructor pGoTLARecordConstructor) throws RuntimeException {
+	public Set<UID> visit(TLARecordConstructor pGoTLARecordConstructor) throws RuntimeException {
 		pGoTLARecordConstructor.getFields().forEach(f -> f.getValue().accept(this));
 		return Collections.emptySet();
 	}
 
 	@Override
-	public Set<UID> visit(PGoTLARecordSet pGoTLARecordSet) throws RuntimeException {
+	public Set<UID> visit(TLARecordSet pGoTLARecordSet) throws RuntimeException {
 		pGoTLARecordSet.getFields().forEach(f -> f.getSet().accept(this));
 		return Collections.emptySet();
 	}
 
 	@Override
-	public Set<UID> visit(PGoTLARequiredAction pGoTLARequiredAction) throws RuntimeException {
+	public Set<UID> visit(TLARequiredAction pGoTLARequiredAction) throws RuntimeException {
 		return pGoTLARequiredAction.getBody().accept(this);
 	}
 
 	@Override
-	public Set<UID> visit(PGoTLASetConstructor pGoTLASetConstructor) throws RuntimeException {
+	public Set<UID> visit(TLASetConstructor pGoTLASetConstructor) throws RuntimeException {
 		pGoTLASetConstructor.getContents().forEach(e -> e.accept(this));
 		return Collections.emptySet();
 	}
 
 	@Override
-	public Set<UID> visit(PGoTLASetComprehension pGoTLASetComprehension) throws RuntimeException {
+	public Set<UID> visit(TLASetComprehension pGoTLASetComprehension) throws RuntimeException {
 		pGoTLASetComprehension.getBounds().forEach(b -> b.getSet().accept(this));
 		pGoTLASetComprehension.getBody().accept(this);
 		return Collections.emptySet();
 	}
 
 	@Override
-	public Set<UID> visit(PGoTLASetRefinement pGoTLASetRefinement) throws RuntimeException {
+	public Set<UID> visit(TLASetRefinement pGoTLASetRefinement) throws RuntimeException {
 		pGoTLASetRefinement.getFrom().accept(this);
 		pGoTLASetRefinement.getWhen().accept(this);
 		return Collections.emptySet();
 	}
 
 	@Override
-	public Set<UID> visit(PGoTLAString pGoTLAString) throws RuntimeException {
+	public Set<UID> visit(TLAString pGoTLAString) throws RuntimeException {
 		return Collections.emptySet();
 	}
 
 	@Override
-	public Set<UID> visit(PGoTLAUnary pGoTLAUnary) throws RuntimeException {
+	public Set<UID> visit(TLAUnary pGoTLAUnary) throws RuntimeException {
 		pGoTLAUnary.getOperand().accept(this);
 		return Collections.emptySet();
 	}
 
 	@Override
-	public Set<UID> visit(PGoTLAUniversal pGoTLAUniversal) throws RuntimeException {
+	public Set<UID> visit(TLAUniversal pGoTLAUniversal) throws RuntimeException {
 		return pGoTLAUniversal.getBody().accept(this);
 	}
 

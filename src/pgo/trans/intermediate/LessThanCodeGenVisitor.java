@@ -1,105 +1,107 @@
 package pgo.trans.intermediate;
 
+import pgo.TODO;
+import pgo.model.golang.*;
+import pgo.model.golang.builder.GoBlockBuilder;
+import pgo.model.golang.builder.GoForStatementClauseBuilder;
+import pgo.model.golang.type.*;
+
 import java.util.Collections;
 import java.util.List;
 
-import pgo.TODO;
-import pgo.model.golang.*;
-import pgo.model.golang.type.MapType;
+public class LessThanCodeGenVisitor extends GoTypeVisitor<GoExpression, RuntimeException> {
 
-public class LessThanCodeGenVisitor extends TypeVisitor<Expression, RuntimeException> {
+	private GoBlockBuilder builder;
+	private GoExpression lhs;
+	private GoExpression rhs;
 
-	private BlockBuilder builder;
-	private Expression lhs;
-	private Expression rhs;
-
-	public LessThanCodeGenVisitor(BlockBuilder builder, Expression lhs, Expression rhs) {
+	public LessThanCodeGenVisitor(GoBlockBuilder builder, GoExpression lhs, GoExpression rhs) {
 		this.builder = builder;
 		this.lhs = lhs;
 		this.rhs = rhs;
 	}
 
 	@Override
-	public Expression visit(TypeName typeName) throws RuntimeException {
+	public GoExpression visit(GoTypeName typeName) throws RuntimeException {
 		if(typeName.isBuiltin()) {
-			return new Binop(Binop.Operation.LT, lhs, rhs);
+			return new GoBinop(GoBinop.Operation.LT, lhs, rhs);
 		}else {
 			throw new TODO();
 		}
 	}
 
-	private Expression constructStructComparison(int i, List<StructTypeField> fields){
-		StructTypeField field = fields.get(i);
+	private GoExpression constructStructComparison(int i, List<GoStructTypeField> fields){
+		GoStructTypeField field = fields.get(i);
 		if(fields.size() == i+1){
 			return field.getType().accept(
 					new LessThanCodeGenVisitor(
 							builder,
-							new Selector(lhs, field.getName()),
-							new Selector(rhs, field.getName())));
+							new GoSelectorExpression(lhs, field.getName()),
+							new GoSelectorExpression(rhs, field.getName())));
 		}else{
-			return new Binop(Binop.Operation.OR,
+			return new GoBinop(GoBinop.Operation.OR,
 					field.getType().accept(
 						new LessThanCodeGenVisitor(
 								builder,
-								new Selector(lhs, field.getName()),
-								new Selector(rhs, field.getName()))),
-					new Binop(Binop.Operation.AND,
+								new GoSelectorExpression(lhs, field.getName()),
+								new GoSelectorExpression(rhs, field.getName()))),
+					new GoBinop(GoBinop.Operation.AND,
 							field.getType().accept(new EqCodeGenVisitor(
 									builder,
-									new Selector(lhs, field.getName()),
-									new Selector(rhs, field.getName()),
+									new GoSelectorExpression(lhs, field.getName()),
+									new GoSelectorExpression(rhs, field.getName()),
 									false)),
 							constructStructComparison(i+1, fields)));
 		}
 	}
 
 	@Override
-	public Expression visit(StructType structType) throws RuntimeException {
+	public GoExpression visit(GoStructType structType) throws RuntimeException {
 		return constructStructComparison(0, structType.getFields());
 	}
 
 	@Override
-	public Expression visit(PtrType ptrType) throws RuntimeException {
+	public GoExpression visit(GoPtrType ptrType) throws RuntimeException {
 		return ptrType.getPointee().accept(
 				new LessThanCodeGenVisitor(
 						builder,
-						new Unary(Unary.Operation.DEREF, lhs),
-						new Unary(Unary.Operation.DEREF, rhs)));
+						new GoUnary(GoUnary.Operation.DEREF, lhs),
+						new GoUnary(GoUnary.Operation.DEREF, rhs)));
 	}
 
 	@Override
-	public Expression visit(SliceType sliceType) throws RuntimeException {
-		VariableName less = builder.varDecl("less", new Binop(
-				Binop.Operation.LT,
-				new Call(new VariableName("len"), Collections.singletonList(lhs)),
-				new Call(new VariableName("len"), Collections.singletonList(rhs))));
-		try(IfBuilder lengthEQ = builder.ifStmt(
-				new Binop(
-						Binop.Operation.EQ,
-						new Call(new VariableName("len"), Collections.singletonList(lhs)),
-						new Call(new VariableName("len"), Collections.singletonList(rhs))))){
-			try(BlockBuilder yes = lengthEQ.whenTrue()){
-				ForStatementClauseBuilder loopBuilder = yes.forLoopWithClauses();
-				VariableName i = loopBuilder.initVariable("i", new IntLiteral(0));
+	public GoExpression visit(GoSliceType sliceType) throws RuntimeException {
+		GoVariableName less = builder.varDecl("less", new GoBinop(
+				GoBinop.Operation.LT,
+				new GoCall(new GoVariableName("len"), Collections.singletonList(lhs)),
+				new GoCall(new GoVariableName("len"), Collections.singletonList(rhs))));
+		try(GoIfBuilder lengthEQ = builder.ifStmt(
+				new GoBinop(
+						GoBinop.Operation.EQ,
+						new GoCall(new GoVariableName("len"), Collections.singletonList(lhs)),
+						new GoCall(new GoVariableName("len"), Collections.singletonList(rhs))))){
+			try(GoBlockBuilder yes = lengthEQ.whenTrue()){
+				GoForStatementClauseBuilder loopBuilder = yes.forLoopWithClauses();
+				GoVariableName i = loopBuilder.initVariable("i", new GoIntLiteral(0));
 				loopBuilder.setCondition(
-						new Binop(
-								Binop.Operation.LT,
+						new GoBinop(
+								GoBinop.Operation.LT,
 								i,
-								new Call(new VariableName("len"), Collections.singletonList(lhs))));
-				loopBuilder.setInc(new IncDec(true, i));
-				try(BlockBuilder loopBody = loopBuilder.getBlockBuilder()){
+								new GoCall(new GoVariableName("len"), Collections.singletonList(lhs))));
+				loopBuilder.setInc(new GoIncDec(true, i));
+				try(GoBlockBuilder loopBody = loopBuilder.getBlockBuilder()){
 					loopBody.assign(
 							less,
 							sliceType.getElementType().accept(
 									new LessThanCodeGenVisitor(
 											loopBody,
-											new Index(lhs, i),
-											new Index(rhs, i))));
-					try(IfBuilder shouldStop = loopBody.ifStmt(
+											new GoIndexExpression(lhs, i),
+											new GoIndexExpression(rhs, i))));
+					try(GoIfBuilder shouldStop = loopBody.ifStmt(
 							sliceType.getElementType().accept(
-									new EqCodeGenVisitor(loopBody, new Index(lhs, i), new Index(rhs, i), true)))){
-						try(BlockBuilder body = shouldStop.whenTrue()){
-							body.addStatement(new Break());
+									new EqCodeGenVisitor(loopBody, new GoIndexExpression(lhs, i), new GoIndexExpression(rhs, i), true)))){
+						try(GoBlockBuilder body = shouldStop.whenTrue()){
+							body.addStatement(new GoBreak());
 						}
 					}
 				}
@@ -109,17 +111,17 @@ public class LessThanCodeGenVisitor extends TypeVisitor<Expression, RuntimeExcep
 	}
 
 	@Override
-	public Expression visit(ChanType chanType) throws RuntimeException {
+	public GoExpression visit(GoChanType chanType) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public Expression visit(MapType mapType) throws RuntimeException {
+	public GoExpression visit(GoMapType mapType) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public Expression visit(InterfaceType interfaceType) throws RuntimeException {
+	public GoExpression visit(GoInterfaceType interfaceType) throws RuntimeException {
 		throw new TODO();
 	}
 

@@ -6,7 +6,7 @@ import org.json.JSONObject;
 
 import java.util.Vector;
 
-// Wraps options related to networking in the generated Go code.
+// Wraps options related to networking in the generated GoRoutineStatement code.
 // Networking related options are defined in the JSON configuration
 // file and specify details about endpoints (e.g. IP addresses
 // and ports). See the +config-sample.json+ file included in this
@@ -17,7 +17,7 @@ import java.util.Vector;
 // how they are connected together. Each of these components are handled
 // by separate classes (see documentation for the inner classes below).
 //
-// If there are semantic errors in the configuration of any of these
+// PlusCalIf there are semantic errors in the configuration of any of these
 // aspects, the associated class throws an exception. That is caught
 // by the +PGoOptions+ class (when processing user input) which is then able
 // to display an appropriate error message to the user.

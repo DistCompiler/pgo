@@ -1,12 +1,12 @@
 package pgo.trans.intermediate;
 
+import pgo.model.golang.*;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-import pgo.model.golang.*;
-
-public class GoStatementRemoveUnusedLabelsVisitor extends StatementVisitor<Statement, RuntimeException> {
+public class GoStatementRemoveUnusedLabelsVisitor extends GoStatementVisitor<GoStatement, RuntimeException> {
 
 	private Set<String> usedLabels;
 
@@ -14,10 +14,10 @@ public class GoStatementRemoveUnusedLabelsVisitor extends StatementVisitor<State
 		this.usedLabels = usedLabels;
 	}
 
-	private List<Statement> filterBlock(List<Statement> block){
-		List<Statement> result = new ArrayList<>();
-		for(Statement stmt : block) {
-			Statement next = stmt.accept(this);
+	private List<GoStatement> filterBlock(List<GoStatement> block){
+		List<GoStatement> result = new ArrayList<>();
+		for(GoStatement stmt : block) {
+			GoStatement next = stmt.accept(this);
 			if(next != null) {
 				result.add(next);
 			}
@@ -26,59 +26,59 @@ public class GoStatementRemoveUnusedLabelsVisitor extends StatementVisitor<State
 	}
 
 	@Override
-	public Statement visit(Comment comment) throws RuntimeException {
+	public GoStatement visit(GoComment comment) throws RuntimeException {
 		return comment;
 	}
 
 	@Override
-	public Statement visit(Assignment assignment) throws RuntimeException {
+	public GoStatement visit(GoAssignmentStatement assignment) throws RuntimeException {
 		return assignment;
 	}
 
 	@Override
-	public Statement visit(Return return1) throws RuntimeException {
-		return return1;
+	public GoStatement visit(GoReturn goReturn) throws RuntimeException {
+		return goReturn;
 	}
 
 	@Override
-	public Statement visit(Block block) throws RuntimeException {
-		return new Block(filterBlock(block.getStatements()));
+	public GoStatement visit(GoBlock block) throws RuntimeException {
+		return new GoBlock(filterBlock(block.getStatements()));
 	}
 
 	@Override
-	public Statement visit(For for1) throws RuntimeException {
-		return new For(for1.getInit(), for1.getCondition(), for1.getIncrement(), (Block)for1.getBody().accept(this));
+	public GoStatement visit(GoFor goFor) throws RuntimeException {
+		return new GoFor(goFor.getInit(), goFor.getCondition(), goFor.getIncrement(), (GoBlock) goFor.getBody().accept(this));
 	}
 
 	@Override
-	public Statement visit(ForRange forRange) throws RuntimeException {
-		return new ForRange(forRange.getLhs(), forRange.isDefinition(), forRange.getRangeExpr(),
-				(Block) forRange.getBody().accept(this));
+	public GoStatement visit(GoForRange forRange) throws RuntimeException {
+		return new GoForRange(forRange.getLhs(), forRange.isDefinition(), forRange.getRangeExpr(),
+				(GoBlock) forRange.getBody().accept(this));
 	}
 
 	@Override
-	public Statement visit(If if1) throws RuntimeException {
-		return new If(
-				if1.getCond(),
-				(Block)if1.getThen().accept(this),
-				if1.getElse() != null ? (Block)if1.getElse().accept(this) : null);
+	public GoStatement visit(GoIf goIf) throws RuntimeException {
+		return new GoIf(
+				goIf.getCond(),
+				(GoBlock) goIf.getThen().accept(this),
+				goIf.getElse() != null ? (GoBlock) goIf.getElse().accept(this) : null);
 	}
 
 	@Override
-	public Statement visit(Switch switch1) throws RuntimeException {
-		List<SwitchCase> cases = new ArrayList<>();
-		for(SwitchCase c : switch1.getCases()) {
-			cases.add(new SwitchCase(c.getCondition(), filterBlock(c.getBlock())));
+	public GoStatement visit(GoSwitch goSwitch) throws RuntimeException {
+		List<GoSwitchCase> cases = new ArrayList<>();
+		for(GoSwitchCase c : goSwitch.getCases()) {
+			cases.add(new GoSwitchCase(c.getCondition(), filterBlock(c.getBlock())));
 		}
-		List<Statement> defaultBlock = null;
-		if(switch1.getDefaultBlock() != null) {
-			defaultBlock = filterBlock(switch1.getDefaultBlock());
+		List<GoStatement> defaultBlock = null;
+		if(goSwitch.getDefaultBlock() != null) {
+			defaultBlock = filterBlock(goSwitch.getDefaultBlock());
 		}
-		return new Switch(switch1.getCondition(), cases, defaultBlock);
+		return new GoSwitch(goSwitch.getCondition(), cases, defaultBlock);
 	}
 
 	@Override
-	public Statement visit(Label label) throws RuntimeException {
+	public GoStatement visit(GoLabel label) throws RuntimeException {
 		if(usedLabels.contains(label.getName())) {
 			return label;
 		}else {
@@ -87,56 +87,51 @@ public class GoStatementRemoveUnusedLabelsVisitor extends StatementVisitor<State
 	}
 
 	@Override
-	public Statement visit(GoCall goCall) throws RuntimeException {
-		return goCall;
-	}
-
-	@Override
-	public Statement visit(Select select) throws RuntimeException {
-		List<SelectCase> cases = new ArrayList<>();
-		for(SelectCase c : select.getCases()) {
-			cases.add(new SelectCase(c.getCondition(), filterBlock(c.getBlock())));
+	public GoStatement visit(GoSelect select) throws RuntimeException {
+		List<GoSelectCase> cases = new ArrayList<>();
+		for(GoSelectCase c : select.getCases()) {
+			cases.add(new GoSelectCase(c.getCondition(), filterBlock(c.getBlock())));
 		}
-		return new Select(cases);
+		return new GoSelect(cases);
 	}
 
 	@Override
-	public Statement visit(GoTo goTo) throws RuntimeException {
+	public GoStatement visit(GoTo goTo) throws RuntimeException {
 		return goTo;
 	}
 
 	@Override
-	public Statement visit(IncDec incDec) throws RuntimeException {
+	public GoStatement visit(GoIncDec incDec) throws RuntimeException {
 		return incDec;
 	}
 
 	@Override
-	public Statement visit(ExpressionStatement expressionStatement) throws RuntimeException {
+	public GoStatement visit(GoExpressionStatement expressionStatement) throws RuntimeException {
 		return expressionStatement;
 	}
 
 	@Override
-	public Statement visit(Break break1) throws RuntimeException {
+	public GoStatement visit(GoBreak break1) throws RuntimeException {
 		return break1;
 	}
 
 	@Override
-	public Statement visit(Continue continue1) throws RuntimeException {
+	public GoStatement visit(GoContinue continue1) throws RuntimeException {
 		return continue1;
 	}
 
 	@Override
-	public Statement visit(Defer defer) throws RuntimeException {
+	public GoStatement visit(GoDefer defer) throws RuntimeException {
 		return defer;
 	}
 
 	@Override
-	public Statement visit(Go go) throws RuntimeException {
+	public GoStatement visit(GoRoutineStatement go) throws RuntimeException {
 		return go;
 	}
 
 	@Override
-	public Statement visit(VariableDeclarationStatement variableDeclarationStatement) throws RuntimeException {
+	public GoStatement visit(GoVariableDeclarationStatement variableDeclarationStatement) throws RuntimeException {
 		return variableDeclarationStatement;
 	}
 

@@ -14,10 +14,10 @@ import org.junit.runners.Parameterized.Parameters;
 
 import pgo.errors.IssueContext;
 import pgo.errors.TopLevelIssueContext;
-import pgo.model.pcal.Algorithm;
+import pgo.model.pcal.PlusCalAlgorithm;
 
-import static pgo.model.pcal.Builder.*;
-import static pgo.model.tla.Builder.*;
+import static pgo.model.pcal.PlusCalBuilder.*;
+import static pgo.model.tla.TLABuilder.*;
 
 @RunWith(Parameterized.class)
 public class PlusCalMacroExpansionPassTest {
@@ -58,10 +58,10 @@ public class PlusCalMacroExpansionPassTest {
 		});
 	}
 
-	private Algorithm before;
-	private Algorithm expected;
+	private PlusCalAlgorithm before;
+	private PlusCalAlgorithm expected;
 	
-	public PlusCalMacroExpansionPassTest(Algorithm before, Algorithm expected) {
+	public PlusCalMacroExpansionPassTest(PlusCalAlgorithm before, PlusCalAlgorithm expected) {
 		this.before = before;
 		this.expected = expected;
 	}
@@ -69,7 +69,7 @@ public class PlusCalMacroExpansionPassTest {
 	@Test
 	public void test() {
 		IssueContext ctx = new TopLevelIssueContext();
-		Algorithm after = PlusCalMacroExpansionPass.perform(ctx, before);
+		PlusCalAlgorithm after = PlusCalMacroExpansionPass.perform(ctx, before);
 		assertThat(after, is(expected));
 	}
 

@@ -1,11 +1,12 @@
 package pgo.trans.passes.codegen;
 
 import pgo.model.golang.*;
+import pgo.model.golang.builder.GoBlockBuilder;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
-// TODO add support for Go's flag package
+// TODO add support for GoRoutineStatement's flag package
 public class GoCommandLineArgumentParser {
 	private Map<String, String> positionalArguments = new LinkedHashMap<>();
 
@@ -13,7 +14,7 @@ public class GoCommandLineArgumentParser {
 		positionalArguments.put(name, display);
 	}
 
-	public List<VariableName> generateArgumentParsingCode(BlockBuilder builder) {
+	public List<GoVariableName> generateArgumentParsingCode(GoBlockBuilder builder) {
 		if (positionalArguments.size() == 0) {
 			// nothing to do
 			return Collections.emptyList();
@@ -24,36 +25,36 @@ public class GoCommandLineArgumentParser {
 		// 	fmt.Printf("Usage: %s positionalArgs...", os.Args[0])
 		// 	os.Exit(1)
 		// }
-		try (IfBuilder ifBuilder = builder.ifStmt(new Binop(
-				Binop.Operation.NEQ,
-				new Call(
-						new VariableName("len"),
-						Collections.singletonList(new Selector(new VariableName("os"), "Args"))),
-				new IntLiteral(positionalArguments.size() + 1)))) {
-			try (BlockBuilder yes = ifBuilder.whenTrue()) {
-				yes.addStatement(new Call(
-						new Selector(new VariableName("fmt"), "Printf"),
+		try (GoIfBuilder ifBuilder = builder.ifStmt(new GoBinop(
+				GoBinop.Operation.NEQ,
+				new GoCall(
+						new GoVariableName("len"),
+						Collections.singletonList(new GoSelectorExpression(new GoVariableName("os"), "Args"))),
+				new GoIntLiteral(positionalArguments.size() + 1)))) {
+			try (GoBlockBuilder yes = ifBuilder.whenTrue()) {
+				yes.addStatement(new GoCall(
+						new GoSelectorExpression(new GoVariableName("fmt"), "Printf"),
 						Arrays.asList(
-								new StringLiteral("Usage: %s " +
+								new GoStringLiteral("Usage: %s " +
 										positionalArguments.values().stream()
 												.collect(Collectors.joining(" ")) +
 										"\\n"),
-								new Index(
-										new Selector(new VariableName("os"), "Args"),
-										new IntLiteral(0)))));
-				yes.addStatement(new Call(
-						new Selector(new VariableName("os"), "Exit"),
-						Collections.singletonList(new IntLiteral(1))));
+								new GoIndexExpression(
+										new GoSelectorExpression(new GoVariableName("os"), "Args"),
+										new GoIntLiteral(0)))));
+				yes.addStatement(new GoCall(
+						new GoSelectorExpression(new GoVariableName("os"), "Exit"),
+						Collections.singletonList(new GoIntLiteral(1))));
 			}
 		}
-		List<VariableName> ret = new ArrayList<>();
+		List<GoVariableName> ret = new ArrayList<>();
 		int currentIndex = 1;
 		for (String name: positionalArguments.keySet()) {
 			ret.add(builder.varDecl(
 					name,
-					new Index(
-							new Selector(new VariableName("os"), "Args"),
-							new IntLiteral(currentIndex))));
+					new GoIndexExpression(
+							new GoSelectorExpression(new GoVariableName("os"), "Args"),
+							new GoIntLiteral(currentIndex))));
 			currentIndex += 1;
 		}
 		return ret;

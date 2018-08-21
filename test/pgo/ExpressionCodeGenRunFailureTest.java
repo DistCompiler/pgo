@@ -4,18 +4,18 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
-import pgo.model.tla.PGoTLAExpression;
+import pgo.model.tla.TLAExpression;
 
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-import static pgo.model.tla.Builder.*;
+import static pgo.model.tla.TLABuilder.*;
 
 @RunWith(Parameterized.class)
 public class ExpressionCodeGenRunFailureTest {
-	static IntegrationTestingUtils.KeyValue kv(String key, PGoTLAExpression value) {
+	static IntegrationTestingUtils.KeyValue kv(String key, TLAExpression value) {
 		return new IntegrationTestingUtils.KeyValue(key, value);
 	}
 
@@ -31,11 +31,11 @@ public class ExpressionCodeGenRunFailureTest {
 		});
 	}
 
-	private PGoTLAExpression result;
+	private TLAExpression result;
 	private List<IntegrationTestingUtils.KeyValue> vars;
 	private List<String> expected;
 
-	public ExpressionCodeGenRunFailureTest(PGoTLAExpression result, List<IntegrationTestingUtils.KeyValue> vars, List<String> expected) {
+	public ExpressionCodeGenRunFailureTest(TLAExpression result, List<IntegrationTestingUtils.KeyValue> vars, List<String> expected) {
 		this.result = result;
 		this.vars = vars;
 		this.expected = expected;

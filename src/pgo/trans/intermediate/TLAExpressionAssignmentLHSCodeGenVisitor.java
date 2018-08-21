@@ -1,25 +1,24 @@
 package pgo.trans.intermediate;
 
-import java.util.Map;
-
 import pgo.TODO;
-import pgo.model.golang.BlockBuilder;
-import pgo.model.golang.Expression;
-import pgo.model.golang.VariableName;
+import pgo.model.golang.GoExpression;
+import pgo.model.golang.GoVariableName;
+import pgo.model.golang.builder.GoBlockBuilder;
 import pgo.model.tla.*;
 import pgo.model.type.PGoType;
-import pgo.model.type.PGoTypeMap;
 import pgo.scope.UID;
 import pgo.trans.intermediate.GlobalVariableStrategy.GlobalVariableWrite;
 
-public class TLAExpressionAssignmentLHSCodeGenVisitor extends PGoTLAExpressionVisitor<GlobalVariableStrategy.GlobalVariableWrite, RuntimeException> {
-	private BlockBuilder builder;
+import java.util.Map;
+
+public class TLAExpressionAssignmentLHSCodeGenVisitor extends TLAExpressionVisitor<GlobalVariableWrite, RuntimeException> {
+	private GoBlockBuilder builder;
 	private DefinitionRegistry registry;
 	private Map<UID, PGoType> typeMap;
 	private GlobalVariableStrategy globalStrategy;
 
-	public TLAExpressionAssignmentLHSCodeGenVisitor(BlockBuilder builder, DefinitionRegistry registry,
-			Map<UID, PGoType> typeMap, GlobalVariableStrategy globalStrategy) {
+	public TLAExpressionAssignmentLHSCodeGenVisitor(GoBlockBuilder builder, DefinitionRegistry registry,
+													Map<UID, PGoType> typeMap, GlobalVariableStrategy globalStrategy) {
 		this.builder = builder;
 		this.registry = registry;
 		this.typeMap = typeMap;
@@ -27,31 +26,31 @@ public class TLAExpressionAssignmentLHSCodeGenVisitor extends PGoTLAExpressionVi
 	}
 
 	@Override
-	public GlobalVariableWrite visit(PGoTLAGeneralIdentifier pGoTLAVariable) throws RuntimeException {
+	public GlobalVariableWrite visit(TLAGeneralIdentifier pGoTLAVariable) throws RuntimeException {
 		UID ref = registry.followReference(pGoTLAVariable.getUID());
 		if (registry.isGlobalVariable(ref)) {
 			return globalStrategy.writeGlobalVariable(ref);
 		} else if (registry.isLocalVariable(ref)) {
-			VariableName name = builder.findUID(ref);
+			GoVariableName name = builder.findUID(ref);
 			return new GlobalVariableWrite() {
 				@Override
-				public Expression getValueSink(BlockBuilder builder) {
+				public GoExpression getValueSink(GoBlockBuilder builder) {
 					return name;
 				}
 				@Override
-				public void writeAfter(BlockBuilder builder) {
+				public void writeAfter(GoBlockBuilder builder) {
 					// pass
 				}
 			};
 		} else if (registry.isConstant(ref)) {
-			VariableName name = builder.findUID(ref);
+			GoVariableName name = builder.findUID(ref);
 			return new GlobalVariableWrite() {
 				@Override
-				public Expression getValueSink(BlockBuilder builder) {
+				public GoExpression getValueSink(GoBlockBuilder builder) {
 					return name;
 				}
 				@Override
-				public void writeAfter(BlockBuilder builder) {
+				public void writeAfter(GoBlockBuilder builder) {
 					// pass
 				}
 			};
@@ -61,139 +60,139 @@ public class TLAExpressionAssignmentLHSCodeGenVisitor extends PGoTLAExpressionVi
 	}
 
 	@Override
-	public GlobalVariableWrite visit(PGoTLAFunctionCall pGoTLAFunctionCall) throws RuntimeException {
-		Expression expression = pGoTLAFunctionCall
+	public GlobalVariableWrite visit(TLAFunctionCall pGoTLAFunctionCall) throws RuntimeException {
+		GoExpression expression = pGoTLAFunctionCall
 				.accept(new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
 		return new GlobalVariableWrite() {
 			@Override
-			public Expression getValueSink(BlockBuilder builder) {
+			public GoExpression getValueSink(GoBlockBuilder builder) {
 				return expression;
 			}
 
 			@Override
-			public void writeAfter(BlockBuilder builder) {
+			public void writeAfter(GoBlockBuilder builder) {
 				// nothing to do
 			}
 		};
 	}
 
 	@Override
-	public GlobalVariableWrite visit(PGoTLABinOp pGoTLABinOp) throws RuntimeException {
+	public GlobalVariableWrite visit(TLABinOp TLABinOp) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public GlobalVariableWrite visit(PGoTLABool pGoTLABool) throws RuntimeException {
+	public GlobalVariableWrite visit(TLABool TLABool) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public GlobalVariableWrite visit(PGoTLACase pGoTLACase) throws RuntimeException {
+	public GlobalVariableWrite visit(TLACase TLACase) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public GlobalVariableWrite visit(PGoTLAExistential pGoTLAExistential) throws RuntimeException {
+	public GlobalVariableWrite visit(TLAExistential TLAExistential) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public GlobalVariableWrite visit(PGoTLAFunction pGoTLAFunction) throws RuntimeException {
+	public GlobalVariableWrite visit(TLAFunction pGoTLAFunction) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public GlobalVariableWrite visit(PGoTLAFunctionSet pGoTLAFunctionSet) throws RuntimeException {
+	public GlobalVariableWrite visit(TLAFunctionSet pGoTLAFunctionSet) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public GlobalVariableWrite visit(PGoTLAFunctionSubstitution pGoTLAFunctionSubstitution) throws RuntimeException {
+	public GlobalVariableWrite visit(TLAFunctionSubstitution pGoTLAFunctionSubstitution) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public GlobalVariableWrite visit(PGoTLAIf pGoTLAIf) throws RuntimeException {
+	public GlobalVariableWrite visit(TLAIf pGoTLAIf) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public GlobalVariableWrite visit(PGoTLALet pGoTLALet) throws RuntimeException {
+	public GlobalVariableWrite visit(TLALet pGoTLALet) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public GlobalVariableWrite visit(PGoTLATuple pGoTLATuple) throws RuntimeException {
+	public GlobalVariableWrite visit(TLATuple pGoTLATuple) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public GlobalVariableWrite visit(PGoTLAMaybeAction pGoTLAMaybeAction) throws RuntimeException {
+	public GlobalVariableWrite visit(TLAMaybeAction pGoTLAMaybeAction) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public GlobalVariableWrite visit(PGoTLANumber pGoTLANumber) throws RuntimeException {
+	public GlobalVariableWrite visit(TLANumber pGoTLANumber) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public GlobalVariableWrite visit(PGoTLAOperatorCall pGoTLAOperatorCall) throws RuntimeException {
+	public GlobalVariableWrite visit(TLAOperatorCall pGoTLAOperatorCall) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public GlobalVariableWrite visit(PGoTLAQuantifiedExistential pGoTLAQuantifiedExistential) throws RuntimeException {
+	public GlobalVariableWrite visit(TLAQuantifiedExistential pGoTLAQuantifiedExistential) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public GlobalVariableWrite visit(PGoTLAQuantifiedUniversal pGoTLAQuantifiedUniversal) throws RuntimeException {
+	public GlobalVariableWrite visit(TLAQuantifiedUniversal pGoTLAQuantifiedUniversal) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public GlobalVariableWrite visit(PGoTLARecordConstructor pGoTLARecordConstructor) throws RuntimeException {
+	public GlobalVariableWrite visit(TLARecordConstructor pGoTLARecordConstructor) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public GlobalVariableWrite visit(PGoTLARecordSet pGoTLARecordSet) throws RuntimeException {
+	public GlobalVariableWrite visit(TLARecordSet pGoTLARecordSet) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public GlobalVariableWrite visit(PGoTLARequiredAction pGoTLARequiredAction) throws RuntimeException {
+	public GlobalVariableWrite visit(TLARequiredAction pGoTLARequiredAction) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public GlobalVariableWrite visit(PGoTLASetConstructor pGoTLASetConstructor) throws RuntimeException {
+	public GlobalVariableWrite visit(TLASetConstructor pGoTLASetConstructor) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public GlobalVariableWrite visit(PGoTLASetComprehension pGoTLASetComprehension) throws RuntimeException {
+	public GlobalVariableWrite visit(TLASetComprehension pGoTLASetComprehension) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public GlobalVariableWrite visit(PGoTLASetRefinement pGoTLASetRefinement) throws RuntimeException {
+	public GlobalVariableWrite visit(TLASetRefinement pGoTLASetRefinement) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public GlobalVariableWrite visit(PGoTLAString pGoTLAString) throws RuntimeException {
+	public GlobalVariableWrite visit(TLAString pGoTLAString) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public GlobalVariableWrite visit(PGoTLAUnary pGoTLAUnary) throws RuntimeException {
+	public GlobalVariableWrite visit(TLAUnary pGoTLAUnary) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public GlobalVariableWrite visit(PGoTLAUniversal pGoTLAUniversal) throws RuntimeException {
+	public GlobalVariableWrite visit(TLAUniversal pGoTLAUniversal) throws RuntimeException {
 		throw new TODO();
 	}
 

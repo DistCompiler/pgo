@@ -10,13 +10,13 @@ import java.util.Arrays;
 
 import org.junit.Test;
 
-import pgo.model.tla.PGoTLAModule;
-import pgo.parser.TLAParseException;
+import pgo.model.tla.TLAModule;
+import pgo.parser.ParseFailureException;
 
 public class TLAModuleLoaderTest {
 
 	@Test
-	public void testModuleNotFound() throws IOException, TLAParseException, NoModulesFoundInFileError {
+	public void testModuleNotFound() throws IOException, ParseFailureException, NoModulesFoundInFileError {
 		TLAModuleLoader loader = new TLAModuleLoader(Arrays.asList());
 		try {
 			loader.loadModule("Test");
@@ -27,23 +27,19 @@ public class TLAModuleLoaderTest {
 	}
 	
 	@Test
-	public void testModuleFoundOneOption() throws ModuleNotFoundError, IOException, TLAParseException, NoModulesFoundInFileError {
-		TLAModuleLoader loader = new TLAModuleLoader(Arrays.asList(new Path[] {
-				Paths.get("test", "pluscal"),
-		}));
+	public void testModuleFoundOneOption() throws ModuleNotFoundError, IOException, ParseFailureException, NoModulesFoundInFileError {
+		TLAModuleLoader loader = new TLAModuleLoader(Arrays.asList(Paths.get("test", "pluscal")));
 		
-		PGoTLAModule m = loader.loadModule("Sum");
+		TLAModule m = loader.loadModule("Sum");
 		assertThat(m.getName().getId(), is("Sum"));
 	}
 	
 	@Test
-	public void testModuleFoundFailOver() throws ModuleNotFoundError, IOException, TLAParseException, NoModulesFoundInFileError {
-		TLAModuleLoader loader = new TLAModuleLoader(Arrays.asList(new Path[] {
-				Paths.get("test", "tla", "tokens"),
-				Paths.get("test", "pluscal"),
-		}));
+	public void testModuleFoundFailOver() throws ModuleNotFoundError, IOException, ParseFailureException, NoModulesFoundInFileError {
+		TLAModuleLoader loader = new TLAModuleLoader(Arrays.asList(Paths.get("test", "tla", "tokens"),
+				Paths.get("test", "pluscal")));
 		
-		PGoTLAModule m = loader.loadModule("Sum");
+		TLAModule m = loader.loadModule("Sum");
 		assertThat(m.getName().getId(), is("Sum"));
 	}
 

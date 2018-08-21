@@ -1,11 +1,11 @@
 package pgo.trans.intermediate;
 
+import pgo.model.tla.TLAGeneralIdentifierPart;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
-
-import pgo.model.tla.PGoTLAGeneralIdentifierPart;
 
 public class QualifiedName {
 	String base;
@@ -21,7 +21,7 @@ public class QualifiedName {
 		this.prefix = Collections.emptyList();
 	}
 	
-	public static QualifiedName fromTLAPrefix(List<PGoTLAGeneralIdentifierPart> prefix, String base) {
+	public static QualifiedName fromTLAPrefix(List<TLAGeneralIdentifierPart> prefix, String base) {
 		return new QualifiedName(prefix.stream().map(p -> p.getIdentifier().getId()).collect(Collectors.toList()), base);
 	}
 	
@@ -63,11 +63,8 @@ public class QualifiedName {
 		} else if (!base.equals(other.base))
 			return false;
 		if (prefix == null) {
-			if (other.prefix != null)
-				return false;
-		} else if (!prefix.equals(other.prefix))
-			return false;
-		return true;
+			return other.prefix == null;
+		} else return prefix.equals(other.prefix);
 	}
 	
 }

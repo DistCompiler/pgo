@@ -1,7 +1,5 @@
 package pgo.formatters;
 
-import java.io.IOException;
-
 import pgo.model.type.PGoType;
 import pgo.model.type.PGoTypeMonomorphicConstraint;
 import pgo.model.type.PGoTypePolymorphicConstraint;
@@ -10,6 +8,8 @@ import pgo.trans.intermediate.OperatorAccessor;
 import pgo.util.Derived;
 import pgo.util.DerivedVisitor;
 import pgo.util.Origin;
+
+import java.io.IOException;
 
 public class DerivedFormattingVisitor extends DerivedVisitor<Void, IOException> {
 	private IndentingWriter out;

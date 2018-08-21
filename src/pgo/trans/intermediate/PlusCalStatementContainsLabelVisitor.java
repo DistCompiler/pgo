@@ -1,21 +1,19 @@
 package pgo.trans.intermediate;
 
-import pgo.InternalCompilerError;
 import pgo.Unreachable;
 import pgo.model.pcal.*;
 
-import javax.swing.plaf.nimbus.State;
 import java.util.List;
 
-public class PlusCalStatementContainsLabelVisitor extends StatementVisitor<Boolean, RuntimeException> {
+public class PlusCalStatementContainsLabelVisitor extends PlusCalStatementVisitor<Boolean, RuntimeException> {
 	@Override
-	public Boolean visit(LabeledStatements labeledStatements) throws RuntimeException {
+	public Boolean visit(PlusCalLabeledStatements labeledStatements) throws RuntimeException {
 		return true;
 	}
 
 	@Override
-	public Boolean visit(While while1) throws RuntimeException {
-		for(Statement stmt : while1.getBody()){
+	public Boolean visit(PlusCalWhile plusCalWhile) throws RuntimeException {
+		for(PlusCalStatement stmt : plusCalWhile.getBody()){
 			if(stmt.accept(this)){
 				return true;
 			}
@@ -24,13 +22,13 @@ public class PlusCalStatementContainsLabelVisitor extends StatementVisitor<Boole
 	}
 
 	@Override
-	public Boolean visit(If if1) throws RuntimeException {
-		for(Statement stmt : if1.getYes()){
+	public Boolean visit(PlusCalIf plusCalIf) throws RuntimeException {
+		for(PlusCalStatement stmt : plusCalIf.getYes()){
 			if(stmt.accept(this)){
 				return true;
 			}
 		}
-		for(Statement stmt : if1.getNo()){
+		for(PlusCalStatement stmt : plusCalIf.getNo()){
 			if(stmt.accept(this)){
 				return true;
 			}
@@ -39,9 +37,9 @@ public class PlusCalStatementContainsLabelVisitor extends StatementVisitor<Boole
 	}
 
 	@Override
-	public Boolean visit(Either either) throws RuntimeException {
-		for(List<Statement> stmts : either.getCases()){
-			for(Statement stmt : stmts){
+	public Boolean visit(PlusCalEither plusCalEither) throws RuntimeException {
+		for(List<PlusCalStatement> stmts : plusCalEither.getCases()){
+			for(PlusCalStatement stmt : stmts){
 				if(stmt.accept(this)){
 					return true;
 				}
@@ -51,33 +49,33 @@ public class PlusCalStatementContainsLabelVisitor extends StatementVisitor<Boole
 	}
 
 	@Override
-	public Boolean visit(Assignment assignment) throws RuntimeException {
+	public Boolean visit(PlusCalAssignment plusCalAssignment) throws RuntimeException {
 		return false;
 	}
 
 	@Override
-	public Boolean visit(Return return1) throws RuntimeException {
+	public Boolean visit(PlusCalReturn plusCalReturn) throws RuntimeException {
 		return false;
 	}
 
 	@Override
-	public Boolean visit(Skip skip) throws RuntimeException {
+	public Boolean visit(PlusCalSkip skip) throws RuntimeException {
 		return false;
 	}
 
 	@Override
-	public Boolean visit(Call call) throws RuntimeException {
+	public Boolean visit(PlusCalCall plusCalCall) throws RuntimeException {
 		return false;
 	}
 
 	@Override
-	public Boolean visit(MacroCall macroCall) throws RuntimeException {
+	public Boolean visit(PlusCalMacroCall macroCall) throws RuntimeException {
 		throw new Unreachable();
 	}
 
 	@Override
-	public Boolean visit(With with) throws RuntimeException {
-		for(Statement stmt : with.getBody()){
+	public Boolean visit(PlusCalWith with) throws RuntimeException {
+		for(PlusCalStatement stmt : with.getBody()){
 			if(stmt.accept(this)){
 				return true;
 			}
@@ -86,22 +84,22 @@ public class PlusCalStatementContainsLabelVisitor extends StatementVisitor<Boole
 	}
 
 	@Override
-	public Boolean visit(Print print) throws RuntimeException {
+	public Boolean visit(PlusCalPrint plusCalPrint) throws RuntimeException {
 		return false;
 	}
 
 	@Override
-	public Boolean visit(Assert assert1) throws RuntimeException {
+	public Boolean visit(PlusCalAssert plusCalAssert) throws RuntimeException {
 		return false;
 	}
 
 	@Override
-	public Boolean visit(Await await) throws RuntimeException {
+	public Boolean visit(PlusCalAwait plusCalAwait) throws RuntimeException {
 		return false;
 	}
 
 	@Override
-	public Boolean visit(Goto goto1) throws RuntimeException {
+	public Boolean visit(PlusCalGoto plusCalGoto) throws RuntimeException {
 		return false;
 	}
 }

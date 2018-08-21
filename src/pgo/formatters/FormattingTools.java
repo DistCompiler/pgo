@@ -9,7 +9,7 @@ public class FormattingTools {
 	private FormattingTools() {}
 	
 	public interface Formatter<T>{
-		public void format(T param) throws IOException;
+		void format(T param) throws IOException;
 	}
 	
 	public static <T> void writeCommaSeparated(Writer out, List<T> items, Formatter<T> writer) throws IOException {

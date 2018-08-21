@@ -1,59 +1,60 @@
 package pgo.trans.intermediate;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import pgo.InternalCompilerError;
 import pgo.TODO;
 import pgo.model.golang.*;
-import pgo.model.golang.type.MapType;
+import pgo.model.golang.builder.GoBlockBuilder;
+import pgo.model.golang.type.*;
 
-public class TLATupleCodeGenVisitor extends TypeVisitor<Expression, RuntimeException> {
+import java.util.ArrayList;
+import java.util.List;
 
-	private BlockBuilder builder;
-	private List<Expression> elements;
+public class TLATupleCodeGenVisitor extends GoTypeVisitor<GoExpression, RuntimeException> {
 
-	public TLATupleCodeGenVisitor(BlockBuilder builder, List<Expression> elements) {
+	private GoBlockBuilder builder;
+	private List<GoExpression> elements;
+
+	public TLATupleCodeGenVisitor(GoBlockBuilder builder, List<GoExpression> elements) {
 		this.builder = builder;
 		this.elements = elements;
 	}
 
 	@Override
-	public Expression visit(TypeName typeName) throws RuntimeException {
+	public GoExpression visit(GoTypeName typeName) throws RuntimeException {
 		throw new InternalCompilerError();
 	}
 
 	@Override
-	public Expression visit(StructType structType) throws RuntimeException {
-		List<StructLiteralField> fields = new ArrayList<>();
-		for(Expression element : elements){
-			fields.add(new StructLiteralField(null, element));
+	public GoExpression visit(GoStructType structType) throws RuntimeException {
+		List<GoStructLiteralField> fields = new ArrayList<>();
+		for(GoExpression element : elements){
+			fields.add(new GoStructLiteralField(null, element));
 		}
-		return new StructLiteral(structType, fields);
+		return new GoStructLiteral(structType, fields);
 	}
 
 	@Override
-	public Expression visit(PtrType ptrType) throws RuntimeException {
+	public GoExpression visit(GoPtrType ptrType) throws RuntimeException {
 		throw new InternalCompilerError();
 	}
 
 	@Override
-	public Expression visit(SliceType sliceType) throws RuntimeException {
-		return new SliceLiteral(sliceType.getElementType(), elements);
+	public GoExpression visit(GoSliceType sliceType) throws RuntimeException {
+		return new GoSliceLiteral(sliceType.getElementType(), elements);
 	}
 
 	@Override
-	public Expression visit(ChanType chanType) throws RuntimeException {
+	public GoExpression visit(GoChanType chanType) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public Expression visit(MapType mapType) throws RuntimeException {
+	public GoExpression visit(GoMapType mapType) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public Expression visit(InterfaceType interfaceType) throws RuntimeException {
+	public GoExpression visit(GoInterfaceType interfaceType) throws RuntimeException {
 		throw new InternalCompilerError();
 	}
 

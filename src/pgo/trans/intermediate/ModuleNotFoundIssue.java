@@ -1,10 +1,10 @@
 package pgo.trans.intermediate;
 
-import java.nio.file.Path;
-import java.util.List;
-
 import pgo.errors.Issue;
 import pgo.errors.IssueVisitor;
+
+import java.nio.file.Path;
+import java.util.List;
 
 public class ModuleNotFoundIssue extends Issue {
 	

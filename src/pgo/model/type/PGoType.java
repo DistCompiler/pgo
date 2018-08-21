@@ -1,13 +1,13 @@
 package pgo.model.type;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
 import pgo.errors.IssueContext;
 import pgo.util.Derived;
 import pgo.util.DerivedVisitor;
 import pgo.util.Origin;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 public abstract class PGoType extends Derived {
 	/**

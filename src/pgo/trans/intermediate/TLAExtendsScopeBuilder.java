@@ -1,9 +1,9 @@
 package pgo.trans.intermediate;
 
-import java.util.Map;
-
 import pgo.errors.IssueContext;
 import pgo.scope.UID;
+
+import java.util.Map;
 
 public class TLAExtendsScopeBuilder extends TLAScopeBuilder {
 

@@ -1,7 +1,6 @@
 package pgo.util;
 
 import pgo.model.type.PGoType;
-import pgo.model.type.PGoTypeConstraint;
 import pgo.model.type.PGoTypeMonomorphicConstraint;
 import pgo.model.type.PGoTypePolymorphicConstraint;
 import pgo.scope.UID;

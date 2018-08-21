@@ -6,6 +6,7 @@ import static org.hamcrest.CoreMatchers.*;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import org.junit.Test;
@@ -13,10 +14,10 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
-import pgo.model.tla.PGoTLAUnit;
+import pgo.model.tla.TLAUnit;
 import pgo.model.tla.TLAFairness;
 
-import static pgo.model.tla.Builder.*;
+import static pgo.model.tla.TLABuilder.*;
 
 @RunWith(Parameterized.class)
 public class TLAUnitParseTest {
@@ -89,12 +90,72 @@ public class TLAUnitParseTest {
 														opcall("P", idexp("self"))))
 										))
 				},
+				{"c1(self) == /\\ pc[self] = \"c1\"\n" +
+						"            /\\ (restaurant_stage[self] = \"commit\") \\/\n" +
+						"               (restaurant_stage[self] = \"abort\")\n" +
+						"            /\\ IF restaurant_stage[self] = \"commit\"\n" +
+						"                  THEN /\\ restaurant_stage' = [restaurant_stage EXCEPT ![self] = \"committed\"]\n" +
+						"                  ELSE /\\ restaurant_stage' = [restaurant_stage EXCEPT ![self] = \"aborted\"]\n" +
+						"            /\\ pc' = [pc EXCEPT ![self] = \"Done\"]\n" +
+						"            /\\ UNCHANGED << managers, rstMgrs, aborted >>",
+						opdef(false, id("c1"), opdecls(opdecl(id("self"))),
+								binop("/\\",
+										binop("/\\",
+												binop("/\\",
+														binop("/\\",
+																binop("=", fncall(idexp("pc"), idexp("self")), str("c1")),
+																binop("\\/",
+																		binop("=",
+																				fncall(idexp("restaurant_stage"), idexp("self")),
+																				str("commit")),
+																		binop("=",
+																				fncall(idexp("restaurant_stage"), idexp("self")),
+																				str("abort")))),
+														ifexp(
+																binop("=",
+																		fncall(idexp("restaurant_stage"), idexp("self")),
+																		str("commit")),
+																binop("=",
+																		unary("'", idexp("restaurant_stage")),
+																		except(
+																				idexp("restaurant_stage"),
+																				sub(keys(idexp("self")), str("committed")))),
+																binop("=",
+																		unary("'", idexp("restaurant_stage")),
+																		except(
+																				idexp("restaurant_stage"),
+																				sub(keys(idexp("self")), str("aborted")))))),
+												binop("=",
+														unary("'", idexp("pc")),
+														except(
+																idexp("pc"),
+																sub(keys(idexp("self")), str("Done"))))),
+										unary("UNCHANGED",
+												tuple(idexp("managers"), idexp("rstMgrs"), idexp("aborted")))))
+				},
+
+				{"----- MODULE Test ---- \n" +
+						"EXTENDS Sequences, Integers\n" +
+						"(* --algorithm Test {\n" +
+						"    variables a = 2; \n" +
+						"          b = 2; \n" +
+						"          c = 3; \n" +
+						"    {    \n" +
+						"        print (a)*((b)+(c))\n" +
+						"    }    \n" +
+						"}\n" +
+						"*)\n" +
+						"====\n",
+						module("Test",
+								Arrays.asList(id("Sequences"), id("Integers")),
+								Collections.emptyList(), Collections.emptyList(), Collections.EMPTY_LIST)
+				}
 		});
 	}
 	
 	private String unitString;
-	private PGoTLAUnit unitExpected;
-	public TLAUnitParseTest(String unitString, PGoTLAUnit unitExpected) {
+	private TLAUnit unitExpected;
+	public TLAUnitParseTest(String unitString, TLAUnit unitExpected) {
 		this.unitString = unitString;
 		this.unitExpected = unitExpected;
 	}
@@ -102,10 +163,12 @@ public class TLAUnitParseTest {
 	static Path testFile = Paths.get("TEST");
 
 	@Test
-	public void test() throws TLAParseException {
-		ParseContext ctx = new ParseContext(testFile, String.join(System.lineSeparator(), unitString.split("\n")));
-		
-		PGoTLAUnit unit = TLAParser.readUnit(ctx);
+	public void test() throws ParseFailureException {
+		LexicalContext ctx = new LexicalContext(testFile, String.join(System.lineSeparator(), unitString.split("\n")));
+
+		System.out.println(unitString);
+
+		TLAUnit unit = TLAParser.readUnit(ctx);
 		
 		assertThat(unit, is(unitExpected));
 	}

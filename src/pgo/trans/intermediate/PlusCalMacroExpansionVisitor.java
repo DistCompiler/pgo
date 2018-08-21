@@ -1,45 +1,21 @@
 package pgo.trans.intermediate;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import pgo.errors.IssueContext;
+import pgo.model.pcal.*;
+import pgo.model.tla.TLAExpression;
+
+import java.util.*;
 import java.util.stream.Collectors;
 
-import pgo.errors.IssueContext;
-import pgo.model.pcal.Assert;
-import pgo.model.pcal.Assignment;
-import pgo.model.pcal.AssignmentPair;
-import pgo.model.pcal.Await;
-import pgo.model.pcal.Call;
-import pgo.model.pcal.Either;
-import pgo.model.pcal.Goto;
-import pgo.model.pcal.If;
-import pgo.model.pcal.LabeledStatements;
-import pgo.model.pcal.Macro;
-import pgo.model.pcal.MacroCall;
-import pgo.model.pcal.Print;
-import pgo.model.pcal.Return;
-import pgo.model.pcal.Skip;
-import pgo.model.pcal.Statement;
-import pgo.model.pcal.StatementVisitor;
-import pgo.model.pcal.VariableDeclaration;
-import pgo.model.pcal.While;
-import pgo.model.pcal.With;
-import pgo.model.tla.PGoTLAExpression;
-
-public class PlusCalMacroExpansionVisitor extends StatementVisitor<List<Statement>, RuntimeException> {
+public class PlusCalMacroExpansionVisitor extends PlusCalStatementVisitor<List<PlusCalStatement>, RuntimeException> {
 
 	private IssueContext ctx;
-	private Map<String, Macro> macros;
+	private Map<String, PlusCalMacro> macros;
 	private Set<String> recursionSet;
-	private Map<String, PGoTLAExpression> macroArgs;
+	private Map<String, TLAExpression> macroArgs;
 	private TLAExpressionMacroSubstitutionVisitor macroSubst;
 
-	public PlusCalMacroExpansionVisitor(IssueContext ctx, Map<String, Macro> macros, Set<String> recursionSet, Map<String, PGoTLAExpression> macroArgs) {
+	public PlusCalMacroExpansionVisitor(IssueContext ctx, Map<String, PlusCalMacro> macros, Set<String> recursionSet, Map<String, TLAExpression> macroArgs) {
 		this.ctx = ctx;
 		this.macros = macros;
 		this.recursionSet = recursionSet;
@@ -47,77 +23,77 @@ public class PlusCalMacroExpansionVisitor extends StatementVisitor<List<Statemen
 		this.macroSubst = new TLAExpressionMacroSubstitutionVisitor(ctx, macroArgs);
 	}
 
-	private List<Statement> substituteStatements(List<Statement> stmts){
-		List<Statement> result = new ArrayList<>();
-		for(Statement stmt : stmts) {
+	private List<PlusCalStatement> substituteStatements(List<PlusCalStatement> stmts){
+		List<PlusCalStatement> result = new ArrayList<>();
+		for(PlusCalStatement stmt : stmts) {
 			result.addAll(stmt.accept(this));
 		}
 		return result;
 	}
 
 	@Override
-	public List<Statement> visit(LabeledStatements labeledStatements) throws RuntimeException {
-		return Collections.singletonList(new LabeledStatements(labeledStatements.getLocation(),
+	public List<PlusCalStatement> visit(PlusCalLabeledStatements labeledStatements) throws RuntimeException {
+		return Collections.singletonList(new PlusCalLabeledStatements(labeledStatements.getLocation(),
 				labeledStatements.getLabel(), substituteStatements(labeledStatements.getStatements())));
 	}
 
 	@Override
-	public List<Statement> visit(While while1) throws RuntimeException {
-		return Collections.singletonList(new While(
-				while1.getLocation(), while1.getCondition().accept(macroSubst), substituteStatements(while1.getBody())));
+	public List<PlusCalStatement> visit(PlusCalWhile plusCalWhile) throws RuntimeException {
+		return Collections.singletonList(new PlusCalWhile(
+				plusCalWhile.getLocation(), plusCalWhile.getCondition().accept(macroSubst), substituteStatements(plusCalWhile.getBody())));
 	}
 
 	@Override
-	public List<Statement> visit(If if1) throws RuntimeException {
-		return Collections.singletonList(new If(
-				if1.getLocation(), if1.getCondition().accept(macroSubst), substituteStatements(if1.getYes()), substituteStatements(if1.getNo())));
+	public List<PlusCalStatement> visit(PlusCalIf plusCalIf) throws RuntimeException {
+		return Collections.singletonList(new PlusCalIf(
+				plusCalIf.getLocation(), plusCalIf.getCondition().accept(macroSubst), substituteStatements(plusCalIf.getYes()), substituteStatements(plusCalIf.getNo())));
 	}
 
 	@Override
-	public List<Statement> visit(Either either) throws RuntimeException {
-		return Collections.singletonList(new Either(
-				either.getLocation(), either.getCases().stream().map(c -> substituteStatements(c)).collect(Collectors.toList())));
+	public List<PlusCalStatement> visit(PlusCalEither plusCalEither) throws RuntimeException {
+		return Collections.singletonList(new PlusCalEither(
+				plusCalEither.getLocation(), plusCalEither.getCases().stream().map(c -> substituteStatements(c)).collect(Collectors.toList())));
 	}
 
 	@Override
-	public List<Statement> visit(Assignment assignment) throws RuntimeException {
-		List<AssignmentPair> pairs = new ArrayList<>();
-		for(AssignmentPair pair : assignment.getPairs()) {
-			pairs.add(new AssignmentPair(
+	public List<PlusCalStatement> visit(PlusCalAssignment plusCalAssignment) throws RuntimeException {
+		List<PlusCalAssignmentPair> pairs = new ArrayList<>();
+		for(PlusCalAssignmentPair pair : plusCalAssignment.getPairs()) {
+			pairs.add(new PlusCalAssignmentPair(
 					pair.getLocation(),
 					pair.getLhs().accept(macroSubst),
 					pair.getRhs().accept(macroSubst)));
 		}
-		return Collections.singletonList(new Assignment(
-				assignment.getLocation(), pairs));
+		return Collections.singletonList(new PlusCalAssignment(
+				plusCalAssignment.getLocation(), pairs));
 	}
 
 	@Override
-	public List<Statement> visit(Return return1) throws RuntimeException {
-		return Collections.singletonList(new Return(return1.getLocation()));
+	public List<PlusCalStatement> visit(PlusCalReturn plusCalReturn) throws RuntimeException {
+		return Collections.singletonList(new PlusCalReturn(plusCalReturn.getLocation()));
 	}
 
 	@Override
-	public List<Statement> visit(Skip skip) throws RuntimeException {
-		return Collections.singletonList(new Skip(skip.getLocation()));
+	public List<PlusCalStatement> visit(PlusCalSkip skip) throws RuntimeException {
+		return Collections.singletonList(new PlusCalSkip(skip.getLocation()));
 	}
 
 	@Override
-	public List<Statement> visit(Call call) throws RuntimeException {
-		return Collections.singletonList(new Call(
-				call.getLocation(), call.getTarget(), call.getArguments().stream().map(a -> a.accept(macroSubst)).collect(Collectors.toList())));
+	public List<PlusCalStatement> visit(PlusCalCall plusCalCall) throws RuntimeException {
+		return Collections.singletonList(new PlusCalCall(
+				plusCalCall.getLocation(), plusCalCall.getTarget(), plusCalCall.getArguments().stream().map(a -> a.accept(macroSubst)).collect(Collectors.toList())));
 	}
 
 	@Override
-	public List<Statement> visit(MacroCall macroCall) throws RuntimeException {
+	public List<PlusCalStatement> visit(PlusCalMacroCall macroCall) throws RuntimeException {
 		if(recursionSet.contains(macroCall.getTarget())) {
 			ctx.error(new RecursiveMacroCallIssue(macroCall));
 		}else if(macros.containsKey(macroCall.getTarget())){
-			Macro macro = macros.get(macroCall.getTarget());
+			PlusCalMacro macro = macros.get(macroCall.getTarget());
 			if(macro.getParams().size() != macroCall.getArguments().size()) {
 				ctx.error(new MacroArgumentCountMismatchIssue(macroCall, macro));
 			}else {
-				Map<String, PGoTLAExpression> argsMap = new HashMap<>();
+				Map<String, TLAExpression> argsMap = new HashMap<>();
 				for(int i = 0; i < macroCall.getArguments().size(); ++i) {
 					argsMap.put(macro.getParams().get(i), macroCall.getArguments().get(i));
 				}
@@ -125,8 +101,8 @@ public class PlusCalMacroExpansionVisitor extends StatementVisitor<List<Statemen
 				innerRecursionSet.add(macro.getName());
 
 				PlusCalMacroExpansionVisitor innerVisitor = new PlusCalMacroExpansionVisitor(ctx.withContext(new ExpandingMacroCall(macroCall)), macros, innerRecursionSet, argsMap);
-				List<Statement> statements = new ArrayList<>();
-				for(Statement stmt : macro.getBody()) {
+				List<PlusCalStatement> statements = new ArrayList<>();
+				for(PlusCalStatement stmt : macro.getBody()) {
 					statements.addAll(stmt.accept(innerVisitor));
 				}
 				return statements;
@@ -134,38 +110,41 @@ public class PlusCalMacroExpansionVisitor extends StatementVisitor<List<Statemen
 		}else {
 			ctx.error(new UnresolvableMacroCallIssue(macroCall));
 		}
-		return Collections.singletonList(new Skip(macroCall.getLocation()));
+		return Collections.singletonList(new PlusCalSkip(macroCall.getLocation()));
 	}
 
 	@Override
-	public List<Statement> visit(With with) throws RuntimeException {
-		VariableDeclaration oldVariable = with.getVariable();
-		if(macroArgs.containsKey(oldVariable.getName())) {
-			// TODO: error reporting in this case?
-		}
-		VariableDeclaration newVariable = new VariableDeclaration(oldVariable.getLocation(), oldVariable.getName(),
-				oldVariable.isSet(), oldVariable.getValue().accept(macroSubst));
-		return Collections.singletonList(new With(with.getLocation(), newVariable, substituteStatements(with.getBody())));
+	public List<PlusCalStatement> visit(PlusCalWith with) throws RuntimeException {
+		return Collections.singletonList(new PlusCalWith(
+				with.getLocation(),
+				with.getVariables().stream().map(v -> {
+					if(macroArgs.containsKey(v.getName())) {
+						// TODO: error reporting in this case?
+					}
+					return new PlusCalVariableDeclaration(v.getLocation(), v.getName(),
+							v.isSet(), v.getValue().accept(macroSubst));
+				}).collect(Collectors.toList()),
+				substituteStatements(with.getBody())));
 	}
 
 	@Override
-	public List<Statement> visit(Print print) throws RuntimeException {
-		return Collections.singletonList(new Print(print.getLocation(), print.getValue().accept(macroSubst)));
+	public List<PlusCalStatement> visit(PlusCalPrint plusCalPrint) throws RuntimeException {
+		return Collections.singletonList(new PlusCalPrint(plusCalPrint.getLocation(), plusCalPrint.getValue().accept(macroSubst)));
 	}
 
 	@Override
-	public List<Statement> visit(Assert assert1) throws RuntimeException {
-		return Collections.singletonList(new Assert(assert1.getLocation(), assert1.getCondition().accept(macroSubst)));
+	public List<PlusCalStatement> visit(PlusCalAssert plusCalAssert) throws RuntimeException {
+		return Collections.singletonList(new PlusCalAssert(plusCalAssert.getLocation(), plusCalAssert.getCondition().accept(macroSubst)));
 	}
 
 	@Override
-	public List<Statement> visit(Await await) throws RuntimeException {
-		return Collections.singletonList(new Await(await.getLocation(), await.getCondition().accept(macroSubst)));
+	public List<PlusCalStatement> visit(PlusCalAwait plusCalAwait) throws RuntimeException {
+		return Collections.singletonList(new PlusCalAwait(plusCalAwait.getLocation(), plusCalAwait.getCondition().accept(macroSubst)));
 	}
 
 	@Override
-	public List<Statement> visit(Goto goto1) throws RuntimeException {
-		return Collections.singletonList(new Goto(goto1.getLocation(), goto1.getTarget()));
+	public List<PlusCalStatement> visit(PlusCalGoto plusCalGoto) throws RuntimeException {
+		return Collections.singletonList(new PlusCalGoto(plusCalGoto.getLocation(), plusCalGoto.getTarget()));
 	}
 
 }

@@ -1,15 +1,14 @@
 package pgo.formatters;
 
+import pgo.TODO;
+import pgo.model.golang.*;
+import pgo.model.golang.GoBuiltins.BuiltinConstant;
+import pgo.model.golang.type.GoMapType;
+
 import java.io.IOException;
 import java.util.Map;
 
-import pgo.TODO;
-import pgo.Unreachable;
-import pgo.model.golang.*;
-import pgo.model.golang.Builtins.BuiltinConstant;
-import pgo.model.golang.type.MapType;
-
-public class GoExpressionFormattingVisitor extends ExpressionVisitor<Void, IOException> {
+public class GoExpressionFormattingVisitor extends GoExpressionVisitor<Void, IOException> {
 
 	private IndentingWriter out;
 
@@ -18,7 +17,7 @@ public class GoExpressionFormattingVisitor extends ExpressionVisitor<Void, IOExc
 	}
 
 	@Override
-	public Void visit(VariableName v) throws IOException {
+	public Void visit(GoVariableName v) throws IOException {
 		out.write(v.getName());
 		return null;
 	}
@@ -30,18 +29,18 @@ public class GoExpressionFormattingVisitor extends ExpressionVisitor<Void, IOExc
 	}
 
 	@Override
-	public Void visit(IntLiteral intLiteral) throws IOException {
+	public Void visit(GoIntLiteral intLiteral) throws IOException {
 		out.write(Integer.toString(intLiteral.getValue()));
 		return null;
 	}
 
 	@Override
-	public Void visit(MapLiteral mapConstructor) throws IOException {
-		(new MapType(mapConstructor.getKeyType(), mapConstructor.getValueType()))
+	public Void visit(GoMapLiteral mapConstructor) throws IOException {
+		(new GoMapType(mapConstructor.getKeyType(), mapConstructor.getValueType()))
 				.accept(new GoTypeFormattingVisitor(out));
 		out.write("{");
 		out.newLine();
-		for (Map.Entry<Expression, Expression> entry : mapConstructor.getPairs().entrySet()) {
+		for (Map.Entry<GoExpression, GoExpression> entry : mapConstructor.getPairs().entrySet()) {
 			entry.getKey().accept(this);
 			out.write(": ");
 			entry.getValue().accept(this);
@@ -53,7 +52,7 @@ public class GoExpressionFormattingVisitor extends ExpressionVisitor<Void, IOExc
 	}
 
 	@Override
-	public Void visit(StringLiteral stringLiteral) throws IOException {
+	public Void visit(GoStringLiteral stringLiteral) throws IOException {
 		out.write("\"");
 		out.write(stringLiteral.getValue().replace("\"", "\\\"")); // TODO escaping
 		out.write("\"");
@@ -61,7 +60,7 @@ public class GoExpressionFormattingVisitor extends ExpressionVisitor<Void, IOExc
 	}
 
 	@Override
-	public Void visit(Index index) throws IOException {
+	public Void visit(GoIndexExpression index) throws IOException {
 		index.getTarget().accept(new GoBinopFormattingVisitor(out, 6));
 		out.write("[");
 		index.getIndex().accept(this);
@@ -70,7 +69,7 @@ public class GoExpressionFormattingVisitor extends ExpressionVisitor<Void, IOExc
 	}
 
 	@Override
-	public Void visit(SliceOperator slice) throws IOException {
+	public Void visit(GoSliceOperator slice) throws IOException {
 		slice.getTarget().accept(new GoBinopFormattingVisitor(out, 6));
 		out.write("[");
 		if (slice.getLow() != null) {
@@ -89,7 +88,7 @@ public class GoExpressionFormattingVisitor extends ExpressionVisitor<Void, IOExc
 	}
 
 	@Override
-	public Void visit(SliceLiteral sliceConstructor) throws IOException {
+	public Void visit(GoSliceLiteral sliceConstructor) throws IOException {
 		out.write("[]");
 		sliceConstructor.getElementType().accept(new GoTypeFormattingVisitor(out));
 		out.write("{");
@@ -101,7 +100,7 @@ public class GoExpressionFormattingVisitor extends ExpressionVisitor<Void, IOExc
 	}
 
 	@Override
-	public Void visit(TypeAssertion typeAssertion) throws IOException {
+	public Void visit(GoTypeAssertion typeAssertion) throws IOException {
 		typeAssertion.getTarget().accept(this);
 		out.write(".(");
 		typeAssertion.getType().accept(new GoTypeFormattingVisitor(out));
@@ -110,7 +109,7 @@ public class GoExpressionFormattingVisitor extends ExpressionVisitor<Void, IOExc
 	}
 
 	@Override
-	public Void visit(AnonymousFunction anonymousFunction) throws IOException {
+	public Void visit(GoAnonymousFunction anonymousFunction) throws IOException {
 		out.write("func (");
 		FormattingTools.writeCommaSeparated(out, anonymousFunction.getArguments(), arg -> {
 			arg.accept(new GoNodeFormattingVisitor(out));
@@ -133,7 +132,7 @@ public class GoExpressionFormattingVisitor extends ExpressionVisitor<Void, IOExc
 	}
 
 	@Override
-	public Void visit(Call call) throws IOException {
+	public Void visit(GoCall call) throws IOException {
 		call.getTarget().accept(new GoBinopFormattingVisitor(out, 6));
 		out.write("(");
 		FormattingTools.writeCommaSeparated(out, call.getArguments(), arg -> arg.accept(this));
@@ -145,12 +144,12 @@ public class GoExpressionFormattingVisitor extends ExpressionVisitor<Void, IOExc
 	}
 
 	@Override
-	public Void visit(TypeCast typeCast) throws IOException {
+	public Void visit(GoTypeCast typeCast) throws IOException {
 		throw new TODO();
 	}
 
 	@Override
-	public Void visit(StructLiteral structLiteral) throws IOException {
+	public Void visit(GoStructLiteral structLiteral) throws IOException {
 		structLiteral.getType().accept(new GoTypeFormattingVisitor(out));
 		out.write("{");
 		FormattingTools.writeCommaSeparated(out, structLiteral.getFields(), field -> {
@@ -165,19 +164,19 @@ public class GoExpressionFormattingVisitor extends ExpressionVisitor<Void, IOExc
 	}
 
 	@Override
-	public Void visit(Binop binop) throws IOException {
+	public Void visit(GoBinop binop) throws IOException {
 		binop.accept(new GoBinopFormattingVisitor(out, 0));
 		return null;
 	}
 
 	@Override
-	public Void visit(Unary unary) throws IOException {
+	public Void visit(GoUnary unary) throws IOException {
 		unary.accept(new GoBinopFormattingVisitor(out, 0));
 		return null;
 	}
 
 	@Override
-	public Void visit(Selector dot) throws IOException {
+	public Void visit(GoSelectorExpression dot) throws IOException {
 		dot.getLHS().accept(new GoBinopFormattingVisitor(out, 6));
 		out.write(".");
 		out.write(dot.getName());
@@ -185,7 +184,7 @@ public class GoExpressionFormattingVisitor extends ExpressionVisitor<Void, IOExc
 	}
 
 	@Override
-	public Void visit(Make make) throws IOException {
+	public Void visit(GoMakeExpression make) throws IOException {
 		out.write("make(");
 		make.getType().accept(new GoTypeFormattingVisitor(out));
 		if(make.getSize() != null) {

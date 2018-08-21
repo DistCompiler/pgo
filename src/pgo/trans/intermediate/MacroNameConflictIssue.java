@@ -2,23 +2,23 @@ package pgo.trans.intermediate;
 
 import pgo.errors.Issue;
 import pgo.errors.IssueVisitor;
-import pgo.model.pcal.Macro;
+import pgo.model.pcal.PlusCalMacro;
 
 public class MacroNameConflictIssue extends Issue {
 
-	private Macro first;
-	private Macro second;
+	private PlusCalMacro first;
+	private PlusCalMacro second;
 
-	public MacroNameConflictIssue(Macro first, Macro second) {
+	public MacroNameConflictIssue(PlusCalMacro first, PlusCalMacro second) {
 		this.first = first;
 		this.second = second;
 	}
 
-	public Macro getFirst() {
+	public PlusCalMacro getFirst() {
 		return first;
 	}
 
-	public Macro getSecond() {
+	public PlusCalMacro getSecond() {
 		return second;
 	}
 

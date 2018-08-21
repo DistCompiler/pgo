@@ -18,21 +18,22 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
-import pgo.model.tla.PGoTLAModule;
+import pgo.model.tla.TLAModule;
 
 @RunWith(Parameterized.class)
 public class TLAParserTest {
-	
+
 	@Parameters
 	public static List<Object[]> data(){
 		return Arrays.asList(new Object[][] {
-			{"Euclid", },
-			{"QueensPluscal", },
-			{"TwoPhaseCommit", },
-			{"AltBitProtocol", },
-			{"Sum", },
-			{"Await", },
-			{"FastMutexNoAnnotation", },
+				{"Euclid", },
+				{"QueensPluscal", },
+				{"TwoPhaseCommit", },
+				{"AltBitProtocol", },
+				{"Sum", },
+				//{"PlusCalAwait", },
+				{"FastMutexNoAnnotation", },
+				{"pgo2pc", },
 		});
 	}
 	
@@ -42,14 +43,14 @@ public class TLAParserTest {
 	}
 
 	@Test
-	public void test() throws IOException, TLAParseException {
+	public void test() throws IOException, ParseFailureException {
 		Path inputFilePath = Paths.get("test", "pluscal", fileName+".tla");
 		FileChannel fileChannel = new RandomAccessFile(inputFilePath.toFile(), "r").getChannel();
 		MappedByteBuffer buffer = fileChannel.map(FileChannel.MapMode.READ_ONLY, 0, fileChannel.size());
 		// assume UTF-8, though technically TLA+ is ASCII only according to the book
-		ParseContext ctx = new ParseContext(inputFilePath, StandardCharsets.UTF_8.decode(buffer));
+		LexicalContext ctx = new LexicalContext(inputFilePath, StandardCharsets.UTF_8.decode(buffer));
 		
-		List<PGoTLAModule> modules = TLAParser.readModules(ctx);
+		List<TLAModule> modules = TLAParser.readModules(ctx);
 		
 		assertThat(modules.size(), is(1));
 	}

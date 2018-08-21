@@ -2,7 +2,9 @@ package pgo.model.type;
 
 import pgo.errors.IssueContext;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Represents a type variable.
