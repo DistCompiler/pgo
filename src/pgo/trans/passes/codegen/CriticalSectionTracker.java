@@ -30,28 +30,36 @@ public class CriticalSectionTracker {
 		this(registry, processUID, criticalSection, -1, null, null);
 	}
 
+	public GoLabelName getCurrentLabelName() {
+		return currentLabelName;
+	}
+
+	public int getCurrentLockGroup() {
+		return currentLockGroup;
+	}
+
 	public void start(GoBlockBuilder builder, UID labelUID, GoLabelName labelName) {
 		int lockGroup = registry.getLockGroupOrDefault(labelUID, -1);
 		if (currentLockGroup != -1 && currentLockGroup != lockGroup) {
 			end(builder);
 		}
+		currentLabelUID = labelUID;
+		currentLabelName = labelName;
+		builder.labelIsUnique(labelName.getName());
 		if (currentLockGroup == lockGroup) {
 			// nothing to do
 			return;
 		}
-		builder.labelIsUnique(labelName.getName());
 		criticalSection.startCriticalSection(builder, processUID, lockGroup, labelUID, labelName);
 		currentLockGroup = lockGroup;
-		currentLabelUID = labelUID;
-		currentLabelName = labelName;
 	}
 
-	public void abort(GoBlockBuilder builder) {
+	public void abort(GoBlockBuilder builder, GoLabelName optionalLabelName) {
 		if (currentLockGroup > -1) {
 			criticalSection.abortCriticalSection(
 					builder, processUID, currentLockGroup, currentLabelUID, currentLabelName);
 		}
-		builder.goTo(currentLabelName);
+		builder.goTo(optionalLabelName == null ? currentLabelName : optionalLabelName);
 		currentLockGroup = -1;
 		currentLabelUID = null;
 		currentLabelName = null;
@@ -66,6 +74,14 @@ public class CriticalSectionTracker {
 		currentLockGroup = -1;
 		currentLabelUID = null;
 		currentLabelName = null;
+	}
+
+	public void restore(GoBlockBuilder builder) {
+		if (currentLockGroup == -1) {
+			// nothing to do
+			return;
+		}
+		criticalSection.startCriticalSection(builder, processUID, currentLockGroup, currentLabelUID, currentLabelName);
 	}
 
 	public void checkCompatibility(CriticalSectionTracker other) {

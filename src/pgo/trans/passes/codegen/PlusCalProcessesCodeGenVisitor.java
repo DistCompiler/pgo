@@ -1,4 +1,4 @@
-package pgo.trans.intermediate;
+package pgo.trans.passes.codegen;
 
 import pgo.model.golang.GoExpression;
 import pgo.model.golang.GoIndexExpression;
@@ -12,6 +12,9 @@ import pgo.model.pcal.*;
 import pgo.model.tla.TLAExpression;
 import pgo.model.type.PGoType;
 import pgo.scope.UID;
+import pgo.trans.intermediate.DefinitionRegistry;
+import pgo.trans.intermediate.GlobalVariableStrategy;
+import pgo.trans.intermediate.PGoTypeGoTypeConversionVisitor;
 
 import java.util.HashMap;
 import java.util.List;

@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
+import org.json.JSONObject;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -12,6 +13,7 @@ import org.junit.runners.Parameterized.Parameters;
 
 import pgo.model.tla.TLAExpression;
 
+import static pgo.IntegrationTestingUtils.*;
 import static pgo.model.tla.TLABuilder.*;
 
 @RunWith(Parameterized.class)
@@ -200,7 +202,6 @@ public class ExpressionCodeGenRunTest {
 	@Test
 	public void test() throws IOException {
 		// try to run the compiled Go code, check that it prints the right thing
-		IntegrationTestingUtils.testCompileExpression(result, vars, compiledOutputPath ->
-			IntegrationTestingUtils.testRunGoCode(compiledOutputPath, expected));
+		testCompileExpression(result, vars, compiledOutputPath -> testRunGoCode(compiledOutputPath, expected));
 	}
 }

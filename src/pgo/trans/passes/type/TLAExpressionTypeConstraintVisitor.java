@@ -259,8 +259,8 @@ public class TLAExpressionTypeConstraintVisitor extends TLAExpressionVisitor<PGo
 				fresh,
 				new PGoTypeSlice(elementType, Collections.singletonList(pGoTLATuple))));
 		solver.addConstraint(new PGoTypePolymorphicConstraint(pGoTLATuple, Arrays.asList(
-				constraintsForChanType,
 				constraintsForSliceType,
+				constraintsForChanType,
 				Collections.singletonList(new PGoTypeEqualityConstraint(
 						fresh,
 						new PGoTypeTuple(contents, Collections.singletonList(pGoTLATuple)))))));
