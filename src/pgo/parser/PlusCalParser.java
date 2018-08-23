@@ -352,7 +352,9 @@ public final class PlusCalParser {
 			.drop(parsePlusCalToken("macro"))
 			.part(IDENTIFIER)
 			.drop(parsePlusCalToken("("))
-			.part(parseListOf(IDENTIFIER, parsePlusCalToken(",")))
+			.part(parseOneOf(
+					parseListOf(IDENTIFIER, parsePlusCalToken(",")),
+					nop().map(v -> new LocatedList<Located<String>>(v.getLocation(), Collections.emptyList()))))
 			.drop(parsePlusCalToken(")"))
 			.part(C_SYNTAX_COMPOUNDSTMT)
 			.drop(parseOneOf(parsePlusCalToken(";"), nop()))

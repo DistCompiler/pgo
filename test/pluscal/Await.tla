@@ -4,25 +4,29 @@ CONSTANT Procs
 
 (***************************************************************************
 --algorithm Await
-	{
-		variable x = 0;
-		process (p = 0)
-		{
-			p0: while (TRUE)
-			{
-				p1: await x = 0;
-				    x := 1;
-			}
-		}
-		process (q = 1)
-		{
-			q0: while (TRUE)
-			{
-				q1: await x = 1;
-				    x := 0;
-			}
-		}
-	}
+    {
+        variable x = 0;
+
+        macro AwaitZero() {
+            await x = 0;
+        }
+        process (p = 0)
+        {
+            p0: while (TRUE)
+            {
+                p1: AwaitZero();
+                    x := 1;
+            }
+        }
+        process (q = 1)
+        {
+            q0: while (TRUE)
+            {
+                q1: await x = 1;
+                    x := 0;
+            }
+        }
+    }
 }
  ***************************************************************************)
 \* BEGIN TRANSLATION
