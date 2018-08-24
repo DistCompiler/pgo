@@ -34,11 +34,10 @@ public class TestCodeGenRunTest {
 						"EitherBothBranches.tla",
 						Arrays.asList("[10 20]", "[10 20]"),
 				},
-				// this test sometimes fails because Go mutex is not fair
-				// {
-				// 		"EitherRepeatedExec.tla",
-				// 		Arrays.asList("[3 3]", "[3 3]"),
-				// },
+				{
+						"EitherRepeatedExec.tla",
+						Collections.singletonList("3"),
+				},
 		});
 	}
 
