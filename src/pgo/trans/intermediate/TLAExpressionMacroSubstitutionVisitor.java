@@ -166,7 +166,7 @@ public class TLAExpressionMacroSubstitutionVisitor extends TLAExpressionVisitor<
 
 	@Override
 	public TLAExpression visit(TLAQuantifiedUniversal pGoTLAQuantifiedUniversal) throws RuntimeException {
-		return new TLAQuantifiedExistential(pGoTLAQuantifiedUniversal.getLocation(),
+		return new TLAQuantifiedUniversal(pGoTLAQuantifiedUniversal.getLocation(),
 				substituteQuantifierBounds(pGoTLAQuantifiedUniversal.getIds()),
 				pGoTLAQuantifiedUniversal.getBody().accept(this));
 	}
