@@ -44,6 +44,7 @@ public class TypeInferencePass {
 			PGoTypeVariable fresh = generator.get();
 			mapping.put(id, fresh);
 			TLAExpression value = registry.getConstantValue(id);
+			mapping.put(value.getUID(), fresh);
 			PGoType type = value.accept(new TLAExpressionTypeConstraintVisitor(registry, solver, generator, mapping));
 			solver.addConstraint(new PGoTypeMonomorphicConstraint(value, fresh, type));
 		}
