@@ -27,7 +27,7 @@ public class PlusCalParserTest {
 				{"AltBitProtocol", },
 				{"Sum", },
 				{"Await", },
-				{"FastMutexNoAnnotation", },
+				{"FastMutex", },
 				{"pgo2pc", },
 		});
 	}

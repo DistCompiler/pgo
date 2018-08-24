@@ -3,11 +3,7 @@ EXTENDS Naturals, TLC
 CONSTANT N
 
 (*
---algorithm Euclid {    \** @PGo{ arg N int }@PGo
-  (** @PGo{ var u int }@PGo
-      @PGo{ var v int }@PGo
-      @PGo{ var v_init int }@PGo
-  **)
+--algorithm Euclid {
   variables u = 24;
             v \in 1 .. N;
             v_init = v;
