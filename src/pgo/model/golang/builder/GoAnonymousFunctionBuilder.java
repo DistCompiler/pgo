@@ -3,6 +3,7 @@ package pgo.model.golang.builder;
 import pgo.model.golang.*;
 import pgo.model.golang.type.GoType;
 import pgo.scope.UID;
+import pgo.util.NameCleaner;
 
 import java.util.ArrayList;
 import java.util.List;

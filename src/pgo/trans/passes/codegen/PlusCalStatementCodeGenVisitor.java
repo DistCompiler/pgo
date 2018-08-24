@@ -1,6 +1,7 @@
 package pgo.trans.passes.codegen;
 
 import pgo.InternalCompilerError;
+import pgo.TODO;
 import pgo.Unreachable;
 import pgo.model.golang.*;
 import pgo.model.golang.builder.GoBlockBuilder;
@@ -258,14 +259,58 @@ public class PlusCalStatementCodeGenVisitor extends PlusCalStatementVisitor<Void
 		return null;
 	}
 
+	private GoExpression addLHSParts(GoExpression root, List<PlusCalLHSPart> parts) {
+		for(PlusCalLHSPart part : parts) {
+			switch(part.getType()){
+				case INDEX:
+					if(part.getArguments().size() != 1) throw new TODO(); // that requires a special strategy
+					root = new GoIndexExpression(root, part.getArguments().get(0).accept(
+							new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy)));
+					break;
+				case DOT:
+					root = new GoSelectorExpression(root, part.getId().getId());
+					break;
+			}
+		}
+		return root;
+	}
+
 	@Override
 	public Void visit(PlusCalAssignment plusCalAssignment) throws RuntimeException {
 		List<GoExpression> lhs = new ArrayList<>();
 		List<GoExpression> rhs = new ArrayList<>();
 		List<GlobalVariableStrategy.GlobalVariableWrite> lhsWrites = new ArrayList<>();
 		for (PlusCalAssignmentPair pair : plusCalAssignment.getPairs()) {
-			GlobalVariableStrategy.GlobalVariableWrite lhsWrite = pair.getLhs().accept(
-					new TLAExpressionAssignmentLHSCodeGenVisitor(builder, registry, typeMap, globalStrategy));
+			UID ref = registry.followReference(pair.getLhs().getUID());
+			final GlobalVariableStrategy.GlobalVariableWrite lhsWrite;
+			if(registry.isGlobalVariable(ref)){
+				GlobalVariableStrategy.GlobalVariableWrite gStrat = globalStrategy.writeGlobalVariable(ref);
+				lhsWrite = new GlobalVariableStrategy.GlobalVariableWrite() {
+					@Override
+					public GoExpression getValueSink(GoBlockBuilder builder) {
+						return addLHSParts(gStrat.getValueSink(builder), pair.getLhs().getParts());
+					}
+
+					@Override
+					public void writeAfter(GoBlockBuilder builder) {
+						gStrat.writeAfter(builder);
+					}
+				};
+			}else if(registry.isLocalVariable(ref)) {
+				lhsWrite = new GlobalVariableStrategy.GlobalVariableWrite() {
+					@Override
+					public GoExpression getValueSink(GoBlockBuilder builder) {
+						return addLHSParts(builder.findUID(ref), pair.getLhs().getParts());
+					}
+
+					@Override
+					public void writeAfter(GoBlockBuilder builder) {
+						// pass
+					}
+				};
+			}else{
+				throw new TODO(); // nothing else should work here - make this a proper error
+			}
 			lhsWrites.add(lhsWrite);
 			lhs.add(lhsWrite.getValueSink(builder));
 			rhs.add(pair.getRhs().accept(

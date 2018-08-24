@@ -1,7 +1,6 @@
 package pgo.model.pcal;
 
 public abstract class PlusCalNodeVisitor<T, E extends Throwable> {
-
 	public abstract T visit(PlusCalAlgorithm plusCalAlgorithm) throws E;
 	public abstract T visit(PlusCalProcesses processes) throws E;
 	public abstract T visit(PlusCalStatement statement) throws E;
@@ -11,5 +10,6 @@ public abstract class PlusCalNodeVisitor<T, E extends Throwable> {
 	public abstract T visit(PlusCalProcedure procedure) throws E;
 	public abstract T visit(PlusCalVariableDeclaration variableDeclaration) throws E;
 	public abstract T visit(PlusCalAssignmentPair plusCalAssignmentPair) throws E;
-
+	public abstract T visit(PlusCalLHSPart plusCalLHSPart) throws E;
+	public abstract T visit(PlusCalLHS plusCalLHS) throws E;
 }

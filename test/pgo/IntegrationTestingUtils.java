@@ -47,7 +47,7 @@ public class IntegrationTestingUtils {
 		Path setup(Path tempDirPath) throws IOException;
 	}
 
-	private static void expungeFile(File file) {
+	public static void expungeFile(File file) {
 		if (file.isDirectory()) {
 			for (File f : file.listFiles()) {
 				expungeFile(f);

@@ -68,7 +68,7 @@ public class PlusCalStatementScopingVisitor extends PlusCalStatementVisitor<Void
 	@Override
 	public Void visit(PlusCalAssignment plusCalAssignment) throws RuntimeException {
 		for (PlusCalAssignmentPair pair : plusCalAssignment.getPairs()) {
-			pair.getLhs().accept(new TLAExpressionScopingVisitor(builder, registry, loader, moduleRecursionSet));
+			builder.reference(pair.getLhs().getId().getId(), pair.getLhs().getUID());
 			pair.getRhs().accept(new TLAExpressionScopingVisitor(builder, registry, loader, moduleRecursionSet));
 		}
 		return null;

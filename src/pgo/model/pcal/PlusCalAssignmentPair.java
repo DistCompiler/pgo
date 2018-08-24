@@ -5,16 +5,16 @@ import pgo.util.SourceLocation;
 
 public class PlusCalAssignmentPair extends PlusCalNode {
 	
-	private TLAExpression lhs;
+	private PlusCalLHS lhs;
 	private TLAExpression rhs;
 
-	public PlusCalAssignmentPair(SourceLocation location, TLAExpression lhs, TLAExpression rhs) {
+	public PlusCalAssignmentPair(SourceLocation location, PlusCalLHS lhs, TLAExpression rhs) {
 		super(location);
 		this.lhs = lhs;
 		this.rhs = rhs;
 	}
 
-	public TLAExpression getLhs() {
+	public PlusCalLHS getLhs() {
 		return lhs;
 	}
 

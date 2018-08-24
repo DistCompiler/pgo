@@ -1,5 +1,6 @@
 package pgo.parser;
 
+import com.sun.xml.internal.bind.v2.model.core.ID;
 import pgo.model.pcal.*;
 import pgo.model.tla.*;
 
@@ -118,35 +119,34 @@ public final class PlusCalParser {
 			))
 			.map(seq -> seq.getValue().getFirst());
 
+	static final Grammar<TLAIdentifier> TLA_ID = IDENTIFIER.map(id ->
+			new TLAIdentifier(id.getLocation(), id.getValue()));
+
 	// shortcut to parse a limited form of TLA+ identifiers (as seen in PlusCal assignments)
 	static final Grammar<TLAGeneralIdentifier> TLA_IDEXPR = IDENTIFIER.map(id -> new TLAGeneralIdentifier(
 			id.getLocation(),
 			new TLAIdentifier(id.getLocation(), id.getValue()),
 			Collections.emptyList()));
 
-	static final Grammar<TLAExpression> LHS = parseOneOf(
-			emptySequence()
-					.part(TLA_IDEXPR)
-					.drop(parsePlusCalToken("["))
-					.part(parseListOf(TLA_EXPRESSION, parsePlusCalToken(",")))
-					.drop(parsePlusCalToken("]"))
-					.map(seq -> new TLAFunctionCall(
-							seq.getLocation(),
-							seq.getValue().getRest().getFirst(),
-							seq.getValue().getFirst())),
-			emptySequence()
-					.part(TLA_IDEXPR)
-					.part(parsePlusCalToken("."))
-					.part(TLA_IDEXPR)
-					.map(seq -> new TLABinOp(
-							seq.getLocation(),
-							new TLASymbol(seq.getValue().getRest().getFirst().getLocation(), "."),
-							Collections.emptyList(),
-							seq.getValue().getRest().getRest().getFirst(),
-							seq.getValue().getFirst())),
-			TLA_IDEXPR
-			);
-
+	static final Grammar<PlusCalLHS> LHS = emptySequence()
+			.part(TLA_ID)
+			.part(repeat(
+					parseOneOf(
+							emptySequence()
+									.drop(parsePlusCalToken("["))
+									.part(parseListOf(TLA_EXPRESSION, parsePlusCalToken(",")))
+									.drop(parsePlusCalToken("]"))
+									.map(seq -> PlusCalLHSPart.Index(seq.getLocation(), seq.getValue().getFirst())),
+							emptySequence()
+									.drop(parsePlusCalToken("."))
+									.part(TLA_ID)
+									.map(seq -> PlusCalLHSPart.Dot(seq.getLocation(), seq.getValue().getFirst()))
+					)
+			))
+			.map(seq -> new PlusCalLHS(
+					seq.getLocation(),
+					seq.getValue().getRest().getFirst(),
+					seq.getValue().getFirst()));
 
 	static final Grammar<PlusCalAssignment> ASSIGN = parseListOf(
 			emptySequence()

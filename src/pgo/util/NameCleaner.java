@@ -1,4 +1,4 @@
-package pgo.model.golang;
+package pgo.util;
 
 import pgo.InternalCompilerError;
 import pgo.scope.ChainSet;

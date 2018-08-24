@@ -2,6 +2,7 @@ package pgo.model.golang.builder;
 
 import pgo.model.golang.*;
 import pgo.scope.UID;
+import pgo.util.NameCleaner;
 
 import java.util.Collections;
 import java.util.Map;

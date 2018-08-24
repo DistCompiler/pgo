@@ -2,7 +2,10 @@ package pgo.trans.intermediate;
 
 import pgo.errors.IssueContext;
 import pgo.model.pcal.*;
+import pgo.model.tla.TLABinOp;
 import pgo.model.tla.TLAExpression;
+import pgo.model.tla.TLAFunctionCall;
+import pgo.model.tla.TLAGeneralIdentifier;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -55,13 +58,67 @@ public class PlusCalMacroExpansionVisitor extends PlusCalStatementVisitor<List<P
 				plusCalEither.getLocation(), plusCalEither.getCases().stream().map(c -> substituteStatements(c)).collect(Collectors.toList())));
 	}
 
+	private PlusCalLHS tryConvertExpressionToLHS(TLAExpression subst) {
+		if(subst instanceof TLAGeneralIdentifier) {
+			TLAGeneralIdentifier substId = (TLAGeneralIdentifier)subst;
+			if(!substId.getGeneralIdentifierPrefix().isEmpty()){
+				ctx.error(new MacroAssignmentBadLHSIssue(subst));
+				return null;
+			}
+			return new PlusCalLHS(
+					subst.getLocation(),
+					substId.getName().copy(),
+					Collections.emptyList());
+		}else if(subst instanceof TLABinOp) {
+			TLABinOp substB = (TLABinOp)subst;
+			if(!substB.getOperation().getValue().equals(".") || !substB.getPrefix().isEmpty()){
+				ctx.error(new MacroAssignmentBadLHSIssue(subst));
+				return null;
+			}
+			PlusCalLHS recLeft = tryConvertExpressionToLHS(substB.getLHS());
+			PlusCalLHS recRight = tryConvertExpressionToLHS(substB.getRHS());
+			if(recLeft == null || recRight == null) return null;
+
+			// concatenate all sub-parts
+			List<PlusCalLHSPart> parts = new ArrayList<>(recLeft.getParts());
+			parts.add(PlusCalLHSPart.Dot(recRight.getId().getLocation(), recRight.getId()));
+			parts.addAll(recRight.getParts());
+
+			return new PlusCalLHS(
+					subst.getLocation(),
+					recLeft.getId(),
+					parts);
+		}else if(subst instanceof TLAFunctionCall) {
+			TLAFunctionCall substF = (TLAFunctionCall)subst;
+			PlusCalLHS recLeft = tryConvertExpressionToLHS(substF.getFunction());
+			if(recLeft == null) return null;
+			List<PlusCalLHSPart> parts = new ArrayList<>(recLeft.getParts());
+			parts.add(PlusCalLHSPart.Index(substF.getLocation(), substF.getParams()));
+			return new PlusCalLHS(subst.getLocation(), recLeft.getId(), parts);
+		}else{
+			ctx.error(new MacroAssignmentBadLHSIssue(subst));
+			return null;
+		}
+	}
+
 	@Override
 	public List<PlusCalStatement> visit(PlusCalAssignment plusCalAssignment) throws RuntimeException {
 		List<PlusCalAssignmentPair> pairs = new ArrayList<>();
-		for (PlusCalAssignmentPair pair : plusCalAssignment.getPairs()) {
+		for(PlusCalAssignmentPair pair : plusCalAssignment.getPairs()) {
+
+			final PlusCalLHS lhs;
+			if(macroArgs.containsKey(pair.getLhs().getId().getId())) {
+				PlusCalLHS root = tryConvertExpressionToLHS(macroArgs.get(pair.getLhs().getId().getId()));
+				List<PlusCalLHSPart> parts = new ArrayList<>(root.getParts());
+				// add back any extra parts that were in the original LHS
+				parts.addAll(pair.getLhs().getParts().stream().map(PlusCalLHSPart::copy).collect(Collectors.toList()));
+				lhs = new PlusCalLHS(root.getLocation(), root.getId(), parts);
+			}else{
+				lhs = pair.getLhs().copy();
+			}
 			pairs.add(new PlusCalAssignmentPair(
 					pair.getLocation(),
-					pair.getLhs().accept(macroSubst),
+					lhs,
 					pair.getRhs().accept(macroSubst)));
 		}
 		return Collections.singletonList(new PlusCalAssignment(

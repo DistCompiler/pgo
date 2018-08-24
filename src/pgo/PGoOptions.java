@@ -25,8 +25,8 @@ public class PGoOptions {
 	@Option(value = "-c path to the configuration file, if any")
 	public String configFilePath = "";
 
-	@Option(value = "write the AST generated and skip the rest", aliases = { "-ast" })
-	public boolean writeAST = false;
+	@Option(value = "generate TLA+ from the provided PlusCal algorithm", aliases = { "-tlagen" })
+	public boolean tlaGen = false;
 
 	public String inputFilePath;
 

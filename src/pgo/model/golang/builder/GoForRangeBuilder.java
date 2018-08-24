@@ -3,7 +3,7 @@ package pgo.model.golang.builder;
 import pgo.model.golang.GoExpression;
 import pgo.model.golang.GoForRange;
 import pgo.model.golang.GoVariableName;
-import pgo.model.golang.NameCleaner;
+import pgo.util.NameCleaner;
 import pgo.scope.UID;
 
 import java.util.ArrayList;

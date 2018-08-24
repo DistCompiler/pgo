@@ -253,4 +253,11 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 		return null;
 	}
 
+	@Override
+	public Void visit(MacroAssignmentBadLHSIssue macroAssignmentBadLHSIssue) throws IOException {
+		out.write("could not expand macro, macro argument part is not a valid assignment LHS: ");
+		macroAssignmentBadLHSIssue.getExpression().accept(new TLAExpressionFormattingVisitor(out));
+		return null;
+	}
+
 }

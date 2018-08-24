@@ -79,9 +79,35 @@ public class PlusCalNodeFormattingVisitor extends PlusCalNodeVisitor<Void, IOExc
 
 	@Override
 	public Void visit(PlusCalAssignmentPair plusCalAssignmentPair) throws IOException {
-		plusCalAssignmentPair.getLhs().accept(new TLAExpressionFormattingVisitor(out));
+		plusCalAssignmentPair.getLhs().accept(this);
 		out.write(" := ");
 		plusCalAssignmentPair.getRhs().accept(new TLAExpressionFormattingVisitor(out));
+		return null;
+	}
+
+	@Override
+	public Void visit(PlusCalLHSPart plusCalLHSPart) throws IOException {
+		switch(plusCalLHSPart.getType()){
+			case INDEX:
+				out.write("[");
+				FormattingTools.writeCommaSeparated(out, plusCalLHSPart.getArguments(), e ->
+						e.accept(new TLAExpressionFormattingVisitor(out)));
+				out.write("]");
+				break;
+			case DOT:
+				out.write(".");
+				out.write(plusCalLHSPart.getId().getId());
+				break;
+		}
+		return null;
+	}
+
+	@Override
+	public Void visit(PlusCalLHS plusCalLHS) throws IOException {
+		out.write(plusCalLHS.getId().getId());
+		for(PlusCalLHSPart part : plusCalLHS.getParts()) {
+			part.accept(this);
+		}
 		return null;
 	}
 

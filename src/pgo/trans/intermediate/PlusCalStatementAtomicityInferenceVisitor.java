@@ -58,7 +58,7 @@ public class PlusCalStatementAtomicityInferenceVisitor extends PlusCalStatementV
 	@Override
 	public Void visit(PlusCalAssignment plusCalAssignment) throws RuntimeException {
 		for (PlusCalAssignmentPair pair : plusCalAssignment.getPairs()) {
-			pair.getLhs().accept(visitor).forEach(varUID -> captureLabelWrite.accept(varUID, currentLabelUID));
+			captureLabelWrite.accept(pair.getLhs().getUID(), currentLabelUID);
 			pair.getRhs().accept(visitor);
 		}
 		return null;

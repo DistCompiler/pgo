@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public class PlusCalStatementTypeConstraintVisitor extends PlusCalStatementVisitor<Void, RuntimeException> {
 
@@ -74,9 +75,30 @@ public class PlusCalStatementTypeConstraintVisitor extends PlusCalStatementVisit
 	@Override
 	public Void visit(PlusCalAssignment plusCalAssignment) throws RuntimeException {
 		for(PlusCalAssignmentPair pair : plusCalAssignment.getPairs()) {
+			// FIXME very broken, crashes anything that isn't tlagen mode
+			// Matthew, pls help how does the type system work again?
+			/*PGoType lhsTypeRoot = generator.get();
+			PGoType lhsType = lhsTypeRoot;
+			for(PlusCalLHSPart part : pair.getLhs().getParts()) {
+				switch(part.getType()) {
+					case INDEX:
+
+						break;
+					case DOT:
+						lhsType = new PGoTypeMap(
+								part.getArguments()
+										.stream()
+										.map(arg -> arg.accept(new TLAExpressionTypeConstraintVisitor(
+												registry, solver, generator, mapping)))
+										.collect(Collectors.toList()),
+								lhsType,
+								Collections.singletonList(part));
+						break;
+				}
+			}*/
 			solver.addConstraint(new PGoTypeMonomorphicConstraint(
 					pair,
-					exprVisitor.wrappedVisit(pair.getLhs()),
+					exprVisitor.wrappedVisit(pair.getLhs().toExpression()),
 					exprVisitor.wrappedVisit(pair.getRhs())));
 		}
 		return null;
