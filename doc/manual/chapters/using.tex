@@ -2,12 +2,14 @@
 Requirements: Eclipse or Ant 1.9
 
 \begin{itemize}
-\item Git clone the source at \url{https://bitbucket.org/whiteoutblackout/pgo/}
+\item Git clone the source at \url{https://github.com/UBC-NSS/pgo}
 
 \begin{itemize}
-\item Option 1: Import as an Eclipse project
+\item Option 1: Import as an IntelliJ project
 
-\item Option 2: Execute \texttt{ant pgo} assuming the project is in the \texttt{pgo/} directory
+\item Option 2: Import as an Eclipse project
+
+\item Option 3: Execute \texttt{ant pgo} assuming the project is in the \texttt{pgo/} directory
 \end{itemize}
 \end{itemize}
 
@@ -16,164 +18,97 @@ Dependencies:
 \item The \href{https://mernst.github.io/plume-lib/}
 	{Plume options library}.
 
-\item The \href{https://github.com/tlaplus/tlaplus/tree/master/tlatools/src}
-	{TLA+ tools}.
+\item \href{http://hamcrest.org/JavaHamcrest/}
+	{Java Hamcrest}.
 
-\item The \href{https://github.com/emirpasic/gods}
-	{Go Data Structures library}.
+\item The \href{https://github.com/stleary/JSON-java}
+	{JSON reference implementation}.
 \end{itemize}
 
 
-PGo was tested on JRE8 and Go 1.8.3.
+PGo was tested on JRE 8 and Go 1.10.
 
 \subsection{Execution}
-To run PGo, run the Eclipse project or run \texttt{pgo.sh}. The command-line usage is \texttt{pgo [options] pcalfile gofolder gofile}.
+To run PGo, run the IntelliJ project, the Eclipse project or run \texttt{pgo.sh}. The command-line usage is \texttt{pgo [options] pcalfile}.
 
 Optional command line arguments:
 
 \noindent
-\texttt{-h --help=<boolean>          - Print usage information [default false]\\
-  -q --logLvlQuiet=<boolean>   - Reduce printing during execution [default false]\\
-  -v --logLvlVerbose=<boolean> - Print detailed information during execution  [default false]\\
-  -i --infile=<string>         - the input pluscal file to transpile  [default ]\\
-  -o --outfile=<string>        - the output file to generate [default ]\\
-  -d --outfolder=<string>      - the output folder to put additional packages [default ]\\
-  --writeAST=<boolean>         - write the AST generated and skip the rest [default false]}
+\texttt{-h --help=<boolean> Print usage information [default false]\\
+	-q --logLvlQuiet=<boolean> Reduce printing during execution [default false]\\
+	-v --logLvlVerbose=<boolean> Print detailed information during execution  [default false]\\
+	-c --configFilePath=<string> path to the configuration file, if any [default ]\\
+	--writeAST=<boolean> write the AST generated and skip the rest [default false]}
 
-\subsection{Annotations}
-PGo requires annotation of the PlusCal source file to properly compile the PlusCal source. Annotations must be placed in comments within the body of the PlusCal algorithm, but there can be multiple annotations per comment. Annotations may appear in any part of the comment block containing the PlusCal algorithm. Annotations are of the form \verb|@PGo{ <annotation> }@PGo|.
+\subsection{Configuration}
+PGo requires a JSON configuration file with the following information.
 
-\subsubsection{Annotating types}
-Many annotations require specifying a type name. PGo uses the following format for type names:
-
-\noindent
-\begin{minipage}{\linewidth}
-\centering
-\begin{tabular}{l | l}
-\multicolumn{2}{c}{Primitive types}\\
-\hline
-Go type 			& Annotation keyword\\
-\hline
-\texttt{int} 		& \texttt{int}\\
-\texttt{bool} 		& \texttt{bool}\\
-\texttt{uint64} 	& \texttt{uint64}\\
-\texttt{float64} 	& \texttt{float64}\\
-\texttt{string} 	& \texttt{string}\\
-(void type) 		& \texttt{void}\\
-
-\multicolumn{2}{c}{Collection types}\\
-\hline
-\texttt{[]<type>} 											& \texttt{[]<type>}\\
-set with \texttt{<type>} elements							& \texttt{set[<type>]}\\
-map with \texttt{<K>} keys and \texttt{<V>} values			& \texttt{map[<K>]<V>}\\
-tuple with all elements of type \texttt{<E>}				& \texttt{chan[<E>]}\\
-tuple with \emph{i}th element of type \texttt{<E$_i$>}		& \texttt{tuple[<E$_1$>,<E$_2$>,...]}
-\end{tabular}
-\end{minipage}
-
-Type names cannot contain spaces.
-
-\subsubsection{TLA+ definitions and constants declared outside of the algorithm block (Required)}
-The PlusCal algorithm can make use of TLA+ definitions that are found outside the algorithm block. These are not parsed by PGo and need to be in an annotation for PGo to parse them. Any TLA+ definitions found in \texttt{define} blocks also need to be annotated. The annotation for a TLA+ definition is of the form \texttt{def <name>(<params>)? <type>? == <TLA expression>}. The definition can be copied almost verbatim from the TLA+, but a parameter is specified by \texttt{<name> <type>} so typing information needs to be added to the parameters. The type that the expression should evaluate to may also be specified, if desired. A TLA+ definition without parameters is compiled into a variable, and a definition with parameters is compiled into a function.
-
-\noindent\begin{minipage}{\textwidth}
-\begin{lstlisting}[language=pcal]
-\* outside the algorithm body
-foo(i, j) == i + j
-bar == {1, 3, 5}
-\* ...
-\* inside the algorithm body
-(*
-	@PGo{ def foo(i int, j int) int == i + j}@PGo
-	@PGo{ def bar = {1, 3, 5} }@PGo
-*)
-\end{lstlisting}
-\captionof{figure}{PlusCal}
-\end{minipage}
-
-\noindent\begin{minipage}{\textwidth}
-\begin{lstlisting}[language=golang]
-func foo(i int, j int) int {
-	return i + j
+\begin{lstlisting}
+{
+	"build": {
+		"output_dir": "",
+		"dest_file": ""
+	},
+	"networking": {
+		"enabled": true,
+		"state": {
+			"strategy": "",
+			"endpoints": [],
+			"peers": [],
+			"timeout": 3
+		}
+	},
+	"constants": {
+		"name": "value"
+	}
 }
-
-var bar datatypes.Set = datatypes.NewSet(1, 3, 5)
 \end{lstlisting}
-\captionof{figure}{Compiled Go}
-\end{minipage}
 
-There will be constants in PlusCal that are not declared in the PlusCal algorithm (e.g., constant \texttt{N} for model checking). These variables will need to be specified using PGo annotations either as constants in the compiled Go program, or command line arguments to the Go program. Constants are specified as \texttt{const <varname> <type> <val>} indicating that \texttt{varname} is a Go constant of type \texttt{<type>} with initial Go value \texttt{<val>}. Command line argument variables of Go are specified as \texttt{arg <varname> <type> (<flagname>)?} indicating that variable \texttt{<varname>} is of type \texttt{<type>} and is going to be specified through a command line argument to the Go program. If no \texttt{<flagname>} is specified, then the variable will be a positional argument in the order that it appeared in the annotation. If \texttt{<flagname>} is specified, then the variable will be set on the command line using \texttt{-<flagname>=<value>}.
+\subsubsection{Build}
+\noindent\lstinline|output_dir| must point to an existing directory.
 
-If a constant is not a primitive type, it cannot be declared as constant or as a command line argument in Go. The constant can instead be annotated as a TLA+ definition, where the expression is the desired constant value. This will be compiled to a global variable that is initialized with the given value. PGo provides a compile-time guarantee that the constant indeed remains constant (it is not assigned to or mutated).
+\noindent\lstinline|dest_file| specifies the output Go file for PGo to write into. The full path for the file is constructed by appending the value of \lstinline|dest_file| to \lstinline|output_dir|. This file will be truncated by PGo.
+\subsubsection{Networking}
+\noindent\lstinline|enabled| specifies whether the compiled Go program is a distributed program backed by a network. \lstinline|enabled| must be \lstinline|false| when the input PlusCal file is a uniprocess algorithm, otherwise PGo will halt with an error.
 
-\noindent\begin{minipage}{\textwidth}
-\begin{lstlisting}[language=pcal]
-\* outside the algorithm body
-CONSTANT N, M, ProcSet
-\* ...
-\* inside the algorithm body
-(*
-	@PGo{ arg N int }@PGo
-	@PGo{ arg M int PGoFlag }@PGo
-	@PGo{ def ProcSet set[string] == {"a", "b", "c"} }@PGo
-*)
-print << N, M >>;
+\noindent\lstinline|state| specifies the strategy to use for distributed program compilation. It is ignored when \lstinline|enabled| is \lstinline|false|. Currently, \lstinline|etcd| and \lstinline|state-server| strategies are supported. The default strategy to use is \lstinline|etcd|.
+
+\noindent\lstinline|peers| specifies a list of peers among which the distributed processes have to establish connections.
+
+\noindent\lstinline|endpoints| specifies the etcd endpoints to which the distributed processes have to connect.
+
+\noindent\lstinline|timeout| specifies the timeout interval in seconds. The default value for this option is 3 seconds.
+\subsubsection{Constants}
+The PlusCal algorithm can make use of TLA+ constants that are found outside the algorithm block (e.g., constant \texttt{N} for model checking). These variables will need to be specified as key-value pairs. Each key is a JSON string containing the name of the constant being defined. Each value is a JSON string containing one valid TLA+ expression.
+
+\noindent\begin{minipage}{0.45\textwidth}
+\begin{lstlisting}
+{
+  ...
+  "constants": {
+    "ProcSet": "{1, 3}",
+    "N": "3"
+  },
+  ...
+}
 \end{lstlisting}
-\captionof{figure}{PlusCal}
+\captionof{figure}{Example constant specification}
 \end{minipage}
-
-\noindent\begin{minipage}{\textwidth}
+\hfill\begin{minipage}{0.45\textwidth}
 \begin{lstlisting}[language=golang]
-var ProcSet datatypes.Set = datatypes.NewSet("a", "b", "c")
+var ProcSet []int
 var N int
-var M int
 
-func main() {
-	flag.IntVar(&M, "PGoFlag", 0, "")
-	flag.Parse()
-	N, _ = strconv.Atoi(flag.Args()[0])
-
-	fmt.Printf("%v %v\n", N, M)
+func init() {
+	myProcs = []int{1, 3}
+	N = 3
 }
 \end{lstlisting}
 \captionof{figure}{Compiled Go}
 \end{minipage}
 
-\noindent\fbox{
-	\begin{minipage}{\textwidth}
-	\texttt{\$ go run CompiledGo.go -PGoFlag=1 2\\
-		2 1}
-	\end{minipage}
-}
-\captionof{figure}{Command-line usage}
+\subsection{Type inference}
+PGo will automatically infer types for variables declared in PlusCal. The type inference algorithm supports a limited form of polymorphism to support different use cases for tuples. Specifically, the tuple literal \lstinline[language=pcal]|<<exp1, exp2, exp3>>| may be compiled as a Go slice literal or a Go struct literal depending on whether \lstinline[language=pcal]|exp1|, \lstinline[language=pcal]|exp2|, and \lstinline[language=pcal]|exp3| have the same type.
 
-\subsubsection{PlusCal procedure return values (Optional)}
-PlusCal has no return values, so procedures can only return values by writing to a global variable. PGo requires the developer to indicate which variable serves this purpose. In PGo, the annotation is of the form \texttt{ret <varname>}. PGo automatically scans all function definitions for the one where the variable is used. Note that using this feature will remove the specified variable from the global variables. If you rely on global state of the variable for more than just the function return value, do not specify it as a return value and use the global variable instead.
-
-\subsubsection{Variable types (Optional)}
-PGo will automatically infer types for variables declared in PlusCal. However, you may want to specify the types rather than using the inferred types (e.g., you want a variable to be a \texttt{uint64} rather than an \texttt{int}). This is possible by specifying \texttt{var <varname> <type>}. Annotations are required for variables that involve PlusCal tuples, since these may compile to slices or tuples depending on context. If no type annotation is provided for a variable, PGo will indicate the type it inferred in the output Go code.
-
-\subsubsection{Function signatures}
-Similar to specifying variable types. The annotation \texttt{func <rtype>? <funcname>() <p1type>?+} represents \texttt{<funcname>()} having a return type of \texttt{<rtype>} if specified, and parameters of type \texttt{<p1type>, <p2type>...} If any types are specified, all return types or parameters must be specified.
-
-\noindent\begin{minipage}{\textwidth}
-\begin{lstlisting}[language=pcal]
-\* @PGo{ func foo() int string }@PGo
-procedure foo(a, b) {
-	print << a + 1, b >>;
-}
-\end{lstlisting}
-\captionof{figure}{PlusCal}
-\end{minipage}
-
-\noindent\begin{minipage}{\textwidth}
-\begin{lstlisting}[language=golang]
-func foo(a int, b string) {
-	fmt.Println("%v %v\n", a + 1, b)
-}
-\end{lstlisting}
-\captionof{figure}{Compiled Go}
-\end{minipage}
-
-\subsubsection{Locking (Optional)}
-By default, PGo addds locks when compiling a multiprocess PlusCal algorithm. The locking behaviour is described in more detail in~\ref{sec:labels}. The locking annotation is of the form \texttt{lock [true|false]}. PGo adds or omits locks based on the annotation, overriding the default behaviour.
+\subsection{Lock inference}
+PGo addds locks when compiling a multiprocess PlusCal algorithm. The locking behaviour is described in more detail in~\ref{sec:labels}.

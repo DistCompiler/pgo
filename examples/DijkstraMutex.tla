@@ -52,8 +52,8 @@ CONSTANT Proc
 
 (*********
 Here is the PlusCal version of this algorithm.
-The algorithm was modified from the original by adding a the variable temp2, to avoid a type consistency conflict when temp changes type at Li4a.
-(* @PGo{ def Proc == 1 .. 10 }@PGo *)
+The algorithm was modified from the original by adding a the variable temp2,
+  to avoid a type consistency conflict when temp changes type at Li4a.
 
  --algorithm Mutex
  { variables b = [i \in Proc |-> TRUE], c = [i \in Proc |-> TRUE], k \in Proc;
