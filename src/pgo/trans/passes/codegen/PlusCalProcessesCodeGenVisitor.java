@@ -66,6 +66,34 @@ public class PlusCalProcessesCodeGenVisitor extends PlusCalProcessesVisitor<Void
 		}
 	}
 
+	private void generateProcedures() {
+		for (PlusCalProcedure procedure : plusCalAlgorithm.getProcedures()) {
+			System.out.println("Generating code for procedure " + procedure.getName());
+			Map<String, GoVariableName> argMap = new HashMap<>();
+			UID uid = procedure.getUID();
+
+			GoFunctionDeclarationBuilder builder = moduleBuilder.defineFunction(
+					uid, procedure.getName());
+
+			for (PlusCalVariableDeclaration arg : procedure.getArguments()) {
+				GoType argType = typeMap.get(arg.getUID()).accept(new PGoTypeGoTypeConversionVisitor());
+				argMap.put(arg.getName().getValue(), builder.addArgument(arg.getName().getValue(), argType));
+			}
+
+			try (GoBlockBuilder procBody = builder.getBlockBuilder()) {
+				for (PlusCalVariableDeclaration arg : procedure.getArguments()) {
+					procBody.linkUID(arg.getUID(), argMap.get(arg.getName().getValue()));
+				}
+
+				generateLocalVariableDefinitions(registry, typeMap, globalStrategy, procBody, procedure.getVariables());
+				for (PlusCalStatement statements : procedure.getBody()) {
+					statements.accept(new PlusCalStatementCodeGenVisitor(
+							registry, typeMap, globalStrategy, uid, procBody));
+				}
+			}
+		}
+	}
+
 	private static void generateLocalVariableDefinitions(DefinitionRegistry registry, Map<UID, PGoType> typeMap,
 	                                                     GlobalVariableStrategy globalStrategy, GoBlockBuilder processBody,
 	                                                     List<PlusCalVariableDeclaration> variableDeclarations) {
@@ -83,6 +111,7 @@ public class PlusCalProcessesCodeGenVisitor extends PlusCalProcessesVisitor<Void
 	@Override
 	public Void visit(PlusCalSingleProcess singleProcess) throws RuntimeException {
 		generateInit(ignored -> {});
+		generateProcedures();
 		try (GoBlockBuilder fnBuilder = moduleBuilder.defineFunction("main").getBlockBuilder()) {
 			globalStrategy.mainPrelude(fnBuilder);
 			generateLocalVariableDefinitions(registry, typeMap, globalStrategy, fnBuilder, plusCalAlgorithm.getVariables());
@@ -118,6 +147,9 @@ public class PlusCalProcessesCodeGenVisitor extends PlusCalProcessesVisitor<Void
 				}
 			}
 		});
+
+		generateProcedures();
+
 		for (PlusCalProcess process : multiProcess.getProcesses()) {
 			UID processUID = process.getName().getUID();
 			GoFunctionDeclarationBuilder functionBuilder = moduleBuilder.defineFunction(
