@@ -3,10 +3,10 @@ package pgo.trans.intermediate;
 import pgo.errors.IssueContext;
 import pgo.model.pcal.PlusCalAlgorithm;
 import pgo.model.pcal.PlusCalMacro;
+import pgo.model.pcal.PlusCalProcedure;
+import pgo.model.pcal.PlusCalStatement;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 public class PlusCalMacroExpansionPass {
 	
@@ -21,13 +21,32 @@ public class PlusCalMacroExpansionPass {
 				macros.put(macro.getName(), macro);
 			}
 		}
+
+		List<PlusCalProcedure> procedures = new ArrayList<>();
+		PlusCalMacroExpansionVisitor v = new PlusCalMacroExpansionVisitor(ctx, macros, new HashSet<>(), new HashMap<>());
+		plusCalAlgorithm.getProcedures().forEach(proc -> {
+			List<PlusCalStatement> stmts = new ArrayList<>();
+			for (PlusCalStatement stmt : proc.getBody()) {
+				for (PlusCalStatement s : stmt.accept(v)) {
+					stmts.add(s);
+				}
+			}
+
+			procedures.add(new PlusCalProcedure(
+					proc.getLocation(),
+					proc.getName(),
+					proc.getArguments(),
+					proc.getVariables(),
+					stmts));
+		});
+
 		return new PlusCalAlgorithm(
 				plusCalAlgorithm.getLocation(),
 				plusCalAlgorithm.getFairness(),
 				plusCalAlgorithm.getName(),
 				plusCalAlgorithm.getVariables(),
 				Collections.emptyList(),
-				plusCalAlgorithm.getProcedures(),
+				procedures,
 				plusCalAlgorithm.getUnits(),
 				plusCalAlgorithm.getProcesses().accept(new PlusCalProcessesMacroExpansionVisitor(ctx, macros)));
 	}
