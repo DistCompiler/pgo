@@ -30,6 +30,17 @@ public class LexicalContext {
 		public int getMarkedLine() { return markedLine; }
 		public int getMarkedColumn() { return markedColumn; }
 		public int getMarkedIndex() { return markedIndex; }
+
+		@Override
+		public String toString() {
+			StringBuilder b = new StringBuilder("LexicalContext.Mark[");
+			b.append("line=" + this.markedLine);
+			b.append("; column=" + this.markedColumn);
+			b.append("; index=" + this.markedIndex);
+			b.append("]");
+
+			return b.toString();
+		}
 	}
 	
 	
