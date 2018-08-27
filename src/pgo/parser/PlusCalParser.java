@@ -368,9 +368,15 @@ public final class PlusCalParser {
 			.drop(parsePlusCalToken("procedure"))
 			.part(IDENTIFIER)
 			.drop(parsePlusCalToken("("))
-			.part(repeatOneOrMore(PVARDECL))
+			.part(parseOneOf(
+					parseListOf(PVARDECL, parsePlusCalToken(",")),
+					nop().map(v -> new LocatedList<PlusCalVariableDeclaration>(v.getLocation(), Collections.emptyList()))
+			))
 			.drop(parsePlusCalToken(")"))
-			.part(parseOneOf(PVARDECLS, nop().map(v -> null)))
+			.part(parseOneOf(
+					PVARDECLS,
+					nop().map(v -> new LocatedList<PlusCalVariableDeclaration>(v.getLocation(), Collections.emptyList()))
+			))
 			.part(C_SYNTAX_COMPOUNDSTMT)
 			.drop(parseOneOf(parsePlusCalToken(";"), nop()))
 			.map(seq -> new PlusCalProcedure(
@@ -378,7 +384,8 @@ public final class PlusCalParser {
 					seq.getValue().getRest().getRest().getRest().getFirst().getValue(),
 					seq.getValue().getRest().getRest().getFirst(),
 					seq.getValue().getRest().getFirst(),
-					seq.getValue().getFirst()));
+					seq.getValue().getFirst())
+			);
 
 	static final Grammar<PlusCalProcess> C_SYNTAX_PROCESS = emptySequence()
 			.part(parseOneOf(
