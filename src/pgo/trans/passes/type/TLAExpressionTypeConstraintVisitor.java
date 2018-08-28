@@ -276,11 +276,20 @@ public class TLAExpressionTypeConstraintVisitor extends TLAExpressionVisitor<PGo
 
 	@Override
 	public PGoType visit(TLANumber pGoTLANumber) throws RuntimeException {
+		PGoType type;
+
 		// TODO this check should be more sophisticated
 		if (pGoTLANumber.getVal().contains(".")) {
-			return new PGoTypeDecimal(Collections.singletonList(pGoTLANumber));
+			type = new PGoTypeDecimal(Collections.singletonList(pGoTLANumber));
+		} else {
+			type = new PGoTypeUnrealizedNumber(new PGoTypeInt(Collections.singletonList(pGoTLANumber)), Collections.singletonList(pGoTLANumber));
 		}
-		return new PGoTypeUnrealizedNumber(new PGoTypeInt(Collections.singletonList(pGoTLANumber)), Collections.singletonList(pGoTLANumber));
+
+		PGoTypeVariable fresh = generator.get();
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(pGoTLANumber, fresh, type));
+		mapping.put(pGoTLANumber.getUID(), fresh);
+
+		return type;
 	}
 
 	@Override

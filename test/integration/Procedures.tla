@@ -1,4 +1,4 @@
----------------------------- MODULE except ----------------------------
+---------------------------- MODULE Procedures ----------------------------
 EXTENDS Integers, Sequences, TLC
 
 CONSTANT N
@@ -25,8 +25,8 @@ CONSTANT N
         return;
     }
 
-    procedure RunFizzBuzz(k) {
-        check: if ((k % 3 = 0) /\ (k % 5 = 0)) {
+    procedure RunFizzBuzz(k, n1, n2) {
+        check: if ((k % n1 = 0) /\ (k % n2 = 0)) {
                    call FizzBuzz();
                } else if (k % 3 = 0) {
                    call Fizz();
@@ -43,7 +43,7 @@ CONSTANT N
     variable n = 0; {
         l1: while (n < N) {
             inc: n := n + 1;
-            call RunFizzBuzz(n);
+            call RunFizzBuzz(n, 3, 5);
         }
     }
 }
