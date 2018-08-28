@@ -58,6 +58,7 @@ public class PlusCalProcessesScopingVisitor extends PlusCalProcessesVisitor<Void
 				if (procTLAScope.declare(var.getName().getValue(), var.getUID())) {
 					procVars.put(var.getName().getValue(), var.getUID());
 					registry.addLocalVariable(var.getUID());
+					var.getValue().accept(new TLAExpressionScopingVisitor(tlaBuilder, registry, loader, new HashSet<>()));
 				}
 			}
 
