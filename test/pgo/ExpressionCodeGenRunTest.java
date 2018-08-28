@@ -156,6 +156,32 @@ public class ExpressionCodeGenRunTest {
 						kv("rhs", set(tuple(), idexp("workaround2"), tuple(num(1), num(2))))),
 				Collections.singletonList("[[1]]"),
 			},
+			// quantified universals
+			{
+				universal(
+						bounds(
+								qbIds(ids(id("x")), idexp("set1")),
+								qbIds(ids(id("y")), idexp("set2"))),
+						binop("=",
+								binop("%", binop("+", idexp("x"), idexp("y")), num(2)),
+								num(1))),
+				Arrays.asList(
+						kv("set1", set(num(2), num(4), num(6))),
+						kv("set2", set(num(1), num(3), num(5)))),
+				Collections.singletonList("true"),
+			},
+			{
+				universal(
+						bounds(
+								qbIds(ids(id("x")), idexp("set")),
+								qbIds(ids(id("y")), binop("..", num(1), num(3)))),
+						binop("=",
+								binop("%", binop("+", idexp("x"), idexp("y")), num(2)),
+								num(1))),
+				Collections.singletonList(
+						kv("set", set(num(2), num(4), num(6)))),
+				Collections.singletonList("false"),
+			},
 			// function tests
 			{
 				function(
