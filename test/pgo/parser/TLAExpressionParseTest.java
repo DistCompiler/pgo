@@ -263,8 +263,21 @@ public class TLAExpressionParseTest {
 														idexp("x"),
 														idexp("y")),
 												num(2)),
-										num(1))
-						)
+										num(1)))
+				},
+
+				{"\\A i \\in Proc :\n                     (pc[i] = \"Li0\") ~> (\\E j \\in Proc : pc[j] = \"cs\")",
+						universal(
+								bounds(qbIds(ids(id("i")), idexp("Proc"))),
+								binop("~>",
+										binop("=",
+												fncall(idexp("pc"), idexp("i")),
+												str("Li0")),
+										existential(
+												bounds(qbIds(ids(id("j")), idexp("Proc"))),
+												binop("=",
+														fncall(idexp("pc"), idexp("j")),
+														str("cs")))))
 				},
 		});
 	}

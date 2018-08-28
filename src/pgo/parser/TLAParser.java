@@ -9,6 +9,7 @@ import pgo.util.SourceLocation;
 import java.util.*;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static pgo.parser.ParseTools.*;
 
@@ -446,7 +447,7 @@ public final class TLAParser {
 		PREFIX_OPERATORS_HI_PRECEDENCE.put("UNION", 8);
 	}
 	
-	public static final List<String> INFIX_OPERATORS = Arrays.asList(// infix operators (non-alpha)
+	public static final List<String> INFIX_OPERATORS = Stream.of(// infix operators (non-alpha)
 			"!!",
 			"#",
 			"##",
@@ -550,7 +551,6 @@ public final class TLAParser {
 			"\\equiv",
 			"\\oplus",
 			"\\sqsupset")
-			.stream()
 			.sorted(Comparator.comparingInt(String::length).reversed())
 			.collect(Collectors.toList());
 	
@@ -807,11 +807,10 @@ public final class TLAParser {
 		INFIX_OPERATORS_LEFT_ASSOCIATIVE.add(".");
 	}
 	
-	public static final List<String> POSTFIX_OPERATORS = Arrays.asList("^+",
+	public static final List<String> POSTFIX_OPERATORS = Stream.of("^+",
 			"^*",
 			"^#",
 			"'")
-			.stream()
 			.sorted(Comparator.comparingInt(String::length).reversed())
 			.collect(Collectors.toList());
 

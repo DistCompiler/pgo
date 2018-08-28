@@ -145,10 +145,29 @@ public class TLAUnitParseTest {
 						"    }    \n" +
 						"}\n" +
 						"*)\n" +
+						// FIXME: adding the following will make the parser throw an exception
+						// "B == FALSE\n" +
+						// "----\n" +
+						// "C == TRUE\n" +
 						"====\n",
 						module("Test",
 								Arrays.asList(id("Sequences"), id("Integers")),
-								Collections.emptyList(), Collections.emptyList(), Collections.EMPTY_LIST)
+								Collections.emptyList(), Collections.emptyList(), Collections.emptyList())
+				},
+
+				{"DeadlockFree == \\A i \\in Proc :\n                     (pc[i] = \"Li0\") ~> (\\E j \\in Proc : pc[j] = \"cs\")",
+						opdef(false, id("DeadlockFree"), opdecls(),
+								universal(
+								bounds(qbIds(ids(id("i")), idexp("Proc"))),
+								binop("~>",
+										binop("=",
+												fncall(idexp("pc"), idexp("i")),
+												str("Li0")),
+										existential(
+												bounds(qbIds(ids(id("j")), idexp("Proc"))),
+												binop("=",
+														fncall(idexp("pc"), idexp("j")),
+														str("cs"))))))
 				}
 		});
 	}
