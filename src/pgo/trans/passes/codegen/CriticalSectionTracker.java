@@ -85,9 +85,7 @@ public class CriticalSectionTracker {
 	}
 
 	public void checkCompatibility(CriticalSectionTracker other) {
-		if (registry != other.registry || criticalSection != other.criticalSection ||
-				currentLockGroup != other.currentLockGroup || currentLabelUID != other.currentLabelUID ||
-				(currentLabelName != null && !currentLabelName.getName().equals(other.currentLabelName.getName()))) {
+		if (registry != other.registry || criticalSection != other.criticalSection || currentLockGroup != other.currentLockGroup) {
 			throw new InternalCompilerError();
 		}
 	}
