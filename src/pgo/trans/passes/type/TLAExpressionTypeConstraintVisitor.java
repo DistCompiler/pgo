@@ -232,7 +232,9 @@ public class TLAExpressionTypeConstraintVisitor extends TLAExpressionVisitor<PGo
 	public PGoType visit(TLAGeneralIdentifier pGoTLAVariable) throws RuntimeException {
 		UID uid = registry.followReference(pGoTLAVariable.getUID());
 		if (mapping.containsKey(uid)){
-			return mapping.get(uid);
+			PGoTypeVariable typeVar = mapping.get(uid);
+			mapping.put(pGoTLAVariable.getUID(), typeVar);
+			return typeVar;
 		} else {
 			PGoTypeVariable v = generator.get();
 			mapping.put(uid, v);

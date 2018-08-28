@@ -68,7 +68,6 @@ public class PlusCalProcessesCodeGenVisitor extends PlusCalProcessesVisitor<Void
 
 	private void generateProcedures() {
 		for (PlusCalProcedure procedure : plusCalAlgorithm.getProcedures()) {
-			System.out.println("Generating code for procedure " + procedure.getName());
 			Map<String, GoVariableName> argMap = new HashMap<>();
 			UID uid = procedure.getUID();
 

@@ -6,10 +6,7 @@ import org.junit.runners.Parameterized;
 
 import java.io.IOException;
 import java.nio.file.Paths;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import static pgo.IntegrationTestingUtils.testCompileFile;
 import static pgo.IntegrationTestingUtils.testRunGoCode;
@@ -43,6 +40,17 @@ public class TestCodeGenRunTest {
 						"EitherRepeatedExec.tla",
 						Collections.emptyMap(),
 						Collections.singletonList("3"),
+				},
+				{
+					"Procedures.tla",
+					new HashMap<String, String>() {
+						{
+							put("N", "20");
+							put("defaultInitValue", "0");
+						}
+					},
+					Arrays.asList("1", "2", "fizz", "4", "buzz", "fizz", "7", "8", "fizz", "buzz",
+							"11", "fizz", "13", "14", "fizzbuzz", "16", "17", "fizz", "19", "buzz"),
 				}
 		});
 	}
