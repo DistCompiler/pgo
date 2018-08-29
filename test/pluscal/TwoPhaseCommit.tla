@@ -3,12 +3,9 @@ EXTENDS Naturals, TLC
 (*
 --algorithm TwoPhaseCommit {
   variables
-    (** @PGo{ var managers Set[String] }@PGo
-        @PGo{ var restaurant_stage map[String]String }@PGo **)
     managers = {"bob", "chuck", "dave", "everett", "fred"};
     restaurant_stage = [mgr \in managers |-> "start"];
 
-  (** @PGo{ func void SetAll() string Set[string] }@PGo **)
   macro SetAll(state, kmgrs) {
     while (kmgrs # {}) {
         with (km \in kmgrs) {
@@ -39,7 +36,6 @@ EXTENDS Naturals, TLC
   }; \* end Restaurant process block
 
   process (Controller = "alice")
-    (** @PGo{ var rstMgrs Set[string] }@PGo  @PGo{ var aborted bool }@PGo  **)
     variables rstMgrs, aborted = FALSE;
   {
     n0: rstMgrs := managers;

@@ -11,7 +11,6 @@ null
 [str |-> " var managers Set[String] ", type |-> , col |-> 14, source |->[(6, 14)-(6, 40)], beginSub |-> [], endSub |-> []]
 [str |-> " var restaurant_stage map[String]String ", type |-> , col |-> 14, source |->[(7, 14)-(7, 54)], beginSub |-> [], endSub |-> []]
 [str |-> " func void SetAll() string Set[string] ", type |-> , col |-> 12, source |->[(11, 12)-(11, 51)], beginSub |-> [], endSub |-> []]
-[str |-> " var rstMgrs Set[string] }@PGo  @PGo{ var aborted bool ", type |-> , col |-> 14, source |->[(42, 14)-(42, 69)], beginSub |-> [], endSub |-> []]
 null
 null
 [str |-> "CONSTANT", type |-> BUILTIN, col |-> 1, source |->[(73, 1)-(73, 9)], beginSub |-> [], endSub |-> []]

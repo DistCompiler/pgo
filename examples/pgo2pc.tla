@@ -1,40 +1,27 @@
 ----------------------------- MODULE pgo2pc -----------------------------
 EXTENDS Integers,Sequences,FiniteSets,TLC
-CONSTANTS RM,                  \* The number of resource managers. 
-          BTM,                 \* Whether have backupTM.           
-          RMMAYFAIL,           \* Whether RM could fail.           
-          TMMAYFAIL            \* Whether TM could fail.           
-          
-          
-canCommit(rmStateL) == 
-    \A rm \in RM : rmStateL[rm] \in {"prepared","committed"} \*If some rm are commited or all rm are commited,           
+CONSTANTS RM,                  \* The number of resource managers.
+          BTM,                 \* Whether have backupTM.
+          RMMAYFAIL,           \* Whether RM could fail.
+          TMMAYFAIL            \* Whether TM could fail.
 
-(** might fail due to \A predicate **)             
+
+canCommit(rmStateL) ==
+    \A rm \in RM : rmStateL[rm] \in {"prepared","committed"} \*If some rm are commited or all rm are commited,
+
+(** might fail due to \A predicate **)
 canAbort(rmStateL) ==
     \A rm \in RM : rmStateL[rm] # "committed"  \*if no rm are committed, we don't know the state of tmState,
-    
-          
+
+
 (* --algorithm TransactionCommit { (*** for pgo arg RM int done ***)
-    (** @PGo{ var rmState map[int]string }@PGo
-        @PGo{ var tmState string }@PGo
-        @PGo{ var btmState string }@PGo
-        @PGo{ def RM == 1..3 }@PGo
-    **)
-    
-    (** @PGo{ def canCommit(rmStateL []string) bool == 
-            \A rm \in RM : rmStateL[rm] \in {"prepared","committed"} }@PGo
-            **)
-    (** @PGo{ def canAbort(rmStateL []string) bool == 
-            \A rm \in RM : rmStateL[rm] # "committed" }@PGo
-            **)
-    
   variable rmState = [rm \in RM |-> "working"],
-           tmState = "init";                            \* tmState's init state.    
+           tmState = "init";                            \* tmState's init state.
            btmState = "init";                           \* backupTM's init state.
-           
+
                                                \*if tmState is not "commit", we cannot commit.
-   
-  (** 
+
+  (**
   macro Prepare(p){
     \*@@PGODEV does this await break?
     await rmState[p] = "working";  \*if rmState[p] is working, then it will be prepared
@@ -42,27 +29,27 @@ canAbort(rmStateL) ==
     }
     **)
    (** Is This equivalent to the prior macro if placed in a for loop? Must all state transfers be idempotent?  **)
-   
+
   macro Prepare(p) {
     if (rmState[p] = "working") {
         rmState[p] := "prepared";
     };
   }
 
-  
-  (**  
+
+  (**
   macro Decide(p){
-    either {await rmState[p] = "prepared" /\ canCommit(rmState) /\ (tmState = "commit" \/ btmState = "commit");     \*If rmState[p] is prepared, some rm is committed and 
+    either {await rmState[p] = "prepared" /\ canCommit(rmState) /\ (tmState = "commit" \/ btmState = "commit");     \*If rmState[p] is prepared, some rm is committed and
                                                                                                            \*if we have backupTM, either tmState or btmState is "commit",
-                                                                                                           \*then we can change rmState to "commit". 
+                                                                                                           \*then we can change rmState to "commit".
             rmState[p] := "committed";
            }
     or     {await rmState[p] \in {"working","prepared"} /\ canAbort(rmState);                                      \*If not all rmState is committed, we can abort at any time.
             rmState[p] := "abort"
            }
   }**)
-  
-  (** Do the functions canCommit require arguments to pass to them, or does pgo translate that? 
+
+  (** Do the functions canCommit require arguments to pass to them, or does pgo translate that?
   Is not performing a decide the same as letting TLC hit a wall on either or? **)
   macro Decide(p) {
     if ( rmState[p] = "prepared" /\ canCommit(rmState) /\ (tmState = "commit" \/ btmState = "commit") ){
@@ -71,23 +58,23 @@ canAbort(rmStateL) ==
     else if ( rmState[p] \in {"working", "prepared"} /\ canAbort(rmState) ) {
         rmState[p] := "abort";
     };
-  }    
-  
+  }
+
   macro Fail(p){
      if(RMMAYFAIL)  rmState[p] := "crash"                                \*If RMMAYFAIL, rmState[p] could be "crash"
   }
-  
+
   process(RManager \in RM){                                          \*If rmState is working or prepared, it should execute until abort or commit if we
     RS:while(rmState[self] \in {"working","prepared"}){                   \*set up backupTM. Otherwise termination might be violated.
          either Prepare(self) or Decide(self) or Fail(self)}
   }
-  
+
   process(TManager = 0){                                              \*If all rm are prepared, it's time to commit, so set tmState to commit.
   TS:either{await canCommit(rmState);
          TC:tmState := "commit";
             if(BTM) btmState := "commit";                                  \*If we set backupTM, change the btmState just the same as tmState.
          F1:if(TMMAYFAIL) tmState := "hidden";}
-         
+
      or{await canAbort(rmState);                                                    \*Abort can appear any time unless all rmState are committed.
        TA:tmState := "abort";
             if(BTM) btmState := "abort";                                   \*If we set backupTM, change the btmState just the same as tmState.
@@ -188,20 +175,20 @@ Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 
 \* END TRANSLATION
 
-consistency == tmState = "commit" => \A i \in RM : rmState[i] # "abort"      
-            /\ tmState = "abort" => \A j \in RM : rmState[j] # "committed" 
+consistency == tmState = "commit" => \A i \in RM : rmState[i] # "abort"
+            /\ tmState = "abort" => \A j \in RM : rmState[j] # "committed"
             /\ tmState = "hidden" => \A k \in RM : rmState[k] # "committed"
 terminate == <>(\A i \in RM : rmState[i] \in {"committed","abort","crash"})
 
 =============================================================================
 \*1.2 TMMAYFAIL is true and RMMAYFAIL is false means tmState could be "hidden" and rmState cannot be
-\*hidden. In this situation, termination will be violated. For example, when TM is "commit" and some 
+\*hidden. In this situation, termination will be violated. For example, when TM is "commit" and some
 \*RM are committed, then TM crashed while some other RM is prepared, but they can never be "commit" or abort
 \*because TM is "hidden" now. That's why we get result when RM equals 3 that <<"committed","prepared","committed">>.
 \*It will never been terminated because "prepared" has no way to "commit".
 
 \*1.3 Termination and comsistency remain true. The states cancommit and canabort is owned by both BTM and TM.
-\* So when TM crashes, the RMs can still consult the BTM and make their decision. 
+\* So when TM crashes, the RMs can still consult the BTM and make their decision.
 \*If an RM crashed, then all other RMs can only abort. So all other uncrashed RMs remain consistent.
 
 \* Modification History
@@ -211,6 +198,6 @@ terminate == <>(\A i \in RM : rmState[i] \in {"committed","abort","crash"})
 
 
 
-\*Group Members xhu7:xhu7@buffalo.edu 
+\*Group Members xhu7:xhu7@buffalo.edu
 \*Haowei Zhou  haoweizh@buffalo.edu
 
