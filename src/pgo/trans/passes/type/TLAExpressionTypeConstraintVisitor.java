@@ -231,10 +231,8 @@ public class TLAExpressionTypeConstraintVisitor extends TLAExpressionVisitor<PGo
 	@Override
 	public PGoType visit(TLAGeneralIdentifier pGoTLAVariable) throws RuntimeException {
 		UID uid = registry.followReference(pGoTLAVariable.getUID());
-		if (mapping.containsKey(uid)){
-			PGoTypeVariable typeVar = mapping.get(uid);
-			mapping.put(pGoTLAVariable.getUID(), typeVar);
-			return typeVar;
+		if (mapping.containsKey(uid)) {
+			return mapping.get(uid);
 		} else {
 			PGoTypeVariable v = generator.get();
 			mapping.put(uid, v);
@@ -276,20 +274,12 @@ public class TLAExpressionTypeConstraintVisitor extends TLAExpressionVisitor<PGo
 
 	@Override
 	public PGoType visit(TLANumber pGoTLANumber) throws RuntimeException {
-		PGoType type;
-
 		// TODO this check should be more sophisticated
 		if (pGoTLANumber.getVal().contains(".")) {
-			type = new PGoTypeDecimal(Collections.singletonList(pGoTLANumber));
-		} else {
-			type = new PGoTypeUnrealizedNumber(new PGoTypeInt(Collections.singletonList(pGoTLANumber)), Collections.singletonList(pGoTLANumber));
+			return new PGoTypeDecimal(Collections.singletonList(pGoTLANumber));
 		}
 
-		PGoTypeVariable fresh = generator.get();
-		solver.addConstraint(new PGoTypeMonomorphicConstraint(pGoTLANumber, fresh, type));
-		mapping.put(pGoTLANumber.getUID(), fresh);
-
-		return type;
+		return new PGoTypeUnrealizedNumber(new PGoTypeInt(Collections.singletonList(pGoTLANumber)), Collections.singletonList(pGoTLANumber));
 	}
 
 	@Override
