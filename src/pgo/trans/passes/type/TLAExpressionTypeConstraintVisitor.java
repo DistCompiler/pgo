@@ -231,7 +231,7 @@ public class TLAExpressionTypeConstraintVisitor extends TLAExpressionVisitor<PGo
 	@Override
 	public PGoType visit(TLAGeneralIdentifier pGoTLAVariable) throws RuntimeException {
 		UID uid = registry.followReference(pGoTLAVariable.getUID());
-		if (mapping.containsKey(uid)){
+		if (mapping.containsKey(uid)) {
 			return mapping.get(uid);
 		} else {
 			PGoTypeVariable v = generator.get();
@@ -278,6 +278,7 @@ public class TLAExpressionTypeConstraintVisitor extends TLAExpressionVisitor<PGo
 		if (pGoTLANumber.getVal().contains(".")) {
 			return new PGoTypeDecimal(Collections.singletonList(pGoTLANumber));
 		}
+
 		return new PGoTypeUnrealizedNumber(new PGoTypeInt(Collections.singletonList(pGoTLANumber)), Collections.singletonList(pGoTLANumber));
 	}
 

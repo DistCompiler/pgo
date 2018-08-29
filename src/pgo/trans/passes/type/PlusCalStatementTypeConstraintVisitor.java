@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public class PlusCalStatementTypeConstraintVisitor extends PlusCalStatementVisitor<Void, RuntimeException> {
 
@@ -100,13 +101,10 @@ public class PlusCalStatementTypeConstraintVisitor extends PlusCalStatementVisit
 		if (proc == null) {
 			ctx.error(new ProcedureNotFoundIssue(plusCalCall, plusCalCall.getTarget()));
 		}
-		List<PGoType> callArgs = new ArrayList<>();
-		for (TLAExpression e : plusCalCall.getArguments()) {
-			TLAExpressionTypeConstraintVisitor v =
-					new TLAExpressionTypeConstraintVisitor(registry, solver, generator, mapping);
-			e.accept(v);
-			callArgs.add(mapping.get(e.getUID()));
-		}
+		List<PGoType> callArgs = plusCalCall.getArguments()
+				.stream()
+				.map(e -> exprVisitor.wrappedVisit(e))
+				.collect(Collectors.toList());
 		solver.addConstraint(new PGoTypeMonomorphicConstraint(
 				plusCalCall,
 				mapping.get(proc.getUID()),

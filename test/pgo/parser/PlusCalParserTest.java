@@ -26,8 +26,8 @@ public class PlusCalParserTest {
 				{"TwoPhaseCommit", },
 				{"AltBitProtocol", },
 				{"Sum", },
-				//{"PlusCalAwait", },
-				{"FastMutexNoAnnotation", },
+				{"Await", },
+				{"FastMutex", },
 				{"pgo2pc", },
 		});
 	}

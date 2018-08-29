@@ -2,6 +2,7 @@ package pgo.formatters;
 
 import pgo.TODO;
 import pgo.model.pcal.*;
+import pgo.model.tla.TLAExpression;
 
 import java.io.IOException;
 import java.util.List;
@@ -94,7 +95,8 @@ public class PlusCalStatementFormattingVisitor extends PlusCalStatementVisitor<V
 
 	@Override
 	public Void visit(PlusCalReturn plusCalReturn) throws IOException {
-		throw new TODO();
+		out.write("return;");
+		return null;
 	}
 
 	@Override
@@ -104,7 +106,16 @@ public class PlusCalStatementFormattingVisitor extends PlusCalStatementVisitor<V
 
 	@Override
 	public Void visit(PlusCalCall plusCalCall) throws IOException {
-		throw new TODO();
+		out.write("call ");
+		out.write(plusCalCall.getTarget());
+		out.write("(");
+
+		for (TLAExpression arg : plusCalCall.getArguments()) {
+			arg.accept(new TLANodeFormattingVisitor(out));
+		}
+
+		out.write(");");
+		return null;
 	}
 
 	@Override
