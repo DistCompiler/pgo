@@ -594,7 +594,9 @@ public final class PlusCalParser {
 			.drop(parsePlusCalToken("macro"))
 			.part(IDENTIFIER)
 			.drop(parsePlusCalToken("("))
-			.part(parseListOf(IDENTIFIER, parsePlusCalToken(",")))
+			.part(parseOneOf(
+					parseListOf(IDENTIFIER, parsePlusCalToken(",")),
+					nop().map(v -> new LocatedList<Located<String>>(v.getLocation(), Collections.emptyList()))))
 			.drop(parsePlusCalToken(")"))
 			.drop(parsePlusCalToken("begin"))
 			.part(repeatOneOrMore(P_SYNTAX_STMT))
@@ -611,9 +613,15 @@ public final class PlusCalParser {
 			.drop(parsePlusCalToken("procedure"))
 			.part(IDENTIFIER)
 			.drop(parsePlusCalToken("("))
-			.part(repeatOneOrMore(PVARDECL))
+			.part(parseOneOf(
+					parseListOf(PVARDECL, parsePlusCalToken(",")),
+					nop().map(v -> new LocatedList<PlusCalVariableDeclaration>(v.getLocation(), Collections.emptyList()))
+			))
 			.drop(parsePlusCalToken(")"))
-			.part(parseOneOf(PVARDECLS, nop().map(v -> null)))
+			.part(parseOneOf(
+					PVARDECLS,
+					nop().map(v -> new LocatedList<PlusCalVariableDeclaration>(v.getLocation(), Collections.emptyList()))
+			))
 			.drop(parsePlusCalToken("begin"))
 			.part(repeatOneOrMore(P_SYNTAX_STMT))
 			.drop(parsePlusCalToken("end"))
