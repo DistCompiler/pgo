@@ -46,7 +46,7 @@ public class PGoOptions {
 	}
 
 	public void parse() throws PGoOptionException {
-		if (help) {
+		if (help || remainingArgs.length != 1) {
 			printHelp();
 			System.exit(0);
 		}
