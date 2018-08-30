@@ -25,9 +25,6 @@ public class PGoOptions {
 	@Option(value = "-c path to the configuration file, if any")
 	public String configFilePath = "";
 
-	@Option(value = "write the AST generated and skip the rest", aliases = { "-ast" })
-	public boolean writeAST = false;
-
 	public String inputFilePath;
 
 	// fields extracted from the JSON configuration file
@@ -49,7 +46,7 @@ public class PGoOptions {
 	}
 
 	public void parse() throws PGoOptionException {
-		if (help) {
+		if (help || remainingArgs.length != 1) {
 			printHelp();
 			System.exit(0);
 		}
