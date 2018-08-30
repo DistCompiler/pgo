@@ -23,7 +23,7 @@ public class PGoOptions {
 	public boolean logLvlVerbose = false;
 
 	@Option(value = "-c path to the configuration file, if any")
-	public String configFilePath = "";
+	public String configFilePath;
 
 	@Option(value = "write the AST generated and skip the rest", aliases = { "-ast" })
 	public boolean writeAST = false;
@@ -56,7 +56,7 @@ public class PGoOptions {
 
 		inputFilePath = remainingArgs[0];
 
-		if (configFilePath.isEmpty()) {
+		if (configFilePath == null || configFilePath.isEmpty()) {
 			throw new PGoOptionException("Configuration file is required");
 		}
 

@@ -1,7 +1,10 @@
 PlusCal has many language constructs that are translated to Go in a non-trivial way. These constructs and their translations are described in this section, starting with an overview.
 
 \subsection{Overview}
-Below are the PlusCal constructs. Note that unused labels are removed from the Go output and that fresh variable names and labels are generated in order to avoid name capture.
+
+\subsubsection{PlusCal support}
+
+PGo supports both the C and P-syntaxes of PlusCal. Note that unused labels are removed from the Go output and that fresh variable names and labels are generated in order to avoid name capture.
 
 \begin{center}
 \lstset{style=tabularstyle}
@@ -61,15 +64,20 @@ either { stmt1; stmt2; }
 case0:
 	stmt1
 	stmt2
+	goto endEither
 case1:
 	stmt3
 	stmt4
+	goto endEither
 case2:
 	stmt5
 	stmt6
+	goto endEither
 // ...
 endEither:
-	\end{lstlisting} \\
+	\end{lstlisting}
+
+	Each case is tried deterministically from top to bottom (i.e. \lstinline[language=pcal]|case0| is tried before \lstinline[language=pcal]|case1|, etc.). Case N is tried only after case 0 to N-1 have failed because await conditions in those cases are not met.\\
 	\hline
 	Assignment & \lstinline[language=pcal]|x := exp;| & Supported; compiled as expected \\
 	\hline
@@ -89,10 +97,10 @@ with (x = exp1, y \in exp2) {
 	body;
 }
 	\end{lstlisting} &
-	Supported; compiled as variable assignment with fresh names \\
+	Supported; compiled as variable assignment with fresh names. In the example code, \lstinline[language=pcal]|y| is assigned the first element of \lstinline[language=pcal]|exp2|.\\
 	\hline
 	Print statement &
-	\lstinline[language=pcal]|print exp;| & Supported; compiled as expected \\
+	\lstinline[language=pcal]|print exp;| & Compiled as \lstinline[language=golang]|fmt.Printf("%v", exp)|\\
 	\hline
 	Assert statement & \lstinline[language=pcal]|assert condition;| &
 	Compiled as
@@ -142,6 +150,10 @@ awaitLabel:
 \end{longtable}
 \end{center}
 
+\clearpage
+
+\subsubsection{TLA+ support}
+
 Below are the TLA+ constructs. Note that PGo makes liberal use of temporary variables to compile complex TLA+ constructs.
 
 \begin{center}
@@ -165,12 +177,12 @@ x[[field1 |-> e1, field2 |-> e2]]
 	\hline
 	Binary operator call & \lstinline[language=pcal]|x /\ y = z + 1| & Supported; compiled as expected \\
 	\hline
-	Function (as struct literal) &
+	Record &
 	\begin{lstlisting}[language=pcal]
 [field1 \in exp1 |-> exp2,
  field2 |-> exp3]
 	\end{lstlisting} &
-	Supported; compiled as sorted slice of key-value structs \\
+	Unsupported \\
 	\hline
 	Function set (as function literal) &
 	\begin{lstlisting}[language=pcal]
@@ -180,7 +192,7 @@ x[[field1 |-> e1, field2 |-> e2]]
 	\end{lstlisting} &
 	Unsupported \\
 	\hline
-	Function set (as struct) & \lstinline[language=pcal]|[1..3 -> 1..3]| & Unsupported \\
+	Function set (as sorted slice of structs) & \lstinline[language=pcal]|[1..3 -> 1..3]| & Unsupported \\
 	\hline
 	Function substitution &
 	\begin{lstlisting}[language=pcal]
@@ -211,6 +223,16 @@ if condition {
 	Tuple (as slice) & \lstinline[language=pcal]|<<exp1, exp2, exp3>>| & Compiled as slice when all its contents are of the same type
 	\begin{lstlisting}[language=golang]
 []type{exp1, exp2, exp3}
+	\end{lstlisting} \\
+	\hline
+	Tuple (as struct) & \lstinline[language=pcal]|<<exp1, exp2, exp3>>| & Compiled as a struct when at least one element is of a different type from the others' types.
+
+	\begin{lstlisting}[language=golang]
+	struct {
+		e0 type
+		e1 type
+		e2 type
+	}{exp1, exp2, exp3}
 	\end{lstlisting} \\
 	\hline
 	Case expression &
@@ -278,7 +300,9 @@ AXIOM exp
 	\hline
 	Required action & \lstinline[language=pcal]|<<exp1>>_exp2| & Unsupported \\
 	\hline
-	Operator call & \lstinline[language=pcal]|op(arg1, arg2)| & Supported; compiled as expected \\
+	Operator & \lstinline[language=pcal]|Op(arg1, arg2) = exp| & Compiled as a Go function \\
+	\hline
+	Operator call & \lstinline[language=pcal]|Op(exp1, exp2)| & Supported; compiled as a function call \\
 	\hline
 	Quantified existential & \lstinline[language=pcal]|\E a \in exp1, b \in exp2 : exp3| &
 	Compiled as
@@ -550,9 +574,9 @@ V := tmpSet0
 While not as concise as the PlusCal, the output Go code is still readable.
 
 \subsubsection{Functions}
-PlusCal functions with finite domains are translated into sorted slices of structs in Go.
+TLA+ functions with finite domains are translated into sorted slices of structs in Go.
 
-A PlusCal function can be indexed by multiple indices. This is syntactic sugar for a map indexed by a tuple whose components are the indices.
+A TLA+ function can be indexed by multiple indices. This is syntactic sugar for a map indexed by a tuple whose components are the indices.
 
 \noindent
 \begin{minipage}[t]{\textwidth}
@@ -710,7 +734,7 @@ The PlusCal algorithm body can either contain statements in a uniprocess algorit
 
 Uniprocess algorithms are translated into single-threaded Go programs.
 
-In a multiprocess algorithm, processes can be declared with the syntax \verb|process (Name \in S)| or \verb|process (Name = Id)|. The first construct spawns a set of processes, one for each ID in the set \texttt{S}, and the second spawns a single process with ID \texttt{Id}. A process can refer to its identifier with the keyword \texttt{self}. In TLC, multiprocess algorithms are simulated by repeatedly selecting a random process then advancing it one atomic step (if it does not block).
+In a multiprocess algorithm, processes can be declared with the syntax \verb|process (Name \in S)| or \verb|process (Name = Id)|. The first construct spawns a set of processes, one for each ID in the set \texttt{S}, and the second spawns a single process with ID \texttt{Id}. A process can refer to its identifier with the keyword \texttt{self}.
 
 The following is a simple example of a multiprocess PlusCal algorithm, which will be used as the translation source throughout this subsection:
 

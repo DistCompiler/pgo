@@ -30,8 +30,7 @@ semantically equivalent Go program.
 
 Actively under development. PGo supports compilation of most
 uni-process and very simple multiprocess PlusCal algorithms into
-corresponding compilable and runnable Go code. See [this Google doc](https://docs.google.com/document/d/1nqcqIVzmfA3LhX7C2Tf1FbbFApLnEHx0JbXkVqcn68w/edit)
-for the PlusCal/TLA+ constructs that are supported by PGo.
+corresponding compilable and runnable Go code.
 
 See `manual.pdf` in the repository for a snapshot of the latest version
 of the manual that details implemented features and several examples.
@@ -44,22 +43,25 @@ AST, and finally written to a .go file.
 
 ## How to install
 
-Requirements: Eclipse or Ant 1.9
+Requirements: IntelliJ, Eclipse, or Ant 1.9
 
-1. First download/clone the repository
+First download/clone the repository
 
-2. Option 1: Import as an Eclipse project
-Option 2: Execute `ant pgo` assuming the project is in the `pgo/` directory
+Option 1: Import as an IntelliJ project.
+
+Option 2: Import as an Eclipse project.
+
+Option 3: Execute `ant build` to compile the project and then execute `pgo.sh [options] pcalfile` to compile `pcalfile`.
 
 Dependencies:
 
 - The [Plume options library](https://mernst.github.io/plume-lib/).
 
-- The [TLA+ tools](https://github.com/tlaplus/tlaplus/tree/master/tlatools/src).
+- [Java Hamcrest](http://hamcrest.org/JavaHamcrest/).
 
 - The [JSON reference implementation](https://github.com/stleary/JSON-java).
 
-PGo was tested on JRE8 and Go 1.8.3.
+PGo was tested on JRE 8, JRE 9, and Go 1.10.
 
 ## How to run
 
@@ -71,8 +73,7 @@ Usage: pgo [options] pcalfile
   -h --help=<boolean>          - Print usage information [default false]
   -q --logLvlQuiet=<boolean>   - Reduce printing during execution [default false]
   -v --logLvlVerbose=<boolean> - Print detailed information during execution  [default false]
-  -c --configFilePath=<string> - path to the configuration file, if any [default ]
-  --writeAST=<boolean>         - write the AST generated and skip the rest [default false]
+  -c --configFilePath=<string> - path to the configuration file, if any
 ```
 
 ## For developers

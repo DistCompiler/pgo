@@ -4,13 +4,9 @@ Requirements: IntelliJ, Eclipse, or Ant 1.9
 \begin{itemize}
 \item Git clone the source at \url{https://github.com/UBC-NSS/pgo}
 
-\begin{itemize}
-\item Option 1: Import as an IntelliJ project
-
-\item Option 2: Import as an Eclipse project
-
-\item Option 3: Execute \texttt{ant build} to compile the project and then execute \texttt{pgo.sh [options] pcalfile} to compile \texttt{pcalfile}.
-\end{itemize}
+\item Option 1: Import as an IntelliJ project \\
+Option 2: Import as an Eclipse project \\
+Option 3: Execute \texttt{ant build} to compile the project and then execute \texttt{pgo.sh [options] pcalfile} to compile \texttt{pcalfile}.
 \end{itemize}
 
 Dependencies:
@@ -26,7 +22,7 @@ Dependencies:
 \end{itemize}
 
 
-PGo was tested on JRE 8 and Go 1.10.
+PGo was tested on JRE 8, JRE 9, and Go 1.10.
 
 \subsection{Execution}
 To run PGo, run the IntelliJ project, the Eclipse project or run \texttt{pgo.sh}. The command-line usage is \texttt{pgo [options] pcalfile}.
@@ -37,8 +33,7 @@ Optional command line arguments:
 \texttt{-h --help=<boolean> Print usage information [default false]\\
 	-q --logLvlQuiet=<boolean> Reduce printing during execution [default false]\\
 	-v --logLvlVerbose=<boolean> Print detailed information during execution  [default false]\\
-	-c --configFilePath=<string> path to the configuration file, if any [default ]\\
-	--writeAST=<boolean> write the AST generated and skip the rest [default false]}
+	-c --configFilePath=<string> path to the configuration file, if any}
 
 \subsection{Configuration}
 PGo requires a JSON configuration file with the following information.
@@ -46,15 +41,15 @@ PGo requires a JSON configuration file with the following information.
 \begin{lstlisting}
 {
 	"build": {
-		"output_dir": "",
-		"dest_file": ""
+		"output_dir": "/path/to/output",
+		"dest_file": "out.go"
 	},
 	"networking": {
 		"enabled": true,
 		"state": {
-			"strategy": "",
-			"endpoints": [],
-			"peers": [],
+			"strategy": "state-server",
+			"endpoints": ["10.0.0.1:1234", "10.0.0.2:1235"],
+			"peers": ["10.0.0.3:4321", "10.0.0.4:4322"],
 			"timeout": 3
 		}
 	},
@@ -71,7 +66,7 @@ PGo requires a JSON configuration file with the following information.
 \subsubsection{Networking}
 \noindent\lstinline|enabled| specifies whether the compiled Go program is a distributed program backed by a network. \lstinline|enabled| must be \lstinline|false| when the input PlusCal file is a uniprocess algorithm, otherwise PGo will halt with an error.
 
-\noindent\lstinline|state| specifies the strategy to use for distributed program compilation. It is ignored when \lstinline|enabled| is \lstinline|false|. Currently, \lstinline|etcd| and \lstinline|state-server| strategies are supported. The default strategy to use is \lstinline|etcd|.
+\noindent\lstinline|state| specifies the strategy to use for distributed program compilation. It is ignored when \lstinline|enabled| is \lstinline|false|. Currently, \lstinline|etcd| and \lstinline|state-server| strategies are supported. The default strategy to use is \lstinline|state-server|.
 
 \noindent\lstinline|peers| specifies a list of peers among which the distributed processes have to establish connections.
 
@@ -79,14 +74,14 @@ PGo requires a JSON configuration file with the following information.
 
 \noindent\lstinline|timeout| specifies the timeout interval in seconds. The default value for this option is 3 seconds.
 \subsubsection{Constants}
-The PlusCal algorithm can make use of TLA+ constants that are found outside the algorithm block (e.g., constant \texttt{N} for model checking). These variables will need to be specified as key-value pairs. Each key is a JSON string containing the name of the constant being defined. Each value is a JSON string containing one valid TLA+ expression.
+The PlusCal algorithm can make use of TLA+ constants that are found outside the algorithm block (i.e. constants declared using the \lstinline[language=pcal]|CONSTANT| keyword). Concrete values for these constants need to be specified in the \lstinline|constants| dict. Each key is a JSON string containing the name of the constant being defined. Each value is a JSON string containing one valid TLA+ expression.
 
 \noindent\begin{minipage}{0.45\textwidth}
 \begin{lstlisting}
 {
   ...
   "constants": {
-    "ProcSet": "{1, 3}",
+    "myProcs": "{1, 3}",
     "N": "3"
   },
   ...
@@ -96,7 +91,7 @@ The PlusCal algorithm can make use of TLA+ constants that are found outside the 
 \end{minipage}
 \hfill\begin{minipage}{0.45\textwidth}
 \begin{lstlisting}[language=golang]
-var ProcSet []int
+var myProcs []int
 var N int
 
 func init() {
