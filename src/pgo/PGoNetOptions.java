@@ -33,7 +33,7 @@ public class PGoNetOptions {
 		public static final String STATE_ETCD = "etcd";
 		public static final String STATE_SERVER = "state-server";
 
-		private static final String DEFAULT_STATE_STRATEGY = STATE_ETCD;
+		private static final String DEFAULT_STATE_STRATEGY = STATE_SERVER;
 		private static final int DEFAULT_TIMEOUT = 3;
 
 		public String strategy;
