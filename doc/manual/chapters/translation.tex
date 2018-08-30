@@ -1,10 +1,388 @@
-PlusCal has many language constructs that are translated to Go in a non-trivial way. These constructs and their translations are described in this section. The \texttt{pgo/datatypes} Go helper library, which contains some useful data structures and helper methods, is also described.
+PlusCal has many language constructs that are translated to Go in a non-trivial way. These constructs and their translations are described in this section, starting with an overview.
+
+\subsection{Overview}
+
+\subsubsection{PlusCal support}
+
+PGo supports both the C and P-syntaxes of PlusCal. Note that unused labels are removed from the Go output and that fresh variable names and labels are generated in order to avoid name capture.
+
+\begin{center}
+\lstset{style=tabularstyle}
+\renewcommand{\arraystretch}{1.5}
+\begin{longtable}{ || m{0.25\textwidth} | m{0.33\textwidth} | m{0.36\textwidth} || }
+	\hline
+	\textbf{PlusCal feature} & \textbf{Example code} & \textbf{PGo support} \\
+	\hline\hline
+	Line comment & \lstinline[language=pcal]|\* line comment| & Supported \\
+	\hline
+	Block comment & \lstinline[language=pcal]|(* block comment *)| & Supported \\
+	\hline
+	Labelled statements &
+	\begin{lstlisting}[language=pcal]
+label:
+	stmt1;
+	stmt2;
+	\* ...
+	\end{lstlisting} &
+	Compiled with a mutex or a distributed mutex around the statements \\
+	\hline
+	While loop &
+	\begin{lstlisting}[language=pcal]
+while (condition) {
+	body;
+}
+	\end{lstlisting} &
+	Compiled as
+	\begin{lstlisting}[language=golang]
+for {
+	if !condition {
+		break
+	}
+	body
+}
+	\end{lstlisting} \\
+	\hline
+	If statement &
+	\begin{lstlisting}[language=pcal]
+if (condition) {
+	thenPart;
+} else {
+	elsePart;
+}
+	\end{lstlisting} &
+	Supported; compiled as expected \\
+	\hline
+	Either statement &
+	\begin{lstlisting}[language=pcal]
+either { stmt1; stmt2; }
+    or { stmt3; stmt4; }
+    or { stmt5; stmt6; }
+    \* ...
+	\end{lstlisting} &
+	Compiled as
+	\begin{lstlisting}[language=golang]
+case0:
+	stmt1
+	stmt2
+	goto endEither
+case1:
+	stmt3
+	stmt4
+	goto endEither
+case2:
+	stmt5
+	stmt6
+	goto endEither
+// ...
+endEither:
+	\end{lstlisting}
+
+	Each case is tried deterministically from top to bottom (i.e. \lstinline[language=pcal]|case0| is tried before \lstinline[language=pcal]|case1|, etc.). Case N is tried only after case 0 to N-1 have failed because await conditions in those cases are not met.\\
+	\hline
+	Assignment & \lstinline[language=pcal]|x := exp;| & Supported; compiled as expected \\
+	\hline
+	Multiple variable assignment & \lstinline[language=pcal]!x := y || y := x + y;! & Supported; compiled as multiple assignment in Go \\
+	\hline
+	Return statement & \lstinline[language=pcal]|return;| & Supported; compiled as expected \\
+	\hline
+	Skip statement & \lstinline[language=pcal]|skip;| & Supported; compiled to nothing \\
+	\hline
+	Call statement & \lstinline[language=pcal]|call procedure1(arg1, arg2);| & Supported; compiled as expected \\
+	\hline
+	Macro call & \lstinline[language=pcal]|macro1(arg1, arg2);| & Supported; expanded during compilation \\
+	\hline
+	With statement &
+	\begin{lstlisting}[language=pcal]
+with (x = exp1, y \in exp2) {
+	body;
+}
+	\end{lstlisting} &
+	Supported; compiled as variable assignment with fresh names. In the example code, \lstinline[language=pcal]|y| is assigned the first element of \lstinline[language=pcal]|exp2|.\\
+	\hline
+	Print statement &
+	\lstinline[language=pcal]|print exp;| & Compiled as \lstinline[language=golang]|fmt.Printf("%v", exp)|\\
+	\hline
+	Assert statement & \lstinline[language=pcal]|assert condition;| &
+	Compiled as
+	\begin{lstlisting}[language=golang]
+if !condition {
+	panic("condition");
+}
+	\end{lstlisting} \\
+	\hline
+	Await statement & \lstinline[language=pcal]|await condition;| &
+	Compiled as
+	\begin{lstlisting}[language=golang]
+awaitLabel:
+	if !condition {
+		goto awaitLabel
+	}
+	\end{lstlisting} \\
+	\hline
+	Goto statement & \lstinline[language=pcal]|goto label;| & Supported; compiled as expected \\
+	\hline
+	Single process algorithm &
+	\begin{lstlisting}[language=pcal]
+--algorithm Algo {
+  variables x = exp1, y \in exp2;
+  {
+  	body;
+  }
+}
+	\end{lstlisting} &
+	Supported; compiled as a single-threaded single-process Go program \\
+	\hline
+	Multiprocess algorithm &
+	\begin{lstlisting}[language=pcal]
+--algorithm Algo {
+  variables x = exp1, y = exp2;
+  process (P \in exp3)
+  variables local = exp4;
+  {
+  	body;
+  }
+}
+	\end{lstlisting} &
+	Supported; compiled with various strategies configured by the user \\
+	\hline
+	\caption{PlusCal constructs}
+	\label{table:pcal-constructs}
+\end{longtable}
+\end{center}
+
+\clearpage
+
+\subsubsection{TLA+ support}
+
+Below are the TLA+ constructs. Note that PGo makes liberal use of temporary variables to compile complex TLA+ constructs.
+
+\begin{center}
+\lstset{style=tabularstyle}
+\renewcommand{\arraystretch}{1.5}
+\begin{longtable}{ || m{0.25\textwidth} | m{0.33\textwidth} | m{0.36\textwidth} || }
+	\hline
+	\textbf{TLA+ feature} & \textbf{Example code} & \textbf{PGo support} \\
+	\hline\hline
+	Function call &
+	\begin{lstlisting}[language=pcal]
+x[exp1]
+\* or
+x[exp1, exp2, exp3]
+\* or
+x[<<exp1, exp2, exp3>>]
+\* or
+x[[field1 |-> e1, field2 |-> e2]]
+	\end{lstlisting} &
+	Supported; compiled code dependent on the type of \lstinline[language=pcal]|x| (the function) \\
+	\hline
+	Binary operator call & \lstinline[language=pcal]|x /\ y = z + 1| & Supported; compiled as expected \\
+	\hline
+	Record &
+	\begin{lstlisting}[language=pcal]
+[field1 \in exp1 |-> exp2,
+ field2 |-> exp3]
+	\end{lstlisting} &
+	Unsupported \\
+	\hline
+	Function set (as function literal) &
+	\begin{lstlisting}[language=pcal]
+[Nat -> Nat]
+\* or
+[Nat -> 1..3]
+	\end{lstlisting} &
+	Unsupported \\
+	\hline
+	Function set (as sorted slice of structs) & \lstinline[language=pcal]|[1..3 -> 1..3]| & Unsupported \\
+	\hline
+	Function substitution &
+	\begin{lstlisting}[language=pcal]
+[f EXCEPT ![exp1] = exp2]
+\* or
+[f EXCEPT !.field = exp]
+	\end{lstlisting} &
+	Unsupported \\
+	\hline
+	If expression &
+	\begin{lstlisting}[language=pcal]
+if condition
+   then thenExp
+   else elseExp
+	\end{lstlisting} &
+	Compiled as
+	\begin{lstlisting}[language=golang]
+var result type;
+if condition {
+	result = thenExp
+} else {
+	result = elseExp
+}
+// result is used in place of
+// the expression hereafter
+	\end{lstlisting} \\
+	\hline
+	Tuple (as slice) & \lstinline[language=pcal]|<<exp1, exp2, exp3>>| & Compiled as slice when all its contents are of the same type
+	\begin{lstlisting}[language=golang]
+[]type{exp1, exp2, exp3}
+	\end{lstlisting} \\
+	\hline
+	Tuple (as struct) & \lstinline[language=pcal]|<<exp1, exp2, exp3>>| & Compiled as a struct when at least one element is of a different type from the others' types.
+
+	\begin{lstlisting}[language=golang]
+	struct {
+		e0 type
+		e1 type
+		e2 type
+	}{exp1, exp2, exp3}
+	\end{lstlisting} \\
+	\hline
+	Case expression &
+	\begin{lstlisting}[language=pcal]
+CASE x -> y
+  [] z -> p
+  [] OTHER -> other
+	\end{lstlisting} &
+	Compiled as
+	\begin{lstlisting}[language=golang]
+var result type;
+if x {
+	result = y
+	goto matched
+}
+if z {
+	result = p
+	goto matched
+}
+result = other
+matched:
+// result is used in place of
+// the expression hereafter
+	\end{lstlisting} \\
+	\hline
+	Existental &
+	\begin{lstlisting}[language=pcal]
+\E a, b, c : exp
+\* or
+\EE a, b, c : exp
+	\end{lstlisting} &
+	Unsupportable; TLC chokes when given this expression \\
+	\hline
+	Universal &
+	\begin{lstlisting}[language=pcal]
+\A a, b, c : exp
+\* or
+\AA a, b, c : exp
+	\end{lstlisting} &
+	Unsupportable; TLC chokes when given this expression \\
+	\hline
+	Let expression &
+	\begin{lstlisting}[language=pcal]
+LET op(a, b, c) == exp1
+    fn[d \in D] == exp2
+    e == exp3
+IN exp
+	\end{lstlisting} &
+	Unsupported \\
+	\hline
+	Assumption &
+	\begin{lstlisting}[language=pcal]
+ASSUME exp
+\* or
+ASSUMPTION exp
+\* or
+AXIOM exp
+	\end{lstlisting} &
+	Unsupported \\
+	\hline
+	Theorem & \lstinline[language=pcal]|THEOREM exp| & Unsupported \\
+	\hline
+	Maybe action & \lstinline[language=pcal]|[exp1]_exp2| &
+	Unsupported \\
+	\hline
+	Required action & \lstinline[language=pcal]|<<exp1>>_exp2| & Unsupported \\
+	\hline
+	Operator & \lstinline[language=pcal]|Op(arg1, arg2) = exp| & Compiled as a Go function \\
+	\hline
+	Operator call & \lstinline[language=pcal]|Op(exp1, exp2)| & Supported; compiled as a function call \\
+	\hline
+	Quantified existential & \lstinline[language=pcal]|\E a \in exp1, b \in exp2 : exp3| &
+	Compiled as
+	\begin{lstlisting}[language=golang]
+exists := false
+for _, a := range exp1 {
+	for _, b := range exp2 {
+		if exp3 {
+			exists = true
+			goto yes
+		}
+	}
+}
+yes:
+// exists is used in place of
+// the expression hereafter
+	\end{lstlisting} \\
+	\hline
+	Quantified universal & \lstinline[language=pcal]|\A a \in exp1, b \in exp2 : exp3| &
+	Compiled as
+	\begin{lstlisting}[language=golang]
+forAll := true
+for _, a := range exp1 {
+	for _, b := range exp2 {
+		if !exp3 {
+			forAll = false
+			goto no
+		}
+	}
+}
+no:
+// forAll is used in place of
+// the expression hereafter
+	\end{lstlisting} \\
+	\hline
+	Set constructor & \lstinline[language=pcal]|{exp1, exp2, exp3}| &
+	Compiled as sorted slice
+	\begin{lstlisting}[language=pcal]
+[]type{exp1, exp2, exp3}
+	\end{lstlisting} \\
+	\hline
+	Set comprehension & \lstinline[language=pcal]|{exp : a \in exp1, b \in exp2}| &
+	Compiled as
+	\begin{lstlisting}[language=golang]
+tmpSet := make([]type, 0)
+for _, a := range exp1 {
+	for _, b := range exp2 {
+		tmpSet = append(tmpSet, exp)
+	}
+}
+// more code to ensure elements in
+// tmpSet is unique and sorted
+
+// tmpSet is used in place of
+// the expression hereafter
+	\end{lstlisting} \\
+	\hline
+	Set refinement & \lstinline[language=pcal]|{a \in exp1 : exp}| &
+	Compiled as
+	\begin{lstlisting}[language=golang]
+tmpSet := make([]type, 0)
+for _, v := range exp1 {
+	if exp {
+		tmpSet = append(tmpSet, v)
+	}
+}
+// tmpSet is used in place of
+// the expression hereafter
+	\end{lstlisting} \\
+	\hline
+	\caption{TLA+ constructs}
+	\label{table:tla-constructs}
+\end{longtable}
+\end{center}
 
 \subsection{Variable declarations}
-In addition to the simple variable declaration \verb|var = <val>|, PlusCal supports the declaration \verb|var \in <set>|. This asserts that the initial value of \texttt{var} is an element of \texttt{<set>}. This is translated into a loop in which each set element is assigned to \texttt{var}. This is the same as the behaviour of TLC in model-checking mode, and is the most likely use case.
+In addition to the simple variable declaration \verb|var = <val>|, PlusCal supports the declaration \verb|var \in <set>|. This asserts that the initial value of \texttt{var} is an element of \texttt{<set>}. This is translated into an assignment of the variable \texttt{var} to the zeroth element of \texttt{<set>}, i.e. \texttt{var = tmpSet[0]}.
 
 \noindent
-\begin{minipage}[t]{\textwidth}
+\begin{minipage}[t]{0.45\textwidth}
 \begin{lstlisting}[language=pcal]
 variables
 	S = {1, 3};
@@ -15,49 +393,40 @@ variables
 \end{lstlisting}
 \captionof{figure}{PlusCal}
 \end{minipage}
-
-\begin{minipage}[t]{\textwidth}
+\hfill
+\begin{minipage}[t]{0.45\textwidth}
 \begin{lstlisting}[language=golang]
-import "pgo/datatypes"
+var S []int
+var v int
 
-var S datatypes.Set = datatypes.NewSet(1, 3) // PGo inferred type set[int]
-var v int // PGo inferred type int
+func init() {
+	S = []int{1, 3}
+	v = S[0]
+}
 
 func main() {
-	for v_interface := range S.Iter() {
-		v = v_interface.(int)
-		// algorithm body...
-	}
+	// algorithm body...
 }
 \end{lstlisting}
 \captionof{figure}{Compiled Go}
 \end{minipage}
 
-(The set methods of the \texttt{pgo/datatypes} package are described in~\ref{sec:sets}.)
-
-If no type annotation was provided for a variable, PGo prints a comment which contains the type that it inferred. If the variable needs thread-safe access, then PGo will also print the lock group that the variable belongs to (a description of locking is in~\ref{sec:labels}).
-
 \subsection{Variable assignment}
 PlusCal supports multiple variable assignment statements: the statement \texttt{x := a || y := b} evaluates the right-hand sides first, then assigns the values to the left-hand sides. A common use is swapping the variables \texttt{x} and \texttt{y} with the statement \texttt{x := y || y := x}.
 
-Go has a multiple assignment construct, but a PlusCal assignment might not translate to a Go assignment (for example, assigning a value to a particular map key translates to the \texttt{Put} method). The right-hand sides are first evaluated and assigned to temporary variables, then assigned to their corresponding variables.
+Go has a multiple assignment construct, which fits well as a target for this corresponding PlusCal construct.
 
 \noindent
 \begin{minipage}[t]{0.45\textwidth}
 \begin{lstlisting}[language=pcal]
-x := y || y := x || mapping[i] := a
+x := y || y := x + y
 \end{lstlisting}
 \captionof{figure}{PlusCal}
 \end{minipage}
 \hfill
 \begin{minipage}[t]{0.45\textwidth}
 \begin{lstlisting}[language=golang]
-x_new := y
-y_new := x
-mapping_new := a
-x = x_new
-y = y_new
-mapping.Put(i, a)
+x, y = y, x+y
 \end{lstlisting}
 \captionof{figure}{Compiled Go}
 \end{minipage}
@@ -96,44 +465,61 @@ func main() {
 \end{minipage}
 
 \subsection{Data types}
-PlusCal supports maps, sets, and tuples, which are implemented in the \texttt{pgo/datatypes} library.
+PGo supports PlusCal sets, functions, and tuples.
 \subsubsection{Sets}
 \label{sec:sets}
-PlusCal sets are implemented in Go by the \texttt{datatypes.Set} type. This container is an ordered, thread-safe set which has methods equivalent to PlusCal set operations.
+PlusCal sets are translated into sorted slices in Go.
 
 \noindent
 \begin{minipage}[t]{0.45\textwidth}
 \begin{lstlisting}[language=pcal]
 variables
 	A = {1, 2, 3};
-	B = 3 .. 6; \* the set {3, 4, 5, 6}
+	B = {3, 4, 5}
 	C = A \union B;
-	D = SUBSET C; \* powerset of C
 {
 	print A = C;
 }
 \end{lstlisting}
+\captionof{figure}{PlusCal}
 \end{minipage}
 \hfill
 \begin{minipage}[t]{0.45\textwidth}
 \begin{lstlisting}[language=golang]
-import (
-	"fmt"
-	"pgo/datatypes"
-)
-
-var A datatypes.Set = datatypes.NewSet(1, 2, 3)
-var B datatypes.Set = datatypes.Sequence(3, 6)
-var C datatypes.Set = A.Union(B)
-var D datatypes.Set = C.PowerSet()
-
-func main() {
-	fmt.Printf("%v\n", A.Equal(C))
+A := []int{1, 2, 3}
+B := []int{3, 4, 5}
+tmpSet := make([]int, len(A), len(A)+len(B))
+copy(tmpSet, A)
+tmpSet = append(tmpSet, B...)
+sort.Ints(tmpSet)
+if len(tmpSet) > 1 {
+	previousValue := tmpSet[0]
+	currentIndex := 1
+	for _, v := range tmpSet[1:] {
+		if previousValue != v {
+			tmpSet[currentIndex] = v
+			currentIndex++
+		}
+		previousValue = v
+	}
+	tmpSet = tmpSet[:currentIndex]
 }
+C := tmpSet
+eq := len(A) == len(C)
+if eq {
+	for i := 0; i < len(A); i++ {
+		eq = A[i] == C[i]
+		if !eq {
+			break
+		}
+	}
+}
+fmt.Printf("%v\n", eq)
 \end{lstlisting}
+\captionof{figure}{Compiled Go}
 \end{minipage}
 
-PlusCal also supports the typical mathematical set constructor notations, which are offloaded to library methods:
+PlusCal also supports the typical mathematical set constructor notations.
 
 \noindent
 \begin{minipage}[t]{\textwidth}
@@ -151,16 +537,35 @@ variables
 \noindent
 \begin{minipage}[t]{\textwidth}
 \begin{lstlisting}[language=golang]
-import "pgo/datatypes"
-
-var S datatypes.Set = datatypes.NewSet(1, 5, 6)
-var T datatypes.Set = datatypes.NewSet(2, 3)
-var U datatypes.Set = datatypes.SetConstructor(func(x int) bool {
-		return x > 3
-	}, S)
-var V datatypes.Set = datatypes.SetImage(func(x int, y int) int {
-		return x + y
-	}, S, T)
+S := []int{1, 5, 6}
+T := []int{2, 3}
+tmpSet := make([]int, 0)
+for _, x := range S {
+	if x > 3 {
+		tmpSet = append(tmpSet, x)
+	}
+}
+U := tmpSet
+tmpSet0 := make([]int, 0)
+for _, x := range S {
+	for _, y := range T {
+		tmpSet0 = append(tmpSet0, x+y)
+	}
+}
+sort.Ints(tmpSet0)
+if len(tmpSet0) > 1 {
+	previousValue := tmpSet0[0]
+	currentIndex := 1
+	for _, v := range tmpSet0[1:] {
+		if previousValue != v {
+			tmpSet0[currentIndex] = v
+			currentIndex++
+		}
+		previousValue = v
+	}
+	tmpSet0 = tmpSet0[:currentIndex]
+}
+V := tmpSet0
 // ...
 \end{lstlisting}
 \captionof{figure}{Compiled Go}
@@ -168,43 +573,10 @@ var V datatypes.Set = datatypes.SetImage(func(x int, y int) int {
 
 While not as concise as the PlusCal, the output Go code is still readable.
 
-The Cartesian product operator \verb|\X| in PlusCal is not associative. For example,
-\begin{itemize}
-\item \texttt{<<1, 2, 3>>} is in \verb|Nat \X Nat \X Nat|,
+\subsubsection{Functions}
+TLA+ functions with finite domains are translated into sorted slices of structs in Go.
 
-\item \texttt{<< <<1, 2>>, 3>>} is in \verb|(Nat \X Nat) \X Nat|, and
-
-\item \texttt{<<1, <<2, 3>> >>} is in \verb|Nat \X (Nat \X Nat)|,
-\end{itemize}
-and none of these are equivalent. In Go, \texttt{S.CartesianProduct(T, U, V, ...)} is equivalent to \verb|S \X T \X U \X ...|. PGo composes these function calls to create the parenthesized expressions above.
-
-\noindent
-\begin{minipage}[t]{\textwidth}
-\begin{lstlisting}[language=pcal]
-variables
-	S = {1, 2, 3};
-	T = S \X S \X S; \* << 1, 3, 2 >> \in T
-	U = S \X (S \X S); \* << 1, << 3, 2 >> >> \in U
-\end{lstlisting}
-\captionof{figure}{PlusCal}
-\end{minipage}
-
-\noindent
-\begin{minipage}[t]{\textwidth}
-\begin{lstlisting}[language=golang]
-import "pgo/datatypes"
-
-var S datatypes.Set = datatypes.NewSet(1, 2, 3)
-var T datatypes.Set = S.CartesianProduct(S, S)
-var U datatypes.Set = S.CartesianProduct(S.CartesianProduct(S))
-\end{lstlisting}
-\captionof{figure}{Compiled Go}
-\end{minipage}
-
-\subsubsection{Maps}
-PlusCal ``functions'' are just maps in Go. \texttt{pgo/datatypes} implements an ordered, thread-safe map in Go, which supports using slices and tuples as keys (unlike the builtin Go map). There are several syntaxes to declare maps, which are handled by library methods similar to the set methods.
-
-A PlusCal function can be indexed by multiple indices. This is syntactic sugar for a map indexed by a tuple whose components are the indices.
+A TLA+ function can be indexed by multiple indices. This is syntactic sugar for a map indexed by a tuple whose components are the indices.
 
 \noindent
 \begin{minipage}[t]{\textwidth}
@@ -220,27 +592,47 @@ variables
 \noindent
 \begin{minipage}[t]{\textwidth}
 \begin{lstlisting}[language=golang]
-import "pgo/datatypes"
-
-var S datatypes.Set = datatypes.NewSet(1, 2)
-var f datatypes.Map = datatypes.MapsTo(func(x int, y int) int {
-		return x + y
-	}, S, S)
-var a int = f.Get(datatypes.NewTuple(2, 2))
+S := []int{1, 2}
+function := make([]struct {
+	key struct {
+		e0 int
+		e1 int
+	}
+	value int
+}, 0, len(S)*len(S))
+for _, x := range S {
+	for _, y := range S {
+		function = append(function, struct {
+			key struct {
+				e0 int
+				e1 int
+			}
+			value int
+		}{key: struct {
+			e0 int
+			e1 int
+		}{x, y}, value: x + y})
+	}
+}
+f := function
+key := struct {
+	e0 int
+	e1 int
+}{2, 2}
+index := sort.Search(len(f), func(i int) bool {
+	return !(f[i].key.e0 < key.e0 || f[i].key.e0 == key.e0 && f[i].key.e1 < key.e1)
+})
+a := f[index].value
 \end{lstlisting}
 \captionof{figure}{Compiled Go}
 \end{minipage}
 
-(Behind the scenes, the \texttt{datatypes.Map} uses tuples as keys.)
-
 \subsubsection{Tuples}
-PlusCal tuples are used in several different contexts, so variables involving tuples must be annotated with their types. Tuples can store homogeneous data, in which case they correspond to Go slices. Tuple components may be of different types, which correspond to \texttt{datatypes.Tuple}s. Most often in multiprocess algorithms, tuples are used for communication, in which case \texttt{datatypes.Tuple}s are used. PlusCal tuples are 1-indexed, but Go tuples and slices are 0-indexed, so 1 is subtracted from all indices in Go.
+PlusCal tuples are used in several different contexts, so variables involving tuples may have different inferred types depending on their use. Tuples can store homogeneous data, in which case they correspond to Go slices. Tuple components may be of different types, which correspond to Go structs. PlusCal tuples are 1-indexed, but Go tuples and slices are 0-indexed, so 1 is subtracted from all indices in Go.
 
 \noindent
-\begin{minipage}[t]{\textwidth}
+\begin{minipage}[t]{0.45\textwidth}
 \begin{lstlisting}[language=pcal]
-(*	@PGo{ var slice []string }@PGo
-	@PGo{ var tup tuple[int,string] }@PGo *)
 variables
 	slice = << "a", "b", "c" >>;
 	tup = << 1, "a" >>;
@@ -250,27 +642,21 @@ variables
 \end{lstlisting}
 \captionof{figure}{PlusCal}
 \end{minipage}
-
-\noindent
-\begin{minipage}[t]{\textwidth}
+\hfill
+\begin{minipage}[t]{0.45\textwidth}
 \begin{lstlisting}[language=golang]
-import (
-	"fmt"
-	"pgo/datatypes"
-)
-
-var slice []string = []string{"a", "b", "c"}
-var tup datatypes.Tuple = datatypes.NewTuple(1, "a")
-
-func main() {
-	fmt.Printf("%v", slice[2 - 1])
-}
+slice := []string{"a", "b", "c"}
+tup := struct {
+	e0 int
+	e1 string
+}{1, "a"}
+fmt.Printf("%v\n", slice[2-1])
 \end{lstlisting}
 \captionof{figure}{Compiled Go}
 \end{minipage}
 
 \subsection{Predicate operations}
-PlusCal supports the mathematical quantifiers $\forall$ and $\exists$. PGo compiles these to the library methods \texttt{ForAll} and \texttt{Exists}.
+PlusCal supports the mathematical quantifiers $\forall$ and $\exists$. PGo compiles these to (nested) for loops, whose bodies check for the relevant condition.
 
 \noindent
 \begin{minipage}[t]{\textwidth}
@@ -278,8 +664,8 @@ PlusCal supports the mathematical quantifiers $\forall$ and $\exists$. PGo compi
 variables
 	S = {1, 2, 3};
 	T = {4, 5, 6};
-	b1 = \E x \in S : x > 2 \* TRUE
-	b2 = \A x \in S, y \in T : x + y > 6 \* FALSE
+	b1 = \E x \in S : x > 2; \* TRUE
+	b2 = \A x \in S, y \in T : x + y > 6; \* FALSE
 \end{lstlisting}
 \captionof{figure}{PlusCal}
 \end{minipage}
@@ -287,45 +673,27 @@ variables
 \noindent
 \begin{minipage}[t]{\textwidth}
 \begin{lstlisting}[language=golang]
-import "pgo/datatypes"
-
-var S datatypes.Set = datatypes.NewSet(1, 2, 3)
-var T datatypes.Set = datatypes.NewSet(4, 5, 6)
-var b1 bool = datatypes.Exists(func(x int) bool {
-		return x > 2
-	}, S)
-var b2 bool = datatypes.ForAll(func(x int, y int) bool {
-		return x + y > 6
-	}, S, T)
-\end{lstlisting}
-\captionof{figure}{Compiled Go}
-\end{minipage}
-
-Related is Hilbert's $\varepsilon$ operator (called \texttt{CHOOSE} in PlusCal). In PlusCal, \verb|CHOOSE x \in S : P(x)| is defined to be some arbitrary value in \texttt{S} such that \texttt{P(x)} is true. If there is no such \texttt{x}, the expression is unspecified. Furthermore, \texttt{CHOOSE} is deterministic and always selects the same \texttt{x} given equal sets and equivalent predicates. The Go equivalent function \texttt{datatypes.Choose} selects the least element that satisfies the predicate. This guarantees the determinism that the operator provides, and is the same as TLC's behaviour. If no element satisfies the predicate \texttt{P}, \texttt{datatypes.Choose} panics, similar to TLC returning an error when it encounters unspecified behaviour.
-
-\noindent
-\begin{minipage}[t]{\textwidth}
-\begin{lstlisting}[language=pcal]
-variables
-	S = {1, 2, 3};
-	a = CHOOSE x \in S : x >= 1
-	b = CHOOSE y \in S : y < 0 \* TLC error
-\end{lstlisting}
-\captionof{figure}{PlusCal}
-\end{minipage}
-
-\noindent
-\begin{minipage}[t]{\textwidth}
-\begin{lstlisting}[language=golang]
-import "pgo/datatypes"
-
-var S datatypes.Set = datatypes.NewSet(1, 2, 3)
-var a int = datatypes.Choose(func(x int) bool {
-		return x >= 1
-	}, S).(int) // a == 1
-var b int = datatypes.Choose(func(y int) bool {
-		return y < 0
-	}, S).(int) // panic (no element satisfies predicate)
+S := []int{1, 2, 3}
+T := []int{4, 5, 6}
+exists := false
+for _, x := range S {
+	if x > 2 {
+		exists = true
+		break
+	}
+}
+b1 := exists
+forAll := true
+for _, x := range S {
+	for _, y := range T {
+		if !(x+y > 6) {
+			forAll = false
+			goto no
+		}
+	}
+}
+no:
+b2 := forAll
 \end{lstlisting}
 \captionof{figure}{Compiled Go}
 \end{minipage}
@@ -340,58 +708,45 @@ variables S_1 = {1, 2, 3}, a = "foo";
 \* ...
 with (x_1 \in S_1, x_2 = a, ...)
 {
-	\* do stuff with the x_i ...
+	\* do stuff with x_i ...
 }
 \end{lstlisting}
 \captionof{figure}{PlusCal}
 \end{minipage}
 
-This construct selects a random element from each \texttt{S\_i} and assigns them to the local variables \texttt{x\_i}. If the syntax \texttt{x\_i = a} is used, this simply assigns \texttt{a} to \texttt{x\_i}. In Go, this translates to
+This construct selects the first element from each \texttt{S\_i} and assigns them to the local variables \texttt{x\_i}. If the syntax \texttt{x\_i = a} is used, this simply assigns \texttt{a} to \texttt{x\_i}. In Go, this translates to
 
 \noindent
 \begin{minipage}[t]{\textwidth}
 \begin{lstlisting}[language=golang]
-import (
-	"math/rand"
-	"pgo/datatypes"
-	"time"
-)
-
-var S_1 datatypes.Set = datatypes.NewSet(1, 2, 3)
-var a string = "foo"
-// ...
-func main() {
-	rand.Seed(time.Now().UnixNano())
-	// ...
-	{
-		var x_1 int = S_1.ToSlice()[rand.Intn(S_1.Size())].(int)
-		var x_2 string = a
-		// ...
-		// do stuff with the x_i ...
-	}
-}
+S_1 := []int{1, 2, 3}
+a := "foo"
+x_1 := S_1[0]
+x_2 := a
 \end{lstlisting}
 \captionof{figure}{Compiled Go}
 \end{minipage}
 
-In Go the random number generator is seeded with the current Unix time at the beginning of the \texttt{main} function. The local variables declared by the \texttt{with} and its body are contained in a separate code block, to preserve the variables' local scope.
+The local variables declared by the \texttt{with} and its body are potentially renamed to ensure no accidental capture.
 
 \subsection{Processes}
-The PlusCal algorithm body can either contain statements in a uniprocess algorithm, or process declarations in a multiprocess algorithm. Processes can be declared with the syntax \verb|process (Name \in S)| or \verb|process (Name = Id)|. The first construct spawns a set of processes, one for each ID in the set \texttt{S}, and the second spawns a single process with ID \texttt{Id}. A process can refer to its identifier with the keyword \texttt{self}. In TLC, multiprocess algorithms are simulated by repeatedly selecting a random process then advancing it one atomic step (if it does not block).
+The PlusCal algorithm body can either contain statements in a uniprocess algorithm, or process declarations in a multiprocess algorithm.
 
-PGo converts each process body to a function and spawns a goroutine per process. The function takes a single parameter \texttt{self}, the process ID. There are two semantic considerations: the main goroutine should not exit before all goroutines finish executing, and the time at which all child goroutines begin executing should be synchronized. To preserve these semantics, PGo uses a global waitgroup which waits on all goroutines, and each process body pulls from a dummy channel before beginning execution. When all goroutines have been initialized, the dummy channel is closed so that the channel pull no longer blocks, allowing for a synchronized start.
+Uniprocess algorithms are translated into single-threaded Go programs.
 
-The following is a simple example:
+In a multiprocess algorithm, processes can be declared with the syntax \verb|process (Name \in S)| or \verb|process (Name = Id)|. The first construct spawns a set of processes, one for each ID in the set \texttt{S}, and the second spawns a single process with ID \texttt{Id}. A process can refer to its identifier with the keyword \texttt{self}.
+
+The following is a simple example of a multiprocess PlusCal algorithm, which will be used as the translation source throughout this subsection:
 
 \noindent
 \begin{minipage}[t]{\textwidth}
-\begin{lstlisting}[language=pcal]
+	\begin{lstlisting}[language=pcal]
 variables
 	idSet = {1, 2, 3};
 	id = "id";
-	
+
 process (PName \in idSet)
-	variable local;
+variable local;
 {
 	local := self;
 }
@@ -399,59 +754,78 @@ process (PName \in idSet)
 process (Other = id) {
 	print self;
 }
-\end{lstlisting}
-\captionof{figure}{PlusCal}
+	\end{lstlisting}
+	\captionof{figure}{PlusCal}
 \end{minipage}
+
+\subsubsection{Multi-threaded compilation strategy}
+With the multi-threaded compilation strategy, PGo converts each process body to a function and spawns a goroutine per process. The function takes a single parameter \texttt{self}, the process ID. There are two semantic considerations: the main goroutine should not exit before all goroutines finish executing, and the time at which all child goroutines begin executing should be synchronized. To preserve these semantics, PGo uses a global waitgroup which waits on all goroutines, and each process body pulls from a dummy channel before beginning execution. When all goroutines have been initialized, the dummy channel is closed so that the channel pull no longer blocks, allowing for a synchronized start.
+
+Below is the output Go program when compiled using the multi-threaded compilation strategy. Note that all processes use the same waitgroup (\texttt{PGoWait}) and dummy channel (\texttt{PGoStart}).
 
 \noindent
 \begin{minipage}[t]{\textwidth}
 \begin{lstlisting}[language=golang]
+package main
+
 import (
 	"fmt"
-	"pgo/datatypes"
 	"sync"
 )
 
-var idSet datatypes.Set = datatypes.NewSet(1, 2, 3) // PGo inferred type set[int]
-var id string = "id" // PGo inferred type string
-var PGoWait sync.WaitGroup
-var PGoStart chan bool = make(chan bool)
+var idSet []int
 
-func PName(self int)  {
-	var local int // PGo inferred type int
-	defer PGoWait.Done()
-	<-PGoStart
+var id string
+
+var pGoStart chan bool
+
+var pGoWait sync.WaitGroup
+
+func init() {
+	idSet = []int{1, 2, 3}
+	id = "id"
+	pGoStart = make(chan bool)
+}
+
+func PName(self int) {
+	defer pGoWait.Done()
+	<-pGoStart
+	local := 0
 	local = self
 }
-func Other(self string)  {
-	defer PGoWait.Done()
-	<-PGoStart
+
+func Other(self string) {
+	defer pGoWait.Done()
+	<-pGoStart
 	fmt.Printf("%v\n", self)
 }
 
-func main()  {
-	// spawn goroutines for PName processes
-	for procId := range idSet.Iter() {
-		PGoWait.Add(1)
-		go PName(procId.(int))
+func main() {
+	for _, v := range idSet {
+		pGoWait.Add(1)
+		go PName(v)
 	}
-	PGoWait.Add(1)
-	close(PGoStart)
-	PGoWait.Wait()
+	pGoWait.Add(1)
+	go Other(id)
+	close(pGoStart)
+	pGoWait.Wait()
 }
 \end{lstlisting}
-\captionof{figure}{Compiled Go}
+\captionof{figure}{Compiled multi-threaded Go program}
 \end{minipage}
 
-Note that all processes use the same waitgroup (\texttt{PGoWait}) and dummy channel (\texttt{PGoStart}).
+\subsubsection{Distributed process compilation strategy}
+
+TODO
 
 \subsection{Labels}
 \label{sec:labels}
-In PlusCal, labels are used as targets for \texttt{goto} statements and also to specify atomic operations. If a statement is labeled, all statements until the next label are considered to be a single atomic operation. In Go, unused labels cause compile errors so PGo only inserts labels when they are used in \texttt{goto} statements.
+In PlusCal, labels are used as targets for \texttt{goto} statements and also to specify atomic operations. If a statement is labelled, all statements up to, and excluding, the next label are considered to be a single atomic operation. In Go, unused labels cause compilation errors so PGo only outputs labels when they are targets of some \texttt{goto} statement.
 
-To deal with atomicity, PGo divides the global variables into groups and guards each group with a \texttt{sync.RWMutex}. PGo groups variables by performing a disjoint-set union, merging two variable sets when two variables in them can be accessed in the same label. The following is a simple example:
+To deal with atomicity, PGo divides the global variables into groups and guards each group with a \texttt{sync.RWMutex}. PGo groups variables by performing a set union, merging two variable sets when two variables in them can be accessed in the same label. The following is a simple example:
 
-\begin{minipage}[t]{\textwidth}
+\noindent
+\begin{minipage}[t]{0.45\textwidth}
 \begin{lstlisting}[language=pcal]
 variables a = 0, b = 1, c = 2, d = 3;
 process (P \in {1, 2, 3}) {
@@ -464,77 +838,94 @@ lab3:   d := 5;
 \end{lstlisting}
 \captionof{figure}{PlusCal}
 \end{minipage}
-
-\begin{minipage}[t]{\textwidth}
+\hfill
+\begin{minipage}[t]{0.45\textwidth}
 \begin{lstlisting}[language=golang]
-var PGoLock []sync.RWMutex = make([]sync.RWMutex, 2)
-var a int = 0 // PGo inferred type int; Lock group 0
-var b int = 1 // PGo inferred type int; Lock group 0
-var c int = 2 // PGo inferred type int; Lock group 0
-var d int = 3 // PGo inferred type int; Lock group 1
-var PGoWait sync.WaitGroup
-var PGoStart chan bool = make(chan bool)
+package main
 
-func P(self int)  {
-	defer PGoWait.Done()
-	<-PGoStart
-	PGoLock[0].Lock()
+import (
+"sync"
+)
+
+var a int
+
+var b int
+
+var c int
+
+var d int
+
+var pGoStart chan bool
+
+var pGoWait sync.WaitGroup
+
+var pGoLock []sync.RWMutex
+
+func init() {
+	a = 0
+	b = 1
+	c = 2
+	d = 3
+	pGoStart = make(chan bool)
+	pGoLock = make([]sync.RWMutex, 2)
+}
+
+func P(self int) {
+	defer pGoWait.Done()
+	<-pGoStart
+	pGoLock[0].Lock()
 	a = 1
 	b = 2
-	PGoLock[0].Unlock()
-	PGoLock[0].Lock()
+	pGoLock[0].Unlock()
+	pGoLock[0].Lock()
 	b = 3
 	c = 4
-	PGoLock[0].Unlock()
-	PGoLock[1].Lock()
+	pGoLock[0].Unlock()
+	pGoLock[1].Lock()
 	d = 5
-	PGoLock[1].Unlock()
+	pGoLock[1].Unlock()
 }
-// ...
+
+func main() {
+	for _, v := range []int{1, 2, 3} {
+		pGoWait.Add(1)
+		go P(v)
+	}
+	close(pGoStart)
+	pGoWait.Wait()
+}
 \end{lstlisting}
 \captionof{figure}{Compiled Go}
 \end{minipage}
 The variable \texttt{b} may be accessed atomically with \texttt{a} (in the label \texttt{lab1}) and also with \texttt{c} (in the label \texttt{lab2}) so all three of \texttt{a}, \texttt{b}, and \texttt{c} must be grouped together to prevent data races. PGo locks the correct group before each atomic operation and unlocks it afterwards. Even single operations must use the lock, since there are no atomicity guarantees for most Go statements. If the atomic operations are specified to be smaller in PlusCal by adding more labels, PGo will compile smaller variable groups, allowing for more parallelism.
 
-Locking may be turned off with the annotation \texttt{lock false}, and it can similarly be enforced using the annotation \texttt{lock true}.
-
 \subsection{Limitations}
 Not all PlusCal specifications can be compiled by PGo. This is an overview of some important PlusCal features that are currently unsupported.
 
 \begin{itemize}
-\item The \texttt{await} keyword
-
-\item The \texttt{either} construct
-
-\item Referencing \texttt{self} in a procedure call
+\item Referencing \lstinline[language=pcal]|self| in a procedure call
 
 \item TLA+ features:
 
 	\begin{itemize}
 	\item Alignment of boolean operators in bulleted lists determining precedence
 	
-	\item Records (structs)
+	\item Record sets
 	
 	\item Bags (multisets)
 	
-	\item \texttt{IF ... THEN ... ELSE} and \texttt{CASE} expressions
-	
-	\item The \texttt{LET .. IN} construct
+	\item The \lstinline[language=pcal]|LET .. IN| construct
 	
 	\item Temporal logic operators
 	
 	\item Recursive definitions
-	
-	\item Operator definition (use definitions with parameters instead)
 	\end{itemize}
 \end{itemize}
 
-The following are features that may be desirable for a developer working with the compiled program but are not yet considered by PGo:
+PGo does not yet have a coherent story for the following desirable features for programmers. However, work on Modular PlusCal which aims to support them is underway.
 
 \begin{itemize}
-\item Support for networking
-
 \item Interfacing with other programs
 
-\item Reading input from sources other than the command line
+\item Reading input from the outside world (e.g. from the command line, from the disk)
 \end{itemize}

@@ -7,9 +7,6 @@ CONSTANT procs, iters
 (*
 
 --algorithm round_robin {
-  (** @PGo{ arg procs int }@PGo
-      @PGo{ arg iters int }@PGo
-   **)
   variables counter = 0,
             token = -1;
 

@@ -7,9 +7,6 @@ CONSTANT procs, iters
 (*
 
 --algorithm counter {
-  (** @PGo{ arg procs int }@PGo
-      @PGo{ arg iters int }@PGo
-   **)
   variables counter = 0;
 
   fair process (P \in 0..procs-1)

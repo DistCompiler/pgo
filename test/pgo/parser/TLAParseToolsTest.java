@@ -101,7 +101,7 @@ public class TLAParseToolsTest {
 	public void testMatchTLAComment1() throws ParseFailureException {
 		checkLocation(
 				matchTLAComment(), ctx("(*\n" +
-						"--algorithm Euclid {    \\** @PGo{ arg N int }@PGo\n" +
+						"--algorithm Euclid {\n" +
 						"  variables u = 24;\n" +
 						"            v \\in 1 .. N; \n" +
 						"            v_init = v;\n" +
@@ -133,9 +133,6 @@ public class TLAParseToolsTest {
 				"(*\n" +
 				"\n" +
 				"--algorithm counter {\n" +
-				"  (** @PGo{ arg procs int }@PGo\n" +
-				"      @PGo{ arg iters int }@PGo\n" +
-				"   **)\n" +
 				"  variables counter = 0;\n" +
 				"\n" +
 				"  fair process (P \\in 0..procs-1)\n" +
@@ -150,7 +147,7 @@ public class TLAParseToolsTest {
 				"}\n" +
 				"*)\n" +
 				"\\* BEGIN TRANSLATION\n"),
-				1, 21, 22, 22);
+				1, 21, 19, 19);
 	}
 
 	@Test
@@ -291,7 +288,7 @@ public class TLAParseToolsTest {
 		assertThat(
 				wrapMinColumn(parseFairnessConstraint())
 						.enumerate(ctx("WF_foo(bar)")),
-				is(Arrays.asList(
+				is(Collections.singletonList(
 						fairness(TLAFairness.Type.WEAK, idexp("foo"), idexp("bar"))
 				)));
 	}
@@ -360,7 +357,7 @@ public class TLAParseToolsTest {
 		checkLocation(skipWhitespaceAndTLAComments(), ctx("\n" +
 				"\n" +
 				"(*\n" +
-				"--algorithm Euclid {    \\** @PGo{ arg N int }@PGo\n" +
+				"--algorithm Euclid {    \\** arg N int\n" +
 				"  variables u = 24;\n" +
 				"            v \\in 1 .. N; \n" +
 				"            v_init = v;\n" +
@@ -387,7 +384,7 @@ public class TLAParseToolsTest {
 				"CONSTANT N\n" +
 				"\n" +
 				"(*\n" +
-				"--algorithm Euclid {    \\** @PGo{ arg N int }@PGo\n" +
+				"--algorithm Euclid {    \\** arg N int\n" +
 				"  variables u = 24;\n" +
 				"            v \\in 1 .. N; \n" +
 				"            v_init = v;\n" +

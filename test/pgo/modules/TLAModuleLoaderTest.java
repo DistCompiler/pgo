@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.Collections;
 
 import org.junit.Test;
 
@@ -17,18 +18,18 @@ public class TLAModuleLoaderTest {
 
 	@Test
 	public void testModuleNotFound() throws IOException, ParseFailureException, NoModulesFoundInFileError {
-		TLAModuleLoader loader = new TLAModuleLoader(Arrays.asList());
+		TLAModuleLoader loader = new TLAModuleLoader(Collections.emptyList());
 		try {
 			loader.loadModule("Test");
 			fail("should have thrown ModuleLoadError");
 		}catch(ModuleNotFoundError ex) {
-			assertThat(ex.getPathsChecked(), is(Arrays.asList()));
+			assertThat(ex.getPathsChecked(), is(Collections.emptyList()));
 		}
 	}
 	
 	@Test
 	public void testModuleFoundOneOption() throws ModuleNotFoundError, IOException, ParseFailureException, NoModulesFoundInFileError {
-		TLAModuleLoader loader = new TLAModuleLoader(Arrays.asList(Paths.get("test", "pluscal")));
+		TLAModuleLoader loader = new TLAModuleLoader(Collections.singletonList(Paths.get("test", "pluscal")));
 		
 		TLAModule m = loader.loadModule("Sum");
 		assertThat(m.getName().getId(), is("Sum"));

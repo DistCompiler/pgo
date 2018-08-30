@@ -1,4 +1,3 @@
-
 ---------------------- MODULE dqueue ------------------------
 EXTENDS Integers, Sequences, TLC
 

@@ -2,23 +2,14 @@
 EXTENDS Naturals, Sequences, TLC
 CONSTANT MAXINT, RUNS, N
 
-(* PlusCal options (-termination) *)
-
 (*
-(* @PGo{ const MAXINT uint64 10000000 }@PGo
-   @PGo{ arg RUNS uint64 runs }@PGo   @PGo{ arg N uint64 numT }@PGo
- *)
-
 --algorithm Sum  {
-\** @PGo{ var network []chan[[2]interface] }@PGo
 variables network = [i \in 1 .. N+1 |-> <<>>];
 
-\** @PGo{ func SendTo() uint64 uint64 interface }@PGo
 macro SendTo(from, to, msg) {
     network[to] := Append(network[to], <<from, msg>>);
 }
 
-\** @PGo{ func Recv() uint64 uint64 interface }@PGo
 macro Recv(to, id, msg) {
     await network[to] # <<>>;
     id := Head(network[to])[1];
@@ -27,13 +18,6 @@ macro Recv(to, id, msg) {
 }
 
 process (Client \in 1..N)
-  (** @PGo{ var a_init uint64 }@PGo
-      @PGo{ var b_init uint64 }@PGo
-      @PGo{ var runs uint64 }@PGo
-      @PGo{ var Client.id uint64 }@PGo
-      @PGo{ var Client.msg uint64 }@PGo
-      @PGo{ var sum uint64 }@PGo
-  **)
   variable a_init, b_init, runs=0, id, msg, sum;
   {
     cl: while (runs < RUNS) {
@@ -55,10 +39,6 @@ process (Client \in 1..N)
 }
 
 process (Server = N+1)
-  \** @PGo{ var a uint64 }@PGo
-  \** @PGo{ var b uint64 }@PGo
-  \** @PGo{ var Server.id uint64 }@PGo
-  \** @PGo{ var Server.msg [2]uint64  }@PGo
   variable a, b, id, msg;
   {
   sr:

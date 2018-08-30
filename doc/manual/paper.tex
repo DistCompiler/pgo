@@ -6,9 +6,11 @@
 \usepackage[labelformat=empty]{caption}
 \usepackage[letterpaper, margin=2cm]{geometry}
 \usepackage{multicol}
+\usepackage{array}
+\usepackage{longtable}
 
 \lstdefinelanguage{pcal}{
-	morekeywords={CHOOSE, CONSTANT, EXCEPT, UNION, SUBSET, assert, await, begin, call, define, do, either, else, elsif, end, goto, if, macro, or, print, procedure, process, return, skip, then, variable, variables, when, while, with},
+	morekeywords={CHOOSE, CONSTANT, EXCEPT, UNION, SUBSET, LET, IN, CASE, OTHER, ASSUME, ASSUMPTION, AXIOM, THEOREM, assert, await, begin, call, define, do, either, else, elsif, end, goto, if, macro, or, print, procedure, process, return, skip, then, variable, variables, when, while, with},
 	morecomment=[l]{\\*},
 	morecomment=[s]{(*}{*)},
 	morestring=[b]"
@@ -37,10 +39,22 @@
 }
 \lstset{style=mystyle}
 
+\lstdefinestyle{tabularstyle}{
+	basicstyle=\small\ttfamily,
+	keywordstyle=\small\color{darkred}\ttfamily,
+	commentstyle=\small\color{gray}\ttfamily,
+	stringstyle=\small\color{blue}\ttfamily,
+	columns=fullflexible,
+	frame=none,
+	numbers=none,
+	tabsize=2,
+	showstringspaces=false
+}
+
 \setlength{\parskip}{6pt}
 
 \title{PGo Manual\\
-	\normalsize{For commit d0241d3}}
+	\normalsize{For commit 770defde}}
 \begin{document}
 
 \maketitle
@@ -53,9 +67,6 @@
 
 \section{Translation}
 \input{chapters/translation}
-
-\section{Notes on the Go library}
-\input{chapters/libnotes}
 
 \section{Example programs}
 \input{chapters/examples}

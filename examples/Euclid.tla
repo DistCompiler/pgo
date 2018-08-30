@@ -3,9 +3,9 @@ EXTENDS Naturals, TLC
 CONSTANT N
 
 (*
---algorithm Euclid {    \** @PGo{ arg N int }@PGo
+--algorithm Euclid {
   variables u = 24;
-            v \in 1 .. N; 
+            v \in 1 .. N;
             v_init = v;
   {
   a:  while (u # 0) {

@@ -23,7 +23,7 @@ public class PGoOptions {
 	public boolean logLvlVerbose = false;
 
 	@Option(value = "-c path to the configuration file, if any")
-	public String configFilePath = "";
+	public String configFilePath;
 
 	public String inputFilePath;
 
@@ -53,7 +53,7 @@ public class PGoOptions {
 
 		inputFilePath = remainingArgs[0];
 
-		if (configFilePath.isEmpty()) {
+		if (configFilePath == null || configFilePath.isEmpty()) {
 			throw new PGoOptionException("Configuration file is required");
 		}
 
