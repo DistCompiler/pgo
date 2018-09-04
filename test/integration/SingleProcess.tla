@@ -27,8 +27,8 @@ CONSTANT N
         return;
     }
 
-    procedure RunFizzBuzz(k, n1, n2) {
-        check: if ((k % n1 = 0) /\ (k % n2 = 0)) {
+    procedure RunFizzBuzz(k) {
+        check: if ((k % 3 = 0) /\ (k % 5 = 0)) {
                    call FizzBuzz();
                } else if (k % 3 = 0) {
                    call Fizz();
@@ -44,7 +44,7 @@ CONSTANT N
     {
         l1: while (n < N) {
             inc: n := n + 1;
-            call RunFizzBuzz(n, 3, 5);
+            call RunFizzBuzz(n);
         }
     }
 }
@@ -53,16 +53,14 @@ CONSTANT N
 \* Label p of procedure Fizz at line 16 col 12 changed to p_
 \* Label p of procedure Buzz at line 21 col 12 changed to p_B
 CONSTANT defaultInitValue
-VARIABLES n, pc, stack, k, n1, n2
+VARIABLES n, pc, stack, k
 
-vars == << n, pc, stack, k, n1, n2 >>
+vars == << n, pc, stack, k >>
 
 Init == (* Global variables *)
         /\ n = 0
         (* Procedure RunFizzBuzz *)
         /\ k = defaultInitValue
-        /\ n1 = defaultInitValue
-        /\ n2 = defaultInitValue
         /\ stack = << >>
         /\ pc = "l1"
 
@@ -70,7 +68,7 @@ p_ == /\ pc = "p_"
       /\ PrintT("fizz")
       /\ pc' = Head(stack).pc
       /\ stack' = Tail(stack)
-      /\ UNCHANGED << n, k, n1, n2 >>
+      /\ UNCHANGED << n, k >>
 
 Fizz == p_
 
@@ -78,7 +76,7 @@ p_B == /\ pc = "p_B"
        /\ PrintT("buzz")
        /\ pc' = Head(stack).pc
        /\ stack' = Tail(stack)
-       /\ UNCHANGED << n, k, n1, n2 >>
+       /\ UNCHANGED << n, k >>
 
 Buzz == p_B
 
@@ -86,12 +84,12 @@ p == /\ pc = "p"
      /\ PrintT("fizzbuzz")
      /\ pc' = Head(stack).pc
      /\ stack' = Tail(stack)
-     /\ UNCHANGED << n, k, n1, n2 >>
+     /\ UNCHANGED << n, k >>
 
 FizzBuzz == p
 
 check == /\ pc = "check"
-         /\ IF (k % n1 = 0) /\ (k % n2 = 0)
+         /\ IF (k % 3 = 0) /\ (k % 5 = 0)
                THEN /\ stack' = << [ procedure |->  "FizzBuzz",
                                      pc        |->  "ret" ] >>
                                  \o stack
@@ -109,13 +107,11 @@ check == /\ pc = "check"
                                      ELSE /\ PrintT(k)
                                           /\ pc' = "ret"
                                           /\ stack' = stack
-         /\ UNCHANGED << n, k, n1, n2 >>
+         /\ UNCHANGED << n, k >>
 
 ret == /\ pc = "ret"
        /\ pc' = Head(stack).pc
        /\ k' = Head(stack).k
-       /\ n1' = Head(stack).n1
-       /\ n2' = Head(stack).n2
        /\ stack' = Tail(stack)
        /\ n' = n
 
@@ -125,18 +121,14 @@ l1 == /\ pc = "l1"
       /\ IF n < N
             THEN /\ pc' = "inc"
             ELSE /\ pc' = "Done"
-      /\ UNCHANGED << n, stack, k, n1, n2 >>
+      /\ UNCHANGED << n, stack, k >>
 
 inc == /\ pc = "inc"
        /\ n' = n + 1
        /\ /\ k' = n'
-          /\ n1' = 3
-          /\ n2' = 5
           /\ stack' = << [ procedure |->  "RunFizzBuzz",
                            pc        |->  "l1",
-                           k         |->  k,
-                           n1        |->  n1,
-                           n2        |->  n2 ] >>
+                           k         |->  k ] >>
                        \o stack
        /\ pc' = "check"
 
