@@ -27,9 +27,7 @@ public class PlusCalMacroExpansionPass {
 		plusCalAlgorithm.getProcedures().forEach(proc -> {
 			List<PlusCalStatement> stmts = new ArrayList<>();
 			for (PlusCalStatement stmt : proc.getBody()) {
-				for (PlusCalStatement s : stmt.accept(v)) {
-					stmts.add(s);
-				}
+				stmts.addAll(stmt.accept(v));
 			}
 
 			procedures.add(new PlusCalProcedure(

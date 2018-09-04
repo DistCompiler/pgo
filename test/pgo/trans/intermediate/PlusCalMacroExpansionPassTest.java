@@ -29,12 +29,13 @@ public class PlusCalMacroExpansionPassTest {
 				algorithm(
 						"Test",
 						Collections.emptyList(),
-						Arrays.asList(
-								macro("mymacro", Arrays.asList("a"),
+						Collections.emptyList(),
+						Collections.singletonList(
+								macro("mymacro", Collections.singletonList("a"),
 										printS(idexp("a")),
 										printS(idexp("b"))
-										)
-								),
+								)
+						),
 						Collections.emptyList(),
 						Collections.emptyList(),
 						labeled(label("foo"),
@@ -44,6 +45,7 @@ public class PlusCalMacroExpansionPassTest {
 						),
 				algorithm(
 						"Test",
+						Collections.emptyList(),
 						Collections.emptyList(),
 						Collections.emptyList(),
 						Collections.emptyList(),

@@ -1,13 +1,13 @@
 package pgo.model.mpcal;
 
-import pgo.TODO;
 import pgo.model.pcal.PlusCalStatement;
 import pgo.model.pcal.PlusCalVariableDeclaration;
-import pgo.parser.Located;
 import pgo.util.SourceLocation;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * Modular PlusCal archetype node
@@ -19,12 +19,14 @@ import java.util.List;
  * }
  */
 public class ModularPlusCalArchetype extends ModularPlusCalUnit {
-	private Located<String> name;
-	private List<ModularPlusCalVariableDeclaration> arguments;
-	private List<PlusCalVariableDeclaration> variables;
-	private List<PlusCalStatement> body;
+	private final String name;
+	private final List<ModularPlusCalVariableDeclaration> arguments;
+	private final List<PlusCalVariableDeclaration> variables;
+	private final List<PlusCalStatement> body;
 
-	public ModularPlusCalArchetype(SourceLocation location, Located<String> name, List<ModularPlusCalVariableDeclaration> arguments, List<PlusCalVariableDeclaration> variables, List<PlusCalStatement> body) {
+	public ModularPlusCalArchetype(SourceLocation location, String name,
+	                               List<ModularPlusCalVariableDeclaration> arguments,
+	                               List<PlusCalVariableDeclaration> variables, List<PlusCalStatement> body) {
 		super(location);
 		this.name = name;
 		this.arguments = arguments;
@@ -33,18 +35,33 @@ public class ModularPlusCalArchetype extends ModularPlusCalUnit {
 	}
 
 	@Override
-	public ModularPlusCalNode copy() {
-		throw new TODO();
+	public ModularPlusCalArchetype copy() {
+		return new ModularPlusCalArchetype(
+				getLocation(),
+				name,
+				arguments.stream().map(ModularPlusCalVariableDeclaration::copy).collect(Collectors.toList()),
+				variables.stream().map(PlusCalVariableDeclaration::copy).collect(Collectors.toList()),
+				body.stream().map(PlusCalStatement::copy).collect(Collectors.toList()));
 	}
 
 	@Override
 	public int hashCode() {
-		throw new TODO();
+		return Objects.hash(name, arguments, variables, body);
 	}
 
 	@Override
 	public boolean equals(Object obj) {
-		throw new TODO();
+		if (this == obj) {
+			return true;
+		}
+		if (obj == null || obj.getClass() != getClass()) {
+			return false;
+		}
+		ModularPlusCalArchetype that = (ModularPlusCalArchetype) obj;
+		return name.equals(that.name) &&
+				Objects.equals(arguments, that.arguments) &&
+				Objects.equals(variables, that.variables) &&
+				Objects.equals(body, that.body);
 	}
 
 	@Override
@@ -52,7 +69,7 @@ public class ModularPlusCalArchetype extends ModularPlusCalUnit {
 		return v.visit(this);
 	}
 
-	public Located<String> getName() {
+	public String getName() {
 		return name;
 	}
 

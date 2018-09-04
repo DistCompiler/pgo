@@ -20,8 +20,9 @@ public class PlusCalAlgorithm extends PlusCalNode {
 
 	private final PlusCalProcesses processes;
 
-	public PlusCalAlgorithm(SourceLocation location, PlusCalFairness fairness, Located<String> name, List<PlusCalVariableDeclaration> variables,
-							List<PlusCalMacro> macros, List<PlusCalProcedure> procedures, List<TLAUnit> units, PlusCalProcesses processes) {
+	public PlusCalAlgorithm(SourceLocation location, PlusCalFairness fairness, Located<String> name,
+	                        List<PlusCalVariableDeclaration> variables, List<PlusCalMacro> macros,
+	                        List<PlusCalProcedure> procedures, List<TLAUnit> units, PlusCalProcesses processes) {
 		super(location);
 		this.fairness = fairness;
 		this.name = name;

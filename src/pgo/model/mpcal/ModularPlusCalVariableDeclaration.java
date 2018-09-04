@@ -5,8 +5,8 @@ import pgo.parser.Located;
 import pgo.util.SourceLocation;
 
 public class ModularPlusCalVariableDeclaration extends ModularPlusCalNode {
-	private Located<String> name;
-	private boolean isRef;
+	private final Located<String> name;
+	private final boolean isRef;
 
 	public ModularPlusCalVariableDeclaration(SourceLocation location, Located<String> name, boolean isRef) {
 		super(location);
@@ -15,8 +15,8 @@ public class ModularPlusCalVariableDeclaration extends ModularPlusCalNode {
 	}
 
 	@Override
-	public ModularPlusCalNode copy() {
-		throw new TODO();
+	public ModularPlusCalVariableDeclaration copy() {
+		return new ModularPlusCalVariableDeclaration(getLocation(), name, isRef);
 	}
 
 	@Override
