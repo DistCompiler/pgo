@@ -20,7 +20,7 @@ import java.util.List;
  *     }
  * }
  */
-public class ModularPlusCalMappingMacro extends ModularPlusCalNode {
+public class ModularPlusCalMappingMacro extends ModularPlusCalUnit {
 	private Located<String> name;
 	private List<PlusCalStatement> readBody;
 	private List<PlusCalStatement> writeBody;

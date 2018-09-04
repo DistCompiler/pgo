@@ -18,7 +18,7 @@ import java.util.List;
  *     body;
  * }
  */
-public class ModularPlusCalArchetype extends ModularPlusCalNode {
+public class ModularPlusCalArchetype extends ModularPlusCalUnit {
 	private Located<String> name;
 	private List<ModularPlusCalVariableDeclaration> arguments;
 	private List<PlusCalVariableDeclaration> variables;

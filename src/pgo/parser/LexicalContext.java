@@ -34,9 +34,9 @@ public class LexicalContext {
 		@Override
 		public String toString() {
 			StringBuilder b = new StringBuilder("LexicalContext.Mark[");
-			b.append("line=" + this.markedLine);
-			b.append("; column=" + this.markedColumn);
-			b.append("; index=" + this.markedIndex);
+			b.append("line=").append(this.markedLine);
+			b.append("; column=").append(this.markedColumn);
+			b.append("; index=").append(this.markedIndex);
 			b.append("]");
 
 			return b.toString();

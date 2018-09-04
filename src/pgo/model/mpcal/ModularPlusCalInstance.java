@@ -15,7 +15,7 @@ import java.util.List;
  *     mapping global via MappingMacro;
  *     interleaving goto label;
  */
-public class ModularPlusCalInstance extends ModularPlusCalNode {
+public class ModularPlusCalInstance extends ModularPlusCalUnit {
 	private String target;
 	private List<TLAExpression> params;
 	private List<ModularPlusCalMapping> mappings;
