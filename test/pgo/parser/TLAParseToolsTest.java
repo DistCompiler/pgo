@@ -1,6 +1,5 @@
 package pgo.parser;
 
-import org.junit.Ignore;
 import org.junit.Test;
 import pgo.model.tla.TLAFairness;
 import pgo.util.SourceLocatable;
@@ -20,7 +19,7 @@ import static pgo.model.tla.TLABuilder.*;
 
 public class TLAParseToolsTest {
 
-	static Path testFile = Paths.get("TEST");
+	private static final Path testFile = Paths.get("TEST");
 
 	private LexicalContext ctx(String contents){
 		return new LexicalContext(testFile, String.join(System.lineSeparator(), contents.split("\n")));

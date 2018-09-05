@@ -51,24 +51,18 @@ public class PlusCalVariableDeclaration extends PlusCalNode {
 
 	@Override
 	public boolean equals(Object obj) {
-		if (this == obj)
+		if (this == obj) {
 			return true;
-		if (obj == null)
-			return false;
-		if (getClass() != obj.getClass())
-			return false;
-		PlusCalVariableDeclaration other = (PlusCalVariableDeclaration) obj;
-		if (set != other.set)
-			return false;
-		if (name == null) {
-			if (other.name != null)
-				return false;
-		} else if (!name.equals(other.name))
-			return false;
-		if (value == null) {
-			return other.value == null;
 		}
-		return value.equals(other.value);
+		if (obj == null || obj.getClass() != getClass()) {
+			return false;
+		}
+		PlusCalVariableDeclaration that = (PlusCalVariableDeclaration) obj;
+		return set == that.set &&
+				((name == null && that.name == null) ||
+						(name != null && name.getValue().equals(that.name.getValue()))) &&
+				((value == null && that.value != null) ||
+						(value != null && value.equals(that.value)));
 	}
 
 }

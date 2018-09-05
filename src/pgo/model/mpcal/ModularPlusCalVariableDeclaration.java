@@ -1,8 +1,9 @@
 package pgo.model.mpcal;
 
-import pgo.TODO;
 import pgo.parser.Located;
 import pgo.util.SourceLocation;
+
+import java.util.Objects;
 
 public class ModularPlusCalVariableDeclaration extends ModularPlusCalNode {
 	private final Located<String> name;
@@ -21,12 +22,19 @@ public class ModularPlusCalVariableDeclaration extends ModularPlusCalNode {
 
 	@Override
 	public int hashCode() {
-		throw new TODO();
+		return Objects.hash(name, isRef);
 	}
 
 	@Override
 	public boolean equals(Object obj) {
-		throw new TODO();
+		if (this == obj) {
+			return true;
+		}
+		if (obj == null || obj.getClass() != getClass()) {
+			return false;
+		}
+		ModularPlusCalVariableDeclaration that = (ModularPlusCalVariableDeclaration) obj;
+		return isRef == that.isRef && name.getValue().equals(that.name.getValue());
 	}
 
 	@Override

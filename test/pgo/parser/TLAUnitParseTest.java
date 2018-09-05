@@ -179,7 +179,7 @@ public class TLAUnitParseTest {
 		this.unitExpected = unitExpected;
 	}
 	
-	static Path testFile = Paths.get("TEST");
+	private static final Path testFile = Paths.get("TEST");
 
 	@Test
 	public void test() throws ParseFailureException {
