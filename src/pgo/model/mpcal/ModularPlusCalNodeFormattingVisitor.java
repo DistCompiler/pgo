@@ -14,6 +14,11 @@ public class ModularPlusCalNodeFormattingVisitor extends ModularPlusCalNodeVisit
 	}
 
 	@Override
+	public Void visit(ModularPlusCalBlock modularPlusCalBlock) throws IOException {
+		throw new TODO();
+	}
+
+	@Override
 	public Void visit(ModularPlusCalArchetype modularPlusCalArchetype) throws IOException {
 		out.write("archetype ");
 		out.write(modularPlusCalArchetype.getName());

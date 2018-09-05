@@ -4,12 +4,16 @@ import pgo.model.mpcal.*;
 import pgo.model.pcal.PlusCalVariableDeclaration;
 
 import java.util.Collections;
+import java.util.regex.Pattern;
 
 import static pgo.parser.PlusCalParser.*;
 import static pgo.parser.ParseTools.*;
 
 public class ModularPlusCalParser {
 	private ModularPlusCalParser() {}
+
+	private static final Pattern FIND_MPCAL = Pattern.compile(".*?\\(\\*.*?(?=--mpcal)", Pattern.DOTALL);
+	private static final Pattern AFTER_MPCAL = Pattern.compile(".*?\\*\\).*$", Pattern.DOTALL);
 
 	private static final Grammar<ModularPlusCalVariableDeclaration> MPCAL_VAR_DECL = emptySequence()
 			.part(parseOneOf(
@@ -99,6 +103,39 @@ public class ModularPlusCalParser {
 					seq.getValue().getFirst(),
 					Collections.emptyList(),
 					Collections.emptyList()));
+
+	private static final Grammar<ModularPlusCalBlock> C_SYNTAX_MPCAL = emptySequence()
+			.drop(parsePlusCalToken("--mpcal"))
+			.part(IDENTIFIER)
+			.drop(parsePlusCalToken("{"))
+			.part(parseOneOf(
+					parseListOf(C_SYNTAX_MAPPING_MACRO, nop()),
+					nop().map(seq -> new LocatedList<ModularPlusCalMappingMacro>(
+							seq.getLocation(),
+							Collections.emptyList()))))
+			.part(parseOneOf(
+					parseListOf(C_SYNTAX_ARCHETYPE, nop()),
+					nop().map(seq -> new LocatedList<ModularPlusCalArchetype>(
+							seq.getLocation(),
+							Collections.emptyList()))))
+			.drop(parsePlusCalToken("}"))
+			.map(seq -> new ModularPlusCalBlock(
+					seq.getLocation(),
+					seq.getValue().getRest().getRest().getFirst(),
+					seq.getValue().getRest().getFirst(),
+					seq.getValue().getFirst()));
+
+	private static final Grammar<ModularPlusCalBlock> MPCAL_BLOCK = emptySequence()
+			.drop(matchPattern(FIND_MPCAL))
+			.part(parseOneOf(C_SYNTAX_MPCAL))
+			.drop(matchPattern(AFTER_MPCAL))
+			.map(seq -> seq.getValue().getFirst());
+
+	// public interface
+
+	public static ModularPlusCalBlock readBlock(LexicalContext ctx) throws ParseFailureException {
+		return readOrExcept(ctx, MPCAL_BLOCK);
+	}
 
 	// testing interface
 

@@ -44,4 +44,13 @@ public class ModularPlusCalBuilder {
 				readBody,
 				writeBody);
 	}
+
+	public static ModularPlusCalBlock mpcal(String name, List<ModularPlusCalMappingMacro> mappingMacros,
+	                                        List<ModularPlusCalArchetype> archetypes) {
+		return new ModularPlusCalBlock(
+				SourceLocation.unknown(),
+				new Located<>(SourceLocation.unknown(), name),
+				mappingMacros,
+				archetypes);
+	}
 }
