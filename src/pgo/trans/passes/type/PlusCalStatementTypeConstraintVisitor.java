@@ -1,22 +1,22 @@
 package pgo.trans.passes.type;
 
+import pgo.TODO;
 import pgo.Unreachable;
 import pgo.errors.IssueContext;
+import pgo.model.mpcal.ModularPlusCalRead;
+import pgo.model.mpcal.ModularPlusCalWrite;
 import pgo.model.pcal.*;
-import pgo.model.tla.TLAExpression;
 import pgo.model.type.*;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
 import pgo.trans.intermediate.ProcedureNotFoundIssue;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 public class PlusCalStatementTypeConstraintVisitor extends PlusCalStatementVisitor<Void, RuntimeException> {
-
 	private IssueContext ctx;
 	private DefinitionRegistry registry;
 	private PGoTypeSolver solver;
@@ -152,4 +152,13 @@ public class PlusCalStatementTypeConstraintVisitor extends PlusCalStatementVisit
 		return null;
 	}
 
+	@Override
+	public Void visit(ModularPlusCalRead modularPlusCalRead) throws RuntimeException {
+		throw new TODO();
+	}
+
+	@Override
+	public Void visit(ModularPlusCalWrite modularPlusCalWrite) throws RuntimeException {
+		throw new TODO();
+	}
 }

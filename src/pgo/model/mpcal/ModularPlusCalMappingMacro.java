@@ -1,12 +1,13 @@
 package pgo.model.mpcal;
 
-import pgo.TODO;
 import pgo.model.pcal.PlusCalStatement;
 import pgo.parser.Located;
 import pgo.util.SourceLocation;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * Modular PlusCal mapping macro node
@@ -25,7 +26,8 @@ public class ModularPlusCalMappingMacro extends ModularPlusCalUnit {
 	private List<PlusCalStatement> readBody;
 	private List<PlusCalStatement> writeBody;
 
-	public ModularPlusCalMappingMacro(SourceLocation location, Located<String> name, List<PlusCalStatement> readBody, List<PlusCalStatement> writeBody) {
+	public ModularPlusCalMappingMacro(SourceLocation location, Located<String> name, List<PlusCalStatement> readBody,
+	                                  List<PlusCalStatement> writeBody) {
 		super(location);
 		this.name = name;
 		this.readBody = readBody;
@@ -33,18 +35,31 @@ public class ModularPlusCalMappingMacro extends ModularPlusCalUnit {
 	}
 
 	@Override
-	public ModularPlusCalNode copy() {
-		throw new TODO();
+	public ModularPlusCalMappingMacro copy() {
+		return new ModularPlusCalMappingMacro(
+				getLocation(),
+				name,
+				readBody.stream().map(PlusCalStatement::copy).collect(Collectors.toList()),
+				writeBody.stream().map(PlusCalStatement::copy).collect(Collectors.toList()));
 	}
 
 	@Override
 	public int hashCode() {
-		throw new TODO();
+		return Objects.hash(name, readBody, writeBody);
 	}
 
 	@Override
 	public boolean equals(Object obj) {
-		throw new TODO();
+		if (this == obj) {
+			return true;
+		}
+		if (obj == null || obj.getClass() != getClass()) {
+			return false;
+		}
+		ModularPlusCalMappingMacro that = (ModularPlusCalMappingMacro) obj;
+		return name.getValue().equals(that.name.getValue()) &&
+				Objects.equals(readBody, that.readBody) &&
+				Objects.equals(writeBody, that.writeBody);
 	}
 
 	@Override

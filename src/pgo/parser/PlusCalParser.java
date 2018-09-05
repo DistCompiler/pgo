@@ -272,7 +272,7 @@ public final class PlusCalParser {
 					seq.getValue().getRest().getFirst(),
 					seq.getValue().getFirst()));
 
-	private static final Grammar<PlusCalStatement> C_SYNTAX_UNLABELEDSTMT = parseOneOf(
+	private static final Grammar<PlusCalStatement> C_SYNTAX_UNLABELED_STMT = parseOneOf(
 			ASSIGN,
 			C_SYNTAX_IF,
 			C_SYNTAX_WHILE,
@@ -308,7 +308,7 @@ public final class PlusCalParser {
 												seq.getValue().getFirst().getValue()))
 								)
 								.part(parseOneOf(
-										parseListOf(C_SYNTAX_UNLABELEDSTMT, parsePlusCalToken(";")), // catch repeated statements instead of parsing them as sibling nodes
+										parseListOf(C_SYNTAX_UNLABELED_STMT, parsePlusCalToken(";")), // catch repeated statements instead of parsing them as sibling nodes
 										C_SYNTAX_COMPOUND_STMT))
 								.map(seq -> new LocatedList<>(
 										seq.getLocation(),
@@ -316,7 +316,7 @@ public final class PlusCalParser {
 												seq.getLocation(),
 												seq.getValue().getRest().getFirst(),
 												seq.getValue().getFirst())))),
-						C_SYNTAX_UNLABELEDSTMT.map(stmt -> new LocatedList<>(
+						C_SYNTAX_UNLABELED_STMT.map(stmt -> new LocatedList<>(
 								stmt.getLocation(), Collections.singletonList(stmt))),
 						C_SYNTAX_COMPOUND_STMT)
 		);

@@ -1,6 +1,9 @@
 package pgo.trans.intermediate;
 
+import pgo.TODO;
 import pgo.Unreachable;
+import pgo.model.mpcal.ModularPlusCalRead;
+import pgo.model.mpcal.ModularPlusCalWrite;
 import pgo.model.pcal.*;
 import pgo.scope.UID;
 
@@ -118,5 +121,15 @@ public class PlusCalStatementAtomicityInferenceVisitor extends PlusCalStatementV
 	public Void visit(PlusCalGoto plusCalGoto) throws RuntimeException {
 		// nothing to do
 		return null;
+	}
+
+	@Override
+	public Void visit(ModularPlusCalRead modularPlusCalRead) throws RuntimeException {
+		throw new TODO();
+	}
+
+	@Override
+	public Void visit(ModularPlusCalWrite modularPlusCalWrite) throws RuntimeException {
+		throw new TODO();
 	}
 }

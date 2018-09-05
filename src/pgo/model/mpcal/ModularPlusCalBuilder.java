@@ -35,4 +35,13 @@ public class ModularPlusCalBuilder {
 	                                              List<ModularPlusCalMapping> mappings) {
 		return new ModularPlusCalInstance(SourceLocation.unknown(), name, target, params, mappings);
 	}
+
+	public static ModularPlusCalMappingMacro mappingMacro(String name, List<PlusCalStatement> readBody,
+	                                                      List<PlusCalStatement> writeBody) {
+		return new ModularPlusCalMappingMacro(
+				SourceLocation.unknown(),
+				new Located<>(SourceLocation.unknown(), name),
+				readBody,
+				writeBody);
+	}
 }

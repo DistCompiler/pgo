@@ -4,6 +4,8 @@ import pgo.InternalCompilerError;
 import pgo.Unreachable;
 import pgo.model.golang.*;
 import pgo.model.golang.builder.GoBlockBuilder;
+import pgo.model.mpcal.ModularPlusCalRead;
+import pgo.model.mpcal.ModularPlusCalWrite;
 import pgo.model.pcal.*;
 import pgo.model.tla.TLAExpression;
 import pgo.model.type.PGoType;
@@ -370,5 +372,15 @@ public class PlusCalStatementCodeGenVisitor extends PlusCalStatementVisitor<Void
 		builder.goTo(new GoLabelName(plusCalGoto.getTarget()));
 		// continue with the previous critical section
 		return null;
+	}
+
+	@Override
+	public Void visit(ModularPlusCalRead modularPlusCalRead) throws RuntimeException {
+		throw new Unreachable();
+	}
+
+	@Override
+	public Void visit(ModularPlusCalWrite modularPlusCalWrite) throws RuntimeException {
+		throw new Unreachable();
 	}
 }

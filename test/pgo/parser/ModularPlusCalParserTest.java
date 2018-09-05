@@ -77,7 +77,17 @@ public class ModularPlusCalParserTest {
 								Arrays.asList(
 										mapping("global1", "MappingMacro1"),
 										mapping("global2", "MappingMacro2")))
-				}
+				},
+
+				// simple mapping macro
+				{"mapping macro MappingMacro {\n" +
+						"  read {\n" +
+						"  }\n" +
+						"  write {\n" +
+						"  }\n" +
+						"}",
+						mappingMacro("MappingMacro", Collections.emptyList(), Collections.emptyList())
+				},
 		});
 	}
 

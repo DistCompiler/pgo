@@ -82,10 +82,27 @@ public class ModularPlusCalParser {
 					seq.getValue().getRest().getFirst(),
 					seq.getValue().getFirst()));
 
+	private static final Grammar<ModularPlusCalMappingMacro> C_SYNTAX_MAPPING_MACRO = emptySequence()
+			.drop(parsePlusCalToken("mapping"))
+			.drop(parsePlusCalToken("macro"))
+			.part(IDENTIFIER)
+			.drop(parsePlusCalToken("{"))
+			.drop(parsePlusCalToken("read"))
+			.drop(parsePlusCalToken("{"))
+			.drop(parsePlusCalToken("}"))
+			.drop(parsePlusCalToken("write"))
+			.drop(parsePlusCalToken("{"))
+			.drop(parsePlusCalToken("}"))
+			.drop(parsePlusCalToken("}"))
+			.map(seq -> new ModularPlusCalMappingMacro(
+					seq.getLocation(),
+					seq.getValue().getFirst(),
+					Collections.emptyList(),
+					Collections.emptyList()));
 
 	// testing interface
 
 	static ModularPlusCalUnit readUnit(LexicalContext ctx) throws ParseFailureException {
-		return readOrExcept(ctx, parseOneOf(C_SYNTAX_ARCHETYPE, C_SYNTAX_INSTANCE));
+		return readOrExcept(ctx, parseOneOf(C_SYNTAX_ARCHETYPE, C_SYNTAX_INSTANCE, C_SYNTAX_MAPPING_MACRO));
 	}
 }

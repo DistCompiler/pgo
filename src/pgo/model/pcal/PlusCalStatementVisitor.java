@@ -1,5 +1,8 @@
 package pgo.model.pcal;
 
+import pgo.model.mpcal.ModularPlusCalRead;
+import pgo.model.mpcal.ModularPlusCalWrite;
+
 public abstract class PlusCalStatementVisitor<T, E extends Throwable>{
 	public abstract T visit(PlusCalLabeledStatements labeledStatements) throws E;
 	public abstract T visit(PlusCalWhile plusCalWhile) throws E;
@@ -15,4 +18,6 @@ public abstract class PlusCalStatementVisitor<T, E extends Throwable>{
 	public abstract T visit(PlusCalAssert plusCalAssert) throws E;
 	public abstract T visit(PlusCalAwait plusCalAwait) throws E;
 	public abstract T visit(PlusCalGoto plusCalGoto) throws E;
+	public abstract T visit(ModularPlusCalRead modularPlusCalRead) throws E;
+	public abstract T visit(ModularPlusCalWrite modularPlusCalWrite) throws E;
 }
