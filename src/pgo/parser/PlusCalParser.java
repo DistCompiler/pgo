@@ -1,6 +1,5 @@
 package pgo.parser;
 
-import pgo.model.mpcal.*;
 import pgo.model.pcal.*;
 import pgo.model.tla.*;
 
@@ -27,7 +26,7 @@ public final class PlusCalParser {
 	 * @param t the token to accept
 	 * @return the parse action
 	 */
-	private static Grammar<Located<Void>> parsePlusCalToken(String t){
+	static Grammar<Located<Void>> parsePlusCalToken(String t){
 		return emptySequence()
 				.drop(TLAParser.skipWhitespaceAndTLAComments())
 				.part(matchString(t))
@@ -60,12 +59,12 @@ public final class PlusCalParser {
 					info -> new VariableMap().put(MIN_COLUMN, -1))
 			.map(seq -> seq.getValue().getFirst());
 
-	private static final Grammar<Located<String>> IDENTIFIER = emptySequence()
+	static final Grammar<Located<String>> IDENTIFIER = emptySequence()
 			.drop(TLAParser.skipWhitespaceAndTLAComments())
 			.part(TLAParser.matchTLAIdentifier())
 			.map(seq -> seq.getValue().getFirst());
 
-	private static final Grammar<PlusCalVariableDeclaration> VARIABLE_DECLARATION = emptySequence()
+	static final Grammar<PlusCalVariableDeclaration> VARIABLE_DECLARATION = emptySequence()
 			.part(IDENTIFIER)
 			.part(parseOneOf(
 					parsePlusCalToken("\\in")
@@ -89,7 +88,7 @@ public final class PlusCalParser {
 			.drop(parseOneOf(parsePlusCalToken(";"), parsePlusCalToken(",")))
 			.map(seq -> seq.getValue().getFirst());
 
-	private static final Grammar<LocatedList<PlusCalVariableDeclaration>> VAR_DECLS = emptySequence()
+	static final Grammar<LocatedList<PlusCalVariableDeclaration>> VAR_DECLS = emptySequence()
 			.drop(parseOneOf(parsePlusCalToken("variables"), parsePlusCalToken("variable")))
 			.part(cut(repeatOneOrMore(VAR_DECL)))
 			.map(seq -> seq.getValue().getFirst());
@@ -118,16 +117,6 @@ public final class PlusCalParser {
 							.map(seq -> seq.getValue().getFirst())
 			))
 			.map(seq -> seq.getValue().getFirst());
-
-	private static final Grammar<ModularPlusCalVariableDeclaration> MPCAL_VAR_DECL = emptySequence()
-			.part(parseOneOf(
-					parsePlusCalToken("ref").map(seq -> new Located<>(seq.getLocation(), true)),
-					nop().map(seq -> new Located<>(seq.getLocation(), false))))
-			.part(IDENTIFIER)
-			.map(seq -> new ModularPlusCalVariableDeclaration(
-					seq.getLocation(),
-					seq.getValue().getFirst(),
-					seq.getValue().getRest().getFirst().getValue()));
 
 	// shortcut to parse a limited form of TLA+ identifiers (as seen in PlusCal assignments)
 	private static final Grammar<TLAGeneralIdentifier> TLA_IDEXPR = IDENTIFIER.map(id -> new TLAGeneralIdentifier(
@@ -221,7 +210,7 @@ public final class PlusCalParser {
 
 	// C-syntax
 
-	private static final ReferenceGrammar<LocatedList<PlusCalStatement>> C_SYNTAX_COMPOUND_STMT = new ReferenceGrammar<>();
+	static final ReferenceGrammar<LocatedList<PlusCalStatement>> C_SYNTAX_COMPOUND_STMT = new ReferenceGrammar<>();
 	private static final ReferenceGrammar<LocatedList<PlusCalStatement>> C_SYNTAX_STMT = new ReferenceGrammar<>();
 
 	private static final Grammar<PlusCalIf> C_SYNTAX_IF = emptySequence()
@@ -354,67 +343,6 @@ public final class PlusCalParser {
 			.drop(parsePlusCalToken("}"))
 			.drop(parseOneOf(parsePlusCalToken(";"), nop()))
 			.map(seq -> seq.getValue().getFirst());
-
-	private static final Grammar<ModularPlusCalArchetype> C_SYNTAX_ARCHETYPE = emptySequence()
-			.drop(parsePlusCalToken("archetype"))
-			.part(IDENTIFIER)
-			.drop(parsePlusCalToken("("))
-			.part(parseOneOf(
-					parseListOf(MPCAL_VAR_DECL, parsePlusCalToken(",")),
-					nop().map(seq ->
-							new LocatedList<ModularPlusCalVariableDeclaration>(
-									seq.getLocation(),
-									Collections.emptyList()))))
-			.drop(parsePlusCalToken(")"))
-			.part(parseOneOf(
-					VAR_DECLS,
-					nop().map(seq -> new LocatedList<PlusCalVariableDeclaration>(
-							seq.getLocation(),
-							Collections.emptyList()))))
-			.part(C_SYNTAX_COMPOUND_STMT)
-			.map(seq -> new ModularPlusCalArchetype(
-					seq.getLocation(),
-					seq.getValue().getRest().getRest().getRest().getFirst().getValue(),
-					seq.getValue().getRest().getRest().getFirst(),
-					seq.getValue().getRest().getFirst(),
-					seq.getValue().getFirst()));
-
-	private static final Grammar<ModularPlusCalMapping> MAPPING = emptySequence()
-			.drop(parsePlusCalToken("mapping"))
-			.part(IDENTIFIER)
-			.drop(parsePlusCalToken("via"))
-			.part(IDENTIFIER)
-			.map(seq -> new ModularPlusCalMapping(
-					seq.getLocation(),
-					seq.getValue().getRest().getFirst(),
-					seq.getValue().getFirst().getValue()));
-
-	private static final Grammar<ModularPlusCalInstance> C_SYNTAX_INSTANCE = emptySequence()
-			.drop(parsePlusCalToken("process"))
-			.drop(parsePlusCalToken("("))
-			.part(VARIABLE_DECLARATION)
-			.drop(parsePlusCalToken(")"))
-			.drop(parsePlusCalToken("="))
-			.drop(parsePlusCalToken("instance"))
-			.part(IDENTIFIER)
-			.drop(parsePlusCalToken("("))
-			.part(parseOneOf(
-					parseListOf(MPCAL_VAR_DECL, parsePlusCalToken(",")),
-					nop().map(seq -> new LocatedList<ModularPlusCalVariableDeclaration>(
-							seq.getLocation(),
-							Collections.emptyList()))))
-			.drop(parsePlusCalToken(")"))
-			.part(parseOneOf(
-					parseListOf(MAPPING, nop()),
-					nop().map(seq ->
-							new LocatedList<ModularPlusCalMapping>(seq.getLocation(), Collections.emptyList()))))
-			.drop(parsePlusCalToken(";"))
-			.map(seq -> new ModularPlusCalInstance(
-					seq.getLocation(),
-					seq.getValue().getRest().getRest().getRest().getFirst(),
-					seq.getValue().getRest().getRest().getFirst().getValue(),
-					seq.getValue().getRest().getFirst(),
-					seq.getValue().getFirst()));
 
 	private static final Grammar<PlusCalMacro> C_SYNTAX_MACRO = emptySequence()
 			.drop(parsePlusCalToken("macro"))
@@ -779,11 +707,5 @@ public final class PlusCalParser {
 
 	public static PlusCalAlgorithm readAlgorithm(LexicalContext ctx) throws ParseFailureException {
 		return readOrExcept(ctx, ALGORITHM);
-	}
-
-	// testing interface
-
-	static ModularPlusCalUnit readModularPlusCalUnit(LexicalContext ctx) throws ParseFailureException {
-		return readOrExcept(ctx, parseOneOf(C_SYNTAX_ARCHETYPE, C_SYNTAX_INSTANCE));
 	}
 }

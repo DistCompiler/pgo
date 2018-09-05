@@ -95,7 +95,7 @@ public class ModularPlusCalParserTest {
 	public void test() throws ParseFailureException {
 		LexicalContext ctx = new LexicalContext(testFile, String.join(System.lineSeparator(), unitString.split("\n")));
 		System.out.println(unitString);
-		ModularPlusCalUnit unit = PlusCalParser.readModularPlusCalUnit(ctx);
+		ModularPlusCalUnit unit = ModularPlusCalParser.readUnit(ctx);
 		assertThat(unit, is(unitExpected));
 	}
 }
