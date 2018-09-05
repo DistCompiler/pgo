@@ -2,8 +2,7 @@ package pgo.parser;
 
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertThat;
-import static pgo.model.mpcal.ModularPlusCalBuilder.archetype;
-import static pgo.model.mpcal.ModularPlusCalBuilder.mpcalVarDecl;
+import static pgo.model.mpcal.ModularPlusCalBuilder.*;
 import static pgo.model.pcal.PlusCalBuilder.*;
 import static pgo.model.tla.TLABuilder.*;
 
@@ -58,6 +57,27 @@ public class ModularPlusCalParserTest {
 														idexp("local1"),
 														idexp("local2"))))))
 				},
+
+				// simple instance
+				{"process (P \\in 1..3) = instance Archetype();",
+						instance(pcalVarDecl("P", true, binop("..", num(1), num(3))),
+								"Archetype", Collections.emptyList(), Collections.emptyList())
+				},
+
+				// full featured instance
+				{"process (P = \"P\") = instance Archetype(ref global1, ref global2, global3)\n" +
+						"mapping global1 via MappingMacro1\n" +
+						"mapping global2 via MappingMacro2;",
+						instance(pcalVarDecl("P", false, str("P")),
+								"Archetype",
+								Arrays.asList(
+										mpcalVarDecl("global1", true),
+										mpcalVarDecl("global2", true),
+										mpcalVarDecl("global3", false)),
+								Arrays.asList(
+										mapping("global1", "MappingMacro1"),
+										mapping("global2", "MappingMacro2")))
+				}
 		});
 	}
 

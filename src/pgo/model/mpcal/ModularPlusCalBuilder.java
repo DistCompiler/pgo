@@ -22,4 +22,17 @@ public class ModularPlusCalBuilder {
 	                                                List<PlusCalStatement> body) {
 		return new ModularPlusCalArchetype(SourceLocation.unknown(), name, arguments, variables, body);
 	}
+
+	public static ModularPlusCalMapping mapping(String name, String target) {
+		return new ModularPlusCalMapping(
+				SourceLocation.unknown(),
+				new Located<>(SourceLocation.unknown(), name),
+				target);
+	}
+
+	public static ModularPlusCalInstance instance(PlusCalVariableDeclaration name, String target,
+	                                              List<ModularPlusCalVariableDeclaration> params,
+	                                              List<ModularPlusCalMapping> mappings) {
+		return new ModularPlusCalInstance(SourceLocation.unknown(), name, target, params, mappings);
+	}
 }

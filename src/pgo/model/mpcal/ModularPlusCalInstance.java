@@ -1,52 +1,75 @@
 package pgo.model.mpcal;
 
-import pgo.TODO;
-import pgo.model.tla.TLAExpression;
-import pgo.parser.Located;
+import pgo.model.pcal.PlusCalVariableDeclaration;
 import pgo.util.SourceLocation;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * Modular PlusCal instance node
  *
- * instance A(exp, ref global, readOnlyGlobal)
+ * process (P \in 1..3) = instance A(exp, ref global, readOnlyGlobal)
  *     mapping global via MappingMacro;
- *     interleaving goto label;
+ *     interleaving goto label; // TODO
  */
 public class ModularPlusCalInstance extends ModularPlusCalUnit {
+	private PlusCalVariableDeclaration name;
 	private String target;
-	private List<TLAExpression> params;
+	private List<ModularPlusCalVariableDeclaration> params;
 	private List<ModularPlusCalMapping> mappings;
-	private Located<String> interleavingTarget;
+	// TODO
+	// private Located<String> interleavingTarget;
 
-	public ModularPlusCalInstance(SourceLocation location, String target, List<TLAExpression> params, List<ModularPlusCalMapping> mappings, Located<String> interleavingTarget) {
+	public ModularPlusCalInstance(SourceLocation location, PlusCalVariableDeclaration name, String target,
+	                              List<ModularPlusCalVariableDeclaration> params,
+	                              List<ModularPlusCalMapping> mappings) {
 		super(location);
+		this.name = name;
 		this.target = target;
 		this.params = params;
 		this.mappings = mappings;
-		this.interleavingTarget = interleavingTarget;
 	}
 
 	@Override
-	public ModularPlusCalNode copy() {
-		throw new TODO();
+	public ModularPlusCalInstance copy() {
+		return new ModularPlusCalInstance(
+				getLocation(),
+				name.copy(),
+				target,
+				params.stream().map(ModularPlusCalVariableDeclaration::copy).collect(Collectors.toList()),
+				mappings.stream().map(ModularPlusCalMapping::copy).collect(Collectors.toList()));
 	}
 
 	@Override
 	public int hashCode() {
-		throw new TODO();
+		return Objects.hash(name, target, params, mappings);
 	}
 
 	@Override
 	public boolean equals(Object obj) {
-		throw new TODO();
+		if (this == obj) {
+			return true;
+		}
+		if (obj == null || obj.getClass() != this.getClass()) {
+			return false;
+		}
+		ModularPlusCalInstance that = (ModularPlusCalInstance) obj;
+		return target.equals(that.target) &&
+				name.equals(that.name) &&
+				Objects.equals(params, that.params) &&
+				Objects.equals(mappings, that.mappings);
 	}
 
 	@Override
 	public <T, E extends Throwable> T accept(ModularPlusCalNodeVisitor<T, E> v) throws E {
 		return v.visit(this);
+	}
+
+	public PlusCalVariableDeclaration getName() {
+		return name;
 	}
 
 	public String getTarget() {
@@ -57,11 +80,7 @@ public class ModularPlusCalInstance extends ModularPlusCalUnit {
 		return Collections.unmodifiableList(mappings);
 	}
 
-	public Located<String> getInterleavingTarget() {
-		return interleavingTarget;
-	}
-
-	public List<TLAExpression> getParams() {
+	public List<ModularPlusCalVariableDeclaration> getParams() {
 		return Collections.unmodifiableList(params);
 	}
 }
