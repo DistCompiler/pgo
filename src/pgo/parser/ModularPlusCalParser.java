@@ -1,7 +1,10 @@
 package pgo.parser;
 
 import pgo.model.mpcal.*;
+import pgo.model.pcal.PlusCalMultiProcess;
+import pgo.model.pcal.PlusCalSingleProcess;
 import pgo.model.pcal.PlusCalVariableDeclaration;
+import pgo.model.tla.TLAUnit;
 
 import java.util.Collections;
 import java.util.regex.Pattern;
@@ -109,6 +112,14 @@ public class ModularPlusCalParser {
 			.part(IDENTIFIER)
 			.drop(parsePlusCalToken("{"))
 			.part(parseOneOf(
+					VAR_DECLS,
+					nop().map(seq -> new LocatedList<PlusCalVariableDeclaration>(
+							seq.getLocation(),
+							Collections.emptyList()))))
+			.part(parseOneOf(
+					C_SYNTAX_DEFINITIONS,
+					nop().map(seq -> new LocatedList<TLAUnit>(seq.getLocation(), Collections.emptyList()))))
+			.part(parseOneOf(
 					parseListOf(C_SYNTAX_MAPPING_MACRO, nop()),
 					nop().map(seq -> new LocatedList<ModularPlusCalMappingMacro>(
 							seq.getLocation(),
@@ -118,9 +129,22 @@ public class ModularPlusCalParser {
 					nop().map(seq -> new LocatedList<ModularPlusCalArchetype>(
 							seq.getLocation(),
 							Collections.emptyList()))))
+			.part(repeat(C_SYNTAX_MACRO))
+			.part(repeat(C_SYNTAX_PROCEDURE))
+			.part(repeat(C_SYNTAX_INSTANCE))
+			.part(parseOneOf(
+					C_SYNTAX_COMPOUND_STMT.map(stmts -> new PlusCalSingleProcess(stmts.getLocation(), stmts)),
+					repeatOneOrMore(C_SYNTAX_PROCESS).map(procs -> new PlusCalMultiProcess(procs.getLocation(), procs)),
+					nop().map(seq -> new PlusCalMultiProcess(seq.getLocation(), Collections.emptyList()))))
 			.drop(parsePlusCalToken("}"))
 			.map(seq -> new ModularPlusCalBlock(
 					seq.getLocation(),
+					seq.getValue().getRest().getRest().getRest().getRest().getRest().getRest().getRest().getRest().getFirst(),
+					seq.getValue().getRest().getRest().getRest().getRest().getRest().getRest().getRest().getFirst(),
+					seq.getValue().getRest().getRest().getRest().getRest().getRest().getRest().getFirst(),
+					seq.getValue().getRest().getRest().getRest().getRest().getRest().getFirst(),
+					seq.getValue().getRest().getRest().getRest().getRest().getFirst(),
+					seq.getValue().getRest().getRest().getRest().getFirst(),
 					seq.getValue().getRest().getRest().getFirst(),
 					seq.getValue().getRest().getFirst(),
 					seq.getValue().getFirst()));

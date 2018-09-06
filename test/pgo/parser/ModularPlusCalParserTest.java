@@ -8,6 +8,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import pgo.model.mpcal.ModularPlusCalBlock;
+import pgo.model.pcal.PlusCalMultiProcess;
+import pgo.util.SourceLocation;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -24,7 +26,15 @@ public class ModularPlusCalParserTest {
 						"(* --mpcal Test {\n" +
 						"}\n" +
 						"*)",
-						mpcal("Test", Collections.emptyList(), Collections.emptyList())
+						mpcal("Test",
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								new PlusCalMultiProcess(SourceLocation.unknown(), Collections.emptyList()))
 				},
 		});
 	}
