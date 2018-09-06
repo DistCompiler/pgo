@@ -1,8 +1,7 @@
 package pgo.trans.passes.codegen;
 
 import pgo.Unreachable;
-import pgo.model.mpcal.ModularPlusCalRead;
-import pgo.model.mpcal.ModularPlusCalWrite;
+import pgo.model.mpcal.ModularPlusCalYield;
 import pgo.model.pcal.*;
 
 public class PlusCalStatementContainsAwaitVisitor extends PlusCalStatementVisitor<Boolean, RuntimeException> {
@@ -92,12 +91,7 @@ public class PlusCalStatementContainsAwaitVisitor extends PlusCalStatementVisito
 	}
 
 	@Override
-	public Boolean visit(ModularPlusCalRead modularPlusCalRead) throws RuntimeException {
-		return false;
-	}
-
-	@Override
-	public Boolean visit(ModularPlusCalWrite modularPlusCalWrite) throws RuntimeException {
+	public Boolean visit(ModularPlusCalYield modularPlusCalYield) throws RuntimeException {
 		return false;
 	}
 }

@@ -3,8 +3,7 @@ package pgo.trans.intermediate;
 import pgo.TODO;
 import pgo.Unreachable;
 import pgo.errors.IssueContext;
-import pgo.model.mpcal.ModularPlusCalRead;
-import pgo.model.mpcal.ModularPlusCalWrite;
+import pgo.model.mpcal.ModularPlusCalYield;
 import pgo.model.pcal.*;
 import pgo.model.tla.TLAExpression;
 import pgo.modules.TLAModuleLoader;
@@ -139,12 +138,7 @@ public class PlusCalStatementScopingVisitor extends PlusCalStatementVisitor<Void
 	}
 
 	@Override
-	public Void visit(ModularPlusCalRead modularPlusCalRead) throws RuntimeException {
-		throw new TODO();
-	}
-
-	@Override
-	public Void visit(ModularPlusCalWrite modularPlusCalWrite) throws RuntimeException {
+	public Void visit(ModularPlusCalYield modularPlusCalYield) throws RuntimeException {
 		throw new TODO();
 	}
 }

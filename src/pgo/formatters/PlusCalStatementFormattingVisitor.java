@@ -1,8 +1,7 @@
 package pgo.formatters;
 
 import pgo.TODO;
-import pgo.model.mpcal.ModularPlusCalRead;
-import pgo.model.mpcal.ModularPlusCalWrite;
+import pgo.model.mpcal.ModularPlusCalYield;
 import pgo.model.pcal.*;
 import pgo.model.tla.TLAExpression;
 
@@ -152,12 +151,7 @@ public class PlusCalStatementFormattingVisitor extends PlusCalStatementVisitor<V
 	}
 
 	@Override
-	public Void visit(ModularPlusCalRead modularPlusCalRead) throws IOException {
-		throw new TODO();
-	}
-
-	@Override
-	public Void visit(ModularPlusCalWrite modularPlusCalWrite) throws IOException {
+	public Void visit(ModularPlusCalYield modularPlusCalYield) throws IOException {
 		throw new TODO();
 	}
 }
