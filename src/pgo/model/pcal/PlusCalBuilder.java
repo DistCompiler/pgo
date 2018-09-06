@@ -1,6 +1,7 @@
 package pgo.model.pcal;
 
 import pgo.model.mpcal.ModularPlusCalArchetype;
+import pgo.model.tla.PlusCalDefaultInitValue;
 import pgo.model.tla.TLAExpression;
 import pgo.model.tla.TLAUnit;
 import pgo.parser.Located;
@@ -12,6 +13,8 @@ import java.util.List;
 public class PlusCalBuilder {
 
 	private PlusCalBuilder() {}
+
+	public static PlusCalDefaultInitValue PLUSCAL_DEFAULT_INIT_VALUE = new PlusCalDefaultInitValue(SourceLocation.unknown());
 
 	public static PlusCalAlgorithm algorithm(String name, List<PlusCalVariableDeclaration> vars, List<ModularPlusCalArchetype> archetypes, List<PlusCalMacro> macros, List<PlusCalProcedure> procedures, List<TLAUnit> units, PlusCalLabeledStatements... statements) {
 		return new PlusCalAlgorithm(SourceLocation.unknown(), PlusCalFairness.UNFAIR,
@@ -32,6 +35,16 @@ public class PlusCalBuilder {
 
 	public static PlusCalMacro macro(String name, List<String> args, PlusCalStatement... statements) {
 		return new PlusCalMacro(SourceLocation.unknown(), name, args, Arrays.asList(statements));
+	}
+
+	public static PlusCalProcedure procedure(String name, List<PlusCalVariableDeclaration> args,
+	                                         List<PlusCalVariableDeclaration> vars, PlusCalStatement... statements) {
+		return new PlusCalProcedure(SourceLocation.unknown(), name, args, vars, Arrays.asList(statements));
+	}
+
+	public static PlusCalProcess process(PlusCalVariableDeclaration name, PlusCalFairness fairness,
+	                                     List<PlusCalVariableDeclaration> vars, PlusCalStatement... statements) {
+		return new PlusCalProcess(SourceLocation.unknown(), name, fairness, vars, Arrays.asList(statements));
 	}
 
 	public static PlusCalLabel label(String name) {

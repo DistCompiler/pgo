@@ -3,12 +3,17 @@ package pgo.parser;
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertThat;
 import static pgo.model.mpcal.ModularPlusCalBuilder.mpcal;
+import static pgo.model.pcal.PlusCalBuilder.*;
+import static pgo.model.tla.TLABuilder.*;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import pgo.model.mpcal.ModularPlusCalBlock;
+import pgo.model.pcal.PlusCalFairness;
 import pgo.model.pcal.PlusCalMultiProcess;
+import pgo.model.pcal.PlusCalProcess;
+import pgo.model.pcal.PlusCalSingleProcess;
 import pgo.util.SourceLocation;
 
 import java.nio.file.Path;
@@ -35,6 +40,74 @@ public class ModularPlusCalParserTest {
 								Collections.emptyList(),
 								Collections.emptyList(),
 								new PlusCalMultiProcess(SourceLocation.unknown(), Collections.emptyList()))
+				},
+				{"---- MODULE Test ----\n" +
+						"(* --mpcal Test {\n" +
+						"     variables global1 = 1, global2 = 2;\n" +
+						"     macro M(a) {\n" +
+						"       print a;\n" +
+						"     }\n" +
+						"     procedure P(b) {\n" +
+						"       print b;\n" +
+						"     }\n" +
+						"     {\n" +
+						"       print <<global1, global2>>;\n" +
+						"     }\n" +
+						"}\n" +
+						"*)",
+						mpcal("Test",
+								Arrays.asList(
+										pcalVarDecl("global1", false, num(1)),
+										pcalVarDecl("global2", false, num(2))),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.singletonList(macro("M", Collections.singletonList("a"), printS(idexp("a")))),
+								Collections.singletonList(procedure(
+										"P",
+										Collections.singletonList(pcalVarDecl("b", false, PLUSCAL_DEFAULT_INIT_VALUE)),
+										Collections.emptyList(),
+										printS(idexp("b")))),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								new PlusCalSingleProcess(
+										SourceLocation.unknown(),
+										Collections.singletonList(printS(tuple(idexp("global1"), idexp("global2"))))))
+				},
+				{"---- MODULE Test ----\n" +
+						"(* --mpcal Test {\n" +
+						"     variables global1 = 1, global2 = 2;\n" +
+						"     macro M(a) {\n" +
+						"       print a;\n" +
+						"     }\n" +
+						"     procedure P(b) {\n" +
+						"       print b;\n" +
+						"     }\n" +
+						"     process (P \\in 1..3) {\n" +
+						"       print <<global1, global2>>;\n" +
+						"     }\n" +
+						"}\n" +
+						"*)",
+						mpcal("Test",
+								Arrays.asList(
+										pcalVarDecl("global1", false, num(1)),
+										pcalVarDecl("global2", false, num(2))),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.singletonList(macro("M", Collections.singletonList("a"), printS(idexp("a")))),
+								Collections.singletonList(procedure(
+										"P",
+										Collections.singletonList(pcalVarDecl("b", false, PLUSCAL_DEFAULT_INIT_VALUE)),
+										Collections.emptyList(),
+										printS(idexp("b")))),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								new PlusCalMultiProcess(
+										SourceLocation.unknown(),
+										Collections.singletonList(process(
+												pcalVarDecl("P", true, binop("..", num(1), num(3))),
+												PlusCalFairness.UNFAIR,
+												Collections.emptyList(),
+												printS(tuple(idexp("global1"), idexp("global2")))))))
 				},
 		});
 	}
