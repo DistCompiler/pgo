@@ -336,7 +336,7 @@ public final class PlusCalParser {
 		);
 	}
 
-	private static final Grammar<LocatedList<TLAUnit>> C_SYNTAX_DEFINITIONS = emptySequence()
+	static final Grammar<LocatedList<TLAUnit>> C_SYNTAX_DEFINITIONS = emptySequence()
 			.drop(parsePlusCalToken("define"))
 			.drop(parsePlusCalToken("{"))
 			.part(repeat(TLAParser.UNIT))
@@ -344,7 +344,7 @@ public final class PlusCalParser {
 			.drop(parseOneOf(parsePlusCalToken(";"), nop()))
 			.map(seq -> seq.getValue().getFirst());
 
-	private static final Grammar<PlusCalMacro> C_SYNTAX_MACRO = emptySequence()
+	static final Grammar<PlusCalMacro> C_SYNTAX_MACRO = emptySequence()
 			.drop(parsePlusCalToken("macro"))
 			.part(IDENTIFIER)
 			.drop(parsePlusCalToken("("))
@@ -360,7 +360,7 @@ public final class PlusCalParser {
 					seq.getValue().getRest().getFirst().stream().map(Located::getValue).collect(Collectors.toList()),
 					seq.getValue().getFirst()));
 
-	private static final Grammar<PlusCalProcedure> C_SYNTAX_PROCEDURE = emptySequence()
+	static final Grammar<PlusCalProcedure> C_SYNTAX_PROCEDURE = emptySequence()
 			.drop(parsePlusCalToken("procedure"))
 			.part(IDENTIFIER)
 			.drop(parsePlusCalToken("("))
@@ -383,7 +383,7 @@ public final class PlusCalParser {
 					seq.getValue().getFirst())
 			);
 
-	private static final Grammar<PlusCalProcess> C_SYNTAX_PROCESS = emptySequence()
+	static final Grammar<PlusCalProcess> C_SYNTAX_PROCESS = emptySequence()
 			.part(parseOneOf(
 					emptySequence()
 							.drop(parsePlusCalToken("fair"))

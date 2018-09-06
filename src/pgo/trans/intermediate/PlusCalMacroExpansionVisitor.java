@@ -2,8 +2,7 @@ package pgo.trans.intermediate;
 
 import pgo.Unreachable;
 import pgo.errors.IssueContext;
-import pgo.model.mpcal.ModularPlusCalRead;
-import pgo.model.mpcal.ModularPlusCalWrite;
+import pgo.model.mpcal.ModularPlusCalYield;
 import pgo.model.pcal.*;
 import pgo.model.tla.TLAExpression;
 
@@ -11,7 +10,6 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 public class PlusCalMacroExpansionVisitor extends PlusCalStatementVisitor<List<PlusCalStatement>, RuntimeException> {
-
 	private IssueContext ctx;
 	private Map<String, PlusCalMacro> macros;
 	private Set<String> recursionSet;
@@ -151,13 +149,7 @@ public class PlusCalMacroExpansionVisitor extends PlusCalStatementVisitor<List<P
 	}
 
 	@Override
-	public List<PlusCalStatement> visit(ModularPlusCalRead modularPlusCalRead) throws RuntimeException {
+	public List<PlusCalStatement> visit(ModularPlusCalYield modularPlusCalYield) throws RuntimeException {
 		throw new Unreachable();
 	}
-
-	@Override
-	public List<PlusCalStatement> visit(ModularPlusCalWrite modularPlusCalWrite) throws RuntimeException {
-		throw new Unreachable();
-	}
-
 }

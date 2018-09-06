@@ -6,14 +6,14 @@ import pgo.model.pcal.PlusCalStatementVisitor;
 import pgo.util.SourceLocation;
 
 /**
- * Write statement
+ * Read statement
  *
- * write exp;
+ * yield exp;
  *
- * where exp may contain $old and $value
+ * where exp may contain $value and $old
  */
-public class ModularPlusCalWrite extends PlusCalStatement {
-	public ModularPlusCalWrite(SourceLocation location) {
+public class ModularPlusCalYield extends PlusCalStatement {
+	public ModularPlusCalYield(SourceLocation location) {
 		super(location);
 	}
 

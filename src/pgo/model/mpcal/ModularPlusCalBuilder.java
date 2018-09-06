@@ -1,7 +1,7 @@
 package pgo.model.mpcal;
 
-import pgo.model.pcal.PlusCalStatement;
-import pgo.model.pcal.PlusCalVariableDeclaration;
+import pgo.model.pcal.*;
+import pgo.model.tla.TLAUnit;
 import pgo.parser.Located;
 import pgo.util.SourceLocation;
 
@@ -45,12 +45,18 @@ public class ModularPlusCalBuilder {
 				writeBody);
 	}
 
-	public static ModularPlusCalBlock mpcal(String name, List<ModularPlusCalMappingMacro> mappingMacros,
-	                                        List<ModularPlusCalArchetype> archetypes) {
+	public static ModularPlusCalBlock mpcal(String name, List<PlusCalVariableDeclaration> variables,
+	                                        List<ModularPlusCalMappingMacro> mappingMacros,
+	                                        List<ModularPlusCalArchetype> archetypes, List<PlusCalMacro> macros,
+	                                        List<PlusCalProcedure> procedures, List<TLAUnit> units,
+	                                        List<ModularPlusCalInstance> instances, PlusCalProcesses processes) {
 		return new ModularPlusCalBlock(
 				SourceLocation.unknown(),
 				new Located<>(SourceLocation.unknown(), name),
-				mappingMacros,
-				archetypes);
+				variables,
+				units, mappingMacros,
+				archetypes,
+				macros, procedures, instances, processes
+		);
 	}
 }
