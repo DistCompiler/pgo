@@ -16,10 +16,10 @@ import java.util.stream.Collectors;
  *     interleaving goto label; // TODO
  */
 public class ModularPlusCalInstance extends ModularPlusCalUnit {
-	private PlusCalVariableDeclaration name;
-	private String target;
-	private List<ModularPlusCalVariableDeclaration> params;
-	private List<ModularPlusCalMapping> mappings;
+	private final PlusCalVariableDeclaration name;
+	private final String target;
+	private final List<ModularPlusCalVariableDeclaration> params;
+	private final List<ModularPlusCalMapping> mappings;
 	// TODO
 	// private Located<String> interleavingTarget;
 
