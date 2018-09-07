@@ -7,9 +7,9 @@ import pgo.util.SourceLocation;
 import java.util.Objects;
 
 public class ModularPlusCalMapping extends SourceLocatable {
-	private SourceLocation location;
-	private Located<String> name;
-	private String target;
+	private final SourceLocation location;
+	private final Located<String> name;
+	private final String target;
 
 	public ModularPlusCalMapping(SourceLocation location, Located<String> name, String target) {
 		this.location = location;

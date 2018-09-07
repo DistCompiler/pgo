@@ -10,9 +10,8 @@ import java.io.IOException;
 import java.io.StringWriter;
 
 public abstract class ModularPlusCalNode extends SourceLocatable {
-
-	private SourceLocation location;
-	private UID uid;
+	private final SourceLocation location;
+	private final UID uid;
 
 	public ModularPlusCalNode(SourceLocation location) {
 		this.location = location;
@@ -50,5 +49,4 @@ public abstract class ModularPlusCalNode extends SourceLocatable {
 		}
 		return w.toString();
 	}
-
 }

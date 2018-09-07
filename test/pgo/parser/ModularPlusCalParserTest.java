@@ -12,7 +12,6 @@ import org.junit.runners.Parameterized;
 import pgo.model.mpcal.ModularPlusCalBlock;
 import pgo.model.pcal.PlusCalFairness;
 import pgo.model.pcal.PlusCalMultiProcess;
-import pgo.model.pcal.PlusCalProcess;
 import pgo.model.pcal.PlusCalSingleProcess;
 import pgo.util.SourceLocation;
 

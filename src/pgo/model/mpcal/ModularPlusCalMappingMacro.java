@@ -22,9 +22,9 @@ import java.util.stream.Collectors;
  * }
  */
 public class ModularPlusCalMappingMacro extends ModularPlusCalUnit {
-	private Located<String> name;
-	private List<PlusCalStatement> readBody;
-	private List<PlusCalStatement> writeBody;
+	private final Located<String> name;
+	private final List<PlusCalStatement> readBody;
+	private final List<PlusCalStatement> writeBody;
 
 	public ModularPlusCalMappingMacro(SourceLocation location, Located<String> name, List<PlusCalStatement> readBody,
 	                                  List<PlusCalStatement> writeBody) {

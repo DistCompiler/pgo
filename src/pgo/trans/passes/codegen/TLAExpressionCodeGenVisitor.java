@@ -490,4 +490,14 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 	public GoExpression visit(TLAFairness fairness) throws RuntimeException {
 		throw new TODO();
 	}
+
+	@Override
+	public GoExpression visit(TLASpecialVariableOld tlaSpecialVariableOld) throws RuntimeException {
+		throw new TODO();
+	}
+
+	@Override
+	public GoExpression visit(TLASpecialVariableValue tlaSpecialVariableValue) throws RuntimeException {
+		throw new TODO();
+	}
 }

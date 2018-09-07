@@ -1,5 +1,6 @@
 package pgo.trans.intermediate;
 
+import pgo.TODO;
 import pgo.model.tla.*;
 import pgo.modules.TLAModuleLoader;
 import pgo.scope.UID;
@@ -269,6 +270,16 @@ public class TLAExpressionScopingVisitor extends TLAExpressionVisitor<Void, Runt
 		fairness.getVars().accept(this);
 		fairness.getExpression().accept(this);
 		return null;
+	}
+
+	@Override
+	public Void visit(TLASpecialVariableOld tlaSpecialVariableOld) throws RuntimeException {
+		throw new TODO();
+	}
+
+	@Override
+	public Void visit(TLASpecialVariableValue tlaSpecialVariableValue) throws RuntimeException {
+		throw new TODO();
 	}
 
 }

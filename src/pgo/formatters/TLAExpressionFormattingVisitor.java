@@ -1,5 +1,6 @@
 package pgo.formatters;
 
+import pgo.TODO;
 import pgo.model.tla.*;
 import pgo.parser.TLAParser;
 
@@ -345,6 +346,18 @@ public class TLAExpressionFormattingVisitor extends TLAExpressionVisitor<Void, I
 		out.write("(");
 		fairness.getExpression().accept(this);
 		out.write(")");
+		return null;
+	}
+
+	@Override
+	public Void visit(TLASpecialVariableOld tlaSpecialVariableOld) throws IOException {
+		out.write("$old");
+		return null;
+	}
+
+	@Override
+	public Void visit(TLASpecialVariableValue tlaSpecialVariableValue) throws IOException {
+		out.write("$value");
 		return null;
 	}
 

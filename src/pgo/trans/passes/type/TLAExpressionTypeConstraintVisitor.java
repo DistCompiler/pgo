@@ -403,4 +403,14 @@ public class TLAExpressionTypeConstraintVisitor extends TLAExpressionVisitor<PGo
 		throw new InternalCompilerError();
 	}
 
+	@Override
+	public PGoType visit(TLASpecialVariableOld tlaSpecialVariableOld) throws RuntimeException {
+		throw new TODO();
+	}
+
+	@Override
+	public PGoType visit(TLASpecialVariableValue tlaSpecialVariableValue) throws RuntimeException {
+		throw new TODO();
+	}
+
 }

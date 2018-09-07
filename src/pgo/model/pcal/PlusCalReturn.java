@@ -3,7 +3,6 @@ package pgo.model.pcal;
 import pgo.util.SourceLocation;
 
 public class PlusCalReturn extends PlusCalStatement {
-	
 	public PlusCalReturn(SourceLocation location) {
 		super(location);
 	}
@@ -25,7 +24,6 @@ public class PlusCalReturn extends PlusCalStatement {
 	
 	@Override
 	public boolean equals(Object other) {
-		return other != null && other instanceof PlusCalReturn;
+		return other instanceof PlusCalReturn;
 	}
-
 }

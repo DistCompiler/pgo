@@ -96,16 +96,20 @@ public class ModularPlusCalParser {
 			.drop(parsePlusCalToken("{"))
 			.drop(parsePlusCalToken("read"))
 			.drop(parsePlusCalToken("{"))
+			.part(parseListOf(C_SYNTAX_UNLABELED_STMT, parsePlusCalToken(";")))
+			.drop(parseOneOf(parsePlusCalToken(";"), nop()))
 			.drop(parsePlusCalToken("}"))
 			.drop(parsePlusCalToken("write"))
 			.drop(parsePlusCalToken("{"))
+			.part(parseListOf(C_SYNTAX_UNLABELED_STMT, parsePlusCalToken(";")))
+			.drop(parseOneOf(parsePlusCalToken(";"), nop()))
 			.drop(parsePlusCalToken("}"))
 			.drop(parsePlusCalToken("}"))
 			.map(seq -> new ModularPlusCalMappingMacro(
 					seq.getLocation(),
-					seq.getValue().getFirst(),
-					Collections.emptyList(),
-					Collections.emptyList()));
+					seq.getValue().getRest().getRest().getFirst(),
+					seq.getValue().getRest().getFirst(),
+					seq.getValue().getFirst()));
 
 	private static final Grammar<ModularPlusCalBlock> C_SYNTAX_MPCAL = emptySequence()
 			.drop(parsePlusCalToken("--mpcal"))

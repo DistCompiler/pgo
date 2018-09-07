@@ -21,7 +21,7 @@ public class ModularPlusCalInstance extends ModularPlusCalUnit {
 	private final List<ModularPlusCalVariableDeclaration> params;
 	private final List<ModularPlusCalMapping> mappings;
 	// TODO
-	// private Located<String> interleavingTarget;
+	// private final Located<String> interleavingTarget;
 
 	public ModularPlusCalInstance(SourceLocation location, PlusCalVariableDeclaration name, String target,
 	                              List<ModularPlusCalVariableDeclaration> params,

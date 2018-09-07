@@ -3,6 +3,7 @@ package pgo.model.pcal;
 import pgo.util.SourceLocation;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 public class PlusCalEither extends PlusCalStatement {
@@ -16,9 +17,11 @@ public class PlusCalEither extends PlusCalStatement {
 	
 	@Override
 	public PlusCalEither copy() {
-		return new PlusCalEither(getLocation(), cases.stream().map(stmts -> {
-			return stmts.stream().map(PlusCalStatement::copy).collect(Collectors.toList());
-		}).collect(Collectors.toList()));
+		return new PlusCalEither(
+				getLocation(),
+				cases.stream()
+						.map(stmts -> stmts.stream().map(PlusCalStatement::copy).collect(Collectors.toList()))
+						.collect(Collectors.toList()));
 	}
 	
 	public List<List<PlusCalStatement>> getCases(){
@@ -40,16 +43,18 @@ public class PlusCalEither extends PlusCalStatement {
 
 	@Override
 	public boolean equals(Object obj) {
-		if (this == obj)
+		if (this == obj) {
 			return true;
-		if (obj == null)
+		}
+		if (obj == null || getClass() != obj.getClass()) {
 			return false;
-		if (getClass() != obj.getClass())
-			return false;
+		}
 		PlusCalEither other = (PlusCalEither) obj;
 		if (cases == null) {
 			return other.cases == null;
-		} else return cases.equals(other.cases);
+		} else {
+			return Objects.equals(cases, other.cases);
+		}
 	}
 
 }

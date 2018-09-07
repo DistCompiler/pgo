@@ -82,12 +82,57 @@ public class ModularPlusCalUnitParserTest {
 				// simple mapping macro
 				{"mapping macro MappingMacro {\n" +
 						"  read {\n" +
+						"    yield $value;\n" +
 						"  }\n" +
 						"  write {\n" +
+						"    yield $value;\n" +
 						"  }\n" +
 						"}",
-						mappingMacro("MappingMacro", Collections.emptyList(), Collections.emptyList())
+						mappingMacro("MappingMacro",
+								Collections.singletonList(yield(DOLLAR_VALUE)),
+								Collections.singletonList(yield(DOLLAR_VALUE)))
 				},
+
+				// mapping macro with either
+				{"mapping macro UnreliableCounter {\n" +
+						"  read {\n" +
+						"    yield $value;\n" +
+						"  }\n" +
+						"  write {\n" +
+						"    either {\n" +
+						"      yield $old + $value;\n" +
+						"    } or {\n" +
+						"      yield $old;\n" +
+						"    }\n" +
+						"  }\n" +
+						"}",
+						mappingMacro("UnreliableCounter",
+								Collections.singletonList(yield(DOLLAR_VALUE)),
+								Collections.singletonList(
+										either(
+										Arrays.asList(
+												Collections.singletonList(
+														yield(binop("+", DOLLAR_OLD, DOLLAR_VALUE))),
+												Collections.singletonList(
+														yield(DOLLAR_OLD))))))
+				},
+
+				// mapping macro with multiple statements
+				{"mapping macro MappingMacro {\n" +
+						"  read {\n" +
+						"    await someSpecialCondition;" +
+						"    yield $value;\n" +
+						"  }\n" +
+						"  write {\n" +
+						"    yield $value;\n" +
+						"  }\n" +
+						"}",
+						mappingMacro("MappingMacro",
+								Arrays.asList(
+										await(idexp("someSpecialCondition")),
+										yield(DOLLAR_VALUE)),
+								Collections.singletonList(yield(DOLLAR_VALUE)))
+				}
 		});
 	}
 

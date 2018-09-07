@@ -1,6 +1,7 @@
 package pgo.model.pcal;
 
 import pgo.model.mpcal.ModularPlusCalArchetype;
+import pgo.model.mpcal.ModularPlusCalYield;
 import pgo.model.tla.PlusCalDefaultInitValue;
 import pgo.model.tla.TLAExpression;
 import pgo.model.tla.TLAUnit;
@@ -11,7 +12,6 @@ import java.util.Arrays;
 import java.util.List;
 
 public class PlusCalBuilder {
-
 	private PlusCalBuilder() {}
 
 	public static PlusCalDefaultInitValue PLUSCAL_DEFAULT_INIT_VALUE = new PlusCalDefaultInitValue(SourceLocation.unknown());
@@ -63,4 +63,15 @@ public class PlusCalBuilder {
 		return new PlusCalPrint(SourceLocation.unknown(), expr);
 	}
 
+	public static PlusCalEither either(List<List<PlusCalStatement>> cases) {
+		return new PlusCalEither(SourceLocation.unknown(), cases);
+	}
+
+	public static PlusCalAwait await(TLAExpression cond) {
+		return new PlusCalAwait(SourceLocation.unknown(), cond);
+	}
+
+	public static ModularPlusCalYield yield(TLAExpression expr) {
+		return new ModularPlusCalYield(SourceLocation.unknown(), expr);
+	}
 }

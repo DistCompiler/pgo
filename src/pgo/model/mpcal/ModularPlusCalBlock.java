@@ -54,8 +54,7 @@ public class ModularPlusCalBlock extends ModularPlusCalNode {
 				macros.stream().map(PlusCalMacro::copy).collect(Collectors.toList()),
 				procedures.stream().map(PlusCalProcedure::copy).collect(Collectors.toList()),
 				instances.stream().map(ModularPlusCalInstance::copy).collect(Collectors.toList()),
-				processes.copy()
-		);
+				processes.copy());
 	}
 
 	@Override

@@ -1,5 +1,6 @@
 package pgo.parser;
 
+import pgo.model.mpcal.ModularPlusCalYield;
 import pgo.model.pcal.*;
 import pgo.model.tla.*;
 
@@ -208,6 +209,11 @@ public final class PlusCalParser {
 					seq.getValue().getRest().getFirst().getValue(),
 					seq.getValue().getFirst()));
 
+	private static final Grammar<ModularPlusCalYield> YIELD = emptySequence()
+			.drop(parsePlusCalToken("yield"))
+			.part(TLA_EXPRESSION)
+			.map(seq -> new ModularPlusCalYield(seq.getLocation(), seq.getValue().getFirst()));
+
 	// C-syntax
 
 	static final ReferenceGrammar<LocatedList<PlusCalStatement>> C_SYNTAX_COMPOUND_STMT = new ReferenceGrammar<>();
@@ -272,7 +278,7 @@ public final class PlusCalParser {
 					seq.getValue().getRest().getFirst(),
 					seq.getValue().getFirst()));
 
-	private static final Grammar<PlusCalStatement> C_SYNTAX_UNLABELED_STMT = parseOneOf(
+	static final Grammar<PlusCalStatement> C_SYNTAX_UNLABELED_STMT = parseOneOf(
 			ASSIGN,
 			C_SYNTAX_IF,
 			C_SYNTAX_WHILE,
@@ -285,7 +291,8 @@ public final class PlusCalParser {
 			RETURN,
 			GOTO,
 			CALL,
-			MACRO_CALL
+			MACRO_CALL,
+			YIELD
 	);
 
 	static {
@@ -530,7 +537,7 @@ public final class PlusCalParser {
 					seq.getValue().getRest().getFirst(),
 					seq.getValue().getFirst()));
 
-	private static final Grammar<PlusCalStatement> P_SYNTAX_UNLABELEDSTMT = parseOneOf(
+	private static final Grammar<PlusCalStatement> P_SYNTAX_UNLABELED_STMT = parseOneOf(
 			ASSIGN,
 			P_SYNTAX_IF,
 			P_SYNTAX_WHILE,
@@ -565,14 +572,14 @@ public final class PlusCalParser {
 												seq.getValue().getRest().getFirst().getValue(),
 												seq.getValue().getFirst().getValue()))
 								)
-								.part(cut(parseListOf(P_SYNTAX_UNLABELEDSTMT, parsePlusCalToken(";")))) // catch repeated statements instead of parsing them as sibling node)
+								.part(cut(parseListOf(P_SYNTAX_UNLABELED_STMT, parsePlusCalToken(";")))) // catch repeated statements instead of parsing them as sibling node)
 								.drop(parsePlusCalToken(";"))
 								.map(seq -> new PlusCalLabeledStatements(
 												seq.getLocation(),
 												seq.getValue().getRest().getFirst(),
 												seq.getValue().getFirst())),
 						emptySequence()
-								.part(P_SYNTAX_UNLABELEDSTMT)
+								.part(P_SYNTAX_UNLABELED_STMT)
 								.drop(parsePlusCalToken(";"))
 								.map(seq -> seq.getValue().getFirst()))
 		);

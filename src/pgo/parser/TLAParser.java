@@ -113,14 +113,15 @@ import static pgo.parser.ParseTools.*;
 public final class TLAParser {
 
 	private static final Pattern TLA_IDENTIFIER = Pattern.compile("(?!WF_)(?!SF_)[a-z0-9_A-Z]*[a-zA-Z][a-z0-9_A-Z]*");
-	private static final List<String> TLA_RESERVED_WORDS = Arrays.asList(
+	private static final List<String> TLA_RESERVED_WORDS = Stream.of(
 			"ASSUME", "ASSUMPTION", "AXIOM", "CASE", "CHOOSE", "CONSTANT", "CONSTANTS", "DOMAIN",
 			"ELSE", "ENABLED", "EXCEPT", "EXTENDS", "IF", "IN", "INSTANCE", "LET", "LOCAL",
 			"MODULE", "OTHER", "SF_", "SUBSET", "THEN", "THEOREM", "UNCHANGED", "UNION", "VARIABLE",
 			"VARIABLES", "WF_", "WITH"
-	).stream().sorted(Comparator.comparing(String::length).reversed()).collect(Collectors.toList());
+	).sorted(Comparator.comparing(String::length).reversed()).collect(Collectors.toList());
 
-	public static final List<String> PREFIX_OPERATORS = Arrays.asList("-",
+	public static final List<String> PREFIX_OPERATORS = Stream.of(
+			"-",
 			"~",
 			"\\lnot",
 			"\\neg",
@@ -131,7 +132,6 @@ public final class TLAParser {
 			"SUBSET",
 			"UNCHANGED",
 			"UNION")
-			.stream()
 			.sorted(Comparator.comparingInt(String::length).reversed())
 			.collect(Collectors.toList());
 
@@ -253,7 +253,7 @@ public final class TLAParser {
 						seq.getValue()
 								.getFirst()
 								.stream()
-								.map(p -> p.getValue())
+								.map(Located::getValue)
 								.collect(Collectors.joining())));
 	}
 
@@ -1454,7 +1454,7 @@ public final class TLAParser {
 				.drop(reject(
 						parseOneOf(
 								supersets.stream()
-										.map(sup -> parseTLAToken(sup))
+										.map(TLAParser::parseTLAToken)
 										.collect(Collectors.toList()))))
 				.part(parseTLAToken(operator))
 				.map(seq -> seq.getValue().getFirst());
@@ -1481,6 +1481,9 @@ public final class TLAParser {
 	static {
 		EXPRESSION_NO_OPERATORS.setReferencedGrammar(
 				parseOneOf(
+						parseTLAToken("$old").map(seq -> new TLASpecialVariableOld(seq.getLocation())),
+						parseTLAToken("$value").map(seq -> new TLASpecialVariableValue(seq.getLocation())),
+
 						parseTLANumber(),
 						parseTLAString(),
 						parseTLATokenOneOf(

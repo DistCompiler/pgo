@@ -8,8 +8,10 @@ import java.util.Collections;
 import java.util.List;
 
 public class TLABuilder {
-	
 	private TLABuilder() {}
+
+	public static TLASpecialVariableOld DOLLAR_OLD = new TLASpecialVariableOld(SourceLocation.unknown());
+	public static TLASpecialVariableValue DOLLAR_VALUE = new TLASpecialVariableValue(SourceLocation.unknown());
 	
 	public static TLAFunction function(List<TLAQuantifierBound> args, TLAExpression body) {
 		return new TLAFunction(SourceLocation.unknown(), args, body);
@@ -200,5 +202,4 @@ public class TLABuilder {
 	public static TLABool bool(boolean val) {
 		return new TLABool(SourceLocation.unknown(), val);
 	}
-	
 }

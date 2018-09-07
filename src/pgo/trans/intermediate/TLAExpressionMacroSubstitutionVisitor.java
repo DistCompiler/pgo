@@ -1,5 +1,6 @@
 package pgo.trans.intermediate;
 
+import pgo.TODO;
 import pgo.errors.IssueContext;
 import pgo.model.tla.*;
 
@@ -251,6 +252,16 @@ public class TLAExpressionMacroSubstitutionVisitor extends TLAExpressionVisitor<
 		return new TLAFairness(
 				fairness.getLocation(), fairness.getType(), fairness.getVars().accept(this),
 				fairness.getExpression().accept(this));
+	}
+
+	@Override
+	public TLAExpression visit(TLASpecialVariableOld tlaSpecialVariableOld) throws RuntimeException {
+		throw new TODO();
+	}
+
+	@Override
+	public TLAExpression visit(TLASpecialVariableValue tlaSpecialVariableValue) throws RuntimeException {
+		throw new TODO();
 	}
 
 }
