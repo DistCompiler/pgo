@@ -1,4 +1,4 @@
-package pgo.trans.intermediate;
+package pgo.trans.passes.mpcal;
 
 import pgo.errors.IssueContext;
 import pgo.model.mpcal.ModularPlusCalBlock;
