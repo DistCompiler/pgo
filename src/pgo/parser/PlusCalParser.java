@@ -60,6 +60,17 @@ public final class PlusCalParser {
 					info -> new VariableMap().put(MIN_COLUMN, -1))
 			.map(seq -> seq.getValue().getFirst());
 
+	static final Grammar<TLAExpression> MODULAR_PLUSCAL_PARAMETER = parseOneOf(
+			TLA_EXPRESSION,
+			emptySequence()
+					.dependentPart(emptySequence()
+									.drop(TLAParser.parseTLAToken("ref"))
+									.drop(TLAParser.skipWhitespaceAndTLAComments())
+									.part(TLAParser.matchTLAIdentifier())
+									.map(seq -> new TLARef(seq.getLocation(), seq.getValue().getFirst().getValue())),
+							info -> new VariableMap().put(MIN_COLUMN, -1))
+					.map(seq -> seq.getValue().getFirst()));
+
 	static final Grammar<Located<String>> IDENTIFIER = emptySequence()
 			.drop(TLAParser.skipWhitespaceAndTLAComments())
 			.part(TLAParser.matchTLAIdentifier())
@@ -77,6 +88,7 @@ public final class PlusCalParser {
 			.map(seq -> new PlusCalVariableDeclaration(
 					seq.getLocation(),
 					seq.getValue().getRest().getRest().getFirst(),
+					false,
 					seq.getValue().getRest().getFirst().getValue(),
 					seq.getValue().getFirst()));
 
@@ -84,7 +96,7 @@ public final class PlusCalParser {
 			.part(parseOneOf(
 					VARIABLE_DECLARATION,
 					IDENTIFIER.map(id -> new PlusCalVariableDeclaration(
-							id.getLocation(), id, false, new PlusCalDefaultInitValue(id.getLocation())))
+							id.getLocation(), id, false, false, new PlusCalDefaultInitValue(id.getLocation())))
 			))
 			.drop(parseOneOf(parsePlusCalToken(";"), parsePlusCalToken(",")))
 			.map(seq -> seq.getValue().getFirst());
@@ -94,20 +106,30 @@ public final class PlusCalParser {
 			.part(cut(repeatOneOrMore(VAR_DECL)))
 			.map(seq -> seq.getValue().getFirst());
 
-	private static final Grammar<PlusCalVariableDeclaration> PVAR_DECL = emptySequence()
-			.part(IDENTIFIER)
-			.part(parseOneOf(
-					emptySequence()
-							.drop(parsePlusCalToken("="))
-							.part(TLA_EXPRESSION)
-							.map(seq -> seq.getValue().getFirst()),
-					nop().map(v -> new PlusCalDefaultInitValue(v.getLocation()))
-			))
-			.map(seq -> new PlusCalVariableDeclaration(
-					seq.getLocation(),
-					seq.getValue().getRest().getFirst(),
-					false,
-					seq.getValue().getFirst()));
+	private static final Grammar<PlusCalVariableDeclaration> PVAR_DECL = parseOneOf(
+			emptySequence()
+					.drop(parsePlusCalToken("ref"))
+					.part(IDENTIFIER)
+					.map(seq -> new PlusCalVariableDeclaration(
+							seq.getLocation(),
+							seq.getValue().getFirst(),
+							true,
+							false,
+							new PlusCalDefaultInitValue(seq.getLocation()))),
+			emptySequence()
+					.part(IDENTIFIER)
+					.part(parseOneOf(
+							emptySequence()
+									.drop(parsePlusCalToken("="))
+									.part(TLA_EXPRESSION)
+									.map(seq -> seq.getValue().getFirst()),
+							nop().map(v -> new PlusCalDefaultInitValue(v.getLocation()))))
+					.map(seq -> new PlusCalVariableDeclaration(
+							seq.getLocation(),
+							seq.getValue().getRest().getFirst(),
+							false,
+							false,
+							seq.getValue().getFirst())));
 
 	private static final Grammar<LocatedList<PlusCalVariableDeclaration>> PVAR_DECLS = emptySequence()
 			.drop(parseOneOf(parsePlusCalToken("variables"), parsePlusCalToken("variable")))
@@ -189,7 +211,7 @@ public final class PlusCalParser {
 			.part(IDENTIFIER)
 			.drop(parsePlusCalToken("("))
 			.part(parseOneOf(
-					parseListOf(TLA_EXPRESSION, parsePlusCalToken(",")),
+					parseListOf(MODULAR_PLUSCAL_PARAMETER, parsePlusCalToken(",")),
 					nop().map(v -> new LocatedList<TLAExpression>(v.getLocation(), Collections.emptyList()))))
 			.drop(parsePlusCalToken(")"))
 			.map(seq -> new PlusCalCall(

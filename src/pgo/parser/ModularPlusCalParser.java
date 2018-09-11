@@ -4,6 +4,8 @@ import pgo.model.mpcal.*;
 import pgo.model.pcal.PlusCalMultiProcess;
 import pgo.model.pcal.PlusCalSingleProcess;
 import pgo.model.pcal.PlusCalVariableDeclaration;
+import pgo.model.tla.PlusCalDefaultInitValue;
+import pgo.model.tla.TLAExpression;
 import pgo.model.tla.TLAUnit;
 
 import java.util.Collections;
@@ -18,15 +20,17 @@ public class ModularPlusCalParser {
 	private static final Pattern FIND_MPCAL = Pattern.compile(".*?\\(\\*.*?(?=--mpcal)", Pattern.DOTALL);
 	private static final Pattern AFTER_MPCAL = Pattern.compile(".*?\\*\\).*$", Pattern.DOTALL);
 
-	private static final Grammar<ModularPlusCalVariableDeclaration> MPCAL_VAR_DECL = emptySequence()
+	private static final Grammar<PlusCalVariableDeclaration> MPCAL_VAR_DECL = emptySequence()
 			.part(parseOneOf(
 					parsePlusCalToken("ref").map(seq -> new Located<>(seq.getLocation(), true)),
 					nop().map(seq -> new Located<>(seq.getLocation(), false))))
 			.part(IDENTIFIER)
-			.map(seq -> new ModularPlusCalVariableDeclaration(
+			.map(seq -> new PlusCalVariableDeclaration(
 					seq.getLocation(),
 					seq.getValue().getFirst(),
-					seq.getValue().getRest().getFirst().getValue()));
+					seq.getValue().getRest().getFirst().getValue(),
+					false,
+					new PlusCalDefaultInitValue(seq.getLocation())));
 
 	private static final Grammar<ModularPlusCalArchetype> C_SYNTAX_ARCHETYPE = emptySequence()
 			.drop(parsePlusCalToken("archetype"))
@@ -35,7 +39,7 @@ public class ModularPlusCalParser {
 			.part(parseOneOf(
 					parseListOf(MPCAL_VAR_DECL, parsePlusCalToken(",")),
 					nop().map(seq ->
-							new LocatedList<ModularPlusCalVariableDeclaration>(
+							new LocatedList<PlusCalVariableDeclaration>(
 									seq.getLocation(),
 									Collections.emptyList()))))
 			.drop(parsePlusCalToken(")"))
@@ -72,10 +76,8 @@ public class ModularPlusCalParser {
 			.part(IDENTIFIER)
 			.drop(parsePlusCalToken("("))
 			.part(parseOneOf(
-					parseListOf(MPCAL_VAR_DECL, parsePlusCalToken(",")),
-					nop().map(seq -> new LocatedList<ModularPlusCalVariableDeclaration>(
-							seq.getLocation(),
-							Collections.emptyList()))))
+					parseListOf(MODULAR_PLUSCAL_PARAMETER, parsePlusCalToken(",")),
+					nop().map(seq -> new LocatedList<TLAExpression>(seq.getLocation(), Collections.emptyList()))))
 			.drop(parsePlusCalToken(")"))
 			.part(parseOneOf(
 					parseListOf(MAPPING, nop()),

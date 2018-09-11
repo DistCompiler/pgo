@@ -282,4 +282,9 @@ public class TLAExpressionScopingVisitor extends TLAExpressionVisitor<Void, Runt
 		throw new TODO();
 	}
 
+	@Override
+	public Void visit(TLARef tlaRef) throws RuntimeException {
+		throw new TODO();
+	}
+
 }

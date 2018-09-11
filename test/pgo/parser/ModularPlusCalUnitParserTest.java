@@ -42,12 +42,12 @@ public class ModularPlusCalUnitParserTest {
 						"}",
 						archetype("Archetype",
 								Arrays.asList(
-										mpcalVarDecl("arg1", false),
-										mpcalVarDecl("arg2", true),
-										mpcalVarDecl("arg3", false)),
+										pcalVarDecl("arg1", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+										pcalVarDecl("arg2", true, false, PLUSCAL_DEFAULT_INIT_VALUE),
+										pcalVarDecl("arg3", false, false, PLUSCAL_DEFAULT_INIT_VALUE)),
 								Arrays.asList(
-										pcalVarDecl("local1", false, num(1)),
-										pcalVarDecl("local2", true, binop("..", num(1), num(3)))),
+										pcalVarDecl("local1", false, false, num(1)),
+										pcalVarDecl("local2", false, true, binop("..", num(1), num(3)))),
 								Arrays.asList(
 										labeled(label("L1"), printS(idexp("arg1"))),
 										labeled(label("L2"),
@@ -60,20 +60,20 @@ public class ModularPlusCalUnitParserTest {
 
 				// simple instance
 				{"process (P \\in 1..3) = instance Archetype();",
-						instance(pcalVarDecl("P", true, binop("..", num(1), num(3))),
+						instance(pcalVarDecl("P", false, true, binop("..", num(1), num(3))),
 								"Archetype", Collections.emptyList(), Collections.emptyList())
 				},
 
 				// full featured instance
 				{"process (P = \"P\") = instance Archetype(ref global1, ref global2, global3)\n" +
-						"mapping global1 via MappingMacro1\n" +
-						"mapping global2 via MappingMacro2;",
-						instance(pcalVarDecl("P", false, str("P")),
+						"  mapping global1 via MappingMacro1\n" +
+						"  mapping global2 via MappingMacro2;",
+						instance(pcalVarDecl("P", false, false, str("P")),
 								"Archetype",
 								Arrays.asList(
-										mpcalVarDecl("global1", true),
-										mpcalVarDecl("global2", true),
-										mpcalVarDecl("global3", false)),
+										ref("global1"),
+										ref("global2"),
+										idexp("global3")),
 								Arrays.asList(
 										mapping("global1", "MappingMacro1"),
 										mapping("global2", "MappingMacro2")))
@@ -120,7 +120,7 @@ public class ModularPlusCalUnitParserTest {
 				// mapping macro with multiple statements
 				{"mapping macro MappingMacro {\n" +
 						"  read {\n" +
-						"    await someSpecialCondition;" +
+						"    await someSpecialCondition;\n" +
 						"    yield $value;\n" +
 						"  }\n" +
 						"  write {\n" +

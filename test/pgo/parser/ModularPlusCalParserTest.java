@@ -56,14 +56,14 @@ public class ModularPlusCalParserTest {
 						"*)",
 						mpcal("Test",
 								Arrays.asList(
-										pcalVarDecl("global1", false, num(1)),
-										pcalVarDecl("global2", false, num(2))),
+										pcalVarDecl("global1", false, false, num(1)),
+										pcalVarDecl("global2", false, false, num(2))),
 								Collections.emptyList(),
 								Collections.emptyList(),
 								Collections.singletonList(macro("M", Collections.singletonList("a"), printS(idexp("a")))),
 								Collections.singletonList(procedure(
 										"P",
-										Collections.singletonList(pcalVarDecl("b", false, PLUSCAL_DEFAULT_INIT_VALUE)),
+										Collections.singletonList(pcalVarDecl("b", false, false, PLUSCAL_DEFAULT_INIT_VALUE)),
 										Collections.emptyList(),
 										printS(idexp("b")))),
 								Collections.emptyList(),
@@ -88,14 +88,14 @@ public class ModularPlusCalParserTest {
 						"*)",
 						mpcal("Test",
 								Arrays.asList(
-										pcalVarDecl("global1", false, num(1)),
-										pcalVarDecl("global2", false, num(2))),
+										pcalVarDecl("global1", false, false, num(1)),
+										pcalVarDecl("global2", false, false, num(2))),
 								Collections.emptyList(),
 								Collections.emptyList(),
 								Collections.singletonList(macro("M", Collections.singletonList("a"), printS(idexp("a")))),
 								Collections.singletonList(procedure(
 										"P",
-										Collections.singletonList(pcalVarDecl("b", false, PLUSCAL_DEFAULT_INIT_VALUE)),
+										Collections.singletonList(pcalVarDecl("b", false, false, PLUSCAL_DEFAULT_INIT_VALUE)),
 										Collections.emptyList(),
 										printS(idexp("b")))),
 								Collections.emptyList(),
@@ -103,7 +103,7 @@ public class ModularPlusCalParserTest {
 								new PlusCalMultiProcess(
 										SourceLocation.unknown(),
 										Collections.singletonList(process(
-												pcalVarDecl("P", true, binop("..", num(1), num(3))),
+												pcalVarDecl("P", false, true, binop("..", num(1), num(3))),
 												PlusCalFairness.UNFAIR,
 												Collections.emptyList(),
 												printS(tuple(idexp("global1"), idexp("global2")))))))

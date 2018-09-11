@@ -6,11 +6,10 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class PlusCalProcedure extends PlusCalNode {
-
-	String name;
-	List<PlusCalVariableDeclaration> arguments;
-	List<PlusCalVariableDeclaration> variables;
-	List<PlusCalStatement> body;
+	private final String name;
+	private final List<PlusCalVariableDeclaration> arguments;
+	private final List<PlusCalVariableDeclaration> variables;
+	private final List<PlusCalStatement> body;
 
 	public PlusCalProcedure(SourceLocation location, String name, List<PlusCalVariableDeclaration> arguments, List<PlusCalVariableDeclaration> variables, List<PlusCalStatement> body) {
 		super(location);
@@ -90,5 +89,4 @@ public class PlusCalProcedure extends PlusCalNode {
 			return other.variables == null;
 		} else return variables.equals(other.variables);
 	}
-
 }

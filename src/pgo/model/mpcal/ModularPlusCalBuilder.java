@@ -1,6 +1,7 @@
 package pgo.model.mpcal;
 
 import pgo.model.pcal.*;
+import pgo.model.tla.TLAExpression;
 import pgo.model.tla.TLAUnit;
 import pgo.parser.Located;
 import pgo.util.SourceLocation;
@@ -17,7 +18,7 @@ public class ModularPlusCalBuilder {
 				isRef);
 	}
 
-	public static ModularPlusCalArchetype archetype(String name, List<ModularPlusCalVariableDeclaration> arguments,
+	public static ModularPlusCalArchetype archetype(String name, List<PlusCalVariableDeclaration> arguments,
 	                                                List<PlusCalVariableDeclaration> variables,
 	                                                List<PlusCalStatement> body) {
 		return new ModularPlusCalArchetype(SourceLocation.unknown(), name, arguments, variables, body);
@@ -31,8 +32,7 @@ public class ModularPlusCalBuilder {
 	}
 
 	public static ModularPlusCalInstance instance(PlusCalVariableDeclaration name, String target,
-	                                              List<ModularPlusCalVariableDeclaration> params,
-	                                              List<ModularPlusCalMapping> mappings) {
+	                                              List<TLAExpression> params, List<ModularPlusCalMapping> mappings) {
 		return new ModularPlusCalInstance(SourceLocation.unknown(), name, target, params, mappings);
 	}
 

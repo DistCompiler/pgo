@@ -31,4 +31,5 @@ public abstract class TLAExpressionVisitor<T, E extends Throwable>{
 	public abstract T visit(TLAFairness tlaFairness) throws E;
 	public abstract T visit(TLASpecialVariableVariable tlaSpecialVariableVariable) throws E;
 	public abstract T visit(TLASpecialVariableValue tlaSpecialVariableValue) throws E;
+	public abstract T visit(TLARef tlaRef) throws E;
 }

@@ -264,4 +264,9 @@ public class TLAExpressionMacroSubstitutionVisitor extends TLAExpressionVisitor<
 		throw new TODO();
 	}
 
+	@Override
+	public TLAExpression visit(TLARef tlaRef) throws RuntimeException {
+		throw new TODO();
+	}
+
 }

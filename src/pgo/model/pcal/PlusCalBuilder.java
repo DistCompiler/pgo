@@ -28,9 +28,10 @@ public class PlusCalBuilder {
 				new PlusCalMultiProcess(SourceLocation.unknown(), Arrays.asList(processes)));
 	}
 
-	public static PlusCalVariableDeclaration pcalVarDecl(String name, boolean isSet, TLAExpression value) {
+	public static PlusCalVariableDeclaration pcalVarDecl(String name, boolean isRef, boolean isSet,
+	                                                     TLAExpression value) {
 		return new PlusCalVariableDeclaration(
-				SourceLocation.unknown(), new Located<>(SourceLocation.unknown(), name), isSet, value);
+				SourceLocation.unknown(), new Located<>(SourceLocation.unknown(), name), isRef, isSet, value);
 	}
 
 	public static PlusCalMacro macro(String name, List<String> args, PlusCalStatement... statements) {

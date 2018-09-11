@@ -1,5 +1,6 @@
 package pgo.formatters;
 
+import pgo.TODO;
 import pgo.model.tla.*;
 import pgo.parser.TLAParser;
 
@@ -358,6 +359,11 @@ public class TLAExpressionFormattingVisitor extends TLAExpressionVisitor<Void, I
 	public Void visit(TLASpecialVariableValue tlaSpecialVariableValue) throws IOException {
 		out.write("$value");
 		return null;
+	}
+
+	@Override
+	public Void visit(TLARef tlaRef) throws IOException {
+		throw new TODO();
 	}
 
 }

@@ -187,4 +187,9 @@ public class TLAExpressionAtomicityInferenceVisitor extends TLAExpressionVisitor
 	public Set<UID> visit(TLASpecialVariableValue tlaSpecialVariableValue) throws RuntimeException {
 		throw new TODO();
 	}
+
+	@Override
+	public Set<UID> visit(TLARef tlaRef) throws RuntimeException {
+		throw new TODO();
+	}
 }

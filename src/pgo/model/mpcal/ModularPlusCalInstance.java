@@ -1,6 +1,7 @@
 package pgo.model.mpcal;
 
 import pgo.model.pcal.PlusCalVariableDeclaration;
+import pgo.model.tla.TLAExpression;
 import pgo.util.SourceLocation;
 
 import java.util.Collections;
@@ -18,14 +19,13 @@ import java.util.stream.Collectors;
 public class ModularPlusCalInstance extends ModularPlusCalUnit {
 	private final PlusCalVariableDeclaration name;
 	private final String target;
-	private final List<ModularPlusCalVariableDeclaration> params;
+	private final List<TLAExpression> params;
 	private final List<ModularPlusCalMapping> mappings;
 	// TODO
 	// private final Located<String> interleavingTarget;
 
 	public ModularPlusCalInstance(SourceLocation location, PlusCalVariableDeclaration name, String target,
-	                              List<ModularPlusCalVariableDeclaration> params,
-	                              List<ModularPlusCalMapping> mappings) {
+	                              List<TLAExpression> params, List<ModularPlusCalMapping> mappings) {
 		super(location);
 		this.name = name;
 		this.target = target;
@@ -39,7 +39,7 @@ public class ModularPlusCalInstance extends ModularPlusCalUnit {
 				getLocation(),
 				name.copy(),
 				target,
-				params.stream().map(ModularPlusCalVariableDeclaration::copy).collect(Collectors.toList()),
+				params.stream().map(TLAExpression::copy).collect(Collectors.toList()),
 				mappings.stream().map(ModularPlusCalMapping::copy).collect(Collectors.toList()));
 	}
 
@@ -80,7 +80,7 @@ public class ModularPlusCalInstance extends ModularPlusCalUnit {
 		return Collections.unmodifiableList(mappings);
 	}
 
-	public List<ModularPlusCalVariableDeclaration> getParams() {
+	public List<TLAExpression> getParams() {
 		return Collections.unmodifiableList(params);
 	}
 }

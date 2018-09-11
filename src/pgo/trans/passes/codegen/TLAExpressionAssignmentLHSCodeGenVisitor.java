@@ -216,4 +216,9 @@ public class TLAExpressionAssignmentLHSCodeGenVisitor extends TLAExpressionVisit
 	public GlobalVariableWrite visit(TLASpecialVariableValue tlaSpecialVariableValue) throws RuntimeException {
 		throw new TODO();
 	}
+
+	@Override
+	public GlobalVariableWrite visit(TLARef tlaRef) throws RuntimeException {
+		throw new TODO();
+	}
 }

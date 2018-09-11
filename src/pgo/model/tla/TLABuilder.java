@@ -1,5 +1,6 @@
 package pgo.model.tla;
 
+import pgo.parser.Located;
 import pgo.util.SourceLocation;
 
 import java.util.ArrayList;
@@ -201,5 +202,9 @@ public class TLABuilder {
 
 	public static TLABool bool(boolean val) {
 		return new TLABool(SourceLocation.unknown(), val);
+	}
+
+	public static TLARef ref(String name) {
+		return new TLARef(SourceLocation.unknown(), name);
 	}
 }

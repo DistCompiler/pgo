@@ -413,4 +413,9 @@ public class TLAExpressionTypeConstraintVisitor extends TLAExpressionVisitor<PGo
 		throw new TODO();
 	}
 
+	@Override
+	public PGoType visit(TLARef tlaRef) throws RuntimeException {
+		throw new TODO();
+	}
+
 }

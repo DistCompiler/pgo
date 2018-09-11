@@ -20,12 +20,11 @@ import java.util.stream.Collectors;
  */
 public class ModularPlusCalArchetype extends ModularPlusCalUnit {
 	private final String name;
-	private final List<ModularPlusCalVariableDeclaration> arguments;
+	private final List<PlusCalVariableDeclaration> arguments;
 	private final List<PlusCalVariableDeclaration> variables;
 	private final List<PlusCalStatement> body;
 
-	public ModularPlusCalArchetype(SourceLocation location, String name,
-	                               List<ModularPlusCalVariableDeclaration> arguments,
+	public ModularPlusCalArchetype(SourceLocation location, String name, List<PlusCalVariableDeclaration> arguments,
 	                               List<PlusCalVariableDeclaration> variables, List<PlusCalStatement> body) {
 		super(location);
 		this.name = name;
@@ -39,7 +38,7 @@ public class ModularPlusCalArchetype extends ModularPlusCalUnit {
 		return new ModularPlusCalArchetype(
 				getLocation(),
 				name,
-				arguments.stream().map(ModularPlusCalVariableDeclaration::copy).collect(Collectors.toList()),
+				arguments.stream().map(PlusCalVariableDeclaration::copy).collect(Collectors.toList()),
 				variables.stream().map(PlusCalVariableDeclaration::copy).collect(Collectors.toList()),
 				body.stream().map(PlusCalStatement::copy).collect(Collectors.toList()));
 	}
@@ -73,7 +72,7 @@ public class ModularPlusCalArchetype extends ModularPlusCalUnit {
 		return name;
 	}
 
-	public List<ModularPlusCalVariableDeclaration> getArguments() {
+	public List<PlusCalVariableDeclaration> getArguments() {
 		return Collections.unmodifiableList(arguments);
 	}
 

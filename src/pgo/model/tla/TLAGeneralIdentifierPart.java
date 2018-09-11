@@ -18,7 +18,10 @@ public class TLAGeneralIdentifierPart extends TLANode {
 	
 	@Override
 	public TLAGeneralIdentifierPart copy() {
-		return new TLAGeneralIdentifierPart(getLocation(), id.copy(), parameters.stream().map(p -> p.copy()).collect(Collectors.toList()));
+		return new TLAGeneralIdentifierPart(
+				getLocation(),
+				id.copy(),
+				parameters.stream().map(TLAExpression::copy).collect(Collectors.toList()));
 	}
 	
 	@Override

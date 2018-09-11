@@ -123,7 +123,7 @@ public class PlusCalMacroExpansionVisitor extends PlusCalStatementVisitor<List<P
 						// TODO: error reporting in this case?
 					}
 					return new PlusCalVariableDeclaration(v.getLocation(), v.getName(),
-							v.isSet(), v.getValue().accept(macroSubst));
+							v.isRef(), v.isSet(), v.getValue().accept(macroSubst));
 				}).collect(Collectors.toList()),
 				substituteStatements(with.getBody())));
 	}
