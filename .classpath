@@ -4,7 +4,6 @@
 	<classpathentry kind="src" path="test"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
 	<classpathentry kind="lib" path="lib/plume.jar"/>
-	<classpathentry kind="lib" path="lib/tlatools.jar"/>
 	<classpathentry kind="lib" path="lib/json.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
