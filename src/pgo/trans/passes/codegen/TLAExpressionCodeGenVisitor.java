@@ -492,7 +492,7 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 	}
 
 	@Override
-	public GoExpression visit(TLASpecialVariableOld tlaSpecialVariableOld) throws RuntimeException {
+	public GoExpression visit(TLASpecialVariableVariable tlaSpecialVariableVariable) throws RuntimeException {
 		throw new TODO();
 	}
 

@@ -100,9 +100,9 @@ public class ModularPlusCalUnitParserTest {
 						"  }\n" +
 						"  write {\n" +
 						"    either {\n" +
-						"      yield $old + $value;\n" +
+						"      yield $variable + $value;\n" +
 						"    } or {\n" +
-						"      yield $old;\n" +
+						"      yield $variable;\n" +
 						"    }\n" +
 						"  }\n" +
 						"}",
@@ -112,9 +112,9 @@ public class ModularPlusCalUnitParserTest {
 										either(
 										Arrays.asList(
 												Collections.singletonList(
-														yield(binop("+", DOLLAR_OLD, DOLLAR_VALUE))),
+														yield(binop("+", DOLLAR_VARIABLE, DOLLAR_VALUE))),
 												Collections.singletonList(
-														yield(DOLLAR_OLD))))))
+														yield(DOLLAR_VARIABLE))))))
 				},
 
 				// mapping macro with multiple statements

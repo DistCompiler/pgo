@@ -1481,7 +1481,7 @@ public final class TLAParser {
 	static {
 		EXPRESSION_NO_OPERATORS.setReferencedGrammar(
 				parseOneOf(
-						parseTLAToken("$old").map(seq -> new TLASpecialVariableOld(seq.getLocation())),
+						parseTLAToken("$variable").map(seq -> new TLASpecialVariableVariable(seq.getLocation())),
 						parseTLAToken("$value").map(seq -> new TLASpecialVariableValue(seq.getLocation())),
 
 						parseTLANumber(),

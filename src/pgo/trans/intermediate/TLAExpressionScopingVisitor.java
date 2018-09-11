@@ -273,7 +273,7 @@ public class TLAExpressionScopingVisitor extends TLAExpressionVisitor<Void, Runt
 	}
 
 	@Override
-	public Void visit(TLASpecialVariableOld tlaSpecialVariableOld) throws RuntimeException {
+	public Void visit(TLASpecialVariableVariable tlaSpecialVariableVariable) throws RuntimeException {
 		throw new TODO();
 	}
 

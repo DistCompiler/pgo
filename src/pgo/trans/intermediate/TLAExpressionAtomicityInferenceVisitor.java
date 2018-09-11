@@ -1,7 +1,6 @@
 package pgo.trans.intermediate;
 
 import pgo.TODO;
-import pgo.Unreachable;
 import pgo.model.tla.*;
 import pgo.scope.UID;
 
@@ -180,7 +179,7 @@ public class TLAExpressionAtomicityInferenceVisitor extends TLAExpressionVisitor
 	}
 
 	@Override
-	public Set<UID> visit(TLASpecialVariableOld tlaSpecialVariableOld) throws RuntimeException {
+	public Set<UID> visit(TLASpecialVariableVariable tlaSpecialVariableVariable) throws RuntimeException {
 		throw new TODO();
 	}
 

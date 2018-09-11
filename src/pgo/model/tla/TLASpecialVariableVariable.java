@@ -2,8 +2,8 @@ package pgo.model.tla;
 
 import pgo.util.SourceLocation;
 
-public class TLASpecialVariableOld extends TLAExpression {
-	public TLASpecialVariableOld(SourceLocation location) {
+public class TLASpecialVariableVariable extends TLAExpression {
+	public TLASpecialVariableVariable(SourceLocation location) {
 		super(location);
 	}
 
@@ -14,12 +14,12 @@ public class TLASpecialVariableOld extends TLAExpression {
 
 	@Override
 	public boolean equals(Object obj) {
-		return obj instanceof TLASpecialVariableOld;
+		return obj instanceof TLASpecialVariableVariable;
 	}
 
 	@Override
-	public TLASpecialVariableOld copy() {
-		return new TLASpecialVariableOld(getLocation());
+	public TLASpecialVariableVariable copy() {
+		return new TLASpecialVariableVariable(getLocation());
 	}
 
 	@Override

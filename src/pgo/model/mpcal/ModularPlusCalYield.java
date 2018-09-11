@@ -12,7 +12,7 @@ import java.util.Objects;
  *
  * yield exp;
  *
- * where exp may contain $value and $old
+ * where exp may contain $value and $variable
  */
 public class ModularPlusCalYield extends PlusCalStatement {
 	private final TLAExpression expression;

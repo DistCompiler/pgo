@@ -29,6 +29,6 @@ public abstract class TLAExpressionVisitor<T, E extends Throwable>{
 	public abstract T visit(TLAUniversal pGoTLAUniversal) throws E;
 	public abstract T visit(PlusCalDefaultInitValue plusCalDefaultInitValue) throws E;
 	public abstract T visit(TLAFairness tlaFairness) throws E;
-	public abstract T visit(TLASpecialVariableOld tlaSpecialVariableOld) throws E;
+	public abstract T visit(TLASpecialVariableVariable tlaSpecialVariableVariable) throws E;
 	public abstract T visit(TLASpecialVariableValue tlaSpecialVariableValue) throws E;
 }

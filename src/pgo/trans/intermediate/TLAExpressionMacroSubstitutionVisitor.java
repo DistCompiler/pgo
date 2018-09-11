@@ -255,7 +255,7 @@ public class TLAExpressionMacroSubstitutionVisitor extends TLAExpressionVisitor<
 	}
 
 	@Override
-	public TLAExpression visit(TLASpecialVariableOld tlaSpecialVariableOld) throws RuntimeException {
+	public TLAExpression visit(TLASpecialVariableVariable tlaSpecialVariableVariable) throws RuntimeException {
 		throw new TODO();
 	}
 

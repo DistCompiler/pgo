@@ -10,7 +10,7 @@ import java.util.List;
 public class TLABuilder {
 	private TLABuilder() {}
 
-	public static TLASpecialVariableOld DOLLAR_OLD = new TLASpecialVariableOld(SourceLocation.unknown());
+	public static TLASpecialVariableVariable DOLLAR_VARIABLE = new TLASpecialVariableVariable(SourceLocation.unknown());
 	public static TLASpecialVariableValue DOLLAR_VALUE = new TLASpecialVariableValue(SourceLocation.unknown());
 	
 	public static TLAFunction function(List<TLAQuantifierBound> args, TLAExpression body) {
