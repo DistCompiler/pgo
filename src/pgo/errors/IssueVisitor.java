@@ -33,5 +33,5 @@ public abstract class IssueVisitor<T, E extends Throwable> {
 	public abstract T visit(TypeInferenceFailureIssue typeInferenceFailureIssue) throws E;
 	public abstract T visit(ProcedureNotFoundIssue procedureNotFoundIssue) throws E;
 	public abstract T visit(ConstantWithNoValueIssue constantWithNoValueIssue) throws E;
-
+	public abstract T visit(InvalidModularPlusCalIssue invalidModularPlusCalIssue) throws E;
 }

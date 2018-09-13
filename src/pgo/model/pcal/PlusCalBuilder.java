@@ -1,7 +1,6 @@
 package pgo.model.pcal;
 
-import pgo.model.mpcal.ModularPlusCalArchetype;
-import pgo.model.mpcal.ModularPlusCalYield;
+import pgo.model.mpcal.*;
 import pgo.model.tla.PlusCalDefaultInitValue;
 import pgo.model.tla.TLAExpression;
 import pgo.model.tla.TLAUnit;
@@ -16,16 +15,31 @@ public class PlusCalBuilder {
 
 	public static PlusCalDefaultInitValue PLUSCAL_DEFAULT_INIT_VALUE = new PlusCalDefaultInitValue(SourceLocation.unknown());
 
-	public static PlusCalAlgorithm algorithm(String name, List<PlusCalVariableDeclaration> vars, List<ModularPlusCalArchetype> archetypes, List<PlusCalMacro> macros, List<PlusCalProcedure> procedures, List<TLAUnit> units, PlusCalLabeledStatements... statements) {
+	public static PlusCalAlgorithm algorithm(String name, List<PlusCalVariableDeclaration> vars, List<PlusCalMacro> macros, List<PlusCalProcedure> procedures, List<TLAUnit> units, PlusCalLabeledStatements... statements) {
 		return new PlusCalAlgorithm(SourceLocation.unknown(), PlusCalFairness.UNFAIR,
 				new Located<>(SourceLocation.unknown(), name), vars, macros, procedures, units,
 				new PlusCalSingleProcess(SourceLocation.unknown(), Arrays.asList(statements)));
 	}
 
-	public static PlusCalAlgorithm algorithm(String name, List<PlusCalVariableDeclaration> vars, List<ModularPlusCalArchetype> archetypes, List<PlusCalMacro> macros, List<PlusCalProcedure> procedures, List<TLAUnit> units, PlusCalProcess... processes) {
+	public static PlusCalAlgorithm algorithm(String name, List<PlusCalVariableDeclaration> vars, List<PlusCalMacro> macros, List<PlusCalProcedure> procedures, List<TLAUnit> units, PlusCalProcess... processes) {
 		return new PlusCalAlgorithm(SourceLocation.unknown(), PlusCalFairness.UNFAIR,
 				new Located<>(SourceLocation.unknown(), name), vars, macros, procedures, units,
 				new PlusCalMultiProcess(SourceLocation.unknown(), Arrays.asList(processes)));
+	}
+
+	public static ModularPlusCalBlock mpcal(String name, List<ModularPlusCalArchetype> archetypes,
+										 List<ModularPlusCalMappingMacro> mappingMacros,
+										 List<ModularPlusCalInstance> instances,
+										 List<PlusCalVariableDeclaration> vars,
+										 List<PlusCalMacro> macros, List<PlusCalProcedure> procedures,
+										 List<TLAUnit> units, PlusCalProcess... processes) {
+		return new ModularPlusCalBlock(SourceLocation.unknown(), new Located<>(SourceLocation.unknown(), name),
+				vars, units, mappingMacros, archetypes, macros, procedures, instances,
+				new PlusCalMultiProcess(SourceLocation.unknown(), Arrays.asList(processes)));
+	}
+
+	public static ModularPlusCalArchetype archetype(String name, List<PlusCalVariableDeclaration> arguments, List<PlusCalVariableDeclaration> vars, List<PlusCalStatement> body) {
+		return new ModularPlusCalArchetype(SourceLocation.unknown(), name, arguments, vars, body);
 	}
 
 	public static PlusCalVariableDeclaration pcalVarDecl(String name, boolean isRef, boolean isSet,

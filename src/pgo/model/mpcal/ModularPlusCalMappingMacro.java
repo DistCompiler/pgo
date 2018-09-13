@@ -67,6 +67,10 @@ public class ModularPlusCalMappingMacro extends ModularPlusCalUnit {
 		return v.visit(this);
 	}
 
+	public <T, E extends Throwable> T accept(ModularPlusCalBlockVisitor<T, E> v) throws E {
+		return v.visit(this);
+	}
+
 	public Located<String> getName() {
 		return name;
 	}

@@ -1,5 +1,6 @@
 package pgo.model.pcal;
 
+import pgo.model.mpcal.ModularPlusCalBlockVisitor;
 import pgo.util.SourceLocation;
 
 import java.util.List;
@@ -28,6 +29,10 @@ public class PlusCalSingleProcess extends PlusCalProcesses {
 
 	@Override
 	public <T, E extends Throwable> T accept(PlusCalProcessesVisitor<T, E> v) throws E {
+		return v.visit(this);
+	}
+
+	public <T, E extends Throwable> T accept(ModularPlusCalBlockVisitor<T, E> v) throws E {
 		return v.visit(this);
 	}
 

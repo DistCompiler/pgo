@@ -1,5 +1,6 @@
 package pgo.model.pcal;
 
+import pgo.model.mpcal.ModularPlusCalBlockVisitor;
 import pgo.util.SourceLocation;
 
 import java.util.ArrayList;
@@ -42,6 +43,10 @@ public class PlusCalMacro extends PlusCalNode {
 	
 	@Override
 	public <T, E extends Throwable> T accept(PlusCalNodeVisitor<T, E> v) throws E{
+		return v.visit(this);
+	}
+
+	public <T, E extends Throwable> T accept(ModularPlusCalBlockVisitor<T, E> v) throws E{
 		return v.visit(this);
 	}
 

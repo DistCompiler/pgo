@@ -253,4 +253,18 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 		return null;
 	}
 
+	@Override
+	public Void visit(InvalidModularPlusCalIssue invalidModularPlusCalIssue) throws IOException {
+		out.write("Modular PlusCal validation error: ");
+
+		switch (invalidModularPlusCalIssue.getReason()) {
+			case MISSING_LABEL:
+				out.write("missing label on statement: ");
+				break;
+		}
+
+		invalidModularPlusCalIssue.getStatement().accept(new OriginFormattingVisitor(out));
+		return null;
+	}
+
 }
