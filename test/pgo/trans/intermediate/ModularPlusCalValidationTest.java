@@ -38,8 +38,12 @@ public class ModularPlusCalValidationTest {
                     //         l1: print(1 + 1);
                     //     }
                     //
+                    //     procedure MyProcedure() {
+                    //         l2: print(3 - 3);
+                    //     }
+                    //
                     //     process (MyProcess = 32) {
-                    //         l2: print(2 * 2);
+                    //         l3: print(2 * 2);
                     //     }
                     // }
                     //
@@ -51,14 +55,7 @@ public class ModularPlusCalValidationTest {
                                     Collections.emptyList(),
                                     Collections.emptyList(),
                                     Collections.singletonList(
-                                            new PlusCalLabeledStatements(
-                                                    SourceLocation.unknown(),
-                                                    new PlusCalLabel(SourceLocation.unknown(),
-                                                            "l1",
-                                                            PlusCalLabel.Modifier.NONE
-                                                    ),
-                                                    Collections.singletonList(printS(binop("+", num(1), num(1))))
-                                            )
+                                            labeled(label("l1"), printS(binop("+", num(1), num(1))))
                                     )
                             )
                         ),
@@ -66,25 +63,22 @@ public class ModularPlusCalValidationTest {
                         Collections.emptyList(),
                         Collections.emptyList(),
                         Collections.emptyList(),
-                        Collections.emptyList(),
+                        Collections.singletonList(
+                                procedure(
+                                        "MyProcedure",
+                                        Collections.emptyList(),
+                                        Collections.emptyList(),
+                                        labeled(label("l2"), printS(binop("-", num(3), num(3))))
+                                )
+                        ),
                         Collections.emptyList(),
                         process(
-                                    new PlusCalVariableDeclaration(
-                                            SourceLocation.unknown(),
-                                            new Located<>(SourceLocation.unknown(), "MyProcess"),
-                                            false,
-                                            false,
-                                            new TLANumber(SourceLocation.unknown(), "32", TLANumber.Base.DECIMAL)
-                                    ),
+                                    pcalVarDecl("MyProcess", false, false, num(32)),
                                     PlusCalFairness.WEAK_FAIR,
                                     Collections.emptyList(),
-                                    new PlusCalLabeledStatements(
-                                        SourceLocation.unknown(),
-                                        new PlusCalLabel(SourceLocation.unknown(),
-                                                "l2",
-                                                PlusCalLabel.Modifier.NONE
-                                        ),
-                                        Collections.singletonList(printS(binop("*", num(2), num(2))))
+                                    labeled(
+                                        label("l3"),
+                                        printS(binop("*", num(2), num(2)))
                                     )
                         )
 
