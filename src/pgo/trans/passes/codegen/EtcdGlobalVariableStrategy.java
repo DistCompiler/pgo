@@ -7,6 +7,7 @@ import pgo.model.golang.builder.GoBlockBuilder;
 import pgo.model.golang.builder.GoModuleBuilder;
 import pgo.model.golang.type.GoType;
 import pgo.model.golang.type.GoTypeName;
+import pgo.model.mpcal.ModularPlusCalBlock;
 import pgo.model.pcal.PlusCalAlgorithm;
 import pgo.model.pcal.PlusCalProcess;
 import pgo.model.type.PGoType;
@@ -21,7 +22,7 @@ public class EtcdGlobalVariableStrategy extends GlobalVariableStrategy {
 	private DefinitionRegistry registry;
 	private Map<UID, PGoType> typeMap;
 	private PGoNetOptions.StateOptions stateOptions;
-	private PlusCalAlgorithm plusCalAlgorithm;
+	private ModularPlusCalBlock modularPlusCalBlock;
 	private GoCommandLineArgumentParser commandLineArgumentParser;
 	private UID processNameUID;
 	private UID processArgumentUID;
@@ -29,11 +30,12 @@ public class EtcdGlobalVariableStrategy extends GlobalVariableStrategy {
 	private UID globalStateUID;
 
 	public EtcdGlobalVariableStrategy(DefinitionRegistry registry, Map<UID, PGoType> typeMap,
-	                                  PGoNetOptions.StateOptions stateOptions, PlusCalAlgorithm plusCalAlgorithm) {
+	                                  PGoNetOptions.StateOptions stateOptions,
+	                                  ModularPlusCalBlock modularPlusCalBlock) {
 		this.registry = registry;
 		this.typeMap = typeMap;
 		this.stateOptions = stateOptions;
-		this.plusCalAlgorithm = plusCalAlgorithm;
+		this.modularPlusCalBlock = modularPlusCalBlock;
 		this.commandLineArgumentParser = new GoCommandLineArgumentParser();
 		this.processNameUID = new UID();
 		this.processArgumentUID = new UID();
@@ -133,7 +135,7 @@ public class EtcdGlobalVariableStrategy extends GlobalVariableStrategy {
 	@Override
 	public void mainPrelude(GoBlockBuilder builder) {
 		StateServerGlobalVariableStrategy.generateProcessSwitch(
-				typeMap, plusCalAlgorithm, builder, findVariable(processNameUID), findVariable(processArgumentUID));
+				typeMap, modularPlusCalBlock, builder, findVariable(processNameUID), findVariable(processArgumentUID));
 	}
 
 	@Override

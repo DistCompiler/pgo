@@ -1,6 +1,7 @@
 package pgo.trans.passes.type;
 
 import pgo.errors.IssueContext;
+import pgo.model.mpcal.ModularPlusCalBlock;
 import pgo.model.pcal.*;
 import pgo.model.tla.TLAExpression;
 import pgo.model.tla.TLAUnit;
@@ -14,7 +15,9 @@ import java.util.*;
 public class TypeInferencePass {
 	private TypeInferencePass() {}
 
-	static void constrainVariableDeclaration(DefinitionRegistry registry, PlusCalVariableDeclaration var, PGoTypeSolver solver, PGoTypeGenerator generator, Map<UID, PGoTypeVariable> mapping) {
+	static void constrainVariableDeclaration(DefinitionRegistry registry, PlusCalVariableDeclaration var,
+	                                         PGoTypeSolver solver, PGoTypeGenerator generator,
+	                                         Map<UID, PGoTypeVariable> mapping) {
 		PGoTypeVariable v;
 		if (mapping.containsKey(var.getUID())) {
 			v = mapping.get(var.getUID());
@@ -34,7 +37,8 @@ public class TypeInferencePass {
 		}
 	}
 
-	public static Map<UID, PGoType> perform(IssueContext ctx, DefinitionRegistry registry, PlusCalAlgorithm plusCalAlgorithm) {
+	public static Map<UID, PGoType> perform(IssueContext ctx, DefinitionRegistry registry,
+	                                        ModularPlusCalBlock modularPlusCalBlock) {
 		PGoTypeSolver solver = new PGoTypeSolver();
 		PGoTypeGenerator generator = new PGoTypeGenerator("type");
 		Map<UID, PGoTypeVariable> mapping = new HashMap<>();
@@ -49,15 +53,15 @@ public class TypeInferencePass {
 			solver.addConstraint(new PGoTypeMonomorphicConstraint(value, fresh, type));
 		}
 
-		for (PlusCalVariableDeclaration var : plusCalAlgorithm.getVariables()) {
+		for (PlusCalVariableDeclaration var : modularPlusCalBlock.getVariables()) {
 			constrainVariableDeclaration(registry, var, solver, generator, mapping);
 		}
 
-		for (TLAUnit unit : plusCalAlgorithm.getUnits()) {
+		for (TLAUnit unit : modularPlusCalBlock.getUnits()) {
 			unit.accept(new TLAUnitTypeConstraintVisitor(registry, solver, generator, mapping));
 		}
 
-		for (PlusCalProcedure p : plusCalAlgorithm.getProcedures()) {
+		for (PlusCalProcedure p : modularPlusCalBlock.getProcedures()) {
 			List<PGoType> paramTypes = new ArrayList<>();
 			for (PlusCalVariableDeclaration var : p.getArguments()) {
 				constrainVariableDeclaration(registry, var, solver, generator, mapping);
@@ -73,7 +77,7 @@ public class TypeInferencePass {
 			mapping.put(p.getUID(), fresh);
 		}
 
-		plusCalAlgorithm.getProcesses().accept(new PlusCalProcessesVisitor<Void, RuntimeException>(){
+		modularPlusCalBlock.getProcesses().accept(new PlusCalProcessesVisitor<Void, RuntimeException>(){
 			@Override
 			public Void visit(PlusCalSingleProcess singleProcess) throws RuntimeException {
 				for (PlusCalStatement statements : singleProcess.getBody()) {

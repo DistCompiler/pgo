@@ -1,20 +1,20 @@
 package pgo.trans.intermediate;
 
 import pgo.errors.IssueContext;
-import pgo.model.pcal.PlusCalAlgorithm;
+import pgo.model.mpcal.ModularPlusCalBlock;
 import pgo.model.pcal.PlusCalMacro;
 import pgo.model.pcal.PlusCalProcedure;
 import pgo.model.pcal.PlusCalStatement;
 
 import java.util.*;
 
-public class PlusCalMacroExpansionPass {
+public class ModularPlusCalMacroExpansionPass {
 	
-	private PlusCalMacroExpansionPass() {}
+	private ModularPlusCalMacroExpansionPass() {}
 	
-	public static PlusCalAlgorithm perform(IssueContext ctx, PlusCalAlgorithm plusCalAlgorithm) {
+	public static ModularPlusCalBlock perform(IssueContext ctx, ModularPlusCalBlock modularPlusCalBlock) {
 		Map<String, PlusCalMacro> macros = new HashMap<>();
-		for(PlusCalMacro macro : plusCalAlgorithm.getMacros()) {
+		for (PlusCalMacro macro : modularPlusCalBlock.getMacros()) {
 			if(macros.containsKey(macro.getName())) {
 				ctx.error(new MacroNameConflictIssue(macros.get(macro.getName()), macro));
 			}else {
@@ -24,7 +24,7 @@ public class PlusCalMacroExpansionPass {
 
 		List<PlusCalProcedure> procedures = new ArrayList<>();
 		PlusCalMacroExpansionVisitor v = new PlusCalMacroExpansionVisitor(ctx, macros, new HashSet<>(), new HashMap<>());
-		plusCalAlgorithm.getProcedures().forEach(proc -> {
+		modularPlusCalBlock.getProcedures().forEach(proc -> {
 			List<PlusCalStatement> stmts = new ArrayList<>();
 			for (PlusCalStatement stmt : proc.getBody()) {
 				stmts.addAll(stmt.accept(v));
@@ -38,15 +38,17 @@ public class PlusCalMacroExpansionPass {
 					stmts));
 		});
 
-		return new PlusCalAlgorithm(
-				plusCalAlgorithm.getLocation(),
-				plusCalAlgorithm.getFairness(),
-				plusCalAlgorithm.getName(),
-				plusCalAlgorithm.getVariables(),
+		return new ModularPlusCalBlock(
+				modularPlusCalBlock.getLocation(),
+				modularPlusCalBlock.getName(),
+				modularPlusCalBlock.getVariables(),
+				modularPlusCalBlock.getUnits(),
+				Collections.emptyList(),
+				Collections.emptyList(),
 				Collections.emptyList(),
 				procedures,
-				plusCalAlgorithm.getUnits(),
-				plusCalAlgorithm.getProcesses().accept(new PlusCalProcessesMacroExpansionVisitor(ctx, macros)));
+				Collections.emptyList(),
+				modularPlusCalBlock.getProcesses().accept(new PlusCalProcessesMacroExpansionVisitor(ctx, macros)));
 	}
 
 }

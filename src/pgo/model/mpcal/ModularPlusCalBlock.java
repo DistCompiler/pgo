@@ -1,9 +1,6 @@
 package pgo.model.mpcal;
 
-import pgo.model.pcal.PlusCalMacro;
-import pgo.model.pcal.PlusCalProcedure;
-import pgo.model.pcal.PlusCalProcesses;
-import pgo.model.pcal.PlusCalVariableDeclaration;
+import pgo.model.pcal.*;
 import pgo.model.tla.TLAUnit;
 import pgo.parser.Located;
 import pgo.util.SourceLocation;
@@ -40,6 +37,20 @@ public class ModularPlusCalBlock extends ModularPlusCalNode {
 		this.procedures = procedures;
 		this.instances = instances;
 		this.processes = processes;
+	}
+
+	public static ModularPlusCalBlock from(PlusCalAlgorithm plusCalAlgorithm) {
+		return new ModularPlusCalBlock(
+				plusCalAlgorithm.getLocation(),
+				plusCalAlgorithm.getName(),
+				plusCalAlgorithm.getVariables(),
+				plusCalAlgorithm.getUnits(),
+				Collections.emptyList(),
+				Collections.emptyList(),
+				plusCalAlgorithm.getMacros(),
+				plusCalAlgorithm.getProcedures(),
+				Collections.emptyList(),
+				plusCalAlgorithm.getProcesses());
 	}
 
 	@Override

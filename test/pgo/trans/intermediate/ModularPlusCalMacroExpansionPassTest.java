@@ -14,13 +14,14 @@ import org.junit.runners.Parameterized.Parameters;
 
 import pgo.errors.IssueContext;
 import pgo.errors.TopLevelIssueContext;
+import pgo.model.mpcal.ModularPlusCalBlock;
 import pgo.model.pcal.PlusCalAlgorithm;
 
 import static pgo.model.pcal.PlusCalBuilder.*;
 import static pgo.model.tla.TLABuilder.*;
 
 @RunWith(Parameterized.class)
-public class PlusCalMacroExpansionPassTest {
+public class ModularPlusCalMacroExpansionPassTest {
 
 	@Parameters
 	public static List<Object[]> data(){
@@ -60,18 +61,18 @@ public class PlusCalMacroExpansionPassTest {
 		});
 	}
 
-	private PlusCalAlgorithm before;
-	private PlusCalAlgorithm expected;
-	
-	public PlusCalMacroExpansionPassTest(PlusCalAlgorithm before, PlusCalAlgorithm expected) {
-		this.before = before;
-		this.expected = expected;
+	private ModularPlusCalBlock before;
+	private ModularPlusCalBlock expected;
+
+	public ModularPlusCalMacroExpansionPassTest(PlusCalAlgorithm before, PlusCalAlgorithm expected) {
+		this.before = ModularPlusCalBlock.from(before);
+		this.expected = ModularPlusCalBlock.from(expected);
 	}
 	
 	@Test
 	public void test() {
 		IssueContext ctx = new TopLevelIssueContext();
-		PlusCalAlgorithm after = PlusCalMacroExpansionPass.perform(ctx, before);
+		ModularPlusCalBlock after = ModularPlusCalMacroExpansionPass.perform(ctx, before);
 		assertThat(after, is(expected));
 	}
 

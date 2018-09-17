@@ -8,7 +8,7 @@ import pgo.model.golang.builder.GoModuleBuilder;
 import pgo.model.golang.builder.GoSwitchBuilder;
 import pgo.model.golang.type.GoType;
 import pgo.model.golang.type.GoTypeName;
-import pgo.model.pcal.PlusCalAlgorithm;
+import pgo.model.mpcal.ModularPlusCalBlock;
 import pgo.model.pcal.PlusCalMultiProcess;
 import pgo.model.pcal.PlusCalProcess;
 import pgo.model.type.PGoType;
@@ -24,7 +24,7 @@ public class StateServerGlobalVariableStrategy extends GlobalVariableStrategy {
 	private DefinitionRegistry registry;
 	private Map<UID, PGoType> typeMap;
 	private PGoNetOptions.StateOptions stateOptions;
-	private PlusCalAlgorithm plusCalAlgorithm;
+	private ModularPlusCalBlock modularPlusCalBlock;
 	private GoCommandLineArgumentParser commandLineArgumentParser;
 	private UID processNameUID;
 	private UID processArgumentUID;
@@ -33,11 +33,12 @@ public class StateServerGlobalVariableStrategy extends GlobalVariableStrategy {
 	private UID refsUID;
 
 	public StateServerGlobalVariableStrategy(DefinitionRegistry registry, Map<UID, PGoType> typeMap,
-	                                         PGoNetOptions.StateOptions stateOptions, PlusCalAlgorithm plusCalAlgorithm) {
+	                                         PGoNetOptions.StateOptions stateOptions,
+	                                         ModularPlusCalBlock modularPlusCalBlock) {
 		this.registry = registry;
 		this.typeMap = typeMap;
 		this.stateOptions = stateOptions;
-		this.plusCalAlgorithm = plusCalAlgorithm;
+		this.modularPlusCalBlock = modularPlusCalBlock;
 		this.commandLineArgumentParser = new GoCommandLineArgumentParser();
 		this.processNameUID = new UID();
 		this.processArgumentUID = new UID();
@@ -46,10 +47,11 @@ public class StateServerGlobalVariableStrategy extends GlobalVariableStrategy {
 		this.refsUID = new UID();
 	}
 
-	static void generateProcessSwitch(Map<UID, PGoType> typeMap, PlusCalAlgorithm plusCalAlgorithm, GoBlockBuilder builder,
-									  GoVariableName processName, GoVariableName processArgument) {
+	static void generateProcessSwitch(Map<UID, PGoType> typeMap, ModularPlusCalBlock modularPlusCalBlock,
+	                                  GoBlockBuilder builder, GoVariableName processName,
+	                                  GoVariableName processArgument) {
 		try (GoSwitchBuilder switchBuilder = builder.switchStmt(processName)) {
-			for (PlusCalProcess process : ((PlusCalMultiProcess) plusCalAlgorithm.getProcesses()).getProcesses()) {
+			for (PlusCalProcess process : ((PlusCalMultiProcess) modularPlusCalBlock.getProcesses()).getProcesses()) {
 				String name = process.getName().getName().getValue();
 				GoType type = typeMap.get(process.getName().getUID()).accept(new PGoTypeGoTypeConversionVisitor());
 				try (GoBlockBuilder caseBody = switchBuilder.addCase(new GoStringLiteral(name))) {
@@ -175,7 +177,7 @@ public class StateServerGlobalVariableStrategy extends GlobalVariableStrategy {
 			}
 		}
 		generateProcessSwitch(
-				typeMap, plusCalAlgorithm, builder, findVariable(processNameUID), findVariable(processArgumentUID));
+				typeMap, modularPlusCalBlock, builder, findVariable(processNameUID), findVariable(processArgumentUID));
 		builder.assign(
 				err,
 				new GoCall(new GoSelectorExpression(findVariable(globalStateUID), "WaitPeers"), Collections.emptyList()));

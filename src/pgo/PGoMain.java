@@ -5,6 +5,7 @@ import pgo.errors.TopLevelIssueContext;
 import pgo.formatters.GoNodeFormattingVisitor;
 import pgo.formatters.IndentingWriter;
 import pgo.model.golang.GoModule;
+import pgo.model.mpcal.ModularPlusCalBlock;
 import pgo.model.pcal.PlusCalAlgorithm;
 import pgo.model.tla.TLAExpression;
 import pgo.model.tla.TLAModule;
@@ -15,6 +16,7 @@ import pgo.trans.PGoTransException;
 import pgo.trans.intermediate.*;
 import pgo.trans.passes.codegen.CodeGenPass;
 import pgo.trans.passes.constdef.ConstantDefinitionParsingPass;
+import pgo.trans.passes.scope.ModularPlusCalScopingPass;
 import pgo.trans.passes.tlaparse.TLAParsingPass;
 import pgo.trans.passes.type.TypeInferencePass;
 
@@ -83,35 +85,38 @@ public class PGoMain {
 				checkErrors(ctx);
 			}
 
+			// TODO: integration
+			ModularPlusCalBlock modularPlusCalBlock = ModularPlusCalBlock.from(plusCalAlgorithm);
+
 			logger.info("Parsing constant definitions from configuration");
 			Map<String, TLAExpression> constantDefinitions = ConstantDefinitionParsingPass.perform(
 					ctx, opts.constants.getConstants());
 			checkErrors(ctx);
 
 			logger.info("Checking compile options for sanity");
-			CheckOptionsPass.perform(ctx, plusCalAlgorithm, opts);
+			CheckOptionsPass.perform(ctx, modularPlusCalBlock, opts);
 			checkErrors(ctx);
 
 			logger.info("Expanding PlusCal macros");
-			final PlusCalAlgorithm macroExpandedPlusCalAlgorithm = PlusCalMacroExpansionPass.perform(
-					ctx, plusCalAlgorithm);
+			ModularPlusCalBlock macroExpandedModularPlusCalBlock = ModularPlusCalMacroExpansionPass.perform(
+					ctx, modularPlusCalBlock);
 			checkErrors(ctx);
 
 			logger.info("Resolving TLA+ and PlusCal scoping");
 			TLAModuleLoader loader = new TLAModuleLoader(Collections.singletonList(inputFilePath.getParent()));
-			DefinitionRegistry registry = PGoScopingPass.perform(
-					ctx, tlaModule, macroExpandedPlusCalAlgorithm, loader, constantDefinitions);
+			DefinitionRegistry registry = ModularPlusCalScopingPass.perform(
+					ctx, tlaModule, macroExpandedModularPlusCalBlock, loader, constantDefinitions);
 			checkErrors(ctx);
 
 			logger.info("Inferring types");
-			Map<UID, PGoType> typeMap = TypeInferencePass.perform(ctx, registry, macroExpandedPlusCalAlgorithm);
+			Map<UID, PGoType> typeMap = TypeInferencePass.perform(ctx, registry, macroExpandedModularPlusCalBlock);
 			checkErrors(ctx);
 
 			logger.info("Inferring atomicity requirements");
-			AtomicityInferencePass.perform(registry, macroExpandedPlusCalAlgorithm);
+			AtomicityInferencePass.perform(registry, macroExpandedModularPlusCalBlock);
 
 			logger.info("Initial code generation");
-			GoModule goModule = CodeGenPass.perform(registry, typeMap, opts, macroExpandedPlusCalAlgorithm);
+			GoModule goModule = CodeGenPass.perform(registry, typeMap, opts, macroExpandedModularPlusCalBlock);
 
 			logger.info("Normalising generated code");
 			GoModule normalisedGoModule = CodeNormalisingPass.perform(goModule);

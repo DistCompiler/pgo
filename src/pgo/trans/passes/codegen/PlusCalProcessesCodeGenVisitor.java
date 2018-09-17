@@ -8,6 +8,7 @@ import pgo.model.golang.builder.GoBlockBuilder;
 import pgo.model.golang.builder.GoFunctionDeclarationBuilder;
 import pgo.model.golang.builder.GoModuleBuilder;
 import pgo.model.golang.type.GoType;
+import pgo.model.mpcal.ModularPlusCalBlock;
 import pgo.model.pcal.*;
 import pgo.model.tla.TLAExpression;
 import pgo.model.type.PGoType;
@@ -26,16 +27,16 @@ public class PlusCalProcessesCodeGenVisitor extends PlusCalProcessesVisitor<Void
 	private DefinitionRegistry registry;
 	private Map<UID, PGoType> typeMap;
 	private GlobalVariableStrategy globalStrategy;
-	private PlusCalAlgorithm plusCalAlgorithm;
+	private ModularPlusCalBlock modularPlusCalBlock;
 	private GoModuleBuilder moduleBuilder;
 
 	public PlusCalProcessesCodeGenVisitor(DefinitionRegistry registry, Map<UID, PGoType> typeMap,
-	                                      GlobalVariableStrategy globalStrategy, PlusCalAlgorithm plusCalAlgorithm,
-	                                      GoModuleBuilder moduleBuilder) {
+	                                      GlobalVariableStrategy globalStrategy,
+	                                      ModularPlusCalBlock modularPlusCalBlock, GoModuleBuilder moduleBuilder) {
 		this.registry = registry;
 		this.typeMap = typeMap;
 		this.globalStrategy = globalStrategy;
-		this.plusCalAlgorithm = plusCalAlgorithm;
+		this.modularPlusCalBlock = modularPlusCalBlock;
 		this.moduleBuilder = moduleBuilder;
 	}
 
@@ -67,7 +68,7 @@ public class PlusCalProcessesCodeGenVisitor extends PlusCalProcessesVisitor<Void
 	}
 
 	private void generateProcedures() {
-		for (PlusCalProcedure procedure : plusCalAlgorithm.getProcedures()) {
+		for (PlusCalProcedure procedure : modularPlusCalBlock.getProcedures()) {
 			Map<String, GoVariableName> argMap = new HashMap<>();
 			UID uid = procedure.getUID();
 
@@ -113,7 +114,7 @@ public class PlusCalProcessesCodeGenVisitor extends PlusCalProcessesVisitor<Void
 		generateProcedures();
 		try (GoBlockBuilder fnBuilder = moduleBuilder.defineFunction("main").getBlockBuilder()) {
 			globalStrategy.mainPrelude(fnBuilder);
-			generateLocalVariableDefinitions(registry, typeMap, globalStrategy, fnBuilder, plusCalAlgorithm.getVariables());
+			generateLocalVariableDefinitions(registry, typeMap, globalStrategy, fnBuilder, modularPlusCalBlock.getVariables());
 			for (PlusCalStatement statements : singleProcess.getBody()) {
 				statements.accept(new PlusCalStatementCodeGenVisitor(
 						registry, typeMap, globalStrategy, singleProcess.getUID(), fnBuilder));
@@ -126,7 +127,7 @@ public class PlusCalProcessesCodeGenVisitor extends PlusCalProcessesVisitor<Void
 	public Void visit(PlusCalMultiProcess multiProcess) throws RuntimeException {
 		generateInit(initBuilder -> {
 			// generate global variable definitions and initializations
-			for (PlusCalVariableDeclaration variableDeclaration : plusCalAlgorithm.getVariables()) {
+			for (PlusCalVariableDeclaration variableDeclaration : modularPlusCalBlock.getVariables()) {
 				TLAExpression value = variableDeclaration.getValue();
 				GoType type = typeMap.get(variableDeclaration.getUID()).accept(new PGoTypeGoTypeConversionVisitor());
 				GoVariableName name = moduleBuilder.defineGlobal(

@@ -8,7 +8,7 @@ import pgo.model.golang.type.GoChanType;
 import pgo.model.golang.type.GoSliceType;
 import pgo.model.golang.type.GoType;
 import pgo.model.golang.type.GoTypeName;
-import pgo.model.pcal.PlusCalAlgorithm;
+import pgo.model.mpcal.ModularPlusCalBlock;
 import pgo.model.pcal.PlusCalMultiProcess;
 import pgo.model.pcal.PlusCalProcess;
 import pgo.model.type.PGoType;
@@ -24,7 +24,7 @@ import java.util.Map;
 public class MultithreadedProcessGlobalVariableStrategy extends GlobalVariableStrategy {
 	private DefinitionRegistry registry;
 	private Map<UID, PGoType> typeMap;
-	private PlusCalAlgorithm plusCalAlgorithm;
+	private ModularPlusCalBlock modularPlusCalBlock;
 	private UID pGoLockUID;
 	private UID pGoWaitUID;
 	private UID pGoStartUID;
@@ -32,10 +32,10 @@ public class MultithreadedProcessGlobalVariableStrategy extends GlobalVariableSt
 	private static final GoType PGO_LOCK_TYPE = new GoSliceType(new GoTypeName("sync.RWMutex"));
 
 	public MultithreadedProcessGlobalVariableStrategy(DefinitionRegistry registry, Map<UID, PGoType> typeMap,
-	                                                  PlusCalAlgorithm plusCalAlgorithm) {
+	                                                  ModularPlusCalBlock modularPlusCalBlock) {
 		this.registry = registry;
 		this.typeMap = typeMap;
-		this.plusCalAlgorithm = plusCalAlgorithm;
+		this.modularPlusCalBlock = modularPlusCalBlock;
 		this.pGoLockUID = new UID();
 		this.pGoWaitUID = new UID();
 		this.pGoStartUID = new UID();
@@ -70,7 +70,7 @@ public class MultithreadedProcessGlobalVariableStrategy extends GlobalVariableSt
 
 	@Override
 	public void mainPrelude(GoBlockBuilder builder) {
-		for (PlusCalProcess process : ((PlusCalMultiProcess) plusCalAlgorithm.getProcesses()).getProcesses()) {
+		for (PlusCalProcess process : ((PlusCalMultiProcess) modularPlusCalBlock.getProcesses()).getProcesses()) {
 			String processName = process.getName().getName().getValue();
 			GoExpression value = process.getName().getValue().accept(
 					new TLAExpressionCodeGenVisitor(builder, registry, typeMap, this));

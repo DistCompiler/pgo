@@ -1,7 +1,7 @@
-package pgo.trans.intermediate;
+package pgo.trans.passes.scope;
 
 import pgo.errors.IssueContext;
-import pgo.model.pcal.PlusCalAlgorithm;
+import pgo.model.mpcal.ModularPlusCalBlock;
 import pgo.model.pcal.PlusCalProcedure;
 import pgo.model.pcal.PlusCalStatement;
 import pgo.model.pcal.PlusCalVariableDeclaration;
@@ -11,17 +11,19 @@ import pgo.model.tla.TLAUnit;
 import pgo.modules.TLAModuleLoader;
 import pgo.scope.ChainMap;
 import pgo.scope.UID;
+import pgo.trans.intermediate.*;
 
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 
-public class PGoScopingPass {
+public class ModularPlusCalScopingPass {
 
-	private PGoScopingPass() {}
+	private ModularPlusCalScopingPass() {}
 
-	public static DefinitionRegistry perform(IssueContext ctx, TLAModule module, PlusCalAlgorithm plusCalAlgorithm,
-											 TLAModuleLoader loader, Map<String, TLAExpression> constantDefinitions){
+	public static DefinitionRegistry perform(IssueContext ctx, TLAModule module,
+	                                         ModularPlusCalBlock modularPlusCalBlock,
+	                                         TLAModuleLoader loader, Map<String, TLAExpression> constantDefinitions){
 		DefinitionRegistry registry = new DefinitionRegistry();
 		TLAScopeBuilder tlaScope = new TLAScopeBuilder(ctx, registry.getReferences());
 
@@ -41,20 +43,20 @@ public class PGoScopingPass {
 
 		TLAScopeBuilder pcalScope = tlaScope.makeNestedScope();
 
-		for (PlusCalVariableDeclaration decl : plusCalAlgorithm.getVariables()) {
+		for (PlusCalVariableDeclaration decl : modularPlusCalBlock.getVariables()) {
 			pcalScope.declare(decl.getName().getValue(), decl.getUID());
 			registry.addGlobalVariable(decl.getUID());
 			decl.getValue().accept(new TLAExpressionScopingVisitor(tlaScope, registry, loader, new HashSet<>()));
 		}
 
-		for (TLAUnit unit : plusCalAlgorithm.getUnits()) {
+		for (TLAUnit unit : modularPlusCalBlock.getUnits()) {
 			unit.accept(new TLAUnitScopingVisitor(ctx, pcalScope, registry, loader, new HashSet<>()));
 		}
 
-		plusCalAlgorithm.getProcesses().accept(
+		modularPlusCalBlock.getProcesses().accept(
 				new PlusCalProcessesScopingVisitor(ctx, pcalScope, tlaScope, registry, loader, new HashSet<>()));
 
-		for (PlusCalProcedure proc : plusCalAlgorithm.getProcedures()) {
+		for (PlusCalProcedure proc : modularPlusCalBlock.getProcedures()) {
 
 			registry.addProcedure(proc);
 
