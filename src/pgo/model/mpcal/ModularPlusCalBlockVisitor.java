@@ -5,7 +5,6 @@ import pgo.model.tla.TLAUnit;
 
 public abstract class ModularPlusCalBlockVisitor<T, E extends Throwable> {
 	public abstract T visit(ModularPlusCalBlock modularPlusCalBlock) throws E;
->>>>>>> Basic label checking on archetypes/procedures/processes.:src/pgo/model/mpcal/ModularPlusCalBlockVisitor.java
 	public abstract T visit(TLAUnit tlaUnit) throws E;
 	public abstract T visit(ModularPlusCalMappingMacro modularPlusCalMappingMacro) throws E;
 	public abstract T visit(ModularPlusCalArchetype modularPlusCalArchetype) throws E;

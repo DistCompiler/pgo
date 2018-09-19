@@ -38,10 +38,6 @@ public class PlusCalBuilder {
 				new PlusCalMultiProcess(SourceLocation.unknown(), Arrays.asList(processes)));
 	}
 
-	public static ModularPlusCalArchetype archetype(String name, List<PlusCalVariableDeclaration> arguments, List<PlusCalVariableDeclaration> vars, List<PlusCalStatement> body) {
-		return new ModularPlusCalArchetype(SourceLocation.unknown(), name, arguments, vars, body);
-	}
-
 	public static PlusCalVariableDeclaration pcalVarDecl(String name, boolean isRef, boolean isSet,
 	                                                     TLAExpression value) {
 		return new PlusCalVariableDeclaration(

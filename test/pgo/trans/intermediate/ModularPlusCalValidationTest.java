@@ -19,6 +19,7 @@ import pgo.model.pcal.*;
 import pgo.trans.passes.mpcal.ModularPlusCalValidationPass;
 
 import static pgo.model.pcal.PlusCalBuilder.*;
+import static pgo.model.mpcal.ModularPlusCalBuilder.*;
 import static pgo.model.tla.TLABuilder.*;
 
 @RunWith(Parameterized.class)
