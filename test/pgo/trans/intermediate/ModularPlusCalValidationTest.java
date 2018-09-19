@@ -421,7 +421,7 @@ public class ModularPlusCalValidationTest {
                                 Collections.emptyList(),
                                 Collections.singletonList(
                                         procedure(
-                                                "CorrectProcedure",
+                                                "MyProcedure",
                                                 Collections.emptyList(),
                                                 Collections.emptyList(),
                                                 labeled(label("l2"), printS(str("procedure"))),
@@ -447,6 +447,91 @@ public class ModularPlusCalValidationTest {
                                     new InvalidModularPlusCalIssue(
                                             InvalidModularPlusCalIssue.InvalidReason.MISSING_LABEL,
                                             call("MyProcedure")
+                                    )
+                            );
+
+                            add(
+                                    new InvalidModularPlusCalIssue(
+                                            InvalidModularPlusCalIssue.InvalidReason.MISSING_LABEL,
+                                            assign(idexp("x"), num(10))
+                                    )
+                            );
+                        }},
+                },
+                // --mpcal ReturnGotoLabelingRules {
+                //     archetype MyArchetype() {
+                //         l1: print "first label";
+                //         goto l1;
+                //         print "needs label"; (* missing label *)
+                //     }
+                //
+                //     procedure MyProcedure() {
+                //         l2: print "procedure";
+                //         return;
+                //         goto l2; (* missing label *)
+                //     }
+                //
+                //     process (MyProcess = 32) {
+                //         l3: print "process";
+                //         goto l3;
+                //         x := 10; (* missing label *)
+                //     }
+                // }
+                {
+                        mpcal(
+                                "ReturnGotoLabelingRules",
+                                Collections.singletonList(
+                                        archetype(
+                                                "MyArchetype",
+                                                Collections.emptyList(),
+                                                Collections.emptyList(),
+                                                new ArrayList<PlusCalStatement>() {{
+                                                    add(
+                                                            labeled(label("l1"),
+                                                                    printS(str("first label")))
+                                                    );
+
+                                                    add(gotoS("l1"));
+                                                    add(printS(str("needs label")));
+                                                }}
+                                        )
+                                ),
+                                Collections.emptyList(),
+                                Collections.emptyList(),
+                                Collections.emptyList(),
+                                Collections.emptyList(),
+                                Collections.singletonList(
+                                        procedure(
+                                                "MyProcedure",
+                                                Collections.emptyList(),
+                                                Collections.emptyList(),
+                                                labeled(label("l2"), printS(str("procedure"))),
+                                                returnS(),
+                                                gotoS("l2")
+                                        )
+                                ),
+                                Collections.emptyList(),
+                                process(
+                                        pcalVarDecl("MyProcess", false, false, num(32)),
+                                        PlusCalFairness.WEAK_FAIR,
+                                        Collections.emptyList(),
+                                        labeled(label("l3"), printS(str("process"))),
+                                        gotoS("l3"),
+                                        assign(idexp("x"), num(10))
+                                )
+                        ),
+                        new ArrayList<InvalidModularPlusCalIssue>() {{
+                            add(
+                                    new InvalidModularPlusCalIssue(
+                                            InvalidModularPlusCalIssue.InvalidReason.MISSING_LABEL,
+                                            printS(str("needs label"))
+                                    )
+                            );
+
+                            add(
+                                    new InvalidModularPlusCalIssue(
+                                            InvalidModularPlusCalIssue.InvalidReason.MISSING_LABEL,
+                                            gotoS("l2")
                                     )
                             );
 

@@ -48,6 +48,7 @@ public class ModularPlusCalValidationPlusCalStatementVisitor extends PlusCalStat
 
     public Void visit(PlusCalIf plusCalIf) {
         checkProcedureCall(plusCalIf);
+        checkReturnOrGoto(plusCalIf);
         this.previousStatement = plusCalIf;
 
         for (PlusCalStatement statement : plusCalIf.getYes()) {
@@ -63,6 +64,7 @@ public class ModularPlusCalValidationPlusCalStatementVisitor extends PlusCalStat
 
     public Void visit(PlusCalEither plusCalEither) {
         checkProcedureCall(plusCalEither);
+        checkReturnOrGoto(plusCalEither);
         this.previousStatement = plusCalEither;
 
         for (List<PlusCalStatement> cases : plusCalEither.getCases()) {
@@ -76,6 +78,7 @@ public class ModularPlusCalValidationPlusCalStatementVisitor extends PlusCalStat
 
     public Void visit(PlusCalAssignment plusCalAssignment) {
         checkProcedureCall(plusCalAssignment);
+        checkReturnOrGoto(plusCalAssignment);
         this.previousStatement = plusCalAssignment;
 
         return null;
@@ -83,6 +86,7 @@ public class ModularPlusCalValidationPlusCalStatementVisitor extends PlusCalStat
 
     public Void visit(PlusCalReturn plusCalReturn) {
         // `return` statements can follow procedure calls -- no checks here
+        checkReturnOrGoto(plusCalReturn);
 
         this.previousStatement = plusCalReturn;
         return null;
@@ -90,6 +94,7 @@ public class ModularPlusCalValidationPlusCalStatementVisitor extends PlusCalStat
 
     public Void visit(PlusCalSkip skip) {
         checkProcedureCall(skip);
+        checkReturnOrGoto(skip);
         this.previousStatement = skip;
 
         return null;
@@ -97,6 +102,7 @@ public class ModularPlusCalValidationPlusCalStatementVisitor extends PlusCalStat
 
     public Void visit(PlusCalCall plusCalCall) {
         checkProcedureCall(plusCalCall);
+        checkReturnOrGoto(plusCalCall);
         this.previousStatement = plusCalCall;
 
         return null;
@@ -104,12 +110,14 @@ public class ModularPlusCalValidationPlusCalStatementVisitor extends PlusCalStat
 
     public Void visit(PlusCalMacroCall macroCall) {
         checkProcedureCall(macroCall);
+        checkReturnOrGoto(macroCall);
         this.previousStatement = macroCall;
         return null;
     }
 
     public Void visit(PlusCalWith with) {
         checkProcedureCall(with);
+        checkReturnOrGoto(with);
         this.previousStatement = with;
 
         return null;
@@ -117,6 +125,7 @@ public class ModularPlusCalValidationPlusCalStatementVisitor extends PlusCalStat
 
     public Void visit(PlusCalPrint plusCalPrint) {
         checkProcedureCall(plusCalPrint);
+        checkReturnOrGoto(plusCalPrint);
         this.previousStatement = plusCalPrint;
 
         return null;
@@ -124,6 +133,7 @@ public class ModularPlusCalValidationPlusCalStatementVisitor extends PlusCalStat
 
     public Void visit(PlusCalAssert plusCalAssert) {
         checkProcedureCall(plusCalAssert);
+        checkReturnOrGoto(plusCalAssert);
         this.previousStatement = plusCalAssert;
 
         return null;
@@ -131,6 +141,7 @@ public class ModularPlusCalValidationPlusCalStatementVisitor extends PlusCalStat
 
     public Void visit(PlusCalAwait plusCalAwait) {
         checkProcedureCall(plusCalAwait);
+        checkReturnOrGoto(plusCalAwait);
         this.previousStatement = plusCalAwait;
 
         return null;
@@ -138,6 +149,7 @@ public class ModularPlusCalValidationPlusCalStatementVisitor extends PlusCalStat
 
     public Void visit(PlusCalGoto plusCalGoto) {
         // `goto` statements can follow procedure calls -- no checks here
+        checkReturnOrGoto(plusCalGoto);
         this.previousStatement = plusCalGoto;
 
         return null;
@@ -165,6 +177,12 @@ public class ModularPlusCalValidationPlusCalStatementVisitor extends PlusCalStat
 
     private void checkProcedureCall(PlusCalStatement statement) {
         if (previousStatement instanceof PlusCalCall) {
+            missingLabel(statement);
+        }
+    }
+
+    private void checkReturnOrGoto(PlusCalStatement statement) {
+        if ((previousStatement instanceof PlusCalReturn) || (previousStatement instanceof PlusCalGoto)) {
             missingLabel(statement);
         }
     }
