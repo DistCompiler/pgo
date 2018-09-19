@@ -74,6 +74,10 @@ public class PlusCalBuilder {
 		return new PlusCalPrint(SourceLocation.unknown(), expr);
 	}
 
+	public static PlusCalWhile whileS(TLAExpression condition, List<PlusCalStatement> body) {
+		return new PlusCalWhile(SourceLocation.unknown(), condition, body);
+	}
+
 	public static PlusCalEither either(List<List<PlusCalStatement>> cases) {
 		return new PlusCalEither(SourceLocation.unknown(), cases);
 	}

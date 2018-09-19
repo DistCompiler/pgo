@@ -16,6 +16,7 @@ import pgo.errors.TopLevelIssueContext;
 import pgo.model.mpcal.ModularPlusCalArchetype;
 import pgo.model.mpcal.ModularPlusCalBlock;
 import pgo.model.pcal.*;
+import pgo.model.tla.TLABool;
 import pgo.trans.passes.mpcal.ModularPlusCalValidationPass;
 
 import static pgo.model.pcal.PlusCalBuilder.*;
@@ -26,22 +27,22 @@ import static pgo.model.tla.TLABuilder.*;
 public class ModularPlusCalValidationTest {
 
     @Parameters
-    public static List<Object[]> data(){
+    public static List<Object[]> data() {
         return Arrays.asList(new Object[][] {
+                // --mpcal NoIssues {
+                //     archetype MyArchetype() {
+                //         l1: print(1 + 1);
+                //     }
+                //
+                //     procedure MyProcedure() {
+                //         l2: print(3 - 3);
+                //     }
+                //
+                //     process (MyProcess = 32) {
+                //         l3: print(2 * 2);
+                //     }
+                // }
                 {
-                    // --mpcal NoIssues {
-                    //     archetype MyArchetype() {
-                    //         l1: print(1 + 1);
-                    //     }
-                    //
-                    //     procedure MyProcedure() {
-                    //         l2: print(3 - 3);
-                    //     }
-                    //
-                    //     process (MyProcess = 32) {
-                    //         l3: print(2 * 2);
-                    //     }
-                    // }
                     mpcal(
                         "NoIssues",
                         Collections.singletonList(
@@ -290,7 +291,89 @@ public class ModularPlusCalValidationTest {
                                     )
                             );
                         }},
-                }
+                },
+
+                // --mpcal WhileLabels {
+                //     archetype IncorrectArchetype() {
+                //         l1: print "first label";
+                //         while (TRUE) { print "hello" }; (* missing label here *)
+                //     }
+                //
+                //     procedure CorrectProcedure() {
+                //         l2: print "procedure";
+                //         l3: while (FALSE) { print(3 - 3) }; (* all good *)
+                //     }
+                //
+                //     process (IncorrectProcess = 32) {
+                //         while (10 < 20) { print(2 * 2) }; (* missing label (first statement) *)
+                //     }
+                // }
+                {
+                        mpcal(
+                                "WhileLabels",
+                                Collections.singletonList(
+                                        archetype(
+                                                "IncorrectArchetype",
+                                                Collections.emptyList(),
+                                                Collections.emptyList(),
+                                                new ArrayList<PlusCalStatement>() {{
+                                                    add(
+                                                            labeled(label("l1"),
+                                                                    printS(str("first label")))
+                                                    );
+
+                                                    add(
+                                                            whileS(bool(true), Collections.singletonList(
+                                                                    printS(str("hello"))
+                                                            ))
+                                                    );
+                                                }}
+                                        )
+                                ),
+                                Collections.emptyList(),
+                                Collections.emptyList(),
+                                Collections.emptyList(),
+                                Collections.emptyList(),
+                                Collections.singletonList(
+                                        procedure(
+                                                "CorrectProcedure",
+                                                Collections.emptyList(),
+                                                Collections.emptyList(),
+                                                labeled(label("l2"), printS(str("procedure"))),
+                                                labeled(label("l3"), whileS(bool(false), Collections.singletonList(
+                                                        printS(binop("-", num(3), num(3))))))
+                                        )
+                                ),
+                                Collections.emptyList(),
+                                process(
+                                        pcalVarDecl("IncorrectProcess", false, false, num(32)),
+                                        PlusCalFairness.WEAK_FAIR,
+                                        Collections.emptyList(),
+                                        whileS(binop("<", num(10), num(20)), Collections.singletonList(
+                                                printS(binop("*", num(2), num(2))))
+                                        )
+                                )
+                        ),
+                        new ArrayList<InvalidModularPlusCalIssue>() {{
+                            add(
+                                    new InvalidModularPlusCalIssue(
+                                            InvalidModularPlusCalIssue.InvalidReason.MISSING_LABEL,
+                                            whileS(bool(true), Collections.singletonList(
+                                                    printS(str("hello"))
+                                            ))
+                                    )
+                            );
+
+                            add(
+                                    new InvalidModularPlusCalIssue(
+                                            InvalidModularPlusCalIssue.InvalidReason.MISSING_LABEL,
+                                            whileS(binop("<", num(10), num(20)), Collections.singletonList(
+                                                    printS(binop("*", num(2), num(2))))
+                                            )
+                                    )
+                            );
+                        }},
+                },
         });
     }
 

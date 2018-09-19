@@ -55,6 +55,11 @@ public class ModularPlusCalValidationVisitor extends ModularPlusCalBlockVisitor<
         PlusCalStatement firstStatement = modularPlusCalArchetype.getBody().get(0);
         checkLabeled(firstStatement);
 
+        ModularPlusCalValidationPlusCalStatementVisitor visitor = new ModularPlusCalValidationPlusCalStatementVisitor(this.ctx);
+        for (PlusCalStatement statement : modularPlusCalArchetype.getBody()) {
+            statement.accept(visitor);
+        }
+
         // TODO: validate archetypes
 
         return null;
@@ -78,6 +83,11 @@ public class ModularPlusCalValidationVisitor extends ModularPlusCalBlockVisitor<
         PlusCalStatement firstStatement = plusCalProcedure.getBody().get(0);
         checkLabeled(firstStatement);
 
+        ModularPlusCalValidationPlusCalStatementVisitor visitor = new ModularPlusCalValidationPlusCalStatementVisitor(this.ctx);
+        for (PlusCalStatement statement : plusCalProcedure.getBody()) {
+            statement.accept(visitor);
+        }
+
         // TODO: validate procedures
         return null;
     }
@@ -85,6 +95,11 @@ public class ModularPlusCalValidationVisitor extends ModularPlusCalBlockVisitor<
     public Void visit(PlusCalSingleProcess plusCalSingleProcess) {
         PlusCalStatement firstStatement = plusCalSingleProcess.getBody().get(0);
         checkLabeled(firstStatement);
+
+        ModularPlusCalValidationPlusCalStatementVisitor visitor = new ModularPlusCalValidationPlusCalStatementVisitor(this.ctx);
+        for (PlusCalStatement statement : plusCalSingleProcess.getBody()) {
+            statement.accept(visitor);
+        }
 
         // TODO: validate single process
         return null;
@@ -94,6 +109,11 @@ public class ModularPlusCalValidationVisitor extends ModularPlusCalBlockVisitor<
         for (PlusCalProcess process : plusCalMultiProcess.getProcesses()) {
             PlusCalStatement firstStatement = process.getBody().get(0);
             checkLabeled(firstStatement);
+
+            ModularPlusCalValidationPlusCalStatementVisitor visitor = new ModularPlusCalValidationPlusCalStatementVisitor(this.ctx);
+            for (PlusCalStatement statement : process.getBody()) {
+                statement.accept(visitor);
+            }
 
             // TODO: validate PlusCal processes
         }
