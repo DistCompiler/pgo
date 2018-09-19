@@ -1,6 +1,7 @@
 package pgo.trans.intermediate;
 
 import pgo.TODO;
+import pgo.Unreachable;
 import pgo.errors.IssueContext;
 import pgo.model.mpcal.ModularPlusCalYield;
 import pgo.model.pcal.*;
@@ -32,10 +33,7 @@ public class ModularPlusCalValidationPlusCalStatementVisitor extends PlusCalStat
     }
 
     public Void visit(PlusCalWhile plusCalWhile) {
-        // do not flag missing label if the 'while' statement has no previous statement
-        // since that will already be flagged previously (the first statement of every
-        // process/procedure/archetype needs to be labeled).
-        if (previousStatement != null && !(previousStatement instanceof PlusCalLabeledStatements)) {
+        if (!firstOrLabeled(previousStatement)) {
             missingLabel(plusCalWhile);
         }
 
@@ -49,6 +47,7 @@ public class ModularPlusCalValidationPlusCalStatementVisitor extends PlusCalStat
     }
 
     public Void visit(PlusCalIf plusCalIf) {
+        checkProcedureCall(plusCalIf);
         this.previousStatement = plusCalIf;
 
         for (PlusCalStatement statement : plusCalIf.getYes()) {
@@ -63,6 +62,7 @@ public class ModularPlusCalValidationPlusCalStatementVisitor extends PlusCalStat
     }
 
     public Void visit(PlusCalEither plusCalEither) {
+        checkProcedureCall(plusCalEither);
         this.previousStatement = plusCalEither;
 
         for (List<PlusCalStatement> cases : plusCalEither.getCases()) {
@@ -75,48 +75,76 @@ public class ModularPlusCalValidationPlusCalStatementVisitor extends PlusCalStat
     }
 
     public Void visit(PlusCalAssignment plusCalAssignment) {
-        throw new TODO();
+        checkProcedureCall(plusCalAssignment);
+        this.previousStatement = plusCalAssignment;
+
+        return null;
     }
 
     public Void visit(PlusCalReturn plusCalReturn) {
-        throw new TODO();
+        // `return` statements can follow procedure calls -- no checks here
+
+        this.previousStatement = plusCalReturn;
+        return null;
     }
 
     public Void visit(PlusCalSkip skip) {
-        throw new TODO();
+        checkProcedureCall(skip);
+        this.previousStatement = skip;
+
+        return null;
     }
 
     public Void visit(PlusCalCall plusCalCall) {
-        throw new TODO();
+        checkProcedureCall(plusCalCall);
+        this.previousStatement = plusCalCall;
+
+        return null;
     }
 
     public Void visit(PlusCalMacroCall macroCall) {
-        throw new TODO();
+        checkProcedureCall(macroCall);
+        this.previousStatement = macroCall;
+        return null;
     }
 
     public Void visit(PlusCalWith with) {
-        throw new TODO();
+        checkProcedureCall(with);
+        this.previousStatement = with;
+
+        return null;
     }
 
     public Void visit(PlusCalPrint plusCalPrint) {
+        checkProcedureCall(plusCalPrint);
         this.previousStatement = plusCalPrint;
+
         return null;
     }
 
     public Void visit(PlusCalAssert plusCalAssert) {
-        throw new TODO();
+        checkProcedureCall(plusCalAssert);
+        this.previousStatement = plusCalAssert;
+
+        return null;
     }
 
     public Void visit(PlusCalAwait plusCalAwait) {
-        throw new TODO();
+        checkProcedureCall(plusCalAwait);
+        this.previousStatement = plusCalAwait;
+
+        return null;
     }
 
     public Void visit(PlusCalGoto plusCalGoto) {
-        throw new TODO();
+        // `goto` statements can follow procedure calls -- no checks here
+        this.previousStatement = plusCalGoto;
+
+        return null;
     }
 
     public Void visit(ModularPlusCalYield modularPlusCalYield) {
-        throw new TODO();
+        throw new Unreachable();
     }
 
     private void missingLabel(PlusCalStatement statement) {
@@ -124,5 +152,20 @@ public class ModularPlusCalValidationPlusCalStatementVisitor extends PlusCalStat
                 InvalidModularPlusCalIssue.InvalidReason.MISSING_LABEL,
                 statement
         ));
+    }
+
+
+    // checks whether the statement given is the first of an archetype/procedure/process,
+    // or if it is a labeled statement. The label checks in this visitor do not flag
+    // the case when the first statement is not labeled since that is already taken care
+    // of by ModularPlusCalValidationVisitor.
+    private boolean firstOrLabeled(PlusCalStatement statement) {
+        return (statement == null) || (statement instanceof PlusCalLabeledStatements);
+    }
+
+    private void checkProcedureCall(PlusCalStatement statement) {
+        if (previousStatement instanceof PlusCalCall) {
+            missingLabel(statement);
+        }
     }
 }

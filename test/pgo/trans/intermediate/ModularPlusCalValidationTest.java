@@ -374,6 +374,90 @@ public class ModularPlusCalValidationTest {
                             );
                         }},
                 },
+                // --mpcal CallLabelingRules {
+                //     archetype MyArchetype() {
+                //         l1: print "first label";
+                //         call MyProcedure();
+                //         call MyProcedure(); (* missing label *)
+                //     }
+                //
+                //     procedure MyProcedure() {
+                //         l2: print "procedure";
+                //         call SomeProcedure();
+                //         return; (* no label required *)
+                //     }
+                //
+                //     process (MyProcess = 32) {
+                //         l3: print "process";
+                //         call MyProcedure();
+                //         goto l3; (* no label required *)
+                //         l4: print "next label";
+                //         call MyProcedure();
+                //         x := 10; (* missing label *)
+                //     }
+                // }
+                {
+                        mpcal(
+                                "CallLabelingRules",
+                                Collections.singletonList(
+                                        archetype(
+                                                "MyArchetype",
+                                                Collections.emptyList(),
+                                                Collections.emptyList(),
+                                                new ArrayList<PlusCalStatement>() {{
+                                                    add(
+                                                            labeled(label("l1"),
+                                                                    printS(str("first label")))
+                                                    );
+
+                                                    add(call("MyProcedure"));
+                                                    add(call("MyProcedure"));
+                                                }}
+                                        )
+                                ),
+                                Collections.emptyList(),
+                                Collections.emptyList(),
+                                Collections.emptyList(),
+                                Collections.emptyList(),
+                                Collections.singletonList(
+                                        procedure(
+                                                "CorrectProcedure",
+                                                Collections.emptyList(),
+                                                Collections.emptyList(),
+                                                labeled(label("l2"), printS(str("procedure"))),
+                                                call("SomeProcedure"),
+                                                returnS()
+                                        )
+                                ),
+                                Collections.emptyList(),
+                                process(
+                                        pcalVarDecl("MyProcess", false, false, num(32)),
+                                        PlusCalFairness.WEAK_FAIR,
+                                        Collections.emptyList(),
+                                        labeled(label("l3"), printS(str("process"))),
+                                        call("MyProcedure"),
+                                        gotoS("l3"),
+                                        labeled(label("l4"), printS(str("next label"))),
+                                        call("MyProcedure"),
+                                        assign(idexp("x"), num(10))
+                                )
+                        ),
+                        new ArrayList<InvalidModularPlusCalIssue>() {{
+                            add(
+                                    new InvalidModularPlusCalIssue(
+                                            InvalidModularPlusCalIssue.InvalidReason.MISSING_LABEL,
+                                            call("MyProcedure")
+                                    )
+                            );
+
+                            add(
+                                    new InvalidModularPlusCalIssue(
+                                            InvalidModularPlusCalIssue.InvalidReason.MISSING_LABEL,
+                                            assign(idexp("x"), num(10))
+                                    )
+                            );
+                        }},
+                },
         });
     }
 

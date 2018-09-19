@@ -7,6 +7,7 @@ import pgo.model.tla.TLAUnit;
 import pgo.parser.Located;
 import pgo.util.SourceLocation;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -68,6 +69,37 @@ public class PlusCalBuilder {
 
 	public static PlusCalMacroCall macroCall(String name, TLAExpression... args) {
 		return new PlusCalMacroCall(SourceLocation.unknown(), name, Arrays.asList(args));
+	}
+
+	public static PlusCalCall call(String target, TLAExpression... args) {
+		return new PlusCalCall(SourceLocation.unknown(), target, Arrays.asList(args));
+	}
+
+	public static PlusCalReturn returnS() {
+		return new PlusCalReturn(SourceLocation.unknown());
+	}
+
+	public static PlusCalGoto gotoS(String target) {
+		return new PlusCalGoto(SourceLocation.unknown(), target);
+	}
+
+	public static PlusCalAssignment assign(TLAExpression... expressions) {
+		assert (expressions.length % 2) == 0;
+		List<PlusCalAssignmentPair> pairs = new ArrayList<>();
+
+		int i = 0;
+		TLAExpression lhs = null;
+		for (TLAExpression e : expressions) {
+			if (i == 0) {
+				lhs = e;
+				i++;
+			} else {
+				pairs.add(new PlusCalAssignmentPair(SourceLocation.unknown(), lhs, e));
+				i = 0;
+			}
+		}
+
+		return new PlusCalAssignment(SourceLocation.unknown(), pairs);
 	}
 
 	public static PlusCalPrint printS(TLAExpression expr) {
