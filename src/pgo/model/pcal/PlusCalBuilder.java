@@ -84,7 +84,10 @@ public class PlusCalBuilder {
 	}
 
 	public static PlusCalAssignment assign(TLAExpression... expressions) {
-		assert (expressions.length % 2) == 0;
+		if ((expressions.length % 2) != 0) {
+			throw new RuntimeException("assign requires an even number of TLA+ expressions");
+		}
+
 		List<PlusCalAssignmentPair> pairs = new ArrayList<>();
 
 		int i = 0;
@@ -102,6 +105,10 @@ public class PlusCalBuilder {
 		return new PlusCalAssignment(SourceLocation.unknown(), pairs);
 	}
 
+	public static PlusCalIf ifS (TLAExpression condition, List<PlusCalStatement> yes, List<PlusCalStatement> no) {
+		return new PlusCalIf(SourceLocation.unknown(), condition, yes, no);
+	}
+
 	public static PlusCalPrint printS(TLAExpression expr) {
 		return new PlusCalPrint(SourceLocation.unknown(), expr);
 	}
@@ -116,6 +123,10 @@ public class PlusCalBuilder {
 
 	public static PlusCalAwait await(TLAExpression cond) {
 		return new PlusCalAwait(SourceLocation.unknown(), cond);
+	}
+
+	public static PlusCalSkip skip() {
+		return new PlusCalSkip(SourceLocation.unknown());
 	}
 
 	public static ModularPlusCalYield yield(TLAExpression expr) {

@@ -16,7 +16,6 @@ import pgo.errors.TopLevelIssueContext;
 import pgo.model.mpcal.ModularPlusCalArchetype;
 import pgo.model.mpcal.ModularPlusCalBlock;
 import pgo.model.pcal.*;
-import pgo.model.tla.TLABool;
 import pgo.trans.passes.mpcal.ModularPlusCalValidationPass;
 
 import static pgo.model.pcal.PlusCalBuilder.*;
@@ -539,6 +538,148 @@ public class ModularPlusCalValidationTest {
                                     new InvalidModularPlusCalIssue(
                                             InvalidModularPlusCalIssue.InvalidReason.MISSING_LABEL,
                                             assign(idexp("x"), num(10))
+                                    )
+                            );
+                        }},
+                },
+                // --mpcal IfEitherLabelingRules {
+                //     archetype MyArchetype() {
+                //         l1: print "first label";
+                //         if (TRUE) {
+                //             print "true";
+                //         } else if (TRUE) {
+                //             call MyProcedure();
+                //         }
+                //
+                //         print "needs label"; (* missing label *)
+                //     }
+                //
+                //     procedure MyProcedure() {
+                //         l2: print "procedure";
+                //         either { v := 10 } or { return };
+                //         goto l2; (* missing label *)
+                //     }
+                //
+                //     process (MyProcess = 32) {
+                //         l3: print "process";
+                //         either { x := 0 } or { goto l3 };
+                //         l4: print "all good";
+                //
+                //         either { goto l4 } or { skip };
+                //         x := 50; (* missing label *)
+                //
+                //         l5: if (TRUE) {
+                //                 l6: print "label";
+                //             }
+                //         y := 20; (* missing label *)
+                //     }
+                // }
+                {
+                        mpcal(
+                                "IfEitherLabelingRules",
+                                Collections.singletonList(
+                                        archetype(
+                                                "MyArchetype",
+                                                Collections.emptyList(),
+                                                Collections.emptyList(),
+                                                new ArrayList<PlusCalStatement>() {{
+                                                    add(
+                                                            labeled(label("l1"),
+                                                                    printS(str("first label")),
+                                                                    ifS(bool(true), Collections.singletonList(
+                                                                            printS(str("true"))
+                                                                    ), Collections.singletonList(
+                                                                            ifS(bool(true), Collections.singletonList(
+                                                                                    call("MyProcedure")
+                                                                            ), Collections.emptyList())
+                                                                    ))
+                                                            )
+                                                    );
+                                                    add(printS(str("needs label")));
+                                                }}
+                                        )
+                                ),
+                                Collections.emptyList(),
+                                Collections.emptyList(),
+                                Collections.emptyList(),
+                                Collections.emptyList(),
+                                Collections.singletonList(
+                                        procedure(
+                                                "MyProcedure",
+                                                Collections.emptyList(),
+                                                Collections.emptyList(),
+                                                labeled(label("l2"),
+                                                        printS(str("procedure")),
+                                                        either(new ArrayList<List<PlusCalStatement>>() {{
+                                                            add(Collections.singletonList(
+                                                                    assign(idexp("v"), num(10))
+                                                            ));
+
+                                                            add(Collections.singletonList(
+                                                                    returnS()
+                                                            ));
+                                                        }}),
+                                                        gotoS("l2"))
+                                        )
+                                ),
+                                Collections.emptyList(),
+                                process(
+                                        pcalVarDecl("MyProcess", false, false, num(32)),
+                                        PlusCalFairness.WEAK_FAIR,
+                                        Collections.emptyList(),
+                                        labeled(label("l3"), printS(str("process"))),
+                                        either(new ArrayList<List<PlusCalStatement>>() {{
+                                            add(Collections.singletonList(
+                                                    assign(idexp("x"), num(0))
+                                            ));
+
+                                            add(Collections.singletonList(
+                                                    gotoS("l3")
+                                            ));
+                                        }}),
+                                        labeled(label("l4"), printS(str("all good"))),
+                                        either(new ArrayList<List<PlusCalStatement>>() {{
+                                            add(Collections.singletonList(
+                                                    gotoS("l4")
+                                            ));
+
+                                            add(Collections.singletonList(
+                                                    skip()
+                                            ));
+                                        }}),
+                                        assign(idexp("x"), num(50)),
+                                        labeled(label("l5"), ifS(bool(true), Collections.singletonList(
+                                                labeled(label("l6"), printS(str("label")))
+                                        ), Collections.emptyList())),
+                                        assign(idexp("y"), num(20))
+                                )
+                        ),
+                        new ArrayList<InvalidModularPlusCalIssue>() {{
+                            add(
+                                    new InvalidModularPlusCalIssue(
+                                            InvalidModularPlusCalIssue.InvalidReason.MISSING_LABEL,
+                                            printS(str("needs label"))
+                                    )
+                            );
+
+                            add(
+                                    new InvalidModularPlusCalIssue(
+                                            InvalidModularPlusCalIssue.InvalidReason.MISSING_LABEL,
+                                            gotoS("l2")
+                                    )
+                            );
+
+                            add(
+                                    new InvalidModularPlusCalIssue(
+                                            InvalidModularPlusCalIssue.InvalidReason.MISSING_LABEL,
+                                            assign(idexp("x"), num(50))
+                                    )
+                            );
+
+                            add(
+                                    new InvalidModularPlusCalIssue(
+                                            InvalidModularPlusCalIssue.InvalidReason.MISSING_LABEL,
+                                            assign(idexp("y"), num(20))
                                     )
                             );
                         }},
