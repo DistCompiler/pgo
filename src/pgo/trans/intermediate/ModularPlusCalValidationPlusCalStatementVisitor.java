@@ -260,6 +260,15 @@ public class ModularPlusCalValidationPlusCalStatementVisitor extends PlusCalStat
         checkIfEither(with);
         this.previousStatement = with;
 
+        // make sure all statements in the body of a 'with' expression
+        // do not have labels in them
+        boolean oldLabelsAllowed = labelsAllowed;
+        labelsAllowed = false;
+        for (PlusCalStatement statement : with.getBody()) {
+            statement.accept(this);
+        }
+
+        labelsAllowed = oldLabelsAllowed;
         return null;
     }
 

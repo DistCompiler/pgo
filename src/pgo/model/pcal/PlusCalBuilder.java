@@ -117,6 +117,10 @@ public class PlusCalBuilder {
 		return new PlusCalWhile(SourceLocation.unknown(), condition, body);
 	}
 
+	public static PlusCalWith with(List<PlusCalVariableDeclaration> variables, PlusCalStatement... statements) {
+		return new PlusCalWith(SourceLocation.unknown(), variables, Arrays.asList(statements));
+	}
+
 	public static PlusCalEither either(List<List<PlusCalStatement>> cases) {
 		return new PlusCalEither(SourceLocation.unknown(), cases);
 	}

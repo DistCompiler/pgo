@@ -25,6 +25,10 @@ public class ModularPlusCalValidationVisitor extends ModularPlusCalBlockVisitor<
             mappingMacro.accept(this);
         }
 
+        for (PlusCalMacro macro : modularPlusCalBlock.getMacros()) {
+            macro.accept(this);
+        }
+
         for (PlusCalProcedure procedure : modularPlusCalBlock.getProcedures()) {
             procedure.accept(this);
         }
@@ -35,10 +39,6 @@ public class ModularPlusCalValidationVisitor extends ModularPlusCalBlockVisitor<
         } else if (modularPlusCalBlock.getProcesses() instanceof PlusCalMultiProcess) {
             PlusCalMultiProcess multiProcess = (PlusCalMultiProcess) modularPlusCalBlock.getProcesses();
             multiProcess.accept(this);
-        }
-
-        for (PlusCalMacro macro : modularPlusCalBlock.getMacros()) {
-            macro.accept(this);
         }
 
         return null;

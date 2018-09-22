@@ -2,10 +2,7 @@ package pgo.trans.intermediate;
 
 import static org.junit.Assert.*;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -738,6 +735,82 @@ public class ModularPlusCalValidationTest {
                                     new InvalidModularPlusCalIssue(
                                             InvalidModularPlusCalIssue.InvalidReason.LABEL_NOT_ALLOWED,
                                             labeled(label("l2"), assign(idexp("y"), num(20)))
+                                    )
+                            );
+                        }},
+                },
+                // --mpcal WithRules {
+                //     macro MacroWith() {
+                //         print(1 + 1);
+                //         with (x = 10) {
+                //             print x;
+                //             m1: x := 20; (* invalid *)
+                //         }
+                //         m2: y := 20; (* invalid *)
+                //     }
+                //
+                //     procedure ProcedureWith() {
+                //         l1: with (x = 10) {
+                //                 l2: print x; (* invalid *)
+                //             }
+                //     }
+                // }
+                {
+                        mpcal(
+                                "WithRules",
+                                Collections.emptyList(),
+                                Collections.emptyList(),
+                                Collections.emptyList(),
+                                Collections.emptyList(),
+                                Collections.singletonList(
+                                        macro(
+                                                "MacroWith",
+                                                Collections.emptyList(),
+                                                printS(binop("+", num(1), num(1))),
+                                                with(
+                                                        Collections.singletonList(
+                                                                pcalVarDecl("x", false, false, num(10))
+                                                        ),
+                                                        printS(idexp("x")),
+                                                        labeled(label("m1"), assign(idexp("x"), num(20)))
+                                                ),
+                                                labeled(label("m2"), assign(idexp("y"), num(20)))
+                                        )
+                                ),
+                                Collections.singletonList(
+                                        procedure(
+                                                "ProcedureWith",
+                                                Collections.emptyList(),
+                                                Collections.emptyList(),
+                                                labeled(label("l1"), with(
+                                                        Collections.singletonList(
+                                                                pcalVarDecl("x", false, false, num(10))
+                                                        ),
+                                                        labeled(label("l2"), printS(idexp("x")))
+                                                ))
+                                        )
+                                ),
+                                Collections.emptyList()
+                        ),
+                        new ArrayList<InvalidModularPlusCalIssue>() {{
+                            add(
+                                    new InvalidModularPlusCalIssue(
+                                            InvalidModularPlusCalIssue.InvalidReason.LABEL_NOT_ALLOWED,
+                                            labeled(label("m1"), assign(idexp("x"), num(20)))
+                                    )
+                            );
+
+                            add(
+                                    new InvalidModularPlusCalIssue(
+                                            InvalidModularPlusCalIssue.InvalidReason.LABEL_NOT_ALLOWED,
+                                            labeled(label("m2"), assign(idexp("y"), num(20)))
+                                    )
+                            );
+
+                            add(
+                                    new InvalidModularPlusCalIssue(
+                                            InvalidModularPlusCalIssue.InvalidReason.LABEL_NOT_ALLOWED,
+                                            labeled(label("l2"), printS(idexp("x")))
                                     )
                             );
                         }},
