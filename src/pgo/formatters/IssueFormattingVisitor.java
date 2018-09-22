@@ -268,6 +268,7 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 
 			case RESERVED_LABEL_NAME:
 				out.write("use of reserved label name in statement: ");
+				break;
 		}
 
 		invalidModularPlusCalIssue.getStatement().accept(new OriginFormattingVisitor(out));
