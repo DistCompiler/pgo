@@ -4,8 +4,11 @@ import pgo.Unreachable;
 import pgo.errors.IssueContext;
 import pgo.model.mpcal.ModularPlusCalYield;
 import pgo.model.pcal.*;
+import pgo.model.tla.TLAExpression;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Performs Modular PlusCal validation at the level of PlusCal statements.
@@ -124,17 +127,20 @@ public class ModularPlusCalValidationPlusCalStatementVisitor extends PlusCalStat
     private IssueContext ctx;
     private PlusCalStatement previousStatement;
     private boolean labelsAllowed;
+    private Set<TLAExpression> assignedVariables;
 
     public ModularPlusCalValidationPlusCalStatementVisitor(IssueContext ctx) {
         this.ctx = ctx;
         this.previousStatement = null;
         this.labelsAllowed = true;
+        this.assignedVariables = new HashSet<>();
     }
 
     public ModularPlusCalValidationPlusCalStatementVisitor(IssueContext ctx, boolean labelsAllowed) {
         this.ctx = ctx;
         this.previousStatement = null;
         this.labelsAllowed = labelsAllowed;
+        this.assignedVariables = new HashSet<>();
     }
 
     public Void visit(PlusCalLabeledStatements labeledStatements) {
@@ -143,6 +149,9 @@ public class ModularPlusCalValidationPlusCalStatementVisitor extends PlusCalStat
         if (!labelsAllowed) {
             labelNotAllowed(labeledStatements);
         }
+
+        // erase context of assigned variables when starting a new label
+        this.assignedVariables = new HashSet<>();
 
         for (PlusCalStatement statement : labeledStatements.getStatements()) {
             statement.accept(this);
@@ -214,6 +223,14 @@ public class ModularPlusCalValidationPlusCalStatementVisitor extends PlusCalStat
         checkReturnOrGoto(plusCalAssignment);
         checkIfEither(plusCalAssignment);
         this.previousStatement = plusCalAssignment;
+
+        for (PlusCalAssignmentPair pair : plusCalAssignment.getPairs()) {
+            if (assignedVariables.contains(pair.getLhs())) {
+                missingLabel(plusCalAssignment);
+            } else {
+                assignedVariables.add(pair.getLhs());
+            }
+        }
 
         return null;
     }

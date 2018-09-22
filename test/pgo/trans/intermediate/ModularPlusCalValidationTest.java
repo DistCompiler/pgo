@@ -815,6 +815,121 @@ public class ModularPlusCalValidationTest {
                             );
                         }},
                 },
+                // --mpcal AssignmentRules {
+                //     archetype MyArchetype() {
+                //         a1: x := 10;
+                //         x := 11; (* missing label *)
+                //     }
+                //
+                //     procedure MyProcedure() {
+                //         p: either { y := 10 } or { skip };
+                //            y := 11; (* missing label *)
+                //         p2: y := 20;
+                //             x := y || y := x; (* swap x and y: invalid *)
+                //     }
+                //
+                //     process (MyProcess = 23) {
+                //         l1: n := 2;
+                //         l2: while (n < 10) {
+                //             n := 12;
+                //         }
+                //         n := 32; (* missing label *)
+                //     }
+                // }
+                {
+                        mpcal(
+                                "AssignmentRules",
+                                Collections.singletonList(
+                                        archetype(
+                                                "MyArchetype",
+                                                Collections.emptyList(),
+                                                Collections.emptyList(),
+                                                new ArrayList<PlusCalStatement>() {{
+                                                    add(
+                                                            labeled(
+                                                                    label("a1"),
+                                                                    assign(idexp("x"), num(10)),
+                                                                    assign(idexp("x"), num(11))
+                                                    ));
+                                                }}
+                                        )
+                                ),
+                                Collections.emptyList(),
+                                Collections.emptyList(),
+                                Collections.emptyList(),
+                                Collections.emptyList(),
+                                Collections.singletonList(
+                                        procedure(
+                                                "MyProcedure",
+                                                Collections.emptyList(),
+                                                Collections.emptyList(),
+                                                labeled(
+                                                        label("p"),
+                                                        either(new ArrayList<List<PlusCalStatement>>() {{
+                                                            add(Collections.singletonList(
+                                                                    assign(idexp("y"), num(10))
+                                                            ));
+
+                                                            add(Collections.singletonList(skip()));
+                                                        }}),
+                                                        assign(idexp("y"), num(11))
+                                                ),
+                                                labeled(
+                                                        label("p2"),
+                                                        assign(idexp("y"), num(20)),
+                                                        assign(idexp("x"), idexp("y"), idexp("y"), idexp("x"))
+                                                )
+                                        )
+                                ),
+                                Collections.emptyList(),
+                                process(
+                                        pcalVarDecl("MyProcess", false, false, num(32)),
+                                        PlusCalFairness.WEAK_FAIR,
+                                        Collections.emptyList(),
+                                        labeled(label("l1"), assign(idexp("n"), num(2))),
+                                        labeled(
+                                                label("l2"),
+                                                whileS(
+                                                        binop("<", idexp("x"), num(10)),
+                                                        Collections.singletonList(assign(idexp("n"), num(12)))
+                                                ),
+                                                assign(idexp("n"), num(32))
+                                        )
+                                )
+                        ),
+                        new ArrayList<InvalidModularPlusCalIssue>() {{
+                            add(
+                                    new InvalidModularPlusCalIssue(
+                                            InvalidModularPlusCalIssue.InvalidReason.MISSING_LABEL,
+                                            assign(idexp("x"), num(11))
+                                    )
+                            );
+
+                            add(
+                                    new InvalidModularPlusCalIssue(
+                                            InvalidModularPlusCalIssue.InvalidReason.MISSING_LABEL,
+                                            assign(idexp("y"), num(11))
+                                    )
+                            );
+
+                            add(
+                                    new InvalidModularPlusCalIssue(
+                                            InvalidModularPlusCalIssue.InvalidReason.MISSING_LABEL,
+                                            assign(idexp("x"), idexp("y"), idexp("y"), idexp("x"))
+                                    )
+                            );
+
+                            /* NOTE: this is a violation of the rules listed in the PlusCal manual,
+                               although is not currently flagged by the TLA+ toolbox.
+                             */
+                            add(
+                                    new InvalidModularPlusCalIssue(
+                                            InvalidModularPlusCalIssue.InvalidReason.MISSING_LABEL,
+                                            assign(idexp("n"), num(32))
+                                    )
+                            );
+                        }},
+                },
         });
     }
 
