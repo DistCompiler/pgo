@@ -20,7 +20,7 @@ import static pgo.model.mpcal.ModularPlusCalBuilder.*;
 import static pgo.model.tla.TLABuilder.*;
 
 @RunWith(Parameterized.class)
-public class ModularPlusCalValidationTest {
+public class ModularPlusCalLabelingRulesTest {
 
     @Parameters
     public static List<Object[]> data() {
@@ -930,13 +930,82 @@ public class ModularPlusCalValidationTest {
                             );
                         }},
                 },
+                // --mpcal ReservedLabels {
+                //     archetype MyArchetype() {
+                //         Done: x := 10 (* reserved *)
+                //         done: x := 10 (* no problem *)
+                //     }
+                //
+                //     procedure MyProcedure() {
+                //         p: either { p1: y := 20 } or { Error: skip }; (* reserved *)
+                //     }
+                // }
+                {
+                        mpcal(
+                                "ReservedRules",
+                                Collections.singletonList(
+                                        archetype(
+                                                "MyArchetype",
+                                                Collections.emptyList(),
+                                                Collections.emptyList(),
+                                                new ArrayList<PlusCalStatement>() {{
+                                                    add(
+                                                            labeled(label("Done"), assign(idexp("x"), num(1)))
+                                                    );
+                                                }}
+                                        )
+                                ),
+                                Collections.emptyList(),
+                                Collections.emptyList(),
+                                Collections.emptyList(),
+                                Collections.emptyList(),
+                                Collections.singletonList(
+                                        procedure(
+                                                "MyProcedure",
+                                                Collections.emptyList(),
+                                                Collections.emptyList(),
+                                                labeled(
+                                                        label("p"),
+                                                        either(new ArrayList<List<PlusCalStatement>>() {{
+                                                            add(Collections.singletonList(
+                                                                    labeled(
+                                                                            label("p1"),
+                                                                            assign(idexp("y"), num(20))
+                                                                    )
+                                                            ));
+
+                                                            add(Collections.singletonList(
+                                                                    labeled(label("Error"), skip())
+                                                            ));
+                                                        }})
+                                                )
+                                        )
+                                ),
+                                Collections.emptyList()
+                        ),
+                        new ArrayList<InvalidModularPlusCalIssue>() {{
+                            add(
+                                    new InvalidModularPlusCalIssue(
+                                            InvalidModularPlusCalIssue.InvalidReason.RESERVED_LABEL_NAME,
+                                            labeled(label("Done"), assign(idexp("x"), num(1)))
+                                    )
+                            );
+
+                            add(
+                                    new InvalidModularPlusCalIssue(
+                                            InvalidModularPlusCalIssue.InvalidReason.RESERVED_LABEL_NAME,
+                                            labeled(label("Error"), skip())
+                                    )
+                            );
+                        }},
+                },
         });
     }
 
     private ModularPlusCalBlock spec;
     private List<InvalidModularPlusCalIssue> issues;
 
-    public ModularPlusCalValidationTest(ModularPlusCalBlock spec, List<InvalidModularPlusCalIssue> issues) {
+    public ModularPlusCalLabelingRulesTest(ModularPlusCalBlock spec, List<InvalidModularPlusCalIssue> issues) {
         this.spec = spec;
         this.issues = issues;
     }

@@ -9,13 +9,14 @@ import pgo.model.tla.TLAExpression;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.IntStream;
 
 /**
- * Performs Modular PlusCal validation at the level of PlusCal statements.
- * Note that TLA+ expressions are not validated since they cannot contain
- * invalid semantics.
+ * Validates the labeling rules of a Modular PlusCal specification. The labeling rules
+ * used are exactly the same as those used by standard PlusCal and are described in
+ * its manual.
  */
-public class ModularPlusCalValidationPlusCalStatementVisitor extends PlusCalStatementVisitor<Void, RuntimeException> {
+public class ModularPlusCalLabelingRulesVisitor extends PlusCalStatementVisitor<Void, RuntimeException> {
 
     /**
      * Validates whether the next statement following a certain subtree in the AST requires to a label.
@@ -124,19 +125,22 @@ public class ModularPlusCalValidationPlusCalStatementVisitor extends PlusCalStat
         }
     }
 
+    // Some label names are reserved by the PlusCal to TLA+ translator
+    private static String[] RESERVED_LABELS = {"Done", "Error"};
+
     private IssueContext ctx;
     private PlusCalStatement previousStatement;
     private boolean labelsAllowed;
     private Set<TLAExpression> assignedVariables;
 
-    public ModularPlusCalValidationPlusCalStatementVisitor(IssueContext ctx) {
+    public ModularPlusCalLabelingRulesVisitor(IssueContext ctx) {
         this.ctx = ctx;
         this.previousStatement = null;
         this.labelsAllowed = true;
         this.assignedVariables = new HashSet<>();
     }
 
-    public ModularPlusCalValidationPlusCalStatementVisitor(IssueContext ctx, boolean labelsAllowed) {
+    public ModularPlusCalLabelingRulesVisitor(IssueContext ctx, boolean labelsAllowed) {
         this.ctx = ctx;
         this.previousStatement = null;
         this.labelsAllowed = labelsAllowed;
@@ -148,6 +152,8 @@ public class ModularPlusCalValidationPlusCalStatementVisitor extends PlusCalStat
 
         if (!labelsAllowed) {
             labelNotAllowed(labeledStatements);
+        } else if (isReserved(labeledStatements.getLabel())) {
+            reservedLabelName(labeledStatements);
         }
 
         // erase context of assigned variables when starting a new label
@@ -343,6 +349,13 @@ public class ModularPlusCalValidationPlusCalStatementVisitor extends PlusCalStat
         ));
     }
 
+    private void reservedLabelName(PlusCalStatement statement) {
+        this.ctx.error(new InvalidModularPlusCalIssue(
+                InvalidModularPlusCalIssue.InvalidReason.RESERVED_LABEL_NAME,
+                statement
+        ));
+    }
+
     // checks whether the statement given is the first of an archetype/procedure/process,
     // or if it is a labeled statement. The label checks in this visitor do not flag
     // the case when the first statement is not labeled since that is already taken care
@@ -376,5 +389,10 @@ public class ModularPlusCalValidationPlusCalStatementVisitor extends PlusCalStat
                 missingLabel(statement);
             }
         }
+    }
+
+    private boolean isReserved(PlusCalLabel label) {
+        return IntStream.range(0, RESERVED_LABELS.length).
+                anyMatch(i -> RESERVED_LABELS[i].equals(label.getName()));
     }
 }
