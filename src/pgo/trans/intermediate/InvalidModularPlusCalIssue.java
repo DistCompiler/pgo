@@ -14,6 +14,7 @@ public class InvalidModularPlusCalIssue extends Issue {
     public enum InvalidReason {
         MISSING_LABEL,
         LABEL_NOT_ALLOWED,
+        RESERVED_LABEL_NAME,
     }
 
     private InvalidReason reason;

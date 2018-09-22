@@ -265,6 +265,9 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 			case LABEL_NOT_ALLOWED:
 				out.write("label not allowed in statement: ");
 				break;
+
+			case RESERVED_LABEL_NAME:
+				out.write("use of reserved label name in statement: ");
 		}
 
 		invalidModularPlusCalIssue.getStatement().accept(new OriginFormattingVisitor(out));

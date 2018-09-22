@@ -55,7 +55,7 @@ public class ModularPlusCalValidationVisitor extends ModularPlusCalBlockVisitor<
         PlusCalStatement firstStatement = modularPlusCalArchetype.getBody().get(0);
         checkLabeled(firstStatement);
 
-        ModularPlusCalValidationPlusCalStatementVisitor visitor = new ModularPlusCalValidationPlusCalStatementVisitor(this.ctx);
+        ModularPlusCalLabelingRulesVisitor visitor = new ModularPlusCalLabelingRulesVisitor(this.ctx);
         for (PlusCalStatement statement : modularPlusCalArchetype.getBody()) {
             statement.accept(visitor);
         }
@@ -75,8 +75,8 @@ public class ModularPlusCalValidationVisitor extends ModularPlusCalBlockVisitor<
     }
 
     public Void visit(PlusCalMacro plusCalMacro) {
-        ModularPlusCalValidationPlusCalStatementVisitor visitor =
-                new ModularPlusCalValidationPlusCalStatementVisitor(this.ctx, false);
+        ModularPlusCalLabelingRulesVisitor visitor =
+                new ModularPlusCalLabelingRulesVisitor(this.ctx, false);
 
         // visit every statement of the macro, collecting an error in case a label
         // is found within
@@ -92,7 +92,7 @@ public class ModularPlusCalValidationVisitor extends ModularPlusCalBlockVisitor<
         PlusCalStatement firstStatement = plusCalProcedure.getBody().get(0);
         checkLabeled(firstStatement);
 
-        ModularPlusCalValidationPlusCalStatementVisitor visitor = new ModularPlusCalValidationPlusCalStatementVisitor(this.ctx);
+        ModularPlusCalLabelingRulesVisitor visitor = new ModularPlusCalLabelingRulesVisitor(this.ctx);
         for (PlusCalStatement statement : plusCalProcedure.getBody()) {
             statement.accept(visitor);
         }
@@ -105,7 +105,7 @@ public class ModularPlusCalValidationVisitor extends ModularPlusCalBlockVisitor<
         PlusCalStatement firstStatement = plusCalSingleProcess.getBody().get(0);
         checkLabeled(firstStatement);
 
-        ModularPlusCalValidationPlusCalStatementVisitor visitor = new ModularPlusCalValidationPlusCalStatementVisitor(this.ctx);
+        ModularPlusCalLabelingRulesVisitor visitor = new ModularPlusCalLabelingRulesVisitor(this.ctx);
         for (PlusCalStatement statement : plusCalSingleProcess.getBody()) {
             statement.accept(visitor);
         }
@@ -119,7 +119,7 @@ public class ModularPlusCalValidationVisitor extends ModularPlusCalBlockVisitor<
             PlusCalStatement firstStatement = process.getBody().get(0);
             checkLabeled(firstStatement);
 
-            ModularPlusCalValidationPlusCalStatementVisitor visitor = new ModularPlusCalValidationPlusCalStatementVisitor(this.ctx);
+            ModularPlusCalLabelingRulesVisitor visitor = new ModularPlusCalLabelingRulesVisitor(this.ctx);
             for (PlusCalStatement statement : process.getBody()) {
                 statement.accept(visitor);
             }
