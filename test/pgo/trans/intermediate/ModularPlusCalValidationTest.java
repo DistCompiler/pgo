@@ -373,6 +373,7 @@ public class ModularPlusCalValidationTest {
                             );
                         }},
                 },
+
                 // --mpcal CallLabelingRules {
                 //     archetype MyArchetype() {
                 //         l1: print "first label";
@@ -680,6 +681,63 @@ public class ModularPlusCalValidationTest {
                                     new InvalidModularPlusCalIssue(
                                             InvalidModularPlusCalIssue.InvalidReason.MISSING_LABEL,
                                             assign(idexp("y"), num(20))
+                                    )
+                            );
+                        }},
+                },
+                // --mpcal MacroRules {
+                //     macro ValidMacro() {
+                //         print(1 + 1);
+                //         x := 10;
+                //     }
+                //
+                //     macro InvalidMacro() {
+                //         either { skip } or { l1: y := 10 }; (* invalid *)
+                //         l2: y := 20; (* invalid *)
+                //     }
+                // }
+                {
+                        mpcal(
+                                "MacroRules",
+                                Collections.emptyList(),
+                                Collections.emptyList(),
+                                Collections.emptyList(),
+                                Collections.emptyList(),
+                                new ArrayList<PlusCalMacro>() {{
+                                    add(macro(
+                                            "ValidMacro",
+                                            Collections.emptyList(),
+                                            printS(binop("+", num(1), num(1))),
+                                            assign(idexp("x"), num(10))
+                                    ));
+
+                                    add(macro(
+                                            "InvalidMacro",
+                                            Collections.emptyList(),
+                                            either(new ArrayList<List<PlusCalStatement>>() {{
+                                                add(Collections.singletonList(skip()));
+                                                add(Collections.singletonList(
+                                                        labeled(label("l1"), assign(idexp("y"), num(10)))
+                                                ));
+                                            }}),
+                                            labeled(label("l2"), assign(idexp("y"), num(20)))
+                                    ));
+                                }},
+                                Collections.emptyList(),
+                                Collections.emptyList()
+                        ),
+                        new ArrayList<InvalidModularPlusCalIssue>() {{
+                            add(
+                                    new InvalidModularPlusCalIssue(
+                                            InvalidModularPlusCalIssue.InvalidReason.LABEL_NOT_ALLOWED,
+                                            labeled(label("l1"), assign(idexp("y"), num(10)))
+                                    )
+                            );
+
+                            add(
+                                    new InvalidModularPlusCalIssue(
+                                            InvalidModularPlusCalIssue.InvalidReason.LABEL_NOT_ALLOWED,
+                                            labeled(label("l2"), assign(idexp("y"), num(20)))
                                     )
                             );
                         }},

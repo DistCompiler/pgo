@@ -123,14 +123,26 @@ public class ModularPlusCalValidationPlusCalStatementVisitor extends PlusCalStat
 
     private IssueContext ctx;
     private PlusCalStatement previousStatement;
+    private boolean labelsAllowed;
 
     public ModularPlusCalValidationPlusCalStatementVisitor(IssueContext ctx) {
         this.ctx = ctx;
         this.previousStatement = null;
+        this.labelsAllowed = true;
+    }
+
+    public ModularPlusCalValidationPlusCalStatementVisitor(IssueContext ctx, boolean labelsAllowed) {
+        this.ctx = ctx;
+        this.previousStatement = null;
+        this.labelsAllowed = labelsAllowed;
     }
 
     public Void visit(PlusCalLabeledStatements labeledStatements) {
         this.previousStatement = labeledStatements;
+
+        if (!labelsAllowed) {
+            labelNotAllowed(labeledStatements);
+        }
 
         for (PlusCalStatement statement : labeledStatements.getStatements()) {
             statement.accept(this);
@@ -294,6 +306,13 @@ public class ModularPlusCalValidationPlusCalStatementVisitor extends PlusCalStat
     private void missingLabel(PlusCalStatement statement) {
         this.ctx.error(new InvalidModularPlusCalIssue(
                 InvalidModularPlusCalIssue.InvalidReason.MISSING_LABEL,
+                statement
+        ));
+    }
+
+    private void labelNotAllowed(PlusCalStatement statement) {
+        this.ctx.error(new InvalidModularPlusCalIssue(
+                InvalidModularPlusCalIssue.InvalidReason.LABEL_NOT_ALLOWED,
                 statement
         ));
     }

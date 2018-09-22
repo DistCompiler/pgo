@@ -75,6 +75,15 @@ public class ModularPlusCalValidationVisitor extends ModularPlusCalBlockVisitor<
     }
 
     public Void visit(PlusCalMacro plusCalMacro) {
+        ModularPlusCalValidationPlusCalStatementVisitor visitor =
+                new ModularPlusCalValidationPlusCalStatementVisitor(this.ctx, false);
+
+        // visit every statement of the macro, collecting an error in case a label
+        // is found within
+        for (PlusCalStatement statement : plusCalMacro.getBody()) {
+            statement.accept(visitor);
+        }
+
         // TODO: validate macros
         return null;
     }

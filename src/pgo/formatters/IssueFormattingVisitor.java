@@ -259,7 +259,11 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 
 		switch (invalidModularPlusCalIssue.getReason()) {
 			case MISSING_LABEL:
-				out.write("missing label on statement: ");
+				out.write("missing label in statement: ");
+				break;
+
+			case LABEL_NOT_ALLOWED:
+				out.write("label not allowed in statement: ");
 				break;
 		}
 
