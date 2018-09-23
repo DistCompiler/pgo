@@ -16,6 +16,7 @@ import pgo.trans.PGoTransException;
 import pgo.trans.intermediate.*;
 import pgo.trans.passes.codegen.CodeGenPass;
 import pgo.trans.passes.constdef.ConstantDefinitionParsingPass;
+import pgo.trans.passes.mpcal.ModularPlusCalParsingPass;
 import pgo.trans.passes.scope.ModularPlusCalScopingPass;
 import pgo.trans.passes.tlaparse.TLAParsingPass;
 import pgo.trans.passes.type.TypeInferencePass;
@@ -69,24 +70,32 @@ public class PGoMain {
 
 			logger.info("Opening source file");
 			Path inputFilePath = Paths.get(opts.inputFilePath);
-			final PlusCalAlgorithm plusCalAlgorithm;
+			final boolean fromModularPlusCal;
+			final ModularPlusCalBlock modularPlusCalBlock;
 			final TLAModule tlaModule;
-			try(FileChannel fileChannel = new RandomAccessFile(inputFilePath.toFile(), "r").getChannel()) {
+			try (FileChannel fileChannel = new RandomAccessFile(inputFilePath.toFile(), "r").getChannel()) {
 				MappedByteBuffer buffer = fileChannel.map(FileChannel.MapMode.READ_ONLY, 0, fileChannel.size());
 				// assume UTF-8, though technically TLA+ is ASCII only according to the book
 				CharBuffer inputFileContents = StandardCharsets.UTF_8.decode(buffer);
 
-				logger.info("Parsing PlusCal code");
-				plusCalAlgorithm = PlusCalParsingPass.perform(ctx, inputFilePath, inputFileContents);
-				checkErrors(ctx);
+				if (ModularPlusCalParsingPass.hasModularPlusCalBlock(inputFilePath, inputFileContents)) {
+					logger.info("Parse modular PlusCal code");
+					modularPlusCalBlock = ModularPlusCalParsingPass.perform(ctx, inputFilePath, inputFileContents);
+					fromModularPlusCal = true;
+					checkErrors(ctx);
+				} else {
+					logger.info("Parsing PlusCal code");
+					final PlusCalAlgorithm plusCalAlgorithm = PlusCalParsingPass.perform(
+							ctx, inputFilePath, inputFileContents);
+					fromModularPlusCal = false;
+					checkErrors(ctx);
+					modularPlusCalBlock = ModularPlusCalBlock.from(plusCalAlgorithm);
+				}
 
 				logger.info("Parsing TLA+ module");
 				tlaModule = TLAParsingPass.perform(ctx, inputFilePath, inputFileContents);
 				checkErrors(ctx);
 			}
-
-			// TODO: integration
-			ModularPlusCalBlock modularPlusCalBlock = ModularPlusCalBlock.from(plusCalAlgorithm);
 
 			logger.info("Parsing constant definitions from configuration");
 			Map<String, TLAExpression> constantDefinitions = ConstantDefinitionParsingPass.perform(

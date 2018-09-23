@@ -163,6 +163,10 @@ public class ModularPlusCalParser {
 
 	// public interface
 
+	public static boolean hasModularPlusCalBlock(LexicalContext ctx) {
+		return ctx.matchPattern(FIND_MPCAL).isPresent();
+	}
+
 	public static ModularPlusCalBlock readBlock(LexicalContext ctx) throws ParseFailureException {
 		return readOrExcept(ctx, MPCAL_BLOCK);
 	}
