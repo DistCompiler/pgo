@@ -11,13 +11,6 @@ import java.util.List;
 public class ModularPlusCalBuilder {
 	private ModularPlusCalBuilder() {}
 
-	public static ModularPlusCalVariableDeclaration mpcalVarDecl(String name, boolean isRef) {
-		return new ModularPlusCalVariableDeclaration(
-				SourceLocation.unknown(),
-				new Located<>(SourceLocation.unknown(), name),
-				isRef);
-	}
-
 	public static ModularPlusCalArchetype archetype(String name, List<PlusCalVariableDeclaration> arguments,
 	                                                List<PlusCalVariableDeclaration> variables,
 	                                                List<PlusCalStatement> body) {
