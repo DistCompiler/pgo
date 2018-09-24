@@ -53,7 +53,7 @@ public class TLAScopeBuilder {
 	
 	public boolean declare(String name, UID id) {
 		QualifiedName qname = new QualifiedName(name);
-		if(declarations.containsKey(name)) {
+		if (declarations.containsKey(name)) {
 			ctx.error(new ScopeConflictIssue(name, declarations.get(name), id));
 			return false;
 		}else if(definitions.containsKey(qname)) {
