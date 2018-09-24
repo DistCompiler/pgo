@@ -22,11 +22,11 @@ import java.util.stream.Collectors;
  * }
  */
 public class ModularPlusCalMappingMacro extends ModularPlusCalUnit {
-	private final Located<String> name;
+	private final String name;
 	private final List<PlusCalStatement> readBody;
 	private final List<PlusCalStatement> writeBody;
 
-	public ModularPlusCalMappingMacro(SourceLocation location, Located<String> name, List<PlusCalStatement> readBody,
+	public ModularPlusCalMappingMacro(SourceLocation location, String name, List<PlusCalStatement> readBody,
 	                                  List<PlusCalStatement> writeBody) {
 		super(location);
 		this.name = name;
@@ -57,7 +57,7 @@ public class ModularPlusCalMappingMacro extends ModularPlusCalUnit {
 			return false;
 		}
 		ModularPlusCalMappingMacro that = (ModularPlusCalMappingMacro) obj;
-		return name.getValue().equals(that.name.getValue()) &&
+		return name.equals(that.name) &&
 				Objects.equals(readBody, that.readBody) &&
 				Objects.equals(writeBody, that.writeBody);
 	}
@@ -67,7 +67,7 @@ public class ModularPlusCalMappingMacro extends ModularPlusCalUnit {
 		return v.visit(this);
 	}
 
-	public Located<String> getName() {
+	public String getName() {
 		return name;
 	}
 

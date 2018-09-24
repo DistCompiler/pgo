@@ -109,7 +109,7 @@ public class ModularPlusCalParser {
 			.drop(parsePlusCalToken("}"))
 			.map(seq -> new ModularPlusCalMappingMacro(
 					seq.getLocation(),
-					seq.getValue().getRest().getRest().getFirst(),
+					seq.getValue().getRest().getRest().getFirst().getValue(),
 					seq.getValue().getRest().getFirst(),
 					seq.getValue().getFirst()));
 

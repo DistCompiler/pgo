@@ -31,11 +31,7 @@ public class ModularPlusCalBuilder {
 
 	public static ModularPlusCalMappingMacro mappingMacro(String name, List<PlusCalStatement> readBody,
 	                                                      List<PlusCalStatement> writeBody) {
-		return new ModularPlusCalMappingMacro(
-				SourceLocation.unknown(),
-				new Located<>(SourceLocation.unknown(), name),
-				readBody,
-				writeBody);
+		return new ModularPlusCalMappingMacro(SourceLocation.unknown(), name, readBody, writeBody);
 	}
 
 	public static ModularPlusCalBlock mpcal(String name, List<PlusCalVariableDeclaration> variables,

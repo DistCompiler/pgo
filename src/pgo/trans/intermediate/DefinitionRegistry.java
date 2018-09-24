@@ -19,7 +19,6 @@ public class DefinitionRegistry {
 	private Map<UID, TLAExpression> constantValues;
 	private Map<UID, UID> references;
 	private Map<String, PlusCalProcedure> procedures;
-	private Map<String, ModularPlusCalArchetype> archetypes;
 	private Map<UID, Integer> labelsToLockGroups;
 	private Map<Integer, Set<UID>> lockGroupsToVariableReads;
 	private Map<Integer, Set<UID>> lockGroupsToVariableWrites;
@@ -31,7 +30,6 @@ public class DefinitionRegistry {
 		this.operators = new HashMap<>();
 		this.references = new HashMap<>();
 		this.procedures = new HashMap<>();
-		this.archetypes = new HashMap<>();
 		this.globalVariableTypes = new HashMap<>();
 		this.localVariables = new HashSet<>();
 		this.constants = new HashMap<>();
@@ -70,10 +68,6 @@ public class DefinitionRegistry {
 
 	public void addProcedure(PlusCalProcedure proc) {
 		procedures.put(proc.getName(), proc);
-	}
-
-	public void addArchetype(ModularPlusCalArchetype archetype) {
-		archetypes.put(archetype.getName(), archetype);
 	}
 
 	public void addGlobalVariable(UID uid) {
@@ -115,10 +109,6 @@ public class DefinitionRegistry {
 
 	public PlusCalProcedure findProcedure(String name) {
 		return procedures.get(name);
-	}
-
-	public ModularPlusCalArchetype findArchetype(String name) {
-		return archetypes.get(name);
 	}
 
 	public boolean isGlobalVariable(UID ref) {
