@@ -101,7 +101,8 @@ public class PlusCalStatementFormattingVisitor extends PlusCalStatementVisitor<V
 
 	@Override
 	public Void visit(PlusCalSkip skip) throws IOException {
-		throw new TODO();
+		out.write("skip;");
+		return null;
 	}
 
 	@Override
@@ -132,22 +133,33 @@ public class PlusCalStatementFormattingVisitor extends PlusCalStatementVisitor<V
 	public Void visit(PlusCalPrint plusCalPrint) throws IOException {
 		out.write("print ");
 		plusCalPrint.getValue().accept(new TLAExpressionFormattingVisitor(out));
+		out.write(";");
+
 		return null;
 	}
 
 	@Override
 	public Void visit(PlusCalAssert plusCalAssert) throws IOException {
-		throw new TODO();
+		out.write("assert ");
+		plusCalAssert.getCondition().accept(new TLAExpressionFormattingVisitor(out));
+		out.write(";");
+
+		return null;
 	}
 
 	@Override
 	public Void visit(PlusCalAwait plusCalAwait) throws IOException {
-		throw new TODO();
+		out.write("await ");
+		plusCalAwait.getCondition().accept(new TLAExpressionFormattingVisitor(out));
+		out.write(";");
+
+		return null;
 	}
 
 	@Override
 	public Void visit(PlusCalGoto plusCalGoto) throws IOException {
-		throw new TODO();
+		out.write("goto " + plusCalGoto.getTarget() + ";");
+		return null;
 	}
 
 	@Override

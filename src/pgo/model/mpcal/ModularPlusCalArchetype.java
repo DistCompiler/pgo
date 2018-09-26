@@ -68,6 +68,10 @@ public class ModularPlusCalArchetype extends ModularPlusCalUnit {
 		return v.visit(this);
 	}
 
+	public <T, E extends Throwable> T accept(ModularPlusCalBlockVisitor<T, E> v) throws E {
+		return v.visit(this);
+	}
+
 	public String getName() {
 		return name;
 	}

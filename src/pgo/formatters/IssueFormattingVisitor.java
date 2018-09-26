@@ -285,6 +285,29 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 	}
 
 	@Override
+	public Void visit(MissingLabelIssue missingLabelIssue) throws IOException {
+		out.write("Label required in statement: ");
+		missingLabelIssue.getStatement().accept(new OriginFormattingVisitor(out));
+
+		return null;
+	}
+
+	@Override
+	public Void visit(LabelNotAllowedIssue labelNotAllowedIssue) throws IOException {
+		out.write("Label not allowed in statement: ");
+		labelNotAllowedIssue.getStatement().accept(new OriginFormattingVisitor(out));
+
+		return null;
+	}
+
+	@Override
+	public Void visit(ReservedLabelNameIssue reservedLabelNameIssue) throws IOException {
+		out.write("Label not allowed in statement: ");
+		reservedLabelNameIssue.getStatement().accept(new OriginFormattingVisitor(out));
+
+		return null;
+	}
+
 	public Void visit(UnknownArchetypeTargetIssue unknownArchetypeTargetIssue) throws IOException {
 		out.write("could not find archetype referenced by instance statement at line ");
 		out.write(unknownArchetypeTargetIssue.getModularPlusCalInstance().getLocation().getStartLine());

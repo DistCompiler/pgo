@@ -15,7 +15,7 @@ public abstract class PlusCalProcesses extends PlusCalNode {
 	public <T, E extends Throwable> T accept(PlusCalNodeVisitor<T, E> v) throws E{
 		return v.visit(this);
 	}
-	
+
 	public abstract <T, E extends Throwable> T accept(PlusCalProcessesVisitor<T, E> v) throws E;
 
 }

@@ -31,7 +31,6 @@ public class ModularPlusCalExpansionPassTest {
 				algorithm(
 						"Test",
 						Collections.emptyList(),
-						Collections.emptyList(),
 						Collections.singletonList(
 								macro("mymacro", Collections.singletonList("a"),
 										printS(idexp("a")),
@@ -47,7 +46,6 @@ public class ModularPlusCalExpansionPassTest {
 						),
 				algorithm(
 						"Test",
-						Collections.emptyList(),
 						Collections.emptyList(),
 						Collections.emptyList(),
 						Collections.emptyList(),

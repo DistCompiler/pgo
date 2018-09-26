@@ -11,7 +11,7 @@ public class MacroArgumentInnerScopeConflictIssue extends Issue {
 	public MacroArgumentInnerScopeConflictIssue(TLAIdentifier id) {
 		this.id = id;
 	}
-	
+
 	public TLAIdentifier getIdentifier() {
 		return id;
 	}
