@@ -31,7 +31,7 @@ public class ModularPlusCalLabelingRulesVisitor extends PlusCalStatementVisitor<
      *
      * anywhere within the 'if' or 'either' statement.
      */
-    private class IfEitherNextStatementRequiresLabel extends PlusCalStatementVisitor<Boolean, RuntimeException> {
+    private final class IfEitherNextStatementRequiresLabel extends PlusCalStatementVisitor<Boolean, RuntimeException> {
         public Boolean visit(PlusCalLabeledStatements labeledStatements) {
             return true;
         }
@@ -166,16 +166,26 @@ public class ModularPlusCalLabelingRulesVisitor extends PlusCalStatementVisitor<
         return null;
     }
 
+    // NOTE: if a variable is assigned inside the body of a `while` loop,
+    // that assignment is "forgotten" once control flow exits the loop. That
+    // is because technically, the body of a `while` loop executes either once
+    // or not at all when its label is scheduled.
+    //
+    // Double assignments *within* the body of a `while` loop are still not
+    // allowed and enforced by this check; however, the `assignedVariables` set
+    // is reset to the empty set after visiting the `while` loop.
     public Void visit(PlusCalWhile plusCalWhile) {
         if (!firstOrLabeled(previousStatement)) {
             missingLabel(plusCalWhile);
         }
 
         this.previousStatement = plusCalWhile;
+        this.assignedVariables = new HashSet<>();
         for (PlusCalStatement statement : plusCalWhile.getBody()) {
             statement.accept(this);
         }
 
+        this.assignedVariables = new HashSet<>();
         this.previousStatement = plusCalWhile;
         return null;
     }

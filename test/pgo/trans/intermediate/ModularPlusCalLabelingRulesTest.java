@@ -832,8 +832,16 @@ public class ModularPlusCalLabelingRulesTest {
                 //         l1: n := 2;
                 //         l2: while (n < 10) {
                 //             n := 12;
-                //         }
-                //         n := 32; (* missing label *)
+                //             if (n := 20) {
+                //                 n := 100; (* missing label *)
+                //             }
+                //         };
+                //         n := 32; (* label not missing *)
+                //
+                //         l3: if (n = 32) {
+                //             n := 0;
+                //         };
+                //         n := 12; (* missing label *)
                 //     }
                 // }
                 {
@@ -891,9 +899,30 @@ public class ModularPlusCalLabelingRulesTest {
                                                 label("l2"),
                                                 whileS(
                                                         binop("<", idexp("x"), num(10)),
-                                                        Collections.singletonList(assign(idexp("n"), num(12)))
+                                                        new ArrayList<PlusCalStatement>() {{
+                                                            add(
+                                                                    assign(idexp("n"), num(12))
+                                                            );
+
+                                                            add(
+                                                                    ifS(
+                                                                            binop("=", idexp("n"), num(20)),
+                                                                            Collections.singletonList(assign(idexp("n"), num(100))),
+                                                                            Collections.emptyList()
+                                                                    )
+                                                            );
+                                                        }}
                                                 ),
                                                 assign(idexp("n"), num(32))
+                                        ),
+                                        labeled(
+                                                label("l3"),
+                                                ifS(
+                                                        binop("=", idexp("n"), num(12)),
+                                                        Collections.singletonList(assign(idexp("n"), num(0))),
+                                                        Collections.emptyList()
+                                                ),
+                                                assign(idexp("n"), num(12))
                                         )
                                 )
                         ),
@@ -919,13 +948,17 @@ public class ModularPlusCalLabelingRulesTest {
                                     )
                             );
 
-                            /* NOTE: this is a violation of the rules listed in the PlusCal manual,
-                               although is not currently flagged by the TLA+ toolbox.
-                             */
                             add(
                                     new InvalidModularPlusCalIssue(
                                             InvalidModularPlusCalIssue.InvalidReason.MISSING_LABEL,
-                                            assign(idexp("n"), num(32))
+                                            assign(idexp("n"), num(100))
+                                    )
+                            );
+
+                            add(
+                                    new InvalidModularPlusCalIssue(
+                                            InvalidModularPlusCalIssue.InvalidReason.MISSING_LABEL,
+                                            assign(idexp("n"), num(12))
                                     )
                             );
                         }},
