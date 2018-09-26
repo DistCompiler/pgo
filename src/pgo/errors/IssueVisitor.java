@@ -36,7 +36,9 @@ public abstract class IssueVisitor<T, E extends Throwable> {
 	public abstract T visit(TypeInferenceFailureIssue typeInferenceFailureIssue) throws E;
 	public abstract T visit(ProcedureNotFoundIssue procedureNotFoundIssue) throws E;
 	public abstract T visit(ConstantWithNoValueIssue constantWithNoValueIssue) throws E;
-	public abstract T visit(InvalidModularPlusCalIssue invalidModularPlusCalIssue) throws E;
+	public abstract T visit(MissingLabelIssue missingLabelIssue) throws E;
+	public abstract T visit(LabelNotAllowedIssue labelNotAllowedIssue) throws E;
+	public abstract T visit(ReservedLabelNameIssue reservedLabelNameIssue) throws E;
 	public abstract T visit(UnknownArchetypeTargetIssue unknownArchetypeTargetIssue) throws E;
 	public abstract T visit(UnknownMappingTargetIssue unknownMappingTargetIssue) throws E;
 	public abstract T visit(InstanceArgumentCountMismatchIssue instanceArgumentCountMismatchIssue) throws E;

@@ -9,6 +9,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
+import pgo.errors.Issue;
 import pgo.errors.TopLevelIssueContext;
 import pgo.model.mpcal.ModularPlusCalArchetype;
 import pgo.model.mpcal.ModularPlusCalBlock;
@@ -103,10 +104,7 @@ public class ModularPlusCalLabelingRulesTest {
                                 Collections.emptyList()
                         ),
                         Collections.singletonList(
-                                new InvalidModularPlusCalIssue(
-                                        InvalidModularPlusCalIssue.InvalidReason.MISSING_LABEL,
-                                        printS(binop("+", num(1), num(1)))
-                                )
+                                new MissingLabelIssue(printS(binop("+", num(1), num(1))))
                         ),
                 },
 
@@ -134,10 +132,7 @@ public class ModularPlusCalLabelingRulesTest {
                                 Collections.emptyList()
                         ),
                         Collections.singletonList(
-                                new InvalidModularPlusCalIssue(
-                                        InvalidModularPlusCalIssue.InvalidReason.MISSING_LABEL,
-                                        printS(binop("+", num(1), num(1)))
-                                )
+                                new MissingLabelIssue(printS(binop("+", num(1), num(1))))
                         ),
                 },
 
@@ -165,10 +160,7 @@ public class ModularPlusCalLabelingRulesTest {
 
                         ),
                         Collections.singletonList(
-                                new InvalidModularPlusCalIssue(
-                                        InvalidModularPlusCalIssue.InvalidReason.MISSING_LABEL,
-                                        printS(binop("+", num(1), num(1)))
-                                )
+                                new MissingLabelIssue(printS(binop("+", num(1), num(1))))
                         ),
                 },
 
@@ -267,25 +259,10 @@ public class ModularPlusCalLabelingRulesTest {
                                         printS(str("invalid process!"))
                                 )
                         ),
-                        new ArrayList<InvalidModularPlusCalIssue>() {{
-                            add(
-                                    new InvalidModularPlusCalIssue(
-                                            InvalidModularPlusCalIssue.InvalidReason.MISSING_LABEL,
-                                            printS(str("invalid archetype!"))
-                                    )
-                            );
-                            add(
-                                    new InvalidModularPlusCalIssue(
-                                            InvalidModularPlusCalIssue.InvalidReason.MISSING_LABEL,
-                                            printS(str("invalid procedure!"))
-                                    )
-                            );
-                            add(
-                                    new InvalidModularPlusCalIssue(
-                                            InvalidModularPlusCalIssue.InvalidReason.MISSING_LABEL,
-                                            printS(str("invalid process!"))
-                                    )
-                            );
+                        new ArrayList<Issue>() {{
+                            add(new MissingLabelIssue(printS(str("invalid archetype!"))));
+                            add(new MissingLabelIssue(printS(str("invalid procedure!"))));
+                            add(new MissingLabelIssue(printS(str("invalid process!"))));
                         }},
                 },
 
@@ -350,10 +327,9 @@ public class ModularPlusCalLabelingRulesTest {
                                         )
                                 )
                         ),
-                        new ArrayList<InvalidModularPlusCalIssue>() {{
+                        new ArrayList<Issue>() {{
                             add(
-                                    new InvalidModularPlusCalIssue(
-                                            InvalidModularPlusCalIssue.InvalidReason.MISSING_LABEL,
+                                    new MissingLabelIssue(
                                             whileS(bool(true), Collections.singletonList(
                                                     printS(str("hello"))
                                             ))
@@ -361,8 +337,7 @@ public class ModularPlusCalLabelingRulesTest {
                             );
 
                             add(
-                                    new InvalidModularPlusCalIssue(
-                                            InvalidModularPlusCalIssue.InvalidReason.MISSING_LABEL,
+                                    new MissingLabelIssue(
                                             whileS(binop("<", num(10), num(20)), Collections.singletonList(
                                                     printS(binop("*", num(2), num(2))))
                                             )
@@ -439,20 +414,9 @@ public class ModularPlusCalLabelingRulesTest {
                                         assign(idexp("x"), num(10))
                                 )
                         ),
-                        new ArrayList<InvalidModularPlusCalIssue>() {{
-                            add(
-                                    new InvalidModularPlusCalIssue(
-                                            InvalidModularPlusCalIssue.InvalidReason.MISSING_LABEL,
-                                            call("MyProcedure")
-                                    )
-                            );
-
-                            add(
-                                    new InvalidModularPlusCalIssue(
-                                            InvalidModularPlusCalIssue.InvalidReason.MISSING_LABEL,
-                                            assign(idexp("x"), num(10))
-                                    )
-                            );
+                        new ArrayList<Issue>() {{
+                            add(new MissingLabelIssue(call("MyProcedure")));
+                            add(new MissingLabelIssue(assign(idexp("x"), num(10))));
                         }},
                 },
                 // --mpcal ReturnGotoLabelingRules {
@@ -517,29 +481,13 @@ public class ModularPlusCalLabelingRulesTest {
                                         assign(idexp("x"), num(10))
                                 )
                         ),
-                        new ArrayList<InvalidModularPlusCalIssue>() {{
-                            add(
-                                    new InvalidModularPlusCalIssue(
-                                            InvalidModularPlusCalIssue.InvalidReason.MISSING_LABEL,
-                                            printS(str("needs label"))
-                                    )
-                            );
-
-                            add(
-                                    new InvalidModularPlusCalIssue(
-                                            InvalidModularPlusCalIssue.InvalidReason.MISSING_LABEL,
-                                            gotoS("l2")
-                                    )
-                            );
-
-                            add(
-                                    new InvalidModularPlusCalIssue(
-                                            InvalidModularPlusCalIssue.InvalidReason.MISSING_LABEL,
-                                            assign(idexp("x"), num(10))
-                                    )
-                            );
+                        new ArrayList<Issue>() {{
+                            add(new MissingLabelIssue(printS(str("needs label"))));
+                            add(new MissingLabelIssue(gotoS("l2")));
+                            add(new MissingLabelIssue(assign(idexp("x"), num(10))));
                         }},
                 },
+
                 // --mpcal IfEitherLabelingRules {
                 //     archetype MyArchetype() {
                 //         l1: print "first label";
@@ -652,36 +600,14 @@ public class ModularPlusCalLabelingRulesTest {
                                         assign(idexp("y"), num(20))
                                 )
                         ),
-                        new ArrayList<InvalidModularPlusCalIssue>() {{
-                            add(
-                                    new InvalidModularPlusCalIssue(
-                                            InvalidModularPlusCalIssue.InvalidReason.MISSING_LABEL,
-                                            printS(str("needs label"))
-                                    )
-                            );
-
-                            add(
-                                    new InvalidModularPlusCalIssue(
-                                            InvalidModularPlusCalIssue.InvalidReason.MISSING_LABEL,
-                                            gotoS("l2")
-                                    )
-                            );
-
-                            add(
-                                    new InvalidModularPlusCalIssue(
-                                            InvalidModularPlusCalIssue.InvalidReason.MISSING_LABEL,
-                                            assign(idexp("x"), num(50))
-                                    )
-                            );
-
-                            add(
-                                    new InvalidModularPlusCalIssue(
-                                            InvalidModularPlusCalIssue.InvalidReason.MISSING_LABEL,
-                                            assign(idexp("y"), num(20))
-                                    )
-                            );
+                        new ArrayList<Issue>() {{
+                            add(new MissingLabelIssue(printS(str("needs label"))));
+                            add(new MissingLabelIssue(gotoS("l2")));
+                            add(new MissingLabelIssue(assign(idexp("x"), num(50))));
+                            add(new MissingLabelIssue(assign(idexp("y"), num(20))));
                         }},
                 },
+
                 // --mpcal MacroRules {
                 //     macro ValidMacro() {
                 //         print(1 + 1);
@@ -723,22 +649,12 @@ public class ModularPlusCalLabelingRulesTest {
                                 Collections.emptyList(),
                                 Collections.emptyList()
                         ),
-                        new ArrayList<InvalidModularPlusCalIssue>() {{
-                            add(
-                                    new InvalidModularPlusCalIssue(
-                                            InvalidModularPlusCalIssue.InvalidReason.LABEL_NOT_ALLOWED,
-                                            labeled(label("l1"), assign(idexp("y"), num(10)))
-                                    )
-                            );
-
-                            add(
-                                    new InvalidModularPlusCalIssue(
-                                            InvalidModularPlusCalIssue.InvalidReason.LABEL_NOT_ALLOWED,
-                                            labeled(label("l2"), assign(idexp("y"), num(20)))
-                                    )
-                            );
+                        new ArrayList<Issue>() {{
+                            add(new LabelNotAllowedIssue(labeled(label("l1"), assign(idexp("y"), num(10)))));
+                            add(new LabelNotAllowedIssue(labeled(label("l2"), assign(idexp("y"), num(20)))));
                         }},
                 },
+
                 // --mpcal WithRules {
                 //     macro MacroWith() {
                 //         print(1 + 1);
@@ -792,27 +708,10 @@ public class ModularPlusCalLabelingRulesTest {
                                 ),
                                 Collections.emptyList()
                         ),
-                        new ArrayList<InvalidModularPlusCalIssue>() {{
-                            add(
-                                    new InvalidModularPlusCalIssue(
-                                            InvalidModularPlusCalIssue.InvalidReason.LABEL_NOT_ALLOWED,
-                                            labeled(label("m1"), assign(idexp("x"), num(20)))
-                                    )
-                            );
-
-                            add(
-                                    new InvalidModularPlusCalIssue(
-                                            InvalidModularPlusCalIssue.InvalidReason.LABEL_NOT_ALLOWED,
-                                            labeled(label("m2"), assign(idexp("y"), num(20)))
-                                    )
-                            );
-
-                            add(
-                                    new InvalidModularPlusCalIssue(
-                                            InvalidModularPlusCalIssue.InvalidReason.LABEL_NOT_ALLOWED,
-                                            labeled(label("l2"), printS(idexp("x")))
-                                    )
-                            );
+                        new ArrayList<Issue>() {{
+                            add(new LabelNotAllowedIssue(labeled(label("m1"), assign(idexp("x"), num(20)))));
+                            add(new LabelNotAllowedIssue(labeled(label("m2"), assign(idexp("y"), num(20)))));
+                            add(new LabelNotAllowedIssue(labeled(label("l2"), printS(idexp("x")))));
                         }},
                 },
                 // --mpcal AssignmentRules {
@@ -926,43 +825,15 @@ public class ModularPlusCalLabelingRulesTest {
                                         )
                                 )
                         ),
-                        new ArrayList<InvalidModularPlusCalIssue>() {{
-                            add(
-                                    new InvalidModularPlusCalIssue(
-                                            InvalidModularPlusCalIssue.InvalidReason.MISSING_LABEL,
-                                            assign(idexp("x"), num(11))
-                                    )
-                            );
-
-                            add(
-                                    new InvalidModularPlusCalIssue(
-                                            InvalidModularPlusCalIssue.InvalidReason.MISSING_LABEL,
-                                            assign(idexp("y"), num(11))
-                                    )
-                            );
-
-                            add(
-                                    new InvalidModularPlusCalIssue(
-                                            InvalidModularPlusCalIssue.InvalidReason.MISSING_LABEL,
-                                            assign(idexp("x"), idexp("y"), idexp("y"), idexp("x"))
-                                    )
-                            );
-
-                            add(
-                                    new InvalidModularPlusCalIssue(
-                                            InvalidModularPlusCalIssue.InvalidReason.MISSING_LABEL,
-                                            assign(idexp("n"), num(100))
-                                    )
-                            );
-
-                            add(
-                                    new InvalidModularPlusCalIssue(
-                                            InvalidModularPlusCalIssue.InvalidReason.MISSING_LABEL,
-                                            assign(idexp("n"), num(12))
-                                    )
-                            );
+                        new ArrayList<Issue>() {{
+                            add(new MissingLabelIssue(assign(idexp("x"), num(11))));
+                            add(new MissingLabelIssue(assign(idexp("y"), num(11))));
+                            add(new MissingLabelIssue(assign(idexp("x"), idexp("y"), idexp("y"), idexp("x"))));
+                            add(new MissingLabelIssue(assign(idexp("n"), num(100))));
+                            add(new MissingLabelIssue(assign(idexp("n"), num(12))));
                         }},
                 },
+
                 // --mpcal ReservedLabels {
                 //     archetype MyArchetype() {
                 //         Done: x := 10 (* reserved *)
@@ -1016,29 +887,18 @@ public class ModularPlusCalLabelingRulesTest {
                                 ),
                                 Collections.emptyList()
                         ),
-                        new ArrayList<InvalidModularPlusCalIssue>() {{
-                            add(
-                                    new InvalidModularPlusCalIssue(
-                                            InvalidModularPlusCalIssue.InvalidReason.RESERVED_LABEL_NAME,
-                                            labeled(label("Done"), assign(idexp("x"), num(1)))
-                                    )
-                            );
-
-                            add(
-                                    new InvalidModularPlusCalIssue(
-                                            InvalidModularPlusCalIssue.InvalidReason.RESERVED_LABEL_NAME,
-                                            labeled(label("Error"), skip())
-                                    )
-                            );
+                        new ArrayList<Issue>() {{
+                            add(new ReservedLabelNameIssue(labeled(label("Done"), assign(idexp("x"), num(1)))));
+                            add(new ReservedLabelNameIssue(labeled(label("Error"), skip())));
                         }},
                 },
         });
     }
 
     private ModularPlusCalBlock spec;
-    private List<InvalidModularPlusCalIssue> issues;
+    private List<Issue> issues;
 
-    public ModularPlusCalLabelingRulesTest(ModularPlusCalBlock spec, List<InvalidModularPlusCalIssue> issues) {
+    public ModularPlusCalLabelingRulesTest(ModularPlusCalBlock spec, List<Issue> issues) {
         this.spec = spec;
         this.issues = issues;
     }

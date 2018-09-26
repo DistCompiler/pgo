@@ -285,24 +285,26 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 	}
 
 	@Override
-	public Void visit(InvalidModularPlusCalIssue invalidModularPlusCalIssue) throws IOException {
-		out.write("Modular PlusCal validation error: ");
+	public Void visit(MissingLabelIssue missingLabelIssue) throws IOException {
+		out.write("Label required in statement: ");
+		missingLabelIssue.getStatement().accept(new OriginFormattingVisitor(out));
 
-		switch (invalidModularPlusCalIssue.getReason()) {
-			case MISSING_LABEL:
-				out.write("missing label in statement: ");
-				break;
+		return null;
+	}
 
-			case LABEL_NOT_ALLOWED:
-				out.write("label not allowed in statement: ");
-				break;
+	@Override
+	public Void visit(LabelNotAllowedIssue labelNotAllowedIssue) throws IOException {
+		out.write("Label not allowed in statement: ");
+		labelNotAllowedIssue.getStatement().accept(new OriginFormattingVisitor(out));
 
-			case RESERVED_LABEL_NAME:
-				out.write("use of reserved label name in statement: ");
-				break;
-		}
+		return null;
+	}
 
-		invalidModularPlusCalIssue.getStatement().accept(new OriginFormattingVisitor(out));
+	@Override
+	public Void visit(ReservedLabelNameIssue reservedLabelNameIssue) throws IOException {
+		out.write("Label not allowed in statement: ");
+		reservedLabelNameIssue.getStatement().accept(new OriginFormattingVisitor(out));
+
 		return null;
 	}
 

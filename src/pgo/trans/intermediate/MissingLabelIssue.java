@@ -9,28 +9,16 @@ import pgo.model.pcal.PlusCalStatement;
 import java.io.IOException;
 import java.io.StringWriter;
 
-public class InvalidModularPlusCalIssue extends Issue {
+public class MissingLabelIssue extends Issue {
 
-    public enum InvalidReason {
-        MISSING_LABEL,
-        LABEL_NOT_ALLOWED,
-        RESERVED_LABEL_NAME,
-    }
-
-    private InvalidReason reason;
     private PlusCalStatement statement;
 
-    public InvalidModularPlusCalIssue(InvalidReason reason, PlusCalStatement statement) {
-        this.reason = reason;
+    public MissingLabelIssue(PlusCalStatement statement) {
         this.statement = statement;
     }
 
     public PlusCalStatement getStatement() {
         return this.statement;
-    }
-
-    public InvalidReason getReason() {
-        return this.reason;
     }
 
     public <T, E extends Throwable> T accept(IssueVisitor<T, E> v) throws E {
@@ -48,10 +36,9 @@ public class InvalidModularPlusCalIssue extends Issue {
         if (this.getClass() != obj.getClass())
             return false;
 
-        InvalidModularPlusCalIssue other = (InvalidModularPlusCalIssue) obj;
+        MissingLabelIssue other = (MissingLabelIssue) obj;
 
-        return this.getReason().equals(other.getReason()) &&
-                this.getStatement().equals(other.getStatement());
+        return this.getStatement().equals(other.getStatement());
     }
 
     @Override

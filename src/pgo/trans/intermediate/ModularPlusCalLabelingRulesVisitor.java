@@ -346,24 +346,15 @@ public class ModularPlusCalLabelingRulesVisitor extends PlusCalStatementVisitor<
     }
 
     private void missingLabel(PlusCalStatement statement) {
-        this.ctx.error(new InvalidModularPlusCalIssue(
-                InvalidModularPlusCalIssue.InvalidReason.MISSING_LABEL,
-                statement
-        ));
+        this.ctx.error(new MissingLabelIssue(statement));
     }
 
     private void labelNotAllowed(PlusCalStatement statement) {
-        this.ctx.error(new InvalidModularPlusCalIssue(
-                InvalidModularPlusCalIssue.InvalidReason.LABEL_NOT_ALLOWED,
-                statement
-        ));
+        this.ctx.error(new LabelNotAllowedIssue(statement));
     }
 
     private void reservedLabelName(PlusCalStatement statement) {
-        this.ctx.error(new InvalidModularPlusCalIssue(
-                InvalidModularPlusCalIssue.InvalidReason.RESERVED_LABEL_NAME,
-                statement
-        ));
+        this.ctx.error(new ReservedLabelNameIssue(statement));
     }
 
     // checks whether the statement given is the first of an archetype/procedure/process,
