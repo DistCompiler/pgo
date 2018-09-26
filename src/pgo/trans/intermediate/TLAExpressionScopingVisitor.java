@@ -284,7 +284,9 @@ public class TLAExpressionScopingVisitor extends TLAExpressionVisitor<Void, Runt
 
 	@Override
 	public Void visit(TLARef tlaRef) throws RuntimeException {
-		throw new TODO();
+		// TODO make this work for general identifiers
+		builder.reference(new QualifiedName(tlaRef.getTarget()), tlaRef.getUID());
+		return null;
 	}
 
 }

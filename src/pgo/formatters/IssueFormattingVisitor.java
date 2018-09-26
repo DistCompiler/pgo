@@ -2,6 +2,8 @@ package pgo.formatters;
 
 import pgo.errors.IssueVisitor;
 import pgo.errors.IssueWithContext;
+import pgo.model.mpcal.ModularPlusCalArchetype;
+import pgo.model.mpcal.ModularPlusCalInstance;
 import pgo.model.pcal.PlusCalMacro;
 import pgo.model.type.BacktrackingFailureIssue;
 import pgo.model.type.PGoTypePolymorphicConstraint;
@@ -9,6 +11,8 @@ import pgo.model.type.UnrealizableTypeIssue;
 import pgo.model.type.UnsatisfiableConstraintIssue;
 import pgo.parser.ParseFailure;
 import pgo.trans.intermediate.*;
+import pgo.trans.passes.expansion.*;
+import pgo.trans.passes.scope.mpcal.MismatchedRefMappingIssue;
 import pgo.trans.passes.tlaparse.ParsingIssue;
 import pgo.trans.passes.type.TypeInferenceFailureIssue;
 import pgo.util.SourceLocation;
@@ -19,7 +23,6 @@ import java.util.Map;
 import java.util.Set;
 
 public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
-
 	private IndentingWriter out;
 
 	public IssueFormattingVisitor(IndentingWriter out) {
@@ -199,6 +202,34 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 	}
 
 	@Override
+	public Void visit(ArchetypeNameConflictIssue archetypeNameConflictIssue) throws IOException {
+		out.write("the two archetype definitions at line ");
+		out.write(archetypeNameConflictIssue.getFirst().getLocation().getStartLine());
+		out.write(" column ");
+		out.write(archetypeNameConflictIssue.getFirst().getLocation().getStartColumn());
+		out.write(" and line ");
+		out.write(archetypeNameConflictIssue.getSecond().getLocation().getStartLine());
+		out.write(" column ");
+		out.write(archetypeNameConflictIssue.getSecond().getLocation().getStartColumn());
+		out.write(" share the same name");
+		return null;
+	}
+
+	@Override
+	public Void visit(MappingMacroNameConflictIssue mappingMacroNameConflictIssue) throws IOException {
+		out.write("the two mapping macro definitions at line ");
+		out.write(mappingMacroNameConflictIssue.getFirst().getLocation().getStartLine());
+		out.write(" column ");
+		out.write(mappingMacroNameConflictIssue.getFirst().getLocation().getStartColumn());
+		out.write(" and line ");
+		out.write(mappingMacroNameConflictIssue.getSecond().getLocation().getStartLine());
+		out.write(" column ");
+		out.write(mappingMacroNameConflictIssue.getSecond().getLocation().getStartColumn());
+		out.write(" share the same name");
+		return null;
+	}
+
+	@Override
 	public Void visit(BacktrackingFailureIssue backtrackingFailureIssue) throws IOException {
 		PGoTypePolymorphicConstraint polymorphicConstraint = backtrackingFailureIssue.getPolymorphicConstraint();
 		out.write("could not satisfy ");
@@ -275,4 +306,55 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 		return null;
 	}
 
+	public Void visit(UnknownArchetypeTargetIssue unknownArchetypeTargetIssue) throws IOException {
+		out.write("could not find archetype referenced by instance statement at line ");
+		out.write(unknownArchetypeTargetIssue.getModularPlusCalInstance().getLocation().getStartLine());
+		out.write(" column ");
+		out.write(unknownArchetypeTargetIssue.getModularPlusCalInstance().getLocation().getStartColumn());
+		return null;
+	}
+
+	@Override
+	public Void visit(UnknownMappingTargetIssue unknownMappingTargetIssue) throws IOException {
+		out.write("could not find mapping macro referenced by instance statement at line ");
+		out.write(unknownMappingTargetIssue.getModularPlusCalMapping().getLocation().getStartLine());
+		out.write(" column ");
+		out.write(unknownMappingTargetIssue.getModularPlusCalMapping().getLocation().getStartColumn());
+		return null;
+	}
+
+	@Override
+	public Void visit(InstanceArgumentCountMismatchIssue instanceArgumentCountMismatchIssue) throws IOException {
+		out.write("archetype ");
+		ModularPlusCalArchetype archetype = instanceArgumentCountMismatchIssue.getModularPlusCalArchetype();
+		out.write(archetype.getName());
+		out.write(" defined at line ");
+		out.write(archetype.getLocation().getStartLine());
+		out.write(" column ");
+		out.write(archetype.getLocation().getStartColumn());
+		out.write(" requires ");
+		out.write(archetype.getArguments().size());
+		out.write(" argument(s) while instance statement at line ");
+		ModularPlusCalInstance instance = instanceArgumentCountMismatchIssue.getModularPlusCalInstance();
+		out.write(instance.getLocation().getStartLine());
+		out.write(" column ");
+		out.write(instance.getLocation().getStartColumn());
+		out.write(" referencing it provides ");
+		out.write(instance.getParams().size());
+		out.write(" parameters");
+		return null;
+	}
+
+	@Override
+	public Void visit(MismatchedRefMappingIssue mismatchedRefMappingIssue) throws IOException {
+		out.write("instance statement at line ");
+		ModularPlusCalInstance instance = mismatchedRefMappingIssue.getModularPlusCalInstance();
+		out.write(instance.getLocation().getStartLine());
+		out.write(" column ");
+		out.write(instance.getLocation().getStartColumn());
+		out.write(" contains unmapped globals ");
+		out.write(String.join(", ", mismatchedRefMappingIssue.getUnmappedNames()));
+		out.write(" in mapping directives");
+		return null;
+	}
 }

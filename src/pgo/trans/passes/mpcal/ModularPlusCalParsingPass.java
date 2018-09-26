@@ -12,6 +12,10 @@ import java.nio.file.Path;
 public class ModularPlusCalParsingPass {
 	private ModularPlusCalParsingPass() {}
 
+	public static boolean hasModularPlusCalBlock(Path inputFileName, CharSequence inputFileContents) {
+		return ModularPlusCalParser.hasModularPlusCalBlock(new LexicalContext(inputFileName, inputFileContents));
+	}
+
 	public static ModularPlusCalBlock perform(IssueContext ctx, Path inputFileName, CharSequence inputFileContents) {
 		try {
 			return ModularPlusCalParser.readBlock(new LexicalContext(inputFileName, inputFileContents));

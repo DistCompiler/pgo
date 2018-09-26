@@ -11,13 +11,6 @@ import java.util.List;
 public class ModularPlusCalBuilder {
 	private ModularPlusCalBuilder() {}
 
-	public static ModularPlusCalVariableDeclaration mpcalVarDecl(String name, boolean isRef) {
-		return new ModularPlusCalVariableDeclaration(
-				SourceLocation.unknown(),
-				new Located<>(SourceLocation.unknown(), name),
-				isRef);
-	}
-
 	public static ModularPlusCalArchetype archetype(String name, List<PlusCalVariableDeclaration> arguments,
 	                                                List<PlusCalVariableDeclaration> variables,
 	                                                List<PlusCalStatement> body) {
@@ -38,11 +31,7 @@ public class ModularPlusCalBuilder {
 
 	public static ModularPlusCalMappingMacro mappingMacro(String name, List<PlusCalStatement> readBody,
 	                                                      List<PlusCalStatement> writeBody) {
-		return new ModularPlusCalMappingMacro(
-				SourceLocation.unknown(),
-				new Located<>(SourceLocation.unknown(), name),
-				readBody,
-				writeBody);
+		return new ModularPlusCalMappingMacro(SourceLocation.unknown(), name, readBody, writeBody);
 	}
 
 	public static ModularPlusCalBlock mpcal(String name, List<PlusCalVariableDeclaration> variables,

@@ -2,6 +2,7 @@ package pgo.trans.intermediate;
 
 import pgo.InternalCompilerError;
 import pgo.model.golang.type.GoType;
+import pgo.model.mpcal.ModularPlusCalArchetype;
 import pgo.model.pcal.PlusCalProcedure;
 import pgo.model.tla.*;
 import pgo.scope.UID;

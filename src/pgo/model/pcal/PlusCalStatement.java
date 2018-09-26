@@ -3,7 +3,6 @@ package pgo.model.pcal;
 import pgo.util.SourceLocation;
 
 public abstract class PlusCalStatement extends PlusCalNode {
-	
 	public PlusCalStatement(SourceLocation location) {
 		super(location);
 	}
@@ -17,5 +16,4 @@ public abstract class PlusCalStatement extends PlusCalNode {
 	}
 	
 	public abstract <T, E extends Throwable> T accept(PlusCalStatementVisitor<T, E> v) throws E;
-
 }

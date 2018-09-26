@@ -1,13 +1,12 @@
-package pgo.trans.intermediate;
+package pgo.trans.passes.expansion;
 
 import pgo.errors.Issue;
 import pgo.errors.IssueVisitor;
 import pgo.model.pcal.PlusCalMacro;
 
 public class MacroNameConflictIssue extends Issue {
-
-	private PlusCalMacro first;
-	private PlusCalMacro second;
+	private final PlusCalMacro first;
+	private final PlusCalMacro second;
 
 	public MacroNameConflictIssue(PlusCalMacro first, PlusCalMacro second) {
 		this.first = first;
@@ -26,5 +25,4 @@ public class MacroNameConflictIssue extends Issue {
 	public <T, E extends Throwable> T accept(IssueVisitor<T, E> v) throws E {
 		return v.visit(this);
 	}
-
 }

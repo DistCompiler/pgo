@@ -109,7 +109,7 @@ public class ModularPlusCalParser {
 			.drop(parsePlusCalToken("}"))
 			.map(seq -> new ModularPlusCalMappingMacro(
 					seq.getLocation(),
-					seq.getValue().getRest().getRest().getFirst(),
+					seq.getValue().getRest().getRest().getFirst().getValue(),
 					seq.getValue().getRest().getFirst(),
 					seq.getValue().getFirst()));
 
@@ -162,6 +162,10 @@ public class ModularPlusCalParser {
 			.map(seq -> seq.getValue().getFirst());
 
 	// public interface
+
+	public static boolean hasModularPlusCalBlock(LexicalContext ctx) {
+		return ctx.matchPattern(FIND_MPCAL).isPresent();
+	}
 
 	public static ModularPlusCalBlock readBlock(LexicalContext ctx) throws ParseFailureException {
 		return readOrExcept(ctx, MPCAL_BLOCK);

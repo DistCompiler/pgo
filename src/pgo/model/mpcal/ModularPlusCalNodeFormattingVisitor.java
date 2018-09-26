@@ -56,9 +56,4 @@ public class ModularPlusCalNodeFormattingVisitor extends ModularPlusCalNodeVisit
 	public Void visit(ModularPlusCalMappingMacro modularPlusCalMappingMacro) throws IOException {
 		throw new TODO();
 	}
-
-	@Override
-	public Void visit(ModularPlusCalVariableDeclaration modularPlusCalVariableDeclaration) throws IOException {
-		throw new TODO();
-	}
 }

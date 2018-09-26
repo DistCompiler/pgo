@@ -53,7 +53,7 @@ public class PlusCalMacroExpansionVisitor extends PlusCalStatementVisitor<List<P
 	@Override
 	public List<PlusCalStatement> visit(PlusCalEither plusCalEither) throws RuntimeException {
 		return Collections.singletonList(new PlusCalEither(
-				plusCalEither.getLocation(), plusCalEither.getCases().stream().map(c -> substituteStatements(c)).collect(Collectors.toList())));
+				plusCalEither.getLocation(), plusCalEither.getCases().stream().map(this::substituteStatements).collect(Collectors.toList())));
 	}
 
 	@Override

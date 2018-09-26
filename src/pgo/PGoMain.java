@@ -16,7 +16,11 @@ import pgo.trans.PGoTransException;
 import pgo.trans.intermediate.*;
 import pgo.trans.passes.codegen.CodeGenPass;
 import pgo.trans.passes.constdef.ConstantDefinitionParsingPass;
-import pgo.trans.passes.scope.ModularPlusCalScopingPass;
+import pgo.trans.passes.expansion.ModularPlusCalExpansionPass;
+import pgo.trans.passes.mpcal.ModularPlusCalParsingPass;
+import pgo.trans.passes.scope.pluscal.PlusCalScopingPass;
+import pgo.trans.passes.scope.tla.TLAScopingPass;
+import pgo.trans.passes.scope.mpcal.ModularPlusCalScopingPass;
 import pgo.trans.passes.tlaparse.TLAParsingPass;
 import pgo.trans.passes.type.TypeInferencePass;
 
@@ -69,24 +73,32 @@ public class PGoMain {
 
 			logger.info("Opening source file");
 			Path inputFilePath = Paths.get(opts.inputFilePath);
-			final PlusCalAlgorithm plusCalAlgorithm;
+			final boolean fromModularPlusCal;
+			final ModularPlusCalBlock modularPlusCalBlock;
 			final TLAModule tlaModule;
-			try(FileChannel fileChannel = new RandomAccessFile(inputFilePath.toFile(), "r").getChannel()) {
+			try (FileChannel fileChannel = new RandomAccessFile(inputFilePath.toFile(), "r").getChannel()) {
 				MappedByteBuffer buffer = fileChannel.map(FileChannel.MapMode.READ_ONLY, 0, fileChannel.size());
 				// assume UTF-8, though technically TLA+ is ASCII only according to the book
 				CharBuffer inputFileContents = StandardCharsets.UTF_8.decode(buffer);
 
-				logger.info("Parsing PlusCal code");
-				plusCalAlgorithm = PlusCalParsingPass.perform(ctx, inputFilePath, inputFileContents);
-				checkErrors(ctx);
+				if (ModularPlusCalParsingPass.hasModularPlusCalBlock(inputFilePath, inputFileContents)) {
+					logger.info("Parse modular PlusCal code");
+					modularPlusCalBlock = ModularPlusCalParsingPass.perform(ctx, inputFilePath, inputFileContents);
+					fromModularPlusCal = true;
+					checkErrors(ctx);
+				} else {
+					logger.info("Parsing PlusCal code");
+					final PlusCalAlgorithm plusCalAlgorithm = PlusCalParsingPass.perform(
+							ctx, inputFilePath, inputFileContents);
+					fromModularPlusCal = false;
+					checkErrors(ctx);
+					modularPlusCalBlock = ModularPlusCalBlock.from(plusCalAlgorithm);
+				}
 
 				logger.info("Parsing TLA+ module");
 				tlaModule = TLAParsingPass.perform(ctx, inputFilePath, inputFileContents);
 				checkErrors(ctx);
 			}
-
-			// TODO: integration
-			ModularPlusCalBlock modularPlusCalBlock = ModularPlusCalBlock.from(plusCalAlgorithm);
 
 			logger.info("Parsing constant definitions from configuration");
 			Map<String, TLAExpression> constantDefinitions = ConstantDefinitionParsingPass.perform(
@@ -97,26 +109,36 @@ public class PGoMain {
 			CheckOptionsPass.perform(ctx, modularPlusCalBlock, opts);
 			checkErrors(ctx);
 
-			logger.info("Expanding PlusCal macros");
-			ModularPlusCalBlock macroExpandedModularPlusCalBlock = ModularPlusCalMacroExpansionPass.perform(
+			logger.info("Resolving TLA+ scoping");
+			TLAModuleLoader loader = new TLAModuleLoader(Collections.singletonList(inputFilePath.getParent()));
+			DefinitionRegistry registry = new DefinitionRegistry();
+			TLAScopeBuilder tlaScope = TLAScopingPass.perform(ctx, registry, loader, constantDefinitions, tlaModule);
+			checkErrors(ctx);
+
+			logger.info("Resolve modular PlusCal scoping");
+			TLAScopeBuilder modularPlusCalScope = ModularPlusCalScopingPass.perform(
+					ctx, registry, loader, tlaScope, modularPlusCalBlock);
+			checkErrors(ctx);
+
+			logger.info("Expanding PlusCal macros and modular PlusCal instances");
+			ModularPlusCalBlock expandedModularPlusCalBlock = ModularPlusCalExpansionPass.perform(
 					ctx, modularPlusCalBlock);
 			checkErrors(ctx);
 
-			logger.info("Resolving TLA+ and PlusCal scoping");
-			TLAModuleLoader loader = new TLAModuleLoader(Collections.singletonList(inputFilePath.getParent()));
-			DefinitionRegistry registry = ModularPlusCalScopingPass.perform(
-					ctx, tlaModule, macroExpandedModularPlusCalBlock, loader, constantDefinitions);
+			logger.info("Resolving PlusCal and modular PlusCal scoping");
+			PlusCalScopingPass.perform(
+					ctx, registry, loader, tlaScope, modularPlusCalScope, expandedModularPlusCalBlock);
 			checkErrors(ctx);
 
 			logger.info("Inferring types");
-			Map<UID, PGoType> typeMap = TypeInferencePass.perform(ctx, registry, macroExpandedModularPlusCalBlock);
+			Map<UID, PGoType> typeMap = TypeInferencePass.perform(ctx, registry, expandedModularPlusCalBlock);
 			checkErrors(ctx);
 
 			logger.info("Inferring atomicity requirements");
-			AtomicityInferencePass.perform(registry, macroExpandedModularPlusCalBlock);
+			AtomicityInferencePass.perform(registry, expandedModularPlusCalBlock);
 
 			logger.info("Initial code generation");
-			GoModule goModule = CodeGenPass.perform(registry, typeMap, opts, macroExpandedModularPlusCalBlock);
+			GoModule goModule = CodeGenPass.perform(registry, typeMap, opts, expandedModularPlusCalBlock);
 
 			logger.info("Normalising generated code");
 			GoModule normalisedGoModule = CodeNormalisingPass.perform(goModule);
