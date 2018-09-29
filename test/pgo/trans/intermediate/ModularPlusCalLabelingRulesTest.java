@@ -29,10 +29,16 @@ public class ModularPlusCalLabelingRulesTest {
                 // --mpcal NoIssues {
                 //     archetype MyArchetype() {
                 //         l1: print(1 + 1);
+                //         l2: either { x := 10 } or { x := 20 };
                 //     }
                 //
                 //     procedure MyProcedure() {
                 //         l2: print(3 - 3);
+                //             if (TRUE) {
+                //                 y := 20;
+                //             } else {
+                //                 y := 10;
+                //             }
                 //     }
                 //
                 //     process (MyProcess = 32) {
@@ -47,9 +53,25 @@ public class ModularPlusCalLabelingRulesTest {
                                     "MyArchetype",
                                     Collections.emptyList(),
                                     Collections.emptyList(),
-                                    Collections.singletonList(
-                                            labeled(label("l1"), printS(binop("+", num(1), num(1))))
-                                    )
+                                    new ArrayList<PlusCalStatement>() {{
+                                        add(labeled(
+                                                label("l1"),
+                                                printS(binop("+", num(1), num(1))))
+                                        );
+
+                                        add(labeled(
+                                                label("l2"),
+                                                either(new ArrayList<List<PlusCalStatement>>() {{
+                                                    add(Collections.singletonList(
+                                                            assign(idexp("x"), num(10))
+                                                    ));
+
+                                                    add(Collections.singletonList(
+                                                            assign(idexp("x"), num(20))
+                                                    ));
+                                                }})
+                                        ));
+                                    }}
                             )
                         ),
                         Collections.emptyList(),
@@ -61,7 +83,19 @@ public class ModularPlusCalLabelingRulesTest {
                                         "MyProcedure",
                                         Collections.emptyList(),
                                         Collections.emptyList(),
-                                        labeled(label("l2"), printS(binop("-", num(3), num(3))))
+                                        labeled(
+                                                label("l2"),
+                                                printS(binop("-", num(3), num(3))),
+                                                ifS(
+                                                        bool(true),
+                                                        Collections.singletonList(
+                                                                assign(idexp("y"), num(10))
+                                                        ),
+                                                        Collections.singletonList(
+                                                                assign(idexp("y"), num(20))
+                                                        )
+                                                )
+                                        )
                                 )
                         ),
                         Collections.emptyList(),
