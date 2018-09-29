@@ -18,6 +18,7 @@ import pgo.trans.passes.codegen.CodeGenPass;
 import pgo.trans.passes.constdef.ConstantDefinitionParsingPass;
 import pgo.trans.passes.expansion.ModularPlusCalExpansionPass;
 import pgo.trans.passes.mpcal.ModularPlusCalParsingPass;
+import pgo.trans.passes.mpcal.ModularPlusCalValidationPass;
 import pgo.trans.passes.scope.pluscal.PlusCalScopingPass;
 import pgo.trans.passes.scope.tla.TLAScopingPass;
 import pgo.trans.passes.scope.mpcal.ModularPlusCalScopingPass;
@@ -123,6 +124,10 @@ public class PGoMain {
 			logger.info("Resolve Modular PlusCal scoping");
 			TLAScopeBuilder modularPlusCalScope = ModularPlusCalScopingPass.perform(
 					ctx, registry, loader, tlaScope, modularPlusCalBlock);
+			checkErrors(ctx);
+
+			logger.info("Validating " + (isMPCal ? "Modular PlusCal" : "PlusCal") +  " semantics");
+			ModularPlusCalValidationPass.perform(ctx, modularPlusCalBlock);
 			checkErrors(ctx);
 
 			String msg = "Expanding PlusCal macros";
