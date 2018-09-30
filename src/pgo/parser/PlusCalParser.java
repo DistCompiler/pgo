@@ -1,6 +1,5 @@
 package pgo.parser;
 
-import pgo.model.mpcal.ModularPlusCalYield;
 import pgo.model.pcal.*;
 import pgo.model.tla.*;
 
@@ -48,17 +47,30 @@ public final class PlusCalParser {
 
 	// common
 
-	private static final Grammar<TLAExpression> TLA_EXPRESSION = emptySequence()
-			.dependentPart(
-					TLAParser.parseExpression(
-							TLAParser.PREFIX_OPERATORS,
-							TLAParser.INFIX_OPERATORS
-									.stream()
-									.filter(op -> !Arrays.asList("||", ":=").contains(op))
-									.collect(Collectors.toList()),
-							TLAParser.POSTFIX_OPERATORS),
-					info -> new VariableMap().put(MIN_COLUMN, -1))
-			.map(seq -> seq.getValue().getFirst());
+    static final ReferenceGrammar<TLAExpression> TLA_EXPRESSION_NO_OPERATORS = new ReferenceGrammar<>();
+    static final ReferenceGrammar<TLAExpression> TLA_EXPRESSION = new ReferenceGrammar<>();
+
+    static final void initTLAExpression(ReferenceGrammar<TLAExpression> refGrammar) {
+        refGrammar.setReferencedGrammar(
+                emptySequence()
+                        .dependentPart(
+                                TLAParser.parseExpression(
+                                        TLAParser.PREFIX_OPERATORS,
+                                        TLAParser.INFIX_OPERATORS
+                                                .stream()
+                                                .filter(op -> !Arrays.asList("||", ":=").contains(op))
+                                                .collect(Collectors.toList()),
+                                        TLAParser.POSTFIX_OPERATORS,
+                                        TLA_EXPRESSION_NO_OPERATORS),
+                                info -> new VariableMap().put(MIN_COLUMN, -1))
+                        .map(seq -> seq.getValue().getFirst())
+        );
+    }
+
+	static {
+        TLA_EXPRESSION_NO_OPERATORS.setReferencedGrammar(TLAParser.EXPRESSION_NO_OPERATORS.getReferencedGrammar());
+        initTLAExpression(TLA_EXPRESSION);
+    }
 
 	static final Grammar<TLAExpression> MODULAR_PLUSCAL_PARAMETER = parseOneOf(
 			TLA_EXPRESSION,
@@ -231,11 +243,6 @@ public final class PlusCalParser {
 					seq.getValue().getRest().getFirst().getValue(),
 					seq.getValue().getFirst()));
 
-	private static final Grammar<ModularPlusCalYield> YIELD = emptySequence()
-			.drop(parsePlusCalToken("yield"))
-			.part(TLA_EXPRESSION)
-			.map(seq -> new ModularPlusCalYield(seq.getLocation(), seq.getValue().getFirst()));
-
 	// C-syntax
 
 	static final ReferenceGrammar<LocatedList<PlusCalStatement>> C_SYNTAX_COMPOUND_STMT = new ReferenceGrammar<>();
@@ -300,22 +307,26 @@ public final class PlusCalParser {
 					seq.getValue().getRest().getFirst(),
 					seq.getValue().getFirst()));
 
-	static final Grammar<PlusCalStatement> C_SYNTAX_UNLABELED_STMT = parseOneOf(
-			ASSIGN,
-			C_SYNTAX_IF,
-			C_SYNTAX_WHILE,
-			C_SYNTAX_EITHER,
-			C_SYNTAX_WITH,
-			AWAIT,
-			PRINT,
-			ASSERT,
-			SKIP,
-			RETURN,
-			GOTO,
-			CALL,
-			MACRO_CALL,
-			YIELD
-	);
+	static final ReferenceGrammar<PlusCalStatement> C_SYNTAX_UNLABELED_STMT = new ReferenceGrammar<>();
+	static {
+        C_SYNTAX_UNLABELED_STMT.setReferencedGrammar(
+                parseOneOf(
+                        ASSIGN,
+                        C_SYNTAX_IF,
+                        C_SYNTAX_WHILE,
+                        C_SYNTAX_EITHER,
+                        C_SYNTAX_WITH,
+                        AWAIT,
+                        PRINT,
+                        ASSERT,
+                        SKIP,
+                        RETURN,
+                        GOTO,
+                        CALL,
+                        MACRO_CALL
+                )
+        );
+    }
 
 	static {
 		C_SYNTAX_STMT.setReferencedGrammar(

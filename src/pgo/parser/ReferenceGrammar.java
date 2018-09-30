@@ -18,11 +18,6 @@ public class ReferenceGrammar<Result extends SourceLocatable> extends Grammar<Re
 		this.referencedGrammar = new Mutator<>();
 	}
 
-	public ReferenceGrammar(Grammar<Result> referencedGrammar) {
-		Objects.requireNonNull(referencedGrammar);
-		this.referencedGrammar = new Mutator<>(referencedGrammar);
-	}
-
 	public void setReferencedGrammar(Grammar<Result> referencedGrammar) {
 		Objects.requireNonNull(referencedGrammar);
 		this.referencedGrammar.setValue(referencedGrammar);

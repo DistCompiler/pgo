@@ -1460,12 +1460,12 @@ public final class TLAParser {
 				.map(seq -> seq.getValue().getFirst());
 	}
 
-	public static Grammar<TLAExpression> parseExpression(List<String> prefixOperators, List<String> infixOperators, List<String> postfixOperators) {
+	public static Grammar<TLAExpression> parseExpression(List<String> prefixOperators, List<String> infixOperators, List<String> postfixOperators, ReferenceGrammar<TLAExpression> expressionNoOperators) {
 		Map<Integer, ReferenceGrammar<TLAExpression>> operatorsByPrecedence = new HashMap<>(18);
 		for(int precedence = 1; precedence < 18; ++precedence) {
 			operatorsByPrecedence.put(precedence, new ReferenceGrammar<>());
 		}
-		operatorsByPrecedence.put(18, EXPRESSION_NO_OPERATORS);
+		operatorsByPrecedence.put(18, expressionNoOperators);
 		for(int precedence = 1; precedence < 18; ++precedence) {
 			operatorsByPrecedence.get(precedence).setReferencedGrammar(parseExpressionFromPrecedence(
 					precedence, operatorsByPrecedence, prefixOperators,
@@ -1475,15 +1475,12 @@ public final class TLAParser {
 	}
 
 	static {
-		EXPRESSION.setReferencedGrammar(parseExpression(PREFIX_OPERATORS, INFIX_OPERATORS, POSTFIX_OPERATORS));
+		EXPRESSION.setReferencedGrammar(parseExpression(PREFIX_OPERATORS, INFIX_OPERATORS, POSTFIX_OPERATORS, EXPRESSION_NO_OPERATORS));
 	}
 
 	static {
 		EXPRESSION_NO_OPERATORS.setReferencedGrammar(
 				parseOneOf(
-						parseTLAToken("$variable").map(seq -> new TLASpecialVariableVariable(seq.getLocation())),
-						parseTLAToken("$value").map(seq -> new TLASpecialVariableValue(seq.getLocation())),
-
 						parseTLANumber(),
 						parseTLAString(),
 						parseTLATokenOneOf(
