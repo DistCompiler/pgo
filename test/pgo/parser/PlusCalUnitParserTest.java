@@ -56,10 +56,24 @@ public class PlusCalUnitParserTest {
                         "}",
                 },
 
-                // ref arguments
+                // ref in procedure definition
                 {
                         "procedure MyProcedure(ref x) {\n" +
                                 "either { x := 10 } or { x := 20 };\n" +
+                        "}",
+                },
+
+                // ref in call in procedure
+                {
+                        "procedure MyProcedure() {\n" +
+                                "call OtherProcedure(ref x);\n" +
+                        "}",
+                },
+
+                // ref in call in process
+                {
+                        "process MyProcess() {\n" +
+                                "call MyProcedure(ref x);\n" +
                         "}",
                 },
         });

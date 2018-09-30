@@ -33,6 +33,17 @@ public class ModularPlusCalParser {
 					false,
 					new PlusCalDefaultInitValue(seq.getLocation())));
 
+	private static final Grammar<TLAExpression> MODULAR_PLUSCAL_PARAMETER = parseOneOf(
+			TLA_EXPRESSION,
+			emptySequence()
+					.dependentPart(emptySequence()
+									.drop(TLAParser.parseTLAToken("ref"))
+									.drop(TLAParser.skipWhitespaceAndTLAComments())
+									.part(TLAParser.matchTLAIdentifier())
+									.map(seq -> new TLARef(seq.getLocation(), seq.getValue().getFirst().getValue())),
+							info -> new VariableMap().put(MIN_COLUMN, -1))
+					.map(seq -> seq.getValue().getFirst()));
+
 	private static final Grammar<ModularPlusCalArchetype> C_SYNTAX_ARCHETYPE = emptySequence()
 			.drop(parsePlusCalToken("archetype"))
 			.part(IDENTIFIER)
@@ -182,6 +193,8 @@ public class ModularPlusCalParser {
 		Grammar<TLAExpression> oldTLAExpressionNoOperators = TLA_EXPRESSION_NO_OPERATORS.getReferencedGrammar();
 		Grammar<TLAExpression> oldTLAExpression = TLA_EXPRESSION.getReferencedGrammar();
 		Grammar<PlusCalStatement> oldUnlabeledStatement = C_SYNTAX_UNLABELED_STMT.getReferencedGrammar();
+		Grammar<PlusCalVariableDeclaration> oldPVarDecl = PVAR_DECL.getReferencedGrammar();
+		Grammar<TLAExpression> oldProcedureParam = PROCEDURE_PARAM.getReferencedGrammar();
 
 		try {
 			// add special variables to TLA+ expressions
@@ -216,11 +229,32 @@ public class ModularPlusCalParser {
 					)
 			);
 
+			assert oldPVarDecl != null;
+			PVAR_DECL.setReferencedGrammar(
+					parseOneOf(
+							emptySequence()
+									.drop(parsePlusCalToken("ref"))
+									.part(IDENTIFIER)
+									.map(seq -> new PlusCalVariableDeclaration(
+											seq.getLocation(),
+											seq.getValue().getFirst(),
+											true,
+											false,
+											new PlusCalDefaultInitValue(seq.getLocation()))),
+							oldPVarDecl
+					)
+			);
+
+			assert oldProcedureParam != null;
+			PROCEDURE_PARAM.setReferencedGrammar(MODULAR_PLUSCAL_PARAMETER);
+
 			return op.perform();
 		} finally {
 			TLA_EXPRESSION_NO_OPERATORS.setReferencedGrammar(oldTLAExpressionNoOperators);
 			TLA_EXPRESSION.setReferencedGrammar(oldTLAExpression);
 			C_SYNTAX_UNLABELED_STMT.setReferencedGrammar(oldUnlabeledStatement);
+			PVAR_DECL.setReferencedGrammar(oldPVarDecl);
+			PROCEDURE_PARAM.setReferencedGrammar(oldProcedureParam);
 		}
 	}
 
