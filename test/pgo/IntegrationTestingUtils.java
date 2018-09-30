@@ -95,7 +95,7 @@ public class IntegrationTestingUtils {
 					out.write("{");
 					out.newLine();
 					try (IndentingWriter.Indent i2_ = out.indent()) {
-						out.write("print ");
+						out.write("l: print ");
 						result.accept(new TLAExpressionFormattingVisitor(out));
 					}
 					out.newLine();

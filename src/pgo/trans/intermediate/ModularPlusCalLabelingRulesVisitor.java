@@ -6,6 +6,7 @@ import pgo.model.mpcal.ModularPlusCalYield;
 import pgo.model.pcal.*;
 import pgo.model.tla.TLAExpression;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -200,15 +201,28 @@ public class ModularPlusCalLabelingRulesVisitor extends PlusCalStatementVisitor<
         // view of the previous statement.
         PlusCalStatement oldPreviousStatement = previousStatement;
 
+        // maintain a copy of the old set of assigned variables (variables
+        // assigned in different branches of the if condition should not
+        // be considered an error)
+        Set<TLAExpression> oldAssignedVariables = new HashSet<>(assignedVariables);
+
         for (PlusCalStatement statement : plusCalIf.getYes()) {
             statement.accept(this);
         }
 
         this.previousStatement = oldPreviousStatement;
+        Set<TLAExpression> assignedYes = new HashSet<>(this.assignedVariables);
+
+        // restore variable assignment before visiting `else` set of
+        // statements
+        this.assignedVariables = oldAssignedVariables;
         for (PlusCalStatement statement : plusCalIf.getNo()) {
             statement.accept(this);
         }
 
+        // the set of variables assigned should be the union of the variables
+        // assigned in the `then` and `else` branches of the conditional.
+        this.assignedVariables.addAll(assignedYes);
         this.previousStatement = plusCalIf;
         return null;
     }
@@ -223,11 +237,28 @@ public class ModularPlusCalLabelingRulesVisitor extends PlusCalStatementVisitor<
         // the previous statement.
         PlusCalStatement oldPreviousStatement = previousStatement;
 
+        // keep a copy of the variables assigned before this `either` statement.
+        final Set<TLAExpression> oldAssignedVariables = new HashSet<>(assignedVariables);
+        List<Set<TLAExpression>> assignmentCases = new ArrayList<>();
+
         for (List<PlusCalStatement> cases : plusCalEither.getCases()) {
+            // restore the variables assigned before validating each of the cases
+            // of an `either` statement. Assigning to the same variable once
+            // in different cases of `either` is not an error.
+            this.assignedVariables = new HashSet<>(oldAssignedVariables);
+
             for (PlusCalStatement statement : cases) {
                 this.previousStatement = oldPreviousStatement;
                 statement.accept(this);
             }
+
+            assignmentCases.add(new HashSet<>(this.assignedVariables));
+        }
+
+        // the set of all assigned variables after an `either` statement should
+        // be the union of all variables assigned in all cases.
+        for (Set<TLAExpression> assignments : assignmentCases) {
+            this.assignedVariables.addAll(assignments);
         }
 
         this.previousStatement = plusCalEither;

@@ -18,6 +18,7 @@ import pgo.trans.passes.codegen.CodeGenPass;
 import pgo.trans.passes.constdef.ConstantDefinitionParsingPass;
 import pgo.trans.passes.expansion.ModularPlusCalExpansionPass;
 import pgo.trans.passes.mpcal.ModularPlusCalParsingPass;
+import pgo.trans.passes.mpcal.ModularPlusCalValidationPass;
 import pgo.trans.passes.scope.pluscal.PlusCalScopingPass;
 import pgo.trans.passes.scope.tla.TLAScopingPass;
 import pgo.trans.passes.scope.mpcal.ModularPlusCalScopingPass;
@@ -73,24 +74,29 @@ public class PGoMain {
 
 			logger.info("Opening source file");
 			Path inputFilePath = Paths.get(opts.inputFilePath);
-			final boolean fromModularPlusCal;
+			final boolean isMPCal;
 			final ModularPlusCalBlock modularPlusCalBlock;
 			final TLAModule tlaModule;
+
 			try (FileChannel fileChannel = new RandomAccessFile(inputFilePath.toFile(), "r").getChannel()) {
 				MappedByteBuffer buffer = fileChannel.map(FileChannel.MapMode.READ_ONLY, 0, fileChannel.size());
 				// assume UTF-8, though technically TLA+ is ASCII only according to the book
 				CharBuffer inputFileContents = StandardCharsets.UTF_8.decode(buffer);
 
-				if (ModularPlusCalParsingPass.hasModularPlusCalBlock(inputFilePath, inputFileContents)) {
-					logger.info("Parse modular PlusCal code");
+				isMPCal = ModularPlusCalParsingPass.hasModularPlusCalBlock(inputFilePath, inputFileContents);
+				if (opts.mpcalCompile && !isMPCal) {
+					ctx.error(new OptionParserIssue("Specification does not contain a Modular PlusCal block."));
+					checkErrors(ctx);
+				}
+
+				if (isMPCal) {
+					logger.info("Parsing modular PlusCal code");
 					modularPlusCalBlock = ModularPlusCalParsingPass.perform(ctx, inputFilePath, inputFileContents);
-					fromModularPlusCal = true;
 					checkErrors(ctx);
 				} else {
 					logger.info("Parsing PlusCal code");
 					final PlusCalAlgorithm plusCalAlgorithm = PlusCalParsingPass.perform(
 							ctx, inputFilePath, inputFileContents);
-					fromModularPlusCal = false;
 					checkErrors(ctx);
 					modularPlusCalBlock = ModularPlusCalBlock.from(plusCalAlgorithm);
 				}
@@ -115,17 +121,25 @@ public class PGoMain {
 			TLAScopeBuilder tlaScope = TLAScopingPass.perform(ctx, registry, loader, constantDefinitions, tlaModule);
 			checkErrors(ctx);
 
-			logger.info("Resolve modular PlusCal scoping");
+			logger.info("Resolve Modular PlusCal scoping");
 			TLAScopeBuilder modularPlusCalScope = ModularPlusCalScopingPass.perform(
 					ctx, registry, loader, tlaScope, modularPlusCalBlock);
 			checkErrors(ctx);
 
-			logger.info("Expanding PlusCal macros and modular PlusCal instances");
+			logger.info("Validating " + (isMPCal ? "Modular PlusCal" : "PlusCal") +  " semantics");
+			ModularPlusCalValidationPass.perform(ctx, modularPlusCalBlock);
+			checkErrors(ctx);
+
+			String msg = "Expanding PlusCal macros";
+			if (isMPCal) {
+				msg += " and Modular PlusCal instances";
+			}
+			logger.info(msg);
 			ModularPlusCalBlock expandedModularPlusCalBlock = ModularPlusCalExpansionPass.perform(
 					ctx, modularPlusCalBlock);
 			checkErrors(ctx);
 
-			logger.info("Resolving PlusCal and modular PlusCal scoping");
+			logger.info("Resolving PlusCal scoping");
 			PlusCalScopingPass.perform(
 					ctx, registry, loader, tlaScope, modularPlusCalScope, expandedModularPlusCalBlock);
 			checkErrors(ctx);
@@ -137,31 +151,41 @@ public class PGoMain {
 			logger.info("Inferring atomicity requirements");
 			AtomicityInferencePass.perform(registry, expandedModularPlusCalBlock);
 
-			logger.info("Initial code generation");
-			GoModule goModule = CodeGenPass.perform(registry, typeMap, opts, expandedModularPlusCalBlock);
+			if (opts.mpcalCompile) {
+				// compilation of MPCal -> PCal
+				throw new UnsupportedOperationException("Generation of PCal specs from MPCal currently unsupported");
 
-			logger.info("Normalising generated code");
-			GoModule normalisedGoModule = CodeNormalisingPass.perform(goModule);
+			} else if (isMPCal) {
+				// compilation of MPCal -> Go
+				throw new UnsupportedOperationException("Compilation of MPCal specs currently unsupported");
 
-			logger.info("Writing Go module to \"" + opts.buildFile + "\" in folder \"" + opts.buildDir + "\"");
-			try(
-					BufferedWriter writer = Files.newBufferedWriter(Paths.get(opts.buildDir+"/"+opts.buildFile));
-					IndentingWriter out = new IndentingWriter(writer)
-			) {
-				normalisedGoModule.accept(new GoNodeFormattingVisitor(out));
+			} else {
+				// compilation of PCal -> Go
+				logger.info("Initial code generation");
+				GoModule goModule = CodeGenPass.perform(registry, typeMap, opts, expandedModularPlusCalBlock);
+
+				logger.info("Normalising generated code");
+				GoModule normalisedGoModule = CodeNormalisingPass.perform(goModule);
+
+				logger.info("Writing Go module to \"" + opts.buildFile + "\" in folder \"" + opts.buildDir + "\"");
+				try(
+						BufferedWriter writer = Files.newBufferedWriter(Paths.get(opts.buildDir+"/"+opts.buildFile));
+						IndentingWriter out = new IndentingWriter(writer)
+				) {
+					normalisedGoModule.accept(new GoNodeFormattingVisitor(out));
+				}
+
+				logger.info("Copying necessary Go packages to folder \"" + opts.buildDir + "\"");
+				copyPackages(opts.buildDir);
+
+				logger.info("Formatting generated Go code");
+				try {
+					goFmt(opts.buildDir + "/" + opts.buildFile);
+				} catch (Exception e) {
+					logger.warning(String.format("Failed to format Go code. Error: %s", e.getMessage()));
+				}
+				return true;
 			}
-
-			logger.info("Copying necessary Go packages to folder \"" + opts.buildDir + "\"");
-			copyPackages(opts.buildDir);
-
-			logger.info("Formatting generated Go code");
-			try {
-				goFmt(opts.buildDir + "/" + opts.buildFile);
-			} catch (Exception e) {
-				logger.warning(String.format("Failed to format Go code. Error: %s", e.getMessage()));
-			}
-			return true;
-
 		} catch (PGoTransException | IOException e) {
 			logger.severe(e.getMessage());
 			e.printStackTrace();
