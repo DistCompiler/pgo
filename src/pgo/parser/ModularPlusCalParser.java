@@ -165,45 +165,63 @@ public class ModularPlusCalParser {
 			.map(seq -> seq.getValue().getFirst());
 
 
+	private interface ReadSpec {
+		Object perform() throws ParseFailureException;
+	}
+
 	// Modular PlusCal behaves a lot like vanilla PlusCal except in a few key areas:
 	//
 	// * Unlabeled statements may include the `yield` keyword
 	// * TLA+ expressions may include "special variables" (with dollar-sign prefixed names)
 	//
 	// This method overrides grammar references with the changes mentioned above before
-	// parsing a MPCal specification.
-	private static final void overwriteGrammars() {
-		// add special variables to TLA+ expressions
-		assert TLA_EXPRESSION_NO_OPERATORS.getReferencedGrammar() != null;
-		TLA_EXPRESSION_NO_OPERATORS.setReferencedGrammar(
-				parseOneOf(
-						parseTLAToken("$variable").map(seq -> new TLASpecialVariableVariable(seq.getLocation())),
-						parseTLAToken("$value").map(seq -> new TLASpecialVariableValue(seq.getLocation())),
-
-						EXPRESSION_NO_OPERATORS
-				)
-		);
-
-		initTLAExpression(TLA_EXPRESSION);
-
-		// make sure the definition of the `yield` rule uses the updated TLA+ expression grammar
-		// which includes special variables.
-		YIELD.setReferencedGrammar(
-				emptySequence()
-						.drop(parsePlusCalToken("yield"))
-						.part(TLA_EXPRESSION)
-						.map(seq -> new ModularPlusCalYield(seq.getLocation(), seq.getValue().getFirst()))
-		);
-
-		// updates unlabeled statements to include `yield` statements.
-		assert C_SYNTAX_UNLABELED_STMT.getReferencedGrammar() != null;
+	// parsing a MPCal specification, and then resets the grammars back to their
+	// original contents (useful during testing, when PlusCal/MPCal can be parsed in
+	// arbitrary orders).
+	private static Object overwriteGrammars(ReadSpec op) throws ParseFailureException {
+		Grammar<TLAExpression> oldTLAExpressionNoOperators = TLA_EXPRESSION_NO_OPERATORS.getReferencedGrammar();
+		Grammar<TLAExpression> oldTLAExpression = TLA_EXPRESSION.getReferencedGrammar();
 		Grammar<PlusCalStatement> oldUnlabeledStatement = C_SYNTAX_UNLABELED_STMT.getReferencedGrammar();
-		C_SYNTAX_UNLABELED_STMT.setReferencedGrammar(
-				parseOneOf(
-						oldUnlabeledStatement,
-						YIELD
-				)
-		);
+
+		try {
+			// add special variables to TLA+ expressions
+			assert oldTLAExpressionNoOperators != null;
+
+			TLA_EXPRESSION_NO_OPERATORS.setReferencedGrammar(
+					parseOneOf(
+							parseTLAToken("$variable").map(seq -> new TLASpecialVariableVariable(seq.getLocation())),
+							parseTLAToken("$value").map(seq -> new TLASpecialVariableValue(seq.getLocation())),
+
+							EXPRESSION_NO_OPERATORS
+					)
+			);
+
+			initTLAExpression(TLA_EXPRESSION);
+
+			// make sure the definition of the `yield` rule uses the updated TLA+ expression grammar
+			// which includes special variables.
+			YIELD.setReferencedGrammar(
+					emptySequence()
+							.drop(parsePlusCalToken("yield"))
+							.part(TLA_EXPRESSION)
+							.map(seq -> new ModularPlusCalYield(seq.getLocation(), seq.getValue().getFirst()))
+			);
+
+			// updates unlabeled statements to include `yield` statements.
+			assert oldUnlabeledStatement != null;
+			C_SYNTAX_UNLABELED_STMT.setReferencedGrammar(
+					parseOneOf(
+							oldUnlabeledStatement,
+							YIELD
+					)
+			);
+
+			return op.perform();
+		} finally {
+			TLA_EXPRESSION_NO_OPERATORS.setReferencedGrammar(oldTLAExpressionNoOperators);
+			TLA_EXPRESSION.setReferencedGrammar(oldTLAExpression);
+			C_SYNTAX_UNLABELED_STMT.setReferencedGrammar(oldUnlabeledStatement);
+		}
 	}
 
 	// public interface
@@ -213,14 +231,20 @@ public class ModularPlusCalParser {
 	}
 
 	public static ModularPlusCalBlock readBlock(LexicalContext ctx) throws ParseFailureException {
-		overwriteGrammars();
-		return readOrExcept(ctx, MPCAL_BLOCK);
+		Object block = overwriteGrammars(
+				() -> readOrExcept(ctx, MPCAL_BLOCK)
+		);
+
+		return (ModularPlusCalBlock) block;
 	}
 
 	// testing interface
 
 	static ModularPlusCalUnit readUnit(LexicalContext ctx) throws ParseFailureException {
-		overwriteGrammars();
-		return readOrExcept(ctx, parseOneOf(C_SYNTAX_ARCHETYPE, C_SYNTAX_INSTANCE, C_SYNTAX_MAPPING_MACRO));
+		Object unit = overwriteGrammars(
+				() -> readOrExcept(ctx, parseOneOf(C_SYNTAX_ARCHETYPE, C_SYNTAX_INSTANCE, C_SYNTAX_MAPPING_MACRO))
+		);
+
+		return (ModularPlusCalUnit) unit;
 	}
 }
