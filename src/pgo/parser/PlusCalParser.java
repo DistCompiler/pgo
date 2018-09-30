@@ -748,4 +748,15 @@ public final class PlusCalParser {
 	public static PlusCalAlgorithm readAlgorithm(LexicalContext ctx) throws ParseFailureException {
 		return readOrExcept(ctx, ALGORITHM);
 	}
+
+	static PlusCalNode readUnit(LexicalContext ctx) throws ParseFailureException {
+		return readOrExcept(ctx, parseOneOf(
+				C_SYNTAX_MACRO,
+				P_SYNTAX_MACRO,
+				C_SYNTAX_PROCEDURE,
+				P_SYNTAX_PROCEDURE,
+				C_SYNTAX_PROCESS,
+				P_SYNTAX_PROCESS
+		));
+	}
 }
