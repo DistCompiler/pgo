@@ -34,7 +34,7 @@ CONSTANT BUFFER_SIZE
        
       }
       
-      write { yield $variable };
+      write { yield $variable }
   }
     
   (* consumer: Processes one element read from the network at a time, infinitely *)

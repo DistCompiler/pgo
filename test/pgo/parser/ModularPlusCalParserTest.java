@@ -42,13 +42,13 @@ public class ModularPlusCalParserTest {
 				},
 				{"---- MODULE Test ----\n" +
 						"(* --mpcal Test {\n" +
-						"     variables global1 = 1, global2 = 2;\n" +
 						"     macro M(a) {\n" +
 						"       print a;\n" +
 						"     }\n" +
 						"     procedure P(b) {\n" +
 						"       print b;\n" +
 						"     }\n" +
+						"     variables global1 = 1, global2 = 2;\n" +
 						"     {\n" +
 						"       print <<global1, global2>>;\n" +
 						"     }\n" +
@@ -74,13 +74,13 @@ public class ModularPlusCalParserTest {
 				},
 				{"---- MODULE Test ----\n" +
 						"(* --mpcal Test {\n" +
-						"     variables global1 = 1, global2 = 2;\n" +
 						"     macro M(a) {\n" +
 						"       print a;\n" +
 						"     }\n" +
 						"     procedure P(b) {\n" +
 						"       print b;\n" +
 						"     }\n" +
+						"     variables global1 = 1, global2 = 2;\n" +
 						"     process (P \\in 1..3) {\n" +
 						"       print <<global1, global2>>;\n" +
 						"     }\n" +
