@@ -37,6 +37,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Logger;
 
@@ -106,14 +107,19 @@ public class PGoMain {
 				checkErrors(ctx);
 			}
 
-			logger.info("Parsing constant definitions from configuration");
-			Map<String, TLAExpression> constantDefinitions = ConstantDefinitionParsingPass.perform(
-					ctx, opts.constants.getConstants());
-			checkErrors(ctx);
+			Map<String, TLAExpression> constantDefinitions = new HashMap<>();
 
-			logger.info("Checking compile options for sanity");
-			CheckOptionsPass.perform(ctx, modularPlusCalBlock, opts);
-			checkErrors(ctx);
+			// check compilation options if we are compiling to an implementation
+			if (!opts.mpcalCompile) {
+				logger.info("Parsing constant definitions from configuration");
+				constantDefinitions = ConstantDefinitionParsingPass.perform(
+						ctx, opts.constants.getConstants());
+				checkErrors(ctx);
+
+				logger.info("Checking compile options for sanity");
+				CheckOptionsPass.perform(ctx, modularPlusCalBlock, opts);
+				checkErrors(ctx);
+			}
 
 			logger.info("Resolving TLA+ scoping");
 			TLAModuleLoader loader = new TLAModuleLoader(Collections.singletonList(inputFilePath.getParent()));
