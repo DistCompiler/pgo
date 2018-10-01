@@ -132,6 +132,51 @@ public class ModularPlusCalUnitParserTest {
 										await(idexp("someSpecialCondition")),
 										yield(DOLLAR_VALUE)),
 								Collections.singletonList(yield(DOLLAR_VALUE)))
+				},
+
+				// lossy network model
+				{
+					"mapping macro LossyNetwork {\n" +
+					"		read {\n" +
+					"			await Len($variable) > 0;\n" +
+					"			with (msg = Head($variable)) {\n" +
+					"		    	$variable := Tail($variable);\n" +
+					"		    	yield msg;\n" +
+					"			}\n" +
+					"		}\n\n" +
+					"		write {\n" +
+					"			either {\n" +
+					"				yield $variable;\n" +
+					"			} or {\n" +
+					"				await Len($variable) < BUFFER_SIZE;\n" +
+					"				yield Append($variable, $value);\n" +
+					"			}\n" +
+					"		}\n" +
+					"}\n",
+					mappingMacro(
+							"LossyNetwork",
+							Arrays.asList(
+									await(binop(">", opcall("Len", DOLLAR_VARIABLE), num(0))),
+									with(
+											Collections.singletonList(
+													pcalVarDecl("msg", false, false, opcall("Head", DOLLAR_VARIABLE))
+											),
+											assign(DOLLAR_VARIABLE, opcall("Tail", DOLLAR_VARIABLE)),
+											yield(idexp("msg"))
+									)
+							),
+							Arrays.asList(
+									either(Arrays.asList(
+											Collections.singletonList(
+													yield(DOLLAR_VARIABLE)
+											),
+											Arrays.asList(
+													await(binop("<", opcall("Len", DOLLAR_VARIABLE), idexp("BUFFER_SIZE"))),
+													yield(opcall("Append", DOLLAR_VARIABLE, DOLLAR_VALUE))
+											)
+									))
+							)
+					)
 				}
 		});
 	}

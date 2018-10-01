@@ -11,9 +11,8 @@ import java.util.Collections;
 import java.util.regex.Pattern;
 
 import static pgo.parser.PlusCalParser.*;
-import static pgo.parser.TLAParser.EXPRESSION_NO_OPERATORS;
-import static pgo.parser.TLAParser.parseTLAToken;
 import static pgo.parser.ParseTools.*;
+import static pgo.parser.TLAParser.EXPRESSION_NO_OPERATORS;
 
 public class ModularPlusCalParser {
 	private ModularPlusCalParser() {}
@@ -103,7 +102,10 @@ public class ModularPlusCalParser {
 					seq.getValue().getRest().getFirst(),
 					seq.getValue().getFirst()));
 
-	private static final ReferenceGrammar<ModularPlusCalYield> YIELD = new ReferenceGrammar<>();
+	private static final Grammar<ModularPlusCalYield> YIELD = emptySequence()
+			.drop(parsePlusCalToken("yield"))
+			.part(TLA_EXPRESSION)
+			.map(seq -> new ModularPlusCalYield(seq.getLocation(), seq.getValue().getFirst()));
 
 	private static final Grammar<ModularPlusCalMappingMacro> C_SYNTAX_MAPPING_MACRO = emptySequence()
 			.drop(parsePlusCalToken("mapping"))
@@ -175,6 +177,26 @@ public class ModularPlusCalParser {
 			.drop(matchPattern(AFTER_MPCAL))
 			.map(seq -> seq.getValue().getFirst());
 
+	private static final Pattern MPCAL_SPECIAL_VARIABLE = Pattern.compile("\\$variable|\\$value");
+
+	private static Grammar<Located<String>> matchSpecialVariable() {
+		return matchPattern(MPCAL_SPECIAL_VARIABLE)
+				.map(result -> new Located<>(result.getLocation(), result.getValue().group()));
+	}
+
+	private static Grammar<TLAExpression> parseSpecialVariables() {
+		return emptySequence()
+				.drop(TLAParser.skipWhitespaceAndTLAComments())
+				.part(matchSpecialVariable())
+				.map(seq -> seq.getValue().getFirst())
+				.map(id -> {
+					if (id.getValue().equals("$variable")) {
+						return new TLASpecialVariableVariable(id.getLocation());
+					}
+
+					return new TLASpecialVariableValue(id.getLocation());
+				});
+	}
 
 	private interface ReadSpec {
 		Object perform() throws ParseFailureException;
@@ -184,42 +206,21 @@ public class ModularPlusCalParser {
 	//
 	// * Unlabeled statements may include the `yield` keyword
 	// * TLA+ expressions may include "special variables" (with dollar-sign prefixed names)
+	// * procedures can be declared to take arguments by `ref`, and the caller may specify
+	//   parameters using the `ref` keyword.
 	//
 	// This method overrides grammar references with the changes mentioned above before
 	// parsing a MPCal specification, and then resets the grammars back to their
 	// original contents (useful during testing, when PlusCal/MPCal can be parsed in
 	// arbitrary orders).
 	private static Object overwriteGrammars(ReadSpec op) throws ParseFailureException {
-		Grammar<TLAExpression> oldTLAExpressionNoOperators = TLA_EXPRESSION_NO_OPERATORS.getReferencedGrammar();
-		Grammar<TLAExpression> oldTLAExpression = TLA_EXPRESSION.getReferencedGrammar();
 		Grammar<PlusCalStatement> oldUnlabeledStatement = C_SYNTAX_UNLABELED_STMT.getReferencedGrammar();
 		Grammar<PlusCalVariableDeclaration> oldPVarDecl = PVAR_DECL.getReferencedGrammar();
 		Grammar<TLAExpression> oldProcedureParam = PROCEDURE_PARAM.getReferencedGrammar();
+		Grammar<TLAExpression> oldTLAIdExpr = TLA_IDEXPR.getReferencedGrammar();
+		Grammar<TLAExpression> oldTLAExprNoOperators = EXPRESSION_NO_OPERATORS.getReferencedGrammar();
 
 		try {
-			// add special variables to TLA+ expressions
-			assert oldTLAExpressionNoOperators != null;
-
-			TLA_EXPRESSION_NO_OPERATORS.setReferencedGrammar(
-					parseOneOf(
-							parseTLAToken("$variable").map(seq -> new TLASpecialVariableVariable(seq.getLocation())),
-							parseTLAToken("$value").map(seq -> new TLASpecialVariableValue(seq.getLocation())),
-
-							EXPRESSION_NO_OPERATORS
-					)
-			);
-
-			initTLAExpression(TLA_EXPRESSION);
-
-			// make sure the definition of the `yield` rule uses the updated TLA+ expression grammar
-			// which includes special variables.
-			YIELD.setReferencedGrammar(
-					emptySequence()
-							.drop(parsePlusCalToken("yield"))
-							.part(TLA_EXPRESSION)
-							.map(seq -> new ModularPlusCalYield(seq.getLocation(), seq.getValue().getFirst()))
-			);
-
 			// updates unlabeled statements to include `yield` statements.
 			assert oldUnlabeledStatement != null;
 			C_SYNTAX_UNLABELED_STMT.setReferencedGrammar(
@@ -229,6 +230,7 @@ public class ModularPlusCalParser {
 					)
 			);
 
+			// allow procedures to be declared to take arguments by `ref`
 			assert oldPVarDecl != null;
 			PVAR_DECL.setReferencedGrammar(
 					parseOneOf(
@@ -245,16 +247,37 @@ public class ModularPlusCalParser {
 					)
 			);
 
+			// allow call Proc() to be able to pass variables by `ref`
 			assert oldProcedureParam != null;
 			PROCEDURE_PARAM.setReferencedGrammar(MODULAR_PLUSCAL_PARAMETER);
 
+			// include special variables (`$variable` and `$value`) as part of identifiers
+			// recognized by the parser (so that special variables can be assigned to).
+			assert oldTLAIdExpr != null;
+			TLA_IDEXPR.setReferencedGrammar(
+					parseOneOf(
+							oldTLAIdExpr,
+							parseSpecialVariables()
+					)
+			);
+
+			// include special variables to the list of TLA+ expressions without operators
+			// recognized by the parser.
+			assert oldTLAExprNoOperators != null;
+			EXPRESSION_NO_OPERATORS.setReferencedGrammar(
+					parseOneOf(
+							oldTLAExprNoOperators,
+							parseSpecialVariables()
+					)
+			);
+
 			return op.perform();
 		} finally {
-			TLA_EXPRESSION_NO_OPERATORS.setReferencedGrammar(oldTLAExpressionNoOperators);
-			TLA_EXPRESSION.setReferencedGrammar(oldTLAExpression);
 			C_SYNTAX_UNLABELED_STMT.setReferencedGrammar(oldUnlabeledStatement);
 			PVAR_DECL.setReferencedGrammar(oldPVarDecl);
 			PROCEDURE_PARAM.setReferencedGrammar(oldProcedureParam);
+			TLA_IDEXPR.setReferencedGrammar(oldTLAIdExpr);
+			EXPRESSION_NO_OPERATORS.setReferencedGrammar(oldTLAExprNoOperators);
 		}
 	}
 

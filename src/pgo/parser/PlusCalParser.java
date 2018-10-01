@@ -47,30 +47,19 @@ public final class PlusCalParser {
 
 	// common
 
-    static final ReferenceGrammar<TLAExpression> TLA_EXPRESSION_NO_OPERATORS = new ReferenceGrammar<>();
-    static final ReferenceGrammar<TLAExpression> TLA_EXPRESSION = new ReferenceGrammar<>();
+    static final Grammar<TLAExpression> TLA_EXPRESSION = emptySequence()
+			.dependentPart(
+					TLAParser.parseExpression(
+							TLAParser.PREFIX_OPERATORS,
+							TLAParser.INFIX_OPERATORS
+									.stream()
+									.filter(op -> !Arrays.asList("||", ":=").contains(op))
+									.collect(Collectors.toList()),
+							TLAParser.POSTFIX_OPERATORS,
+							TLAParser.EXPRESSION_NO_OPERATORS),
+					info -> new VariableMap().put(MIN_COLUMN, -1))
+			.map(seq -> seq.getValue().getFirst());
 
-    static final void initTLAExpression(ReferenceGrammar<TLAExpression> refGrammar) {
-        refGrammar.setReferencedGrammar(
-                emptySequence()
-                        .dependentPart(
-                                TLAParser.parseExpression(
-                                        TLAParser.PREFIX_OPERATORS,
-                                        TLAParser.INFIX_OPERATORS
-                                                .stream()
-                                                .filter(op -> !Arrays.asList("||", ":=").contains(op))
-                                                .collect(Collectors.toList()),
-                                        TLAParser.POSTFIX_OPERATORS,
-                                        TLA_EXPRESSION_NO_OPERATORS),
-                                info -> new VariableMap().put(MIN_COLUMN, -1))
-                        .map(seq -> seq.getValue().getFirst())
-        );
-    }
-
-	static {
-        TLA_EXPRESSION_NO_OPERATORS.setReferencedGrammar(TLAParser.EXPRESSION_NO_OPERATORS.getReferencedGrammar());
-        initTLAExpression(TLA_EXPRESSION);
-    }
 
 	static final Grammar<Located<String>> IDENTIFIER = emptySequence()
 			.drop(TLAParser.skipWhitespaceAndTLAComments())
@@ -138,10 +127,15 @@ public final class PlusCalParser {
 			.map(seq -> seq.getValue().getFirst());
 
 	// shortcut to parse a limited form of TLA+ identifiers (as seen in PlusCal assignments)
-	private static final Grammar<TLAGeneralIdentifier> TLA_IDEXPR = IDENTIFIER.map(id -> new TLAGeneralIdentifier(
-			id.getLocation(),
-			new TLAIdentifier(id.getLocation(), id.getValue()),
-			Collections.emptyList()));
+	static final ReferenceGrammar<TLAExpression> TLA_IDEXPR = new ReferenceGrammar<>();
+	static {
+		TLA_IDEXPR.setReferencedGrammar(
+				IDENTIFIER.map(id -> new TLAGeneralIdentifier(
+						id.getLocation(),
+						new TLAIdentifier(id.getLocation(), id.getValue()),
+						Collections.emptyList()))
+		);
+	}
 
 	private static final Grammar<TLAExpression> LHS = parseOneOf(
 			emptySequence()
