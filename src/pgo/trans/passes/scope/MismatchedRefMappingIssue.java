@@ -1,4 +1,4 @@
-package pgo.trans.passes.scope.mpcal;
+package pgo.trans.passes.scope;
 
 import pgo.errors.Issue;
 import pgo.errors.IssueVisitor;

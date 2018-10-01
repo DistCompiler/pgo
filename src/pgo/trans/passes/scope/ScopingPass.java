@@ -1,10 +1,12 @@
-package pgo.trans.passes.scope.mpcal;
+package pgo.trans.passes.scope;
 
 import pgo.errors.IssueContext;
 import pgo.model.mpcal.*;
+import pgo.model.pcal.PlusCalProcedure;
 import pgo.model.pcal.PlusCalStatement;
 import pgo.model.pcal.PlusCalVariableDeclaration;
 import pgo.model.tla.TLAExpression;
+import pgo.model.tla.TLAModule;
 import pgo.model.tla.TLARef;
 import pgo.model.tla.TLAUnit;
 import pgo.modules.TLAModuleLoader;
@@ -13,19 +15,44 @@ import pgo.scope.UID;
 import pgo.trans.intermediate.*;
 import pgo.trans.passes.expansion.*;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Stream;
 
-public class ModularPlusCalScopingPass {
-	private ModularPlusCalScopingPass() {}
+public class ScopingPass {
+	private ScopingPass() {}
 
-	public static TLAScopeBuilder perform(IssueContext ctx, DefinitionRegistry registry, TLAModuleLoader loader,
-	                           TLAScopeBuilder tlaScope, ModularPlusCalBlock modularPlusCalBlock) {
+	public static DefinitionRegistry perform(IssueContext ctx, TLAModuleLoader loader,
+	                                         Map<String,TLAExpression> constantDefinitions, TLAModule module,
+	                                         ModularPlusCalBlock modularPlusCalBlock) {
+		DefinitionRegistry registry = new DefinitionRegistry();
+		TLAScopeBuilder tlaScope = new TLAScopeBuilder(ctx, registry.getReferences());
+
+		TLAUnitScopingVisitor.scopeModule(module, ctx, tlaScope, registry, loader, new HashSet<>());
+
+		// resolve user-provided constant values from the config file
+		for (UID id : registry.getConstants()) {
+			String name = registry.getConstantName(id);
+			if (!constantDefinitions.containsKey(name)) {
+				ctx.error(new ConstantWithNoValueIssue(name, id));
+			} else {
+				TLAExpression value = constantDefinitions.get(name);
+				value.accept(new TLAExpressionScopingVisitor(tlaScope, registry, loader, new HashSet<>()));
+				registry.setConstantValue(id, value);
+			}
+		}
+
 		TLAScopeBuilder modularPlusCalScope = tlaScope.makeNestedScope();
 
-		// mapping macros, and archetypes don't have access to PlusCal global variables but needs access to TLA+ units
-		// in define block
-		// FIXME? previous scoping code scopes global variables before TLA+ units
+		for (PlusCalVariableDeclaration variableDeclaration : modularPlusCalBlock.getVariables()) {
+			modularPlusCalScope.declare(variableDeclaration.getName().getValue(), variableDeclaration.getUID());
+			registry.addGlobalVariable(variableDeclaration.getUID());
+			variableDeclaration.getValue().accept(new TLAExpressionScopingVisitor(
+					tlaScope, registry, loader, new HashSet<>()));
+		}
+
 		for (TLAUnit unit : modularPlusCalBlock.getUnits()) {
 			unit.accept(new TLAUnitScopingVisitor(ctx, modularPlusCalScope, registry, loader, new HashSet<>()));
 		}
@@ -86,12 +113,6 @@ public class ModularPlusCalScopingPass {
 		}
 
 		// instances need access to global variables
-		for (PlusCalVariableDeclaration variableDeclaration : modularPlusCalBlock.getVariables()) {
-			modularPlusCalScope.declare(variableDeclaration.getName().getValue(), variableDeclaration.getUID());
-			registry.addGlobalVariable(variableDeclaration.getUID());
-			variableDeclaration.getValue().accept(new TLAExpressionScopingVisitor(
-					tlaScope, registry, loader, new HashSet<>()));
-		}
 
 		for (ModularPlusCalInstance instance : modularPlusCalBlock.getInstances()) {
 			Set<String> mappingNames = new HashSet<>();
@@ -124,6 +145,39 @@ public class ModularPlusCalScopingPass {
 			}
 		}
 
-		return modularPlusCalScope;
+		modularPlusCalBlock.getProcesses().accept(new PlusCalProcessesScopingVisitor(
+				ctx, modularPlusCalScope, tlaScope, registry, loader, new HashSet<>()));
+
+		for (PlusCalProcedure proc : modularPlusCalBlock.getProcedures()) {
+			registry.addProcedure(proc);
+			modularPlusCalScope.defineGlobal(proc.getName(), proc.getUID());
+
+			TLAScopeBuilder argScope = new TLAScopeBuilder(
+					ctx, new ChainMap<>(tlaScope.getDeclarations()), new HashMap<>(),
+					modularPlusCalScope.getReferences());
+			Map<String, UID> args = new ChainMap<>(tlaScope.getDeclarations());
+
+			for (PlusCalVariableDeclaration arg : proc.getArguments()) {
+				arg.getValue().accept(new TLAExpressionScopingVisitor(tlaScope, registry, loader, new HashSet<>()));
+				registry.addLocalVariable(arg.getUID());
+				if (argScope.declare(arg.getName().getValue(), arg.getUID())) {
+					args.put(arg.getName().getValue(), arg.getUID());
+				}
+			}
+
+			TLAScopeBuilder procScope = new TLAScopeBuilder(
+					ctx, args, new ChainMap<>(modularPlusCalScope.getDefinitions()),
+					modularPlusCalScope.getReferences());
+
+			for (PlusCalStatement stmts : proc.getBody()) {
+				stmts.accept(new PlusCalStatementLabelCaptureVisitor(ctx, procScope));
+			}
+
+			for (PlusCalStatement stmts : proc.getBody()) {
+				stmts.accept(new PlusCalStatementScopingVisitor(ctx, procScope, registry, loader, new HashSet<>()));
+			}
+		}
+
+		return registry;
 	}
 }

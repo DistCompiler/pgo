@@ -19,9 +19,7 @@ import pgo.trans.passes.constdef.ConstantDefinitionParsingPass;
 import pgo.trans.passes.expansion.ModularPlusCalExpansionPass;
 import pgo.trans.passes.mpcal.ModularPlusCalParsingPass;
 import pgo.trans.passes.mpcal.ModularPlusCalValidationPass;
-import pgo.trans.passes.scope.pluscal.PlusCalScopingPass;
-import pgo.trans.passes.scope.tla.TLAScopingPass;
-import pgo.trans.passes.scope.mpcal.ModularPlusCalScopingPass;
+import pgo.trans.passes.scope.ScopingPass;
 import pgo.trans.passes.tlaparse.TLAParsingPass;
 import pgo.trans.passes.type.TypeInferencePass;
 
@@ -115,17 +113,6 @@ public class PGoMain {
 			CheckOptionsPass.perform(ctx, modularPlusCalBlock, opts);
 			checkErrors(ctx);
 
-			logger.info("Resolving TLA+ scoping");
-			TLAModuleLoader loader = new TLAModuleLoader(Collections.singletonList(inputFilePath.getParent()));
-			DefinitionRegistry registry = new DefinitionRegistry();
-			TLAScopeBuilder tlaScope = TLAScopingPass.perform(ctx, registry, loader, constantDefinitions, tlaModule);
-			checkErrors(ctx);
-
-			logger.info("Resolve Modular PlusCal scoping");
-			TLAScopeBuilder modularPlusCalScope = ModularPlusCalScopingPass.perform(
-					ctx, registry, loader, tlaScope, modularPlusCalBlock);
-			checkErrors(ctx);
-
 			logger.info("Validating " + (isMPCal ? "Modular PlusCal" : "PlusCal") +  " semantics");
 			ModularPlusCalValidationPass.perform(ctx, modularPlusCalBlock);
 			checkErrors(ctx);
@@ -139,9 +126,10 @@ public class PGoMain {
 					ctx, modularPlusCalBlock);
 			checkErrors(ctx);
 
-			logger.info("Resolving PlusCal scoping");
-			PlusCalScopingPass.perform(
-					ctx, registry, loader, tlaScope, modularPlusCalScope, expandedModularPlusCalBlock);
+			logger.info("Resolving scopes");
+			TLAModuleLoader loader = new TLAModuleLoader(Collections.singletonList(inputFilePath.getParent()));
+			DefinitionRegistry registry = ScopingPass.perform(
+					ctx, loader, constantDefinitions, tlaModule, expandedModularPlusCalBlock);
 			checkErrors(ctx);
 
 			logger.info("Inferring types");

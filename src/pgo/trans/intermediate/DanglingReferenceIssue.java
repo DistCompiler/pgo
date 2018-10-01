@@ -22,4 +22,8 @@ public class DanglingReferenceIssue extends Issue {
 		return v.visit(this);
 	}
 
+	@Override
+	public String toString() {
+		return "Dangling reference for " + from.toString();
+	}
 }

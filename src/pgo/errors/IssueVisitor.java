@@ -5,7 +5,7 @@ import pgo.model.type.UnrealizableTypeIssue;
 import pgo.model.type.UnsatisfiableConstraintIssue;
 import pgo.trans.intermediate.*;
 import pgo.trans.passes.expansion.*;
-import pgo.trans.passes.scope.mpcal.MismatchedRefMappingIssue;
+import pgo.trans.passes.scope.MismatchedRefMappingIssue;
 import pgo.trans.passes.tlaparse.ParsingIssue;
 import pgo.trans.passes.type.TypeInferenceFailureIssue;
 
