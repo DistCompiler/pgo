@@ -10,6 +10,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import pgo.model.mpcal.ModularPlusCalUnit;
+import pgo.model.pcal.PlusCalFairness;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -59,16 +60,29 @@ public class ModularPlusCalUnitParserTest {
 				},
 
 				// simple instance
-				{"process (P \\in 1..3) = instance Archetype();",
+				{"process (P \\in 1..3) == instance Archetype();",
 						instance(pcalVarDecl("P", false, true, binop("..", num(1), num(3))),
-								"Archetype", Collections.emptyList(), Collections.emptyList())
+								PlusCalFairness.UNFAIR, "Archetype", Collections.emptyList(), Collections.emptyList())
+				},
+
+				// weak fairness
+				{"fair process (P \\in 1..3) == instance Archetype();",
+						instance(pcalVarDecl("P", false, true, binop("..", num(1), num(3))),
+								PlusCalFairness.WEAK_FAIR, "Archetype", Collections.emptyList(), Collections.emptyList())
+				},
+
+				// strong fairness
+				{"fair+ process (P \\in 1..3) == instance Archetype();",
+						instance(pcalVarDecl("P", false, true, binop("..", num(1), num(3))),
+								PlusCalFairness.STRONG_FAIR, "Archetype", Collections.emptyList(), Collections.emptyList())
 				},
 
 				// full featured instance
-				{"process (P = \"P\") = instance Archetype(ref global1, ref global2, global3)\n" +
+				{"process (P = \"P\") == instance Archetype(ref global1, ref global2, global3)\n" +
 						"  mapping global1 via MappingMacro1\n" +
 						"  mapping global2 via MappingMacro2;",
 						instance(pcalVarDecl("P", false, false, str("P")),
+								PlusCalFairness.UNFAIR,
 								"Archetype",
 								Arrays.asList(
 										ref("global1"),

@@ -1,10 +1,7 @@
 package pgo.parser;
 
 import pgo.model.mpcal.*;
-import pgo.model.pcal.PlusCalMultiProcess;
-import pgo.model.pcal.PlusCalSingleProcess;
-import pgo.model.pcal.PlusCalStatement;
-import pgo.model.pcal.PlusCalVariableDeclaration;
+import pgo.model.pcal.*;
 import pgo.model.tla.*;
 
 import java.util.Collections;
@@ -78,11 +75,19 @@ public class ModularPlusCalParser {
 					seq.getValue().getFirst().getValue()));
 
 	private static final Grammar<ModularPlusCalInstance> C_SYNTAX_INSTANCE = emptySequence()
+			.part(parseOneOf(
+					emptySequence()
+							.drop(parsePlusCalToken("fair"))
+							.drop(parsePlusCalToken("+"))
+							.map(seq -> new Located<>(seq.getLocation(), PlusCalFairness.STRONG_FAIR)),
+					parsePlusCalToken("fair").map(s -> new Located<>(s.getLocation(), PlusCalFairness.WEAK_FAIR)),
+					nop().map(v -> new Located<>(v.getLocation(), PlusCalFairness.UNFAIR))
+			))
 			.drop(parsePlusCalToken("process"))
 			.drop(parsePlusCalToken("("))
 			.part(VARIABLE_DECLARATION)
 			.drop(parsePlusCalToken(")"))
-			.drop(parsePlusCalToken("="))
+			.drop(parsePlusCalToken("=="))
 			.drop(parsePlusCalToken("instance"))
 			.part(IDENTIFIER)
 			.drop(parsePlusCalToken("("))
@@ -98,6 +103,7 @@ public class ModularPlusCalParser {
 			.map(seq -> new ModularPlusCalInstance(
 					seq.getLocation(),
 					seq.getValue().getRest().getRest().getRest().getFirst(),
+					seq.getValue().getRest().getRest().getRest().getRest().getFirst().getValue(),
 					seq.getValue().getRest().getRest().getFirst().getValue(),
 					seq.getValue().getRest().getFirst(),
 					seq.getValue().getFirst()));
