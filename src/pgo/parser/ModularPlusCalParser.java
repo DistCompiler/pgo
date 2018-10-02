@@ -3,6 +3,7 @@ package pgo.parser;
 import pgo.model.mpcal.*;
 import pgo.model.pcal.*;
 import pgo.model.tla.*;
+import pgo.util.SourceLocatable;
 
 import java.util.Collections;
 import java.util.regex.Pattern;
@@ -204,8 +205,8 @@ public class ModularPlusCalParser {
 				});
 	}
 
-	private interface ReadSpec {
-		Object perform() throws ParseFailureException;
+	private interface ReadSpec<Result extends SourceLocatable> {
+		Result perform() throws ParseFailureException;
 	}
 
 	// Modular PlusCal behaves a lot like vanilla PlusCal except in a few key areas:
@@ -219,7 +220,7 @@ public class ModularPlusCalParser {
 	// parsing a MPCal specification, and then resets the grammars back to their
 	// original contents (useful during testing, when PlusCal/MPCal can be parsed in
 	// arbitrary orders).
-	private static Object overwriteGrammars(ReadSpec op) throws ParseFailureException {
+	private static <Result extends SourceLocatable> Result overwriteGrammars(ReadSpec<Result> op) throws ParseFailureException {
 		Grammar<PlusCalStatement> oldUnlabeledStatement = C_SYNTAX_UNLABELED_STMT.getReferencedGrammar();
 		Grammar<PlusCalVariableDeclaration> oldPVarDecl = PVAR_DECL.getReferencedGrammar();
 		Grammar<TLAExpression> oldProcedureParam = PROCEDURE_PARAM.getReferencedGrammar();
@@ -294,20 +295,13 @@ public class ModularPlusCalParser {
 	}
 
 	public static ModularPlusCalBlock readBlock(LexicalContext ctx) throws ParseFailureException {
-		Object block = overwriteGrammars(
-				() -> readOrExcept(ctx, MPCAL_BLOCK)
-		);
-
-		return (ModularPlusCalBlock) block;
+		return overwriteGrammars(() -> readOrExcept(ctx, MPCAL_BLOCK));
 	}
 
 	// testing interface
 
 	static ModularPlusCalUnit readUnit(LexicalContext ctx) throws ParseFailureException {
-		Object unit = overwriteGrammars(
-				() -> readOrExcept(ctx, parseOneOf(C_SYNTAX_ARCHETYPE, C_SYNTAX_INSTANCE, C_SYNTAX_MAPPING_MACRO))
-		);
-
-		return (ModularPlusCalUnit) unit;
+		return overwriteGrammars(() ->
+				readOrExcept(ctx, parseOneOf(C_SYNTAX_ARCHETYPE, C_SYNTAX_INSTANCE, C_SYNTAX_MAPPING_MACRO)));
 	}
 }
