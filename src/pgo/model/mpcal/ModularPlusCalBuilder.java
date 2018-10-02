@@ -24,9 +24,9 @@ public class ModularPlusCalBuilder {
 				target);
 	}
 
-	public static ModularPlusCalInstance instance(PlusCalVariableDeclaration name, String target,
-	                                              List<TLAExpression> params, List<ModularPlusCalMapping> mappings) {
-		return new ModularPlusCalInstance(SourceLocation.unknown(), name, target, params, mappings);
+	public static ModularPlusCalInstance instance(PlusCalVariableDeclaration name, PlusCalFairness fairness,
+												  String target, List<TLAExpression> params, List<ModularPlusCalMapping> mappings) {
+		return new ModularPlusCalInstance(SourceLocation.unknown(), name, fairness, target, params, mappings);
 	}
 
 	public static ModularPlusCalMappingMacro mappingMacro(String name, List<PlusCalStatement> readBody,

@@ -2,6 +2,8 @@ package pgo.model.mpcal;
 
 import pgo.TODO;
 import pgo.formatters.IndentingWriter;
+import pgo.formatters.PlusCalNodeFormattingVisitor;
+import pgo.model.pcal.PlusCalStatement;
 
 import java.io.IOException;
 import java.util.stream.Collectors;
@@ -54,6 +56,23 @@ public class ModularPlusCalNodeFormattingVisitor extends ModularPlusCalNodeVisit
 
 	@Override
 	public Void visit(ModularPlusCalMappingMacro modularPlusCalMappingMacro) throws IOException {
-		throw new TODO();
+		out.write("mapping macro ");
+		out.write(modularPlusCalMappingMacro.getName());
+		out.write("{");
+
+		out.write("read {");
+		for (PlusCalStatement s : modularPlusCalMappingMacro.getReadBody()) {
+			s.accept(new PlusCalNodeFormattingVisitor(out));
+		}
+		out.write("}");
+
+		out.write("write {");
+		for (PlusCalStatement s : modularPlusCalMappingMacro.getWriteBody()) {
+			s.accept(new PlusCalNodeFormattingVisitor(out));
+		}
+		out.write("}");
+
+		out.write("}");
+		return null;
 	}
 }

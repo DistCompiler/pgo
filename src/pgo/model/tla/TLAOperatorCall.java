@@ -3,6 +3,7 @@ package pgo.model.tla;
 import pgo.util.SourceLocation;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -68,19 +69,9 @@ public class TLAOperatorCall extends TLAExpression {
 		if (getClass() != obj.getClass())
 			return false;
 		TLAOperatorCall other = (TLAOperatorCall) obj;
-		if (args == null) {
-			if (other.args != null)
-				return false;
-		} else if (!args.equals(other.args))
-			return false;
-		if (name == null) {
-			if (other.name != null)
-				return false;
-		} else if (!name.equals(other.name))
-			return false;
-		if (prefix == null) {
-			return other.prefix == null;
-		} else return prefix.equals(other.prefix);
+        return this.getName().equals(other.getName()) &&
+				Objects.equals(this.getArgs(), other.getArgs()) &&
+				Objects.equals(this.getPrefix(), other.getPrefix());
 	}
 
 }
