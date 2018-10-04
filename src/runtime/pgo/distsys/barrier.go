@@ -22,13 +22,15 @@ const (
 // SyncBarrierRPC provides RPC methods that are used to synchronize all PlusCal processes
 // in the system.
 type SyncBarrierRPC struct {
-	Peers          []string     // the list of peers (PlusCal processes)
-	Self           string       // the identification of the current process (IP:port)
-	Coordinator    string       // which host is the coordinator (IP:port)
-	processesReady int32        // how many processes are ready currently (used only by the coordinator)
-	readyChan      chan bool    // underlying channel used to coordinate start
-	connections    *Connections // connections to other peers
-	setup          bool         // whether the RPC configuration has been performed
+	Peers          []string          // the list of peers (PlusCal processes)
+	Self           string            // the identification of the current process (IP:port)
+	Coordinator    string            // which host is the coordinator (IP:port)
+	processesReady int32             // how many processes are ready currently (used only by the coordinator)
+	readyChan      chan bool         // underlying channel used to coordinate start
+	connections    *Connections      // connections to other peers
+	process        string            // the name of running process, as defined in the original PlusCal specification
+	ipToName       map[string]string // maps deployed IP addresses to PlusCal names (used by the coordinator)
+	setup          bool              // whether the RPC configuration has been performed
 }
 
 // SyncBarrier wraps the underlying RPC object (SyncBarrierRPC) and provides functions that
@@ -37,9 +39,16 @@ type SyncBarrier struct {
 	*SyncBarrierRPC
 }
 
+// ProcessIdentification is sent by peers in the system to the coordinator when performing a
+// synchronization barrier.
+type ProcessIdentification struct {
+	Process   string // the name of the process, as defined in the PlusCal specification
+	IpAddress string // the IP address where the process is deployed
+}
+
 // NewSyncBarrier creates a new SyncBarrier struct that can be used to create synchronization
 // barriers across all processes in the PlusCal spec.
-func NewSyncBarrier(peers []string, self, coordinator string) *SyncBarrier {
+func NewSyncBarrier(process string, peers []string, self, coordinator string) *SyncBarrier {
 	barrier := &SyncBarrierRPC{
 		Peers:          peers,
 		Self:           self,
@@ -47,6 +56,8 @@ func NewSyncBarrier(peers []string, self, coordinator string) *SyncBarrier {
 		processesReady: 0,
 		readyChan:      make(chan bool, 1),
 		connections:    NewConnections(self),
+		process:        process,
+		ipToName:       map[string]string{},
 		setup:          false,
 	}
 
@@ -55,6 +66,10 @@ func NewSyncBarrier(peers []string, self, coordinator string) *SyncBarrier {
 
 func (barrier *SyncBarrier) isCoordinator() bool {
 	return barrier.Self == barrier.Coordinator
+}
+
+func (barrier *SyncBarrier) PeerConnections() *Connections {
+	return barrier.connections
 }
 
 // WaitPeers is the method to be used when the caller wants the process to block
@@ -69,6 +84,9 @@ func (barrier *SyncBarrier) WaitPeers() error {
 	atomic.AddInt32(&barrier.processesReady, 1)
 
 	if barrier.isCoordinator() {
+		// insert the coordinator's own address to the IP -> PlusCal name mapping
+		barrier.ipToName[barrier.Self] = barrier.process
+
 		// if this is the coordinator process and every other process already "checked-in",
 		// we are ready to move on
 		if err := barrier.check(); err != nil {
@@ -104,18 +122,22 @@ func (barrier *SyncBarrier) init() error {
 // coordinator itself will return from its call to WaitPeers().
 func (barrier *SyncBarrierRPC) check() error {
 	if int(atomic.LoadInt32(&barrier.processesReady)) == len(barrier.Peers) {
-		for _, id := range barrier.Peers {
-			if id == barrier.Self {
+		for _, ip := range barrier.Peers {
+			barrier.connections.RegisterName(barrier.ipToName[ip], ip)
+		}
+
+		for _, ip := range barrier.Peers {
+			if ip == barrier.Self {
 				continue
 			}
 
-			if err := barrier.connections.ConnectTo(id); err != nil {
+			if err := barrier.connections.ConnectTo(ip); err != nil {
 				return err
 			}
 
-			client := barrier.connections.GetConnection(id)
+			client := barrier.connections.GetConnection(ip)
 			var ok bool
-			if err := client.Call(RPC_ID+".Start", 0, &ok); err != nil {
+			if err := client.Call(RPC_ID+".Start", barrier.connections.processMap, &ok); err != nil {
 				return err
 			}
 		}
@@ -138,7 +160,8 @@ func (barrier *SyncBarrier) helloCoordinator() {
 
 		client := barrier.connections.GetConnection(barrier.Coordinator)
 		var ok bool
-		if err := client.Call(RPC_ID+".ProcessReady", barrier.Self, &ok); err != nil {
+		id := ProcessIdentification{barrier.process, barrier.Self}
+		if err := client.Call(RPC_ID+".ProcessReady", id, &ok); err != nil {
 			continue
 		}
 
@@ -152,7 +175,9 @@ func (barrier *SyncBarrier) helloCoordinator() {
 // number of peers, it means all processes are up and ready to
 // run. Send a message to each of them indicating that they may start
 // running their algorithms
-func (barrier *SyncBarrierRPC) ProcessReady(id string, ok *bool) error {
+func (barrier *SyncBarrierRPC) ProcessReady(id ProcessIdentification, ok *bool) error {
+	barrier.ipToName[id.IpAddress] = id.Process
+
 	atomic.AddInt32(&barrier.processesReady, 1)
 	*ok = true
 
@@ -160,8 +185,14 @@ func (barrier *SyncBarrierRPC) ProcessReady(id string, ok *bool) error {
 }
 
 // Start is an RPC method that is sent to every process when the
-// coordinator detects that every process in the system is ready
-func (barrier *SyncBarrierRPC) Start(_ int, ok *bool) error {
+// coordinator detects that every process in the system is ready.
+// The coordinator, additionally, indicates peers where every PlusCal
+// process is located in the network.
+func (barrier *SyncBarrierRPC) Start(processMap map[string]string, ok *bool) error {
+	for name, ip := range processMap {
+		barrier.connections.RegisterName(name, ip)
+	}
+
 	barrier.readyChan <- true
 	*ok = true
 
