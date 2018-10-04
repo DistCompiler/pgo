@@ -4,11 +4,14 @@
 (***************************************************************************)
 
 EXTENDS Naturals, Sequences, FiniteSets, TLC
+
 CONSTANT BUFFER_SIZE
+CONSTANT NUM_CONSUMERS
+
 
 (***************************************************************************
 --mpcal DistQueue {
-  mapping macro LossyNetwork {      
+  mapping macro LossyNetwork {
       read {
           await Len($variable) > 0;
           with (msg = Head($variable)) {
@@ -16,7 +19,7 @@ CONSTANT BUFFER_SIZE
               yield msg;
           };
       }
-      
+
       write {
           either {
               yield $variable
@@ -26,39 +29,41 @@ CONSTANT BUFFER_SIZE
           }
       }
   }
-  
+
   mapping macro CyclicReads {
       read  {
           $variable := ($variable + 1) % BUFFER_SIZE;
           yield $variable;
-       
+
       }
-      
+
       write { yield $variable }
   }
-    
+
   (* consumer: Processes one element read from the network at a time, infinitely *)
   archetype AConsumer(network, ref processor) {
       c: while (TRUE) {
-          (* behavior of reading from network is implementation specific *)
-          (* behavior of writing to "processor" is implementation specific *)
-          c1: processor := network
+          network := self;
+          processor := network;
+
       }
   }
-  
-  archetype AProducer(ref network, stream) {
+
+  archetype AProducer(ref network, stream)
+  variables requester; {
       p: while (TRUE) {
-          p1: network := stream;
+          requester := network;
+          network[requester] := stream;
       }
   }
-  
-  variables network = <<>>,
+
+    variables network = [c \in 1..NUM_CONSUMERS |-> <<>>],
             processor = 0,
             stream = 0;
-            
-  fair process (Consumer \in {0,1}) == instance AConsumer(network, ref processor)
+
+  fair process (Consumer \in 1..NUM_CONSUMERS) == instance AConsumer(network[self], ref processor)
       mapping network via LossyNetwork;
-  fair process (Producer = 2) == instance AProducer(ref network, ref stream)
+  fair process (Producer = NUM_CONSUMERS+1) == instance AProducer(ref network, ref stream)
       mapping network via LossyNetwork
       mapping stream via CyclicReads;
 }
@@ -70,7 +75,7 @@ CONSTANT BUFFER_SIZE
     variables network = <<>>,
               processor = 0,
               stream = 1;
-              
+
     fair process (Consumer \in {0,1})
     variables tmp0;
     {
@@ -83,7 +88,7 @@ CONSTANT BUFFER_SIZE
                 processor := tmp0;
         }
     }
-    
+
     fair process (Producer = 2)
     variables tmp0, tmp1;
     {
@@ -103,7 +108,7 @@ CONSTANT BUFFER_SIZE
 }
 ***************************************************************************)
 \* BEGIN TRANSLATION
-\* Process variable tmp0 of process Consumer at line 74 col 15 changed to tmp0_
+\* Process variable tmp0 of process Consumer at line 75 col 15 changed to tmp0_
 CONSTANT defaultInitValue
 VARIABLES network, processor, stream, pc, tmp0_, tmp0, tmp1
 
@@ -173,6 +178,6 @@ EventuallyConsumed == \A n \in 0..BUFFER_SIZE : (stream = n) => <>(processor = n
 
 =============================================================================
 \* Modification History
-\* Last modified Fri Sep 28 16:49:58 PDT 2018 by rmc
+\* Last modified Thu Oct 04 11:38:51 PDT 2018 by rmc
 \* Last modified Wed Oct 12 02:41:48 PDT 2011 by lamport
 \* Created Mon Oct 10 06:26:47 PDT 2011 by lamport
