@@ -41,29 +41,30 @@ CONSTANT NUM_CONSUMERS
   }
 
   (* consumer: Processes one element read from the network at a time, infinitely *)
-  archetype AConsumer(network, ref processor) {
+  archetype AConsumer(ref conn, ref processor) {
       c: while (TRUE) {
-          network := self;
-          processor := network;
+          conn := self;
+          processor := conn;
 
       }
   }
 
-  archetype AProducer(ref network, stream)
+  archetype AProducer(ref conns, stream)
   variables requester; {
       p: while (TRUE) {
-          requester := network;
-          network[requester] := stream;
+          requester := conns;
+          conns[requester] := stream;
       }
   }
 
-    variables network = [c \in 1..NUM_CONSUMERS |-> <<>>],
-            processor = 0,
-            stream = 0;
+    variables consumerConns = [c \in 1..NUM_CONSUMERS |-> <<>>],
+              producerConn = <<>>,
+              processor = 0,
+              stream = 0;
 
-  fair process (Consumer \in 1..NUM_CONSUMERS) == instance AConsumer(network[self], ref processor)
+  fair process (Consumer \in 1..NUM_CONSUMERS) == instance AConsumer(ref producerConn, ref processor)
       mapping network via LossyNetwork;
-  fair process (Producer = NUM_CONSUMERS+1) == instance AProducer(ref network, ref stream)
+  fair process (Producer = NUM_CONSUMERS+1) == instance AProducer(ref consumerConns, ref stream)
       mapping network via LossyNetwork
       mapping stream via CyclicReads;
 }
@@ -178,6 +179,6 @@ EventuallyConsumed == \A n \in 0..BUFFER_SIZE : (stream = n) => <>(processor = n
 
 =============================================================================
 \* Modification History
-\* Last modified Thu Oct 04 11:38:51 PDT 2018 by rmc
+\* Last modified Sun Oct 07 14:46:18 PDT 2018 by rmc
 \* Last modified Wed Oct 12 02:41:48 PDT 2011 by lamport
 \* Created Mon Oct 10 06:26:47 PDT 2011 by lamport
