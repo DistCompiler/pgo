@@ -363,7 +363,9 @@ public class TLAExpressionFormattingVisitor extends TLAExpressionVisitor<Void, I
 
 	@Override
 	public Void visit(TLARef tlaRef) throws IOException {
-		throw new TODO();
+		out.write("ref ");
+		out.write(tlaRef.getTarget());
+		return null;
 	}
 
 }

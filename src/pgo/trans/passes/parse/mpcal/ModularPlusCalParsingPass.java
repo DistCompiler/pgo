@@ -1,11 +1,11 @@
-package pgo.trans.passes.mpcal;
+package pgo.trans.passes.parse.mpcal;
 
 import pgo.errors.IssueContext;
 import pgo.model.mpcal.ModularPlusCalBlock;
 import pgo.parser.LexicalContext;
 import pgo.parser.ParseFailureException;
 import pgo.parser.ModularPlusCalParser;
-import pgo.trans.passes.tlaparse.ParsingIssue;
+import pgo.trans.passes.parse.tla.ParsingIssue;
 
 import java.nio.file.Path;
 

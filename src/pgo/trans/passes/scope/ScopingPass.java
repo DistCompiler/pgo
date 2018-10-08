@@ -5,10 +5,7 @@ import pgo.model.mpcal.*;
 import pgo.model.pcal.PlusCalProcedure;
 import pgo.model.pcal.PlusCalStatement;
 import pgo.model.pcal.PlusCalVariableDeclaration;
-import pgo.model.tla.TLAExpression;
-import pgo.model.tla.TLAModule;
-import pgo.model.tla.TLARef;
-import pgo.model.tla.TLAUnit;
+import pgo.model.tla.*;
 import pgo.modules.TLAModuleLoader;
 import pgo.scope.ChainMap;
 import pgo.scope.UID;
@@ -131,15 +128,17 @@ public class ScopingPass {
 				ctx.error(new InstanceArgumentCountMismatchIssue(instance, archetype));
 				continue;
 			}
-			Set<String> refs = new HashSet<>();
+			Set<String> mappedGlobals = new HashSet<>();
 			for (TLAExpression expression : instance.getParams()) {
 				if (expression instanceof TLARef) {
-					refs.add(((TLARef) expression).getTarget());
+					mappedGlobals.add(((TLARef) expression).getTarget());
+				} else if (expression instanceof TLAGeneralIdentifier) {
+					mappedGlobals.add(((TLAGeneralIdentifier) expression).getName().getId());
 				}
 				expression.accept(new TLAExpressionScopingVisitor(
 						modularPlusCalScope, registry, loader, new HashSet<>()));
 			}
-			mappingNames.removeAll(refs);
+			mappingNames.removeAll(mappedGlobals);
 			if (mappingNames.size() != 0) {
 				ctx.error(new MismatchedRefMappingIssue(instance, mappingNames));
 			}

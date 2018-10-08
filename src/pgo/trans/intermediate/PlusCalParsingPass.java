@@ -5,7 +5,7 @@ import pgo.model.pcal.PlusCalAlgorithm;
 import pgo.parser.LexicalContext;
 import pgo.parser.ParseFailureException;
 import pgo.parser.PlusCalParser;
-import pgo.trans.passes.tlaparse.ParsingIssue;
+import pgo.trans.passes.parse.tla.ParsingIssue;
 
 import java.nio.file.Path;
 

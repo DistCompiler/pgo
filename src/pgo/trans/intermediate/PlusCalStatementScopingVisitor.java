@@ -139,6 +139,8 @@ public class PlusCalStatementScopingVisitor extends PlusCalStatementVisitor<Void
 
 	@Override
 	public Void visit(ModularPlusCalYield modularPlusCalYield) throws RuntimeException {
-		throw new TODO();
+		modularPlusCalYield.getExpression().accept(new TLAExpressionScopingVisitor(
+				builder, registry, loader, moduleRecursionSet));
+		return null;
 	}
 }

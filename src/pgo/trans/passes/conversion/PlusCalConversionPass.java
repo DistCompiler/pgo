@@ -1,4 +1,4 @@
-package pgo.trans.passes.expansion;
+package pgo.trans.passes.conversion;
 
 import pgo.errors.IssueContext;
 import pgo.model.mpcal.*;
@@ -6,25 +6,15 @@ import pgo.model.pcal.*;
 import pgo.model.tla.TLAExpression;
 import pgo.model.tla.TLAGeneralIdentifier;
 import pgo.model.tla.TLARef;
-import pgo.trans.intermediate.PlusCalMacroExpansionVisitor;
-import pgo.trans.intermediate.PlusCalProcessesMacroExpansionVisitor;
 import pgo.trans.intermediate.UnsupportedFeatureIssue;
+import pgo.trans.passes.expansion.ModularPlusCalMappingMacroExpansionVisitor;
 
 import java.util.*;
 
-public class ModularPlusCalExpansionPass {
-	private ModularPlusCalExpansionPass() {}
+public class PlusCalConversionPass {
+	private PlusCalConversionPass() {}
 
-	public static ModularPlusCalBlock perform(IssueContext ctx, ModularPlusCalBlock modularPlusCalBlock) {
-		Map<String, PlusCalMacro> macros = new HashMap<>();
-		for (PlusCalMacro macro : modularPlusCalBlock.getMacros()) {
-			if (macros.containsKey(macro.getName())) {
-				ctx.error(new MacroNameConflictIssue(macros.get(macro.getName()), macro));
-				continue;
-			}
-			macros.put(macro.getName(), macro);
-		}
-
+	public static PlusCalAlgorithm perform(IssueContext ctx, ModularPlusCalBlock modularPlusCalBlock) {
 		Map<String, ModularPlusCalArchetype> archetypes = new HashMap<>();
 		for (ModularPlusCalArchetype archetype : modularPlusCalBlock.getArchetypes()) {
 			archetypes.put(archetype.getName(), archetype);
@@ -85,33 +75,14 @@ public class ModularPlusCalExpansionPass {
 			processList.addAll(((PlusCalMultiProcess) processes).getProcesses());
 			processes = new PlusCalMultiProcess(processes.getLocation(), processList);
 		}
-
-		List<PlusCalProcedure> procedures = new ArrayList<>();
-		PlusCalMacroExpansionVisitor v = new PlusCalMacroExpansionVisitor(ctx, macros, new HashSet<>(), new HashMap<>());
-		for (PlusCalProcedure proc : modularPlusCalBlock.getProcedures()) {
-			List<PlusCalStatement> stmts = new ArrayList<>();
-			for (PlusCalStatement stmt : proc.getBody()) {
-				stmts.addAll(stmt.accept(v));
-			}
-
-			procedures.add(new PlusCalProcedure(
-					proc.getLocation(),
-					proc.getName(),
-					proc.getArguments(),
-					proc.getVariables(),
-					stmts));
-		}
-
-		return new ModularPlusCalBlock(
+		return new PlusCalAlgorithm(
 				modularPlusCalBlock.getLocation(),
+				PlusCalFairness.UNFAIR,
 				modularPlusCalBlock.getName(),
 				modularPlusCalBlock.getVariables(),
+				Collections.emptyList(),
+				modularPlusCalBlock.getProcedures(),
 				modularPlusCalBlock.getUnits(),
-				Collections.emptyList(),
-				Collections.emptyList(),
-				Collections.emptyList(),
-				procedures,
-				Collections.emptyList(),
-				processes.accept(new PlusCalProcessesMacroExpansionVisitor(ctx, macros)));
+				processes);
 	}
 }

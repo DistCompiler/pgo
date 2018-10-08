@@ -13,7 +13,7 @@ import pgo.parser.ParseFailure;
 import pgo.trans.intermediate.*;
 import pgo.trans.passes.expansion.*;
 import pgo.trans.passes.scope.MismatchedRefMappingIssue;
-import pgo.trans.passes.tlaparse.ParsingIssue;
+import pgo.trans.passes.parse.tla.ParsingIssue;
 import pgo.trans.passes.type.TypeInferenceFailureIssue;
 import pgo.util.SourceLocation;
 
@@ -351,9 +351,9 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 	public Void visit(MismatchedRefMappingIssue mismatchedRefMappingIssue) throws IOException {
 		out.write("instance statement at line ");
 		ModularPlusCalInstance instance = mismatchedRefMappingIssue.getModularPlusCalInstance();
-		out.write(instance.getLocation().getStartLine());
+		out.write(Integer.toString(instance.getLocation().getStartLine()));
 		out.write(" column ");
-		out.write(instance.getLocation().getStartColumn());
+		out.write(Integer.toString(instance.getLocation().getStartColumn()));
 		out.write(" contains unmapped globals ");
 		out.write(String.join(", ", mismatchedRefMappingIssue.getUnmappedNames()));
 		out.write(" in mapping directives");

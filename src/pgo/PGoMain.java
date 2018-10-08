@@ -16,17 +16,14 @@ import pgo.trans.PGoTransException;
 import pgo.trans.intermediate.*;
 import pgo.trans.passes.codegen.CodeGenPass;
 import pgo.trans.passes.constdef.ConstantDefinitionParsingPass;
-import pgo.trans.passes.expansion.ModularPlusCalExpansionPass;
-import pgo.trans.passes.mpcal.ModularPlusCalParsingPass;
-import pgo.trans.passes.mpcal.ModularPlusCalValidationPass;
+import pgo.trans.passes.expansion.ModularPlusCalMacroExpansionPass;
+import pgo.trans.passes.parse.mpcal.ModularPlusCalParsingPass;
+import pgo.trans.passes.parse.mpcal.ModularPlusCalValidationPass;
 import pgo.trans.passes.scope.ScopingPass;
-import pgo.trans.passes.tlaparse.TLAParsingPass;
+import pgo.trans.passes.parse.tla.TLAParsingPass;
 import pgo.trans.passes.type.TypeInferencePass;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.IOException;
-import java.io.RandomAccessFile;
+import java.io.*;
 import java.nio.CharBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
@@ -128,22 +125,22 @@ public class PGoMain {
 				msg += " and Modular PlusCal instances";
 			}
 			logger.info(msg);
-			ModularPlusCalBlock expandedModularPlusCalBlock = ModularPlusCalExpansionPass.perform(
+			ModularPlusCalBlock macroExpandedModularPlusCalBlock = ModularPlusCalMacroExpansionPass.perform(
 					ctx, modularPlusCalBlock);
 			checkErrors(ctx);
 
 			logger.info("Resolving scopes");
 			TLAModuleLoader loader = new TLAModuleLoader(Collections.singletonList(inputFilePath.getParent()));
 			DefinitionRegistry registry = ScopingPass.perform(
-					ctx, loader, constantDefinitions, tlaModule, expandedModularPlusCalBlock);
+					ctx, loader, constantDefinitions, tlaModule, macroExpandedModularPlusCalBlock);
 			checkErrors(ctx);
 
 			logger.info("Inferring types");
-			Map<UID, PGoType> typeMap = TypeInferencePass.perform(ctx, registry, expandedModularPlusCalBlock);
+			Map<UID, PGoType> typeMap = TypeInferencePass.perform(ctx, registry, macroExpandedModularPlusCalBlock);
 			checkErrors(ctx);
 
 			logger.info("Inferring atomicity requirements");
-			AtomicityInferencePass.perform(registry, expandedModularPlusCalBlock);
+			AtomicityInferencePass.perform(registry, macroExpandedModularPlusCalBlock);
 
 			if (opts.mpcalCompile) {
 				// compilation of MPCal -> PCal
@@ -156,7 +153,7 @@ public class PGoMain {
 			} else {
 				// compilation of PCal -> Go
 				logger.info("Initial code generation");
-				GoModule goModule = CodeGenPass.perform(registry, typeMap, opts, expandedModularPlusCalBlock);
+				GoModule goModule = CodeGenPass.perform(registry, typeMap, opts, macroExpandedModularPlusCalBlock);
 
 				logger.info("Normalising generated code");
 				GoModule normalisedGoModule = CodeNormalisingPass.perform(goModule);
@@ -181,7 +178,7 @@ public class PGoMain {
 				return true;
 			}
 		} catch (PGoTransException | IOException e) {
-			logger.severe(e.getMessage());
+			logger.severe("found issues");
 			e.printStackTrace();
 			return false;
 		}
