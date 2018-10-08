@@ -23,10 +23,7 @@ import pgo.trans.passes.scope.ScopingPass;
 import pgo.trans.passes.parse.tla.TLAParsingPass;
 import pgo.trans.passes.type.TypeInferencePass;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.IOException;
-import java.io.RandomAccessFile;
+import java.io.*;
 import java.nio.CharBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
@@ -181,7 +178,7 @@ public class PGoMain {
 				return true;
 			}
 		} catch (PGoTransException | IOException e) {
-			logger.severe(e.getMessage());
+			logger.severe("found issues");
 			e.printStackTrace();
 			return false;
 		}

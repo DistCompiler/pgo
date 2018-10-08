@@ -351,9 +351,9 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 	public Void visit(MismatchedRefMappingIssue mismatchedRefMappingIssue) throws IOException {
 		out.write("instance statement at line ");
 		ModularPlusCalInstance instance = mismatchedRefMappingIssue.getModularPlusCalInstance();
-		out.write(instance.getLocation().getStartLine());
+		out.write(Integer.toString(instance.getLocation().getStartLine()));
 		out.write(" column ");
-		out.write(instance.getLocation().getStartColumn());
+		out.write(Integer.toString(instance.getLocation().getStartColumn()));
 		out.write(" contains unmapped globals ");
 		out.write(String.join(", ", mismatchedRefMappingIssue.getUnmappedNames()));
 		out.write(" in mapping directives");

@@ -3,7 +3,7 @@
 (* Distributed queue using Modular PlusCal.                                *)
 (***************************************************************************)
 
-EXTENDS Naturals, Sequences, FiniteSets, TLC
+EXTENDS Naturals, Sequences, TLC
 CONSTANT BUFFER_SIZE
 
 (***************************************************************************
@@ -52,35 +52,35 @@ CONSTANT BUFFER_SIZE
       }
   }
   
-  variables network = <<>>,
-            processor = 0,
-            stream = 0;
+  variables queueNetwork = <<>>,
+            queueProcessor = 0,
+            queueStream = 0;
             
-  fair process (Consumer \in {0,1}) == instance AConsumer(network, ref processor)
-      mapping network via LossyNetwork;
-  fair process (Producer = 2) == instance AProducer(ref network, ref stream)
-      mapping network via LossyNetwork
-      mapping stream via CyclicReads;
+  fair process (Consumer \in {0,1}) == instance AConsumer(queueNetwork, ref queueProcessor)
+      mapping queueNetwork via LossyNetwork;
+  fair process (Producer = 2) == instance AProducer(ref queueNetwork, ref queueStream)
+      mapping queueNetwork via LossyNetwork
+      mapping queueStream via CyclicReads;
 }
 ***************************************************************************)
 
 
 (***************************************************************************
 --algorithm DistQueue {
-    variables network = <<>>,
-              processor = 0,
-              stream = 1;
+    variables queueNetwork = <<>>,
+              queueProcessor = 0,
+              queueStream = 1;
               
     fair process (Consumer \in {0,1})
     variables tmp0;
     {
         c: while (TRUE) {
-            c1: await Len(network) > 0;
-                with (msg = Head(network)) {
-                    network := Tail(network);
+            c1: await Len(queueNetwork) > 0;
+                with (msg = Head(queueNetwork)) {
+                    queueNetwork := Tail(queueNetwork);
                     tmp0 := msg;
                 };
-                processor := tmp0;
+                queueProcessor := tmp0;
         }
     }
     
@@ -89,14 +89,14 @@ CONSTANT BUFFER_SIZE
     {
         p: while(TRUE) {
            p1: either {
-                   tmp0 := network
+                   tmp0 := queueNetwork
                } or {
-                   stream := (stream + 1) % BUFFER_SIZE;
-                   tmp1 := stream;
-                   await Len(network) < BUFFER_SIZE;
-                   tmp0 := Append(network, tmp1);
+                   queueStream := (queueStream + 1) % BUFFER_SIZE;
+                   tmp1 := queueStream;
+                   await Len(queueNetwork) < BUFFER_SIZE;
+                   tmp0 := Append(queueNetwork, tmp1);
                };
-               network := tmp0;
+               queueNetwork := tmp0;
         }
     }
 
@@ -105,16 +105,16 @@ CONSTANT BUFFER_SIZE
 \* BEGIN TRANSLATION
 \* Process variable tmp0 of process Consumer at line 74 col 15 changed to tmp0_
 CONSTANT defaultInitValue
-VARIABLES network, processor, stream, pc, tmp0_, tmp0, tmp1
+VARIABLES queueNetwork, queueProcessor, queueStream, pc, tmp0_, tmp0, tmp1
 
-vars == << network, processor, stream, pc, tmp0_, tmp0, tmp1 >>
+vars == << queueNetwork, queueProcessor, queueStream, pc, tmp0_, tmp0, tmp1 >>
 
 ProcSet == ({0,1}) \cup {2}
 
 Init == (* Global variables *)
-        /\ network = <<>>
-        /\ processor = 0
-        /\ stream = 1
+        /\ queueNetwork = <<>>
+        /\ queueProcessor = 0
+        /\ queueStream = 1
         (* Process Consumer *)
         /\ tmp0_ = [self \in {0,1} |-> defaultInitValue]
         (* Process Producer *)
@@ -125,33 +125,33 @@ Init == (* Global variables *)
 
 c(self) == /\ pc[self] = "c"
            /\ pc' = [pc EXCEPT ![self] = "c1"]
-           /\ UNCHANGED << network, processor, stream, tmp0_, tmp0, tmp1 >>
+           /\ UNCHANGED << queueNetwork, queueProcessor, queueStream, tmp0_, tmp0, tmp1 >>
 
 c1(self) == /\ pc[self] = "c1"
-            /\ Len(network) > 0
-            /\ LET msg == Head(network) IN
-                 /\ network' = Tail(network)
+            /\ Len(queueNetwork) > 0
+            /\ LET msg == Head(queueNetwork) IN
+                 /\ queueNetwork' = Tail(queueNetwork)
                  /\ tmp0_' = [tmp0_ EXCEPT ![self] = msg]
-            /\ processor' = tmp0_'[self]
+            /\ queueProcessor' = tmp0_'[self]
             /\ pc' = [pc EXCEPT ![self] = "c"]
-            /\ UNCHANGED << stream, tmp0, tmp1 >>
+            /\ UNCHANGED << queueStream, tmp0, tmp1 >>
 
 Consumer(self) == c(self) \/ c1(self)
 
 p == /\ pc[2] = "p"
      /\ pc' = [pc EXCEPT ![2] = "p1"]
-     /\ UNCHANGED << network, processor, stream, tmp0_, tmp0, tmp1 >>
+     /\ UNCHANGED << queueNetwork, queueProcessor, queueStream, tmp0_, tmp0, tmp1 >>
 
 p1 == /\ pc[2] = "p1"
-      /\ \/ /\ tmp0' = network
-            /\ UNCHANGED <<stream, tmp1>>
-         \/ /\ stream' = (stream + 1) % BUFFER_SIZE
-            /\ tmp1' = stream'
-            /\ Len(network) < BUFFER_SIZE
-            /\ tmp0' = Append(network, tmp1')
-      /\ network' = tmp0'
+      /\ \/ /\ tmp0' = queueNetwork
+            /\ UNCHANGED <<queueStream, tmp1>>
+         \/ /\ queueStream' = (queueStream + 1) % BUFFER_SIZE
+            /\ tmp1' = queueStream'
+            /\ Len(queueNetwork) < BUFFER_SIZE
+            /\ tmp0' = Append(queueNetwork, tmp1')
+      /\ queueNetwork' = tmp0'
       /\ pc' = [pc EXCEPT ![2] = "p"]
-      /\ UNCHANGED << processor, tmp0_ >>
+      /\ UNCHANGED << queueProcessor, tmp0_ >>
 
 Producer == p \/ p1
 
@@ -165,11 +165,11 @@ Spec == /\ Init /\ [][Next]_vars
 \* END TRANSLATION
 
 \* Basic invariant
-ProducerConsumer == stream - processor <= BUFFER_SIZE+1
+ProducerConsumer == queueStream - queueProcessor <= BUFFER_SIZE+1
 
 \* Messages produced are eventually consumed
 \* Not satisfied because message loss is not accounted for
-EventuallyConsumed == \A n \in 0..BUFFER_SIZE : (stream = n) => <>(processor = n)
+EventuallyConsumed == \A n \in 0..BUFFER_SIZE : (queueStream = n) => <>(queueProcessor = n)
 
 =============================================================================
 \* Modification History
