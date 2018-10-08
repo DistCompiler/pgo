@@ -6,7 +6,7 @@ import pgo.model.type.UnsatisfiableConstraintIssue;
 import pgo.trans.intermediate.*;
 import pgo.trans.passes.expansion.*;
 import pgo.trans.passes.scope.MismatchedRefMappingIssue;
-import pgo.trans.passes.tlaparse.ParsingIssue;
+import pgo.trans.passes.parse.tla.ParsingIssue;
 import pgo.trans.passes.type.TypeInferenceFailureIssue;
 
 public abstract class IssueVisitor<T, E extends Throwable> {

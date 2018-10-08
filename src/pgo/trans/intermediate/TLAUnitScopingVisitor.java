@@ -8,7 +8,7 @@ import pgo.modules.NoModulesFoundInFileError;
 import pgo.modules.TLAModuleLoader;
 import pgo.parser.ParseFailureException;
 import pgo.scope.UID;
-import pgo.trans.passes.tlaparse.ParsingIssue;
+import pgo.trans.passes.parse.tla.ParsingIssue;
 
 import java.io.IOException;
 import java.util.*;

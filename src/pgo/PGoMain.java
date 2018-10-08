@@ -17,10 +17,10 @@ import pgo.trans.intermediate.*;
 import pgo.trans.passes.codegen.CodeGenPass;
 import pgo.trans.passes.constdef.ConstantDefinitionParsingPass;
 import pgo.trans.passes.expansion.ModularPlusCalExpansionPass;
-import pgo.trans.passes.mpcal.ModularPlusCalParsingPass;
-import pgo.trans.passes.mpcal.ModularPlusCalValidationPass;
+import pgo.trans.passes.parse.mpcal.ModularPlusCalParsingPass;
+import pgo.trans.passes.parse.mpcal.ModularPlusCalValidationPass;
 import pgo.trans.passes.scope.ScopingPass;
-import pgo.trans.passes.tlaparse.TLAParsingPass;
+import pgo.trans.passes.parse.tla.TLAParsingPass;
 import pgo.trans.passes.type.TypeInferencePass;
 
 import java.io.BufferedWriter;

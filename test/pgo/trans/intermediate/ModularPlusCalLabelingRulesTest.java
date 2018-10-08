@@ -14,7 +14,7 @@ import pgo.errors.TopLevelIssueContext;
 import pgo.model.mpcal.ModularPlusCalArchetype;
 import pgo.model.mpcal.ModularPlusCalBlock;
 import pgo.model.pcal.*;
-import pgo.trans.passes.mpcal.ModularPlusCalValidationPass;
+import pgo.trans.passes.parse.mpcal.ModularPlusCalValidationPass;
 
 import static pgo.model.pcal.PlusCalBuilder.*;
 import static pgo.model.mpcal.ModularPlusCalBuilder.*;
