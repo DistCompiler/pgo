@@ -80,8 +80,8 @@ public class ScopingPass {
 
 			TLAScopeBuilder archetypeScope = new TLAScopeBuilder(
 					ctx, args, new ChainMap<>(tlaScope.getDefinitions()), tlaScope.getReferences());
-			archetypeScope.defineLocal("self", archetype.getUID());
-			registry.addLocalVariable(archetype.getUID());
+			archetypeScope.defineLocal("self", archetype.getSelfVariableUID());
+			registry.addLocalVariable(archetype.getSelfVariableUID());
 
 			for (PlusCalStatement stmts : archetype.getBody()) {
 				stmts.accept(new PlusCalStatementLabelCaptureVisitor(ctx, archetypeScope));
