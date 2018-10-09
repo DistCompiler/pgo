@@ -38,17 +38,17 @@ CONSTANT BUFFER_SIZE
   }
     
   (* consumer: Processes one element read from the network at a time, infinitely *)
-  archetype AConsumer(network, ref processor) {
+  archetype AConsumer(consumerNetwork, ref consumerProcessor) {
       c: while (TRUE) {
           (* behavior of reading from network is implementation specific *)
           (* behavior of writing to "processor" is implementation specific *)
-          c1: processor := network
+          c1: consumerProcessor := consumerNetwork
       }
   }
   
-  archetype AProducer(ref network, stream) {
+  archetype AProducer(ref producerNetwork, producerStream) {
       p: while (TRUE) {
-          p1: network := stream;
+          p1: producerNetwork := producerStream;
       }
   }
   

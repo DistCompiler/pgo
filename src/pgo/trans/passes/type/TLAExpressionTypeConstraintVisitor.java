@@ -13,7 +13,6 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 public class TLAExpressionTypeConstraintVisitor extends TLAExpressionVisitor<PGoType, RuntimeException> {
-
 	private PGoTypeSolver solver;
 	private PGoTypeGenerator generator;
 	private Map<UID, PGoTypeVariable> mapping;
@@ -24,6 +23,16 @@ public class TLAExpressionTypeConstraintVisitor extends TLAExpressionVisitor<PGo
 		this.solver = solver;
 		this.generator = generator;
 		this.mapping = mapping;
+	}
+
+	private PGoType typeVariableReference(UID reference) {
+		if (mapping.containsKey(reference)) {
+			return mapping.get(reference);
+		} else {
+			PGoTypeVariable v = generator.get();
+			mapping.put(reference, v);
+			return v;
+		}
 	}
 
 	public PGoType wrappedVisit(TLAExpression expr) {
@@ -230,14 +239,7 @@ public class TLAExpressionTypeConstraintVisitor extends TLAExpressionVisitor<PGo
 
 	@Override
 	public PGoType visit(TLAGeneralIdentifier pGoTLAVariable) throws RuntimeException {
-		UID uid = registry.followReference(pGoTLAVariable.getUID());
-		if (mapping.containsKey(uid)) {
-			return mapping.get(uid);
-		} else {
-			PGoTypeVariable v = generator.get();
-			mapping.put(uid, v);
-			return v;
-		}
+		return typeVariableReference(registry.followReference(pGoTLAVariable.getUID()));
 	}
 
 	@Override
@@ -405,17 +407,16 @@ public class TLAExpressionTypeConstraintVisitor extends TLAExpressionVisitor<PGo
 
 	@Override
 	public PGoType visit(TLASpecialVariableVariable tlaSpecialVariableVariable) throws RuntimeException {
-		throw new TODO();
+		return typeVariableReference(registry.followReference(tlaSpecialVariableVariable.getUID()));
 	}
 
 	@Override
 	public PGoType visit(TLASpecialVariableValue tlaSpecialVariableValue) throws RuntimeException {
-		throw new TODO();
+		return typeVariableReference(registry.followReference(tlaSpecialVariableValue.getUID()));
 	}
 
 	@Override
 	public PGoType visit(TLARef tlaRef) throws RuntimeException {
-		throw new TODO();
+		return typeVariableReference(registry.followReference(tlaRef.getUID()));
 	}
-
 }

@@ -1,6 +1,5 @@
 package pgo.trans.passes.type;
 
-import pgo.TODO;
 import pgo.Unreachable;
 import pgo.errors.IssueContext;
 import pgo.model.mpcal.ModularPlusCalYield;
@@ -118,8 +117,8 @@ public class PlusCalStatementTypeConstraintVisitor extends PlusCalStatementVisit
 
 	@Override
 	public Void visit(PlusCalWith with) throws RuntimeException {
-		for(PlusCalVariableDeclaration decl : with.getVariables()) {
-			TypeInferencePass.constrainVariableDeclaration(registry, decl, solver, generator, mapping);
+		for(PlusCalVariableDeclaration declaration : with.getVariables()) {
+			TypeInferencePass.constrainVariableDeclaration(registry, declaration, solver, generator, mapping);
 		}
 		for (PlusCalStatement stmt : with.getBody()) {
 			stmt.accept(this);
@@ -153,6 +152,7 @@ public class PlusCalStatementTypeConstraintVisitor extends PlusCalStatementVisit
 
 	@Override
 	public Void visit(ModularPlusCalYield modularPlusCalYield) throws RuntimeException {
-		throw new TODO();
+		exprVisitor.wrappedVisit(modularPlusCalYield.getExpression());
+		return null;
 	}
 }

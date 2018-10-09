@@ -120,11 +120,7 @@ public class PGoMain {
 			ModularPlusCalValidationPass.perform(ctx, modularPlusCalBlock);
 			checkErrors(ctx);
 
-			String msg = "Expanding PlusCal macros";
-			if (isMPCal) {
-				msg += " and Modular PlusCal instances";
-			}
-			logger.info(msg);
+			logger.info("Expanding PlusCal macros");
 			ModularPlusCalBlock macroExpandedModularPlusCalBlock = ModularPlusCalMacroExpansionPass.perform(
 					ctx, modularPlusCalBlock);
 			checkErrors(ctx);
