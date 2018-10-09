@@ -29,12 +29,12 @@ public class PlusCalConversionPass {
 		for (ModularPlusCalInstance instance : modularPlusCalBlock.getInstances()) {
 			Map<String, List<String>> mappings = new HashMap<>();
 			for (ModularPlusCalMapping mapping : instance.getMappings()) {
-				String name = mapping.getName().getValue();
+				String name = mapping.getVariable().getName();
 				if (mappings.containsKey(name)) {
-					mappings.get(name).add(mapping.getTarget());
+					mappings.get(name).add(mapping.getTarget().getName());
 				} else {
 					List<String> l = new ArrayList<>();
-					l.add(mapping.getTarget());
+					l.add(mapping.getTarget().getName());
 					mappings.put(name, l);
 				}
 			}

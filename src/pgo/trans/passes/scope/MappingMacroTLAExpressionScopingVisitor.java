@@ -1,6 +1,5 @@
 package pgo.trans.passes.scope;
 
-import pgo.model.tla.TLARef;
 import pgo.model.tla.TLASpecialVariableValue;
 import pgo.model.tla.TLASpecialVariableVariable;
 import pgo.modules.TLAModuleLoader;
@@ -23,20 +22,13 @@ public class MappingMacroTLAExpressionScopingVisitor extends TLAExpressionScopin
 
 	@Override
 	public Void visit(TLASpecialVariableVariable tlaSpecialVariableVariable) throws RuntimeException {
-		builder.reference(mappingMacroQualifiedName, tlaSpecialVariableVariable.getUID());
+		builder.reference("$variable", tlaSpecialVariableVariable.getUID());
 		return null;
 	}
 
 	@Override
 	public Void visit(TLASpecialVariableValue tlaSpecialVariableValue) throws RuntimeException {
-		builder.reference(mappingMacroQualifiedName, tlaSpecialVariableValue.getUID());
-		return null;
-	}
-
-	@Override
-	public Void visit(TLARef tlaRef) throws RuntimeException {
-		// TODO make this work for general identifiers
-		builder.reference(new QualifiedName(tlaRef.getTarget()), tlaRef.getUID());
+		builder.reference("$value", tlaSpecialVariableValue.getUID());
 		return null;
 	}
 }

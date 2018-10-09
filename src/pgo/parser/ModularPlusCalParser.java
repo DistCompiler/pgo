@@ -72,8 +72,12 @@ public class ModularPlusCalParser {
 			.part(IDENTIFIER)
 			.map(seq -> new ModularPlusCalMapping(
 					seq.getLocation(),
-					seq.getValue().getRest().getFirst(),
-					seq.getValue().getFirst().getValue()));
+					new ModularPlusCalMappingVariable(
+							seq.getValue().getRest().getFirst().getLocation(),
+							seq.getValue().getRest().getFirst().getValue()),
+					new ModularPlusCalMappingTarget(
+							seq.getValue().getFirst().getLocation(),
+							seq.getValue().getFirst().getValue())));
 
 	private static final Grammar<ModularPlusCalInstance> C_SYNTAX_INSTANCE = emptySequence()
 			.part(parseOneOf(

@@ -12,7 +12,6 @@ import pgo.model.type.UnsatisfiableConstraintIssue;
 import pgo.parser.ParseFailure;
 import pgo.trans.intermediate.*;
 import pgo.trans.passes.expansion.*;
-import pgo.trans.passes.scope.MismatchedRefMappingIssue;
 import pgo.trans.passes.parse.tla.ParsingIssue;
 import pgo.trans.passes.type.TypeInferenceFailureIssue;
 import pgo.util.SourceLocation;
@@ -32,7 +31,7 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 	@Override
 	public Void visit(IssueWithContext issueWithContext) throws IOException {
 		issueWithContext.getContext().accept(new ContextFormattingVisitor(out));
-		try(IndentingWriter.Indent ignored = out.indent()){
+		try (IndentingWriter.Indent ignored = out.indent()) {
 			out.newLine();
 			issueWithContext.getIssue().accept(this);
 		}
@@ -67,8 +66,8 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 		out.write("TLA module ");
 		out.write(moduleNotFoundIssue.getModuleName());
 		out.write(" not found; looked in:");
-		try(IndentingWriter.Indent ignored = out.indent()){
-			for(Path path : moduleNotFoundIssue.getPathsChecked()) {
+		try (IndentingWriter.Indent ignored = out.indent()) {
+			for (Path path : moduleNotFoundIssue.getPathsChecked()) {
 				out.newLine();
 				out.write("- ");
 				out.write(path.toString());
@@ -94,10 +93,10 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 	@Override
 	public Void visit(ParsingIssue parsingIssue) throws IOException {
 		Map.Entry<SourceLocation, Set<ParseFailure>> lastEntry = parsingIssue.getError().lastEntry();
-		out.write("could not parse "+parsingIssue.getLanguage()+" at "+lastEntry.getKey()+": ");
-		try(IndentingWriter.Indent ignored = out.indent()){
+		out.write("could not parse " + parsingIssue.getLanguage() + " at " + lastEntry.getKey() + ": ");
+		try (IndentingWriter.Indent ignored = out.indent()) {
 			Set<ParseFailure> lastFailures = lastEntry.getValue();
-			for(ParseFailure f : lastFailures){
+			for (ParseFailure f : lastFailures) {
 				out.newLine();
 				out.write(f.toString());
 			}
@@ -317,15 +316,6 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 	}
 
 	@Override
-	public Void visit(UnknownMappingTargetIssue unknownMappingTargetIssue) throws IOException {
-		out.write("could not find mapping macro referenced by instance statement at line ");
-		out.write(unknownMappingTargetIssue.getModularPlusCalMapping().getLocation().getStartLine());
-		out.write(" column ");
-		out.write(unknownMappingTargetIssue.getModularPlusCalMapping().getLocation().getStartColumn());
-		return null;
-	}
-
-	@Override
 	public Void visit(InstanceArgumentCountMismatchIssue instanceArgumentCountMismatchIssue) throws IOException {
 		out.write("archetype ");
 		ModularPlusCalArchetype archetype = instanceArgumentCountMismatchIssue.getModularPlusCalArchetype();
@@ -346,17 +336,5 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 		out.write(" parameters");
 		return null;
 	}
-
-	@Override
-	public Void visit(MismatchedRefMappingIssue mismatchedRefMappingIssue) throws IOException {
-		out.write("instance statement at line ");
-		ModularPlusCalInstance instance = mismatchedRefMappingIssue.getModularPlusCalInstance();
-		out.write(Integer.toString(instance.getLocation().getStartLine()));
-		out.write(" column ");
-		out.write(Integer.toString(instance.getLocation().getStartColumn()));
-		out.write(" contains unmapped globals ");
-		out.write(String.join(", ", mismatchedRefMappingIssue.getUnmappedNames()));
-		out.write(" in mapping directives");
-		return null;
-	}
 }
+
