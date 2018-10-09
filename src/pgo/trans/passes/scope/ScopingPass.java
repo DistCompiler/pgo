@@ -99,15 +99,30 @@ public class ScopingPass {
 				ctx.error(new MappingMacroNameConflictIssue(mappingMacros.get(mappingMacro.getName()), mappingMacro));
 			}
 			mappingMacros.put(mappingMacro.getName(), mappingMacro);
+			modularPlusCalScope.defineGlobal(mappingMacro.getName(), mappingMacro.getUID());
 
 			for (PlusCalStatement statement : mappingMacro.getReadBody()) {
+				// TODO make this work with qualified macro name
 				statement.accept(new PlusCalStatementScopingVisitor(
-						ctx, modularPlusCalScope, registry, loader, new HashSet<>()));
+						ctx,
+						modularPlusCalScope,
+						registry,
+						loader,
+						new HashSet<>(),
+						(builder, reg, ldr, moduleRecursionSet) -> new MappingMacroTLAExpressionScopingVisitor(
+								builder, reg, ldr, moduleRecursionSet, new QualifiedName(mappingMacro.getName()))));
 			}
 
 			for (PlusCalStatement statement : mappingMacro.getWriteBody()) {
+				// TODO make this work with qualified macro name
 				statement.accept(new PlusCalStatementScopingVisitor(
-						ctx, modularPlusCalScope, registry, loader, new HashSet<>()));
+						ctx,
+						modularPlusCalScope,
+						registry,
+						loader,
+						new HashSet<>(),
+						(builder, reg, ldr, moduleRecursionSet) -> new MappingMacroTLAExpressionScopingVisitor(
+								builder, reg, ldr, moduleRecursionSet, new QualifiedName(mappingMacro.getName()))));
 			}
 		}
 
