@@ -1,6 +1,6 @@
 package pgo.trans.intermediate;
 
-import pgo.TODO;
+import pgo.InternalCompilerError;
 import pgo.model.tla.*;
 import pgo.modules.TLAModuleLoader;
 import pgo.scope.UID;
@@ -9,11 +9,10 @@ import java.util.List;
 import java.util.Set;
 
 public class TLAExpressionScopingVisitor extends TLAExpressionVisitor<Void, RuntimeException> {
-
-	private TLAScopeBuilder builder;
-	private DefinitionRegistry registry;
-	private TLAModuleLoader loader;
-	private Set<String> moduleRecursionSet;
+	protected final TLAScopeBuilder builder;
+	protected final DefinitionRegistry registry;
+	private final TLAModuleLoader loader;
+	private final Set<String> moduleRecursionSet;
 
 	public TLAExpressionScopingVisitor(TLAScopeBuilder builder, DefinitionRegistry registry, TLAModuleLoader loader,
 	                                   Set<String> moduleRecursionSet) {
@@ -274,14 +273,12 @@ public class TLAExpressionScopingVisitor extends TLAExpressionVisitor<Void, Runt
 
 	@Override
 	public Void visit(TLASpecialVariableVariable tlaSpecialVariableVariable) throws RuntimeException {
-		// pass
-		return null;
+		throw new InternalCompilerError();
 	}
 
 	@Override
 	public Void visit(TLASpecialVariableValue tlaSpecialVariableValue) throws RuntimeException {
-		// pass
-		return null;
+		throw new InternalCompilerError();
 	}
 
 	@Override
@@ -290,5 +287,4 @@ public class TLAExpressionScopingVisitor extends TLAExpressionVisitor<Void, Runt
 		builder.reference(new QualifiedName(tlaRef.getTarget()), tlaRef.getUID());
 		return null;
 	}
-
 }

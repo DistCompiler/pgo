@@ -17,11 +17,11 @@ public class ModularPlusCalBuilder {
 		return new ModularPlusCalArchetype(SourceLocation.unknown(), name, arguments, variables, body);
 	}
 
-	public static ModularPlusCalMapping mapping(String name, String target) {
+	public static ModularPlusCalMapping mapping(String variable, String target) {
 		return new ModularPlusCalMapping(
 				SourceLocation.unknown(),
-				new Located<>(SourceLocation.unknown(), name),
-				target);
+				new ModularPlusCalMappingVariable(SourceLocation.unknown(), variable),
+				new ModularPlusCalMappingTarget(SourceLocation.unknown(), target));
 	}
 
 	public static ModularPlusCalInstance instance(PlusCalVariableDeclaration name, PlusCalFairness fairness,

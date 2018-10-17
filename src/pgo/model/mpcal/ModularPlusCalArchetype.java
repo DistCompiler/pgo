@@ -2,6 +2,7 @@ package pgo.model.mpcal;
 
 import pgo.model.pcal.PlusCalStatement;
 import pgo.model.pcal.PlusCalVariableDeclaration;
+import pgo.scope.UID;
 import pgo.util.SourceLocation;
 
 import java.util.Collections;
@@ -20,6 +21,7 @@ import java.util.stream.Collectors;
  */
 public class ModularPlusCalArchetype extends ModularPlusCalUnit {
 	private final String name;
+	private final UID selfVariableUID;
 	private final List<PlusCalVariableDeclaration> arguments;
 	private final List<PlusCalVariableDeclaration> variables;
 	private final List<PlusCalStatement> body;
@@ -28,6 +30,7 @@ public class ModularPlusCalArchetype extends ModularPlusCalUnit {
 	                               List<PlusCalVariableDeclaration> variables, List<PlusCalStatement> body) {
 		super(location);
 		this.name = name;
+		this.selfVariableUID = new UID();
 		this.arguments = arguments;
 		this.variables = variables;
 		this.body = body;
@@ -74,6 +77,10 @@ public class ModularPlusCalArchetype extends ModularPlusCalUnit {
 
 	public String getName() {
 		return name;
+	}
+
+	public UID getSelfVariableUID() {
+		return selfVariableUID;
 	}
 
 	public List<PlusCalVariableDeclaration> getArguments() {

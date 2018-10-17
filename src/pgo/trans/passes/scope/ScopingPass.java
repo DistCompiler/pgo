@@ -64,8 +64,8 @@ public class ScopingPass {
 			modularPlusCalScope.defineGlobal(archetype.getName(), archetype.getUID());
 
 			TLAScopeBuilder argScope = new TLAScopeBuilder(
-					ctx, new ChainMap<>(tlaScope.getDeclarations()), new HashMap<>(),
-					modularPlusCalScope.getReferences());
+					ctx, new ChainMap<>(tlaScope.getDeclarations()), tlaScope.getDefinitions(),
+					tlaScope.getReferences());
 			Map<String, UID> args = new ChainMap<>(tlaScope.getDeclarations());
 
 			Stream.concat(archetype.getArguments().stream(), archetype.getVariables().stream())
@@ -80,6 +80,8 @@ public class ScopingPass {
 
 			TLAScopeBuilder archetypeScope = new TLAScopeBuilder(
 					ctx, args, new ChainMap<>(tlaScope.getDefinitions()), tlaScope.getReferences());
+			archetypeScope.defineLocal("self", archetype.getSelfVariableUID());
+			registry.addLocalVariable(archetype.getSelfVariableUID());
 
 			for (PlusCalStatement stmts : archetype.getBody()) {
 				stmts.accept(new PlusCalStatementLabelCaptureVisitor(ctx, archetypeScope));
@@ -97,27 +99,49 @@ public class ScopingPass {
 				ctx.error(new MappingMacroNameConflictIssue(mappingMacros.get(mappingMacro.getName()), mappingMacro));
 			}
 			mappingMacros.put(mappingMacro.getName(), mappingMacro);
+			modularPlusCalScope.defineGlobal(mappingMacro.getName(), mappingMacro.getUID());
+
+			Map<String, UID> readArgs = new ChainMap<>(tlaScope.getDeclarations());
+			readArgs.put("$variable", mappingMacro.getUID());
+			TLAScopeBuilder readBodyScope = new TLAScopeBuilder(ctx, readArgs,
+					new ChainMap<>(tlaScope.getDefinitions()), tlaScope.getReferences());
 
 			for (PlusCalStatement statement : mappingMacro.getReadBody()) {
+				// TODO make this work with qualified macro name
 				statement.accept(new PlusCalStatementScopingVisitor(
-						ctx, modularPlusCalScope, registry, loader, new HashSet<>()));
+						ctx,
+						readBodyScope,
+						registry,
+						loader,
+						new HashSet<>(),
+						(builder, reg, ldr, moduleRecursionSet) -> new MappingMacroTLAExpressionScopingVisitor(
+								builder, reg, ldr, moduleRecursionSet, new QualifiedName(mappingMacro.getName()))));
 			}
 
+			Map<String, UID> writeArgs = new ChainMap<>(tlaScope.getDeclarations());
+			writeArgs.put("$variable", mappingMacro.getUID());
+			writeArgs.put("$value", mappingMacro.getSpecialVariableValueUID());
+			TLAScopeBuilder writeBodyScope = new TLAScopeBuilder(ctx, writeArgs,
+					new ChainMap<>(tlaScope.getDefinitions()), tlaScope.getReferences());
+
 			for (PlusCalStatement statement : mappingMacro.getWriteBody()) {
+				// TODO make this work with qualified macro name
 				statement.accept(new PlusCalStatementScopingVisitor(
-						ctx, modularPlusCalScope, registry, loader, new HashSet<>()));
+						ctx,
+						writeBodyScope,
+						registry,
+						loader,
+						new HashSet<>(),
+						(builder, reg, ldr, moduleRecursionSet) -> new MappingMacroTLAExpressionScopingVisitor(
+								builder, reg, ldr, moduleRecursionSet, new QualifiedName(mappingMacro.getName()))));
 			}
 		}
 
 		// instances need access to global variables
-
 		for (ModularPlusCalInstance instance : modularPlusCalBlock.getInstances()) {
-			Set<String> mappingNames = new HashSet<>();
 			for (ModularPlusCalMapping mapping : instance.getMappings()) {
-				if (!mappingMacros.containsKey(mapping.getTarget())) {
-					ctx.error(new UnknownMappingTargetIssue(mapping));
-				}
-				mappingNames.add(mapping.getName().getValue());
+				modularPlusCalScope.reference(mapping.getTarget().getName(), mapping.getTarget().getUID());
+				modularPlusCalScope.reference(mapping.getVariable().getName(), mapping.getVariable().getUID());
 			}
 			if (!archetypes.containsKey(instance.getTarget())) {
 				ctx.error(new UnknownArchetypeTargetIssue(instance));
@@ -128,19 +152,9 @@ public class ScopingPass {
 				ctx.error(new InstanceArgumentCountMismatchIssue(instance, archetype));
 				continue;
 			}
-			Set<String> mappedGlobals = new HashSet<>();
 			for (TLAExpression expression : instance.getParams()) {
-				if (expression instanceof TLARef) {
-					mappedGlobals.add(((TLARef) expression).getTarget());
-				} else if (expression instanceof TLAGeneralIdentifier) {
-					mappedGlobals.add(((TLAGeneralIdentifier) expression).getName().getId());
-				}
 				expression.accept(new TLAExpressionScopingVisitor(
 						modularPlusCalScope, registry, loader, new HashSet<>()));
-			}
-			mappingNames.removeAll(mappedGlobals);
-			if (mappingNames.size() != 0) {
-				ctx.error(new MismatchedRefMappingIssue(instance, mappingNames));
 			}
 		}
 

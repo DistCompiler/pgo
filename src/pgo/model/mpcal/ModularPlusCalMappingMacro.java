@@ -2,6 +2,7 @@ package pgo.model.mpcal;
 
 import pgo.model.pcal.PlusCalStatement;
 import pgo.parser.Located;
+import pgo.scope.UID;
 import pgo.util.SourceLocation;
 
 import java.util.Collections;
@@ -25,6 +26,7 @@ public class ModularPlusCalMappingMacro extends ModularPlusCalUnit {
 	private final String name;
 	private final List<PlusCalStatement> readBody;
 	private final List<PlusCalStatement> writeBody;
+	private final UID specialVariableValueUID;
 
 	public ModularPlusCalMappingMacro(SourceLocation location, String name, List<PlusCalStatement> readBody,
 	                                  List<PlusCalStatement> writeBody) {
@@ -32,6 +34,8 @@ public class ModularPlusCalMappingMacro extends ModularPlusCalUnit {
 		this.name = name;
 		this.readBody = readBody;
 		this.writeBody = writeBody;
+		this.specialVariableValueUID = new UID();
+		this.specialVariableValueUID.addOrigin(this);
 	}
 
 	@Override
@@ -81,5 +85,9 @@ public class ModularPlusCalMappingMacro extends ModularPlusCalUnit {
 
 	public List<PlusCalStatement> getWriteBody() {
 		return Collections.unmodifiableList(writeBody);
+	}
+
+	public UID getSpecialVariableValueUID() {
+		return specialVariableValueUID;
 	}
 }

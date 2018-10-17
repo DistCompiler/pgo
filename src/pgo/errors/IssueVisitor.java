@@ -5,7 +5,6 @@ import pgo.model.type.UnrealizableTypeIssue;
 import pgo.model.type.UnsatisfiableConstraintIssue;
 import pgo.trans.intermediate.*;
 import pgo.trans.passes.expansion.*;
-import pgo.trans.passes.scope.MismatchedRefMappingIssue;
 import pgo.trans.passes.parse.tla.ParsingIssue;
 import pgo.trans.passes.type.TypeInferenceFailureIssue;
 
@@ -40,7 +39,5 @@ public abstract class IssueVisitor<T, E extends Throwable> {
 	public abstract T visit(LabelNotAllowedIssue labelNotAllowedIssue) throws E;
 	public abstract T visit(ReservedLabelNameIssue reservedLabelNameIssue) throws E;
 	public abstract T visit(UnknownArchetypeTargetIssue unknownArchetypeTargetIssue) throws E;
-	public abstract T visit(UnknownMappingTargetIssue unknownMappingTargetIssue) throws E;
 	public abstract T visit(InstanceArgumentCountMismatchIssue instanceArgumentCountMismatchIssue) throws E;
-	public abstract T visit(MismatchedRefMappingIssue mismatchedRefMappingIssue) throws E;
 }

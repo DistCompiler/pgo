@@ -1,6 +1,5 @@
 package pgo.model.mpcal;
 
-import pgo.parser.Located;
 import pgo.util.SourceLocatable;
 import pgo.util.SourceLocation;
 
@@ -8,22 +7,26 @@ import java.util.Objects;
 
 public class ModularPlusCalMapping extends SourceLocatable {
 	private final SourceLocation location;
-	private final Located<String> name;
-	private final String target;
+	private final ModularPlusCalMappingVariable variable;
+	private final ModularPlusCalMappingTarget target;
 
-	public ModularPlusCalMapping(SourceLocation location, Located<String> name, String target) {
+	public ModularPlusCalMapping(SourceLocation location, ModularPlusCalMappingVariable variable,
+	                             ModularPlusCalMappingTarget target) {
 		this.location = location;
-		this.name = name;
+		this.variable = variable;
 		this.target = target;
 	}
 
 	public ModularPlusCalMapping copy() {
-		return new ModularPlusCalMapping(getLocation(), name, target);
+		return new ModularPlusCalMapping(
+				getLocation(),
+				new ModularPlusCalMappingVariable(variable.getLocation(), variable.getName()),
+				new ModularPlusCalMappingTarget(target.getLocation(), target.getName()));
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(name, target);
+		return Objects.hash(variable.getName(), target.getName());
 	}
 
 	@Override
@@ -35,8 +38,8 @@ public class ModularPlusCalMapping extends SourceLocatable {
 			return false;
 		}
 		ModularPlusCalMapping that = (ModularPlusCalMapping) obj;
-		return target.equals(that.target) &&
-				name.getValue().equals(that.name.getValue());
+		return target.getName().equals(that.target.getName()) &&
+				variable.getName().equals(that.variable.getName());
 	}
 
 	@Override
@@ -44,11 +47,11 @@ public class ModularPlusCalMapping extends SourceLocatable {
 		return location;
 	}
 
-	public Located<String> getName() {
-		return name;
+	public ModularPlusCalMappingVariable getVariable() {
+		return variable;
 	}
 
-	public String getTarget() {
+	public ModularPlusCalMappingTarget getTarget() {
 		return target;
 	}
 }
