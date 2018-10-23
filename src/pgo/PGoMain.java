@@ -4,6 +4,7 @@ import org.apache.commons.io.FileUtils;
 import pgo.errors.TopLevelIssueContext;
 import pgo.formatters.GoNodeFormattingVisitor;
 import pgo.formatters.IndentingWriter;
+import pgo.formatters.PlusCalNodeFormattingVisitor;
 import pgo.model.golang.GoModule;
 import pgo.model.mpcal.ModularPlusCalBlock;
 import pgo.model.pcal.PlusCalAlgorithm;
@@ -16,12 +17,12 @@ import pgo.trans.PGoTransException;
 import pgo.trans.intermediate.*;
 import pgo.trans.passes.codegen.CodeGenPass;
 import pgo.trans.passes.constdef.ConstantDefinitionParsingPass;
+import pgo.trans.passes.conversion.PlusCalConversionPass;
 import pgo.trans.passes.expansion.ModularPlusCalMacroExpansionPass;
 import pgo.trans.passes.parse.mpcal.ModularPlusCalParsingPass;
 import pgo.trans.passes.parse.mpcal.ModularPlusCalValidationPass;
 import pgo.trans.passes.scope.ScopingPass;
 import pgo.trans.passes.parse.tla.TLAParsingPass;
-import pgo.trans.passes.type.TypeInferencePass;
 
 import java.io.*;
 import java.nio.CharBuffer;
@@ -132,11 +133,11 @@ public class PGoMain {
 			logger.info("Resolving scopes");
 			TLAModuleLoader loader = new TLAModuleLoader(Collections.singletonList(inputFilePath.getParent()));
 			DefinitionRegistry registry = ScopingPass.perform(
-					ctx, loader, constantDefinitions, tlaModule, macroExpandedModularPlusCalBlock);
+					ctx, isMPCal, loader, constantDefinitions, tlaModule, macroExpandedModularPlusCalBlock);
 			checkErrors(ctx);
 
 			logger.info("Inferring types");
-			Map<UID, PGoType> typeMap = TypeInferencePass.perform(ctx, registry, macroExpandedModularPlusCalBlock);
+			Map<UID, PGoType> typeMap = new HashMap<>();// TypeInferencePass.perform(ctx, registry, macroExpandedModularPlusCalBlock);
 			checkErrors(ctx);
 
 			logger.info("Inferring atomicity requirements");
@@ -144,8 +145,27 @@ public class PGoMain {
 
 			if (opts.mpcalCompile) {
 				// compilation of MPCal -> PCal
-				throw new UnsupportedOperationException("Generation of PCal specs from MPCal currently unsupported");
-
+				logger.info("Generating PlusCal code");
+				File output = File.createTempFile("pluscal-", ".tla");
+				output.deleteOnExit();
+				try (
+						BufferedWriter writer = new BufferedWriter(new FileWriter(output));
+						IndentingWriter out = new IndentingWriter(writer)
+				) {
+                    PlusCalAlgorithm algorithm = PlusCalConversionPass.perform(
+							ctx, registry, macroExpandedModularPlusCalBlock);
+                    checkErrors(ctx);
+                    algorithm.accept(new PlusCalNodeFormattingVisitor(out));
+				}
+				try (
+						FileChannel source = new RandomAccessFile(output, "r").getChannel();
+						FileChannel destination = new RandomAccessFile(new File("output.tla"), "rw")
+								.getChannel()
+				) {
+                    long pos = destination.transferFrom(source, 0, source.size());
+                    destination.truncate(pos);
+				}
+				return true;
 			} else if (isMPCal) {
 				// compilation of MPCal -> Go
 				throw new UnsupportedOperationException("Compilation of MPCal specs currently unsupported");

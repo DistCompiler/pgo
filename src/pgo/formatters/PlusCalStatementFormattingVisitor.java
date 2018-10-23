@@ -19,7 +19,7 @@ public class PlusCalStatementFormattingVisitor extends PlusCalStatementVisitor<V
 	public Void visit(PlusCalLabeledStatements labeledStatements) throws IOException {
 		labeledStatements.getLabel().accept(new PlusCalNodeFormattingVisitor(out));
 		out.write("{");
-		try(IndentingWriter.Indent i_ = out.indent()) {
+		try (IndentingWriter.Indent ignored = out.indent()) {
 			for(PlusCalStatement stmt : labeledStatements.getStatements()) {
 				out.newLine();
 				stmt.accept(this);
@@ -35,13 +35,13 @@ public class PlusCalStatementFormattingVisitor extends PlusCalStatementVisitor<V
 		out.write("while (");
 		plusCalWhile.getCondition().accept(new TLAExpressionFormattingVisitor(out));
 		out.write(") {");
-		try(IndentingWriter.Indent i_ = out.indent()) {
+		try (IndentingWriter.Indent ignored = out.indent()) {
 			for(PlusCalStatement stmt : plusCalWhile.getBody()) {
 				out.newLine();
 				stmt.accept(this);
 			}
-			out.newLine();
 		}
+		out.newLine();
 		out.write("}");
 		return null;
 	}
@@ -51,7 +51,7 @@ public class PlusCalStatementFormattingVisitor extends PlusCalStatementVisitor<V
 		out.write("if (");
 		plusCalIf.getCondition().accept(new TLAExpressionFormattingVisitor(out));
 		out.write(") {");
-		try(IndentingWriter.Indent i_ = out.indent()) {
+		try (IndentingWriter.Indent ignored = out.indent()) {
 			for(PlusCalStatement stmt : plusCalIf.getYes()){
 				out.newLine();
 				stmt.accept(new PlusCalStatementFormattingVisitor(out));
@@ -59,10 +59,10 @@ public class PlusCalStatementFormattingVisitor extends PlusCalStatementVisitor<V
 			out.newLine();
 			out.write("}");
 		}
-		if(!plusCalIf.getNo().isEmpty()) {
+		if (!plusCalIf.getNo().isEmpty()) {
 			out.write(" else {");
-			try(IndentingWriter.Indent i_ = out.indent()) {
-				for(PlusCalStatement stmt : plusCalIf.getYes()){
+			try (IndentingWriter.Indent ignored = out.indent()) {
+				for(PlusCalStatement stmt : plusCalIf.getNo()){
 					out.newLine();
 					stmt.accept(new PlusCalStatementFormattingVisitor(out));
 				}
@@ -76,7 +76,24 @@ public class PlusCalStatementFormattingVisitor extends PlusCalStatementVisitor<V
 
 	@Override
 	public Void visit(PlusCalEither plusCalEither) throws IOException {
-		throw new TODO();
+		List<List<PlusCalStatement>> cases = plusCalEither.getCases();
+		for (int i = 0; i < cases.size(); i++) {
+			List<PlusCalStatement> case_ = cases.get(i);
+			if (i == 0) {
+				out.write("either {");
+			} else {
+				out.write(" or {");
+			}
+			try (IndentingWriter.Indent ignored = out.indent()) {
+				for (PlusCalStatement statement : case_) {
+					out.newLine();
+					statement.accept(this);
+				}
+			}
+			out.newLine();
+			out.write("}");
+		}
+        return null;
 	}
 
 	@Override
@@ -126,7 +143,18 @@ public class PlusCalStatementFormattingVisitor extends PlusCalStatementVisitor<V
 
 	@Override
 	public Void visit(PlusCalWith with) throws IOException {
-		throw new TODO();
+		out.write("with (");
+		(new PlusCalNodeFormattingVisitor(out)).writeVariableDeclarations("", with.getVariables(), "");
+		out.write(") {");
+		out.newLine();
+		try (IndentingWriter.Indent ignored = out.indent()) {
+			for (PlusCalStatement statement : with.getBody()) {
+				statement.accept(this);
+				out.newLine();
+			}
+		}
+		out.write("}");
+        return null;
 	}
 
 	@Override
@@ -134,7 +162,6 @@ public class PlusCalStatementFormattingVisitor extends PlusCalStatementVisitor<V
 		out.write("print ");
 		plusCalPrint.getValue().accept(new TLAExpressionFormattingVisitor(out));
 		out.write(";");
-
 		return null;
 	}
 
@@ -143,7 +170,6 @@ public class PlusCalStatementFormattingVisitor extends PlusCalStatementVisitor<V
 		out.write("assert ");
 		plusCalAssert.getCondition().accept(new TLAExpressionFormattingVisitor(out));
 		out.write(";");
-
 		return null;
 	}
 
@@ -152,7 +178,6 @@ public class PlusCalStatementFormattingVisitor extends PlusCalStatementVisitor<V
 		out.write("await ");
 		plusCalAwait.getCondition().accept(new TLAExpressionFormattingVisitor(out));
 		out.write(";");
-
 		return null;
 	}
 
@@ -164,6 +189,9 @@ public class PlusCalStatementFormattingVisitor extends PlusCalStatementVisitor<V
 
 	@Override
 	public Void visit(ModularPlusCalYield modularPlusCalYield) throws IOException {
-		throw new TODO();
+		out.write("yield ");
+		modularPlusCalYield.getExpression().accept(new TLAExpressionFormattingVisitor(out));
+		out.write(";");
+		return null;
 	}
 }

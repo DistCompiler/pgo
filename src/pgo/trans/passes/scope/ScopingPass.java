@@ -15,14 +15,13 @@ import pgo.trans.passes.expansion.*;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Stream;
 
 public class ScopingPass {
 	private ScopingPass() {}
 
-	public static DefinitionRegistry perform(IssueContext ctx, TLAModuleLoader loader,
-	                                         Map<String,TLAExpression> constantDefinitions, TLAModule module,
+	public static DefinitionRegistry perform(IssueContext ctx, boolean isMPCal, TLAModuleLoader loader,
+	                                         Map<String, TLAExpression> constantDefinitions, TLAModule module,
 	                                         ModularPlusCalBlock modularPlusCalBlock) {
 		DefinitionRegistry registry = new DefinitionRegistry();
 		TLAScopeBuilder tlaScope = new TLAScopeBuilder(ctx, registry.getReferences());
@@ -33,7 +32,9 @@ public class ScopingPass {
 		for (UID id : registry.getConstants()) {
 			String name = registry.getConstantName(id);
 			if (!constantDefinitions.containsKey(name)) {
-				ctx.error(new ConstantWithNoValueIssue(name, id));
+				if (!isMPCal) {
+					ctx.error(new ConstantWithNoValueIssue(name, id));
+				}
 			} else {
 				TLAExpression value = constantDefinitions.get(name);
 				value.accept(new TLAExpressionScopingVisitor(tlaScope, registry, loader, new HashSet<>()));
@@ -54,13 +55,8 @@ public class ScopingPass {
 			unit.accept(new TLAUnitScopingVisitor(ctx, modularPlusCalScope, registry, loader, new HashSet<>()));
 		}
 
-		Map<String, ModularPlusCalArchetype> archetypes = new HashMap<>();
 		for (ModularPlusCalArchetype archetype : modularPlusCalBlock.getArchetypes()) {
-			if (archetypes.containsKey(archetype.getName())) {
-				ctx.error(new ArchetypeNameConflictIssue(archetypes.get(archetype.getName()), archetype));
-			}
-			archetypes.put(archetype.getName(), archetype);
-
+			registry.addArchetype(archetype);
 			modularPlusCalScope.defineGlobal(archetype.getName(), archetype.getUID());
 
 			TLAScopeBuilder argScope = new TLAScopeBuilder(
@@ -93,12 +89,8 @@ public class ScopingPass {
 			}
 		}
 
-		Map<String, ModularPlusCalMappingMacro> mappingMacros = new HashMap<>();
 		for (ModularPlusCalMappingMacro mappingMacro : modularPlusCalBlock.getMappingMacros()) {
-			if (mappingMacros.containsKey(mappingMacro.getName())) {
-				ctx.error(new MappingMacroNameConflictIssue(mappingMacros.get(mappingMacro.getName()), mappingMacro));
-			}
-			mappingMacros.put(mappingMacro.getName(), mappingMacro);
+			registry.addMappingMacro(mappingMacro);
 			modularPlusCalScope.defineGlobal(mappingMacro.getName(), mappingMacro.getUID());
 
 			Map<String, UID> readArgs = new ChainMap<>(tlaScope.getDeclarations());
@@ -139,15 +131,18 @@ public class ScopingPass {
 
 		// instances need access to global variables
 		for (ModularPlusCalInstance instance : modularPlusCalBlock.getInstances()) {
+			Map<String, ModularPlusCalMapping> mappedVariables = new HashMap<>();
 			for (ModularPlusCalMapping mapping : instance.getMappings()) {
+				String variableName = mapping.getVariable().getName();
+				if (mappedVariables.containsKey(variableName)) {
+					ctx.error(new MultipleMappingIssue(mappedVariables.get(variableName), mapping));
+					continue;
+				}
 				modularPlusCalScope.reference(mapping.getTarget().getName(), mapping.getTarget().getUID());
-				modularPlusCalScope.reference(mapping.getVariable().getName(), mapping.getVariable().getUID());
+				modularPlusCalScope.reference(variableName, mapping.getVariable().getUID());
+				mappedVariables.put(variableName, mapping);
 			}
-			if (!archetypes.containsKey(instance.getTarget())) {
-				ctx.error(new UnknownArchetypeTargetIssue(instance));
-				continue;
-			}
-			ModularPlusCalArchetype archetype = archetypes.get(instance.getTarget());
+			ModularPlusCalArchetype archetype = registry.findArchetype(instance.getTarget());
 			if (instance.getParams().size() != archetype.getArguments().size()) {
 				ctx.error(new InstanceArgumentCountMismatchIssue(instance, archetype));
 				continue;

@@ -1,53 +1,43 @@
 package pgo.trans.passes.conversion;
 
 import pgo.errors.IssueContext;
+import pgo.model.golang.NameCleaner;
 import pgo.model.mpcal.*;
 import pgo.model.pcal.*;
 import pgo.model.tla.TLAExpression;
 import pgo.model.tla.TLAGeneralIdentifier;
 import pgo.model.tla.TLARef;
+import pgo.scope.UID;
+import pgo.trans.intermediate.DefinitionRegistry;
 import pgo.trans.intermediate.UnsupportedFeatureIssue;
-import pgo.trans.passes.expansion.ModularPlusCalMappingMacroExpansionVisitor;
 
 import java.util.*;
 
 public class PlusCalConversionPass {
 	private PlusCalConversionPass() {}
 
-	public static PlusCalAlgorithm perform(IssueContext ctx, ModularPlusCalBlock modularPlusCalBlock) {
-		Map<String, ModularPlusCalArchetype> archetypes = new HashMap<>();
-		for (ModularPlusCalArchetype archetype : modularPlusCalBlock.getArchetypes()) {
-			archetypes.put(archetype.getName(), archetype);
-		}
-
-		Map<String, ModularPlusCalMappingMacro> mappingMacros = new HashMap<>();
-		for (ModularPlusCalMappingMacro mappingMacro : modularPlusCalBlock.getMappingMacros()) {
-			mappingMacros.put(mappingMacro.getName(), mappingMacro);
-		}
-
+	public static PlusCalAlgorithm perform(IssueContext ctx, DefinitionRegistry registry,
+										   ModularPlusCalBlock modularPlusCalBlock) {
+		// TODO seed this
+		NameCleaner nameCleaner = new NameCleaner();
 		List<PlusCalProcess> processList = new ArrayList<>();
 		for (ModularPlusCalInstance instance : modularPlusCalBlock.getInstances()) {
-			Map<String, List<String>> mappings = new HashMap<>();
+			Map<UID, ModularPlusCalMappingMacro> mappings = new HashMap<>();
 			for (ModularPlusCalMapping mapping : instance.getMappings()) {
-				String name = mapping.getVariable().getName();
-				if (mappings.containsKey(name)) {
-					mappings.get(name).add(mapping.getTarget().getName());
-				} else {
-					List<String> l = new ArrayList<>();
-					l.add(mapping.getTarget().getName());
-					mappings.put(name, l);
-				}
+				mappings.put(
+						registry.followReference(mapping.getVariable().getUID()),
+						registry.findMappingMacro(mapping.getTarget().getName()));
 			}
-			ModularPlusCalArchetype archetype = archetypes.get(instance.getTarget());
-			Map<String, PlusCalVariableDeclaration> arguments = new HashMap<>();
-			Map<String, TLAExpression> boundArguments = new HashMap<>();
+			ModularPlusCalArchetype archetype = registry.findArchetype(instance.getTarget());
+			Map<UID, PlusCalVariableDeclaration> arguments = new HashMap<>();
+			Map<UID, TLAExpression> boundValues = new HashMap<>();
 			List<PlusCalVariableDeclaration> variables = new ArrayList<>(archetype.getVariables());
 			for (int i = 0; i < archetype.getArguments().size(); i++) {
 				PlusCalVariableDeclaration argument = archetype.getArguments().get(i);
-				String name = argument.getName().getValue();
+				UID uid = argument.getUID();
 				TLAExpression value = instance.getParams().get(i);
-				arguments.put(name, argument);
-				boundArguments.put(name, value);
+				arguments.put(uid, argument);
+				boundValues.put(uid, value);
 				if (!(value instanceof TLARef) && !(value instanceof TLAGeneralIdentifier)) {
 					// this argument is bound to a TLA+ expression, so we need to add a variable declaration for it
 					// TODO renaming
@@ -57,7 +47,7 @@ public class PlusCalConversionPass {
 			}
 			List<PlusCalStatement> body = new ArrayList<>();
 			ModularPlusCalMappingMacroExpansionVisitor v = new ModularPlusCalMappingMacroExpansionVisitor(
-					ctx, arguments, boundArguments, mappingMacros, mappings);
+					registry, nameCleaner, arguments, boundValues, variables, mappings);
 			for (PlusCalStatement statement : archetype.getBody()) {
 				body.addAll(statement.accept(v));
 			}

@@ -13,6 +13,7 @@ import pgo.parser.ParseFailure;
 import pgo.trans.intermediate.*;
 import pgo.trans.passes.expansion.*;
 import pgo.trans.passes.parse.tla.ParsingIssue;
+import pgo.trans.passes.scope.MultipleMappingIssue;
 import pgo.trans.passes.type.TypeInferenceFailureIssue;
 import pgo.util.SourceLocation;
 
@@ -187,6 +188,16 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 	}
 
 	@Override
+	public Void visit(MultipleMappingIssue multipleMappingIssue) throws IOException {
+		out.write("mappings ");
+		multipleMappingIssue.getFirst().accept(new OriginFormattingVisitor(out));
+		out.write(" and ");
+		multipleMappingIssue.getSecond().accept(new OriginFormattingVisitor(out));
+		out.write(" conflict");
+		return null;
+	}
+
+	@Override
 	public Void visit(MacroNameConflictIssue macroNameConflictIssue) throws IOException {
 		out.write("the two macro definitions at line ");
 		out.write(macroNameConflictIssue.getFirst().getLocation().getStartLine());
@@ -196,34 +207,6 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 		out.write(macroNameConflictIssue.getSecond().getLocation().getStartLine());
 		out.write(" column ");
 		out.write(macroNameConflictIssue.getSecond().getLocation().getStartColumn());
-		out.write(" share the same name");
-		return null;
-	}
-
-	@Override
-	public Void visit(ArchetypeNameConflictIssue archetypeNameConflictIssue) throws IOException {
-		out.write("the two archetype definitions at line ");
-		out.write(archetypeNameConflictIssue.getFirst().getLocation().getStartLine());
-		out.write(" column ");
-		out.write(archetypeNameConflictIssue.getFirst().getLocation().getStartColumn());
-		out.write(" and line ");
-		out.write(archetypeNameConflictIssue.getSecond().getLocation().getStartLine());
-		out.write(" column ");
-		out.write(archetypeNameConflictIssue.getSecond().getLocation().getStartColumn());
-		out.write(" share the same name");
-		return null;
-	}
-
-	@Override
-	public Void visit(MappingMacroNameConflictIssue mappingMacroNameConflictIssue) throws IOException {
-		out.write("the two mapping macro definitions at line ");
-		out.write(mappingMacroNameConflictIssue.getFirst().getLocation().getStartLine());
-		out.write(" column ");
-		out.write(mappingMacroNameConflictIssue.getFirst().getLocation().getStartColumn());
-		out.write(" and line ");
-		out.write(mappingMacroNameConflictIssue.getSecond().getLocation().getStartLine());
-		out.write(" column ");
-		out.write(mappingMacroNameConflictIssue.getSecond().getLocation().getStartColumn());
 		out.write(" share the same name");
 		return null;
 	}
@@ -304,14 +287,6 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 		out.write("Label not allowed in statement: ");
 		reservedLabelNameIssue.getStatement().accept(new OriginFormattingVisitor(out));
 
-		return null;
-	}
-
-	public Void visit(UnknownArchetypeTargetIssue unknownArchetypeTargetIssue) throws IOException {
-		out.write("could not find archetype referenced by instance statement at line ");
-		out.write(unknownArchetypeTargetIssue.getModularPlusCalInstance().getLocation().getStartLine());
-		out.write(" column ");
-		out.write(unknownArchetypeTargetIssue.getModularPlusCalInstance().getLocation().getStartColumn());
 		return null;
 	}
 
