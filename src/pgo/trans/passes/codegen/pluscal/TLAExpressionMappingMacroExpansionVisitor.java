@@ -51,7 +51,11 @@ public class TLAExpressionMappingMacroExpansionVisitor extends TLAExpressionVisi
 
 	@Override
 	public TLAExpression visit(TLAFunctionCall pGoTLAFunctionCall) throws RuntimeException {
-		throw new TODO();
+		List<TLAExpression> arguments = new ArrayList<>();
+		for (TLAExpression argument : pGoTLAFunctionCall.getParams()) {
+			arguments.add(argument.accept(this));
+		}
+		return new TLAFunctionCall(pGoTLAFunctionCall.getLocation(), pGoTLAFunctionCall.getFunction(), arguments);
 	}
 
 	@Override
@@ -63,7 +67,7 @@ public class TLAExpressionMappingMacroExpansionVisitor extends TLAExpressionVisi
 
 	@Override
 	public TLAExpression visit(TLABool TLABool) throws RuntimeException {
-        return new TLABool(TLABool.getLocation(), TLABool.getValue());
+		return TLABool;
 	}
 
 	@Override
@@ -156,7 +160,11 @@ public class TLAExpressionMappingMacroExpansionVisitor extends TLAExpressionVisi
 
 	@Override
 	public TLAExpression visit(TLATuple pGoTLATuple) throws RuntimeException {
-		throw new TODO();
+		List<TLAExpression> elements = new ArrayList<>();
+		for (TLAExpression expression : pGoTLATuple.getElements()) {
+			elements.add(expression.accept(this));
+		}
+		return new TLATuple(pGoTLATuple.getLocation(), elements);
 	}
 
 	@Override
@@ -209,7 +217,11 @@ public class TLAExpressionMappingMacroExpansionVisitor extends TLAExpressionVisi
 
 	@Override
 	public TLAExpression visit(TLASetConstructor pGoTLASetConstructor) throws RuntimeException {
-		throw new TODO();
+		List<TLAExpression> contents = new ArrayList<>();
+		for (TLAExpression expression : pGoTLASetConstructor.getContents()) {
+			contents.add(expression.accept(this));
+		}
+		return new TLASetConstructor(pGoTLASetConstructor.getLocation(), contents);
 	}
 
 	@Override
@@ -224,12 +236,13 @@ public class TLAExpressionMappingMacroExpansionVisitor extends TLAExpressionVisi
 
 	@Override
 	public TLAExpression visit(TLAString pGoTLAString) throws RuntimeException {
-		throw new TODO();
+		return pGoTLAString;
 	}
 
 	@Override
 	public TLAExpression visit(TLAUnary pGoTLAUnary) throws RuntimeException {
-		throw new TODO();
+		TLAExpression expression = pGoTLAUnary.getOperand().accept(this);
+		return new TLAUnary(pGoTLAUnary.getLocation(), pGoTLAUnary.getOperation(), pGoTLAUnary.getPrefix(), expression);
 	}
 
 	@Override
@@ -239,7 +252,7 @@ public class TLAExpressionMappingMacroExpansionVisitor extends TLAExpressionVisi
 
 	@Override
 	public TLAExpression visit(PlusCalDefaultInitValue plusCalDefaultInitValue) throws RuntimeException {
-		throw new TODO();
+		return plusCalDefaultInitValue;
 	}
 
 	@Override
