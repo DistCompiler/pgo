@@ -1,4 +1,4 @@
-package pgo.trans.passes.conversion;
+package pgo.trans.passes.codegen.pluscal;
 
 import pgo.errors.IssueContext;
 import pgo.model.golang.NameCleaner;
@@ -13,8 +13,8 @@ import pgo.trans.intermediate.UnsupportedFeatureIssue;
 
 import java.util.*;
 
-public class PlusCalConversionPass {
-	private PlusCalConversionPass() {}
+public class PlusCalCodeGenPass {
+	private PlusCalCodeGenPass() {}
 
 	public static PlusCalAlgorithm perform(IssueContext ctx, DefinitionRegistry registry,
 										   ModularPlusCalBlock modularPlusCalBlock) {

@@ -9,7 +9,7 @@ import pgo.model.golang.builder.GoModuleBuilder;
 import pgo.model.golang.type.GoType;
 import pgo.model.pcal.PlusCalProcess;
 import pgo.scope.UID;
-import pgo.trans.passes.codegen.CriticalSection;
+import pgo.trans.passes.codegen.go.CriticalSection;
 
 import java.util.HashMap;
 import java.util.Map;

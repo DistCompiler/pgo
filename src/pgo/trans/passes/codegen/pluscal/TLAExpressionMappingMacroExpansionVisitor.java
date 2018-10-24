@@ -1,4 +1,4 @@
-package pgo.trans.passes.conversion;
+package pgo.trans.passes.codegen.pluscal;
 
 import pgo.TODO;
 import pgo.Unreachable;

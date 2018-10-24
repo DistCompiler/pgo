@@ -1,4 +1,4 @@
-package pgo.trans.passes.codegen;
+package pgo.trans.passes.codegen.go;
 
 import pgo.PGoNetOptions;
 import pgo.Unreachable;
@@ -8,7 +8,6 @@ import pgo.model.golang.builder.GoModuleBuilder;
 import pgo.model.golang.type.GoType;
 import pgo.model.golang.type.GoTypeName;
 import pgo.model.mpcal.ModularPlusCalBlock;
-import pgo.model.pcal.PlusCalAlgorithm;
 import pgo.model.pcal.PlusCalProcess;
 import pgo.model.type.PGoType;
 import pgo.scope.UID;

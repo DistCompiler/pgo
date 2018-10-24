@@ -5,7 +5,7 @@ import pgo.model.golang.builder.GoBlockBuilder;
 import pgo.model.tla.TLAExpression;
 import pgo.model.type.PGoType;
 import pgo.scope.UID;
-import pgo.trans.passes.codegen.TLAExpressionCodeGenVisitor;
+import pgo.trans.passes.codegen.go.TLAExpressionCodeGenVisitor;
 
 import java.util.List;
 import java.util.Map;

@@ -15,9 +15,9 @@ import pgo.modules.TLAModuleLoader;
 import pgo.scope.UID;
 import pgo.trans.PGoTransException;
 import pgo.trans.intermediate.*;
-import pgo.trans.passes.codegen.CodeGenPass;
+import pgo.trans.passes.codegen.go.GoCodeGenPass;
 import pgo.trans.passes.constdef.ConstantDefinitionParsingPass;
-import pgo.trans.passes.conversion.PlusCalConversionPass;
+import pgo.trans.passes.codegen.pluscal.PlusCalCodeGenPass;
 import pgo.trans.passes.expansion.ModularPlusCalMacroExpansionPass;
 import pgo.trans.passes.parse.mpcal.ModularPlusCalParsingPass;
 import pgo.trans.passes.parse.mpcal.ModularPlusCalValidationPass;
@@ -152,7 +152,7 @@ public class PGoMain {
 						BufferedWriter writer = new BufferedWriter(new FileWriter(output));
 						IndentingWriter out = new IndentingWriter(writer)
 				) {
-                    PlusCalAlgorithm algorithm = PlusCalConversionPass.perform(
+                    PlusCalAlgorithm algorithm = PlusCalCodeGenPass.perform(
 							ctx, registry, macroExpandedModularPlusCalBlock);
                     checkErrors(ctx);
                     algorithm.accept(new PlusCalNodeFormattingVisitor(out));
@@ -173,7 +173,7 @@ public class PGoMain {
 			} else {
 				// compilation of PCal -> Go
 				logger.info("Initial code generation");
-				GoModule goModule = CodeGenPass.perform(registry, typeMap, opts, macroExpandedModularPlusCalBlock);
+				GoModule goModule = GoCodeGenPass.perform(registry, typeMap, opts, macroExpandedModularPlusCalBlock);
 
 				logger.info("Normalising generated code");
 				GoModule normalisedGoModule = CodeNormalisingPass.perform(goModule);
