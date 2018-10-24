@@ -1,5 +1,6 @@
 package pgo.trans.passes.codegen.pluscal;
 
+import pgo.Unreachable;
 import pgo.errors.IssueContext;
 import pgo.model.golang.NameCleaner;
 import pgo.model.mpcal.*;
@@ -90,6 +91,8 @@ public class PlusCalCodeGenPass {
 		} else if (processes instanceof PlusCalMultiProcess) {
 			processList.addAll(((PlusCalMultiProcess) processes).getProcesses());
 			processes = new PlusCalMultiProcess(processes.getLocation(), processList);
+		} else {
+			throw new Unreachable();
 		}
 		return new PlusCalAlgorithm(
 				modularPlusCalBlock.getLocation(),
