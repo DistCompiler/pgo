@@ -12,14 +12,40 @@ import pgo.trans.intermediate.DefinitionRegistry;
 import pgo.trans.intermediate.UnsupportedFeatureIssue;
 
 import java.util.*;
+import java.util.stream.Stream;
 
 public class PlusCalCodeGenPass {
 	private PlusCalCodeGenPass() {}
 
 	public static PlusCalAlgorithm perform(IssueContext ctx, DefinitionRegistry registry,
 										   ModularPlusCalBlock modularPlusCalBlock) {
-		// TODO seed this
-		NameCleaner nameCleaner = new NameCleaner();
+		// TODO seed with variable declaration in with and let statements
+		Set<String> nameCleanerSeed = new HashSet<>();
+		for (PlusCalProcedure procedure : modularPlusCalBlock.getProcedures()) {
+			nameCleanerSeed.add(procedure.getName());
+			Stream.concat(procedure.getVariables().stream(), procedure.getArguments().stream())
+					.forEach(v -> nameCleanerSeed.add(v.getName().getValue()));
+		}
+		if (modularPlusCalBlock.getProcesses() instanceof PlusCalMultiProcess) {
+			for (PlusCalProcess process : ((PlusCalMultiProcess) modularPlusCalBlock.getProcesses()).getProcesses()) {
+				nameCleanerSeed.add(process.getName().getName().getValue());
+				for (PlusCalVariableDeclaration declaration : process.getVariables()) {
+					nameCleanerSeed.add(declaration.getName().getValue());
+				}
+			}
+		}
+		for (ModularPlusCalArchetype archetype : modularPlusCalBlock.getArchetypes()) {
+            nameCleanerSeed.add(archetype.getName());
+            Stream.concat(archetype.getArguments().stream(), archetype.getArguments().stream())
+		            .forEach(v -> nameCleanerSeed.add(v.getName().getValue()));
+		}
+		for (ModularPlusCalMappingMacro mappingMacro : modularPlusCalBlock.getMappingMacros()) {
+            nameCleanerSeed.add(mappingMacro.getName());
+		}
+		for (ModularPlusCalInstance instance : modularPlusCalBlock.getInstances()) {
+			nameCleanerSeed.add(instance.getName().getName().getValue());
+		}
+		NameCleaner nameCleaner = new NameCleaner(nameCleanerSeed);
 		List<PlusCalProcess> processList = new ArrayList<>();
 		for (ModularPlusCalInstance instance : modularPlusCalBlock.getInstances()) {
 			Map<UID, ModularPlusCalMappingMacro> mappings = new HashMap<>();
