@@ -3,6 +3,8 @@ package distsys
 import (
 	"fmt"
 	"net/rpc"
+	"sort"
+	"strings"
 )
 
 // ResourceAccess indicates what type of access the a caller is requesting.
@@ -20,13 +22,92 @@ type ArchetypeResource interface {
 	// value when successful.
 	Acquire(access ResourceAccess) (interface{}, error)
 
-	// Commit receives a new value that the underlying resource is supposed
-	// to be set to.
+	// Commit receives a new value that the underlying resource is
+	// supposed to be set to.
 	Commit(value interface{}) error
 
-	// Abort indicates an error situation. Access must be released, and any
-	// state rolled back to its previous value (before acquisition)
+	// Abort indicates an error situation. Access must be released,
+	// and any state rolled back to its previous value (before
+	// acquisition)
 	Abort() error
+
+	// Less compares one archetype resource with another. Ordering
+	// archetype resources is needed when acquiring access to
+	// resources that are sensitive to ordering (for instance, global
+	// variables).
+	Less(other ArchetypeResource) bool
+}
+
+// SortableArchetypeResource represents a collection of archetype
+// resources.  This type implements the functions necessary to enable
+// a collection of archetype resources to be sorted using Go's
+// `sort.Sort` utility.
+type SortableArchetypeResource []ArchetypeResource
+
+func (s SortableArchetypeResource) Len() int {
+	return len(s)
+}
+
+// Sorting occurs in-place.
+func (s SortableArchetypeResource) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+
+func (s SortableArchetypeResource) Less(i, j int) bool {
+	return s[i].Less(s[j])
+}
+
+// AcquireResources acquires a series of resources (concrete
+// implementations of the `ArchetypeResource` interface) and returns a
+// map from resources to values. This function makes sure that
+// resources are acquired in proper order (i.e., according to the
+// resource's implementation of `Less`). The resulting map can be used
+// by the caller to retrieve the values retrived.
+func AcquireResources(access ResourceAccess, resources ...ArchetypeResource) (map[ArchetypeResource]interface{}, error) {
+	vals := map[ArchetypeResource]interface{}{}
+
+	// sort the resources to be acquired according to their
+	// implementation of `Less`
+	sort.Sort(SortableArchetypeResource(resources))
+
+	// resources are now ordered
+	for _, r := range resources {
+		v, err := r.Acquire(access)
+		if err != nil {
+			return nil, err
+		}
+
+		vals[r] = v
+	}
+
+	return vals, nil
+}
+
+// CommitResources releases a collection of archetype resources
+// simultaneously. It makes sure that resources are released according
+// to the order defined by the resource's implementation of `Less`.
+func CommitResources(vals map[ArchetypeResource]interface{}) error {
+	for resource, val := range vals {
+		if err := resource.Commit(val); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// AbortResources releases (without modification) a collection of
+// archetype resources simulaneously. It makes sure that resources are
+// released according to the order defined by the resource's
+// implementation of `Less`.
+func AbortResources(vals map[ArchetypeResource]interface{}) error {
+	for resource, _ := range vals {
+		if err := resource.Abort(); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 /////////////////////////////////////////////////////////////////////////
@@ -97,6 +178,25 @@ func (v *GlobalVariable) Abort() error {
 	v.refs = nil
 
 	return err
+}
+
+// Less implements the ordering strategy for global variables. Global
+// variables need to be acquired in lexicographical order to avoid
+// deadlocks in the resulting system. This necessity is reflect in the
+// implementation of `Less` which returns the result of a string
+// comparison with `other` when it is also a global variable. In case
+// the other archetype resource is not a global variable, Less always
+// returns `false`, since the resources are not comparable.
+func (v *GlobalVariable) Less(other ArchetypeResource) bool {
+	// Go's `strings.Compare` returns an integer < 0 when the first
+	// argument is < the second argument.
+	if gv, ok := other.(*GlobalVariable); ok {
+		return strings.Compare(v.name, gv.name) < 0
+	}
+
+	// the resources are not comparable -- do not change
+	// their order in the archetype resources collection.
+	return false
 }
 
 /////////////////////////////////////////////////////////////////////////
@@ -215,4 +315,11 @@ func (tcpChannel *TCPChannel) Commit(value interface{}) error {
 // no-op
 func (ch *TCPChannel) Abort() error {
 	return nil
+}
+
+// Less implements ordering for channels. TCP channels are agnostic to
+// ordering, and therefore always return `false`, not modifying their
+// position in the collection of archetype resources.
+func (ch *TCPChannel) Less(_ ArchetypeResource) bool {
+	return false
 }
