@@ -75,7 +75,7 @@ type EtcdState struct {
 //
 // Returns a reference to `distsys.EtcdState' on success. Fails if we
 // cannot establish a connection to the etcd cluster.
-func NewEtcdState(endpoints []string, timeout int, peers []string, self, coordinator string, initValues map[string]interface{}) (*EtcdState, error) {
+func NewEtcdState(process string, endpoints []string, timeout int, peers []string, self, coordinator string, initValues map[string]interface{}) (*EtcdState, error) {
 	c, err := etcd.New(etcd.Config{
 		Endpoints:               endpoints,
 		HeaderTimeoutPerRequest: time.Duration(timeout) * time.Second,
@@ -85,7 +85,7 @@ func NewEtcdState(endpoints []string, timeout int, peers []string, self, coordin
 	}
 
 	ret := &EtcdState{
-		NewSyncBarrier(peers, self, coordinator),
+		NewSyncBarrier(process, peers, self, coordinator),
 		c,
 		etcd.NewKeysAPI(c),
 	}
