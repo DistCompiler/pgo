@@ -149,15 +149,15 @@ public class ModularPlusCalMappingMacroExpansionVisitor
 			}
 			TLAGeneralIdentifier variable = value instanceof TLARef
 					? new TLAGeneralIdentifier(
-					value.getLocation(),
-					new TLAIdentifier(value.getLocation(), ((TLARef) value).getTarget()),
-					Collections.emptyList())
+							value.getLocation(),
+							new TLAIdentifier(value.getLocation(), ((TLARef) value).getTarget()),
+							Collections.emptyList())
 					: (TLAGeneralIdentifier) value;
 			UID valueUID = registry.followReference(value.getUID());
 			// TODO the argument might have been renamed
 			if (!mappings.containsKey(valueUID)) {
 				assignmentHelper(pair.getLocation(), lhs, pair.getRhs(), result);
-                continue;
+				continue;
 			}
 			ModularPlusCalMappingMacroExpansionVisitor visitor = new ModularPlusCalMappingMacroExpansionVisitor(
 					registry, nameCleaner, arguments, boundValues, variables, mappings, () -> variable, pair::getRhs,

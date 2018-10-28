@@ -123,9 +123,13 @@ public class TLAExpressionMappingMacroExpansionVisitor extends TLAExpressionVisi
 						Collections.emptyList())
 				: (TLAGeneralIdentifier) value;
 		UID valueUID = registry.followReference(value.getUID());
+		boolean mappingsContainsValue = mappings.containsKey(valueUID);
 		// TODO the argument might have been renamed
-		if (!mappings.containsKey(valueUID)) {
+		if (!mappingsContainsValue && !argument.isRef()) {
 			return pGoTLAVariable;
+		}
+		if (!mappingsContainsValue) {
+			return variable;
 		}
 		String name = nameCleaner.cleanName(argument.getName().getValue() + "R");
 		variables.add(new PlusCalVariableDeclaration(
