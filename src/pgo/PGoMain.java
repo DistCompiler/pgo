@@ -23,6 +23,7 @@ import pgo.trans.passes.parse.mpcal.ModularPlusCalParsingPass;
 import pgo.trans.passes.parse.mpcal.ModularPlusCalValidationPass;
 import pgo.trans.passes.scope.ScopingPass;
 import pgo.trans.passes.parse.tla.TLAParsingPass;
+import pgo.trans.passes.type.TypeInferencePass;
 
 import java.io.*;
 import java.nio.ByteBuffer;
@@ -138,13 +139,6 @@ public class PGoMain {
 					ctx, isMPCal, loader, constantDefinitions, tlaModule, macroExpandedModularPlusCalBlock);
 			checkErrors(ctx);
 
-			logger.info("Inferring types");
-			Map<UID, PGoType> typeMap = new HashMap<>();// TypeInferencePass.perform(ctx, registry, macroExpandedModularPlusCalBlock);
-			checkErrors(ctx);
-
-			logger.info("Inferring atomicity requirements");
-			AtomicityInferencePass.perform(registry, macroExpandedModularPlusCalBlock);
-
 			if (opts.mpcalCompile) {
 				// compilation of MPCal -> PCal
 				logger.info("Generating PlusCal code");
@@ -207,7 +201,16 @@ public class PGoMain {
 				}
 				Files.move(tempFile.toPath(), inputFilePath, StandardCopyOption.REPLACE_EXISTING);
 				return true;
-			} else if (isMPCal) {
+			}
+
+			logger.info("Inferring types");
+			Map<UID, PGoType> typeMap = TypeInferencePass.perform(ctx, registry, macroExpandedModularPlusCalBlock);
+			checkErrors(ctx);
+
+			logger.info("Inferring atomicity requirements");
+			AtomicityInferencePass.perform(registry, macroExpandedModularPlusCalBlock);
+
+			if (isMPCal) {
 				// compilation of MPCal -> Go
 				throw new UnsupportedOperationException("Compilation of MPCal specs currently unsupported");
 
