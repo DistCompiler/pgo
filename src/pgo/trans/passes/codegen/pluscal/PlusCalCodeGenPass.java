@@ -81,7 +81,7 @@ public class PlusCalCodeGenPass {
 			processList.add(new PlusCalProcess(
 					instance.getLocation(),
 					instance.getName(),
-					PlusCalFairness.UNFAIR,
+					instance.getFairness(),
 					variables,
 					body));
 		}

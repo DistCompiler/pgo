@@ -126,6 +126,9 @@ public class PlusCalNodeFormattingVisitor extends PlusCalNodeVisitor<Void, IOExc
 
 	@Override
 	public Void visit(PlusCalProcess plusCalProcess) throws IOException {
+		if (plusCalProcess.getFairness() == PlusCalFairness.WEAK_FAIR) {
+			out.write("fair ");
+		}
         out.write("process (");
         plusCalProcess.getName().accept(this);
         out.write(")");
