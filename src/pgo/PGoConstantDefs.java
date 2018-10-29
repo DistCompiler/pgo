@@ -14,12 +14,12 @@ public class PGoConstantDefs {
 	
 	public PGoConstantDefs(JSONObject config, String configFilePath) {
 		defs = new HashMap<>();
-		if(config.has("constants")){
+		if (config.has("constants")) {
 			JSONObject constants = config.getJSONObject("constants");
-			for(String name : constants.keySet()) {
+			for (String name : constants.keySet()) {
 				String val = constants.getString(name);
-				defs.put(name, new Located<String>(
-						new SourceLocation(Paths.get(configFilePath), 1, 1, 1, val.length()+1),
+				defs.put(name, new Located<>(
+						new SourceLocation(Paths.get(configFilePath), 0, 0, 1, 1, 1, val.length()+1),
 						val));
 			}
 		}

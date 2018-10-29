@@ -4,6 +4,7 @@ import org.apache.commons.io.FileUtils;
 import pgo.errors.TopLevelIssueContext;
 import pgo.formatters.GoNodeFormattingVisitor;
 import pgo.formatters.IndentingWriter;
+import pgo.formatters.PlusCalNodeFormattingVisitor;
 import pgo.model.golang.GoModule;
 import pgo.model.mpcal.ModularPlusCalBlock;
 import pgo.model.pcal.PlusCalAlgorithm;
@@ -14,8 +15,9 @@ import pgo.modules.TLAModuleLoader;
 import pgo.scope.UID;
 import pgo.trans.PGoTransException;
 import pgo.trans.intermediate.*;
-import pgo.trans.passes.codegen.CodeGenPass;
+import pgo.trans.passes.codegen.go.GoCodeGenPass;
 import pgo.trans.passes.constdef.ConstantDefinitionParsingPass;
+import pgo.trans.passes.codegen.pluscal.PlusCalCodeGenPass;
 import pgo.trans.passes.expansion.ModularPlusCalMacroExpansionPass;
 import pgo.trans.passes.parse.mpcal.ModularPlusCalParsingPass;
 import pgo.trans.passes.parse.mpcal.ModularPlusCalValidationPass;
@@ -24,6 +26,7 @@ import pgo.trans.passes.parse.tla.TLAParsingPass;
 import pgo.trans.passes.type.TypeInferencePass;
 
 import java.io.*;
+import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
@@ -31,6 +34,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -128,8 +132,72 @@ public class PGoMain {
 			logger.info("Resolving scopes");
 			TLAModuleLoader loader = new TLAModuleLoader(Collections.singletonList(inputFilePath.getParent()));
 			DefinitionRegistry registry = ScopingPass.perform(
-					ctx, loader, constantDefinitions, tlaModule, macroExpandedModularPlusCalBlock);
+					ctx, isMPCal, loader, constantDefinitions, tlaModule, macroExpandedModularPlusCalBlock);
 			checkErrors(ctx);
+
+			if (opts.mpcalCompile) {
+				// compilation of MPCal -> PCal
+				logger.info("Generating PlusCal code");
+				StringWriter output = new StringWriter();
+				try (IndentingWriter out = new IndentingWriter(output)) {
+					PlusCalAlgorithm algorithm = PlusCalCodeGenPass.perform(ctx, registry, macroExpandedModularPlusCalBlock);
+					checkErrors(ctx);
+					algorithm.accept(new PlusCalNodeFormattingVisitor(out));
+				}
+				// TODO deal with non-ASCII
+				final int startOffset;
+				final int endOffset;
+				// parse the algorithm block to know where it is
+				try (
+						FileChannel fileChannel = new RandomAccessFile(inputFilePath.toFile(), "r")
+								.getChannel()
+				) {
+					MappedByteBuffer buffer = fileChannel.map(
+							FileChannel.MapMode.READ_ONLY, 0, fileChannel.size());
+					// assume UTF-8, though technically TLA+ is ASCII only according to the book
+					CharBuffer inputFileContents = StandardCharsets.UTF_8.decode(buffer);
+					if (PlusCalParsingPass.hasAlgorithmBlock(inputFilePath, inputFileContents)) {
+						final PlusCalAlgorithm plusCalAlgorithm = PlusCalParsingPass.perform(
+								ctx, inputFilePath, inputFileContents);
+						if (ctx.hasErrors()) {
+							startOffset = -1;
+							endOffset = -1;
+						} else {
+							startOffset = plusCalAlgorithm.getLocation().getStartOffset();
+							endOffset = plusCalAlgorithm.getLocation().getEndOffset();
+						}
+					} else {
+						startOffset = -1;
+						endOffset = -1;
+					}
+				}
+				File tempFile = File.createTempFile("pluscal-", ".tla");
+				tempFile.deleteOnExit();
+				try (
+						FileChannel source = new RandomAccessFile(inputFilePath.toFile(), "r").getChannel();
+						FileChannel destination = new RandomAccessFile(tempFile, "rw").getChannel()
+				) {
+					if (startOffset != -1) {
+						long pos = destination.transferFrom(source, 0, startOffset);
+						pos += destination.write(StandardCharsets.UTF_8.encode(output.toString()), startOffset);
+						pos += destination.transferFrom(source.position(endOffset), pos, source.size() - endOffset);
+						destination.truncate(pos);
+					} else {
+						final int blockEndOffset = modularPlusCalBlock.getLocation().getEndOffset();
+						long pos = destination.transferFrom(source, 0, blockEndOffset);
+						pos += destination.write(StandardCharsets.UTF_8.encode("\n\n(* "), pos);
+						pos += destination.write(StandardCharsets.UTF_8.encode(output.toString()), pos);
+						pos += destination.write(StandardCharsets.UTF_8.encode("\n*)\n\n"), pos);
+						pos += destination.transferFrom(
+								source.position(blockEndOffset),
+								pos,
+								source.size() - blockEndOffset);
+						destination.truncate(pos);
+					}
+				}
+				Files.move(tempFile.toPath(), inputFilePath, StandardCopyOption.REPLACE_EXISTING);
+				return true;
+			}
 
 			logger.info("Inferring types");
 			Map<UID, PGoType> typeMap = TypeInferencePass.perform(ctx, registry, macroExpandedModularPlusCalBlock);
@@ -138,18 +206,14 @@ public class PGoMain {
 			logger.info("Inferring atomicity requirements");
 			AtomicityInferencePass.perform(registry, macroExpandedModularPlusCalBlock);
 
-			if (opts.mpcalCompile) {
-				// compilation of MPCal -> PCal
-				throw new UnsupportedOperationException("Generation of PCal specs from MPCal currently unsupported");
-
-			} else if (isMPCal) {
+			if (isMPCal) {
 				// compilation of MPCal -> Go
 				throw new UnsupportedOperationException("Compilation of MPCal specs currently unsupported");
 
 			} else {
 				// compilation of PCal -> Go
 				logger.info("Initial code generation");
-				GoModule goModule = CodeGenPass.perform(registry, typeMap, opts, macroExpandedModularPlusCalBlock);
+				GoModule goModule = GoCodeGenPass.perform(registry, typeMap, opts, macroExpandedModularPlusCalBlock);
 
 				logger.info("Normalising generated code");
 				GoModule normalisedGoModule = CodeNormalisingPass.perform(goModule);

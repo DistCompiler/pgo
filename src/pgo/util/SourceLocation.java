@@ -1,17 +1,22 @@
 package pgo.util;
 
 import java.nio.file.Path;
+import java.util.Objects;
 
 public class SourceLocation implements Comparable<SourceLocation> {
-	
 	private Path file;
+	private int startOffset;
+	private int endOffset;
 	private int startLine;
 	private int endLine;
 	private int startColumn;
 	private int endColumn;
 	
-	public SourceLocation(Path file, int startLine, int endLine, int startColumn, int endColumn) {
+	public SourceLocation(Path file, int startOffset, int endOffset, int startLine, int endLine, int startColumn,
+	                      int endColumn) {
 		this.file = file;
+		this.startOffset = startOffset;
+		this.endOffset = endOffset;
 		this.startLine = startLine;
 		this.endLine = endLine;
 		this.startColumn = startColumn;
@@ -19,7 +24,7 @@ public class SourceLocation implements Comparable<SourceLocation> {
 	}
 	
 	public static SourceLocation unknown() {
-		return new SourceLocation(null, -1, -1, -1, -1);
+		return new SourceLocation(null, -1, -1, -1, -1, -1, -1);
 	}
 	
 	public boolean isUnknown() {
@@ -53,6 +58,8 @@ public class SourceLocation implements Comparable<SourceLocation> {
 			mEndColumn = other.getEndColumn();
 		}
 		return new SourceLocation(file,
+				startOffset < other.startOffset ? startOffset : other.startOffset,
+				endOffset > other.endOffset ? endOffset : other.endOffset,
 				Integer.min(startLine, other.getStartLine()),
 				Integer.max(endLine, other.getEndLine()),
 				mStartColumn,
@@ -61,6 +68,14 @@ public class SourceLocation implements Comparable<SourceLocation> {
 
 	public Path getFile() {
 		return file;
+	}
+
+	public int getStartOffset() {
+		return startOffset;
+	}
+
+	public int getEndOffset() {
+		return endOffset;
 	}
 
 	public int getStartLine() {
@@ -86,6 +101,8 @@ public class SourceLocation implements Comparable<SourceLocation> {
 		result = prime * result + endColumn;
 		result = prime * result + endLine;
 		result = prime * result + ((file == null) ? 0 : file.hashCode());
+		result = prime * result + startOffset;
+		result = prime * result + endOffset;
 		result = prime * result + startColumn;
 		result = prime * result + startLine;
 		return result;
@@ -93,55 +110,60 @@ public class SourceLocation implements Comparable<SourceLocation> {
 
 	@Override
 	public boolean equals(Object obj) {
-		if (this == obj)
+		if (this == obj) {
 			return true;
-		if (obj == null)
+		}
+		if (obj == null) {
 			return false;
-		if (getClass() != obj.getClass())
+		}
+		if (getClass() != obj.getClass()) {
 			return false;
+		}
 		SourceLocation other = (SourceLocation) obj;
-		if (endColumn != other.endColumn)
-			return false;
-		if (endLine != other.endLine)
-			return false;
-		if (file == null) {
-			if (other.file != null)
-				return false;
-		} else if (!file.equals(other.file))
-			return false;
-		if (startColumn != other.startColumn)
-			return false;
-		return startLine == other.startLine;
+		return endColumn == other.endColumn && endLine == other.endLine && startColumn == other.startColumn &&
+				startOffset == other.startOffset && endOffset == other.endOffset && startLine == other.startLine &&
+				Objects.equals(file, other.file);
 	}
 
 	@Override
 	public String toString() {
-		if(isUnknown()) {
+		if (isUnknown()) {
 			return "SourceLocation [UNKNOWN]";
-		}else {
-			return "SourceLocation [file=" + file + ", startLine=" + startLine + ", endLine=" + endLine + ", startColumn="
-					+ startColumn + ", endColumn=" + endColumn + "]";
+		} else {
+			return "SourceLocation [file=" + file + ", startOffset=" + startOffset + ", endOffset=" + endOffset +
+					", startLine=" + startLine + ", endLine=" + endLine + ", startColumn=" + startColumn +
+					", endColumn=" + endColumn + "]";
 		}
 	}
 
 	@Override
 	public int compareTo(SourceLocation o) {
-		if(isUnknown() && o.isUnknown()) return 0;
-		if(isUnknown()) {
+		if (isUnknown() && o.isUnknown()) {
+			return 0;
+		}
+		if (isUnknown()) {
 			return -1;
 		}
-		if(o.isUnknown()) {
+		if (o.isUnknown()) {
 			return 1;
 		}
-		if(getFile().equals(getFile())) {
-			if(getStartLine() == o.getStartLine()) {
-				return Integer.compare(getStartColumn(), o.getStartColumn());
-			}else {
-				return Integer.compare(getStartLine(), o.getStartLine());
-			}
-		}else {
-			return getFile().compareTo(o.getFile());
+		int comparedFile = getFile().compareTo(o.getFile());
+		if (comparedFile != 0) {
+			return comparedFile;
 		}
+		int comparedStartLine = Integer.compare(getStartLine(), o.getStartLine());
+		if (comparedStartLine != 0) {
+			return comparedStartLine;
+		}
+		int comparedStartColumn = Integer.compare(getStartColumn(), o.getStartColumn());
+		if (comparedStartColumn != 0) {
+			return comparedStartColumn;
+		}
+		int comparedStartOffset = Integer.compare(getStartOffset(), o.getStartOffset());
+		if (comparedStartOffset != 0) {
+			return comparedStartOffset;
+		}
+		return Integer.compare(getEndOffset(), o.getEndOffset());
 	}
-	
+
 }

@@ -10,9 +10,9 @@ import pgo.model.golang.type.GoSliceType;
 import pgo.model.golang.type.GoType;
 import pgo.model.type.*;
 import pgo.scope.UID;
-import pgo.trans.passes.codegen.EqCodeGenVisitor;
-import pgo.trans.passes.codegen.LessThanCodeGenVisitor;
-import pgo.trans.passes.codegen.TLAExpressionCodeGenVisitor;
+import pgo.trans.passes.codegen.go.EqCodeGenVisitor;
+import pgo.trans.passes.codegen.go.LessThanCodeGenVisitor;
+import pgo.trans.passes.codegen.go.TLAExpressionCodeGenVisitor;
 import pgo.util.Origin;
 
 import java.util.*;

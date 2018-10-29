@@ -1,4 +1,4 @@
-package pgo.trans.passes.codegen;
+package pgo.trans.passes.codegen.go;
 
 import pgo.PGoNetOptions;
 import pgo.PGoOptions;
@@ -16,8 +16,8 @@ import pgo.trans.intermediate.SingleThreadedProcessGlobalVariableStrategy;
 
 import java.util.Map;
 
-public class CodeGenPass {
-	private CodeGenPass() {}
+public class GoCodeGenPass {
+	private GoCodeGenPass() {}
 
 	public static GoModule perform(DefinitionRegistry registry, Map<UID, PGoType> typeMap, PGoOptions opts,
 	                               ModularPlusCalBlock modularPlusCalBlock) {

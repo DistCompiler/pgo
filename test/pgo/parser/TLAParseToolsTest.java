@@ -35,12 +35,18 @@ public class TLAParseToolsTest {
 				.map(seq -> seq.getValue().getFirst());
 	}
 
-	private <Result extends SourceLocatable> void checkLocation(Grammar<Result> grammar, LexicalContext ctx, int startColumn, int endColumn, int startLine, int endLine) throws ParseFailureException {
+	private <Result extends SourceLocatable> void checkLocation(Grammar<Result> grammar, LexicalContext ctx,
+	                                                            int startOffset, int endOffset, int startColumn,
+	                                                            int endColumn, int startLine, int endLine)
+			throws ParseFailureException {
 		Result res = executeGrammar(grammar, ctx);
 		
 		SourceLocation loc = res.getLocation();
-		assertThat(Arrays.asList(loc.getStartColumn(), loc.getEndColumn(), loc.getStartLine(), loc.getEndLine()),
-				is(Arrays.asList(startColumn, endColumn, startLine, endLine)));
+		assertThat(
+				Arrays.asList(
+						loc.getStartOffset(), loc.getEndOffset(), loc.getStartColumn(), loc.getEndColumn(),
+						loc.getStartLine(), loc.getEndLine()),
+				is(Arrays.asList(startOffset, endOffset, startColumn, endColumn, startLine, endLine)));
 	}
 
 	@Test(expected = ParseFailureException.class)
@@ -51,19 +57,19 @@ public class TLAParseToolsTest {
 	@Test
 	public void testOneSpaceIsWhitespace() throws ParseFailureException {
 		checkLocation(matchWhitespace(), ctx(" "),
-				1, 2, 1, 1);
+				0, 1, 1, 2, 1, 1);
 	}
 
 	@Test
 	public void testMatchUnitString() throws ParseFailureException {
 		checkLocation(matchString("1"), ctx("1"),
-				1, 2, 1, 1);
+				0, 1, 1, 2, 1, 1);
 	}
 
 	@Test
 	public void testMatchSubString() throws ParseFailureException {
 		checkLocation(matchString("1"), ctx("12"),
-				1, 2, 1, 1);
+				0, 1, 1, 2, 1, 1);
 	}
 
 	@Test(expected = ParseFailureException.class)
@@ -79,21 +85,21 @@ public class TLAParseToolsTest {
 	@Test
 	public void testEmptyComment() throws ParseFailureException {
 		checkLocation(matchTLAComment(), ctx("(**)"),
-				1, 5, 1, 1);
+				0, 4, 1, 5, 1, 1);
 	}
 
 	@Test
 	public void testSkipTLAComments1() throws ParseFailureException {
 		checkLocation(
 				skipWhitespaceAndTLAComments(), ctx(""),
-				1, 1, 1, 1);
+				0, 0, 1, 1, 1, 1);
 	}
 
 	@Test
 	public void testSkipTLAComments2() throws ParseFailureException {
 		checkLocation(
 				skipWhitespaceAndTLAComments(), ctx("  (* (* *) (* *) *)  "),
-				1, 22, 1, 1);
+				0, 21, 1, 22, 1, 1);
 	}
 
 	@Test
@@ -115,14 +121,14 @@ public class TLAParseToolsTest {
 						"  }\n" +
 						"}\n" +
 						"*)"),
-				1, 3, 1, 16);
+				0, 252, 1, 3, 1, 16);
 	}
 
 	@Test
 	public void testMatchTLAComment2() throws ParseFailureException {
 		checkLocation(matchTLAComment(),
 				ctx("(*\n*)"),
-				1, 3, 1, 2);
+				0, 5, 1, 3, 1, 2);
 	}
 
 	@Test
@@ -146,7 +152,7 @@ public class TLAParseToolsTest {
 				"}\n" +
 				"*)\n" +
 				"\\* BEGIN TRANSLATION\n"),
-				1, 21, 19, 19);
+				274, 294, 1, 21, 19, 19);
 	}
 
 	@Test
@@ -155,7 +161,7 @@ public class TLAParseToolsTest {
 						"\n" +
 						"(**)\n" +
 						"\\* BEGIN TRANSLATION\n"),
-				1, 21, 4, 4);
+				7, 27, 1, 21, 4, 4);
 	}
 
 	@Test
@@ -164,7 +170,7 @@ public class TLAParseToolsTest {
 						"\n" +
 						"\\*\n" +
 						"\\* BEGIN TRANSLATION\n"),
-				1, 21, 4, 4);
+				5, 25, 1, 21, 4, 4);
 	}
 
 	@Test
@@ -173,25 +179,25 @@ public class TLAParseToolsTest {
 						"\n" +
 						"\n" +
 						"\\* BEGIN TRANSLATION\n"),
-				1, 21, 4, 4);
+				3, 23, 1, 21, 4, 4);
 	}
 
 	@Test
 	public void testRepeat1() throws ParseFailureException {
 		checkLocation(repeat(parseOneOf(matchString("a"), matchString("b"))), ctx("abab"),
-				1, 5, 1, 1);
+				0, 4, 1, 5, 1, 1);
 	}
 
 	@Test
 	public void testRepeat2() throws ParseFailureException {
 		checkLocation(repeat(parseOneOf(parseOneOf(matchString("a"), matchString("c")), matchString("b"))), ctx("acbacb"),
-				1, 7, 1, 1);
+				0, 6, 1, 7, 1, 1);
 	}
 
 	@Test
 	public void testRepeat3() throws ParseFailureException {
 		checkLocation(repeat(matchString("a")), ctx("aaa"),
-				1, 4, 1, 1);
+				0, 3, 1, 4, 1, 1);
 	}
 
 	@Test
@@ -201,13 +207,13 @@ public class TLAParseToolsTest {
 				"\n" +
 				"(* If all processes are done, the counter should be equal the\n" +
 				"   number of processes times the number of iterations each performed *)"),
-				1, 1, 2, 3);
+				1, 20, 1, 1, 2, 3);
 	}
 
 	@Test
 	public void testParseIdentifier() throws ParseFailureException {
 		checkLocation(parseTLAIdentifier(), ctx(" Euclid"),
-				2, 8, 1, 1);
+				1, 7, 2, 8, 1, 1);
 	}
 
 	@Test(expected = ParseFailureException.class)
@@ -227,7 +233,7 @@ public class TLAParseToolsTest {
 						.drop(reject(matchString("b")))
 						.drop(matchString("a")),
 				ctx("a"),
-				1, 2, 1, 1);
+				0, 1, 1, 2, 1, 1);
 	}
 
 	@Test
@@ -235,7 +241,7 @@ public class TLAParseToolsTest {
 		checkLocation(
 				parseOneOf(matchString("a"), matchString("b")),
 				ctx("a"),
-				1, 2, 1, 1);
+				0, 1, 1, 2, 1, 1);
 	}
 
 	@Test
@@ -243,7 +249,7 @@ public class TLAParseToolsTest {
 		checkLocation(
 				parseOneOf(matchString("a"), matchString("b")),
 				ctx("b"),
-				1, 2, 1, 1);
+				0, 1, 1, 2, 1, 1);
 	}
 
 	@Test
@@ -257,7 +263,7 @@ public class TLAParseToolsTest {
 						))
 						.drop(matchString("c")),
 				ctx("abc"),
-				1, 4, 1, 1);
+				0, 3, 1, 4, 1, 1);
 	}
 
 	@Test
@@ -271,7 +277,7 @@ public class TLAParseToolsTest {
 						).map(v -> v))
 						.drop(matchString("c")),
 				ctx("abc"),
-				1, 4, 1, 1);
+				0, 3, 1, 4, 1, 1);
 	}
 
 	@Test
@@ -279,7 +285,7 @@ public class TLAParseToolsTest {
 		checkLocation(
 				parseFairnessConstraint(),
 				ctx("WF_foo(bar)"),
-				1, 12, 1, 1);
+				0, 11, 1, 12, 1, 1);
 	}
 
 	@Test
@@ -300,40 +306,38 @@ public class TLAParseToolsTest {
 						.drop(parseOneOf(matchString("bc"), matchString("b")))
 						.drop(matchString("c")),
 				ctx("abc"),
-				1, 4, 1, 1);
+				0, 3, 1, 4, 1, 1);
 	}
 
 	@Test
 	public void testParseGeneralIdentifier() throws ParseFailureException {
 		checkLocation(parseGeneralIdentifier(), ctx("a(1,2)!b"),
-				1, 9, 1, 1);
+				0, 8, 1, 9, 1, 1);
 	}
 
 	@Test
 	public void testEnumerate1() {
 		assertThat(wrapMinColumn(EXPRESSION).enumerate(ctx("foo")),
-				is(Arrays.asList(idexp("foo"))));
+				is(Collections.singletonList(idexp("foo"))));
 	}
 
 	@Test
 	public void testEnumerate2() {
 		assertThat(wrapMinColumn(EXPRESSION).enumerate(ctx("/\\ foo")),
-				is(Arrays.asList(idexp("foo"))));
+				is(Collections.singletonList(idexp("foo"))));
 	}
 
 	@Test
 	public void testEnumerate3() {
 		assertThat(repeat(matchString("a")).enumerate(ctx("")),
-				is(Arrays.asList(
-						Collections.emptyList()
-				)));
+				is(Collections.singletonList(Collections.emptyList() )));
 	}
 
 	@Test
 	public void testEnumerate4() {
 		assertThat(repeat(matchString("a")).enumerate(ctx("a")),
 				is(Arrays.asList(
-						Collections.singletonList(new Located<>(new SourceLocation(Paths.get("TEST"), 1, 1, 1, 2), null)),
+						Collections.singletonList(new Located<>(new SourceLocation(Paths.get("TEST"), 0, 1, 1, 1, 1, 2), null)),
 						Collections.emptyList()
 				)));
 	}
@@ -343,10 +347,10 @@ public class TLAParseToolsTest {
 		assertThat(repeat(matchString("a")).enumerate(ctx("aa")),
 				is(Arrays.asList(
 						Arrays.asList(
-								new Located<>(new SourceLocation(Paths.get("TEST"), 1, 1, 1, 2), null),
-								new Located<>(new SourceLocation(Paths.get("TEST"), 1, 1, 2, 3), null)
+								new Located<>(new SourceLocation(Paths.get("TEST"), 0, 1, 1, 1, 1, 2), null),
+								new Located<>(new SourceLocation(Paths.get("TEST"), 1, 2, 1, 1, 2, 3), null)
 						),
-						Collections.singletonList(new Located<>(new SourceLocation(Paths.get("TEST"), 1, 1, 1, 2), null)),
+						Collections.singletonList(new Located<>(new SourceLocation(Paths.get("TEST"), 0, 1, 1, 1, 1, 2), null)),
 						Collections.emptyList()
 				)));
 	}
@@ -373,7 +377,7 @@ public class TLAParseToolsTest {
 				"*)\n" +
 				"\\* BEGIN TRANSLATION\n" +
 				"VARIABLES"),
-				1, 1, 1, 20);
+				0, 293, 1, 1, 1, 20);
 	}
 
 	@Test
@@ -413,45 +417,45 @@ public class TLAParseToolsTest {
 		System.out.println(theString);
 
 		checkLocation(parse4DashesOrMore(), ctx,
-				1, 25, 1, 1);
+				0, 24, 1, 25, 1, 1);
 		checkLocation(parseTLAToken("MODULE"), ctx,
-				26, 32, 1, 1);
+				25, 31, 26, 32, 1, 1);
 		checkLocation(parseTLAIdentifier(), ctx,
-				33, 39, 1, 1);
+				32, 38, 33, 39, 1, 1);
 		checkLocation(parse4DashesOrMore(), ctx,
-				40, 68, 1, 1);
+				39, 67, 40, 68, 1, 1);
 
 		checkLocation(parseTLAToken("EXTENDS"), ctx,
-				1, 8, 2, 2);
+				68, 75, 1, 8, 2, 2);
 		checkLocation(parseCommaList(parseTLAIdentifier()), ctx,
-				9, 22, 2, 2);
+				76, 89, 9, 22, 2, 2);
 
 		checkLocation(parseTLAToken("CONSTANT"), ctx,
-				1, 9, 3, 3);
+				90, 98, 1, 9, 3, 3);
 		checkLocation(parseTLAIdentifier(), ctx,
-				10, 11, 3, 3);
+				99, 100, 10, 11, 3, 3);
 
 		checkLocation(skipWhitespaceAndTLAComments(), ctx,
-				11, 1, 3, 22);
+				100, 393, 11, 1, 3, 22);
 
 		checkLocation(parseTLAToken("VARIABLES"), ctx,
-				1, 10, 22, 22);
+				393, 402, 1, 10, 22, 22);
 		checkLocation(parseCommaList(parseTLAIdentifier()), ctx,
-				11, 27, 22, 22);
+				403, 419, 11, 27, 22, 22);
 
 		checkLocation(parseTLAIdentifier(), ctx,
-				1, 5, 24, 24);
+				421, 425, 1, 5, 24, 24);
 		checkLocation(parseTLAToken("=="), ctx,
-				6, 8, 24, 24);
+				426, 428, 6, 8, 24, 24);
 		checkLocation(parseExpression(), ctx,
-				9, 31, 24, 24);
+				429, 451, 9, 31, 24, 24);
 
 		checkLocation(parseTLAIdentifier(), ctx,
-				1, 5, 26, 26);
+				453, 457, 1, 5, 26, 26);
 		checkLocation(parseTLAToken("=="), ctx,
-				6, 8, 26, 26);
+				458, 460, 6, 8, 26, 26);
 		checkLocation(parseExpression(), ctx,
-				9, 20, 27, 30);
+				492, 567, 9, 20, 27, 30);
 	}
 
 }

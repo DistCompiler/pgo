@@ -1,53 +1,70 @@
-package pgo.trans.passes.conversion;
+package pgo.trans.passes.codegen.pluscal;
 
+import pgo.Unreachable;
 import pgo.errors.IssueContext;
+import pgo.model.golang.NameCleaner;
 import pgo.model.mpcal.*;
 import pgo.model.pcal.*;
 import pgo.model.tla.TLAExpression;
 import pgo.model.tla.TLAGeneralIdentifier;
 import pgo.model.tla.TLARef;
+import pgo.scope.UID;
+import pgo.trans.intermediate.DefinitionRegistry;
 import pgo.trans.intermediate.UnsupportedFeatureIssue;
-import pgo.trans.passes.expansion.ModularPlusCalMappingMacroExpansionVisitor;
 
 import java.util.*;
+import java.util.stream.Stream;
 
-public class PlusCalConversionPass {
-	private PlusCalConversionPass() {}
+public class PlusCalCodeGenPass {
+	private PlusCalCodeGenPass() {}
 
-	public static PlusCalAlgorithm perform(IssueContext ctx, ModularPlusCalBlock modularPlusCalBlock) {
-		Map<String, ModularPlusCalArchetype> archetypes = new HashMap<>();
-		for (ModularPlusCalArchetype archetype : modularPlusCalBlock.getArchetypes()) {
-			archetypes.put(archetype.getName(), archetype);
+	public static PlusCalAlgorithm perform(IssueContext ctx, DefinitionRegistry registry,
+										   ModularPlusCalBlock modularPlusCalBlock) {
+		// TODO seed with variable declaration in with and let statements
+		Set<String> nameCleanerSeed = new HashSet<>();
+		for (PlusCalProcedure procedure : modularPlusCalBlock.getProcedures()) {
+			nameCleanerSeed.add(procedure.getName());
+			Stream.concat(procedure.getVariables().stream(), procedure.getArguments().stream())
+					.forEach(v -> nameCleanerSeed.add(v.getName().getValue()));
 		}
-
-		Map<String, ModularPlusCalMappingMacro> mappingMacros = new HashMap<>();
-		for (ModularPlusCalMappingMacro mappingMacro : modularPlusCalBlock.getMappingMacros()) {
-			mappingMacros.put(mappingMacro.getName(), mappingMacro);
-		}
-
-		List<PlusCalProcess> processList = new ArrayList<>();
-		for (ModularPlusCalInstance instance : modularPlusCalBlock.getInstances()) {
-			Map<String, List<String>> mappings = new HashMap<>();
-			for (ModularPlusCalMapping mapping : instance.getMappings()) {
-				String name = mapping.getVariable().getName();
-				if (mappings.containsKey(name)) {
-					mappings.get(name).add(mapping.getTarget().getName());
-				} else {
-					List<String> l = new ArrayList<>();
-					l.add(mapping.getTarget().getName());
-					mappings.put(name, l);
+		if (modularPlusCalBlock.getProcesses() instanceof PlusCalMultiProcess) {
+			for (PlusCalProcess process : ((PlusCalMultiProcess) modularPlusCalBlock.getProcesses()).getProcesses()) {
+				nameCleanerSeed.add(process.getName().getName().getValue());
+				for (PlusCalVariableDeclaration declaration : process.getVariables()) {
+					nameCleanerSeed.add(declaration.getName().getValue());
 				}
 			}
-			ModularPlusCalArchetype archetype = archetypes.get(instance.getTarget());
-			Map<String, PlusCalVariableDeclaration> arguments = new HashMap<>();
-			Map<String, TLAExpression> boundArguments = new HashMap<>();
+		}
+		for (ModularPlusCalArchetype archetype : modularPlusCalBlock.getArchetypes()) {
+            nameCleanerSeed.add(archetype.getName());
+            Stream.concat(archetype.getArguments().stream(), archetype.getArguments().stream())
+		            .forEach(v -> nameCleanerSeed.add(v.getName().getValue()));
+		}
+		for (ModularPlusCalMappingMacro mappingMacro : modularPlusCalBlock.getMappingMacros()) {
+            nameCleanerSeed.add(mappingMacro.getName());
+		}
+		for (ModularPlusCalInstance instance : modularPlusCalBlock.getInstances()) {
+			nameCleanerSeed.add(instance.getName().getName().getValue());
+		}
+		NameCleaner nameCleaner = new NameCleaner(nameCleanerSeed);
+		List<PlusCalProcess> processList = new ArrayList<>();
+		for (ModularPlusCalInstance instance : modularPlusCalBlock.getInstances()) {
+			Map<UID, ModularPlusCalMappingMacro> mappings = new HashMap<>();
+			for (ModularPlusCalMapping mapping : instance.getMappings()) {
+				mappings.put(
+						registry.followReference(mapping.getVariable().getUID()),
+						registry.findMappingMacro(mapping.getTarget().getName()));
+			}
+			ModularPlusCalArchetype archetype = registry.findArchetype(instance.getTarget());
+			Map<UID, PlusCalVariableDeclaration> arguments = new HashMap<>();
+			Map<UID, TLAExpression> boundValues = new HashMap<>();
 			List<PlusCalVariableDeclaration> variables = new ArrayList<>(archetype.getVariables());
 			for (int i = 0; i < archetype.getArguments().size(); i++) {
 				PlusCalVariableDeclaration argument = archetype.getArguments().get(i);
-				String name = argument.getName().getValue();
+				UID uid = argument.getUID();
 				TLAExpression value = instance.getParams().get(i);
-				arguments.put(name, argument);
-				boundArguments.put(name, value);
+				arguments.put(uid, argument);
+				boundValues.put(uid, value);
 				if (!(value instanceof TLARef) && !(value instanceof TLAGeneralIdentifier)) {
 					// this argument is bound to a TLA+ expression, so we need to add a variable declaration for it
 					// TODO renaming
@@ -57,14 +74,14 @@ public class PlusCalConversionPass {
 			}
 			List<PlusCalStatement> body = new ArrayList<>();
 			ModularPlusCalMappingMacroExpansionVisitor v = new ModularPlusCalMappingMacroExpansionVisitor(
-					ctx, arguments, boundArguments, mappingMacros, mappings);
+					registry, nameCleaner, arguments, boundValues, variables, mappings);
 			for (PlusCalStatement statement : archetype.getBody()) {
 				body.addAll(statement.accept(v));
 			}
 			processList.add(new PlusCalProcess(
 					instance.getLocation(),
 					instance.getName(),
-					PlusCalFairness.UNFAIR,
+					instance.getFairness(),
 					variables,
 					body));
 		}
@@ -74,6 +91,8 @@ public class PlusCalConversionPass {
 		} else if (processes instanceof PlusCalMultiProcess) {
 			processList.addAll(((PlusCalMultiProcess) processes).getProcesses());
 			processes = new PlusCalMultiProcess(processes.getLocation(), processList);
+		} else {
+			throw new Unreachable();
 		}
 		return new PlusCalAlgorithm(
 				modularPlusCalBlock.getLocation(),

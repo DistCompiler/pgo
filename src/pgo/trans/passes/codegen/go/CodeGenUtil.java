@@ -1,4 +1,4 @@
-package pgo.trans.passes.codegen;
+package pgo.trans.passes.codegen.go;
 
 import pgo.model.golang.*;
 import pgo.model.golang.builder.GoBlockBuilder;

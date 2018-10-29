@@ -1,4 +1,4 @@
-package pgo.trans.passes.codegen;
+package pgo.trans.passes.codegen.go;
 
 import pgo.model.golang.GoExpression;
 import pgo.model.golang.GoIndexExpression;

@@ -6,6 +6,7 @@ import pgo.model.type.UnsatisfiableConstraintIssue;
 import pgo.trans.intermediate.*;
 import pgo.trans.passes.expansion.*;
 import pgo.trans.passes.parse.tla.ParsingIssue;
+import pgo.trans.passes.scope.MultipleMappingIssue;
 import pgo.trans.passes.type.TypeInferenceFailureIssue;
 
 public abstract class IssueVisitor<T, E extends Throwable> {
@@ -26,9 +27,8 @@ public abstract class IssueVisitor<T, E extends Throwable> {
 	public abstract T visit(RecursiveMacroCallIssue recursiveMacroCallIssue) throws E;
 	public abstract T visit(MacroArgumentInnerScopeConflictIssue macroArgumentInnerScopeConflictIssue) throws E;
 	public abstract T visit(MultiplyDeclaredLabelIssue multiplyDeclaredLabelIssue) throws E;
+	public abstract T visit(MultipleMappingIssue multipleMappingIssue) throws E;
 	public abstract T visit(MacroNameConflictIssue macroNameConflictIssue) throws E;
-	public abstract T visit(ArchetypeNameConflictIssue archetypeNameConflictIssue) throws E;
-	public abstract T visit(MappingMacroNameConflictIssue mappingMacroNameConflictIssue) throws E;
 	public abstract T visit(BacktrackingFailureIssue backtrackingFailureIssue) throws E;
 	public abstract T visit(UnrealizableTypeIssue unrealizableTypeIssue) throws E;
 	public abstract T visit(UnsatisfiableConstraintIssue unsatisfiableConstraintIssue) throws E;
@@ -38,6 +38,5 @@ public abstract class IssueVisitor<T, E extends Throwable> {
 	public abstract T visit(MissingLabelIssue missingLabelIssue) throws E;
 	public abstract T visit(LabelNotAllowedIssue labelNotAllowedIssue) throws E;
 	public abstract T visit(ReservedLabelNameIssue reservedLabelNameIssue) throws E;
-	public abstract T visit(UnknownArchetypeTargetIssue unknownArchetypeTargetIssue) throws E;
 	public abstract T visit(InstanceArgumentCountMismatchIssue instanceArgumentCountMismatchIssue) throws E;
 }

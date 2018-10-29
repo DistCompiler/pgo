@@ -56,26 +56,28 @@ public class LexicalContext {
 		return new Mark(line, column, index);
 	}
 
-	private SourceLocation updateLocation(String match){
+	private SourceLocation updateLocation(String match) {
 		int startLine = line + 1;
 		int startColumn = column + 1;
+		int startOffset = index;
 		index += match.length();
 		String lf = System.lineSeparator();
 		int pos = 0;
-		while(true){
+		while (true) {
 			int nextLf = match.indexOf(lf, pos);
-			if(nextLf == -1) break;
+			if (nextLf == -1) break;
 			++line;
 			pos = nextLf + lf.length();
 		}
-		if(pos == 0){
+		if (pos == 0) {
 			// we didn't change line, just advanced the position along the line
 			column += match.length();
-		}else{
+		} else {
 			// we are on a new line, reset column
 			column = match.length() - pos;
 		}
-		return new SourceLocation(filePath, startLine, line + 1, startColumn, column + 1);
+		return new SourceLocation(
+				filePath, startOffset, index, startLine, line + 1, startColumn, column + 1);
 	}
 
 	/**
@@ -83,33 +85,33 @@ public class LexicalContext {
 	 * @param pattern the pattern to match
 	 * @return the result of the match, or null on failure
 	 */
-	public Optional<Located<MatchResult>> matchPattern(Pattern pattern){
-		if(index > chars.length()) return Optional.empty();
+	public Optional<Located<MatchResult>> matchPattern(Pattern pattern) {
+		if (index > chars.length()) return Optional.empty();
 		Matcher m = pattern.matcher(chars);
 		m.region(index, chars.length());
-		if(m.lookingAt()){
+		if (m.lookingAt()) {
 			return Optional.of(new Located<>(
 					updateLocation(m.group()),
 					m.toMatchResult()));
-		}else{
+		} else {
 			return Optional.empty();
 		}
 	}
 
-	public Optional<Located<Void>> matchString(String string){
-		if(index + string.length() <= chars.length()
-				&& string.contentEquals(chars.subSequence(index, index+string.length()))){
+	public Optional<Located<Void>> matchString(String string) {
+		if (index + string.length() <= chars.length()
+				&& string.contentEquals(chars.subSequence(index, index+string.length()))) {
 			return Optional.of(new Located<>(updateLocation(string), null));
-		}else{
+		} else {
 			return Optional.empty();
 		}
 	}
 
-	public SourceLocation getSourceLocation(){
-		return new SourceLocation(filePath, line+1, line+1, column+1, column+1);
+	public SourceLocation getSourceLocation() {
+		return new SourceLocation(filePath, index, index, line+1, line+1, column+1, column+1);
 	}
 
-	public boolean isEOF(){
+	public boolean isEOF() {
 		return index >= chars.length();
 	}
 	

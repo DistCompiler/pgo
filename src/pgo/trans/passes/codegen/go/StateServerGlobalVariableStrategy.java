@@ -1,4 +1,4 @@
-package pgo.trans.passes.codegen;
+package pgo.trans.passes.codegen.go;
 
 import pgo.PGoNetOptions;
 import pgo.Unreachable;
@@ -135,6 +135,7 @@ public class StateServerGlobalVariableStrategy extends GlobalVariableStrategy {
 				new GoCall(
 						new GoSelectorExpression(new GoVariableName("distsys"), "NewStateServer"),
 						Arrays.asList(
+								processPlusArgument,
 								peers,
 								ipPort,
 								coordinator,
