@@ -25,6 +25,7 @@ import pgo.trans.passes.scope.ScopingPass;
 import pgo.trans.passes.parse.tla.TLAParsingPass;
 
 import java.io.*;
+import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
@@ -32,6 +33,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -146,25 +148,64 @@ public class PGoMain {
 			if (opts.mpcalCompile) {
 				// compilation of MPCal -> PCal
 				logger.info("Generating PlusCal code");
-				File output = File.createTempFile("pluscal-", ".tla");
-				output.deleteOnExit();
-				try (
-						BufferedWriter writer = new BufferedWriter(new FileWriter(output));
-						IndentingWriter out = new IndentingWriter(writer)
-				) {
-                    PlusCalAlgorithm algorithm = PlusCalCodeGenPass.perform(
-							ctx, registry, macroExpandedModularPlusCalBlock);
-                    checkErrors(ctx);
-                    algorithm.accept(new PlusCalNodeFormattingVisitor(out));
+				StringWriter output = new StringWriter();
+				try (IndentingWriter out = new IndentingWriter(output)) {
+					PlusCalAlgorithm algorithm = PlusCalCodeGenPass.perform(ctx, registry, macroExpandedModularPlusCalBlock);
+					checkErrors(ctx);
+					algorithm.accept(new PlusCalNodeFormattingVisitor(out));
 				}
+				// TODO deal with non-ASCII
+				final int startOffset;
+				final int endOffset;
+				// parse the algorithm block to know where it is
 				try (
-						FileChannel source = new RandomAccessFile(output, "r").getChannel();
-						FileChannel destination = new RandomAccessFile(new File("output.tla"), "rw")
+						FileChannel fileChannel = new RandomAccessFile(inputFilePath.toFile(), "r")
 								.getChannel()
 				) {
-                    long pos = destination.transferFrom(source, 0, source.size());
-                    destination.truncate(pos);
+					MappedByteBuffer buffer = fileChannel.map(
+							FileChannel.MapMode.READ_ONLY, 0, fileChannel.size());
+					// assume UTF-8, though technically TLA+ is ASCII only according to the book
+					CharBuffer inputFileContents = StandardCharsets.UTF_8.decode(buffer);
+					if (PlusCalParsingPass.hasAlgorithmBlock(inputFilePath, inputFileContents)) {
+						final PlusCalAlgorithm plusCalAlgorithm = PlusCalParsingPass.perform(
+								ctx, inputFilePath, inputFileContents);
+						if (ctx.hasErrors()) {
+							startOffset = -1;
+							endOffset = -1;
+						} else {
+							startOffset = plusCalAlgorithm.getLocation().getStartOffset();
+							endOffset = plusCalAlgorithm.getLocation().getEndOffset();
+						}
+					} else {
+						startOffset = -1;
+						endOffset = -1;
+					}
 				}
+				File tempFile = File.createTempFile("pluscal-", ".tla");
+				tempFile.deleteOnExit();
+				try (
+						FileChannel source = new RandomAccessFile(inputFilePath.toFile(), "r").getChannel();
+						FileChannel destination = new RandomAccessFile(tempFile, "rw").getChannel()
+				) {
+					if (startOffset != -1) {
+						long pos = destination.transferFrom(source, 0, startOffset);
+						pos += destination.write(StandardCharsets.UTF_8.encode(output.toString()), startOffset);
+						pos += destination.transferFrom(source.position(endOffset), pos, source.size() - endOffset);
+						destination.truncate(pos);
+					} else {
+						final int blockEndOffset = modularPlusCalBlock.getLocation().getEndOffset();
+						long pos = destination.transferFrom(source, 0, blockEndOffset);
+						pos += destination.write(StandardCharsets.UTF_8.encode("\n\n(* "), pos);
+						pos += destination.write(StandardCharsets.UTF_8.encode(output.toString()), pos);
+						pos += destination.write(StandardCharsets.UTF_8.encode("\n*)\n\n"), pos);
+						pos += destination.transferFrom(
+								source.position(blockEndOffset),
+								pos,
+								source.size() - blockEndOffset);
+						destination.truncate(pos);
+					}
+				}
+				Files.move(tempFile.toPath(), inputFilePath, StandardCopyOption.REPLACE_EXISTING);
 				return true;
 			} else if (isMPCal) {
 				// compilation of MPCal -> Go
