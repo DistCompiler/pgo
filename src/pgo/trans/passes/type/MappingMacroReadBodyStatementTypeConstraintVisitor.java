@@ -13,10 +13,10 @@ public class MappingMacroReadBodyStatementTypeConstraintVisitor extends PlusCalS
 
 	public MappingMacroReadBodyStatementTypeConstraintVisitor(IssueContext ctx, DefinitionRegistry registry,
 	                                                          PGoTypeSolver solver, PGoTypeGenerator generator,
-	                                                          Map<UID, PGoTypeVariable> mapping, UID readValueUID) {
+	                                                          Map<UID, PGoTypeVariable> mapping,
+	                                                          PGoTypeVariable readValueTypeVariable) {
 		super(ctx, registry, solver, generator, mapping);
-		this.readValueTypeVariable = generator.get();
-		mapping.put(readValueUID, readValueTypeVariable);
+		this.readValueTypeVariable = readValueTypeVariable;
 	}
 
 	@Override

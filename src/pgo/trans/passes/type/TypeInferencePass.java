@@ -119,7 +119,7 @@ public class TypeInferencePass {
 			mapping.put(mappingMacro.getSpecialVariableValueUID(), generator.get());
 			for (PlusCalStatement statement : mappingMacro.getReadBody()) {
 				statement.accept(new MappingMacroReadBodyStatementTypeConstraintVisitor(
-						ctx, registry, solver, generator, mapping, mappingMacro.getReadValueUID()));
+						ctx, registry, solver, generator, mapping, mapping.get(mappingMacro.getReadValueUID())));
 			}
 			for (PlusCalStatement statement : mappingMacro.getWriteBody()) {
 				statement.accept(new PlusCalStatementTypeConstraintVisitor(ctx, registry, solver, generator, mapping));
