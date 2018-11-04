@@ -5,7 +5,10 @@ import pgo.model.golang.type.GoType;
 import pgo.model.mpcal.ModularPlusCalArchetype;
 import pgo.model.mpcal.ModularPlusCalMappingMacro;
 import pgo.model.pcal.PlusCalProcedure;
+import pgo.model.pcal.PlusCalVariableDeclaration;
 import pgo.model.tla.*;
+import pgo.model.type.PGoTypeGenerator;
+import pgo.model.type.PGoTypeVariable;
 import pgo.scope.UID;
 
 import java.util.*;
@@ -21,6 +24,8 @@ public class DefinitionRegistry {
 	private Map<UID, UID> references;
 	private Map<String, PlusCalProcedure> procedures;
 	private Map<String, ModularPlusCalArchetype> archetypes;
+	private Map<UID, PGoTypeVariable> readValueTypes;
+	private Map<UID, PGoTypeVariable> writtenValueTypes;
 	private Map<String, ModularPlusCalMappingMacro> mappingMacros;
 	private Map<UID, Integer> labelsToLockGroups;
 	private Map<Integer, Set<UID>> lockGroupsToVariableReads;
@@ -34,6 +39,8 @@ public class DefinitionRegistry {
 		this.references = new HashMap<>();
 		this.procedures = new HashMap<>();
 		this.archetypes = new HashMap<>();
+		this.readValueTypes = new HashMap<>();
+		this.writtenValueTypes = new HashMap<>();
 		this.mappingMacros = new HashMap<>();
 		this.globalVariableTypes = new HashMap<>();
 		this.localVariables = new HashSet<>();
@@ -77,6 +84,13 @@ public class DefinitionRegistry {
 
 	public void addArchetype(ModularPlusCalArchetype archetype) {
 		archetypes.put(archetype.getName(), archetype);
+	}
+
+	public void addReadAndWrittenValueTypes(ModularPlusCalArchetype archetype, PGoTypeGenerator generator) {
+		for (PlusCalVariableDeclaration declaration : archetype.getArguments()) {
+			readValueTypes.put(declaration.getUID(), generator.get());
+			writtenValueTypes.put(declaration.getUID(), generator.get());
+		}
 	}
 
 	public void addMappingMacro(ModularPlusCalMappingMacro mappingMacro) {
@@ -126,6 +140,14 @@ public class DefinitionRegistry {
 
 	public ModularPlusCalArchetype findArchetype(String name) {
 		return archetypes.get(name);
+	}
+
+	public PGoTypeVariable getReadValueType(UID varUID) {
+		return readValueTypes.get(varUID);
+	}
+
+	public PGoTypeVariable getWrittenValueType(UID varUID) {
+		return writtenValueTypes.get(varUID);
 	}
 
 	public ModularPlusCalMappingMacro findMappingMacro(String name) {

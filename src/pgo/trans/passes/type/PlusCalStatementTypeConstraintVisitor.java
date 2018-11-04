@@ -16,19 +16,27 @@ import java.util.stream.Collectors;
 
 public class PlusCalStatementTypeConstraintVisitor extends PlusCalStatementVisitor<Void, RuntimeException> {
 	private IssueContext ctx;
-	private DefinitionRegistry registry;
-	private PGoTypeSolver solver;
+	protected DefinitionRegistry registry;
+	protected PGoTypeSolver solver;
 	private PGoTypeGenerator generator;
-	private Map<UID, PGoTypeVariable> mapping;
-	private TLAExpressionTypeConstraintVisitor exprVisitor;
+	protected Map<UID, PGoTypeVariable> mapping;
+	protected TLAExpressionTypeConstraintVisitor exprVisitor;
 
-	public PlusCalStatementTypeConstraintVisitor(IssueContext ctx, DefinitionRegistry registry, PGoTypeSolver solver, PGoTypeGenerator generator, Map<UID, PGoTypeVariable> mapping) {
+	public PlusCalStatementTypeConstraintVisitor(IssueContext ctx, DefinitionRegistry registry, PGoTypeSolver solver,
+	                                             PGoTypeGenerator generator, Map<UID, PGoTypeVariable> mapping) {
+		this(ctx, registry, solver, generator, mapping,
+				new TLAExpressionTypeConstraintVisitor(registry, solver, generator, mapping));
+	}
+
+	protected PlusCalStatementTypeConstraintVisitor(IssueContext ctx, DefinitionRegistry registry, PGoTypeSolver solver,
+	                                                PGoTypeGenerator generator, Map<UID, PGoTypeVariable> mapping,
+	                                                TLAExpressionTypeConstraintVisitor exprVisitor) {
 		this.ctx = ctx;
 		this.registry = registry;
 		this.solver = solver;
 		this.generator = generator;
 		this.mapping = mapping;
-		this.exprVisitor = new TLAExpressionTypeConstraintVisitor(registry, solver, generator, mapping);
+		this.exprVisitor = exprVisitor;
 	}
 
 	@Override

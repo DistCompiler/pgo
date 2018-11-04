@@ -13,10 +13,10 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 public class TLAExpressionTypeConstraintVisitor extends TLAExpressionVisitor<PGoType, RuntimeException> {
+	protected DefinitionRegistry registry;
 	private PGoTypeSolver solver;
 	private PGoTypeGenerator generator;
 	private Map<UID, PGoTypeVariable> mapping;
-	private DefinitionRegistry registry;
 
 	public TLAExpressionTypeConstraintVisitor(DefinitionRegistry registry, PGoTypeSolver solver, PGoTypeGenerator generator, Map<UID, PGoTypeVariable> mapping) {
 		this.registry = registry;
