@@ -179,7 +179,7 @@ public class PGoMain {
 				) {
 					if (startOffset != -1) {
 						long pos = destination.transferFrom(source, 0, startOffset);
-						pos += destination.write(StandardCharsets.UTF_8.encode(output.toString()), startOffset);
+						pos += destination.write(StandardCharsets.UTF_8.encode(output.toString()), pos);
 						pos += destination.transferFrom(source.position(endOffset), pos, source.size() - endOffset);
 						destination.truncate(pos);
 					} else {
