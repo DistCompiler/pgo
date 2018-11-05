@@ -216,17 +216,6 @@ public class TypeInferencePass {
 
 		Map<UID, PGoType> resultingTypeMapping = new HashMap<>();
 
-		// for(Map.Entry<UID, PGoTypeVariable> entry : mapping.entrySet()) {
-		// 	StringWriter writer = new StringWriter();
-		// 	try {
-		// 		entry.getKey().accept(new OriginFormattingVisitor(new IndentingWriter(writer)));
-		// 	} catch (IOException e) {
-		// 		throw new RuntimeException(e);
-		// 	}
-		// 	System.out.println("key = " + writer.toString());
-		// 	System.out.println("value = " + entry.getValue());
-		// }
-
 		for (Map.Entry<UID, PGoTypeVariable> m : mapping.entrySet()) {
 			UID uid = m.getKey();
 			PGoType type = typeMapping.get(m.getValue());
