@@ -138,11 +138,15 @@ public class PGoMain {
 			if (opts.mpcalCompile) {
 				// compilation of MPCal -> PCal
 				logger.info("Generating PlusCal code");
-				StringWriter output = new StringWriter();
-				try (IndentingWriter out = new IndentingWriter(output)) {
+				String serializedAlgorithm;
+				try (
+						StringWriter writer = new StringWriter();
+						IndentingWriter out = new IndentingWriter(writer)
+				) {
 					PlusCalAlgorithm algorithm = PlusCalCodeGenPass.perform(ctx, registry, macroExpandedModularPlusCalBlock);
 					checkErrors(ctx);
 					algorithm.accept(new PlusCalNodeFormattingVisitor(out));
+					serializedAlgorithm = writer.toString();
 				}
 				// TODO deal with non-ASCII
 				final int startOffset;
@@ -179,14 +183,14 @@ public class PGoMain {
 				) {
 					if (startOffset != -1) {
 						long pos = destination.transferFrom(source, 0, startOffset);
-						pos += destination.write(StandardCharsets.UTF_8.encode(output.toString()), pos);
+						pos += destination.write(StandardCharsets.UTF_8.encode(serializedAlgorithm), pos);
 						pos += destination.transferFrom(source.position(endOffset), pos, source.size() - endOffset);
 						destination.truncate(pos);
 					} else {
 						final int blockEndOffset = modularPlusCalBlock.getLocation().getEndOffset();
 						long pos = destination.transferFrom(source, 0, blockEndOffset);
 						pos += destination.write(StandardCharsets.UTF_8.encode("\n\n(* "), pos);
-						pos += destination.write(StandardCharsets.UTF_8.encode(output.toString()), pos);
+						pos += destination.write(StandardCharsets.UTF_8.encode(serializedAlgorithm), pos);
 						pos += destination.write(StandardCharsets.UTF_8.encode("\n*)\n\n"), pos);
 						pos += destination.transferFrom(
 								source.position(blockEndOffset),
