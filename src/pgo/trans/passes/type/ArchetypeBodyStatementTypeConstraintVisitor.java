@@ -29,11 +29,13 @@ public class ArchetypeBodyStatementTypeConstraintVisitor extends PlusCalStatemen
 			TLAExpression lhs = pair.getLhs();
 			if (lhs instanceof TLAGeneralIdentifier) {
 				UID varUID = registry.followReference(lhs.getUID());
-				solver.addConstraint(new PGoTypeMonomorphicConstraint(
-						pair,
-						registry.getWrittenValueType(varUID),
-						exprVisitor.wrappedVisit(pair.getRhs())));
-				continue;
+				if (paramsUIDs.contains(varUID)) {
+					solver.addConstraint(new PGoTypeMonomorphicConstraint(
+							pair,
+							registry.getWrittenValueType(varUID),
+							exprVisitor.wrappedVisit(pair.getRhs())));
+					continue;
+				}
 			}
 			solver.addConstraint(new PGoTypeMonomorphicConstraint(
                     pair, exprVisitor.wrappedVisit(lhs), exprVisitor.wrappedVisit(pair.getRhs())));
