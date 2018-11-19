@@ -4,12 +4,9 @@ import pgo.TODO;
 import pgo.Unreachable;
 import pgo.model.golang.NameCleaner;
 import pgo.model.mpcal.ModularPlusCalMappingMacro;
-import pgo.model.pcal.PlusCalAssignment;
-import pgo.model.pcal.PlusCalAssignmentPair;
 import pgo.model.pcal.PlusCalStatement;
 import pgo.model.pcal.PlusCalVariableDeclaration;
 import pgo.model.tla.*;
-import pgo.parser.Located;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
 
@@ -21,32 +18,18 @@ import java.util.function.Supplier;
 
 public class TLAExpressionMappingMacroExpansionVisitor extends TLAExpressionVisitor<TLAExpression, RuntimeException> {
 	private final DefinitionRegistry registry;
-	private final NameCleaner nameCleaner;
-	private final Map<UID, PlusCalVariableDeclaration> arguments;
-	private final Map<UID, TLAExpression> boundValues;
-	private final List<PlusCalVariableDeclaration> variables;
-	private final Map<UID, ModularPlusCalMappingMacro> mappings;
 	private final Supplier<TLAGeneralIdentifier> dollarVariable;
 	private final Supplier<TLAExpression> dollarValue;
-	private final List<PlusCalStatement> output;
+	private final Map<UID, String> boundTemporaryVariables;
 
-	public TLAExpressionMappingMacroExpansionVisitor(DefinitionRegistry registry, NameCleaner nameCleaner,
-													 Map<UID, PlusCalVariableDeclaration> arguments,
-													 Map<UID, TLAExpression> boundValues,
-													 List<PlusCalVariableDeclaration> variables,
-													 Map<UID, ModularPlusCalMappingMacro> mappings,
-													 Supplier<TLAGeneralIdentifier> dollarVariable,
-													 Supplier<TLAExpression> dollarValue,
-													 List<PlusCalStatement> output) {
+	public TLAExpressionMappingMacroExpansionVisitor(DefinitionRegistry registry,
+	                                                 Supplier<TLAGeneralIdentifier> dollarVariable,
+	                                                 Supplier<TLAExpression> dollarValue,
+	                                                 Map<UID, String> boundTemporaryVariables) {
 		this.registry = registry;
-		this.nameCleaner = nameCleaner;
-		this.arguments = arguments;
-		this.boundValues = boundValues;
-		this.variables = variables;
-		this.mappings = mappings;
 		this.dollarVariable = dollarVariable;
 		this.dollarValue = dollarValue;
-		this.output = output;
+		this.boundTemporaryVariables = boundTemporaryVariables;
 	}
 
 	@Override
@@ -107,59 +90,14 @@ public class TLAExpressionMappingMacroExpansionVisitor extends TLAExpressionVisi
 
 	@Override
 	public TLAExpression visit(TLAGeneralIdentifier pGoTLAVariable) throws RuntimeException {
-		UID uid = registry.followReference(pGoTLAVariable.getUID());
-		if (!arguments.containsKey(uid)) {
-			return pGoTLAVariable;
+		UID varUID = registry.followReference(pGoTLAVariable.getUID());
+		if (boundTemporaryVariables.containsKey(varUID)) {
+			return new TLAGeneralIdentifier(
+					pGoTLAVariable.getLocation(),
+					new TLAIdentifier(pGoTLAVariable.getLocation(), boundTemporaryVariables.get(varUID)),
+					Collections.emptyList());
 		}
-		PlusCalVariableDeclaration argument = arguments.get(uid);
-		TLAExpression value = boundValues.get(uid);
-		if (!(value instanceof TLAGeneralIdentifier) && !(value instanceof TLARef)) {
-			return pGoTLAVariable;
-		}
-		TLAGeneralIdentifier variable = value instanceof TLARef
-				? new TLAGeneralIdentifier(
-						value.getLocation(),
-						new TLAIdentifier(value.getLocation(), ((TLARef) value).getTarget()),
-						Collections.emptyList())
-				: (TLAGeneralIdentifier) value;
-		UID valueUID = registry.followReference(value.getUID());
-		boolean mappingsContainsValue = mappings.containsKey(valueUID);
-		// TODO the argument might have been renamed
-		if (!mappingsContainsValue && !argument.isRef()) {
-			return pGoTLAVariable;
-		}
-		if (!mappingsContainsValue) {
-			return variable;
-		}
-		String name = nameCleaner.cleanName(argument.getName().getValue() + "R");
-		variables.add(new PlusCalVariableDeclaration(
-				pGoTLAVariable.getLocation(),
-				new Located<>(pGoTLAVariable.getLocation(), name),
-				false,
-				false,
-				new PlusCalDefaultInitValue(pGoTLAVariable.getLocation())));
-		TLAGeneralIdentifier temp = new TLAGeneralIdentifier(
-				pGoTLAVariable.getLocation(),
-				new TLAIdentifier(pGoTLAVariable.getLocation(), name),
-				Collections.emptyList());
-		ModularPlusCalMappingMacroExpansionVisitor visitor = new ModularPlusCalMappingMacroExpansionVisitor(
-				registry, nameCleaner, arguments, boundValues, variables, mappings, () -> variable, dollarValue,
-				modularPlusCalYield -> {
-					List<PlusCalStatement> result = new ArrayList<>();
-					TLAExpression expression = modularPlusCalYield.getExpression().accept(
-							new TLAExpressionMappingMacroExpansionVisitor(
-									registry, nameCleaner, arguments, boundValues, variables, mappings, () -> variable,
-									dollarValue, result));
-					result.add(new PlusCalAssignment(
-							modularPlusCalYield.getLocation(),
-							Collections.singletonList(
-									new PlusCalAssignmentPair(modularPlusCalYield.getLocation(), temp, expression))));
-					return result;
-				});
-		for (PlusCalStatement statement : mappings.get(valueUID).getReadBody()) {
-			output.addAll(statement.accept(visitor));
-		}
-        return temp;
+		return pGoTLAVariable;
 	}
 
 	@Override

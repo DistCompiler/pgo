@@ -11,6 +11,7 @@ import pgo.model.tla.TLARef;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
 import pgo.trans.intermediate.UnsupportedFeatureIssue;
+import pgo.trans.passes.atomicity.PlusCalStatementAtomicityInferenceVisitor;
 
 import java.util.*;
 import java.util.stream.Stream;
@@ -73,8 +74,29 @@ public class PlusCalCodeGenPass {
 				}
 			}
 			List<PlusCalStatement> body = new ArrayList<>();
+			// discover argument reads
+			Map<UID, List<UID>> labelUIDsToVarUIDs = new HashMap<>();
+			PlusCalStatementAtomicityInferenceVisitor visitor = new PlusCalStatementAtomicityInferenceVisitor(
+					new UID(),
+					(varUID, labelUID) -> {
+						UID uid = registry.followReference(varUID);
+						if (arguments.containsKey(uid)) {
+							if (labelUIDsToVarUIDs.containsKey(labelUID)) {
+								labelUIDsToVarUIDs.get(labelUID).add(uid);
+							} else {
+                                List<UID> uids = new ArrayList<>();
+                                uids.add(uid);
+                                labelUIDsToVarUIDs.put(labelUID, uids);
+							}
+						}
+					},
+					(ignored, ignored2) -> {},
+					new HashSet<>());
+			for (PlusCalStatement statement : archetype.getBody()) {
+                statement.accept(visitor);
+			}
 			ModularPlusCalMappingMacroExpansionVisitor v = new ModularPlusCalMappingMacroExpansionVisitor(
-					registry, nameCleaner, arguments, boundValues, variables, mappings);
+					registry, nameCleaner, labelUIDsToVarUIDs, arguments, boundValues, variables, mappings);
 			for (PlusCalStatement statement : archetype.getBody()) {
 				body.addAll(statement.accept(v));
 			}
