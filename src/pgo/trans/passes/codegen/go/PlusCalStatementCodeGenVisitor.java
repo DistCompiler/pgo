@@ -11,7 +11,7 @@ import pgo.model.type.PGoType;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
 import pgo.trans.intermediate.GlobalVariableStrategy;
-import pgo.trans.intermediate.PlusCalStatementAtomicityInferenceVisitor;
+import pgo.trans.passes.atomicity.PlusCalStatementAtomicityInferenceVisitor;
 
 import java.util.*;
 import java.util.function.Consumer;

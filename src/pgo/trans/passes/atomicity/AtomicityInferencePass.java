@@ -1,10 +1,11 @@
-package pgo.trans.intermediate;
+package pgo.trans.passes.atomicity;
 
 import pgo.InternalCompilerError;
 import pgo.UnionFind;
 import pgo.model.mpcal.ModularPlusCalBlock;
 import pgo.model.pcal.*;
 import pgo.scope.UID;
+import pgo.trans.intermediate.DefinitionRegistry;
 
 import java.util.*;
 import java.util.function.BiConsumer;

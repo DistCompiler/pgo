@@ -1,4 +1,4 @@
-package pgo.trans.intermediate;
+package pgo.trans.passes.atomicity;
 
 import pgo.TODO;
 import pgo.Unreachable;

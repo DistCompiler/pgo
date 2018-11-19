@@ -15,6 +15,7 @@ import pgo.modules.TLAModuleLoader;
 import pgo.scope.UID;
 import pgo.trans.PGoTransException;
 import pgo.trans.intermediate.*;
+import pgo.trans.passes.atomicity.AtomicityInferencePass;
 import pgo.trans.passes.codegen.go.GoCodeGenPass;
 import pgo.trans.passes.constdef.ConstantDefinitionParsingPass;
 import pgo.trans.passes.codegen.pluscal.PlusCalCodeGenPass;
@@ -26,7 +27,6 @@ import pgo.trans.passes.parse.tla.TLAParsingPass;
 import pgo.trans.passes.type.TypeInferencePass;
 
 import java.io.*;
-import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;

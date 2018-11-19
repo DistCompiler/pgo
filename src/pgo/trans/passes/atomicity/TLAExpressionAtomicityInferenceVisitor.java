@@ -1,8 +1,9 @@
-package pgo.trans.intermediate;
+package pgo.trans.passes.atomicity;
 
 import pgo.TODO;
 import pgo.model.tla.*;
 import pgo.scope.UID;
+import pgo.trans.intermediate.TLAUnitAtomicityInferenceVisitor;
 
 import java.util.Collections;
 import java.util.HashSet;
