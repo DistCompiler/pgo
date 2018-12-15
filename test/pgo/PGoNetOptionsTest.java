@@ -20,9 +20,23 @@ public class PGoNetOptionsTest {
 	private JSONObject config;
 
 	@Before
-	public void setup() throws IOException {
-		FileInputStream configIs = new FileInputStream("./examples/configs/etcd.json");
-		String configStr = IOUtils.toString(configIs);
+	public void setup() {
+		String configStr = "{\n" +
+				"  \"build\": {\n" +
+				"    \"output_dir\": \"gen\",\n" +
+				"    \"dest_file\": \"out.go\"\n" +
+				"  },\n" +
+				"  \"networking\": {\n" +
+				"    \"enabled\": true,\n" +
+				"\n" +
+				"    \"state\": {\n" +
+				"      \"strategy\": \"etcd\",\n" +
+				"      \"peers\": [\"10.0.0.1:12345\", \"10.0.0.2:12345\"],\n" +
+				"      \"endpoints\": [\"172.28.128.7:2379\", \"172.28.128.8:2379\", \"172.28.128.9:2379\"],\n" +
+				"      \"timeout\": 3\n" +
+				"    }\n" +
+				"  }\n" +
+				"}\n";
 		config = new JSONObject(configStr);
 	}
 
