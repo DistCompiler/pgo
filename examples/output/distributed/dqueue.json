@@ -1,7 +1,7 @@
 {
   "build": {
-    "output_dir": "gen",
-    "dest_file": "out.go"
+    "output_dir": "examples/output/distributed/",
+    "dest_file": "dqueue.go"
   },
   "networking": {
     "enabled": true,

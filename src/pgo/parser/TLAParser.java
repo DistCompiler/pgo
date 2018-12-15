@@ -1368,11 +1368,17 @@ public final class TLAParser {
 												)))
 										.collect(Collectors.toList())
 						))
-						.map(seq -> new TLAUnary(
-								seq.getLocation(),
-								seq.getValue().getFirst().getValue().getRest().getFirst(),
-								seq.getValue().getRest().getFirst(),
-								seq.getValue().getFirst().getValue().getFirst())));
+						.map(seq -> {
+							TLASymbol operator = seq.getValue().getFirst().getValue().getRest().getFirst();
+							if (operator.getValue().equals("-")) {
+								operator = new TLASymbol(operator.getLocation(), "-_");
+							}
+							return new TLAUnary(
+									seq.getLocation(),
+									operator,
+									seq.getValue().getRest().getFirst(),
+									seq.getValue().getFirst().getValue().getFirst());
+						}));
 
 		return parseOneOf(
 				// infix operators
