@@ -296,7 +296,13 @@ public class TLAExpressionFormattingVisitor extends TLAExpressionVisitor<Void, I
 
 	@Override
 	public Void visit(TLAUnary pGoTLAUnary) throws IOException {
-		if(TLAParser.PREFIX_OPERATORS.contains(pGoTLAUnary.getOperation().getValue())) {
+		if (pGoTLAUnary.getOperation().getValue().equals("-_")) {
+			formatPrefix(pGoTLAUnary.getPrefix());
+			out.write("-");
+			out.write("(");
+			pGoTLAUnary.getOperand().accept(this);
+			out.write(")");
+		} else if(TLAParser.PREFIX_OPERATORS.contains(pGoTLAUnary.getOperation().getValue())) {
 			formatPrefix(pGoTLAUnary.getPrefix());
 			out.write(pGoTLAUnary.getOperation().getValue());
 			out.write("(");

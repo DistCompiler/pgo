@@ -26,7 +26,8 @@ public class TLAExpressionParseTest {
 	@Parameters
 	public static List<Object[]> data(){
 		return Arrays.asList(new Object[][] {
-				{"1", num(1) },
+				{"1", num(1)},
+				{"-1", unary("-_", num(1))},
 				{"TRUE", new TLABool(SourceLocation.unknown(), true) },
 				{"FALSE", new TLABool(SourceLocation.unknown(), false) },
 
