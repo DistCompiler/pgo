@@ -1,0 +1,13 @@
+{
+  "build": {
+    "output_dir": "examples/output/multi-threaded/",
+    "dest_file": "counter.go"
+  },
+  "networking": {
+    "enabled": false
+  },
+  "constants": {
+    "iters": "10",
+    "procs": "3"
+  }
+}

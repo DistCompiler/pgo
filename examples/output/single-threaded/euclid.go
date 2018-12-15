@@ -7,7 +7,7 @@ import (
 var N int
 
 func init() {
-	N = 8
+	N = 42
 }
 
 func main() {

@@ -1,0 +1,9 @@
+{
+  "build": {
+    "output_dir": "examples/output/multi-threaded/",
+    "dest_file": "dqueue.go"
+  },
+  "networking": {
+    "enabled": false
+  }
+}

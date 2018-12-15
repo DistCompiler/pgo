@@ -1,7 +1,7 @@
 {
   "build": {
-    "output_dir": "gen",
-    "dest_file": "out.go"
+    "output_dir": "examples/output/single-threaded/",
+    "dest_file": "euclid.go"
   },
   "networking": {
     "enabled": false

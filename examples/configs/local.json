@@ -1,9 +1,0 @@
-{
-  "build": {
-    "output_dir": "gen",
-    "dest_file": "out.go"
-  },
-  "networking": {
-    "enabled": false
-  }
-}

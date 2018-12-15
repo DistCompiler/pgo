@@ -1,0 +1,17 @@
+{
+  "build": {
+    "output_dir": "examples/output/distributed/",
+    "dest_file": "dijkstra-mutex.go"
+  },
+  "networking": {
+    "enabled": true,
+
+    "state": {
+      "strategy": "state-server",
+      "peers": ["10.0.0.1:12345", "10.0.0.2:12345"]
+    }
+  },
+  "constants": {
+    "Proc": "1..3"
+  }
+}

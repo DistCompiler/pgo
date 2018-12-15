@@ -1,0 +1,12 @@
+{
+  "build": {
+    "output_dir": "examples/output/single-threaded/",
+    "dest_file": "queens.go"
+  },
+  "networking": {
+    "enabled": false
+  },
+  "constants": {
+    "N": "8"
+  }
+}
