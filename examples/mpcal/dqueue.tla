@@ -63,7 +63,7 @@ NUM_NODES == NUM_CONSUMERS + 1
       }
   }
 
-  variables network = [id in 0..NUM_NODES |-> <<>>],
+  variables network = [id \in 0..NUM_NODES |-> <<>>],
             processor = 0,
             stream = 0;
 
