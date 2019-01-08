@@ -20,7 +20,7 @@ public class ModularPlusCalMapping extends SourceLocatable {
 	public ModularPlusCalMapping copy() {
 		return new ModularPlusCalMapping(
 				getLocation(),
-				new ModularPlusCalMappingVariable(variable.getLocation(), variable.getName()),
+				new ModularPlusCalMappingVariable(variable.getLocation(), variable.getName(), variable.isFunctionCalls()),
 				new ModularPlusCalMappingTarget(target.getLocation(), target.getName()));
 	}
 

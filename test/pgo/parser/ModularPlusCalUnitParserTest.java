@@ -80,7 +80,7 @@ public class ModularPlusCalUnitParserTest {
 				// full featured instance
 				{"process (P = \"P\") == instance Archetype(ref global1, ref global2, global3)\n" +
 						"  mapping global1 via MappingMacro1\n" +
-						"  mapping global2 via MappingMacro2;",
+						"  mapping global2[_] via MappingMacro2;",
 						instance(pcalVarDecl("P", false, false, str("P")),
 								PlusCalFairness.UNFAIR,
 								"Archetype",
@@ -89,8 +89,8 @@ public class ModularPlusCalUnitParserTest {
 										ref("global2"),
 										idexp("global3")),
 								Arrays.asList(
-										mapping("global1", "MappingMacro1"),
-										mapping("global2", "MappingMacro2")))
+										mapping("global1", "MappingMacro1", false),
+										mapping("global2", "MappingMacro2", true)))
 				},
 
 				// simple mapping macro

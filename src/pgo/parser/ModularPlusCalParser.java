@@ -68,12 +68,16 @@ public class ModularPlusCalParser {
 	private static final Grammar<ModularPlusCalMapping> MAPPING = emptySequence()
 			.drop(parsePlusCalToken("mapping"))
 			.part(IDENTIFIER)
+			.part(parseOneOf(
+					parsePlusCalToken("[_]").map(seq -> new Located<>(seq.getLocation(), true)),
+					nop().map(seq -> new Located<>(seq.getLocation(), false))))
 			.drop(parsePlusCalToken("via"))
 			.part(IDENTIFIER)
 			.map(seq -> new ModularPlusCalMapping(
 					seq.getLocation(),
 					new ModularPlusCalMappingVariable(
 							seq.getValue().getRest().getFirst().getLocation(),
+							seq.getValue().getRest().getRest().getFirst().getValue(),
 							seq.getValue().getRest().getFirst().getValue()),
 					new ModularPlusCalMappingTarget(
 							seq.getValue().getFirst().getLocation(),

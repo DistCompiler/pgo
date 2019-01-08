@@ -8,12 +8,14 @@ public class ModularPlusCalMappingVariable extends SourceLocatable {
 	private final SourceLocation location;
 	private final UID uid;
 	private final String name;
+	private final boolean functionCalls;
 
-	public ModularPlusCalMappingVariable(SourceLocation location, String name) {
+	public ModularPlusCalMappingVariable(SourceLocation location, String name, boolean functionCalls) {
 		this.location = location;
 		this.uid = new UID();
 		this.uid.addOrigin(this);
 		this.name = name;
+		this.functionCalls = functionCalls;
 	}
 
 	@Override
@@ -28,4 +30,6 @@ public class ModularPlusCalMappingVariable extends SourceLocatable {
 	public String getName() {
 		return name;
 	}
+
+	public boolean isFunctionCalls() { return this.functionCalls; }
 }
