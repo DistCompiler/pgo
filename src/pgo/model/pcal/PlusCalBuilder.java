@@ -28,17 +28,6 @@ public class PlusCalBuilder {
 				new PlusCalMultiProcess(SourceLocation.unknown(), Arrays.asList(processes)));
 	}
 
-	public static ModularPlusCalBlock mpcal(String name, List<ModularPlusCalArchetype> archetypes,
-										 List<ModularPlusCalMappingMacro> mappingMacros,
-										 List<ModularPlusCalInstance> instances,
-										 List<PlusCalVariableDeclaration> vars,
-										 List<PlusCalMacro> macros, List<PlusCalProcedure> procedures,
-										 List<TLAUnit> units, PlusCalProcess... processes) {
-		return new ModularPlusCalBlock(SourceLocation.unknown(), new Located<>(SourceLocation.unknown(), name),
-				vars, units, mappingMacros, archetypes, macros, procedures, instances,
-				new PlusCalMultiProcess(SourceLocation.unknown(), Arrays.asList(processes)));
-	}
-
 	public static PlusCalVariableDeclaration pcalVarDecl(String name, boolean isRef, boolean isSet,
 	                                                     TLAExpression value) {
 		return new PlusCalVariableDeclaration(

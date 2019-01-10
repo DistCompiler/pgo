@@ -6,6 +6,7 @@ import pgo.model.tla.TLAUnit;
 import pgo.parser.Located;
 import pgo.util.SourceLocation;
 
+import java.util.Arrays;
 import java.util.List;
 
 public class ModularPlusCalBuilder {
@@ -38,14 +39,29 @@ public class ModularPlusCalBuilder {
 	                                        List<ModularPlusCalMappingMacro> mappingMacros,
 	                                        List<ModularPlusCalArchetype> archetypes, List<PlusCalMacro> macros,
 	                                        List<PlusCalProcedure> procedures, List<TLAUnit> units,
-	                                        List<ModularPlusCalInstance> instances, PlusCalProcesses processes) {
+	                                        List<ModularPlusCalInstance> instances, PlusCalProcess... processes) {
 		return new ModularPlusCalBlock(
 				SourceLocation.unknown(),
 				new Located<>(SourceLocation.unknown(), name),
 				variables,
 				units, mappingMacros,
 				archetypes,
-				macros, procedures, instances, processes
+				macros, procedures, instances, new PlusCalMultiProcess(SourceLocation.unknown(), Arrays.asList(processes))
+		);
+	}
+
+	public static ModularPlusCalBlock mpcal(String name, List<PlusCalVariableDeclaration> variables,
+											List<ModularPlusCalMappingMacro> mappingMacros,
+											List<ModularPlusCalArchetype> archetypes, List<PlusCalMacro> macros,
+											List<PlusCalProcedure> procedures, List<TLAUnit> units,
+											List<ModularPlusCalInstance> instances, List<PlusCalStatement> statements) {
+		return new ModularPlusCalBlock(
+				SourceLocation.unknown(),
+				new Located<>(SourceLocation.unknown(), name),
+				variables,
+				units, mappingMacros,
+				archetypes,
+				macros, procedures, instances, new PlusCalSingleProcess(SourceLocation.unknown(), statements)
 		);
 	}
 }

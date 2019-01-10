@@ -48,6 +48,8 @@ public class ModularPlusCalLabelingRulesTest {
 				{
 						mpcal(
 								"NoIssues",
+								Collections.emptyList(),
+								Collections.emptyList(),
 								Collections.singletonList(
 										archetype(
 												"MyArchetype",
@@ -76,9 +78,6 @@ public class ModularPlusCalLabelingRulesTest {
 										)
 								),
 								Collections.emptyList(),
-								Collections.emptyList(),
-								Collections.emptyList(),
-								Collections.emptyList(),
 								Collections.singletonList(
 										procedure(
 												"MyProcedure",
@@ -101,6 +100,7 @@ public class ModularPlusCalLabelingRulesTest {
 										)
 								),
 								Collections.emptyList(),
+								Collections.emptyList(),
 								process(
 										pcalVarDecl("MyProcess", false, false, num(32)),
 										PlusCalFairness.WEAK_FAIR,
@@ -111,7 +111,7 @@ public class ModularPlusCalLabelingRulesTest {
 										)
 								)
 						),
-						Collections.emptyList(),
+						Collections.emptyList()
 				},
 
 				// --mpcal ArchetypeNoFirstLabel {
@@ -122,6 +122,8 @@ public class ModularPlusCalLabelingRulesTest {
 				{
 						mpcal(
 								"ArchetypeNoFirstLabel",
+								Collections.emptyList(),
+								Collections.emptyList(),
 								Collections.singletonList(
 										archetype(
 												"MyArchetype",
@@ -132,8 +134,6 @@ public class ModularPlusCalLabelingRulesTest {
 												)
 										)
 								),
-								Collections.emptyList(),
-								Collections.emptyList(),
 								Collections.emptyList(),
 								Collections.emptyList(),
 								Collections.emptyList(),
@@ -156,7 +156,6 @@ public class ModularPlusCalLabelingRulesTest {
 								Collections.emptyList(),
 								Collections.emptyList(),
 								Collections.emptyList(),
-								Collections.emptyList(),
 								Collections.singletonList(
 										procedure(
 												"MyProcedure",
@@ -165,6 +164,7 @@ public class ModularPlusCalLabelingRulesTest {
 												printS(binop("+", num(1), num(1)))
 										)
 								),
+								Collections.emptyList(),
 								Collections.emptyList()
 						),
 						Collections.singletonList(
@@ -228,6 +228,8 @@ public class ModularPlusCalLabelingRulesTest {
 				{
 						mpcal(
 								"MoreThanOneIssue",
+								Collections.emptyList(),
+								Collections.emptyList(),
 								new ArrayList<ModularPlusCalArchetype>() {{
 									add(
 											archetype(
@@ -254,9 +256,6 @@ public class ModularPlusCalLabelingRulesTest {
 									);
 								}},
 								Collections.emptyList(),
-								Collections.emptyList(),
-								Collections.emptyList(),
-								Collections.emptyList(),
 								new ArrayList<PlusCalProcedure>() {{
 									add(
 											procedure(
@@ -278,6 +277,7 @@ public class ModularPlusCalLabelingRulesTest {
 											)
 									);
 								}},
+								Collections.emptyList(),
 								Collections.emptyList(),
 								process(
 										pcalVarDecl("ValidProcess", false, false, num(32)),
@@ -320,6 +320,8 @@ public class ModularPlusCalLabelingRulesTest {
 				{
 						mpcal(
 								"WhileLabels",
+								Collections.emptyList(),
+								Collections.emptyList(),
 								Collections.singletonList(
 										archetype(
 												"IncorrectArchetype",
@@ -340,9 +342,6 @@ public class ModularPlusCalLabelingRulesTest {
 										)
 								),
 								Collections.emptyList(),
-								Collections.emptyList(),
-								Collections.emptyList(),
-								Collections.emptyList(),
 								Collections.singletonList(
 										procedure(
 												"CorrectProcedure",
@@ -353,6 +352,7 @@ public class ModularPlusCalLabelingRulesTest {
 														printS(binop("-", num(3), num(3))))))
 										)
 								),
+								Collections.emptyList(),
 								Collections.emptyList(),
 								process(
 										pcalVarDecl("IncorrectProcess", false, false, num(32)),
@@ -407,6 +407,8 @@ public class ModularPlusCalLabelingRulesTest {
 				{
 						mpcal(
 								"CallLabelingRules",
+								Collections.emptyList(),
+								Collections.emptyList(),
 								Collections.singletonList(
 										archetype(
 												"MyArchetype",
@@ -424,9 +426,6 @@ public class ModularPlusCalLabelingRulesTest {
 										)
 								),
 								Collections.emptyList(),
-								Collections.emptyList(),
-								Collections.emptyList(),
-								Collections.emptyList(),
 								Collections.singletonList(
 										procedure(
 												"MyProcedure",
@@ -437,6 +436,7 @@ public class ModularPlusCalLabelingRulesTest {
 												returnS()
 										)
 								),
+								Collections.emptyList(),
 								Collections.emptyList(),
 								process(
 										pcalVarDecl("MyProcess", false, false, num(32)),
@@ -477,6 +477,8 @@ public class ModularPlusCalLabelingRulesTest {
 				{
 						mpcal(
 								"ReturnGotoLabelingRules",
+								Collections.emptyList(),
+								Collections.emptyList(),
 								Collections.singletonList(
 										archetype(
 												"MyArchetype",
@@ -494,9 +496,6 @@ public class ModularPlusCalLabelingRulesTest {
 										)
 								),
 								Collections.emptyList(),
-								Collections.emptyList(),
-								Collections.emptyList(),
-								Collections.emptyList(),
 								Collections.singletonList(
 										procedure(
 												"MyProcedure",
@@ -507,6 +506,7 @@ public class ModularPlusCalLabelingRulesTest {
 												gotoS("l2")
 										)
 								),
+								Collections.emptyList(),
 								Collections.emptyList(),
 								process(
 										pcalVarDecl("MyProcess", false, false, num(32)),
@@ -559,6 +559,8 @@ public class ModularPlusCalLabelingRulesTest {
 				{
 						mpcal(
 								"IfEitherLabelingRules",
+								Collections.emptyList(),
+								Collections.emptyList(),
 								Collections.singletonList(
 										archetype(
 												"MyArchetype",
@@ -582,9 +584,6 @@ public class ModularPlusCalLabelingRulesTest {
 										)
 								),
 								Collections.emptyList(),
-								Collections.emptyList(),
-								Collections.emptyList(),
-								Collections.emptyList(),
 								Collections.singletonList(
 										procedure(
 												"MyProcedure",
@@ -604,6 +603,7 @@ public class ModularPlusCalLabelingRulesTest {
 														gotoS("l2"))
 										)
 								),
+								Collections.emptyList(),
 								Collections.emptyList(),
 								process(
 										pcalVarDecl("MyProcess", false, false, num(32)),
@@ -661,7 +661,6 @@ public class ModularPlusCalLabelingRulesTest {
 								Collections.emptyList(),
 								Collections.emptyList(),
 								Collections.emptyList(),
-								Collections.emptyList(),
 								new ArrayList<PlusCalMacro>() {{
 									add(macro(
 											"ValidMacro",
@@ -682,6 +681,7 @@ public class ModularPlusCalLabelingRulesTest {
 											labeled(label("l2"), assign(idexp("y"), num(20)))
 									));
 								}},
+								Collections.emptyList(),
 								Collections.emptyList(),
 								Collections.emptyList()
 						),
@@ -713,7 +713,6 @@ public class ModularPlusCalLabelingRulesTest {
 								Collections.emptyList(),
 								Collections.emptyList(),
 								Collections.emptyList(),
-								Collections.emptyList(),
 								Collections.singletonList(
 										macro(
 												"MacroWith",
@@ -742,6 +741,7 @@ public class ModularPlusCalLabelingRulesTest {
 												))
 										)
 								),
+								Collections.emptyList(),
 								Collections.emptyList()
 						),
 						new ArrayList<Issue>() {{
@@ -784,6 +784,8 @@ public class ModularPlusCalLabelingRulesTest {
 				{
 						mpcal(
 								"AssignmentRules",
+								Collections.emptyList(),
+								Collections.emptyList(),
 								Collections.singletonList(
 										archetype(
 												"MyArchetype",
@@ -800,9 +802,6 @@ public class ModularPlusCalLabelingRulesTest {
 												}}
 										)
 								),
-								Collections.emptyList(),
-								Collections.emptyList(),
-								Collections.emptyList(),
 								Collections.emptyList(),
 								Collections.singletonList(
 										procedure(
@@ -829,6 +828,7 @@ public class ModularPlusCalLabelingRulesTest {
 												)
 										)
 								),
+								Collections.emptyList(),
 								Collections.emptyList(),
 								process(
 										pcalVarDecl("MyProcess", false, false, num(32)),
@@ -889,6 +889,8 @@ public class ModularPlusCalLabelingRulesTest {
 				{
 						mpcal(
 								"ReservedRules",
+								Collections.emptyList(),
+								Collections.emptyList(),
 								Collections.singletonList(
 										archetype(
 												"MyArchetype",
@@ -902,9 +904,6 @@ public class ModularPlusCalLabelingRulesTest {
 												}}
 										)
 								),
-								Collections.emptyList(),
-								Collections.emptyList(),
-								Collections.emptyList(),
 								Collections.emptyList(),
 								Collections.singletonList(
 										procedure(
@@ -929,6 +928,7 @@ public class ModularPlusCalLabelingRulesTest {
 												)
 										)
 								),
+								Collections.emptyList(),
 								Collections.emptyList()
 						),
 						new ArrayList<Issue>() {{

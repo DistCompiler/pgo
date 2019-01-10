@@ -28,20 +28,6 @@ public class ModularPlusCalParserTest {
 		return Arrays.asList(new Object[][] {
 				{"---- MODULE Test ----\n" +
 						"(* --mpcal Test {\n" +
-						"}\n" +
-						"*)",
-						mpcal("Test",
-								Collections.emptyList(),
-								Collections.emptyList(),
-								Collections.emptyList(),
-								Collections.emptyList(),
-								Collections.emptyList(),
-								Collections.emptyList(),
-								Collections.emptyList(),
-								new PlusCalMultiProcess(SourceLocation.unknown(), Collections.emptyList()))
-				},
-				{"---- MODULE Test ----\n" +
-						"(* --mpcal Test {\n" +
 						"     macro M(a) {\n" +
 						"       print a;\n" +
 						"     }\n" +
@@ -50,7 +36,7 @@ public class ModularPlusCalParserTest {
 						"     }\n" +
 						"     variables global1 = 1, global2 = 2;\n" +
 						"     {\n" +
-						"       print <<global1, global2>>;\n" +
+						"       l1: print <<global1, global2>>;\n" +
 						"     }\n" +
 						"}\n" +
 						"*)",
@@ -68,9 +54,11 @@ public class ModularPlusCalParserTest {
 										printS(idexp("b")))),
 								Collections.emptyList(),
 								Collections.emptyList(),
-								new PlusCalSingleProcess(
-										SourceLocation.unknown(),
-										Collections.singletonList(printS(tuple(idexp("global1"), idexp("global2"))))))
+								Collections.singletonList(labeled(
+										label("l1"),
+										printS(tuple(idexp("global1"), idexp("global2")))
+								))
+						)
 				},
 				{"---- MODULE Test ----\n" +
 						"(* --mpcal Test {\n" +
@@ -82,7 +70,7 @@ public class ModularPlusCalParserTest {
 						"     }\n" +
 						"     variables global1 = 1, global2 = 2;\n" +
 						"     process (P \\in 1..3) {\n" +
-						"       print <<global1, global2>>;\n" +
+						"       l1: print <<global1, global2>>;\n" +
 						"     }\n" +
 						"}\n" +
 						"*)",
@@ -100,13 +88,16 @@ public class ModularPlusCalParserTest {
 										printS(idexp("b")))),
 								Collections.emptyList(),
 								Collections.emptyList(),
-								new PlusCalMultiProcess(
-										SourceLocation.unknown(),
-										Collections.singletonList(process(
-												pcalVarDecl("P", false, true, binop("..", num(1), num(3))),
-												PlusCalFairness.UNFAIR,
-												Collections.emptyList(),
-												printS(tuple(idexp("global1"), idexp("global2")))))))
+								process(
+										pcalVarDecl("P", false, true, binop("..", num(1), num(3))),
+										PlusCalFairness.UNFAIR,
+										Collections.emptyList(),
+										labeled(
+												label("l1"),
+												printS(tuple(idexp("global1"), idexp("global2")))
+										)
+								)
+						)
 				},
 		});
 	}
