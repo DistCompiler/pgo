@@ -104,12 +104,6 @@ public class ModularPlusCalMappingMacroExpansionVisitor
 						: (TLAGeneralIdentifier) value;
 				UID valueUID = registry.followReference(value.getUID());
 				boolean mappingsContainsValue = mappings.containsKey(valueUID);
-				if (!mappingsContainsValue && !argument.isRef()) {
-                    continue;
-				}
-				if (!mappingsContainsValue) {
-                    continue;
-				}
 				String tempName = nameCleaner.cleanName(arguments.get(varUID).getName().getValue() + "Read");
 				boundTemporaryVariables.put(varUID, tempName);
 				variables.add(new PlusCalVariableDeclaration(
@@ -122,26 +116,38 @@ public class ModularPlusCalMappingMacroExpansionVisitor
 						labelLocation,
 						new TLAIdentifier(labelLocation, tempName),
 						Collections.emptyList());
-				ModularPlusCalMappingMacroExpansionVisitor visitor = new ModularPlusCalMappingMacroExpansionVisitor(
-						registry, nameCleaner, labelUIDsToVarUIDs, arguments, boundValues, variables, mappings,
-						() -> variable,
-						dollarValue,
-						modularPlusCalYield -> {
-							List<PlusCalStatement> result = new ArrayList<>();
-							TLAExpression expression = modularPlusCalYield.getExpression().accept(
-									new TLAExpressionMappingMacroExpansionVisitor(
-											registry,
-											() -> variable, dollarValue, boundTemporaryVariables));
-							result.add(new PlusCalAssignment(
-									modularPlusCalYield.getLocation(),
-									Collections.singletonList(
-											new PlusCalAssignmentPair(
-													modularPlusCalYield.getLocation(), temp, expression))));
-							return result;
-						},
-						boundTemporaryVariables);
-				for (PlusCalStatement statement : mappings.get(valueUID).getReadBody()) {
-					statements.addAll(statement.accept(visitor));
+				if (mappingsContainsValue) {
+					ModularPlusCalMappingMacroExpansionVisitor visitor = new ModularPlusCalMappingMacroExpansionVisitor(
+							registry, nameCleaner, labelUIDsToVarUIDs, arguments, boundValues, variables, mappings,
+							() -> variable,
+							dollarValue,
+							modularPlusCalYield -> {
+								List<PlusCalStatement> result = new ArrayList<>();
+								TLAExpression expression = modularPlusCalYield.getExpression().accept(
+										new TLAExpressionMappingMacroExpansionVisitor(
+												registry,
+												() -> variable, dollarValue, boundTemporaryVariables));
+								result.add(new PlusCalAssignment(
+										modularPlusCalYield.getLocation(),
+										Collections.singletonList(
+												new PlusCalAssignmentPair(
+														modularPlusCalYield.getLocation(), temp, expression))));
+								return result;
+							},
+							boundTemporaryVariables);
+					for (PlusCalStatement statement : mappings.get(valueUID).getReadBody()) {
+						statements.addAll(statement.accept(visitor));
+					}
+				} else {
+					TLAExpression rhs = value instanceof TLARef
+							? new TLAGeneralIdentifier(
+									labelLocation,
+									new TLAIdentifier(labelLocation, ((TLARef) value).getTarget()),
+									Collections.emptyList())
+							: value;
+					statements.add(new PlusCalAssignment(
+							labelLocation,
+							Collections.singletonList(new PlusCalAssignmentPair(labelLocation, temp, rhs))));
 				}
 			}
 		}
