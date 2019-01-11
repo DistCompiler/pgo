@@ -89,9 +89,9 @@ public class ModularPlusCalMappingMacroExpansionVisitor
 		UID labelUID = labeledStatements.getLabel().getUID();
 		SourceLocation labelLocation = labeledStatements.getLabel().getLocation();
 		List<PlusCalStatement> statements = new ArrayList<>();
+		// prefetch the variable values
 		if (labelUIDsToVarUIDs.containsKey(labelUID)) {
 			for (UID varUID : labelUIDsToVarUIDs.get(labelUID)) {
-				PlusCalVariableDeclaration argument = arguments.get(varUID);
 				TLAExpression value = boundValues.get(varUID);
 				if (!(value instanceof TLAGeneralIdentifier) && !(value instanceof TLARef)) {
                     continue;
@@ -151,9 +151,29 @@ public class ModularPlusCalMappingMacroExpansionVisitor
 				}
 			}
 		}
+		// actually translate the statements in this labeledStatements
 		statements.addAll(substituteStatements(labeledStatements.getStatements()));
+		// clean up and write back the written values for non-macro-mapped variables
         if (labelUIDsToVarUIDs.containsKey(labelUID)) {
             for (UID varUID : labelUIDsToVarUIDs.get(labelUID)) {
+				// only write back non-macro-mapped refs
+				TLAExpression value = boundValues.get(varUID);
+				if (value instanceof TLARef) {
+					UID valueUID = registry.followReference(value.getUID());
+					if (!mappings.containsKey(valueUID)) {
+						TLAGeneralIdentifier lhs = new TLAGeneralIdentifier(
+								labelLocation,
+								new TLAIdentifier(labelLocation, ((TLARef) value).getTarget()),
+								Collections.emptyList());
+						TLAGeneralIdentifier rhs = new TLAGeneralIdentifier(
+								labelLocation,
+								new TLAIdentifier(labelLocation, boundTemporaryVariables.get(varUID)),
+								Collections.emptyList());
+						statements.add(new PlusCalAssignment(
+								labelLocation,
+								Collections.singletonList(new PlusCalAssignmentPair(labelLocation, lhs, rhs))));
+					}
+				}
             	boundTemporaryVariables.remove(varUID);
             }
         }
