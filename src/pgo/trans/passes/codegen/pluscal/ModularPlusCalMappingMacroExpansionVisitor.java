@@ -229,42 +229,63 @@ public class ModularPlusCalMappingMacroExpansionVisitor
 	@Override
 	public List<PlusCalStatement> visit(PlusCalAssignment plusCalAssignment) throws RuntimeException {
 		List<PlusCalStatement> result = new ArrayList<>();
+		// read the RHS into temporary variables for use later so that parallel assignment works right
+		List<TLAExpression> rhsList = new ArrayList<>();
 		for (PlusCalAssignmentPair pair : plusCalAssignment.getPairs()) {
-            TLAExpression lhs = pair.getLhs();
-            if (!(lhs instanceof TLAGeneralIdentifier)) {
-            	assignmentHelper(pair.getLocation(), lhs, pair.getRhs(), result);
-            	continue;
+			SourceLocation location = pair.getLocation();
+			TLAExpression rhs = pair.getRhs();
+			String tempName = nameCleaner.cleanName("rhsRead");
+			TLAGeneralIdentifier tempVariable = new TLAGeneralIdentifier(
+					location,
+					new TLAIdentifier(location, tempName),
+					Collections.emptyList());
+			TLAExpression transformedRHS = rhs.accept(new TLAExpressionMappingMacroExpansionVisitor(
+					registry, dollarVariable, dollarValue, boundTemporaryVariables));
+			result.add(new PlusCalAssignment(
+					location,
+					Collections.singletonList(new PlusCalAssignmentPair(location, tempVariable, transformedRHS))));
+			rhsList.add(tempVariable);
+		}
+		List<PlusCalAssignmentPair> pairs = plusCalAssignment.getPairs();
+		for (int i = 0; i < pairs.size(); i++) {
+			PlusCalAssignmentPair pair = pairs.get(i);
+			SourceLocation location = pair.getLocation();
+			TLAExpression lhs = pair.getLhs();
+			TLAExpression rhs = rhsList.get(i);
+			if (!(lhs instanceof TLAGeneralIdentifier)) {
+				assignmentHelper(location, lhs, rhs, result);
+				continue;
 			}
 			UID uid = registry.followReference(lhs.getUID());
 			if (!arguments.containsKey(uid)) {
-				assignmentHelper(pair.getLocation(), lhs, pair.getRhs(), result);
-                continue;
+				assignmentHelper(location, lhs, rhs, result);
+				continue;
 			}
 			TLAExpression value = boundValues.get(uid);
 			if (!(value instanceof TLAGeneralIdentifier) && !(value instanceof TLARef)) {
-				assignmentHelper(pair.getLocation(), lhs, pair.getRhs(), result);
-                continue;
+				assignmentHelper(location, lhs, rhs, result);
+				continue;
 			}
 			TLAGeneralIdentifier variable = value instanceof TLARef
 					? new TLAGeneralIdentifier(
-							value.getLocation(),
-							new TLAIdentifier(value.getLocation(), ((TLARef) value).getTarget()),
-							Collections.emptyList())
+						location,
+						new TLAIdentifier(location, ((TLARef) value).getTarget()),
+						Collections.emptyList())
 					: (TLAGeneralIdentifier) value;
 			UID valueUID = registry.followReference(value.getUID());
 			// TODO the argument might have been renamed
 			if (!mappings.containsKey(valueUID)) {
-				assignmentHelper(pair.getLocation(), lhs, pair.getRhs(), result);
+				assignmentHelper(location, lhs, rhs, result);
 				continue;
 			}
 			ModularPlusCalMappingMacroExpansionVisitor visitor = new ModularPlusCalMappingMacroExpansionVisitor(
 					registry, nameCleaner, labelUIDsToVarUIDs, arguments, boundValues, variables, mappings,
-					() -> variable, pair::getRhs,
+					() -> variable, () -> rhs,
 					modularPlusCalYield -> {
 						List<PlusCalStatement> res = new ArrayList<>();
 						TLAExpression expression = modularPlusCalYield.getExpression().accept(
 								new TLAExpressionMappingMacroExpansionVisitor(
-										registry, () -> variable, pair::getRhs, boundTemporaryVariables));
+										registry, () -> variable, () -> rhs, boundTemporaryVariables));
 						res.add(new PlusCalAssignment(
 								modularPlusCalYield.getLocation(),
 								Collections.singletonList(new PlusCalAssignmentPair(
