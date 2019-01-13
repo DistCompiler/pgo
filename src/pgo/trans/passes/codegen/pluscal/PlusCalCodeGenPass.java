@@ -21,12 +21,13 @@ public class PlusCalCodeGenPass {
 
 	public static PlusCalAlgorithm perform(IssueContext ctx, DefinitionRegistry registry,
 										   ModularPlusCalBlock modularPlusCalBlock) {
-		// TODO seed with variable declaration in with and let statements
 		Set<String> nameCleanerSeed = new HashSet<>();
+		PlusCalStatementNameCollectorVisitor nameCollector = new PlusCalStatementNameCollectorVisitor(nameCleanerSeed);
 		for (PlusCalProcedure procedure : modularPlusCalBlock.getProcedures()) {
 			nameCleanerSeed.add(procedure.getName());
 			Stream.concat(procedure.getVariables().stream(), procedure.getArguments().stream())
 					.forEach(v -> nameCleanerSeed.add(v.getName().getValue()));
+			procedure.getBody().forEach(s -> s.accept(nameCollector));
 		}
 		if (modularPlusCalBlock.getProcesses() instanceof PlusCalMultiProcess) {
 			for (PlusCalProcess process : ((PlusCalMultiProcess) modularPlusCalBlock.getProcesses()).getProcesses()) {
@@ -34,15 +35,19 @@ public class PlusCalCodeGenPass {
 				for (PlusCalVariableDeclaration declaration : process.getVariables()) {
 					nameCleanerSeed.add(declaration.getName().getValue());
 				}
+				process.getBody().forEach(s -> s.accept(nameCollector));
 			}
 		}
 		for (ModularPlusCalArchetype archetype : modularPlusCalBlock.getArchetypes()) {
-            nameCleanerSeed.add(archetype.getName());
-            Stream.concat(archetype.getArguments().stream(), archetype.getArguments().stream())
-		            .forEach(v -> nameCleanerSeed.add(v.getName().getValue()));
+			nameCleanerSeed.add(archetype.getName());
+			Stream.concat(archetype.getArguments().stream(), archetype.getArguments().stream())
+					.forEach(v -> nameCleanerSeed.add(v.getName().getValue()));
+			archetype.getBody().forEach(s -> s.accept(nameCollector));
 		}
 		for (ModularPlusCalMappingMacro mappingMacro : modularPlusCalBlock.getMappingMacros()) {
-            nameCleanerSeed.add(mappingMacro.getName());
+			nameCleanerSeed.add(mappingMacro.getName());
+			mappingMacro.getReadBody().forEach(s -> s.accept(nameCollector));
+			mappingMacro.getWriteBody().forEach(s -> s.accept(nameCollector));
 		}
 		for (ModularPlusCalInstance instance : modularPlusCalBlock.getInstances()) {
 			nameCleanerSeed.add(instance.getName().getName().getValue());
@@ -84,16 +89,16 @@ public class PlusCalCodeGenPass {
 							if (labelUIDsToVarUIDs.containsKey(labelUID)) {
 								labelUIDsToVarUIDs.get(labelUID).add(uid);
 							} else {
-                                List<UID> uids = new ArrayList<>();
-                                uids.add(uid);
-                                labelUIDsToVarUIDs.put(labelUID, uids);
+								List<UID> uids = new ArrayList<>();
+								uids.add(uid);
+								labelUIDsToVarUIDs.put(labelUID, uids);
 							}
 						}
 					},
 					(ignored, ignored2) -> {},
 					new HashSet<>());
 			for (PlusCalStatement statement : archetype.getBody()) {
-                statement.accept(visitor);
+				statement.accept(visitor);
 			}
 			ModularPlusCalMappingMacroExpansionVisitor v = new ModularPlusCalMappingMacroExpansionVisitor(
 					registry, nameCleaner, labelUIDsToVarUIDs, arguments, boundValues, variables, mappings);
