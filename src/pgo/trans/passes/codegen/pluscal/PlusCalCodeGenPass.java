@@ -89,7 +89,7 @@ public class PlusCalCodeGenPass {
 							if (labelUIDsToVarUIDs.containsKey(labelUID)) {
 								labelUIDsToVarUIDs.get(labelUID).add(uid);
 							} else {
-								Set<UID> uids = new HashSet<>();
+								Set<UID> uids = new LinkedHashSet<>();
 								uids.add(uid);
 								labelUIDsToVarUIDs.put(labelUID, uids);
 							}
