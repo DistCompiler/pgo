@@ -4,11 +4,6 @@ import pgo.errors.IssueContext;
 import pgo.model.mpcal.*;
 import pgo.model.pcal.*;
 import pgo.model.tla.TLAUnit;
-import pgo.trans.passes.validation.StatementVariableAccessValidationVisitor;
-
-import java.util.HashSet;
-import java.util.Set;
-import java.util.stream.Stream;
 
 /**
  * Validates that the Modular PlusCal specification is valid according to the restrictions
@@ -16,19 +11,12 @@ import java.util.stream.Stream;
  */
 public class ModularPlusCalValidationVisitor extends ModularPlusCalBlockVisitor<Void, RuntimeException> {
 	private final IssueContext ctx;
-	private final Set<String> macrosInScope;
-	private final Set<String> proceduresInScope;
 
 	public ModularPlusCalValidationVisitor(IssueContext ctx) {
 		this.ctx = ctx;
-		this.macrosInScope = new HashSet<>();
-		this.proceduresInScope = new HashSet<>();
 	}
 
 	public Void visit(ModularPlusCalBlock modularPlusCalBlock) {
-		modularPlusCalBlock.getMacros().forEach(m -> macrosInScope.add(m.getName()));
-		modularPlusCalBlock.getProcedures().forEach(p -> proceduresInScope.add(p.getName()));
-
 		for (ModularPlusCalArchetype archetype : modularPlusCalBlock.getArchetypes()) {
 			archetype.accept(this);
 		}
@@ -63,29 +51,14 @@ public class ModularPlusCalValidationVisitor extends ModularPlusCalBlockVisitor<
 	*   * Only local or `ref` variables can be assigned to
 	*/
 	public Void visit(ModularPlusCalArchetype modularPlusCalArchetype) {
-		Set<String> localMacrosInScope = new HashSet<>(macrosInScope);
-		Set<String> localProceduresInScope = new HashSet<>(proceduresInScope);
-		Set<String> variablesInScope = new HashSet<>();
-		Set<String> refVariablesInScope = new HashSet<>();
-		StatementVariableAccessValidationVisitor.validateDeclarations(
-				ctx, localMacrosInScope, localProceduresInScope, variablesInScope, refVariablesInScope,
-				Stream.concat(modularPlusCalArchetype.getArguments().stream(),
-						modularPlusCalArchetype.getVariables().stream()));
-
 		// guaranteed to exist at the parsing stage
 		PlusCalStatement firstStatement = modularPlusCalArchetype.getBody().get(0);
 		checkLabeled(firstStatement);
 
 		ModularPlusCalLabelingRulesVisitor visitor = new ModularPlusCalLabelingRulesVisitor(ctx);
-		StatementVariableAccessValidationVisitor accessValidationVisitor =
-				new StatementVariableAccessValidationVisitor(
-						ctx, localMacrosInScope, localProceduresInScope, variablesInScope, refVariablesInScope);
 		for (PlusCalStatement statement : modularPlusCalArchetype.getBody()) {
 			statement.accept(visitor);
-			statement.accept(accessValidationVisitor);
 		}
-
-		// TODO: validate archetypes
 
 		return null;
 	}
