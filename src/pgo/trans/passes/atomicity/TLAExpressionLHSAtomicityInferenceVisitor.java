@@ -22,7 +22,7 @@ public class TLAExpressionLHSAtomicityInferenceVisitor extends TLAExpressionVisi
 		for (TLAExpression param : pGoTLAFunctionCall.getParams()) {
 			param.accept(visitor);
 		}
-		captureWrite.accept(pGoTLAFunctionCall.getFunction().getUID());
+		pGoTLAFunctionCall.getFunction().accept(this);
 		return null;
 	}
 
