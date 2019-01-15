@@ -23,7 +23,7 @@ public class ModularPlusCalMappingMacroExpansionVisitor
 
 	private final DefinitionRegistry registry;
 	private final NameCleaner nameCleaner;
-	private final Map<UID, List<UID>> labelUIDsToVarUIDs;
+	private final Map<UID, Set<UID>> labelUIDsToVarUIDs;
 	private final Map<UID, PlusCalVariableDeclaration> arguments;
 	private final Map<UID, TLAExpression> boundValues;
 	private final List<PlusCalVariableDeclaration> variables;
@@ -34,15 +34,15 @@ public class ModularPlusCalMappingMacroExpansionVisitor
 	private final Map<UID, String> boundTemporaryVariables;
 
 	private ModularPlusCalMappingMacroExpansionVisitor(DefinitionRegistry registry, NameCleaner nameCleaner,
-													   Map<UID, List<UID>> labelUIDsToVarUIDs,
-													   Map<UID, PlusCalVariableDeclaration> arguments,
-													   Map<UID, TLAExpression> boundValues,
-													   List<PlusCalVariableDeclaration> variables,
-													   Map<UID, ModularPlusCalMappingMacro> mappings,
-													   Supplier<TLAGeneralIdentifier> dollarVariable,
-													   Supplier<TLAExpression> dollarValue,
-													   YieldHandler yieldHandler,
-													   Map<UID, String> boundTemporaryVariables) {
+	                                                   Map<UID, Set<UID>> labelUIDsToVarUIDs,
+	                                                   Map<UID, PlusCalVariableDeclaration> arguments,
+	                                                   Map<UID, TLAExpression> boundValues,
+	                                                   List<PlusCalVariableDeclaration> variables,
+	                                                   Map<UID, ModularPlusCalMappingMacro> mappings,
+	                                                   Supplier<TLAGeneralIdentifier> dollarVariable,
+	                                                   Supplier<TLAExpression> dollarValue,
+	                                                   YieldHandler yieldHandler,
+	                                                   Map<UID, String> boundTemporaryVariables) {
 		this.registry = registry;
 		this.nameCleaner = nameCleaner;
 		this.labelUIDsToVarUIDs = labelUIDsToVarUIDs;
@@ -57,11 +57,11 @@ public class ModularPlusCalMappingMacroExpansionVisitor
 	}
 
 	ModularPlusCalMappingMacroExpansionVisitor(DefinitionRegistry registry, NameCleaner nameCleaner,
-											   Map<UID, List<UID>> labelUIDsToVarUIDs,
-											   Map<UID, PlusCalVariableDeclaration> arguments,
-											   Map<UID, TLAExpression> boundValues,
-											   List<PlusCalVariableDeclaration> variables,
-											   Map<UID, ModularPlusCalMappingMacro> mappings) {
+	                                           Map<UID, Set<UID>> labelUIDsToVarUIDs,
+	                                           Map<UID, PlusCalVariableDeclaration> arguments,
+	                                           Map<UID, TLAExpression> boundValues,
+	                                           List<PlusCalVariableDeclaration> variables,
+	                                           Map<UID, ModularPlusCalMappingMacro> mappings) {
 		this(
 				registry,
 				nameCleaner,
@@ -104,18 +104,9 @@ public class ModularPlusCalMappingMacroExpansionVisitor
 						: (TLAGeneralIdentifier) value;
 				UID valueUID = registry.followReference(value.getUID());
 				boolean mappingsContainsValue = mappings.containsKey(valueUID);
-				String tempName = nameCleaner.cleanName(arguments.get(varUID).getName().getValue() + "Read");
-				boundTemporaryVariables.put(varUID, tempName);
-				variables.add(new PlusCalVariableDeclaration(
-						labelLocation,
-						new Located<>(labelLocation, tempName),
-						false,
-						false,
-						new PlusCalDefaultInitValue(labelLocation)));
-				TLAGeneralIdentifier temp = new TLAGeneralIdentifier(
-						labelLocation,
-						new TLAIdentifier(labelLocation, tempName),
-						Collections.emptyList());
+				TLAGeneralIdentifier temp = registry.defineTemporaryLocalVariable(
+						labelLocation, nameCleaner, arguments.get(varUID).getName().getValue() + "Read", variables);
+				boundTemporaryVariables.put(varUID, temp.getName().getId());
 				if (mappingsContainsValue) {
 					ModularPlusCalMappingMacroExpansionVisitor visitor = new ModularPlusCalMappingMacroExpansionVisitor(
 							registry, nameCleaner, labelUIDsToVarUIDs, arguments, boundValues, variables, mappings,
@@ -216,37 +207,38 @@ public class ModularPlusCalMappingMacroExpansionVisitor
 	}
 
 	private void assignmentHelper(SourceLocation location, TLAExpression lhs, TLAExpression rhs,
-								  List<PlusCalStatement> result) {
-		TLAExpression transformedRHS = rhs.accept(new TLAExpressionMappingMacroExpansionVisitor(
-				registry, dollarVariable, dollarValue, boundTemporaryVariables));
+	                              List<PlusCalStatement> result) {
 		TLAExpression transformedLHS = lhs.accept(new TLAExpressionMappingMacroExpansionVisitor(
 				registry, dollarVariable, dollarValue, boundTemporaryVariables));
 		result.add(new PlusCalAssignment(
 				location,
-				Collections.singletonList(new PlusCalAssignmentPair(location, transformedLHS, transformedRHS))));
+				Collections.singletonList(new PlusCalAssignmentPair(location, transformedLHS, rhs))));
 	}
 
 	@Override
 	public List<PlusCalStatement> visit(PlusCalAssignment plusCalAssignment) throws RuntimeException {
 		List<PlusCalStatement> result = new ArrayList<>();
-		// read the RHS into temporary variables for use later so that parallel assignment works right
-		List<TLAExpression> rhsList = new ArrayList<>();
-		for (PlusCalAssignmentPair pair : plusCalAssignment.getPairs()) {
-			SourceLocation location = pair.getLocation();
-			TLAExpression rhs = pair.getRhs();
-			String tempName = nameCleaner.cleanName("rhsRead");
-			TLAGeneralIdentifier tempVariable = new TLAGeneralIdentifier(
-					location,
-					new TLAIdentifier(location, tempName),
-					Collections.emptyList());
-			TLAExpression transformedRHS = rhs.accept(new TLAExpressionMappingMacroExpansionVisitor(
-					registry, dollarVariable, dollarValue, boundTemporaryVariables));
-			result.add(new PlusCalAssignment(
-					location,
-					Collections.singletonList(new PlusCalAssignmentPair(location, tempVariable, transformedRHS))));
-			rhsList.add(tempVariable);
-		}
 		List<PlusCalAssignmentPair> pairs = plusCalAssignment.getPairs();
+		List<TLAExpression> rhsList = new ArrayList<>();
+		if (pairs.size() > 1) {
+			// read the RHS into temporary variables for use later so that parallel assignment works right
+			for (PlusCalAssignmentPair pair : pairs) {
+				SourceLocation location = pair.getLocation();
+				TLAExpression rhs = pair.getRhs();
+				TLAGeneralIdentifier tempVariable = registry.defineTemporaryLocalVariable(
+						location, nameCleaner, "rhsRead", variables);
+				TLAExpression transformedRHS = rhs.accept(new TLAExpressionMappingMacroExpansionVisitor(
+						registry, dollarVariable, dollarValue, boundTemporaryVariables));
+				result.add(new PlusCalAssignment(
+						location,
+						Collections.singletonList(new PlusCalAssignmentPair(location, tempVariable, transformedRHS))));
+				rhsList.add(tempVariable);
+			}
+		} else {
+			// otherwise, don't create temporary variable for cleaner code
+			rhsList.add(pairs.get(0).getRhs().accept(new TLAExpressionMappingMacroExpansionVisitor(
+					registry, dollarVariable, dollarValue, boundTemporaryVariables)));
+		}
 		for (int i = 0; i < pairs.size(); i++) {
 			PlusCalAssignmentPair pair = pairs.get(i);
 			SourceLocation location = pair.getLocation();

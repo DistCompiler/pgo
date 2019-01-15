@@ -80,7 +80,7 @@ public class PlusCalCodeGenPass {
 			}
 			List<PlusCalStatement> body = new ArrayList<>();
 			// discover argument reads
-			Map<UID, List<UID>> labelUIDsToVarUIDs = new HashMap<>();
+			Map<UID, Set<UID>> labelUIDsToVarUIDs = new HashMap<>();
 			PlusCalStatementAtomicityInferenceVisitor visitor = new PlusCalStatementAtomicityInferenceVisitor(
 					new UID(),
 					(varUID, labelUID) -> {
@@ -89,7 +89,7 @@ public class PlusCalCodeGenPass {
 							if (labelUIDsToVarUIDs.containsKey(labelUID)) {
 								labelUIDsToVarUIDs.get(labelUID).add(uid);
 							} else {
-								List<UID> uids = new ArrayList<>();
+								Set<UID> uids = new HashSet<>();
 								uids.add(uid);
 								labelUIDsToVarUIDs.put(labelUID, uids);
 							}

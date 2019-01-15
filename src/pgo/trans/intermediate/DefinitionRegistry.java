@@ -1,6 +1,7 @@
 package pgo.trans.intermediate;
 
 import pgo.InternalCompilerError;
+import pgo.model.golang.NameCleaner;
 import pgo.model.golang.type.GoType;
 import pgo.model.mpcal.ModularPlusCalArchetype;
 import pgo.model.mpcal.ModularPlusCalMappingMacro;
@@ -9,7 +10,9 @@ import pgo.model.pcal.PlusCalVariableDeclaration;
 import pgo.model.tla.*;
 import pgo.model.type.PGoTypeGenerator;
 import pgo.model.type.PGoTypeVariable;
+import pgo.parser.Located;
 import pgo.scope.UID;
+import pgo.util.SourceLocation;
 
 import java.util.*;
 
@@ -121,6 +124,26 @@ public class DefinitionRegistry {
 			throw new InternalCompilerError();
 		}
 		return references.get(from);
+	}
+
+	public TLAGeneralIdentifier defineTemporaryLocalVariable(SourceLocation location,
+	                                                         NameCleaner nameCleaner,
+	                                                         String nameHint,
+	                                                         List<PlusCalVariableDeclaration> variables) {
+		String uniqueName = nameCleaner.cleanName(nameHint);
+		PlusCalVariableDeclaration declaration = new PlusCalVariableDeclaration(
+				location,
+				new Located<>(location, uniqueName),
+				false,
+				false,
+				new PlusCalDefaultInitValue(location));
+		variables.add(declaration);
+		TLAGeneralIdentifier variableReference = new TLAGeneralIdentifier(
+				location,
+				new TLAIdentifier(location, uniqueName),
+				Collections.emptyList());
+		references.put(variableReference.getUID(), declaration.getUID());
+		return variableReference;
 	}
 
 	public OperatorAccessor findOperator(UID id) {
