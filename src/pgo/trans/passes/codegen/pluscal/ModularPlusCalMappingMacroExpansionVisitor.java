@@ -22,7 +22,8 @@ public class ModularPlusCalMappingMacroExpansionVisitor
 
 	private final DefinitionRegistry registry;
 	private final NameCleaner nameCleaner;
-	private final Map<UID, Set<UID>> labelUIDsToVarUIDs;
+	private final Map<UID, Set<UID>> labelsToVarReads;
+	private final Map<UID, Set<UID>> labelsToVarWrites;
 	private final Map<UID, PlusCalVariableDeclaration> arguments;
 	private final Map<UID, TLAExpression> boundValues;
 	private final List<PlusCalVariableDeclaration> variables;
@@ -33,7 +34,8 @@ public class ModularPlusCalMappingMacroExpansionVisitor
 	private final Map<UID, String> boundTemporaryVariables;
 
 	private ModularPlusCalMappingMacroExpansionVisitor(DefinitionRegistry registry, NameCleaner nameCleaner,
-	                                                   Map<UID, Set<UID>> labelUIDsToVarUIDs,
+	                                                   Map<UID, Set<UID>> labelsToVarReads,
+	                                                   Map<UID, Set<UID>> labelsToVarWrites,
 	                                                   Map<UID, PlusCalVariableDeclaration> arguments,
 	                                                   Map<UID, TLAExpression> boundValues,
 	                                                   List<PlusCalVariableDeclaration> variables,
@@ -44,7 +46,8 @@ public class ModularPlusCalMappingMacroExpansionVisitor
 	                                                   Map<UID, String> boundTemporaryVariables) {
 		this.registry = registry;
 		this.nameCleaner = nameCleaner;
-		this.labelUIDsToVarUIDs = labelUIDsToVarUIDs;
+		this.labelsToVarReads = labelsToVarReads;
+		this.labelsToVarWrites = labelsToVarWrites;
 		this.arguments = arguments;
 		this.boundValues = boundValues;
 		this.variables = variables;
@@ -56,7 +59,8 @@ public class ModularPlusCalMappingMacroExpansionVisitor
 	}
 
 	ModularPlusCalMappingMacroExpansionVisitor(DefinitionRegistry registry, NameCleaner nameCleaner,
-	                                           Map<UID, Set<UID>> labelUIDsToVarUIDs,
+	                                           Map<UID, Set<UID>> labelsToVarReads,
+	                                           Map<UID, Set<UID>> labelsToVarWrites,
 	                                           Map<UID, PlusCalVariableDeclaration> arguments,
 	                                           Map<UID, TLAExpression> boundValues,
 	                                           List<PlusCalVariableDeclaration> variables,
@@ -64,7 +68,8 @@ public class ModularPlusCalMappingMacroExpansionVisitor
 		this(
 				registry,
 				nameCleaner,
-				labelUIDsToVarUIDs,
+				labelsToVarReads,
+				labelsToVarWrites,
 				arguments,
 				boundValues,
 				variables,
@@ -89,8 +94,8 @@ public class ModularPlusCalMappingMacroExpansionVisitor
 		SourceLocation labelLocation = labeledStatements.getLabel().getLocation();
 		List<PlusCalStatement> statements = new ArrayList<>();
 		// prefetch the variable values
-		if (labelUIDsToVarUIDs.containsKey(labelUID)) {
-			for (UID varUID : labelUIDsToVarUIDs.get(labelUID)) {
+		if (labelsToVarReads.containsKey(labelUID)) {
+			for (UID varUID : labelsToVarReads.get(labelUID)) {
 				TLAExpression value = boundValues.get(varUID);
 				if (!(value instanceof TLAGeneralIdentifier) && !(value instanceof TLARef)) {
 					continue;
@@ -108,9 +113,8 @@ public class ModularPlusCalMappingMacroExpansionVisitor
 				boundTemporaryVariables.put(varUID, temp.getName().getId());
 				if (mappingsContainsValue) {
 					ModularPlusCalMappingMacroExpansionVisitor visitor = new ModularPlusCalMappingMacroExpansionVisitor(
-							registry, nameCleaner, labelUIDsToVarUIDs, arguments, boundValues, variables, mappings,
-							() -> variable,
-							dollarValue,
+							registry, nameCleaner, labelsToVarReads, labelsToVarWrites, arguments, boundValues,
+							variables, mappings, () -> variable, dollarValue,
 							modularPlusCalYield -> {
 								List<PlusCalStatement> result = new ArrayList<>();
 								TLAExpression expression = modularPlusCalYield.getExpression().accept(
@@ -144,8 +148,8 @@ public class ModularPlusCalMappingMacroExpansionVisitor
 		// actually translate the statements in this labeledStatements
 		statements.addAll(substituteStatements(labeledStatements.getStatements()));
 		// clean up and write back the written values for non-macro-mapped variables
-		if (labelUIDsToVarUIDs.containsKey(labelUID)) {
-			for (UID varUID : labelUIDsToVarUIDs.get(labelUID)) {
+		if (labelsToVarWrites.containsKey(labelUID)) {
+			for (UID varUID : labelsToVarWrites.get(labelUID)) {
 				// only write back non-macro-mapped refs
 				TLAExpression value = boundValues.get(varUID);
 				if (value instanceof TLARef) {
@@ -270,8 +274,8 @@ public class ModularPlusCalMappingMacroExpansionVisitor
 				continue;
 			}
 			ModularPlusCalMappingMacroExpansionVisitor visitor = new ModularPlusCalMappingMacroExpansionVisitor(
-					registry, nameCleaner, labelUIDsToVarUIDs, arguments, boundValues, variables, mappings,
-					() -> variable, () -> rhs,
+					registry, nameCleaner, labelsToVarReads, labelsToVarWrites, arguments, boundValues, variables,
+					mappings, () -> variable, () -> rhs,
 					modularPlusCalYield -> {
 						List<PlusCalStatement> res = new ArrayList<>();
 						TLAExpression expression = modularPlusCalYield.getExpression().accept(

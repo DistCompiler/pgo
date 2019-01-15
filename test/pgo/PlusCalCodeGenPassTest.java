@@ -178,7 +178,6 @@ public class PlusCalCodeGenPassTest {
                     //         l1: aRead := 0;
                     //             bRead := y;
                     //             print << (aRead), (bRead) >>;
-                    //             y := bRead;
                     //     }
                     // }
                     algorithm(
@@ -194,15 +193,14 @@ public class PlusCalCodeGenPassTest {
                                     pcalVarDecl("P1", false, false, num(42)),
                                     PlusCalFairness.WEAK_FAIR,
                                     Arrays.asList(
-                                            pcalVarDecl("bRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-                                            pcalVarDecl("aRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
+                                            pcalVarDecl("aRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+                                            pcalVarDecl("bRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
                                     ),
                                     labeled(
                                             label("l1"),
-                                            assign(idexp("bRead"), idexp("y")),
                                             assign(idexp("aRead"), num(0)),
-                                            printS(tuple(idexp("aRead"), idexp("bRead"))),
-                                            assign(idexp("y"), idexp("bRead"))
+                                            assign(idexp("bRead"), idexp("y")),
+                                            printS(tuple(idexp("aRead"), idexp("bRead")))
                                     )
                             )
                     )
@@ -319,7 +317,7 @@ public class PlusCalCodeGenPassTest {
 
                         // --algorithm Algorithm3 {
                         //    variables x = 10, y = 20;
-                        //    process (P1 = 42)
+                        //    process (P1 = 100)
                         //    variables local, aRead, aRead0, bRead;
                         //    {
                         //        l1:
@@ -362,7 +360,7 @@ public class PlusCalCodeGenPassTest {
                                 Collections.emptyList(),
                                 Collections.emptyList(),
                                 process(
-                                        pcalVarDecl("P1", false, false, num(42)),
+                                        pcalVarDecl("P1", false, false, num(100)),
                                         PlusCalFairness.WEAK_FAIR,
                                         Arrays.asList(
                                                 pcalVarDecl("local", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
@@ -383,7 +381,7 @@ public class PlusCalCodeGenPassTest {
                                                         )
                                                 ),
                                                 ifS(
-                                                        binop(">=", idexp("a"), num(42)),
+                                                        binop(">=", idexp("aRead"), num(42)),
                                                         Collections.singletonList(assign(idexp("local"), num(42))),
                                                         Collections.emptyList()
                                                 )

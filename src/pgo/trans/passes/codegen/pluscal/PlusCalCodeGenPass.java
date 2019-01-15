@@ -19,8 +19,22 @@ import java.util.stream.Stream;
 public class PlusCalCodeGenPass {
 	private PlusCalCodeGenPass() {}
 
+	private static void trackArgumentAccess(DefinitionRegistry registry, Map<UID, PlusCalVariableDeclaration> arguments,
+	                                        Map<UID, Set<UID>> tracker, UID varUID, UID labelUID) {
+		UID uid = registry.followReference(varUID);
+		if (arguments.containsKey(uid)) {
+			if (tracker.containsKey(labelUID)) {
+				tracker.get(labelUID).add(uid);
+			} else {
+				Set<UID> uids = new LinkedHashSet<>();
+				uids.add(uid);
+				tracker.put(labelUID, uids);
+			}
+		}
+	}
+
 	public static PlusCalAlgorithm perform(IssueContext ctx, DefinitionRegistry registry,
-										   ModularPlusCalBlock modularPlusCalBlock) {
+	                                       ModularPlusCalBlock modularPlusCalBlock) {
 		Set<String> nameCleanerSeed = new HashSet<>();
 		PlusCalStatementNameCollectorVisitor nameCollector = new PlusCalStatementNameCollectorVisitor(nameCleanerSeed);
 		for (PlusCalProcedure procedure : modularPlusCalBlock.getProcedures()) {
@@ -80,28 +94,20 @@ public class PlusCalCodeGenPass {
 			}
 			List<PlusCalStatement> body = new ArrayList<>();
 			// discover argument reads
-			Map<UID, Set<UID>> labelUIDsToVarUIDs = new HashMap<>();
+			Map<UID, Set<UID>> labelsToVarReads = new HashMap<>();
+			// discover argument writes
+			Map<UID, Set<UID>> labelsToVarWrites = new HashMap<>();
 			PlusCalStatementAtomicityInferenceVisitor visitor = new PlusCalStatementAtomicityInferenceVisitor(
 					new UID(),
-					(varUID, labelUID) -> {
-						UID uid = registry.followReference(varUID);
-						if (arguments.containsKey(uid)) {
-							if (labelUIDsToVarUIDs.containsKey(labelUID)) {
-								labelUIDsToVarUIDs.get(labelUID).add(uid);
-							} else {
-								Set<UID> uids = new LinkedHashSet<>();
-								uids.add(uid);
-								labelUIDsToVarUIDs.put(labelUID, uids);
-							}
-						}
-					},
-					(ignored, ignored2) -> {},
+					(varUID, labelUID) -> trackArgumentAccess(registry, arguments, labelsToVarReads, varUID, labelUID),
+					(varUID, labelUID) -> trackArgumentAccess(registry, arguments, labelsToVarWrites, varUID, labelUID),
 					new HashSet<>());
 			for (PlusCalStatement statement : archetype.getBody()) {
 				statement.accept(visitor);
 			}
 			ModularPlusCalMappingMacroExpansionVisitor v = new ModularPlusCalMappingMacroExpansionVisitor(
-					registry, nameCleaner, labelUIDsToVarUIDs, arguments, boundValues, variables, mappings);
+					registry, nameCleaner, labelsToVarReads, labelsToVarWrites, arguments, boundValues, variables,
+					mappings);
 			for (PlusCalStatement statement : archetype.getBody()) {
 				body.addAll(statement.accept(v));
 			}
