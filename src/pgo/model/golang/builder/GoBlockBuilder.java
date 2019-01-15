@@ -5,6 +5,7 @@ import pgo.model.golang.*;
 import pgo.model.golang.type.GoType;
 import pgo.model.golang.type.GoTypeName;
 import pgo.scope.UID;
+import pgo.trans.passes.codegen.NameCleaner;
 
 import java.io.Closeable;
 import java.util.*;

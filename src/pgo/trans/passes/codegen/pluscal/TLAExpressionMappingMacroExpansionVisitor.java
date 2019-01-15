@@ -2,10 +2,6 @@ package pgo.trans.passes.codegen.pluscal;
 
 import pgo.TODO;
 import pgo.Unreachable;
-import pgo.model.golang.NameCleaner;
-import pgo.model.mpcal.ModularPlusCalMappingMacro;
-import pgo.model.pcal.PlusCalStatement;
-import pgo.model.pcal.PlusCalVariableDeclaration;
 import pgo.model.tla.*;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;

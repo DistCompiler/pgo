@@ -1,12 +1,11 @@
 package pgo.trans.passes.codegen.pluscal;
 
 import pgo.Unreachable;
-import pgo.model.golang.NameCleaner;
+import pgo.trans.passes.codegen.NameCleaner;
 import pgo.model.mpcal.ModularPlusCalMappingMacro;
 import pgo.model.mpcal.ModularPlusCalYield;
 import pgo.model.pcal.*;
 import pgo.model.tla.*;
-import pgo.parser.Located;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
 import pgo.util.SourceLocation;

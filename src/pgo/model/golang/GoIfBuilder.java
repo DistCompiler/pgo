@@ -3,6 +3,7 @@ package pgo.model.golang;
 import pgo.model.golang.builder.GoASTBuilder;
 import pgo.model.golang.builder.GoBlockBuilder;
 import pgo.scope.UID;
+import pgo.trans.passes.codegen.NameCleaner;
 
 import java.io.Closeable;
 import java.util.Map;

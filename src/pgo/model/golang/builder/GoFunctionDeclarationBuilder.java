@@ -3,7 +3,7 @@ package pgo.model.golang.builder;
 import pgo.model.golang.GoFunctionArgument;
 import pgo.model.golang.GoFunctionDeclaration;
 import pgo.model.golang.GoVariableName;
-import pgo.model.golang.NameCleaner;
+import pgo.trans.passes.codegen.NameCleaner;
 import pgo.model.golang.type.GoType;
 import pgo.scope.UID;
 

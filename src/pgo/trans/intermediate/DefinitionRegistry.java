@@ -1,7 +1,7 @@
 package pgo.trans.intermediate;
 
 import pgo.InternalCompilerError;
-import pgo.model.golang.NameCleaner;
+import pgo.trans.passes.codegen.NameCleaner;
 import pgo.model.golang.type.GoType;
 import pgo.model.mpcal.ModularPlusCalArchetype;
 import pgo.model.mpcal.ModularPlusCalMappingMacro;
