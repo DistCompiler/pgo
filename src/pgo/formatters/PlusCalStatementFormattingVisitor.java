@@ -18,7 +18,6 @@ public class PlusCalStatementFormattingVisitor extends PlusCalStatementVisitor<V
 	@Override
 	public Void visit(PlusCalLabeledStatements labeledStatements) throws IOException {
 		labeledStatements.getLabel().accept(new PlusCalNodeFormattingVisitor(out));
-		out.write("{");
 		try (IndentingWriter.Indent ignored = out.indent()) {
 			for(PlusCalStatement stmt : labeledStatements.getStatements()) {
 				out.newLine();
@@ -26,7 +25,6 @@ public class PlusCalStatementFormattingVisitor extends PlusCalStatementVisitor<V
 			}
 		}
 		out.newLine();
-		out.write("}");
 		return null;
 	}
 
@@ -93,15 +91,15 @@ public class PlusCalStatementFormattingVisitor extends PlusCalStatementVisitor<V
 			out.newLine();
 			out.write("}");
 		}
-        return null;
+		return null;
 	}
 
 	@Override
 	public Void visit(PlusCalAssignment plusCalAssignment) throws IOException {
 		List<PlusCalAssignmentPair> pairs = plusCalAssignment.getPairs();
-		
+
 		pairs.get(0).accept(new PlusCalNodeFormattingVisitor(out));
-		
+
 		for(PlusCalAssignmentPair pair : pairs.subList(1, pairs.size())) {
 			out.write(" || ");
 			pair.accept(new PlusCalNodeFormattingVisitor(out));
@@ -154,7 +152,7 @@ public class PlusCalStatementFormattingVisitor extends PlusCalStatementVisitor<V
 			}
 		}
 		out.write("};");
-        return null;
+		return null;
 	}
 
 	@Override

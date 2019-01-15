@@ -36,7 +36,7 @@ public class PlusCalNodeFormattingVisitor extends PlusCalNodeVisitor<Void, IOExc
 
 	@Override
 	public Void visit(PlusCalAlgorithm plusCalAlgorithm) throws IOException {
-        out.write("--algorithm ");
+		out.write("--algorithm ");
 		out.write(plusCalAlgorithm.getName().getValue());
 		out.write(" {");
 		out.newLine();
@@ -48,7 +48,7 @@ public class PlusCalNodeFormattingVisitor extends PlusCalNodeVisitor<Void, IOExc
 			List<TLAUnit> units = plusCalAlgorithm.getUnits();
 			if (units.size() > 0) {
 				out.write("define {");
-                out.newLine();
+				out.newLine();
 				try (IndentingWriter.Indent ignored1 = out.indent()) {
 					for (TLAUnit unit : plusCalAlgorithm.getUnits()) {
 						unit.accept(new TLAUnitFormattingVisitor(out));
@@ -65,9 +65,9 @@ public class PlusCalNodeFormattingVisitor extends PlusCalNodeVisitor<Void, IOExc
 			plusCalAlgorithm.getProcesses().accept(this);
 
 		}
-        out.write("}");
-		out.newLine();
-        return null;
+		out.write("}");
+		// there should not be a newline after this to match the PlusCal parser
+		return null;
 	}
 
 	@Override
@@ -102,17 +102,17 @@ public class PlusCalNodeFormattingVisitor extends PlusCalNodeVisitor<Void, IOExc
 	@Override
 	public Void visit(PlusCalLabel label) throws IOException {
 		switch(label.getModifier()) {
-		case MINUS:
-			out.write("-");
-			break;
-		case NONE:
-			// pass
-			break;
-		case PLUS:
-			out.write("+");
-			break;
-		default:
-			throw new Unreachable();
+			case MINUS:
+				out.write("-");
+				break;
+			case NONE:
+				// pass
+				break;
+			case PLUS:
+				out.write("+");
+				break;
+			default:
+				throw new Unreachable();
 		}
 		out.write(label.getName());
 		out.write(":");
@@ -129,10 +129,10 @@ public class PlusCalNodeFormattingVisitor extends PlusCalNodeVisitor<Void, IOExc
 		if (plusCalProcess.getFairness() == PlusCalFairness.WEAK_FAIR) {
 			out.write("fair ");
 		}
-        out.write("process (");
-        plusCalProcess.getName().accept(this);
-        out.write(")");
-        out.newLine();
+		out.write("process (");
+		plusCalProcess.getName().accept(this);
+		out.write(")");
+		out.newLine();
 
 		if (writeVariableDeclarations("variables ", plusCalProcess.getVariables(), ";")) {
 			out.newLine();
@@ -148,7 +148,7 @@ public class PlusCalNodeFormattingVisitor extends PlusCalNodeVisitor<Void, IOExc
 		out.newLine();
 		out.write("}");
 		out.newLine();
-        return null;
+		return null;
 	}
 
 	@Override
