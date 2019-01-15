@@ -4,10 +4,8 @@
 (***************************************************************************)
 
 EXTENDS Naturals, Sequences, TLC
-CONSTANT BUFFER_SIZE
 
-ProducerId == 0
-CONSTANT NUM_CONSUMERS
+CONSTANTS BUFFER_SIZE, NUM_CONSUMERS, PRODUCER
 
 (* total nodes in the system: number of consumers + the producer *)
 NUM_NODES == NUM_CONSUMERS + 1
@@ -40,26 +38,26 @@ NUM_NODES == NUM_CONSUMERS + 1
   }
 
   (* consumer: Processes one element read from the network at a time, infinitely *)
-  archetype AConsumer(ref network, ref processor) {
+  archetype AConsumer(ref net, ref proc) {
       c: while (TRUE) {
           (* request more data to the producer by sending your own identifier
              over the network *)
-          c1: network[ProducerId] := self;
+          c1: net[PRODUCER] := self;
 
           (* processes the piece of data the producer sends back over the network
              by writing to a "processor" abstract interface *)
-          c2: processor := network[ProducerId];
+          c2: proc := net[PRODUCER];
       }
   }
 
-  archetype AProducer(ref network, stream)
+  archetype AProducer(ref net, s)
   variable requester; {
       p: while (TRUE) {
           (* wait for a consumer to request data *)
-          p1: requester := network[self];
+          p1: requester := net[self];
 
           (* send some data to the requester coming from a "stream" abstract interface *)
-          p2: network[requester] := stream;
+          p2: net[requester] := s;
       }
   }
 
@@ -69,13 +67,13 @@ NUM_NODES == NUM_CONSUMERS + 1
 
   fair process (Consumer \in 1..NUM_CONSUMERS) == instance AConsumer(ref network, ref processor)
       mapping network[_] via TCPChannel;
-  fair process (Producer = ProducerId) == instance AProducer(ref network, ref stream)
+  fair process (Producer = PRODUCER) == instance AProducer(ref network, ref stream)
       mapping network[_] via TCPChannel
       mapping stream via CyclicReads;
 }
 ***************************************************************************)
 =============================================================================
 \* Modification History
-\* Last modified Sun Dec 02 13:59:03 PST 2018 by rmc
+\* Last modified Tue Jan 15 13:07:55 PST 2019 by rmc
 \* Last modified Wed Oct 12 02:41:48 PDT 2011 by lamport
 \* Created Mon Oct 10 06:26:47 PDT 2011 by lamport
