@@ -91,7 +91,7 @@ public class PGoMain {
 		return registry;
 	}
 
-	public PlusCalAlgorithm mpcalToPcal(
+	PlusCalAlgorithm mpcalToPcal(
 			Path inputFilePath,
 			TopLevelIssueContext ctx,
 			ModularPlusCalBlock modularPlusCalBlock,
@@ -110,7 +110,7 @@ public class PGoMain {
 		return algorithm;
 	}
 
-	public void mpcalCompilePipeline(
+	void mpcalCompilePipeline(
 			Path inputFilePath,
 			TopLevelIssueContext ctx,
 			ModularPlusCalBlock modularPlusCalBlock,
@@ -182,7 +182,7 @@ public class PGoMain {
 		Files.move(tempFile.toPath(), inputFilePath, StandardCopyOption.REPLACE_EXISTING);
 	}
 
-	public void pcalToGoPipeline(
+	void pcalToGoPipeline(
 			PGoOptions opts,
 			Path inputFilePath,
 			TopLevelIssueContext ctx,

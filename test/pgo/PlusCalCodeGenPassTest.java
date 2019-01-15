@@ -1,4 +1,4 @@
-package pgo.trans.intermediate;
+package pgo;
 
 import static org.junit.Assert.*;
 import static org.hamcrest.CoreMatchers.*;
@@ -194,13 +194,13 @@ public class PlusCalCodeGenPassTest {
                                     pcalVarDecl("P1", false, false, num(42)),
                                     PlusCalFairness.WEAK_FAIR,
                                     Arrays.asList(
-                                            pcalVarDecl("aRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-                                            pcalVarDecl("bRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
+                                            pcalVarDecl("bRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+                                            pcalVarDecl("aRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
                                     ),
                                     labeled(
                                             label("l1"),
-                                            assign(idexp("aRead"), num(0)),
                                             assign(idexp("bRead"), idexp("y")),
+                                            assign(idexp("aRead"), num(0)),
                                             printS(tuple(idexp("aRead"), idexp("bRead"))),
                                             assign(idexp("y"), idexp("bRead"))
                                     )
