@@ -169,9 +169,9 @@ public class PGoMain {
 			} else {
 				final int blockEndOffset = modularPlusCalBlock.getLocation().getEndOffset();
 				long pos = destination.transferFrom(source, 0, blockEndOffset);
-				pos += destination.write(StandardCharsets.UTF_8.encode("\n\n(* "), pos);
+				pos += destination.write(StandardCharsets.UTF_8.encode("\n\n"), pos);
 				pos += destination.write(StandardCharsets.UTF_8.encode(serializedAlgorithm), pos);
-				pos += destination.write(StandardCharsets.UTF_8.encode("\n*)\n\n"), pos);
+				pos += destination.write(StandardCharsets.UTF_8.encode("\n\n\n"), pos);
 				pos += destination.transferFrom(
 						source.position(blockEndOffset),
 						pos,
