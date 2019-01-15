@@ -114,9 +114,9 @@ public class TypeInferencePass {
 		}
 
 		for (ModularPlusCalMappingMacro mappingMacro : modularPlusCalBlock.getMappingMacros()) {
-			mapping.put(mappingMacro.getUID(), generator.get());
-			mapping.put(mappingMacro.getReadValueUID(), generator.get());
+			mapping.put(mappingMacro.getSpecialVariableVariableUID(), generator.get());
 			mapping.put(mappingMacro.getSpecialVariableValueUID(), generator.get());
+			mapping.put(mappingMacro.getReadValueUID(), generator.get());
 			for (PlusCalStatement statement : mappingMacro.getReadBody()) {
 				statement.accept(new MappingMacroReadBodyStatementTypeConstraintVisitor(
 						ctx, registry, solver, generator, mapping, mapping.get(mappingMacro.getReadValueUID())));

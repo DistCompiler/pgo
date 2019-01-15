@@ -94,7 +94,8 @@ public class ScopingPass {
 			modularPlusCalScope.defineGlobal(mappingMacro.getName(), mappingMacro.getUID());
 
 			Map<String, UID> readArgs = new ChainMap<>(tlaScope.getDeclarations());
-			readArgs.put("$variable", mappingMacro.getUID());
+			readArgs.put("$variable", mappingMacro.getSpecialVariableVariableUID());
+			readArgs.put("self", mappingMacro.getSelfVariableUID());
 			TLAScopeBuilder readBodyScope = new TLAScopeBuilder(ctx, readArgs,
 					new ChainMap<>(tlaScope.getDefinitions()), tlaScope.getReferences());
 
@@ -111,8 +112,9 @@ public class ScopingPass {
 			}
 
 			Map<String, UID> writeArgs = new ChainMap<>(tlaScope.getDeclarations());
-			writeArgs.put("$variable", mappingMacro.getUID());
+			writeArgs.put("$variable", mappingMacro.getSpecialVariableVariableUID());
 			writeArgs.put("$value", mappingMacro.getSpecialVariableValueUID());
+			writeArgs.put("self", mappingMacro.getSelfVariableUID());
 			TLAScopeBuilder writeBodyScope = new TLAScopeBuilder(ctx, writeArgs,
 					new ChainMap<>(tlaScope.getDefinitions()), tlaScope.getReferences());
 

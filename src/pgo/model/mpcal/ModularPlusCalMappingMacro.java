@@ -25,6 +25,8 @@ public class ModularPlusCalMappingMacro extends ModularPlusCalUnit {
 	private final String name;
 	private final List<PlusCalStatement> readBody;
 	private final List<PlusCalStatement> writeBody;
+	private final UID selfVariableUID;
+	private final UID specialVariableVariableUID;
 	private final UID specialVariableValueUID;
 	private final UID readValueUID;
 
@@ -34,6 +36,10 @@ public class ModularPlusCalMappingMacro extends ModularPlusCalUnit {
 		this.name = name;
 		this.readBody = readBody;
 		this.writeBody = writeBody;
+		this.selfVariableUID = new UID();
+		this.selfVariableUID.addOrigin(this);
+		this.specialVariableVariableUID = new UID();
+		this.specialVariableVariableUID.addOrigin(this);
 		this.specialVariableValueUID = new UID();
 		this.specialVariableValueUID.addOrigin(this);
 		this.readValueUID = new UID();
@@ -87,6 +93,14 @@ public class ModularPlusCalMappingMacro extends ModularPlusCalUnit {
 
 	public List<PlusCalStatement> getWriteBody() {
 		return Collections.unmodifiableList(writeBody);
+	}
+
+	public UID getSelfVariableUID() {
+		return selfVariableUID;
+	}
+
+	public UID getSpecialVariableVariableUID() {
+		return specialVariableVariableUID;
 	}
 
 	public UID getSpecialVariableValueUID() {
