@@ -14,7 +14,7 @@ public class PlusCalStatementAtomicityInferenceVisitor extends PlusCalStatementV
 	private BiConsumer<UID, UID> captureLabelRead;
 	private BiConsumer<UID, UID> captureLabelWrite;
 	private Set<UID> foundLabels;
-	private TLAExpressionAtomicityInferenceVisitor visitor;
+	private TLAExpressionValueAtomicityInferenceVisitor visitor;
 
 	public PlusCalStatementAtomicityInferenceVisitor(UID currentLabelUID, BiConsumer<UID, UID> captureLabelRead,
 	                                                 BiConsumer<UID, UID> captureLabelWrite, Set<UID> foundLabels) {
@@ -22,7 +22,7 @@ public class PlusCalStatementAtomicityInferenceVisitor extends PlusCalStatementV
 		this.captureLabelRead = captureLabelRead;
 		this.captureLabelWrite = captureLabelWrite;
 		this.foundLabels = foundLabels;
-		this.visitor = new TLAExpressionAtomicityInferenceVisitor(varUID ->
+		this.visitor = new TLAExpressionValueAtomicityInferenceVisitor(varUID ->
 				captureLabelRead.accept(varUID, currentLabelUID));
 	}
 
@@ -30,8 +30,8 @@ public class PlusCalStatementAtomicityInferenceVisitor extends PlusCalStatementV
 	public Void visit(PlusCalLabeledStatements labeledStatements) throws RuntimeException {
 		UID labelUID = labeledStatements.getLabel().getUID();
 		foundLabels.add(labelUID);
-		PlusCalStatementAtomicityInferenceVisitor statementVisitor =
-				new PlusCalStatementAtomicityInferenceVisitor(labelUID, captureLabelRead, captureLabelWrite, foundLabels);
+		PlusCalStatementAtomicityInferenceVisitor statementVisitor = new PlusCalStatementAtomicityInferenceVisitor(
+				labelUID, captureLabelRead, captureLabelWrite, foundLabels);
 		labeledStatements.getStatements().forEach(s -> s.accept(statementVisitor));
 		return null;
 	}
@@ -60,7 +60,8 @@ public class PlusCalStatementAtomicityInferenceVisitor extends PlusCalStatementV
 	@Override
 	public Void visit(PlusCalAssignment plusCalAssignment) throws RuntimeException {
 		for (PlusCalAssignmentPair pair : plusCalAssignment.getPairs()) {
-			pair.getLhs().accept(visitor).forEach(varUID -> captureLabelWrite.accept(varUID, currentLabelUID));
+			pair.getLhs().accept(new TLAExpressionLHSAtomicityInferenceVisitor(
+					visitor, varUID -> captureLabelWrite.accept(varUID, currentLabelUID)));
 			pair.getRhs().accept(visitor);
 		}
 		return null;
@@ -91,7 +92,7 @@ public class PlusCalStatementAtomicityInferenceVisitor extends PlusCalStatementV
 
 	@Override
 	public Void visit(PlusCalWith with) throws RuntimeException {
-		for(PlusCalVariableDeclaration decl : with.getVariables()) {
+		for (PlusCalVariableDeclaration decl : with.getVariables()) {
 			decl.getValue().accept(visitor);
 		}
 		with.getBody().forEach(s -> s.accept(this));
