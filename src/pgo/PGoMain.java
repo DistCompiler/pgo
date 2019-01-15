@@ -146,6 +146,7 @@ public class PGoMain {
 				if (ctx.hasErrors()) {
 					startOffset = -1;
 					endOffset = -1;
+					logger.warning("Invalid PlusCal algorithm block found; ignoring");
 				} else {
 					startOffset = plusCalAlgorithm.getLocation().getStartOffset();
 					endOffset = plusCalAlgorithm.getLocation().getEndOffset();
