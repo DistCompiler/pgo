@@ -41,7 +41,7 @@ public class TLAExpressionMappingMacroExpansionVisitor extends TLAExpressionVisi
 	public TLAExpression visit(TLABinOp TLABinOp) throws RuntimeException {
 		TLAExpression lhs = TLABinOp.getLHS().accept(this);
 		TLAExpression rhs = TLABinOp.getRHS().accept(this);
-        return new TLABinOp(TLABinOp.getLocation(), TLABinOp.getOperation(), TLABinOp.getPrefix(), lhs, rhs);
+		return new TLABinOp(TLABinOp.getLocation(), TLABinOp.getOperation(), TLABinOp.getPrefix(), lhs, rhs);
 	}
 
 	@Override
@@ -51,32 +51,67 @@ public class TLAExpressionMappingMacroExpansionVisitor extends TLAExpressionVisi
 
 	@Override
 	public TLAExpression visit(TLACase TLACase) throws RuntimeException {
-		throw new TODO();
+		List<TLACaseArm> transformedArm = new ArrayList<>();
+		for (TLACaseArm arm : TLACase.getArms()) {
+			TLAExpression condition = arm.getCondition().accept(this);
+			TLAExpression result = arm.getResult().accept(this);
+			transformedArm.add(new TLACaseArm(arm.getLocation(), condition, result));
+		}
+		return new TLACase(TLACase.getLocation(), transformedArm, TLACase.getOther().accept(this));
 	}
 
 	@Override
 	public TLAExpression visit(TLAExistential TLAExistential) throws RuntimeException {
-		throw new TODO();
+		return new TLAExistential(
+				TLAExistential.getLocation(),
+				TLAExistential.getIds(),
+				TLAExistential.getBody().accept(this));
 	}
 
 	@Override
 	public TLAExpression visit(TLAFunction pGoTLAFunction) throws RuntimeException {
-		throw new TODO();
+		return new TLAFunction(
+				pGoTLAFunction.getLocation(), pGoTLAFunction.getArguments(), pGoTLAFunction.getBody().accept(this));
 	}
 
 	@Override
 	public TLAExpression visit(TLAFunctionSet pGoTLAFunctionSet) throws RuntimeException {
-		throw new TODO();
+		return new TLAFunctionSet(
+				pGoTLAFunctionSet.getLocation(),
+				pGoTLAFunctionSet.getFrom().accept(this),
+				pGoTLAFunctionSet.getTo().accept(this));
 	}
 
 	@Override
 	public TLAExpression visit(TLAFunctionSubstitution pGoTLAFunctionSubstitution) throws RuntimeException {
-		throw new TODO();
+		List<TLAFunctionSubstitutionPair> pairs = new ArrayList<>();
+		for (TLAFunctionSubstitutionPair substitution : pGoTLAFunctionSubstitution.getSubstitutions()) {
+			List<TLASubstitutionKey> keys = new ArrayList<>();
+			for (TLASubstitutionKey key : substitution.getKeys()) {
+				List<TLAExpression> indices = new ArrayList<>();
+				for (TLAExpression index : key.getIndices()) {
+					indices.add(index.accept(this));
+				}
+				keys.add(new TLASubstitutionKey(key.getLocation(), indices));
+			}
+			pairs.add(new TLAFunctionSubstitutionPair(
+					substitution.getLocation(),
+					keys,
+					substitution.getValue().accept(this)));
+		}
+		return new TLAFunctionSubstitution(
+				pGoTLAFunctionSubstitution.getLocation(),
+				pGoTLAFunctionSubstitution.getSource().accept(this),
+				pairs);
 	}
 
 	@Override
 	public TLAExpression visit(TLAIf pGoTLAIf) throws RuntimeException {
-		throw new TODO();
+		return new TLAIf(
+				pGoTLAIf.getLocation(),
+				pGoTLAIf.getCond().accept(this),
+				pGoTLAIf.getTval().accept(this),
+				pGoTLAIf.getFval().accept(this));
 	}
 
 	@Override
@@ -107,12 +142,15 @@ public class TLAExpressionMappingMacroExpansionVisitor extends TLAExpressionVisi
 
 	@Override
 	public TLAExpression visit(TLAMaybeAction pGoTLAMaybeAction) throws RuntimeException {
-		throw new TODO();
+		return new TLAMaybeAction(
+				pGoTLAMaybeAction.getLocation(),
+				pGoTLAMaybeAction.getBody().accept(this),
+				pGoTLAMaybeAction.getVars().accept(this));
 	}
 
 	@Override
 	public TLAExpression visit(TLANumber pGoTLANumber) throws RuntimeException {
-        return pGoTLANumber;
+		return pGoTLANumber;
 	}
 
 	@Override
@@ -121,36 +159,66 @@ public class TLAExpressionMappingMacroExpansionVisitor extends TLAExpressionVisi
 		for (TLAExpression argument : pGoTLAOperatorCall.getArgs()) {
 			arguments.add(argument.accept(this));
 		}
-        return new TLAOperatorCall(
-        		pGoTLAOperatorCall.getLocation(),
+		return new TLAOperatorCall(
+				pGoTLAOperatorCall.getLocation(),
 				pGoTLAOperatorCall.getName(),
 				pGoTLAOperatorCall.getPrefix(),
 				arguments);
 	}
 
+	private List<TLAQuantifierBound> transformBounds(List<TLAQuantifierBound> bounds) {
+		List<TLAQuantifierBound> result = new ArrayList<>();
+		for (TLAQuantifierBound bound : bounds) {
+			result.add(new TLAQuantifierBound(
+					bound.getLocation(),
+					bound.getType(),
+					bound.getIds(),
+					bound.getSet().accept(this)));
+		}
+		return result;
+	}
+
 	@Override
 	public TLAExpression visit(TLAQuantifiedExistential pGoTLAQuantifiedExistential) throws RuntimeException {
-		throw new TODO();
+		return new TLAQuantifiedExistential(
+				pGoTLAQuantifiedExistential.getLocation(),
+				transformBounds(pGoTLAQuantifiedExistential.getIds()),
+				pGoTLAQuantifiedExistential.getBody().accept(this));
 	}
 
 	@Override
 	public TLAExpression visit(TLAQuantifiedUniversal pGoTLAQuantifiedUniversal) throws RuntimeException {
-		throw new TODO();
+		return new TLAQuantifiedUniversal(
+				pGoTLAQuantifiedUniversal.getLocation(),
+				transformBounds(pGoTLAQuantifiedUniversal.getIds()),
+				pGoTLAQuantifiedUniversal.getBody().accept(this));
 	}
 
 	@Override
 	public TLAExpression visit(TLARecordConstructor pGoTLARecordConstructor) throws RuntimeException {
-		throw new TODO();
+		List<TLARecordConstructor.Field> fields = new ArrayList<>();
+		for (TLARecordConstructor.Field field : pGoTLARecordConstructor.getFields()) {
+			fields.add(new TLARecordConstructor.Field(
+					field.getLocation(), field.getName(), field.getValue().accept(this)));
+		}
+		return new TLARecordConstructor(pGoTLARecordConstructor.getLocation(), fields);
 	}
 
 	@Override
 	public TLAExpression visit(TLARecordSet pGoTLARecordSet) throws RuntimeException {
-		throw new TODO();
+		List<TLARecordSet.Field> fields = new ArrayList<>();
+		for (TLARecordSet.Field field : pGoTLARecordSet.getFields()) {
+			fields.add(new TLARecordSet.Field(field.getLocation(), field.getName(), field.getSet().accept(this)));
+		}
+		return new TLARecordSet(pGoTLARecordSet.getLocation(), fields);
 	}
 
 	@Override
 	public TLAExpression visit(TLARequiredAction pGoTLARequiredAction) throws RuntimeException {
-		throw new TODO();
+		return new TLARequiredAction(
+				pGoTLARequiredAction.getLocation(),
+				pGoTLARequiredAction.getBody().accept(this),
+				pGoTLARequiredAction.getVars().accept(this));
 	}
 
 	@Override
@@ -164,12 +232,19 @@ public class TLAExpressionMappingMacroExpansionVisitor extends TLAExpressionVisi
 
 	@Override
 	public TLAExpression visit(TLASetComprehension pGoTLASetComprehension) throws RuntimeException {
-		throw new TODO();
+		return new TLASetComprehension(
+				pGoTLASetComprehension.getLocation(),
+				pGoTLASetComprehension.getBody().accept(this),
+				transformBounds(pGoTLASetComprehension.getBounds()));
 	}
 
 	@Override
 	public TLAExpression visit(TLASetRefinement pGoTLASetRefinement) throws RuntimeException {
-		throw new TODO();
+		return new TLASetRefinement(
+				pGoTLASetRefinement.getLocation(),
+				pGoTLASetRefinement.getIdent(),
+				pGoTLASetRefinement.getFrom().accept(this),
+				pGoTLASetRefinement.getWhen().accept(this));
 	}
 
 	@Override
@@ -185,7 +260,10 @@ public class TLAExpressionMappingMacroExpansionVisitor extends TLAExpressionVisi
 
 	@Override
 	public TLAExpression visit(TLAUniversal pGoTLAUniversal) throws RuntimeException {
-		throw new TODO();
+		return new TLAUniversal(
+				pGoTLAUniversal.getLocation(),
+				pGoTLAUniversal.getIds(),
+				pGoTLAUniversal.getBody().accept(this));
 	}
 
 	@Override
@@ -200,12 +278,12 @@ public class TLAExpressionMappingMacroExpansionVisitor extends TLAExpressionVisi
 
 	@Override
 	public TLAExpression visit(TLASpecialVariableVariable tlaSpecialVariableVariable) throws RuntimeException {
-        return dollarVariable.get();
+		return dollarVariable.get();
 	}
 
 	@Override
 	public TLAExpression visit(TLASpecialVariableValue tlaSpecialVariableValue) throws RuntimeException {
-        return dollarValue.get().accept(this);
+		return dollarValue.get().accept(this);
 	}
 
 	@Override
