@@ -2,38 +2,40 @@ package pgo.trans.passes.codegen.pluscal;
 
 import pgo.TODO;
 import pgo.Unreachable;
-import pgo.model.pcal.PlusCalStatement;
-import pgo.trans.passes.codegen.TemporaryBinding;
 import pgo.model.tla.*;
 import pgo.trans.intermediate.DefinitionRegistry;
+import pgo.trans.passes.codegen.TemporaryBinding;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Supplier;
 
-public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLAExpression, RuntimeException> {
+public class TLAExpressionMappingMacroReadExpansionVisitor
+		extends TLAExpressionVisitor<TLAExpression, RuntimeException> {
 	private final DefinitionRegistry registry;
 	private final TemporaryBinding temporaryBinding;
-	private final Supplier<TLAGeneralIdentifier> dollarVariable;
-	private final Supplier<TLAExpression> dollarValue;
+	private final TLAExpression dollarVariable;
 
-	public TLAExpressionPlusCalCodeGenVisitor(DefinitionRegistry registry,
-	                                          TemporaryBinding temporaryBinding,
-	                                          Supplier<TLAGeneralIdentifier> dollarVariable,
-	                                          Supplier<TLAExpression> dollarValue) {
+	public TLAExpressionMappingMacroReadExpansionVisitor(DefinitionRegistry registry, TemporaryBinding temporaryBinding,
+	                                                     TLAExpression dollarVariable) {
 		this.registry = registry;
 		this.temporaryBinding = temporaryBinding;
 		this.dollarVariable = dollarVariable;
-		this.dollarValue = dollarValue;
+	}
+
+	private List<TLAExpression> substituteExpressions(List<TLAExpression> expressions) {
+		List<TLAExpression> result = new ArrayList<>();
+		for (TLAExpression expression : expressions) {
+			result.add(expression.accept(this));
+		}
+		return result;
 	}
 
 	@Override
 	public TLAExpression visit(TLAFunctionCall tlaFunctionCall) throws RuntimeException {
-		List<TLAExpression> arguments = new ArrayList<>();
-		for (TLAExpression argument : tlaFunctionCall.getParams()) {
-			arguments.add(argument.accept(this));
-		}
-		return new TLAFunctionCall(tlaFunctionCall.getLocation(), tlaFunctionCall.getFunction(), arguments);
+		return new TLAFunctionCall(
+				tlaFunctionCall.getLocation(),
+				tlaFunctionCall.getFunction().accept(this),
+				substituteExpressions(tlaFunctionCall.getParams()));
 	}
 
 	@Override
@@ -45,18 +47,17 @@ public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLA
 
 	@Override
 	public TLAExpression visit(TLABool tlaBool) throws RuntimeException {
-		return tlaBool;
+		return new TLABool(tlaBool.getLocation(), tlaBool.getValue());
 	}
 
 	@Override
 	public TLAExpression visit(TLACase tlaCase) throws RuntimeException {
-		List<TLACaseArm> transformedArm = new ArrayList<>();
+		List<TLACaseArm> arms = new ArrayList<>();
 		for (TLACaseArm arm : tlaCase.getArms()) {
-			TLAExpression condition = arm.getCondition().accept(this);
-			TLAExpression result = arm.getResult().accept(this);
-			transformedArm.add(new TLACaseArm(arm.getLocation(), condition, result));
+			arms.add(new TLACaseArm(
+					arm.getLocation(),arm.getCondition().accept(this), arm.getResult().accept(this)));
 		}
-		return new TLACase(tlaCase.getLocation(), transformedArm, tlaCase.getOther().accept(this));
+		return new TLACase(tlaCase.getLocation(), arms, tlaCase.getOther().accept(this));
 	}
 
 	@Override
@@ -67,10 +68,22 @@ public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLA
 				tlaExistential.getBody().accept(this));
 	}
 
+	private List<TLAQuantifierBound> processQuantifierBounds(List<TLAQuantifierBound> bounds) {
+		List<TLAQuantifierBound> result = new ArrayList<>();
+		for (TLAQuantifierBound bound : bounds) {
+			bounds.add(new TLAQuantifierBound(
+					bound.getLocation(),
+					bound.getType(),
+					bound.getIds(),
+					bound.getSet().accept(this)));
+		}
+		return result;
+	}
+
 	@Override
 	public TLAExpression visit(TLAFunction tlaFunction) throws RuntimeException {
-		return new TLAFunction(
-				tlaFunction.getLocation(), tlaFunction.getArguments(), tlaFunction.getBody().accept(this));
+		List<TLAQuantifierBound> bounds = processQuantifierBounds(tlaFunction.getArguments());
+		return new TLAFunction(tlaFunction.getLocation(), bounds, tlaFunction.getBody().accept(this));
 	}
 
 	@Override
@@ -87,11 +100,7 @@ public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLA
 		for (TLAFunctionSubstitutionPair substitution : tlaFunctionSubstitution.getSubstitutions()) {
 			List<TLASubstitutionKey> keys = new ArrayList<>();
 			for (TLASubstitutionKey key : substitution.getKeys()) {
-				List<TLAExpression> indices = new ArrayList<>();
-				for (TLAExpression index : key.getIndices()) {
-					indices.add(index.accept(this));
-				}
-				keys.add(new TLASubstitutionKey(key.getLocation(), indices));
+				keys.add(new TLASubstitutionKey(key.getLocation(), substituteExpressions(key.getIndices())));
 			}
 			pairs.add(new TLAFunctionSubstitutionPair(
 					substitution.getLocation(),
@@ -120,16 +129,14 @@ public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLA
 
 	@Override
 	public TLAExpression visit(TLAGeneralIdentifier tlaGeneralIdentifier) throws RuntimeException {
-		return temporaryBinding.lookup(registry.followReference(tlaGeneralIdentifier.getUID())).orElse(tlaGeneralIdentifier);
+		return temporaryBinding
+				.lookup(registry.followReference(tlaGeneralIdentifier.getUID()))
+				.orElse(tlaGeneralIdentifier);
 	}
 
 	@Override
 	public TLAExpression visit(TLATuple tlaTuple) throws RuntimeException {
-		List<TLAExpression> elements = new ArrayList<>();
-		for (TLAExpression expression : tlaTuple.getElements()) {
-			elements.add(expression.accept(this));
-		}
-		return new TLATuple(tlaTuple.getLocation(), elements);
+		return new TLATuple(tlaTuple.getLocation(), substituteExpressions(tlaTuple.getElements()));
 	}
 
 	@Override
@@ -142,39 +149,23 @@ public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLA
 
 	@Override
 	public TLAExpression visit(TLANumber tlaNumber) throws RuntimeException {
-		return tlaNumber;
+		return tlaNumber.copy();
 	}
 
 	@Override
 	public TLAExpression visit(TLAOperatorCall tlaOperatorCall) throws RuntimeException {
-		List<TLAExpression> arguments = new ArrayList<>();
-		for (TLAExpression argument : tlaOperatorCall.getArgs()) {
-			arguments.add(argument.accept(this));
-		}
 		return new TLAOperatorCall(
 				tlaOperatorCall.getLocation(),
 				tlaOperatorCall.getName(),
 				tlaOperatorCall.getPrefix(),
-				arguments);
-	}
-
-	private List<TLAQuantifierBound> transformBounds(List<TLAQuantifierBound> bounds) {
-		List<TLAQuantifierBound> result = new ArrayList<>();
-		for (TLAQuantifierBound bound : bounds) {
-			result.add(new TLAQuantifierBound(
-					bound.getLocation(),
-					bound.getType(),
-					bound.getIds(),
-					bound.getSet().accept(this)));
-		}
-		return result;
+				substituteExpressions(tlaOperatorCall.getArgs()));
 	}
 
 	@Override
 	public TLAExpression visit(TLAQuantifiedExistential tlaQuantifiedExistential) throws RuntimeException {
 		return new TLAQuantifiedExistential(
 				tlaQuantifiedExistential.getLocation(),
-				transformBounds(tlaQuantifiedExistential.getIds()),
+				processQuantifierBounds(tlaQuantifiedExistential.getIds()),
 				tlaQuantifiedExistential.getBody().accept(this));
 	}
 
@@ -182,7 +173,7 @@ public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLA
 	public TLAExpression visit(TLAQuantifiedUniversal tlaQuantifiedUniversal) throws RuntimeException {
 		return new TLAQuantifiedUniversal(
 				tlaQuantifiedUniversal.getLocation(),
-				transformBounds(tlaQuantifiedUniversal.getIds()),
+				processQuantifierBounds(tlaQuantifiedUniversal.getIds()),
 				tlaQuantifiedUniversal.getBody().accept(this));
 	}
 
@@ -191,7 +182,9 @@ public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLA
 		List<TLARecordConstructor.Field> fields = new ArrayList<>();
 		for (TLARecordConstructor.Field field : tlaRecordConstructor.getFields()) {
 			fields.add(new TLARecordConstructor.Field(
-					field.getLocation(), field.getName(), field.getValue().accept(this)));
+					field.getLocation(),
+					field.getName(),
+					field.getValue().accept(this)));
 		}
 		return new TLARecordConstructor(tlaRecordConstructor.getLocation(), fields);
 	}
@@ -215,19 +208,17 @@ public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLA
 
 	@Override
 	public TLAExpression visit(TLASetConstructor tlaSetConstructor) throws RuntimeException {
-		List<TLAExpression> contents = new ArrayList<>();
-		for (TLAExpression expression : tlaSetConstructor.getContents()) {
-			contents.add(expression.accept(this));
-		}
-		return new TLASetConstructor(tlaSetConstructor.getLocation(), contents);
+		return new TLASetConstructor(
+				tlaSetConstructor.getLocation(),
+				substituteExpressions(tlaSetConstructor.getContents()));
 	}
 
 	@Override
 	public TLAExpression visit(TLASetComprehension tlaSetComprehension) throws RuntimeException {
 		return new TLASetComprehension(
 				tlaSetComprehension.getLocation(),
-				tlaSetComprehension.getBody().accept(this),
-				transformBounds(tlaSetComprehension.getBounds()));
+				tlaSetComprehension.getBody(),
+				processQuantifierBounds(tlaSetComprehension.getBounds()));
 	}
 
 	@Override
@@ -241,13 +232,16 @@ public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLA
 
 	@Override
 	public TLAExpression visit(TLAString tlaString) throws RuntimeException {
-		return tlaString;
+		return tlaString.copy();
 	}
 
 	@Override
 	public TLAExpression visit(TLAUnary tlaUnary) throws RuntimeException {
-		TLAExpression expression = tlaUnary.getOperand().accept(this);
-		return new TLAUnary(tlaUnary.getLocation(), tlaUnary.getOperation(), tlaUnary.getPrefix(), expression);
+		return new TLAUnary(
+				tlaUnary.getLocation(),
+				tlaUnary.getOperation(),
+				tlaUnary.getPrefix(),
+				tlaUnary.getOperand().accept(this));
 	}
 
 	@Override
@@ -260,7 +254,7 @@ public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLA
 
 	@Override
 	public TLAExpression visit(PlusCalDefaultInitValue plusCalDefaultInitValue) throws RuntimeException {
-		return plusCalDefaultInitValue;
+		return plusCalDefaultInitValue.copy();
 	}
 
 	@Override
@@ -270,12 +264,12 @@ public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLA
 
 	@Override
 	public TLAExpression visit(TLASpecialVariableVariable tlaSpecialVariableVariable) throws RuntimeException {
-		return dollarVariable.get();
+		return dollarVariable;
 	}
 
 	@Override
 	public TLAExpression visit(TLASpecialVariableValue tlaSpecialVariableValue) throws RuntimeException {
-		return dollarValue.get().accept(this);
+		throw new Unreachable();
 	}
 
 	@Override

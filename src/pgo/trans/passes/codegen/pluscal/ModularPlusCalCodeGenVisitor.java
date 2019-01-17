@@ -257,23 +257,16 @@ public class ModularPlusCalCodeGenVisitor
 						Collections.emptyList())
 					: (TLAGeneralIdentifier) value;
 			UID valueUID = registry.followReference(value.getUID());
-			// TODO the argument might have been renamed
 			if (!mappings.containsKey(valueUID)) {
 				assignmentHelper(location, lhs, rhs, result);
 				continue;
 			}
-			ModularPlusCalCodeGenVisitor visitor = new ModularPlusCalCodeGenVisitor(
-					registry, temporaryBinding, true, labelsToVarReads, labelsToVarWrites, arguments,
-					boundValues, mappings, () -> variable, () -> rhs,
-					modularPlusCalYield -> {
-						TLAExpression expression = modularPlusCalYield.getExpression().accept(
-								new TLAExpressionPlusCalCodeGenVisitor(
-										registry, temporaryBinding, () -> variable, () -> rhs));
-						return Collections.singletonList(new PlusCalAssignment(
-								modularPlusCalYield.getLocation(),
-								Collections.singletonList(new PlusCalAssignmentPair(
-										modularPlusCalYield.getLocation(), variable, expression))));
-					});
+			ModularPlusCalMappingMacroWriteExpansionVisitor visitor =
+					new ModularPlusCalMappingMacroWriteExpansionVisitor(
+							temporaryBinding,
+							variable,
+							new TLAExpressionMappingMacroWriteExpansionVisitor(
+									registry, temporaryBinding, variable, rhs));
 			for (PlusCalStatement statement : mappings.get(valueUID).getWriteBody()) {
 				result.addAll(statement.accept(visitor));
 			}
