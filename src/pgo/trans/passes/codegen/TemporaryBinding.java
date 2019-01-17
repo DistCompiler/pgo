@@ -2,6 +2,7 @@ package pgo.trans.passes.codegen;
 
 import pgo.model.pcal.PlusCalVariableDeclaration;
 import pgo.model.tla.PlusCalDefaultInitValue;
+import pgo.model.tla.TLAExpression;
 import pgo.model.tla.TLAGeneralIdentifier;
 import pgo.model.tla.TLAIdentifier;
 import pgo.parser.Located;
@@ -35,32 +36,33 @@ public class TemporaryBinding {
 		return variableReference;
 	}
 
-	private TLAGeneralIdentifier declareHelper(SourceLocation location, UID varUID, String nameHint) {
+	private TLAGeneralIdentifier declareHelper(SourceLocation location, UID varUID, String nameHint,
+	                                           TLAExpression value) {
 		TLAGeneralIdentifier fresh = freshVariable(location, varUID, nameHint);
 		PlusCalVariableDeclaration declaration = new PlusCalVariableDeclaration(
-				location,
-				new Located<>(location, fresh.getName().getId()),
-				false,
-				false,
-				new PlusCalDefaultInitValue(location));
+				location, new Located<>(location, fresh.getName().getId()), false, false, value);
 		declarations.add(declaration);
 		return fresh;
 	}
 
-	public TLAGeneralIdentifier declare(SourceLocation location, UID varUID, String nameHint) {
+	public TLAGeneralIdentifier declare(SourceLocation location, UID varUID, String nameHint, TLAExpression value) {
 		if (temporaries.containsKey(varUID)) {
 			Optional<TLAGeneralIdentifier> recycled = temporaries.get(varUID).use();
 			if (recycled.isPresent()) {
 				return recycled.get();
 			}
-			TLAGeneralIdentifier fresh = declareHelper(location, varUID, nameHint);
+			TLAGeneralIdentifier fresh = declareHelper(location, varUID, nameHint, value);
 			temporaries.get(varUID).add(fresh);
 			return fresh;
 		} else {
-			TLAGeneralIdentifier fresh = declareHelper(location, varUID, nameHint);
+			TLAGeneralIdentifier fresh = declareHelper(location, varUID, nameHint, value);
 			temporaries.put(varUID, new Recycling<>(fresh));
 			return fresh;
 		}
+	}
+
+	public TLAGeneralIdentifier declare(SourceLocation location, UID varUID, String nameHint) {
+		return declare(location, varUID, nameHint, new PlusCalDefaultInitValue(location));
 	}
 
 	public Optional<TLAGeneralIdentifier> lookup(UID varUID) {
