@@ -2,30 +2,28 @@ package pgo.trans.passes.codegen.pluscal;
 
 import pgo.TODO;
 import pgo.Unreachable;
+import pgo.model.pcal.builder.TemporaryBinding;
 import pgo.model.tla.*;
-import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.function.Supplier;
 
 public class TLAExpressionMappingMacroExpansionVisitor extends TLAExpressionVisitor<TLAExpression, RuntimeException> {
 	private final DefinitionRegistry registry;
+	private final TemporaryBinding temporaryBinding;
 	private final Supplier<TLAGeneralIdentifier> dollarVariable;
 	private final Supplier<TLAExpression> dollarValue;
-	private final Map<UID, String> boundTemporaryVariables;
 
 	public TLAExpressionMappingMacroExpansionVisitor(DefinitionRegistry registry,
+	                                                 TemporaryBinding temporaryBinding,
 	                                                 Supplier<TLAGeneralIdentifier> dollarVariable,
-	                                                 Supplier<TLAExpression> dollarValue,
-	                                                 Map<UID, String> boundTemporaryVariables) {
+	                                                 Supplier<TLAExpression> dollarValue) {
 		this.registry = registry;
+		this.temporaryBinding = temporaryBinding;
 		this.dollarVariable = dollarVariable;
 		this.dollarValue = dollarValue;
-		this.boundTemporaryVariables = boundTemporaryVariables;
 	}
 
 	@Override
@@ -121,14 +119,7 @@ public class TLAExpressionMappingMacroExpansionVisitor extends TLAExpressionVisi
 
 	@Override
 	public TLAExpression visit(TLAGeneralIdentifier pGoTLAVariable) throws RuntimeException {
-		UID varUID = registry.followReference(pGoTLAVariable.getUID());
-		if (boundTemporaryVariables.containsKey(varUID)) {
-			return new TLAGeneralIdentifier(
-					pGoTLAVariable.getLocation(),
-					new TLAIdentifier(pGoTLAVariable.getLocation(), boundTemporaryVariables.get(varUID)),
-					Collections.emptyList());
-		}
-		return pGoTLAVariable;
+		return temporaryBinding.lookup(registry.followReference(pGoTLAVariable.getUID())).orElse(pGoTLAVariable);
 	}
 
 	@Override

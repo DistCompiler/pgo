@@ -2,6 +2,7 @@ package pgo.trans.passes.codegen.pluscal;
 
 import pgo.Unreachable;
 import pgo.errors.IssueContext;
+import pgo.model.pcal.builder.TemporaryBinding;
 import pgo.trans.passes.codegen.NameCleaner;
 import pgo.model.mpcal.*;
 import pgo.model.pcal.*;
@@ -106,8 +107,8 @@ public class PlusCalCodeGenPass {
 				statement.accept(visitor);
 			}
 			ModularPlusCalMappingMacroExpansionVisitor v = new ModularPlusCalMappingMacroExpansionVisitor(
-					registry, nameCleaner, labelsToVarReads, labelsToVarWrites, arguments, boundValues, variables,
-					mappings);
+					registry, new TemporaryBinding(nameCleaner, variables), labelsToVarReads, labelsToVarWrites,
+					arguments, boundValues, mappings);
 			for (PlusCalStatement statement : archetype.getBody()) {
 				body.addAll(statement.accept(v));
 			}

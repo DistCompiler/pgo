@@ -126,26 +126,6 @@ public class DefinitionRegistry {
 		return references.get(from);
 	}
 
-	public TLAGeneralIdentifier defineTemporaryLocalVariable(SourceLocation location,
-	                                                         NameCleaner nameCleaner,
-	                                                         String nameHint,
-	                                                         List<PlusCalVariableDeclaration> variables) {
-		String uniqueName = nameCleaner.cleanName(nameHint);
-		PlusCalVariableDeclaration declaration = new PlusCalVariableDeclaration(
-				location,
-				new Located<>(location, uniqueName),
-				false,
-				false,
-				new PlusCalDefaultInitValue(location));
-		variables.add(declaration);
-		TLAGeneralIdentifier variableReference = new TLAGeneralIdentifier(
-				location,
-				new TLAIdentifier(location, uniqueName),
-				Collections.emptyList());
-		references.put(variableReference.getUID(), declaration.getUID());
-		return variableReference;
-	}
-
 	public OperatorAccessor findOperator(UID id) {
 		if (!operators.containsKey(id)) {
 			throw new InternalCompilerError();
