@@ -2,7 +2,7 @@ package pgo.trans.passes.codegen.pluscal;
 
 import pgo.Unreachable;
 import pgo.errors.IssueContext;
-import pgo.model.pcal.builder.TemporaryBinding;
+import pgo.trans.passes.codegen.TemporaryBinding;
 import pgo.trans.passes.codegen.NameCleaner;
 import pgo.model.mpcal.*;
 import pgo.model.pcal.*;

@@ -1,7 +1,7 @@
 package pgo.trans.passes.codegen.pluscal;
 
 import pgo.Unreachable;
-import pgo.model.pcal.builder.TemporaryBinding;
+import pgo.trans.passes.codegen.TemporaryBinding;
 import pgo.model.mpcal.ModularPlusCalMappingMacro;
 import pgo.model.mpcal.ModularPlusCalYield;
 import pgo.model.pcal.*;
