@@ -10,16 +10,16 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
 
-public class TLAExpressionMappingMacroExpansionVisitor extends TLAExpressionVisitor<TLAExpression, RuntimeException> {
+public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLAExpression, RuntimeException> {
 	private final DefinitionRegistry registry;
 	private final TemporaryBinding temporaryBinding;
 	private final Supplier<TLAGeneralIdentifier> dollarVariable;
 	private final Supplier<TLAExpression> dollarValue;
 
-	public TLAExpressionMappingMacroExpansionVisitor(DefinitionRegistry registry,
-	                                                 TemporaryBinding temporaryBinding,
-	                                                 Supplier<TLAGeneralIdentifier> dollarVariable,
-	                                                 Supplier<TLAExpression> dollarValue) {
+	public TLAExpressionPlusCalCodeGenVisitor(DefinitionRegistry registry,
+	                                          TemporaryBinding temporaryBinding,
+	                                          Supplier<TLAGeneralIdentifier> dollarVariable,
+	                                          Supplier<TLAExpression> dollarValue) {
 		this.registry = registry;
 		this.temporaryBinding = temporaryBinding;
 		this.dollarVariable = dollarVariable;

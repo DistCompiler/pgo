@@ -106,7 +106,7 @@ public class PlusCalCodeGenPass {
 			for (PlusCalStatement statement : archetype.getBody()) {
 				statement.accept(visitor);
 			}
-			ModularPlusCalMappingMacroExpansionVisitor v = new ModularPlusCalMappingMacroExpansionVisitor(
+			ModularPlusCalCodeGenVisitor v = new ModularPlusCalCodeGenVisitor(
 					registry, new TemporaryBinding(nameCleaner, variables), labelsToVarReads, labelsToVarWrites,
 					arguments, boundValues, mappings);
 			for (PlusCalStatement statement : archetype.getBody()) {
