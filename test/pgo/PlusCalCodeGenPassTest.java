@@ -322,9 +322,9 @@ public class PlusCalCodeGenPassTest {
                         //    {
                         //        l1:
                         //            x := (x)-(1);
-                        //            with (v = 50) {
+                        //            with (v0 = 50) {
                         //                either {
-                        //                    aRead := v;
+                        //                    aRead := v0;
                         //                } or {
                         //                    aRead := 10;
                         //                }
@@ -336,9 +336,9 @@ public class PlusCalCodeGenPassTest {
                         //            x := (10)+(1);
                         //        l3:
                         //            x := (x)-(1);
-                        //            with (v = 50) {
+                        //            with (v1 = 50) {
                         //                either {
-                        //                    aRead := v;
+                        //                    aRead := v1;
                         //                } or {
                         //                    aRead := 10;
                         //                }
@@ -371,10 +371,10 @@ public class PlusCalCodeGenPassTest {
                                                 label("l1"),
                                                 assign(idexp("x"), binop("-", idexp("x"), num(1))),
                                                 with(
-                                                        Collections.singletonList(pcalVarDecl("v", false, false, num(50))),
+                                                        Collections.singletonList(pcalVarDecl("v0", false, false, num(50))),
                                                         either(
                                                                 Arrays.asList(
-                                                                        Collections.singletonList(assign(idexp("aRead"), idexp("v"))),
+                                                                        Collections.singletonList(assign(idexp("aRead"), idexp("v0"))),
                                                                         Collections.singletonList(assign(idexp("aRead"), num(10)))
                                                                 )
                                                         )
@@ -395,10 +395,10 @@ public class PlusCalCodeGenPassTest {
                                                 label("l3"),
                                                 assign(idexp("x"), binop("-", idexp("x"), num(1))),
                                                 with(
-                                                        Collections.singletonList(pcalVarDecl("v", false, false, num(50))),
+                                                        Collections.singletonList(pcalVarDecl("v1", false, false, num(50))),
                                                         either(
                                                                 Arrays.asList(
-                                                                        Collections.singletonList(assign(idexp("aRead"), idexp("v"))),
+                                                                        Collections.singletonList(assign(idexp("aRead"), idexp("v1"))),
                                                                         Collections.singletonList(assign(idexp("aRead"), num(10)))
                                                                 )
                                                         )

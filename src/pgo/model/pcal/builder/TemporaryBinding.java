@@ -24,25 +24,30 @@ public class TemporaryBinding {
 		this.reusables = new HashSet<>();
 	}
 
+	public TLAGeneralIdentifier freshVariable(SourceLocation location, UID varUID, String nameHint) {
+		String uniqueName = nameCleaner.cleanName(nameHint);
+		TLAGeneralIdentifier variableReference = new TLAGeneralIdentifier(
+				location,
+				new TLAIdentifier(location, uniqueName),
+				Collections.emptyList());
+		temporaries.put(varUID, variableReference);
+		return variableReference;
+	}
+
 	public TLAGeneralIdentifier declare(SourceLocation location, UID varUID, String nameHint) {
 		if (reusables.contains(varUID) && temporaries.containsKey(varUID)) {
 			reusables.remove(varUID);
 			return temporaries.get(varUID);
 		} else {
-			String uniqueName = nameCleaner.cleanName(nameHint);
+			TLAGeneralIdentifier fresh = freshVariable(location, varUID, nameHint);
 			PlusCalVariableDeclaration declaration = new PlusCalVariableDeclaration(
 					location,
-					new Located<>(location, uniqueName),
+					new Located<>(location, fresh.getName().getId()),
 					false,
 					false,
 					new PlusCalDefaultInitValue(location));
 			declarations.add(declaration);
-			TLAGeneralIdentifier variableReference = new TLAGeneralIdentifier(
-					location,
-					new TLAIdentifier(location, uniqueName),
-					Collections.emptyList());
-			temporaries.put(varUID, variableReference);
-			return variableReference;
+			return fresh;
 		}
 	}
 
