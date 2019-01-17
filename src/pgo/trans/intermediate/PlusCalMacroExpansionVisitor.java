@@ -33,9 +33,9 @@ public class PlusCalMacroExpansionVisitor extends PlusCalStatementVisitor<List<P
 	}
 
 	@Override
-	public List<PlusCalStatement> visit(PlusCalLabeledStatements labeledStatements) throws RuntimeException {
-		return Collections.singletonList(new PlusCalLabeledStatements(labeledStatements.getLocation(),
-				labeledStatements.getLabel(), substituteStatements(labeledStatements.getStatements())));
+	public List<PlusCalStatement> visit(PlusCalLabeledStatements plusCalLabeledStatements) throws RuntimeException {
+		return Collections.singletonList(new PlusCalLabeledStatements(plusCalLabeledStatements.getLocation(),
+				plusCalLabeledStatements.getLabel(), substituteStatements(plusCalLabeledStatements.getStatements())));
 	}
 
 	@Override
@@ -75,8 +75,8 @@ public class PlusCalMacroExpansionVisitor extends PlusCalStatementVisitor<List<P
 	}
 
 	@Override
-	public List<PlusCalStatement> visit(PlusCalSkip skip) throws RuntimeException {
-		return Collections.singletonList(new PlusCalSkip(skip.getLocation()));
+	public List<PlusCalStatement> visit(PlusCalSkip plusCalSkip) throws RuntimeException {
+		return Collections.singletonList(new PlusCalSkip(plusCalSkip.getLocation()));
 	}
 
 	@Override
@@ -115,17 +115,17 @@ public class PlusCalMacroExpansionVisitor extends PlusCalStatementVisitor<List<P
 	}
 
 	@Override
-	public List<PlusCalStatement> visit(PlusCalWith with) throws RuntimeException {
+	public List<PlusCalStatement> visit(PlusCalWith plusCalWith) throws RuntimeException {
 		return Collections.singletonList(new PlusCalWith(
-				with.getLocation(),
-				with.getVariables().stream().map(v -> {
+				plusCalWith.getLocation(),
+				plusCalWith.getVariables().stream().map(v -> {
 					if (macroArgs.containsKey(v.getName())) {
 						// TODO: error reporting in this case?
 					}
 					return new PlusCalVariableDeclaration(v.getLocation(), v.getName(),
 							v.isRef(), v.isSet(), v.getValue().accept(macroSubst));
 				}).collect(Collectors.toList()),
-				substituteStatements(with.getBody())));
+				substituteStatements(plusCalWith.getBody())));
 	}
 
 	@Override

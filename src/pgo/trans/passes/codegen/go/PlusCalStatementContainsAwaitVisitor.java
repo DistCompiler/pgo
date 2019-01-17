@@ -16,12 +16,12 @@ public class PlusCalStatementContainsAwaitVisitor extends PlusCalStatementVisito
 	}
 
 	@Override
-	public Boolean visit(PlusCalLabeledStatements labeledStatements) throws RuntimeException {
+	public Boolean visit(PlusCalLabeledStatements plusCalLabeledStatements) throws RuntimeException {
 		if (foundLabeledStatements) {
 			return false;
 		}
 		foundLabeledStatements = true;
-		return labeledStatements.getStatements().stream().anyMatch(s -> s.accept(this));
+		return plusCalLabeledStatements.getStatements().stream().anyMatch(s -> s.accept(this));
 	}
 
 	@Override
@@ -51,7 +51,7 @@ public class PlusCalStatementContainsAwaitVisitor extends PlusCalStatementVisito
 	}
 
 	@Override
-	public Boolean visit(PlusCalSkip skip) throws RuntimeException {
+	public Boolean visit(PlusCalSkip plusCalSkip) throws RuntimeException {
 		return false;
 	}
 
@@ -66,8 +66,8 @@ public class PlusCalStatementContainsAwaitVisitor extends PlusCalStatementVisito
 	}
 
 	@Override
-	public Boolean visit(PlusCalWith with) throws RuntimeException {
-		return with.getBody().stream().anyMatch(s -> s.accept(this));
+	public Boolean visit(PlusCalWith plusCalWith) throws RuntimeException {
+		return plusCalWith.getBody().stream().anyMatch(s -> s.accept(this));
 	}
 
 	@Override

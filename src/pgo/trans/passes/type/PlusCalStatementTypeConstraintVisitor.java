@@ -40,8 +40,8 @@ public class PlusCalStatementTypeConstraintVisitor extends PlusCalStatementVisit
 	}
 
 	@Override
-	public Void visit(PlusCalLabeledStatements labeledStatements) throws RuntimeException {
-		for (PlusCalStatement stmt : labeledStatements.getStatements()) {
+	public Void visit(PlusCalLabeledStatements plusCalLabeledStatements) throws RuntimeException {
+		for (PlusCalStatement stmt : plusCalLabeledStatements.getStatements()) {
 			stmt.accept(this);
 		}
 		return null;
@@ -96,7 +96,7 @@ public class PlusCalStatementTypeConstraintVisitor extends PlusCalStatementVisit
 	}
 
 	@Override
-	public Void visit(PlusCalSkip skip) throws RuntimeException {
+	public Void visit(PlusCalSkip plusCalSkip) throws RuntimeException {
 		// pass
 		return null;
 	}
@@ -124,11 +124,11 @@ public class PlusCalStatementTypeConstraintVisitor extends PlusCalStatementVisit
 	}
 
 	@Override
-	public Void visit(PlusCalWith with) throws RuntimeException {
-		for(PlusCalVariableDeclaration declaration : with.getVariables()) {
+	public Void visit(PlusCalWith plusCalWith) throws RuntimeException {
+		for(PlusCalVariableDeclaration declaration : plusCalWith.getVariables()) {
 			TypeInferencePass.constrainVariableDeclaration(registry, declaration, solver, generator, mapping);
 		}
-		for (PlusCalStatement stmt : with.getBody()) {
+		for (PlusCalStatement stmt : plusCalWith.getBody()) {
 			stmt.accept(this);
 		}
 		return null;

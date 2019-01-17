@@ -27,12 +27,12 @@ public class PlusCalStatementAtomicityInferenceVisitor extends PlusCalStatementV
 	}
 
 	@Override
-	public Void visit(PlusCalLabeledStatements labeledStatements) throws RuntimeException {
-		UID labelUID = labeledStatements.getLabel().getUID();
+	public Void visit(PlusCalLabeledStatements plusCalLabeledStatements) throws RuntimeException {
+		UID labelUID = plusCalLabeledStatements.getLabel().getUID();
 		foundLabels.add(labelUID);
 		PlusCalStatementAtomicityInferenceVisitor statementVisitor = new PlusCalStatementAtomicityInferenceVisitor(
 				labelUID, captureLabelRead, captureLabelWrite, foundLabels);
-		labeledStatements.getStatements().forEach(s -> s.accept(statementVisitor));
+		plusCalLabeledStatements.getStatements().forEach(s -> s.accept(statementVisitor));
 		return null;
 	}
 
@@ -74,7 +74,7 @@ public class PlusCalStatementAtomicityInferenceVisitor extends PlusCalStatementV
 	}
 
 	@Override
-	public Void visit(PlusCalSkip skip) throws RuntimeException {
+	public Void visit(PlusCalSkip plusCalSkip) throws RuntimeException {
 		// nothing to do
 		return null;
 	}
@@ -91,11 +91,11 @@ public class PlusCalStatementAtomicityInferenceVisitor extends PlusCalStatementV
 	}
 
 	@Override
-	public Void visit(PlusCalWith with) throws RuntimeException {
-		for (PlusCalVariableDeclaration decl : with.getVariables()) {
+	public Void visit(PlusCalWith plusCalWith) throws RuntimeException {
+		for (PlusCalVariableDeclaration decl : plusCalWith.getVariables()) {
 			decl.getValue().accept(visitor);
 		}
-		with.getBody().forEach(s -> s.accept(this));
+		plusCalWith.getBody().forEach(s -> s.accept(this));
 		return null;
 	}
 

@@ -92,19 +92,19 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 	}
 
 	@Override
-	public GoExpression visit(TLAFunctionCall pGoTLAFunctionCall) throws RuntimeException {
-		PGoType type = typeMap.get(pGoTLAFunctionCall.getFunction().getUID());
+	public GoExpression visit(TLAFunctionCall tlaFunctionCall) throws RuntimeException {
+		PGoType type = typeMap.get(tlaFunctionCall.getFunction().getUID());
 		if (type instanceof PGoTypeMap) {
 			builder.addImport("sort");
-			GoExpression function = pGoTLAFunctionCall.getFunction().accept(this);
+			GoExpression function = tlaFunctionCall.getFunction().accept(this);
 			List<GoExpression> params = new ArrayList<>();
-			for(TLAExpression param : pGoTLAFunctionCall.getParams()) {
+			for(TLAExpression param : tlaFunctionCall.getParams()) {
 				params.add(param.accept(this));
 			}
 
 			GoType keyType = getFunctionKeyType(type.accept(new PGoTypeGoTypeConversionVisitor()));
 			GoVariableName key;
-			if (pGoTLAFunctionCall.getParams().size() == 1) {
+			if (tlaFunctionCall.getParams().size() == 1) {
 				key = builder.varDecl("key", params.get(0));
 			} else{
 				if (keyType instanceof GoSliceType) {
@@ -141,14 +141,14 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 							comparatorBuilder.getFunction())));
 			return new GoSelectorExpression(new GoIndexExpression(function, index), "value");
 		} else if (type instanceof PGoTypeSlice) {
-			if (pGoTLAFunctionCall.getParams().size() != 1) {
+			if (tlaFunctionCall.getParams().size() != 1) {
 				throw new InternalCompilerError(); // slices fundamentally cannot be indexed by multiple parameters
 			}
 			return new GoIndexExpression(
-					pGoTLAFunctionCall.getFunction().accept(this),
+					tlaFunctionCall.getFunction().accept(this),
 					new GoBinop(
 							GoBinop.Operation.MINUS,
-							pGoTLAFunctionCall.getParams().get(0).accept(this),
+							tlaFunctionCall.getParams().get(0).accept(this),
 							new GoIntLiteral(1)));
 		} else{
 			throw new InternalCompilerError();
@@ -156,30 +156,30 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 	}
 
 	@Override
-	public GoExpression visit(TLABinOp TLABinOp) throws RuntimeException {
-		UID ref = registry.followReference(TLABinOp.getOperation().getUID());
+	public GoExpression visit(TLABinOp tlaBinOp) throws RuntimeException {
+		UID ref = registry.followReference(tlaBinOp.getOperation().getUID());
 		OperatorAccessor op = registry.findOperator(ref);
 		return op.generateGo(
-				builder, TLABinOp, registry,
+				builder, tlaBinOp, registry,
 				Arrays.asList(
-						TLABinOp.getLHS(),
-						TLABinOp.getRHS()),
+						tlaBinOp.getLHS(),
+						tlaBinOp.getRHS()),
 				typeMap,
 				globalStrategy);
 	}
 
 	@Override
-	public GoExpression visit(TLABool TLABool) throws RuntimeException {
-		return TLABool.getValue() ? GoBuiltins.True : GoBuiltins.False;
+	public GoExpression visit(TLABool tlaBool) throws RuntimeException {
+		return tlaBool.getValue() ? GoBuiltins.True : GoBuiltins.False;
 	}
 
 	@Override
-	public GoExpression visit(TLACase pGoTLACase) throws RuntimeException {
-		UID uid = pGoTLACase.getArms().get(0).getResult().getUID();
+	public GoExpression visit(TLACase tlaCase) throws RuntimeException {
+		UID uid = tlaCase.getArms().get(0).getResult().getUID();
 		GoVariableName result = builder.varDecl("result", typeMap.get(uid).accept(new PGoTypeGoTypeConversionVisitor()));
 		GoLabelName matched = builder.newLabel("matched");
 
-		for (TLACaseArm caseArm : pGoTLACase.getArms()) {
+		for (TLACaseArm caseArm : tlaCase.getArms()) {
 			try (GoIfBuilder ifBuilder = builder.ifStmt(caseArm.getCondition().accept(this))) {
 				try (GoBlockBuilder yes = ifBuilder.whenTrue()) {
 					yes.assign(result, caseArm.getResult().accept(this));
@@ -188,10 +188,10 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 			}
 		}
 
-		if (pGoTLACase.getOther() == null) {
+		if (tlaCase.getOther() == null) {
 			builder.addPanic(new GoStringLiteral("No matching case!"));
 		} else {
-			builder.assign(result, pGoTLACase.getOther().accept(this));
+			builder.assign(result, tlaCase.getOther().accept(this));
 		}
 
 		builder.label(matched);
@@ -200,15 +200,15 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 	}
 
 	@Override
-	public GoExpression visit(TLAExistential TLAExistential) throws RuntimeException {
+	public GoExpression visit(TLAExistential tlaExistential) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public GoExpression visit(TLAFunction pGoTLAFunction) throws RuntimeException {
-		GoType mapType = typeMap.get(pGoTLAFunction.getUID()).accept(new PGoTypeGoTypeConversionVisitor());
+	public GoExpression visit(TLAFunction tlaFunction) throws RuntimeException {
+		GoType mapType = typeMap.get(tlaFunction.getUID()).accept(new PGoTypeGoTypeConversionVisitor());
 		GoExpression capacity = null;
-		List<TLAQuantifierBound> args = pGoTLAFunction.getArguments();
+		List<TLAQuantifierBound> args = tlaFunction.getArguments();
 		List<GoExpression> domains = evaluateQuantifierBoundSets(args);
 		for(int argPos = 0; argPos < args.size(); ++argPos) {
 			GoExpression domain = domains.get(argPos);
@@ -220,7 +220,7 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 			}
 		}
 		GoVariableName function = builder.varDecl("function", new GoMakeExpression(mapType, new GoIntLiteral(0), capacity));
-		unfoldQuantifierBounds(pGoTLAFunction.getArguments(), domains, innerBuilder -> {
+		unfoldQuantifierBounds(tlaFunction.getArguments(), domains, innerBuilder -> {
 			GoType keyValuePairType = ((GoSliceType)mapType).getElementType();
 			GoExpression key;
 			if (args.size() == 1) {
@@ -233,7 +233,7 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 				}
 				key = new GoStructLiteral(keyType, keyFields);
 			}
-			GoExpression value = pGoTLAFunction.getBody().accept(
+			GoExpression value = tlaFunction.getBody().accept(
 					new TLAExpressionCodeGenVisitor(innerBuilder, registry, typeMap, globalStrategy));
 			GoExpression keyValuePair = new GoStructLiteral(keyValuePairType, Arrays.asList(
 					new GoStructLiteralField("key", key),
@@ -245,23 +245,23 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 	}
 
 	@Override
-	public GoExpression visit(TLAFunctionSet pGoTLAFunctionSet) throws RuntimeException {
+	public GoExpression visit(TLAFunctionSet tlaFunctionSet) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public GoExpression visit(TLAFunctionSubstitution pGoTLAFunctionSubstitution) throws RuntimeException {
+	public GoExpression visit(TLAFunctionSubstitution tlaFunctionSubstitution) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public GoExpression visit(TLAIf pGoTLAIf) throws RuntimeException {
-		GoVariableName result = builder.varDecl("result", typeMap.get(pGoTLAIf.getTval().getUID()).accept(new PGoTypeGoTypeConversionVisitor()));
-		try (GoIfBuilder ifBuilder = builder.ifStmt(pGoTLAIf.getCond().accept(this))) {
+	public GoExpression visit(TLAIf tlaIf) throws RuntimeException {
+		GoVariableName result = builder.varDecl("result", typeMap.get(tlaIf.getTval().getUID()).accept(new PGoTypeGoTypeConversionVisitor()));
+		try (GoIfBuilder ifBuilder = builder.ifStmt(tlaIf.getCond().accept(this))) {
 			try (GoBlockBuilder yes = ifBuilder.whenTrue()) {
-				yes.assign(result, pGoTLAIf.getTval().accept(this));
+				yes.assign(result, tlaIf.getTval().accept(this));
 				try (GoBlockBuilder no = ifBuilder.whenFalse()) {
-					no.assign(result, pGoTLAIf.getFval().accept(this));
+					no.assign(result, tlaIf.getFval().accept(this));
 				}
 			}
 		}
@@ -269,13 +269,13 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 	}
 
 	@Override
-	public GoExpression visit(TLALet pGoTLALet) throws RuntimeException {
+	public GoExpression visit(TLALet tlaLet) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public GoExpression visit(TLAGeneralIdentifier pGoTLAVariable) throws RuntimeException {
-		UID ref = registry.followReference(pGoTLAVariable.getUID());
+	public GoExpression visit(TLAGeneralIdentifier tlaGeneralIdentifier) throws RuntimeException {
+		UID ref = registry.followReference(tlaGeneralIdentifier.getUID());
 		if (registry.isGlobalVariable(ref)) {
 			return globalStrategy.readGlobalVariable(builder, ref);
 		}
@@ -286,50 +286,50 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 			return builder.findUID(ref);
 		}
 		return registry.findOperator(ref).generateGo(
-				builder, pGoTLAVariable, registry, Collections.emptyList(), typeMap, globalStrategy);
+				builder, tlaGeneralIdentifier, registry, Collections.emptyList(), typeMap, globalStrategy);
 	}
 
 	@Override
-	public GoExpression visit(TLATuple pGoTLATuple) throws RuntimeException {
-		GoType sliceType = typeMap.get(pGoTLATuple.getUID()).accept(new PGoTypeGoTypeConversionVisitor());
+	public GoExpression visit(TLATuple tlaTuple) throws RuntimeException {
+		GoType sliceType = typeMap.get(tlaTuple.getUID()).accept(new PGoTypeGoTypeConversionVisitor());
 		List<GoExpression> elements = new ArrayList<>();
-		for (TLAExpression element : pGoTLATuple.getElements()) {
+		for (TLAExpression element : tlaTuple.getElements()) {
 			elements.add(element.accept(this));
 		}
 		return sliceType.accept(new TLATupleCodeGenVisitor(builder, elements));
 	}
 
 	@Override
-	public GoExpression visit(TLAMaybeAction pGoTLAMaybeAction) throws RuntimeException {
+	public GoExpression visit(TLAMaybeAction tlaMaybeAction) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public GoExpression visit(TLANumber pGoTLANumber) throws RuntimeException {
-		return new GoIntLiteral(Integer.valueOf(pGoTLANumber.getVal()));
+	public GoExpression visit(TLANumber tlaNumber) throws RuntimeException {
+		return new GoIntLiteral(Integer.valueOf(tlaNumber.getVal()));
 	}
 
 	@Override
-	public GoExpression visit(TLAOperatorCall pGoTLAOperatorCall) throws RuntimeException {
+	public GoExpression visit(TLAOperatorCall tlaOperatorCall) throws RuntimeException {
 		return registry
-				.findOperator(registry.followReference(pGoTLAOperatorCall.getName().getUID()))
+				.findOperator(registry.followReference(tlaOperatorCall.getName().getUID()))
 				.generateGo(
-						builder, pGoTLAOperatorCall, registry,
-						pGoTLAOperatorCall.getArgs(),
+						builder, tlaOperatorCall, registry,
+						tlaOperatorCall.getArgs(),
 						typeMap, globalStrategy);
 	}
 
 	@Override
-	public GoExpression visit(TLAQuantifiedExistential pGoTLAQuantifiedExistential) throws RuntimeException {
+	public GoExpression visit(TLAQuantifiedExistential tlaQuantifiedExistential) throws RuntimeException {
 		GoLabelName labelName = builder.newLabel("yes");
 		GoVariableName exists = builder.varDecl("exists", GoBuiltins.False);
-		unfoldQuantifierBounds(pGoTLAQuantifiedExistential.getIds(), innerBlock -> {
+		unfoldQuantifierBounds(tlaQuantifiedExistential.getIds(), innerBlock -> {
 			// needs a new visitor because we must write to the inner block rather than the outer block
-			try (GoIfBuilder ifBuilder = innerBlock.ifStmt(pGoTLAQuantifiedExistential.getBody()
+			try (GoIfBuilder ifBuilder = innerBlock.ifStmt(tlaQuantifiedExistential.getBody()
 					.accept(new TLAExpressionCodeGenVisitor(innerBlock, registry, typeMap, globalStrategy)))) {
 				try (GoBlockBuilder yes = ifBuilder.whenTrue()) {
 					yes.assign(exists, GoBuiltins.True);
-					if (pGoTLAQuantifiedExistential.getIds().size() == 1) {
+					if (tlaQuantifiedExistential.getIds().size() == 1) {
 						yes.addStatement(new GoBreak());
 					} else {
 						yes.goTo(labelName);
@@ -337,23 +337,23 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 				}
 			}
 		});
-		if (pGoTLAQuantifiedExistential.getIds().size() != 1) {
+		if (tlaQuantifiedExistential.getIds().size() != 1) {
 			builder.label(labelName);
 		}
 		return exists;
 	}
 
 	@Override
-	public GoExpression visit(TLAQuantifiedUniversal pGoTLAQuantifiedUniversal) throws RuntimeException {
+	public GoExpression visit(TLAQuantifiedUniversal tlaQuantifiedUniversal) throws RuntimeException {
 		GoLabelName labelName = builder.newLabel("no");
 		GoVariableName forAll = builder.varDecl("forAll", GoBuiltins.True);
-		unfoldQuantifierBounds(pGoTLAQuantifiedUniversal.getIds(), innerBlock -> {
+		unfoldQuantifierBounds(tlaQuantifiedUniversal.getIds(), innerBlock -> {
 			// needs a new visitor because we must write to the inner block rather than the outer block
 			try (GoIfBuilder ifBuilder = innerBlock.ifStmt(CodeGenUtil.invertCondition(
-					innerBlock, registry, typeMap, globalStrategy, pGoTLAQuantifiedUniversal.getBody()))) {
+					innerBlock, registry, typeMap, globalStrategy, tlaQuantifiedUniversal.getBody()))) {
 				try (GoBlockBuilder yes = ifBuilder.whenTrue()) {
 					yes.assign(forAll, GoBuiltins.False);
-					if (pGoTLAQuantifiedUniversal.getIds().size() == 1) {
+					if (tlaQuantifiedUniversal.getIds().size() == 1) {
 						yes.addStatement(new GoBreak());
 					} else {
 						yes.goTo(labelName);
@@ -361,36 +361,36 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 				}
 			}
 		});
-		if (pGoTLAQuantifiedUniversal.getIds().size() != 1) {
+		if (tlaQuantifiedUniversal.getIds().size() != 1) {
 			builder.label(labelName);
 		}
 		return forAll;
 	}
 
 	@Override
-	public GoExpression visit(TLARecordConstructor pGoTLARecordConstructor) throws RuntimeException {
+	public GoExpression visit(TLARecordConstructor tlaRecordConstructor) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public GoExpression visit(TLARecordSet pGoTLARecordSet) throws RuntimeException {
+	public GoExpression visit(TLARecordSet tlaRecordSet) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public GoExpression visit(TLARequiredAction pGoTLARequiredAction) throws RuntimeException {
+	public GoExpression visit(TLARequiredAction tlaRequiredAction) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public GoExpression visit(TLASetConstructor pGoTLASetConstructor) throws RuntimeException {
-		GoType elementType = TLABuiltins.getSetElementType(typeMap.get(pGoTLASetConstructor.getUID()));
+	public GoExpression visit(TLASetConstructor tlaSetConstructor) throws RuntimeException {
+		GoType elementType = TLABuiltins.getSetElementType(typeMap.get(tlaSetConstructor.getUID()));
 		GoSliceLiteral result = new GoSliceLiteral(
 				elementType,
-				pGoTLASetConstructor.getContents().stream()
+				tlaSetConstructor.getContents().stream()
 						.map(e -> e.accept(this))
 						.collect(Collectors.toList()));
-		if (pGoTLASetConstructor.getContents().size() <= 1) {
+		if (tlaSetConstructor.getContents().size() <= 1) {
 			// single-element or empty sets don't need any sorting or deduplication
 			return result;
 		} else {
@@ -404,12 +404,12 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 	}
 
 	@Override
-	public GoExpression visit(TLASetComprehension pGoTLASetComprehension) throws RuntimeException {
-		GoType elementType = TLABuiltins.getSetElementType(typeMap.get(pGoTLASetComprehension.getUID()));
+	public GoExpression visit(TLASetComprehension tlaSetComprehension) throws RuntimeException {
+		GoType elementType = TLABuiltins.getSetElementType(typeMap.get(tlaSetComprehension.getUID()));
 		GoVariableName accumulator = builder.varDecl(
 				"tmpSet", new GoMakeExpression(new GoSliceType(elementType), new GoIntLiteral(0), null));
-		unfoldQuantifierBounds(pGoTLASetComprehension.getBounds(), innerBuilder -> {
-			GoExpression body = pGoTLASetComprehension.getBody().accept(new TLAExpressionCodeGenVisitor(
+		unfoldQuantifierBounds(tlaSetComprehension.getBounds(), innerBuilder -> {
+			GoExpression body = tlaSetComprehension.getBody().accept(new TLAExpressionCodeGenVisitor(
 					innerBuilder, registry, typeMap, globalStrategy));
 			innerBuilder.assign(accumulator, new GoCall(new GoVariableName("append"), Arrays.asList(accumulator, body)));
 		});
@@ -418,8 +418,8 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 	}
 
 	@Override
-	public GoExpression visit(TLASetRefinement pGoTLASetRefinement) throws RuntimeException {
-		GoType elementType = TLABuiltins.getSetElementType(typeMap.get(pGoTLASetRefinement.getUID()));
+	public GoExpression visit(TLASetRefinement tlaSetRefinement) throws RuntimeException {
+		GoType elementType = TLABuiltins.getSetElementType(typeMap.get(tlaSetRefinement.getUID()));
 		// GoRoutineStatement code
 		// tmpSet := make([]GoType, 0)
 		// for _, v := range pGoTLASetRefinement.getFrom() {
@@ -429,28 +429,28 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 		// }
 		GoVariableName tmpSet = builder.varDecl(
 				"tmpSet", new GoMakeExpression(new GoSliceType(elementType), new GoIntLiteral(0), null));
-		GoForRangeBuilder forRangeBuilder = builder.forRange(pGoTLASetRefinement.getFrom().accept(this));
+		GoForRangeBuilder forRangeBuilder = builder.forRange(tlaSetRefinement.getFrom().accept(this));
 
 		GoVariableName v;
-		if (pGoTLASetRefinement.getIdent().isTuple()) {
+		if (tlaSetRefinement.getIdent().isTuple()) {
 			v = forRangeBuilder.initVariables(Arrays.asList("_", "v")).get(1);
 		} else {
-			TLAIdentifier id = pGoTLASetRefinement.getIdent().getId();
+			TLAIdentifier id = tlaSetRefinement.getIdent().getId();
 			GoVariableName name = forRangeBuilder.initVariables(Arrays.asList("_", id.getId())).get(1);
 			v = name;
 			builder.linkUID(id.getUID(), name);
 		}
 
 		try (GoBlockBuilder forBody = forRangeBuilder.getBlockBuilder()) {
-			if (pGoTLASetRefinement.getIdent().isTuple()) {
-				List<TLAIdentifier> ids = pGoTLASetRefinement.getIdent().getTuple();
+			if (tlaSetRefinement.getIdent().isTuple()) {
+				List<TLAIdentifier> ids = tlaSetRefinement.getIdent().getTuple();
 				for(int i = 0; i < ids.size(); ++i) {
 					GoVariableName elem = forBody.varDecl(ids.get(i).getId(), new GoIndexExpression(v, new GoIntLiteral(i)));
 					forBody.linkUID(ids.get(i).getUID(), elem);
 				}
 			}
 
-			try (GoIfBuilder ifBuilder = forBody.ifStmt(pGoTLASetRefinement.getWhen().accept(
+			try (GoIfBuilder ifBuilder = forBody.ifStmt(tlaSetRefinement.getWhen().accept(
 					new TLAExpressionCodeGenVisitor(forBody, registry, typeMap, globalStrategy)))) {
 				try (GoBlockBuilder yes = ifBuilder.whenTrue()) {
 					yes.assign(tmpSet, new GoCall(new GoVariableName("append"), Arrays.asList(tmpSet, v)));
@@ -462,22 +462,22 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 	}
 
 	@Override
-	public GoExpression visit(TLAString pGoTLAString) throws RuntimeException {
-		return new GoStringLiteral(pGoTLAString.getValue());
+	public GoExpression visit(TLAString tlaString) throws RuntimeException {
+		return new GoStringLiteral(tlaString.getValue());
 	}
 
 	@Override
-	public GoExpression visit(TLAUnary pGoTLAUnary) throws RuntimeException {
+	public GoExpression visit(TLAUnary tlaUnary) throws RuntimeException {
 		return registry
-				.findOperator(registry.followReference(pGoTLAUnary.getOperation().getUID()))
+				.findOperator(registry.followReference(tlaUnary.getOperation().getUID()))
 				.generateGo(
-						builder, pGoTLAUnary, registry,
-						Collections.singletonList(pGoTLAUnary.getOperand()),
+						builder, tlaUnary, registry,
+						Collections.singletonList(tlaUnary.getOperand()),
 						typeMap, globalStrategy);
 	}
 
 	@Override
-	public GoExpression visit(TLAUniversal pGoTLAUniversal) throws RuntimeException {
+	public GoExpression visit(TLAUniversal tlaUniversal) throws RuntimeException {
 		throw new TODO();
 	}
 

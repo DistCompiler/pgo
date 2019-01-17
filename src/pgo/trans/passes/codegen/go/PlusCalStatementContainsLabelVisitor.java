@@ -8,7 +8,7 @@ import java.util.List;
 
 public class PlusCalStatementContainsLabelVisitor extends PlusCalStatementVisitor<Boolean, RuntimeException> {
 	@Override
-	public Boolean visit(PlusCalLabeledStatements labeledStatements) throws RuntimeException {
+	public Boolean visit(PlusCalLabeledStatements plusCalLabeledStatements) throws RuntimeException {
 		return true;
 	}
 
@@ -60,7 +60,7 @@ public class PlusCalStatementContainsLabelVisitor extends PlusCalStatementVisito
 	}
 
 	@Override
-	public Boolean visit(PlusCalSkip skip) throws RuntimeException {
+	public Boolean visit(PlusCalSkip plusCalSkip) throws RuntimeException {
 		return false;
 	}
 
@@ -75,8 +75,8 @@ public class PlusCalStatementContainsLabelVisitor extends PlusCalStatementVisito
 	}
 
 	@Override
-	public Boolean visit(PlusCalWith with) throws RuntimeException {
-		for(PlusCalStatement stmt : with.getBody()){
+	public Boolean visit(PlusCalWith plusCalWith) throws RuntimeException {
+		for(PlusCalStatement stmt : plusCalWith.getBody()){
 			if(stmt.accept(this)){
 				return true;
 			}

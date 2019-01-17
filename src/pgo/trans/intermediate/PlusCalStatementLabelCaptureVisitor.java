@@ -18,12 +18,12 @@ public class PlusCalStatementLabelCaptureVisitor extends PlusCalStatementVisitor
 	}
 
 	@Override
-	public Void visit(PlusCalLabeledStatements labeledStatements) throws RuntimeException {
-		String name = labeledStatements.getLabel().getName();
-		PlusCalLabel label = labeledStatements.getLabel();
+	public Void visit(PlusCalLabeledStatements plusCalLabeledStatements) throws RuntimeException {
+		String name = plusCalLabeledStatements.getLabel().getName();
+		PlusCalLabel label = plusCalLabeledStatements.getLabel();
 		builder.declare(name, label.getUID());
 
-		for(PlusCalStatement stmt : labeledStatements.getStatements()) {
+		for(PlusCalStatement stmt : plusCalLabeledStatements.getStatements()) {
 			stmt.accept(this);
 		}
 
@@ -70,7 +70,7 @@ public class PlusCalStatementLabelCaptureVisitor extends PlusCalStatementVisitor
 	}
 
 	@Override
-	public Void visit(PlusCalSkip skip) throws RuntimeException {
+	public Void visit(PlusCalSkip plusCalSkip) throws RuntimeException {
 		return null;
 	}
 
@@ -85,8 +85,8 @@ public class PlusCalStatementLabelCaptureVisitor extends PlusCalStatementVisitor
 	}
 
 	@Override
-	public Void visit(PlusCalWith with) throws RuntimeException {
-		for(PlusCalStatement stmt : with.getBody()) {
+	public Void visit(PlusCalWith plusCalWith) throws RuntimeException {
+		for(PlusCalStatement stmt : plusCalWith.getBody()) {
 			stmt.accept(this);
 		}
 		return null;

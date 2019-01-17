@@ -53,10 +53,10 @@ public class PlusCalStatementCodeGenVisitor extends PlusCalStatementVisitor<Void
 	}
 
 	@Override
-	public Void visit(PlusCalLabeledStatements labeledStatements) throws RuntimeException {
-		PlusCalLabel label = labeledStatements.getLabel();
+	public Void visit(PlusCalLabeledStatements plusCalLabeledStatements) throws RuntimeException {
+		PlusCalLabel label = plusCalLabeledStatements.getLabel();
 		criticalSectionTracker.start(builder, label.getUID(), new GoLabelName(label.getName()));
-		for (PlusCalStatement stmt : labeledStatements.getStatements()) {
+		for (PlusCalStatement stmt : plusCalLabeledStatements.getStatements()) {
 			stmt.accept(this);
 		}
 		criticalSectionTracker.end(builder);
@@ -286,7 +286,7 @@ public class PlusCalStatementCodeGenVisitor extends PlusCalStatementVisitor<Void
 	}
 
 	@Override
-	public Void visit(PlusCalSkip skip) throws RuntimeException {
+	public Void visit(PlusCalSkip plusCalSkip) throws RuntimeException {
 		// nothing to do here
 		return null;
 	}
@@ -314,8 +314,8 @@ public class PlusCalStatementCodeGenVisitor extends PlusCalStatementVisitor<Void
 	}
 
 	@Override
-	public Void visit(PlusCalWith with) throws RuntimeException {
-		for(PlusCalVariableDeclaration decl : with.getVariables()) {
+	public Void visit(PlusCalWith plusCalWith) throws RuntimeException {
+		for(PlusCalVariableDeclaration decl : plusCalWith.getVariables()) {
 			GoExpression value = decl.getValue().accept(
 					new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
 			if (decl.isSet()) {
@@ -323,7 +323,7 @@ public class PlusCalStatementCodeGenVisitor extends PlusCalStatementVisitor<Void
 			}
 			builder.linkUID(decl.getUID(), builder.varDecl(decl.getName().getValue(), value));
 		}
-		for (PlusCalStatement statement : with.getBody()) {
+		for (PlusCalStatement statement : plusCalWith.getBody()) {
 			statement.accept(this);
 		}
 		return null;

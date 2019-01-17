@@ -18,137 +18,137 @@ public class TLAExpressionLHSAtomicityInferenceVisitor extends TLAExpressionVisi
 	}
 
 	@Override
-	public Void visit(TLAFunctionCall pGoTLAFunctionCall) throws RuntimeException {
-		for (TLAExpression param : pGoTLAFunctionCall.getParams()) {
+	public Void visit(TLAFunctionCall tlaFunctionCall) throws RuntimeException {
+		for (TLAExpression param : tlaFunctionCall.getParams()) {
 			param.accept(visitor);
 		}
-		pGoTLAFunctionCall.getFunction().accept(this);
+		tlaFunctionCall.getFunction().accept(this);
 		return null;
 	}
 
 	@Override
-	public Void visit(TLABinOp TLABinOp) throws RuntimeException {
+	public Void visit(TLABinOp tlaBinOp) throws RuntimeException {
         throw new Unreachable();
 	}
 
 	@Override
-	public Void visit(TLABool TLABool) throws RuntimeException {
+	public Void visit(TLABool tlaBool) throws RuntimeException {
 		throw new Unreachable();
 	}
 
 	@Override
-	public Void visit(TLACase TLACase) throws RuntimeException {
+	public Void visit(TLACase tlaCase) throws RuntimeException {
         throw new TODO();
 	}
 
 	@Override
-	public Void visit(TLAExistential TLAExistential) throws RuntimeException {
+	public Void visit(TLAExistential tlaExistential) throws RuntimeException {
 		throw new Unreachable();
 	}
 
 	@Override
-	public Void visit(TLAFunction pGoTLAFunction) throws RuntimeException {
+	public Void visit(TLAFunction tlaFunction) throws RuntimeException {
 		throw new Unreachable();
 	}
 
 	@Override
-	public Void visit(TLAFunctionSet pGoTLAFunctionSet) throws RuntimeException {
+	public Void visit(TLAFunctionSet tlaFunctionSet) throws RuntimeException {
 		throw new Unreachable();
 	}
 
 	@Override
-	public Void visit(TLAFunctionSubstitution pGoTLAFunctionSubstitution) throws RuntimeException {
+	public Void visit(TLAFunctionSubstitution tlaFunctionSubstitution) throws RuntimeException {
 		throw new Unreachable();
 	}
 
 	@Override
-	public Void visit(TLAIf pGoTLAIf) throws RuntimeException {
+	public Void visit(TLAIf tlaIf) throws RuntimeException {
 		throw new Unreachable();
 	}
 
 	@Override
-	public Void visit(TLALet pGoTLALet) throws RuntimeException {
+	public Void visit(TLALet tlaLet) throws RuntimeException {
 		throw new Unreachable();
 	}
 
 	@Override
-	public Void visit(TLAGeneralIdentifier pGoTLAVariable) throws RuntimeException {
-		captureWrite.accept(pGoTLAVariable.getUID());
+	public Void visit(TLAGeneralIdentifier tlaGeneralIdentifier) throws RuntimeException {
+		captureWrite.accept(tlaGeneralIdentifier.getUID());
 		return null;
 	}
 
 	@Override
-	public Void visit(TLATuple pGoTLATuple) throws RuntimeException {
+	public Void visit(TLATuple tlaTuple) throws RuntimeException {
 		throw new Unreachable();
 	}
 
 	@Override
-	public Void visit(TLAMaybeAction pGoTLAMaybeAction) throws RuntimeException {
+	public Void visit(TLAMaybeAction tlaMaybeAction) throws RuntimeException {
 		throw new Unreachable();
 	}
 
 	@Override
-	public Void visit(TLANumber pGoTLANumber) throws RuntimeException {
+	public Void visit(TLANumber tlaNumber) throws RuntimeException {
 		throw new Unreachable();
 	}
 
 	@Override
-	public Void visit(TLAOperatorCall pGoTLAOperatorCall) throws RuntimeException {
+	public Void visit(TLAOperatorCall tlaOperatorCall) throws RuntimeException {
 		throw new Unreachable();
 	}
 
 	@Override
-	public Void visit(TLAQuantifiedExistential pGoTLAQuantifiedExistential) throws RuntimeException {
+	public Void visit(TLAQuantifiedExistential tlaQuantifiedExistential) throws RuntimeException {
 		throw new Unreachable();
 	}
 
 	@Override
-	public Void visit(TLAQuantifiedUniversal pGoTLAQuantifiedUniversal) throws RuntimeException {
+	public Void visit(TLAQuantifiedUniversal tlaQuantifiedUniversal) throws RuntimeException {
 		throw new Unreachable();
 	}
 
 	@Override
-	public Void visit(TLARecordConstructor pGoTLARecordConstructor) throws RuntimeException {
+	public Void visit(TLARecordConstructor tlaRecordConstructor) throws RuntimeException {
 		throw new Unreachable();
 	}
 
 	@Override
-	public Void visit(TLARecordSet pGoTLARecordSet) throws RuntimeException {
+	public Void visit(TLARecordSet tlaRecordSet) throws RuntimeException {
 		throw new Unreachable();
 	}
 
 	@Override
-	public Void visit(TLARequiredAction pGoTLARequiredAction) throws RuntimeException {
+	public Void visit(TLARequiredAction tlaRequiredAction) throws RuntimeException {
 		throw new Unreachable();
 	}
 
 	@Override
-	public Void visit(TLASetConstructor pGoTLASetConstructor) throws RuntimeException {
+	public Void visit(TLASetConstructor tlaSetConstructor) throws RuntimeException {
 		throw new Unreachable();
 	}
 
 	@Override
-	public Void visit(TLASetComprehension pGoTLASetComprehension) throws RuntimeException {
+	public Void visit(TLASetComprehension tlaSetComprehension) throws RuntimeException {
 		throw new Unreachable();
 	}
 
 	@Override
-	public Void visit(TLASetRefinement pGoTLASetRefinement) throws RuntimeException {
+	public Void visit(TLASetRefinement tlaSetRefinement) throws RuntimeException {
 		throw new Unreachable();
 	}
 
 	@Override
-	public Void visit(TLAString pGoTLAString) throws RuntimeException {
+	public Void visit(TLAString tlaString) throws RuntimeException {
 		throw new Unreachable();
 	}
 
 	@Override
-	public Void visit(TLAUnary pGoTLAUnary) throws RuntimeException {
+	public Void visit(TLAUnary tlaUnary) throws RuntimeException {
 		throw new Unreachable();
 	}
 
 	@Override
-	public Void visit(TLAUniversal pGoTLAUniversal) throws RuntimeException {
+	public Void visit(TLAUniversal tlaUniversal) throws RuntimeException {
 		throw new Unreachable();
 	}
 

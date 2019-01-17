@@ -33,7 +33,7 @@ public class ModularPlusCalLabelingRulesVisitor extends PlusCalStatementVisitor<
      * anywhere within the 'if' or 'either' statement.
      */
     private final class IfEitherNextStatementRequiresLabel extends PlusCalStatementVisitor<Boolean, RuntimeException> {
-        public Boolean visit(PlusCalLabeledStatements labeledStatements) {
+        public Boolean visit(PlusCalLabeledStatements plusCalLabeledStatements) {
             return true;
         }
 
@@ -83,7 +83,7 @@ public class ModularPlusCalLabelingRulesVisitor extends PlusCalStatementVisitor<
             return true;
         }
 
-        public Boolean visit(PlusCalSkip skip) {
+        public Boolean visit(PlusCalSkip plusCalSkip) {
             return false;
         }
 
@@ -95,8 +95,8 @@ public class ModularPlusCalLabelingRulesVisitor extends PlusCalStatementVisitor<
             throw new Unreachable();
         }
 
-        public Boolean visit(PlusCalWith with) {
-            for (PlusCalStatement statement : with.getBody()) {
+        public Boolean visit(PlusCalWith plusCalWith) {
+            for (PlusCalStatement statement : plusCalWith.getBody()) {
                 if (statement.accept(this)) {
                     return true;
                 }
@@ -148,19 +148,19 @@ public class ModularPlusCalLabelingRulesVisitor extends PlusCalStatementVisitor<
         this.assignedVariables = new HashSet<>();
     }
 
-    public Void visit(PlusCalLabeledStatements labeledStatements) {
-        this.previousStatement = labeledStatements;
+    public Void visit(PlusCalLabeledStatements plusCalLabeledStatements) {
+        this.previousStatement = plusCalLabeledStatements;
 
         if (!labelsAllowed) {
-            labelNotAllowed(labeledStatements);
-        } else if (isReserved(labeledStatements.getLabel())) {
-            reservedLabelName(labeledStatements);
+            labelNotAllowed(plusCalLabeledStatements);
+        } else if (isReserved(plusCalLabeledStatements.getLabel())) {
+            reservedLabelName(plusCalLabeledStatements);
         }
 
         // erase context of assigned variables when starting a new label
         this.assignedVariables = new HashSet<>();
 
-        for (PlusCalStatement statement : labeledStatements.getStatements()) {
+        for (PlusCalStatement statement : plusCalLabeledStatements.getStatements()) {
             statement.accept(this);
         }
 
@@ -291,12 +291,12 @@ public class ModularPlusCalLabelingRulesVisitor extends PlusCalStatementVisitor<
         return null;
     }
 
-    public Void visit(PlusCalSkip skip) {
-        checkProcedureCall(skip);
-        checkReturnOrGoto(skip);
-        checkIfEither(skip);
+    public Void visit(PlusCalSkip plusCalSkip) {
+        checkProcedureCall(plusCalSkip);
+        checkReturnOrGoto(plusCalSkip);
+        checkIfEither(plusCalSkip);
 
-        this.previousStatement = skip;
+        this.previousStatement = plusCalSkip;
 
         return null;
     }
@@ -318,17 +318,17 @@ public class ModularPlusCalLabelingRulesVisitor extends PlusCalStatementVisitor<
         return null;
     }
 
-    public Void visit(PlusCalWith with) {
-        checkProcedureCall(with);
-        checkReturnOrGoto(with);
-        checkIfEither(with);
-        this.previousStatement = with;
+    public Void visit(PlusCalWith plusCalWith) {
+        checkProcedureCall(plusCalWith);
+        checkReturnOrGoto(plusCalWith);
+        checkIfEither(plusCalWith);
+        this.previousStatement = plusCalWith;
 
         // make sure all statements in the body of a 'with' expression
         // do not have labels in them
         boolean oldLabelsAllowed = labelsAllowed;
         labelsAllowed = false;
-        for (PlusCalStatement statement : with.getBody()) {
+        for (PlusCalStatement statement : plusCalWith.getBody()) {
             statement.accept(this);
         }
 

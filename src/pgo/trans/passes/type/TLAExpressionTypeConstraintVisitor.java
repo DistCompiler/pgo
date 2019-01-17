@@ -78,56 +78,56 @@ public class TLAExpressionTypeConstraintVisitor extends TLAExpressionVisitor<PGo
 	}
 
 	@Override
-	public PGoType visit(TLAFunctionCall pGoTLAFunctionCall) throws RuntimeException {
-		PGoType fnType = wrappedVisit(pGoTLAFunctionCall.getFunction()).substitute(solver.getMapping());
+	public PGoType visit(TLAFunctionCall tlaFunctionCall) throws RuntimeException {
+		PGoType fnType = wrappedVisit(tlaFunctionCall.getFunction()).substitute(solver.getMapping());
 		List<PGoType> paramTypes = new ArrayList<>();
-		for (TLAExpression param : pGoTLAFunctionCall.getParams()) {
+		for (TLAExpression param : tlaFunctionCall.getParams()) {
 			paramTypes.add(wrappedVisit(param));
 		}
 		PGoTypeVariable returnType = generator.get();
 		if (paramTypes.size() == 1) {
-			solver.addConstraint(new PGoTypePolymorphicConstraint(pGoTLAFunctionCall, Arrays.asList(
+			solver.addConstraint(new PGoTypePolymorphicConstraint(tlaFunctionCall, Arrays.asList(
 					Arrays.asList(
 							new PGoTypeEqualityConstraint(
 									fnType,
-									new PGoTypeSlice(returnType, Collections.singletonList(pGoTLAFunctionCall))),
+									new PGoTypeSlice(returnType, Collections.singletonList(tlaFunctionCall))),
 							new PGoTypeEqualityConstraint(
 									paramTypes.get(0),
-									new PGoTypeInt(Collections.singletonList(pGoTLAFunctionCall)))),
+									new PGoTypeInt(Collections.singletonList(tlaFunctionCall)))),
 					Collections.singletonList(new PGoTypeEqualityConstraint(
 							fnType,
-							new PGoTypeMap(paramTypes.get(0), returnType, Collections.singletonList(pGoTLAFunctionCall)))),
+							new PGoTypeMap(paramTypes.get(0), returnType, Collections.singletonList(tlaFunctionCall)))),
 					Collections.singletonList(new PGoTypeEqualityConstraint(
 							fnType,
-							new PGoTypeFunction(paramTypes, returnType, Collections.singletonList(pGoTLAFunctionCall)))))));
+							new PGoTypeFunction(paramTypes, returnType, Collections.singletonList(tlaFunctionCall)))))));
 		} else {
-			solver.addConstraint(new PGoTypePolymorphicConstraint(pGoTLAFunctionCall, Arrays.asList(
+			solver.addConstraint(new PGoTypePolymorphicConstraint(tlaFunctionCall, Arrays.asList(
 					Collections.singletonList(new PGoTypeEqualityConstraint(
 							fnType,
 							new PGoTypeMap(
-									new PGoTypeTuple(paramTypes, Collections.singletonList(pGoTLAFunctionCall)),
+									new PGoTypeTuple(paramTypes, Collections.singletonList(tlaFunctionCall)),
 									returnType,
-									Collections.singletonList(pGoTLAFunctionCall)))),
+									Collections.singletonList(tlaFunctionCall)))),
 					Collections.singletonList(new PGoTypeEqualityConstraint(
 							fnType,
-							new PGoTypeFunction(paramTypes, returnType, Collections.singletonList(pGoTLAFunctionCall)))))));
+							new PGoTypeFunction(paramTypes, returnType, Collections.singletonList(tlaFunctionCall)))))));
 		}
 		return returnType;
 	}
 
 	@Override
-	public PGoType visit(TLABinOp TLABinOp) throws RuntimeException {
+	public PGoType visit(TLABinOp tlaBinOp) throws RuntimeException {
 		return registry
-				.findOperator(registry.followReference(TLABinOp.getOperation().getUID()))
+				.findOperator(registry.followReference(tlaBinOp.getOperation().getUID()))
 				.constrainTypes(
-						TLABinOp.getOperation(), registry,
-						Arrays.asList(wrappedVisit(TLABinOp.getLHS()), wrappedVisit(TLABinOp.getRHS())),
+						tlaBinOp.getOperation(), registry,
+						Arrays.asList(wrappedVisit(tlaBinOp.getLHS()), wrappedVisit(tlaBinOp.getRHS())),
 						solver, generator, mapping);
 	}
 
 	@Override
-	public PGoType visit(TLABool TLABool) throws RuntimeException {
-		return new PGoTypeBool(Collections.singletonList(TLABool));
+	public PGoType visit(TLABool tlaBool) throws RuntimeException {
+		return new PGoTypeBool(Collections.singletonList(tlaBool));
 	}
 
 	@Override
@@ -146,107 +146,107 @@ public class TLAExpressionTypeConstraintVisitor extends TLAExpressionVisitor<PGo
 	}
 
 	@Override
-	public PGoType visit(TLAExistential TLAExistential) throws RuntimeException {
-		for (TLAIdentifier id : TLAExistential.getIds()) {
+	public PGoType visit(TLAExistential tlaExistential) throws RuntimeException {
+		for (TLAIdentifier id : tlaExistential.getIds()) {
 			mapping.putIfAbsent(id.getUID(), generator.get());
 		}
-		wrappedVisit(TLAExistential.getBody());
-		return new PGoTypeBool(Collections.singletonList(TLAExistential));
+		wrappedVisit(tlaExistential.getBody());
+		return new PGoTypeBool(Collections.singletonList(tlaExistential));
 	}
 
 	@Override
-	public PGoType visit(TLAFunction pGoTLAFunction) throws RuntimeException {
+	public PGoType visit(TLAFunction tlaFunction) throws RuntimeException {
 		List<PGoType> keyTypes = new ArrayList<>();
-		for (TLAQuantifierBound qb : pGoTLAFunction.getArguments()) {
+		for (TLAQuantifierBound qb : tlaFunction.getArguments()) {
 			keyTypes.add(processQuantifierBound(qb));
 		}
-		PGoType valueType = wrappedVisit(pGoTLAFunction.getBody());
+		PGoType valueType = wrappedVisit(tlaFunction.getBody());
 		PGoType fresh = generator.get();
 		if (keyTypes.size() == 1) {
-			solver.addConstraint(new PGoTypePolymorphicConstraint(pGoTLAFunction, Arrays.asList(
+			solver.addConstraint(new PGoTypePolymorphicConstraint(tlaFunction, Arrays.asList(
 					Arrays.asList(
 							new PGoTypeEqualityConstraint(
-									mapping.get(pGoTLAFunction.getArguments().get(0).getSet().getUID()),
-									new PGoTypeSet(generator.get(), Collections.singletonList(pGoTLAFunction))),
+									mapping.get(tlaFunction.getArguments().get(0).getSet().getUID()),
+									new PGoTypeSet(generator.get(), Collections.singletonList(tlaFunction))),
 							new PGoTypeEqualityConstraint(
 									fresh,
 									new PGoTypeMap(
 											keyTypes.get(0),
 											valueType,
-											Collections.singletonList(pGoTLAFunction)))),
+											Collections.singletonList(tlaFunction)))),
 					Collections.singletonList(new PGoTypeEqualityConstraint(
 							fresh,
-							new PGoTypeFunction(keyTypes, valueType, Collections.singletonList(pGoTLAFunction)))))));
+							new PGoTypeFunction(keyTypes, valueType, Collections.singletonList(tlaFunction)))))));
 			return fresh;
 		}
 		if (keyTypes.size() > 1) {
 			List<PGoTypeEqualityConstraint> constraintsForMap = new ArrayList<>();
-			for (TLAQuantifierBound arg : pGoTLAFunction.getArguments()) {
+			for (TLAQuantifierBound arg : tlaFunction.getArguments()) {
 				constraintsForMap.add(new PGoTypeEqualityConstraint(
 						mapping.get(arg.getSet().getUID()),
-						new PGoTypeSet(generator.get(), Collections.singletonList(pGoTLAFunction))));
+						new PGoTypeSet(generator.get(), Collections.singletonList(tlaFunction))));
 			}
 			constraintsForMap.add(new PGoTypeEqualityConstraint(
 					fresh,
 					new PGoTypeMap(
-							new PGoTypeTuple(keyTypes, Collections.singletonList(pGoTLAFunction)),
+							new PGoTypeTuple(keyTypes, Collections.singletonList(tlaFunction)),
 							valueType,
-							Collections.singletonList(pGoTLAFunction))));
-			solver.addConstraint(new PGoTypePolymorphicConstraint(pGoTLAFunction, Arrays.asList(
+							Collections.singletonList(tlaFunction))));
+			solver.addConstraint(new PGoTypePolymorphicConstraint(tlaFunction, Arrays.asList(
 					constraintsForMap,
 					Collections.singletonList(new PGoTypeEqualityConstraint(
 							fresh,
 							new PGoTypeFunction(
 									keyTypes,
 									valueType,
-									Collections.singletonList(pGoTLAFunction)))))));
+									Collections.singletonList(tlaFunction)))))));
 			return fresh;
 		}
-		return new PGoTypeFunction(keyTypes, valueType, Collections.singletonList(pGoTLAFunction));
+		return new PGoTypeFunction(keyTypes, valueType, Collections.singletonList(tlaFunction));
 	}
 
 	@Override
-	public PGoType visit(TLAFunctionSet pGoTLAFunctionSet) throws RuntimeException {
-		PGoType from = wrappedVisit(pGoTLAFunctionSet.getFrom());
-		PGoType to = wrappedVisit(pGoTLAFunctionSet.getTo());
-		solver.addConstraint(new PGoTypeMonomorphicConstraint(pGoTLAFunctionSet, from, new PGoTypeSet(generator.get(), Collections.singletonList(pGoTLAFunctionSet))));
-		solver.addConstraint(new PGoTypeMonomorphicConstraint(pGoTLAFunctionSet, to, new PGoTypeSet(generator.get(), Collections.singletonList(pGoTLAFunctionSet))));
+	public PGoType visit(TLAFunctionSet tlaFunctionSet) throws RuntimeException {
+		PGoType from = wrappedVisit(tlaFunctionSet.getFrom());
+		PGoType to = wrappedVisit(tlaFunctionSet.getTo());
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(tlaFunctionSet, from, new PGoTypeSet(generator.get(), Collections.singletonList(tlaFunctionSet))));
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(tlaFunctionSet, to, new PGoTypeSet(generator.get(), Collections.singletonList(tlaFunctionSet))));
 		throw new TODO();
 	}
 
 	@Override
-	public PGoType visit(TLAFunctionSubstitution pGoTLAFunctionSubstitution) throws RuntimeException {
+	public PGoType visit(TLAFunctionSubstitution tlaFunctionSubstitution) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public PGoType visit(TLAIf pGoTLAIf) throws RuntimeException {
-		solver.addConstraint(new PGoTypeMonomorphicConstraint(pGoTLAIf, wrappedVisit(pGoTLAIf.getCond()), new PGoTypeBool(Collections.singletonList(pGoTLAIf.getCond()))));
+	public PGoType visit(TLAIf tlaIf) throws RuntimeException {
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(tlaIf, wrappedVisit(tlaIf.getCond()), new PGoTypeBool(Collections.singletonList(tlaIf.getCond()))));
 		PGoTypeVariable v = generator.get();
-		solver.addConstraint(new PGoTypeMonomorphicConstraint(pGoTLAIf, wrappedVisit(pGoTLAIf.getTval()), v));
-		solver.addConstraint(new PGoTypeMonomorphicConstraint(pGoTLAIf, wrappedVisit(pGoTLAIf.getFval()), v));
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(tlaIf, wrappedVisit(tlaIf.getTval()), v));
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(tlaIf, wrappedVisit(tlaIf.getFval()), v));
 		return v;
 	}
 
 	@Override
-	public PGoType visit(TLALet pGoTLALet) throws RuntimeException {
+	public PGoType visit(TLALet tlaLet) throws RuntimeException {
 		// TODO: let polymorphism
-		for (TLAUnit unit : pGoTLALet.getDefinitions()) {
+		for (TLAUnit unit : tlaLet.getDefinitions()) {
 			unit.accept(new TLAUnitTypeConstraintVisitor(registry, solver, generator, mapping));
 		}
-		return wrappedVisit(pGoTLALet.getBody());
+		return wrappedVisit(tlaLet.getBody());
 	}
 
 	@Override
-	public PGoType visit(TLAGeneralIdentifier pGoTLAVariable) throws RuntimeException {
-		return typeVariableReference(registry.followReference(pGoTLAVariable.getUID()));
+	public PGoType visit(TLAGeneralIdentifier tlaGeneralIdentifier) throws RuntimeException {
+		return typeVariableReference(registry.followReference(tlaGeneralIdentifier.getUID()));
 	}
 
 	@Override
-	public PGoType visit(TLATuple pGoTLATuple) throws RuntimeException {
+	public PGoType visit(TLATuple tlaTuple) throws RuntimeException {
 		PGoType fresh = generator.get();
 		PGoType elementType = generator.get();
-		List<PGoType> contents = pGoTLATuple.getElements().stream()
+		List<PGoType> contents = tlaTuple.getElements().stream()
 				.map(this::wrappedVisit)
 				.collect(Collectors.toList());
 		List<PGoTypeEqualityConstraint> commonConstraints = contents.stream()
@@ -255,142 +255,142 @@ public class TLAExpressionTypeConstraintVisitor extends TLAExpressionVisitor<PGo
 		List<PGoTypeEqualityConstraint> constraintsForChanType = new ArrayList<>(commonConstraints);
 		constraintsForChanType.add(new PGoTypeEqualityConstraint(
 				fresh,
-				new PGoTypeChan(elementType, Collections.singletonList(pGoTLATuple))));
+				new PGoTypeChan(elementType, Collections.singletonList(tlaTuple))));
 		List<PGoTypeEqualityConstraint> constraintsForSliceType = new ArrayList<>(commonConstraints);
 		constraintsForSliceType.add(new PGoTypeEqualityConstraint(
 				fresh,
-				new PGoTypeSlice(elementType, Collections.singletonList(pGoTLATuple))));
-		solver.addConstraint(new PGoTypePolymorphicConstraint(pGoTLATuple, Arrays.asList(
+				new PGoTypeSlice(elementType, Collections.singletonList(tlaTuple))));
+		solver.addConstraint(new PGoTypePolymorphicConstraint(tlaTuple, Arrays.asList(
 				constraintsForSliceType,
 				constraintsForChanType,
 				Collections.singletonList(new PGoTypeEqualityConstraint(
 						fresh,
-						new PGoTypeTuple(contents, Collections.singletonList(pGoTLATuple)))))));
+						new PGoTypeTuple(contents, Collections.singletonList(tlaTuple)))))));
 		return fresh;
 	}
 
 	@Override
-	public PGoType visit(TLAMaybeAction pGoTLAMaybeAction) throws RuntimeException {
+	public PGoType visit(TLAMaybeAction tlaMaybeAction) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public PGoType visit(TLANumber pGoTLANumber) throws RuntimeException {
+	public PGoType visit(TLANumber tlaNumber) throws RuntimeException {
 		// TODO this check should be more sophisticated
-		if (pGoTLANumber.getVal().contains(".")) {
-			return new PGoTypeDecimal(Collections.singletonList(pGoTLANumber));
+		if (tlaNumber.getVal().contains(".")) {
+			return new PGoTypeDecimal(Collections.singletonList(tlaNumber));
 		}
 
-		return new PGoTypeUnrealizedNumber(new PGoTypeInt(Collections.singletonList(pGoTLANumber)), Collections.singletonList(pGoTLANumber));
+		return new PGoTypeUnrealizedNumber(new PGoTypeInt(Collections.singletonList(tlaNumber)), Collections.singletonList(tlaNumber));
 	}
 
 	@Override
-	public PGoType visit(TLAOperatorCall pGoTLAOperatorCall) throws RuntimeException {
+	public PGoType visit(TLAOperatorCall tlaOperatorCall) throws RuntimeException {
 		return registry
-				.findOperator(registry.followReference(pGoTLAOperatorCall.getName().getUID()))
+				.findOperator(registry.followReference(tlaOperatorCall.getName().getUID()))
 				.constrainTypes(
-						pGoTLAOperatorCall, registry,
-						pGoTLAOperatorCall.getArgs().stream()
+						tlaOperatorCall, registry,
+						tlaOperatorCall.getArgs().stream()
 								.map(this::wrappedVisit)
 								.collect(Collectors.toList()),
 						solver, generator, mapping);
 	}
 
 	@Override
-	public PGoType visit(TLAQuantifiedExistential pGoTLAQuantifiedExistential) throws RuntimeException {
-		for (TLAQuantifierBound qb : pGoTLAQuantifiedExistential.getIds()) {
+	public PGoType visit(TLAQuantifiedExistential tlaQuantifiedExistential) throws RuntimeException {
+		for (TLAQuantifierBound qb : tlaQuantifiedExistential.getIds()) {
 			processQuantifierBound(qb);
 		}
-		wrappedVisit(pGoTLAQuantifiedExistential.getBody());
-		return new PGoTypeBool(Collections.singletonList(pGoTLAQuantifiedExistential));
+		wrappedVisit(tlaQuantifiedExistential.getBody());
+		return new PGoTypeBool(Collections.singletonList(tlaQuantifiedExistential));
 	}
 
 	@Override
-	public PGoType visit(TLAQuantifiedUniversal pGoTLAQuantifiedUniversal) throws RuntimeException {
-		for (TLAQuantifierBound qb : pGoTLAQuantifiedUniversal.getIds()) {
+	public PGoType visit(TLAQuantifiedUniversal tlaQuantifiedUniversal) throws RuntimeException {
+		for (TLAQuantifierBound qb : tlaQuantifiedUniversal.getIds()) {
 			processQuantifierBound(qb);
 		}
-		wrappedVisit(pGoTLAQuantifiedUniversal.getBody());
-		return new PGoTypeBool(Collections.singletonList(pGoTLAQuantifiedUniversal));
+		wrappedVisit(tlaQuantifiedUniversal.getBody());
+		return new PGoTypeBool(Collections.singletonList(tlaQuantifiedUniversal));
 	}
 
 	@Override
-	public PGoType visit(TLARecordConstructor pGoTLARecordConstructor) throws RuntimeException {
+	public PGoType visit(TLARecordConstructor tlaRecordConstructor) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public PGoType visit(TLARecordSet pGoTLARecordSet) throws RuntimeException {
+	public PGoType visit(TLARecordSet tlaRecordSet) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public PGoType visit(TLARequiredAction pGoTLARequiredAction) throws RuntimeException {
+	public PGoType visit(TLARequiredAction tlaRequiredAction) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public PGoType visit(TLASetConstructor pGoTLASetConstructor) throws RuntimeException {
+	public PGoType visit(TLASetConstructor tlaSetConstructor) throws RuntimeException {
 		PGoTypeVariable elementType = generator.get();
-		for (TLAExpression element : pGoTLASetConstructor.getContents()) {
-			solver.addConstraint(new PGoTypeMonomorphicConstraint(pGoTLASetConstructor, elementType, wrappedVisit(element)));
+		for (TLAExpression element : tlaSetConstructor.getContents()) {
+			solver.addConstraint(new PGoTypeMonomorphicConstraint(tlaSetConstructor, elementType, wrappedVisit(element)));
 		}
-		return new PGoTypeSet(elementType, Collections.singletonList(pGoTLASetConstructor));
+		return new PGoTypeSet(elementType, Collections.singletonList(tlaSetConstructor));
 	}
 
 	@Override
-	public PGoType visit(TLASetComprehension pGoTLASetComprehension) throws RuntimeException {
-		for (TLAQuantifierBound qb : pGoTLASetComprehension.getBounds()) {
+	public PGoType visit(TLASetComprehension tlaSetComprehension) throws RuntimeException {
+		for (TLAQuantifierBound qb : tlaSetComprehension.getBounds()) {
 			processQuantifierBound(qb);
 		}
-		PGoType elementType = wrappedVisit(pGoTLASetComprehension.getBody());
-		return new PGoTypeSet(elementType, Collections.singletonList(pGoTLASetComprehension));
+		PGoType elementType = wrappedVisit(tlaSetComprehension.getBody());
+		return new PGoTypeSet(elementType, Collections.singletonList(tlaSetComprehension));
 	}
 
 	@Override
-	public PGoType visit(TLASetRefinement pGoTLASetRefinement) throws RuntimeException {
-		PGoType from = wrappedVisit(pGoTLASetRefinement.getFrom());
+	public PGoType visit(TLASetRefinement tlaSetRefinement) throws RuntimeException {
+		PGoType from = wrappedVisit(tlaSetRefinement.getFrom());
 		PGoTypeVariable elementType = generator.get();
-		solver.addConstraint(new PGoTypeMonomorphicConstraint(pGoTLASetRefinement, from, new PGoTypeSet(elementType, Collections.singletonList(pGoTLASetRefinement))));
-		if (pGoTLASetRefinement.getIdent().isTuple()) {
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(tlaSetRefinement, from, new PGoTypeSet(elementType, Collections.singletonList(tlaSetRefinement))));
+		if (tlaSetRefinement.getIdent().isTuple()) {
 			List<PGoType> elements = new ArrayList<>();
-			for (TLAIdentifier id : pGoTLASetRefinement.getIdent().getTuple()) {
+			for (TLAIdentifier id : tlaSetRefinement.getIdent().getTuple()) {
 				PGoTypeVariable v = generator.get();
 				mapping.put(id.getUID(), v);
 				elements.add(v);
 			}
-			solver.addConstraint(new PGoTypeMonomorphicConstraint(pGoTLASetRefinement, elementType, new PGoTypeTuple(elements, Collections.singletonList(pGoTLASetRefinement))));
+			solver.addConstraint(new PGoTypeMonomorphicConstraint(tlaSetRefinement, elementType, new PGoTypeTuple(elements, Collections.singletonList(tlaSetRefinement))));
 		} else {
-			TLAIdentifier id = pGoTLASetRefinement.getIdent().getId();
+			TLAIdentifier id = tlaSetRefinement.getIdent().getId();
 			mapping.put(id.getUID(), elementType);
 		}
-		PGoType condition = wrappedVisit(pGoTLASetRefinement.getWhen());
-		solver.addConstraint(new PGoTypeMonomorphicConstraint(pGoTLASetRefinement, condition, new PGoTypeBool(Collections.singletonList(pGoTLASetRefinement))));
-		return new PGoTypeSet(elementType, Collections.singletonList(pGoTLASetRefinement));
+		PGoType condition = wrappedVisit(tlaSetRefinement.getWhen());
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(tlaSetRefinement, condition, new PGoTypeBool(Collections.singletonList(tlaSetRefinement))));
+		return new PGoTypeSet(elementType, Collections.singletonList(tlaSetRefinement));
 	}
 
 	@Override
-	public PGoType visit(TLAString pGoTLAString) throws RuntimeException {
-		return new PGoTypeString(Collections.singletonList(pGoTLAString));
+	public PGoType visit(TLAString tlaString) throws RuntimeException {
+		return new PGoTypeString(Collections.singletonList(tlaString));
 	}
 
 	@Override
-	public PGoType visit(TLAUnary pGoTLAUnary) throws RuntimeException {
-		UID ref = registry.followReference(pGoTLAUnary.getOperation().getUID());
+	public PGoType visit(TLAUnary tlaUnary) throws RuntimeException {
+		UID ref = registry.followReference(tlaUnary.getOperation().getUID());
 		OperatorAccessor op = registry.findOperator(ref);
 		return op.constrainTypes(
-				pGoTLAUnary.getOperation(), registry,
-				Collections.singletonList(wrappedVisit(pGoTLAUnary.getOperand())),
+				tlaUnary.getOperation(), registry,
+				Collections.singletonList(wrappedVisit(tlaUnary.getOperand())),
 				solver, generator, mapping);
 	}
 
 	@Override
-	public PGoType visit(TLAUniversal pGoTLAUniversal) throws RuntimeException {
-		for (TLAIdentifier id : pGoTLAUniversal.getIds()) {
+	public PGoType visit(TLAUniversal tlaUniversal) throws RuntimeException {
+		for (TLAIdentifier id : tlaUniversal.getIds()) {
 			mapping.putIfAbsent(id.getUID(), generator.get());
 		}
-		wrappedVisit(pGoTLAUniversal.getBody());
-		return new PGoTypeBool(Collections.singletonList(pGoTLAUniversal));
+		wrappedVisit(tlaUniversal.getBody());
+		return new PGoTypeBool(Collections.singletonList(tlaUniversal));
 	}
 
 	@Override

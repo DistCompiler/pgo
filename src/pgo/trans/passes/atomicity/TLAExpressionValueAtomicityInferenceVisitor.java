@@ -15,163 +15,163 @@ public class TLAExpressionValueAtomicityInferenceVisitor extends TLAExpressionVi
 	}
 
 	@Override
-	public Void visit(TLAFunctionCall pGoTLAFunctionCall) throws RuntimeException {
-		pGoTLAFunctionCall.getFunction().accept(this);
-		pGoTLAFunctionCall.getParams().forEach(e -> e.accept(this));
+	public Void visit(TLAFunctionCall tlaFunctionCall) throws RuntimeException {
+		tlaFunctionCall.getFunction().accept(this);
+		tlaFunctionCall.getParams().forEach(e -> e.accept(this));
 		return null;
 	}
 
 	@Override
-	public Void visit(TLABinOp TLABinOp) throws RuntimeException {
-		TLABinOp.getLHS().accept(this);
-		TLABinOp.getRHS().accept(this);
+	public Void visit(TLABinOp tlaBinOp) throws RuntimeException {
+		tlaBinOp.getLHS().accept(this);
+		tlaBinOp.getRHS().accept(this);
 		return null;
 	}
 
 	@Override
-	public Void visit(TLABool TLABool) throws RuntimeException {
+	public Void visit(TLABool tlaBool) throws RuntimeException {
 		// nothing to do
 		return null;
 	}
 
 	@Override
-	public Void visit(TLACase TLACase) throws RuntimeException {
+	public Void visit(TLACase tlaCase) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public Void visit(TLAExistential TLAExistential) throws RuntimeException {
-		TLAExistential.getBody().accept(this);
+	public Void visit(TLAExistential tlaExistential) throws RuntimeException {
+		tlaExistential.getBody().accept(this);
 		return null;
 	}
 
 	@Override
-	public Void visit(TLAFunction pGoTLAFunction) throws RuntimeException {
-		pGoTLAFunction.getArguments().forEach(a -> a.getSet().accept(this));
-		pGoTLAFunction.getBody().accept(this);
+	public Void visit(TLAFunction tlaFunction) throws RuntimeException {
+		tlaFunction.getArguments().forEach(a -> a.getSet().accept(this));
+		tlaFunction.getBody().accept(this);
 		return null;
 	}
 
 	@Override
-	public Void visit(TLAFunctionSet pGoTLAFunctionSet) throws RuntimeException {
-		pGoTLAFunctionSet.getFrom().accept(this);
-		pGoTLAFunctionSet.getTo().accept(this);
+	public Void visit(TLAFunctionSet tlaFunctionSet) throws RuntimeException {
+		tlaFunctionSet.getFrom().accept(this);
+		tlaFunctionSet.getTo().accept(this);
 		return null;
 	}
 
 	@Override
-	public Void visit(TLAFunctionSubstitution pGoTLAFunctionSubstitution) throws RuntimeException {
+	public Void visit(TLAFunctionSubstitution tlaFunctionSubstitution) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public Void visit(TLAIf pGoTLAIf) throws RuntimeException {
-		pGoTLAIf.getCond().accept(this);
-		pGoTLAIf.getTval().accept(this);
-		pGoTLAIf.getFval().accept(this);
+	public Void visit(TLAIf tlaIf) throws RuntimeException {
+		tlaIf.getCond().accept(this);
+		tlaIf.getTval().accept(this);
+		tlaIf.getFval().accept(this);
 		return null;
 	}
 
 	@Override
-	public Void visit(TLALet pGoTLALet) throws RuntimeException {
-		pGoTLALet.getDefinitions().forEach(def -> def.accept(new TLAUnitAtomicityInferenceVisitor(this)));
-		pGoTLALet.getBody().accept(this);
+	public Void visit(TLALet tlaLet) throws RuntimeException {
+		tlaLet.getDefinitions().forEach(def -> def.accept(new TLAUnitAtomicityInferenceVisitor(this)));
+		tlaLet.getBody().accept(this);
 		return null;
 	}
 
 	@Override
-	public Void visit(TLAGeneralIdentifier pGoTLAVariable) throws RuntimeException {
-		captureRead.accept(pGoTLAVariable.getUID());
+	public Void visit(TLAGeneralIdentifier tlaGeneralIdentifier) throws RuntimeException {
+		captureRead.accept(tlaGeneralIdentifier.getUID());
 		return null;
 	}
 
 	@Override
-	public Void visit(TLATuple pGoTLATuple) throws RuntimeException {
-		pGoTLATuple.getElements().forEach(e -> e.accept(this));
+	public Void visit(TLATuple tlaTuple) throws RuntimeException {
+		tlaTuple.getElements().forEach(e -> e.accept(this));
 		return null;
 	}
 
 	@Override
-	public Void visit(TLAMaybeAction pGoTLAMaybeAction) throws RuntimeException {
-		pGoTLAMaybeAction.getBody().accept(this);
+	public Void visit(TLAMaybeAction tlaMaybeAction) throws RuntimeException {
+		tlaMaybeAction.getBody().accept(this);
 		return null;
 	}
 
 	@Override
-	public Void visit(TLANumber pGoTLANumber) throws RuntimeException {
+	public Void visit(TLANumber tlaNumber) throws RuntimeException {
 		// nothing to do
 		return null;
 	}
 
 	@Override
-	public Void visit(TLAOperatorCall pGoTLAOperatorCall) throws RuntimeException {
-		pGoTLAOperatorCall.getArgs().forEach(a -> a.accept(this));
+	public Void visit(TLAOperatorCall tlaOperatorCall) throws RuntimeException {
+		tlaOperatorCall.getArgs().forEach(a -> a.accept(this));
 		return null;
 	}
 
 	@Override
-	public Void visit(TLAQuantifiedExistential pGoTLAQuantifiedExistential) throws RuntimeException {
-		pGoTLAQuantifiedExistential.getBody().accept(this);
+	public Void visit(TLAQuantifiedExistential tlaQuantifiedExistential) throws RuntimeException {
+		tlaQuantifiedExistential.getBody().accept(this);
 		return null;
 	}
 
 	@Override
-	public Void visit(TLAQuantifiedUniversal pGoTLAQuantifiedUniversal) throws RuntimeException {
-		return pGoTLAQuantifiedUniversal.getBody().accept(this);
+	public Void visit(TLAQuantifiedUniversal tlaQuantifiedUniversal) throws RuntimeException {
+		return tlaQuantifiedUniversal.getBody().accept(this);
 	}
 
 	@Override
-	public Void visit(TLARecordConstructor pGoTLARecordConstructor) throws RuntimeException {
-		pGoTLARecordConstructor.getFields().forEach(f -> f.getValue().accept(this));
+	public Void visit(TLARecordConstructor tlaRecordConstructor) throws RuntimeException {
+		tlaRecordConstructor.getFields().forEach(f -> f.getValue().accept(this));
 		return null;
 	}
 
 	@Override
-	public Void visit(TLARecordSet pGoTLARecordSet) throws RuntimeException {
-		pGoTLARecordSet.getFields().forEach(f -> f.getSet().accept(this));
+	public Void visit(TLARecordSet tlaRecordSet) throws RuntimeException {
+		tlaRecordSet.getFields().forEach(f -> f.getSet().accept(this));
 		return null;
 	}
 
 	@Override
-	public Void visit(TLARequiredAction pGoTLARequiredAction) throws RuntimeException {
-		return pGoTLARequiredAction.getBody().accept(this);
+	public Void visit(TLARequiredAction tlaRequiredAction) throws RuntimeException {
+		return tlaRequiredAction.getBody().accept(this);
 	}
 
 	@Override
-	public Void visit(TLASetConstructor pGoTLASetConstructor) throws RuntimeException {
-		pGoTLASetConstructor.getContents().forEach(e -> e.accept(this));
+	public Void visit(TLASetConstructor tlaSetConstructor) throws RuntimeException {
+		tlaSetConstructor.getContents().forEach(e -> e.accept(this));
 		return null;
 	}
 
 	@Override
-	public Void visit(TLASetComprehension pGoTLASetComprehension) throws RuntimeException {
-		pGoTLASetComprehension.getBounds().forEach(b -> b.getSet().accept(this));
-		pGoTLASetComprehension.getBody().accept(this);
+	public Void visit(TLASetComprehension tlaSetComprehension) throws RuntimeException {
+		tlaSetComprehension.getBounds().forEach(b -> b.getSet().accept(this));
+		tlaSetComprehension.getBody().accept(this);
 		return null;
 	}
 
 	@Override
-	public Void visit(TLASetRefinement pGoTLASetRefinement) throws RuntimeException {
-		pGoTLASetRefinement.getFrom().accept(this);
-		pGoTLASetRefinement.getWhen().accept(this);
+	public Void visit(TLASetRefinement tlaSetRefinement) throws RuntimeException {
+		tlaSetRefinement.getFrom().accept(this);
+		tlaSetRefinement.getWhen().accept(this);
 		return null;
 	}
 
 	@Override
-	public Void visit(TLAString pGoTLAString) throws RuntimeException {
+	public Void visit(TLAString tlaString) throws RuntimeException {
 		// nothing to do
 		return null;
 	}
 
 	@Override
-	public Void visit(TLAUnary pGoTLAUnary) throws RuntimeException {
-		pGoTLAUnary.getOperand().accept(this);
+	public Void visit(TLAUnary tlaUnary) throws RuntimeException {
+		tlaUnary.getOperand().accept(this);
 		return null;
 	}
 
 	@Override
-	public Void visit(TLAUniversal pGoTLAUniversal) throws RuntimeException {
-		pGoTLAUniversal.getBody().accept(this);
+	public Void visit(TLAUniversal tlaUniversal) throws RuntimeException {
+		tlaUniversal.getBody().accept(this);
 		return null;
 	}
 

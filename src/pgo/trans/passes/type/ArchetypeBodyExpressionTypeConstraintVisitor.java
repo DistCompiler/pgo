@@ -22,11 +22,11 @@ public class ArchetypeBodyExpressionTypeConstraintVisitor extends TLAExpressionT
 	}
 
 	@Override
-	public PGoType visit(TLAGeneralIdentifier pGoTLAVariable) throws RuntimeException {
-		UID varUID = registry.followReference(pGoTLAVariable.getUID());
+	public PGoType visit(TLAGeneralIdentifier tlaGeneralIdentifier) throws RuntimeException {
+		UID varUID = registry.followReference(tlaGeneralIdentifier.getUID());
 		if (paramUIDs.contains(varUID)) {
 			return registry.getReadValueType(varUID);
 		}
-		return super.visit(pGoTLAVariable);
+		return super.visit(tlaGeneralIdentifier);
 	}
 }

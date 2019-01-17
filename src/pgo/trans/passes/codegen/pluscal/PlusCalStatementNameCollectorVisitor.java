@@ -13,8 +13,8 @@ public class PlusCalStatementNameCollectorVisitor extends PlusCalStatementVisito
 	}
 
 	@Override
-	public Void visit(PlusCalLabeledStatements labeledStatements) throws RuntimeException {
-		labeledStatements.getStatements().forEach(s -> s.accept(this));
+	public Void visit(PlusCalLabeledStatements plusCalLabeledStatements) throws RuntimeException {
+		plusCalLabeledStatements.getStatements().forEach(s -> s.accept(this));
 		return null;
 	}
 
@@ -50,7 +50,7 @@ public class PlusCalStatementNameCollectorVisitor extends PlusCalStatementVisito
 	}
 
 	@Override
-	public Void visit(PlusCalSkip skip) throws RuntimeException {
+	public Void visit(PlusCalSkip plusCalSkip) throws RuntimeException {
 		// nothing to do
 		return null;
 	}
@@ -68,9 +68,9 @@ public class PlusCalStatementNameCollectorVisitor extends PlusCalStatementVisito
 	}
 
 	@Override
-	public Void visit(PlusCalWith with) throws RuntimeException {
-		with.getVariables().forEach(v -> names.add(v.getName().getValue()));
-		with.getBody().forEach(s -> s.accept(this));
+	public Void visit(PlusCalWith plusCalWith) throws RuntimeException {
+		plusCalWith.getVariables().forEach(v -> names.add(v.getName().getValue()));
+		plusCalWith.getBody().forEach(s -> s.accept(this));
 		return null;
 	}
 

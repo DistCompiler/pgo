@@ -10,7 +10,7 @@ import pgo.model.pcal.*;
  */
 public class PlusCalFirstStatementLabeledVisitor extends PlusCalStatementVisitor<Boolean, RuntimeException> {
 
-    public Boolean visit(PlusCalLabeledStatements labeledStatements) {
+    public Boolean visit(PlusCalLabeledStatements plusCalLabeledStatements) {
         return true;
     }
 
@@ -34,7 +34,7 @@ public class PlusCalFirstStatementLabeledVisitor extends PlusCalStatementVisitor
         return false;
     }
 
-    public Boolean visit(PlusCalSkip skip) {
+    public Boolean visit(PlusCalSkip plusCalSkip) {
         return false;
     }
 
@@ -46,7 +46,7 @@ public class PlusCalFirstStatementLabeledVisitor extends PlusCalStatementVisitor
         return false;
     }
 
-    public Boolean visit(PlusCalWith with) {
+    public Boolean visit(PlusCalWith plusCalWith) {
         return false;
     }
 

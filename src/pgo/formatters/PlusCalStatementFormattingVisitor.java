@@ -16,10 +16,10 @@ public class PlusCalStatementFormattingVisitor extends PlusCalStatementVisitor<V
 	}
 
 	@Override
-	public Void visit(PlusCalLabeledStatements labeledStatements) throws IOException {
-		labeledStatements.getLabel().accept(new PlusCalNodeFormattingVisitor(out));
+	public Void visit(PlusCalLabeledStatements plusCalLabeledStatements) throws IOException {
+		plusCalLabeledStatements.getLabel().accept(new PlusCalNodeFormattingVisitor(out));
 		try (IndentingWriter.Indent ignored = out.indent()) {
-			for(PlusCalStatement stmt : labeledStatements.getStatements()) {
+			for(PlusCalStatement stmt : plusCalLabeledStatements.getStatements()) {
 				out.newLine();
 				stmt.accept(this);
 			}
@@ -115,7 +115,7 @@ public class PlusCalStatementFormattingVisitor extends PlusCalStatementVisitor<V
 	}
 
 	@Override
-	public Void visit(PlusCalSkip skip) throws IOException {
+	public Void visit(PlusCalSkip plusCalSkip) throws IOException {
 		out.write("skip;");
 		return null;
 	}
@@ -140,13 +140,13 @@ public class PlusCalStatementFormattingVisitor extends PlusCalStatementVisitor<V
 	}
 
 	@Override
-	public Void visit(PlusCalWith with) throws IOException {
+	public Void visit(PlusCalWith plusCalWith) throws IOException {
 		out.write("with (");
-		(new PlusCalNodeFormattingVisitor(out)).writeVariableDeclarations("", with.getVariables(), "");
+		(new PlusCalNodeFormattingVisitor(out)).writeVariableDeclarations("", plusCalWith.getVariables(), "");
 		out.write(") {");
 		out.newLine();
 		try (IndentingWriter.Indent ignored = out.indent()) {
-			for (PlusCalStatement statement : with.getBody()) {
+			for (PlusCalStatement statement : plusCalWith.getBody()) {
 				statement.accept(this);
 				out.newLine();
 			}

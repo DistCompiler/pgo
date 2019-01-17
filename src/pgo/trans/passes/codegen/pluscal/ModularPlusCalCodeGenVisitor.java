@@ -85,9 +85,9 @@ public class ModularPlusCalCodeGenVisitor
 	}
 
 	@Override
-	public List<PlusCalStatement> visit(PlusCalLabeledStatements labeledStatements) throws RuntimeException {
-		UID labelUID = labeledStatements.getLabel().getUID();
-		SourceLocation labelLocation = labeledStatements.getLabel().getLocation();
+	public List<PlusCalStatement> visit(PlusCalLabeledStatements plusCalLabeledStatements) throws RuntimeException {
+		UID labelUID = plusCalLabeledStatements.getLabel().getUID();
+		SourceLocation labelLocation = plusCalLabeledStatements.getLabel().getLocation();
 		List<PlusCalStatement> statements = new ArrayList<>();
 		// prefetch the variable values
 		if (labelsToVarReads.containsKey(labelUID)) {
@@ -139,7 +139,7 @@ public class ModularPlusCalCodeGenVisitor
 			}
 		}
 		// actually translate the statements in this labeledStatements
-		statements.addAll(substituteStatements(labeledStatements.getStatements()));
+		statements.addAll(substituteStatements(plusCalLabeledStatements.getStatements()));
 		// clean up and write back the written values for non-macro-mapped variables
 		if (labelsToVarWrites.containsKey(labelUID)) {
 			for (UID varUID : labelsToVarWrites.get(labelUID)) {
@@ -162,8 +162,8 @@ public class ModularPlusCalCodeGenVisitor
 			}
 		}
 		return Collections.singletonList(new PlusCalLabeledStatements(
-				labeledStatements.getLocation(),
-				labeledStatements.getLabel(),
+				plusCalLabeledStatements.getLocation(),
+				plusCalLabeledStatements.getLabel(),
 				statements));
 	}
 
@@ -287,8 +287,8 @@ public class ModularPlusCalCodeGenVisitor
 	}
 
 	@Override
-	public List<PlusCalStatement> visit(PlusCalSkip skip) throws RuntimeException {
-		return Collections.singletonList(new PlusCalSkip(skip.getLocation()));
+	public List<PlusCalStatement> visit(PlusCalSkip plusCalSkip) throws RuntimeException {
+		return Collections.singletonList(new PlusCalSkip(plusCalSkip.getLocation()));
 	}
 
 	@Override
@@ -309,10 +309,10 @@ public class ModularPlusCalCodeGenVisitor
 	}
 
 	@Override
-	public List<PlusCalStatement> visit(PlusCalWith with) throws RuntimeException {
+	public List<PlusCalStatement> visit(PlusCalWith plusCalWith) throws RuntimeException {
 		List<PlusCalStatement> result = new ArrayList<>();
 		List<PlusCalVariableDeclaration> declarations = new ArrayList<>();
-		for (PlusCalVariableDeclaration declaration : with.getVariables()) {
+		for (PlusCalVariableDeclaration declaration : plusCalWith.getVariables()) {
 			if (renameWithDeclarations) {
 				TLAGeneralIdentifier fresh = temporaryBinding.freshVariable(
 						declaration.getLocation(), declaration.getUID(), declaration.getName().getValue());
@@ -333,7 +333,7 @@ public class ModularPlusCalCodeGenVisitor
 								registry, temporaryBinding, dollarVariable, dollarValue))));
 			}
 		}
-		result.add(new PlusCalWith(with.getLocation(), declarations, substituteStatements(with.getBody())));
+		result.add(new PlusCalWith(plusCalWith.getLocation(), declarations, substituteStatements(plusCalWith.getBody())));
 		return result;
 	}
 

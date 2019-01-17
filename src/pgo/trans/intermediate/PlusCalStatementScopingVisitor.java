@@ -45,8 +45,8 @@ public class PlusCalStatementScopingVisitor extends PlusCalStatementVisitor<Void
 	}
 
 	@Override
-	public Void visit(PlusCalLabeledStatements labeledStatements) throws RuntimeException {
-		for (PlusCalStatement stmt : labeledStatements.getStatements()) {
+	public Void visit(PlusCalLabeledStatements plusCalLabeledStatements) throws RuntimeException {
+		for (PlusCalStatement stmt : plusCalLabeledStatements.getStatements()) {
 			stmt.accept(this);
 		}
 		return null;
@@ -98,7 +98,7 @@ public class PlusCalStatementScopingVisitor extends PlusCalStatementVisitor<Void
 	}
 
 	@Override
-	public Void visit(PlusCalSkip skip) throws RuntimeException {
+	public Void visit(PlusCalSkip plusCalSkip) throws RuntimeException {
 		return null;
 	}
 
@@ -116,15 +116,15 @@ public class PlusCalStatementScopingVisitor extends PlusCalStatementVisitor<Void
 	}
 
 	@Override
-	public Void visit(PlusCalWith with) throws RuntimeException {
+	public Void visit(PlusCalWith plusCalWith) throws RuntimeException {
 		TLAScopeBuilder nested = builder.makeNestedScope();
-		for(PlusCalVariableDeclaration decl : with.getVariables()) {
+		for(PlusCalVariableDeclaration decl : plusCalWith.getVariables()) {
 			decl.getValue().accept(factory.create(nested, registry, loader, moduleRecursionSet));
 			nested.defineLocal(decl.getName().getValue(), decl.getUID());
 			registry.addLocalVariable(decl.getUID());
 		}
 
-		for (PlusCalStatement stmt : with.getBody()) {
+		for (PlusCalStatement stmt : plusCalWith.getBody()) {
 			stmt.accept(new PlusCalStatementScopingVisitor(ctx, nested, registry, loader, moduleRecursionSet, factory));
 		}
 		return null;

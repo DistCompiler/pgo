@@ -63,58 +63,58 @@ public class ExpressionVariableAccessValidationVisitor extends TLAExpressionVisi
 	}
 
 	@Override
-	public Void visit(TLAFunctionCall pGoTLAFunctionCall) throws RuntimeException {
-		pGoTLAFunctionCall.getFunction().accept(this);
-		pGoTLAFunctionCall.getParams().forEach(e -> e.accept(this));
+	public Void visit(TLAFunctionCall tlaFunctionCall) throws RuntimeException {
+		tlaFunctionCall.getFunction().accept(this);
+		tlaFunctionCall.getParams().forEach(e -> e.accept(this));
 		return null;
 	}
 
 	@Override
-	public Void visit(TLABinOp TLABinOp) throws RuntimeException {
-		TLABinOp.getLHS().accept(this);
-		TLABinOp.getRHS().accept(this);
+	public Void visit(TLABinOp tlaBinOp) throws RuntimeException {
+		tlaBinOp.getLHS().accept(this);
+		tlaBinOp.getRHS().accept(this);
 		return null;
 	}
 
 	@Override
-	public Void visit(TLABool TLABool) throws RuntimeException {
+	public Void visit(TLABool tlaBool) throws RuntimeException {
 		// nothing to do
 		return null;
 	}
 
 	@Override
-	public Void visit(TLACase TLACase) throws RuntimeException {
-		TLACase.getArms().forEach(a -> {
+	public Void visit(TLACase tlaCase) throws RuntimeException {
+		tlaCase.getArms().forEach(a -> {
 			a.getCondition().accept(this);
 			a.getResult().accept(this);
 		});
-		TLACase.getOther().accept(this);
+		tlaCase.getOther().accept(this);
 		return null;
 	}
 
 	@Override
-	public Void visit(TLAExistential TLAExistential) throws RuntimeException {
-		validateIdsAndBody(TLAExistential.getIds(), TLAExistential.getBody());
+	public Void visit(TLAExistential tlaExistential) throws RuntimeException {
+		validateIdsAndBody(tlaExistential.getIds(), tlaExistential.getBody());
 		return null;
 	}
 
 	@Override
-	public Void visit(TLAFunction pGoTLAFunction) throws RuntimeException {
-		validateBoundsAndBody(pGoTLAFunction.getArguments(), pGoTLAFunction.getBody());
+	public Void visit(TLAFunction tlaFunction) throws RuntimeException {
+		validateBoundsAndBody(tlaFunction.getArguments(), tlaFunction.getBody());
 		return null;
 	}
 
 	@Override
-	public Void visit(TLAFunctionSet pGoTLAFunctionSet) throws RuntimeException {
-		pGoTLAFunctionSet.getFrom().accept(this);
-		pGoTLAFunctionSet.getTo().accept(this);
+	public Void visit(TLAFunctionSet tlaFunctionSet) throws RuntimeException {
+		tlaFunctionSet.getFrom().accept(this);
+		tlaFunctionSet.getTo().accept(this);
 		return null;
 	}
 
 	@Override
-	public Void visit(TLAFunctionSubstitution pGoTLAFunctionSubstitution) throws RuntimeException {
-		pGoTLAFunctionSubstitution.getSource().accept(this);
-		for (TLAFunctionSubstitutionPair substitution : pGoTLAFunctionSubstitution.getSubstitutions()) {
+	public Void visit(TLAFunctionSubstitution tlaFunctionSubstitution) throws RuntimeException {
+		tlaFunctionSubstitution.getSource().accept(this);
+		for (TLAFunctionSubstitutionPair substitution : tlaFunctionSubstitution.getSubstitutions()) {
 			substitution.getKeys().forEach(key -> key.getIndices().forEach(i -> i.accept(this)));
 			substitution.getValue().accept(this);
 		}
@@ -122,108 +122,108 @@ public class ExpressionVariableAccessValidationVisitor extends TLAExpressionVisi
 	}
 
 	@Override
-	public Void visit(TLAIf pGoTLAIf) throws RuntimeException {
-		pGoTLAIf.getCond().accept(this);
-		pGoTLAIf.getTval().accept(this);
-		pGoTLAIf.getFval().accept(this);
+	public Void visit(TLAIf tlaIf) throws RuntimeException {
+		tlaIf.getCond().accept(this);
+		tlaIf.getTval().accept(this);
+		tlaIf.getFval().accept(this);
 		return null;
 	}
 
 	@Override
-	public Void visit(TLALet pGoTLALet) throws RuntimeException {
+	public Void visit(TLALet tlaLet) throws RuntimeException {
 		throw new TODO();
 	}
 
 	@Override
-	public Void visit(TLAGeneralIdentifier pGoTLAVariable) throws RuntimeException {
-		if (pGoTLAVariable.getGeneralIdentifierPrefix().size() != 0) {
+	public Void visit(TLAGeneralIdentifier tlaGeneralIdentifier) throws RuntimeException {
+		if (tlaGeneralIdentifier.getGeneralIdentifierPrefix().size() != 0) {
 			throw new TODO();
 		}
-		if (!variablesInScope.contains(pGoTLAVariable.getName().getId()) &&
-				!refVariablesInScope.contains(pGoTLAVariable.getName().getId())) {
-			ctx.error(new DanglingReferenceIssue(pGoTLAVariable.getUID()));
+		if (!variablesInScope.contains(tlaGeneralIdentifier.getName().getId()) &&
+				!refVariablesInScope.contains(tlaGeneralIdentifier.getName().getId())) {
+			ctx.error(new DanglingReferenceIssue(tlaGeneralIdentifier.getUID()));
 		}
 		return null;
 	}
 
 	@Override
-	public Void visit(TLATuple pGoTLATuple) throws RuntimeException {
-		pGoTLATuple.getElements().forEach(e -> e.accept(this));
+	public Void visit(TLATuple tlaTuple) throws RuntimeException {
+		tlaTuple.getElements().forEach(e -> e.accept(this));
 		return null;
 	}
 
 	@Override
-	public Void visit(TLAMaybeAction pGoTLAMaybeAction) throws RuntimeException {
-		pGoTLAMaybeAction.getVars().accept(this);
-		pGoTLAMaybeAction.getBody().accept(this);
+	public Void visit(TLAMaybeAction tlaMaybeAction) throws RuntimeException {
+		tlaMaybeAction.getVars().accept(this);
+		tlaMaybeAction.getBody().accept(this);
 		return null;
 	}
 
 	@Override
-	public Void visit(TLANumber pGoTLANumber) throws RuntimeException {
+	public Void visit(TLANumber tlaNumber) throws RuntimeException {
 		// nothing to do
 		return null;
 	}
 
 	@Override
-	public Void visit(TLAOperatorCall pGoTLAOperatorCall) throws RuntimeException {
+	public Void visit(TLAOperatorCall tlaOperatorCall) throws RuntimeException {
 		// TODO validate operator name
-		pGoTLAOperatorCall.getArgs().forEach(a -> a.accept(this));
+		tlaOperatorCall.getArgs().forEach(a -> a.accept(this));
 		return null;
 	}
 
 	@Override
-	public Void visit(TLAQuantifiedExistential pGoTLAQuantifiedExistential) throws RuntimeException {
-		validateBoundsAndBody(pGoTLAQuantifiedExistential.getIds(), pGoTLAQuantifiedExistential.getBody());
+	public Void visit(TLAQuantifiedExistential tlaQuantifiedExistential) throws RuntimeException {
+		validateBoundsAndBody(tlaQuantifiedExistential.getIds(), tlaQuantifiedExistential.getBody());
 		return null;
 	}
 
 	@Override
-	public Void visit(TLAQuantifiedUniversal pGoTLAQuantifiedUniversal) throws RuntimeException {
-		validateBoundsAndBody(pGoTLAQuantifiedUniversal.getIds(), pGoTLAQuantifiedUniversal.getBody());
+	public Void visit(TLAQuantifiedUniversal tlaQuantifiedUniversal) throws RuntimeException {
+		validateBoundsAndBody(tlaQuantifiedUniversal.getIds(), tlaQuantifiedUniversal.getBody());
 		return null;
 	}
 
 	@Override
-	public Void visit(TLARecordConstructor pGoTLARecordConstructor) throws RuntimeException {
-		pGoTLARecordConstructor.getFields().forEach(f -> f.getValue().accept(this));
+	public Void visit(TLARecordConstructor tlaRecordConstructor) throws RuntimeException {
+		tlaRecordConstructor.getFields().forEach(f -> f.getValue().accept(this));
 		return null;
 	}
 
 	@Override
-	public Void visit(TLARecordSet pGoTLARecordSet) throws RuntimeException {
-		pGoTLARecordSet.getFields().forEach(f -> f.getSet().accept(this));
+	public Void visit(TLARecordSet tlaRecordSet) throws RuntimeException {
+		tlaRecordSet.getFields().forEach(f -> f.getSet().accept(this));
 		return null;
 	}
 
 	@Override
-	public Void visit(TLARequiredAction pGoTLARequiredAction) throws RuntimeException {
-		pGoTLARequiredAction.getVars().accept(this);
-		pGoTLARequiredAction.getBody().accept(this);
+	public Void visit(TLARequiredAction tlaRequiredAction) throws RuntimeException {
+		tlaRequiredAction.getVars().accept(this);
+		tlaRequiredAction.getBody().accept(this);
 		return null;
 	}
 
 	@Override
-	public Void visit(TLASetConstructor pGoTLASetConstructor) throws RuntimeException {
-		pGoTLASetConstructor.getContents().forEach(e -> e.accept(this));
+	public Void visit(TLASetConstructor tlaSetConstructor) throws RuntimeException {
+		tlaSetConstructor.getContents().forEach(e -> e.accept(this));
 		return null;
 	}
 
 	@Override
-	public Void visit(TLASetComprehension pGoTLASetComprehension) throws RuntimeException {
-		validateBoundsAndBody(pGoTLASetComprehension.getBounds(), pGoTLASetComprehension.getBody());
+	public Void visit(TLASetComprehension tlaSetComprehension) throws RuntimeException {
+		validateBoundsAndBody(tlaSetComprehension.getBounds(), tlaSetComprehension.getBody());
 		return null;
 	}
 
 	@Override
-	public Void visit(TLASetRefinement pGoTLASetRefinement) throws RuntimeException {
-		pGoTLASetRefinement.getFrom().accept(this);
+	public Void visit(TLASetRefinement tlaSetRefinement) throws RuntimeException {
+		tlaSetRefinement.getFrom().accept(this);
 		Set<String> localMacrosInScope = new HashSet<>(macrosInScope);
 		Set<String> localProceduresInScope = new HashSet<>(proceduresInScope);
 		Set<String> localVariablesInScope = new HashSet<>(variablesInScope);
 		Set<String> localRefVariablesInScope = new HashSet<>(refVariablesInScope);
-		if (pGoTLASetRefinement.getIdent().isTuple()) {
-			for (TLAIdentifier identifier : pGoTLASetRefinement.getIdent().getTuple()) {
+		if (tlaSetRefinement.getIdent().isTuple()) {
+			for (TLAIdentifier identifier : tlaSetRefinement.getIdent().getTuple()) {
 				String name = identifier.getId();
 				localVariablesInScope.add(name);
 				localRefVariablesInScope.remove(name);
@@ -231,33 +231,33 @@ public class ExpressionVariableAccessValidationVisitor extends TLAExpressionVisi
 				localProceduresInScope.remove(name);
 			}
 		} else {
-			String name = pGoTLASetRefinement.getIdent().getId().getId();
+			String name = tlaSetRefinement.getIdent().getId().getId();
 			localVariablesInScope.add(name);
 			localRefVariablesInScope.remove(name);
 			localMacrosInScope.remove(name);
 			localProceduresInScope.remove(name);
 		}
-		pGoTLASetRefinement.getWhen().accept(new ExpressionVariableAccessValidationVisitor(
+		tlaSetRefinement.getWhen().accept(new ExpressionVariableAccessValidationVisitor(
 				ctx, localMacrosInScope, localProceduresInScope, localVariablesInScope, localRefVariablesInScope));
 		return null;
 	}
 
 	@Override
-	public Void visit(TLAString pGoTLAString) throws RuntimeException {
+	public Void visit(TLAString tlaString) throws RuntimeException {
 		// nothing to do
 		return null;
 	}
 
 	@Override
-	public Void visit(TLAUnary pGoTLAUnary) throws RuntimeException {
+	public Void visit(TLAUnary tlaUnary) throws RuntimeException {
 		// TODO validate operation
-		pGoTLAUnary.getOperand().accept(this);
+		tlaUnary.getOperand().accept(this);
 		return null;
 	}
 
 	@Override
-	public Void visit(TLAUniversal pGoTLAUniversal) throws RuntimeException {
-		validateIdsAndBody(pGoTLAUniversal.getIds(), pGoTLAUniversal.getBody());
+	public Void visit(TLAUniversal tlaUniversal) throws RuntimeException {
+		validateIdsAndBody(tlaUniversal.getIds(), tlaUniversal.getBody());
 		return null;
 	}
 
