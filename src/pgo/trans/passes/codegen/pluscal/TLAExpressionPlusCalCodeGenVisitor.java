@@ -49,14 +49,17 @@ public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLA
 
 	@Override
 	public TLAExpression visit(TLABinOp tlaBinOp) throws RuntimeException {
-		TLAExpression lhs = tlaBinOp.getLHS().accept(this);
-		TLAExpression rhs = tlaBinOp.getRHS().accept(this);
-		return new TLABinOp(tlaBinOp.getLocation(), tlaBinOp.getOperation(), tlaBinOp.getPrefix(), lhs, rhs);
+		return new TLABinOp(
+				tlaBinOp.getLocation(),
+				tlaBinOp.getOperation(),
+				tlaBinOp.getPrefix(),
+				tlaBinOp.getLHS().accept(this),
+				tlaBinOp.getRHS().accept(this));
 	}
 
 	@Override
 	public TLAExpression visit(TLABool tlaBool) throws RuntimeException {
-		return tlaBool;
+		return tlaBool.copy();
 	}
 
 	@Override
@@ -193,7 +196,7 @@ public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLA
 
 	@Override
 	public TLAExpression visit(TLANumber tlaNumber) throws RuntimeException {
-		return tlaNumber;
+		return tlaNumber.copy();
 	}
 
 	@Override
@@ -292,13 +295,16 @@ public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLA
 
 	@Override
 	public TLAExpression visit(TLAString tlaString) throws RuntimeException {
-		return tlaString;
+		return tlaString.copy();
 	}
 
 	@Override
 	public TLAExpression visit(TLAUnary tlaUnary) throws RuntimeException {
-		TLAExpression expression = tlaUnary.getOperand().accept(this);
-		return new TLAUnary(tlaUnary.getLocation(), tlaUnary.getOperation(), tlaUnary.getPrefix(), expression);
+		return new TLAUnary(
+				tlaUnary.getLocation(),
+				tlaUnary.getOperation(),
+				tlaUnary.getPrefix(),
+				tlaUnary.getOperand().accept(this));
 	}
 
 	@Override
@@ -311,7 +317,7 @@ public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLA
 
 	@Override
 	public TLAExpression visit(PlusCalDefaultInitValue plusCalDefaultInitValue) throws RuntimeException {
-		return plusCalDefaultInitValue;
+		return plusCalDefaultInitValue.copy();
 	}
 
 	@Override

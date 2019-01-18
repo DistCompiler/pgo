@@ -137,8 +137,8 @@ public class ModularPlusCalCodeGenVisitor
 			}
 		} else {
 			// otherwise, don't create temporary variable for cleaner code
-			rhsList.add(pairs.get(0).getRhs().accept(
-					new TLAExpressionPlusCalCodeGenVisitor(registry, arguments, params, mappings, temporaryBinding, result)));
+			rhsList.add(pairs.get(0).getRhs().accept(new TLAExpressionPlusCalCodeGenVisitor(
+					registry, arguments, params, mappings, temporaryBinding, result)));
 		}
 		for (int i = 0; i < pairs.size(); i++) {
 			PlusCalAssignmentPair pair = pairs.get(i);
