@@ -1,6 +1,5 @@
 package pgo.trans.passes.codegen.pluscal;
 
-import pgo.TODO;
 import pgo.Unreachable;
 import pgo.model.mpcal.ModularPlusCalYield;
 import pgo.model.pcal.*;
@@ -8,21 +7,20 @@ import pgo.model.tla.TLAExpression;
 import pgo.model.tla.TLAExpressionVisitor;
 import pgo.model.tla.TLAGeneralIdentifier;
 import pgo.parser.Located;
-import pgo.scope.UID;
 import pgo.trans.passes.codegen.TemporaryBinding;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-public class ModularPlusCalMappingMacroReadExpansionVisitor
+public class ModularPlusCalMappingMacroExpansionVisitor
 		extends PlusCalStatementVisitor<List<PlusCalStatement>, RuntimeException> {
 	protected final TemporaryBinding temporaryBinding;
 	protected final TLAExpression variable;
 	protected final TLAExpressionVisitor<TLAExpression, RuntimeException> visitor;
 
-	public ModularPlusCalMappingMacroReadExpansionVisitor(TemporaryBinding temporaryBinding, TLAExpression variable,
-	                                                      TLAExpressionVisitor<TLAExpression, RuntimeException> visitor) {
+	public ModularPlusCalMappingMacroExpansionVisitor(TemporaryBinding temporaryBinding, TLAExpression variable,
+	                                                  TLAExpressionVisitor<TLAExpression, RuntimeException> visitor) {
 		this.temporaryBinding = temporaryBinding;
 		this.variable = variable;
 		this.visitor = visitor;
@@ -153,6 +151,11 @@ public class ModularPlusCalMappingMacroReadExpansionVisitor
 
 	@Override
 	public List<PlusCalStatement> visit(ModularPlusCalYield modularPlusCalYield) throws RuntimeException {
-		throw new TODO();
+		return Collections.singletonList(new PlusCalAssignment(
+				modularPlusCalYield.getLocation(),
+				Collections.singletonList(new PlusCalAssignmentPair(
+						modularPlusCalYield.getLocation(),
+						variable,
+						modularPlusCalYield.getExpression().accept(visitor)))));
 	}
 }

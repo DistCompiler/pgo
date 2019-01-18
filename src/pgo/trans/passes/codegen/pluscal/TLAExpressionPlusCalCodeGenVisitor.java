@@ -2,29 +2,40 @@ package pgo.trans.passes.codegen.pluscal;
 
 import pgo.TODO;
 import pgo.Unreachable;
+import pgo.model.mpcal.ModularPlusCalMapping;
+import pgo.model.pcal.PlusCalAssignment;
+import pgo.model.pcal.PlusCalAssignmentPair;
 import pgo.model.pcal.PlusCalStatement;
+import pgo.model.pcal.PlusCalVariableDeclaration;
+import pgo.scope.UID;
 import pgo.trans.passes.codegen.TemporaryBinding;
 import pgo.model.tla.*;
 import pgo.trans.intermediate.DefinitionRegistry;
+import pgo.util.SourceLocation;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
-import java.util.function.Supplier;
+import java.util.Map;
 
 public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLAExpression, RuntimeException> {
 	private final DefinitionRegistry registry;
+	private final Map<UID, PlusCalVariableDeclaration> arguments;
+	private final Map<UID, TLAExpression> params;
+	private final Map<UID, ModularPlusCalMapping> mappings;
 	private final TemporaryBinding temporaryBinding;
-	private final Supplier<TLAGeneralIdentifier> dollarVariable;
-	private final Supplier<TLAExpression> dollarValue;
+	private final List<PlusCalStatement> output;
 
 	public TLAExpressionPlusCalCodeGenVisitor(DefinitionRegistry registry,
-	                                          TemporaryBinding temporaryBinding,
-	                                          Supplier<TLAGeneralIdentifier> dollarVariable,
-	                                          Supplier<TLAExpression> dollarValue) {
+	                                          Map<UID, PlusCalVariableDeclaration> arguments,
+	                                          Map<UID, TLAExpression> params, Map<UID, ModularPlusCalMapping> mappings,
+	                                          TemporaryBinding temporaryBinding, List<PlusCalStatement> output) {
 		this.registry = registry;
+		this.arguments = arguments;
+		this.params = params;
+		this.mappings = mappings;
 		this.temporaryBinding = temporaryBinding;
-		this.dollarVariable = dollarVariable;
-		this.dollarValue = dollarValue;
+		this.output = output;
 	}
 
 	@Override
@@ -50,6 +61,7 @@ public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLA
 
 	@Override
 	public TLAExpression visit(TLACase tlaCase) throws RuntimeException {
+		// FIXME
 		List<TLACaseArm> transformedArm = new ArrayList<>();
 		for (TLACaseArm arm : tlaCase.getArms()) {
 			TLAExpression condition = arm.getCondition().accept(this);
@@ -120,7 +132,46 @@ public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLA
 
 	@Override
 	public TLAExpression visit(TLAGeneralIdentifier tlaGeneralIdentifier) throws RuntimeException {
-		return temporaryBinding.lookup(registry.followReference(tlaGeneralIdentifier.getUID())).orElse(tlaGeneralIdentifier);
+		SourceLocation location = tlaGeneralIdentifier.getLocation();
+		UID varUID = registry.followReference(tlaGeneralIdentifier.getUID());
+		if (params.containsKey(varUID)) {
+			TLAExpression value = params.get(varUID);
+			UID valueUID = registry.followReference(value.getUID());
+			TLAGeneralIdentifier variable = value instanceof TLARef
+					? new TLAGeneralIdentifier(
+							location,
+							new TLAIdentifier(location, ((TLARef) value).getTarget()),
+							Collections.emptyList())
+					: (TLAGeneralIdentifier) value;
+			boolean mappingsContainsValue = mappings.containsKey(valueUID);
+			TLAGeneralIdentifier temp = temporaryBinding.declare(
+					location,
+					varUID,
+					arguments.get(varUID).getName().getValue() + "Read");
+			if (mappingsContainsValue) {
+				ModularPlusCalMappingMacroExpansionVisitor visitor =
+						new ModularPlusCalMappingMacroExpansionVisitor(
+								temporaryBinding,
+								temp,
+								new TLAExpressionMappingMacroReadExpansionVisitor(
+										registry, temporaryBinding, variable));
+				for (PlusCalStatement statement : registry.findMappingMacro(mappings.get(valueUID).getTarget().getName()).getReadBody()) {
+					output.addAll(statement.accept(visitor));
+				}
+			} else {
+				TLAExpression rhs = value instanceof TLARef
+						? new TLAGeneralIdentifier(
+								location,
+								new TLAIdentifier(location, ((TLARef) value).getTarget()),
+								Collections.emptyList())
+						: value;
+				output.add(new PlusCalAssignment(
+						location,
+						Collections.singletonList(new PlusCalAssignmentPair(location, temp, rhs))));
+			}
+			return temp;
+		}
+		return temporaryBinding.lookup(varUID).orElse(tlaGeneralIdentifier);
 	}
 
 	@Override
@@ -270,12 +321,12 @@ public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLA
 
 	@Override
 	public TLAExpression visit(TLASpecialVariableVariable tlaSpecialVariableVariable) throws RuntimeException {
-		return dollarVariable.get();
+		throw new Unreachable();
 	}
 
 	@Override
 	public TLAExpression visit(TLASpecialVariableValue tlaSpecialVariableValue) throws RuntimeException {
-		return dollarValue.get().accept(this);
+		throw new Unreachable();
 	}
 
 	@Override
