@@ -3,10 +3,7 @@ package pgo.trans.passes.codegen.pluscal;
 import pgo.TODO;
 import pgo.Unreachable;
 import pgo.model.mpcal.ModularPlusCalMapping;
-import pgo.model.pcal.PlusCalAssignment;
-import pgo.model.pcal.PlusCalAssignmentPair;
-import pgo.model.pcal.PlusCalStatement;
-import pgo.model.pcal.PlusCalVariableDeclaration;
+import pgo.model.pcal.*;
 import pgo.scope.UID;
 import pgo.model.tla.*;
 import pgo.trans.intermediate.DefinitionRegistry;
@@ -63,14 +60,34 @@ public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLA
 
 	@Override
 	public TLAExpression visit(TLACase tlaCase) throws RuntimeException {
-		// FIXME
-		List<TLACaseArm> transformedArm = new ArrayList<>();
+		// translated as nested ifs
+		TLAGeneralIdentifier caseResult = temporaryBinding.declare(tlaCase.getLocation(), new UID(), "caseResult");
+		List<PlusCalStatement> currentBlock = output;
 		for (TLACaseArm arm : tlaCase.getArms()) {
-			TLAExpression condition = arm.getCondition().accept(this);
-			TLAExpression result = arm.getResult().accept(this);
-			transformedArm.add(new TLACaseArm(arm.getLocation(), condition, result));
+			TLAExpression condition = arm.getCondition().accept(new TLAExpressionPlusCalCodeGenVisitor(
+					registry, arguments, params, mappings, temporaryBinding, currentBlock));
+			List<PlusCalStatement> yes = new ArrayList<>();
+			List<PlusCalStatement> no = new ArrayList<>();
+			TLAExpression result = arm.getResult().accept(new TLAExpressionPlusCalCodeGenVisitor(
+					registry, arguments, params, mappings, temporaryBinding, yes));
+			yes.add(new PlusCalAssignment(
+					arm.getResult().getLocation(),
+					Collections.singletonList(new PlusCalAssignmentPair(
+							arm.getResult().getLocation(), caseResult, result))));
+			currentBlock.add(new PlusCalIf(arm.getLocation(), condition, yes, no));
+			currentBlock = no;
 		}
-		return new TLACase(tlaCase.getLocation(), transformedArm, tlaCase.getOther().accept(this));
+		if (tlaCase.getOther() == null) {
+			currentBlock.add(new PlusCalAssert(tlaCase.getLocation(), new TLABool(tlaCase.getLocation(), false)));
+		} else {
+			TLAExpression other = tlaCase.getOther().accept(new TLAExpressionPlusCalCodeGenVisitor(
+					registry, arguments, params, mappings, temporaryBinding, currentBlock));
+			currentBlock.add(new PlusCalAssignment(
+					tlaCase.getOther().getLocation(),
+					Collections.singletonList(new PlusCalAssignmentPair(
+							tlaCase.getOther().getLocation(), caseResult, other))));
+		}
+		return caseResult;
 	}
 
 	@Override
