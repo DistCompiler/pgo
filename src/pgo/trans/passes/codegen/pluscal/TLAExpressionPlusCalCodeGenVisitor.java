@@ -137,11 +137,24 @@ public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLA
 
 	@Override
 	public TLAExpression visit(TLAIf tlaIf) throws RuntimeException {
-		return new TLAIf(
-				tlaIf.getLocation(),
-				tlaIf.getCond().accept(this),
-				tlaIf.getTval().accept(this),
-				tlaIf.getFval().accept(this));
+		TLAGeneralIdentifier ifResult = temporaryBinding.declare(tlaIf.getLocation(), new UID(), "ifResult");
+		TLAExpression condition = tlaIf.getCond().accept(this);
+		List<PlusCalStatement> yes = new ArrayList<>();
+		TLAExpression yesResult = tlaIf.getTval().accept(new TLAExpressionPlusCalCodeGenVisitor(
+				registry, arguments, params, mappings, temporaryBinding, yes));
+		yes.add(new PlusCalAssignment(
+				tlaIf.getTval().getLocation(),
+				Collections.singletonList(new PlusCalAssignmentPair(
+						tlaIf.getTval().getLocation(), ifResult, yesResult))));
+		List<PlusCalStatement> no = new ArrayList<>();
+		TLAExpression noResult = tlaIf.getFval().accept(new TLAExpressionPlusCalCodeGenVisitor(
+				registry, arguments, params, mappings, temporaryBinding, no));
+		no.add(new PlusCalAssignment(
+				tlaIf.getFval().getLocation(),
+				Collections.singletonList(new PlusCalAssignmentPair(
+						tlaIf.getFval().getLocation(), ifResult, noResult))));
+		output.add(new PlusCalIf(tlaIf.getLocation(), condition, yes, no));
+		return ifResult;
 	}
 
 	@Override
