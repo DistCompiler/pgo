@@ -77,7 +77,7 @@ public class PlusCalCodeGenPass {
 			Map<UID, PlusCalVariableDeclaration> arguments = new HashMap<>();
 			Map<UID, TLAExpression> params = new HashMap<>();
 			List<PlusCalVariableDeclaration> localVariables = new ArrayList<>(archetype.getVariables());
-			TemporaryBinding temporaryBinding = new TemporaryBinding(nameCleaner, localVariables);
+			TemporaryBinding readTemporaryBinding = new TemporaryBinding(nameCleaner, localVariables);
 			for (int i = 0; i < archetype.getArguments().size(); i++) {
 				PlusCalVariableDeclaration argument = archetype.getArguments().get(i);
 				UID uid = argument.getUID();
@@ -88,7 +88,8 @@ public class PlusCalCodeGenPass {
 					params.put(uid, value);
 				} else {
 					// this argument is bound to a TLA+ expression, so we need to add a variable declaration for it
-					temporaryBinding.declare(value.getLocation(), uid, argument.getName().getValue() + "Read", value);
+					readTemporaryBinding.declare(
+							value.getLocation(), uid, argument.getName().getValue() + "Read", value);
 				}
 			}
 			// discover argument reads
@@ -104,7 +105,8 @@ public class PlusCalCodeGenPass {
 				statement.accept(visitor);
 			}
 			ModularPlusCalCodeGenVisitor v = new ModularPlusCalCodeGenVisitor(
-					registry, temporaryBinding, labelsToVarReads, labelsToVarWrites, arguments, params, mappings);
+					registry, readTemporaryBinding, new TemporaryBinding(nameCleaner, localVariables), labelsToVarReads,
+					labelsToVarWrites, arguments, params, mappings);
 			List<PlusCalStatement> body = new ArrayList<>();
 			for (PlusCalStatement statement : archetype.getBody()) {
 				body.addAll(statement.accept(v));

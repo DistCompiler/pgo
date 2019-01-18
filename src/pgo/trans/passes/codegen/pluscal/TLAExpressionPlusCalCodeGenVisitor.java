@@ -19,18 +19,21 @@ public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLA
 	private final Map<UID, PlusCalVariableDeclaration> arguments;
 	private final Map<UID, TLAExpression> params;
 	private final Map<UID, ModularPlusCalMapping> mappings;
-	private final TemporaryBinding temporaryBinding;
+	private final TemporaryBinding readTemporaryBinding;
+	private final TemporaryBinding writeTemporaryBinding;
 	private final List<PlusCalStatement> output;
 
 	public TLAExpressionPlusCalCodeGenVisitor(DefinitionRegistry registry,
 	                                          Map<UID, PlusCalVariableDeclaration> arguments,
 	                                          Map<UID, TLAExpression> params, Map<UID, ModularPlusCalMapping> mappings,
-	                                          TemporaryBinding temporaryBinding, List<PlusCalStatement> output) {
+	                                          TemporaryBinding readTemporaryBinding,
+	                                          TemporaryBinding writeTemporaryBinding, List<PlusCalStatement> output) {
 		this.registry = registry;
 		this.arguments = arguments;
 		this.params = params;
 		this.mappings = mappings;
-		this.temporaryBinding = temporaryBinding;
+		this.readTemporaryBinding = readTemporaryBinding;
+		this.writeTemporaryBinding = writeTemporaryBinding;
 		this.output = output;
 	}
 
@@ -61,15 +64,15 @@ public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLA
 	@Override
 	public TLAExpression visit(TLACase tlaCase) throws RuntimeException {
 		// translated as nested ifs
-		TLAGeneralIdentifier caseResult = temporaryBinding.declare(tlaCase.getLocation(), new UID(), "caseResult");
+		TLAGeneralIdentifier caseResult = readTemporaryBinding.declare(tlaCase.getLocation(), new UID(), "caseResult");
 		List<PlusCalStatement> currentBlock = output;
 		for (TLACaseArm arm : tlaCase.getArms()) {
 			TLAExpression condition = arm.getCondition().accept(new TLAExpressionPlusCalCodeGenVisitor(
-					registry, arguments, params, mappings, temporaryBinding, currentBlock));
+					registry, arguments, params, mappings, readTemporaryBinding, writeTemporaryBinding, currentBlock));
 			List<PlusCalStatement> yes = new ArrayList<>();
 			List<PlusCalStatement> no = new ArrayList<>();
 			TLAExpression result = arm.getResult().accept(new TLAExpressionPlusCalCodeGenVisitor(
-					registry, arguments, params, mappings, temporaryBinding, yes));
+					registry, arguments, params, mappings, readTemporaryBinding, writeTemporaryBinding, yes));
 			yes.add(new PlusCalAssignment(
 					arm.getResult().getLocation(),
 					Collections.singletonList(new PlusCalAssignmentPair(
@@ -81,7 +84,7 @@ public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLA
 			currentBlock.add(new PlusCalAssert(tlaCase.getLocation(), new TLABool(tlaCase.getLocation(), false)));
 		} else {
 			TLAExpression other = tlaCase.getOther().accept(new TLAExpressionPlusCalCodeGenVisitor(
-					registry, arguments, params, mappings, temporaryBinding, currentBlock));
+					registry, arguments, params, mappings, readTemporaryBinding, writeTemporaryBinding, currentBlock));
 			currentBlock.add(new PlusCalAssignment(
 					tlaCase.getOther().getLocation(),
 					Collections.singletonList(new PlusCalAssignmentPair(
@@ -137,18 +140,18 @@ public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLA
 
 	@Override
 	public TLAExpression visit(TLAIf tlaIf) throws RuntimeException {
-		TLAGeneralIdentifier ifResult = temporaryBinding.declare(tlaIf.getLocation(), new UID(), "ifResult");
+		TLAGeneralIdentifier ifResult = readTemporaryBinding.declare(tlaIf.getLocation(), new UID(), "ifResult");
 		TLAExpression condition = tlaIf.getCond().accept(this);
 		List<PlusCalStatement> yes = new ArrayList<>();
 		TLAExpression yesResult = tlaIf.getTval().accept(new TLAExpressionPlusCalCodeGenVisitor(
-				registry, arguments, params, mappings, temporaryBinding, yes));
+				registry, arguments, params, mappings, readTemporaryBinding, writeTemporaryBinding, yes));
 		yes.add(new PlusCalAssignment(
 				tlaIf.getTval().getLocation(),
 				Collections.singletonList(new PlusCalAssignmentPair(
 						tlaIf.getTval().getLocation(), ifResult, yesResult))));
 		List<PlusCalStatement> no = new ArrayList<>();
 		TLAExpression noResult = tlaIf.getFval().accept(new TLAExpressionPlusCalCodeGenVisitor(
-				registry, arguments, params, mappings, temporaryBinding, no));
+				registry, arguments, params, mappings, readTemporaryBinding, writeTemporaryBinding, no));
 		no.add(new PlusCalAssignment(
 				tlaIf.getFval().getLocation(),
 				Collections.singletonList(new PlusCalAssignmentPair(
@@ -176,17 +179,17 @@ public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLA
 							Collections.emptyList())
 					: (TLAGeneralIdentifier) value;
 			boolean mappingsContainsValue = mappings.containsKey(valueUID);
-			TLAGeneralIdentifier temp = temporaryBinding.declare(
+			TLAGeneralIdentifier temp = readTemporaryBinding.declare(
 					location,
 					varUID,
 					arguments.get(varUID).getName().getValue() + "Read");
 			if (mappingsContainsValue) {
-				ModularPlusCalMappingMacroExpansionVisitor visitor =
-						new ModularPlusCalMappingMacroExpansionVisitor(
-								temporaryBinding,
-								temp,
+				ModularPlusCalMappingMacroReadExpansionVisitor visitor =
+						new ModularPlusCalMappingMacroReadExpansionVisitor(
+								readTemporaryBinding, writeTemporaryBinding, temp, varUID,
+								arguments.get(varUID).getName().getValue() + "Write",
 								new TLAExpressionMappingMacroReadExpansionVisitor(
-										registry, temporaryBinding, variable));
+										registry, readTemporaryBinding, writeTemporaryBinding, varUID, variable));
 				for (PlusCalStatement statement : registry.findMappingMacro(mappings.get(valueUID).getTarget().getName()).getReadBody()) {
 					output.addAll(statement.accept(visitor));
 				}
@@ -203,7 +206,7 @@ public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLA
 			}
 			return temp;
 		}
-		return temporaryBinding.lookup(varUID).orElse(tlaGeneralIdentifier);
+		return readTemporaryBinding.lookup(varUID).orElse(tlaGeneralIdentifier);
 	}
 
 	@Override

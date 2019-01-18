@@ -6,21 +6,31 @@ import pgo.model.pcal.*;
 import pgo.model.tla.TLAExpression;
 import pgo.model.tla.TLAExpressionVisitor;
 import pgo.model.tla.TLAGeneralIdentifier;
+import pgo.model.tla.TLASpecialVariableVariable;
 import pgo.parser.Located;
+import pgo.scope.UID;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-public class ModularPlusCalMappingMacroExpansionVisitor
+public class ModularPlusCalMappingMacroReadExpansionVisitor
 		extends PlusCalStatementVisitor<List<PlusCalStatement>, RuntimeException> {
-	protected final TemporaryBinding temporaryBinding;
-	protected final TLAExpression variable;
+	private final TemporaryBinding readTemporaryBinding;
+	protected final TemporaryBinding writeTemporaryBinding;
+	private final TLAExpression variable;
+	protected final UID varUID;
+	protected final String nameHint;
 	protected final TLAExpressionVisitor<TLAExpression, RuntimeException> visitor;
 
-	public ModularPlusCalMappingMacroExpansionVisitor(TemporaryBinding temporaryBinding, TLAExpression variable,
-	                                                  TLAExpressionVisitor<TLAExpression, RuntimeException> visitor) {
-		this.temporaryBinding = temporaryBinding;
+	public ModularPlusCalMappingMacroReadExpansionVisitor(TemporaryBinding readTemporaryBinding,
+	                                                      TemporaryBinding writeTemporaryBinding, TLAExpression variable,
+	                                                      UID varUID, String nameHint,
+	                                                      TLAExpressionVisitor<TLAExpression, RuntimeException> visitor) {
+		this.readTemporaryBinding = readTemporaryBinding;
+		this.writeTemporaryBinding = writeTemporaryBinding;
+		this.varUID = varUID;
+		this.nameHint = nameHint;
 		this.variable = variable;
 		this.visitor = visitor;
 	}
@@ -68,10 +78,14 @@ public class ModularPlusCalMappingMacroExpansionVisitor
 	public List<PlusCalStatement> visit(PlusCalAssignment plusCalAssignment) throws RuntimeException {
 		List<PlusCalAssignmentPair> pairs = new ArrayList<>();
 		for (PlusCalAssignmentPair pair : plusCalAssignment.getPairs()) {
-			pairs.add(new PlusCalAssignmentPair(
-					pair.getLocation(),
-					pair.getLhs().accept(visitor),
-					pair.getRhs().accept(visitor)));
+			TLAExpression lhs = pair.getLhs();
+			TLAExpression rhs = pair.getRhs().accept(visitor);
+			if (lhs instanceof TLASpecialVariableVariable) {
+				lhs = writeTemporaryBinding.declare(lhs.getLocation(), varUID, nameHint);
+			} else {
+				lhs = lhs.accept(visitor);
+			}
+			pairs.add(new PlusCalAssignmentPair(pair.getLocation(), lhs, rhs));
 		}
 		return Collections.singletonList(new PlusCalAssignment(plusCalAssignment.getLocation(), pairs));
 	}
@@ -107,7 +121,7 @@ public class ModularPlusCalMappingMacroExpansionVisitor
 	public List<PlusCalStatement> visit(PlusCalWith plusCalWith) throws RuntimeException {
 		List<PlusCalVariableDeclaration> declarations = new ArrayList<>();
 		for (PlusCalVariableDeclaration declaration : plusCalWith.getVariables()) {
-			TLAGeneralIdentifier fresh = temporaryBinding.freshVariable(
+			TLAGeneralIdentifier fresh = readTemporaryBinding.freshVariable(
 					declaration.getLocation(), declaration.getUID(), declaration.getName().getValue());
 			declarations.add(new PlusCalVariableDeclaration(
 					declaration.getLocation(),

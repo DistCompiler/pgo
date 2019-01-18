@@ -318,10 +318,10 @@ public class PlusCalCodeGenPassTest {
                         // --algorithm Algorithm3 {
                         //    variables x = 10, y = 20;
                         //    process (P1 = 100)
-                        //    variables local, aRead, bRead;
+                        //    variables local, aRead, aWrite, bRead;
                         //    {
                         //        l1:
-                        //            x := (x)-(1);
+                        //            aWrite := (x)-(1);
                         //            with (v0 = 50) {
                         //                either {
                         //                    aRead := v0;
@@ -332,10 +332,12 @@ public class PlusCalCodeGenPassTest {
                         //            if ((aRead)>=(42)) {
                         //                local := 42;
                         //                };
+                        //            x := aWrite;
                         //        l2:
-                        //            x := (10)+(1);
+                        //            aWrite := (10)+(1);
+                        //            x := aWrite;
                         //        l3:
-                        //            x := (x)-(1);
+                        //            aWrite := (x)-(1);
                         //            with (v1 = 50) {
                         //                either {
                         //                    aRead := v1;
@@ -345,6 +347,7 @@ public class PlusCalCodeGenPassTest {
                         //            };
                         //            bRead := y;
                         //            local := (aRead)+(bRead);
+                        //            x := aWrite;
                         //        l4:
                         //            print local;
                         //
@@ -365,11 +368,12 @@ public class PlusCalCodeGenPassTest {
                                         Arrays.asList(
                                                 pcalVarDecl("local", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
                                                 pcalVarDecl("aRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+                                                pcalVarDecl("aWrite", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
                                                 pcalVarDecl("bRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
                                         ),
                                         labeled(
                                                 label("l1"),
-                                                assign(idexp("x"), binop("-", idexp("x"), num(1))),
+                                                assign(idexp("aWrite"), binop("-", idexp("x"), num(1))),
                                                 with(
                                                         Collections.singletonList(pcalVarDecl("v0", false, false, num(50))),
                                                         either(
@@ -383,17 +387,19 @@ public class PlusCalCodeGenPassTest {
                                                         binop(">=", idexp("aRead"), num(42)),
                                                         Collections.singletonList(assign(idexp("local"), num(42))),
                                                         Collections.emptyList()
-                                                )
+                                                ),
+                                                assign(idexp("x"), idexp("aWrite"))
                                         ),
 
                                         labeled(
                                                 label("l2"),
-                                                assign(idexp("x"), binop("+", num(10), num(1)))
+                                                assign(idexp("aWrite"), binop("+", num(10), num(1))),
+                                                assign(idexp("x"), idexp("aWrite"))
                                         ),
 
                                         labeled(
                                                 label("l3"),
-                                                assign(idexp("x"), binop("-", idexp("x"), num(1))),
+                                                assign(idexp("aWrite"), binop("-", idexp("x"), num(1))),
                                                 with(
                                                         Collections.singletonList(pcalVarDecl("v1", false, false, num(50))),
                                                         either(
@@ -404,7 +410,8 @@ public class PlusCalCodeGenPassTest {
                                                         )
                                                 ),
                                                 assign(idexp("bRead"), idexp("y")),
-                                                assign(idexp("local"), binop("+", idexp("aRead"), idexp("bRead")))
+                                                assign(idexp("local"), binop("+", idexp("aRead"), idexp("bRead"))),
+                                                assign(idexp("x"), idexp("aWrite"))
                                         ),
 
                                         labeled(

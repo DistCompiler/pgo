@@ -3,21 +3,29 @@ package pgo.trans.passes.codegen.pluscal;
 import pgo.TODO;
 import pgo.Unreachable;
 import pgo.model.tla.*;
+import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 public class TLAExpressionMappingMacroReadExpansionVisitor
 		extends TLAExpressionVisitor<TLAExpression, RuntimeException> {
 	private final DefinitionRegistry registry;
-	private final TemporaryBinding temporaryBinding;
+	private final TemporaryBinding readTemporaryBinding;
+	private final TemporaryBinding writeTemporaryBinding;
+	private final UID varUID;
 	private final TLAExpression dollarVariable;
 
-	public TLAExpressionMappingMacroReadExpansionVisitor(DefinitionRegistry registry, TemporaryBinding temporaryBinding,
-	                                                     TLAExpression dollarVariable) {
+	public TLAExpressionMappingMacroReadExpansionVisitor(DefinitionRegistry registry,
+	                                                     TemporaryBinding readTemporaryBinding,
+	                                                     TemporaryBinding writeTemporaryBinding,
+	                                                     UID varUID, TLAExpression dollarVariable) {
 		this.registry = registry;
-		this.temporaryBinding = temporaryBinding;
+		this.readTemporaryBinding = readTemporaryBinding;
+		this.writeTemporaryBinding = writeTemporaryBinding;
+		this.varUID = varUID;
 		this.dollarVariable = dollarVariable;
 	}
 
@@ -128,7 +136,7 @@ public class TLAExpressionMappingMacroReadExpansionVisitor
 
 	@Override
 	public TLAExpression visit(TLAGeneralIdentifier tlaGeneralIdentifier) throws RuntimeException {
-		return temporaryBinding
+		return readTemporaryBinding
 				.lookup(registry.followReference(tlaGeneralIdentifier.getUID()))
 				.orElse(tlaGeneralIdentifier);
 	}
@@ -263,6 +271,10 @@ public class TLAExpressionMappingMacroReadExpansionVisitor
 
 	@Override
 	public TLAExpression visit(TLASpecialVariableVariable tlaSpecialVariableVariable) throws RuntimeException {
+		Optional<TLAGeneralIdentifier> optionalResult = writeTemporaryBinding.lookup(varUID);
+		if (optionalResult.isPresent()) {
+			return optionalResult.get();
+		}
 		return dollarVariable;
 	}
 
