@@ -3,7 +3,6 @@ package pgo.trans.passes.codegen.pluscal;
 import pgo.model.tla.TLAExpression;
 import pgo.model.tla.TLASpecialVariableValue;
 import pgo.trans.intermediate.DefinitionRegistry;
-import pgo.trans.passes.codegen.TemporaryBinding;
 
 public class TLAExpressionMappingMacroWriteExpansionVisitor extends TLAExpressionMappingMacroReadExpansionVisitor {
 	private final TLAExpression dollarValue;

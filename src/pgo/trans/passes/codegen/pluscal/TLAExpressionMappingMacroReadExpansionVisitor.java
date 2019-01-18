@@ -4,7 +4,6 @@ import pgo.TODO;
 import pgo.Unreachable;
 import pgo.model.tla.*;
 import pgo.trans.intermediate.DefinitionRegistry;
-import pgo.trans.passes.codegen.TemporaryBinding;
 
 import java.util.ArrayList;
 import java.util.List;

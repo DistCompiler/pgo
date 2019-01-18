@@ -1,4 +1,4 @@
-package pgo.trans.passes.codegen;
+package pgo.trans.passes.codegen.pluscal;
 
 import pgo.model.pcal.PlusCalVariableDeclaration;
 import pgo.model.tla.PlusCalDefaultInitValue;
@@ -7,6 +7,8 @@ import pgo.model.tla.TLAGeneralIdentifier;
 import pgo.model.tla.TLAIdentifier;
 import pgo.parser.Located;
 import pgo.scope.UID;
+import pgo.trans.passes.codegen.NameCleaner;
+import pgo.trans.passes.codegen.Recycling;
 import pgo.util.SourceLocation;
 
 import java.util.*;

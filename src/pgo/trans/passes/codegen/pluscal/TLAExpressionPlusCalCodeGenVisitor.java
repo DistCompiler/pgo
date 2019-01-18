@@ -8,7 +8,6 @@ import pgo.model.pcal.PlusCalAssignmentPair;
 import pgo.model.pcal.PlusCalStatement;
 import pgo.model.pcal.PlusCalVariableDeclaration;
 import pgo.scope.UID;
-import pgo.trans.passes.codegen.TemporaryBinding;
 import pgo.model.tla.*;
 import pgo.trans.intermediate.DefinitionRegistry;
 import pgo.util.SourceLocation;

@@ -7,7 +7,6 @@ import pgo.model.tla.TLAExpression;
 import pgo.model.tla.TLAExpressionVisitor;
 import pgo.model.tla.TLAGeneralIdentifier;
 import pgo.parser.Located;
-import pgo.trans.passes.codegen.TemporaryBinding;
 
 import java.util.ArrayList;
 import java.util.Collections;

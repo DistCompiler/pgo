@@ -3,7 +3,6 @@ package pgo.trans.passes.codegen.pluscal;
 import pgo.Unreachable;
 import pgo.model.mpcal.ModularPlusCalMapping;
 import pgo.model.mpcal.ModularPlusCalYield;
-import pgo.trans.passes.codegen.TemporaryBinding;
 import pgo.model.pcal.*;
 import pgo.model.tla.*;
 import pgo.scope.UID;
