@@ -17,18 +17,20 @@ public class ModularPlusCalCodeGenVisitor
 		extends PlusCalStatementVisitor<List<PlusCalStatement>, RuntimeException> {
 	private final DefinitionRegistry registry;
 	private final TemporaryBinding temporaryBinding;
+	private final Map<UID, Set<UID>> labelsToVarReads;
 	private final Map<UID, Set<UID>> labelsToVarWrites;
 	private final Map<UID, PlusCalVariableDeclaration> arguments;
 	private final Map<UID, TLAExpression> params;
 	private final Map<UID, ModularPlusCalMapping> mappings;
 
 	ModularPlusCalCodeGenVisitor(DefinitionRegistry registry, TemporaryBinding temporaryBinding,
-	                             Map<UID, Set<UID>> labelsToVarWrites,
+	                             Map<UID, Set<UID>> labelsToVarReads, Map<UID, Set<UID>> labelsToVarWrites,
 	                             Map<UID, PlusCalVariableDeclaration> arguments,
 	                             Map<UID, TLAExpression> params,
 	                             Map<UID, ModularPlusCalMapping> mappings) {
 		this.registry = registry;
 		this.temporaryBinding = temporaryBinding;
+		this.labelsToVarReads = labelsToVarReads;
 		this.labelsToVarWrites = labelsToVarWrites;
 		this.arguments = arguments;
 		this.params = params;
@@ -50,6 +52,11 @@ public class ModularPlusCalCodeGenVisitor
 		// translate the statements in this labeledStatements
 		List<PlusCalStatement> statements = new ArrayList<>(substituteStatements(plusCalLabeledStatements.getStatements()));
 		// clean up and write back the written values for non-macro-mapped variables
+		if (labelsToVarReads.containsKey(labelUID)) {
+			for (UID varUID : labelsToVarReads.get(labelUID)) {
+				temporaryBinding.reuse(varUID);
+			}
+		}
 		if (labelsToVarWrites.containsKey(labelUID)) {
 			for (UID varUID : labelsToVarWrites.get(labelUID)) {
 				// only write back non-macro-mapped refs

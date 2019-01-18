@@ -92,18 +92,20 @@ public class PlusCalCodeGenPass {
 					temporaryBinding.declare(value.getLocation(), uid, argument.getName().getValue() + "Read", value);
 				}
 			}
+			// discover argument reads
+			Map<UID, Set<UID>> labelsToVarReads = new HashMap<>();
 			// discover argument writes
 			Map<UID, Set<UID>> labelsToVarWrites = new HashMap<>();
 			PlusCalStatementAtomicityInferenceVisitor visitor = new PlusCalStatementAtomicityInferenceVisitor(
 					new UID(),
-					(ignored, ignored2) -> {},
+					(varUID, labelUID) -> trackArgumentAccess(registry, params, labelsToVarReads, varUID, labelUID),
 					(varUID, labelUID) -> trackArgumentAccess(registry, params, labelsToVarWrites, varUID, labelUID),
 					new HashSet<>());
 			for (PlusCalStatement statement : archetype.getBody()) {
 				statement.accept(visitor);
 			}
 			ModularPlusCalCodeGenVisitor v = new ModularPlusCalCodeGenVisitor(
-					registry, temporaryBinding, labelsToVarWrites, arguments, params, mappings);
+					registry, temporaryBinding, labelsToVarReads, labelsToVarWrites, arguments, params, mappings);
 			List<PlusCalStatement> body = new ArrayList<>();
 			for (PlusCalStatement statement : archetype.getBody()) {
 				body.addAll(statement.accept(v));
