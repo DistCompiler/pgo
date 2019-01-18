@@ -49,13 +49,7 @@ public class TemporaryBinding {
 
 	public TLAGeneralIdentifier declare(SourceLocation location, UID varUID, String nameHint, TLAExpression value) {
 		if (temporaries.containsKey(varUID)) {
-			Optional<TLAGeneralIdentifier> recycled = temporaries.get(varUID).use();
-			if (recycled.isPresent()) {
-				return recycled.get();
-			}
-			TLAGeneralIdentifier fresh = declareHelper(location, varUID, nameHint, value);
-			temporaries.get(varUID).add(fresh);
-			return fresh;
+			return temporaries.get(varUID).use().orElseGet(() -> declareHelper(location, varUID, nameHint, value));
 		} else {
 			TLAGeneralIdentifier fresh = declareHelper(location, varUID, nameHint, value);
 			temporaries.put(varUID, new Recycling<>(fresh));

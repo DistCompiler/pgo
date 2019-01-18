@@ -22,12 +22,13 @@ public class ModularPlusCalMappingMacroWriteExpansionVisitor extends ModularPlus
 
 	@Override
 	public List<PlusCalStatement> visit(ModularPlusCalYield modularPlusCalYield) throws RuntimeException {
+		// yieldExpr has to be translated before the new temporary variable is declared in order for any $variable
+		// references in it to be translated to a previous reference of $variable
+		TLAExpression yieldExpr = modularPlusCalYield.getExpression().accept(visitor);
 		TLAGeneralIdentifier temp = writeTemporaryBinding.declare(modularPlusCalYield.getLocation(), varUID, nameHint);
 		return Collections.singletonList(new PlusCalAssignment(
 				modularPlusCalYield.getLocation(),
 				Collections.singletonList(new PlusCalAssignmentPair(
-						modularPlusCalYield.getLocation(),
-						temp,
-						modularPlusCalYield.getExpression().accept(visitor)))));
+						modularPlusCalYield.getLocation(), temp, yieldExpr))));
 	}
 }
