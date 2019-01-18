@@ -54,7 +54,7 @@ public class PGoMain {
 	public static void main(String[] args) {
 		if (new PGoMain(args).run()) {
 			logger.info("Finished");
-		}else {
+		} else {
 			logger.info("Terminated with errors");
 		}
 	}
@@ -102,7 +102,8 @@ public class PGoMain {
 
 		validateSemantics(ctx, modularPlusCalBlock);
 		ModularPlusCalBlock macroExpandedModularPlusCalBlock = expandPlusCalMacros(ctx, modularPlusCalBlock);
-		DefinitionRegistry registry = resolveScopes(ctx, inputFilePath, constantDefinitions, tlaModule, macroExpandedModularPlusCalBlock);
+		DefinitionRegistry registry = resolveScopes(
+				ctx, inputFilePath, constantDefinitions, tlaModule, macroExpandedModularPlusCalBlock);
 
 		PlusCalAlgorithm algorithm = PlusCalCodeGenPass.perform(ctx, registry, macroExpandedModularPlusCalBlock);
 		checkErrors(ctx);
@@ -132,12 +133,8 @@ public class PGoMain {
 		final int startOffset;
 		final int endOffset;
 		// parse the algorithm block to know where it is
-		try (
-				FileChannel fileChannel = new RandomAccessFile(inputFilePath.toFile(), "r")
-						.getChannel()
-		) {
-			MappedByteBuffer buffer = fileChannel.map(
-					FileChannel.MapMode.READ_ONLY, 0, fileChannel.size());
+		try (FileChannel fileChannel = new RandomAccessFile(inputFilePath.toFile(), "r").getChannel()) {
+			MappedByteBuffer buffer = fileChannel.map(FileChannel.MapMode.READ_ONLY, 0, fileChannel.size());
 			// assume UTF-8, though technically TLA+ is ASCII only according to the book
 			CharBuffer inputFileContents = StandardCharsets.UTF_8.decode(buffer);
 			if (PlusCalParsingPass.hasAlgorithmBlock(inputFilePath, inputFileContents)) {
@@ -172,11 +169,8 @@ public class PGoMain {
 				long pos = destination.transferFrom(source, 0, blockEndOffset);
 				pos += destination.write(StandardCharsets.UTF_8.encode("\n\n"), pos);
 				pos += destination.write(StandardCharsets.UTF_8.encode(serializedAlgorithm), pos);
-				pos += destination.write(StandardCharsets.UTF_8.encode("\n\n\n"), pos);
-				pos += destination.transferFrom(
-						source.position(blockEndOffset),
-						pos,
-						source.size() - blockEndOffset);
+				pos += destination.write(StandardCharsets.UTF_8.encode("\n\n"), pos);
+				pos += destination.transferFrom(source.position(blockEndOffset), pos, source.size() - blockEndOffset);
 				destination.truncate(pos);
 			}
 		}
@@ -202,7 +196,8 @@ public class PGoMain {
 
 		validateSemantics(ctx, modularPlusCalBlock);
 		ModularPlusCalBlock macroExpandedModularPlusCalBlock = expandPlusCalMacros(ctx, modularPlusCalBlock);
-		DefinitionRegistry registry = resolveScopes(ctx, inputFilePath, constantDefinitions, tlaModule, macroExpandedModularPlusCalBlock);
+		DefinitionRegistry registry = resolveScopes(
+				ctx, inputFilePath, constantDefinitions, tlaModule, macroExpandedModularPlusCalBlock);
 
 		logger.info("Inferring types");
 		Map<UID, PGoType> typeMap = TypeInferencePass.perform(ctx, registry, macroExpandedModularPlusCalBlock);
