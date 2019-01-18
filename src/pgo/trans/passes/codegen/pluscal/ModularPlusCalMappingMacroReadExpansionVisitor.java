@@ -9,6 +9,7 @@ import pgo.model.tla.TLAGeneralIdentifier;
 import pgo.model.tla.TLASpecialVariableVariable;
 import pgo.parser.Located;
 import pgo.scope.UID;
+import pgo.util.SourceLocation;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -76,18 +77,37 @@ public class ModularPlusCalMappingMacroReadExpansionVisitor
 
 	@Override
 	public List<PlusCalStatement> visit(PlusCalAssignment plusCalAssignment) throws RuntimeException {
-		List<PlusCalAssignmentPair> pairs = new ArrayList<>();
-		for (PlusCalAssignmentPair pair : plusCalAssignment.getPairs()) {
+		List<PlusCalStatement> result = new ArrayList<>();
+		List<PlusCalAssignmentPair> pairs = plusCalAssignment.getPairs();
+		List<TLAExpression> rhsList = new ArrayList<>();
+		if (pairs.size() > 1) {
+			for (PlusCalAssignmentPair pair : pairs) {
+				SourceLocation location = pair.getLocation();
+				TLAExpression rhs = pair.getRhs().accept(visitor);
+				TLAGeneralIdentifier rhsRead = readTemporaryBinding.declare(location, new UID(), "rhsRead");
+				result.add(new PlusCalAssignment(
+						location,
+						Collections.singletonList(new PlusCalAssignmentPair(
+								location, rhsRead, rhs))));
+				rhsList.add(rhsRead);
+			}
+		} else {
+			rhsList.add(pairs.get(0).getRhs().accept(visitor));
+		}
+		List<PlusCalAssignmentPair> transformedPairs = new ArrayList<>();
+		for (int i = 0; i < pairs.size(); i++) {
+			PlusCalAssignmentPair pair = pairs.get(i);
 			TLAExpression lhs = pair.getLhs();
-			TLAExpression rhs = pair.getRhs().accept(visitor);
+			TLAExpression rhs = rhsList.get(i);
 			if (lhs instanceof TLASpecialVariableVariable) {
 				lhs = writeTemporaryBinding.declare(lhs.getLocation(), varUID, nameHint);
 			} else {
 				lhs = lhs.accept(visitor);
 			}
-			pairs.add(new PlusCalAssignmentPair(pair.getLocation(), lhs, rhs));
+			transformedPairs.add(new PlusCalAssignmentPair(pair.getLocation(), lhs, rhs));
 		}
-		return Collections.singletonList(new PlusCalAssignment(plusCalAssignment.getLocation(), pairs));
+		result.add(new PlusCalAssignment(plusCalAssignment.getLocation(), transformedPairs));
+		return result;
 	}
 
 	@Override

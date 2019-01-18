@@ -420,7 +420,210 @@ public class PlusCalCodeGenPassTest {
                                         )
                                 )
                         )
-                }
+                },
+
+                {
+                    // --mpcal Algorithm4 {
+                    //     mapping macro WeirdMacro {
+                    //         read {
+                    //             $variable := $variable - 1;
+                    //             yield $variable;
+                    //         }
+                    //         write {
+                    //             $variable := $variable + 1;
+                    //             yield $variable + $value;
+                    //         }
+                    //     }
+                    //     archetype A1(ref a, b)
+                    //     variable local; {
+                    //         l1: if (a >= 42) {
+                    //                 a := 42;
+                    //             };
+                    //         l2: a := 10;
+                    //             local := a + a + b;
+                    //         l3: local := a + b;
+                    //         l4: print local;
+                    //     }
+                    //     variables x = 10, y = 20;
+                    //     process (P1 = 42) == instance A1(ref x, y)
+                    //     mapping x via WeirdMacro;
+                    // }
+                        mpcal(
+                            "Algorithm4",
+                            Arrays.asList(
+                                    pcalVarDecl("x", false, false, num(10)),
+                                    pcalVarDecl("y", false, false, num(20))
+                            ),
+                            Collections.singletonList(
+                                    mappingMacro(
+                                            "WeirdMacro",
+                                            Arrays.asList(
+                                                    assign(DOLLAR_VARIABLE, binop("-", DOLLAR_VARIABLE, num(1))),
+                                                    yield(DOLLAR_VARIABLE)
+                                            ),
+                                            Arrays.asList(
+                                                    assign(DOLLAR_VARIABLE, binop("+", DOLLAR_VARIABLE, num(1))),
+                                                    yield(binop("+", DOLLAR_VARIABLE, DOLLAR_VALUE))
+                                            )
+                                    )
+                            ),
+                            Collections.singletonList(
+                                    archetype(
+                                            "A1",
+                                            Arrays.asList(
+                                                    pcalVarDecl("a", true, false, PLUSCAL_DEFAULT_INIT_VALUE),
+                                                    pcalVarDecl("b", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
+                                            ),
+                                            Collections.singletonList(pcalVarDecl("local", false, false, PLUSCAL_DEFAULT_INIT_VALUE)),
+                                            Arrays.asList(
+                                                    labeled(
+                                                            label("l1"),
+                                                            ifS(
+                                                                    binop(">=", idexp("a"), num(42)),
+                                                                    Collections.singletonList(assign(idexp("a"), num(42))),
+                                                                    Collections.emptyList()
+                                                            )
+                                                    ),
+
+                                                    labeled(
+                                                            label("l2"),
+                                                            assign(idexp("a"), num(10)),
+                                                            assign(idexp("local"), binop("+", binop("+", idexp("a"), idexp("a")), idexp("b")))
+                                                    ),
+
+                                                    labeled(
+                                                            label("l3"),
+                                                            assign(idexp("local"), binop("+", idexp("a"), idexp("b")))
+                                                    ),
+
+                                                    labeled(
+                                                            label("l4"),
+                                                            printS(idexp("local"))
+                                                    )
+                                            )
+                                    )
+                            ),
+                            Collections.emptyList(),
+                            Collections.emptyList(),
+                            Collections.emptyList(),
+                            Collections.singletonList(
+                                    instance(
+                                            pcalVarDecl("P1", false, false, num(100)),
+                                            PlusCalFairness.WEAK_FAIR,
+                                            "A1",
+                                            Arrays.asList(
+                                                    ref("x"),
+                                                    idexp("y")
+                                            ),
+                                            Collections.singletonList(
+                                                    mapping(
+                                                            "x",
+                                                            "WeirdMacro",
+                                                            false
+                                                    )
+                                            )
+                                    )
+                            )
+						),
+                        // --algorithm Algorithm4 {
+                        //     variables x = 10, y = 20;
+                        //     process (P1 = 42)
+                        //     variables local, aRead, aWrite, aWrite0, aWrite1, aRead0, bRead;
+                        //     {
+                        //         l1:
+                        //             aWrite := (x)-(1);
+                        //             aRead := aWrite;
+                        //             if ((aRead)>=(42)) {
+                        //                 aWrite0 := (aWrite)+(1);
+                        //                 aWrite1 := (aWrite0)+(42);
+                        //                 };
+                        //             x := aWrite1;
+                        //         l2:
+                        //             aWrite := (x)+(1);
+                        //             aWrite0 := (aWrite)+(10);
+                        //             aWrite0 := (aWrite0)-(1);
+                        //             aRead := aWrite0;
+                        //             aWrite1 := (aWrite0)-(1);
+                        //             aRead0 := aWrite1;
+                        //             bRead := y;
+                        //             local := ((aRead)+(aRead0))+(bRead);
+                        //             x := aWrite1;
+                        //         l3:
+                        //             aWrite := (x)-(1);
+                        //             aRead := aWrite;
+                        //             bRead := y;
+                        //             local := (aRead)+(bRead);
+                        //             x := aWrite;
+                        //         l4:
+                        //             print local;
+                        //     }
+                        // }
+                        algorithm(
+                                "Algorithm4",
+                                Arrays.asList(
+                                        pcalVarDecl("x", false, false, num(10)),
+                                        pcalVarDecl("y", false, false, num(20))
+                                ),
+                                Collections.emptyList(),
+                                Collections.emptyList(),
+                                Collections.emptyList(),
+                                process(
+                                        pcalVarDecl("P1", false, false, num(100)),
+                                        PlusCalFairness.WEAK_FAIR,
+                                        Arrays.asList(
+                                                pcalVarDecl("local", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+                                                pcalVarDecl("aRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+                                                pcalVarDecl("aWrite", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+                                                pcalVarDecl("aWrite0", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+                                                pcalVarDecl("aWrite1", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+                                                pcalVarDecl("aRead0", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+                                                pcalVarDecl("aWrite2", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+                                                pcalVarDecl("bRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
+                                        ),
+                                        labeled(
+                                                label("l1"),
+                                                assign(idexp("aWrite"), binop("-", idexp("x"), num(1))),
+                                                assign(idexp("aRead"), idexp("aWrite")),
+                                                ifS(
+                                                        binop(">=", idexp("aRead"), num(42)),
+                                                        Arrays.asList(
+                                                                assign(idexp("aWrite0"), binop("+", idexp("aWrite"), num(1))),
+                                                                assign(idexp("aWrite1"), binop("+", idexp("aWrite0"), num(42)))
+                                                        ),
+                                                        Collections.emptyList()
+                                                ),
+                                                assign(idexp("x"), idexp("aWrite1"))
+                                        ),
+
+                                        labeled(
+                                                label("l2"),
+                                                assign(idexp("aWrite"), binop("+", idexp("x"), num(1))),
+                                                assign(idexp("aWrite0"), binop("+", idexp("aWrite"), num(10))),
+                                                assign(idexp("aWrite1"), binop("-", idexp("aWrite0"), num(1))),
+                                                assign(idexp("aRead"), idexp("aWrite1")),
+                                                assign(idexp("aWrite2"), binop("-", idexp("aWrite1"), num(1))),
+                                                assign(idexp("aRead0"), idexp("aWrite2")),
+                                                assign(idexp("bRead"), idexp("y")),
+                                                assign(idexp("local"), binop("+", binop("+", idexp("aRead"), idexp("aRead0")), idexp("bRead"))),
+                                                assign(idexp("x"), idexp("aWrite2"))
+                                        ),
+
+                                        labeled(
+                                                label("l3"),
+                                                assign(idexp("aWrite"), binop("-", idexp("x"), num(1))),
+                                                assign(idexp("aRead"), idexp("aWrite")),
+                                                assign(idexp("bRead"), idexp("y")),
+                                                assign(idexp("local"), binop("+", idexp("aRead"), idexp("bRead"))),
+                                                assign(idexp("x"), idexp("aWrite"))
+                                        ),
+
+                                        labeled(
+                                                label("l4"),
+                                                printS(idexp("local"))
+                                        )
+                                )
+                        )
+                },
         });
     }
 

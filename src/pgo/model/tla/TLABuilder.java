@@ -1,6 +1,5 @@
 package pgo.model.tla;
 
-import pgo.parser.Located;
 import pgo.util.SourceLocation;
 
 import java.util.ArrayList;
