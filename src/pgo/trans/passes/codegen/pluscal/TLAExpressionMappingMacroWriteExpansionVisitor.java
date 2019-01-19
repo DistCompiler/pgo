@@ -10,9 +10,10 @@ public class TLAExpressionMappingMacroWriteExpansionVisitor extends TLAExpressio
 
 	public TLAExpressionMappingMacroWriteExpansionVisitor(DefinitionRegistry registry,
 	                                                      TemporaryBinding readTemporaryBinding,
-	                                                      TemporaryBinding writeTemporaryBinding, UID varUID,
-	                                                      TLAExpression dollarVariable, TLAExpression dollarValue) {
-		super(registry, readTemporaryBinding, writeTemporaryBinding, varUID, dollarVariable);
+	                                                      TemporaryBinding writeTemporaryBinding,
+	                                                      TLAExpression dollarVariable, TLAExpression dollarValue,
+	                                                      UID varUID) {
+		super(registry, readTemporaryBinding, writeTemporaryBinding, dollarVariable, varUID);
 		this.dollarValue = dollarValue;
 	}
 

@@ -12,11 +12,10 @@ import pgo.scope.UID;
 import java.util.Collections;
 import java.util.List;
 
-public class ModularPlusCalMappingMacroWriteExpansionVisitor extends ModularPlusCalMappingMacroReadExpansionVisitor {
-	public ModularPlusCalMappingMacroWriteExpansionVisitor(TemporaryBinding readTemporaryBinding,
-	                                                       TemporaryBinding writeTemporaryBinding, UID varUID,
-	                                                       String nameHint,
-	                                                       TLAExpressionVisitor<TLAExpression, RuntimeException> visitor) {
+public class ModularPlusCalMappingMacroVariableWriteExpansionVisitor extends ModularPlusCalMappingMacroReadExpansionVisitor {
+	public ModularPlusCalMappingMacroVariableWriteExpansionVisitor(
+			TemporaryBinding readTemporaryBinding, TemporaryBinding writeTemporaryBinding, UID varUID, String nameHint,
+			TLAExpressionVisitor<TLAExpression, RuntimeException> visitor) {
 		super(readTemporaryBinding, writeTemporaryBinding, null, varUID, nameHint, visitor);
 	}
 

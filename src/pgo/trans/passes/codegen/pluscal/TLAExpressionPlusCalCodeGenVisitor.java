@@ -44,7 +44,8 @@ public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLA
 		for (TLAExpression argument : tlaFunctionCall.getParams()) {
 			arguments.add(argument.accept(this));
 		}
-		return new TLAFunctionCall(tlaFunctionCall.getLocation(), tlaFunctionCall.getFunction(), arguments);
+		return new TLAFunctionCall(
+				tlaFunctionCall.getLocation(), tlaFunctionCall.getFunction().accept(this), arguments);
 	}
 
 	@Override
@@ -182,7 +183,7 @@ public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLA
 								readTemporaryBinding, writeTemporaryBinding, temp, varUID,
 								arguments.get(varUID).getName().getValue() + "Write",
 								new TLAExpressionMappingMacroReadExpansionVisitor(
-										registry, readTemporaryBinding, writeTemporaryBinding, varUID, variable));
+										registry, readTemporaryBinding, writeTemporaryBinding, variable, varUID));
 				for (PlusCalStatement statement : mappings.get(varUID).getReadBody()) {
 					output.addAll(statement.accept(visitor));
 				}

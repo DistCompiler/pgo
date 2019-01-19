@@ -15,18 +15,18 @@ public class TLAExpressionMappingMacroReadExpansionVisitor
 	private final DefinitionRegistry registry;
 	private final TemporaryBinding readTemporaryBinding;
 	private final TemporaryBinding writeTemporaryBinding;
-	private final UID varUID;
 	private final TLAExpression dollarVariable;
+	private final UID varUID;
 
 	public TLAExpressionMappingMacroReadExpansionVisitor(DefinitionRegistry registry,
 	                                                     TemporaryBinding readTemporaryBinding,
 	                                                     TemporaryBinding writeTemporaryBinding,
-	                                                     UID varUID, TLAExpression dollarVariable) {
+	                                                     TLAExpression dollarVariable, UID varUID) {
 		this.registry = registry;
 		this.readTemporaryBinding = readTemporaryBinding;
 		this.writeTemporaryBinding = writeTemporaryBinding;
-		this.varUID = varUID;
 		this.dollarVariable = dollarVariable;
+		this.varUID = varUID;
 	}
 
 	private List<TLAExpression> substituteExpressions(List<TLAExpression> expressions) {

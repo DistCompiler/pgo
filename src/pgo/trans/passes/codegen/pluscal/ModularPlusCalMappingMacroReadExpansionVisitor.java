@@ -19,20 +19,19 @@ public class ModularPlusCalMappingMacroReadExpansionVisitor
 		extends PlusCalStatementVisitor<List<PlusCalStatement>, RuntimeException> {
 	private final TemporaryBinding readTemporaryBinding;
 	protected final TemporaryBinding writeTemporaryBinding;
-	private final TLAExpression variable;
+	protected final TLAExpression dollarVariable;
 	protected final UID varUID;
 	protected final String nameHint;
 	protected final TLAExpressionVisitor<TLAExpression, RuntimeException> visitor;
 
-	public ModularPlusCalMappingMacroReadExpansionVisitor(TemporaryBinding readTemporaryBinding,
-	                                                      TemporaryBinding writeTemporaryBinding, TLAExpression variable,
-	                                                      UID varUID, String nameHint,
-	                                                      TLAExpressionVisitor<TLAExpression, RuntimeException> visitor) {
+	public ModularPlusCalMappingMacroReadExpansionVisitor(
+			TemporaryBinding readTemporaryBinding, TemporaryBinding writeTemporaryBinding, TLAExpression dollarVariable,
+			UID varUID, String nameHint, TLAExpressionVisitor<TLAExpression, RuntimeException> visitor) {
 		this.readTemporaryBinding = readTemporaryBinding;
 		this.writeTemporaryBinding = writeTemporaryBinding;
+		this.dollarVariable = dollarVariable;
 		this.varUID = varUID;
 		this.nameHint = nameHint;
-		this.variable = variable;
 		this.visitor = visitor;
 	}
 
@@ -188,7 +187,7 @@ public class ModularPlusCalMappingMacroReadExpansionVisitor
 				modularPlusCalYield.getLocation(),
 				Collections.singletonList(new PlusCalAssignmentPair(
 						modularPlusCalYield.getLocation(),
-						variable,
+						dollarVariable,
 						modularPlusCalYield.getExpression().accept(visitor)))));
 	}
 }

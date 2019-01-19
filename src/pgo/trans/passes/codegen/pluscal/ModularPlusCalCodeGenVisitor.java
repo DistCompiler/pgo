@@ -4,8 +4,7 @@ import pgo.Unreachable;
 import pgo.model.mpcal.ModularPlusCalMappingMacro;
 import pgo.model.mpcal.ModularPlusCalYield;
 import pgo.model.pcal.*;
-import pgo.model.tla.TLAExpression;
-import pgo.model.tla.TLAGeneralIdentifier;
+import pgo.model.tla.*;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
 import pgo.util.SourceLocation;
@@ -206,6 +205,33 @@ public class ModularPlusCalCodeGenVisitor
 				Collections.singletonList(new PlusCalAssignmentPair(location, transformedLHS, rhs))));
 	}
 
+	private Optional<TLAGeneralIdentifier> extractFunctionCallIdentifier(TLAFunctionCall fnCall,
+	                                                                     List<TLAExpression> accumulatedIndices) {
+		SourceLocation location = fnCall.getLocation();
+		TLAExpression fn = fnCall.getFunction();
+		List<TLAExpression> params = fnCall.getParams();
+		if (params.size() > 1) {
+			accumulatedIndices.add(new TLATuple(location, params));
+		} else if (params.size() == 1) {
+			accumulatedIndices.add(params.get(0));
+		} else {
+			accumulatedIndices.add(new TLATuple(location, Collections.emptyList()));
+		}
+		if (fn instanceof TLAGeneralIdentifier) {
+			int size = accumulatedIndices.size();
+			for (int i = 0; i < size; i++) {
+				TLAExpression temp = accumulatedIndices.set(i, accumulatedIndices.get(size - i - 1));
+				accumulatedIndices.set(size - i - 1, temp);
+			}
+			return Optional.of((TLAGeneralIdentifier) fn);
+		}
+		if (fn instanceof TLAFunctionCall) {
+			return extractFunctionCallIdentifier((TLAFunctionCall) fn, accumulatedIndices);
+		}
+		accumulatedIndices.clear();
+		return Optional.empty();
+	}
+
 	@Override
 	public List<PlusCalStatement> visit(PlusCalAssignment plusCalAssignment) throws RuntimeException {
 		List<PlusCalStatement> result = new ArrayList<>();
@@ -234,24 +260,44 @@ public class ModularPlusCalCodeGenVisitor
 			SourceLocation location = pair.getLocation();
 			TLAExpression lhs = pair.getLhs();
 			TLAExpression rhs = rhsList.get(i);
-			if (!(lhs instanceof TLAGeneralIdentifier)) {
+			TLAGeneralIdentifier identifier = null;
+			List<TLAExpression> accumulatedIndices = new ArrayList<>();
+			if (lhs instanceof TLAFunctionCall) {
+				Optional<TLAGeneralIdentifier> optionalVariable = extractFunctionCallIdentifier(
+						(TLAFunctionCall) lhs, accumulatedIndices);
+				if (optionalVariable.isPresent()) {
+					identifier = optionalVariable.get();
+				}
+			} else if (lhs instanceof TLAGeneralIdentifier) {
+				identifier = (TLAGeneralIdentifier) lhs;
+			}
+			if (identifier == null) {
 				assignmentHelper(location, lhs, rhs, result);
 				continue;
 			}
-			UID varUID = registry.followReference(lhs.getUID());
-			if (!arguments.containsKey(varUID) || !mappings.containsKey(varUID)) {
+			UID varUID = registry.followReference(identifier.getUID());
+			if (!mappings.containsKey(varUID)) {
 				assignmentHelper(location, lhs, rhs, result);
 				continue;
 			}
 			TLAGeneralIdentifier variable = params.get(varUID);
-			ModularPlusCalMappingMacroWriteExpansionVisitor visitor =
-					new ModularPlusCalMappingMacroWriteExpansionVisitor(
+			PlusCalStatementVisitor<List<PlusCalStatement>, RuntimeException> visitor = lhs instanceof TLAFunctionCall
+					? new ModularPlusCalMappingMacroFunctionCallWriteExpansionVisitor(
+							readTemporaryBinding,
+							writeTemporaryBinding,
+							variable,
+							varUID,
+							arguments.get(varUID).getName().getValue() + "Write",
+							accumulatedIndices,
+							new TLAExpressionMappingMacroWriteExpansionVisitor(
+									registry, readTemporaryBinding, writeTemporaryBinding, variable, rhs, varUID))
+					: new ModularPlusCalMappingMacroVariableWriteExpansionVisitor(
 							readTemporaryBinding,
 							writeTemporaryBinding,
 							varUID,
 							arguments.get(varUID).getName().getValue() + "Write",
 							new TLAExpressionMappingMacroWriteExpansionVisitor(
-									registry, readTemporaryBinding, writeTemporaryBinding, varUID, variable, rhs));
+									registry, readTemporaryBinding, writeTemporaryBinding, variable, rhs, varUID));
 			for (PlusCalStatement statement : mappings.get(varUID).getWriteBody()) {
 				result.addAll(statement.accept(visitor));
 			}

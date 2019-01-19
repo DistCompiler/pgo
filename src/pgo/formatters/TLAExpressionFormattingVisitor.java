@@ -1,6 +1,5 @@
 package pgo.formatters;
 
-import pgo.TODO;
 import pgo.model.tla.*;
 import pgo.parser.TLAParser;
 
@@ -8,15 +7,14 @@ import java.io.IOException;
 import java.util.List;
 
 public class TLAExpressionFormattingVisitor extends TLAExpressionVisitor<Void, IOException> {
-	
 	IndentingWriter out;
-	
+
 	public TLAExpressionFormattingVisitor(IndentingWriter out) {
 		this.out = out;
 	}
-	
+
 	private void formatPrefix(List<TLAGeneralIdentifierPart> prefix) throws IOException {
-		for(TLAGeneralIdentifierPart part : prefix) {
+		for (TLAGeneralIdentifierPart part : prefix) {
 			part.accept(new TLANodeFormattingVisitor(out));
 		}
 	}
@@ -25,9 +23,7 @@ public class TLAExpressionFormattingVisitor extends TLAExpressionVisitor<Void, I
 	public Void visit(TLAFunctionCall tlaFunctionCall) throws IOException {
 		tlaFunctionCall.getFunction().accept(this);
 		out.write("[");
-		FormattingTools.writeCommaSeparated(out, tlaFunctionCall.getParams(), param -> {
-			param.accept(this);
-		});
+		FormattingTools.writeCommaSeparated(out, tlaFunctionCall.getParams(), param -> param.accept(this));
 		out.write("]");
 		return null;
 	}
@@ -47,9 +43,9 @@ public class TLAExpressionFormattingVisitor extends TLAExpressionVisitor<Void, I
 
 	@Override
 	public Void visit(TLABool tlaBool) throws IOException {
-		if(tlaBool.getValue()) {
+		if (tlaBool.getValue()) {
 			out.write("TRUE");
-		}else {
+		} else {
 			out.write("FALSE");
 		}
 		return null;
@@ -64,29 +60,28 @@ public class TLAExpressionFormattingVisitor extends TLAExpressionVisitor<Void, I
 		firstArm.getCondition().accept(this);
 		out.write(" -> ");
 		firstArm.getResult().accept(this);
-		try(IndentingWriter.Indent i_ = out.indentToPosition(indentFrom)){
-			for(int i = 1; i < arms.size(); ++i) {
+		try (IndentingWriter.Indent ignored = out.indentToPosition(indentFrom)){
+			for (int i = 1; i < arms.size(); ++i) {
 				out.newLine();
 				TLACaseArm arm = arms.get(i);
 				arm.accept(new TLANodeFormattingVisitor(out));
 			}
-			
-			if(tlaCase.getOther() != null) {
+
+			if (tlaCase.getOther() != null) {
 				out.newLine();
 				out.write("[] OTHER -> ");
 				tlaCase.getOther().accept(this);
 			}
 		}
-		
+
 		return null;
 	}
 
 	@Override
 	public Void visit(TLAExistential tlaExistential) throws IOException {
 		out.write("\\E ");
-		FormattingTools.writeCommaSeparated(out, tlaExistential.getIds(), id -> {
-			id.accept(new TLANodeFormattingVisitor(out));
-		});
+		FormattingTools.writeCommaSeparated(
+				out, tlaExistential.getIds(), id -> id.accept(new TLANodeFormattingVisitor(out)));
 		out.write(" : ");
 		tlaExistential.getBody().accept(this);
 		return null;
@@ -95,10 +90,9 @@ public class TLAExpressionFormattingVisitor extends TLAExpressionVisitor<Void, I
 	@Override
 	public Void visit(TLAFunction tlaFunction) throws IOException {
 		out.write("[");
-		FormattingTools.writeCommaSeparated(out, tlaFunction.getArguments(), arg -> {
-			arg.accept(new TLANodeFormattingVisitor(out));
-		});
-		out.write("|->");
+		FormattingTools.writeCommaSeparated(
+				out, tlaFunction.getArguments(), arg -> arg.accept(new TLANodeFormattingVisitor(out)));
+		out.write(" |-> ");
 		tlaFunction.getBody().accept(this);
 		out.write("]");
 		return null;
@@ -108,7 +102,7 @@ public class TLAExpressionFormattingVisitor extends TLAExpressionVisitor<Void, I
 	public Void visit(TLAFunctionSet tlaFunctionSet) throws IOException {
 		out.write("[");
 		tlaFunctionSet.getFrom().accept(this);
-		out.write("->");
+		out.write(" -> ");
 		tlaFunctionSet.getTo().accept(this);
 		out.write("]");
 		return null;
@@ -116,10 +110,10 @@ public class TLAExpressionFormattingVisitor extends TLAExpressionVisitor<Void, I
 
 	@Override
 	public Void visit(TLAFunctionSubstitution tlaFunctionSubstitution) throws IOException {
-		out.write("[ ");
+		out.write("[");
 		tlaFunctionSubstitution.getSource().accept(this);
 		out.write(" EXCEPT");
-		for(TLAFunctionSubstitutionPair p : tlaFunctionSubstitution.getSubstitutions()) {
+		for (TLAFunctionSubstitutionPair p : tlaFunctionSubstitution.getSubstitutions()) {
 			out.write(" ");
 			p.accept(new TLANodeFormattingVisitor(out));
 		}
@@ -142,16 +136,16 @@ public class TLAExpressionFormattingVisitor extends TLAExpressionVisitor<Void, I
 	public Void visit(TLALet tlaLet) throws IOException {
 		int indentFrom = out.getHorizontalPosition();
 		out.write("LET");
-		try(IndentingWriter.Indent i_ = out.indent()){
-			for(TLAUnit unit : tlaLet.getDefinitions()) {
+		try (IndentingWriter.Indent ignored = out.indent()){
+			for (TLAUnit unit : tlaLet.getDefinitions()) {
 				out.newLine();
 				unit.accept(new TLAUnitFormattingVisitor(out));
 			}
 		}
 		out.newLine();
-		try(IndentingWriter.Indent i_ = out.indentToPosition(indentFrom)){
+		try (IndentingWriter.Indent ignored = out.indentToPosition(indentFrom)){
 			out.write("IN ");
-			try(IndentingWriter.Indent ii__ = out.indent()){
+			try (IndentingWriter.Indent ignored1 = out.indent()){
 				tlaLet.getBody().accept(this);
 			}
 		}
@@ -168,9 +162,7 @@ public class TLAExpressionFormattingVisitor extends TLAExpressionVisitor<Void, I
 	@Override
 	public Void visit(TLATuple tlaTuple) throws IOException {
 		out.write("<<");
-		FormattingTools.writeCommaSeparated(out, tlaTuple.getElements(), elem -> {
-			elem.accept(this);
-		});
+		FormattingTools.writeCommaSeparated(out, tlaTuple.getElements(), elem -> elem.accept(this));
 		out.write(">>");
 		return null;
 	}
@@ -195,9 +187,7 @@ public class TLAExpressionFormattingVisitor extends TLAExpressionVisitor<Void, I
 		formatPrefix(tlaOperatorCall.getPrefix());
 		tlaOperatorCall.getName().accept(new TLANodeFormattingVisitor(out));
 		out.write("(");
-		FormattingTools.writeCommaSeparated(out, tlaOperatorCall.getArgs(), arg -> {
-			arg.accept(this);
-		});
+		FormattingTools.writeCommaSeparated(out, tlaOperatorCall.getArgs(), arg -> arg.accept(this));
 		out.write(")");
 		return null;
 	}
@@ -205,9 +195,8 @@ public class TLAExpressionFormattingVisitor extends TLAExpressionVisitor<Void, I
 	@Override
 	public Void visit(TLAQuantifiedExistential tlaQuantifiedExistential) throws IOException {
 		out.write("\\E ");
-		FormattingTools.writeCommaSeparated(out, tlaQuantifiedExistential.getIds(), id -> {
-			id.accept(new TLANodeFormattingVisitor(out));
-		});
+		FormattingTools.writeCommaSeparated(
+				out, tlaQuantifiedExistential.getIds(), id -> id.accept(new TLANodeFormattingVisitor(out)));
 		out.write(" : ");
 		tlaQuantifiedExistential.getBody().accept(this);
 		return null;
@@ -216,9 +205,8 @@ public class TLAExpressionFormattingVisitor extends TLAExpressionVisitor<Void, I
 	@Override
 	public Void visit(TLAQuantifiedUniversal tlaQuantifiedUniversal) throws IOException {
 		out.write("\\A ");
-		FormattingTools.writeCommaSeparated(out, tlaQuantifiedUniversal.getIds(), id -> {
-			id.accept(new TLANodeFormattingVisitor(out));
-		});
+		FormattingTools.writeCommaSeparated(
+				out, tlaQuantifiedUniversal.getIds(), id -> id.accept(new TLANodeFormattingVisitor(out)));
 		out.write(" : ");
 		tlaQuantifiedUniversal.getBody().accept(this);
 		return null;
@@ -227,9 +215,8 @@ public class TLAExpressionFormattingVisitor extends TLAExpressionVisitor<Void, I
 	@Override
 	public Void visit(TLARecordConstructor tlaRecordConstructor) throws IOException {
 		out.write("[");
-		FormattingTools.writeCommaSeparated(out, tlaRecordConstructor.getFields(), field -> {
-			field.accept(new TLANodeFormattingVisitor(out));
-		});
+		FormattingTools.writeCommaSeparated(
+				out, tlaRecordConstructor.getFields(), field -> field.accept(new TLANodeFormattingVisitor(out)));
 		out.write("]");
 		return null;
 	}
@@ -237,9 +224,8 @@ public class TLAExpressionFormattingVisitor extends TLAExpressionVisitor<Void, I
 	@Override
 	public Void visit(TLARecordSet tlaRecordSet) throws IOException {
 		out.write("[");
-		FormattingTools.writeCommaSeparated(out, tlaRecordSet.getFields(), field -> {
-			field.accept(new TLANodeFormattingVisitor(out));
-		});
+		FormattingTools.writeCommaSeparated(
+				out, tlaRecordSet.getFields(), field -> field.accept(new TLANodeFormattingVisitor(out)));
 		out.write("]");
 		return null;
 	}
@@ -256,9 +242,7 @@ public class TLAExpressionFormattingVisitor extends TLAExpressionVisitor<Void, I
 	@Override
 	public Void visit(TLASetConstructor tlaSetConstructor) throws IOException {
 		out.write("{");
-		FormattingTools.writeCommaSeparated(out, tlaSetConstructor.getContents(), member -> {
-			member.accept(this);
-		});
+		FormattingTools.writeCommaSeparated(out, tlaSetConstructor.getContents(), member -> member.accept(this));
 		out.write("}");
 		return null;
 	}
@@ -268,9 +252,8 @@ public class TLAExpressionFormattingVisitor extends TLAExpressionVisitor<Void, I
 		out.write("{");
 		tlaSetComprehension.getBody().accept(this);
 		out.write(" : ");
-		FormattingTools.writeCommaSeparated(out, tlaSetComprehension.getBounds(), bound -> {
-			bound.accept(new TLANodeFormattingVisitor(out));
-		});
+		FormattingTools.writeCommaSeparated(
+				out, tlaSetComprehension.getBounds(), bound -> bound.accept(new TLANodeFormattingVisitor(out)));
 		out.write("}");
 		return null;
 	}
@@ -303,19 +286,19 @@ public class TLAExpressionFormattingVisitor extends TLAExpressionVisitor<Void, I
 			out.write("(");
 			tlaUnary.getOperand().accept(this);
 			out.write(")");
-		} else if(TLAParser.PREFIX_OPERATORS.contains(tlaUnary.getOperation().getValue())) {
+		} else if (TLAParser.PREFIX_OPERATORS.contains(tlaUnary.getOperation().getValue())) {
 			formatPrefix(tlaUnary.getPrefix());
 			out.write(tlaUnary.getOperation().getValue());
 			out.write("(");
 			tlaUnary.getOperand().accept(this);
 			out.write(")");
-		}else if(TLAParser.POSTFIX_OPERATORS.contains(tlaUnary.getOperation().getValue())) {
+		} else if (TLAParser.POSTFIX_OPERATORS.contains(tlaUnary.getOperation().getValue())) {
 			out.write("(");
 			tlaUnary.getOperand().accept(this);
 			out.write(")");
 			formatPrefix(tlaUnary.getPrefix());
 			out.write(tlaUnary.getOperation().getValue());
-		}else {
+		} else {
 			throw new RuntimeException(tlaUnary.getOperation()+" is not a valid prefix or postfix operator");
 		}
 		return null;
@@ -324,9 +307,8 @@ public class TLAExpressionFormattingVisitor extends TLAExpressionVisitor<Void, I
 	@Override
 	public Void visit(TLAUniversal tlaUniversal) throws IOException {
 		out.write("\\A ");
-		FormattingTools.writeCommaSeparated(out, tlaUniversal.getIds(), id -> {
-			id.accept(new TLANodeFormattingVisitor(out));
-		});
+		FormattingTools.writeCommaSeparated(
+				out, tlaUniversal.getIds(), id -> id.accept(new TLANodeFormattingVisitor(out)));
 		out.write(" : ");
 		tlaUniversal.getBody().accept(this);
 		return null;

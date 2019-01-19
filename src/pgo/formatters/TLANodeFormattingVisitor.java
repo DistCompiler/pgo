@@ -7,7 +7,6 @@ import java.io.IOException;
 import java.util.List;
 
 public class TLANodeFormattingVisitor extends TLANodeVisitor<Void, IOException> {
-
 	IndentingWriter out;
 
 	public TLANodeFormattingVisitor(IndentingWriter out) {
@@ -38,32 +37,32 @@ public class TLANodeFormattingVisitor extends TLANodeVisitor<Void, IOException> 
 	@Override
 	public Void visit(TLAOpDecl pGoTLAOpDecl) throws IOException {
 		switch(pGoTLAOpDecl.getType()) {
-		case ID:
-			pGoTLAOpDecl.getName().accept(this);
-			break;
-		case INFIX:
-			out.write("_");
-			pGoTLAOpDecl.getName().accept(this);
-			out.write("_");
-			break;
-		case NAMED:
-			pGoTLAOpDecl.getName().accept(this);
-			out.write("(_");
-			for(int i = 1; i<pGoTLAOpDecl.getArity(); ++i) {
-				out.write(",_");
-			}
-			out.write(")");
-			break;
-		case POSTFIX:
-			out.write("_");
-			pGoTLAOpDecl.getName().accept(this);
-			break;
-		case PREFIX:
-			pGoTLAOpDecl.getName().accept(this);
-			out.write("_");
-			break;
-		default:
-			throw new Unreachable();
+			case ID:
+				pGoTLAOpDecl.getName().accept(this);
+				break;
+			case INFIX:
+				out.write("_");
+				pGoTLAOpDecl.getName().accept(this);
+				out.write("_");
+				break;
+			case NAMED:
+				pGoTLAOpDecl.getName().accept(this);
+				out.write("(_");
+				for(int i = 1; i<pGoTLAOpDecl.getArity(); ++i) {
+					out.write(",_");
+				}
+				out.write(")");
+				break;
+			case POSTFIX:
+				out.write("_");
+				pGoTLAOpDecl.getName().accept(this);
+				break;
+			case PREFIX:
+				pGoTLAOpDecl.getName().accept(this);
+				out.write("_");
+				break;
+			default:
+				throw new Unreachable();
 		}
 		return null;
 	}
@@ -71,9 +70,8 @@ public class TLANodeFormattingVisitor extends TLANodeVisitor<Void, IOException> 
 	@Override
 	public Void visit(TLASubstitutionKey pGoTLASubstitutionKey) throws IOException {
 		out.write("[");
-		FormattingTools.writeCommaSeparated(out, pGoTLASubstitutionKey.getIndices(), key -> {
-			key.accept(new TLAExpressionFormattingVisitor(out));
-		});
+		FormattingTools.writeCommaSeparated(
+				out, pGoTLASubstitutionKey.getIndices(), key -> key.accept(new TLAExpressionFormattingVisitor(out)));
 		out.write("]");
 		return null;
 	}
@@ -89,7 +87,7 @@ public class TLANodeFormattingVisitor extends TLANodeVisitor<Void, IOException> 
 	@Override
 	public Void visit(TLARecordConstructor.Field field) throws IOException {
 		field.getName().accept(this);
-		out.write("|->");
+		out.write(" |-> ");
 		field.getValue().accept(new TLAExpressionFormattingVisitor(out));
 		return null;
 	}
@@ -97,20 +95,16 @@ public class TLANodeFormattingVisitor extends TLANodeVisitor<Void, IOException> 
 	@Override
 	public Void visit(TLAQuantifierBound pGoTLAQuantifierBound) throws IOException {
 		switch(pGoTLAQuantifierBound.getType()) {
-		case IDS:
-			FormattingTools.writeCommaSeparated(out, pGoTLAQuantifierBound.getIds(), id -> {
-				id.accept(this);
-			});
-			break;
-		case TUPLE:
-			out.write("<<");
-			FormattingTools.writeCommaSeparated(out, pGoTLAQuantifierBound.getIds(), id -> {
-				id.accept(this);
-			});
-			out.write(">>");
-			break;
-		default:
-			throw new Unreachable();
+			case IDS:
+				FormattingTools.writeCommaSeparated(out, pGoTLAQuantifierBound.getIds(), id -> id.accept(this));
+				break;
+			case TUPLE:
+				out.write("<<");
+				FormattingTools.writeCommaSeparated(out, pGoTLAQuantifierBound.getIds(), id -> id.accept(this));
+				out.write(">>");
+				break;
+			default:
+				throw new Unreachable();
 		}
 		out.write(" \\in ");
 		pGoTLAQuantifierBound.getSet().accept(new TLAExpressionFormattingVisitor(out));
@@ -150,9 +144,8 @@ public class TLANodeFormattingVisitor extends TLANodeVisitor<Void, IOException> 
 		List<TLAExpression> params = pGoTLAGeneralIdentifierPart.getParameters();
 		if(!params.isEmpty()) {
 			out.write("(");
-			FormattingTools.writeCommaSeparated(out, params, param -> {
-				param.accept(new TLAExpressionFormattingVisitor(out));
-			});
+			FormattingTools.writeCommaSeparated(
+					out, params, param -> param.accept(new TLAExpressionFormattingVisitor(out)));
 			out.write(")");
 		}
 		out.write("!");
@@ -165,7 +158,7 @@ public class TLANodeFormattingVisitor extends TLANodeVisitor<Void, IOException> 
 		for(TLASubstitutionKey key : pGoTLAFunctionSubstitutionPair.getKeys()) {
 			key.accept(this);
 		}
-		out.write("=");
+		out.write(" = ");
 		pGoTLAFunctionSubstitutionPair.getValue().accept(new TLAExpressionFormattingVisitor(out));
 		return null;
 	}
