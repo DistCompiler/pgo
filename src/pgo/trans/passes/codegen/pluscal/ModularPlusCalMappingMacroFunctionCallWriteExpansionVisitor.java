@@ -15,7 +15,7 @@ public class ModularPlusCalMappingMacroFunctionCallWriteExpansionVisitor
 		extends ModularPlusCalMappingMacroReadExpansionVisitor {
 	private final List<TLAExpression> indices;
 
-	public ModularPlusCalMappingMacroFunctionCallWriteExpansionVisitor(
+	ModularPlusCalMappingMacroFunctionCallWriteExpansionVisitor(
 			TemporaryBinding readTemporaryBinding, TemporaryBinding writeTemporaryBinding,
 			TLAGeneralIdentifier dollarVariable, UID varUID, String nameHint, TLAExpression index,
 			List<TLAExpression> indices, TLAExpressionVisitor<TLAExpression, RuntimeException> visitor) {

@@ -21,9 +21,9 @@ public class ModularPlusCalMappingMacroReadExpansionVisitor
 	protected final String nameHint;
 	private final TLAExpression index;
 	protected final TLAExpressionVisitor<TLAExpression, RuntimeException> visitor;
-	protected final TLAGeneralIdentifier temporaryVariable;
+	private final TLAGeneralIdentifier temporaryVariable;
 
-	public ModularPlusCalMappingMacroReadExpansionVisitor(
+	ModularPlusCalMappingMacroReadExpansionVisitor(
 			TemporaryBinding readTemporaryBinding, TemporaryBinding writeTemporaryBinding,
 			TLAGeneralIdentifier dollarVariable, UID varUID, String nameHint, TLAExpression index,
 			TLAExpressionVisitor<TLAExpression, RuntimeException> visitor, TLAGeneralIdentifier temporaryVariable) {

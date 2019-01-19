@@ -21,12 +21,11 @@ public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLA
 	private final TemporaryBinding writeTemporaryBinding;
 	private final List<PlusCalStatement> output;
 
-	public TLAExpressionPlusCalCodeGenVisitor(DefinitionRegistry registry,
-	                                          Map<UID, PlusCalVariableDeclaration> arguments,
-	                                          Map<UID, TLAGeneralIdentifier> params,
-	                                          Map<UID, ModularPlusCalMappingMacro> mappings,
-	                                          Set<UID> functionMappedVars, TemporaryBinding readTemporaryBinding,
-	                                          TemporaryBinding writeTemporaryBinding, List<PlusCalStatement> output) {
+	TLAExpressionPlusCalCodeGenVisitor(DefinitionRegistry registry, Map<UID, PlusCalVariableDeclaration> arguments,
+	                                   Map<UID, TLAGeneralIdentifier> params,
+	                                   Map<UID, ModularPlusCalMappingMacro> mappings, Set<UID> functionMappedVars,
+	                                   TemporaryBinding readTemporaryBinding, TemporaryBinding writeTemporaryBinding,
+	                                   List<PlusCalStatement> output) {
 		this.registry = registry;
 		this.arguments = arguments;
 		this.params = params;

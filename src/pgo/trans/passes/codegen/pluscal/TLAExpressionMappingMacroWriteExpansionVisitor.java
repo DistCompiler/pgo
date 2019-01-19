@@ -9,11 +9,10 @@ import pgo.trans.intermediate.DefinitionRegistry;
 public class TLAExpressionMappingMacroWriteExpansionVisitor extends TLAExpressionMappingMacroReadExpansionVisitor {
 	private final TLAExpression dollarValue;
 
-	public TLAExpressionMappingMacroWriteExpansionVisitor(DefinitionRegistry registry,
-	                                                      TemporaryBinding readTemporaryBinding,
-	                                                      TemporaryBinding writeTemporaryBinding,
-	                                                      TLAGeneralIdentifier dollarVariable,
-	                                                      TLAExpression dollarValue, UID varUID, TLAExpression index) {
+	TLAExpressionMappingMacroWriteExpansionVisitor(DefinitionRegistry registry, TemporaryBinding readTemporaryBinding,
+	                                               TemporaryBinding writeTemporaryBinding,
+	                                               TLAGeneralIdentifier dollarVariable, TLAExpression dollarValue,
+	                                               UID varUID, TLAExpression index) {
 		super(registry, readTemporaryBinding, writeTemporaryBinding, dollarVariable, varUID, index);
 		this.dollarValue = dollarValue;
 	}

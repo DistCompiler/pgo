@@ -8,7 +8,7 @@ import java.util.Set;
 public class PlusCalStatementNameCollectorVisitor extends PlusCalStatementVisitor<Void, RuntimeException> {
 	private Set<String> names;
 
-	public PlusCalStatementNameCollectorVisitor(Set<String> names) {
+	PlusCalStatementNameCollectorVisitor(Set<String> names) {
 		this.names = names;
 	}
 
