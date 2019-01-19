@@ -10,25 +10,23 @@ import pgo.util.SourceLocation;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 
 public class ModularPlusCalMappingMacroFunctionCallWriteExpansionVisitor
 		extends ModularPlusCalMappingMacroReadExpansionVisitor {
 	private final List<TLAExpression> indices;
 
 	public ModularPlusCalMappingMacroFunctionCallWriteExpansionVisitor(
-			TemporaryBinding readTemporaryBinding, TemporaryBinding writeTemporaryBinding, TLAExpression dollarVariable,
-			UID varUID, String nameHint, List<TLAExpression> indices,
-			TLAExpressionVisitor<TLAExpression, RuntimeException> visitor) {
-		super(readTemporaryBinding, writeTemporaryBinding, dollarVariable, varUID, nameHint, visitor);
+			TemporaryBinding readTemporaryBinding, TemporaryBinding writeTemporaryBinding,
+			TLAGeneralIdentifier dollarVariable, UID varUID, String nameHint, TLAExpression index,
+			List<TLAExpression> indices, TLAExpressionVisitor<TLAExpression, RuntimeException> visitor) {
+		super(readTemporaryBinding, writeTemporaryBinding, dollarVariable, varUID, nameHint, index, visitor, null);
 		this.indices = indices;
 	}
 
 	@Override
 	public List<PlusCalStatement> visit(ModularPlusCalYield modularPlusCalYield) throws RuntimeException {
 		SourceLocation location = modularPlusCalYield.getLocation();
-		Optional<TLAGeneralIdentifier> optionalIdentifier = writeTemporaryBinding.lookup(varUID);
-        TLAExpression var = optionalIdentifier.isPresent() ? optionalIdentifier.get() : dollarVariable;
+        TLAGeneralIdentifier var = writeTemporaryBinding.lookup(varUID).orElse(dollarVariable);
 		// yieldExpr has to be translated before the new temporary variable is declared in order for any $variable
 		// references in it to be translated to a previous reference of $variable
 		TLAExpression translatedYieldExpr = modularPlusCalYield.getExpression().accept(visitor);

@@ -7,6 +7,7 @@ import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -15,18 +16,21 @@ public class TLAExpressionMappingMacroReadExpansionVisitor
 	private final DefinitionRegistry registry;
 	private final TemporaryBinding readTemporaryBinding;
 	private final TemporaryBinding writeTemporaryBinding;
-	private final TLAExpression dollarVariable;
+	private final TLAGeneralIdentifier dollarVariable;
 	private final UID varUID;
+	private final TLAExpression index;
 
 	public TLAExpressionMappingMacroReadExpansionVisitor(DefinitionRegistry registry,
 	                                                     TemporaryBinding readTemporaryBinding,
 	                                                     TemporaryBinding writeTemporaryBinding,
-	                                                     TLAExpression dollarVariable, UID varUID) {
+	                                                     TLAGeneralIdentifier dollarVariable, UID varUID,
+	                                                     TLAExpression index) {
 		this.registry = registry;
 		this.readTemporaryBinding = readTemporaryBinding;
 		this.writeTemporaryBinding = writeTemporaryBinding;
 		this.dollarVariable = dollarVariable;
 		this.varUID = varUID;
+		this.index = index;
 	}
 
 	private List<TLAExpression> substituteExpressions(List<TLAExpression> expressions) {
@@ -272,8 +276,16 @@ public class TLAExpressionMappingMacroReadExpansionVisitor
 	@Override
 	public TLAExpression visit(TLASpecialVariableVariable tlaSpecialVariableVariable) throws RuntimeException {
 		Optional<TLAGeneralIdentifier> optionalResult = writeTemporaryBinding.lookup(varUID);
+		if (optionalResult.isPresent() && index != null) {
+			return new TLAFunctionCall(
+					tlaSpecialVariableVariable.getLocation(), optionalResult.get(), Collections.singletonList(index));
+		}
 		if (optionalResult.isPresent()) {
 			return optionalResult.get();
+		}
+		if (index != null) {
+			return new TLAFunctionCall(
+					tlaSpecialVariableVariable.getLocation(), dollarVariable, Collections.singletonList(index));
 		}
 		return dollarVariable;
 	}

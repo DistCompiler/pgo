@@ -955,6 +955,274 @@ public class PlusCalCodeGenPassTest {
 								)
 						)
 				},
+
+				{
+						// --mpcal Algorithm7 {
+						//   mapping macro TCPConnection {
+						//     read {
+						//       with (msg = Head($variable)) {
+						//         $variable := Tail($variable);
+						//         yield msg;
+						//       }
+						//     }
+						//
+						//     write {
+						//       yield Append($variable, $value);
+						//     }
+						//   }
+						//
+						//   archetype AddClient(ref netw) {
+						//       l1: netw[self] := 21;
+						//       l2: netw[self] := 21;
+						//           print netw[self];
+						//   }
+						//
+						//   archetype AddServer(ref netw)
+						//   variables a, b, dest;
+						//   {
+						//       l1: either {
+						//             a := netw[0];
+						//             dest := 0;
+						//           } or {
+						//             a := netw[1];
+						//             dest := 1;
+						//           }
+						//           b := netw[dest];
+						//           netw[dest] := a + b;
+						//   }
+						//
+						//   variable network = [i \in {0, 1} |-> <<>>];
+						//   process (S = 42) == instance AddServer(ref network)
+						//   mapping network[_] via TCPConnection;
+						//   process (C \in {0, 1}) == instance AddClient(ref network)
+						//   mapping network[_] via TCPConnection;
+						// }
+						mpcal(
+								"Algorithm7",
+								Collections.singletonList(
+										pcalVarDecl(
+												"network",
+												false,
+												false,
+												function(bounds(qbIds(Collections.singletonList(id("i")), set(num(0), num(1)))), tuple()))
+								),
+								Collections.singletonList(
+										mappingMacro(
+												"TCPConnection",
+												Collections.singletonList(
+														with(
+																Collections.singletonList(pcalVarDecl("msg", false, false, opcall("Head", DOLLAR_VARIABLE))),
+																assign(DOLLAR_VARIABLE, opcall("Tail", DOLLAR_VARIABLE)),
+																yield(idexp("msg")))
+												),
+												Collections.singletonList(
+														yield(opcall("Append", DOLLAR_VARIABLE, DOLLAR_VALUE))
+												)
+										)
+								),
+								Arrays.asList(
+										archetype(
+												"AddClient",
+												Collections.singletonList(pcalVarDecl("netw", true, false, PLUSCAL_DEFAULT_INIT_VALUE)),
+												Collections.emptyList(),
+												Arrays.asList(
+														labeled(
+																label("l1"),
+																assign(fncall(idexp("netw"), idexp("self")), num(21))),
+														labeled(
+																label("l2"),
+																assign(fncall(idexp("netw"), idexp("self")), num(21)),
+																printS(fncall(idexp("netw"), idexp("self"))))
+												)
+										),
+										archetype(
+												"AddServer",
+												Collections.singletonList(pcalVarDecl("netw", true, false, PLUSCAL_DEFAULT_INIT_VALUE)),
+												Arrays.asList(
+														pcalVarDecl("a", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+														pcalVarDecl("b", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+														pcalVarDecl("dest", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
+												),
+												Collections.singletonList(
+														labeled(
+																label("l1"),
+																either(Arrays.asList(
+																		Arrays.asList(
+																				assign(idexp("a"), fncall(idexp("netw"), num(0))),
+																				assign(idexp("dest"), num(0))
+																		),
+																		Arrays.asList(
+																				assign(idexp("a"), fncall(idexp("netw"), num(1))),
+																				assign(idexp("dest"), num(1))
+																		)
+																)),
+																assign(idexp("b"), fncall(idexp("netw"), idexp("dest"))),
+																assign(fncall(idexp("netw"), idexp("dest")), binop("+", idexp("a"), idexp("b")))))
+										)
+								),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Arrays.asList(
+										instance(
+												pcalVarDecl("S", false, false, num(42)),
+												PlusCalFairness.WEAK_FAIR,
+												"AddServer",
+												Collections.singletonList(ref("network")),
+												Collections.singletonList(
+														mapping(
+																"network",
+																"TCPConnection",
+																true
+														)
+												)
+										),
+										instance(
+												pcalVarDecl("C", false, true, set(num(0), num(1))),
+												PlusCalFairness.WEAK_FAIR,
+												"AddClient",
+												Collections.singletonList(ref("network")),
+												Collections.singletonList(
+														mapping(
+																"network",
+																"TCPConnection",
+																true
+														)
+												)
+										)
+								)
+						),
+						// --algorithm Algorithm7 {
+						//     variables network = [i \in {0,1}|-><<>>];
+						//     process (S = 42)
+						//     variables a, b, dest, netwRead, netwWrite, netwRead0, netwWrite0, netwRead1, netwWrite1, netwWrite2;
+						//     {
+						//         l1:
+						//             either {
+						//                 with (msg0 = Head(network[0])) {
+						//                     netwWrite := [network EXCEPT ![0] = Tail(network[0])];
+						//                     netwRead := msg0;
+						//                 }
+						//                 a := netwRead;
+						//                 dest := 0;
+						//                 netwWrite0 := netwWrite;
+						//             } or {
+						//                 with (msg1 = Head(network[1])) {
+						//                     netwWrite := [network EXCEPT ![1] = Tail(network[1])];
+						//                     netwRead := msg1;
+						//                 }
+						//                 a := netwRead;
+						//                 dest := 1;
+						//                 netwWrite0 := netwWrite;
+						//             }
+						//             with (msg2 = Head(netwWrite0[dest])) {
+						//                 netwWrite1 := [netwWrite0 EXCEPT ![dest] = Tail(netwWrite0[dest])];
+						//                 netwRead0 := msg2;
+						//             }
+						//             b := netwRead0;
+						//             netwWrite2 := [netwWrite1 EXCEPT ![dest] = Append(netwWrite1[dest], (a)+(b))];
+						//             network = netwWrite2;
+						//     }
+						//     process (C \in {0,1})
+						//     variables netwWrite3, netwRead2, netwWrite4;
+						//     {
+						//         l1:
+						//             netwWrite3 := [network EXCEPT ![self] = Append(network[self], 21)];
+						//             network := netwWrite3;
+						//         l2:
+						//             netwWrite3 := [network EXCEPT ![self] = Append(network[self], 21)];
+						//             with (msg3 = Head(netwWrite3[self])) {
+						//                 netwWrite4 := [netwWrite3 EXCEPT ![self] = Tail(netwWrite3[self])];
+						//                 netwRead1 := msg3;
+						//             }
+						//             print netwRead1;
+						//             network := netWrite4;
+						//     }
+						// }
+						algorithm(
+								"Algorithm7",
+								Collections.singletonList(
+										pcalVarDecl(
+												"network",
+												false,
+												false,
+												function(bounds(qbIds(Collections.singletonList(id("i")), set(num(0), num(1)))), tuple()))
+								),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								process(
+										pcalVarDecl("S", false, false, num(42)),
+										PlusCalFairness.WEAK_FAIR,
+										Arrays.asList(
+												pcalVarDecl("a", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+												pcalVarDecl("b", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+												pcalVarDecl("dest", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+												pcalVarDecl("netwRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+												pcalVarDecl("netwWrite", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+												pcalVarDecl("netwRead0", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+												pcalVarDecl("netwWrite0", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+												pcalVarDecl("netwRead1", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+												pcalVarDecl("netwWrite1", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+												pcalVarDecl("netwWrite2", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
+										),
+										labeled(
+												label("l1"),
+												either(Arrays.asList(
+														Arrays.asList(
+																with(
+																		Collections.singletonList(pcalVarDecl("msg0", false, false, opcall("Head", fncall(idexp("network"), num(0))))),
+																		assign(idexp("netwWrite"), fnSubst(idexp("network"), fnSubstPair(Collections.singletonList(substKey(num(0))), opcall("Tail", fncall(idexp("network"), num(0)))))),
+																		assign(idexp("netwRead"), idexp("msg0"))),
+																assign(idexp("a"), idexp("netwRead")),
+																assign(idexp("dest"), num(0)),
+																assign(idexp("netwWrite0"), idexp("netwWrite"))
+														),
+														Arrays.asList(
+																with(
+																		Collections.singletonList(pcalVarDecl("msg1", false, false, opcall("Head", fncall(idexp("network"), num(1))))),
+																		assign(idexp("netwWrite"), fnSubst(idexp("network"), fnSubstPair(Collections.singletonList(substKey(num(1))), opcall("Tail", fncall(idexp("network"), num(1)))))),
+																		assign(idexp("netwRead0"), idexp("msg1"))),
+																assign(idexp("a"), idexp("netwRead0")),
+																assign(idexp("dest"), num(1)),
+																assign(idexp("netwWrite0"), idexp("netwWrite"))
+														)
+												)),
+												with(
+														Collections.singletonList(pcalVarDecl("msg2", false, false, opcall("Head", fncall(idexp("netwWrite0"), idexp("dest"))))),
+														assign(idexp("netwWrite1"), fnSubst(idexp("netwWrite0"), fnSubstPair(Collections.singletonList(substKey(idexp("dest"))), opcall("Tail", fncall(idexp("netwWrite0"), idexp("dest")))))),
+														assign(idexp("netwRead1"), idexp("msg2"))),
+												assign(idexp("b"), idexp("netwRead1")),
+												assign(idexp("netwWrite2"), fnSubst(idexp("netwWrite1"), fnSubstPair(Collections.singletonList(substKey(idexp("dest"))), opcall("Append", fncall(idexp("netwWrite1"), idexp("dest")), binop("+", idexp("a"), idexp("b")))))),
+												assign(idexp("network"), idexp("netwWrite2"))
+										)
+								),
+								process(
+										pcalVarDecl("C", false, true, set(num(0), num(1))),
+										PlusCalFairness.WEAK_FAIR,
+										Arrays.asList(
+												pcalVarDecl("netwWrite3", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+												pcalVarDecl("netwRead2", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+												pcalVarDecl("netwWrite4", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
+										),
+										labeled(
+												label("l1"),
+												assign(idexp("netwWrite3"), fnSubst(idexp("network"), fnSubstPair(Collections.singletonList(substKey(idexp("self"))), opcall("Append", fncall(idexp("network"), idexp("self")), num(21))))),
+												assign(idexp("network"), idexp("netwWrite3"))
+										),
+										labeled(
+												label("l2"),
+												assign(idexp("netwWrite3"), fnSubst(idexp("network"), fnSubstPair(Collections.singletonList(substKey(idexp("self"))), opcall("Append", fncall(idexp("network"), idexp("self")), num(21))))),
+												with(
+														Collections.singletonList(pcalVarDecl("msg3", false, false, opcall("Head", fncall(idexp("netwWrite3"), idexp("self"))))),
+														assign(idexp("netwWrite4"), fnSubst(idexp("netwWrite3"), fnSubstPair(Collections.singletonList(substKey(idexp("self"))), opcall("Tail", fncall(idexp("netwWrite3"), idexp("self")))))),
+														assign(idexp("netwRead2"), idexp("msg3"))),
+												printS(idexp("netwRead2")),
+												assign(idexp("network"), idexp("netwWrite4"))
+										)
+								)
+						)
+				},
 		});
 	}
 

@@ -3,10 +3,7 @@ package pgo.trans.passes.codegen.pluscal;
 import pgo.Unreachable;
 import pgo.model.mpcal.ModularPlusCalYield;
 import pgo.model.pcal.*;
-import pgo.model.tla.TLAExpression;
-import pgo.model.tla.TLAExpressionVisitor;
-import pgo.model.tla.TLAGeneralIdentifier;
-import pgo.model.tla.TLASpecialVariableVariable;
+import pgo.model.tla.*;
 import pgo.parser.Located;
 import pgo.scope.UID;
 import pgo.util.SourceLocation;
@@ -19,20 +16,25 @@ public class ModularPlusCalMappingMacroReadExpansionVisitor
 		extends PlusCalStatementVisitor<List<PlusCalStatement>, RuntimeException> {
 	private final TemporaryBinding readTemporaryBinding;
 	protected final TemporaryBinding writeTemporaryBinding;
-	protected final TLAExpression dollarVariable;
+	protected final TLAGeneralIdentifier dollarVariable;
 	protected final UID varUID;
 	protected final String nameHint;
+	private final TLAExpression index;
 	protected final TLAExpressionVisitor<TLAExpression, RuntimeException> visitor;
+	protected final TLAGeneralIdentifier temporaryVariable;
 
 	public ModularPlusCalMappingMacroReadExpansionVisitor(
-			TemporaryBinding readTemporaryBinding, TemporaryBinding writeTemporaryBinding, TLAExpression dollarVariable,
-			UID varUID, String nameHint, TLAExpressionVisitor<TLAExpression, RuntimeException> visitor) {
+			TemporaryBinding readTemporaryBinding, TemporaryBinding writeTemporaryBinding,
+			TLAGeneralIdentifier dollarVariable, UID varUID, String nameHint, TLAExpression index,
+			TLAExpressionVisitor<TLAExpression, RuntimeException> visitor, TLAGeneralIdentifier temporaryVariable) {
 		this.readTemporaryBinding = readTemporaryBinding;
 		this.writeTemporaryBinding = writeTemporaryBinding;
 		this.dollarVariable = dollarVariable;
 		this.varUID = varUID;
 		this.nameHint = nameHint;
+		this.index = index;
 		this.visitor = visitor;
+		this.temporaryVariable = temporaryVariable;
 	}
 
 	private List<PlusCalStatement> substituteStatements(List<PlusCalStatement> statements) {
@@ -96,14 +98,26 @@ public class ModularPlusCalMappingMacroReadExpansionVisitor
 		List<PlusCalAssignmentPair> transformedPairs = new ArrayList<>();
 		for (int i = 0; i < pairs.size(); i++) {
 			PlusCalAssignmentPair pair = pairs.get(i);
+			SourceLocation location = pair.getLocation();
 			TLAExpression lhs = pair.getLhs();
 			TLAExpression rhs = rhsList.get(i);
 			if (lhs instanceof TLASpecialVariableVariable) {
+				TLAGeneralIdentifier variable = writeTemporaryBinding.lookup(varUID).orElse(dollarVariable);
 				lhs = writeTemporaryBinding.declare(lhs.getLocation(), varUID, nameHint);
+				if (index != null) {
+					rhs = new TLAFunctionSubstitution(
+							location,
+							variable,
+							Collections.singletonList(new TLAFunctionSubstitutionPair(
+									location,
+									Collections.singletonList(new TLASubstitutionKey(
+											location, Collections.singletonList(index))),
+									rhs)));
+				}
 			} else {
 				lhs = lhs.accept(visitor);
 			}
-			transformedPairs.add(new PlusCalAssignmentPair(pair.getLocation(), lhs, rhs));
+			transformedPairs.add(new PlusCalAssignmentPair(location, lhs, rhs));
 		}
 		result.add(new PlusCalAssignment(plusCalAssignment.getLocation(), transformedPairs));
 		return result;
@@ -187,7 +201,7 @@ public class ModularPlusCalMappingMacroReadExpansionVisitor
 				modularPlusCalYield.getLocation(),
 				Collections.singletonList(new PlusCalAssignmentPair(
 						modularPlusCalYield.getLocation(),
-						dollarVariable,
+						temporaryVariable,
 						modularPlusCalYield.getExpression().accept(visitor)))));
 	}
 }

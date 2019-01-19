@@ -1,6 +1,7 @@
 package pgo.trans.passes.codegen.pluscal;
 
 import pgo.model.tla.TLAExpression;
+import pgo.model.tla.TLAGeneralIdentifier;
 import pgo.model.tla.TLASpecialVariableValue;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
@@ -11,9 +12,9 @@ public class TLAExpressionMappingMacroWriteExpansionVisitor extends TLAExpressio
 	public TLAExpressionMappingMacroWriteExpansionVisitor(DefinitionRegistry registry,
 	                                                      TemporaryBinding readTemporaryBinding,
 	                                                      TemporaryBinding writeTemporaryBinding,
-	                                                      TLAExpression dollarVariable, TLAExpression dollarValue,
-	                                                      UID varUID) {
-		super(registry, readTemporaryBinding, writeTemporaryBinding, dollarVariable, varUID);
+	                                                      TLAGeneralIdentifier dollarVariable,
+	                                                      TLAExpression dollarValue, UID varUID, TLAExpression index) {
+		super(registry, readTemporaryBinding, writeTemporaryBinding, dollarVariable, varUID, index);
 		this.dollarValue = dollarValue;
 	}
 

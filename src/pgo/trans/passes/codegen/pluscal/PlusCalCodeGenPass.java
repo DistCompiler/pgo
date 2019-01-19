@@ -121,7 +121,7 @@ public class PlusCalCodeGenPass {
 			}
 			ModularPlusCalCodeGenVisitor v = new ModularPlusCalCodeGenVisitor(
 					registry, labelsToVarReads, labelsToVarWrites, arguments, params, mappings, refs,
-					readTemporaryBinding, new TemporaryBinding(nameCleaner, localVariables));
+					functionMappedVars, readTemporaryBinding, new TemporaryBinding(nameCleaner, localVariables));
 			List<PlusCalStatement> body = new ArrayList<>();
 			for (PlusCalStatement statement : archetype.getBody()) {
 				body.addAll(statement.accept(v));
