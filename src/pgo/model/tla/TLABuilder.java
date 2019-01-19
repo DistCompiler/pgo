@@ -86,7 +86,19 @@ public class TLABuilder {
 	public static TLAFunctionCall fncall(TLAExpression fn, TLAExpression... args) {
 		return new TLAFunctionCall(SourceLocation.unknown(), fn, Arrays.asList(args));
 	}
-	
+
+	public static TLAFunctionSubstitution fnSubst(TLAExpression source, TLAFunctionSubstitutionPair... subs) {
+		return new TLAFunctionSubstitution(SourceLocation.unknown(), source, Arrays.asList(subs));
+	}
+
+	public static TLAFunctionSubstitutionPair fnSubstPair(List<TLASubstitutionKey> keys, TLAExpression value) {
+		return new TLAFunctionSubstitutionPair(SourceLocation.unknown(), keys, value);
+	}
+
+	public static TLASubstitutionKey substKey(TLAExpression... indices) {
+		return new TLASubstitutionKey(SourceLocation.unknown(), Arrays.asList(indices));
+	}
+
 	public static TLASetRefinement setRefinement(String id, TLAExpression set, TLAExpression condition) {
 		return new TLASetRefinement(SourceLocation.unknown(), TLAIdentifierOrTuple.Identifier(id(id)), set, condition);
 	}

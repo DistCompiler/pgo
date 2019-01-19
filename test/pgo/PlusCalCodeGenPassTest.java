@@ -536,8 +536,11 @@ public class PlusCalCodeGenPassTest {
                         //             if ((aRead)>=(42)) {
                         //                 aWrite0 := (aWrite)+(1);
                         //                 aWrite1 := (aWrite0)+(42);
+                        //                 aWrite2 := aWrite1;
+                        //                 } else {
+                        //                 aWrite2 := x;
                         //                 };
-                        //             x := aWrite1;
+                        //             x := aWrite2;
                         //         l2:
                         //             aWrite := (x)+(1);
                         //             aWrite0 := (aWrite)+(10);
@@ -576,8 +579,8 @@ public class PlusCalCodeGenPassTest {
                                                 pcalVarDecl("aWrite", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
                                                 pcalVarDecl("aWrite0", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
                                                 pcalVarDecl("aWrite1", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-                                                pcalVarDecl("aRead0", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
                                                 pcalVarDecl("aWrite2", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+                                                pcalVarDecl("aRead0", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
                                                 pcalVarDecl("bRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
                                         ),
                                         labeled(
@@ -588,11 +591,14 @@ public class PlusCalCodeGenPassTest {
                                                         binop(">=", idexp("aRead"), num(42)),
                                                         Arrays.asList(
                                                                 assign(idexp("aWrite0"), binop("+", idexp("aWrite"), num(1))),
-                                                                assign(idexp("aWrite1"), binop("+", idexp("aWrite0"), num(42)))
+                                                                assign(idexp("aWrite1"), binop("+", idexp("aWrite0"), num(42))),
+                                                                assign(idexp("aWrite2"), idexp("aWrite1"))
                                                         ),
-                                                        Collections.emptyList()
+                                                        Collections.singletonList(
+                                                                assign(idexp("aWrite2"), idexp("x"))
+                                                        )
                                                 ),
-                                                assign(idexp("x"), idexp("aWrite1"))
+                                                assign(idexp("x"), idexp("aWrite2"))
                                         ),
 
                                         labeled(

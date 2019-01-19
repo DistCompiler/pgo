@@ -14,14 +14,18 @@ import pgo.util.SourceLocation;
 import java.util.*;
 
 public class TemporaryBinding {
-	private NameCleaner nameCleaner;
-	private Map<UID, Recycling<TLAGeneralIdentifier>> temporaries;
-	private List<PlusCalVariableDeclaration> declarations;
+	private final NameCleaner nameCleaner;
+	private final Map<UID, Recycling<TLAGeneralIdentifier>> temporaries;
+	private final List<PlusCalVariableDeclaration> declarations;
+	private Set<UID> touchedVars;
+	private boolean recording;
 
 	public TemporaryBinding(NameCleaner nameCleaner, List<PlusCalVariableDeclaration> declarations) {
 		this.nameCleaner = nameCleaner;
 		this.temporaries = new HashMap<>();
 		this.declarations = declarations;
+		this.touchedVars = new LinkedHashSet<>();
+		this.recording = false;
 	}
 
 	public TLAGeneralIdentifier freshVariable(SourceLocation location, UID varUID, String nameHint) {
@@ -38,8 +42,11 @@ public class TemporaryBinding {
 		return variableReference;
 	}
 
-	private TLAGeneralIdentifier declareHelper(SourceLocation location, UID varUID, String nameHint,
-	                                           TLAExpression value) {
+	public TLAGeneralIdentifier forceDeclare(SourceLocation location, UID varUID, String nameHint,
+	                                         TLAExpression value) {
+		if (recording) {
+			touchedVars.add(varUID);
+		}
 		TLAGeneralIdentifier fresh = freshVariable(location, varUID, nameHint);
 		PlusCalVariableDeclaration declaration = new PlusCalVariableDeclaration(
 				location, new Located<>(location, fresh.getName().getId()), false, false, value);
@@ -47,14 +54,18 @@ public class TemporaryBinding {
 		return fresh;
 	}
 
+	public TLAGeneralIdentifier forceDeclare(SourceLocation location, UID varUID, String nameHint) {
+		return forceDeclare(location, varUID, nameHint, new PlusCalDefaultInitValue(location));
+	}
+
 	public TLAGeneralIdentifier declare(SourceLocation location, UID varUID, String nameHint, TLAExpression value) {
-		if (temporaries.containsKey(varUID)) {
-			return temporaries.get(varUID).use().orElseGet(() -> declareHelper(location, varUID, nameHint, value));
-		} else {
-			TLAGeneralIdentifier fresh = declareHelper(location, varUID, nameHint, value);
-			temporaries.put(varUID, new Recycling<>(fresh));
-			return fresh;
+		if (recording) {
+			touchedVars.add(varUID);
 		}
+		if (temporaries.containsKey(varUID)) {
+			return temporaries.get(varUID).use().orElseGet(() -> forceDeclare(location, varUID, nameHint, value));
+		}
+		return forceDeclare(location, varUID, nameHint, value);
 	}
 
 	public TLAGeneralIdentifier declare(SourceLocation location, UID varUID, String nameHint) {
@@ -69,5 +80,17 @@ public class TemporaryBinding {
 		if (temporaries.containsKey(varUID)) {
 			temporaries.get(varUID).reuse();
 		}
+	}
+
+	public void startRecording() {
+		touchedVars = new LinkedHashSet<>();
+		recording = true;
+	}
+
+	public Set<UID> stopRecording() {
+		Set<UID> result = touchedVars;
+		touchedVars = new LinkedHashSet<>();
+		recording = false;
+		return result;
 	}
 }

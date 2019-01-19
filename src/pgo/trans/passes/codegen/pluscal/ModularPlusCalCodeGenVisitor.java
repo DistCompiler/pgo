@@ -94,24 +94,102 @@ public class ModularPlusCalCodeGenVisitor
 		return result;
 	}
 
+	private Map<UID, TLAGeneralIdentifier> getFinalWrites(Set<UID> touchedVars) {
+		Map<UID, TLAGeneralIdentifier> result = new HashMap<>();
+		for (UID varUID : touchedVars) {
+			if (params.containsKey(varUID)) {
+				result.put(varUID, writeTemporaryBinding.lookup(varUID).get());
+				writeTemporaryBinding.reuse(varUID);
+			}
+		}
+		return result;
+	}
+
+	private void declareJoinNames(SourceLocation location, Set<UID> varUIDs, Map<UID, TLAGeneralIdentifier> output) {
+		for (UID varUID : varUIDs) {
+			if (params.containsKey(varUID) && !output.containsKey(varUID)) {
+				output.put(
+						varUID,
+						writeTemporaryBinding.forceDeclare(
+								location, varUID, arguments.get(varUID).getName().getValue() + "Write"));
+			}
+		}
+	}
+
+	private void writeJoinAssignments(SourceLocation location, Map<UID, TLAGeneralIdentifier> touchedVars,
+	                                  Map<UID, TLAGeneralIdentifier> writes, List<PlusCalStatement> output) {
+		for (Map.Entry<UID, TLAGeneralIdentifier> entry : touchedVars.entrySet()) {
+			UID varUID = entry.getKey();
+			TLAGeneralIdentifier writeVar = entry.getValue();
+			if (writes.containsKey(varUID)) {
+				output.add(new PlusCalAssignment(
+						location,
+						Collections.singletonList(new PlusCalAssignmentPair(location, writeVar, writes.get(varUID)))));
+			} else {
+				TLAExpression value = params.get(varUID);
+				TLAGeneralIdentifier variable = value instanceof TLARef
+						? new TLAGeneralIdentifier(
+						location,
+						new TLAIdentifier(location, ((TLARef) value).getTarget()),
+						Collections.emptyList())
+						: (TLAGeneralIdentifier) value;
+				output.add(new PlusCalAssignment(
+						location, Collections.singletonList(new PlusCalAssignmentPair(location, writeVar, variable))));
+			}
+		}
+	}
+
 	@Override
 	public List<PlusCalStatement> visit(PlusCalIf plusCalIf) throws RuntimeException {
+		SourceLocation location = plusCalIf.getLocation();
 		List<PlusCalStatement> result = new ArrayList<>();
 		TLAExpression condition = plusCalIf.getCondition().accept(new TLAExpressionPlusCalCodeGenVisitor(
 				registry, arguments, params, mappings, readTemporaryBinding, writeTemporaryBinding, result));
-		result.add(new PlusCalIf(
-				plusCalIf.getLocation(),
-				condition,
-				substituteStatements(plusCalIf.getYes()),
-				substituteStatements(plusCalIf.getNo())));
+
+		writeTemporaryBinding.startRecording();
+		List<PlusCalStatement> yes = substituteStatements(plusCalIf.getYes());
+		Set<UID> yesTouchedVars = writeTemporaryBinding.stopRecording();
+		Map<UID, TLAGeneralIdentifier> yesWrites = getFinalWrites(yesTouchedVars);
+
+		writeTemporaryBinding.startRecording();
+		List<PlusCalStatement> no = substituteStatements(plusCalIf.getNo());
+		Set<UID> noTouchedVars = writeTemporaryBinding.stopRecording();
+		Map<UID, TLAGeneralIdentifier> noWrites = getFinalWrites(noTouchedVars);
+
+		Map<UID, TLAGeneralIdentifier> touchedVars = new LinkedHashMap<>();
+		declareJoinNames(location, yesTouchedVars, touchedVars);
+		declareJoinNames(location, noTouchedVars, touchedVars);
+		writeJoinAssignments(location, touchedVars, yesWrites, yes);
+		writeJoinAssignments(location, touchedVars, noWrites, no);
+
+		result.add(new PlusCalIf(location, condition, yes, no));
 		return result;
 	}
 
 	@Override
 	public List<PlusCalStatement> visit(PlusCalEither plusCalEither) throws RuntimeException {
-		return Collections.singletonList(new PlusCalEither(
-				plusCalEither.getLocation(),
-				plusCalEither.getCases().stream().map(this::substituteStatements).collect(Collectors.toList())));
+		SourceLocation location = plusCalEither.getLocation();
+		List<List<PlusCalStatement>> transformedCases = new ArrayList<>();
+		List<Map<UID, TLAGeneralIdentifier>> writesList = new ArrayList<>();
+		List<Set<UID>> touchedVarsList = new ArrayList<>();
+		List<List<PlusCalStatement>> cases = plusCalEither.getCases();
+		for (List<PlusCalStatement> aCase : cases) {
+			writeTemporaryBinding.startRecording();
+			transformedCases.add(substituteStatements(aCase));
+			Set<UID> touchedVars = writeTemporaryBinding.stopRecording();
+			writesList.add(getFinalWrites(touchedVars));
+			touchedVarsList.add(touchedVars);
+		}
+		Map<UID, TLAGeneralIdentifier> touchedVars = new LinkedHashMap<>();
+		for (Set<UID> uids : touchedVarsList) {
+			declareJoinNames(location, uids, touchedVars);
+		}
+		for (int i = 0; i < transformedCases.size(); i++) {
+			List<PlusCalStatement> transformedCase = transformedCases.get(i);
+			Map<UID, TLAGeneralIdentifier> writes = writesList.get(i);
+			writeJoinAssignments(location, touchedVars, writes, transformedCase);
+		}
+		return Collections.singletonList(new PlusCalEither(location, transformedCases));
 	}
 
 	private void assignmentHelper(SourceLocation location, TLAExpression lhs, TLAExpression rhs,
