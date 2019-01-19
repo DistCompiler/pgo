@@ -206,14 +206,15 @@ public class ModularPlusCalCodeGenVisitor
 	}
 
 	private Optional<TLAGeneralIdentifier> extractFunctionCallIdentifier(TLAFunctionCall fnCall,
-	                                                                     List<TLAExpression> accumulatedIndices) {
+	                                                                     List<TLAExpression> accumulatedIndices,
+	                                                                     List<PlusCalStatement> output) {
 		SourceLocation location = fnCall.getLocation();
 		TLAExpression fn = fnCall.getFunction();
-		List<TLAExpression> params = fnCall.getParams();
-		if (params.size() > 1) {
-			accumulatedIndices.add(new TLATuple(location, params));
-		} else if (params.size() == 1) {
-			accumulatedIndices.add(params.get(0));
+		List<TLAExpression> fnParams = fnCall.getParams();
+		if (fnParams.size() > 1) {
+			accumulatedIndices.add(new TLATuple(location, fnParams));
+		} else if (fnParams.size() == 1) {
+			accumulatedIndices.add(fnParams.get(0));
 		} else {
 			accumulatedIndices.add(new TLATuple(location, Collections.emptyList()));
 		}
@@ -223,10 +224,15 @@ public class ModularPlusCalCodeGenVisitor
 				TLAExpression temp = accumulatedIndices.set(i, accumulatedIndices.get(size - i - 1));
 				accumulatedIndices.set(size - i - 1, temp);
 			}
+			TLAExpressionPlusCalCodeGenVisitor visitor = new TLAExpressionPlusCalCodeGenVisitor(
+					registry, arguments, params, mappings, readTemporaryBinding, writeTemporaryBinding, output);
+			for (int i = 0; i < accumulatedIndices.size(); i++) {
+				accumulatedIndices.set(i, accumulatedIndices.get(i).accept(visitor));
+			}
 			return Optional.of((TLAGeneralIdentifier) fn);
 		}
 		if (fn instanceof TLAFunctionCall) {
-			return extractFunctionCallIdentifier((TLAFunctionCall) fn, accumulatedIndices);
+			return extractFunctionCallIdentifier((TLAFunctionCall) fn, accumulatedIndices, output);
 		}
 		accumulatedIndices.clear();
 		return Optional.empty();
@@ -264,7 +270,7 @@ public class ModularPlusCalCodeGenVisitor
 			List<TLAExpression> accumulatedIndices = new ArrayList<>();
 			if (lhs instanceof TLAFunctionCall) {
 				Optional<TLAGeneralIdentifier> optionalVariable = extractFunctionCallIdentifier(
-						(TLAFunctionCall) lhs, accumulatedIndices);
+						(TLAFunctionCall) lhs, accumulatedIndices, result);
 				if (optionalVariable.isPresent()) {
 					identifier = optionalVariable.get();
 				}
