@@ -624,6 +624,219 @@ public class PlusCalCodeGenPassTest {
                                 )
                         )
                 },
+
+                {
+                        // --mpcal Algorithm5 {
+                        //   mapping macro TCPConnection {
+                        //     read {
+                        //       with (msg = Head($variable)) {
+                        //         $variable := Tail($variable);
+                        //         yield msg;
+                        //       }
+                        //     }
+                        //
+                        //     write {
+                        //       yield Append($variable, $value);
+                        //     }
+                        //   }
+                        //
+                        //   archetype AddClient(ref netw) {
+                        //       l1: netw := 21;
+                        //       l2: netw := 21;
+                        //           print netw;
+                        //   }
+                        //
+                        //   archetype AddServer(ref netw)
+                        //   variables a, b;
+                        //   {
+                        //       l1: a := netw;
+                        //           b := netw;
+                        //           netw := a + b;
+                        //   }
+                        //
+                        //   variable network = <<>>;
+                        //   process (S = 42) == instance AddServer(ref network)
+                        //   mapping network via TCPConnection;
+                        //   process (C = 21) == instance AddClient(ref network)
+                        //   mapping network via TCPConnection;
+                        // }
+                        mpcal(
+                                "Algorithm5",
+                                Collections.singletonList(pcalVarDecl("network", false, false, tuple()) ),
+                                Collections.singletonList(
+                                        mappingMacro(
+                                                "TCPConnection",
+                                                Collections.singletonList(
+                                                        with(
+                                                                Collections.singletonList(pcalVarDecl("msg", false, false, opcall("Head", DOLLAR_VARIABLE))),
+                                                                assign(DOLLAR_VARIABLE, opcall("Tail", DOLLAR_VARIABLE)),
+                                                                yield(idexp("msg")))
+                                                ),
+                                                Collections.singletonList(
+                                                        yield(opcall("Append", DOLLAR_VARIABLE, DOLLAR_VALUE))
+                                                )
+                                        )
+                                ),
+                                Arrays.asList(
+                                        archetype(
+                                                "AddClient",
+                                                Collections.singletonList(pcalVarDecl("netw", true, false, PLUSCAL_DEFAULT_INIT_VALUE)),
+                                                Collections.emptyList(),
+                                                Arrays.asList(
+                                                        labeled(
+                                                                label("l1"),
+                                                                assign(idexp("netw"), num(21))),
+                                                        labeled(
+                                                                label("l2"),
+                                                                assign(idexp("netw"), num(21)),
+                                                                printS(idexp("netw")))
+                                                )
+                                        ),
+                                        archetype(
+                                                "AddServer",
+                                                Collections.singletonList(pcalVarDecl("netw", true, false, PLUSCAL_DEFAULT_INIT_VALUE)),
+                                                Arrays.asList(
+                                                        pcalVarDecl("a", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+                                                        pcalVarDecl("b", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
+                                                ),
+                                                Collections.singletonList(
+                                                        labeled(
+                                                                label("l1"),
+                                                                assign(idexp("a"), idexp("netw")),
+                                                                assign(idexp("b"), idexp("netw")),
+                                                                assign(idexp("netw"), binop("+", idexp("a"), idexp("b")))))
+                                        )
+                                ),
+                                Collections.emptyList(),
+                                Collections.emptyList(),
+                                Collections.emptyList(),
+                                Arrays.asList(
+                                        instance(
+                                                pcalVarDecl("S", false, false, num(42)),
+                                                PlusCalFairness.WEAK_FAIR,
+                                                "AddServer",
+                                                Collections.singletonList(ref("network")),
+                                                Collections.singletonList(
+                                                        mapping(
+                                                                "network",
+                                                                "TCPConnection",
+                                                                false
+                                                        )
+                                                )
+                                        ),
+                                        instance(
+                                                pcalVarDecl("C", false, false, num(21)),
+                                                PlusCalFairness.WEAK_FAIR,
+                                                "AddClient",
+                                                Collections.singletonList(ref("network")),
+                                                Collections.singletonList(
+                                                        mapping(
+                                                                "network",
+                                                                "TCPConnection",
+                                                                false
+                                                        )
+                                                )
+                                        )
+                                )
+						),
+		                // --algorithm Algorithm5 {
+                        //     variables network = <<>>;
+                        //     process (S = 42)
+                        //     variables a, b, netwRead, netwWrite, netwRead0, netwWrite0, netwWrite1;
+                        //     {
+                        //         l1:
+                        //             with (msg0 = Head(network)) {
+                        //                 netwWrite := Tail(network);
+                        //                 netwRead := msg0;
+                        //             };
+                        //             a := netwRead;
+                        //             with (msg1 = Head(netwWrite)) {
+                        //                 netwWrite0 := Tail(netwWrite);
+                        //                 netwRead0 := msg1;
+                        //             };
+                        //             b := netwRead0;
+                        //             netwWrite1 := Append(netwWrite0,(a)+(b));
+                        //             network := netwWrite1;
+                        //
+                        //     }
+                        //     process (C = 42)
+                        //     variables netwWrite2, netwRead1, netwWrite3;
+                        //     {
+                        //         l1:
+                        //             netwWrite2 := Append(network,21);
+                        //             network := netwWrite2;
+                        //         l2:
+                        //             netwWrite2 := Append(network,21);
+                        //             with (msg2 = Head(netwWrite2)) {
+                        //                 netwWrite3 := Tail(netwWrite2);
+                        //                 netwRead1 := msg2;
+                        //             };
+                        //             print netwRead1;
+                        //             network := netwWrite3;
+                        //
+                        //     }
+                        // }
+                        algorithm(
+                                "Algorithm5",
+                                Collections.singletonList(
+                                        pcalVarDecl("network", false, false, tuple())),
+                                Collections.emptyList(),
+                                Collections.emptyList(),
+                                Collections.emptyList(),
+                                process(
+                                        pcalVarDecl("S", false, false, num(42)),
+                                        PlusCalFairness.WEAK_FAIR,
+                                        Arrays.asList(
+                                                pcalVarDecl("a", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+                                                pcalVarDecl("b", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+                                                pcalVarDecl("netwRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+                                                pcalVarDecl("netwWrite", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+                                                pcalVarDecl("netwRead0", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+                                                pcalVarDecl("netwWrite0", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+                                                pcalVarDecl("netwWrite1", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
+                                        ),
+                                        labeled(
+                                                label("l1"),
+                                                with(
+                                                        Collections.singletonList(pcalVarDecl("msg0", false, false, opcall("Head", idexp("network")))),
+                                                        assign(idexp("netwWrite"), opcall("Tail", idexp("network"))),
+                                                        assign(idexp("netwRead"), idexp("msg0"))),
+                                                assign(idexp("a"), idexp("netwRead")),
+                                                with(
+                                                        Collections.singletonList(pcalVarDecl("msg1", false, false, opcall("Head", idexp("netwWrite")))),
+                                                        assign(idexp("netwWrite0"), opcall("Tail", idexp("netwWrite"))),
+                                                        assign(idexp("netwRead0"), idexp("msg1"))),
+                                                assign(idexp("b"), idexp("netwRead0")),
+                                                assign(idexp("netwWrite1"), opcall("Append", idexp("netwWrite0"), binop("+", idexp("a"), idexp("b")))),
+                                                assign(idexp("network"), idexp("netwWrite1"))
+                                        )
+                                ),
+                                process(
+                                        pcalVarDecl("C", false, false, num(21)),
+                                        PlusCalFairness.WEAK_FAIR,
+                                        Arrays.asList(
+                                                pcalVarDecl("netwWrite2", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+                                                pcalVarDecl("netwRead1", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+                                                pcalVarDecl("netwWrite3", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
+                                        ),
+                                        labeled(
+                                                label("l1"),
+                                                assign(idexp("netwWrite2"), opcall("Append", idexp("network"), num(21))),
+                                                assign(idexp("network"), idexp("netwWrite2"))
+                                        ),
+                                        labeled(
+                                                label("l2"),
+                                                assign(idexp("netwWrite2"), opcall("Append", idexp("network"), num(21))),
+                                                with(
+                                                        Collections.singletonList(pcalVarDecl("msg2", false, false, opcall("Head", idexp("netwWrite2")))),
+                                                        assign(idexp("netwWrite3"), opcall("Tail", idexp("netwWrite2"))),
+                                                        assign(idexp("netwRead1"), idexp("msg2"))),
+                                                printS(idexp("netwRead1")),
+                                                assign(idexp("network"), idexp("netwWrite3"))
+                                        )
+                                )
+                        )
+                },
         });
     }
 
@@ -645,7 +858,7 @@ public class PlusCalCodeGenPassTest {
         TLAModule tlaModule = new TLAModule(
                 SourceLocation.unknown(),
                 moduleName,
-                Collections.singletonList(id("Integers")),
+                Arrays.asList(id("Integers"), id("Sequences")),
                 Collections.emptyList(),
                 Collections.emptyList(),
                 Collections.emptyList());
