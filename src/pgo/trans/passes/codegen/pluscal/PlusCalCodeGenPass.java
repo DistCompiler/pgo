@@ -2,6 +2,7 @@ package pgo.trans.passes.codegen.pluscal;
 
 import pgo.Unreachable;
 import pgo.errors.IssueContext;
+import pgo.model.tla.TLAIdentifier;
 import pgo.trans.passes.codegen.NameCleaner;
 import pgo.model.mpcal.*;
 import pgo.model.pcal.*;
@@ -69,13 +70,16 @@ public class PlusCalCodeGenPass {
 		NameCleaner nameCleaner = new NameCleaner(nameCleanerSeed);
 		List<PlusCalProcess> processList = new ArrayList<>();
 		for (ModularPlusCalInstance instance : modularPlusCalBlock.getInstances()) {
-			Map<UID, ModularPlusCalMapping> mappings = new HashMap<>();
+			Map<UID, ModularPlusCalMapping> mappedVars = new HashMap<>();
 			for (ModularPlusCalMapping mapping : instance.getMappings()) {
-				mappings.put(registry.followReference(mapping.getVariable().getUID()), mapping);
+				mappedVars.put(registry.followReference(mapping.getVariable().getUID()), mapping);
 			}
 			ModularPlusCalArchetype archetype = registry.findArchetype(instance.getTarget());
 			Map<UID, PlusCalVariableDeclaration> arguments = new HashMap<>();
-			Map<UID, TLAExpression> params = new HashMap<>();
+			Map<UID, TLAGeneralIdentifier> params = new HashMap<>();
+			Map<UID, ModularPlusCalMappingMacro> mappings = new HashMap<>();
+			Set<UID> functionMappedVars = new HashSet<>();
+			Set<UID> refs = new HashSet<>();
 			List<PlusCalVariableDeclaration> localVariables = new ArrayList<>(archetype.getVariables());
 			TemporaryBinding readTemporaryBinding = new TemporaryBinding(nameCleaner, localVariables);
 			for (int i = 0; i < archetype.getArguments().size(); i++) {
@@ -83,9 +87,20 @@ public class PlusCalCodeGenPass {
 				UID uid = argument.getUID();
 				TLAExpression value = instance.getParams().get(i);
 				arguments.put(uid, argument);
-				params.put(uid, value);
-				if (value instanceof TLARef || value instanceof TLAGeneralIdentifier) {
-					params.put(uid, value);
+				if (value instanceof TLARef) {
+					recordMapping(registry, mappedVars, mappings, functionMappedVars, uid, value);
+					refs.add(uid);
+					params.put(
+							uid,
+							new TLAGeneralIdentifier(
+									value.getLocation(),
+									new TLAIdentifier(
+											value.getLocation(),
+											((TLARef) value).getTarget()),
+									Collections.emptyList()));
+				} else if (value instanceof TLAGeneralIdentifier) {
+					recordMapping(registry, mappedVars, mappings, functionMappedVars, uid, value);
+					params.put(uid, (TLAGeneralIdentifier) value);
 				} else {
 					// this argument is bound to a TLA+ expression, so we need to add a variable declaration for it
 					readTemporaryBinding.declare(
@@ -105,8 +120,8 @@ public class PlusCalCodeGenPass {
 				statement.accept(visitor);
 			}
 			ModularPlusCalCodeGenVisitor v = new ModularPlusCalCodeGenVisitor(
-					registry, readTemporaryBinding, new TemporaryBinding(nameCleaner, localVariables), labelsToVarReads,
-					labelsToVarWrites, arguments, params, mappings);
+					registry, labelsToVarReads, labelsToVarWrites, arguments, params, mappings, refs,
+					readTemporaryBinding, new TemporaryBinding(nameCleaner, localVariables));
 			List<PlusCalStatement> body = new ArrayList<>();
 			for (PlusCalStatement statement : archetype.getBody()) {
 				body.addAll(statement.accept(v));
@@ -136,5 +151,17 @@ public class PlusCalCodeGenPass {
 				modularPlusCalBlock.getProcedures(),
 				modularPlusCalBlock.getUnits(),
 				processes);
+	}
+
+	private static void recordMapping(DefinitionRegistry registry, Map<UID, ModularPlusCalMapping> mappedVars,
+	                                  Map<UID, ModularPlusCalMappingMacro> mappings, Set<UID> functionMappedVars,
+	                                  UID uid, TLAExpression value) {
+		ModularPlusCalMapping mapping = mappedVars.get(registry.followReference(value.getUID()));
+		if (mapping != null) {
+			if (mapping.getVariable().isFunctionCalls()){
+				functionMappedVars.add(uid);
+			}
+			mappings.put(uid, registry.findMappingMacro(mapping.getTarget().getName()));
+		}
 	}
 }

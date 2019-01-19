@@ -2,10 +2,10 @@ package pgo.trans.passes.codegen.pluscal;
 
 import pgo.TODO;
 import pgo.Unreachable;
-import pgo.model.mpcal.ModularPlusCalMapping;
+import pgo.model.mpcal.ModularPlusCalMappingMacro;
 import pgo.model.pcal.*;
-import pgo.scope.UID;
 import pgo.model.tla.*;
+import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
 import pgo.util.SourceLocation;
 
@@ -17,15 +17,16 @@ import java.util.Map;
 public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLAExpression, RuntimeException> {
 	private final DefinitionRegistry registry;
 	private final Map<UID, PlusCalVariableDeclaration> arguments;
-	private final Map<UID, TLAExpression> params;
-	private final Map<UID, ModularPlusCalMapping> mappings;
+	private final Map<UID, TLAGeneralIdentifier> params;
+	private final Map<UID, ModularPlusCalMappingMacro> mappings;
 	private final TemporaryBinding readTemporaryBinding;
 	private final TemporaryBinding writeTemporaryBinding;
 	private final List<PlusCalStatement> output;
 
 	public TLAExpressionPlusCalCodeGenVisitor(DefinitionRegistry registry,
 	                                          Map<UID, PlusCalVariableDeclaration> arguments,
-	                                          Map<UID, TLAExpression> params, Map<UID, ModularPlusCalMapping> mappings,
+	                                          Map<UID, TLAGeneralIdentifier> params,
+	                                          Map<UID, ModularPlusCalMappingMacro> mappings,
 	                                          TemporaryBinding readTemporaryBinding,
 	                                          TemporaryBinding writeTemporaryBinding, List<PlusCalStatement> output) {
 		this.registry = registry;
@@ -170,39 +171,25 @@ public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLA
 		SourceLocation location = tlaGeneralIdentifier.getLocation();
 		UID varUID = registry.followReference(tlaGeneralIdentifier.getUID());
 		if (params.containsKey(varUID)) {
-			TLAExpression value = params.get(varUID);
-			UID valueUID = registry.followReference(value.getUID());
-			TLAGeneralIdentifier variable = value instanceof TLARef
-					? new TLAGeneralIdentifier(
-							location,
-							new TLAIdentifier(location, ((TLARef) value).getTarget()),
-							Collections.emptyList())
-					: (TLAGeneralIdentifier) value;
-			boolean mappingsContainsValue = mappings.containsKey(valueUID);
+			TLAGeneralIdentifier variable = params.get(varUID);
 			TLAGeneralIdentifier temp = readTemporaryBinding.declare(
 					location,
 					varUID,
 					arguments.get(varUID).getName().getValue() + "Read");
-			if (mappingsContainsValue) {
+			if (mappings.containsKey(varUID)) {
 				ModularPlusCalMappingMacroReadExpansionVisitor visitor =
 						new ModularPlusCalMappingMacroReadExpansionVisitor(
 								readTemporaryBinding, writeTemporaryBinding, temp, varUID,
 								arguments.get(varUID).getName().getValue() + "Write",
 								new TLAExpressionMappingMacroReadExpansionVisitor(
 										registry, readTemporaryBinding, writeTemporaryBinding, varUID, variable));
-				for (PlusCalStatement statement : registry.findMappingMacro(mappings.get(valueUID).getTarget().getName()).getReadBody()) {
+				for (PlusCalStatement statement : mappings.get(varUID).getReadBody()) {
 					output.addAll(statement.accept(visitor));
 				}
 			} else {
-				TLAExpression rhs = value instanceof TLARef
-						? new TLAGeneralIdentifier(
-								location,
-								new TLAIdentifier(location, ((TLARef) value).getTarget()),
-								Collections.emptyList())
-						: value;
 				output.add(new PlusCalAssignment(
 						location,
-						Collections.singletonList(new PlusCalAssignmentPair(location, temp, rhs))));
+						Collections.singletonList(new PlusCalAssignmentPair(location, temp, variable))));
 			}
 			return temp;
 		}

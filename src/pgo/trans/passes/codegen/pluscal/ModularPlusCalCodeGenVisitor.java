@@ -1,40 +1,43 @@
 package pgo.trans.passes.codegen.pluscal;
 
 import pgo.Unreachable;
-import pgo.model.mpcal.ModularPlusCalMapping;
+import pgo.model.mpcal.ModularPlusCalMappingMacro;
 import pgo.model.mpcal.ModularPlusCalYield;
 import pgo.model.pcal.*;
-import pgo.model.tla.*;
+import pgo.model.tla.TLAExpression;
+import pgo.model.tla.TLAGeneralIdentifier;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
 import pgo.util.SourceLocation;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 public class ModularPlusCalCodeGenVisitor
 		extends PlusCalStatementVisitor<List<PlusCalStatement>, RuntimeException> {
 	private final DefinitionRegistry registry;
 	private final TemporaryBinding readTemporaryBinding;
 	private final TemporaryBinding writeTemporaryBinding;
+	private final Map<UID, PlusCalVariableDeclaration> arguments;
+	private final Map<UID, TLAGeneralIdentifier> params;
+	private final Map<UID, ModularPlusCalMappingMacro> mappings;
+	private final Set<UID> refs;
 	private final Map<UID, Set<UID>> labelsToVarReads;
 	private final Map<UID, Set<UID>> labelsToVarWrites;
-	private final Map<UID, PlusCalVariableDeclaration> arguments;
-	private final Map<UID, TLAExpression> params;
-	private final Map<UID, ModularPlusCalMapping> mappings;
 
-	ModularPlusCalCodeGenVisitor(DefinitionRegistry registry, TemporaryBinding readTemporaryBinding,
-	                             TemporaryBinding writeTemporaryBinding, Map<UID, Set<UID>> labelsToVarReads,
+	ModularPlusCalCodeGenVisitor(DefinitionRegistry registry, Map<UID, Set<UID>> labelsToVarReads,
 	                             Map<UID, Set<UID>> labelsToVarWrites, Map<UID, PlusCalVariableDeclaration> arguments,
-	                             Map<UID, TLAExpression> params, Map<UID, ModularPlusCalMapping> mappings) {
+	                             Map<UID, TLAGeneralIdentifier> params, Map<UID, ModularPlusCalMappingMacro> mappings,
+	                             Set<UID> refs, TemporaryBinding readTemporaryBinding,
+	                             TemporaryBinding writeTemporaryBinding) {
 		this.registry = registry;
-		this.readTemporaryBinding = readTemporaryBinding;
-		this.writeTemporaryBinding = writeTemporaryBinding;
 		this.labelsToVarReads = labelsToVarReads;
 		this.labelsToVarWrites = labelsToVarWrites;
 		this.arguments = arguments;
 		this.params = params;
 		this.mappings = mappings;
+		this.refs = refs;
+		this.readTemporaryBinding = readTemporaryBinding;
+		this.writeTemporaryBinding = writeTemporaryBinding;
 	}
 
 	private List<PlusCalStatement> substituteStatements(List<PlusCalStatement> statements) {
@@ -61,16 +64,12 @@ public class ModularPlusCalCodeGenVisitor
 		}
 		for (UID varUID : touchedVariables) {
 			// only write back written refs
-			TLAExpression value = params.get(varUID);
-			if (writeTemporaryBinding.lookup(varUID).isPresent() && value instanceof TLARef) {
-				TLAGeneralIdentifier lhs = new TLAGeneralIdentifier(
-						labelLocation,
-						new TLAIdentifier(labelLocation, ((TLARef) value).getTarget()),
-						Collections.emptyList());
+			TLAGeneralIdentifier variable = params.get(varUID);
+			if (writeTemporaryBinding.lookup(varUID).isPresent() && refs.contains(varUID)) {
 				TLAGeneralIdentifier rhs = writeTemporaryBinding.lookup(varUID).get();
 				statements.add(new PlusCalAssignment(
 						labelLocation,
-						Collections.singletonList(new PlusCalAssignmentPair(labelLocation, lhs, rhs))));
+						Collections.singletonList(new PlusCalAssignmentPair(labelLocation, variable, rhs))));
 			}
 			// clean up
 			readTemporaryBinding.reuse(varUID);
@@ -126,15 +125,10 @@ public class ModularPlusCalCodeGenVisitor
 						location,
 						Collections.singletonList(new PlusCalAssignmentPair(location, writeVar, writes.get(varUID)))));
 			} else {
-				TLAExpression value = params.get(varUID);
-				TLAGeneralIdentifier variable = value instanceof TLARef
-						? new TLAGeneralIdentifier(
-						location,
-						new TLAIdentifier(location, ((TLARef) value).getTarget()),
-						Collections.emptyList())
-						: (TLAGeneralIdentifier) value;
 				output.add(new PlusCalAssignment(
-						location, Collections.singletonList(new PlusCalAssignmentPair(location, writeVar, variable))));
+						location,
+						Collections.singletonList(new PlusCalAssignmentPair(
+								location, writeVar, params.get(varUID)))));
 			}
 		}
 	}
@@ -234,22 +228,11 @@ public class ModularPlusCalCodeGenVisitor
 				continue;
 			}
 			UID varUID = registry.followReference(lhs.getUID());
-			if (!arguments.containsKey(varUID)) {
+			if (!arguments.containsKey(varUID) || !mappings.containsKey(varUID)) {
 				assignmentHelper(location, lhs, rhs, result);
 				continue;
 			}
-			TLAExpression value = params.get(varUID);
-			UID valueUID = registry.followReference(value.getUID());
-			if (!mappings.containsKey(valueUID)) {
-				assignmentHelper(location, lhs, rhs, result);
-				continue;
-			}
-			TLAGeneralIdentifier variable = value instanceof TLARef
-					? new TLAGeneralIdentifier(
-					location,
-					new TLAIdentifier(location, ((TLARef) value).getTarget()),
-					Collections.emptyList())
-					: (TLAGeneralIdentifier) value;
+			TLAGeneralIdentifier variable = params.get(varUID);
 			ModularPlusCalMappingMacroWriteExpansionVisitor visitor =
 					new ModularPlusCalMappingMacroWriteExpansionVisitor(
 							readTemporaryBinding,
@@ -258,7 +241,7 @@ public class ModularPlusCalCodeGenVisitor
 							arguments.get(varUID).getName().getValue() + "Write",
 							new TLAExpressionMappingMacroWriteExpansionVisitor(
 									registry, readTemporaryBinding, writeTemporaryBinding, varUID, variable, rhs));
-			for (PlusCalStatement statement : registry.findMappingMacro(mappings.get(valueUID).getTarget().getName()).getWriteBody()) {
+			for (PlusCalStatement statement : mappings.get(varUID).getWriteBody()) {
 				result.addAll(statement.accept(visitor));
 			}
 		}
