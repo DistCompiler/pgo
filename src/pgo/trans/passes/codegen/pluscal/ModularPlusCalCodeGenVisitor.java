@@ -244,13 +244,14 @@ public class ModularPlusCalCodeGenVisitor
 		List<PlusCalAssignmentPair> pairs = plusCalAssignment.getPairs();
 		List<TLAExpression> rhsList = new ArrayList<>();
 		if (pairs.size() > 1) {
+			TLAExpressionPlusCalCodeGenVisitor visitor = new TLAExpressionPlusCalCodeGenVisitor(
+					registry, arguments, params, mappings, readTemporaryBinding, writeTemporaryBinding, result);
 			// read the RHS into temporary variables for use later so that parallel assignment works right
 			for (PlusCalAssignmentPair pair : pairs) {
 				SourceLocation location = pair.getLocation();
 				TLAExpression rhs = pair.getRhs();
 				TLAGeneralIdentifier tempVariable = readTemporaryBinding.declare(location, new UID(), "rhsRead");
-				TLAExpression transformedRHS = rhs.accept(new TLAExpressionPlusCalCodeGenVisitor(
-						registry, arguments, params, mappings, readTemporaryBinding, writeTemporaryBinding, result));
+				TLAExpression transformedRHS = rhs.accept(visitor);
 				result.add(new PlusCalAssignment(
 						location,
 						Collections.singletonList(new PlusCalAssignmentPair(location, tempVariable, transformedRHS))));
@@ -343,15 +344,15 @@ public class ModularPlusCalCodeGenVisitor
 	public List<PlusCalStatement> visit(PlusCalWith plusCalWith) throws RuntimeException {
 		List<PlusCalStatement> result = new ArrayList<>();
 		List<PlusCalVariableDeclaration> declarations = new ArrayList<>();
+		TLAExpressionPlusCalCodeGenVisitor visitor = new TLAExpressionPlusCalCodeGenVisitor(
+				registry, arguments, params, mappings, readTemporaryBinding, writeTemporaryBinding, result);
 		for (PlusCalVariableDeclaration declaration : plusCalWith.getVariables()) {
 			declarations.add(new PlusCalVariableDeclaration(
 					declaration.getLocation(),
 					declaration.getName(),
 					false,
 					declaration.isSet(),
-					declaration.getValue().accept(new TLAExpressionPlusCalCodeGenVisitor(
-							registry, arguments, params, mappings, readTemporaryBinding, writeTemporaryBinding,
-							result))));
+					declaration.getValue().accept(visitor)));
 		}
 		result.add(new PlusCalWith(
 				plusCalWith.getLocation(), declarations, substituteStatements(plusCalWith.getBody())));
