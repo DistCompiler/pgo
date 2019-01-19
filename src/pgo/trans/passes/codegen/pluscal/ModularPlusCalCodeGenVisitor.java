@@ -81,18 +81,6 @@ public class ModularPlusCalCodeGenVisitor
 				statements));
 	}
 
-	@Override
-	public List<PlusCalStatement> visit(PlusCalWhile plusCalWhile) throws RuntimeException {
-		List<PlusCalStatement> result = new ArrayList<>();
-		TLAExpression condition = plusCalWhile.getCondition().accept(new TLAExpressionPlusCalCodeGenVisitor(
-				registry, arguments, params, mappings, readTemporaryBinding, writeTemporaryBinding, result));
-		result.add(new PlusCalWhile(
-				plusCalWhile.getLocation(),
-				condition,
-				substituteStatements(plusCalWhile.getBody())));
-		return result;
-	}
-
 	private Map<UID, TLAGeneralIdentifier> getFinalWrites(Set<UID> touchedVars) {
 		Map<UID, TLAGeneralIdentifier> result = new HashMap<>();
 		for (UID varUID : touchedVars) {
@@ -134,8 +122,31 @@ public class ModularPlusCalCodeGenVisitor
 	}
 
 	@Override
+	public List<PlusCalStatement> visit(PlusCalWhile plusCalWhile) throws RuntimeException {
+		SourceLocation location = plusCalWhile.getLocation();
+
+		List<PlusCalStatement> result = new ArrayList<>();
+		TLAExpression condition = plusCalWhile.getCondition().accept(new TLAExpressionPlusCalCodeGenVisitor(
+				registry, arguments, params, mappings, readTemporaryBinding, writeTemporaryBinding, result));
+
+		Map<UID, TLAGeneralIdentifier> touchedVars = new LinkedHashMap<>();
+		writeTemporaryBinding.startRecording();
+		List<PlusCalStatement> body = substituteStatements(plusCalWhile.getBody());
+		Set<UID> touchedVarUIDs = writeTemporaryBinding.stopRecording();
+		Map<UID, TLAGeneralIdentifier> writes = getFinalWrites(touchedVarUIDs);
+
+		declareJoinNames(location, touchedVarUIDs, touchedVars);
+		writeJoinAssignments(location, touchedVars, writes, body);
+		writeJoinAssignments(location, touchedVars, Collections.emptyMap(), result);
+
+		result.add(new PlusCalWhile(plusCalWhile.getLocation(), condition, body));
+		return result;
+	}
+
+	@Override
 	public List<PlusCalStatement> visit(PlusCalIf plusCalIf) throws RuntimeException {
 		SourceLocation location = plusCalIf.getLocation();
+
 		List<PlusCalStatement> result = new ArrayList<>();
 		TLAExpression condition = plusCalIf.getCondition().accept(new TLAExpressionPlusCalCodeGenVisitor(
 				registry, arguments, params, mappings, readTemporaryBinding, writeTemporaryBinding, result));
@@ -290,7 +301,8 @@ public class ModularPlusCalCodeGenVisitor
 							registry, arguments, params, mappings, readTemporaryBinding, writeTemporaryBinding,
 							result))));
 		}
-		result.add(new PlusCalWith(plusCalWith.getLocation(), declarations, substituteStatements(plusCalWith.getBody())));
+		result.add(new PlusCalWith(
+				plusCalWith.getLocation(), declarations, substituteStatements(plusCalWith.getBody())));
 		return result;
 	}
 
