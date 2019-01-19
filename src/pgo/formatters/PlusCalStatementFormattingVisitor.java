@@ -54,9 +54,9 @@ public class PlusCalStatementFormattingVisitor extends PlusCalStatementVisitor<V
 				out.newLine();
 				stmt.accept(new PlusCalStatementFormattingVisitor(out));
 			}
-			out.newLine();
-			out.write("}");
 		}
+		out.newLine();
+		out.write("}");
 		if (!plusCalIf.getNo().isEmpty()) {
 			out.write(" else {");
 			try (IndentingWriter.Indent ignored = out.indent()) {
@@ -64,9 +64,9 @@ public class PlusCalStatementFormattingVisitor extends PlusCalStatementVisitor<V
 					out.newLine();
 					stmt.accept(new PlusCalStatementFormattingVisitor(out));
 				}
-				out.newLine();
-				out.write("}");
 			}
+			out.newLine();
+			out.write("}");
 		}
 		out.write(";");
 		return null;
