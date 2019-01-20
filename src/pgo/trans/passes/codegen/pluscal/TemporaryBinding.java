@@ -17,14 +17,14 @@ public class TemporaryBinding {
 	private final NameCleaner nameCleaner;
 	private final Map<UID, Recycling<TLAGeneralIdentifier>> temporaries;
 	private final List<PlusCalVariableDeclaration> declarations;
-	private Set<UID> touchedVars;
+	private Map<UID, TLAGeneralIdentifier> touchedVars;
 	private boolean recording;
 
 	public TemporaryBinding(NameCleaner nameCleaner, List<PlusCalVariableDeclaration> declarations) {
 		this.nameCleaner = nameCleaner;
 		this.temporaries = new HashMap<>();
 		this.declarations = declarations;
-		this.touchedVars = new LinkedHashSet<>();
+		this.touchedVars = new LinkedHashMap<>();
 		this.recording = false;
 	}
 
@@ -44,13 +44,13 @@ public class TemporaryBinding {
 
 	public TLAGeneralIdentifier forceDeclare(SourceLocation location, UID varUID, String nameHint,
 	                                         TLAExpression value) {
-		if (recording) {
-			touchedVars.add(varUID);
-		}
 		TLAGeneralIdentifier fresh = freshVariable(location, varUID, nameHint);
 		PlusCalVariableDeclaration declaration = new PlusCalVariableDeclaration(
 				location, new Located<>(location, fresh.getName().getId()), false, false, value);
 		declarations.add(declaration);
+		if (recording) {
+			touchedVars.put(varUID, fresh);
+		}
 		return fresh;
 	}
 
@@ -59,11 +59,15 @@ public class TemporaryBinding {
 	}
 
 	public TLAGeneralIdentifier declare(SourceLocation location, UID varUID, String nameHint, TLAExpression value) {
-		if (recording) {
-			touchedVars.add(varUID);
-		}
 		if (temporaries.containsKey(varUID)) {
-			return temporaries.get(varUID).use().orElseGet(() -> forceDeclare(location, varUID, nameHint, value));
+			Optional<TLAGeneralIdentifier> optionalResult = temporaries.get(varUID).use();
+			if (optionalResult.isPresent()) {
+				if (recording) {
+					touchedVars.put(varUID, optionalResult.get());
+				}
+				return optionalResult.get();
+			}
+			return forceDeclare(location, varUID, nameHint, value);
 		}
 		return forceDeclare(location, varUID, nameHint, value);
 	}
@@ -83,13 +87,13 @@ public class TemporaryBinding {
 	}
 
 	public void startRecording() {
-		touchedVars = new LinkedHashSet<>();
+		touchedVars = new LinkedHashMap<>();
 		recording = true;
 	}
 
-	public Set<UID> stopRecording() {
-		Set<UID> result = touchedVars;
-		touchedVars = new LinkedHashSet<>();
+	public Map<UID, TLAGeneralIdentifier> stopRecording() {
+		Map<UID, TLAGeneralIdentifier> result = touchedVars;
+		touchedVars = new LinkedHashMap<>();
 		recording = false;
 		return result;
 	}

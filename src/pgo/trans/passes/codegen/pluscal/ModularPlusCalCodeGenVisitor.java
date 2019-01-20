@@ -82,19 +82,15 @@ public class ModularPlusCalCodeGenVisitor
 				statements));
 	}
 
-	private Map<UID, TLAGeneralIdentifier> getFinalWrites(Set<UID> touchedVars) {
-		Map<UID, TLAGeneralIdentifier> result = new HashMap<>();
-		for (UID varUID : touchedVars) {
-			if (params.containsKey(varUID)) {
-				result.put(varUID, writeTemporaryBinding.lookup(varUID).get());
-				writeTemporaryBinding.reuse(varUID);
-			}
+	private <T> void reuseWrites(Map<UID, T> touchedVars) {
+		for (UID varUID : touchedVars.keySet()) {
+			writeTemporaryBinding.reuse(varUID);
 		}
-		return result;
 	}
 
-	private void declareJoinNames(SourceLocation location, Set<UID> varUIDs, Map<UID, TLAGeneralIdentifier> output) {
-		for (UID varUID : varUIDs) {
+	private <T> void declareJoinNames(SourceLocation location, Map<UID, T> varUIDs,
+	                              Map<UID, TLAGeneralIdentifier> output) {
+		for (UID varUID : varUIDs.keySet()) {
 			if (params.containsKey(varUID) && !output.containsKey(varUID)) {
 				output.put(
 						varUID,
@@ -134,10 +130,10 @@ public class ModularPlusCalCodeGenVisitor
 		Map<UID, TLAGeneralIdentifier> touchedVars = new LinkedHashMap<>();
 		writeTemporaryBinding.startRecording();
 		List<PlusCalStatement> body = substituteStatements(plusCalWhile.getBody());
-		Set<UID> touchedVarUIDs = writeTemporaryBinding.stopRecording();
-		Map<UID, TLAGeneralIdentifier> writes = getFinalWrites(touchedVarUIDs);
+		Map<UID, TLAGeneralIdentifier> writes = writeTemporaryBinding.stopRecording();
+		reuseWrites(writes);
 
-		declareJoinNames(location, touchedVarUIDs, touchedVars);
+		declareJoinNames(location, writes, touchedVars);
 		writeJoinAssignments(location, touchedVars, writes, body);
 		writeJoinAssignments(location, touchedVars, Collections.emptyMap(), result);
 
@@ -156,17 +152,16 @@ public class ModularPlusCalCodeGenVisitor
 
 		writeTemporaryBinding.startRecording();
 		List<PlusCalStatement> yes = substituteStatements(plusCalIf.getYes());
-		Set<UID> yesTouchedVars = writeTemporaryBinding.stopRecording();
-		Map<UID, TLAGeneralIdentifier> yesWrites = getFinalWrites(yesTouchedVars);
+		Map<UID, TLAGeneralIdentifier> yesWrites = writeTemporaryBinding.stopRecording();
 
 		writeTemporaryBinding.startRecording();
 		List<PlusCalStatement> no = substituteStatements(plusCalIf.getNo());
-		Set<UID> noTouchedVars = writeTemporaryBinding.stopRecording();
-		Map<UID, TLAGeneralIdentifier> noWrites = getFinalWrites(noTouchedVars);
+		Map<UID, TLAGeneralIdentifier> noWrites = writeTemporaryBinding.stopRecording();
+		reuseWrites(noWrites);
 
 		Map<UID, TLAGeneralIdentifier> touchedVars = new LinkedHashMap<>();
-		declareJoinNames(location, yesTouchedVars, touchedVars);
-		declareJoinNames(location, noTouchedVars, touchedVars);
+		declareJoinNames(location, yesWrites, touchedVars);
+		declareJoinNames(location, noWrites, touchedVars);
 		writeJoinAssignments(location, touchedVars, yesWrites, yes);
 		writeJoinAssignments(location, touchedVars, noWrites, no);
 
@@ -179,17 +174,16 @@ public class ModularPlusCalCodeGenVisitor
 		SourceLocation location = plusCalEither.getLocation();
 		List<List<PlusCalStatement>> transformedCases = new ArrayList<>();
 		List<Map<UID, TLAGeneralIdentifier>> writesList = new ArrayList<>();
-		List<Set<UID>> touchedVarsList = new ArrayList<>();
 		List<List<PlusCalStatement>> cases = plusCalEither.getCases();
 		for (List<PlusCalStatement> aCase : cases) {
 			writeTemporaryBinding.startRecording();
 			transformedCases.add(substituteStatements(aCase));
-			Set<UID> touchedVars = writeTemporaryBinding.stopRecording();
-			writesList.add(getFinalWrites(touchedVars));
-			touchedVarsList.add(touchedVars);
+			Map<UID, TLAGeneralIdentifier> touchedVars = writeTemporaryBinding.stopRecording();
+			reuseWrites(touchedVars);
+			writesList.add(touchedVars);
 		}
 		Map<UID, TLAGeneralIdentifier> touchedVars = new LinkedHashMap<>();
-		for (Set<UID> uids : touchedVarsList) {
+		for (Map<UID, TLAGeneralIdentifier> uids : writesList) {
 			declareJoinNames(location, uids, touchedVars);
 		}
 		for (int i = 0; i < transformedCases.size(); i++) {
