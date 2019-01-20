@@ -359,7 +359,7 @@ public class ModularPlusCalCodeGenVisitor
 		TLAExpression expression = plusCalAssert.getCondition().accept(new TLAExpressionPlusCalCodeGenVisitor(
 				registry, arguments, params, mappings, functionMappedVars, readTemporaryBinding, writeTemporaryBinding,
 				result));
-		result.add(new PlusCalPrint(plusCalAssert.getLocation(), expression));
+		result.add(new PlusCalAssert(plusCalAssert.getLocation(), expression));
 		return result;
 	}
 
