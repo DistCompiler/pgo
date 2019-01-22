@@ -21,7 +21,7 @@ import static pgo.model.mpcal.ModularPlusCalBuilder.*;
 import static pgo.model.tla.TLABuilder.*;
 
 @RunWith(Parameterized.class)
-public class ModularPlusCalLabelingRulesTest {
+public class ModularPlusCalValidationPassTest {
 
 	@Parameters
 	public static List<Object[]> data() {
@@ -56,25 +56,26 @@ public class ModularPlusCalLabelingRulesTest {
 												Collections.singletonList(pcalVarDecl(
 														"x", true, false, PLUSCAL_DEFAULT_INIT_VALUE)),
 												Collections.emptyList(),
-												new ArrayList<PlusCalStatement>() {{
-													add(labeled(
-															label("l1"),
-															printS(binop("+", num(1), num(1))))
-													);
+												Arrays.asList(
+														labeled(
+																label("l1"),
+																printS(binop("+", num(1), num(1)))
+														),
 
-													add(labeled(
-															label("l2"),
-															either(new ArrayList<List<PlusCalStatement>>() {{
-																add(Collections.singletonList(
-																		assign(idexp("x"), num(10))
-																));
-
-																add(Collections.singletonList(
-																		assign(idexp("x"), num(20))
-																));
-															}})
-													));
-												}}
+														labeled(
+																label("l2"),
+																either (
+																		Arrays.asList(
+																				Collections.singletonList(
+																						assign(idexp("x"), num(10))
+																				),
+																				Collections.singletonList(
+																						assign(idexp("x"), num(20))
+																				)
+																		)
+																)
+														)
+												)
 										)
 								),
 								Collections.emptyList(),
@@ -230,53 +231,45 @@ public class ModularPlusCalLabelingRulesTest {
 								"MoreThanOneIssue",
 								Collections.emptyList(),
 								Collections.emptyList(),
-								new ArrayList<ModularPlusCalArchetype>() {{
-									add(
-											archetype(
-													"ValidArchetype",
-													Collections.emptyList(),
-													Collections.emptyList(),
-													Collections.singletonList(
-															labeled(
-																	label("l1"),
-																	printS(binop("+",num(1), num(1)))
-															)
-													)
-											)
-									);
-									add(
-											archetype(
-													"InvalidArchetype",
-													Collections.emptyList(),
-													Collections.emptyList(),
-													Collections.singletonList(
-															printS(str("invalid archetype!"))
-													)
-											)
-									);
-								}},
+								Arrays.asList(
+										archetype(
+												"ValidArchetype",
+												Collections.emptyList(),
+												Collections.emptyList(),
+												Collections.singletonList(
+														labeled(
+																label("l1"),
+																printS(binop("+",num(1), num(1)))
+														)
+												)
+										),
+										archetype(
+												"InvalidArchetype",
+												Collections.emptyList(),
+												Collections.emptyList(),
+												Collections.singletonList(
+														printS(str("invalid archetype!"))
+												)
+										)
+								),
 								Collections.emptyList(),
-								new ArrayList<PlusCalProcedure>() {{
-									add(
-											procedure(
-													"ValidProcedure",
-													Collections.emptyList(),
-													Collections.emptyList(),
-													labeled(
-															label("l2"),
-															printS(binop("-", num(3), num(3)))
-													)
-											)
-									);
-									add(
-											procedure(
-													"InvalidProcedure",
-													Collections.emptyList(),
-													Collections.emptyList(),
-													printS(str("invalid procedure!"))
-											)
-									);
-								}},
+								Arrays.asList(
+										procedure(
+												"ValidProcedure",
+												Collections.emptyList(),
+												Collections.emptyList(),
+												labeled(
+														label("l2"),
+														printS(binop("-", num(3), num(3)))
+												)
+										),
+										procedure(
+												"InvalidProcedure",
+												Collections.emptyList(),
+												Collections.emptyList(),
+												printS(str("invalid procedure!"))
+										)
+								),
 								Collections.emptyList(),
 								Collections.emptyList(),
 								process(
@@ -295,11 +288,12 @@ public class ModularPlusCalLabelingRulesTest {
 										printS(str("invalid process!"))
 								)
 						),
-						new ArrayList<Issue>() {{
-							add(new MissingLabelIssue(printS(str("invalid archetype!"))));
-							add(new MissingLabelIssue(printS(str("invalid procedure!"))));
-							add(new MissingLabelIssue(printS(str("invalid process!"))));
-						}},
+
+						Arrays.asList(
+								new MissingLabelIssue(printS(str("invalid archetype!"))),
+								new MissingLabelIssue(printS(str("invalid procedure!"))),
+								new MissingLabelIssue(printS(str("invalid process!")))
+						)
 				},
 
 				// --mpcal WhileLabels {
@@ -327,18 +321,12 @@ public class ModularPlusCalLabelingRulesTest {
 												"IncorrectArchetype",
 												Collections.emptyList(),
 												Collections.emptyList(),
-												new ArrayList<PlusCalStatement>() {{
-													add(
-															labeled(label("l1"),
-																	printS(str("first label")))
-													);
-
-													add(
-															whileS(bool(true), Collections.singletonList(
-																	printS(str("hello"))
-															))
-													);
-												}}
+												Arrays.asList(
+														labeled(label("l1"), printS(str("first label"))),
+														whileS(bool(true), Collections.singletonList(
+																printS(str("hello"))
+														))
+												)
 										)
 								),
 								Collections.emptyList(),
@@ -363,23 +351,18 @@ public class ModularPlusCalLabelingRulesTest {
 										)
 								)
 						),
-						new ArrayList<Issue>() {{
-							add(
-									new MissingLabelIssue(
-											whileS(bool(true), Collections.singletonList(
-													printS(str("hello"))
-											))
-									)
-							);
-
-							add(
-									new MissingLabelIssue(
-											whileS(binop("<", num(10), num(20)), Collections.singletonList(
-													printS(binop("*", num(2), num(2))))
-											)
-									)
-							);
-						}},
+						Arrays.asList(
+								new MissingLabelIssue(
+										whileS(bool(true), Collections.singletonList(
+												printS(str("hello"))
+										))
+								),
+								new MissingLabelIssue(
+										whileS(binop("<", num(10), num(20)), Collections.singletonList(
+												printS(binop("*", num(2), num(2))))
+										)
+								)
+						)
 				},
 
 				// --mpcal CallLabelingRules {
@@ -414,15 +397,11 @@ public class ModularPlusCalLabelingRulesTest {
 												"MyArchetype",
 												Collections.emptyList(),
 												Collections.emptyList(),
-												new ArrayList<PlusCalStatement>() {{
-													add(
-															labeled(label("l1"),
-																	printS(str("first label")))
-													);
-
-													add(call("MyProcedure"));
-													add(call("MyProcedure"));
-												}}
+												Arrays.asList(
+														labeled(label("l1"), printS(str("first label"))),
+														call("MyProcedure"),
+														call("MyProcedure")
+												)
 										)
 								),
 								Collections.emptyList(),
@@ -450,11 +429,13 @@ public class ModularPlusCalLabelingRulesTest {
 										assign(idexp("x"), num(10))
 								)
 						),
-						new ArrayList<Issue>() {{
-							add(new MissingLabelIssue(call("MyProcedure")));
-							add(new MissingLabelIssue(assign(idexp("x"), num(10))));
-						}},
+
+						Arrays.asList(
+								new MissingLabelIssue(call("MyProcedure")),
+								new MissingLabelIssue(assign(idexp("x"), num(10)))
+						)
 				},
+
 				// --mpcal ReturnGotoLabelingRules {
 				//	 archetype MyArchetype() {
 				//		 l1: print "first label";
@@ -484,15 +465,11 @@ public class ModularPlusCalLabelingRulesTest {
 												"MyArchetype",
 												Collections.emptyList(),
 												Collections.emptyList(),
-												new ArrayList<PlusCalStatement>() {{
-													add(
-															labeled(label("l1"),
-																	printS(str("first label")))
-													);
-
-													add(gotoS("l1"));
-													add(printS(str("needs label")));
-												}}
+												Arrays.asList(
+														labeled(label("l1"), printS(str("first label"))),
+														gotoS("l1"),
+														printS(str("needs label"))
+												)
 										)
 								),
 								Collections.emptyList(),
@@ -517,11 +494,12 @@ public class ModularPlusCalLabelingRulesTest {
 										assign(idexp("x"), num(10))
 								)
 						),
-						new ArrayList<Issue>() {{
-							add(new MissingLabelIssue(printS(str("needs label"))));
-							add(new MissingLabelIssue(gotoS("l2")));
-							add(new MissingLabelIssue(assign(idexp("x"), num(10))));
-						}},
+
+						Arrays.asList(
+								new MissingLabelIssue(printS(str("needs label"))),
+								new MissingLabelIssue(gotoS("l2")),
+								new MissingLabelIssue(assign(idexp("x"), num(10)))
+						)
 				},
 
 				// --mpcal IfEitherLabelingRules {
@@ -566,21 +544,19 @@ public class ModularPlusCalLabelingRulesTest {
 												"MyArchetype",
 												Collections.emptyList(),
 												Collections.emptyList(),
-												new ArrayList<PlusCalStatement>() {{
-													add(
-															labeled(label("l1"),
-																	printS(str("first label")),
-																	ifS(bool(true), Collections.singletonList(
-																			printS(str("true"))
-																	), Collections.singletonList(
-																			ifS(bool(true), Collections.singletonList(
-																					call("MyProcedure")
-																			), Collections.emptyList())
-																	))
-															)
-													);
-													add(printS(str("needs label")));
-												}}
+												Arrays.asList(
+														labeled(label("l1"),
+																printS(str("first label")),
+																ifS(bool(true), Collections.singletonList(
+																		printS(str("true"))
+																), Collections.singletonList(
+																		ifS(bool(true), Collections.singletonList(
+																				call("MyProcedure")
+																		), Collections.emptyList())
+																))
+														),
+														printS(str("needs label"))
+												)
 										)
 								),
 								Collections.emptyList(),
@@ -591,15 +567,10 @@ public class ModularPlusCalLabelingRulesTest {
 												Collections.emptyList(),
 												labeled(label("l2"),
 														printS(str("procedure")),
-														either(new ArrayList<List<PlusCalStatement>>() {{
-															add(Collections.singletonList(
-																	assign(idexp("v"), num(10))
-															));
-
-															add(Collections.singletonList(
-																	returnS()
-															));
-														}}),
+														either(Arrays.asList(
+																Collections.singletonList(assign(idexp("v"), num(10))),
+																Collections.singletonList(returnS())
+														)),
 														gotoS("l2"))
 										)
 								),
@@ -610,25 +581,15 @@ public class ModularPlusCalLabelingRulesTest {
 										PlusCalFairness.WEAK_FAIR,
 										Collections.emptyList(),
 										labeled(label("l3"), printS(str("process"))),
-										either(new ArrayList<List<PlusCalStatement>>() {{
-											add(Collections.singletonList(
-													assign(idexp("x"), num(0))
-											));
-
-											add(Collections.singletonList(
-													gotoS("l3")
-											));
-										}}),
+										either(Arrays.asList(
+												Collections.singletonList(assign(idexp("x"), num(0))),
+												Collections.singletonList(gotoS("l3"))
+										)),
 										labeled(label("l4"), printS(str("all good"))),
-										either(new ArrayList<List<PlusCalStatement>>() {{
-											add(Collections.singletonList(
-													gotoS("l4")
-											));
-
-											add(Collections.singletonList(
-													skip()
-											));
-										}}),
+										either(Arrays.asList(
+												Collections.singletonList(gotoS("l4")),
+												Collections.singletonList(skip())
+										)),
 										assign(idexp("x"), num(50)),
 										labeled(label("l5"), ifS(bool(true), Collections.singletonList(
 												labeled(label("l6"), printS(str("label")))
@@ -636,12 +597,13 @@ public class ModularPlusCalLabelingRulesTest {
 										assign(idexp("y"), num(20))
 								)
 						),
-						new ArrayList<Issue>() {{
-							add(new MissingLabelIssue(printS(str("needs label"))));
-							add(new MissingLabelIssue(gotoS("l2")));
-							add(new MissingLabelIssue(assign(idexp("x"), num(50))));
-							add(new MissingLabelIssue(assign(idexp("y"), num(20))));
-						}},
+
+						Arrays.asList(
+								new MissingLabelIssue(printS(str("needs label"))),
+								new MissingLabelIssue(gotoS("l2")),
+								new MissingLabelIssue(assign(idexp("x"), num(50))),
+								new MissingLabelIssue(assign(idexp("y"), num(20)))
+						)
 				},
 
 				// --mpcal MacroRules {
@@ -661,34 +623,32 @@ public class ModularPlusCalLabelingRulesTest {
 								Collections.emptyList(),
 								Collections.emptyList(),
 								Collections.emptyList(),
-								new ArrayList<PlusCalMacro>() {{
-									add(macro(
-											"ValidMacro",
-											Collections.emptyList(),
-											printS(binop("+", num(1), num(1))),
-											assign(idexp("x"), num(10))
-									));
-
-									add(macro(
-											"InvalidMacro",
-											Collections.emptyList(),
-											either(new ArrayList<List<PlusCalStatement>>() {{
-												add(Collections.singletonList(skip()));
-												add(Collections.singletonList(
-														labeled(label("l1"), assign(idexp("y"), num(10)))
-												));
-											}}),
-											labeled(label("l2"), assign(idexp("y"), num(20)))
-									));
-								}},
+								Arrays.asList(
+										macro(
+												"ValidMacro",
+												Collections.emptyList(),
+												printS(binop("+", num(1), num(1))),
+												assign(idexp("x"), num(10))
+										),
+										macro(
+												"InvalidMacro",
+												Collections.emptyList(),
+												either(Arrays.asList(
+														Collections.singletonList(skip()),
+														Collections.singletonList(labeled(label("l1"), assign(idexp("y"), num(10))))
+												)),
+												labeled(label("l2"), assign(idexp("y"), num(20)))
+										)
+								),
 								Collections.emptyList(),
 								Collections.emptyList(),
 								Collections.emptyList()
 						),
-						new ArrayList<Issue>() {{
-							add(new LabelNotAllowedIssue(labeled(label("l1"), assign(idexp("y"), num(10)))));
-							add(new LabelNotAllowedIssue(labeled(label("l2"), assign(idexp("y"), num(20)))));
-						}},
+
+						Arrays.asList(
+								new LabelNotAllowedIssue(labeled(label("l1"), assign(idexp("y"), num(10)))),
+								new LabelNotAllowedIssue(labeled(label("l2"), assign(idexp("y"), num(20))))
+						)
 				},
 
 				// --mpcal WithRules {
@@ -744,12 +704,14 @@ public class ModularPlusCalLabelingRulesTest {
 								Collections.emptyList(),
 								Collections.emptyList()
 						),
-						new ArrayList<Issue>() {{
-							add(new LabelNotAllowedIssue(labeled(label("m1"), assign(idexp("x"), num(20)))));
-							add(new LabelNotAllowedIssue(labeled(label("m2"), assign(idexp("y"), num(20)))));
-							add(new LabelNotAllowedIssue(labeled(label("l2"), printS(idexp("x")))));
-						}},
+
+						Arrays.asList(
+								new LabelNotAllowedIssue(labeled(label("m1"), assign(idexp("x"), num(20)))),
+								new LabelNotAllowedIssue(labeled(label("m2"), assign(idexp("y"), num(20)))),
+								new LabelNotAllowedIssue(labeled(label("l2"), printS(idexp("x"))))
+						)
 				},
+
 				// --mpcal AssignmentRules {
 				//	 archetype MyArchetype(ref x) {
 				//		 a1: x := 10;
@@ -792,14 +754,13 @@ public class ModularPlusCalLabelingRulesTest {
 												Collections.singletonList(pcalVarDecl(
 														"x", true, false, PLUSCAL_DEFAULT_INIT_VALUE)),
 												Collections.emptyList(),
-												new ArrayList<PlusCalStatement>() {{
-													add(
-															labeled(
-																	label("a1"),
-																	assign(idexp("x"), num(10)),
-																	assign(idexp("x"), num(11))
-															));
-												}}
+												Collections.singletonList(
+														labeled(
+																label("a1"),
+																assign(idexp("x"), num(10)),
+																assign(idexp("x"), num(11))
+														)
+												)
 										)
 								),
 								Collections.emptyList(),
@@ -812,13 +773,10 @@ public class ModularPlusCalLabelingRulesTest {
 												Collections.emptyList(),
 												labeled(
 														label("p"),
-														either(new ArrayList<List<PlusCalStatement>>() {{
-															add(Collections.singletonList(
-																	assign(idexp("y"), num(10))
-															));
-
-															add(Collections.singletonList(skip()));
-														}}),
+														either(Arrays.asList(
+																Collections.singletonList(assign(idexp("y"), num(10))),
+																Collections.singletonList(skip())
+														)),
 														assign(idexp("y"), num(11))
 												),
 												labeled(
@@ -840,19 +798,14 @@ public class ModularPlusCalLabelingRulesTest {
 												label("l2"),
 												whileS(
 														binop("<", idexp("x"), num(10)),
-														new ArrayList<PlusCalStatement>() {{
-															add(
-																	assign(idexp("n"), num(12))
-															);
-
-															add(
-																	ifS(
-																			binop("=", idexp("n"), num(20)),
-																			Collections.singletonList(assign(idexp("n"), num(100))),
-																			Collections.emptyList()
-																	)
-															);
-														}}
+														Arrays.asList(
+																assign(idexp("n"), num(12)),
+																ifS(
+																		binop("=", idexp("n"), num(20)),
+																		Collections.singletonList(assign(idexp("n"), num(100))),
+																		Collections.emptyList()
+																)
+														)
 												),
 												assign(idexp("n"), num(32))
 										),
@@ -867,13 +820,13 @@ public class ModularPlusCalLabelingRulesTest {
 										)
 								)
 						),
-						new ArrayList<Issue>() {{
-							add(new MissingLabelIssue(assign(idexp("x"), num(11))));
-							add(new MissingLabelIssue(assign(idexp("y"), num(11))));
-							add(new MissingLabelIssue(assign(idexp("x"), idexp("y"), idexp("y"), idexp("x"))));
-							add(new MissingLabelIssue(assign(idexp("n"), num(100))));
-							add(new MissingLabelIssue(assign(idexp("n"), num(12))));
-						}},
+						Arrays.asList(
+								new MissingLabelIssue(assign(idexp("x"), num(11))),
+								new MissingLabelIssue(assign(idexp("y"), num(11))),
+								new MissingLabelIssue(assign(idexp("x"), idexp("y"), idexp("y"), idexp("x"))),
+								new MissingLabelIssue(assign(idexp("n"), num(100))),
+								new MissingLabelIssue(assign(idexp("n"), num(12)))
+						)
 				},
 
 				// --mpcal ReservedLabels {
@@ -897,11 +850,9 @@ public class ModularPlusCalLabelingRulesTest {
 												Arrays.asList(pcalVarDecl(
 														"x", true, false, PLUSCAL_DEFAULT_INIT_VALUE)),
 												Collections.emptyList(),
-												new ArrayList<PlusCalStatement>() {{
-													add(
-															labeled(label("Done"), assign(idexp("x"), num(1)))
-													);
-												}}
+												Collections.singletonList(
+														labeled(label("Done"), assign(idexp("x"), num(1)))
+												)
 										)
 								),
 								Collections.emptyList(),
@@ -913,28 +864,27 @@ public class ModularPlusCalLabelingRulesTest {
 												Collections.emptyList(),
 												labeled(
 														label("p"),
-														either(new ArrayList<List<PlusCalStatement>>() {{
-															add(Collections.singletonList(
-																	labeled(
-																			label("p1"),
-																			assign(idexp("y"), num(20))
-																	)
-															));
-
-															add(Collections.singletonList(
-																	labeled(label("Error"), skip())
-															));
-														}})
+														either(Arrays.asList(
+																Collections.singletonList(
+																		labeled(
+																				label("p1"),
+																				assign(idexp("y"), num(20))
+																		)
+																),
+																Collections.singletonList(
+																		labeled(label("Error"), skip())
+																)
+														))
 												)
 										)
 								),
 								Collections.emptyList(),
 								Collections.emptyList()
 						),
-						new ArrayList<Issue>() {{
-							add(new ReservedLabelNameIssue(labeled(label("Done"), assign(idexp("x"), num(1)))));
-							add(new ReservedLabelNameIssue(labeled(label("Error"), skip())));
-						}},
+						Arrays.asList(
+								new ReservedLabelNameIssue(labeled(label("Done"), assign(idexp("x"), num(1)))),
+								new ReservedLabelNameIssue(labeled(label("Error"), skip()))
+						)
 				},
 		});
 	}
@@ -942,7 +892,7 @@ public class ModularPlusCalLabelingRulesTest {
 	private ModularPlusCalBlock spec;
 	private List<Issue> issues;
 
-	public ModularPlusCalLabelingRulesTest(ModularPlusCalBlock spec, List<Issue> issues) {
+	public ModularPlusCalValidationPassTest(ModularPlusCalBlock spec, List<Issue> issues) {
 		this.spec = spec;
 		this.issues = issues;
 	}
