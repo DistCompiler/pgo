@@ -120,25 +120,8 @@ public class ModularPlusCalCodeGenVisitor
 
 	@Override
 	public List<PlusCalStatement> visit(PlusCalWhile plusCalWhile) throws RuntimeException {
-		SourceLocation location = plusCalWhile.getLocation();
-
-		List<PlusCalStatement> result = new ArrayList<>();
-		TLAExpression condition = plusCalWhile.getCondition().accept(new TLAExpressionPlusCalCodeGenVisitor(
-				registry, arguments, params, mappings, functionMappedVars, readTemporaryBinding,
-				writeTemporaryBinding, result));
-
-		Map<UID, TLAGeneralIdentifier> touchedVars = new LinkedHashMap<>();
-		writeTemporaryBinding.startRecording();
-		List<PlusCalStatement> body = substituteStatements(plusCalWhile.getBody());
-		Map<UID, TLAGeneralIdentifier> writes = writeTemporaryBinding.stopRecording();
-		reuseWrites(writes);
-
-		declareJoinNames(location, writes, touchedVars);
-		writeJoinAssignments(location, touchedVars, writes, body);
-		writeJoinAssignments(location, touchedVars, Collections.emptyMap(), result);
-
-		result.add(new PlusCalWhile(plusCalWhile.getLocation(), condition, body));
-		return result;
+		// all while loops are already desugared into ifs and gotos in the previous desugaring phase
+        throw new Unreachable();
 	}
 
 	@Override

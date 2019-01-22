@@ -19,6 +19,7 @@ import pgo.trans.passes.atomicity.AtomicityInferencePass;
 import pgo.trans.passes.codegen.go.GoCodeGenPass;
 import pgo.trans.passes.constdef.ConstantDefinitionParsingPass;
 import pgo.trans.passes.codegen.pluscal.PlusCalCodeGenPass;
+import pgo.trans.passes.desugar.mpcal.ModularPlusCalDesugarPass;
 import pgo.trans.passes.expansion.ModularPlusCalMacroExpansionPass;
 import pgo.trans.passes.parse.mpcal.ModularPlusCalParsingPass;
 import pgo.trans.passes.parse.mpcal.ModularPlusCalValidationPass;
@@ -102,10 +103,15 @@ public class PGoMain {
 
 		validateSemantics(ctx, modularPlusCalBlock);
 		ModularPlusCalBlock macroExpandedModularPlusCalBlock = expandPlusCalMacros(ctx, modularPlusCalBlock);
-		DefinitionRegistry registry = resolveScopes(
-				ctx, inputFilePath, constantDefinitions, tlaModule, macroExpandedModularPlusCalBlock);
 
-		PlusCalAlgorithm algorithm = PlusCalCodeGenPass.perform(ctx, registry, macroExpandedModularPlusCalBlock);
+		ModularPlusCalBlock desugaredModularPlusCalBlock = ModularPlusCalDesugarPass.perform(
+				macroExpandedModularPlusCalBlock);
+
+		DefinitionRegistry registry = resolveScopes(
+				ctx, inputFilePath, constantDefinitions, tlaModule, desugaredModularPlusCalBlock);
+		checkErrors(ctx);
+
+		PlusCalAlgorithm algorithm = PlusCalCodeGenPass.perform(ctx, registry, desugaredModularPlusCalBlock);
 		checkErrors(ctx);
 
 		return algorithm;
