@@ -11,7 +11,6 @@ import org.junit.runners.Parameterized.Parameters;
 
 import pgo.errors.Issue;
 import pgo.errors.TopLevelIssueContext;
-import pgo.model.mpcal.ModularPlusCalArchetype;
 import pgo.model.mpcal.ModularPlusCalBlock;
 import pgo.model.pcal.*;
 import pgo.trans.passes.parse.mpcal.ModularPlusCalValidationPass;
@@ -886,6 +885,49 @@ public class ModularPlusCalValidationPassTest {
 								new ReservedLabelNameIssue(labeled(label("Error"), skip()))
 						)
 				},
+				// --mpcal MappingWithLabels {
+				//	 mapping macro ContainsLabels {
+				//		 read {
+				//           r: yield $variable
+				//       }
+				//       write {
+				//           w: yield $value + 1
+				//       }
+				//	 }
+				// }
+				{
+					mpcal(
+							"MappingWithLabels",
+							Collections.emptyList(),
+							Collections.singletonList(
+									mappingMacro(
+											"ContainsLabels",
+											Collections.singletonList(
+													labeled(
+															label("l"),
+															yield(DOLLAR_VARIABLE)
+													)
+											),
+											Collections.singletonList(
+													labeled(
+															label("w"),
+															yield(DOLLAR_VALUE)
+													)
+											)
+									)
+							),
+							Collections.emptyList(),
+							Collections.emptyList(),
+							Collections.emptyList(),
+							Collections.emptyList(),
+							Collections.emptyList()
+					),
+
+					Arrays.asList(
+							new LabelNotAllowedIssue(labeled(label("l"), yield(DOLLAR_VARIABLE))),
+							new LabelNotAllowedIssue(labeled(label("w"), yield(DOLLAR_VALUE)))
+					)
+				}
 		});
 	}
 

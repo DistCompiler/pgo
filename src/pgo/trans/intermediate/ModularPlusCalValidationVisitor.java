@@ -68,7 +68,19 @@ public class ModularPlusCalValidationVisitor extends ModularPlusCalBlockVisitor<
 	}
 
 	public Void visit(ModularPlusCalMappingMacro modularPlusCalMappingMacro) {
-		// TODO: validate mapping macros
+		// mapping macros should have no labels
+		for (PlusCalStatement statement : modularPlusCalMappingMacro.getReadBody()) {
+			if (statement instanceof PlusCalLabeledStatements) {
+				ctx.error(new LabelNotAllowedIssue(statement));
+			}
+		}
+
+		for (PlusCalStatement statement : modularPlusCalMappingMacro.getWriteBody()) {
+			if (statement instanceof PlusCalLabeledStatements) {
+				ctx.error(new LabelNotAllowedIssue(statement));
+			}
+		}
+
 		return null;
 	}
 
