@@ -235,11 +235,12 @@ public class ModularPlusCalCodeGenVisitor
 				continue;
 			}
 			UID varUID = registry.followReference(identifier.getUID());
-			if (!mappings.containsKey(varUID)) {
+			if (!params.containsKey(varUID)) {
 				assignmentHelper(location, lhs, rhs, result);
 				continue;
 			}
 			TLAGeneralIdentifier dollarVariable = params.get(varUID);
+			String nameHint = arguments.get(varUID).getName().getValue() + "Write";
 			PlusCalStatementVisitor<List<PlusCalStatement>, RuntimeException> writeVisitor;
 			if (lhs instanceof TLAFunctionCall) {
 				TLAExpressionPlusCalCodeGenVisitor visitor = new TLAExpressionPlusCalCodeGenVisitor(
@@ -248,25 +249,51 @@ public class ModularPlusCalCodeGenVisitor
 				for (int j = accumulatedIndices.size() - 1; j >= 0; j--) {
 					accumulatedIndices.set(j, accumulatedIndices.get(j).accept(visitor));
 				}
+				if (!mappings.containsKey(varUID)) {
+					TLAGeneralIdentifier temp = writeTemporaryBinding.declare(location, varUID, nameHint);
+					result.add(new PlusCalAssignment(
+							location,
+							Collections.singletonList(new PlusCalAssignmentPair(
+									location,
+									temp,
+									new TLAFunctionSubstitution(
+											location,
+											writeTemporaryBinding.lookup(varUID).orElse(dollarVariable),
+											Collections.singletonList(new TLAFunctionSubstitutionPair(
+													location,
+													Collections.singletonList(new TLASubstitutionKey(
+															location, accumulatedIndices)),
+													rhs)))))));
+					continue;
+				}
 				TLAExpression index = functionMappedVars.contains(varUID) ? accumulatedIndices.get(0) : null;
 				writeVisitor = new ModularPlusCalMappingMacroFunctionCallWriteExpansionVisitor(
 						readTemporaryBinding,
 						writeTemporaryBinding,
 						dollarVariable,
 						varUID,
-						arguments.get(varUID).getName().getValue() + "Write",
+						nameHint,
 						index,
-						accumulatedIndices, new TLAExpressionMappingMacroWriteExpansionVisitor(
+						accumulatedIndices,
+						new TLAExpressionMappingMacroWriteExpansionVisitor(
 								registry, readTemporaryBinding, writeTemporaryBinding, dollarVariable, rhs, varUID,
 								index));
 			} else {
+				if (!mappings.containsKey(varUID)) {
+					TLAGeneralIdentifier temp = writeTemporaryBinding.declare(location, varUID, nameHint);
+					result.add(new PlusCalAssignment(
+							location,
+							Collections.singletonList(new PlusCalAssignmentPair(location, temp, rhs))));
+					continue;
+				}
 				writeVisitor = new ModularPlusCalMappingMacroVariableWriteExpansionVisitor(
 						readTemporaryBinding,
 						writeTemporaryBinding,
 						dollarVariable,
 						varUID,
-						arguments.get(varUID).getName().getValue() + "Write",
-						null, new TLAExpressionMappingMacroWriteExpansionVisitor(
+						nameHint,
+						null,
+						new TLAExpressionMappingMacroWriteExpansionVisitor(
 								registry, readTemporaryBinding, writeTemporaryBinding, dollarVariable, rhs, varUID,
 								null));
 			}
