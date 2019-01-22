@@ -1223,6 +1223,83 @@ public class PlusCalCodeGenPassTest {
 								)
 						)
 				},
+
+				{
+					// --mpcal Algorithm8 {
+					//  archetype Arch(ref mailboxes, ref other) {
+					//      l: other := mailboxes[self];
+					//  }
+					//
+					//  variables network = <<>>,
+					//            processor = 0;
+					//
+					//  fair process (SomeProcess = 3) == instance Arch(ref network, ref processor);
+					mpcal(
+							"Algorithm8",
+							Arrays.asList(
+									pcalVarDecl("network", false, false, tuple()),
+									pcalVarDecl("processor", false, false, num(0))
+							),
+							Collections.emptyList(),
+							Collections.singletonList(
+									archetype(
+											"Arch",
+											Arrays.asList(
+													pcalVarDecl("mailboxes", true, false, PLUSCAL_DEFAULT_INIT_VALUE),
+													pcalVarDecl("other", true, false, PLUSCAL_DEFAULT_INIT_VALUE)
+											),
+											Collections.emptyList(),
+											Collections.singletonList(
+													labeled(
+															label("l"),
+															assign(idexp("other"), fncall(idexp("mailboxes"), idexp("self")))
+													)
+											)
+									)
+							),
+							Collections.emptyList(),
+							Collections.emptyList(),
+							Collections.emptyList(),
+							Collections.singletonList(
+									instance(
+											pcalVarDecl("SomeProcess", false, true, num(3)),
+                                            PlusCalFairness.WEAK_FAIR,
+                                            "Arch",
+                                            Arrays.asList(
+                                                    ref("network"),
+                                                    ref("processor")
+                                            ),
+                                            Collections.emptyList()
+									)
+							)
+					),
+
+                    // --algorithm Algorithm8 {
+                    //    variables network = <<>>, processor = 0;
+                    //    fair process (SomeProcess = 3)
+                    //    {
+                    //        l: processor := mailboxes[self];
+                    //    }
+					algorithm(
+					        "Algorithm8",
+                            Arrays.asList(
+                                    pcalVarDecl("network", false, false, tuple()),
+                                    pcalVarDecl("processor", false, false, num(0))
+                            ),
+                            Collections.emptyList(),
+                            Collections.emptyList(),
+                            Collections.emptyList(),
+                            process(
+                                    pcalVarDecl("SomeProcess", false, false, num(3)),
+                                    PlusCalFairness.WEAK_FAIR,
+                                    Collections.emptyList(),
+                                    labeled(
+                                            label("l"),
+                                            assign(idexp("processor"), fncall(idexp("mailboxes"), idexp("self")))
+                                    )
+                            )
+                    )
+				}
 		});
 	}
 
