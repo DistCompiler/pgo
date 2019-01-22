@@ -147,7 +147,7 @@ public class ModularPlusCalValidationVisitor extends ModularPlusCalBlockVisitor<
 	}
 
 	private Void checkLabeled(PlusCalStatement statement) {
-		boolean isLabeled = statement.accept(new PlusCalFirstStatementLabeledVisitor());
+		boolean isLabeled = statement instanceof PlusCalLabeledStatements;
 
 		if (!isLabeled) {
 			ctx.error(new MissingLabelIssue(statement));
