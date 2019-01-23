@@ -1,16 +1,13 @@
 package pgo.trans.intermediate;
 
+import pgo.TODO;
+import pgo.Unreachable;
 import pgo.errors.IssueContext;
 import pgo.model.mpcal.ModularPlusCalYield;
 import pgo.model.pcal.*;
 
 import java.util.List;
 
-/**
- * Validates that the statements under a certain PlusCal statement do not contain any of
- * a set of "rejected" statements. Can be used to reject the use of, for example, `call`
- * statements in a mapping macro.
- */
 public class PlusCalStatementRejectionVisitor extends PlusCalStatementVisitor<Void, RuntimeException> {
     enum Node {
         LABELS, WHILE, IF, EITHER, ASSIGNMENT, RETURN, SKIP, CALL,
@@ -121,7 +118,7 @@ public class PlusCalStatementRejectionVisitor extends PlusCalStatementVisitor<Vo
             ctx.error(new StatementNotAllowedIssue(macroCall));
         }
 
-        return null;
+        throw new Unreachable();
     }
 
     @Override
