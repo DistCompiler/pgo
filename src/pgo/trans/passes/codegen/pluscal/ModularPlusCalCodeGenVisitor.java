@@ -54,8 +54,9 @@ public class ModularPlusCalCodeGenVisitor
 		UID labelUID = plusCalLabeledStatements.getLabel().getUID();
 		SourceLocation labelLocation = plusCalLabeledStatements.getLabel().getLocation();
 		// translate the statements in this labeledStatements
-		List<PlusCalStatement> statements = new ArrayList<>(substituteStatements(plusCalLabeledStatements.getStatements()));
+		List<PlusCalStatement> statements = substituteStatements(plusCalLabeledStatements.getStatements());
 		// write back the written values and clean up
+		List<PlusCalStatement> writeBacks = new ArrayList<>();
 		Set<UID> touchedVariables = new LinkedHashSet<>();
 		if (labelsToVarReads.containsKey(labelUID)) {
 			touchedVariables.addAll(labelsToVarReads.get(labelUID));
@@ -68,7 +69,7 @@ public class ModularPlusCalCodeGenVisitor
 			TLAGeneralIdentifier variable = params.get(varUID);
 			if (writeTemporaryBinding.lookup(varUID).isPresent() && refs.contains(varUID)) {
 				TLAGeneralIdentifier rhs = writeTemporaryBinding.lookup(varUID).get();
-				statements.add(new PlusCalAssignment(
+				writeBacks.add(new PlusCalAssignment(
 						labelLocation,
 						Collections.singletonList(new PlusCalAssignmentPair(labelLocation, variable, rhs))));
 			}
@@ -79,7 +80,9 @@ public class ModularPlusCalCodeGenVisitor
 		return Collections.singletonList(new PlusCalLabeledStatements(
 				plusCalLabeledStatements.getLocation(),
 				plusCalLabeledStatements.getLabel(),
-				statements));
+				writeBacks.size() > 0
+						? WriteBackInsertionVisitor.insertWriteBacks(statements, writeBacks)
+						: statements));
 	}
 
 	private <T> void reuseWrites(Map<UID, T> touchedVars) {
@@ -89,7 +92,7 @@ public class ModularPlusCalCodeGenVisitor
 	}
 
 	private <T> void declareJoinNames(SourceLocation location, Map<UID, T> varUIDs,
-	                              Map<UID, TLAGeneralIdentifier> output) {
+	                                  Map<UID, TLAGeneralIdentifier> output) {
 		for (UID varUID : varUIDs.keySet()) {
 			if (params.containsKey(varUID) && !output.containsKey(varUID)) {
 				output.put(
@@ -121,7 +124,7 @@ public class ModularPlusCalCodeGenVisitor
 	@Override
 	public List<PlusCalStatement> visit(PlusCalWhile plusCalWhile) throws RuntimeException {
 		// all while loops are already desugared into ifs and gotos in the previous desugaring phase
-        throw new Unreachable();
+		throw new Unreachable();
 	}
 
 	@Override
