@@ -2,17 +2,16 @@ package pgo.trans.passes.codegen.pluscal;
 
 import pgo.Unreachable;
 import pgo.errors.IssueContext;
-import pgo.model.tla.TLAIdentifier;
-import pgo.trans.passes.codegen.NameCleaner;
 import pgo.model.mpcal.*;
 import pgo.model.pcal.*;
 import pgo.model.tla.TLAExpression;
 import pgo.model.tla.TLAGeneralIdentifier;
+import pgo.model.tla.TLAIdentifier;
 import pgo.model.tla.TLARef;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
 import pgo.trans.intermediate.UnsupportedFeatureIssue;
-import pgo.trans.passes.atomicity.PlusCalStatementAtomicityInferenceVisitor;
+import pgo.trans.passes.codegen.NameCleaner;
 
 import java.util.*;
 import java.util.stream.Stream;
@@ -20,22 +19,32 @@ import java.util.stream.Stream;
 public class PlusCalCodeGenPass {
 	private PlusCalCodeGenPass() {}
 
-	private static <T> void trackArgumentAccess(DefinitionRegistry registry, Map<UID, T> arguments,
-	                                            Map<UID, Set<UID>> tracker, UID varUID, UID labelUID) {
-		UID uid = registry.followReference(varUID);
-		if (arguments.containsKey(uid)) {
-			if (tracker.containsKey(labelUID)) {
-				tracker.get(labelUID).add(uid);
-			} else {
-				Set<UID> uids = new LinkedHashSet<>();
-				uids.add(uid);
-				tracker.put(labelUID, uids);
+	private static void recordMapping(DefinitionRegistry registry, Map<UID, ModularPlusCalMapping> mappedVars,
+	                                  Map<UID, ModularPlusCalMappingMacro> mappings, Set<UID> functionMappedVars,
+	                                  UID uid, TLAExpression value) {
+		ModularPlusCalMapping mapping = mappedVars.get(registry.followReference(value.getUID()));
+		if (mapping != null) {
+			if (mapping.getVariable().isFunctionCalls()){
+				functionMappedVars.add(uid);
 			}
+			mappings.put(uid, registry.findMappingMacro(mapping.getTarget().getName()));
 		}
 	}
 
 	public static PlusCalAlgorithm perform(IssueContext ctx, DefinitionRegistry registry,
 	                                       ModularPlusCalBlock modularPlusCalBlock) {
+		// separate the procedures with ref arguments and ones without
+		List<PlusCalProcedure> procedures = new ArrayList<>();
+		Map<UID, PlusCalProcedure> refProcedures = new HashMap<>();
+		for (PlusCalProcedure procedure : modularPlusCalBlock.getProcedures()) {
+			if (procedure.getArguments().stream().anyMatch(PlusCalVariableDeclaration::isRef)) {
+				refProcedures.put(procedure.getUID(), procedure);
+			} else {
+				procedures.add(procedure);
+			}
+		}
+
+		// seed for the name cleaner
 		Set<String> nameCleanerSeed = new HashSet<>();
 		PlusCalStatementNameCollectorVisitor nameCollector = new PlusCalStatementNameCollectorVisitor(nameCleanerSeed);
 		for (PlusCalProcedure procedure : modularPlusCalBlock.getProcedures()) {
@@ -68,6 +77,8 @@ public class PlusCalCodeGenPass {
 			nameCleanerSeed.add(instance.getName().getName().getValue());
 		}
 		NameCleaner nameCleaner = new NameCleaner(nameCleanerSeed);
+
+		// expand the instances
 		List<PlusCalProcess> processList = new ArrayList<>();
 		for (ModularPlusCalInstance instance : modularPlusCalBlock.getInstances()) {
 			Map<UID, ModularPlusCalMapping> mappedVars = new HashMap<>();
@@ -76,7 +87,7 @@ public class PlusCalCodeGenPass {
 			}
 			ModularPlusCalArchetype archetype = registry.findArchetype(instance.getTarget());
 			Map<UID, PlusCalVariableDeclaration> arguments = new HashMap<>();
-			Map<UID, TLAGeneralIdentifier> params = new HashMap<>();
+			Map<UID, TLAGeneralIdentifier> params = new LinkedHashMap<>();
 			Map<UID, ModularPlusCalMappingMacro> mappings = new HashMap<>();
 			Set<UID> functionMappedVars = new HashSet<>();
 			Set<UID> refs = new HashSet<>();
@@ -107,21 +118,9 @@ public class PlusCalCodeGenPass {
 							value.getLocation(), uid, argument.getName().getValue() + "Read", value);
 				}
 			}
-			// discover argument reads
-			Map<UID, Set<UID>> labelsToVarReads = new HashMap<>();
-			// discover argument writes
-			Map<UID, Set<UID>> labelsToVarWrites = new HashMap<>();
-			PlusCalStatementAtomicityInferenceVisitor visitor = new PlusCalStatementAtomicityInferenceVisitor(
-					new UID(),
-					(varUID, labelUID) -> trackArgumentAccess(registry, params, labelsToVarReads, varUID, labelUID),
-					(varUID, labelUID) -> trackArgumentAccess(registry, params, labelsToVarWrites, varUID, labelUID),
-					new HashSet<>());
-			for (PlusCalStatement statement : archetype.getBody()) {
-				statement.accept(visitor);
-			}
 			ModularPlusCalCodeGenVisitor v = new ModularPlusCalCodeGenVisitor(
-					registry, labelsToVarReads, labelsToVarWrites, arguments, params, mappings, refs,
-					functionMappedVars, readTemporaryBinding, new TemporaryBinding(nameCleaner, localVariables));
+					registry, arguments, params, mappings, refs, functionMappedVars, readTemporaryBinding,
+					new TemporaryBinding(nameCleaner, localVariables));
 			List<PlusCalStatement> body = new ArrayList<>();
 			for (PlusCalStatement statement : archetype.getBody()) {
 				body.addAll(statement.accept(v));
@@ -148,20 +147,8 @@ public class PlusCalCodeGenPass {
 				modularPlusCalBlock.getName(),
 				modularPlusCalBlock.getVariables(),
 				Collections.emptyList(),
-				modularPlusCalBlock.getProcedures(),
+				procedures,
 				modularPlusCalBlock.getUnits(),
 				processes);
-	}
-
-	private static void recordMapping(DefinitionRegistry registry, Map<UID, ModularPlusCalMapping> mappedVars,
-	                                  Map<UID, ModularPlusCalMappingMacro> mappings, Set<UID> functionMappedVars,
-	                                  UID uid, TLAExpression value) {
-		ModularPlusCalMapping mapping = mappedVars.get(registry.followReference(value.getUID()));
-		if (mapping != null) {
-			if (mapping.getVariable().isFunctionCalls()){
-				functionMappedVars.add(uid);
-			}
-			mappings.put(uid, registry.findMappingMacro(mapping.getTarget().getName()));
-		}
 	}
 }

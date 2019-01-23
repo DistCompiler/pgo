@@ -21,17 +21,12 @@ public class ModularPlusCalCodeGenVisitor
 	private final Map<UID, ModularPlusCalMappingMacro> mappings;
 	private final Set<UID> refs;
 	private final Set<UID> functionMappedVars;
-	private final Map<UID, Set<UID>> labelsToVarReads;
-	private final Map<UID, Set<UID>> labelsToVarWrites;
 
-	ModularPlusCalCodeGenVisitor(DefinitionRegistry registry, Map<UID, Set<UID>> labelsToVarReads,
-	                             Map<UID, Set<UID>> labelsToVarWrites, Map<UID, PlusCalVariableDeclaration> arguments,
+	ModularPlusCalCodeGenVisitor(DefinitionRegistry registry, Map<UID, PlusCalVariableDeclaration> arguments,
 	                             Map<UID, TLAGeneralIdentifier> params, Map<UID, ModularPlusCalMappingMacro> mappings,
 	                             Set<UID> refs, Set<UID> functionMappedVars, TemporaryBinding readTemporaryBinding,
 	                             TemporaryBinding writeTemporaryBinding) {
 		this.registry = registry;
-		this.labelsToVarReads = labelsToVarReads;
-		this.labelsToVarWrites = labelsToVarWrites;
 		this.arguments = arguments;
 		this.params = params;
 		this.mappings = mappings;
@@ -49,34 +44,30 @@ public class ModularPlusCalCodeGenVisitor
 		return result;
 	}
 
-	@Override
-	public List<PlusCalStatement> visit(PlusCalLabeledStatements plusCalLabeledStatements) throws RuntimeException {
-		UID labelUID = plusCalLabeledStatements.getLabel().getUID();
-		SourceLocation labelLocation = plusCalLabeledStatements.getLabel().getLocation();
-		// translate the statements in this labeledStatements
-		List<PlusCalStatement> statements = substituteStatements(plusCalLabeledStatements.getStatements());
-		// write back the written values and clean up
+	private List<PlusCalStatement> getWriteBacksAndCleanUp(SourceLocation location) {
 		List<PlusCalStatement> writeBacks = new ArrayList<>();
-		Set<UID> touchedVariables = new LinkedHashSet<>();
-		if (labelsToVarReads.containsKey(labelUID)) {
-			touchedVariables.addAll(labelsToVarReads.get(labelUID));
-		}
-		if (labelsToVarWrites.containsKey(labelUID)) {
-			touchedVariables.addAll(labelsToVarWrites.get(labelUID));
-		}
-		for (UID varUID : touchedVariables) {
+		for (UID varUID : params.keySet()) {
 			// only write back written refs
 			TLAGeneralIdentifier variable = params.get(varUID);
 			if (writeTemporaryBinding.lookup(varUID).isPresent() && refs.contains(varUID)) {
 				TLAGeneralIdentifier rhs = writeTemporaryBinding.lookup(varUID).get();
 				writeBacks.add(new PlusCalAssignment(
-						labelLocation,
-						Collections.singletonList(new PlusCalAssignmentPair(labelLocation, variable, rhs))));
+						location,
+						Collections.singletonList(new PlusCalAssignmentPair(location, variable, rhs))));
 			}
-			// clean up
-			readTemporaryBinding.reuse(varUID);
-			writeTemporaryBinding.reuse(varUID);
 		}
+		// clean up
+		readTemporaryBinding.reuseAll();
+		writeTemporaryBinding.reuseAll();
+		return writeBacks;
+	}
+
+	@Override
+	public List<PlusCalStatement> visit(PlusCalLabeledStatements plusCalLabeledStatements) throws RuntimeException {
+		// translate the statements in this labeledStatements
+		List<PlusCalStatement> statements = substituteStatements(plusCalLabeledStatements.getStatements());
+		// write back the written values and clean up
+		List<PlusCalStatement> writeBacks = getWriteBacksAndCleanUp(plusCalLabeledStatements.getLabel().getLocation());
 		return Collections.singletonList(new PlusCalLabeledStatements(
 				plusCalLabeledStatements.getLocation(),
 				plusCalLabeledStatements.getLabel(),
@@ -331,6 +322,7 @@ public class ModularPlusCalCodeGenVisitor
 		TLAExpressionPlusCalCodeGenVisitor visitor = new TLAExpressionPlusCalCodeGenVisitor(
 				registry, arguments, params, mappings, functionMappedVars, readTemporaryBinding, writeTemporaryBinding,
 				result);
+		WriteBackInsertionVisitor.insertWriteBacks(result, getWriteBacksAndCleanUp(plusCalCall.getLocation()));
 		for (TLAExpression argument : plusCalCall.getArguments()) {
 			args.add(argument.accept(visitor));
 		}

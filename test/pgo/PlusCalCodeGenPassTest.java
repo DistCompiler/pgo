@@ -1314,7 +1314,145 @@ public class PlusCalCodeGenPassTest {
 										)
 								)
 						)
-				}
+				},
+
+				{
+						// --mpcal Algorithm9 {
+						//   archetype A(ref a, b) {
+						//       l1: if (b) {
+						//             l2: a := 1;
+						//             l3: a := 2;
+						//           } else {
+						//             a := 3;
+						//           }
+						//   }
+						//
+						//   variables i = 0, flag = TRUE;
+						//
+						//   process (P = 3) == instance A(ref i, flag);
+						// }
+						mpcal(
+								"Algorithm9",
+								Arrays.asList(
+										pcalVarDecl("i", false, false, num(0)),
+										pcalVarDecl("flag", false, false, bool(true))
+								),
+								Collections.emptyList(),
+								Collections.singletonList(
+										archetype(
+												"A",
+												Arrays.asList(
+														pcalVarDecl("a", true, false, PLUSCAL_DEFAULT_INIT_VALUE),
+														pcalVarDecl("b", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
+												),
+												Collections.emptyList(),
+												Collections.singletonList(
+														labeled(
+																label("l1"),
+																ifS(
+																		idexp("b"),
+																		Arrays.asList(
+																				labeled(
+																						label("l2"),
+																						assign(idexp("a"), num(1))
+																				),
+																				labeled(
+																						label("l3"),
+																						assign(idexp("a"), num(2))
+																				)
+																		),
+																		Collections.singletonList(
+																				assign(idexp("a"), num(3))
+																		)
+																)
+														)
+												)
+										)
+								),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.singletonList(
+										instance(
+												pcalVarDecl("P", false, false, num(3)),
+												PlusCalFairness.UNFAIR,
+												"A",
+												Arrays.asList(
+														ref("i"),
+														idexp("flag")
+												),
+												Collections.emptyList()
+										)
+								)
+						),
+						// --algorithm Algorithm9 {
+						//     variables i = 0, flag = TRUE;
+						//     process (P = 3)
+						//     variables bRead, aWrite, aWrite0;
+						//     {
+						//         l1:
+						//             bRead := flag;
+						//             if (bRead) {
+						//                 l2:
+						//                     aWrite := 1;
+						//                     i := aWrite;
+						//
+						//                 l3:
+						//                     aWrite := 2;
+						//                     i := aWrite;
+						//
+						//             } else {
+						//                 aWrite := 3;
+						//                 aWrite0 := aWrite;
+						//                 i := aWrite0;
+						//             }
+						//
+						//     }
+						// }
+						algorithm(
+								"Algorithm9",
+								Arrays.asList(
+										pcalVarDecl("i", false, false, num(0)),
+										pcalVarDecl("flag", false, false, bool(true))
+								),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								process(
+										pcalVarDecl("P", false, false, num(3)),
+										PlusCalFairness.UNFAIR,
+										Arrays.asList(
+												pcalVarDecl("bRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+												pcalVarDecl("aWrite", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+												pcalVarDecl("aWrite0", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
+										),
+										labeled(
+												label("l1"),
+												assign(idexp("bRead"), idexp("flag")),
+												ifS(
+														idexp("bRead"),
+														Arrays.asList(
+																labeled(
+																		label("l2"),
+																		assign(idexp("aWrite"), num(1)),
+																		assign(idexp("i"), idexp("aWrite"))
+																),
+																labeled(
+																		label("l3"),
+																		assign(idexp("aWrite"), num(2)),
+																		assign(idexp("i"), idexp("aWrite"))
+																)
+														),
+														Arrays.asList(
+																assign(idexp("aWrite"), num(3)),
+																assign(idexp("aWrite0"), idexp("aWrite")),
+																assign(idexp("i"), idexp("aWrite0"))
+														)
+												)
+										)
+								)
+						)
+				},
 		});
 	}
 

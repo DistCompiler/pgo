@@ -5,6 +5,7 @@ import pgo.model.mpcal.ModularPlusCalYield;
 import pgo.model.pcal.*;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public class WriteBackInsertionVisitor extends PlusCalStatementVisitor<List<PlusCalStatement>, RuntimeException> {
@@ -45,11 +46,9 @@ public class WriteBackInsertionVisitor extends PlusCalStatementVisitor<List<Plus
 
 	@Override
 	public List<PlusCalStatement> visit(PlusCalLabeledStatements plusCalLabeledStatements) throws RuntimeException {
+		// the write backs were already performed
 		List<PlusCalStatement> result = helper();
-		result.add(new PlusCalLabeledStatements(
-				plusCalLabeledStatements.getLocation(),
-				plusCalLabeledStatements.getLabel(),
-				insertWriteBacks(plusCalLabeledStatements.getStatements(), writeBacks)));
+		result.add(plusCalLabeledStatements);
 		return result;
 	}
 
@@ -58,14 +57,27 @@ public class WriteBackInsertionVisitor extends PlusCalStatementVisitor<List<Plus
 		throw new Unreachable();
 	}
 
+	private List<PlusCalStatement> handleWriteBacksForAlternativeBlocks(List<PlusCalStatement> statements,
+	                                                                    List<PlusCalStatement> writeBacks) {
+		if (statements.size() == 0) {
+			return insertWriteBacks(statements, writeBacks);
+		}
+		PlusCalStatement lastStatement = statements.get(statements.size() - 1);
+		if (lastStatement instanceof PlusCalLabeledStatements || lastStatement instanceof PlusCalCall) {
+			// write backs were already performed
+			return statements;
+		}
+		return insertWriteBacks(statements, writeBacks);
+	}
+
 	@Override
 	public List<PlusCalStatement> visit(PlusCalIf plusCalIf) throws RuntimeException {
 		List<PlusCalStatement> result = helper();
 		result.add(new PlusCalIf(
 				plusCalIf.getLocation(),
 				plusCalIf.getCondition(),
-				insertWriteBacks(plusCalIf.getYes(), writeBacks),
-				insertWriteBacks(plusCalIf.getNo(), writeBacks)));
+				handleWriteBacksForAlternativeBlocks(plusCalIf.getYes(), writeBacks),
+				handleWriteBacksForAlternativeBlocks(plusCalIf.getNo(), writeBacks)));
 		return result;
 	}
 
@@ -74,7 +86,7 @@ public class WriteBackInsertionVisitor extends PlusCalStatementVisitor<List<Plus
 		List<PlusCalStatement> result = helper();
 		List<List<PlusCalStatement>> cases = new ArrayList<>();
 		for (List<PlusCalStatement> aCase : plusCalEither.getCases()) {
-			cases.add(insertWriteBacks(aCase, writeBacks));
+			cases.add(handleWriteBacksForAlternativeBlocks(aCase, writeBacks));
 		}
 		result.add(new PlusCalEither(plusCalEither.getLocation(), cases));
 		return result;
@@ -87,10 +99,8 @@ public class WriteBackInsertionVisitor extends PlusCalStatementVisitor<List<Plus
 
 	private List<PlusCalStatement> handleReturnAndGoto(PlusCalStatement plusCalStatement) {
 		if (previousStatement instanceof PlusCalCall) {
-			List<PlusCalStatement> result = new ArrayList<>(writeBacks);
-			result.add(previousStatement);
-			result.add(plusCalStatement);
-			return result;
+			// write backs were already performed
+			return Arrays.asList(previousStatement, plusCalStatement);
 		}
 		List<PlusCalStatement> result = helper();
 		result.addAll(writeBacks);

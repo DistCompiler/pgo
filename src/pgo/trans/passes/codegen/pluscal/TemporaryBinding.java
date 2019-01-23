@@ -80,6 +80,12 @@ public class TemporaryBinding {
 		return Optional.ofNullable(temporaries.get(varUID)).flatMap(Recycling::fetch);
 	}
 
+	public void reuseAll() {
+		for (Recycling<TLAGeneralIdentifier> value : temporaries.values()) {
+			value.reuse();
+		}
+	}
+
 	public void reuse(UID varUID) {
 		if (temporaries.containsKey(varUID)) {
 			temporaries.get(varUID).reuse();
