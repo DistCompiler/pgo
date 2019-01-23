@@ -1284,8 +1284,11 @@ public class PlusCalCodeGenPassTest {
 						// --algorithm Algorithm8 {
 						//    variables network = <<>>, processor = 0;
 						//    fair process (SomeProcess = 3)
+						//    variables mailboxesRead, otherWrite;
 						//    {
-						//        l: processor := network[self];
+						//        l: mailboxesRead := network[self];
+						//           otherWrite := mailboxesRead[self];
+						//           processor := otherWrite;
 						//    }
 						algorithm(
 								"Algorithm8",
