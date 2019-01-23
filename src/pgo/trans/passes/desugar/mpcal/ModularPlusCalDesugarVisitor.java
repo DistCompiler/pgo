@@ -1,21 +1,15 @@
 package pgo.trans.passes.desugar.mpcal;
 
-import pgo.TODO;
 import pgo.Unreachable;
 import pgo.model.mpcal.ModularPlusCalYield;
 import pgo.model.pcal.*;
+import pgo.util.SourceLocation;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
 class ModularPlusCalDesugarVisitor extends PlusCalStatementVisitor<List<PlusCalStatement>, RuntimeException> {
-	private final PlusCalLabel currentLabel;
-
-	ModularPlusCalDesugarVisitor(PlusCalLabel currentLabel) {
-		this.currentLabel = currentLabel;
-	}
-
 	private List<PlusCalStatement> desugarStatements(List<PlusCalStatement> statements) {
 		List<PlusCalStatement> result = new ArrayList<>();
 		for (PlusCalStatement statement : statements) {
@@ -24,31 +18,24 @@ class ModularPlusCalDesugarVisitor extends PlusCalStatementVisitor<List<PlusCalS
 		return result;
 	}
 
-	@Override
-	public List<PlusCalStatement> visit(PlusCalLabeledStatements plusCalLabeledStatements) throws RuntimeException {
-		List<PlusCalStatement> statements = new ArrayList<>();
-		for (PlusCalStatement statement : plusCalLabeledStatements.getStatements()) {
-			statements.addAll(statement.accept(new ModularPlusCalDesugarVisitor(plusCalLabeledStatements.getLabel())));
-		}
-		return Collections.singletonList(new PlusCalLabeledStatements(
-				plusCalLabeledStatements.getLocation(), plusCalLabeledStatements.getLabel(), statements));
-	}
-
-	@Override
-	public List<PlusCalStatement> visit(PlusCalWhile plusCalWhile) throws RuntimeException {
+	private PlusCalLabeledStatements desugarWhile(SourceLocation location, PlusCalLabel label,
+	                                              PlusCalWhile plusCalWhile, List<PlusCalStatement> rest) {
 		// a while loop is desugared into and if and a goto due to the possibility that the condition of the while loop
 		// might contain a mapped variable read
 		//
 		// lb: while (f(a)) {
 		//       stmt...
-		//     }
+		//     };
+		//     stmt...
 		//
 		// is translated into
 		//
 		// lb: if (f(a)) {
 		//       stmt...
 		//       goto lb;
-		//     }
+		//     } else {
+		//       stmt...
+		//     };
 		//
 		// so that further codegen can possibly translate that into
 		//
@@ -56,16 +43,50 @@ class ModularPlusCalDesugarVisitor extends PlusCalStatementVisitor<List<PlusCalS
 		//     if (f(aRead)) {
 		//       stmt...
 		//       goto lb;
-		//     }
+		//     } else {
+		//       stmt...
+		//     };
 		//
 		// (in this case, a is macro mapped)
 		List<PlusCalStatement> body = desugarStatements(plusCalWhile.getBody());
-		body.add(new PlusCalGoto(plusCalWhile.getLocation(), currentLabel.getName()));
-        return Collections.singletonList(new PlusCalIf(
-        		plusCalWhile.getLocation(),
-		        plusCalWhile.getCondition(),
-		        body,
-		        Collections.emptyList()));
+		PlusCalGoto gotoStmt = new PlusCalGoto(plusCalWhile.getLocation(), label.getName());
+		if (body.size() == 0) {
+			body.add(gotoStmt);
+		} else {
+			GotoInsertionVisitor.insertGoto(gotoStmt, body);
+		}
+		return new PlusCalLabeledStatements(
+				location,
+				label,
+				Collections.singletonList(new PlusCalIf(
+						plusCalWhile.getLocation(),
+						plusCalWhile.getCondition(),
+						body,
+						desugarStatements(rest))));
+	}
+
+	@Override
+	public List<PlusCalStatement> visit(PlusCalLabeledStatements plusCalLabeledStatements) throws RuntimeException {
+		// look ahead to handle while statements
+		SourceLocation location = plusCalLabeledStatements.getLocation();
+		PlusCalLabel label = plusCalLabeledStatements.getLabel();
+		List<PlusCalStatement> statements = plusCalLabeledStatements.getStatements();
+		if (plusCalLabeledStatements.getStatements().get(0) instanceof PlusCalWhile) {
+			PlusCalWhile plusCalWhile = (PlusCalWhile) plusCalLabeledStatements.getStatements().get(0);
+			List<PlusCalStatement> rest = plusCalLabeledStatements.getStatements().subList(1, statements.size());
+			return Collections.singletonList(desugarWhile(location, label, plusCalWhile, rest));
+		}
+		List<PlusCalStatement> transformedStatements = new ArrayList<>();
+		for (PlusCalStatement statement : statements) {
+			transformedStatements.addAll(statement.accept(new ModularPlusCalDesugarVisitor()));
+		}
+		return Collections.singletonList(new PlusCalLabeledStatements(
+				location, plusCalLabeledStatements.getLabel(), transformedStatements));
+	}
+
+	@Override
+	public List<PlusCalStatement> visit(PlusCalWhile plusCalWhile) throws RuntimeException {
+		throw new Unreachable();
 	}
 
 	@Override

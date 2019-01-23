@@ -17,12 +17,7 @@ public class ModularPlusCalDesugarPass {
 		List<PlusCalStatement> result = new ArrayList<>();
 		for (PlusCalStatement statement : labeledStatements) {
 			PlusCalLabeledStatements lblStmts = (PlusCalLabeledStatements) statement;
-			ModularPlusCalDesugarVisitor visitor = new ModularPlusCalDesugarVisitor(lblStmts.getLabel());
-			List<PlusCalStatement> stmts = new ArrayList<>();
-			for (PlusCalStatement stmt : lblStmts.getStatements()) {
-				stmts.addAll(stmt.accept(visitor));
-			}
-			result.add(new PlusCalLabeledStatements(lblStmts.getLocation(), lblStmts.getLabel(), stmts));
+			result.addAll(lblStmts.accept(new ModularPlusCalDesugarVisitor()));
 		}
 		return result;
 	}
