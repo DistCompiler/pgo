@@ -60,12 +60,24 @@ public class WriteBackInsertionVisitor extends PlusCalStatementVisitor<List<Plus
 
 	@Override
 	public List<PlusCalStatement> visit(PlusCalIf plusCalIf) throws RuntimeException {
-		return writeBacksAtEnd(plusCalIf);
+		List<PlusCalStatement> result = helper();
+		result.add(new PlusCalIf(
+				plusCalIf.getLocation(),
+				plusCalIf.getCondition(),
+				insertWriteBacks(plusCalIf.getYes(), writeBacks),
+				insertWriteBacks(plusCalIf.getNo(), writeBacks)));
+		return result;
 	}
 
 	@Override
 	public List<PlusCalStatement> visit(PlusCalEither plusCalEither) throws RuntimeException {
-		return writeBacksAtEnd(plusCalEither);
+		List<PlusCalStatement> result = helper();
+		List<List<PlusCalStatement>> cases = new ArrayList<>();
+		for (List<PlusCalStatement> aCase : plusCalEither.getCases()) {
+			cases.add(insertWriteBacks(aCase, writeBacks));
+		}
+		result.add(new PlusCalEither(plusCalEither.getLocation(), cases));
+		return result;
 	}
 
 	@Override
