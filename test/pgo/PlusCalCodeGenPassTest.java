@@ -532,10 +532,11 @@ public class PlusCalCodeGenPassTest {
 						//                 aWrite0 := (aWrite)+(1);
 						//                 aWrite1 := (aWrite0)+(42);
 						//                 aWrite2 := aWrite1;
+						//                 x := aWrite2;
 						//             } else {
 						//                 aWrite2 := x;
+						//                 x := aWrite2;
 						//             }
-						//             x := aWrite2;
 						//         l2:
 						//             aWrite := (x)+(1);
 						//             aWrite0 := (aWrite)+(10);
@@ -587,13 +588,15 @@ public class PlusCalCodeGenPassTest {
 														Arrays.asList(
 																assign(idexp("aWrite0"), binop("+", idexp("aWrite"), num(1))),
 																assign(idexp("aWrite1"), binop("+", idexp("aWrite0"), num(42))),
-																assign(idexp("aWrite2"), idexp("aWrite1"))
+																assign(idexp("aWrite2"), idexp("aWrite1")),
+																assign(idexp("x"), idexp("aWrite2"))
 														),
-														Collections.singletonList(
-																assign(idexp("aWrite2"), idexp("x"))
+														Arrays.asList(
+																assign(idexp("aWrite2"), idexp("x")),
+																assign(idexp("x"), idexp("aWrite2"))
 														)
-												),
-												assign(idexp("x"), idexp("aWrite2"))
+												)
+
 										),
 
 										labeled(
