@@ -48,20 +48,15 @@ class ModularPlusCalDesugarVisitor extends PlusCalStatementVisitor<List<PlusCalS
 		//     };
 		//
 		// (in this case, a is macro mapped)
-		List<PlusCalStatement> body = desugarStatements(plusCalWhile.getBody());
-		PlusCalGoto gotoStmt = new PlusCalGoto(plusCalWhile.getLocation(), label.getName());
-		if (body.size() == 0) {
-			body.add(gotoStmt);
-		} else {
-			GotoInsertionVisitor.insertGoto(gotoStmt, body);
-		}
 		return new PlusCalLabeledStatements(
 				location,
 				label,
 				Collections.singletonList(new PlusCalIf(
 						plusCalWhile.getLocation(),
 						plusCalWhile.getCondition(),
-						body,
+						GotoInsertionVisitor.insertGoto(
+								new PlusCalGoto(plusCalWhile.getLocation(), label.getName()),
+								desugarStatements(plusCalWhile.getBody())),
 						desugarStatements(rest))));
 	}
 
@@ -121,14 +116,14 @@ class ModularPlusCalDesugarVisitor extends PlusCalStatementVisitor<List<PlusCalS
 
 	@Override
 	public List<PlusCalStatement> visit(PlusCalSkip plusCalSkip) throws RuntimeException {
-        // nothing to do
+		// nothing to do
 		return Collections.singletonList(plusCalSkip);
 	}
 
 	@Override
 	public List<PlusCalStatement> visit(PlusCalCall plusCalCall) throws RuntimeException {
 		// nothing to do
-        return Collections.singletonList(plusCalCall);
+		return Collections.singletonList(plusCalCall);
 	}
 
 	@Override
@@ -138,32 +133,32 @@ class ModularPlusCalDesugarVisitor extends PlusCalStatementVisitor<List<PlusCalS
 
 	@Override
 	public List<PlusCalStatement> visit(PlusCalWith plusCalWith) throws RuntimeException {
-        return Collections.singletonList(new PlusCalWith(
-        		plusCalWith.getLocation(),plusCalWith.getVariables(), desugarStatements(plusCalWith.getBody())));
+		return Collections.singletonList(new PlusCalWith(
+				plusCalWith.getLocation(), plusCalWith.getVariables(), desugarStatements(plusCalWith.getBody())));
 	}
 
 	@Override
 	public List<PlusCalStatement> visit(PlusCalPrint plusCalPrint) throws RuntimeException {
-        // nothing to do
+		// nothing to do
 		return Collections.singletonList(plusCalPrint);
 	}
 
 	@Override
 	public List<PlusCalStatement> visit(PlusCalAssert plusCalAssert) throws RuntimeException {
-        // nothing to do
+		// nothing to do
 		return Collections.singletonList(plusCalAssert);
 	}
 
 	@Override
 	public List<PlusCalStatement> visit(PlusCalAwait plusCalAwait) throws RuntimeException {
-        // nothing to do
+		// nothing to do
 		return Collections.singletonList(plusCalAwait);
 	}
 
 	@Override
 	public List<PlusCalStatement> visit(PlusCalGoto plusCalGoto) throws RuntimeException {
 		// nothing to do
-        return Collections.singletonList(plusCalGoto);
+		return Collections.singletonList(plusCalGoto);
 	}
 
 	@Override

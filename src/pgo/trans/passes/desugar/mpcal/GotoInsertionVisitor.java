@@ -5,6 +5,7 @@ import pgo.model.mpcal.ModularPlusCalYield;
 import pgo.model.pcal.*;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 class GotoInsertionVisitor extends PlusCalStatementVisitor<List<PlusCalStatement>, RuntimeException> {
@@ -16,10 +17,15 @@ class GotoInsertionVisitor extends PlusCalStatementVisitor<List<PlusCalStatement
 		this.previousStatement = previousStatement;
 	}
 
-	static void insertGoto(PlusCalGoto gotoStmt, List<PlusCalStatement> statements) {
-		PlusCalStatement lastStatement = statements.remove(statements.size() - 1);
-		PlusCalStatement nextToLastStatement = statements.size() > 0 ? statements.remove(statements.size() - 1) : null;
-		statements.addAll(lastStatement.accept(new GotoInsertionVisitor(nextToLastStatement, gotoStmt)));
+	static List<PlusCalStatement> insertGoto(PlusCalGoto gotoStmt, List<PlusCalStatement> statements) {
+		if (statements.size() == 0) {
+			return Collections.singletonList(gotoStmt);
+		}
+		List<PlusCalStatement> result = new ArrayList<>(statements);
+		PlusCalStatement lastStatement = result.remove(result.size() - 1);
+		PlusCalStatement nextToLastStatement = result.size() > 0 ? result.remove(result.size() - 1) : null;
+		result.addAll(lastStatement.accept(new GotoInsertionVisitor(nextToLastStatement, gotoStmt)));
+		return result;
 	}
 
 	private List<PlusCalStatement> gotoAtEnd(PlusCalStatement currentStatement) {
@@ -43,12 +49,10 @@ class GotoInsertionVisitor extends PlusCalStatementVisitor<List<PlusCalStatement
 		if (previousStatement != null) {
 			result.add(previousStatement);
 		}
-		List<PlusCalStatement> statements = plusCalLabeledStatements.getStatements();
-		insertGoto(gotoStatement, statements);
 		result.add(new PlusCalLabeledStatements(
 				plusCalLabeledStatements.getLocation(),
 				plusCalLabeledStatements.getLabel(),
-				statements));
+				insertGoto(gotoStatement, plusCalLabeledStatements.getStatements())));
 		return result;
 	}
 
@@ -63,11 +67,11 @@ class GotoInsertionVisitor extends PlusCalStatementVisitor<List<PlusCalStatement
 		if (previousStatement != null) {
 			result.add(previousStatement);
 		}
-		List<PlusCalStatement> yes = plusCalIf.getYes();
-		insertGoto(gotoStatement, yes);
-		List<PlusCalStatement> no = plusCalIf.getNo();
-		insertGoto(gotoStatement, no);
-		result.add(new PlusCalIf(plusCalIf.getLocation(), plusCalIf.getCondition(), yes, no));
+		result.add(new PlusCalIf(
+				plusCalIf.getLocation(),
+				plusCalIf.getCondition(),
+				insertGoto(gotoStatement, plusCalIf.getYes()),
+				insertGoto(gotoStatement, plusCalIf.getNo())));
 		return result;
 	}
 
@@ -77,12 +81,12 @@ class GotoInsertionVisitor extends PlusCalStatementVisitor<List<PlusCalStatement
 		if (previousStatement != null) {
 			result.add(previousStatement);
 		}
-		List<List<PlusCalStatement>> cases = plusCalEither.getCases();
-		for (List<PlusCalStatement> aCase : cases) {
-			insertGoto(gotoStatement, aCase);
+		List<List<PlusCalStatement>> cases = new ArrayList<>();
+		for (List<PlusCalStatement> aCase : plusCalEither.getCases()) {
+			cases.add(insertGoto(gotoStatement, aCase));
 		}
 		result.add(new PlusCalEither(plusCalEither.getLocation(), cases));
-        return result;
+		return result;
 	}
 
 	@Override

@@ -25,12 +25,12 @@ public class ModularPlusCalDesugarPass {
 	public static ModularPlusCalBlock perform(ModularPlusCalBlock modularPlusCalBlock) {
 		List<ModularPlusCalArchetype> archetypes = new ArrayList<>();
 		for (ModularPlusCalArchetype archetype : modularPlusCalBlock.getArchetypes()) {
-            archetypes.add(new ModularPlusCalArchetype(
-            		archetype.getLocation(),
-		            archetype.getName(),
-		            archetype.getArguments(),
-		            archetype.getVariables(),
-		            desugarLabeledStatements(archetype.getBody())));
+			archetypes.add(new ModularPlusCalArchetype(
+					archetype.getLocation(),
+					archetype.getName(),
+					archetype.getArguments(),
+					archetype.getVariables(),
+					desugarLabeledStatements(archetype.getBody())));
 		}
 		List<PlusCalProcedure> procedures = new ArrayList<>();
 		for (PlusCalProcedure procedure : modularPlusCalBlock.getProcedures()) {
