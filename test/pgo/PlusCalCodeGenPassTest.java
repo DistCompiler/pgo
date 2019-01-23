@@ -318,12 +318,14 @@ public class PlusCalCodeGenPassTest {
 						//                    aRead := v0;
 						//                } or {
 						//                    aRead := 10;
-						//                }
-						//            }
+						//                };
+						//            };
 						//            if ((aRead)>=(42)) {
 						//                local := 42;
+						//                x := aWrite;
+						//            } else {
+						//                x := aWrite;
 						//            }
-						//            x := aWrite;
 						//        l2:
 						//            aWrite := (10)+(1);
 						//            x := aWrite;
@@ -334,8 +336,8 @@ public class PlusCalCodeGenPassTest {
 						//                    aRead := v1;
 						//                } or {
 						//                    aRead := 10;
-						//                }
-						//            }
+						//                };
+						//            };
 						//            bRead := y;
 						//            local := (aRead)+(bRead);
 						//            x := aWrite;
@@ -376,10 +378,12 @@ public class PlusCalCodeGenPassTest {
 												),
 												ifS(
 														binop(">=", idexp("aRead"), num(42)),
-														Collections.singletonList(assign(idexp("local"), num(42))),
-														Collections.emptyList()
-												),
-												assign(idexp("x"), idexp("aWrite"))
+														Arrays.asList(
+																assign(idexp("local"),num(42)),
+																assign(idexp("x"), idexp("aWrite"))),
+														Collections.singletonList(assign(idexp("x"), idexp("aWrite")))
+												)
+
 										),
 
 										labeled(

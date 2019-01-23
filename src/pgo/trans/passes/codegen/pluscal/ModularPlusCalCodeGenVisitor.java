@@ -103,22 +103,26 @@ public class ModularPlusCalCodeGenVisitor
 		}
 	}
 
-	private void writeJoinAssignments(SourceLocation location, Map<UID, TLAGeneralIdentifier> touchedVars,
-	                                  Map<UID, TLAGeneralIdentifier> writes, List<PlusCalStatement> output) {
+	private List<PlusCalStatement> writeJoinAssignments(SourceLocation location,
+	                                                    Map<UID, TLAGeneralIdentifier> touchedVars,
+	                                                    Map<UID, TLAGeneralIdentifier> writes,
+	                                                    List<PlusCalStatement> output) {
+		List<PlusCalStatement> joinAssignments = new ArrayList<>();
 		for (Map.Entry<UID, TLAGeneralIdentifier> entry : touchedVars.entrySet()) {
 			UID varUID = entry.getKey();
 			TLAGeneralIdentifier writeVar = entry.getValue();
 			if (writes.containsKey(varUID)) {
-				output.add(new PlusCalAssignment(
+				joinAssignments.add(new PlusCalAssignment(
 						location,
 						Collections.singletonList(new PlusCalAssignmentPair(location, writeVar, writes.get(varUID)))));
 			} else {
-				output.add(new PlusCalAssignment(
+				joinAssignments.add(new PlusCalAssignment(
 						location,
 						Collections.singletonList(new PlusCalAssignmentPair(
 								location, writeVar, params.get(varUID)))));
 			}
 		}
+		return WriteBackInsertionVisitor.insertWriteBacks(output, joinAssignments);
 	}
 
 	@Override
@@ -139,6 +143,7 @@ public class ModularPlusCalCodeGenVisitor
 		writeTemporaryBinding.startRecording();
 		List<PlusCalStatement> yes = substituteStatements(plusCalIf.getYes());
 		Map<UID, TLAGeneralIdentifier> yesWrites = writeTemporaryBinding.stopRecording();
+		reuseWrites(yesWrites);
 
 		writeTemporaryBinding.startRecording();
 		List<PlusCalStatement> no = substituteStatements(plusCalIf.getNo());
@@ -148,10 +153,12 @@ public class ModularPlusCalCodeGenVisitor
 		Map<UID, TLAGeneralIdentifier> touchedVars = new LinkedHashMap<>();
 		declareJoinNames(location, yesWrites, touchedVars);
 		declareJoinNames(location, noWrites, touchedVars);
-		writeJoinAssignments(location, touchedVars, yesWrites, yes);
-		writeJoinAssignments(location, touchedVars, noWrites, no);
 
-		result.add(new PlusCalIf(location, condition, yes, no));
+		result.add(new PlusCalIf(
+				location,
+				condition,
+				writeJoinAssignments(location, touchedVars, yesWrites, yes),
+				writeJoinAssignments(location, touchedVars, noWrites, no)));
 		return result;
 	}
 
@@ -175,7 +182,7 @@ public class ModularPlusCalCodeGenVisitor
 		for (int i = 0; i < transformedCases.size(); i++) {
 			List<PlusCalStatement> transformedCase = transformedCases.get(i);
 			Map<UID, TLAGeneralIdentifier> writes = writesList.get(i);
-			writeJoinAssignments(location, touchedVars, writes, transformedCase);
+			transformedCases.set(i, writeJoinAssignments(location, touchedVars, writes, transformedCase));
 		}
 		return Collections.singletonList(new PlusCalEither(location, transformedCases));
 	}
