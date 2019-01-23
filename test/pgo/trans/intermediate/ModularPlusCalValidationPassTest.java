@@ -985,6 +985,62 @@ public class ModularPlusCalValidationPassTest {
 							new StatementNotAllowedIssue(call("NoProcedure")),
 							new StatementNotAllowedIssue(gotoS("l1"))
 					)
+				},
+
+				// --mpcal WhileLoopWithFollowingStatement {
+				//	 archetype InvalidArch(aBool) {
+				//       l:
+				//         while (aBool) {
+				//           either { skip }
+				//           or {
+				//               l1:
+				//                 while (aBool) {
+				//                     skip;
+				//                 }
+				//                 aBool := FALSE; (* invalid *)
+				//           }
+				//         }
+				//         print "invalid";
+				//	 }
+				// }
+				{
+					mpcal(
+							"WhileLoopWithFollowingStatement",
+							Collections.emptyList(),
+							Collections.emptyList(),
+							Collections.singletonList(
+									archetype(
+											"InvalidArch",
+											Collections.singletonList(pcalVarDecl("aBool", false, false, PLUSCAL_DEFAULT_INIT_VALUE)),
+											Collections.emptyList(),
+											Collections.singletonList(labeled(
+													label("l"),
+													whileS(idexp("aBool"), Collections.singletonList(
+															either(Arrays.asList(
+																	Collections.singletonList(skip()),
+																	Collections.singletonList(labeled(
+																			label("l1"),
+																			whileS(idexp("aBool"), Collections.singletonList(
+																					skip()
+																			)),
+																			assign(idexp("aBool"), bool(false))
+																	))
+															))
+													)),
+													printS(str("invalid"))
+											))
+									)
+							),
+							Collections.emptyList(),
+							Collections.emptyList(),
+							Collections.emptyList(),
+							Collections.emptyList()
+					),
+
+					Arrays.asList(
+							new StatementNotAllowedIssue(assign(idexp("aBool"), bool(false))),
+							new StatementNotAllowedIssue(printS(str("invalid")))
+					)
 				}
 		});
 	}

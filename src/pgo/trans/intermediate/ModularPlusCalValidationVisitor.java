@@ -54,15 +54,19 @@ public class ModularPlusCalValidationVisitor extends ModularPlusCalBlockVisitor<
 	*
 	*   * Same labelling rules of vanilla PlusCal apply (see C-syntax manual, section 3.7)
 	*   * Only local or `ref` variables can be assigned to
+	*   * `while` loops cannot have any statements following in the same label
 	*/
 	public Void visit(ModularPlusCalArchetype modularPlusCalArchetype) {
 		// guaranteed to exist at the parsing stage
 		PlusCalStatement firstStatement = modularPlusCalArchetype.getBody().get(0);
 		checkLabeled(firstStatement);
 
-		ModularPlusCalLabelingRulesVisitor visitor = new ModularPlusCalLabelingRulesVisitor(ctx);
+		ModularPlusCalLabelingRulesVisitor labelsVisitor = new ModularPlusCalLabelingRulesVisitor(ctx);
+		ModularPlusCalWhileValidationVisitor whileVisitor = new ModularPlusCalWhileValidationVisitor(ctx);
+
 		for (PlusCalStatement statement : modularPlusCalArchetype.getBody()) {
-			statement.accept(visitor);
+			statement.accept(labelsVisitor);
+			statement.accept(whileVisitor);
 		}
 
 		return null;
