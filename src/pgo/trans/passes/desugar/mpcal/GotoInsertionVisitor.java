@@ -12,7 +12,7 @@ class GotoInsertionVisitor extends PlusCalStatementVisitor<List<PlusCalStatement
 	private final PlusCalStatement previousStatement;
 	private final PlusCalGoto gotoStatement;
 
-	GotoInsertionVisitor(PlusCalStatement previousStatement, PlusCalGoto gotoStatement) {
+	private GotoInsertionVisitor(PlusCalStatement previousStatement, PlusCalGoto gotoStatement) {
 		this.gotoStatement = gotoStatement;
 		this.previousStatement = previousStatement;
 	}

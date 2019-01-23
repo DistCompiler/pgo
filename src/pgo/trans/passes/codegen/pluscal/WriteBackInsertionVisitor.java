@@ -11,7 +11,7 @@ public class WriteBackInsertionVisitor extends PlusCalStatementVisitor<List<Plus
 	private final PlusCalStatement previousStatement;
 	private final List<PlusCalStatement> writeBacks;
 
-	WriteBackInsertionVisitor(PlusCalStatement previousStatement, List<PlusCalStatement> writeBacks) {
+	private WriteBackInsertionVisitor(PlusCalStatement previousStatement, List<PlusCalStatement> writeBacks) {
 		this.previousStatement = previousStatement;
 		this.writeBacks = writeBacks;
 	}
