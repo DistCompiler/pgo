@@ -1,9 +1,14 @@
 package pgo.trans.intermediate;
 
+import java.util.Arrays;
+import java.util.List;
+
 import pgo.errors.IssueContext;
 import pgo.model.mpcal.*;
 import pgo.model.pcal.*;
 import pgo.model.tla.TLAUnit;
+
+import java.util.function.Consumer;
 
 /**
  * Validates that the Modular PlusCal specification is valid according to the restrictions
@@ -68,18 +73,25 @@ public class ModularPlusCalValidationVisitor extends ModularPlusCalBlockVisitor<
 	}
 
 	public Void visit(ModularPlusCalMappingMacro modularPlusCalMappingMacro) {
-		// mapping macros should have no labels
-		for (PlusCalStatement statement : modularPlusCalMappingMacro.getReadBody()) {
-			if (statement instanceof PlusCalLabeledStatements) {
-				ctx.error(new LabelNotAllowedIssue(statement));
-			}
-		}
+		// mapping macros should have no labels, `goto`, `call` or `while` statements.
+		PlusCalStatementRejectionVisitor visitor = new PlusCalStatementRejectionVisitor(
+				this.ctx,
+				Arrays.asList(
+						PlusCalStatementRejectionVisitor.Node.LABELS,
+						PlusCalStatementRejectionVisitor.Node.CALL,
+						PlusCalStatementRejectionVisitor.Node.GOTO,
+						PlusCalStatementRejectionVisitor.Node.WHILE
+				)
+		);
 
-		for (PlusCalStatement statement : modularPlusCalMappingMacro.getWriteBody()) {
-			if (statement instanceof PlusCalLabeledStatements) {
-				ctx.error(new LabelNotAllowedIssue(statement));
+		Consumer<List<PlusCalStatement>> validateType = statements -> {
+			for (PlusCalStatement statement : statements) {
+				statement.accept(visitor);
 			}
-		}
+		};
+
+		validateType.accept(modularPlusCalMappingMacro.getReadBody());
+		validateType.accept(modularPlusCalMappingMacro.getWriteBody());
 
 		return null;
 	}

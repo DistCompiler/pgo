@@ -38,5 +38,6 @@ public abstract class IssueVisitor<T, E extends Throwable> {
 	public abstract T visit(MissingLabelIssue missingLabelIssue) throws E;
 	public abstract T visit(LabelNotAllowedIssue labelNotAllowedIssue) throws E;
 	public abstract T visit(ReservedLabelNameIssue reservedLabelNameIssue) throws E;
+	public abstract T visit(StatementNotAllowedIssue statementNotAllowedIssue) throws E;
 	public abstract T visit(InstanceArgumentCountMismatchIssue instanceArgumentCountMismatchIssue) throws E;
 }

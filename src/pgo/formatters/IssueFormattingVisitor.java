@@ -291,6 +291,14 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 	}
 
 	@Override
+	public Void visit(StatementNotAllowedIssue statementNotAllowedIssue) throws IOException {
+		out.write("Statement not allowed in this context: ");
+		statementNotAllowedIssue.getStatement().accept(new OriginFormattingVisitor(out));
+
+		return null;
+	}
+
+	@Override
 	public Void visit(InstanceArgumentCountMismatchIssue instanceArgumentCountMismatchIssue) throws IOException {
 		out.write("archetype ");
 		ModularPlusCalArchetype archetype = instanceArgumentCountMismatchIssue.getModularPlusCalArchetype();

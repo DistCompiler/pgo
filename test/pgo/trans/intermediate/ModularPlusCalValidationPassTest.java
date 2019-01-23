@@ -885,13 +885,16 @@ public class ModularPlusCalValidationPassTest {
 								new ReservedLabelNameIssue(labeled(label("Error"), skip()))
 						)
 				},
+
 				// --mpcal MappingWithLabels {
 				//	 mapping macro ContainsLabels {
 				//		 read {
 				//           r: yield $variable
 				//       }
 				//       write {
-				//           w: yield $value + 1
+				//           if ($variable > 10) {
+				//               yield $value;
+				//           }
 				//       }
 				//	 }
 				// }
@@ -924,8 +927,63 @@ public class ModularPlusCalValidationPassTest {
 					),
 
 					Arrays.asList(
-							new LabelNotAllowedIssue(labeled(label("l"), yield(DOLLAR_VARIABLE))),
-							new LabelNotAllowedIssue(labeled(label("w"), yield(DOLLAR_VALUE)))
+							new StatementNotAllowedIssue(labeled(label("l"), yield(DOLLAR_VARIABLE))),
+							new StatementNotAllowedIssue(labeled(label("w"), yield(DOLLAR_VALUE)))
+					)
+				},
+
+				// --mpcal MappingMacroWithCallGoto {
+				//	 mapping macro InvalidStatements {
+				//		 read {
+				//           await Len($variable) = 0;
+				//           if (TRUE) {
+				//               call YesProcedure();
+				//           }
+				//           call NoProcedure();
+				//           yield 0;
+				//       }
+				//       write {
+				//           either { yield $value }
+				//           or     { goto l1 }
+				//       }
+				//	 }
+				// }
+				{
+					mpcal(
+							"MappingMacroWithcallGoto",
+							Collections.emptyList(),
+							Collections.singletonList(
+									mappingMacro(
+											"InvalidStatements",
+											Arrays.asList(
+													await(binop("=", opcall("Len", DOLLAR_VARIABLE), num(0))),
+													ifS(
+															bool(true),
+															Collections.singletonList(call("YesProcedure")),
+															Collections.emptyList()
+													),
+													call("NoProcedure"),
+													yield(num(0))
+											),
+											Collections.singletonList(
+													either(Arrays.asList(
+															Collections.singletonList(yield(DOLLAR_VALUE)),
+															Collections.singletonList(gotoS("l1")))
+													)
+											)
+									)
+							),
+							Collections.emptyList(),
+							Collections.emptyList(),
+							Collections.emptyList(),
+							Collections.emptyList(),
+							Collections.emptyList()
+					),
+
+					Arrays.asList(
+							new StatementNotAllowedIssue(call("YesProcedure")),
+							new StatementNotAllowedIssue(call("NoProcedure")),
+							new StatementNotAllowedIssue(gotoS("l1"))
 					)
 				}
 		});
