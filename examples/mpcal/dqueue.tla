@@ -14,16 +14,16 @@ NUM_NODES == NUM_CONSUMERS + 1
 --mpcal DistQueue {
   mapping macro TCPChannel {
       read {
-          await Len($variable[self]) > 0;
-          with (msg = Head($variable[self])) {
-              $variable := Tail($variable[self]);
+          await Len($variable) > 0;
+          with (msg = Head($variable)) {
+              $variable := Tail($variable);
               yield msg;
           };
       }
 
       write {
-          await Len($variable[self]) < BUFFER_SIZE;
-          yield Append($variable[self], $value);
+          await Len($variable) < BUFFER_SIZE;
+          yield Append($variable, $value);
       }
   }
 
@@ -71,9 +71,11 @@ NUM_NODES == NUM_CONSUMERS + 1
       mapping network[_] via TCPChannel
       mapping stream via CyclicReads;
 }
+
+
 ***************************************************************************)
 =============================================================================
 \* Modification History
-\* Last modified Tue Jan 15 13:07:55 PST 2019 by rmc
+\* Last modified Tue Jan 22 18:38:13 PST 2019 by rmc
 \* Last modified Wed Oct 12 02:41:48 PDT 2011 by lamport
 \* Created Mon Oct 10 06:26:47 PDT 2011 by lamport
