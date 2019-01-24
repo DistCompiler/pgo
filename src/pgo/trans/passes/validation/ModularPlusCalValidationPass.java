@@ -1,8 +1,7 @@
-package pgo.trans.passes.parse.mpcal;
+package pgo.trans.passes.validation;
 
 import pgo.errors.IssueContext;
 import pgo.model.mpcal.ModularPlusCalBlock;
-import pgo.trans.intermediate.ModularPlusCalValidationVisitor;
 
 public class ModularPlusCalValidationPass {
     private ModularPlusCalValidationPass() {}

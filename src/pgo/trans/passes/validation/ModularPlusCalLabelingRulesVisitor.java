@@ -1,4 +1,4 @@
-package pgo.trans.intermediate;
+package pgo.trans.passes.validation;
 
 import pgo.Unreachable;
 import pgo.errors.IssueContext;

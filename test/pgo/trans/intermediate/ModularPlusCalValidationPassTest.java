@@ -13,7 +13,7 @@ import pgo.errors.Issue;
 import pgo.errors.TopLevelIssueContext;
 import pgo.model.mpcal.ModularPlusCalBlock;
 import pgo.model.pcal.*;
-import pgo.trans.passes.parse.mpcal.ModularPlusCalValidationPass;
+import pgo.trans.passes.validation.*;
 
 import static pgo.model.pcal.PlusCalBuilder.*;
 import static pgo.model.mpcal.ModularPlusCalBuilder.*;

@@ -22,7 +22,7 @@ import pgo.trans.passes.codegen.pluscal.PlusCalCodeGenPass;
 import pgo.trans.passes.desugar.mpcal.ModularPlusCalDesugarPass;
 import pgo.trans.passes.expansion.ModularPlusCalMacroExpansionPass;
 import pgo.trans.passes.parse.mpcal.ModularPlusCalParsingPass;
-import pgo.trans.passes.parse.mpcal.ModularPlusCalValidationPass;
+import pgo.trans.passes.validation.ModularPlusCalValidationPass;
 import pgo.trans.passes.scope.ScopingPass;
 import pgo.trans.passes.parse.tla.TLAParsingPass;
 import pgo.trans.passes.type.TypeInferencePass;

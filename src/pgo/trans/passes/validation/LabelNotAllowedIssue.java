@@ -1,4 +1,4 @@
-package pgo.trans.intermediate;
+package pgo.trans.passes.validation;
 
 import pgo.errors.Issue;
 import pgo.errors.IssueVisitor;
@@ -9,11 +9,11 @@ import pgo.model.pcal.PlusCalStatement;
 import java.io.IOException;
 import java.io.StringWriter;
 
-public class MissingLabelIssue extends Issue {
+public class LabelNotAllowedIssue extends Issue {
 
     private PlusCalStatement statement;
 
-    public MissingLabelIssue(PlusCalStatement statement) {
+    public LabelNotAllowedIssue(PlusCalStatement statement) {
         this.statement = statement;
     }
 
@@ -36,7 +36,7 @@ public class MissingLabelIssue extends Issue {
         if (this.getClass() != obj.getClass())
             return false;
 
-        MissingLabelIssue other = (MissingLabelIssue) obj;
+        LabelNotAllowedIssue other = (LabelNotAllowedIssue) obj;
 
         return this.getStatement().equals(other.getStatement());
     }

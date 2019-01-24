@@ -1,4 +1,4 @@
-package pgo.trans.intermediate;
+package pgo.trans.passes.validation;
 
 import java.util.Arrays;
 import java.util.List;
