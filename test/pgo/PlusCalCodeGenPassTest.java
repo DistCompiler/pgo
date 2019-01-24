@@ -1453,6 +1453,150 @@ public class PlusCalCodeGenPassTest {
 								)
 						)
 				},
+
+				{
+						// --mpcal WhileLoopWithFollowingStatement {
+						//	 archetype Valid(aBool) {
+						//       l:
+						//         while (aBool) {
+						//           either { skip }
+						//           or {
+						//               l1:
+						//                 while (aBool) {
+						//                     skip;
+						//                 }
+						//                 aBool := FALSE;
+						//           }
+						//         }
+						//         print "ok";
+						//	 }
+						//
+						//   variable b = TRUE;
+						//   processs (P = 10) == instance Valid(b);
+						// }
+						mpcal(
+								"WhileLoopWithFollowingStatement",
+								Collections.singletonList(
+										pcalVarDecl("b", false, false, bool(true))
+								),
+								Collections.emptyList(),
+								Collections.singletonList(
+										archetype(
+												"Valid",
+												Collections.singletonList(pcalVarDecl("aBool", false, false, PLUSCAL_DEFAULT_INIT_VALUE)),
+												Collections.emptyList(),
+												Collections.singletonList(labeled(
+														label("l"),
+														whileS(idexp("aBool"), Collections.singletonList(
+																either(Arrays.asList(
+																		Collections.singletonList(skip()),
+																		Collections.singletonList(labeled(
+																				label("l1"),
+																				whileS(idexp("aBool"), Collections.singletonList(
+																						skip()
+																				)),
+																				assign(idexp("aBool"), bool(false))
+																		))
+																))
+														)),
+														printS(str("ok"))
+												))
+										)
+								),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.singletonList(
+										instance(
+												pcalVarDecl("P", false, false, num(10)),
+												PlusCalFairness.WEAK_FAIR,
+												"Valid",
+												Collections.singletonList(idexp("b")),
+												Collections.emptyList()
+										)
+								)
+						),
+
+						// --algorithm WhileLoopWithFollowingStatement {
+						//    variables b = TRUE;
+						//    process (P = 10)
+						//    variables aBoolRead, aBoolRead0, aBoolWrite, aBoolWrite0;
+						//    {
+						//        l:
+						//            aBoolRead := b;
+						//            if (aBoolRead) {
+						//                either {
+						//                    goto l;
+						//                } or {
+						//                    l1:
+						//                        aBoolRead0 := b;
+						//                        if (aBoolRead0) {
+						//                            aBoolWrite0 := b;
+						//                            goto l1;
+						//                        } else {
+						//                            aBoolWrite := FALSE;
+						//                            aBoolWrite0 := aBoolWrite;
+						//                            goto l;
+						//                        }
+						//
+						//                }
+						//            } else {
+						//                print "ok";
+						//            }
+						//
+						//    }
+						// }
+						algorithm(
+								"WhileLoopWithFollowingStatement",
+								Collections.singletonList(
+										pcalVarDecl("b", false, false, bool(true))
+								),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								process(
+										pcalVarDecl("P", false, false, num(10)),
+										PlusCalFairness.WEAK_FAIR,
+										Arrays.asList(
+												pcalVarDecl("aBoolRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+												pcalVarDecl("aBoolRead0", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+												pcalVarDecl("aBoolWrite", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+												pcalVarDecl("aBoolWrite0", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
+										),
+										labeled(
+												label("l"),
+												assign(idexp("aBoolRead"), idexp("b")),
+												ifS(
+														idexp("aBoolRead"),
+														Collections.singletonList(
+																either(Arrays.asList(
+																		Collections.singletonList(gotoS("l")),
+																		Collections.singletonList(
+																				labeled(
+																						label("l1"),
+																						assign(idexp("aBoolRead0"), idexp("b")),
+																						ifS(
+																								idexp("aBoolRead0"),
+																								Arrays.asList(
+																										assign(idexp("aBoolWrite0"), idexp("b")),
+																										gotoS("l1")
+																								),
+																								Arrays.asList(
+																										assign(idexp("aBoolWrite"), bool(false)),
+																										assign(idexp("aBoolWrite0"), idexp("aBoolWrite")),
+																										gotoS("l")
+																								)
+																						)
+																				)
+																		)
+																))
+														),
+														Collections.singletonList(printS(str("ok")))
+												)
+										)
+								)
+						)
+				}
 		});
 	}
 
