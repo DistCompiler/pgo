@@ -20,14 +20,14 @@ public class PlusCalCodeGenPass {
 	private PlusCalCodeGenPass() {}
 
 	private static void recordMapping(DefinitionRegistry registry, Map<UID, ModularPlusCalMapping> mappedVars,
-	                                  Map<UID, ModularPlusCalMappingMacro> mappings, Set<UID> functionMappedVars,
-	                                  UID uid, TLAExpression value) {
+	                                  UID paramUID, TLAExpression value, Map<UID, ModularPlusCalMappingMacro> mappings,
+	                                  Set<UID> functionMappedVars) {
 		ModularPlusCalMapping mapping = mappedVars.get(registry.followReference(value.getUID()));
 		if (mapping != null) {
 			if (mapping.getVariable().isFunctionCalls()){
-				functionMappedVars.add(uid);
+				functionMappedVars.add(paramUID);
 			}
-			mappings.put(uid, registry.findMappingMacro(mapping.getTarget().getName()));
+			mappings.put(paramUID, registry.findMappingMacro(mapping.getTarget().getName()));
 		}
 	}
 
@@ -35,11 +35,9 @@ public class PlusCalCodeGenPass {
 	                                       ModularPlusCalBlock modularPlusCalBlock) {
 		// separate the procedures with ref arguments and ones without
 		List<PlusCalProcedure> procedures = new ArrayList<>();
-		Map<UID, PlusCalProcedure> refProcedures = new HashMap<>();
 		for (PlusCalProcedure procedure : modularPlusCalBlock.getProcedures()) {
-			if (procedure.getParams().stream().anyMatch(PlusCalVariableDeclaration::isRef)) {
-				refProcedures.put(procedure.getUID(), procedure);
-			} else {
+			// TODO check if pure PlusCal
+			if (procedure.getParams().stream().noneMatch(PlusCalVariableDeclaration::isRef)) {
 				procedures.add(procedure);
 			}
 		}
@@ -93,16 +91,18 @@ public class PlusCalCodeGenPass {
 			Set<UID> refs = new HashSet<>();
 			List<PlusCalVariableDeclaration> localVariables = new ArrayList<>(archetype.getVariables());
 			TemporaryBinding readTemporaryBinding = new TemporaryBinding(nameCleaner, localVariables);
-			for (int i = 0; i < archetype.getParams().size(); i++) {
-				PlusCalVariableDeclaration argument = archetype.getParams().get(i);
-				UID uid = argument.getUID();
-				TLAExpression value = instance.getArguments().get(i);
-				params.put(uid, argument);
+			List<PlusCalVariableDeclaration> archetypeParams = archetype.getParams();
+			List<TLAExpression> instanceArguments = instance.getArguments();
+			for (int i = 0; i < archetypeParams.size(); i++) {
+				PlusCalVariableDeclaration param = archetypeParams.get(i);
+				UID paramUID = param.getUID();
+				TLAExpression value = instanceArguments.get(i);
+				params.put(paramUID, param);
 				if (value instanceof TLARef) {
-					recordMapping(registry, mappedVars, mappings, functionMappedVars, uid, value);
-					refs.add(uid);
+					recordMapping(registry, mappedVars, paramUID, value, mappings, functionMappedVars);
+					refs.add(paramUID);
 					arguments.put(
-							uid,
+							paramUID,
 							new TLAGeneralIdentifier(
 									value.getLocation(),
 									new TLAIdentifier(
@@ -110,27 +110,25 @@ public class PlusCalCodeGenPass {
 											((TLARef) value).getTarget()),
 									Collections.emptyList()));
 				} else if (value instanceof TLAGeneralIdentifier) {
-					recordMapping(registry, mappedVars, mappings, functionMappedVars, uid, value);
-					arguments.put(uid, (TLAGeneralIdentifier) value);
+					recordMapping(registry, mappedVars, paramUID, value, mappings, functionMappedVars);
+					arguments.put(paramUID, (TLAGeneralIdentifier) value);
 				} else {
 					// this argument is bound to a TLA+ expression, so we need to add a variable declaration for it
 					readTemporaryBinding.declare(
-							value.getLocation(), uid, argument.getName().getValue() + "Read", value);
+							value.getLocation(), paramUID, param.getName().getValue() + "Read", value);
 				}
 			}
 			ModularPlusCalCodeGenVisitor v = new ModularPlusCalCodeGenVisitor(
 					registry, params, arguments, mappings, refs, functionMappedVars, readTemporaryBinding,
-					new TemporaryBinding(nameCleaner, localVariables));
+					new TemporaryBinding(nameCleaner, localVariables),
+					new ProcedureExpander(
+							registry, nameCleaner, arguments, mappings, refs, functionMappedVars, procedures));
 			List<PlusCalStatement> body = new ArrayList<>();
 			for (PlusCalStatement statement : archetype.getBody()) {
 				body.addAll(statement.accept(v));
 			}
 			processList.add(new PlusCalProcess(
-					instance.getLocation(),
-					instance.getName(),
-					instance.getFairness(),
-					localVariables,
-					body));
+					instance.getLocation(), instance.getName(), instance.getFairness(), localVariables, body));
 		}
 		PlusCalProcesses processes = modularPlusCalBlock.getProcesses();
 		if (processes instanceof PlusCalSingleProcess && processList.size() != 0) {

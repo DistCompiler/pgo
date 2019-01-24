@@ -156,9 +156,14 @@ public class PlusCalNodeFormattingVisitor extends PlusCalNodeVisitor<Void, IOExc
 		out.write("procedure ");
 		out.write(procedure.getName());
 		out.write(" (");
-		writeVariableDeclarations("", procedure.getVariables(), "");
-		out.write(") {");
+		writeVariableDeclarations("", procedure.getParams(), "");
+		out.write(")");
 		out.newLine();
+		if (writeVariableDeclarations("variables ", procedure.getVariables(), ";")) {
+			out.newLine();
+		}
+		out.write("{");
+        out.newLine();
 		try (IndentingWriter.Indent ignored = out.indent()) {
 			for (PlusCalStatement statement : procedure.getBody()) {
 				statement.accept(this);

@@ -21,12 +21,13 @@ public class ModularPlusCalCodeGenVisitor
 	private final Map<UID, ModularPlusCalMappingMacro> mappings;
 	private final Set<UID> refs;
 	private final Set<UID> functionMappedVars;
+	private final ProcedureExpander procedureExpander;
 
 	ModularPlusCalCodeGenVisitor(DefinitionRegistry registry, Map<UID, PlusCalVariableDeclaration> params,
 	                             Map<UID, TLAGeneralIdentifier> arguments,
 	                             Map<UID, ModularPlusCalMappingMacro> mappings, Set<UID> refs,
 	                             Set<UID> functionMappedVars, TemporaryBinding readTemporaryBinding,
-	                             TemporaryBinding writeTemporaryBinding) {
+	                             TemporaryBinding writeTemporaryBinding, ProcedureExpander procedureExpander) {
 		this.registry = registry;
 		this.params = params;
 		this.arguments = arguments;
@@ -35,6 +36,7 @@ public class ModularPlusCalCodeGenVisitor
 		this.functionMappedVars = functionMappedVars;
 		this.readTemporaryBinding = readTemporaryBinding;
 		this.writeTemporaryBinding = writeTemporaryBinding;
+		this.procedureExpander = procedureExpander;
 	}
 
 	private List<PlusCalStatement> substituteStatements(List<PlusCalStatement> statements) {
@@ -319,15 +321,20 @@ public class ModularPlusCalCodeGenVisitor
 	@Override
 	public List<PlusCalStatement> visit(PlusCalCall plusCalCall) throws RuntimeException {
 		List<PlusCalStatement> result = new ArrayList<>();
-		List<TLAExpression> args = new ArrayList<>();
 		TLAExpressionPlusCalCodeGenVisitor visitor = new TLAExpressionPlusCalCodeGenVisitor(
 				registry, params, arguments, mappings, functionMappedVars, readTemporaryBinding, writeTemporaryBinding,
 				result);
-		WriteBackInsertionVisitor.insertWriteBacks(result, getWriteBacksAndCleanUp(plusCalCall.getLocation()));
-		for (TLAExpression argument : plusCalCall.getArguments()) {
-			args.add(argument.accept(visitor));
-		}
-		result.add(new PlusCalCall(plusCalCall.getLocation(), plusCalCall.getTarget(), args));
+		// the call has to be expanded before we insert the write-backs
+		PlusCalCall expandedCall = procedureExpander.expand(plusCalCall, visitor);
+		result.addAll(WriteBackInsertionVisitor.insertWriteBacks(
+				result, getWriteBacksAndCleanUp(plusCalCall.getLocation())));
+		// after inserting the write-backs, we can now safely insert the call
+		result.add(expandedCall);
+		// so now, the result looks like
+		//
+		// reads...
+		// write-backs...
+		// call Proc(args...)
 		return result;
 	}
 

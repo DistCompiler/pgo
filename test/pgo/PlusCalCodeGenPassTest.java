@@ -1596,7 +1596,176 @@ public class PlusCalCodeGenPassTest {
 										)
 								)
 						)
-				}
+				},
+
+				{
+						// --mpcal Algorithm11 {
+						//   mapping macro Adder {
+						//     read {
+						//       yield $variable;
+						//     }
+						//     write {
+						//       yield $variable + $value;
+						//     }
+						//   }
+						//
+						//   archetype A(ref a, b) {
+						//     l1:
+						//       a := 1;
+						//       call P(ref a, b);
+						//   }
+						//
+						//   procedure P(ref a1, a2) {
+						//     l2:
+						//       while (a1 < 10 /\ a2) {
+						//         a1 := 1;
+						//       }
+						//   }
+						//
+						//   variables i = 0, flag = TRUE;
+						//
+						//   fair process (Proc = 0) == instance A(ref i, flag)
+						//   mapping i via Adder;
+						// }
+						mpcal(
+								"Algorithm11",
+								Arrays.asList(
+										pcalVarDecl("i", false, false, num(0)),
+										pcalVarDecl("flag", false, false, bool(true))
+								),
+								Collections.singletonList(
+										mappingMacro(
+												"Adder",
+												Collections.singletonList(yield(DOLLAR_VARIABLE)),
+												Collections.singletonList(yield(binop("+", DOLLAR_VARIABLE, DOLLAR_VALUE)))
+										)
+								),
+								Collections.singletonList(
+										archetype(
+												"A",
+												Arrays.asList(
+														pcalVarDecl("a", true, false, PLUSCAL_DEFAULT_INIT_VALUE),
+														pcalVarDecl("b", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
+												),
+												Collections.emptyList(),
+												Collections.singletonList(labeled(
+														label("l1"),
+														assign(idexp("a"), num(1)),
+                                                        call("P", ref("a"), idexp("b"))
+												))
+										)
+								),
+								Collections.emptyList(),
+								Collections.singletonList(
+										procedure(
+												"P",
+												Arrays.asList(
+														pcalVarDecl("a1", true, false, PLUSCAL_DEFAULT_INIT_VALUE),
+														pcalVarDecl("a2", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
+												),
+												Collections.emptyList(),
+												labeled(
+														label("l2"),
+														whileS(
+																binop("/\\", binop("<", idexp("a1"), num(10)), idexp("a2")),
+																Collections.singletonList(assign(idexp("a1"), num(1)))
+														)
+												)
+										)
+								),
+								Collections.emptyList(),
+								Collections.singletonList(
+										instance(
+												pcalVarDecl("Proc", false, false, num(0)),
+												PlusCalFairness.WEAK_FAIR,
+												"A",
+												Arrays.asList(ref("i"), idexp("flag")),
+												Collections.singletonList(mapping("i", "Adder", false))
+										)
+								)
+						),
+						// --algorithm Algorithm11 {
+						//     variables i = 0, flag = TRUE;
+						//     procedure P0 ()
+						//     variables local, a1Read, a2Read, a1Write, a1Write0;
+						//     {
+						//         l2:
+						//             a1Read := i;
+						//             a2Read := flag;
+						//             if (a1Read < 10 /\ a2Read) {
+						//                 a1Write := i + 1;
+						//                 a1Write0 := a1Write;
+						//                 i := a1Write0;
+						//                 goto l2;
+						//             } else {
+						//                 a1Write0 := i;
+						//                 i := a1Write0;
+						//             }
+						//
+						//     }
+						//     fair process (Proc = 0)
+						//     variables aWrite;
+						//     {
+						//         l1:
+						//             aWrite := i + 1;
+						//             i := aWrite;
+						//             call P0();
+						//
+						//     }
+						// }
+						algorithm(
+								"Algorithm11",
+								Arrays.asList(
+										pcalVarDecl("i", false, false, num(0)),
+										pcalVarDecl("flag", false, false, bool(true))
+								),
+								Collections.emptyList(),
+								Collections.singletonList(
+										procedure(
+												"P0",
+												Collections.emptyList(),
+												Arrays.asList(
+														pcalVarDecl("a1Read", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+														pcalVarDecl("a2Read", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+														pcalVarDecl("a1Write", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+														pcalVarDecl("a1Write0", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
+												),
+												labeled(
+														label("l2"),
+														assign(idexp("a1Read"), idexp("i")),
+														assign(idexp("a2Read"), idexp("flag")),
+														ifS(
+																binop("/\\", binop("<", idexp("a1Read"), num(10)), idexp("a2Read")),
+																Arrays.asList(
+																		assign(idexp("a1Write"), binop("+", idexp("i"), num(1))),
+																		assign(idexp("a1Write0"), idexp("a1Write")),
+																		assign(idexp("i"), idexp("a1Write0")),
+																		gotoS("l2")
+																),
+																Arrays.asList(
+																		assign(idexp("a1Write0"), idexp("i")),
+																		assign(idexp("i"), idexp("a1Write0"))
+																)
+														)
+												)
+										)
+								),
+								Collections.emptyList(),
+								process(
+										pcalVarDecl("Proc", false, false, num(0)),
+										PlusCalFairness.WEAK_FAIR,
+										Collections.singletonList(
+												pcalVarDecl("aWrite", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
+										),
+										labeled(
+												label("l1"),
+												assign(idexp("aWrite"), binop("+", idexp("i"), num(1))),
+												assign(idexp("i"), idexp("aWrite")),
+												call("P0")
+										)
+								)
+						)
+				},
 		});
 	}
 
