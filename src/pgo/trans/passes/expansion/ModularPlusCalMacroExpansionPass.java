@@ -3,12 +3,8 @@ package pgo.trans.passes.expansion;
 import pgo.errors.IssueContext;
 import pgo.model.mpcal.*;
 import pgo.model.pcal.*;
-import pgo.model.tla.TLAExpression;
-import pgo.model.tla.TLAGeneralIdentifier;
-import pgo.model.tla.TLARef;
 import pgo.trans.intermediate.PlusCalMacroExpansionVisitor;
 import pgo.trans.intermediate.PlusCalProcessesMacroExpansionVisitor;
-import pgo.trans.intermediate.UnsupportedFeatureIssue;
 
 import java.util.*;
 
@@ -36,7 +32,7 @@ public class ModularPlusCalMacroExpansionPass {
 			procedures.add(new PlusCalProcedure(
 					proc.getLocation(),
 					proc.getName(),
-					proc.getArguments(),
+					proc.getParams(),
 					proc.getVariables(),
 					stmts));
 		}

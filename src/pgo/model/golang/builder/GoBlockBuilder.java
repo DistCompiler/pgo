@@ -11,11 +11,10 @@ import java.io.Closeable;
 import java.util.*;
 
 public class GoBlockBuilder extends GoASTBuilder implements Closeable {
-
-	private GoASTBuilder builder;
-	private NameCleaner nameCleaner;
-	private Map<UID, GoVariableName> nameMap;
-	private List<GoStatement> statements;
+	private final GoASTBuilder builder;
+	private final NameCleaner nameCleaner;
+	private final Map<UID, GoVariableName> nameMap;
+	private final List<GoStatement> statements;
 
 	public interface OnSuccess {
 		void action(GoBlock block);

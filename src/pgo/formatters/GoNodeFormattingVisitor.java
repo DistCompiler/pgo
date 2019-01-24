@@ -79,7 +79,7 @@ public class GoNodeFormattingVisitor extends GoNodeVisitor<Void, IOException> {
 	}
 
 	@Override
-	public Void visit(GoFunctionArgument functionArgument) throws IOException {
+	public Void visit(GoFunctionParameter functionArgument) throws IOException {
 		if (functionArgument.getName() != null) {
 			out.write(functionArgument.getName());
 			out.write(" ");

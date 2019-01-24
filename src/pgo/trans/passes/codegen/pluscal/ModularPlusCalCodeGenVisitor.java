@@ -16,19 +16,20 @@ public class ModularPlusCalCodeGenVisitor
 	private final DefinitionRegistry registry;
 	private final TemporaryBinding readTemporaryBinding;
 	private final TemporaryBinding writeTemporaryBinding;
-	private final Map<UID, PlusCalVariableDeclaration> arguments;
-	private final Map<UID, TLAGeneralIdentifier> params;
+	private final Map<UID, PlusCalVariableDeclaration> params;
+	private final Map<UID, TLAGeneralIdentifier> arguments;
 	private final Map<UID, ModularPlusCalMappingMacro> mappings;
 	private final Set<UID> refs;
 	private final Set<UID> functionMappedVars;
 
-	ModularPlusCalCodeGenVisitor(DefinitionRegistry registry, Map<UID, PlusCalVariableDeclaration> arguments,
-	                             Map<UID, TLAGeneralIdentifier> params, Map<UID, ModularPlusCalMappingMacro> mappings,
-	                             Set<UID> refs, Set<UID> functionMappedVars, TemporaryBinding readTemporaryBinding,
+	ModularPlusCalCodeGenVisitor(DefinitionRegistry registry, Map<UID, PlusCalVariableDeclaration> params,
+	                             Map<UID, TLAGeneralIdentifier> arguments,
+	                             Map<UID, ModularPlusCalMappingMacro> mappings, Set<UID> refs,
+	                             Set<UID> functionMappedVars, TemporaryBinding readTemporaryBinding,
 	                             TemporaryBinding writeTemporaryBinding) {
 		this.registry = registry;
-		this.arguments = arguments;
 		this.params = params;
+		this.arguments = arguments;
 		this.mappings = mappings;
 		this.refs = refs;
 		this.functionMappedVars = functionMappedVars;
@@ -46,9 +47,9 @@ public class ModularPlusCalCodeGenVisitor
 
 	private List<PlusCalStatement> getWriteBacksAndCleanUp(SourceLocation location) {
 		List<PlusCalStatement> writeBacks = new ArrayList<>();
-		for (UID varUID : params.keySet()) {
+		for (UID varUID : arguments.keySet()) {
 			// only write back written refs
-			TLAGeneralIdentifier variable = params.get(varUID);
+			TLAGeneralIdentifier variable = arguments.get(varUID);
 			if (writeTemporaryBinding.lookup(varUID).isPresent() && refs.contains(varUID)) {
 				TLAGeneralIdentifier rhs = writeTemporaryBinding.lookup(varUID).get();
 				writeBacks.add(new PlusCalAssignment(
@@ -85,11 +86,11 @@ public class ModularPlusCalCodeGenVisitor
 	private <T> void declareJoinNames(SourceLocation location, Map<UID, T> varUIDs,
 	                                  Map<UID, TLAGeneralIdentifier> output) {
 		for (UID varUID : varUIDs.keySet()) {
-			if (params.containsKey(varUID) && !output.containsKey(varUID)) {
+			if (arguments.containsKey(varUID) && !output.containsKey(varUID)) {
 				output.put(
 						varUID,
 						writeTemporaryBinding.forceDeclare(
-								location, varUID, arguments.get(varUID).getName().getValue() + "Write"));
+								location, varUID, params.get(varUID).getName().getValue() + "Write"));
 			}
 		}
 	}
@@ -110,7 +111,7 @@ public class ModularPlusCalCodeGenVisitor
 				joinAssignments.add(new PlusCalAssignment(
 						location,
 						Collections.singletonList(new PlusCalAssignmentPair(
-								location, writeVar, params.get(varUID)))));
+								location, writeVar, arguments.get(varUID)))));
 			}
 		}
 		return WriteBackInsertionVisitor.insertWriteBacks(output, joinAssignments);
@@ -128,7 +129,7 @@ public class ModularPlusCalCodeGenVisitor
 
 		List<PlusCalStatement> result = new ArrayList<>();
 		TLAExpression condition = plusCalIf.getCondition().accept(new TLAExpressionPlusCalCodeGenVisitor(
-				registry, arguments, params, mappings, functionMappedVars, readTemporaryBinding, writeTemporaryBinding,
+				registry, params, arguments, mappings, functionMappedVars, readTemporaryBinding, writeTemporaryBinding,
 				result));
 
 		writeTemporaryBinding.startRecording();
@@ -181,7 +182,7 @@ public class ModularPlusCalCodeGenVisitor
 	private void assignmentHelper(SourceLocation location, TLAExpression lhs, TLAExpression rhs,
 	                              List<PlusCalStatement> result) {
 		TLAExpression transformedLHS = lhs.accept(new TLAExpressionPlusCalCodeGenVisitor(
-				registry, arguments, params, mappings, functionMappedVars, readTemporaryBinding, writeTemporaryBinding,
+				registry, params, arguments, mappings, functionMappedVars, readTemporaryBinding, writeTemporaryBinding,
 				result));
 		result.add(new PlusCalAssignment(
 				location,
@@ -195,7 +196,7 @@ public class ModularPlusCalCodeGenVisitor
 		List<TLAExpression> rhsList = new ArrayList<>();
 		if (pairs.size() > 1) {
 			TLAExpressionPlusCalCodeGenVisitor visitor = new TLAExpressionPlusCalCodeGenVisitor(
-					registry, arguments, params, mappings, functionMappedVars, readTemporaryBinding,
+					registry, params, arguments, mappings, functionMappedVars, readTemporaryBinding,
 					writeTemporaryBinding, result);
 			// read the RHS into temporary variables for use later so that parallel assignment works right
 			for (PlusCalAssignmentPair pair : pairs) {
@@ -211,7 +212,7 @@ public class ModularPlusCalCodeGenVisitor
 		} else {
 			// otherwise, don't create temporary variable for cleaner code
 			rhsList.add(pairs.get(0).getRhs().accept(new TLAExpressionPlusCalCodeGenVisitor(
-					registry, arguments, params, mappings, functionMappedVars, readTemporaryBinding,
+					registry, params, arguments, mappings, functionMappedVars, readTemporaryBinding,
 					writeTemporaryBinding, result)));
 		}
 		for (int i = 0; i < pairs.size(); i++) {
@@ -236,16 +237,16 @@ public class ModularPlusCalCodeGenVisitor
 				continue;
 			}
 			UID varUID = registry.followReference(identifier.getUID());
-			if (!params.containsKey(varUID)) {
+			if (!arguments.containsKey(varUID)) {
 				assignmentHelper(location, lhs, rhs, result);
 				continue;
 			}
-			TLAGeneralIdentifier dollarVariable = params.get(varUID);
-			String nameHint = arguments.get(varUID).getName().getValue() + "Write";
+			TLAGeneralIdentifier dollarVariable = arguments.get(varUID);
+			String nameHint = params.get(varUID).getName().getValue() + "Write";
 			PlusCalStatementVisitor<List<PlusCalStatement>, RuntimeException> writeVisitor;
 			if (lhs instanceof TLAFunctionCall) {
 				TLAExpressionPlusCalCodeGenVisitor visitor = new TLAExpressionPlusCalCodeGenVisitor(
-						registry, arguments, params, mappings, functionMappedVars, readTemporaryBinding,
+						registry, params, arguments, mappings, functionMappedVars, readTemporaryBinding,
 						writeTemporaryBinding, result);
 				for (int j = accumulatedIndices.size() - 1; j >= 0; j--) {
 					accumulatedIndices.set(j, accumulatedIndices.get(j).accept(visitor));
@@ -320,7 +321,7 @@ public class ModularPlusCalCodeGenVisitor
 		List<PlusCalStatement> result = new ArrayList<>();
 		List<TLAExpression> args = new ArrayList<>();
 		TLAExpressionPlusCalCodeGenVisitor visitor = new TLAExpressionPlusCalCodeGenVisitor(
-				registry, arguments, params, mappings, functionMappedVars, readTemporaryBinding, writeTemporaryBinding,
+				registry, params, arguments, mappings, functionMappedVars, readTemporaryBinding, writeTemporaryBinding,
 				result);
 		WriteBackInsertionVisitor.insertWriteBacks(result, getWriteBacksAndCleanUp(plusCalCall.getLocation()));
 		for (TLAExpression argument : plusCalCall.getArguments()) {
@@ -340,7 +341,7 @@ public class ModularPlusCalCodeGenVisitor
 		List<PlusCalStatement> result = new ArrayList<>();
 		List<PlusCalVariableDeclaration> declarations = new ArrayList<>();
 		TLAExpressionPlusCalCodeGenVisitor visitor = new TLAExpressionPlusCalCodeGenVisitor(
-				registry, arguments, params, mappings, functionMappedVars, readTemporaryBinding, writeTemporaryBinding,
+				registry, params, arguments, mappings, functionMappedVars, readTemporaryBinding, writeTemporaryBinding,
 				result);
 		for (PlusCalVariableDeclaration declaration : plusCalWith.getVariables()) {
 			declarations.add(new PlusCalVariableDeclaration(
@@ -359,7 +360,7 @@ public class ModularPlusCalCodeGenVisitor
 	public List<PlusCalStatement> visit(PlusCalPrint plusCalPrint) throws RuntimeException {
 		List<PlusCalStatement> result = new ArrayList<>();
 		TLAExpression expression = plusCalPrint.getValue().accept(new TLAExpressionPlusCalCodeGenVisitor(
-				registry, arguments, params, mappings, functionMappedVars, readTemporaryBinding, writeTemporaryBinding,
+				registry, params, arguments, mappings, functionMappedVars, readTemporaryBinding, writeTemporaryBinding,
 				result));
 		result.add(new PlusCalPrint(plusCalPrint.getLocation(), expression));
 		return result;
@@ -369,7 +370,7 @@ public class ModularPlusCalCodeGenVisitor
 	public List<PlusCalStatement> visit(PlusCalAssert plusCalAssert) throws RuntimeException {
 		List<PlusCalStatement> result = new ArrayList<>();
 		TLAExpression expression = plusCalAssert.getCondition().accept(new TLAExpressionPlusCalCodeGenVisitor(
-				registry, arguments, params, mappings, functionMappedVars, readTemporaryBinding, writeTemporaryBinding,
+				registry, params, arguments, mappings, functionMappedVars, readTemporaryBinding, writeTemporaryBinding,
 				result));
 		result.add(new PlusCalAssert(plusCalAssert.getLocation(), expression));
 		return result;
@@ -379,7 +380,7 @@ public class ModularPlusCalCodeGenVisitor
 	public List<PlusCalStatement> visit(PlusCalAwait plusCalAwait) throws RuntimeException {
 		List<PlusCalStatement> result = new ArrayList<>();
 		TLAExpression condition = plusCalAwait.getCondition().accept(new TLAExpressionPlusCalCodeGenVisitor(
-				registry, arguments, params, mappings, functionMappedVars, readTemporaryBinding, writeTemporaryBinding,
+				registry, params, arguments, mappings, functionMappedVars, readTemporaryBinding, writeTemporaryBinding,
 				result));
 		result.add(new PlusCalAwait(plusCalAwait.getLocation(), condition));
 		return result;

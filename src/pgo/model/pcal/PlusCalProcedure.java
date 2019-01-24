@@ -8,14 +8,14 @@ import java.util.stream.Collectors;
 
 public class PlusCalProcedure extends PlusCalNode {
 	private final String name;
-	private final List<PlusCalVariableDeclaration> arguments;
+	private final List<PlusCalVariableDeclaration> params;
 	private final List<PlusCalVariableDeclaration> variables;
 	private final List<PlusCalStatement> body;
 
-	public PlusCalProcedure(SourceLocation location, String name, List<PlusCalVariableDeclaration> arguments, List<PlusCalVariableDeclaration> variables, List<PlusCalStatement> body) {
+	public PlusCalProcedure(SourceLocation location, String name, List<PlusCalVariableDeclaration> params, List<PlusCalVariableDeclaration> variables, List<PlusCalStatement> body) {
 		super(location);
 		this.name = name;
-		this.arguments = arguments;
+		this.params = params;
 		this.variables = variables;
 		this.body = body;
 	}
@@ -25,7 +25,7 @@ public class PlusCalProcedure extends PlusCalNode {
 		return new PlusCalProcedure(
 				getLocation(),
 				name,
-				arguments.stream().map(PlusCalVariableDeclaration::copy).collect(Collectors.toList()),
+				params.stream().map(PlusCalVariableDeclaration::copy).collect(Collectors.toList()),
 				variables.stream().map(PlusCalVariableDeclaration::copy).collect(Collectors.toList()),
 				body.stream().map(PlusCalStatement::copy).collect(Collectors.toList()));
 	}
@@ -34,8 +34,8 @@ public class PlusCalProcedure extends PlusCalNode {
 		return name;
 	}
 
-	public List<PlusCalVariableDeclaration> getArguments(){
-		return arguments;
+	public List<PlusCalVariableDeclaration> getParams(){
+		return params;
 	}
 
 	public List<PlusCalVariableDeclaration> getVariables(){
@@ -59,7 +59,7 @@ public class PlusCalProcedure extends PlusCalNode {
 	public int hashCode() {
 		final int prime = 31;
 		int result = 1;
-		result = prime * result + ((arguments == null) ? 0 : arguments.hashCode());
+		result = prime * result + ((params == null) ? 0 : params.hashCode());
 		result = prime * result + ((body == null) ? 0 : body.hashCode());
 		result = prime * result + ((name == null) ? 0 : name.hashCode());
 		result = prime * result + ((variables == null) ? 0 : variables.hashCode());
@@ -75,10 +75,10 @@ public class PlusCalProcedure extends PlusCalNode {
 		if (getClass() != obj.getClass())
 			return false;
 		PlusCalProcedure other = (PlusCalProcedure) obj;
-		if (arguments == null) {
-			if (other.arguments != null)
+		if (params == null) {
+			if (other.params != null)
 				return false;
-		} else if (!arguments.equals(other.arguments))
+		} else if (!params.equals(other.params))
 			return false;
 		if (body == null) {
 			if (other.body != null)

@@ -75,13 +75,13 @@ public class PlusCalProcessesCodeGenVisitor extends PlusCalProcessesVisitor<Void
 			GoFunctionDeclarationBuilder builder = moduleBuilder.defineFunction(
 					uid, procedure.getName());
 
-			for (PlusCalVariableDeclaration arg : procedure.getArguments()) {
+			for (PlusCalVariableDeclaration arg : procedure.getParams()) {
 				GoType argType = typeMap.get(arg.getUID()).accept(new PGoTypeGoTypeConversionVisitor());
-				argMap.put(arg.getName().getValue(), builder.addArgument(arg.getName().getValue(), argType));
+				argMap.put(arg.getName().getValue(), builder.addParameter(arg.getName().getValue(), argType));
 			}
 
 			try (GoBlockBuilder procBody = builder.getBlockBuilder()) {
-				for (PlusCalVariableDeclaration arg : procedure.getArguments()) {
+				for (PlusCalVariableDeclaration arg : procedure.getParams()) {
 					procBody.linkUID(arg.getUID(), argMap.get(arg.getName().getValue()));
 				}
 
@@ -155,7 +155,7 @@ public class PlusCalProcessesCodeGenVisitor extends PlusCalProcessesVisitor<Void
 			GoFunctionDeclarationBuilder functionBuilder = moduleBuilder.defineFunction(
 					processUID, process.getName().getName().getValue());
 			GoType selfType = typeMap.get(processUID).accept(new PGoTypeGoTypeConversionVisitor());
-			GoVariableName self = functionBuilder.addArgument("self", selfType);
+			GoVariableName self = functionBuilder.addParameter("self", selfType);
 			try (GoBlockBuilder processBody = functionBuilder.getBlockBuilder()) {
 				processBody.linkUID(processUID, self);
 				globalStrategy.processPrelude(processBody, process, process.getName().getName().getValue(), self, selfType);

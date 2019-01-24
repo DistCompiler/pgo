@@ -66,7 +66,7 @@ public class CompiledOperatorAccessor extends OperatorAccessor {
 		for (TLAOpDecl arg : def.getArgs()) {
 			PGoType argType = typeMap.get(arg.getName().getUID());
 			GoType goType = argType.accept(new PGoTypeGoTypeConversionVisitor());
-			GoVariableName name = declBuilder.addArgument(arg.getName().getId(), goType);
+			GoVariableName name = declBuilder.addParameter(arg.getName().getId(), goType);
 			builder.linkUID(arg.getName().getUID(), name);
 		}
 

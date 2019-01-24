@@ -1,6 +1,6 @@
 package pgo.model.golang.builder;
 
-import pgo.model.golang.GoFunctionArgument;
+import pgo.model.golang.GoFunctionParameter;
 import pgo.model.golang.GoFunctionDeclaration;
 import pgo.model.golang.GoVariableName;
 import pgo.trans.passes.codegen.NameCleaner;
@@ -12,52 +12,52 @@ import java.util.List;
 import java.util.Map;
 
 public class GoFunctionDeclarationBuilder {
+	private final GoASTBuilder parent;
+	private final String name;
 
-	private GoASTBuilder parent;
-	private String name;
-	
-	private List<GoFunctionArgument> arguments;
-	private List<GoFunctionArgument> returnValues;
-	private GoFunctionArgument receiver;
-	private NameCleaner nameCleaner;
-	private Map<UID, GoVariableName> nameMap;
+	private final List<GoFunctionParameter> params;
+	private final List<GoFunctionParameter> returnValues;
+	private GoFunctionParameter receiver;
+	private final NameCleaner nameCleaner;
+	private final Map<UID, GoVariableName> nameMap;
 
-	public GoFunctionDeclarationBuilder(GoASTBuilder parent, String name, NameCleaner nameCleaner, Map<UID, GoVariableName> nameMap) {
+	public GoFunctionDeclarationBuilder(GoASTBuilder parent, String name, NameCleaner nameCleaner,
+	                                    Map<UID, GoVariableName> nameMap) {
 		this.parent = parent;
 		this.name = name;
 		this.nameCleaner = nameCleaner;
 		this.nameMap = nameMap;
-		
+
 		this.receiver = null;
-		this.arguments = new ArrayList<>();
+		this.params = new ArrayList<>();
 		this.returnValues = new ArrayList<>();
 	}
-	
-	public GoVariableName addArgument(String nameHint, GoType type) {
+
+	public GoVariableName addParameter(String nameHint, GoType type) {
 		String actualName = nameCleaner.cleanName(nameHint);
-		arguments.add(new GoFunctionArgument(actualName, type));
+		params.add(new GoFunctionParameter(actualName, type));
 		return new GoVariableName(actualName);
 	}
-	
+
 	public void addReturn(GoType type) {
-		returnValues.add(new GoFunctionArgument(null, type));
+		returnValues.add(new GoFunctionParameter(null, type));
 	}
-	
+
 	public GoVariableName addReturn(String nameHint, GoType type) {
 		String actualName = nameCleaner.cleanName(nameHint);
-		returnValues.add(new GoFunctionArgument(actualName, type));
+		returnValues.add(new GoFunctionParameter(actualName, type));
 		return new GoVariableName(actualName);
 	}
-	
+
 	public GoVariableName setReceiver(String nameHint, GoType type) {
 		String actualName = nameCleaner.cleanName(nameHint);
-		receiver = new GoFunctionArgument(actualName, type);
+		receiver = new GoFunctionParameter(actualName, type);
 		return new GoVariableName(actualName);
 	}
-	
+
 	public GoBlockBuilder getBlockBuilder() {
 		return new GoBlockBuilder(parent, nameCleaner, nameMap, new NameCleaner(), block -> {
-			parent.addFunction(new GoFunctionDeclaration(name, receiver, arguments, returnValues, block));
+			parent.addFunction(new GoFunctionDeclaration(name, receiver, params, returnValues, block));
 		});
 	}
 

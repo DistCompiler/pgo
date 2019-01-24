@@ -8,18 +8,17 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class PlusCalMacro extends PlusCalNode {
-	
-	String name;
-	List<String> params;
-	List<PlusCalStatement> body;
-	
+	private final String name;
+	private final List<String> params;
+	private final List<PlusCalStatement> body;
+
 	public PlusCalMacro(SourceLocation location, String name, List<String> params, List<PlusCalStatement> body) {
 		super(location);
 		this.name = name;
 		this.params = params;
 		this.body = body;
 	}
-	
+
 	@Override
 	public PlusCalMacro copy() {
 		return new PlusCalMacro(
@@ -28,19 +27,19 @@ public class PlusCalMacro extends PlusCalNode {
 				new ArrayList<>(params),
 				body.stream().map(PlusCalStatement::copy).collect(Collectors.toList()));
 	}
-	
+
 	public String getName() {
 		return name;
 	}
-	
+
 	public List<String> getParams(){
 		return params;
 	}
-	
+
 	public List<PlusCalStatement> getBody(){
 		return body;
 	}
-	
+
 	@Override
 	public <T, E extends Throwable> T accept(PlusCalNodeVisitor<T, E> v) throws E{
 		return v.visit(this);

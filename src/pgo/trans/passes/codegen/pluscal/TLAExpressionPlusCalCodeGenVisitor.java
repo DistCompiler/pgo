@@ -13,22 +13,22 @@ import java.util.*;
 
 public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLAExpression, RuntimeException> {
 	private final DefinitionRegistry registry;
-	private final Map<UID, PlusCalVariableDeclaration> arguments;
-	private final Map<UID, TLAGeneralIdentifier> params;
+	private final Map<UID, PlusCalVariableDeclaration> params;
+	private final Map<UID, TLAGeneralIdentifier> arguments;
 	private final Map<UID, ModularPlusCalMappingMacro> mappings;
 	private final Set<UID> functionMappedVars;
 	private final TemporaryBinding readTemporaryBinding;
 	private final TemporaryBinding writeTemporaryBinding;
 	private final List<PlusCalStatement> output;
 
-	TLAExpressionPlusCalCodeGenVisitor(DefinitionRegistry registry, Map<UID, PlusCalVariableDeclaration> arguments,
-	                                   Map<UID, TLAGeneralIdentifier> params,
+	TLAExpressionPlusCalCodeGenVisitor(DefinitionRegistry registry, Map<UID, PlusCalVariableDeclaration> params,
+	                                   Map<UID, TLAGeneralIdentifier> arguments,
 	                                   Map<UID, ModularPlusCalMappingMacro> mappings, Set<UID> functionMappedVars,
 	                                   TemporaryBinding readTemporaryBinding, TemporaryBinding writeTemporaryBinding,
 	                                   List<PlusCalStatement> output) {
 		this.registry = registry;
-		this.arguments = arguments;
 		this.params = params;
+		this.arguments = arguments;
 		this.mappings = mappings;
 		this.functionMappedVars = functionMappedVars;
 		this.readTemporaryBinding = readTemporaryBinding;
@@ -71,7 +71,7 @@ public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLA
 						writeTemporaryBinding,
 						dollarVariable,
 						varUID,
-						arguments.get(varUID).getName().getValue() + "Write",
+						params.get(varUID).getName().getValue() + "Write",
 						index,
 						new TLAExpressionMappingMacroReadExpansionVisitor(
 								registry, readTemporaryBinding, writeTemporaryBinding, dollarVariable, varUID, index),
@@ -98,8 +98,8 @@ public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLA
 				TLAGeneralIdentifier temp = readTemporaryBinding.declare(
 						variable.getLocation(),
 						varUID,
-						arguments.get(varUID).getName().getValue() + "Read");
-				substituteReadBody(temp, params.get(varUID), varUID, index);
+						params.get(varUID).getName().getValue() + "Read");
+				substituteReadBody(temp, arguments.get(varUID), varUID, index);
 				if (accumulatedIndices.size() > 0) {
 					return new TLAFunctionCall(tlaFunctionCall.getLocation(), temp, accumulatedIndices);
 				}
@@ -136,12 +136,12 @@ public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLA
 		List<PlusCalStatement> currentBlock = output;
 		for (TLACaseArm arm : tlaCase.getArms()) {
 			TLAExpression condition = arm.getCondition().accept(new TLAExpressionPlusCalCodeGenVisitor(
-					registry, arguments, params, mappings, functionMappedVars, readTemporaryBinding,
+					registry, params, arguments, mappings, functionMappedVars, readTemporaryBinding,
 					writeTemporaryBinding, currentBlock));
 			List<PlusCalStatement> yes = new ArrayList<>();
 			List<PlusCalStatement> no = new ArrayList<>();
 			TLAExpression result = arm.getResult().accept(new TLAExpressionPlusCalCodeGenVisitor(
-					registry, arguments, params, mappings, functionMappedVars, readTemporaryBinding,
+					registry, params, arguments, mappings, functionMappedVars, readTemporaryBinding,
 					writeTemporaryBinding, yes));
 			yes.add(new PlusCalAssignment(
 					arm.getResult().getLocation(),
@@ -154,7 +154,7 @@ public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLA
 			currentBlock.add(new PlusCalAssert(tlaCase.getLocation(), new TLABool(tlaCase.getLocation(), false)));
 		} else {
 			TLAExpression other = tlaCase.getOther().accept(new TLAExpressionPlusCalCodeGenVisitor(
-					registry, arguments, params, mappings, functionMappedVars, readTemporaryBinding,
+					registry, params, arguments, mappings, functionMappedVars, readTemporaryBinding,
 					writeTemporaryBinding, currentBlock));
 			currentBlock.add(new PlusCalAssignment(
 					tlaCase.getOther().getLocation(),
@@ -215,7 +215,7 @@ public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLA
 		TLAExpression condition = tlaIf.getCond().accept(this);
 		List<PlusCalStatement> yes = new ArrayList<>();
 		TLAExpression yesResult = tlaIf.getTval().accept(new TLAExpressionPlusCalCodeGenVisitor(
-				registry, arguments, params, mappings, functionMappedVars, readTemporaryBinding, writeTemporaryBinding,
+				registry, params, arguments, mappings, functionMappedVars, readTemporaryBinding, writeTemporaryBinding,
 				yes));
 		yes.add(new PlusCalAssignment(
 				tlaIf.getTval().getLocation(),
@@ -223,7 +223,7 @@ public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLA
 						tlaIf.getTval().getLocation(), ifResult, yesResult))));
 		List<PlusCalStatement> no = new ArrayList<>();
 		TLAExpression noResult = tlaIf.getFval().accept(new TLAExpressionPlusCalCodeGenVisitor(
-				registry, arguments, params, mappings, functionMappedVars, readTemporaryBinding, writeTemporaryBinding,
+				registry, params, arguments, mappings, functionMappedVars, readTemporaryBinding, writeTemporaryBinding,
 				no));
 		no.add(new PlusCalAssignment(
 				tlaIf.getFval().getLocation(),
@@ -242,12 +242,12 @@ public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLA
 	public TLAExpression visit(TLAGeneralIdentifier tlaGeneralIdentifier) throws RuntimeException {
 		SourceLocation location = tlaGeneralIdentifier.getLocation();
 		UID varUID = registry.followReference(tlaGeneralIdentifier.getUID());
-		if (params.containsKey(varUID)) {
-			TLAGeneralIdentifier dollarVariable = params.get(varUID);
+		if (arguments.containsKey(varUID)) {
+			TLAGeneralIdentifier dollarVariable = arguments.get(varUID);
 			TLAGeneralIdentifier temp = readTemporaryBinding.declare(
 					location,
 					varUID,
-					arguments.get(varUID).getName().getValue() + "Read");
+					params.get(varUID).getName().getValue() + "Read");
 			if (mappings.containsKey(varUID)) {
 				substituteReadBody(temp, dollarVariable, varUID, null);
 			} else {

@@ -1,6 +1,6 @@
 package pgo.model.golang.type;
 
-import pgo.model.golang.GoFunctionArgument;
+import pgo.model.golang.GoFunctionParameter;
 import pgo.model.golang.GoNode;
 import pgo.model.golang.GoNodeVisitor;
 
@@ -10,10 +10,10 @@ import java.util.Objects;
 public class GoInterfaceTypeField extends GoNode {
 	
 	private String name;
-	private List<GoFunctionArgument> arguments;
-	private List<GoFunctionArgument> returnTypes;
+	private List<GoFunctionParameter> arguments;
+	private List<GoFunctionParameter> returnTypes;
 
-	public GoInterfaceTypeField(String name, List<GoFunctionArgument> arguments, List<GoFunctionArgument> returnTypes) {
+	public GoInterfaceTypeField(String name, List<GoFunctionParameter> arguments, List<GoFunctionParameter> returnTypes) {
 		this.name = name;
 		this.arguments = arguments;
 		this.returnTypes = returnTypes;
@@ -23,11 +23,11 @@ public class GoInterfaceTypeField extends GoNode {
 		return name;
 	}
 
-	public List<GoFunctionArgument> getArguments() {
+	public List<GoFunctionParameter> getArguments() {
 		return arguments;
 	}
 
-	public List<GoFunctionArgument> getReturnTypes() {
+	public List<GoFunctionParameter> getReturnTypes() {
 		return returnTypes;
 	}
 

@@ -111,7 +111,7 @@ public class GoExpressionFormattingVisitor extends GoExpressionVisitor<Void, IOE
 	@Override
 	public Void visit(GoAnonymousFunction anonymousFunction) throws IOException {
 		out.write("func (");
-		FormattingTools.writeCommaSeparated(out, anonymousFunction.getArguments(), arg -> {
+		FormattingTools.writeCommaSeparated(out, anonymousFunction.getParams(), arg -> {
 			arg.accept(new GoNodeFormattingVisitor(out));
 		});
 		out.write(") ");

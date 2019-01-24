@@ -4,10 +4,9 @@ import java.util.List;
 import java.util.Objects;
 
 public class GoCall extends GoExpression {
-
-	private GoExpression target;
-	private List<GoExpression> arguments;
-	private boolean ellipsis;
+	private final GoExpression target;
+	private final List<GoExpression> arguments;
+	private final boolean ellipsis;
 
 	public GoCall(GoExpression target, List<GoExpression> arguments) {
 		this(target, arguments, false);

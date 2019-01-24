@@ -1,7 +1,6 @@
 package pgo.trans.intermediate;
 
 import pgo.InternalCompilerError;
-import pgo.trans.passes.codegen.NameCleaner;
 import pgo.model.golang.type.GoType;
 import pgo.model.mpcal.ModularPlusCalArchetype;
 import pgo.model.mpcal.ModularPlusCalMappingMacro;
@@ -10,9 +9,7 @@ import pgo.model.pcal.PlusCalVariableDeclaration;
 import pgo.model.tla.*;
 import pgo.model.type.PGoTypeGenerator;
 import pgo.model.type.PGoTypeVariable;
-import pgo.parser.Located;
 import pgo.scope.UID;
-import pgo.util.SourceLocation;
 
 import java.util.*;
 
@@ -90,7 +87,7 @@ public class DefinitionRegistry {
 	}
 
 	public void addReadAndWrittenValueTypes(ModularPlusCalArchetype archetype, PGoTypeGenerator generator) {
-		for (PlusCalVariableDeclaration declaration : archetype.getArguments()) {
+		for (PlusCalVariableDeclaration declaration : archetype.getParams()) {
 			readValueTypes.put(declaration.getUID(), generator.get());
 			writtenValueTypes.put(declaration.getUID(), generator.get());
 		}

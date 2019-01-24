@@ -22,16 +22,16 @@ import java.util.stream.Collectors;
 public class ModularPlusCalArchetype extends ModularPlusCalUnit {
 	private final String name;
 	private final UID selfVariableUID;
-	private final List<PlusCalVariableDeclaration> arguments;
+	private final List<PlusCalVariableDeclaration> params;
 	private final List<PlusCalVariableDeclaration> variables;
 	private final List<PlusCalStatement> body;
 
-	public ModularPlusCalArchetype(SourceLocation location, String name, List<PlusCalVariableDeclaration> arguments,
+	public ModularPlusCalArchetype(SourceLocation location, String name, List<PlusCalVariableDeclaration> params,
 	                               List<PlusCalVariableDeclaration> variables, List<PlusCalStatement> body) {
 		super(location);
 		this.name = name;
 		this.selfVariableUID = new UID();
-		this.arguments = arguments;
+		this.params = params;
 		this.variables = variables;
 		this.body = body;
 	}
@@ -41,14 +41,14 @@ public class ModularPlusCalArchetype extends ModularPlusCalUnit {
 		return new ModularPlusCalArchetype(
 				getLocation(),
 				name,
-				arguments.stream().map(PlusCalVariableDeclaration::copy).collect(Collectors.toList()),
+				params.stream().map(PlusCalVariableDeclaration::copy).collect(Collectors.toList()),
 				variables.stream().map(PlusCalVariableDeclaration::copy).collect(Collectors.toList()),
 				body.stream().map(PlusCalStatement::copy).collect(Collectors.toList()));
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(name, arguments, variables, body);
+		return Objects.hash(name, params, variables, body);
 	}
 
 	@Override
@@ -61,7 +61,7 @@ public class ModularPlusCalArchetype extends ModularPlusCalUnit {
 		}
 		ModularPlusCalArchetype that = (ModularPlusCalArchetype) obj;
 		return name.equals(that.name) &&
-				Objects.equals(arguments, that.arguments) &&
+				Objects.equals(params, that.params) &&
 				Objects.equals(variables, that.variables) &&
 				Objects.equals(body, that.body);
 	}
@@ -83,8 +83,8 @@ public class ModularPlusCalArchetype extends ModularPlusCalUnit {
 		return selfVariableUID;
 	}
 
-	public List<PlusCalVariableDeclaration> getArguments() {
-		return Collections.unmodifiableList(arguments);
+	public List<PlusCalVariableDeclaration> getParams() {
+		return Collections.unmodifiableList(params);
 	}
 
 	public List<PlusCalVariableDeclaration> getVariables() {

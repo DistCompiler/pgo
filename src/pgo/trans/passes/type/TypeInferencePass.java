@@ -65,7 +65,7 @@ public class TypeInferencePass {
 
 		for (PlusCalProcedure p : modularPlusCalBlock.getProcedures()) {
 			List<PGoType> paramTypes = new ArrayList<>();
-			for (PlusCalVariableDeclaration var : p.getArguments()) {
+			for (PlusCalVariableDeclaration var : p.getParams()) {
 				constrainVariableDeclaration(registry, var, solver, generator, mapping);
 				paramTypes.add(mapping.get(var.getUID()));
 			}
@@ -94,7 +94,7 @@ public class TypeInferencePass {
 							new PGoTypeString(Collections.singletonList(archetype)))))));
 			List<PGoType> paramTypes = new ArrayList<>();
 			Set<UID> paramUIDs = new HashSet<>();
-			for (PlusCalVariableDeclaration declaration : archetype.getArguments()) {
+			for (PlusCalVariableDeclaration declaration : archetype.getParams()) {
 				paramUIDs.add(declaration.getUID());
 				constrainVariableDeclaration(registry, declaration, solver, generator, mapping);
 				paramTypes.add(mapping.get(declaration.getUID()));
@@ -141,8 +141,8 @@ public class TypeInferencePass {
 			TLAExpressionTypeConstraintVisitor v =
 					new TLAExpressionTypeConstraintVisitor(registry, solver, generator, mapping);
 			Map<UID, UID> mappedGlobals = new HashMap<>();
-			List<TLAExpression> params = instance.getParams();
-			List<PlusCalVariableDeclaration> arguments = registry.findArchetype(instance.getTarget()).getArguments();
+			List<TLAExpression> params = instance.getArguments();
+			List<PlusCalVariableDeclaration> arguments = registry.findArchetype(instance.getTarget()).getParams();
 			for (int i = 0; i < params.size(); i++) {
 				TLAExpression expression = params.get(i);
 				paramTypes.add(v.wrappedVisit(expression));

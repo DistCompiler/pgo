@@ -21,18 +21,18 @@ public class ModularPlusCalInstance extends ModularPlusCalUnit {
 	private final PlusCalVariableDeclaration name;
 	private final PlusCalFairness fairness;
 	private final String target;
-	private final List<TLAExpression> params;
+	private final List<TLAExpression> arguments;
 	private final List<ModularPlusCalMapping> mappings;
 	// TODO
 	// private final Located<String> interleavingTarget;
 
 	public ModularPlusCalInstance(SourceLocation location, PlusCalVariableDeclaration name, PlusCalFairness fairness,
-								  String target, List<TLAExpression> params, List<ModularPlusCalMapping> mappings) {
+	                              String target, List<TLAExpression> arguments, List<ModularPlusCalMapping> mappings) {
 		super(location);
 		this.name = name;
 		this.fairness = fairness;
 		this.target = target;
-		this.params = params;
+		this.arguments = arguments;
 		this.mappings = mappings;
 	}
 
@@ -43,13 +43,13 @@ public class ModularPlusCalInstance extends ModularPlusCalUnit {
 				name.copy(),
 				fairness,
 				target,
-				params.stream().map(TLAExpression::copy).collect(Collectors.toList()),
+				arguments.stream().map(TLAExpression::copy).collect(Collectors.toList()),
 				mappings.stream().map(ModularPlusCalMapping::copy).collect(Collectors.toList()));
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(name, target, params, mappings);
+		return Objects.hash(name, target, arguments, mappings);
 	}
 
 	@Override
@@ -64,7 +64,7 @@ public class ModularPlusCalInstance extends ModularPlusCalUnit {
 		return target.equals(that.target) &&
 				name.equals(that.name) &&
 				fairness.equals(that.fairness) &&
-				Objects.equals(params, that.params) &&
+				Objects.equals(arguments, that.arguments) &&
 				Objects.equals(mappings, that.mappings);
 	}
 
@@ -89,7 +89,7 @@ public class ModularPlusCalInstance extends ModularPlusCalUnit {
 		return Collections.unmodifiableList(mappings);
 	}
 
-	public List<TLAExpression> getParams() {
-		return Collections.unmodifiableList(params);
+	public List<TLAExpression> getArguments() {
+		return Collections.unmodifiableList(arguments);
 	}
 }

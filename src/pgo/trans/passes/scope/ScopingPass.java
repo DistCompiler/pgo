@@ -64,7 +64,7 @@ public class ScopingPass {
 					tlaScope.getReferences());
 			Map<String, UID> args = new ChainMap<>(tlaScope.getDeclarations());
 
-			Stream.concat(archetype.getArguments().stream(), archetype.getVariables().stream())
+			Stream.concat(archetype.getParams().stream(), archetype.getVariables().stream())
 					.forEach(variableDeclaration -> {
 						variableDeclaration.getValue().accept(new TLAExpressionScopingVisitor(
 								tlaScope, registry, loader, new HashSet<>()));
@@ -145,11 +145,11 @@ public class ScopingPass {
 				mappedVariables.put(variableName, mapping);
 			}
 			ModularPlusCalArchetype archetype = registry.findArchetype(instance.getTarget());
-			if (instance.getParams().size() != archetype.getArguments().size()) {
+			if (instance.getArguments().size() != archetype.getParams().size()) {
 				ctx.error(new InstanceArgumentCountMismatchIssue(instance, archetype));
 				continue;
 			}
-			for (TLAExpression expression : instance.getParams()) {
+			for (TLAExpression expression : instance.getArguments()) {
 				expression.accept(new TLAExpressionScopingVisitor(
 						modularPlusCalScope, registry, loader, new HashSet<>()));
 			}
@@ -167,7 +167,7 @@ public class ScopingPass {
 					modularPlusCalScope.getReferences());
 			Map<String, UID> args = new ChainMap<>(tlaScope.getDeclarations());
 
-			for (PlusCalVariableDeclaration arg : proc.getArguments()) {
+			for (PlusCalVariableDeclaration arg : proc.getParams()) {
 				arg.getValue().accept(new TLAExpressionScopingVisitor(tlaScope, registry, loader, new HashSet<>()));
 				registry.addLocalVariable(arg.getUID());
 				if (argScope.declare(arg.getName().getValue(), arg.getUID())) {

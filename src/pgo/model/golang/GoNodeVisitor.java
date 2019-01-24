@@ -13,7 +13,7 @@ public abstract class GoNodeVisitor<T, E extends Throwable> {
 	public abstract T visit(GoStructTypeField structTypeField) throws E;
 	public abstract T visit(GoSwitchCase switchCase) throws E;
 	public abstract T visit(GoLabelName labelName) throws E;
-	public abstract T visit(GoFunctionArgument functionArgument) throws E;
+	public abstract T visit(GoFunctionParameter functionArgument) throws E;
 	public abstract T visit(GoExpression expression) throws E;
 	public abstract T visit(GoInterfaceTypeField interfaceTypeField) throws E;
 	public abstract T visit(GoSelectCase selectCase) throws E;

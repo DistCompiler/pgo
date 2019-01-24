@@ -26,7 +26,7 @@ public class ModularPlusCalNodeFormattingVisitor extends ModularPlusCalNodeVisit
 		out.write(modularPlusCalArchetype.getName());
 		out.write("(");
 		out.write(modularPlusCalArchetype
-				.getArguments()
+				.getParams()
 				.stream()
 				.map(arg -> (arg.isRef() ? "ref " : "") + arg.getName().getValue())
 				.collect(Collectors.joining(", ")));

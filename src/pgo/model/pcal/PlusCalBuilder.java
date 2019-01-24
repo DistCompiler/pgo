@@ -34,13 +34,13 @@ public class PlusCalBuilder {
 				SourceLocation.unknown(), new Located<>(SourceLocation.unknown(), name), isRef, isSet, value);
 	}
 
-	public static PlusCalMacro macro(String name, List<String> args, PlusCalStatement... statements) {
-		return new PlusCalMacro(SourceLocation.unknown(), name, args, Arrays.asList(statements));
+	public static PlusCalMacro macro(String name, List<String> params, PlusCalStatement... statements) {
+		return new PlusCalMacro(SourceLocation.unknown(), name, params, Arrays.asList(statements));
 	}
 
-	public static PlusCalProcedure procedure(String name, List<PlusCalVariableDeclaration> args,
+	public static PlusCalProcedure procedure(String name, List<PlusCalVariableDeclaration> params,
 	                                         List<PlusCalVariableDeclaration> vars, PlusCalStatement... statements) {
-		return new PlusCalProcedure(SourceLocation.unknown(), name, args, vars, Arrays.asList(statements));
+		return new PlusCalProcedure(SourceLocation.unknown(), name, params, vars, Arrays.asList(statements));
 	}
 
 	public static PlusCalProcess process(PlusCalVariableDeclaration name, PlusCalFairness fairness,

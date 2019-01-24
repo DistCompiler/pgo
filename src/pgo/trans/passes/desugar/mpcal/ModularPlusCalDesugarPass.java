@@ -28,7 +28,7 @@ public class ModularPlusCalDesugarPass {
 			archetypes.add(new ModularPlusCalArchetype(
 					archetype.getLocation(),
 					archetype.getName(),
-					archetype.getArguments(),
+					archetype.getParams(),
 					archetype.getVariables(),
 					desugarLabeledStatements(archetype.getBody())));
 		}
@@ -37,7 +37,7 @@ public class ModularPlusCalDesugarPass {
 			procedures.add(new PlusCalProcedure(
 					procedure.getLocation(),
 					procedure.getName(),
-					procedure.getArguments(),
+					procedure.getParams(),
 					procedure.getVariables(),
 					desugarLabeledStatements(procedure.getBody())));
 		}

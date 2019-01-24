@@ -8,24 +8,24 @@ import java.util.Objects;
  *
  */
 public class GoAnonymousFunction extends GoExpression {
-	private List<GoFunctionArgument> arguments;
-	private List<GoFunctionArgument> returnTypes;
-	private GoBlock body;
-	
-	public GoAnonymousFunction(List<GoFunctionArgument> arguments, List<GoFunctionArgument> returnTypes, GoBlock body) {
-		this.arguments = arguments;
+	private final List<GoFunctionParameter> params;
+	private final List<GoFunctionParameter> returnTypes;
+	private final GoBlock body;
+
+	public GoAnonymousFunction(List<GoFunctionParameter> params, List<GoFunctionParameter> returnTypes, GoBlock body) {
+		this.params = params;
 		this.returnTypes = returnTypes;
 		this.body = body;
 	}
-	
-	public List<GoFunctionArgument> getReturnTypes(){
+
+	public List<GoFunctionParameter> getReturnTypes(){
 		return returnTypes;
 	}
-	
-	public List<GoFunctionArgument> getArguments(){
-		return arguments;
+
+	public List<GoFunctionParameter> getParams(){
+		return params;
 	}
-	
+
 	public GoBlock getBody() {
 		return body;
 	}
@@ -40,7 +40,7 @@ public class GoAnonymousFunction extends GoExpression {
 		if (this == o) return true;
 		if (o == null || getClass() != o.getClass()) return false;
 		GoAnonymousFunction that = (GoAnonymousFunction) o;
-		return Objects.equals(arguments, that.arguments) &&
+		return Objects.equals(params, that.params) &&
 				Objects.equals(returnTypes, that.returnTypes) &&
 				Objects.equals(body, that.body);
 	}
@@ -48,6 +48,6 @@ public class GoAnonymousFunction extends GoExpression {
 	@Override
 	public int hashCode() {
 
-		return Objects.hash(arguments, returnTypes, body);
+		return Objects.hash(params, returnTypes, body);
 	}
 }

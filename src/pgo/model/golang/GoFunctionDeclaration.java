@@ -10,12 +10,12 @@ import java.util.Objects;
 public class GoFunctionDeclaration extends GoDeclaration {
 	private String name;
 	
-	private GoFunctionArgument receiver;
-	private List<GoFunctionArgument> arguments;
-	private List<GoFunctionArgument> returnTypes;
+	private GoFunctionParameter receiver;
+	private List<GoFunctionParameter> arguments;
+	private List<GoFunctionParameter> returnTypes;
 	private GoBlock body;
 	
-	public GoFunctionDeclaration(String name, GoFunctionArgument receiver, List<GoFunctionArgument> arguments, List<GoFunctionArgument> returnTypes, GoBlock body) {
+	public GoFunctionDeclaration(String name, GoFunctionParameter receiver, List<GoFunctionParameter> arguments, List<GoFunctionParameter> returnTypes, GoBlock body) {
 		this.name = name;
 		this.arguments = arguments;
 		this.returnTypes = returnTypes;
@@ -26,15 +26,15 @@ public class GoFunctionDeclaration extends GoDeclaration {
 		return name;
 	}
 	
-	public GoFunctionArgument getReceiver() {
+	public GoFunctionParameter getReceiver() {
 		return receiver;
 	}
 	
-	public List<GoFunctionArgument> getReturnTypes(){
+	public List<GoFunctionParameter> getReturnTypes(){
 		return returnTypes;
 	}
 	
-	public List<GoFunctionArgument> getArguments(){
+	public List<GoFunctionParameter> getArguments(){
 		return arguments;
 	}
 	

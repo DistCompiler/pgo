@@ -7,25 +7,24 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class PlusCalMacroCall extends PlusCalStatement {
-	
-	private String target;
-	private List<TLAExpression> arguments;
-	
+	private final String target;
+	private final List<TLAExpression> arguments;
+
 	public PlusCalMacroCall(SourceLocation location, String target, List<TLAExpression> arguments) {
 		super(location);
 		this.target = target;
 		this.arguments = arguments;
 	}
-	
+
 	@Override
 	public PlusCalMacroCall copy() {
 		return new PlusCalMacroCall(getLocation(), target, arguments.stream().map(TLAExpression::copy).collect(Collectors.toList()));
 	}
-	
+
 	public String getTarget() {
 		return target;
 	}
-	
+
 	public List<TLAExpression> getArguments(){
 		return arguments;
 	}

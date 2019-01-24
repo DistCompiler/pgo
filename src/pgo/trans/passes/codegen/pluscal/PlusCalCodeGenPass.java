@@ -37,7 +37,7 @@ public class PlusCalCodeGenPass {
 		List<PlusCalProcedure> procedures = new ArrayList<>();
 		Map<UID, PlusCalProcedure> refProcedures = new HashMap<>();
 		for (PlusCalProcedure procedure : modularPlusCalBlock.getProcedures()) {
-			if (procedure.getArguments().stream().anyMatch(PlusCalVariableDeclaration::isRef)) {
+			if (procedure.getParams().stream().anyMatch(PlusCalVariableDeclaration::isRef)) {
 				refProcedures.put(procedure.getUID(), procedure);
 			} else {
 				procedures.add(procedure);
@@ -49,7 +49,7 @@ public class PlusCalCodeGenPass {
 		PlusCalStatementNameCollectorVisitor nameCollector = new PlusCalStatementNameCollectorVisitor(nameCleanerSeed);
 		for (PlusCalProcedure procedure : modularPlusCalBlock.getProcedures()) {
 			nameCleanerSeed.add(procedure.getName());
-			Stream.concat(procedure.getVariables().stream(), procedure.getArguments().stream())
+			Stream.concat(procedure.getVariables().stream(), procedure.getParams().stream())
 					.forEach(v -> nameCleanerSeed.add(v.getName().getValue()));
 			procedure.getBody().forEach(s -> s.accept(nameCollector));
 		}
@@ -64,7 +64,7 @@ public class PlusCalCodeGenPass {
 		}
 		for (ModularPlusCalArchetype archetype : modularPlusCalBlock.getArchetypes()) {
 			nameCleanerSeed.add(archetype.getName());
-			Stream.concat(archetype.getArguments().stream(), archetype.getArguments().stream())
+			Stream.concat(archetype.getParams().stream(), archetype.getParams().stream())
 					.forEach(v -> nameCleanerSeed.add(v.getName().getValue()));
 			archetype.getBody().forEach(s -> s.accept(nameCollector));
 		}
@@ -86,22 +86,22 @@ public class PlusCalCodeGenPass {
 				mappedVars.put(registry.followReference(mapping.getVariable().getUID()), mapping);
 			}
 			ModularPlusCalArchetype archetype = registry.findArchetype(instance.getTarget());
-			Map<UID, PlusCalVariableDeclaration> arguments = new HashMap<>();
-			Map<UID, TLAGeneralIdentifier> params = new LinkedHashMap<>();
+			Map<UID, PlusCalVariableDeclaration> params = new HashMap<>();
+			Map<UID, TLAGeneralIdentifier> arguments = new LinkedHashMap<>();
 			Map<UID, ModularPlusCalMappingMacro> mappings = new HashMap<>();
 			Set<UID> functionMappedVars = new HashSet<>();
 			Set<UID> refs = new HashSet<>();
 			List<PlusCalVariableDeclaration> localVariables = new ArrayList<>(archetype.getVariables());
 			TemporaryBinding readTemporaryBinding = new TemporaryBinding(nameCleaner, localVariables);
-			for (int i = 0; i < archetype.getArguments().size(); i++) {
-				PlusCalVariableDeclaration argument = archetype.getArguments().get(i);
+			for (int i = 0; i < archetype.getParams().size(); i++) {
+				PlusCalVariableDeclaration argument = archetype.getParams().get(i);
 				UID uid = argument.getUID();
-				TLAExpression value = instance.getParams().get(i);
-				arguments.put(uid, argument);
+				TLAExpression value = instance.getArguments().get(i);
+				params.put(uid, argument);
 				if (value instanceof TLARef) {
 					recordMapping(registry, mappedVars, mappings, functionMappedVars, uid, value);
 					refs.add(uid);
-					params.put(
+					arguments.put(
 							uid,
 							new TLAGeneralIdentifier(
 									value.getLocation(),
@@ -111,7 +111,7 @@ public class PlusCalCodeGenPass {
 									Collections.emptyList()));
 				} else if (value instanceof TLAGeneralIdentifier) {
 					recordMapping(registry, mappedVars, mappings, functionMappedVars, uid, value);
-					params.put(uid, (TLAGeneralIdentifier) value);
+					arguments.put(uid, (TLAGeneralIdentifier) value);
 				} else {
 					// this argument is bound to a TLA+ expression, so we need to add a variable declaration for it
 					readTemporaryBinding.declare(
@@ -119,7 +119,7 @@ public class PlusCalCodeGenPass {
 				}
 			}
 			ModularPlusCalCodeGenVisitor v = new ModularPlusCalCodeGenVisitor(
-					registry, arguments, params, mappings, refs, functionMappedVars, readTemporaryBinding,
+					registry, params, arguments, mappings, refs, functionMappedVars, readTemporaryBinding,
 					new TemporaryBinding(nameCleaner, localVariables));
 			List<PlusCalStatement> body = new ArrayList<>();
 			for (PlusCalStatement statement : archetype.getBody()) {

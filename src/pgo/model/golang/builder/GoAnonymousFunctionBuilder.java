@@ -15,8 +15,8 @@ public class GoAnonymousFunctionBuilder {
 	private NameCleaner nameCleaner;
 	private Map<UID, GoVariableName> nameMap;
 	
-	private List<GoFunctionArgument> arguments;
-	private List<GoFunctionArgument> returnValues;
+	private List<GoFunctionParameter> arguments;
+	private List<GoFunctionParameter> returnValues;
 	private GoBlock block;
 	
 	public GoAnonymousFunctionBuilder(GoASTBuilder parent, NameCleaner nameCleaner, Map<UID, GoVariableName> nameMap) {
@@ -31,12 +31,12 @@ public class GoAnonymousFunctionBuilder {
 	
 	public GoVariableName addArgument(String nameHint, GoType type) {
 		String actualName = nameCleaner.cleanName(nameHint);
-		arguments.add(new GoFunctionArgument(actualName, type));
+		arguments.add(new GoFunctionParameter(actualName, type));
 		return new GoVariableName(actualName);
 	}
 	
 	public void addReturn(GoType type) {
-		returnValues.add(new GoFunctionArgument(null, type));
+		returnValues.add(new GoFunctionParameter(null, type));
 	}
 	
 	public GoAnonymousFunction getFunction() {

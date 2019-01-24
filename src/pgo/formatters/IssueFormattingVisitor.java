@@ -308,14 +308,14 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 		out.write(" column ");
 		out.write(archetype.getLocation().getStartColumn());
 		out.write(" requires ");
-		out.write(archetype.getArguments().size());
+		out.write(archetype.getParams().size());
 		out.write(" argument(s) while instance statement at line ");
 		ModularPlusCalInstance instance = instanceArgumentCountMismatchIssue.getModularPlusCalInstance();
 		out.write(instance.getLocation().getStartLine());
 		out.write(" column ");
 		out.write(instance.getLocation().getStartColumn());
 		out.write(" referencing it provides ");
-		out.write(instance.getParams().size());
+		out.write(instance.getArguments().size());
 		out.write(" parameters");
 		return null;
 	}
