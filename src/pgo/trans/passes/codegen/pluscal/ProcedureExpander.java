@@ -1,5 +1,6 @@
 package pgo.trans.passes.codegen.pluscal;
 
+import pgo.errors.IssueContext;
 import pgo.model.mpcal.ModularPlusCalMappingMacro;
 import pgo.model.pcal.PlusCalCall;
 import pgo.model.pcal.PlusCalProcedure;
@@ -15,6 +16,7 @@ import pgo.trans.passes.codegen.NameCleaner;
 import java.util.*;
 
 class ProcedureExpander {
+	private final IssueContext ctx;
 	private final DefinitionRegistry registry;
 	private final NameCleaner nameCleaner;
 	private final Map<UID, TLAGeneralIdentifier> parentArguments;
@@ -22,11 +24,13 @@ class ProcedureExpander {
 	private final Set<UID> parentRefs;
 	private final Set<UID> parentFunctionMappedVars;
 	private final List<PlusCalProcedure> procedures;
+	private final Map<ExpandedProcedureMatch, String> procedureCache;
 
-	ProcedureExpander(DefinitionRegistry registry, NameCleaner nameCleaner,
+	ProcedureExpander(IssueContext ctx, DefinitionRegistry registry, NameCleaner nameCleaner,
 	                  Map<UID, TLAGeneralIdentifier> parentArguments,
 	                  Map<UID, ModularPlusCalMappingMacro> parentMappings, Set<UID> parentRefs,
 	                  Set<UID> parentFunctionMappedVars, List<PlusCalProcedure> procedures) {
+		this.ctx = ctx;
 		this.registry = registry;
 		this.nameCleaner = nameCleaner;
 		this.parentArguments = parentArguments;
@@ -34,6 +38,7 @@ class ProcedureExpander {
 		this.parentRefs = parentRefs;
 		this.parentFunctionMappedVars = parentFunctionMappedVars;
 		this.procedures = procedures;
+		this.procedureCache = new HashMap<>();
 	}
 
 	private void update(UID paramUID, UID valueUID, Map<UID, TLAGeneralIdentifier> arguments,
@@ -64,8 +69,10 @@ class ProcedureExpander {
 			PlusCalVariableDeclaration param = procedureParams.get(i);
 			TLAExpression value = callArguments.get(i);
 			UID paramUID = param.getUID();
-			params.put(paramUID, param);
-			if (value instanceof TLARef) {
+			if (value instanceof TLARef && !param.isRef()) {
+				ctx.error(new RefMismatchIssue(param, value));
+				continue;
+			} else if (value instanceof TLARef) {
 				UID valueUID = registry.followReference(value.getUID());
 				if (parentRefs.contains(valueUID)) {
 					refs.add(paramUID);
@@ -83,19 +90,28 @@ class ProcedureExpander {
 				actualParams.add(param);
 				actualArguments.add(value.accept(visitor));
 			}
+			params.put(paramUID, param);
 		}
-		ModularPlusCalCodeGenVisitor v = new ModularPlusCalCodeGenVisitor(
-				registry, params, arguments, mappings, refs, functionMappedVars,
-				new TemporaryBinding(nameCleaner, localVariables), new TemporaryBinding(nameCleaner, localVariables),
-				new ProcedureExpander(
-						registry, nameCleaner, arguments, mappings, refs, functionMappedVars, procedures));
-		List<PlusCalStatement> body = new ArrayList<>();
-		for (PlusCalStatement statement : procedure.getBody()) {
-			body.addAll(statement.accept(v));
+		ExpandedProcedureMatch match = new ExpandedProcedureMatch(
+				procedure.getUID(), actualParams, arguments, mappings, refs, functionMappedVars);
+		String procedureName;
+		if (procedureCache.containsKey(match)) {
+			procedureName = procedureCache.get(match);
+		} else {
+			ModularPlusCalCodeGenVisitor v = new ModularPlusCalCodeGenVisitor(
+					registry, params, arguments, mappings, refs, functionMappedVars,
+					new TemporaryBinding(nameCleaner, localVariables), new TemporaryBinding(nameCleaner, localVariables),
+					new ProcedureExpander(
+							ctx, registry, nameCleaner, arguments, mappings, refs, functionMappedVars, procedures));
+			List<PlusCalStatement> body = new ArrayList<>();
+			for (PlusCalStatement statement : procedure.getBody()) {
+				body.addAll(statement.accept(v));
+			}
+			procedureName = nameCleaner.cleanName(procedure.getName());
+			procedures.add(new PlusCalProcedure(
+					procedure.getLocation(), procedureName, actualParams, localVariables, body));
+			procedureCache.put(match, procedureName);
 		}
-		String procedureName = nameCleaner.cleanName(procedure.getName());
-		procedures.add(new PlusCalProcedure(
-				procedure.getLocation(), procedureName, actualParams, localVariables, body));
 		return new PlusCalCall(plusCalCall.getLocation(), procedureName, actualArguments);
 	}
 }

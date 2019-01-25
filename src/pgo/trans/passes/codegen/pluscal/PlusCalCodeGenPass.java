@@ -124,7 +124,7 @@ public class PlusCalCodeGenPass {
 					registry, params, arguments, mappings, refs, functionMappedVars, readTemporaryBinding,
 					new TemporaryBinding(nameCleaner, localVariables),
 					new ProcedureExpander(
-							registry, nameCleaner, arguments, mappings, refs, functionMappedVars, procedures));
+							ctx, registry, nameCleaner, arguments, mappings, refs, functionMappedVars, procedures));
 			List<PlusCalStatement> body = new ArrayList<>();
 			for (PlusCalStatement statement : archetype.getBody()) {
 				body.addAll(statement.accept(v));

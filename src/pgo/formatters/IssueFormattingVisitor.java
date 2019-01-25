@@ -11,6 +11,7 @@ import pgo.model.type.UnrealizableTypeIssue;
 import pgo.model.type.UnsatisfiableConstraintIssue;
 import pgo.parser.ParseFailure;
 import pgo.trans.intermediate.*;
+import pgo.trans.passes.codegen.pluscal.RefMismatchIssue;
 import pgo.trans.passes.expansion.*;
 import pgo.trans.passes.parse.tla.ParsingIssue;
 import pgo.trans.passes.scope.MultipleMappingIssue;
@@ -321,6 +322,15 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 		out.write(" referencing it provides ");
 		out.write(instance.getArguments().size());
 		out.write(" parameters");
+		return null;
+	}
+
+	@Override
+	public Void visit(RefMismatchIssue refMismatchIssue) throws IOException {
+		out.write("mismatch in call between ");
+		refMismatchIssue.getParam().accept(new PlusCalNodeFormattingVisitor(out));
+		out.write(" and ");
+		refMismatchIssue.getValue().accept(new TLANodeFormattingVisitor(out));
 		return null;
 	}
 }
