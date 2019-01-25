@@ -187,16 +187,6 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 	}
 
 	@Override
-	public Void visit(MultiplyDeclaredLabelIssue multiplyDeclaredLabelIssue) throws IOException {
-		out.write("label declarations ");
-		multiplyDeclaredLabelIssue.getFirst().accept(new OriginFormattingVisitor(out));
-		out.write(" and ");
-		multiplyDeclaredLabelIssue.getSecond().accept(new OriginFormattingVisitor(out));
-		out.write("conflict");
-		return null;
-	}
-
-	@Override
 	public Void visit(MultipleMappingIssue multipleMappingIssue) throws IOException {
 		out.write("mappings ");
 		multipleMappingIssue.getFirst().accept(new OriginFormattingVisitor(out));

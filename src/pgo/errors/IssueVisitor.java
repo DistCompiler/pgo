@@ -33,7 +33,6 @@ public abstract class IssueVisitor<T, E extends Throwable> {
 	public abstract T visit(MacroArgumentCountMismatchIssue macroArgumentCountMismatchIssue) throws E;
 	public abstract T visit(RecursiveMacroCallIssue recursiveMacroCallIssue) throws E;
 	public abstract T visit(MacroArgumentInnerScopeConflictIssue macroArgumentInnerScopeConflictIssue) throws E;
-	public abstract T visit(MultiplyDeclaredLabelIssue multiplyDeclaredLabelIssue) throws E;
 	public abstract T visit(MultipleMappingIssue multipleMappingIssue) throws E;
 	public abstract T visit(MacroNameConflictIssue macroNameConflictIssue) throws E;
 	public abstract T visit(BacktrackingFailureIssue backtrackingFailureIssue) throws E;
