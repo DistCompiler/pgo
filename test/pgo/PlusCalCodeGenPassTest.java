@@ -1613,10 +1613,12 @@ public class PlusCalCodeGenPassTest {
 						//     l1:
 						//       a := 1;
 						//       call P(ref a, b);
+						//     l2:
+						//       call P(ref a, b);
 						//   }
 						//
 						//   procedure P(ref a1, a2) {
-						//     l2:
+						//     l3:
 						//       while (a1 < 10 /\ a2) {
 						//         a1 := 1;
 						//       }
@@ -1648,11 +1650,17 @@ public class PlusCalCodeGenPassTest {
 														pcalVarDecl("b", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
 												),
 												Collections.emptyList(),
-												Collections.singletonList(labeled(
-														label("l1"),
-														assign(idexp("a"), num(1)),
-                                                        call("P", ref("a"), idexp("b"))
-												))
+												Arrays.asList(
+														labeled(
+																label("l1"),
+																assign(idexp("a"), num(1)),
+																call("P", ref("a"), idexp("b"))
+														),
+														labeled(
+																label("l2"),
+																call("P", ref("a"), idexp("b"))
+														)
+												)
 										)
 								),
 								Collections.emptyList(),
@@ -1665,7 +1673,7 @@ public class PlusCalCodeGenPassTest {
 												),
 												Collections.emptyList(),
 												labeled(
-														label("l2"),
+														label("l3"),
 														whileS(
 																binop("/\\", binop("<", idexp("a1"), num(10)), idexp("a2")),
 																Collections.singletonList(assign(idexp("a1"), num(1)))
@@ -1689,7 +1697,7 @@ public class PlusCalCodeGenPassTest {
 						//     procedure P0 ()
 						//     variables local, a1Read, a2Read, a1Write, a1Write0;
 						//     {
-						//         l2:
+						//         l3:
 						//             a1Read := i;
 						//             a2Read := flag;
 						//             if (a1Read < 10 /\ a2Read) {
@@ -1709,6 +1717,8 @@ public class PlusCalCodeGenPassTest {
 						//         l1:
 						//             aWrite := i + 1;
 						//             i := aWrite;
+						//             call P0();
+						//         l2:
 						//             call P0();
 						//
 						//     }
@@ -1731,7 +1741,7 @@ public class PlusCalCodeGenPassTest {
 														pcalVarDecl("a1Write0", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
 												),
 												labeled(
-														label("l2"),
+														label("l3"),
 														assign(idexp("a1Read"), idexp("i")),
 														assign(idexp("a2Read"), idexp("flag")),
 														ifS(
@@ -1740,7 +1750,7 @@ public class PlusCalCodeGenPassTest {
 																		assign(idexp("a1Write"), binop("+", idexp("i"), num(1))),
 																		assign(idexp("a1Write0"), idexp("a1Write")),
 																		assign(idexp("i"), idexp("a1Write0")),
-																		gotoS("l2")
+																		gotoS("l3")
 																),
 																Arrays.asList(
 																		assign(idexp("a1Write0"), idexp("i")),
@@ -1761,6 +1771,10 @@ public class PlusCalCodeGenPassTest {
 												label("l1"),
 												assign(idexp("aWrite"), binop("+", idexp("i"), num(1))),
 												assign(idexp("i"), idexp("aWrite")),
+												call("P0")
+										),
+										labeled(
+												label("l2"),
 												call("P0")
 										)
 								)
