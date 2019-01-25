@@ -12,6 +12,7 @@ import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
 import pgo.trans.intermediate.UnsupportedFeatureIssue;
 import pgo.trans.passes.codegen.NameCleaner;
+import pgo.trans.passes.validation.NonModularPlusCalNodeValidationVisitor;
 
 import java.util.*;
 import java.util.stream.Stream;
@@ -35,9 +36,10 @@ public class PlusCalCodeGenPass {
 	                                       ModularPlusCalBlock modularPlusCalBlock) {
 		// separate the procedures with ref arguments and ones without
 		List<PlusCalProcedure> procedures = new ArrayList<>();
+		NonModularPlusCalNodeValidationVisitor nonModularPlusCalNodeValidationVisitor =
+				new NonModularPlusCalNodeValidationVisitor();
 		for (PlusCalProcedure procedure : modularPlusCalBlock.getProcedures()) {
-			// TODO check if pure PlusCal
-			if (procedure.getParams().stream().noneMatch(PlusCalVariableDeclaration::isRef)) {
+			if (procedure.accept(nonModularPlusCalNodeValidationVisitor)) {
 				procedures.add(procedure);
 			}
 		}
