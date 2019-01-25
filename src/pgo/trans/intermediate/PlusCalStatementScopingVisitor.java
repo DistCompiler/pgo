@@ -104,6 +104,10 @@ public class PlusCalStatementScopingVisitor extends PlusCalStatementVisitor<Void
 
 	@Override
 	public Void visit(PlusCalCall plusCalCall) throws RuntimeException {
+		if (registry.findProcedure(plusCalCall.getTarget()) == null) {
+			ctx.error(new ProcedureNotFoundIssue(plusCalCall, plusCalCall.getTarget()));
+		}
+
 		for (TLAExpression expr : plusCalCall.getArguments()) {
 			expr.accept(factory.create(builder, null, null, null));
 		}

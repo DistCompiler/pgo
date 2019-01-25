@@ -104,9 +104,6 @@ public class PlusCalStatementTypeConstraintVisitor extends PlusCalStatementVisit
 	@Override
 	public Void visit(PlusCalCall plusCalCall) throws RuntimeException {
 		PlusCalProcedure proc = registry.findProcedure(plusCalCall.getTarget());
-		if (proc == null) {
-			ctx.error(new ProcedureNotFoundIssue(plusCalCall, plusCalCall.getTarget()));
-		}
 		List<PGoType> callArgs = plusCalCall.getArguments()
 				.stream()
 				.map(e -> exprVisitor.wrappedVisit(e))

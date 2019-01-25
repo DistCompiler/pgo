@@ -125,9 +125,8 @@ public class PlusCalStatementFormattingVisitor extends PlusCalStatementVisitor<V
 		out.write(plusCalCall.getTarget());
 		out.write("(");
 
-		for (TLAExpression arg : plusCalCall.getArguments()) {
-			arg.accept(new TLANodeFormattingVisitor(out));
-		}
+		TLANodeFormattingVisitor v = new TLANodeFormattingVisitor(out);
+		FormattingTools.writeCommaSeparated(out, plusCalCall.getArguments(), a -> a.accept(v));
 
 		out.write(");");
 		return null;

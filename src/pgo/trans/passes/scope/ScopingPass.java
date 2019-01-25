@@ -55,6 +55,36 @@ public class ScopingPass {
 			unit.accept(new TLAUnitScopingVisitor(ctx, modularPlusCalScope, registry, loader, new HashSet<>()));
 		}
 
+		for (PlusCalProcedure proc : modularPlusCalBlock.getProcedures()) {
+			registry.addProcedure(proc);
+			modularPlusCalScope.defineGlobal(proc.getName(), proc.getUID());
+
+			TLAScopeBuilder argScope = new TLAScopeBuilder(
+					ctx, new ChainMap<>(tlaScope.getDeclarations()), new HashMap<>(),
+					modularPlusCalScope.getReferences());
+			Map<String, UID> args = new ChainMap<>(tlaScope.getDeclarations());
+
+			for (PlusCalVariableDeclaration arg : proc.getParams()) {
+				arg.getValue().accept(new TLAExpressionScopingVisitor(tlaScope, registry, loader, new HashSet<>()));
+				registry.addLocalVariable(arg.getUID());
+				if (argScope.declare(arg.getName().getValue(), arg.getUID())) {
+					args.put(arg.getName().getValue(), arg.getUID());
+				}
+			}
+
+			TLAScopeBuilder procScope = new TLAScopeBuilder(
+					ctx, args, new ChainMap<>(modularPlusCalScope.getDefinitions()),
+					modularPlusCalScope.getReferences());
+
+			for (PlusCalStatement stmts : proc.getBody()) {
+				stmts.accept(new PlusCalStatementLabelCaptureVisitor(ctx, procScope));
+			}
+
+			for (PlusCalStatement stmts : proc.getBody()) {
+				stmts.accept(new PlusCalStatementScopingVisitor(ctx, procScope, registry, loader, new HashSet<>()));
+			}
+		}
+
 		for (ModularPlusCalArchetype archetype : modularPlusCalBlock.getArchetypes()) {
 			registry.addArchetype(archetype);
 			modularPlusCalScope.defineGlobal(archetype.getName(), archetype.getUID());
@@ -157,36 +187,6 @@ public class ScopingPass {
 
 		modularPlusCalBlock.getProcesses().accept(new PlusCalProcessesScopingVisitor(
 				ctx, modularPlusCalScope, tlaScope, registry, loader, new HashSet<>()));
-
-		for (PlusCalProcedure proc : modularPlusCalBlock.getProcedures()) {
-			registry.addProcedure(proc);
-			modularPlusCalScope.defineGlobal(proc.getName(), proc.getUID());
-
-			TLAScopeBuilder argScope = new TLAScopeBuilder(
-					ctx, new ChainMap<>(tlaScope.getDeclarations()), new HashMap<>(),
-					modularPlusCalScope.getReferences());
-			Map<String, UID> args = new ChainMap<>(tlaScope.getDeclarations());
-
-			for (PlusCalVariableDeclaration arg : proc.getParams()) {
-				arg.getValue().accept(new TLAExpressionScopingVisitor(tlaScope, registry, loader, new HashSet<>()));
-				registry.addLocalVariable(arg.getUID());
-				if (argScope.declare(arg.getName().getValue(), arg.getUID())) {
-					args.put(arg.getName().getValue(), arg.getUID());
-				}
-			}
-
-			TLAScopeBuilder procScope = new TLAScopeBuilder(
-					ctx, args, new ChainMap<>(modularPlusCalScope.getDefinitions()),
-					modularPlusCalScope.getReferences());
-
-			for (PlusCalStatement stmts : proc.getBody()) {
-				stmts.accept(new PlusCalStatementLabelCaptureVisitor(ctx, procScope));
-			}
-
-			for (PlusCalStatement stmts : proc.getBody()) {
-				stmts.accept(new PlusCalStatementScopingVisitor(ctx, procScope, registry, loader, new HashSet<>()));
-			}
-		}
 
 		return registry;
 	}
