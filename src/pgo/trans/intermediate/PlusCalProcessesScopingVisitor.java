@@ -5,6 +5,7 @@ import pgo.model.pcal.*;
 import pgo.modules.TLAModuleLoader;
 import pgo.scope.ChainMap;
 import pgo.scope.UID;
+import pgo.trans.passes.scope.PlusCalStatementScopingVisitor;
 
 import java.util.HashMap;
 import java.util.HashSet;

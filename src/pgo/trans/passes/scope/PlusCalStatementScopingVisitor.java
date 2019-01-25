@@ -1,11 +1,17 @@
-package pgo.trans.intermediate;
+package pgo.trans.passes.scope;
 
 import pgo.Unreachable;
 import pgo.errors.IssueContext;
 import pgo.model.mpcal.ModularPlusCalYield;
 import pgo.model.pcal.*;
 import pgo.model.tla.TLAExpression;
+import pgo.model.tla.TLAGeneralIdentifier;
+import pgo.model.tla.TLARef;
 import pgo.modules.TLAModuleLoader;
+import pgo.trans.intermediate.DefinitionRegistry;
+import pgo.trans.intermediate.TLAExpressionScopingVisitor;
+import pgo.trans.intermediate.TLAScopeBuilder;
+import pgo.trans.passes.codegen.pluscal.RefMismatchIssue;
 
 import java.util.List;
 import java.util.Set;
@@ -42,6 +48,17 @@ public class PlusCalStatementScopingVisitor extends PlusCalStatementVisitor<Void
 		this.loader = loader;
 		this.moduleRecursionSet = moduleRecursionSet;
 		this.factory = factory;
+	}
+
+	static void verifyRefMatching(IssueContext ctx, List<PlusCalVariableDeclaration> params, List<TLAExpression> args) {
+		for (int i = 0; i < params.size(); i++) {
+			PlusCalVariableDeclaration param = params.get(i);
+			TLAExpression arg = args.get(i);
+			if ((!param.isRef() && arg instanceof TLARef) ||
+					(param.isRef() && !(arg instanceof TLAGeneralIdentifier) && !(arg instanceof TLARef))) {
+				ctx.error(new RefMismatchIssue(param, arg));
+			}
+		}
 	}
 
 	@Override
@@ -104,7 +121,12 @@ public class PlusCalStatementScopingVisitor extends PlusCalStatementVisitor<Void
 
 	@Override
 	public Void visit(PlusCalCall plusCalCall) throws RuntimeException {
-		if (registry.findProcedure(plusCalCall.getTarget()) == null) {
+		PlusCalProcedure procedure = registry.findProcedure(plusCalCall.getTarget());
+		if (procedure != null && procedure.getParams().size() != plusCalCall.getArguments().size()) {
+			ctx.error(new ProcedureCallArgumentCountMismatchIssue(procedure, plusCalCall));
+		} else if (procedure != null) {
+			verifyRefMatching(ctx, procedure.getParams(), plusCalCall.getArguments());
+		} else {
 			ctx.error(new ProcedureNotFoundIssue(plusCalCall, plusCalCall.getTarget()));
 		}
 

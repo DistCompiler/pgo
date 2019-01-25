@@ -4,7 +4,9 @@ import pgo.errors.IssueVisitor;
 import pgo.errors.IssueWithContext;
 import pgo.model.mpcal.ModularPlusCalArchetype;
 import pgo.model.mpcal.ModularPlusCalInstance;
+import pgo.model.pcal.PlusCalCall;
 import pgo.model.pcal.PlusCalMacro;
+import pgo.model.pcal.PlusCalProcedure;
 import pgo.model.type.BacktrackingFailureIssue;
 import pgo.model.type.PGoTypePolymorphicConstraint;
 import pgo.model.type.UnrealizableTypeIssue;
@@ -14,7 +16,10 @@ import pgo.trans.intermediate.*;
 import pgo.trans.passes.codegen.pluscal.RefMismatchIssue;
 import pgo.trans.passes.expansion.*;
 import pgo.trans.passes.parse.tla.ParsingIssue;
+import pgo.trans.passes.scope.ArchetypeNotFoundIssue;
 import pgo.trans.passes.scope.MultipleMappingIssue;
+import pgo.trans.passes.scope.ProcedureCallArgumentCountMismatchIssue;
+import pgo.trans.passes.scope.ProcedureNotFoundIssue;
 import pgo.trans.passes.type.TypeInferenceFailureIssue;
 import pgo.trans.passes.validation.LabelNotAllowedIssue;
 import pgo.trans.passes.validation.MissingLabelIssue;
@@ -309,19 +314,19 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 		ModularPlusCalArchetype archetype = instanceArgumentCountMismatchIssue.getModularPlusCalArchetype();
 		out.write(archetype.getName());
 		out.write(" defined at line ");
-		out.write(archetype.getLocation().getStartLine());
+		out.write(Integer.toString(archetype.getLocation().getStartLine()));
 		out.write(" column ");
-		out.write(archetype.getLocation().getStartColumn());
+		out.write(Integer.toString(archetype.getLocation().getStartColumn()));
 		out.write(" requires ");
-		out.write(archetype.getParams().size());
-		out.write(" argument(s) while instance statement at line ");
+		out.write(Integer.toString(archetype.getParams().size()));
+		out.write(" parameters while instance statement at line ");
 		ModularPlusCalInstance instance = instanceArgumentCountMismatchIssue.getModularPlusCalInstance();
-		out.write(instance.getLocation().getStartLine());
+		out.write(Integer.toString(instance.getLocation().getStartLine()));
 		out.write(" column ");
-		out.write(instance.getLocation().getStartColumn());
+		out.write(Integer.toString(instance.getLocation().getStartColumn()));
 		out.write(" referencing it provides ");
-		out.write(instance.getArguments().size());
-		out.write(" parameters");
+		out.write(Integer.toString(instance.getArguments().size()));
+		out.write(" arguments");
 		return null;
 	}
 
@@ -331,6 +336,37 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 		refMismatchIssue.getParam().accept(new PlusCalNodeFormattingVisitor(out));
 		out.write(" and ");
 		refMismatchIssue.getValue().accept(new TLANodeFormattingVisitor(out));
+		return null;
+	}
+
+	@Override
+	public Void visit(ProcedureCallArgumentCountMismatchIssue procedureCallArgumentCountMismatchIssue) throws IOException {
+		out.write("procedure ");
+		PlusCalProcedure procedure = procedureCallArgumentCountMismatchIssue.getProcedure();
+		out.write(procedure.getName());
+		out.write(" defined at line ");
+		out.write(Integer.toString(procedure.getLocation().getStartLine()));
+		out.write(" column ");
+		out.write(Integer.toString(procedure.getLocation().getStartColumn()));
+		out.write(" requires ");
+		out.write(Integer.toString(procedure.getParams().size()));
+		out.write(" parameters while procedure call at line ");
+		PlusCalCall plusCalCall = procedureCallArgumentCountMismatchIssue.getCall();
+		out.write(Integer.toString(plusCalCall.getLocation().getStartLine()));
+		out.write(" column ");
+		out.write(Integer.toString(plusCalCall.getLocation().getStartColumn()));
+		out.write(" referencing it provides ");
+		out.write(Integer.toString(plusCalCall.getArguments().size()));
+		out.write(" arguments");
+		return null;
+	}
+
+	@Override
+	public Void visit(ArchetypeNotFoundIssue archetypeNotFoundIssue) throws IOException {
+		out.write("could not find archetype with name ");
+		out.write(archetypeNotFoundIssue.getArchetypeName());
+		out.write(" from ");
+		archetypeNotFoundIssue.getOrigin().accept(new OriginFormattingVisitor(out));
 		return null;
 	}
 }

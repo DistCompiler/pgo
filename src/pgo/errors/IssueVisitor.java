@@ -7,7 +7,10 @@ import pgo.trans.intermediate.*;
 import pgo.trans.passes.codegen.pluscal.RefMismatchIssue;
 import pgo.trans.passes.expansion.*;
 import pgo.trans.passes.parse.tla.ParsingIssue;
+import pgo.trans.passes.scope.ArchetypeNotFoundIssue;
 import pgo.trans.passes.scope.MultipleMappingIssue;
+import pgo.trans.passes.scope.ProcedureCallArgumentCountMismatchIssue;
+import pgo.trans.passes.scope.ProcedureNotFoundIssue;
 import pgo.trans.passes.type.TypeInferenceFailureIssue;
 import pgo.trans.passes.validation.LabelNotAllowedIssue;
 import pgo.trans.passes.validation.MissingLabelIssue;
@@ -46,4 +49,6 @@ public abstract class IssueVisitor<T, E extends Throwable> {
 	public abstract T visit(StatementNotAllowedIssue statementNotAllowedIssue) throws E;
 	public abstract T visit(InstanceArgumentCountMismatchIssue instanceArgumentCountMismatchIssue) throws E;
 	public abstract T visit(RefMismatchIssue refMismatchIssue) throws E;
+	public abstract T visit(ProcedureCallArgumentCountMismatchIssue procedureCallArgumentCountMismatchIssue) throws E;
+	public abstract T visit(ArchetypeNotFoundIssue archetypeNotFoundIssue) throws E;
 }

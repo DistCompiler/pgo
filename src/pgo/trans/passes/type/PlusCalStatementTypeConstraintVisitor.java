@@ -7,7 +7,6 @@ import pgo.model.pcal.*;
 import pgo.model.type.*;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
-import pgo.trans.intermediate.ProcedureNotFoundIssue;
 
 import java.util.Collections;
 import java.util.List;
