@@ -5,8 +5,6 @@ import pgo.model.tla.TLASpecialVariableVariable;
 import pgo.modules.TLAModuleLoader;
 import pgo.trans.intermediate.DefinitionRegistry;
 import pgo.trans.intermediate.QualifiedName;
-import pgo.trans.intermediate.TLAExpressionScopingVisitor;
-import pgo.trans.intermediate.TLAScopeBuilder;
 
 import java.util.Set;
 

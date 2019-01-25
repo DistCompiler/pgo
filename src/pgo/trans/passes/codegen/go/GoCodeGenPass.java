@@ -11,8 +11,6 @@ import pgo.model.pcal.PlusCalSingleProcess;
 import pgo.model.type.PGoType;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
-import pgo.trans.intermediate.GlobalVariableStrategy;
-import pgo.trans.intermediate.SingleThreadedProcessGlobalVariableStrategy;
 
 import java.util.Map;
 

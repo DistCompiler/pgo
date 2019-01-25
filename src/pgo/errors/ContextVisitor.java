@@ -1,6 +1,6 @@
 package pgo.errors;
 
-import pgo.trans.intermediate.ExpandingMacroCall;
+import pgo.trans.passes.expansion.ExpandingMacroCall;
 import pgo.trans.intermediate.WhileLoadingUnit;
 
 public abstract class ContextVisitor<T, E extends Throwable> {

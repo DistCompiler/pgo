@@ -14,7 +14,6 @@ import pgo.model.pcal.PlusCalProcess;
 import pgo.model.type.PGoType;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
-import pgo.trans.intermediate.GlobalVariableStrategy;
 
 import java.util.Arrays;
 import java.util.Collections;

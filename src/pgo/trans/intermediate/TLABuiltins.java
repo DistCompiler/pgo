@@ -12,6 +12,7 @@ import pgo.model.type.*;
 import pgo.scope.UID;
 import pgo.trans.passes.codegen.go.EqCodeGenVisitor;
 import pgo.trans.passes.codegen.go.LessThanCodeGenVisitor;
+import pgo.trans.passes.codegen.go.PGoTypeGoTypeConversionVisitor;
 import pgo.trans.passes.codegen.go.TLAExpressionCodeGenVisitor;
 import pgo.util.Origin;
 

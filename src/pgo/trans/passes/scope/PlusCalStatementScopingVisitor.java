@@ -9,8 +9,6 @@ import pgo.model.tla.TLAGeneralIdentifier;
 import pgo.model.tla.TLARef;
 import pgo.modules.TLAModuleLoader;
 import pgo.trans.intermediate.DefinitionRegistry;
-import pgo.trans.intermediate.TLAExpressionScopingVisitor;
-import pgo.trans.intermediate.TLAScopeBuilder;
 import pgo.trans.passes.codegen.pluscal.RefMismatchIssue;
 
 import java.util.List;

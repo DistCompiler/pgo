@@ -8,6 +8,7 @@ import pgo.model.type.PGoTypeGenerator;
 import pgo.model.type.PGoTypeSolver;
 import pgo.model.type.PGoTypeVariable;
 import pgo.scope.UID;
+import pgo.trans.passes.codegen.go.GlobalVariableStrategy;
 import pgo.util.Origin;
 
 import java.util.List;

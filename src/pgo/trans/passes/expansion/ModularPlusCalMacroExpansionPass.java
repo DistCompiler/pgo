@@ -3,8 +3,6 @@ package pgo.trans.passes.expansion;
 import pgo.errors.IssueContext;
 import pgo.model.mpcal.*;
 import pgo.model.pcal.*;
-import pgo.trans.intermediate.PlusCalMacroExpansionVisitor;
-import pgo.trans.intermediate.PlusCalProcessesMacroExpansionVisitor;
 
 import java.util.*;
 

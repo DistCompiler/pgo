@@ -10,7 +10,7 @@ import pgo.model.tla.TLAUnit;
 import pgo.model.type.*;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
-import pgo.trans.intermediate.PGoTypeGoTypeConversionVisitor;
+import pgo.trans.passes.codegen.go.PGoTypeGoTypeConversionVisitor;
 
 import java.util.*;
 

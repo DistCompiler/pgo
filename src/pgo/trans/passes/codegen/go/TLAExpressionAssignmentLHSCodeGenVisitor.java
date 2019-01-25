@@ -8,8 +8,7 @@ import pgo.model.tla.*;
 import pgo.model.type.PGoType;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
-import pgo.trans.intermediate.GlobalVariableStrategy;
-import pgo.trans.intermediate.GlobalVariableStrategy.GlobalVariableWrite;
+import pgo.trans.passes.codegen.go.GlobalVariableStrategy.GlobalVariableWrite;
 import java.util.Map;
 
 public class TLAExpressionAssignmentLHSCodeGenVisitor extends TLAExpressionVisitor<GlobalVariableWrite, RuntimeException> {

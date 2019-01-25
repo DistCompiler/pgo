@@ -10,7 +10,6 @@ import pgo.model.tla.TLAExpression;
 import pgo.model.type.PGoType;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
-import pgo.trans.intermediate.GlobalVariableStrategy;
 import pgo.trans.passes.atomicity.PlusCalStatementAtomicityInferenceVisitor;
 
 import java.util.*;

@@ -1,6 +1,7 @@
 package pgo.trans.intermediate;
 
 import pgo.scope.ChainMap;
+import pgo.trans.passes.scope.TLAScopeBuilder;
 
 import java.util.HashMap;
 import java.util.List;
