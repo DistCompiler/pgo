@@ -1,23 +1,11 @@
-matrix:
-  include:
-    - language: java
-      jdk:
-          - openjdk8
-          - openjdk9
-      script:
-        - eval "$(gimme 1.10)" && go version
-        - eval "$(gimme 1.10)" && ant tests
-    - language: java
-      jdk:
-          - openjdk8
-          - openjdk9
-      script:
-        - eval "$(gimme 1.9)" && go version
-        - eval "$(gimme 1.9)" && ant tests
-    - language: java
-      jdk:
-          - openjdk8
-          - openjdk9
-      script:
-        - eval "$(gimme 1.8)" && go version
-        - eval "$(gimme 1.8)" && ant tests
+language: java
+jdk:
+  - openjdk8
+  - openjdk9
+env:
+  - GO_VERSION=1.10
+  - GO_VERSION=1.9
+  - GO_VERSION=1.8
+script:
+  - eval "$(gimme $GO_VERSION)" && go version
+  - eval "$(gimme $GO_VERSION)" && ant tests
