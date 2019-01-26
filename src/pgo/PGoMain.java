@@ -12,6 +12,8 @@ import pgo.model.tla.TLAExpression;
 import pgo.model.tla.TLAModule;
 import pgo.model.type.PGoType;
 import pgo.modules.TLAModuleLoader;
+import pgo.parser.LexicalContext;
+import pgo.parser.Located;
 import pgo.scope.UID;
 import pgo.trans.PGoTransException;
 import pgo.trans.intermediate.*;
@@ -30,6 +32,7 @@ import pgo.trans.passes.validation.ModularPlusCalValidationPass;
 import pgo.trans.passes.scope.ScopingPass;
 import pgo.trans.passes.parse.tla.TLAParsingPass;
 import pgo.trans.passes.type.TypeInferencePass;
+import pgo.util.SourceLocation;
 
 import java.io.*;
 import java.nio.CharBuffer;
@@ -43,11 +46,20 @@ import java.nio.file.StandardCopyOption;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.logging.Logger;
+import java.util.regex.MatchResult;
+import java.util.regex.Pattern;
 
 public class PGoMain {
 	private String[] cmdArgs;
 	private static Logger logger;
+	private static final String BEGIN_PLUSCAL_TRANSLATION = "\\* BEGIN PLUSCAL TRANSLATION";
+	private static final Pattern BEGIN_PLUSCAL_TRANSLATION_PATTERN =
+			Pattern.compile(".*?\\\\" + BEGIN_PLUSCAL_TRANSLATION + "$", Pattern.DOTALL | Pattern.MULTILINE);
+	private static final String END_PLUSCAL_TRANSLATION = "\\* END PLUSCAL TRANSLATION";
+	private static final Pattern END_PLUSCAL_TRANSLATION_PATTERN =
+			Pattern.compile(".*?\\\\" + END_PLUSCAL_TRANSLATION + "$", Pattern.DOTALL | Pattern.MULTILINE);
 
 	public PGoMain(String[] args) {
 		cmdArgs = args;
@@ -147,17 +159,14 @@ public class PGoMain {
 			MappedByteBuffer buffer = fileChannel.map(FileChannel.MapMode.READ_ONLY, 0, fileChannel.size());
 			// assume UTF-8, though technically TLA+ is ASCII only according to the book
 			CharBuffer inputFileContents = StandardCharsets.UTF_8.decode(buffer);
-			if (PlusCalParsingPass.hasAlgorithmBlock(inputFilePath, inputFileContents)) {
-				final PlusCalAlgorithm plusCalAlgorithm = PlusCalParsingPass.perform(
-						ctx, inputFilePath, inputFileContents);
-				if (ctx.hasErrors()) {
-					startOffset = -1;
-					endOffset = -1;
-					logger.warning("Invalid PlusCal algorithm block found; ignoring");
-				} else {
-					startOffset = plusCalAlgorithm.getLocation().getStartOffset();
-					endOffset = plusCalAlgorithm.getLocation().getEndOffset();
-				}
+			LexicalContext lexicalContext = new LexicalContext(inputFilePath, inputFileContents);
+			Optional<Located<MatchResult>> beginPlusCalTranslation =
+					lexicalContext.matchPattern(BEGIN_PLUSCAL_TRANSLATION_PATTERN);
+			Optional<Located<MatchResult>> endPlusCalTranslation =
+					lexicalContext.matchPattern(END_PLUSCAL_TRANSLATION_PATTERN);
+			if (beginPlusCalTranslation.isPresent() && endPlusCalTranslation.isPresent()) {
+				startOffset = beginPlusCalTranslation.get().getLocation().getEndOffset();
+				endOffset = endPlusCalTranslation.get().getLocation().getEndOffset();
 			} else {
 				startOffset = -1;
 				endOffset = -1;
@@ -171,15 +180,21 @@ public class PGoMain {
 		) {
 			if (startOffset != -1) {
 				long pos = destination.transferFrom(source, 0, startOffset);
+				pos += destination.write(StandardCharsets.UTF_8.encode("\n"), pos);
 				pos += destination.write(StandardCharsets.UTF_8.encode(serializedAlgorithm), pos);
+				pos += destination.write(StandardCharsets.UTF_8.encode("\n" + END_PLUSCAL_TRANSLATION), pos);
 				pos += destination.transferFrom(source.position(endOffset), pos, source.size() - endOffset);
 				destination.truncate(pos);
 			} else {
 				final int blockEndOffset = modularPlusCalBlock.getLocation().getEndOffset();
 				long pos = destination.transferFrom(source, 0, blockEndOffset);
-				pos += destination.write(StandardCharsets.UTF_8.encode("\n\n"), pos);
+				pos += destination.write(
+						StandardCharsets.UTF_8.encode("\n\n" + BEGIN_PLUSCAL_TRANSLATION + "\n"),
+						pos);
 				pos += destination.write(StandardCharsets.UTF_8.encode(serializedAlgorithm), pos);
-				pos += destination.write(StandardCharsets.UTF_8.encode("\n\n"), pos);
+				pos += destination.write(
+						StandardCharsets.UTF_8.encode("\n" + END_PLUSCAL_TRANSLATION + "\n\n"),
+						pos);
 				pos += destination.transferFrom(source.position(blockEndOffset), pos, source.size() - blockEndOffset);
 				destination.truncate(pos);
 			}

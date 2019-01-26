@@ -12,10 +12,6 @@ import java.nio.file.Path;
 public class PlusCalParsingPass {
 	private PlusCalParsingPass() {}
 
-	public static boolean hasAlgorithmBlock(Path inputFileName, CharSequence inputFileContents) {
-		return PlusCalParser.hasAlgorithmBlock(new LexicalContext(inputFileName, inputFileContents));
-	}
-
 	public static PlusCalAlgorithm perform(IssueContext ctx, Path inputFileName, CharSequence inputFileContents) {
 		try {
 			return PlusCalParser.readAlgorithm(new LexicalContext(inputFileName, inputFileContents));

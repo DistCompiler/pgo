@@ -728,10 +728,6 @@ public final class PlusCalParser {
 
 	// public interface
 
-	public static boolean hasAlgorithmBlock(LexicalContext ctx) {
-		return ctx.matchPattern(PCAL_FIND_ALGORITHM).isPresent();
-	}
-
 	public static PlusCalAlgorithm readAlgorithm(LexicalContext ctx) throws ParseFailureException {
 		return readOrExcept(ctx, ALGORITHM);
 	}
