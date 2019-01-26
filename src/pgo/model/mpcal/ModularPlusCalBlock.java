@@ -21,11 +21,10 @@ public class ModularPlusCalBlock extends ModularPlusCalNode {
 	private final List<ModularPlusCalInstance> instances;
 	private final PlusCalProcesses processes;
 
-	public ModularPlusCalBlock(SourceLocation location, Located<String> name,
-	                           List<PlusCalVariableDeclaration> variables,
-	                           List<TLAUnit> units, List<ModularPlusCalMappingMacro> mappingMacros,
-	                           List<ModularPlusCalArchetype> archetypes, List<PlusCalMacro> macros,
-	                           List<PlusCalProcedure> procedures, List<ModularPlusCalInstance> instances,
+	public ModularPlusCalBlock(SourceLocation location, Located<String> name, List<TLAUnit> units,
+	                           List<PlusCalMacro> macros, List<PlusCalProcedure> procedures,
+	                           List<ModularPlusCalMappingMacro> mappingMacros, List<ModularPlusCalArchetype> archetypes,
+	                           List<PlusCalVariableDeclaration> variables, List<ModularPlusCalInstance> instances,
 	                           PlusCalProcesses processes) {
 		super(location);
 		this.name = name;
@@ -43,12 +42,12 @@ public class ModularPlusCalBlock extends ModularPlusCalNode {
 		return new ModularPlusCalBlock(
 				plusCalAlgorithm.getLocation(),
 				plusCalAlgorithm.getName(),
-				plusCalAlgorithm.getVariables(),
 				plusCalAlgorithm.getUnits(),
-				Collections.emptyList(),
-				Collections.emptyList(),
 				plusCalAlgorithm.getMacros(),
 				plusCalAlgorithm.getProcedures(),
+				Collections.emptyList(),
+				Collections.emptyList(),
+				plusCalAlgorithm.getVariables(),
 				Collections.emptyList(),
 				plusCalAlgorithm.getProcesses());
 	}
@@ -58,12 +57,12 @@ public class ModularPlusCalBlock extends ModularPlusCalNode {
 		return new ModularPlusCalBlock(
 				getLocation(),
 				name,
-				variables.stream().map(PlusCalVariableDeclaration::copy).collect(Collectors.toList()),
 				units.stream().map(TLAUnit::copy).collect(Collectors.toList()),
-				mappingMacros.stream().map(ModularPlusCalMappingMacro::copy).collect(Collectors.toList()),
-				archetypes.stream().map(ModularPlusCalArchetype::copy).collect(Collectors.toList()),
 				macros.stream().map(PlusCalMacro::copy).collect(Collectors.toList()),
 				procedures.stream().map(PlusCalProcedure::copy).collect(Collectors.toList()),
+				mappingMacros.stream().map(ModularPlusCalMappingMacro::copy).collect(Collectors.toList()),
+				archetypes.stream().map(ModularPlusCalArchetype::copy).collect(Collectors.toList()),
+				variables.stream().map(PlusCalVariableDeclaration::copy).collect(Collectors.toList()),
 				instances.stream().map(ModularPlusCalInstance::copy).collect(Collectors.toList()),
 				processes.copy());
 	}

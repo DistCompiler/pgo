@@ -1600,6 +1600,13 @@ public class PlusCalCodeGenPassTest {
 
 				{
 						// --mpcal Algorithm11 {
+						//   procedure P(ref a1, a2) {
+						//     l3:
+						//       while (a1 < 10 /\ a2) {
+						//         a1 := 1;
+						//       }
+						//   }
+						//
 						//   mapping macro Adder {
 						//     read {
 						//       yield $variable;
@@ -1615,13 +1622,6 @@ public class PlusCalCodeGenPassTest {
 						//       call P(ref a, b);
 						//     l2:
 						//       call P(ref a, b);
-						//   }
-						//
-						//   procedure P(ref a1, a2) {
-						//     l3:
-						//       while (a1 < 10 /\ a2) {
-						//         a1 := 1;
-						//       }
 						//   }
 						//
 						//   variables i = 0, flag = TRUE;

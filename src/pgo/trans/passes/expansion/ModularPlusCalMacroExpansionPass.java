@@ -38,12 +38,12 @@ public class ModularPlusCalMacroExpansionPass {
 		return new ModularPlusCalBlock(
 				modularPlusCalBlock.getLocation(),
 				modularPlusCalBlock.getName(),
-				modularPlusCalBlock.getVariables(),
 				modularPlusCalBlock.getUnits(),
-				modularPlusCalBlock.getMappingMacros(),
-				modularPlusCalBlock.getArchetypes(),
 				Collections.emptyList(),
 				procedures,
+				modularPlusCalBlock.getMappingMacros(),
+				modularPlusCalBlock.getArchetypes(),
+				modularPlusCalBlock.getVariables(),
 				modularPlusCalBlock.getInstances(),
 				modularPlusCalBlock.getProcesses().accept(new PlusCalProcessesMacroExpansionVisitor(ctx, macros)));
 	}

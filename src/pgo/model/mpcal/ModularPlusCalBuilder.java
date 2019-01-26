@@ -26,7 +26,8 @@ public class ModularPlusCalBuilder {
 	}
 
 	public static ModularPlusCalInstance instance(PlusCalVariableDeclaration name, PlusCalFairness fairness,
-												  String target, List<TLAExpression> params, List<ModularPlusCalMapping> mappings) {
+												  String target, List<TLAExpression> params,
+												  List<ModularPlusCalMapping> mappings) {
 		return new ModularPlusCalInstance(SourceLocation.unknown(), name, fairness, target, params, mappings);
 	}
 
@@ -43,10 +44,8 @@ public class ModularPlusCalBuilder {
 		return new ModularPlusCalBlock(
 				SourceLocation.unknown(),
 				new Located<>(SourceLocation.unknown(), name),
-				variables,
-				units, mappingMacros,
-				archetypes,
-				macros, procedures, instances, new PlusCalMultiProcess(SourceLocation.unknown(), Arrays.asList(processes))
+				units, macros, procedures, mappingMacros, archetypes, variables,
+				instances, new PlusCalMultiProcess(SourceLocation.unknown(), Arrays.asList(processes))
 		);
 	}
 
@@ -58,10 +57,8 @@ public class ModularPlusCalBuilder {
 		return new ModularPlusCalBlock(
 				SourceLocation.unknown(),
 				new Located<>(SourceLocation.unknown(), name),
-				variables,
-				units, mappingMacros,
-				archetypes,
-				macros, procedures, instances, new PlusCalSingleProcess(SourceLocation.unknown(), statements)
+				units, macros, procedures, mappingMacros, archetypes, variables,
+				instances, new PlusCalSingleProcess(SourceLocation.unknown(), statements)
 		);
 	}
 }

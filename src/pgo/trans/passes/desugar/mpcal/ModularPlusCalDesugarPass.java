@@ -44,12 +44,12 @@ public class ModularPlusCalDesugarPass {
 		return new ModularPlusCalBlock(
 				modularPlusCalBlock.getLocation(),
 				modularPlusCalBlock.getName(),
-				modularPlusCalBlock.getVariables(),
 				modularPlusCalBlock.getUnits(),
-				modularPlusCalBlock.getMappingMacros(),
-				archetypes,
 				Collections.emptyList(),
 				procedures,
+				modularPlusCalBlock.getMappingMacros(),
+				archetypes,
+				modularPlusCalBlock.getVariables(),
 				modularPlusCalBlock.getInstances(),
 				modularPlusCalBlock.getProcesses());
 	}

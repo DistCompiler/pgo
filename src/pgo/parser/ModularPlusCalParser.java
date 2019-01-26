@@ -151,6 +151,8 @@ public class ModularPlusCalParser {
 			.part(parseOneOf(
 					C_SYNTAX_DEFINITIONS,
 					nop().map(seq -> new LocatedList<TLAUnit>(seq.getLocation(), Collections.emptyList()))))
+			.part(repeat(C_SYNTAX_MACRO))
+			.part(repeat(C_SYNTAX_PROCEDURE))
 			.part(parseOneOf(
 					parseListOf(C_SYNTAX_MAPPING_MACRO, nop()),
 					nop().map(seq -> new LocatedList<ModularPlusCalMappingMacro>(
@@ -161,8 +163,6 @@ public class ModularPlusCalParser {
 					nop().map(seq -> new LocatedList<ModularPlusCalArchetype>(
 							seq.getLocation(),
 							Collections.emptyList()))))
-			.part(repeat(C_SYNTAX_MACRO))
-			.part(repeat(C_SYNTAX_PROCEDURE))
 			.part(parseOneOf(
 					VAR_DECLS,
 					nop().map(seq -> new LocatedList<PlusCalVariableDeclaration>(
@@ -177,12 +177,12 @@ public class ModularPlusCalParser {
 			.map(seq -> new ModularPlusCalBlock(
 					seq.getLocation(),
 					seq.getValue().getRest().getRest().getRest().getRest().getRest().getRest().getRest().getRest().getFirst(),
-					seq.getValue().getRest().getRest().getFirst(),
 					seq.getValue().getRest().getRest().getRest().getRest().getRest().getRest().getRest().getFirst(),
 					seq.getValue().getRest().getRest().getRest().getRest().getRest().getRest().getFirst(),
 					seq.getValue().getRest().getRest().getRest().getRest().getRest().getFirst(),
 					seq.getValue().getRest().getRest().getRest().getRest().getFirst(),
 					seq.getValue().getRest().getRest().getRest().getFirst(),
+					seq.getValue().getRest().getRest().getFirst(),
 					seq.getValue().getRest().getFirst(),
 					seq.getValue().getFirst()));
 
