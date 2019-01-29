@@ -4,7 +4,7 @@
 (***************************************************************************)
 
 EXTENDS Naturals, Sequences, TLC
-CONSTANT BUFFER_SIZE, SERVER_CAPACITY
+CONSTANT BUFFER_SIZE
 
 LoadBalancerId == 0
 CONSTANTS NUM_SERVERS, NUM_CLIENTS
@@ -35,7 +35,7 @@ NUM_NODES == NUM_CLIENTS + NUM_SERVERS + 1
      read {
          yield WEB_PAGE
      }
-     
+
      write {
          yield FALSE
      }
@@ -46,10 +46,10 @@ NUM_NODES == NUM_CLIENTS + NUM_SERVERS + 1
       main: while (TRUE) {
               rcvMsg: msg := mailboxes[LoadBalancerId];
                       assert(msg[1] = GET_PAGE);
-                      
+
               sendServer: next := (next % NUM_SERVERS) + 1;
                           mailboxes[next] := << next, msg[2] >>;
-                          
+
       }
   }
 
@@ -57,11 +57,11 @@ NUM_NODES == NUM_CLIENTS + NUM_SERVERS + 1
   variable msg; {
       p: while (TRUE) {
           rcvReq: msg := mailboxes[self];
-          
+
           sendPage: mailboxes[msg[2]] := page_stream;
       }
   }
-  
+
   variables network = [id \in 0..NUM_NODES |-> <<>>],
             processor = 0,
             stream = 0;
@@ -71,15 +71,15 @@ NUM_NODES == NUM_CLIENTS + NUM_SERVERS + 1
   fair process (Servers \in 1..NUM_SERVERS) == instance AServer(ref network, stream)
       mapping network[_] via TCPChannel
       mapping stream via WebPages;
-      
+
   fair process (Browser \in (NUM_SERVERS+1)..(NUM_SERVERS+1+NUM_CLIENTS))
   variable msg; {
       main: while (TRUE) {
                 req: msg := << GET_PAGE, self >>;
                      await Len(network[LoadBalancerId]) < BUFFER_SIZE;
                      network[LoadBalancerId] := Append(network[LoadBalancerId], msg);
-                     
-                     
+
+
                 rcv: await Len(network[self]) > 0;
                      with (m = Head(network[self])) {
                          network[self] := Tail(network[self]);
@@ -106,19 +106,19 @@ NUM_NODES == NUM_CLIENTS + NUM_SERVERS + 1
                     msg := mailboxesRead;
                     assert (msg[1])=(GET_PAGE);
                     network := mailboxesWrite;
-                
+
                 sendServer:
                     next := ((next)%(NUM_SERVERS))+(1);
                     await (Len(network[next]))<(BUFFER_SIZE);
                     mailboxesWrite := [network EXCEPT ![next] = Append(network[next], <<next, msg[2]>>)];
                     network := mailboxesWrite;
                     goto main;
-            
+
             } else {
                 mailboxesWrite0 := network;
                 network := mailboxesWrite0;
             }
-    
+
     }
     fair process (Servers \in (1)..(NUM_SERVERS))
     variables msg, mailboxesRead0, mailboxesWrite1, page_streamRead, mailboxesWrite2;
@@ -133,19 +133,19 @@ NUM_NODES == NUM_CLIENTS + NUM_SERVERS + 1
                     };
                     msg := mailboxesRead0;
                     network := mailboxesWrite1;
-                
+
                 sendPage:
                     page_streamRead := WEB_PAGE;
                     await (Len(network[msg[2]]))<(BUFFER_SIZE);
                     mailboxesWrite1 := [network EXCEPT ![msg[2]] = Append(network[msg[2]], page_streamRead)];
                     network := mailboxesWrite1;
                     goto p;
-            
+
             } else {
                 mailboxesWrite2 := network;
                 network := mailboxesWrite2;
             }
-    
+
     }
     fair process (Browser \in ((NUM_SERVERS)+(1))..(((NUM_SERVERS)+(1))+(NUM_CLIENTS)))
     variables msg;
@@ -156,16 +156,16 @@ NUM_NODES == NUM_CLIENTS + NUM_SERVERS + 1
                     msg := <<GET_PAGE, self>>;
                     await (Len(network[LoadBalancerId]))<(BUFFER_SIZE);
                     network[LoadBalancerId] := Append(network[LoadBalancerId], msg);
-                
+
                 rcv:
                     await (Len(network[self]))>(0);
                     with (m = Head(network[self])) {
                         network[self] := Tail(network[self]);
                         assert (m)=(WEB_PAGE);
                     };
-            
+
             };
-    
+
     }
 }
 \* END PLUSCAL TRANSLATION
@@ -178,12 +178,12 @@ NUM_NODES == NUM_CLIENTS + NUM_SERVERS + 1
 \* Process variable msg of process LoadBalancer at line 96 col 15 changed to msg_
 \* Process variable msg of process Servers at line 124 col 15 changed to msg_S
 CONSTANT defaultInitValue
-VARIABLES network, processor, stream, pc, msg_, next, mailboxesRead, 
-          mailboxesWrite, mailboxesWrite0, msg_S, mailboxesRead0, 
+VARIABLES network, processor, stream, pc, msg_, next, mailboxesRead,
+          mailboxesWrite, mailboxesWrite0, msg_S, mailboxesRead0,
           mailboxesWrite1, page_streamRead, mailboxesWrite2, msg
 
-vars == << network, processor, stream, pc, msg_, next, mailboxesRead, 
-           mailboxesWrite, mailboxesWrite0, msg_S, mailboxesRead0, 
+vars == << network, processor, stream, pc, msg_, next, mailboxesRead,
+           mailboxesWrite, mailboxesWrite0, msg_S, mailboxesRead0,
            mailboxesWrite1, page_streamRead, mailboxesWrite2, msg >>
 
 ProcSet == {LoadBalancerId} \cup ((1)..(NUM_SERVERS)) \cup (((NUM_SERVERS)+(1))..(((NUM_SERVERS)+(1))+(NUM_CLIENTS)))
@@ -217,9 +217,9 @@ main_ == /\ pc[LoadBalancerId] = "main_"
                ELSE /\ mailboxesWrite0' = network
                     /\ network' = mailboxesWrite0'
                     /\ pc' = [pc EXCEPT ![LoadBalancerId] = "Done"]
-         /\ UNCHANGED << processor, stream, msg_, next, mailboxesRead, 
-                         mailboxesWrite, msg_S, mailboxesRead0, 
-                         mailboxesWrite1, page_streamRead, mailboxesWrite2, 
+         /\ UNCHANGED << processor, stream, msg_, next, mailboxesRead,
+                         mailboxesWrite, msg_S, mailboxesRead0,
+                         mailboxesWrite1, page_streamRead, mailboxesWrite2,
                          msg >>
 
 rcvMsg == /\ pc[LoadBalancerId] = "rcvMsg"
@@ -228,12 +228,12 @@ rcvMsg == /\ pc[LoadBalancerId] = "rcvMsg"
                /\ mailboxesWrite' = [network EXCEPT ![LoadBalancerId] = Tail(network[LoadBalancerId])]
                /\ mailboxesRead' = msg0
           /\ msg_' = mailboxesRead'
-          /\ Assert((msg_'[1])=(GET_PAGE), 
+          /\ Assert((msg_'[1])=(GET_PAGE),
                     "Failure of assertion at line 107, column 21.")
           /\ network' = mailboxesWrite'
           /\ pc' = [pc EXCEPT ![LoadBalancerId] = "sendServer"]
-          /\ UNCHANGED << processor, stream, next, mailboxesWrite0, msg_S, 
-                          mailboxesRead0, mailboxesWrite1, page_streamRead, 
+          /\ UNCHANGED << processor, stream, next, mailboxesWrite0, msg_S,
+                          mailboxesRead0, mailboxesWrite1, page_streamRead,
                           mailboxesWrite2, msg >>
 
 sendServer == /\ pc[LoadBalancerId] = "sendServer"
@@ -242,9 +242,9 @@ sendServer == /\ pc[LoadBalancerId] = "sendServer"
               /\ mailboxesWrite' = [network EXCEPT ![next'] = Append(network[next'], <<next', msg_[2]>>)]
               /\ network' = mailboxesWrite'
               /\ pc' = [pc EXCEPT ![LoadBalancerId] = "main_"]
-              /\ UNCHANGED << processor, stream, msg_, mailboxesRead, 
-                              mailboxesWrite0, msg_S, mailboxesRead0, 
-                              mailboxesWrite1, page_streamRead, 
+              /\ UNCHANGED << processor, stream, msg_, mailboxesRead,
+                              mailboxesWrite0, msg_S, mailboxesRead0,
+                              mailboxesWrite1, page_streamRead,
                               mailboxesWrite2, msg >>
 
 LoadBalancer == main_ \/ rcvMsg \/ sendServer
@@ -256,9 +256,9 @@ p(self) == /\ pc[self] = "p"
                  ELSE /\ mailboxesWrite2' = [mailboxesWrite2 EXCEPT ![self] = network]
                       /\ network' = mailboxesWrite2'[self]
                       /\ pc' = [pc EXCEPT ![self] = "Done"]
-           /\ UNCHANGED << processor, stream, msg_, next, mailboxesRead, 
-                           mailboxesWrite, mailboxesWrite0, msg_S, 
-                           mailboxesRead0, mailboxesWrite1, page_streamRead, 
+           /\ UNCHANGED << processor, stream, msg_, next, mailboxesRead,
+                           mailboxesWrite, mailboxesWrite0, msg_S,
+                           mailboxesRead0, mailboxesWrite1, page_streamRead,
                            msg >>
 
 rcvReq(self) == /\ pc[self] = "rcvReq"
@@ -269,8 +269,8 @@ rcvReq(self) == /\ pc[self] = "rcvReq"
                 /\ msg_S' = [msg_S EXCEPT ![self] = mailboxesRead0'[self]]
                 /\ network' = mailboxesWrite1'[self]
                 /\ pc' = [pc EXCEPT ![self] = "sendPage"]
-                /\ UNCHANGED << processor, stream, msg_, next, mailboxesRead, 
-                                mailboxesWrite, mailboxesWrite0, 
+                /\ UNCHANGED << processor, stream, msg_, next, mailboxesRead,
+                                mailboxesWrite, mailboxesWrite0,
                                 page_streamRead, mailboxesWrite2, msg >>
 
 sendPage(self) == /\ pc[self] = "sendPage"
@@ -279,17 +279,17 @@ sendPage(self) == /\ pc[self] = "sendPage"
                   /\ mailboxesWrite1' = [mailboxesWrite1 EXCEPT ![self] = [network EXCEPT ![msg_S[self][2]] = Append(network[msg_S[self][2]], page_streamRead'[self])]]
                   /\ network' = mailboxesWrite1'[self]
                   /\ pc' = [pc EXCEPT ![self] = "p"]
-                  /\ UNCHANGED << processor, stream, msg_, next, mailboxesRead, 
-                                  mailboxesWrite, mailboxesWrite0, msg_S, 
+                  /\ UNCHANGED << processor, stream, msg_, next, mailboxesRead,
+                                  mailboxesWrite, mailboxesWrite0, msg_S,
                                   mailboxesRead0, mailboxesWrite2, msg >>
 
 Servers(self) == p(self) \/ rcvReq(self) \/ sendPage(self)
 
 main(self) == /\ pc[self] = "main"
               /\ pc' = [pc EXCEPT ![self] = "req"]
-              /\ UNCHANGED << network, processor, stream, msg_, next, 
-                              mailboxesRead, mailboxesWrite, mailboxesWrite0, 
-                              msg_S, mailboxesRead0, mailboxesWrite1, 
+              /\ UNCHANGED << network, processor, stream, msg_, next,
+                              mailboxesRead, mailboxesWrite, mailboxesWrite0,
+                              msg_S, mailboxesRead0, mailboxesWrite1,
                               page_streamRead, mailboxesWrite2, msg >>
 
 req(self) == /\ pc[self] = "req"
@@ -297,21 +297,21 @@ req(self) == /\ pc[self] = "req"
              /\ (Len(network[LoadBalancerId]))<(BUFFER_SIZE)
              /\ network' = [network EXCEPT ![LoadBalancerId] = Append(network[LoadBalancerId], msg'[self])]
              /\ pc' = [pc EXCEPT ![self] = "rcv"]
-             /\ UNCHANGED << processor, stream, msg_, next, mailboxesRead, 
-                             mailboxesWrite, mailboxesWrite0, msg_S, 
-                             mailboxesRead0, mailboxesWrite1, page_streamRead, 
+             /\ UNCHANGED << processor, stream, msg_, next, mailboxesRead,
+                             mailboxesWrite, mailboxesWrite0, msg_S,
+                             mailboxesRead0, mailboxesWrite1, page_streamRead,
                              mailboxesWrite2 >>
 
 rcv(self) == /\ pc[self] = "rcv"
              /\ (Len(network[self]))>(0)
              /\ LET m == Head(network[self]) IN
                   /\ network' = [network EXCEPT ![self] = Tail(network[self])]
-                  /\ Assert((m)=(WEB_PAGE), 
+                  /\ Assert((m)=(WEB_PAGE),
                             "Failure of assertion at line 164, column 25.")
              /\ pc' = [pc EXCEPT ![self] = "main"]
-             /\ UNCHANGED << processor, stream, msg_, next, mailboxesRead, 
-                             mailboxesWrite, mailboxesWrite0, msg_S, 
-                             mailboxesRead0, mailboxesWrite1, page_streamRead, 
+             /\ UNCHANGED << processor, stream, msg_, next, mailboxesRead,
+                             mailboxesWrite, mailboxesWrite0, msg_S,
+                             mailboxesRead0, mailboxesWrite1, page_streamRead,
                              mailboxesWrite2, msg >>
 
 Browser(self) == main(self) \/ req(self) \/ rcv(self)
