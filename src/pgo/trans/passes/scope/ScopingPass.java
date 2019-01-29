@@ -20,7 +20,7 @@ import java.util.stream.Stream;
 public class ScopingPass {
 	private ScopingPass() {}
 
-	public static DefinitionRegistry perform(IssueContext ctx, boolean isMPCal, TLAModuleLoader loader,
+	public static DefinitionRegistry perform(IssueContext ctx, boolean codeGenMode, TLAModuleLoader loader,
 	                                         Map<String, TLAExpression> constantDefinitions, TLAModule module,
 	                                         ModularPlusCalBlock modularPlusCalBlock) {
 		DefinitionRegistry registry = new DefinitionRegistry();
@@ -29,10 +29,12 @@ public class ScopingPass {
 		TLAUnitScopingVisitor.scopeModule(module, ctx, tlaScope, registry, loader, new HashSet<>());
 
 		// resolve user-provided constant values from the config file
+		// TODO: lazily check constants: if a constant is only used in mapping macros it should
+		// not be required by PGo.
 		for (UID id : registry.getConstants()) {
 			String name = registry.getConstantName(id);
 			if (!constantDefinitions.containsKey(name)) {
-				if (!isMPCal) {
+				if (codeGenMode) {
 					ctx.error(new ConstantWithNoValueIssue(name, id));
 				}
 			} else {

@@ -93,6 +93,7 @@ public class PGoMain {
 
 	private DefinitionRegistry resolveScopes(
 			TopLevelIssueContext ctx,
+			boolean codeGenMode,
 			Path inputFilePath,
 			Map<String, TLAExpression> constantDefinitions,
 			TLAModule tlaModule,
@@ -102,7 +103,7 @@ public class PGoMain {
 		logger.info("Resolving scopes");
 		TLAModuleLoader loader = new TLAModuleLoader(Collections.singletonList(inputFilePath.getParent()));
 		DefinitionRegistry registry = ScopingPass.perform(
-				ctx, true, loader, constantDefinitions, tlaModule, modularPlusCalBlock);
+				ctx, codeGenMode, loader, constantDefinitions, tlaModule, modularPlusCalBlock);
 		checkErrors(ctx);
 
 		return registry;
@@ -124,7 +125,7 @@ public class PGoMain {
 				macroExpandedModularPlusCalBlock);
 
 		DefinitionRegistry registry = resolveScopes(
-				ctx, inputFilePath, constantDefinitions, tlaModule, desugaredModularPlusCalBlock);
+				ctx, false, inputFilePath, constantDefinitions, tlaModule, desugaredModularPlusCalBlock);
 		checkErrors(ctx);
 
 		PlusCalAlgorithm algorithm = PlusCalCodeGenPass.perform(ctx, registry, desugaredModularPlusCalBlock);
@@ -202,7 +203,7 @@ public class PGoMain {
 		Files.move(tempFile.toPath(), inputFilePath, StandardCopyOption.REPLACE_EXISTING);
 	}
 
-	void pcalToGoPipeline(
+	void specToGoPipeline(
 			PGoOptions opts,
 			Path inputFilePath,
 			TopLevelIssueContext ctx,
@@ -222,7 +223,7 @@ public class PGoMain {
 		validateSemantics(ctx, modularPlusCalBlock);
 		ModularPlusCalBlock macroExpandedModularPlusCalBlock = expandPlusCalMacros(ctx, modularPlusCalBlock);
 		DefinitionRegistry registry = resolveScopes(
-				ctx, inputFilePath, constantDefinitions, tlaModule, macroExpandedModularPlusCalBlock);
+				ctx, true, inputFilePath, constantDefinitions, tlaModule, macroExpandedModularPlusCalBlock);
 
 		logger.info("Inferring types");
 		Map<UID, PGoType> typeMap = TypeInferencePass.perform(ctx, registry, macroExpandedModularPlusCalBlock);
@@ -306,10 +307,8 @@ public class PGoMain {
 
 			if (opts.mpcalCompile) {
 				mpcalCompilePipeline(inputFilePath, ctx, modularPlusCalBlock, tlaModule);
-			} else if (isMPCal) {
-				throw new UnsupportedOperationException("Compilation of MPCal specs currently unsupported");
 			} else {
-				pcalToGoPipeline(opts, inputFilePath, ctx, modularPlusCalBlock, tlaModule);
+				specToGoPipeline(opts, inputFilePath, ctx, modularPlusCalBlock, tlaModule);
 			}
 		} catch (PGoTransException | IOException e) {
 			logger.severe("found issues");
