@@ -32,14 +32,15 @@ Actively under development. PGo supports compilation of most
 uni-process and very simple multiprocess PlusCal algorithms into
 corresponding compilable and runnable Go code.
 
-See `manual.pdf` in the repository for a snapshot of the latest version
-of the manual that details implemented features and several examples.
+See [`manual.pdf`](https://github.com/UBC-NSS/pgo/blob/master/manual.pdf) in the
+repository for a snapshot of the latest version of the manual that details
+implemented features and several examples.
 
 ## How it works
 
 PGo is a source to source compiler written in Java. It uses TLA+
 toolset to parse PlusCal into an AST, which is then translated to a Go
-AST, and finally written to a .go file.
+AST, and finally written to a `.go` file.
 
 ## How to install
 
@@ -61,7 +62,7 @@ Dependencies:
 
 - The [JSON reference implementation](https://github.com/stleary/JSON-java).
 
-PGo was tested on JRE 8, JRE 9, and Go 1.10.
+PGo is tested using OpenJDK 1.8, and 1.9, and Go 1.8, 1.9, 1.10, and 1.11.
 
 ## How to run
 
