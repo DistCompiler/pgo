@@ -68,7 +68,7 @@ NUM_NODES == NUM_CLIENTS + NUM_SERVERS + 1
 
   fair process (LoadBalancer = LoadBalancerId) == instance ALoadBalancer(ref network)
       mapping network[_] via TCPChannel;
-  fair process (Servers \in 1..NUM_SERVERS) == instance AServer(ref network, ref stream)
+  fair process (Servers \in 1..NUM_SERVERS) == instance AServer(ref network, stream)
       mapping network[_] via TCPChannel
       mapping stream via WebPages;
       
@@ -89,6 +89,7 @@ NUM_NODES == NUM_CLIENTS + NUM_SERVERS + 1
   }
 }
 
+\* BEGIN PLUSCAL TRANSLATION
 --algorithm LoadBalancer {
     variables network = [id \in (0)..(NUM_NODES) |-> <<>>], processor = 0, stream = 0;
     fair process (LoadBalancer = LoadBalancerId)
@@ -167,15 +168,15 @@ NUM_NODES == NUM_CLIENTS + NUM_SERVERS + 1
     
     }
 }
-
+\* END PLUSCAL TRANSLATION
 
 
 
 ***************************************************************************)
 \* BEGIN TRANSLATION
-\* Label main of process LoadBalancer at line 98 col 13 changed to main_
-\* Process variable msg of process LoadBalancer at line 95 col 15 changed to msg_
-\* Process variable msg of process Servers at line 123 col 15 changed to msg_S
+\* Label main of process LoadBalancer at line 99 col 13 changed to main_
+\* Process variable msg of process LoadBalancer at line 96 col 15 changed to msg_
+\* Process variable msg of process Servers at line 124 col 15 changed to msg_S
 CONSTANT defaultInitValue
 VARIABLES network, processor, stream, pc, msg_, next, mailboxesRead, 
           mailboxesWrite, mailboxesWrite0, msg_S, mailboxesRead0, 
@@ -228,7 +229,7 @@ rcvMsg == /\ pc[LoadBalancerId] = "rcvMsg"
                /\ mailboxesRead' = msg0
           /\ msg_' = mailboxesRead'
           /\ Assert((msg_'[1])=(GET_PAGE), 
-                    "Failure of assertion at line 106, column 21.")
+                    "Failure of assertion at line 107, column 21.")
           /\ network' = mailboxesWrite'
           /\ pc' = [pc EXCEPT ![LoadBalancerId] = "sendServer"]
           /\ UNCHANGED << processor, stream, next, mailboxesWrite0, msg_S, 
@@ -306,7 +307,7 @@ rcv(self) == /\ pc[self] = "rcv"
              /\ LET m == Head(network[self]) IN
                   /\ network' = [network EXCEPT ![self] = Tail(network[self])]
                   /\ Assert((m)=(WEB_PAGE), 
-                            "Failure of assertion at line 163, column 25.")
+                            "Failure of assertion at line 164, column 25.")
              /\ pc' = [pc EXCEPT ![self] = "main"]
              /\ UNCHANGED << processor, stream, msg_, next, mailboxesRead, 
                              mailboxesWrite, mailboxesWrite0, msg_S, 
@@ -343,6 +344,6 @@ ClientsOk == \A client \in (NUM_SERVERS+1)..(NUM_SERVERS+1+NUM_CLIENTS) : Receiv
 
 =============================================================================
 \* Modification History
-\* Last modified Thu Jan 24 14:46:52 PST 2019 by rmc
+\* Last modified Tue Jan 29 13:06:32 PST 2019 by rmc
 \* Last modified Wed Oct 12 02:41:48 PDT 2011 by lamport
 \* Created Mon Oct 10 06:26:47 PDT 2011 by lamport
