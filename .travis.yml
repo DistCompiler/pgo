@@ -3,9 +3,10 @@ jdk:
   - openjdk8
   - openjdk9
 env:
-  - GO_VERSION=1.10
-  - GO_VERSION=1.9
   - GO_VERSION=1.8
+  - GO_VERSION=1.9
+  - GO_VERSION=1.10
+  - GO_VERSION=1.11
 script:
   - eval "$(gimme $GO_VERSION)" && go version
   - eval "$(gimme $GO_VERSION)" && ant tests
