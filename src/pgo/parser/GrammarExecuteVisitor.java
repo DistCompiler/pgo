@@ -39,11 +39,11 @@ public class GrammarExecuteVisitor extends GrammarVisitor<GrammarExecuteVisitor.
 		}
 	}
 
-	static final class MemoizeKey {
-		private final Grammar grammar;
+	static final class MemoizeKey<Result extends SourceLocatable> {
+		private final Grammar<Result> grammar;
 		private final FrozenVariableMap variableMap;
 
-		MemoizeKey(Grammar grammar, FrozenVariableMap variableMap) {
+		MemoizeKey(Grammar<Result> grammar, FrozenVariableMap variableMap) {
 			this.grammar = grammar;
 			this.variableMap = variableMap;
 		}

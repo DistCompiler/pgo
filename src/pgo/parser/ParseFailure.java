@@ -2,6 +2,7 @@ package pgo.parser;
 
 import pgo.formatters.IndentingWriter;
 import pgo.formatters.ParseFailureFormattingVisitor;
+import pgo.util.SourceLocatable;
 import pgo.util.SourceLocation;
 
 import java.io.IOException;
@@ -137,10 +138,10 @@ public abstract class ParseFailure {
 		}
 	}
 
-	public static class RejectFailure extends ParseFailure {
-		private final Grammar toReject;
+	public static class RejectFailure<Result extends SourceLocatable> extends ParseFailure {
+		private final Grammar<Result> toReject;
 
-		public RejectFailure(Grammar toReject) {
+		public RejectFailure(Grammar<Result> toReject) {
 			this.toReject = toReject;
 		}
 
@@ -167,7 +168,7 @@ public abstract class ParseFailure {
 		}
 	}
 
-	public static ParseFailure rejectFailure(Grammar toReject) {
-		return new RejectFailure(toReject);
+	public static <Result extends SourceLocatable> ParseFailure rejectFailure(Grammar<Result> toReject) {
+		return new RejectFailure<>(toReject);
 	}
 }
