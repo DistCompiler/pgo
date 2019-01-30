@@ -66,14 +66,6 @@ public class ScopingPass {
 					modularPlusCalScope.getReferences());
 			Map<String, UID> args = new ChainMap<>(tlaScope.getDeclarations());
 
-			for (PlusCalVariableDeclaration arg : proc.getParams()) {
-				arg.getValue().accept(new TLAExpressionScopingVisitor(tlaScope, registry, loader, new HashSet<>()));
-				registry.addLocalVariable(arg.getUID());
-				if (argScope.declare(arg.getName().getValue(), arg.getUID())) {
-					args.put(arg.getName().getValue(), arg.getUID());
-				}
-			}
-
 			Stream.concat(proc.getParams().stream(), proc.getVariables().stream())
 					.forEach(variableDeclaration -> {
 						variableDeclaration.getValue().accept(new TLAExpressionScopingVisitor(
