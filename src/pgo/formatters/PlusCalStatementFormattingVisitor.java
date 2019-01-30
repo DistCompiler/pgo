@@ -88,7 +88,7 @@ public class PlusCalStatementFormattingVisitor extends PlusCalStatementVisitor<V
 				}
 			}
 			out.newLine();
-			out.write("}");
+			out.write("};");
 		}
 		return null;
 	}
