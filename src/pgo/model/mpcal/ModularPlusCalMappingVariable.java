@@ -32,4 +32,9 @@ public class ModularPlusCalMappingVariable extends SourceLocatable {
 	}
 
 	public boolean isFunctionCalls() { return this.functionCalls; }
+
+	@Override
+	public String toString() {
+		return name;
+	}
 }
