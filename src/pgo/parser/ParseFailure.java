@@ -145,7 +145,7 @@ public abstract class ParseFailure {
 			this.toReject = toReject;
 		}
 
-		public Grammar getToReject() {
+		public Grammar<Result> getToReject() {
 			return toReject;
 		}
 
@@ -158,7 +158,7 @@ public abstract class ParseFailure {
 		public boolean equals(Object o) {
 			if (this == o) return true;
 			if (o == null || getClass() != o.getClass()) return false;
-			RejectFailure that = (RejectFailure) o;
+			RejectFailure<Result> that = (RejectFailure<Result>) o;
 			return Objects.equals(toReject, that.toReject);
 		}
 
