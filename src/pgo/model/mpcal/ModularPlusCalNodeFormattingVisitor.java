@@ -3,7 +3,11 @@ package pgo.model.mpcal;
 import pgo.TODO;
 import pgo.formatters.IndentingWriter;
 import pgo.formatters.PlusCalNodeFormattingVisitor;
+import pgo.formatters.TLAExpressionFormattingVisitor;
+import pgo.model.pcal.PlusCalFairness;
 import pgo.model.pcal.PlusCalStatement;
+import pgo.model.tla.TLAExpression;
+import pgo.model.tla.TLAExpressionVisitor;
 
 import java.io.IOException;
 import java.util.stream.Collectors;
@@ -51,7 +55,46 @@ public class ModularPlusCalNodeFormattingVisitor extends ModularPlusCalNodeVisit
 
 	@Override
 	public Void visit(ModularPlusCalInstance modularPlusCalInstance) throws IOException {
-		throw new TODO();
+		if (modularPlusCalInstance.getFairness() == PlusCalFairness.WEAK_FAIR) {
+			out.write("fair ");
+		} else if (modularPlusCalInstance.getFairness() == PlusCalFairness.STRONG_FAIR) {
+			out.write("fair+ ");
+		}
+
+		out.write("process (");
+		modularPlusCalInstance.getName().accept(new PlusCalNodeFormattingVisitor(out));
+		out.write(")");
+
+		out.write(" == instance ");
+		out.write(modularPlusCalInstance.getTarget());
+
+		out.write("(");
+		TLAExpressionVisitor formatter = new TLAExpressionFormattingVisitor(out);
+		for (int i = 0; i < modularPlusCalInstance.getArguments().size(); i++) {
+			if (i > 0) {
+				out.write(", ");
+			}
+
+			modularPlusCalInstance.getArguments().get(i).accept(formatter);
+		}
+		out.write(")");
+
+		for (ModularPlusCalMapping mapping : modularPlusCalInstance.getMappings()) {
+			out.newLine();
+			out.write("mapping ");
+			out.write(mapping.getVariable().getName());
+
+			if (mapping.getVariable().isFunctionCalls()) {
+				out.write("[_]");
+			}
+
+			out.write(" via ");
+			out.write(mapping.getTarget().getName());
+		}
+
+		out.write(";");
+
+		return null;
 	}
 
 	@Override
