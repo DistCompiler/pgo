@@ -69,7 +69,7 @@ public class ScopingPass {
 			Stream.concat(proc.getParams().stream(), proc.getVariables().stream())
 					.forEach(variableDeclaration -> {
 						variableDeclaration.getValue().accept(new TLAExpressionScopingVisitor(
-								tlaScope, registry, loader, new HashSet<>()));
+								argScope, registry, loader, new HashSet<>()));
 						registry.addLocalVariable(variableDeclaration.getUID());
 						if (argScope.declare(variableDeclaration.getName().getValue(), variableDeclaration.getUID())) {
 							args.put(variableDeclaration.getName().getValue(), variableDeclaration.getUID());
@@ -101,7 +101,7 @@ public class ScopingPass {
 			Stream.concat(archetype.getParams().stream(), archetype.getVariables().stream())
 					.forEach(variableDeclaration -> {
 						variableDeclaration.getValue().accept(new TLAExpressionScopingVisitor(
-								tlaScope, registry, loader, new HashSet<>()));
+								argScope, registry, loader, new HashSet<>()));
 						registry.addLocalVariable(variableDeclaration.getUID());
 						if (argScope.declare(variableDeclaration.getName().getValue(), variableDeclaration.getUID())) {
 							args.put(variableDeclaration.getName().getValue(), variableDeclaration.getUID());
