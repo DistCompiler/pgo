@@ -15,10 +15,28 @@ import pgo.trans.passes.expansion.*;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
-import java.util.stream.Stream;
+import java.util.List;
 
 public class ScopingPass {
 	private ScopingPass() {}
+
+	private static void scopeVariables(
+			List<PlusCalVariableDeclaration> variables,
+			DefinitionRegistry registry,
+			TLAModuleLoader loader,
+			TLAScopeBuilder validateScope,
+			TLAScopeBuilder newScope,
+			Map<String, UID> variablesMap)
+	{
+		variables.forEach(variableDeclaration -> {
+			variableDeclaration.getValue().accept(new TLAExpressionScopingVisitor(
+					validateScope, registry, loader, new HashSet<>()));
+			registry.addLocalVariable(variableDeclaration.getUID());
+			if (newScope.declare(variableDeclaration.getName().getValue(), variableDeclaration.getUID())) {
+				variablesMap.put(variableDeclaration.getName().getValue(), variableDeclaration.getUID());
+			}
+		});
+	}
 
 	public static DefinitionRegistry perform(IssueContext ctx, boolean codeGenMode, TLAModuleLoader loader,
 	                                         Map<String, TLAExpression> constantDefinitions, TLAModule module,
@@ -66,15 +84,8 @@ public class ScopingPass {
 					modularPlusCalScope.getReferences());
 			Map<String, UID> args = new ChainMap<>(tlaScope.getDeclarations());
 
-			Stream.concat(proc.getParams().stream(), proc.getVariables().stream())
-					.forEach(variableDeclaration -> {
-						variableDeclaration.getValue().accept(new TLAExpressionScopingVisitor(
-								argScope, registry, loader, new HashSet<>()));
-						registry.addLocalVariable(variableDeclaration.getUID());
-						if (argScope.declare(variableDeclaration.getName().getValue(), variableDeclaration.getUID())) {
-							args.put(variableDeclaration.getName().getValue(), variableDeclaration.getUID());
-						}
-					});
+			scopeVariables(proc.getParams(), registry, loader, tlaScope, argScope, args);
+			scopeVariables(proc.getVariables(), registry, loader, argScope, argScope, args);
 
 			TLAScopeBuilder procScope = new TLAScopeBuilder(
 					ctx, args, new ChainMap<>(modularPlusCalScope.getDefinitions()),
@@ -98,15 +109,8 @@ public class ScopingPass {
 					tlaScope.getReferences());
 			Map<String, UID> args = new ChainMap<>(tlaScope.getDeclarations());
 
-			Stream.concat(archetype.getParams().stream(), archetype.getVariables().stream())
-					.forEach(variableDeclaration -> {
-						variableDeclaration.getValue().accept(new TLAExpressionScopingVisitor(
-								argScope, registry, loader, new HashSet<>()));
-						registry.addLocalVariable(variableDeclaration.getUID());
-						if (argScope.declare(variableDeclaration.getName().getValue(), variableDeclaration.getUID())) {
-							args.put(variableDeclaration.getName().getValue(), variableDeclaration.getUID());
-						}
-					});
+			scopeVariables(archetype.getParams(), registry, loader, tlaScope, argScope, args);
+			scopeVariables(archetype.getVariables(), registry, loader, argScope, argScope, args);
 
 			TLAScopeBuilder archetypeScope = new TLAScopeBuilder(
 					ctx, args, new ChainMap<>(tlaScope.getDefinitions()), tlaScope.getReferences());
