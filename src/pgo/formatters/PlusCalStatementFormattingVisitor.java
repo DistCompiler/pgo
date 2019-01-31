@@ -57,7 +57,9 @@ public class PlusCalStatementFormattingVisitor extends PlusCalStatementVisitor<V
 		}
 		out.newLine();
 		out.write("}");
-		if (!plusCalIf.getNo().isEmpty()) {
+		if (plusCalIf.getNo().isEmpty()) {
+			out.write(";");
+		} else {
 			out.write(" else {");
 			try (IndentingWriter.Indent ignored = out.indent()) {
 				for(PlusCalStatement stmt : plusCalIf.getNo()){
@@ -66,7 +68,7 @@ public class PlusCalStatementFormattingVisitor extends PlusCalStatementVisitor<V
 				}
 			}
 			out.newLine();
-			out.write("}");
+			out.write("};");
 		}
 		return null;
 	}
