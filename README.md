@@ -1,8 +1,8 @@
 # PGo #
 
 PGo is a source to source compiler to compile
-[PlusCal](http://lamport.azurewebsites.net/tla/pluscal.html) into
-[Go lang](https://golang.org/).
+[PlusCal](http://lamport.azurewebsites.net/tla/pluscal.html)
+specifications into [Go](https://golang.org/) programs.
 
 ## Purpose/motivation
 
