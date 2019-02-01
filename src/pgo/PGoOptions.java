@@ -10,7 +10,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 
 public class PGoOptions {
-	public static String VERSION = "0.1.0";
+	public static final String VERSION = "0.1.0";
 
 	@Option(value = "Version", aliases = {"-version"})
 	public boolean version = false;
