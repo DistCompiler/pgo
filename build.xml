@@ -22,10 +22,14 @@
     <pathelement location="bin"/>
   </path>
 
+  <!-- The set of jars pgo depends on in development, in classpath format. -->
+  <path id="pgo.devdepjars.classpath">
+    <pathelement location="dev-lib/hamcrest-all-1.3.jar"/>
+    <pathelement location="dev-lib/junit-4.12.jar"/>
+  </path>
+
   <!-- The set of jars pgo depends on, in classpath format. -->
   <path id="pgo.depjars.classpath">
-    <pathelement location="lib/hamcrest-all-1.3.jar"/>
-    <pathelement location="lib/junit-4.12.jar"/>
     <pathelement location="lib/plume.jar"/>
     <pathelement location="lib/json.jar"/>
   </path>
@@ -34,6 +38,13 @@
   <path id="pgo.classpath">
     <path refid="pgo.classes.classpath"/>
     <path refid="pgo.depjars.classpath"/>
+  </path>
+
+  <!-- The complete classpath for running the compiled pgo. -->
+  <path id="pgo.devclasspath">
+    <path refid="pgo.classpath"/>
+    <path refid="pgo.devdepjars.classpath"/>
+    <pathelement location="test/out"/>
   </path>
 
   <manifestclasspath property="jar.liblist" jarfile="${pgo.jarpath}">
@@ -67,7 +78,6 @@
   <target name="build">
     <!-- Create the bin/ dir where compiled .class files will go. -->
     <mkdir dir="bin"/>
-    <mkdir dir="test/out"/>
 
     <echo message="Ant running on Java version ${ant.java.version}"/>
 
@@ -75,8 +85,20 @@
     <javac debug="true" debuglevel="${debuglevel}" includeantruntime="false" destdir="bin" source="${source}" target="${target}">
       <compilerarg value="-Xlint" />
       <src path="src"/>
-      <src path="test"/>
       <classpath refid="pgo.classpath"/>
+    </javac>
+  </target>
+
+  <!--=====================================================================-->
+  <target name="build-test" depends="build">
+    <!-- Create the bin/ dir where compiled .class files will go. -->
+    <mkdir dir="test/out"/>
+
+    <echo message="${ant.project.name}: ${ant.file}"/>
+    <javac debug="true" debuglevel="${debuglevel}" includeantruntime="false" destdir="test/out" source="${source}" target="${target}">
+      <compilerarg value="-Xlint" />
+      <src path="test"/>
+      <classpath refid="pgo.devclasspath"/>
     </javac>
   </target>
 
@@ -107,44 +129,44 @@
    Note: This searches for classes in pgo's testing directory
    and executes all matching files across all subdirectories.
       -->
-    <target name="test-class" depends="build">
-      <!-- If junit.class is not set, complain. -->
-      <fail unless="junit.class">Must supply a class name with -Djunit.class</fail>
-      <echo message="Looking for files matching '.*${junit.class}.*(\.class)?$' in bin/${pgo.testdir}" />
+  <target name="test-class" depends="build-test">
+    <!-- If junit.class is not set, complain. -->
+    <fail unless="junit.class">Must supply a class name with -Djunit.class</fail>
+    <echo message="Looking for files matching '.*${junit.class}.*(\.class)?$' in bin/${pgo.testdir}" />
 
-      <mkdir dir="${junit.output.dir}"/>
+    <mkdir dir="${junit.output.dir}"/>
 
-      <!-- Build the file set and make sure it's not empty. -->
-      <property name="junit.regex" value=".*${junit.class}.*(\.class)?$" />
-      <condition property="dir.empty">
-        <length length="0">
-          <fileset id="junit.class.fileset" dir="bin/" includes="${pgo.testdir}">
-            <filename regex="${junit.regex}"/>
-          </fileset>
-        </length>
-      </condition>
+    <!-- Build the file set and make sure it's not empty. -->
+    <property name="junit.regex" value=".*${junit.class}.*(\.class)?$" />
+    <condition property="dir.empty">
+      <length length="0">
+        <fileset id="junit.class.fileset" dir="bin/" includes="${pgo.testdir}">
+          <filename regex="${junit.regex}"/>
+        </fileset>
+      </length>
+    </condition>
 
-      <!-- If there were no files found, exit. -->
-      <fail if="dir.empty">No files matching ${junit.class} were found</fail>
+    <!-- If there were no files found, exit. -->
+    <fail if="dir.empty">No files matching ${junit.class} were found</fail>
 
-      <!-- Print the files to be run. -->
-      <echo>Running JUnit on these files:</echo>
-      <pathconvert pathsep="${line.separator}    --"
-        property="junit.class.path"
-        refid="junit.class.fileset">
-      </pathconvert>
-      <echo>    ${junit.class.path}</echo>
+    <!-- Print the files to be run. -->
+    <echo>Running JUnit on these files:</echo>
+    <pathconvert pathsep="${line.separator}    --"
+      property="junit.class.path"
+      refid="junit.class.fileset">
+    </pathconvert>
+    <echo>    ${junit.class.path}</echo>
 
-      <!-- Run junit on the found files. -->
-      <junit fork="no" printsummary="withOutAndErr" showoutput="true">
-        <classpath refid="pgo.classpath"/>
-        <formatter type="xml"/>
-        <batchtest fork="yes" todir="${junit.output.dir}">
-          <!-- Include all class files, then filter. -->
-          <fileset refid="junit.class.fileset" />
-        </batchtest>
-      </junit>
-    </target>
+    <!-- Run junit on the found files. -->
+    <junit fork="no" printsummary="withOutAndErr" showoutput="true">
+      <classpath refid="pgo.devclasspath"/>
+      <formatter type="xml"/>
+      <batchtest fork="yes" todir="${junit.output.dir}">
+        <!-- Include all class files, then filter. -->
+        <fileset refid="junit.class.fileset" />
+      </batchtest>
+    </junit>
+  </target>
 
     <!--
    Runs test cases from a specific test class that match a
@@ -156,56 +178,56 @@
    class, and junit.case must refer to a test method inside of
    this class.
    -->
-    <target name="test-case" depends="build">
-      <!-- if junit.class or junit.case is not set, complain. -->
-      <fail unless="junit.class">must supply a test-class name with -Djunit.class</fail>
-      <fail unless="junit.case">must supply a test-case name with -Djunit.case</fail>
+  <target name="test-case" depends="build-test">
+    <!-- if junit.class or junit.case is not set, complain. -->
+    <fail unless="junit.class">must supply a test-class name with -Djunit.class</fail>
+    <fail unless="junit.case">must supply a test-case name with -Djunit.case</fail>
 
-      <mkdir dir="${junit.output.dir}"/>
+    <mkdir dir="${junit.output.dir}"/>
 
-      <!-- Run junit on just the single test-case. -->
-      <junit fork="no" printsummary="withOutAndErr" showoutput="true">
-        <classpath refid="pgo.classpath"/>
-        <formatter type="xml"/>
-        <test name="${junit.class}" methods="${junit.case}" todir="${junit.output.dir}">
-        </test>
-      </junit>
-    </target>
+    <!-- Run junit on just the single test-case. -->
+    <junit fork="no" printsummary="withOutAndErr" showoutput="true">
+      <classpath refid="pgo.devclasspath"/>
+      <formatter type="xml"/>
+      <test name="${junit.class}" methods="${junit.case}" todir="${junit.output.dir}">
+      </test>
+    </junit>
+  </target>
 
-    <!--=====================================================================-->
-    <target name="tests" depends="build">
-      <mkdir dir="${junit.output.dir}"/>
+  <!--=====================================================================-->
+  <target name="tests" depends="build-test">
+    <mkdir dir="${junit.output.dir}"/>
 
-      <junit fork="no" printsummary="withOutAndErr" showoutput="true" failureproperty="tests.failure">
-        <classpath refid="pgo.classpath"/>
-        <formatter type="xml"/>
+    <junit fork="no" printsummary="withOutAndErr" showoutput="true" failureproperty="tests.failure">
+      <classpath refid="pgo.devclasspath"/>
+      <formatter type="xml"/>
 
-        <batchtest todir="${junit.output.dir}">
-          <fileset dir="bin/">
-            <include name="**/*Test.class"/>
-          </fileset>
-        </batchtest>
-
-      </junit>
-
-      <fail message="tests failed" if="tests.failure"/>
-    </target>
-
-    <!--=====================================================================-->
-    <target name="junitreport">
-      <junitreport todir="${junit.output.dir}">
-        <fileset dir="${junit.output.dir}">
-          <include name="TEST-*.xml"/>
+      <batchtest todir="${junit.output.dir}">
+        <fileset dir="test/out/">
+          <include name="**/*Test.class"/>
         </fileset>
-        <report format="frames" todir="${junit.output.dir}"/>
-      </junitreport>
-    </target>
+      </batchtest>
 
-    <!-- DEPENDENCIES -->
-    <target name="deps" depends="install-ivy">
-      <ivy:cachepath pathid="compile.path">
-        <dependency org="org.json" name="json" rev="20171018"/>
-      </ivy:cachepath>
-    </target>
+    </junit>
+
+    <fail message="tests failed" if="tests.failure"/>
+  </target>
+
+  <!--=====================================================================-->
+  <target name="junitreport">
+    <junitreport todir="${junit.output.dir}">
+      <fileset dir="${junit.output.dir}">
+        <include name="TEST-*.xml"/>
+      </fileset>
+      <report format="frames" todir="${junit.output.dir}"/>
+    </junitreport>
+  </target>
+
+  <!-- DEPENDENCIES -->
+  <target name="deps" depends="install-ivy">
+    <ivy:cachepath pathid="compile.path">
+      <dependency org="org.json" name="json" rev="20171018"/>
+    </ivy:cachepath>
+  </target>
 
   </project>
