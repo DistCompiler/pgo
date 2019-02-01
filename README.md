@@ -69,11 +69,12 @@ PGo is tested using OpenJDK 1.8, and 1.9, and Go 1.8, 1.9, 1.10, and 1.11.
 Use `pgo.sh` to invoke the compiler. Below are the options that the compiler accepts.
 
 ```bash
-$ ./pgo.sh -h
-Usage: pgo [options] pcalfile
+Usage: pgo [options] spec
+  --version=<boolean>          - Version [default false]
   -h --help=<boolean>          - Print usage information [default false]
   -q --logLvlQuiet=<boolean>   - Reduce printing during execution [default false]
   -v --logLvlVerbose=<boolean> - Print detailed information during execution  [default false]
+  -m --mpcalCompile=<boolean>  - Compile a Modular PlusCal spec to vanilla PlusCal [default false]
   -c --configFilePath=<string> - path to the configuration file, if any
 ```
 
