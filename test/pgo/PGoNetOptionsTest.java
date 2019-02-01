@@ -120,7 +120,7 @@ public class PGoNetOptionsTest {
 	public void testWellFormedConfiguration() throws PGoOptionException {
 		PGoNetOptions net = options();
 
-		assert(net.isEnabled());
+		assertTrue(net.isEnabled());
 		List<String> expectedHosts = Arrays.asList("172.28.128.7:2379", "172.28.128.8:2379", "172.28.128.9:2379");
 		assertEquals(PGoNetOptions.StateOptions.STATE_ETCD, net.getStateOptions().strategy);
 		assertEquals(expectedHosts, net.getStateOptions().endpoints);

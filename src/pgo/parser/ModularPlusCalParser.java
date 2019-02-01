@@ -1,5 +1,6 @@
 package pgo.parser;
 
+import pgo.InternalCompilerError;
 import pgo.model.mpcal.*;
 import pgo.model.pcal.*;
 import pgo.model.tla.*;
@@ -237,7 +238,9 @@ public class ModularPlusCalParser {
 
 		try {
 			// updates unlabeled statements to include `yield` statements.
-			assert oldUnlabeledStatement != null;
+			if (oldUnlabeledStatement == null) {
+				throw new InternalCompilerError();
+			}
 			C_SYNTAX_UNLABELED_STMT.setReferencedGrammar(
 					parseOneOf(
 							oldUnlabeledStatement,
@@ -246,7 +249,9 @@ public class ModularPlusCalParser {
 			);
 
 			// allow procedures to be declared to take arguments by `ref`
-			assert oldPVarDecl != null;
+			if (oldPVarDecl == null) {
+				throw new InternalCompilerError();
+			}
 			PVAR_DECL.setReferencedGrammar(
 					parseOneOf(
 							emptySequence()
@@ -263,12 +268,16 @@ public class ModularPlusCalParser {
 			);
 
 			// allow call Proc() to be able to pass variables by `ref`
-			assert oldProcedureParam != null;
+			if (oldProcedureParam == null) {
+				throw new InternalCompilerError();
+			}
 			PROCEDURE_PARAM.setReferencedGrammar(MODULAR_PLUSCAL_PARAMETER);
 
 			// include special variables (`$variable` and `$value`) as part of identifiers
 			// recognized by the parser (so that special variables can be assigned to).
-			assert oldTLAIdExpr != null;
+			if (oldTLAIdExpr == null) {
+				throw new InternalCompilerError();
+			}
 			TLA_IDEXPR.setReferencedGrammar(
 					parseOneOf(
 							oldTLAIdExpr,
@@ -278,7 +287,9 @@ public class ModularPlusCalParser {
 
 			// include special variables to the list of TLA+ expressions without operators
 			// recognized by the parser.
-			assert oldTLAExprNoOperators != null;
+			if (oldTLAExprNoOperators == null) {
+				throw new InternalCompilerError();
+			}
 			EXPRESSION_NO_OPERATORS.setReferencedGrammar(
 					parseOneOf(
 							oldTLAExprNoOperators,
