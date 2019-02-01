@@ -9,7 +9,7 @@
   <property environment="env"/>
 
   <!-- Where to create the pgo.jar -->
-  <property name="pgo.jarpath" value="lib/pgo.jar"/>
+  <property name="pgo.jarpath" value="bin/pgo.jar"/>
 
   <!-- Where to output junit test results. -->
   <property name="junit.output.dir" value="junit"/>
@@ -46,10 +46,6 @@
     <path refid="pgo.devdepjars.classpath"/>
     <pathelement location="test/out"/>
   </path>
-
-  <manifestclasspath property="jar.liblist" jarfile="${pgo.jarpath}">
-    <classpath refid="pgo.depjars.classpath" />
-  </manifestclasspath>
 
   <property name="debuglevel" value="source,lines,vars"/>
   <property name="target" value="1.8"/>
@@ -104,17 +100,23 @@
 
   <!--=====================================================================-->
   <target name="jar" depends="build">
+    <delete file="${pgo.jarpath}" />
+
+    <loadresource property="version">
+      <javaconstant name="pgo.PGoOptions.VERSION">
+        <classpath refid="pgo.classpath" />
+      </javaconstant>
+    </loadresource>
 
     <!-- Build a jar composed of compiled .class files. -->
-    <jar destfile="${pgo.jarpath}"
-      basedir="./bin/"
-      includes="**/*.class">
+    <jar destfile="${pgo.jarpath}">
+      <fileset dir="bin" includes="**/*.class" />
+      <zipgroupfileset dir="lib" includes="*.jar" />
       <manifest>
         <attribute name="Manifest-Version" value="1.0" />
-        <attribute name="Implementation-Title" value="pgo" />
-        <attribute name="Implementation-Version" value="0.1" />
+        <attribute name="Implementation-Title" value="PGo" />
+        <attribute name="Implementation-Version" value="${version}" />
         <attribute name="Main-Class" value="pgo.PGoMain" />
-        <attribute name="Class-Path" value="${jar.liblist}" />
       </manifest>
     </jar>
   </target>
