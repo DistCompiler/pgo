@@ -1,15 +1,20 @@
- package pgo;
+package pgo;
 
- import org.json.JSONException;
- import org.json.JSONObject;
- import plume.Option;
- import plume.Options;
+import org.json.JSONException;
+import org.json.JSONObject;
+import plume.Option;
+import plume.Options;
 
- import java.io.IOException;
- import java.nio.file.Files;
- import java.nio.file.Paths;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 
 public class PGoOptions {
+	public static String VERSION = "0.1.0";
+
+	@Option(value = "Version", aliases = {"-version"})
+	public boolean version = false;
+
 	@Option(value = "-h Print usage information", aliases = { "-help" })
 	public boolean help = false;
 
@@ -49,6 +54,11 @@ public class PGoOptions {
 	}
 
 	public void parse() throws PGoOptionException {
+		if (version) {
+			System.out.println("PGo version " + VERSION);
+			System.exit(0);
+		}
+
 		if (help || remainingArgs.length != 1) {
 			printHelp();
 			System.exit(0);
