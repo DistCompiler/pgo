@@ -42,7 +42,7 @@ To learn how to use PGo, see the [PGo usage page](https://github.com/UBC-NSS/pgo
 
 ## How it works
 
-PGo is a source to source compiler written in Java. It compiles specifications written in an extension of PlusCal, called Modular PlusCal (see the [Modular PlusCal page](https://github.com/UBC-NSS/pgo/wiki/Modular-PlusCal)) to Go programs.
+PGo is a source to source compiler written in Java. It compiles specifications written in an extension of PlusCal, called Modular PlusCal (see the [Modular PlusCal page](https://github.com/UBC-NSS/pgo/wiki/Modular-PlusCal) for more details), to Go programs.
 
 ## How to install (for development)
 
