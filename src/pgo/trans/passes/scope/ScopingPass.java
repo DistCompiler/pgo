@@ -28,14 +28,14 @@ public class ScopingPass {
 			TLAScopeBuilder newScope,
 			Map<String, UID> variablesMap)
 	{
-		variables.forEach(variableDeclaration -> {
+		for (PlusCalVariableDeclaration variableDeclaration : variables) {
 			variableDeclaration.getValue().accept(new TLAExpressionScopingVisitor(
 					validateScope, registry, loader, new HashSet<>()));
 			registry.addLocalVariable(variableDeclaration.getUID());
 			if (newScope.declare(variableDeclaration.getName().getValue(), variableDeclaration.getUID())) {
 				variablesMap.put(variableDeclaration.getName().getValue(), variableDeclaration.getUID());
 			}
-		});
+		}
 	}
 
 	public static DefinitionRegistry perform(IssueContext ctx, boolean codeGenMode, TLAModuleLoader loader,
