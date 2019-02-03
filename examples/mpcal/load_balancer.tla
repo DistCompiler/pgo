@@ -506,5 +506,3 @@ ClientsOk == \A client \in (NUM_SERVERS+1)..(NUM_SERVERS+NUM_CLIENTS+1) : Receiv
 =============================================================================
 \* Modification History
 \* Last modified Sat Feb 02 19:59:51 PST 2019 by rmc
-\* Last modified Wed Oct 12 02:41:48 PDT 2011 by lamport
-\* Created Mon Oct 10 06:26:47 PDT 2011 by lamport
