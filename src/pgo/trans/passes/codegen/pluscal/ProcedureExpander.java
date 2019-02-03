@@ -2,16 +2,12 @@ package pgo.trans.passes.codegen.pluscal;
 
 import pgo.errors.IssueContext;
 import pgo.model.mpcal.ModularPlusCalMappingMacro;
-import pgo.model.pcal.PlusCalCall;
-import pgo.model.pcal.PlusCalProcedure;
-import pgo.model.pcal.PlusCalStatement;
-import pgo.model.pcal.PlusCalVariableDeclaration;
-import pgo.model.tla.TLAExpression;
-import pgo.model.tla.TLAGeneralIdentifier;
-import pgo.model.tla.TLARef;
+import pgo.model.pcal.*;
+import pgo.model.tla.*;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
 import pgo.trans.passes.codegen.NameCleaner;
+import pgo.util.SourceLocation;
 
 import java.util.*;
 
@@ -41,6 +37,39 @@ class ProcedureExpander {
 		this.procedureCache = new HashMap<>();
 	}
 
+	static void initializeLocalVariables(DefinitionRegistry registry,
+	                                     SourceLocation location,
+	                                     List<PlusCalVariableDeclaration> variables,
+	                                     String cleanedLabelName,
+	                                     ModularPlusCalCodeGenVisitor visitor,
+	                                     List<PlusCalVariableDeclaration> outputVariables,
+	                                     List<PlusCalStatement> output) {
+		List<PlusCalStatement> initStatements = new ArrayList<>();
+		for (PlusCalVariableDeclaration variable : variables) {
+			if (variable.getValue() instanceof PlusCalDefaultInitValue) {
+				outputVariables.add(variable);
+			} else {
+				SourceLocation variableLocation = variable.getLocation();
+				outputVariables.add(new PlusCalVariableDeclaration(
+						variableLocation, variable.getName(), variable.isRef(), variable.isSet(),
+						new PlusCalDefaultInitValue(variableLocation)));
+				TLAGeneralIdentifier lhs = new TLAGeneralIdentifier(
+						variableLocation, new TLAIdentifier(variableLocation, variable.getName().getValue()),
+						Collections.emptyList());
+				registry.getReferences().put(lhs.getUID(), variable.getUID());
+				initStatements.add(new PlusCalAssignment(
+						variableLocation,
+						Collections.singletonList(new PlusCalAssignmentPair(
+								variableLocation, lhs, variable.getValue()))));
+			}
+		}
+		if (initStatements.size() > 0) {
+			output.addAll(new PlusCalLabeledStatements(
+					location, new PlusCalLabel(location, cleanedLabelName, PlusCalLabel.Modifier.NONE),
+					initStatements).accept(visitor));
+		}
+	}
+
 	private void update(UID paramUID, UID valueUID, Map<UID, TLAGeneralIdentifier> arguments,
 	                    Map<UID, ModularPlusCalMappingMacro> mappings, Set<UID> functionMappedVars) {
 		ModularPlusCalMappingMacro mappingMacro = parentMappings.get(valueUID);
@@ -60,7 +89,7 @@ class ProcedureExpander {
 		Set<UID> functionMappedVars = new HashSet<>();
 		Map<UID, ModularPlusCalMappingMacro> mappings = new HashMap<>();
 		Set<UID> refs = new HashSet<>();
-		List<PlusCalVariableDeclaration> localVariables = new ArrayList<>(procedure.getVariables());
+		List<PlusCalVariableDeclaration> localVariables = new ArrayList<>();
 		List<PlusCalVariableDeclaration> actualParams = new ArrayList<>();
 		List<TLAExpression> actualArguments = new ArrayList<>();
 		List<PlusCalVariableDeclaration> procedureParams = procedure.getParams();
@@ -104,6 +133,9 @@ class ProcedureExpander {
 					new ProcedureExpander(
 							ctx, registry, nameCleaner, arguments, mappings, refs, functionMappedVars, procedures));
 			List<PlusCalStatement> body = new ArrayList<>();
+			initializeLocalVariables(
+					registry, procedure.getLocation(), procedure.getVariables(), nameCleaner.cleanName("init"), v,
+					localVariables, body);
 			for (PlusCalStatement statement : procedure.getBody()) {
 				body.addAll(statement.accept(v));
 			}

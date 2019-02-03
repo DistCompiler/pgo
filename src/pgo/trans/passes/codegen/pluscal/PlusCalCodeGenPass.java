@@ -4,15 +4,13 @@ import pgo.Unreachable;
 import pgo.errors.IssueContext;
 import pgo.model.mpcal.*;
 import pgo.model.pcal.*;
-import pgo.model.tla.TLAExpression;
-import pgo.model.tla.TLAGeneralIdentifier;
-import pgo.model.tla.TLAIdentifier;
-import pgo.model.tla.TLARef;
+import pgo.model.tla.*;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
 import pgo.trans.intermediate.UnsupportedFeatureIssue;
 import pgo.trans.passes.codegen.NameCleaner;
 import pgo.trans.passes.validation.NonModularPlusCalNodeValidationVisitor;
+import pgo.util.SourceLocation;
 
 import java.util.*;
 import java.util.stream.Stream;
@@ -91,7 +89,7 @@ public class PlusCalCodeGenPass {
 			Map<UID, ModularPlusCalMappingMacro> mappings = new HashMap<>();
 			Set<UID> functionMappedVars = new HashSet<>();
 			Set<UID> refs = new HashSet<>();
-			List<PlusCalVariableDeclaration> localVariables = new ArrayList<>(archetype.getVariables());
+			List<PlusCalVariableDeclaration> localVariables = new ArrayList<>();
 			TemporaryBinding readTemporaryBinding = new TemporaryBinding(nameCleaner, localVariables);
 			List<PlusCalVariableDeclaration> archetypeParams = archetype.getParams();
 			List<TLAExpression> instanceArguments = instance.getArguments();
@@ -120,12 +118,16 @@ public class PlusCalCodeGenPass {
 							value.getLocation(), paramUID, param.getName().getValue() + "Read", value);
 				}
 			}
+			// initialize the local variables
 			ModularPlusCalCodeGenVisitor v = new ModularPlusCalCodeGenVisitor(
 					registry, params, arguments, mappings, refs, functionMappedVars, readTemporaryBinding,
 					new TemporaryBinding(nameCleaner, localVariables),
 					new ProcedureExpander(
 							ctx, registry, nameCleaner, arguments, mappings, refs, functionMappedVars, procedures));
 			List<PlusCalStatement> body = new ArrayList<>();
+			ProcedureExpander.initializeLocalVariables(
+					registry, archetype.getLocation(), archetype.getVariables(), nameCleaner.cleanName("init"), v,
+					localVariables, body);
 			for (PlusCalStatement statement : archetype.getBody()) {
 				body.addAll(statement.accept(v));
 			}
