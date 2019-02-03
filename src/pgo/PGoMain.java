@@ -101,7 +101,7 @@ public class PGoMain {
 			throws PGoTransException {
 
 		logger.info("Resolving scopes");
-		TLAModuleLoader loader = new TLAModuleLoader(Collections.singletonList(inputFilePath.getParent()));
+		TLAModuleLoader loader = new TLAModuleLoader(Collections.singletonList(inputFilePath.toAbsolutePath().getParent()));
 		DefinitionRegistry registry = ScopingPass.perform(
 				ctx, codeGenMode, loader, constantDefinitions, tlaModule, modularPlusCalBlock);
 		checkErrors(ctx);
