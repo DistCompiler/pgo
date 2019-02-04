@@ -525,6 +525,18 @@ public class TLABuiltins {
 					throw new TODO();
 				}));
 
+		BuiltinModule FiniteSets = new BuiltinModule();
+		builtinModules.put("FiniteSets", FiniteSets);
+		FiniteSets.addOperator("Cardinality", new TypelessBuiltinOperator(
+				1,
+				(origin, args, solver, generator) -> {
+					throw new TODO();
+				},
+				(builder, origin, registry, arguments, typeMap) -> {
+					throw new TODO();
+				}
+		));
+
 	}
 
 	public static BuiltinModule getUniversalBuiltIns() {
