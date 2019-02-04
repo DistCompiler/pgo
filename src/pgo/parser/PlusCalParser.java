@@ -47,7 +47,7 @@ public final class PlusCalParser {
 
 	// common
 
-    static final Grammar<TLAExpression> TLA_EXPRESSION = emptySequence()
+    static final Grammar<TLAExpression> TLA_EXPRESSION = cut(emptySequence()
 			.dependentPart(
 					TLAParser.parseExpression(
 							TLAParser.PREFIX_OPERATORS,
@@ -57,7 +57,7 @@ public final class PlusCalParser {
 									.collect(Collectors.toList()),
 							TLAParser.POSTFIX_OPERATORS,
 							TLAParser.EXPRESSION_NO_OPERATORS),
-					info -> new VariableMap().put(MIN_COLUMN, -1))
+					info -> new VariableMap().put(MIN_COLUMN, -1)))
 			.map(seq -> seq.getValue().getFirst());
 
 
@@ -118,12 +118,12 @@ public final class PlusCalParser {
 
 	private static final Grammar<LocatedList<PlusCalVariableDeclaration>> PVAR_DECLS = emptySequence()
 			.drop(parseOneOf(parsePlusCalToken("variables"), parsePlusCalToken("variable")))
-			.part(repeatOneOrMore(
+			.part(cut(repeatOneOrMore(
 					emptySequence()
 							.part(PVAR_DECL)
 							.drop(parseOneOf(parsePlusCalToken(";"), parsePlusCalToken(",")))
 							.map(seq -> seq.getValue().getFirst())
-			))
+			)))
 			.map(seq -> seq.getValue().getFirst());
 
 	// shortcut to parse a limited form of TLA+ identifiers (as seen in PlusCal assignments)
@@ -138,11 +138,11 @@ public final class PlusCalParser {
 	}
 
 	private static final Grammar<TLAExpression> LHS = parseOneOf(
-			emptySequence()
+			cut(emptySequence()
 					.part(TLA_IDEXPR)
 					.drop(parsePlusCalToken("["))
 					.part(parseListOf(TLA_EXPRESSION, parsePlusCalToken(",")))
-					.drop(parsePlusCalToken("]"))
+					.drop(parsePlusCalToken("]"))) // cut here so we keep our options until the delimiter ] is reached
 					.map(seq -> new TLAFunctionCall(
 							seq.getLocation(),
 							seq.getValue().getRest().getFirst(),
@@ -265,12 +265,12 @@ public final class PlusCalParser {
 	private static final Grammar<PlusCalEither> C_SYNTAX_EITHER = emptySequence()
 			.drop(parsePlusCalToken("either"))
 			.part(C_SYNTAX_STMT)
-			.part(repeatOneOrMore(
+			.part(cut(repeatOneOrMore(
 					emptySequence()
 							.drop(parsePlusCalToken("or"))
 							.part(C_SYNTAX_STMT)
 							.map(seq -> seq.getValue().getFirst())
-			))
+			)))
 			.map(seq -> {
 				List<List<PlusCalStatement>> branches = new ArrayList<>(seq.getValue().getFirst().size()+1);
 				branches.add(seq.getValue().getRest().getFirst());
@@ -345,11 +345,11 @@ public final class PlusCalParser {
 		);
 
 		C_SYNTAX_COMPOUND_STMT.setReferencedGrammar(
-				emptySequence()
+				cut(emptySequence()
 						.drop(parsePlusCalToken("{"))
 						.part(parseListOf(C_SYNTAX_STMT, parsePlusCalToken(";")))
 						.drop(parseOneOf(parsePlusCalToken(";"), nop()))
-						.drop(parsePlusCalToken("}"))
+						.drop(parsePlusCalToken("}")))
 						.map(seq -> new LocatedList<>(
 								seq.getLocation(),
 								seq.getValue().getFirst()
@@ -362,7 +362,7 @@ public final class PlusCalParser {
 	static final Grammar<LocatedList<TLAUnit>> C_SYNTAX_DEFINITIONS = emptySequence()
 			.drop(parsePlusCalToken("define"))
 			.drop(parsePlusCalToken("{"))
-			.part(repeat(TLAParser.UNIT))
+			.part(cut(repeat(TLAParser.UNIT)))
 			.drop(parsePlusCalToken("}"))
 			.drop(parseOneOf(parsePlusCalToken(";"), nop()))
 			.map(seq -> seq.getValue().getFirst());
@@ -449,11 +449,11 @@ public final class PlusCalParser {
 					C_SYNTAX_DEFINITIONS,
 					nop().map(v -> new LocatedList<TLAUnit>(
 							v.getLocation(), Collections.emptyList()))))
-			.part(repeat(C_SYNTAX_MACRO))
-			.part(repeat(C_SYNTAX_PROCEDURE))
+			.part(cut(repeat(C_SYNTAX_MACRO)))
+			.part(cut(repeat(C_SYNTAX_PROCEDURE)))
 			.part(parseOneOf(
 					C_SYNTAX_COMPOUND_STMT.map(stmts -> new PlusCalSingleProcess(stmts.getLocation(), stmts)),
-					repeatOneOrMore(C_SYNTAX_PROCESS).map(procs -> new PlusCalMultiProcess(procs.getLocation(), procs))
+					cut(repeatOneOrMore(C_SYNTAX_PROCESS)).map(procs -> new PlusCalMultiProcess(procs.getLocation(), procs))
 			))
 			.drop(parsePlusCalToken("}"))
 			.map(seq -> new PlusCalAlgorithm(
@@ -478,7 +478,7 @@ public final class PlusCalParser {
 								.drop(parsePlusCalToken("elsif"))
 								.part(TLA_EXPRESSION)
 								.drop(parsePlusCalToken("then"))
-								.part(repeatOneOrMore(P_SYNTAX_STMT))
+								.part(cut(repeatOneOrMore(P_SYNTAX_STMT)))
 								.part(P_SYNTAX_IF_ELSE)
 								.map(seq -> new LocatedList<>(
 										seq.getLocation(),
@@ -489,7 +489,7 @@ public final class PlusCalParser {
 												seq.getValue().getFirst())))),
 						emptySequence()
 								.drop(parsePlusCalToken("else"))
-								.part(repeatOneOrMore(P_SYNTAX_STMT))
+								.part(cut(repeatOneOrMore(P_SYNTAX_STMT)))
 								.map(seq -> seq.getValue().getFirst()),
 						nop().map(v -> new LocatedList<>(v.getLocation(), Collections.emptyList()))
 				)
@@ -500,7 +500,7 @@ public final class PlusCalParser {
 			.drop(parsePlusCalToken("if"))
 			.part(TLA_EXPRESSION)
 			.drop(parsePlusCalToken("then"))
-			.part(repeatOneOrMore(P_SYNTAX_STMT))
+			.part(cut(repeatOneOrMore(P_SYNTAX_STMT)))
 			.part(P_SYNTAX_IF_ELSE)
 			.drop(parsePlusCalToken("end"))
 			.drop(parsePlusCalToken("if"))
@@ -524,13 +524,13 @@ public final class PlusCalParser {
 
 	private static final Grammar<PlusCalEither> P_SYNTAX_EITHER = emptySequence()
 			.drop(parsePlusCalToken("either"))
-			.part(repeatOneOrMore(P_SYNTAX_STMT))
-			.part(repeatOneOrMore(
+			.part(cut(repeatOneOrMore(P_SYNTAX_STMT)))
+			.part(cut(repeatOneOrMore(
 					emptySequence()
 							.drop(parsePlusCalToken("or"))
 							.part(repeatOneOrMore(P_SYNTAX_STMT))
 							.map(seq -> seq.getValue().getFirst())
-			))
+			)))
 			.drop(parsePlusCalToken("end"))
 			.drop(parsePlusCalToken("either"))
 			.map(seq -> {
@@ -618,7 +618,7 @@ public final class PlusCalParser {
 					nop().map(v -> new LocatedList<Located<String>>(v.getLocation(), Collections.emptyList()))))
 			.drop(parsePlusCalToken(")"))
 			.drop(parsePlusCalToken("begin"))
-			.part(repeatOneOrMore(P_SYNTAX_STMT))
+			.part(cut(repeatOneOrMore(P_SYNTAX_STMT)))
 			.drop(parsePlusCalToken("end"))
 			.drop(parsePlusCalToken("macro"))
 			.drop(parseOneOf(parsePlusCalToken(";"), nop()))
@@ -642,7 +642,7 @@ public final class PlusCalParser {
 					nop().map(v -> new LocatedList<PlusCalVariableDeclaration>(v.getLocation(), Collections.emptyList()))
 			))
 			.drop(parsePlusCalToken("begin"))
-			.part(repeatOneOrMore(P_SYNTAX_STMT))
+			.part(cut(repeatOneOrMore(P_SYNTAX_STMT)))
 			.drop(parsePlusCalToken("end"))
 			.drop(parsePlusCalToken("procedure"))
 			.drop(parseOneOf(parsePlusCalToken(";"), nop()))
@@ -669,7 +669,7 @@ public final class PlusCalParser {
 					nop().map(v -> new LocatedList<PlusCalVariableDeclaration>(
 							v.getLocation(), Collections.emptyList()))))
 			.drop(parsePlusCalToken("begin"))
-			.part(repeatOneOrMore(P_SYNTAX_STMT))
+			.part(cut(repeatOneOrMore(P_SYNTAX_STMT)))
 			.drop(parsePlusCalToken("end"))
 			.drop(parsePlusCalToken("process"))
 			.drop(parseOneOf(parsePlusCalToken(";"), nop()))
@@ -697,14 +697,14 @@ public final class PlusCalParser {
 					P_SYNTAX_DEFINITIONS,
 					nop().map(v -> new LocatedList<TLAUnit>(
 							v.getLocation(), Collections.emptyList()))))
-			.part(repeat(P_SYNTAX_MACRO))
-			.part(repeat(P_SYNTAX_PROCEDURE))
+			.part(cut(repeat(P_SYNTAX_MACRO)))
+			.part(cut(repeat(P_SYNTAX_PROCEDURE)))
 			.part(parseOneOf(
 					emptySequence()
 							.drop(parsePlusCalToken("begin"))
-							.part(repeatOneOrMore(P_SYNTAX_STMT))
+							.part(cut(repeatOneOrMore(P_SYNTAX_STMT)))
 							.map(seq -> new PlusCalSingleProcess(seq.getLocation(), seq.getValue().getFirst())),
-					repeatOneOrMore(P_SYNTAX_PROCESS).map(procs -> new PlusCalMultiProcess(procs.getLocation(), procs))
+					cut(repeatOneOrMore(P_SYNTAX_PROCESS)).map(procs -> new PlusCalMultiProcess(procs.getLocation(), procs))
 			))
 			.drop(parsePlusCalToken("end"))
 			.drop(parsePlusCalToken("algorithm"))
