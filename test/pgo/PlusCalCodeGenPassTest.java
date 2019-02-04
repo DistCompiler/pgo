@@ -1780,6 +1780,82 @@ public class PlusCalCodeGenPassTest {
 								)
 						)
 				},
+
+				{
+						// --mpcal Algorithm12 {
+						//   archetype A(a) {
+						//     l1:
+						//       print <<a, a + 1>>;
+						//   }
+						//
+						//   variables i = 0;
+						//
+						//   fair process (Proc = 0) == instance A(i * 2 + 1);
+						// }
+						mpcal(
+								"Algorithm12",
+								Collections.singletonList(
+										pcalVarDecl("i", false, false, num(0))
+								),
+								Collections.emptyList(),
+								Collections.singletonList(
+										archetype(
+												"A",
+												Collections.singletonList(
+														pcalVarDecl("a", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
+												),
+												Collections.emptyList(),
+												Collections.singletonList(
+														labeled(
+																label("l1"),
+																printS(tuple(idexp("a"), binop("+", idexp("a"), num(1))))
+														)
+												)
+										)
+								),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.singletonList(
+										instance(
+												pcalVarDecl("Proc", false, false, num(0)),
+												PlusCalFairness.WEAK_FAIR,
+												"A",
+												Collections.singletonList(binop("+", binop("*", idexp("i"), num(2)), num(1))),
+												Collections.emptyList()
+										)
+								)
+						),
+						// --algorithm Algorithm12 {
+						//     variables i = 0;
+						//     fair process (Proc = 0)
+						//     variables aRead = i * 2 + 1;
+						//     {
+						//         l1:
+						//             print <<aRead, aRead + 1>>;
+						//     }
+						// }
+						algorithm(
+								"Algorithm12",
+								Collections.singletonList(
+										pcalVarDecl("i", false, false, num(0))
+								),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								process(
+										pcalVarDecl("Proc", false, false, num(0)),
+										PlusCalFairness.WEAK_FAIR,
+										Collections.singletonList(
+												pcalVarDecl("aRead", false, false, binop("+", binop("*", idexp("i"), num(2)), num(1)))
+										),
+										labeled(
+												label("l1"),
+												printS(tuple(idexp("aRead"), binop("+", idexp("aRead"), num(1))))
+										)
+								)
+						)
+				},
 		});
 	}
 
