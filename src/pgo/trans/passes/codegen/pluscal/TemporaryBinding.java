@@ -90,6 +90,8 @@ public class TemporaryBinding {
 		if (temporaries.containsKey(varUID)) {
 			temporaries.get(varUID).reuse();
 		}
+		// once a variable is reused, it should not be reported back
+		touchedVars.remove(varUID);
 	}
 
 	public void startRecording() {
