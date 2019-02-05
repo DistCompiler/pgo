@@ -105,5 +105,15 @@ func init() {
 \subsection{Type inference}
 PGo will automatically infer types for variables declared in PlusCal. The type inference algorithm supports a limited form of polymorphism to support different use cases for tuples. Specifically, the tuple literal \lstinline[language=pcal]|<<exp1, exp2, exp3>>| may be compiled as a Go slice literal or a Go struct literal depending on whether \lstinline[language=pcal]|exp1|, \lstinline[language=pcal]|exp2|, and \lstinline[language=pcal]|exp3| have the same type.
 
+\subsection{Enabling ModularPlusCal}
+
+In order to use ModularPlusCal, there are two changes to the usual PGo workflow:
+\begin{enumerate}
+    \item In order to model check your ModularPlusCal program, you must first compile it into plain PlusCal in order for it to be interpreted by the TLA+ toolbox. You do this by passing the \lstinline|-mpcal| command-line option to PGo.
+    \item TODO: how to enable MPCal compilation?
+\end{enumerate}
+
+See TODO for a reference on ModularPlusCal features.
+
 \subsection{Lock inference}
-PGo addds locks when compiling a multiprocess PlusCal algorithm. The locking behaviour is described in more detail in~\ref{sec:labels}.
+PGo adds locks when compiling a multiprocess PlusCal algorithm. The locking behaviour is described in more detail in~\ref{sec:labels}.

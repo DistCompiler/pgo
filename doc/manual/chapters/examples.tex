@@ -4,7 +4,7 @@ The Euclidean algorithm is a simple algorithm that computes the greatest common 
 \lstinputlisting[language=pcal]{../../examples/Euclid.tla}
 \captionof{figure}{PlusCal}
 
-\lstinputlisting[language=golang]{../../examples/output/euclid.go}
+%\lstinputlisting[language=golang]{../../examples/output/euclid.go}
 \captionof{figure}{Compiled Go}
 
 The constant \lstinline[language=pcal]|N| needs to be specified in the configuration file whose path is passed to PGo, since its definition does not appear in the comment containing the algorithm. Note the code to swap \lstinline[language=pcal]|u| and \lstinline[language=pcal]|v| on line 26 of the Go program.
@@ -15,7 +15,7 @@ This PlusCal algorithm computes all possible ways to place $n$ queens on an $n \
 \lstinputlisting[language=pcal]{../../examples/Queens.tla}
 \captionof{figure}{PlusCal}
 
-\lstinputlisting[language=golang]{../../examples/output/queens.go}
+%\lstinputlisting[language=golang]{../../examples/output/queens.go}
 \captionof{figure}{Compiled Go}
 
 Note that the non-trivial types for all variables are correctly inferred by PGo.
@@ -26,7 +26,7 @@ This is a multiprocess algorithm which only allows one process to be in the crit
 \lstinputlisting[language=pcal]{../../examples/DijkstraMutex.tla}
 \captionof{figure}{PlusCal}
 
-\lstinputlisting[language=golang]{../../examples/output/dijkstra-mutex.go}
+%\lstinputlisting[language=golang]{../../examples/output/dijkstra-mutex.go}
 \captionof{figure}{Compiled Go}
 
 The constant \lstinline[language=pcal]|Proc| is defined to be \lstinline[language=pcal]|1 .. 3| in the configuration. If the process set needs to be changed, only the configuration needs to be edited.
