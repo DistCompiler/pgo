@@ -1456,7 +1456,7 @@ public class PlusCalCodeGenPassTest {
 
 				{
 						// --mpcal WhileLoopWithFollowingStatement {
-						//	 archetype Valid(aBool) {
+						//	 archetype Valid(ref aBool) {
 						//       l:
 						//         while (aBool) {
 						//           either { skip }
@@ -1477,7 +1477,7 @@ public class PlusCalCodeGenPassTest {
 						mpcal(
 								"WhileLoopWithFollowingStatement",
 								Collections.singletonList(
-										pcalVarDecl("b", false, false, bool(true))
+										pcalVarDecl("b", true, false, bool(true))
 								),
 								Collections.emptyList(),
 								Collections.singletonList(
@@ -1532,10 +1532,12 @@ public class PlusCalCodeGenPassTest {
 						//                        aBoolRead0 := b;
 						//                        if (aBoolRead0) {
 						//                            aBoolWrite0 := b;
+						//                            b := aBoolWrite0;
 						//                            goto l1;
 						//                        } else {
 						//                            aBoolWrite := FALSE;
 						//                            aBoolWrite0 := aBoolWrite;
+						//                            b := aBoolWrite0;
 						//                            goto l;
 						//                        }
 						//
@@ -1579,11 +1581,13 @@ public class PlusCalCodeGenPassTest {
 																								idexp("aBoolRead0"),
 																								Arrays.asList(
 																										assign(idexp("aBoolWrite0"), idexp("b")),
+																										assign(idexp("b"), idexp("aBoolWrite0")),
 																										gotoS("l1")
 																								),
 																								Arrays.asList(
 																										assign(idexp("aBoolWrite"), bool(false)),
 																										assign(idexp("aBoolWrite0"), idexp("aBoolWrite")),
+																										assign(idexp("b"), idexp("aBoolWrite0")),
 																										gotoS("l")
 																								)
 																						)
