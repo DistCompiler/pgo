@@ -40,6 +40,7 @@ public class PlusCalCodeGenPass {
 				procedures.add(procedure);
 			}
 		}
+		Map<ExpandedProcedureMatch, String> procedureCache = new HashMap<>();
 
 		// seed for the name cleaner
 		Set<String> nameCleanerSeed = new HashSet<>();
@@ -125,7 +126,8 @@ public class PlusCalCodeGenPass {
 					registry, params, arguments, mappings, expressionArguments, functionMappedVars, readTemporaryBinding,
 					new TemporaryBinding(nameCleaner, localVariables),
 					new ProcedureExpander(
-							ctx, registry, nameCleaner, arguments, mappings, refs, functionMappedVars, procedures));
+							ctx, registry, nameCleaner, procedureCache, arguments, mappings, refs, functionMappedVars,
+							procedures));
 			List<PlusCalStatement> body = new ArrayList<>();
 			ProcedureExpander.initializeLocalVariables(
 					registry, archetype.getLocation(), archetype.getVariables(), nameCleaner.cleanName("init"), v,

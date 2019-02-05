@@ -15,26 +15,27 @@ class ProcedureExpander {
 	private final IssueContext ctx;
 	private final DefinitionRegistry registry;
 	private final NameCleaner nameCleaner;
+	private final Map<ExpandedProcedureMatch, String> procedureCache;
 	private final Map<UID, TLAGeneralIdentifier> parentArguments;
 	private final Map<UID, ModularPlusCalMappingMacro> parentMappings;
 	private final Set<UID> parentRefs;
 	private final Set<UID> parentFunctionMappedVars;
 	private final List<PlusCalProcedure> procedures;
-	private final Map<ExpandedProcedureMatch, String> procedureCache;
 
 	ProcedureExpander(IssueContext ctx, DefinitionRegistry registry, NameCleaner nameCleaner,
+	                  Map<ExpandedProcedureMatch, String> procedureCache,
 	                  Map<UID, TLAGeneralIdentifier> parentArguments,
 	                  Map<UID, ModularPlusCalMappingMacro> parentMappings, Set<UID> parentRefs,
 	                  Set<UID> parentFunctionMappedVars, List<PlusCalProcedure> procedures) {
 		this.ctx = ctx;
 		this.registry = registry;
 		this.nameCleaner = nameCleaner;
+		this.procedureCache = procedureCache;
 		this.parentArguments = parentArguments;
 		this.parentMappings = parentMappings;
 		this.parentRefs = parentRefs;
 		this.parentFunctionMappedVars = parentFunctionMappedVars;
 		this.procedures = procedures;
-		this.procedureCache = new HashMap<>();
 	}
 
 	static void initializeLocalVariables(DefinitionRegistry registry,
@@ -132,7 +133,8 @@ class ProcedureExpander {
 					new TemporaryBinding(nameCleaner, localVariables),
 					new TemporaryBinding(nameCleaner, localVariables),
 					new ProcedureExpander(
-							ctx, registry, nameCleaner, arguments, mappings, refs, functionMappedVars, procedures));
+							ctx, registry, nameCleaner, procedureCache, arguments, mappings, refs, functionMappedVars,
+							procedures));
 			List<PlusCalStatement> body = new ArrayList<>();
 			initializeLocalVariables(
 					registry, procedure.getLocation(), procedure.getVariables(), nameCleaner.cleanName("init"), v,
