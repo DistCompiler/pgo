@@ -48,4 +48,9 @@ public class Recycling<T> {
 	public void reuse() {
 		currentIndex = -1;
 	}
+
+	@Override
+	public String toString() {
+		return "{currentIndex=" + currentIndex + ", items=" + items.toString() + "}";
+	}
 }
