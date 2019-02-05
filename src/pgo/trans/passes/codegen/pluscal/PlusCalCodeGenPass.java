@@ -86,6 +86,7 @@ public class PlusCalCodeGenPass {
 			Map<UID, PlusCalVariableDeclaration> params = new HashMap<>();
 			Map<UID, TLAGeneralIdentifier> arguments = new LinkedHashMap<>();
 			Map<UID, ModularPlusCalMappingMacro> mappings = new HashMap<>();
+			Set<UID> expressionArguments = new HashSet<>();
 			Set<UID> functionMappedVars = new HashSet<>();
 			Set<UID> refs = new HashSet<>();
 			List<PlusCalVariableDeclaration> localVariables = new ArrayList<>();
@@ -115,11 +116,13 @@ public class PlusCalCodeGenPass {
 					// this argument is bound to a TLA+ expression, so we need to add a variable declaration for it
 					readTemporaryBinding.declare(
 							value.getLocation(), paramUID, param.getName().getValue() + "Read", value);
+					readTemporaryBinding.reuse(paramUID);
+					expressionArguments.add(paramUID);
 				}
 			}
 			// initialize the local variables
 			ModularPlusCalCodeGenVisitor v = new ModularPlusCalCodeGenVisitor(
-					registry, params, arguments, mappings, functionMappedVars, readTemporaryBinding,
+					registry, params, arguments, mappings, expressionArguments, functionMappedVars, readTemporaryBinding,
 					new TemporaryBinding(nameCleaner, localVariables),
 					new ProcedureExpander(
 							ctx, registry, nameCleaner, arguments, mappings, refs, functionMappedVars, procedures));

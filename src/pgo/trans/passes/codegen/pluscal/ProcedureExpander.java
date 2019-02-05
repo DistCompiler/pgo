@@ -128,7 +128,7 @@ class ProcedureExpander {
 			procedureName = procedureCache.get(match);
 		} else {
 			ModularPlusCalCodeGenVisitor v = new ModularPlusCalCodeGenVisitor(
-					registry, params, arguments, mappings, functionMappedVars,
+					registry, params, arguments, mappings, Collections.emptySet(), functionMappedVars,
 					new TemporaryBinding(nameCleaner, localVariables),
 					new TemporaryBinding(nameCleaner, localVariables),
 					new ProcedureExpander(

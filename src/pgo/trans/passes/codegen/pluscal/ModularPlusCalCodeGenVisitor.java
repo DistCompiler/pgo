@@ -19,18 +19,20 @@ public class ModularPlusCalCodeGenVisitor
 	private final Map<UID, PlusCalVariableDeclaration> params;
 	private final Map<UID, TLAGeneralIdentifier> arguments;
 	private final Map<UID, ModularPlusCalMappingMacro> mappings;
+	private final Set<UID> expressionArguments;
 	private final Set<UID> functionMappedVars;
 	private final ProcedureExpander procedureExpander;
 
 	ModularPlusCalCodeGenVisitor(DefinitionRegistry registry, Map<UID, PlusCalVariableDeclaration> params,
 	                             Map<UID, TLAGeneralIdentifier> arguments,
-	                             Map<UID, ModularPlusCalMappingMacro> mappings, Set<UID> functionMappedVars,
-	                             TemporaryBinding readTemporaryBinding, TemporaryBinding writeTemporaryBinding,
-	                             ProcedureExpander procedureExpander) {
+	                             Map<UID, ModularPlusCalMappingMacro> mappings, Set<UID> expressionArguments,
+	                             Set<UID> functionMappedVars, TemporaryBinding readTemporaryBinding,
+	                             TemporaryBinding writeTemporaryBinding, ProcedureExpander procedureExpander) {
 		this.registry = registry;
 		this.params = params;
 		this.arguments = arguments;
 		this.mappings = mappings;
+		this.expressionArguments = expressionArguments;
 		this.functionMappedVars = functionMappedVars;
 		this.readTemporaryBinding = readTemporaryBinding;
 		this.writeTemporaryBinding = writeTemporaryBinding;
@@ -65,6 +67,10 @@ public class ModularPlusCalCodeGenVisitor
 
 	@Override
 	public List<PlusCalStatement> visit(PlusCalLabeledStatements plusCalLabeledStatements) throws RuntimeException {
+		for (UID varUID : expressionArguments) {
+			readTemporaryBinding.declare(
+					plusCalLabeledStatements.getLocation(), varUID, params.get(varUID).getName().getValue() + "Read");
+		}
 		// translate the statements in this labeledStatements
 		List<PlusCalStatement> statements = substituteStatements(plusCalLabeledStatements.getStatements());
 		// write back the written values and clean up

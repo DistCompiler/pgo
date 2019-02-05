@@ -1787,9 +1787,12 @@ public class PlusCalCodeGenPassTest {
 
 				{
 						// --mpcal Algorithm12 {
-						//   archetype A(a) {
+						//   archetype A(a)
+						//   variable local = 0;
+						//   {
 						//     l1:
-						//       print <<a, a + 1>>;
+						//       local := a + 1;
+						//       print <<a, local>>;
 						//   }
 						//
 						//   variables i = 0;
@@ -1808,11 +1811,14 @@ public class PlusCalCodeGenPassTest {
 												Collections.singletonList(
 														pcalVarDecl("a", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
 												),
-												Collections.emptyList(),
+												Collections.singletonList(
+														pcalVarDecl("local", false, false, num(0))
+												),
 												Collections.singletonList(
 														labeled(
 																label("l1"),
-																printS(tuple(idexp("a"), binop("+", idexp("a"), num(1))))
+																assign(idexp("local"), binop("+", idexp("a"), num(1))),
+																printS(tuple(idexp("a"), idexp("local")))
 														)
 												)
 										)
@@ -1833,10 +1839,13 @@ public class PlusCalCodeGenPassTest {
 						// --algorithm Algorithm12 {
 						//     variables i = 0;
 						//     fair process (Proc = 0)
-						//     variables aRead = i * 2 + 1;
+						//     variables aRead = i * 2 + 1, local;
 						//     {
+						//         init:
+						//             local := 0;
 						//         l1:
-						//             print <<aRead, aRead + 1>>;
+						//             local := aRead + 1;
+						//             print <<aRead, local>>;
 						//     }
 						// }
 						algorithm(
@@ -1850,12 +1859,18 @@ public class PlusCalCodeGenPassTest {
 								process(
 										pcalVarDecl("Proc", false, false, num(0)),
 										PlusCalFairness.WEAK_FAIR,
-										Collections.singletonList(
-												pcalVarDecl("aRead", false, false, binop("+", binop("*", idexp("i"), num(2)), num(1)))
+										Arrays.asList(
+												pcalVarDecl("aRead", false, false, binop("+", binop("*", idexp("i"), num(2)), num(1))),
+												pcalVarDecl("local", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
+										),
+										labeled(
+												label("init"),
+												assign(idexp("local"), num(0))
 										),
 										labeled(
 												label("l1"),
-												printS(tuple(idexp("aRead"), binop("+", idexp("aRead"), num(1))))
+												assign(idexp("local"), binop("+", idexp("aRead"), num(1))),
+												printS(tuple(idexp("aRead"), idexp("local")))
 										)
 								)
 						)
