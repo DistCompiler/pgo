@@ -47,6 +47,24 @@ public class ModularPlusCalCodeGenVisitor
 		return result;
 	}
 
+	private List<PlusCalStatement> substituteBlock(List<PlusCalStatement> statements) {
+		List<PlusCalStatement> result = new ArrayList<>();
+		for (int i = 0; i < statements.size(); i++) {
+			PlusCalStatement statement = statements.get(i);
+			if (statement instanceof PlusCalLabeledStatements) {
+				List<PlusCalStatement> writeBacks = getWriteBacksAndCleanUp(statement.getLocation());
+				if (writeBacks.size() > 0) {
+					result = WriteBackInsertionVisitor.insertWriteBacks(result, writeBacks);
+				}
+				result.addAll(substituteStatements(statements.subList(i, statements.size())));
+				return result;
+			}
+			result.addAll(statement.accept(this));
+		}
+		return result;
+	}
+
+
 	private List<PlusCalStatement> getWriteBacksAndCleanUp(SourceLocation location) {
 		List<PlusCalStatement> writeBacks = new ArrayList<>();
 		for (UID varUID : arguments.keySet()) {
@@ -139,12 +157,12 @@ public class ModularPlusCalCodeGenVisitor
 				result));
 
 		writeTemporaryBinding.startRecording();
-		List<PlusCalStatement> yes = substituteStatements(plusCalIf.getYes());
+		List<PlusCalStatement> yes = substituteBlock(plusCalIf.getYes());
 		Map<UID, TLAGeneralIdentifier> yesWrites = writeTemporaryBinding.stopRecording();
 		reuseWrites(yesWrites);
 
 		writeTemporaryBinding.startRecording();
-		List<PlusCalStatement> no = substituteStatements(plusCalIf.getNo());
+		List<PlusCalStatement> no = substituteBlock(plusCalIf.getNo());
 		Map<UID, TLAGeneralIdentifier> noWrites = writeTemporaryBinding.stopRecording();
 		reuseWrites(noWrites);
 
@@ -168,7 +186,7 @@ public class ModularPlusCalCodeGenVisitor
 		List<List<PlusCalStatement>> cases = plusCalEither.getCases();
 		for (List<PlusCalStatement> aCase : cases) {
 			writeTemporaryBinding.startRecording();
-			transformedCases.add(substituteStatements(aCase));
+			transformedCases.add(substituteBlock(aCase));
 			Map<UID, TLAGeneralIdentifier> touchedVars = writeTemporaryBinding.stopRecording();
 			reuseWrites(touchedVars);
 			writesList.add(touchedVars);

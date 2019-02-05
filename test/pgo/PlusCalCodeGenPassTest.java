@@ -1562,7 +1562,6 @@ public class PlusCalCodeGenPassTest {
 										PlusCalFairness.WEAK_FAIR,
 										Arrays.asList(
 												pcalVarDecl("aBoolRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("aBoolRead0", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
 												pcalVarDecl("aBoolWrite", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
 												pcalVarDecl("aBoolWrite0", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
 										),
@@ -1577,9 +1576,9 @@ public class PlusCalCodeGenPassTest {
 																		Collections.singletonList(
 																				labeled(
 																						label("l1"),
-																						assign(idexp("aBoolRead0"), idexp("b")),
+																						assign(idexp("aBoolRead"), idexp("b")),
 																						ifS(
-																								idexp("aBoolRead0"),
+																								idexp("aBoolRead"),
 																								Arrays.asList(
 																										assign(idexp("aBoolWrite0"), idexp("b")),
 																										assign(idexp("b"), idexp("aBoolWrite0")),
@@ -1960,6 +1959,142 @@ public class PlusCalCodeGenPassTest {
 												assign(idexp("aRead0"), idexp("aWrite")),
 												printS(idexp("aRead0")),
 												assign(idexp("i"), idexp("aWrite"))
+										)
+								)
+						)
+				},
+
+				{
+						// --mpcal Algorithm14 {
+						//   archetype A(a, b)
+						//   variable local = 0;
+						//   {
+						//     l1:
+						//       local := a + 1;
+						//       if (b) {
+						//           print <<a, local>>;
+						//       } else {
+						//           print <<local, a + 1>>;
+						//           l2:
+						//               print a + 2;
+						//       };
+						//   }
+						//
+						//   variables i = 0, flag = TRUE;
+						//
+						//   fair process (Proc = 0) == instance A(i * 2 + 1, flag);
+						// }
+						mpcal(
+								"Algorithm14",
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.singletonList(
+										archetype(
+												"A",
+												Arrays.asList(
+														pcalVarDecl("a", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+														pcalVarDecl("b", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
+												),
+												Collections.singletonList(
+														pcalVarDecl("local", false, false, num(0))
+												),
+												Collections.singletonList(
+														labeled(
+																label("l1"),
+																assign(idexp("local"), binop("+", idexp("a"), num(1))),
+																ifS(
+																		idexp("b"),
+																		Collections.singletonList(
+																				printS(tuple(idexp("a"), idexp("local")))
+																		),
+																		Arrays.asList(
+																				printS(tuple(idexp("local"), binop("+", idexp("a"), num(1)))),
+																				labeled(
+																						label("l2"),
+																						printS(binop("+", idexp("a"), num(2)))
+																				)
+																		)
+																)
+														)
+												)
+										)
+								),
+								Arrays.asList(
+										pcalVarDecl("i", false, false, num(0)),
+										pcalVarDecl("flag", false, false, bool(true))
+								),
+								Collections.singletonList(
+										instance(
+												pcalVarDecl("Proc", false, false, num(0)),
+												PlusCalFairness.WEAK_FAIR,
+												"A",
+												Arrays.asList(
+														binop("+", binop("*", idexp("i"), num(2)), num(1)),
+                                                        idexp("flag")
+												),
+												Collections.emptyList()
+										)
+								)
+						),
+						// --algorithm Algorithm12 {
+						//     variables i = 0, flag = TRUE;
+						//     fair process (Proc = 0)
+						//     variables aRead = i * 2 + 1, local, bRead;
+						//     {
+						//         init:
+						//             local := 0;
+						//         l1:
+						//             local := aRead + 1;
+						//             bRead := flag;
+						//             if (bRead) {
+						//                 print <<aRead, local>>;
+						//             } else {
+						//                 print <<local, aRead + 1>>;
+						//                 l2:
+						//                     print aRead + 2;
+						//             };
+						//     }
+						// }
+						algorithm(
+								"Algorithm14",
+								Arrays.asList(
+										pcalVarDecl("i", false, false, num(0)),
+										pcalVarDecl("flag", false, false, bool(true))
+								),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								process(
+										pcalVarDecl("Proc", false, false, num(0)),
+										PlusCalFairness.WEAK_FAIR,
+										Arrays.asList(
+												pcalVarDecl("aRead", false, false, binop("+", binop("*", idexp("i"), num(2)), num(1))),
+												pcalVarDecl("local", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+												pcalVarDecl("bRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
+										),
+										labeled(
+												label("init"),
+												assign(idexp("local"), num(0))
+										),
+										labeled(
+												label("l1"),
+												assign(idexp("local"), binop("+", idexp("aRead"), num(1))),
+												assign(idexp("bRead"), idexp("flag")),
+												ifS(
+														idexp("bRead"),
+														Collections.singletonList(
+																printS(tuple(idexp("aRead"), idexp("local")))
+														),
+														Arrays.asList(
+																printS(tuple(idexp("local"), binop("+", idexp("aRead"), num(1)))),
+																labeled(
+																		label("l2"),
+																		printS(binop("+", idexp("aRead"), num(2)))
+																)
+														)
+												)
 										)
 								)
 						)
