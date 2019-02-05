@@ -1,4 +1,4 @@
-package pgo;
+package pgo.util;
 
 import java.util.HashMap;
 import java.util.Map;

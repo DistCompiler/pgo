@@ -1,7 +1,7 @@
 package pgo.trans.passes.atomicity;
 
 import pgo.InternalCompilerError;
-import pgo.UnionFind;
+import pgo.util.UnionFind;
 import pgo.model.mpcal.ModularPlusCalBlock;
 import pgo.model.pcal.*;
 import pgo.scope.UID;
