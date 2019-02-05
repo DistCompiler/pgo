@@ -10,7 +10,6 @@ import pgo.trans.intermediate.DefinitionRegistry;
 import pgo.trans.intermediate.UnsupportedFeatureIssue;
 import pgo.trans.passes.codegen.NameCleaner;
 import pgo.trans.passes.validation.NonModularPlusCalNodeValidationVisitor;
-import pgo.util.SourceLocation;
 
 import java.util.*;
 import java.util.stream.Stream;
@@ -120,7 +119,7 @@ public class PlusCalCodeGenPass {
 			}
 			// initialize the local variables
 			ModularPlusCalCodeGenVisitor v = new ModularPlusCalCodeGenVisitor(
-					registry, params, arguments, mappings, refs, functionMappedVars, readTemporaryBinding,
+					registry, params, arguments, mappings, functionMappedVars, readTemporaryBinding,
 					new TemporaryBinding(nameCleaner, localVariables),
 					new ProcedureExpander(
 							ctx, registry, nameCleaner, arguments, mappings, refs, functionMappedVars, procedures));

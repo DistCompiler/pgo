@@ -19,20 +19,18 @@ public class ModularPlusCalCodeGenVisitor
 	private final Map<UID, PlusCalVariableDeclaration> params;
 	private final Map<UID, TLAGeneralIdentifier> arguments;
 	private final Map<UID, ModularPlusCalMappingMacro> mappings;
-	private final Set<UID> refs;
 	private final Set<UID> functionMappedVars;
 	private final ProcedureExpander procedureExpander;
 
 	ModularPlusCalCodeGenVisitor(DefinitionRegistry registry, Map<UID, PlusCalVariableDeclaration> params,
 	                             Map<UID, TLAGeneralIdentifier> arguments,
-	                             Map<UID, ModularPlusCalMappingMacro> mappings, Set<UID> refs,
-	                             Set<UID> functionMappedVars, TemporaryBinding readTemporaryBinding,
-	                             TemporaryBinding writeTemporaryBinding, ProcedureExpander procedureExpander) {
+	                             Map<UID, ModularPlusCalMappingMacro> mappings, Set<UID> functionMappedVars,
+	                             TemporaryBinding readTemporaryBinding, TemporaryBinding writeTemporaryBinding,
+	                             ProcedureExpander procedureExpander) {
 		this.registry = registry;
 		this.params = params;
 		this.arguments = arguments;
 		this.mappings = mappings;
-		this.refs = refs;
 		this.functionMappedVars = functionMappedVars;
 		this.readTemporaryBinding = readTemporaryBinding;
 		this.writeTemporaryBinding = writeTemporaryBinding;
@@ -50,9 +48,9 @@ public class ModularPlusCalCodeGenVisitor
 	private List<PlusCalStatement> getWriteBacksAndCleanUp(SourceLocation location) {
 		List<PlusCalStatement> writeBacks = new ArrayList<>();
 		for (UID varUID : arguments.keySet()) {
-			// only write back written refs
+			// only write back written global variables
 			TLAGeneralIdentifier variable = arguments.get(varUID);
-			if (writeTemporaryBinding.lookup(varUID).isPresent() && refs.contains(varUID)) {
+			if (writeTemporaryBinding.lookup(varUID).isPresent()) {
 				TLAGeneralIdentifier rhs = writeTemporaryBinding.lookup(varUID).get();
 				writeBacks.add(new PlusCalAssignment(
 						location,
