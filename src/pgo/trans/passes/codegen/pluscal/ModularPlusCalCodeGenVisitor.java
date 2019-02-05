@@ -276,20 +276,17 @@ public class ModularPlusCalCodeGenVisitor
 					accumulatedIndices.set(j, accumulatedIndices.get(j).accept(visitor));
 				}
 				if (!mappings.containsKey(varUID)) {
+					TLAFunctionSubstitution sub = new TLAFunctionSubstitution(
+							location,
+							writeTemporaryBinding.lookup(varUID).orElse(dollarVariable),
+							Collections.singletonList(new TLAFunctionSubstitutionPair(
+									location,
+									Collections.singletonList(new TLASubstitutionKey(
+											location, accumulatedIndices)),
+									rhs)));
 					TLAGeneralIdentifier temp = writeTemporaryBinding.declare(location, varUID, nameHint);
 					result.add(new PlusCalAssignment(
-							location,
-							Collections.singletonList(new PlusCalAssignmentPair(
-									location,
-									temp,
-									new TLAFunctionSubstitution(
-											location,
-											writeTemporaryBinding.lookup(varUID).orElse(dollarVariable),
-											Collections.singletonList(new TLAFunctionSubstitutionPair(
-													location,
-													Collections.singletonList(new TLASubstitutionKey(
-															location, accumulatedIndices)),
-													rhs)))))));
+							location, Collections.singletonList(new PlusCalAssignmentPair(location, temp, sub))));
 					continue;
 				}
 				TLAExpression index = functionMappedVars.contains(varUID) ? accumulatedIndices.get(0) : null;
