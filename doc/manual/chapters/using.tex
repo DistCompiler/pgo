@@ -108,12 +108,12 @@ PGo will automatically infer types for variables declared in PlusCal. The type i
 \subsection{Enabling ModularPlusCal}
 
 In order to use ModularPlusCal, there are two changes to the usual PGo workflow:
-\begin{enumerate}
+\begin{itemize}
     \item In order to model check your ModularPlusCal program, you must first compile it into plain PlusCal in order for it to be interpreted by the TLA+ toolbox. You do this by passing the \lstinline|-mpcal| command-line option to PGo.
     \item TODO: how to enable MPCal compilation?
-\end{enumerate}
+\end{itemize}
 
-See TODO for a reference on ModularPlusCal features.
+See section \ref{modularpcal} for a description of ModularPlusCal features.
 
 \subsection{Lock inference}
 PGo adds locks when compiling a multiprocess PlusCal algorithm. The locking behaviour is described in more detail in~\ref{sec:labels}.
