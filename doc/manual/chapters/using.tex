@@ -29,11 +29,14 @@ To run PGo, run the IntelliJ project, the Eclipse project or run \texttt{pgo.sh}
 
 Optional command line arguments:
 
-\noindent
-\texttt{-h --help=<boolean> Print usage information [default false]\\
-	-q --logLvlQuiet=<boolean> Reduce printing during execution [default false]\\
-	-v --logLvlVerbose=<boolean> Print detailed information during execution  [default false]\\
-	-c --configFilePath=<string> path to the configuration file, if any}
+\begin{verbatim}
+	--version=<boolean>          - Version [default false]
+	-h --help=<boolean>          - Print usage information [default false]
+	-q --logLvlQuiet=<boolean>   - Reduce printing during execution [default false]
+	-v --logLvlVerbose=<boolean> - Print detailed information during execution  [default false]
+	-m --mpcalCompile=<boolean>  - Compile a Modular PlusCal spec to vanilla PlusCal [default false]
+	-c --configFilePath=<string> - path to the configuration file, if any
+\end{verbatim}
 
 \subsection{Configuration}
 PGo requires a JSON configuration file with the following information.
