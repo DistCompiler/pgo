@@ -253,7 +253,8 @@ public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLA
 			} else {
 				output.add(new PlusCalAssignment(
 						location,
-						Collections.singletonList(new PlusCalAssignmentPair(location, temp, dollarVariable))));
+						Collections.singletonList(new PlusCalAssignmentPair(
+								location, temp, writeTemporaryBinding.lookup(varUID).orElse(dollarVariable)))));
 			}
 			return temp;
 		}

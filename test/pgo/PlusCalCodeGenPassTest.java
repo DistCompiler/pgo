@@ -1876,6 +1876,94 @@ public class PlusCalCodeGenPassTest {
 								)
 						)
 				},
+
+				{
+						// --mpcal Algorithm13 {
+						//   archetype A(ref a) {
+						//     l1:
+						//       a := a + 1;
+						//       print a;
+						//   }
+						//
+						//   variables i = 0;
+						//
+						//   fair process (Proc = 0) == instance A(ref i);
+						// }
+						mpcal(
+								"Algorithm13",
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.singletonList(
+										archetype(
+												"A",
+												Collections.singletonList(
+														pcalVarDecl("a", true, false, PLUSCAL_DEFAULT_INIT_VALUE)
+												),
+												Collections.emptyList(),
+												Collections.singletonList(
+														labeled(
+																label("l1"),
+																assign(idexp("a"), binop("+", idexp("a"), num(1))),
+																printS(idexp("a"))
+														)
+												)
+										)
+								),
+								Collections.singletonList(
+										pcalVarDecl("i", false, false, num(0))
+								),
+								Collections.singletonList(
+										instance(
+												pcalVarDecl("Proc", false, false, num(0)),
+												PlusCalFairness.WEAK_FAIR,
+												"A",
+												Collections.singletonList(ref("i")),
+												Collections.emptyList()
+										)
+								)
+						),
+						// --algorithm Algorithm13 {
+						//     variables i = 0;
+						//     fair process (Proc = 0)
+						//     variables aRead, aWrite, aRead0;
+						//     {
+						//         l1:
+						//             aRead := i;
+						//             aWrite := aRead + 1;
+						//             aRead0 := aWrite;
+						//             print aRead0;
+						//             i := aWrite;
+						//     }
+						// }
+						algorithm(
+								"Algorithm13",
+								Collections.singletonList(
+										pcalVarDecl("i", false, false, num(0))
+								),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								process(
+										pcalVarDecl("Proc", false, false, num(0)),
+										PlusCalFairness.WEAK_FAIR,
+										Arrays.asList(
+												pcalVarDecl("aRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+												pcalVarDecl("aWrite", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+												pcalVarDecl("aRead0", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
+										),
+										labeled(
+												label("l1"),
+												assign(idexp("aRead"), idexp("i")),
+												assign(idexp("aWrite"), binop("+", idexp("aRead"), num(1))),
+												assign(idexp("aRead0"), idexp("aWrite")),
+												printS(idexp("aRead0")),
+												assign(idexp("i"), idexp("aWrite"))
+										)
+								)
+						)
+				},
 		});
 	}
 
