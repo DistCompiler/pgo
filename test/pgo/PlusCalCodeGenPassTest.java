@@ -42,9 +42,9 @@ public class PlusCalCodeGenPassTest {
 				{
 						mpcal(
 								"Algorithm1",
-								Collections.singletonList(
-										pcalVarDecl("x", false, false, num(10))
-								),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.emptyList(),
 								Collections.emptyList(),
 								Collections.singletonList(
 										archetype(
@@ -58,9 +58,9 @@ public class PlusCalCodeGenPassTest {
 												)
 										)
 								),
-								Collections.emptyList(),
-								Collections.emptyList(),
-								Collections.emptyList(),
+								Collections.singletonList(
+										pcalVarDecl("x", false, false, num(10))
+								),
 								Collections.singletonList(
 										instance(
 												pcalVarDecl("P1", false, false, num(42)),
@@ -118,10 +118,9 @@ public class PlusCalCodeGenPassTest {
 				{
 						mpcal(
 								"Algorithm2",
-								Arrays.asList(
-										pcalVarDecl("x", false, false, num(10)),
-										pcalVarDecl("y", false, false, num(20))
-								),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.emptyList(),
 								Collections.singletonList(
 										mappingMacro(
 												"Zero",
@@ -143,9 +142,10 @@ public class PlusCalCodeGenPassTest {
 												))
 										)
 								),
-								Collections.emptyList(),
-								Collections.emptyList(),
-								Collections.emptyList(),
+								Arrays.asList(
+										pcalVarDecl("x", false, false, num(10)),
+										pcalVarDecl("y", false, false, num(20))
+								),
 								Collections.singletonList(
 										instance(
 												pcalVarDecl("P1", false, false, num(42)),
@@ -226,10 +226,9 @@ public class PlusCalCodeGenPassTest {
 
 						mpcal(
 								"Algorithm3",
-								Arrays.asList(
-										pcalVarDecl("x", false, false, num(10)),
-										pcalVarDecl("y", false, false, num(20))
-								),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.emptyList(),
 								Collections.singletonList(
 										mappingMacro(
 												"WeirdMacro",
@@ -283,9 +282,10 @@ public class PlusCalCodeGenPassTest {
 												)
 										)
 								),
-								Collections.emptyList(),
-								Collections.emptyList(),
-								Collections.emptyList(),
+								Arrays.asList(
+										pcalVarDecl("x", false, false, num(10)),
+										pcalVarDecl("y", false, false, num(20))
+								),
 								Collections.singletonList(
 										instance(
 												pcalVarDecl("P1", false, false, num(100)),
@@ -445,10 +445,9 @@ public class PlusCalCodeGenPassTest {
 						// }
 						mpcal(
 								"Algorithm4",
-								Arrays.asList(
-										pcalVarDecl("x", false, false, num(10)),
-										pcalVarDecl("y", false, false, num(20))
-								),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.emptyList(),
 								Collections.singletonList(
 										mappingMacro(
 												"WeirdMacro",
@@ -498,9 +497,10 @@ public class PlusCalCodeGenPassTest {
 												)
 										)
 								),
-								Collections.emptyList(),
-								Collections.emptyList(),
-								Collections.emptyList(),
+								Arrays.asList(
+										pcalVarDecl("x", false, false, num(10)),
+										pcalVarDecl("y", false, false, num(20))
+								),
 								Collections.singletonList(
 										instance(
 												pcalVarDecl("P1", false, false, num(100)),
@@ -666,7 +666,9 @@ public class PlusCalCodeGenPassTest {
 						// }
 						mpcal(
 								"Algorithm5",
-								Collections.singletonList(pcalVarDecl("network", false, false, tuple()) ),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.emptyList(),
 								Collections.singletonList(
 										mappingMacro(
 												"TCPConnection",
@@ -711,9 +713,9 @@ public class PlusCalCodeGenPassTest {
 																assign(idexp("netw"), binop("+", idexp("a"), idexp("b")))))
 										)
 								),
-								Collections.emptyList(),
-								Collections.emptyList(),
-								Collections.emptyList(),
+								Collections.singletonList(
+										pcalVarDecl("network", false, false, tuple())
+								),
 								Arrays.asList(
 										instance(
 												pcalVarDecl("S", false, false, num(42)),
@@ -867,17 +869,9 @@ public class PlusCalCodeGenPassTest {
 						// }
 						mpcal(
 								"Algorithm6",
-								Collections.singletonList(
-										pcalVarDecl(
-												"func",
-												false,
-												false,
-												function(
-														bounds(qbIds(
-																Collections.singletonList(id("i")),
-																set(num(0), num(1)))),
-														idexp("i")))
-								),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.emptyList(),
 								Collections.singletonList(
 										mappingMacro(
 												"Identity",
@@ -897,10 +891,17 @@ public class PlusCalCodeGenPassTest {
 																label("l1"),
 																assign(fncall(idexp("f"), num(0)), num(1)),
 																assign(fncall(idexp("f"), num(1)), num(0)),
-																printS(tuple(fncall(idexp("f"), num(0)), fncall(idexp("f"), num(1)))))))),
-								Collections.emptyList(),
-								Collections.emptyList(),
-								Collections.emptyList(),
+																printS(tuple(fncall(idexp("f"), num(0)), fncall(idexp("f"), num(1)))))))), Collections.singletonList(
+										pcalVarDecl(
+												"func",
+												false,
+												false,
+												function(
+														bounds(qbIds(
+																Collections.singletonList(id("i")),
+																set(num(0), num(1)))),
+														idexp("i")))
+								),
 								Collections.singletonList(
 										instance(
 												pcalVarDecl("P", false, false, num(42)),
@@ -1006,13 +1007,9 @@ public class PlusCalCodeGenPassTest {
 						// }
 						mpcal(
 								"Algorithm7",
-								Collections.singletonList(
-										pcalVarDecl(
-												"network",
-												false,
-												false,
-												function(bounds(qbIds(Collections.singletonList(id("i")), set(num(0), num(1)))), tuple()))
-								),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.emptyList(),
 								Collections.singletonList(
 										mappingMacro(
 												"TCPConnection",
@@ -1067,9 +1064,13 @@ public class PlusCalCodeGenPassTest {
 																assign(fncall(idexp("netw"), idexp("dest")), binop("+", idexp("a"), idexp("b")))))
 										)
 								),
-								Collections.emptyList(),
-								Collections.emptyList(),
-								Collections.emptyList(),
+								Collections.singletonList(
+										pcalVarDecl(
+												"network",
+												false,
+												false,
+												function(bounds(qbIds(Collections.singletonList(id("i")), set(num(0), num(1)))), tuple()))
+								),
 								Arrays.asList(
 										instance(
 												pcalVarDecl("S", false, false, num(42)),
@@ -1243,10 +1244,9 @@ public class PlusCalCodeGenPassTest {
 						//  fair process (SomeProcess = 3) == instance Arch(ref network, ref processor);
 						mpcal(
 								"Algorithm8",
-								Arrays.asList(
-										pcalVarDecl("network", false, false, tuple()),
-										pcalVarDecl("processor", false, false, num(0))
-								),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.emptyList(),
 								Collections.emptyList(),
 								Collections.singletonList(
 										archetype(
@@ -1264,9 +1264,10 @@ public class PlusCalCodeGenPassTest {
 												)
 										)
 								),
-								Collections.emptyList(),
-								Collections.emptyList(),
-								Collections.emptyList(),
+								Arrays.asList(
+										pcalVarDecl("network", false, false, tuple()),
+										pcalVarDecl("processor", false, false, num(0))
+								),
 								Collections.singletonList(
 										instance(
 												pcalVarDecl("SomeProcess", false, false, num(3)),
@@ -1333,10 +1334,9 @@ public class PlusCalCodeGenPassTest {
 						// }
 						mpcal(
 								"Algorithm9",
-								Arrays.asList(
-										pcalVarDecl("i", false, false, num(0)),
-										pcalVarDecl("flag", false, false, bool(true))
-								),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.emptyList(),
 								Collections.emptyList(),
 								Collections.singletonList(
 										archetype(
@@ -1369,9 +1369,10 @@ public class PlusCalCodeGenPassTest {
 												)
 										)
 								),
-								Collections.emptyList(),
-								Collections.emptyList(),
-								Collections.emptyList(),
+								Arrays.asList(
+										pcalVarDecl("i", false, false, num(0)),
+										pcalVarDecl("flag", false, false, bool(true))
+								),
 								Collections.singletonList(
 										instance(
 												pcalVarDecl("P", false, false, num(3)),
@@ -1476,9 +1477,9 @@ public class PlusCalCodeGenPassTest {
 						// }
 						mpcal(
 								"WhileLoopWithFollowingStatement",
-								Collections.singletonList(
-										pcalVarDecl("b", true, false, bool(true))
-								),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.emptyList(),
 								Collections.emptyList(),
 								Collections.singletonList(
 										archetype(
@@ -1503,9 +1504,9 @@ public class PlusCalCodeGenPassTest {
 												))
 										)
 								),
-								Collections.emptyList(),
-								Collections.emptyList(),
-								Collections.emptyList(),
+								Collections.singletonList(
+										pcalVarDecl("b", true, false, bool(true))
+								),
 								Collections.singletonList(
 										instance(
 												pcalVarDecl("P", false, false, num(10)),
@@ -1635,9 +1636,24 @@ public class PlusCalCodeGenPassTest {
 						// }
 						mpcal(
 								"Algorithm11",
-								Arrays.asList(
-										pcalVarDecl("i", false, false, num(0)),
-										pcalVarDecl("flag", false, false, bool(true))
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.singletonList(
+										procedure(
+												"P",
+												Arrays.asList(
+														pcalVarDecl("a1", true, false, PLUSCAL_DEFAULT_INIT_VALUE),
+														pcalVarDecl("a2", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
+												),
+												Collections.emptyList(),
+												labeled(
+														label("l3"),
+														whileS(
+																binop("/\\", binop("<", idexp("a1"), num(10)), idexp("a2")),
+																Collections.singletonList(assign(idexp("a1"), num(1)))
+														)
+												)
+										)
 								),
 								Collections.singletonList(
 										mappingMacro(
@@ -1667,25 +1683,10 @@ public class PlusCalCodeGenPassTest {
 												)
 										)
 								),
-								Collections.emptyList(),
-								Collections.singletonList(
-										procedure(
-												"P",
-												Arrays.asList(
-														pcalVarDecl("a1", true, false, PLUSCAL_DEFAULT_INIT_VALUE),
-														pcalVarDecl("a2", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
-												),
-												Collections.emptyList(),
-												labeled(
-														label("l3"),
-														whileS(
-																binop("/\\", binop("<", idexp("a1"), num(10)), idexp("a2")),
-																Collections.singletonList(assign(idexp("a1"), num(1)))
-														)
-												)
-										)
+								Arrays.asList(
+										pcalVarDecl("i", false, false, num(0)),
+										pcalVarDecl("flag", false, false, bool(true))
 								),
-								Collections.emptyList(),
 								Collections.singletonList(
 										instance(
 												pcalVarDecl("Proc", false, false, num(0)),
@@ -1801,9 +1802,9 @@ public class PlusCalCodeGenPassTest {
 						// }
 						mpcal(
 								"Algorithm12",
-								Collections.singletonList(
-										pcalVarDecl("i", false, false, num(0))
-								),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.emptyList(),
 								Collections.emptyList(),
 								Collections.singletonList(
 										archetype(
@@ -1823,9 +1824,9 @@ public class PlusCalCodeGenPassTest {
 												)
 										)
 								),
-								Collections.emptyList(),
-								Collections.emptyList(),
-								Collections.emptyList(),
+								Collections.singletonList(
+										pcalVarDecl("i", false, false, num(0))
+								),
 								Collections.singletonList(
 										instance(
 												pcalVarDecl("Proc", false, false, num(0)),

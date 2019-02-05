@@ -11,9 +11,6 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import pgo.model.mpcal.ModularPlusCalBlock;
 import pgo.model.pcal.PlusCalFairness;
-import pgo.model.pcal.PlusCalMultiProcess;
-import pgo.model.pcal.PlusCalSingleProcess;
-import pgo.util.SourceLocation;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -75,18 +72,18 @@ public class ModularPlusCalParserTest {
 						"}\n" +
 						"*)",
 						mpcal("Test",
-								Arrays.asList(
-										pcalVarDecl("global1", false, false, num(1)),
-										pcalVarDecl("global2", false, false, num(2))),
 								Collections.emptyList(),
-								Collections.emptyList(),
-								Collections.singletonList(macro("M", Collections.singletonList("a"), printS(idexp("a")))),
+								Collections.singletonList(macro(
+										"M",
+										Collections.singletonList("a"),
+										printS(idexp("a")))),
 								Collections.singletonList(procedure(
 										"P",
 										Collections.singletonList(pcalVarDecl("b", false, false, PLUSCAL_DEFAULT_INIT_VALUE)),
 										Collections.emptyList(),
-										printS(idexp("b")))),
-								Collections.emptyList(),
+										printS(idexp("b")))), Collections.emptyList(), Collections.emptyList(), Arrays.asList(
+										pcalVarDecl("global1", false, false, num(1)),
+										pcalVarDecl("global2", false, false, num(2))),
 								Collections.emptyList(),
 								process(
 										pcalVarDecl("P", false, true, binop("..", num(1), num(3))),

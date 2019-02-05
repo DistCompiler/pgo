@@ -36,10 +36,11 @@ public class ModularPlusCalBuilder {
 		return new ModularPlusCalMappingMacro(SourceLocation.unknown(), name, readBody, writeBody);
 	}
 
-	public static ModularPlusCalBlock mpcal(String name, List<PlusCalVariableDeclaration> variables,
+	public static ModularPlusCalBlock mpcal(String name, List<TLAUnit> units, List<PlusCalMacro> macros,
+	                                        List<PlusCalProcedure> procedures,
 	                                        List<ModularPlusCalMappingMacro> mappingMacros,
-	                                        List<ModularPlusCalArchetype> archetypes, List<PlusCalMacro> macros,
-	                                        List<PlusCalProcedure> procedures, List<TLAUnit> units,
+	                                        List<ModularPlusCalArchetype> archetypes,
+	                                        List<PlusCalVariableDeclaration> variables,
 	                                        List<ModularPlusCalInstance> instances, PlusCalProcess... processes) {
 		return new ModularPlusCalBlock(
 				SourceLocation.unknown(),

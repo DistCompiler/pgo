@@ -50,6 +50,27 @@ public class ModularPlusCalValidationPassTest {
 								Collections.emptyList(),
 								Collections.emptyList(),
 								Collections.singletonList(
+										procedure(
+												"MyProcedure",
+												Collections.singletonList(pcalVarDecl(
+														"y", false, false, PLUSCAL_DEFAULT_INIT_VALUE)),
+												Collections.emptyList(),
+												labeled(
+														label("l2"),
+														printS(binop("-", num(3), num(3))),
+														ifS(
+																bool(true),
+																Collections.singletonList(
+																		assign(idexp("y"), num(10))
+																),
+																Collections.singletonList(
+																		assign(idexp("y"), num(20))
+																)
+														)
+												)
+										)
+								),
+								Collections.emptyList(), Collections.singletonList(
 										archetype(
 												"MyArchetype",
 												Collections.singletonList(pcalVarDecl(
@@ -72,28 +93,6 @@ public class ModularPlusCalValidationPassTest {
 																						assign(idexp("x"), num(20))
 																				)
 																		)
-																)
-														)
-												)
-										)
-								),
-								Collections.emptyList(),
-								Collections.singletonList(
-										procedure(
-												"MyProcedure",
-												Collections.singletonList(pcalVarDecl(
-														"y", false, false, PLUSCAL_DEFAULT_INIT_VALUE)),
-												Collections.emptyList(),
-												labeled(
-														label("l2"),
-														printS(binop("-", num(3), num(3))),
-														ifS(
-																bool(true),
-																Collections.singletonList(
-																		assign(idexp("y"), num(10))
-																),
-																Collections.singletonList(
-																		assign(idexp("y"), num(20))
 																)
 														)
 												)
@@ -124,6 +123,8 @@ public class ModularPlusCalValidationPassTest {
 								"ArchetypeNoFirstLabel",
 								Collections.emptyList(),
 								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.emptyList(),
 								Collections.singletonList(
 										archetype(
 												"MyArchetype",
@@ -134,8 +135,6 @@ public class ModularPlusCalValidationPassTest {
 												)
 										)
 								),
-								Collections.emptyList(),
-								Collections.emptyList(),
 								Collections.emptyList(),
 								Collections.emptyList()
 						),
@@ -154,8 +153,6 @@ public class ModularPlusCalValidationPassTest {
 								"ProcedureNoFirstLabel",
 								Collections.emptyList(),
 								Collections.emptyList(),
-								Collections.emptyList(),
-								Collections.emptyList(),
 								Collections.singletonList(
 										procedure(
 												"MyProcedure",
@@ -164,6 +161,8 @@ public class ModularPlusCalValidationPassTest {
 												printS(binop("+", num(1), num(1)))
 										)
 								),
+								Collections.emptyList(),
+								Collections.emptyList(),
 								Collections.emptyList(),
 								Collections.emptyList()
 						),
@@ -231,6 +230,23 @@ public class ModularPlusCalValidationPassTest {
 								Collections.emptyList(),
 								Collections.emptyList(),
 								Arrays.asList(
+										procedure(
+												"ValidProcedure",
+												Collections.emptyList(),
+												Collections.emptyList(),
+												labeled(
+														label("l2"),
+														printS(binop("-", num(3), num(3)))
+												)
+										),
+										procedure(
+												"InvalidProcedure",
+												Collections.emptyList(),
+												Collections.emptyList(),
+												printS(str("invalid procedure!"))
+										)
+								),
+								Collections.emptyList(), Arrays.asList(
 										archetype(
 												"ValidArchetype",
 												Collections.emptyList(),
@@ -249,24 +265,6 @@ public class ModularPlusCalValidationPassTest {
 												Collections.singletonList(
 														printS(str("invalid archetype!"))
 												)
-										)
-								),
-								Collections.emptyList(),
-								Arrays.asList(
-										procedure(
-												"ValidProcedure",
-												Collections.emptyList(),
-												Collections.emptyList(),
-												labeled(
-														label("l2"),
-														printS(binop("-", num(3), num(3)))
-												)
-										),
-										procedure(
-												"InvalidProcedure",
-												Collections.emptyList(),
-												Collections.emptyList(),
-												printS(str("invalid procedure!"))
 										)
 								),
 								Collections.emptyList(),
@@ -316,6 +314,16 @@ public class ModularPlusCalValidationPassTest {
 								Collections.emptyList(),
 								Collections.emptyList(),
 								Collections.singletonList(
+										procedure(
+												"CorrectProcedure",
+												Collections.emptyList(),
+												Collections.emptyList(),
+												labeled(label("l2"), printS(str("procedure"))),
+												labeled(label("l3"), whileS(bool(false), Collections.singletonList(
+														printS(binop("-", num(3), num(3))))))
+										)
+								),
+								Collections.emptyList(), Collections.singletonList(
 										archetype(
 												"IncorrectArchetype",
 												Collections.emptyList(),
@@ -326,17 +334,6 @@ public class ModularPlusCalValidationPassTest {
 																printS(str("hello"))
 														))
 												)
-										)
-								),
-								Collections.emptyList(),
-								Collections.singletonList(
-										procedure(
-												"CorrectProcedure",
-												Collections.emptyList(),
-												Collections.emptyList(),
-												labeled(label("l2"), printS(str("procedure"))),
-												labeled(label("l3"), whileS(bool(false), Collections.singletonList(
-														printS(binop("-", num(3), num(3))))))
 										)
 								),
 								Collections.emptyList(),
@@ -391,29 +388,22 @@ public class ModularPlusCalValidationPassTest {
 								"CallLabelingRules",
 								Collections.emptyList(),
 								Collections.emptyList(),
-								Collections.singletonList(
-										archetype(
-												"MyArchetype",
-												Collections.emptyList(),
-												Collections.emptyList(),
-												Arrays.asList(
-														labeled(label("l1"), printS(str("first label"))),
-														call("MyProcedure"),
-														call("MyProcedure")
-												)
-										)
-								),
+								Collections.singletonList(procedure(
+										"MyProcedure",
+										Collections.emptyList(),
+										Collections.emptyList(),
+										labeled(label("l2"), printS(str("procedure"))),
+										call("SomeProcedure"),
+										returnS())),
 								Collections.emptyList(),
-								Collections.singletonList(
-										procedure(
-												"MyProcedure",
-												Collections.emptyList(),
-												Collections.emptyList(),
-												labeled(label("l2"), printS(str("procedure"))),
-												call("SomeProcedure"),
-												returnS()
-										)
-								),
+								Collections.singletonList(archetype(
+										"MyArchetype",
+										Collections.emptyList(),
+										Collections.emptyList(),
+										Arrays.asList(
+												labeled(label("l1"), printS(str("first label"))),
+												call("MyProcedure"),
+												call("MyProcedure")))),
 								Collections.emptyList(),
 								Collections.emptyList(),
 								process(
@@ -459,29 +449,22 @@ public class ModularPlusCalValidationPassTest {
 								"ReturnGotoLabelingRules",
 								Collections.emptyList(),
 								Collections.emptyList(),
-								Collections.singletonList(
-										archetype(
-												"MyArchetype",
-												Collections.emptyList(),
-												Collections.emptyList(),
-												Arrays.asList(
-														labeled(label("l1"), printS(str("first label"))),
-														gotoS("l1"),
-														printS(str("needs label"))
-												)
-										)
-								),
+								Collections.singletonList(procedure(
+										"MyProcedure",
+										Collections.emptyList(),
+										Collections.emptyList(),
+										labeled(label("l2"), printS(str("procedure"))),
+										returnS(),
+										gotoS("l2"))),
 								Collections.emptyList(),
-								Collections.singletonList(
-										procedure(
-												"MyProcedure",
-												Collections.emptyList(),
-												Collections.emptyList(),
-												labeled(label("l2"), printS(str("procedure"))),
-												returnS(),
-												gotoS("l2")
-										)
-								),
+								Collections.singletonList(archetype(
+										"MyArchetype",
+										Collections.emptyList(),
+										Collections.emptyList(),
+										Arrays.asList(
+												labeled(label("l1"), printS(str("first label"))),
+												gotoS("l1"),
+												printS(str("needs label"))))),
 								Collections.emptyList(),
 								Collections.emptyList(),
 								process(
@@ -538,41 +521,34 @@ public class ModularPlusCalValidationPassTest {
 								"IfEitherLabelingRules",
 								Collections.emptyList(),
 								Collections.emptyList(),
-								Collections.singletonList(
-										archetype(
-												"MyArchetype",
-												Collections.emptyList(),
-												Collections.emptyList(),
-												Arrays.asList(
-														labeled(label("l1"),
-																printS(str("first label")),
-																ifS(bool(true), Collections.singletonList(
-																		printS(str("true"))
-																), Collections.singletonList(
-																		ifS(bool(true), Collections.singletonList(
-																				call("MyProcedure")
-																		), Collections.emptyList())
-																))
-														),
-														printS(str("needs label"))
-												)
-										)
-								),
+								Collections.singletonList(procedure(
+										"MyProcedure",
+										Collections.emptyList(),
+										Collections.emptyList(),
+										labeled(label("l2"),
+												printS(str("procedure")),
+												either(Arrays.asList(
+														Collections.singletonList(assign(idexp("v"), num(10))),
+														Collections.singletonList(returnS())
+												)),
+												gotoS("l2")))),
 								Collections.emptyList(),
-								Collections.singletonList(
-										procedure(
-												"MyProcedure",
-												Collections.emptyList(),
-												Collections.emptyList(),
-												labeled(label("l2"),
-														printS(str("procedure")),
-														either(Arrays.asList(
-																Collections.singletonList(assign(idexp("v"), num(10))),
-																Collections.singletonList(returnS())
-														)),
-														gotoS("l2"))
-										)
-								),
+								Collections.singletonList(archetype(
+										"MyArchetype",
+										Collections.emptyList(),
+										Collections.emptyList(),
+										Arrays.asList(
+												labeled(label("l1"),
+														printS(str("first label")),
+														ifS(bool(true), Collections.singletonList(
+																printS(str("true"))
+														), Collections.singletonList(
+																ifS(bool(true), Collections.singletonList(
+																		call("MyProcedure")
+																), Collections.emptyList())
+														))
+												),
+												printS(str("needs label"))))),
 								Collections.emptyList(),
 								Collections.emptyList(),
 								process(
@@ -620,8 +596,6 @@ public class ModularPlusCalValidationPassTest {
 						mpcal(
 								"MacroRules",
 								Collections.emptyList(),
-								Collections.emptyList(),
-								Collections.emptyList(),
 								Arrays.asList(
 										macro(
 												"ValidMacro",
@@ -639,6 +613,8 @@ public class ModularPlusCalValidationPassTest {
 												labeled(label("l2"), assign(idexp("y"), num(20)))
 										)
 								),
+								Collections.emptyList(),
+								Collections.emptyList(),
 								Collections.emptyList(),
 								Collections.emptyList(),
 								Collections.emptyList()
@@ -670,36 +646,29 @@ public class ModularPlusCalValidationPassTest {
 						mpcal(
 								"WithRules",
 								Collections.emptyList(),
-								Collections.emptyList(),
-								Collections.emptyList(),
-								Collections.singletonList(
-										macro(
-												"MacroWith",
-												Collections.emptyList(),
-												printS(binop("+", num(1), num(1))),
-												with(
-														Collections.singletonList(
-																pcalVarDecl("x", false, false, num(10))
-														),
-														printS(idexp("x")),
-														labeled(label("m1"), assign(idexp("x"), num(20)))
+								Collections.singletonList(macro(
+										"MacroWith",
+										Collections.emptyList(),
+										printS(binop("+", num(1), num(1))),
+										with(
+												Collections.singletonList(
+														pcalVarDecl("x", false, false, num(10))
 												),
-												labeled(label("m2"), assign(idexp("y"), num(20)))
-										)
-								),
-								Collections.singletonList(
-										procedure(
-												"ProcedureWith",
-												Collections.emptyList(),
-												Collections.emptyList(),
-												labeled(label("l1"), with(
-														Collections.singletonList(
-																pcalVarDecl("x", false, false, num(10))
-														),
-														labeled(label("l2"), printS(idexp("x")))
-												))
-										)
-								),
+												printS(idexp("x")),
+												labeled(label("m1"), assign(idexp("x"), num(20)))
+										),
+										labeled(label("m2"), assign(idexp("y"), num(20))))),
+								Collections.singletonList(procedure(
+										"ProcedureWith",
+										Collections.emptyList(),
+										Collections.emptyList(),
+										labeled(label("l1"), with(
+												Collections.singletonList(
+														pcalVarDecl("x", false, false, num(10))
+												),
+												labeled(label("l2"), printS(idexp("x"))))))),
+								Collections.emptyList(),
+								Collections.emptyList(),
 								Collections.emptyList(),
 								Collections.emptyList()
 						),
@@ -747,44 +716,34 @@ public class ModularPlusCalValidationPassTest {
 								"AssignmentRules",
 								Collections.emptyList(),
 								Collections.emptyList(),
-								Collections.singletonList(
-										archetype(
-												"MyArchetype",
-												Collections.singletonList(pcalVarDecl(
-														"x", true, false, PLUSCAL_DEFAULT_INIT_VALUE)),
-												Collections.emptyList(),
-												Collections.singletonList(
-														labeled(
-																label("a1"),
-																assign(idexp("x"), num(10)),
-																assign(idexp("x"), num(11))
-														)
-												)
-										)
-								),
+								Collections.singletonList(procedure(
+										"MyProcedure",
+										Arrays.asList(
+												pcalVarDecl("x", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+												pcalVarDecl("y", false, false, PLUSCAL_DEFAULT_INIT_VALUE)),
+										Collections.emptyList(),
+										labeled(
+												label("p"),
+												either(Arrays.asList(
+														Collections.singletonList(assign(idexp("y"), num(10))),
+														Collections.singletonList(skip())
+												)),
+												assign(idexp("y"), num(11))
+										),
+										labeled(
+												label("p2"),
+												assign(idexp("y"), num(20)),
+												assign(idexp("x"), idexp("y"), idexp("y"), idexp("x"))))),
 								Collections.emptyList(),
-								Collections.singletonList(
-										procedure(
-												"MyProcedure",
-												Arrays.asList(
-														pcalVarDecl("x", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-														pcalVarDecl("y", false, false, PLUSCAL_DEFAULT_INIT_VALUE)),
-												Collections.emptyList(),
-												labeled(
-														label("p"),
-														either(Arrays.asList(
-																Collections.singletonList(assign(idexp("y"), num(10))),
-																Collections.singletonList(skip())
-														)),
-														assign(idexp("y"), num(11))
-												),
-												labeled(
-														label("p2"),
-														assign(idexp("y"), num(20)),
-														assign(idexp("x"), idexp("y"), idexp("y"), idexp("x"))
-												)
-										)
-								),
+								Collections.singletonList(archetype(
+										"MyArchetype",
+										Collections.singletonList(pcalVarDecl(
+												"x", true, false, PLUSCAL_DEFAULT_INIT_VALUE)),
+										Collections.emptyList(),
+										Collections.singletonList(labeled(
+												label("a1"),
+												assign(idexp("x"), num(10)),
+												assign(idexp("x"), num(11)))))),
 								Collections.emptyList(),
 								Collections.emptyList(),
 								process(
@@ -843,40 +802,31 @@ public class ModularPlusCalValidationPassTest {
 								"ReservedRules",
 								Collections.emptyList(),
 								Collections.emptyList(),
-								Collections.singletonList(
-										archetype(
-												"MyArchetype",
-												Arrays.asList(pcalVarDecl(
-														"x", true, false, PLUSCAL_DEFAULT_INIT_VALUE)),
-												Collections.emptyList(),
-												Collections.singletonList(
-														labeled(label("Done"), assign(idexp("x"), num(1)))
-												)
-										)
-								),
-								Collections.emptyList(),
-								Collections.singletonList(
-										procedure(
-												"MyProcedure",
-												Collections.singletonList(pcalVarDecl(
-														"y", false, false, PLUSCAL_DEFAULT_INIT_VALUE)),
-												Collections.emptyList(),
-												labeled(
-														label("p"),
-														either(Arrays.asList(
-																Collections.singletonList(
-																		labeled(
-																				label("p1"),
-																				assign(idexp("y"), num(20))
-																		)
-																),
-																Collections.singletonList(
-																		labeled(label("Error"), skip())
+								Collections.singletonList(procedure(
+										"MyProcedure",
+										Collections.singletonList(pcalVarDecl(
+												"y", false, false, PLUSCAL_DEFAULT_INIT_VALUE)),
+										Collections.emptyList(),
+										labeled(
+												label("p"),
+												either(Arrays.asList(
+														Collections.singletonList(
+																labeled(
+																		label("p1"),
+																		assign(idexp("y"), num(20))
 																)
-														))
-												)
-										)
-								),
+														),
+														Collections.singletonList(
+																labeled(label("Error"), skip())
+														)))))),
+								Collections.emptyList(),
+								Collections.singletonList(archetype(
+										"MyArchetype",
+										Collections.singletonList(pcalVarDecl(
+												"x", true, false, PLUSCAL_DEFAULT_INIT_VALUE)),
+										Collections.emptyList(),
+										Collections.singletonList(
+												labeled(label("Done"), assign(idexp("x"), num(1)))))),
 								Collections.emptyList(),
 								Collections.emptyList()
 						),
@@ -902,27 +852,17 @@ public class ModularPlusCalValidationPassTest {
 					mpcal(
 							"MappingWithLabels",
 							Collections.emptyList(),
-							Collections.singletonList(
-									mappingMacro(
-											"ContainsLabels",
-											Collections.singletonList(
-													labeled(
-															label("l"),
-															yield(DOLLAR_VARIABLE)
-													)
-											),
-											Collections.singletonList(
-													labeled(
-															label("w"),
-															yield(DOLLAR_VALUE)
-													)
-											)
-									)
-							),
 							Collections.emptyList(),
 							Collections.emptyList(),
-							Collections.emptyList(),
-							Collections.emptyList(),
+							Collections.singletonList(mappingMacro(
+									"ContainsLabels",
+									Collections.singletonList(labeled(
+											label("l"),
+											yield(DOLLAR_VARIABLE))),
+									Collections.singletonList(labeled(
+													label("w"),
+													yield(DOLLAR_VALUE))))),
+							Collections.emptyList(), Collections.emptyList(),
 							Collections.emptyList()
 					),
 
@@ -952,29 +892,26 @@ public class ModularPlusCalValidationPassTest {
 					mpcal(
 							"MappingMacroWithcallGoto",
 							Collections.emptyList(),
-							Collections.singletonList(
-									mappingMacro(
-											"InvalidStatements",
-											Arrays.asList(
-													await(binop("=", opcall("Len", DOLLAR_VARIABLE), num(0))),
-													ifS(
-															bool(true),
-															Collections.singletonList(call("YesProcedure")),
-															Collections.emptyList()
-													),
-													call("NoProcedure"),
-													yield(num(0))
+							Collections.emptyList(),
+							Collections.emptyList(),
+							Collections.singletonList(mappingMacro(
+									"InvalidStatements",
+									Arrays.asList(
+											await(binop("=", opcall("Len", DOLLAR_VARIABLE), num(0))),
+											ifS(
+													bool(true),
+													Collections.singletonList(call("YesProcedure")),
+													Collections.emptyList()
 											),
-											Collections.singletonList(
-													either(Arrays.asList(
-															Collections.singletonList(yield(DOLLAR_VALUE)),
-															Collections.singletonList(gotoS("l1")))
-													)
-											)
-									)
-							),
-							Collections.emptyList(),
-							Collections.emptyList(),
+											call("NoProcedure"),
+											yield(num(0))
+									),
+									Collections.singletonList(either(
+											Arrays.asList(
+													Collections.singletonList(yield(DOLLAR_VALUE)),
+													Collections.singletonList(gotoS("l1")))
+											))
+									)),
 							Collections.emptyList(),
 							Collections.emptyList(),
 							Collections.emptyList()
