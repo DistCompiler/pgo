@@ -42,7 +42,9 @@ public class TLANodePrintEquivalenceTest {
 					Collections.emptyList()
 					)
 			},
-			{ module("TEST", ids(id("aaa")),
+			// this is broken by a hack that forces parsing only the units BEFORE the translation. after / during the
+			// translation is not needed in practice. If you want this back, make the TLA+ parser faster.
+			/*{ module("TEST", ids(id("aaa")),
 					Arrays.asList(
 							opdef(false, id("foo"), opdecls(opdecl(id("a")), opdecl(id("b"))),
 									num(1)
@@ -55,7 +57,7 @@ public class TLANodePrintEquivalenceTest {
 							opdef(false, id("b"), opdecls(), num(2))
 							)
 					)
-			},
+			},*/
 		});
 	}
 	

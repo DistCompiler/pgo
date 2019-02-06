@@ -120,7 +120,7 @@ public class ModularPlusCalParser {
 
 	private static final Grammar<ModularPlusCalYield> YIELD = emptySequence()
 			.drop(parsePlusCalToken("yield"))
-			.part(TLA_EXPRESSION)
+			.part(cut(TLA_EXPRESSION))
 			.map(seq -> new ModularPlusCalYield(seq.getLocation(), seq.getValue().getFirst()));
 
 	private static final Grammar<ModularPlusCalMappingMacro> C_SYNTAX_MAPPING_MACRO = emptySequence()
@@ -169,7 +169,7 @@ public class ModularPlusCalParser {
 					nop().map(seq -> new LocatedList<PlusCalVariableDeclaration>(
 							seq.getLocation(),
 							Collections.emptyList()))))
-			.part(repeat(C_SYNTAX_INSTANCE))
+			.part(cut(repeat(C_SYNTAX_INSTANCE)))
 			.part(parseOneOf(
 					C_SYNTAX_COMPOUND_STMT.map(stmts -> new PlusCalSingleProcess(stmts.getLocation(), stmts)),
 					repeatOneOrMore(C_SYNTAX_PROCESS).map(procs -> new PlusCalMultiProcess(procs.getLocation(), procs)),
