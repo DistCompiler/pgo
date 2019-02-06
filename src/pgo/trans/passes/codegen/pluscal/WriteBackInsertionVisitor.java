@@ -118,6 +118,10 @@ public class WriteBackInsertionVisitor extends PlusCalStatementVisitor<List<Plus
 		// remove skip
 		List<PlusCalStatement> result = helper();
 		result.addAll(writeBacks);
+		if (result.size() == 0) {
+			// need to insert skip back to make this block valid
+			result.add(plusCalSkip);
+		}
 		return result;
 	}
 

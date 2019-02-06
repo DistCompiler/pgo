@@ -2291,6 +2291,82 @@ public class PlusCalCodeGenPassTest {
 								)
 						)
 				},
+
+				{
+						// --mpcal Algorithm17 {
+						//   archetype A()
+						//   {
+						//     l1:
+						//         if (TRUE) {
+						//             skip;
+						//         };
+						//   }
+						//
+						//   fair process (Proc = 0) == instance A();
+						// }
+						mpcal(
+								"Algorithm17",
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.singletonList(
+										archetype(
+												"A",
+												Collections.emptyList(),
+												Collections.emptyList(),
+												Collections.singletonList(
+														labeled(
+																label("l1"),
+																ifS(
+																		bool(true),
+																		Collections.singletonList(skip()),
+																		Collections.emptyList())
+														)
+												)
+										)
+								),
+								Collections.emptyList(),
+								Collections.singletonList(
+										instance(
+												pcalVarDecl("Proc", false, false, num(0)),
+												PlusCalFairness.WEAK_FAIR,
+												"A",
+												Collections.emptyList(),
+												Collections.emptyList()
+										)
+								)
+						),
+						// --algorithm Algorithm16 {
+						//     fair process (Proc = 0)
+						//     {
+						//         l1:
+						//             if (TRUE) {
+						//                 skip;
+						//             };
+						//     }
+						// }
+						algorithm(
+								"Algorithm17",
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								process(
+										pcalVarDecl("Proc", false, false, num(0)),
+										PlusCalFairness.WEAK_FAIR,
+										Collections.emptyList(),
+										labeled(
+												label("l1"),
+												ifS(
+														bool(true),
+														Collections.singletonList(skip()),
+														Collections.emptyList()
+												)
+										)
+								)
+						)
+				},
 		});
 	}
 
