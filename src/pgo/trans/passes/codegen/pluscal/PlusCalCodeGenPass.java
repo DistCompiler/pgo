@@ -130,8 +130,8 @@ public class PlusCalCodeGenPass {
 							procedures));
 			List<PlusCalStatement> body = new ArrayList<>();
 			ProcedureExpander.initializeLocalVariables(
-					registry, archetype.getLocation(), archetype.getVariables(), nameCleaner.cleanName("init"), v,
-					localVariables, body);
+					registry, archetype.getLocation(), params, archetype.getVariables(),
+					nameCleaner.cleanName("init"), v, localVariables, body);
 			for (PlusCalStatement statement : archetype.getBody()) {
 				body.addAll(statement.accept(v));
 			}

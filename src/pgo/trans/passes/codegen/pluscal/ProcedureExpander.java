@@ -38,16 +38,16 @@ class ProcedureExpander {
 		this.procedures = procedures;
 	}
 
-	static void initializeLocalVariables(DefinitionRegistry registry,
-	                                     SourceLocation location,
-	                                     List<PlusCalVariableDeclaration> variables,
-	                                     String cleanedLabelName,
-	                                     ModularPlusCalCodeGenVisitor visitor,
-	                                     List<PlusCalVariableDeclaration> outputVariables,
-	                                     List<PlusCalStatement> output) {
+	static <T> void initializeLocalVariables(DefinitionRegistry registry,
+	                                         SourceLocation location, Map<UID, T> params,
+	                                         List<PlusCalVariableDeclaration> variables, String cleanedLabelName,
+	                                         ModularPlusCalCodeGenVisitor visitor,
+	                                         List<PlusCalVariableDeclaration> outputVariables,
+	                                         List<PlusCalStatement> output) {
 		List<PlusCalStatement> initStatements = new ArrayList<>();
 		for (PlusCalVariableDeclaration variable : variables) {
-			if (variable.getValue() instanceof PlusCalDefaultInitValue) {
+			if (variable.getValue() instanceof PlusCalDefaultInitValue ||
+					!variable.getValue().accept(new TLAExpressionParamsAccessCheckVisitor<>(registry, params))) {
 				outputVariables.add(variable);
 			} else {
 				SourceLocation variableLocation = variable.getLocation();
@@ -137,8 +137,8 @@ class ProcedureExpander {
 							procedures));
 			List<PlusCalStatement> body = new ArrayList<>();
 			initializeLocalVariables(
-					registry, procedure.getLocation(), procedure.getVariables(), nameCleaner.cleanName("init"), v,
-					localVariables, body);
+					registry, procedure.getLocation(), Collections.emptyMap(), procedure.getVariables(),
+					nameCleaner.cleanName("init"), v, localVariables, body);
 			for (PlusCalStatement statement : procedure.getBody()) {
 				body.addAll(statement.accept(v));
 			}

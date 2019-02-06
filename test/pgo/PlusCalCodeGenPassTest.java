@@ -1861,11 +1861,7 @@ public class PlusCalCodeGenPassTest {
 										PlusCalFairness.WEAK_FAIR,
 										Arrays.asList(
 												pcalVarDecl("aRead", false, false, binop("+", binop("*", idexp("i"), num(2)), num(1))),
-												pcalVarDecl("local", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
-										),
-										labeled(
-												label("init"),
-												assign(idexp("local"), num(0))
+												pcalVarDecl("local", false, false, num(0))
 										),
 										labeled(
 												label("l1"),
@@ -2071,12 +2067,8 @@ public class PlusCalCodeGenPassTest {
 										PlusCalFairness.WEAK_FAIR,
 										Arrays.asList(
 												pcalVarDecl("aRead", false, false, binop("+", binop("*", idexp("i"), num(2)), num(1))),
-												pcalVarDecl("local", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+												pcalVarDecl("local", false, false, num(0)),
 												pcalVarDecl("bRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
-										),
-										labeled(
-												label("init"),
-												assign(idexp("local"), num(0))
 										),
 										labeled(
 												label("l1"),
