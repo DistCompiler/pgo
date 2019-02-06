@@ -198,10 +198,10 @@ public final class TLAParser {
 
 	/**
 	 * Returns a parse action that matches a TLA+ identifier. This is defined to be anything matching the regex
-	 * {@link ParseTools#TLA_IDENTIFIER}, except for the following cases:
+	 * {@link TLAParser#TLA_IDENTIFIER}, except for the following cases:
 	 * <ul>
 	 *     <li>Anything beginning with "WF_" or "SF_"</li>
-	 *     <li>Any TLA+ reserved words, defined at {@link ParseTools#TLA_RESERVED_WORDS}</li>
+	 *     <li>Any TLA+ reserved words, defined at {@link TLAParser#TLA_RESERVED_WORDS}</li>
 	 * </ul>
 	 * @return the parse action
 	 */
@@ -218,7 +218,7 @@ public final class TLAParser {
 
 	/**
 	 * Returns a parse action that will match a TLA+ string. This is defined as anything between quotation marks
-	 * matching the regex {@link ParseTools#TLA_STRING_CONTENTS}, with the addition of the following escape sequences:
+	 * matching the regex {@link TLAParser#TLA_STRING_CONTENTS}, with the addition of the following escape sequences:
 	 * <ul>
 	 *     <li>\", for a quotation mark</li>
 	 *     <li>\\, for a backslash</li>
@@ -268,11 +268,11 @@ public final class TLAParser {
 	 *
 	 * These are represented by the regexes:
 	 * <ul>
-	 *  <li>{@link ParseTools#TLA_NUMBER_INT}: integer, mapped to the number type {@link TLANumber.Base#DECIMAL}</li>
-	 *  <li>{@link ParseTools#TLA_NUMBER_FLOAT}: floating point, mapped to the number type {@link TLANumber.Base#DECIMAL}</li>
-	 *  <li>{@link ParseTools#TLA_NUMBER_BIN}: binary, mapped to the number type {@link TLANumber.Base#BINARY}</li>
-	 *  <li>{@link ParseTools#TLA_NUMBER_OCT}: octal, mapped to the number type {@link TLANumber.Base#OCTAL}</li>
-	 *  <li>{@link ParseTools#TLA_NUMBER_HEX}: hexadecimal, mapped to the number type {@link TLANumber.Base#HEXADECIMAL}</li>
+	 *  <li>{@link TLAParser#TLA_NUMBER_INT}: integer, mapped to the number type {@link TLANumber.Base#DECIMAL}</li>
+	 *  <li>{@link TLAParser#TLA_NUMBER_FLOAT}: floating point, mapped to the number type {@link TLANumber.Base#DECIMAL}</li>
+	 *  <li>{@link TLAParser#TLA_NUMBER_BIN}: binary, mapped to the number type {@link TLANumber.Base#BINARY}</li>
+	 *  <li>{@link TLAParser#TLA_NUMBER_OCT}: octal, mapped to the number type {@link TLANumber.Base#OCTAL}</li>
+	 *  <li>{@link TLAParser#TLA_NUMBER_HEX}: hexadecimal, mapped to the number type {@link TLANumber.Base#HEXADECIMAL}</li>
 	 * </ul>
 	 *
 	 * In each case the representation will be stripped of any prefix, so for example the TLA+ binary notation
@@ -305,7 +305,7 @@ public final class TLAParser {
 	/**
 	 * Returns a parse action that consumes any text up till the beginning of a TLA+ module, defined to be 4 or more
 	 * '-' characters in a row. It does not however consume those characters, making this safe to use before
-	 * {@link ParseTools#parse4DashesOrMore()}}.
+	 * {@link TLAParser#parse4DashesOrMore()}}.
 	 * @return a parse action yielding the range of text skipped
 	 */
 	public static Grammar<Located<Void>> findModuleStart(){
@@ -359,7 +359,6 @@ public final class TLAParser {
 	 * Creates a parse action that accepts any of the strings in options as long as they are located at or beyond
 	 * minColumn, skipping any preceding comments or whitespace.
 	 * @param options a list of acceptable token values
-	 * @param minColumn the minimum column at which to accept a token
 	 * @return the parse action
 	 */
 	public static Grammar<Located<String>> parseTLATokenOneOf(List<String> options){
@@ -371,9 +370,8 @@ public final class TLAParser {
 
 	/**
 	 * Creates a parse action that accepts a TLA+ identifier as long as it is located at or after minColumn, skipping
-	 * any preceding whitespace. See {@link ParseTools#matchTLAIdentifier()} for a precise definition of what a TLA+
+	 * any preceding whitespace. See {@link TLAParser#matchTLAIdentifier()} for a precise definition of what a TLA+
 	 * identifier is.
-	 * @param minColumn the minimum column at which to accept a token
 	 * @return the parse action
 	 */
 	public static Grammar<TLAIdentifier> parseTLAIdentifier(){
@@ -387,9 +385,8 @@ public final class TLAParser {
 
 	/**
 	 * Creates a parse action that accepts a TLA+ string as long as it is located after minColumn, skipping any
-	 * preceding whitespace. See {@link ParseTools#matchTLAString()} for a precise definition of what we consider a
+	 * preceding whitespace. See {@link TLAParser#matchTLAString()} for a precise definition of what we consider a
 	 * TLA+ string.
-	 * @param minColumn the minimum column at which to accept a token
 	 * @return the parse action
 	 */
 	public static Grammar<TLAString> parseTLAString(){
@@ -401,9 +398,8 @@ public final class TLAParser {
 
 	/**
 	 * Creates a parse action that accepts a TLA+ number as long as it is located after minColumn, skipping any
-	 * preceding whitespace. See {@link ParseTools#matchTLANumber()} for a precise definition of what we consider a
+	 * preceding whitespace. See {@link TLAParser#matchTLANumber()} for a precise definition of what we consider a
 	 * TLA+ number.
-	 * @param minColumn the minimum column at which to accept a token
 	 * @return the parse action
 	 */
 	public static Grammar<TLANumber> parseTLANumber(){
