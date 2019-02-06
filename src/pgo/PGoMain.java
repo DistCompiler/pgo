@@ -14,6 +14,7 @@ import pgo.model.type.PGoType;
 import pgo.modules.TLAModuleLoader;
 import pgo.parser.LexicalContext;
 import pgo.parser.Located;
+import pgo.parser.PlusCalParser;
 import pgo.scope.UID;
 import pgo.trans.PGoTransException;
 import pgo.trans.intermediate.CheckOptionsPass;
@@ -54,12 +55,6 @@ import java.util.regex.Pattern;
 public class PGoMain {
 	private String[] cmdArgs;
 	private static Logger logger;
-	private static final String BEGIN_PLUSCAL_TRANSLATION = "\\* BEGIN PLUSCAL TRANSLATION";
-	private static final Pattern BEGIN_PLUSCAL_TRANSLATION_PATTERN =
-			Pattern.compile(".*?\\\\" + BEGIN_PLUSCAL_TRANSLATION + "$", Pattern.DOTALL | Pattern.MULTILINE);
-	private static final String END_PLUSCAL_TRANSLATION = "\\* END PLUSCAL TRANSLATION";
-	private static final Pattern END_PLUSCAL_TRANSLATION_PATTERN =
-			Pattern.compile(".*?\\\\" + END_PLUSCAL_TRANSLATION + "$", Pattern.DOTALL | Pattern.MULTILINE);
 
 	public PGoMain(String[] args) {
 		cmdArgs = args;
@@ -162,9 +157,9 @@ public class PGoMain {
 			CharBuffer inputFileContents = StandardCharsets.UTF_8.decode(buffer);
 			LexicalContext lexicalContext = new LexicalContext(inputFilePath, inputFileContents);
 			Optional<Located<MatchResult>> beginPlusCalTranslation =
-					lexicalContext.matchPattern(BEGIN_PLUSCAL_TRANSLATION_PATTERN);
+					lexicalContext.matchPattern(PlusCalParser.BEGIN_PLUSCAL_TRANSLATION_PATTERN);
 			Optional<Located<MatchResult>> endPlusCalTranslation =
-					lexicalContext.matchPattern(END_PLUSCAL_TRANSLATION_PATTERN);
+					lexicalContext.matchPattern(PlusCalParser.END_PLUSCAL_TRANSLATION_PATTERN);
 			if (beginPlusCalTranslation.isPresent() && endPlusCalTranslation.isPresent()) {
 				startOffset = beginPlusCalTranslation.get().getLocation().getEndOffset();
 				endOffset = endPlusCalTranslation.get().getLocation().getEndOffset();
@@ -183,18 +178,19 @@ public class PGoMain {
 				long pos = destination.transferFrom(source, 0, startOffset);
 				pos += destination.write(StandardCharsets.UTF_8.encode("\n"), pos);
 				pos += destination.write(StandardCharsets.UTF_8.encode(serializedAlgorithm), pos);
-				pos += destination.write(StandardCharsets.UTF_8.encode("\n" + END_PLUSCAL_TRANSLATION), pos);
+				pos += destination.write(StandardCharsets.UTF_8.encode(
+						"\n" + PlusCalParser.END_PLUSCAL_TRANSLATION), pos);
 				pos += destination.transferFrom(source.position(endOffset), pos, source.size() - endOffset);
 				destination.truncate(pos);
 			} else {
 				final int blockEndOffset = modularPlusCalBlock.getLocation().getEndOffset();
 				long pos = destination.transferFrom(source, 0, blockEndOffset);
 				pos += destination.write(
-						StandardCharsets.UTF_8.encode("\n\n" + BEGIN_PLUSCAL_TRANSLATION + "\n"),
+						StandardCharsets.UTF_8.encode("\n\n" + PlusCalParser.BEGIN_PLUSCAL_TRANSLATION + "\n"),
 						pos);
 				pos += destination.write(StandardCharsets.UTF_8.encode(serializedAlgorithm), pos);
 				pos += destination.write(
-						StandardCharsets.UTF_8.encode("\n" + END_PLUSCAL_TRANSLATION + "\n\n"),
+						StandardCharsets.UTF_8.encode("\n" + PlusCalParser.END_PLUSCAL_TRANSLATION + "\n\n"),
 						pos);
 				pos += destination.transferFrom(source.position(blockEndOffset), pos, source.size() - blockEndOffset);
 				destination.truncate(pos);

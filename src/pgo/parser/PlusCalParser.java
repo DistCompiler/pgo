@@ -18,6 +18,12 @@ import static pgo.parser.ParseTools.*;
 public final class PlusCalParser {
 	private PlusCalParser() {}
 
+	public static final String BEGIN_PLUSCAL_TRANSLATION = "\\* BEGIN PLUSCAL TRANSLATION";
+	public static final Pattern BEGIN_PLUSCAL_TRANSLATION_PATTERN =
+			Pattern.compile(".*?\\\\" + BEGIN_PLUSCAL_TRANSLATION + "$", Pattern.DOTALL | Pattern.MULTILINE);
+	public static final String END_PLUSCAL_TRANSLATION = "\\* END PLUSCAL TRANSLATION";
+	public static final Pattern END_PLUSCAL_TRANSLATION_PATTERN =
+			Pattern.compile(".*?\\\\" + END_PLUSCAL_TRANSLATION + "$", Pattern.DOTALL | Pattern.MULTILINE);
 	private static final Pattern PCAL_FIND_ALGORITHM = Pattern.compile(".*?\\(\\*.*?(?=--algorithm)", Pattern.DOTALL);
 	private static final Pattern PCAL_AFTER_ALGORITHM = Pattern.compile(".*?\\*\\).*$", Pattern.DOTALL);
 
