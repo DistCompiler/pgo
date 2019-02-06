@@ -2,19 +2,24 @@ package pgo.trans.passes.codegen.pluscal;
 
 import pgo.TODO;
 import pgo.Unreachable;
+import pgo.model.pcal.PlusCalVariableDeclaration;
 import pgo.model.tla.*;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
 
 import java.util.Map;
 
-public class TLAExpressionParamsAccessCheckVisitor<T> extends TLAExpressionVisitor<Boolean, RuntimeException> {
+public class TLAExpressionParamsAccessCheckVisitor extends TLAExpressionVisitor<Boolean, RuntimeException> {
 	private final DefinitionRegistry registry;
-	private final Map<UID, T> params;
+	private final Map<UID, PlusCalVariableDeclaration> params;
+	private final Map<UID, PlusCalVariableDeclaration> variables;
 
-	public TLAExpressionParamsAccessCheckVisitor(DefinitionRegistry registry, Map<UID, T> params) {
+	public TLAExpressionParamsAccessCheckVisitor(DefinitionRegistry registry,
+	                                             Map<UID, PlusCalVariableDeclaration> params,
+	                                             Map<UID, PlusCalVariableDeclaration> variables) {
 		this.registry = registry;
 		this.params = params;
+		this.variables = variables;
 	}
 
 	@Override
@@ -79,7 +84,14 @@ public class TLAExpressionParamsAccessCheckVisitor<T> extends TLAExpressionVisit
 
 	@Override
 	public Boolean visit(TLAGeneralIdentifier tlaGeneralIdentifier) throws RuntimeException {
-		return params.containsKey(registry.followReference(tlaGeneralIdentifier.getUID()));
+		UID varUID = registry.followReference(tlaGeneralIdentifier.getUID());
+		if (params.containsKey(varUID)) {
+			return true;
+		}
+		if (variables.containsKey(varUID)) {
+			return variables.get(varUID).getValue().accept(this);
+		}
+		return false;
 	}
 
 	@Override

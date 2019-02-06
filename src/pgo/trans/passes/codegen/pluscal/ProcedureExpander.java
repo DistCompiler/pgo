@@ -38,16 +38,21 @@ class ProcedureExpander {
 		this.procedures = procedures;
 	}
 
-	static <T> void initializeLocalVariables(DefinitionRegistry registry,
-	                                         SourceLocation location, Map<UID, T> params,
-	                                         List<PlusCalVariableDeclaration> variables, String cleanedLabelName,
-	                                         ModularPlusCalCodeGenVisitor visitor,
-	                                         List<PlusCalVariableDeclaration> outputVariables,
-	                                         List<PlusCalStatement> output) {
+	static void initializeLocalVariables(DefinitionRegistry registry, SourceLocation location,
+	                                     Map<UID, PlusCalVariableDeclaration> params,
+	                                     List<PlusCalVariableDeclaration> variables, String cleanedLabelName,
+	                                     ModularPlusCalCodeGenVisitor visitor,
+	                                     List<PlusCalVariableDeclaration> outputVariables,
+	                                     List<PlusCalStatement> output) {
+		Map<UID, PlusCalVariableDeclaration> variableMap = new HashMap<>();
+		for (PlusCalVariableDeclaration variable : variables) {
+			variableMap.put(variable.getUID(), variable);
+		}
 		List<PlusCalStatement> initStatements = new ArrayList<>();
 		for (PlusCalVariableDeclaration variable : variables) {
 			if (variable.getValue() instanceof PlusCalDefaultInitValue ||
-					!variable.getValue().accept(new TLAExpressionParamsAccessCheckVisitor<>(registry, params))) {
+					!variable.getValue().accept(
+							new TLAExpressionParamsAccessCheckVisitor(registry, params, variableMap))) {
 				outputVariables.add(variable);
 			} else {
 				SourceLocation variableLocation = variable.getLocation();
