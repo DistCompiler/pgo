@@ -886,7 +886,7 @@ public final class TLAParser {
 		return emptySequence()
 				.drop(parseTLAToken("<<"))
 				.part(parseOneOf(
-						parseCommaList(cut(memoize(EXPRESSION))),
+						cut(parseCommaList(cut(memoize(EXPRESSION)))),
 						nop().map(v -> new LocatedList<TLAExpression>(v.getLocation(), Collections.emptyList()))
 				))
 				.drop(parseTLAToken(">>"))
@@ -1115,10 +1115,10 @@ public final class TLAParser {
 				.drop(parseTLAToken("["))
 				.part(cut(memoize(EXPRESSION)))
 				.drop(parseTLAToken("EXCEPT"))
-				.part(parseCommaList(
+				.part(cut(parseCommaList(
 						emptySequence()
 								.drop(parseTLAToken("!"))
-								.part(repeatOneOrMore(
+								.part(cut(repeatOneOrMore(
 										parseOneOf(
 												emptySequence()
 														.drop(parseTLAToken("."))
@@ -1129,22 +1129,22 @@ public final class TLAParser {
 																		new TLAString(
 																				seq.getValue().getFirst().getLocation(),
 																				seq.getValue().getFirst().getId())))),
-												emptySequence()
+												cut(emptySequence()
 														.drop(parseTLAToken("["))
 														.part(parseCommaList(cut(EXPRESSION)))
-														.drop(parseTLAToken("]"))
+														.drop(parseTLAToken("]")))
 														.map(seq -> new TLASubstitutionKey(
 																seq.getLocation(),
 																seq.getValue().getFirst()))
 										)
-								))
+								)))
 								.drop(parseTLAToken("="))
 								.part(cut(EXPRESSION))
 								.map(seq -> new TLAFunctionSubstitutionPair(
 										seq.getLocation(),
 										seq.getValue().getRest().getFirst(),
 										seq.getValue().getFirst()))
-				))
+				)))
 				.drop(parseTLAToken("]"))
 				.map(seq -> new TLAFunctionSubstitution(
 						seq.getLocation(),
@@ -1274,7 +1274,7 @@ public final class TLAParser {
 				))
 				.part(EXPRESSION) // no cut here, as this part is liable to overparse into the (EXPR) after
 				.drop(parseTLAToken("("))
-				.part(EXPRESSION)
+				.part(cut(EXPRESSION))
 				.drop(parseTLAToken(")"))
 				.map(seq -> new TLAFairness(
 						seq.getLocation(),
@@ -1876,6 +1876,21 @@ public final class TLAParser {
 								.part(UNIT)
 								.map(seq -> seq.getValue().getFirst())
 				)))
+				.drop(parseOneOf(
+						parseStartTranslation(),
+						parse4EqualsOrMore()
+				))
+				.map(seq -> new TLAModule(
+						seq.getLocation(),
+						seq.getValue().getRest().getRest().getFirst(),
+						seq.getValue().getRest().getFirst(),
+						seq.getValue().getFirst(),
+						Collections.emptyList(),
+						Collections.emptyList()));
+		// this is the correct grammar in principle, but either we want the beginning of the module before the TLA+
+		// translation only, or there is no translation and we want the whole module
+		// the only reason this hack is done is for speed: TLA+ parsing is too slow -.-;
+		/*
 				.part(cut(
 						parseOneOf(
 								emptySequence()
@@ -1899,7 +1914,7 @@ public final class TLAParser {
 						seq.getValue().getRest().getRest().getRest().getFirst(),
 						seq.getValue().getRest().getRest().getFirst(),
 						seq.getValue().getRest().getFirst(),
-						seq.getValue().getFirst()));
+						seq.getValue().getFirst()));*/
 	}
 
 	static {
