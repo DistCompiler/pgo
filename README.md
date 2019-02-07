@@ -95,7 +95,3 @@ By default Eclipse does not enable assertions. Our projects assume
 that you have assertions enabled at all times.  To globally enable
 assertions as a default for all projects, go to Window -> Preferences
 -> Java / Installed JREs.  Select the JRE and click "Edit...".
-
-## Usage Documentation
-
-For more details, see `manual.pdf` in the repository.
