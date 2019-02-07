@@ -1,0 +1,185 @@
+ModularPlusCal is an extension to PlusCal that aims to add the ability to specify an interface between the actual substance of a PlusCal algorithm and the environment. Modular PlusCal allows the specification writer to more clearly separate abstract and implementation-dependent details, allowing the PGo compiler to generate source code that is easy to change and enables the evolution of specification and implementation to happen at the same time.
+
+\subsection{Top-level syntax}
+
+Modular PlusCal (MPCal) is comprised of three features: archetypes, mapping macros, and references. MPCal algorithms are declared in .tla files as comments as below:
+
+\begin{lstlisting}[language=pcal]
+---- MODULE DistributedProtocol ----
+EXTENDS Integers, Sequeneces, TLC
+
+CONSTANTS A, B, C
+
+(************************
+--mpcal DistributedProtocol {
+    \* Modular PlusCal specification
+}
+************************)
+====================================
+\end{lstlisting}
+
+MPCal is compiled by PGo to vanilla PlusCal, which is turn translated to TLA+ by the TLA+ toolbox. Temporal properties and invariants can then be written as usual.
+
+\subsection{Archetypes}
+
+A quintessential aspect of modeling the environment is how one should launch a PlusCal algorithm. As is typical of an implementation of a distributed algorithm, someone wanting to deploy it would need to manage things like managing the lifetime and location of the algorithm's processes, networking, how the processes communicate with each other and how to feed problem-specific data sources into and out of the algorithm, and so forth.
+
+In typical PlusCal, this is effectively impossible. PlusCal only allows the developer to model a specific configuration of an abstract algorithm in order to verify that the algorithm is correct - it does not allow specifying an interface and implementation for the algorithm, such that the ``body" of the algorithm may be transformed into an implementation that takes a well-defined set of parameters.
+
+ModularPlusCal's archetypes address this issue. Instead of specifying a speficic process that communicates with its environment via ad-hoc shared global variables, an archetype must communicate with its environment via a set of parameters that it accepts. These are capable of both input and output due to pass by reference parameters, described in section \ref{passbyref}. You can then either create a model-checking instance of the archetype for model checking or an instance of the compiled archetype in Go, executing it in a real environment.
+
+To declare an archetype, you use a syntax like this:
+\begin{lstlisting}[language=pcal]
+archetype YourArchetypeName(ref param1, param2, ...)
+variable var1, var2 = ...; {
+    labels: statements...
+    
+    param1 := var1;
+    var2 := param2;
+}
+\end{lstlisting}
+
+The syntax is deliberately similar to the syntax for a PlusCal process, the key difference
+being the parameter list. All PlusCal statements will work as usual in the archetype body, except that access to global variables declared outside the archetype is forbidden, since an archetype should never rely on anything that is not explicitly passed to it as a parameter. Notice that we show the algorithm assigning to \lstinline|param1|, which is a pass by reference parameter. This is how you send information back into the environment without directly accessing global variables - for further information see the corresponding section of the manual.
+
+Notice also that we do not specify things we would normally specify, like process ID and how many processes there should be. This is because only the instantiator will know these things - most real systems generalise to variable-size structures like single server multiple clients or arbitrary peer to peer. While for model checking purposes it can be useful to assume a particular number of clients or peers, the implementation should not be affected by these assumptions so they are not part of the archetype definition.
+
+Here is a comprehensive list of differences between archetypes and processes:
+\begin{itemize}
+    \item Archetypes have more strict scope: they can only access local variables, TLA+ constants, and arguments passed in to them. Access to global variables is not possible;
+    As a consequence, any macros called within an archetype also do not have access to global variables;
+    \item TLA+ operators called within an archetype must both: access no global variables; and be pure.
+    \item Assignments are restricted: only local variables or arguments passed as references can be assigned to (see section \ref{passbyref}).
+\end{itemize}
+
+Conversely, here is a list of similarities between archetypes and processes
+\begin{itemize}
+    \item Same labeling rules apply;
+    \item Archetypes have access to an implicit, immutable self parameter, defined when archetypes are instantiated.
+\end{itemize}
+
+\subsubsection{Instantiating for model checking}
+
+Since archetypes do not provide much of the information necessary for model checking themselves, we must be able to provide this information separately in order to generate a complete model checking scenario.
+
+We do this via a variation of the \lstinline|process| declaration called an \lstinline|instance| declaration. One you have declared your archetype, you can describe how it should be model checked using this syntax:
+
+\begin{lstlisting}]language=pcal]
+process (YourInstanceName = 1) == instance YourArchetypeName(ref param1, param2, ...)
+\end{lstlisting}
+
+This will define a process called \lstinline|YourInstanceName| with \lstinline|self=1|, delegating all information about the process body to the archetype \lstinline|YourArchetypeName|. Just like with PlusCal processes, you can define a set of concurrently executing processes by specifying \lstinline[language=pcal]|YourInstanceName \in someset|. You can also define multiple separate processes as instances of the same archetype if needed.
+
+The parameters \lstinline|ref param1| and \lstinline|param2| show the two possible syntaxes for parameter passing. In either case, \lstinline|param1| and \lstinline|param2| are required to be already-declared PlusCal global variables.
+
+This instance declatation deliberately matches the syntax example for archetype declaration declaring \lstinline|YourArchetypeName|, which shows that in order to pass an archetype parameter by reference (see section \ref{passbyref}) both the parameter declaration and the value passed in must be declared \lstinline|ref|. This is so that it is clear at both instantiation and declaration that that parameter can be used to mutate the environment.
+
+For a more fleshed out example, consider:
+
+\begin{lstlisting}[language=pcal]
+CONSTANTS COORDINATORS, BACKUPS \* this is declared in the TLA+ code, but is written here for brevity
+
+variables connection = <<>>,
+           backupConnection = <<>>;
+
+process (MainCoordinator \in COORDINATORS) == instance Coordinator(connection);
+process (BackupCoordinator \in BACKUPS) == instance Coordinator(backupConnection);
+\end{lstlisting}
+
+In the definition above, the connection variable is global in PlusCal. However, when PGo compiles an specification like the one above, only source code for archetypes is generated. Archetype parameters represent implementation-specific details that need to be filled in by the developer (oftentimes, the PGo runtime will provide most of the logic required in these implementation-specific components).
+
+\subsubsection{Instantiating the Go implementation}
+
+TODO I don't think we have this down yet
+
+\subsection{Mapping macros}
+
+Sometimes when writing a PlusCal algorithm it is necessary to consider issues where there is a difference in behaviour between PlusCal variable assignments and the semantics we want to model. For example, while a simple way of representing a network in PlusCal is a shared global variable, this does not model properties like lossy network connections or reordering. Normally in PlusCal the writer will define a set of macros implement the correct modeling behaviour and write the algorithm in terms of those. The problem here is that if you do that then it is in principle impossible to tell apart what the algorithm does and how the environment is modeled.
+
+This cannot be fixed by parameterising the algorithm, since the intended behaviour executes as part of the algorithm (originally via macro expansion or custom TLA+ operators). Instead, we allow the user to specify macros that modify the behaviour of reads and writes to archetype parameters. These are mapping macros.
+
+Mapping macros allow developers to isolate model-checking behavior from archetypes. They are simple wrappers for non-determinism and model checking abstractions.
+
+Suppose we want to model a network that is both lossy and reordering (emulating UDP semantics in concrete environments). MPCal enables the specification developer to write this behavior as a mapping macro:
+
+\begin{lstlisting}[language=pcal]
+mapping macro LossyReorderingNetwork {
+    read {
+        with (msg \in $variable) {
+            $variable := $variable \ msg;
+            yield msg;
+        }
+    }
+    
+    write {
+        either { yield $variable } or { yield Append($variable, $value) };
+    }
+}
+\end{lstlisting}
+
+The mapping macro above introduces a number of related concepts:
+
+\begin{itemize}
+    \item Every mapping macro has a unique identifier: in the previous example, the mapping macro is called LossyReorderingNetwork;
+    \item Mapping macros must define two operations: read and write, which define what happens when the mapped variable is read and written to, respectively. Note that order is relevant: read macros must be defined before write macros.
+    \item Mapping macros have access to special variables in their definitions: \lstinline|$variable| is the name of the variable being mapped; \lstinline|$variable| is the value being assigned to the mapped variable.
+    \item \lstinline|yield| expression indicates that when the mapped variable is read (written to), expression should be read (written) instead.
+\end{itemize}
+
+Mapping macros are supposed to be thin wrappers and, as such, operate under several restrictions:
+
+\begin{itemize}
+    \item Mapping macros cannot reference any variable by name; no variables are in scope.
+    \item \lstinline|$variable| refers to the name of the variable being mapped and is available on both read and write mappings; \lstinline|$variable| is the value being written to the mapped variable and therefore is only available in the write mapping.
+    \item No labels are allowed; all statements in a mapping macro happen in the same label of the mapped statement (variable read or write).
+    \item Mapping macros cannot create variables whose scope outlives the mapping macro. Locally scoped variables can be created using PlusCal's with construct.
+    \item As a corollary of the above, only assignments to \lstinline|$variable| are permitted, and only on read mappings. Write mappings cannot write to \lstinline|$variable| because they are used precisely when an assignment is being made, and PlusCal does not allow writing to the same variable twice in the same step (label).
+\end{itemize}
+
+Once defined, mapping macros can be used during instantiation, mapping variables passed to archetypes:
+
+\begin{lstlisting}[language=pcal]
+process MainCoordinator == instance Coordinator(ref connection)
+    mapping connection via LossyReorderingNetwork;
+\end{lstlisting}
+
+\subsubsection{Mapping macros over patterns}
+
+Sometimes writes to a single variable are not the things we want to override. Consider a common abstraction for many-to-many networks in PlusCal: a function from process ID to some kind of inbox.
+
+If we pass this to an archetype, the archetype parameter is the entire mapping. It is nearly meaningless to try and map the entire value, since if you were to modify one process's inbox the mapping macro would just see a new value for the entire mapping, obscuring which inbox changed. This is crucial information, since at the implementation level it makes it impossible to tell the difference between a write to one or many inboxes, turning every network send into some kind of all-to-all broadcast.
+
+Instead, when we apply a mapping macro to an archetype instance declaration we can state that we want to apply the mapping macro to every element of a collection (that is, a TLA+ function) individually.
+
+In the case of our network example, we can write something like this:
+\begin{lstlisting}[language=pcal]
+process MainCoordinator == instance Coordinator(ref network)
+    mapping network[_] via LossyReorderingNetwork;
+\end{lstlisting}
+
+Adding \lstinline|[_]| to a mapping means that whenever the algorithm uses the term \lstinline|network[...]|, either reading from or assigning to it, the mapping macro is expanded with \lstinline|network[...]| in its entirety as \lstinline|$value| rather than just the \lstinline|network| variable. Since \lstinline|a.b| is strictly syntax sugar for \lstinline|a["b"]|, this notation will work on either TLA+ functions or TLA+ records, regardless of whether the indexing or dot notation are used. It is an error to use this notation on a variable that does not belong to either of these types.
+
+Conversely, referring to just \lstinline|network| on its own no longer has a very useful meaning. If anything, something like assigning to \lstinline|network| on its own would mean a network-wide broadcast. Since that is rarely intended and complicates things for authors of mapping macros, we have decided to not support this notation in favor of requiring programmers to explicitly write out broadcasts and other aggregate operations if needed. If such an operation is often needed in some algorithm, any such behaviour can easily be encapsulated inside a procedure.
+
+\subsection{Pass by reference parameters}
+\label{passbyref}
+
+References is an extension to parameter passing in PlusCal that makes mutation intent explicit. In particular, they are used when an archetype modifies one of its arguments and also allowing procedures to modify its parameters (not possible in PlusCal).
+
+Assignments to non-local variables in archetypes and procedures can only happen if the argument is passed as a reference:
+
+\begin{lstlisting}[language=pcal]
+procedure inc(ref counter) {
+    i: counter := counter + 1;
+    return;
+}
+
+archetype Counter(ref counter) {
+    call inc(ref counter);
+}
+
+variable n = 0;
+process CounterProcess == instance Counter(ref n);
+\end{lstlisting}
+
+In the example above, the keyword ref is used to indicate that n is passed as a reference to the archetype definition, which is then able to pass it as a reference to the inc procedure, which modifies the parameter in a way that is visible after the procedure returns.
