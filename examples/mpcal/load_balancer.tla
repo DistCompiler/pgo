@@ -499,10 +499,14 @@ BuffersOk == \A node \in DOMAIN network : BufferOk(node)
 \* Properties are defined using _temporal logic_. In this specific example,
 \* we want to make sure that every client that requests a web page (i.e., are
 \* in the 'clientRequest' label) eventually receive a response (i.e., are
-\* in the 'clientReceive' label).
-ReceivesPage(client) == pc[client] = "clientRequest" ~> pc[client] = "clientReceive"
+\* in the 'clientReceive' label). In order to specify this property, we have to
+\* write the formula as if the client enters 'clientReceive' label, it will
+\* eventually successfully receive a response and then go back to issuing
+\* another request in the 'clientRequest' label.
+ReceivesPage(client) == pc[client] = "clientReceive" ~> pc[client] = "clientRequest"
 ClientsOk == \A client \in (NUM_SERVERS+1)..(NUM_SERVERS+NUM_CLIENTS+1) : ReceivesPage(client)
 
 =============================================================================
 \* Modification History
+\* Last modified Wed Feb 06 17:26:45 PST 2019 by minh
 \* Last modified Sat Feb 02 19:59:51 PST 2019 by rmc
