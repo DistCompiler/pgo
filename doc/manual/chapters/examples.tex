@@ -30,3 +30,9 @@ This is a multiprocess algorithm which only allows one process to be in the crit
 \captionof{figure}{Compiled Go}
 
 The constant \lstinline[language=pcal]|Proc| is defined to be \lstinline[language=pcal]|1 .. 3| in the configuration. If the process set needs to be changed, only the configuration needs to be edited.
+
+\subsection{Load balancer}
+This is a Modular PlusCal multiprocess algorithm that implements a load balancing system. The processes include the load balancer, the servers, and the clients.
+
+\lstinputlisting[language=pcal]{../../examples/mpcal/load_balancer.tla}
+\captionof{figure}{Modular PlusCal}
