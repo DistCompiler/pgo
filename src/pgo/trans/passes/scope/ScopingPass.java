@@ -171,6 +171,13 @@ public class ScopingPass {
 
 		// instances need access to global variables
 		for (ModularPlusCalInstance instance : modularPlusCalBlock.getInstances()) {
+			modularPlusCalScope.defineGlobal(instance.getName().getName().getValue(), instance.getName().getUID());
+			TLAScopeBuilder instanceTLAScope = new TLAScopeBuilder(
+					ctx, new ChainMap<>(tlaScope.getDeclarations()), modularPlusCalScope.getDefinitions(),
+					modularPlusCalScope.getReferences());
+			instance.getName().getValue().accept(
+					new TLAExpressionScopingVisitor(tlaScope, registry, loader, new HashSet<>()));
+
 			Map<String, ModularPlusCalMapping> mappedVariables = new HashMap<>();
 			for (ModularPlusCalMapping mapping : instance.getMappings()) {
 				String variableName = mapping.getVariable().getName();
@@ -194,7 +201,7 @@ public class ScopingPass {
 			}
 			for (TLAExpression expression : instance.getArguments()) {
 				expression.accept(new TLAExpressionScopingVisitor(
-						modularPlusCalScope, registry, loader, new HashSet<>()));
+						instanceTLAScope, registry, loader, new HashSet<>()));
 			}
 		}
 

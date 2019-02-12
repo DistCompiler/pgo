@@ -49,7 +49,6 @@ public class PlusCalProcessesScopingVisitor extends PlusCalProcessesVisitor<Void
 	@Override
 	public Void visit(PlusCalMultiProcess multiProcess) throws RuntimeException {
 		for (PlusCalProcess proc : multiProcess.getProcesses()) {
-
 			builder.defineGlobal(proc.getName().getName().getValue(), proc.getName().getUID());
 			TLAScopeBuilder procTLAScope = new TLAScopeBuilder(ctx, new ChainMap<>(tlaBuilder.getDeclarations()), builder.getDefinitions(), builder.getReferences());
 			proc.getName().getValue().accept(new TLAExpressionScopingVisitor(tlaBuilder, registry, loader, new HashSet<>()));
