@@ -113,19 +113,6 @@ public class TypeInferencePass {
 			archetypeTypes.put(archetype.getName(), fresh);
 		}
 
-		for (ModularPlusCalMappingMacro mappingMacro : modularPlusCalBlock.getMappingMacros()) {
-			mapping.put(mappingMacro.getSpecialVariableVariableUID(), generator.get());
-			mapping.put(mappingMacro.getSpecialVariableValueUID(), generator.get());
-			mapping.put(mappingMacro.getReadValueUID(), generator.get());
-			for (PlusCalStatement statement : mappingMacro.getReadBody()) {
-				statement.accept(new MappingMacroReadBodyStatementTypeConstraintVisitor(
-						ctx, registry, solver, generator, mapping, mapping.get(mappingMacro.getReadValueUID())));
-			}
-			for (PlusCalStatement statement : mappingMacro.getWriteBody()) {
-				statement.accept(new PlusCalStatementTypeConstraintVisitor(ctx, registry, solver, generator, mapping));
-			}
-		}
-
 		for (ModularPlusCalInstance instance : modularPlusCalBlock.getInstances()) {
 			UID instanceVariableUID = instance.getName().getUID();
 			constrainVariableDeclaration(registry, instance.getName(), solver, generator, mapping);
