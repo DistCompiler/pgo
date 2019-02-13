@@ -50,7 +50,7 @@ public class PGoTypeGoTypeConversionVisitor extends PGoTypeVisitor<GoType, Runti
 	}
 
 	@Override
-	public GoType visit(PGoTypeDecimal pGoTypeDecimal) throws RuntimeException {
+	public GoType visit(PGoTypeReal pGoTypeReal) throws RuntimeException {
 		return GoBuiltins.Float64;
 	}
 

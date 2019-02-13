@@ -274,7 +274,7 @@ public class TLAExpressionTypeConstraintVisitor extends TLAExpressionVisitor<PGo
 	public PGoType visit(TLANumber tlaNumber) throws RuntimeException {
 		// TODO this check should be more sophisticated
 		if (tlaNumber.getVal().contains(".")) {
-			return new PGoTypeDecimal(Collections.singletonList(tlaNumber));
+			return new PGoTypeReal(Collections.singletonList(tlaNumber));
 		}
 		return TLABuiltins.getPolymorphicNumberType(tlaNumber, solver, generator);
 	}

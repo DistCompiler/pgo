@@ -41,7 +41,7 @@ public class PGoTypeGoTypeDefaultValueVisitor extends PGoTypeVisitor<GoExpressio
 	}
 
 	@Override
-	public GoExpression visit(PGoTypeDecimal pGoTypeDecimal) throws RuntimeException {
+	public GoExpression visit(PGoTypeReal pGoTypeReal) throws RuntimeException {
 		throw new TODO();
 	}
 

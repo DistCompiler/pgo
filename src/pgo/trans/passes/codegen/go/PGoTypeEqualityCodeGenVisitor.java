@@ -54,7 +54,7 @@ public class PGoTypeEqualityCodeGenVisitor extends PGoTypeVisitor<GoExpression, 
 	}
 
 	@Override
-	public GoExpression visit(PGoTypeDecimal pGoTypeDecimal) throws RuntimeException {
+	public GoExpression visit(PGoTypeReal pGoTypeReal) throws RuntimeException {
 		return new GoBinop(neq ? GoBinop.Operation.NEQ : GoBinop.Operation.EQ, lhs, rhs);
 	}
 

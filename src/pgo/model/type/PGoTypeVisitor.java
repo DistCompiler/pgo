@@ -7,7 +7,7 @@ public abstract class PGoTypeVisitor<T, E extends Throwable> {
 	public abstract T visit(PGoTypeSet pGoTypeSet) throws E;
 	public abstract T visit(PGoTypeNonEnumerableSet pGoTypeNonEnumerableSet) throws E;
 	public abstract T visit(PGoTypeBool pGoTypeBool) throws E;
-	public abstract T visit(PGoTypeDecimal pGoTypeDecimal) throws E;
+	public abstract T visit(PGoTypeReal pGoTypeReal) throws E;
 	public abstract T visit(PGoTypeFunction pGoTypeFunction) throws E;
 	public abstract T visit(PGoTypeChan pGoTypeChan) throws E;
 	public abstract T visit(PGoTypeInt pGoTypeInt) throws E;

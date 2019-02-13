@@ -7,14 +7,14 @@ import java.util.List;
 /**
  * Represents the floating point number type.
  */
-public class PGoTypeDecimal extends PGoNumberType {
-	public PGoTypeDecimal(List<Origin> origins) {
+public class PGoTypeReal extends PGoNumberType {
+	public PGoTypeReal(List<Origin> origins) {
 		super(origins);
 	}
 
 	@Override
 	public boolean equals(Object obj) {
-		return obj instanceof PGoTypeDecimal;
+		return obj instanceof PGoTypeReal;
 	}
 
 	@Override
@@ -33,7 +33,7 @@ public class PGoTypeDecimal extends PGoNumberType {
 	}
 
 	@Override
-	public PGoTypeDecimal copyWithOrigins(List<Origin> origins) {
-		return new PGoTypeDecimal(origins);
+	public PGoTypeReal copyWithOrigins(List<Origin> origins) {
+		return new PGoTypeReal(origins);
 	}
 }
