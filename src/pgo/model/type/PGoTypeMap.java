@@ -1,6 +1,5 @@
 package pgo.model.type;
 
-import pgo.errors.IssueContext;
 import pgo.util.Origin;
 
 import java.util.List;
@@ -57,13 +56,6 @@ public class PGoTypeMap extends PGoType {
 	public PGoType substitute(Map<PGoTypeVariable, PGoType> mapping) {
 		keyType = keyType.substitute(mapping);
 		valueType = valueType.substitute(mapping);
-		return this;
-	}
-
-	@Override
-	public PGoType realize(IssueContext ctx) {
-		keyType = keyType.realize(ctx);
-		valueType = valueType.realize(ctx);
 		return this;
 	}
 

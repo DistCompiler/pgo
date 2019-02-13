@@ -1,7 +1,5 @@
 package pgo.model.type;
 
-import pgo.errors.IssueContext;
-
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
@@ -49,11 +47,6 @@ public class PGoTypeVariable extends PGoType {
 			sub = sub.substitute(mapping);
 		}
 		return sub;
-	}
-
-	@Override
-	public PGoType realize(IssueContext ctx) {
-		return this;
 	}
 
 	@Override

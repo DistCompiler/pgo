@@ -1,11 +1,9 @@
 package pgo.model.type;
 
 public abstract class PGoTypeVisitor<T, E extends Throwable> {
-
 	public abstract T visit(PGoTypeVariable pGoTypeVariable) throws E;
 	public abstract T visit(PGoTypeTuple pGoTypeTuple) throws E;
 	public abstract T visit(PGoTypeString pGoTypeString) throws E;
-	public abstract T visit(PGoTypeUnrealizedNumber pGoTypeUnrealizedNumber) throws E;
 	public abstract T visit(PGoTypeSet pGoTypeSet) throws E;
 	public abstract T visit(PGoTypeNonEnumerableSet pGoTypeNonEnumerableSet) throws E;
 	public abstract T visit(PGoTypeBool pGoTypeBool) throws E;
@@ -16,5 +14,4 @@ public abstract class PGoTypeVisitor<T, E extends Throwable> {
 	public abstract T visit(PGoTypeMap pGoTypeMap) throws E;
 	public abstract T visit(PGoTypeSlice pGoTypeSlice) throws E;
 	public abstract T visit(PGoTypeProcedure pGoTypeProcedure) throws E;
-
 }

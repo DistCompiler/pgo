@@ -1,6 +1,5 @@
 package pgo.model.type;
 
-import pgo.errors.IssueContext;
 import pgo.util.Origin;
 
 import java.util.Collections;
@@ -59,13 +58,6 @@ public class PGoTypeFunction extends PGoType {
 	public PGoType substitute(Map<PGoTypeVariable, PGoType> mapping) {
 		paramTypes = paramTypes.stream().map(t -> t.substitute(mapping)).collect(Collectors.toList());
 		returnType = returnType.substitute(mapping);
-		return this;
-	}
-
-	@Override
-	public PGoType realize(IssueContext ctx) {
-		paramTypes = paramTypes.stream().map(pGoType -> pGoType.realize(ctx)).collect(Collectors.toList());
-		returnType = returnType.realize(ctx);
 		return this;
 	}
 

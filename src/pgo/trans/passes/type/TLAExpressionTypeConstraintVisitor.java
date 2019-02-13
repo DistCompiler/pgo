@@ -8,6 +8,7 @@ import pgo.model.type.*;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
 import pgo.trans.intermediate.OperatorAccessor;
+import pgo.trans.intermediate.TLABuiltins;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -275,8 +276,7 @@ public class TLAExpressionTypeConstraintVisitor extends TLAExpressionVisitor<PGo
 		if (tlaNumber.getVal().contains(".")) {
 			return new PGoTypeDecimal(Collections.singletonList(tlaNumber));
 		}
-
-		return new PGoTypeUnrealizedNumber(new PGoTypeInt(Collections.singletonList(tlaNumber)), Collections.singletonList(tlaNumber));
+		return TLABuiltins.getPolymorphicNumberType(tlaNumber, solver, generator);
 	}
 
 	@Override

@@ -1,6 +1,5 @@
 package pgo.model.type;
 
-import pgo.errors.IssueContext;
 import pgo.util.Origin;
 
 import java.util.List;
@@ -30,11 +29,6 @@ public abstract class PGoPrimitiveType extends PGoType {
 
 	@Override
 	public PGoType substitute(Map<PGoTypeVariable, PGoType> mapping) {
-		return this;
-	}
-
-	@Override
-	public PGoType realize(IssueContext ctx) {
 		return this;
 	}
 

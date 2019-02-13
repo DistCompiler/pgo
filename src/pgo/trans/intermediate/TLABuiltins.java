@@ -26,14 +26,27 @@ public class TLABuiltins {
 		return elementType.accept(new PGoTypeGoTypeConversionVisitor());
 	}
 
-	private static PGoType constraintNumberOperation(Origin origin, List<PGoType> args, PGoTypeSolver solver, PGoTypeGenerator generator) {
-		PGoType fresh = new PGoTypeUnrealizedNumber(new PGoTypeInt(Collections.singletonList(origin)), Collections.singletonList(origin));
+	public static PGoTypeVariable getPolymorphicNumberType(Origin origin, PGoTypeSolver solver,
+	                                                       PGoTypeGenerator generator) {
+		PGoTypeVariable fresh = generator.get();
+		solver.addConstraint(new PGoTypePolymorphicConstraint(origin, Arrays.asList(
+				Collections.singletonList(
+						new PGoTypeEqualityConstraint(fresh, new PGoTypeInt(Collections.singletonList(origin)))),
+				Collections.singletonList(
+						new PGoTypeEqualityConstraint(fresh, new PGoTypeDecimal(Collections.singletonList(origin)))))));
+		return fresh;
+	}
+
+	private static PGoType constraintNumberOperation(Origin origin, List<PGoType> args, PGoTypeSolver solver,
+	                                                 PGoTypeGenerator generator) {
+		PGoTypeVariable fresh = getPolymorphicNumberType(origin, solver, generator);
 		solver.addConstraint(new PGoTypeMonomorphicConstraint(origin, args.get(0), fresh));
 		solver.addConstraint(new PGoTypeMonomorphicConstraint(origin, args.get(1), fresh));
 		return fresh;
 	}
 
-	private static PGoType constraintBooleanNumberOperation(Origin origin, List<PGoType> args, PGoTypeSolver solver, PGoTypeGenerator generator) {
+	private static PGoType constraintBooleanNumberOperation(Origin origin, List<PGoType> args, PGoTypeSolver solver,
+	                                                        PGoTypeGenerator generator) {
 		constraintNumberOperation(origin, args, solver, generator);
 		return new PGoTypeBool(Collections.singletonList(origin));
 	}
@@ -512,7 +525,7 @@ public class TLABuiltins {
 		Integers.addOperator("-_", new TypelessBuiltinOperator(
 				1,
 				(origin, args, solver, generator) -> {
-					PGoType fresh = new PGoTypeUnrealizedNumber(new PGoTypeInt(Collections.singletonList(origin)), Collections.singletonList(origin));
+					PGoTypeVariable fresh = getPolymorphicNumberType(origin, solver, generator);
 					solver.addConstraint(new PGoTypeMonomorphicConstraint(origin, args.get(0), fresh));
 					return fresh;
 				},

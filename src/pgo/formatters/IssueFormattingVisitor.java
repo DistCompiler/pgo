@@ -9,7 +9,6 @@ import pgo.model.pcal.PlusCalMacro;
 import pgo.model.pcal.PlusCalProcedure;
 import pgo.model.type.BacktrackingFailureIssue;
 import pgo.model.type.PGoTypePolymorphicConstraint;
-import pgo.model.type.UnrealizableTypeIssue;
 import pgo.model.type.UnsatisfiableConstraintIssue;
 import pgo.parser.ParseFailure;
 import pgo.trans.intermediate.*;
@@ -217,13 +216,6 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 		polymorphicConstraint.accept(new DerivedFormattingVisitor(out));
 		out.write("; constraint is ");
 		out.write(polymorphicConstraint.toString());
-		return null;
-	}
-
-	@Override
-	public Void visit(UnrealizableTypeIssue unrealizableTypeIssue) throws IOException {
-		out.write("could not realize ");
-		unrealizableTypeIssue.getType().accept(new DerivedFormattingVisitor(out));
 		return null;
 	}
 

@@ -24,11 +24,6 @@ public class PGoTypeGoTypeDefaultValueVisitor extends PGoTypeVisitor<GoExpressio
 	}
 
 	@Override
-	public GoExpression visit(PGoTypeUnrealizedNumber pGoTypeUnrealizedNumber) throws RuntimeException {
-		throw new InternalCompilerError();
-	}
-
-	@Override
 	public GoExpression visit(PGoTypeSet pGoTypeSet) throws RuntimeException {
 		return new GoSliceLiteral(
 				pGoTypeSet.getElementType().accept(new PGoTypeGoTypeConversionVisitor()),

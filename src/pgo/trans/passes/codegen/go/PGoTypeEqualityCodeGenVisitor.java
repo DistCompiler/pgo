@@ -39,11 +39,6 @@ public class PGoTypeEqualityCodeGenVisitor extends PGoTypeVisitor<GoExpression, 
 	}
 
 	@Override
-	public GoExpression visit(PGoTypeUnrealizedNumber pGoTypeUnrealizedNumber) throws RuntimeException {
-		throw new TODO();
-	}
-
-	@Override
 	public GoExpression visit(PGoTypeSet pGoTypeSet) throws RuntimeException {
 		throw new TODO();
 	}

@@ -1,6 +1,5 @@
 package pgo.model.type;
 
-import pgo.errors.IssueContext;
 import pgo.util.Origin;
 
 import java.util.Collections;
@@ -50,12 +49,6 @@ public class PGoTypeTuple extends PGoType {
 	@Override
 	public PGoType substitute(Map<PGoTypeVariable, PGoType> mapping) {
 		elementTypes = elementTypes.stream().map(t -> t.substitute(mapping)).collect(Collectors.toList());
-		return this;
-	}
-
-	@Override
-	public PGoType realize(IssueContext ctx) {
-		elementTypes = elementTypes.stream().map(pGoType -> pGoType.realize(ctx)).collect(Collectors.toList());
 		return this;
 	}
 

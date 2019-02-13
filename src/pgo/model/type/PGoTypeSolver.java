@@ -46,14 +46,14 @@ public class PGoTypeSolver {
 		return copy;
 	}
 
-	private void simplify(IssueContext ctx) {
+	private void simplify() {
 		boolean changed = true;
 		while (changed) {
 			changed = false;
 			for (Map.Entry<PGoTypeVariable, PGoType> entry : mapping.entrySet()) {
 				PGoTypeVariable k = entry.getKey();
 				PGoType v = entry.getValue();
-				PGoType newV = v.substitute(mapping).realize(ctx);
+				PGoType newV = v.substitute(mapping);
 				if (!newV.equals(v)) {
 					changed = true;
 					mapping.put(k, newV);
@@ -108,23 +108,6 @@ public class PGoTypeSolver {
 				// the constraint is of the form "some type = b", so assign b to that type
 				// the containment check prevents the occurrence of recursive types
 				mapping.put(((PGoTypeVariable) b), a);
-				constraint.getOrigins().forEach(b::addOrigin);
-			} else if (a instanceof PGoTypeUnrealizedNumber && b instanceof PGoNumberType) {
-				// attempt to promote the unrealized number a to the number b
-				Optional<Issue> issue = ((PGoTypeUnrealizedNumber) a).harmonize((PGoNumberType) b);
-				if (issue.isPresent() && !backtrack()) {
-					return issue;
-				}
-				constraint.getOrigins().forEach(a::addOrigin);
-				if (b instanceof PGoTypeUnrealizedNumber) {
-					constraint.getOrigins().forEach(b::addOrigin);
-				}
-			} else if (b instanceof PGoTypeUnrealizedNumber && a instanceof PGoNumberType) {
-				// attempt to promote the unrealized number b to the number a
-				Optional<Issue> issue = ((PGoTypeUnrealizedNumber) b).harmonize((PGoNumberType) a);
-				if (issue.isPresent() && !backtrack()) {
-					return issue;
-				}
 				constraint.getOrigins().forEach(b::addOrigin);
 			} else if (a instanceof PGoSimpleContainerType && b instanceof PGoSimpleContainerType) {
 				// a simple container is a container with a single element type, e.g. Set[a], Slice[a], etc.
@@ -215,6 +198,6 @@ public class PGoTypeSolver {
 			ctx.error(issue.get());
 			return;
 		}
-		simplify(ctx);
+		simplify();
 	}
 }

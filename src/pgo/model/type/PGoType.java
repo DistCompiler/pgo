@@ -1,6 +1,5 @@
 package pgo.model.type;
 
-import pgo.errors.IssueContext;
 import pgo.util.Derived;
 import pgo.util.DerivedVisitor;
 import pgo.util.Origin;
@@ -38,13 +37,6 @@ public abstract class PGoType extends Derived {
 	 * @return the type after all substitutions are done
 	 */
 	public abstract PGoType substitute(Map<PGoTypeVariable, PGoType> mapping);
-
-	/**
-	 * Realizes all PGoTypeUnrealizedNumbers
-	 * @param ctx the issue reporting context
-	 * @return the realized type
-	 */
-	public abstract PGoType realize(IssueContext ctx);
 
 	/**
 	 * @return the string representation of the type

@@ -1,9 +1,9 @@
 package pgo.errors;
 
 import pgo.model.type.BacktrackingFailureIssue;
-import pgo.model.type.UnrealizableTypeIssue;
 import pgo.model.type.UnsatisfiableConstraintIssue;
-import pgo.trans.intermediate.*;
+import pgo.trans.intermediate.IOErrorIssue;
+import pgo.trans.intermediate.UnsupportedFeatureIssue;
 import pgo.trans.passes.codegen.pluscal.RefMismatchIssue;
 import pgo.trans.passes.expansion.*;
 import pgo.trans.passes.parse.option.OptionParserIssue;
@@ -36,7 +36,6 @@ public abstract class IssueVisitor<T, E extends Throwable> {
 	public abstract T visit(MultipleMappingIssue multipleMappingIssue) throws E;
 	public abstract T visit(MacroNameConflictIssue macroNameConflictIssue) throws E;
 	public abstract T visit(BacktrackingFailureIssue backtrackingFailureIssue) throws E;
-	public abstract T visit(UnrealizableTypeIssue unrealizableTypeIssue) throws E;
 	public abstract T visit(UnsatisfiableConstraintIssue unsatisfiableConstraintIssue) throws E;
 	public abstract T visit(TypeInferenceFailureIssue typeInferenceFailureIssue) throws E;
 	public abstract T visit(ProcedureNotFoundIssue procedureNotFoundIssue) throws E;
