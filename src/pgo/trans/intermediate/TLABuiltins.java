@@ -29,11 +29,14 @@ public class TLABuiltins {
 	public static PGoTypeVariable getPolymorphicNumberType(Origin origin, PGoTypeSolver solver,
 	                                                       PGoTypeGenerator generator) {
 		PGoTypeVariable fresh = generator.get();
-		solver.addConstraint(new PGoTypePolymorphicConstraint(origin, Arrays.asList(
-				Collections.singletonList(
-						new PGoTypeEqualityConstraint(fresh, new PGoTypeInt(Collections.singletonList(origin)))),
-				Collections.singletonList(
-						new PGoTypeEqualityConstraint(fresh, new PGoTypeDecimal(Collections.singletonList(origin)))))));
+		// TODO we do not yet support Reals
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(
+				origin, fresh, new PGoTypeInt(Collections.singletonList(origin))));
+		// solver.addConstraint(new PGoTypePolymorphicConstraint(origin, Arrays.asList(
+		// 		Collections.singletonList(
+		// 				new PGoTypeEqualityConstraint(fresh, new PGoTypeInt(Collections.singletonList(origin)))),
+		// 		Collections.singletonList(
+		// 				new PGoTypeEqualityConstraint(fresh, new PGoTypeReal(Collections.singletonList(origin)))))));
 		return fresh;
 	}
 
