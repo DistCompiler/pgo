@@ -127,39 +127,14 @@ public class TypeInferencePass {
 			List<PGoType> paramTypes = new ArrayList<>();
 			TLAExpressionTypeConstraintVisitor v =
 					new TLAExpressionTypeConstraintVisitor(registry, solver, generator, mapping);
-			Map<UID, UID> mappedGlobals = new HashMap<>();
 			List<TLAExpression> params = instance.getArguments();
-			List<PlusCalVariableDeclaration> arguments = registry.findArchetype(instance.getTarget()).getParams();
-			for (int i = 0; i < params.size(); i++) {
-				TLAExpression expression = params.get(i);
+			for (TLAExpression expression : params) {
 				paramTypes.add(v.wrappedVisit(expression));
-				if (expression instanceof TLARef || expression instanceof TLAGeneralIdentifier) {
-					mappedGlobals.put(registry.followReference(expression.getUID()), arguments.get(i).getUID());
-				}
 			}
 			solver.addConstraint(new PGoTypeMonomorphicConstraint(
 					instance,
 					archetypeTypes.get(instance.getTarget()),
 					new PGoTypeProcedure(paramTypes, Collections.singletonList(instance))));
-			for (ModularPlusCalMapping instanceMapping : instance.getMappings()) {
-				UID varUID = registry.followReference(instanceMapping.getVariable().getUID());
-				UID mappingMacroUID = registry.followReference(instanceMapping.getTarget().getUID());
-				solver.addConstraint(new PGoTypeMonomorphicConstraint(
-						mappingMacroUID,
-						registry.getReadValueType(mappedGlobals.get(varUID)),
-						mapping.get(
-								registry.findMappingMacro(instanceMapping.getTarget().getName())
-										.getReadValueUID())));
-				solver.addConstraint(new PGoTypeMonomorphicConstraint(
-						mappingMacroUID,
-						registry.getWrittenValueType(mappedGlobals.get(varUID)),
-						mapping.get(
-								registry.findMappingMacro(instanceMapping.getTarget().getName())
-										.getSpecialVariableValueUID())));
-				solver.addConstraint(new PGoTypeMonomorphicConstraint(
-						mappingMacroUID.getOrigins(),
-						new PGoTypeEqualityConstraint(mapping.get(varUID), mapping.get(mappingMacroUID))));
-			}
 		}
 
 		modularPlusCalBlock.getProcesses().accept(new PlusCalProcessesVisitor<Void, RuntimeException>(){
