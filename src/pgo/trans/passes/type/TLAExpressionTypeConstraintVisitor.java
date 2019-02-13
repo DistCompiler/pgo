@@ -47,32 +47,27 @@ public class TLAExpressionTypeConstraintVisitor extends TLAExpressionVisitor<PGo
 
 	private PGoType processQuantifierBound(TLAQuantifierBound qb) {
 		PGoTypeVariable elementType = generator.get();
-		solver.addConstraint(new PGoTypePolymorphicConstraint(qb, Arrays.asList(
-				Collections.singletonList(new PGoTypeEqualityConstraint(
-						new PGoTypeSet(elementType, Collections.singletonList(qb)),
-						wrappedVisit(qb.getSet()))),
-				Collections.singletonList(new PGoTypeEqualityConstraint(
-						new PGoTypeNonEnumerableSet(elementType, Collections.singletonList(qb)),
-						wrappedVisit(qb.getSet()))))));
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(
+				qb, new PGoTypeSet(elementType, Collections.singletonList(qb)), wrappedVisit(qb.getSet())));
 		switch(qb.getType()) {
-		case IDS:
-			for (TLAIdentifier id : qb.getIds()) {
-				PGoTypeVariable idType = generator.get();
-				mapping.put(id.getUID(), idType);
-				solver.addConstraint(new PGoTypeMonomorphicConstraint(qb, elementType, idType));
-			}
-			break;
-		case TUPLE:
-			List<PGoType> tupleTypes = new ArrayList<>();
-			for (TLAIdentifier id : qb.getIds()) {
-				PGoTypeVariable idType = generator.get();
-				mapping.put(id.getUID(), idType);
-				tupleTypes.add(idType);
-			}
-			solver.addConstraint(new PGoTypeMonomorphicConstraint(qb, elementType, new PGoTypeTuple(tupleTypes, Collections.singletonList(qb))));
-			break;
-		default:
-			throw new Unreachable();
+			case IDS:
+				for (TLAIdentifier id : qb.getIds()) {
+					PGoTypeVariable idType = generator.get();
+					mapping.put(id.getUID(), idType);
+					solver.addConstraint(new PGoTypeMonomorphicConstraint(qb, elementType, idType));
+				}
+				break;
+			case TUPLE:
+				List<PGoType> tupleTypes = new ArrayList<>();
+				for (TLAIdentifier id : qb.getIds()) {
+					PGoTypeVariable idType = generator.get();
+					mapping.put(id.getUID(), idType);
+					tupleTypes.add(idType);
+				}
+				solver.addConstraint(new PGoTypeMonomorphicConstraint(qb, elementType, new PGoTypeTuple(tupleTypes, Collections.singletonList(qb))));
+				break;
+			default:
+				throw new Unreachable();
 		}
 		return elementType;
 	}
