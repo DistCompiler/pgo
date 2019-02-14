@@ -21,11 +21,6 @@ public class PGoTypeNonEnumerableSet extends PGoSimpleContainerType {
 	}
 
 	@Override
-	public String toTypeName() {
-		return "NonEnumerableSet[" + elementType.toTypeName() + "]";
-	}
-
-	@Override
 	public PGoType copy() {
 		return new PGoTypeNonEnumerableSet(elementType.copy(), getOrigins());
 	}

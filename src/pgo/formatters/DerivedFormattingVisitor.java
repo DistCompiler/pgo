@@ -47,7 +47,7 @@ public class DerivedFormattingVisitor extends DerivedVisitor<Void, IOException> 
 	@Override
 	public Void visit(PGoType pGoType) throws IOException {
 		out.write("type [");
-		out.write(pGoType.toString());
+		pGoType.accept(new PGoTypeFormattingVisitor(out));
 		out.write("]");
 		writeOrigins(pGoType);
 		return null;

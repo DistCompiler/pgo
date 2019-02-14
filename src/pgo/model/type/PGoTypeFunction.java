@@ -53,12 +53,6 @@ public class PGoTypeFunction extends PGoType {
 	}
 
 	@Override
-	public String toTypeName() {
-		return "Func(" + paramTypes.stream().map(PGoType::toTypeName).collect(Collectors.joining(", ")) +
-				") " + returnType.toTypeName();
-	}
-
-	@Override
 	public <T, E extends Throwable> T accept(PGoTypeVisitor<T, E> v) throws E {
 		return v.visit(this);
 	}

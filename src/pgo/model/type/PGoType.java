@@ -16,17 +16,7 @@ public abstract class PGoType extends Derived {
 		origins.forEach(this::addOrigin);
 	}
 
-	/**
-	 * @return the string representation of the type
-	 */
-	public abstract String toTypeName();
-
 	public abstract PGoType copy();
-
-	@Override
-	public String toString() {
-		return toTypeName();
-	}
 
 	@Override
 	public <T, E extends Throwable> T accept(DerivedVisitor<T, E> v) throws E{

@@ -22,11 +22,6 @@ public class PGoTypeVariable extends PGoType {
 	}
 
 	@Override
-	public String toTypeName() {
-		return name;
-	}
-
-	@Override
 	public PGoType copy() {
 		return this;
 	}

@@ -21,11 +21,6 @@ public class PGoTypeSet extends PGoSimpleContainerType {
 	}
 
 	@Override
-	public String toTypeName() {
-		return "Set[" + elementType.toTypeName() + "]";
-	}
-
-	@Override
 	public PGoType copy() {
 		return new PGoTypeSet(elementType.copy(), getOrigins());
 	}

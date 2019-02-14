@@ -18,11 +18,6 @@ public class PGoTypeInt extends PGoPrimitiveType {
 	}
 
 	@Override
-	public String toTypeName() {
-		return "Int";
-	}
-
-	@Override
 	public <T, E extends Throwable> T accept(PGoTypeVisitor<T, E> v) throws E {
 		return v.visit(this);
 	}

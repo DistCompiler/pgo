@@ -21,11 +21,6 @@ public class PGoTypeSlice extends PGoSimpleContainerType {
 	}
 
 	@Override
-	public String toTypeName() {
-		return "Slice[" + elementType.toTypeName() + "]";
-	}
-
-	@Override
 	public PGoType copy() {
 		return new PGoTypeSlice(elementType.copy(), getOrigins());
 	}

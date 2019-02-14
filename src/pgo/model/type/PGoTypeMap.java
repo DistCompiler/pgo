@@ -45,11 +45,6 @@ public class PGoTypeMap extends PGoType {
 	}
 
 	@Override
-	public String toTypeName() {
-		return "Map[" + keyType.toTypeName() + "]" + valueType.toTypeName();
-	}
-
-	@Override
 	public PGoType copy() {
 		return new PGoTypeMap(keyType.copy(), valueType.copy(), getOrigins());
 	}

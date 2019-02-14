@@ -21,11 +21,6 @@ public class PGoTypeChan extends PGoSimpleContainerType {
 	}
 
 	@Override
-	public String toTypeName() {
-		return "Chan[" + elementType.toTypeName() + "]";
-	}
-
-	@Override
 	public PGoType copy() {
 		return new PGoTypeChan(elementType.copy(), getOrigins());
 	}

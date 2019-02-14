@@ -18,11 +18,6 @@ public class PGoTypeBool extends PGoPrimitiveType {
 	}
 
 	@Override
-	public String toTypeName() {
-		return "Bool";
-	}
-
-	@Override
 	public <T, E extends Throwable> T accept(PGoTypeVisitor<T, E> v) throws E {
 		return v.visit(this);
 	}
