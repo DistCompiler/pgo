@@ -32,11 +32,6 @@ public class PGoTypeTuple extends PGoType {
 	}
 
 	@Override
-	public boolean contains(PGoTypeVariable v) {
-		return elementTypes.stream().anyMatch(t -> t.contains(v));
-	}
-
-	@Override
 	public boolean containsVariables() {
 		return elementTypes.stream().anyMatch(PGoType::containsVariables);
 	}

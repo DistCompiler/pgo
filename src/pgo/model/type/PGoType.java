@@ -17,12 +17,6 @@ public abstract class PGoType extends Derived {
 	}
 
 	/**
-	 * @param v the type variable to check for
-	 * @return whether this contains the type variable v
-	 */
-	public abstract boolean contains(PGoTypeVariable v);
-
-	/**
 	 * @return whether this contains a type variable
 	 */
 	public abstract boolean containsVariables();

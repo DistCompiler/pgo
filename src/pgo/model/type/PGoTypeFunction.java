@@ -39,11 +39,6 @@ public class PGoTypeFunction extends PGoType {
 	}
 
 	@Override
-	public boolean contains(PGoTypeVariable v) {
-		return returnType.contains(v) || paramTypes.stream().anyMatch(t -> t.contains(v));
-	}
-
-	@Override
 	public boolean containsVariables() {
 		return returnType.containsVariables() || paramTypes.stream().anyMatch(PGoType::containsVariables);
 	}

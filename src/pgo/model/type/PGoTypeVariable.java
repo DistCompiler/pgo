@@ -22,13 +22,6 @@ public class PGoTypeVariable extends PGoType {
 	}
 
 	@Override
-	public boolean contains(PGoTypeVariable v) {
-		// since PGoTypeVariable can only be created by
-		// PGoTypeGenerator, it is safe to compare references here
-		return this == v;
-	}
-
-	@Override
 	public boolean containsVariables() {
 		return true;
 	}

@@ -15,11 +15,6 @@ public abstract class PGoPrimitiveType extends PGoType {
 	}
 
 	@Override
-	public boolean contains(PGoTypeVariable v) {
-		return false;
-	}
-
-	@Override
 	public boolean containsVariables() {
 		return false;
 	}

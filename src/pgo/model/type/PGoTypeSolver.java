@@ -99,12 +99,12 @@ public class PGoTypeSolver {
 				// nothing to do
 				continue;
 			}
-			if (a instanceof PGoTypeVariable && !b.contains((PGoTypeVariable) a)) {
+			if (a instanceof PGoTypeVariable && !b.accept(new PGoTypeHasVariableVisitor((PGoTypeVariable) a))) {
 				// the constraint is of the form "a = some type", so assign a to that type
 				// the containment check prevents the occurrence of recursive types
 				mapping.put(((PGoTypeVariable) a), b);
 				constraint.getOrigins().forEach(a::addOrigin);
-			} else if (b instanceof PGoTypeVariable && !a.contains((PGoTypeVariable) b)) {
+			} else if (b instanceof PGoTypeVariable && !a.accept(new PGoTypeHasVariableVisitor((PGoTypeVariable) b))) {
 				// the constraint is of the form "some type = b", so assign b to that type
 				// the containment check prevents the occurrence of recursive types
 				mapping.put(((PGoTypeVariable) b), a);

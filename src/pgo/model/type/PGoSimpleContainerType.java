@@ -30,11 +30,6 @@ public abstract class PGoSimpleContainerType extends PGoType {
 	}
 
 	@Override
-	public boolean contains(PGoTypeVariable v) {
-		return elementType.contains(v);
-	}
-
-	@Override
 	public boolean containsVariables() {
 		return elementType.containsVariables();
 	}

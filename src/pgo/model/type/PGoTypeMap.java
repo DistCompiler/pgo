@@ -37,11 +37,6 @@ public class PGoTypeMap extends PGoType {
 	}
 
 	@Override
-	public boolean contains(PGoTypeVariable v) {
-		return keyType.contains(v) || valueType.contains(v);
-	}
-
-	@Override
 	public boolean containsVariables() {
 		return keyType.containsVariables() || valueType.containsVariables();
 	}

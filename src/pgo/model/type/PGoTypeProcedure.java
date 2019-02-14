@@ -32,11 +32,6 @@ public class PGoTypeProcedure extends PGoType {
 	}
 
 	@Override
-	public boolean contains(PGoTypeVariable v) {
-		return paramTypes.stream().anyMatch(t -> t.contains(v));
-	}
-
-	@Override
 	public boolean containsVariables() {
 		return paramTypes.stream().anyMatch(PGoType::containsVariables);
 	}
