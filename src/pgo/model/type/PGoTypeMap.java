@@ -47,12 +47,6 @@ public class PGoTypeMap extends PGoType {
 	}
 
 	@Override
-	public void collectVariables(Set<PGoTypeVariable> vars) {
-		keyType.collectVariables(vars);
-		valueType.collectVariables(vars);
-	}
-
-	@Override
 	public PGoType substitute(Map<PGoTypeVariable, PGoType> mapping) {
 		keyType = keyType.substitute(mapping);
 		valueType = valueType.substitute(mapping);

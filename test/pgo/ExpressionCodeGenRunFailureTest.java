@@ -15,18 +15,14 @@ import static pgo.model.tla.TLABuilder.*;
 
 @RunWith(Parameterized.class)
 public class ExpressionCodeGenRunFailureTest {
-	static IntegrationTestingUtils.KeyValue kv(String key, TLAExpression value) {
-		return new IntegrationTestingUtils.KeyValue(key, value);
-	}
-
 	@Parameters
 	public static List<Object[]> data(){
 		return Arrays.asList(new Object[][] {
 			// if expression tests
 			{
-				caseexp(arms(arm(bool(false), str("Hello world"))), null),
-				Arrays.asList(),
-				Collections.singletonList("panic: No matching case!"),
+					caseexp(arms(arm(bool(false), str("Hello world"))), null),
+					Collections.emptyList(),
+					Collections.singletonList("panic: No matching case!"),
 			},
 		});
 	}

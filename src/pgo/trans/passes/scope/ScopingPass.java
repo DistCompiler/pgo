@@ -92,7 +92,7 @@ public class ScopingPass {
 					modularPlusCalScope.getReferences());
 
 			for (PlusCalStatement stmts : proc.getBody()) {
-				stmts.accept(new PlusCalStatementLabelCaptureVisitor(ctx, procScope));
+				stmts.accept(new PlusCalStatementLabelCaptureVisitor(procScope));
 			}
 
 			for (PlusCalStatement stmts : proc.getBody()) {
@@ -118,7 +118,7 @@ public class ScopingPass {
 			registry.addLocalVariable(archetype.getSelfVariableUID());
 
 			for (PlusCalStatement stmts : archetype.getBody()) {
-				stmts.accept(new PlusCalStatementLabelCaptureVisitor(ctx, archetypeScope));
+				stmts.accept(new PlusCalStatementLabelCaptureVisitor(archetypeScope));
 			}
 
 			for (PlusCalStatement stmts : archetype.getBody()) {
@@ -140,13 +140,8 @@ public class ScopingPass {
 			for (PlusCalStatement statement : mappingMacro.getReadBody()) {
 				// TODO make this work with qualified macro name
 				statement.accept(new PlusCalStatementScopingVisitor(
-						ctx,
-						readBodyScope,
-						registry,
-						loader,
-						new HashSet<>(),
-						(builder, reg, ldr, moduleRecursionSet) -> new MappingMacroTLAExpressionScopingVisitor(
-								builder, reg, ldr, moduleRecursionSet, new QualifiedName(mappingMacro.getName()))));
+						ctx, readBodyScope, registry, loader, new HashSet<>(),
+						MappingMacroTLAExpressionScopingVisitor::new));
 			}
 
 			Map<String, UID> writeArgs = new ChainMap<>(tlaScope.getDeclarations());
@@ -159,13 +154,8 @@ public class ScopingPass {
 			for (PlusCalStatement statement : mappingMacro.getWriteBody()) {
 				// TODO make this work with qualified macro name
 				statement.accept(new PlusCalStatementScopingVisitor(
-						ctx,
-						writeBodyScope,
-						registry,
-						loader,
-						new HashSet<>(),
-						(builder, reg, ldr, moduleRecursionSet) -> new MappingMacroTLAExpressionScopingVisitor(
-								builder, reg, ldr, moduleRecursionSet, new QualifiedName(mappingMacro.getName()))));
+						ctx, writeBodyScope, registry, loader, new HashSet<>(),
+						MappingMacroTLAExpressionScopingVisitor::new));
 			}
 		}
 

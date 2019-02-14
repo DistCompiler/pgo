@@ -34,11 +34,6 @@ public class PGoTypeVariable extends PGoType {
 	}
 
 	@Override
-	public void collectVariables(Set<PGoTypeVariable> vars) {
-		vars.add(this);
-	}
-
-	@Override
 	public PGoType substitute(Map<PGoTypeVariable, PGoType> mapping) {
 		PGoType old = this;
 		PGoType sub = mapping.getOrDefault(this, this);

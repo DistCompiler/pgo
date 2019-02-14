@@ -1,11 +1,13 @@
 package pgo.trans.passes.type;
 
-import pgo.errors.IssueContext;
 import pgo.model.pcal.PlusCalAssignment;
 import pgo.model.pcal.PlusCalAssignmentPair;
 import pgo.model.tla.TLAExpression;
 import pgo.model.tla.TLAGeneralIdentifier;
-import pgo.model.type.*;
+import pgo.model.type.PGoTypeGenerator;
+import pgo.model.type.PGoTypeMonomorphicConstraint;
+import pgo.model.type.PGoTypeSolver;
+import pgo.model.type.PGoTypeVariable;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
 
@@ -15,10 +17,10 @@ import java.util.Set;
 public class ArchetypeBodyStatementTypeConstraintVisitor extends PlusCalStatementTypeConstraintVisitor {
 	private Set<UID> paramsUIDs;
 
-	public ArchetypeBodyStatementTypeConstraintVisitor(IssueContext ctx, DefinitionRegistry registry,
-	                                                   PGoTypeSolver solver, PGoTypeGenerator generator,
+	public ArchetypeBodyStatementTypeConstraintVisitor(DefinitionRegistry registry, PGoTypeSolver solver,
+	                                                   PGoTypeGenerator generator,
 	                                                   Map<UID, PGoTypeVariable> mapping, Set<UID> paramUIDs) {
-		super(ctx, registry, solver, generator, mapping,
+		super(registry, solver, generator, mapping,
 				new ArchetypeBodyExpressionTypeConstraintVisitor(registry, solver, generator, mapping, paramUIDs));
 		this.paramsUIDs = paramUIDs;
 	}

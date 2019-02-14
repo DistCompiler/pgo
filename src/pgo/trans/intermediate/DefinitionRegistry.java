@@ -239,10 +239,6 @@ public class DefinitionRegistry {
 		protectedGlobalVariables.add(varUID);
 	}
 
-	public boolean isGlobalVariableProtected(UID varUID) {
-		return protectedGlobalVariables.contains(varUID);
-	}
-
 	public Set<UID> protectedGlobalVariables() {
 		return Collections.unmodifiableSet(protectedGlobalVariables);
 	}

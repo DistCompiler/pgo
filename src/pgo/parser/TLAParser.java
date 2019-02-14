@@ -230,8 +230,6 @@ public final class TLAParser {
 	 * @return the parse action
 	 */
 	public static Grammar<TLAString> matchTLAString(){
-		Variable<Located<String>> nonEscape = new Variable<>("nonEscape");
-		Variable<LocatedList<Located<String>>> parts = new Variable<>("parts");
 		return emptySequence()
 				.drop(matchString("\""))
 				.part(repeat(parseOneOf(

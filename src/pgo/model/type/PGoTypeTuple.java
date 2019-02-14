@@ -42,11 +42,6 @@ public class PGoTypeTuple extends PGoType {
 	}
 
 	@Override
-	public void collectVariables(Set<PGoTypeVariable> vars) {
-		elementTypes.forEach(e -> e.collectVariables(vars));
-	}
-
-	@Override
 	public PGoType substitute(Map<PGoTypeVariable, PGoType> mapping) {
 		elementTypes = elementTypes.stream().map(t -> t.substitute(mapping)).collect(Collectors.toList());
 		return this;

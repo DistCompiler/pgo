@@ -10,11 +10,9 @@ import pgo.trans.passes.scope.TLAScopeBuilder;
 import java.util.List;
 
 public class PlusCalStatementLabelCaptureVisitor extends PlusCalStatementVisitor<Void, RuntimeException> {
-	IssueContext ctx;
-	TLAScopeBuilder builder;
+	private final TLAScopeBuilder builder;
 
-	public PlusCalStatementLabelCaptureVisitor(IssueContext ctx, TLAScopeBuilder builder) {
-		this.ctx = ctx;
+	public PlusCalStatementLabelCaptureVisitor(TLAScopeBuilder builder) {
 		this.builder = builder;
 	}
 

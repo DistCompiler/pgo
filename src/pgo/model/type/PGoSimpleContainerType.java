@@ -40,11 +40,6 @@ public abstract class PGoSimpleContainerType extends PGoType {
 	}
 
 	@Override
-	public void collectVariables(Set<PGoTypeVariable> vars) {
-		elementType.collectVariables(vars);
-	}
-
-	@Override
 	public PGoType substitute(Map<PGoTypeVariable, PGoType> mapping) {
 		elementType = elementType.substitute(mapping);
 		return this;

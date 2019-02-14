@@ -46,6 +46,6 @@ public class PlusCalParserTest {
 		LexicalContext ctx = new LexicalContext(inputFilePath, StandardCharsets.UTF_8.decode(buffer));
 
 		// basic smoke test, ensure that we at least seem to parse all our example files correctly
-		PlusCalAlgorithm modules = PlusCalParser.readAlgorithm(ctx);
+		PlusCalParser.readAlgorithm(ctx);
 	}
 }

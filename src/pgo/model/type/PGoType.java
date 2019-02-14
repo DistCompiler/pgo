@@ -28,11 +28,6 @@ public abstract class PGoType extends Derived {
 	public abstract boolean containsVariables();
 
 	/**
-	 * Collects all variables within this type into `vars`
-	 */
-	public abstract void collectVariables(Set<PGoTypeVariable> vars);
-
-	/**
 	 * @param mapping maps type variables to types
 	 * @return the type after all substitutions are done
 	 */

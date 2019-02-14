@@ -36,7 +36,7 @@ public class PlusCalProcessesScopingVisitor extends PlusCalProcessesVisitor<Void
 		TLAScopeBuilder labelScope = new TLAScopeBuilder(ctx, new HashMap<>(), new ChainMap<>(builder.getDefinitions()), builder.getReferences());
 
 		for (PlusCalStatement stmts : singleProcess.getBody()) {
-			stmts.accept(new PlusCalStatementLabelCaptureVisitor(ctx, labelScope));
+			stmts.accept(new PlusCalStatementLabelCaptureVisitor(labelScope));
 		}
 
 		TLAScopeBuilder procScope = new TLAScopeBuilder(ctx, builder.getDeclarations(), labelScope.getDefinitions(), builder.getReferences());
@@ -67,7 +67,7 @@ public class PlusCalProcessesScopingVisitor extends PlusCalProcessesVisitor<Void
 			registry.addLocalVariable(proc.getName().getUID());
 
 			for (PlusCalStatement stmts : proc.getBody()) {
-				stmts.accept(new PlusCalStatementLabelCaptureVisitor(ctx, procScope));
+				stmts.accept(new PlusCalStatementLabelCaptureVisitor(procScope));
 			}
 
 			for (PlusCalStatement stmts : proc.getBody()) {

@@ -4,8 +4,6 @@ import pgo.errors.IssueContext;
 import pgo.model.mpcal.*;
 import pgo.model.pcal.*;
 import pgo.model.tla.TLAExpression;
-import pgo.model.tla.TLAGeneralIdentifier;
-import pgo.model.tla.TLARef;
 import pgo.model.tla.TLAUnit;
 import pgo.model.type.*;
 import pgo.scope.UID;
@@ -70,7 +68,7 @@ public class TypeInferencePass {
 				paramTypes.add(mapping.get(var.getUID()));
 			}
 			PlusCalStatementTypeConstraintVisitor v =
-					new PlusCalStatementTypeConstraintVisitor(ctx, registry, solver, generator, mapping);
+					new PlusCalStatementTypeConstraintVisitor(registry, solver, generator, mapping);
 			for (PlusCalStatement stmt : p.getBody()) {
 				stmt.accept(v);
 			}
@@ -104,7 +102,7 @@ public class TypeInferencePass {
 			}
 			for (PlusCalStatement statement : archetype.getBody()) {
 				statement.accept(new ArchetypeBodyStatementTypeConstraintVisitor(
-						ctx, registry, solver, generator, mapping, paramUIDs));
+						registry, solver, generator, mapping, paramUIDs));
 			}
 			PGoTypeVariable fresh = generator.get();
 			solver.addConstraint(new PGoTypeMonomorphicConstraint(
@@ -141,7 +139,7 @@ public class TypeInferencePass {
 			@Override
 			public Void visit(PlusCalSingleProcess singleProcess) throws RuntimeException {
 				for (PlusCalStatement statements : singleProcess.getBody()) {
-					statements.accept(new PlusCalStatementTypeConstraintVisitor(ctx, registry, solver, generator, mapping));
+					statements.accept(new PlusCalStatementTypeConstraintVisitor(registry, solver, generator, mapping));
 				}
 				return null;
 			}
@@ -163,7 +161,7 @@ public class TypeInferencePass {
 						constrainVariableDeclaration(registry, var, solver, generator, mapping);
 					}
 					for (PlusCalStatement statements : process.getBody()) {
-						statements.accept(new PlusCalStatementTypeConstraintVisitor(ctx, registry, solver, generator, mapping));
+						statements.accept(new PlusCalStatementTypeConstraintVisitor(registry, solver, generator, mapping));
 					}
 				}
 				return null;

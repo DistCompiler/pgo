@@ -9,13 +9,9 @@ import pgo.trans.intermediate.QualifiedName;
 import java.util.Set;
 
 public class MappingMacroTLAExpressionScopingVisitor extends TLAExpressionScopingVisitor {
-	private final QualifiedName mappingMacroQualifiedName;
-
 	public MappingMacroTLAExpressionScopingVisitor(TLAScopeBuilder builder, DefinitionRegistry registry,
-	                                               TLAModuleLoader loader, Set<String> moduleRecursionSet,
-	                                               QualifiedName mappingMacroQualifiedName) {
+	                                               TLAModuleLoader loader, Set<String> moduleRecursionSet) {
 		super(builder, registry, loader, moduleRecursionSet);
-		this.mappingMacroQualifiedName = mappingMacroQualifiedName;
 	}
 
 	@Override

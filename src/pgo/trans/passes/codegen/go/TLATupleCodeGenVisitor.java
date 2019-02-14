@@ -10,12 +10,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class TLATupleCodeGenVisitor extends GoTypeVisitor<GoExpression, RuntimeException> {
+	private final List<GoExpression> elements;
 
-	private GoBlockBuilder builder;
-	private List<GoExpression> elements;
-
-	public TLATupleCodeGenVisitor(GoBlockBuilder builder, List<GoExpression> elements) {
-		this.builder = builder;
+	public TLATupleCodeGenVisitor(List<GoExpression> elements) {
 		this.elements = elements;
 	}
 
@@ -57,5 +54,4 @@ public class TLATupleCodeGenVisitor extends GoTypeVisitor<GoExpression, RuntimeE
 	public GoExpression visit(GoInterfaceType interfaceType) throws RuntimeException {
 		throw new InternalCompilerError();
 	}
-
 }

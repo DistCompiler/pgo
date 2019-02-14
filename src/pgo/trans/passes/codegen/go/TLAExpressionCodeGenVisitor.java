@@ -296,7 +296,7 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 		for (TLAExpression element : tlaTuple.getElements()) {
 			elements.add(element.accept(this));
 		}
-		return sliceType.accept(new TLATupleCodeGenVisitor(builder, elements));
+		return sliceType.accept(new TLATupleCodeGenVisitor(elements));
 	}
 
 	@Override

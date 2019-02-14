@@ -42,11 +42,6 @@ public class PGoTypeProcedure extends PGoType {
 	}
 
 	@Override
-	public void collectVariables(Set<PGoTypeVariable> vars) {
-		paramTypes.forEach(t -> t.collectVariables(vars));
-	}
-
-	@Override
 	public PGoType substitute(Map<PGoTypeVariable, PGoType> mapping) {
 		paramTypes = paramTypes.stream().map(t -> t.substitute(mapping)).collect(Collectors.toList());
 		return this;

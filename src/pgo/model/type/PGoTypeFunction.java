@@ -49,12 +49,6 @@ public class PGoTypeFunction extends PGoType {
 	}
 
 	@Override
-	public void collectVariables(Set<PGoTypeVariable> vars) {
-		paramTypes.forEach(e -> e.collectVariables(vars));
-		returnType.collectVariables(vars);
-	}
-
-	@Override
 	public PGoType substitute(Map<PGoTypeVariable, PGoType> mapping) {
 		paramTypes = paramTypes.stream().map(t -> t.substitute(mapping)).collect(Collectors.toList());
 		returnType = returnType.substitute(mapping);

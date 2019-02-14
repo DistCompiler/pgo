@@ -1,7 +1,6 @@
 package pgo.trans.passes.type;
 
 import pgo.Unreachable;
-import pgo.errors.IssueContext;
 import pgo.model.mpcal.ModularPlusCalYield;
 import pgo.model.pcal.*;
 import pgo.model.type.*;
@@ -14,23 +13,21 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 public class PlusCalStatementTypeConstraintVisitor extends PlusCalStatementVisitor<Void, RuntimeException> {
-	private IssueContext ctx;
 	protected DefinitionRegistry registry;
 	protected PGoTypeSolver solver;
 	private PGoTypeGenerator generator;
 	protected Map<UID, PGoTypeVariable> mapping;
 	protected TLAExpressionTypeConstraintVisitor exprVisitor;
 
-	public PlusCalStatementTypeConstraintVisitor(IssueContext ctx, DefinitionRegistry registry, PGoTypeSolver solver,
+	public PlusCalStatementTypeConstraintVisitor(DefinitionRegistry registry, PGoTypeSolver solver,
 	                                             PGoTypeGenerator generator, Map<UID, PGoTypeVariable> mapping) {
-		this(ctx, registry, solver, generator, mapping,
+		this(registry, solver, generator, mapping,
 				new TLAExpressionTypeConstraintVisitor(registry, solver, generator, mapping));
 	}
 
-	protected PlusCalStatementTypeConstraintVisitor(IssueContext ctx, DefinitionRegistry registry, PGoTypeSolver solver,
+	protected PlusCalStatementTypeConstraintVisitor(DefinitionRegistry registry, PGoTypeSolver solver,
 	                                                PGoTypeGenerator generator, Map<UID, PGoTypeVariable> mapping,
 	                                                TLAExpressionTypeConstraintVisitor exprVisitor) {
-		this.ctx = ctx;
 		this.registry = registry;
 		this.solver = solver;
 		this.generator = generator;
