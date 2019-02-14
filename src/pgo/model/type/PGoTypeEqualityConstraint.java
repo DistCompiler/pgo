@@ -21,6 +21,7 @@ public class PGoTypeEqualityConstraint {
 	}
 
 	public PGoTypeEqualityConstraint copy() {
-		return new PGoTypeEqualityConstraint(lhs.copy(), rhs.copy());
+		PGoTypeCopyVisitor visitor = new PGoTypeCopyVisitor();
+		return new PGoTypeEqualityConstraint(lhs.accept(visitor), rhs.accept(visitor));
 	}
 }

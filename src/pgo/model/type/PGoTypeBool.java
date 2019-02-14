@@ -7,7 +7,7 @@ import java.util.List;
 /**
  * Represents the boolean type.
  */
-public class PGoTypeBool extends PGoPrimitiveType {
+public class PGoTypeBool extends PGoType {
 	public PGoTypeBool(List<Origin> origins) {
 		super(origins);
 	}

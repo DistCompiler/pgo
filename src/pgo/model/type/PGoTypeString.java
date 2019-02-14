@@ -7,7 +7,7 @@ import java.util.List;
 /**
  * Represents the string type.
  */
-public class PGoTypeString extends PGoPrimitiveType {
+public class PGoTypeString extends PGoType {
 	public PGoTypeString(List<Origin> origins) {
 		super(origins);
 	}

@@ -7,7 +7,7 @@ import java.util.List;
 /**
  * Represents a fallback integer type.
  */
-public class PGoTypeInt extends PGoPrimitiveType {
+public class PGoTypeInt extends PGoType {
 	public PGoTypeInt(List<Origin> origins) {
 		super(origins);
 	}

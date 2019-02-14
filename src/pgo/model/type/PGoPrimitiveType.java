@@ -13,9 +13,4 @@ public abstract class PGoPrimitiveType extends PGoType {
 	public PGoPrimitiveType(List<Origin> origins) {
 		super(origins);
 	}
-
-	@Override
-	public PGoType copy() {
-		return this;
-	}
 }

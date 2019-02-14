@@ -7,7 +7,7 @@ import java.util.List;
 /**
  * Represents the floating point number type.
  */
-public class PGoTypeReal extends PGoPrimitiveType {
+public class PGoTypeReal extends PGoType {
 	public PGoTypeReal(List<Origin> origins) {
 		super(origins);
 	}

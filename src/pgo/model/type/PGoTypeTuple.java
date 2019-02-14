@@ -44,10 +44,4 @@ public class PGoTypeTuple extends PGoType {
 	public <T, E extends Throwable> T accept(PGoTypeVisitor<T, E> v) throws E {
 		return v.visit(this);
 	}
-
-	@Override
-	public PGoType copy() {
-		return new PGoTypeTuple(elementTypes.stream().map(PGoType::copy).collect(Collectors.toList()), getOrigins());
-	}
-
 }

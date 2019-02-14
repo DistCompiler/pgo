@@ -16,8 +16,6 @@ public abstract class PGoType extends Derived {
 		origins.forEach(this::addOrigin);
 	}
 
-	public abstract PGoType copy();
-
 	@Override
 	public abstract int hashCode();
 
