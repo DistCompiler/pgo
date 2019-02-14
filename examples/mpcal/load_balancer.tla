@@ -13,7 +13,7 @@ EXTENDS Naturals, Sequences, TLC
 CONSTANT BUFFER_SIZE
 
 \* Define a constant identifier for the load balancer.
-LoadBalancerId == 0
+CONSTANT LoadBalancerId
 
 \* The number of servers and clients in the model checking setup.
 CONSTANTS NUM_SERVERS, NUM_CLIENTS
@@ -32,12 +32,13 @@ ASSUME NUM_SERVERS > 0 /\ NUM_CLIENTS > 0
 \* correctness of our load balancer.
 CONSTANTS GET_PAGE, WEB_PAGE
 
-\* total nodes in the system:
-\*    number of clients + number of  servers + the load balancer
-NUM_NODES == NUM_CLIENTS + NUM_SERVERS + 1
-
 (***************************************************************************
 --mpcal LoadBalancer {
+  define {
+    \* total nodes in the system:
+    \*    number of clients + number of servers + the load balancer
+    NUM_NODES == NUM_CLIENTS + NUM_SERVERS + 1
+  }
 
   \* The TCPChannel mapping macro models a communication channel
   \* between two processes using TCP-like semantics. In particular:
@@ -160,7 +161,7 @@ NUM_NODES == NUM_CLIENTS + NUM_SERVERS + 1
           sendPage:
             \* sends a web page (read from `page_stream`) back to the requester
             \* i.e., the client.
-            mailboxes[msg[2]] := page_stream;
+            mailboxes[msg[2]] := <<msg[2], page_stream>>;
         }
   }
 
@@ -242,7 +243,7 @@ NUM_NODES == NUM_CLIENTS + NUM_SERVERS + 1
               await Len(network[self]) > 0;
                 with (m = Head(network[self])) {
                     network[self] := Tail(network[self]);
-                    assert(m = WEB_PAGE);
+                    assert(m[2] = WEB_PAGE);
                 };
         }
   }
@@ -251,6 +252,8 @@ NUM_NODES == NUM_CLIENTS + NUM_SERVERS + 1
 \* BEGIN PLUSCAL TRANSLATION
 --algorithm LoadBalancer {
     variables network = [id \in (0)..(NUM_NODES) |-> <<>>], stream = 0;
+    define {
+        NUM_NODES == ((NUM_CLIENTS)+(NUM_SERVERS))+(1)}
     fair process (LoadBalancer = LoadBalancerId)
     variables msg, next = 0, mailboxesRead, mailboxesWrite, mailboxesWrite0;
     {
@@ -296,7 +299,7 @@ NUM_NODES == NUM_CLIENTS + NUM_SERVERS + 1
                 sendPage:
                     page_streamRead := WEB_PAGE;
                     await (Len(network[msg[2]]))<(BUFFER_SIZE);
-                    mailboxesWrite1 := [network EXCEPT ![msg[2]] = Append(network[msg[2]], page_streamRead)];
+                    mailboxesWrite1 := [network EXCEPT ![msg[2]] = Append(network[msg[2]], <<msg[2], page_streamRead>>)];
                     network := mailboxesWrite1;
                     goto serverLoop;
 
@@ -320,7 +323,7 @@ NUM_NODES == NUM_CLIENTS + NUM_SERVERS + 1
                     await (Len(network[self]))>(0);
                     with (m = Head(network[self])) {
                         network[self] := Tail(network[self]);
-                        assert (m)=(WEB_PAGE);
+                        assert (m[2])=(WEB_PAGE);
                     };
 
             };
@@ -333,12 +336,17 @@ NUM_NODES == NUM_CLIENTS + NUM_SERVERS + 1
 
 ***************************************************************************)
 \* BEGIN TRANSLATION
-\* Process variable msg of process LoadBalancer at line 255 col 15 changed to msg_
-\* Process variable msg of process Servers at line 283 col 15 changed to msg_S
+\* Process variable msg of process LoadBalancer at line 258 col 15 changed to msg_
+\* Process variable msg of process Servers at line 286 col 15 changed to msg_S
 CONSTANT defaultInitValue
-VARIABLES network, stream, pc, msg_, next, mailboxesRead, mailboxesWrite,
-          mailboxesWrite0, msg_S, mailboxesRead0, mailboxesWrite1,
-          page_streamRead, mailboxesWrite2, msg
+VARIABLES network, stream, pc
+
+(* define statement *)
+NUM_NODES == ((NUM_CLIENTS)+(NUM_SERVERS))+(1)
+
+VARIABLES msg_, next, mailboxesRead, mailboxesWrite, mailboxesWrite0, msg_S,
+          mailboxesRead0, mailboxesWrite1, page_streamRead, mailboxesWrite2,
+          msg
 
 vars == << network, stream, pc, msg_, next, mailboxesRead, mailboxesWrite,
            mailboxesWrite0, msg_S, mailboxesRead0, mailboxesWrite1,
@@ -385,7 +393,7 @@ rcvMsg == /\ pc[LoadBalancerId] = "rcvMsg"
                /\ mailboxesRead' = msg0
           /\ msg_' = mailboxesRead'
           /\ Assert((msg_'[1])=(GET_PAGE),
-                    "Failure of assertion at line 266, column 21.")
+                    "Failure of assertion at line 269, column 21.")
           /\ network' = mailboxesWrite'
           /\ pc' = [pc EXCEPT ![LoadBalancerId] = "sendServer"]
           /\ UNCHANGED << stream, next, mailboxesWrite0, msg_S, mailboxesRead0,
@@ -431,7 +439,7 @@ rcvReq(self) == /\ pc[self] = "rcvReq"
 sendPage(self) == /\ pc[self] = "sendPage"
                   /\ page_streamRead' = [page_streamRead EXCEPT ![self] = WEB_PAGE]
                   /\ (Len(network[msg_S[self][2]]))<(BUFFER_SIZE)
-                  /\ mailboxesWrite1' = [mailboxesWrite1 EXCEPT ![self] = [network EXCEPT ![msg_S[self][2]] = Append(network[msg_S[self][2]], page_streamRead'[self])]]
+                  /\ mailboxesWrite1' = [mailboxesWrite1 EXCEPT ![self] = [network EXCEPT ![msg_S[self][2]] = Append(network[msg_S[self][2]], <<msg_S[self][2], page_streamRead'[self]>>)]]
                   /\ network' = mailboxesWrite1'[self]
                   /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                   /\ UNCHANGED << stream, msg_, next, mailboxesRead,
@@ -461,8 +469,8 @@ clientReceive(self) == /\ pc[self] = "clientReceive"
                        /\ (Len(network[self]))>(0)
                        /\ LET m == Head(network[self]) IN
                             /\ network' = [network EXCEPT ![self] = Tail(network[self])]
-                            /\ Assert((m)=(WEB_PAGE),
-                                      "Failure of assertion at line 323, column 25.")
+                            /\ Assert((m[2])=(WEB_PAGE),
+                                      "Failure of assertion at line 326, column 25.")
                        /\ pc' = [pc EXCEPT ![self] = "clientLoop"]
                        /\ UNCHANGED << stream, msg_, next, mailboxesRead,
                                        mailboxesWrite, mailboxesWrite0, msg_S,
@@ -508,5 +516,5 @@ ClientsOk == \A client \in (NUM_SERVERS+1)..(NUM_SERVERS+NUM_CLIENTS+1) : Receiv
 
 =============================================================================
 \* Modification History
-\* Last modified Wed Feb 06 17:26:45 PST 2019 by minh
+\* Last modified Thu Feb 14 20:29:45 PST 2019 by minh
 \* Last modified Sat Feb 02 19:59:51 PST 2019 by rmc
