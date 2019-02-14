@@ -9,6 +9,7 @@ import pgo.model.type.*;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
 import pgo.trans.passes.codegen.go.PGoTypeGoTypeConversionVisitor;
+import pgo.util.Origin;
 
 import java.util.*;
 
@@ -35,6 +36,18 @@ public class TypeInferencePass {
 		} else {
 			solver.addConstraint(new PGoTypeMonomorphicConstraint(var, v, valueType));
 		}
+	}
+
+	private static void constrainSelfVariable(Origin origin, UID selfVariableUID, PGoTypeSolver solver,
+	                                          Map<UID, PGoTypeVariable> mapping) {
+		PGoType selfVariableType = mapping.get(selfVariableUID);
+		solver.addConstraint(new PGoTypePolymorphicConstraint(selfVariableUID, Arrays.asList(
+				Collections.singletonList(new PGoTypeEqualityConstraint(
+						selfVariableType,
+						new PGoTypeInt(Collections.singletonList(origin)))),
+				Collections.singletonList(new PGoTypeEqualityConstraint(
+						selfVariableType,
+						new PGoTypeString(Collections.singletonList(origin)))))));
 	}
 
 	public static Map<UID, PGoType> perform(IssueContext ctx, DefinitionRegistry registry,
@@ -77,19 +90,11 @@ public class TypeInferencePass {
 			mapping.put(p.getUID(), fresh);
 		}
 
-		Map<String, PGoTypeVariable> archetypeTypes = new HashMap<>();
 		for (ModularPlusCalArchetype archetype : modularPlusCalBlock.getArchetypes()) {
 			registry.addReadAndWrittenValueTypes(archetype, generator);
 			UID selfVariableUID = archetype.getSelfVariableUID();
-			PGoTypeVariable selfVariableType = generator.get();
-			mapping.put(selfVariableUID, selfVariableType);
-			solver.addConstraint(new PGoTypePolymorphicConstraint(selfVariableUID, Arrays.asList(
-					Collections.singletonList(new PGoTypeEqualityConstraint(
-							selfVariableType,
-							new PGoTypeInt(Collections.singletonList(archetype)))),
-					Collections.singletonList(new PGoTypeEqualityConstraint(
-							selfVariableType,
-							new PGoTypeString(Collections.singletonList(archetype)))))));
+			mapping.put(selfVariableUID, generator.get());
+			constrainSelfVariable(archetype, selfVariableUID, solver, mapping);
 			List<PGoType> paramTypes = new ArrayList<>();
 			Set<UID> paramUIDs = new HashSet<>();
 			for (PlusCalVariableDeclaration declaration : archetype.getParams()) {
@@ -108,20 +113,15 @@ public class TypeInferencePass {
 			solver.addConstraint(new PGoTypeMonomorphicConstraint(
 					archetype, fresh, new PGoTypeProcedure(paramTypes, Collections.singletonList(archetype))));
 			mapping.put(archetype.getUID(), fresh);
-			archetypeTypes.put(archetype.getName(), fresh);
 		}
 
 		for (ModularPlusCalInstance instance : modularPlusCalBlock.getInstances()) {
-			UID instanceVariableUID = instance.getName().getUID();
 			constrainVariableDeclaration(registry, instance.getName(), solver, generator, mapping);
-			PGoTypeVariable instanceVariableType = mapping.get(instanceVariableUID);
-			solver.addConstraint(new PGoTypePolymorphicConstraint(instanceVariableType, Arrays.asList(
-					Collections.singletonList(new PGoTypeEqualityConstraint(
-							instanceVariableType,
-							new PGoTypeInt(Collections.singletonList(instanceVariableUID)))),
-					Collections.singletonList(new PGoTypeEqualityConstraint(
-							instanceVariableType,
-							new PGoTypeString(Collections.singletonList(instanceVariableUID)))))));
+			UID selfVariableUID = instance.getName().getUID();
+			constrainSelfVariable(instance, selfVariableUID, solver, mapping);
+			ModularPlusCalArchetype target = registry.findArchetype(instance.getTarget());
+			solver.addConstraint(new PGoTypeMonomorphicConstraint(
+					instance, mapping.get(selfVariableUID), mapping.get(target.getSelfVariableUID())));
 			List<PGoType> paramTypes = new ArrayList<>();
 			TLAExpressionTypeConstraintVisitor v =
 					new TLAExpressionTypeConstraintVisitor(registry, solver, generator, mapping);
@@ -131,7 +131,7 @@ public class TypeInferencePass {
 			}
 			solver.addConstraint(new PGoTypeMonomorphicConstraint(
 					instance,
-					archetypeTypes.get(instance.getTarget()),
+					mapping.get(target.getUID()),
 					new PGoTypeProcedure(paramTypes, Collections.singletonList(instance))));
 		}
 
@@ -148,20 +148,13 @@ public class TypeInferencePass {
 			public Void visit(PlusCalMultiProcess multiProcess) throws RuntimeException {
 				for (PlusCalProcess process : multiProcess.getProcesses()) {
 					constrainVariableDeclaration(registry, process.getName(), solver, generator, mapping);
-					UID processVariableUID = process.getName().getUID();
-					PGoType processVariableType = mapping.get(processVariableUID);
-					solver.addConstraint(new PGoTypePolymorphicConstraint(process.getName().getUID(), Arrays.asList(
-							Collections.singletonList(new PGoTypeEqualityConstraint(
-									processVariableType,
-									new PGoTypeInt(Collections.singletonList(process.getName())))),
-							Collections.singletonList(new PGoTypeEqualityConstraint(
-									processVariableType,
-									new PGoTypeString(Collections.singletonList(process.getName())))))));
+					constrainSelfVariable(process, process.getName().getUID(), solver, mapping);
 					for (PlusCalVariableDeclaration var : process.getVariables()) {
 						constrainVariableDeclaration(registry, var, solver, generator, mapping);
 					}
 					for (PlusCalStatement statements : process.getBody()) {
-						statements.accept(new PlusCalStatementTypeConstraintVisitor(registry, solver, generator, mapping));
+						statements.accept(
+								new PlusCalStatementTypeConstraintVisitor(registry, solver, generator, mapping));
 					}
 				}
 				return null;
