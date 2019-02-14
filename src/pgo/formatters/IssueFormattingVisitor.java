@@ -234,7 +234,7 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 	public Void visit(TypeInferenceFailureIssue typeInferenceFailureIssue) throws IOException {
 		out.write("could not infer type for ");
 		typeInferenceFailureIssue.getUID().accept(new DerivedFormattingVisitor(out));
-		out.write("; got");
+		out.write("; got ");
 		typeInferenceFailureIssue.getType().accept(new DerivedFormattingVisitor(out));
 		return null;
 	}
