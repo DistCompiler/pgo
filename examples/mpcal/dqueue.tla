@@ -67,7 +67,7 @@ NUM_NODES == NUM_CONSUMERS + 1
 
   fair process (Consumer \in 1..NUM_CONSUMERS) == instance AConsumer(ref network, ref processor)
       mapping network[_] via TCPChannel;
-  fair process (Producer = PRODUCER) == instance AProducer(ref network, ref stream)
+  fair process (Producer = PRODUCER) == instance AProducer(ref network, stream)
       mapping network[_] via TCPChannel
       mapping stream via CyclicReads;
 }
