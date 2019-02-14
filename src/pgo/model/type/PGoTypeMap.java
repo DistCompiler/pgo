@@ -36,6 +36,11 @@ public class PGoTypeMap extends PGoType {
 	}
 
 	@Override
+	public int hashCode() {
+		return keyType.hashCode() * 17 + valueType.hashCode() * 19 + 3;
+	}
+
+	@Override
 	public boolean equals(Object p) {
 		if (!(p instanceof PGoTypeMap)) {
 			return false;

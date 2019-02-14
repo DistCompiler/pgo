@@ -38,6 +38,11 @@ public class PGoTypeFunction extends PGoType {
 	}
 
 	@Override
+	public int hashCode() {
+		return paramTypes.hashCode() * 17 + returnType.hashCode() * 19 + 2;
+	}
+
+	@Override
 	public boolean equals(Object obj) {
 		if (!(obj instanceof PGoTypeFunction)) {
 			return false;

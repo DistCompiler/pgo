@@ -13,6 +13,11 @@ public class PGoTypeNonEnumerableSet extends PGoSimpleContainerType {
 	}
 
 	@Override
+	public int hashCode() {
+		return super.hashCode() * 17 + 3;
+	}
+
+	@Override
 	public boolean equals(Object p) {
 		if (!(p instanceof PGoTypeNonEnumerableSet)) {
 			return false;

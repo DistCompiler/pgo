@@ -22,6 +22,19 @@ public class PGoTypeVariable extends PGoType {
 	}
 
 	@Override
+	public int hashCode() {
+		return name.hashCode() * 17 + 2;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		// since PGoTypeVariable can only be created by
+		// PGoTypeGenerator, it is safe to compare references
+		// here
+		return this == obj;
+	}
+
+	@Override
 	public PGoType copy() {
 		return this;
 	}

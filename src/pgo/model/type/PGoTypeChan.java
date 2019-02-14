@@ -13,6 +13,11 @@ public class PGoTypeChan extends PGoSimpleContainerType {
 	}
 
 	@Override
+	public int hashCode() {
+		return super.hashCode() * 17 + 2;
+	}
+
+	@Override
 	public boolean equals(Object p) {
 		if (!(p instanceof PGoTypeChan)) {
 			return false;

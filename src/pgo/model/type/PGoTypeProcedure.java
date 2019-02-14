@@ -28,6 +28,11 @@ public class PGoTypeProcedure extends PGoType {
 	}
 
 	@Override
+	public int hashCode() {
+		return paramTypes.hashCode() * 17 + 2;
+	}
+
+	@Override
 	public boolean equals(Object obj) {
 		if (!(obj instanceof PGoTypeProcedure)) {
 			return false;

@@ -9,8 +9,7 @@ public class PGoTypeHasVariableVisitor extends PGoTypeVisitor<Boolean, RuntimeEx
 
 	@Override
 	public Boolean visit(PGoTypeVariable pGoTypeVariable) throws RuntimeException {
-			// since PGoTypeVariable can only be created by PGoTypeGenerator, it is safe to compare references here
-			return pGoTypeVariable == typeVariable;
+			return pGoTypeVariable.equals(typeVariable);
 	}
 
 	@Override

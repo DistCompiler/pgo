@@ -13,6 +13,11 @@ public class PGoTypeString extends PGoPrimitiveType {
 	}
 
 	@Override
+	public int hashCode() {
+		return 7;
+	}
+
+	@Override
 	public boolean equals(Object obj) {
 		return obj instanceof PGoTypeString;
 	}

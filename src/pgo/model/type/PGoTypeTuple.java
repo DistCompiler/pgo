@@ -28,6 +28,11 @@ public class PGoTypeTuple extends PGoType {
 	}
 
 	@Override
+	public int hashCode() {
+		return elementTypes.hashCode() * 17 + 3;
+	}
+
+	@Override
 	public boolean equals(Object p) {
 		if (!(p instanceof PGoTypeTuple)) {
 			return false;

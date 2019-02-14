@@ -13,6 +13,11 @@ public class PGoTypeSet extends PGoSimpleContainerType {
 	}
 
 	@Override
+	public int hashCode() {
+		return super.hashCode() * 17 + 5;
+	}
+
+	@Override
 	public boolean equals(Object p) {
 		if (!(p instanceof PGoTypeSet)) {
 			return false;

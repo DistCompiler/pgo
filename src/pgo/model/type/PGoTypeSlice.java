@@ -13,6 +13,11 @@ public class PGoTypeSlice extends PGoSimpleContainerType {
 	}
 
 	@Override
+	public int hashCode() {
+		return super.hashCode() * 17 + 7;
+	}
+
+	@Override
 	public boolean equals(Object p) {
 		if (!(p instanceof PGoTypeSlice)) {
 			return false;

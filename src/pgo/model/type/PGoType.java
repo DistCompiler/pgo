@@ -19,6 +19,12 @@ public abstract class PGoType extends Derived {
 	public abstract PGoType copy();
 
 	@Override
+	public abstract int hashCode();
+
+	@Override
+	public abstract boolean equals(Object obj);
+
+	@Override
 	public <T, E extends Throwable> T accept(DerivedVisitor<T, E> v) throws E{
 		return v.visit(this);
 	}

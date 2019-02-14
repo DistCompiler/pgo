@@ -25,6 +25,11 @@ public abstract class PGoSimpleContainerType extends PGoType {
 	}
 
 	@Override
+	public int hashCode() {
+		return elementType.hashCode();
+	}
+
+	@Override
 	public boolean equals(Object p) {
 		if (!(p instanceof PGoSimpleContainerType)) {
 			return false;
