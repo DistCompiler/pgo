@@ -44,9 +44,7 @@ public class CompiledOperatorAccessor extends OperatorAccessor {
 				// TODO: error
 			}
 		}
-		PGoType result = new TLAExpressionTypeConstraintVisitor(registry, solver, generator, mapping)
-				.wrappedVisit(def.getBody());
-		return result;
+		return new TLAExpressionTypeConstraintVisitor(registry, solver, generator, mapping).wrappedVisit(def.getBody());
 	}
 
 	@Override

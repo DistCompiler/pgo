@@ -7,11 +7,14 @@ EXTENDS Naturals, Sequences, TLC
 
 CONSTANTS BUFFER_SIZE, NUM_CONSUMERS, PRODUCER
 
-(* total nodes in the system: number of consumers + the producer *)
-NUM_NODES == NUM_CONSUMERS + 1
 
 (***************************************************************************
 --mpcal DistQueue {
+  define {
+    (* total nodes in the system: number of consumers + the producer *)
+    NUM_NODES == NUM_CONSUMERS + 1
+  }
+
   mapping macro TCPChannel {
       read {
           await Len($variable) > 0;

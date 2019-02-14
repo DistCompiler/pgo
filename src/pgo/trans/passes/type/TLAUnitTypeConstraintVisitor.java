@@ -12,18 +12,17 @@ import pgo.trans.intermediate.DefinitionRegistry;
 import java.util.Map;
 
 public class TLAUnitTypeConstraintVisitor extends TLAUnitVisitor<Void, RuntimeException> {
+	private final PGoTypeSolver solver;
+	private final PGoTypeGenerator generator;
+	private final Map<UID, PGoTypeVariable> mapping;
+	private final TLAExpressionTypeConstraintVisitor visitor;
 
-	private DefinitionRegistry registry;
-	private Map<UID, PGoTypeVariable> mapping;
-	private PGoTypeGenerator generator;
-	private PGoTypeSolver solver;
-
-	public TLAUnitTypeConstraintVisitor(DefinitionRegistry registry, PGoTypeSolver solver,
-	                                    PGoTypeGenerator generator, Map<UID, PGoTypeVariable> mapping) {
-		this.registry = registry;
+	public TLAUnitTypeConstraintVisitor(DefinitionRegistry registry, PGoTypeSolver solver, PGoTypeGenerator generator,
+	                                    Map<UID, PGoTypeVariable> mapping) {
 		this.solver = solver;
 		this.generator = generator;
 		this.mapping = mapping;
+		this.visitor = new TLAExpressionTypeConstraintVisitor(registry, solver, generator, mapping);
 	}
 
 	@Override
@@ -41,12 +40,8 @@ public class TLAUnitTypeConstraintVisitor extends TLAUnitVisitor<Void, RuntimeEx
 			v = generator.get();
 			mapping.put(id, v);
 		}
-		solver.addConstraint(
-				new PGoTypeMonomorphicConstraint(
-						pGoTLAFunctionDefinition,
-						v,
-						new TLAExpressionTypeConstraintVisitor(registry, solver, generator, mapping)
-								.wrappedVisit(pGoTLAFunctionDefinition.getFunction())));
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(
+				pGoTLAFunctionDefinition, v, visitor.wrappedVisit(pGoTLAFunctionDefinition.getFunction())));
 		return null;
 	}
 
@@ -59,7 +54,7 @@ public class TLAUnitTypeConstraintVisitor extends TLAUnitVisitor<Void, RuntimeEx
 				mapping.put(arg.getName().getUID(), generator.get());
 			}
 		}
-		new TLAExpressionTypeConstraintVisitor(registry, solver, generator, mapping).wrappedVisit(pGoTLAOperator.getBody());
+		visitor.wrappedVisit(pGoTLAOperator.getBody());
 		return null;
 	}
 

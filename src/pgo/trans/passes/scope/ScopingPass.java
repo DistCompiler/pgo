@@ -64,15 +64,15 @@ public class ScopingPass {
 
 		TLAScopeBuilder modularPlusCalScope = tlaScope.makeNestedScope();
 
+		for (TLAUnit unit : modularPlusCalBlock.getUnits()) {
+			unit.accept(new TLAUnitScopingVisitor(ctx, modularPlusCalScope, registry, loader, new HashSet<>()));
+		}
+
 		for (PlusCalVariableDeclaration variableDeclaration : modularPlusCalBlock.getVariables()) {
 			modularPlusCalScope.declare(variableDeclaration.getName().getValue(), variableDeclaration.getUID());
 			registry.addGlobalVariable(variableDeclaration.getUID());
 			variableDeclaration.getValue().accept(new TLAExpressionScopingVisitor(
-					tlaScope, registry, loader, new HashSet<>()));
-		}
-
-		for (TLAUnit unit : modularPlusCalBlock.getUnits()) {
-			unit.accept(new TLAUnitScopingVisitor(ctx, modularPlusCalScope, registry, loader, new HashSet<>()));
+					modularPlusCalScope, registry, loader, new HashSet<>()));
 		}
 
 		for (PlusCalProcedure proc : modularPlusCalBlock.getProcedures()) {
