@@ -22,11 +22,6 @@ public class PGoTypeVariable extends PGoType {
 	}
 
 	@Override
-	public boolean containsVariables() {
-		return true;
-	}
-
-	@Override
 	public PGoType substitute(Map<PGoTypeVariable, PGoType> mapping) {
 		PGoType old = this;
 		PGoType sub = mapping.getOrDefault(this, this);

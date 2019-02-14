@@ -30,11 +30,6 @@ public abstract class PGoSimpleContainerType extends PGoType {
 	}
 
 	@Override
-	public boolean containsVariables() {
-		return elementType.containsVariables();
-	}
-
-	@Override
 	public PGoType substitute(Map<PGoTypeVariable, PGoType> mapping) {
 		elementType = elementType.substitute(mapping);
 		return this;

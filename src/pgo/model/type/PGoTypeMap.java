@@ -37,11 +37,6 @@ public class PGoTypeMap extends PGoType {
 	}
 
 	@Override
-	public boolean containsVariables() {
-		return keyType.containsVariables() || valueType.containsVariables();
-	}
-
-	@Override
 	public PGoType substitute(Map<PGoTypeVariable, PGoType> mapping) {
 		keyType = keyType.substitute(mapping);
 		valueType = valueType.substitute(mapping);

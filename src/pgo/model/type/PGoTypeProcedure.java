@@ -32,11 +32,6 @@ public class PGoTypeProcedure extends PGoType {
 	}
 
 	@Override
-	public boolean containsVariables() {
-		return paramTypes.stream().anyMatch(PGoType::containsVariables);
-	}
-
-	@Override
 	public PGoType substitute(Map<PGoTypeVariable, PGoType> mapping) {
 		paramTypes = paramTypes.stream().map(t -> t.substitute(mapping)).collect(Collectors.toList());
 		return this;

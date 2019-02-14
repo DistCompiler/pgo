@@ -32,11 +32,6 @@ public class PGoTypeTuple extends PGoType {
 	}
 
 	@Override
-	public boolean containsVariables() {
-		return elementTypes.stream().anyMatch(PGoType::containsVariables);
-	}
-
-	@Override
 	public PGoType substitute(Map<PGoTypeVariable, PGoType> mapping) {
 		elementTypes = elementTypes.stream().map(t -> t.substitute(mapping)).collect(Collectors.toList());
 		return this;

@@ -15,11 +15,6 @@ public abstract class PGoPrimitiveType extends PGoType {
 	}
 
 	@Override
-	public boolean containsVariables() {
-		return false;
-	}
-
-	@Override
 	public PGoType substitute(Map<PGoTypeVariable, PGoType> mapping) {
 		return this;
 	}

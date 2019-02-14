@@ -177,7 +177,7 @@ public class TypeInferencePass {
 				continue;
 			}
 			resultingTypeMapping.put(uid, type);
-			if (type.containsVariables()) {
+			if (type.accept(new PGoTypeContainsVariablesVisitor())) {
 				ctx.error(new TypeInferenceFailureIssue(uid, type));
 			}
 		}
