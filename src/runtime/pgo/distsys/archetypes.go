@@ -18,17 +18,26 @@ const (
 // ArchetypeResource defines the interface that parameters passed to functions
 // derived from Modular PlusCal's archetypes must implement.
 type ArchetypeResource interface {
-	// Acquire attempts to get access to a resource, returning its associated
-	// value when successful.
-	Acquire(access ResourceAccess) (interface{}, error)
+	// Acquire attempts to get access to a resource with read and/or write
+	// permissions. Returns a boolean indicating whether it was successful.
+	Acquire(access ResourceAccess) error
 
-	// Commit receives a new value that the underlying resource is
+	// Read returns the current value associated with a resource.
+	// Resource needs to have been acquired first.
+	Read() (interface{}, error)
+
+	// Write receives a new value that the underlying resource is
 	// supposed to be set to.
-	Commit(value interface{}) error
+	Write(value interface{}) error
+
+	// Release causes the calling process to cease having access to the
+	// shared resource. Any written changes to the underlying values
+	// are committed.
+	Release() error
 
 	// Abort indicates an error situation. Access must be released,
-	// and any state rolled back to its previous value (before
-	// acquisition)
+	// and any state changed while the resource was accquired is
+	// rolled back to its previous value, before acquisition
 	Abort() error
 
 	// Less compares one archetype resource with another. Ordering
@@ -58,37 +67,37 @@ func (s SortableArchetypeResource) Less(i, j int) bool {
 }
 
 // AcquireResources acquires a series of resources (concrete
-// implementations of the `ArchetypeResource` interface) and returns a
-// map from resources to values. This function makes sure that
-// resources are acquired in proper order (i.e., according to the
-// resource's implementation of `Less`). The resulting map can be used
-// by the caller to retrieve the values retrived.
-func AcquireResources(access ResourceAccess, resources ...ArchetypeResource) (map[ArchetypeResource]interface{}, error) {
-	vals := map[ArchetypeResource]interface{}{}
-
+// implementations of the `ArchetypeResource` interface) and returns
+// an error in case one of the resources cannot be acquired. This
+// function makes sure that resources are acquired in proper order
+// (i.e., according to the resource's implementation of `Less`).
+func AcquireResources(access ResourceAccess, resources ...ArchetypeResource) error {
 	// sort the resources to be acquired according to their
 	// implementation of `Less`
 	sort.Sort(SortableArchetypeResource(resources))
 
 	// resources are now ordered
 	for _, r := range resources {
-		v, err := r.Acquire(access)
+		err := r.Acquire(access)
 		if err != nil {
-			return nil, err
+			return err
 		}
-
-		vals[r] = v
 	}
 
-	return vals, nil
+	return nil
 }
 
-// CommitResources releases a collection of archetype resources
-// simultaneously. It makes sure that resources are released according
-// to the order defined by the resource's implementation of `Less`.
-func CommitResources(vals map[ArchetypeResource]interface{}) error {
-	for resource, val := range vals {
-		if err := resource.Commit(val); err != nil {
+// ReleaseResources releases a collection of archetype resources
+// simultaneously. If the values associated with these archetypes were
+// updated (via Write calls on the archetypes), this will make the
+// changes visible (committed). It makes sure that resources are
+// released according to the order defined by the resource's
+// implementation of `Less`.
+func ReleaseResources(resources ...ArchetypeResource) error {
+	sort.Sort(SortableArchetypeResource(resources))
+
+	for _, r := range resources {
+		if err := r.Release(); err != nil {
 			return err
 		}
 	}
@@ -100,9 +109,11 @@ func CommitResources(vals map[ArchetypeResource]interface{}) error {
 // archetype resources simulaneously. It makes sure that resources are
 // released according to the order defined by the resource's
 // implementation of `Less`.
-func AbortResources(vals map[ArchetypeResource]interface{}) error {
-	for resource, _ := range vals {
-		if err := resource.Abort(); err != nil {
+func AbortResources(resources ...ArchetypeResource) error {
+	sort.Sort(SortableArchetypeResource(resources))
+
+	for _, r := range resources {
+		if err := r.Abort(); err != nil {
 			return err
 		}
 	}
@@ -117,9 +128,10 @@ func AbortResources(vals map[ArchetypeResource]interface{}) error {
 // Global variable is one type of archetype resource. It is backed by the
 // StateServer implementation in this package.
 type GlobalVariable struct {
-	name        string
-	stateServer *StateServer
-	refs        VarReferences
+	name         string
+	stateServer  *StateServer
+	refs         VarReferences
+	writtenValue interface{}
 }
 
 // Variable is a convenience function to create a GlobalVariable struct from
@@ -128,17 +140,18 @@ type GlobalVariable struct {
 // managed by all peers in the system.
 func (ss *StateServer) Variable(name string) *GlobalVariable {
 	return &GlobalVariable{
-		name:        name,
-		stateServer: ss,
-		refs:        nil,
+		name:         name,
+		stateServer:  ss,
+		refs:         nil,
+		writtenValue: nil,
 	}
 }
 
 // Acquire wraps the underlying StateServer struct, creating a proper BorrowSpec
 // and attempting to borrow the value from this node's peers in the network.
-func (v *GlobalVariable) Acquire(access ResourceAccess) (interface{}, error) {
+func (v *GlobalVariable) Acquire(access ResourceAccess) error {
 	if v.refs != nil {
-		return nil, fmt.Errorf("variable %s already acquired", v.name)
+		return fmt.Errorf("variable %s already acquired", v.name)
 	}
 
 	var spec BorrowSpec
@@ -153,18 +166,33 @@ func (v *GlobalVariable) Acquire(access ResourceAccess) (interface{}, error) {
 
 	refs, err := v.stateServer.Acquire(&spec)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	v.refs = refs
-	return refs.Get(v.name), nil
+	return nil
 }
 
-// Commit updates previously obtained references (via `Acquire`) to
-// the value passed to this function. After committing, the caller no
-// longer holds access to the variable.
-func (v *GlobalVariable) Commit(value interface{}) error {
-	v.refs.Set(v.name, value)
+// Read returns the value associated with a global variable. It *must*
+// have been acquired before.
+func (v *GlobalVariable) Read() (interface{}, error) {
+	return v.refs.Get(v.name), nil
+}
+
+// Write updates previously obtained references (via `Acquire`) to
+// the value passed to this function.
+func (v *GlobalVariable) Write(value interface{}) error {
+	v.writtenValue = value
+	return nil
+}
+
+// Release makes changes made while the variable was acquired visible
+// to other processes.
+func (v *GlobalVariable) Release() error {
+	if v.writtenValue != nil {
+		v.refs.Set(v.name, v.writtenValue)
+	}
+
 	err := v.stateServer.Release(v.refs)
 	v.refs = nil
 
@@ -233,6 +261,7 @@ func (r *Receiver) Receive(val *interface{}, ok *bool) error {
 type TCPChannel struct {
 	service   string           // channels have a unique name
 	conn      *rpc.Client      // RPC connection to the other end of the channel
+	writeBuf  []interface{}    // messages waiting to be sent when the channel is released
 	readChan  chan interface{} // reads are buffered through Go channels
 	writeChan chan interface{} // writes are buffered through Go channels
 }
@@ -242,7 +271,7 @@ func (tcpChannel *TCPChannel) call(name string, args interface{}, ok *bool) erro
 	return tcpChannel.conn.Call(fName, &args, ok)
 }
 
-// SendMessages will wait indefinitely for data coming frmo `writeChan` and
+// SendMessages will wait indefinitely for data coming from `writeChan` and
 // actually send the data over to the network.
 func (tcpChannel *TCPChannel) SendMessages() {
 	var ok bool
@@ -283,6 +312,7 @@ func NewTCPChannel(name string, to string, conns *Connections, bufferSize uint) 
 	tcpChannel := &TCPChannel{
 		service:   service,
 		conn:      conns.network[conns.processMap[to]],
+		writeBuf:  []interface{}{},
 		readChan:  readChan,
 		writeChan: writeChan,
 	}
@@ -298,22 +328,38 @@ func NewTCPChannel(name string, to string, conns *Connections, bufferSize uint) 
 	return tcpChannel, nil
 }
 
-// Acquire the next message sent by the other side of the channel. Blocks
-// if there is no message received.
-func (tcpChannel *TCPChannel) Acquire(access ResourceAccess) (interface{}, error) {
+// Acquire is a no-op for TCP channels
+func (tcpChannel *TCPChannel) Acquire(access ResourceAccess) error {
+	return nil
+
+}
+
+// Read blocks until the next message is received through the channel,
+// and returns it.
+func (tcpChannel *TCPChannel) Read() (interface{}, error) {
 	return <-tcpChannel.readChan, nil
 }
 
-// Commit sends a value to the other side of the TCP channel. Blocks if
-// the node on the other side of the channel has not processed enough
-// messages and `buffSize` messages accummulated.
-func (tcpChannel *TCPChannel) Commit(value interface{}) error {
-	tcpChannel.writeChan <- value
+// Write saves a message with the value given in a buffer to be sent
+// later, when the channel is released.
+func (tcpChannel *TCPChannel) Write(value interface{}) error {
+	tcpChannel.writeBuf = append(tcpChannel.writeBuf, value)
 	return nil
 }
 
-// no-op
-func (ch *TCPChannel) Abort() error {
+// Release sends each message given to Write() over the channel to the
+// process listening on the receiving end.
+func (tcpChannel *TCPChannel) Release() error {
+	for _, msg := range tcpChannel.writeBuf {
+		tcpChannel.writeChan <- msg
+	}
+
+	return nil
+}
+
+// Abort erases messages passed using Write and returns.
+func (tcpChannel *TCPChannel) Abort() error {
+	tcpChannel.writeBuf = []interface{}{}
 	return nil
 }
 
