@@ -165,12 +165,46 @@ CONSTANTS GET_PAGE, WEB_PAGE
         }
   }
 
+  \* Client processes are given integer identifiers starting from NUM_SERVERS+1.
+  \* Keep in mind that this "range" notation in PlusCal defines a set, and is
+  \* _inclusive_ (i.e., NUM_SERVERS+NUM_CLIENTS+1 is part of the set).
+  archetype AClient(ref mailboxes)
+
+  \* Local variables
+  variable
+            \* Temporary buffers to hold messages
+            req, resp;
+  {
+      clientLoop:
+        while (TRUE) {
+
+            \* First, the client makes a request to the load balancer.
+            \* The format of the message is a tuple: << {message_type}, {client_id} >>.
+            \* If you check the ALoadBalancer definition, this is the message format
+            \* expected there.
+            \*
+            \* Remember that `self` is an implicitly defined, immutable variable that
+            \* contains the process identifier of the "running" process.
+            clientRequest:
+              req := << GET_PAGE, self >>;
+              mailboxes[LoadBalancerId] := req;
+
+            \* Clients then wait for the response to the previously sent request.
+            \* Since there is only one type of web page in this simple specification
+            \* (defined by the WEB_PAGE constant), we assert here that the message
+            \* received indeed is equal our expected web page.
+            clientReceive:
+              resp := mailboxes[self];
+              assert(resp[2] = WEB_PAGE);
+        }
+  }
+
   \* GLOBAL VARIABLES *\
 
   variables
              \* our network is modeled as a function from node identifier
              \* to a sequence of incoming messages
-             network = [id \in 0..NUM_NODES |-> <<>>],
+             network = [id \in 0..(NUM_NODES-1) |-> <<>>],
 
              \* the stream of web pages to be served by the server. Since we
              \* intend to map this variable using the WebPages mapping macro,
@@ -193,65 +227,13 @@ CONSTANTS GET_PAGE, WEB_PAGE
       mapping network[_] via TCPChannel
       mapping stream via WebPages;
 
-  \* We have a load balancer that waits for messages and servers that are ready
-  \* to serve web pages when the load balancer requests. However, there is one
-  \* piece missing from this: a _client_ that actually drives the other two
-  \* components.
-  \*
-  \* To illustrate how regular PlusCal processes can be used with Modular PlusCal,
-  \* we model the client as a vanilla PlusCal process.
-
-
-
-  \* Client processes are given integer identifiers starting from NUM_SERVERS+1.
-  \* Keep in mind that this "range" notation in PlusCal defines a set, and is
-  \* _inclusive_ (i.e., NUM_SERVERS+NUM_CLIENTS+1 is part of the set).
-  \*
-  \* Also note that since the client needs to send network messages to processes
-  \* defined by the previous archetypes, we need to have the exact same network
-  \* model here. However, since mapping macros are not available for regular
-  \* PlusCal processes, we need to copy the specification of the TCPChannel
-  \* mapping macro in this client definition.
-  fair process (Client \in (NUM_SERVERS+1)..(NUM_SERVERS+NUM_CLIENTS+1))
-
-  \* Local variables
-  variable
-            \* Temporary buffer to hold incoming messages
-            msg;
-  {
-      clientLoop:
-        while (TRUE) {
-
-            \* First, the client makes a request to the load balancer.
-            \* The format of the message is a tuple: << {message_type}, {client_id} >>.
-            \* If you check the ALoadBalancer definition, this is the message format
-            \* expected there.
-            \*
-            \* Remember that `self` is an implicitly defined, immutable variable that
-            \* contains the process identifier of the "running" process.
-            clientRequest:
-              msg := << GET_PAGE, self >>;
-              await Len(network[LoadBalancerId]) < BUFFER_SIZE;
-              network[LoadBalancerId] := Append(network[LoadBalancerId], msg);
-
-
-            \* Clients then wait for the response to the previously sent request.
-            \* Since there is only one type of web page in this simple specification
-            \* (defined by the WEB_PAGE constant), we assert here that the message
-            \* received indeed is equal our expected web page.
-            clientReceive:
-              await Len(network[self]) > 0;
-                with (m = Head(network[self])) {
-                    network[self] := Tail(network[self]);
-                    assert(m[2] = WEB_PAGE);
-                };
-        }
-  }
+  fair process (Client \in (NUM_SERVERS+1)..(NUM_SERVERS+NUM_CLIENTS)) == instance AClient(ref network)
+      mapping network[_] via TCPChannel;
 }
 
 \* BEGIN PLUSCAL TRANSLATION
 --algorithm LoadBalancer {
-    variables network = [id \in (0)..(NUM_NODES) |-> <<>>], stream = 0;
+    variables network = [id \in (0)..((NUM_NODES)-(1)) |-> <<>>], stream = 0;
     define {
         NUM_NODES == ((NUM_CLIENTS)+(NUM_SERVERS))+(1)}
     fair process (LoadBalancer = LoadBalancerId)
@@ -309,23 +291,31 @@ CONSTANTS GET_PAGE, WEB_PAGE
             };
 
     }
-    fair process (Client \in ((NUM_SERVERS)+(1))..(((NUM_SERVERS)+(NUM_CLIENTS))+(1)))
-    variables msg;
+    fair process (Client \in ((NUM_SERVERS)+(1))..((NUM_SERVERS)+(NUM_CLIENTS)))
+    variables req, resp, mailboxesWrite3, mailboxesRead1, mailboxesWrite4;
     {
         clientLoop:
-            while (TRUE) {
+            if (TRUE) {
                 clientRequest:
-                    msg := <<GET_PAGE, self>>;
+                    req := <<GET_PAGE, self>>;
                     await (Len(network[LoadBalancerId]))<(BUFFER_SIZE);
-                    network[LoadBalancerId] := Append(network[LoadBalancerId], msg);
+                    mailboxesWrite3 := [network EXCEPT ![LoadBalancerId] = Append(network[LoadBalancerId], req)];
+                    network := mailboxesWrite3;
 
                 clientReceive:
                     await (Len(network[self]))>(0);
-                    with (m = Head(network[self])) {
-                        network[self] := Tail(network[self]);
-                        assert (m[2])=(WEB_PAGE);
+                    with (msg2 = Head(network[self])) {
+                        mailboxesWrite3 := [network EXCEPT ![self] = Tail(network[self])];
+                        mailboxesRead1 := msg2;
                     };
+                    resp := mailboxesRead1;
+                    assert (resp[2])=(WEB_PAGE);
+                    network := mailboxesWrite3;
+                    goto clientLoop;
 
+            } else {
+                mailboxesWrite4 := network;
+                network := mailboxesWrite4;
             };
 
     }
@@ -336,26 +326,26 @@ CONSTANTS GET_PAGE, WEB_PAGE
 
 ***************************************************************************)
 \* BEGIN TRANSLATION
-\* Process variable msg of process LoadBalancer at line 258 col 15 changed to msg_
-\* Process variable msg of process Servers at line 286 col 15 changed to msg_S
+\* Process variable msg of process LoadBalancer at line 240 col 15 changed to msg_
 CONSTANT defaultInitValue
 VARIABLES network, stream, pc
 
 (* define statement *)
 NUM_NODES == ((NUM_CLIENTS)+(NUM_SERVERS))+(1)
 
-VARIABLES msg_, next, mailboxesRead, mailboxesWrite, mailboxesWrite0, msg_S,
+VARIABLES msg_, next, mailboxesRead, mailboxesWrite, mailboxesWrite0, msg,
           mailboxesRead0, mailboxesWrite1, page_streamRead, mailboxesWrite2,
-          msg
+          req, resp, mailboxesWrite3, mailboxesRead1, mailboxesWrite4
 
 vars == << network, stream, pc, msg_, next, mailboxesRead, mailboxesWrite,
-           mailboxesWrite0, msg_S, mailboxesRead0, mailboxesWrite1,
-           page_streamRead, mailboxesWrite2, msg >>
+           mailboxesWrite0, msg, mailboxesRead0, mailboxesWrite1,
+           page_streamRead, mailboxesWrite2, req, resp, mailboxesWrite3,
+           mailboxesRead1, mailboxesWrite4 >>
 
-ProcSet == {LoadBalancerId} \cup ((1)..(NUM_SERVERS)) \cup (((NUM_SERVERS)+(1))..(((NUM_SERVERS)+(NUM_CLIENTS))+(1)))
+ProcSet == {LoadBalancerId} \cup ((1)..(NUM_SERVERS)) \cup (((NUM_SERVERS)+(1))..((NUM_SERVERS)+(NUM_CLIENTS)))
 
 Init == (* Global variables *)
-        /\ network = [id \in (0)..(NUM_NODES) |-> <<>>]
+        /\ network = [id \in (0)..((NUM_NODES)-(1)) |-> <<>>]
         /\ stream = 0
         (* Process LoadBalancer *)
         /\ msg_ = defaultInitValue
@@ -364,16 +354,20 @@ Init == (* Global variables *)
         /\ mailboxesWrite = defaultInitValue
         /\ mailboxesWrite0 = defaultInitValue
         (* Process Servers *)
-        /\ msg_S = [self \in (1)..(NUM_SERVERS) |-> defaultInitValue]
+        /\ msg = [self \in (1)..(NUM_SERVERS) |-> defaultInitValue]
         /\ mailboxesRead0 = [self \in (1)..(NUM_SERVERS) |-> defaultInitValue]
         /\ mailboxesWrite1 = [self \in (1)..(NUM_SERVERS) |-> defaultInitValue]
         /\ page_streamRead = [self \in (1)..(NUM_SERVERS) |-> defaultInitValue]
         /\ mailboxesWrite2 = [self \in (1)..(NUM_SERVERS) |-> defaultInitValue]
         (* Process Client *)
-        /\ msg = [self \in ((NUM_SERVERS)+(1))..(((NUM_SERVERS)+(NUM_CLIENTS))+(1)) |-> defaultInitValue]
+        /\ req = [self \in ((NUM_SERVERS)+(1))..((NUM_SERVERS)+(NUM_CLIENTS)) |-> defaultInitValue]
+        /\ resp = [self \in ((NUM_SERVERS)+(1))..((NUM_SERVERS)+(NUM_CLIENTS)) |-> defaultInitValue]
+        /\ mailboxesWrite3 = [self \in ((NUM_SERVERS)+(1))..((NUM_SERVERS)+(NUM_CLIENTS)) |-> defaultInitValue]
+        /\ mailboxesRead1 = [self \in ((NUM_SERVERS)+(1))..((NUM_SERVERS)+(NUM_CLIENTS)) |-> defaultInitValue]
+        /\ mailboxesWrite4 = [self \in ((NUM_SERVERS)+(1))..((NUM_SERVERS)+(NUM_CLIENTS)) |-> defaultInitValue]
         /\ pc = [self \in ProcSet |-> CASE self = LoadBalancerId -> "main"
                                         [] self \in (1)..(NUM_SERVERS) -> "serverLoop"
-                                        [] self \in ((NUM_SERVERS)+(1))..(((NUM_SERVERS)+(NUM_CLIENTS))+(1)) -> "clientLoop"]
+                                        [] self \in ((NUM_SERVERS)+(1))..((NUM_SERVERS)+(NUM_CLIENTS)) -> "clientLoop"]
 
 main == /\ pc[LoadBalancerId] = "main"
         /\ IF TRUE
@@ -382,9 +376,10 @@ main == /\ pc[LoadBalancerId] = "main"
               ELSE /\ mailboxesWrite0' = network
                    /\ network' = mailboxesWrite0'
                    /\ pc' = [pc EXCEPT ![LoadBalancerId] = "Done"]
-        /\ UNCHANGED << stream, msg_, next, mailboxesRead, mailboxesWrite,
-                        msg_S, mailboxesRead0, mailboxesWrite1,
-                        page_streamRead, mailboxesWrite2, msg >>
+        /\ UNCHANGED << stream, msg_, next, mailboxesRead, mailboxesWrite, msg,
+                        mailboxesRead0, mailboxesWrite1, page_streamRead,
+                        mailboxesWrite2, req, resp, mailboxesWrite3,
+                        mailboxesRead1, mailboxesWrite4 >>
 
 rcvMsg == /\ pc[LoadBalancerId] = "rcvMsg"
           /\ (Len(network[LoadBalancerId]))>(0)
@@ -393,12 +388,13 @@ rcvMsg == /\ pc[LoadBalancerId] = "rcvMsg"
                /\ mailboxesRead' = msg0
           /\ msg_' = mailboxesRead'
           /\ Assert((msg_'[1])=(GET_PAGE),
-                    "Failure of assertion at line 269, column 21.")
+                    "Failure of assertion at line 251, column 21.")
           /\ network' = mailboxesWrite'
           /\ pc' = [pc EXCEPT ![LoadBalancerId] = "sendServer"]
-          /\ UNCHANGED << stream, next, mailboxesWrite0, msg_S, mailboxesRead0,
+          /\ UNCHANGED << stream, next, mailboxesWrite0, msg, mailboxesRead0,
                           mailboxesWrite1, page_streamRead, mailboxesWrite2,
-                          msg >>
+                          req, resp, mailboxesWrite3, mailboxesRead1,
+                          mailboxesWrite4 >>
 
 sendServer == /\ pc[LoadBalancerId] = "sendServer"
               /\ next' = ((next)%(NUM_SERVERS))+(1)
@@ -407,8 +403,9 @@ sendServer == /\ pc[LoadBalancerId] = "sendServer"
               /\ network' = mailboxesWrite'
               /\ pc' = [pc EXCEPT ![LoadBalancerId] = "main"]
               /\ UNCHANGED << stream, msg_, mailboxesRead, mailboxesWrite0,
-                              msg_S, mailboxesRead0, mailboxesWrite1,
-                              page_streamRead, mailboxesWrite2, msg >>
+                              msg, mailboxesRead0, mailboxesWrite1,
+                              page_streamRead, mailboxesWrite2, req, resp,
+                              mailboxesWrite3, mailboxesRead1, mailboxesWrite4 >>
 
 LoadBalancer == main \/ rcvMsg \/ sendServer
 
@@ -420,74 +417,96 @@ serverLoop(self) == /\ pc[self] = "serverLoop"
                                /\ network' = mailboxesWrite2'[self]
                                /\ pc' = [pc EXCEPT ![self] = "Done"]
                     /\ UNCHANGED << stream, msg_, next, mailboxesRead,
-                                    mailboxesWrite, mailboxesWrite0, msg_S,
+                                    mailboxesWrite, mailboxesWrite0, msg,
                                     mailboxesRead0, mailboxesWrite1,
-                                    page_streamRead, msg >>
+                                    page_streamRead, req, resp,
+                                    mailboxesWrite3, mailboxesRead1,
+                                    mailboxesWrite4 >>
 
 rcvReq(self) == /\ pc[self] = "rcvReq"
                 /\ (Len(network[self]))>(0)
                 /\ LET msg1 == Head(network[self]) IN
                      /\ mailboxesWrite1' = [mailboxesWrite1 EXCEPT ![self] = [network EXCEPT ![self] = Tail(network[self])]]
                      /\ mailboxesRead0' = [mailboxesRead0 EXCEPT ![self] = msg1]
-                /\ msg_S' = [msg_S EXCEPT ![self] = mailboxesRead0'[self]]
+                /\ msg' = [msg EXCEPT ![self] = mailboxesRead0'[self]]
                 /\ network' = mailboxesWrite1'[self]
                 /\ pc' = [pc EXCEPT ![self] = "sendPage"]
                 /\ UNCHANGED << stream, msg_, next, mailboxesRead,
                                 mailboxesWrite, mailboxesWrite0,
-                                page_streamRead, mailboxesWrite2, msg >>
+                                page_streamRead, mailboxesWrite2, req, resp,
+                                mailboxesWrite3, mailboxesRead1,
+                                mailboxesWrite4 >>
 
 sendPage(self) == /\ pc[self] = "sendPage"
                   /\ page_streamRead' = [page_streamRead EXCEPT ![self] = WEB_PAGE]
-                  /\ (Len(network[msg_S[self][2]]))<(BUFFER_SIZE)
-                  /\ mailboxesWrite1' = [mailboxesWrite1 EXCEPT ![self] = [network EXCEPT ![msg_S[self][2]] = Append(network[msg_S[self][2]], <<msg_S[self][2], page_streamRead'[self]>>)]]
+                  /\ (Len(network[msg[self][2]]))<(BUFFER_SIZE)
+                  /\ mailboxesWrite1' = [mailboxesWrite1 EXCEPT ![self] = [network EXCEPT ![msg[self][2]] = Append(network[msg[self][2]], <<msg[self][2], page_streamRead'[self]>>)]]
                   /\ network' = mailboxesWrite1'[self]
                   /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                   /\ UNCHANGED << stream, msg_, next, mailboxesRead,
-                                  mailboxesWrite, mailboxesWrite0, msg_S,
-                                  mailboxesRead0, mailboxesWrite2, msg >>
+                                  mailboxesWrite, mailboxesWrite0, msg,
+                                  mailboxesRead0, mailboxesWrite2, req, resp,
+                                  mailboxesWrite3, mailboxesRead1,
+                                  mailboxesWrite4 >>
 
 Servers(self) == serverLoop(self) \/ rcvReq(self) \/ sendPage(self)
 
 clientLoop(self) == /\ pc[self] = "clientLoop"
-                    /\ pc' = [pc EXCEPT ![self] = "clientRequest"]
-                    /\ UNCHANGED << network, stream, msg_, next, mailboxesRead,
-                                    mailboxesWrite, mailboxesWrite0, msg_S,
+                    /\ IF TRUE
+                          THEN /\ pc' = [pc EXCEPT ![self] = "clientRequest"]
+                               /\ UNCHANGED << network, mailboxesWrite4 >>
+                          ELSE /\ mailboxesWrite4' = [mailboxesWrite4 EXCEPT ![self] = network]
+                               /\ network' = mailboxesWrite4'[self]
+                               /\ pc' = [pc EXCEPT ![self] = "Done"]
+                    /\ UNCHANGED << stream, msg_, next, mailboxesRead,
+                                    mailboxesWrite, mailboxesWrite0, msg,
                                     mailboxesRead0, mailboxesWrite1,
-                                    page_streamRead, mailboxesWrite2, msg >>
+                                    page_streamRead, mailboxesWrite2, req,
+                                    resp, mailboxesWrite3, mailboxesRead1 >>
 
 clientRequest(self) == /\ pc[self] = "clientRequest"
-                       /\ msg' = [msg EXCEPT ![self] = <<GET_PAGE, self>>]
+                       /\ req' = [req EXCEPT ![self] = <<GET_PAGE, self>>]
                        /\ (Len(network[LoadBalancerId]))<(BUFFER_SIZE)
-                       /\ network' = [network EXCEPT ![LoadBalancerId] = Append(network[LoadBalancerId], msg'[self])]
+                       /\ mailboxesWrite3' = [mailboxesWrite3 EXCEPT ![self] = [network EXCEPT ![LoadBalancerId] = Append(network[LoadBalancerId], req'[self])]]
+                       /\ network' = mailboxesWrite3'[self]
                        /\ pc' = [pc EXCEPT ![self] = "clientReceive"]
                        /\ UNCHANGED << stream, msg_, next, mailboxesRead,
-                                       mailboxesWrite, mailboxesWrite0, msg_S,
+                                       mailboxesWrite, mailboxesWrite0, msg,
                                        mailboxesRead0, mailboxesWrite1,
-                                       page_streamRead, mailboxesWrite2 >>
+                                       page_streamRead, mailboxesWrite2, resp,
+                                       mailboxesRead1, mailboxesWrite4 >>
 
 clientReceive(self) == /\ pc[self] = "clientReceive"
                        /\ (Len(network[self]))>(0)
-                       /\ LET m == Head(network[self]) IN
-                            /\ network' = [network EXCEPT ![self] = Tail(network[self])]
-                            /\ Assert((m[2])=(WEB_PAGE),
-                                      "Failure of assertion at line 326, column 25.")
+                       /\ LET msg2 == Head(network[self]) IN
+                            /\ mailboxesWrite3' = [mailboxesWrite3 EXCEPT ![self] = [network EXCEPT ![self] = Tail(network[self])]]
+                            /\ mailboxesRead1' = [mailboxesRead1 EXCEPT ![self] = msg2]
+                       /\ resp' = [resp EXCEPT ![self] = mailboxesRead1'[self]]
+                       /\ Assert((resp'[self][2])=(WEB_PAGE),
+                                 "Failure of assertion at line 312, column 21.")
+                       /\ network' = mailboxesWrite3'[self]
                        /\ pc' = [pc EXCEPT ![self] = "clientLoop"]
                        /\ UNCHANGED << stream, msg_, next, mailboxesRead,
-                                       mailboxesWrite, mailboxesWrite0, msg_S,
+                                       mailboxesWrite, mailboxesWrite0, msg,
                                        mailboxesRead0, mailboxesWrite1,
-                                       page_streamRead, mailboxesWrite2, msg >>
+                                       page_streamRead, mailboxesWrite2, req,
+                                       mailboxesWrite4 >>
 
 Client(self) == clientLoop(self) \/ clientRequest(self)
                    \/ clientReceive(self)
 
 Next == LoadBalancer
            \/ (\E self \in (1)..(NUM_SERVERS): Servers(self))
-           \/ (\E self \in ((NUM_SERVERS)+(1))..(((NUM_SERVERS)+(NUM_CLIENTS))+(1)): Client(self))
+           \/ (\E self \in ((NUM_SERVERS)+(1))..((NUM_SERVERS)+(NUM_CLIENTS)): Client(self))
+           \/ (* Disjunct to prevent deadlock on termination *)
+              ((\A self \in ProcSet: pc[self] = "Done") /\ UNCHANGED vars)
 
 Spec == /\ Init /\ [][Next]_vars
         /\ WF_vars(LoadBalancer)
         /\ \A self \in (1)..(NUM_SERVERS) : WF_vars(Servers(self))
-        /\ \A self \in ((NUM_SERVERS)+(1))..(((NUM_SERVERS)+(NUM_CLIENTS))+(1)) : WF_vars(Client(self))
+        /\ \A self \in ((NUM_SERVERS)+(1))..((NUM_SERVERS)+(NUM_CLIENTS)) : WF_vars(Client(self))
+
+Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 
 \* END TRANSLATION
 
@@ -512,9 +531,9 @@ BuffersOk == \A node \in DOMAIN network : BufferOk(node)
 \* eventually successfully receive a response and then go back to issuing
 \* another request in the 'clientRequest' label.
 ReceivesPage(client) == pc[client] = "clientReceive" ~> pc[client] = "clientRequest"
-ClientsOk == \A client \in (NUM_SERVERS+1)..(NUM_SERVERS+NUM_CLIENTS+1) : ReceivesPage(client)
+ClientsOk == \A client \in (NUM_SERVERS+1)..(NUM_SERVERS+NUM_CLIENTS) : ReceivesPage(client)
 
 =============================================================================
 \* Modification History
+\* Last modified Fri Feb 15 22:57:46 PST 2019 by rmc
 \* Last modified Thu Feb 14 20:29:45 PST 2019 by minh
-\* Last modified Sat Feb 02 19:59:51 PST 2019 by rmc
