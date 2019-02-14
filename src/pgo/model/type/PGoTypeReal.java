@@ -7,7 +7,7 @@ import java.util.List;
 /**
  * Represents the floating point number type.
  */
-public class PGoTypeReal extends PGoNumberType {
+public class PGoTypeReal extends PGoPrimitiveType {
 	public PGoTypeReal(List<Origin> origins) {
 		super(origins);
 	}
@@ -19,21 +19,11 @@ public class PGoTypeReal extends PGoNumberType {
 
 	@Override
 	public String toTypeName() {
-		return "Decimal";
+		return "Real";
 	}
 
 	@Override
 	public <T, E extends Throwable> T accept(PGoTypeVisitor<T, E> v) throws E {
 		return v.visit(this);
-	}
-
-	@Override
-	public int getSpecificity() {
-		return 3;
-	}
-
-	@Override
-	public PGoTypeReal copyWithOrigins(List<Origin> origins) {
-		return new PGoTypeReal(origins);
 	}
 }

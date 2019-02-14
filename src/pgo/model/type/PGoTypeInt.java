@@ -7,7 +7,7 @@ import java.util.List;
 /**
  * Represents a fallback integer type.
  */
-public class PGoTypeInt extends PGoNumberType {
+public class PGoTypeInt extends PGoPrimitiveType {
 	public PGoTypeInt(List<Origin> origins) {
 		super(origins);
 	}
@@ -23,17 +23,7 @@ public class PGoTypeInt extends PGoNumberType {
 	}
 
 	@Override
-	public int getSpecificity() {
-		return 2;
-	}
-
-	@Override
 	public <T, E extends Throwable> T accept(PGoTypeVisitor<T, E> v) throws E {
 		return v.visit(this);
-	}
-
-	@Override
-	public PGoTypeInt copyWithOrigins(List<Origin> origins) {
-		return new PGoTypeInt(origins);
 	}
 }
