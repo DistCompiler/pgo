@@ -75,6 +75,11 @@ public class PGoTypeVariableSubstitutionVisitor extends PGoTypeVisitor<PGoType, 
 	}
 
 	@Override
+	public PGoType visit(PGoTypeInterface pGoTypeInterface) throws RuntimeException {
+		return pGoTypeInterface;
+	}
+
+	@Override
 	public PGoType visit(PGoTypeMap pGoTypeMap) throws RuntimeException {
 		pGoTypeMap.setKeyType(pGoTypeMap.getKeyType().accept(this));
 		pGoTypeMap.setValueType(pGoTypeMap.getValueType().accept(this));

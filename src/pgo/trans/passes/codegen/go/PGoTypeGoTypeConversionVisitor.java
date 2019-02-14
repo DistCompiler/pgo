@@ -79,6 +79,11 @@ public class PGoTypeGoTypeConversionVisitor extends PGoTypeVisitor<GoType, Runti
 	}
 
 	@Override
+	public GoType visit(PGoTypeInterface pGoTypeInterface) throws RuntimeException {
+		return GoBuiltins.Interface;
+	}
+
+	@Override
 	public GoType visit(PGoTypeMap pGoTypeMap) throws RuntimeException {
 		return new GoSliceType(new GoStructType(Arrays.asList(
 				new GoStructTypeField("key", pGoTypeMap.getKeyType().accept(this)),

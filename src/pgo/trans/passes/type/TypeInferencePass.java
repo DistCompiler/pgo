@@ -169,26 +169,33 @@ public class TypeInferencePass {
 
 		Map<UID, PGoType> resultingTypeMapping = new HashMap<>();
 
+		Set<PGoTypeVariable> unresolvedVariables = new HashSet<>();
+		Map<PGoTypeVariable, PGoType> additionalMappings = new HashMap<>();
+		PGoTypeVariableCollectionVisitor collector = new PGoTypeVariableCollectionVisitor(unresolvedVariables);
+		PGoTypeVariableSubstitutionVisitor substitution = new PGoTypeVariableSubstitutionVisitor(additionalMappings);
+		PGoTypeInterface pGoTypeInterface = new PGoTypeInterface(Collections.emptyList());
 		for (Map.Entry<UID, PGoTypeVariable> m : mapping.entrySet()) {
 			UID uid = m.getKey();
-			PGoType type = typeMapping.get(m.getValue());
-			if (type == null) {
-				// TODO: Unused type variable
-				continue;
+			PGoTypeVariable typeVariable = m.getValue();
+			PGoType type;
+			if (typeMapping.containsKey(typeVariable)) {
+				type = typeMapping.get(m.getValue());
+			} else {
+				type = pGoTypeInterface;
+				additionalMappings.put(typeVariable, pGoTypeInterface);
 			}
-			resultingTypeMapping.put(uid, type);
-			if (type.accept(new PGoTypeContainsVariablesVisitor())) {
-				ctx.error(new TypeInferenceFailureIssue(uid, type));
+			type.accept(collector);
+			for (PGoTypeVariable unresolvedVariable : unresolvedVariables) {
+				additionalMappings.put(unresolvedVariable, pGoTypeInterface);
 			}
+			resultingTypeMapping.put(uid, type.accept(substitution));
+			unresolvedVariables.clear();
 		}
 
-		if (ctx.hasErrors()) {
-			return resultingTypeMapping;
-		}
-
+		PGoTypeGoTypeConversionVisitor goTypeConversionVisitor = new PGoTypeGoTypeConversionVisitor();
 		for (UID varUID : registry.globalVariables()) {
 			registry.updateGlobalVariableType(
-					varUID, resultingTypeMapping.get(varUID).accept(new PGoTypeGoTypeConversionVisitor()));
+					varUID, resultingTypeMapping.get(varUID).accept(goTypeConversionVisitor));
 		}
 
 		return resultingTypeMapping;

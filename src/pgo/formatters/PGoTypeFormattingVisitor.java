@@ -83,6 +83,12 @@ public class PGoTypeFormattingVisitor extends PGoTypeVisitor<Void, IOException> 
 	}
 
 	@Override
+	public Void visit(PGoTypeInterface pGoTypeInterface) throws IOException {
+		out.write("Interface{}");
+		return null;
+	}
+
+	@Override
 	public Void visit(PGoTypeMap pGoTypeMap) throws IOException {
 		out.write("Map[");
 		pGoTypeMap.getKeyType().accept(this);

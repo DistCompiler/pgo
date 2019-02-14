@@ -14,7 +14,7 @@ public class PGoTypeString extends PGoType {
 
 	@Override
 	public int hashCode() {
-		return 7;
+		return 11;
 	}
 
 	@Override

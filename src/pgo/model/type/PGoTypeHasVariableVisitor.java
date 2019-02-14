@@ -59,6 +59,11 @@ public class PGoTypeHasVariableVisitor extends PGoTypeVisitor<Boolean, RuntimeEx
 	}
 
 	@Override
+	public Boolean visit(PGoTypeInterface pGoTypeInterface) throws RuntimeException {
+		return false;
+	}
+
+	@Override
 	public Boolean visit(PGoTypeMap pGoTypeMap) throws RuntimeException {
 		return pGoTypeMap.getKeyType().accept(this) || pGoTypeMap.getValueType().accept(this);
 	}

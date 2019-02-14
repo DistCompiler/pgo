@@ -60,6 +60,11 @@ public class PGoTypeCopyVisitor extends PGoTypeVisitor<PGoType, RuntimeException
 	}
 
 	@Override
+	public PGoType visit(PGoTypeInterface pGoTypeInterface) throws RuntimeException {
+		return pGoTypeInterface;
+	}
+
+	@Override
 	public PGoType visit(PGoTypeMap pGoTypeMap) throws RuntimeException {
 		return new PGoTypeMap(
 				pGoTypeMap.getKeyType().accept(this),

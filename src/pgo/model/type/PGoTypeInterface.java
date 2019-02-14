@@ -4,22 +4,22 @@ import pgo.util.Origin;
 
 import java.util.List;
 
-/**
- * Represents the floating point number type.
- */
-public class PGoTypeReal extends PGoType {
-	public PGoTypeReal(List<Origin> origins) {
+public class PGoTypeInterface extends PGoType {
+	/**
+	 * @param origins track where this type come from
+	 */
+	public PGoTypeInterface(List<Origin> origins) {
 		super(origins);
 	}
 
 	@Override
 	public int hashCode() {
-		return 7;
+		return 5;
 	}
 
 	@Override
 	public boolean equals(Object obj) {
-		return obj instanceof PGoTypeReal;
+		return obj instanceof PGoTypeInterface;
 	}
 
 	@Override
