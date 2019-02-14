@@ -75,7 +75,7 @@ public class TLAExpressionTypeConstraintVisitor extends TLAExpressionVisitor<PGo
 
 	@Override
 	public PGoType visit(TLAFunctionCall tlaFunctionCall) throws RuntimeException {
-		PGoType fnType = wrappedVisit(tlaFunctionCall.getFunction()).substitute(solver.getMapping());
+		PGoType fnType = wrappedVisit(tlaFunctionCall.getFunction());
 		List<PGoType> paramTypes = new ArrayList<>();
 		for (TLAExpression param : tlaFunctionCall.getParams()) {
 			paramTypes.add(wrappedVisit(param));

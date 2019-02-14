@@ -53,7 +53,7 @@ public class PGoTypeSolver {
 			for (Map.Entry<PGoTypeVariable, PGoType> entry : mapping.entrySet()) {
 				PGoTypeVariable k = entry.getKey();
 				PGoType v = entry.getValue();
-				PGoType newV = v.substitute(mapping);
+				PGoType newV = v.accept(new PGoTypeVariableSubstitutionVisitor(mapping));
 				if (!newV.equals(v)) {
 					changed = true;
 					mapping.put(k, newV);
@@ -93,8 +93,8 @@ public class PGoTypeSolver {
 				throw new Unreachable();
 			}
 			// a and b are substituted so that we gain more information about their structures
-			a = a.substitute(mapping);
-			b = b.substitute(mapping);
+			a = a.accept(new PGoTypeVariableSubstitutionVisitor(mapping));
+			b = b.accept(new PGoTypeVariableSubstitutionVisitor(mapping));
 			if (a.equals(b)) {
 				// nothing to do
 				continue;

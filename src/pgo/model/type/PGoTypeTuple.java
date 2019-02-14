@@ -19,6 +19,10 @@ public class PGoTypeTuple extends PGoType {
 		this.elementTypes = Collections.unmodifiableList(elementTypes);
 	}
 
+	void setElementTypes(List<PGoType> elementTypes) {
+		this.elementTypes = elementTypes;
+	}
+
 	public List<PGoType> getElementTypes() {
 		return elementTypes;
 	}
@@ -29,12 +33,6 @@ public class PGoTypeTuple extends PGoType {
 			return false;
 		}
 		return elementTypes.equals(((PGoTypeTuple) p).elementTypes);
-	}
-
-	@Override
-	public PGoType substitute(Map<PGoTypeVariable, PGoType> mapping) {
-		elementTypes = elementTypes.stream().map(t -> t.substitute(mapping)).collect(Collectors.toList());
-		return this;
 	}
 
 	@Override

@@ -4,7 +4,6 @@ import pgo.util.Origin;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * Contains overloaded methods for a container type with only one element type, for convenience.
@@ -14,6 +13,10 @@ public abstract class PGoSimpleContainerType extends PGoType {
 
 	public PGoSimpleContainerType(PGoType elementType, List<Origin> origins) {
 		super(origins);
+		this.elementType = elementType;
+	}
+
+	void setElementType(PGoType elementType) {
 		this.elementType = elementType;
 	}
 
@@ -27,11 +30,5 @@ public abstract class PGoSimpleContainerType extends PGoType {
 			return false;
 		}
 		return elementType.equals(((PGoSimpleContainerType) p).elementType);
-	}
-
-	@Override
-	public PGoType substitute(Map<PGoTypeVariable, PGoType> mapping) {
-		elementType = elementType.substitute(mapping);
-		return this;
 	}
 }

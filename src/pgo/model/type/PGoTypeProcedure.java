@@ -19,6 +19,10 @@ public class PGoTypeProcedure extends PGoType {
 		this.paramTypes = paramTypes;
 	}
 
+	void setParamTypes(List<PGoType> paramTypes) {
+		this.paramTypes = paramTypes;
+	}
+
 	public List<PGoType> getParamTypes() {
 		return Collections.unmodifiableList(paramTypes);
 	}
@@ -29,12 +33,6 @@ public class PGoTypeProcedure extends PGoType {
 			return false;
 		}
 		return paramTypes.equals(((PGoTypeProcedure) obj).paramTypes);
-	}
-
-	@Override
-	public PGoType substitute(Map<PGoTypeVariable, PGoType> mapping) {
-		paramTypes = paramTypes.stream().map(t -> t.substitute(mapping)).collect(Collectors.toList());
-		return this;
 	}
 
 	@Override

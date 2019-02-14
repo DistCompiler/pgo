@@ -19,8 +19,16 @@ public class PGoTypeMap extends PGoType {
 		this.valueType = valueType;
 	}
 
+	void setKeyType(PGoType keyType) {
+		this.keyType = keyType;
+	}
+
 	public PGoType getKeyType() {
 		return keyType;
+	}
+
+	void setValueType(PGoType valueType) {
+		this.valueType = valueType;
 	}
 
 	public PGoType getValueType() {
@@ -34,13 +42,6 @@ public class PGoTypeMap extends PGoType {
 		}
 		PGoTypeMap other = (PGoTypeMap) p;
 		return keyType.equals(other.keyType) && valueType.equals(other.valueType);
-	}
-
-	@Override
-	public PGoType substitute(Map<PGoTypeVariable, PGoType> mapping) {
-		keyType = keyType.substitute(mapping);
-		valueType = valueType.substitute(mapping);
-		return this;
 	}
 
 	@Override

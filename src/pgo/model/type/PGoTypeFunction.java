@@ -21,8 +21,16 @@ public class PGoTypeFunction extends PGoType {
 		this.returnType = returnType;
 	}
 
+	void setParamTypes(List<PGoType> paramTypes) {
+		this.paramTypes = paramTypes;
+	}
+
 	public List<PGoType> getParamTypes() {
 		return Collections.unmodifiableList(paramTypes);
+	}
+
+	void setReturnType(PGoType returnType) {
+		this.returnType = returnType;
 	}
 
 	public PGoType getReturnType() {
@@ -36,13 +44,6 @@ public class PGoTypeFunction extends PGoType {
 		}
 		PGoTypeFunction fun = (PGoTypeFunction) obj;
 		return paramTypes.equals(fun.paramTypes) && returnType.equals(fun.returnType);
-	}
-
-	@Override
-	public PGoType substitute(Map<PGoTypeVariable, PGoType> mapping) {
-		paramTypes = paramTypes.stream().map(t -> t.substitute(mapping)).collect(Collectors.toList());
-		returnType = returnType.substitute(mapping);
-		return this;
 	}
 
 	@Override

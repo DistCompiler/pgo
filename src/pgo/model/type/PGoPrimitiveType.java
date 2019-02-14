@@ -15,11 +15,6 @@ public abstract class PGoPrimitiveType extends PGoType {
 	}
 
 	@Override
-	public PGoType substitute(Map<PGoTypeVariable, PGoType> mapping) {
-		return this;
-	}
-
-	@Override
 	public PGoType copy() {
 		return this;
 	}

@@ -17,12 +17,6 @@ public abstract class PGoType extends Derived {
 	}
 
 	/**
-	 * @param mapping maps type variables to types
-	 * @return the type after all substitutions are done
-	 */
-	public abstract PGoType substitute(Map<PGoTypeVariable, PGoType> mapping);
-
-	/**
 	 * @return the string representation of the type
 	 */
 	public abstract String toTypeName();

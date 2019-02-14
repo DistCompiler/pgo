@@ -22,17 +22,6 @@ public class PGoTypeVariable extends PGoType {
 	}
 
 	@Override
-	public PGoType substitute(Map<PGoTypeVariable, PGoType> mapping) {
-		PGoType old = this;
-		PGoType sub = mapping.getOrDefault(this, this);
-		while (!sub.equals(old)) {
-			old = sub;
-			sub = sub.substitute(mapping);
-		}
-		return sub;
-	}
-
-	@Override
 	public String toTypeName() {
 		return name;
 	}
