@@ -1,6 +1,6 @@
 package distsys
 
-// This implements a unified way to connect to other processes and expose an implementation
+// This implements a unified way to connect to other proceses and expose an implementation
 // that other processes can call.
 //
 // It uses Go's RPC library under the hood. Extensions to this abstraction could involve
@@ -83,10 +83,6 @@ func (c *Connections) ConnectTo(addr string) error {
 
 	c.network[addr] = client
 	return nil
-}
-
-func (c *Connections) RegisterName(name, ipAddress string) {
-	c.processMap[name] = ipAddress
 }
 
 // GetConnection returns a connection to the node with the given address. If a

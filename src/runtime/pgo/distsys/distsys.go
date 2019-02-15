@@ -522,9 +522,9 @@ func (req *VarReq) String() string {
 type StateServer struct {
 	*SyncBarrier
 
-	self  string    // the address of the running node
-	peers []string  // a list of addresses of all peers in the system
-	store DataStore // the underlying state store
+	self          string            // the address of the running node
+	configuration map[string]string // a map from processes to addresses of all peers in the system
+	store         DataStore         // the underlying state store
 
 	migrationStrategy MigrationStrategy // determines when to migrate data from a node to another
 }
@@ -540,26 +540,26 @@ type StateServerRPC struct {
 // nodes in the system is known, as well as the initial values for every piece of global state
 // in the system. This function will block until all other nodes in the system are also started
 // and invoke their corresponding NewStateServer function on their ends.
-func NewStateServer(process string, peers []string, self, coordinator string, initValues map[string]interface{}, migration MigrationStrategy) (*StateServer, error) {
-	barrier := NewSyncBarrier(process, peers, self, coordinator)
+func NewStateServer(configuration map[string]string, address, coordinator string, initValues map[string]interface{}, migration MigrationStrategy) (*StateServer, error) {
+	barrier := NewSyncBarrier(configuration, NewConnections(address), address, coordinator)
 
-	selfId := -1
-	coordinatorId := -1
-	for i, p := range peers {
-		if p == self {
-			selfId = i
+	foundAddress := false
+	foundCoordinator := false
+	for _, addr := range configuration {
+		if addr == address {
+			foundAddress = true
 		}
 
-		if p == coordinator {
-			coordinatorId = i
+		if addr == coordinator {
+			foundCoordinator = true
 		}
 	}
-	// Make sure `self` is in the list of peers
-	if selfId < 0 {
-		panic("self is not in peers")
+	// Make sure `address` and `coordinator` are in the list of peers
+	if !foundAddress {
+		panic("given address is not in system configuration")
 	}
-	if coordinatorId < 0 {
-		panic("coodinator is not in peers")
+	if !foundCoordinator {
+		panic("coodinator is not in system configuration")
 	}
 
 	entries := map[string]*DataEntry{}
@@ -577,9 +577,9 @@ func NewStateServer(process string, peers []string, self, coordinator string, in
 	stateServer := &StateServer{
 		SyncBarrier: barrier,
 
-		self:  self,
-		peers: peers,
-		store: NewDataStore(entries),
+		self:          address,
+		configuration: configuration,
+		store:         NewDataStore(entries),
 
 		migrationStrategy: migration,
 	}

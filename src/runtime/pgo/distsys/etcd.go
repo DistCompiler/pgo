@@ -69,13 +69,12 @@ type EtcdState struct {
 
 // Initializes centralized global state management.
 //
-// The only currently supported global state management is the `centralized'
-// strategy - that is, every request to global state is sent to the same server
-// (or collection of servers).
+// The 'centralized' global state strategy uses the etcd server (or
+// collection of servers). It uses the etcd key-value store.
 //
 // Returns a reference to `distsys.EtcdState' on success. Fails if we
 // cannot establish a connection to the etcd cluster.
-func NewEtcdState(process string, endpoints []string, timeout int, peers []string, self, coordinator string, initValues map[string]interface{}) (*EtcdState, error) {
+func NewEtcdState(endpoints []string, timeout int, configuration map[string]string, address, coordinator string, initValues map[string]interface{}) (*EtcdState, error) {
 	c, err := etcd.New(etcd.Config{
 		Endpoints:               endpoints,
 		HeaderTimeoutPerRequest: time.Duration(timeout) * time.Second,
@@ -85,7 +84,7 @@ func NewEtcdState(process string, endpoints []string, timeout int, peers []strin
 	}
 
 	ret := &EtcdState{
-		NewSyncBarrier(process, peers, self, coordinator),
+		NewSyncBarrier(configuration, NewConnections(address), address, coordinator),
 		c,
 		etcd.NewKeysAPI(c),
 	}
