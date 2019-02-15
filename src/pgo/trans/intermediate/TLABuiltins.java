@@ -546,7 +546,9 @@ public class TLABuiltins {
 		FiniteSets.addOperator("Cardinality", new TypelessBuiltinOperator(
 				1,
 				(origin, args, solver, generator) -> {
-					throw new TODO();
+					solver.addConstraint(new PGoTypeMonomorphicConstraint(
+							origin, args.get(0), new PGoTypeSet(generator.get(), Collections.singletonList(origin))));
+					return new PGoTypeInt(Collections.singletonList(origin));
 				},
 				(builder, origin, registry, arguments, typeMap) -> {
 					throw new TODO();
