@@ -24,11 +24,11 @@ type ArchetypeResource interface {
 
 	// Read returns the current value associated with a resource.
 	// Resource needs to have been acquired first.
-	Read() (interface{}, error)
+	Read() interface{}
 
 	// Write receives a new value that the underlying resource is
 	// supposed to be set to.
-	Write(value interface{}) error
+	Write(value interface{})
 
 	// Release causes the calling process to cease having access to the
 	// shared resource. Any written changes to the underlying values
@@ -175,15 +175,14 @@ func (v *GlobalVariable) Acquire(access ResourceAccess) error {
 
 // Read returns the value associated with a global variable. It *must*
 // have been acquired before.
-func (v *GlobalVariable) Read() (interface{}, error) {
-	return v.refs.Get(v.name), nil
+func (v *GlobalVariable) Read() interface{} {
+	return v.refs.Get(v.name)
 }
 
 // Write updates previously obtained references (via `Acquire`) to
 // the value passed to this function.
-func (v *GlobalVariable) Write(value interface{}) error {
+func (v *GlobalVariable) Write(value interface{}) {
 	v.writtenValue = value
-	return nil
 }
 
 // Release makes changes made while the variable was acquired visible
@@ -331,20 +330,18 @@ func NewTCPChannel(name string, to string, conns *Connections, bufferSize uint) 
 // Acquire is a no-op for TCP channels
 func (tcpChannel *TCPChannel) Acquire(access ResourceAccess) error {
 	return nil
-
 }
 
 // Read blocks until the next message is received through the channel,
 // and returns it.
-func (tcpChannel *TCPChannel) Read() (interface{}, error) {
-	return <-tcpChannel.readChan, nil
+func (tcpChannel *TCPChannel) Read() interface{} {
+	return <-tcpChannel.readChan
 }
 
 // Write saves a message with the value given in a buffer to be sent
 // later, when the channel is released.
-func (tcpChannel *TCPChannel) Write(value interface{}) error {
+func (tcpChannel *TCPChannel) Write(value interface{}) {
 	tcpChannel.writeBuf = append(tcpChannel.writeBuf, value)
-	return nil
 }
 
 // Release sends each message given to Write() over the channel to the
