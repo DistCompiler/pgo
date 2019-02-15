@@ -63,7 +63,7 @@ public class PGoTypeSolver {
 		}
 	}
 
-	Optional<Issue> unify() {
+	private Optional<Issue> unify() {
 		while (constraints.size() != 0) {
 			PGoTypeConstraint constraint = constraints.removeFirst();
 			PGoType a;
@@ -114,7 +114,10 @@ public class PGoTypeSolver {
 				// a simple container is a container with a single element type, e.g. Set[a], Slice[a], etc.
 				// in order for SimpleContainer[a] = SimpleContainer[b],
 				//   (1) the container types must be the same, and
-				if (!a.getClass().equals(b.getClass()) && !backtrack()) {
+				if (!a.getClass().equals(b.getClass())) {
+					if (backtrack()) {
+						continue;
+					}
 					return Optional.of(new UnsatisfiableConstraintIssue(constraint, a, b));
 				}
 				//   (2) the element types must be the same
@@ -139,7 +142,10 @@ public class PGoTypeSolver {
 				PGoTypeTuple ta = (PGoTypeTuple) a;
 				PGoTypeTuple tb = (PGoTypeTuple) b;
 				//   (1) they must have the same number of element types
-				if (ta.getElementTypes().size() != tb.getElementTypes().size() && !backtrack()) {
+				if (ta.getElementTypes().size() != tb.getElementTypes().size()) {
+					if (backtrack()) {
+						continue;
+					}
 					return Optional.of(new UnsatisfiableConstraintIssue(constraint, a, b));
 				}
 				//   (2) each pair of corresponding element types must be the same
@@ -155,6 +161,9 @@ public class PGoTypeSolver {
 				PGoTypeFunction fb = (PGoTypeFunction) b;
 				//   (1) their parameter lists must be of the same size, and
 				if (fa.getParamTypes().size() != fb.getParamTypes().size()) {
+					if (backtrack()) {
+						continue;
+					}
 					return Optional.of(new UnsatisfiableConstraintIssue(constraint, a, b));
 				}
 				//   (2) each pair of corresponding parameter types must be the same, and
@@ -175,6 +184,9 @@ public class PGoTypeSolver {
 				PGoTypeProcedure pb = (PGoTypeProcedure) b;
 				//   (1) their parameter lists must be of the same size, and
 				if (pa.getParamTypes().size() != pb.getParamTypes().size()) {
+					if (backtrack()) {
+						continue;
+					}
 					return Optional.of(new UnsatisfiableConstraintIssue(constraint, a, b));
 				}
 				//   (2) each pair of corresponding parameter types must be the same
