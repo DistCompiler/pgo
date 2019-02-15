@@ -376,10 +376,9 @@ public class TLABuiltins {
 				(origin, args, solver, generator) -> {
 					solver.addConstraint(new PGoTypePolymorphicConstraint(origin, Arrays.asList(
 							Collections.singletonList(new PGoTypeEqualityConstraint(
-									args.get(0), new PGoTypeString(Collections.singletonList(origin)))),
+									args.get(0), new PGoTypeSlice(generator.get(), Collections.singletonList(origin)))),
 							Collections.singletonList(new PGoTypeEqualityConstraint(
-									args.get(0), new PGoTypeSlice(generator.get(), Collections.singletonList(origin))))
-					)));
+									args.get(0), new PGoTypeString(Collections.singletonList(origin)))))));
 					return new PGoTypeInt(Collections.singletonList(origin));
 				},
 				(builder, origin, registry, arguments, typeMap) -> new GoCall(
