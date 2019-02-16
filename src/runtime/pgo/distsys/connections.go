@@ -15,20 +15,18 @@ import (
 
 // Connections maintain the state of the connections across the processes in the network.
 type Connections struct {
-	address    string                 // the IP:port combination that identifies the current process
-	listener   *net.TCPListener       // where the server is listening to, if at all
-	server     *rpc.Server            // RPC server instance, if this process exposes methods to the network
-	network    map[string]*rpc.Client // existing connections to other processes
-	processMap map[string]string      // maps PlusCal process identifiers to the IP addresses they are deployed
+	address  string                 // the IP:port combination that identifies the current process
+	listener *net.TCPListener       // where the server is listening to, if at all
+	server   *rpc.Server            // RPC server instance, if this process exposes methods to the network
+	network  map[string]*rpc.Client // existing connections to other processes
 }
 
 // NewConnections returns an empty connection map.
 func NewConnections(addr string) *Connections {
 	return &Connections{
-		address:    addr,
-		server:     nil,
-		network:    map[string]*rpc.Client{},
-		processMap: map[string]string{},
+		address: addr,
+		server:  nil,
+		network: map[string]*rpc.Client{},
 	}
 }
 
