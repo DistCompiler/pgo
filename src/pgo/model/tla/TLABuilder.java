@@ -218,4 +218,16 @@ public class TLABuilder {
 	public static TLARef ref(String name) {
 		return new TLARef(SourceLocation.unknown(), name);
 	}
+
+	public static TLARecordConstructor.Field field(TLAIdentifier name, TLAExpression expression) {
+		return new TLARecordConstructor.Field(SourceLocation.unknown(), name, expression);
+	}
+
+	public static TLARecordConstructor record(TLARecordConstructor.Field... fields) {
+		return new TLARecordConstructor(SourceLocation.unknown(), Arrays.asList(fields));
+	}
+
+	public static TLADot dot(TLAExpression expression, TLAIdentifier field) {
+		return new TLADot(SourceLocation.unknown(), expression, field);
+	}
 }

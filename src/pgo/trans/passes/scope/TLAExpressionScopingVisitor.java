@@ -1,6 +1,7 @@
 package pgo.trans.passes.scope;
 
 import pgo.InternalCompilerError;
+import pgo.TODO;
 import pgo.model.tla.*;
 import pgo.modules.TLAModuleLoader;
 import pgo.scope.UID;
@@ -69,6 +70,11 @@ public class TLAExpressionScopingVisitor extends TLAExpressionVisitor<Void, Runt
 			tlaCase.getOther().accept(this);
 		}
 		return null;
+	}
+
+	@Override
+	public Void visit(TLADot tlaDot) throws RuntimeException {
+		throw new TODO();
 	}
 
 	@Override

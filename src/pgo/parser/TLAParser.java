@@ -1374,58 +1374,75 @@ public final class TLAParser {
 									seq.getValue().getFirst().getValue().getFirst());
 						}));
 
+		List<Grammar<? extends TLAExpression>> infixOptions;
+		if (precedence == 17) {
+			// special case for "."
+			infixOptions = Collections.singletonList(
+					emptySequence()
+							.part(memoize(EXPRESSION_NO_OPERATORS))
+							.part(repeatOneOrMore(
+									emptySequence()
+											.part(parseInfixOperator("."))
+											.part(parseTLAIdentifier())))
+							.map(seq -> {
+								TLAExpression lhs = seq.getValue().getRest().getFirst();
+								for (Located<HeterogenousList<TLAIdentifier, HeterogenousList<Located<Void>, EmptyHeterogenousList>>> id : seq.getValue().getFirst()) {
+									lhs = new TLADot(id.getLocation(), lhs, id.getValue().getFirst());
+								}
+								return lhs;
+							}));
+		} else {
+			infixOptions = infixOperators.stream()
+					.filter(operator ->
+							INFIX_OPERATORS_LOW_PRECEDENCE.get(operator) <= precedence
+									&& INFIX_OPERATORS_HI_PRECEDENCE.get(operator) >= precedence)
+					.map(operator ->
+							emptySequence()
+									.part(memoize(operatorsByPrecedence.get(INFIX_OPERATORS_HI_PRECEDENCE.get(operator)+1)))
+									.part(INFIX_OPERATORS_LEFT_ASSOCIATIVE.contains(operator)
+											? repeatOneOrMore(
+													emptySequence()
+															.part(memoize(INSTANCE_PREFIX))
+															.part(parseInfixOperator(operator))
+															.part(operatorsByPrecedence
+																	.get(INFIX_OPERATORS_HI_PRECEDENCE
+																			.get(operator)+1)))
+											: emptySequence()
+													.part(memoize(INSTANCE_PREFIX))
+													.part(parseInfixOperator(operator))
+													.part(operatorsByPrecedence
+															.get(INFIX_OPERATORS_HI_PRECEDENCE
+																	.get(operator)+1))
+													.map(seq -> new LocatedList<>(
+															seq.getLocation(),
+															Collections.singletonList(seq))))
+									.map(seq -> {
+										TLAExpression lhs = seq.getValue().getRest().getFirst();
+										for(Located<
+												HeterogenousList<
+														TLAExpression,
+														HeterogenousList<
+																Located<Void>,
+																HeterogenousList<
+																		LocatedList<TLAGeneralIdentifierPart>,
+																		EmptyHeterogenousList>>>> e :
+												seq.getValue().getFirst()) {
+											lhs = new TLABinOp(
+													lhs.getLocation().combine(e.getLocation()),
+													new TLASymbol(
+															e.getValue().getRest().getFirst().getLocation(),
+															operator),
+													e.getValue().getRest().getRest().getFirst(),
+													lhs,
+													e.getValue().getFirst());
+										}
+										return lhs;
+									}))
+					.collect(Collectors.toList());
+		}
 		return parseOneOf(
 				// infix operators
-				parseOneOf(
-						infixOperators.stream()
-								.filter(operator ->
-										INFIX_OPERATORS_LOW_PRECEDENCE.get(operator) <= precedence
-												&& INFIX_OPERATORS_HI_PRECEDENCE.get(operator) >= precedence)
-								.map(operator ->
-										emptySequence()
-												.part(memoize(operatorsByPrecedence.get(INFIX_OPERATORS_HI_PRECEDENCE.get(operator)+1)))
-												.part(INFIX_OPERATORS_LEFT_ASSOCIATIVE.contains(operator) ?
-														repeatOneOrMore(
-																emptySequence()
-																		.part(memoize(INSTANCE_PREFIX))
-																		.part(parseInfixOperator(operator))
-																		.part(operatorsByPrecedence
-																				.get(INFIX_OPERATORS_HI_PRECEDENCE
-																						.get(operator)+1))
-														) : emptySequence()
-																.part(memoize(INSTANCE_PREFIX))
-																.part(parseInfixOperator(operator))
-																.part(operatorsByPrecedence
-																		.get(INFIX_OPERATORS_HI_PRECEDENCE
-																				.get(operator)+1))
-																.map(seq -> new LocatedList<>(
-																		seq.getLocation(),
-																		Collections.singletonList(seq)))
-												)
-												.map(seq -> {
-													TLAExpression lhs = seq.getValue().getRest().getFirst();
-													for(Located<
-															HeterogenousList<
-																	TLAExpression,
-																	HeterogenousList<
-																			Located<Void>,
-																			HeterogenousList<
-																					LocatedList<TLAGeneralIdentifierPart>,
-																					EmptyHeterogenousList>>>> e :
-															seq.getValue().getFirst()) {
-														lhs = new TLABinOp(
-																lhs.getLocation().combine(e.getLocation()),
-																new TLASymbol(
-																		e.getValue().getRest().getFirst().getLocation(),
-																		operator),
-																e.getValue().getRest().getRest().getFirst(),
-																lhs,
-																e.getValue().getFirst());
-													}
-													return lhs;
-												}))
-								.collect(Collectors.toList())
-				),
+				parseOneOf(infixOptions),
 				// postfix operators and no operators
 				emptySequence()
 						.part(memoize(operatorsByPrecedence.get(precedence+1)))

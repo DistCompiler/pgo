@@ -39,6 +39,11 @@ public class TLAExpressionValueAtomicityInferenceVisitor extends TLAExpressionVi
 	}
 
 	@Override
+	public Void visit(TLADot tlaDot) throws RuntimeException {
+		throw new TODO();
+	}
+
+	@Override
 	public Void visit(TLAExistential tlaExistential) throws RuntimeException {
 		tlaExistential.getBody().accept(this);
 		return null;

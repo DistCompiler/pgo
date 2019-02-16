@@ -71,6 +71,11 @@ public class TLAExpressionMappingMacroReadExpansionVisitor
 	}
 
 	@Override
+	public TLAExpression visit(TLADot tlaDot) throws RuntimeException {
+		throw new TODO();
+	}
+
+	@Override
 	public TLAExpression visit(TLAExistential tlaExistential) throws RuntimeException {
 		return new TLAExistential(
 				tlaExistential.getLocation(),
