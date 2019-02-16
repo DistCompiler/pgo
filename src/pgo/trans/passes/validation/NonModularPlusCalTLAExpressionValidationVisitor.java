@@ -39,7 +39,7 @@ public class NonModularPlusCalTLAExpressionValidationVisitor extends TLAExpressi
 
 	@Override
 	public Boolean visit(TLADot tlaDot) throws RuntimeException {
-		throw new TODO();
+		return tlaDot.getExpression().accept(this);
 	}
 
 	@Override

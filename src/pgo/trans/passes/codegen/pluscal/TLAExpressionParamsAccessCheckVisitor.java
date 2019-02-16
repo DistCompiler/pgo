@@ -48,7 +48,7 @@ public class TLAExpressionParamsAccessCheckVisitor extends TLAExpressionVisitor<
 
 	@Override
 	public Boolean visit(TLADot tlaDot) throws RuntimeException {
-		throw new TODO();
+		return tlaDot.getExpression().accept(this);
 	}
 
 	@Override

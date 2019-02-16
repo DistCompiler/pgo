@@ -72,7 +72,7 @@ public class TLAExpressionMappingMacroReadExpansionVisitor
 
 	@Override
 	public TLAExpression visit(TLADot tlaDot) throws RuntimeException {
-		throw new TODO();
+		return new TLADot(tlaDot.getLocation(), tlaDot.getExpression().accept(this), tlaDot.getField());
 	}
 
 	@Override

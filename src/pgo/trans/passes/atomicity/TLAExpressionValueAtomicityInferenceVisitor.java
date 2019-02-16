@@ -35,12 +35,18 @@ public class TLAExpressionValueAtomicityInferenceVisitor extends TLAExpressionVi
 
 	@Override
 	public Void visit(TLACase tlaCase) throws RuntimeException {
-		throw new TODO();
+		for (TLACaseArm arm : tlaCase.getArms()) {
+			arm.getCondition().accept(this);
+			arm.getResult().accept(this);
+		}
+		tlaCase.getOther().accept(this);
+		return null;
 	}
 
 	@Override
 	public Void visit(TLADot tlaDot) throws RuntimeException {
-		throw new TODO();
+		tlaDot.getExpression().accept(this);
+		return null;
 	}
 
 	@Override

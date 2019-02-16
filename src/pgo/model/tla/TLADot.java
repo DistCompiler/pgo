@@ -2,6 +2,9 @@ package pgo.model.tla;
 
 import pgo.util.SourceLocation;
 
+/*
+ * Represents `expr.field`.
+ */
 public class TLADot extends TLAExpression {
 	private final TLAExpression expression;
 	private final TLAIdentifier field;

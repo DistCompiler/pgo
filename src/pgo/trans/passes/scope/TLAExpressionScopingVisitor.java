@@ -74,7 +74,8 @@ public class TLAExpressionScopingVisitor extends TLAExpressionVisitor<Void, Runt
 
 	@Override
 	public Void visit(TLADot tlaDot) throws RuntimeException {
-		throw new TODO();
+		tlaDot.getExpression().accept(this);
+		return null;
 	}
 
 	@Override

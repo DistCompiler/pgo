@@ -43,7 +43,8 @@ public class TLAExpressionLHSAtomicityInferenceVisitor extends TLAExpressionVisi
 
 	@Override
 	public Void visit(TLADot tlaDot) throws RuntimeException {
-		throw new TODO();
+		tlaDot.getExpression().accept(this);
+		return null;
 	}
 
 	@Override
