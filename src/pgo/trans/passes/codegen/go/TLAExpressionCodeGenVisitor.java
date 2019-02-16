@@ -200,6 +200,11 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 	}
 
 	@Override
+	public GoExpression visit(TLADot tlaDot) throws RuntimeException {
+		throw new TODO();
+	}
+
+	@Override
 	public GoExpression visit(TLAExistential tlaExistential) throws RuntimeException {
 		throw new TODO();
 	}

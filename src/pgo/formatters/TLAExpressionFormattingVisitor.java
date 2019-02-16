@@ -78,6 +78,14 @@ public class TLAExpressionFormattingVisitor extends TLAExpressionVisitor<Void, I
 	}
 
 	@Override
+	public Void visit(TLADot tlaDot) throws IOException {
+		tlaDot.getExpression().accept(this);
+		out.write(".");
+		tlaDot.getField().accept(new TLANodeFormattingVisitor(out));
+		return null;
+	}
+
+	@Override
 	public Void visit(TLAExistential tlaExistential) throws IOException {
 		out.write("\\E ");
 		FormattingTools.writeCommaSeparated(

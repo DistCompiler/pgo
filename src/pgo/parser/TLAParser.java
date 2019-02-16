@@ -1303,6 +1303,19 @@ public final class TLAParser {
 																		Map<Integer, ? extends Grammar<TLAExpression>> operatorsByPrecedence,
 																		List<String> prefixOperators, List<String> infixOperators,
 																		List<String> postfixOperators) {
+		if (precedence == 17) {
+			// special case for "."
+			return parseOneOf(
+					emptySequence()
+							.part(memoize(EXPRESSION_NO_OPERATORS))
+							.drop(parseTLAToken("."))
+							.part(parseTLAIdentifier())
+							.map(seq -> new TLADot(
+									seq.getLocation(),
+									seq.getValue().getRest().getFirst(),
+									seq.getValue().getFirst())),
+					memoize(EXPRESSION_NO_OPERATORS));
+		}
 
 		List<String> relevantPostfixOperators = postfixOperators
 				.stream()

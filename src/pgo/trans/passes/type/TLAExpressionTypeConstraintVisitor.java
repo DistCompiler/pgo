@@ -142,6 +142,11 @@ public class TLAExpressionTypeConstraintVisitor extends TLAExpressionVisitor<PGo
 	}
 
 	@Override
+	public PGoType visit(TLADot tlaDot) throws RuntimeException {
+		throw new TODO();
+	}
+
+	@Override
 	public PGoType visit(TLAExistential tlaExistential) throws RuntimeException {
 		for (TLAIdentifier id : tlaExistential.getIds()) {
 			mapping.putIfAbsent(id.getUID(), generator.get());

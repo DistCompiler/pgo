@@ -47,6 +47,11 @@ public class TLAExpressionParamsAccessCheckVisitor extends TLAExpressionVisitor<
 	}
 
 	@Override
+	public Boolean visit(TLADot tlaDot) throws RuntimeException {
+		throw new TODO();
+	}
+
+	@Override
 	public Boolean visit(TLAExistential tlaExistential) throws RuntimeException {
 		return tlaExistential.getBody().accept(this);
 	}
