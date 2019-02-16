@@ -7,6 +7,7 @@ import pgo.util.SourceLocatable;
 import pgo.util.SourceLocation;
 
 import java.util.*;
+import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -1281,7 +1282,7 @@ public final class TLAParser {
 						seq.getValue().getFirst()));
 	}
 
-	private static TLAExpression buildPostfixExpression(TLAExpression lhs, LocatedList<Located<PostfixOperatorPart>> parts) {
+	private static TLAExpression buildPostfixExpression(TLAExpression lhs, List<Located<PostfixOperatorPart>> parts) {
 		for(Located<PostfixOperatorPart> part : parts) {
 			if(part.getValue().isFunctionCall()) {
 				lhs = new TLAFunctionCall(
@@ -1303,54 +1304,92 @@ public final class TLAParser {
 																		Map<Integer, ? extends Grammar<TLAExpression>> operatorsByPrecedence,
 																		List<String> prefixOperators, List<String> infixOperators,
 																		List<String> postfixOperators) {
+
+		Function<Integer, List<Grammar<? extends Located<PostfixOperatorPart>>>> makePostfix = (prec -> {
+			List<String> relevantPostfixOperators = postfixOperators
+					.stream()
+					.filter(operator -> POSTFIX_OPERATORS_PRECEDENCE.get(operator) >= prec)
+					.collect(Collectors.toList());
+
+			List<Grammar<? extends Located<PostfixOperatorPart>>> postfixOperatorPartOptions = new ArrayList<>();
+			if (prec <= 16) {
+				postfixOperatorPartOptions.add(
+						emptySequence()
+								.drop(parseTLAToken("["))
+								.part(parseCommaList(cut(EXPRESSION)))
+								.drop(parseTLAToken("]"))
+								.map(seq -> new Located<>(
+										seq.getLocation(),
+										new PostfixOperatorPart(
+												null,
+												null,
+												seq.getValue().getFirst(),
+												true)))
+				);
+			}
+			postfixOperatorPartOptions.add(
+					emptySequence()
+							.part(INSTANCE_PREFIX)
+							.part(parseTLATokenOneOf(relevantPostfixOperators))
+							.map(seq -> new Located<>(
+									seq.getLocation(),
+									new PostfixOperatorPart(
+											seq.getValue().getRest().getFirst(),
+											seq.getValue().getFirst(),
+											null,
+											false))
+							)
+			);
+			return postfixOperatorPartOptions;
+		});
+		List<Grammar<? extends Located<PostfixOperatorPart>>> postfixOperatorPartOptions = makePostfix.apply(precedence);
+
 		if (precedence == 17) {
+			List<Grammar<? extends Located<Optional<PostfixOperatorPart>>>> fallbackPostfixOperatorPartOptions = makePostfix.apply(1)
+					.stream()
+					.map(grammar -> grammar.map(opt -> new Located<>(opt.getLocation(), Optional.of(opt.getValue()))))
+					.collect(Collectors.toList());
+			fallbackPostfixOperatorPartOptions.add(nop().map(v -> new Located<>(v.getLocation(), Optional.empty())));
+
 			// special case for "."
 			return parseOneOf(
 					emptySequence()
 							.part(memoize(EXPRESSION_NO_OPERATORS))
-							.drop(parseTLAToken("."))
-							.part(parseTLAIdentifier())
-							.map(seq -> new TLADot(
-									seq.getLocation(),
-									seq.getValue().getRest().getFirst(),
-									seq.getValue().getFirst())),
+							.part(
+									repeatOneOrMore(
+											emptySequence()
+													.part(parseOneOf(fallbackPostfixOperatorPartOptions))
+													.drop(parseTLAToken("."))
+													.part(parseTLAIdentifier())))
+							.map(seq -> {
+								TLAExpression lhs = seq.getValue().getRest().getFirst();
+								for(Located<
+										HeterogenousList<
+												TLAIdentifier,
+												HeterogenousList<
+														Located<Optional<PostfixOperatorPart>>,
+														EmptyHeterogenousList>>> e : seq.getValue().getFirst()) {
+									// this optional part takes care of postfix operators of a lower precedence
+									// that appear at the end of LHS. this is unique to operator . since all other
+									// infix operators have lower precedence than postfix, so it is not
+									// reproduced in the more general code for other precedences
+									Located<Optional<PostfixOperatorPart>> opt = e.getValue().getRest().getFirst();
+									if(opt.getValue().isPresent()) {
+										lhs = buildPostfixExpression(
+												lhs,
+												Collections.singletonList(new Located<>(
+														opt.getLocation(),
+														opt.getValue().get())));
+									}
+									lhs = new TLADot(
+											lhs.getLocation().combine(e.getLocation()),
+											lhs,
+											e.getValue().getFirst());
+								}
+								return lhs;
+							}),
 					memoize(EXPRESSION_NO_OPERATORS));
 		}
-
-		List<String> relevantPostfixOperators = postfixOperators
-				.stream()
-				.filter(operator -> POSTFIX_OPERATORS_PRECEDENCE.get(operator) >= precedence)
-				.collect(Collectors.toList());
-
-		List<Grammar<? extends Located<PostfixOperatorPart>>> postfixOperatorPartOptions = new ArrayList<>();
-		if(precedence <= 16) {
-			postfixOperatorPartOptions.add(
-					emptySequence()
-							.drop(parseTLAToken("["))
-							.part(parseCommaList(cut(EXPRESSION)))
-							.drop(parseTLAToken("]"))
-							.map(seq -> new Located<>(
-									seq.getLocation(),
-									new PostfixOperatorPart(
-											null,
-											null,
-											seq.getValue().getFirst(),
-											true)))
-			);
-		}
-		postfixOperatorPartOptions.add(
-				emptySequence()
-						.part(INSTANCE_PREFIX)
-						.part(parseTLATokenOneOf(relevantPostfixOperators))
-						.map(seq -> new Located<>(
-								seq.getLocation(),
-								new PostfixOperatorPart(
-										seq.getValue().getRest().getFirst(),
-										seq.getValue().getFirst(),
-										null,
-										false))
-						)
-		);
 
 		List<String> relevantPrefixOperators = prefixOperators
 				.stream()

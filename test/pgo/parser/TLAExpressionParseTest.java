@@ -99,6 +99,11 @@ public class TLAExpressionParseTest {
 
 				// dotted
 				{"a.b", dot(idexp("a"), id("b"))},
+				{"a.b.c", dot(dot(idexp("a"), id("b")), id("c"))},
+				{"a[1].b", dot(fncall(idexp("a"), num(1)), id("b"))},
+				{"(a[1]).b", dot(fncall(idexp("a"), num(1)), id("b"))},
+				{"a'.b", dot(unary("'", idexp("a")), id("b"))},
+				{"a'.b'.c", dot(unary("'", dot(unary("'", idexp("a")), id("b"))), id("c"))},
 				{"a (+) b.d", binop("(+)", idexp("a"), dot(idexp("b"), id("d")))},
 				{"(a \\cup b).c", dot(binop("\\cup", idexp("a"), idexp("b")), id("c"))},
 				{"[src |-> clientId, dst |-> serverId].src",
