@@ -202,6 +202,7 @@ public class PGoMain {
 	void specToGoPipeline(
 			PGoOptions opts,
 			Path inputFilePath,
+			String destFile,
 			TopLevelIssueContext ctx,
 			ModularPlusCalBlock modularPlusCalBlock,
 			TLAModule tlaModule)
@@ -228,16 +229,16 @@ public class PGoMain {
 		logger.info("Inferring atomicity requirements");
 		AtomicityInferencePass.perform(registry, macroExpandedModularPlusCalBlock);
 
-		// compilation of PCal -> Go
+		// compilation of (M)PCal -> Go
 		logger.info("Initial code generation");
 		GoModule goModule = GoCodeGenPass.perform(registry, typeMap, opts, macroExpandedModularPlusCalBlock);
 
 		logger.info("Normalising generated code");
 		GoModule normalisedGoModule = CodeNormalisingPass.perform(goModule);
 
-		logger.info("Writing Go module to \"" + opts.buildFile + "\" in folder \"" + opts.buildDir + "\"");
+		logger.info("Writing Go module to \"" + destFile + "\"");
 		try(
-				BufferedWriter writer = Files.newBufferedWriter(Paths.get(opts.buildDir+"/"+opts.buildFile));
+				BufferedWriter writer = Files.newBufferedWriter(Paths.get(destFile));
 				IndentingWriter out = new IndentingWriter(writer)
 		) {
 			normalisedGoModule.accept(new GoNodeFormattingVisitor(out));
@@ -248,7 +249,7 @@ public class PGoMain {
 
 		logger.info("Formatting generated Go code");
 		try {
-			goFmt(opts.buildDir + "/" + opts.buildFile);
+			goFmt(opts.buildDir + "/" + destFile);
 		} catch (Exception e) {
 			logger.warning(String.format("Failed to format Go code. Error: %s", e.getMessage()));
 		}
@@ -304,7 +305,29 @@ public class PGoMain {
 			if (opts.mpcalCompile) {
 				mpcalCompilePipeline(inputFilePath, ctx, modularPlusCalBlock, tlaModule);
 			} else {
-				specToGoPipeline(opts, inputFilePath, ctx, modularPlusCalBlock, tlaModule);
+				String destFile;
+
+				if (isMPCal) {
+					if (opts.buildPackage == null) {
+						ctx.error(new OptionParserIssue("Modular PlusCal compilation requires a dest_package configuration field"));
+						checkErrors(ctx);
+					}
+
+					String packageDir = opts.buildDir + "/src/" + opts.buildPackage;
+					File packageDirFile = new File(packageDir);
+					packageDirFile.mkdirs();
+					destFile = packageDir + "/" + opts.buildPackage + ".go";
+				} else {
+					if (opts.buildFile == null) {
+						ctx.error(new OptionParserIssue("PlusCal compilation requires a dest_file configuration field"));
+						checkErrors(ctx);
+					}
+
+					destFile = opts.buildDir + "/" + opts.buildFile;
+				}
+
+
+				specToGoPipeline(opts, inputFilePath, destFile, ctx, modularPlusCalBlock, tlaModule);
 			}
 		} catch (PGoTransException | IOException e) {
 			logger.severe("found issues");

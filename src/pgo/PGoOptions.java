@@ -38,6 +38,7 @@ public class PGoOptions {
 	// fields extracted from the JSON configuration file
 	public String buildDir;
 	public String buildFile;
+	public String buildPackage;
 	public PGoNetOptions net;
 	public PGoConstantDefs constants;
 
@@ -90,8 +91,15 @@ public class PGoOptions {
 				throw new PGoOptionException(configFilePath + ": parsing error: " + e.getMessage());
 			}
 
-			buildDir = config.getJSONObject("build").getString("output_dir");
-			buildFile = config.getJSONObject("build").getString("dest_file");
+			JSONObject build = config.getJSONObject("build");
+			buildDir = build.getString("output_dir");
+			if (build.has("dest_file")) {
+                buildFile = config.getJSONObject("build").getString("dest_file");
+            }
+			if (build.has("dest_package")) {
+                buildPackage = config.getJSONObject("build").getString("dest_package");
+            }
+
 			net = new PGoNetOptions(config);
 			constants = new PGoConstantDefs(config, configFilePath);
 		}
