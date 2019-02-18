@@ -19,7 +19,7 @@ public class PlusCalGoCodeGenPass {
 
 	public static GoModule perform(DefinitionRegistry registry, Map<UID, PGoType> typeMap, PGoOptions opts,
 	                               ModularPlusCalBlock modularPlusCalBlock) {
-		GoModuleBuilder moduleBuilder = new GoModuleBuilder(modularPlusCalBlock.getName().getValue());
+		GoModuleBuilder moduleBuilder = new GoModuleBuilder(modularPlusCalBlock.getName().getValue(), "main");
 		PlusCalProcesses processes = modularPlusCalBlock.getProcesses();
 		GlobalVariableStrategy globalVariableStrategy;
 		if (processes instanceof PlusCalSingleProcess) {

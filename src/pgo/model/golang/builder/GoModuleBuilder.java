@@ -12,13 +12,15 @@ import java.util.*;
 public class GoModuleBuilder extends GoASTBuilder {
 
 	private String name;
+	private String pack;
 	private Set<String> imports;
 	private Map<UID, GoVariableName> nameMap;
 	private List<GoDeclaration> declarations;
 	private NameCleaner nameCleaner;
 
-	public GoModuleBuilder(String name) {
+	public GoModuleBuilder(String name, String pack) {
 		this.name = name;
+		this.pack = pack;
 		this.nameCleaner = new NameCleaner(new HashSet<>(Arrays.asList(
 				"break",
 				"default",
@@ -81,7 +83,7 @@ public class GoModuleBuilder extends GoASTBuilder {
 	}
 
 	public GoModule getModule() {
-		return new GoModule(name, new GoVariableName("main"), new ArrayList<>(imports), declarations);
+		return new GoModule(name, new GoVariableName(this.pack), new ArrayList<>(imports), declarations);
 	}
 
 	@Override
