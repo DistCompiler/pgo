@@ -20,7 +20,8 @@ import pgo.trans.PGoTransException;
 import pgo.trans.intermediate.CheckOptionsPass;
 import pgo.trans.intermediate.DefinitionRegistry;
 import pgo.trans.passes.atomicity.AtomicityInferencePass;
-import pgo.trans.passes.codegen.go.GoCodeGenPass;
+import pgo.trans.passes.codegen.go.ModularPlusCalGoCodeGenPass;
+import pgo.trans.passes.codegen.go.PlusCalGoCodeGenPass;
 import pgo.trans.passes.codegen.pluscal.PlusCalCodeGenPass;
 import pgo.trans.passes.constdef.ConstantDefinitionParsingPass;
 import pgo.trans.passes.desugar.mpcal.ModularPlusCalDesugarPass;
@@ -50,7 +51,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.logging.Logger;
 import java.util.regex.MatchResult;
-import java.util.regex.Pattern;
 
 public class PGoMain {
 	private String[] cmdArgs;
@@ -200,6 +200,7 @@ public class PGoMain {
 	}
 
 	void specToGoPipeline(
+			boolean isMPCal,
 			PGoOptions opts,
 			Path inputFilePath,
 			String destFile,
@@ -231,7 +232,12 @@ public class PGoMain {
 
 		// compilation of (M)PCal -> Go
 		logger.info("Initial code generation");
-		GoModule goModule = GoCodeGenPass.perform(registry, typeMap, opts, macroExpandedModularPlusCalBlock);
+		GoModule goModule;
+		if (isMPCal) {
+			goModule = ModularPlusCalGoCodeGenPass.perform(registry, typeMap, opts, macroExpandedModularPlusCalBlock);
+		} else {
+			goModule = PlusCalGoCodeGenPass.perform(registry, typeMap, opts, macroExpandedModularPlusCalBlock);
+		}
 
 		logger.info("Normalising generated code");
 		GoModule normalisedGoModule = CodeNormalisingPass.perform(goModule);
@@ -327,7 +333,7 @@ public class PGoMain {
 				}
 
 
-				specToGoPipeline(opts, inputFilePath, destFile, ctx, modularPlusCalBlock, tlaModule);
+				specToGoPipeline(isMPCal, opts, inputFilePath, destFile, ctx, modularPlusCalBlock, tlaModule);
 			}
 		} catch (PGoTransException | IOException e) {
 			logger.severe("found issues");

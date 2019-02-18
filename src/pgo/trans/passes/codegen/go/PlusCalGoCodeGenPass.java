@@ -14,8 +14,8 @@ import pgo.trans.intermediate.DefinitionRegistry;
 
 import java.util.Map;
 
-public class GoCodeGenPass {
-	private GoCodeGenPass() {}
+public class PlusCalGoCodeGenPass {
+	private PlusCalGoCodeGenPass() {}
 
 	public static GoModule perform(DefinitionRegistry registry, Map<UID, PGoType> typeMap, PGoOptions opts,
 	                               ModularPlusCalBlock modularPlusCalBlock) {
