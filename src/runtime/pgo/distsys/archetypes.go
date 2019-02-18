@@ -2,6 +2,8 @@ package distsys
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
 	"sort"
 	"strings"
 )
@@ -251,16 +253,25 @@ func (r *Receiver) Receive(val *interface{}, ok *bool) error {
 // messages (Write() calls); processes may then read the next message
 // available in their queues.
 type Mailbox struct {
-	name      string           // internal name exposed via RPC
-	conns     *Connections     // the set of connections to nodes within the system
-	writeBuf  []interface{}    // messages waiting to be sent when the channel is released
-	readChan  chan interface{} // reads are buffered through Go channels
-	writeChan chan interface{} // writes are buffered through Go channels
+	name          string            // internal name exposed via RPC
+	selfName      string            // identifier of the process that created the reference
+	configuration map[string]string // configuration of the system (PlusCal process -> IP address)
+	conns         *Connections      // the set of connections to nodes within the system
+	writeBuf      []interface{}     // messages waiting to be sent when the channel is released
+	readChan      chan interface{}  // reads are buffered through Go channels
+	writeChan     chan interface{}  // writes are buffered through Go channels
+}
+
+// service returns the name of the RPC service associated with this
+// mailbox.
+func (mbox *Mailbox) service() string {
+	return "Mailbox_" + mbox.name
 }
 
 func (mbox *Mailbox) call(function string, args interface{}, ok *bool) error {
-	fName := mbox.name + "." + function
-	return mbox.conns.GetConnection(mbox.name).Call(fName, &args, ok)
+	fName := mbox.service() + "." + function
+	addr := mbox.configuration[mbox.name]
+	return mbox.conns.GetConnection(addr).Call(fName, &args, ok)
 }
 
 // SendMessages will wait indefinitely for data coming from `writeChan` and
@@ -273,9 +284,9 @@ func (mbox *Mailbox) SendMessages() {
 	}
 }
 
-// Mailbox represents a reference to some mailbox. It can be local (if
-// the process 'id' is the same as the mailbox being referenced), or
-// remote (if they are different).
+// MailboxRef represents a reference to some mailbox. It can be local
+// (if the process 'id' is the same as the mailbox being referenced),
+// or remote (if they are different).
 //
 // Processes can send messages to other processes by appending to
 // their message queues.
@@ -284,23 +295,27 @@ func (mbox *Mailbox) SendMessages() {
 // elements. Sending a message to a process with a full queue causes
 // the requester to block until sufficient space in the queue is
 // available.
-func MailboxRef(name string, conns *Connections, id string, bufferSize uint) (*Mailbox, error) {
-	readChan := make(chan interface{}, bufferSize)
-	writeChan := make(chan interface{}, bufferSize)
-
-	receiver := &Receiver{readChan}
-
-	service := "Mailbox_" + name
-	if err := conns.ExposeImplementation(service, receiver); err != nil {
-		return nil, err
+func MailboxRef(name string, conns *Connections, configuration map[string]string, id string, bufferSize uint) (*Mailbox, error) {
+	mbox := &Mailbox{
+		name:          name,
+		selfName:      id,
+		configuration: configuration,
+		conns:         conns,
+		writeBuf:      []interface{}{},
+		writeChan:     make(chan interface{}, bufferSize),
 	}
 
-	mbox := &Mailbox{
-		name:      name,
-		conns:     conns,
-		writeBuf:  []interface{}{},
-		readChan:  readChan,
-		writeChan: writeChan,
+	// if the reference is for the mailbox of the current process,
+	// expose RPC calls that allow other processes to send messages to
+	// it.
+	if name == id {
+		readChan := make(chan interface{}, bufferSize)
+		receiver := &Receiver{readChan}
+		mbox.readChan = readChan
+
+		if err := conns.ExposeImplementation(mbox.service(), receiver); err != nil {
+			return nil, err
+		}
 	}
 
 	// set up a Goroutine to handle sending of committed data over
@@ -319,8 +334,8 @@ func (_ *Mailbox) Acquire(_ ResourceAccess) error {
 // queue, and returns it. It is enforced that processes can only read
 // messages from their own mailboxes.
 func (mbox *Mailbox) Read() interface{} {
-	if mbox.name != mbox.name {
-		panic(fmt.Sprintf("Tried to read non-local mailbox %s (attempted by %s)", mbox.name, mbox.name))
+	if mbox.name != mbox.selfName {
+		panic(fmt.Sprintf("Tried to read non-local mailbox %s (attempted by %s)", mbox.name, mbox.selfName))
 	}
 
 	return <-mbox.readChan
@@ -329,8 +344,8 @@ func (mbox *Mailbox) Read() interface{} {
 // Write saves a message with the value given in a buffer to be sent
 // later, when the channel is released.
 func (mbox *Mailbox) Write(value interface{}) {
-	if mbox.name == mbox.name {
-		panic(fmt.Sprintf("Tried to send message to local mailbox (attempted by %s)", mbox.name))
+	if mbox.name == mbox.selfName {
+		panic(fmt.Sprintf("Tried to send message to local mailbox (attempted by %s)", mbox.selfName))
 	}
 
 	mbox.writeBuf = append(mbox.writeBuf, value)
@@ -343,6 +358,7 @@ func (mbox *Mailbox) Release() error {
 		mbox.writeChan <- msg
 	}
 
+	mbox.writeBuf = []interface{}{}
 	return nil
 }
 
@@ -356,5 +372,143 @@ func (mbox *Mailbox) Abort() error {
 // ordering, and therefore always return `false`, not modifying their
 // position in the collection of archetype resources.
 func (_ *Mailbox) Less(_ ArchetypeResource) bool {
+	return false
+}
+
+/////////////////////////////////////////////////////////////////////////
+////             CHANNELS AS ARCHETYPE RESOURCES                   ////
+///////////////////////////////////////////////////////////////////////
+
+// LocalChannelResource represents an archetype resource backed by a
+// regular Go channel. The main use-case for channels as resources is
+// being able to control the execution of long-running archetypes.
+// Parameters can be sent via channels and the result of the
+// computation performed can also be transmitted via channels.
+type LocalChannelResource struct {
+	ch chan interface{}
+}
+
+// NewLocalChannel creates a LocalChannelResource. The caller does not
+// need to know about the underlying Go channel.
+func NewLocalChannel() *LocalChannelResource {
+	return &LocalChannelResource{
+		ch: make(chan interface{}),
+	}
+}
+
+// Acquire is a no-op for local channels.
+func (localCh *LocalChannelResource) Acquire(access ResourceAccess) error {
+	return nil
+}
+
+// Read waits for data to be available in the underlying Go channel.
+func (localCh *LocalChannelResource) Read() interface{} {
+	return <-localCh.ch
+}
+
+// Write sends a value over the channel.
+func (localCh *LocalChannelResource) Write(value interface{}) {
+	localCh.ch <- value
+}
+
+// Release is a no-op for local channels
+func (localCh *LocalChannelResource) Release() error {
+	return nil
+}
+
+// Abort is a no-op for local channels
+func (localCh *LocalChannelResource) Abort() error {
+	return nil
+}
+
+// Less implements ordering. Local channels are agnostic to ordering.
+func (localCh *LocalChannelResource) Less(_ ArchetypeResource) bool {
+	return false
+}
+
+// Send writes data to the channel so that the receiving end can see
+// it (on a Read call). This is supposed to be called by code outside
+// archetypes.
+func (localCh *LocalChannelResource) Send(value interface{}) {
+	localCh.ch <- value
+}
+
+// Receive reads data from the channel so that results can be
+// collected. This is supposed to be called by code outside
+// archetypes.
+func (localCh *LocalChannelResource) Receive() interface{} {
+	return <-localCh.ch
+}
+
+/////////////////////////////////////////////////////////////////////////
+////                 FILES AS ARCHETYPE RESOURCES                   ////
+///////////////////////////////////////////////////////////////////////
+
+// FileResource implements files in the system as archetype resources.
+type FileResource struct {
+	path string   // absolute path to the file
+	fd   *os.File // the underlying file descriptor.
+}
+
+// NewFileResource creates a FileResource for the file under `path`.
+func NewFileResource(path string) *FileResource {
+	return &FileResource{
+		path: path,
+	}
+}
+
+// Acquire attempts to open the file with the requested
+// access. Returns an error when not successful.
+func (file *FileResource) Acquire(access ResourceAccess) error {
+	opts := os.O_RDONLY
+	if access&WRITE_ACCESS != 0 {
+		opts = os.O_RDWR
+	}
+
+	fd, err := os.OpenFile(file.path, opts|os.O_CREATE, 0755)
+	if err != nil {
+		return err
+	}
+
+	file.fd = fd
+	return nil
+}
+
+// Read returns a buffer with all the contents of the underlying file.
+// Panics if reading there is a an error reading the file.
+func (file *FileResource) Read() interface{} {
+	data, err := ioutil.ReadAll(file.fd)
+	if err != nil {
+		panic(err)
+	}
+
+	return data
+}
+
+// Write writes the data given to the underlying file. It may
+// overwrite existing content depending on the offset in the file
+// descriptor. Panics if there is an error while writing to the file.
+// The value given *must* be a byte slice.
+func (file *FileResource) Write(value interface{}) {
+	buf := value.([]byte)
+
+	n, err := file.fd.Write(buf)
+	if err != nil || n != len(buf) {
+		panic(err)
+	}
+}
+
+// Release closes the underlying file.
+func (file *FileResource) Release() error {
+	return file.fd.Close()
+}
+
+// Abort closes the underlying file
+func (file *FileResource) Abort() error {
+	return file.fd.Close()
+}
+
+// Less implements ordering. File resources are agnostic to ordering.
+func (file *FileResource) Less(_ ArchetypeResource) bool {
 	return false
 }

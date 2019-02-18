@@ -96,7 +96,7 @@ func (c *Connections) GetConnection(addr string) *rpc.Client {
 	// used. To properly handle failures, this connection management implementation
 	// could be specialized to deal with scenarios where the node is not reachable
 	if err := c.ConnectTo(addr); err != nil {
-		panic(fmt.Sprintf("Node at %s is not ready to receive connections", addr))
+		panic(fmt.Sprintf("Node at %s is not ready to receive connections (error: %v)", addr, err))
 	}
 
 	return c.network[addr]

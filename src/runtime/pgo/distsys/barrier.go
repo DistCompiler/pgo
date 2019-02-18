@@ -71,7 +71,7 @@ func (barrier *SyncBarrier) WaitPeers() error {
 
 	// the process itself is ready. Incremented when other processes indicate they are
 	// ready via the `ProcessReady` RPC call
-	atomic.StoreInt32(&barrier.processesReady, 1)
+	atomic.AddInt32(&barrier.processesReady, 1)
 
 	if barrier.isCoordinator() {
 		// if this is the coordinator process and every other process already "checked-in",
@@ -86,11 +86,6 @@ func (barrier *SyncBarrier) WaitPeers() error {
 
 	// wait for all processes to be ready
 	<-barrier.readyChan
-
-	// reset counter of processes ready so that this method can be called multiple
-	// times whenever a synchronization barrier is required across all processes
-	// in the system
-	atomic.StoreInt32(&barrier.processesReady, 0)
 
 	return nil
 }
@@ -108,7 +103,7 @@ func (barrier *SyncBarrier) init() error {
 // indicating that they can resume their operation, and the
 // coordinator itself will return from its call to WaitPeers().
 func (barrier *SyncBarrierRPC) check() error {
-	if int(atomic.LoadInt32(&barrier.processesReady)) == len(barrier.configuration) {
+	if int(atomic.LoadInt32(&barrier.processesReady))%len(barrier.configuration) == 0 {
 		for _, ip := range barrier.configuration {
 			if ip == barrier.MyAddress {
 				continue
