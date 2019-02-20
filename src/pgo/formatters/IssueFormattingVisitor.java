@@ -4,6 +4,7 @@ import pgo.errors.IssueVisitor;
 import pgo.errors.IssueWithContext;
 import pgo.model.mpcal.ModularPlusCalArchetype;
 import pgo.model.mpcal.ModularPlusCalInstance;
+import pgo.model.mpcal.ModularPlusCalNodeFormattingVisitor;
 import pgo.model.pcal.PlusCalCall;
 import pgo.model.pcal.PlusCalMacro;
 import pgo.model.pcal.PlusCalProcedure;
@@ -19,10 +20,7 @@ import pgo.trans.passes.parse.pcal.PlusCalParserIssue;
 import pgo.trans.passes.parse.tla.ParsingIssue;
 import pgo.trans.passes.scope.*;
 import pgo.trans.passes.type.TypeInferenceFailureIssue;
-import pgo.trans.passes.validation.LabelNotAllowedIssue;
-import pgo.trans.passes.validation.MissingLabelIssue;
-import pgo.trans.passes.validation.ReservedLabelNameIssue;
-import pgo.trans.passes.validation.StatementNotAllowedIssue;
+import pgo.trans.passes.validation.*;
 import pgo.util.SourceLocation;
 
 import java.io.IOException;
@@ -308,6 +306,17 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 		out.write(" referencing it provides ");
 		out.write(Integer.toString(instance.getArguments().size()));
 		out.write(" arguments");
+		return null;
+	}
+
+	@Override
+	public Void visit(InconsistentInstantiationIssue inconsistentInstantiationIssue) throws IOException {
+		out.write("Instantiation ");
+		inconsistentInstantiationIssue.getInstance().accept(new ModularPlusCalNodeFormattingVisitor(out));
+		out.write(" is inconsistent with ");
+		inconsistentInstantiationIssue.getConflict().accept(new ModularPlusCalNodeFormattingVisitor(out));
+		out.write(" (one maps function calls, the other does not)");
+
 		return null;
 	}
 

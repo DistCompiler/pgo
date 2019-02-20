@@ -922,6 +922,79 @@ public class ModularPlusCalValidationPassTest {
 							new StatementNotAllowedIssue(call("NoProcedure")),
 							new StatementNotAllowedIssue(gotoS("l1"))
 					)
+				},
+
+				// --mpcal InconsistentInstantiations {
+				//   fair process (P1 = 1) == instance A1(ref network)
+				//       mapping network[_] via MyMapping;
+				//   fair process (Unrelated = 42) == instance A2(ref network)
+				//       mapping network via MyMapping;
+				//   fair process (P2 = 2) == instance A1(ref network)
+				//       mapping network via OtherMapping;
+				// }
+				{
+					mpcal(
+							"InconsistentInstantiations",
+							Collections.emptyList(),
+							Collections.emptyList(),
+							Collections.emptyList(),
+							Collections.emptyList(),
+							Collections.emptyList(),
+							Collections.emptyList(),
+							Arrays.asList(
+									instance(
+											pcalVarDecl("P1", false, false, num(1)),
+											PlusCalFairness.WEAK_FAIR,
+											"A1",
+											Collections.singletonList(ref("network")),
+											Collections.singletonList(
+													mapping("network", "MyMapping", true)
+											)
+									),
+
+									instance(
+											pcalVarDecl("Unrelated", false, false, num(42)),
+											PlusCalFairness.WEAK_FAIR,
+											"A2",
+											Collections.singletonList(ref("network")),
+											Collections.singletonList(
+													mapping("network", "MyMapping", false)
+											)
+									),
+
+									instance(
+											pcalVarDecl("P2", false, false, num(2)),
+											PlusCalFairness.WEAK_FAIR,
+											"A1",
+											Collections.singletonList(ref("network")),
+											Collections.singletonList(
+													mapping("network", "OtherMapping", false)
+											)
+									)
+							)
+					),
+					Arrays.asList(
+							new InconsistentInstantiationIssue(
+									instance(
+											pcalVarDecl("P2", false, false, num(2)),
+											PlusCalFairness.WEAK_FAIR,
+											"A1",
+											Collections.singletonList(ref("network")),
+											Collections.singletonList(
+													mapping("network", "OtherMapping", false)
+											)
+									),
+									instance(
+											pcalVarDecl("P1", false, false, num(1)),
+											PlusCalFairness.WEAK_FAIR,
+											"A1",
+											Collections.singletonList(ref("network")),
+											Collections.singletonList(
+													mapping("network", "MyMapping", true)
+											)
+									)
+							)
+					)
 				}
 		});
 	}

@@ -1,7 +1,6 @@
 package pgo.trans.passes.validation;
 
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 
 import pgo.errors.IssueContext;
 import pgo.model.mpcal.*;
@@ -36,6 +35,30 @@ public class ModularPlusCalValidationVisitor extends ModularPlusCalBlockVisitor<
 
 		for (PlusCalProcedure procedure : modularPlusCalBlock.getProcedures()) {
 			procedure.accept(this);
+		}
+
+		// validates that instances of an archetype cannot instantiate the same global variable
+		// in inconsistent ways: i.e., one mapping function calls and the other mapping the variable
+		// itself.
+		Map<String, List<ModularPlusCalInstance>> instanceMap = new HashMap<>();
+		for (ModularPlusCalInstance instance : modularPlusCalBlock.getInstances()) {
+			List<ModularPlusCalInstance> existingInstances = instanceMap.getOrDefault(instance.getTarget(), new ArrayList<>());
+
+			if (existingInstances.size() > 0) {
+				for (ModularPlusCalInstance existingInstance : existingInstances) {
+					for (ModularPlusCalMapping existingMapping : existingInstance.getMappings()) {
+						for (ModularPlusCalMapping currentMapping : instance.getMappings()) {
+							if (existingMapping.getVariable().getName().equals(currentMapping.getVariable().getName()) &&
+								existingMapping.getVariable().isFunctionCalls() != currentMapping.getVariable().isFunctionCalls()) {
+								ctx.error(new InconsistentInstantiationIssue(instance, existingInstance));
+							}
+						}
+					}
+				}
+			}
+
+			existingInstances.add(instance);
+			instanceMap.put(instance.getTarget(), existingInstances);
 		}
 
 		if (modularPlusCalBlock.getProcesses() instanceof PlusCalSingleProcess) {
