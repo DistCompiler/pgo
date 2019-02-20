@@ -91,7 +91,7 @@ public class TypeInferencePass {
 		}
 
 		for (ModularPlusCalArchetype archetype : modularPlusCalBlock.getArchetypes()) {
-			registry.addReadAndWrittenValueTypes(archetype, generator);
+			registry.addAndConstrainReadAndWrittenValueTypes(archetype, solver, generator);
 			UID selfVariableUID = archetype.getSelfVariableUID();
 			mapping.put(selfVariableUID, generator.get());
 			constrainSelfVariable(archetype, selfVariableUID, solver, mapping);
