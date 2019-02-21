@@ -11,6 +11,7 @@ import pgo.model.type.*;
 import pgo.scope.UID;
 
 import java.util.*;
+import java.util.function.Consumer;
 
 public class DefinitionRegistry {
 	private Map<String, TLAModule> modules;
@@ -23,8 +24,8 @@ public class DefinitionRegistry {
 	private Map<UID, UID> references;
 	private Map<String, PlusCalProcedure> procedures;
 	private Map<String, ModularPlusCalArchetype> archetypes;
-	private Map<UID, PGoTypeVariable> readValueTypes;
-	private Map<UID, PGoTypeVariable> writtenValueTypes;
+	private Map<UID, PGoType> readValueTypes;
+	private Map<UID, PGoType> writtenValueTypes;
 	private Map<String, ModularPlusCalMappingMacro> mappingMacros;
 	private Map<UID, Integer> labelsToLockGroups;
 	private Map<Integer, Set<UID>> lockGroupsToVariableReads;
@@ -165,12 +166,34 @@ public class DefinitionRegistry {
 		return archetypes.get(name);
 	}
 
-	public PGoTypeVariable getReadValueType(UID varUID) {
+	public PGoType getReadValueType(UID varUID) {
 		return readValueTypes.get(varUID);
 	}
 
-	public PGoTypeVariable getWrittenValueType(UID varUID) {
+	public void updateReadValueType(UID uid, PGoType type) {
+		if (!readValueTypes.containsKey(uid)) {
+			throw new InternalCompilerError();
+		}
+		readValueTypes.put(uid, type);
+	}
+
+	public void forEachReadValueType(Consumer<UID> action) {
+		readValueTypes.keySet().forEach(action);
+	}
+
+	public PGoType getWrittenValueType(UID varUID) {
 		return writtenValueTypes.get(varUID);
+	}
+
+	public void updateWrittenValueType(UID uid, PGoType type) {
+		if (!writtenValueTypes.containsKey(uid)) {
+			throw new InternalCompilerError();
+		}
+		writtenValueTypes.put(uid, type);
+	}
+
+	public void forEachWrittenValueType(Consumer<UID> action) {
+		writtenValueTypes.keySet().forEach(action);
 	}
 
 	public ModularPlusCalMappingMacro findMappingMacro(String name) {
