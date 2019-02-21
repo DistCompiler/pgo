@@ -7,6 +7,7 @@ import pgo.model.golang.builder.GoBlockBuilder;
 import pgo.model.mpcal.ModularPlusCalYield;
 import pgo.model.pcal.*;
 import pgo.model.tla.TLAExpression;
+import pgo.model.tla.TLAGeneralIdentifier;
 import pgo.model.type.PGoType;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
@@ -44,10 +45,12 @@ public class PlusCalStatementCodeGenVisitor extends PlusCalStatementVisitor<Void
 				new CriticalSectionTracker(registry, processUID, globalStrategy), ignored -> null);
 	}
 
-	private static void trackLocalVariableWrites(DefinitionRegistry registry, Set<UID> tracker, UID varUID) {
-		UID definitionUID = registry.followReference(varUID);
-		if (registry.isLocalVariable(definitionUID)) {
-			tracker.add(definitionUID);
+	private static void trackLocalVariableWrites(DefinitionRegistry registry, Set<UID> tracker, TLAExpression expression) {
+		if (expression instanceof TLAGeneralIdentifier) {
+			UID definitionUID = registry.followReference(expression.getUID());
+			if (registry.isLocalVariable(definitionUID)) {
+				tracker.add(definitionUID);
+			}
 		}
 	}
 
@@ -133,7 +136,7 @@ public class PlusCalStatementCodeGenVisitor extends PlusCalStatementVisitor<Void
 		PlusCalStatementAtomicityInferenceVisitor writeTracker = new PlusCalStatementAtomicityInferenceVisitor(
 				new UID(),
 				(ignored1, ignored2) -> {},
-				(varUID, ignored) -> trackLocalVariableWrites(registry, localVarWrites, varUID),
+				(expression, ignored) -> trackLocalVariableWrites(registry, localVarWrites, expression),
 				new HashSet<>());
 		List<List<PlusCalStatement>> cases = plusCalEither.getCases();
 		for (List<PlusCalStatement> eitherCase : cases) {

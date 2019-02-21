@@ -4,6 +4,7 @@ import pgo.TODO;
 import pgo.Unreachable;
 import pgo.model.mpcal.ModularPlusCalYield;
 import pgo.model.pcal.*;
+import pgo.model.tla.TLAExpression;
 import pgo.scope.UID;
 
 import java.util.Set;
@@ -11,19 +12,19 @@ import java.util.function.BiConsumer;
 
 public class PlusCalStatementAtomicityInferenceVisitor extends PlusCalStatementVisitor<Void, RuntimeException> {
 	private UID currentLabelUID;
-	private BiConsumer<UID, UID> captureLabelRead;
-	private BiConsumer<UID, UID> captureLabelWrite;
+	private BiConsumer<TLAExpression, UID> captureLabelRead;
+	private BiConsumer<TLAExpression, UID> captureLabelWrite;
 	private Set<UID> foundLabels;
 	private TLAExpressionValueAtomicityInferenceVisitor visitor;
 
-	public PlusCalStatementAtomicityInferenceVisitor(UID currentLabelUID, BiConsumer<UID, UID> captureLabelRead,
-	                                                 BiConsumer<UID, UID> captureLabelWrite, Set<UID> foundLabels) {
+	public PlusCalStatementAtomicityInferenceVisitor(UID currentLabelUID, BiConsumer<TLAExpression, UID> captureLabelRead,
+	                                                 BiConsumer<TLAExpression, UID> captureLabelWrite, Set<UID> foundLabels) {
 		this.currentLabelUID = currentLabelUID;
 		this.captureLabelRead = captureLabelRead;
 		this.captureLabelWrite = captureLabelWrite;
 		this.foundLabels = foundLabels;
-		this.visitor = new TLAExpressionValueAtomicityInferenceVisitor(varUID ->
-				captureLabelRead.accept(varUID, currentLabelUID));
+		this.visitor = new TLAExpressionValueAtomicityInferenceVisitor(expression ->
+				captureLabelRead.accept(expression, currentLabelUID));
 	}
 
 	@Override

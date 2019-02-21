@@ -9,20 +9,17 @@ import java.util.function.Consumer;
 
 public class TLAExpressionLHSAtomicityInferenceVisitor extends TLAExpressionVisitor<Void, RuntimeException> {
 	private TLAExpressionValueAtomicityInferenceVisitor visitor;
-	private Consumer<UID> captureWrite;
+	private Consumer<TLAExpression> captureWrite;
 
 	public TLAExpressionLHSAtomicityInferenceVisitor(TLAExpressionValueAtomicityInferenceVisitor visitor,
-	                                                 Consumer<UID> captureWrite) {
+	                                                 Consumer<TLAExpression> captureWrite) {
 		this.visitor = visitor;
 		this.captureWrite = captureWrite;
 	}
 
 	@Override
 	public Void visit(TLAFunctionCall tlaFunctionCall) throws RuntimeException {
-		for (TLAExpression param : tlaFunctionCall.getParams()) {
-			param.accept(visitor);
-		}
-		tlaFunctionCall.getFunction().accept(this);
+		captureWrite.accept(tlaFunctionCall);
 		return null;
 	}
 
@@ -73,7 +70,7 @@ public class TLAExpressionLHSAtomicityInferenceVisitor extends TLAExpressionVisi
 
 	@Override
 	public Void visit(TLAGeneralIdentifier tlaGeneralIdentifier) throws RuntimeException {
-		captureWrite.accept(tlaGeneralIdentifier.getUID());
+		captureWrite.accept(tlaGeneralIdentifier);
 		return null;
 	}
 

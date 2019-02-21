@@ -1,6 +1,8 @@
 package pgo.trans.passes.atomicity;
 
 import pgo.InternalCompilerError;
+import pgo.model.tla.TLAExpression;
+import pgo.model.tla.TLAGeneralIdentifier;
 import pgo.util.UnionFind;
 import pgo.model.mpcal.ModularPlusCalBlock;
 import pgo.model.pcal.*;
@@ -13,11 +15,15 @@ import java.util.function.BiConsumer;
 public class AtomicityInferencePass {
 	private AtomicityInferencePass() {}
 
-	private static void trackGlobalVar(DefinitionRegistry registry, Map<UID, Set<UID>> map, UID varUID, UID labelUID) {
-		UID definitionUID = registry.followReference(varUID);
-		if (registry.isGlobalVariable(definitionUID)) {
-			map.putIfAbsent(definitionUID, new HashSet<>());
-			map.get(definitionUID).add(labelUID);
+	private static void trackGlobalVar(DefinitionRegistry registry, Map<UID, Set<UID>> map, TLAExpression expression, UID labelUID) {
+		// we are only interested in writes to variable expressions.
+		// Function calls are only dealt with in MPCal
+		if (expression instanceof TLAGeneralIdentifier) {
+			UID definitionUID = registry.followReference(expression.getUID());
+			if (registry.isGlobalVariable(definitionUID)) {
+				map.putIfAbsent(definitionUID, new HashSet<>());
+				map.get(definitionUID).add(labelUID);
+			}
 		}
 	}
 
@@ -34,10 +40,10 @@ public class AtomicityInferencePass {
 		if (modularPlusCalBlock.getProcesses() instanceof PlusCalMultiProcess) {
 			Map<UID, Set<UID>> globalVarReadsToLabel = new HashMap<>();
 			Map<UID, Set<UID>> globalVarWritesToLabel = new HashMap<>();
-			BiConsumer<UID, UID> captureLabelRead = (varUID, labelUID) ->
-					trackGlobalVar(registry, globalVarReadsToLabel, varUID, labelUID);
-			BiConsumer<UID, UID> captureLabelWrite = (varUID, labelUID) ->
-					trackGlobalVar(registry, globalVarWritesToLabel, varUID, labelUID);
+			BiConsumer<TLAExpression, UID> captureLabelRead = (expression, labelUID) ->
+					trackGlobalVar(registry, globalVarReadsToLabel, expression, labelUID);
+			BiConsumer<TLAExpression, UID> captureLabelWrite = (expression, labelUID) ->
+					trackGlobalVar(registry, globalVarWritesToLabel, expression, labelUID);
 			Set<UID> foundLabels = new HashSet<>();
 			for (PlusCalProcedure p : modularPlusCalBlock.getProcedures()) {
 				for (PlusCalStatement statements : p.getBody()) {

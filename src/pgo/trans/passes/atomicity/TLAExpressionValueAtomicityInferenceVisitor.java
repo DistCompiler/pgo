@@ -7,14 +7,16 @@ import pgo.scope.UID;
 import java.util.function.Consumer;
 
 public class TLAExpressionValueAtomicityInferenceVisitor extends TLAExpressionVisitor<Void, RuntimeException> {
-	protected Consumer<UID> captureRead;
+	protected Consumer<TLAExpression> captureRead;
 
-	public TLAExpressionValueAtomicityInferenceVisitor(Consumer<UID> captureRead) {
+	public TLAExpressionValueAtomicityInferenceVisitor(Consumer<TLAExpression> captureRead) {
 		this.captureRead = captureRead;
 	}
 
 	@Override
 	public Void visit(TLAFunctionCall tlaFunctionCall) throws RuntimeException {
+		captureRead.accept(tlaFunctionCall);
+
 		tlaFunctionCall.getFunction().accept(this);
 		tlaFunctionCall.getParams().forEach(e -> e.accept(this));
 		return null;
@@ -80,7 +82,7 @@ public class TLAExpressionValueAtomicityInferenceVisitor extends TLAExpressionVi
 
 	@Override
 	public Void visit(TLAGeneralIdentifier tlaGeneralIdentifier) throws RuntimeException {
-		captureRead.accept(tlaGeneralIdentifier.getUID());
+		captureRead.accept(tlaGeneralIdentifier);
 		return null;
 	}
 
