@@ -927,10 +927,12 @@ public class ModularPlusCalValidationPassTest {
 				// --mpcal InconsistentInstantiations {
 				//   fair process (P1 = 1) == instance A1(ref network)
 				//       mapping network[_] via MyMapping;
-				//   fair process (Unrelated = 42) == instance A2(ref network)
-				//       mapping network via MyMapping;
-				//   fair process (P2 = 2) == instance A1(ref network)
+				//   fair process (Other = 42) == instance A2(ref network);
+				//   fair process (P2 = 2) == instance A1(ref network)     \* conflicts with P1
 				//       mapping network via OtherMapping;
+				//   fair process (P3 = 3) == instance A1(network);        \* conflicts with P1
+				//   fair process (Other2 = 24) == instance A2(network)    \* conflicts with Other
+				//       mapping network[_] via SomeMapping;
 				// }
 				{
 					mpcal(
@@ -953,13 +955,11 @@ public class ModularPlusCalValidationPassTest {
 									),
 
 									instance(
-											pcalVarDecl("Unrelated", false, false, num(42)),
+											pcalVarDecl("Other", false, false, num(42)),
 											PlusCalFairness.WEAK_FAIR,
 											"A2",
 											Collections.singletonList(ref("network")),
-											Collections.singletonList(
-													mapping("network", "MyMapping", false)
-											)
+											Collections.emptyList()
 									),
 
 									instance(
@@ -969,6 +969,24 @@ public class ModularPlusCalValidationPassTest {
 											Collections.singletonList(ref("network")),
 											Collections.singletonList(
 													mapping("network", "OtherMapping", false)
+											)
+									),
+
+									instance(
+											pcalVarDecl("P3", false, false, num(3)),
+											PlusCalFairness.WEAK_FAIR,
+											"A1",
+											Collections.singletonList(idexp("network")),
+											Collections.emptyList()
+									),
+
+									instance(
+											pcalVarDecl("Other2", false, false, num(24)),
+											PlusCalFairness.WEAK_FAIR,
+											"A2",
+											Collections.singletonList(idexp("network")),
+											Collections.singletonList(
+													mapping("network", "SomeMapping", true)
 											)
 									)
 							)
@@ -992,6 +1010,46 @@ public class ModularPlusCalValidationPassTest {
 											Collections.singletonList(
 													mapping("network", "MyMapping", true)
 											)
+									)
+							),
+
+							new InconsistentInstantiationIssue(
+									instance(
+											pcalVarDecl("P3", false, false, num(3)),
+											PlusCalFairness.WEAK_FAIR,
+											"A1",
+											Collections.singletonList(idexp("network")),
+											Collections.emptyList()
+									),
+
+									instance(
+											pcalVarDecl("P1", false, false, num(1)),
+											PlusCalFairness.WEAK_FAIR,
+											"A1",
+											Collections.singletonList(ref("network")),
+											Collections.singletonList(
+													mapping("network", "MyMapping", true)
+											)
+									)
+							),
+
+							new InconsistentInstantiationIssue(
+									instance(
+											pcalVarDecl("Other2", false, false, num(24)),
+											PlusCalFairness.WEAK_FAIR,
+											"A2",
+											Collections.singletonList(idexp("network")),
+											Collections.singletonList(
+													mapping("network", "SomeMapping", true)
+											)
+									),
+
+									instance(
+											pcalVarDecl("Other", false, false, num(42)),
+											PlusCalFairness.WEAK_FAIR,
+											"A2",
+											Collections.singletonList(ref("network")),
+											Collections.emptyList()
 									)
 							)
 					)

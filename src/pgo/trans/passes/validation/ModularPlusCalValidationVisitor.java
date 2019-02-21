@@ -20,6 +20,54 @@ public class ModularPlusCalValidationVisitor extends ModularPlusCalBlockVisitor<
 		this.ctx = ctx;
 	}
 
+	// validates that instances of an archetype cannot instantiate the same global variable
+	// in inconsistent ways: i.e., one mapping function calls and the other mapping the variable
+	// itself (or not applying any mapping to it).
+	private void validateConsistentInstantiations(ModularPlusCalBlock modularPlusCalBlock) {
+		Map<String, List<ModularPlusCalInstance>> instanceMap = new HashMap<>();
+		for (ModularPlusCalInstance instance : modularPlusCalBlock.getInstances()) {
+			List<ModularPlusCalInstance> existingInstances = instanceMap.getOrDefault(instance.getTarget(), new ArrayList<>());
+
+			if (existingInstances.size() > 0) {
+				for (ModularPlusCalInstance existingInstance : existingInstances) {
+					Set<ModularPlusCalMapping> existingMappingsUnique = new HashSet<>(existingInstance.getMappings());
+					Set<ModularPlusCalMapping> currentMappingsUnique = new HashSet<>(instance.getMappings());
+
+
+					for (ModularPlusCalMapping existingMapping : existingInstance.getMappings()) {
+						for (ModularPlusCalMapping currentMapping : instance.getMappings()) {
+							if (existingMapping.getVariable().getName().equals(currentMapping.getVariable().getName())) {
+								existingMappingsUnique.remove(existingMapping);
+								currentMappingsUnique.remove(currentMapping);
+
+								if (existingMapping.getVariable().isFunctionCalls() != currentMapping.getVariable().isFunctionCalls()) {
+									ctx.error(new InconsistentInstantiationIssue(instance, existingInstance));
+								}
+							}
+						}
+					}
+
+					// if mappings that do not match map function calls, then the instantiations
+					// are conflicting.
+					for (ModularPlusCalMapping mapping : existingMappingsUnique) {
+						if (mapping.getVariable().isFunctionCalls()) {
+							ctx.error(new InconsistentInstantiationIssue(instance, existingInstance));
+						}
+					}
+
+					for (ModularPlusCalMapping mapping : currentMappingsUnique) {
+						if (mapping.getVariable().isFunctionCalls()) {
+							ctx.error(new InconsistentInstantiationIssue(instance, existingInstance));
+						}
+					}
+				}
+			}
+
+			existingInstances.add(instance);
+			instanceMap.put(instance.getTarget(), existingInstances);
+		}
+	}
+
 	public Void visit(ModularPlusCalBlock modularPlusCalBlock) {
 		for (ModularPlusCalArchetype archetype : modularPlusCalBlock.getArchetypes()) {
 			archetype.accept(this);
@@ -37,29 +85,7 @@ public class ModularPlusCalValidationVisitor extends ModularPlusCalBlockVisitor<
 			procedure.accept(this);
 		}
 
-		// validates that instances of an archetype cannot instantiate the same global variable
-		// in inconsistent ways: i.e., one mapping function calls and the other mapping the variable
-		// itself.
-		Map<String, List<ModularPlusCalInstance>> instanceMap = new HashMap<>();
-		for (ModularPlusCalInstance instance : modularPlusCalBlock.getInstances()) {
-			List<ModularPlusCalInstance> existingInstances = instanceMap.getOrDefault(instance.getTarget(), new ArrayList<>());
-
-			if (existingInstances.size() > 0) {
-				for (ModularPlusCalInstance existingInstance : existingInstances) {
-					for (ModularPlusCalMapping existingMapping : existingInstance.getMappings()) {
-						for (ModularPlusCalMapping currentMapping : instance.getMappings()) {
-							if (existingMapping.getVariable().getName().equals(currentMapping.getVariable().getName()) &&
-								existingMapping.getVariable().isFunctionCalls() != currentMapping.getVariable().isFunctionCalls()) {
-								ctx.error(new InconsistentInstantiationIssue(instance, existingInstance));
-							}
-						}
-					}
-				}
-			}
-
-			existingInstances.add(instance);
-			instanceMap.put(instance.getTarget(), existingInstances);
-		}
+		validateConsistentInstantiations(modularPlusCalBlock);
 
 		if (modularPlusCalBlock.getProcesses() instanceof PlusCalSingleProcess) {
 			PlusCalSingleProcess singleProcess = (PlusCalSingleProcess) modularPlusCalBlock.getProcesses();
