@@ -20,6 +20,7 @@ import pgo.trans.PGoTransException;
 import pgo.trans.intermediate.CheckOptionsPass;
 import pgo.trans.intermediate.DefinitionRegistry;
 import pgo.trans.passes.atomicity.AtomicityInferencePass;
+import pgo.trans.passes.atomicity.ModularPlusCalAtomicityInferencePass;
 import pgo.trans.passes.codegen.go.ModularPlusCalGoCodeGenPass;
 import pgo.trans.passes.codegen.go.PlusCalGoCodeGenPass;
 import pgo.trans.passes.codegen.pluscal.PlusCalCodeGenPass;
@@ -228,7 +229,11 @@ public class PGoMain {
 		checkErrors(ctx);
 
 		logger.info("Inferring atomicity requirements");
-		AtomicityInferencePass.perform(registry, macroExpandedModularPlusCalBlock);
+		if (isMPCal) {
+			ModularPlusCalAtomicityInferencePass.perform(registry, macroExpandedModularPlusCalBlock);
+		} else {
+			AtomicityInferencePass.perform(registry, macroExpandedModularPlusCalBlock);
+		}
 
 		// compilation of (M)PCal -> Go
 		logger.info("Initial code generation");

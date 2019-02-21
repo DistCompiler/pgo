@@ -30,6 +30,8 @@ public class DefinitionRegistry {
 	private Map<UID, Integer> labelsToLockGroups;
 	private Map<Integer, Set<UID>> lockGroupsToVariableReads;
 	private Map<Integer, Set<UID>> lockGroupsToVariableWrites;
+	private Map<Integer, Set<TLAExpression>> lockGroupsToResourceReads;
+	private Map<Integer, Set<TLAExpression>> lockGroupsToResourceWrites;
 	private Set<UID> protectedGlobalVariables;
 
 	public DefinitionRegistry() {
@@ -49,6 +51,8 @@ public class DefinitionRegistry {
 		this.labelsToLockGroups = new HashMap<>();
 		this.lockGroupsToVariableReads = new HashMap<>();
 		this.lockGroupsToVariableWrites = new HashMap<>();
+		this.lockGroupsToResourceReads = new HashMap<>();
+		this.lockGroupsToResourceWrites = new HashMap<>();
 		this.protectedGlobalVariables = new HashSet<>();
 	}
 
@@ -266,6 +270,16 @@ public class DefinitionRegistry {
 	public void addVariableReadToLockGroup(UID varUID, int lockGroup) {
 		lockGroupsToVariableReads.putIfAbsent(lockGroup, new HashSet<>());
 		lockGroupsToVariableReads.get(lockGroup).add(varUID);
+	}
+
+	public void addResourceReadToLockGroup(TLAExpression resource, int lockGroup) {
+		lockGroupsToResourceReads.putIfAbsent(lockGroup, new HashSet<>());
+		lockGroupsToResourceReads.get(lockGroup).add(resource);
+	}
+
+	public void addResourceWriteToLockGroup(TLAExpression resource, int lockGroup) {
+		lockGroupsToResourceWrites.putIfAbsent(lockGroup, new HashSet<>());
+		lockGroupsToResourceWrites.get(lockGroup).add(resource);
 	}
 
 	public void addVariableWriteToLockGroup(UID varUID, int lockGroup) {
