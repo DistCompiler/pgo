@@ -260,7 +260,7 @@ public class PGoMain {
 
 		logger.info("Formatting generated Go code");
 		try {
-			goFmt(opts.buildDir + "/" + destFile);
+			goFmt(destFile);
 		} catch (Exception e) {
 			logger.warning(String.format("Failed to format Go code. Error: %s", e.getMessage()));
 		}
