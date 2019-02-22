@@ -125,17 +125,17 @@ public class TypeInferencePass {
 			ModularPlusCalArchetype target = registry.findArchetype(instance.getTarget());
 			solver.addConstraint(new PGoTypeMonomorphicConstraint(
 					instance, mapping.get(selfVariableUID), mapping.get(target.getSelfVariableUID())));
-			List<PGoType> paramTypes = new ArrayList<>();
+			List<PGoType> argumentTypes = new ArrayList<>();
 			TLAExpressionTypeConstraintVisitor v =
 					new TLAExpressionTypeConstraintVisitor(registry, solver, generator, mapping);
 			List<TLAExpression> arguments = instance.getArguments();
 			for (TLAExpression expression : arguments) {
-				paramTypes.add(v.wrappedVisit(expression));
+				argumentTypes.add(v.wrappedVisit(expression));
 			}
 			solver.addConstraint(new PGoTypeMonomorphicConstraint(
 					instance,
 					mapping.get(target.getUID()),
-					new PGoTypeProcedure(paramTypes, Collections.singletonList(instance))));
+					new PGoTypeProcedure(argumentTypes, Collections.singletonList(instance))));
 			Map<UID, UID> argsToParams = new HashMap<>();
 			List<PlusCalVariableDeclaration> params = target.getParams();
 			for (int i = 0; i < params.size(); i++) {

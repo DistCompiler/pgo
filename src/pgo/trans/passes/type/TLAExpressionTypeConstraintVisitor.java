@@ -14,12 +14,13 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 public class TLAExpressionTypeConstraintVisitor extends TLAExpressionVisitor<PGoType, RuntimeException> {
-	protected DefinitionRegistry registry;
-	private PGoTypeSolver solver;
-	private PGoTypeGenerator generator;
-	private Map<UID, PGoTypeVariable> mapping;
+	protected final DefinitionRegistry registry;
+	private final PGoTypeSolver solver;
+	private final PGoTypeGenerator generator;
+	private final Map<UID, PGoTypeVariable> mapping;
 
-	public TLAExpressionTypeConstraintVisitor(DefinitionRegistry registry, PGoTypeSolver solver, PGoTypeGenerator generator, Map<UID, PGoTypeVariable> mapping) {
+	public TLAExpressionTypeConstraintVisitor(DefinitionRegistry registry, PGoTypeSolver solver,
+	                                          PGoTypeGenerator generator, Map<UID, PGoTypeVariable> mapping) {
 		this.registry = registry;
 		this.solver = solver;
 		this.generator = generator;
@@ -65,7 +66,8 @@ public class TLAExpressionTypeConstraintVisitor extends TLAExpressionVisitor<PGo
 					mapping.put(id.getUID(), idType);
 					tupleTypes.add(idType);
 				}
-				solver.addConstraint(new PGoTypeMonomorphicConstraint(qb, elementType, new PGoTypeTuple(tupleTypes, Collections.singletonList(qb))));
+				solver.addConstraint(new PGoTypeMonomorphicConstraint(
+						qb, elementType, new PGoTypeTuple(tupleTypes, Collections.singletonList(qb))));
 				break;
 			default:
 				throw new Unreachable();
@@ -130,7 +132,10 @@ public class TLAExpressionTypeConstraintVisitor extends TLAExpressionVisitor<PGo
 	public PGoType visit(TLACase tlaCase) throws RuntimeException {
 		PGoTypeVariable v = generator.get();
 		for (TLACaseArm caseArm : tlaCase.getArms()) {
-			solver.addConstraint(new PGoTypeMonomorphicConstraint(tlaCase, wrappedVisit(caseArm.getCondition()), new PGoTypeBool(Collections.singletonList(caseArm.getCondition()))));
+			solver.addConstraint(new PGoTypeMonomorphicConstraint(
+					tlaCase,
+					wrappedVisit(caseArm.getCondition()),
+					new PGoTypeBool(Collections.singletonList(caseArm.getCondition()))));
 			solver.addConstraint(new PGoTypeMonomorphicConstraint(tlaCase, wrappedVisit(caseArm.getResult()), v));
 		}
 
@@ -205,8 +210,10 @@ public class TLAExpressionTypeConstraintVisitor extends TLAExpressionVisitor<PGo
 	public PGoType visit(TLAFunctionSet tlaFunctionSet) throws RuntimeException {
 		PGoType from = wrappedVisit(tlaFunctionSet.getFrom());
 		PGoType to = wrappedVisit(tlaFunctionSet.getTo());
-		solver.addConstraint(new PGoTypeMonomorphicConstraint(tlaFunctionSet, from, new PGoTypeSet(generator.get(), Collections.singletonList(tlaFunctionSet))));
-		solver.addConstraint(new PGoTypeMonomorphicConstraint(tlaFunctionSet, to, new PGoTypeSet(generator.get(), Collections.singletonList(tlaFunctionSet))));
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(
+				tlaFunctionSet, from, new PGoTypeSet(generator.get(), Collections.singletonList(tlaFunctionSet))));
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(
+				tlaFunctionSet, to, new PGoTypeSet(generator.get(), Collections.singletonList(tlaFunctionSet))));
 		throw new TODO();
 	}
 
@@ -217,7 +224,8 @@ public class TLAExpressionTypeConstraintVisitor extends TLAExpressionVisitor<PGo
 
 	@Override
 	public PGoType visit(TLAIf tlaIf) throws RuntimeException {
-		solver.addConstraint(new PGoTypeMonomorphicConstraint(tlaIf, wrappedVisit(tlaIf.getCond()), new PGoTypeBool(Collections.singletonList(tlaIf.getCond()))));
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(
+				tlaIf, wrappedVisit(tlaIf.getCond()), new PGoTypeBool(Collections.singletonList(tlaIf.getCond()))));
 		PGoTypeVariable v = generator.get();
 		solver.addConstraint(new PGoTypeMonomorphicConstraint(tlaIf, wrappedVisit(tlaIf.getTval()), v));
 		solver.addConstraint(new PGoTypeMonomorphicConstraint(tlaIf, wrappedVisit(tlaIf.getFval()), v));
@@ -328,7 +336,8 @@ public class TLAExpressionTypeConstraintVisitor extends TLAExpressionVisitor<PGo
 	public PGoType visit(TLASetConstructor tlaSetConstructor) throws RuntimeException {
 		PGoTypeVariable elementType = generator.get();
 		for (TLAExpression element : tlaSetConstructor.getContents()) {
-			solver.addConstraint(new PGoTypeMonomorphicConstraint(tlaSetConstructor, elementType, wrappedVisit(element)));
+			solver.addConstraint(new PGoTypeMonomorphicConstraint(
+					tlaSetConstructor, elementType, wrappedVisit(element)));
 		}
 		return new PGoTypeSet(elementType, Collections.singletonList(tlaSetConstructor));
 	}
@@ -346,7 +355,8 @@ public class TLAExpressionTypeConstraintVisitor extends TLAExpressionVisitor<PGo
 	public PGoType visit(TLASetRefinement tlaSetRefinement) throws RuntimeException {
 		PGoType from = wrappedVisit(tlaSetRefinement.getFrom());
 		PGoTypeVariable elementType = generator.get();
-		solver.addConstraint(new PGoTypeMonomorphicConstraint(tlaSetRefinement, from, new PGoTypeSet(elementType, Collections.singletonList(tlaSetRefinement))));
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(
+				tlaSetRefinement, from, new PGoTypeSet(elementType, Collections.singletonList(tlaSetRefinement))));
 		if (tlaSetRefinement.getIdent().isTuple()) {
 			List<PGoType> elements = new ArrayList<>();
 			for (TLAIdentifier id : tlaSetRefinement.getIdent().getTuple()) {
@@ -354,13 +364,17 @@ public class TLAExpressionTypeConstraintVisitor extends TLAExpressionVisitor<PGo
 				mapping.put(id.getUID(), v);
 				elements.add(v);
 			}
-			solver.addConstraint(new PGoTypeMonomorphicConstraint(tlaSetRefinement, elementType, new PGoTypeTuple(elements, Collections.singletonList(tlaSetRefinement))));
+			solver.addConstraint(new PGoTypeMonomorphicConstraint(
+					tlaSetRefinement,
+					elementType,
+					new PGoTypeTuple(elements, Collections.singletonList(tlaSetRefinement))));
 		} else {
 			TLAIdentifier id = tlaSetRefinement.getIdent().getId();
 			mapping.put(id.getUID(), elementType);
 		}
 		PGoType condition = wrappedVisit(tlaSetRefinement.getWhen());
-		solver.addConstraint(new PGoTypeMonomorphicConstraint(tlaSetRefinement, condition, new PGoTypeBool(Collections.singletonList(tlaSetRefinement))));
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(
+				tlaSetRefinement, condition, new PGoTypeBool(Collections.singletonList(tlaSetRefinement))));
 		return new PGoTypeSet(elementType, Collections.singletonList(tlaSetRefinement));
 	}
 
