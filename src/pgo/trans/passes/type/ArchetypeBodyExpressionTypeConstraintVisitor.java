@@ -10,14 +10,17 @@ import pgo.trans.intermediate.DefinitionRegistry;
 
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 
 public class ArchetypeBodyExpressionTypeConstraintVisitor extends TLAExpressionTypeConstraintVisitor {
-	private Set<UID> paramUIDs;
+	private final Function<UID, PGoType> getValueType;
+	private final Set<UID> paramUIDs;
 
 	public ArchetypeBodyExpressionTypeConstraintVisitor(DefinitionRegistry registry, PGoTypeSolver solver,
 	                                                    PGoTypeGenerator generator, Map<UID, PGoTypeVariable> mapping,
-	                                                    Set<UID> paramUIDs) {
+	                                                    Function<UID, PGoType> getValueType, Set<UID> paramUIDs) {
 		super(registry, solver, generator, mapping);
+		this.getValueType = getValueType;
 		this.paramUIDs = paramUIDs;
 	}
 
@@ -25,7 +28,7 @@ public class ArchetypeBodyExpressionTypeConstraintVisitor extends TLAExpressionT
 	public PGoType visit(TLAGeneralIdentifier tlaGeneralIdentifier) throws RuntimeException {
 		UID varUID = registry.followReference(tlaGeneralIdentifier.getUID());
 		if (paramUIDs.contains(varUID)) {
-			return registry.getReadValueType(varUID);
+			return getValueType.apply(varUID);
 		}
 		return super.visit(tlaGeneralIdentifier);
 	}

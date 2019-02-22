@@ -2,8 +2,6 @@ package pgo.trans.passes.type;
 
 import pgo.model.pcal.PlusCalAssignment;
 import pgo.model.pcal.PlusCalAssignmentPair;
-import pgo.model.tla.TLAExpression;
-import pgo.model.tla.TLAGeneralIdentifier;
 import pgo.model.type.PGoTypeGenerator;
 import pgo.model.type.PGoTypeMonomorphicConstraint;
 import pgo.model.type.PGoTypeSolver;
@@ -15,32 +13,23 @@ import java.util.Map;
 import java.util.Set;
 
 public class ArchetypeBodyStatementTypeConstraintVisitor extends PlusCalStatementTypeConstraintVisitor {
-	private Set<UID> paramsUIDs;
+	private final ArchetypeBodyExpressionTypeConstraintVisitor lhsVisitor;
 
 	public ArchetypeBodyStatementTypeConstraintVisitor(DefinitionRegistry registry, PGoTypeSolver solver,
-	                                                   PGoTypeGenerator generator,
-	                                                   Map<UID, PGoTypeVariable> mapping, Set<UID> paramUIDs) {
+	                                                   PGoTypeGenerator generator, Map<UID, PGoTypeVariable> mapping,
+	                                                   Set<UID> paramUIDs) {
 		super(registry, solver, generator, mapping,
-				new ArchetypeBodyExpressionTypeConstraintVisitor(registry, solver, generator, mapping, paramUIDs));
-		this.paramsUIDs = paramUIDs;
+				new ArchetypeBodyExpressionTypeConstraintVisitor(
+						registry, solver, generator, mapping, registry::getReadValueType, paramUIDs));
+		this.lhsVisitor = new ArchetypeBodyExpressionTypeConstraintVisitor(
+				registry, solver, generator, mapping, registry::getWrittenValueType, paramUIDs);
 	}
 
 	@Override
 	public Void visit(PlusCalAssignment plusCalAssignment) throws RuntimeException {
 		for (PlusCalAssignmentPair pair : plusCalAssignment.getPairs()) {
-			TLAExpression lhs = pair.getLhs();
-			if (lhs instanceof TLAGeneralIdentifier) {
-				UID varUID = registry.followReference(lhs.getUID());
-				if (paramsUIDs.contains(varUID)) {
-					solver.addConstraint(new PGoTypeMonomorphicConstraint(
-							pair,
-							registry.getWrittenValueType(varUID),
-							exprVisitor.wrappedVisit(pair.getRhs())));
-					continue;
-				}
-			}
 			solver.addConstraint(new PGoTypeMonomorphicConstraint(
-                    pair, exprVisitor.wrappedVisit(lhs), exprVisitor.wrappedVisit(pair.getRhs())));
+					pair, lhsVisitor.wrappedVisit(pair.getLhs()), exprVisitor.wrappedVisit(pair.getRhs())));
 		}
 		return null;
 	}
