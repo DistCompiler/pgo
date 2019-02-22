@@ -6,10 +6,12 @@ import pgo.Unreachable;
 import pgo.model.golang.*;
 import pgo.model.golang.builder.GoBlockBuilder;
 import pgo.model.golang.builder.GoModuleBuilder;
+import pgo.model.golang.type.GoMapType;
+import pgo.model.golang.type.GoSliceType;
 import pgo.model.golang.type.GoType;
+import pgo.model.golang.type.GoTypeName;
 import pgo.model.pcal.PlusCalProcess;
 import pgo.model.tla.TLAExpression;
-import pgo.model.tla.TLAFunction;
 import pgo.model.tla.TLAFunctionCall;
 import pgo.model.tla.TLAGeneralIdentifier;
 import pgo.model.type.PGoType;
@@ -141,21 +143,42 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
     @Override
     public GoExpression readArchetypeResource(GoBlockBuilder builder, TLAExpression resource) {
         UID ref;
+        boolean isCall = false;
 
         if (resource instanceof TLAGeneralIdentifier) {
             ref = registry.followReference(resource.getUID());
         } else if (resource instanceof TLAFunctionCall) {
             ref = registry.followReference(((TLAFunctionCall) resource).getFunction().getUID());
+            isCall = true;
         } else {
             throw new Unreachable();
         }
+        GoType readType = registry.getReadValueType(ref).accept(new PGoTypeGoTypeConversionVisitor());
+
+        // if this a function call being mapped, the read type used when casting should be
+        // the value you get out of the slice or map inferred by the type system.
+        if (isCall) {
+            if (readType instanceof GoSliceType) {
+                readType = ((GoSliceType) readType).getElementType();
+            } else if (readType instanceof GoMapType) {
+                readType = ((GoMapType) readType).getValueType();
+            } else {
+                throw new InternalCompilerError();
+            }
+        }
 
         GoExpression target = resourceExpressions.get(resource);
-
-        return new GoCall(
+        GoExpression readCall = new GoCall(
                 new GoSelectorExpression(target, "Read"),
                 Collections.emptyList()
         );
+
+        // only do type casting if the inferred type is meaningful
+        if (readType.equals(GoBuiltins.Interface)) {
+            return readCall;
+        } else {
+            return new GoTypeCast(new GoTypeName(readType.toString()), readCall);
+        }
     }
 
     @Override

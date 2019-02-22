@@ -145,7 +145,12 @@ public class GoExpressionFormattingVisitor extends GoExpressionVisitor<Void, IOE
 
 	@Override
 	public Void visit(GoTypeCast typeCast) throws IOException {
-		throw new TODO();
+		typeCast.getTarget().accept(this);
+		out.write(".(");
+		out.write(typeCast.getTypeName().getName());
+		out.write(")");
+
+		return null;
 	}
 
 	@Override
