@@ -19,6 +19,7 @@ import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStrategy {
     private DefinitionRegistry registry;
@@ -94,15 +95,9 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
                         Arrays.asList(new GoSelectorExpression(distsys, permission))
                 );
                 args.addAll(resources);
-                GoExpression acquireRead = new GoCall(new GoSelectorExpression(distsys, "AcquireResources"), args);
-                builder.assign(err, acquireRead);
-
-                GoExpression errNotNil = new GoBinop(GoBinop.Operation.NEQ, err, GoBuiltins.Nil);
-                try (GoIfBuilder ifBuilder = builder.ifStmt(errNotNil)) {
-                    try (GoBlockBuilder yes = ifBuilder.whenTrue()) {
-                        yes.returnStmt(err);
-                    }
-                }
+                GoExpression acquireCall = new GoCall(new GoSelectorExpression(distsys, "AcquireResources"), args);
+                builder.assign(err, acquireCall);
+                checkErr(builder);
             }
         };
 
@@ -117,7 +112,21 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
 
     @Override
     public void endCriticalSection(GoBlockBuilder builder, UID processUID, int lockGroup, UID labelUID, GoLabelName labelName) {
-        // throw new TODO();
+        Function<Set<TLAExpression>, List<GoExpression>> findVars = (exps) ->
+            exps.stream().map(resourceVariables::get).collect(Collectors.toList());
+
+        List<GoExpression> usedVars = findVars.apply(
+                registry.getResourceReadsInLockGroup(lockGroup)
+        );
+        usedVars.addAll(
+                findVars.apply(registry.getResourceWritesInLockGroup(lockGroup))
+        );
+
+        if (usedVars.size() > 0) {
+            GoExpression release = new GoCall(new GoSelectorExpression(distsys, "ReleaseResources"), usedVars);
+            builder.assign(err, release);
+            checkErr(builder);
+        }
     }
 
     @Override
@@ -128,5 +137,14 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
     @Override
     public GlobalVariableWrite writeGlobalVariable(UID uid) {
         throw new TODO();
+    }
+
+    private void checkErr(GoBlockBuilder builder) {
+        GoExpression errNotNil = new GoBinop(GoBinop.Operation.NEQ, err, GoBuiltins.Nil);
+        try (GoIfBuilder ifBuilder = builder.ifStmt(errNotNil)) {
+            try (GoBlockBuilder yes = ifBuilder.whenTrue()) {
+                yes.returnStmt(err);
+            }
+        }
     }
 }
