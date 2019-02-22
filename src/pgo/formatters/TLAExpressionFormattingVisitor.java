@@ -79,7 +79,9 @@ public class TLAExpressionFormattingVisitor extends TLAExpressionVisitor<Void, I
 
 	@Override
 	public Void visit(TLADot tlaDot) throws IOException {
+		out.write("(");
 		tlaDot.getExpression().accept(this);
+		out.write(")");
 		out.write(".");
 		tlaDot.getField().accept(new TLANodeFormattingVisitor(out));
 		return null;
