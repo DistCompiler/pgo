@@ -1,5 +1,6 @@
 package pgo.model.type;
 
+import pgo.InternalCompilerError;
 import pgo.Unreachable;
 import pgo.errors.Issue;
 import pgo.errors.IssueContext;
@@ -69,14 +70,23 @@ public class PGoTypeSolver {
 			PGoType a;
 			PGoType b;
 			if (constraint instanceof PGoTypeMonomorphicConstraint) {
-				a = ((PGoTypeMonomorphicConstraint) constraint).getLhs();
-				b = ((PGoTypeMonomorphicConstraint) constraint).getRhs();
+				PGoTypeBasicConstraint basicConstraint =
+						((PGoTypeMonomorphicConstraint) constraint).getBasicConstraint();
+				if (basicConstraint instanceof PGoTypeEqualityConstraint) {
+					a = ((PGoTypeEqualityConstraint) basicConstraint).getLhs();
+					b = ((PGoTypeEqualityConstraint) basicConstraint).getRhs();
+				} else if (basicConstraint instanceof PGoTypeHasFieldConstraint) {
+					// TODO
+					continue;
+				} else {
+					throw new InternalCompilerError();
+				}
 			} else if (constraint instanceof PGoTypePolymorphicConstraint) {
 				if (!((PGoTypePolymorphicConstraint) constraint).hasNext()) {
 					return Optional.of(new BacktrackingFailureIssue((PGoTypePolymorphicConstraint) constraint));
 				}
 				// extract first constraints
-				List<PGoTypeEqualityConstraint> equalityConstraints = ((PGoTypePolymorphicConstraint) constraint).next();
+				List<PGoTypeBasicConstraint> basicConstraints = ((PGoTypePolymorphicConstraint) constraint).next();
 				// snapshot state if there are any constraints left
 				if (((PGoTypePolymorphicConstraint) constraint).hasNext()) {
 					// push copy with current constraint added at front
@@ -85,8 +95,8 @@ public class PGoTypeSolver {
 					stateStack.push(copy);
 				}
 				// add the first constraints
-				for (PGoTypeEqualityConstraint equalityConstraint : equalityConstraints) {
-					constraints.addFirst(new PGoTypeMonomorphicConstraint(constraint.getOrigins(), equalityConstraint));
+				for (PGoTypeBasicConstraint basicConstraint : basicConstraints) {
+					constraints.addFirst(new PGoTypeMonomorphicConstraint(constraint.getOrigins(), basicConstraint));
 				}
 				// solve the newly added constraints
 				continue;

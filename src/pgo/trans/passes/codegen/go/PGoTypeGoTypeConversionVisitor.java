@@ -15,6 +15,11 @@ import java.util.List;
 
 public class PGoTypeGoTypeConversionVisitor extends PGoTypeVisitor<GoType, RuntimeException> {
 	@Override
+	public GoType visit(PGoTypeAbstractRecord pGoTypeAbstractRecord) throws RuntimeException {
+		throw new InternalCompilerError();
+	}
+
+	@Override
 	public GoType visit(PGoTypeVariable pGoTypeVariable) throws RuntimeException {
 		throw new InternalCompilerError();
 	}
@@ -97,6 +102,11 @@ public class PGoTypeGoTypeConversionVisitor extends PGoTypeVisitor<GoType, Runti
 
 	@Override
 	public GoType visit(PGoTypeProcedure pGoTypeProcedure) throws RuntimeException {
+		throw new TODO();
+	}
+
+	@Override
+	public GoType visit(PGoTypeConcreteRecord pGoTypeConcreteRecord) throws RuntimeException {
 		throw new TODO();
 	}
 }

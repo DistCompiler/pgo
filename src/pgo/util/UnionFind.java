@@ -4,8 +4,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class UnionFind<T> {
-	private Map<T, T> predecessorMap = new HashMap<>();
-	private Map<T, Integer> rank = new HashMap<>();
+	private final Map<T, T> predecessorMap = new HashMap<>();
+	private final Map<T, Integer> rank = new HashMap<>();
 
 	private boolean ensurePresence(T element) {
 		if (!predecessorMap.containsKey(element)) {

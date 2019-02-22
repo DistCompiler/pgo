@@ -143,7 +143,9 @@ public class TLAExpressionTypeConstraintVisitor extends TLAExpressionVisitor<PGo
 
 	@Override
 	public PGoType visit(TLADot tlaDot) throws RuntimeException {
-		throw new TODO();
+		PGoType fresh = generator.get();
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(tlaDot, tlaDot.getField().getId(), fresh));
+		return fresh;
 	}
 
 	@Override
@@ -181,7 +183,7 @@ public class TLAExpressionTypeConstraintVisitor extends TLAExpressionVisitor<PGo
 			return fresh;
 		}
 		if (keyTypes.size() > 1) {
-			List<PGoTypeEqualityConstraint> constraintsForMap = new ArrayList<>();
+			List<PGoTypeBasicConstraint> constraintsForMap = new ArrayList<>();
 			for (TLAQuantifierBound arg : tlaFunction.getArguments()) {
 				constraintsForMap.add(new PGoTypeEqualityConstraint(
 						mapping.get(arg.getSet().getUID()),
@@ -250,14 +252,14 @@ public class TLAExpressionTypeConstraintVisitor extends TLAExpressionVisitor<PGo
 		List<PGoType> contents = tlaTuple.getElements().stream()
 				.map(this::wrappedVisit)
 				.collect(Collectors.toList());
-		List<PGoTypeEqualityConstraint> commonConstraints = contents.stream()
+		List<PGoTypeBasicConstraint> commonConstraints = contents.stream()
 				.map(t -> new PGoTypeEqualityConstraint(t, elementType))
 				.collect(Collectors.toList());
-		List<PGoTypeEqualityConstraint> constraintsForChanType = new ArrayList<>(commonConstraints);
+		List<PGoTypeBasicConstraint> constraintsForChanType = new ArrayList<>(commonConstraints);
 		constraintsForChanType.add(new PGoTypeEqualityConstraint(
 				fresh,
 				new PGoTypeChan(elementType, Collections.singletonList(tlaTuple))));
-		List<PGoTypeEqualityConstraint> constraintsForSliceType = new ArrayList<>(commonConstraints);
+		List<PGoTypeBasicConstraint> constraintsForSliceType = new ArrayList<>(commonConstraints);
 		constraintsForSliceType.add(new PGoTypeEqualityConstraint(
 				fresh,
 				new PGoTypeSlice(elementType, Collections.singletonList(tlaTuple))));
@@ -316,7 +318,11 @@ public class TLAExpressionTypeConstraintVisitor extends TLAExpressionVisitor<PGo
 
 	@Override
 	public PGoType visit(TLARecordConstructor tlaRecordConstructor) throws RuntimeException {
-		throw new TODO();
+		List<PGoTypeConcreteRecord.Field> fields = new ArrayList<>();
+		for (TLARecordConstructor.Field field : tlaRecordConstructor.getFields()) {
+			fields.add(new PGoTypeConcreteRecord.Field(field.getName().getId(), wrappedVisit(field.getValue())));
+		}
+		return new PGoTypeConcreteRecord(fields, Collections.singletonList(tlaRecordConstructor));
 	}
 
 	@Override

@@ -1,6 +1,7 @@
 package pgo.formatters;
 
 import pgo.model.type.PGoType;
+import pgo.model.type.PGoTypeHasFieldConstraint;
 import pgo.model.type.PGoTypeMonomorphicConstraint;
 import pgo.model.type.PGoTypePolymorphicConstraint;
 import pgo.scope.UID;

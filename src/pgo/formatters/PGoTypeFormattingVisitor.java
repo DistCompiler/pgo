@@ -12,6 +12,12 @@ public class PGoTypeFormattingVisitor extends PGoTypeVisitor<Void, IOException> 
 	}
 
 	@Override
+	public Void visit(PGoTypeAbstractRecord pGoTypeAbstractRecord) throws IOException {
+		out.write("AbstractRecord");
+		return null;
+	}
+
+	@Override
 	public Void visit(PGoTypeVariable pGoTypeVariable) throws IOException {
 		out.write(pGoTypeVariable.getName());
 		return null;
@@ -110,6 +116,18 @@ public class PGoTypeFormattingVisitor extends PGoTypeVisitor<Void, IOException> 
 		out.write("PlusCalProcedure(");
 		FormattingTools.writeCommaSeparated(out, pGoTypeProcedure.getParamTypes(), p -> p.accept(this));
 		out.write(")");
+		return null;
+	}
+
+	@Override
+	public Void visit(PGoTypeConcreteRecord pGoTypeConcreteRecord) throws IOException {
+		out.write("Record[");
+		FormattingTools.writeCommaSeparated(out, pGoTypeConcreteRecord.getFields(), f -> {
+			out.write(f.getName());
+			out.write(" : ");
+			f.getType().accept(this);
+		});
+		out.write("]");
 		return null;
 	}
 }

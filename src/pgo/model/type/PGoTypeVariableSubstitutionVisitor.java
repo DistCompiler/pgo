@@ -11,6 +11,11 @@ public class PGoTypeVariableSubstitutionVisitor extends PGoTypeVisitor<PGoType, 
 	}
 
 	@Override
+	public PGoType visit(PGoTypeAbstractRecord pGoTypeAbstractRecord) throws RuntimeException {
+		return pGoTypeAbstractRecord;
+	}
+
+	@Override
 	public PGoType visit(PGoTypeVariable pGoTypeVariable) throws RuntimeException {
 		PGoType old = pGoTypeVariable;
 		PGoType sub = mapping.getOrDefault(pGoTypeVariable, pGoTypeVariable);
@@ -97,5 +102,15 @@ public class PGoTypeVariableSubstitutionVisitor extends PGoTypeVisitor<PGoType, 
 		pGoTypeProcedure.setParamTypes(
 				pGoTypeProcedure.getParamTypes().stream().map(t -> t.accept(this)).collect(Collectors.toList()));
 		return pGoTypeProcedure;
+	}
+
+	@Override
+	public PGoType visit(PGoTypeConcreteRecord pGoTypeConcreteRecord) throws RuntimeException {
+		pGoTypeConcreteRecord.setFields(
+				pGoTypeConcreteRecord.getFields()
+						.stream()
+						.map(f -> new PGoTypeConcreteRecord.Field(f.getName(), f.getType().accept(this)))
+						.collect(Collectors.toList()));
+		return pGoTypeConcreteRecord;
 	}
 }

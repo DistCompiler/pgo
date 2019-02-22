@@ -3,7 +3,7 @@ package pgo.model.type;
 /**
  * A plain old Java object representing an equality constraint.
  */
-public class PGoTypeEqualityConstraint {
+public class PGoTypeEqualityConstraint extends PGoTypeBasicConstraint {
 	private PGoType lhs;
 	private PGoType rhs;
 
@@ -20,8 +20,14 @@ public class PGoTypeEqualityConstraint {
 		return rhs;
 	}
 
+	@Override
 	public PGoTypeEqualityConstraint copy() {
 		PGoTypeCopyVisitor visitor = new PGoTypeCopyVisitor();
 		return new PGoTypeEqualityConstraint(lhs.accept(visitor), rhs.accept(visitor));
+	}
+
+	@Override
+	public String toString() {
+		return lhs.toString() + " = " + rhs.toString();
 	}
 }
