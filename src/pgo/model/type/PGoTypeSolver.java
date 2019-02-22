@@ -16,6 +16,8 @@ public class PGoTypeSolver {
 	private Map<PGoTypeVariable, PGoType> mapping = new HashMap<>();
 	private Deque<PGoTypeSolver> stateStack = new ArrayDeque<>();
 
+	private PGoTypeVariableSubstitutionVisitor subs = new PGoTypeVariableSubstitutionVisitor(mapping);
+
 	public Map<PGoTypeVariable, PGoType> getMapping() {
 		return Collections.unmodifiableMap(mapping);
 	}
@@ -33,6 +35,7 @@ public class PGoTypeSolver {
 		constraints = old.constraints;
 		mapping = old.mapping;
 		stateStack = old.stateStack;
+		subs = new PGoTypeVariableSubstitutionVisitor(mapping);
 		return true;
 	}
 
@@ -45,6 +48,7 @@ public class PGoTypeSolver {
 		copy.mapping = new HashMap<>();
 		PGoTypeCopyVisitor visitor = new PGoTypeCopyVisitor();
 		mapping.forEach((k, v) -> copy.mapping.put(k, v.accept(visitor)));
+		copy.subs = null;
 		return copy;
 	}
 
@@ -55,7 +59,7 @@ public class PGoTypeSolver {
 			for (Map.Entry<PGoTypeVariable, PGoType> entry : mapping.entrySet()) {
 				PGoTypeVariable k = entry.getKey();
 				PGoType v = entry.getValue();
-				PGoType newV = v.accept(new PGoTypeVariableSubstitutionVisitor(mapping));
+				PGoType newV = v.accept(subs);
 				if (!newV.equals(v)) {
 					changed = true;
 					mapping.put(k, newV);
@@ -104,8 +108,8 @@ public class PGoTypeSolver {
 				throw new Unreachable();
 			}
 			// a and b are substituted so that we gain more information about their structures
-			a = a.accept(new PGoTypeVariableSubstitutionVisitor(mapping));
-			b = b.accept(new PGoTypeVariableSubstitutionVisitor(mapping));
+			a = a.accept(subs);
+			b = b.accept(subs);
 			if (a.equals(b)) {
 				// nothing to do
 				continue;
