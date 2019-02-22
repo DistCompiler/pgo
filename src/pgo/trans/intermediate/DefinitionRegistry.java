@@ -7,7 +7,9 @@ import pgo.model.mpcal.ModularPlusCalMappingMacro;
 import pgo.model.pcal.PlusCalProcedure;
 import pgo.model.pcal.PlusCalVariableDeclaration;
 import pgo.model.tla.*;
-import pgo.model.type.*;
+import pgo.model.type.PGoType;
+import pgo.model.type.PGoTypeGenerator;
+import pgo.model.type.PGoTypeSolver;
 import pgo.scope.UID;
 
 import java.util.*;
@@ -86,34 +88,10 @@ public class DefinitionRegistry {
 		archetypes.put(archetype.getName(), archetype);
 	}
 
-	public void addAndConstrainReadAndWrittenValueTypes(ModularPlusCalArchetype archetype, PGoTypeSolver solver,
-	                                                    PGoTypeGenerator generator) {
+	public void addReadAndWrittenValueTypes(ModularPlusCalArchetype archetype, PGoTypeGenerator generator) {
 		for (PlusCalVariableDeclaration declaration : archetype.getParams()) {
-			PGoTypeVariable readType = generator.get();
-			PGoTypeVariable writtenType = generator.get();
-			PGoTypeVariable mapKeyType = generator.get();
-			solver.addConstraint(new PGoTypePolymorphicConstraint(declaration, Arrays.asList(
-					Arrays.asList(
-							new PGoTypeEqualityConstraint(
-									readType,
-									new PGoTypeSlice(generator.get(), Collections.singletonList(declaration))),
-							new PGoTypeEqualityConstraint(
-									writtenType,
-									new PGoTypeSlice(generator.get(), Collections.singletonList(declaration)))),
-					Arrays.asList(
-							new PGoTypeEqualityConstraint(
-									readType,
-									new PGoTypeMap(
-											mapKeyType, generator.get(), Collections.singletonList(declaration))),
-							new PGoTypeEqualityConstraint(
-									writtenType,
-									new PGoTypeMap(
-											mapKeyType, generator.get(), Collections.singletonList(declaration)))),
-					Arrays.asList(
-							new PGoTypeEqualityConstraint(readType, generator.get()),
-							new PGoTypeEqualityConstraint(writtenType, generator.get())))));
-			readValueTypes.put(declaration.getUID(), readType);
-			writtenValueTypes.put(declaration.getUID(), writtenType);
+			readValueTypes.put(declaration.getUID(), generator.get());
+			writtenValueTypes.put(declaration.getUID(), generator.get());
 		}
 	}
 
