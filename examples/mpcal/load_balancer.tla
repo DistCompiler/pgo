@@ -114,7 +114,6 @@ CONSTANTS GET_PAGE, WEB_PAGE
             \* Note that tuples are 1-indexed.
             rcvMsg:
               msg := mailboxes[LoadBalancerId];
-              assert(msg[1] = GET_PAGE);
 
             \* the load balancer needs to forward the client request to the
             \* server, who will process the request and send a web page back to
@@ -161,14 +160,14 @@ CONSTANTS GET_PAGE, WEB_PAGE
           sendPage:
             \* sends a web page (read from `page_stream`) back to the requester
             \* i.e., the client.
-            mailboxes[msg[2]] := <<msg[2], page_stream>>;
+            mailboxes[msg[2]] := page_stream;
         }
   }
 
   \* Client processes are given integer identifiers starting from NUM_SERVERS+1.
   \* Keep in mind that this "range" notation in PlusCal defines a set, and is
   \* _inclusive_ (i.e., NUM_SERVERS+NUM_CLIENTS+1 is part of the set).
-  archetype AClient(ref mailboxes)
+  archetype AClient(ref mailboxes, instream, ref outstream)
 
   \* Local variables
   variable
@@ -186,7 +185,7 @@ CONSTANTS GET_PAGE, WEB_PAGE
             \* Remember that `self` is an implicitly defined, immutable variable that
             \* contains the process identifier of the "running" process.
             clientRequest:
-              req := << GET_PAGE, self >>;
+              req := << GET_PAGE, self, instream >>;
               mailboxes[LoadBalancerId] := req;
 
             \* Clients then wait for the response to the previously sent request.
@@ -195,7 +194,7 @@ CONSTANTS GET_PAGE, WEB_PAGE
             \* received indeed is equal our expected web page.
             clientReceive:
               resp := mailboxes[self];
-              assert(resp[2] = WEB_PAGE);
+              outstream := resp;
         }
   }
 
@@ -209,7 +208,9 @@ CONSTANTS GET_PAGE, WEB_PAGE
              \* the stream of web pages to be served by the server. Since we
              \* intend to map this variable using the WebPages mapping macro,
              \* the initial value assigned to it here is irrelevant.
-             stream = 0;
+             stream = 0,
+
+             in = 0, out = 0;
 
   \* PROCESS INSTANTIATION *\
 
@@ -227,7 +228,7 @@ CONSTANTS GET_PAGE, WEB_PAGE
       mapping network[_] via TCPChannel
       mapping stream via WebPages;
 
-  fair process (Client \in (NUM_SERVERS+1)..(NUM_SERVERS+NUM_CLIENTS)) == instance AClient(ref network)
+  fair process (Client \in (NUM_SERVERS+1)..(NUM_SERVERS+NUM_CLIENTS)) == instance AClient(ref network, in, ref out)
       mapping network[_] via TCPChannel;
 }
 
