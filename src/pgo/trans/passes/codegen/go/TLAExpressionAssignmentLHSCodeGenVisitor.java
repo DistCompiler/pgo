@@ -1,6 +1,7 @@
 package pgo.trans.passes.codegen.go;
 
 import pgo.TODO;
+import pgo.Unreachable;
 import pgo.model.golang.GoExpression;
 import pgo.model.golang.GoVariableName;
 import pgo.model.golang.builder.GoBlockBuilder;
@@ -9,6 +10,7 @@ import pgo.model.type.PGoType;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
 import pgo.trans.passes.codegen.go.GlobalVariableStrategy.GlobalVariableWrite;
+
 import java.util.Map;
 
 public class TLAExpressionAssignmentLHSCodeGenVisitor extends TLAExpressionVisitor<GlobalVariableWrite, RuntimeException> {
@@ -27,9 +29,13 @@ public class TLAExpressionAssignmentLHSCodeGenVisitor extends TLAExpressionVisit
 
 	@Override
 	public GlobalVariableWrite visit(TLAGeneralIdentifier tlaGeneralIdentifier) throws RuntimeException {
-		UID ref = registry.followReference(tlaGeneralIdentifier.getUID());
+		UID uid = tlaGeneralIdentifier.getUID();
+		UID ref = registry.followReference(uid);
+
 		if (registry.isGlobalVariable(ref)) {
 			return globalStrategy.writeGlobalVariable(ref);
+		} else if (registry.isArchetypeResource(uid)){
+			return globalStrategy.writeArchetypeResource(builder, tlaGeneralIdentifier);
 		} else if (registry.isLocalVariable(ref)) {
 			GoVariableName name = builder.findUID(ref);
 			return new GlobalVariableWrite() {
@@ -55,12 +61,16 @@ public class TLAExpressionAssignmentLHSCodeGenVisitor extends TLAExpressionVisit
 				}
 			};
 		} else {
-			throw new TODO();
+			throw new Unreachable();
 		}
 	}
 
 	@Override
 	public GlobalVariableWrite visit(TLAFunctionCall tlaFunctionCall) throws RuntimeException {
+		if (registry.isArchetypeResource(tlaFunctionCall.getUID())) {
+			return globalStrategy.writeArchetypeResource(builder, tlaFunctionCall);
+		}
+
 		GoExpression expression = tlaFunctionCall
 				.accept(new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
 		return new GlobalVariableWrite() {

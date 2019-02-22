@@ -93,6 +93,10 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 
 	@Override
 	public GoExpression visit(TLAFunctionCall tlaFunctionCall) throws RuntimeException {
+		if (registry.isArchetypeResource(tlaFunctionCall.getUID())) {
+			return globalStrategy.readArchetypeResource(builder, tlaFunctionCall);
+		}
+
 		PGoType type = typeMap.get(tlaFunctionCall.getFunction().getUID());
 		if (type instanceof PGoTypeMap) {
 			builder.addImport("sort");
@@ -280,9 +284,9 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 		if (registry.isGlobalVariable(ref)) {
 			return globalStrategy.readGlobalVariable(builder, ref);
 		}
-//		if (registry.isArchetypeResource(uid)) {
-//			return globalStrategy.readGlobalVariable(builder, uid);
-//		}
+		if (registry.isArchetypeResource(uid)) {
+			return globalStrategy.readArchetypeResource(builder, tlaGeneralIdentifier);
+		}
 		if (registry.isLocalVariable(ref)) {
 			return builder.findUID(ref);
 		}

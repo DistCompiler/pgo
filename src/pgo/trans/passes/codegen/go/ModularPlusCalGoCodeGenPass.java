@@ -120,6 +120,8 @@ public class ModularPlusCalGoCodeGenPass {
                 for (PlusCalStatement statement : archetype.getBody()) {
                     statement.accept(codeGen);
                 }
+
+                fnBody.returnStmt(GoBuiltins.Nil);
             }
         }
 

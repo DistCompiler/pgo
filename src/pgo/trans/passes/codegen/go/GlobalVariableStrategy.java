@@ -1,6 +1,7 @@
 package pgo.trans.passes.codegen.go;
 
 import pgo.InternalCompilerError;
+import pgo.Unreachable;
 import pgo.model.golang.GoExpression;
 import pgo.model.golang.GoLabelName;
 import pgo.model.golang.GoVariableName;
@@ -8,6 +9,7 @@ import pgo.model.golang.builder.GoBlockBuilder;
 import pgo.model.golang.builder.GoModuleBuilder;
 import pgo.model.golang.type.GoType;
 import pgo.model.pcal.PlusCalProcess;
+import pgo.model.tla.TLAExpression;
 import pgo.scope.UID;
 import pgo.trans.passes.codegen.go.CriticalSection;
 
@@ -46,6 +48,14 @@ public abstract class GlobalVariableStrategy implements CriticalSection {
 
 	@Override
 	public abstract void endCriticalSection(GoBlockBuilder builder, UID processUID, int lockGroup, UID labelUID, GoLabelName labelName);
+
+	public GoExpression readArchetypeResource(GoBlockBuilder builder, TLAExpression expression) {
+		throw new Unreachable();
+	}
+
+	public GlobalVariableWrite writeArchetypeResource(GoBlockBuilder builder, TLAExpression expression) {
+		throw new Unreachable();
+	}
 
 	public abstract GoExpression readGlobalVariable(GoBlockBuilder builder, UID uid);
 

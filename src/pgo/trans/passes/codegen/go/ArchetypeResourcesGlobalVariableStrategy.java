@@ -9,6 +9,7 @@ import pgo.model.golang.builder.GoModuleBuilder;
 import pgo.model.golang.type.GoType;
 import pgo.model.pcal.PlusCalProcess;
 import pgo.model.tla.TLAExpression;
+import pgo.model.tla.TLAFunction;
 import pgo.model.tla.TLAFunctionCall;
 import pgo.model.tla.TLAGeneralIdentifier;
 import pgo.model.type.PGoType;
@@ -23,7 +24,7 @@ import java.util.stream.Collectors;
 
 public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStrategy {
     private DefinitionRegistry registry;
-    private Map<TLAExpression, GoExpression> resourceVariables;
+    private Map<TLAExpression, GoExpression> resourceExpressions;
     private Map<UID, PGoType> typeMap;
     private GoVariableName err;
     private GoVariableName distsys;
@@ -31,7 +32,7 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
     public ArchetypeResourcesGlobalVariableStrategy(DefinitionRegistry registry, Map<UID, PGoType> typeMap) {
         this.registry = registry;
         this.typeMap = typeMap;
-        this.resourceVariables = new HashMap<>();
+        this.resourceExpressions = new HashMap<>();
         this.distsys = new GoVariableName("distsys");
     }
 
@@ -75,7 +76,7 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
                 throw new Unreachable();
             }
 
-            this.resourceVariables.put(e, resource);
+            this.resourceExpressions.put(e, resource);
             s.add(resource);
         };
 
@@ -111,7 +112,7 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
     @Override
     public void endCriticalSection(GoBlockBuilder builder, UID processUID, int lockGroup, UID labelUID, GoLabelName labelName) {
         Function<Set<TLAExpression>, List<GoExpression>> findVars = (exps) ->
-            exps.stream().map(resourceVariables::get).collect(Collectors.toList());
+            exps.stream().map(resourceExpressions::get).collect(Collectors.toList());
 
         List<GoExpression> usedVars = findVars.apply(
                 registry.getResourceReadsInLockGroup(lockGroup)
@@ -135,6 +136,49 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
     @Override
     public GlobalVariableWrite writeGlobalVariable(UID uid) {
         throw new TODO();
+    }
+
+    @Override
+    public GoExpression readArchetypeResource(GoBlockBuilder builder, TLAExpression resource) {
+        UID ref;
+
+        if (resource instanceof TLAGeneralIdentifier) {
+            ref = registry.followReference(resource.getUID());
+        } else if (resource instanceof TLAFunctionCall) {
+            ref = registry.followReference(((TLAFunctionCall) resource).getFunction().getUID());
+        } else {
+            throw new Unreachable();
+        }
+
+        GoExpression target = resourceExpressions.get(resource);
+
+        return new GoCall(
+                new GoSelectorExpression(target, "Read"),
+                Collections.emptyList()
+        );
+    }
+
+    @Override
+    public GlobalVariableWrite writeArchetypeResource(GoBlockBuilder builder, TLAExpression resource) {
+        GoExpression target = resourceExpressions.get(resource);
+        GoVariableName tempVar = builder.varDecl("resourceWrite", GoBuiltins.Interface);
+
+        return new GlobalVariableWrite() {
+            @Override
+            public GoExpression getValueSink(GoBlockBuilder builder) {
+                return tempVar;
+            }
+
+            @Override
+            public void writeAfter(GoBlockBuilder builder) {
+                GoExpression write = new GoCall(
+                        new GoSelectorExpression(target, "Write"),
+                        Collections.singletonList(tempVar)
+                );
+
+                builder.addStatement(write);
+            }
+        };
     }
 
     private void checkErr(GoBlockBuilder builder) {
