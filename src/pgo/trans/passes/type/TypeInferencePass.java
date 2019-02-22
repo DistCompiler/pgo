@@ -1,5 +1,6 @@
 package pgo.trans.passes.type;
 
+import pgo.InternalCompilerError;
 import pgo.errors.IssueContext;
 import pgo.model.mpcal.*;
 import pgo.model.pcal.*;
@@ -91,7 +92,7 @@ public class TypeInferencePass {
 		}
 
 		for (ModularPlusCalArchetype archetype : modularPlusCalBlock.getArchetypes()) {
-			registry.addReadAndWrittenValueTypes(archetype, generator);
+			registry.addAndConstrainReadAndWrittenValueTypes(archetype, solver, generator);
 			UID selfVariableUID = archetype.getSelfVariableUID();
 			mapping.put(selfVariableUID, generator.get());
 			constrainSelfVariable(archetype, selfVariableUID, solver, mapping);
@@ -169,28 +170,28 @@ public class TypeInferencePass {
 
 		Map<UID, PGoType> resultingTypeMapping = new HashMap<>();
 
-		Set<PGoTypeVariable> unresolvedVariables = new HashSet<>();
-		Map<PGoTypeVariable, PGoType> additionalMappings = new HashMap<>();
-		PGoTypeVariableCollectionVisitor collector = new PGoTypeVariableCollectionVisitor(unresolvedVariables);
-		PGoTypeVariableSubstitutionVisitor substitution = new PGoTypeVariableSubstitutionVisitor(additionalMappings);
-		PGoTypeInterface pGoTypeInterface = new PGoTypeInterface(Collections.emptyList());
+		TypeMapEntryProcessor processor = new TypeMapEntryProcessor();
 		for (Map.Entry<UID, PGoTypeVariable> m : mapping.entrySet()) {
 			UID uid = m.getKey();
 			PGoTypeVariable typeVariable = m.getValue();
-			PGoType type;
-			if (typeMapping.containsKey(typeVariable)) {
-				type = typeMapping.get(m.getValue());
-			} else {
-				type = pGoTypeInterface;
-				additionalMappings.put(typeVariable, pGoTypeInterface);
-			}
-			type.accept(collector);
-			for (PGoTypeVariable unresolvedVariable : unresolvedVariables) {
-				additionalMappings.put(unresolvedVariable, pGoTypeInterface);
-			}
-			resultingTypeMapping.put(uid, type.accept(substitution));
-			unresolvedVariables.clear();
+			resultingTypeMapping.put(uid, processor.process(typeMapping, uid, typeVariable));
 		}
+		registry.forEachReadValueType(uid -> {
+			PGoTypeVariable typeVariable = (PGoTypeVariable) registry.getReadValueType(uid);
+			if (typeVariable == null) {
+				throw new InternalCompilerError();
+			}
+			PGoType type = processor.process(typeMapping, uid, typeVariable);
+			registry.updateReadValueType(uid, type);
+		});
+		registry.forEachWrittenValueType(uid -> {
+			PGoTypeVariable typeVariable = (PGoTypeVariable) registry.getWrittenValueType(uid);
+			if (typeVariable == null) {
+				throw new InternalCompilerError();
+			}
+			PGoType type = processor.process(typeMapping, uid, typeVariable);
+			registry.updateWrittenValueType(uid, type);
+		});
 
 		PGoTypeGoTypeConversionVisitor goTypeConversionVisitor = new PGoTypeGoTypeConversionVisitor();
 		for (UID varUID : registry.globalVariables()) {
