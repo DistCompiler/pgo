@@ -275,10 +275,14 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 
 	@Override
 	public GoExpression visit(TLAGeneralIdentifier tlaGeneralIdentifier) throws RuntimeException {
-		UID ref = registry.followReference(tlaGeneralIdentifier.getUID());
+		UID uid = tlaGeneralIdentifier.getUID();
+		UID ref = registry.followReference(uid);
 		if (registry.isGlobalVariable(ref)) {
 			return globalStrategy.readGlobalVariable(builder, ref);
 		}
+//		if (registry.isArchetypeResource(uid)) {
+//			return globalStrategy.readGlobalVariable(builder, uid);
+//		}
 		if (registry.isLocalVariable(ref)) {
 			return builder.findUID(ref);
 		}

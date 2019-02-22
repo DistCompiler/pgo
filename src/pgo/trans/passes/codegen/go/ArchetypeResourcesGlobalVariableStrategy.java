@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
 
 public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStrategy {
     private DefinitionRegistry registry;
-    private Map<TLAExpression, GoVariableName> resourceVariables;
+    private Map<TLAExpression, GoExpression> resourceVariables;
     private Map<UID, PGoType> typeMap;
     private GoVariableName err;
     private GoVariableName distsys;
@@ -52,11 +52,11 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
 
     @Override
     public void startCriticalSection(GoBlockBuilder builder, UID processUID, int lockGroup, UID labelUID, GoLabelName labelName) {
-        Function<Set<GoVariableName>, Consumer<TLAExpression>> generateLocalBinding = s -> e -> {
-            GoVariableName name;
+        Function<Set<GoExpression>, Consumer<TLAExpression>> generateLocalBinding = s -> e -> {
+            GoExpression resource;
 
             if (e instanceof TLAGeneralIdentifier) {
-                name = builder.findUID(registry.followReference(e.getUID()));
+                resource = builder.findUID(registry.followReference(e.getUID()));
             } else if (e instanceof TLAFunctionCall) {
                 TLAFunctionCall fnCall = (TLAFunctionCall) e;
 
@@ -67,29 +67,27 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
                 }
 
                 TLAExpressionCodeGenVisitor codegen = new TLAExpressionCodeGenVisitor(builder, registry, typeMap, this);
-                GoExpression index = new GoIndexExpression(
+                resource = new GoIndexExpression(
                         fnCall.getFunction().accept(codegen),
                         fnCall.getParams().get(0).accept(codegen)
                 );
-
-                name = builder.varDecl("archetypeResource", index);
             } else {
                 throw new Unreachable();
             }
 
-            this.resourceVariables.put(e, name);
-            s.add(name);
+            this.resourceVariables.put(e, resource);
+            s.add(resource);
         };
 
-        Set<GoVariableName> readVars = new HashSet<>();
-        Set<GoVariableName> writeVars = new HashSet<>();
+        Set<GoExpression> readExps = new HashSet<>();
+        Set<GoExpression> writeExps = new HashSet<>();
 
-        registry.getResourceReadsInLockGroup(lockGroup).forEach(generateLocalBinding.apply(readVars));
-        registry.getResourceWritesInLockGroup(lockGroup).forEach(generateLocalBinding.apply(writeVars));
+        registry.getResourceReadsInLockGroup(lockGroup).forEach(generateLocalBinding.apply(readExps));
+        registry.getResourceWritesInLockGroup(lockGroup).forEach(generateLocalBinding.apply(writeExps));
 
-        // err = distsys.AcquireResources(distys.READ_ACCESS, ...{readVars})
+        // err = distsys.AcquireResources(distys.READ_ACCESS, ...{readExps})
         // if err != nil { return err }
-        BiConsumer<String, Set<GoVariableName>> acquire = (permission, resources) -> {
+        BiConsumer<String, Set<GoExpression>> acquire = (permission, resources) -> {
             if (resources.size() > 0) {
                 ArrayList<GoExpression> args = new ArrayList<>(
                         Arrays.asList(new GoSelectorExpression(distsys, permission))
@@ -101,8 +99,8 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
             }
         };
 
-        acquire.accept("READ_ACCESS", readVars);
-        acquire.accept("WRITE_ACCESS", writeVars);
+        acquire.accept("READ_ACCESS", readExps);
+        acquire.accept("WRITE_ACCESS", writeExps);
     }
 
     @Override
