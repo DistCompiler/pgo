@@ -227,7 +227,7 @@ public class TLABuilder {
 		return new TLARecordConstructor(SourceLocation.unknown(), Arrays.asList(fields));
 	}
 
-	public static TLADot dot(TLAExpression expression, TLAIdentifier field) {
+	public static TLADot dot(TLAExpression expression, String field) {
 		return new TLADot(SourceLocation.unknown(), expression, field);
 	}
 }

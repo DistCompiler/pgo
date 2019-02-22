@@ -1384,7 +1384,7 @@ public final class TLAParser {
 									lhs = new TLADot(
 											lhs.getLocation().combine(e.getLocation()),
 											lhs,
-											e.getValue().getFirst());
+											e.getValue().getFirst().getId());
 								}
 								return lhs;
 							}),
@@ -1439,7 +1439,7 @@ public final class TLAParser {
 							.map(seq -> {
 								TLAExpression lhs = seq.getValue().getRest().getFirst();
 								for (Located<HeterogenousList<TLAIdentifier, HeterogenousList<Located<Void>, EmptyHeterogenousList>>> id : seq.getValue().getFirst()) {
-									lhs = new TLADot(id.getLocation(), lhs, id.getValue().getFirst());
+									lhs = new TLADot(id.getLocation(), lhs, id.getValue().getFirst().getId());
 								}
 								return lhs;
 							}));

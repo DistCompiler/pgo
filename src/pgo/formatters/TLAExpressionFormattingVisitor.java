@@ -83,7 +83,7 @@ public class TLAExpressionFormattingVisitor extends TLAExpressionVisitor<Void, I
 		tlaDot.getExpression().accept(this);
 		out.write(")");
 		out.write(".");
-		tlaDot.getField().accept(new TLANodeFormattingVisitor(out));
+		out.write(tlaDot.getField());
 		return null;
 	}
 

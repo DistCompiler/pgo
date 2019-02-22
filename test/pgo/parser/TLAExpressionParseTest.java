@@ -98,17 +98,17 @@ public class TLAExpressionParseTest {
 						record(field(id("src"), idexp("clientId")), field(id("dst"), idexp("serverId")))},
 
 				// dotted
-				{"a.b", dot(idexp("a"), id("b"))},
-				{"a.b.c", dot(dot(idexp("a"), id("b")), id("c"))},
-				{"a[1].b", dot(fncall(idexp("a"), num(1)), id("b"))},
-				{"(a[1]).b", dot(fncall(idexp("a"), num(1)), id("b"))},
-				{"a'.b", dot(unary("'", idexp("a")), id("b"))},
-				{"a'.b'.c", dot(unary("'", dot(unary("'", idexp("a")), id("b"))), id("c"))},
-				{"a (+) b.d", binop("(+)", idexp("a"), dot(idexp("b"), id("d")))},
-				{"(a \\cup b).c", dot(binop("\\cup", idexp("a"), idexp("b")), id("c"))},
+				{"a.b", dot(idexp("a"), "b")},
+				{"a.b.c", dot(dot(idexp("a"), "b"), "c")},
+				{"a[1].b", dot(fncall(idexp("a"), num(1)), "b")},
+				{"(a[1]).b", dot(fncall(idexp("a"), num(1)), "b")},
+				{"a'.b", dot(unary("'", idexp("a")), "b")},
+				{"a'.b'.c", dot(unary("'", dot(unary("'", idexp("a")), "b")), "c")},
+				{"a (+) b.d", binop("(+)", idexp("a"), dot(idexp("b"), "d"))},
+				{"(a \\cup b).c", dot(binop("\\cup", idexp("a"), idexp("b")), "c")},
 				{"[src |-> clientId, dst |-> serverId].src",
 						dot(record(field(id("src"), idexp("clientId")), field(id("dst"), idexp("serverId"))),
-								id("src"))},
+								"src")},
 
 				{"x'",
 						unary("'", idexp("x"))

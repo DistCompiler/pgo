@@ -7,9 +7,9 @@ import pgo.util.SourceLocation;
  */
 public class TLADot extends TLAExpression {
 	private final TLAExpression expression;
-	private final TLAIdentifier field;
+	private final String field;
 
-	public TLADot(SourceLocation location, TLAExpression expression, TLAIdentifier field) {
+	public TLADot(SourceLocation location, TLAExpression expression, String field) {
 		super(location);
 		this.expression = expression;
 		this.field = field;
@@ -34,7 +34,7 @@ public class TLADot extends TLAExpression {
 
 	@Override
 	public TLAExpression copy() {
-		return new TLADot(getLocation(), expression.copy(), field.copy());
+		return new TLADot(getLocation(), expression.copy(), field);
 	}
 
 	@Override
@@ -46,7 +46,7 @@ public class TLADot extends TLAExpression {
 		return expression;
 	}
 
-	public TLAIdentifier getField() {
+	public String getField() {
 		return field;
 	}
 }

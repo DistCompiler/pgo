@@ -162,7 +162,7 @@ public final class PlusCalParser {
 					.map(seq -> new TLADot(
 							seq.getLocation(),
 							seq.getValue().getRest().getRest().getFirst(),
-							seq.getValue().getFirst())),
+							seq.getValue().getFirst().getId())),
 			TLA_IDEXPR);
 
 	private static final Grammar<PlusCalAssignment> ASSIGN = parseListOf(
