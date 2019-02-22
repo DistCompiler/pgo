@@ -5,6 +5,8 @@ import pgo.errors.IssueContext;
 import pgo.model.mpcal.*;
 import pgo.model.pcal.*;
 import pgo.model.tla.TLAExpression;
+import pgo.model.tla.TLAGeneralIdentifier;
+import pgo.model.tla.TLARef;
 import pgo.model.tla.TLAUnit;
 import pgo.model.type.*;
 import pgo.scope.UID;
@@ -92,7 +94,7 @@ public class TypeInferencePass {
 		}
 
 		for (ModularPlusCalArchetype archetype : modularPlusCalBlock.getArchetypes()) {
-			registry.addAndConstrainReadAndWrittenValueTypes(archetype, solver, generator);
+			registry.addReadAndWrittenValueTypes(archetype, generator);
 			UID selfVariableUID = archetype.getSelfVariableUID();
 			mapping.put(selfVariableUID, generator.get());
 			constrainSelfVariable(archetype, selfVariableUID, solver, mapping);
@@ -126,14 +128,59 @@ public class TypeInferencePass {
 			List<PGoType> paramTypes = new ArrayList<>();
 			TLAExpressionTypeConstraintVisitor v =
 					new TLAExpressionTypeConstraintVisitor(registry, solver, generator, mapping);
-			List<TLAExpression> params = instance.getArguments();
-			for (TLAExpression expression : params) {
+			List<TLAExpression> arguments = instance.getArguments();
+			for (TLAExpression expression : arguments) {
 				paramTypes.add(v.wrappedVisit(expression));
 			}
 			solver.addConstraint(new PGoTypeMonomorphicConstraint(
 					instance,
 					mapping.get(target.getUID()),
 					new PGoTypeProcedure(paramTypes, Collections.singletonList(instance))));
+			Map<UID, UID> argsToParams = new HashMap<>();
+			List<PlusCalVariableDeclaration> params = target.getParams();
+			for (int i = 0; i < params.size(); i++) {
+				TLAExpression argument = arguments.get(i);
+				if (argument instanceof TLAGeneralIdentifier || argument instanceof TLARef) {
+					argsToParams.put(registry.followReference(argument.getUID()), params.get(i).getUID());
+				}
+			}
+			for (ModularPlusCalMapping instanceMapping : instance.getMappings()) {
+				ModularPlusCalMappingVariable mappingVariable = instanceMapping.getVariable();
+				if (mappingVariable.isFunctionCalls() && argsToParams.containsKey(mappingVariable.getUID())) {
+					UID declarationUID = argsToParams.get(mappingVariable.getUID());
+					PGoTypeVariable mapKeyType = generator.get();
+					solver.addConstraint(new PGoTypePolymorphicConstraint(declarationUID, Arrays.asList(
+							Arrays.asList(
+									new PGoTypeEqualityConstraint(
+											registry.getReadValueType(declarationUID),
+											new PGoTypeSlice(
+													generator.get(),
+													Collections.singletonList(declarationUID))),
+									new PGoTypeEqualityConstraint(
+											registry.getWrittenValueType(declarationUID),
+											new PGoTypeSlice(
+													generator.get(),
+													Collections.singletonList(declarationUID)))),
+							Arrays.asList(
+									new PGoTypeEqualityConstraint(
+											registry.getReadValueType(declarationUID),
+											new PGoTypeMap(
+													mapKeyType,
+													generator.get(),
+													Collections.singletonList(declarationUID))),
+									new PGoTypeEqualityConstraint(
+											registry.getWrittenValueType(declarationUID),
+											new PGoTypeMap(
+													mapKeyType,
+													generator.get(),
+													Collections.singletonList(declarationUID)))),
+							Arrays.asList(
+									new PGoTypeEqualityConstraint(
+											registry.getReadValueType(declarationUID), generator.get()),
+									new PGoTypeEqualityConstraint(
+											registry.getWrittenValueType(declarationUID), generator.get())))));
+				}
+			}
 		}
 
 		modularPlusCalBlock.getProcesses().accept(new PlusCalProcessesVisitor<Void, RuntimeException>(){
