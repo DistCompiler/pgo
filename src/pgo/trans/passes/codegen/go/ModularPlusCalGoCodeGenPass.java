@@ -74,12 +74,14 @@ public class ModularPlusCalGoCodeGenPass {
     public static GoModule perform(DefinitionRegistry registry, Map<UID, PGoType> typeMap, PGoOptions opts,
                                    ModularPlusCalBlock modularPlusCalBlock) {
         GoModuleBuilder module = new GoModuleBuilder(modularPlusCalBlock.getName().getValue(), opts.buildPackage);
-        GlobalVariableStrategy globalStrategy = new ArchetypeResourcesGlobalVariableStrategy();
+        GlobalVariableStrategy globalStrategy = new ArchetypeResourcesGlobalVariableStrategy(registry, typeMap);
 
         generateInit(module, registry, typeMap, globalStrategy);
 
         for (ModularPlusCalArchetype archetype : modularPlusCalBlock.getArchetypes()) {
             GoFunctionDeclarationBuilder fn = module.defineFunction(archetype.getUID(), archetype.getName());
+            fn.addReturn(GoBuiltins.Error);
+
             Map<String, GoVariableName> argMap = new HashMap<>();
 
             // all archetypes have a `self` parameter
@@ -108,10 +110,13 @@ public class ModularPlusCalGoCodeGenPass {
                 }
 
                 generateLocalVariableDefinitions(registry, typeMap, globalStrategy, fnBody, archetype.getVariables());
+
+                // TODO: this should probably be a separate method in GlobalVariableStrategy
+                globalStrategy.processPrelude(fnBody, null, archetype.getName(), selfVariable, GoBuiltins.Int);
+
                 PlusCalStatementCodeGenVisitor codeGen = new PlusCalStatementCodeGenVisitor(
                         registry, typeMap, globalStrategy, archetype.getUID(), fnBody
                 );
-
                 for (PlusCalStatement statement : archetype.getBody()) {
                     statement.accept(codeGen);
                 }

@@ -32,6 +32,7 @@ public class DefinitionRegistry {
 	private Map<Integer, Set<UID>> lockGroupsToVariableWrites;
 	private Map<Integer, Set<TLAExpression>> lockGroupsToResourceReads;
 	private Map<Integer, Set<TLAExpression>> lockGroupsToResourceWrites;
+	private Set<UID> archetypeResources;
 	private Set<UID> protectedGlobalVariables;
 
 	public DefinitionRegistry() {
@@ -53,6 +54,7 @@ public class DefinitionRegistry {
 		this.lockGroupsToVariableWrites = new HashMap<>();
 		this.lockGroupsToResourceReads = new HashMap<>();
 		this.lockGroupsToResourceWrites = new HashMap<>();
+		this.archetypeResources = new HashSet<>();
 		this.protectedGlobalVariables = new HashSet<>();
 	}
 
@@ -272,6 +274,11 @@ public class DefinitionRegistry {
 		lockGroupsToVariableReads.get(lockGroup).add(varUID);
 	}
 
+	public void addVariableWriteToLockGroup(UID varUID, int lockGroup) {
+		lockGroupsToVariableWrites.putIfAbsent(lockGroup, new HashSet<>());
+		lockGroupsToVariableWrites.get(lockGroup).add(varUID);
+	}
+
 	public void addResourceReadToLockGroup(TLAExpression resource, int lockGroup) {
 		lockGroupsToResourceReads.putIfAbsent(lockGroup, new HashSet<>());
 		lockGroupsToResourceReads.get(lockGroup).add(resource);
@@ -282,9 +289,12 @@ public class DefinitionRegistry {
 		lockGroupsToResourceWrites.get(lockGroup).add(resource);
 	}
 
-	public void addVariableWriteToLockGroup(UID varUID, int lockGroup) {
-		lockGroupsToVariableWrites.putIfAbsent(lockGroup, new HashSet<>());
-		lockGroupsToVariableWrites.get(lockGroup).add(varUID);
+	public Set<TLAExpression> getResourceReadsInLockGroup(int lockGroup) {
+		return Collections.unmodifiableSet(lockGroupsToResourceReads.getOrDefault(lockGroup, Collections.emptySet()));
+	}
+
+	public Set<TLAExpression> getResourceWritesInLockGroup(int lockGroup) {
+		return Collections.unmodifiableSet(lockGroupsToResourceWrites.getOrDefault(lockGroup, Collections.emptySet()));
 	}
 
 	public Set<UID> getVariableReadsInLockGroup(int lockGroup) {
@@ -293,6 +303,14 @@ public class DefinitionRegistry {
 
 	public Set<UID> getVariableWritesInLockGroup(int lockGroup) {
 		return Collections.unmodifiableSet(lockGroupsToVariableWrites.getOrDefault(lockGroup, Collections.emptySet()));
+	}
+
+	public void addArchetypeResource(UID uid) {
+		this.archetypeResources.add(uid);
+	}
+
+	public boolean isArchetypeResource(UID uid) {
+		return this.archetypeResources.contains(uid);
 	}
 
 	public void addProtectedGlobalVariable(UID varUID) {

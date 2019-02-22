@@ -18,7 +18,7 @@ import java.util.stream.Collectors;
 public class ModularPlusCalAtomicityInferencePass {
     private ModularPlusCalAtomicityInferencePass() {}
 
-    private static void trackResource(Map<String, Boolean> mappings, Map<TLAExpression, UID> representativesMap, Map<UID, Set<UID>> map, TLAExpression expression, UID labelUID) {
+    private static void trackResource(DefinitionRegistry registry, Map<String, Boolean> mappings, Map<TLAExpression, UID> representativesMap, Map<UID, Set<UID>> map, TLAExpression expression, UID labelUID) {
         boolean track = false;
 
         if (expression instanceof TLAGeneralIdentifier) {
@@ -51,6 +51,8 @@ public class ModularPlusCalAtomicityInferencePass {
 
             map.putIfAbsent(representative, new HashSet<>());
             map.get(representative).add(labelUID);
+
+            registry.addArchetypeResource(expression.getUID());
         }
     }
 
@@ -103,10 +105,10 @@ public class ModularPlusCalAtomicityInferencePass {
             }
 
             BiConsumer<TLAExpression, UID> captureLabelRead = (expression, labelUID) ->
-                    trackResource(mappings, representativesMap, resourceReadsToLabel, expression, labelUID);
+                    trackResource(registry, mappings, representativesMap, resourceReadsToLabel, expression, labelUID);
 
             BiConsumer<TLAExpression, UID> captureLabelWrite = (expression, labelUID) ->
-                    trackResource(mappings,representativesMap, resourceWritesToLabel, expression, labelUID);
+                    trackResource(registry, mappings,representativesMap, resourceWritesToLabel, expression, labelUID);
 
             Set<UID> foundLabels = new HashSet<>();
             for (PlusCalStatement statement : archetype.getBody()) {
