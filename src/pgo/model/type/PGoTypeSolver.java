@@ -4,6 +4,7 @@ import pgo.InternalCompilerError;
 import pgo.Unreachable;
 import pgo.errors.Issue;
 import pgo.errors.IssueContext;
+import pgo.util.UnionFind;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -14,12 +15,14 @@ import java.util.stream.Collectors;
 public class PGoTypeSolver {
 	private Deque<PGoTypeConstraint> constraints = new ArrayDeque<>();
 	private Map<PGoTypeVariable, PGoType> mapping = new HashMap<>();
+	private UnionFind<PGoTypeVariable> variableGroups = new UnionFind<>();
 	private Deque<PGoTypeSolver> stateStack = new ArrayDeque<>();
 
-	private PGoTypeVariableSubstitutionVisitor subs = new PGoTypeVariableSubstitutionVisitor(mapping);
+	private PGoTypeVariableSubstitutionVisitor subs =
+			new PGoTypeVariableSubstitutionVisitor(new PGoTypeSubstitution(variableGroups, mapping));
 
-	public Map<PGoTypeVariable, PGoType> getMapping() {
-		return Collections.unmodifiableMap(mapping);
+	public PGoTypeSubstitution getSubstitution() {
+		return new PGoTypeSubstitution(variableGroups, mapping);
 	}
 
 	public void addConstraint(PGoTypeConstraint constraint) {
@@ -34,8 +37,9 @@ public class PGoTypeSolver {
 		PGoTypeSolver old = stateStack.pop();
 		constraints = old.constraints;
 		mapping = old.mapping;
+		variableGroups = old.variableGroups;
 		stateStack = old.stateStack;
-		subs = new PGoTypeVariableSubstitutionVisitor(mapping);
+		subs = new PGoTypeVariableSubstitutionVisitor(new PGoTypeSubstitution(variableGroups, mapping));
 		return true;
 	}
 
@@ -46,6 +50,7 @@ public class PGoTypeSolver {
 				.map(PGoTypeConstraint::copy)
 				.collect(Collectors.toCollection(ArrayDeque::new));
 		copy.mapping = new HashMap<>();
+		copy.variableGroups = variableGroups.copy();
 		PGoTypeCopyVisitor visitor = new PGoTypeCopyVisitor();
 		mapping.forEach((k, v) -> copy.mapping.put(k, v.accept(visitor)));
 		copy.subs = null;
@@ -71,21 +76,7 @@ public class PGoTypeSolver {
 	private Optional<Issue> unify() {
 		while (constraints.size() != 0) {
 			PGoTypeConstraint constraint = constraints.removeFirst();
-			PGoType a;
-			PGoType b;
-			if (constraint instanceof PGoTypeMonomorphicConstraint) {
-				PGoTypeBasicConstraint basicConstraint =
-						((PGoTypeMonomorphicConstraint) constraint).getBasicConstraint();
-				if (basicConstraint instanceof PGoTypeEqualityConstraint) {
-					a = ((PGoTypeEqualityConstraint) basicConstraint).getLhs();
-					b = ((PGoTypeEqualityConstraint) basicConstraint).getRhs();
-				} else if (basicConstraint instanceof PGoTypeHasFieldConstraint) {
-					// TODO
-					continue;
-				} else {
-					throw new InternalCompilerError();
-				}
-			} else if (constraint instanceof PGoTypePolymorphicConstraint) {
+			if (constraint instanceof PGoTypePolymorphicConstraint) {
 				if (!((PGoTypePolymorphicConstraint) constraint).hasNext()) {
 					return Optional.of(new BacktrackingFailureIssue((PGoTypePolymorphicConstraint) constraint));
 				}
@@ -104,8 +95,48 @@ public class PGoTypeSolver {
 				}
 				// solve the newly added constraints
 				continue;
-			} else {
+			}
+			if (!(constraint instanceof PGoTypeMonomorphicConstraint)) {
 				throw new Unreachable();
+			}
+			PGoTypeBasicConstraint basicConstraint = ((PGoTypeMonomorphicConstraint) constraint).getBasicConstraint();
+			if (basicConstraint instanceof PGoTypeHasFieldConstraint) {
+				// TODO
+				continue;
+			}
+			if (!(basicConstraint instanceof PGoTypeEqualityConstraint)) {
+				throw new InternalCompilerError();
+			}
+			PGoType a = ((PGoTypeEqualityConstraint) basicConstraint).getLhs();
+			PGoType b = ((PGoTypeEqualityConstraint) basicConstraint).getRhs();
+			if (a instanceof PGoTypeVariable && b instanceof PGoTypeVariable) {
+				// find the variable groups to which a and b belong
+				a = variableGroups.find((PGoTypeVariable) a);
+				b = variableGroups.find((PGoTypeVariable) b);
+				// get the previous types to which a and b maps
+				PGoType subbedA = a.accept(subs);
+				PGoType subbedB = b.accept(subs);
+				// union the two groups to which a and b belong
+				variableGroups.union((PGoTypeVariable) a, (PGoTypeVariable) b);
+				// add constraints for the group representative
+				PGoTypeVariable groupRepresentative = variableGroups.find((PGoTypeVariable) a);
+				if (!a.equals(groupRepresentative)) {
+					constraints.addFirst(new PGoTypeMonomorphicConstraint(
+							Collections.emptyList(), new PGoTypeEqualityConstraint(groupRepresentative, subbedA)));
+				}
+				if (!b.equals(groupRepresentative)) {
+					constraints.addFirst(new PGoTypeMonomorphicConstraint(
+							Collections.emptyList(), new PGoTypeEqualityConstraint(groupRepresentative, subbedB)));
+				}
+				continue;
+			}
+			if (a instanceof PGoTypeVariable) {
+				// find the variable group to which a belongs
+				a = variableGroups.find((PGoTypeVariable) a);
+			}
+			if (b instanceof PGoTypeVariable) {
+				// find the variable group to which b belongs
+				b = variableGroups.find((PGoTypeVariable) b);
 			}
 			// a and b are substituted so that we gain more information about their structures
 			a = a.accept(subs);

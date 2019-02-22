@@ -4,8 +4,17 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class UnionFind<T> {
-	private final Map<T, T> predecessorMap = new HashMap<>();
-	private final Map<T, Integer> rank = new HashMap<>();
+	private final Map<T, T> predecessorMap;
+	private final Map<T, Integer> rank;
+
+	public UnionFind() {
+		this(new HashMap<>(), new HashMap<>());
+	}
+
+	private UnionFind(Map<T, T> predecessorMap, Map<T, Integer> rank) {
+		this.predecessorMap = predecessorMap;
+		this.rank = rank;
+	}
 
 	private boolean ensurePresence(T element) {
 		if (!predecessorMap.containsKey(element)) {
@@ -49,5 +58,9 @@ public class UnionFind<T> {
 	public int getRank(T element) {
 		ensurePresence(element);
 		return rank.get(find(element));
+	}
+
+	public UnionFind<T> copy() {
+		return new UnionFind<>(new HashMap<>(predecessorMap), new HashMap<>(rank));
 	}
 }

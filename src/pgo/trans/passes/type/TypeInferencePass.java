@@ -213,7 +213,7 @@ public class TypeInferencePass {
 		if (ctx.hasErrors()) {
 			return null;
 		}
-		Map<PGoTypeVariable, PGoType> typeMapping = solver.getMapping();
+		PGoTypeSubstitution substitution = solver.getSubstitution();
 
 		Map<UID, PGoType> resultingTypeMapping = new HashMap<>();
 
@@ -221,14 +221,14 @@ public class TypeInferencePass {
 		for (Map.Entry<UID, PGoTypeVariable> m : mapping.entrySet()) {
 			UID uid = m.getKey();
 			PGoTypeVariable typeVariable = m.getValue();
-			resultingTypeMapping.put(uid, processor.process(typeMapping, uid, typeVariable));
+			resultingTypeMapping.put(uid, processor.process(substitution, typeVariable));
 		}
 		registry.forEachReadValueType(uid -> {
 			PGoTypeVariable typeVariable = (PGoTypeVariable) registry.getReadValueType(uid);
 			if (typeVariable == null) {
 				throw new InternalCompilerError();
 			}
-			PGoType type = processor.process(typeMapping, uid, typeVariable);
+			PGoType type = processor.process(substitution, typeVariable);
 			registry.updateReadValueType(uid, type);
 		});
 		registry.forEachWrittenValueType(uid -> {
@@ -236,7 +236,7 @@ public class TypeInferencePass {
 			if (typeVariable == null) {
 				throw new InternalCompilerError();
 			}
-			PGoType type = processor.process(typeMapping, uid, typeVariable);
+			PGoType type = processor.process(substitution, typeVariable);
 			registry.updateWrittenValueType(uid, type);
 		});
 

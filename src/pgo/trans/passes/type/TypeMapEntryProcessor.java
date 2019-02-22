@@ -1,7 +1,7 @@
 package pgo.trans.passes.type;
 
 import pgo.model.type.*;
-import pgo.scope.UID;
+import pgo.util.UnionFind;
 
 import java.util.*;
 
@@ -10,14 +10,14 @@ public class TypeMapEntryProcessor {
 	private final Map<PGoTypeVariable, PGoType> additionalMappings = new HashMap<>();
 	private final PGoTypeVariableCollectionVisitor collector =
 			new PGoTypeVariableCollectionVisitor(unresolvedVariables);
-	private final PGoTypeVariableSubstitutionVisitor substitution =
-			new PGoTypeVariableSubstitutionVisitor(additionalMappings);
+	private final PGoTypeVariableSubstitutionVisitor subs =
+			new PGoTypeVariableSubstitutionVisitor(new PGoTypeSubstitution(new UnionFind<>(), additionalMappings));
 	private final PGoTypeInterface pGoTypeInterface = new PGoTypeInterface(Collections.emptyList());
 
-	public PGoType process(Map<PGoTypeVariable, PGoType> typeMapping, UID uid, PGoTypeVariable typeVariable) {
+	public PGoType process(PGoTypeSubstitution substitution, PGoTypeVariable typeVariable) {
 		PGoType type;
-		if (typeMapping.containsKey(typeVariable)) {
-			type = typeMapping.get(typeVariable);
+		if (substitution.containsKey(typeVariable)) {
+			type = substitution.get(typeVariable);
 		} else {
 			type = pGoTypeInterface;
 			additionalMappings.put(typeVariable, pGoTypeInterface);
@@ -27,6 +27,6 @@ public class TypeMapEntryProcessor {
 			additionalMappings.put(unresolvedVariable, pGoTypeInterface);
 		}
 		unresolvedVariables.clear();
-		return type.accept(substitution);
+		return type.accept(subs);
 	}
 }
