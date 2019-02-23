@@ -16,6 +16,8 @@ public class PGoTypeSolver {
 	private Deque<PGoTypeConstraint> constraints = new ArrayDeque<>();
 	private Map<PGoTypeVariable, PGoType> mapping = new HashMap<>();
 	private UnionFind<PGoTypeVariable> variableGroups = new UnionFind<>();
+	private UnionFind<PGoTypeAbstractRecord> abstractRecordGroups = new UnionFind<>();
+	private Map<PGoTypeAbstractRecord, RecordTypeEntry> abstractRecordsToEntries = new HashMap<>();
 	private Deque<PGoTypeSolver> stateStack = new ArrayDeque<>();
 
 	private PGoTypeVariableSubstitutionVisitor subs =
@@ -29,6 +31,10 @@ public class PGoTypeSolver {
 		constraints.addLast(constraint);
 	}
 
+	void addFirst(PGoTypeConstraint constraint) {
+		constraints.addFirst(constraint);
+	}
+
 	private boolean backtrack() {
 		if (stateStack.size() <= 0) {
 			// unsuccessful
@@ -38,6 +44,8 @@ public class PGoTypeSolver {
 		constraints = old.constraints;
 		mapping = old.mapping;
 		variableGroups = old.variableGroups;
+		abstractRecordGroups = old.abstractRecordGroups;
+		abstractRecordsToEntries = old.abstractRecordsToEntries;
 		stateStack = old.stateStack;
 		subs = new PGoTypeVariableSubstitutionVisitor(new PGoTypeSubstitution(variableGroups, mapping));
 		return true;
@@ -51,6 +59,8 @@ public class PGoTypeSolver {
 				.collect(Collectors.toCollection(ArrayDeque::new));
 		copy.mapping = new HashMap<>();
 		copy.variableGroups = variableGroups.copy();
+		copy.abstractRecordGroups = abstractRecordGroups.copy();
+		copy.abstractRecordsToEntries = new HashMap<>(abstractRecordsToEntries);
 		PGoTypeCopyVisitor visitor = new PGoTypeCopyVisitor();
 		mapping.forEach((k, v) -> copy.mapping.put(k, v.accept(visitor)));
 		copy.subs = null;
@@ -148,11 +158,50 @@ public class PGoTypeSolver {
 			// a and b are substituted so that we gain more information about their structures
 			a = a.accept(subs);
 			b = b.accept(subs);
+			// resolve abstract records
+			if (a instanceof PGoTypeAbstractRecord && b instanceof PGoTypeAbstractRecord) {
+				// find the variable groups to which a and b belong
+				a = abstractRecordGroups.find((PGoTypeAbstractRecord) a);
+				b = abstractRecordGroups.find((PGoTypeAbstractRecord) b);
+				// get the previous entries to which a and b maps
+				RecordTypeEntry entryA = abstractRecordsToEntries.get(a);
+				RecordTypeEntry entryB = abstractRecordsToEntries.get(b);
+				// union the two groups to which a and b belong
+				abstractRecordGroups.union((PGoTypeAbstractRecord) a, (PGoTypeAbstractRecord) b);
+				// add constraints for the group representative
+				try {
+					PGoTypeAbstractRecord rep = abstractRecordGroups.find((PGoTypeAbstractRecord) a);
+					if (!a.equals(rep)) {
+						abstractRecordsToEntries.remove(a);
+						entryA = entryA.unify(this, abstractRecordsToEntries.get(rep));
+					}
+					if (!b.equals(rep)) {
+						abstractRecordsToEntries.remove(b);
+						entryB = entryB.unify(this, abstractRecordsToEntries.get(rep));
+					}
+					abstractRecordsToEntries.put(rep, entryA.unify(this, entryB));
+				} catch (UnificationException e) {
+					return Optional.of(e.getIssue());
+				}
+				continue;
+			}
+			if (a instanceof PGoTypeAbstractRecord) {
+				// swap a and b
+				PGoTypeAbstractRecord tmp = abstractRecordGroups.find((PGoTypeAbstractRecord) a);
+				a = b;
+				b = tmp;
+			}
+			if (b instanceof PGoTypeAbstractRecord) {
+				b = abstractRecordGroups.find((PGoTypeAbstractRecord) b);
+			}
 			if (a.equals(b)) {
 				// nothing to do
 				continue;
 			}
-			if (a instanceof PGoTypeVariable && !b.accept(new PGoTypeHasVariableVisitor((PGoTypeVariable) a))) {
+			if (a instanceof PGoTypeVariable &&
+					((b instanceof PGoTypeAbstractRecord &&
+							!abstractRecordsToEntries.get(b).hasVariable((PGoTypeVariable) a)) ||
+							!b.accept(new PGoTypeHasVariableVisitor((PGoTypeVariable) a)))) {
 				if (!a.equals(groupRepresentative)) {
 					throw new InternalCompilerError();
 				}
@@ -160,6 +209,26 @@ public class PGoTypeSolver {
 				// the containment check prevents the occurrence of recursive types
 				mapping.put(((PGoTypeVariable) a), b);
 				constraint.getOrigins().forEach(a::addOrigin);
+			} else if (a instanceof PGoTypeConcreteRecord && b instanceof PGoTypeAbstractRecord) {
+				try {
+					abstractRecordsToEntries.put((PGoTypeAbstractRecord) b, abstractRecordsToEntries.get(b)
+							.unify(this, new RecordTypeEntry.Concrete((PGoTypeConcreteRecord) a)));
+				} catch (UnificationException e) {
+					if (backtrack()) {
+                        continue;
+					}
+					return Optional.of(e.getIssue());
+				}
+			} else if (a instanceof PGoTypeConcreteRecord && b instanceof PGoTypeConcreteRecord) {
+				try {
+					(new RecordTypeEntry.Concrete((PGoTypeConcreteRecord) a))
+							.unify(this, new RecordTypeEntry.Concrete((PGoTypeConcreteRecord) b));
+				} catch (UnificationException e) {
+					if (backtrack()) {
+						continue;
+					}
+					return Optional.of(e.getIssue());
+				}
 			} else if (a instanceof PGoSimpleContainerType && b instanceof PGoSimpleContainerType) {
 				// a simple container is a container with a single element type, e.g. Set[a], Slice[a], etc.
 				// in order for SimpleContainer[a] = SimpleContainer[b],
@@ -168,7 +237,7 @@ public class PGoTypeSolver {
 					if (backtrack()) {
 						continue;
 					}
-					return Optional.of(new UnsatisfiableConstraintIssue(constraint, a, b));
+					return Optional.of(new UnsatisfiableConstraintIssue(a, b));
 				}
 				//   (2) the element types must be the same
 				constraints.addFirst(new PGoTypeMonomorphicConstraint(
@@ -196,7 +265,7 @@ public class PGoTypeSolver {
 					if (backtrack()) {
 						continue;
 					}
-					return Optional.of(new UnsatisfiableConstraintIssue(constraint, a, b));
+					return Optional.of(new UnsatisfiableConstraintIssue(a, b));
 				}
 				//   (2) each pair of corresponding element types must be the same
 				for (int i = 0; i < ta.getElementTypes().size(); i++) {
@@ -214,7 +283,7 @@ public class PGoTypeSolver {
 					if (backtrack()) {
 						continue;
 					}
-					return Optional.of(new UnsatisfiableConstraintIssue(constraint, a, b));
+					return Optional.of(new UnsatisfiableConstraintIssue(a, b));
 				}
 				//   (2) each pair of corresponding parameter types must be the same, and
 				for (int i = 0; i < fa.getParamTypes().size(); i++) {
@@ -237,7 +306,7 @@ public class PGoTypeSolver {
 					if (backtrack()) {
 						continue;
 					}
-					return Optional.of(new UnsatisfiableConstraintIssue(constraint, a, b));
+					return Optional.of(new UnsatisfiableConstraintIssue(a, b));
 				}
 				//   (2) each pair of corresponding parameter types must be the same
 				for (int i = 0; i < pa.getParamTypes().size(); i++) {
@@ -248,7 +317,7 @@ public class PGoTypeSolver {
 				}
 			} else if (!backtrack()) {
 				// there is no other case for type equality, hence, record error
-				return Optional.of(new UnsatisfiableConstraintIssue(constraint, a, b));
+				return Optional.of(new UnsatisfiableConstraintIssue(a, b));
 			}
 			// we backtracked successfully, continue solving
 		}

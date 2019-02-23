@@ -23,10 +23,13 @@ import pgo.trans.passes.validation.LabelNotAllowedIssue;
 import pgo.trans.passes.validation.MissingLabelIssue;
 import pgo.trans.passes.validation.ReservedLabelNameIssue;
 import pgo.trans.passes.validation.StatementNotAllowedIssue;
+import pgo.util.Origin;
 import pgo.util.SourceLocation;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -226,7 +229,9 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 		out.write(" and ");
 		unsatisfiableConstraintIssue.getRhs().accept(new DerivedFormattingVisitor(out));
 		out.write("; ");
-		unsatisfiableConstraintIssue.getConstraint().accept(new DerivedFormattingVisitor(out));
+		List<Origin> origins = new ArrayList<>(unsatisfiableConstraintIssue.getLhs().getOrigins());
+		origins.addAll(unsatisfiableConstraintIssue.getRhs().getOrigins());
+		(new DerivedFormattingVisitor(out)).writeOrigins(origins);
 		return null;
 	}
 
