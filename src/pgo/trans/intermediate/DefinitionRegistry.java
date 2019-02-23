@@ -9,7 +9,6 @@ import pgo.model.pcal.PlusCalVariableDeclaration;
 import pgo.model.tla.*;
 import pgo.model.type.PGoType;
 import pgo.model.type.PGoTypeGenerator;
-import pgo.model.type.PGoTypeSolver;
 import pgo.scope.UID;
 
 import java.util.*;
@@ -90,8 +89,9 @@ public class DefinitionRegistry {
 
 	public void addReadAndWrittenValueTypes(ModularPlusCalArchetype archetype, PGoTypeGenerator generator) {
 		for (PlusCalVariableDeclaration declaration : archetype.getParams()) {
-			readValueTypes.put(declaration.getUID(), generator.get());
-			writtenValueTypes.put(declaration.getUID(), generator.get());
+			readValueTypes.put(declaration.getUID(), generator.getTypeVariable(Collections.singletonList(declaration)));
+			writtenValueTypes.put(
+					declaration.getUID(), generator.getTypeVariable(Collections.singletonList(declaration)));
 		}
 	}
 

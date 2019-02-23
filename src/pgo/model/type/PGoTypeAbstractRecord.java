@@ -5,24 +5,26 @@ import pgo.util.Origin;
 import java.util.List;
 
 public class PGoTypeAbstractRecord extends PGoType {
+	private final String name;
+
 	/**
+	 * The constructor must be kept package-protected so that PGoTypeGenerator can safely do its job
+	 * @param name the name of the record
 	 * @param origins track where this type come from
 	 */
-	public PGoTypeAbstractRecord(List<Origin> origins) {
+	PGoTypeAbstractRecord(String name, List<Origin> origins) {
 		super(origins);
+		this.name = name;
 	}
 
 	@Override
 	public int hashCode() {
-		return 17;
+		return name.hashCode() * 31 + 17;
 	}
 
 	@Override
 	public boolean equals(Object obj) {
-		if (this == obj) {
-			return true;
-		}
-		return obj instanceof PGoTypeAbstractRecord;
+		return this == obj;
 	}
 
 	@Override

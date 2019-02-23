@@ -7,7 +7,6 @@ import pgo.scope.UID;
 
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 
 import static org.junit.Assert.*;
 
@@ -27,8 +26,8 @@ public class PGoTypeSolverTest {
 
 	@Test
 	public void simpleTypeVariables() {
-		PGoTypeVariable a = typeGenerator.get();
-		PGoTypeVariable b = typeGenerator.get();
+		PGoTypeVariable a = typeGenerator.getTypeVariable(Collections.emptyList());
+		PGoTypeVariable b = typeGenerator.getTypeVariable(Collections.emptyList());
 		solver.addConstraint(new PGoTypeMonomorphicConstraint(dummyUID, a, b));
 		solver.unify(ctx);
 		assertFalse(ctx.hasErrors());
@@ -38,9 +37,9 @@ public class PGoTypeSolverTest {
 
 	@Test
 	public void simpleTuple() {
-		PGoTypeVariable a = typeGenerator.get();
-		PGoTypeVariable b = typeGenerator.get();
-		PGoTypeVariable c = typeGenerator.get();
+		PGoTypeVariable a = typeGenerator.getTypeVariable(Collections.emptyList());
+		PGoTypeVariable b = typeGenerator.getTypeVariable(Collections.emptyList());
+		PGoTypeVariable c = typeGenerator.getTypeVariable(Collections.emptyList());
 		solver.addConstraint(new PGoTypeMonomorphicConstraint(
 				dummyUID, new PGoTypeTuple(Arrays.asList(a, b), Collections.emptyList()), c));
 		solver.unify(ctx);
@@ -51,8 +50,8 @@ public class PGoTypeSolverTest {
 
 	@Test
 	public void boolSlice() {
-		PGoTypeVariable a = typeGenerator.get();
-		PGoTypeVariable b = typeGenerator.get();
+		PGoTypeVariable a = typeGenerator.getTypeVariable(Collections.emptyList());
+		PGoTypeVariable b = typeGenerator.getTypeVariable(Collections.emptyList());
 		solver.addConstraint(new PGoTypeMonomorphicConstraint(dummyUID, a, new PGoTypeBool(Collections.emptyList())));
 		solver.addConstraint(new PGoTypeMonomorphicConstraint(
 				dummyUID, b, new PGoTypeSlice(a, Collections.emptyList())));
@@ -67,8 +66,8 @@ public class PGoTypeSolverTest {
 
 	@Test
 	public void mapStringInterface() {
-		PGoTypeVariable a = typeGenerator.get();
-		PGoTypeVariable b = typeGenerator.get();
+		PGoTypeVariable a = typeGenerator.getTypeVariable(Collections.emptyList());
+		PGoTypeVariable b = typeGenerator.getTypeVariable(Collections.emptyList());
 		solver.addConstraint(new PGoTypeMonomorphicConstraint(
 				dummyUID,
 				new PGoTypeMap(
@@ -85,11 +84,11 @@ public class PGoTypeSolverTest {
 
 	@Test
 	public void chainedFunctions() {
-		PGoTypeVariable a = typeGenerator.get();
-		PGoTypeVariable b = typeGenerator.get();
-		PGoTypeVariable c = typeGenerator.get();
-		PGoTypeVariable d = typeGenerator.get();
-		PGoTypeVariable e = typeGenerator.get();
+		PGoTypeVariable a = typeGenerator.getTypeVariable(Collections.emptyList());
+		PGoTypeVariable b = typeGenerator.getTypeVariable(Collections.emptyList());
+		PGoTypeVariable c = typeGenerator.getTypeVariable(Collections.emptyList());
+		PGoTypeVariable d = typeGenerator.getTypeVariable(Collections.emptyList());
+		PGoTypeVariable e = typeGenerator.getTypeVariable(Collections.emptyList());
 		solver.addConstraint(new PGoTypeMonomorphicConstraint(
 				dummyUID,
 				new PGoTypeFunction(Collections.singletonList(a), b, Collections.emptyList()),
@@ -111,7 +110,7 @@ public class PGoTypeSolverTest {
 
 	@Test
 	public void notUnifiable() {
-		PGoType a = typeGenerator.get();
+		PGoType a = typeGenerator.getTypeVariable(Collections.emptyList());
 		solver.addConstraint(new PGoTypeMonomorphicConstraint(
 				dummyUID,
 				new PGoTypeBool(Collections.emptyList()),
@@ -122,7 +121,7 @@ public class PGoTypeSolverTest {
 
 	@Test
 	public void infiniteType() {
-		PGoTypeVariable a = typeGenerator.get();
+		PGoTypeVariable a = typeGenerator.getTypeVariable(Collections.emptyList());
 		solver.addConstraint(new PGoTypeMonomorphicConstraint(
 				dummyUID, a, new PGoTypeMap(new PGoTypeInt(Collections.emptyList()), a, Collections.emptyList())));
 		solver.unify(ctx);
@@ -131,8 +130,8 @@ public class PGoTypeSolverTest {
 
 	@Test
 	public void circularConstraints() {
-		PGoTypeVariable a = typeGenerator.get();
-		PGoTypeVariable b = typeGenerator.get();
+		PGoTypeVariable a = typeGenerator.getTypeVariable(Collections.emptyList());
+		PGoTypeVariable b = typeGenerator.getTypeVariable(Collections.emptyList());
 		solver.addConstraint(new PGoTypeMonomorphicConstraint(dummyUID, a, b));
 		solver.addConstraint(new PGoTypeMonomorphicConstraint(dummyUID, b, a));
 		solver.unify(ctx);
@@ -143,8 +142,8 @@ public class PGoTypeSolverTest {
 
 	@Test
 	public void circularSets() {
-		PGoTypeVariable a = typeGenerator.get();
-		PGoTypeVariable b = typeGenerator.get();
+		PGoTypeVariable a = typeGenerator.getTypeVariable(Collections.emptyList());
+		PGoTypeVariable b = typeGenerator.getTypeVariable(Collections.emptyList());
 		solver.addConstraint(new PGoTypeMonomorphicConstraint(dummyUID, a, new PGoTypeSet(b, Collections.emptyList())));
 		solver.addConstraint(new PGoTypeMonomorphicConstraint(dummyUID, b, new PGoTypeSet(a, Collections.emptyList())));
 		solver.unify(ctx);
@@ -153,8 +152,8 @@ public class PGoTypeSolverTest {
 
 	@Test
 	public void mismatchedSimpleContainerTypes() {
-		PGoTypeVariable a = typeGenerator.get();
-		PGoTypeVariable b = typeGenerator.get();
+		PGoTypeVariable a = typeGenerator.getTypeVariable(Collections.emptyList());
+		PGoTypeVariable b = typeGenerator.getTypeVariable(Collections.emptyList());
 		solver.addConstraint(new PGoTypeMonomorphicConstraint(
 				dummyUID, new PGoTypeSlice(a, Collections.emptyList()), new PGoTypeChan(b, Collections.emptyList())));
 		solver.unify(ctx);
@@ -163,8 +162,8 @@ public class PGoTypeSolverTest {
 
 	@Test
 	public void mismatchedNestedTypes() {
-		PGoTypeVariable a = typeGenerator.get();
-		PGoTypeVariable b = typeGenerator.get();
+		PGoTypeVariable a = typeGenerator.getTypeVariable(Collections.emptyList());
+		PGoTypeVariable b = typeGenerator.getTypeVariable(Collections.emptyList());
 		solver.addConstraint(new PGoTypeMonomorphicConstraint(
 				dummyUID,
 				new PGoTypeSet(new PGoTypeSlice(a, Collections.emptyList()), Collections.emptyList()),

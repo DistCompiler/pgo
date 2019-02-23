@@ -17,6 +17,7 @@ import pgo.trans.passes.codegen.go.TLAExpressionCodeGenVisitor;
 import pgo.trans.passes.type.TLAExpressionTypeConstraintVisitor;
 import pgo.util.Origin;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -37,7 +38,7 @@ public class CompiledOperatorAccessor extends OperatorAccessor {
 		for (int i = 0; i < defArgs.size(); ++i) {
 			TLAOpDecl arg = defArgs.get(i);
 			if (arg.getType() == TLAOpDecl.Type.ID) {
-				PGoTypeVariable v = generator.get();
+				PGoTypeVariable v = generator.getTypeVariable(Collections.singletonList(origin));
 				mapping.put(arg.getName().getUID(), v);
 				solver.addConstraint(new PGoTypeMonomorphicConstraint(origin, v, args.get(i)));
 			} else {

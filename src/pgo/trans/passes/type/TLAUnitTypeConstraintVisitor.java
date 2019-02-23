@@ -9,6 +9,7 @@ import pgo.model.type.PGoTypeVariable;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
 
+import java.util.Collections;
 import java.util.Map;
 
 public class TLAUnitTypeConstraintVisitor extends TLAUnitVisitor<Void, RuntimeException> {
@@ -37,7 +38,7 @@ public class TLAUnitTypeConstraintVisitor extends TLAUnitVisitor<Void, RuntimeEx
 		if (mapping.containsKey(id)) {
 			v = mapping.get(id);
 		} else {
-			v = generator.get();
+			v = generator.getTypeVariable(Collections.singletonList(pGoTLAFunctionDefinition));
 			mapping.put(id, v);
 		}
 		solver.addConstraint(new PGoTypeMonomorphicConstraint(
@@ -51,7 +52,8 @@ public class TLAUnitTypeConstraintVisitor extends TLAUnitVisitor<Void, RuntimeEx
 		// i.e same operator called from two different places with different argument types
 		for (TLAOpDecl arg : pGoTLAOperator.getArgs()) {
 			if (!mapping.containsKey(arg.getName().getUID())) {
-				mapping.put(arg.getName().getUID(), generator.get());
+				mapping.put(
+						arg.getName().getUID(), generator.getTypeVariable(Collections.singletonList(pGoTLAOperator)));
 			}
 		}
 		visitor.wrappedVisit(pGoTLAOperator.getBody());
