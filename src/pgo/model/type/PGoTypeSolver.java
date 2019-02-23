@@ -181,6 +181,9 @@ public class PGoTypeSolver {
 					}
 					abstractRecordsToEntries.put(rep, entryA.unify(this, entryB));
 				} catch (UnificationException e) {
+					if (backtrack()) {
+						continue;
+					}
 					return Optional.of(e.getIssue());
 				}
 				continue;
