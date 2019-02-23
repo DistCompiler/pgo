@@ -132,13 +132,18 @@ public class PGoTypeSolver {
 				}
 				continue;
 			}
+			PGoTypeVariable groupRepresentative = null;
 			if (a instanceof PGoTypeVariable) {
 				// find the variable group to which a belongs
-				a = variableGroups.find((PGoTypeVariable) a);
+				groupRepresentative = variableGroups.find((PGoTypeVariable) a);
+				a = groupRepresentative;
 			}
 			if (b instanceof PGoTypeVariable) {
 				// find the variable group to which b belongs
-				b = variableGroups.find((PGoTypeVariable) b);
+				groupRepresentative = variableGroups.find((PGoTypeVariable) b);
+				// swap a and b
+				b = a;
+				a = groupRepresentative;
 			}
 			// a and b are substituted so that we gain more information about their structures
 			a = a.accept(subs);
@@ -148,15 +153,13 @@ public class PGoTypeSolver {
 				continue;
 			}
 			if (a instanceof PGoTypeVariable && !b.accept(new PGoTypeHasVariableVisitor((PGoTypeVariable) a))) {
+				if (!a.equals(groupRepresentative)) {
+					throw new InternalCompilerError();
+				}
 				// the constraint is of the form "a = some type", so assign a to that type
 				// the containment check prevents the occurrence of recursive types
 				mapping.put(((PGoTypeVariable) a), b);
 				constraint.getOrigins().forEach(a::addOrigin);
-			} else if (b instanceof PGoTypeVariable && !a.accept(new PGoTypeHasVariableVisitor((PGoTypeVariable) b))) {
-				// the constraint is of the form "some type = b", so assign b to that type
-				// the containment check prevents the occurrence of recursive types
-				mapping.put(((PGoTypeVariable) b), a);
-				constraint.getOrigins().forEach(b::addOrigin);
 			} else if (a instanceof PGoSimpleContainerType && b instanceof PGoSimpleContainerType) {
 				// a simple container is a container with a single element type, e.g. Set[a], Slice[a], etc.
 				// in order for SimpleContainer[a] = SimpleContainer[b],
