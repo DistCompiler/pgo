@@ -149,8 +149,10 @@ public class TLAExpressionTypeConstraintVisitor extends TLAExpressionVisitor<PGo
 	@Override
 	public PGoType visit(TLADot tlaDot) throws RuntimeException {
 		PGoType fresh = generator.getTypeVariable(Collections.singletonList(tlaDot));
-		solver.addConstraint(new PGoTypeMonomorphicConstraint(
-				tlaDot, wrappedVisit(tlaDot.getExpression()), tlaDot.getField(), fresh));
+		PGoTypeAbstractRecord abstractRecord = generator.getAbstractRecord(Collections.singletonList(tlaDot));
+		solver.addConstraint(
+				new PGoTypeMonomorphicConstraint(tlaDot, abstractRecord, wrappedVisit(tlaDot.getExpression())));
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(tlaDot, abstractRecord, tlaDot.getField(), fresh));
 		return fresh;
 	}
 

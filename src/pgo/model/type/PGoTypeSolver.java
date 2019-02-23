@@ -75,6 +75,11 @@ public class PGoTypeSolver {
 				PGoTypeVariable k = entry.getKey();
 				PGoType v = entry.getValue();
 				PGoType newV = v.accept(subs);
+				if (newV instanceof PGoTypeAbstractRecord) {
+					newV = abstractRecordsToEntries
+							.get(abstractRecordGroups.find((PGoTypeAbstractRecord) newV))
+							.toConcreteRecord();
+				}
 				if (!newV.equals(v)) {
 					changed = true;
 					mapping.put(k, newV);
@@ -111,8 +116,51 @@ public class PGoTypeSolver {
 			}
 			PGoTypeBasicConstraint basicConstraint = ((PGoTypeMonomorphicConstraint) constraint).getBasicConstraint();
 			if (basicConstraint instanceof PGoTypeHasFieldConstraint) {
-				// TODO
-				continue;
+				PGoTypeHasFieldConstraint hasFieldConstraint = (PGoTypeHasFieldConstraint) basicConstraint;
+				PGoType expressionType = hasFieldConstraint.getExpressionType();
+				String fieldName = hasFieldConstraint.getFieldName();
+				PGoType fieldType = hasFieldConstraint.getFieldType();
+				if (expressionType instanceof PGoTypeConcreteRecord) {
+					if (((PGoTypeConcreteRecord) expressionType).getFields().stream().noneMatch(f -> {
+						if (f.getName().equals(fieldName)) {
+							addFirst(new PGoTypeMonomorphicConstraint(constraint, fieldType, f.getType()));
+							return true;
+						}
+						return false;
+					})) {
+						if (backtrack()) {
+							continue;
+						}
+						return Optional.of(new NoMatchingFieldIssue((PGoTypeConcreteRecord) expressionType, fieldName));
+					}
+					continue;
+				}
+				if (expressionType instanceof PGoTypeAbstractRecord) {
+					PGoTypeAbstractRecord abstractRecord =
+							abstractRecordGroups.find((PGoTypeAbstractRecord) expressionType);
+					if (abstractRecordsToEntries.containsKey(abstractRecord)) {
+						try {
+							abstractRecordsToEntries.put(
+									abstractRecord,
+									abstractRecordsToEntries.get(abstractRecord)
+											.unify(
+													this,
+													new RecordTypeEntry.Abstract(
+															Collections.singletonMap(fieldName, fieldType))));
+						} catch (UnificationException e) {
+							if (backtrack()) {
+								continue;
+							}
+							return Optional.of(e.getIssue());
+						}
+					} else {
+						abstractRecordsToEntries.put(
+								abstractRecord,
+								new RecordTypeEntry.Abstract(Collections.singletonMap(fieldName, fieldType)));
+					}
+					continue;
+				}
+				throw new InternalCompilerError();
 			}
 			if (!(basicConstraint instanceof PGoTypeEqualityConstraint)) {
 				throw new InternalCompilerError();
@@ -201,15 +249,32 @@ public class PGoTypeSolver {
 				// nothing to do
 				continue;
 			}
-			if (a instanceof PGoTypeVariable &&
-					((b instanceof PGoTypeAbstractRecord &&
-							!abstractRecordsToEntries.get(b).hasVariable((PGoTypeVariable) a)) ||
-							!b.accept(new PGoTypeHasVariableVisitor((PGoTypeVariable) a)))) {
+			if (a instanceof PGoTypeVariable) {
 				if (!a.equals(groupRepresentative)) {
 					throw new InternalCompilerError();
 				}
-				// the constraint is of the form "a = some type", so assign a to that type
-				// the containment check prevents the occurrence of recursive types
+				// prevent infinite types
+				if (b instanceof PGoTypeAbstractRecord) {
+					if (abstractRecordsToEntries.get(b).hasVariable((PGoTypeVariable) a)) {
+						if (backtrack()) {
+							continue;
+						}
+						return Optional.of(new InfiniteTypeIssue(a, b));
+					}
+				} else {
+					if (b.accept(new PGoTypeHasVariableVisitor((PGoTypeVariable) a))) {
+						if (backtrack()) {
+							continue;
+						}
+						return Optional.of(new InfiniteTypeIssue(a, b));
+					}
+				}
+				// the constraint is of the form "a = some type"
+				// first, unify the type to which a maps with b
+				if (mapping.containsKey(a)) {
+					constraints.addFirst(new PGoTypeMonomorphicConstraint(constraint, mapping.get(a), b));
+				}
+				// then, assign a to that type
 				mapping.put(((PGoTypeVariable) a), b);
 				constraint.getOrigins().forEach(a::addOrigin);
 			} else if (a instanceof PGoTypeConcreteRecord && b instanceof PGoTypeAbstractRecord) {

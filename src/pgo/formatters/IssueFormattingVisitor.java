@@ -7,9 +7,7 @@ import pgo.model.mpcal.ModularPlusCalInstance;
 import pgo.model.pcal.PlusCalCall;
 import pgo.model.pcal.PlusCalMacro;
 import pgo.model.pcal.PlusCalProcedure;
-import pgo.model.type.BacktrackingFailureIssue;
-import pgo.model.type.PGoTypePolymorphicConstraint;
-import pgo.model.type.UnsatisfiableConstraintIssue;
+import pgo.model.type.*;
 import pgo.parser.ParseFailure;
 import pgo.trans.intermediate.*;
 import pgo.trans.passes.codegen.pluscal.RefMismatchIssue;
@@ -131,6 +129,15 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 	}
 
 	@Override
+	public Void visit(NoMatchingFieldIssue noMatchingFieldIssue) throws IOException {
+		out.write("record ");
+		noMatchingFieldIssue.getRecord().accept(new PGoTypeFormattingVisitor(out));
+		out.write(" has no field with name ");
+		out.write(noMatchingFieldIssue.getFieldName());
+		return null;
+	}
+
+	@Override
 	public Void visit(CircularModuleReferenceIssue circularModuleReferenceIssue) throws IOException {
 		out.write("encountered circular reference to module ");
 		out.write(circularModuleReferenceIssue.getModuleName());
@@ -175,6 +182,16 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 		out.write(recursiveMacroCallIssue.getMacroCall().getLocation().getStartLine());
 		out.write(" column ");
 		out.write(recursiveMacroCallIssue.getMacroCall().getLocation().getStartColumn());
+		return null;
+	}
+
+	@Override
+	public Void visit(InfiniteTypeIssue infiniteTypeIssue) throws IOException {
+		out.write("unifying ");
+		infiniteTypeIssue.getLhs().accept(new PGoTypeFormattingVisitor(out));
+		out.write(" and ");
+		infiniteTypeIssue.getRhs().accept(new PGoTypeFormattingVisitor(out));
+		out.write(" leads to infinite types");
 		return null;
 	}
 

@@ -1,6 +1,8 @@
 package pgo.errors;
 
 import pgo.model.type.BacktrackingFailureIssue;
+import pgo.model.type.NoMatchingFieldIssue;
+import pgo.model.type.InfiniteTypeIssue;
 import pgo.model.type.UnsatisfiableConstraintIssue;
 import pgo.trans.intermediate.IOErrorIssue;
 import pgo.trans.intermediate.UnsupportedFeatureIssue;
@@ -25,13 +27,15 @@ public abstract class IssueVisitor<T, E extends Throwable> {
 	public abstract T visit(DanglingReferenceIssue danglingReferenceIssue) throws E;
 	public abstract T visit(IOErrorIssue ioErrorIssue) throws E;
 	public abstract T visit(ParsingIssue parsingIssue) throws E;
-	public abstract T visit(NoModulesFoundInFileIssue noModulesFoundInFileIssue) throws E;
 	public abstract T visit(ModuleSubstitutionNotFoundIssue moduleSubstitutionNotFoundIssue) throws E;
+	public abstract T visit(NoMatchingFieldIssue noMatchingFieldIssue) throws E;
+	public abstract T visit(NoModulesFoundInFileIssue noModulesFoundInFileIssue) throws E;
 	public abstract T visit(CircularModuleReferenceIssue circularModuleReferenceIssue) throws E;
 	public abstract T visit(UnsupportedFeatureIssue unsupportedFeatureIssue) throws E;
 	public abstract T visit(UnresolvableMacroCallIssue unresolvableMacroCallIssue) throws E;
 	public abstract T visit(MacroArgumentCountMismatchIssue macroArgumentCountMismatchIssue) throws E;
 	public abstract T visit(RecursiveMacroCallIssue recursiveMacroCallIssue) throws E;
+	public abstract T visit(InfiniteTypeIssue infiniteTypeIssue) throws E;
 	public abstract T visit(MacroArgumentInnerScopeConflictIssue macroArgumentInnerScopeConflictIssue) throws E;
 	public abstract T visit(MultipleMappingIssue multipleMappingIssue) throws E;
 	public abstract T visit(MacroNameConflictIssue macroNameConflictIssue) throws E;

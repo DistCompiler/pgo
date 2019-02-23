@@ -13,8 +13,14 @@ public class PGoTypeMonomorphicConstraint extends PGoTypeConstraint {
 		this(Collections.singletonList(origin), new PGoTypeEqualityConstraint(lhs, rhs));
 	}
 
-	public PGoTypeMonomorphicConstraint(Origin origin, PGoType expressionType, String fieldName, PGoType fieldType) {
-		this(Collections.singletonList(origin), new PGoTypeHasFieldConstraint(expressionType, fieldName, fieldType));
+	public PGoTypeMonomorphicConstraint(Origin origin, PGoTypeAbstractRecord abstractRecord, String fieldName,
+	                                    PGoType fieldType) {
+		this(Collections.singletonList(origin), new PGoTypeHasFieldConstraint(abstractRecord, fieldName, fieldType));
+	}
+
+	public PGoTypeMonomorphicConstraint(Origin origin, PGoTypeConcreteRecord concreteRecord, String fieldName,
+	                                    PGoType fieldType) {
+		this(Collections.singletonList(origin), new PGoTypeHasFieldConstraint(concreteRecord, fieldName, fieldType));
 	}
 
 	public PGoTypeMonomorphicConstraint(List<Origin> origins, PGoTypeBasicConstraint basicConstraint) {

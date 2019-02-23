@@ -21,6 +21,8 @@ abstract class RecordTypeEntry {
 	abstract RecordTypeEntry unify(PGoTypeSolver solver, Abstract entry) throws UnificationException;
 	abstract Concrete unify(PGoTypeSolver solver, Concrete entry) throws UnificationException;
 
+	abstract PGoTypeConcreteRecord toConcreteRecord();
+
 	static class Abstract extends RecordTypeEntry {
 		private final Map<String, PGoType> fields;
 
@@ -71,6 +73,16 @@ abstract class RecordTypeEntry {
 			}
 			return entry;
 		}
+
+		@Override
+		PGoTypeConcreteRecord toConcreteRecord() {
+			return new PGoTypeConcreteRecord(
+					fields.entrySet().stream()
+							.sorted(Comparator.comparing(Map.Entry::getKey))
+							.map(e -> new PGoTypeConcreteRecord.Field(e.getKey(), e.getValue()))
+							.collect(Collectors.toList()),
+					fields.values().stream().flatMap(t -> t.getOrigins().stream()).collect(Collectors.toList()));
+		}
 	}
 
 	static class Concrete extends RecordTypeEntry {
@@ -111,6 +123,11 @@ abstract class RecordTypeEntry {
 						Collections.emptyList(), new PGoTypeEqualityConstraint(field.getType(), ofield.getType())));
 			}
 			return this;
+		}
+
+		@Override
+		PGoTypeConcreteRecord toConcreteRecord() {
+			return record;
 		}
 	}
 }
