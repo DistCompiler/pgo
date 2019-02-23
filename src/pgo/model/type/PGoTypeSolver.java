@@ -121,10 +121,12 @@ public class PGoTypeSolver {
 				// add constraints for the group representative
 				PGoTypeVariable groupRepresentative = variableGroups.find((PGoTypeVariable) a);
 				if (!a.equals(groupRepresentative)) {
+					mapping.remove(a);
 					constraints.addFirst(new PGoTypeMonomorphicConstraint(
 							Collections.emptyList(), new PGoTypeEqualityConstraint(groupRepresentative, subbedA)));
 				}
 				if (!b.equals(groupRepresentative)) {
+					mapping.remove(b);
 					constraints.addFirst(new PGoTypeMonomorphicConstraint(
 							Collections.emptyList(), new PGoTypeEqualityConstraint(groupRepresentative, subbedB)));
 				}
