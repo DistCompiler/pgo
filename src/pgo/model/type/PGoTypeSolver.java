@@ -212,8 +212,10 @@ public class PGoTypeSolver {
 				a = abstractRecordGroups.find((PGoTypeAbstractRecord) a);
 				b = abstractRecordGroups.find((PGoTypeAbstractRecord) b);
 				// get the previous entries to which a and b maps
-				RecordTypeEntry entryA = abstractRecordsToEntries.get(a);
-				RecordTypeEntry entryB = abstractRecordsToEntries.get(b);
+				RecordTypeEntry entryA = abstractRecordsToEntries.getOrDefault(
+						a, RecordTypeEntry.Abstract.EMPTY_ABSTRACT_RECORD);
+				RecordTypeEntry entryB = abstractRecordsToEntries.getOrDefault(
+						b, RecordTypeEntry.Abstract.EMPTY_ABSTRACT_RECORD);
 				// union the two groups to which a and b belong
 				abstractRecordGroups.union((PGoTypeAbstractRecord) a, (PGoTypeAbstractRecord) b);
 				// add constraints for the group representative
@@ -280,8 +282,10 @@ public class PGoTypeSolver {
 				constraint.getOrigins().forEach(a::addOrigin);
 			} else if (a instanceof PGoTypeRecord && b instanceof PGoTypeAbstractRecord) {
 				try {
-					abstractRecordsToEntries.put((PGoTypeAbstractRecord) b, abstractRecordsToEntries.get(b)
-							.unify(this, new RecordTypeEntry.Concrete((PGoTypeRecord) a)));
+					abstractRecordsToEntries.put(
+							(PGoTypeAbstractRecord) b,
+							abstractRecordsToEntries.getOrDefault(b, RecordTypeEntry.Abstract.EMPTY_ABSTRACT_RECORD)
+									.unify(this, new RecordTypeEntry.Concrete((PGoTypeRecord) a)));
 				} catch (UnificationException e) {
 					if (backtrack()) {
                         continue;

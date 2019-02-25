@@ -24,6 +24,8 @@ abstract class RecordTypeEntry {
 	abstract PGoTypeRecord toConcreteRecord();
 
 	static class Abstract extends RecordTypeEntry {
+		static final Abstract EMPTY_ABSTRACT_RECORD = new Abstract();
+
 		private final Map<String, PGoType> fields;
 
 		Abstract() {
@@ -53,23 +55,35 @@ abstract class RecordTypeEntry {
 			return new Abstract(fields);
 		}
 
+		private void throwException(Concrete entry) throws UnificationException {
+			List<PGoTypeRecord.Field> fs = new ArrayList<>();
+			fields.forEach((k, v) -> fs.add(new PGoTypeRecord.Field(k, v)));
+			throw new UnificationException(new UnsatisfiableConstraintIssue(
+					entry.record,
+					new PGoTypeRecord(
+							fs,
+							fs.stream()
+									.flatMap(f -> f.getType().getOrigins().stream())
+									.collect(Collectors.toList()))));
+		}
+
 		@Override
 		Concrete unify(PGoTypeSolver solver, Concrete entry) throws UnificationException {
-			if (entry.record.getFields().size() < fields.size() ||
-					entry.record.getFields().stream().anyMatch(f -> !fields.containsKey(f.getName()))) {
-				List<PGoTypeRecord.Field> fs = new ArrayList<>();
-				fields.forEach((k, v) -> fs.add(new PGoTypeRecord.Field(k, v)));
-				throw new UnificationException(new UnsatisfiableConstraintIssue(
-						entry.record,
-						new PGoTypeRecord(
-								fs,
-								fs.stream()
-										.flatMap(f -> f.getType().getOrigins().stream())
-										.collect(Collectors.toList()))));
+			if (entry.record.getFields().size() < fields.size()) {
+				throwException(entry);
+			}
+			Set<String> keysInAbstractNotConcrete = new HashSet<>(fields.keySet());
+			keysInAbstractNotConcrete.removeAll(entry.record.getFields().stream()
+					.map(PGoTypeRecord.Field::getName)
+					.collect(Collectors.toSet()));
+			if (keysInAbstractNotConcrete.size() > 0) {
+				throwException(entry);
 			}
 			for (PGoTypeRecord.Field field : entry.record.getFields()) {
-				solver.addFirst(
-						new PGoTypeMonomorphicConstraint(entry.record, field.getType(), fields.get(field.getName())));
+				if (fields.containsKey(field.getName())) {
+					solver.addFirst(new PGoTypeMonomorphicConstraint(
+							entry.record, field.getType(), fields.get(field.getName())));
+				}
 			}
 			return entry;
 		}
