@@ -216,10 +216,7 @@ public class DefinitionRegistry {
 	}
 
 	public Optional<TLAExpression> getConstantValue(UID id) {
-		if (constantValues.containsKey(id)) {
-			return Optional.of(constantValues.get(id));
-		}
-		return Optional.empty();
+		return Optional.ofNullable(constantValues.get(id));
 	}
 
 	public Set<UID> globalVariables() {
