@@ -11,7 +11,7 @@ public class TypeMapEntryProcessor {
 	private final PGoTypeVariableCollectionVisitor collector =
 			new PGoTypeVariableCollectionVisitor(unresolvedVariables);
 	private final PGoTypeVariableSubstitutionVisitor subs = new PGoTypeVariableSubstitutionVisitor(
-			new PGoTypeSubstitution(new UnionFind<>(), additionalMappings, new UnionFind<>(), new HashMap<>()));
+			new PGoTypeSubstitution(new UnionFind<>(), additionalMappings));
 	private final PGoTypeInterface pGoTypeInterface = new PGoTypeInterface(Collections.emptyList());
 
 	public PGoType process(PGoTypeSubstitution substitution, PGoTypeVariable typeVariable) {

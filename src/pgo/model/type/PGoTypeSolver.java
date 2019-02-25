@@ -21,10 +21,10 @@ public class PGoTypeSolver {
 	private Deque<PGoTypeSolver> stateStack = new ArrayDeque<>();
 
 	private PGoTypeVariableSubstitutionVisitor subs = new PGoTypeVariableSubstitutionVisitor(
-			new PGoTypeSubstitution(variableGroups, mapping, abstractRecordGroups, abstractRecordsToEntries));
+			new PGoTypeSubstitution(variableGroups, mapping));
 
 	public PGoTypeSubstitution getSubstitution() {
-		return new PGoTypeSubstitution(variableGroups, mapping, abstractRecordGroups, abstractRecordsToEntries);
+		return new PGoTypeSubstitution(variableGroups, mapping);
 	}
 
 	public void addConstraint(PGoTypeConstraint constraint) {
@@ -48,7 +48,7 @@ public class PGoTypeSolver {
 		abstractRecordsToEntries = old.abstractRecordsToEntries;
 		stateStack = old.stateStack;
 		subs = new PGoTypeVariableSubstitutionVisitor(
-				new PGoTypeSubstitution(variableGroups, mapping, abstractRecordGroups, abstractRecordsToEntries));
+				new PGoTypeSubstitution(variableGroups, mapping));
 		return true;
 	}
 
@@ -70,7 +70,8 @@ public class PGoTypeSolver {
 
 	private void simplify() {
 		PGoTypeVariableAbstractRecordSubstitutionVisitor tvarSubs =
-				new PGoTypeVariableAbstractRecordSubstitutionVisitor(getSubstitution());
+				new PGoTypeVariableAbstractRecordSubstitutionVisitor(
+						getSubstitution(), abstractRecordGroups, abstractRecordsToEntries);
 		boolean changed = true;
 		while (changed) {
 			changed = false;
