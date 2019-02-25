@@ -9,6 +9,11 @@ import java.util.Collections;
 
 public class PGoTypeGoTypeDefaultValueVisitor extends PGoTypeVisitor<GoExpression, RuntimeException> {
 	@Override
+	public GoExpression visit(PGoTypeAbstractRecord pGoTypeAbstractRecord) throws RuntimeException {
+		throw new TODO();
+	}
+
+	@Override
 	public GoExpression visit(PGoTypeVariable pGoTypeVariable) throws RuntimeException {
 		throw new InternalCompilerError();
 	}
@@ -77,6 +82,11 @@ public class PGoTypeGoTypeDefaultValueVisitor extends PGoTypeVisitor<GoExpressio
 
 	@Override
 	public GoExpression visit(PGoTypeProcedure pGoTypeProcedure) throws RuntimeException {
+		throw new TODO();
+	}
+
+	@Override
+	public GoExpression visit(PGoTypeRecord pGoTypeRecord) throws RuntimeException {
 		throw new TODO();
 	}
 }

@@ -8,9 +8,7 @@ import pgo.model.mpcal.ModularPlusCalNodeFormattingVisitor;
 import pgo.model.pcal.PlusCalCall;
 import pgo.model.pcal.PlusCalMacro;
 import pgo.model.pcal.PlusCalProcedure;
-import pgo.model.type.BacktrackingFailureIssue;
-import pgo.model.type.PGoTypePolymorphicConstraint;
-import pgo.model.type.UnsatisfiableConstraintIssue;
+import pgo.model.type.*;
 import pgo.parser.ParseFailure;
 import pgo.trans.intermediate.*;
 import pgo.trans.passes.codegen.pluscal.RefMismatchIssue;
@@ -21,10 +19,13 @@ import pgo.trans.passes.parse.tla.ParsingIssue;
 import pgo.trans.passes.scope.*;
 import pgo.trans.passes.type.TypeInferenceFailureIssue;
 import pgo.trans.passes.validation.*;
+import pgo.util.Origin;
 import pgo.util.SourceLocation;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -126,6 +127,15 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 	}
 
 	@Override
+	public Void visit(NoMatchingFieldIssue noMatchingFieldIssue) throws IOException {
+		out.write("record ");
+		noMatchingFieldIssue.getRecord().accept(new PGoTypeFormattingVisitor(out));
+		out.write(" has no field with name ");
+		out.write(noMatchingFieldIssue.getFieldName());
+		return null;
+	}
+
+	@Override
 	public Void visit(CircularModuleReferenceIssue circularModuleReferenceIssue) throws IOException {
 		out.write("encountered circular reference to module ");
 		out.write(circularModuleReferenceIssue.getModuleName());
@@ -170,6 +180,16 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 		out.write(recursiveMacroCallIssue.getMacroCall().getLocation().getStartLine());
 		out.write(" column ");
 		out.write(recursiveMacroCallIssue.getMacroCall().getLocation().getStartColumn());
+		return null;
+	}
+
+	@Override
+	public Void visit(InfiniteTypeIssue infiniteTypeIssue) throws IOException {
+		out.write("unifying ");
+		infiniteTypeIssue.getLhs().accept(new PGoTypeFormattingVisitor(out));
+		out.write(" and ");
+		infiniteTypeIssue.getRhs().accept(new PGoTypeFormattingVisitor(out));
+		out.write(" leads to infinite types");
 		return null;
 	}
 
@@ -224,7 +244,9 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 		out.write(" and ");
 		unsatisfiableConstraintIssue.getRhs().accept(new DerivedFormattingVisitor(out));
 		out.write("; ");
-		unsatisfiableConstraintIssue.getConstraint().accept(new DerivedFormattingVisitor(out));
+		List<Origin> origins = new ArrayList<>(unsatisfiableConstraintIssue.getLhs().getOrigins());
+		origins.addAll(unsatisfiableConstraintIssue.getRhs().getOrigins());
+		(new DerivedFormattingVisitor(out)).writeOrigins(origins);
 		return null;
 	}
 

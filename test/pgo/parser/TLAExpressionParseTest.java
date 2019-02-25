@@ -93,7 +93,23 @@ public class TLAExpressionParseTest {
 				{"0..1", binop("..", num(0), num(1))},
 				{"0..procs-1", binop("..", num(0), binop("-", idexp("procs"), num(1)))},
 
-				// TODO desc
+				// record construction
+				{"[src |-> clientId, dst |-> serverId]",
+						record(field(id("src"), idexp("clientId")), field(id("dst"), idexp("serverId")))},
+
+				// dotted
+				{"a.b", dot(idexp("a"), "b")},
+				{"a.b.c", dot(dot(idexp("a"), "b"), "c")},
+				{"a[1].b", dot(fncall(idexp("a"), num(1)), "b")},
+				{"(a[1]).b", dot(fncall(idexp("a"), num(1)), "b")},
+				{"a'.b", dot(unary("'", idexp("a")), "b")},
+				{"a'.b'.c", dot(unary("'", dot(unary("'", idexp("a")), "b")), "c")},
+				{"a (+) b.d", binop("(+)", idexp("a"), dot(idexp("b"), "d"))},
+				{"(a \\cup b).c", dot(binop("\\cup", idexp("a"), idexp("b")), "c")},
+				{"[src |-> clientId, dst |-> serverId].src",
+						dot(record(field(id("src"), idexp("clientId")), field(id("dst"), idexp("serverId"))),
+								"src")},
+
 				{"x'",
 						unary("'", idexp("x"))
 				},
@@ -188,9 +204,6 @@ public class TLAExpressionParseTest {
 				{"Append(output, msg'[1])",
 						opcall("Append", idexp("output"), fncall(unary("'", idexp("msg")), num(1)))
 				},
-				/*{"Append(network[(N+1)], <<self, (<<a_init[self],b_init[self]>>)>>)",
-						opcall("Append", )
-				},*/
 
 				// a string with spaces in it
 				{"\"have gcd\"",
@@ -283,14 +296,14 @@ public class TLAExpressionParseTest {
 		});
 	}
 
-	String exprString;
-	TLAExpression exprExpected;
+	private String exprString;
+	private TLAExpression exprExpected;
 	public TLAExpressionParseTest(String exprString, TLAExpression exprExpected) {
 		this.exprString = exprString;
 		this.exprExpected = exprExpected;
 	}
 
-	static Path testFile = Paths.get("TEST");
+	private static Path testFile = Paths.get("TEST");
 
 	@Test
 	public void test() throws ParseFailureException {

@@ -1,8 +1,8 @@
 package pgo.model.type;
 
-import java.util.Collections;
-import java.util.Map;
-import java.util.Set;
+import pgo.util.Origin;
+
+import java.util.List;
 
 /**
  * Represents a type variable.
@@ -12,8 +12,8 @@ public class PGoTypeVariable extends PGoType {
 
 	// The constructors must be kept package protected so that
 	// PGoTypeGenerator can safely do its job
-	PGoTypeVariable(String name) {
-		super(Collections.emptyList());
+	PGoTypeVariable(String name, List<Origin> origins) {
+		super(origins);
 		this.name = name;
 	}
 

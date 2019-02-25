@@ -10,6 +10,12 @@ public class PGoTypeVariableCollectionVisitor extends PGoTypeVisitor<Void, Runti
 	}
 
 	@Override
+	public Void visit(PGoTypeAbstractRecord pGoTypeAbstractRecord) throws RuntimeException {
+		// nothing to do
+		return null;
+	}
+
+	@Override
 	public Void visit(PGoTypeVariable pGoTypeVariable) throws RuntimeException {
 		output.add(pGoTypeVariable);
 		return null;
@@ -97,6 +103,14 @@ public class PGoTypeVariableCollectionVisitor extends PGoTypeVisitor<Void, Runti
 	public Void visit(PGoTypeProcedure pGoTypeProcedure) throws RuntimeException {
 		for (PGoType paramType : pGoTypeProcedure.getParamTypes()) {
 			paramType.accept(this);
+		}
+		return null;
+	}
+
+	@Override
+	public Void visit(PGoTypeRecord pGoTypeRecord) throws RuntimeException {
+		for (PGoTypeRecord.Field field : pGoTypeRecord.getFields()) {
+			field.getType().accept(this);
 		}
 		return null;
 	}

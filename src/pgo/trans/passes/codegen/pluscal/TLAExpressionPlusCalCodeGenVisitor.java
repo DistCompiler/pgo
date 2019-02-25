@@ -165,6 +165,11 @@ public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLA
 	}
 
 	@Override
+	public TLAExpression visit(TLADot tlaDot) throws RuntimeException {
+		return new TLADot(tlaDot.getLocation(), tlaDot.getExpression().accept(this), tlaDot.getField());
+	}
+
+	@Override
 	public TLAExpression visit(TLAExistential tlaExistential) throws RuntimeException {
 		return new TLAExistential(
 				tlaExistential.getLocation(),

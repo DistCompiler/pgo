@@ -134,6 +134,7 @@ public final class PlusCalParser {
 
 	// shortcut to parse a limited form of TLA+ identifiers (as seen in PlusCal assignments)
 	static final ReferenceGrammar<TLAExpression> TLA_IDEXPR = new ReferenceGrammar<>();
+	static final ReferenceGrammar<TLAIdentifier> TLA_ID = new ReferenceGrammar<>();
 	static {
 		TLA_IDEXPR.setReferencedGrammar(
 				IDENTIFIER.map(id -> new TLAGeneralIdentifier(
@@ -141,6 +142,7 @@ public final class PlusCalParser {
 						new TLAIdentifier(id.getLocation(), id.getValue()),
 						Collections.emptyList()))
 		);
+		TLA_ID.setReferencedGrammar(IDENTIFIER.map(id -> new TLAIdentifier(id.getLocation(), id.getValue())));
 	}
 
 	private static final Grammar<TLAExpression> LHS = parseOneOf(
@@ -156,13 +158,11 @@ public final class PlusCalParser {
 			emptySequence()
 					.part(TLA_IDEXPR)
 					.part(parsePlusCalToken("."))
-					.part(TLA_IDEXPR)
-					.map(seq -> new TLABinOp(
+					.part(TLA_ID)
+					.map(seq -> new TLADot(
 							seq.getLocation(),
-							new TLASymbol(seq.getValue().getRest().getFirst().getLocation(), "."),
-							Collections.emptyList(),
 							seq.getValue().getRest().getRest().getFirst(),
-							seq.getValue().getFirst())),
+							seq.getValue().getFirst().getId())),
 			TLA_IDEXPR);
 
 	private static final Grammar<PlusCalAssignment> ASSIGN = parseListOf(

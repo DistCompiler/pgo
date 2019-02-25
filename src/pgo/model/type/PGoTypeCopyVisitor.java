@@ -4,6 +4,11 @@ import java.util.stream.Collectors;
 
 public class PGoTypeCopyVisitor extends PGoTypeVisitor<PGoType, RuntimeException> {
 	@Override
+	public PGoType visit(PGoTypeAbstractRecord pGoTypeAbstractRecord) throws RuntimeException {
+		return pGoTypeAbstractRecord;
+	}
+
+	@Override
 	public PGoType visit(PGoTypeVariable pGoTypeVariable) throws RuntimeException {
 		return pGoTypeVariable;
 	}
@@ -82,5 +87,15 @@ public class PGoTypeCopyVisitor extends PGoTypeVisitor<PGoType, RuntimeException
 		return new PGoTypeProcedure(
 				pGoTypeProcedure.getParamTypes().stream().map(p -> p.accept(this)).collect(Collectors.toList()),
 				pGoTypeProcedure.getOrigins());
+	}
+
+	@Override
+	public PGoType visit(PGoTypeRecord pGoTypeRecord) throws RuntimeException {
+		return new PGoTypeRecord(
+				pGoTypeRecord.getFields()
+						.stream()
+						.map(f -> new PGoTypeRecord.Field(f.getName(), f.getType()))
+						.collect(Collectors.toList()),
+				pGoTypeRecord.getOrigins());
 	}
 }

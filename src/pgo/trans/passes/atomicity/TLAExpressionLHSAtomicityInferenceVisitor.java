@@ -39,6 +39,12 @@ public class TLAExpressionLHSAtomicityInferenceVisitor extends TLAExpressionVisi
 	}
 
 	@Override
+	public Void visit(TLADot tlaDot) throws RuntimeException {
+		tlaDot.getExpression().accept(this);
+		return null;
+	}
+
+	@Override
 	public Void visit(TLAExistential tlaExistential) throws RuntimeException {
 		throw new Unreachable();
 	}

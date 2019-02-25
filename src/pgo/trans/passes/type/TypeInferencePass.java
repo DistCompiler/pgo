@@ -26,15 +26,16 @@ public class TypeInferencePass {
 		if (mapping.containsKey(var.getUID())) {
 			v = mapping.get(var.getUID());
 		} else {
-			v = generator.get();
+			v = generator.getTypeVariable(Collections.singletonList(var));
 			mapping.put(var.getUID(), v);
 		}
 
 		PGoType valueType = new TLAExpressionTypeConstraintVisitor(registry, solver, generator, mapping)
 				.wrappedVisit(var.getValue());
 		if (var.isSet()) {
-			PGoTypeVariable member = generator.get();
-			solver.addConstraint(new PGoTypeMonomorphicConstraint(var, new PGoTypeSet(member, Collections.singletonList(valueType)), valueType));
+			PGoTypeVariable member = generator.getTypeVariable(Collections.singletonList(valueType));
+			solver.addConstraint(new PGoTypeMonomorphicConstraint(
+					var, new PGoTypeSet(member, Collections.singletonList(valueType)), valueType));
 			solver.addConstraint(new PGoTypeMonomorphicConstraint(var, v, member));
 		} else {
 			solver.addConstraint(new PGoTypeMonomorphicConstraint(var, v, valueType));
@@ -61,7 +62,7 @@ public class TypeInferencePass {
 
 		// make sure the user-provided constant values typecheck
 		for (UID id : registry.getConstants()) {
-			PGoTypeVariable fresh = generator.get();
+			PGoTypeVariable fresh = generator.getTypeVariable(Collections.singletonList(id));
 			mapping.put(id, fresh);
 			registry.getConstantValue(id).ifPresent(value -> {
 				mapping.put(value.getUID(), fresh);
@@ -89,15 +90,16 @@ public class TypeInferencePass {
 			for (PlusCalStatement stmt : p.getBody()) {
 				stmt.accept(v);
 			}
-			PGoTypeVariable fresh = generator.get();
-			solver.addConstraint(new PGoTypeMonomorphicConstraint(p, fresh, new PGoTypeProcedure(paramTypes, Collections.singletonList(p))));
+			PGoTypeVariable fresh = generator.getTypeVariable(Collections.singletonList(p));
+			solver.addConstraint(new PGoTypeMonomorphicConstraint(
+					p, fresh, new PGoTypeProcedure(paramTypes, Collections.singletonList(p))));
 			mapping.put(p.getUID(), fresh);
 		}
 
 		for (ModularPlusCalArchetype archetype : modularPlusCalBlock.getArchetypes()) {
 			registry.addReadAndWrittenValueTypes(archetype, generator);
 			UID selfVariableUID = archetype.getSelfVariableUID();
-			mapping.put(selfVariableUID, generator.get());
+			mapping.put(selfVariableUID, generator.getTypeVariable(Collections.singletonList(archetype)));
 			constrainSelfVariable(archetype, selfVariableUID, solver, mapping);
 			List<PGoType> paramTypes = new ArrayList<>();
 			Set<UID> paramUIDs = new HashSet<>();
@@ -113,7 +115,7 @@ public class TypeInferencePass {
 				statement.accept(new ArchetypeBodyStatementTypeConstraintVisitor(
 						registry, solver, generator, mapping, paramUIDs));
 			}
-			PGoTypeVariable fresh = generator.get();
+			PGoTypeVariable fresh = generator.getTypeVariable(Collections.singletonList(archetype));
 			solver.addConstraint(new PGoTypeMonomorphicConstraint(
 					archetype, fresh, new PGoTypeProcedure(paramTypes, Collections.singletonList(archetype))));
 			mapping.put(archetype.getUID(), fresh);
@@ -149,37 +151,43 @@ public class TypeInferencePass {
 				ModularPlusCalMappingVariable mappingVariable = instanceMapping.getVariable();
 				if (mappingVariable.isFunctionCalls() && argsToParams.containsKey(mappingVariable.getUID())) {
 					UID declarationUID = argsToParams.get(mappingVariable.getUID());
-					PGoTypeVariable mapKeyType = generator.get();
+					PGoTypeVariable mapKeyType = generator.getTypeVariable(Collections.singletonList(declarationUID));
 					solver.addConstraint(new PGoTypePolymorphicConstraint(declarationUID, Arrays.asList(
 							Arrays.asList(
 									new PGoTypeEqualityConstraint(
 											registry.getReadValueType(declarationUID),
 											new PGoTypeSlice(
-													generator.get(),
+													generator.getTypeVariable(
+															Collections.singletonList(declarationUID)),
 													Collections.singletonList(declarationUID))),
 									new PGoTypeEqualityConstraint(
 											registry.getWrittenValueType(declarationUID),
 											new PGoTypeSlice(
-													generator.get(),
+													generator.getTypeVariable(
+															Collections.singletonList(declarationUID)),
 													Collections.singletonList(declarationUID)))),
 							Arrays.asList(
 									new PGoTypeEqualityConstraint(
 											registry.getReadValueType(declarationUID),
 											new PGoTypeMap(
 													mapKeyType,
-													generator.get(),
+													generator.getTypeVariable(
+															Collections.singletonList(declarationUID)),
 													Collections.singletonList(declarationUID))),
 									new PGoTypeEqualityConstraint(
 											registry.getWrittenValueType(declarationUID),
 											new PGoTypeMap(
 													mapKeyType,
-													generator.get(),
+													generator.getTypeVariable(
+															Collections.singletonList(declarationUID)),
 													Collections.singletonList(declarationUID)))),
 							Arrays.asList(
 									new PGoTypeEqualityConstraint(
-											registry.getReadValueType(declarationUID), generator.get()),
+											registry.getReadValueType(declarationUID),
+											generator.getTypeVariable(Collections.singletonList(declarationUID))),
 									new PGoTypeEqualityConstraint(
-											registry.getWrittenValueType(declarationUID), generator.get())))));
+											registry.getWrittenValueType(declarationUID),
+											generator.getTypeVariable(Collections.singletonList(declarationUID)))))));
 				}
 			}
 		}
@@ -214,7 +222,7 @@ public class TypeInferencePass {
 		if (ctx.hasErrors()) {
 			return null;
 		}
-		Map<PGoTypeVariable, PGoType> typeMapping = solver.getMapping();
+		PGoTypeSubstitution substitution = solver.getSubstitution();
 
 		Map<UID, PGoType> resultingTypeMapping = new HashMap<>();
 
@@ -222,14 +230,14 @@ public class TypeInferencePass {
 		for (Map.Entry<UID, PGoTypeVariable> m : mapping.entrySet()) {
 			UID uid = m.getKey();
 			PGoTypeVariable typeVariable = m.getValue();
-			resultingTypeMapping.put(uid, processor.process(typeMapping, uid, typeVariable));
+			resultingTypeMapping.put(uid, processor.process(substitution, typeVariable));
 		}
 		registry.forEachReadValueType(uid -> {
 			PGoTypeVariable typeVariable = (PGoTypeVariable) registry.getReadValueType(uid);
 			if (typeVariable == null) {
 				throw new InternalCompilerError();
 			}
-			PGoType type = processor.process(typeMapping, uid, typeVariable);
+			PGoType type = processor.process(substitution, typeVariable);
 			registry.updateReadValueType(uid, type);
 		});
 		registry.forEachWrittenValueType(uid -> {
@@ -237,7 +245,7 @@ public class TypeInferencePass {
 			if (typeVariable == null) {
 				throw new InternalCompilerError();
 			}
-			PGoType type = processor.process(typeMapping, uid, typeVariable);
+			PGoType type = processor.process(substitution, typeVariable);
 			registry.updateWrittenValueType(uid, type);
 		});
 

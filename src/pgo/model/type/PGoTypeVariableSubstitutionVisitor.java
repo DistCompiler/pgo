@@ -1,19 +1,23 @@
 package pgo.model.type;
 
-import java.util.Map;
 import java.util.stream.Collectors;
 
 public class PGoTypeVariableSubstitutionVisitor extends PGoTypeVisitor<PGoType, RuntimeException> {
-	private final Map<PGoTypeVariable, PGoType> mapping;
+	private final PGoTypeSubstitution substitution;
 
-	public PGoTypeVariableSubstitutionVisitor(Map<PGoTypeVariable, PGoType> mapping) {
-		this.mapping = mapping;
+	public PGoTypeVariableSubstitutionVisitor(PGoTypeSubstitution substitution) {
+		this.substitution = substitution;
+	}
+
+	@Override
+	public PGoType visit(PGoTypeAbstractRecord pGoTypeAbstractRecord) throws RuntimeException {
+		return pGoTypeAbstractRecord;
 	}
 
 	@Override
 	public PGoType visit(PGoTypeVariable pGoTypeVariable) throws RuntimeException {
 		PGoType old = pGoTypeVariable;
-		PGoType sub = mapping.getOrDefault(pGoTypeVariable, pGoTypeVariable);
+		PGoType sub = substitution.getOrDefault(pGoTypeVariable, pGoTypeVariable);
 		while (!sub.equals(old)) {
 			old = sub;
 			sub = sub.accept(this);
@@ -97,5 +101,15 @@ public class PGoTypeVariableSubstitutionVisitor extends PGoTypeVisitor<PGoType, 
 		pGoTypeProcedure.setParamTypes(
 				pGoTypeProcedure.getParamTypes().stream().map(t -> t.accept(this)).collect(Collectors.toList()));
 		return pGoTypeProcedure;
+	}
+
+	@Override
+	public PGoType visit(PGoTypeRecord pGoTypeRecord) throws RuntimeException {
+		pGoTypeRecord.setFields(
+				pGoTypeRecord.getFields()
+						.stream()
+						.map(f -> new PGoTypeRecord.Field(f.getName(), f.getType().accept(this)))
+						.collect(Collectors.toList()));
+		return pGoTypeRecord;
 	}
 }

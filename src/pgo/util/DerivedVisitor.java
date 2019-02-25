@@ -8,8 +8,8 @@ import pgo.trans.intermediate.OperatorAccessor;
 
 public abstract class DerivedVisitor<T, E extends Throwable> {
 	public abstract T visit(UID uid) throws E;
-	public abstract T visit(PGoType pGoType) throws E;
 	public abstract T visit(OperatorAccessor operatorAccessor) throws E;
+	public abstract T visit(PGoType pGoType) throws E;
 	public abstract T visit(PGoTypeMonomorphicConstraint pGoTypeMonomorphicConstraint) throws E;
 	public abstract T visit(PGoTypePolymorphicConstraint pGoTypePolymorphicConstraint) throws E;
 }

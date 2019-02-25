@@ -1,12 +1,14 @@
 package pgo.model.type;
 
+import pgo.util.Origin;
+
+import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Supplier;
 
 /**
- * Generates fresh PGoTypeVariables and infers types from Go type names.
+ * Generates fresh PGoTypeVariables and PGoAbstractRecords.
  */
-public class PGoTypeGenerator implements Supplier<PGoTypeVariable> {
+public class PGoTypeGenerator {
 	private AtomicLong current = new AtomicLong(0);
 	private String prefix;
 
@@ -14,9 +16,13 @@ public class PGoTypeGenerator implements Supplier<PGoTypeVariable> {
 		this.prefix = prefix;
 	}
 
-	@Override
-	public PGoTypeVariable get() {
+	public PGoTypeVariable getTypeVariable(List<Origin> origins) {
 		long c = current.addAndGet(1);
-		return new PGoTypeVariable(prefix + c);
+		return new PGoTypeVariable(prefix + c, origins);
+	}
+
+	public PGoTypeAbstractRecord getAbstractRecord(List<Origin> origins) {
+		long c = current.addAndGet(1);
+		return new PGoTypeAbstractRecord(prefix + c, origins);
 	}
 }

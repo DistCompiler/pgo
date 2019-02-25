@@ -28,7 +28,7 @@ public class TLABuiltins {
 
 	public static PGoTypeVariable getPolymorphicNumberType(Origin origin, PGoTypeSolver solver,
 	                                                       PGoTypeGenerator generator) {
-		PGoTypeVariable fresh = generator.get();
+		PGoTypeVariable fresh = generator.getTypeVariable(Collections.singletonList(origin));
 		// TODO we do not yet support Reals
 		solver.addConstraint(new PGoTypeMonomorphicConstraint(
 				origin, fresh, new PGoTypeInt(Collections.singletonList(origin))));
@@ -164,7 +164,7 @@ public class TLABuiltins {
 		universalBuiltIns.addOperator("\\in", new BuiltinOperator(
 				2,
 				(origin, args, solver, generator) -> {
-					PGoTypeVariable memberType = generator.get();
+					PGoTypeVariable memberType = generator.getTypeVariable(Collections.singletonList(origin));
 					solver.addConstraint(new PGoTypeMonomorphicConstraint(origin, args.get(0), memberType));
 					solver.addConstraint(new PGoTypeMonomorphicConstraint(
 							origin, args.get(1), new PGoTypeSet(memberType, Collections.singletonList(origin))));
@@ -177,7 +177,9 @@ public class TLABuiltins {
 		universalBuiltIns.addOperator("\\", new BuiltinOperator(
 				2,
 				(origin, args, solver, generator) -> {
-					PGoType fresh = new PGoTypeSet(generator.get(), Collections.singletonList(origin));
+					PGoType fresh = new PGoTypeSet(
+							generator.getTypeVariable(Collections.singletonList(origin)),
+							Collections.singletonList(origin));
 					solver.addConstraint(new PGoTypeMonomorphicConstraint(origin, args.get(0), fresh));
 					solver.addConstraint(new PGoTypeMonomorphicConstraint(origin, args.get(1), fresh));
 					return fresh;
@@ -337,7 +339,9 @@ public class TLABuiltins {
 		universalBuiltIns.addOperators(Arrays.asList("\\union", "\\cup"), new TypelessBuiltinOperator(
 				2,
 				(origin, args, solver, generator) -> {
-					PGoType fresh = new PGoTypeSet(generator.get(), Collections.singletonList(origin));
+					PGoType fresh = new PGoTypeSet(
+							generator.getTypeVariable(Collections.singletonList(origin)),
+							Collections.singletonList(origin));
 					solver.addConstraint(new PGoTypeMonomorphicConstraint(origin, args.get(0), fresh));
 					solver.addConstraint(new PGoTypeMonomorphicConstraint(origin, args.get(1), fresh));
 					return fresh;
@@ -376,7 +380,10 @@ public class TLABuiltins {
 				(origin, args, solver, generator) -> {
 					solver.addConstraint(new PGoTypePolymorphicConstraint(origin, Arrays.asList(
 							Collections.singletonList(new PGoTypeEqualityConstraint(
-									args.get(0), new PGoTypeSlice(generator.get(), Collections.singletonList(origin)))),
+									args.get(0),
+									new PGoTypeSlice(
+											generator.getTypeVariable(Collections.singletonList(origin)),
+											Collections.singletonList(origin)))),
 							Collections.singletonList(new PGoTypeEqualityConstraint(
 									args.get(0), new PGoTypeString(Collections.singletonList(origin)))))));
 					return new PGoTypeInt(Collections.singletonList(origin));
@@ -387,7 +394,7 @@ public class TLABuiltins {
 		Sequences.addOperator("Append", new BuiltinOperator(
 				2,
 				(origin, args, solver, generator) -> {
-					PGoTypeVariable elementType = generator.get();
+					PGoTypeVariable elementType = generator.getTypeVariable(Collections.singletonList(origin));
 					PGoType fresh = new PGoTypeSlice(elementType, Collections.singletonList(origin));
 					solver.addConstraint(new PGoTypeMonomorphicConstraint(origin, args.get(0), fresh));
 					solver.addConstraint(new PGoTypeMonomorphicConstraint(origin, args.get(1), elementType));
@@ -395,8 +402,10 @@ public class TLABuiltins {
 				},
 				(builder, origin, registry, arguments, typeMap, globalStrategy) -> {
 					GoType baseType = typeMap.get(arguments.get(0).getUID()).accept(new PGoTypeGoTypeConversionVisitor());
-					GoExpression base = arguments.get(0).accept(new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
-					GoExpression extra = arguments.get(1).accept(new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
+					GoExpression base = arguments.get(0).accept(
+							new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
+					GoExpression extra = arguments.get(1).accept(
+							new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
 
 					GoExpression baseLen = new GoCall(new GoVariableName("len"), Collections.singletonList(base));
 					// since append may reuse the underlying slice, it is possible that appending two different
@@ -415,16 +424,17 @@ public class TLABuiltins {
 		Sequences.addOperator("Head", new TypelessBuiltinOperator(
 				1,
 				(origin, args, solver, generator) -> {
-					PGoTypeVariable elementType = generator.get();
-					solver.addConstraint(new PGoTypeMonomorphicConstraint(origin, args.get(0), new PGoTypeSlice(elementType, Collections.singletonList(origin))));
+					PGoTypeVariable elementType = generator.getTypeVariable(Collections.singletonList(origin));
+					solver.addConstraint(new PGoTypeMonomorphicConstraint(
+							origin, args.get(0), new PGoTypeSlice(elementType, Collections.singletonList(origin))));
 					return elementType;
 				},
-				(builder, origin, registry, arguments, typeMap) -> new GoIndexExpression(arguments.get(0), new GoIntLiteral(0))
-				));
+				(builder, origin, registry, arguments, typeMap) ->
+						new GoIndexExpression(arguments.get(0), new GoIntLiteral(0))));
 		Sequences.addOperator("Tail", new TypelessBuiltinOperator(
 				1,
 				(origin, args, solver, generator) -> {
-					PGoTypeVariable elementType = generator.get();
+					PGoTypeVariable elementType = generator.getTypeVariable(Collections.singletonList(origin));
 					PGoType fresh = new PGoTypeSlice(elementType, Collections.singletonList(origin));
 					solver.addConstraint(new PGoTypeMonomorphicConstraint(origin, args.get(0), fresh));
 					return fresh;
@@ -546,7 +556,11 @@ public class TLABuiltins {
 				1,
 				(origin, args, solver, generator) -> {
 					solver.addConstraint(new PGoTypeMonomorphicConstraint(
-							origin, args.get(0), new PGoTypeSet(generator.get(), Collections.singletonList(origin))));
+							origin,
+							args.get(0),
+							new PGoTypeSet(
+									generator.getTypeVariable(Collections.singletonList(origin)),
+									Collections.singletonList(origin))));
 					return new PGoTypeInt(Collections.singletonList(origin));
 				},
 				(builder, origin, registry, arguments, typeMap) -> {

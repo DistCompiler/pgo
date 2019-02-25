@@ -85,6 +85,12 @@ public class TLAExpressionScopingVisitor extends TLAExpressionVisitor<Void, Runt
 	}
 
 	@Override
+	public Void visit(TLADot tlaDot) throws RuntimeException {
+		tlaDot.getExpression().accept(this);
+		return null;
+	}
+
+	@Override
 	public Void visit(TLAExistential tlaExistential) throws RuntimeException {
 		TLAScopeBuilder nested = builder.makeNestedScope();
 		for (TLAIdentifier id : tlaExistential.getIds()) {

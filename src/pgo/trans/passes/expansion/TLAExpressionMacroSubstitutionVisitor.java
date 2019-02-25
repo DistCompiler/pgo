@@ -71,10 +71,17 @@ public class TLAExpressionMacroSubstitutionVisitor extends TLAExpressionVisitor<
 	public TLAExpression visit(TLACase tlaCase) throws RuntimeException {
 		return new TLACase(
 				tlaCase.getLocation(),
-				tlaCase.getArms().stream().map(arm -> {
-					return new TLACaseArm(arm.getLocation(), arm.getCondition().accept(this), arm.getResult().accept(this));
-					}).collect(Collectors.toList()),
+				tlaCase.getArms().stream().map(arm ->
+						new TLACaseArm(
+								arm.getLocation(),
+								arm.getCondition().accept(this),
+								arm.getResult().accept(this))).collect(Collectors.toList()),
 				tlaCase.getOther() != null ? tlaCase.getOther().accept(this) : null);
+	}
+
+	@Override
+	public TLAExpression visit(TLADot tlaDot) throws RuntimeException {
+		return new TLADot(tlaDot.getLocation(), tlaDot.getExpression().accept(this), tlaDot.getField());
 	}
 
 	@Override

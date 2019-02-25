@@ -38,6 +38,11 @@ public class NonModularPlusCalTLAExpressionValidationVisitor extends TLAExpressi
 	}
 
 	@Override
+	public Boolean visit(TLADot tlaDot) throws RuntimeException {
+		return tlaDot.getExpression().accept(this);
+	}
+
+	@Override
 	public Boolean visit(TLAExistential tlaExistential) throws RuntimeException {
 		return tlaExistential.getBody().accept(this);
 	}

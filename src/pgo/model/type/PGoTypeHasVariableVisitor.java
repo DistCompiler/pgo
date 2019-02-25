@@ -8,6 +8,11 @@ public class PGoTypeHasVariableVisitor extends PGoTypeVisitor<Boolean, RuntimeEx
 	}
 
 	@Override
+	public Boolean visit(PGoTypeAbstractRecord pGoTypeAbstractRecord) throws RuntimeException {
+		return false;
+	}
+
+	@Override
 	public Boolean visit(PGoTypeVariable pGoTypeVariable) throws RuntimeException {
 			return pGoTypeVariable.equals(typeVariable);
 	}
@@ -76,5 +81,10 @@ public class PGoTypeHasVariableVisitor extends PGoTypeVisitor<Boolean, RuntimeEx
 	@Override
 	public Boolean visit(PGoTypeProcedure pGoTypeProcedure) throws RuntimeException {
 		return pGoTypeProcedure.getParamTypes().stream().anyMatch(p -> p.accept(this));
+	}
+
+	@Override
+	public Boolean visit(PGoTypeRecord pGoTypeRecord) throws RuntimeException {
+		return pGoTypeRecord.getFields().stream().anyMatch(f -> f.getType().accept(this));
 	}
 }

@@ -10,6 +10,7 @@ import pgo.util.DerivedVisitor;
 import pgo.util.Origin;
 
 import java.io.IOException;
+import java.util.List;
 
 public class DerivedFormattingVisitor extends DerivedVisitor<Void, IOException> {
 	private IndentingWriter out;
@@ -18,14 +19,14 @@ public class DerivedFormattingVisitor extends DerivedVisitor<Void, IOException> 
 		this.out = out;
 	}
 
-	private void writeOrigins(Derived d) throws IOException {
-		if (d.getOrigins().isEmpty()) {
+	public void writeOrigins(List<Origin> origins) throws IOException {
+		if (origins.isEmpty()) {
 			out.write(" derived from ???");
 		} else {
 			out.write(" derived from ");
 			boolean first = true;
 			try (IndentingWriter.Indent ignored = out.indent()){
-				for (Origin o : d.getOrigins()) {
+				for (Origin o : origins) {
 					if (first) {
 						first = false;
 					} else {
@@ -35,6 +36,10 @@ public class DerivedFormattingVisitor extends DerivedVisitor<Void, IOException> 
 				}
 			}
 		}
+	}
+
+	private void writeOrigins(Derived d) throws IOException {
+		writeOrigins(d.getOrigins());
 	}
 
 	@Override
