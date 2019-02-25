@@ -89,7 +89,7 @@ public class PGoMain {
 
 	private DefinitionRegistry resolveScopes(
 			TopLevelIssueContext ctx,
-			boolean isMPCal,
+			boolean resolveConstants,
 			Path inputFilePath,
 			Map<String, TLAExpression> constantDefinitions,
 			TLAModule tlaModule,
@@ -99,7 +99,7 @@ public class PGoMain {
 		logger.info("Resolving scopes");
 		TLAModuleLoader loader = new TLAModuleLoader(Collections.singletonList(inputFilePath.toAbsolutePath().getParent()));
 		DefinitionRegistry registry = ScopingPass.perform(
-				ctx, isMPCal, loader, constantDefinitions, tlaModule, modularPlusCalBlock);
+				ctx, resolveConstants, loader, constantDefinitions, tlaModule, modularPlusCalBlock);
 		checkErrors(ctx);
 
 		return registry;
@@ -121,7 +121,7 @@ public class PGoMain {
 				macroExpandedModularPlusCalBlock);
 
 		DefinitionRegistry registry = resolveScopes(
-				ctx, true, inputFilePath, constantDefinitions, tlaModule, desugaredModularPlusCalBlock);
+				ctx, false, inputFilePath, constantDefinitions, tlaModule, desugaredModularPlusCalBlock);
 		checkErrors(ctx);
 
 		PlusCalAlgorithm algorithm = PlusCalCodeGenPass.perform(ctx, registry, desugaredModularPlusCalBlock);
@@ -222,7 +222,7 @@ public class PGoMain {
 		validateSemantics(ctx, modularPlusCalBlock);
 		ModularPlusCalBlock macroExpandedModularPlusCalBlock = expandPlusCalMacros(ctx, modularPlusCalBlock);
 		DefinitionRegistry registry = resolveScopes(
-				ctx, isMPCal, inputFilePath, constantDefinitions, tlaModule, macroExpandedModularPlusCalBlock);
+				ctx, true, inputFilePath, constantDefinitions, tlaModule, macroExpandedModularPlusCalBlock);
 
 		logger.info("Inferring types");
 		Map<UID, PGoType> typeMap = TypeInferencePass.perform(ctx, registry, macroExpandedModularPlusCalBlock);
