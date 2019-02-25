@@ -14,6 +14,8 @@ import java.nio.file.Path;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class IntegrationTestingUtils {
@@ -157,7 +159,46 @@ public class IntegrationTestingUtils {
 			// try to run the compiled Go code, check that it prints the right thing
 			runner.run(compiledOutputPath);
 		} finally {
-			IntegrationTestingUtils.expungeFile(tempDir);
+			expungeFile(tempDir);
+		}
+	}
+
+	static void testCompileMPCal(Path spec, String pack, Map<String, String> constants, TestRunner<Path> runner)
+			throws IOException {
+		Path tempDirPath = Files.createTempDirectory("mpcaltest");
+		File tempDir = tempDirPath.toFile();
+		Path generatedConfigPath = tempDirPath.resolve("config.json");
+
+		Path compiledOutputPath = tempDirPath.resolve("src/"+pack+"/"+pack+".go");
+		try {
+			// generate config file
+			try (BufferedWriter w = Files.newBufferedWriter(generatedConfigPath)) {
+				JSONObject config = new JSONObject();
+
+				JSONObject build = new JSONObject();
+				build.put("output_dir", tempDirPath.toString());
+				build.put("dest_package", pack);
+				config.put("build", build);
+
+				if (constants.size() > 0) {
+					JSONObject consts = new JSONObject();
+					constants.forEach(consts::put);
+					config.put("constants", consts);
+				}
+
+				config.write(w);
+			}
+
+			// invoke the compiler
+			PGoMain.main(new String[] {
+					"-c",
+					generatedConfigPath.toString(),
+					spec.toString(),
+			});
+
+			runner.run(compiledOutputPath);
+		} finally {
+			expungeFile(tempDir);
 		}
 	}
 
