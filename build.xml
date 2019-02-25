@@ -56,9 +56,7 @@
     <delete dir="bin"/>
     <delete dir="junit"/>
     <!-- Clear out any generated test output. -->
-    <delete>
-      <fileset dir="test/out" includes="*" excludes=".hidden"/>
-    </delete>
+    <delete dir="test/out" />
     <delete dir="gen"/> <!--For now use this. identify a way to read this from config file-->
     <delete file="${pgo.jarpath}"/>
   </target>
