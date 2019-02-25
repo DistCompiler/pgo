@@ -10,8 +10,8 @@ public class TypeMapEntryProcessor {
 	private final Map<PGoTypeVariable, PGoType> additionalMappings = new HashMap<>();
 	private final PGoTypeVariableCollectionVisitor collector =
 			new PGoTypeVariableCollectionVisitor(unresolvedVariables);
-	private final PGoTypeVariableSubstitutionVisitor subs =
-			new PGoTypeVariableSubstitutionVisitor(new PGoTypeSubstitution(new UnionFind<>(), additionalMappings));
+	private final PGoTypeVariableSubstitutionVisitor subs = new PGoTypeVariableSubstitutionVisitor(
+			new PGoTypeSubstitution(new UnionFind<>(), additionalMappings, new UnionFind<>(), new HashMap<>()));
 	private final PGoTypeInterface pGoTypeInterface = new PGoTypeInterface(Collections.emptyList());
 
 	public PGoType process(PGoTypeSubstitution substitution, PGoTypeVariable typeVariable) {

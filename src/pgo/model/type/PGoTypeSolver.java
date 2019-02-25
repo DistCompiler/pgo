@@ -20,11 +20,11 @@ public class PGoTypeSolver {
 	private Map<PGoTypeAbstractRecord, RecordTypeEntry> abstractRecordsToEntries = new HashMap<>();
 	private Deque<PGoTypeSolver> stateStack = new ArrayDeque<>();
 
-	private PGoTypeVariableSubstitutionVisitor subs =
-			new PGoTypeVariableSubstitutionVisitor(new PGoTypeSubstitution(variableGroups, mapping));
+	private PGoTypeVariableSubstitutionVisitor subs = new PGoTypeVariableSubstitutionVisitor(
+			new PGoTypeSubstitution(variableGroups, mapping, abstractRecordGroups, abstractRecordsToEntries));
 
 	public PGoTypeSubstitution getSubstitution() {
-		return new PGoTypeSubstitution(variableGroups, mapping);
+		return new PGoTypeSubstitution(variableGroups, mapping, abstractRecordGroups, abstractRecordsToEntries);
 	}
 
 	public void addConstraint(PGoTypeConstraint constraint) {
@@ -47,7 +47,8 @@ public class PGoTypeSolver {
 		abstractRecordGroups = old.abstractRecordGroups;
 		abstractRecordsToEntries = old.abstractRecordsToEntries;
 		stateStack = old.stateStack;
-		subs = new PGoTypeVariableSubstitutionVisitor(new PGoTypeSubstitution(variableGroups, mapping));
+		subs = new PGoTypeVariableSubstitutionVisitor(
+				new PGoTypeSubstitution(variableGroups, mapping, abstractRecordGroups, abstractRecordsToEntries));
 		return true;
 	}
 
@@ -68,18 +69,15 @@ public class PGoTypeSolver {
 	}
 
 	private void simplify() {
+		PGoTypeVariableAbstractRecordSubstitutionVisitor tvarSubs =
+				new PGoTypeVariableAbstractRecordSubstitutionVisitor(getSubstitution());
 		boolean changed = true;
 		while (changed) {
 			changed = false;
 			for (Map.Entry<PGoTypeVariable, PGoType> entry : mapping.entrySet()) {
 				PGoTypeVariable k = entry.getKey();
 				PGoType v = entry.getValue();
-				PGoType newV = v.accept(subs);
-				if (newV instanceof PGoTypeAbstractRecord) {
-					newV = abstractRecordsToEntries
-							.get(abstractRecordGroups.find((PGoTypeAbstractRecord) newV))
-							.toConcreteRecord();
-				}
+				PGoType newV = v.accept(tvarSubs);
 				if (!newV.equals(v)) {
 					changed = true;
 					mapping.put(k, newV);

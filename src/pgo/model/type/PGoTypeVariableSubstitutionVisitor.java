@@ -3,7 +3,7 @@ package pgo.model.type;
 import java.util.stream.Collectors;
 
 public class PGoTypeVariableSubstitutionVisitor extends PGoTypeVisitor<PGoType, RuntimeException> {
-	private final PGoTypeSubstitution substitution;
+	protected final PGoTypeSubstitution substitution;
 
 	public PGoTypeVariableSubstitutionVisitor(PGoTypeSubstitution substitution) {
 		this.substitution = substitution;
