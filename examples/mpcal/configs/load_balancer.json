@@ -1,0 +1,12 @@
+{
+  "build": {
+    "output_dir": "output",
+    "dest_package": "load_balancer"
+  },
+  "constants": {
+    "NUM_CLIENTS": "1",
+    "LoadBalancerId": "0",
+    "GET_PAGE": "200",
+    "NUM_SERVERS": "2"
+  }
+}
