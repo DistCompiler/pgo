@@ -195,4 +195,109 @@ public class PGoTypeSolverTest {
 								new PGoTypeRecord.Field("ttl", new PGoTypeInt(Collections.emptyList()))),
 						Collections.emptyList()));
 	}
+
+	@Test
+	public void indirectAbstractRecord() {
+		PGoTypeVariable a = typeGenerator.getTypeVariable(Collections.emptyList());
+		PGoTypeVariable b = typeGenerator.getTypeVariable(Collections.emptyList());
+		PGoTypeVariable c = typeGenerator.getTypeVariable(Collections.emptyList());
+		PGoTypeAbstractRecord ar1 = typeGenerator.getAbstractRecord(Collections.emptyList());
+		PGoTypeAbstractRecord ar2 = typeGenerator.getAbstractRecord(Collections.emptyList());
+		PGoTypeAbstractRecord ar3 = typeGenerator.getAbstractRecord(Collections.emptyList());
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(dummyUID, a, ar1));
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(
+				dummyUID, ar1, "src", new PGoTypeString(Collections.emptyList())));
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(dummyUID, b, ar2));
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(
+				dummyUID, ar2, "ttl", new PGoTypeInt(Collections.emptyList())));
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(dummyUID, c, ar3));
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(
+				dummyUID, ar3, "data", new PGoTypeString(Collections.emptyList())));
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(dummyUID, a, b));
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(dummyUID, c, b));
+		solver.unify(ctx);
+		assertFalse(ctx.hasErrors());
+		PGoTypeSubstitution substitution = solver.getSubstitution();
+		assertEquals(substitution.get(a), substitution.get(b));
+		assertEquals(substitution.get(c), substitution.get(b));
+		assertEquals(
+				substitution.get(a),
+				new PGoTypeRecord(
+						Arrays.asList(
+								new PGoTypeRecord.Field("data", new PGoTypeString(Collections.emptyList())),
+								new PGoTypeRecord.Field("src", new PGoTypeString(Collections.emptyList())),
+								new PGoTypeRecord.Field("ttl", new PGoTypeInt(Collections.emptyList()))),
+						Collections.emptyList()));
+	}
+
+	@Test
+	public void concreteAndAbstractRecord() {
+		PGoTypeVariable a = typeGenerator.getTypeVariable(Collections.emptyList());
+		PGoTypeVariable b = typeGenerator.getTypeVariable(Collections.emptyList());
+		PGoTypeVariable c = typeGenerator.getTypeVariable(Collections.emptyList());
+		PGoTypeVariable d = typeGenerator.getTypeVariable(Collections.emptyList());
+		PGoTypeAbstractRecord ar1 = typeGenerator.getAbstractRecord(Collections.emptyList());
+		PGoTypeAbstractRecord ar2 = typeGenerator.getAbstractRecord(Collections.emptyList());
+		PGoTypeAbstractRecord ar3 = typeGenerator.getAbstractRecord(Collections.emptyList());
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(dummyUID, a, ar1));
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(
+				dummyUID, ar1, "src", new PGoTypeString(Collections.emptyList())));
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(dummyUID, b, ar2));
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(
+				dummyUID, ar2, "ttl", new PGoTypeInt(Collections.emptyList())));
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(dummyUID, c, ar3));
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(
+				dummyUID, ar3, "data", new PGoTypeString(Collections.emptyList())));
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(dummyUID, a, b));
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(dummyUID, c, b));
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(
+				dummyUID,
+				d,
+				new PGoTypeRecord(
+						Arrays.asList(
+								new PGoTypeRecord.Field("src", new PGoTypeString(Collections.emptyList())),
+								new PGoTypeRecord.Field("ttl", new PGoTypeInt(Collections.emptyList())),
+								new PGoTypeRecord.Field("data", new PGoTypeString(Collections.emptyList()))),
+						Collections.emptyList())));
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(dummyUID, a, d));
+		solver.unify(ctx);
+		assertFalse(ctx.hasErrors());
+		PGoTypeSubstitution substitution = solver.getSubstitution();
+		assertEquals(substitution.get(a), substitution.get(b));
+		assertEquals(substitution.get(c), substitution.get(b));
+		assertEquals(substitution.get(a), substitution.get(d));
+		assertEquals(
+				substitution.get(a),
+				new PGoTypeRecord(
+						Arrays.asList(
+								new PGoTypeRecord.Field("src", new PGoTypeString(Collections.emptyList())),
+								new PGoTypeRecord.Field("ttl", new PGoTypeInt(Collections.emptyList())),
+								new PGoTypeRecord.Field("data", new PGoTypeString(Collections.emptyList()))),
+						Collections.emptyList()));
+	}
+
+	@Test
+	public void incompatibleConcreteAndAbstractRecord() {
+		PGoTypeVariable a = typeGenerator.getTypeVariable(Collections.emptyList());
+		PGoTypeVariable b = typeGenerator.getTypeVariable(Collections.emptyList());
+		PGoTypeAbstractRecord abstractRecord = typeGenerator.getAbstractRecord(Collections.emptyList());
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(dummyUID, a, abstractRecord));
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(
+				dummyUID, abstractRecord, "src", new PGoTypeString(Collections.emptyList())));
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(
+				dummyUID, abstractRecord, "ttl", new PGoTypeInt(Collections.emptyList())));
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(
+				dummyUID, abstractRecord, "data", new PGoTypeString(Collections.emptyList())));
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(
+				dummyUID,
+				b,
+				new PGoTypeRecord(
+						Arrays.asList(
+								new PGoTypeRecord.Field("src", new PGoTypeString(Collections.emptyList())),
+								new PGoTypeRecord.Field("data", new PGoTypeString(Collections.emptyList()))),
+						Collections.emptyList())));
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(dummyUID, a, b));
+		solver.unify(ctx);
+		assertTrue(ctx.hasErrors());
+	}
 }
