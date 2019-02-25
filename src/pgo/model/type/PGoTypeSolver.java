@@ -255,7 +255,8 @@ public class PGoTypeSolver {
 				}
 				// prevent infinite types
 				if (b instanceof PGoTypeAbstractRecord) {
-					if (abstractRecordsToEntries.get(b).hasVariable((PGoTypeVariable) a)) {
+					if (abstractRecordsToEntries.containsKey(b) &&
+							abstractRecordsToEntries.get(b).hasVariable((PGoTypeVariable) a)) {
 						if (backtrack()) {
 							continue;
 						}

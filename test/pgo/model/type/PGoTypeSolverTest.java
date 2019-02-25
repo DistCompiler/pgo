@@ -171,4 +171,28 @@ public class PGoTypeSolverTest {
 		solver.unify(ctx);
 		assertTrue(ctx.hasErrors());
 	}
+
+	@Test
+	public void abstractRecord() {
+		PGoTypeVariable a = typeGenerator.getTypeVariable(Collections.emptyList());
+		PGoTypeAbstractRecord abstractRecord = typeGenerator.getAbstractRecord(Collections.emptyList());
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(dummyUID, a, abstractRecord));
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(
+				dummyUID, abstractRecord, "src", new PGoTypeString(Collections.emptyList())));
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(
+				dummyUID, abstractRecord, "ttl", new PGoTypeInt(Collections.emptyList())));
+		solver.addConstraint(new PGoTypeMonomorphicConstraint(
+				dummyUID, abstractRecord, "data", new PGoTypeString(Collections.emptyList())));
+		solver.unify(ctx);
+		assertFalse(ctx.hasErrors());
+		PGoTypeSubstitution substitution = solver.getSubstitution();
+		assertEquals(
+				substitution.get(a),
+				new PGoTypeRecord(
+						Arrays.asList(
+								new PGoTypeRecord.Field("data", new PGoTypeString(Collections.emptyList())),
+								new PGoTypeRecord.Field("src", new PGoTypeString(Collections.emptyList())),
+								new PGoTypeRecord.Field("ttl", new PGoTypeInt(Collections.emptyList()))),
+						Collections.emptyList()));
+	}
 }
