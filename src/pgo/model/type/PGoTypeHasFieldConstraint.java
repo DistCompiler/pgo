@@ -5,7 +5,7 @@ public class PGoTypeHasFieldConstraint extends PGoTypeBasicConstraint {
 	private final String fieldName;
 	private final PGoType fieldType;
 
-	public PGoTypeHasFieldConstraint(PGoTypeConcreteRecord concreteRecord, String fieldName, PGoType fieldType) {
+	public PGoTypeHasFieldConstraint(PGoTypeRecord concreteRecord, String fieldName, PGoType fieldType) {
 		this((PGoType) concreteRecord, fieldName, fieldType);
 	}
 

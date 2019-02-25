@@ -341,11 +341,11 @@ public class TLAExpressionTypeConstraintVisitor extends TLAExpressionVisitor<PGo
 
 	@Override
 	public PGoType visit(TLARecordConstructor tlaRecordConstructor) throws RuntimeException {
-		List<PGoTypeConcreteRecord.Field> fields = new ArrayList<>();
+		List<PGoTypeRecord.Field> fields = new ArrayList<>();
 		for (TLARecordConstructor.Field field : tlaRecordConstructor.getFields()) {
-			fields.add(new PGoTypeConcreteRecord.Field(field.getName().getId(), wrappedVisit(field.getValue())));
+			fields.add(new PGoTypeRecord.Field(field.getName().getId(), wrappedVisit(field.getValue())));
 		}
-		return new PGoTypeConcreteRecord(fields, Collections.singletonList(tlaRecordConstructor));
+		return new PGoTypeRecord(fields, Collections.singletonList(tlaRecordConstructor));
 	}
 
 	@Override

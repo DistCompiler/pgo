@@ -86,7 +86,7 @@ public class PGoTypeGoTypeDefaultValueVisitor extends PGoTypeVisitor<GoExpressio
 	}
 
 	@Override
-	public GoExpression visit(PGoTypeConcreteRecord pGoTypeConcreteRecord) throws RuntimeException {
+	public GoExpression visit(PGoTypeRecord pGoTypeRecord) throws RuntimeException {
 		throw new TODO();
 	}
 }

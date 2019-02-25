@@ -21,7 +21,7 @@ abstract class RecordTypeEntry {
 	abstract RecordTypeEntry unify(PGoTypeSolver solver, Abstract entry) throws UnificationException;
 	abstract Concrete unify(PGoTypeSolver solver, Concrete entry) throws UnificationException;
 
-	abstract PGoTypeConcreteRecord toConcreteRecord();
+	abstract PGoTypeRecord toConcreteRecord();
 
 	static class Abstract extends RecordTypeEntry {
 		private final Map<String, PGoType> fields;
@@ -57,17 +57,17 @@ abstract class RecordTypeEntry {
 		Concrete unify(PGoTypeSolver solver, Concrete entry) throws UnificationException {
 			if (entry.record.getFields().size() < fields.size() ||
 					entry.record.getFields().stream().anyMatch(f -> !fields.containsKey(f.getName()))) {
-				List<PGoTypeConcreteRecord.Field> fs = new ArrayList<>();
-				fields.forEach((k, v) -> fs.add(new PGoTypeConcreteRecord.Field(k, v)));
+				List<PGoTypeRecord.Field> fs = new ArrayList<>();
+				fields.forEach((k, v) -> fs.add(new PGoTypeRecord.Field(k, v)));
 				throw new UnificationException(new UnsatisfiableConstraintIssue(
 						entry.record,
-						new PGoTypeConcreteRecord(
+						new PGoTypeRecord(
 								fs,
 								fs.stream()
 										.flatMap(f -> f.getType().getOrigins().stream())
 										.collect(Collectors.toList()))));
 			}
-			for (PGoTypeConcreteRecord.Field field : entry.record.getFields()) {
+			for (PGoTypeRecord.Field field : entry.record.getFields()) {
 				solver.addFirst(
 						new PGoTypeMonomorphicConstraint(entry.record, field.getType(), fields.get(field.getName())));
 			}
@@ -75,24 +75,24 @@ abstract class RecordTypeEntry {
 		}
 
 		@Override
-		PGoTypeConcreteRecord toConcreteRecord() {
-			return new PGoTypeConcreteRecord(
+		PGoTypeRecord toConcreteRecord() {
+			return new PGoTypeRecord(
 					fields.entrySet().stream()
 							.sorted(Comparator.comparing(Map.Entry::getKey))
-							.map(e -> new PGoTypeConcreteRecord.Field(e.getKey(), e.getValue()))
+							.map(e -> new PGoTypeRecord.Field(e.getKey(), e.getValue()))
 							.collect(Collectors.toList()),
 					fields.values().stream().flatMap(t -> t.getOrigins().stream()).collect(Collectors.toList()));
 		}
 	}
 
 	static class Concrete extends RecordTypeEntry {
-		private final PGoTypeConcreteRecord record;
+		private final PGoTypeRecord record;
 
-		Concrete(PGoTypeConcreteRecord record) {
+		Concrete(PGoTypeRecord record) {
 			this.record = record;
 		}
 
-		PGoTypeConcreteRecord getRecord() {
+		PGoTypeRecord getRecord() {
 			return record;
 		}
 
@@ -111,11 +111,11 @@ abstract class RecordTypeEntry {
 			if (entry.record.getFields().size() != record.getFields().size()) {
 				throw new UnificationException(new UnsatisfiableConstraintIssue(entry.record, record));
 			}
-			List<PGoTypeConcreteRecord.Field> fields = record.getFields();
-			List<PGoTypeConcreteRecord.Field> otherFields = entry.record.getFields();
+			List<PGoTypeRecord.Field> fields = record.getFields();
+			List<PGoTypeRecord.Field> otherFields = entry.record.getFields();
 			for (int i = 0; i < otherFields.size(); i++) {
-				PGoTypeConcreteRecord.Field field = fields.get(i);
-				PGoTypeConcreteRecord.Field ofield = otherFields.get(i);
+				PGoTypeRecord.Field field = fields.get(i);
+				PGoTypeRecord.Field ofield = otherFields.get(i);
 				if (!field.getName().equals(ofield.getName())) {
 					throw new UnificationException(new UnsatisfiableConstraintIssue(entry.record, record));
 				}
@@ -126,7 +126,7 @@ abstract class RecordTypeEntry {
 		}
 
 		@Override
-		PGoTypeConcreteRecord toConcreteRecord() {
+		PGoTypeRecord toConcreteRecord() {
 			return record;
 		}
 	}

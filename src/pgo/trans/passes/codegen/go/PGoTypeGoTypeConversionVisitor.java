@@ -106,7 +106,7 @@ public class PGoTypeGoTypeConversionVisitor extends PGoTypeVisitor<GoType, Runti
 	}
 
 	@Override
-	public GoType visit(PGoTypeConcreteRecord pGoTypeConcreteRecord) throws RuntimeException {
+	public GoType visit(PGoTypeRecord pGoTypeRecord) throws RuntimeException {
 		throw new TODO();
 	}
 }

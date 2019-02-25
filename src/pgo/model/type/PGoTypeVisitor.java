@@ -16,5 +16,5 @@ public abstract class PGoTypeVisitor<T, E extends Throwable> {
 	public abstract T visit(PGoTypeMap pGoTypeMap) throws E;
 	public abstract T visit(PGoTypeSlice pGoTypeSlice) throws E;
 	public abstract T visit(PGoTypeProcedure pGoTypeProcedure) throws E;
-	public abstract T visit(PGoTypeConcreteRecord pGoTypeConcreteRecord) throws E;
+	public abstract T visit(PGoTypeRecord pGoTypeRecord) throws E;
 }

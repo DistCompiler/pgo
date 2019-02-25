@@ -84,7 +84,7 @@ public class PGoTypeHasVariableVisitor extends PGoTypeVisitor<Boolean, RuntimeEx
 	}
 
 	@Override
-	public Boolean visit(PGoTypeConcreteRecord pGoTypeConcreteRecord) throws RuntimeException {
-		return pGoTypeConcreteRecord.getFields().stream().anyMatch(f -> f.getType().accept(this));
+	public Boolean visit(PGoTypeRecord pGoTypeRecord) throws RuntimeException {
+		return pGoTypeRecord.getFields().stream().anyMatch(f -> f.getType().accept(this));
 	}
 }

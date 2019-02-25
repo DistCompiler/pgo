@@ -1,6 +1,5 @@
 package pgo.model.type;
 
-import java.util.Map;
 import java.util.stream.Collectors;
 
 public class PGoTypeVariableSubstitutionVisitor extends PGoTypeVisitor<PGoType, RuntimeException> {
@@ -105,12 +104,12 @@ public class PGoTypeVariableSubstitutionVisitor extends PGoTypeVisitor<PGoType, 
 	}
 
 	@Override
-	public PGoType visit(PGoTypeConcreteRecord pGoTypeConcreteRecord) throws RuntimeException {
-		pGoTypeConcreteRecord.setFields(
-				pGoTypeConcreteRecord.getFields()
+	public PGoType visit(PGoTypeRecord pGoTypeRecord) throws RuntimeException {
+		pGoTypeRecord.setFields(
+				pGoTypeRecord.getFields()
 						.stream()
-						.map(f -> new PGoTypeConcreteRecord.Field(f.getName(), f.getType().accept(this)))
+						.map(f -> new PGoTypeRecord.Field(f.getName(), f.getType().accept(this)))
 						.collect(Collectors.toList()));
-		return pGoTypeConcreteRecord;
+		return pGoTypeRecord;
 	}
 }

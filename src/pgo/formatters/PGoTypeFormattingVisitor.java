@@ -120,9 +120,9 @@ public class PGoTypeFormattingVisitor extends PGoTypeVisitor<Void, IOException> 
 	}
 
 	@Override
-	public Void visit(PGoTypeConcreteRecord pGoTypeConcreteRecord) throws IOException {
+	public Void visit(PGoTypeRecord pGoTypeRecord) throws IOException {
 		out.write("Record[");
-		FormattingTools.writeCommaSeparated(out, pGoTypeConcreteRecord.getFields(), f -> {
+		FormattingTools.writeCommaSeparated(out, pGoTypeRecord.getFields(), f -> {
 			out.write(f.getName());
 			out.write(" : ");
 			f.getType().accept(this);

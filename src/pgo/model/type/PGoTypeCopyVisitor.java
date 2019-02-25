@@ -90,12 +90,12 @@ public class PGoTypeCopyVisitor extends PGoTypeVisitor<PGoType, RuntimeException
 	}
 
 	@Override
-	public PGoType visit(PGoTypeConcreteRecord pGoTypeConcreteRecord) throws RuntimeException {
-		return new PGoTypeConcreteRecord(
-				pGoTypeConcreteRecord.getFields()
+	public PGoType visit(PGoTypeRecord pGoTypeRecord) throws RuntimeException {
+		return new PGoTypeRecord(
+				pGoTypeRecord.getFields()
 						.stream()
-						.map(f -> new PGoTypeConcreteRecord.Field(f.getName(), f.getType()))
+						.map(f -> new PGoTypeRecord.Field(f.getName(), f.getType()))
 						.collect(Collectors.toList()),
-				pGoTypeConcreteRecord.getOrigins());
+				pGoTypeRecord.getOrigins());
 	}
 }

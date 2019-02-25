@@ -120,8 +120,8 @@ public class PGoTypeSolver {
 				PGoType expressionType = hasFieldConstraint.getExpressionType();
 				String fieldName = hasFieldConstraint.getFieldName();
 				PGoType fieldType = hasFieldConstraint.getFieldType();
-				if (expressionType instanceof PGoTypeConcreteRecord) {
-					if (((PGoTypeConcreteRecord) expressionType).getFields().stream().noneMatch(f -> {
+				if (expressionType instanceof PGoTypeRecord) {
+					if (((PGoTypeRecord) expressionType).getFields().stream().noneMatch(f -> {
 						if (f.getName().equals(fieldName)) {
 							addFirst(new PGoTypeMonomorphicConstraint(constraint, fieldType, f.getType()));
 							return true;
@@ -131,7 +131,7 @@ public class PGoTypeSolver {
 						if (backtrack()) {
 							continue;
 						}
-						return Optional.of(new NoMatchingFieldIssue((PGoTypeConcreteRecord) expressionType, fieldName));
+						return Optional.of(new NoMatchingFieldIssue((PGoTypeRecord) expressionType, fieldName));
 					}
 					continue;
 				}
@@ -277,20 +277,20 @@ public class PGoTypeSolver {
 				// then, assign a to that type
 				mapping.put(((PGoTypeVariable) a), b);
 				constraint.getOrigins().forEach(a::addOrigin);
-			} else if (a instanceof PGoTypeConcreteRecord && b instanceof PGoTypeAbstractRecord) {
+			} else if (a instanceof PGoTypeRecord && b instanceof PGoTypeAbstractRecord) {
 				try {
 					abstractRecordsToEntries.put((PGoTypeAbstractRecord) b, abstractRecordsToEntries.get(b)
-							.unify(this, new RecordTypeEntry.Concrete((PGoTypeConcreteRecord) a)));
+							.unify(this, new RecordTypeEntry.Concrete((PGoTypeRecord) a)));
 				} catch (UnificationException e) {
 					if (backtrack()) {
                         continue;
 					}
 					return Optional.of(e.getIssue());
 				}
-			} else if (a instanceof PGoTypeConcreteRecord && b instanceof PGoTypeConcreteRecord) {
+			} else if (a instanceof PGoTypeRecord && b instanceof PGoTypeRecord) {
 				try {
-					(new RecordTypeEntry.Concrete((PGoTypeConcreteRecord) a))
-							.unify(this, new RecordTypeEntry.Concrete((PGoTypeConcreteRecord) b));
+					(new RecordTypeEntry.Concrete((PGoTypeRecord) a))
+							.unify(this, new RecordTypeEntry.Concrete((PGoTypeRecord) b));
 				} catch (UnificationException e) {
 					if (backtrack()) {
 						continue;

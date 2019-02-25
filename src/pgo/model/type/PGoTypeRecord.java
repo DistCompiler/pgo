@@ -5,7 +5,7 @@ import pgo.util.Origin;
 import java.util.Collections;
 import java.util.List;
 
-public class PGoTypeConcreteRecord extends PGoType {
+public class PGoTypeRecord extends PGoType {
 	public static class Field {
 		private final String name;
 		private final PGoType type;
@@ -47,7 +47,7 @@ public class PGoTypeConcreteRecord extends PGoType {
 	 * @param fields fields this record has
 	 * @param origins track where this type come from
 	 */
-	public PGoTypeConcreteRecord(List<Field> fields, List<Origin> origins) {
+	public PGoTypeRecord(List<Field> fields, List<Origin> origins) {
 		super(origins);
 		this.fields = fields;
 	}
@@ -70,10 +70,10 @@ public class PGoTypeConcreteRecord extends PGoType {
 		if (this == obj) {
 			return true;
 		}
-		if (!(obj instanceof PGoTypeConcreteRecord)) {
+		if (!(obj instanceof PGoTypeRecord)) {
 			return false;
 		}
-		return fields.equals(((PGoTypeConcreteRecord) obj).fields);
+		return fields.equals(((PGoTypeRecord) obj).fields);
 	}
 
 	@Override

@@ -108,8 +108,8 @@ public class PGoTypeVariableCollectionVisitor extends PGoTypeVisitor<Void, Runti
 	}
 
 	@Override
-	public Void visit(PGoTypeConcreteRecord pGoTypeConcreteRecord) throws RuntimeException {
-		for (PGoTypeConcreteRecord.Field field : pGoTypeConcreteRecord.getFields()) {
+	public Void visit(PGoTypeRecord pGoTypeRecord) throws RuntimeException {
+		for (PGoTypeRecord.Field field : pGoTypeRecord.getFields()) {
 			field.getType().accept(this);
 		}
 		return null;
