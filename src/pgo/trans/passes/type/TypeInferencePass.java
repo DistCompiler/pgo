@@ -63,10 +63,11 @@ public class TypeInferencePass {
 		for (UID id : registry.getConstants()) {
 			PGoTypeVariable fresh = generator.get();
 			mapping.put(id, fresh);
-			TLAExpression value = registry.getConstantValue(id);
-			mapping.put(value.getUID(), fresh);
-			PGoType type = value.accept(new TLAExpressionTypeConstraintVisitor(registry, solver, generator, mapping));
-			solver.addConstraint(new PGoTypeMonomorphicConstraint(value, fresh, type));
+			registry.getConstantValue(id).ifPresent(value -> {
+				mapping.put(value.getUID(), fresh);
+				PGoType type = value.accept(new TLAExpressionTypeConstraintVisitor(registry, solver, generator, mapping));
+				solver.addConstraint(new PGoTypeMonomorphicConstraint(value, fresh, type));
+			});
 		}
 
 		for (PlusCalVariableDeclaration var : modularPlusCalBlock.getVariables()) {

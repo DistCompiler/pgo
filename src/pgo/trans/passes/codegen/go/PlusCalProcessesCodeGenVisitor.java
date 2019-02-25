@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 public class PlusCalProcessesCodeGenVisitor extends PlusCalProcessesVisitor<Void, RuntimeException> {
 	private DefinitionRegistry registry;
@@ -41,7 +42,7 @@ public class PlusCalProcessesCodeGenVisitor extends PlusCalProcessesVisitor<Void
 	private void generateInit(Consumer<GoBlockBuilder> generateGlobalVariables) {
 		Map<String, PGoType> constants = new TreeMap<>(); // sort constants for deterministic compiler output
 		Map<String, UID> constantIds = new HashMap<>();
-		for (UID uid : registry.getConstants()) {
+		for (UID uid : registry.getConstants().stream().filter(c -> registry.getConstantValue(c).isPresent()).collect(Collectors.toSet())) {
 			String name = registry.getConstantName(uid);
 			constants.put(name, typeMap.get(uid));
 			constantIds.put(name, uid);
@@ -50,7 +51,8 @@ public class PlusCalProcessesCodeGenVisitor extends PlusCalProcessesVisitor<Void
 		try (GoBlockBuilder initBuilder = moduleBuilder.defineFunction("init").getBlockBuilder()) {
 			// generate constant definitions and initializations
 			for (Map.Entry<String, PGoType> pair : constants.entrySet()) {
-				TLAExpression value = registry.getConstantValue(constantIds.get(pair.getKey()));
+				// get() is safe here by construction
+				TLAExpression value = registry.getConstantValue(constantIds.get(pair.getKey())).get();
 				PGoType type = typeMap.get(constantIds.get(pair.getKey()));
 				GoVariableName name = moduleBuilder.defineGlobal(
 						constantIds.get(pair.getKey()),

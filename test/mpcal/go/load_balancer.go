@@ -4,8 +4,6 @@ import (
 	"pgo/distsys"
 )
 
-var BUFFER_SIZE int
-
 var GET_PAGE int
 
 var LoadBalancerId int
@@ -14,15 +12,11 @@ var NUM_CLIENTS int
 
 var NUM_SERVERS int
 
-var WEB_PAGE int
-
 func init() {
-	BUFFER_SIZE = 3
 	GET_PAGE = 200
 	LoadBalancerId = 0
 	NUM_CLIENTS = 1
 	NUM_SERVERS = 2
-	WEB_PAGE = 42
 }
 
 func ALoadBalancer(self int, mailboxes []distsys.ArchetypeResource) error {

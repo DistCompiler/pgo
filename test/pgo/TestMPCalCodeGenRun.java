@@ -35,10 +35,8 @@ public class TestMPCalCodeGenRun {
                         "load_balancer.tla",
                         "load_balancer",
                         new HashMap<String, String>() {{
-                            put("BUFFER_SIZE", "3");
                             put("NUM_CLIENTS", "1");
                             put("LoadBalancerId", "0");
-                            put("WEB_PAGE", "42");
                             put("GET_PAGE", "200");
                             put("NUM_SERVERS", "2");
                         }}

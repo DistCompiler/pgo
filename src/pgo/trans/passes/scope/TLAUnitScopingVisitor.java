@@ -96,7 +96,7 @@ public class TLAUnitScopingVisitor extends TLAUnitVisitor<Void, RuntimeException
 
 		for (TLAInstance.Remapping remap : remappings) {
 			// make sure the expressions we're substituting in are also well scoped
-			remap.getTo().accept(new TLAExpressionScopingVisitor(outerScope, registry, loader, moduleRecursionSet));
+			remap.getTo().accept(new TLAExpressionScopingVisitor(ctx, outerScope, registry, loader, moduleRecursionSet, false));
 
 			if (decls.containsKey(remap.getFrom().getId())) {
 				remapped.add(remap.getFrom().getId());
@@ -142,9 +142,9 @@ public class TLAUnitScopingVisitor extends TLAUnitVisitor<Void, RuntimeException
 				argScope.defineLocal(id.getId(), id.getUID());
 				registry.addLocalVariable(id.getUID());
 			}
-			qb.getSet().accept(new TLAExpressionScopingVisitor(builder, registry, loader, moduleRecursionSet));
+			qb.getSet().accept(new TLAExpressionScopingVisitor(ctx, builder, registry, loader, moduleRecursionSet, false));
 		}
-		fn.getBody().accept(new TLAExpressionScopingVisitor(argScope, registry, loader, moduleRecursionSet));
+		fn.getBody().accept(new TLAExpressionScopingVisitor(ctx, argScope, registry, loader, moduleRecursionSet, false));
 		return null;
 	}
 
@@ -162,13 +162,13 @@ public class TLAUnitScopingVisitor extends TLAUnitVisitor<Void, RuntimeException
 			argScope.defineLocal(op.getName().getId(), op.getName().getUID());
 			registry.addLocalVariable(op.getName().getUID());
 		}
-		pGoTLAOperator.getBody().accept(new TLAExpressionScopingVisitor(argScope, registry, loader, moduleRecursionSet));
+		pGoTLAOperator.getBody().accept(new TLAExpressionScopingVisitor(ctx, argScope, registry, loader, moduleRecursionSet, false));
 		return null;
 	}
 
 	@Override
 	public Void visit(TLATheorem pGoTLATheorem) throws RuntimeException {
-		pGoTLATheorem.getTheorem().accept(new TLAExpressionScopingVisitor(builder, registry, loader, moduleRecursionSet));
+		pGoTLATheorem.getTheorem().accept(new TLAExpressionScopingVisitor(ctx, builder, registry, loader, moduleRecursionSet, false));
 		return null;
 	}
 
@@ -216,7 +216,7 @@ public class TLAUnitScopingVisitor extends TLAUnitVisitor<Void, RuntimeException
 
 	@Override
 	public Void visit(TLAAssumption TLAAssumption) throws RuntimeException {
-		TLAAssumption.getAssumption().accept(new TLAExpressionScopingVisitor(builder, registry, loader, moduleRecursionSet));
+		TLAAssumption.getAssumption().accept(new TLAExpressionScopingVisitor(ctx, builder, registry, loader, moduleRecursionSet, false));
 		return null;
 	}
 

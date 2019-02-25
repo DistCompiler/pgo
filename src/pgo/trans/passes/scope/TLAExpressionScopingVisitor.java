@@ -1,27 +1,40 @@
 package pgo.trans.passes.scope;
 
 import pgo.InternalCompilerError;
+import pgo.errors.IssueContext;
 import pgo.model.tla.*;
 import pgo.modules.TLAModuleLoader;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
 import pgo.trans.intermediate.QualifiedName;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 public class TLAExpressionScopingVisitor extends TLAExpressionVisitor<Void, RuntimeException> {
+	protected final IssueContext ctx;
 	protected final TLAScopeBuilder builder;
 	protected final DefinitionRegistry registry;
 	private final TLAModuleLoader loader;
 	private final Set<String> moduleRecursionSet;
+	private boolean requireDefinedConstants;
+	private Map<String, UID> constants;
 
-	public TLAExpressionScopingVisitor(TLAScopeBuilder builder, DefinitionRegistry registry, TLAModuleLoader loader,
-	                                   Set<String> moduleRecursionSet) {
+	public TLAExpressionScopingVisitor(IssueContext ctx, TLAScopeBuilder builder, DefinitionRegistry registry, TLAModuleLoader loader,
+									   Set<String> moduleRecursionSet, boolean requireDefinedConstants) {
+		this.ctx = ctx;
 		this.builder = builder;
 		this.registry = registry;
 		this.loader = loader;
 		this.moduleRecursionSet = moduleRecursionSet;
+		this.requireDefinedConstants = requireDefinedConstants;
+
+		this.constants = new HashMap<>();
+		if (registry != null) {
+			registry.getConstants().forEach(c -> constants.put(registry.getConstantName(c), c));
+		}
 	}
 
 	private void handleQuantifierBounds(TLAScopeBuilder scope, List<TLAQuantifierBound> bounds) {
@@ -77,7 +90,7 @@ public class TLAExpressionScopingVisitor extends TLAExpressionVisitor<Void, Runt
 		for (TLAIdentifier id : tlaExistential.getIds()) {
 			nested.defineLocal(id.getId(), id.getUID());
 		}
-		tlaExistential.getBody().accept(new TLAExpressionScopingVisitor(nested, registry, loader, moduleRecursionSet));
+		tlaExistential.getBody().accept(new TLAExpressionScopingVisitor(ctx, nested, registry, loader, moduleRecursionSet, requireDefinedConstants));
 		return null;
 	}
 
@@ -85,7 +98,7 @@ public class TLAExpressionScopingVisitor extends TLAExpressionVisitor<Void, Runt
 	public Void visit(TLAFunction tlaFunction) throws RuntimeException {
 		TLAScopeBuilder argScope = builder.makeNestedScope();
 		handleQuantifierBounds(argScope, tlaFunction.getArguments());
-		tlaFunction.getBody().accept(new TLAExpressionScopingVisitor(argScope, registry, loader, moduleRecursionSet));
+		tlaFunction.getBody().accept(new TLAExpressionScopingVisitor(ctx, argScope, registry, loader, moduleRecursionSet, requireDefinedConstants));
 		return null;
 	}
 
@@ -119,12 +132,20 @@ public class TLAExpressionScopingVisitor extends TLAExpressionVisitor<Void, Runt
 		for (TLAUnit unit : tlaLet.getDefinitions()) {
 			unit.accept(new TLAUnitScopingVisitor(nested.getIssueContext(), nested, null, null, null));
 		}
-		tlaLet.getBody().accept(new TLAExpressionScopingVisitor(nested, registry, loader, moduleRecursionSet));
+		tlaLet.getBody().accept(new TLAExpressionScopingVisitor(ctx, nested, registry, loader, moduleRecursionSet, requireDefinedConstants));
 		return null;
 	}
 
 	@Override
 	public Void visit(TLAGeneralIdentifier tlaGeneralIdentifier) throws RuntimeException {
+		UID constantUID = constants.get(tlaGeneralIdentifier.getName().getId());
+		if (requireDefinedConstants && constantUID != null) {
+			if (!registry.getConstantValue(constantUID).isPresent()) {
+				ctx.error(new ConstantWithNoValueIssue(tlaGeneralIdentifier.getName().getId(), tlaGeneralIdentifier.getUID()));
+				return null;
+			}
+		}
+
 		builder.reference(QualifiedName.fromTLAPrefix(tlaGeneralIdentifier.getGeneralIdentifierPrefix(), tlaGeneralIdentifier.getName().getId()), tlaGeneralIdentifier.getUID());
 		return null;
 	}
@@ -165,7 +186,7 @@ public class TLAExpressionScopingVisitor extends TLAExpressionVisitor<Void, Runt
 	public Void visit(TLAQuantifiedExistential tlaQuantifiedExistential) throws RuntimeException {
 		TLAScopeBuilder nested = builder.makeNestedScope();
 		handleQuantifierBounds(nested, tlaQuantifiedExistential.getIds());
-		tlaQuantifiedExistential.getBody().accept(new TLAExpressionScopingVisitor(nested, registry, loader, moduleRecursionSet));
+		tlaQuantifiedExistential.getBody().accept(new TLAExpressionScopingVisitor(ctx, nested, registry, loader, moduleRecursionSet, requireDefinedConstants));
 		return null;
 	}
 
@@ -173,7 +194,7 @@ public class TLAExpressionScopingVisitor extends TLAExpressionVisitor<Void, Runt
 	public Void visit(TLAQuantifiedUniversal tlaQuantifiedUniversal) throws RuntimeException {
 		TLAScopeBuilder nested = builder.makeNestedScope();
 		handleQuantifierBounds(nested, tlaQuantifiedUniversal.getIds());
-		tlaQuantifiedUniversal.getBody().accept(new TLAExpressionScopingVisitor(nested, registry, loader, moduleRecursionSet));
+		tlaQuantifiedUniversal.getBody().accept(new TLAExpressionScopingVisitor(ctx, nested, registry, loader, moduleRecursionSet, requireDefinedConstants));
 		return null;
 	}
 
@@ -212,7 +233,7 @@ public class TLAExpressionScopingVisitor extends TLAExpressionVisitor<Void, Runt
 	public Void visit(TLASetComprehension tlaSetComprehension) throws RuntimeException {
 		TLAScopeBuilder nested = builder.makeNestedScope();
 		handleQuantifierBounds(nested, tlaSetComprehension.getBounds());
-		tlaSetComprehension.getBody().accept(new TLAExpressionScopingVisitor(nested, registry, loader, moduleRecursionSet));
+		tlaSetComprehension.getBody().accept(new TLAExpressionScopingVisitor(ctx, nested, registry, loader, moduleRecursionSet, requireDefinedConstants));
 		return null;
 	}
 
@@ -231,7 +252,7 @@ public class TLAExpressionScopingVisitor extends TLAExpressionVisitor<Void, Runt
 			nested.defineLocal(ident.getId().getId(), uid);
 			registry.addLocalVariable(uid);
 		}
-		tlaSetRefinement.getWhen().accept(new TLAExpressionScopingVisitor(nested, registry, loader, moduleRecursionSet));
+		tlaSetRefinement.getWhen().accept(new TLAExpressionScopingVisitor(ctx, nested, registry, loader, moduleRecursionSet, requireDefinedConstants));
 		return null;
 	}
 
@@ -256,7 +277,7 @@ public class TLAExpressionScopingVisitor extends TLAExpressionVisitor<Void, Runt
 		for (TLAIdentifier id : tlaUniversal.getIds()) {
 			nested.defineLocal(id.getId(), id.getUID());
 		}
-		tlaUniversal.getBody().accept(new TLAExpressionScopingVisitor(nested, registry, loader, moduleRecursionSet));
+		tlaUniversal.getBody().accept(new TLAExpressionScopingVisitor(ctx, nested, registry, loader, moduleRecursionSet, requireDefinedConstants));
 		return null;
 	}
 

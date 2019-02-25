@@ -21,6 +21,8 @@ public class ScopingPass {
 	private ScopingPass() {}
 
 	private static void scopeVariables(
+			IssueContext ctx,
+			boolean isMPCal,
 			List<PlusCalVariableDeclaration> variables,
 			DefinitionRegistry registry,
 			TLAModuleLoader loader,
@@ -30,7 +32,7 @@ public class ScopingPass {
 	{
 		for (PlusCalVariableDeclaration variableDeclaration : variables) {
 			variableDeclaration.getValue().accept(new TLAExpressionScopingVisitor(
-					validateScope, registry, loader, new HashSet<>()));
+					ctx, validateScope, registry, loader, new HashSet<>(), !isMPCal));
 			registry.addLocalVariable(variableDeclaration.getUID());
 			if (newScope.declare(variableDeclaration.getName().getValue(), variableDeclaration.getUID())) {
 				variablesMap.put(variableDeclaration.getName().getValue(), variableDeclaration.getUID());
@@ -38,7 +40,7 @@ public class ScopingPass {
 		}
 	}
 
-	public static DefinitionRegistry perform(IssueContext ctx, boolean codeGenMode, TLAModuleLoader loader,
+	public static DefinitionRegistry perform(IssueContext ctx, boolean isMPCal, TLAModuleLoader loader,
 	                                         Map<String, TLAExpression> constantDefinitions, TLAModule module,
 	                                         ModularPlusCalBlock modularPlusCalBlock) {
 		DefinitionRegistry registry = new DefinitionRegistry();
@@ -46,18 +48,13 @@ public class ScopingPass {
 
 		TLAUnitScopingVisitor.scopeModule(module, ctx, tlaScope, registry, loader, new HashSet<>());
 
-		// resolve user-provided constant values from the config file
-		// TODO: lazily check constants: if a constant is only used in mapping macros it should
-		// not be required by PGo.
+		// resolve user-provided constant values from the config file. They are only required
+		// to be defined if compiling a PlusCal (not MPCal) specification
 		for (UID id : registry.getConstants()) {
 			String name = registry.getConstantName(id);
-			if (!constantDefinitions.containsKey(name)) {
-				if (codeGenMode) {
-					ctx.error(new ConstantWithNoValueIssue(name, id));
-				}
-			} else {
+			if (constantDefinitions.containsKey(name)) {
 				TLAExpression value = constantDefinitions.get(name);
-				value.accept(new TLAExpressionScopingVisitor(tlaScope, registry, loader, new HashSet<>()));
+				value.accept(new TLAExpressionScopingVisitor(ctx, tlaScope, registry, loader, new HashSet<>(), !isMPCal));
 				registry.setConstantValue(id, value);
 			}
 		}
@@ -72,7 +69,7 @@ public class ScopingPass {
 			modularPlusCalScope.declare(variableDeclaration.getName().getValue(), variableDeclaration.getUID());
 			registry.addGlobalVariable(variableDeclaration.getUID());
 			variableDeclaration.getValue().accept(new TLAExpressionScopingVisitor(
-					modularPlusCalScope, registry, loader, new HashSet<>()));
+					ctx, modularPlusCalScope, registry, loader, new HashSet<>(), false));
 		}
 
 		for (PlusCalProcedure proc : modularPlusCalBlock.getProcedures()) {
@@ -84,8 +81,8 @@ public class ScopingPass {
 					modularPlusCalScope.getReferences());
 			Map<String, UID> args = new ChainMap<>(tlaScope.getDeclarations());
 
-			scopeVariables(proc.getParams(), registry, loader, tlaScope, argScope, args);
-			scopeVariables(proc.getVariables(), registry, loader, argScope, argScope, args);
+			scopeVariables(ctx, isMPCal, proc.getParams(), registry, loader, tlaScope, argScope, args);
+			scopeVariables(ctx, isMPCal, proc.getVariables(), registry, loader, argScope, argScope, args);
 
 			TLAScopeBuilder procScope = new TLAScopeBuilder(
 					ctx, args, new ChainMap<>(modularPlusCalScope.getDefinitions()),
@@ -95,8 +92,9 @@ public class ScopingPass {
 				stmts.accept(new PlusCalStatementLabelCaptureVisitor(procScope));
 			}
 
+			// procedures always need to have defined constants
 			for (PlusCalStatement stmts : proc.getBody()) {
-				stmts.accept(new PlusCalStatementScopingVisitor(ctx, procScope, registry, loader, new HashSet<>()));
+				stmts.accept(new PlusCalStatementScopingVisitor(ctx, procScope, registry, loader, new HashSet<>(), true));
 			}
 		}
 
@@ -109,8 +107,8 @@ public class ScopingPass {
 					tlaScope.getReferences());
 			Map<String, UID> args = new ChainMap<>(tlaScope.getDeclarations());
 
-			scopeVariables(archetype.getParams(), registry, loader, tlaScope, argScope, args);
-			scopeVariables(archetype.getVariables(), registry, loader, argScope, argScope, args);
+			scopeVariables(ctx, isMPCal, archetype.getParams(), registry, loader, tlaScope, argScope, args);
+			scopeVariables(ctx, isMPCal, archetype.getVariables(), registry, loader, argScope, argScope, args);
 
 			TLAScopeBuilder archetypeScope = new TLAScopeBuilder(
 					ctx, args, new ChainMap<>(tlaScope.getDefinitions()), tlaScope.getReferences());
@@ -123,7 +121,7 @@ public class ScopingPass {
 
 			for (PlusCalStatement stmts : archetype.getBody()) {
 				stmts.accept(new PlusCalStatementScopingVisitor(
-						ctx, archetypeScope, registry, loader, new HashSet<>()));
+						ctx, archetypeScope, registry, loader, new HashSet<>(), true));
 			}
 		}
 
@@ -141,7 +139,7 @@ public class ScopingPass {
 				// TODO make this work with qualified macro name
 				statement.accept(new PlusCalStatementScopingVisitor(
 						ctx, readBodyScope, registry, loader, new HashSet<>(),
-						MappingMacroTLAExpressionScopingVisitor::new));
+						MappingMacroTLAExpressionScopingVisitor::new, false));
 			}
 
 			Map<String, UID> writeArgs = new ChainMap<>(tlaScope.getDeclarations());
@@ -155,7 +153,7 @@ public class ScopingPass {
 				// TODO make this work with qualified macro name
 				statement.accept(new PlusCalStatementScopingVisitor(
 						ctx, writeBodyScope, registry, loader, new HashSet<>(),
-						MappingMacroTLAExpressionScopingVisitor::new));
+						MappingMacroTLAExpressionScopingVisitor::new, false));
 			}
 		}
 
@@ -166,7 +164,7 @@ public class ScopingPass {
 					ctx, new ChainMap<>(tlaScope.getDeclarations()), modularPlusCalScope.getDefinitions(),
 					modularPlusCalScope.getReferences());
 			instance.getName().getValue().accept(
-					new TLAExpressionScopingVisitor(tlaScope, registry, loader, new HashSet<>()));
+					new TLAExpressionScopingVisitor(ctx, tlaScope, registry, loader, new HashSet<>(),false));
 
 			Map<String, ModularPlusCalMapping> mappedVariables = new HashMap<>();
 			for (ModularPlusCalMapping mapping : instance.getMappings()) {
@@ -191,12 +189,12 @@ public class ScopingPass {
 			}
 			for (TLAExpression expression : instance.getArguments()) {
 				expression.accept(new TLAExpressionScopingVisitor(
-						instanceTLAScope, registry, loader, new HashSet<>()));
+						ctx, instanceTLAScope, registry, loader, new HashSet<>(), false));
 			}
 		}
 
 		modularPlusCalBlock.getProcesses().accept(new PlusCalProcessesScopingVisitor(
-				ctx, modularPlusCalScope, tlaScope, registry, loader, new HashSet<>()));
+				ctx, modularPlusCalScope, tlaScope, registry, loader, new HashSet<>(), isMPCal));
 
 		return registry;
 	}

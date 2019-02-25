@@ -16,8 +16,8 @@ import java.util.Set;
 
 public class PlusCalStatementScopingVisitor extends PlusCalStatementVisitor<Void, RuntimeException> {
 	public interface TLAExpressionScopingVisitorFactory {
-		TLAExpressionScopingVisitor create(TLAScopeBuilder builder, DefinitionRegistry registry, TLAModuleLoader loader,
-		                                   Set<String> moduleRecursionSet);
+		TLAExpressionScopingVisitor create(IssueContext ctx, TLAScopeBuilder builder, DefinitionRegistry registry, TLAModuleLoader loader,
+		                                   Set<String> moduleRecursionSet, boolean requireDefinedConstants);
 	}
 
 	private final IssueContext ctx;
@@ -26,26 +26,29 @@ public class PlusCalStatementScopingVisitor extends PlusCalStatementVisitor<Void
 	private final TLAModuleLoader loader;
 	private final Set<String> moduleRecursionSet;
 	private final TLAExpressionScopingVisitorFactory factory;
+	private boolean requireDefinedConstants;
 
 	public PlusCalStatementScopingVisitor(IssueContext ctx, TLAScopeBuilder builder, DefinitionRegistry registry,
-	                                      TLAModuleLoader loader, Set<String> moduleRecursionSet) {
+	                                      TLAModuleLoader loader, Set<String> moduleRecursionSet, boolean requireDefinedConstants) {
 		this.ctx = ctx;
 		this.builder = builder;
 		this.registry = registry;
 		this.loader = loader;
 		this.moduleRecursionSet = moduleRecursionSet;
 		this.factory = TLAExpressionScopingVisitor::new;
+		this.requireDefinedConstants = requireDefinedConstants;
 	}
 
 	public PlusCalStatementScopingVisitor(IssueContext ctx, TLAScopeBuilder builder, DefinitionRegistry registry,
 	                                      TLAModuleLoader loader, Set<String> moduleRecursionSet,
-	                                      TLAExpressionScopingVisitorFactory factory) {
+	                                      TLAExpressionScopingVisitorFactory factory, boolean requireDefinedConstants) {
 		this.ctx = ctx;
 		this.builder = builder;
 		this.registry = registry;
 		this.loader = loader;
 		this.moduleRecursionSet = moduleRecursionSet;
 		this.factory = factory;
+		this.requireDefinedConstants = requireDefinedConstants;
 	}
 
 	static void verifyRefMatching(IssueContext ctx, List<PlusCalVariableDeclaration> params, List<TLAExpression> args) {
@@ -69,7 +72,7 @@ public class PlusCalStatementScopingVisitor extends PlusCalStatementVisitor<Void
 
 	@Override
 	public Void visit(PlusCalWhile plusCalWhile) throws RuntimeException {
-		plusCalWhile.getCondition().accept(factory.create(builder, registry, loader, moduleRecursionSet));
+		plusCalWhile.getCondition().accept(factory.create(ctx, builder, registry, loader, moduleRecursionSet, requireDefinedConstants));
 		for (PlusCalStatement stmt : plusCalWhile.getBody()) {
 			stmt.accept(this);
 		}
@@ -78,7 +81,7 @@ public class PlusCalStatementScopingVisitor extends PlusCalStatementVisitor<Void
 
 	@Override
 	public Void visit(PlusCalIf plusCalIf) throws RuntimeException {
-		plusCalIf.getCondition().accept(factory.create(builder, registry, loader, moduleRecursionSet));
+		plusCalIf.getCondition().accept(factory.create(ctx, builder, registry, loader, moduleRecursionSet, requireDefinedConstants));
 		for (PlusCalStatement stmt : plusCalIf.getYes()) {
 			stmt.accept(this);
 		}
@@ -101,8 +104,8 @@ public class PlusCalStatementScopingVisitor extends PlusCalStatementVisitor<Void
 	@Override
 	public Void visit(PlusCalAssignment plusCalAssignment) throws RuntimeException {
 		for (PlusCalAssignmentPair pair : plusCalAssignment.getPairs()) {
-			pair.getLhs().accept(factory.create(builder, registry, loader, moduleRecursionSet));
-			pair.getRhs().accept(factory.create(builder, registry, loader, moduleRecursionSet));
+			pair.getLhs().accept(factory.create(ctx, builder, registry, loader, moduleRecursionSet, requireDefinedConstants));
+			pair.getRhs().accept(factory.create(ctx, builder, registry, loader, moduleRecursionSet, requireDefinedConstants));
 		}
 		return null;
 	}
@@ -129,7 +132,7 @@ public class PlusCalStatementScopingVisitor extends PlusCalStatementVisitor<Void
 		}
 
 		for (TLAExpression expr : plusCalCall.getArguments()) {
-			expr.accept(factory.create(builder, null, null, null));
+			expr.accept(factory.create(ctx, builder, null, null, null, false));
 		}
 		return null;
 	}
@@ -143,32 +146,32 @@ public class PlusCalStatementScopingVisitor extends PlusCalStatementVisitor<Void
 	public Void visit(PlusCalWith plusCalWith) throws RuntimeException {
 		TLAScopeBuilder nested = builder.makeNestedScope();
 		for(PlusCalVariableDeclaration decl : plusCalWith.getVariables()) {
-			decl.getValue().accept(factory.create(nested, registry, loader, moduleRecursionSet));
+			decl.getValue().accept(factory.create(ctx, nested, registry, loader, moduleRecursionSet, requireDefinedConstants));
 			nested.defineLocal(decl.getName().getValue(), decl.getUID());
 			registry.addLocalVariable(decl.getUID());
 		}
 
 		for (PlusCalStatement stmt : plusCalWith.getBody()) {
-			stmt.accept(new PlusCalStatementScopingVisitor(ctx, nested, registry, loader, moduleRecursionSet, factory));
+			stmt.accept(new PlusCalStatementScopingVisitor(ctx, nested, registry, loader, moduleRecursionSet, factory, requireDefinedConstants));
 		}
 		return null;
 	}
 
 	@Override
 	public Void visit(PlusCalPrint plusCalPrint) throws RuntimeException {
-		plusCalPrint.getValue().accept(factory.create(builder, registry, loader, moduleRecursionSet));
+		plusCalPrint.getValue().accept(factory.create(ctx, builder, registry, loader, moduleRecursionSet, requireDefinedConstants));
 		return null;
 	}
 
 	@Override
 	public Void visit(PlusCalAssert plusCalAssert) throws RuntimeException {
-		plusCalAssert.getCondition().accept(factory.create(builder, registry, loader, moduleRecursionSet));
+		plusCalAssert.getCondition().accept(factory.create(ctx, builder, registry, loader, moduleRecursionSet, requireDefinedConstants));
 		return null;
 	}
 
 	@Override
 	public Void visit(PlusCalAwait plusCalAwait) throws RuntimeException {
-		plusCalAwait.getCondition().accept(factory.create(builder, registry, loader, moduleRecursionSet));
+		plusCalAwait.getCondition().accept(factory.create(ctx, builder, registry, loader, moduleRecursionSet, requireDefinedConstants));
 		return null;
 	}
 
@@ -180,7 +183,7 @@ public class PlusCalStatementScopingVisitor extends PlusCalStatementVisitor<Void
 
 	@Override
 	public Void visit(ModularPlusCalYield modularPlusCalYield) throws RuntimeException {
-		modularPlusCalYield.getExpression().accept(factory.create(builder, registry, loader, moduleRecursionSet));
+		modularPlusCalYield.getExpression().accept(factory.create(ctx, builder, registry, loader, moduleRecursionSet, requireDefinedConstants));
 		return null;
 	}
 }

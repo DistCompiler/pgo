@@ -20,6 +20,7 @@ import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class ModularPlusCalGoCodeGenPass {
     private ModularPlusCalGoCodeGenPass() {}
@@ -49,7 +50,7 @@ public class ModularPlusCalGoCodeGenPass {
     private static void generateInit(GoModuleBuilder module, DefinitionRegistry registry, Map<UID, PGoType> typeMap, GlobalVariableStrategy globalStrategy) {
         Map<String, PGoType> constants = new TreeMap<>(); // sort constants for deterministic compiler output
         Map<String, UID> constantIds = new HashMap<>();
-        for (UID uid : registry.getConstants()) {
+        for (UID uid : registry.getConstants().stream().filter(c -> registry.getConstantValue(c).isPresent()).collect(Collectors.toSet())) {
             String name = registry.getConstantName(uid);
             constants.put(name, typeMap.get(uid));
             constantIds.put(name, uid);
@@ -58,7 +59,8 @@ public class ModularPlusCalGoCodeGenPass {
         try (GoBlockBuilder initBuilder = module.defineFunction("init").getBlockBuilder()) {
             // generate constant definitions and initializations
             for (Map.Entry<String, PGoType> pair : constants.entrySet()) {
-                TLAExpression value = registry.getConstantValue(constantIds.get(pair.getKey()));
+                // get() here is safe by construction
+                TLAExpression value = registry.getConstantValue(constantIds.get(pair.getKey())).get();
                 PGoType type = typeMap.get(constantIds.get(pair.getKey()));
                 GoVariableName name = module.defineGlobal(
                         constantIds.get(pair.getKey()),

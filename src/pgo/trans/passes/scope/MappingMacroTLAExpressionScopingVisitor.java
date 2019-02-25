@@ -1,5 +1,6 @@
 package pgo.trans.passes.scope;
 
+import pgo.errors.IssueContext;
 import pgo.model.tla.TLASpecialVariableValue;
 import pgo.model.tla.TLASpecialVariableVariable;
 import pgo.modules.TLAModuleLoader;
@@ -9,9 +10,9 @@ import pgo.trans.intermediate.QualifiedName;
 import java.util.Set;
 
 public class MappingMacroTLAExpressionScopingVisitor extends TLAExpressionScopingVisitor {
-	public MappingMacroTLAExpressionScopingVisitor(TLAScopeBuilder builder, DefinitionRegistry registry,
-	                                               TLAModuleLoader loader, Set<String> moduleRecursionSet) {
-		super(builder, registry, loader, moduleRecursionSet);
+	public MappingMacroTLAExpressionScopingVisitor(IssueContext ctx, TLAScopeBuilder builder, DefinitionRegistry registry,
+												   TLAModuleLoader loader, Set<String> moduleRecursionSet, boolean requireDefinedConstants) {
+		super(ctx, builder, registry, loader, moduleRecursionSet, requireDefinedConstants);
 	}
 
 	@Override

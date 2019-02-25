@@ -20,15 +20,17 @@ public class PlusCalProcessesScopingVisitor extends PlusCalProcessesVisitor<Void
 	private DefinitionRegistry registry;
 	private TLAModuleLoader loader;
 	private Set<String> moduleRecursionSet;
+	private boolean isMPCal;
 
 	public PlusCalProcessesScopingVisitor(IssueContext ctx, TLAScopeBuilder builder, TLAScopeBuilder tlaBuilder,
-	                                      DefinitionRegistry registry, TLAModuleLoader loader, Set<String> moduleRecursionSet) {
+	                                      DefinitionRegistry registry, TLAModuleLoader loader, Set<String> moduleRecursionSet, boolean isMPCal) {
 		this.ctx = ctx;
 		this.builder = builder;
 		this.tlaBuilder = tlaBuilder;
 		this.registry = registry;
 		this.loader = loader;
 		this.moduleRecursionSet = moduleRecursionSet;
+		this.isMPCal = isMPCal;
 	}
 
 	@Override
@@ -41,7 +43,7 @@ public class PlusCalProcessesScopingVisitor extends PlusCalProcessesVisitor<Void
 
 		TLAScopeBuilder procScope = new TLAScopeBuilder(ctx, builder.getDeclarations(), labelScope.getDefinitions(), builder.getReferences());
 		for (PlusCalStatement stmts : singleProcess.getBody()) {
-			stmts.accept(new PlusCalStatementScopingVisitor(ctx, procScope, registry, loader, moduleRecursionSet));
+			stmts.accept(new PlusCalStatementScopingVisitor(ctx, procScope, registry, loader, moduleRecursionSet, !isMPCal));
 		}
 		return null;
 	}
@@ -51,14 +53,14 @@ public class PlusCalProcessesScopingVisitor extends PlusCalProcessesVisitor<Void
 		for (PlusCalProcess proc : multiProcess.getProcesses()) {
 			builder.defineGlobal(proc.getName().getName().getValue(), proc.getName().getUID());
 			TLAScopeBuilder procTLAScope = new TLAScopeBuilder(ctx, new ChainMap<>(tlaBuilder.getDeclarations()), builder.getDefinitions(), builder.getReferences());
-			proc.getName().getValue().accept(new TLAExpressionScopingVisitor(tlaBuilder, registry, loader, new HashSet<>()));
+			proc.getName().getValue().accept(new TLAExpressionScopingVisitor(ctx, tlaBuilder, registry, loader, new HashSet<>(), !isMPCal));
 			Map<String, UID> procVars = new ChainMap<>(builder.getDeclarations());
 
 			for (PlusCalVariableDeclaration var : proc.getVariables()) {
 				if (procTLAScope.declare(var.getName().getValue(), var.getUID())) {
 					procVars.put(var.getName().getValue(), var.getUID());
 					registry.addLocalVariable(var.getUID());
-					var.getValue().accept(new TLAExpressionScopingVisitor(procTLAScope, registry, loader, new HashSet<>()));
+					var.getValue().accept(new TLAExpressionScopingVisitor(ctx, procTLAScope, registry, loader, new HashSet<>(), !isMPCal));
 				}
 			}
 
@@ -71,7 +73,7 @@ public class PlusCalProcessesScopingVisitor extends PlusCalProcessesVisitor<Void
 			}
 
 			for (PlusCalStatement stmts : proc.getBody()) {
-				stmts.accept(new PlusCalStatementScopingVisitor(ctx, procScope, registry, loader, moduleRecursionSet));
+				stmts.accept(new PlusCalStatementScopingVisitor(ctx, procScope, registry, loader, moduleRecursionSet, !isMPCal));
 			}
 		}
 		return null;

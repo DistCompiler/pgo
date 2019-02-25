@@ -215,11 +215,11 @@ public class DefinitionRegistry {
 		constantValues.put(id, value);
 	}
 
-	public TLAExpression getConstantValue(UID id) {
-		if (!constantValues.containsKey(id)) {
-			throw new InternalCompilerError();
+	public Optional<TLAExpression> getConstantValue(UID id) {
+		if (constantValues.containsKey(id)) {
+			return Optional.of(constantValues.get(id));
 		}
-		return constantValues.get(id);
+		return Optional.empty();
 	}
 
 	public Set<UID> globalVariables() {
