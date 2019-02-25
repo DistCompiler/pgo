@@ -12,6 +12,7 @@ import pgo.model.type.*;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class PGoTypeGoTypeConversionVisitor extends PGoTypeVisitor<GoType, RuntimeException> {
 	@Override
@@ -107,6 +108,8 @@ public class PGoTypeGoTypeConversionVisitor extends PGoTypeVisitor<GoType, Runti
 
 	@Override
 	public GoType visit(PGoTypeRecord pGoTypeRecord) throws RuntimeException {
-		throw new TODO();
+		return new GoStructType(pGoTypeRecord.getFields().stream()
+				.map(f -> new GoStructTypeField(f.getName(), f.getType().accept(this)))
+				.collect(Collectors.toList()));
 	}
 }

@@ -201,7 +201,7 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 
 	@Override
 	public GoExpression visit(TLADot tlaDot) throws RuntimeException {
-		throw new TODO();
+		return new GoSelectorExpression(tlaDot.getExpression().accept(this), tlaDot.getField());
 	}
 
 	@Override
@@ -374,7 +374,11 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 
 	@Override
 	public GoExpression visit(TLARecordConstructor tlaRecordConstructor) throws RuntimeException {
-		throw new TODO();
+		return new GoStructLiteral(
+				typeMap.get(tlaRecordConstructor.getUID()).accept(new PGoTypeGoTypeConversionVisitor()),
+				tlaRecordConstructor.getFields().stream()
+						.map(f -> new GoStructLiteralField(f.getName().getId(), f.getValue().accept(this)))
+						.collect(Collectors.toList()));
 	}
 
 	@Override
