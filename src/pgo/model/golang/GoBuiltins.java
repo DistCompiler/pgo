@@ -3,7 +3,10 @@ package pgo.model.golang;
 import pgo.model.golang.type.GoType;
 import pgo.model.golang.type.GoTypeName;
 
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.Objects;
+import java.util.Set;
 
 public final class GoBuiltins {
 

@@ -2,6 +2,7 @@ package distsys
 
 import (
 	"bytes"
+	"encoding/gob"
 	"fmt"
 	"log"
 	"sort"
@@ -589,4 +590,11 @@ func NewStateServer(configuration map[string]string, address, coordinator string
 	}
 
 	return stateServer, nil
+}
+
+// DefineCustomType allows the appplication to use user-defined types
+// (e.g., Go structs) when communicating with other processes compiled
+// by PGo.
+func DefineCustomType(value interface{}) {
+	gob.Register(value)
 }

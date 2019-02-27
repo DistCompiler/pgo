@@ -6,10 +6,7 @@ import pgo.Unreachable;
 import pgo.model.golang.*;
 import pgo.model.golang.builder.GoBlockBuilder;
 import pgo.model.golang.builder.GoModuleBuilder;
-import pgo.model.golang.type.GoMapType;
-import pgo.model.golang.type.GoSliceType;
-import pgo.model.golang.type.GoType;
-import pgo.model.golang.type.GoTypeName;
+import pgo.model.golang.type.*;
 import pgo.model.pcal.PlusCalProcess;
 import pgo.model.tla.TLAExpression;
 import pgo.model.tla.TLAFunctionCall;
@@ -91,7 +88,7 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
         // err = distsys.AcquireResources(distys.READ_ACCESS, ...{readExps})
         // if err != nil { return err }
         BiConsumer<String, Set<GoExpression>> acquire = (permission, resources) -> {
-            if (resources.size() > 0) {
+            if (!resources.isEmpty()) {
                 ArrayList<GoExpression> args = new ArrayList<>(
                         Arrays.asList(new GoSelectorExpression(distsys, permission))
                 );
@@ -165,6 +162,12 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
             } else {
                 throw new InternalCompilerError();
             }
+        }
+
+        // if the read type is inferred to be a TLA+ record, use a map[string]interface{}
+        // to represent it instead
+        if (readType instanceof GoStructType) {
+            readType = new GoMapType(GoBuiltins.String, GoBuiltins.Interface);
         }
 
         GoExpression target = resourceExpressions.get(resource);

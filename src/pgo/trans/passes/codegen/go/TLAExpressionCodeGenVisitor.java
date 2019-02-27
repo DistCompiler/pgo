@@ -9,9 +9,11 @@ import pgo.model.golang.builder.GoForRangeBuilder;
 import pgo.model.golang.type.GoSliceType;
 import pgo.model.golang.type.GoStructType;
 import pgo.model.golang.type.GoType;
+import pgo.model.golang.type.GoTypeName;
 import pgo.model.tla.*;
 import pgo.model.type.PGoType;
 import pgo.model.type.PGoTypeMap;
+import pgo.model.type.PGoTypeRecord;
 import pgo.model.type.PGoTypeSlice;
 import pgo.scope.UID;
 import pgo.trans.intermediate.*;
@@ -205,7 +207,38 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 
 	@Override
 	public GoExpression visit(TLADot tlaDot) throws RuntimeException {
-		return new GoSelectorExpression(tlaDot.getExpression().accept(this), tlaDot.getField());
+		UID ref = registry.followReference(tlaDot.getExpression().getUID());
+		PGoType expressionType = typeMap.get(ref);
+		if (!(expressionType instanceof PGoTypeRecord)) {
+			throw new TODO();
+		}
+
+		PGoTypeRecord mapType = (PGoTypeRecord) expressionType;
+		PGoType fieldType;
+
+		Optional<PGoTypeRecord.Field> field = mapType
+				.getFields()
+				.stream()
+				.filter(f -> f.getName().equals(tlaDot.getField()))
+				.findFirst();
+
+		if (field.isPresent()) {
+			fieldType = field.get().getType();
+		} else {
+			throw new InternalCompilerError();
+		}
+
+		GoType castType = fieldType.accept(new PGoTypeGoTypeConversionVisitor());
+		GoExpression mapGet = new GoIndexExpression(
+				tlaDot.getExpression().accept(this),
+				new GoStringLiteral(tlaDot.getField())
+		);
+
+		if (castType.equals(GoBuiltins.Interface)) {
+			return mapGet;
+		} else {
+			return new GoTypeCast(new GoTypeName(castType.toString()), mapGet);
+		}
 	}
 
 	@Override
@@ -382,11 +415,12 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 
 	@Override
 	public GoExpression visit(TLARecordConstructor tlaRecordConstructor) throws RuntimeException {
-		return new GoStructLiteral(
-				typeMap.get(tlaRecordConstructor.getUID()).accept(new PGoTypeGoTypeConversionVisitor()),
-				tlaRecordConstructor.getFields().stream()
-						.map(f -> new GoStructLiteralField(f.getName().getId(), f.getValue().accept(this)))
-						.collect(Collectors.toList()));
+		Map<GoExpression, GoExpression> kv = new HashMap<>();
+		tlaRecordConstructor.getFields().forEach(f -> {
+			kv.put(new GoStringLiteral(f.getName().getId()), f.getValue().accept(this));
+		});
+
+		return new GoMapLiteral(GoBuiltins.String, GoBuiltins.Interface, kv);
 	}
 
 	@Override

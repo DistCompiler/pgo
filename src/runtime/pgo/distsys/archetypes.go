@@ -280,7 +280,9 @@ func (mbox *Mailbox) SendMessages() {
 	var ok bool
 
 	for msg := range mbox.writeChan {
-		mbox.call("Receive", msg, &ok)
+		if err := mbox.call("Receive", msg, &ok); err != nil {
+			fmt.Printf("Error! %v\n", err)
+		}
 	}
 }
 
