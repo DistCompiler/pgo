@@ -178,13 +178,12 @@ public class ScopingPass {
 				mappedVariables.put(variableName, mapping);
 			}
 			ModularPlusCalArchetype archetype = registry.findArchetype(instance.getTarget());
-			if (archetype != null && instance.getArguments().size() != archetype.getParams().size()) {
-				ctx.error(new InstanceArgumentCountMismatchIssue(instance, archetype));
-				continue;
-			} else if (archetype != null) {
-				PlusCalStatementScopingVisitor.verifyRefMatching(ctx, archetype.getParams(), instance.getArguments());
-			} else {
+			if (archetype == null) {
 				ctx.error(new ArchetypeNotFoundIssue(instance, instance.getTarget()));
+				continue;
+			}
+			if (instance.getArguments().size() != archetype.getParams().size()) {
+				ctx.error(new InstanceArgumentCountMismatchIssue(instance, archetype));
 				continue;
 			}
 			for (TLAExpression expression : instance.getArguments()) {

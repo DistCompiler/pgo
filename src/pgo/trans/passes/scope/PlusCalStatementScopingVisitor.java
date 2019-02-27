@@ -51,17 +51,6 @@ public class PlusCalStatementScopingVisitor extends PlusCalStatementVisitor<Void
 		this.requireDefinedConstants = requireDefinedConstants;
 	}
 
-	static void verifyRefMatching(IssueContext ctx, List<PlusCalVariableDeclaration> params, List<TLAExpression> args) {
-		for (int i = 0; i < params.size(); i++) {
-			PlusCalVariableDeclaration param = params.get(i);
-			TLAExpression arg = args.get(i);
-			if ((!param.isRef() && arg instanceof TLARef) ||
-					(param.isRef() && !(arg instanceof TLAGeneralIdentifier) && !(arg instanceof TLARef))) {
-				ctx.error(new RefMismatchIssue(param, arg));
-			}
-		}
-	}
-
 	@Override
 	public Void visit(PlusCalLabeledStatements plusCalLabeledStatements) throws RuntimeException {
 		for (PlusCalStatement stmt : plusCalLabeledStatements.getStatements()) {
@@ -123,14 +112,11 @@ public class PlusCalStatementScopingVisitor extends PlusCalStatementVisitor<Void
 	@Override
 	public Void visit(PlusCalCall plusCalCall) throws RuntimeException {
 		PlusCalProcedure procedure = registry.findProcedure(plusCalCall.getTarget());
-		if (procedure != null && procedure.getParams().size() != plusCalCall.getArguments().size()) {
-			ctx.error(new ProcedureCallArgumentCountMismatchIssue(procedure, plusCalCall));
-		} else if (procedure != null) {
-			verifyRefMatching(ctx, procedure.getParams(), plusCalCall.getArguments());
-		} else {
+		if (procedure == null) {
 			ctx.error(new ProcedureNotFoundIssue(plusCalCall, plusCalCall.getTarget()));
+		} else if (procedure.getParams().size() != plusCalCall.getArguments().size()) {
+			ctx.error(new ProcedureCallArgumentCountMismatchIssue(procedure, plusCalCall));
 		}
-
 		for (TLAExpression expr : plusCalCall.getArguments()) {
 			expr.accept(factory.create(ctx, builder, null, null, null, false));
 		}

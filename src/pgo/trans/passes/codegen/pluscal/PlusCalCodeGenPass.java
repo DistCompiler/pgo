@@ -115,15 +115,17 @@ public class PlusCalCodeGenPass {
 					arguments.put(paramUID, (TLAGeneralIdentifier) value);
 				} else {
 					// this argument is bound to a TLA+ expression, so we need to add a variable declaration for it
-					readTemporaryBinding.declare(
-							value.getLocation(), paramUID, param.getName().getValue() + "Read", value);
+					TLAGeneralIdentifier local = readTemporaryBinding.declare(
+							value.getLocation(), paramUID, param.getName().getValue() + "Local", value);
+					arguments.put(paramUID, local);
 					readTemporaryBinding.reuse(paramUID);
 					expressionArguments.add(paramUID);
 				}
 			}
 			// initialize the local variables
 			ModularPlusCalCodeGenVisitor v = new ModularPlusCalCodeGenVisitor(
-					registry, params, arguments, mappings, expressionArguments, functionMappedVars, readTemporaryBinding,
+					registry, params, arguments, mappings, expressionArguments, functionMappedVars,
+					readTemporaryBinding,
 					new TemporaryBinding(nameCleaner, localVariables),
 					new ProcedureExpander(
 							ctx, registry, nameCleaner, procedureCache, arguments, mappings, refs, functionMappedVars,

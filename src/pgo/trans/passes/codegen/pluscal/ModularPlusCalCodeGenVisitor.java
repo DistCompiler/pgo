@@ -87,7 +87,7 @@ public class ModularPlusCalCodeGenVisitor
 	public List<PlusCalStatement> visit(PlusCalLabeledStatements plusCalLabeledStatements) throws RuntimeException {
 		for (UID varUID : expressionArguments) {
 			readTemporaryBinding.declare(
-					plusCalLabeledStatements.getLocation(), varUID, params.get(varUID).getName().getValue() + "Read");
+					plusCalLabeledStatements.getLocation(), varUID, params.get(varUID).getName().getValue() + "Local");
 		}
 		// translate the statements in this labeledStatements
 		List<PlusCalStatement> statements = substituteStatements(plusCalLabeledStatements.getStatements());
