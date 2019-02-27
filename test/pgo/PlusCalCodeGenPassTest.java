@@ -1839,13 +1839,13 @@ public class PlusCalCodeGenPassTest {
 						// --algorithm Algorithm12 {
 						//     variables i = 0;
 						//     fair process (Proc = 0)
-						//     variables aRead = i * 2 + 1, local;
+						//     variables aLocal = i * 2 + 1, local = 0, aRead, aRead0;
 						//     {
-						//         init:
-						//             local := 0;
 						//         l1:
+						//             aRead := aLocal;
 						//             local := aRead + 1;
-						//             print <<aRead, local>>;
+						//             aRead0 := aLocal;
+						//             print <<aRead0, local>>;
 						//     }
 						// }
 						algorithm(
@@ -1860,13 +1860,17 @@ public class PlusCalCodeGenPassTest {
 										pcalVarDecl("Proc", false, false, num(0)),
 										PlusCalFairness.WEAK_FAIR,
 										Arrays.asList(
-												pcalVarDecl("aRead", false, false, binop("+", binop("*", idexp("i"), num(2)), num(1))),
-												pcalVarDecl("local", false, false, num(0))
+												pcalVarDecl("aLocal", false, false, binop("+", binop("*", idexp("i"), num(2)), num(1))),
+												pcalVarDecl("local", false, false, num(0)),
+												pcalVarDecl("aRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+												pcalVarDecl("aRead0", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
 										),
 										labeled(
 												label("l1"),
+												assign(idexp("aRead"), idexp("aLocal")),
 												assign(idexp("local"), binop("+", idexp("aRead"), num(1))),
-												printS(tuple(idexp("aRead"), idexp("local")))
+												assign(idexp("aRead0"), idexp("aLocal")),
+												printS(tuple(idexp("aRead0"), idexp("local")))
 										)
 								)
 						)
@@ -2037,18 +2041,20 @@ public class PlusCalCodeGenPassTest {
 						// --algorithm Algorithm14 {
 						//     variables i = 0, flag = TRUE;
 						//     fair process (Proc = 0)
-						//     variables aRead = i * 2 + 1, local, bRead;
+						//     variables aLocal = i * 2 + 1, local = 0, aRead, bRead, aRead0, aRead1;
 						//     {
-						//         init:
-						//             local := 0;
 						//         l1:
+						//             aRead := aLocal;
 						//             local := aRead + 1;
 						//             bRead := flag;
 						//             if (bRead) {
-						//                 print <<aRead, local>>;
+						//                 aRead0 := aLocal;
+						//                 print <<aRead0, local>>;
 						//             } else {
-						//                 print <<local, aRead + 1>>;
+						//                 aRead1 := aLocal;
+						//                 print <<local, aRead1 + 1>>;
 						//                 l2:
+						//                     aRead := aLocal;
 						//                     print aRead + 2;
 						//             };
 						//     }
@@ -2066,23 +2072,30 @@ public class PlusCalCodeGenPassTest {
 										pcalVarDecl("Proc", false, false, num(0)),
 										PlusCalFairness.WEAK_FAIR,
 										Arrays.asList(
-												pcalVarDecl("aRead", false, false, binop("+", binop("*", idexp("i"), num(2)), num(1))),
+												pcalVarDecl("aLocal", false, false, binop("+", binop("*", idexp("i"), num(2)), num(1))),
 												pcalVarDecl("local", false, false, num(0)),
-												pcalVarDecl("bRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
+												pcalVarDecl("aRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+												pcalVarDecl("bRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+												pcalVarDecl("aRead0", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+												pcalVarDecl("aRead1", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
 										),
 										labeled(
 												label("l1"),
+												assign(idexp("aRead"), idexp("aLocal")),
 												assign(idexp("local"), binop("+", idexp("aRead"), num(1))),
 												assign(idexp("bRead"), idexp("flag")),
 												ifS(
 														idexp("bRead"),
-														Collections.singletonList(
-																printS(tuple(idexp("aRead"), idexp("local")))
+														Arrays.asList(
+																assign(idexp("aRead0"), idexp("aLocal")),
+																printS(tuple(idexp("aRead0"), idexp("local")))
 														),
 														Arrays.asList(
-																printS(tuple(idexp("local"), binop("+", idexp("aRead"), num(1)))),
+																assign(idexp("aRead1"), idexp("aLocal")),
+																printS(tuple(idexp("local"), binop("+", idexp("aRead1"), num(1)))),
 																labeled(
 																		label("l2"),
+																		assign(idexp("aRead"), idexp("aLocal")),
 																		printS(binop("+", idexp("aRead"), num(2)))
 																)
 														)
