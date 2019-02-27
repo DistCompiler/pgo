@@ -389,5 +389,14 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 		archetypeNotFoundIssue.getOrigin().accept(new OriginFormattingVisitor(out));
 		return null;
 	}
+
+	@Override
+	public Void visit(VariableMappedMultipleTimesIssue variableMappedMultipleTimesIssue) throws IOException {
+		out.write("global ");
+		variableMappedMultipleTimesIssue.getVarUID().accept(new DerivedFormattingVisitor(out));
+		out.write(" is used multiple time in ");
+		variableMappedMultipleTimesIssue.getInstance().accept(new OriginFormattingVisitor(out));
+		return null;
+	}
 }
 
