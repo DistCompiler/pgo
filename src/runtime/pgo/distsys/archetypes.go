@@ -48,6 +48,19 @@ type ArchetypeResource interface {
 	Less(other ArchetypeResource) bool
 }
 
+// ArchetypeResourceCollection represents archetype resources that are
+// mapped via function calls in Modular PlusCal. Instead of using
+// regular indexing operations, the Get allows implementations to
+// provide custom archetype resources that depend on the value being
+// indexed.
+type ArchetypeResourceCollection interface {
+	// Get receives as input the value being indexed on, and returns
+	// the corresponding archetype resource. Note that different
+	// implementations have specific requirements for the type of
+	// `value`.
+	Get(value interface{}) ArchetypeResource
+}
+
 // SortableArchetypeResource represents a collection of archetype
 // resources.  This type implements the functions necessary to enable
 // a collection of archetype resources to be sorted using Go's
@@ -513,4 +526,31 @@ func (file *FileResource) Abort() error {
 // Less implements ordering. File resources are agnostic to ordering.
 func (file *FileResource) Less(_ ArchetypeResource) bool {
 	return false
+}
+
+// ArchetypeResourceSlice implements implements an
+// ArchetypeResourceCollection by mapping Get calls as straightforward
+// indexing operations on the underlying slice.
+type ArchetypeResourceSlice []ArchetypeResource
+
+// Get returns the archetype resource at a given index. The `value`
+// passed must be an integer.
+func (slice ArchetypeResourceSlice) Get(value interface{}) ArchetypeResource {
+	index := value.(int)
+	return slice[index]
+}
+
+// FileSystemDirectory represents an archetype resource that makes the
+// files in a certain directory available, implementing the
+// ArchetypeResourceCollection interface
+type FileSystemDirectory string
+
+// Get returns the archetype resource file corresponding to the path
+// (relative to the root) given as argument. The `value` given must be
+// a string.
+func (root FileSystemDirectory) Get(value interface{}) ArchetypeResource {
+	path := value.(string)
+	file := path.Join(root, path)
+
+	return NewFileResource(file)
 }
