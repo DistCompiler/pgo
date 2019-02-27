@@ -1484,7 +1484,7 @@ public class PlusCalCodeGenPassTest {
 								Collections.singletonList(
 										archetype(
 												"Valid",
-												Collections.singletonList(pcalVarDecl("aBool", false, false, PLUSCAL_DEFAULT_INIT_VALUE)),
+												Collections.singletonList(pcalVarDecl("aBool", true, false, PLUSCAL_DEFAULT_INIT_VALUE)),
 												Collections.emptyList(),
 												Collections.singletonList(labeled(
 														label("l"),

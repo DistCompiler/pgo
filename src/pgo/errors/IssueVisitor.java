@@ -27,6 +27,7 @@ public abstract class IssueVisitor<T, E extends Throwable> {
 	public abstract T visit(ModuleSubstitutionNotFoundIssue moduleSubstitutionNotFoundIssue) throws E;
 	public abstract T visit(NoMatchingFieldIssue noMatchingFieldIssue) throws E;
 	public abstract T visit(NoModulesFoundInFileIssue noModulesFoundInFileIssue) throws E;
+	public abstract T visit(NonRefParamModification nonRefParamModification) throws E;
 	public abstract T visit(CircularModuleReferenceIssue circularModuleReferenceIssue) throws E;
 	public abstract T visit(UnsupportedFeatureIssue unsupportedFeatureIssue) throws E;
 	public abstract T visit(UnresolvableMacroCallIssue unresolvableMacroCallIssue) throws E;

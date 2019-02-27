@@ -105,6 +105,14 @@ public class PGoMain {
 		return registry;
 	}
 
+	private void validateSemanticsPostScoping(TopLevelIssueContext ctx, DefinitionRegistry registry,
+	                                          ModularPlusCalBlock modularPlusCalBlock)
+			throws PGoTransException {
+		logger.info("Validating Modular PlusCal semantics post scoping");
+		ModularPlusCalValidationPass.performPostScoping(ctx, registry, modularPlusCalBlock);
+		checkErrors(ctx);
+	}
+
 	PlusCalAlgorithm mpcalToPcal(
 			Path inputFilePath,
 			TopLevelIssueContext ctx,
@@ -123,6 +131,7 @@ public class PGoMain {
 		DefinitionRegistry registry = resolveScopes(
 				ctx, false, inputFilePath, constantDefinitions, tlaModule, desugaredModularPlusCalBlock);
 		checkErrors(ctx);
+		validateSemanticsPostScoping(ctx, registry, modularPlusCalBlock);
 
 		PlusCalAlgorithm algorithm = PlusCalCodeGenPass.perform(ctx, registry, desugaredModularPlusCalBlock);
 		checkErrors(ctx);
@@ -223,6 +232,7 @@ public class PGoMain {
 		ModularPlusCalBlock macroExpandedModularPlusCalBlock = expandPlusCalMacros(ctx, modularPlusCalBlock);
 		DefinitionRegistry registry = resolveScopes(
 				ctx, true, inputFilePath, constantDefinitions, tlaModule, macroExpandedModularPlusCalBlock);
+		validateSemanticsPostScoping(ctx, registry, modularPlusCalBlock);
 
 		logger.info("Inferring types");
 		Map<UID, PGoType> typeMap = TypeInferencePass.perform(ctx, registry, macroExpandedModularPlusCalBlock);

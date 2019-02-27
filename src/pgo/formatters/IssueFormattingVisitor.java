@@ -119,6 +119,14 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 	}
 
 	@Override
+	public Void visit(NonRefParamModification nonRefParamModification) throws IOException {
+		out.write("non-ref ");
+		nonRefParamModification.getDeclarationUID().accept(new DerivedFormattingVisitor(out));
+		out.write(" is modified in archetype body");
+		return null;
+	}
+
+	@Override
 	public Void visit(ModuleSubstitutionNotFoundIssue moduleSubstitutionNotFoundIssue) throws IOException {
 		out.write("module instantiation provided a substitution (");
 		out.write(moduleSubstitutionNotFoundIssue.getFrom().getId());

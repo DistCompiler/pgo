@@ -102,7 +102,6 @@ public class ModularPlusCalValidationVisitor extends ModularPlusCalBlockVisitor<
 	* Archetypes in Modular PlusCal must obey the following rules and restrictions:
 	*
 	*   * Same labelling rules of vanilla PlusCal apply (see C-syntax manual, section 3.7)
-	*   * Only local or `ref` variables can be assigned to
 	*/
 	public Void visit(ModularPlusCalArchetype modularPlusCalArchetype) {
 		// guaranteed to exist at the parsing stage
