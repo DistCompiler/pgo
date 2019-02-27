@@ -67,9 +67,9 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
                 }
 
                 TLAExpressionCodeGenVisitor codegen = new TLAExpressionCodeGenVisitor(builder, registry, typeMap, this);
-                resource = new GoIndexExpression(
-                        fnCall.getFunction().accept(codegen),
-                        fnCall.getParams().get(0).accept(codegen)
+                resource = new GoCall(
+                        new GoSelectorExpression(fnCall.getFunction().accept(codegen), "Get"),
+                        Collections.singletonList(fnCall.getParams().get(0).accept(codegen))
                 );
             } else {
                 throw new Unreachable();

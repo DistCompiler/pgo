@@ -145,16 +145,17 @@ public class ModularPlusCalGoCodeGenPass {
 
             // all archetypes have a `self` parameter
             GoVariableName selfVariable = fn.addParameter("self", GoBuiltins.Int);
-            GoType resourceType = new GoTypeName("distsys.ArchetypeResource");
 
             for (PlusCalVariableDeclaration arg : archetype.getParams()) {
                 module.addImport("pgo/distsys");
 
-                // find out if archetype resource should be passed as a slice if it is used
-                // like a TLA+ function in the archetype's body
-                GoType argType = resourceType;
+                // find out if archetype resource should be passed as resource collection
+                // if it is used like a TLA+ function in the archetype's body
+                GoType argType;
                 if (typeMap.get(arg.getUID()) instanceof PGoTypeMap) {
-                    argType = new GoSliceType(resourceType);
+                    argType = new GoTypeName("distsys.ArchetypeResourceCollection");
+                } else {
+                    argType = new GoTypeName("distsys.ArchetypeResource");
                 }
 
                 argMap.put(arg.getName().getValue(), fn.addParameter(arg.getName().getValue(), argType));

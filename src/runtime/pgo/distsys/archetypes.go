@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path"
 	"sort"
 	"strings"
 )
@@ -549,8 +550,8 @@ type FileSystemDirectory string
 // (relative to the root) given as argument. The `value` given must be
 // a string.
 func (root FileSystemDirectory) Get(value interface{}) ArchetypeResource {
-	path := value.(string)
-	file := path.Join(root, path)
+	relPath := value.(string)
+	file := path.Join(string(root), relPath)
 
 	return NewFileResource(file)
 }
