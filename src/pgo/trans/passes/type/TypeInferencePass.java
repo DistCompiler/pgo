@@ -220,7 +220,7 @@ public class TypeInferencePass {
 
 		solver.unify(ctx);
 		if (ctx.hasErrors()) {
-			return null;
+			return Collections.emptyMap();
 		}
 		PGoTypeSubstitution substitution = solver.getSubstitution();
 
