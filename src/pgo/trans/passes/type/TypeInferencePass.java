@@ -156,28 +156,28 @@ public class TypeInferencePass {
 							Arrays.asList(
 									new PGoTypeEqualityConstraint(
 											registry.getReadValueType(declarationUID),
-											new PGoTypeSlice(
+											new PGoTypeMap(
+													mapKeyType,
 													generator.getTypeVariable(
 															Collections.singletonList(declarationUID)),
 													Collections.singletonList(declarationUID))),
 									new PGoTypeEqualityConstraint(
 											registry.getWrittenValueType(declarationUID),
-											new PGoTypeSlice(
+											new PGoTypeMap(
+													mapKeyType,
 													generator.getTypeVariable(
 															Collections.singletonList(declarationUID)),
 													Collections.singletonList(declarationUID)))),
 							Arrays.asList(
 									new PGoTypeEqualityConstraint(
 											registry.getReadValueType(declarationUID),
-											new PGoTypeMap(
-													mapKeyType,
+											new PGoTypeSlice(
 													generator.getTypeVariable(
 															Collections.singletonList(declarationUID)),
 													Collections.singletonList(declarationUID))),
 									new PGoTypeEqualityConstraint(
 											registry.getWrittenValueType(declarationUID),
-											new PGoTypeMap(
-													mapKeyType,
+											new PGoTypeSlice(
 													generator.getTypeVariable(
 															Collections.singletonList(declarationUID)),
 													Collections.singletonList(declarationUID)))),

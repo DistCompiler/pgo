@@ -85,19 +85,19 @@ public class TLAExpressionTypeConstraintVisitor extends TLAExpressionVisitor<PGo
 		PGoTypeVariable returnType = generator.getTypeVariable(Collections.singletonList(tlaFunctionCall));
 		if (paramTypes.size() == 1) {
 			solver.addConstraint(new PGoTypePolymorphicConstraint(tlaFunctionCall, Arrays.asList(
+					Collections.singletonList(new PGoTypeEqualityConstraint(
+							fnType,
+							new PGoTypeMap(paramTypes.get(0), returnType, Collections.singletonList(tlaFunctionCall)))),
+					Collections.singletonList(new PGoTypeEqualityConstraint(
+							fnType,
+							new PGoTypeFunction(paramTypes, returnType, Collections.singletonList(tlaFunctionCall)))),
 					Arrays.asList(
 							new PGoTypeEqualityConstraint(
 									fnType,
 									new PGoTypeSlice(returnType, Collections.singletonList(tlaFunctionCall))),
 							new PGoTypeEqualityConstraint(
 									paramTypes.get(0),
-									new PGoTypeInt(Collections.singletonList(tlaFunctionCall)))),
-					Collections.singletonList(new PGoTypeEqualityConstraint(
-							fnType,
-							new PGoTypeMap(paramTypes.get(0), returnType, Collections.singletonList(tlaFunctionCall)))),
-					Collections.singletonList(new PGoTypeEqualityConstraint(
-							fnType,
-							new PGoTypeFunction(paramTypes, returnType, Collections.singletonList(tlaFunctionCall)))))));
+									new PGoTypeInt(Collections.singletonList(tlaFunctionCall)))))));
 		} else {
 			solver.addConstraint(new PGoTypePolymorphicConstraint(tlaFunctionCall, Arrays.asList(
 					Collections.singletonList(new PGoTypeEqualityConstraint(
