@@ -462,8 +462,9 @@ func (localCh *LocalChannelResource) Receive() interface{} {
 
 // FileResource implements files in the system as archetype resources.
 type FileResource struct {
-	path string   // absolute path to the file
-	fd   *os.File // the underlying file descriptor.
+	path  string   // absolute path to the file
+	fd    *os.File // the underlying file descriptor.
+	perms int      // permissions to be used when opening the file
 }
 
 // NewFileResource creates a FileResource for the file under `path`.
@@ -473,26 +474,38 @@ func NewFileResource(path string) *FileResource {
 	}
 }
 
-// Acquire attempts to open the file with the requested
-// access. Returns an error when not successful.
+// Acquire identifies file permissions required when the file is read or written.
 func (file *FileResource) Acquire(access ResourceAccess) error {
-	opts := os.O_RDONLY
+	perms := os.O_RDONLY
 	if access&WRITE_ACCESS != 0 {
-		opts = os.O_RDWR
+		perms = os.O_RDWR
 	}
 
-	fd, err := os.OpenFile(file.path, opts|os.O_CREATE, 0755)
-	if err != nil {
-		return err
+	file.perms = perms
+	return nil
+}
+
+// ensureOpenFile opens the underlying file if it was not open before.
+func (file *FileResource) ensureOpenFile() error {
+	if file.fd == nil {
+		fd, err := os.OpenFile(file.path, file.perms|os.O_CREATE, 0644)
+		if err != nil {
+			return err
+		}
+
+		file.fd = fd
 	}
 
-	file.fd = fd
 	return nil
 }
 
 // Read returns a buffer with all the contents of the underlying file.
 // Panics if reading there is a an error reading the file.
 func (file *FileResource) Read() interface{} {
+	if err := file.ensureOpenFile(); err != nil {
+		return err
+	}
+
 	data, err := ioutil.ReadAll(file.fd)
 	if err != nil {
 		panic(err)
@@ -506,6 +519,10 @@ func (file *FileResource) Read() interface{} {
 // descriptor. Panics if there is an error while writing to the file.
 // The value given *must* be a byte slice.
 func (file *FileResource) Write(value interface{}) {
+	if err := file.ensureOpenFile(); err != nil {
+		panic(err)
+	}
+
 	buf := value.([]byte)
 
 	n, err := file.fd.Write(buf)
@@ -516,7 +533,11 @@ func (file *FileResource) Write(value interface{}) {
 
 // Release closes the underlying file.
 func (file *FileResource) Release() error {
-	return file.fd.Close()
+	if file.fd != nil {
+		return file.fd.Close()
+	}
+
+	return nil
 }
 
 // Abort closes the underlying file

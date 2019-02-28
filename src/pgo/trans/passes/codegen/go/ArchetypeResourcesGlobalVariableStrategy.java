@@ -12,6 +12,8 @@ import pgo.model.tla.TLAExpression;
 import pgo.model.tla.TLAFunctionCall;
 import pgo.model.tla.TLAGeneralIdentifier;
 import pgo.model.type.PGoType;
+import pgo.model.type.PGoTypeMap;
+import pgo.model.type.PGoTypeSlice;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
 
@@ -150,19 +152,21 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
         } else {
             throw new Unreachable();
         }
-        GoType readType = registry.getReadValueType(ref).accept(new PGoTypeGoTypeConversionVisitor());
+        PGoType inferredType = registry.getReadValueType(ref);
 
         // if this a function call being mapped, the read type used when casting should be
         // the value you get out of the slice or map inferred by the type system.
         if (isCall) {
-            if (readType instanceof GoSliceType) {
-                readType = ((GoSliceType) readType).getElementType();
-            } else if (readType instanceof GoMapType) {
-                readType = ((GoMapType) readType).getValueType();
+            if (inferredType instanceof PGoTypeSlice) {
+                inferredType = ((PGoTypeSlice) inferredType).getElementType();
+            } else if (inferredType instanceof PGoTypeMap) {
+                inferredType = ((PGoTypeMap) inferredType).getValueType();
             } else {
                 throw new InternalCompilerError();
             }
         }
+
+        GoType readType = inferredType.accept(new PGoTypeGoTypeConversionVisitor());
 
         // if the read type is inferred to be a TLA+ record, use a map[string]interface{}
         // to represent it instead
