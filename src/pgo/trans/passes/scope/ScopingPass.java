@@ -54,7 +54,8 @@ public class ScopingPass {
 			String name = registry.getConstantName(id);
 			if (constantDefinitions.containsKey(name)) {
 				TLAExpression value = constantDefinitions.get(name);
-				value.accept(new TLAExpressionScopingVisitor(ctx, tlaScope, registry, loader, new HashSet<>(), resolveConstants));
+				value.accept(new TLAExpressionScopingVisitor(
+						ctx, tlaScope, registry, loader, new HashSet<>(), resolveConstants));
 				registry.setConstantValue(id, value);
 			}
 		}
