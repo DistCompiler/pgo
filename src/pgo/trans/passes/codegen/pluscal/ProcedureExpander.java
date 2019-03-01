@@ -43,16 +43,15 @@ class ProcedureExpander {
 	                                     List<PlusCalVariableDeclaration> variables, String cleanedLabelName,
 	                                     ModularPlusCalCodeGenVisitor visitor,
 	                                     List<PlusCalVariableDeclaration> outputVariables,
-	                                     List<PlusCalStatement> output) {
+	                                     List<PlusCalStatement> initStatements, List<PlusCalStatement> output) {
 		Map<UID, PlusCalVariableDeclaration> variableMap = new HashMap<>();
 		for (PlusCalVariableDeclaration variable : variables) {
 			variableMap.put(variable.getUID(), variable);
 		}
-		List<PlusCalStatement> initStatements = new ArrayList<>();
+		TLAExpressionParamsAccessCheckVisitor accessCheck =
+				new TLAExpressionParamsAccessCheckVisitor(registry, params, variableMap);
 		for (PlusCalVariableDeclaration variable : variables) {
-			if (variable.getValue() instanceof PlusCalDefaultInitValue ||
-					!variable.getValue().accept(
-							new TLAExpressionParamsAccessCheckVisitor(registry, params, variableMap))) {
+			if (variable.getValue() instanceof PlusCalDefaultInitValue || !variable.getValue().accept(accessCheck)) {
 				outputVariables.add(variable);
 			} else {
 				SourceLocation variableLocation = variable.getLocation();
@@ -143,7 +142,7 @@ class ProcedureExpander {
 			List<PlusCalStatement> body = new ArrayList<>();
 			initializeLocalVariables(
 					registry, procedure.getLocation(), Collections.emptyMap(), procedure.getVariables(),
-					nameCleaner.cleanName("init"), v, localVariables, body);
+					nameCleaner.cleanName("init"), v, localVariables, new ArrayList<>(), body);
 			for (PlusCalStatement statement : procedure.getBody()) {
 				body.addAll(statement.accept(v));
 			}

@@ -94,6 +94,8 @@ public class PlusCalCodeGenPass {
 			TemporaryBinding readTemporaryBinding = new TemporaryBinding(nameCleaner, localVariables);
 			List<PlusCalVariableDeclaration> archetypeParams = archetype.getParams();
 			List<TLAExpression> instanceArguments = instance.getArguments();
+			// initialization statements for parameters bound to expressions
+			List<PlusCalStatement> initStatements = new ArrayList<>();
 			for (int i = 0; i < archetypeParams.size(); i++) {
 				PlusCalVariableDeclaration param = archetypeParams.get(i);
 				UID paramUID = param.getUID();
@@ -114,9 +116,22 @@ public class PlusCalCodeGenPass {
 					recordMapping(registry, mappedVars, paramUID, value, mappings, functionMappedVars);
 					arguments.put(paramUID, (TLAGeneralIdentifier) value);
 				} else {
+					String nameHint = param.getName().getValue() + "Local";
 					// this argument is bound to a TLA+ expression, so we need to add a variable declaration for it
-					TLAGeneralIdentifier local = readTemporaryBinding.declare(
-							value.getLocation(), paramUID, param.getName().getValue() + "Local", value);
+					TLAGeneralIdentifier local;
+					if (value.accept(
+							new TLAExpressionParamsAccessCheckVisitor(registry, params, Collections.emptyMap()))) {
+						local = readTemporaryBinding.declare(value.getLocation(), paramUID, nameHint);
+						TLAGeneralIdentifier lhs = new TLAGeneralIdentifier(
+								param.getLocation(),
+								new TLAIdentifier(param.getLocation(), nameHint),
+								Collections.emptyList());
+						initStatements.add(new PlusCalAssignment(
+								value.getLocation(),
+								Collections.singletonList(new PlusCalAssignmentPair(value.getLocation(),lhs, value))));
+					} else {
+						local = readTemporaryBinding.declare(value.getLocation(), paramUID, nameHint, value);
+					}
 					arguments.put(paramUID, local);
 					readTemporaryBinding.reuse(paramUID);
 					expressionArguments.add(paramUID);
@@ -133,7 +148,7 @@ public class PlusCalCodeGenPass {
 			List<PlusCalStatement> body = new ArrayList<>();
 			ProcedureExpander.initializeLocalVariables(
 					registry, archetype.getLocation(), params, archetype.getVariables(),
-					nameCleaner.cleanName("init"), v, localVariables, body);
+					nameCleaner.cleanName("init"), v, localVariables, initStatements, body);
 			for (PlusCalStatement statement : archetype.getBody()) {
 				body.addAll(statement.accept(v));
 			}
