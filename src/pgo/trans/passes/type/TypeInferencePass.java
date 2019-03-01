@@ -121,8 +121,6 @@ public class TypeInferencePass {
 			mapping.put(archetype.getUID(), fresh);
 		}
 
-		// this map is to constrain parameter types to each other when they are mapped to the same global
-		Map<UID, Set<UID>> argsToParamSets = new HashMap<>();
 		for (ModularPlusCalInstance instance : modularPlusCalBlock.getInstances()) {
 			constrainVariableDeclaration(registry, instance.getName(), solver, generator, mapping);
 			UID selfVariableUID = instance.getName().getUID();
@@ -145,25 +143,8 @@ public class TypeInferencePass {
 			List<PlusCalVariableDeclaration> params = target.getParams();
 			for (int i = 0; i < params.size(); i++) {
 				TLAExpression argument = arguments.get(i);
-				PlusCalVariableDeclaration param = params.get(i);
 				if (argument instanceof TLAGeneralIdentifier || argument instanceof TLARef) {
-					argsToParams.put(registry.followReference(argument.getUID()), param.getUID());
-					Set<UID> otherParams = argsToParamSets.get(argument.getUID());
-					if (otherParams == null) {
-						otherParams = new HashSet<>();
-						otherParams.add(param.getUID());
-						argsToParamSets.put(argument.getUID(), otherParams);
-					} else {
-						for (UID p : otherParams) {
-							solver.addConstraint(new PGoTypeMonomorphicConstraint(
-									argument, registry.getReadValueType(p), registry.getReadValueType(param.getUID())));
-							solver.addConstraint(new PGoTypeMonomorphicConstraint(
-									argument,
-									registry.getWrittenValueType(p),
-									registry.getWrittenValueType(param.getUID())));
-						}
-						otherParams.add(param.getUID());
-					}
+					argsToParams.put(registry.followReference(argument.getUID()), params.get(i).getUID());
 				}
 			}
 			for (ModularPlusCalMapping instanceMapping : instance.getMappings()) {
