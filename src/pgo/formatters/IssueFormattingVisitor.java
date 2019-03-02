@@ -352,6 +352,26 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 	}
 
 	@Override
+	public Void visit(InvalidArchetypeResourceUsageIssue invalidArchetypeResourceUsageIssue) throws IOException {
+		String usedAs, mappedAs;
+
+		if (invalidArchetypeResourceUsageIssue.isFunction()) {
+			usedAs = "variable";
+			mappedAs = "function";
+		} else {
+			usedAs = "function";
+			mappedAs = "variable";
+		}
+
+		out.write("invalid use of archetype resource ");
+		out.write(invalidArchetypeResourceUsageIssue.getName());
+		out.write(": used as a " + usedAs + " but mapped as a " + mappedAs + ". In statement: ");
+		invalidArchetypeResourceUsageIssue.getStatement().accept(new PlusCalStatementFormattingVisitor(out));
+
+		return null;
+	}
+
+	@Override
 	public Void visit(ProcedureCallArgumentCountMismatchIssue procedureCallArgumentCountMismatchIssue) throws IOException {
 		out.write("procedure ");
 		PlusCalProcedure procedure = procedureCallArgumentCountMismatchIssue.getProcedure();

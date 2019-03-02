@@ -845,126 +845,6 @@ public class PlusCalCodeGenPassTest {
 				},
 
 				{
-						// --mpcal Algorithm6 {
-						//   mapping macro FunctionMapping {
-						//     read {
-						//       yield $variable;
-						//     }
-						//
-						//     write {
-						//       yield $value;
-						//     }
-						//   }
-						//
-						//   archetype A(ref f)
-						//   {
-						//       l1: f[0] := 1;
-						//           f[1] := 0;
-						//           print <<f[0], f[1]>>;
-						//   }
-						//
-						//   variable func = [i \in {0, 1} |-> i];
-						//   process (P = 42) == instance A(ref func)
-						//   mapping func via FunctionMapping;
-						// }
-						mpcal(
-								"Algorithm6",
-								Collections.emptyList(),
-								Collections.emptyList(),
-								Collections.emptyList(),
-								Collections.singletonList(
-										mappingMacro(
-												"Identity",
-												Collections.singletonList(yield(DOLLAR_VARIABLE)),
-												Collections.singletonList(yield(DOLLAR_VALUE))
-										)
-								),
-								Collections.singletonList(
-										archetype(
-												"A",
-												Collections.singletonList(
-														pcalVarDecl("f", true, false, PLUSCAL_DEFAULT_INIT_VALUE)
-												),
-												Collections.emptyList(),
-												Collections.singletonList(
-														labeled(
-																label("l1"),
-																assign(fncall(idexp("f"), num(0)), num(1)),
-																assign(fncall(idexp("f"), num(1)), num(0)),
-																printS(tuple(fncall(idexp("f"), num(0)), fncall(idexp("f"), num(1)))))))), Collections.singletonList(
-										pcalVarDecl(
-												"func",
-												false,
-												false,
-												function(
-														bounds(qbIds(
-																Collections.singletonList(id("i")),
-																set(num(0), num(1)))),
-														idexp("i")))
-								),
-								Collections.singletonList(
-										instance(
-												pcalVarDecl("P", false, false, num(42)),
-												PlusCalFairness.WEAK_FAIR,
-												"A",
-												Collections.singletonList(ref("func")),
-												Collections.singletonList(mapping("func", "Identity", false))
-										)
-								)
-						),
-						// --algorithm Algorithm6 {
-						//     variables func = [i \in {0,1} |-> i];
-						//     process (P = 42)
-						//     variables fWrite, fWrite0, fRead, fRead0;
-						//     {
-						//         l1:
-						//             fWrite := [func EXCEPT ![0] = 1];
-						//             fWrite0 := [fWrite EXCEPT ![1] = 0];
-						//             fRead := fWrite0;
-						//             fRead0 := fWrite0;
-						//             print <<fRead[0],fRead0[1]>>;
-						//             func := fWrite0;
-						//     }
-						// }
-						algorithm(
-								"Algorithm6",
-								Collections.singletonList(
-										pcalVarDecl(
-												"func",
-												false,
-												false,
-												function(
-														bounds(qbIds(
-																Collections.singletonList(id("i")),
-																set(num(0), num(1)))),
-														idexp("i")))
-								),
-								Collections.emptyList(),
-								Collections.emptyList(),
-								Collections.emptyList(),
-								process(
-										pcalVarDecl("P", false, false, num(42)),
-										PlusCalFairness.WEAK_FAIR,
-										Arrays.asList(
-												pcalVarDecl("fWrite", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("fWrite0", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("fRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("fRead0", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
-										),
-										labeled(
-												label("l1"),
-												assign(idexp("fWrite"), fnSubst(idexp("func"), fnSubstPair(Collections.singletonList(substKey(num(0))), num(1)))),
-												assign(idexp("fWrite0"), fnSubst(idexp("fWrite"), fnSubstPair(Collections.singletonList(substKey(num(1))), num(0)))),
-												assign(idexp("fRead"), idexp("fWrite0")),
-												assign(idexp("fRead0"), idexp("fWrite0")),
-												printS(tuple(fncall(idexp("fRead"), num(0)), fncall(idexp("fRead0"), num(1)))),
-												assign(idexp("func"), idexp("fWrite0"))
-										)
-								)
-						)
-				},
-
-				{
 						// --mpcal Algorithm7 {
 						//   mapping macro TCPConnection {
 						//     read {
@@ -1234,6 +1114,11 @@ public class PlusCalCodeGenPassTest {
 
 				{
 						// --mpcal Algorithm8 {
+						//  mapping macro Identity {
+						//      read  { yield $variable; }
+						//      write { yield $value; }
+						//  }
+						//
 						//  archetype Arch(ref mailboxes, ref other) {
 						//      l: other := mailboxes[self];
 						//  }
@@ -1241,13 +1126,20 @@ public class PlusCalCodeGenPassTest {
 						//  variables network = <<>>,
 						//            processor = 0;
 						//
-						//  fair process (SomeProcess = 3) == instance Arch(ref network, ref processor);
+						//  fair process (SomeProcess = 3) == instance Arch(ref network, ref processor)
+						//      mapping network[_] via Identity;
 						mpcal(
 								"Algorithm8",
 								Collections.emptyList(),
 								Collections.emptyList(),
 								Collections.emptyList(),
-								Collections.emptyList(),
+								Collections.singletonList(
+										mappingMacro(
+												"Identity",
+												Collections.singletonList(yield(DOLLAR_VARIABLE)),
+												Collections.singletonList(yield(DOLLAR_VALUE))
+										)
+								),
 								Collections.singletonList(
 										archetype(
 												"Arch",
@@ -1277,7 +1169,9 @@ public class PlusCalCodeGenPassTest {
 														ref("network"),
 														ref("processor")
 												),
-												Collections.emptyList()
+												Collections.singletonList(
+														mapping("network", "Identity", true)
+												)
 										)
 								)
 						),
@@ -1309,8 +1203,8 @@ public class PlusCalCodeGenPassTest {
 										),
 										labeled(
 												label("l"),
-												assign(idexp("mailboxesRead"), idexp("network")),
-												assign(idexp("otherWrite"), fncall(idexp("mailboxesRead"), idexp("self"))),
+												assign(idexp("mailboxesRead"), fncall(idexp("network"), idexp("self"))),
+												assign(idexp("otherWrite"), idexp("mailboxesRead")),
 												assign(idexp("processor"), idexp("otherWrite"))
 										)
 								)

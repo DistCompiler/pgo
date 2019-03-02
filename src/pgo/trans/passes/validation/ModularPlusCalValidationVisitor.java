@@ -5,7 +5,11 @@ import java.util.*;
 import pgo.errors.IssueContext;
 import pgo.model.mpcal.*;
 import pgo.model.pcal.*;
+import pgo.model.tla.TLAExpression;
+import pgo.model.tla.TLAGeneralIdentifier;
+import pgo.model.tla.TLARef;
 import pgo.model.tla.TLAUnit;
+import pgo.scope.UID;
 
 import java.util.function.Consumer;
 
@@ -15,9 +19,11 @@ import java.util.function.Consumer;
  */
 public class ModularPlusCalValidationVisitor extends ModularPlusCalBlockVisitor<Void, RuntimeException> {
 	private final IssueContext ctx;
+	private final Map<UID, Map<String, Boolean>> archetypeFunctionMappings;
 
 	public ModularPlusCalValidationVisitor(IssueContext ctx) {
 		this.ctx = ctx;
+		this.archetypeFunctionMappings = new HashMap<>();
 	}
 
 	// validates that instances of an archetype cannot instantiate the same global variable
@@ -68,7 +74,60 @@ public class ModularPlusCalValidationVisitor extends ModularPlusCalBlockVisitor<
 		}
 	}
 
+	private void checkMappedParams(ModularPlusCalBlock modularPlusCalBlock) {
+		modularPlusCalBlock.getArchetypes().forEach(archetype -> {
+			Map<String, Boolean> functionMapped = new HashMap<>();
+			Map<String, Integer> concreteToPosition = new HashMap<>();
+			archetypeFunctionMappings.put(archetype.getUID(), functionMapped);
+
+			modularPlusCalBlock
+					.getInstances()
+					.stream()
+					.filter(i -> i.getTarget().equals(archetype.getName()))
+					.findFirst()
+					.ifPresent(instance -> {
+						// since we already established the instances are consistent at
+						// this point, it is sufficient to inspect only one instance of an
+						// archetype to determine which parameters are function mapped.
+
+
+						// find how each concrete argument passed to the archetype instantiation
+						// maps to the positions of the arguments of the archetype.
+						for (int i = 0; i < archetype.getParams().size(); i++) {
+							TLAExpression arg = instance.getArguments().get(i);
+							String concreteName;
+
+							if (arg instanceof TLAGeneralIdentifier) {
+								concreteName = ((TLAGeneralIdentifier) arg).getName().getId();
+							} else if (arg instanceof TLARef) {
+								concreteName = ((TLARef) arg).getTarget();
+							} else {
+								continue;
+							}
+
+							concreteToPosition.put(concreteName, i);
+						}
+
+						archetype.getParams().forEach(param -> {
+							functionMapped.put(param.getName().getValue(), false);
+
+							instance
+									.getMappings()
+									.stream()
+									.filter(m -> m.getVariable().isFunctionCalls())
+									.forEach(m -> functionMapped.put(
+											archetype.getParams().get(concreteToPosition.get(m.getVariable().getName())).getName().getValue(),
+											true)
+									);
+						});
+					});
+		});
+	}
+
 	public Void visit(ModularPlusCalBlock modularPlusCalBlock) {
+		validateConsistentInstantiations(modularPlusCalBlock);
+		checkMappedParams(modularPlusCalBlock);
+
 		for (ModularPlusCalArchetype archetype : modularPlusCalBlock.getArchetypes()) {
 			archetype.accept(this);
 		}
@@ -84,8 +143,6 @@ public class ModularPlusCalValidationVisitor extends ModularPlusCalBlockVisitor<
 		for (PlusCalProcedure procedure : modularPlusCalBlock.getProcedures()) {
 			procedure.accept(this);
 		}
-
-		validateConsistentInstantiations(modularPlusCalBlock);
 
 		if (modularPlusCalBlock.getProcesses() instanceof PlusCalSingleProcess) {
 			PlusCalSingleProcess singleProcess = (PlusCalSingleProcess) modularPlusCalBlock.getProcesses();
@@ -103,16 +160,20 @@ public class ModularPlusCalValidationVisitor extends ModularPlusCalBlockVisitor<
 	*
 	*   * Same labelling rules of vanilla PlusCal apply (see C-syntax manual, section 3.7)
 	*   * Only local or `ref` variables can be assigned to
+	*   * Parameters can only be used as functions if they were mapped as functions when
+	*     instantiated (similarly, they cannot be used as variables if mapped as functions)
 	*/
 	public Void visit(ModularPlusCalArchetype modularPlusCalArchetype) {
 		// guaranteed to exist at the parsing stage
 		PlusCalStatement firstStatement = modularPlusCalArchetype.getBody().get(0);
 		checkLabeled(firstStatement);
 
-		ModularPlusCalLabelingRulesVisitor visitor = new ModularPlusCalLabelingRulesVisitor(ctx);
-		for (PlusCalStatement statement : modularPlusCalArchetype.getBody()) {
-			statement.accept(visitor);
-		}
+		Map<String, Boolean> functionMapped = archetypeFunctionMappings.get(modularPlusCalArchetype.getUID());
+		ModularPlusCalLabelingRulesVisitor labels = new ModularPlusCalLabelingRulesVisitor(ctx);
+		modularPlusCalArchetype.getBody().forEach(statement -> {
+			statement.accept(labels);
+			statement.accept(new ModularPlusCalStatementValidationVisitor(ctx, functionMapped));
+		});
 
 		return null;
 	}

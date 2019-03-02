@@ -1053,6 +1053,136 @@ public class ModularPlusCalValidationPassTest {
 									)
 							)
 					)
+				},
+
+				// --mpcal InvalidAssignments {
+				//     archetype MyArchetype(ref nonMapped, ref varMapped, ref fnMapped) {
+				//         l1:
+				//           while (TRUE) {
+				//               nonMapped := 10;                  \* valid
+				//               someLocal := fnMapped[nonMapped]; \* valid
+				//           }
+				//
+				//         l2:
+				//           either { nonMapped[10] := 0; } \* invalid
+				//           or     { varMapped := 10;    } \* valid
+				//
+				//         l3:
+				//           if (nonMapped[10] > 10) {       \* invalid
+				//               someLocal := varMapped[10]; \* invalid
+				//           } else {
+				//               nonMapped := 20;            \* valid
+				//               fnMapped := 12;             \* invalid
+				//           }
+				//     }
+				//
+				//     process (P1 = 42) == instance MyArchetype(ref n, ref v, ref f)
+				//         mapping v via SomeMacro
+				//         mapping f[_] via OtherMacro;
+				// }
+				{
+					mpcal(
+							"InvalidAssignments",
+							Collections.emptyList(),
+							Collections.emptyList(),
+							Collections.emptyList(),
+							Collections.emptyList(),
+							Collections.singletonList(
+									archetype(
+											"MyArchetype",
+											Arrays.asList(
+													pcalVarDecl("nonMapped", true, false, PLUSCAL_DEFAULT_INIT_VALUE),
+													pcalVarDecl("varMapped", true, false, PLUSCAL_DEFAULT_INIT_VALUE),
+													pcalVarDecl("fnMapped", true, false, PLUSCAL_DEFAULT_INIT_VALUE)
+											),
+											Collections.emptyList(),
+											Arrays.asList(
+													labeled(
+															label("l1"),
+															whileS(
+																	bool(true),
+																	Arrays.asList(
+																			assign(idexp("nonMapped"), num(10)),
+																			assign(idexp("someLocal"), fncall(idexp("fnMapped"), idexp("nonMapped")))
+																	)
+															)
+													),
+													labeled(
+															label("l2"),
+															either(Arrays.asList(
+																	Collections.singletonList(
+																			assign(fncall(idexp("nonMapped"), num(10)), num(0))
+																	),
+																	Collections.singletonList(
+																			assign(idexp("varMapped"), num(10))
+																	)
+															))
+													),
+													labeled(
+															label("l3"),
+															ifS(
+																	binop(">", fncall(idexp("nonMapped"), num(10)), num(10)),
+																	Collections.singletonList(
+																			assign(idexp("someLocal"), fncall(idexp("varMapped"), num(10)))
+																	),
+																	Arrays.asList(
+																			assign(idexp("nonMapped"), num(20)),
+																			assign(idexp("fnMapped"), num(12))
+																	)
+															)
+													)
+											)
+									)
+							),
+							Collections.emptyList(),
+							Collections.singletonList(
+									instance(
+											pcalVarDecl("P1", false, false, num(1)),
+											PlusCalFairness.WEAK_FAIR,
+											"MyArchetype",
+											Arrays.asList(
+													ref("n"),
+													ref("v"),
+													ref("f")
+											),
+											Arrays.asList(
+													mapping("v", "SomeMacro", false),
+													mapping("f", "OtherMacro", true)
+											)
+									)
+							)
+					),
+					Arrays.asList(
+							new InvalidArchetypeResourceUsageIssue(
+									assign(fncall(idexp("nonMapped"), num(10)), num(0)),
+									"nonMapped",
+									false
+							),
+							new InvalidArchetypeResourceUsageIssue(
+									ifS(
+											binop(">", fncall(idexp("nonMapped"), num(10)), num(10)),
+											Collections.singletonList(
+													assign(idexp("someLocal"), fncall(idexp("varMapped"), num(10)))
+											),
+											Arrays.asList(
+													assign(idexp("nonMapped"), num(20)),
+													assign(idexp("fnMapped"), num(12))
+											)
+									),
+									"nonMapped",
+									false
+							),
+							new InvalidArchetypeResourceUsageIssue(
+									assign(idexp("someLocal"), fncall(idexp("varMapped"), num(10))),
+									"varMapped",
+									false
+							),
+							new InvalidArchetypeResourceUsageIssue(
+									assign(idexp("fnMapped"), num(12)),
+									"fnMapped",
+									true
+							)
+					)
 				}
 		});
 	}
