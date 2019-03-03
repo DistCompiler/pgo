@@ -109,15 +109,12 @@ public class ModularPlusCalValidationVisitor extends ModularPlusCalBlockVisitor<
 						}
 
 						archetype.getParams().forEach(param -> {
-							functionMapped.put(param.getName().getValue(), false);
-
 							instance
 									.getMappings()
-									.stream()
-									.filter(m -> m.getVariable().isFunctionCalls())
-									.forEach(m -> functionMapped.put(
-											archetype.getParams().get(concreteToPosition.get(m.getVariable().getName())).getName().getValue(),
-											true)
+									.forEach(m ->
+										functionMapped.put(
+												archetype.getParams().get(concreteToPosition.get(m.getVariable().getName())).getName().getValue(),
+												m.getVariable().isFunctionCalls())
 									);
 						});
 					});

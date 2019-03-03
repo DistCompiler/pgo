@@ -1064,14 +1064,14 @@ public class ModularPlusCalValidationPassTest {
 				//           }
 				//
 				//         l2:
-				//           either { nonMapped[10] := 0; } \* invalid
+				//           either { varMapped[10] := 0; } \* invalid
 				//           or     { varMapped := 10;    } \* valid
 				//
 				//         l3:
-				//           if (nonMapped[10] > 10) {       \* invalid
+				//           if (varMapped[10] > 10) {       \* invalid
 				//               someLocal := varMapped[10]; \* invalid
 				//           } else {
-				//               nonMapped := 20;            \* valid
+				//               nonMapped[30] := 20;        \* valid
 				//               fnMapped := 12;             \* invalid
 				//           }
 				//     }
@@ -1111,7 +1111,7 @@ public class ModularPlusCalValidationPassTest {
 															label("l2"),
 															either(Arrays.asList(
 																	Collections.singletonList(
-																			assign(fncall(idexp("nonMapped"), num(10)), num(0))
+																			assign(fncall(idexp("varMapped"), num(10)), num(0))
 																	),
 																	Collections.singletonList(
 																			assign(idexp("varMapped"), num(10))
@@ -1121,12 +1121,12 @@ public class ModularPlusCalValidationPassTest {
 													labeled(
 															label("l3"),
 															ifS(
-																	binop(">", fncall(idexp("nonMapped"), num(10)), num(10)),
+																	binop(">", fncall(idexp("varMapped"), num(10)), num(10)),
 																	Collections.singletonList(
 																			assign(idexp("someLocal"), fncall(idexp("varMapped"), num(10)))
 																	),
 																	Arrays.asList(
-																			assign(idexp("nonMapped"), num(20)),
+																			assign(fncall(idexp("nonMapped"), num(30)), num(20)),
 																			assign(idexp("fnMapped"), num(12))
 																	)
 															)
@@ -1154,22 +1154,22 @@ public class ModularPlusCalValidationPassTest {
 					),
 					Arrays.asList(
 							new InvalidArchetypeResourceUsageIssue(
-									assign(fncall(idexp("nonMapped"), num(10)), num(0)),
-									"nonMapped",
+									assign(fncall(idexp("varMapped"), num(10)), num(0)),
+									"varMapped",
 									false
 							),
 							new InvalidArchetypeResourceUsageIssue(
 									ifS(
-											binop(">", fncall(idexp("nonMapped"), num(10)), num(10)),
+											binop(">", fncall(idexp("varMapped"), num(10)), num(10)),
 											Collections.singletonList(
 													assign(idexp("someLocal"), fncall(idexp("varMapped"), num(10)))
 											),
 											Arrays.asList(
-													assign(idexp("nonMapped"), num(20)),
+													assign(fncall(idexp("nonMapped"), num(30)), num(20)),
 													assign(idexp("fnMapped"), num(12))
 											)
 									),
-									"nonMapped",
+									"varMapped",
 									false
 							),
 							new InvalidArchetypeResourceUsageIssue(
