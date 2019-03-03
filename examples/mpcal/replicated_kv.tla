@@ -440,7 +440,6 @@ NULL_ORDER == 3
 
                   \* Waits for the response from the replica
                   getResp := clients[clientId];
-                  assert(getResp = NULL \/ getResp = PUT_VALUE);
               }
         }
   }
