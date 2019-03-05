@@ -26,7 +26,7 @@ public class ModularPlusCalMapping extends SourceLocatable {
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(variable.hashCode(), target.getName());
+		return Objects.hash(variable, target.getName());
 	}
 
 	@Override

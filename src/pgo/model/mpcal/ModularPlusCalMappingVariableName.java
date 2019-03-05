@@ -23,7 +23,7 @@ public class ModularPlusCalMappingVariableName extends ModularPlusCalMappingVari
 
 	@Override
 	public int hashCode() {
-		return Objects.hashCode(name) + (functionCall ? 3 : 0);
+		return Objects.hash(name, functionCall);
 	}
 
 	@Override

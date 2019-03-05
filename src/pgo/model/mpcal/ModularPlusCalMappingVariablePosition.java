@@ -23,7 +23,7 @@ public class ModularPlusCalMappingVariablePosition extends ModularPlusCalMapping
 
 	@Override
 	public int hashCode() {
-		return Objects.hashCode(position) + (functionCall ? 3 : 0);
+		return Objects.hash(position, functionCall);
 	}
 
 	@Override
