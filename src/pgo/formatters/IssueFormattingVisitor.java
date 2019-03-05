@@ -341,7 +341,7 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 
 	@Override
 	public Void visit(InconsistentInstantiationIssue inconsistentInstantiationIssue) throws IOException {
-		out.write("Instantiation ");
+		out.write("instantiation ");
 		inconsistentInstantiationIssue.getInstance().accept(new ModularPlusCalNodeFormattingVisitor(out));
 		out.write(" is inconsistent with ");
 		inconsistentInstantiationIssue.getConflict().accept(new ModularPlusCalNodeFormattingVisitor(out));

@@ -15,26 +15,27 @@ import java.util.*;
 import java.util.function.Consumer;
 
 public class DefinitionRegistry {
-	private Map<String, TLAModule> modules;
-	private Map<UID, TLAUnit> definitions;
-	private Map<UID, OperatorAccessor> operators;
-	private Map<UID, GoType> globalVariableTypes;
-	private Set<UID> localVariables;
-	private Map<UID, String> constants;
-	private Map<UID, TLAExpression> constantValues;
-	private Map<UID, UID> references;
-	private Map<String, PlusCalProcedure> procedures;
-	private Map<String, ModularPlusCalArchetype> archetypes;
-	private Map<UID, PGoType> readValueTypes;
-	private Map<UID, PGoType> writtenValueTypes;
-	private Map<String, ModularPlusCalMappingMacro> mappingMacros;
-	private Map<UID, Integer> labelsToLockGroups;
-	private Map<Integer, Set<UID>> lockGroupsToVariableReads;
-	private Map<Integer, Set<UID>> lockGroupsToVariableWrites;
-	private Map<Integer, Set<TLAExpression>> lockGroupsToResourceReads;
-	private Map<Integer, Set<TLAExpression>> lockGroupsToResourceWrites;
-	private Set<UID> archetypeResources;
-	private Set<UID> protectedGlobalVariables;
+	private final Map<String, TLAModule> modules;
+	private final Map<UID, TLAUnit> definitions;
+	private final Map<UID, OperatorAccessor> operators;
+	private final Map<UID, GoType> globalVariableTypes;
+	private final Set<UID> localVariables;
+	private final Map<UID, String> constants;
+	private final Map<UID, TLAExpression> constantValues;
+	private final Map<UID, UID> references;
+	private final Map<String, PlusCalProcedure> procedures;
+	private final Map<String, ModularPlusCalArchetype> archetypes;
+	private final Map<UID, PGoType> readValueTypes;
+	private final Map<UID, PGoType> writtenValueTypes;
+	private final Map<String, ModularPlusCalMappingMacro> mappingMacros;
+	private final Map<UID, Integer> labelsToLockGroups;
+	private final Map<Integer, Set<UID>> lockGroupsToVariableReads;
+	private final Map<Integer, Set<UID>> lockGroupsToVariableWrites;
+	private final Map<Integer, Set<TLAExpression>> lockGroupsToResourceReads;
+	private final Map<Integer, Set<TLAExpression>> lockGroupsToResourceWrites;
+	private final Set<UID> archetypeResources;
+	private final Set<UID> protectedGlobalVariables;
+	private final Map<UID, boolean[]> signatures;
 
 	public DefinitionRegistry() {
 		this.modules = new HashMap<>();
@@ -57,6 +58,7 @@ public class DefinitionRegistry {
 		this.lockGroupsToResourceWrites = new HashMap<>();
 		this.archetypeResources = new HashSet<>();
 		this.protectedGlobalVariables = new HashSet<>();
+		this.signatures = new HashMap<>();
 	}
 
 	public Map<UID, UID> getReferences() {
@@ -294,5 +296,16 @@ public class DefinitionRegistry {
 
 	public Set<UID> protectedGlobalVariables() {
 		return Collections.unmodifiableSet(protectedGlobalVariables);
+	}
+
+	public Optional<boolean[]> getSignature(UID uid) {
+		return Optional.ofNullable(signatures.get(uid));
+	}
+
+	public void putSignature(UID uid, boolean[] signature) {
+		if (signatures.containsKey(uid)) {
+			throw new InternalCompilerError();
+		}
+		signatures.put(uid, signature);
 	}
 }

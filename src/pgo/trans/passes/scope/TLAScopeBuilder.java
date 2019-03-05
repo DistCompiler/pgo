@@ -103,6 +103,10 @@ public class TLAScopeBuilder {
 		reference(new QualifiedName(to), from);
 	}
 
+	public void reference (UID to, UID from) {
+		references.put(to, from);
+	}
+
 	public Map<QualifiedName, UID> getDefinitions() {
 		return definitions;
 	}

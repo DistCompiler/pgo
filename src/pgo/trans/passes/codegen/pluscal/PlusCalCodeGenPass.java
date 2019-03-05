@@ -22,7 +22,7 @@ public class PlusCalCodeGenPass {
 	                                  Set<UID> functionMappedVars) {
 		ModularPlusCalMapping mapping = mappedVars.get(registry.followReference(value.getUID()));
 		if (mapping != null) {
-			if (mapping.getVariable().isFunctionCalls()){
+			if (mapping.getVariable().isFunctionCall()){
 				functionMappedVars.add(paramUID);
 			}
 			mappings.put(paramUID, registry.findMappingMacro(mapping.getTarget().getName()));

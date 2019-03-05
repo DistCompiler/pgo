@@ -66,20 +66,34 @@ public class ModularPlusCalParser {
 					seq.getValue().getRest().getFirst(),
 					seq.getValue().getFirst()));
 
+	private static final Pattern MAPPING_POSITION = Pattern.compile("[1-9]\\d*");
 	private static final Grammar<ModularPlusCalMapping> MAPPING = emptySequence()
 			.drop(parsePlusCalToken("mapping"))
-			.part(IDENTIFIER)
 			.part(parseOneOf(
-					parsePlusCalToken("[_]").map(seq -> new Located<>(seq.getLocation(), true)),
-					nop().map(seq -> new Located<>(seq.getLocation(), false))))
+					emptySequence()
+							.part(IDENTIFIER)
+							.part(parseOneOf(
+									parsePlusCalToken("[_]").map(seq -> new Located<>(seq.getLocation(), true)),
+									nop().map(seq -> new Located<>(seq.getLocation(), false))))
+							.map(seq -> new ModularPlusCalMappingVariableName(
+									seq.getLocation(),
+									seq.getValue().getRest().getFirst().getValue(),
+									seq.getValue().getFirst().getValue())),
+					emptySequence()
+							.drop(parsePlusCalToken("@"))
+							.part(matchPattern(MAPPING_POSITION))
+							.part(parseOneOf(
+									parsePlusCalToken("[_]").map(seq -> new Located<>(seq.getLocation(), true)),
+									nop().map(seq -> new Located<>(seq.getLocation(), false))))
+							.map(seq -> new ModularPlusCalMappingVariablePosition(
+									seq.getLocation(),
+									Integer.parseInt(seq.getValue().getRest().getFirst().getValue().group(), 10),
+									seq.getValue().getFirst().getValue()))))
 			.drop(parsePlusCalToken("via"))
 			.part(IDENTIFIER)
 			.map(seq -> new ModularPlusCalMapping(
 					seq.getLocation(),
-					new ModularPlusCalMappingVariable(
-							seq.getValue().getRest().getFirst().getLocation(),
-							seq.getValue().getRest().getRest().getFirst().getValue(),
-							seq.getValue().getRest().getFirst().getValue()),
+					seq.getValue().getRest().getFirst(),
 					new ModularPlusCalMappingTarget(
 							seq.getValue().getFirst().getLocation(),
 							seq.getValue().getFirst().getValue())));

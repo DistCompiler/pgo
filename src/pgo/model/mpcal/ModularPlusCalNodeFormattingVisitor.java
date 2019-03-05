@@ -1,13 +1,12 @@
 package pgo.model.mpcal;
 
 import pgo.TODO;
+import pgo.Unreachable;
 import pgo.formatters.IndentingWriter;
 import pgo.formatters.PlusCalNodeFormattingVisitor;
 import pgo.formatters.TLAExpressionFormattingVisitor;
 import pgo.model.pcal.PlusCalFairness;
 import pgo.model.pcal.PlusCalStatement;
-import pgo.model.tla.TLAExpression;
-import pgo.model.tla.TLAExpressionVisitor;
 
 import java.io.IOException;
 import java.util.stream.Collectors;
@@ -69,7 +68,7 @@ public class ModularPlusCalNodeFormattingVisitor extends ModularPlusCalNodeVisit
 		out.write(modularPlusCalInstance.getTarget());
 
 		out.write("(");
-		TLAExpressionVisitor formatter = new TLAExpressionFormattingVisitor(out);
+		TLAExpressionFormattingVisitor formatter = new TLAExpressionFormattingVisitor(out);
 		for (int i = 0; i < modularPlusCalInstance.getArguments().size(); i++) {
 			if (i > 0) {
 				out.write(", ");
@@ -82,9 +81,17 @@ public class ModularPlusCalNodeFormattingVisitor extends ModularPlusCalNodeVisit
 		for (ModularPlusCalMapping mapping : modularPlusCalInstance.getMappings()) {
 			out.newLine();
 			out.write("mapping ");
-			out.write(mapping.getVariable().getName());
+			if (mapping.getVariable() instanceof ModularPlusCalMappingVariableName) {
+				out.write(((ModularPlusCalMappingVariableName) mapping.getVariable()).getName());
+			} else if (mapping.getVariable() instanceof ModularPlusCalMappingVariablePosition) {
+				out.write("@");
+				out.write(Integer.toString(
+						((ModularPlusCalMappingVariablePosition) mapping.getVariable()).getPosition()));
+			} else {
+				throw new Unreachable();
+			}
 
-			if (mapping.getVariable().isFunctionCalls()) {
+			if (mapping.getVariable().isFunctionCall()) {
 				out.write("[_]");
 			}
 

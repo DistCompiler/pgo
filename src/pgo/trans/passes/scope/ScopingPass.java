@@ -1,5 +1,6 @@
 package pgo.trans.passes.scope;
 
+import pgo.Unreachable;
 import pgo.errors.IssueContext;
 import pgo.model.mpcal.*;
 import pgo.model.pcal.PlusCalProcedure;
@@ -40,6 +41,17 @@ public class ScopingPass {
 		}
 	}
 
+	private static void handleNameMapping(IssueContext ctx, ModularPlusCalMapping mapping, String variableName,
+	                                      TLAScopeBuilder modularPlusCalScope,
+	                                      Map<String,ModularPlusCalMapping> mappedNames) {
+		if (mappedNames.containsKey(variableName)) {
+			ctx.error(new MultipleMappingIssue(mappedNames.get(variableName), mapping));
+			return;
+		}
+		modularPlusCalScope.reference(mapping.getTarget().getName(), mapping.getTarget().getUID());
+		modularPlusCalScope.reference(variableName, mapping.getVariable().getUID());
+		mappedNames.put(variableName, mapping);
+	}
 	public static DefinitionRegistry perform(IssueContext ctx, boolean resolveConstants, TLAModuleLoader loader,
 	                                         Map<String, TLAExpression> constantDefinitions, TLAModule module,
 	                                         ModularPlusCalBlock modularPlusCalBlock) {
@@ -166,17 +178,6 @@ public class ScopingPass {
 			instance.getName().getValue().accept(
 					new TLAExpressionScopingVisitor(ctx, tlaScope, registry, loader, new HashSet<>(),false));
 
-			Map<String, ModularPlusCalMapping> mappedVariables = new HashMap<>();
-			for (ModularPlusCalMapping mapping : instance.getMappings()) {
-				String variableName = mapping.getVariable().getName();
-				if (mappedVariables.containsKey(variableName)) {
-					ctx.error(new MultipleMappingIssue(mappedVariables.get(variableName), mapping));
-					continue;
-				}
-				modularPlusCalScope.reference(mapping.getTarget().getName(), mapping.getTarget().getUID());
-				modularPlusCalScope.reference(variableName, mapping.getVariable().getUID());
-				mappedVariables.put(variableName, mapping);
-			}
 			ModularPlusCalArchetype archetype = registry.findArchetype(instance.getTarget());
 			if (archetype != null && instance.getArguments().size() != archetype.getParams().size()) {
 				ctx.error(new InstanceArgumentCountMismatchIssue(instance, archetype));
@@ -186,6 +187,48 @@ public class ScopingPass {
 			} else {
 				ctx.error(new ArchetypeNotFoundIssue(instance, instance.getTarget()));
 				continue;
+			}
+
+			Map<Integer, String> positionsToNames = new HashMap<>();
+			List<TLAExpression> arguments = instance.getArguments();
+			for (int i = 0; i < arguments.size(); i++) {
+				TLAExpression argument = arguments.get(i);
+				if (argument instanceof TLAGeneralIdentifier) {
+					// 1-indexing
+					positionsToNames.put(i+1, ((TLAGeneralIdentifier) argument).getName().getId());
+				} else if (argument instanceof TLARef) {
+					// 1-indexing
+					positionsToNames.put(i+1, ((TLARef) argument).getTarget());
+				}
+			}
+
+			Map<String, ModularPlusCalMapping> mappedNames = new HashMap<>();
+			Map<Integer, ModularPlusCalMapping> mappedPositions = new HashMap<>();
+			for (ModularPlusCalMapping mapping : instance.getMappings()) {
+				if (mapping.getVariable() instanceof ModularPlusCalMappingVariableName) {
+					String variableName = ((ModularPlusCalMappingVariableName) mapping.getVariable()).getName();
+					handleNameMapping(ctx, mapping, variableName, modularPlusCalScope, mappedNames);
+				} else if (mapping.getVariable() instanceof ModularPlusCalMappingVariablePosition) {
+					// 1-indexing
+					int pos = ((ModularPlusCalMappingVariablePosition) mapping.getVariable()).getPosition();
+					if (pos <= 0 || pos > instance.getArguments().size()) {
+						ctx.error(new DanglingReferenceIssue(mapping.getVariable().getUID()));
+						continue;
+					}
+					if (mappedPositions.containsKey(pos)) {
+						ctx.error(new MultipleMappingIssue(mappedPositions.get(pos), mapping));
+						continue;
+					}
+					mappedPositions.put(pos, mapping);
+					modularPlusCalScope.reference(
+							archetype.getParams().get(pos-1).getUID(), mapping.getVariable().getUID());
+					if (positionsToNames.containsKey(pos)) {
+						String variableName = positionsToNames.get(pos);
+						handleNameMapping(ctx, mapping, variableName, modularPlusCalScope, mappedNames);
+					}
+				} else {
+					throw new Unreachable();
+				}
 			}
 			for (TLAExpression expression : instance.getArguments()) {
 				expression.accept(new TLAExpressionScopingVisitor(

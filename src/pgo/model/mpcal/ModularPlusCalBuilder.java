@@ -18,10 +18,17 @@ public class ModularPlusCalBuilder {
 		return new ModularPlusCalArchetype(SourceLocation.unknown(), name, arguments, variables, body);
 	}
 
-	public static ModularPlusCalMapping mapping(String variable, String target, boolean functionCalls) {
+	public static ModularPlusCalMapping mapping(int position, boolean functionCalls, String target) {
 		return new ModularPlusCalMapping(
 				SourceLocation.unknown(),
-				new ModularPlusCalMappingVariable(SourceLocation.unknown(), variable, functionCalls),
+				new ModularPlusCalMappingVariablePosition(SourceLocation.unknown(), position, functionCalls),
+				new ModularPlusCalMappingTarget(SourceLocation.unknown(), target));
+	}
+
+	public static ModularPlusCalMapping mapping(String variable, boolean functionCalls, String target) {
+		return new ModularPlusCalMapping(
+				SourceLocation.unknown(),
+				new ModularPlusCalMappingVariableName(SourceLocation.unknown(), variable, functionCalls),
 				new ModularPlusCalMappingTarget(SourceLocation.unknown(), target));
 	}
 
@@ -50,11 +57,12 @@ public class ModularPlusCalBuilder {
 		);
 	}
 
-	public static ModularPlusCalBlock mpcal(String name, List<PlusCalVariableDeclaration> variables,
-											List<ModularPlusCalMappingMacro> mappingMacros,
-											List<ModularPlusCalArchetype> archetypes, List<PlusCalMacro> macros,
-											List<PlusCalProcedure> procedures, List<TLAUnit> units,
-											List<ModularPlusCalInstance> instances, List<PlusCalStatement> statements) {
+	public static ModularPlusCalBlock mpcal(String name, List<TLAUnit> units, List<PlusCalMacro> macros,
+	                                        List<PlusCalProcedure> procedures,
+	                                        List<ModularPlusCalMappingMacro> mappingMacros,
+	                                        List<ModularPlusCalArchetype> archetypes,
+	                                        List<PlusCalVariableDeclaration> variables,
+	                                        List<ModularPlusCalInstance> instances, List<PlusCalStatement> statements) {
 		return new ModularPlusCalBlock(
 				SourceLocation.unknown(),
 				new Located<>(SourceLocation.unknown(), name),

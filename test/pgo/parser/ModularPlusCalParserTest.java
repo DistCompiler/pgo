@@ -38,18 +38,13 @@ public class ModularPlusCalParserTest {
 						"}\n" +
 						"*)",
 						mpcal("Test",
-								Arrays.asList(
-										pcalVarDecl("global1", false, false, num(1)),
-										pcalVarDecl("global2", false, false, num(2))),
-								Collections.emptyList(),
-								Collections.emptyList(),
-								Collections.singletonList(macro("M", Collections.singletonList("a"), printS(idexp("a")))),
-								Collections.singletonList(procedure(
+								Collections.emptyList(), Collections.singletonList(macro("M", Collections.singletonList("a"), printS(idexp("a")))), Collections.singletonList(procedure(
 										"P",
 										Collections.singletonList(pcalVarDecl("b", false, false, PLUSCAL_DEFAULT_INIT_VALUE)),
 										Collections.emptyList(),
-										printS(idexp("b")))),
-								Collections.emptyList(),
+										printS(idexp("b")))), Collections.emptyList(), Collections.emptyList(), Arrays.asList(
+										pcalVarDecl("global1", false, false, num(1)),
+										pcalVarDecl("global2", false, false, num(2))),
 								Collections.emptyList(),
 								Collections.singletonList(labeled(
 										label("l1"),

@@ -89,8 +89,8 @@ public class ModularPlusCalUnitParserTest {
 										ref("global2"),
 										idexp("global3")),
 								Arrays.asList(
-										mapping("global1", "MappingMacro1", false),
-										mapping("global2", "MappingMacro2", true)))
+										mapping("global1", false, "MappingMacro1"),
+										mapping("global2", true, "MappingMacro2")))
 				},
 
 				// simple mapping macro
@@ -179,7 +179,7 @@ public class ModularPlusCalUnitParserTest {
 											yield(idexp("msg"))
 									)
 							),
-							Arrays.asList(
+							Collections.singletonList(
 									either(Arrays.asList(
 											Collections.singletonList(
 													yield(DOLLAR_VARIABLE)
@@ -191,6 +191,21 @@ public class ModularPlusCalUnitParserTest {
 									))
 							)
 					)
+				},
+				{
+					"process (P = 1) == instance A(ref a, ref b, ref c)\n" +
+							"  mapping @1 via Macro\n" +
+							"  mapping @2[_] via Macro\n" +
+							"  mapping c via Macro;",
+						instance(
+								pcalVarDecl("P", false, false, num(1)),
+								PlusCalFairness.UNFAIR,
+								"A",
+								Arrays.asList(ref("a"), ref("b"), ref("c")),
+								Arrays.asList(
+										mapping(1, false, "Macro"),
+										mapping(2, true, "Macro"),
+										mapping("c", false, "Macro")))
 				}
 		});
 	}

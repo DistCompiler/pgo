@@ -149,7 +149,7 @@ public class TypeInferencePass {
 			}
 			for (ModularPlusCalMapping instanceMapping : instance.getMappings()) {
 				ModularPlusCalMappingVariable mappingVariable = instanceMapping.getVariable();
-				if (mappingVariable.isFunctionCalls() && argsToParams.containsKey(mappingVariable.getUID())) {
+				if (mappingVariable.isFunctionCall() && argsToParams.containsKey(mappingVariable.getUID())) {
 					UID declarationUID = argsToParams.get(mappingVariable.getUID());
 					PGoTypeVariable mapKeyType = generator.getTypeVariable(Collections.singletonList(declarationUID));
 					solver.addConstraint(new PGoTypePolymorphicConstraint(declarationUID, Arrays.asList(

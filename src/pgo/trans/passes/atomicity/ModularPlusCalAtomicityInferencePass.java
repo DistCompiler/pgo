@@ -1,12 +1,10 @@
 package pgo.trans.passes.atomicity;
 
 import pgo.InternalCompilerError;
-import pgo.model.mpcal.ModularPlusCalArchetype;
-import pgo.model.mpcal.ModularPlusCalInstance;
-import pgo.model.mpcal.ModularPlusCalMapping;
+import pgo.Unreachable;
+import pgo.model.mpcal.*;
 import pgo.model.tla.*;
 import pgo.util.UnionFind;
-import pgo.model.mpcal.ModularPlusCalBlock;
 import pgo.model.pcal.*;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
@@ -98,8 +96,15 @@ public class ModularPlusCalAtomicityInferencePass {
                     }
 
                     for (ModularPlusCalMapping m : instance.getMappings()) {
-                        int pos = resourceVars.get(m.getVariable().getName());
-                        mappings.put(archetype.getParams().get(pos).getName().getValue(), m.getVariable().isFunctionCalls());
+                        int pos;
+                        if (m.getVariable() instanceof ModularPlusCalMappingVariableName) {
+                            pos = resourceVars.get(((ModularPlusCalMappingVariableName) m.getVariable()).getName());
+                        } else if (m.getVariable() instanceof ModularPlusCalMappingVariablePosition) {
+                            pos = ((ModularPlusCalMappingVariablePosition) m.getVariable()).getPosition();
+                        } else {
+                            throw new Unreachable();
+                        }
+                        mappings.put(archetype.getParams().get(pos).getName().getValue(), m.getVariable().isFunctionCall());
                     }
                 }
             }

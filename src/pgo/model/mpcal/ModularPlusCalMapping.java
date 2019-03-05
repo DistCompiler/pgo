@@ -20,13 +20,13 @@ public class ModularPlusCalMapping extends SourceLocatable {
 	public ModularPlusCalMapping copy() {
 		return new ModularPlusCalMapping(
 				getLocation(),
-				new ModularPlusCalMappingVariable(variable.getLocation(), variable.getName(), variable.isFunctionCalls()),
+				variable.copy(),
 				new ModularPlusCalMappingTarget(target.getLocation(), target.getName()));
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(variable.getName(), target.getName());
+		return Objects.hash(variable.hashCode(), target.getName());
 	}
 
 	@Override
@@ -39,7 +39,7 @@ public class ModularPlusCalMapping extends SourceLocatable {
 		}
 		ModularPlusCalMapping that = (ModularPlusCalMapping) obj;
 		return target.getName().equals(that.target.getName()) &&
-				variable.getName().equals(that.variable.getName());
+				variable.equals(that.variable);
 	}
 
 	@Override

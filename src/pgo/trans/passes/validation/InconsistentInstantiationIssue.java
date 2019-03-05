@@ -12,9 +12,8 @@ import java.io.IOException;
 import java.io.StringWriter;
 
 public class InconsistentInstantiationIssue extends Issue {
-
-    private ModularPlusCalInstance instance;
-    private ModularPlusCalInstance conflict;
+    private final ModularPlusCalInstance instance;
+    private final ModularPlusCalInstance conflict;
 
     public InconsistentInstantiationIssue(ModularPlusCalInstance statement, ModularPlusCalInstance conflict) {
         this.instance = statement;

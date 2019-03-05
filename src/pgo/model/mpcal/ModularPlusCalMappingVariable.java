@@ -4,18 +4,16 @@ import pgo.scope.UID;
 import pgo.util.SourceLocatable;
 import pgo.util.SourceLocation;
 
-public class ModularPlusCalMappingVariable extends SourceLocatable {
-	private final SourceLocation location;
-	private final UID uid;
-	private final String name;
-	private final boolean functionCalls;
+public abstract class ModularPlusCalMappingVariable extends SourceLocatable {
+	protected final SourceLocation location;
+	protected final UID uid;
+	protected final boolean functionCall;
 
-	public ModularPlusCalMappingVariable(SourceLocation location, String name, boolean functionCalls) {
+	public ModularPlusCalMappingVariable(SourceLocation location, boolean functionCall) {
 		this.location = location;
 		this.uid = new UID();
 		this.uid.addOrigin(this);
-		this.name = name;
-		this.functionCalls = functionCalls;
+		this.functionCall = functionCall;
 	}
 
 	@Override
@@ -27,14 +25,15 @@ public class ModularPlusCalMappingVariable extends SourceLocatable {
 		return uid;
 	}
 
-	public String getName() {
-		return name;
+	public boolean isFunctionCall() {
+		return functionCall;
 	}
 
-	public boolean isFunctionCalls() { return this.functionCalls; }
+	public abstract ModularPlusCalMappingVariable copy();
 
 	@Override
-	public String toString() {
-		return name;
-	}
+	public abstract int hashCode();
+
+	@Override
+	public abstract boolean equals(Object obj);
 }

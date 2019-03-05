@@ -156,7 +156,7 @@ public class PlusCalCodeGenPassTest {
 														ref("y")
 												),
 												Collections.singletonList(
-														mapping("x", "Zero", false)
+														mapping("x", false, "Zero")
 												)
 										)
 								)
@@ -298,8 +298,7 @@ public class PlusCalCodeGenPassTest {
 												Collections.singletonList(
 														mapping(
 																"x",
-																"WeirdMacro",
-																false
+																false, "WeirdMacro"
 														)
 												)
 										)
@@ -513,8 +512,7 @@ public class PlusCalCodeGenPassTest {
 												Collections.singletonList(
 														mapping(
 																"x",
-																"WeirdMacro",
-																false
+																false, "WeirdMacro"
 														)
 												)
 										)
@@ -725,8 +723,7 @@ public class PlusCalCodeGenPassTest {
 												Collections.singletonList(
 														mapping(
 																"network",
-																"TCPConnection",
-																false
+																false, "TCPConnection"
 														)
 												)
 										),
@@ -738,8 +735,7 @@ public class PlusCalCodeGenPassTest {
 												Collections.singletonList(
 														mapping(
 																"network",
-																"TCPConnection",
-																false
+																false, "TCPConnection"
 														)
 												)
 										)
@@ -908,7 +904,7 @@ public class PlusCalCodeGenPassTest {
 												PlusCalFairness.WEAK_FAIR,
 												"A",
 												Collections.singletonList(ref("func")),
-												Collections.singletonList(mapping("func", "Identity", false))
+												Collections.singletonList(mapping("func", false, "Identity"))
 										)
 								)
 						),
@@ -1080,8 +1076,7 @@ public class PlusCalCodeGenPassTest {
 												Collections.singletonList(
 														mapping(
 																"network",
-																"TCPConnection",
-																true
+																true, "TCPConnection"
 														)
 												)
 										),
@@ -1093,8 +1088,7 @@ public class PlusCalCodeGenPassTest {
 												Collections.singletonList(
 														mapping(
 																"network",
-																"TCPConnection",
-																true
+																true, "TCPConnection"
 														)
 												)
 										)
@@ -1692,7 +1686,7 @@ public class PlusCalCodeGenPassTest {
 												PlusCalFairness.WEAK_FAIR,
 												"A",
 												Arrays.asList(ref("i"), idexp("flag")),
-												Collections.singletonList(mapping("i", "Adder", false))
+												Collections.singletonList(mapping("i", false, "Adder"))
 										)
 								)
 						),
