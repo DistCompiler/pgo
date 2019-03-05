@@ -1,6 +1,6 @@
 package pgo.model.mpcal;
 
-import pgo.model.type.PGoType;
+import pgo.model.type.Type;
 import pgo.parser.Located;
 import pgo.util.SourceLocation;
 
@@ -9,10 +9,10 @@ import java.util.Objects;
 public class ModularPlusCalParameterDeclaration extends ModularPlusCalNode {
 	private final Located<String> name;
 	private final boolean isRef;
-	private final PGoType type;
+	private final Type type;
 
 	public ModularPlusCalParameterDeclaration(SourceLocation location, Located<String> name, boolean isRef,
-	                                          PGoType type) {
+	                                          Type type) {
 		super(location);
 		this.name = name;
 		this.isRef = isRef;
@@ -54,7 +54,7 @@ public class ModularPlusCalParameterDeclaration extends ModularPlusCalNode {
 		return isRef;
 	}
 
-	public PGoType getType() {
+	public Type getType() {
 		return type;
 	}
 }

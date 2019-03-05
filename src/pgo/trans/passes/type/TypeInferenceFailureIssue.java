@@ -2,14 +2,14 @@ package pgo.trans.passes.type;
 
 import pgo.errors.Issue;
 import pgo.errors.IssueVisitor;
-import pgo.model.type.PGoType;
+import pgo.model.type.Type;
 import pgo.scope.UID;
 
 public class TypeInferenceFailureIssue extends Issue {
 	private UID uid;
-	private PGoType type;
+	private Type type;
 
-	public TypeInferenceFailureIssue(UID uid, PGoType type) {
+	public TypeInferenceFailureIssue(UID uid, Type type) {
 		this.uid = uid;
 		this.type = type;
 	}
@@ -18,7 +18,7 @@ public class TypeInferenceFailureIssue extends Issue {
 		return uid;
 	}
 
-	public PGoType getType() {
+	public Type getType() {
 		return type;
 	}
 

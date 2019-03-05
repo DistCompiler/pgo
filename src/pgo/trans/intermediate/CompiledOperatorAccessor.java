@@ -10,9 +10,10 @@ import pgo.model.tla.TLAExpression;
 import pgo.model.tla.TLAOpDecl;
 import pgo.model.tla.TLAOperatorDefinition;
 import pgo.model.type.*;
+import pgo.model.type.constraint.MonomorphicConstraint;
 import pgo.scope.UID;
 import pgo.trans.passes.codegen.go.GlobalVariableStrategy;
-import pgo.trans.passes.codegen.go.PGoTypeGoTypeConversionVisitor;
+import pgo.trans.passes.codegen.go.TypeConversionVisitor;
 import pgo.trans.passes.codegen.go.TLAExpressionCodeGenVisitor;
 import pgo.trans.passes.type.TLAExpressionTypeConstraintVisitor;
 import pgo.util.Origin;
@@ -31,16 +32,16 @@ public class CompiledOperatorAccessor extends OperatorAccessor {
 	}
 
 	@Override
-	public PGoType constrainTypes(Origin origin, DefinitionRegistry registry, List<PGoType> args, PGoTypeSolver solver, PGoTypeGenerator generator,
-	                              Map<UID, PGoTypeVariable> mapping) {
+	public Type constrainTypes(Origin origin, DefinitionRegistry registry, List<Type> args, TypeSolver solver, TypeGenerator generator,
+	                           Map<UID, TypeVariable> mapping) {
 		// TODO argument-based polymorphism?
 		List<TLAOpDecl> defArgs = def.getArgs();
 		for (int i = 0; i < defArgs.size(); ++i) {
 			TLAOpDecl arg = defArgs.get(i);
 			if (arg.getType() == TLAOpDecl.Type.ID) {
-				PGoTypeVariable v = generator.getTypeVariable(Collections.singletonList(origin));
+				TypeVariable v = generator.getTypeVariable(Collections.singletonList(origin));
 				mapping.put(arg.getName().getUID(), v);
-				solver.addConstraint(new PGoTypeMonomorphicConstraint(origin, v, args.get(i)));
+				solver.addConstraint(new MonomorphicConstraint(origin, v, args.get(i)));
 			} else {
 				// TODO: error
 			}
@@ -55,18 +56,18 @@ public class CompiledOperatorAccessor extends OperatorAccessor {
 
 	@Override
 	public GoExpression generateGo(GoBlockBuilder builder, TLAExpression origin, DefinitionRegistry registry,
-								   List<TLAExpression> args, Map<UID, PGoType> typeMap, GlobalVariableStrategy globalStrategy) {
+	                               List<TLAExpression> args, Map<UID, Type> typeMap, GlobalVariableStrategy globalStrategy) {
 
 		GoFunctionDeclarationBuilder declBuilder = builder.defineFunction(def.getName().getUID(), def.getName().getId());
 
 		// return type
-		GoType returnType = typeMap.get(def.getBody().getUID()).accept(new PGoTypeGoTypeConversionVisitor());
+		GoType returnType = typeMap.get(def.getBody().getUID()).accept(new TypeConversionVisitor());
 		declBuilder.addReturn(returnType);
 
 		// arguments
 		for (TLAOpDecl arg : def.getArgs()) {
-			PGoType argType = typeMap.get(arg.getName().getUID());
-			GoType goType = argType.accept(new PGoTypeGoTypeConversionVisitor());
+			Type argType = typeMap.get(arg.getName().getUID());
+			GoType goType = argType.accept(new TypeConversionVisitor());
 			GoVariableName name = declBuilder.addParameter(arg.getName().getId(), goType);
 			builder.linkUID(arg.getName().getUID(), name);
 		}

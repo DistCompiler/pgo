@@ -8,7 +8,7 @@ import pgo.model.golang.builder.GoModuleBuilder;
 import pgo.model.mpcal.ModularPlusCalBlock;
 import pgo.model.pcal.PlusCalProcesses;
 import pgo.model.pcal.PlusCalSingleProcess;
-import pgo.model.type.PGoType;
+import pgo.model.type.Type;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
 
@@ -17,7 +17,7 @@ import java.util.Map;
 public class PlusCalGoCodeGenPass {
 	private PlusCalGoCodeGenPass() {}
 
-	public static GoModule perform(DefinitionRegistry registry, Map<UID, PGoType> typeMap, PGoOptions opts,
+	public static GoModule perform(DefinitionRegistry registry, Map<UID, Type> typeMap, PGoOptions opts,
 	                               ModularPlusCalBlock modularPlusCalBlock) {
 		GoModuleBuilder moduleBuilder = new GoModuleBuilder(modularPlusCalBlock.getName().getValue(), "main");
 		PlusCalProcesses processes = modularPlusCalBlock.getProcesses();

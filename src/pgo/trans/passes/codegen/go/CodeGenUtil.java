@@ -3,7 +3,7 @@ package pgo.trans.passes.codegen.go;
 import pgo.model.golang.*;
 import pgo.model.golang.builder.GoBlockBuilder;
 import pgo.model.tla.TLAExpression;
-import pgo.model.type.PGoType;
+import pgo.model.type.Type;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
 
@@ -16,7 +16,7 @@ public class CodeGenUtil {
 	private CodeGenUtil() {}
 
 	public static GoExpression invertCondition(GoBlockBuilder builder, DefinitionRegistry registry,
-											   Map<UID, PGoType> typeMap,
+											   Map<UID, Type> typeMap,
 											   GlobalVariableStrategy globalStrategy,
 											   TLAExpression condition) {
 		return new GoUnary(GoUnary.Operation.NOT, condition.accept(new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy)));

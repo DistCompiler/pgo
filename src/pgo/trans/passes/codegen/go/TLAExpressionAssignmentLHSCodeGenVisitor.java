@@ -6,7 +6,7 @@ import pgo.model.golang.GoExpression;
 import pgo.model.golang.GoVariableName;
 import pgo.model.golang.builder.GoBlockBuilder;
 import pgo.model.tla.*;
-import pgo.model.type.PGoType;
+import pgo.model.type.Type;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
 import pgo.trans.passes.codegen.go.GlobalVariableStrategy.GlobalVariableWrite;
@@ -16,11 +16,11 @@ import java.util.Map;
 public class TLAExpressionAssignmentLHSCodeGenVisitor extends TLAExpressionVisitor<GlobalVariableWrite, RuntimeException> {
 	private GoBlockBuilder builder;
 	private DefinitionRegistry registry;
-	private Map<UID, PGoType> typeMap;
+	private Map<UID, Type> typeMap;
 	private GlobalVariableStrategy globalStrategy;
 
 	public TLAExpressionAssignmentLHSCodeGenVisitor(GoBlockBuilder builder, DefinitionRegistry registry,
-													Map<UID, PGoType> typeMap, GlobalVariableStrategy globalStrategy) {
+	                                                Map<UID, Type> typeMap, GlobalVariableStrategy globalStrategy) {
 		this.builder = builder;
 		this.registry = registry;
 		this.typeMap = typeMap;

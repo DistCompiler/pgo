@@ -2,11 +2,12 @@ package pgo.model.type;
 
 import pgo.errors.Issue;
 import pgo.errors.IssueVisitor;
+import pgo.model.type.constraint.PolymorphicConstraint;
 
 public class BacktrackingFailureIssue extends Issue {
-	private PGoTypePolymorphicConstraint polymorphicConstraint;
+	private PolymorphicConstraint polymorphicConstraint;
 
-	public BacktrackingFailureIssue(PGoTypePolymorphicConstraint polymorphicConstraint) {
+	public BacktrackingFailureIssue(PolymorphicConstraint polymorphicConstraint) {
 		this.polymorphicConstraint = polymorphicConstraint;
 	}
 
@@ -15,7 +16,7 @@ public class BacktrackingFailureIssue extends Issue {
 		return v.visit(this);
 	}
 
-	public PGoTypePolymorphicConstraint getPolymorphicConstraint() {
+	public PolymorphicConstraint getPolymorphicConstraint() {
 		return polymorphicConstraint;
 	}
 }

@@ -4,10 +4,10 @@ import pgo.errors.Issue;
 import pgo.errors.IssueVisitor;
 
 public class NoMatchingFieldIssue extends Issue {
-	private final PGoTypeRecord record;
+	private final RecordType record;
 	private final String fieldName;
 
-	public NoMatchingFieldIssue(PGoTypeRecord record, String fieldName) {
+	public NoMatchingFieldIssue(RecordType record, String fieldName) {
 		this.record = record;
 		this.fieldName = fieldName;
 	}
@@ -17,7 +17,7 @@ public class NoMatchingFieldIssue extends Issue {
 		return v.visit(this);
 	}
 
-	public PGoTypeRecord getRecord() {
+	public RecordType getRecord() {
 		return record;
 	}
 

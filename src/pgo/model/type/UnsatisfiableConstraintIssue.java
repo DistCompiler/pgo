@@ -4,19 +4,19 @@ import pgo.errors.Issue;
 import pgo.errors.IssueVisitor;
 
 public class UnsatisfiableConstraintIssue extends Issue {
-	private PGoType lhs;
-	private PGoType rhs;
+	private Type lhs;
+	private Type rhs;
 
-	public UnsatisfiableConstraintIssue(PGoType lhs, PGoType rhs) {
+	public UnsatisfiableConstraintIssue(Type lhs, Type rhs) {
 		this.lhs = lhs;
 		this.rhs = rhs;
 	}
 
-	public PGoType getLhs() {
+	public Type getLhs() {
 		return lhs;
 	}
 
-	public PGoType getRhs() {
+	public Type getRhs() {
 		return rhs;
 	}
 

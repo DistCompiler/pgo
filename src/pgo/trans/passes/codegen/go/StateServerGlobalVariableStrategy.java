@@ -11,7 +11,7 @@ import pgo.model.golang.type.GoTypeName;
 import pgo.model.mpcal.ModularPlusCalBlock;
 import pgo.model.pcal.PlusCalMultiProcess;
 import pgo.model.pcal.PlusCalProcess;
-import pgo.model.type.PGoType;
+import pgo.model.type.Type;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
 
@@ -20,7 +20,7 @@ import java.util.stream.Collectors;
 
 public class StateServerGlobalVariableStrategy extends GlobalVariableStrategy {
 	private DefinitionRegistry registry;
-	private Map<UID, PGoType> typeMap;
+	private Map<UID, Type> typeMap;
 	private PGoNetOptions.StateOptions stateOptions;
 	private ModularPlusCalBlock modularPlusCalBlock;
 	private GoCommandLineArgumentParser commandLineArgumentParser;
@@ -30,7 +30,7 @@ public class StateServerGlobalVariableStrategy extends GlobalVariableStrategy {
 	private UID globalStateUID;
 	private UID refsUID;
 
-	public StateServerGlobalVariableStrategy(DefinitionRegistry registry, Map<UID, PGoType> typeMap,
+	public StateServerGlobalVariableStrategy(DefinitionRegistry registry, Map<UID, Type> typeMap,
 	                                         PGoNetOptions.StateOptions stateOptions,
 	                                         ModularPlusCalBlock modularPlusCalBlock) {
 		this.registry = registry;
@@ -45,13 +45,13 @@ public class StateServerGlobalVariableStrategy extends GlobalVariableStrategy {
 		this.refsUID = new UID();
 	}
 
-	static void generateProcessSwitch(Map<UID, PGoType> typeMap, ModularPlusCalBlock modularPlusCalBlock,
+	static void generateProcessSwitch(Map<UID, Type> typeMap, ModularPlusCalBlock modularPlusCalBlock,
 	                                  GoBlockBuilder builder, GoVariableName processName,
 	                                  GoVariableName processArgument) {
 		try (GoSwitchBuilder switchBuilder = builder.switchStmt(processName)) {
 			for (PlusCalProcess process : ((PlusCalMultiProcess) modularPlusCalBlock.getProcesses()).getProcesses()) {
 				String name = process.getName().getName().getValue();
-				GoType type = typeMap.get(process.getName().getUID()).accept(new PGoTypeGoTypeConversionVisitor());
+				GoType type = typeMap.get(process.getName().getUID()).accept(new TypeConversionVisitor());
 				try (GoBlockBuilder caseBody = switchBuilder.addCase(new GoStringLiteral(name))) {
 					if (type.equals(GoBuiltins.Int)) {
 						builder.addImport("strconv");

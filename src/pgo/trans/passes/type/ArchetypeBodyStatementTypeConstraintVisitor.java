@@ -2,10 +2,10 @@ package pgo.trans.passes.type;
 
 import pgo.model.pcal.PlusCalAssignment;
 import pgo.model.pcal.PlusCalAssignmentPair;
-import pgo.model.type.PGoTypeGenerator;
-import pgo.model.type.PGoTypeMonomorphicConstraint;
-import pgo.model.type.PGoTypeSolver;
-import pgo.model.type.PGoTypeVariable;
+import pgo.model.type.TypeGenerator;
+import pgo.model.type.constraint.MonomorphicConstraint;
+import pgo.model.type.TypeSolver;
+import pgo.model.type.TypeVariable;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
 
@@ -15,8 +15,8 @@ import java.util.Set;
 public class ArchetypeBodyStatementTypeConstraintVisitor extends PlusCalStatementTypeConstraintVisitor {
 	private final ArchetypeBodyExpressionTypeConstraintVisitor lhsVisitor;
 
-	public ArchetypeBodyStatementTypeConstraintVisitor(DefinitionRegistry registry, PGoTypeSolver solver,
-	                                                   PGoTypeGenerator generator, Map<UID, PGoTypeVariable> mapping,
+	public ArchetypeBodyStatementTypeConstraintVisitor(DefinitionRegistry registry, TypeSolver solver,
+	                                                   TypeGenerator generator, Map<UID, TypeVariable> mapping,
 	                                                   Set<UID> paramUIDs) {
 		super(registry, solver, generator, mapping,
 				new ArchetypeBodyExpressionTypeConstraintVisitor(
@@ -28,7 +28,7 @@ public class ArchetypeBodyStatementTypeConstraintVisitor extends PlusCalStatemen
 	@Override
 	public Void visit(PlusCalAssignment plusCalAssignment) throws RuntimeException {
 		for (PlusCalAssignmentPair pair : plusCalAssignment.getPairs()) {
-			solver.addConstraint(new PGoTypeMonomorphicConstraint(
+			solver.addConstraint(new MonomorphicConstraint(
 					pair, lhsVisitor.wrappedVisit(pair.getLhs()), exprVisitor.wrappedVisit(pair.getRhs())));
 		}
 		return null;

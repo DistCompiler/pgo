@@ -9,6 +9,7 @@ import pgo.model.pcal.PlusCalCall;
 import pgo.model.pcal.PlusCalMacro;
 import pgo.model.pcal.PlusCalProcedure;
 import pgo.model.type.*;
+import pgo.model.type.constraint.PolymorphicConstraint;
 import pgo.parser.ParseFailure;
 import pgo.trans.intermediate.*;
 import pgo.trans.passes.codegen.pluscal.RefMismatchIssue;
@@ -137,7 +138,7 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 	@Override
 	public Void visit(NoMatchingFieldIssue noMatchingFieldIssue) throws IOException {
 		out.write("record ");
-		noMatchingFieldIssue.getRecord().accept(new PGoTypeFormattingVisitor(out));
+		noMatchingFieldIssue.getRecord().accept(new TypeFormattingVisitor(out));
 		out.write(" has no field with name ");
 		out.write(noMatchingFieldIssue.getFieldName());
 		return null;
@@ -194,9 +195,9 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 	@Override
 	public Void visit(InfiniteTypeIssue infiniteTypeIssue) throws IOException {
 		out.write("unifying ");
-		infiniteTypeIssue.getLhs().accept(new PGoTypeFormattingVisitor(out));
+		infiniteTypeIssue.getLhs().accept(new TypeFormattingVisitor(out));
 		out.write(" and ");
-		infiniteTypeIssue.getRhs().accept(new PGoTypeFormattingVisitor(out));
+		infiniteTypeIssue.getRhs().accept(new TypeFormattingVisitor(out));
 		out.write(" leads to infinite types");
 		return null;
 	}
@@ -237,7 +238,7 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 
 	@Override
 	public Void visit(BacktrackingFailureIssue backtrackingFailureIssue) throws IOException {
-		PGoTypePolymorphicConstraint polymorphicConstraint = backtrackingFailureIssue.getPolymorphicConstraint();
+		PolymorphicConstraint polymorphicConstraint = backtrackingFailureIssue.getPolymorphicConstraint();
 		out.write("could not satisfy ");
 		polymorphicConstraint.accept(new DerivedFormattingVisitor(out));
 		out.write("; constraint is ");

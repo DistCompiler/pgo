@@ -4,6 +4,7 @@ import pgo.Unreachable;
 import pgo.model.mpcal.ModularPlusCalYield;
 import pgo.model.pcal.*;
 import pgo.model.type.*;
+import pgo.model.type.constraint.MonomorphicConstraint;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
 
@@ -14,19 +15,19 @@ import java.util.stream.Collectors;
 
 public class PlusCalStatementTypeConstraintVisitor extends PlusCalStatementVisitor<Void, RuntimeException> {
 	protected DefinitionRegistry registry;
-	protected PGoTypeSolver solver;
-	private PGoTypeGenerator generator;
-	protected Map<UID, PGoTypeVariable> mapping;
+	protected TypeSolver solver;
+	private TypeGenerator generator;
+	protected Map<UID, TypeVariable> mapping;
 	protected TLAExpressionTypeConstraintVisitor exprVisitor;
 
-	public PlusCalStatementTypeConstraintVisitor(DefinitionRegistry registry, PGoTypeSolver solver,
-	                                             PGoTypeGenerator generator, Map<UID, PGoTypeVariable> mapping) {
+	public PlusCalStatementTypeConstraintVisitor(DefinitionRegistry registry, TypeSolver solver,
+	                                             TypeGenerator generator, Map<UID, TypeVariable> mapping) {
 		this(registry, solver, generator, mapping,
 				new TLAExpressionTypeConstraintVisitor(registry, solver, generator, mapping));
 	}
 
-	protected PlusCalStatementTypeConstraintVisitor(DefinitionRegistry registry, PGoTypeSolver solver,
-	                                                PGoTypeGenerator generator, Map<UID, PGoTypeVariable> mapping,
+	protected PlusCalStatementTypeConstraintVisitor(DefinitionRegistry registry, TypeSolver solver,
+	                                                TypeGenerator generator, Map<UID, TypeVariable> mapping,
 	                                                TLAExpressionTypeConstraintVisitor exprVisitor) {
 		this.registry = registry;
 		this.solver = solver;
@@ -45,7 +46,7 @@ public class PlusCalStatementTypeConstraintVisitor extends PlusCalStatementVisit
 
 	@Override
 	public Void visit(PlusCalWhile plusCalWhile) throws RuntimeException {
-		solver.addConstraint(new PGoTypeMonomorphicConstraint(plusCalWhile, exprVisitor.wrappedVisit(plusCalWhile.getCondition()), new PGoTypeBool(Collections.singletonList(plusCalWhile))));
+		solver.addConstraint(new MonomorphicConstraint(plusCalWhile, exprVisitor.wrappedVisit(plusCalWhile.getCondition()), new BoolType(Collections.singletonList(plusCalWhile))));
 		for (PlusCalStatement stmt : plusCalWhile.getBody()) {
 			stmt.accept(this);
 		}
@@ -54,7 +55,7 @@ public class PlusCalStatementTypeConstraintVisitor extends PlusCalStatementVisit
 
 	@Override
 	public Void visit(PlusCalIf plusCalIf) throws RuntimeException {
-		solver.addConstraint(new PGoTypeMonomorphicConstraint(plusCalIf, exprVisitor.wrappedVisit(plusCalIf.getCondition()), new PGoTypeBool(Collections.singletonList(plusCalIf))));
+		solver.addConstraint(new MonomorphicConstraint(plusCalIf, exprVisitor.wrappedVisit(plusCalIf.getCondition()), new BoolType(Collections.singletonList(plusCalIf))));
 		for (PlusCalStatement stmt : plusCalIf.getYes()) {
 			stmt.accept(this);
 		}
@@ -77,7 +78,7 @@ public class PlusCalStatementTypeConstraintVisitor extends PlusCalStatementVisit
 	@Override
 	public Void visit(PlusCalAssignment plusCalAssignment) throws RuntimeException {
 		for(PlusCalAssignmentPair pair : plusCalAssignment.getPairs()) {
-			solver.addConstraint(new PGoTypeMonomorphicConstraint(
+			solver.addConstraint(new MonomorphicConstraint(
 					pair,
 					exprVisitor.wrappedVisit(pair.getLhs()),
 					exprVisitor.wrappedVisit(pair.getRhs())));
@@ -100,14 +101,14 @@ public class PlusCalStatementTypeConstraintVisitor extends PlusCalStatementVisit
 	@Override
 	public Void visit(PlusCalCall plusCalCall) throws RuntimeException {
 		PlusCalProcedure proc = registry.findProcedure(plusCalCall.getTarget());
-		List<PGoType> callArgs = plusCalCall.getArguments()
+		List<Type> callArgs = plusCalCall.getArguments()
 				.stream()
 				.map(e -> exprVisitor.wrappedVisit(e))
 				.collect(Collectors.toList());
-		solver.addConstraint(new PGoTypeMonomorphicConstraint(
+		solver.addConstraint(new MonomorphicConstraint(
 				plusCalCall,
 				mapping.get(proc.getUID()),
-				new PGoTypeProcedure(callArgs, Collections.singletonList(plusCalCall))));
+				new ProcedureType(callArgs, Collections.singletonList(plusCalCall))));
 		return null;
 	}
 
@@ -135,13 +136,13 @@ public class PlusCalStatementTypeConstraintVisitor extends PlusCalStatementVisit
 
 	@Override
 	public Void visit(PlusCalAssert plusCalAssert) throws RuntimeException {
-		solver.addConstraint(new PGoTypeMonomorphicConstraint(plusCalAssert, exprVisitor.wrappedVisit(plusCalAssert.getCondition()), new PGoTypeBool(Collections.singletonList(plusCalAssert))));
+		solver.addConstraint(new MonomorphicConstraint(plusCalAssert, exprVisitor.wrappedVisit(plusCalAssert.getCondition()), new BoolType(Collections.singletonList(plusCalAssert))));
 		return null;
 	}
 
 	@Override
 	public Void visit(PlusCalAwait plusCalAwait) throws RuntimeException {
-		solver.addConstraint(new PGoTypeMonomorphicConstraint(plusCalAwait, exprVisitor.wrappedVisit(plusCalAwait.getCondition()), new PGoTypeBool(Collections.singletonList(plusCalAwait))));
+		solver.addConstraint(new MonomorphicConstraint(plusCalAwait, exprVisitor.wrappedVisit(plusCalAwait.getCondition()), new BoolType(Collections.singletonList(plusCalAwait))));
 		return null;
 	}
 

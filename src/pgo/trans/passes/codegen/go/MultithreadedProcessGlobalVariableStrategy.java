@@ -11,7 +11,7 @@ import pgo.model.golang.type.GoTypeName;
 import pgo.model.mpcal.ModularPlusCalBlock;
 import pgo.model.pcal.PlusCalMultiProcess;
 import pgo.model.pcal.PlusCalProcess;
-import pgo.model.type.PGoType;
+import pgo.model.type.Type;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
 
@@ -22,7 +22,7 @@ import java.util.Map;
 // FIXME this strategy, for efficiency reasons, does not implement abortCriticalSection correctly
 public class MultithreadedProcessGlobalVariableStrategy extends GlobalVariableStrategy {
 	private DefinitionRegistry registry;
-	private Map<UID, PGoType> typeMap;
+	private Map<UID, Type> typeMap;
 	private ModularPlusCalBlock modularPlusCalBlock;
 	private UID pGoLockUID;
 	private UID pGoWaitUID;
@@ -30,7 +30,7 @@ public class MultithreadedProcessGlobalVariableStrategy extends GlobalVariableSt
 
 	private static final GoType PGO_LOCK_TYPE = new GoSliceType(new GoTypeName("sync.RWMutex"));
 
-	public MultithreadedProcessGlobalVariableStrategy(DefinitionRegistry registry, Map<UID, PGoType> typeMap,
+	public MultithreadedProcessGlobalVariableStrategy(DefinitionRegistry registry, Map<UID, Type> typeMap,
 	                                                  ModularPlusCalBlock modularPlusCalBlock) {
 		this.registry = registry;
 		this.typeMap = typeMap;

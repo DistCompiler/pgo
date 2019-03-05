@@ -10,7 +10,7 @@ import pgo.model.mpcal.ModularPlusCalBlock;
 import pgo.model.pcal.PlusCalAlgorithm;
 import pgo.model.tla.TLAExpression;
 import pgo.model.tla.TLAModule;
-import pgo.model.type.PGoType;
+import pgo.model.type.Type;
 import pgo.modules.TLAModuleLoader;
 import pgo.parser.LexicalContext;
 import pgo.parser.Located;
@@ -235,7 +235,7 @@ public class PGoMain {
 		validateSemanticsPostScoping(ctx, registry, modularPlusCalBlock);
 
 		logger.info("Inferring types");
-		Map<UID, PGoType> typeMap = TypeInferencePass.perform(ctx, registry, macroExpandedModularPlusCalBlock);
+		Map<UID, Type> typeMap = TypeInferencePass.perform(ctx, registry, macroExpandedModularPlusCalBlock);
 		checkErrors(ctx);
 
 		logger.info("Inferring atomicity requirements");

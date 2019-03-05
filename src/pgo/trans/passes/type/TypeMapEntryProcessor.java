@@ -6,25 +6,25 @@ import pgo.util.UnionFind;
 import java.util.*;
 
 public class TypeMapEntryProcessor {
-	private final Set<PGoTypeVariable> unresolvedVariables = new HashSet<>();
-	private final Map<PGoTypeVariable, PGoType> additionalMappings = new HashMap<>();
-	private final PGoTypeVariableCollectionVisitor collector =
-			new PGoTypeVariableCollectionVisitor(unresolvedVariables);
-	private final PGoTypeVariableSubstitutionVisitor subs = new PGoTypeVariableSubstitutionVisitor(
-			new PGoTypeSubstitution(new UnionFind<>(), additionalMappings));
-	private final PGoTypeInterface pGoTypeInterface = new PGoTypeInterface(Collections.emptyList());
+	private final Set<TypeVariable> unresolvedVariables = new HashSet<>();
+	private final Map<TypeVariable, Type> additionalMappings = new HashMap<>();
+	private final TypeVariableCollectionVisitor collector =
+			new TypeVariableCollectionVisitor(unresolvedVariables);
+	private final TypeVariableSubstitutionVisitor subs = new TypeVariableSubstitutionVisitor(
+			new TypeSubstitution(new UnionFind<>(), additionalMappings));
+	private final InterfaceType pGoInterfaceType = new InterfaceType(Collections.emptyList());
 
-	public PGoType process(PGoTypeSubstitution substitution, PGoTypeVariable typeVariable) {
-		PGoType type;
+	public Type process(TypeSubstitution substitution, TypeVariable typeVariable) {
+		Type type;
 		if (substitution.containsKey(typeVariable)) {
 			type = substitution.get(typeVariable);
 		} else {
-			type = pGoTypeInterface;
-			additionalMappings.put(typeVariable, pGoTypeInterface);
+			type = pGoInterfaceType;
+			additionalMappings.put(typeVariable, pGoInterfaceType);
 		}
 		type.accept(collector);
-		for (PGoTypeVariable unresolvedVariable : unresolvedVariables) {
-			additionalMappings.put(unresolvedVariable, pGoTypeInterface);
+		for (TypeVariable unresolvedVariable : unresolvedVariables) {
+			additionalMappings.put(unresolvedVariable, pGoInterfaceType);
 		}
 		unresolvedVariables.clear();
 		return type.accept(subs);

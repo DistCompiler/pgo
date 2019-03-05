@@ -11,7 +11,7 @@ import pgo.model.golang.type.GoType;
 import pgo.model.mpcal.ModularPlusCalBlock;
 import pgo.model.pcal.*;
 import pgo.model.tla.TLAExpression;
-import pgo.model.type.PGoType;
+import pgo.model.type.Type;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
 
@@ -24,12 +24,12 @@ import java.util.stream.Collectors;
 
 public class PlusCalProcessesCodeGenVisitor extends PlusCalProcessesVisitor<Void, RuntimeException> {
 	private DefinitionRegistry registry;
-	private Map<UID, PGoType> typeMap;
+	private Map<UID, Type> typeMap;
 	private GlobalVariableStrategy globalStrategy;
 	private ModularPlusCalBlock modularPlusCalBlock;
 	private GoModuleBuilder moduleBuilder;
 
-	public PlusCalProcessesCodeGenVisitor(DefinitionRegistry registry, Map<UID, PGoType> typeMap,
+	public PlusCalProcessesCodeGenVisitor(DefinitionRegistry registry, Map<UID, Type> typeMap,
 	                                      GlobalVariableStrategy globalStrategy,
 	                                      ModularPlusCalBlock modularPlusCalBlock, GoModuleBuilder moduleBuilder) {
 		this.registry = registry;
@@ -40,7 +40,7 @@ public class PlusCalProcessesCodeGenVisitor extends PlusCalProcessesVisitor<Void
 	}
 
 	private void generateInit(Consumer<GoBlockBuilder> generateGlobalVariables) {
-		Map<String, PGoType> constants = new TreeMap<>(); // sort constants for deterministic compiler output
+		Map<String, Type> constants = new TreeMap<>(); // sort constants for deterministic compiler output
 		Map<String, UID> constantIds = new HashMap<>();
 		for (UID uid : registry.getConstants().stream().filter(c -> registry.getConstantValue(c).isPresent()).collect(Collectors.toSet())) {
 			String name = registry.getConstantName(uid);
@@ -50,14 +50,14 @@ public class PlusCalProcessesCodeGenVisitor extends PlusCalProcessesVisitor<Void
 
 		try (GoBlockBuilder initBuilder = moduleBuilder.defineFunction("init").getBlockBuilder()) {
 			// generate constant definitions and initializations
-			for (Map.Entry<String, PGoType> pair : constants.entrySet()) {
+			for (Map.Entry<String, Type> pair : constants.entrySet()) {
 				// get() is safe here by construction
 				TLAExpression value = registry.getConstantValue(constantIds.get(pair.getKey())).get();
-				PGoType type = typeMap.get(constantIds.get(pair.getKey()));
+				Type type = typeMap.get(constantIds.get(pair.getKey()));
 				GoVariableName name = moduleBuilder.defineGlobal(
 						constantIds.get(pair.getKey()),
 						pair.getKey(),
-						type.accept(new PGoTypeGoTypeConversionVisitor()));
+						type.accept(new TypeConversionVisitor()));
 				initBuilder.assign(
 						name,
 						value.accept(new TLAExpressionCodeGenVisitor(initBuilder, registry, typeMap, globalStrategy)));
@@ -76,7 +76,7 @@ public class PlusCalProcessesCodeGenVisitor extends PlusCalProcessesVisitor<Void
 					uid, procedure.getName());
 
 			for (PlusCalVariableDeclaration arg : procedure.getParams()) {
-				GoType argType = typeMap.get(arg.getUID()).accept(new PGoTypeGoTypeConversionVisitor());
+				GoType argType = typeMap.get(arg.getUID()).accept(new TypeConversionVisitor());
 				argMap.put(arg.getName().getValue(), builder.addParameter(arg.getName().getValue(), argType));
 			}
 
@@ -94,7 +94,7 @@ public class PlusCalProcessesCodeGenVisitor extends PlusCalProcessesVisitor<Void
 		}
 	}
 
-	private static void generateLocalVariableDefinitions(DefinitionRegistry registry, Map<UID, PGoType> typeMap,
+	private static void generateLocalVariableDefinitions(DefinitionRegistry registry, Map<UID, Type> typeMap,
 	                                                     GlobalVariableStrategy globalStrategy, GoBlockBuilder processBody,
 	                                                     List<PlusCalVariableDeclaration> variableDeclarations) {
 		for (PlusCalVariableDeclaration variableDeclaration : variableDeclarations) {
@@ -129,7 +129,7 @@ public class PlusCalProcessesCodeGenVisitor extends PlusCalProcessesVisitor<Void
 			// generate global variable definitions and initializations
 			for (PlusCalVariableDeclaration variableDeclaration : modularPlusCalBlock.getVariables()) {
 				TLAExpression value = variableDeclaration.getValue();
-				GoType type = typeMap.get(variableDeclaration.getUID()).accept(new PGoTypeGoTypeConversionVisitor());
+				GoType type = typeMap.get(variableDeclaration.getUID()).accept(new TypeConversionVisitor());
 				GoVariableName name = moduleBuilder.defineGlobal(
 						variableDeclaration.getUID(), variableDeclaration.getName().getValue(), type);
 				if (variableDeclaration.isSet()) {
@@ -154,7 +154,7 @@ public class PlusCalProcessesCodeGenVisitor extends PlusCalProcessesVisitor<Void
 			UID processUID = process.getName().getUID();
 			GoFunctionDeclarationBuilder functionBuilder = moduleBuilder.defineFunction(
 					processUID, process.getName().getName().getValue());
-			GoType selfType = typeMap.get(processUID).accept(new PGoTypeGoTypeConversionVisitor());
+			GoType selfType = typeMap.get(processUID).accept(new TypeConversionVisitor());
 			GoVariableName self = functionBuilder.addParameter("self", selfType);
 			try (GoBlockBuilder processBody = functionBuilder.getBlockBuilder()) {
 				processBody.linkUID(processUID, self);

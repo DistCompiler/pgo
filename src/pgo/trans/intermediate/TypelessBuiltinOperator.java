@@ -3,7 +3,7 @@ package pgo.trans.intermediate;
 import pgo.model.golang.GoExpression;
 import pgo.model.golang.builder.GoBlockBuilder;
 import pgo.model.tla.TLAExpression;
-import pgo.model.type.PGoType;
+import pgo.model.type.Type;
 import pgo.scope.UID;
 import pgo.trans.passes.codegen.go.TLAExpressionCodeGenVisitor;
 
@@ -15,7 +15,7 @@ public class TypelessBuiltinOperator extends BuiltinOperator {
 	
 	public interface TypelessGoGenerator {
 		GoExpression generate(GoBlockBuilder builder, TLAExpression expr, DefinitionRegistry registry,
-							  List<GoExpression> arguments, Map<UID, PGoType> typeMap);
+							  List<GoExpression> arguments, Map<UID, Type> typeMap);
 	}
 
 	public TypelessBuiltinOperator(int argumentCount, TypeConstraintGenerator typeConstraintGenerator,

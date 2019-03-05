@@ -10,9 +10,9 @@ import pgo.model.golang.type.GoSliceType;
 import pgo.model.golang.type.GoStructType;
 import pgo.model.golang.type.GoType;
 import pgo.model.tla.*;
-import pgo.model.type.PGoType;
-import pgo.model.type.PGoTypeMap;
-import pgo.model.type.PGoTypeSlice;
+import pgo.model.type.Type;
+import pgo.model.type.MapType;
+import pgo.model.type.SliceType;
 import pgo.scope.UID;
 import pgo.trans.intermediate.*;
 
@@ -23,10 +23,10 @@ import java.util.stream.Collectors;
 public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpression, RuntimeException> {
 	private GoBlockBuilder builder;
 	private DefinitionRegistry registry;
-	private Map<UID, PGoType> typeMap;
+	private Map<UID, Type> typeMap;
 	private GlobalVariableStrategy globalStrategy;
 
-	public TLAExpressionCodeGenVisitor(GoBlockBuilder builder, DefinitionRegistry registry, Map<UID, PGoType> typeMap, GlobalVariableStrategy globalStrategy) {
+	public TLAExpressionCodeGenVisitor(GoBlockBuilder builder, DefinitionRegistry registry, Map<UID, Type> typeMap, GlobalVariableStrategy globalStrategy) {
 		this.builder = builder;
 		this.registry = registry;
 		this.typeMap = typeMap;
@@ -97,8 +97,8 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 			return globalStrategy.readArchetypeResource(builder, tlaFunctionCall);
 		}
 
-		PGoType type = typeMap.get(tlaFunctionCall.getFunction().getUID());
-		if (type instanceof PGoTypeMap) {
+		Type type = typeMap.get(tlaFunctionCall.getFunction().getUID());
+		if (type instanceof MapType) {
 			builder.addImport("sort");
 			GoExpression function = tlaFunctionCall.getFunction().accept(this);
 			List<GoExpression> params = new ArrayList<>();
@@ -106,7 +106,7 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 				params.add(param.accept(this));
 			}
 
-			GoType keyType = getFunctionKeyType(type.accept(new PGoTypeGoTypeConversionVisitor()));
+			GoType keyType = getFunctionKeyType(type.accept(new TypeConversionVisitor()));
 			GoVariableName key;
 			if (tlaFunctionCall.getParams().size() == 1) {
 				key = builder.varDecl("key", params.get(0));
@@ -144,7 +144,7 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 							new GoCall(new GoVariableName("len"), Collections.singletonList(function)),
 							comparatorBuilder.getFunction())));
 			return new GoSelectorExpression(new GoIndexExpression(function, index), "value");
-		} else if (type instanceof PGoTypeSlice) {
+		} else if (type instanceof SliceType) {
 			if (tlaFunctionCall.getParams().size() != 1) {
 				throw new InternalCompilerError(); // slices fundamentally cannot be indexed by multiple parameters
 			}
@@ -180,7 +180,7 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 	@Override
 	public GoExpression visit(TLACase tlaCase) throws RuntimeException {
 		UID uid = tlaCase.getArms().get(0).getResult().getUID();
-		GoVariableName result = builder.varDecl("result", typeMap.get(uid).accept(new PGoTypeGoTypeConversionVisitor()));
+		GoVariableName result = builder.varDecl("result", typeMap.get(uid).accept(new TypeConversionVisitor()));
 		GoLabelName matched = builder.newLabel("matched");
 
 		for (TLACaseArm caseArm : tlaCase.getArms()) {
@@ -215,7 +215,7 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 
 	@Override
 	public GoExpression visit(TLAFunction tlaFunction) throws RuntimeException {
-		GoType mapType = typeMap.get(tlaFunction.getUID()).accept(new PGoTypeGoTypeConversionVisitor());
+		GoType mapType = typeMap.get(tlaFunction.getUID()).accept(new TypeConversionVisitor());
 		GoExpression capacity = null;
 		List<TLAQuantifierBound> args = tlaFunction.getArguments();
 		List<GoExpression> domains = evaluateQuantifierBoundSets(args);
@@ -265,7 +265,7 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 
 	@Override
 	public GoExpression visit(TLAIf tlaIf) throws RuntimeException {
-		GoVariableName result = builder.varDecl("result", typeMap.get(tlaIf.getTval().getUID()).accept(new PGoTypeGoTypeConversionVisitor()));
+		GoVariableName result = builder.varDecl("result", typeMap.get(tlaIf.getTval().getUID()).accept(new TypeConversionVisitor()));
 		try (GoIfBuilder ifBuilder = builder.ifStmt(tlaIf.getCond().accept(this))) {
 			try (GoBlockBuilder yes = ifBuilder.whenTrue()) {
 				yes.assign(result, tlaIf.getTval().accept(this));
@@ -304,7 +304,7 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 
 	@Override
 	public GoExpression visit(TLATuple tlaTuple) throws RuntimeException {
-		GoType sliceType = typeMap.get(tlaTuple.getUID()).accept(new PGoTypeGoTypeConversionVisitor());
+		GoType sliceType = typeMap.get(tlaTuple.getUID()).accept(new TypeConversionVisitor());
 		List<GoExpression> elements = new ArrayList<>();
 		for (TLAExpression element : tlaTuple.getElements()) {
 			elements.add(element.accept(this));
@@ -383,7 +383,7 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 	@Override
 	public GoExpression visit(TLARecordConstructor tlaRecordConstructor) throws RuntimeException {
 		return new GoStructLiteral(
-				typeMap.get(tlaRecordConstructor.getUID()).accept(new PGoTypeGoTypeConversionVisitor()),
+				typeMap.get(tlaRecordConstructor.getUID()).accept(new TypeConversionVisitor()),
 				tlaRecordConstructor.getFields().stream()
 						.map(f -> new GoStructLiteralField(f.getName().getId(), f.getValue().accept(this)))
 						.collect(Collectors.toList()));
@@ -500,7 +500,7 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 
 	@Override
 	public GoExpression visit(PlusCalDefaultInitValue plusCalDefaultInitValue) throws RuntimeException {
-		return typeMap.get(plusCalDefaultInitValue.getUID()).accept(new PGoTypeGoTypeDefaultValueVisitor());
+		return typeMap.get(plusCalDefaultInitValue.getUID()).accept(new TypeDefaultValueVisitor());
 	}
 
 	@Override

@@ -1,14 +1,16 @@
 package pgo.model.type;
 
 import pgo.InternalCompilerError;
+import pgo.model.type.constraint.EqualityConstraint;
+import pgo.model.type.constraint.MonomorphicConstraint;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
 abstract class RecordTypeEntry {
-	abstract boolean hasVariable(PGoTypeVariable variable);
+	abstract boolean hasVariable(TypeVariable variable);
 
-	RecordTypeEntry unify(PGoTypeSolver solver, RecordTypeEntry entry) throws UnificationException {
+	RecordTypeEntry unify(TypeSolver solver, RecordTypeEntry entry) throws UnificationException {
 		if (entry instanceof Abstract) {
 			return unify(solver, (Abstract) entry);
 		}
@@ -18,36 +20,36 @@ abstract class RecordTypeEntry {
 		throw new InternalCompilerError();
 	}
 
-	abstract RecordTypeEntry unify(PGoTypeSolver solver, Abstract entry) throws UnificationException;
-	abstract Concrete unify(PGoTypeSolver solver, Concrete entry) throws UnificationException;
+	abstract RecordTypeEntry unify(TypeSolver solver, Abstract entry) throws UnificationException;
+	abstract Concrete unify(TypeSolver solver, Concrete entry) throws UnificationException;
 
-	abstract PGoTypeRecord toConcreteRecord();
+	abstract RecordType toConcreteRecord();
 
 	static class Abstract extends RecordTypeEntry {
 		static final Abstract EMPTY_ABSTRACT_RECORD = new Abstract();
 
-		private final Map<String, PGoType> fields;
+		private final Map<String, Type> fields;
 
 		Abstract() {
 			this(new HashMap<>());
 		}
 
-		Abstract(Map<String, PGoType> fields) {
+		Abstract(Map<String, Type> fields) {
 			this.fields = fields;
 		}
 
 		@Override
-		boolean hasVariable(PGoTypeVariable variable) {
-			PGoTypeHasVariableVisitor visitor = new PGoTypeHasVariableVisitor(variable);
+		boolean hasVariable(TypeVariable variable) {
+			TypeHasVariableVisitor visitor = new TypeHasVariableVisitor(variable);
 			return fields.values().stream().anyMatch(t -> t.accept(visitor));
 		}
 
 		@Override
-		RecordTypeEntry unify(PGoTypeSolver solver, Abstract entry) throws UnificationException {
-			Map<String, PGoType> fields = new HashMap<>(this.fields);
+		RecordTypeEntry unify(TypeSolver solver, Abstract entry) throws UnificationException {
+			Map<String, Type> fields = new HashMap<>(this.fields);
 			entry.fields.forEach((k, v) -> {
 				if (fields.containsKey(k)) {
-					solver.addFirst(new PGoTypeMonomorphicConstraint(v, v, fields.get(k)));
+					solver.addFirst(new MonomorphicConstraint(v, v, fields.get(k)));
 				} else {
 					fields.put(k, v);
 				}
@@ -56,11 +58,11 @@ abstract class RecordTypeEntry {
 		}
 
 		private void throwException(Concrete entry) throws UnificationException {
-			List<PGoTypeRecord.Field> fs = new ArrayList<>();
-			fields.forEach((k, v) -> fs.add(new PGoTypeRecord.Field(k, v)));
+			List<RecordType.Field> fs = new ArrayList<>();
+			fields.forEach((k, v) -> fs.add(new RecordType.Field(k, v)));
 			throw new UnificationException(new UnsatisfiableConstraintIssue(
 					entry.record,
-					new PGoTypeRecord(
+					new RecordType(
 							fs,
 							fs.stream()
 									.flatMap(f -> f.getType().getOrigins().stream())
@@ -68,20 +70,20 @@ abstract class RecordTypeEntry {
 		}
 
 		@Override
-		Concrete unify(PGoTypeSolver solver, Concrete entry) throws UnificationException {
+		Concrete unify(TypeSolver solver, Concrete entry) throws UnificationException {
 			if (entry.record.getFields().size() < fields.size()) {
 				throwException(entry);
 			}
 			Set<String> keysInAbstractNotConcrete = new HashSet<>(fields.keySet());
 			keysInAbstractNotConcrete.removeAll(entry.record.getFields().stream()
-					.map(PGoTypeRecord.Field::getName)
+					.map(RecordType.Field::getName)
 					.collect(Collectors.toSet()));
 			if (keysInAbstractNotConcrete.size() > 0) {
 				throwException(entry);
 			}
-			for (PGoTypeRecord.Field field : entry.record.getFields()) {
+			for (RecordType.Field field : entry.record.getFields()) {
 				if (fields.containsKey(field.getName())) {
-					solver.addFirst(new PGoTypeMonomorphicConstraint(
+					solver.addFirst(new MonomorphicConstraint(
 							entry.record, field.getType(), fields.get(field.getName())));
 				}
 			}
@@ -89,58 +91,58 @@ abstract class RecordTypeEntry {
 		}
 
 		@Override
-		PGoTypeRecord toConcreteRecord() {
-			return new PGoTypeRecord(
+		RecordType toConcreteRecord() {
+			return new RecordType(
 					fields.entrySet().stream()
 							.sorted(Comparator.comparing(Map.Entry::getKey))
-							.map(e -> new PGoTypeRecord.Field(e.getKey(), e.getValue()))
+							.map(e -> new RecordType.Field(e.getKey(), e.getValue()))
 							.collect(Collectors.toList()),
 					fields.values().stream().flatMap(t -> t.getOrigins().stream()).collect(Collectors.toList()));
 		}
 	}
 
 	static class Concrete extends RecordTypeEntry {
-		private final PGoTypeRecord record;
+		private final RecordType record;
 
-		Concrete(PGoTypeRecord record) {
+		Concrete(RecordType record) {
 			this.record = record;
 		}
 
-		PGoTypeRecord getRecord() {
+		RecordType getRecord() {
 			return record;
 		}
 
 		@Override
-		boolean hasVariable(PGoTypeVariable variable) {
-			return record.accept(new PGoTypeHasVariableVisitor(variable));
+		boolean hasVariable(TypeVariable variable) {
+			return record.accept(new TypeHasVariableVisitor(variable));
 		}
 
 		@Override
-		RecordTypeEntry unify(PGoTypeSolver solver, Abstract entry) throws UnificationException {
+		RecordTypeEntry unify(TypeSolver solver, Abstract entry) throws UnificationException {
 			return entry.unify(solver, this);
 		}
 
 		@Override
-		Concrete unify(PGoTypeSolver solver, Concrete entry) throws UnificationException {
+		Concrete unify(TypeSolver solver, Concrete entry) throws UnificationException {
 			if (entry.record.getFields().size() != record.getFields().size()) {
 				throw new UnificationException(new UnsatisfiableConstraintIssue(entry.record, record));
 			}
-			List<PGoTypeRecord.Field> fields = record.getFields();
-			List<PGoTypeRecord.Field> otherFields = entry.record.getFields();
+			List<RecordType.Field> fields = record.getFields();
+			List<RecordType.Field> otherFields = entry.record.getFields();
 			for (int i = 0; i < otherFields.size(); i++) {
-				PGoTypeRecord.Field field = fields.get(i);
-				PGoTypeRecord.Field ofield = otherFields.get(i);
+				RecordType.Field field = fields.get(i);
+				RecordType.Field ofield = otherFields.get(i);
 				if (!field.getName().equals(ofield.getName())) {
 					throw new UnificationException(new UnsatisfiableConstraintIssue(entry.record, record));
 				}
-				solver.addFirst(new PGoTypeMonomorphicConstraint(
-						Collections.emptyList(), new PGoTypeEqualityConstraint(field.getType(), ofield.getType())));
+				solver.addFirst(new MonomorphicConstraint(
+						Collections.emptyList(), new EqualityConstraint(field.getType(), ofield.getType())));
 			}
 			return this;
 		}
 
 		@Override
-		PGoTypeRecord toConcreteRecord() {
+		RecordType toConcreteRecord() {
 			return record;
 		}
 	}

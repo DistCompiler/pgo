@@ -2,10 +2,10 @@ package pgo.trans.passes.type;
 
 import pgo.Unreachable;
 import pgo.model.tla.*;
-import pgo.model.type.PGoTypeGenerator;
-import pgo.model.type.PGoTypeMonomorphicConstraint;
-import pgo.model.type.PGoTypeSolver;
-import pgo.model.type.PGoTypeVariable;
+import pgo.model.type.TypeGenerator;
+import pgo.model.type.constraint.MonomorphicConstraint;
+import pgo.model.type.TypeSolver;
+import pgo.model.type.TypeVariable;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
 
@@ -13,13 +13,13 @@ import java.util.Collections;
 import java.util.Map;
 
 public class TLAUnitTypeConstraintVisitor extends TLAUnitVisitor<Void, RuntimeException> {
-	private final PGoTypeSolver solver;
-	private final PGoTypeGenerator generator;
-	private final Map<UID, PGoTypeVariable> mapping;
+	private final TypeSolver solver;
+	private final TypeGenerator generator;
+	private final Map<UID, TypeVariable> mapping;
 	private final TLAExpressionTypeConstraintVisitor visitor;
 
-	public TLAUnitTypeConstraintVisitor(DefinitionRegistry registry, PGoTypeSolver solver, PGoTypeGenerator generator,
-	                                    Map<UID, PGoTypeVariable> mapping) {
+	public TLAUnitTypeConstraintVisitor(DefinitionRegistry registry, TypeSolver solver, TypeGenerator generator,
+	                                    Map<UID, TypeVariable> mapping) {
 		this.solver = solver;
 		this.generator = generator;
 		this.mapping = mapping;
@@ -34,14 +34,14 @@ public class TLAUnitTypeConstraintVisitor extends TLAUnitVisitor<Void, RuntimeEx
 	@Override
 	public Void visit(TLAFunctionDefinition pGoTLAFunctionDefinition) throws RuntimeException {
 		UID id = pGoTLAFunctionDefinition.getName().getUID();
-		PGoTypeVariable v;
+		TypeVariable v;
 		if (mapping.containsKey(id)) {
 			v = mapping.get(id);
 		} else {
 			v = generator.getTypeVariable(Collections.singletonList(pGoTLAFunctionDefinition));
 			mapping.put(id, v);
 		}
-		solver.addConstraint(new PGoTypeMonomorphicConstraint(
+		solver.addConstraint(new MonomorphicConstraint(
 				pGoTLAFunctionDefinition, v, visitor.wrappedVisit(pGoTLAFunctionDefinition.getFunction())));
 		return null;
 	}

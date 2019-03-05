@@ -8,7 +8,7 @@ import pgo.model.mpcal.ModularPlusCalYield;
 import pgo.model.pcal.*;
 import pgo.model.tla.TLAExpression;
 import pgo.model.tla.TLAGeneralIdentifier;
-import pgo.model.type.PGoType;
+import pgo.model.type.Type;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
 import pgo.trans.passes.atomicity.PlusCalStatementAtomicityInferenceVisitor;
@@ -19,14 +19,14 @@ import java.util.function.Function;
 
 public class PlusCalStatementCodeGenVisitor extends PlusCalStatementVisitor<Void, RuntimeException> {
 	private DefinitionRegistry registry;
-	private Map<UID, PGoType> typeMap;
+	private Map<UID, Type> typeMap;
 	private GlobalVariableStrategy globalStrategy;
 	private UID processUID;
 	private GoBlockBuilder builder;
 	private CriticalSectionTracker criticalSectionTracker;
 	private Function<GoBlockBuilder, GoLabelName> awaitAction;
 
-	private PlusCalStatementCodeGenVisitor(DefinitionRegistry registry, Map<UID, PGoType> typeMap,
+	private PlusCalStatementCodeGenVisitor(DefinitionRegistry registry, Map<UID, Type> typeMap,
 	                                       GlobalVariableStrategy globalStrategy, UID processUID, GoBlockBuilder builder,
 	                                       CriticalSectionTracker criticalSectionTracker,
 	                                       Function<GoBlockBuilder, GoLabelName> awaitAction) {
@@ -39,7 +39,7 @@ public class PlusCalStatementCodeGenVisitor extends PlusCalStatementVisitor<Void
 		this.awaitAction = awaitAction;
 	}
 
-	public PlusCalStatementCodeGenVisitor(DefinitionRegistry registry, Map<UID, PGoType> typeMap,
+	public PlusCalStatementCodeGenVisitor(DefinitionRegistry registry, Map<UID, Type> typeMap,
 	                                      GlobalVariableStrategy globalStrategy, UID processUID, GoBlockBuilder builder) {
 		this(registry, typeMap, globalStrategy, processUID, builder,
 				new CriticalSectionTracker(registry, processUID, globalStrategy), ignored -> null);

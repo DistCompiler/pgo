@@ -14,7 +14,7 @@ import pgo.model.pcal.PlusCalProcess;
 import pgo.model.tla.TLAExpression;
 import pgo.model.tla.TLAFunctionCall;
 import pgo.model.tla.TLAGeneralIdentifier;
-import pgo.model.type.PGoType;
+import pgo.model.type.Type;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
 
@@ -27,11 +27,11 @@ import java.util.stream.Collectors;
 public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStrategy {
     private DefinitionRegistry registry;
     private Map<TLAExpression, GoExpression> resourceExpressions;
-    private Map<UID, PGoType> typeMap;
+    private Map<UID, Type> typeMap;
     private GoVariableName err;
     private GoVariableName distsys;
 
-    public ArchetypeResourcesGlobalVariableStrategy(DefinitionRegistry registry, Map<UID, PGoType> typeMap) {
+    public ArchetypeResourcesGlobalVariableStrategy(DefinitionRegistry registry, Map<UID, Type> typeMap) {
         this.registry = registry;
         this.typeMap = typeMap;
         this.resourceExpressions = new HashMap<>();
@@ -153,7 +153,7 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
         } else {
             throw new Unreachable();
         }
-        GoType readType = registry.getReadValueType(ref).accept(new PGoTypeGoTypeConversionVisitor());
+        GoType readType = registry.getReadValueType(ref).accept(new TypeConversionVisitor());
 
         // if this a function call being mapped, the read type used when casting should be
         // the value you get out of the slice or map inferred by the type system.

@@ -4,10 +4,10 @@ import pgo.errors.Issue;
 import pgo.errors.IssueVisitor;
 
 public class InfiniteTypeIssue extends Issue {
-	private final PGoType lhs;
-	private final PGoType rhs;
+	private final Type lhs;
+	private final Type rhs;
 
-	public InfiniteTypeIssue(PGoType lhs, PGoType rhs) {
+	public InfiniteTypeIssue(Type lhs, Type rhs) {
 		this.lhs = lhs;
 		this.rhs = rhs;
 	}
@@ -17,11 +17,11 @@ public class InfiniteTypeIssue extends Issue {
 		return v.visit(this);
 	}
 
-	public PGoType getLhs() {
+	public Type getLhs() {
 		return lhs;
 	}
 
-	public PGoType getRhs() {
+	public Type getRhs() {
 		return rhs;
 	}
 }

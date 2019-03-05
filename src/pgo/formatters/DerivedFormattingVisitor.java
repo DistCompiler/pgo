@@ -1,8 +1,8 @@
 package pgo.formatters;
 
-import pgo.model.type.PGoType;
-import pgo.model.type.PGoTypeMonomorphicConstraint;
-import pgo.model.type.PGoTypePolymorphicConstraint;
+import pgo.model.type.constraint.MonomorphicConstraint;
+import pgo.model.type.constraint.PolymorphicConstraint;
+import pgo.model.type.Type;
 import pgo.scope.UID;
 import pgo.trans.intermediate.OperatorAccessor;
 import pgo.util.Derived;
@@ -50,11 +50,11 @@ public class DerivedFormattingVisitor extends DerivedVisitor<Void, IOException> 
 	}
 
 	@Override
-	public Void visit(PGoType pGoType) throws IOException {
+	public Void visit(Type type) throws IOException {
 		out.write("type [");
-		pGoType.accept(new PGoTypeFormattingVisitor(out));
+		type.accept(new TypeFormattingVisitor(out));
 		out.write("]");
-		writeOrigins(pGoType);
+		writeOrigins(type);
 		return null;
 	}
 
@@ -66,14 +66,14 @@ public class DerivedFormattingVisitor extends DerivedVisitor<Void, IOException> 
 	}
 
 	@Override
-	public Void visit(PGoTypeMonomorphicConstraint pGoTypeMonomorphicConstraint) throws IOException {
+	public Void visit(MonomorphicConstraint pGoTypeMonomorphicConstraint) throws IOException {
 		out.write("type constraint");
 		writeOrigins(pGoTypeMonomorphicConstraint);
 		return null;
 	}
 
 	@Override
-	public Void visit(PGoTypePolymorphicConstraint pGoTypePolymorphicConstraint) throws IOException {
+	public Void visit(PolymorphicConstraint pGoTypePolymorphicConstraint) throws IOException {
 		out.write("polymorphic type constraint");
 		writeOrigins(pGoTypePolymorphicConstraint);
 		return null;

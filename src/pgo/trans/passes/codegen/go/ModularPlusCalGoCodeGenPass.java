@@ -14,8 +14,8 @@ import pgo.model.pcal.PlusCalStatement;
 import pgo.model.pcal.PlusCalVariableDeclaration;
 import pgo.model.tla.PlusCalDefaultInitValue;
 import pgo.model.tla.TLAExpression;
-import pgo.model.type.PGoType;
-import pgo.model.type.PGoTypeMap;
+import pgo.model.type.Type;
+import pgo.model.type.MapType;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
 
@@ -25,14 +25,14 @@ import java.util.stream.Collectors;
 public class ModularPlusCalGoCodeGenPass {
     private ModularPlusCalGoCodeGenPass() {}
 
-    private static void generateLocalVariableDefinitions(DefinitionRegistry registry, Map<UID, PGoType> typeMap,
+    private static void generateLocalVariableDefinitions(DefinitionRegistry registry, Map<UID, Type> typeMap,
                                                          GlobalVariableStrategy globalStrategy, GoBlockBuilder processBody,
                                                          List<PlusCalVariableDeclaration> variableDeclarations) {
         for (PlusCalVariableDeclaration variableDeclaration : variableDeclarations) {
             GoVariableName name;
 
             if (variableDeclaration.getValue() instanceof PlusCalDefaultInitValue) {
-                GoType varType = typeMap.get(variableDeclaration.getUID()).accept(new PGoTypeGoTypeConversionVisitor());
+                GoType varType = typeMap.get(variableDeclaration.getUID()).accept(new TypeConversionVisitor());
                 name = processBody.varDecl(variableDeclaration.getName().getValue(), varType);
             } else {
                 GoExpression value = variableDeclaration.getValue().accept(
@@ -47,8 +47,8 @@ public class ModularPlusCalGoCodeGenPass {
         }
     }
 
-    private static void generateInit(GoModuleBuilder module, DefinitionRegistry registry, Map<UID, PGoType> typeMap, GlobalVariableStrategy globalStrategy) {
-        Map<String, PGoType> constants = new TreeMap<>(); // sort constants for deterministic compiler output
+    private static void generateInit(GoModuleBuilder module, DefinitionRegistry registry, Map<UID, Type> typeMap, GlobalVariableStrategy globalStrategy) {
+        Map<String, Type> constants = new TreeMap<>(); // sort constants for deterministic compiler output
         Map<String, UID> constantIds = new HashMap<>();
         for (UID uid : registry.getConstants().stream().filter(c -> registry.getConstantValue(c).isPresent()).collect(Collectors.toSet())) {
             String name = registry.getConstantName(uid);
@@ -58,14 +58,14 @@ public class ModularPlusCalGoCodeGenPass {
 
         try (GoBlockBuilder initBuilder = module.defineFunction("init").getBlockBuilder()) {
             // generate constant definitions and initializations
-            for (Map.Entry<String, PGoType> pair : constants.entrySet()) {
+            for (Map.Entry<String, Type> pair : constants.entrySet()) {
                 // get() here is safe by construction
                 TLAExpression value = registry.getConstantValue(constantIds.get(pair.getKey())).get();
-                PGoType type = typeMap.get(constantIds.get(pair.getKey()));
+                Type type = typeMap.get(constantIds.get(pair.getKey()));
                 GoVariableName name = module.defineGlobal(
                         constantIds.get(pair.getKey()),
                         pair.getKey(),
-                        type.accept(new PGoTypeGoTypeConversionVisitor()));
+                        type.accept(new TypeConversionVisitor()));
                 initBuilder.assign(
                         name,
                         value.accept(new TLAExpressionCodeGenVisitor(initBuilder, registry, typeMap, globalStrategy)));
@@ -73,7 +73,7 @@ public class ModularPlusCalGoCodeGenPass {
         }
     }
 
-    public static GoModule perform(DefinitionRegistry registry, Map<UID, PGoType> typeMap, PGoOptions opts,
+    public static GoModule perform(DefinitionRegistry registry, Map<UID, Type> typeMap, PGoOptions opts,
                                    ModularPlusCalBlock modularPlusCalBlock) {
         GoModuleBuilder module = new GoModuleBuilder(modularPlusCalBlock.getName().getValue(), opts.buildPackage);
         GlobalVariableStrategy globalStrategy = new ArchetypeResourcesGlobalVariableStrategy(registry, typeMap);
@@ -96,7 +96,7 @@ public class ModularPlusCalGoCodeGenPass {
                 // find out if archetype resource should be passed as a slice if it is used
                 // like a TLA+ function in the archetype's body
                 GoType argType = resourceType;
-                if (typeMap.get(arg.getUID()) instanceof PGoTypeMap) {
+                if (typeMap.get(arg.getUID()) instanceof MapType) {
                     argType = new GoSliceType(resourceType);
                 }
 

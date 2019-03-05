@@ -9,7 +9,7 @@ import pgo.model.golang.type.GoType;
 import pgo.model.golang.type.GoTypeName;
 import pgo.model.mpcal.ModularPlusCalBlock;
 import pgo.model.pcal.PlusCalProcess;
-import pgo.model.type.PGoType;
+import pgo.model.type.Type;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
 
@@ -18,7 +18,7 @@ import java.util.stream.Collectors;
 
 public class EtcdGlobalVariableStrategy extends GlobalVariableStrategy {
 	private DefinitionRegistry registry;
-	private Map<UID, PGoType> typeMap;
+	private Map<UID, Type> typeMap;
 	private PGoNetOptions.StateOptions stateOptions;
 	private ModularPlusCalBlock modularPlusCalBlock;
 	private GoCommandLineArgumentParser commandLineArgumentParser;
@@ -27,7 +27,7 @@ public class EtcdGlobalVariableStrategy extends GlobalVariableStrategy {
 	private UID errUID;
 	private UID globalStateUID;
 
-	public EtcdGlobalVariableStrategy(DefinitionRegistry registry, Map<UID, PGoType> typeMap,
+	public EtcdGlobalVariableStrategy(DefinitionRegistry registry, Map<UID, Type> typeMap,
 	                                  PGoNetOptions.StateOptions stateOptions,
 	                                  ModularPlusCalBlock modularPlusCalBlock) {
 		this.registry = registry;

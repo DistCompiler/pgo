@@ -3,10 +3,10 @@ package pgo.trans.intermediate;
 import pgo.model.golang.GoExpression;
 import pgo.model.golang.builder.GoBlockBuilder;
 import pgo.model.tla.TLAExpression;
-import pgo.model.type.PGoType;
-import pgo.model.type.PGoTypeGenerator;
-import pgo.model.type.PGoTypeSolver;
-import pgo.model.type.PGoTypeVariable;
+import pgo.model.type.Type;
+import pgo.model.type.TypeGenerator;
+import pgo.model.type.TypeSolver;
+import pgo.model.type.TypeVariable;
 import pgo.scope.UID;
 import pgo.trans.passes.codegen.go.GlobalVariableStrategy;
 import pgo.util.Origin;
@@ -17,12 +17,12 @@ import java.util.Map;
 public class BuiltinOperator extends OperatorAccessor {
 
 	public interface TypeConstraintGenerator {
-		PGoType generate(Origin origin, List<PGoType> argTypes, PGoTypeSolver solver,
-		                 PGoTypeGenerator generator);
+		Type generate(Origin origin, List<Type> argTypes, TypeSolver solver,
+		              TypeGenerator generator);
 	}
 	public interface GoGenerator {
 		GoExpression generate(GoBlockBuilder builder, TLAExpression expr, DefinitionRegistry registry,
-							  List<TLAExpression> arguments, Map<UID, PGoType> typeMap, GlobalVariableStrategy globalStrategy);
+		                      List<TLAExpression> arguments, Map<UID, Type> typeMap, GlobalVariableStrategy globalStrategy);
 	}
 
 	private int argumentCount;
@@ -47,14 +47,14 @@ public class BuiltinOperator extends OperatorAccessor {
 	}
 
 	@Override
-	public PGoType constrainTypes(Origin origin, DefinitionRegistry registry, List<PGoType> argTypes, PGoTypeSolver solver,
-	                              PGoTypeGenerator generator, Map<UID, PGoTypeVariable> mapping) {
+	public Type constrainTypes(Origin origin, DefinitionRegistry registry, List<Type> argTypes, TypeSolver solver,
+	                           TypeGenerator generator, Map<UID, TypeVariable> mapping) {
 		return typeConstraintGenerator.generate(origin, argTypes, solver, generator);
 	}
 
 	@Override
 	public GoExpression generateGo(GoBlockBuilder builder, TLAExpression origin, DefinitionRegistry registry,
-								   List<TLAExpression> args, Map<UID, PGoType> typeMap, GlobalVariableStrategy globalStrategy) {
+	                               List<TLAExpression> args, Map<UID, Type> typeMap, GlobalVariableStrategy globalStrategy) {
 		return goGenerator.generate(builder, origin, registry, args, typeMap, globalStrategy);
 	}
 

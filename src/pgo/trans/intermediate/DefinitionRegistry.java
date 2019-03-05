@@ -7,8 +7,8 @@ import pgo.model.mpcal.ModularPlusCalMappingMacro;
 import pgo.model.pcal.PlusCalProcedure;
 import pgo.model.pcal.PlusCalVariableDeclaration;
 import pgo.model.tla.*;
-import pgo.model.type.PGoType;
-import pgo.model.type.PGoTypeGenerator;
+import pgo.model.type.Type;
+import pgo.model.type.TypeGenerator;
 import pgo.scope.UID;
 
 import java.util.*;
@@ -25,8 +25,8 @@ public class DefinitionRegistry {
 	private final Map<UID, UID> references;
 	private final Map<String, PlusCalProcedure> procedures;
 	private final Map<String, ModularPlusCalArchetype> archetypes;
-	private final Map<UID, PGoType> readValueTypes;
-	private final Map<UID, PGoType> writtenValueTypes;
+	private final Map<UID, Type> readValueTypes;
+	private final Map<UID, Type> writtenValueTypes;
 	private final Map<String, ModularPlusCalMappingMacro> mappingMacros;
 	private final Map<UID, Integer> labelsToLockGroups;
 	private final Map<Integer, Set<UID>> lockGroupsToVariableReads;
@@ -95,7 +95,7 @@ public class DefinitionRegistry {
 		archetypes.put(archetype.getName(), archetype);
 	}
 
-	public void addReadAndWrittenValueTypes(ModularPlusCalArchetype archetype, PGoTypeGenerator generator) {
+	public void addReadAndWrittenValueTypes(ModularPlusCalArchetype archetype, TypeGenerator generator) {
 		for (PlusCalVariableDeclaration declaration : archetype.getParams()) {
 			readValueTypes.put(declaration.getUID(), generator.getTypeVariable(Collections.singletonList(declaration)));
 			writtenValueTypes.put(
@@ -152,11 +152,11 @@ public class DefinitionRegistry {
 		return archetypes.get(name);
 	}
 
-	public PGoType getReadValueType(UID varUID) {
+	public Type getReadValueType(UID varUID) {
 		return readValueTypes.get(varUID);
 	}
 
-	public void updateReadValueType(UID uid, PGoType type) {
+	public void updateReadValueType(UID uid, Type type) {
 		if (!readValueTypes.containsKey(uid)) {
 			throw new InternalCompilerError();
 		}
@@ -167,11 +167,11 @@ public class DefinitionRegistry {
 		readValueTypes.keySet().forEach(action);
 	}
 
-	public PGoType getWrittenValueType(UID varUID) {
+	public Type getWrittenValueType(UID varUID) {
 		return writtenValueTypes.get(varUID);
 	}
 
-	public void updateWrittenValueType(UID uid, PGoType type) {
+	public void updateWrittenValueType(UID uid, Type type) {
 		if (!writtenValueTypes.containsKey(uid)) {
 			throw new InternalCompilerError();
 		}
