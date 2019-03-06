@@ -7,21 +7,20 @@ import pgo.util.SourceLocation;
 public class PlusCalVariableDeclaration extends PlusCalNode {
 	private final Located<String> name;
 	private final boolean isRef;
-	private final boolean isSet;
+	private final boolean set;
 	private final TLAExpression value;
 
-	public PlusCalVariableDeclaration(SourceLocation location, Located<String> name, boolean isRef, boolean isSet,
-	                                  TLAExpression value) {
+	public PlusCalVariableDeclaration(SourceLocation location, Located<String> name, boolean isRef, boolean isSet, TLAExpression value) {
 		super(location);
 		this.name = name;
 		this.isRef = isRef;
-		this.isSet = isSet;
+		this.set = isSet;
 		this.value = value;
 	}
 
 	@Override
 	public PlusCalVariableDeclaration copy() {
-		return new PlusCalVariableDeclaration(getLocation(), name, isRef, isSet, value.copy());
+		return new PlusCalVariableDeclaration(getLocation(), name, isRef, set, value.copy());
 	}
 
 	public Located<String> getName() {
@@ -33,7 +32,7 @@ public class PlusCalVariableDeclaration extends PlusCalNode {
 	}
 
 	public boolean isSet() {
-		return isSet;
+		return set;
 	}
 
 	public TLAExpression getValue(){
@@ -49,7 +48,7 @@ public class PlusCalVariableDeclaration extends PlusCalNode {
 	public int hashCode() {
 		final int prime = 31;
 		int result = 1;
-		result = prime * result + (isSet ? 1231 : 1237);
+		result = prime * result + (set ? 1231 : 1237);
 		result = prime * result + ((name == null) ? 0 : name.hashCode());
 		result = prime * result + ((value == null) ? 0 : value.hashCode());
 		return result;
@@ -64,7 +63,7 @@ public class PlusCalVariableDeclaration extends PlusCalNode {
 			return false;
 		}
 		PlusCalVariableDeclaration that = (PlusCalVariableDeclaration) obj;
-		return isSet == that.isSet &&
+		return set == that.set &&
 				((name == null && that.name == null) ||
 						(name != null && name.getValue().equals(that.name.getValue()))) &&
 				((value == null && that.value != null) ||

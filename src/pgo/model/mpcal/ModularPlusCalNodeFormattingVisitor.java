@@ -3,12 +3,10 @@ package pgo.model.mpcal;
 import pgo.TODO;
 import pgo.Unreachable;
 import pgo.formatters.IndentingWriter;
-import pgo.formatters.TypeFormattingVisitor;
 import pgo.formatters.PlusCalNodeFormattingVisitor;
 import pgo.formatters.TLAExpressionFormattingVisitor;
 import pgo.model.pcal.PlusCalFairness;
 import pgo.model.pcal.PlusCalStatement;
-import pgo.model.type.TypeVariable;
 
 import java.io.IOException;
 import java.util.stream.Collectors;
@@ -125,19 +123,6 @@ public class ModularPlusCalNodeFormattingVisitor extends ModularPlusCalNodeVisit
 		out.write("}");
 
 		out.write("}");
-		return null;
-	}
-
-	@Override
-	public Void visit(ModularPlusCalParameterDeclaration modularPlusCalParameterDeclaration) throws IOException {
-        if (modularPlusCalParameterDeclaration.isRef()) {
-        	out.write("ref ");
-        }
-        out.write(modularPlusCalParameterDeclaration.getName().getValue());
-        if (!(modularPlusCalParameterDeclaration.getType() instanceof TypeVariable)) {
-        	out.write(" : ");
-        	modularPlusCalParameterDeclaration.getType().accept(new TypeFormattingVisitor(out));
-        }
 		return null;
 	}
 }
