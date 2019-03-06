@@ -76,14 +76,14 @@ func AServer(self int, mailboxes distsys.ArchetypeResourceCollection, page_strea
 		if err != nil {
 			return err
 		}
-		err = distsys.AcquireResources(distsys.WRITE_ACCESS, mailboxes.Get(msg["client_id"]))
+		err = distsys.AcquireResources(distsys.WRITE_ACCESS, mailboxes.Get(msg["client_id"].(int)))
 		if err != nil {
 			return err
 		}
 		var resourceWrite interface{}
 		resourceWrite = page_stream.Read()
-		mailboxes.Get(msg["client_id"]).Write(resourceWrite)
-		err = distsys.ReleaseResources(page_stream, mailboxes.Get(msg["client_id"]))
+		mailboxes.Get(msg["client_id"].(int)).Write(resourceWrite)
+		err = distsys.ReleaseResources(page_stream, mailboxes.Get(msg["client_id"].(int)))
 		if err != nil {
 			return err
 		}

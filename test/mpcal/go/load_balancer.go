@@ -2,7 +2,6 @@ package load_balancer
 
 import (
 	"pgo/distsys"
-	"sort"
 )
 
 var GET_PAGE int
@@ -21,10 +20,7 @@ func init() {
 }
 
 func ALoadBalancer(self int, mailboxes distsys.ArchetypeResourceCollection) error {
-	var msg []struct {
-		key   int
-		value int
-	}
+	var msg []int
 	next := 0
 	var err error
 	for {
@@ -35,10 +31,7 @@ func ALoadBalancer(self int, mailboxes distsys.ArchetypeResourceCollection) erro
 		if err != nil {
 			return err
 		}
-		msg = mailboxes.Get(LoadBalancerId).Read().([]struct {
-			key   int
-			value int
-		})
+		msg = mailboxes.Get(LoadBalancerId).Read().([]int)
 		err = distsys.ReleaseResources(mailboxes.Get(LoadBalancerId))
 		if err != nil {
 			return err
@@ -49,11 +42,7 @@ func ALoadBalancer(self int, mailboxes distsys.ArchetypeResourceCollection) erro
 		}
 		next = next%NUM_SERVERS + 1
 		var resourceWrite interface{}
-		key := 2
-		index := sort.Search(len(msg), func(i int) bool {
-			return !(msg[i].key < key)
-		})
-		resourceWrite = []int{next, msg[index].value}
+		resourceWrite = []int{next, msg[2-1]}
 		mailboxes.Get(next).Write(resourceWrite)
 		err = distsys.ReleaseResources(mailboxes.Get(next))
 		if err != nil {
@@ -64,10 +53,7 @@ func ALoadBalancer(self int, mailboxes distsys.ArchetypeResourceCollection) erro
 }
 
 func AServer(self int, mailboxes distsys.ArchetypeResourceCollection, page_stream distsys.ArchetypeResource) error {
-	var msg []struct {
-		key   int
-		value interface{}
-	}
+	var msg []int
 	var err error
 	for {
 		if !true {
@@ -77,30 +63,23 @@ func AServer(self int, mailboxes distsys.ArchetypeResourceCollection, page_strea
 		if err != nil {
 			return err
 		}
-		msg = mailboxes.Get(self).Read().([]struct {
-			key   int
-			value interface{}
-		})
+		msg = mailboxes.Get(self).Read().([]int)
 		err = distsys.ReleaseResources(mailboxes.Get(self))
 		if err != nil {
 			return err
 		}
-		key := 2
-		index := sort.Search(len(msg), func(i int) bool {
-			return !(msg[i].key < key)
-		})
 		err = distsys.AcquireResources(distsys.READ_ACCESS, page_stream)
 		if err != nil {
 			return err
 		}
-		err = distsys.AcquireResources(distsys.WRITE_ACCESS, mailboxes.Get(msg[index].value))
+		err = distsys.AcquireResources(distsys.WRITE_ACCESS, mailboxes.Get(msg[2-1]))
 		if err != nil {
 			return err
 		}
 		var resourceWrite interface{}
 		resourceWrite = page_stream.Read()
-		mailboxes.Get(msg[index].value).Write(resourceWrite)
-		err = distsys.ReleaseResources(page_stream, mailboxes.Get(msg[index].value))
+		mailboxes.Get(msg[2-1]).Write(resourceWrite)
+		err = distsys.ReleaseResources(page_stream, mailboxes.Get(msg[2-1]))
 		if err != nil {
 			return err
 		}
