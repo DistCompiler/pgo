@@ -11,7 +11,6 @@ import pgo.model.pcal.PlusCalProcess;
 import pgo.model.tla.TLAExpression;
 import pgo.model.tla.TLAFunctionCall;
 import pgo.model.tla.TLAGeneralIdentifier;
-import pgo.model.type.ArchetypeResourceCollectionType;
 import pgo.model.type.Type;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
@@ -68,9 +67,9 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
                 }
 
                 TLAExpressionCodeGenVisitor codegen = new TLAExpressionCodeGenVisitor(builder, registry, typeMap, this);
-                resource = new GoIndexExpression(
-                        fnCall.getFunction().accept(codegen),
-                        fnCall.getParams().get(0).accept(codegen)
+                resource = new GoCall(
+                        new GoSelectorExpression(fnCall.getFunction().accept(codegen), "Get"),
+                        Collections.singletonList(fnCall.getParams().get(0).accept(codegen))
                 );
             } else {
                 throw new Unreachable();
@@ -89,7 +88,7 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
         // err = distsys.AcquireResources(distys.READ_ACCESS, ...{readExps})
         // if err != nil { return err }
         BiConsumer<String, Set<GoExpression>> acquire = (permission, resources) -> {
-            if (resources.size() > 0) {
+            if (!resources.isEmpty()) {
                 ArrayList<GoExpression> args = new ArrayList<>(
                         Arrays.asList(new GoSelectorExpression(distsys, permission))
                 );
@@ -160,6 +159,12 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
             readType = ((GoArchetypeResourceCollectionType) resourceType).getReadType();
         } else {
             readType = ((GoArchetypeResourceType) resourceType).getReadType();
+        }
+
+        // if the read type is inferred to be a TLA+ record, use a map[string]interface{}
+        // to represent it instead
+        if (readType instanceof GoStructType) {
+            readType = new GoMapType(GoBuiltins.String, GoBuiltins.Interface);
         }
 
         GoExpression target = resourceExpressions.get(resource);

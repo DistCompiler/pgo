@@ -17,10 +17,11 @@ func init() {
 	LoadBalancerId = 0
 	NUM_CLIENTS = 1
 	NUM_SERVERS = 2
+	distsys.DefineCustomType(map[string]interface{}{})
 }
 
 func ALoadBalancer(self int, mailboxes distsys.ArchetypeResourceCollection) error {
-	var msg []int
+	var msg map[string]interface{}
 	next := 0
 	var err error
 	for {
@@ -31,7 +32,7 @@ func ALoadBalancer(self int, mailboxes distsys.ArchetypeResourceCollection) erro
 		if err != nil {
 			return err
 		}
-		msg = mailboxes.Get(LoadBalancerId).Read().([]int)
+		msg = mailboxes.Get(LoadBalancerId).Read().(map[string]interface{})
 		err = distsys.ReleaseResources(mailboxes.Get(LoadBalancerId))
 		if err != nil {
 			return err
@@ -42,7 +43,10 @@ func ALoadBalancer(self int, mailboxes distsys.ArchetypeResourceCollection) erro
 		}
 		next = next%NUM_SERVERS + 1
 		var resourceWrite interface{}
-		resourceWrite = []int{next, msg[2-1]}
+		resourceWrite = map[string]interface{}{
+			"message_id": next,
+			"client_id":  msg["client_id"],
+		}
 		mailboxes.Get(next).Write(resourceWrite)
 		err = distsys.ReleaseResources(mailboxes.Get(next))
 		if err != nil {
@@ -53,7 +57,7 @@ func ALoadBalancer(self int, mailboxes distsys.ArchetypeResourceCollection) erro
 }
 
 func AServer(self int, mailboxes distsys.ArchetypeResourceCollection, page_stream distsys.ArchetypeResource) error {
-	var msg []int
+	var msg map[string]interface{}
 	var err error
 	for {
 		if !true {
@@ -63,7 +67,7 @@ func AServer(self int, mailboxes distsys.ArchetypeResourceCollection, page_strea
 		if err != nil {
 			return err
 		}
-		msg = mailboxes.Get(self).Read().([]int)
+		msg = mailboxes.Get(self).Read().(map[string]interface{})
 		err = distsys.ReleaseResources(mailboxes.Get(self))
 		if err != nil {
 			return err
@@ -72,14 +76,14 @@ func AServer(self int, mailboxes distsys.ArchetypeResourceCollection, page_strea
 		if err != nil {
 			return err
 		}
-		err = distsys.AcquireResources(distsys.WRITE_ACCESS, mailboxes.Get(msg[2-1]))
+		err = distsys.AcquireResources(distsys.WRITE_ACCESS, mailboxes.Get(msg["client_id"].(int)))
 		if err != nil {
 			return err
 		}
 		var resourceWrite interface{}
 		resourceWrite = page_stream.Read()
-		mailboxes.Get(msg[2-1]).Write(resourceWrite)
-		err = distsys.ReleaseResources(page_stream, mailboxes.Get(msg[2-1]))
+		mailboxes.Get(msg["client_id"].(int)).Write(resourceWrite)
+		err = distsys.ReleaseResources(page_stream, mailboxes.Get(msg["client_id"].(int)))
 		if err != nil {
 			return err
 		}
@@ -88,7 +92,7 @@ func AServer(self int, mailboxes distsys.ArchetypeResourceCollection, page_strea
 }
 
 func AClient(self int, mailboxes distsys.ArchetypeResourceCollection, instream distsys.ArchetypeResource, outstream distsys.ArchetypeResource) error {
-	var req []int
+	var req map[string]interface{}
 	var resp interface{}
 	var err error
 	for {
@@ -103,7 +107,11 @@ func AClient(self int, mailboxes distsys.ArchetypeResourceCollection, instream d
 		if err != nil {
 			return err
 		}
-		req = []int{GET_PAGE, self, instream.Read().(int)}
+		req = map[string]interface{}{
+			"message_type": GET_PAGE,
+			"instream":     instream.Read(),
+			"client_id":    self,
+		}
 		var resourceWrite interface{}
 		resourceWrite = req
 		mailboxes.Get(LoadBalancerId).Write(resourceWrite)

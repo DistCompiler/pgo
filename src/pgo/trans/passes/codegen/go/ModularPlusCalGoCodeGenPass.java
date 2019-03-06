@@ -1,25 +1,27 @@
 package pgo.trans.passes.codegen.go;
 
+import pgo.InternalCompilerError;
 import pgo.PGoOptions;
 import pgo.model.golang.*;
 import pgo.model.golang.builder.GoBlockBuilder;
 import pgo.model.golang.builder.GoFunctionDeclarationBuilder;
 import pgo.model.golang.builder.GoModuleBuilder;
-import pgo.model.golang.type.GoSliceType;
+import pgo.model.golang.type.GoMapType;
 import pgo.model.golang.type.GoType;
 import pgo.model.golang.type.GoTypeName;
 import pgo.model.mpcal.ModularPlusCalArchetype;
 import pgo.model.mpcal.ModularPlusCalBlock;
+import pgo.model.pcal.PlusCalNode;
 import pgo.model.pcal.PlusCalStatement;
 import pgo.model.pcal.PlusCalVariableDeclaration;
 import pgo.model.tla.PlusCalDefaultInitValue;
 import pgo.model.tla.TLAExpression;
-import pgo.model.type.Type;
-import pgo.model.type.MapType;
+import pgo.model.type.*;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
 
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class ModularPlusCalGoCodeGenPass {
@@ -30,9 +32,21 @@ public class ModularPlusCalGoCodeGenPass {
                                                          List<PlusCalVariableDeclaration> variableDeclarations) {
         for (PlusCalVariableDeclaration variableDeclaration : variableDeclarations) {
             GoVariableName name;
+            GoType varType;
 
             if (variableDeclaration.getValue() instanceof PlusCalDefaultInitValue) {
-                GoType varType = typeMap.get(variableDeclaration.getUID()).accept(new TypeConversionVisitor());
+                Type inferredType = typeMap.get(variableDeclaration.getUID());
+
+                // if the type of a variable is inferred to be a TLA+ record, use a map[string]interface{}
+                // to represent it. This avoids issues around sending and receiving of these variables
+                // through different archetype resources (e.g., RPC-based) and wrong casts
+                // when we cannot infer the correct type of the message on the receiving end
+                if (inferredType instanceof RecordType) {
+                    varType = new GoMapType(GoBuiltins.String, GoBuiltins.Interface);
+                } else {
+                    varType = inferredType.accept(new TypeConversionVisitor());
+                }
+
                 name = processBody.varDecl(variableDeclaration.getName().getValue(), varType);
             } else {
                 GoExpression value = variableDeclaration.getValue().accept(
@@ -47,7 +61,9 @@ public class ModularPlusCalGoCodeGenPass {
         }
     }
 
-    private static void generateInit(GoModuleBuilder module, DefinitionRegistry registry, Map<UID, Type> typeMap, GlobalVariableStrategy globalStrategy) {
+    private static void generateInit(ModularPlusCalBlock modularPlusCalBlock, GoModuleBuilder module,
+                                     DefinitionRegistry registry, Map<UID, Type> typeMap,
+                                     GlobalVariableStrategy globalStrategy) {
         Map<String, Type> constants = new TreeMap<>(); // sort constants for deterministic compiler output
         Map<String, UID> constantIds = new HashMap<>();
         for (UID uid : registry.getConstants().stream().filter(c -> registry.getConstantValue(c).isPresent()).collect(Collectors.toSet())) {
@@ -70,6 +86,42 @@ public class ModularPlusCalGoCodeGenPass {
                         name,
                         value.accept(new TLAExpressionCodeGenVisitor(initBuilder, registry, typeMap, globalStrategy)));
             }
+
+            // Given an archetype resource type, returns whether or not TLA+ record support should
+            // be registered with the runtime (i.e.. whether the type itself is a record, or a container
+            // of records).
+            Function<Type, Boolean> requiresRecords = type -> {
+                if (type instanceof ArchetypeResourceType) {
+                    return ((ArchetypeResourceType) type).getReadType() instanceof RecordType ||
+                            ((ArchetypeResourceType) type).getWriteType() instanceof RecordType;
+                }
+                if (type instanceof ArchetypeResourceCollectionType) {
+                    return ((ArchetypeResourceCollectionType) type).getReadType() instanceof RecordType ||
+                            ((ArchetypeResourceCollectionType) type).getWriteType() instanceof RecordType;
+                }
+                throw new InternalCompilerError();
+            };
+
+            // if the write type of any archetype resource is a record, define our record representation
+            // (map[string]interface{}) with the runtime
+            boolean writesRecord = modularPlusCalBlock
+                    .getArchetypes()
+                    .stream()
+                    .map(ModularPlusCalArchetype::getParams)
+                    .flatMap(Collection::stream)
+                    .map(PlusCalNode::getUID)
+                    .anyMatch(uid -> requiresRecords.apply(typeMap.get(uid)));
+
+            if (writesRecord) {
+                GoExpression register = new GoCall(
+                        new GoSelectorExpression(new GoVariableName("distsys"), "DefineCustomType"),
+                        Collections.singletonList(
+                                new GoMapLiteral(GoBuiltins.String, GoBuiltins.Interface, Collections.emptyMap())
+                        )
+                );
+
+                initBuilder.addStatement(register);
+            }
         }
     }
 
@@ -78,7 +130,7 @@ public class ModularPlusCalGoCodeGenPass {
         GoModuleBuilder module = new GoModuleBuilder(modularPlusCalBlock.getName().getValue(), opts.buildPackage);
         GlobalVariableStrategy globalStrategy = new ArchetypeResourcesGlobalVariableStrategy(registry, typeMap);
 
-        generateInit(module, registry, typeMap, globalStrategy);
+        generateInit(modularPlusCalBlock, module, registry, typeMap, globalStrategy);
 
         for (ModularPlusCalArchetype archetype : modularPlusCalBlock.getArchetypes()) {
             GoFunctionDeclarationBuilder fn = module.defineFunction(archetype.getUID(), archetype.getName());
@@ -88,16 +140,17 @@ public class ModularPlusCalGoCodeGenPass {
 
             // all archetypes have a `self` parameter
             GoVariableName selfVariable = fn.addParameter("self", GoBuiltins.Int);
-            GoType resourceType = new GoTypeName("distsys.ArchetypeResource");
 
             for (PlusCalVariableDeclaration arg : archetype.getParams()) {
                 module.addImport("pgo/distsys");
 
-                // find out if archetype resource should be passed as a slice if it is used
-                // like a TLA+ function in the archetype's body
-                GoType argType = resourceType;
-                if (typeMap.get(arg.getUID()) instanceof MapType) {
-                    argType = new GoSliceType(resourceType);
+                // find out if archetype resource should be passed as resource collection
+                // if it is used like a TLA+ function in the archetype's body
+                GoType argType;
+                if (typeMap.get(arg.getUID()) instanceof ArchetypeResourceCollectionType) {
+                    argType = new GoTypeName("distsys.ArchetypeResourceCollection");
+                } else {
+                    argType = new GoTypeName("distsys.ArchetypeResource");
                 }
 
                 argMap.put(arg.getName().getValue(), fn.addParameter(arg.getName().getValue(), argType));

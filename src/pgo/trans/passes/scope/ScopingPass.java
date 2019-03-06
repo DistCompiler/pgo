@@ -222,6 +222,7 @@ public class ScopingPass {
 					mappedPositions.put(pos, mapping);
 					modularPlusCalScope.reference(
 							archetype.getParams().get(pos-1).getUID(), mapping.getVariable().getUID());
+					modularPlusCalScope.reference(mapping.getTarget().getName(), mapping.getTarget().getUID());
 					if (positionsToNames.containsKey(pos)) {
 						String variableName = positionsToNames.get(pos);
 						handleNameMapping(ctx, mapping, variableName, modularPlusCalScope, mappedNames);

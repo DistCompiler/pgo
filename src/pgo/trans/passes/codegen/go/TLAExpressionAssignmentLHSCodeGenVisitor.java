@@ -31,12 +31,11 @@ public class TLAExpressionAssignmentLHSCodeGenVisitor extends TLAExpressionVisit
 
 	@Override
 	public GlobalVariableWrite visit(TLAGeneralIdentifier tlaGeneralIdentifier) throws RuntimeException {
-		UID uid = tlaGeneralIdentifier.getUID();
-		UID ref = registry.followReference(uid);
+		UID ref = registry.followReference(tlaGeneralIdentifier.getUID());
 
 		if (registry.isGlobalVariable(ref)) {
 			return globalStrategy.writeGlobalVariable(ref);
-		} else if (typeMap.get(uid) instanceof ArchetypeResourceType){
+		} else if (typeMap.get(ref) instanceof ArchetypeResourceType){
 			return globalStrategy.writeArchetypeResource(builder, tlaGeneralIdentifier);
 		} else if (registry.isLocalVariable(ref)) {
 			GoVariableName name = builder.findUID(ref);

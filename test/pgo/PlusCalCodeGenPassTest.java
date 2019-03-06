@@ -861,7 +861,7 @@ public class PlusCalCodeGenPassTest {
 						//
 						//   variable func = [i \in {0, 1} |-> i];
 						//   process (P = 42) == instance A(ref func)
-						//   mapping func via FunctionMapping;
+						//   mapping func[_] via FunctionMapping;
 						// }
 						mpcal(
 								"Algorithm6",
@@ -904,7 +904,7 @@ public class PlusCalCodeGenPassTest {
 												PlusCalFairness.WEAK_FAIR,
 												"A",
 												Collections.singletonList(ref("func")),
-												Collections.singletonList(mapping("func", false, "Identity"))
+												Collections.singletonList(mapping("func", true, "Identity"))
 										)
 								)
 						),
@@ -916,9 +916,9 @@ public class PlusCalCodeGenPassTest {
 						//         l1:
 						//             fWrite := [func EXCEPT ![0] = 1];
 						//             fWrite0 := [fWrite EXCEPT ![1] = 0];
-						//             fRead := fWrite0;
-						//             fRead0 := fWrite0;
-						//             print <<fRead[0],fRead0[1]>>;
+						//             fRead := fWrite0[0];
+						//             fRead0 := fWrite0[1];
+						//             print <<fRead,fRead0>>;
 						//             func := fWrite0;
 						//     }
 						// }
@@ -951,9 +951,9 @@ public class PlusCalCodeGenPassTest {
 												label("l1"),
 												assign(idexp("fWrite"), fnSubst(idexp("func"), fnSubstPair(Collections.singletonList(substKey(num(0))), num(1)))),
 												assign(idexp("fWrite0"), fnSubst(idexp("fWrite"), fnSubstPair(Collections.singletonList(substKey(num(1))), num(0)))),
-												assign(idexp("fRead"), idexp("fWrite0")),
-												assign(idexp("fRead0"), idexp("fWrite0")),
-												printS(tuple(fncall(idexp("fRead"), num(0)), fncall(idexp("fRead0"), num(1)))),
+												assign(idexp("fRead"), fncall(idexp("fWrite0"), num(0))),
+												assign(idexp("fRead0"), fncall(idexp("fWrite0"), num(1))),
+												printS(tuple(idexp("fRead"), idexp("fRead0"))),
 												assign(idexp("func"), idexp("fWrite0"))
 										)
 								)
@@ -997,9 +997,9 @@ public class PlusCalCodeGenPassTest {
 						//
 						//   variable network = [i \in {0, 1} |-> <<>>];
 						//   process (S = 42) == instance AddServer(ref network)
-						//   mapping network[_] via TCPConnection;
+						//     mapping network[_] via TCPConnection;
 						//   process (C \in {0, 1}) == instance AddClient(ref network)
-						//   mapping network[_] via TCPConnection;
+						//     mapping network[_] via TCPConnection;
 						// }
 						mpcal(
 								"Algorithm7",
@@ -1228,6 +1228,11 @@ public class PlusCalCodeGenPassTest {
 
 				{
 						// --mpcal Algorithm8 {
+						//  mapping macro Identity {
+						//      read  { yield $variable; }
+						//      write { yield $value; }
+						//  }
+						//
 						//  archetype Arch(ref mailboxes, ref other) {
 						//      l: other := mailboxes[self];
 						//  }
@@ -1235,13 +1240,20 @@ public class PlusCalCodeGenPassTest {
 						//  variables network = <<>>,
 						//            processor = 0;
 						//
-						//  fair process (SomeProcess = 3) == instance Arch(ref network, ref processor);
+						//  fair process (SomeProcess = 3) == instance Arch(ref network, ref processor)
+						//      mapping network[_] via Identity;
 						mpcal(
 								"Algorithm8",
 								Collections.emptyList(),
 								Collections.emptyList(),
 								Collections.emptyList(),
-								Collections.emptyList(),
+								Collections.singletonList(
+										mappingMacro(
+												"Identity",
+												Collections.singletonList(yield(DOLLAR_VARIABLE)),
+												Collections.singletonList(yield(DOLLAR_VALUE))
+										)
+								),
 								Collections.singletonList(
 										archetype(
 												"Arch",
@@ -1271,7 +1283,9 @@ public class PlusCalCodeGenPassTest {
 														ref("network"),
 														ref("processor")
 												),
-												Collections.emptyList()
+												Collections.singletonList(
+														mapping("network", true, "Identity")
+												)
 										)
 								)
 						),
@@ -1303,8 +1317,8 @@ public class PlusCalCodeGenPassTest {
 										),
 										labeled(
 												label("l"),
-												assign(idexp("mailboxesRead"), idexp("network")),
-												assign(idexp("otherWrite"), fncall(idexp("mailboxesRead"), idexp("self"))),
+												assign(idexp("mailboxesRead"), fncall(idexp("network"), idexp("self"))),
+												assign(idexp("otherWrite"), idexp("mailboxesRead")),
 												assign(idexp("processor"), idexp("otherWrite"))
 										)
 								)
@@ -2344,7 +2358,7 @@ public class PlusCalCodeGenPassTest {
 										)
 								)
 						),
-						// --algorithm Algorithm16 {
+						// --algorithm Algorithm17 {
 						//     fair process (Proc = 0)
 						//     {
 						//         l1:
@@ -2373,6 +2387,176 @@ public class PlusCalCodeGenPassTest {
 										)
 								)
 						)
+				},
+
+				{
+						// --mpcal Algorithm18 {
+						//   mapping macro Macro {
+						//     read {
+						//       yield $variable;
+						//     }
+						//     write {
+						//       yield $variable + $value;
+						//     }
+						//   }
+						//   archetype A(ref a)
+						//   {
+						//     l1:
+						//       a := 1;
+						//       print a;
+						//   }
+						//
+						//   fair process (Proc = 0) == instance A(0)
+						//     mapping @1 via Macro;
+						// }
+						mpcal(
+								"Algorithm18",
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.singletonList(
+										mappingMacro(
+												"Macro",
+												Collections.singletonList(yield(DOLLAR_VARIABLE)),
+												Collections.singletonList(
+														yield(binop("+", DOLLAR_VARIABLE, DOLLAR_VALUE))))),
+								Collections.singletonList(
+										archetype(
+												"A",
+												Collections.singletonList(pcalVarDecl("a", true, false, PLUSCAL_DEFAULT_INIT_VALUE)),
+												Collections.emptyList(),
+												Collections.singletonList(
+														labeled(
+																label("l1"),
+																assign(idexp("a"), num(1)),
+																printS(idexp("a")))))),
+								Collections.emptyList(),
+								Collections.singletonList(
+										instance(
+												pcalVarDecl("Proc", false, false, num(0)),
+												PlusCalFairness.WEAK_FAIR,
+												"A",
+												Collections.singletonList(num(0)),
+												Collections.singletonList(
+														mapping(1, false, "Macro"))))),
+						// --algorithm Algorithm18 {
+						//     fair process (Proc = 0)
+						//     variables aLocal = 0, aWrite, aRead;
+						//     {
+						//         l1:
+						//           aWrite := aLocal + 1;
+						//           aRead := aWrite;
+						//           print aRead;
+						//           aLocal := aWrite;
+						//     }
+						// }
+						algorithm(
+								"Algorithm18",
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								process(
+										pcalVarDecl("Proc", false, false, num(0)),
+										PlusCalFairness.WEAK_FAIR,
+										Arrays.asList(
+												pcalVarDecl("aLocal", false, false, num(0)),
+												pcalVarDecl("aWrite", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+												pcalVarDecl("aRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE)),
+										labeled(
+												label("l1"),
+												assign(idexp("aWrite"), binop("+", idexp("aLocal"), num(1))),
+												assign(idexp("aRead"), idexp("aWrite")),
+												printS(idexp("aRead")),
+												assign(idexp("aLocal"), idexp("aWrite")))))
+				},
+
+				{
+						// --mpcal Algorithm19 {
+						//   mapping macro Macro {
+						//     read {
+						//       yield $variable;
+						//     }
+						//     write {
+						//       yield $variable + $value;
+						//     }
+						//   }
+						//   archetype A(ref a)
+						//   {
+						//     l1:
+						//       a[1] := 1;
+						//       print a[1];
+						//   }
+						//
+						//   fair process (Proc = 0) == instance A(<<0>>)
+						//     mapping @1[_] via Macro;
+						// }
+						mpcal(
+								"Algorithm18",
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.singletonList(
+										mappingMacro(
+												"Macro",
+												Collections.singletonList(yield(DOLLAR_VARIABLE)),
+												Collections.singletonList(
+														yield(binop("+", DOLLAR_VARIABLE, DOLLAR_VALUE))))),
+								Collections.singletonList(
+										archetype(
+												"A",
+												Collections.singletonList(pcalVarDecl("a", true, false, PLUSCAL_DEFAULT_INIT_VALUE)),
+												Collections.emptyList(),
+												Collections.singletonList(
+														labeled(
+																label("l1"),
+																assign(fncall(idexp("a"), num(1)), num(1)),
+																printS(fncall(idexp("a"), num(1))))))),
+								Collections.emptyList(),
+								Collections.singletonList(
+										instance(
+												pcalVarDecl("Proc", false, false, num(0)),
+												PlusCalFairness.WEAK_FAIR,
+												"A",
+												Collections.singletonList(tuple(num(0))),
+												Collections.singletonList(
+														mapping(1, true, "Macro"))))),
+						// --algorithm Algorithm18 {
+						//     fair process (Proc = 0)
+						//     variables aLocal = <<0>>, aWrite, aRead;
+						//     {
+						//         l1:
+						//           aWrite := [aLocal EXCEPT ![1] = aLocal[1] + 1];
+						//           aRead := aWrite[1];
+						//           print aRead;
+						//           aLocal := aWrite;
+						//     }
+						// }
+						algorithm(
+								"Algorithm18",
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								process(
+										pcalVarDecl("Proc", false, false, num(0)),
+										PlusCalFairness.WEAK_FAIR,
+										Arrays.asList(
+												pcalVarDecl("aLocal", false, false, tuple(num(0))),
+												pcalVarDecl("aWrite", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+												pcalVarDecl("aRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE)),
+										labeled(
+												label("l1"),
+												assign(
+														idexp("aWrite"),
+														fnSubst(
+																idexp("aLocal"),
+																fnSubstPair(
+																		Collections.singletonList(key(num(1))),
+																		binop("+", fncall(idexp("aLocal"), num(1)), num(1))))),
+												assign(idexp("aRead"), fncall(idexp("aWrite"), num(1))),
+												printS(idexp("aRead")),
+												assign(idexp("aLocal"), idexp("aWrite")))))
 				},
 		});
 	}
