@@ -1,12 +1,9 @@
 package pgo.trans.passes.type;
 
-import pgo.InternalCompilerError;
 import pgo.errors.IssueContext;
 import pgo.model.mpcal.*;
 import pgo.model.pcal.*;
 import pgo.model.tla.TLAExpression;
-import pgo.model.tla.TLAGeneralIdentifier;
-import pgo.model.tla.TLARef;
 import pgo.model.tla.TLAUnit;
 import pgo.model.type.*;
 import pgo.model.type.constraint.EqualityConstraint;
@@ -100,23 +97,37 @@ public class TypeInferencePass {
 		}
 
 		for (ModularPlusCalArchetype archetype : modularPlusCalBlock.getArchetypes()) {
-			registry.addReadAndWrittenValueTypes(archetype, generator);
+			boolean[] signature = registry.getSignature(archetype.getUID()).get();
+			List<PlusCalVariableDeclaration> params = archetype.getParams();
+			List<Type> paramTypes = new ArrayList<>();
+			Set<UID> paramUIDs = new HashSet<>();
+			Set<UID> functionMappedParamUIDs = new HashSet<>();
+			for (int i = 0; i < params.size(); i++) {
+				PlusCalVariableDeclaration param = params.get(i);
+				TypeVariable fresh = generator.getTypeVariable(Collections.singletonList(param));
+				mapping.put(param.getUID(), fresh);
+				paramUIDs.add(param.getUID());
+				if (signature[i]) {
+					solver.addConstraint(new MonomorphicConstraint(param, fresh, new ArchetypeResourceCollectionType(
+							generator.getTypeVariable(Collections.singletonList(param)),
+							generator.getTypeVariable(Collections.singletonList(param)),
+							generator.getTypeVariable(Collections.singletonList(param)),
+							Collections.singletonList(param))));
+					functionMappedParamUIDs.add(param.getUID());
+				} else {
+					solver.addConstraint(new MonomorphicConstraint(param, fresh, new ArchetypeResourceType(
+							generator.getTypeVariable(Collections.singletonList(param)),
+							generator.getTypeVariable(Collections.singletonList(param)),
+							Collections.singletonList(param))));
+				}
+				paramTypes.add(fresh);
+			}
 			UID selfVariableUID = archetype.getSelfVariableUID();
 			mapping.put(selfVariableUID, generator.getTypeVariable(Collections.singletonList(archetype)));
 			constrainSelfVariable(archetype, selfVariableUID, solver, mapping);
-			List<Type> paramTypes = new ArrayList<>();
-			Set<UID> paramUIDs = new HashSet<>();
-			for (PlusCalVariableDeclaration declaration : archetype.getParams()) {
-				paramUIDs.add(declaration.getUID());
-				constrainVariableDeclaration(registry, declaration, solver, generator, mapping);
-				paramTypes.add(mapping.get(declaration.getUID()));
-			}
-			for (PlusCalVariableDeclaration declaration : archetype.getVariables()) {
-				constrainVariableDeclaration(registry, declaration, solver, generator, mapping);
-			}
 			for (PlusCalStatement statement : archetype.getBody()) {
 				statement.accept(new ArchetypeBodyStatementTypeConstraintVisitor(
-						registry, solver, generator, mapping, paramUIDs));
+						registry, solver, generator, mapping, functionMappedParamUIDs, paramUIDs));
 			}
 			TypeVariable fresh = generator.getTypeVariable(Collections.singletonList(archetype));
 			solver.addConstraint(new MonomorphicConstraint(
@@ -131,67 +142,10 @@ public class TypeInferencePass {
 			ModularPlusCalArchetype target = registry.findArchetype(instance.getTarget());
 			solver.addConstraint(new MonomorphicConstraint(
 					instance, mapping.get(selfVariableUID), mapping.get(target.getSelfVariableUID())));
-			List<Type> argumentTypes = new ArrayList<>();
 			TLAExpressionTypeConstraintVisitor v =
 					new TLAExpressionTypeConstraintVisitor(registry, solver, generator, mapping);
-			List<TLAExpression> arguments = instance.getArguments();
-			for (TLAExpression expression : arguments) {
-				argumentTypes.add(v.wrappedVisit(expression));
-			}
-			solver.addConstraint(new MonomorphicConstraint(
-					instance,
-					mapping.get(target.getUID()),
-					new ProcedureType(argumentTypes, Collections.singletonList(instance))));
-			Map<UID, UID> argsToParams = new HashMap<>();
-			List<PlusCalVariableDeclaration> params = target.getParams();
-			for (int i = 0; i < params.size(); i++) {
-				TLAExpression argument = arguments.get(i);
-				if (argument instanceof TLAGeneralIdentifier || argument instanceof TLARef) {
-					argsToParams.put(registry.followReference(argument.getUID()), params.get(i).getUID());
-				}
-			}
-			for (ModularPlusCalMapping instanceMapping : instance.getMappings()) {
-				ModularPlusCalMappingVariable mappingVariable = instanceMapping.getVariable();
-				if (mappingVariable.isFunctionCall() && argsToParams.containsKey(mappingVariable.getUID())) {
-					UID declarationUID = argsToParams.get(mappingVariable.getUID());
-					TypeVariable mapKeyType = generator.getTypeVariable(Collections.singletonList(declarationUID));
-					solver.addConstraint(new PolymorphicConstraint(declarationUID, Arrays.asList(
-							Arrays.asList(
-									new EqualityConstraint(
-											registry.getReadValueType(declarationUID),
-											new SliceType(
-													generator.getTypeVariable(
-															Collections.singletonList(declarationUID)),
-													Collections.singletonList(declarationUID))),
-									new EqualityConstraint(
-											registry.getWrittenValueType(declarationUID),
-											new SliceType(
-													generator.getTypeVariable(
-															Collections.singletonList(declarationUID)),
-													Collections.singletonList(declarationUID)))),
-							Arrays.asList(
-									new EqualityConstraint(
-											registry.getReadValueType(declarationUID),
-											new MapType(
-													mapKeyType,
-													generator.getTypeVariable(
-															Collections.singletonList(declarationUID)),
-													Collections.singletonList(declarationUID))),
-									new EqualityConstraint(
-											registry.getWrittenValueType(declarationUID),
-											new MapType(
-													mapKeyType,
-													generator.getTypeVariable(
-															Collections.singletonList(declarationUID)),
-													Collections.singletonList(declarationUID)))),
-							Arrays.asList(
-									new EqualityConstraint(
-											registry.getReadValueType(declarationUID),
-											generator.getTypeVariable(Collections.singletonList(declarationUID))),
-									new EqualityConstraint(
-											registry.getWrittenValueType(declarationUID),
-											generator.getTypeVariable(Collections.singletonList(declarationUID)))))));
-				}
+			for (TLAExpression expression : instance.getArguments()) {
+				v.wrappedVisit(expression);
 			}
 		}
 
@@ -235,22 +189,6 @@ public class TypeInferencePass {
 			TypeVariable typeVariable = m.getValue();
 			resultingTypeMapping.put(uid, processor.process(substitution, typeVariable));
 		}
-		registry.forEachReadValueType(uid -> {
-			TypeVariable typeVariable = (TypeVariable) registry.getReadValueType(uid);
-			if (typeVariable == null) {
-				throw new InternalCompilerError();
-			}
-			Type type = processor.process(substitution, typeVariable);
-			registry.updateReadValueType(uid, type);
-		});
-		registry.forEachWrittenValueType(uid -> {
-			TypeVariable typeVariable = (TypeVariable) registry.getWrittenValueType(uid);
-			if (typeVariable == null) {
-				throw new InternalCompilerError();
-			}
-			Type type = processor.process(substitution, typeVariable);
-			registry.updateWrittenValueType(uid, type);
-		});
 
 		TypeConversionVisitor goTypeConversionVisitor = new TypeConversionVisitor();
 		for (UID varUID : registry.globalVariables()) {

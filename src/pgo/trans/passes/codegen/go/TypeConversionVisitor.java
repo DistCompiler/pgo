@@ -3,10 +3,7 @@ package pgo.trans.passes.codegen.go;
 import pgo.InternalCompilerError;
 import pgo.TODO;
 import pgo.model.golang.GoBuiltins;
-import pgo.model.golang.type.GoSliceType;
-import pgo.model.golang.type.GoStructType;
-import pgo.model.golang.type.GoStructTypeField;
-import pgo.model.golang.type.GoType;
+import pgo.model.golang.type.*;
 import pgo.model.type.*;
 
 import java.util.ArrayList;
@@ -18,6 +15,21 @@ public class TypeConversionVisitor extends TypeVisitor<GoType, RuntimeException>
 	@Override
 	public GoType visit(AbstractRecordType abstractRecordType) throws RuntimeException {
 		throw new InternalCompilerError();
+	}
+
+	@Override
+	public GoType visit(ArchetypeResourceType archetypeResourceType) throws RuntimeException {
+		return new GoArchetypeResourceType(
+				archetypeResourceType.getReadType().accept(this),
+				archetypeResourceType.getWriteType().accept(this));
+	}
+
+	@Override
+	public GoType visit(ArchetypeResourceCollectionType archetypeResourceCollectionType) throws RuntimeException {
+		return new GoArchetypeResourceCollectionType(
+				archetypeResourceCollectionType.getKeyType().accept(this),
+				archetypeResourceCollectionType.getReadType().accept(this),
+				archetypeResourceCollectionType.getWriteType().accept(this));
 	}
 
 	@Override

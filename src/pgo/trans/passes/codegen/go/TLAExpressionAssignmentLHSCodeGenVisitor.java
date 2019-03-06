@@ -6,6 +6,8 @@ import pgo.model.golang.GoExpression;
 import pgo.model.golang.GoVariableName;
 import pgo.model.golang.builder.GoBlockBuilder;
 import pgo.model.tla.*;
+import pgo.model.type.ArchetypeResourceCollectionType;
+import pgo.model.type.ArchetypeResourceType;
 import pgo.model.type.Type;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
@@ -34,7 +36,7 @@ public class TLAExpressionAssignmentLHSCodeGenVisitor extends TLAExpressionVisit
 
 		if (registry.isGlobalVariable(ref)) {
 			return globalStrategy.writeGlobalVariable(ref);
-		} else if (registry.isArchetypeResource(uid)){
+		} else if (typeMap.get(uid) instanceof ArchetypeResourceType){
 			return globalStrategy.writeArchetypeResource(builder, tlaGeneralIdentifier);
 		} else if (registry.isLocalVariable(ref)) {
 			GoVariableName name = builder.findUID(ref);
@@ -67,7 +69,7 @@ public class TLAExpressionAssignmentLHSCodeGenVisitor extends TLAExpressionVisit
 
 	@Override
 	public GlobalVariableWrite visit(TLAFunctionCall tlaFunctionCall) throws RuntimeException {
-		if (registry.isArchetypeResource(tlaFunctionCall.getUID())) {
+		if (typeMap.get(tlaFunctionCall.getFunction().getUID()) instanceof ArchetypeResourceCollectionType) {
 			return globalStrategy.writeArchetypeResource(builder, tlaFunctionCall);
 		}
 

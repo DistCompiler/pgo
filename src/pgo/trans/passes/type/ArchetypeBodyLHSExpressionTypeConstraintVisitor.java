@@ -11,13 +11,13 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 
-public class ArchetypeBodyExpressionTypeConstraintVisitor extends TLAExpressionTypeConstraintVisitor {
+public class ArchetypeBodyLHSExpressionTypeConstraintVisitor extends TLAExpressionTypeConstraintVisitor {
 	private final Set<UID> functionMappedParamUIDs;
 	private final Set<UID> paramUIDs;
 
-	public ArchetypeBodyExpressionTypeConstraintVisitor(DefinitionRegistry registry, TypeSolver solver,
-	                                                    TypeGenerator generator, Map<UID, TypeVariable> mapping,
-	                                                    Set<UID> functionMappedParamUIDs, Set<UID> paramUIDs) {
+	public ArchetypeBodyLHSExpressionTypeConstraintVisitor(DefinitionRegistry registry, TypeSolver solver,
+	                                                       TypeGenerator generator, Map<UID, TypeVariable> mapping,
+	                                                       Set<UID> functionMappedParamUIDs, Set<UID> paramUIDs) {
 		super(registry, solver, generator, mapping);
 		this.functionMappedParamUIDs = functionMappedParamUIDs;
 		this.paramUIDs = paramUIDs;
@@ -33,8 +33,8 @@ public class ArchetypeBodyExpressionTypeConstraintVisitor extends TLAExpressionT
 					tlaGeneralIdentifier,
 					mapping.get(varUID),
 					new ArchetypeResourceType(
-							returnType,
 							generator.getTypeVariable(Collections.singletonList(tlaGeneralIdentifier)),
+							returnType,
 							Collections.singletonList(tlaGeneralIdentifier))));
 			return returnType;
 		}
@@ -55,8 +55,8 @@ public class ArchetypeBodyExpressionTypeConstraintVisitor extends TLAExpressionT
 					mapping.get(varUID),
 					new ArchetypeResourceCollectionType(
 							wrappedVisit(tlaFunctionCall.getParams().get(0)),
-							returnType,
 							generator.getTypeVariable(Collections.singletonList(tlaFunctionCall)),
+							returnType,
 							Collections.singletonList(tlaFunctionCall))));
 			return returnType;
 		}

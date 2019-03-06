@@ -30,6 +30,16 @@ public class LessThanCodeGenVisitor extends GoTypeVisitor<GoExpression, RuntimeE
 		}
 	}
 
+	@Override
+	public GoExpression visit(GoArchetypeResourceType archetypeResourceType) throws RuntimeException {
+		throw new TODO();
+	}
+
+	@Override
+	public GoExpression visit(GoArchetypeResourceCollectionType archetypeResourceCollectionType) throws RuntimeException {
+		throw new TODO();
+	}
+
 	private GoExpression constructStructComparison(int i, List<GoStructTypeField> fields){
 		GoStructTypeField field = fields.get(i);
 		if(fields.size() == i+1){

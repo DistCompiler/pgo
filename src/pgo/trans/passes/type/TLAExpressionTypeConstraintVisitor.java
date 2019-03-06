@@ -19,9 +19,9 @@ import java.util.stream.Collectors;
 
 public class TLAExpressionTypeConstraintVisitor extends TLAExpressionVisitor<Type, RuntimeException> {
 	protected final DefinitionRegistry registry;
-	private final TypeSolver solver;
-	private final TypeGenerator generator;
-	private final Map<UID, TypeVariable> mapping;
+	protected final TypeSolver solver;
+	protected final TypeGenerator generator;
+	protected final Map<UID, TypeVariable> mapping;
 
 	public TLAExpressionTypeConstraintVisitor(DefinitionRegistry registry, TypeSolver solver,
 	                                          TypeGenerator generator, Map<UID, TypeVariable> mapping) {
@@ -47,6 +47,14 @@ public class TLAExpressionTypeConstraintVisitor extends TLAExpressionVisitor<Typ
 			TypeVariable self = generator.getTypeVariable(Collections.singletonList(expr));
 			solver.addConstraint(new MonomorphicConstraint(expr, result, self));
 			mapping.put(expr.getUID(), self);
+		}
+		return result;
+	}
+
+	public List<Type> wrappedVisit(List<TLAExpression> expressions) {
+		List<Type> result = new ArrayList<>();
+		for (TLAExpression expr : expressions) {
+			result.add(wrappedVisit(expr));
 		}
 		return result;
 	}
@@ -82,10 +90,7 @@ public class TLAExpressionTypeConstraintVisitor extends TLAExpressionVisitor<Typ
 	@Override
 	public Type visit(TLAFunctionCall tlaFunctionCall) throws RuntimeException {
 		Type fnType = wrappedVisit(tlaFunctionCall.getFunction());
-		List<Type> paramTypes = new ArrayList<>();
-		for (TLAExpression param : tlaFunctionCall.getParams()) {
-			paramTypes.add(wrappedVisit(param));
-		}
+		List<Type> paramTypes = wrappedVisit(tlaFunctionCall.getParams());
 		TypeVariable returnType = generator.getTypeVariable(Collections.singletonList(tlaFunctionCall));
 		if (paramTypes.size() == 1) {
 			solver.addConstraint(new PolymorphicConstraint(tlaFunctionCall, Arrays.asList(

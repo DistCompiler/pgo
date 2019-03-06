@@ -10,9 +10,7 @@ import pgo.model.golang.type.GoSliceType;
 import pgo.model.golang.type.GoStructType;
 import pgo.model.golang.type.GoType;
 import pgo.model.tla.*;
-import pgo.model.type.Type;
-import pgo.model.type.MapType;
-import pgo.model.type.SliceType;
+import pgo.model.type.*;
 import pgo.scope.UID;
 import pgo.trans.intermediate.*;
 
@@ -93,7 +91,7 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 
 	@Override
 	public GoExpression visit(TLAFunctionCall tlaFunctionCall) throws RuntimeException {
-		if (registry.isArchetypeResource(tlaFunctionCall.getUID())) {
+		if (typeMap.get(tlaFunctionCall.getFunction().getUID()) instanceof ArchetypeResourceCollectionType) {
 			return globalStrategy.readArchetypeResource(builder, tlaFunctionCall);
 		}
 
@@ -289,7 +287,7 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 		if (registry.isGlobalVariable(ref)) {
 			return globalStrategy.readGlobalVariable(builder, ref);
 		}
-		if (registry.isArchetypeResource(uid)) {
+		if (typeMap.get(uid) instanceof ArchetypeResourceType) {
 			return globalStrategy.readArchetypeResource(builder, tlaGeneralIdentifier);
 		}
 		if (registry.isLocalVariable(ref)) {

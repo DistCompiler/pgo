@@ -2,6 +2,8 @@ package pgo.model.type;
 
 public abstract class TypeVisitor<T, E extends Throwable> {
 	public abstract T visit(AbstractRecordType abstractRecordType) throws E;
+	public abstract T visit(ArchetypeResourceType archetypeResourceType) throws E;
+	public abstract T visit(ArchetypeResourceCollectionType archetypeResourceCollectionType) throws E;
 	public abstract T visit(BoolType boolType) throws E;
 	public abstract T visit(ChanType chanType) throws E;
 	public abstract T visit(FunctionType functionType) throws E;

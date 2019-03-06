@@ -15,6 +15,21 @@ public class TypeVariableSubstitutionVisitor extends TypeVisitor<Type, RuntimeEx
 	}
 
 	@Override
+	public Type visit(ArchetypeResourceType archetypeResourceType) throws RuntimeException {
+		archetypeResourceType.setReadType(archetypeResourceType.getReadType().accept(this));
+		archetypeResourceType.setWriteType(archetypeResourceType.getWriteType().accept(this));
+		return archetypeResourceType;
+	}
+
+	@Override
+	public Type visit(ArchetypeResourceCollectionType archetypeResourceCollectionType) throws RuntimeException {
+		archetypeResourceCollectionType.setKeyType(archetypeResourceCollectionType.getKeyType().accept(this));
+		archetypeResourceCollectionType.setReadType(archetypeResourceCollectionType.getReadType().accept(this));
+		archetypeResourceCollectionType.setWriteType(archetypeResourceCollectionType.getWriteType().accept(this));
+		return archetypeResourceCollectionType;
+	}
+
+	@Override
 	public Type visit(TypeVariable typeVariable) throws RuntimeException {
 		Type old = typeVariable;
 		Type sub = substitution.getOrDefault(typeVariable, typeVariable);

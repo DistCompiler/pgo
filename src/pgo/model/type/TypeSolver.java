@@ -288,7 +288,7 @@ public class TypeSolver {
 									.unify(this, new RecordTypeEntry.Concrete((RecordType) a)));
 				} catch (UnificationException e) {
 					if (backtrack()) {
-                        continue;
+						continue;
 					}
 					return Optional.of(e.getIssue());
 				}
@@ -302,6 +302,28 @@ public class TypeSolver {
 					}
 					return Optional.of(e.getIssue());
 				}
+			} else if (a instanceof ArchetypeResourceType && b instanceof ArchetypeResourceType) {
+				constraints.addFirst(new MonomorphicConstraint(
+						constraint,
+						((ArchetypeResourceType) a).getReadType(),
+						((ArchetypeResourceType) b).getReadType()));
+				constraints.addFirst(new MonomorphicConstraint(
+						constraint,
+						((ArchetypeResourceType) a).getWriteType(),
+						((ArchetypeResourceType) b).getWriteType()));
+			} else if (a instanceof ArchetypeResourceCollectionType && b instanceof ArchetypeResourceCollectionType) {
+				constraints.addFirst(new MonomorphicConstraint(
+						constraint,
+						((ArchetypeResourceCollectionType) a).getKeyType(),
+						((ArchetypeResourceCollectionType) b).getKeyType()));
+				constraints.addFirst(new MonomorphicConstraint(
+						constraint,
+						((ArchetypeResourceCollectionType) a).getReadType(),
+						((ArchetypeResourceCollectionType) b).getReadType()));
+				constraints.addFirst(new MonomorphicConstraint(
+						constraint,
+						((ArchetypeResourceCollectionType) a).getWriteType(),
+						((ArchetypeResourceCollectionType) b).getWriteType()));
 			} else if (a instanceof SimpleContainerType && b instanceof SimpleContainerType) {
 				// a simple container is a container with a single element type, e.g. Set[a], Slice[a], etc.
 				// in order for SimpleContainer[a] = SimpleContainer[b],

@@ -18,6 +18,28 @@ public class TypeFormattingVisitor extends TypeVisitor<Void, IOException> {
 	}
 
 	@Override
+	public Void visit(ArchetypeResourceType archetypeResourceType) throws IOException {
+		out.write("ArchetypeResource read (");
+		archetypeResourceType.getReadType().accept(this);
+		out.write(") write (");
+		archetypeResourceType.getWriteType().accept(this);
+		out.write(")");
+		return null;
+	}
+
+	@Override
+	public Void visit(ArchetypeResourceCollectionType archetypeResourceCollectionType) throws IOException {
+		out.write("ArchetypeResourceCollection[");
+		archetypeResourceCollectionType.getKeyType().accept(this);
+		out.write("]read (");
+		archetypeResourceCollectionType.getReadType().accept(this);
+		out.write(") write (");
+		archetypeResourceCollectionType.getWriteType().accept(this);
+		out.write(")");
+		return null;
+	}
+
+	@Override
 	public Void visit(TypeVariable typeVariable) throws IOException {
 		out.write(typeVariable.getName());
 		return null;

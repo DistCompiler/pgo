@@ -14,6 +14,16 @@ public class TypeDefaultValueVisitor extends TypeVisitor<GoExpression, RuntimeEx
 	}
 
 	@Override
+	public GoExpression visit(ArchetypeResourceType archetypeResourceType) throws RuntimeException {
+		throw new TODO();
+	}
+
+	@Override
+	public GoExpression visit(ArchetypeResourceCollectionType archetypeResourceCollectionType) throws RuntimeException {
+		throw new TODO();
+	}
+
+	@Override
 	public GoExpression visit(TypeVariable typeVariable) throws RuntimeException {
 		throw new InternalCompilerError();
 	}

@@ -16,6 +16,21 @@ public class TypeVariableCollectionVisitor extends TypeVisitor<Void, RuntimeExce
 	}
 
 	@Override
+	public Void visit(ArchetypeResourceType archetypeResourceType) throws RuntimeException {
+		archetypeResourceType.getReadType().accept(this);
+		archetypeResourceType.getWriteType().accept(this);
+		return null;
+	}
+
+	@Override
+	public Void visit(ArchetypeResourceCollectionType archetypeResourceCollectionType) throws RuntimeException {
+		archetypeResourceCollectionType.getKeyType().accept(this);
+		archetypeResourceCollectionType.getReadType().accept(this);
+		archetypeResourceCollectionType.getWriteType().accept(this);
+		return null;
+	}
+
+	@Override
 	public Void visit(TypeVariable typeVariable) throws RuntimeException {
 		output.add(typeVariable);
 		return null;

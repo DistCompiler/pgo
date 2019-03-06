@@ -5,14 +5,10 @@ import pgo.model.golang.type.GoType;
 import pgo.model.mpcal.ModularPlusCalArchetype;
 import pgo.model.mpcal.ModularPlusCalMappingMacro;
 import pgo.model.pcal.PlusCalProcedure;
-import pgo.model.pcal.PlusCalVariableDeclaration;
 import pgo.model.tla.*;
-import pgo.model.type.Type;
-import pgo.model.type.TypeGenerator;
 import pgo.scope.UID;
 
 import java.util.*;
-import java.util.function.Consumer;
 
 public class DefinitionRegistry {
 	private final Map<String, TLAModule> modules;
@@ -25,15 +21,12 @@ public class DefinitionRegistry {
 	private final Map<UID, UID> references;
 	private final Map<String, PlusCalProcedure> procedures;
 	private final Map<String, ModularPlusCalArchetype> archetypes;
-	private final Map<UID, Type> readValueTypes;
-	private final Map<UID, Type> writtenValueTypes;
 	private final Map<String, ModularPlusCalMappingMacro> mappingMacros;
 	private final Map<UID, Integer> labelsToLockGroups;
 	private final Map<Integer, Set<UID>> lockGroupsToVariableReads;
 	private final Map<Integer, Set<UID>> lockGroupsToVariableWrites;
 	private final Map<Integer, Set<TLAExpression>> lockGroupsToResourceReads;
 	private final Map<Integer, Set<TLAExpression>> lockGroupsToResourceWrites;
-	private final Set<UID> archetypeResources;
 	private final Set<UID> protectedGlobalVariables;
 	private final Map<UID, boolean[]> signatures;
 
@@ -44,8 +37,6 @@ public class DefinitionRegistry {
 		this.references = new HashMap<>();
 		this.procedures = new HashMap<>();
 		this.archetypes = new HashMap<>();
-		this.readValueTypes = new HashMap<>();
-		this.writtenValueTypes = new HashMap<>();
 		this.mappingMacros = new HashMap<>();
 		this.globalVariableTypes = new HashMap<>();
 		this.localVariables = new HashSet<>();
@@ -56,7 +47,6 @@ public class DefinitionRegistry {
 		this.lockGroupsToVariableWrites = new HashMap<>();
 		this.lockGroupsToResourceReads = new HashMap<>();
 		this.lockGroupsToResourceWrites = new HashMap<>();
-		this.archetypeResources = new HashSet<>();
 		this.protectedGlobalVariables = new HashSet<>();
 		this.signatures = new HashMap<>();
 	}
@@ -93,14 +83,6 @@ public class DefinitionRegistry {
 
 	public void addArchetype(ModularPlusCalArchetype archetype) {
 		archetypes.put(archetype.getName(), archetype);
-	}
-
-	public void addReadAndWrittenValueTypes(ModularPlusCalArchetype archetype, TypeGenerator generator) {
-		for (PlusCalVariableDeclaration declaration : archetype.getParams()) {
-			readValueTypes.put(declaration.getUID(), generator.getTypeVariable(Collections.singletonList(declaration)));
-			writtenValueTypes.put(
-					declaration.getUID(), generator.getTypeVariable(Collections.singletonList(declaration)));
-		}
 	}
 
 	public void addMappingMacro(ModularPlusCalMappingMacro mappingMacro) {
@@ -150,36 +132,6 @@ public class DefinitionRegistry {
 
 	public ModularPlusCalArchetype findArchetype(String name) {
 		return archetypes.get(name);
-	}
-
-	public Type getReadValueType(UID varUID) {
-		return readValueTypes.get(varUID);
-	}
-
-	public void updateReadValueType(UID uid, Type type) {
-		if (!readValueTypes.containsKey(uid)) {
-			throw new InternalCompilerError();
-		}
-		readValueTypes.put(uid, type);
-	}
-
-	public void forEachReadValueType(Consumer<UID> action) {
-		readValueTypes.keySet().forEach(action);
-	}
-
-	public Type getWrittenValueType(UID varUID) {
-		return writtenValueTypes.get(varUID);
-	}
-
-	public void updateWrittenValueType(UID uid, Type type) {
-		if (!writtenValueTypes.containsKey(uid)) {
-			throw new InternalCompilerError();
-		}
-		writtenValueTypes.put(uid, type);
-	}
-
-	public void forEachWrittenValueType(Consumer<UID> action) {
-		writtenValueTypes.keySet().forEach(action);
 	}
 
 	public ModularPlusCalMappingMacro findMappingMacro(String name) {
@@ -280,14 +232,6 @@ public class DefinitionRegistry {
 
 	public Set<UID> getVariableWritesInLockGroup(int lockGroup) {
 		return Collections.unmodifiableSet(lockGroupsToVariableWrites.getOrDefault(lockGroup, Collections.emptySet()));
-	}
-
-	public void addArchetypeResource(UID uid) {
-		this.archetypeResources.add(uid);
-	}
-
-	public boolean isArchetypeResource(UID uid) {
-		return this.archetypeResources.contains(uid);
 	}
 
 	public void addProtectedGlobalVariable(UID varUID) {

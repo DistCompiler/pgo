@@ -22,6 +22,16 @@ public class TLATupleCodeGenVisitor extends GoTypeVisitor<GoExpression, RuntimeE
 	}
 
 	@Override
+	public GoExpression visit(GoArchetypeResourceType archetypeResourceType) throws RuntimeException {
+		throw new TODO();
+	}
+
+	@Override
+	public GoExpression visit(GoArchetypeResourceCollectionType archetypeResourceCollectionType) throws RuntimeException {
+		throw new TODO();
+	}
+
+	@Override
 	public GoExpression visit(GoStructType structType) throws RuntimeException {
 		List<GoStructLiteralField> fields = new ArrayList<>();
 		for(GoExpression element : elements){

@@ -6,14 +6,12 @@ import pgo.Unreachable;
 import pgo.model.golang.*;
 import pgo.model.golang.builder.GoBlockBuilder;
 import pgo.model.golang.builder.GoModuleBuilder;
-import pgo.model.golang.type.GoMapType;
-import pgo.model.golang.type.GoSliceType;
-import pgo.model.golang.type.GoType;
-import pgo.model.golang.type.GoTypeName;
+import pgo.model.golang.type.*;
 import pgo.model.pcal.PlusCalProcess;
 import pgo.model.tla.TLAExpression;
 import pgo.model.tla.TLAFunctionCall;
 import pgo.model.tla.TLAGeneralIdentifier;
+import pgo.model.type.ArchetypeResourceCollectionType;
 import pgo.model.type.Type;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
@@ -153,18 +151,15 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
         } else {
             throw new Unreachable();
         }
-        GoType readType = registry.getReadValueType(ref).accept(new TypeConversionVisitor());
+        GoType resourceType = typeMap.get(ref).accept(new TypeConversionVisitor());
 
         // if this a function call being mapped, the read type used when casting should be
         // the value you get out of the slice or map inferred by the type system.
+        GoType readType;
         if (isCall) {
-            if (readType instanceof GoSliceType) {
-                readType = ((GoSliceType) readType).getElementType();
-            } else if (readType instanceof GoMapType) {
-                readType = ((GoMapType) readType).getValueType();
-            } else {
-                throw new InternalCompilerError();
-            }
+            readType = ((GoArchetypeResourceCollectionType) resourceType).getReadType();
+        } else {
+            readType = ((GoArchetypeResourceType) resourceType).getReadType();
         }
 
         GoExpression target = resourceExpressions.get(resource);

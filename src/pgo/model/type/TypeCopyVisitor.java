@@ -9,6 +9,23 @@ public class TypeCopyVisitor extends TypeVisitor<Type, RuntimeException> {
 	}
 
 	@Override
+	public Type visit(ArchetypeResourceType archetypeResourceType) throws RuntimeException {
+		return new ArchetypeResourceType(
+				archetypeResourceType.getReadType().accept(this),
+				archetypeResourceType.getWriteType().accept(this),
+				archetypeResourceType.getOrigins());
+	}
+
+	@Override
+	public Type visit(ArchetypeResourceCollectionType archetypeResourceCollectionType) throws RuntimeException {
+		return new ArchetypeResourceCollectionType(
+				archetypeResourceCollectionType.getKeyType().accept(this),
+				archetypeResourceCollectionType.getReadType().accept(this),
+				archetypeResourceCollectionType.getWriteType().accept(this),
+				archetypeResourceCollectionType.getOrigins());
+	}
+
+	@Override
 	public Type visit(TypeVariable typeVariable) throws RuntimeException {
 		return typeVariable;
 	}

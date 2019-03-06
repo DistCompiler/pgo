@@ -13,16 +13,16 @@ import java.util.Map;
 import java.util.Set;
 
 public class ArchetypeBodyStatementTypeConstraintVisitor extends PlusCalStatementTypeConstraintVisitor {
-	private final ArchetypeBodyExpressionTypeConstraintVisitor lhsVisitor;
+	private final ArchetypeBodyLHSExpressionTypeConstraintVisitor lhsVisitor;
 
 	public ArchetypeBodyStatementTypeConstraintVisitor(DefinitionRegistry registry, TypeSolver solver,
 	                                                   TypeGenerator generator, Map<UID, TypeVariable> mapping,
-	                                                   Set<UID> paramUIDs) {
+	                                                   Set<UID> functionMappedParamUIDs, Set<UID> paramUIDs) {
 		super(registry, solver, generator, mapping,
 				new ArchetypeBodyExpressionTypeConstraintVisitor(
-						registry, solver, generator, mapping, registry::getReadValueType, paramUIDs));
-		this.lhsVisitor = new ArchetypeBodyExpressionTypeConstraintVisitor(
-				registry, solver, generator, mapping, registry::getWrittenValueType, paramUIDs);
+						registry, solver, generator, mapping, functionMappedParamUIDs, paramUIDs));
+		this.lhsVisitor = new ArchetypeBodyLHSExpressionTypeConstraintVisitor(
+				registry, solver, generator, mapping, functionMappedParamUIDs, paramUIDs);
 	}
 
 	@Override

@@ -33,6 +33,16 @@ public class EqCodeGenVisitor extends GoTypeVisitor<GoExpression, RuntimeExcepti
 	}
 
 	@Override
+	public GoExpression visit(GoArchetypeResourceType archetypeResourceType) throws RuntimeException {
+		throw new TODO();
+	}
+
+	@Override
+	public GoExpression visit(GoArchetypeResourceCollectionType archetypeResourceCollectionType) throws RuntimeException {
+		throw new TODO();
+	}
+
+	@Override
 	public GoExpression visit(GoStructType structType) throws RuntimeException {
 		List<GoExpression> memberEqs = new ArrayList<>();
 		for(GoStructTypeField field : structType.getFields()) {

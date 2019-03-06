@@ -49,8 +49,6 @@ public class ModularPlusCalAtomicityInferencePass {
 
             map.putIfAbsent(representative, new HashSet<>());
             map.get(representative).add(labelUID);
-
-            registry.addArchetypeResource(expression.getUID());
         }
     }
 

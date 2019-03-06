@@ -1,5 +1,6 @@
 package pgo.formatters;
 
+import pgo.TODO;
 import pgo.model.golang.GoPtrType;
 import pgo.model.golang.type.*;
 
@@ -17,6 +18,16 @@ public class GoTypeFormattingVisitor extends GoTypeVisitor<Void, IOException> {
 	public Void visit(GoTypeName typeName) throws IOException {
 		out.write(typeName.getName());
 		return null;
+	}
+
+	@Override
+	public Void visit(GoArchetypeResourceType archetypeResourceType) throws IOException {
+		throw new TODO();
+	}
+
+	@Override
+	public Void visit(GoArchetypeResourceCollectionType archetypeResourceCollectionType) throws IOException {
+		throw new TODO();
 	}
 
 	@Override

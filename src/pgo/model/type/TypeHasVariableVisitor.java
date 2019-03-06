@@ -13,6 +13,18 @@ public class TypeHasVariableVisitor extends TypeVisitor<Boolean, RuntimeExceptio
 	}
 
 	@Override
+	public Boolean visit(ArchetypeResourceType archetypeResourceType) throws RuntimeException {
+		return archetypeResourceType.getReadType().accept(this) || archetypeResourceType.getWriteType().accept(this);
+	}
+
+	@Override
+	public Boolean visit(ArchetypeResourceCollectionType archetypeResourceCollectionType) throws RuntimeException {
+		return archetypeResourceCollectionType.getKeyType().accept(this) ||
+				archetypeResourceCollectionType.getReadType().accept(this) ||
+				archetypeResourceCollectionType.getWriteType().accept(this);
+	}
+
+	@Override
 	public Boolean visit(TypeVariable typeVariable) throws RuntimeException {
 			return typeVariable.equals(this.typeVariable);
 	}
