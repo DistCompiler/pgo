@@ -13,6 +13,7 @@ import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
 import pgo.trans.passes.codegen.go.TypeConversionVisitor;
 import pgo.util.Origin;
+import pgo.util.UnionFind;
 
 import java.util.*;
 
@@ -178,11 +179,28 @@ public class TypeInferencePass {
 
 		Map<UID, Type> resultingTypeMapping = new HashMap<>();
 
-		TypeMapEntryProcessor processor = new TypeMapEntryProcessor();
+		Set<TypeVariable> unresolvedVariables = new HashSet<>();
+		Map<TypeVariable, Type> additionalMappings = new HashMap<>();
+		TypeVariableCollectionVisitor collector = new TypeVariableCollectionVisitor(unresolvedVariables);
+		TypeVariableSubstitutionVisitor subs =
+				new TypeVariableSubstitutionVisitor(new TypeSubstitution(new UnionFind<>(), additionalMappings));
+		InterfaceType pGoInterfaceType = new InterfaceType(Collections.emptyList());
 		for (Map.Entry<UID, TypeVariable> m : mapping.entrySet()) {
 			UID uid = m.getKey();
 			TypeVariable typeVariable = m.getValue();
-			resultingTypeMapping.put(uid, processor.process(substitution, typeVariable));
+			Type type;
+			if (substitution.containsKey(typeVariable)) {
+				type = substitution.get(typeVariable);
+			} else {
+				type = pGoInterfaceType;
+				additionalMappings.put(typeVariable, pGoInterfaceType);
+			}
+			type.accept(collector);
+			for (TypeVariable unresolvedVariable : unresolvedVariables) {
+				additionalMappings.put(unresolvedVariable, pGoInterfaceType);
+			}
+			unresolvedVariables.clear();
+			resultingTypeMapping.put(uid, type.accept(subs));
 		}
 
 		TypeConversionVisitor goTypeConversionVisitor = new TypeConversionVisitor();
