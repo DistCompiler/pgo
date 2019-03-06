@@ -100,7 +100,6 @@ public class TypeInferencePass {
 			boolean[] signature = registry.getSignature(archetype.getUID())
 					.orElseGet(() -> new boolean[archetype.getParams().size()]);
 			List<PlusCalVariableDeclaration> params = archetype.getParams();
-			List<Type> paramTypes = new ArrayList<>();
 			Set<UID> paramUIDs = new HashSet<>();
 			Set<UID> functionMappedParamUIDs = new HashSet<>();
 			for (int i = 0; i < params.size(); i++) {
@@ -121,7 +120,6 @@ public class TypeInferencePass {
 							generator.getTypeVariable(Collections.singletonList(param)),
 							Collections.singletonList(param))));
 				}
-				paramTypes.add(fresh);
 			}
 			UID selfVariableUID = archetype.getSelfVariableUID();
 			mapping.put(selfVariableUID, generator.getTypeVariable(Collections.singletonList(archetype)));
@@ -130,10 +128,6 @@ public class TypeInferencePass {
 				statement.accept(new ArchetypeBodyStatementTypeConstraintVisitor(
 						registry, solver, generator, mapping, functionMappedParamUIDs, paramUIDs));
 			}
-			TypeVariable fresh = generator.getTypeVariable(Collections.singletonList(archetype));
-			solver.addConstraint(new MonomorphicConstraint(
-					archetype, fresh, new ProcedureType(paramTypes, Collections.singletonList(archetype))));
-			mapping.put(archetype.getUID(), fresh);
 		}
 
 		for (ModularPlusCalInstance instance : modularPlusCalBlock.getInstances()) {
