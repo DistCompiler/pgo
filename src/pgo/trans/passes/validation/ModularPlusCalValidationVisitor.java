@@ -5,7 +5,11 @@ import java.util.*;
 import pgo.errors.IssueContext;
 import pgo.model.mpcal.*;
 import pgo.model.pcal.*;
+import pgo.model.tla.TLAExpression;
+import pgo.model.tla.TLAGeneralIdentifier;
+import pgo.model.tla.TLARef;
 import pgo.model.tla.TLAUnit;
+import pgo.scope.UID;
 
 import java.util.function.Consumer;
 
@@ -48,20 +52,16 @@ public class ModularPlusCalValidationVisitor extends ModularPlusCalBlockVisitor<
 		return null;
 	}
 
-	/*
-	* Archetypes in Modular PlusCal must obey the following rules and restrictions:
-	*
-	*   * Same labelling rules of vanilla PlusCal apply (see C-syntax manual, section 3.7)
-	*/
+	/**
+	 * Same labelling rules of vanilla PlusCal apply (see C-syntax manual, section 3.7)
+	 */
 	public Void visit(ModularPlusCalArchetype modularPlusCalArchetype) {
 		// guaranteed to exist at the parsing stage
 		PlusCalStatement firstStatement = modularPlusCalArchetype.getBody().get(0);
 		checkLabeled(firstStatement);
 
-		ModularPlusCalLabelingRulesVisitor visitor = new ModularPlusCalLabelingRulesVisitor(ctx);
-		for (PlusCalStatement statement : modularPlusCalArchetype.getBody()) {
-			statement.accept(visitor);
-		}
+		ModularPlusCalLabelingRulesVisitor labels = new ModularPlusCalLabelingRulesVisitor(ctx);
+		modularPlusCalArchetype.getBody().forEach(statement -> statement.accept(labels));
 
 		return null;
 	}

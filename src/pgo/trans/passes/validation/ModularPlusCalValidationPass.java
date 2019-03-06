@@ -20,21 +20,13 @@ public class ModularPlusCalValidationPass {
 		mpcal.accept(new ModularPlusCalValidationVisitor(ctx));
 	}
 
+	/**
+	 *   * Only local or `ref` variables can be assigned to
+	 *   * Parameters can only be used as functions if they were mapped as functions when
+	 *     instantiated (similarly, they cannot be used as variables if mapped as functions)
+	 */
 	public static void performPostScoping(TopLevelIssueContext ctx, DefinitionRegistry registry,
 	                                      ModularPlusCalBlock modularPlusCalBlock) {
-		for (ModularPlusCalArchetype archetype : modularPlusCalBlock.getArchetypes()) {
-			Set<UID> nonRefParams = new HashSet<>();
-			for (PlusCalVariableDeclaration param : archetype.getParams()) {
-				if (!param.isRef()) {
-					nonRefParams.add(param.getUID());
-				}
-			}
-			ModularPlusCalModificationValidationVisitor visitor =
-					new ModularPlusCalModificationValidationVisitor(ctx, registry, nonRefParams);
-			for (PlusCalStatement statement : archetype.getBody()) {
-				statement.accept(visitor);
-			}
-		}
 		Map<UID, ModularPlusCalInstance> archetypesToInstance = new HashMap<>();
 		for (ModularPlusCalInstance instance : modularPlusCalBlock.getInstances()) {
 			Map<UID, Integer> seenVars = new HashMap<>();
@@ -77,6 +69,28 @@ public class ModularPlusCalValidationPass {
 							instance, archetypesToInstance.get(archetype.getUID())));
 					break;
 				}
+			}
+		}
+		for (ModularPlusCalArchetype archetype : modularPlusCalBlock.getArchetypes()) {
+			Set<UID> nonRefParams = new HashSet<>();
+			for (PlusCalVariableDeclaration param : archetype.getParams()) {
+				if (!param.isRef()) {
+					nonRefParams.add(param.getUID());
+				}
+			}
+			ModularPlusCalModificationValidationVisitor visitor =
+					new ModularPlusCalModificationValidationVisitor(ctx, registry, nonRefParams);
+			Map<UID, Boolean> functionMapped = new HashMap<>();
+			boolean[] signature = registry.getSignature(archetype.getUID())
+					.orElseGet(() -> new boolean[archetype.getParams().size()]);
+			List<PlusCalVariableDeclaration> params = archetype.getParams();
+			for (int i = 0; i < params.size(); i++) {
+				PlusCalVariableDeclaration param = params.get(i);
+				functionMapped.put(param.getUID(), signature[i]);
+			}
+			for (PlusCalStatement statement : archetype.getBody()) {
+				statement.accept(visitor);
+				statement.accept(new ModularPlusCalStatementValidationVisitor(ctx, registry, functionMapped));
 			}
 		}
 	}

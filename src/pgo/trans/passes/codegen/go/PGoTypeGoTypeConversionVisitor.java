@@ -3,10 +3,7 @@ package pgo.trans.passes.codegen.go;
 import pgo.InternalCompilerError;
 import pgo.TODO;
 import pgo.model.golang.GoBuiltins;
-import pgo.model.golang.type.GoSliceType;
-import pgo.model.golang.type.GoStructType;
-import pgo.model.golang.type.GoStructTypeField;
-import pgo.model.golang.type.GoType;
+import pgo.model.golang.type.*;
 import pgo.model.type.*;
 
 import java.util.ArrayList;
@@ -94,6 +91,7 @@ public class PGoTypeGoTypeConversionVisitor extends PGoTypeVisitor<GoType, Runti
 		return new GoSliceType(new GoStructType(Arrays.asList(
 				new GoStructTypeField("key", pGoTypeMap.getKeyType().accept(this)),
 				new GoStructTypeField("value", pGoTypeMap.getValueType().accept(this)))));
+
 	}
 
 	@Override

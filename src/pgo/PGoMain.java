@@ -131,7 +131,7 @@ public class PGoMain {
 		DefinitionRegistry registry = resolveScopes(
 				ctx, false, inputFilePath, constantDefinitions, tlaModule, desugaredModularPlusCalBlock);
 		checkErrors(ctx);
-		validateSemanticsPostScoping(ctx, registry, modularPlusCalBlock);
+		validateSemanticsPostScoping(ctx, registry, desugaredModularPlusCalBlock);
 
 		PlusCalAlgorithm algorithm = PlusCalCodeGenPass.perform(ctx, registry, desugaredModularPlusCalBlock);
 		checkErrors(ctx);
@@ -232,7 +232,7 @@ public class PGoMain {
 		ModularPlusCalBlock macroExpandedModularPlusCalBlock = expandPlusCalMacros(ctx, modularPlusCalBlock);
 		DefinitionRegistry registry = resolveScopes(
 				ctx, true, inputFilePath, constantDefinitions, tlaModule, macroExpandedModularPlusCalBlock);
-		validateSemanticsPostScoping(ctx, registry, modularPlusCalBlock);
+		validateSemanticsPostScoping(ctx, registry, macroExpandedModularPlusCalBlock);
 
 		logger.info("Inferring types");
 		Map<UID, PGoType> typeMap = TypeInferencePass.perform(ctx, registry, macroExpandedModularPlusCalBlock);

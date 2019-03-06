@@ -40,6 +40,17 @@ public class TestMPCalCodeGenRun {
                             put("GET_PAGE", "200");
                             put("NUM_SERVERS", "2");
                         }}
+                },
+
+                {
+                    "load_balancer_records.tla",
+                    "load_balancer",
+                     new HashMap<String, String>() {{
+                         put("NUM_CLIENTS", "1");
+                         put("LoadBalancerId", "0");
+                         put("GET_PAGE", "200");
+                         put("NUM_SERVERS", "2");
+                     }}
                 }
         });
     }

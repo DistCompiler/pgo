@@ -49,6 +49,7 @@ public abstract class IssueVisitor<T, E extends Throwable> {
 	public abstract T visit(InstanceArgumentCountMismatchIssue instanceArgumentCountMismatchIssue) throws E;
 	public abstract T visit(InconsistentInstantiationIssue inconsistentInstantiationIssue) throws E;
 	public abstract T visit(RefMismatchIssue refMismatchIssue) throws E;
+	public abstract T visit(InvalidArchetypeResourceUsageIssue invalidArchetypeResourceUsageIssue) throws E;
 	public abstract T visit(ProcedureCallArgumentCountMismatchIssue procedureCallArgumentCountMismatchIssue) throws E;
 	public abstract T visit(ArchetypeNotFoundIssue archetypeNotFoundIssue) throws E;
 	public abstract T visit(VariableMappedMultipleTimesIssue variableMappedMultipleTimesIssue) throws E;
