@@ -18,9 +18,9 @@ public class PlusCalCodeGenPass {
 	private PlusCalCodeGenPass() {}
 
 	private static void recordMapping(DefinitionRegistry registry, Map<UID, ModularPlusCalMapping> mappedVars,
-	                                  UID paramUID, TLAExpression value, Map<UID, ModularPlusCalMappingMacro> mappings,
+	                                  UID paramUID, UID mappedUID, Map<UID, ModularPlusCalMappingMacro> mappings,
 	                                  Set<UID> functionMappedVars) {
-		ModularPlusCalMapping mapping = mappedVars.get(registry.followReference(value.getUID()));
+		ModularPlusCalMapping mapping = mappedVars.get(mappedUID);
 		if (mapping != null) {
 			if (mapping.getVariable().isFunctionCall()){
 				functionMappedVars.add(paramUID);
@@ -102,7 +102,9 @@ public class PlusCalCodeGenPass {
 				TLAExpression value = instanceArguments.get(i);
 				params.put(paramUID, param);
 				if (value instanceof TLARef) {
-					recordMapping(registry, mappedVars, paramUID, value, mappings, functionMappedVars);
+					recordMapping(
+							registry, mappedVars, paramUID, registry.followReference(value.getUID()), mappings,
+							functionMappedVars);
 					refs.add(paramUID);
 					arguments.put(
 							paramUID,
@@ -113,9 +115,15 @@ public class PlusCalCodeGenPass {
 											((TLARef) value).getTarget()),
 									Collections.emptyList()));
 				} else if (value instanceof TLAGeneralIdentifier) {
-					recordMapping(registry, mappedVars, paramUID, value, mappings, functionMappedVars);
+					recordMapping(
+							registry, mappedVars, paramUID, registry.followReference(value.getUID()), mappings,
+							functionMappedVars);
 					arguments.put(paramUID, (TLAGeneralIdentifier) value);
 				} else {
+					recordMapping(registry, mappedVars, paramUID, paramUID, mappings, functionMappedVars);
+					if (param.isRef()) {
+						refs.add(paramUID);
+					}
 					String nameHint = param.getName().getValue() + "Local";
 					// this argument is bound to a TLA+ expression, so we need to add a variable declaration for it
 					TLAGeneralIdentifier local;

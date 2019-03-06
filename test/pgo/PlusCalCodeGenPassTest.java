@@ -2344,7 +2344,7 @@ public class PlusCalCodeGenPassTest {
 										)
 								)
 						),
-						// --algorithm Algorithm16 {
+						// --algorithm Algorithm17 {
 						//     fair process (Proc = 0)
 						//     {
 						//         l1:
@@ -2373,6 +2373,176 @@ public class PlusCalCodeGenPassTest {
 										)
 								)
 						)
+				},
+
+				{
+						// --mpcal Algorithm18 {
+						//   mapping macro Macro {
+						//     read {
+						//       yield $variable;
+						//     }
+						//     write {
+						//       yield $variable + $value;
+						//     }
+						//   }
+						//   archetype A(ref a)
+						//   {
+						//     l1:
+						//       a := 1;
+						//       print a;
+						//   }
+						//
+						//   fair process (Proc = 0) == instance A(0)
+						//     mapping @1 via Macro;
+						// }
+						mpcal(
+								"Algorithm18",
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.singletonList(
+										mappingMacro(
+												"Macro",
+												Collections.singletonList(yield(DOLLAR_VARIABLE)),
+												Collections.singletonList(
+														yield(binop("+", DOLLAR_VARIABLE, DOLLAR_VALUE))))),
+								Collections.singletonList(
+										archetype(
+												"A",
+												Collections.singletonList(pcalVarDecl("a", true, false, PLUSCAL_DEFAULT_INIT_VALUE)),
+												Collections.emptyList(),
+												Collections.singletonList(
+														labeled(
+																label("l1"),
+																assign(idexp("a"), num(1)),
+																printS(idexp("a")))))),
+								Collections.emptyList(),
+								Collections.singletonList(
+										instance(
+												pcalVarDecl("Proc", false, false, num(0)),
+												PlusCalFairness.WEAK_FAIR,
+												"A",
+												Collections.singletonList(num(0)),
+												Collections.singletonList(
+														mapping(1, false, "Macro"))))),
+						// --algorithm Algorithm18 {
+						//     fair process (Proc = 0)
+						//     variables aLocal = 0, aWrite, aRead;
+						//     {
+						//         l1:
+						//           aWrite := aLocal + 1;
+						//           aRead := aWrite;
+						//           print aRead;
+						//           aLocal := aWrite;
+						//     }
+						// }
+						algorithm(
+								"Algorithm18",
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								process(
+										pcalVarDecl("Proc", false, false, num(0)),
+										PlusCalFairness.WEAK_FAIR,
+										Arrays.asList(
+												pcalVarDecl("aLocal", false, false, num(0)),
+												pcalVarDecl("aWrite", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+												pcalVarDecl("aRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE)),
+										labeled(
+												label("l1"),
+												assign(idexp("aWrite"), binop("+", idexp("aLocal"), num(1))),
+												assign(idexp("aRead"), idexp("aWrite")),
+												printS(idexp("aRead")),
+												assign(idexp("aLocal"), idexp("aWrite")))))
+				},
+
+				{
+						// --mpcal Algorithm19 {
+						//   mapping macro Macro {
+						//     read {
+						//       yield $variable;
+						//     }
+						//     write {
+						//       yield $variable + $value;
+						//     }
+						//   }
+						//   archetype A(ref a)
+						//   {
+						//     l1:
+						//       a[1] := 1;
+						//       print a[1];
+						//   }
+						//
+						//   fair process (Proc = 0) == instance A(<<0>>)
+						//     mapping @1[_] via Macro;
+						// }
+						mpcal(
+								"Algorithm18",
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.singletonList(
+										mappingMacro(
+												"Macro",
+												Collections.singletonList(yield(DOLLAR_VARIABLE)),
+												Collections.singletonList(
+														yield(binop("+", DOLLAR_VARIABLE, DOLLAR_VALUE))))),
+								Collections.singletonList(
+										archetype(
+												"A",
+												Collections.singletonList(pcalVarDecl("a", true, false, PLUSCAL_DEFAULT_INIT_VALUE)),
+												Collections.emptyList(),
+												Collections.singletonList(
+														labeled(
+																label("l1"),
+																assign(fncall(idexp("a"), num(1)), num(1)),
+																printS(fncall(idexp("a"), num(1))))))),
+								Collections.emptyList(),
+								Collections.singletonList(
+										instance(
+												pcalVarDecl("Proc", false, false, num(0)),
+												PlusCalFairness.WEAK_FAIR,
+												"A",
+												Collections.singletonList(tuple(num(0))),
+												Collections.singletonList(
+														mapping(1, true, "Macro"))))),
+						// --algorithm Algorithm18 {
+						//     fair process (Proc = 0)
+						//     variables aLocal = <<0>>, aWrite, aRead;
+						//     {
+						//         l1:
+						//           aWrite := [aLocal EXCEPT ![1] = aLocal[1] + 1];
+						//           aRead := aWrite[1];
+						//           print aRead;
+						//           aLocal := aWrite;
+						//     }
+						// }
+						algorithm(
+								"Algorithm18",
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								Collections.emptyList(),
+								process(
+										pcalVarDecl("Proc", false, false, num(0)),
+										PlusCalFairness.WEAK_FAIR,
+										Arrays.asList(
+												pcalVarDecl("aLocal", false, false, tuple(num(0))),
+												pcalVarDecl("aWrite", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+												pcalVarDecl("aRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE)),
+										labeled(
+												label("l1"),
+												assign(
+														idexp("aWrite"),
+														fnSubst(
+																idexp("aLocal"),
+																fnSubstPair(
+																		Collections.singletonList(key(num(1))),
+																		binop("+", fncall(idexp("aLocal"), num(1)), num(1))))),
+												assign(idexp("aRead"), fncall(idexp("aWrite"), num(1))),
+												printS(idexp("aRead")),
+												assign(idexp("aLocal"), idexp("aWrite")))))
 				},
 		});
 	}

@@ -60,7 +60,7 @@ public class ModularPlusCalValidationPass {
 					// 0-indexing
 					signature[seenVars.get(varUID)] = variable.isFunctionCall();
 				} else if (variable instanceof ModularPlusCalMappingVariablePosition) {
-					signature[((ModularPlusCalMappingVariablePosition) variable).getPosition()] =
+					signature[((ModularPlusCalMappingVariablePosition) variable).getPosition() - 1] =
 							variable.isFunctionCall();
 				}
 			}
