@@ -11,15 +11,35 @@ import static org.junit.Assert.assertThat;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.function.Consumer;
-import java.util.function.Function;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class IntegrationTestingUtils {
-	
+
+	static class MPCalRunDefinition {
+		private final String identifier;
+		private final List<String> args;
+		private final List<String> expectedOutput;
+
+		MPCalRunDefinition(String identifier, List<String> args, List<String> expectedOutput) {
+			this.identifier = identifier;
+			this.args = args;
+			this.expectedOutput = expectedOutput;
+		}
+
+		String getIdentifier() {
+			return identifier;
+		}
+
+		List<String> getArgs() {
+			return args;
+		}
+
+		List<String> getExpectedOutput() {
+			return expectedOutput;
+		}
+	}
+
 	private IntegrationTestingUtils() {}
 
 	static class KeyValue {
@@ -169,7 +189,6 @@ public class IntegrationTestingUtils {
 		File tempDir = tempDirPath.toFile();
 		Path generatedConfigPath = tempDirPath.resolve("config.json");
 
-		Path compiledOutputPath = tempDirPath.resolve("src/"+pack+"/"+pack+".go");
 		try {
 			// generate config file
 			try (BufferedWriter w = Files.newBufferedWriter(generatedConfigPath)) {
@@ -196,7 +215,7 @@ public class IntegrationTestingUtils {
 					spec.toString(),
 			});
 
-			runner.run(compiledOutputPath);
+			runner.run(tempDirPath);
 		} finally {
 			expungeFile(tempDir);
 		}
@@ -230,5 +249,98 @@ public class IntegrationTestingUtils {
 			List<String> lines = bw.lines().collect(Collectors.toList());
 			assertThat(lines.subList(0, expected.size()), is(expected));
 		}
+	}
+
+	static MPCalRunDefinition mpcalRunDef(String id, List<String> args, List<String> output) {
+		return new MPCalRunDefinition(id, args, output);
+	}
+
+	private static List<String> runAndPrint(ProcessBuilder pb, String prefix, boolean checkSuccess) {
+		try {
+			List<String> lines = new ArrayList<>();
+			Process build = pb.start();
+
+			try (InputStream err = build.getErrorStream();
+				 InputStreamReader r = new InputStreamReader(err);
+				 BufferedReader br = new BufferedReader(r)) {
+
+				br.lines().forEach(line -> System.out.println(prefix + ": " + line));
+			}
+
+			try (InputStream err = build.getInputStream();
+				 InputStreamReader r = new InputStreamReader(err);
+				 BufferedReader br = new BufferedReader(r)) {
+
+				br.lines().forEach(lines::add);
+			}
+
+			if (checkSuccess) {
+				try {
+					assertThat(build.waitFor(), is(0));
+				} catch (InterruptedException e) {
+					throw new RuntimeException("Interrupted: " + e.getMessage());
+				}
+			}
+
+			return lines;
+		} catch (IOException e) {
+			throw new RuntimeException("IOException: " + e.getMessage());
+		}
+	}
+
+	private static List<String> runAndPrint(ProcessBuilder pb, String prefix) {
+		return runAndPrint(pb, prefix, true);
+	}
+
+	static void testRunDistributedMPCal(Path codePath, List<MPCalRunDefinition> runDefinitions) throws InterruptedException {
+		// compile generate code
+		String binary = "mpcal_output";
+
+		// TODO: get rid of `go get` once we remove dependency on etcd
+		ProcessBuilder pb = new ProcessBuilder("go", "get");
+		pb.environment().put("GOPATH", codePath.toString());
+		pb.directory(codePath.toFile());
+		runAndPrint(pb, "build", false);
+
+		pb = new ProcessBuilder("go", "build", "-v", "-o", binary);
+		pb.environment().put("GOPATH", codePath.toString());
+		pb.directory(codePath.toFile());
+
+		runAndPrint(pb, "build");
+
+		// run the resulting code according to runDefinitions
+		Map<String, List<String>> outputs = new HashMap<>();
+		List<Thread> runs = new ArrayList<>();
+		runDefinitions.forEach(def ->
+			runs.add(new Thread(() -> {
+				List<String> command = new ArrayList<>();
+				command.add(codePath.resolve(binary).toString());
+				command.addAll(def.getArgs());
+
+				System.out.println("Running: " + String.join(" ", command));
+				ProcessBuilder builder = new ProcessBuilder(command);
+				builder.directory(codePath.toFile());
+
+				outputs.put(def.getIdentifier(), runAndPrint(builder, def.getIdentifier()));
+			}))
+		);
+
+		for (Thread t : runs) {
+			t.start();
+		}
+
+		long tenSeconds = 10 * 1000;
+		for (Thread t : runs) {
+			t.join(tenSeconds);
+		}
+
+		runDefinitions.forEach(def -> {
+			// compare lines instead of collections for easier debugging
+			// if the test fails
+			String actual = String.join("\n", outputs.get(def.getIdentifier()));
+			String expected = String.join("\n", def.getExpectedOutput());
+
+			assertThat(actual, is(expected));
+		});
 	}
 }

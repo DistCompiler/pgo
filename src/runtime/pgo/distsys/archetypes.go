@@ -59,6 +59,10 @@ type ArchetypeResourceCollection interface {
 	// the corresponding archetype resource. Note that different
 	// implementations have specific requirements for the type of
 	// `value`.
+	//
+	// Note that the resource returned by Get() must either be
+	// stateless *or* Get() must return the same resource when called
+	// with the same `value` argument
 	Get(value interface{}) ArchetypeResource
 }
 
@@ -462,78 +466,73 @@ func (localCh *LocalChannelResource) Receive() interface{} {
 
 // FileResource implements files in the system as archetype resources.
 type FileResource struct {
-	path  string   // absolute path to the file
-	fd    *os.File // the underlying file descriptor.
-	perms int      // permissions to be used when opening the file
+	path     string   // absolute path to the file
+	fd       *os.File // the underlying file descriptor.
+	contents []byte   // if the file has been previously read or written, hold contents in buffer
+	dirty    bool     // whether the file has been written
 }
 
 // NewFileResource creates a FileResource for the file under `path`.
 func NewFileResource(path string) *FileResource {
 	return &FileResource{
-		path: path,
+		path:     path,
+		contents: nil,
+		dirty:    false,
 	}
 }
 
-// Acquire identifies file permissions required when the file is read or written.
+// Acquire attempts to open the underlying file with appropriate
+// permissions.  Returns an error if it cannot be done.
 func (file *FileResource) Acquire(access ResourceAccess) error {
 	perms := os.O_RDONLY
 	if access&WRITE_ACCESS != 0 {
 		perms = os.O_RDWR
 	}
 
-	file.perms = perms
-	return nil
-}
-
-// ensureOpenFile opens the underlying file if it was not open before.
-func (file *FileResource) ensureOpenFile() error {
-	if file.fd == nil {
-		fd, err := os.OpenFile(file.path, file.perms|os.O_CREATE, 0644)
-		if err != nil {
-			return err
-		}
-
-		file.fd = fd
+	fd, err := os.OpenFile(file.path, perms|os.O_CREATE, 0644)
+	if err != nil {
+		return err
 	}
 
+	file.fd = fd
 	return nil
 }
 
 // Read returns a buffer with all the contents of the underlying file.
 // Panics if reading there is a an error reading the file.
 func (file *FileResource) Read() interface{} {
-	if err := file.ensureOpenFile(); err != nil {
-		return err
+	if file.contents == nil {
+		data, err := ioutil.ReadAll(file.fd)
+		if err != nil {
+			panic(err)
+		}
+
+		file.contents = data
 	}
 
-	data, err := ioutil.ReadAll(file.fd)
-	if err != nil {
-		panic(err)
-	}
-
-	return data
+	return file.contents
 }
 
-// Write writes the data given to the underlying file. It may
-// overwrite existing content depending on the offset in the file
-// descriptor. Panics if there is an error while writing to the file.
-// The value given *must* be a byte slice.
+// Write saves the value to be written in an internal
+// buffer. Subsequent Read() calls will return the newly written
+// value. Note that `value` *must* be []byte.
 func (file *FileResource) Write(value interface{}) {
-	if err := file.ensureOpenFile(); err != nil {
-		panic(err)
-	}
-
-	buf := value.([]byte)
-
-	n, err := file.fd.Write(buf)
-	if err != nil || n != len(buf) {
-		panic(err)
-	}
+	file.contents = value.([]byte)
+	file.dirty = true
 }
 
-// Release closes the underlying file.
+// Release writes any previously written contents to the underlying
+// file, and closes it.
 func (file *FileResource) Release() error {
 	if file.fd != nil {
+		if file.dirty {
+			_, err := file.fd.Write(file.contents)
+
+			if err != nil {
+				return err
+			}
+		}
+
 		return file.fd.Close()
 	}
 
@@ -565,14 +564,31 @@ func (slice ArchetypeResourceSlice) Get(value interface{}) ArchetypeResource {
 // FileSystemDirectory represents an archetype resource that makes the
 // files in a certain directory available, implementing the
 // ArchetypeResourceCollection interface
-type FileSystemDirectory string
+type FileSystemDirectory struct {
+	root      string                   // path to the directory under which files will be accessed
+	resources map[string]*FileResource // maps previously retrieved files
+}
+
+// NewFileSystemDirectory returns an implementation of
+// ArchetypeResourceCollection for accessing files under a root
+// directory.
+func NewFileSystemDirectory(root string) *FileSystemDirectory {
+	return &FileSystemDirectory{
+		root:      root,
+		resources: map[string]*FileResource{},
+	}
+}
 
 // Get returns the archetype resource file corresponding to the path
 // (relative to the root) given as argument. The `value` given must be
 // a string.
-func (root FileSystemDirectory) Get(value interface{}) ArchetypeResource {
-	relPath := value.(string)
-	file := path.Join(string(root), relPath)
+func (dir *FileSystemDirectory) Get(value interface{}) ArchetypeResource {
+	relativePath := value.(string)
 
-	return NewFileResource(file)
+	if _, ok := dir.resources[relativePath]; !ok {
+		absolutePath := path.Join(string(dir.root), relativePath)
+		dir.resources[relativePath] = NewFileResource(absolutePath)
+	}
+
+	return dir.resources[relativePath]
 }
