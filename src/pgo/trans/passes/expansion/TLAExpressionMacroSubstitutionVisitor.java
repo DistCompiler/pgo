@@ -1,6 +1,7 @@
 package pgo.trans.passes.expansion;
 
 import pgo.TODO;
+import pgo.Unreachable;
 import pgo.errors.IssueContext;
 import pgo.model.tla.*;
 
@@ -263,17 +264,18 @@ public class TLAExpressionMacroSubstitutionVisitor extends TLAExpressionVisitor<
 
 	@Override
 	public TLAExpression visit(TLASpecialVariableVariable tlaSpecialVariableVariable) throws RuntimeException {
-		throw new TODO();
+		throw new Unreachable();
 	}
 
 	@Override
 	public TLAExpression visit(TLASpecialVariableValue tlaSpecialVariableValue) throws RuntimeException {
-		throw new TODO();
+		throw new Unreachable();
 	}
 
 	@Override
 	public TLAExpression visit(TLARef tlaRef) throws RuntimeException {
-		throw new TODO();
+		// nothing to do here
+		return tlaRef;
 	}
 
 }
