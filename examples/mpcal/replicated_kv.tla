@@ -117,6 +117,14 @@ NULL_ORDER == 3
       }
   }
 
+  \* Mapping via identity is sometimes necessary in order to inform
+  \* the compiler that a certain resource is to be function mapped, but
+  \* no meaningful manipulation on reads and writes is necessary.
+  mapping macro Identity {
+      read  { yield $variable; }
+      write { yield $value; }
+  }
+
   \* This archetype defines the behavior of the replica servers in the system.
   \* Its parameters are:
   \*
@@ -577,21 +585,25 @@ NULL_ORDER == 3
   \* Instantiate replica servers. The network model used is the one defined in
   \* the FIFOChannel mapping macro.
   fair process (Replica \in ReplicaSet) == instance AReplica(ref clientsNetwork, replicasNetwork, [k \in KeySpace |-> NULL])
-      mapping clientsNetwork[_] via FIFOChannel
-      mapping replicasNetwork[_] via FIFOChannel;
+      mapping @1[_] via FIFOChannel
+      mapping @2[_] via FIFOChannel
+      mapping @3[_] via Identity;
 
   \* Instantiate clients:
 
   fair process (GetClient \in GetSet) == instance Get(ref replicasNetwork, clientsNetwork, GET_KEY, lock, 0)
       mapping replicasNetwork[_] via FIFOChannel
-      mapping clientsNetwork[_] via FIFOChannel;
+      mapping clientsNetwork[_] via FIFOChannel
+      mapping lock[_] via Identity;
 
   fair process (PutClient \in PutSet) == instance Put(ref replicasNetwork, clientsNetwork, PUT_KEY, PUT_VALUE, ref lock, 0)
       mapping replicasNetwork[_] via FIFOChannel
-      mapping clientsNetwork[_] via FIFOChannel;
+      mapping clientsNetwork[_] via FIFOChannel
+      mapping lock[_] via Identity;
 
   fair process (DisconnectClient \in DisconnectSet) == instance Disconnect(ref replicasNetwork, lock, 0)
-      mapping replicasNetwork[_] via FIFOChannel;
+      mapping replicasNetwork[_] via FIFOChannel
+      mapping lock[_] via Identity;
 
   fair process (ClockUpdateClient \in NullSet) == instance ClockUpdate(ref replicasNetwork, 0)
       mapping replicasNetwork[_] via FIFOChannel;
@@ -726,8 +738,8 @@ NULL_ORDER == 3
                         respondStableGet:
                             if ((msg[1])=(GET_MSG)) {
                                 key := msg[2];
-                                kvRead := kvLocal;
-                                val := kvRead[key];
+                                kvRead := kvLocal[key];
+                                val := kvRead;
                                 await (Len(clientsNetwork[msg[3]]))<(BUFFER_SIZE);
                                 clientsWrite := [clientsNetwork EXCEPT ![msg[3]] = Append(clientsNetwork[msg[3]], val)];
                                 clientsWrite0 := clientsWrite;
@@ -771,8 +783,8 @@ NULL_ORDER == 3
             if (continue) {
                 getRequest:
                     clientId := (self)-((NUM_CLIENTS)*(GET_ORDER));
-                    lockedRead := lock;
-                    await ~(lockedRead[clientId]);
+                    lockedRead := lock[clientId];
+                    await ~(lockedRead);
                     clockRead := clockLocal;
                     if ((clockRead)=(-(1))) {
                         continue := FALSE;
@@ -799,7 +811,6 @@ NULL_ORDER == 3
                             clientsRead := msg1;
                         };
                         getResp := clientsRead;
-                        assert ((getResp)=(NULL))\/((getResp)=(PUT_VALUE));
                         clockWrite0 := clockWrite;
                         replicasWrite1 := replicasWrite0;
                         clientsWrite3 := clientsWrite2;
@@ -871,8 +882,8 @@ NULL_ORDER == 3
     {
         sendDisconnectRequest:
             clientId := (self)-((NUM_CLIENTS)*(DISCONNECT_ORDER));
-            lockedRead0 := lock;
-            await ~(lockedRead0[clientId]);
+            lockedRead0 := lock[clientId];
+            await ~(lockedRead0);
             msg := <<DISCONNECT_MSG, clientId>>;
             clockWrite2 := -(1);
             clockLocal1 := clockWrite2;
@@ -911,19 +922,19 @@ NULL_ORDER == 3
 
 ***************************************************************************)
 \* BEGIN TRANSLATION
-\* Process variable i of process Replica at line 624 col 148 changed to i_
-\* Process variable continue of process Replica at line 624 col 271 changed to continue_
-\* Process variable msg of process Replica at line 624 col 310 changed to msg_
-\* Process variable continue of process GetClient at line 769 col 31 changed to continue_G
-\* Process variable i of process GetClient at line 769 col 48 changed to i_G
-\* Process variable clientId of process GetClient at line 769 col 72 changed to clientId_
-\* Process variable continue of process PutClient at line 817 col 32 changed to continue_P
-\* Process variable i of process PutClient at line 817 col 49 changed to i_P
-\* Process variable clientId of process PutClient at line 817 col 69 changed to clientId_P
-\* Process variable msg of process DisconnectClient at line 871 col 32 changed to msg_D
-\* Process variable clientId of process DisconnectClient at line 871 col 37 changed to clientId_D
-\* Process variable i of process ClockUpdateClient at line 884 col 49 changed to i_C
-\* Process variable msg of process ClockUpdateClient at line 884 col 56 changed to msg_C
+\* Process variable i of process Replica at line 635 col 148 changed to i_
+\* Process variable continue of process Replica at line 635 col 271 changed to continue_
+\* Process variable msg of process Replica at line 635 col 310 changed to msg_
+\* Process variable continue of process GetClient at line 780 col 31 changed to continue_G
+\* Process variable i of process GetClient at line 780 col 48 changed to i_G
+\* Process variable clientId of process GetClient at line 780 col 72 changed to clientId_
+\* Process variable continue of process PutClient at line 827 col 32 changed to continue_P
+\* Process variable i of process PutClient at line 827 col 49 changed to i_P
+\* Process variable clientId of process PutClient at line 827 col 69 changed to clientId_P
+\* Process variable msg of process DisconnectClient at line 881 col 32 changed to msg_D
+\* Process variable clientId of process DisconnectClient at line 881 col 37 changed to clientId_D
+\* Process variable i of process ClockUpdateClient at line 894 col 49 changed to i_C
+\* Process variable msg of process ClockUpdateClient at line 894 col 56 changed to msg_C
 CONSTANT defaultInitValue
 VARIABLES replicasNetwork, clientsNetwork, lock, pc, stack, domainStart,
           domainEnd, msg, i, nodesWrite, nodesWrite0, kvLocal, liveClients,
@@ -1255,7 +1266,7 @@ replicaGetRequest(self) == /\ pc[self] = "replicaGetRequest"
                            /\ IF (msg_[self][1])=(GET_MSG)
                                  THEN /\ requester' = [requester EXCEPT ![self] = msg_[self][3]]
                                       /\ Assert((requester'[self])\in(liveClients[self]),
-                                                "Failure of assertion at line 647, column 25.")
+                                                "Failure of assertion at line 658, column 25.")
                                       /\ currentClocks' = [currentClocks EXCEPT ![self][requester'[self]] = msg_[self][4]]
                                       /\ pendingRequests' = [pendingRequests EXCEPT ![self][requester'[self]] = Append(pendingRequests[self][requester'[self]], msg_[self])]
                                  ELSE /\ TRUE
@@ -1478,7 +1489,7 @@ findMinClient(self) == /\ pc[self] = "findMinClient"
                              THEN /\ \E client \in pendingClients[self]:
                                        /\ firstPending' = [firstPending EXCEPT ![self] = Head(pendingRequests[self][client])]
                                        /\ Assert(((firstPending'[self][1])=(GET_MSG))\/((firstPending'[self][1])=(PUT_MSG)),
-                                                 "Failure of assertion at line 690, column 37.")
+                                                 "Failure of assertion at line 701, column 37.")
                                        /\ IF (firstPending'[self][1])=(GET_MSG)
                                              THEN /\ timestamp' = [timestamp EXCEPT ![self] = firstPending'[self][4]]
                                              ELSE /\ timestamp' = [timestamp EXCEPT ![self] = firstPending'[self][5]]
@@ -1628,8 +1639,8 @@ respondPendingRequestsLoop(self) == /\ pc[self] = "respondPendingRequestsLoop"
 respondStableGet(self) == /\ pc[self] = "respondStableGet"
                           /\ IF (msg_[self][1])=(GET_MSG)
                                 THEN /\ key' = [key EXCEPT ![self] = msg_[self][2]]
-                                     /\ kvRead' = [kvRead EXCEPT ![self] = kvLocal[self]]
-                                     /\ val' = [val EXCEPT ![self] = kvRead'[self][key'[self]]]
+                                     /\ kvRead' = [kvRead EXCEPT ![self] = kvLocal[self][key'[self]]]
+                                     /\ val' = [val EXCEPT ![self] = kvRead'[self]]
                                      /\ (Len(clientsNetwork[msg_[self][3]]))<(BUFFER_SIZE)
                                      /\ clientsWrite' = [clientsWrite EXCEPT ![self] = [clientsNetwork EXCEPT ![msg_[self][3]] = Append(clientsNetwork[msg_[self][3]], val'[self])]]
                                      /\ clientsWrite0' = [clientsWrite0 EXCEPT ![self] = clientsWrite'[self]]
@@ -1758,8 +1769,8 @@ getLoop(self) == /\ pc[self] = "getLoop"
 
 getRequest(self) == /\ pc[self] = "getRequest"
                     /\ clientId_' = [clientId_ EXCEPT ![self] = (self)-((NUM_CLIENTS)*(GET_ORDER))]
-                    /\ lockedRead' = [lockedRead EXCEPT ![self] = lock]
-                    /\ ~(lockedRead'[self][clientId_'[self]])
+                    /\ lockedRead' = [lockedRead EXCEPT ![self] = lock[clientId_'[self]]]
+                    /\ ~(lockedRead'[self])
                     /\ clockRead' = [clockRead EXCEPT ![self] = clockLocal[self]]
                     /\ IF (clockRead'[self])=(-(1))
                           THEN /\ continue_G' = [continue_G EXCEPT ![self] = FALSE]
@@ -1787,8 +1798,6 @@ getRequest(self) == /\ pc[self] = "getRequest"
                                     /\ clientsWrite2' = [clientsWrite2 EXCEPT ![self] = [clientsNetwork EXCEPT ![clientId_'[self]] = Tail(clientsNetwork[clientId_'[self]])]]
                                     /\ clientsRead' = [clientsRead EXCEPT ![self] = msg1]
                                /\ getResp' = [getResp EXCEPT ![self] = clientsRead'[self]]
-                               /\ Assert(((getResp'[self])=(NULL))\/((getResp'[self])=(PUT_VALUE)),
-                                         "Failure of assertion at line 803, column 25.")
                                /\ clockWrite0' = [clockWrite0 EXCEPT ![self] = clockWrite'[self]]
                                /\ replicasWrite1' = [replicasWrite1 EXCEPT ![self] = replicasWrite0'[self]]
                                /\ clientsWrite3' = [clientsWrite3 EXCEPT ![self] = clientsWrite2'[self]]
@@ -1921,7 +1930,7 @@ putResponse(self) == /\ pc[self] = "putResponse"
                                      /\ clientsRead0' = [clientsRead0 EXCEPT ![self] = msg2]
                                 /\ putResp' = [putResp EXCEPT ![self] = clientsRead0'[self]]
                                 /\ Assert((putResp'[self])=(OK_RESPONSE),
-                                          "Failure of assertion at line 847, column 33.")
+                                          "Failure of assertion at line 857, column 33.")
                                 /\ i_P' = [i_P EXCEPT ![self] = (i_P[self])+(1)]
                                 /\ clientsWrite5' = [clientsWrite5 EXCEPT ![self] = clientsWrite4'[self]]
                                 /\ lockedWrite0' = [lockedWrite0 EXCEPT ![self] = lock]
@@ -2000,8 +2009,8 @@ PutClient(self) == putLoop(self) \/ putRequest(self) \/ putResponse(self)
 
 sendDisconnectRequest(self) == /\ pc[self] = "sendDisconnectRequest"
                                /\ clientId_D' = [clientId_D EXCEPT ![self] = (self)-((NUM_CLIENTS)*(DISCONNECT_ORDER))]
-                               /\ lockedRead0' = [lockedRead0 EXCEPT ![self] = lock]
-                               /\ ~(lockedRead0'[self][clientId_D'[self]])
+                               /\ lockedRead0' = [lockedRead0 EXCEPT ![self] = lock[clientId_D'[self]]]
+                               /\ ~(lockedRead0'[self])
                                /\ msg_D' = [msg_D EXCEPT ![self] = <<DISCONNECT_MSG, clientId_D'[self]>>]
                                /\ clockWrite2' = [clockWrite2 EXCEPT ![self] = -(1)]
                                /\ clockLocal1' = [clockLocal1 EXCEPT ![self] = clockWrite2'[self]]
@@ -2214,5 +2223,5 @@ DisconnectionSafe == \A client \in ClientSet : <>[](clockLocal[client] = -1)
 
 =============================================================================
 \* Modification History
-\* Last modified Thu Feb 28 18:30:57 PST 2019 by rmc
+\* Last modified Wed Mar 06 16:00:25 PST 2019 by rmc
 \* Last modified Wed Feb 27 12:42:52 PST 2019 by minh
