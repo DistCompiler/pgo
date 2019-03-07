@@ -86,6 +86,9 @@ public class TypeInferencePass {
 				constrainVariableDeclaration(registry, var, solver, generator, mapping);
 				paramTypes.add(mapping.get(var.getUID()));
 			}
+			for (PlusCalVariableDeclaration declaration : p.getVariables()) {
+				constrainVariableDeclaration(registry, declaration, solver, generator, mapping);
+			}
 			PlusCalStatementTypeConstraintVisitor v =
 					new PlusCalStatementTypeConstraintVisitor(registry, solver, generator, mapping);
 			for (PlusCalStatement stmt : p.getBody()) {
@@ -125,6 +128,9 @@ public class TypeInferencePass {
 			UID selfVariableUID = archetype.getSelfVariableUID();
 			mapping.put(selfVariableUID, generator.getTypeVariable(Collections.singletonList(archetype)));
 			constrainSelfVariable(archetype, selfVariableUID, solver, mapping);
+			for (PlusCalVariableDeclaration declaration : archetype.getVariables()) {
+				constrainVariableDeclaration(registry, declaration, solver, generator, mapping);
+			}
 			for (PlusCalStatement statement : archetype.getBody()) {
 				statement.accept(new ArchetypeBodyStatementTypeConstraintVisitor(
 						registry, solver, generator, mapping, functionMappedParamUIDs, paramUIDs));
