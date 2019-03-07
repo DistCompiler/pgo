@@ -1,0 +1,14 @@
+{
+  "build": {
+    "output_dir": "output",
+    "dest_package": "replicated_kv"
+  },
+  "constants": {
+    "DISCONNECT_MSG": "\"disconnect\"",
+    "GET_MSG": "\"get\"",
+    "PUT_MSG": "\"put\"",
+    "NULL_MSG": "\"clock_update\"",
+    "OK_RESPONSE": "200",
+    "NUM_CLIENTS": "2"
+  }
+}
