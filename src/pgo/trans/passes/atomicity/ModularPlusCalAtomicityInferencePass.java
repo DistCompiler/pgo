@@ -98,7 +98,8 @@ public class ModularPlusCalAtomicityInferencePass {
                         if (m.getVariable() instanceof ModularPlusCalMappingVariableName) {
                             pos = resourceVars.get(((ModularPlusCalMappingVariableName) m.getVariable()).getName());
                         } else if (m.getVariable() instanceof ModularPlusCalMappingVariablePosition) {
-                            pos = ((ModularPlusCalMappingVariablePosition) m.getVariable()).getPosition();
+                            // position-mapping is 1-indexed
+                            pos = ((ModularPlusCalMappingVariablePosition) m.getVariable()).getPosition() - 1;
                         } else {
                             throw new Unreachable();
                         }
