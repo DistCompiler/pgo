@@ -35,6 +35,21 @@ public class ModularPlusCalMacroExpansionPass {
 					stmts));
 		}
 
+		List<ModularPlusCalArchetype> archetypes = new ArrayList<>();
+		for (ModularPlusCalArchetype archetype : modularPlusCalBlock.getArchetypes()) {
+			List<PlusCalStatement> stmts = new ArrayList<>();
+			for (PlusCalStatement stmt : archetype.getBody()) {
+				stmts.addAll(stmt.accept(v));
+			}
+
+			archetypes.add(new ModularPlusCalArchetype(
+					archetype.getLocation(),
+					archetype.getName(),
+					archetype.getParams(),
+					archetype.getVariables(),
+					stmts));
+		}
+
 		return new ModularPlusCalBlock(
 				modularPlusCalBlock.getLocation(),
 				modularPlusCalBlock.getName(),
@@ -42,7 +57,7 @@ public class ModularPlusCalMacroExpansionPass {
 				Collections.emptyList(),
 				procedures,
 				modularPlusCalBlock.getMappingMacros(),
-				modularPlusCalBlock.getArchetypes(),
+				archetypes,
 				modularPlusCalBlock.getVariables(),
 				modularPlusCalBlock.getInstances(),
 				modularPlusCalBlock.getProcesses().accept(new PlusCalProcessesMacroExpansionVisitor(ctx, macros)));

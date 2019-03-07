@@ -137,7 +137,19 @@ public class PlusCalStatementFormattingVisitor extends PlusCalStatementVisitor<V
 
 	@Override
 	public Void visit(PlusCalMacroCall macroCall) throws IOException {
-		throw new TODO();
+		out.write(macroCall.getTarget());
+		out.write("(");
+
+		for (int i = 0; i < macroCall.getArguments().size(); i++) {
+			if (i > 0) {
+				out.write(", ");
+			}
+
+			macroCall.getArguments().get(i).accept(new TLAExpressionFormattingVisitor(out));
+		}
+
+		out.write(");");
+		return null;
 	}
 
 	@Override
