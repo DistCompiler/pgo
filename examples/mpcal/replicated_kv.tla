@@ -52,17 +52,6 @@ CONSTANT GET_KEY, PUT_KEY
 \* Whenever clients issue PUT requests, they set keys to the value declared in this constant.
 CONSTANT PUT_VALUE
 
-\* Define NUM_NODES to be the total number of nodes in the system, i.e., the number of
-\* clients plus the number of replicas
-NUM_NODES == NUM_REPLICAS + NUM_CLIENTS
-
-\* Each replica and each client in the system need an identifier. By default, replicas
-\* are identified from 1 to NUM_REPLICAS, and the clients are identified from NUM_REPLICAS+1
-\* to NUM_NODES. It is important that identifiers are unique, consecutive and non-overlapping,
-\* due to the way we are modeling our network in this specification.
-ReplicaSet == 1..NUM_REPLICAS
-ClientSet == (NUM_REPLICAS+1)..NUM_NODES
-
 \* Defines the set of keys a client may set. In this specification, we restrict
 \* it to them to GET_KEY and PUT_KEY
 KeySpace == { GET_KEY, PUT_KEY }
@@ -85,6 +74,18 @@ NULL_ORDER == 3
 
 (***************************************************************************
 --mpcal ReplicatedKV {
+  define {
+      \* Define NUM_NODES to be the total number of nodes in the system, i.e., the number of
+      \* clients plus the number of replicas
+      NUM_NODES == NUM_REPLICAS + NUM_CLIENTS
+
+      \* Each replica and each client in the system need an identifier. By default, replicas
+      \* are identified from 1 to NUM_REPLICAS, and the clients are identified from NUM_REPLICAS+1
+      \* to NUM_NODES. It is important that identifiers are unique, consecutive and non-overlapping,
+      \* due to the way we are modeling our network in this specification.
+      ReplicaSet == 1..NUM_REPLICAS
+      ClientSet == (NUM_REPLICAS+1)..NUM_NODES
+  }
 
   \* Broadcasts a certain `msg` to `nodes` with identifiers ranging from
   \* `domainStart` to `domainEnd`.
@@ -603,6 +604,8 @@ NULL_ORDER == 3
 \* BEGIN PLUSCAL TRANSLATION
 --algorithm ReplicatedKV {
     variables replicasNetwork = [id \in ReplicaSet |-> <<>>], clientsNetwork = [id \in ClientSet |-> <<>>], lock = [c \in ClientSet |-> FALSE];
+    define {
+        NUM_NODES == (NUM_REPLICAS)+(NUM_CLIENTS)ReplicaSet == (1)..(NUM_REPLICAS)ClientSet == ((NUM_REPLICAS)+(1))..(NUM_NODES)}
     fair process (Replica \in ReplicaSet)
     variables kvLocal = [k \in KeySpace |-> NULL], liveClients = ClientSet, pendingRequests = [c \in liveClients |-> <<>>], stableMessages = <<>>, i, firstPending, timestamp, nextClient, lowestPending, chooseMessage, currentClocks = [c \in liveClients |-> 0], minClock, continue, pendingClients, clientsIter, msg, key, val, mainLoop = TRUE, replicasRead, replicasWrite, kvRead, clientsWrite, clientsWrite0, kvWrite, kvWrite0, clientsWrite1;
     {
@@ -921,37 +924,41 @@ NULL_ORDER == 3
 
 ***************************************************************************)
 \* BEGIN TRANSLATION
-\* Process variable i of process Replica at line 607 col 148 changed to i_
-\* Process variable continue of process Replica at line 607 col 271 changed to continue_
-\* Process variable msg of process Replica at line 607 col 310 changed to msg_
-\* Process variable continue of process GetClient at line 745 col 31 changed to continue_G
-\* Process variable i of process GetClient at line 745 col 48 changed to i_G
-\* Process variable clientId of process GetClient at line 745 col 72 changed to clientId_
-\* Process variable continue of process PutClient at line 792 col 32 changed to continue_P
-\* Process variable i of process PutClient at line 792 col 49 changed to i_P
-\* Process variable j of process PutClient at line 792 col 52 changed to j_
-\* Process variable clientId of process PutClient at line 792 col 72 changed to clientId_P
-\* Process variable msg of process DisconnectClient at line 859 col 32 changed to msg_D
-\* Process variable j of process DisconnectClient at line 859 col 37 changed to j_D
-\* Process variable clientId of process DisconnectClient at line 859 col 40 changed to clientId_D
+\* Process variable i of process Replica at line 610 col 148 changed to i_
+\* Process variable continue of process Replica at line 610 col 271 changed to continue_
+\* Process variable msg of process Replica at line 610 col 310 changed to msg_
+\* Process variable continue of process GetClient at line 748 col 31 changed to continue_G
+\* Process variable i of process GetClient at line 748 col 48 changed to i_G
+\* Process variable clientId of process GetClient at line 748 col 72 changed to clientId_
+\* Process variable continue of process PutClient at line 795 col 32 changed to continue_P
+\* Process variable i of process PutClient at line 795 col 49 changed to i_P
+\* Process variable j of process PutClient at line 795 col 52 changed to j_
+\* Process variable clientId of process PutClient at line 795 col 72 changed to clientId_P
+\* Process variable msg of process DisconnectClient at line 862 col 32 changed to msg_D
+\* Process variable j of process DisconnectClient at line 862 col 37 changed to j_D
+\* Process variable clientId of process DisconnectClient at line 862 col 40 changed to clientId_D
 CONSTANT defaultInitValue
-VARIABLES replicasNetwork, clientsNetwork, lock, pc, kvLocal, liveClients,
-          pendingRequests, stableMessages, i_, firstPending, timestamp,
-          nextClient, lowestPending, chooseMessage, currentClocks, minClock,
-          continue_, pendingClients, clientsIter, msg_, key, val, mainLoop,
-          replicasRead, replicasWrite, kvRead, clientsWrite, clientsWrite0,
-          kvWrite, kvWrite0, clientsWrite1, clockLocal, continue_G, i_G,
-          getReq, getResp, clientId_, lockedRead, clockRead, clockRead0,
-          clockWrite, keyRead, clockRead1, replicasWrite0, clientsRead,
-          clientsWrite2, clockWrite0, replicasWrite1, clientsWrite3,
-          clockLocal0, continue_P, i_P, j_, putReq, putResp, clientId_P,
-          clockRead2, clockRead3, clockWrite1, keyRead0, valueRead,
-          clockRead4, lockedWrite, replicasWrite2, replicasWrite3,
-          clientsRead0, clientsWrite4, clientsWrite5, lockedWrite0,
-          clockLocal1, msg_D, j_D, clientId_D, lockedRead0, clockWrite2,
-          replicasWrite4, replicasWrite5, clockLocal2, continue, i, j, msg,
-          clientId, clockRead5, clockRead6, clockWrite3, clockRead7,
-          replicasWrite6, replicasWrite7
+VARIABLES replicasNetwork, clientsNetwork, lock, pc
+
+(* define statement *)
+NUM_NODES == (NUM_REPLICAS)+(NUM_CLIENTS)ReplicaSet == (1)..(NUM_REPLICAS)ClientSet == ((NUM_REPLICAS)+(1))..(NUM_NODES)
+
+VARIABLES kvLocal, liveClients, pendingRequests, stableMessages, i_,
+          firstPending, timestamp, nextClient, lowestPending, chooseMessage,
+          currentClocks, minClock, continue_, pendingClients, clientsIter,
+          msg_, key, val, mainLoop, replicasRead, replicasWrite, kvRead,
+          clientsWrite, clientsWrite0, kvWrite, kvWrite0, clientsWrite1,
+          clockLocal, continue_G, i_G, getReq, getResp, clientId_, lockedRead,
+          clockRead, clockRead0, clockWrite, keyRead, clockRead1,
+          replicasWrite0, clientsRead, clientsWrite2, clockWrite0,
+          replicasWrite1, clientsWrite3, clockLocal0, continue_P, i_P, j_,
+          putReq, putResp, clientId_P, clockRead2, clockRead3, clockWrite1,
+          keyRead0, valueRead, clockRead4, lockedWrite, replicasWrite2,
+          replicasWrite3, clientsRead0, clientsWrite4, clientsWrite5,
+          lockedWrite0, clockLocal1, msg_D, j_D, clientId_D, lockedRead0,
+          clockWrite2, replicasWrite4, replicasWrite5, clockLocal2, continue,
+          i, j, msg, clientId, clockRead5, clockRead6, clockWrite3,
+          clockRead7, replicasWrite6, replicasWrite7
 
 vars == << replicasNetwork, clientsNetwork, lock, pc, kvLocal, liveClients,
            pendingRequests, stableMessages, i_, firstPending, timestamp,
@@ -1195,7 +1202,7 @@ clientDisconnected(self) == /\ pc[self] = "clientDisconnected"
 replicaGetRequest(self) == /\ pc[self] = "replicaGetRequest"
                            /\ IF ((msg_[self]).op)=(GET_MSG)
                                  THEN /\ Assert(((msg_[self]).client)\in(liveClients[self]),
-                                                "Failure of assertion at line 629, column 25.")
+                                                "Failure of assertion at line 632, column 25.")
                                       /\ currentClocks' = [currentClocks EXCEPT ![self][(msg_[self]).client] = (msg_[self]).timestamp]
                                       /\ pendingRequests' = [pendingRequests EXCEPT ![self][(msg_[self]).client] = Append(pendingRequests[self][(msg_[self]).client], msg_[self])]
                                  ELSE /\ TRUE
@@ -1417,7 +1424,7 @@ findMinClient(self) == /\ pc[self] = "findMinClient"
                              THEN /\ \E client \in pendingClients[self]:
                                        /\ firstPending' = [firstPending EXCEPT ![self] = Head(pendingRequests[self][client])]
                                        /\ Assert((((firstPending'[self]).op)=(GET_MSG))\/(((firstPending'[self]).op)=(PUT_MSG)),
-                                                 "Failure of assertion at line 670, column 37.")
+                                                 "Failure of assertion at line 673, column 37.")
                                        /\ timestamp' = [timestamp EXCEPT ![self] = (firstPending'[self]).timestamp]
                                        /\ IF (timestamp'[self])<(minClock[self])
                                              THEN /\ chooseMessage' = [chooseMessage EXCEPT ![self] = ((timestamp'[self])<(lowestPending[self]))\/(((timestamp'[self])=(lowestPending[self]))/\((client)<(nextClient[self])))]
@@ -1888,7 +1895,7 @@ putResponse(self) == /\ pc[self] = "putResponse"
                                      /\ clientsRead0' = [clientsRead0 EXCEPT ![self] = msg2]
                                 /\ putResp' = [putResp EXCEPT ![self] = clientsRead0'[self]]
                                 /\ Assert((((putResp'[self]).type)=(PUT_RESPONSE))/\(((putResp'[self]).result)=(PUT_OK)),
-                                          "Failure of assertion at line 835, column 33.")
+                                          "Failure of assertion at line 838, column 33.")
                                 /\ i_P' = [i_P EXCEPT ![self] = (i_P[self])+(1)]
                                 /\ clientsWrite5' = [clientsWrite5 EXCEPT ![self] = clientsWrite4'[self]]
                                 /\ lockedWrite0' = [lockedWrite0 EXCEPT ![self] = lock]
@@ -2229,5 +2236,5 @@ DisconnectionSafe == \A client \in ClientSet : <>[](clockLocal[client] = -1)
 
 =============================================================================
 \* Modification History
-\* Last modified Wed Mar 06 17:49:23 PST 2019 by rmc
+\* Last modified Wed Mar 06 19:29:48 PST 2019 by rmc
 \* Last modified Wed Feb 27 12:42:52 PST 2019 by minh

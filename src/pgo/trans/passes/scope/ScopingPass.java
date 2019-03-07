@@ -74,7 +74,7 @@ public class ScopingPass {
 		TLAScopeBuilder modularPlusCalScope = tlaScope.makeNestedScope();
 
 		for (TLAUnit unit : modularPlusCalBlock.getUnits()) {
-			unit.accept(new TLAUnitScopingVisitor(ctx, modularPlusCalScope, registry, loader, new HashSet<>()));
+			unit.accept(new TLAUnitScopingVisitor(ctx, tlaScope, registry, loader, new HashSet<>()));
 		}
 
 		for (PlusCalVariableDeclaration variableDeclaration : modularPlusCalBlock.getVariables()) {
