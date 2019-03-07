@@ -9,6 +9,7 @@
     "PUT_MSG": "\"put\"",
     "NULL_MSG": "\"clock_update\"",
     "OK_RESPONSE": "200",
-    "NUM_CLIENTS": "2"
+    "NUM_CLIENTS": "2",
+    "NUM_REPLICAS": "3"
   }
 }
