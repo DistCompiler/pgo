@@ -9,7 +9,6 @@ import pgo.model.golang.builder.GoForRangeBuilder;
 import pgo.model.golang.builder.GoForStatementClauseBuilder;
 import pgo.model.golang.type.GoSliceType;
 import pgo.model.golang.type.GoType;
-import pgo.model.tla.TLAExpression;
 import pgo.model.type.*;
 import pgo.model.type.constraint.EqualityConstraint;
 import pgo.model.type.constraint.MonomorphicConstraint;
@@ -600,7 +599,12 @@ public class TLABuiltins {
 					return new IntType(Collections.singletonList(origin));
 				},
 				(builder, origin, registry, arguments, typeMap) -> {
-					throw new TODO();
+					// len(set)
+					if (arguments.size() != 1) {
+						throw new InternalCompilerError();
+					}
+
+					return new GoCall(new GoVariableName("len"), Collections.singletonList(arguments.get(0)));
 				}
 		));
 

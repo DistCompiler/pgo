@@ -96,7 +96,7 @@ public class IntegrationTestingUtils {
 			     IndentingWriter out = new IndentingWriter(w)) {
 				out.write("---- MODULE Test ----");
 				out.newLine();
-				out.write("EXTENDS Sequences, Integers");
+				out.write("EXTENDS Sequences, FiniteSets, Integers");
 				out.newLine();
 
 				out.write("(* --algorithm Test {");

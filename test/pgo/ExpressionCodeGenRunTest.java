@@ -222,6 +222,16 @@ public class ExpressionCodeGenRunTest {
 								binop("+", idexp("x"), idexp("y"))))),
 				Collections.singletonList("7"),
 			},
+			{
+				opcall("Cardinality", set(num(1), num(2))),
+				Collections.emptyList(),
+				Collections.singletonList("2")
+			},
+			{
+				opcall("Cardinality", set()),
+				Collections.emptyList(),
+				Collections.singletonList("0")
+			}
 		});
 	}
 
