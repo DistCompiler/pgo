@@ -127,6 +127,16 @@ public class ExpressionCodeGenRunTest {
 				Arrays.asList(kv("lhs", set(num(1), num(2))), kv("rhs", set(num(3), num(2)))),
 				Collections.singletonList("[1]"),
 			},
+			{
+				binop("\\in", idexp("x"), idexp("s")),
+				Arrays.asList(kv("x", num(3)), kv("s", set(num(1), num(3), num(2)))),
+				Collections.singletonList("true")
+			},
+			{
+					binop("\\in", idexp("x"), idexp("s")),
+					Arrays.asList(kv("x", num(30)), kv("s", set(num(1), num(3), num(2)))),
+					Collections.singletonList("false")
+			},
 			// pseudo-lexicographical sorting tests
 			{
 				idexp("value"),

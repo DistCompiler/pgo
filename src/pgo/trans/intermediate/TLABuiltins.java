@@ -1,5 +1,6 @@
 package pgo.trans.intermediate;
 
+import pgo.InternalCompilerError;
 import pgo.TODO;
 import pgo.model.golang.*;
 import pgo.model.golang.builder.GoAnonymousFunctionBuilder;
@@ -8,6 +9,7 @@ import pgo.model.golang.builder.GoForRangeBuilder;
 import pgo.model.golang.builder.GoForStatementClauseBuilder;
 import pgo.model.golang.type.GoSliceType;
 import pgo.model.golang.type.GoType;
+import pgo.model.tla.TLAExpression;
 import pgo.model.type.*;
 import pgo.model.type.constraint.EqualityConstraint;
 import pgo.model.type.constraint.MonomorphicConstraint;
@@ -27,6 +29,55 @@ public class TLABuiltins {
 	public static GoType getSetElementType(Type setType) {
 		Type elementType = ((SetType)setType).getElementType();
 		return elementType.accept(new TypeConversionVisitor());
+	}
+
+	private static GoVariableName getIndexInSet(GoBlockBuilder builder, GoType elementType, GoExpression set, GoExpression val) {
+		builder.addImport("sort");
+
+		String searchFunction;
+		if (elementType.equals(GoBuiltins.Int)) {
+			searchFunction = "SearchInts";
+		} else if (elementType.equals(GoBuiltins.Float64)) {
+			searchFunction = "SearchFloat64s";
+		} else if (elementType.equals(GoBuiltins.String)) {
+			searchFunction = "SearchStrings";
+		} else {
+			searchFunction = "Search";
+		}
+
+		GoVariableName index;
+		if (searchFunction.equals("Search")) {
+			GoAnonymousFunctionBuilder checkBuilder = builder.anonymousFunction();
+			GoVariableName j = checkBuilder.addArgument("j", GoBuiltins.Int);
+			checkBuilder.addReturn(GoBuiltins.Bool);
+			try (GoBlockBuilder checkBody = checkBuilder.getBlockBuilder()) {
+				checkBody.addStatement(
+						new GoReturn(
+								Collections.singletonList(
+										new GoUnary(
+												GoUnary.Operation.NOT,
+												elementType.accept(new LessThanCodeGenVisitor(
+														checkBody,
+														new GoIndexExpression(set, j),
+														val))))));
+			}
+			index = builder.varDecl(
+					"index",
+					new GoCall(
+							new GoSelectorExpression(
+									new GoVariableName("sort"), "Search"),
+							Arrays.asList(
+									new GoCall(new GoVariableName("len"), Collections.singletonList(set)),
+									checkBuilder.getFunction())));
+		} else {
+			index = builder.varDecl(
+					"index",
+					new GoCall(
+							new GoSelectorExpression(new GoVariableName("sort"), searchFunction),
+							Arrays.asList(set, val)));
+		}
+
+		return index;
 	}
 
 	public static TypeVariable getPolymorphicNumberType(Origin origin, TypeSolver solver,
@@ -89,7 +140,7 @@ public class TLABuiltins {
 					Arrays.asList(
 							set,
 							comparatorBuilder.getFunction()))));
-		}else {
+		} else {
 			builder.addStatement(new GoExpressionStatement(new GoCall(
 					new GoSelectorExpression(new GoVariableName("sort"), sortFunction), Collections.singletonList(set))));
 		}
@@ -174,7 +225,31 @@ public class TLABuiltins {
 					return new BoolType(Collections.singletonList(origin));
 				},
 				(builder, origin, registry, arguments, typeMap, globalStrategy) -> {
-					throw new TODO();
+					if (arguments.size() != 2) {
+						throw new InternalCompilerError();
+					}
+
+					// index := sort.SearchType(rhs, lhs)
+					// index < len(rhs) && rhs[index] == lhs
+					GoExpression val = arguments.get(0).accept(
+							new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
+					GoExpression set = arguments.get(1).accept(
+							new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
+
+					GoType elementType = getSetElementType(typeMap.get(arguments.get(1).getUID()));
+					GoVariableName index = getIndexInSet(builder, elementType, set, val);
+
+					// index < len(set)
+					GoExpression withinBounds = new GoBinop(
+							GoBinop.Operation.LT,
+							index,
+							new GoCall(new GoVariableName("len"), Collections.singletonList(set)));
+
+					// set[index] == val
+					GoExpression element = new GoIndexExpression(set, index);
+					GoExpression equalsVal = new GoBinop(GoBinop.Operation.EQ, element, val);
+
+					return new GoBinop(GoBinop.Operation.AND, withinBounds, equalsVal);
 				}
 				));
 		universalBuiltIns.addOperator("\\", new BuiltinOperator(
@@ -191,7 +266,7 @@ public class TLABuiltins {
 					// lenLhs = len(lhs)
 					// tmpSet := make([]type, 0, lenLhs)
 					// for _, v := range lhs {
-					// 	index := sort.SearchTypes(rhs, v)
+					// 	index := sort.SearchType(rhs, v)
 					// 	if index < len(rhs) {
 					//		if rhs[index] == v {
 					//			continue
@@ -200,25 +275,14 @@ public class TLABuiltins {
 					//  // keep the element
 					//  tmpSet = append(tmpSet, v)
 					// }
-					builder.addImport("sort");
 					GoType elementType = getSetElementType(typeMap.get(origin.getUID()));
-					String searchFunction;
-					if (elementType.equals(GoBuiltins.Int)) {
-						searchFunction = "SearchInts";
-					} else if (elementType.equals(GoBuiltins.Float64)) {
-						searchFunction = "SearchFloat64s";
-					} else if (elementType.equals(GoBuiltins.String)) {
-						searchFunction = "SearchStrings";
-					} else {
-						searchFunction = "Search";
-					}
 					GoExpression lhs = arguments.get(0).accept(
 							new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
 					GoExpression rhs = arguments.get(1).accept(
 							new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
 
 					// special case: rhs is an empty literal, compiles to noop
-					if(rhs instanceof GoSliceLiteral && ((GoSliceLiteral)rhs).getInitializers().size() == 0){
+					if (rhs instanceof GoSliceLiteral && ((GoSliceLiteral)rhs).getInitializers().size() == 0){
 						return lhs;
 					}
 
@@ -235,7 +299,7 @@ public class TLABuiltins {
 					try (GoBlockBuilder forBody = forBuilder.getBlockBuilder()) {
 						// special case where rhs is a slice literal, we just unroll the entire literal instead
 						// of searching through it
-						if(rhs instanceof GoSliceLiteral){
+						if (rhs instanceof GoSliceLiteral){
 							GoSliceLiteral rhsLiteral = (GoSliceLiteral)rhs;
 							GoExpression condition = null;
 							for(GoExpression option : rhsLiteral.getInitializers()){
@@ -247,7 +311,7 @@ public class TLABuiltins {
 									condition = new GoBinop(GoBinop.Operation.AND, condition, part);
 								}
 							}
-							try(GoIfBuilder shouldIncludeBuilder = forBody.ifStmt(condition)){
+							try (GoIfBuilder shouldIncludeBuilder = forBody.ifStmt(condition)){
 								try(GoBlockBuilder shouldIncludeBody = shouldIncludeBuilder.whenTrue()){
 									shouldIncludeBody.assign(
 											tmpSet, new GoCall(new GoVariableName("append"), Arrays.asList(tmpSet, v)));
@@ -256,38 +320,7 @@ public class TLABuiltins {
 							return tmpSet;
 						}
 
-						// general case, requires search operation
-						GoVariableName index;
-						if (searchFunction.equals("Search")) {
-							GoAnonymousFunctionBuilder checkBuilder = forBody.anonymousFunction();
-							GoVariableName j = checkBuilder.addArgument("j", GoBuiltins.Int);
-							checkBuilder.addReturn(GoBuiltins.Bool);
-							try (GoBlockBuilder checkBody = checkBuilder.getBlockBuilder()) {
-								checkBody.addStatement(
-										new GoReturn(
-												Collections.singletonList(
-														new GoUnary(
-																GoUnary.Operation.NOT,
-																elementType.accept(new LessThanCodeGenVisitor(
-																		checkBody,
-																		new GoIndexExpression(rhs, j),
-																		v))))));
-							}
-							index = forBody.varDecl(
-									"index",
-									new GoCall(
-											new GoSelectorExpression(
-													new GoVariableName("sort"), "Search"),
-											Arrays.asList(
-													new GoCall(new GoVariableName("len"), Collections.singletonList(rhs)),
-													checkBuilder.getFunction())));
-						}else {
-							index = forBody.varDecl(
-									"index",
-									new GoCall(
-											new GoSelectorExpression(new GoVariableName("sort"), searchFunction),
-											Arrays.asList(rhs, v)));
-						}
+						GoVariableName index = getIndexInSet(forBody, elementType, rhs, v);
 						try (GoIfBuilder ifBuilder = forBody.ifStmt(
 								new GoBinop(GoBinop.Operation.LT, index, lenRhs))) {
 							try (GoBlockBuilder yes = ifBuilder.whenTrue()) {
