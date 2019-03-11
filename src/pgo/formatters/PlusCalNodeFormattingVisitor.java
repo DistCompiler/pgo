@@ -52,6 +52,7 @@ public class PlusCalNodeFormattingVisitor extends PlusCalNodeVisitor<Void, IOExc
 				try (IndentingWriter.Indent ignored1 = out.indent()) {
 					for (TLAUnit unit : plusCalAlgorithm.getUnits()) {
 						unit.accept(new TLAUnitFormattingVisitor(out));
+						out.newLine();
 					}
 				}
 				out.write("}");
