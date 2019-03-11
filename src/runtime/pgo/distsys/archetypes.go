@@ -7,6 +7,7 @@ import (
 	"path"
 	"sort"
 	"strings"
+	"sync"
 )
 
 // ResourceAccess indicates what type of access the a caller is requesting.
@@ -405,39 +406,77 @@ func (_ *Mailbox) Less(_ ArchetypeResource) bool {
 // Parameters can be sent via channels and the result of the
 // computation performed can also be transmitted via channels.
 type LocalChannelResource struct {
-	ch chan interface{}
+	ch       chan interface{} // the underlying Go channel
+	lock     sync.Mutex       // guarantees access to the underlying channel is exclusive
+	readBuf  []interface{}    // keeps track of read values
+	writeBuf []interface{}    // values written to the channel; sent when the resource is released
 }
 
 // NewLocalChannel creates a LocalChannelResource. The caller does not
 // need to know about the underlying Go channel.
 func NewLocalChannel() *LocalChannelResource {
 	return &LocalChannelResource{
-		ch: make(chan interface{}),
+		ch:       make(chan interface{}),
+		readBuf:  []interface{}{},
+		writeBuf: []interface{}{},
 	}
 }
 
 // Acquire is a no-op for local channels.
 func (localCh *LocalChannelResource) Acquire(access ResourceAccess) error {
+	localCh.lock.Lock()
 	return nil
 }
 
 // Read waits for data to be available in the underlying Go channel.
 func (localCh *LocalChannelResource) Read() interface{} {
-	return <-localCh.ch
+	val := <-localCh.ch
+	localCh.readBuf = append(localCh.readBuf, val)
+
+	return val
 }
 
 // Write sends a value over the channel.
 func (localCh *LocalChannelResource) Write(value interface{}) {
-	localCh.ch <- value
+	localCh.writeBuf = append(localCh.writeBuf, value)
 }
 
-// Release is a no-op for local channels
+// Release writes values written to the channel while the resource was
+// acquired.
 func (localCh *LocalChannelResource) Release() error {
+	// send written values over the channel
+	for _, val := range localCh.writeBuf {
+		localCh.ch <- val
+	}
+
+	// erase read and written values
+	localCh.readBuf = []interface{}{}
+	localCh.writeBuf = []interface{}{}
+
+	// release access to the channel
+	localCh.lock.Unlock()
 	return nil
 }
 
-// Abort is a no-op for local channels
+// Abort undoes any read performed while the channel was acquired
 func (localCh *LocalChannelResource) Abort() error {
+	// reverse read values
+	for i := len(localCh.readBuf)/2 - 1; i >= 0; i-- {
+		opp := len(localCh.readBuf) - 1 - i
+		localCh.readBuf[i], localCh.readBuf[opp] = localCh.readBuf[opp], localCh.readBuf[i]
+	}
+
+	// send the read values back
+	for _, val := range localCh.readBuf {
+		localCh.ch <- val
+	}
+
+	// erase read and written values
+	localCh.readBuf = []interface{}{}
+	localCh.writeBuf = []interface{}{}
+
+	// release access to the channel
+	localCh.lock.Unlock()
 	return nil
 }
 
