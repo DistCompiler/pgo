@@ -274,12 +274,13 @@ public class IntegrationTestingUtils {
 				br.lines().forEach(lines::add);
 			}
 
-			if (checkSuccess) {
-				try {
-					assertThat(build.waitFor(), is(0));
-				} catch (InterruptedException e) {
-					throw new RuntimeException("Interrupted: " + e.getMessage());
+			try {
+				int exitCode = build.waitFor();
+				if (checkSuccess) {
+					assertThat(exitCode, is(0));
 				}
+			} catch (InterruptedException e) {
+				throw new RuntimeException("Interrupted: " + e.getMessage());
 			}
 
 			return lines;

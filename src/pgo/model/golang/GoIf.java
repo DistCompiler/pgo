@@ -1,5 +1,6 @@
 package pgo.model.golang;
 
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -9,17 +10,29 @@ import java.util.Objects;
 public class GoIf extends GoStatement {
 	// boolean condition
 	private GoExpression cond;
+	private List<GoVariableName> initialVariables;
+	private GoExpression initialExpression;
 	private GoBlock bThen;
 	private GoBlock bElse;
 
-	public GoIf(GoExpression cond, GoBlock bThen, GoBlock bElse) {
+	public GoIf(GoExpression cond, List<GoVariableName> initialVariables, GoExpression initialExpression, GoBlock bThen, GoBlock bElse) {
 		this.cond = cond;
+		this.initialVariables = initialVariables;
+		this.initialExpression = initialExpression;
 		this.bThen = bThen;
 		this.bElse = bElse;
 	}
 
 	public GoExpression getCond() {
 		return cond;
+	}
+
+	public List<GoVariableName> getInitialVariables() {
+		return this.initialVariables;
+	}
+
+	public GoExpression getInitialExpression() {
+		return this.initialExpression;
 	}
 
 	public GoBlock getThen() {
@@ -41,13 +54,14 @@ public class GoIf extends GoStatement {
 		if (o == null || getClass() != o.getClass()) return false;
 		GoIf anIf = (GoIf) o;
 		return Objects.equals(cond, anIf.cond) &&
+				Objects.equals(initialVariables, anIf.getInitialVariables()) &&
+				Objects.equals(initialExpression, anIf.getInitialExpression()) &&
 				Objects.equals(bThen, anIf.bThen) &&
 				Objects.equals(bElse, anIf.bElse);
 	}
 
 	@Override
 	public int hashCode() {
-
-		return Objects.hash(cond, bThen, bElse);
+		return Objects.hash(cond, initialVariables, initialExpression, bThen, bElse);
 	}
 }

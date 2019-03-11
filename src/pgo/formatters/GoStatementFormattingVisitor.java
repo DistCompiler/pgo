@@ -102,6 +102,17 @@ public class GoStatementFormattingVisitor extends GoStatementVisitor<Void, IOExc
 	@Override
 	public Void visit(GoIf goIf) throws IOException {
 		out.write("if ");
+		if (goIf.getInitialExpression() != null) {
+			FormattingTools.writeCommaSeparated(
+					out,
+					goIf.getInitialVariables(),
+					e -> e.accept(new GoExpressionFormattingVisitor(out))
+			);
+			out.write(" := ");
+			goIf.getInitialExpression().accept(new GoExpressionFormattingVisitor(out));
+			out.write("; ");
+		}
+
 		goIf.getCond().accept(new GoExpressionFormattingVisitor(out));
 		out.write(" ");
 		goIf.getThen().accept(this);

@@ -3,6 +3,7 @@ package pgo.trans.passes.normalising;
 import pgo.model.golang.*;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -60,6 +61,8 @@ public class GoStatementRemoveUnusedLabelsVisitor extends GoStatementVisitor<GoS
 	public GoStatement visit(GoIf goIf) throws RuntimeException {
 		return new GoIf(
 				goIf.getCond(),
+				goIf.getInitialVariables(),
+				goIf.getInitialExpression(),
 				(GoBlock) goIf.getThen().accept(this),
 				goIf.getElse() != null ? (GoBlock) goIf.getElse().accept(this) : null);
 	}

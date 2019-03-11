@@ -5,6 +5,7 @@ import pgo.TODO;
 import pgo.Unreachable;
 import pgo.model.golang.*;
 import pgo.model.golang.builder.GoBlockBuilder;
+import pgo.model.golang.builder.GoForRangeBuilder;
 import pgo.model.golang.builder.GoModuleBuilder;
 import pgo.model.golang.type.*;
 import pgo.model.pcal.PlusCalProcess;
@@ -23,16 +24,16 @@ import java.util.stream.Collectors;
 
 public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStrategy {
     private DefinitionRegistry registry;
-    private Map<TLAExpression, GoExpression> resourceExpressions;
     private Map<UID, Type> typeMap;
     private GoVariableName err;
-    private GoVariableName distsys;
+    private GoVariableName acquiredResources;
+    private Set<String> functionMappedResourceNames;
+    private int currentLockGroup;
 
     public ArchetypeResourcesGlobalVariableStrategy(DefinitionRegistry registry, Map<UID, Type> typeMap) {
         this.registry = registry;
         this.typeMap = typeMap;
-        this.resourceExpressions = new HashMap<>();
-        this.distsys = new GoVariableName("distsys");
+        this.currentLockGroup = -1;
     }
 
     @Override
@@ -57,26 +58,10 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
 
             if (e instanceof TLAGeneralIdentifier) {
                 resource = builder.findUID(registry.followReference(e.getUID()));
-            } else if (e instanceof TLAFunctionCall) {
-                TLAFunctionCall fnCall = (TLAFunctionCall) e;
-
-                // archetype resources are functions with only one parameter
-                // necessarily
-                if (fnCall.getParams().size() != 1) {
-                    throw new InternalCompilerError();
-                }
-
-                TLAExpressionCodeGenVisitor codegen = new TLAExpressionCodeGenVisitor(builder, registry, typeMap, this);
-                resource = new GoCall(
-                        new GoSelectorExpression(fnCall.getFunction().accept(codegen), "Get"),
-                        Collections.singletonList(fnCall.getParams().get(0).accept(codegen))
-                );
-            } else {
+                s.add(resource);
+            } else if (!(e instanceof TLAFunctionCall)) {
                 throw new Unreachable();
             }
-
-            this.resourceExpressions.put(e, resource);
-            s.add(resource);
         };
 
         Set<GoExpression> readExps = new HashSet<>();
@@ -90,14 +75,29 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
         BiConsumer<String, Set<GoExpression>> acquire = (permission, resources) -> {
             if (!resources.isEmpty()) {
                 ArrayList<GoExpression> args = new ArrayList<>(
-                        Arrays.asList(new GoSelectorExpression(distsys, permission))
+                        Arrays.asList(distsys(permission))
                 );
                 args.addAll(resources);
-                GoExpression acquireCall = new GoCall(new GoSelectorExpression(distsys, "AcquireResources"), args);
+                GoExpression acquireCall = new GoCall(distsys("AcquireResources"), args);
                 builder.assign(err, acquireCall);
                 checkErr(builder);
             }
         };
+
+        // initialize acquiredResources to an empty map from resource name
+        // to set of acquired resources so far
+        this.acquiredResources = builder.varDecl(
+                "acquiredResources",
+                new GoMapLiteral(GoBuiltins.String, new GoMapType(GoBuiltins.Interface, GoBuiltins.Bool), Collections.emptyMap())
+        );
+
+        // keeps track of the function-mapped resources read or written
+        // in this label so that they can be released at the end of the label.
+        this.functionMappedResourceNames = new HashSet<>();
+
+        // keep track of the current lock group so that function-mapped
+        // resources can be properly acquired when accessed
+        this.currentLockGroup = lockGroup;
 
         acquire.accept("READ_ACCESS", readExps);
         acquire.accept("WRITE_ACCESS", writeExps);
@@ -110,21 +110,55 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
 
     @Override
     public void endCriticalSection(GoBlockBuilder builder, UID processUID, int lockGroup, UID labelUID, GoLabelName labelName) {
-        Function<Set<TLAExpression>, List<GoExpression>> findVars = (exps) ->
-            exps.stream().map(resourceExpressions::get).collect(Collectors.toList());
+        if (currentLockGroup != lockGroup) {
+            throw new InternalCompilerError();
+        }
 
-        List<GoExpression> usedVars = findVars.apply(
-                registry.getResourceReadsInLockGroup(lockGroup)
-        );
-        usedVars.addAll(
-                findVars.apply(registry.getResourceWritesInLockGroup(lockGroup))
-        );
+        // release all non-function mapped resources in order
+        Set<TLAExpression> varMapped = new HashSet<>();
+        Consumer<TLAExpression> collectVariableMapped = e -> {
+            if (e instanceof TLAGeneralIdentifier) {
+                varMapped.add(e);
+            }
+        };
 
-        if (usedVars.size() > 0) {
-            GoExpression release = new GoCall(new GoSelectorExpression(distsys, "ReleaseResources"), usedVars);
+        registry.getResourceReadsInLockGroup(currentLockGroup).forEach(collectVariableMapped);
+        registry.getResourceWritesInLockGroup(currentLockGroup).forEach(collectVariableMapped);
+
+        List<GoExpression> varMappedExpressions = varMapped
+                .stream()
+                .map(e -> this.getResource(builder, e))
+                .collect(Collectors.toList());
+
+        if (varMapped.size() > 0) {
+            GoExpression release = new GoCall(distsys("ReleaseResources"), varMappedExpressions);
             builder.assign(err, release);
             checkErr(builder);
         }
+
+        // release each function mapped resource used in this label
+        for (String resourceName : functionMappedResourceNames) {
+            // for _, r := range acquiredResources["{name}"] {
+            //     releaseResource(r)
+            // }
+
+            GoExpression resources = new GoIndexExpression(acquiredResources, new GoStringLiteral(resourceName));
+            GoForRangeBuilder rangeBuilder = builder.forRange(resources);
+            GoVariableName r = rangeBuilder.initVariables(Arrays.asList("r", "_")).get(0);
+            try (GoBlockBuilder rangeBody = rangeBuilder.getBlockBuilder()) {
+                GoExpression resourceGet = new GoCall(
+                        new GoSelectorExpression(new GoVariableName(resourceName), "Get"),
+                        Collections.singletonList(r)
+                );
+
+                GoExpression release = new GoCall(distsys("ReleaseResources"), Collections.singletonList(resourceGet));
+                rangeBody.assign(err, release);
+                checkErr(rangeBody);
+            }
+        }
+
+        // reset current lock group
+        this.currentLockGroup = -1;
     }
 
     @Override
@@ -141,15 +175,21 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
     public GoExpression readArchetypeResource(GoBlockBuilder builder, TLAExpression resource) {
         UID ref;
         boolean isCall = false;
+        GoExpression target;
 
         if (resource instanceof TLAGeneralIdentifier) {
             ref = registry.followReference(resource.getUID());
+            target = builder.findUID(ref);
         } else if (resource instanceof TLAFunctionCall) {
             ref = registry.followReference(((TLAFunctionCall) resource).getFunction().getUID());
+            TLAFunctionCall fnCall = (TLAFunctionCall) resource;
+
+            target = ensureResourceAcquired(builder, fnCall);
             isCall = true;
         } else {
             throw new Unreachable();
         }
+
         GoType resourceType = typeMap.get(ref).accept(new TypeConversionVisitor());
 
         // if this a function call being mapped, the read type used when casting should be
@@ -167,7 +207,6 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
             readType = new GoMapType(GoBuiltins.String, GoBuiltins.Interface);
         }
 
-        GoExpression target = resourceExpressions.get(resource);
         GoExpression readCall = new GoCall(
                 new GoSelectorExpression(target, "Read"),
                 Collections.emptyList()
@@ -183,7 +222,7 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
 
     @Override
     public GlobalVariableWrite writeArchetypeResource(GoBlockBuilder builder, TLAExpression resource) {
-        GoExpression target = resourceExpressions.get(resource);
+        GoExpression target = getResource(builder, resource);
         GoVariableName tempVar = builder.varDecl("resourceWrite", GoBuiltins.Interface);
 
         return new GlobalVariableWrite() {
@@ -211,5 +250,113 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
                 yes.returnStmt(err);
             }
         }
+    }
+
+    private GoSelectorExpression distsys(String target) {
+        return new GoSelectorExpression(
+                new GoVariableName("distsys"),
+                target
+        );
+    }
+
+    // Ensures that a function-mapped resource has been acquired before use:
+    //
+    // if ~(arg \in acquiredResources) {
+    //     call distsys.AcquireResources()
+    //     add resource to acquiredResources
+    // }
+    private GoExpression ensureResourceAcquired(GoBlockBuilder builder, TLAFunctionCall fnCall) {
+        // archetype resources are functions with only one argument,
+        // necessarily
+        if (fnCall.getParams().size() != 1) {
+            throw new InternalCompilerError();
+        }
+
+        // if we are acquiring resources, we must be inside a critical section
+        if (currentLockGroup == -1) {
+            throw new InternalCompilerError();
+        }
+
+        TLAExpression arg = fnCall.getParams().get(0);
+        GoExpression goArg = codegen(builder, arg);
+
+        String resourceName;
+        if (fnCall.getFunction() instanceof TLAGeneralIdentifier) {
+            resourceName = ((TLAGeneralIdentifier) fnCall.getFunction()).getName().getId();
+        } else {
+            throw new InternalCompilerError();
+        }
+
+        functionMappedResourceNames.add(resourceName);
+
+        // if _, ok := acquiredResources["{name}"]; !ok {
+        //     acquiredResources["{name}"] = []interface{}{}
+        // }
+        // {name}Acquired := acquiredResources["{name}"]
+        GoExpression currentlyAcquired = new GoIndexExpression(acquiredResources, new GoStringLiteral(resourceName));
+        try (GoIfBuilder ifBuilder = builder.ifStmt(null)) {
+            GoVariableName ok = ifBuilder.initialAssignment(Arrays.asList("_", "ok"), currentlyAcquired).get(1);
+            ifBuilder.setCondition(new GoUnary(GoUnary.Operation.NOT, ok));
+
+            try (GoBlockBuilder yes = ifBuilder.whenTrue()) {
+                yes.assign(
+                        currentlyAcquired,
+                        new GoMapLiteral(GoBuiltins.Interface, GoBuiltins.Bool, Collections.emptyMap())
+                );
+            }
+        }
+
+        GoExpression resourceGet = new GoCall(
+                new GoSelectorExpression(codegen(builder, fnCall.getFunction()), "Get"),
+                Collections.singletonList(goArg)
+        );
+
+        try (GoIfBuilder ifBuilder = builder.ifStmt(null)) {
+            GoExpression argAcquired = new GoIndexExpression(currentlyAcquired, goArg);
+            GoVariableName acquired = ifBuilder.initialAssignment(Arrays.asList("_", "acquired"), argAcquired).get(1);
+
+            ifBuilder.setCondition(new GoUnary(GoUnary.Operation.NOT, acquired));
+
+            try (GoBlockBuilder yes = ifBuilder.whenTrue()) {
+                String permission;
+
+                if (registry.getResourceReadsInLockGroup(currentLockGroup).contains(fnCall)) {
+                    permission = "READ_ACCESS";
+                } else if (registry.getResourceWritesInLockGroup(currentLockGroup).contains(fnCall)) {
+                    permission = "WRITE_ACCESS";
+                } else {
+                    throw new InternalCompilerError();
+                }
+
+                yes.assign(err, new GoCall(
+                        distsys("AcquireResources"),
+                        Arrays.asList(
+                                distsys(permission),
+                                resourceGet
+                        )
+                ));
+                checkErr(yes);
+
+                yes.assign(argAcquired, GoBuiltins.True);
+            }
+        }
+
+        return resourceGet;
+    }
+
+    private GoExpression getResource(GoBlockBuilder builder, TLAExpression resource) {
+        if (resource instanceof TLAGeneralIdentifier) {
+            UID ref = registry.followReference(resource.getUID());
+            return builder.findUID(ref);
+        } else if (resource instanceof TLAFunctionCall) {
+            TLAFunctionCall fnCall = (TLAFunctionCall) resource;
+            return ensureResourceAcquired(builder, fnCall);
+        } else {
+            throw new Unreachable();
+        }
+    }
+
+    private GoExpression codegen(GoBlockBuilder builder, TLAExpression e) {
+        return e.accept(new TLAExpressionCodeGenVisitor(builder, registry, typeMap, this));
     }
 }
