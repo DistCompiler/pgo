@@ -57,6 +57,7 @@ public class PlusCalStatementCodeGenVisitor extends PlusCalStatementVisitor<Void
 	@Override
 	public Void visit(PlusCalLabeledStatements plusCalLabeledStatements) throws RuntimeException {
 		PlusCalLabel label = plusCalLabeledStatements.getLabel();
+		System.out.println("- label: " + label.getName());
 		criticalSectionTracker.start(builder, label.getUID(), new GoLabelName(label.getName()));
 		for (PlusCalStatement stmt : plusCalLabeledStatements.getStatements()) {
 			stmt.accept(this);
