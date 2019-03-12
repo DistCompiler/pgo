@@ -30,12 +30,6 @@ public class SingleThreadedProcessGlobalVariableStrategy extends GlobalVariableS
 	}
 
 	@Override
-	public CriticalSection copy() {
-		// no state needs to be snapshot -- return the same instance
-		return this;
-	}
-
-	@Override
 	public void startCriticalSection(GoBlockBuilder builder, UID processUID, int lockGroup, UID labelUID, GoLabelName labelName) {
 		// pass
 	}
@@ -68,18 +62,5 @@ public class SingleThreadedProcessGlobalVariableStrategy extends GlobalVariableS
 				// pass
 			}
 		};
-	}
-
-	@Override
-	public boolean equals(Object other){
-		if (other == null) return false;
-		if (other == this) return true;
-
-		return other instanceof SingleThreadedProcessGlobalVariableStrategy;
-	}
-
-	@Override
-	public int hashCode() {
-		return Objects.hash();
 	}
 }

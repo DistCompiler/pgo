@@ -98,12 +98,6 @@ public class MultithreadedProcessGlobalVariableStrategy extends GlobalVariableSt
 	}
 
 	@Override
-	public CriticalSection copy() {
-		// no state needs to be snapshot -- return the same instance
-		return this;
-	}
-
-	@Override
 	public void startCriticalSection(GoBlockBuilder builder, UID processUID, int lockGroup, UID labelUID, GoLabelName labelName) {
 		String functionName = "Lock";
 		if (registry.getVariableWritesInLockGroup(lockGroup).isEmpty()) {
@@ -149,23 +143,5 @@ public class MultithreadedProcessGlobalVariableStrategy extends GlobalVariableSt
 				// pass
 			}
 		};
-	}
-
-	@Override
-	public boolean equals(Object other){
-		if (other == null) return false;
-		if (other == this) return true;
-		if (!(other instanceof MultithreadedProcessGlobalVariableStrategy)) return false;
-
-		MultithreadedProcessGlobalVariableStrategy strategy = (MultithreadedProcessGlobalVariableStrategy) other;
-
-		return Objects.equals(registry, strategy.registry) &&
-				Objects.equals(typeMap, strategy.typeMap) &&
-				Objects.equals(modularPlusCalBlock, strategy.modularPlusCalBlock);
-	}
-
-	@Override
-	public int hashCode() {
-		return Objects.hash(registry, typeMap, modularPlusCalBlock);
 	}
 }

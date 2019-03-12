@@ -133,7 +133,6 @@ public class ModularPlusCalGoCodeGenPass {
         generateInit(modularPlusCalBlock, module, registry, typeMap, globalStrategy);
 
         for (ModularPlusCalArchetype archetype : modularPlusCalBlock.getArchetypes()) {
-            System.out.println("-- Archetype: " + archetype.getName());
             GoFunctionDeclarationBuilder fn = module.defineFunction(archetype.getUID(), archetype.getName());
             fn.addReturn(GoBuiltins.Error);
 

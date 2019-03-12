@@ -57,7 +57,6 @@ public class PlusCalStatementCodeGenVisitor extends PlusCalStatementVisitor<Void
 	@Override
 	public Void visit(PlusCalLabeledStatements plusCalLabeledStatements) throws RuntimeException {
 		PlusCalLabel label = plusCalLabeledStatements.getLabel();
-		System.out.println("- label: " + label.getName());
 		criticalSectionTracker.start(builder, label.getUID(), new GoLabelName(label.getName()));
 		for (PlusCalStatement stmt : plusCalLabeledStatements.getStatements()) {
 			stmt.accept(this);
@@ -345,7 +344,13 @@ public class PlusCalStatementCodeGenVisitor extends PlusCalStatementVisitor<Void
 		try (GoIfBuilder ifBuilder = builder.ifStmt(CodeGenUtil.invertCondition(
 				builder, registry, typeMap, globalStrategy, cond))) {
 			try (GoBlockBuilder yes = ifBuilder.whenTrue()) {
-				yes.addPanic(new GoStringLiteral(cond.toString()));
+				String msg = cond.toString();
+
+				// since this is going to be in a string literal, we need to escape
+				// potential backslashes in the operator to avoid confusing Go
+				// there are any special characters in the string.
+				msg = msg.replace("\\", "\\\\");
+				yes.addPanic(new GoStringLiteral(msg));
 			}
 		}
 		return null;

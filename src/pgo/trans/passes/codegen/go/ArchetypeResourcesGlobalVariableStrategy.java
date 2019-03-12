@@ -36,19 +36,6 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
         this.currentLockGroup = -1;
     }
 
-    private ArchetypeResourcesGlobalVariableStrategy(DefinitionRegistry registry, Map<UID, Type> typeMap,
-                                                     GoVariableName err,
-                                                     GoVariableName acquiredResources,
-                                                     Set<String> functionMappedResourceNames,
-                                                     int currentLockGroup) {
-        this.registry = registry;
-        this.typeMap = typeMap;
-        this.err = err;
-        this.acquiredResources = acquiredResources;
-        this.functionMappedResourceNames = functionMappedResourceNames;
-        this.currentLockGroup = currentLockGroup;
-    }
-
     @Override
     public void initPostlude(GoModuleBuilder moduleBuilder, GoBlockBuilder initBuilder) {
         throw new TODO();
@@ -65,16 +52,7 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
     }
 
     @Override
-    public CriticalSection copy() {
-        return new ArchetypeResourcesGlobalVariableStrategy(
-                registry, typeMap, err, acquiredResources, functionMappedResourceNames, currentLockGroup
-        );
-    }
-
-    @Override
     public void startCriticalSection(GoBlockBuilder builder, UID processUID, int lockGroup, UID labelUID, GoLabelName labelName) {
-        System.out.printf("[%d] critical section start (lock group %d) \n", System.identityHashCode(this), lockGroup);
-
         Function<Set<GoExpression>, Consumer<TLAExpression>> generateLocalBinding = s -> e -> {
             GoExpression resource;
 
@@ -127,13 +105,11 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
 
     @Override
     public void abortCriticalSection(GoBlockBuilder builder, UID processUID, int lockGroup, UID labelUID, GoLabelName labelName) {
-        System.out.printf("[%d] critical section abort (lock group %d)\n", System.identityHashCode(this), lockGroup);
         terminateCriticalSection(builder, lockGroup, "AbortResources");
     }
 
     @Override
     public void endCriticalSection(GoBlockBuilder builder, UID processUID, int lockGroup, UID labelUID, GoLabelName labelName) {
-        System.out.printf("[%d] critical section end (lock group %d)\n", System.identityHashCode(this), lockGroup);
         terminateCriticalSection(builder, lockGroup, "ReleaseResources");
     }
 
@@ -341,7 +317,6 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
             try (GoBlockBuilder yes = ifBuilder.whenTrue()) {
                 String permission;
 
-                System.out.println("[" + System.identityHashCode(this) + "] Finding permissions for " + fnCall + " in lock group " + currentLockGroup);
                 if (registry.getResourceReadsInLockGroup(currentLockGroup).contains(fnCall)) {
                     permission = "READ_ACCESS";
                 } else if (registry.getResourceWritesInLockGroup(currentLockGroup).contains(fnCall)) {
@@ -380,23 +355,5 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
 
     private GoExpression codegen(GoBlockBuilder builder, TLAExpression e) {
         return e.accept(new TLAExpressionCodeGenVisitor(builder, registry, typeMap, this));
-    }
-
-    @Override
-    public boolean equals(Object other){
-        if (other == null) return false;
-        if (other == this) return true;
-        if (!(other instanceof ArchetypeResourcesGlobalVariableStrategy)) return false;
-
-        ArchetypeResourcesGlobalVariableStrategy strategy = (ArchetypeResourcesGlobalVariableStrategy) other;
-
-        return Objects.equals(registry, strategy.registry) &&
-                Objects.equals(typeMap, strategy.typeMap) &&
-                Objects.equals(currentLockGroup, strategy.currentLockGroup);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(registry, typeMap, currentLockGroup);
     }
 }

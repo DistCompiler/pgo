@@ -137,12 +137,6 @@ public class EtcdGlobalVariableStrategy extends GlobalVariableStrategy {
 	}
 
 	@Override
-	public CriticalSection copy() {
-		// no state needs to be snapshot -- return the same instance
-		return this;
-	}
-
-	@Override
 	public void startCriticalSection(GoBlockBuilder builder, UID processUID, int lockGroup, UID labelUID, GoLabelName labelName) {
 		Set<UID> readSet = new HashSet<>(registry.getVariableReadsInLockGroup(lockGroup));
 		Set<UID> writeSet = registry.getVariableWritesInLockGroup(lockGroup);
@@ -210,24 +204,5 @@ public class EtcdGlobalVariableStrategy extends GlobalVariableStrategy {
 
 			}
 		};
-	}
-
-	@Override
-	public boolean equals(Object other){
-		if (other == null) return false;
-		if (other == this) return true;
-		if (!(other instanceof EtcdGlobalVariableStrategy)) return false;
-
-		EtcdGlobalVariableStrategy strategy = (EtcdGlobalVariableStrategy) other;
-
-		return Objects.equals(registry, strategy.registry) &&
-				Objects.equals(typeMap, strategy.typeMap) &&
-				Objects.equals(stateOptions, strategy.stateOptions) &&
-				Objects.equals(modularPlusCalBlock, strategy.modularPlusCalBlock);
-	}
-
-	@Override
-	public int hashCode() {
-		return Objects.hash(registry, typeMap, stateOptions, modularPlusCalBlock);
 	}
 }

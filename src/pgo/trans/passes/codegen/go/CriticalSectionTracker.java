@@ -92,7 +92,7 @@ public class CriticalSectionTracker {
 
 	public CriticalSectionTracker copy() {
 		return new CriticalSectionTracker(
-				registry, processUID, criticalSection.copy(), currentLockGroup, currentLabelUID, currentLabelName);
+				registry, processUID, criticalSection, currentLockGroup, currentLabelUID, currentLabelName);
 	}
 
 	public Consumer<GoBlockBuilder> actionAtLoopEnd() {
