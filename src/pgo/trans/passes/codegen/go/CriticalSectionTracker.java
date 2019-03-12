@@ -85,14 +85,14 @@ public class CriticalSectionTracker {
 	}
 
 	public void checkCompatibility(CriticalSectionTracker other) {
-		if (registry != other.registry || criticalSection != other.criticalSection || currentLockGroup != other.currentLockGroup) {
+		if (registry != other.registry || !criticalSection.equals(other.criticalSection) || currentLockGroup != other.currentLockGroup) {
 			throw new InternalCompilerError();
 		}
 	}
 
 	public CriticalSectionTracker copy() {
 		return new CriticalSectionTracker(
-				registry, processUID, criticalSection, currentLockGroup, currentLabelUID, currentLabelName);
+				registry, processUID, criticalSection.copy(), currentLockGroup, currentLabelUID, currentLabelName);
 	}
 
 	public Consumer<GoBlockBuilder> actionAtLoopEnd() {

@@ -36,6 +36,12 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
         this.currentLockGroup = -1;
     }
 
+    private ArchetypeResourcesGlobalVariableStrategy(DefinitionRegistry registry, Map<UID, Type> typeMap, int currentLockGroup) {
+        this.registry = registry;
+        this.typeMap = typeMap;
+        this.currentLockGroup = currentLockGroup;
+    }
+
     @Override
     public void initPostlude(GoModuleBuilder moduleBuilder, GoBlockBuilder initBuilder) {
         throw new TODO();
@@ -49,6 +55,11 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
     @Override
     public void mainPrelude(GoBlockBuilder builder) {
         throw new TODO();
+    }
+
+    @Override
+    public CriticalSection copy() {
+        return new ArchetypeResourcesGlobalVariableStrategy(registry, typeMap, currentLockGroup);
     }
 
     @Override
@@ -105,60 +116,12 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
 
     @Override
     public void abortCriticalSection(GoBlockBuilder builder, UID processUID, int lockGroup, UID labelUID, GoLabelName labelName) {
-        throw new TODO();
+        terminateCriticalSection(builder, lockGroup, "AbortResources");
     }
 
     @Override
     public void endCriticalSection(GoBlockBuilder builder, UID processUID, int lockGroup, UID labelUID, GoLabelName labelName) {
-        if (currentLockGroup != lockGroup) {
-            throw new InternalCompilerError();
-        }
-
-        // release all non-function mapped resources in order
-        Set<TLAExpression> varMapped = new HashSet<>();
-        Consumer<TLAExpression> collectVariableMapped = e -> {
-            if (e instanceof TLAGeneralIdentifier) {
-                varMapped.add(e);
-            }
-        };
-
-        registry.getResourceReadsInLockGroup(currentLockGroup).forEach(collectVariableMapped);
-        registry.getResourceWritesInLockGroup(currentLockGroup).forEach(collectVariableMapped);
-
-        List<GoExpression> varMappedExpressions = varMapped
-                .stream()
-                .map(e -> this.getResource(builder, e))
-                .collect(Collectors.toList());
-
-        if (varMapped.size() > 0) {
-            GoExpression release = new GoCall(distsys("ReleaseResources"), varMappedExpressions);
-            builder.assign(err, release);
-            checkErr(builder);
-        }
-
-        // release each function mapped resource used in this label
-        for (String resourceName : functionMappedResourceNames) {
-            // for _, r := range acquiredResources["{name}"] {
-            //     releaseResource(r)
-            // }
-
-            GoExpression resources = new GoIndexExpression(acquiredResources, new GoStringLiteral(resourceName));
-            GoForRangeBuilder rangeBuilder = builder.forRange(resources);
-            GoVariableName r = rangeBuilder.initVariables(Arrays.asList("r", "_")).get(0);
-            try (GoBlockBuilder rangeBody = rangeBuilder.getBlockBuilder()) {
-                GoExpression resourceGet = new GoCall(
-                        new GoSelectorExpression(new GoVariableName(resourceName), "Get"),
-                        Collections.singletonList(r)
-                );
-
-                GoExpression release = new GoCall(distsys("ReleaseResources"), Collections.singletonList(resourceGet));
-                rangeBody.assign(err, release);
-                checkErr(rangeBody);
-            }
-        }
-
-        // reset current lock group
-        this.currentLockGroup = -1;
+        terminateCriticalSection(builder, lockGroup, "ReleaseResources");
     }
 
     @Override
@@ -257,6 +220,59 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
                 new GoVariableName("distsys"),
                 target
         );
+    }
+
+    // Releases/aborts resources
+    private void terminateCriticalSection(GoBlockBuilder builder, int lockGroup, String method) {
+        if (currentLockGroup != lockGroup) {
+            throw new InternalCompilerError();
+        }
+
+        // release all non-function mapped resources in order
+        Set<TLAExpression> varMapped = new HashSet<>();
+        Consumer<TLAExpression> collectVariableMapped = e -> {
+            if (e instanceof TLAGeneralIdentifier) {
+                varMapped.add(e);
+            }
+        };
+
+        registry.getResourceReadsInLockGroup(currentLockGroup).forEach(collectVariableMapped);
+        registry.getResourceWritesInLockGroup(currentLockGroup).forEach(collectVariableMapped);
+
+        List<GoExpression> varMappedExpressions = varMapped
+                .stream()
+                .map(e -> this.getResource(builder, e))
+                .collect(Collectors.toList());
+
+        if (varMapped.size() > 0) {
+            GoExpression release = new GoCall(distsys(method), varMappedExpressions);
+            builder.assign(err, release);
+            checkErr(builder);
+        }
+
+        // release each function mapped resource used in this label
+        for (String resourceName : functionMappedResourceNames) {
+            // for _, r := range acquiredResources["{name}"] {
+            //     releaseResource(r)
+            // }
+
+            GoExpression resources = new GoIndexExpression(acquiredResources, new GoStringLiteral(resourceName));
+            GoForRangeBuilder rangeBuilder = builder.forRange(resources);
+            GoVariableName r = rangeBuilder.initVariables(Arrays.asList("r", "_")).get(0);
+            try (GoBlockBuilder rangeBody = rangeBuilder.getBlockBuilder()) {
+                GoExpression resourceGet = new GoCall(
+                        new GoSelectorExpression(new GoVariableName(resourceName), "Get"),
+                        Collections.singletonList(r)
+                );
+
+                GoExpression release = new GoCall(distsys("ReleaseResources"), Collections.singletonList(resourceGet));
+                rangeBody.assign(err, release);
+                checkErr(rangeBody);
+            }
+        }
+
+        // reset current lock group
+        this.currentLockGroup = -1;
     }
 
     // Ensures that a function-mapped resource has been acquired before use:
@@ -358,5 +374,23 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
 
     private GoExpression codegen(GoBlockBuilder builder, TLAExpression e) {
         return e.accept(new TLAExpressionCodeGenVisitor(builder, registry, typeMap, this));
+    }
+
+    @Override
+    public boolean equals(Object other){
+        if (other == null) return false;
+        if (other == this) return true;
+        if (!(other instanceof ArchetypeResourcesGlobalVariableStrategy)) return false;
+
+        ArchetypeResourcesGlobalVariableStrategy strategy = (ArchetypeResourcesGlobalVariableStrategy) other;
+
+        return Objects.equals(registry, strategy.registry) &&
+                Objects.equals(typeMap, strategy.typeMap) &&
+                Objects.equals(currentLockGroup, strategy.currentLockGroup);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(registry, typeMap, currentLockGroup);
     }
 }

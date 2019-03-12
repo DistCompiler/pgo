@@ -137,6 +137,11 @@ public class EtcdGlobalVariableStrategy extends GlobalVariableStrategy {
 	}
 
 	@Override
+	public CriticalSection copy() {
+		return new EtcdGlobalVariableStrategy(registry, typeMap, stateOptions, modularPlusCalBlock);
+	}
+
+	@Override
 	public void startCriticalSection(GoBlockBuilder builder, UID processUID, int lockGroup, UID labelUID, GoLabelName labelName) {
 		Set<UID> readSet = new HashSet<>(registry.getVariableReadsInLockGroup(lockGroup));
 		Set<UID> writeSet = registry.getVariableWritesInLockGroup(lockGroup);

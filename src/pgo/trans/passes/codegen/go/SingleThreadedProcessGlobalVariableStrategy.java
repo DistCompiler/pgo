@@ -28,6 +28,11 @@ public class SingleThreadedProcessGlobalVariableStrategy extends GlobalVariableS
 	}
 
 	@Override
+	public CriticalSection copy() {
+		return new SingleThreadedProcessGlobalVariableStrategy();
+	}
+
+	@Override
 	public void startCriticalSection(GoBlockBuilder builder, UID processUID, int lockGroup, UID labelUID, GoLabelName labelName) {
 		// pass
 	}

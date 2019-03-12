@@ -97,6 +97,11 @@ public class MultithreadedProcessGlobalVariableStrategy extends GlobalVariableSt
 	}
 
 	@Override
+	public CriticalSection copy() {
+		return new MultithreadedProcessGlobalVariableStrategy(registry, typeMap, modularPlusCalBlock);
+	}
+
+	@Override
 	public void startCriticalSection(GoBlockBuilder builder, UID processUID, int lockGroup, UID labelUID, GoLabelName labelName) {
 		String functionName = "Lock";
 		if (registry.getVariableWritesInLockGroup(lockGroup).isEmpty()) {
