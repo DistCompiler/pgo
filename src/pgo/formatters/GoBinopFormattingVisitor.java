@@ -21,11 +21,12 @@ public class GoBinopFormattingVisitor extends GoExpressionVisitor<Void, IOExcept
 				GoBinop.Operation.MOD, GoBinop.Operation.LSHIFT,
 				GoBinop.Operation.RSHIFT, GoBinop.Operation.BAND,
 				GoBinop.Operation.BCLEAR)){
-			operatorPrecedence.put(op, 5);
+			operatorPrecedence.put(op, 6);
 		}
-		// +  -  |  ^
-		for(GoBinop.Operation op : Arrays.asList(GoBinop.Operation.PLUS, GoBinop.Operation.MINUS,
-				GoBinop.Operation.BOR, GoBinop.Operation.BXOR)){
+		// -
+		operatorPrecedence.put(GoBinop.Operation.MINUS, 5);
+		// + |  ^
+		for(GoBinop.Operation op : Arrays.asList(GoBinop.Operation.PLUS, GoBinop.Operation.BOR, GoBinop.Operation.BXOR)){
 			operatorPrecedence.put(op, 4);
 		}
 		// ==  !=  <  <=  >  >=
