@@ -11,6 +11,8 @@ import pgo.model.golang.type.GoType;
 import pgo.model.pcal.PlusCalProcess;
 import pgo.scope.UID;
 
+import java.util.Objects;
+
 public class SingleThreadedProcessGlobalVariableStrategy extends GlobalVariableStrategy {
 	@Override
 	public void initPostlude(GoModuleBuilder moduleBuilder, GoBlockBuilder initBuilder) {
@@ -29,7 +31,8 @@ public class SingleThreadedProcessGlobalVariableStrategy extends GlobalVariableS
 
 	@Override
 	public CriticalSection copy() {
-		return new SingleThreadedProcessGlobalVariableStrategy();
+		// no state needs to be snapshot -- return the same instance
+		return this;
 	}
 
 	@Override
@@ -65,5 +68,18 @@ public class SingleThreadedProcessGlobalVariableStrategy extends GlobalVariableS
 				// pass
 			}
 		};
+	}
+
+	@Override
+	public boolean equals(Object other){
+		if (other == null) return false;
+		if (other == this) return true;
+
+		return other instanceof SingleThreadedProcessGlobalVariableStrategy;
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash();
 	}
 }

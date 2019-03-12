@@ -189,7 +189,8 @@ public class StateServerGlobalVariableStrategy extends GlobalVariableStrategy {
 
 	@Override
 	public CriticalSection copy() {
-		return new StateServerGlobalVariableStrategy(registry, typeMap, stateOptions, modularPlusCalBlock);
+		// no state needs to be snapshot -- return the same instance
+		return this;
 	}
 
 	@Override
@@ -285,5 +286,24 @@ public class StateServerGlobalVariableStrategy extends GlobalVariableStrategy {
 
 			}
 		};
+	}
+
+	@Override
+	public boolean equals(Object other){
+		if (other == null) return false;
+		if (other == this) return true;
+		if (!(other instanceof StateServerGlobalVariableStrategy)) return false;
+
+		StateServerGlobalVariableStrategy strategy = (StateServerGlobalVariableStrategy) other;
+
+		return Objects.equals(registry, strategy.registry) &&
+				Objects.equals(typeMap, strategy.typeMap) &&
+				Objects.equals(stateOptions, strategy.stateOptions) &&
+				Objects.equals(modularPlusCalBlock, strategy.modularPlusCalBlock);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(registry, typeMap, stateOptions, modularPlusCalBlock);
 	}
 }

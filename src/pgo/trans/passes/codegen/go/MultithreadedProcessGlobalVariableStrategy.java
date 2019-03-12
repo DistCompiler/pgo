@@ -18,6 +18,7 @@ import pgo.trans.intermediate.DefinitionRegistry;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Map;
+import java.util.Objects;
 
 // FIXME this strategy, for efficiency reasons, does not implement abortCriticalSection correctly
 public class MultithreadedProcessGlobalVariableStrategy extends GlobalVariableStrategy {
@@ -98,7 +99,8 @@ public class MultithreadedProcessGlobalVariableStrategy extends GlobalVariableSt
 
 	@Override
 	public CriticalSection copy() {
-		return new MultithreadedProcessGlobalVariableStrategy(registry, typeMap, modularPlusCalBlock);
+		// no state needs to be snapshot -- return the same instance
+		return this;
 	}
 
 	@Override
@@ -147,5 +149,23 @@ public class MultithreadedProcessGlobalVariableStrategy extends GlobalVariableSt
 				// pass
 			}
 		};
+	}
+
+	@Override
+	public boolean equals(Object other){
+		if (other == null) return false;
+		if (other == this) return true;
+		if (!(other instanceof MultithreadedProcessGlobalVariableStrategy)) return false;
+
+		MultithreadedProcessGlobalVariableStrategy strategy = (MultithreadedProcessGlobalVariableStrategy) other;
+
+		return Objects.equals(registry, strategy.registry) &&
+				Objects.equals(typeMap, strategy.typeMap) &&
+				Objects.equals(modularPlusCalBlock, strategy.modularPlusCalBlock);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(registry, typeMap, modularPlusCalBlock);
 	}
 }
