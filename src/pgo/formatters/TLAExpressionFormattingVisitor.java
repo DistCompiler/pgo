@@ -33,8 +33,10 @@ public class TLAExpressionFormattingVisitor extends TLAExpressionVisitor<Void, I
 		out.write("(");
 		tlaBinOp.getLHS().accept(this);
 		out.write(")");
+		out.write(" ");
 		formatPrefix(tlaBinOp.getPrefix());
 		tlaBinOp.getOperation().accept(new TLANodeFormattingVisitor(out));
+		out.write(" ");
 		out.write("(");
 		tlaBinOp.getRHS().accept(this);
 		out.write(")");
