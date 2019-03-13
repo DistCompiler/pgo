@@ -8,7 +8,6 @@
     "GET_MSG": "\"get\"",
     "PUT_MSG": "\"put\"",
     "NULL_MSG": "\"clock_update\"",
-    "PUT_OK": "200",
     "NUM_CLIENTS": "2",
     "NUM_REPLICAS": "3",
     "GET_RESPONSE": "\"get_response\"",
