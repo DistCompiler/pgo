@@ -84,12 +84,25 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
             }
         };
 
+        Set<TLAExpression> allResources = new HashSet<>(registry.getResourceReadsInLockGroup(lockGroup));
+        allResources.addAll(registry.getResourceWritesInLockGroup(lockGroup));
+
+        boolean usesFunctionMappedResource = allResources
+                .stream()
+                .anyMatch(r -> r instanceof TLAFunctionCall);
+
+        // if there are function-mapped resources being used in this label,
         // initialize acquiredResources to an empty map from resource name
         // to set of acquired resources so far
-        this.acquiredResources = builder.varDecl(
-                "acquiredResources",
-                new GoMapLiteral(GoBuiltins.String, new GoMapType(GoBuiltins.Interface, GoBuiltins.Bool), Collections.emptyMap())
-        );
+        if (usesFunctionMappedResource) {
+            builder.addComment("Declaring because of resources: " + String.join(", ", allResources.stream().filter(r -> r instanceof TLAFunctionCall).map(TLAExpression::toString).collect(Collectors.toSet())));
+            this.acquiredResources = builder.varDecl(
+                    "acquiredResources",
+                    new GoMapLiteral(GoBuiltins.String, new GoMapType(GoBuiltins.Interface, GoBuiltins.Bool), Collections.emptyMap())
+            );
+        } else {
+            this.acquiredResources = null;
+        }
 
         // keeps track of the function-mapped resources read or written
         // in this label so that they can be released at the end of the label.
