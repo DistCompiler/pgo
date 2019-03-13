@@ -18,17 +18,17 @@ import pgo.trans.passes.codegen.go.TLAExpressionCodeGenVisitor;
 import pgo.trans.passes.type.TLAExpressionTypeConstraintVisitor;
 import pgo.util.Origin;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class CompiledOperatorAccessor extends OperatorAccessor {
 
 	private TLAOperatorDefinition def;
+	private Map<List<GoType>, GoVariableName> implementations;
 
 	public CompiledOperatorAccessor(TLAOperatorDefinition pGoTLAOperator) {
 		this.def = pGoTLAOperator;
+		this.implementations = new HashMap<>();
 	}
 
 	@Override
@@ -58,27 +58,44 @@ public class CompiledOperatorAccessor extends OperatorAccessor {
 	public GoExpression generateGo(GoBlockBuilder builder, TLAExpression origin, DefinitionRegistry registry,
 	                               List<TLAExpression> args, Map<UID, Type> typeMap, GlobalVariableStrategy globalStrategy) {
 
-		GoFunctionDeclarationBuilder declBuilder = builder.defineFunction(def.getName().getUID(), def.getName().getId());
+		// construct signature
+		List<GoType> signature = new ArrayList<>();
+		for (TLAOpDecl arg : def.getArgs()) {
+			Type argType = typeMap.get(arg.getName().getUID());
+			signature.add(argType.accept(new TypeConversionVisitor()));
+		}
 
 		// return type
 		GoType returnType = typeMap.get(def.getBody().getUID()).accept(new TypeConversionVisitor());
-		declBuilder.addReturn(returnType);
+		signature.add(returnType);
 
-		// arguments
-		for (TLAOpDecl arg : def.getArgs()) {
-			Type argType = typeMap.get(arg.getName().getUID());
-			GoType goType = argType.accept(new TypeConversionVisitor());
-			GoVariableName name = declBuilder.addParameter(arg.getName().getId(), goType);
-			builder.linkUID(arg.getName().getUID(), name);
+		GoVariableName functionName;
+
+		if (implementations.containsKey(signature)) {
+			functionName = implementations.get(signature);
+		} else {
+			GoFunctionDeclarationBuilder declBuilder = builder.defineFunction(def.getName().getUID(), def.getName().getId());
+
+			declBuilder.addReturn(returnType);
+
+			// arguments
+			for (TLAOpDecl arg : def.getArgs()) {
+				Type argType = typeMap.get(arg.getName().getUID());
+				GoType goType = argType.accept(new TypeConversionVisitor());
+				GoVariableName name = declBuilder.addParameter(arg.getName().getId(), goType);
+				builder.linkUID(arg.getName().getUID(), name);
+			}
+
+			try (GoBlockBuilder fnBuilder = declBuilder.getBlockBuilder()){
+				fnBuilder.returnStmt(
+						def.getBody().accept(
+								new TLAExpressionCodeGenVisitor(fnBuilder, registry, typeMap, globalStrategy)));
+			}
+
+			functionName = builder.findUID(def.getName().getUID());
+			implementations.put(signature, functionName);
 		}
 
-		try (GoBlockBuilder fnBuilder = declBuilder.getBlockBuilder()){
-			fnBuilder.returnStmt(
-					def.getBody().accept(
-							new TLAExpressionCodeGenVisitor(fnBuilder, registry, typeMap, globalStrategy)));
-		}
-
-		GoVariableName functionName = builder.findUID(def.getName().getUID());
 		return new GoCall(
 				functionName,
 				args.stream().map(a -> a.accept(
