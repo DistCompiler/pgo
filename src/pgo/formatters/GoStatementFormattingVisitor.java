@@ -16,7 +16,11 @@ public class GoStatementFormattingVisitor extends GoStatementVisitor<Void, IOExc
 
 	@Override
 	public Void visit(GoComment comment) throws IOException {
-		throw new TODO();
+		out.newLine();
+		out.write("// ");
+		out.write(comment.getComment());
+
+		return null;
 	}
 
 	@Override

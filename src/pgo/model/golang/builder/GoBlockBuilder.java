@@ -151,6 +151,10 @@ public class GoBlockBuilder extends GoASTBuilder implements Closeable {
 		addStatement(new GoExpressionStatement(expression));
 	}
 
+	public void addComment(String comment) {
+		statements.add(new GoComment(comment));
+	}
+
 	@Override
 	public void addStatement(GoStatement s) {
 		statements.add(s);
