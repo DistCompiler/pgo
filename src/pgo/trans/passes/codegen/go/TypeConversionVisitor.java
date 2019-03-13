@@ -120,8 +120,10 @@ public class TypeConversionVisitor extends TypeVisitor<GoType, RuntimeException>
 
 	@Override
 	public GoType visit(RecordType recordType) throws RuntimeException {
-		return new GoStructType(recordType.getFields().stream()
-				.map(f -> new GoStructTypeField(f.getName(), f.getType().accept(this)))
-				.collect(Collectors.toList()));
+		// if the type of a variable is inferred to be a TLA+ record, use a map[string]interface{}
+		// to represent it. This avoids issues around sending and receiving of these variables
+		// through different archetype resources (e.g., RPC-based) and wrong casts
+		// when we cannot infer the correct type of the message on the receiving end
+		return new GoMapType(GoBuiltins.String, GoBuiltins.Interface);
 	}
 }

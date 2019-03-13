@@ -37,16 +37,7 @@ public class ModularPlusCalGoCodeGenPass {
             if (variableDeclaration.getValue() instanceof PlusCalDefaultInitValue) {
                 Type inferredType = typeMap.get(variableDeclaration.getUID());
 
-                // if the type of a variable is inferred to be a TLA+ record, use a map[string]interface{}
-                // to represent it. This avoids issues around sending and receiving of these variables
-                // through different archetype resources (e.g., RPC-based) and wrong casts
-                // when we cannot infer the correct type of the message on the receiving end
-                if (inferredType instanceof RecordType) {
-                    varType = new GoMapType(GoBuiltins.String, GoBuiltins.Interface);
-                } else {
-                    varType = inferredType.accept(new TypeConversionVisitor());
-                }
-
+                varType = inferredType.accept(new TypeConversionVisitor());
                 name = processBody.varDecl(variableDeclaration.getName().getValue(), varType);
             } else {
                 GoExpression value = variableDeclaration.getValue().accept(
