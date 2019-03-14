@@ -705,3 +705,24 @@ func (dir *FileSystemDirectory) Get(value interface{}) ArchetypeResource {
 
 	return dir.resources[relativePath]
 }
+
+// Singleton collections as Archetype Resource Collection
+// ------------------------------------------------------
+
+// SingletonCollectionResource imeplements the
+// ArchetypeResourceCollection by trivially always returning the same
+// resource for every index.
+type SingletonCollectionResource struct {
+	resource ArchetypeResource
+}
+
+// NewSingletonCollection returns a SingletonCollectionResource
+// wrapping the resource given
+func NewSingletonCollection(resource ArchetypeResource) SingletonCollectionResource {
+	return SingletonCollectionResource{resource}
+}
+
+// Get returns the underlying ArchetypeResource.
+func (singleton SingletonCollectionResource) Get(_ interface{}) ArchetypeResource {
+	return singleton.resource
+}
