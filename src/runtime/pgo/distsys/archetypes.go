@@ -141,9 +141,12 @@ func AbortResources(resources ...ArchetypeResource) error {
 	return nil
 }
 
-/////////////////////////////////////////////////////////////////////////
-////          GLOBAL STATE AS ARCHETYPE RESOURCES                   ////
-///////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////
+////         ARCHETYPE RESOURCES            ////
+////////////////////////////////////////////////
+
+// Global State as Archetype Resource
+// ----------------------------------
 
 // Global variable is one type of archetype resource. It is backed by the
 // StateServer implementation in this package.
@@ -246,9 +249,8 @@ func (v *GlobalVariable) Less(other ArchetypeResource) bool {
 	return false
 }
 
-/////////////////////////////////////////////////////////////////////////
-////             MAILBOXES AS ARCHETYPE RESOURCES                   ////
-///////////////////////////////////////////////////////////////////////
+// Mailboxes as Archetype Resource
+// -------------------------------
 
 // Receiver represents the interface exposed by mailboxes. When data
 // is received by a process, the data is sent across the underlying Go
@@ -396,9 +398,8 @@ func (_ *Mailbox) Less(_ ArchetypeResource) bool {
 	return false
 }
 
-/////////////////////////////////////////////////////////////////////////
-////             CHANNELS AS ARCHETYPE RESOURCES                   ////
-///////////////////////////////////////////////////////////////////////
+// Local Channels as Archetype Resource
+// ------------------------------------
 
 // LocalChannelResource represents an archetype resource backed by a
 // regular Go channel. The main use-case for channels as resources is
@@ -499,9 +500,8 @@ func (localCh *LocalChannelResource) Receive() interface{} {
 	return <-localCh.ch
 }
 
-/////////////////////////////////////////////////////////////////////////
-////                 FILES AS ARCHETYPE RESOURCES                   ////
-///////////////////////////////////////////////////////////////////////
+// Files as Archetype Resource
+// ---------------------------
 
 // FileResource implements files in the system as archetype resources.
 type FileResource struct {
@@ -588,6 +588,77 @@ func (file *FileResource) Less(_ ArchetypeResource) bool {
 	return false
 }
 
+// Locally Shared Variables as Archetype Resources
+// -----------------------------------------------
+
+// LocallySharedResource represents some value that is shared only locally,
+// i.e., within the same Go process.
+type LocallySharedResource struct {
+	val        interface{} // the value being shared
+	writtenBuf interface{} // buffer of previous writes
+	lock       sync.Mutex  // mutex to guarantee exclusive access
+}
+
+// NewLocallySharedResource creates a new shared resource that can be
+// used as a resource archetype
+func NewLocallySharedResource(val interface{}) *LocallySharedResource {
+	return &LocallySharedResource{
+		val:        val,
+		writtenBuf: nil,
+	}
+}
+
+// Acquire locks the resource for exclusive access
+func (resource *LocallySharedResource) Acquire(_ ResourceAccess) error {
+	resource.lock.Lock()
+	return nil
+}
+
+// Read returns the current value of the resource
+func (resource *LocallySharedResource) Read() interface{} {
+	if resource.writtenBuf != nil {
+		return resource.writtenBuf
+	}
+
+	return resource.val
+}
+
+// Write updates the value of the underlying shared resource
+func (resource *LocallySharedResource) Write(value interface{}) {
+	resource.writtenBuf = value
+}
+
+// Release writes any written value to the underlying shared value and
+// returns
+func (resource *LocallySharedResource) Release() error {
+	if resource.writtenBuf != nil {
+		resource.val = resource.writtenBuf
+	}
+
+	resource.lock.Unlock()
+	return nil
+}
+
+// Abort erases any values passed using Write and returns.
+func (resource *LocallySharedResource) Abort() error {
+	resource.writtenBuf = nil
+	resource.lock.Unlock()
+
+	return nil
+}
+
+// Less is a no-op. Locally shared resources are agnostic to ordering.
+func (_ *LocallySharedResource) Less(_ ArchetypeResource) bool {
+	return false
+}
+
+/////////////////////////////////////////////////////////////////////////
+////            ARCHETYPE RESOURCE COLLECTIONS                      ////
+///////////////////////////////////////////////////////////////////////
+
+// Slices as Archetype Resource Collections
+// ----------------------------------------
+
 // ArchetypeResourceSlice implements implements an
 // ArchetypeResourceCollection by mapping Get calls as straightforward
 // indexing operations on the underlying slice.
@@ -599,6 +670,9 @@ func (slice ArchetypeResourceSlice) Get(value interface{}) ArchetypeResource {
 	index := value.(int)
 	return slice[index]
 }
+
+// File System Directories as Archetype Resource Collections
+// ---------------------------------------------------------
 
 // FileSystemDirectory represents an archetype resource that makes the
 // files in a certain directory available, implementing the
