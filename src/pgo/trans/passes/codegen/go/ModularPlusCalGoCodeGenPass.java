@@ -119,11 +119,13 @@ public class ModularPlusCalGoCodeGenPass {
     public static GoModule perform(DefinitionRegistry registry, Map<UID, Type> typeMap, PGoOptions opts,
                                    ModularPlusCalBlock modularPlusCalBlock) {
         GoModuleBuilder module = new GoModuleBuilder(modularPlusCalBlock.getName().getValue(), opts.buildPackage);
-        GlobalVariableStrategy globalStrategy = new ArchetypeResourcesGlobalVariableStrategy(registry, typeMap);
+        GlobalVariableStrategy globalStrategy = new ArchetypeResourcesGlobalVariableStrategy(registry, typeMap, null);
 
         generateInit(modularPlusCalBlock, module, registry, typeMap, globalStrategy);
 
         for (ModularPlusCalArchetype archetype : modularPlusCalBlock.getArchetypes()) {
+            globalStrategy = new ArchetypeResourcesGlobalVariableStrategy(registry, typeMap, archetype.getUID());
+
             GoFunctionDeclarationBuilder fn = module.defineFunction(archetype.getUID(), archetype.getName());
             fn.addReturn(GoBuiltins.Error);
 

@@ -25,15 +25,18 @@ import java.util.stream.Collectors;
 public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStrategy {
     private DefinitionRegistry registry;
     private Map<UID, Type> typeMap;
+    private UID archetype;
     private GoVariableName err;
     private GoVariableName acquiredResources;
     private Set<String> functionMappedResourceNames;
     private int currentLockGroup;
 
-    public ArchetypeResourcesGlobalVariableStrategy(DefinitionRegistry registry, Map<UID, Type> typeMap) {
+    public ArchetypeResourcesGlobalVariableStrategy(DefinitionRegistry registry, Map<UID, Type> typeMap, UID archetype) {
         this.registry = registry;
         this.typeMap = typeMap;
         this.currentLockGroup = -1;
+        this.archetype = archetype;
+        this.acquiredResources = null;
     }
 
     @Override
@@ -44,6 +47,30 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
     @Override
     public void processPrelude(GoBlockBuilder builder, PlusCalProcess ignored, String archetypeName, GoVariableName self, GoType selfType) {
         this.err = builder.varDecl("err", GoBuiltins.Error);
+
+        if (!registry.getSignature(archetype).isPresent()) {
+            throw new InternalCompilerError();
+        }
+
+        // if the archetype has any resource that is function-mapped, declared archetypeResources
+        // to keep track of acquired resources for each lock group
+        boolean functionMaps = false;
+        boolean[] signature = registry.getSignature(archetype).get();
+        for (int i = 0; i < signature.length; i++) {
+            if (signature[i]) {
+                functionMaps = true;
+                break;
+            }
+        }
+
+        if (functionMaps) {
+            GoType type = new GoMapType(
+                    GoBuiltins.String,
+                    new GoMapType(GoBuiltins.Interface, GoBuiltins.Bool)
+            );
+
+            this.acquiredResources = builder.varDecl("acquiredResources", type);
+        }
     }
 
     @Override
@@ -84,25 +111,14 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
             }
         };
 
-        Set<TLAExpression> allResources = new HashSet<>(registry.getResourceReadsInLockGroup(lockGroup));
-        allResources.addAll(registry.getResourceWritesInLockGroup(lockGroup));
-
-        boolean usesFunctionMappedResource = allResources
-                .stream()
-                .anyMatch(r -> r instanceof TLAFunctionCall);
-
-        // if there are function-mapped resources being used in this label,
-        // initialize acquiredResources to an empty map from resource name
-        // to set of acquired resources so far
-        if (usesFunctionMappedResource) {
-            builder.addComment("Declaring because of resources: " + String.join(", ", allResources.stream().filter(r -> r instanceof TLAFunctionCall).map(TLAExpression::toString).collect(Collectors.toSet())));
-            this.acquiredResources = builder.varDecl(
-                    "acquiredResources",
-                    new GoMapLiteral(GoBuiltins.String, new GoMapType(GoBuiltins.Interface, GoBuiltins.Bool), Collections.emptyMap())
-            );
-        } else {
-            this.acquiredResources = null;
-        }
+        // reset acquired resources
+        builder.assign(
+                acquiredResources,
+                new GoMapLiteral(
+                        GoBuiltins.String,
+                        new GoMapType(GoBuiltins.Interface, GoBuiltins.Bool), Collections.emptyMap()
+                )
+        );
 
         // keeps track of the function-mapped resources read or written
         // in this label so that they can be released at the end of the label.
