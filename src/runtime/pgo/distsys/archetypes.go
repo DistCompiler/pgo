@@ -726,3 +726,16 @@ func NewSingletonCollection(resource ArchetypeResource) SingletonCollectionResou
 func (singleton SingletonCollectionResource) Get(_ interface{}) ArchetypeResource {
 	return singleton.resource
 }
+
+// Maps as Archetype Resource Collections
+// --------------------------------------
+
+// ArchetypeResourceMap implements the ArchetypeResourceCollection
+// interface and allows Get operations to index on keys of the map.
+type ArchetypeResourceMap map[interface{}]interface{}
+
+// Get returns a LocallySharedResource with the value on the given
+// `key`.
+func (m ArchetypeResourceMap) Get(key interface{}) ArchetypeResource {
+	return NewLocallySharedResource(m[key])
+}
