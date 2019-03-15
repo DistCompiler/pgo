@@ -588,6 +588,49 @@ func (file *FileResource) Less(_ ArchetypeResource) bool {
 	return false
 }
 
+// Immutable Values as Archetype Resources
+// ---------------------------------------
+
+type ImmutableResource struct {
+	value interface{}
+}
+
+// NewImmutableResource creates a new immutable archetype resource
+// wrapping the `value` passed.
+func NewImmutableResource(value interface{}) ImmutableResource {
+	return ImmutableResource{value}
+}
+
+// Acquire is a no-op for immutable resources
+func (_ ImmutableResource) Acquire(_ ResourceAccess) error {
+	return nil
+}
+
+// Read returns the underlying value
+func (resource ImmutableResource) Read() interface{} {
+	return resource.value
+}
+
+// Write panics (the resource is immutable)
+func (_ ImmutableResource) Write(value interface{}) {
+	panic("Attempted to write immutable resource")
+}
+
+// Release is a no-op for immutable resources
+func (_ ImmutableResource) Release() error {
+	return nil
+}
+
+// Abort is a no-op for immutable resources
+func (_ ImmutableResource) Abort() error {
+	return nil
+}
+
+// Less is a no-op. Immutable resources are agnostic to ordering.
+func (_ ImmutableResource) Less(_ ArchetypeResource) bool {
+	return false
+}
+
 // Locally Shared Variables as Archetype Resources
 // -----------------------------------------------
 
