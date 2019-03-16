@@ -775,10 +775,44 @@ func (singleton SingletonCollectionResource) Get(_ interface{}) ArchetypeResourc
 
 // ArchetypeResourceMap implements the ArchetypeResourceCollection
 // interface and allows Get operations to index on keys of the map.
-type ArchetypeResourceMap map[interface{}]interface{}
+type ArchetypeResourceMap struct {
+	resources map[interface{}]*LocallySharedResource
+	lock      sync.Mutex
+}
+
+func NewArchetypeResourceMap() *ArchetypeResourceMap {
+	return &ArchetypeResourceMap{
+		resources: map[interface{}]*LocallySharedResource{},
+	}
+}
 
 // Get returns a LocallySharedResource with the value on the given
 // `key`.
-func (m ArchetypeResourceMap) Get(key interface{}) ArchetypeResource {
-	return NewLocallySharedResource(m[key])
+func (m *ArchetypeResourceMap) Get(key interface{}) ArchetypeResource {
+	m.lock.Lock()
+	if _, ok := m.resources[key]; !ok {
+		m.resources[key] = NewLocallySharedResource(nil)
+	}
+
+	m.lock.Unlock()
+	return m.resources[key]
+}
+
+// ToMap returns a Go map representation of the map archetype
+// resource.  Any attempts to Get() a value from the map will block
+// while this operation is in progress.
+func (m *ArchetypeResourceMap) ToMap() map[interface{}]interface{} {
+	// make sure the map cannot be changed while we convert the data
+	// to a Go map
+	m.lock.Lock()
+
+	result := map[interface{}]interface{}{}
+	for k, v := range m.resources {
+		if v.val != nil {
+			result[k] = v.val
+		}
+	}
+
+	m.lock.Unlock()
+	return result
 }
