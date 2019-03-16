@@ -656,10 +656,6 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
         NUM_NODES == (NUM_REPLICAS) + (NUM_CLIENTS)
         ReplicaSet == (0) .. ((NUM_REPLICAS) - (1))
         ClientSet == (NUM_REPLICAS) .. ((NUM_NODES) - (1))
-        GET_ORDER == 0
-        PUT_ORDER == 1
-        DISCONNECT_ORDER == 2
-        NULL_ORDER == 3
     }
     fair process (Replica \in ReplicaSet)
     variables kvLocal = [k \in KeySpace |-> NULL], liveClients = ClientSet, pendingRequests = [c \in liveClients |-> <<>>], stableMessages = <<>>, i, firstPending, timestamp, nextClient, lowestPending, chooseMessage, currentClocks = [c \in liveClients |-> 0], minClock, continue, pendingClients, clientsIter, msg, ok, key, val, replicasRead, replicasWrite, kvRead, clientsWrite, clientsWrite0, kvWrite, kvWrite0, clientsWrite1;
@@ -1023,14 +1019,14 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
 
 ***************************************************************************)
 \* BEGIN TRANSLATION
-\* Process variable i of process Replica at line 665 col 148 changed to i_
-\* Process variable continue of process Replica at line 665 col 271 changed to continue_
-\* Process variable msg of process Replica at line 665 col 310 changed to msg_
-\* Process variable continue of process GetClient at line 803 col 33 changed to continue_G
-\* Process variable continue of process PutClient at line 865 col 34 changed to continue_P
-\* Process variable j of process PutClient at line 865 col 54 changed to j_
-\* Process variable msg of process DisconnectClient at line 948 col 15 changed to msg_D
-\* Process variable j of process DisconnectClient at line 948 col 20 changed to j_D
+\* Process variable i of process Replica at line 661 col 148 changed to i_
+\* Process variable continue of process Replica at line 661 col 271 changed to continue_
+\* Process variable msg of process Replica at line 661 col 310 changed to msg_
+\* Process variable continue of process GetClient at line 799 col 33 changed to continue_G
+\* Process variable continue of process PutClient at line 861 col 34 changed to continue_P
+\* Process variable j of process PutClient at line 861 col 54 changed to j_
+\* Process variable msg of process DisconnectClient at line 944 col 15 changed to msg_D
+\* Process variable j of process DisconnectClient at line 944 col 20 changed to j_D
 CONSTANT defaultInitValue
 VARIABLES replicasNetwork, clientsNetwork, lock, cid, out, clocks, pc
 
@@ -1038,10 +1034,6 @@ VARIABLES replicasNetwork, clientsNetwork, lock, cid, out, clocks, pc
 NUM_NODES == (NUM_REPLICAS) + (NUM_CLIENTS)
 ReplicaSet == (0) .. ((NUM_REPLICAS) - (1))
 ClientSet == (NUM_REPLICAS) .. ((NUM_NODES) - (1))
-GET_ORDER == 0
-PUT_ORDER == 1
-DISCONNECT_ORDER == 2
-NULL_ORDER == 3
 
 VARIABLES kvLocal, liveClients, pendingRequests, stableMessages, i_,
           firstPending, timestamp, nextClient, lowestPending, chooseMessage,
@@ -1366,7 +1358,7 @@ clientDisconnected(self) == /\ pc[self] = "clientDisconnected"
 replicaGetRequest(self) == /\ pc[self] = "replicaGetRequest"
                            /\ IF ((msg_[self]).op) = (GET_MSG)
                                  THEN /\ Assert(((msg_[self]).client) \in (liveClients[self]),
-                                                "Failure of assertion at line 687, column 25.")
+                                                "Failure of assertion at line 683, column 25.")
                                       /\ currentClocks' = [currentClocks EXCEPT ![self][(msg_[self]).client] = (msg_[self]).timestamp]
                                       /\ pendingRequests' = [pendingRequests EXCEPT ![self][(msg_[self]).client] = Append(pendingRequests[self][(msg_[self]).client], msg_[self])]
                                  ELSE /\ TRUE
@@ -1642,7 +1634,7 @@ findMinClient(self) == /\ pc[self] = "findMinClient"
                              THEN /\ \E client \in pendingClients[self]:
                                        /\ firstPending' = [firstPending EXCEPT ![self] = Head(pendingRequests[self][client])]
                                        /\ Assert((((firstPending'[self]).op) = (GET_MSG)) \/ (((firstPending'[self]).op) = (PUT_MSG)),
-                                                 "Failure of assertion at line 728, column 37.")
+                                                 "Failure of assertion at line 724, column 37.")
                                        /\ timestamp' = [timestamp EXCEPT ![self] = (firstPending'[self]).timestamp]
                                        /\ IF (timestamp'[self]) < (minClock[self])
                                              THEN /\ chooseMessage' = [chooseMessage EXCEPT ![self] = ((timestamp'[self]) < (lowestPending[self])) \/ (((timestamp'[self]) = (lowestPending[self])) /\ ((client) < (nextClient[self])))]
@@ -2307,7 +2299,7 @@ putResponse(self) == /\ pc[self] = "putResponse"
                                      /\ clientsRead0' = [clientsRead0 EXCEPT ![self] = msg2]
                                 /\ putResp' = [putResp EXCEPT ![self] = clientsRead0'[self]]
                                 /\ Assert(((putResp'[self]).type) = (PUT_RESPONSE),
-                                          "Failure of assertion at line 913, column 33.")
+                                          "Failure of assertion at line 909, column 33.")
                                 /\ i' = [i EXCEPT ![self] = (i[self]) + (1)]
                                 /\ clientsWrite5' = [clientsWrite5 EXCEPT ![self] = clientsWrite4'[self]]
                                 /\ lockedWrite0' = [lockedWrite0 EXCEPT ![self] = lock]
@@ -2817,5 +2809,5 @@ DisconnectionSafe == \A client \in ClientSet : <>[](clocks[client] = -1)
 
 =============================================================================
 \* Modification History
-\* Last modified Fri Mar 15 13:53:07 PDT 2019 by rmc
+\* Last modified Sat Mar 16 13:24:29 PDT 2019 by rmc
 \* Last modified Wed Feb 27 12:42:52 PST 2019 by minh
