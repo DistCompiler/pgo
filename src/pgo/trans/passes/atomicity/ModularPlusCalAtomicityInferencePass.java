@@ -4,7 +4,6 @@ import pgo.InternalCompilerError;
 import pgo.Unreachable;
 import pgo.model.mpcal.*;
 import pgo.model.tla.*;
-import pgo.util.UnionFind;
 import pgo.model.pcal.*;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
@@ -16,7 +15,7 @@ import java.util.stream.Collectors;
 public class ModularPlusCalAtomicityInferencePass {
     private ModularPlusCalAtomicityInferencePass() {}
 
-    private static void trackResource(Map<String, Boolean> mappings, Map<TLAExpression, UID> representativesMap, Map<UID, Set<UID>> map, TLAExpression expression, UID labelUID) {
+    private static void trackResource(Map<String, Boolean> mappings, Map<UID, Set<TLAExpression>> map, TLAExpression expression, UID labelUID) {
         boolean track = false;
 
         if (expression instanceof TLAGeneralIdentifier) {
@@ -44,20 +43,8 @@ public class ModularPlusCalAtomicityInferencePass {
         }
 
         if (track) {
-            representativesMap.putIfAbsent(expression, expression.getUID());
-            UID representative = representativesMap.get(expression);
-
-            map.putIfAbsent(representative, new HashSet<>());
-            map.get(representative).add(labelUID);
-        }
-    }
-
-    private static void addToUnionFind(UnionFind<UID> unionFind, Map<UID, Set<UID>> map) {
-        for (Map.Entry<UID, Set<UID>> entry : map.entrySet()) {
-            UID varUID = entry.getKey();
-            for (UID labelUID : entry.getValue()) {
-                unionFind.union(labelUID, varUID);
-            }
+            map.putIfAbsent(labelUID, new HashSet<>());
+            map.get(labelUID).add(expression);
         }
     }
 
@@ -65,9 +52,8 @@ public class ModularPlusCalAtomicityInferencePass {
         int lockGroups = 0;
 
         for (ModularPlusCalArchetype archetype : modularPlusCalBlock.getArchetypes()) {
-            Map<UID, Set<UID>> resourceReadsToLabel = new HashMap<>();
-            Map<UID, Set<UID>> resourceWritesToLabel = new HashMap<>();
-            Map<TLAExpression, UID> representativesMap = new HashMap<>();
+            Map<UID, Set<TLAExpression>> labelToResourceReads = new HashMap<>();
+            Map<UID, Set<TLAExpression>> labelToResourceWrites = new HashMap<>();
             Map<String, Boolean> mappings = new HashMap<>();
 
             // build a map from resource's name to whether they are function mapped or not
@@ -109,10 +95,10 @@ public class ModularPlusCalAtomicityInferencePass {
             }
 
             BiConsumer<TLAExpression, UID> captureLabelRead = (expression, labelUID) ->
-                    trackResource(mappings, representativesMap, resourceReadsToLabel, expression, labelUID);
+                    trackResource(mappings, labelToResourceReads, expression, labelUID);
 
             BiConsumer<TLAExpression, UID> captureLabelWrite = (expression, labelUID) ->
-                    trackResource(mappings,representativesMap, resourceWritesToLabel, expression, labelUID);
+                    trackResource(mappings, labelToResourceWrites, expression, labelUID);
 
             Set<UID> foundLabels = new HashSet<>();
             for (PlusCalStatement statement : archetype.getBody()) {
@@ -120,50 +106,18 @@ public class ModularPlusCalAtomicityInferencePass {
                         new UID(), captureLabelRead, captureLabelWrite, foundLabels));
             }
 
-            UnionFind<UID> unionFind = new UnionFind<>();
-            addToUnionFind(unionFind, resourceReadsToLabel);
-            addToUnionFind(unionFind, resourceWritesToLabel);
-            Map<UID, Integer> seenRoots = new HashMap<>();
             for (UID labelUID : foundLabels) {
-                if (unionFind.getRank(labelUID) > 0) {
-                    UID rootUID = unionFind.find(labelUID);
-                    if (!seenRoots.containsKey(rootUID)) {
-                        seenRoots.put(rootUID, seenRoots.size());
-                    }
-                    registry.addLabelToLockGroup(labelUID, seenRoots.get(rootUID) + lockGroups);
-                }
+                int lockGroup = lockGroups++;
+                registry.addLabelToLockGroup(labelUID, lockGroup);
+
+                labelToResourceReads.getOrDefault(labelUID, Collections.emptySet()).forEach(resource ->
+                    registry.addResourceReadToLockGroup(resource, lockGroup)
+                );
+
+                labelToResourceWrites.getOrDefault(labelUID, Collections.emptySet()).forEach(resource ->
+                        registry.addResourceWriteToLockGroup(resource, lockGroup)
+                );
             }
-
-
-            Map<UID, TLAExpression> representativeToExpression = representativesMap
-                    .entrySet()
-                    .stream()
-                    .collect(Collectors.toMap(Map.Entry::getValue, Map.Entry::getKey));
-
-            for (UID expUID : representativeToExpression.keySet()) {
-                if (unionFind.getRank(expUID) > 0) {
-                    int lockGroup = seenRoots.get(unionFind.find(expUID)) + lockGroups;
-                    boolean isRead = resourceReadsToLabel.getOrDefault(expUID, Collections.emptySet())
-                            .stream()
-                            .map(registry::getLockGroup)
-                            .anyMatch(i -> i.equals(lockGroup));
-                    boolean isWritten = resourceWritesToLabel.getOrDefault(expUID, Collections.emptySet())
-                            .stream()
-                            .map(registry::getLockGroup)
-                            .anyMatch(i -> i.equals(lockGroup));
-                    if (!isRead && !isWritten) {
-                        throw new InternalCompilerError();
-                    }
-                    if (isRead) {
-                        registry.addResourceReadToLockGroup(representativeToExpression.get(expUID), lockGroup);
-                    }
-                    if (isWritten) {
-                        registry.addResourceWriteToLockGroup(representativeToExpression.get(expUID), lockGroup);
-                    }
-                }
-            }
-
-            lockGroups += seenRoots.size();
         }
     }
 }
