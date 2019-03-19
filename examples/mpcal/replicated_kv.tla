@@ -454,6 +454,7 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
                   \* Waits for the response from the replica
                   getReply:
                     getResp := clients[clientId];
+                    assert(getResp.type = GET_RESPONSE);
                     outside := getResp.result;
               };
 
@@ -841,6 +842,7 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
                                 clientsRead := msg1;
                             };
                             getResp := clientsRead;
+                            assert ((getResp).type) = (GET_RESPONSE);
                             outsideWrite := (getResp).result;
                             clientsNetwork := clientsWrite2;
                             out := outsideWrite;
@@ -1021,14 +1023,14 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
 
 ***************************************************************************)
 \* BEGIN TRANSLATION
-\* Process variable i of process Replica at line 662 col 148 changed to i_
-\* Process variable continue of process Replica at line 662 col 271 changed to continue_
-\* Process variable msg of process Replica at line 662 col 310 changed to msg_
-\* Process variable continue of process GetClient at line 800 col 33 changed to continue_G
-\* Process variable continue of process PutClient at line 863 col 34 changed to continue_P
-\* Process variable j of process PutClient at line 863 col 54 changed to j_
-\* Process variable msg of process DisconnectClient at line 946 col 15 changed to msg_D
-\* Process variable j of process DisconnectClient at line 946 col 20 changed to j_D
+\* Process variable i of process Replica at line 663 col 148 changed to i_
+\* Process variable continue of process Replica at line 663 col 271 changed to continue_
+\* Process variable msg of process Replica at line 663 col 310 changed to msg_
+\* Process variable continue of process GetClient at line 801 col 33 changed to continue_G
+\* Process variable continue of process PutClient at line 865 col 34 changed to continue_P
+\* Process variable j of process PutClient at line 865 col 54 changed to j_
+\* Process variable msg of process DisconnectClient at line 948 col 15 changed to msg_D
+\* Process variable j of process DisconnectClient at line 948 col 20 changed to j_D
 CONSTANT defaultInitValue
 VARIABLES replicasNetwork, clientsNetwork, lock, cid, out, clocks, pc
 
@@ -1362,7 +1364,7 @@ clientDisconnected(self) == /\ pc[self] = "clientDisconnected"
 replicaGetRequest(self) == /\ pc[self] = "replicaGetRequest"
                            /\ IF ((msg_[self]).op) = (GET_MSG)
                                  THEN /\ Assert(((msg_[self]).client) \in (liveClients[self]),
-                                                "Failure of assertion at line 684, column 25.")
+                                                "Failure of assertion at line 685, column 25.")
                                       /\ currentClocks' = [currentClocks EXCEPT ![self][(msg_[self]).client] = (msg_[self]).timestamp]
                                       /\ pendingRequests' = [pendingRequests EXCEPT ![self][(msg_[self]).client] = Append(pendingRequests[self][(msg_[self]).client], msg_[self])]
                                  ELSE /\ TRUE
@@ -1638,7 +1640,7 @@ findMinClient(self) == /\ pc[self] = "findMinClient"
                              THEN /\ \E client \in pendingClients[self]:
                                        /\ firstPending' = [firstPending EXCEPT ![self] = Head(pendingRequests[self][client])]
                                        /\ Assert((((firstPending'[self]).op) = (GET_MSG)) \/ (((firstPending'[self]).op) = (PUT_MSG)),
-                                                 "Failure of assertion at line 725, column 37.")
+                                                 "Failure of assertion at line 726, column 37.")
                                        /\ timestamp' = [timestamp EXCEPT ![self] = (firstPending'[self]).timestamp]
                                        /\ IF (timestamp'[self]) < (minClock[self])
                                              THEN /\ chooseMessage' = [chooseMessage EXCEPT ![self] = ((timestamp'[self]) < (lowestPending[self])) \/ (((timestamp'[self]) = (lowestPending[self])) /\ ((client) < (nextClient[self])))]
@@ -2062,6 +2064,8 @@ getReply(self) == /\ pc[self] = "getReply"
                        /\ clientsWrite2' = [clientsWrite2 EXCEPT ![self] = [clientsNetwork EXCEPT ![clientIdRead'[self]] = Tail(clientsNetwork[clientIdRead'[self]])]]
                        /\ clientsRead' = [clientsRead EXCEPT ![self] = msg1]
                   /\ getResp' = [getResp EXCEPT ![self] = clientsRead'[self]]
+                  /\ Assert(((getResp'[self]).type) = (GET_RESPONSE),
+                            "Failure of assertion at line 845, column 29.")
                   /\ outsideWrite' = [outsideWrite EXCEPT ![self] = (getResp'[self]).result]
                   /\ clientsNetwork' = clientsWrite2'[self]
                   /\ out' = outsideWrite'[self]
@@ -2307,7 +2311,7 @@ putResponse(self) == /\ pc[self] = "putResponse"
                                      /\ clientsRead0' = [clientsRead0 EXCEPT ![self] = msg2]
                                 /\ putResp' = [putResp EXCEPT ![self] = clientsRead0'[self]]
                                 /\ Assert(((putResp'[self]).type) = (PUT_RESPONSE),
-                                          "Failure of assertion at line 911, column 33.")
+                                          "Failure of assertion at line 913, column 33.")
                                 /\ i' = [i EXCEPT ![self] = (i[self]) + (1)]
                                 /\ clientsWrite5' = [clientsWrite5 EXCEPT ![self] = clientsWrite4'[self]]
                                 /\ lockedWrite0' = [lockedWrite0 EXCEPT ![self] = lock]
@@ -2818,5 +2822,5 @@ DisconnectionSafe == \A client \in ClientSet : <>[](clocks[client] = -1)
 
 =============================================================================
 \* Modification History
-\* Last modified Mon Mar 18 16:21:10 PDT 2019 by rmc
+\* Last modified Mon Mar 18 17:38:42 PDT 2019 by rmc
 \* Last modified Wed Feb 27 12:42:52 PST 2019 by minh
