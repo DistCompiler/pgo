@@ -148,6 +148,90 @@ public class TestMPCalCodeGenRun {
                                         Collections.emptyList()
                                 )
                         )
+                },
+
+                // Simple replicated_kv tests. No concurrency to update the same
+                // keys because we want to make the state of the database after
+                // execution deterministic
+                {
+                    "replicated_kv.tla",
+                    "replicated_kv",
+                    new HashMap<String, String>() {{
+                        put("DISCONNECT_MSG", "\"disconnect\"");
+                        put("GET_MSG", "\"get\"");
+                        put("PUT_MSG", "\"put\"");
+                        put("NULL_MSG", "\"clock_update\"");
+                        put("NUM_CLIENTS", "2");
+                        put("NUM_REPLICAS", "3");
+                        put("GET_RESPONSE", "\"get_response\"");
+                        put("PUT_RESPONSE", "\"put_response\"");
+                    }},
+                    Arrays.asList(
+                            mpcalRunDef(
+                                    "Client(3)",
+                                    Arrays.asList(
+                                            "Client(3)", "Put a Client3-v1", "Put b Client3-v2",
+                                            "Get x", "Put c Client3-v3", "Get b"
+                                    ),
+                                    Arrays.asList(
+                                            "-- Put (a, Client3-v1): OK",
+                                            "-- Put (b, Client3-v2): OK",
+                                            "-- Get x: <nil>",
+                                            "-- Put (c, Client3-v3): OK",
+                                            "-- Get b: Client3-v2"
+                                    )
+                            ),
+                            mpcalRunDef(
+                                    "Client(4)",
+                                    Arrays.asList(
+                                            "Client(4)", "Put d Client4-v1", "Put d Client4-v2",
+                                            "Put e Client4-v3", "Get d", "Get e"
+                                    ),
+                                    Arrays.asList(
+                                            "-- Put (d, Client4-v1): OK",
+                                            "-- Put (d, Client4-v2): OK",
+                                            "-- Put (e, Client4-v3): OK",
+                                            "-- Get d: Client4-v2",
+                                            "-- Get e: Client4-v3"
+                                    )
+                            ),
+                            mpcalRunDef(
+                                    "Replica(0)",
+                                    Collections.singletonList("Replica(0)"),
+                                    Arrays.asList(
+                                            "Replica snapshot:",
+                                            "\ta -> Client3-v1",
+                                            "\tb -> Client3-v2",
+                                            "\tc -> Client3-v3",
+                                            "\td -> Client4-v2",
+                                            "\te -> Client4-v3"
+                                    )
+                            ),
+                            mpcalRunDef(
+                                    "Replica(1)",
+                                    Collections.singletonList("Replica(1)"),
+                                    Arrays.asList(
+                                            "Replica snapshot:",
+                                            "\ta -> Client3-v1",
+                                            "\tb -> Client3-v2",
+                                            "\tc -> Client3-v3",
+                                            "\td -> Client4-v2",
+                                            "\te -> Client4-v3"
+                                    )
+                            ),
+                            mpcalRunDef(
+                                    "Replica(2)",
+                                    Collections.singletonList("Replica(2)"),
+                                    Arrays.asList(
+                                            "Replica snapshot:",
+                                            "\ta -> Client3-v1",
+                                            "\tb -> Client3-v2",
+                                            "\tc -> Client3-v3",
+                                            "\td -> Client4-v2",
+                                            "\te -> Client4-v3"
+                                    )
+                            )
+                    )
                 }
         });
     }
