@@ -252,6 +252,19 @@ func P(self int) {
 				}
 				goto Li1
 			}
+			refs.Set("c", c)
+			err = globalState.Release(refs)
+			if err != nil {
+				panic(err)
+			}
+			refs, err = globalState.Acquire(&distsys.BorrowSpec{ReadNames: []string{}, WriteNames: []string{"c"}})
+			if err != nil {
+				panic(err)
+			}
+			c = refs.Get("c").([]struct {
+				key   int
+				value bool
+			})
 		}
 		refs.Set("c", c)
 		err = globalState.Release(refs)
@@ -302,11 +315,6 @@ func P(self int) {
 			key   int
 			value bool
 		})
-	}
-	refs.Set("b", b)
-	err = globalState.Release(refs)
-	if err != nil {
-		panic(err)
 	}
 }
 
