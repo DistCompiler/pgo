@@ -74,6 +74,7 @@ public class PlusCalStatementCodeGenVisitor extends PlusCalStatementVisitor<Void
 		// we may have to end the critical section after checking the condition)
 		CriticalSectionTracker loopConditionCriticalSectionTracker = criticalSectionTracker.copy();
 		Consumer<GoBlockBuilder> actionAtLoopEnd = criticalSectionTracker.actionAtLoopEnd();
+		boolean loopBodyHasLabel = plusCalWhile.accept(new PlusCalStatementContainsLabelVisitor());
 		try (GoBlockBuilder fb = builder.forLoop(null)) {
 			try(GoIfBuilder loopCondition = fb.ifStmt(CodeGenUtil.invertCondition(
 					fb, registry, typeMap, globalStrategy, plusCalWhile.getCondition()))) {
@@ -82,7 +83,7 @@ public class PlusCalStatementCodeGenVisitor extends PlusCalStatementVisitor<Void
 					// when the loop condition fails as there must be a new label after the loop
 					// if there are no labels inside the loop however, the critical section from before continues
 					// uninterrupted
-					if (plusCalWhile.accept(new PlusCalStatementContainsLabelVisitor())) {
+					if (loopBodyHasLabel) {
 						loopConditionCriticalSectionTracker.end(loopConditionBody);
 					}
 					loopConditionBody.addStatement(new GoBreak());
@@ -93,6 +94,13 @@ public class PlusCalStatementCodeGenVisitor extends PlusCalStatementVisitor<Void
 						registry, typeMap, globalStrategy, processUID, fb, criticalSectionTracker, awaitAction));
 			}
 			actionAtLoopEnd.accept(fb);
+		}
+		// if the loop body has labels, we must not be in any critical condition after the loop
+		// since loopConditionCriticalSectionTracker was used to end the critical section,
+		//   it is not in any critical section
+		// therefore, we can use it as criticalSectionTracker
+		if (loopBodyHasLabel) {
+			criticalSectionTracker = loopConditionCriticalSectionTracker;
 		}
 		return null;
 	}

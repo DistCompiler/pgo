@@ -63,10 +63,10 @@ func P(self int) {
 	<-pGoStart
 	temp := 0
 	temp2 := []int{}
-	pGoLock[2].Lock()
+	pGoLock[1].Lock()
 	for {
 		if !true {
-			pGoLock[2].Unlock()
+			pGoLock[1].Unlock()
 			break
 		}
 		key := self
@@ -74,39 +74,39 @@ func P(self int) {
 			return !(b[i].key < key)
 		})
 		b[index].value = false
-		pGoLock[2].Unlock()
+		pGoLock[1].Unlock()
 	Li1:
-		pGoLock[1].Lock()
+		pGoLock[0].Lock()
 		if k != self {
-			pGoLock[1].Unlock()
-			pGoLock[0].Lock()
+			pGoLock[0].Unlock()
+			pGoLock[2].Lock()
 			key0 := self
 			index0 := sort.Search(len(c), func(i0 int) bool {
 				return !(c[i0].key < key0)
 			})
 			c[index0].value = true
+			pGoLock[2].Unlock()
+			pGoLock[0].Lock()
+			temp = k
 			pGoLock[0].Unlock()
 			pGoLock[1].Lock()
-			temp = k
-			pGoLock[1].Unlock()
-			pGoLock[2].Lock()
 			key1 := temp
 			index1 := sort.Search(len(b), func(i1 int) bool {
 				return !(b[i1].key < key1)
 			})
 			if b[index1].value {
-				pGoLock[2].Unlock()
-				pGoLock[1].Lock()
-				k = self
 				pGoLock[1].Unlock()
+				pGoLock[0].Lock()
+				k = self
+				pGoLock[0].Unlock()
 			} else {
-				pGoLock[2].Unlock()
+				pGoLock[1].Unlock()
 			}
 			goto Li1
 		} else {
-			pGoLock[1].Unlock()
+			pGoLock[0].Unlock()
 		}
-		pGoLock[0].Lock()
+		pGoLock[2].Lock()
 		key0 := self
 		index0 := sort.Search(len(c), func(i0 int) bool {
 			return !(c[i0].key < key0)
@@ -119,8 +119,8 @@ func P(self int) {
 			}
 		}
 		temp2 = tmpSet
-		pGoLock[0].Unlock()
-		pGoLock[0].Lock()
+		pGoLock[2].Unlock()
+		pGoLock[2].Lock()
 		for {
 			if !(len(temp2) != 0) {
 				break
@@ -138,28 +138,29 @@ func P(self int) {
 				return !(c[i1].key < key1)
 			})
 			if !c[index1].value {
-				pGoLock[0].Unlock()
+				pGoLock[2].Unlock()
 				goto Li1
 			}
+			pGoLock[2].Unlock()
+			pGoLock[2].Lock()
 		}
-		pGoLock[0].Unlock()
-		pGoLock[0].Lock()
+		pGoLock[2].Unlock()
+		pGoLock[2].Lock()
 		key1 := self
 		index1 := sort.Search(len(c), func(i1 int) bool {
 			return !(c[i1].key < key1)
 		})
 		c[index1].value = true
-		pGoLock[0].Unlock()
-		pGoLock[2].Lock()
+		pGoLock[2].Unlock()
+		pGoLock[1].Lock()
 		key2 := self
 		index2 := sort.Search(len(b), func(i2 int) bool {
 			return !(b[i2].key < key2)
 		})
 		b[index2].value = true
-		pGoLock[2].Unlock()
-		pGoLock[2].Lock()
+		pGoLock[1].Unlock()
+		pGoLock[1].Lock()
 	}
-	pGoLock[2].Unlock()
 }
 
 func main() {

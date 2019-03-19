@@ -205,9 +205,9 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 	@Override
 	public Void visit(MacroArgumentInnerScopeConflictIssue macroArgumentInnerScopeConflictIssue) throws IOException {
 		out.write("locally bound identifier at line ");
-		out.write(macroArgumentInnerScopeConflictIssue.getIdentifier().getLocation().getStartLine());
+		out.write(Integer.toString(macroArgumentInnerScopeConflictIssue.getIdentifier().getLocation().getStartLine()));
 		out.write(" column ");
-		out.write(macroArgumentInnerScopeConflictIssue.getIdentifier().getLocation().getStartColumn());
+		out.write(Integer.toString(macroArgumentInnerScopeConflictIssue.getIdentifier().getLocation().getStartColumn()));
 		out.write(" conflicts with PlusCal macro parameter; this will likely not work with the TLC");
 		return null;
 	}
