@@ -39,9 +39,8 @@ public class CriticalSectionTracker {
 	}
 
 	public void start(GoBlockBuilder builder, UID labelUID, GoLabelName labelName) {
-		if (currentLockGroup >= 0) {
-			end(builder);
-		}
+		// end the current lock group
+		end(builder);
 		currentLockGroup = registry.getLockGroupOrDefault(labelUID, -1);
 		currentLabelUID = labelUID;
 		currentLabelName = labelName;
@@ -50,6 +49,7 @@ public class CriticalSectionTracker {
 			// nothing to do
 			return;
 		}
+		// start the new (now current) lock group
 		criticalSection.startCriticalSection(builder, processUID, currentLockGroup, currentLabelUID, currentLabelName);
 	}
 
