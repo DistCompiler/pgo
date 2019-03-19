@@ -20,6 +20,8 @@ public class TLAExpressionLHSAtomicityInferenceVisitor extends TLAExpressionVisi
 	@Override
 	public Void visit(TLAFunctionCall tlaFunctionCall) throws RuntimeException {
 		captureWrite.accept(tlaFunctionCall);
+		tlaFunctionCall.getFunction().accept(this);
+		tlaFunctionCall.getParams().forEach(p -> p.accept(visitor));
 		return null;
 	}
 
