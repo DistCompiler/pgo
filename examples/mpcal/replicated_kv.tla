@@ -422,9 +422,9 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
   \*           while a Put request is underway.
   \* clock: The initial logical clock
   \*
-  \* A Get message sent to the replica is a tuple in the following format:
+  \* A Get message sent to the replica is a record in the following format:
   \*
-  \*     << GET_MSG, key, client_id, lamport_clock >>
+  \*     [op: GET_MSG, key: key, client: client_id, timestamp: lamport_clock]
   archetype Get(clientId, ref replicas, clients, key, locked, ref clock, spin, ref outside)
   variable continue = TRUE, getReq, getResp;
   {
@@ -476,9 +476,9 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
   \*           other calls should wait for its completion
   \* - clock: Lamport clocks
   \*
-  \* A Put message sent to the replica is a tuple in the following format:
+  \* A Put message sent to the replica is a record in the following format:
   \*
-  \*     << PUT_MSG, key, value, client_id, lamport_clock >>
+  \*     [op: PUT_MSG, key: key, value: value, client: client_id, timestamp: lamport_clock]
   archetype Put(clientId, ref replicas, clients, key, value, ref locked, ref clock, spin, ref outside)
   variables continue = TRUE, i, j, putReq, putResp;
   {
@@ -529,9 +529,9 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
   \* Specifies a Disconnect message from the client.
   \* Does not disconnect if 'locked' (i.e., a Put request is underway).
   \*
-  \* A Disconnect message sent to the replica is a tuple in the following format:
+  \* A Disconnect message sent to the replica is a record in the following format:
   \*
-  \*     << DISCONNECT_MSG, client_id >>
+  \*     [op: DISCONNECT_MSG, client: client_id]
   archetype Disconnect(clientId, ref replicas, locked, ref clock)
   variables msg, j;
   {
@@ -553,9 +553,9 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
   \* Specifies a ClockUpdate ('null') message from the client.
   \* If the client has disconnected, no more clock updates are sent.
   \*
-  \* A ClockUpdate message sent to the replica is a tuple in the following format:
+  \* A ClockUpdate message sent to the replica is a record in the following format:
   \*
-  \*     << NULL_MSG, client_id, logical_clock >>
+  \*     [op: NULL_MSG, client: client_id, timestamp: logical_clock]
   archetype ClockUpdate(clientId, ref replicas, ref clock, spin)
   variables continue = TRUE, j, msg;
   {
@@ -2822,5 +2822,5 @@ DisconnectionSafe == \A client \in ClientSet : <>[](clocks[client] = -1)
 
 =============================================================================
 \* Modification History
-\* Last modified Mon Mar 18 17:38:42 PDT 2019 by rmc
+\* Last modified Tue Mar 19 18:13:46 PDT 2019 by rmc
 \* Last modified Wed Feb 27 12:42:52 PST 2019 by minh
