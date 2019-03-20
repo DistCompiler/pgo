@@ -17,6 +17,8 @@ const (
 	MAILBOX_SIZE      = 10  // message buffer size
 	CLOCK_UPDATE_TICK = 200 // clock update 0.2s
 
+	CONNECTION_TIMEOUT = 1000 // time out RPC calls after 1s
+
 	REPLICA_STATUS_CHECK = 5 // print replica database state every 5 seconds
 
 	GET = iota
@@ -143,7 +145,7 @@ func fatal(msg string) {
 }
 
 func makeMailboxRef(name string) *distsys.Mailbox {
-	mbox, err := distsys.MailboxRef(name, connections, configuration, id, MAILBOX_SIZE)
+	mbox, err := distsys.MailboxRef(name, connections, configuration, id, MAILBOX_SIZE, CONNECTION_TIMEOUT)
 	if err != nil {
 		panic(err)
 	}

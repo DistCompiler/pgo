@@ -3,11 +3,13 @@ package distsys
 import (
 	"fmt"
 	"io/ioutil"
+	"net/rpc"
 	"os"
 	"path"
 	"sort"
 	"strings"
 	"sync"
+	"time"
 )
 
 // ResourceAccess indicates what type of access the a caller is requesting.
@@ -281,6 +283,7 @@ type Mailbox struct {
 	readBuf        []interface{}     // messages read from the channel
 	writeBuf       []interface{}     // messages waiting to be sent when the channel is released
 	readChan       chan interface{}  // reads are buffered through Go channels
+	timeout        uint              // how long to wait for RPC calls
 	readingAborted bool              // whether we are reading messages from a previously aborted transaction
 }
 
@@ -290,15 +293,31 @@ func (mbox *Mailbox) service() string {
 	return "Mailbox_" + mbox.name
 }
 
-func (mbox *Mailbox) call(function string, args interface{}, ok *bool) error {
+func (mbox *Mailbox) callAsync(function string, args interface{}, ok *bool) *rpc.Call {
 	fName := mbox.service() + "." + function
 	addr := mbox.configuration[mbox.name]
-	return mbox.conns.GetConnection(addr).Call(fName, &args, ok)
+	return mbox.conns.GetConnection(addr).Go(fName, &args, ok, nil)
 }
 
 func (mbox *Mailbox) sendMessage(msg interface{}) error {
 	var ok bool
-	return mbox.call("Receive", msg, &ok)
+	call := mbox.callAsync("Receive", msg, &ok)
+
+	// a timeout of 0 indicates that the system TCP timeout should be
+	// used
+	if mbox.timeout == 0 {
+		<-call.Done
+		return call.Error
+	}
+
+	// send the message asynchronously; if it times out, return an
+	// error
+	select {
+	case <-call.Done:
+		return call.Error
+	case <-time.After(time.Duration(mbox.timeout) * time.Millisecond):
+		return fmt.Errorf("Timed out: %v", mbox.service())
+	}
 }
 
 // MailboxRef represents a reference to some mailbox. It can be local
@@ -312,7 +331,12 @@ func (mbox *Mailbox) sendMessage(msg interface{}) error {
 // elements. Sending a message to a process with a full queue causes
 // the requester to block until sufficient space in the queue is
 // available.
-func MailboxRef(name string, conns *Connections, configuration map[string]string, id string, bufferSize uint) (*Mailbox, error) {
+//
+// The `timeout` argument indicates how long RPC calls should wait for
+// the reply of a function call. Passing a timeout of 0 causes the
+// runtime to not employ any timeout mechanism (falling back to the
+// underlying system's TCP timeout).
+func MailboxRef(name string, conns *Connections, configuration map[string]string, id string, bufferSize uint, timeout uint) (*Mailbox, error) {
 	mbox := &Mailbox{
 		name:           name,
 		selfName:       id,
@@ -320,6 +344,7 @@ func MailboxRef(name string, conns *Connections, configuration map[string]string
 		conns:          conns,
 		readBuf:        []interface{}{},
 		writeBuf:       []interface{}{},
+		timeout:        timeout,
 		readingAborted: false,
 	}
 

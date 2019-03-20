@@ -46,7 +46,7 @@ func init() {
 }
 
 func makeMailboxRef(name string) *distsys.Mailbox {
-	mbox, err := distsys.MailboxRef(name, connections, configuration, id, MAILBOX_SIZE)
+	mbox, err := distsys.MailboxRef(name, connections, configuration, id, MAILBOX_SIZE, 0)
 	if err != nil {
 		panic(err)
 	}
