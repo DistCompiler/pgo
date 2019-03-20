@@ -60,15 +60,16 @@ type Get struct {
 
 func (g Get) Run() error {
 	getKey := distsys.NewImmutableResource(g.key)
-	getResponse := distsys.NewLocalChannel()
+	response := distsys.NewLocallySharedResource(nil)
 
-	go replicated_kv.Get(self, clientId, replicas, clients, getKey, locked, clock, spin, getResponse)
-	val := getResponse.Receive()
+	replicated_kv.Get(self, clientId, replicas, clients, getKey, locked, clock, spin, response)
 
-	if val == nil {
+	// Read without Acquire because we know `response` is not
+	// shared
+	if response.Read() == nil {
 		fmt.Printf("-- Get %s: %v\n", g.key, nil)
 	} else {
-		fmt.Printf("-- Get %s: %s\n", g.key, val.(string))
+		fmt.Printf("-- Get %s: %s\n", g.key, response.Read().(string))
 	}
 
 	return nil
@@ -82,10 +83,9 @@ type Put struct {
 func (p Put) Run() error {
 	putKey := distsys.NewImmutableResource(p.key)
 	putValue := distsys.NewImmutableResource(p.value)
-	putResponse := distsys.NewLocalChannel()
+	response := distsys.NewLocallySharedResource(nil)
 
-	go replicated_kv.Put(self, clientId, replicas, clients, putKey, putValue, locked, clock, spin, putResponse)
-	putResponse.Receive()
+	replicated_kv.Put(self, clientId, replicas, clients, putKey, putValue, locked, clock, spin, response)
 
 	fmt.Printf("-- Put (%s, %s): OK\n", p.key, p.value)
 	return nil
