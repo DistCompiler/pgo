@@ -50,6 +50,9 @@ var db *distsys.ArchetypeResourceMap
 var mut sync.Mutex
 var checkCount int
 
+// continue ticking?
+var tick bool
+
 type Command interface {
 	Run() error
 }
@@ -131,6 +134,7 @@ func init() {
 	spin = distsys.NewImmutableResource(false)
 
 	checkCount = 0
+	tick = true
 }
 
 func fatal(msg string) {
@@ -202,14 +206,16 @@ func disconnect() error {
 }
 
 func clockUpdate() error {
-	for {
+	for tick {
 		time.Sleep(CLOCK_UPDATE_TICK * time.Millisecond)
 
 		if err := replicated_kv.ClockUpdate(self, clientId, replicas, clock, spin); err != nil {
-			fmt.Printf("Clock Update error! %v\n", err)
+			fmt.Printf("Clock Update error: %v\n", err)
 			return err
 		}
 	}
+
+	return nil
 }
 
 func initClientRoutines() {
@@ -303,6 +309,9 @@ func main() {
 
 	// wait for all clients to disconnect
 	waitBarrier()
+
+	// all process are done, stop ticking the clock
+	tick = false
 
 	if role == "Replica" {
 		// print the storage status if it hasn't been print before

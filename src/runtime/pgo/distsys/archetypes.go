@@ -274,13 +274,14 @@ func (r *Receiver) Receive(val *interface{}, ok *bool) error {
 // messages (Write() calls); processes may then read the next message
 // available in their queues.
 type Mailbox struct {
-	name          string            // internal name exposed via RPC
-	selfName      string            // identifier of the process that created the reference
-	configuration map[string]string // configuration of the system (PlusCal process -> IP address)
-	conns         *Connections      // the set of connections to nodes within the system
-	writeBuf      []interface{}     // messages waiting to be sent when the channel is released
-	readChan      chan interface{}  // reads are buffered through Go channels
-	writeChan     chan interface{}  // writes are buffered through Go channels
+	name           string            // internal name exposed via RPC
+	selfName       string            // identifier of the process that created the reference
+	configuration  map[string]string // configuration of the system (PlusCal process -> IP address)
+	conns          *Connections      // the set of connections to nodes within the system
+	readBuf        []interface{}     // messages read from the channel
+	writeBuf       []interface{}     // messages waiting to be sent when the channel is released
+	readChan       chan interface{}  // reads are buffered through Go channels
+	readingAborted bool              // whether we are reading messages from a previously aborted transaction
 }
 
 // service returns the name of the RPC service associated with this
@@ -295,16 +296,9 @@ func (mbox *Mailbox) call(function string, args interface{}, ok *bool) error {
 	return mbox.conns.GetConnection(addr).Call(fName, &args, ok)
 }
 
-// SendMessages will wait indefinitely for data coming from `writeChan` and
-// actually send the data over to the network.
-func (mbox *Mailbox) SendMessages() {
+func (mbox *Mailbox) sendMessage(msg interface{}) error {
 	var ok bool
-
-	for msg := range mbox.writeChan {
-		if err := mbox.call("Receive", msg, &ok); err != nil {
-			fmt.Printf("Error! %v\n", err)
-		}
-	}
+	return mbox.call("Receive", msg, &ok)
 }
 
 // MailboxRef represents a reference to some mailbox. It can be local
@@ -320,12 +314,13 @@ func (mbox *Mailbox) SendMessages() {
 // available.
 func MailboxRef(name string, conns *Connections, configuration map[string]string, id string, bufferSize uint) (*Mailbox, error) {
 	mbox := &Mailbox{
-		name:          name,
-		selfName:      id,
-		configuration: configuration,
-		conns:         conns,
-		writeBuf:      []interface{}{},
-		writeChan:     make(chan interface{}, bufferSize),
+		name:           name,
+		selfName:       id,
+		configuration:  configuration,
+		conns:          conns,
+		readBuf:        []interface{}{},
+		writeBuf:       []interface{}{},
+		readingAborted: false,
 	}
 
 	// if the reference is for the mailbox of the current process,
@@ -340,10 +335,6 @@ func MailboxRef(name string, conns *Connections, configuration map[string]string
 			return nil, err
 		}
 	}
-
-	// set up a Goroutine to handle sending of committed data over
-	// the network
-	go mbox.SendMessages()
 
 	return mbox, nil
 }
@@ -361,7 +352,27 @@ func (mbox *Mailbox) Read() interface{} {
 		panic(fmt.Sprintf("Tried to read non-local mailbox %s (attempted by %s)", mbox.name, mbox.selfName))
 	}
 
-	return <-mbox.readChan
+	// if we are still reading messages from an aborted session
+	if mbox.readingAborted {
+		// read from the buffer of previously read messages (pop from
+		// the queue)
+		if len(mbox.readBuf) > 0 {
+			msg := mbox.readBuf[0]
+			mbox.readBuf = mbox.readBuf[1:]
+			return msg
+		} else {
+			// if there are no more previously read messages, we are
+			// no longer reading from a previous transaction
+			mbox.readingAborted = false
+		}
+	}
+
+	// if we are not reading from a previous transaction, wait for
+	// incoming messages on the mailbox
+	msg := <-mbox.readChan
+	mbox.readBuf = append(mbox.readBuf, msg)
+
+	return msg
 }
 
 // Write saves a message with the value given in a buffer to be sent
@@ -377,17 +388,26 @@ func (mbox *Mailbox) Write(value interface{}) {
 // Release sends each message given to Write() to the destination
 // mailbox.
 func (mbox *Mailbox) Release() error {
+	// send each message written to the resource while it was
+	// acquired.  Returns an error if sending any message failed
 	for _, msg := range mbox.writeBuf {
-		mbox.writeChan <- msg
+		if err := mbox.sendMessage(msg); err != nil {
+			return err
+		}
 	}
 
+	// erase read and write buffers
+	mbox.readBuf = []interface{}{}
 	mbox.writeBuf = []interface{}{}
 	return nil
 }
 
-// Abort erases messages passed using Write and returns.
+// Abort erases messages passed using Write and returns.  It keeps the
+// buffer of read messages so that, when the channel is next acquired,
+// the same messages will be read again
 func (mbox *Mailbox) Abort() error {
 	mbox.writeBuf = []interface{}{}
+	mbox.readingAborted = true
 	return nil
 }
 
