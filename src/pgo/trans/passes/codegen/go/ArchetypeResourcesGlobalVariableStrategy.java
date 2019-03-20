@@ -31,6 +31,9 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
     private Set<String> functionMappedResourceNames;
     private int currentLockGroup;
 
+    private static final String RELEASE = "ReleaseResources";
+    private static final String ABORT = "AbortResources";
+
     public ArchetypeResourcesGlobalVariableStrategy(DefinitionRegistry registry, Map<UID, Type> typeMap, UID archetype) {
         this.registry = registry;
         this.typeMap = typeMap;
@@ -134,12 +137,12 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
 
     @Override
     public void abortCriticalSection(GoBlockBuilder builder, UID processUID, int lockGroup, UID labelUID, GoLabelName labelName) {
-        terminateCriticalSection(builder, lockGroup, "AbortResources");
+        terminateCriticalSection(builder, lockGroup, ABORT, false);
     }
 
     @Override
     public void endCriticalSection(GoBlockBuilder builder, UID processUID, int lockGroup, UID labelUID, GoLabelName labelName) {
-        terminateCriticalSection(builder, lockGroup, "ReleaseResources");
+        terminateCriticalSection(builder, lockGroup, RELEASE, false);
     }
 
     @Override
@@ -228,6 +231,7 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
         GoExpression errNotNil = new GoBinop(GoBinop.Operation.NEQ, err, GoBuiltins.Nil);
         try (GoIfBuilder ifBuilder = builder.ifStmt(errNotNil)) {
             try (GoBlockBuilder yes = ifBuilder.whenTrue()) {
+                terminateCriticalSection(yes, currentLockGroup, ABORT, true);
                 yes.returnStmt(err);
             }
         }
@@ -240,8 +244,8 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
         );
     }
 
-    // Releases/aborts resources
-    private void terminateCriticalSection(GoBlockBuilder builder, int lockGroup, String method) {
+        // Releases/aborts resources
+    private void terminateCriticalSection(GoBlockBuilder builder, int lockGroup, String method, boolean isError) {
         if (currentLockGroup != lockGroup) {
             throw new InternalCompilerError();
         }
@@ -264,8 +268,19 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
 
         if (varMapped.size() > 0) {
             GoExpression release = new GoCall(distsys(method), varMappedExpressions);
-            builder.assign(err, release);
-            checkErr(builder);
+
+            // do not assign to `err` variable if inside an error handling situation
+            if (isError) {
+                builder.addStatement(release);
+            } else {
+                builder.assign(err, release);
+            }
+
+            // do not attempt to check for errors if we are releasing resources in an
+            // error situation already
+            if (!isError) {
+                checkErr(builder);
+            }
         }
 
         // release each function mapped resource used in this label
@@ -283,9 +298,17 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
                         Collections.singletonList(r)
                 );
 
-                GoExpression release = new GoCall(distsys("ReleaseResources"), Collections.singletonList(resourceGet));
-                rangeBody.assign(err, release);
-                checkErr(rangeBody);
+                GoExpression release = new GoCall(distsys(method), Collections.singletonList(resourceGet));
+
+                if (isError) {
+                    rangeBody.addStatement(release);
+                } else {
+                    rangeBody.assign(err, release);
+                }
+
+                if (!isError) {
+                    checkErr(rangeBody);
+                }
             }
         }
     }
