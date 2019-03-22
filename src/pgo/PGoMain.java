@@ -128,6 +128,7 @@ public class PGoMain {
 		ModularPlusCalBlock desugaredModularPlusCalBlock = ModularPlusCalDesugarPass.perform(
 				macroExpandedModularPlusCalBlock);
 
+		validateSemantics(ctx, desugaredModularPlusCalBlock);
 		DefinitionRegistry registry = resolveScopes(
 				ctx, false, inputFilePath, constantDefinitions, tlaModule, desugaredModularPlusCalBlock);
 		checkErrors(ctx);
