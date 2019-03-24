@@ -30,6 +30,7 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
     private GoVariableName acquiredResources;
     private Set<String> functionMappedResourceNames;
     private int currentLockGroup;
+    private boolean functionMaps;
 
     private static final String RELEASE = "ReleaseResources";
     private static final String ABORT = "AbortResources";
@@ -38,6 +39,7 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
         this.registry = registry;
         this.typeMap = typeMap;
         this.currentLockGroup = -1;
+        this.functionMaps = false;
         this.archetype = archetype;
         this.acquiredResources = null;
     }
@@ -57,7 +59,6 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
 
         // if the archetype has any resource that is function-mapped, declared archetypeResources
         // to keep track of acquired resources for each lock group
-        boolean functionMaps = false;
         boolean[] signature = registry.getSignature(archetype).get();
         for (int i = 0; i < signature.length; i++) {
             if (signature[i]) {
@@ -115,13 +116,15 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
         };
 
         // reset acquired resources
-        builder.assign(
-                acquiredResources,
-                new GoMapLiteral(
-                        GoBuiltins.String,
-                        new GoMapType(GoBuiltins.Interface, GoBuiltins.Bool), Collections.emptyMap()
-                )
-        );
+        if (functionMaps) {
+            builder.assign(
+                    acquiredResources,
+                    new GoMapLiteral(
+                            GoBuiltins.String,
+                            new GoMapType(GoBuiltins.Interface, GoBuiltins.Bool), Collections.emptyMap()
+                    )
+            );
+        }
 
         // keeps track of the function-mapped resources read or written
         // in this label so that they can be released at the end of the label.
