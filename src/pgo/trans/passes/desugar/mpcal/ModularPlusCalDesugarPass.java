@@ -13,16 +13,18 @@ import java.util.List;
 public class ModularPlusCalDesugarPass {
 	private ModularPlusCalDesugarPass() {}
 
-	private static List<PlusCalStatement> desugarLabeledStatements(List<PlusCalStatement> labeledStatements) {
+	private static List<PlusCalStatement> desugarLabeledStatements(ModularPlusCalDesugarVisitor visitor,
+	                                                               List<PlusCalStatement> labeledStatements) {
 		List<PlusCalStatement> result = new ArrayList<>();
 		for (PlusCalStatement statement : labeledStatements) {
 			PlusCalLabeledStatements lblStmts = (PlusCalLabeledStatements) statement;
-			result.addAll(lblStmts.accept(new ModularPlusCalDesugarVisitor()));
+			result.addAll(lblStmts.accept(visitor));
 		}
 		return result;
 	}
 
 	public static ModularPlusCalBlock perform(ModularPlusCalBlock modularPlusCalBlock) {
+		ModularPlusCalDesugarVisitor visitor = new ModularPlusCalDesugarVisitor();
 		List<ModularPlusCalArchetype> archetypes = new ArrayList<>();
 		for (ModularPlusCalArchetype archetype : modularPlusCalBlock.getArchetypes()) {
 			archetypes.add(new ModularPlusCalArchetype(
@@ -30,7 +32,7 @@ public class ModularPlusCalDesugarPass {
 					archetype.getName(),
 					archetype.getParams(),
 					archetype.getVariables(),
-					desugarLabeledStatements(archetype.getBody())));
+					desugarLabeledStatements(visitor, archetype.getBody())));
 		}
 		List<PlusCalProcedure> procedures = new ArrayList<>();
 		for (PlusCalProcedure procedure : modularPlusCalBlock.getProcedures()) {
@@ -39,7 +41,7 @@ public class ModularPlusCalDesugarPass {
 					procedure.getName(),
 					procedure.getParams(),
 					procedure.getVariables(),
-					desugarLabeledStatements(procedure.getBody())));
+					desugarLabeledStatements(visitor, procedure.getBody())));
 		}
 		return new ModularPlusCalBlock(
 				modularPlusCalBlock.getLocation(),

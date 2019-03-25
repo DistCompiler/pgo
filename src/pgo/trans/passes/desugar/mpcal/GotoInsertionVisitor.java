@@ -138,7 +138,7 @@ class GotoInsertionVisitor extends PlusCalStatementVisitor<List<PlusCalStatement
 
 	@Override
 	public List<PlusCalStatement> visit(PlusCalGoto plusCalGoto) throws RuntimeException {
-		// the user want to goto somewhere else. Let that happen.
+		// the user wants to goto somewhere else. Let that happen.
 		return helper(plusCalGoto);
 	}
 

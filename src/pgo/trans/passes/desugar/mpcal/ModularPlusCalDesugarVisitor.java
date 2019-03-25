@@ -20,7 +20,7 @@ class ModularPlusCalDesugarVisitor extends PlusCalStatementVisitor<List<PlusCalS
 
 	private PlusCalLabeledStatements desugarWhile(SourceLocation location, PlusCalLabel label,
 	                                              PlusCalWhile plusCalWhile, List<PlusCalStatement> rest) {
-		// a while loop is desugared into and if and a goto due to the possibility that the condition of the while loop
+		// a while loop is desugared into an if and a goto due to the possibility that the condition of the while loop
 		// might contain a mapped variable read
 		//
 		// lb: while (f(a)) {
