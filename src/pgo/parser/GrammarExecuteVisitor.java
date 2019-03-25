@@ -153,7 +153,7 @@ public class GrammarExecuteVisitor extends GrammarVisitor<GrammarExecuteVisitor.
 
 	private ParsingResult tryMemoize(Grammar<? extends SourceLocatable> grammar) {
 		SourceLocation loc = lexicalContext.getSourceLocation();
-		MemoizeKey key = new MemoizeKey(grammar, variableMap);
+		MemoizeKey key = new MemoizeKey<>(grammar, variableMap);
 		MemoizeRecord record;
 		if((record = memoizeTable.get(loc, key)) != null) {
 			lexicalContext.restore(record.getMark());
@@ -356,7 +356,7 @@ public class GrammarExecuteVisitor extends GrammarVisitor<GrammarExecuteVisitor.
 			return new ParsingResult(Collections.singletonList(
 					new ParsingResultPair(mark, new Located<Void>(lexicalContext.getSourceLocation(), null))));
 		}else{
-			// if the grammar succceeds in any way, fail
+			// if the grammar succeeds in any way, fail
 			addFailure(ParseFailure.rejectFailure(toReject));
 			return new ParsingResult(Collections.emptyList());
 		}
