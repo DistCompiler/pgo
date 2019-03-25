@@ -65,7 +65,7 @@ type Get struct {
 
 func (g Get) Run() error {
 	getKey := distsys.NewImmutableResource(g.key)
-	response := distsys.NewLocallySharedResource(nil)
+	response := distsys.NewLocallySharedResource("getResponse", nil)
 
 	replicated_kv.Get(self, clientId, replicas, clients, getKey, locked, clock, spin, response)
 
@@ -88,7 +88,7 @@ type Put struct {
 func (p Put) Run() error {
 	putKey := distsys.NewImmutableResource(p.key)
 	putValue := distsys.NewImmutableResource(p.value)
-	response := distsys.NewLocallySharedResource(nil)
+	response := distsys.NewLocallySharedResource("putResponse", nil)
 
 	replicated_kv.Put(self, clientId, replicas, clients, putKey, putValue, locked, clock, spin, response)
 
@@ -294,8 +294,8 @@ func main() {
 		}
 
 		clientId = distsys.NewImmutableResource(self)
-		locked = distsys.NewSingletonCollection(distsys.NewLocallySharedResource(false))
-		clock = distsys.NewSingletonCollection(distsys.NewLocallySharedResource(0))
+		locked = distsys.NewSingletonCollection(distsys.NewLocallySharedResource("locked", false))
+		clock = distsys.NewSingletonCollection(distsys.NewLocallySharedResource("clock", 0))
 
 		initClientRoutines()
 

@@ -6,9 +6,11 @@ import (
 	"net/rpc"
 	"os"
 	"path"
+	"reflect"
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -19,6 +21,39 @@ const (
 	READ_ACCESS = iota + 1
 	WRITE_ACCESS
 )
+
+// priorities associated with each archetype resource implementation.
+// Used to ensure acquisition happens in consistent order
+var (
+	priorityCounter uint64
+	priorityMap     map[reflect.Type]uint64
+)
+
+func init() {
+	atomic.StoreUint64(&priorityCounter, 0)
+	priorityMap = map[reflect.Type]uint64{}
+
+	// Register resources provided by the runtime
+	RegisterResource(&GlobalVariable{})
+	RegisterResource(&Mailbox{})
+	RegisterResource(&LocalChannelResource{})
+	RegisterResource(&FileResource{})
+	RegisterResource(&ImmutableResource{})
+	RegisterResource(&LocallySharedResource{})
+}
+
+// RegisterResource assigns a priority to the type of the resource
+// passed.  Calling this function more than once for the same resource
+// type is an error.
+func RegisterResource(resource interface{}) {
+	resourceType := reflect.TypeOf(resource).Elem()
+
+	if _, exists := priorityMap[resourceType]; exists {
+		panic(fmt.Sprintf("Resource type already registered: %T", resource))
+	}
+
+	priorityMap[reflect.TypeOf(resource).Elem()] = atomic.AddUint64(&priorityCounter, 1)
+}
 
 // ArchetypeResource defines the interface that parameters passed to functions
 // derived from Modular PlusCal's archetypes must implement.
@@ -45,10 +80,12 @@ type ArchetypeResource interface {
 	// rolled back to its previous value, before acquisition
 	Abort() error
 
-	// Less compares one archetype resource with another. Ordering
-	// archetype resources is needed when acquiring access to
-	// resources that are sensitive to ordering (for instance, global
-	// variables).
+	// Less compares one archetype resource with another. Since
+	// archetype resources are ordered based on priority, Less() is
+	// only invoked to determine how to order two different resources
+	// of the same priority. For that reason it is safe to cast
+	// the `other` argument to the concrete implementation of this
+	// interface when implementing Less.
 	Less(other ArchetypeResource) bool
 }
 
@@ -85,6 +122,27 @@ func (s SortableArchetypeResource) Swap(i, j int) {
 }
 
 func (s SortableArchetypeResource) Less(i, j int) bool {
+	// if the resource was not registered, panic
+	typeI := reflect.TypeOf(s[i]).Elem()
+	if _, exists := priorityMap[typeI]; !exists {
+		panic(fmt.Sprintf("Resource type not registered: %T", s[i]))
+	}
+
+	typeJ := reflect.TypeOf(s[j]).Elem()
+	if _, exists := priorityMap[typeJ]; !exists {
+		panic(fmt.Sprintf("Resource type not registered: %T", s[j]))
+	}
+
+	prioI := priorityMap[typeI]
+	prioJ := priorityMap[typeJ]
+
+	// if the priorities are different, return the one with lowest
+	// priority
+	if prioI != prioJ {
+		return prioI < prioJ
+	}
+
+	// same priority: do type-specific comparison
 	return s[i].Less(s[j])
 }
 
@@ -232,23 +290,11 @@ func (v *GlobalVariable) Abort() error {
 	return err
 }
 
-// Less implements the ordering strategy for global variables. Global
-// variables need to be acquired in lexicographical order to avoid
-// deadlocks in the resulting system. This necessity is reflect in the
-// implementation of `Less` which returns the result of a string
-// comparison with `other` when it is also a global variable. In case
-// the other archetype resource is not a global variable, Less always
-// returns `false`, since the resources are not comparable.
+// Less implements ordering between global variables by performing
+// lexicographical sorting over their names.
 func (v *GlobalVariable) Less(other ArchetypeResource) bool {
-	// Go's `strings.Compare` returns an integer < 0 when the first
-	// argument is < the second argument.
-	if gv, ok := other.(*GlobalVariable); ok {
-		return strings.Compare(v.name, gv.name) < 0
-	}
-
-	// the resources are not comparable -- do not change
-	// their order in the archetype resources collection.
-	return false
+	gv := other.(*GlobalVariable)
+	return strings.Compare(v.name, gv.name) < 0
 }
 
 // Mailboxes as Archetype Resource
@@ -436,11 +482,11 @@ func (mbox *Mailbox) Abort() error {
 	return nil
 }
 
-// Less implements ordering for channels. TCP channels are agnostic to
-// ordering, and therefore always return `false`, not modifying their
-// position in the collection of archetype resources.
-func (_ *Mailbox) Less(_ ArchetypeResource) bool {
-	return false
+// Less implements ordering among mailboxes by doing lexicographical
+// sorting over the names of the services exposed over RPC.
+func (mbox *Mailbox) Less(other ArchetypeResource) bool {
+	otherMBox := other.(*Mailbox)
+	return strings.Compare(mbox.service(), otherMBox.service()) < 0
 }
 
 // Local Channels as Archetype Resource
@@ -452,6 +498,7 @@ func (_ *Mailbox) Less(_ ArchetypeResource) bool {
 // Parameters can be sent via channels and the result of the
 // computation performed can also be transmitted via channels.
 type LocalChannelResource struct {
+	name     string           // channel identifier
 	ch       chan interface{} // the underlying Go channel
 	lock     sync.Mutex       // guarantees access to the underlying channel is exclusive
 	readBuf  []interface{}    // keeps track of read values
@@ -460,8 +507,9 @@ type LocalChannelResource struct {
 
 // NewLocalChannel creates a LocalChannelResource. The caller does not
 // need to know about the underlying Go channel.
-func NewLocalChannel() *LocalChannelResource {
+func NewLocalChannel(name string) *LocalChannelResource {
 	return &LocalChannelResource{
+		name:     name,
 		ch:       make(chan interface{}),
 		readBuf:  []interface{}{},
 		writeBuf: []interface{}{},
@@ -526,9 +574,12 @@ func (localCh *LocalChannelResource) Abort() error {
 	return nil
 }
 
-// Less implements ordering. Local channels are agnostic to ordering.
-func (localCh *LocalChannelResource) Less(_ ArchetypeResource) bool {
-	return false
+// Less implements ordering among instances of
+// LocalChannelResource. Lexicographical comparison on their names is
+// used.
+func (localCh *LocalChannelResource) Less(other ArchetypeResource) bool {
+	ch := other.(*LocalChannelResource)
+	return strings.Compare(localCh.name, ch.name) < 0
 }
 
 // Send writes data to the channel so that the receiving end can see
@@ -628,9 +679,11 @@ func (file *FileResource) Abort() error {
 	return file.fd.Close()
 }
 
-// Less implements ordering. File resources are agnostic to ordering.
-func (file *FileResource) Less(_ ArchetypeResource) bool {
-	return false
+// Less implements ordering. The file path is used to order instances
+// of FileResource.
+func (file *FileResource) Less(other ArchetypeResource) bool {
+	otherFile := other.(*FileResource)
+	return strings.Compare(file.path, otherFile.path) < 0
 }
 
 // Immutable Values as Archetype Resources
@@ -642,37 +695,37 @@ type ImmutableResource struct {
 
 // NewImmutableResource creates a new immutable archetype resource
 // wrapping the `value` passed.
-func NewImmutableResource(value interface{}) ImmutableResource {
-	return ImmutableResource{value}
+func NewImmutableResource(value interface{}) *ImmutableResource {
+	return &ImmutableResource{value}
 }
 
 // Acquire is a no-op for immutable resources
-func (_ ImmutableResource) Acquire(_ ResourceAccess) error {
+func (_ *ImmutableResource) Acquire(_ ResourceAccess) error {
 	return nil
 }
 
 // Read returns the underlying value
-func (resource ImmutableResource) Read() interface{} {
+func (resource *ImmutableResource) Read() interface{} {
 	return resource.value
 }
 
 // Write panics (the resource is immutable)
-func (_ ImmutableResource) Write(value interface{}) {
+func (_ *ImmutableResource) Write(value interface{}) {
 	panic("Attempted to write immutable resource")
 }
 
 // Release is a no-op for immutable resources
-func (_ ImmutableResource) Release() error {
+func (_ *ImmutableResource) Release() error {
 	return nil
 }
 
 // Abort is a no-op for immutable resources
-func (_ ImmutableResource) Abort() error {
+func (_ *ImmutableResource) Abort() error {
 	return nil
 }
 
 // Less is a no-op. Immutable resources are agnostic to ordering.
-func (_ ImmutableResource) Less(_ ArchetypeResource) bool {
+func (_ *ImmutableResource) Less(_ ArchetypeResource) bool {
 	return false
 }
 
@@ -682,6 +735,7 @@ func (_ ImmutableResource) Less(_ ArchetypeResource) bool {
 // LocallySharedResource represents some value that is shared only locally,
 // i.e., within the same Go process.
 type LocallySharedResource struct {
+	name       string      // resource identifier
 	val        interface{} // the value being shared
 	writtenBuf interface{} // buffer of previous writes
 	lock       sync.Mutex  // mutex to guarantee exclusive access
@@ -689,8 +743,9 @@ type LocallySharedResource struct {
 
 // NewLocallySharedResource creates a new shared resource that can be
 // used as a resource archetype
-func NewLocallySharedResource(val interface{}) *LocallySharedResource {
+func NewLocallySharedResource(name string, val interface{}) *LocallySharedResource {
 	return &LocallySharedResource{
+		name:       name,
 		val:        val,
 		writtenBuf: nil,
 	}
@@ -735,9 +790,11 @@ func (resource *LocallySharedResource) Abort() error {
 	return nil
 }
 
-// Less is a no-op. Locally shared resources are agnostic to ordering.
-func (_ *LocallySharedResource) Less(_ ArchetypeResource) bool {
-	return false
+// Less implements ordering among locally shared
+// resources. Lexicographical order on the resource name is used.
+func (resource *LocallySharedResource) Less(other ArchetypeResource) bool {
+	otherResource := other.(*LocallySharedResource)
+	return strings.Compare(resource.name, otherResource.name) < 0
 }
 
 /////////////////////////////////////////////////////////////////////////
@@ -836,7 +893,9 @@ func NewArchetypeResourceMap() *ArchetypeResourceMap {
 func (m *ArchetypeResourceMap) Get(key interface{}) ArchetypeResource {
 	m.lock.Lock()
 	if _, ok := m.resources[key]; !ok {
-		m.resources[key] = NewLocallySharedResource(nil)
+		// the name is irrelevant here since function-mapped resources
+		// are acquired at the time of use
+		m.resources[key] = NewLocallySharedResource("mapResource", nil)
 	}
 
 	m.lock.Unlock()
