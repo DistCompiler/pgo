@@ -277,11 +277,6 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
                 builder.addStatement(release);
             } else {
                 builder.assign(err, release);
-            }
-
-            // do not attempt to check for errors if we are releasing resources in an
-            // error situation already
-            if (!isError) {
                 checkErr(builder);
             }
         }
@@ -307,9 +302,6 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
                     rangeBody.addStatement(release);
                 } else {
                     rangeBody.assign(err, release);
-                }
-
-                if (!isError) {
                     checkErr(rangeBody);
                 }
             }
