@@ -322,7 +322,6 @@ public class IntegrationTestingUtils {
 				ProcessBuilder builder = new ProcessBuilder(command);
 				builder.directory(codePath.toFile());
 
-				System.out.println("Putting: " + def.getIdentifier());
 				outputs.put(def.getIdentifier(), runAndPrint(builder, def.getIdentifier()));
 			}))
 		);
@@ -339,7 +338,6 @@ public class IntegrationTestingUtils {
 		runDefinitions.forEach(def -> {
 			// compare lines instead of collections for easier debugging
 			// if the test fails
-			System.out.println("Getting " + def.getIdentifier());
 			String actual = String.join("\n", outputs.get(def.getIdentifier()));
 			String expected = String.join("\n", def.getExpectedOutput());
 
