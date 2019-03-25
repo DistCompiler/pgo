@@ -199,11 +199,20 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
                 Collections.emptyList()
         );
 
+        GoVariableName readTemp = builder.varDecl("readTemp", GoBuiltins.Interface);
+        GoStatement assignRead = new GoAssignmentStatement(
+                Arrays.asList(readTemp, err),
+                false,
+                Collections.singletonList(readCall)
+        );
+        builder.addStatement(assignRead);
+        checkErr(builder);
+
         // only do type casting if the inferred type is meaningful
         if (readType.equals(GoBuiltins.Interface)) {
-            return readCall;
+            return readTemp;
         } else {
-            return new GoTypeCast(new GoTypeName(readType.toString()), readCall);
+            return new GoTypeCast(new GoTypeName(readType.toString()), readTemp);
         }
     }
 
@@ -224,8 +233,8 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
                         new GoSelectorExpression(target, "Write"),
                         Collections.singletonList(tempVar)
                 );
-
-                builder.addStatement(write);
+                builder.assign(err, write);
+                checkErr(builder);
             }
         };
     }

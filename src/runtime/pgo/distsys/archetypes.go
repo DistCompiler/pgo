@@ -64,11 +64,11 @@ type ArchetypeResource interface {
 
 	// Read returns the current value associated with a resource.
 	// Resource needs to have been acquired first.
-	Read() interface{}
+	Read() (interface{}, error)
 
 	// Write receives a new value that the underlying resource is
 	// supposed to be set to.
-	Write(value interface{})
+	Write(value interface{}) error
 
 	// Release causes the calling process to cease having access to the
 	// shared resource. Any written changes to the underlying values
@@ -258,14 +258,15 @@ func (v *GlobalVariable) Acquire(access ResourceAccess) error {
 
 // Read returns the value associated with a global variable. It *must*
 // have been acquired before.
-func (v *GlobalVariable) Read() interface{} {
-	return v.refs.Get(v.name)
+func (v *GlobalVariable) Read() (interface{}, error) {
+	return v.refs.Get(v.name), nil
 }
 
 // Write updates previously obtained references (via `Acquire`) to
 // the value passed to this function.
-func (v *GlobalVariable) Write(value interface{}) {
+func (v *GlobalVariable) Write(value interface{}) error {
 	v.writtenValue = value
+	return nil
 }
 
 // Release makes changes made while the variable was acquired visible
@@ -418,7 +419,7 @@ func (_ *Mailbox) Acquire(_ ResourceAccess) error {
 // Read blocks until there is at least one message in the message
 // queue, and returns it. It is enforced that processes can only read
 // messages from their own mailboxes.
-func (mbox *Mailbox) Read() interface{} {
+func (mbox *Mailbox) Read() (interface{}, error) {
 	if mbox.name != mbox.selfName {
 		panic(fmt.Sprintf("Tried to read non-local mailbox %s (attempted by %s)", mbox.name, mbox.selfName))
 	}
@@ -430,7 +431,7 @@ func (mbox *Mailbox) Read() interface{} {
 		if len(mbox.readBuf) > 0 {
 			msg := mbox.readBuf[0]
 			mbox.readBuf = mbox.readBuf[1:]
-			return msg
+			return msg, nil
 		} else {
 			// if there are no more previously read messages, we are
 			// no longer reading from a previous transaction
@@ -443,17 +444,18 @@ func (mbox *Mailbox) Read() interface{} {
 	msg := <-mbox.readChan
 	mbox.readBuf = append(mbox.readBuf, msg)
 
-	return msg
+	return msg, nil
 }
 
 // Write saves a message with the value given in a buffer to be sent
 // later, when the channel is released.
-func (mbox *Mailbox) Write(value interface{}) {
+func (mbox *Mailbox) Write(value interface{}) error {
 	if mbox.name == mbox.selfName {
 		panic(fmt.Sprintf("Tried to send message to local mailbox (attempted by %s)", mbox.selfName))
 	}
 
 	mbox.writeBuf = append(mbox.writeBuf, value)
+	return nil
 }
 
 // Release sends each message given to Write() to the destination
@@ -523,16 +525,17 @@ func (localCh *LocalChannelResource) Acquire(access ResourceAccess) error {
 }
 
 // Read waits for data to be available in the underlying Go channel.
-func (localCh *LocalChannelResource) Read() interface{} {
+func (localCh *LocalChannelResource) Read() (interface{}, error) {
 	val := <-localCh.ch
 	localCh.readBuf = append(localCh.readBuf, val)
 
-	return val
+	return val, nil
 }
 
 // Write sends a value over the channel.
-func (localCh *LocalChannelResource) Write(value interface{}) {
+func (localCh *LocalChannelResource) Write(value interface{}) error {
 	localCh.writeBuf = append(localCh.writeBuf, value)
+	return nil
 }
 
 // Release writes values written to the channel while the resource was
@@ -635,25 +638,29 @@ func (file *FileResource) Acquire(access ResourceAccess) error {
 
 // Read returns a buffer with all the contents of the underlying file.
 // Panics if reading there is a an error reading the file.
-func (file *FileResource) Read() interface{} {
+func (file *FileResource) Read() (interface{}, error) {
 	if file.contents == nil {
 		data, err := ioutil.ReadAll(file.fd)
+
+		// IO error: let the calller handle it
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 
 		file.contents = data
 	}
 
-	return file.contents
+	return file.contents, nil
 }
 
 // Write saves the value to be written in an internal
 // buffer. Subsequent Read() calls will return the newly written
 // value. Note that `value` *must* be []byte.
-func (file *FileResource) Write(value interface{}) {
+func (file *FileResource) Write(value interface{}) error {
 	file.contents = value.([]byte)
 	file.dirty = true
+
+	return nil
 }
 
 // Release writes any previously written contents to the underlying
@@ -705,12 +712,12 @@ func (_ *ImmutableResource) Acquire(_ ResourceAccess) error {
 }
 
 // Read returns the underlying value
-func (resource *ImmutableResource) Read() interface{} {
-	return resource.value
+func (resource *ImmutableResource) Read() (interface{}, error) {
+	return resource.value, nil
 }
 
 // Write panics (the resource is immutable)
-func (_ *ImmutableResource) Write(value interface{}) {
+func (_ *ImmutableResource) Write(value interface{}) error {
 	panic("Attempted to write immutable resource")
 }
 
@@ -758,17 +765,18 @@ func (resource *LocallySharedResource) Acquire(_ ResourceAccess) error {
 }
 
 // Read returns the current value of the resource
-func (resource *LocallySharedResource) Read() interface{} {
+func (resource *LocallySharedResource) Read() (interface{}, error) {
 	if resource.writtenBuf != nil {
-		return resource.writtenBuf
+		return resource.writtenBuf, nil
 	}
 
-	return resource.val
+	return resource.val, nil
 }
 
 // Write updates the value of the underlying shared resource
-func (resource *LocallySharedResource) Write(value interface{}) {
+func (resource *LocallySharedResource) Write(value interface{}) error {
 	resource.writtenBuf = value
+	return nil
 }
 
 // Release writes any written value to the underlying shared value and

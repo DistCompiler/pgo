@@ -71,10 +71,11 @@ func (g Get) Run() error {
 
 	// Read without Acquire because we know `response` is not
 	// shared
-	if response.Read() == nil {
+	val, _ := response.Read()
+	if val == nil {
 		fmt.Printf("-- Get %s: %v\n", g.key, nil)
 	} else {
-		fmt.Printf("-- Get %s: %s\n", g.key, response.Read().(string))
+		fmt.Printf("-- Get %s: %s\n", g.key, val.(string))
 	}
 
 	return nil
