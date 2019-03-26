@@ -137,6 +137,8 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
         // resources can be properly acquired when accessed
         this.currentLockGroup = lockGroup;
 
+        localStrategy.actionPrelude(builder, labelUID);
+
         acquire.accept("READ_ACCESS", readExps);
         acquire.accept("WRITE_ACCESS", writeExps);
     }
@@ -149,6 +151,7 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
     @Override
     public void endCriticalSection(GoBlockBuilder builder, UID processUID, int lockGroup, UID labelUID, GoLabelName labelName) {
         terminateCriticalSection(builder, lockGroup, RELEASE, false);
+        localStrategy.actionPostlude(builder, labelUID);
     }
 
     @Override

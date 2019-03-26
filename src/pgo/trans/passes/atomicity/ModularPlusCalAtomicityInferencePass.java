@@ -15,7 +15,7 @@ import java.util.stream.Collectors;
 public class ModularPlusCalAtomicityInferencePass {
     private ModularPlusCalAtomicityInferencePass() {}
 
-    private static void trackResource(DefinitionRegistry registry, Map<String, Boolean> mappings, Map<UID, Set<TLAExpression>> map, TLAExpression expression, UID labelUID) {
+    private static void trackResource(DefinitionRegistry registry, Map<String, Boolean> mappings, Map<UID, Set<TLAExpression>> map, Set<UID> locals, TLAExpression expression, UID labelUID) {
         boolean track = false;
 
         if (expression instanceof TLAGeneralIdentifier) {
@@ -23,12 +23,16 @@ public class ModularPlusCalAtomicityInferencePass {
 
             // if the name is a resource and is *not* function-mapped, it needs
             // to be tracked.
-            if (mappings.containsKey(id) && !mappings.get(id)) {
-                track = true;
+            if (mappings.containsKey(id)) {
+                track = !mappings.get(id);
             } else {
                 // track locals access per label
                 UID ref = registry.followReference(expression.getUID());
-                if (registry.isLocalVariable(ref)) {
+
+                // only keep track of locals declared in the archetype. This filters
+                // out short-lived local variables like the ones used in
+                // set refinements or with statements.
+                if (registry.isLocalVariable(ref) && locals.contains(ref)) {
                     registry.addLocalToLabel(labelUID, ref);
                 }
             }
@@ -101,11 +105,17 @@ public class ModularPlusCalAtomicityInferencePass {
                 }
             }
 
+            Set<UID> locals = archetype
+                    .getVariables()
+                    .stream()
+                    .map(PlusCalVariableDeclaration::getUID)
+                    .collect(Collectors.toSet());
+
             BiConsumer<TLAExpression, UID> captureLabelRead = (expression, labelUID) ->
-                    trackResource(registry, mappings, labelToResourceReads, expression, labelUID);
+                    trackResource(registry, mappings, labelToResourceReads, locals, expression, labelUID);
 
             BiConsumer<TLAExpression, UID> captureLabelWrite = (expression, labelUID) ->
-                    trackResource(registry, mappings, labelToResourceWrites, expression, labelUID);
+                    trackResource(registry, mappings, labelToResourceWrites, locals, expression, labelUID);
 
             Set<UID> foundLabels = new HashSet<>();
             for (PlusCalStatement statement : archetype.getBody()) {

@@ -7,7 +7,7 @@ import pgo.scope.UID;
 import pgo.trans.passes.codegen.go.GlobalVariableStrategy.GlobalVariableWrite;
 
 public class DefaultLocalVariableStrategy extends LocalVariableStrategy {
-    public void actionPrelude(GoBlockBuilder builder) {
+    public void actionPrelude(GoBlockBuilder builder, UID labelUID) {
         // nothing to do
     }
 
@@ -30,7 +30,7 @@ public class DefaultLocalVariableStrategy extends LocalVariableStrategy {
         };
     }
 
-    public void actionPostlude(GoBlockBuilder builder) {
+    public void actionPostlude(GoBlockBuilder builder, UID labelUID) {
         // nothing to do
     }
 

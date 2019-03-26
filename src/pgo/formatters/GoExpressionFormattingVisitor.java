@@ -1,6 +1,5 @@
 package pgo.formatters;
 
-import pgo.TODO;
 import pgo.model.golang.*;
 import pgo.model.golang.GoBuiltins.BuiltinConstant;
 import pgo.model.golang.type.GoMapType;

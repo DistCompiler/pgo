@@ -59,7 +59,7 @@ public class TLAIdentifierOrTuple extends TLANode {
 	
 	public List<TLAIdentifier> getTuple(){
 		if(!tuple) {
-			throw new RuntimeException("tried to tread an identifier as an identifier tuple: was "+ids);
+			throw new RuntimeException("tried to treat an identifier as an identifier tuple: was "+ids);
 		}
 		return ids;
 	}

@@ -258,7 +258,7 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 			GoExpression currentTerm = new GoCall(new GoVariableName("len"), Collections.singletonList(domain));
 			if (capacity == null) {
 				capacity = currentTerm;
-			} else{
+			} else {
 				capacity = new GoBinop(GoBinop.Operation.TIMES, capacity, currentTerm);
 			}
 		}
@@ -324,6 +324,9 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 		}
 		if (typeMap.get(ref) instanceof ArchetypeResourceType) {
 			return globalStrategy.readArchetypeResource(builder, tlaGeneralIdentifier);
+		}
+		if (typeMap.get(ref) instanceof ArchetypeResourceCollectionType) {
+			return builder.findUID(ref);
 		}
 		if (registry.isLocalVariable(ref)) {
 			return localStrategy.readLocalVariable(builder, ref);

@@ -22,12 +22,26 @@ public class GoTypeFormattingVisitor extends GoTypeVisitor<Void, IOException> {
 
 	@Override
 	public Void visit(GoArchetypeResourceType archetypeResourceType) throws IOException {
-		throw new TODO();
+		out.write("ArchetypeResource[read: ");
+		archetypeResourceType.getReadType().accept(this);
+		out.write(", write: ");
+		archetypeResourceType.getWriteType().accept(this);
+		out.write("]");
+
+		return null;
 	}
 
 	@Override
 	public Void visit(GoArchetypeResourceCollectionType archetypeResourceCollectionType) throws IOException {
-		throw new TODO();
+		out.write("ArchetypeResourceCollection[key: ");
+		archetypeResourceCollectionType.getKeyType().accept(this);
+		out.write(", read: ");
+		archetypeResourceCollectionType.getReadType().accept(this);
+		out.write(", write: ");
+		archetypeResourceCollectionType.getWriteType().accept(this);
+		out.write("]");
+
+		return null;
 	}
 
 	@Override

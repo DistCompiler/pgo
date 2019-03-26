@@ -261,6 +261,6 @@ public class DefinitionRegistry {
 	}
 
 	public Set<UID> getLocalsInLabel(UID labelUID) {
-		return labelToLocals.get(labelUID);
+		return labelToLocals.getOrDefault(labelUID, new HashSet<>());
 	}
 }

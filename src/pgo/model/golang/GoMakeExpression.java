@@ -16,6 +16,10 @@ public class GoMakeExpression extends GoExpression {
 		this.capacity = capacity;
 	}
 
+	public GoMakeExpression(GoType type, GoExpression size) {
+		this(type, size, null);
+	}
+
 	public GoType getType() {
 		return type;
 	}

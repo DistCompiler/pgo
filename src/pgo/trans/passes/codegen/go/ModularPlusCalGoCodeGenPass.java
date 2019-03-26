@@ -119,7 +119,7 @@ public class ModularPlusCalGoCodeGenPass {
     public static GoModule perform(DefinitionRegistry registry, Map<UID, Type> typeMap, PGoOptions opts,
                                    ModularPlusCalBlock modularPlusCalBlock) {
         GoModuleBuilder module = new GoModuleBuilder(modularPlusCalBlock.getName().getValue(), opts.buildPackage);
-        LocalVariableStrategy localStrategy = new DefaultLocalVariableStrategy();
+        SnapshottingLocalVariableStrategy localStrategy = new SnapshottingLocalVariableStrategy(registry, typeMap);
         GlobalVariableStrategy globalStrategy = new ArchetypeResourcesGlobalVariableStrategy(registry, typeMap, localStrategy, null);
 
         generateInit(modularPlusCalBlock, module, registry, typeMap, localStrategy, globalStrategy);
@@ -159,6 +159,7 @@ public class ModularPlusCalGoCodeGenPass {
                 }
 
                 generateLocalVariableDefinitions(registry, typeMap, localStrategy, globalStrategy, fnBody, archetype.getVariables());
+                localStrategy.initArchetype(fnBody, archetype);
 
                 // TODO: this should probably be a separate method in GlobalVariableStrategy
                 globalStrategy.processPrelude(fnBody, null, archetype.getName(), selfVariable, GoBuiltins.Int);
