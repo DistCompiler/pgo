@@ -1,4 +1,4 @@
-package pgo.trans.intermediate;
+package pgo.trans.passes.validation;
 
 import static org.junit.Assert.*;
 
@@ -20,7 +20,7 @@ import static pgo.model.mpcal.ModularPlusCalBuilder.*;
 import static pgo.model.tla.TLABuilder.*;
 
 @RunWith(Parameterized.class)
-public class ModularPlusCalValidationPassTest {
+public class ValidationPassTest {
 
 	@Parameters
 	public static List<Object[]> data() {
@@ -929,7 +929,7 @@ public class ModularPlusCalValidationPassTest {
 	private final ModularPlusCalBlock spec;
 	private final List<Issue> issues;
 
-	public ModularPlusCalValidationPassTest(ModularPlusCalBlock spec, List<Issue> issues) {
+	public ValidationPassTest(ModularPlusCalBlock spec, List<Issue> issues) {
 		this.spec = spec;
 		this.issues = issues;
 	}
@@ -937,7 +937,7 @@ public class ModularPlusCalValidationPassTest {
 	@Test
 	public void test() {
 		TopLevelIssueContext ctx = new TopLevelIssueContext();
-		ModularPlusCalValidationPass.perform(ctx, spec);
+		ValidationPass.perform(ctx, spec);
 
 		assertEquals(issues, ctx.getIssues());
 	}

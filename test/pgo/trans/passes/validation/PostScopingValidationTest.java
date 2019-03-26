@@ -1,4 +1,4 @@
-package pgo.trans.intermediate;
+package pgo.trans.passes.validation;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -7,17 +7,15 @@ import pgo.errors.Issue;
 import pgo.errors.TopLevelIssueContext;
 import pgo.model.mpcal.ModularPlusCalBlock;
 import pgo.model.pcal.PlusCalFairness;
-import pgo.model.pcal.PlusCalStatement;
 import pgo.model.pcal.PlusCalVariableDeclaration;
 import pgo.model.tla.TLAIdentifier;
 import pgo.model.tla.TLAModule;
 import pgo.modules.TLAModuleLoader;
-import pgo.trans.passes.scope.DanglingReferenceIssue;
-import pgo.trans.passes.scope.MultipleMappingIssue;
+import pgo.trans.intermediate.DefinitionRegistry;
 import pgo.trans.passes.scope.ScopingPass;
 import pgo.trans.passes.validation.InconsistentInstantiationIssue;
 import pgo.trans.passes.validation.InvalidArchetypeResourceUsageIssue;
-import pgo.trans.passes.validation.ModularPlusCalValidationPass;
+import pgo.trans.passes.validation.ValidationPass;
 import pgo.util.SourceLocation;
 
 import java.util.Arrays;
@@ -32,7 +30,7 @@ import static pgo.model.pcal.PlusCalBuilder.*;
 import static pgo.model.tla.TLABuilder.*;
 
 @RunWith(Parameterized.class)
-public class ModularPlusCalPostScopingValidationTest {
+public class PostScopingValidationTest {
 	@Parameterized.Parameters
 	public static List<Object[]> data() {
 		PlusCalVariableDeclaration invalidAssignmentNonMapped =
@@ -429,7 +427,7 @@ public class ModularPlusCalPostScopingValidationTest {
 	private final ModularPlusCalBlock spec;
 	private final List<Issue> issues;
 
-	public ModularPlusCalPostScopingValidationTest(ModularPlusCalBlock spec, List<Issue> issues) {
+	public PostScopingValidationTest(ModularPlusCalBlock spec, List<Issue> issues) {
 		this.spec = spec;
 		this.issues = issues;
 	}
@@ -438,7 +436,7 @@ public class ModularPlusCalPostScopingValidationTest {
 	public void test() {
 		TopLevelIssueContext ctx = new TopLevelIssueContext();
 
-		ModularPlusCalValidationPass.perform(ctx, spec);
+		ValidationPass.perform(ctx, spec);
 		assertFalse(ctx.hasErrors());
 
 		TLAModuleLoader loader = new TLAModuleLoader(Collections.emptyList());
@@ -457,7 +455,7 @@ public class ModularPlusCalPostScopingValidationTest {
 				spec);
 		assertFalse(ctx.hasErrors());
 
-		ModularPlusCalValidationPass.performPostScoping(ctx, registry, spec);
+		ValidationPass.performPostScoping(ctx, registry, spec);
 		assertEquals(issues, ctx.getIssues());
 	}
 }
