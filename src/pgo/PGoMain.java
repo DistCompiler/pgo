@@ -35,7 +35,7 @@ import pgo.trans.passes.parse.pcal.PlusCalParsingPass;
 import pgo.trans.passes.parse.tla.TLAParsingPass;
 import pgo.trans.passes.scope.ScopingPass;
 import pgo.trans.passes.type.TypeInferencePass;
-import pgo.trans.passes.validation.ModularPlusCalValidationPass;
+import pgo.trans.passes.validation.ValidationPass;
 
 import java.io.*;
 import java.nio.CharBuffer;
@@ -74,7 +74,7 @@ public class PGoMain {
 
 	private void validateSemantics(TopLevelIssueContext ctx, ModularPlusCalBlock modularPlusCalBlock) throws PGoTransException {
 		logger.info("Validating Modular PlusCal semantics");
-		ModularPlusCalValidationPass.perform(ctx, modularPlusCalBlock);
+		ValidationPass.perform(ctx, modularPlusCalBlock);
 		checkErrors(ctx);
 	}
 
@@ -109,7 +109,7 @@ public class PGoMain {
 	                                          ModularPlusCalBlock modularPlusCalBlock)
 			throws PGoTransException {
 		logger.info("Validating Modular PlusCal semantics post scoping");
-		ModularPlusCalValidationPass.performPostScoping(ctx, registry, modularPlusCalBlock);
+		ValidationPass.performPostScoping(ctx, registry, modularPlusCalBlock);
 		checkErrors(ctx);
 	}
 

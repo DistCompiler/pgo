@@ -13,8 +13,8 @@ import pgo.trans.intermediate.DefinitionRegistry;
 
 import java.util.*;
 
-public class ModularPlusCalValidationPass {
-	private ModularPlusCalValidationPass() {}
+public class ValidationPass {
+	private ValidationPass() {}
 
 	public static void perform(IssueContext ctx, ModularPlusCalBlock mpcal) {
 		mpcal.accept(new ModularPlusCalValidationVisitor(ctx));
