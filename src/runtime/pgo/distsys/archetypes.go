@@ -17,9 +17,36 @@ import (
 // ResourceAccess indicates what type of access the a caller is requesting.
 type ResourceAccess int
 
+// ResourceInternalError represents errros that happen when
+// interacting with an archetype resource. When a
+// ResourceInternalError is returned by a call to Acquire(), Read(),
+// Write() or Release(), the error is propagated back to the caller.
+type ResourceInternalError struct {
+	cause string
+}
+
+func (err *ResourceInternalError) Error() string {
+	return fmt.Sprintf("Internal error: %s", err.cause)
+}
+
+// AbortRetryError represents the situation where a failure has
+// occurrred that prevents the system from making progress. The atomic
+// step should be rolleback and tried again. All functions but Abort()
+// can return this error
+type AbortRetryError struct {
+	cause string
+}
+
+func (err *AbortRetryError) Error() string {
+	return fmt.Sprintf("Abort and retry: %s", err.cause)
+}
+
 const (
 	READ_ACCESS = iota + 1
 	WRITE_ACCESS
+
+	LOCK_NUM_RETRIES = 5
+	LOCK_WAIT        = 300 // ms
 )
 
 // priorities associated with each archetype resource implementation.
@@ -53,6 +80,43 @@ func RegisterResource(resource interface{}) {
 	}
 
 	priorityMap[reflect.TypeOf(resource).Elem()] = atomic.AddUint64(&priorityCounter, 1)
+}
+
+// newLock creates a new synchronization lock based on Go channels.
+func newLock() chan int {
+	ch := make(chan int, 1)
+	ch <- 0 // lock starts out unlocked
+
+	return ch
+}
+
+// tryLock attempts to get access to a lock. Attempt is tried
+// LOCK_NUM_RETRIES waiting LOCK_WAIT milliseconds between each
+// attempt. Returns a boolean indicating whether access was
+// acquired or not.
+func tryLock(lock <-chan int) bool {
+	for i := 0; i < LOCK_NUM_RETRIES; i++ {
+		select {
+		case <-lock:
+			return true
+
+		default:
+			time.Sleep(time.Duration(LOCK_WAIT) * time.Millisecond)
+		}
+	}
+
+	return false
+}
+
+// releaseLock releases a previously acquired lock (with
+// tryLock). Panics if the lock is not currently locked.
+func releaseLock(lock chan<- int) {
+	select {
+	case lock <- 0:
+		return
+	default:
+		panic("Attempt to release unlocked lock")
+	}
 }
 
 // ArchetypeResource defines the interface that parameters passed to functions
@@ -234,7 +298,7 @@ func (ss *StateServer) Variable(name string) *GlobalVariable {
 // and attempting to borrow the value from this node's peers in the network.
 func (v *GlobalVariable) Acquire(access ResourceAccess) error {
 	if v.refs != nil {
-		return fmt.Errorf("variable %s already acquired", v.name)
+		return &ResourceInternalError{fmt.Sprintf("variable %s already acquired", v.name)}
 	}
 
 	var spec BorrowSpec
@@ -249,7 +313,7 @@ func (v *GlobalVariable) Acquire(access ResourceAccess) error {
 
 	refs, err := v.stateServer.Acquire(&spec)
 	if err != nil {
-		return err
+		return &ResourceInternalError{err.Error()}
 	}
 
 	v.refs = refs
@@ -279,7 +343,11 @@ func (v *GlobalVariable) Release() error {
 	err := v.stateServer.Release(v.refs)
 	v.refs = nil
 
-	return err
+	if err != nil {
+		return &ResourceInternalError{err.Error()}
+	}
+
+	return nil
 }
 
 // Abort releases access (previously obtained via `Acquire`) without modifying
@@ -288,7 +356,11 @@ func (v *GlobalVariable) Abort() error {
 	err := v.stateServer.Release(v.refs)
 	v.refs = nil
 
-	return err
+	if err != nil {
+		return &ResourceInternalError{err.Error()}
+	}
+
+	return nil
 }
 
 // Less implements ordering between global variables by performing
@@ -465,7 +537,7 @@ func (mbox *Mailbox) Release() error {
 	// acquired.  Returns an error if sending any message failed
 	for _, msg := range mbox.writeBuf {
 		if err := mbox.sendMessage(msg); err != nil {
-			return err
+			return &ResourceInternalError{err.Error()}
 		}
 	}
 
@@ -502,7 +574,7 @@ func (mbox *Mailbox) Less(other ArchetypeResource) bool {
 type LocalChannelResource struct {
 	name     string           // channel identifier
 	ch       chan interface{} // the underlying Go channel
-	lock     sync.Mutex       // guarantees access to the underlying channel is exclusive
+	lock     chan int         // guarantees access to the underlying channel is exclusive
 	readBuf  []interface{}    // keeps track of read values
 	writeBuf []interface{}    // values written to the channel; sent when the resource is released
 }
@@ -512,15 +584,19 @@ type LocalChannelResource struct {
 func NewLocalChannel(name string) *LocalChannelResource {
 	return &LocalChannelResource{
 		name:     name,
+		lock:     newLock(),
 		ch:       make(chan interface{}),
 		readBuf:  []interface{}{},
 		writeBuf: []interface{}{},
 	}
 }
 
-// Acquire is a no-op for local channels.
+// Acquire tries to get exclusive access to the local channel.
 func (localCh *LocalChannelResource) Acquire(access ResourceAccess) error {
-	localCh.lock.Lock()
+	if !tryLock(localCh.lock) {
+		return &AbortRetryError{"Could not acquire LocalChannelResource"}
+	}
+
 	return nil
 }
 
@@ -551,7 +627,7 @@ func (localCh *LocalChannelResource) Release() error {
 	localCh.writeBuf = []interface{}{}
 
 	// release access to the channel
-	localCh.lock.Unlock()
+	releaseLock(localCh.lock)
 	return nil
 }
 
@@ -573,7 +649,7 @@ func (localCh *LocalChannelResource) Abort() error {
 	localCh.writeBuf = []interface{}{}
 
 	// release access to the channel
-	localCh.lock.Unlock()
+	releaseLock(localCh.lock)
 	return nil
 }
 
@@ -629,7 +705,7 @@ func (file *FileResource) Acquire(access ResourceAccess) error {
 
 	fd, err := os.OpenFile(file.path, perms|os.O_CREATE, 0644)
 	if err != nil {
-		return err
+		return &ResourceInternalError{err.Error()}
 	}
 
 	file.fd = fd
@@ -644,7 +720,7 @@ func (file *FileResource) Read() (interface{}, error) {
 
 		// IO error: let the calller handle it
 		if err != nil {
-			return nil, err
+			return nil, &ResourceInternalError{err.Error()}
 		}
 
 		file.contents = data
@@ -671,7 +747,7 @@ func (file *FileResource) Release() error {
 			_, err := file.fd.Write(file.contents)
 
 			if err != nil {
-				return err
+				return &ResourceInternalError{err.Error()}
 			}
 		}
 
@@ -745,7 +821,7 @@ type LocallySharedResource struct {
 	name       string      // resource identifier
 	val        interface{} // the value being shared
 	writtenBuf interface{} // buffer of previous writes
-	lock       sync.Mutex  // mutex to guarantee exclusive access
+	lock       chan int    // mutex to guarantee exclusive access
 }
 
 // NewLocallySharedResource creates a new shared resource that can be
@@ -755,12 +831,16 @@ func NewLocallySharedResource(name string, val interface{}) *LocallySharedResour
 		name:       name,
 		val:        val,
 		writtenBuf: nil,
+		lock:       newLock(),
 	}
 }
 
 // Acquire locks the resource for exclusive access
 func (resource *LocallySharedResource) Acquire(_ ResourceAccess) error {
-	resource.lock.Lock()
+	if !tryLock(resource.lock) {
+		return &AbortRetryError{"Could not acquire LocallySharedResource"}
+	}
+
 	return nil
 }
 
@@ -786,14 +866,14 @@ func (resource *LocallySharedResource) Release() error {
 		resource.val = resource.writtenBuf
 	}
 
-	resource.lock.Unlock()
+	releaseLock(resource.lock)
 	return nil
 }
 
 // Abort erases any values passed using Write and returns.
 func (resource *LocallySharedResource) Abort() error {
 	resource.writtenBuf = nil
-	resource.lock.Unlock()
+	releaseLock(resource.lock)
 
 	return nil
 }
