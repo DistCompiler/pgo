@@ -29,6 +29,7 @@ public class DefinitionRegistry {
 	private final Map<Integer, Set<TLAExpression>> lockGroupsToResourceWrites;
 	private final Set<UID> protectedGlobalVariables;
 	private final Map<UID, boolean[]> signatures;
+	private final Map<UID, Set<UID>> labelToLocals;
 
 	public DefinitionRegistry() {
 		this.modules = new HashMap<>();
@@ -49,6 +50,7 @@ public class DefinitionRegistry {
 		this.lockGroupsToResourceWrites = new HashMap<>();
 		this.protectedGlobalVariables = new HashSet<>();
 		this.signatures = new HashMap<>();
+		this.labelToLocals = new HashMap<>();
 	}
 
 	public Map<UID, UID> getReferences() {
@@ -251,5 +253,14 @@ public class DefinitionRegistry {
 			throw new InternalCompilerError();
 		}
 		signatures.put(uid, signature);
+	}
+
+	public void addLocalToLabel(UID labelUID, UID ref) {
+		labelToLocals.putIfAbsent(labelUID, new HashSet<>());
+		labelToLocals.get(labelUID).add(ref);
+	}
+
+	public Set<UID> getLocalsInLabel(UID labelUID) {
+		return labelToLocals.get(labelUID);
 	}
 }

@@ -15,7 +15,7 @@ import java.util.stream.Collectors;
 public class ModularPlusCalAtomicityInferencePass {
     private ModularPlusCalAtomicityInferencePass() {}
 
-    private static void trackResource(Map<String, Boolean> mappings, Map<UID, Set<TLAExpression>> map, TLAExpression expression, UID labelUID) {
+    private static void trackResource(DefinitionRegistry registry, Map<String, Boolean> mappings, Map<UID, Set<TLAExpression>> map, TLAExpression expression, UID labelUID) {
         boolean track = false;
 
         if (expression instanceof TLAGeneralIdentifier) {
@@ -25,7 +25,14 @@ public class ModularPlusCalAtomicityInferencePass {
             // to be tracked.
             if (mappings.containsKey(id) && !mappings.get(id)) {
                 track = true;
+            } else {
+                // track locals access per label
+                UID ref = registry.followReference(expression.getUID());
+                if (registry.isLocalVariable(ref)) {
+                    registry.addLocalToLabel(labelUID, ref);
+                }
             }
+
         } else if (expression instanceof TLAFunctionCall) {
             TLAExpression function = ((TLAFunctionCall) expression).getFunction();
 
@@ -95,10 +102,10 @@ public class ModularPlusCalAtomicityInferencePass {
             }
 
             BiConsumer<TLAExpression, UID> captureLabelRead = (expression, labelUID) ->
-                    trackResource(mappings, labelToResourceReads, expression, labelUID);
+                    trackResource(registry, mappings, labelToResourceReads, expression, labelUID);
 
             BiConsumer<TLAExpression, UID> captureLabelWrite = (expression, labelUID) ->
-                    trackResource(mappings, labelToResourceWrites, expression, labelUID);
+                    trackResource(registry, mappings, labelToResourceWrites, expression, labelUID);
 
             Set<UID> foundLabels = new HashSet<>();
             for (PlusCalStatement statement : archetype.getBody()) {
