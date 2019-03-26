@@ -21,12 +21,13 @@ public class PlusCalGoCodeGenPass {
 	                               ModularPlusCalBlock modularPlusCalBlock) {
 		GoModuleBuilder moduleBuilder = new GoModuleBuilder(modularPlusCalBlock.getName().getValue(), "main");
 		PlusCalProcesses processes = modularPlusCalBlock.getProcesses();
+		LocalVariableStrategy localStrategy = new DefaultLocalVariableStrategy();
 		GlobalVariableStrategy globalVariableStrategy;
 		if (processes instanceof PlusCalSingleProcess) {
 			globalVariableStrategy = new SingleThreadedProcessGlobalVariableStrategy();
 		} else if (!opts.net.isEnabled()) {
 			globalVariableStrategy = new MultithreadedProcessGlobalVariableStrategy(
-					registry, typeMap, modularPlusCalBlock);
+					registry, typeMap, localStrategy, modularPlusCalBlock);
 		} else {
 			switch (opts.net.getStateOptions().strategy) {
 				case PGoNetOptions.StateOptions.STATE_ETCD:
@@ -42,7 +43,7 @@ public class PlusCalGoCodeGenPass {
 			}
 		}
 		processes.accept(new PlusCalProcessesCodeGenVisitor(
-				registry, typeMap, globalVariableStrategy, modularPlusCalBlock, moduleBuilder));
+				registry, typeMap, localStrategy, globalVariableStrategy, modularPlusCalBlock, moduleBuilder));
 		return moduleBuilder.getModule();
 	}
 }

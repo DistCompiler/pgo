@@ -23,12 +23,15 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 	private GoBlockBuilder builder;
 	private DefinitionRegistry registry;
 	private Map<UID, Type> typeMap;
+	private LocalVariableStrategy localStrategy;
 	private GlobalVariableStrategy globalStrategy;
 
-	public TLAExpressionCodeGenVisitor(GoBlockBuilder builder, DefinitionRegistry registry, Map<UID, Type> typeMap, GlobalVariableStrategy globalStrategy) {
+	public TLAExpressionCodeGenVisitor(GoBlockBuilder builder, DefinitionRegistry registry, Map<UID, Type> typeMap,
+									   LocalVariableStrategy localStrategy, GlobalVariableStrategy globalStrategy) {
 		this.builder = builder;
 		this.registry = registry;
 		this.typeMap = typeMap;
+		this.localStrategy = localStrategy;
 		this.globalStrategy = globalStrategy;
 	}
 
@@ -168,6 +171,7 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 						tlaBinOp.getLHS(),
 						tlaBinOp.getRHS()),
 				typeMap,
+				localStrategy,
 				globalStrategy);
 	}
 
@@ -273,7 +277,7 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 				key = new GoStructLiteral(keyType, keyFields);
 			}
 			GoExpression value = tlaFunction.getBody().accept(
-					new TLAExpressionCodeGenVisitor(innerBuilder, registry, typeMap, globalStrategy));
+					new TLAExpressionCodeGenVisitor(innerBuilder, registry, typeMap, localStrategy, globalStrategy));
 			GoExpression keyValuePair = new GoStructLiteral(keyValuePairType, Arrays.asList(
 					new GoStructLiteralField("key", key),
 					new GoStructLiteralField("value", value)
@@ -322,13 +326,13 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 			return globalStrategy.readArchetypeResource(builder, tlaGeneralIdentifier);
 		}
 		if (registry.isLocalVariable(ref)) {
-			return builder.findUID(ref);
+			return localStrategy.readLocalVariable(builder, ref);
 		}
 		if (registry.isConstant(ref)) {
 			return builder.findUID(ref);
 		}
 		return registry.findOperator(ref).generateGo(
-				builder, tlaGeneralIdentifier, registry, Collections.emptyList(), typeMap, globalStrategy);
+				builder, tlaGeneralIdentifier, registry, Collections.emptyList(), typeMap, localStrategy, globalStrategy);
 	}
 
 	@Override
@@ -358,7 +362,7 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 				.generateGo(
 						builder, tlaOperatorCall, registry,
 						tlaOperatorCall.getArgs(),
-						typeMap, globalStrategy);
+						typeMap, localStrategy, globalStrategy);
 	}
 
 	@Override
@@ -368,7 +372,7 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 		unfoldQuantifierBounds(tlaQuantifiedExistential.getIds(), innerBlock -> {
 			// needs a new visitor because we must write to the inner block rather than the outer block
 			try (GoIfBuilder ifBuilder = innerBlock.ifStmt(tlaQuantifiedExistential.getBody()
-					.accept(new TLAExpressionCodeGenVisitor(innerBlock, registry, typeMap, globalStrategy)))) {
+					.accept(new TLAExpressionCodeGenVisitor(innerBlock, registry, typeMap, localStrategy, globalStrategy)))) {
 				try (GoBlockBuilder yes = ifBuilder.whenTrue()) {
 					yes.assign(exists, GoBuiltins.True);
 					if (tlaQuantifiedExistential.getIds().size() == 1) {
@@ -392,7 +396,7 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 		unfoldQuantifierBounds(tlaQuantifiedUniversal.getIds(), innerBlock -> {
 			// needs a new visitor because we must write to the inner block rather than the outer block
 			try (GoIfBuilder ifBuilder = innerBlock.ifStmt(CodeGenUtil.invertCondition(
-					innerBlock, registry, typeMap, globalStrategy, tlaQuantifiedUniversal.getBody()))) {
+					innerBlock, registry, typeMap, localStrategy, globalStrategy, tlaQuantifiedUniversal.getBody()))) {
 				try (GoBlockBuilder yes = ifBuilder.whenTrue()) {
 					yes.assign(forAll, GoBuiltins.False);
 					if (tlaQuantifiedUniversal.getIds().size() == 1) {
@@ -456,7 +460,7 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 				"tmpSet", new GoMakeExpression(new GoSliceType(elementType), new GoIntLiteral(0), null));
 		unfoldQuantifierBounds(tlaSetComprehension.getBounds(), innerBuilder -> {
 			GoExpression body = tlaSetComprehension.getBody().accept(new TLAExpressionCodeGenVisitor(
-					innerBuilder, registry, typeMap, globalStrategy));
+					innerBuilder, registry, typeMap, localStrategy, globalStrategy));
 			innerBuilder.assign(accumulator, new GoCall(new GoVariableName("append"), Arrays.asList(accumulator, body)));
 		});
 		TLABuiltins.ensureUniqueSorted(builder, elementType, accumulator);
@@ -497,7 +501,7 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 			}
 
 			try (GoIfBuilder ifBuilder = forBody.ifStmt(tlaSetRefinement.getWhen().accept(
-					new TLAExpressionCodeGenVisitor(forBody, registry, typeMap, globalStrategy)))) {
+					new TLAExpressionCodeGenVisitor(forBody, registry, typeMap, localStrategy, globalStrategy)))) {
 				try (GoBlockBuilder yes = ifBuilder.whenTrue()) {
 					yes.assign(tmpSet, new GoCall(new GoVariableName("append"), Arrays.asList(tmpSet, v)));
 				}
@@ -519,7 +523,7 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 				.generateGo(
 						builder, tlaUnary, registry,
 						Collections.singletonList(tlaUnary.getOperand()),
-						typeMap, globalStrategy);
+						typeMap, localStrategy, globalStrategy);
 	}
 
 	@Override

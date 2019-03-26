@@ -8,6 +8,7 @@ import pgo.model.type.TypeVariable;
 import pgo.model.type.Type;
 import pgo.scope.UID;
 import pgo.trans.passes.codegen.go.GlobalVariableStrategy;
+import pgo.trans.passes.codegen.go.LocalVariableStrategy;
 import pgo.util.Derived;
 import pgo.util.DerivedVisitor;
 import pgo.util.Origin;
@@ -30,7 +31,7 @@ public abstract class OperatorAccessor extends Derived {
 
 	public abstract UID getUID();
 
-	public abstract GoExpression generateGo(GoBlockBuilder builder, TLAExpression origin, DefinitionRegistry registry,
-	                                        List<TLAExpression> args, Map<UID, Type> typeMap, GlobalVariableStrategy globalStrategy);
+	public abstract GoExpression generateGo(GoBlockBuilder builder, TLAExpression origin, DefinitionRegistry registry, List<TLAExpression> args,
+											Map<UID, Type> typeMap, LocalVariableStrategy localStrategy, GlobalVariableStrategy globalStrategy);
 
 }

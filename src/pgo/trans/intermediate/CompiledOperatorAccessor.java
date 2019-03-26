@@ -13,6 +13,7 @@ import pgo.model.type.*;
 import pgo.model.type.constraint.MonomorphicConstraint;
 import pgo.scope.UID;
 import pgo.trans.passes.codegen.go.GlobalVariableStrategy;
+import pgo.trans.passes.codegen.go.LocalVariableStrategy;
 import pgo.trans.passes.codegen.go.TypeConversionVisitor;
 import pgo.trans.passes.codegen.go.TLAExpressionCodeGenVisitor;
 import pgo.trans.passes.type.TLAExpressionTypeConstraintVisitor;
@@ -55,8 +56,8 @@ public class CompiledOperatorAccessor extends OperatorAccessor {
 	}
 
 	@Override
-	public GoExpression generateGo(GoBlockBuilder builder, TLAExpression origin, DefinitionRegistry registry,
-	                               List<TLAExpression> args, Map<UID, Type> typeMap, GlobalVariableStrategy globalStrategy) {
+	public GoExpression generateGo(GoBlockBuilder builder, TLAExpression origin, DefinitionRegistry registry, List<TLAExpression> args,
+								   Map<UID, Type> typeMap, LocalVariableStrategy localStrategy, GlobalVariableStrategy globalStrategy) {
 
 		// construct signature
 		List<GoType> signature = new ArrayList<>();
@@ -89,7 +90,7 @@ public class CompiledOperatorAccessor extends OperatorAccessor {
 			try (GoBlockBuilder fnBuilder = declBuilder.getBlockBuilder()){
 				fnBuilder.returnStmt(
 						def.getBody().accept(
-								new TLAExpressionCodeGenVisitor(fnBuilder, registry, typeMap, globalStrategy)));
+								new TLAExpressionCodeGenVisitor(fnBuilder, registry, typeMap, localStrategy, globalStrategy)));
 			}
 
 			functionName = builder.findUID(def.getName().getUID());
@@ -99,7 +100,7 @@ public class CompiledOperatorAccessor extends OperatorAccessor {
 		return new GoCall(
 				functionName,
 				args.stream().map(a -> a.accept(
-						new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy)))
+						new TLAExpressionCodeGenVisitor(builder, registry, typeMap, localStrategy, globalStrategy)))
 				.collect(Collectors.toList()));
 	}
 

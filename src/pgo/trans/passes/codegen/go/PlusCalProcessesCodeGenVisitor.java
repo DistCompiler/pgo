@@ -25,15 +25,17 @@ import java.util.stream.Collectors;
 public class PlusCalProcessesCodeGenVisitor extends PlusCalProcessesVisitor<Void, RuntimeException> {
 	private DefinitionRegistry registry;
 	private Map<UID, Type> typeMap;
+	private LocalVariableStrategy localStrategy;
 	private GlobalVariableStrategy globalStrategy;
 	private ModularPlusCalBlock modularPlusCalBlock;
 	private GoModuleBuilder moduleBuilder;
 
 	public PlusCalProcessesCodeGenVisitor(DefinitionRegistry registry, Map<UID, Type> typeMap,
-	                                      GlobalVariableStrategy globalStrategy,
+	                                      LocalVariableStrategy localStrategy, GlobalVariableStrategy globalStrategy,
 	                                      ModularPlusCalBlock modularPlusCalBlock, GoModuleBuilder moduleBuilder) {
 		this.registry = registry;
 		this.typeMap = typeMap;
+		this.localStrategy = localStrategy;
 		this.globalStrategy = globalStrategy;
 		this.modularPlusCalBlock = modularPlusCalBlock;
 		this.moduleBuilder = moduleBuilder;
@@ -60,7 +62,7 @@ public class PlusCalProcessesCodeGenVisitor extends PlusCalProcessesVisitor<Void
 						type.accept(new TypeConversionVisitor()));
 				initBuilder.assign(
 						name,
-						value.accept(new TLAExpressionCodeGenVisitor(initBuilder, registry, typeMap, globalStrategy)));
+						value.accept(new TLAExpressionCodeGenVisitor(initBuilder, registry, typeMap, localStrategy, globalStrategy)));
 			}
 			generateGlobalVariables.accept(initBuilder);
 			globalStrategy.initPostlude(moduleBuilder, initBuilder);
@@ -85,21 +87,21 @@ public class PlusCalProcessesCodeGenVisitor extends PlusCalProcessesVisitor<Void
 					procBody.linkUID(arg.getUID(), argMap.get(arg.getName().getValue()));
 				}
 
-				generateLocalVariableDefinitions(registry, typeMap, globalStrategy, procBody, procedure.getVariables());
+				generateLocalVariableDefinitions(registry, typeMap, localStrategy, globalStrategy, procBody, procedure.getVariables());
 				for (PlusCalStatement statements : procedure.getBody()) {
 					statements.accept(new PlusCalStatementCodeGenVisitor(
-							registry, typeMap, globalStrategy, uid, procBody));
+							registry, typeMap, localStrategy, globalStrategy, uid, procBody));
 				}
 			}
 		}
 	}
 
-	private static void generateLocalVariableDefinitions(DefinitionRegistry registry, Map<UID, Type> typeMap,
+	private static void generateLocalVariableDefinitions(DefinitionRegistry registry, Map<UID, Type> typeMap, LocalVariableStrategy localStrategy,
 	                                                     GlobalVariableStrategy globalStrategy, GoBlockBuilder processBody,
 	                                                     List<PlusCalVariableDeclaration> variableDeclarations) {
 		for (PlusCalVariableDeclaration variableDeclaration : variableDeclarations) {
 			GoExpression value = variableDeclaration.getValue().accept(
-					new TLAExpressionCodeGenVisitor(processBody, registry, typeMap, globalStrategy));
+					new TLAExpressionCodeGenVisitor(processBody, registry, typeMap, localStrategy, globalStrategy));
 			if (variableDeclaration.isSet()) {
 				value = new GoIndexExpression(value, new GoIntLiteral(0));
 			}
@@ -114,10 +116,10 @@ public class PlusCalProcessesCodeGenVisitor extends PlusCalProcessesVisitor<Void
 		generateProcedures();
 		try (GoBlockBuilder fnBuilder = moduleBuilder.defineFunction("main").getBlockBuilder()) {
 			globalStrategy.mainPrelude(fnBuilder);
-			generateLocalVariableDefinitions(registry, typeMap, globalStrategy, fnBuilder, modularPlusCalBlock.getVariables());
+			generateLocalVariableDefinitions(registry, typeMap, localStrategy, globalStrategy, fnBuilder, modularPlusCalBlock.getVariables());
 			for (PlusCalStatement statements : singleProcess.getBody()) {
 				statements.accept(new PlusCalStatementCodeGenVisitor(
-						registry, typeMap, globalStrategy, singleProcess.getUID(), fnBuilder));
+						registry, typeMap, localStrategy, globalStrategy, singleProcess.getUID(), fnBuilder));
 			}
 		}
 		return null;
@@ -137,13 +139,13 @@ public class PlusCalProcessesCodeGenVisitor extends PlusCalProcessesVisitor<Void
 							name,
 							new GoIndexExpression(
 									value.accept(new TLAExpressionCodeGenVisitor(
-											initBuilder,registry, typeMap, globalStrategy)),
+											initBuilder,registry, typeMap, localStrategy, globalStrategy)),
 									new GoIntLiteral(0)));
 				} else {
 					initBuilder.assign(
 							name,
 							value.accept(new TLAExpressionCodeGenVisitor(
-									initBuilder, registry, typeMap, globalStrategy)));
+									initBuilder, registry, typeMap, localStrategy, globalStrategy)));
 				}
 			}
 		});
@@ -159,10 +161,10 @@ public class PlusCalProcessesCodeGenVisitor extends PlusCalProcessesVisitor<Void
 			try (GoBlockBuilder processBody = functionBuilder.getBlockBuilder()) {
 				processBody.linkUID(processUID, self);
 				globalStrategy.processPrelude(processBody, process, process.getName().getName().getValue(), self, selfType);
-				generateLocalVariableDefinitions(registry, typeMap, globalStrategy, processBody, process.getVariables());
+				generateLocalVariableDefinitions(registry, typeMap, localStrategy, globalStrategy, processBody, process.getVariables());
 		 		for (PlusCalStatement statements : process.getBody()) {
 					statements.accept(new PlusCalStatementCodeGenVisitor(
-							registry, typeMap, globalStrategy, processUID, processBody));
+							registry, typeMap, localStrategy, globalStrategy, processUID, processBody));
 				}
 			}
 		}

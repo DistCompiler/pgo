@@ -19,13 +19,15 @@ public class TLAExpressionAssignmentLHSCodeGenVisitor extends TLAExpressionVisit
 	private GoBlockBuilder builder;
 	private DefinitionRegistry registry;
 	private Map<UID, Type> typeMap;
+	private LocalVariableStrategy localStrategy;
 	private GlobalVariableStrategy globalStrategy;
 
-	public TLAExpressionAssignmentLHSCodeGenVisitor(GoBlockBuilder builder, DefinitionRegistry registry,
-	                                                Map<UID, Type> typeMap, GlobalVariableStrategy globalStrategy) {
+	public TLAExpressionAssignmentLHSCodeGenVisitor(GoBlockBuilder builder, DefinitionRegistry registry, Map<UID, Type> typeMap,
+													LocalVariableStrategy localStrategy, GlobalVariableStrategy globalStrategy) {
 		this.builder = builder;
 		this.registry = registry;
 		this.typeMap = typeMap;
+		this.localStrategy = localStrategy;
 		this.globalStrategy = globalStrategy;
 	}
 
@@ -38,17 +40,7 @@ public class TLAExpressionAssignmentLHSCodeGenVisitor extends TLAExpressionVisit
 		} else if (typeMap.get(ref) instanceof ArchetypeResourceType){
 			return globalStrategy.writeArchetypeResource(builder, tlaGeneralIdentifier);
 		} else if (registry.isLocalVariable(ref)) {
-			GoVariableName name = builder.findUID(ref);
-			return new GlobalVariableWrite() {
-				@Override
-				public GoExpression getValueSink(GoBlockBuilder builder) {
-					return name;
-				}
-				@Override
-				public void writeAfter(GoBlockBuilder builder) {
-					// pass
-				}
-			};
+			return localStrategy.writeLocalVariable(builder, ref);
 		} else if (registry.isConstant(ref)) {
 			GoVariableName name = builder.findUID(ref);
 			return new GlobalVariableWrite() {
@@ -73,7 +65,7 @@ public class TLAExpressionAssignmentLHSCodeGenVisitor extends TLAExpressionVisit
 		}
 
 		GoExpression expression = tlaFunctionCall
-				.accept(new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
+				.accept(new TLAExpressionCodeGenVisitor(builder, registry, typeMap, localStrategy, globalStrategy));
 		return new GlobalVariableWrite() {
 			@Override
 			public GoExpression getValueSink(GoBlockBuilder builder) {

@@ -9,6 +9,7 @@ import pgo.model.type.TypeSolver;
 import pgo.model.type.TypeVariable;
 import pgo.scope.UID;
 import pgo.trans.passes.codegen.go.GlobalVariableStrategy;
+import pgo.trans.passes.codegen.go.LocalVariableStrategy;
 import pgo.util.Origin;
 
 import java.util.List;
@@ -21,8 +22,8 @@ public class BuiltinOperator extends OperatorAccessor {
 		              TypeGenerator generator);
 	}
 	public interface GoGenerator {
-		GoExpression generate(GoBlockBuilder builder, TLAExpression expr, DefinitionRegistry registry,
-		                      List<TLAExpression> arguments, Map<UID, Type> typeMap, GlobalVariableStrategy globalStrategy);
+		GoExpression generate(GoBlockBuilder builder, TLAExpression expr, DefinitionRegistry registry, List<TLAExpression> arguments,
+							  Map<UID, Type> typeMap, LocalVariableStrategy localSrtrategy, GlobalVariableStrategy globalStrategy);
 	}
 
 	private int argumentCount;
@@ -53,9 +54,9 @@ public class BuiltinOperator extends OperatorAccessor {
 	}
 
 	@Override
-	public GoExpression generateGo(GoBlockBuilder builder, TLAExpression origin, DefinitionRegistry registry,
-	                               List<TLAExpression> args, Map<UID, Type> typeMap, GlobalVariableStrategy globalStrategy) {
-		return goGenerator.generate(builder, origin, registry, args, typeMap, globalStrategy);
+	public GoExpression generateGo(GoBlockBuilder builder, TLAExpression origin, DefinitionRegistry registry, List<TLAExpression> args,
+								   Map<UID, Type> typeMap, LocalVariableStrategy localStrategy, GlobalVariableStrategy globalStrategy) {
+		return goGenerator.generate(builder, origin, registry, args, typeMap, localStrategy, globalStrategy);
 	}
 
 }

@@ -190,11 +190,11 @@ public class TLABuiltins {
 					solver.addConstraint(new MonomorphicConstraint(origin, args.get(0), args.get(1)));
 					return new BoolType(Collections.singletonList(origin));
 				},
-				(builder, origin, registry, arguments, typeMap, globalStrategy) -> {
+				(builder, origin, registry, arguments, typeMap, localStrategy, globalStrategy) -> {
 					GoExpression lhs = arguments.get(0).accept(
-							new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
+							new TLAExpressionCodeGenVisitor(builder, registry, typeMap, localStrategy, globalStrategy));
 					GoExpression rhs = arguments.get(1).accept(
-							new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
+							new TLAExpressionCodeGenVisitor(builder, registry, typeMap, localStrategy, globalStrategy));
 					return typeMap.get(arguments.get(0).getUID())
 							.accept(new TypeConversionVisitor())
 							.accept(new EqCodeGenVisitor(builder, lhs, rhs, false));
@@ -205,11 +205,11 @@ public class TLABuiltins {
 					solver.addConstraint(new MonomorphicConstraint(origin, args.get(0), args.get(1)));
 					return new BoolType(Collections.singletonList(origin));
 				},
-				(builder, origin, registry, arguments, typeMap, globalStrategy) -> {
+				(builder, origin, registry, arguments, typeMap, localStrategy, globalStrategy) -> {
 					GoExpression lhs = arguments.get(0).accept(
-							new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
+							new TLAExpressionCodeGenVisitor(builder, registry, typeMap, localStrategy, globalStrategy));
 					GoExpression rhs = arguments.get(1).accept(
-							new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
+							new TLAExpressionCodeGenVisitor(builder, registry, typeMap, localStrategy, globalStrategy));
 					return typeMap.get(arguments.get(0).getUID())
 							.accept(new TypeConversionVisitor())
 							.accept(new EqCodeGenVisitor(builder, lhs, rhs, true));
@@ -223,7 +223,7 @@ public class TLABuiltins {
 							origin, args.get(1), new SetType(memberType, Collections.singletonList(origin))));
 					return new BoolType(Collections.singletonList(origin));
 				},
-				(builder, origin, registry, arguments, typeMap, globalStrategy) -> {
+				(builder, origin, registry, arguments, typeMap, localStrategy, globalStrategy) -> {
 					if (arguments.size() != 2) {
 						throw new InternalCompilerError();
 					}
@@ -231,9 +231,9 @@ public class TLABuiltins {
 					// index := sort.SearchType(rhs, lhs)
 					// index < len(rhs) && rhs[index] == lhs
 					GoExpression val = arguments.get(0).accept(
-							new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
+							new TLAExpressionCodeGenVisitor(builder, registry, typeMap, localStrategy, globalStrategy));
 					GoExpression set = arguments.get(1).accept(
-							new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
+							new TLAExpressionCodeGenVisitor(builder, registry, typeMap, localStrategy, globalStrategy));
 
 					GoType elementType = getSetElementType(typeMap.get(arguments.get(1).getUID()));
 					GoVariableName index = getIndexInSet(builder, elementType, set, val);
@@ -261,7 +261,7 @@ public class TLABuiltins {
 					solver.addConstraint(new MonomorphicConstraint(origin, args.get(1), fresh));
 					return fresh;
 				},
-				(builder, origin, registry, arguments, typeMap, globalStrategy) -> {
+				(builder, origin, registry, arguments, typeMap, localStrategy, globalStrategy) -> {
 					// lenLhs = len(lhs)
 					// tmpSet := make([]type, 0, lenLhs)
 					// for _, v := range lhs {
@@ -276,9 +276,9 @@ public class TLABuiltins {
 					// }
 					GoType elementType = getSetElementType(typeMap.get(origin.getUID()));
 					GoExpression lhs = arguments.get(0).accept(
-							new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
+							new TLAExpressionCodeGenVisitor(builder, registry, typeMap, localStrategy, globalStrategy));
 					GoExpression rhs = arguments.get(1).accept(
-							new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
+							new TLAExpressionCodeGenVisitor(builder, registry, typeMap, localStrategy, globalStrategy));
 
 					// special case: rhs is an empty literal, compiles to noop
 					if (rhs instanceof GoSliceLiteral && ((GoSliceLiteral)rhs).getInitializers().size() == 0){
@@ -435,12 +435,12 @@ public class TLABuiltins {
 					solver.addConstraint(new MonomorphicConstraint(origin, args.get(1), elementType));
 					return fresh;
 				},
-				(builder, origin, registry, arguments, typeMap, globalStrategy) -> {
+				(builder, origin, registry, arguments, typeMap, localStrategy, globalStrategy) -> {
 					GoType baseType = typeMap.get(arguments.get(0).getUID()).accept(new TypeConversionVisitor());
 					GoExpression base = arguments.get(0).accept(
-							new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
+							new TLAExpressionCodeGenVisitor(builder, registry, typeMap, localStrategy, globalStrategy));
 					GoExpression extra = arguments.get(1).accept(
-							new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
+							new TLAExpressionCodeGenVisitor(builder, registry, typeMap, localStrategy, globalStrategy));
 
 					GoExpression baseLen = new GoCall(new GoVariableName("len"), Collections.singletonList(base));
 					// since append may reuse the underlying slice, it is possible that appending two different

@@ -24,6 +24,7 @@ import java.util.Objects;
 public class MultithreadedProcessGlobalVariableStrategy extends GlobalVariableStrategy {
 	private DefinitionRegistry registry;
 	private Map<UID, Type> typeMap;
+	private LocalVariableStrategy localStrategy;
 	private ModularPlusCalBlock modularPlusCalBlock;
 	private UID pGoLockUID;
 	private UID pGoWaitUID;
@@ -32,9 +33,10 @@ public class MultithreadedProcessGlobalVariableStrategy extends GlobalVariableSt
 	private static final GoType PGO_LOCK_TYPE = new GoSliceType(new GoTypeName("sync.RWMutex"));
 
 	public MultithreadedProcessGlobalVariableStrategy(DefinitionRegistry registry, Map<UID, Type> typeMap,
-	                                                  ModularPlusCalBlock modularPlusCalBlock) {
+	                                                  LocalVariableStrategy localStrategy, ModularPlusCalBlock modularPlusCalBlock) {
 		this.registry = registry;
 		this.typeMap = typeMap;
+		this.localStrategy = localStrategy;
 		this.modularPlusCalBlock = modularPlusCalBlock;
 		this.pGoLockUID = new UID();
 		this.pGoWaitUID = new UID();
@@ -73,7 +75,7 @@ public class MultithreadedProcessGlobalVariableStrategy extends GlobalVariableSt
 		for (PlusCalProcess process : ((PlusCalMultiProcess) modularPlusCalBlock.getProcesses()).getProcesses()) {
 			String processName = process.getName().getName().getValue();
 			GoExpression value = process.getName().getValue().accept(
-					new TLAExpressionCodeGenVisitor(builder, registry, typeMap, this));
+					new TLAExpressionCodeGenVisitor(builder, registry, typeMap, localStrategy, this));
 			if (process.getName().isSet()) {
 				GoForRangeBuilder forRangeBuilder = builder.forRange(value);
 				GoVariableName v = forRangeBuilder.initVariables(Arrays.asList("_", "v")).get(1);

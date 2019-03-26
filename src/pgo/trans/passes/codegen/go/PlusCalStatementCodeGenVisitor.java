@@ -1,6 +1,7 @@
 package pgo.trans.passes.codegen.go;
 
 import pgo.InternalCompilerError;
+import pgo.TODO;
 import pgo.Unreachable;
 import pgo.model.golang.*;
 import pgo.model.golang.builder.GoBlockBuilder;
@@ -20,18 +21,20 @@ import java.util.function.Function;
 public class PlusCalStatementCodeGenVisitor extends PlusCalStatementVisitor<Void, RuntimeException> {
 	private DefinitionRegistry registry;
 	private Map<UID, Type> typeMap;
+	private LocalVariableStrategy localStrategy;
 	private GlobalVariableStrategy globalStrategy;
 	private UID processUID;
 	private GoBlockBuilder builder;
 	private CriticalSectionTracker criticalSectionTracker;
 	private Function<GoBlockBuilder, GoLabelName> awaitAction;
 
-	private PlusCalStatementCodeGenVisitor(DefinitionRegistry registry, Map<UID, Type> typeMap,
+	private PlusCalStatementCodeGenVisitor(DefinitionRegistry registry, Map<UID, Type> typeMap, LocalVariableStrategy localStrategy,
 	                                       GlobalVariableStrategy globalStrategy, UID processUID, GoBlockBuilder builder,
 	                                       CriticalSectionTracker criticalSectionTracker,
 	                                       Function<GoBlockBuilder, GoLabelName> awaitAction) {
 		this.registry = registry;
 		this.typeMap = typeMap;
+		this.localStrategy = localStrategy;
 		this.globalStrategy = globalStrategy;
 		this.processUID = processUID;
 		this.builder = builder;
@@ -39,20 +42,20 @@ public class PlusCalStatementCodeGenVisitor extends PlusCalStatementVisitor<Void
 		this.awaitAction = awaitAction;
 	}
 
-	public PlusCalStatementCodeGenVisitor(DefinitionRegistry registry, Map<UID, Type> typeMap,
+	public PlusCalStatementCodeGenVisitor(DefinitionRegistry registry, Map<UID, Type> typeMap, LocalVariableStrategy localStrategy,
 	                                      GlobalVariableStrategy globalStrategy, UID processUID, GoBlockBuilder builder) {
-		this(registry, typeMap, globalStrategy, processUID, builder,
+		this(registry, typeMap, localStrategy, globalStrategy, processUID, builder,
 				new CriticalSectionTracker(registry, processUID, globalStrategy), ignored -> null);
 	}
 
-	private static void trackLocalVariableWrites(DefinitionRegistry registry, Set<UID> tracker, TLAExpression expression) {
-		if (expression instanceof TLAGeneralIdentifier) {
-			UID definitionUID = registry.followReference(expression.getUID());
-			if (registry.isLocalVariable(definitionUID)) {
-				tracker.add(definitionUID);
-			}
-		}
-	}
+    private static void trackLocalVariableWrites(DefinitionRegistry registry, Set<UID> tracker, TLAExpression expression) {
+        if (expression instanceof TLAGeneralIdentifier) {
+            UID definitionUID = registry.followReference(expression.getUID());
+            if (registry.isLocalVariable(definitionUID)) {
+                tracker.add(definitionUID);
+            }
+        }
+    }
 
 	@Override
 	public Void visit(PlusCalLabeledStatements plusCalLabeledStatements) throws RuntimeException {
@@ -77,7 +80,7 @@ public class PlusCalStatementCodeGenVisitor extends PlusCalStatementVisitor<Void
 		boolean loopBodyHasLabel = plusCalWhile.accept(new PlusCalStatementContainsLabelVisitor());
 		try (GoBlockBuilder fb = builder.forLoop(null)) {
 			try(GoIfBuilder loopCondition = fb.ifStmt(CodeGenUtil.invertCondition(
-					fb, registry, typeMap, globalStrategy, plusCalWhile.getCondition()))) {
+					fb, registry, typeMap, localStrategy, globalStrategy, plusCalWhile.getCondition()))) {
 				try (GoBlockBuilder loopConditionBody = loopCondition.whenTrue()) {
 					// if there are labels inside the loop, ensure that we end the critical section
 					// when the loop condition fails as there must be a new label after the loop
@@ -91,7 +94,7 @@ public class PlusCalStatementCodeGenVisitor extends PlusCalStatementVisitor<Void
 			}
 			for (PlusCalStatement statement : plusCalWhile.getBody()) {
 				statement.accept(new PlusCalStatementCodeGenVisitor(
-						registry, typeMap, globalStrategy, processUID, fb, criticalSectionTracker, awaitAction));
+						registry, typeMap, localStrategy, globalStrategy, processUID, fb, criticalSectionTracker, awaitAction));
 			}
 			actionAtLoopEnd.accept(fb);
 		}
@@ -107,14 +110,16 @@ public class PlusCalStatementCodeGenVisitor extends PlusCalStatementVisitor<Void
 
 	@Override
 	public Void visit(PlusCalIf plusCalIf) throws RuntimeException {
-		GoExpression condition = plusCalIf.getCondition().accept(new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
+		GoExpression condition = plusCalIf.getCondition().accept(
+				new TLAExpressionCodeGenVisitor(builder, registry, typeMap, localStrategy, globalStrategy)
+		);
 		boolean containsLabels = plusCalIf.accept(new PlusCalStatementContainsLabelVisitor());
 		try (GoIfBuilder b = builder.ifStmt(condition)) {
 			CriticalSectionTracker noTracker = criticalSectionTracker.copy();
 			try (GoBlockBuilder yes = b.whenTrue()) {
 				for (PlusCalStatement stmt : plusCalIf.getYes()) {
 					stmt.accept(new PlusCalStatementCodeGenVisitor(
-							registry, typeMap, globalStrategy, processUID, yes, criticalSectionTracker, awaitAction));
+							registry, typeMap, localStrategy, globalStrategy, processUID, yes, criticalSectionTracker, awaitAction));
 				}
 				// if an if statement contains a label, then the statement(s) after it must be labeled
 				// if the statement after must be labeled, we know this critical section ends here (and
@@ -127,7 +132,7 @@ public class PlusCalStatementCodeGenVisitor extends PlusCalStatementVisitor<Void
 			try (GoBlockBuilder no = b.whenFalse()) {
 				for (PlusCalStatement stmt : plusCalIf.getNo()) {
 					stmt.accept(new PlusCalStatementCodeGenVisitor(
-							registry, typeMap, globalStrategy, processUID, no, noTracker, awaitAction));
+							registry, typeMap, localStrategy, globalStrategy, processUID, no, noTracker, awaitAction));
 				}
 				// see description for true case
 				if (containsLabels) {
@@ -222,7 +227,7 @@ public class PlusCalStatementCodeGenVisitor extends PlusCalStatementVisitor<Void
 				int j = i + 1;
 				tracker = criticalSectionTracker.copy();
 				caseVisitor = new PlusCalStatementCodeGenVisitor(
-						registry, typeMap, globalStrategy, processUID, builder, tracker, builder -> {
+						registry, typeMap, localStrategy, globalStrategy, processUID, builder, tracker, builder -> {
 					// restore variables
 					localVarNames.forEach(builder::assign);
 					globalVarNames.forEach(builder::assign);
@@ -278,11 +283,11 @@ public class PlusCalStatementCodeGenVisitor extends PlusCalStatementVisitor<Void
 		List<GlobalVariableStrategy.GlobalVariableWrite> lhsWrites = new ArrayList<>();
 		for (PlusCalAssignmentPair pair : plusCalAssignment.getPairs()) {
 			GlobalVariableStrategy.GlobalVariableWrite lhsWrite = pair.getLhs().accept(
-					new TLAExpressionAssignmentLHSCodeGenVisitor(builder, registry, typeMap, globalStrategy));
+					new TLAExpressionAssignmentLHSCodeGenVisitor(builder, registry, typeMap, localStrategy, globalStrategy));
 			lhsWrites.add(lhsWrite);
 			lhs.add(lhsWrite.getValueSink(builder));
 			rhs.add(pair.getRhs().accept(
-					new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy)));
+					new TLAExpressionCodeGenVisitor(builder, registry, typeMap, localStrategy, globalStrategy)));
 		}
 		builder.assign(lhs, rhs);
 		for (GlobalVariableStrategy.GlobalVariableWrite lhsWrite : lhsWrites) {
@@ -309,7 +314,7 @@ public class PlusCalStatementCodeGenVisitor extends PlusCalStatementVisitor<Void
 		List<TLAExpression> args = plusCalCall.getArguments();
 		for (int i = 0; i < args.size(); i++) {
 			TLAExpression arg = args.get(i);
-			GoExpression e = arg.accept(new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
+			GoExpression e = arg.accept(new TLAExpressionCodeGenVisitor(builder, registry, typeMap, localStrategy, globalStrategy));
 			arguments.add(builder.varDecl("arg" + Integer.toString(i + 1), e));
 		}
 		// the critical section ends here because the procedure has to have a label on the first line of its body
@@ -329,7 +334,7 @@ public class PlusCalStatementCodeGenVisitor extends PlusCalStatementVisitor<Void
 	public Void visit(PlusCalWith plusCalWith) throws RuntimeException {
 		for(PlusCalVariableDeclaration decl : plusCalWith.getVariables()) {
 			GoExpression value = decl.getValue().accept(
-					new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy));
+					new TLAExpressionCodeGenVisitor(builder, registry, typeMap, localStrategy, globalStrategy));
 			if (decl.isSet()) {
 				value = new GoIndexExpression(value, new GoIntLiteral(0));
 			}
@@ -344,7 +349,7 @@ public class PlusCalStatementCodeGenVisitor extends PlusCalStatementVisitor<Void
 	@Override
 	public Void visit(PlusCalPrint plusCalPrint) throws RuntimeException {
 		builder.print(plusCalPrint.getValue().accept(
-				new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy)));
+				new TLAExpressionCodeGenVisitor(builder, registry, typeMap, localStrategy, globalStrategy)));
 		return null;
 	}
 
@@ -352,7 +357,7 @@ public class PlusCalStatementCodeGenVisitor extends PlusCalStatementVisitor<Void
 	public Void visit(PlusCalAssert plusCalAssert) throws RuntimeException {
 		TLAExpression cond = plusCalAssert.getCondition();
 		try (GoIfBuilder ifBuilder = builder.ifStmt(CodeGenUtil.invertCondition(
-				builder, registry, typeMap, globalStrategy, cond))) {
+				builder, registry, typeMap, localStrategy, globalStrategy, cond))) {
 			try (GoBlockBuilder yes = ifBuilder.whenTrue()) {
 				String msg = cond.toString();
 
@@ -370,7 +375,7 @@ public class PlusCalStatementCodeGenVisitor extends PlusCalStatementVisitor<Void
 	public Void visit(PlusCalAwait plusCalAwait) throws RuntimeException {
 		TLAExpression cond = plusCalAwait.getCondition();
 		try (GoIfBuilder ifBuilder = builder.ifStmt(CodeGenUtil.invertCondition(
-				builder, registry, typeMap, globalStrategy, cond))) {
+				builder, registry, typeMap, localStrategy, globalStrategy, cond))) {
 			try (GoBlockBuilder yes = ifBuilder.whenTrue()) {
 				// fork out an execution path for aborting
 				CriticalSectionTracker tracker = criticalSectionTracker.copy();

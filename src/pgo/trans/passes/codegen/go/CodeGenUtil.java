@@ -17,9 +17,10 @@ public class CodeGenUtil {
 
 	public static GoExpression invertCondition(GoBlockBuilder builder, DefinitionRegistry registry,
 											   Map<UID, Type> typeMap,
+											   LocalVariableStrategy localStrategy,
 											   GlobalVariableStrategy globalStrategy,
 											   TLAExpression condition) {
-		return new GoUnary(GoUnary.Operation.NOT, condition.accept(new TLAExpressionCodeGenVisitor(builder, registry, typeMap, globalStrategy)));
+		return new GoUnary(GoUnary.Operation.NOT, condition.accept(new TLAExpressionCodeGenVisitor(builder, registry, typeMap, localStrategy, globalStrategy)));
 	}
 
 	public static GoExpression staticallySortSlice(GoSliceLiteral slice){

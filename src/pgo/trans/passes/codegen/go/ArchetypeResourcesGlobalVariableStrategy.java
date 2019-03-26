@@ -25,6 +25,7 @@ import java.util.stream.Collectors;
 public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStrategy {
     private DefinitionRegistry registry;
     private Map<UID, Type> typeMap;
+    private LocalVariableStrategy localStrategy;
     private UID archetype;
     private GoVariableName err;
     private GoVariableName acquiredResources;
@@ -35,9 +36,11 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
     private static final String RELEASE = "ReleaseResources";
     private static final String ABORT = "AbortResources";
 
-    public ArchetypeResourcesGlobalVariableStrategy(DefinitionRegistry registry, Map<UID, Type> typeMap, UID archetype) {
+    public ArchetypeResourcesGlobalVariableStrategy(DefinitionRegistry registry, Map<UID, Type> typeMap,
+                                                    LocalVariableStrategy localStrategy, UID archetype) {
         this.registry = registry;
         this.typeMap = typeMap;
+        this.localStrategy = localStrategy;
         this.currentLockGroup = -1;
         this.functionMaps = false;
         this.archetype = archetype;
@@ -410,6 +413,6 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
     }
 
     private GoExpression codegen(GoBlockBuilder builder, TLAExpression e) {
-        return e.accept(new TLAExpressionCodeGenVisitor(builder, registry, typeMap, this));
+        return e.accept(new TLAExpressionCodeGenVisitor(builder, registry, typeMap, localStrategy, this));
     }
 }

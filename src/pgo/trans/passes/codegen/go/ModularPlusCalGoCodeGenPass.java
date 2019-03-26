@@ -27,7 +27,7 @@ import java.util.stream.Collectors;
 public class ModularPlusCalGoCodeGenPass {
     private ModularPlusCalGoCodeGenPass() {}
 
-    private static void generateLocalVariableDefinitions(DefinitionRegistry registry, Map<UID, Type> typeMap,
+    private static void generateLocalVariableDefinitions(DefinitionRegistry registry, Map<UID, Type> typeMap, LocalVariableStrategy localStrategy,
                                                          GlobalVariableStrategy globalStrategy, GoBlockBuilder processBody,
                                                          List<PlusCalVariableDeclaration> variableDeclarations) {
         for (PlusCalVariableDeclaration variableDeclaration : variableDeclarations) {
@@ -41,7 +41,7 @@ public class ModularPlusCalGoCodeGenPass {
                 name = processBody.varDecl(variableDeclaration.getName().getValue(), varType);
             } else {
                 GoExpression value = variableDeclaration.getValue().accept(
-                        new TLAExpressionCodeGenVisitor(processBody, registry, typeMap, globalStrategy));
+                        new TLAExpressionCodeGenVisitor(processBody, registry, typeMap, localStrategy, globalStrategy));
                 if (variableDeclaration.isSet()) {
                     value = new GoIndexExpression(value, new GoIntLiteral(0));
                 }
@@ -54,7 +54,7 @@ public class ModularPlusCalGoCodeGenPass {
 
     private static void generateInit(ModularPlusCalBlock modularPlusCalBlock, GoModuleBuilder module,
                                      DefinitionRegistry registry, Map<UID, Type> typeMap,
-                                     GlobalVariableStrategy globalStrategy) {
+                                     LocalVariableStrategy localStrategy, GlobalVariableStrategy globalStrategy) {
         Map<String, Type> constants = new TreeMap<>(); // sort constants for deterministic compiler output
         Map<String, UID> constantIds = new HashMap<>();
         for (UID uid : registry.getConstants().stream().filter(c -> registry.getConstantValue(c).isPresent()).collect(Collectors.toSet())) {
@@ -75,7 +75,7 @@ public class ModularPlusCalGoCodeGenPass {
                         type.accept(new TypeConversionVisitor()));
                 initBuilder.assign(
                         name,
-                        value.accept(new TLAExpressionCodeGenVisitor(initBuilder, registry, typeMap, globalStrategy)));
+                        value.accept(new TLAExpressionCodeGenVisitor(initBuilder, registry, typeMap, localStrategy, globalStrategy)));
             }
 
             // Given an archetype resource type, returns whether or not TLA+ record support should
@@ -119,12 +119,13 @@ public class ModularPlusCalGoCodeGenPass {
     public static GoModule perform(DefinitionRegistry registry, Map<UID, Type> typeMap, PGoOptions opts,
                                    ModularPlusCalBlock modularPlusCalBlock) {
         GoModuleBuilder module = new GoModuleBuilder(modularPlusCalBlock.getName().getValue(), opts.buildPackage);
-        GlobalVariableStrategy globalStrategy = new ArchetypeResourcesGlobalVariableStrategy(registry, typeMap, null);
+        LocalVariableStrategy localStrategy = new DefaultLocalVariableStrategy();
+        GlobalVariableStrategy globalStrategy = new ArchetypeResourcesGlobalVariableStrategy(registry, typeMap, localStrategy, null);
 
-        generateInit(modularPlusCalBlock, module, registry, typeMap, globalStrategy);
+        generateInit(modularPlusCalBlock, module, registry, typeMap, localStrategy, globalStrategy);
 
         for (ModularPlusCalArchetype archetype : modularPlusCalBlock.getArchetypes()) {
-            globalStrategy = new ArchetypeResourcesGlobalVariableStrategy(registry, typeMap, archetype.getUID());
+            globalStrategy = new ArchetypeResourcesGlobalVariableStrategy(registry, typeMap, localStrategy, archetype.getUID());
 
             GoFunctionDeclarationBuilder fn = module.defineFunction(archetype.getUID(), archetype.getName());
             fn.addReturn(GoBuiltins.Error);
@@ -157,13 +158,13 @@ public class ModularPlusCalGoCodeGenPass {
                     fnBody.linkUID(arg.getUID(), argMap.get(arg.getName().getValue()));
                 }
 
-                generateLocalVariableDefinitions(registry, typeMap, globalStrategy, fnBody, archetype.getVariables());
+                generateLocalVariableDefinitions(registry, typeMap, localStrategy, globalStrategy, fnBody, archetype.getVariables());
 
                 // TODO: this should probably be a separate method in GlobalVariableStrategy
                 globalStrategy.processPrelude(fnBody, null, archetype.getName(), selfVariable, GoBuiltins.Int);
 
                 PlusCalStatementCodeGenVisitor codeGen = new PlusCalStatementCodeGenVisitor(
-                        registry, typeMap, globalStrategy, archetype.getUID(), fnBody
+                        registry, typeMap, localStrategy, globalStrategy, archetype.getUID(), fnBody
                 );
                 for (PlusCalStatement statement : archetype.getBody()) {
                     statement.accept(codeGen);

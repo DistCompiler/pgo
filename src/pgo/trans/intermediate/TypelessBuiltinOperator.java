@@ -23,7 +23,7 @@ public class TypelessBuiltinOperator extends BuiltinOperator {
 		super(
 				argumentCount,
 				typeConstraintGenerator,
-				(builder, origin, registry, arguments, typeMap, globalStrategy) ->
+				(builder, origin, registry, arguments, typeMap, localStrategy, globalStrategy) ->
 						goGenerator.generate(
 								builder,
 								origin,
@@ -33,6 +33,7 @@ public class TypelessBuiltinOperator extends BuiltinOperator {
 												builder,
 												registry,
 												typeMap,
+												localStrategy,
 												globalStrategy)))
 								.collect(Collectors.toList()),
 								typeMap));
