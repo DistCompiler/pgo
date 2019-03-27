@@ -109,7 +109,7 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
         BiConsumer<String, Set<GoExpression>> acquire = (permission, resources) -> {
             if (!resources.isEmpty()) {
                 ArrayList<GoExpression> args = new ArrayList<>(
-                        Arrays.asList(distsys(permission))
+                        Collections.singletonList(distsys(permission))
                 );
                 args.addAll(resources);
                 GoExpression acquireCall = new GoCall(distsys("AcquireResources"), args);

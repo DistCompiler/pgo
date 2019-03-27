@@ -31,8 +31,9 @@ func (err *ResourceInternalError) Error() string {
 
 // AbortRetryError represents the situation where a failure has
 // occurrred that prevents the system from making progress. The atomic
-// step should be rolleback and tried again. All functions but Abort()
-// can return this error
+// step should be rolleback and tried again. If this error is returned
+// by a call to Acquire(), Read() or Write(), the action will be
+// retried.
 type AbortRetryError struct {
 	cause string
 }
@@ -219,13 +220,23 @@ func AcquireResources(access ResourceAccess, resources ...ArchetypeResource) err
 	// sort the resources to be acquired according to their
 	// implementation of `Less`
 	sort.Sort(SortableArchetypeResource(resources))
+	numAcquired := 0
 
 	// resources are now ordered
 	for _, r := range resources {
 		err := r.Acquire(access)
+
+		// if there is an error acquiring one of the resources, abort access
+		// to all of the previously acquired resources and return the error
 		if err != nil {
+			for i := 0; i < numAcquired; i++ {
+				resources[i].Abort()
+			}
+
 			return err
 		}
+
+		numAcquired++
 	}
 
 	return nil
