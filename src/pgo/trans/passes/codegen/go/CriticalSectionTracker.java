@@ -39,12 +39,20 @@ public class CriticalSectionTracker {
 	}
 
 	public void start(GoBlockBuilder builder, UID labelUID, GoLabelName labelName) {
+		start(builder, labelUID, labelName, true);
+	}
+
+	private void start(GoBlockBuilder builder, UID labelUID, GoLabelName labelName, boolean createLabel) {
 		// end the current lock group
 		end(builder);
 		currentLockGroup = registry.getLockGroupOrDefault(labelUID, -1);
 		currentLabelUID = labelUID;
 		currentLabelName = labelName;
-		builder.labelIsUnique(labelName.getName());
+
+		if (createLabel) {
+			builder.labelIsUnique(labelName.getName());
+		}
+
 		if (currentLockGroup < 0) {
 			// nothing to do
 			return;
@@ -103,6 +111,8 @@ public class CriticalSectionTracker {
 		if (lockGroup < 0) {
 			return ignored -> {};
 		}
-		return builder -> start(builder, labelUID, labelName);
+
+		// a new label is not required since we are reacquiring the critical section
+		return builder -> start(builder, labelUID, labelName, false);
 	}
 }

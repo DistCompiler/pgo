@@ -31,6 +31,7 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
     private GoVariableName acquiredResources;
     private Set<String> functionMappedResourceNames;
     private int currentLockGroup;
+    private GoLabelName currentLabel;
     private boolean functionMaps;
 
     private static final String RELEASE = "ReleaseResources";
@@ -42,6 +43,7 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
         this.typeMap = typeMap;
         this.localStrategy = localStrategy;
         this.currentLockGroup = -1;
+        this.currentLabel = null;
         this.functionMaps = false;
         this.archetype = archetype;
         this.acquiredResources = null;
@@ -114,7 +116,7 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
                 args.addAll(resources);
                 GoExpression acquireCall = new GoCall(distsys("AcquireResources"), args);
                 builder.assign(err, acquireCall);
-                checkErr(builder);
+                shouldRetry(builder, false);
             }
         };
 
@@ -131,11 +133,15 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
 
         // keeps track of the function-mapped resources read or written
         // in this label so that they can be released at the end of the label.
-        this.functionMappedResourceNames = new HashSet<>();
+        functionMappedResourceNames = new HashSet<>();
 
         // keep track of the current lock group so that function-mapped
         // resources can be properly acquired when accessed
-        this.currentLockGroup = lockGroup;
+        currentLockGroup = lockGroup;
+
+        // create a Go label for this action. If we need to retry, we need to
+        // come back to this point
+        currentLabel = labelName;
 
         localStrategy.actionPrelude(builder, labelUID);
 
@@ -212,7 +218,7 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
                 Collections.singletonList(readCall)
         );
         builder.addStatement(assignRead);
-        checkErr(builder);
+        shouldRetry(builder, true);
 
         // only do type casting if the inferred type is meaningful
         if (readType.equals(GoBuiltins.Interface)) {
@@ -240,17 +246,43 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
                         Collections.singletonList(tempVar)
                 );
                 builder.assign(err, write);
-                checkErr(builder);
+                shouldRetry(builder, true);
             }
         };
     }
 
-    private void checkErr(GoBlockBuilder builder) {
+    private void fatalErrorCheck(GoBlockBuilder builder) {
         GoExpression errNotNil = new GoBinop(GoBinop.Operation.NEQ, err, GoBuiltins.Nil);
         try (GoIfBuilder ifBuilder = builder.ifStmt(errNotNil)) {
             try (GoBlockBuilder yes = ifBuilder.whenTrue()) {
                 terminateCriticalSection(yes, currentLockGroup, ABORT, true);
                 yes.returnStmt(err);
+            }
+        }
+    }
+
+    private void shouldRetry(GoBlockBuilder builder, boolean abort) {
+        Consumer<GoBlockBuilder> checkRetry = b -> {
+            GoExpression check = new GoCall(new GoVariableName("shouldRetry"), Collections.singletonList(err));
+            try (GoIfBuilder ifBuilder = b.ifStmt(check)) {
+                try (GoBlockBuilder yes = ifBuilder.whenTrue()) {
+                    yes.goTo(currentLabel);
+                }
+
+                try (GoBlockBuilder no = ifBuilder.whenFalse()) {
+                    no.returnStmt(err);
+                }
+            }
+        };
+
+        GoExpression errNotNil = new GoBinop(GoBinop.Operation.NEQ, err, GoBuiltins.Nil);
+        try (GoIfBuilder ifBuilder = builder.ifStmt(errNotNil)) {
+            try (GoBlockBuilder yes = ifBuilder.whenTrue()) {
+                if (abort) {
+                    terminateCriticalSection(yes, currentLockGroup, ABORT, true);
+                }
+
+                checkRetry.accept(yes);
             }
         }
     }
@@ -292,7 +324,7 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
                 builder.addStatement(release);
             } else {
                 builder.assign(err, release);
-                checkErr(builder);
+                fatalErrorCheck(builder);
             }
         }
 
@@ -317,7 +349,7 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
                     rangeBody.addStatement(release);
                 } else {
                     rangeBody.assign(err, release);
-                    checkErr(rangeBody);
+                    fatalErrorCheck(rangeBody);
                 }
             }
         }
@@ -394,7 +426,7 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
                                 resourceGet
                         )
                 ));
-                checkErr(yes);
+                shouldRetry(yes, true);
 
                 yes.assign(argAcquired, GoBuiltins.True);
             }

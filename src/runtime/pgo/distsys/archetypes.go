@@ -410,6 +410,8 @@ type Mailbox struct {
 	selfName       string            // identifier of the process that created the reference
 	configuration  map[string]string // configuration of the system (PlusCal process -> IP address)
 	conns          *Connections      // the set of connections to nodes within the system
+	readAttempts   int               // number of times to attempt a read when no message is buffered
+	waitDuration   int               // how long to wait between two read attempts (in ms)
 	readBuf        []interface{}     // messages read from the channel
 	writeBuf       []interface{}     // messages waiting to be sent when the channel is released
 	readChan       chan interface{}  // reads are buffered through Go channels
@@ -450,6 +452,19 @@ func (mbox *Mailbox) sendMessage(msg interface{}) error {
 	}
 }
 
+func (mbox *Mailbox) tryRead() (interface{}, bool) {
+	for i := 0; i < mbox.readAttempts; i++ {
+		select {
+		case msg := <-mbox.readChan:
+			return msg, true
+		default:
+			time.Sleep(time.Duration(mbox.waitDuration) * time.Millisecond)
+		}
+	}
+
+	return nil, false
+}
+
 // MailboxRef represents a reference to some mailbox. It can be local
 // (if the process 'id' is the same as the mailbox being referenced),
 // or remote (if they are different).
@@ -472,6 +487,8 @@ func MailboxRef(name string, conns *Connections, configuration map[string]string
 		selfName:       id,
 		configuration:  configuration,
 		conns:          conns,
+		readAttempts:   30,
+		waitDuration:   30,
 		readBuf:        []interface{}{},
 		writeBuf:       []interface{}{},
 		timeout:        timeout,
@@ -524,6 +541,12 @@ func (mbox *Mailbox) Read() (interface{}, error) {
 
 	// if we are not reading from a previous transaction, wait for
 	// incoming messages on the mailbox
+	// var msg interface{}
+	// var ok bool
+	// if msg, ok := mbox.tryRead(); !ok {
+	// 	return nil, &AbortRetryError{"No messages in the buffer"}
+	// }
+
 	msg := <-mbox.readChan
 	mbox.readBuf = append(mbox.readBuf, msg)
 
