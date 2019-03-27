@@ -137,7 +137,11 @@ public class GoStatementFormattingVisitor extends GoStatementVisitor<Void, IOExc
 		out.newLine();
 		for (GoSwitchCase switchCase : goSwitch.getCases()) {
 			out.write("case ");
-			switchCase.getCondition().accept(new GoExpressionFormattingVisitor(out));
+			if (switchCase.isTypeCase()) {
+				switchCase.getType().accept(new GoTypeFormattingVisitor(out));
+			} else {
+				switchCase.getCondition().accept(new GoExpressionFormattingVisitor(out));
+			}
 			out.write(":");
 			out.newLine();
 			for (GoStatement statement : switchCase.getBlock()) {

@@ -71,7 +71,11 @@ public class GoStatementRemoveUnusedLabelsVisitor extends GoStatementVisitor<GoS
 	public GoStatement visit(GoSwitch goSwitch) throws RuntimeException {
 		List<GoSwitchCase> cases = new ArrayList<>();
 		for(GoSwitchCase c : goSwitch.getCases()) {
-			cases.add(new GoSwitchCase(c.getCondition(), filterBlock(c.getBlock())));
+			if (c.isTypeCase()) {
+				cases.add(new GoSwitchCase(c.getType(), filterBlock(c.getBlock())));
+			} else {
+				cases.add(new GoSwitchCase(c.getCondition(), filterBlock(c.getBlock())));
+			}
 		}
 		List<GoStatement> defaultBlock = null;
 		if(goSwitch.getDefaultBlock() != null) {

@@ -116,6 +116,53 @@ public class ModularPlusCalGoCodeGenPass {
         }
     }
 
+    // Creates the following function, used to check whether the error
+    // returned by an archetype resource implementation should cause the
+    // running action to abort, or the entire process should terminate.
+
+    // func shouldRetry(err error) bool {
+    // 	switch err.(type) {
+    // 	case *distsys.AbortRetryError:
+    // 		return true
+    // 	case *distsys.ResourceInternalError:
+    // 		return false
+    // 	default:
+    //      // Archetype resource should return errors of the previous two types only
+    // 		panic(fmt.Sprintf("Invalid error returned by Archetype Resource: %v", err))
+    // 	}
+    // }
+    private static void defineShouldRetry(GoModuleBuilder module) {
+        module.addImport("fmt");
+
+        GoFunctionDeclarationBuilder builder = module.defineFunction("shouldRetry");
+        GoVariableName err = builder.addParameter("err", GoBuiltins.Error);
+        builder.addReturn(GoBuiltins.Bool);
+
+        GoExpression sprintf = new GoCall(
+                new GoSelectorExpression(new GoVariableName("fmt"), "Sprintf"),
+                Arrays.asList(
+                        new GoStringLiteral("Invalid error returned by Archetype Resource: %v"),
+                        err
+                )
+        );
+        GoExpression panic = new GoCall(new GoVariableName("panic"), Collections.singletonList(sprintf));
+
+        GoType abortRetry = new GoPtrType(new GoTypeName("distsys.AbortRetryError"));
+        GoType internalError = new GoPtrType(new GoTypeName("distsys.ResourceInternalError"));
+
+        try (GoBlockBuilder fnBody = builder.getBlockBuilder()) {
+            fnBody.addStatement(GoSwitch.typeSwitch(
+                    err,
+                    Arrays.asList(
+                            new GoSwitchCase(abortRetry, Collections.singletonList(new GoReturn(Collections.singletonList(GoBuiltins.True)))),
+                            new GoSwitchCase(internalError, Collections.singletonList(new GoReturn(Collections.singletonList(GoBuiltins.False))))
+                    ),
+                    Collections.singletonList(new GoExpressionStatement(panic))
+                )
+            );
+        }
+    }
+
     public static GoModule perform(DefinitionRegistry registry, Map<UID, Type> typeMap, PGoOptions opts,
                                    ModularPlusCalBlock modularPlusCalBlock) {
         GoModuleBuilder module = new GoModuleBuilder(modularPlusCalBlock.getName().getValue(), opts.buildPackage);
@@ -123,6 +170,7 @@ public class ModularPlusCalGoCodeGenPass {
         GlobalVariableStrategy globalStrategy = new ArchetypeResourcesGlobalVariableStrategy(registry, typeMap, localStrategy, null);
 
         generateInit(modularPlusCalBlock, module, registry, typeMap, localStrategy, globalStrategy);
+        defineShouldRetry(module);
 
         for (ModularPlusCalArchetype archetype : modularPlusCalBlock.getArchetypes()) {
             globalStrategy = new ArchetypeResourcesGlobalVariableStrategy(registry, typeMap, localStrategy, archetype.getUID());

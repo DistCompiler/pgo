@@ -1,24 +1,43 @@
 package pgo.model.golang;
 
+import pgo.model.golang.type.GoType;
+
 import java.util.List;
 import java.util.Objects;
 
 public class GoSwitchCase extends GoNode {
 	private GoExpression condition;
+	private GoType type;
 	private List<GoStatement> block;
 	
 	public GoSwitchCase(GoExpression condition, List<GoStatement> block) {
 		super();
 		this.condition = condition;
 		this.block = block;
+		this.type = null;
+	}
+
+	public GoSwitchCase(GoType type, List<GoStatement> block) {
+		super();
+		this.type = type;
+		this.block = block;
+		this.condition = null;
 	}
 
 	public GoExpression getCondition() {
 		return condition;
 	}
 
+	public GoType getType() {
+	    return type;
+    }
+
 	public List<GoStatement> getBlock() {
 		return block;
+	}
+
+	public boolean isTypeCase() {
+		return type != null;
 	}
 	
 	@Override

@@ -1,19 +1,34 @@
 package pgo.model.golang;
 
+import pgo.InternalCompilerError;
+import pgo.model.golang.type.GoTypeName;
+
 import java.util.List;
 import java.util.Objects;
 
 public class GoSwitch extends GoStatement {
-    GoExpression switchExp;
-    List<GoSwitchCase> cases;
-    List<GoStatement> defaultBlock;
+    private GoExpression switchExp;
+	private List<GoSwitchCase> cases;
+	private List<GoStatement> defaultBlock;
 
-    public GoSwitch(GoExpression exp, List<GoSwitchCase> cases, List<GoStatement> defaultBlock) {
-        this.switchExp = exp;
-        this.cases = cases;
-        this.defaultBlock = defaultBlock;
-    }
-    
+	public static GoSwitch typeSwitch(GoExpression exp, List<GoSwitchCase> cases, List<GoStatement> defaultBlock) {
+		// sanity check: in a type switch, all cases should be types.
+		cases.forEach(c -> {
+			if (!c.isTypeCase()) {
+				throw new InternalCompilerError();
+			}
+		});
+
+		GoExpression switchExp = new GoTypeCast(new GoTypeName("type"), exp);
+		return new GoSwitch(switchExp, cases, defaultBlock);
+	}
+
+	public GoSwitch(GoExpression exp, List<GoSwitchCase> cases, List<GoStatement> defaultBlock) {
+		this.switchExp = exp;
+		this.cases = cases;
+		this.defaultBlock = defaultBlock;
+	}
+
     public GoExpression getCondition() {
     	return switchExp;
     }
