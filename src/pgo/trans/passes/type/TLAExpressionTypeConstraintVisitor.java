@@ -287,17 +287,17 @@ public class TLAExpressionTypeConstraintVisitor extends TLAExpressionVisitor<Typ
 		List<BasicConstraint> commonConstraints = contents.stream()
 				.map(t -> new EqualityConstraint(t, elementType))
 				.collect(Collectors.toList());
-		List<BasicConstraint> constraintsForChanType = new ArrayList<>(commonConstraints);
-		constraintsForChanType.add(new EqualityConstraint(
-				fresh,
-				new ChanType(elementType, Collections.singletonList(tlaTuple))));
+//		List<BasicConstraint> constraintsForChanType = new ArrayList<>(commonConstraints);
+//		constraintsForChanType.add(new EqualityConstraint(
+//				fresh,
+//				new ChanType(elementType, Collections.singletonList(tlaTuple))));
 		List<BasicConstraint> constraintsForSliceType = new ArrayList<>(commonConstraints);
 		constraintsForSliceType.add(new EqualityConstraint(
 				fresh,
 				new SliceType(elementType, Collections.singletonList(tlaTuple))));
 		solver.addConstraint(new PolymorphicConstraint(tlaTuple, Arrays.asList(
 				constraintsForSliceType,
-				constraintsForChanType,
+//				constraintsForChanType,
 				Collections.singletonList(new EqualityConstraint(
 						fresh,
 						new TupleType(contents, Collections.singletonList(tlaTuple)))))));
