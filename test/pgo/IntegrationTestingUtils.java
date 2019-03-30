@@ -12,6 +12,7 @@ import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 public class IntegrationTestingUtils {
@@ -310,7 +311,7 @@ public class IntegrationTestingUtils {
 		runAndPrint(pb, "build");
 
 		// run the resulting code according to runDefinitions
-		Map<String, List<String>> outputs = new HashMap<>();
+		Map<String, List<String>> outputs = new ConcurrentHashMap<>();
 		List<Thread> runs = new ArrayList<>();
 		runDefinitions.forEach(def ->
 			runs.add(new Thread(() -> {
