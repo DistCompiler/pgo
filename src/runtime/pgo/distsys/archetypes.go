@@ -516,9 +516,9 @@ func (_ *Mailbox) Acquire(_ ResourceAccess) error {
 	return nil
 }
 
-// Read blocks until there is at least one message in the message
-// queue, and returns it. It is enforced that processes can only read
-// messages from their own mailboxes.
+// Read attempts to read a message; in cases there are none, it
+// returns an AbortRetryError. It is enforced that processes can only
+// read messages from their own mailboxes.
 func (mbox *Mailbox) Read() (interface{}, error) {
 	if mbox.name != mbox.selfName {
 		panic(fmt.Sprintf("Tried to read non-local mailbox %s (attempted by %s)", mbox.name, mbox.selfName))
@@ -541,15 +541,13 @@ func (mbox *Mailbox) Read() (interface{}, error) {
 
 	// if we are not reading from a previous transaction, wait for
 	// incoming messages on the mailbox
-	// var msg interface{}
-	// var ok bool
-	// if msg, ok := mbox.tryRead(); !ok {
-	// 	return nil, &AbortRetryError{"No messages in the buffer"}
-	// }
+	var msg interface{}
+	var ok bool
+	if msg, ok = mbox.tryRead(); !ok {
+		return nil, &AbortRetryError{"No messages in the buffer"}
+	}
 
-	msg := <-mbox.readChan
 	mbox.readBuf = append(mbox.readBuf, msg)
-
 	return msg, nil
 }
 

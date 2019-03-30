@@ -113,6 +113,22 @@ public class ModularPlusCalGoCodeGenPass {
 
                 initBuilder.addStatement(register);
             }
+
+            // sets rand seed for unique random numbers on every execution
+            GoExpression timeNow = new GoCall(
+                    new GoSelectorExpression(new GoVariableName("time"), "Now"),
+                    Collections.emptyList()
+            );
+            GoExpression unixNano = new GoCall(
+                    new GoSelectorExpression(timeNow, "UnixNano"),
+                    Collections.emptyList()
+            );
+            GoExpression randSeed = new GoCall(
+                    new GoSelectorExpression(new GoVariableName("rand"), "Seed"),
+                    Collections.singletonList(unixNano)
+            );
+
+            initBuilder.addStatement(randSeed);
         }
     }
 
@@ -163,6 +179,46 @@ public class ModularPlusCalGoCodeGenPass {
         }
     }
 
+    // creates the following function, to be called whenever an archetype resource returns
+    // AbortRetry error, causing the action to be aborted and restarted. Sleeps a random
+    // amount of time in the 100-300ms range
+    //
+    // func randomSleep() {
+    //     // change these values for different defaults
+    //     sleepMin := 100
+    //     sleepMax := 300
+    //
+    //     t := rand.Intn(sleepMax - sleepMin) + sleepMin
+    //     time.Sleep(time.Duration(t) * time.Millisecond)
+    // }
+    private static void defineRandomSleep(GoModuleBuilder module) {
+        module.addImport("time");
+        module.addImport("math/rand");
+
+        try (GoBlockBuilder fnBody = module.defineFunction("randomSleep").getBlockBuilder()) {
+            GoVariableName sleepMin = fnBody.varDecl("sleepMin", new GoIntLiteral(100));
+            GoVariableName sleepMax = fnBody.varDecl("sleepMax", new GoIntLiteral(300));
+
+            GoExpression rand = new GoCall(
+                    new GoSelectorExpression(new GoVariableName("rand"), "Intn"),
+                    Collections.singletonList(new GoBinop(GoBinop.Operation.MINUS, sleepMax, sleepMin))
+            );
+
+            GoVariableName t = fnBody.varDecl("t", new GoBinop(GoBinop.Operation.PLUS, rand, sleepMin));
+            GoExpression tDuration = new GoCall(
+                    new GoSelectorExpression(new GoVariableName("time"), "Duration"),
+                    Collections.singletonList(t)
+            );
+            GoExpression millisecond = new GoSelectorExpression(new GoVariableName("time"), "Millisecond");
+            GoExpression sleep = new GoCall(
+                    new GoSelectorExpression(new GoVariableName("time"), "Sleep"),
+                    Collections.singletonList(new GoBinop(GoBinop.Operation.TIMES, tDuration, millisecond))
+            );
+
+            fnBody.addStatement(sleep);
+        }
+    }
+
     public static GoModule perform(DefinitionRegistry registry, Map<UID, Type> typeMap, PGoOptions opts,
                                    ModularPlusCalBlock modularPlusCalBlock) {
         GoModuleBuilder module = new GoModuleBuilder(modularPlusCalBlock.getName().getValue(), opts.buildPackage);
@@ -171,6 +227,7 @@ public class ModularPlusCalGoCodeGenPass {
 
         generateInit(modularPlusCalBlock, module, registry, typeMap, localStrategy, globalStrategy);
         defineShouldRetry(module);
+        defineRandomSleep(module);
 
         for (ModularPlusCalArchetype archetype : modularPlusCalBlock.getArchetypes()) {
             globalStrategy = new ArchetypeResourcesGlobalVariableStrategy(registry, typeMap, localStrategy, archetype.getUID());
