@@ -48,6 +48,9 @@ const (
 
 	LOCK_NUM_RETRIES = 5
 	LOCK_WAIT        = 300 // ms
+
+	RPC_SUCCESS = iota
+	MAILBOX_IS_FULL_ERROR
 )
 
 // priorities associated with each archetype resource implementation.
@@ -250,11 +253,20 @@ func AcquireResources(access ResourceAccess, resources ...ArchetypeResource) err
 // implementation of `Less`.
 func ReleaseResources(resources ...ArchetypeResource) error {
 	sort.Sort(SortableArchetypeResource(resources))
+	numAcquired := 0
 
 	for _, r := range resources {
-		if err := r.Release(); err != nil {
-			return err
+		err := r.Release()
+
+		// if there is an error releasing one of the resources, abort all
+		// subsequent resources and return the error
+		if err != nil {
+			for i := numAcquired; i < len(resources); i++ {
+				resources[i].Abort()
+			}
 		}
+
+		numAcquired++
 	}
 
 	return nil
@@ -392,11 +404,23 @@ type Receiver struct {
 }
 
 // Receive receives data from the other end of the channel.
-func (r *Receiver) Receive(val *interface{}, ok *bool) error {
-	r.ch <- *val
-	*ok = true
+func (r *Receiver) Receive(val *interface{}, result *int) error {
+	select {
+	case r.ch <- *val:
+		*result = RPC_SUCCESS
+	default:
+		*result = MAILBOX_IS_FULL_ERROR
+	}
 
 	return nil
+}
+
+func mailboxErrorDescription(e int) string {
+	if e == MAILBOX_IS_FULL_ERROR {
+		return "Destination mailbox is full"
+	} else {
+		return fmt.Sprintf("Unknown mailbox error code: %d", e)
+	}
 }
 
 // Mailbox is an implementation of `ArchetypeResource` that provides
@@ -425,15 +449,19 @@ func (mbox *Mailbox) service() string {
 	return "Mailbox_" + mbox.name
 }
 
-func (mbox *Mailbox) callAsync(function string, args interface{}, ok *bool) *rpc.Call {
+func (mbox *Mailbox) callAsync(function string, args interface{}, ok *int) *rpc.Call {
 	fName := mbox.service() + "." + function
 	addr := mbox.configuration[mbox.name]
 	return mbox.conns.GetConnection(addr).Go(fName, &args, ok, nil)
 }
 
 func (mbox *Mailbox) sendMessage(msg interface{}) error {
-	var ok bool
-	call := mbox.callAsync("Receive", msg, &ok)
+	var result int
+	call := mbox.callAsync("Receive", msg, &result)
+
+	if result != RPC_SUCCESS {
+		return fmt.Errorf("Mailbox communication error: %s", mailboxErrorDescription(result))
+	}
 
 	// a timeout of 0 indicates that the system TCP timeout should be
 	// used
