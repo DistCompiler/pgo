@@ -266,12 +266,6 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
             GoExpression check = new GoCall(new GoVariableName("shouldRetry"), Collections.singletonList(err));
             try (GoIfBuilder ifBuilder = b.ifStmt(check)) {
                 try (GoBlockBuilder yes = ifBuilder.whenTrue()) {
-                    GoExpression sleep = new GoCall(
-                            new GoVariableName("randomSleep"),
-                            Collections.emptyList()
-                    );
-                    yes.addStatement(sleep);
-
                     // log whenever an action is aborted
                     // GoExpression log = new GoCall(
                     //         new GoSelectorExpression(new GoVariableName("fmt"), "Println"),

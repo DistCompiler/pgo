@@ -141,14 +141,19 @@ public class ModularPlusCalGoCodeGenPass {
     // 	case *distsys.AbortRetryError:
     // 		return true
     // 	case *distsys.ResourceInternalError:
+    //     t := rand.Intn(sleepMax - sleepMin) + sleepMin
+    //     time.Sleep(time.Duration(t) * time.Millisecond)
+    //
     // 		return false
     // 	default:
     //      // Archetype resource should return errors of the previous two types only
     // 		panic(fmt.Sprintf("Invalid error returned by Archetype Resource: %v", err))
     // 	}
     // }
-    private static void defineShouldRetry(GoModuleBuilder module) {
+    private static void defineShouldRetry(GoModuleBuilder module, GoVariableName sleepMin, GoVariableName sleepMax) {
         module.addImport("fmt");
+        module.addImport("time");
+        module.addImport("math/rand");
 
         GoFunctionDeclarationBuilder builder = module.defineFunction("shouldRetry");
         GoVariableName err = builder.addParameter("err", GoBuiltins.Error);
@@ -167,55 +172,35 @@ public class ModularPlusCalGoCodeGenPass {
         GoType internalError = new GoPtrType(new GoTypeName("distsys.ResourceInternalError"));
 
         try (GoBlockBuilder fnBody = builder.getBlockBuilder()) {
-            fnBody.addStatement(GoSwitch.typeSwitch(
-                    err,
-                    Arrays.asList(
-                            new GoSwitchCase(abortRetry, Collections.singletonList(new GoReturn(Collections.singletonList(GoBuiltins.True)))),
-                            new GoSwitchCase(internalError, Collections.singletonList(new GoReturn(Collections.singletonList(GoBuiltins.False))))
-                    ),
-                    Collections.singletonList(new GoExpressionStatement(panic))
-                )
-            );
-        }
-    }
-
-    // creates the following function, to be called whenever an archetype resource returns
-    // AbortRetry error, causing the action to be aborted and restarted. Sleeps a random
-    // amount of time in the 100-300ms range
-    //
-    // func randomSleep() {
-    //     // change these values for different defaults
-    //     sleepMin := 100
-    //     sleepMax := 300
-    //
-    //     t := rand.Intn(sleepMax - sleepMin) + sleepMin
-    //     time.Sleep(time.Duration(t) * time.Millisecond)
-    // }
-    private static void defineRandomSleep(GoModuleBuilder module) {
-        module.addImport("time");
-        module.addImport("math/rand");
-
-        try (GoBlockBuilder fnBody = module.defineFunction("randomSleep").getBlockBuilder()) {
-            GoVariableName sleepMin = fnBody.varDecl("sleepMin", new GoIntLiteral(100));
-            GoVariableName sleepMax = fnBody.varDecl("sleepMax", new GoIntLiteral(300));
-
             GoExpression rand = new GoCall(
                     new GoSelectorExpression(new GoVariableName("rand"), "Intn"),
                     Collections.singletonList(new GoBinop(GoBinop.Operation.MINUS, sleepMax, sleepMin))
             );
-
             GoVariableName t = fnBody.varDecl("t", new GoBinop(GoBinop.Operation.PLUS, rand, sleepMin));
             GoExpression tDuration = new GoCall(
                     new GoSelectorExpression(new GoVariableName("time"), "Duration"),
                     Collections.singletonList(t)
             );
             GoExpression millisecond = new GoSelectorExpression(new GoVariableName("time"), "Millisecond");
-            GoExpression sleep = new GoCall(
+            GoStatement sleep = new GoExpressionStatement(new GoCall(
                     new GoSelectorExpression(new GoVariableName("time"), "Sleep"),
                     Collections.singletonList(new GoBinop(GoBinop.Operation.TIMES, tDuration, millisecond))
+            ));
+
+            List<GoStatement> sleepAndReturn = Arrays.asList(
+                    sleep,
+                    new GoReturn(Collections.singletonList(GoBuiltins.False))
             );
 
-            fnBody.addStatement(sleep);
+            fnBody.addStatement(GoSwitch.typeSwitch(
+                    err,
+                    Arrays.asList(
+                            new GoSwitchCase(abortRetry, Collections.singletonList(new GoReturn(Collections.singletonList(GoBuiltins.True)))),
+                            new GoSwitchCase(internalError, sleepAndReturn)
+                    ),
+                    Collections.singletonList(new GoExpressionStatement(panic))
+                    )
+            );
         }
     }
 
@@ -225,9 +210,11 @@ public class ModularPlusCalGoCodeGenPass {
         SnapshottingLocalVariableStrategy localStrategy = new SnapshottingLocalVariableStrategy(registry, typeMap);
         GlobalVariableStrategy globalStrategy = new ArchetypeResourcesGlobalVariableStrategy(registry, typeMap, localStrategy, null);
 
+        GoVariableName sleepMin = module.defineGlobal(new UID(), "sleepMin", new GoIntLiteral(100));
+        GoVariableName sleepMax = module.defineGlobal(new UID(), "sleepMax", new GoIntLiteral(300));
+
         generateInit(modularPlusCalBlock, module, registry, typeMap, localStrategy, globalStrategy);
-        defineShouldRetry(module);
-        defineRandomSleep(module);
+        defineShouldRetry(module, sleepMin, sleepMax);
 
         for (ModularPlusCalArchetype archetype : modularPlusCalBlock.getArchetypes()) {
             globalStrategy = new ArchetypeResourcesGlobalVariableStrategy(registry, typeMap, localStrategy, archetype.getUID());
