@@ -49,7 +49,7 @@ CONSTANTS BUFFER_SIZE, NUM_CONSUMERS, PRODUCER
 
           (* processes the piece of data the producer sends back over the network
              by writing to a "processor" abstract interface *)
-          c2: proc := net[PRODUCER];
+          c2: proc := net[self];
       }
   }
 
@@ -64,7 +64,7 @@ CONSTANTS BUFFER_SIZE, NUM_CONSUMERS, PRODUCER
       }
   }
 
-  variables network = [id \in 0..NUM_NODES |-> <<>>],
+  variables network = [id \in 0..NUM_NODES-1 |-> <<>>],
             processor = 0,
             stream = 0;
 
@@ -77,7 +77,7 @@ CONSTANTS BUFFER_SIZE, NUM_CONSUMERS, PRODUCER
 
 \* BEGIN PLUSCAL TRANSLATION
 --algorithm dqueue {
-    variables network = [id \in (0) .. (NUM_NODES) |-> <<>>], processor = 0, stream = 0, netWrite, netRead, procWrite, netWrite0, procWrite0, netRead0, netWrite1, sRead, sWrite, netWrite2, sWrite0;
+    variables network = [id \in (0) .. ((NUM_NODES) - (1)) |-> <<>>], processor = 0, stream = 0, netWrite, netRead, procWrite, netWrite0, procWrite0, netRead0, netWrite1, sRead, sWrite, netWrite2, sWrite0;
     define {
         NUM_NODES == (NUM_CONSUMERS) + (1)
     }
@@ -91,9 +91,9 @@ CONSTANTS BUFFER_SIZE, NUM_CONSUMERS, PRODUCER
                     network := netWrite;
 
                 c2:
-                    await (Len(network[PRODUCER])) > (0);
-                    with (msg0 = Head(network[PRODUCER])) {
-                        netWrite := [network EXCEPT ![PRODUCER] = Tail(network[PRODUCER])];
+                    await (Len(network[self])) > (0);
+                    with (msg0 = Head(network[self])) {
+                        netWrite := [network EXCEPT ![self] = Tail(network[self])];
                         netRead := msg0;
                     };
                     procWrite := netRead;
@@ -165,7 +165,7 @@ vars == << network, processor, stream, netWrite, netRead, procWrite,
 ProcSet == ((1) .. (NUM_CONSUMERS)) \cup ({PRODUCER})
 
 Init == (* Global variables *)
-        /\ network = [id \in (0) .. (NUM_NODES) |-> <<>>]
+        /\ network = [id \in (0) .. ((NUM_NODES) - (1)) |-> <<>>]
         /\ processor = 0
         /\ stream = 0
         /\ netWrite = defaultInitValue
@@ -208,9 +208,9 @@ c1(self) == /\ pc[self] = "c1"
                             netWrite2, sWrite0, requester >>
 
 c2(self) == /\ pc[self] = "c2"
-            /\ (Len(network[PRODUCER])) > (0)
-            /\ LET msg0 == Head(network[PRODUCER]) IN
-                 /\ netWrite' = [network EXCEPT ![PRODUCER] = Tail(network[PRODUCER])]
+            /\ (Len(network[self])) > (0)
+            /\ LET msg0 == Head(network[self]) IN
+                 /\ netWrite' = [network EXCEPT ![self] = Tail(network[self])]
                  /\ netRead' = msg0
             /\ procWrite' = netRead'
             /\ network' = netWrite'
@@ -274,7 +274,7 @@ Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 \* END TRANSLATION
 =============================================================================
 \* Modification History
-\* Last modified Sun Mar 31 21:59:33 PDT 2019 by minh
+\* Last modified Mon Apr 01 02:11:17 PDT 2019 by minh
 \* Last modified Tue Jan 22 18:38:13 PST 2019 by rmc
 \* Last modified Wed Oct 12 02:41:48 PDT 2011 by lamport
 \* Created Mon Oct 10 06:26:47 PDT 2011 by lamport
