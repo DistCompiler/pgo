@@ -134,13 +134,13 @@ public class PlusCalCodeGenPass {
 						local = readTemporaryBinding.freshVariable(value.getLocation(), paramUID, nameHint);
 						localVariables.add(new PlusCalVariableDeclaration(
 								value.getLocation(),
-								new Located<>(value.getLocation(), nameHint),
+								new Located<>(value.getLocation(), local.getName().getId()),
 								false,
 								false,
 								new PlusCalDefaultInitValue(value.getLocation())));
 						TLAGeneralIdentifier lhs = new TLAGeneralIdentifier(
 								param.getLocation(),
-								new TLAIdentifier(param.getLocation(), nameHint),
+								new TLAIdentifier(param.getLocation(), local.getName().getId()),
 								Collections.emptyList());
 						initStatements.add(new PlusCalAssignment(
 								value.getLocation(),
@@ -148,7 +148,7 @@ public class PlusCalCodeGenPass {
 					} else {
 						local = readTemporaryBinding.freshVariable(value.getLocation(), paramUID, nameHint);
 						localVariables.add(new PlusCalVariableDeclaration(
-								value.getLocation(), new Located<>(value.getLocation(), nameHint),
+								value.getLocation(), new Located<>(value.getLocation(), local.getName().getId()),
 								false, false, value));
 					}
 					arguments.put(paramUID, local);
