@@ -242,27 +242,28 @@ CONSTANT WEB_PAGE
 
 \* BEGIN PLUSCAL TRANSLATION
 --algorithm LoadBalancer {
-    variables network = [id \in (0)..((NUM_NODES)-(1)) |-> <<>>], in = 0, out = 0, fs = [f \in {in} |-> WEB_PAGE], mailboxesRead, mailboxesWrite, mailboxesWrite0, mailboxesRead0, mailboxesWrite1, file_systemRead, mailboxesWrite2, instreamRead, mailboxesWrite3, mailboxesRead1, outstreamWrite, mailboxesWrite4, outstreamWrite0;
+    variables network = [id \in (0) .. ((NUM_NODES) - (1)) |-> <<>>], in = 0, out = 0, fs = [f \in {in} |-> WEB_PAGE], mailboxesRead, mailboxesWrite, mailboxesWrite0, mailboxesRead0, mailboxesWrite1, file_systemRead, mailboxesWrite2, instreamRead, mailboxesWrite3, mailboxesRead1, outstreamWrite, mailboxesWrite4, outstreamWrite0;
     define {
-        NUM_NODES == ((NUM_CLIENTS)+(NUM_SERVERS))+(1)}
+        NUM_NODES == ((NUM_CLIENTS) + (NUM_SERVERS)) + (1)
+    }
     fair process (LoadBalancer = LoadBalancerId)
     variables msg, next = 0;
     {
         main:
             if (TRUE) {
                 rcvMsg:
-                    await (Len(network[LoadBalancerId]))>(0);
+                    await (Len(network[LoadBalancerId])) > (0);
                     with (msg0 = Head(network[LoadBalancerId])) {
                         mailboxesWrite := [network EXCEPT ![LoadBalancerId] = Tail(network[LoadBalancerId])];
                         mailboxesRead := msg0;
                     };
                     msg := mailboxesRead;
-                    assert ((msg).message_type)=(GET_PAGE);
+                    assert ((msg).message_type) = (GET_PAGE);
                     network := mailboxesWrite;
 
                 sendServer:
-                    next := ((next)%(NUM_SERVERS))+(1);
-                    await (Len(network[next]))<(BUFFER_SIZE);
+                    next := ((next) % (NUM_SERVERS)) + (1);
+                    await (Len(network[next])) < (BUFFER_SIZE);
                     mailboxesWrite := [network EXCEPT ![next] = Append(network[next], [message_id |-> next, client_id |-> (msg).client_id, path |-> (msg).path])];
                     network := mailboxesWrite;
                     goto main;
@@ -273,13 +274,13 @@ CONSTANT WEB_PAGE
             };
 
     }
-    fair process (Servers \in (1)..(NUM_SERVERS))
+    fair process (Servers \in (1) .. (NUM_SERVERS))
     variables msg;
     {
         serverLoop:
             if (TRUE) {
                 rcvReq:
-                    await (Len(network[self]))>(0);
+                    await (Len(network[self])) > (0);
                     with (msg1 = Head(network[self])) {
                         mailboxesWrite1 := [network EXCEPT ![self] = Tail(network[self])];
                         mailboxesRead0 := msg1;
@@ -289,7 +290,7 @@ CONSTANT WEB_PAGE
 
                 sendPage:
                     file_systemRead := WEB_PAGE;
-                    await (Len(network[(msg).client_id]))<(BUFFER_SIZE);
+                    await (Len(network[(msg).client_id])) < (BUFFER_SIZE);
                     mailboxesWrite1 := [network EXCEPT ![(msg).client_id] = Append(network[(msg).client_id], file_systemRead)];
                     network := mailboxesWrite1;
                     goto serverLoop;
@@ -300,7 +301,7 @@ CONSTANT WEB_PAGE
             };
 
     }
-    fair process (Client \in ((NUM_SERVERS)+(1))..((NUM_SERVERS)+(NUM_CLIENTS)))
+    fair process (Client \in ((NUM_SERVERS) + (1)) .. ((NUM_SERVERS) + (NUM_CLIENTS)))
     variables req, resp;
     {
         clientLoop:
@@ -308,12 +309,12 @@ CONSTANT WEB_PAGE
                 clientRequest:
                     instreamRead := in;
                     req := [message_type |-> GET_PAGE, client_id |-> self, path |-> instreamRead];
-                    await (Len(network[LoadBalancerId]))<(BUFFER_SIZE);
+                    await (Len(network[LoadBalancerId])) < (BUFFER_SIZE);
                     mailboxesWrite3 := [network EXCEPT ![LoadBalancerId] = Append(network[LoadBalancerId], req)];
                     network := mailboxesWrite3;
 
                 clientReceive:
-                    await (Len(network[self]))>(0);
+                    await (Len(network[self])) > (0);
                     with (msg2 = Head(network[self])) {
                         mailboxesWrite3 := [network EXCEPT ![self] = Tail(network[self])];
                         mailboxesRead1 := msg2;
@@ -339,7 +340,7 @@ CONSTANT WEB_PAGE
 
 ***************************************************************************)
 \* BEGIN TRANSLATION
-\* Process variable msg of process LoadBalancer at line 249 col 15 changed to msg_
+\* Process variable msg of process LoadBalancer at line 250 col 15 changed to msg_
 CONSTANT defaultInitValue
 VARIABLES network, in, out, fs, mailboxesRead, mailboxesWrite,
           mailboxesWrite0, mailboxesRead0, mailboxesWrite1, file_systemRead,
@@ -347,7 +348,7 @@ VARIABLES network, in, out, fs, mailboxesRead, mailboxesWrite,
           outstreamWrite, mailboxesWrite4, outstreamWrite0, pc
 
 (* define statement *)
-NUM_NODES == ((NUM_CLIENTS)+(NUM_SERVERS))+(1)
+NUM_NODES == ((NUM_CLIENTS) + (NUM_SERVERS)) + (1)
 
 VARIABLES msg_, next, msg, req, resp
 
@@ -357,10 +358,10 @@ vars == << network, in, out, fs, mailboxesRead, mailboxesWrite,
            outstreamWrite, mailboxesWrite4, outstreamWrite0, pc, msg_, next,
            msg, req, resp >>
 
-ProcSet == {LoadBalancerId} \cup ((1)..(NUM_SERVERS)) \cup (((NUM_SERVERS)+(1))..((NUM_SERVERS)+(NUM_CLIENTS)))
+ProcSet == {LoadBalancerId} \cup ((1) .. (NUM_SERVERS)) \cup (((NUM_SERVERS) + (1)) .. ((NUM_SERVERS) + (NUM_CLIENTS)))
 
 Init == (* Global variables *)
-        /\ network = [id \in (0)..((NUM_NODES)-(1)) |-> <<>>]
+        /\ network = [id \in (0) .. ((NUM_NODES) - (1)) |-> <<>>]
         /\ in = 0
         /\ out = 0
         /\ fs = [f \in {in} |-> WEB_PAGE]
@@ -381,13 +382,13 @@ Init == (* Global variables *)
         /\ msg_ = defaultInitValue
         /\ next = 0
         (* Process Servers *)
-        /\ msg = [self \in (1)..(NUM_SERVERS) |-> defaultInitValue]
+        /\ msg = [self \in (1) .. (NUM_SERVERS) |-> defaultInitValue]
         (* Process Client *)
-        /\ req = [self \in ((NUM_SERVERS)+(1))..((NUM_SERVERS)+(NUM_CLIENTS)) |-> defaultInitValue]
-        /\ resp = [self \in ((NUM_SERVERS)+(1))..((NUM_SERVERS)+(NUM_CLIENTS)) |-> defaultInitValue]
+        /\ req = [self \in ((NUM_SERVERS) + (1)) .. ((NUM_SERVERS) + (NUM_CLIENTS)) |-> defaultInitValue]
+        /\ resp = [self \in ((NUM_SERVERS) + (1)) .. ((NUM_SERVERS) + (NUM_CLIENTS)) |-> defaultInitValue]
         /\ pc = [self \in ProcSet |-> CASE self = LoadBalancerId -> "main"
-                                        [] self \in (1)..(NUM_SERVERS) -> "serverLoop"
-                                        [] self \in ((NUM_SERVERS)+(1))..((NUM_SERVERS)+(NUM_CLIENTS)) -> "clientLoop"]
+                                        [] self \in (1) .. (NUM_SERVERS) -> "serverLoop"
+                                        [] self \in ((NUM_SERVERS) + (1)) .. ((NUM_SERVERS) + (NUM_CLIENTS)) -> "clientLoop"]
 
 main == /\ pc[LoadBalancerId] = "main"
         /\ IF TRUE
@@ -403,13 +404,13 @@ main == /\ pc[LoadBalancerId] = "main"
                         outstreamWrite0, msg_, next, msg, req, resp >>
 
 rcvMsg == /\ pc[LoadBalancerId] = "rcvMsg"
-          /\ (Len(network[LoadBalancerId]))>(0)
+          /\ (Len(network[LoadBalancerId])) > (0)
           /\ LET msg0 == Head(network[LoadBalancerId]) IN
                /\ mailboxesWrite' = [network EXCEPT ![LoadBalancerId] = Tail(network[LoadBalancerId])]
                /\ mailboxesRead' = msg0
           /\ msg_' = mailboxesRead'
-          /\ Assert(((msg_').message_type)=(GET_PAGE),
-                    "Failure of assertion at line 260, column 21.")
+          /\ Assert(((msg_').message_type) = (GET_PAGE),
+                    "Failure of assertion at line 261, column 21.")
           /\ network' = mailboxesWrite'
           /\ pc' = [pc EXCEPT ![LoadBalancerId] = "sendServer"]
           /\ UNCHANGED << in, out, fs, mailboxesWrite0, mailboxesRead0,
@@ -419,8 +420,8 @@ rcvMsg == /\ pc[LoadBalancerId] = "rcvMsg"
                           next, msg, req, resp >>
 
 sendServer == /\ pc[LoadBalancerId] = "sendServer"
-              /\ next' = ((next)%(NUM_SERVERS))+(1)
-              /\ (Len(network[next']))<(BUFFER_SIZE)
+              /\ next' = ((next) % (NUM_SERVERS)) + (1)
+              /\ (Len(network[next'])) < (BUFFER_SIZE)
               /\ mailboxesWrite' = [network EXCEPT ![next'] = Append(network[next'], [message_id |-> next', client_id |-> (msg_).client_id, path |-> (msg_).path])]
               /\ network' = mailboxesWrite'
               /\ pc' = [pc EXCEPT ![LoadBalancerId] = "main"]
@@ -448,7 +449,7 @@ serverLoop(self) == /\ pc[self] = "serverLoop"
                                     next, msg, req, resp >>
 
 rcvReq(self) == /\ pc[self] = "rcvReq"
-                /\ (Len(network[self]))>(0)
+                /\ (Len(network[self])) > (0)
                 /\ LET msg1 == Head(network[self]) IN
                      /\ mailboxesWrite1' = [network EXCEPT ![self] = Tail(network[self])]
                      /\ mailboxesRead0' = msg1
@@ -464,7 +465,7 @@ rcvReq(self) == /\ pc[self] = "rcvReq"
 
 sendPage(self) == /\ pc[self] = "sendPage"
                   /\ file_systemRead' = WEB_PAGE
-                  /\ (Len(network[(msg[self]).client_id]))<(BUFFER_SIZE)
+                  /\ (Len(network[(msg[self]).client_id])) < (BUFFER_SIZE)
                   /\ mailboxesWrite1' = [network EXCEPT ![(msg[self]).client_id] = Append(network[(msg[self]).client_id], file_systemRead')]
                   /\ network' = mailboxesWrite1'
                   /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
@@ -497,7 +498,7 @@ clientLoop(self) == /\ pc[self] = "clientLoop"
 clientRequest(self) == /\ pc[self] = "clientRequest"
                        /\ instreamRead' = in
                        /\ req' = [req EXCEPT ![self] = [message_type |-> GET_PAGE, client_id |-> self, path |-> instreamRead']]
-                       /\ (Len(network[LoadBalancerId]))<(BUFFER_SIZE)
+                       /\ (Len(network[LoadBalancerId])) < (BUFFER_SIZE)
                        /\ mailboxesWrite3' = [network EXCEPT ![LoadBalancerId] = Append(network[LoadBalancerId], req'[self])]
                        /\ network' = mailboxesWrite3'
                        /\ pc' = [pc EXCEPT ![self] = "clientReceive"]
@@ -510,7 +511,7 @@ clientRequest(self) == /\ pc[self] = "clientRequest"
                                        next, msg, resp >>
 
 clientReceive(self) == /\ pc[self] = "clientReceive"
-                       /\ (Len(network[self]))>(0)
+                       /\ (Len(network[self])) > (0)
                        /\ LET msg2 == Head(network[self]) IN
                             /\ mailboxesWrite3' = [network EXCEPT ![self] = Tail(network[self])]
                             /\ mailboxesRead1' = msg2
@@ -530,15 +531,15 @@ Client(self) == clientLoop(self) \/ clientRequest(self)
                    \/ clientReceive(self)
 
 Next == LoadBalancer
-           \/ (\E self \in (1)..(NUM_SERVERS): Servers(self))
-           \/ (\E self \in ((NUM_SERVERS)+(1))..((NUM_SERVERS)+(NUM_CLIENTS)): Client(self))
+           \/ (\E self \in (1) .. (NUM_SERVERS): Servers(self))
+           \/ (\E self \in ((NUM_SERVERS) + (1)) .. ((NUM_SERVERS) + (NUM_CLIENTS)): Client(self))
            \/ (* Disjunct to prevent deadlock on termination *)
               ((\A self \in ProcSet: pc[self] = "Done") /\ UNCHANGED vars)
 
 Spec == /\ Init /\ [][Next]_vars
         /\ WF_vars(LoadBalancer)
-        /\ \A self \in (1)..(NUM_SERVERS) : WF_vars(Servers(self))
-        /\ \A self \in ((NUM_SERVERS)+(1))..((NUM_SERVERS)+(NUM_CLIENTS)) : WF_vars(Client(self))
+        /\ \A self \in (1) .. (NUM_SERVERS) : WF_vars(Servers(self))
+        /\ \A self \in ((NUM_SERVERS) + (1)) .. ((NUM_SERVERS) + (NUM_CLIENTS)) : WF_vars(Client(self))
 
 Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 
@@ -569,5 +570,5 @@ ClientsOk == \A client \in (NUM_SERVERS+1)..(NUM_SERVERS+NUM_CLIENTS) : Receives
 
 =============================================================================
 \* Modification History
-\* Last modified Tue Mar 19 16:25:19 PDT 2019 by minh
+\* Last modified Sun Mar 31 21:53:44 PDT 2019 by minh
 \* Last modified Wed Feb 27 14:42:14 PST 2019 by rmc
