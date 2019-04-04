@@ -46,8 +46,8 @@ const (
 	READ_ACCESS = iota + 1
 	WRITE_ACCESS
 
-	LOCK_NUM_RETRIES = 5
-	LOCK_WAIT        = 300 // ms
+	LOCK_NUM_RETRIES = 150
+	LOCK_WAIT        = 10 // ms
 
 	RPC_SUCCESS = iota
 	MAILBOX_IS_FULL_ERROR
