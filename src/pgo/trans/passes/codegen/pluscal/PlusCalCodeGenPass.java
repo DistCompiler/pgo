@@ -5,6 +5,7 @@ import pgo.errors.IssueContext;
 import pgo.model.mpcal.*;
 import pgo.model.pcal.*;
 import pgo.model.tla.*;
+import pgo.parser.Located;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
 import pgo.trans.intermediate.UnsupportedFeatureIssue;
@@ -77,6 +78,7 @@ public class PlusCalCodeGenPass {
 		NameCleaner nameCleaner = new NameCleaner(nameCleanerSeed);
 
 		// expand the instances
+		List<PlusCalVariableDeclaration> globalVariables = new ArrayList<>(modularPlusCalBlock.getVariables());
 		List<PlusCalProcess> processList = new ArrayList<>();
 		for (ModularPlusCalInstance instance : modularPlusCalBlock.getInstances()) {
 			Map<UID, ModularPlusCalMapping> mappedVars = new HashMap<>();
@@ -91,7 +93,7 @@ public class PlusCalCodeGenPass {
 			Set<UID> functionMappedVars = new HashSet<>();
 			Set<UID> refs = new HashSet<>();
 			List<PlusCalVariableDeclaration> localVariables = new ArrayList<>();
-			TemporaryBinding readTemporaryBinding = new TemporaryBinding(nameCleaner, localVariables);
+			TemporaryBinding readTemporaryBinding = new TemporaryBinding(nameCleaner, globalVariables);
 			List<PlusCalVariableDeclaration> archetypeParams = archetype.getParams();
 			List<TLAExpression> instanceArguments = instance.getArguments();
 			// initialization statements for parameters bound to expressions
@@ -129,16 +131,25 @@ public class PlusCalCodeGenPass {
 					TLAGeneralIdentifier local;
 					if (value.accept(
 							new TLAExpressionParamsAccessCheckVisitor(registry, params, Collections.emptyMap()))) {
-						local = readTemporaryBinding.declare(value.getLocation(), paramUID, nameHint);
+						local = readTemporaryBinding.freshVariable(value.getLocation(), paramUID, nameHint);
+						localVariables.add(new PlusCalVariableDeclaration(
+								value.getLocation(),
+								new Located<>(value.getLocation(), local.getName().getId()),
+								false,
+								false,
+								new PlusCalDefaultInitValue(value.getLocation())));
 						TLAGeneralIdentifier lhs = new TLAGeneralIdentifier(
 								param.getLocation(),
-								new TLAIdentifier(param.getLocation(), nameHint),
+								new TLAIdentifier(param.getLocation(), local.getName().getId()),
 								Collections.emptyList());
 						initStatements.add(new PlusCalAssignment(
 								value.getLocation(),
 								Collections.singletonList(new PlusCalAssignmentPair(value.getLocation(),lhs, value))));
 					} else {
-						local = readTemporaryBinding.declare(value.getLocation(), paramUID, nameHint, value);
+						local = readTemporaryBinding.freshVariable(value.getLocation(), paramUID, nameHint);
+						localVariables.add(new PlusCalVariableDeclaration(
+								value.getLocation(), new Located<>(value.getLocation(), local.getName().getId()),
+								false, false, value));
 					}
 					arguments.put(paramUID, local);
 					readTemporaryBinding.reuse(paramUID);
@@ -149,7 +160,7 @@ public class PlusCalCodeGenPass {
 			ModularPlusCalCodeGenVisitor v = new ModularPlusCalCodeGenVisitor(
 					registry, params, arguments, mappings, expressionArguments, functionMappedVars,
 					readTemporaryBinding,
-					new TemporaryBinding(nameCleaner, localVariables),
+					new TemporaryBinding(nameCleaner, globalVariables),
 					new ProcedureExpander(
 							ctx, registry, nameCleaner, procedureCache, arguments, mappings, refs, functionMappedVars,
 							procedures));
@@ -176,7 +187,7 @@ public class PlusCalCodeGenPass {
 				modularPlusCalBlock.getLocation(),
 				PlusCalFairness.UNFAIR,
 				modularPlusCalBlock.getName(),
-				modularPlusCalBlock.getVariables(),
+				globalVariables,
 				Collections.emptyList(),
 				procedures,
 				modularPlusCalBlock.getUnits(),

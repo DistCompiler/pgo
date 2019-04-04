@@ -163,9 +163,9 @@ public class PlusCalCodeGenPassTest {
 						),
 
 						// --algorithm Algorithm2 {
-						//     variables x = 10, y = 20;
+						//     variables x = 10, y = 20, aRead, bRead;
 						//     process (P1 = 42)
-						//     variables aRead, bRead; {
+						//     {
 						//         l1: aRead := 0;
 						//             bRead := y;
 						//             print << (aRead), (bRead) >>;
@@ -175,7 +175,9 @@ public class PlusCalCodeGenPassTest {
 								"Algorithm2",
 								Arrays.asList(
 										pcalVarDecl("x", false, false, num(10)),
-										pcalVarDecl("y", false, false, num(20))
+										pcalVarDecl("y", false, false, num(20)),
+										pcalVarDecl("aRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+										pcalVarDecl("bRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
 								),
 								Collections.emptyList(),
 								Collections.emptyList(),
@@ -183,10 +185,7 @@ public class PlusCalCodeGenPassTest {
 								process(
 										pcalVarDecl("P1", false, false, num(42)),
 										PlusCalFairness.WEAK_FAIR,
-										Arrays.asList(
-												pcalVarDecl("aRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("bRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
-										),
+										Collections.emptyList(),
 										labeled(
 												label("l1"),
 												assign(idexp("aRead"), num(0)),
@@ -306,9 +305,9 @@ public class PlusCalCodeGenPassTest {
 						),
 
 						// --algorithm Algorithm3 {
-						//    variables x = 10, y = 20;
+						//    variables x = 10, y = 20, aRead, aWrite, bRead;
 						//    process (P1 = 100)
-						//    variables local, aRead, aWrite, bRead;
+						//    variables local;
 						//    {
 						//        l1:
 						//            aWrite := (x)-(1);
@@ -349,7 +348,10 @@ public class PlusCalCodeGenPassTest {
 								"Algorithm3",
 								Arrays.asList(
 										pcalVarDecl("x", false, false, num(10)),
-										pcalVarDecl("y", false, false, num(20))
+										pcalVarDecl("y", false, false, num(20)),
+										pcalVarDecl("aRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+										pcalVarDecl("aWrite", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+										pcalVarDecl("bRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
 								),
 								Collections.emptyList(),
 								Collections.emptyList(),
@@ -357,11 +359,8 @@ public class PlusCalCodeGenPassTest {
 								process(
 										pcalVarDecl("P1", false, false, num(100)),
 										PlusCalFairness.WEAK_FAIR,
-										Arrays.asList(
-												pcalVarDecl("local", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("aRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("aWrite", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("bRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
+										Collections.singletonList(
+												pcalVarDecl("local", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
 										),
 										labeled(
 												label("l1"),
@@ -519,9 +518,9 @@ public class PlusCalCodeGenPassTest {
 								)
 						),
 						// --algorithm Algorithm4 {
-						//     variables x = 10, y = 20;
+						//     variables x = 10, y = 20, aRead, aWrite, aWrite0, aWrite1, aRead0, bRead;
 						//     process (P1 = 42)
-						//     variables local, aRead, aWrite, aWrite0, aWrite1, aRead0, bRead;
+						//     variables local;
 						//     {
 						//         l1:
 						//             aWrite := (x)-(1);
@@ -559,7 +558,14 @@ public class PlusCalCodeGenPassTest {
 								"Algorithm4",
 								Arrays.asList(
 										pcalVarDecl("x", false, false, num(10)),
-										pcalVarDecl("y", false, false, num(20))
+										pcalVarDecl("y", false, false, num(20)),
+										pcalVarDecl("aRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+										pcalVarDecl("aWrite", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+										pcalVarDecl("aWrite0", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+										pcalVarDecl("aWrite1", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+										pcalVarDecl("aWrite2", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+										pcalVarDecl("aRead0", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+										pcalVarDecl("bRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
 								),
 								Collections.emptyList(),
 								Collections.emptyList(),
@@ -567,15 +573,8 @@ public class PlusCalCodeGenPassTest {
 								process(
 										pcalVarDecl("P1", false, false, num(100)),
 										PlusCalFairness.WEAK_FAIR,
-										Arrays.asList(
-												pcalVarDecl("local", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("aRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("aWrite", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("aWrite0", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("aWrite1", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("aWrite2", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("aRead0", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("bRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
+										Collections.singletonList(
+												pcalVarDecl("local", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
 										),
 										labeled(
 												label("l1"),
@@ -742,9 +741,10 @@ public class PlusCalCodeGenPassTest {
 								)
 						),
 						// --algorithm Algorithm5 {
-						//     variables network = <<>>;
+						//     variables network = <<>>, netwRead, netwWrite, netwRead0, netwWrite0, netwWrite1,
+						//               netwWrite2, netwRead1, netwWrite3;
 						//     process (S = 42)
-						//     variables a, b, netwRead, netwWrite, netwRead0, netwWrite0, netwWrite1;
+						//     variables a, b;
 						//     {
 						//         l1:
 						//             with (msg0 = Head(network)) {
@@ -761,9 +761,7 @@ public class PlusCalCodeGenPassTest {
 						//             network := netwWrite1;
 						//
 						//     }
-						//     process (C = 42)
-						//     variables netwWrite2, netwRead1, netwWrite3;
-						//     {
+						//     process (C = 42) {
 						//         l1:
 						//             netwWrite2 := Append(network,21);
 						//             network := netwWrite2;
@@ -780,8 +778,17 @@ public class PlusCalCodeGenPassTest {
 						// }
 						algorithm(
 								"Algorithm5",
-								Collections.singletonList(
-										pcalVarDecl("network", false, false, tuple())),
+								Arrays.asList(
+										pcalVarDecl("network", false, false, tuple()),
+										pcalVarDecl("netwRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+										pcalVarDecl("netwWrite", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+										pcalVarDecl("netwRead0", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+										pcalVarDecl("netwWrite0", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+										pcalVarDecl("netwWrite1", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+										pcalVarDecl("netwWrite2", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+										pcalVarDecl("netwRead1", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+										pcalVarDecl("netwWrite3", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
+								),
 								Collections.emptyList(),
 								Collections.emptyList(),
 								Collections.emptyList(),
@@ -790,12 +797,7 @@ public class PlusCalCodeGenPassTest {
 										PlusCalFairness.WEAK_FAIR,
 										Arrays.asList(
 												pcalVarDecl("a", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("b", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("netwRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("netwWrite", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("netwRead0", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("netwWrite0", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("netwWrite1", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
+												pcalVarDecl("b", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
 										),
 										labeled(
 												label("l1"),
@@ -816,11 +818,7 @@ public class PlusCalCodeGenPassTest {
 								process(
 										pcalVarDecl("C", false, false, num(21)),
 										PlusCalFairness.WEAK_FAIR,
-										Arrays.asList(
-												pcalVarDecl("netwWrite2", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("netwRead1", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("netwWrite3", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
-										),
+										Collections.emptyList(),
 										labeled(
 												label("l1"),
 												assign(idexp("netwWrite2"), opcall("Append", idexp("network"), num(21))),
@@ -909,10 +907,8 @@ public class PlusCalCodeGenPassTest {
 								)
 						),
 						// --algorithm Algorithm6 {
-						//     variables func = [i \in {0,1} |-> i];
-						//     process (P = 42)
-						//     variables fWrite, fWrite0, fRead, fRead0;
-						//     {
+						//     variables func = [i \in {0,1} |-> i], fWrite, fWrite0, fRead, fRead0;
+						//     process (P = 42) {
 						//         l1:
 						//             fWrite := [func EXCEPT ![0] = 1];
 						//             fWrite0 := [fWrite EXCEPT ![1] = 0];
@@ -924,7 +920,7 @@ public class PlusCalCodeGenPassTest {
 						// }
 						algorithm(
 								"Algorithm6",
-								Collections.singletonList(
+								Arrays.asList(
 										pcalVarDecl(
 												"func",
 												false,
@@ -933,7 +929,11 @@ public class PlusCalCodeGenPassTest {
 														bounds(qbIds(
 																Collections.singletonList(id("i")),
 																set(num(0), num(1)))),
-														idexp("i")))
+														idexp("i"))),
+										pcalVarDecl("fWrite", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+										pcalVarDecl("fWrite0", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+										pcalVarDecl("fRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+										pcalVarDecl("fRead0", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
 								),
 								Collections.emptyList(),
 								Collections.emptyList(),
@@ -941,12 +941,7 @@ public class PlusCalCodeGenPassTest {
 								process(
 										pcalVarDecl("P", false, false, num(42)),
 										PlusCalFairness.WEAK_FAIR,
-										Arrays.asList(
-												pcalVarDecl("fWrite", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("fWrite0", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("fRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("fRead0", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
-										),
+										Collections.emptyList(),
 										labeled(
 												label("l1"),
 												assign(idexp("fWrite"), fnSubst(idexp("func"), fnSubstPair(Collections.singletonList(substKey(num(0))), num(1)))),
@@ -1095,9 +1090,10 @@ public class PlusCalCodeGenPassTest {
 								)
 						),
 						// --algorithm Algorithm7 {
-						//     variables network = [i \in {0,1}|-><<>>];
+						//     variables network = [i \in {0,1}|-><<>>], netwRead, netwWrite, netwRead0, netwWrite0,
+						//               netwRead1, netwWrite1, netwWrite2, netwWrite3, netwRead2, netwWrite4;
 						//     process (S = 42)
-						//     variables a, b, dest, netwRead, netwWrite, netwRead0, netwWrite0, netwRead1, netwWrite1, netwWrite2;
+						//     variables a, b, dest;
 						//     {
 						//         l1:
 						//             either {
@@ -1125,9 +1121,7 @@ public class PlusCalCodeGenPassTest {
 						//             netwWrite2 := [netwWrite1 EXCEPT ![dest] = Append(netwWrite1[dest], (a)+(b))];
 						//             network = netwWrite2;
 						//     }
-						//     process (C \in {0,1})
-						//     variables netwWrite3, netwRead2, netwWrite4;
-						//     {
+						//     process (C \in {0,1}) {
 						//         l1:
 						//             netwWrite3 := [network EXCEPT ![self] = Append(network[self], 21)];
 						//             network := netwWrite3;
@@ -1143,12 +1137,22 @@ public class PlusCalCodeGenPassTest {
 						// }
 						algorithm(
 								"Algorithm7",
-								Collections.singletonList(
+								Arrays.asList(
 										pcalVarDecl(
 												"network",
 												false,
 												false,
-												function(bounds(qbIds(Collections.singletonList(id("i")), set(num(0), num(1)))), tuple()))
+												function(bounds(qbIds(Collections.singletonList(id("i")), set(num(0), num(1)))), tuple())),
+										pcalVarDecl("netwRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+										pcalVarDecl("netwWrite", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+										pcalVarDecl("netwRead0", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+										pcalVarDecl("netwWrite0", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+										pcalVarDecl("netwRead1", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+										pcalVarDecl("netwWrite1", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+										pcalVarDecl("netwWrite2", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+										pcalVarDecl("netwWrite3", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+										pcalVarDecl("netwRead2", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+										pcalVarDecl("netwWrite4", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
 								),
 								Collections.emptyList(),
 								Collections.emptyList(),
@@ -1159,14 +1163,7 @@ public class PlusCalCodeGenPassTest {
 										Arrays.asList(
 												pcalVarDecl("a", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
 												pcalVarDecl("b", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("dest", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("netwRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("netwWrite", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("netwRead0", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("netwWrite0", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("netwRead1", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("netwWrite1", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("netwWrite2", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
+												pcalVarDecl("dest", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
 										),
 										labeled(
 												label("l1"),
@@ -1202,11 +1199,7 @@ public class PlusCalCodeGenPassTest {
 								process(
 										pcalVarDecl("C", false, true, set(num(0), num(1))),
 										PlusCalFairness.WEAK_FAIR,
-										Arrays.asList(
-												pcalVarDecl("netwWrite3", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("netwRead2", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("netwWrite4", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
-										),
+										Collections.emptyList(),
 										labeled(
 												label("l1"),
 												assign(idexp("netwWrite3"), fnSubst(idexp("network"), fnSubstPair(Collections.singletonList(substKey(idexp("self"))), opcall("Append", fncall(idexp("network"), idexp("self")), num(21))))),
@@ -1291,10 +1284,8 @@ public class PlusCalCodeGenPassTest {
 						),
 
 						// --algorithm Algorithm8 {
-						//    variables network = <<>>, processor = 0;
-						//    fair process (SomeProcess = 3)
-						//    variables mailboxesRead, otherWrite;
-						//    {
+						//    variables network = <<>>, processor = 0, mailboxesRead, otherWrite;
+						//    fair process (SomeProcess = 3) {
 						//        l: mailboxesRead := network[self];
 						//           otherWrite := mailboxesRead[self];
 						//           processor := otherWrite;
@@ -1303,7 +1294,9 @@ public class PlusCalCodeGenPassTest {
 								"Algorithm8",
 								Arrays.asList(
 										pcalVarDecl("network", false, false, tuple()),
-										pcalVarDecl("processor", false, false, num(0))
+										pcalVarDecl("processor", false, false, num(0)),
+										pcalVarDecl("mailboxesRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+										pcalVarDecl("otherWrite", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
 								),
 								Collections.emptyList(),
 								Collections.emptyList(),
@@ -1311,10 +1304,7 @@ public class PlusCalCodeGenPassTest {
 								process(
 										pcalVarDecl("SomeProcess", false, false, num(3)),
 										PlusCalFairness.WEAK_FAIR,
-										Arrays.asList(
-												pcalVarDecl("mailboxesRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("otherWrite", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
-										),
+										Collections.emptyList(),
 										labeled(
 												label("l"),
 												assign(idexp("mailboxesRead"), fncall(idexp("network"), idexp("self"))),
@@ -1395,10 +1385,8 @@ public class PlusCalCodeGenPassTest {
 								)
 						),
 						// --algorithm Algorithm9 {
-						//     variables i = 0, flag = TRUE;
-						//     process (P = 3)
-						//     variables bRead, aWrite, aWrite0;
-						//     {
+						//     variables i = 0, flag = TRUE, bRead, aWrite, aWrite0;
+						//     process (P = 3) {
 						//         l1:
 						//             bRead := flag;
 						//             if (bRead) {
@@ -1422,7 +1410,10 @@ public class PlusCalCodeGenPassTest {
 								"Algorithm9",
 								Arrays.asList(
 										pcalVarDecl("i", false, false, num(0)),
-										pcalVarDecl("flag", false, false, bool(true))
+										pcalVarDecl("flag", false, false, bool(true)),
+										pcalVarDecl("bRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+										pcalVarDecl("aWrite", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+										pcalVarDecl("aWrite0", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
 								),
 								Collections.emptyList(),
 								Collections.emptyList(),
@@ -1430,11 +1421,7 @@ public class PlusCalCodeGenPassTest {
 								process(
 										pcalVarDecl("P", false, false, num(3)),
 										PlusCalFairness.UNFAIR,
-										Arrays.asList(
-												pcalVarDecl("bRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("aWrite", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("aWrite0", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
-										),
+										Collections.emptyList(),
 										labeled(
 												label("l1"),
 												assign(idexp("bRead"), idexp("flag")),
@@ -1527,10 +1514,8 @@ public class PlusCalCodeGenPassTest {
 						),
 
 						// --algorithm WhileLoopWithFollowingStatement {
-						//    variables b = TRUE;
-						//    process (P = 10)
-						//    variables aBoolRead, aBoolRead0, aBoolWrite, aBoolWrite0;
-						//    {
+						//    variables b = TRUE, aBoolRead, aBoolRead0, aBoolWrite, aBoolWrite0;
+						//    process (P = 10) {
 						//        l:
 						//            aBoolRead := b;
 						//            if (aBoolRead) {
@@ -1559,8 +1544,11 @@ public class PlusCalCodeGenPassTest {
 						// }
 						algorithm(
 								"WhileLoopWithFollowingStatement",
-								Collections.singletonList(
-										pcalVarDecl("b", false, false, bool(true))
+								Arrays.asList(
+										pcalVarDecl("b", false, false, bool(true)),
+										pcalVarDecl("aBoolRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+										pcalVarDecl("aBoolWrite", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+										pcalVarDecl("aBoolWrite0", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
 								),
 								Collections.emptyList(),
 								Collections.emptyList(),
@@ -1568,11 +1556,7 @@ public class PlusCalCodeGenPassTest {
 								process(
 										pcalVarDecl("P", false, false, num(10)),
 										PlusCalFairness.WEAK_FAIR,
-										Arrays.asList(
-												pcalVarDecl("aBoolRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("aBoolWrite", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("aBoolWrite0", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
-										),
+										Collections.emptyList(),
 										labeled(
 												label("l"),
 												assign(idexp("aBoolRead"), idexp("b")),
@@ -1705,7 +1689,7 @@ public class PlusCalCodeGenPassTest {
 								)
 						),
 						// --algorithm Algorithm11 {
-						//     variables i = 0, flag = TRUE;
+						//     variables i = 0, flag = TRUE, aWrite;
 						//     procedure P0 ()
 						//     variables local, a1Read, a2Read, a1Write, a1Write0;
 						//     {
@@ -1723,9 +1707,7 @@ public class PlusCalCodeGenPassTest {
 						//             }
 						//
 						//     }
-						//     fair process (Proc = 0)
-						//     variables aWrite;
-						//     {
+						//     fair process (Proc = 0) {
 						//         l1:
 						//             aWrite := i + 1;
 						//             i := aWrite;
@@ -1739,7 +1721,8 @@ public class PlusCalCodeGenPassTest {
 								"Algorithm11",
 								Arrays.asList(
 										pcalVarDecl("i", false, false, num(0)),
-										pcalVarDecl("flag", false, false, bool(true))
+										pcalVarDecl("flag", false, false, bool(true)),
+										pcalVarDecl("aWrite", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
 								),
 								Collections.emptyList(),
 								Collections.singletonList(
@@ -1776,9 +1759,7 @@ public class PlusCalCodeGenPassTest {
 								process(
 										pcalVarDecl("Proc", false, false, num(0)),
 										PlusCalFairness.WEAK_FAIR,
-										Collections.singletonList(
-												pcalVarDecl("aWrite", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
-										),
+										Collections.emptyList(),
 										labeled(
 												label("l1"),
 												assign(idexp("aWrite"), binop("+", idexp("i"), num(1))),
@@ -1845,9 +1826,9 @@ public class PlusCalCodeGenPassTest {
 								)
 						),
 						// --algorithm Algorithm12 {
-						//     variables i = 0;
+						//     variables i = 0, aRead, aRead0;
 						//     fair process (Proc = 0)
-						//     variables aLocal = i * 2 + 1, local = 0, aRead, aRead0;
+						//     variables aLocal = i * 2 + 1, local = 0;
 						//     {
 						//         l1:
 						//             aRead := aLocal;
@@ -1858,8 +1839,10 @@ public class PlusCalCodeGenPassTest {
 						// }
 						algorithm(
 								"Algorithm12",
-								Collections.singletonList(
-										pcalVarDecl("i", false, false, num(0))
+								Arrays.asList(
+										pcalVarDecl("i", false, false, num(0)),
+										pcalVarDecl("aRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+										pcalVarDecl("aRead0", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
 								),
 								Collections.emptyList(),
 								Collections.emptyList(),
@@ -1869,9 +1852,7 @@ public class PlusCalCodeGenPassTest {
 										PlusCalFairness.WEAK_FAIR,
 										Arrays.asList(
 												pcalVarDecl("aLocal", false, false, binop("+", binop("*", idexp("i"), num(2)), num(1))),
-												pcalVarDecl("local", false, false, num(0)),
-												pcalVarDecl("aRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("aRead0", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
+												pcalVarDecl("local", false, false, num(0))
 										),
 										labeled(
 												label("l1"),
@@ -1932,10 +1913,8 @@ public class PlusCalCodeGenPassTest {
 								)
 						),
 						// --algorithm Algorithm13 {
-						//     variables i = 0;
-						//     fair process (Proc = 0)
-						//     variables aRead, aWrite, aRead0;
-						//     {
+						//     variables i = 0, aRead, aWrite, aRead0;
+						//     fair process (Proc = 0) {
 						//         l1:
 						//             aRead := i;
 						//             aWrite := aRead + 1;
@@ -1946,8 +1925,11 @@ public class PlusCalCodeGenPassTest {
 						// }
 						algorithm(
 								"Algorithm13",
-								Collections.singletonList(
-										pcalVarDecl("i", false, false, num(0))
+								Arrays.asList(
+										pcalVarDecl("i", false, false, num(0)),
+										pcalVarDecl("aRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+										pcalVarDecl("aWrite", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+										pcalVarDecl("aRead0", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
 								),
 								Collections.emptyList(),
 								Collections.emptyList(),
@@ -1955,11 +1937,7 @@ public class PlusCalCodeGenPassTest {
 								process(
 										pcalVarDecl("Proc", false, false, num(0)),
 										PlusCalFairness.WEAK_FAIR,
-										Arrays.asList(
-												pcalVarDecl("aRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("aWrite", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("aRead0", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
-										),
+										Collections.emptyList(),
 										labeled(
 												label("l1"),
 												assign(idexp("aRead"), idexp("i")),
@@ -2047,9 +2025,9 @@ public class PlusCalCodeGenPassTest {
 								)
 						),
 						// --algorithm Algorithm14 {
-						//     variables i = 0, flag = TRUE;
+						//     variables i = 0, flag = TRUE, aRead, bRead, aRead0, aRead1;
 						//     fair process (Proc = 0)
-						//     variables aLocal = i * 2 + 1, local = 0, aRead, bRead, aRead0, aRead1;
+						//     variables aLocal = i * 2 + 1, local = 0;
 						//     {
 						//         l1:
 						//             aRead := aLocal;
@@ -2071,7 +2049,11 @@ public class PlusCalCodeGenPassTest {
 								"Algorithm14",
 								Arrays.asList(
 										pcalVarDecl("i", false, false, num(0)),
-										pcalVarDecl("flag", false, false, bool(true))
+										pcalVarDecl("flag", false, false, bool(true)),
+										pcalVarDecl("aRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+										pcalVarDecl("bRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+										pcalVarDecl("aRead0", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+										pcalVarDecl("aRead1", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
 								),
 								Collections.emptyList(),
 								Collections.emptyList(),
@@ -2081,11 +2063,7 @@ public class PlusCalCodeGenPassTest {
 										PlusCalFairness.WEAK_FAIR,
 										Arrays.asList(
 												pcalVarDecl("aLocal", false, false, binop("+", binop("*", idexp("i"), num(2)), num(1))),
-												pcalVarDecl("local", false, false, num(0)),
-												pcalVarDecl("aRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("bRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("aRead0", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("aRead1", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
+												pcalVarDecl("local", false, false, num(0))
 										),
 										labeled(
 												label("l1"),
@@ -2166,9 +2144,9 @@ public class PlusCalCodeGenPassTest {
 								)
 						),
 						// --algorithm Algorithm15 {
-						//     variables i = 0;
+						//     variables i = 0, aRead, aWrite, aRead0;
 						//     fair process (Proc = 0)
-						//     variables local1 = 0, local2 = local1 + 1, aRead, aWrite, aRead0;
+						//     variables local1 = 0, local2 = local1 + 1;
 						//     {
 						//         l1:
 						//             aRead := i;
@@ -2180,8 +2158,11 @@ public class PlusCalCodeGenPassTest {
 						// }
 						algorithm(
 								"Algorithm15",
-								Collections.singletonList(
-										pcalVarDecl("i", false, false, num(0))
+								Arrays.asList(
+										pcalVarDecl("i", false, false, num(0)),
+										pcalVarDecl("aRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+										pcalVarDecl("aWrite", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+										pcalVarDecl("aRead0", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
 								),
 								Collections.emptyList(),
 								Collections.emptyList(),
@@ -2191,10 +2172,7 @@ public class PlusCalCodeGenPassTest {
 										PlusCalFairness.WEAK_FAIR,
 										Arrays.asList(
 												pcalVarDecl("local1", false, false, num(0)),
-												pcalVarDecl("local2", false, false, binop("+", idexp("local1"), num(1))),
-												pcalVarDecl("aRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("aWrite", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("aRead0", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
+												pcalVarDecl("local2", false, false, binop("+", idexp("local1"), num(1)))
 										),
 										labeled(
 												label("l1"),
@@ -2261,9 +2239,9 @@ public class PlusCalCodeGenPassTest {
 								)
 						),
 						// --algorithm Algorithm16 {
-						//     variables i = 0;
+						//     variables i = 0, aRead, aWrite, aRead0;
 						//     fair process (Proc = 0)
-						//     variables local1, local2, aRead, aWrite, aRead0;
+						//     variables local1, local2;
 						//     {
 						//         init:
 						//             aRead := i;
@@ -2279,8 +2257,11 @@ public class PlusCalCodeGenPassTest {
 						// }
 						algorithm(
 								"Algorithm16",
-								Collections.singletonList(
-										pcalVarDecl("i", false, false, num(0))
+								Arrays.asList(
+										pcalVarDecl("i", false, false, num(0)),
+										pcalVarDecl("aRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+										pcalVarDecl("aWrite", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+										pcalVarDecl("aRead0", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
 								),
 								Collections.emptyList(),
 								Collections.emptyList(),
@@ -2290,10 +2271,7 @@ public class PlusCalCodeGenPassTest {
 										PlusCalFairness.WEAK_FAIR,
 										Arrays.asList(
 												pcalVarDecl("local1", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("local2", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("aRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("aWrite", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("aRead0", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
+												pcalVarDecl("local2", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
 										),
 										labeled(
 												label("init"),
@@ -2359,8 +2337,7 @@ public class PlusCalCodeGenPassTest {
 								)
 						),
 						// --algorithm Algorithm17 {
-						//     fair process (Proc = 0)
-						//     {
+						//     fair process (Proc = 0) {
 						//         l1:
 						//             if (TRUE) {
 						//                 skip;
@@ -2440,8 +2417,9 @@ public class PlusCalCodeGenPassTest {
 												Collections.singletonList(
 														mapping(1, false, "Macro"))))),
 						// --algorithm Algorithm18 {
+						//     variables aWrite, aRead;
 						//     fair process (Proc = 0)
-						//     variables aLocal = 0, aWrite, aRead;
+						//     variables aLocal = 0;
 						//     {
 						//         l1:
 						//           aWrite := aLocal + 1;
@@ -2452,17 +2430,19 @@ public class PlusCalCodeGenPassTest {
 						// }
 						algorithm(
 								"Algorithm18",
-								Collections.emptyList(),
+								Arrays.asList(
+										pcalVarDecl("aWrite", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+										pcalVarDecl("aRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
+								),
 								Collections.emptyList(),
 								Collections.emptyList(),
 								Collections.emptyList(),
 								process(
 										pcalVarDecl("Proc", false, false, num(0)),
 										PlusCalFairness.WEAK_FAIR,
-										Arrays.asList(
-												pcalVarDecl("aLocal", false, false, num(0)),
-												pcalVarDecl("aWrite", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("aRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE)),
+										Collections.singletonList(
+												pcalVarDecl("aLocal", false, false, num(0))
+										),
 										labeled(
 												label("l1"),
 												assign(idexp("aWrite"), binop("+", idexp("aLocal"), num(1))),
@@ -2522,8 +2502,9 @@ public class PlusCalCodeGenPassTest {
 												Collections.singletonList(
 														mapping(1, true, "Macro"))))),
 						// --algorithm Algorithm18 {
+						//     variables aWrite, aRead;
 						//     fair process (Proc = 0)
-						//     variables aLocal = <<0>>, aWrite, aRead;
+						//     variables aLocal = <<0>>;
 						//     {
 						//         l1:
 						//           aWrite := [aLocal EXCEPT ![1] = aLocal[1] + 1];
@@ -2534,17 +2515,19 @@ public class PlusCalCodeGenPassTest {
 						// }
 						algorithm(
 								"Algorithm18",
-								Collections.emptyList(),
+								Arrays.asList(
+										pcalVarDecl("aWrite", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+										pcalVarDecl("aRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
+								),
 								Collections.emptyList(),
 								Collections.emptyList(),
 								Collections.emptyList(),
 								process(
 										pcalVarDecl("Proc", false, false, num(0)),
 										PlusCalFairness.WEAK_FAIR,
-										Arrays.asList(
-												pcalVarDecl("aLocal", false, false, tuple(num(0))),
-												pcalVarDecl("aWrite", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-												pcalVarDecl("aRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE)),
+										Collections.singletonList(
+												pcalVarDecl("aLocal", false, false, tuple(num(0)))
+										),
 										labeled(
 												label("l1"),
 												assign(
