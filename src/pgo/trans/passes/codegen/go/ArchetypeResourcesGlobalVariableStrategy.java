@@ -303,10 +303,6 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
 
         // Releases/aborts resources
     private void terminateCriticalSection(GoBlockBuilder builder, int lockGroup, String method, boolean isError) {
-        if (currentLockGroup != lockGroup) {
-            throw new InternalCompilerError();
-        }
-
         // release all non-function mapped resources in order
         Set<TLAExpression> varMapped = new HashSet<>();
         Consumer<TLAExpression> collectVariableMapped = e -> {
@@ -315,8 +311,8 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
             }
         };
 
-        registry.getResourceReadsInLockGroup(currentLockGroup).forEach(collectVariableMapped);
-        registry.getResourceWritesInLockGroup(currentLockGroup).forEach(collectVariableMapped);
+        registry.getResourceReadsInLockGroup(lockGroup).forEach(collectVariableMapped);
+        registry.getResourceWritesInLockGroup(lockGroup).forEach(collectVariableMapped);
 
         List<GoExpression> varMappedExpressions = varMapped
                 .stream()
