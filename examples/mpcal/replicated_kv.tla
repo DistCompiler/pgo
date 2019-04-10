@@ -494,13 +494,13 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
 
                   \* Put requests must be broadcast to all replicas
                   putBroadcast:
-                    Broadcast(replicas, j, NUM_REPLICAS-1, putReq, clocks[clientId]);
+                    Broadcast(replicas, j, NUM_REPLICAS-1, putReq, clock[clientId]);
 
                   \* wait for a response from all replicas, and allow other
                   \* calls to the replica to happen after that.
                   putResponse:
                     while (i < Cardinality(ReplicaSet)) {
-                        if (clocks[clientId] = -1) {
+                        if (clock[clientId] = -1) {
                             continue := FALSE;
                             goto putLoop;
                         } else {
@@ -567,7 +567,7 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
 
                 nullBroadcast:
                   \* clock update messages must be broadcast to all replicas.
-                  Broadcast(replicas, j, NUM_REPLICAS-1, msg, clocks[clientId]);
+                  Broadcast(replicas, j, NUM_REPLICAS-1, msg, clock[clientId]);
             };
 
             nullCheckSpin:
@@ -879,7 +879,8 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
                         clocks := clockWrite0;
                         putBroadcast:
                             clientIdRead4 := (self) - ((NUM_CLIENTS) * (PUT_ORDER));
-                            if (((j) <= ((NUM_REPLICAS) - (1))) /\ ((clocks[clientIdRead4]) # (-(1)))) {
+                            clockRead2 := clocks[clientIdRead4];
+                            if (((j) <= ((NUM_REPLICAS) - (1))) /\ ((clockRead2) # (-(1)))) {
                                 await (Len(replicasNetwork[j])) < (BUFFER_SIZE);
                                 replicasWrite1 := [replicasNetwork EXCEPT ![j] = Append(replicasNetwork[j], putReq)];
                                 j := (j) + (1);
@@ -894,7 +895,8 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
                         putResponse:
                             if ((i) < (Cardinality(ReplicaSet))) {
                                 clientIdRead4 := (self) - ((NUM_CLIENTS) * (PUT_ORDER));
-                                if ((clocks[clientIdRead4]) = (-(1))) {
+                                clockRead2 := clocks[clientIdRead4];
+                                if ((clockRead2) = (-(1))) {
                                     continue := FALSE;
                                     clientsWrite5 := clientMailboxes;
                                     clientMailboxes := clientsWrite5;
@@ -980,7 +982,8 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
                     clocks := clockWrite2;
                     nullBroadcast:
                         clientIdRead11 := (self) - ((NUM_CLIENTS) * (NULL_ORDER));
-                        if (((j) <= ((NUM_REPLICAS) - (1))) /\ ((clocks[clientIdRead11]) # (-(1)))) {
+                        clockRead5 := clocks[clientIdRead11];
+                        if (((j) <= ((NUM_REPLICAS) - (1))) /\ ((clockRead5) # (-(1)))) {
                             await (Len(replicasNetwork[j])) < (BUFFER_SIZE);
                             replicasWrite5 := [replicasNetwork EXCEPT ![j] = Append(replicasNetwork[j], msg)];
                             j := (j) + (1);
@@ -1017,8 +1020,8 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
 \* Process variable continue of process GetClient at line 793 col 33 changed to continue_G
 \* Process variable continue of process PutClient at line 857 col 34 changed to continue_P
 \* Process variable j of process PutClient at line 857 col 54 changed to j_
-\* Process variable msg of process DisconnectClient at line 938 col 15 changed to msg_D
-\* Process variable j of process DisconnectClient at line 938 col 20 changed to j_D
+\* Process variable msg of process DisconnectClient at line 940 col 15 changed to msg_D
+\* Process variable j of process DisconnectClient at line 940 col 20 changed to j_D
 CONSTANT defaultInitValue
 VARIABLES replicasNetwork, allClients, clientMailboxes, cid, out, clocks,
           replicasRead, replicasWrite, kvRead, clientsWrite, clientsWrite0,
@@ -2159,7 +2162,8 @@ putRequest(self) == /\ pc[self] = "putRequest"
 
 putBroadcast(self) == /\ pc[self] = "putBroadcast"
                       /\ clientIdRead4' = (self) - ((NUM_CLIENTS) * (PUT_ORDER))
-                      /\ IF ((j_[self]) <= ((NUM_REPLICAS) - (1))) /\ ((clocks[clientIdRead4']) # (-(1)))
+                      /\ clockRead2' = clocks[clientIdRead4']
+                      /\ IF ((j_[self]) <= ((NUM_REPLICAS) - (1))) /\ ((clockRead2') # (-(1)))
                             THEN /\ (Len(replicasNetwork[j_[self]])) < (BUFFER_SIZE)
                                  /\ replicasWrite1' = [replicasNetwork EXCEPT ![j_[self]] = Append(replicasNetwork[j_[self]], putReq[self])]
                                  /\ j_' = [j_ EXCEPT ![self] = (j_[self]) + (1)]
@@ -2180,10 +2184,10 @@ putBroadcast(self) == /\ pc[self] = "putBroadcast"
                                       clockRead1, replicasWrite0, clientsRead,
                                       clientsWrite2, outsideWrite,
                                       clientsWrite3, outsideWrite0, spinRead,
-                                      clockRead2, clientIdRead5, clockRead3,
-                                      clientIdRead6, clockWrite0, keyRead0,
-                                      valueRead, clientIdRead7, clientIdRead8,
-                                      clockRead4, clientsRead0, clientsWrite4,
+                                      clientIdRead5, clockRead3, clientIdRead6,
+                                      clockWrite0, keyRead0, valueRead,
+                                      clientIdRead7, clientIdRead8, clockRead4,
+                                      clientsRead0, clientsWrite4,
                                       clientsWrite5, outsideWrite1, spinRead0,
                                       clientIdRead9, clientIdRead10,
                                       clockWrite1, replicasWrite3,
@@ -2206,7 +2210,8 @@ putBroadcast(self) == /\ pc[self] = "putBroadcast"
 putResponse(self) == /\ pc[self] = "putResponse"
                      /\ IF (i[self]) < (Cardinality(ReplicaSet))
                            THEN /\ clientIdRead4' = (self) - ((NUM_CLIENTS) * (PUT_ORDER))
-                                /\ IF (clocks[clientIdRead4']) = (-(1))
+                                /\ clockRead2' = clocks[clientIdRead4']
+                                /\ IF (clockRead2') = (-(1))
                                       THEN /\ continue_P' = [continue_P EXCEPT ![self] = FALSE]
                                            /\ clientsWrite5' = clientMailboxes
                                            /\ clientMailboxes' = clientsWrite5'
@@ -2220,7 +2225,7 @@ putResponse(self) == /\ pc[self] = "putResponse"
                                                 /\ clientsRead0' = msg2
                                            /\ putResp' = [putResp EXCEPT ![self] = clientsRead0']
                                            /\ Assert(((putResp'[self]).type) = (PUT_RESPONSE),
-                                                     "Failure of assertion at line 909, column 37.")
+                                                     "Failure of assertion at line 911, column 37.")
                                            /\ i' = [i EXCEPT ![self] = (i[self]) + (1)]
                                            /\ clientsWrite5' = clientsWrite4'
                                            /\ clientMailboxes' = clientsWrite5'
@@ -2228,9 +2233,10 @@ putResponse(self) == /\ pc[self] = "putResponse"
                                            /\ UNCHANGED continue_P
                            ELSE /\ clientMailboxes' = clientsWrite5
                                 /\ pc' = [pc EXCEPT ![self] = "putComplete"]
-                                /\ UNCHANGED << clientIdRead4, clientsRead0,
-                                                clientsWrite4, clientsWrite5,
-                                                continue_P, i, putResp >>
+                                /\ UNCHANGED << clientIdRead4, clockRead2,
+                                                clientsRead0, clientsWrite4,
+                                                clientsWrite5, continue_P, i,
+                                                putResp >>
                      /\ UNCHANGED << replicasNetwork, allClients, cid, out,
                                      clocks, replicasRead, replicasWrite,
                                      kvRead, clientsWrite, clientsWrite0,
@@ -2241,15 +2247,15 @@ putResponse(self) == /\ pc[self] = "putResponse"
                                      clockRead1, replicasWrite0, clientsRead,
                                      clientsWrite2, outsideWrite,
                                      clientsWrite3, outsideWrite0, spinRead,
-                                     clockRead2, clientIdRead5, clockRead3,
-                                     clientIdRead6, clockWrite0, keyRead0,
-                                     valueRead, clientIdRead7, clientIdRead8,
-                                     clockRead4, replicasWrite1,
-                                     replicasWrite2, outsideWrite1, spinRead0,
-                                     clientIdRead9, clientIdRead10,
-                                     clockWrite1, replicasWrite3,
-                                     replicasWrite4, clientIdRead11,
-                                     clockRead5, clientIdRead12, clockRead6,
+                                     clientIdRead5, clockRead3, clientIdRead6,
+                                     clockWrite0, keyRead0, valueRead,
+                                     clientIdRead7, clientIdRead8, clockRead4,
+                                     replicasWrite1, replicasWrite2,
+                                     outsideWrite1, spinRead0, clientIdRead9,
+                                     clientIdRead10, clockWrite1,
+                                     replicasWrite3, replicasWrite4,
+                                     clientIdRead11, clockRead5,
+                                     clientIdRead12, clockRead6,
                                      clientIdRead13, clockWrite2,
                                      clientIdRead14, clientIdRead15,
                                      clockRead7, replicasWrite5,
@@ -2574,7 +2580,8 @@ nullCheckSpin(self) == /\ pc[self] = "nullCheckSpin"
 
 nullBroadcast(self) == /\ pc[self] = "nullBroadcast"
                        /\ clientIdRead11' = (self) - ((NUM_CLIENTS) * (NULL_ORDER))
-                       /\ IF ((j[self]) <= ((NUM_REPLICAS) - (1))) /\ ((clocks[clientIdRead11']) # (-(1)))
+                       /\ clockRead5' = clocks[clientIdRead11']
+                       /\ IF ((j[self]) <= ((NUM_REPLICAS) - (1))) /\ ((clockRead5') # (-(1)))
                              THEN /\ (Len(replicasNetwork[j[self]])) < (BUFFER_SIZE)
                                   /\ replicasWrite5' = [replicasNetwork EXCEPT ![j[self]] = Append(replicasNetwork[j[self]], msg[self])]
                                   /\ j' = [j EXCEPT ![self] = (j[self]) + (1)]
@@ -2605,7 +2612,7 @@ nullBroadcast(self) == /\ pc[self] = "nullBroadcast"
                                        outsideWrite1, spinRead0, clientIdRead9,
                                        clientIdRead10, clockWrite1,
                                        replicasWrite3, replicasWrite4,
-                                       clockRead5, clientIdRead12, clockRead6,
+                                       clientIdRead12, clockRead6,
                                        clientIdRead13, clockWrite2,
                                        clientIdRead14, clientIdRead15,
                                        clockRead7, spinRead1, kvLocal,
@@ -2692,5 +2699,5 @@ DisconnectionSafe == \A client \in ClientSet : <>[](clocks[client] = -1)
 
 =============================================================================
 \* Modification History
-\* Last modified Wed Apr 10 14:51:22 PDT 2019 by rmc
+\* Last modified Wed Apr 10 15:28:20 PDT 2019 by rmc
 \* Last modified Wed Feb 27 12:42:52 PST 2019 by minh
