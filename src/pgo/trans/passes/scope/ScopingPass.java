@@ -23,7 +23,7 @@ public class ScopingPass {
 
 	private static void scopeVariables(
 			IssueContext ctx,
-			boolean isMPCal,
+			boolean resolveConstants,
 			List<PlusCalVariableDeclaration> variables,
 			DefinitionRegistry registry,
 			TLAModuleLoader loader,
@@ -33,7 +33,7 @@ public class ScopingPass {
 	{
 		for (PlusCalVariableDeclaration variableDeclaration : variables) {
 			variableDeclaration.getValue().accept(new TLAExpressionScopingVisitor(
-					ctx, validateScope, registry, loader, new HashSet<>(), !isMPCal));
+					ctx, validateScope, registry, loader, new HashSet<>(), resolveConstants));
 			registry.addLocalVariable(variableDeclaration.getUID());
 			if (newScope.declare(variableDeclaration.getName().getValue(), variableDeclaration.getUID())) {
 				variablesMap.put(variableDeclaration.getName().getValue(), variableDeclaration.getUID());
