@@ -89,8 +89,8 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
   \*
   \* Only returns once every message has been sent (i.e., it may "block" if
   \* the buffer of one of the receivers is full).
-  macro Broadcast(nodes, i, until, msg) {
-      while (i <= until) {
+  macro Broadcast(nodes, i, until, msg, clock) {
+      while (i <= until /\ clock # -1) {
           nodes[i] := msg;
           i := i + 1;
       }
@@ -381,7 +381,7 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
                       val := kv[key];
 
                       \* send the value read from the database back to the client
-                      clients[msg.client] := [type |-> GET_RESPONSE, result |-> val];
+                      clients[msg.reply_to] := [type |-> GET_RESPONSE, result |-> val];
                   };
 
                 respondStablePut:
@@ -392,12 +392,11 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
                       \* update our database and send an OK back to the client
                       kv[key] := val;
 
-                      clients[msg.client] := [type |-> PUT_RESPONSE, result |-> ok];
+                      clients[msg.reply_to] := [type |-> PUT_RESPONSE, result |-> ok];
                   };
             }
       }
   }
-
 
   \* Client Definitions
   \* ------------------
@@ -436,7 +435,7 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
                   \* increment the logical clock, and construct a valid
                   \* Get message.
                   clock[clientId] := clock[clientId] + 1;
-                  getReq := [op |-> GET_MSG, key |-> key, client |-> clientId, timestamp |-> clock[clientId]];
+                  getReq := [op |-> GET_MSG, key |-> key, client |-> clientId, timestamp |-> clock[clientId], reply_to |-> self];
 
                   \* Choose some replica from the set of replicas to send this
                   \* request to
@@ -444,11 +443,16 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
                       replicas[dst] := getReq;
                   };
 
-                  \* Waits for the response from the replica
                   getReply:
-                    getResp := clients[clientId];
-                    assert(getResp.type = GET_RESPONSE);
-                    outside := getResp.result;
+                    if (clock[clientId] = -1) {
+                        \* Client disconnected -- terminate
+                        continue := FALSE;
+                    } else {
+                        \* Waits for the response from the replica
+                        getResp := clients[self];
+                        assert(getResp.type = GET_RESPONSE);
+                        outside := getResp.result;
+                    }
               };
 
             getCheckSpin:
@@ -484,22 +488,27 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
                   \* increment the logical clock, construct the payload to be sent
                   \* to the replica, and set 'locked' to TRUE
                   clock[clientId] := clock[clientId] + 1;
-                  putReq := [op |-> PUT_MSG, key |-> key, value |-> value, client |-> clientId, timestamp |-> clock[clientId]];
+                  putReq := [op |-> PUT_MSG, key |-> key, value |-> value, client |-> clientId, timestamp |-> clock[clientId], reply_to |-> self];
                   i := 0;
                   j := 0;
 
                   \* Put requests must be broadcast to all replicas
                   putBroadcast:
-                    Broadcast(replicas, j, NUM_REPLICAS-1, putReq);
+                    Broadcast(replicas, j, NUM_REPLICAS-1, putReq, clocks[clientId]);
 
                   \* wait for a response from all replicas, and allow other
                   \* calls to the replica to happen after that.
                   putResponse:
                     while (i < Cardinality(ReplicaSet)) {
-                        putResp := clients[clientId];
-                        assert(putResp.type = PUT_RESPONSE);
+                        if (clocks[clientId] = -1) {
+                            continue := FALSE;
+                            goto putLoop;
+                        } else {
+                            putResp := clients[self];
+                            assert(putResp.type = PUT_RESPONSE);
 
-                        i := i + 1;
+                            i := i + 1;
+                        }
                     };
 
                   putComplete:
@@ -530,8 +539,10 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
         j := 0;
 
       \* Disconnection messages need to be broadcast to all replicas.
+      \* "Clock" is set to zero because the replica is disconnected but we
+      \* *do* want to broadcast that message
       disconnectBroadcast:
-        Broadcast(replicas, j, NUM_REPLICAS-1, msg);
+        Broadcast(replicas, j, NUM_REPLICAS-1, msg, 0);
   }
 
   \* Specifies a ClockUpdate ('null') message from the client.
@@ -554,9 +565,9 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
                 msg := [op |-> NULL_MSG, client |-> clientId, timestamp |-> clock[clientId]];
                 j := 0;
 
-                \* clock update messages must be broadcast to all replicas.
                 nullBroadcast:
-                  Broadcast(replicas, j, NUM_REPLICAS-1, msg);
+                  \* clock update messages must be broadcast to all replicas.
+                  Broadcast(replicas, j, NUM_REPLICAS-1, msg, clocks[clientId]);
             };
 
             nullCheckSpin:
@@ -573,8 +584,11 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
             \* queue of incoming messages for each of the replicas
             replicasNetwork = [id \in ReplicaSet |-> <<>>],
 
+            \* all clients performing operations in this model
+            allClients = GetSet \cup PutSet \cup DisconnectSet \cup NullSet,
+
             \* queue of incoming messages for each of the clients
-            clientsNetwork = [id \in ClientSet |-> <<>>],
+            clientMailboxes = [id \in allClients |-> <<>>],
 
             \* client identifier: to be appropriately mapped
             cid = 0,
@@ -599,23 +613,23 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
 
   \* Instantiate replica servers. The network model used is the one defined in
   \* the FIFOChannel mapping macro.
-  fair process (Replica \in ReplicaSet) == instance AReplica(ref clientsNetwork, replicasNetwork, [k \in KeySpace |-> NULL])
+  fair process (Replica \in ReplicaSet) == instance AReplica(ref clientMailboxes, replicasNetwork, [k \in KeySpace |-> NULL])
       mapping @1[_] via FIFOChannel
       mapping @2[_] via FIFOChannel
       mapping @3[_] via Identity;
 
   \* Instantiate clients:
 
-  fair process (GetClient \in GetSet) == instance Get(cid, ref replicasNetwork, clientsNetwork, GET_KEY, ref clocks, TRUE, ref out)
+  fair process (GetClient \in GetSet) == instance Get(cid, ref replicasNetwork, clientMailboxes, GET_KEY, ref clocks, TRUE, ref out)
       mapping cid via GetClientId
       mapping replicasNetwork[_] via FIFOChannel
-      mapping clientsNetwork[_] via FIFOChannel
+      mapping clientMailboxes[_] via FIFOChannel
       mapping clocks[_] via Identity;
 
-  fair process (PutClient \in PutSet) == instance Put(cid, ref replicasNetwork, clientsNetwork, PUT_KEY, PUT_VALUE, ref clocks, TRUE, ref out)
+  fair process (PutClient \in PutSet) == instance Put(cid, ref replicasNetwork, clientMailboxes, PUT_KEY, PUT_VALUE, ref clocks, TRUE, ref out)
       mapping cid via PutClientId
       mapping replicasNetwork[_] via FIFOChannel
-      mapping clientsNetwork[_] via FIFOChannel
+      mapping clientMailboxes[_] via FIFOChannel
       mapping clocks[_] via Identity;
 
   fair process (DisconnectClient \in DisconnectSet) == instance Disconnect(cid, ref replicasNetwork, ref clocks)
@@ -631,7 +645,7 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
 
 \* BEGIN PLUSCAL TRANSLATION
 --algorithm ReplicatedKV {
-    variables replicasNetwork = [id \in ReplicaSet |-> <<>>], clientsNetwork = [id \in ClientSet |-> <<>>], cid = 0, out = 0, clocks = [c \in ClientSet |-> 0], replicasRead, replicasWrite, kvRead, clientsWrite, clientsWrite0, kvWrite, kvWrite0, clientsWrite1, clientIdRead, clockRead, clientIdRead0, clockRead0, clientIdRead1, clockWrite, keyRead, clientIdRead2, clientIdRead3, clockRead1, replicasWrite0, clientsRead, clientsWrite2, outsideWrite, clockWrite0, replicasWrite1, clientsWrite3, outsideWrite0, spinRead, clientIdRead4, clockRead2, clientIdRead5, clockRead3, clientIdRead6, clockWrite1, keyRead0, valueRead, clientIdRead7, clientIdRead8, clockRead4, replicasWrite2, replicasWrite3, clientsRead0, clientsWrite4, clientsWrite5, outsideWrite1, spinRead0, clientIdRead9, clientIdRead10, clockWrite2, replicasWrite4, replicasWrite5, clientIdRead11, clockRead5, clientIdRead12, clockRead6, clientIdRead13, clockWrite3, clientIdRead14, clientIdRead15, clockRead7, replicasWrite6, replicasWrite7, spinRead1;
+    variables replicasNetwork = [id \in ReplicaSet |-> <<>>], allClients = (((GetSet) \cup (PutSet)) \cup (DisconnectSet)) \cup (NullSet), clientMailboxes = [id \in allClients |-> <<>>], cid = 0, out = 0, clocks = [c \in ClientSet |-> 0], replicasRead, replicasWrite, kvRead, clientsWrite, clientsWrite0, kvWrite, kvWrite0, clientsWrite1, clientIdRead, clockRead, clientIdRead0, clockRead0, clientIdRead1, clockWrite, keyRead, clientIdRead2, clientIdRead3, clockRead1, replicasWrite0, clientsRead, clientsWrite2, outsideWrite, clientsWrite3, outsideWrite0, spinRead, clientIdRead4, clockRead2, clientIdRead5, clockRead3, clientIdRead6, clockWrite0, keyRead0, valueRead, clientIdRead7, clientIdRead8, clockRead4, replicasWrite1, replicasWrite2, clientsRead0, clientsWrite4, clientsWrite5, outsideWrite1, spinRead0, clientIdRead9, clientIdRead10, clockWrite1, replicasWrite3, replicasWrite4, clientIdRead11, clockRead5, clientIdRead12, clockRead6, clientIdRead13, clockWrite2, clientIdRead14, clientIdRead15, clockRead7, replicasWrite5, replicasWrite6, spinRead1;
     define {
         NUM_NODES == (NUM_REPLICAS) + (NUM_CLIENTS)
         ReplicaSet == (0) .. ((NUM_REPLICAS) - (1))
@@ -739,13 +753,13 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
                                 key := (msg).key;
                                 kvRead := kvLocal[key];
                                 val := kvRead;
-                                await (Len(clientsNetwork[(msg).client])) < (BUFFER_SIZE);
-                                clientsWrite := [clientsNetwork EXCEPT ![(msg).client] = Append(clientsNetwork[(msg).client], [type |-> GET_RESPONSE, result |-> val])];
+                                await (Len(clientMailboxes[(msg).reply_to])) < (BUFFER_SIZE);
+                                clientsWrite := [clientMailboxes EXCEPT ![(msg).reply_to] = Append(clientMailboxes[(msg).reply_to], [type |-> GET_RESPONSE, result |-> val])];
                                 clientsWrite0 := clientsWrite;
-                                clientsNetwork := clientsWrite0;
+                                clientMailboxes := clientsWrite0;
                             } else {
-                                clientsWrite0 := clientsNetwork;
-                                clientsNetwork := clientsWrite0;
+                                clientsWrite0 := clientMailboxes;
+                                clientMailboxes := clientsWrite0;
                             };
 
                         respondStablePut:
@@ -753,17 +767,17 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
                                 key := (msg).key;
                                 val := (msg).value;
                                 kvWrite := [kvLocal EXCEPT ![key] = val];
-                                await (Len(clientsNetwork[(msg).client])) < (BUFFER_SIZE);
-                                clientsWrite := [clientsNetwork EXCEPT ![(msg).client] = Append(clientsNetwork[(msg).client], [type |-> PUT_RESPONSE, result |-> ok])];
+                                await (Len(clientMailboxes[(msg).reply_to])) < (BUFFER_SIZE);
+                                clientsWrite := [clientMailboxes EXCEPT ![(msg).reply_to] = Append(clientMailboxes[(msg).reply_to], [type |-> PUT_RESPONSE, result |-> ok])];
                                 kvWrite0 := kvWrite;
                                 clientsWrite1 := clientsWrite;
-                                clientsNetwork := clientsWrite1;
+                                clientMailboxes := clientsWrite1;
                                 kvLocal := kvWrite0;
                                 goto respondPendingRequestsLoop;
                             } else {
                                 kvWrite0 := kvLocal;
-                                clientsWrite1 := clientsNetwork;
-                                clientsNetwork := clientsWrite1;
+                                clientsWrite1 := clientMailboxes;
+                                clientMailboxes := clientsWrite1;
                                 kvLocal := kvWrite0;
                                 goto respondPendingRequestsLoop;
                             };
@@ -785,14 +799,6 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
                     clockRead := clocks[clientIdRead];
                     if ((clockRead) = (-(1))) {
                         continue := FALSE;
-                        clockWrite0 := clocks;
-                        replicasWrite1 := replicasNetwork;
-                        clientsWrite3 := clientsNetwork;
-                        outsideWrite0 := out;
-                        replicasNetwork := replicasWrite1;
-                        clientsNetwork := clientsWrite3;
-                        clocks := clockWrite0;
-                        out := outsideWrite0;
                     } else {
                         clientIdRead0 := (self) - ((NUM_CLIENTS) * (GET_ORDER));
                         clockRead0 := clocks[clientIdRead0];
@@ -802,7 +808,7 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
                         clientIdRead2 := (self) - ((NUM_CLIENTS) * (GET_ORDER));
                         clientIdRead3 := (self) - ((NUM_CLIENTS) * (GET_ORDER));
                         clockRead1 := clockWrite[clientIdRead3];
-                        getReq := [op |-> GET_MSG, key |-> keyRead, client |-> clientIdRead2, timestamp |-> clockRead1];
+                        getReq := [op |-> GET_MSG, key |-> keyRead, client |-> clientIdRead2, timestamp |-> clockRead1, reply_to |-> self];
                         with (dst \in ReplicaSet) {
                             await (Len(replicasNetwork[dst])) < (BUFFER_SIZE);
                             replicasWrite0 := [replicasNetwork EXCEPT ![dst] = Append(replicasNetwork[dst], getReq)];
@@ -811,16 +817,27 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
                         clocks := clockWrite;
                         getReply:
                             clientIdRead := (self) - ((NUM_CLIENTS) * (GET_ORDER));
-                            await (Len(clientsNetwork[clientIdRead])) > (0);
-                            with (msg1 = Head(clientsNetwork[clientIdRead])) {
-                                clientsWrite2 := [clientsNetwork EXCEPT ![clientIdRead] = Tail(clientsNetwork[clientIdRead])];
-                                clientsRead := msg1;
+                            clockRead := clocks[clientIdRead];
+                            if ((clockRead) = (-(1))) {
+                                continue := FALSE;
+                                clientsWrite3 := clientMailboxes;
+                                outsideWrite0 := out;
+                                clientMailboxes := clientsWrite3;
+                                out := outsideWrite0;
+                            } else {
+                                await (Len(clientMailboxes[self])) > (0);
+                                with (msg1 = Head(clientMailboxes[self])) {
+                                    clientsWrite2 := [clientMailboxes EXCEPT ![self] = Tail(clientMailboxes[self])];
+                                    clientsRead := msg1;
+                                };
+                                getResp := clientsRead;
+                                assert ((getResp).type) = (GET_RESPONSE);
+                                outsideWrite := (getResp).result;
+                                clientsWrite3 := clientsWrite2;
+                                outsideWrite0 := outsideWrite;
+                                clientMailboxes := clientsWrite3;
+                                out := outsideWrite0;
                             };
-                            getResp := clientsRead;
-                            assert ((getResp).type) = (GET_RESPONSE);
-                            outsideWrite := (getResp).result;
-                            clientsNetwork := clientsWrite2;
-                            out := outsideWrite;
 
                     };
 
@@ -850,46 +867,53 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
                         clientIdRead5 := (self) - ((NUM_CLIENTS) * (PUT_ORDER));
                         clockRead3 := clocks[clientIdRead5];
                         clientIdRead6 := (self) - ((NUM_CLIENTS) * (PUT_ORDER));
-                        clockWrite1 := [clocks EXCEPT ![clientIdRead6] = (clockRead3) + (1)];
+                        clockWrite0 := [clocks EXCEPT ![clientIdRead6] = (clockRead3) + (1)];
                         keyRead0 := PUT_KEY;
                         valueRead := PUT_VALUE;
                         clientIdRead7 := (self) - ((NUM_CLIENTS) * (PUT_ORDER));
                         clientIdRead8 := (self) - ((NUM_CLIENTS) * (PUT_ORDER));
-                        clockRead4 := clockWrite1[clientIdRead8];
-                        putReq := [op |-> PUT_MSG, key |-> keyRead0, value |-> valueRead, client |-> clientIdRead7, timestamp |-> clockRead4];
+                        clockRead4 := clockWrite0[clientIdRead8];
+                        putReq := [op |-> PUT_MSG, key |-> keyRead0, value |-> valueRead, client |-> clientIdRead7, timestamp |-> clockRead4, reply_to |-> self];
                         i := 0;
                         j := 0;
-                        clocks := clockWrite1;
+                        clocks := clockWrite0;
                         putBroadcast:
-                            if ((j) <= ((NUM_REPLICAS) - (1))) {
+                            clientIdRead4 := (self) - ((NUM_CLIENTS) * (PUT_ORDER));
+                            if (((j) <= ((NUM_REPLICAS) - (1))) /\ ((clocks[clientIdRead4]) # (-(1)))) {
                                 await (Len(replicasNetwork[j])) < (BUFFER_SIZE);
-                                replicasWrite2 := [replicasNetwork EXCEPT ![j] = Append(replicasNetwork[j], putReq)];
+                                replicasWrite1 := [replicasNetwork EXCEPT ![j] = Append(replicasNetwork[j], putReq)];
                                 j := (j) + (1);
-                                replicasWrite3 := replicasWrite2;
-                                replicasNetwork := replicasWrite3;
+                                replicasWrite2 := replicasWrite1;
+                                replicasNetwork := replicasWrite2;
                                 goto putBroadcast;
                             } else {
-                                replicasWrite3 := replicasNetwork;
-                                replicasNetwork := replicasWrite3;
+                                replicasWrite2 := replicasNetwork;
+                                replicasNetwork := replicasWrite2;
                             };
 
                         putResponse:
                             if ((i) < (Cardinality(ReplicaSet))) {
                                 clientIdRead4 := (self) - ((NUM_CLIENTS) * (PUT_ORDER));
-                                await (Len(clientsNetwork[clientIdRead4])) > (0);
-                                with (msg2 = Head(clientsNetwork[clientIdRead4])) {
-                                    clientsWrite4 := [clientsNetwork EXCEPT ![clientIdRead4] = Tail(clientsNetwork[clientIdRead4])];
-                                    clientsRead0 := msg2;
+                                if ((clocks[clientIdRead4]) = (-(1))) {
+                                    continue := FALSE;
+                                    clientsWrite5 := clientMailboxes;
+                                    clientMailboxes := clientsWrite5;
+                                    goto putLoop;
+                                } else {
+                                    await (Len(clientMailboxes[self])) > (0);
+                                    with (msg2 = Head(clientMailboxes[self])) {
+                                        clientsWrite4 := [clientMailboxes EXCEPT ![self] = Tail(clientMailboxes[self])];
+                                        clientsRead0 := msg2;
+                                    };
+                                    putResp := clientsRead0;
+                                    assert ((putResp).type) = (PUT_RESPONSE);
+                                    i := (i) + (1);
+                                    clientsWrite5 := clientsWrite4;
+                                    clientMailboxes := clientsWrite5;
+                                    goto putResponse;
                                 };
-                                putResp := clientsRead0;
-                                assert ((putResp).type) = (PUT_RESPONSE);
-                                i := (i) + (1);
-                                clientsWrite5 := clientsWrite4;
-                                clientsNetwork := clientsWrite5;
-                                goto putResponse;
                             } else {
-                                clientsWrite5 := clientsNetwork;
-                                clientsNetwork := clientsWrite5;
+                                clientMailboxes := clientsWrite5;
                             };
 
                         putComplete:
@@ -917,20 +941,20 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
             clientIdRead9 := (self) - ((NUM_CLIENTS) * (DISCONNECT_ORDER));
             msg := [op |-> DISCONNECT_MSG, client |-> clientIdRead9];
             clientIdRead10 := (self) - ((NUM_CLIENTS) * (DISCONNECT_ORDER));
-            clockWrite2 := [clocks EXCEPT ![clientIdRead10] = -(1)];
+            clockWrite1 := [clocks EXCEPT ![clientIdRead10] = -(1)];
             j := 0;
-            clocks := clockWrite2;
+            clocks := clockWrite1;
         disconnectBroadcast:
-            if ((j) <= ((NUM_REPLICAS) - (1))) {
+            if (((j) <= ((NUM_REPLICAS) - (1))) /\ ((0) # (-(1)))) {
                 await (Len(replicasNetwork[j])) < (BUFFER_SIZE);
-                replicasWrite4 := [replicasNetwork EXCEPT ![j] = Append(replicasNetwork[j], msg)];
+                replicasWrite3 := [replicasNetwork EXCEPT ![j] = Append(replicasNetwork[j], msg)];
                 j := (j) + (1);
-                replicasWrite5 := replicasWrite4;
-                replicasNetwork := replicasWrite5;
+                replicasWrite4 := replicasWrite3;
+                replicasNetwork := replicasWrite4;
                 goto disconnectBroadcast;
             } else {
-                replicasWrite5 := replicasNetwork;
-                replicasNetwork := replicasWrite5;
+                replicasWrite4 := replicasNetwork;
+                replicasNetwork := replicasWrite4;
             };
 
     }
@@ -947,24 +971,25 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
                     clientIdRead12 := (self) - ((NUM_CLIENTS) * (NULL_ORDER));
                     clockRead6 := clocks[clientIdRead12];
                     clientIdRead13 := (self) - ((NUM_CLIENTS) * (NULL_ORDER));
-                    clockWrite3 := [clocks EXCEPT ![clientIdRead13] = (clockRead6) + (1)];
+                    clockWrite2 := [clocks EXCEPT ![clientIdRead13] = (clockRead6) + (1)];
                     clientIdRead14 := (self) - ((NUM_CLIENTS) * (NULL_ORDER));
                     clientIdRead15 := (self) - ((NUM_CLIENTS) * (NULL_ORDER));
-                    clockRead7 := clockWrite3[clientIdRead15];
+                    clockRead7 := clockWrite2[clientIdRead15];
                     msg := [op |-> NULL_MSG, client |-> clientIdRead14, timestamp |-> clockRead7];
                     j := 0;
-                    clocks := clockWrite3;
+                    clocks := clockWrite2;
                     nullBroadcast:
-                        if ((j) <= ((NUM_REPLICAS) - (1))) {
+                        clientIdRead11 := (self) - ((NUM_CLIENTS) * (NULL_ORDER));
+                        if (((j) <= ((NUM_REPLICAS) - (1))) /\ ((clocks[clientIdRead11]) # (-(1)))) {
                             await (Len(replicasNetwork[j])) < (BUFFER_SIZE);
-                            replicasWrite6 := [replicasNetwork EXCEPT ![j] = Append(replicasNetwork[j], msg)];
+                            replicasWrite5 := [replicasNetwork EXCEPT ![j] = Append(replicasNetwork[j], msg)];
                             j := (j) + (1);
-                            replicasWrite7 := replicasWrite6;
-                            replicasNetwork := replicasWrite7;
+                            replicasWrite6 := replicasWrite5;
+                            replicasNetwork := replicasWrite6;
                             goto nullBroadcast;
                         } else {
-                            replicasWrite7 := replicasNetwork;
-                            replicasNetwork := replicasWrite7;
+                            replicasWrite6 := replicasNetwork;
+                            replicasNetwork := replicasWrite6;
                         };
 
                 };
@@ -986,30 +1011,30 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
 
 ***************************************************************************)
 \* BEGIN TRANSLATION
-\* Process variable i of process Replica at line 641 col 148 changed to i_
-\* Process variable continue of process Replica at line 641 col 271 changed to continue_
-\* Process variable msg of process Replica at line 641 col 310 changed to msg_
-\* Process variable continue of process GetClient at line 779 col 33 changed to continue_G
-\* Process variable continue of process PutClient at line 840 col 34 changed to continue_P
-\* Process variable j of process PutClient at line 840 col 54 changed to j_
-\* Process variable msg of process DisconnectClient at line 914 col 15 changed to msg_D
-\* Process variable j of process DisconnectClient at line 914 col 20 changed to j_D
+\* Process variable i of process Replica at line 655 col 148 changed to i_
+\* Process variable continue of process Replica at line 655 col 271 changed to continue_
+\* Process variable msg of process Replica at line 655 col 310 changed to msg_
+\* Process variable continue of process GetClient at line 793 col 33 changed to continue_G
+\* Process variable continue of process PutClient at line 857 col 34 changed to continue_P
+\* Process variable j of process PutClient at line 857 col 54 changed to j_
+\* Process variable msg of process DisconnectClient at line 938 col 15 changed to msg_D
+\* Process variable j of process DisconnectClient at line 938 col 20 changed to j_D
 CONSTANT defaultInitValue
-VARIABLES replicasNetwork, clientsNetwork, cid, out, clocks, replicasRead,
-          replicasWrite, kvRead, clientsWrite, clientsWrite0, kvWrite,
-          kvWrite0, clientsWrite1, clientIdRead, clockRead, clientIdRead0,
-          clockRead0, clientIdRead1, clockWrite, keyRead, clientIdRead2,
-          clientIdRead3, clockRead1, replicasWrite0, clientsRead,
-          clientsWrite2, outsideWrite, clockWrite0, replicasWrite1,
-          clientsWrite3, outsideWrite0, spinRead, clientIdRead4, clockRead2,
-          clientIdRead5, clockRead3, clientIdRead6, clockWrite1, keyRead0,
-          valueRead, clientIdRead7, clientIdRead8, clockRead4, replicasWrite2,
-          replicasWrite3, clientsRead0, clientsWrite4, clientsWrite5,
+VARIABLES replicasNetwork, allClients, clientMailboxes, cid, out, clocks,
+          replicasRead, replicasWrite, kvRead, clientsWrite, clientsWrite0,
+          kvWrite, kvWrite0, clientsWrite1, clientIdRead, clockRead,
+          clientIdRead0, clockRead0, clientIdRead1, clockWrite, keyRead,
+          clientIdRead2, clientIdRead3, clockRead1, replicasWrite0,
+          clientsRead, clientsWrite2, outsideWrite, clientsWrite3,
+          outsideWrite0, spinRead, clientIdRead4, clockRead2, clientIdRead5,
+          clockRead3, clientIdRead6, clockWrite0, keyRead0, valueRead,
+          clientIdRead7, clientIdRead8, clockRead4, replicasWrite1,
+          replicasWrite2, clientsRead0, clientsWrite4, clientsWrite5,
           outsideWrite1, spinRead0, clientIdRead9, clientIdRead10,
-          clockWrite2, replicasWrite4, replicasWrite5, clientIdRead11,
-          clockRead5, clientIdRead12, clockRead6, clientIdRead13, clockWrite3,
-          clientIdRead14, clientIdRead15, clockRead7, replicasWrite6,
-          replicasWrite7, spinRead1, pc
+          clockWrite1, replicasWrite3, replicasWrite4, clientIdRead11,
+          clockRead5, clientIdRead12, clockRead6, clientIdRead13, clockWrite2,
+          clientIdRead14, clientIdRead15, clockRead7, replicasWrite5,
+          replicasWrite6, spinRead1, pc
 
 (* define statement *)
 NUM_NODES == (NUM_REPLICAS) + (NUM_CLIENTS)
@@ -1023,21 +1048,21 @@ VARIABLES kvLocal, liveClients, pendingRequests, stableMessages, i_,
           spinLocal0, continue_P, i, j_, putReq, putResp, msg_D, j_D,
           spinLocal1, continue, j, msg
 
-vars == << replicasNetwork, clientsNetwork, cid, out, clocks, replicasRead,
-           replicasWrite, kvRead, clientsWrite, clientsWrite0, kvWrite,
-           kvWrite0, clientsWrite1, clientIdRead, clockRead, clientIdRead0,
-           clockRead0, clientIdRead1, clockWrite, keyRead, clientIdRead2,
-           clientIdRead3, clockRead1, replicasWrite0, clientsRead,
-           clientsWrite2, outsideWrite, clockWrite0, replicasWrite1,
-           clientsWrite3, outsideWrite0, spinRead, clientIdRead4, clockRead2,
-           clientIdRead5, clockRead3, clientIdRead6, clockWrite1, keyRead0,
-           valueRead, clientIdRead7, clientIdRead8, clockRead4,
-           replicasWrite2, replicasWrite3, clientsRead0, clientsWrite4,
-           clientsWrite5, outsideWrite1, spinRead0, clientIdRead9,
-           clientIdRead10, clockWrite2, replicasWrite4, replicasWrite5,
-           clientIdRead11, clockRead5, clientIdRead12, clockRead6,
-           clientIdRead13, clockWrite3, clientIdRead14, clientIdRead15,
-           clockRead7, replicasWrite6, replicasWrite7, spinRead1, pc, kvLocal,
+vars == << replicasNetwork, allClients, clientMailboxes, cid, out, clocks,
+           replicasRead, replicasWrite, kvRead, clientsWrite, clientsWrite0,
+           kvWrite, kvWrite0, clientsWrite1, clientIdRead, clockRead,
+           clientIdRead0, clockRead0, clientIdRead1, clockWrite, keyRead,
+           clientIdRead2, clientIdRead3, clockRead1, replicasWrite0,
+           clientsRead, clientsWrite2, outsideWrite, clientsWrite3,
+           outsideWrite0, spinRead, clientIdRead4, clockRead2, clientIdRead5,
+           clockRead3, clientIdRead6, clockWrite0, keyRead0, valueRead,
+           clientIdRead7, clientIdRead8, clockRead4, replicasWrite1,
+           replicasWrite2, clientsRead0, clientsWrite4, clientsWrite5,
+           outsideWrite1, spinRead0, clientIdRead9, clientIdRead10,
+           clockWrite1, replicasWrite3, replicasWrite4, clientIdRead11,
+           clockRead5, clientIdRead12, clockRead6, clientIdRead13,
+           clockWrite2, clientIdRead14, clientIdRead15, clockRead7,
+           replicasWrite5, replicasWrite6, spinRead1, pc, kvLocal,
            liveClients, pendingRequests, stableMessages, i_, firstPending,
            timestamp, nextClient, lowestPending, chooseMessage, currentClocks,
            minClock, continue_, pendingClients, clientsIter, msg_, ok, key,
@@ -1049,7 +1074,8 @@ ProcSet == (ReplicaSet) \cup (GetSet) \cup (PutSet) \cup (DisconnectSet) \cup (N
 
 Init == (* Global variables *)
         /\ replicasNetwork = [id \in ReplicaSet |-> <<>>]
-        /\ clientsNetwork = [id \in ClientSet |-> <<>>]
+        /\ allClients = ((((GetSet) \cup (PutSet)) \cup (DisconnectSet)) \cup (NullSet))
+        /\ clientMailboxes = [id \in allClients |-> <<>>]
         /\ cid = 0
         /\ out = 0
         /\ clocks = [c \in ClientSet |-> 0]
@@ -1075,8 +1101,6 @@ Init == (* Global variables *)
         /\ clientsRead = defaultInitValue
         /\ clientsWrite2 = defaultInitValue
         /\ outsideWrite = defaultInitValue
-        /\ clockWrite0 = defaultInitValue
-        /\ replicasWrite1 = defaultInitValue
         /\ clientsWrite3 = defaultInitValue
         /\ outsideWrite0 = defaultInitValue
         /\ spinRead = defaultInitValue
@@ -1085,14 +1109,14 @@ Init == (* Global variables *)
         /\ clientIdRead5 = defaultInitValue
         /\ clockRead3 = defaultInitValue
         /\ clientIdRead6 = defaultInitValue
-        /\ clockWrite1 = defaultInitValue
+        /\ clockWrite0 = defaultInitValue
         /\ keyRead0 = defaultInitValue
         /\ valueRead = defaultInitValue
         /\ clientIdRead7 = defaultInitValue
         /\ clientIdRead8 = defaultInitValue
         /\ clockRead4 = defaultInitValue
+        /\ replicasWrite1 = defaultInitValue
         /\ replicasWrite2 = defaultInitValue
-        /\ replicasWrite3 = defaultInitValue
         /\ clientsRead0 = defaultInitValue
         /\ clientsWrite4 = defaultInitValue
         /\ clientsWrite5 = defaultInitValue
@@ -1100,20 +1124,20 @@ Init == (* Global variables *)
         /\ spinRead0 = defaultInitValue
         /\ clientIdRead9 = defaultInitValue
         /\ clientIdRead10 = defaultInitValue
-        /\ clockWrite2 = defaultInitValue
+        /\ clockWrite1 = defaultInitValue
+        /\ replicasWrite3 = defaultInitValue
         /\ replicasWrite4 = defaultInitValue
-        /\ replicasWrite5 = defaultInitValue
         /\ clientIdRead11 = defaultInitValue
         /\ clockRead5 = defaultInitValue
         /\ clientIdRead12 = defaultInitValue
         /\ clockRead6 = defaultInitValue
         /\ clientIdRead13 = defaultInitValue
-        /\ clockWrite3 = defaultInitValue
+        /\ clockWrite2 = defaultInitValue
         /\ clientIdRead14 = defaultInitValue
         /\ clientIdRead15 = defaultInitValue
         /\ clockRead7 = defaultInitValue
+        /\ replicasWrite5 = defaultInitValue
         /\ replicasWrite6 = defaultInitValue
-        /\ replicasWrite7 = defaultInitValue
         /\ spinRead1 = defaultInitValue
         (* Process Replica *)
         /\ kvLocal = [self \in ReplicaSet |-> [k \in KeySpace |-> NULL]]
@@ -1168,32 +1192,32 @@ replicaLoop(self) == /\ pc[self] = "replicaLoop"
                                 /\ pc' = [pc EXCEPT ![self] = "receiveClientRequest"]
                            ELSE /\ pc' = [pc EXCEPT ![self] = "Done"]
                                 /\ UNCHANGED << stableMessages, continue_ >>
-                     /\ UNCHANGED << replicasNetwork, clientsNetwork, cid, out,
-                                     clocks, replicasRead, replicasWrite,
-                                     kvRead, clientsWrite, clientsWrite0,
-                                     kvWrite, kvWrite0, clientsWrite1,
-                                     clientIdRead, clockRead, clientIdRead0,
-                                     clockRead0, clientIdRead1, clockWrite,
-                                     keyRead, clientIdRead2, clientIdRead3,
-                                     clockRead1, replicasWrite0, clientsRead,
-                                     clientsWrite2, outsideWrite, clockWrite0,
-                                     replicasWrite1, clientsWrite3,
-                                     outsideWrite0, spinRead, clientIdRead4,
-                                     clockRead2, clientIdRead5, clockRead3,
-                                     clientIdRead6, clockWrite1, keyRead0,
-                                     valueRead, clientIdRead7, clientIdRead8,
-                                     clockRead4, replicasWrite2,
-                                     replicasWrite3, clientsRead0,
+                     /\ UNCHANGED << replicasNetwork, allClients,
+                                     clientMailboxes, cid, out, clocks,
+                                     replicasRead, replicasWrite, kvRead,
+                                     clientsWrite, clientsWrite0, kvWrite,
+                                     kvWrite0, clientsWrite1, clientIdRead,
+                                     clockRead, clientIdRead0, clockRead0,
+                                     clientIdRead1, clockWrite, keyRead,
+                                     clientIdRead2, clientIdRead3, clockRead1,
+                                     replicasWrite0, clientsRead,
+                                     clientsWrite2, outsideWrite,
+                                     clientsWrite3, outsideWrite0, spinRead,
+                                     clientIdRead4, clockRead2, clientIdRead5,
+                                     clockRead3, clientIdRead6, clockWrite0,
+                                     keyRead0, valueRead, clientIdRead7,
+                                     clientIdRead8, clockRead4, replicasWrite1,
+                                     replicasWrite2, clientsRead0,
                                      clientsWrite4, clientsWrite5,
                                      outsideWrite1, spinRead0, clientIdRead9,
-                                     clientIdRead10, clockWrite2,
-                                     replicasWrite4, replicasWrite5,
+                                     clientIdRead10, clockWrite1,
+                                     replicasWrite3, replicasWrite4,
                                      clientIdRead11, clockRead5,
                                      clientIdRead12, clockRead6,
-                                     clientIdRead13, clockWrite3,
+                                     clientIdRead13, clockWrite2,
                                      clientIdRead14, clientIdRead15,
-                                     clockRead7, replicasWrite6,
-                                     replicasWrite7, spinRead1, kvLocal,
+                                     clockRead7, replicasWrite5,
+                                     replicasWrite6, spinRead1, kvLocal,
                                      liveClients, pendingRequests, i_,
                                      firstPending, timestamp, nextClient,
                                      lowestPending, chooseMessage,
@@ -1212,36 +1236,35 @@ receiveClientRequest(self) == /\ pc[self] = "receiveClientRequest"
                               /\ msg_' = [msg_ EXCEPT ![self] = replicasRead']
                               /\ replicasNetwork' = replicasWrite'
                               /\ pc' = [pc EXCEPT ![self] = "clientDisconnected"]
-                              /\ UNCHANGED << clientsNetwork, cid, out, clocks,
-                                              kvRead, clientsWrite,
-                                              clientsWrite0, kvWrite, kvWrite0,
-                                              clientsWrite1, clientIdRead,
-                                              clockRead, clientIdRead0,
-                                              clockRead0, clientIdRead1,
-                                              clockWrite, keyRead,
-                                              clientIdRead2, clientIdRead3,
-                                              clockRead1, replicasWrite0,
-                                              clientsRead, clientsWrite2,
-                                              outsideWrite, clockWrite0,
-                                              replicasWrite1, clientsWrite3,
-                                              outsideWrite0, spinRead,
-                                              clientIdRead4, clockRead2,
-                                              clientIdRead5, clockRead3,
-                                              clientIdRead6, clockWrite1,
-                                              keyRead0, valueRead,
+                              /\ UNCHANGED << allClients, clientMailboxes, cid,
+                                              out, clocks, kvRead,
+                                              clientsWrite, clientsWrite0,
+                                              kvWrite, kvWrite0, clientsWrite1,
+                                              clientIdRead, clockRead,
+                                              clientIdRead0, clockRead0,
+                                              clientIdRead1, clockWrite,
+                                              keyRead, clientIdRead2,
+                                              clientIdRead3, clockRead1,
+                                              replicasWrite0, clientsRead,
+                                              clientsWrite2, outsideWrite,
+                                              clientsWrite3, outsideWrite0,
+                                              spinRead, clientIdRead4,
+                                              clockRead2, clientIdRead5,
+                                              clockRead3, clientIdRead6,
+                                              clockWrite0, keyRead0, valueRead,
                                               clientIdRead7, clientIdRead8,
-                                              clockRead4, replicasWrite2,
-                                              replicasWrite3, clientsRead0,
+                                              clockRead4, replicasWrite1,
+                                              replicasWrite2, clientsRead0,
                                               clientsWrite4, clientsWrite5,
                                               outsideWrite1, spinRead0,
                                               clientIdRead9, clientIdRead10,
-                                              clockWrite2, replicasWrite4,
-                                              replicasWrite5, clientIdRead11,
+                                              clockWrite1, replicasWrite3,
+                                              replicasWrite4, clientIdRead11,
                                               clockRead5, clientIdRead12,
                                               clockRead6, clientIdRead13,
-                                              clockWrite3, clientIdRead14,
+                                              clockWrite2, clientIdRead14,
                                               clientIdRead15, clockRead7,
-                                              replicasWrite6, replicasWrite7,
+                                              replicasWrite5, replicasWrite6,
                                               spinRead1, kvLocal, liveClients,
                                               pendingRequests, stableMessages,
                                               i_, firstPending, timestamp,
@@ -1261,37 +1284,37 @@ clientDisconnected(self) == /\ pc[self] = "clientDisconnected"
                                   ELSE /\ TRUE
                                        /\ UNCHANGED liveClients
                             /\ pc' = [pc EXCEPT ![self] = "replicaGetRequest"]
-                            /\ UNCHANGED << replicasNetwork, clientsNetwork,
-                                            cid, out, clocks, replicasRead,
-                                            replicasWrite, kvRead,
-                                            clientsWrite, clientsWrite0,
-                                            kvWrite, kvWrite0, clientsWrite1,
-                                            clientIdRead, clockRead,
-                                            clientIdRead0, clockRead0,
-                                            clientIdRead1, clockWrite, keyRead,
-                                            clientIdRead2, clientIdRead3,
-                                            clockRead1, replicasWrite0,
-                                            clientsRead, clientsWrite2,
-                                            outsideWrite, clockWrite0,
-                                            replicasWrite1, clientsWrite3,
-                                            outsideWrite0, spinRead,
-                                            clientIdRead4, clockRead2,
-                                            clientIdRead5, clockRead3,
-                                            clientIdRead6, clockWrite1,
-                                            keyRead0, valueRead, clientIdRead7,
-                                            clientIdRead8, clockRead4,
-                                            replicasWrite2, replicasWrite3,
-                                            clientsRead0, clientsWrite4,
-                                            clientsWrite5, outsideWrite1,
-                                            spinRead0, clientIdRead9,
-                                            clientIdRead10, clockWrite2,
-                                            replicasWrite4, replicasWrite5,
-                                            clientIdRead11, clockRead5,
-                                            clientIdRead12, clockRead6,
-                                            clientIdRead13, clockWrite3,
-                                            clientIdRead14, clientIdRead15,
-                                            clockRead7, replicasWrite6,
-                                            replicasWrite7, spinRead1, kvLocal,
+                            /\ UNCHANGED << replicasNetwork, allClients,
+                                            clientMailboxes, cid, out, clocks,
+                                            replicasRead, replicasWrite,
+                                            kvRead, clientsWrite,
+                                            clientsWrite0, kvWrite, kvWrite0,
+                                            clientsWrite1, clientIdRead,
+                                            clockRead, clientIdRead0,
+                                            clockRead0, clientIdRead1,
+                                            clockWrite, keyRead, clientIdRead2,
+                                            clientIdRead3, clockRead1,
+                                            replicasWrite0, clientsRead,
+                                            clientsWrite2, outsideWrite,
+                                            clientsWrite3, outsideWrite0,
+                                            spinRead, clientIdRead4,
+                                            clockRead2, clientIdRead5,
+                                            clockRead3, clientIdRead6,
+                                            clockWrite0, keyRead0, valueRead,
+                                            clientIdRead7, clientIdRead8,
+                                            clockRead4, replicasWrite1,
+                                            replicasWrite2, clientsRead0,
+                                            clientsWrite4, clientsWrite5,
+                                            outsideWrite1, spinRead0,
+                                            clientIdRead9, clientIdRead10,
+                                            clockWrite1, replicasWrite3,
+                                            replicasWrite4, clientIdRead11,
+                                            clockRead5, clientIdRead12,
+                                            clockRead6, clientIdRead13,
+                                            clockWrite2, clientIdRead14,
+                                            clientIdRead15, clockRead7,
+                                            replicasWrite5, replicasWrite6,
+                                            spinRead1, kvLocal,
                                             pendingRequests, stableMessages,
                                             i_, firstPending, timestamp,
                                             nextClient, lowestPending,
@@ -1307,43 +1330,43 @@ clientDisconnected(self) == /\ pc[self] = "clientDisconnected"
 replicaGetRequest(self) == /\ pc[self] = "replicaGetRequest"
                            /\ IF ((msg_[self]).op) = (GET_MSG)
                                  THEN /\ Assert(((msg_[self]).client) \in (liveClients[self]),
-                                                "Failure of assertion at line 663, column 25.")
+                                                "Failure of assertion at line 677, column 25.")
                                       /\ currentClocks' = [currentClocks EXCEPT ![self][(msg_[self]).client] = (msg_[self]).timestamp]
                                       /\ pendingRequests' = [pendingRequests EXCEPT ![self][(msg_[self]).client] = Append(pendingRequests[self][(msg_[self]).client], msg_[self])]
                                  ELSE /\ TRUE
                                       /\ UNCHANGED << pendingRequests,
                                                       currentClocks >>
                            /\ pc' = [pc EXCEPT ![self] = "replicaPutRequest"]
-                           /\ UNCHANGED << replicasNetwork, clientsNetwork,
-                                           cid, out, clocks, replicasRead,
-                                           replicasWrite, kvRead, clientsWrite,
-                                           clientsWrite0, kvWrite, kvWrite0,
-                                           clientsWrite1, clientIdRead,
-                                           clockRead, clientIdRead0,
-                                           clockRead0, clientIdRead1,
-                                           clockWrite, keyRead, clientIdRead2,
-                                           clientIdRead3, clockRead1,
-                                           replicasWrite0, clientsRead,
-                                           clientsWrite2, outsideWrite,
-                                           clockWrite0, replicasWrite1,
-                                           clientsWrite3, outsideWrite0,
-                                           spinRead, clientIdRead4, clockRead2,
+                           /\ UNCHANGED << replicasNetwork, allClients,
+                                           clientMailboxes, cid, out, clocks,
+                                           replicasRead, replicasWrite, kvRead,
+                                           clientsWrite, clientsWrite0,
+                                           kvWrite, kvWrite0, clientsWrite1,
+                                           clientIdRead, clockRead,
+                                           clientIdRead0, clockRead0,
+                                           clientIdRead1, clockWrite, keyRead,
+                                           clientIdRead2, clientIdRead3,
+                                           clockRead1, replicasWrite0,
+                                           clientsRead, clientsWrite2,
+                                           outsideWrite, clientsWrite3,
+                                           outsideWrite0, spinRead,
+                                           clientIdRead4, clockRead2,
                                            clientIdRead5, clockRead3,
-                                           clientIdRead6, clockWrite1,
+                                           clientIdRead6, clockWrite0,
                                            keyRead0, valueRead, clientIdRead7,
                                            clientIdRead8, clockRead4,
-                                           replicasWrite2, replicasWrite3,
+                                           replicasWrite1, replicasWrite2,
                                            clientsRead0, clientsWrite4,
                                            clientsWrite5, outsideWrite1,
                                            spinRead0, clientIdRead9,
-                                           clientIdRead10, clockWrite2,
-                                           replicasWrite4, replicasWrite5,
+                                           clientIdRead10, clockWrite1,
+                                           replicasWrite3, replicasWrite4,
                                            clientIdRead11, clockRead5,
                                            clientIdRead12, clockRead6,
-                                           clientIdRead13, clockWrite3,
+                                           clientIdRead13, clockWrite2,
                                            clientIdRead14, clientIdRead15,
-                                           clockRead7, replicasWrite6,
-                                           replicasWrite7, spinRead1, kvLocal,
+                                           clockRead7, replicasWrite5,
+                                           replicasWrite6, spinRead1, kvLocal,
                                            liveClients, stableMessages, i_,
                                            firstPending, timestamp, nextClient,
                                            lowestPending, chooseMessage,
@@ -1362,36 +1385,36 @@ replicaPutRequest(self) == /\ pc[self] = "replicaPutRequest"
                                       /\ UNCHANGED << pendingRequests,
                                                       currentClocks >>
                            /\ pc' = [pc EXCEPT ![self] = "replicaNullRequest"]
-                           /\ UNCHANGED << replicasNetwork, clientsNetwork,
-                                           cid, out, clocks, replicasRead,
-                                           replicasWrite, kvRead, clientsWrite,
-                                           clientsWrite0, kvWrite, kvWrite0,
-                                           clientsWrite1, clientIdRead,
-                                           clockRead, clientIdRead0,
-                                           clockRead0, clientIdRead1,
-                                           clockWrite, keyRead, clientIdRead2,
-                                           clientIdRead3, clockRead1,
-                                           replicasWrite0, clientsRead,
-                                           clientsWrite2, outsideWrite,
-                                           clockWrite0, replicasWrite1,
-                                           clientsWrite3, outsideWrite0,
-                                           spinRead, clientIdRead4, clockRead2,
+                           /\ UNCHANGED << replicasNetwork, allClients,
+                                           clientMailboxes, cid, out, clocks,
+                                           replicasRead, replicasWrite, kvRead,
+                                           clientsWrite, clientsWrite0,
+                                           kvWrite, kvWrite0, clientsWrite1,
+                                           clientIdRead, clockRead,
+                                           clientIdRead0, clockRead0,
+                                           clientIdRead1, clockWrite, keyRead,
+                                           clientIdRead2, clientIdRead3,
+                                           clockRead1, replicasWrite0,
+                                           clientsRead, clientsWrite2,
+                                           outsideWrite, clientsWrite3,
+                                           outsideWrite0, spinRead,
+                                           clientIdRead4, clockRead2,
                                            clientIdRead5, clockRead3,
-                                           clientIdRead6, clockWrite1,
+                                           clientIdRead6, clockWrite0,
                                            keyRead0, valueRead, clientIdRead7,
                                            clientIdRead8, clockRead4,
-                                           replicasWrite2, replicasWrite3,
+                                           replicasWrite1, replicasWrite2,
                                            clientsRead0, clientsWrite4,
                                            clientsWrite5, outsideWrite1,
                                            spinRead0, clientIdRead9,
-                                           clientIdRead10, clockWrite2,
-                                           replicasWrite4, replicasWrite5,
+                                           clientIdRead10, clockWrite1,
+                                           replicasWrite3, replicasWrite4,
                                            clientIdRead11, clockRead5,
                                            clientIdRead12, clockRead6,
-                                           clientIdRead13, clockWrite3,
+                                           clientIdRead13, clockWrite2,
                                            clientIdRead14, clientIdRead15,
-                                           clockRead7, replicasWrite6,
-                                           replicasWrite7, spinRead1, kvLocal,
+                                           clockRead7, replicasWrite5,
+                                           replicasWrite6, spinRead1, kvLocal,
                                            liveClients, stableMessages, i_,
                                            firstPending, timestamp, nextClient,
                                            lowestPending, chooseMessage,
@@ -1408,42 +1431,41 @@ replicaNullRequest(self) == /\ pc[self] = "replicaNullRequest"
                                   ELSE /\ TRUE
                                        /\ UNCHANGED currentClocks
                             /\ pc' = [pc EXCEPT ![self] = "findStableRequestsLoop"]
-                            /\ UNCHANGED << replicasNetwork, clientsNetwork,
-                                            cid, out, clocks, replicasRead,
-                                            replicasWrite, kvRead,
-                                            clientsWrite, clientsWrite0,
-                                            kvWrite, kvWrite0, clientsWrite1,
-                                            clientIdRead, clockRead,
-                                            clientIdRead0, clockRead0,
-                                            clientIdRead1, clockWrite, keyRead,
-                                            clientIdRead2, clientIdRead3,
-                                            clockRead1, replicasWrite0,
-                                            clientsRead, clientsWrite2,
-                                            outsideWrite, clockWrite0,
-                                            replicasWrite1, clientsWrite3,
-                                            outsideWrite0, spinRead,
-                                            clientIdRead4, clockRead2,
-                                            clientIdRead5, clockRead3,
-                                            clientIdRead6, clockWrite1,
-                                            keyRead0, valueRead, clientIdRead7,
-                                            clientIdRead8, clockRead4,
-                                            replicasWrite2, replicasWrite3,
-                                            clientsRead0, clientsWrite4,
-                                            clientsWrite5, outsideWrite1,
-                                            spinRead0, clientIdRead9,
-                                            clientIdRead10, clockWrite2,
-                                            replicasWrite4, replicasWrite5,
-                                            clientIdRead11, clockRead5,
-                                            clientIdRead12, clockRead6,
-                                            clientIdRead13, clockWrite3,
-                                            clientIdRead14, clientIdRead15,
-                                            clockRead7, replicasWrite6,
-                                            replicasWrite7, spinRead1, kvLocal,
-                                            liveClients, pendingRequests,
-                                            stableMessages, i_, firstPending,
-                                            timestamp, nextClient,
-                                            lowestPending, chooseMessage,
-                                            minClock, continue_,
+                            /\ UNCHANGED << replicasNetwork, allClients,
+                                            clientMailboxes, cid, out, clocks,
+                                            replicasRead, replicasWrite,
+                                            kvRead, clientsWrite,
+                                            clientsWrite0, kvWrite, kvWrite0,
+                                            clientsWrite1, clientIdRead,
+                                            clockRead, clientIdRead0,
+                                            clockRead0, clientIdRead1,
+                                            clockWrite, keyRead, clientIdRead2,
+                                            clientIdRead3, clockRead1,
+                                            replicasWrite0, clientsRead,
+                                            clientsWrite2, outsideWrite,
+                                            clientsWrite3, outsideWrite0,
+                                            spinRead, clientIdRead4,
+                                            clockRead2, clientIdRead5,
+                                            clockRead3, clientIdRead6,
+                                            clockWrite0, keyRead0, valueRead,
+                                            clientIdRead7, clientIdRead8,
+                                            clockRead4, replicasWrite1,
+                                            replicasWrite2, clientsRead0,
+                                            clientsWrite4, clientsWrite5,
+                                            outsideWrite1, spinRead0,
+                                            clientIdRead9, clientIdRead10,
+                                            clockWrite1, replicasWrite3,
+                                            replicasWrite4, clientIdRead11,
+                                            clockRead5, clientIdRead12,
+                                            clockRead6, clientIdRead13,
+                                            clockWrite2, clientIdRead14,
+                                            clientIdRead15, clockRead7,
+                                            replicasWrite5, replicasWrite6,
+                                            spinRead1, kvLocal, liveClients,
+                                            pendingRequests, stableMessages,
+                                            i_, firstPending, timestamp,
+                                            nextClient, lowestPending,
+                                            chooseMessage, minClock, continue_,
                                             pendingClients, clientsIter, msg_,
                                             ok, key, val, spinLocal,
                                             continue_G, getReq, getResp,
@@ -1465,8 +1487,8 @@ findStableRequestsLoop(self) == /\ pc[self] = "findStableRequestsLoop"
                                                            minClock,
                                                            pendingClients,
                                                            clientsIter >>
-                                /\ UNCHANGED << replicasNetwork,
-                                                clientsNetwork, cid, out,
+                                /\ UNCHANGED << replicasNetwork, allClients,
+                                                clientMailboxes, cid, out,
                                                 clocks, replicasRead,
                                                 replicasWrite, kvRead,
                                                 clientsWrite, clientsWrite0,
@@ -1478,26 +1500,25 @@ findStableRequestsLoop(self) == /\ pc[self] = "findStableRequestsLoop"
                                                 clientIdRead2, clientIdRead3,
                                                 clockRead1, replicasWrite0,
                                                 clientsRead, clientsWrite2,
-                                                outsideWrite, clockWrite0,
-                                                replicasWrite1, clientsWrite3,
+                                                outsideWrite, clientsWrite3,
                                                 outsideWrite0, spinRead,
                                                 clientIdRead4, clockRead2,
                                                 clientIdRead5, clockRead3,
-                                                clientIdRead6, clockWrite1,
+                                                clientIdRead6, clockWrite0,
                                                 keyRead0, valueRead,
                                                 clientIdRead7, clientIdRead8,
-                                                clockRead4, replicasWrite2,
-                                                replicasWrite3, clientsRead0,
+                                                clockRead4, replicasWrite1,
+                                                replicasWrite2, clientsRead0,
                                                 clientsWrite4, clientsWrite5,
                                                 outsideWrite1, spinRead0,
                                                 clientIdRead9, clientIdRead10,
-                                                clockWrite2, replicasWrite4,
-                                                replicasWrite5, clientIdRead11,
+                                                clockWrite1, replicasWrite3,
+                                                replicasWrite4, clientIdRead11,
                                                 clockRead5, clientIdRead12,
                                                 clockRead6, clientIdRead13,
-                                                clockWrite3, clientIdRead14,
+                                                clockWrite2, clientIdRead14,
                                                 clientIdRead15, clockRead7,
-                                                replicasWrite6, replicasWrite7,
+                                                replicasWrite5, replicasWrite6,
                                                 spinRead1, kvLocal,
                                                 liveClients, pendingRequests,
                                                 stableMessages, firstPending,
@@ -1524,32 +1545,32 @@ findMinClock(self) == /\ pc[self] = "findMinClock"
                                  /\ i_' = [i_ EXCEPT ![self] = 0]
                                  /\ pc' = [pc EXCEPT ![self] = "findMinClient"]
                                  /\ UNCHANGED << minClock, clientsIter >>
-                      /\ UNCHANGED << replicasNetwork, clientsNetwork, cid,
-                                      out, clocks, replicasRead, replicasWrite,
-                                      kvRead, clientsWrite, clientsWrite0,
-                                      kvWrite, kvWrite0, clientsWrite1,
-                                      clientIdRead, clockRead, clientIdRead0,
-                                      clockRead0, clientIdRead1, clockWrite,
-                                      keyRead, clientIdRead2, clientIdRead3,
-                                      clockRead1, replicasWrite0, clientsRead,
-                                      clientsWrite2, outsideWrite, clockWrite0,
-                                      replicasWrite1, clientsWrite3,
-                                      outsideWrite0, spinRead, clientIdRead4,
-                                      clockRead2, clientIdRead5, clockRead3,
-                                      clientIdRead6, clockWrite1, keyRead0,
-                                      valueRead, clientIdRead7, clientIdRead8,
-                                      clockRead4, replicasWrite2,
-                                      replicasWrite3, clientsRead0,
-                                      clientsWrite4, clientsWrite5,
-                                      outsideWrite1, spinRead0, clientIdRead9,
-                                      clientIdRead10, clockWrite2,
-                                      replicasWrite4, replicasWrite5,
-                                      clientIdRead11, clockRead5,
-                                      clientIdRead12, clockRead6,
-                                      clientIdRead13, clockWrite3,
+                      /\ UNCHANGED << replicasNetwork, allClients,
+                                      clientMailboxes, cid, out, clocks,
+                                      replicasRead, replicasWrite, kvRead,
+                                      clientsWrite, clientsWrite0, kvWrite,
+                                      kvWrite0, clientsWrite1, clientIdRead,
+                                      clockRead, clientIdRead0, clockRead0,
+                                      clientIdRead1, clockWrite, keyRead,
+                                      clientIdRead2, clientIdRead3, clockRead1,
+                                      replicasWrite0, clientsRead,
+                                      clientsWrite2, outsideWrite,
+                                      clientsWrite3, outsideWrite0, spinRead,
+                                      clientIdRead4, clockRead2, clientIdRead5,
+                                      clockRead3, clientIdRead6, clockWrite0,
+                                      keyRead0, valueRead, clientIdRead7,
+                                      clientIdRead8, clockRead4,
+                                      replicasWrite1, replicasWrite2,
+                                      clientsRead0, clientsWrite4,
+                                      clientsWrite5, outsideWrite1, spinRead0,
+                                      clientIdRead9, clientIdRead10,
+                                      clockWrite1, replicasWrite3,
+                                      replicasWrite4, clientIdRead11,
+                                      clockRead5, clientIdRead12, clockRead6,
+                                      clientIdRead13, clockWrite2,
                                       clientIdRead14, clientIdRead15,
-                                      clockRead7, replicasWrite6,
-                                      replicasWrite7, spinRead1, kvLocal,
+                                      clockRead7, replicasWrite5,
+                                      replicasWrite6, spinRead1, kvLocal,
                                       liveClients, pendingRequests,
                                       stableMessages, firstPending, timestamp,
                                       nextClient, chooseMessage, currentClocks,
@@ -1564,7 +1585,7 @@ findMinClient(self) == /\ pc[self] = "findMinClient"
                              THEN /\ \E client \in pendingClients[self]:
                                        /\ firstPending' = [firstPending EXCEPT ![self] = Head(pendingRequests[self][client])]
                                        /\ Assert((((firstPending'[self]).op) = (GET_MSG)) \/ (((firstPending'[self]).op) = (PUT_MSG)),
-                                                 "Failure of assertion at line 704, column 37.")
+                                                 "Failure of assertion at line 718, column 37.")
                                        /\ timestamp' = [timestamp EXCEPT ![self] = (firstPending'[self]).timestamp]
                                        /\ IF (timestamp'[self]) < (minClock[self])
                                              THEN /\ chooseMessage' = [chooseMessage EXCEPT ![self] = ((timestamp'[self]) < (lowestPending[self])) \/ (((timestamp'[self]) = (lowestPending[self])) /\ ((client) < (nextClient[self])))]
@@ -1585,34 +1606,33 @@ findMinClient(self) == /\ pc[self] = "findMinClient"
                                                   nextClient, lowestPending,
                                                   chooseMessage,
                                                   pendingClients >>
-                       /\ UNCHANGED << replicasNetwork, clientsNetwork, cid,
-                                       out, clocks, replicasRead,
-                                       replicasWrite, kvRead, clientsWrite,
-                                       clientsWrite0, kvWrite, kvWrite0,
-                                       clientsWrite1, clientIdRead, clockRead,
-                                       clientIdRead0, clockRead0,
+                       /\ UNCHANGED << replicasNetwork, allClients,
+                                       clientMailboxes, cid, out, clocks,
+                                       replicasRead, replicasWrite, kvRead,
+                                       clientsWrite, clientsWrite0, kvWrite,
+                                       kvWrite0, clientsWrite1, clientIdRead,
+                                       clockRead, clientIdRead0, clockRead0,
                                        clientIdRead1, clockWrite, keyRead,
                                        clientIdRead2, clientIdRead3,
                                        clockRead1, replicasWrite0, clientsRead,
                                        clientsWrite2, outsideWrite,
-                                       clockWrite0, replicasWrite1,
                                        clientsWrite3, outsideWrite0, spinRead,
                                        clientIdRead4, clockRead2,
                                        clientIdRead5, clockRead3,
-                                       clientIdRead6, clockWrite1, keyRead0,
+                                       clientIdRead6, clockWrite0, keyRead0,
                                        valueRead, clientIdRead7, clientIdRead8,
-                                       clockRead4, replicasWrite2,
-                                       replicasWrite3, clientsRead0,
+                                       clockRead4, replicasWrite1,
+                                       replicasWrite2, clientsRead0,
                                        clientsWrite4, clientsWrite5,
                                        outsideWrite1, spinRead0, clientIdRead9,
-                                       clientIdRead10, clockWrite2,
-                                       replicasWrite4, replicasWrite5,
+                                       clientIdRead10, clockWrite1,
+                                       replicasWrite3, replicasWrite4,
                                        clientIdRead11, clockRead5,
                                        clientIdRead12, clockRead6,
-                                       clientIdRead13, clockWrite3,
+                                       clientIdRead13, clockWrite2,
                                        clientIdRead14, clientIdRead15,
-                                       clockRead7, replicasWrite6,
-                                       replicasWrite7, spinRead1, kvLocal,
+                                       clockRead7, replicasWrite5,
+                                       replicasWrite6, spinRead1, kvLocal,
                                        liveClients, pendingRequests,
                                        stableMessages, i_, currentClocks,
                                        minClock, continue_, clientsIter, msg_,
@@ -1632,36 +1652,36 @@ addStableMessage(self) == /\ pc[self] = "addStableMessage"
                                      /\ pc' = [pc EXCEPT ![self] = "findStableRequestsLoop"]
                                      /\ UNCHANGED << pendingRequests,
                                                      stableMessages, msg_ >>
-                          /\ UNCHANGED << replicasNetwork, clientsNetwork, cid,
-                                          out, clocks, replicasRead,
-                                          replicasWrite, kvRead, clientsWrite,
-                                          clientsWrite0, kvWrite, kvWrite0,
-                                          clientsWrite1, clientIdRead,
-                                          clockRead, clientIdRead0, clockRead0,
+                          /\ UNCHANGED << replicasNetwork, allClients,
+                                          clientMailboxes, cid, out, clocks,
+                                          replicasRead, replicasWrite, kvRead,
+                                          clientsWrite, clientsWrite0, kvWrite,
+                                          kvWrite0, clientsWrite1,
+                                          clientIdRead, clockRead,
+                                          clientIdRead0, clockRead0,
                                           clientIdRead1, clockWrite, keyRead,
                                           clientIdRead2, clientIdRead3,
                                           clockRead1, replicasWrite0,
                                           clientsRead, clientsWrite2,
-                                          outsideWrite, clockWrite0,
-                                          replicasWrite1, clientsWrite3,
+                                          outsideWrite, clientsWrite3,
                                           outsideWrite0, spinRead,
                                           clientIdRead4, clockRead2,
                                           clientIdRead5, clockRead3,
-                                          clientIdRead6, clockWrite1, keyRead0,
+                                          clientIdRead6, clockWrite0, keyRead0,
                                           valueRead, clientIdRead7,
                                           clientIdRead8, clockRead4,
-                                          replicasWrite2, replicasWrite3,
+                                          replicasWrite1, replicasWrite2,
                                           clientsRead0, clientsWrite4,
                                           clientsWrite5, outsideWrite1,
                                           spinRead0, clientIdRead9,
-                                          clientIdRead10, clockWrite2,
-                                          replicasWrite4, replicasWrite5,
+                                          clientIdRead10, clockWrite1,
+                                          replicasWrite3, replicasWrite4,
                                           clientIdRead11, clockRead5,
                                           clientIdRead12, clockRead6,
-                                          clientIdRead13, clockWrite3,
+                                          clientIdRead13, clockWrite2,
                                           clientIdRead14, clientIdRead15,
-                                          clockRead7, replicasWrite6,
-                                          replicasWrite7, spinRead1, kvLocal,
+                                          clockRead7, replicasWrite5,
+                                          replicasWrite6, spinRead1, kvLocal,
                                           liveClients, i_, firstPending,
                                           timestamp, nextClient, lowestPending,
                                           chooseMessage, currentClocks,
@@ -1680,7 +1700,8 @@ respondPendingRequestsLoop(self) == /\ pc[self] = "respondPendingRequestsLoop"
                                           ELSE /\ pc' = [pc EXCEPT ![self] = "replicaLoop"]
                                                /\ UNCHANGED << i_, msg_ >>
                                     /\ UNCHANGED << replicasNetwork,
-                                                    clientsNetwork, cid, out,
+                                                    allClients,
+                                                    clientMailboxes, cid, out,
                                                     clocks, replicasRead,
                                                     replicasWrite, kvRead,
                                                     clientsWrite,
@@ -1693,35 +1714,34 @@ respondPendingRequestsLoop(self) == /\ pc[self] = "respondPendingRequestsLoop"
                                                     clientIdRead3, clockRead1,
                                                     replicasWrite0,
                                                     clientsRead, clientsWrite2,
-                                                    outsideWrite, clockWrite0,
-                                                    replicasWrite1,
+                                                    outsideWrite,
                                                     clientsWrite3,
                                                     outsideWrite0, spinRead,
                                                     clientIdRead4, clockRead2,
                                                     clientIdRead5, clockRead3,
-                                                    clientIdRead6, clockWrite1,
+                                                    clientIdRead6, clockWrite0,
                                                     keyRead0, valueRead,
                                                     clientIdRead7,
                                                     clientIdRead8, clockRead4,
+                                                    replicasWrite1,
                                                     replicasWrite2,
-                                                    replicasWrite3,
                                                     clientsRead0,
                                                     clientsWrite4,
                                                     clientsWrite5,
                                                     outsideWrite1, spinRead0,
                                                     clientIdRead9,
                                                     clientIdRead10,
-                                                    clockWrite2,
+                                                    clockWrite1,
+                                                    replicasWrite3,
                                                     replicasWrite4,
-                                                    replicasWrite5,
                                                     clientIdRead11, clockRead5,
                                                     clientIdRead12, clockRead6,
                                                     clientIdRead13,
-                                                    clockWrite3,
+                                                    clockWrite2,
                                                     clientIdRead14,
                                                     clientIdRead15, clockRead7,
-                                                    replicasWrite6,
-                                                    replicasWrite7, spinRead1,
+                                                    replicasWrite5,
+                                                    replicasWrite6, spinRead1,
                                                     kvLocal, liveClients,
                                                     pendingRequests,
                                                     stableMessages,
@@ -1743,44 +1763,43 @@ respondStableGet(self) == /\ pc[self] = "respondStableGet"
                                 THEN /\ key' = [key EXCEPT ![self] = (msg_[self]).key]
                                      /\ kvRead' = kvLocal[self][key'[self]]
                                      /\ val' = [val EXCEPT ![self] = kvRead']
-                                     /\ (Len(clientsNetwork[(msg_[self]).client])) < (BUFFER_SIZE)
-                                     /\ clientsWrite' = [clientsNetwork EXCEPT ![(msg_[self]).client] = Append(clientsNetwork[(msg_[self]).client], [type |-> GET_RESPONSE, result |-> val'[self]])]
+                                     /\ (Len(clientMailboxes[(msg_[self]).reply_to])) < (BUFFER_SIZE)
+                                     /\ clientsWrite' = [clientMailboxes EXCEPT ![(msg_[self]).reply_to] = Append(clientMailboxes[(msg_[self]).reply_to], [type |-> GET_RESPONSE, result |-> val'[self]])]
                                      /\ clientsWrite0' = clientsWrite'
-                                     /\ clientsNetwork' = clientsWrite0'
-                                ELSE /\ clientsWrite0' = clientsNetwork
-                                     /\ clientsNetwork' = clientsWrite0'
+                                     /\ clientMailboxes' = clientsWrite0'
+                                ELSE /\ clientsWrite0' = clientMailboxes
+                                     /\ clientMailboxes' = clientsWrite0'
                                      /\ UNCHANGED << kvRead, clientsWrite, key,
                                                      val >>
                           /\ pc' = [pc EXCEPT ![self] = "respondStablePut"]
-                          /\ UNCHANGED << replicasNetwork, cid, out, clocks,
-                                          replicasRead, replicasWrite, kvWrite,
-                                          kvWrite0, clientsWrite1,
-                                          clientIdRead, clockRead,
-                                          clientIdRead0, clockRead0,
+                          /\ UNCHANGED << replicasNetwork, allClients, cid,
+                                          out, clocks, replicasRead,
+                                          replicasWrite, kvWrite, kvWrite0,
+                                          clientsWrite1, clientIdRead,
+                                          clockRead, clientIdRead0, clockRead0,
                                           clientIdRead1, clockWrite, keyRead,
                                           clientIdRead2, clientIdRead3,
                                           clockRead1, replicasWrite0,
                                           clientsRead, clientsWrite2,
-                                          outsideWrite, clockWrite0,
-                                          replicasWrite1, clientsWrite3,
+                                          outsideWrite, clientsWrite3,
                                           outsideWrite0, spinRead,
                                           clientIdRead4, clockRead2,
                                           clientIdRead5, clockRead3,
-                                          clientIdRead6, clockWrite1, keyRead0,
+                                          clientIdRead6, clockWrite0, keyRead0,
                                           valueRead, clientIdRead7,
                                           clientIdRead8, clockRead4,
-                                          replicasWrite2, replicasWrite3,
+                                          replicasWrite1, replicasWrite2,
                                           clientsRead0, clientsWrite4,
                                           clientsWrite5, outsideWrite1,
                                           spinRead0, clientIdRead9,
-                                          clientIdRead10, clockWrite2,
-                                          replicasWrite4, replicasWrite5,
+                                          clientIdRead10, clockWrite1,
+                                          replicasWrite3, replicasWrite4,
                                           clientIdRead11, clockRead5,
                                           clientIdRead12, clockRead6,
-                                          clientIdRead13, clockWrite3,
+                                          clientIdRead13, clockWrite2,
                                           clientIdRead14, clientIdRead15,
-                                          clockRead7, replicasWrite6,
-                                          replicasWrite7, spinRead1, kvLocal,
+                                          clockRead7, replicasWrite5,
+                                          replicasWrite6, spinRead1, kvLocal,
                                           liveClients, pendingRequests,
                                           stableMessages, i_, firstPending,
                                           timestamp, nextClient, lowestPending,
@@ -1797,48 +1816,48 @@ respondStablePut(self) == /\ pc[self] = "respondStablePut"
                                 THEN /\ key' = [key EXCEPT ![self] = (msg_[self]).key]
                                      /\ val' = [val EXCEPT ![self] = (msg_[self]).value]
                                      /\ kvWrite' = [kvLocal[self] EXCEPT ![key'[self]] = val'[self]]
-                                     /\ (Len(clientsNetwork[(msg_[self]).client])) < (BUFFER_SIZE)
-                                     /\ clientsWrite' = [clientsNetwork EXCEPT ![(msg_[self]).client] = Append(clientsNetwork[(msg_[self]).client], [type |-> PUT_RESPONSE, result |-> ok[self]])]
+                                     /\ (Len(clientMailboxes[(msg_[self]).reply_to])) < (BUFFER_SIZE)
+                                     /\ clientsWrite' = [clientMailboxes EXCEPT ![(msg_[self]).reply_to] = Append(clientMailboxes[(msg_[self]).reply_to], [type |-> PUT_RESPONSE, result |-> ok[self]])]
                                      /\ kvWrite0' = kvWrite'
                                      /\ clientsWrite1' = clientsWrite'
-                                     /\ clientsNetwork' = clientsWrite1'
+                                     /\ clientMailboxes' = clientsWrite1'
                                      /\ kvLocal' = [kvLocal EXCEPT ![self] = kvWrite0']
                                      /\ pc' = [pc EXCEPT ![self] = "respondPendingRequestsLoop"]
                                 ELSE /\ kvWrite0' = kvLocal[self]
-                                     /\ clientsWrite1' = clientsNetwork
-                                     /\ clientsNetwork' = clientsWrite1'
+                                     /\ clientsWrite1' = clientMailboxes
+                                     /\ clientMailboxes' = clientsWrite1'
                                      /\ kvLocal' = [kvLocal EXCEPT ![self] = kvWrite0']
                                      /\ pc' = [pc EXCEPT ![self] = "respondPendingRequestsLoop"]
                                      /\ UNCHANGED << clientsWrite, kvWrite,
                                                      key, val >>
-                          /\ UNCHANGED << replicasNetwork, cid, out, clocks,
-                                          replicasRead, replicasWrite, kvRead,
-                                          clientsWrite0, clientIdRead,
-                                          clockRead, clientIdRead0, clockRead0,
+                          /\ UNCHANGED << replicasNetwork, allClients, cid,
+                                          out, clocks, replicasRead,
+                                          replicasWrite, kvRead, clientsWrite0,
+                                          clientIdRead, clockRead,
+                                          clientIdRead0, clockRead0,
                                           clientIdRead1, clockWrite, keyRead,
                                           clientIdRead2, clientIdRead3,
                                           clockRead1, replicasWrite0,
                                           clientsRead, clientsWrite2,
-                                          outsideWrite, clockWrite0,
-                                          replicasWrite1, clientsWrite3,
+                                          outsideWrite, clientsWrite3,
                                           outsideWrite0, spinRead,
                                           clientIdRead4, clockRead2,
                                           clientIdRead5, clockRead3,
-                                          clientIdRead6, clockWrite1, keyRead0,
+                                          clientIdRead6, clockWrite0, keyRead0,
                                           valueRead, clientIdRead7,
                                           clientIdRead8, clockRead4,
-                                          replicasWrite2, replicasWrite3,
+                                          replicasWrite1, replicasWrite2,
                                           clientsRead0, clientsWrite4,
                                           clientsWrite5, outsideWrite1,
                                           spinRead0, clientIdRead9,
-                                          clientIdRead10, clockWrite2,
-                                          replicasWrite4, replicasWrite5,
+                                          clientIdRead10, clockWrite1,
+                                          replicasWrite3, replicasWrite4,
                                           clientIdRead11, clockRead5,
                                           clientIdRead12, clockRead6,
-                                          clientIdRead13, clockWrite3,
+                                          clientIdRead13, clockWrite2,
                                           clientIdRead14, clientIdRead15,
-                                          clockRead7, replicasWrite6,
-                                          replicasWrite7, spinRead1,
+                                          clockRead7, replicasWrite5,
+                                          replicasWrite6, spinRead1,
                                           liveClients, pendingRequests,
                                           stableMessages, i_, firstPending,
                                           timestamp, nextClient, lowestPending,
@@ -1862,28 +1881,27 @@ getLoop(self) == /\ pc[self] = "getLoop"
                  /\ IF continue_G[self]
                        THEN /\ pc' = [pc EXCEPT ![self] = "getRequest"]
                        ELSE /\ pc' = [pc EXCEPT ![self] = "Done"]
-                 /\ UNCHANGED << replicasNetwork, clientsNetwork, cid, out,
-                                 clocks, replicasRead, replicasWrite, kvRead,
-                                 clientsWrite, clientsWrite0, kvWrite,
+                 /\ UNCHANGED << replicasNetwork, allClients, clientMailboxes,
+                                 cid, out, clocks, replicasRead, replicasWrite,
+                                 kvRead, clientsWrite, clientsWrite0, kvWrite,
                                  kvWrite0, clientsWrite1, clientIdRead,
                                  clockRead, clientIdRead0, clockRead0,
                                  clientIdRead1, clockWrite, keyRead,
                                  clientIdRead2, clientIdRead3, clockRead1,
                                  replicasWrite0, clientsRead, clientsWrite2,
-                                 outsideWrite, clockWrite0, replicasWrite1,
-                                 clientsWrite3, outsideWrite0, spinRead,
-                                 clientIdRead4, clockRead2, clientIdRead5,
-                                 clockRead3, clientIdRead6, clockWrite1,
-                                 keyRead0, valueRead, clientIdRead7,
-                                 clientIdRead8, clockRead4, replicasWrite2,
-                                 replicasWrite3, clientsRead0, clientsWrite4,
-                                 clientsWrite5, outsideWrite1, spinRead0,
-                                 clientIdRead9, clientIdRead10, clockWrite2,
-                                 replicasWrite4, replicasWrite5,
+                                 outsideWrite, clientsWrite3, outsideWrite0,
+                                 spinRead, clientIdRead4, clockRead2,
+                                 clientIdRead5, clockRead3, clientIdRead6,
+                                 clockWrite0, keyRead0, valueRead,
+                                 clientIdRead7, clientIdRead8, clockRead4,
+                                 replicasWrite1, replicasWrite2, clientsRead0,
+                                 clientsWrite4, clientsWrite5, outsideWrite1,
+                                 spinRead0, clientIdRead9, clientIdRead10,
+                                 clockWrite1, replicasWrite3, replicasWrite4,
                                  clientIdRead11, clockRead5, clientIdRead12,
-                                 clockRead6, clientIdRead13, clockWrite3,
+                                 clockRead6, clientIdRead13, clockWrite2,
                                  clientIdRead14, clientIdRead15, clockRead7,
-                                 replicasWrite6, replicasWrite7, spinRead1,
+                                 replicasWrite5, replicasWrite6, spinRead1,
                                  kvLocal, liveClients, pendingRequests,
                                  stableMessages, i_, firstPending, timestamp,
                                  nextClient, lowestPending, chooseMessage,
@@ -1899,16 +1917,9 @@ getRequest(self) == /\ pc[self] = "getRequest"
                     /\ clockRead' = clocks[clientIdRead']
                     /\ IF (clockRead') = (-(1))
                           THEN /\ continue_G' = [continue_G EXCEPT ![self] = FALSE]
-                               /\ clockWrite0' = clocks
-                               /\ replicasWrite1' = replicasNetwork
-                               /\ clientsWrite3' = clientsNetwork
-                               /\ outsideWrite0' = out
-                               /\ replicasNetwork' = replicasWrite1'
-                               /\ clientsNetwork' = clientsWrite3'
-                               /\ clocks' = clockWrite0'
-                               /\ out' = outsideWrite0'
                                /\ pc' = [pc EXCEPT ![self] = "getCheckSpin"]
-                               /\ UNCHANGED << clientIdRead0, clockRead0,
+                               /\ UNCHANGED << replicasNetwork, clocks,
+                                               clientIdRead0, clockRead0,
                                                clientIdRead1, clockWrite,
                                                keyRead, clientIdRead2,
                                                clientIdRead3, clockRead1,
@@ -1921,34 +1932,32 @@ getRequest(self) == /\ pc[self] = "getRequest"
                                /\ clientIdRead2' = (self) - ((NUM_CLIENTS) * (GET_ORDER))
                                /\ clientIdRead3' = (self) - ((NUM_CLIENTS) * (GET_ORDER))
                                /\ clockRead1' = clockWrite'[clientIdRead3']
-                               /\ getReq' = [getReq EXCEPT ![self] = [op |-> GET_MSG, key |-> keyRead', client |-> clientIdRead2', timestamp |-> clockRead1']]
+                               /\ getReq' = [getReq EXCEPT ![self] = [op |-> GET_MSG, key |-> keyRead', client |-> clientIdRead2', timestamp |-> clockRead1', reply_to |-> self]]
                                /\ \E dst \in ReplicaSet:
                                     /\ (Len(replicasNetwork[dst])) < (BUFFER_SIZE)
                                     /\ replicasWrite0' = [replicasNetwork EXCEPT ![dst] = Append(replicasNetwork[dst], getReq'[self])]
                                /\ replicasNetwork' = replicasWrite0'
                                /\ clocks' = clockWrite'
                                /\ pc' = [pc EXCEPT ![self] = "getReply"]
-                               /\ UNCHANGED << clientsNetwork, out,
-                                               clockWrite0, replicasWrite1,
-                                               clientsWrite3, outsideWrite0,
-                                               continue_G >>
-                    /\ UNCHANGED << cid, replicasRead, replicasWrite, kvRead,
+                               /\ UNCHANGED continue_G
+                    /\ UNCHANGED << allClients, clientMailboxes, cid, out,
+                                    replicasRead, replicasWrite, kvRead,
                                     clientsWrite, clientsWrite0, kvWrite,
                                     kvWrite0, clientsWrite1, clientsRead,
-                                    clientsWrite2, outsideWrite, spinRead,
-                                    clientIdRead4, clockRead2, clientIdRead5,
-                                    clockRead3, clientIdRead6, clockWrite1,
-                                    keyRead0, valueRead, clientIdRead7,
-                                    clientIdRead8, clockRead4, replicasWrite2,
-                                    replicasWrite3, clientsRead0,
-                                    clientsWrite4, clientsWrite5,
+                                    clientsWrite2, outsideWrite, clientsWrite3,
+                                    outsideWrite0, spinRead, clientIdRead4,
+                                    clockRead2, clientIdRead5, clockRead3,
+                                    clientIdRead6, clockWrite0, keyRead0,
+                                    valueRead, clientIdRead7, clientIdRead8,
+                                    clockRead4, replicasWrite1, replicasWrite2,
+                                    clientsRead0, clientsWrite4, clientsWrite5,
                                     outsideWrite1, spinRead0, clientIdRead9,
-                                    clientIdRead10, clockWrite2,
-                                    replicasWrite4, replicasWrite5,
+                                    clientIdRead10, clockWrite1,
+                                    replicasWrite3, replicasWrite4,
                                     clientIdRead11, clockRead5, clientIdRead12,
-                                    clockRead6, clientIdRead13, clockWrite3,
+                                    clockRead6, clientIdRead13, clockWrite2,
                                     clientIdRead14, clientIdRead15, clockRead7,
-                                    replicasWrite6, replicasWrite7, spinRead1,
+                                    replicasWrite5, replicasWrite6, spinRead1,
                                     kvLocal, liveClients, pendingRequests,
                                     stableMessages, i_, firstPending,
                                     timestamp, nextClient, lowestPending,
@@ -1961,46 +1970,56 @@ getRequest(self) == /\ pc[self] = "getRequest"
 
 getReply(self) == /\ pc[self] = "getReply"
                   /\ clientIdRead' = (self) - ((NUM_CLIENTS) * (GET_ORDER))
-                  /\ (Len(clientsNetwork[clientIdRead'])) > (0)
-                  /\ LET msg1 == Head(clientsNetwork[clientIdRead']) IN
-                       /\ clientsWrite2' = [clientsNetwork EXCEPT ![clientIdRead'] = Tail(clientsNetwork[clientIdRead'])]
-                       /\ clientsRead' = msg1
-                  /\ getResp' = [getResp EXCEPT ![self] = clientsRead']
-                  /\ Assert(((getResp'[self]).type) = (GET_RESPONSE),
-                            "Failure of assertion at line 820, column 29.")
-                  /\ outsideWrite' = (getResp'[self]).result
-                  /\ clientsNetwork' = clientsWrite2'
-                  /\ out' = outsideWrite'
+                  /\ clockRead' = clocks[clientIdRead']
+                  /\ IF (clockRead') = (-(1))
+                        THEN /\ continue_G' = [continue_G EXCEPT ![self] = FALSE]
+                             /\ clientsWrite3' = clientMailboxes
+                             /\ outsideWrite0' = out
+                             /\ clientMailboxes' = clientsWrite3'
+                             /\ out' = outsideWrite0'
+                             /\ UNCHANGED << clientsRead, clientsWrite2,
+                                             outsideWrite, getResp >>
+                        ELSE /\ (Len(clientMailboxes[self])) > (0)
+                             /\ LET msg1 == Head(clientMailboxes[self]) IN
+                                  /\ clientsWrite2' = [clientMailboxes EXCEPT ![self] = Tail(clientMailboxes[self])]
+                                  /\ clientsRead' = msg1
+                             /\ getResp' = [getResp EXCEPT ![self] = clientsRead']
+                             /\ Assert(((getResp'[self]).type) = (GET_RESPONSE),
+                                       "Failure of assertion at line 834, column 33.")
+                             /\ outsideWrite' = (getResp'[self]).result
+                             /\ clientsWrite3' = clientsWrite2'
+                             /\ outsideWrite0' = outsideWrite'
+                             /\ clientMailboxes' = clientsWrite3'
+                             /\ out' = outsideWrite0'
+                             /\ UNCHANGED continue_G
                   /\ pc' = [pc EXCEPT ![self] = "getCheckSpin"]
-                  /\ UNCHANGED << replicasNetwork, cid, clocks, replicasRead,
-                                  replicasWrite, kvRead, clientsWrite,
-                                  clientsWrite0, kvWrite, kvWrite0,
-                                  clientsWrite1, clockRead, clientIdRead0,
+                  /\ UNCHANGED << replicasNetwork, allClients, cid, clocks,
+                                  replicasRead, replicasWrite, kvRead,
+                                  clientsWrite, clientsWrite0, kvWrite,
+                                  kvWrite0, clientsWrite1, clientIdRead0,
                                   clockRead0, clientIdRead1, clockWrite,
                                   keyRead, clientIdRead2, clientIdRead3,
-                                  clockRead1, replicasWrite0, clockWrite0,
-                                  replicasWrite1, clientsWrite3, outsideWrite0,
-                                  spinRead, clientIdRead4, clockRead2,
-                                  clientIdRead5, clockRead3, clientIdRead6,
-                                  clockWrite1, keyRead0, valueRead,
-                                  clientIdRead7, clientIdRead8, clockRead4,
-                                  replicasWrite2, replicasWrite3, clientsRead0,
-                                  clientsWrite4, clientsWrite5, outsideWrite1,
-                                  spinRead0, clientIdRead9, clientIdRead10,
-                                  clockWrite2, replicasWrite4, replicasWrite5,
+                                  clockRead1, replicasWrite0, spinRead,
+                                  clientIdRead4, clockRead2, clientIdRead5,
+                                  clockRead3, clientIdRead6, clockWrite0,
+                                  keyRead0, valueRead, clientIdRead7,
+                                  clientIdRead8, clockRead4, replicasWrite1,
+                                  replicasWrite2, clientsRead0, clientsWrite4,
+                                  clientsWrite5, outsideWrite1, spinRead0,
+                                  clientIdRead9, clientIdRead10, clockWrite1,
+                                  replicasWrite3, replicasWrite4,
                                   clientIdRead11, clockRead5, clientIdRead12,
-                                  clockRead6, clientIdRead13, clockWrite3,
+                                  clockRead6, clientIdRead13, clockWrite2,
                                   clientIdRead14, clientIdRead15, clockRead7,
-                                  replicasWrite6, replicasWrite7, spinRead1,
+                                  replicasWrite5, replicasWrite6, spinRead1,
                                   kvLocal, liveClients, pendingRequests,
                                   stableMessages, i_, firstPending, timestamp,
                                   nextClient, lowestPending, chooseMessage,
                                   currentClocks, minClock, continue_,
                                   pendingClients, clientsIter, msg_, ok, key,
-                                  val, spinLocal, continue_G, getReq,
-                                  spinLocal0, continue_P, i, j_, putReq,
-                                  putResp, msg_D, j_D, spinLocal1, continue, j,
-                                  msg >>
+                                  val, spinLocal, getReq, spinLocal0,
+                                  continue_P, i, j_, putReq, putResp, msg_D,
+                                  j_D, spinLocal1, continue, j, msg >>
 
 getCheckSpin(self) == /\ pc[self] = "getCheckSpin"
                       /\ spinRead' = spinLocal[self]
@@ -2009,31 +2028,32 @@ getCheckSpin(self) == /\ pc[self] = "getCheckSpin"
                                  /\ pc' = [pc EXCEPT ![self] = "getLoop"]
                             ELSE /\ pc' = [pc EXCEPT ![self] = "getLoop"]
                                  /\ UNCHANGED continue_G
-                      /\ UNCHANGED << replicasNetwork, clientsNetwork, cid,
-                                      out, clocks, replicasRead, replicasWrite,
-                                      kvRead, clientsWrite, clientsWrite0,
-                                      kvWrite, kvWrite0, clientsWrite1,
-                                      clientIdRead, clockRead, clientIdRead0,
-                                      clockRead0, clientIdRead1, clockWrite,
-                                      keyRead, clientIdRead2, clientIdRead3,
-                                      clockRead1, replicasWrite0, clientsRead,
-                                      clientsWrite2, outsideWrite, clockWrite0,
-                                      replicasWrite1, clientsWrite3,
-                                      outsideWrite0, clientIdRead4, clockRead2,
-                                      clientIdRead5, clockRead3, clientIdRead6,
-                                      clockWrite1, keyRead0, valueRead,
-                                      clientIdRead7, clientIdRead8, clockRead4,
-                                      replicasWrite2, replicasWrite3,
+                      /\ UNCHANGED << replicasNetwork, allClients,
+                                      clientMailboxes, cid, out, clocks,
+                                      replicasRead, replicasWrite, kvRead,
+                                      clientsWrite, clientsWrite0, kvWrite,
+                                      kvWrite0, clientsWrite1, clientIdRead,
+                                      clockRead, clientIdRead0, clockRead0,
+                                      clientIdRead1, clockWrite, keyRead,
+                                      clientIdRead2, clientIdRead3, clockRead1,
+                                      replicasWrite0, clientsRead,
+                                      clientsWrite2, outsideWrite,
+                                      clientsWrite3, outsideWrite0,
+                                      clientIdRead4, clockRead2, clientIdRead5,
+                                      clockRead3, clientIdRead6, clockWrite0,
+                                      keyRead0, valueRead, clientIdRead7,
+                                      clientIdRead8, clockRead4,
+                                      replicasWrite1, replicasWrite2,
                                       clientsRead0, clientsWrite4,
                                       clientsWrite5, outsideWrite1, spinRead0,
                                       clientIdRead9, clientIdRead10,
-                                      clockWrite2, replicasWrite4,
-                                      replicasWrite5, clientIdRead11,
+                                      clockWrite1, replicasWrite3,
+                                      replicasWrite4, clientIdRead11,
                                       clockRead5, clientIdRead12, clockRead6,
-                                      clientIdRead13, clockWrite3,
+                                      clientIdRead13, clockWrite2,
                                       clientIdRead14, clientIdRead15,
-                                      clockRead7, replicasWrite6,
-                                      replicasWrite7, spinRead1, kvLocal,
+                                      clockRead7, replicasWrite5,
+                                      replicasWrite6, spinRead1, kvLocal,
                                       liveClients, pendingRequests,
                                       stableMessages, i_, firstPending,
                                       timestamp, nextClient, lowestPending,
@@ -2051,28 +2071,27 @@ putLoop(self) == /\ pc[self] = "putLoop"
                  /\ IF continue_P[self]
                        THEN /\ pc' = [pc EXCEPT ![self] = "putRequest"]
                        ELSE /\ pc' = [pc EXCEPT ![self] = "Done"]
-                 /\ UNCHANGED << replicasNetwork, clientsNetwork, cid, out,
-                                 clocks, replicasRead, replicasWrite, kvRead,
-                                 clientsWrite, clientsWrite0, kvWrite,
+                 /\ UNCHANGED << replicasNetwork, allClients, clientMailboxes,
+                                 cid, out, clocks, replicasRead, replicasWrite,
+                                 kvRead, clientsWrite, clientsWrite0, kvWrite,
                                  kvWrite0, clientsWrite1, clientIdRead,
                                  clockRead, clientIdRead0, clockRead0,
                                  clientIdRead1, clockWrite, keyRead,
                                  clientIdRead2, clientIdRead3, clockRead1,
                                  replicasWrite0, clientsRead, clientsWrite2,
-                                 outsideWrite, clockWrite0, replicasWrite1,
-                                 clientsWrite3, outsideWrite0, spinRead,
-                                 clientIdRead4, clockRead2, clientIdRead5,
-                                 clockRead3, clientIdRead6, clockWrite1,
-                                 keyRead0, valueRead, clientIdRead7,
-                                 clientIdRead8, clockRead4, replicasWrite2,
-                                 replicasWrite3, clientsRead0, clientsWrite4,
-                                 clientsWrite5, outsideWrite1, spinRead0,
-                                 clientIdRead9, clientIdRead10, clockWrite2,
-                                 replicasWrite4, replicasWrite5,
+                                 outsideWrite, clientsWrite3, outsideWrite0,
+                                 spinRead, clientIdRead4, clockRead2,
+                                 clientIdRead5, clockRead3, clientIdRead6,
+                                 clockWrite0, keyRead0, valueRead,
+                                 clientIdRead7, clientIdRead8, clockRead4,
+                                 replicasWrite1, replicasWrite2, clientsRead0,
+                                 clientsWrite4, clientsWrite5, outsideWrite1,
+                                 spinRead0, clientIdRead9, clientIdRead10,
+                                 clockWrite1, replicasWrite3, replicasWrite4,
                                  clientIdRead11, clockRead5, clientIdRead12,
-                                 clockRead6, clientIdRead13, clockWrite3,
+                                 clockRead6, clientIdRead13, clockWrite2,
                                  clientIdRead14, clientIdRead15, clockRead7,
-                                 replicasWrite6, replicasWrite7, spinRead1,
+                                 replicasWrite5, replicasWrite6, spinRead1,
                                  kvLocal, liveClients, pendingRequests,
                                  stableMessages, i_, firstPending, timestamp,
                                  nextClient, lowestPending, chooseMessage,
@@ -2091,44 +2110,44 @@ putRequest(self) == /\ pc[self] = "putRequest"
                                /\ pc' = [pc EXCEPT ![self] = "putCheckSpin"]
                                /\ UNCHANGED << clocks, clientIdRead5,
                                                clockRead3, clientIdRead6,
-                                               clockWrite1, keyRead0,
+                                               clockWrite0, keyRead0,
                                                valueRead, clientIdRead7,
                                                clientIdRead8, clockRead4, i,
                                                j_, putReq >>
                           ELSE /\ clientIdRead5' = (self) - ((NUM_CLIENTS) * (PUT_ORDER))
                                /\ clockRead3' = clocks[clientIdRead5']
                                /\ clientIdRead6' = (self) - ((NUM_CLIENTS) * (PUT_ORDER))
-                               /\ clockWrite1' = [clocks EXCEPT ![clientIdRead6'] = (clockRead3') + (1)]
+                               /\ clockWrite0' = [clocks EXCEPT ![clientIdRead6'] = (clockRead3') + (1)]
                                /\ keyRead0' = PUT_KEY
                                /\ valueRead' = PUT_VALUE
                                /\ clientIdRead7' = (self) - ((NUM_CLIENTS) * (PUT_ORDER))
                                /\ clientIdRead8' = (self) - ((NUM_CLIENTS) * (PUT_ORDER))
-                               /\ clockRead4' = clockWrite1'[clientIdRead8']
-                               /\ putReq' = [putReq EXCEPT ![self] = [op |-> PUT_MSG, key |-> keyRead0', value |-> valueRead', client |-> clientIdRead7', timestamp |-> clockRead4']]
+                               /\ clockRead4' = clockWrite0'[clientIdRead8']
+                               /\ putReq' = [putReq EXCEPT ![self] = [op |-> PUT_MSG, key |-> keyRead0', value |-> valueRead', client |-> clientIdRead7', timestamp |-> clockRead4', reply_to |-> self]]
                                /\ i' = [i EXCEPT ![self] = 0]
                                /\ j_' = [j_ EXCEPT ![self] = 0]
-                               /\ clocks' = clockWrite1'
+                               /\ clocks' = clockWrite0'
                                /\ pc' = [pc EXCEPT ![self] = "putBroadcast"]
                                /\ UNCHANGED continue_P
-                    /\ UNCHANGED << replicasNetwork, clientsNetwork, cid, out,
-                                    replicasRead, replicasWrite, kvRead,
-                                    clientsWrite, clientsWrite0, kvWrite,
-                                    kvWrite0, clientsWrite1, clientIdRead,
-                                    clockRead, clientIdRead0, clockRead0,
-                                    clientIdRead1, clockWrite, keyRead,
-                                    clientIdRead2, clientIdRead3, clockRead1,
-                                    replicasWrite0, clientsRead, clientsWrite2,
-                                    outsideWrite, clockWrite0, replicasWrite1,
+                    /\ UNCHANGED << replicasNetwork, allClients,
+                                    clientMailboxes, cid, out, replicasRead,
+                                    replicasWrite, kvRead, clientsWrite,
+                                    clientsWrite0, kvWrite, kvWrite0,
+                                    clientsWrite1, clientIdRead, clockRead,
+                                    clientIdRead0, clockRead0, clientIdRead1,
+                                    clockWrite, keyRead, clientIdRead2,
+                                    clientIdRead3, clockRead1, replicasWrite0,
+                                    clientsRead, clientsWrite2, outsideWrite,
                                     clientsWrite3, outsideWrite0, spinRead,
-                                    replicasWrite2, replicasWrite3,
+                                    replicasWrite1, replicasWrite2,
                                     clientsRead0, clientsWrite4, clientsWrite5,
                                     outsideWrite1, spinRead0, clientIdRead9,
-                                    clientIdRead10, clockWrite2,
-                                    replicasWrite4, replicasWrite5,
+                                    clientIdRead10, clockWrite1,
+                                    replicasWrite3, replicasWrite4,
                                     clientIdRead11, clockRead5, clientIdRead12,
-                                    clockRead6, clientIdRead13, clockWrite3,
+                                    clockRead6, clientIdRead13, clockWrite2,
                                     clientIdRead14, clientIdRead15, clockRead7,
-                                    replicasWrite6, replicasWrite7, spinRead1,
+                                    replicasWrite5, replicasWrite6, spinRead1,
                                     kvLocal, liveClients, pendingRequests,
                                     stableMessages, i_, firstPending,
                                     timestamp, nextClient, lowestPending,
@@ -2139,41 +2158,41 @@ putRequest(self) == /\ pc[self] = "putRequest"
                                     msg_D, j_D, spinLocal1, continue, j, msg >>
 
 putBroadcast(self) == /\ pc[self] = "putBroadcast"
-                      /\ IF (j_[self]) <= ((NUM_REPLICAS) - (1))
+                      /\ clientIdRead4' = (self) - ((NUM_CLIENTS) * (PUT_ORDER))
+                      /\ IF ((j_[self]) <= ((NUM_REPLICAS) - (1))) /\ ((clocks[clientIdRead4']) # (-(1)))
                             THEN /\ (Len(replicasNetwork[j_[self]])) < (BUFFER_SIZE)
-                                 /\ replicasWrite2' = [replicasNetwork EXCEPT ![j_[self]] = Append(replicasNetwork[j_[self]], putReq[self])]
+                                 /\ replicasWrite1' = [replicasNetwork EXCEPT ![j_[self]] = Append(replicasNetwork[j_[self]], putReq[self])]
                                  /\ j_' = [j_ EXCEPT ![self] = (j_[self]) + (1)]
-                                 /\ replicasWrite3' = replicasWrite2'
-                                 /\ replicasNetwork' = replicasWrite3'
+                                 /\ replicasWrite2' = replicasWrite1'
+                                 /\ replicasNetwork' = replicasWrite2'
                                  /\ pc' = [pc EXCEPT ![self] = "putBroadcast"]
-                            ELSE /\ replicasWrite3' = replicasNetwork
-                                 /\ replicasNetwork' = replicasWrite3'
+                            ELSE /\ replicasWrite2' = replicasNetwork
+                                 /\ replicasNetwork' = replicasWrite2'
                                  /\ pc' = [pc EXCEPT ![self] = "putResponse"]
-                                 /\ UNCHANGED << replicasWrite2, j_ >>
-                      /\ UNCHANGED << clientsNetwork, cid, out, clocks,
-                                      replicasRead, replicasWrite, kvRead,
-                                      clientsWrite, clientsWrite0, kvWrite,
-                                      kvWrite0, clientsWrite1, clientIdRead,
-                                      clockRead, clientIdRead0, clockRead0,
-                                      clientIdRead1, clockWrite, keyRead,
-                                      clientIdRead2, clientIdRead3, clockRead1,
-                                      replicasWrite0, clientsRead,
-                                      clientsWrite2, outsideWrite, clockWrite0,
-                                      replicasWrite1, clientsWrite3,
-                                      outsideWrite0, spinRead, clientIdRead4,
+                                 /\ UNCHANGED << replicasWrite1, j_ >>
+                      /\ UNCHANGED << allClients, clientMailboxes, cid, out,
+                                      clocks, replicasRead, replicasWrite,
+                                      kvRead, clientsWrite, clientsWrite0,
+                                      kvWrite, kvWrite0, clientsWrite1,
+                                      clientIdRead, clockRead, clientIdRead0,
+                                      clockRead0, clientIdRead1, clockWrite,
+                                      keyRead, clientIdRead2, clientIdRead3,
+                                      clockRead1, replicasWrite0, clientsRead,
+                                      clientsWrite2, outsideWrite,
+                                      clientsWrite3, outsideWrite0, spinRead,
                                       clockRead2, clientIdRead5, clockRead3,
-                                      clientIdRead6, clockWrite1, keyRead0,
+                                      clientIdRead6, clockWrite0, keyRead0,
                                       valueRead, clientIdRead7, clientIdRead8,
                                       clockRead4, clientsRead0, clientsWrite4,
                                       clientsWrite5, outsideWrite1, spinRead0,
                                       clientIdRead9, clientIdRead10,
-                                      clockWrite2, replicasWrite4,
-                                      replicasWrite5, clientIdRead11,
+                                      clockWrite1, replicasWrite3,
+                                      replicasWrite4, clientIdRead11,
                                       clockRead5, clientIdRead12, clockRead6,
-                                      clientIdRead13, clockWrite3,
+                                      clientIdRead13, clockWrite2,
                                       clientIdRead14, clientIdRead15,
-                                      clockRead7, replicasWrite6,
-                                      replicasWrite7, spinRead1, kvLocal,
+                                      clockRead7, replicasWrite5,
+                                      replicasWrite6, spinRead1, kvLocal,
                                       liveClients, pendingRequests,
                                       stableMessages, i_, firstPending,
                                       timestamp, nextClient, lowestPending,
@@ -2187,61 +2206,32 @@ putBroadcast(self) == /\ pc[self] = "putBroadcast"
 putResponse(self) == /\ pc[self] = "putResponse"
                      /\ IF (i[self]) < (Cardinality(ReplicaSet))
                            THEN /\ clientIdRead4' = (self) - ((NUM_CLIENTS) * (PUT_ORDER))
-                                /\ (Len(clientsNetwork[clientIdRead4'])) > (0)
-                                /\ LET msg2 == Head(clientsNetwork[clientIdRead4']) IN
-                                     /\ clientsWrite4' = [clientsNetwork EXCEPT ![clientIdRead4'] = Tail(clientsNetwork[clientIdRead4'])]
-                                     /\ clientsRead0' = msg2
-                                /\ putResp' = [putResp EXCEPT ![self] = clientsRead0']
-                                /\ Assert(((putResp'[self]).type) = (PUT_RESPONSE),
-                                          "Failure of assertion at line 885, column 33.")
-                                /\ i' = [i EXCEPT ![self] = (i[self]) + (1)]
-                                /\ clientsWrite5' = clientsWrite4'
-                                /\ clientsNetwork' = clientsWrite5'
-                                /\ pc' = [pc EXCEPT ![self] = "putResponse"]
-                           ELSE /\ clientsWrite5' = clientsNetwork
-                                /\ clientsNetwork' = clientsWrite5'
+                                /\ IF (clocks[clientIdRead4']) = (-(1))
+                                      THEN /\ continue_P' = [continue_P EXCEPT ![self] = FALSE]
+                                           /\ clientsWrite5' = clientMailboxes
+                                           /\ clientMailboxes' = clientsWrite5'
+                                           /\ pc' = [pc EXCEPT ![self] = "putLoop"]
+                                           /\ UNCHANGED << clientsRead0,
+                                                           clientsWrite4, i,
+                                                           putResp >>
+                                      ELSE /\ (Len(clientMailboxes[self])) > (0)
+                                           /\ LET msg2 == Head(clientMailboxes[self]) IN
+                                                /\ clientsWrite4' = [clientMailboxes EXCEPT ![self] = Tail(clientMailboxes[self])]
+                                                /\ clientsRead0' = msg2
+                                           /\ putResp' = [putResp EXCEPT ![self] = clientsRead0']
+                                           /\ Assert(((putResp'[self]).type) = (PUT_RESPONSE),
+                                                     "Failure of assertion at line 909, column 37.")
+                                           /\ i' = [i EXCEPT ![self] = (i[self]) + (1)]
+                                           /\ clientsWrite5' = clientsWrite4'
+                                           /\ clientMailboxes' = clientsWrite5'
+                                           /\ pc' = [pc EXCEPT ![self] = "putResponse"]
+                                           /\ UNCHANGED continue_P
+                           ELSE /\ clientMailboxes' = clientsWrite5
                                 /\ pc' = [pc EXCEPT ![self] = "putComplete"]
                                 /\ UNCHANGED << clientIdRead4, clientsRead0,
-                                                clientsWrite4, i, putResp >>
-                     /\ UNCHANGED << replicasNetwork, cid, out, clocks,
-                                     replicasRead, replicasWrite, kvRead,
-                                     clientsWrite, clientsWrite0, kvWrite,
-                                     kvWrite0, clientsWrite1, clientIdRead,
-                                     clockRead, clientIdRead0, clockRead0,
-                                     clientIdRead1, clockWrite, keyRead,
-                                     clientIdRead2, clientIdRead3, clockRead1,
-                                     replicasWrite0, clientsRead,
-                                     clientsWrite2, outsideWrite, clockWrite0,
-                                     replicasWrite1, clientsWrite3,
-                                     outsideWrite0, spinRead, clockRead2,
-                                     clientIdRead5, clockRead3, clientIdRead6,
-                                     clockWrite1, keyRead0, valueRead,
-                                     clientIdRead7, clientIdRead8, clockRead4,
-                                     replicasWrite2, replicasWrite3,
-                                     outsideWrite1, spinRead0, clientIdRead9,
-                                     clientIdRead10, clockWrite2,
-                                     replicasWrite4, replicasWrite5,
-                                     clientIdRead11, clockRead5,
-                                     clientIdRead12, clockRead6,
-                                     clientIdRead13, clockWrite3,
-                                     clientIdRead14, clientIdRead15,
-                                     clockRead7, replicasWrite6,
-                                     replicasWrite7, spinRead1, kvLocal,
-                                     liveClients, pendingRequests,
-                                     stableMessages, i_, firstPending,
-                                     timestamp, nextClient, lowestPending,
-                                     chooseMessage, currentClocks, minClock,
-                                     continue_, pendingClients, clientsIter,
-                                     msg_, ok, key, val, spinLocal, continue_G,
-                                     getReq, getResp, spinLocal0, continue_P,
-                                     j_, putReq, msg_D, j_D, spinLocal1,
-                                     continue, j, msg >>
-
-putComplete(self) == /\ pc[self] = "putComplete"
-                     /\ outsideWrite1' = PUT_RESPONSE
-                     /\ out' = outsideWrite1'
-                     /\ pc' = [pc EXCEPT ![self] = "putCheckSpin"]
-                     /\ UNCHANGED << replicasNetwork, clientsNetwork, cid,
+                                                clientsWrite4, clientsWrite5,
+                                                continue_P, i, putResp >>
+                     /\ UNCHANGED << replicasNetwork, allClients, cid, out,
                                      clocks, replicasRead, replicasWrite,
                                      kvRead, clientsWrite, clientsWrite0,
                                      kvWrite, kvWrite0, clientsWrite1,
@@ -2249,23 +2239,59 @@ putComplete(self) == /\ pc[self] = "putComplete"
                                      clockRead0, clientIdRead1, clockWrite,
                                      keyRead, clientIdRead2, clientIdRead3,
                                      clockRead1, replicasWrite0, clientsRead,
-                                     clientsWrite2, outsideWrite, clockWrite0,
-                                     replicasWrite1, clientsWrite3,
-                                     outsideWrite0, spinRead, clientIdRead4,
+                                     clientsWrite2, outsideWrite,
+                                     clientsWrite3, outsideWrite0, spinRead,
                                      clockRead2, clientIdRead5, clockRead3,
-                                     clientIdRead6, clockWrite1, keyRead0,
+                                     clientIdRead6, clockWrite0, keyRead0,
                                      valueRead, clientIdRead7, clientIdRead8,
-                                     clockRead4, replicasWrite2,
-                                     replicasWrite3, clientsRead0,
+                                     clockRead4, replicasWrite1,
+                                     replicasWrite2, outsideWrite1, spinRead0,
+                                     clientIdRead9, clientIdRead10,
+                                     clockWrite1, replicasWrite3,
+                                     replicasWrite4, clientIdRead11,
+                                     clockRead5, clientIdRead12, clockRead6,
+                                     clientIdRead13, clockWrite2,
+                                     clientIdRead14, clientIdRead15,
+                                     clockRead7, replicasWrite5,
+                                     replicasWrite6, spinRead1, kvLocal,
+                                     liveClients, pendingRequests,
+                                     stableMessages, i_, firstPending,
+                                     timestamp, nextClient, lowestPending,
+                                     chooseMessage, currentClocks, minClock,
+                                     continue_, pendingClients, clientsIter,
+                                     msg_, ok, key, val, spinLocal, continue_G,
+                                     getReq, getResp, spinLocal0, j_, putReq,
+                                     msg_D, j_D, spinLocal1, continue, j, msg >>
+
+putComplete(self) == /\ pc[self] = "putComplete"
+                     /\ outsideWrite1' = PUT_RESPONSE
+                     /\ out' = outsideWrite1'
+                     /\ pc' = [pc EXCEPT ![self] = "putCheckSpin"]
+                     /\ UNCHANGED << replicasNetwork, allClients,
+                                     clientMailboxes, cid, clocks,
+                                     replicasRead, replicasWrite, kvRead,
+                                     clientsWrite, clientsWrite0, kvWrite,
+                                     kvWrite0, clientsWrite1, clientIdRead,
+                                     clockRead, clientIdRead0, clockRead0,
+                                     clientIdRead1, clockWrite, keyRead,
+                                     clientIdRead2, clientIdRead3, clockRead1,
+                                     replicasWrite0, clientsRead,
+                                     clientsWrite2, outsideWrite,
+                                     clientsWrite3, outsideWrite0, spinRead,
+                                     clientIdRead4, clockRead2, clientIdRead5,
+                                     clockRead3, clientIdRead6, clockWrite0,
+                                     keyRead0, valueRead, clientIdRead7,
+                                     clientIdRead8, clockRead4, replicasWrite1,
+                                     replicasWrite2, clientsRead0,
                                      clientsWrite4, clientsWrite5, spinRead0,
                                      clientIdRead9, clientIdRead10,
-                                     clockWrite2, replicasWrite4,
-                                     replicasWrite5, clientIdRead11,
+                                     clockWrite1, replicasWrite3,
+                                     replicasWrite4, clientIdRead11,
                                      clockRead5, clientIdRead12, clockRead6,
-                                     clientIdRead13, clockWrite3,
+                                     clientIdRead13, clockWrite2,
                                      clientIdRead14, clientIdRead15,
-                                     clockRead7, replicasWrite6,
-                                     replicasWrite7, spinRead1, kvLocal,
+                                     clockRead7, replicasWrite5,
+                                     replicasWrite6, spinRead1, kvLocal,
                                      liveClients, pendingRequests,
                                      stableMessages, i_, firstPending,
                                      timestamp, nextClient, lowestPending,
@@ -2283,32 +2309,32 @@ putCheckSpin(self) == /\ pc[self] = "putCheckSpin"
                                  /\ pc' = [pc EXCEPT ![self] = "putLoop"]
                             ELSE /\ pc' = [pc EXCEPT ![self] = "putLoop"]
                                  /\ UNCHANGED continue_P
-                      /\ UNCHANGED << replicasNetwork, clientsNetwork, cid,
-                                      out, clocks, replicasRead, replicasWrite,
-                                      kvRead, clientsWrite, clientsWrite0,
-                                      kvWrite, kvWrite0, clientsWrite1,
-                                      clientIdRead, clockRead, clientIdRead0,
-                                      clockRead0, clientIdRead1, clockWrite,
-                                      keyRead, clientIdRead2, clientIdRead3,
-                                      clockRead1, replicasWrite0, clientsRead,
-                                      clientsWrite2, outsideWrite, clockWrite0,
-                                      replicasWrite1, clientsWrite3,
-                                      outsideWrite0, spinRead, clientIdRead4,
-                                      clockRead2, clientIdRead5, clockRead3,
-                                      clientIdRead6, clockWrite1, keyRead0,
-                                      valueRead, clientIdRead7, clientIdRead8,
-                                      clockRead4, replicasWrite2,
-                                      replicasWrite3, clientsRead0,
-                                      clientsWrite4, clientsWrite5,
-                                      outsideWrite1, clientIdRead9,
-                                      clientIdRead10, clockWrite2,
-                                      replicasWrite4, replicasWrite5,
-                                      clientIdRead11, clockRead5,
-                                      clientIdRead12, clockRead6,
-                                      clientIdRead13, clockWrite3,
+                      /\ UNCHANGED << replicasNetwork, allClients,
+                                      clientMailboxes, cid, out, clocks,
+                                      replicasRead, replicasWrite, kvRead,
+                                      clientsWrite, clientsWrite0, kvWrite,
+                                      kvWrite0, clientsWrite1, clientIdRead,
+                                      clockRead, clientIdRead0, clockRead0,
+                                      clientIdRead1, clockWrite, keyRead,
+                                      clientIdRead2, clientIdRead3, clockRead1,
+                                      replicasWrite0, clientsRead,
+                                      clientsWrite2, outsideWrite,
+                                      clientsWrite3, outsideWrite0, spinRead,
+                                      clientIdRead4, clockRead2, clientIdRead5,
+                                      clockRead3, clientIdRead6, clockWrite0,
+                                      keyRead0, valueRead, clientIdRead7,
+                                      clientIdRead8, clockRead4,
+                                      replicasWrite1, replicasWrite2,
+                                      clientsRead0, clientsWrite4,
+                                      clientsWrite5, outsideWrite1,
+                                      clientIdRead9, clientIdRead10,
+                                      clockWrite1, replicasWrite3,
+                                      replicasWrite4, clientIdRead11,
+                                      clockRead5, clientIdRead12, clockRead6,
+                                      clientIdRead13, clockWrite2,
                                       clientIdRead14, clientIdRead15,
-                                      clockRead7, replicasWrite6,
-                                      replicasWrite7, spinRead1, kvLocal,
+                                      clockRead7, replicasWrite5,
+                                      replicasWrite6, spinRead1, kvLocal,
                                       liveClients, pendingRequests,
                                       stableMessages, i_, firstPending,
                                       timestamp, nextClient, lowestPending,
@@ -2327,42 +2353,41 @@ sendDisconnectRequest(self) == /\ pc[self] = "sendDisconnectRequest"
                                /\ clientIdRead9' = (self) - ((NUM_CLIENTS) * (DISCONNECT_ORDER))
                                /\ msg_D' = [msg_D EXCEPT ![self] = [op |-> DISCONNECT_MSG, client |-> clientIdRead9']]
                                /\ clientIdRead10' = (self) - ((NUM_CLIENTS) * (DISCONNECT_ORDER))
-                               /\ clockWrite2' = [clocks EXCEPT ![clientIdRead10'] = -(1)]
+                               /\ clockWrite1' = [clocks EXCEPT ![clientIdRead10'] = -(1)]
                                /\ j_D' = [j_D EXCEPT ![self] = 0]
-                               /\ clocks' = clockWrite2'
+                               /\ clocks' = clockWrite1'
                                /\ pc' = [pc EXCEPT ![self] = "disconnectBroadcast"]
-                               /\ UNCHANGED << replicasNetwork, clientsNetwork,
-                                               cid, out, replicasRead,
-                                               replicasWrite, kvRead,
-                                               clientsWrite, clientsWrite0,
-                                               kvWrite, kvWrite0,
-                                               clientsWrite1, clientIdRead,
-                                               clockRead, clientIdRead0,
-                                               clockRead0, clientIdRead1,
-                                               clockWrite, keyRead,
-                                               clientIdRead2, clientIdRead3,
-                                               clockRead1, replicasWrite0,
-                                               clientsRead, clientsWrite2,
-                                               outsideWrite, clockWrite0,
-                                               replicasWrite1, clientsWrite3,
-                                               outsideWrite0, spinRead,
-                                               clientIdRead4, clockRead2,
-                                               clientIdRead5, clockRead3,
-                                               clientIdRead6, clockWrite1,
-                                               keyRead0, valueRead,
-                                               clientIdRead7, clientIdRead8,
-                                               clockRead4, replicasWrite2,
-                                               replicasWrite3, clientsRead0,
-                                               clientsWrite4, clientsWrite5,
-                                               outsideWrite1, spinRead0,
-                                               replicasWrite4, replicasWrite5,
-                                               clientIdRead11, clockRead5,
-                                               clientIdRead12, clockRead6,
-                                               clientIdRead13, clockWrite3,
-                                               clientIdRead14, clientIdRead15,
-                                               clockRead7, replicasWrite6,
-                                               replicasWrite7, spinRead1,
-                                               kvLocal, liveClients,
+                               /\ UNCHANGED << replicasNetwork, allClients,
+                                               clientMailboxes, cid, out,
+                                               replicasRead, replicasWrite,
+                                               kvRead, clientsWrite,
+                                               clientsWrite0, kvWrite,
+                                               kvWrite0, clientsWrite1,
+                                               clientIdRead, clockRead,
+                                               clientIdRead0, clockRead0,
+                                               clientIdRead1, clockWrite,
+                                               keyRead, clientIdRead2,
+                                               clientIdRead3, clockRead1,
+                                               replicasWrite0, clientsRead,
+                                               clientsWrite2, outsideWrite,
+                                               clientsWrite3, outsideWrite0,
+                                               spinRead, clientIdRead4,
+                                               clockRead2, clientIdRead5,
+                                               clockRead3, clientIdRead6,
+                                               clockWrite0, keyRead0,
+                                               valueRead, clientIdRead7,
+                                               clientIdRead8, clockRead4,
+                                               replicasWrite1, replicasWrite2,
+                                               clientsRead0, clientsWrite4,
+                                               clientsWrite5, outsideWrite1,
+                                               spinRead0, replicasWrite3,
+                                               replicasWrite4, clientIdRead11,
+                                               clockRead5, clientIdRead12,
+                                               clockRead6, clientIdRead13,
+                                               clockWrite2, clientIdRead14,
+                                               clientIdRead15, clockRead7,
+                                               replicasWrite5, replicasWrite6,
+                                               spinRead1, kvLocal, liveClients,
                                                pendingRequests, stableMessages,
                                                i_, firstPending, timestamp,
                                                nextClient, lowestPending,
@@ -2376,47 +2401,46 @@ sendDisconnectRequest(self) == /\ pc[self] = "sendDisconnectRequest"
                                                continue, j, msg >>
 
 disconnectBroadcast(self) == /\ pc[self] = "disconnectBroadcast"
-                             /\ IF (j_D[self]) <= ((NUM_REPLICAS) - (1))
+                             /\ IF ((j_D[self]) <= ((NUM_REPLICAS) - (1))) /\ ((0) # (-(1)))
                                    THEN /\ (Len(replicasNetwork[j_D[self]])) < (BUFFER_SIZE)
-                                        /\ replicasWrite4' = [replicasNetwork EXCEPT ![j_D[self]] = Append(replicasNetwork[j_D[self]], msg_D[self])]
+                                        /\ replicasWrite3' = [replicasNetwork EXCEPT ![j_D[self]] = Append(replicasNetwork[j_D[self]], msg_D[self])]
                                         /\ j_D' = [j_D EXCEPT ![self] = (j_D[self]) + (1)]
-                                        /\ replicasWrite5' = replicasWrite4'
-                                        /\ replicasNetwork' = replicasWrite5'
+                                        /\ replicasWrite4' = replicasWrite3'
+                                        /\ replicasNetwork' = replicasWrite4'
                                         /\ pc' = [pc EXCEPT ![self] = "disconnectBroadcast"]
-                                   ELSE /\ replicasWrite5' = replicasNetwork
-                                        /\ replicasNetwork' = replicasWrite5'
+                                   ELSE /\ replicasWrite4' = replicasNetwork
+                                        /\ replicasNetwork' = replicasWrite4'
                                         /\ pc' = [pc EXCEPT ![self] = "Done"]
-                                        /\ UNCHANGED << replicasWrite4, j_D >>
-                             /\ UNCHANGED << clientsNetwork, cid, out, clocks,
-                                             replicasRead, replicasWrite,
-                                             kvRead, clientsWrite,
-                                             clientsWrite0, kvWrite, kvWrite0,
-                                             clientsWrite1, clientIdRead,
-                                             clockRead, clientIdRead0,
-                                             clockRead0, clientIdRead1,
-                                             clockWrite, keyRead,
-                                             clientIdRead2, clientIdRead3,
-                                             clockRead1, replicasWrite0,
-                                             clientsRead, clientsWrite2,
-                                             outsideWrite, clockWrite0,
-                                             replicasWrite1, clientsWrite3,
-                                             outsideWrite0, spinRead,
-                                             clientIdRead4, clockRead2,
-                                             clientIdRead5, clockRead3,
-                                             clientIdRead6, clockWrite1,
-                                             keyRead0, valueRead,
+                                        /\ UNCHANGED << replicasWrite3, j_D >>
+                             /\ UNCHANGED << allClients, clientMailboxes, cid,
+                                             out, clocks, replicasRead,
+                                             replicasWrite, kvRead,
+                                             clientsWrite, clientsWrite0,
+                                             kvWrite, kvWrite0, clientsWrite1,
+                                             clientIdRead, clockRead,
+                                             clientIdRead0, clockRead0,
+                                             clientIdRead1, clockWrite,
+                                             keyRead, clientIdRead2,
+                                             clientIdRead3, clockRead1,
+                                             replicasWrite0, clientsRead,
+                                             clientsWrite2, outsideWrite,
+                                             clientsWrite3, outsideWrite0,
+                                             spinRead, clientIdRead4,
+                                             clockRead2, clientIdRead5,
+                                             clockRead3, clientIdRead6,
+                                             clockWrite0, keyRead0, valueRead,
                                              clientIdRead7, clientIdRead8,
-                                             clockRead4, replicasWrite2,
-                                             replicasWrite3, clientsRead0,
+                                             clockRead4, replicasWrite1,
+                                             replicasWrite2, clientsRead0,
                                              clientsWrite4, clientsWrite5,
                                              outsideWrite1, spinRead0,
                                              clientIdRead9, clientIdRead10,
-                                             clockWrite2, clientIdRead11,
+                                             clockWrite1, clientIdRead11,
                                              clockRead5, clientIdRead12,
                                              clockRead6, clientIdRead13,
-                                             clockWrite3, clientIdRead14,
+                                             clockWrite2, clientIdRead14,
                                              clientIdRead15, clockRead7,
-                                             replicasWrite6, replicasWrite7,
+                                             replicasWrite5, replicasWrite6,
                                              spinRead1, kvLocal, liveClients,
                                              pendingRequests, stableMessages,
                                              i_, firstPending, timestamp,
@@ -2444,7 +2468,7 @@ clockUpdateLoop(self) == /\ pc[self] = "clockUpdateLoop"
                                                                clientIdRead12,
                                                                clockRead6,
                                                                clientIdRead13,
-                                                               clockWrite3,
+                                                               clockWrite2,
                                                                clientIdRead14,
                                                                clientIdRead15,
                                                                clockRead7, j,
@@ -2452,48 +2476,47 @@ clockUpdateLoop(self) == /\ pc[self] = "clockUpdateLoop"
                                           ELSE /\ clientIdRead12' = (self) - ((NUM_CLIENTS) * (NULL_ORDER))
                                                /\ clockRead6' = clocks[clientIdRead12']
                                                /\ clientIdRead13' = (self) - ((NUM_CLIENTS) * (NULL_ORDER))
-                                               /\ clockWrite3' = [clocks EXCEPT ![clientIdRead13'] = (clockRead6') + (1)]
+                                               /\ clockWrite2' = [clocks EXCEPT ![clientIdRead13'] = (clockRead6') + (1)]
                                                /\ clientIdRead14' = (self) - ((NUM_CLIENTS) * (NULL_ORDER))
                                                /\ clientIdRead15' = (self) - ((NUM_CLIENTS) * (NULL_ORDER))
-                                               /\ clockRead7' = clockWrite3'[clientIdRead15']
+                                               /\ clockRead7' = clockWrite2'[clientIdRead15']
                                                /\ msg' = [msg EXCEPT ![self] = [op |-> NULL_MSG, client |-> clientIdRead14', timestamp |-> clockRead7']]
                                                /\ j' = [j EXCEPT ![self] = 0]
-                                               /\ clocks' = clockWrite3'
+                                               /\ clocks' = clockWrite2'
                                                /\ pc' = [pc EXCEPT ![self] = "nullBroadcast"]
                                                /\ UNCHANGED continue
                                ELSE /\ pc' = [pc EXCEPT ![self] = "Done"]
                                     /\ UNCHANGED << clocks, clientIdRead11,
                                                     clockRead5, clientIdRead12,
                                                     clockRead6, clientIdRead13,
-                                                    clockWrite3,
+                                                    clockWrite2,
                                                     clientIdRead14,
                                                     clientIdRead15, clockRead7,
                                                     continue, j, msg >>
-                         /\ UNCHANGED << replicasNetwork, clientsNetwork, cid,
-                                         out, replicasRead, replicasWrite,
-                                         kvRead, clientsWrite, clientsWrite0,
-                                         kvWrite, kvWrite0, clientsWrite1,
-                                         clientIdRead, clockRead,
-                                         clientIdRead0, clockRead0,
+                         /\ UNCHANGED << replicasNetwork, allClients,
+                                         clientMailboxes, cid, out,
+                                         replicasRead, replicasWrite, kvRead,
+                                         clientsWrite, clientsWrite0, kvWrite,
+                                         kvWrite0, clientsWrite1, clientIdRead,
+                                         clockRead, clientIdRead0, clockRead0,
                                          clientIdRead1, clockWrite, keyRead,
                                          clientIdRead2, clientIdRead3,
                                          clockRead1, replicasWrite0,
                                          clientsRead, clientsWrite2,
-                                         outsideWrite, clockWrite0,
-                                         replicasWrite1, clientsWrite3,
+                                         outsideWrite, clientsWrite3,
                                          outsideWrite0, spinRead,
                                          clientIdRead4, clockRead2,
                                          clientIdRead5, clockRead3,
-                                         clientIdRead6, clockWrite1, keyRead0,
+                                         clientIdRead6, clockWrite0, keyRead0,
                                          valueRead, clientIdRead7,
                                          clientIdRead8, clockRead4,
-                                         replicasWrite2, replicasWrite3,
+                                         replicasWrite1, replicasWrite2,
                                          clientsRead0, clientsWrite4,
                                          clientsWrite5, outsideWrite1,
                                          spinRead0, clientIdRead9,
-                                         clientIdRead10, clockWrite2,
-                                         replicasWrite4, replicasWrite5,
-                                         replicasWrite6, replicasWrite7,
+                                         clientIdRead10, clockWrite1,
+                                         replicasWrite3, replicasWrite4,
+                                         replicasWrite5, replicasWrite6,
                                          spinRead1, kvLocal, liveClients,
                                          pendingRequests, stableMessages, i_,
                                          firstPending, timestamp, nextClient,
@@ -2512,34 +2535,33 @@ nullCheckSpin(self) == /\ pc[self] = "nullCheckSpin"
                                   /\ pc' = [pc EXCEPT ![self] = "clockUpdateLoop"]
                              ELSE /\ pc' = [pc EXCEPT ![self] = "clockUpdateLoop"]
                                   /\ UNCHANGED continue
-                       /\ UNCHANGED << replicasNetwork, clientsNetwork, cid,
-                                       out, clocks, replicasRead,
-                                       replicasWrite, kvRead, clientsWrite,
-                                       clientsWrite0, kvWrite, kvWrite0,
-                                       clientsWrite1, clientIdRead, clockRead,
-                                       clientIdRead0, clockRead0,
+                       /\ UNCHANGED << replicasNetwork, allClients,
+                                       clientMailboxes, cid, out, clocks,
+                                       replicasRead, replicasWrite, kvRead,
+                                       clientsWrite, clientsWrite0, kvWrite,
+                                       kvWrite0, clientsWrite1, clientIdRead,
+                                       clockRead, clientIdRead0, clockRead0,
                                        clientIdRead1, clockWrite, keyRead,
                                        clientIdRead2, clientIdRead3,
                                        clockRead1, replicasWrite0, clientsRead,
                                        clientsWrite2, outsideWrite,
-                                       clockWrite0, replicasWrite1,
                                        clientsWrite3, outsideWrite0, spinRead,
                                        clientIdRead4, clockRead2,
                                        clientIdRead5, clockRead3,
-                                       clientIdRead6, clockWrite1, keyRead0,
+                                       clientIdRead6, clockWrite0, keyRead0,
                                        valueRead, clientIdRead7, clientIdRead8,
-                                       clockRead4, replicasWrite2,
-                                       replicasWrite3, clientsRead0,
+                                       clockRead4, replicasWrite1,
+                                       replicasWrite2, clientsRead0,
                                        clientsWrite4, clientsWrite5,
                                        outsideWrite1, spinRead0, clientIdRead9,
-                                       clientIdRead10, clockWrite2,
-                                       replicasWrite4, replicasWrite5,
+                                       clientIdRead10, clockWrite1,
+                                       replicasWrite3, replicasWrite4,
                                        clientIdRead11, clockRead5,
                                        clientIdRead12, clockRead6,
-                                       clientIdRead13, clockWrite3,
+                                       clientIdRead13, clockWrite2,
                                        clientIdRead14, clientIdRead15,
-                                       clockRead7, replicasWrite6,
-                                       replicasWrite7, kvLocal, liveClients,
+                                       clockRead7, replicasWrite5,
+                                       replicasWrite6, kvLocal, liveClients,
                                        pendingRequests, stableMessages, i_,
                                        firstPending, timestamp, nextClient,
                                        lowestPending, chooseMessage,
@@ -2551,41 +2573,40 @@ nullCheckSpin(self) == /\ pc[self] = "nullCheckSpin"
                                        j, msg >>
 
 nullBroadcast(self) == /\ pc[self] = "nullBroadcast"
-                       /\ IF (j[self]) <= ((NUM_REPLICAS) - (1))
+                       /\ clientIdRead11' = (self) - ((NUM_CLIENTS) * (NULL_ORDER))
+                       /\ IF ((j[self]) <= ((NUM_REPLICAS) - (1))) /\ ((clocks[clientIdRead11']) # (-(1)))
                              THEN /\ (Len(replicasNetwork[j[self]])) < (BUFFER_SIZE)
-                                  /\ replicasWrite6' = [replicasNetwork EXCEPT ![j[self]] = Append(replicasNetwork[j[self]], msg[self])]
+                                  /\ replicasWrite5' = [replicasNetwork EXCEPT ![j[self]] = Append(replicasNetwork[j[self]], msg[self])]
                                   /\ j' = [j EXCEPT ![self] = (j[self]) + (1)]
-                                  /\ replicasWrite7' = replicasWrite6'
-                                  /\ replicasNetwork' = replicasWrite7'
+                                  /\ replicasWrite6' = replicasWrite5'
+                                  /\ replicasNetwork' = replicasWrite6'
                                   /\ pc' = [pc EXCEPT ![self] = "nullBroadcast"]
-                             ELSE /\ replicasWrite7' = replicasNetwork
-                                  /\ replicasNetwork' = replicasWrite7'
+                             ELSE /\ replicasWrite6' = replicasNetwork
+                                  /\ replicasNetwork' = replicasWrite6'
                                   /\ pc' = [pc EXCEPT ![self] = "nullCheckSpin"]
-                                  /\ UNCHANGED << replicasWrite6, j >>
-                       /\ UNCHANGED << clientsNetwork, cid, out, clocks,
-                                       replicasRead, replicasWrite, kvRead,
-                                       clientsWrite, clientsWrite0, kvWrite,
-                                       kvWrite0, clientsWrite1, clientIdRead,
-                                       clockRead, clientIdRead0, clockRead0,
-                                       clientIdRead1, clockWrite, keyRead,
-                                       clientIdRead2, clientIdRead3,
+                                  /\ UNCHANGED << replicasWrite5, j >>
+                       /\ UNCHANGED << allClients, clientMailboxes, cid, out,
+                                       clocks, replicasRead, replicasWrite,
+                                       kvRead, clientsWrite, clientsWrite0,
+                                       kvWrite, kvWrite0, clientsWrite1,
+                                       clientIdRead, clockRead, clientIdRead0,
+                                       clockRead0, clientIdRead1, clockWrite,
+                                       keyRead, clientIdRead2, clientIdRead3,
                                        clockRead1, replicasWrite0, clientsRead,
                                        clientsWrite2, outsideWrite,
-                                       clockWrite0, replicasWrite1,
                                        clientsWrite3, outsideWrite0, spinRead,
                                        clientIdRead4, clockRead2,
                                        clientIdRead5, clockRead3,
-                                       clientIdRead6, clockWrite1, keyRead0,
+                                       clientIdRead6, clockWrite0, keyRead0,
                                        valueRead, clientIdRead7, clientIdRead8,
-                                       clockRead4, replicasWrite2,
-                                       replicasWrite3, clientsRead0,
+                                       clockRead4, replicasWrite1,
+                                       replicasWrite2, clientsRead0,
                                        clientsWrite4, clientsWrite5,
                                        outsideWrite1, spinRead0, clientIdRead9,
-                                       clientIdRead10, clockWrite2,
-                                       replicasWrite4, replicasWrite5,
-                                       clientIdRead11, clockRead5,
-                                       clientIdRead12, clockRead6,
-                                       clientIdRead13, clockWrite3,
+                                       clientIdRead10, clockWrite1,
+                                       replicasWrite3, replicasWrite4,
+                                       clockRead5, clientIdRead12, clockRead6,
+                                       clientIdRead13, clockWrite2,
                                        clientIdRead14, clientIdRead15,
                                        clockRead7, spinRead1, kvLocal,
                                        liveClients, pendingRequests,
@@ -2621,9 +2642,7 @@ Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 \* END TRANSLATION
 
 \* This predicate is true when all client processes are finished.
-AllClientsDisconnected == LET allClients == GetSet \cup PutSet \cup DisconnectSet \cup NullSet
-                          IN
-                             \A client \in allClients : pc[client] = "Done"
+AllClientsDisconnected == \A client \in allClients : pc[client] = "Done"
 
 
 \* Invariants
@@ -2633,7 +2652,7 @@ AllClientsDisconnected == LET allClients == GetSet \cup PutSet \cup DisconnectSe
 \* are within bounds. Using the FIFOChannel mapping macro is sufficient for this invariant to
 \* hold.
 BufferOk(net, node) == Len(net[node]) >= 0 /\ Len(net[node]) <= BUFFER_SIZE
-ClientBuffersOk == \A node \in DOMAIN clientsNetwork : BufferOk(clientsNetwork, node)
+ClientBuffersOk == \A node \in DOMAIN clientMailboxes : BufferOk(clientMailboxes, node)
 ReplicaBuffersOk == \A node \in DOMAIN replicasNetwork : BufferOk(replicasNetwork, node)
 AllBuffersOk == ClientBuffersOk /\ ReplicaBuffersOk
 
@@ -2673,5 +2692,5 @@ DisconnectionSafe == \A client \in ClientSet : <>[](clocks[client] = -1)
 
 =============================================================================
 \* Modification History
-\* Last modified Mon Apr 08 14:31:07 PDT 2019 by rmc
+\* Last modified Wed Apr 10 14:51:22 PDT 2019 by rmc
 \* Last modified Wed Feb 27 12:42:52 PST 2019 by minh
