@@ -139,11 +139,11 @@ public class ModularPlusCalGoCodeGenPass {
     // func shouldRetry(err error) bool {
     // 	switch err.(type) {
     // 	case *distsys.AbortRetryError:
-    // 		return true
-    // 	case *distsys.ResourceInternalError:
     //     t := rand.Intn(sleepMax - sleepMin) + sleepMin
     //     time.Sleep(time.Duration(t) * time.Millisecond)
     //
+    // 		return true
+    // 	case *distsys.ResourceInternalError:
     // 		return false
     // 	default:
     //      // Archetype resource should return errors of the previous two types only
@@ -189,14 +189,14 @@ public class ModularPlusCalGoCodeGenPass {
 
             List<GoStatement> sleepAndReturn = Arrays.asList(
                     sleep,
-                    new GoReturn(Collections.singletonList(GoBuiltins.False))
+                    new GoReturn(Collections.singletonList(GoBuiltins.True))
             );
 
             fnBody.addStatement(GoSwitch.typeSwitch(
                     err,
                     Arrays.asList(
-                            new GoSwitchCase(abortRetry, Collections.singletonList(new GoReturn(Collections.singletonList(GoBuiltins.True)))),
-                            new GoSwitchCase(internalError, sleepAndReturn)
+                            new GoSwitchCase(abortRetry, sleepAndReturn),
+                            new GoSwitchCase(internalError, Collections.singletonList(new GoReturn(Collections.singletonList(GoBuiltins.False))))
                     ),
                     Collections.singletonList(new GoExpressionStatement(panic))
                     )
