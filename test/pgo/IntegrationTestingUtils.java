@@ -20,12 +20,18 @@ public class IntegrationTestingUtils {
 	static class MPCalRunDefinition {
 		private final String identifier;
 		private final List<String> args;
-		private final List<String> expectedOutput;
+		private final InputStream expectedOutput;
+		private final File stdin;
 
-		MPCalRunDefinition(String identifier, List<String> args, List<String> expectedOutput) {
+		MPCalRunDefinition(String identifier, List<String> args, InputStream expectedOutput, File stdin) {
 			this.identifier = identifier;
 			this.args = args;
 			this.expectedOutput = expectedOutput;
+			this.stdin = stdin;
+		}
+
+		MPCalRunDefinition(String identifier, List<String> args, InputStream expectedOutput) {
+			this(identifier, args, expectedOutput, null);
 		}
 
 		String getIdentifier() {
@@ -36,8 +42,14 @@ public class IntegrationTestingUtils {
 			return args;
 		}
 
-		List<String> getExpectedOutput() {
-			return expectedOutput;
+		Optional<File> getStdin() {
+			return Optional.ofNullable(stdin);
+		}
+
+		String getExpectedOutput() {
+			return new BufferedReader(new InputStreamReader(expectedOutput))
+					.lines()
+					.collect(Collectors.joining("\n"));
 		}
 	}
 
@@ -252,8 +264,12 @@ public class IntegrationTestingUtils {
 		}
 	}
 
-	static MPCalRunDefinition mpcalRunDef(String id, List<String> args, List<String> output) {
+	static MPCalRunDefinition mpcalRunDef(String id, List<String> args, InputStream output) {
 		return new MPCalRunDefinition(id, args, output);
+	}
+
+	static MPCalRunDefinition mpcalRunDef(String id, List<String> args, File stdin, InputStream output) {
+		return new MPCalRunDefinition(id, args, output, stdin);
 	}
 
 	private static List<String> runAndPrint(ProcessBuilder pb, String prefix, boolean checkSuccess) {
@@ -323,6 +339,7 @@ public class IntegrationTestingUtils {
 				ProcessBuilder builder = new ProcessBuilder(command);
 				builder.directory(codePath.toFile());
 
+				def.getStdin().ifPresent(builder::redirectInput);
 				outputs.put(def.getIdentifier(), runAndPrint(builder, def.getIdentifier()));
 			}))
 		);
