@@ -3,9 +3,12 @@ package pgo.trans.passes.codegen.go;
 import pgo.TODO;
 import pgo.model.golang.*;
 import pgo.model.golang.builder.GoBlockBuilder;
+import pgo.model.golang.builder.GoForRangeBuilder;
 import pgo.model.golang.builder.GoForStatementClauseBuilder;
 import pgo.model.golang.type.*;
+import pgo.trans.intermediate.TLABuiltins;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -127,7 +130,71 @@ public class LessThanCodeGenVisitor extends GoTypeVisitor<GoExpression, RuntimeE
 
 	@Override
 	public GoExpression visit(GoMapType mapType) throws RuntimeException {
-		throw new TODO();
+		// this comparison compares
+		// 1) length < length
+		// 2) keys < keys (delegating to our slice comparisons)
+		// 3) values < values (also delegating to our slice comparisons)
+		GoVariableName less = builder.varDecl("less", new GoBinop(
+				GoBinop.Operation.LT,
+				new GoCall(new GoVariableName("len"), Collections.singletonList(lhs)),
+				new GoCall(new GoVariableName("len"), Collections.singletonList(rhs))));
+		try(GoIfBuilder lengthEQ = builder.ifStmt(
+				new GoBinop(
+						GoBinop.Operation.EQ,
+						new GoCall(new GoVariableName("len"), Collections.singletonList(lhs)),
+						new GoCall(new GoVariableName("len"), Collections.singletonList(rhs))))){
+			try(GoBlockBuilder yes = lengthEQ.whenTrue()) {
+				GoType keysType = new GoSliceType(mapType.getKeyType());
+				GoType valuesType = new GoSliceType(mapType.getValueType());
+
+				// extract lhs keys, sorted
+				GoVariableName keysL = yes.varDecl("keysL", keysType);
+				GoForRangeBuilder buildKeysL = yes.forRange(lhs);
+				GoVariableName kL = buildKeysL.initVariables(Collections.singletonList("kL")).get(0);
+				try(GoBlockBuilder body = buildKeysL.getBlockBuilder()) {
+					body.assign(keysL, new GoCall(new GoVariableName("append"), Arrays.asList(keysL, kL)));
+				}
+				TLABuiltins.ensureSorted(yes, mapType.getKeyType(), keysL);
+
+				// extract rhs keys, sorted
+				GoVariableName keysR = yes.varDecl("keysR", keysType);
+				GoForRangeBuilder buildKeysR = yes.forRange(lhs);
+				GoVariableName kR = buildKeysR.initVariables(Collections.singletonList("kR")).get(0);
+				try(GoBlockBuilder body = buildKeysR.getBlockBuilder()) {
+					body.assign(keysR, new GoCall(new GoVariableName("append"), Arrays.asList(keysR, kR)));
+				}
+				TLABuiltins.ensureSorted(yes, mapType.getKeyType(), keysR);
+
+				// apply LE to the keys
+				yes.assign(less, keysType.accept(new LessThanCodeGenVisitor(yes, keysL, keysR)));
+				try(GoIfBuilder keysEQ = yes.ifStmt(keysType.accept(new EqCodeGenVisitor(yes, keysL, keysR, false)))) {
+					try(GoBlockBuilder yes2 = keysEQ.whenTrue()) {
+						// extract lhs values (in key order)
+						GoVariableName valuesL = yes2.varDecl("valuesL", valuesType);
+						GoForRangeBuilder buildValuesL = yes2.forRange(keysL);
+						kL = buildValuesL.initVariables(Arrays.asList("_", "kL")).get(1);
+						try(GoBlockBuilder body = buildValuesL.getBlockBuilder()) {
+							body.assign(valuesL, new GoCall(
+									new GoVariableName("append"),
+									Arrays.asList(valuesL, new GoIndexExpression(lhs, kL))));
+						}
+
+						// extract rhs values (in key order)
+						GoVariableName valuesR = yes2.varDecl("valuesR", valuesType);
+						GoForRangeBuilder buildValuesR = yes2.forRange(keysR);
+						kR = buildValuesR.initVariables(Arrays.asList("_", "kR")).get(1);
+						try(GoBlockBuilder body = buildValuesR.getBlockBuilder()) {
+							body.assign(valuesR, new GoCall(
+									new GoVariableName("append"),
+									Arrays.asList(valuesL, new GoIndexExpression(rhs, kR))));
+						}
+
+						yes2.assign(less, valuesType.accept(new LessThanCodeGenVisitor(yes2, valuesL, valuesR)));
+					}
+				}
+			}
+		}
+		return less;
 	}
 
 	@Override

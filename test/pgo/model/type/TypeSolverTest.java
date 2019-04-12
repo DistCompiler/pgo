@@ -6,6 +6,7 @@ import pgo.errors.TopLevelIssueContext;
 import pgo.model.type.constraint.MonomorphicConstraint;
 import pgo.scope.UID;
 
+import java.text.CollationElementIterator;
 import java.util.Arrays;
 import java.util.Collections;
 
@@ -172,6 +173,74 @@ public class TypeSolverTest {
 		solver.unify(ctx);
 		assertTrue(ctx.hasErrors());
 	}
+
+	/*
+	@Test
+	public void setOfConcreteRecord() {
+		TypeVariable a = typeGenerator.getTypeVariable(Collections.emptyList());
+		TypeVariable b = typeGenerator.getTypeVariable(Collections.emptyList());
+
+		solver.addConstraint(new MonomorphicConstraint(dummyUID, a, new SetType(b, Collections.emptyList())));
+		solver.addConstraint(new MonomorphicConstraint(dummyUID, b, new RecordType(
+				Arrays.asList(
+						new RecordType.Field("a", new IntType(Collections.emptyList())),
+						new RecordType.Field("b", new IntType(Collections.emptyList()))),
+				Collections.emptyList())));
+
+		solver.unify(ctx);
+		assertFalse(ctx.hasErrors());
+		TypeSubstitution substitution = solver.getSubstitution();
+		assertEquals(
+				substitution.get(a),
+				new SetType(
+						new RecordType(
+								Arrays.asList(
+										new RecordType.Field("a", new IntType(Collections.emptyList())),
+										new RecordType.Field("b", new IntType(Collections.emptyList()))),
+								Collections.emptyList()),
+						Collections.emptyList()));
+	}
+
+	@Test
+	public void setOfConcreteRecordIndirect() {
+		TypeVariable a = typeGenerator.getTypeVariable(Collections.emptyList());
+		TypeVariable b = typeGenerator.getTypeVariable(Collections.emptyList());
+		TypeVariable c = typeGenerator.getTypeVariable(Collections.emptyList());
+		TypeVariable d = typeGenerator.getTypeVariable(Collections.emptyList());
+		TypeVariable c2 = typeGenerator.getTypeVariable(Collections.emptyList());
+		TypeVariable d2 = typeGenerator.getTypeVariable(Collections.emptyList());
+
+		solver.addConstraint(new MonomorphicConstraint(dummyUID, a, new SetType(b, Collections.emptyList())));
+		solver.addConstraint(new MonomorphicConstraint(dummyUID, b, new RecordType(
+				Arrays.asList(
+						new RecordType.Field("a", c),
+						new RecordType.Field("b", d)),
+				Collections.emptyList())));
+		solver.addConstraint(new MonomorphicConstraint(dummyUID, c, new IntType(Collections.emptyList())));
+		solver.addConstraint(new MonomorphicConstraint(dummyUID, d, new IntType(Collections.emptyList())));
+		solver.addConstraint(new MonomorphicConstraint(dummyUID, b, new RecordType(
+				Arrays.asList(
+						new RecordType.Field("a", c2),
+						new RecordType.Field("b", d2)),
+				Collections.emptyList())));
+		solver.addConstraint(new MonomorphicConstraint(dummyUID, c2, new IntType(Collections.emptyList())));
+		solver.addConstraint(new MonomorphicConstraint(dummyUID, d2, new IntType(Collections.emptyList())));
+
+
+		solver.unify(ctx);
+		assertFalse(ctx.hasErrors());
+		TypeSubstitution substitution = solver.getSubstitution();
+		assertEquals(
+				substitution.get(a),
+				new SetType(
+						new RecordType(
+								Arrays.asList(
+										new RecordType.Field("a", new IntType(Collections.emptyList())),
+										new RecordType.Field("b", new IntType(Collections.emptyList()))),
+								Collections.emptyList()),
+						Collections.emptyList()));
+	}
+	*/
 
 	@Test
 	public void abstractRecord() {

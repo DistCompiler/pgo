@@ -166,6 +166,14 @@ public class ExpressionCodeGenRunTest {
 						kv("rhs", set(tuple(), idexp("workaround2"), tuple(num(1), num(2))))),
 				Collections.singletonList("[[1]]"),
 			},
+			{
+				set(idexp("r2"), idexp("r1")),
+				Arrays.asList(
+						kv("r1", record(field(id("a"), num(1)), field(id("b"), num(2)))),
+						kv("r2", record(field(id("a"), num(2)), field(id("b"), num(1))))
+				),
+				Collections.singletonList("[{1 2} {2 1}]"),
+			},
 			// quantified universals
 			{
 				universal(
