@@ -1,0 +1,13 @@
+{
+  "build": {
+    "output_dir": ".",
+    "dest_package": "paxos"
+  },
+  "constants": {
+    "M": "2",
+    "N": "3",
+    "K": "4",
+    "STOP": "5",
+    "MAXB": "10"
+  }
+}
