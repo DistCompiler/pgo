@@ -37,4 +37,9 @@ public class ModularPlusCalMappingVariableName extends ModularPlusCalMappingVari
 		ModularPlusCalMappingVariableName other = (ModularPlusCalMappingVariableName) obj;
 		return name.equals(other.name) && functionCall == other.functionCall;
 	}
+
+	@Override
+	public String toString() {
+		return name;
+	}
 }

@@ -8,11 +8,11 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static pgo.IntegrationTestingUtils.*;
 
@@ -31,6 +31,20 @@ public class TestMPCalCodeGenRun {
         this.processes = processes;
     }
 
+    private static InputStream strInputStream(List<String> lines) {
+        return new ByteArrayInputStream(String.join("\n", lines).getBytes());
+    }
+
+    private static InputStream fileInputStream(String root, String name) {
+        File file = Paths.get("test", "mpcal", "go", root, name).toFile();
+
+        try {
+            return new FileInputStream(file);
+        } catch (IOException ex) {
+            throw new RuntimeException("IOException: " + ex.getMessage());
+        }
+    }
+
     @Parameterized.Parameters
     public static List<Object[]> data() {
         return Arrays.asList(new Object[][] {
@@ -47,28 +61,28 @@ public class TestMPCalCodeGenRun {
                                 mpcalRunDef(
                                         "AClient(3)",
                                         Arrays.asList("AClient(3)", "127.0.0.1:5555"),
-                                        Arrays.asList(
+                                        strInputStream(Arrays.asList(
                                                 "Connected!",
                                                 "Received page: <html>This is server 1!</html>",
                                                 "Received page: <html>This is server 2!</html>",
                                                 "Received page: <html>This is server 1!</html>",
                                                 "Received page: <html>This is server 2!</html>"
-                                        )
+                                        ))
                                 ),
                                 mpcalRunDef(
                                         "ALoadBalancer(0)",
                                         Arrays.asList("ALoadBalancer(0)", "127.0.0.1:2222"),
-                                        Collections.emptyList()
+                                        strInputStream(Collections.emptyList())
                                 ),
                                 mpcalRunDef(
                                         "AServer(1)",
                                         Arrays.asList("AServer(1)", "127.0.0.1:3333", "page1.html"),
-                                        Collections.emptyList()
+                                        strInputStream(Collections.emptyList())
                                 ),
                                 mpcalRunDef(
                                         "AServer(2)",
                                         Arrays.asList("AServer(2)", "127.0.0.1:4444", "page2.html"),
-                                        Collections.emptyList()
+                                        strInputStream(Collections.emptyList())
                                 )
                         )
                 },
@@ -86,28 +100,28 @@ public class TestMPCalCodeGenRun {
                                 mpcalRunDef(
                                         "AClient(3)",
                                         Arrays.asList("AClient(3)", "127.0.0.1:5555"),
-                                        Arrays.asList(
+                                        strInputStream(Arrays.asList(
                                                 "Connected!",
                                                 "Received page: <html>This is server 1!</html>",
                                                 "Received page: <html>This is server 2!</html>",
                                                 "Received page: <html>This is server 1!</html>",
                                                 "Received page: <html>This is server 2!</html>"
-                                        )
+                                        ))
                                 ),
                                 mpcalRunDef(
                                         "ALoadBalancer(0)",
                                         Arrays.asList("ALoadBalancer(0)", "127.0.0.1:2222"),
-                                        Collections.emptyList()
+                                        strInputStream(Collections.emptyList())
                                 ),
                                 mpcalRunDef(
                                         "AServer(1)",
                                         Arrays.asList("AServer(1)", "127.0.0.1:3333", "page1.html"),
-                                        Collections.emptyList()
+                                        strInputStream(Collections.emptyList())
                                 ),
                                 mpcalRunDef(
                                         "AServer(2)",
                                         Arrays.asList("AServer(2)", "127.0.0.1:4444", "page2.html"),
-                                        Collections.emptyList()
+                                        strInputStream(Collections.emptyList())
                                 )
                         )
                 },
@@ -125,27 +139,27 @@ public class TestMPCalCodeGenRun {
                                 mpcalRunDef(
                                         "AClient(3)",
                                         Arrays.asList("AClient(3)", "127.0.0.1:5555"),
-                                        Arrays.asList(
+                                        strInputStream(Arrays.asList(
                                                 "Connected!",
                                                 "Received page: <html>This is server 1!</html>",
                                                 "Received page: <html>This is server 1!</html>",
                                                 "Received page: <html>This is server 2!</html>"
-                                        )
+                                        ))
                                 ),
                                 mpcalRunDef(
                                         "ALoadBalancer(0)",
                                         Arrays.asList("ALoadBalancer(0)", "127.0.0.1:2222"),
-                                        Collections.emptyList()
+                                        strInputStream(Collections.emptyList())
                                 ),
                                 mpcalRunDef(
                                         "AServer(1)",
                                         Arrays.asList("AServer(1)", "127.0.0.1:3333", "pages"),
-                                        Collections.emptyList()
+                                        strInputStream(Collections.emptyList())
                                 ),
                                 mpcalRunDef(
                                         "AServer(2)",
                                         Arrays.asList("AServer(2)", "127.0.0.1:4444", "pages"),
-                                        Collections.emptyList()
+                                        strInputStream(Collections.emptyList())
                                 )
                         )
                 },
@@ -173,13 +187,13 @@ public class TestMPCalCodeGenRun {
                                             "Client(3)", "Put a Client3-v1", "Put b Client3-v2",
                                             "Get x", "Put c Client3-v3", "Get b"
                                     ),
-                                    Arrays.asList(
+                                    strInputStream(Arrays.asList(
                                             "-- Put (a, Client3-v1): OK",
                                             "-- Put (b, Client3-v2): OK",
                                             "-- Get x: <nil>",
                                             "-- Put (c, Client3-v3): OK",
                                             "-- Get b: Client3-v2"
-                                    )
+                                    ))
                             ),
                             mpcalRunDef(
                                     "Client(4)",
@@ -187,51 +201,107 @@ public class TestMPCalCodeGenRun {
                                             "Client(4)", "Put d Client4-v1", "Put d Client4-v2",
                                             "Put e Client4-v3", "Get d", "Get e"
                                     ),
-                                    Arrays.asList(
+                                    strInputStream(Arrays.asList(
                                             "-- Put (d, Client4-v1): OK",
                                             "-- Put (d, Client4-v2): OK",
                                             "-- Put (e, Client4-v3): OK",
                                             "-- Get d: Client4-v2",
                                             "-- Get e: Client4-v3"
-                                    )
+                                    ))
                             ),
                             mpcalRunDef(
                                     "Replica(0)",
                                     Collections.singletonList("Replica(0)"),
-                                    Arrays.asList(
+                                    strInputStream(Arrays.asList(
                                             "Replica snapshot:",
                                             "\ta -> Client3-v1",
                                             "\tb -> Client3-v2",
                                             "\tc -> Client3-v3",
                                             "\td -> Client4-v2",
                                             "\te -> Client4-v3"
-                                    )
+                                    ))
                             ),
                             mpcalRunDef(
                                     "Replica(1)",
                                     Collections.singletonList("Replica(1)"),
-                                    Arrays.asList(
+                                    strInputStream(Arrays.asList(
                                             "Replica snapshot:",
                                             "\ta -> Client3-v1",
                                             "\tb -> Client3-v2",
                                             "\tc -> Client3-v3",
                                             "\td -> Client4-v2",
                                             "\te -> Client4-v3"
-                                    )
+                                    ))
                             ),
                             mpcalRunDef(
                                     "Replica(2)",
                                     Collections.singletonList("Replica(2)"),
-                                    Arrays.asList(
+                                    strInputStream(Arrays.asList(
                                             "Replica snapshot:",
                                             "\ta -> Client3-v1",
                                             "\tb -> Client3-v2",
                                             "\tc -> Client3-v3",
                                             "\td -> Client4-v2",
                                             "\te -> Client4-v3"
-                                    )
+                                    ))
                             )
                     )
+                },
+
+                // Concurrent replicated key-value store: each client is given a list of
+                // operations, and they perform them concurrently (different Go routine for
+                // each operation). Since the client's output is non-deterministic, we only
+                // verify the output of the replica at the end of the process, guaranteeing
+                // that they are all consistent and equal.
+                {
+                        "concurrent_replicated_kv.tla",
+                        "replicated_kv",
+                        new HashMap<String, String>() {{
+                            put("DISCONNECT_MSG", "\"disconnect\"");
+                            put("GET_MSG", "\"get\"");
+                            put("PUT_MSG", "\"put\"");
+                            put("NULL_MSG", "\"clock_update\"");
+                            put("NUM_CLIENTS", "3");
+                            put("NUM_REPLICAS", "2");
+                            put("GET_RESPONSE", "\"get_response\"");
+                            put("PUT_RESPONSE", "\"put_response\"");
+                        }},
+                        Arrays.asList(
+                                mpcalRunDef(
+                                        "Replica(0)",
+                                        Collections.singletonList("Replica(0)"),
+                                        fileInputStream("concurrent_replicated_kv", "replicas_out.txt")
+                                ),
+                                mpcalRunDef(
+                                        "Replica(1)",
+                                        Collections.singletonList("Replica(1)"),
+                                        fileInputStream("concurrent_replicated_kv", "replicas_out.txt")
+                                ),
+                                mpcalRunDef(
+                                        "Client(2)",
+                                        Collections.singletonList("Client(2)"),
+                                        Paths.get(
+                                                "test", "mpcal", "go", "concurrent_replicated_kv", "client2_in.txt"
+                                        ).toFile(),
+                                        strInputStream(Collections.emptyList())
+                                ),
+                                mpcalRunDef(
+                                        "Client(3)",
+                                        Collections.singletonList("Client(3)"),
+                                        Paths.get(
+                                                "test", "mpcal", "go", "concurrent_replicated_kv", "client3_in.txt"
+                                        ).toFile(),
+                                        strInputStream(Collections.emptyList())
+                                ),
+                                mpcalRunDef(
+                                        "Client(4)",
+                                        Collections.singletonList("Client(4)"),
+                                        Paths.get(
+                                                "test", "mpcal", "go", "concurrent_replicated_kv", "client4_in.txt"
+                                        ).toFile(),
+                                        strInputStream(Collections.emptyList())
+                                )
+                        )
                 }
         });
     }

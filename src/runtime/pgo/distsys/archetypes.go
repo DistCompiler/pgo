@@ -8,6 +8,7 @@ import (
 	"path"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -71,6 +72,7 @@ func init() {
 	RegisterResource(&FileResource{})
 	RegisterResource(&ImmutableResource{})
 	RegisterResource(&LocallySharedResource{})
+	RegisterResource(&AtomicInteger{})
 }
 
 // RegisterResource assigns a priority to the type of the resource
@@ -431,6 +433,7 @@ func mailboxErrorDescription(e int) string {
 // available in their queues.
 type Mailbox struct {
 	name           string            // internal name exposed via RPC
+	version        int               // version of this service being created
 	selfName       string            // identifier of the process that created the reference
 	configuration  map[string]string // configuration of the system (PlusCal process -> IP address)
 	conns          *Connections      // the set of connections to nodes within the system
@@ -441,12 +444,13 @@ type Mailbox struct {
 	readChan       chan interface{}  // reads are buffered through Go channels
 	timeout        uint              // how long to wait for RPC calls
 	readingAborted bool              // whether we are reading messages from a previously aborted transaction
+	lock           sync.Mutex        // exclusive access to internal buffers
 }
 
 // service returns the name of the RPC service associated with this
 // mailbox.
 func (mbox *Mailbox) service() string {
-	return "Mailbox_" + mbox.name
+	return "Mailbox_" + mbox.name + "_" + strconv.Itoa(mbox.version)
 }
 
 func (mbox *Mailbox) callAsync(function string, args interface{}, ok *int) *rpc.Call {
@@ -459,22 +463,35 @@ func (mbox *Mailbox) sendMessage(msg interface{}) error {
 	var result int
 	call := mbox.callAsync("Receive", msg, &result)
 
-	if result != RPC_SUCCESS {
-		return fmt.Errorf("Mailbox communication error: %s", mailboxErrorDescription(result))
+	checkRPCResult := func() error {
+		if result != RPC_SUCCESS {
+			return fmt.Errorf("Mailbox communication error: %s", mailboxErrorDescription(result))
+		}
+
+		return nil
 	}
 
 	// a timeout of 0 indicates that the system TCP timeout should be
 	// used
 	if mbox.timeout == 0 {
 		<-call.Done
-		return call.Error
+		if call.Error != nil {
+			return call.Error
+		}
+
+		return checkRPCResult()
 	}
 
 	// send the message asynchronously; if it times out, return an
 	// error
 	select {
 	case <-call.Done:
-		return call.Error
+		if call.Error != nil {
+			return call.Error
+		}
+
+		return checkRPCResult()
+
 	case <-time.After(time.Duration(mbox.timeout) * time.Millisecond):
 		return fmt.Errorf("Timed out: %v", mbox.service())
 	}
@@ -509,9 +526,10 @@ func (mbox *Mailbox) tryRead() (interface{}, bool) {
 // the reply of a function call. Passing a timeout of 0 causes the
 // runtime to not employ any timeout mechanism (falling back to the
 // underlying system's TCP timeout).
-func MailboxRef(name string, conns *Connections, configuration map[string]string, id string, bufferSize uint, timeout uint) (*Mailbox, error) {
+func MailboxRef(name string, version int, conns *Connections, configuration map[string]string, id string, bufferSize uint, timeout uint) (*Mailbox, error) {
 	mbox := &Mailbox{
 		name:           name,
+		version:        version,
 		selfName:       id,
 		configuration:  configuration,
 		conns:          conns,
@@ -552,6 +570,9 @@ func (mbox *Mailbox) Read() (interface{}, error) {
 		panic(fmt.Sprintf("Tried to read non-local mailbox %s (attempted by %s)", mbox.name, mbox.selfName))
 	}
 
+	mbox.lock.Lock()
+	defer mbox.lock.Unlock()
+
 	// if we are still reading messages from an aborted session
 	if mbox.readingAborted {
 		// read from the buffer of previously read messages (pop from
@@ -586,6 +607,9 @@ func (mbox *Mailbox) Write(value interface{}) error {
 		panic(fmt.Sprintf("Tried to send message to local mailbox (attempted by %s)", mbox.selfName))
 	}
 
+	mbox.lock.Lock()
+	defer mbox.lock.Unlock()
+
 	mbox.writeBuf = append(mbox.writeBuf, value)
 	return nil
 }
@@ -593,6 +617,9 @@ func (mbox *Mailbox) Write(value interface{}) error {
 // Release sends each message given to Write() to the destination
 // mailbox.
 func (mbox *Mailbox) Release() error {
+	mbox.lock.Lock()
+	defer mbox.lock.Unlock()
+
 	// send each message written to the resource while it was
 	// acquired.  Returns an error if sending any message failed
 	for _, msg := range mbox.writeBuf {
@@ -611,6 +638,9 @@ func (mbox *Mailbox) Release() error {
 // buffer of read messages so that, when the channel is next acquired,
 // the same messages will be read again
 func (mbox *Mailbox) Abort() error {
+	mbox.lock.Lock()
+	defer mbox.lock.Unlock()
+
 	mbox.writeBuf = []interface{}{}
 	mbox.readingAborted = true
 	return nil
@@ -945,6 +975,73 @@ func (resource *LocallySharedResource) Less(other ArchetypeResource) bool {
 	return strings.Compare(resource.name, otherResource.name) < 0
 }
 
+// AtomicIntegers as Archetype Resources
+// -------------------------------------
+
+// AtomicInteger wraps an integer value that can be read from and
+// written to without acquiring locks. It makes use of the sync/atomic
+// Go package in order to ensure reads and writes are consistent and
+// isolated.
+type AtomicInteger struct {
+	name         string // used to enforce consistent ordering
+	value        int32  // the current value of the underlying integer
+	writtenValue *int32 // uncommitted write, if any
+}
+
+// NewAtomicInteger creates an atomic Integer initialized with the
+// value passed as argument
+func NewAtomicInteger(name string, initial int32) *AtomicInteger {
+	return &AtomicInteger{
+		name:  name,
+		value: initial,
+	}
+}
+
+// Acquire is a no-op for atomic integers
+func (_ AtomicInteger) Acquire(_ ResourceAccess) error {
+	return nil
+}
+
+// Read returns the current value of the resource
+func (aint *AtomicInteger) Read() (interface{}, error) {
+	if aint.writtenValue != nil {
+		return int(*aint.writtenValue), nil
+	}
+
+	return int(atomic.LoadInt32(&aint.value)), nil
+}
+
+// Write updates the value of the underlying integer
+func (aint *AtomicInteger) Write(value interface{}) error {
+	intValue := int32(value.(int))
+	aint.writtenValue = &intValue
+
+	return nil
+}
+
+// Release writes any written value to the underlying atomic integer
+// and returns.
+func (aint *AtomicInteger) Release() error {
+	if aint.writtenValue != nil {
+		atomic.StoreInt32(&aint.value, *aint.writtenValue)
+	}
+
+	return nil
+}
+
+// Abort erases any values passed using Write and returns.
+func (aint *AtomicInteger) Abort() error {
+	aint.writtenValue = nil
+	return nil
+}
+
+// Less implements ordering among locally shared
+// resources. Lexicographical order on the resource name is used.
+func (aint *AtomicInteger) Less(other ArchetypeResource) bool {
+	otherResource := other.(*AtomicInteger)
+	return strings.Compare(aint.name, otherResource.name) < 0
+}
+
 /////////////////////////////////////////////////////////////////////////
 ////            ARCHETYPE RESOURCE COLLECTIONS                      ////
 ///////////////////////////////////////////////////////////////////////
@@ -1067,4 +1164,55 @@ func (m *ArchetypeResourceMap) ToMap() map[interface{}]interface{} {
 
 	m.lock.Unlock()
 	return result
+}
+
+// Resource Pools as Archetype Resource Collections
+// ------------------------------------------------
+
+// ResourcePool implements a pool of archetype resources that can be
+// shared among multiple processes in a system.
+type ResourcePool struct {
+	size      int                 // the number of resources in the pool
+	resources []ArchetypeResource // the actual resources being shared
+	free      chan int            // channel containing indices into 'resources' that are free
+}
+
+// NewResourcePool creates a resource pool of a given 'size'. The
+// 'factory' function is used to create an archetype resource in the
+// pool. It is called 'size' types to create the initial pool.
+func NewResourcePool(size int, factory func() ArchetypeResource) *ResourcePool {
+	pool := &ResourcePool{
+		resources: make([]ArchetypeResource, size),
+		free:      make(chan int, size),
+	}
+
+	// initialize resources and free list
+	for i := 0; i < size; i++ {
+		pool.resources[i] = factory()
+		pool.free <- i
+	}
+
+	return pool
+}
+
+// Retrieve obtains a free resource in the pool. Blocks until one is
+// available if no resources are available at the time of the request.
+// Returns a 'handle' that must be returned when the caller is done
+// using the resource.
+func (pool *ResourcePool) Retrieve() (ArchetypeResource, int) {
+	handle := <-pool.free
+	return pool.resources[handle], handle
+}
+
+// Return marks a previously retrieved resource as free again.
+func (pool *ResourcePool) Return(handle int) {
+	pool.free <- handle
+}
+
+// Get returns the resource associated with the given value
+// (handle). It is an error to pass a value that has not been
+// previously retrieved.
+func (pool *ResourcePool) Get(value interface{}) ArchetypeResource {
+	handle := value.(int)
+	return pool.resources[handle]
 }

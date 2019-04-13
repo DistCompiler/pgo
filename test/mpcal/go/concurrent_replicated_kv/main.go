@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"replicated_kv"
 	"sort"
@@ -14,12 +16,11 @@ import (
 )
 
 const (
-	MAILBOX_SIZE      = 10  // message buffer size
-	CLOCK_UPDATE_TICK = 200 // clock update 0.2s
+	MAILBOX_SIZE      = 1000 // message buffer size
+	CLOCK_UPDATE_TICK = 80   // clock update 0.2s
 
+	CLIENT_POOL_SIZE   = 100
 	CONNECTION_TIMEOUT = 1000 // time out RPC calls after 1s
-
-	REPLICA_STATUS_CHECK = 5 // print replica database state every 5 seconds
 
 	GET = iota
 	PUT
@@ -39,46 +40,66 @@ var spin distsys.ArchetypeResource
 
 // connections to clients and replicas
 var clients distsys.ArchetypeResourceCollection
+var mboxPool *distsys.ResourcePool
 var replicas distsys.ArchetypeResourceCollection
 
 var clientId distsys.ArchetypeResource
 var clock distsys.ArchetypeResourceCollection
-var locked distsys.ArchetypeResourceCollection
+var lock sync.Mutex
 
 // replica variables
 var db *distsys.ArchetypeResourceMap
 
 // storage check mutex
 var mut sync.Mutex
-var checkCount int
 
 // continue ticking?
 var tick bool
 
+// change to run every command in a separate Go routine
+var concurrentMode = true
+
 type Command interface {
-	Run() error
+	Run() chan bool
 }
 
 type Get struct {
 	key string
 }
 
-func (g Get) Run() error {
-	getKey := distsys.NewImmutableResource(g.key)
-	response := distsys.NewLocallySharedResource("getResponse", nil)
-
-	replicated_kv.Get(self, clientId, replicas, clients, getKey, locked, clock, spin, response)
-
-	// Read without Acquire because we know `response` is not
-	// shared
-	val, _ := response.Read()
-	if val == nil {
-		fmt.Printf("-- Get %s: %v\n", g.key, nil)
-	} else {
-		fmt.Printf("-- Get %s: %s\n", g.key, val.(string))
+func runCommand(cmd func()) {
+	if concurrentMode {
+		go cmd()
+		return
 	}
 
-	return nil
+	cmd()
+}
+
+func (g Get) Run() chan bool {
+	done := make(chan bool, 1)
+
+	runCommand(func() {
+		resource, handle := mboxPool.Retrieve()
+		defer mboxPool.Return(handle)
+
+		mailbox := distsys.NewSingletonCollection(resource)
+		mboxAddress := (self-replicated_kv.NUM_REPLICAS)*CLIENT_POOL_SIZE + handle
+
+		getKey := distsys.NewImmutableResource(g.key)
+		response := distsys.NewLocallySharedResource("getResponse", nil)
+
+		if err := replicated_kv.Get(mboxAddress, clientId, replicas, mailbox, getKey, clock, spin, response); err != nil {
+			panic(fmt.Sprintf("Get error: %v", err))
+		}
+
+		// Read without Acquire because we know `response` is not
+		// shared
+		response.Read()
+		done <- true
+	})
+
+	return done
 }
 
 type Put struct {
@@ -86,21 +107,39 @@ type Put struct {
 	value string
 }
 
-func (p Put) Run() error {
-	putKey := distsys.NewImmutableResource(p.key)
-	putValue := distsys.NewImmutableResource(p.value)
-	response := distsys.NewLocallySharedResource("putResponse", nil)
+func (p Put) Run() chan bool {
+	done := make(chan bool, 1)
+	runCommand(func() {
+		resource, handle := mboxPool.Retrieve()
+		defer mboxPool.Return(handle)
 
-	replicated_kv.Put(self, clientId, replicas, clients, putKey, putValue, locked, clock, spin, response)
+		mailbox := distsys.NewSingletonCollection(resource)
+		mboxAddress := (self-replicated_kv.NUM_REPLICAS)*CLIENT_POOL_SIZE + handle
 
-	fmt.Printf("-- Put (%s, %s): OK\n", p.key, p.value)
-	return nil
+		putKey := distsys.NewImmutableResource(p.key)
+		putValue := distsys.NewImmutableResource(p.value)
+		response := distsys.NewLocallySharedResource("putResponse", nil)
+
+		if err := replicated_kv.Put(mboxAddress, clientId, replicas, mailbox, putKey, putValue, clock, spin, response); err != nil {
+			panic(fmt.Sprintf("Put error: %v", err))
+		}
+
+		done <- true
+	})
+
+	return done
 }
 
 type Disconnect int
 
-func (d Disconnect) Run() error {
-	return disconnect()
+func (d Disconnect) Run() chan bool {
+	done := make(chan bool, 1)
+	runCommand(func() {
+		disconnect()
+		done <- true
+	})
+
+	return done
 }
 
 func init() {
@@ -110,11 +149,11 @@ func init() {
 
 	id = os.Args[1]
 	configuration = map[string]string{
-		"Replica(0)": "127.0.0.1:4444",
-		"Replica(1)": "127.0.0.1:5555",
-		"Replica(2)": "127.0.0.1:6666",
-		"Client(3)":  "127.0.0.1:2222",
-		"Client(4)":  "127.0.0.1:3333",
+		"Replica(0)": "127.0.0.1:5555",
+		"Replica(1)": "127.0.0.1:6666",
+		"Client(2)":  "127.0.0.1:2222",
+		"Client(3)":  "127.0.0.1:3333",
+		"Client(4)":  "127.0.0.1:4444",
 	}
 
 	if _, ok := configuration[id]; !ok {
@@ -135,8 +174,6 @@ func init() {
 
 	// archetype resource functions do not spin in this context
 	spin = distsys.NewImmutableResource(false)
-
-	checkCount = 0
 	tick = true
 }
 
@@ -145,8 +182,8 @@ func fatal(msg string) {
 	os.Exit(1)
 }
 
-func makeMailboxRef(name string) *distsys.Mailbox {
-	mbox, err := distsys.MailboxRef(name, 0, connections, configuration, id, MAILBOX_SIZE, CONNECTION_TIMEOUT)
+func makeMailboxRef(name string, version int) *distsys.Mailbox {
+	mbox, err := distsys.MailboxRef(name, version, connections, configuration, id, MAILBOX_SIZE, CONNECTION_TIMEOUT)
 	if err != nil {
 		panic(err)
 	}
@@ -205,7 +242,7 @@ func parseCommands(defs []string) []Command {
 }
 
 func disconnect() error {
-	return replicated_kv.Disconnect(self, clientId, replicas, locked, clock)
+	return replicated_kv.Disconnect(self, clientId, replicas, clock)
 }
 
 func clockUpdate() error {
@@ -213,8 +250,7 @@ func clockUpdate() error {
 		time.Sleep(CLOCK_UPDATE_TICK * time.Millisecond)
 
 		if err := replicated_kv.ClockUpdate(self, clientId, replicas, clock, spin); err != nil {
-			fmt.Printf("Clock Update error: %v\n", err)
-			return err
+			panic(fmt.Sprintf("Clock Update error: %v\n", err))
 		}
 	}
 
@@ -234,7 +270,7 @@ func dumpStorage() {
 		return
 	}
 
-	fmt.Printf("Replica snapshot:\n")
+	fmt.Printf("Replica snapshot (%d keys):\n", len(storage))
 	keys := []string{}
 
 	for k, _ := range storage {
@@ -247,26 +283,39 @@ func dumpStorage() {
 	}
 }
 
-func storageStatusCheck() {
-	for {
-		time.Sleep(REPLICA_STATUS_CHECK * time.Second)
-		mut.Lock()
-
-		dumpStorage()
-		checkCount += 1
-
-		mut.Unlock()
-	}
-
-}
-
 func main() {
+	// if role == "Replica" {
+	// 	f, err := ioutil.TempFile("/tmp", "replica.prof")
+	// 	if err != nil {
+	// 		fatal(err.Error())
+	// 	}
+
+	//	pprof.StartCPUProfile(f)
+	// 	defer func() {
+	// 		pprof.StopCPUProfile()
+	// 		fmt.Printf("CPU profile saved at: %s\n", f.Name())
+	// 	}()
+	// }
+
 	var commands []Command
 
-	// parse  command line options  soon to avoid finding  out invalid
-	// command after all processes are up
+	// parse commands immediately to avoid finding out invalid command
+	// after all processes are up
 	if role == "Client" {
-		commands = parseCommands(os.Args[2:])
+		reader := bufio.NewReader(os.Stdin)
+		defs := []string{}
+		for {
+			line, err := reader.ReadString('\n')
+			if err == io.EOF {
+				break
+			} else if err != nil {
+				fatal(fmt.Sprintf("IO Error: %v", err))
+			}
+
+			defs = append(defs, line)
+		}
+
+		commands = parseCommands(defs)
 	}
 
 	// set up connections
@@ -274,54 +323,64 @@ func main() {
 	replicaConns := []distsys.ArchetypeResource{}
 
 	for _, i := range replicated_kv.ReplicaSet() {
-		replicaConns = append(replicaConns, makeMailboxRef(fmt.Sprintf("Replica(%d)", i)))
+		replicaConns = append(replicaConns, makeMailboxRef(fmt.Sprintf("Replica(%d)", i), 0))
 		clientConns = append(clientConns, nil)
 	}
 
-	for _, i := range replicated_kv.ClientSet() {
-		clientConns = append(clientConns, makeMailboxRef(fmt.Sprintf("Client(%d)", i)))
-	}
-
-	clients = distsys.ArchetypeResourceSlice(clientConns)
 	replicas = distsys.ArchetypeResourceSlice(replicaConns)
+
+	resources := []distsys.ArchetypeResource{}
+	for _, clientId := range replicated_kv.ClientSet() {
+		for i := 0; i < CLIENT_POOL_SIZE; i++ {
+			resources = append(resources, makeMailboxRef(fmt.Sprintf("Client(%d)", clientId), i))
+		}
+	}
+	clients = distsys.ArchetypeResourceSlice(resources)
+
+	// create the mailbox resource pool if we are a client
+	if role == "Client" {
+		j := (self - replicated_kv.NUM_REPLICAS) * CLIENT_POOL_SIZE
+		mboxPool = distsys.NewResourcePool(CLIENT_POOL_SIZE, func() distsys.ArchetypeResource {
+			r := resources[j]
+			j++
+
+			return r
+		})
+	}
 
 	// wait for all process to come online
 	waitBarrier()
 
 	if role == "Client" {
-		if len(os.Args) == 3 {
-			fmt.Fprintf(os.Stderr, "Client requires a list of commands")
-			os.Exit(1)
-		}
-
 		clientId = distsys.NewImmutableResource(self)
-		locked = distsys.NewSingletonCollection(distsys.NewLocallySharedResource("locked", false))
-		clock = distsys.NewSingletonCollection(distsys.NewLocallySharedResource("clock", 0))
+		clock = distsys.NewSingletonCollection(distsys.NewAtomicInteger("clock", 0))
 
 		initClientRoutines()
 
+		ch := []chan bool{}
 		for _, command := range commands {
-			command.Run()
+			ch = append(ch, command.Run())
 		}
+
+		// wait for all commands to complete
+		for _, c := range ch {
+			<-c
+		}
+
+		// once all commands are finished, disconnect
+		disconnect()
 
 	} else if role == "Replica" {
 		db = distsys.NewArchetypeResourceMap()
 		go replicated_kv.AReplica(self, clients, replicas, db)
-		go storageStatusCheck()
 	}
 
 	// wait for all clients to disconnect
 	waitBarrier()
 
-	// all process are done, stop ticking the clock
-	tick = false
-
 	if role == "Replica" {
 		// print the storage status if it hasn't been print before
 		mut.Lock()
-
-		if checkCount == 0 {
-			dumpStorage()
-		}
+		dumpStorage()
 	}
 }

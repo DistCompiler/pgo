@@ -129,9 +129,9 @@ public class EqCodeGenVisitor extends GoTypeVisitor<GoExpression, RuntimeExcepti
 			}
 		}
 
-		if(invert) {
+		if (invert) {
 			return new GoUnary(GoUnary.Operation.NOT, result);
-		}else {
+		} else {
 			return result;
 		}
 	}
