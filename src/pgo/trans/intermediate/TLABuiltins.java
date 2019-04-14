@@ -250,7 +250,7 @@ public class TLABuiltins {
 
 					// set[index] == val
 					GoExpression element = new GoIndexExpression(set, index);
-					GoExpression equalsVal = new GoBinop(GoBinop.Operation.EQ, element, val);
+					GoExpression equalsVal = elementType.accept(new EqCodeGenVisitor(builder, element, val, false));
 
 					return new GoBinop(GoBinop.Operation.AND, withinBounds, equalsVal);
 				}
