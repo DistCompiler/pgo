@@ -6,11 +6,14 @@ import pgo.model.golang.builder.GoBlockBuilder;
 import pgo.model.golang.builder.GoForRangeBuilder;
 import pgo.model.golang.builder.GoForStatementClauseBuilder;
 import pgo.model.golang.type.*;
+import pgo.model.type.RecordType;
+import pgo.model.type.Type;
+import pgo.scope.UID;
+import pgo.trans.intermediate.DefinitionRegistry;
 import pgo.trans.intermediate.TLABuiltins;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
+import java.util.function.Function;
 
 public class LessThanCodeGenVisitor extends GoTypeVisitor<GoExpression, RuntimeException> {
 
@@ -26,9 +29,9 @@ public class LessThanCodeGenVisitor extends GoTypeVisitor<GoExpression, RuntimeE
 
 	@Override
 	public GoExpression visit(GoTypeName typeName) throws RuntimeException {
-		if(typeName.isBuiltin()) {
+		if (typeName.isBuiltin()) {
 			return new GoBinop(GoBinop.Operation.LT, lhs, rhs);
-		}else {
+		} else {
 			throw new TODO();
 		}
 	}
@@ -102,7 +105,7 @@ public class LessThanCodeGenVisitor extends GoTypeVisitor<GoExpression, RuntimeE
 								i,
 								new GoCall(new GoVariableName("len"), Collections.singletonList(lhs))));
 				loopBuilder.setInc(new GoIncDec(true, i));
-				try(GoBlockBuilder loopBody = loopBuilder.getBlockBuilder()){
+				try(GoBlockBuilder loopBody = loopBuilder.getBlockBuilder()) {
 					loopBody.assign(
 							less,
 							sliceType.getElementType().accept(
@@ -130,70 +133,55 @@ public class LessThanCodeGenVisitor extends GoTypeVisitor<GoExpression, RuntimeE
 
 	@Override
 	public GoExpression visit(GoMapType mapType) throws RuntimeException {
-		// this comparison compares
-		// 1) length < length
-		// 2) keys < keys (delegating to our slice comparisons)
-		// 3) values < values (also delegating to our slice comparisons)
-		GoVariableName less = builder.varDecl("less", new GoBinop(
-				GoBinop.Operation.LT,
-				new GoCall(new GoVariableName("len"), Collections.singletonList(lhs)),
-				new GoCall(new GoVariableName("len"), Collections.singletonList(rhs))));
-		try(GoIfBuilder lengthEQ = builder.ifStmt(
-				new GoBinop(
-						GoBinop.Operation.EQ,
-						new GoCall(new GoVariableName("len"), Collections.singletonList(lhs)),
-						new GoCall(new GoVariableName("len"), Collections.singletonList(rhs))))){
-			try(GoBlockBuilder yes = lengthEQ.whenTrue()) {
-				GoType keysType = new GoSliceType(mapType.getKeyType());
-				GoType valuesType = new GoSliceType(mapType.getValueType());
+		// only comparison of record types are supported
+		if (!mapType.isRecord()) {
+			throw new TODO();
+		}
 
-				// extract lhs keys, sorted
-				GoVariableName keysL = yes.varDecl("keysL", keysType);
-				GoForRangeBuilder buildKeysL = yes.forRange(lhs);
-				GoVariableName kL = buildKeysL.initVariables(Collections.singletonList("kL")).get(0);
-				try(GoBlockBuilder body = buildKeysL.getBlockBuilder()) {
-					body.assign(keysL, new GoCall(new GoVariableName("append"), Arrays.asList(keysL, kL)));
-				}
-				TLABuiltins.ensureSorted(yes, mapType.getKeyType(), keysL);
+		// Go pseudo-code:
+		//
+		// less := false
+		// for {
+		//     // comparisons below in sorted order of keys (record entries)
+		//
+		//     if !(Eq(lhs[e_1].(valType_1), rhs[e_1].(valType_1)) {
+		//         less = LessThan(lhs[e_1].(valType_1), rhs[e_1].(valType_1))
+		//         break
+		//     }
+		//     ...
+		//     if !(Eq(lhs[e_N].(valType_N), rhs[e_1].(valType_1)) {
+		//         less = LessThan(lhs[e_1].(valType_1), rhs[e_1].(valType_1))
+		//         break
+		//     }
+		//
+		//     break
+		// }
+		// return less
 
-				// extract rhs keys, sorted
-				GoVariableName keysR = yes.varDecl("keysR", keysType);
-				GoForRangeBuilder buildKeysR = yes.forRange(lhs);
-				GoVariableName kR = buildKeysR.initVariables(Collections.singletonList("kR")).get(0);
-				try(GoBlockBuilder body = buildKeysR.getBlockBuilder()) {
-					body.assign(keysR, new GoCall(new GoVariableName("append"), Arrays.asList(keysR, kR)));
-				}
-				TLABuiltins.ensureSorted(yes, mapType.getKeyType(), keysR);
+		GoVariableName less = builder.varDecl("less", GoBuiltins.False);
+		try (GoBlockBuilder forLoop = builder.forLoop(null)) {
+			mapType.getInferredTypes().forEach((f, valType) -> {
+				Function<GoExpression, GoExpression> extractValue = exp -> {
+					GoExpression index = new GoIndexExpression(exp, new GoStringLiteral(f));
+					return new GoTypeCast(new GoTypeName(valType.toString()), index);
+				};
 
-				// apply LE to the keys
-				yes.assign(less, keysType.accept(new LessThanCodeGenVisitor(yes, keysL, keysR)));
-				try(GoIfBuilder keysEQ = yes.ifStmt(keysType.accept(new EqCodeGenVisitor(yes, keysL, keysR, false)))) {
-					try(GoBlockBuilder yes2 = keysEQ.whenTrue()) {
-						// extract lhs values (in key order)
-						GoVariableName valuesL = yes2.varDecl("valuesL", valuesType);
-						GoForRangeBuilder buildValuesL = yes2.forRange(keysL);
-						kL = buildValuesL.initVariables(Arrays.asList("_", "kL")).get(1);
-						try(GoBlockBuilder body = buildValuesL.getBlockBuilder()) {
-							body.assign(valuesL, new GoCall(
-									new GoVariableName("append"),
-									Arrays.asList(valuesL, new GoIndexExpression(lhs, kL))));
-						}
+				GoExpression lhsVal = extractValue.apply(lhs);
+				GoExpression rhsVal = extractValue.apply(rhs);
 
-						// extract rhs values (in key order)
-						GoVariableName valuesR = yes2.varDecl("valuesR", valuesType);
-						GoForRangeBuilder buildValuesR = yes2.forRange(keysR);
-						kR = buildValuesR.initVariables(Arrays.asList("_", "kR")).get(1);
-						try(GoBlockBuilder body = buildValuesR.getBlockBuilder()) {
-							body.assign(valuesR, new GoCall(
-									new GoVariableName("append"),
-									Arrays.asList(valuesL, new GoIndexExpression(rhs, kR))));
-						}
-
-						yes2.assign(less, valuesType.accept(new LessThanCodeGenVisitor(yes2, valuesL, valuesR)));
+				GoExpression condition = valType.accept(new EqCodeGenVisitor(forLoop, lhsVal, rhsVal, true));
+				try (GoIfBuilder notEq = forLoop.ifStmt(condition)) {
+					try (GoBlockBuilder different = notEq.whenTrue()) {
+						GoExpression lt = valType.accept(new LessThanCodeGenVisitor(different, lhsVal, rhsVal));
+						different.assign(less, lt);
+						different.addStatement(new GoBreak());
 					}
 				}
-			}
+			});
+
+			forLoop.addStatement(new GoBreak());
 		}
+
 		return less;
 	}
 
@@ -201,5 +189,4 @@ public class LessThanCodeGenVisitor extends GoTypeVisitor<GoExpression, RuntimeE
 	public GoExpression visit(GoInterfaceType interfaceType) throws RuntimeException {
 		throw new TODO();
 	}
-
 }

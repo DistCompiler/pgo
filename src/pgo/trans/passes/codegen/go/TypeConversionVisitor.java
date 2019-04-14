@@ -6,10 +6,7 @@ import pgo.model.golang.GoBuiltins;
 import pgo.model.golang.type.*;
 import pgo.model.type.*;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.stream.Collectors;
+import java.util.*;
 
 public class TypeConversionVisitor extends TypeVisitor<GoType, RuntimeException> {
 	@Override
@@ -124,6 +121,14 @@ public class TypeConversionVisitor extends TypeVisitor<GoType, RuntimeException>
 		// to represent it. This avoids issues around sending and receiving of these variables
 		// through different archetype resources (e.g., RPC-based) and wrong casts
 		// when we cannot infer the correct type of the message on the receiving end
-		return new GoMapType(GoBuiltins.String, GoBuiltins.Interface);
+
+		// keep track of inferred types in case they are needed later when performing
+		// type-dependent operations
+		Map<String, GoType> inferredTypes = new TreeMap<>();
+		recordType
+				.getFields()
+				.forEach(f -> inferredTypes.put(f.getName(), f.getType().accept(new TypeConversionVisitor())));
+
+		return new GoMapType(GoBuiltins.String, GoBuiltins.Interface, inferredTypes);
 	}
 }
