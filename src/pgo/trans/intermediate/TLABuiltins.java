@@ -9,6 +9,7 @@ import pgo.model.golang.builder.GoForRangeBuilder;
 import pgo.model.golang.builder.GoForStatementClauseBuilder;
 import pgo.model.golang.type.GoSliceType;
 import pgo.model.golang.type.GoType;
+import pgo.model.tla.TLAExpression;
 import pgo.model.type.*;
 import pgo.model.type.constraint.EqualityConstraint;
 import pgo.model.type.constraint.MonomorphicConstraint;
@@ -481,6 +482,31 @@ public class TLABuiltins {
 				(builder, origin, registry, arguments, typeMap) -> new GoSliceOperator(
 						arguments.get(0), new GoIntLiteral(1), null, null)
 				));
+		Sequences.addOperator("\\o", new BuiltinOperator(
+				2,
+				(origin, args, solver, generator) -> {
+					TypeVariable memberType = generator.getTypeVariable(Collections.singletonList(origin));
+					Type sliceType = new SliceType(memberType, Collections.singletonList(origin));
+					solver.addConstraint(new MonomorphicConstraint(origin, args.get(0), sliceType));
+					solver.addConstraint(new MonomorphicConstraint(origin, args.get(1), sliceType));
+					return sliceType;
+				},
+				(builder, origin, registry, arguments, typeMap, localStrategy, globalStrategy) -> {
+					if (arguments.size() != 2) {
+						throw new InternalCompilerError();
+					}
+
+					// s1 = append(s1, s2...)
+					GoExpression s1 = arguments.get(0).accept(new TLAExpressionCodeGenVisitor(builder, registry, typeMap, localStrategy, globalStrategy));
+					GoExpression s2 = arguments.get(1).accept(new TLAExpressionCodeGenVisitor(builder, registry, typeMap, localStrategy, globalStrategy));
+
+					GoVariableName seqName = builder.varDecl("sequence", s1);
+					GoExpression append = new GoCall(new GoVariableName("append"), Arrays.asList(seqName, s2), true);
+					builder.assign(seqName, append);
+
+					return seqName;
+				}
+		));
 
 		BuiltinModule Naturals = new BuiltinModule();
 		builtinModules.put("Naturals", Naturals);
