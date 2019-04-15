@@ -166,7 +166,71 @@ public class ExpressionCodeGenRunTest {
 						kv("rhs", set(tuple(), idexp("workaround2"), tuple(num(1), num(2))))),
 				Collections.singletonList("[[1]]"),
 			},
-			// quantified universals
+			// set of records: comparisons
+			{
+				// [a |-> 1, b |-> 2] \in {[a |-> 1, b |-> 2], [a |-> 2, b |-> 1]} ;; TRUE
+				binop(
+						"\\in",
+						record(field(id("a"), num(1)), field(id("b"), num(2))),
+						set(idexp("r1"), idexp("r2"))
+				),
+				Arrays.asList(
+						kv("r1", record(field(id("a"), num(1)), field(id("b"), num(2)))),
+						kv("r2", record(field(id("a"), num(2)), field(id("b"), num(1))))
+				),
+				Collections.singletonList("true"),
+			},
+			{
+				// [a |-> 1, b |-> 2] \in {[a |-> 2, b |-> 1], [a |-> 1, b |-> 2]} ;; TRUE
+				binop(
+						"\\in",
+						record(field(id("a"), num(1)), field(id("b"), num(2))),
+						set(idexp("r2"), idexp("r1"))
+				),
+				Arrays.asList(
+						kv("r1", record(field(id("a"), num(1)), field(id("b"), num(2)))),
+						kv("r2", record(field(id("a"), num(2)), field(id("b"), num(1))))
+				),
+				Collections.singletonList("true"),
+			},
+			{
+				// [a |-> 1, b |-> "hi"] \in {[a |-> 1, b |-> "nope"], [a |-> 1, b |-> "hi"]} ;; TRUE
+				binop(
+						"\\in",
+						record(field(id("a"), num(1)), field(id("b"), str("hi"))),
+						set(idexp("r1"), idexp("r2"))
+				),
+				Arrays.asList(
+						kv("r1", record(field(id("a"), num(1)), field(id("b"), str("nope")))),
+						kv("r2", record(field(id("a"), num(1)), field(id("b"), str("hi"))))
+				),
+				Collections.singletonList("true"),
+			},
+				{
+				// [a |-> 1, b |-> 2] \in {[a |-> 10, b |-> 20], [a |-> 20, b |-> 10]} ;; FALSE
+				binop(
+						"\\in",
+						record(field(id("a"), num(1)), field(id("b"), num(2))),
+						set(idexp("r1"), idexp("r2"))
+				),
+				Arrays.asList(
+						kv("r1", record(field(id("a"), num(10)), field(id("b"), num(20)))),
+						kv("r2", record(field(id("a"), num(20)), field(id("b"), num(10))))
+				),
+				Collections.singletonList("false"),
+			},
+			{
+				// [a |-> 1, b |-> 2] \in {} ;; FALSE
+				binop(
+						"\\in",
+						record(field(id("a"), num(1)), field(id("b"), num(2))),
+						set()
+				),
+				Collections.emptyList(),
+				Collections.singletonList("false"),
+			},
+
+				// quantified universals
 			{
 				universal(
 						bounds(

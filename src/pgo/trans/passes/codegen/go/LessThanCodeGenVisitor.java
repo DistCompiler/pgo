@@ -3,11 +3,17 @@ package pgo.trans.passes.codegen.go;
 import pgo.TODO;
 import pgo.model.golang.*;
 import pgo.model.golang.builder.GoBlockBuilder;
+import pgo.model.golang.builder.GoForRangeBuilder;
 import pgo.model.golang.builder.GoForStatementClauseBuilder;
 import pgo.model.golang.type.*;
+import pgo.model.type.RecordType;
+import pgo.model.type.Type;
+import pgo.scope.UID;
+import pgo.trans.intermediate.DefinitionRegistry;
+import pgo.trans.intermediate.TLABuiltins;
 
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
+import java.util.function.Function;
 
 public class LessThanCodeGenVisitor extends GoTypeVisitor<GoExpression, RuntimeException> {
 
@@ -23,9 +29,9 @@ public class LessThanCodeGenVisitor extends GoTypeVisitor<GoExpression, RuntimeE
 
 	@Override
 	public GoExpression visit(GoTypeName typeName) throws RuntimeException {
-		if(typeName.isBuiltin()) {
+		if (typeName.isBuiltin()) {
 			return new GoBinop(GoBinop.Operation.LT, lhs, rhs);
-		}else {
+		} else {
 			throw new TODO();
 		}
 	}
@@ -99,7 +105,7 @@ public class LessThanCodeGenVisitor extends GoTypeVisitor<GoExpression, RuntimeE
 								i,
 								new GoCall(new GoVariableName("len"), Collections.singletonList(lhs))));
 				loopBuilder.setInc(new GoIncDec(true, i));
-				try(GoBlockBuilder loopBody = loopBuilder.getBlockBuilder()){
+				try(GoBlockBuilder loopBody = loopBuilder.getBlockBuilder()) {
 					loopBody.assign(
 							less,
 							sliceType.getElementType().accept(
@@ -127,12 +133,60 @@ public class LessThanCodeGenVisitor extends GoTypeVisitor<GoExpression, RuntimeE
 
 	@Override
 	public GoExpression visit(GoMapType mapType) throws RuntimeException {
-		throw new TODO();
+		// only comparison of record types are supported
+		if (!mapType.isRecord()) {
+			throw new TODO();
+		}
+
+		// Go pseudo-code:
+		//
+		// less := false
+		// for {
+		//     // comparisons below in sorted order of keys (record entries)
+		//
+		//     if !(Eq(lhs[e_1].(valType_1), rhs[e_1].(valType_1)) {
+		//         less = LessThan(lhs[e_1].(valType_1), rhs[e_1].(valType_1))
+		//         break
+		//     }
+		//     ...
+		//     if !(Eq(lhs[e_N].(valType_N), rhs[e_1].(valType_1)) {
+		//         less = LessThan(lhs[e_1].(valType_1), rhs[e_1].(valType_1))
+		//         break
+		//     }
+		//
+		//     break
+		// }
+		// return less
+
+		GoVariableName less = builder.varDecl("less", GoBuiltins.False);
+		try (GoBlockBuilder forLoop = builder.forLoop(null)) {
+			mapType.getInferredTypes().forEach((f, valType) -> {
+				Function<GoExpression, GoExpression> extractValue = exp -> {
+					GoExpression index = new GoIndexExpression(exp, new GoStringLiteral(f));
+					return new GoTypeCast(new GoTypeName(valType.toString()), index);
+				};
+
+				GoExpression lhsVal = extractValue.apply(lhs);
+				GoExpression rhsVal = extractValue.apply(rhs);
+
+				GoExpression condition = valType.accept(new EqCodeGenVisitor(forLoop, lhsVal, rhsVal, true));
+				try (GoIfBuilder notEq = forLoop.ifStmt(condition)) {
+					try (GoBlockBuilder different = notEq.whenTrue()) {
+						GoExpression lt = valType.accept(new LessThanCodeGenVisitor(different, lhsVal, rhsVal));
+						different.assign(less, lt);
+						different.addStatement(new GoBreak());
+					}
+				}
+			});
+
+			forLoop.addStatement(new GoBreak());
+		}
+
+		return less;
 	}
 
 	@Override
 	public GoExpression visit(GoInterfaceType interfaceType) throws RuntimeException {
 		throw new TODO();
 	}
-
 }

@@ -3,10 +3,13 @@ package pgo.trans.passes.codegen.go;
 import pgo.TODO;
 import pgo.model.golang.*;
 import pgo.model.golang.builder.GoBlockBuilder;
+import pgo.model.golang.builder.GoForRangeBuilder;
 import pgo.model.golang.builder.GoForStatementClauseBuilder;
 import pgo.model.golang.type.*;
+import pgo.trans.intermediate.TLABuiltins;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -22,6 +25,21 @@ public class EqCodeGenVisitor extends GoTypeVisitor<GoExpression, RuntimeExcepti
 		this.lhs = lhs;
 		this.rhs = rhs;
 		this.invert = invert;
+	}
+
+	private GoExpression deepEqual() {
+		builder.addImport("reflect");
+
+		GoExpression eq = new GoCall(
+				new GoSelectorExpression(new GoVariableName("reflect"), "DeepEqual"),
+				Arrays.asList(lhs, rhs)
+		);
+
+		if (invert) {
+			return new GoUnary(GoUnary.Operation.NOT, eq);
+		}
+
+		return eq;
 	}
 
 	@Override
@@ -44,19 +62,7 @@ public class EqCodeGenVisitor extends GoTypeVisitor<GoExpression, RuntimeExcepti
 
 	@Override
 	public GoExpression visit(GoStructType structType) throws RuntimeException {
-		List<GoExpression> memberEqs = new ArrayList<>();
-		for(GoStructTypeField field : structType.getFields()) {
-			memberEqs.add(field.getType().accept(new EqCodeGenVisitor(builder, lhs, rhs, invert)));
-		}
-		if(memberEqs.isEmpty()) {
-			return invert ? GoBuiltins.False : GoBuiltins.True;
-		}else {
-			GoExpression result = memberEqs.get(0);
-			for(int i = 1; i < memberEqs.size(); ++i) {
-				result = new GoBinop(invert ? GoBinop.Operation.OR : GoBinop.Operation.AND, result, memberEqs.get(i));
-			}
-			return result;
-		}
+		return deepEqual();
 	}
 
 	@Override
@@ -69,71 +75,7 @@ public class EqCodeGenVisitor extends GoTypeVisitor<GoExpression, RuntimeExcepti
 
 	@Override
 	public GoExpression visit(GoSliceType sliceType) throws RuntimeException {
-		// special-case nicer looking comparison when one slice is a literal
-		boolean lhsIsConstant = lhs instanceof GoSliceLiteral;
-		boolean rhsIsConstant = rhs instanceof GoSliceLiteral;
-		if(lhsIsConstant || rhsIsConstant){
-			GoExpression constant = lhsIsConstant ? lhs : rhs;
-			GoExpression other = lhsIsConstant ? rhs : lhs;
-			GoSliceLiteral constantSlice = (GoSliceLiteral)constant;
-			GoExpression comparison = new GoBinop(
-					invert ? GoBinop.Operation.NEQ : GoBinop.Operation.EQ,
-					new GoCall(new GoVariableName("len"), Collections.singletonList(other)),
-					new GoIntLiteral(constantSlice.getInitializers().size()));
-			List<GoExpression> constantInitialisers = constantSlice.getInitializers();
-			for (int i = 0; i < constantInitialisers.size(); ++i) {
-				comparison = new GoBinop(invert ? GoBinop.Operation.OR : GoBinop.Operation.AND,
-						comparison,
-						sliceType.getElementType().accept(
-								new EqCodeGenVisitor(
-										builder,
-										new GoIndexExpression(other, new GoIntLiteral(i)),
-										constantInitialisers.get(i),
-										invert)));
-			}
-			return comparison;
-		}
-
-		// general case long-form comparison
-		GoVariableName result = builder.varDecl(
-				"eq",
-				new GoBinop(
-						GoBinop.Operation.EQ,
-						new GoCall(new GoVariableName("len"), Collections.singletonList(lhs)),
-						new GoCall(new GoVariableName("len"), Collections.singletonList(rhs))));
-		try(GoIfBuilder shouldInspect = builder.ifStmt(result)){
-			try(GoBlockBuilder inspect = shouldInspect.whenTrue()){
-				GoForStatementClauseBuilder loopBuilder = inspect.forLoopWithClauses();
-				GoVariableName i = loopBuilder.initVariable("i", new GoIntLiteral(0));
-				loopBuilder.setCondition(
-						new GoBinop(
-								GoBinop.Operation.LT,
-								i,
-								new GoCall(new GoVariableName("len"), Collections.singletonList(lhs))));
-				loopBuilder.setInc(new GoIncDec(true, i));
-				try(GoBlockBuilder loopBody = loopBuilder.getBlockBuilder()) {
-					loopBody.assign(
-							result,
-							sliceType.getElementType().accept(
-									new EqCodeGenVisitor(
-											loopBody,
-											new GoIndexExpression(lhs, i),
-											new GoIndexExpression(rhs, i),
-											false)));
-					try(GoIfBuilder shouldTerminate = loopBody.ifStmt(new GoUnary(GoUnary.Operation.NOT, result))){
-						try(GoBlockBuilder body = shouldTerminate.whenTrue()){
-							body.addStatement(new GoBreak());
-						}
-					}
-				}
-			}
-		}
-
-		if(invert) {
-			return new GoUnary(GoUnary.Operation.NOT, result);
-		}else {
-			return result;
-		}
+		return deepEqual();
 	}
 
 	@Override
@@ -143,7 +85,7 @@ public class EqCodeGenVisitor extends GoTypeVisitor<GoExpression, RuntimeExcepti
 
 	@Override
 	public GoExpression visit(GoMapType mapType) throws RuntimeException {
-		throw new TODO();
+		return deepEqual();
 	}
 
 	@Override

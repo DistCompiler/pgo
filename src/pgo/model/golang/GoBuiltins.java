@@ -1,5 +1,6 @@
 package pgo.model.golang;
 
+import pgo.model.golang.type.GoInterfaceType;
 import pgo.model.golang.type.GoType;
 import pgo.model.golang.type.GoTypeName;
 
@@ -43,7 +44,7 @@ public final class GoBuiltins {
 		}
 	}
 
-	public static GoTypeName Interface = new GoTypeName("interface{}", true);
+	public static GoType Interface = new GoInterfaceType(Collections.emptyList());
 	public static GoTypeName Error = new GoTypeName("error", true);
 	public static GoTypeName Bool = new GoTypeName("bool", true);
 	public static GoTypeName String = new GoTypeName("string", true);

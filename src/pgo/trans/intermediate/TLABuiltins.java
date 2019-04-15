@@ -107,7 +107,7 @@ public class TLABuiltins {
 		return new BoolType(Collections.singletonList(origin));
 	}
 
-	public static void ensureUniqueSorted(GoBlockBuilder builder, GoType elementType, GoVariableName set) {
+	public static void ensureSorted(GoBlockBuilder builder, GoType elementType, GoVariableName set) {
 		builder.addImport("sort");
 		String sortFunction;
 		if (elementType.equals(GoBuiltins.Int)) {
@@ -143,6 +143,10 @@ public class TLABuiltins {
 			builder.addStatement(new GoExpressionStatement(new GoCall(
 					new GoSelectorExpression(new GoVariableName("sort"), sortFunction), Collections.singletonList(set))));
 		}
+	}
+
+	public static void ensureUniqueSorted(GoBlockBuilder builder, GoType elementType, GoVariableName set) {
+		ensureSorted(builder, elementType, set);
 		// make elements unique with the following GoRoutineStatement code
 		//
 		// if len(set) > 1 {
@@ -246,7 +250,7 @@ public class TLABuiltins {
 
 					// set[index] == val
 					GoExpression element = new GoIndexExpression(set, index);
-					GoExpression equalsVal = new GoBinop(GoBinop.Operation.EQ, element, val);
+					GoExpression equalsVal = elementType.accept(new EqCodeGenVisitor(builder, element, val, false));
 
 					return new GoBinop(GoBinop.Operation.AND, withinBounds, equalsVal);
 				}
