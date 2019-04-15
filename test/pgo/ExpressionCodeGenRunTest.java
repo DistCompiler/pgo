@@ -256,6 +256,21 @@ public class ExpressionCodeGenRunTest {
 						kv("set", set(num(2), num(4), num(6)))),
 				Collections.singletonList("false"),
 			},
+			{
+				binop("\\o", idexp("seq"), tuple(num(10))),
+				Collections.singletonList(kv("seq", tuple(num(1), num(2)))),
+				Collections.singletonList("[1 2 10]")
+			},
+			{
+				binop("\\o", idexp("seq"), tuple(num(10))),
+				Collections.singletonList(kv("seq", tuple())),
+				Collections.singletonList("[10]")
+			},
+			{
+				binop("\\o", binop("\\o", tuple(num(1), num(2)),tuple( num(3))), tuple(num(10), num(11))),
+				Collections.emptyList(),
+				Collections.singletonList("[1 2 3 10 11]")
+			},
 			// function tests
 			{
 				function(

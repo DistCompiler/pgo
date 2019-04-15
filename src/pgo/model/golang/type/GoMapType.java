@@ -37,7 +37,7 @@ public class GoMapType extends GoType {
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(keyType, valueType);
+		return Objects.hash(keyType, valueType, inferredTypes);
 	}
 
 	@Override
@@ -49,7 +49,9 @@ public class GoMapType extends GoType {
 			return false;
 		}
 		GoMapType that = (GoMapType) other;
-		return Objects.equals(keyType, that.keyType) && Objects.equals(valueType, that.valueType);
+		return Objects.equals(keyType, that.keyType) &&
+				Objects.equals(valueType, that.valueType) &&
+				Objects.equals(inferredTypes, that.getInferredTypes());
 	}
 
 	@Override

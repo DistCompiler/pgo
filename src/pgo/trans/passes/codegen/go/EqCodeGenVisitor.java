@@ -90,7 +90,7 @@ public class EqCodeGenVisitor extends GoTypeVisitor<GoExpression, RuntimeExcepti
 
 	@Override
 	public GoExpression visit(GoInterfaceType interfaceType) throws RuntimeException {
-		throw new TODO();
+		return deepEqual();
 	}
 
 }

@@ -5,6 +5,8 @@ import pgo.model.golang.GoPtrType;
 import pgo.model.golang.type.*;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Map;
 
 public class GoTypeFormattingVisitor extends GoTypeVisitor<Void, IOException> {
 
