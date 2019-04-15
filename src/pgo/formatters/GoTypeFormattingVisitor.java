@@ -5,6 +5,8 @@ import pgo.model.golang.GoPtrType;
 import pgo.model.golang.type.*;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Map;
 
 public class GoTypeFormattingVisitor extends GoTypeVisitor<Void, IOException> {
 
@@ -80,10 +82,25 @@ public class GoTypeFormattingVisitor extends GoTypeVisitor<Void, IOException> {
 
 	@Override
 	public Void visit(GoMapType mapType) throws IOException {
-		out.write("map[");
+		out.write("[map[");
 		mapType.getKeyType().accept(this);
 		out.write("]");
 		mapType.getValueType().accept(this);
+
+		if (mapType.isRecord()) {
+			out.write(" from record [");
+			FormattingTools.writeCommaSeparated(
+					out,
+					new ArrayList<>(mapType.getInferredTypes().entrySet()),
+					entry -> {
+						out.write(entry.getKey() + " |-> ");
+						entry.getValue().accept(this);
+					}
+			);
+			out.write("]");
+		}
+
+		out.write("]");
 		return null;
 	}
 
