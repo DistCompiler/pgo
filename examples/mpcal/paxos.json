@@ -1,6 +1,6 @@
 {
   "build": {
-    "output_dir": ".",
+    "output_dir": "examples/output/mpcal",
     "dest_package": "paxos"
   },
   "constants": {

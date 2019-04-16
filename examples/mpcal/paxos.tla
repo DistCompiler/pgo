@@ -75,7 +75,8 @@ ASSUME M \in Nat /\ N \in Nat /\ K \in Nat /\ M<=N /\ N < K
   
     \* \* Acceptor process actions
   archetype ALearner(ref mailboxes, ref decided)
-  variable accepts=<<>>, cnt=0, tmp2=<<>>, msg = [type |-> -1, sender |-> -1, bal |-> -1, val |-> -1, slot |-> -1, hv |-> <<>>];
+  variable accepts=<<>>, cnt=0, tmp2=<<>>, tmp3=[type |-> -1, sender |-> -1, bal |-> -1, val |-> -1, slot |-> -1, hv |-> <<>>],
+           msg = [type |-> -1, sender |-> -1, bal |-> -1, val |-> -1, slot |-> -1, hv |-> <<>>];
   {
 L:  while (TRUE) {
         msg := mailboxes[self];
@@ -84,7 +85,8 @@ L1:     if (msg.type = ACCEPT_MSG) {
             tmp2 := accepts;
             cnt := 0;
 L2:         while (Len(tmp2) > 0) {
-                if (Head(tmp2).slot = msg.slot /\ Head(tmp2).bal = msg.bal /\ Head(tmp2).val = msg.val) {
+                tmp3 := Head(tmp2);
+                if (tmp3.slot = msg.slot /\ tmp3.bal = msg.bal /\ tmp3.val = msg.val) {
                     cnt := cnt + 1;
                 };
                 tmp2 := Tail(tmp2);
@@ -112,14 +114,14 @@ A3:         maxBal := msg.bal;
             mailboxes[msg.sender] := [type |-> ACCEPT_MSG, sender |-> self, bal |-> maxBal, slot |-> msg.slot, val |-> msg.val, hv |-> hVal];
 loop2:      Broadcast(mailboxes, [type |-> ACCEPT_MSG, sender |-> self, bal |-> maxBal, slot |-> msg.slot, val |-> msg.val, hv |-> hVal], aidx, K);
         } elseif (msg.type = PROPOSE_MSG /\ msg.bal < maxBal) {
-            mailboxes[msg.sender] := [type |-> ACCEPT_MSG, sender |-> self, bal |-> maxBal, slot |-> msg.slot, val |-> msg.val, hv |-> hVal];
+A4:         mailboxes[msg.sender] := [type |-> ACCEPT_MSG, sender |-> self, bal |-> maxBal, slot |-> msg.slot, val |-> msg.val, hv |-> hVal];
         }
     }
   }
 
 \* \* Leader process
   archetype AProposer(ref mailboxes)
-  variable b=-1, s=1, elected=FALSE, pVal=<<>>, max=[slot |-> -1, bal |-> -1, val |-> -1], tmp = <<>>,
+  variable b=-1, s=1, elected=FALSE, pVal=<<>>, max=[slot |-> -1, bal |-> -1, val |-> -1], tmp = <<>>, tmp4=[slot |-> -1, bal |-> -1, val |-> -1],
            promises=0, accepts=0, v=-1, resp=[type |-> -1, sender |-> -1, bal |-> -1, slot |-> -1, val |-> -1, hv |-> <<>>], idx=M;
   {
 Pre:b := self;
@@ -129,9 +131,10 @@ P1:     if (elected) {
             v := self;
             tmp := pVal;
 P5:         while (Len(tmp) > 0) {
-                if (Head(tmp).slot = s /\ Head(tmp).bal >= max.bal) {
-                    v := Head(tmp).val;
-                    max := Head(tmp);
+                tmp4 := Head(tmp);
+                if (tmp4.slot = s /\ tmp4.bal >= max.bal) {
+                    v := tmp4.val;
+                    max := tmp4;
                 };
                 tmp := Tail(tmp);
             };
