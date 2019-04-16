@@ -1,39 +1,19 @@
 ------------- MODULE paxos --------------------
 (*\* Paxos algorithm *)
 EXTENDS Integers, Sequences, FiniteSets, TLC
-CONSTANT M, N, K, STOP, MAXB
-ASSUME M \in Nat /\ N \in Nat /\ K \in Nat /\ M<=N /\ N < K
-\* \* In the model, use M=2, N=3, STOP=5 (number of slots), MAXB=10
+CONSTANT NUM_PROPOSERS, NUM_ACCEPTORS, NUM_LEARNERS, NUM_SLOTS, MAX_BALLOTS
+ASSUME NUM_PROPOSERS \in Nat /\ NUM_ACCEPTORS \in Nat /\ NUM_LEARNERS \in Nat
+
+AllNodes == 0..(NUM_PROPOSERS+NUM_ACCEPTORS+NUM_LEARNERS-1)
 
 (***************************************************************************
-\* 3/23
-    \* 14:20 - 14:35
-\* 3/26
-    \* 13:00 - 13:15
-\* 4/8
-    \* 15:50 - 16:30
-\* 4/9
-    \* 13:00 - 13:45
-    \* 15:45 - 16:00
-    \* 16:35 - 17:40
-\* 4/10
-    \* 10:35 - 11:40
-    \* 12:20 - 14:15
-    \* 14:30 - 15:00 -- Finished spec
-    \* 16:50 - 17:45 -- Work on conversion to PGo-Compilable
-\* 4/11
-    \* 13:30 - 15:15
-\* 4/15
-    \*
-
 --mpcal Paxos {
   define {
-      Proposer == 0..M-1
-      Acceptor == M..N
-      Learner == N+1..K
-      \* \* M leaders, and N-M+1 acceptors
-      Slots == 1..STOP
-      Ballots == 0..MAXB
+      Proposer == 0..NUM_PROPOSERS-1
+      Acceptor == NUM_PROPOSERS..(NUM_PROPOSERS+NUM_ACCEPTORS-1)
+      Learner == (NUM_PROPOSERS+NUM_ACCEPTORS)..(NUM_PROPOSERS+NUM_ACCEPTORS+NUM_LEARNERS-1)
+      Slots == 1..NUM_SLOTS
+      Ballots == 0..MAX_BALLOTS
       PREPARE_MSG == 0
       PROMISE_MSG == 1
       PROPOSE_MSG == 2
@@ -100,7 +80,7 @@ L2:         while (Len(tmp2) > 0) {
 
   \* \* Acceptor process actions
   archetype AAcceptor(ref mailboxes)
-  variable maxBal=-1, aidx=N+1, hVal=<<>>, msg = [type |-> -1, sender |-> -1, bal |-> -1, val |-> -1, slot |-> -1, hv |-> <<>>];
+  variable maxBal=-1, aidx=NUM_PROPOSERS+NUM_ACCEPTORS, hVal=<<>>, msg = [type |-> -1, sender |-> -1, bal |-> -1, val |-> -1, slot |-> -1, hv |-> <<>>];
   {
 A:  while (TRUE) {
         msg := mailboxes[self];
@@ -109,10 +89,10 @@ A2:         maxBal := msg.bal;
             mailboxes[msg.sender] := [type |-> PROMISE_MSG, sender |-> self, bal |-> maxBal, slot |-> msg.slot, val |-> msg.val, hv |-> hVal];
         } elseif (msg.type = PROPOSE_MSG /\ msg.bal >= maxBal) {
 A3:         maxBal := msg.bal;
-            aidx := N+1;
+            aidx := NUM_PROPOSERS+NUM_ACCEPTORS;
             hVal := Append(hVal, [slot |-> msg.slot, bal |-> msg.bal, val |-> msg.val]);
             mailboxes[msg.sender] := [type |-> ACCEPT_MSG, sender |-> self, bal |-> maxBal, slot |-> msg.slot, val |-> msg.val, hv |-> hVal];
-loop2:      Broadcast(mailboxes, [type |-> ACCEPT_MSG, sender |-> self, bal |-> maxBal, slot |-> msg.slot, val |-> msg.val, hv |-> hVal], aidx, K);
+loop2:      Broadcast(mailboxes, [type |-> ACCEPT_MSG, sender |-> self, bal |-> maxBal, slot |-> msg.slot, val |-> msg.val, hv |-> hVal], aidx, NUM_PROPOSERS+NUM_ACCEPTORS+NUM_LEARNERS-1);
         } elseif (msg.type = PROPOSE_MSG /\ msg.bal < maxBal) {
 A4:         mailboxes[msg.sender] := [type |-> ACCEPT_MSG, sender |-> self, bal |-> maxBal, slot |-> msg.slot, val |-> msg.val, hv |-> hVal];
         }
@@ -122,7 +102,7 @@ A4:         mailboxes[msg.sender] := [type |-> ACCEPT_MSG, sender |-> self, bal 
 \* \* Leader process
   archetype AProposer(ref mailboxes)
   variable b=-1, s=1, elected=FALSE, pVal=<<>>, max=[slot |-> -1, bal |-> -1, val |-> -1], tmp = <<>>, tmp4=[slot |-> -1, bal |-> -1, val |-> -1],
-           promises=0, accepts=0, v=-1, resp=[type |-> -1, sender |-> -1, bal |-> -1, slot |-> -1, val |-> -1, hv |-> <<>>], idx=M;
+           promises=0, accepts=0, v=-1, resp=[type |-> -1, sender |-> -1, bal |-> -1, slot |-> -1, val |-> -1, hv |-> <<>>], idx=NUM_PROPOSERS;
   {
 Pre:b := self;
 P:  while (s \in Slots /\ b \in Ballots) {
@@ -139,8 +119,8 @@ P5:         while (Len(tmp) > 0) {
                 tmp := Tail(tmp);
             };
 
-loop1:      Broadcast(mailboxes, [type |-> PROPOSE_MSG, bal |-> b, sender |-> self, slot |-> s, val |-> v], idx, N);
-            idx := M;
+loop1:      Broadcast(mailboxes, [type |-> PROPOSE_MSG, bal |-> b, sender |-> self, slot |-> s, val |-> v], idx, NUM_PROPOSERS+NUM_ACCEPTORS-1);
+            idx := NUM_PROPOSERS;
             \* await responses, abort if necessary
 search1:    while (accepts*2 < Cardinality(Acceptor) /\ elected) {
                 \* Wait for accept message
@@ -159,8 +139,8 @@ P7:         if (elected) {
 P8:             s := s + 1;
             };
         } else {
-loop3:      Broadcast(mailboxes, [type |-> PREPARE_MSG, bal |-> b, sender |-> self, slot |-> s, val |-> v], idx, N);
-            idx := M;
+loop3:      Broadcast(mailboxes, [type |-> PREPARE_MSG, bal |-> b, sender |-> self, slot |-> s, val |-> v], idx, NUM_PROPOSERS+NUM_ACCEPTORS-1);
+            idx := NUM_PROPOSERS;
             promises := 0;
             \* Wait for response from majority of acceptors
 search2:    while (~elected) {
@@ -172,9 +152,9 @@ search2:    while (~elected) {
                 \* Is it still from a current term?
 P2:             if (resp.bal > b) {
                     \* Pre-empted, try again for election
-                    b := b+M;
-loop4:              Broadcast(mailboxes, [type |-> PREPARE_MSG, bal |-> b, sender |-> self, slot |-> s, val |-> v], idx, N);
-                    idx := M;
+                    b := b+NUM_PROPOSERS;
+loop4:              Broadcast(mailboxes, [type |-> PREPARE_MSG, bal |-> b, sender |-> self, slot |-> s, val |-> v], idx, NUM_PROPOSERS+NUM_ACCEPTORS-1);
+                    idx := NUM_PROPOSERS;
                 } else {
 P3:                 if (resp.bal = b) {
                         promises := promises + 1;
@@ -188,7 +168,7 @@ P4:                     if (promises*2 > Cardinality(Acceptor)) {
    }
   }
     variables
-        network = [id \in 0..K |-> <<>>];
+        network = [id \in AllNodes |-> <<>>];
 
     fair process (proposer \in Proposer) == instance AProposer(ref network)
         mapping network[_] via FIFOChannel;
@@ -203,13 +183,13 @@ P4:                     if (promises*2 > Cardinality(Acceptor)) {
 
 \* BEGIN PLUSCAL TRANSLATION
 --algorithm Paxos {
-    variables network = [id \in (0) .. (K) |-> <<>>], mailboxesWrite, mailboxesWrite0, mailboxesRead, mailboxesWrite1, mailboxesWrite2, mailboxesWrite3, mailboxesWrite4, mailboxesWrite5, mailboxesWrite6, mailboxesRead0, mailboxesWrite7, mailboxesWrite8, mailboxesWrite9, mailboxesWrite10, mailboxesWrite11, mailboxesWrite12, mailboxesRead1, mailboxesWrite13, decidedWrite, decidedWrite0, decidedWrite1, decidedWrite2, decidedWrite3;
+    variables network = [id \in AllNodes |-> <<>>], mailboxesWrite, mailboxesWrite0, mailboxesRead, mailboxesWrite1, mailboxesWrite2, mailboxesWrite3, mailboxesWrite4, mailboxesWrite5, mailboxesWrite6, mailboxesRead0, mailboxesWrite7, mailboxesWrite8, mailboxesWrite9, mailboxesWrite10, mailboxesWrite11, mailboxesWrite12, mailboxesRead1, mailboxesWrite13, decidedWrite, decidedWrite0, decidedWrite1, decidedWrite2, decidedWrite3;
     define {
-        Proposer == (0) .. ((M) - (1))
-        Acceptor == (M) .. (N)
-        Learner == ((N) + (1)) .. (K)
-        Slots == (1) .. (STOP)
-        Ballots == (0) .. (MAXB)
+        Proposer == (0) .. ((NUM_PROPOSERS) - (1))
+        Acceptor == (NUM_PROPOSERS) .. ((NUM_PROPOSERS) + ((NUM_ACCEPTORS) - (1)))
+        Learner == ((NUM_PROPOSERS) + (NUM_ACCEPTORS)) .. (((NUM_PROPOSERS) + (NUM_ACCEPTORS)) + ((NUM_LEARNERS) - (1)))
+        Slots == (1) .. (NUM_SLOTS)
+        Ballots == (0) .. (MAX_BALLOTS)
         PREPARE_MSG == 0
         PROMISE_MSG == 1
         PROPOSE_MSG == 2
@@ -217,7 +197,7 @@ P4:                     if (promises*2 > Cardinality(Acceptor)) {
         CHOSEN_MSG == 4
     }
     fair process (proposer \in Proposer)
-    variables b = -(1), s = 1, elected = FALSE, pVal = <<>>, max = [slot |-> -(1), bal |-> -(1), val |-> -(1)], tmp = <<>>, tmp4 = [slot |-> -(1), bal |-> -(1), val |-> -(1)], promises = 0, accepts = 0, v = -(1), resp = [type |-> -(1), sender |-> -(1), bal |-> -(1), slot |-> -(1), val |-> -(1), hv |-> <<>>], idx = M;
+    variables b = -(1), s = 1, elected = FALSE, pVal = <<>>, max = [slot |-> -(1), bal |-> -(1), val |-> -(1)], tmp = <<>>, tmp4 = [slot |-> -(1), bal |-> -(1), val |-> -(1)], promises = 0, accepts = 0, v = -(1), resp = [type |-> -(1), sender |-> -(1), bal |-> -(1), slot |-> -(1), val |-> -(1), hv |-> <<>>], idx = NUM_PROPOSERS;
     {
         Pre:
             b := self;
@@ -240,14 +220,14 @@ P4:                     if (promises*2 > Cardinality(Acceptor)) {
                             };
 
                         loop1:
-                            if ((idx) <= (N)) {
+                            if ((idx) <= ((NUM_PROPOSERS) + ((NUM_ACCEPTORS) - (1)))) {
                                 mailboxesWrite := [network EXCEPT ![idx] = Append(network[idx], [type |-> PROPOSE_MSG, bal |-> b, sender |-> self, slot |-> s, val |-> v])];
                                 idx := (idx) + (1);
                                 mailboxesWrite0 := mailboxesWrite;
                                 network := mailboxesWrite0;
                                 goto loop1;
                             } else {
-                                idx := M;
+                                idx := NUM_PROPOSERS;
                                 mailboxesWrite0 := network;
                                 network := mailboxesWrite0;
                             };
@@ -285,14 +265,14 @@ P4:                     if (promises*2 > Cardinality(Acceptor)) {
 
                     } else {
                         loop3:
-                            if ((idx) <= (N)) {
+                            if ((idx) <= ((NUM_PROPOSERS) + ((NUM_ACCEPTORS) - (1)))) {
                                 mailboxesWrite := [network EXCEPT ![idx] = Append(network[idx], [type |-> PREPARE_MSG, bal |-> b, sender |-> self, slot |-> s, val |-> v])];
                                 idx := (idx) + (1);
                                 mailboxesWrite1 := mailboxesWrite;
                                 network := mailboxesWrite1;
                                 goto loop3;
                             } else {
-                                idx := M;
+                                idx := NUM_PROPOSERS;
                                 promises := 0;
                                 mailboxesWrite1 := network;
                                 network := mailboxesWrite1;
@@ -311,16 +291,16 @@ P4:                     if (promises*2 > Cardinality(Acceptor)) {
                                 network := mailboxesWrite;
                                 P2:
                                     if (((resp).bal) > (b)) {
-                                        b := (b) + (M);
+                                        b := (b) + (NUM_PROPOSERS);
                                         loop4:
-                                            if ((idx) <= (N)) {
+                                            if ((idx) <= ((NUM_PROPOSERS) + ((NUM_ACCEPTORS) - (1)))) {
                                                 mailboxesWrite := [network EXCEPT ![idx] = Append(network[idx], [type |-> PREPARE_MSG, bal |-> b, sender |-> self, slot |-> s, val |-> v])];
                                                 idx := (idx) + (1);
                                                 mailboxesWrite2 := mailboxesWrite;
                                                 network := mailboxesWrite2;
                                                 goto loop4;
                                             } else {
-                                                idx := M;
+                                                idx := NUM_PROPOSERS;
                                                 mailboxesWrite2 := network;
                                                 network := mailboxesWrite2;
                                                 goto search2;
@@ -359,7 +339,7 @@ P4:                     if (promises*2 > Cardinality(Acceptor)) {
 
     }
     fair process (acceptor \in Acceptor)
-    variables maxBal = -(1), aidx = (N) + (1), hVal = <<>>, msg = [type |-> -(1), sender |-> -(1), bal |-> -(1), val |-> -(1), slot |-> -(1), hv |-> <<>>];
+    variables maxBal = -(1), aidx = (NUM_PROPOSERS) + (NUM_ACCEPTORS), hVal = <<>>, msg = [type |-> -(1), sender |-> -(1), bal |-> -(1), val |-> -(1), slot |-> -(1), hv |-> <<>>];
     {
         A:
             if (TRUE) {
@@ -382,13 +362,13 @@ P4:                     if (promises*2 > Cardinality(Acceptor)) {
                         if ((((msg).type) = (PROPOSE_MSG)) /\ (((msg).bal) >= (maxBal))) {
                             A3:
                                 maxBal := (msg).bal;
-                                aidx := (N) + (1);
+                                aidx := (NUM_PROPOSERS) + (NUM_ACCEPTORS);
                                 hVal := Append(hVal, [slot |-> (msg).slot, bal |-> (msg).bal, val |-> (msg).val]);
                                 mailboxesWrite7 := [network EXCEPT ![(msg).sender] = Append(network[(msg).sender], [type |-> ACCEPT_MSG, sender |-> self, bal |-> maxBal, slot |-> (msg).slot, val |-> (msg).val, hv |-> hVal])];
                                 network := mailboxesWrite7;
 
                             loop2:
-                                if ((aidx) <= (K)) {
+                                if ((aidx) <= (((NUM_PROPOSERS) + (NUM_ACCEPTORS)) + ((NUM_LEARNERS) - (1)))) {
                                     mailboxesWrite7 := [network EXCEPT ![aidx] = Append(network[aidx], [type |-> ACCEPT_MSG, sender |-> self, bal |-> maxBal, slot |-> (msg).slot, val |-> (msg).val, hv |-> hVal])];
                                     aidx := (aidx) + (1);
                                     mailboxesWrite8 := mailboxesWrite7;
@@ -484,8 +464,8 @@ P4:                     if (promises*2 > Cardinality(Acceptor)) {
 ***************************************************************************)
 
 \* BEGIN TRANSLATION
-\* Process variable accepts of process proposer at line 220 col 191 changed to accepts_
-\* Process variable msg of process acceptor at line 362 col 61 changed to msg_
+\* Process variable accepts of process proposer at line 200 col 191 changed to accepts_
+\* Process variable msg of process acceptor at line 342 col 85 changed to msg_
 CONSTANT defaultInitValue
 VARIABLES network, mailboxesWrite, mailboxesWrite0, mailboxesRead,
           mailboxesWrite1, mailboxesWrite2, mailboxesWrite3, mailboxesWrite4,
@@ -496,11 +476,11 @@ VARIABLES network, mailboxesWrite, mailboxesWrite0, mailboxesRead,
           decidedWrite2, decidedWrite3, pc
 
 (* define statement *)
-Proposer == (0) .. ((M) - (1))
-Acceptor == (M) .. (N)
-Learner == ((N) + (1)) .. (K)
-Slots == (1) .. (STOP)
-Ballots == (0) .. (MAXB)
+Proposer == (0) .. ((NUM_PROPOSERS) - (1))
+Acceptor == (NUM_PROPOSERS) .. ((NUM_PROPOSERS) + ((NUM_ACCEPTORS) - (1)))
+Learner == ((NUM_PROPOSERS) + (NUM_ACCEPTORS)) .. (((NUM_PROPOSERS) + (NUM_ACCEPTORS)) + ((NUM_LEARNERS) - (1)))
+Slots == (1) .. (NUM_SLOTS)
+Ballots == (0) .. (MAX_BALLOTS)
 PREPARE_MSG == 0
 PROMISE_MSG == 1
 PROPOSE_MSG == 2
@@ -524,7 +504,7 @@ vars == << network, mailboxesWrite, mailboxesWrite0, mailboxesRead,
 ProcSet == (Proposer) \cup (Acceptor) \cup (Learner)
 
 Init == (* Global variables *)
-        /\ network = [id \in (0) .. (K) |-> <<>>]
+        /\ network = [id \in AllNodes |-> <<>>]
         /\ mailboxesWrite = defaultInitValue
         /\ mailboxesWrite0 = defaultInitValue
         /\ mailboxesRead = defaultInitValue
@@ -560,10 +540,10 @@ Init == (* Global variables *)
         /\ accepts_ = [self \in Proposer |-> 0]
         /\ v = [self \in Proposer |-> -(1)]
         /\ resp = [self \in Proposer |-> [type |-> -(1), sender |-> -(1), bal |-> -(1), slot |-> -(1), val |-> -(1), hv |-> <<>>]]
-        /\ idx = [self \in Proposer |-> M]
+        /\ idx = [self \in Proposer |-> NUM_PROPOSERS]
         (* Process acceptor *)
         /\ maxBal = [self \in Acceptor |-> -(1)]
-        /\ aidx = [self \in Acceptor |-> (N) + (1)]
+        /\ aidx = [self \in Acceptor |-> (NUM_PROPOSERS) + (NUM_ACCEPTORS)]
         /\ hVal = [self \in Acceptor |-> <<>>]
         /\ msg_ = [self \in Acceptor |-> [type |-> -(1), sender |-> -(1), bal |-> -(1), val |-> -(1), slot |-> -(1), hv |-> <<>>]]
         (* Process learner *)
@@ -657,13 +637,13 @@ P5(self) == /\ pc[self] = "P5"
                             cnt, tmp2, tmp3, msg >>
 
 loop1(self) == /\ pc[self] = "loop1"
-               /\ IF (idx[self]) <= (N)
+               /\ IF (idx[self]) <= ((NUM_PROPOSERS) + ((NUM_ACCEPTORS) - (1)))
                      THEN /\ mailboxesWrite' = [network EXCEPT ![idx[self]] = Append(network[idx[self]], [type |-> PROPOSE_MSG, bal |-> b[self], sender |-> self, slot |-> s[self], val |-> v[self]])]
                           /\ idx' = [idx EXCEPT ![self] = (idx[self]) + (1)]
                           /\ mailboxesWrite0' = mailboxesWrite'
                           /\ network' = mailboxesWrite0'
                           /\ pc' = [pc EXCEPT ![self] = "loop1"]
-                     ELSE /\ idx' = [idx EXCEPT ![self] = M]
+                     ELSE /\ idx' = [idx EXCEPT ![self] = NUM_PROPOSERS]
                           /\ mailboxesWrite0' = network
                           /\ network' = mailboxesWrite0'
                           /\ pc' = [pc EXCEPT ![self] = "search1"]
@@ -689,7 +669,7 @@ search1(self) == /\ pc[self] = "search1"
                                  /\ mailboxesRead' = msg0
                             /\ resp' = [resp EXCEPT ![self] = mailboxesRead']
                             /\ Assert(((resp'[self]).type) = (ACCEPT_MSG),
-                                      "Failure of assertion at line 263, column 33.")
+                                      "Failure of assertion at line 243, column 33.")
                             /\ network' = mailboxesWrite'
                             /\ pc' = [pc EXCEPT ![self] = "P6"]
                        ELSE /\ pc' = [pc EXCEPT ![self] = "P7"]
@@ -761,14 +741,14 @@ P8(self) == /\ pc[self] = "P8"
                             decidedLocal, accepts, cnt, tmp2, tmp3, msg >>
 
 loop3(self) == /\ pc[self] = "loop3"
-               /\ IF (idx[self]) <= (N)
+               /\ IF (idx[self]) <= ((NUM_PROPOSERS) + ((NUM_ACCEPTORS) - (1)))
                      THEN /\ mailboxesWrite' = [network EXCEPT ![idx[self]] = Append(network[idx[self]], [type |-> PREPARE_MSG, bal |-> b[self], sender |-> self, slot |-> s[self], val |-> v[self]])]
                           /\ idx' = [idx EXCEPT ![self] = (idx[self]) + (1)]
                           /\ mailboxesWrite1' = mailboxesWrite'
                           /\ network' = mailboxesWrite1'
                           /\ pc' = [pc EXCEPT ![self] = "loop3"]
                           /\ UNCHANGED promises
-                     ELSE /\ idx' = [idx EXCEPT ![self] = M]
+                     ELSE /\ idx' = [idx EXCEPT ![self] = NUM_PROPOSERS]
                           /\ promises' = [promises EXCEPT ![self] = 0]
                           /\ mailboxesWrite1' = network
                           /\ network' = mailboxesWrite1'
@@ -795,7 +775,7 @@ search2(self) == /\ pc[self] = "search2"
                                  /\ mailboxesRead' = msg1
                             /\ resp' = [resp EXCEPT ![self] = mailboxesRead']
                             /\ Assert(((resp'[self]).type) = (PROMISE_MSG),
-                                      "Failure of assertion at line 309, column 33.")
+                                      "Failure of assertion at line 289, column 33.")
                             /\ pVal' = [pVal EXCEPT ![self] = (pVal[self]) \o ((resp'[self]).hv)]
                             /\ network' = mailboxesWrite'
                             /\ pc' = [pc EXCEPT ![self] = "P2"]
@@ -820,7 +800,7 @@ search2(self) == /\ pc[self] = "search2"
 
 P2(self) == /\ pc[self] = "P2"
             /\ IF ((resp[self]).bal) > (b[self])
-                  THEN /\ b' = [b EXCEPT ![self] = (b[self]) + (M)]
+                  THEN /\ b' = [b EXCEPT ![self] = (b[self]) + (NUM_PROPOSERS)]
                        /\ pc' = [pc EXCEPT ![self] = "loop4"]
                   ELSE /\ pc' = [pc EXCEPT ![self] = "P3"]
                        /\ b' = b
@@ -837,13 +817,13 @@ P2(self) == /\ pc[self] = "P2"
                             decidedLocal, accepts, cnt, tmp2, tmp3, msg >>
 
 loop4(self) == /\ pc[self] = "loop4"
-               /\ IF (idx[self]) <= (N)
+               /\ IF (idx[self]) <= ((NUM_PROPOSERS) + ((NUM_ACCEPTORS) - (1)))
                      THEN /\ mailboxesWrite' = [network EXCEPT ![idx[self]] = Append(network[idx[self]], [type |-> PREPARE_MSG, bal |-> b[self], sender |-> self, slot |-> s[self], val |-> v[self]])]
                           /\ idx' = [idx EXCEPT ![self] = (idx[self]) + (1)]
                           /\ mailboxesWrite2' = mailboxesWrite'
                           /\ network' = mailboxesWrite2'
                           /\ pc' = [pc EXCEPT ![self] = "loop4"]
-                     ELSE /\ idx' = [idx EXCEPT ![self] = M]
+                     ELSE /\ idx' = [idx EXCEPT ![self] = NUM_PROPOSERS]
                           /\ mailboxesWrite2' = network
                           /\ network' = mailboxesWrite2'
                           /\ pc' = [pc EXCEPT ![self] = "search2"]
@@ -979,7 +959,7 @@ A2(self) == /\ pc[self] = "A2"
 
 A3(self) == /\ pc[self] = "A3"
             /\ maxBal' = [maxBal EXCEPT ![self] = (msg_[self]).bal]
-            /\ aidx' = [aidx EXCEPT ![self] = (N) + (1)]
+            /\ aidx' = [aidx EXCEPT ![self] = (NUM_PROPOSERS) + (NUM_ACCEPTORS)]
             /\ hVal' = [hVal EXCEPT ![self] = Append(hVal[self], [slot |-> (msg_[self]).slot, bal |-> (msg_[self]).bal, val |-> (msg_[self]).val])]
             /\ mailboxesWrite7' = [network EXCEPT ![(msg_[self]).sender] = Append(network[(msg_[self]).sender], [type |-> ACCEPT_MSG, sender |-> self, bal |-> maxBal'[self], slot |-> (msg_[self]).slot, val |-> (msg_[self]).val, hv |-> hVal'[self]])]
             /\ network' = mailboxesWrite7'
@@ -996,7 +976,7 @@ A3(self) == /\ pc[self] = "A3"
                             msg_, decidedLocal, accepts, cnt, tmp2, tmp3, msg >>
 
 loop2(self) == /\ pc[self] = "loop2"
-               /\ IF (aidx[self]) <= (K)
+               /\ IF (aidx[self]) <= (((NUM_PROPOSERS) + (NUM_ACCEPTORS)) + ((NUM_LEARNERS) - (1)))
                      THEN /\ mailboxesWrite7' = [network EXCEPT ![aidx[self]] = Append(network[aidx[self]], [type |-> ACCEPT_MSG, sender |-> self, bal |-> maxBal[self], slot |-> (msg_[self]).slot, val |-> (msg_[self]).val, hv |-> hVal[self]])]
                           /\ aidx' = [aidx EXCEPT ![self] = (aidx[self]) + (1)]
                           /\ mailboxesWrite8' = mailboxesWrite7'
@@ -1145,13 +1125,13 @@ Agreement == \A a1,a2 \in Learner:
                            /\ Cardinality(decidedLocal[a2][k])=1 => decidedLocal[a1][k]=decidedLocal[a2][k]
 
 Agreement2 == \A i \in Learner:
-               \A k \in 1..STOP: Cardinality(decidedLocal[i][k]) <=1
+               \A k \in 1..NUM_SLOTS: Cardinality(decidedLocal[i][k]) <=1
 
 
 \* \* Short cut for the above
 
 Agreement3 == \A i \in Learner:
-               \A k \in 1..STOP: Cardinality(decidedLocal[i][k]) <=1
+               \A k \in 1..NUM_SLOTS: Cardinality(decidedLocal[i][k]) <=1
 
 
 \* Of course this is violated! Don't check this as invariant
