@@ -130,7 +130,7 @@ P1:     if (elected) {
             tmp := pVal;
 P5:         while (Len(tmp) > 0) {
                 if (Head(tmp).slot = s /\ Head(tmp).bal >= max.bal) {
-                    v := Head(tmp);
+                    v := Head(tmp).val;
                     max := Head(tmp);
                 };
                 tmp := Tail(tmp);
