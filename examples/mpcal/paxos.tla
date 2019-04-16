@@ -164,14 +164,7 @@ search2:    while (~elected) {
                 \* Wait for promise
                 resp := mailboxes[self];
                 assert(resp.type = PROMISE_MSG);
-                
-                \* TODO: replace with \o once supported
-                tmp := resp.hv;
-P9:             while (Len(tmp) > 0) {
-                    pVal := Append(pVal, tmp);
-                    tmp := Tail(tmp);
-                };
-                \* END TODO
+                pVal := pVal \o resp.hv;
                 
                 \* Is it still from a current term?
 P2:             if (resp.bal > b) {
@@ -207,7 +200,7 @@ P4:                     if (promises*2 > Cardinality(Acceptor)) {
 
 \* BEGIN PLUSCAL TRANSLATION
 --algorithm Paxos {
-    variables network = [id \in (0) .. (K) |-> <<>>], pValRead, pValRead0, pValRead1, mailboxesWrite, mailboxesWrite0, mailboxesRead, mailboxesWrite1, pValWrite, mailboxesWrite2, mailboxesRead0, mailboxesWrite3, hValRead, hValWrite, mailboxesWrite4, mailboxesWrite5, mailboxesWrite6, mailboxesRead1, mailboxesWrite7, acceptsWrite, acceptsRead, decidedWrite, decidedWrite0;
+    variables network = [id \in (0) .. (K) |-> <<>>], mailboxesWrite, mailboxesWrite0, mailboxesRead, mailboxesWrite1, mailboxesWrite2, mailboxesRead0, mailboxesWrite3, mailboxesWrite4, mailboxesWrite5, mailboxesWrite6, mailboxesRead1, mailboxesWrite7, decidedWrite, decidedWrite0;
     define {
         Proposer == (0) .. ((M) - (1))
         Acceptor == (M) .. (N)
@@ -221,7 +214,7 @@ P4:                     if (promises*2 > Cardinality(Acceptor)) {
         CHOSEN_MSG == 4
     }
     fair process (proposer \in Proposer)
-    variables pValLocal = {}, b = -(1), s = 1, elected = FALSE, promises = 0, accepts = 0, v = -(1), resp = [type |-> -(1), sender |-> -(1), bal |-> -(1), slot |-> -(1), val |-> -(1), hv |-> {}], idx = M;
+    variables b = -(1), s = 1, elected = FALSE, pVal = <<>>, max = [slot |-> -(1), bal |-> -(1), val |-> -(1)], tmp = <<>>, promises = 0, accepts = 0, v = -(1), resp = [type |-> -(1), sender |-> -(1), bal |-> -(1), slot |-> -(1), val |-> -(1), hv |-> <<>>], idx = M;
     {
         Pre:
             b := self;
@@ -231,14 +224,15 @@ P4:                     if (promises*2 > Cardinality(Acceptor)) {
                     if (elected) {
                         accepts := 0;
                         v := self;
+                        tmp := pVal;
                         P5:
-                            assert FALSE;
-                            if ((Cardinality({pv \in pValRead : ((pv).slot) = (s)})) # (0)) {
-                                assert FALSE;
-                                assert FALSE;
-                                with (w \in {pv \in pValRead0 : (((pv).slot) = (s)) /\ (\A pv2 \in pValRead1 : ((pv).bal) >= ((pv2).bal))}) {
-                                    v := (w).val;
+                            if ((Len(tmp)) > (0)) {
+                                if ((((Head(tmp)).slot) = (s)) /\ (((Head(tmp)).bal) >= ((max).bal))) {
+                                    v := (Head(tmp)).val;
+                                    max := Head(tmp);
                                 };
+                                tmp := Tail(tmp);
+                                goto P5;
                             };
                         
                         loop1:
@@ -309,9 +303,8 @@ P4:                     if (promises*2 > Cardinality(Acceptor)) {
                                 };
                                 resp := mailboxesRead;
                                 assert ((resp).type) = (PROMISE_MSG);
-                                pValWrite := (pValLocal) \union ((resp).hv);
+                                pVal := (pVal) \o ((resp).hv);
                                 network := mailboxesWrite;
-                                pValLocal := pValWrite;
                                 P2:
                                     if (((resp).bal) > (b)) {
                                         b := (b) + (M);
@@ -357,7 +350,7 @@ P4:                     if (promises*2 > Cardinality(Acceptor)) {
     
     }
     fair process (acceptor \in Acceptor)
-    variables hValLocal = {}, maxBal = -(1), aidx = (N) + (1), msg = [type |-> -(1), sender |-> -(1), bal |-> -(1), val |-> -(1), slot |-> -(1), hv |-> {}];
+    variables maxBal = -(1), aidx = (N) + (1), hVal = <<>>, msg = [type |-> -(1), sender |-> -(1), bal |-> -(1), val |-> -(1), slot |-> -(1), hv |-> <<>>];
     {
         A:
             if (TRUE) {
@@ -372,8 +365,7 @@ P4:                     if (promises*2 > Cardinality(Acceptor)) {
                     if ((((msg).type) = (PREPARE_MSG)) /\ (((msg).bal) > (maxBal))) {
                         A2:
                             maxBal := (msg).bal;
-                            assert FALSE;
-                            mailboxesWrite3 := [network EXCEPT ![(msg).sender] = Append(network[(msg).sender], [type |-> PROMISE_MSG, sender |-> self, bal |-> maxBal, slot |-> (msg).slot, val |-> (msg).val, hv |-> hValRead])];
+                            mailboxesWrite3 := [network EXCEPT ![(msg).sender] = Append(network[(msg).sender], [type |-> PROMISE_MSG, sender |-> self, bal |-> maxBal, slot |-> (msg).slot, val |-> (msg).val, hv |-> hVal])];
                             network := mailboxesWrite3;
                             goto A;
                     
@@ -382,16 +374,13 @@ P4:                     if (promises*2 > Cardinality(Acceptor)) {
                             A3:
                                 maxBal := (msg).bal;
                                 aidx := (N) + (1);
-                                hValWrite := (hValLocal) \union ({[slot |-> (msg).slot, bal |-> (msg).bal, val |-> (msg).val]});
-                                assert FALSE;
-                                mailboxesWrite3 := [network EXCEPT ![(msg).sender] = Append(network[(msg).sender], [type |-> ACCEPT_MSG, sender |-> self, bal |-> maxBal, slot |-> (msg).slot, val |-> (msg).val, hv |-> hValRead])];
+                                hVal := Append(hVal, [slot |-> (msg).slot, bal |-> (msg).bal, val |-> (msg).val]);
+                                mailboxesWrite3 := [network EXCEPT ![(msg).sender] = Append(network[(msg).sender], [type |-> ACCEPT_MSG, sender |-> self, bal |-> maxBal, slot |-> (msg).slot, val |-> (msg).val, hv |-> hVal])];
                                 network := mailboxesWrite3;
-                                hValLocal := hValWrite;
                             
                             loop2:
                                 if ((aidx) <= (K)) {
-                                    assert FALSE;
-                                    mailboxesWrite3 := [network EXCEPT ![aidx] = Append(network[aidx], [type |-> ACCEPT_MSG, sender |-> self, bal |-> maxBal, slot |-> (msg).slot, val |-> (msg).val, hv |-> hValRead])];
+                                    mailboxesWrite3 := [network EXCEPT ![aidx] = Append(network[aidx], [type |-> ACCEPT_MSG, sender |-> self, bal |-> maxBal, slot |-> (msg).slot, val |-> (msg).val, hv |-> hVal])];
                                     aidx := (aidx) + (1);
                                     mailboxesWrite4 := mailboxesWrite3;
                                     network := mailboxesWrite4;
@@ -404,8 +393,7 @@ P4:                     if (promises*2 > Cardinality(Acceptor)) {
                         
                         } else {
                             if ((((msg).type) = (PROPOSE_MSG)) /\ (((msg).bal) < (maxBal))) {
-                                assert FALSE;
-                                mailboxesWrite3 := [network EXCEPT ![(msg).sender] = Append(network[(msg).sender], [type |-> ACCEPT_MSG, sender |-> self, bal |-> maxBal, slot |-> (msg).slot, val |-> (msg).val, hv |-> hValLocal])];
+                                mailboxesWrite3 := [network EXCEPT ![(msg).sender] = Append(network[(msg).sender], [type |-> ACCEPT_MSG, sender |-> self, bal |-> maxBal, slot |-> (msg).slot, val |-> (msg).val, hv |-> hVal])];
                                 mailboxesWrite5 := mailboxesWrite3;
                                 mailboxesWrite6 := network;
                                 network := mailboxesWrite6;
@@ -423,7 +411,7 @@ P4:                     if (promises*2 > Cardinality(Acceptor)) {
     
     }
     fair process (learner \in Learner)
-    variables decidedLocal = [x \in Slots |-> {}], acceptsLocal = {}, msg = [type |-> -(1), sender |-> -(1), bal |-> -(1), val |-> -(1), slot |-> -(1), hv |-> {}];
+    variables decidedLocal = [x \in Slots |-> {}], accepts = <<>>, cnt = 0, tmp2 = <<>>, msg = [type |-> -(1), sender |-> -(1), bal |-> -(1), val |-> -(1), slot |-> -(1), hv |-> <<>>];
     {
         L:
             if (TRUE) {
@@ -436,23 +424,31 @@ P4:                     if (promises*2 > Cardinality(Acceptor)) {
                 network := mailboxesWrite7;
                 L1:
                     if (((msg).type) = (ACCEPT_MSG)) {
-                        acceptsWrite := (acceptsLocal) \union ({msg});
-                        assert FALSE;
-                        if (((Cardinality({a \in acceptsRead : ((((a).val) = ((msg).val)) /\ (((a).slot) = ((msg).slot))) /\ (((a).bal) = ((msg).bal))})) * (2)) > (Cardinality(Acceptor))) {
-                            decidedWrite := [decidedLocal EXCEPT ![(msg).slot] = (decidedLocal[(msg).slot]) \union ({(msg).val})];
-                            decidedWrite0 := decidedWrite;
-                            decidedLocal := decidedWrite0;
-                            acceptsLocal := acceptsWrite;
-                            goto L;
-                        } else {
-                            decidedWrite0 := decidedLocal;
-                            decidedLocal := decidedWrite0;
-                            acceptsLocal := acceptsWrite;
-                            goto L;
-                        };
+                        accepts := Append(accepts, msg);
+                        tmp2 := accepts;
+                        cnt := 0;
+                        L2:
+                            if ((Len(tmp2)) > (0)) {
+                                if (((((Head(tmp2)).slot) = ((msg).slot)) /\ (((Head(tmp2)).bal) = ((msg).bal))) /\ (((Head(tmp2)).val) = ((msg).val))) {
+                                    cnt := (cnt) + (1);
+                                };
+                                tmp2 := Tail(tmp2);
+                                decidedLocal := decidedWrite0;
+                                goto L2;
+                            } else {
+                                if (((cnt) * (2)) > (Cardinality(Acceptor))) {
+                                    decidedWrite := [decidedLocal EXCEPT ![(msg).slot] = (decidedLocal[(msg).slot]) \union ({(msg).val})];
+                                    decidedWrite0 := decidedWrite;
+                                    decidedLocal := decidedWrite0;
+                                    goto L;
+                                } else {
+                                    decidedWrite0 := decidedLocal;
+                                    decidedLocal := decidedWrite0;
+                                    goto L;
+                                };
+                            };
+                    
                     } else {
-                        decidedLocal := decidedWrite0;
-                        acceptsLocal := acceptsWrite;
                         goto L;
                     };
             
