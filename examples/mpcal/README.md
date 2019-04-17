@@ -7,7 +7,7 @@ There are five model checking values at present:
 * NUM_ACCEPTORS - the number of acceptors
 * NUM_PROPOSERS - the number of proposers
 
-Reccomended values would be: [STOP: 2, MAXB: 5, NUM_LEARNERS: 1, NUM_ACCEPTORS: 3, NUM_PROPOSERS: 2] for a small test with concurrency.
+Reccomended values would be: `[STOP <- 2, MAXB <- 5, NUM_LEARNERS <- 1, NUM_ACCEPTORS <- 1, NUM_PROPOSERS <- 1]` for a small quick test, and `[STOP <- 2, MAXB <- 5, NUM_LEARNERS <- 1, NUM_ACCEPTORS <- 3, NUM_PROPOSERS <- 2]` for a more thorough (but also much longer) test with concurrency.
 
 Under advanced options, put the following as a state constraint: `\E i \in Proposer : pc[i] # "Done"`. This prevents deadlock from being detected when the proposers have run to completion.
 
