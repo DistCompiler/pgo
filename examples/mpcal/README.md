@@ -11,6 +11,8 @@ Reccomended values would be: `[STOP <- 2, MAXB <- 5, NUM_LEARNERS <- 1, NUM_ACCE
 
 Under advanced options, put the following as a state constraint: `\E i \in Proposer : pc[i] # "Done"`. This prevents deadlock from being detected when the proposers have run to completion.
 
+The invariants you want to check are `Agreement` and `Agreement2`.
+
 ## Spec Details
 There are three archetypes based off the thee node roles in Paxos Made Simple.
 * Proposers - try to become elected leader by acquiring promises from a majority of acceptors, propose values to be accepted once they are leader
