@@ -1,4 +1,4 @@
-#Paxos MPCal Spec
+# Paxos MPCal Spec
 ## Model Checking Values
 There are five model checking values at present:
 * STOP - a bound on the number of slots to decide values for
