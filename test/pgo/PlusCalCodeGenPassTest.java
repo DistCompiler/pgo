@@ -1514,7 +1514,7 @@ public class PlusCalCodeGenPassTest {
 						),
 
 						// --algorithm WhileLoopWithFollowingStatement {
-						//    variables b = TRUE, aBoolRead, aBoolRead0, aBoolWrite, aBoolWrite0;
+						//    variables b = TRUE, aBoolRead, aBoolRead0, aBoolWrite, aBoolWrite0, aBoolWrite1, aBoolWrite2;
 						//    process (P = 10) {
 						//        l:
 						//            aBoolRead := b;
@@ -1541,8 +1541,8 @@ public class PlusCalCodeGenPassTest {
 						//                }
 						//            } else {
 						//                print "ok";
-						//                    aBoolWrite2 := b;
-						//                    b := aBoolWrite2;
+						//                aBoolWrite2 := b;
+						//                b := aBoolWrite2;
 						//            }
 						//
 						//    }

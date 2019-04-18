@@ -516,6 +516,77 @@ public class TLABuiltins {
 					return seqName;
 				}
 		));
+		Sequences.addOperator("SubSeq", new BuiltinOperator(
+				3,
+				(origin, args, solver, generator) -> {
+					TypeVariable memberType = generator.getTypeVariable(Collections.singletonList(origin));
+					Type sliceType = new SliceType(memberType, Collections.singletonList(origin));
+					solver.addConstraint(new MonomorphicConstraint(origin, args.get(0), sliceType));
+					solver.addConstraint(new MonomorphicConstraint(
+							origin, args.get(1), new IntType(Collections.singletonList(origin))));
+					solver.addConstraint(new MonomorphicConstraint(
+							origin, args.get(2), new IntType(Collections.singletonList(origin))));
+					return sliceType;
+				},
+				(builder, origin, registry, arguments, typeMap, localStrategy, globalStrategy) -> {
+					if (arguments.size() != 3) {
+						throw new InternalCompilerError();
+					}
+
+					// assuming the call is SubSeq(slice, start, end)
+					GoExpression slice = arguments.get(0).accept(
+							new TLAExpressionCodeGenVisitor(builder, registry, typeMap, localStrategy, globalStrategy));
+					GoExpression start = builder.varDecl(
+							"start",
+							arguments.get(1).accept(new TLAExpressionCodeGenVisitor(
+									builder, registry, typeMap, localStrategy, globalStrategy)));
+					GoExpression end = builder.varDecl(
+							"end",
+							arguments.get(2).accept(new TLAExpressionCodeGenVisitor(
+									builder, registry, typeMap, localStrategy, globalStrategy)));
+
+
+					GoSliceType sliceType = (GoSliceType) typeMap.get(arguments.get(0).getUID())
+							.accept(new TypeConversionVisitor());
+					// var tmpSlice []Type
+					GoVariableName tmpSlice = builder.varDecl(
+							"tmpSlice",
+							typeMap.get(arguments.get(0).getUID()).accept(new TypeConversionVisitor()));
+					// if start > end {
+					//   tmpSlice = []Type{}
+					// } else {
+					//   tmpSlice = make([]Type, (1+end)-start)
+					// }
+					try (GoIfBuilder ifStmt = builder.ifStmt(new GoBinop(GoBinop.Operation.GT, start, end))) {
+						try (GoBlockBuilder yes = ifStmt.whenTrue()) {
+							yes.assign(
+									tmpSlice, new GoSliceLiteral(sliceType.getElementType(), Collections.emptyList()));
+						}
+						try (GoBlockBuilder no = ifStmt.whenFalse()) {
+							no.assign(
+									tmpSlice,
+									new GoMakeExpression(
+											sliceType,
+											new GoBinop(
+													GoBinop.Operation.MINUS,
+													new GoBinop(GoBinop.Operation.PLUS, new GoIntLiteral(1), end),
+													start)));
+						}
+					}
+					// copy(tmpSlice, slice[start-1:end])
+					builder.addStatement(new GoCall(
+							new GoVariableName("copy"),
+							Arrays.asList(
+									tmpSlice,
+									new GoSliceOperator(
+											slice,
+											new GoBinop(GoBinop.Operation.MINUS, start, new GoIntLiteral(1)),
+											end,
+											null))));
+
+					return tmpSlice;
+				}
+		));
 
 		BuiltinModule Naturals = new BuiltinModule();
 		builtinModules.put("Naturals", Naturals);
