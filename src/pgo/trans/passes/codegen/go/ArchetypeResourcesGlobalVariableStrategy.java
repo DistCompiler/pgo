@@ -414,13 +414,19 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
             try (GoBlockBuilder yes = ifBuilder.whenTrue()) {
                 String permission;
 
-                if (registry.getResourceReadsInLockGroup(currentLockGroup).contains(fnCall)) {
-                    permission = "READ_ACCESS";
-                } else if (registry.getResourceWritesInLockGroup(currentLockGroup).contains(fnCall)) {
-                    permission = "WRITE_ACCESS";
-                } else {
-                    throw new InternalCompilerError();
-                }
+                // TODO: GlobalVariableStrategys cannot be stateful, so the code below does not work (currentLockGroup may be wrong)
+                // TODO: Ideally, what we want to do is to appropriately fork the instance of this class, just like with CriticalSectionTracker
+                // TODO: For now, we take the pessimistic choice of always acquiring resources with write permissions
+                permission = "WRITE_ACCESS";
+
+                // TODO: this is the code that should work with proper branching as described above.
+                // if (registry.getResourceReadsInLockGroup(currentLockGroup).contains(fnCall)) {
+                //     permission = "READ_ACCESS";
+                // } else if (registry.getResourceWritesInLockGroup(currentLockGroup).contains(fnCall)) {
+                //     permission = "WRITE_ACCESS";
+                // } else {
+                //     throw new InternalCompilerError();
+                // }
 
                 yes.assign(err, new GoCall(
                         distsys("AcquireResources"),
