@@ -101,12 +101,6 @@ public class ModularPlusCalCodeGenVisitor
 						: statements));
 	}
 
-	private <T> void reuseWrites(Map<UID, T> touchedVars) {
-		for (UID varUID : touchedVars.keySet()) {
-			writeTemporaryBinding.reuse(varUID);
-		}
-	}
-
 	private <T> void declareJoinNames(SourceLocation location, Map<UID, T> varUIDs,
 	                                  Map<UID, TLAGeneralIdentifier> output) {
 		for (UID varUID : varUIDs.keySet()) {
@@ -156,15 +150,17 @@ public class ModularPlusCalCodeGenVisitor
 				registry, params, arguments, mappings, functionMappedVars, readTemporaryBinding, writeTemporaryBinding,
 				result));
 
+		TemporaryBinding.Checkpoint checkpoint = writeTemporaryBinding.checkpoint();
 		writeTemporaryBinding.startRecording();
 		List<PlusCalStatement> yes = substituteBlock(plusCalIf.getYes());
 		Map<UID, TLAGeneralIdentifier> yesWrites = writeTemporaryBinding.stopRecording();
-		reuseWrites(yesWrites);
+		writeTemporaryBinding.restore(checkpoint);
 
+		checkpoint = writeTemporaryBinding.checkpoint();
 		writeTemporaryBinding.startRecording();
 		List<PlusCalStatement> no = substituteBlock(plusCalIf.getNo());
 		Map<UID, TLAGeneralIdentifier> noWrites = writeTemporaryBinding.stopRecording();
-		reuseWrites(noWrites);
+		writeTemporaryBinding.restore(checkpoint);
 
 		Map<UID, TLAGeneralIdentifier> touchedVars = new LinkedHashMap<>();
 		declareJoinNames(location, yesWrites, touchedVars);
@@ -185,10 +181,11 @@ public class ModularPlusCalCodeGenVisitor
 		List<Map<UID, TLAGeneralIdentifier>> writesList = new ArrayList<>();
 		List<List<PlusCalStatement>> cases = plusCalEither.getCases();
 		for (List<PlusCalStatement> aCase : cases) {
+			TemporaryBinding.Checkpoint checkpoint = writeTemporaryBinding.checkpoint();
 			writeTemporaryBinding.startRecording();
 			transformedCases.add(substituteBlock(aCase));
 			Map<UID, TLAGeneralIdentifier> touchedVars = writeTemporaryBinding.stopRecording();
-			reuseWrites(touchedVars);
+			writeTemporaryBinding.restore(checkpoint);
 			writesList.add(touchedVars);
 		}
 		Map<UID, TLAGeneralIdentifier> touchedVars = new LinkedHashMap<>();

@@ -1,5 +1,6 @@
 package pgo.trans.passes.codegen.pluscal;
 
+import pgo.InternalCompilerError;
 import pgo.model.pcal.PlusCalVariableDeclaration;
 import pgo.model.tla.PlusCalDefaultInitValue;
 import pgo.model.tla.TLAExpression;
@@ -14,6 +15,17 @@ import pgo.util.SourceLocation;
 import java.util.*;
 
 public class TemporaryBinding {
+	public static class Checkpoint {
+		private final TemporaryBinding from;
+		private final Map<UID, Recycling.Checkpoint> checkpoints;
+
+		private Checkpoint(TemporaryBinding from, Map<UID, Recycling<TLAGeneralIdentifier>> temporaries) {
+			this.from = from;
+			this.checkpoints = new HashMap<>();
+			temporaries.forEach((k, v) -> this.checkpoints.put(k, v.checkpoint()));
+		}
+	}
+
 	private final NameCleaner nameCleaner;
 	private final Map<UID, Recycling<TLAGeneralIdentifier>> temporaries;
 	private final List<PlusCalVariableDeclaration> declarations;
@@ -21,11 +33,34 @@ public class TemporaryBinding {
 	private int recording;
 
 	public TemporaryBinding(NameCleaner nameCleaner, List<PlusCalVariableDeclaration> declarations) {
+		this(nameCleaner, new HashMap<>(), declarations, new LinkedHashMap<>(), 0);
+	}
+
+	private TemporaryBinding(NameCleaner nameCleaner, Map<UID, Recycling<TLAGeneralIdentifier>> temporaries,
+	                         List<PlusCalVariableDeclaration> declarations,
+	                         LinkedHashMap<UID,TLAGeneralIdentifier> touchedVars, int recording) {
 		this.nameCleaner = nameCleaner;
-		this.temporaries = new HashMap<>();
+		this.temporaries = temporaries;
 		this.declarations = declarations;
-		this.touchedVars = new LinkedHashMap<>();
-		this.recording = 0;
+		this.touchedVars = touchedVars;
+		this.recording = recording;
+	}
+
+	public Checkpoint checkpoint() {
+		return new Checkpoint(this, temporaries);
+	}
+
+	public void restore(Checkpoint checkpoint) {
+		if (checkpoint.from != this) {
+			throw new InternalCompilerError();
+		}
+		temporaries.forEach((k, v) -> {
+			if (checkpoint.checkpoints.containsKey(k)) {
+				v.restore(checkpoint.checkpoints.get(k));
+			} else {
+				v.reuse();
+			}
+		});
 	}
 
 	public TLAGeneralIdentifier freshVariable(SourceLocation location, UID varUID, String nameHint) {
