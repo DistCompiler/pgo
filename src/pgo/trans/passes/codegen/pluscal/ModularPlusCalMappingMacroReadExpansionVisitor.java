@@ -1,21 +1,18 @@
 package pgo.trans.passes.codegen.pluscal;
 
 import pgo.Unreachable;
+import pgo.model.mpcal.ModularPlusCalMappingMacro;
 import pgo.model.mpcal.ModularPlusCalYield;
 import pgo.model.pcal.*;
 import pgo.model.tla.*;
 import pgo.parser.Located;
 import pgo.scope.UID;
+import pgo.trans.intermediate.DefinitionRegistry;
 import pgo.util.SourceLocation;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
-public class ModularPlusCalMappingMacroReadExpansionVisitor
-		extends PlusCalStatementVisitor<List<PlusCalStatement>, RuntimeException> {
-	private final TemporaryBinding readTemporaryBinding;
-	protected final TemporaryBinding writeTemporaryBinding;
+public class ModularPlusCalMappingMacroReadExpansionVisitor extends ModularPlusCalCodeGenVisitor {
 	protected final TLAGeneralIdentifier dollarVariable;
 	protected final UID varUID;
 	protected final String nameHint;
@@ -24,11 +21,15 @@ public class ModularPlusCalMappingMacroReadExpansionVisitor
 	private final TLAGeneralIdentifier temporaryVariable;
 
 	ModularPlusCalMappingMacroReadExpansionVisitor(
-			TemporaryBinding readTemporaryBinding, TemporaryBinding writeTemporaryBinding,
+			DefinitionRegistry registry, Map<UID, PlusCalVariableDeclaration> params,
+			Map<UID, TLAGeneralIdentifier> arguments, Map<UID, ModularPlusCalMappingMacro> mappings,
+			Set<UID> expressionArguments, Set<UID> functionMappedVars, TemporaryBinding readTemporaryBinding,
+			TemporaryBinding writeTemporaryBinding, ProcedureExpander procedureExpander,
 			TLAGeneralIdentifier dollarVariable, UID varUID, String nameHint, TLAExpression index,
 			TLAExpressionVisitor<TLAExpression, RuntimeException> visitor, TLAGeneralIdentifier temporaryVariable) {
-		this.readTemporaryBinding = readTemporaryBinding;
-		this.writeTemporaryBinding = writeTemporaryBinding;
+		super(
+				registry, params, arguments, mappings, expressionArguments, functionMappedVars, readTemporaryBinding,
+				writeTemporaryBinding, procedureExpander);
 		this.dollarVariable = dollarVariable;
 		this.varUID = varUID;
 		this.nameHint = nameHint;
@@ -56,24 +57,6 @@ public class ModularPlusCalMappingMacroReadExpansionVisitor
 				plusCalWhile.getLocation(),
 				plusCalWhile.getCondition().accept(visitor),
 				substituteStatements(plusCalWhile.getBody())));
-	}
-
-	@Override
-	public List<PlusCalStatement> visit(PlusCalIf plusCalIf) throws RuntimeException {
-		return Collections.singletonList(new PlusCalIf(
-				plusCalIf.getLocation(),
-				plusCalIf.getCondition().accept(visitor),
-				substituteStatements(plusCalIf.getYes()),
-				substituteStatements(plusCalIf.getNo())));
-	}
-
-	@Override
-	public List<PlusCalStatement> visit(PlusCalEither plusCalEither) throws RuntimeException {
-		List<List<PlusCalStatement>> cases = new ArrayList<>();
-		for (List<PlusCalStatement> aCase : plusCalEither.getCases()) {
-			cases.add(substituteStatements(aCase));
-		}
-		return Collections.singletonList(new PlusCalEither(plusCalEither.getLocation(), cases));
 	}
 
 	@Override
