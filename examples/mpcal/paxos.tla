@@ -273,7 +273,7 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
 
 \* BEGIN PLUSCAL TRANSLATION
 --algorithm Paxos {
-    variables network = [id \in AllNodes |-> <<>>], values, valueStreamRead, mailboxesWrite, mailboxesWrite0, mailboxesRead, mailboxesWrite1, mailboxesWrite2, mailboxesWrite3, mailboxesWrite4, mailboxesWrite5, mailboxesWrite6, mailboxesWrite7, mailboxesRead0, mailboxesWrite8, mailboxesWrite9, mailboxesWrite10, mailboxesWrite11, mailboxesWrite12, mailboxesWrite13, mailboxesWrite14, mailboxesRead1, mailboxesWrite15, decidedWrite, decidedWrite0, decidedWrite1, decidedWrite2, decidedWrite3;
+    variables network = [id \in AllNodes |-> <<>>], values, valueStreamRead, mailboxesWrite, mailboxesWrite0, mailboxesRead, mailboxesWrite1, mailboxesWrite2, mailboxesWrite3, mailboxesWrite4, mailboxesWrite5, mailboxesWrite6, mailboxesWrite7, mailboxesWrite8, mailboxesRead0, mailboxesWrite9, mailboxesWrite10, mailboxesWrite11, mailboxesWrite12, mailboxesWrite13, mailboxesWrite14, mailboxesWrite15, mailboxesRead1, mailboxesWrite16, decidedWrite, decidedWrite0, decidedWrite1, decidedWrite2, mailboxesWrite17, decidedWrite3;
     define {
         Proposer == (0) .. ((NUM_PROPOSERS) - (1))
         Acceptor == (NUM_PROPOSERS) .. ((NUM_PROPOSERS) + ((NUM_ACCEPTORS) - (1)))
@@ -340,24 +340,29 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
                                 if (((resp).type) = (ACCEPT_MSG)) {
                                     if (((((resp).bal) = (b)) /\ (((resp).slot) = (s))) /\ (((resp).val) = (value))) {
                                         accepts := (accepts) + (1);
-                                        network := mailboxesWrite;
+                                        mailboxesWrite1 := mailboxesWrite;
+                                        network := mailboxesWrite1;
                                         goto PSearchAccs;
                                     } else {
-                                        network := mailboxesWrite;
+                                        mailboxesWrite1 := mailboxesWrite;
+                                        network := mailboxesWrite1;
                                         goto PSearchAccs;
                                     };
                                 } else {
                                     if (((resp).type) = (REJECT_MSG)) {
                                         elected := FALSE;
-                                        network := mailboxesWrite;
+                                        mailboxesWrite1 := mailboxesWrite;
+                                        network := mailboxesWrite1;
                                         goto PSearchAccs;
                                     } else {
-                                        network := mailboxesWrite;
+                                        mailboxesWrite1 := mailboxesWrite;
+                                        network := mailboxesWrite1;
                                         goto PSearchAccs;
                                     };
                                 };
                             } else {
-                                network := mailboxesWrite;
+                                mailboxesWrite1 := network;
+                                network := mailboxesWrite1;
                             };
 
                         PIncSlot:
@@ -375,13 +380,13 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
                                 await (Len(network[index])) < (BUFFER_SIZE);
                                 mailboxesWrite := [network EXCEPT ![index] = Append(network[index], [type |-> PREPARE_MSG, bal |-> b, sender |-> self, slot |-> NULL, val |-> NULL])];
                                 index := (index) + (1);
-                                mailboxesWrite1 := mailboxesWrite;
-                                network := mailboxesWrite1;
+                                mailboxesWrite2 := mailboxesWrite;
+                                network := mailboxesWrite2;
                                 goto PReqVotes;
                             } else {
                                 promises := 0;
-                                mailboxesWrite1 := network;
-                                network := mailboxesWrite1;
+                                mailboxesWrite2 := network;
+                                network := mailboxesWrite2;
                             };
 
                         PCandidate:
@@ -408,39 +413,40 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
                                     if ((((resp).type) = (REJECT_MSG)) \/ (((resp).bal) > (b))) {
                                         b := (b) + (NUM_PROPOSERS);
                                         index := NUM_PROPOSERS;
+                                        network := mailboxesWrite;
                                         PReSendReqVotes:
                                             if ((index) <= ((NUM_PROPOSERS) + ((NUM_ACCEPTORS) - (1)))) {
                                                 await (Len(network[index])) < (BUFFER_SIZE);
                                                 mailboxesWrite := [network EXCEPT ![index] = Append(network[index], [type |-> PREPARE_MSG, bal |-> b, sender |-> self, slot |-> NULL, val |-> NULL])];
                                                 index := (index) + (1);
-                                                mailboxesWrite2 := mailboxesWrite;
-                                                network := mailboxesWrite2;
+                                                mailboxesWrite3 := mailboxesWrite;
+                                                network := mailboxesWrite3;
                                                 goto PReSendReqVotes;
                                             } else {
-                                                mailboxesWrite2 := network;
-                                                network := mailboxesWrite2;
+                                                mailboxesWrite3 := network;
+                                                network := mailboxesWrite3;
                                                 goto PCandidate;
                                             };
 
                                     } else {
-                                        mailboxesWrite3 := network;
-                                        mailboxesWrite4 := mailboxesWrite3;
+                                        mailboxesWrite4 := network;
                                         mailboxesWrite5 := mailboxesWrite4;
-                                        network := mailboxesWrite5;
+                                        mailboxesWrite6 := mailboxesWrite5;
+                                        network := mailboxesWrite6;
                                         goto PCandidate;
                                     };
                                 };
                             } else {
-                                mailboxesWrite5 := network;
-                                network := mailboxesWrite5;
+                                mailboxesWrite6 := network;
+                                network := mailboxesWrite6;
                                 goto P;
                             };
 
                     };
 
             } else {
-                mailboxesWrite7 := network;
-                network := mailboxesWrite7;
+                mailboxesWrite8 := network;
+                network := mailboxesWrite8;
             };
 
     }
@@ -451,26 +457,26 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
             if (TRUE) {
                 await (Len(network[self])) > (0);
                 with (msg2 = Head(network[self])) {
-                    mailboxesWrite8 := [network EXCEPT ![self] = Tail(network[self])];
+                    mailboxesWrite9 := [network EXCEPT ![self] = Tail(network[self])];
                     mailboxesRead0 := msg2;
                 };
                 msg := mailboxesRead0;
-                network := mailboxesWrite8;
+                network := mailboxesWrite9;
                 AMsgSwitch:
                     if ((((msg).type) = (PREPARE_MSG)) /\ (((msg).bal) > (maxBal))) {
                         APrepare:
                             maxBal := (msg).bal;
                             await (Len(network[(msg).sender])) < (BUFFER_SIZE);
-                            mailboxesWrite8 := [network EXCEPT ![(msg).sender] = Append(network[(msg).sender], [type |-> PROMISE_MSG, sender |-> self, bal |-> maxBal, slot |-> NULL, val |-> NULL, accepted |-> acceptedValues])];
-                            network := mailboxesWrite8;
+                            mailboxesWrite9 := [network EXCEPT ![(msg).sender] = Append(network[(msg).sender], [type |-> PROMISE_MSG, sender |-> self, bal |-> maxBal, slot |-> NULL, val |-> NULL, accepted |-> acceptedValues])];
+                            network := mailboxesWrite9;
                             goto A;
 
                     } else {
                         if ((((msg).type) = (PREPARE_MSG)) /\ (((msg).bal) <= (maxBal))) {
                             ABadPrepare:
                                 await (Len(network[(msg).sender])) < (BUFFER_SIZE);
-                                mailboxesWrite8 := [network EXCEPT ![(msg).sender] = Append(network[(msg).sender], [type |-> REJECT_MSG, sender |-> self, bal |-> maxBal, slot |-> NULL, val |-> NULL, accepted |-> <<>>])];
-                                network := mailboxesWrite8;
+                                mailboxesWrite9 := [network EXCEPT ![(msg).sender] = Append(network[(msg).sender], [type |-> REJECT_MSG, sender |-> self, bal |-> maxBal, slot |-> NULL, val |-> NULL, accepted |-> <<>>])];
+                                network := mailboxesWrite9;
                                 goto A;
 
                         } else {
@@ -480,21 +486,21 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
                                     payload := [type |-> ACCEPT_MSG, sender |-> self, bal |-> maxBal, slot |-> (msg).slot, val |-> (msg).val, accepted |-> <<>>];
                                     acceptedValues := Append(acceptedValues, [slot |-> (msg).slot, bal |-> (msg).bal, val |-> (msg).val]);
                                     await (Len(network[(msg).sender])) < (BUFFER_SIZE);
-                                    mailboxesWrite8 := [network EXCEPT ![(msg).sender] = Append(network[(msg).sender], payload)];
+                                    mailboxesWrite9 := [network EXCEPT ![(msg).sender] = Append(network[(msg).sender], payload)];
                                     loopIndex := (NUM_PROPOSERS) + (NUM_ACCEPTORS);
-                                    network := mailboxesWrite8;
+                                    network := mailboxesWrite9;
 
                                 ANotifyLearners:
                                     if ((loopIndex) <= (((NUM_PROPOSERS) + (NUM_ACCEPTORS)) + ((NUM_LEARNERS) - (1)))) {
                                         await (Len(network[loopIndex])) < (BUFFER_SIZE);
-                                        mailboxesWrite8 := [network EXCEPT ![loopIndex] = Append(network[loopIndex], payload)];
+                                        mailboxesWrite9 := [network EXCEPT ![loopIndex] = Append(network[loopIndex], payload)];
                                         loopIndex := (loopIndex) + (1);
-                                        mailboxesWrite9 := mailboxesWrite8;
-                                        network := mailboxesWrite9;
+                                        mailboxesWrite10 := mailboxesWrite9;
+                                        network := mailboxesWrite10;
                                         goto ANotifyLearners;
                                     } else {
-                                        mailboxesWrite9 := network;
-                                        network := mailboxesWrite9;
+                                        mailboxesWrite10 := network;
+                                        network := mailboxesWrite10;
                                         goto A;
                                     };
 
@@ -502,16 +508,16 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
                                 if ((((msg).type) = (PROPOSE_MSG)) /\ (((msg).bal) < (maxBal))) {
                                     ABadPropose:
                                         await (Len(network[(msg).sender])) < (BUFFER_SIZE);
-                                        mailboxesWrite8 := [network EXCEPT ![(msg).sender] = Append(network[(msg).sender], [type |-> REJECT_MSG, sender |-> self, bal |-> maxBal, slot |-> (msg).slot, val |-> (msg).val, accepted |-> <<>>])];
-                                        network := mailboxesWrite8;
+                                        mailboxesWrite9 := [network EXCEPT ![(msg).sender] = Append(network[(msg).sender], [type |-> REJECT_MSG, sender |-> self, bal |-> maxBal, slot |-> (msg).slot, val |-> (msg).val, accepted |-> <<>>])];
+                                        network := mailboxesWrite9;
                                         goto A;
 
                                 } else {
-                                    mailboxesWrite10 := network;
-                                    mailboxesWrite11 := mailboxesWrite10;
+                                    mailboxesWrite11 := network;
                                     mailboxesWrite12 := mailboxesWrite11;
                                     mailboxesWrite13 := mailboxesWrite12;
-                                    network := mailboxesWrite13;
+                                    mailboxesWrite14 := mailboxesWrite13;
+                                    network := mailboxesWrite14;
                                     goto A;
                                 };
                             };
@@ -519,8 +525,8 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
                     };
 
             } else {
-                mailboxesWrite14 := network;
-                network := mailboxesWrite14;
+                mailboxesWrite15 := network;
+                network := mailboxesWrite15;
             };
 
     }
@@ -531,11 +537,11 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
             if (TRUE) {
                 await (Len(network[self])) > (0);
                 with (msg3 = Head(network[self])) {
-                    mailboxesWrite15 := [network EXCEPT ![self] = Tail(network[self])];
+                    mailboxesWrite16 := [network EXCEPT ![self] = Tail(network[self])];
                     mailboxesRead1 := msg3;
                 };
                 msg := mailboxesRead1;
-                network := mailboxesWrite15;
+                network := mailboxesWrite16;
                 LGotAcc:
                     if (((msg).type) = (ACCEPT_MSG)) {
                         accepts := Append(accepts, msg);
@@ -575,7 +581,9 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
                     };
 
             } else {
+                mailboxesWrite17 := network;
                 decidedWrite3 := decidedLocal;
+                network := mailboxesWrite17;
                 decidedLocal := decidedWrite3;
             };
 
