@@ -29,21 +29,16 @@ public class TemporaryBinding {
 	private final NameCleaner nameCleaner;
 	private final Map<UID, Recycling<TLAGeneralIdentifier>> temporaries;
 	private final List<PlusCalVariableDeclaration> declarations;
+	private ArrayDeque<LinkedHashMap<UID, TLAGeneralIdentifier>> touchedVarsStack;
 	private LinkedHashMap<UID, TLAGeneralIdentifier> touchedVars;
-	private int recording;
 
 	public TemporaryBinding(NameCleaner nameCleaner, List<PlusCalVariableDeclaration> declarations) {
-		this(nameCleaner, new HashMap<>(), declarations, new LinkedHashMap<>(), 0);
-	}
-
-	private TemporaryBinding(NameCleaner nameCleaner, Map<UID, Recycling<TLAGeneralIdentifier>> temporaries,
-	                         List<PlusCalVariableDeclaration> declarations,
-	                         LinkedHashMap<UID,TLAGeneralIdentifier> touchedVars, int recording) {
 		this.nameCleaner = nameCleaner;
-		this.temporaries = temporaries;
+		this.temporaries = new HashMap<>();
 		this.declarations = declarations;
-		this.touchedVars = touchedVars;
-		this.recording = recording;
+		this.touchedVarsStack = new ArrayDeque<>();
+		this.touchedVarsStack.push(new LinkedHashMap<>());
+		this.touchedVars = touchedVarsStack.peek();
 	}
 
 	public Checkpoint checkpoint() {
@@ -83,7 +78,7 @@ public class TemporaryBinding {
 		PlusCalVariableDeclaration declaration = new PlusCalVariableDeclaration(
 				location, new Located<>(location, fresh.getName().getId()), false, false, value);
 		declarations.add(declaration);
-		if (recording > 0) {
+		if (touchedVarsStack.size() > 1) {
 			touchedVars.put(varUID, fresh);
 		}
 		return fresh;
@@ -97,7 +92,7 @@ public class TemporaryBinding {
 		if (temporaries.containsKey(varUID)) {
 			Optional<TLAGeneralIdentifier> optionalResult = temporaries.get(varUID).use();
 			if (optionalResult.isPresent()) {
-				if (recording > 0) {
+				if (touchedVarsStack.size() > 1) {
 					touchedVars.put(varUID, optionalResult.get());
 				}
 				return optionalResult.get();
@@ -131,12 +126,12 @@ public class TemporaryBinding {
 
 	public LinkedHashMap<UID, TLAGeneralIdentifier> startRecording() {
 		touchedVars = new LinkedHashMap<>();
-		recording += 1;
+		touchedVarsStack.push(touchedVars);
 		return touchedVars;
 	}
 
 	public void stopRecording() {
-		touchedVars = new LinkedHashMap<>();
-		recording -= 1;
+		touchedVarsStack.pop();
+		touchedVars = touchedVarsStack.peek();
 	}
 }
