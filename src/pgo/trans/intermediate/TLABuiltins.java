@@ -256,6 +256,15 @@ public class TLABuiltins {
 					return new GoBinop(GoBinop.Operation.AND, withinBounds, equalsVal);
 				}
 				));
+		universalBuiltIns.addOperator("\\notin", new BuiltinOperator(
+				2,
+				(origin, args, solver, generator) -> {
+					throw new TODO();
+				},
+				(builder, origin, registry, arguments, typeMap, localStrategy, globalStrategy) -> {
+					throw new TODO();
+				}
+		));
 		universalBuiltIns.addOperator("\\", new BuiltinOperator(
 				2,
 				(origin, args, solver, generator) -> {
