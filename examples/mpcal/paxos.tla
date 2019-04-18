@@ -25,9 +25,10 @@ AllNodes == 0..(NUM_PROPOSERS+NUM_ACCEPTORS+NUM_LEARNERS-1)
       PROMISE_MSG == 1
       PROPOSE_MSG == 2
       ACCEPT_MSG == 3
-      CHOSEN_MSG == 4
+      REJECT_MSG == 4
   }
 
+  \* Broadcasts to nodes in range i..stop.
   macro Broadcast(mailboxes, msg, i, stop)
   {
       while (i <= stop) {
@@ -35,7 +36,7 @@ AllNodes == 0..(NUM_PROPOSERS+NUM_ACCEPTORS+NUM_LEARNERS-1)
           i := i + 1;
       };
   }
-
+  
   macro BroadcastLearners(mailboxes, msg, i)
   {
       Broadcast(mailboxes, msg, i, NUM_PROPOSERS+NUM_ACCEPTORS+NUM_LEARNERS-1);
@@ -55,6 +56,7 @@ AllNodes == 0..(NUM_PROPOSERS+NUM_ACCEPTORS+NUM_LEARNERS-1)
       }
   }
 
+  \* Defines how variables get applied to the state machine
   mapping macro Log {
       read {
           assert(FALSE);
@@ -66,26 +68,27 @@ AllNodes == 0..(NUM_PROPOSERS+NUM_ACCEPTORS+NUM_LEARNERS-1)
       }
   }
 
-  \* Acceptor process actions
   archetype ALearner(ref mailboxes, ref decided)
   variables accepts = <<>>,
             numAccepted = 0,
-            j,
+            iterator,
             entry,
             msg;
   {
 L:  while (TRUE) {
         msg := mailboxes[self];
-L1:     if (msg.type = ACCEPT_MSG) {
+        \* Add new accepts to record
+LGotAcc: if (msg.type = ACCEPT_MSG) {
             accepts := Append(accepts, msg);
-            j := 1;
+            iterator := 1;
             numAccepted := 0;
-L2:         while (j <= Len(accepts)) {
+            \* Count the number of equivalent accepts to the received message
+LCheckMajority: while (iterator <= Len(accepts)) {
                 entry := accepts[j];
                 if (entry.slot = msg.slot /\ entry.bal = msg.bal /\ entry.val = msg.val) {
                     numAccepted := numAccepted + 1;
                 };
-                j := j + 1;
+                iterator := iterator + 1;
             };
 
             \* Checks whether the majority of acceptors accepted a value for the current slot
@@ -93,13 +96,14 @@ L2:         while (j <= Len(accepts)) {
                 decided[msg.slot] := msg.val;
 
                 \* garbage collect: no longer need to keep previously accepted values
+                \* TODO: I don't think this is legal actually
                 accepts := <<>>;
             };
         };
     };
   }
 
-  \* Acceptor process actions
+  \* maxBal is monotonically increasing over time
   archetype AAcceptor(ref mailboxes)
   variables maxBal = -1,
             loopIndex,
@@ -108,98 +112,115 @@ L2:         while (j <= Len(accepts)) {
             msg;
   {
 A:  while (TRUE) {
+        \* Acceptors just listen for and respond to messages from proposers
         msg := mailboxes[self];
-A1:     if (msg.type = PREPARE_MSG /\ msg.bal > maxBal) {
-A2:         maxBal := msg.bal;
+AMsgSwitch: if (msg.type = PREPARE_MSG /\ msg.bal > maxBal) { \* Essentially voting for a new leader, ensures no values with a ballot less than the new ballot are ever accepted
+APrepare:   maxBal := msg.bal;
+            \* Respond with promise to reject all proposals with a lower ballot number
             mailboxes[msg.sender] := [type |-> PROMISE_MSG, sender |-> self, bal |-> maxBal, slot |-> NULL, val |-> NULL, accepted |-> acceptedValues];
 
-        } elseif (msg.type = PROPOSE_MSG /\ msg.bal >= maxBal) {
-A3:         maxBal := msg.bal;
-            payload := [type |-> ACCEPT_MSG, sender |-> self, bal |-> maxBal, slot |-> msg.slot, val |-> msg.val, accepted |-> acceptedValues];
+        } elseif (msg.type = PROPOSE_MSG /\ msg.bal >= maxBal) { \* Accept valid proposals. Invariants are maintained by the proposer so no need to check the value
+            \* Update max ballot
+APropose:   maxBal := msg.bal;
+            payload := [type |-> ACCEPT_MSG, sender |-> self, bal |-> maxBal, slot |-> msg.slot, val |-> msg.val, accepted |-> <<>>];
 
+            \* Add the value to the list of accepted values
             acceptedValues := Append(acceptedValues, [slot |-> msg.slot, bal |-> msg.bal, val |-> msg.val]);
+            \* Respond that the proposal was accepted
             mailboxes[msg.sender] := payload;
 
             loopIndex := NUM_PROPOSERS+NUM_ACCEPTORS;
-loop2:      BroadcastLearners(mailboxes, payload, loopIndex);
+            \* Inform the learners of the accept
+ANotifyLearners: BroadcastLearners(mailboxes, payload, loopIndex);
 
-        } elseif (msg.type = PROPOSE_MSG /\ msg.bal < maxBal) {
-A4:         mailboxes[msg.sender] := [type |-> ACCEPT_MSG, sender |-> self, bal |-> maxBal, slot |-> msg.slot, val |-> msg.val, accepted |-> acceptedValues];
+        } elseif (msg.type = PROPOSE_MSG /\ msg.bal < maxBal) { \* Reject invalid proposals to maintain promises
+ABadPropose: mailboxes[msg.sender] := [type |-> REJECT_MSG, sender |-> self, bal |-> maxBal, slot |-> msg.slot, val |-> msg.val, accepted |-> <<>>];
         }
     }
   }
 
-  \* Leader process
+  \* Key idea: Proposer must have received promises from majority, so it knows about every chosen value before it attempts to propose a value for a given slot
   archetype AProposer(ref mailboxes)
-  variables b,
-            s = 1,
+  variables b, \* local ballot
+            s = 1, \* current slot
             elected = FALSE,
             acceptedValues = <<>>,
             max = [slot |-> -1, bal |-> -1, val |-> -1],
-            j,
+            index, \* temporary variable for iteration
             entry,
             promises,
             accepts = 0,
-            v,
-            resp,
-            idx = NUM_PROPOSERS;
+            value,
+            resp;
   {
 Pre:b := self;
 P:  while (s \in Slots) {
-P1:     if (elected) {
+PLeaderCheck: if (elected) { \* This proposer thinks it is the distinguished proposer
+            \***********
+            \* PHASE 2
+            \***********
             accepts := 0;
-            v := self;
-            j := 1;
-P5:         while (j <= Len(acceptedValues)) {
-                entry := acceptedValues[j];
+            \* Default value is myself (TODO: Make this come from an archetype parameter)
+            value := self;
+            index := 1;
+            \* Make sure the value proposed is the same as the value of the accepted proposal with the highest ballot (if such a value exists)
+PFindMaxVal: while (index <= Len(acceptedValues)) {
+                entry := acceptedValues[index];
                 if (entry.slot = s /\ entry.bal >= max.bal) {
-                    v := entry.val;
+                    value := entry.val;
                     max := entry;
                 };
-                j := j + 1;
+                index := index + 1;
             };
 
-loop1:      Broadcast(mailboxes, [type |-> PROPOSE_MSG, bal |-> b, sender |-> self, slot |-> s, val |-> v], idx, NUM_PROPOSERS+NUM_ACCEPTORS-1);
-            idx := NUM_PROPOSERS;
-            \* await responses, abort if necessary
-search1:    while (accepts*2 < Cardinality(Acceptor) /\ elected) {
-                \* Wait for accept message
+            index := NUM_PROPOSERS;
+            \* Send Propose message to every acceptor
+PSendProposes: Broadcast(mailboxes, [type |-> PROPOSE_MSG, bal |-> b, sender |-> self, slot |-> s, val |-> value], index, NUM_PROPOSERS+NUM_ACCEPTORS-1);
+            
+            \* Await responses, abort if necessary
+PSearchAccs: while (accepts*2 < Cardinality(Acceptor) /\ elected) {
+                \* Wait for response
                 resp := mailboxes[self];
                 if (resp.type = ACCEPT_MSG) {
-                    \* Is it still from a current term?
-P6:                 if (resp.bal > b \/ resp.slot # s \/ resp.val # v) {
-                        \* Pre-empted by another proposer
-                        elected := FALSE;
-                    } else {
+                    \* Is it valid?
+                    if (resp.bal = b /\ resp.slot = s /\ resp.val = value) {
                         accepts := accepts + 1;
                     };
-                };
+                } elseif (resp.type = REJECT_MSG) {
+                    \* Pre-empted by another proposer (this is no longer the distinguished proposer)
+                    elected = FALSE;
+                }
             };
-            \* If still elected, then we must have a majority of accepts
-P7:         if (elected) {
+            \* If still elected, then we must have a majority of accepts, so we can try to find a value for the next slot
+PIncSlot:   if (elected) {
                s := s + 1;
             };
-        } else {
-loop3:      Broadcast(mailboxes, [type |-> PREPARE_MSG, bal |-> b, sender |-> self, slot |-> NULL, val |-> v], idx, NUM_PROPOSERS+NUM_ACCEPTORS-1);
-            idx := NUM_PROPOSERS;
+        } else { \* Try to become elected the distiguished proposer (TODO: only do so initially and on timeout)
+            \***********
+            \* PHASE 1
+            \***********
+            index := NUM_PROPOSERS;
+            \* Send prepares to every acceptor
+PReqVotes:  Broadcast(mailboxes, [type |-> PREPARE_MSG, bal |-> b, sender |-> self, slot |-> NULL, val |-> NULL], index, NUM_PROPOSERS+NUM_ACCEPTORS-1);
             promises := 0;
             \* Wait for response from majority of acceptors
-search2:    while (~elected) {
+PCandidate: while (~elected) {
                 \* Wait for promise
                 resp := mailboxes[self];
                 if (resp.type = PROMISE_MSG) {
                     acceptedValues := acceptedValues \o resp.accepted;
 
                     \* Is it still from a current term?
-P2:                 if (resp.bal > b) {
+PGotPromise:        if (resp.bal > b) {
                         \* Pre-empted, try again for election
                         b := b+NUM_PROPOSERS; \* to remain unique
-loop4:                  Broadcast(mailboxes, [type |-> PREPARE_MSG, bal |-> b, sender |-> self, slot |-> NULL, val |-> v], idx, NUM_PROPOSERS+NUM_ACCEPTORS-1);
-                        idx := NUM_PROPOSERS;
+                        index := NUM_PROPOSERS;
+PReSendReqVotes:        Broadcast(mailboxes, [type |-> PREPARE_MSG, bal |-> b, sender |-> self, slot |-> NULL, val |-> NULL], index, NUM_PROPOSERS+NUM_ACCEPTORS-1);
                     } else {
-P3:                     if (resp.bal = b) {
+PCheckElected:          if (resp.bal = b) {
                             promises := promises + 1;
-P4:                         if (promises*2 > Cardinality(Acceptor)) {
+                            \* Check if a majority of acceptors think that this proposer is the distinguished proposer, if so, become the leader
+PBecomeLeader:              if (promises*2 > Cardinality(Acceptor)) {
                                 elected := TRUE;
                             };
                         };
