@@ -4,6 +4,9 @@ EXTENDS Integers, Sequences, FiniteSets, TLC
 
 CONSTANTS NUM_PROPOSERS, NUM_ACCEPTORS, NUM_LEARNERS, NUM_SLOTS, MAX_BALLOTS
 
+CONSTANT BUFFER_SIZE
+ASSUME BUFFER_SIZE \in Nat
+
 ASSUME /\ NUM_PROPOSERS \in Nat
        /\ NUM_ACCEPTORS \in Nat
        /\ NUM_LEARNERS \in Nat
@@ -55,6 +58,7 @@ AllNodes == 0..(NUM_PROPOSERS+NUM_ACCEPTORS+NUM_LEARNERS-1)
       }
 
       write {
+          await Len($variable) < BUFFER_SIZE;
           yield Append($variable, $value);
       }
   }
@@ -314,6 +318,7 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
 
                         PSendProposes:
                             if ((index) <= ((NUM_PROPOSERS) + ((NUM_ACCEPTORS) - (1)))) {
+                                await (Len(network[index])) < (BUFFER_SIZE);
                                 mailboxesWrite := [network EXCEPT ![index] = Append(network[index], [type |-> PROPOSE_MSG, bal |-> b, sender |-> self, slot |-> s, val |-> value])];
                                 index := (index) + (1);
                                 mailboxesWrite0 := mailboxesWrite;
@@ -367,6 +372,7 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
                         index := NUM_PROPOSERS;
                         PReqVotes:
                             if ((index) <= ((NUM_PROPOSERS) + ((NUM_ACCEPTORS) - (1)))) {
+                                await (Len(network[index])) < (BUFFER_SIZE);
                                 mailboxesWrite := [network EXCEPT ![index] = Append(network[index], [type |-> PREPARE_MSG, bal |-> b, sender |-> self, slot |-> NULL, val |-> NULL])];
                                 index := (index) + (1);
                                 mailboxesWrite1 := mailboxesWrite;
@@ -404,6 +410,7 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
                                         index := NUM_PROPOSERS;
                                         PReSendReqVotes:
                                             if ((index) <= ((NUM_PROPOSERS) + ((NUM_ACCEPTORS) - (1)))) {
+                                                await (Len(network[index])) < (BUFFER_SIZE);
                                                 mailboxesWrite := [network EXCEPT ![index] = Append(network[index], [type |-> PREPARE_MSG, bal |-> b, sender |-> self, slot |-> NULL, val |-> NULL])];
                                                 index := (index) + (1);
                                                 mailboxesWrite2 := mailboxesWrite;
@@ -453,6 +460,7 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
                     if ((((msg).type) = (PREPARE_MSG)) /\ (((msg).bal) > (maxBal))) {
                         APrepare:
                             maxBal := (msg).bal;
+                            await (Len(network[(msg).sender])) < (BUFFER_SIZE);
                             mailboxesWrite8 := [network EXCEPT ![(msg).sender] = Append(network[(msg).sender], [type |-> PROMISE_MSG, sender |-> self, bal |-> maxBal, slot |-> NULL, val |-> NULL, accepted |-> acceptedValues])];
                             network := mailboxesWrite8;
                             goto A;
@@ -460,6 +468,7 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
                     } else {
                         if ((((msg).type) = (PREPARE_MSG)) /\ (((msg).bal) <= (maxBal))) {
                             ABadPrepare:
+                                await (Len(network[(msg).sender])) < (BUFFER_SIZE);
                                 mailboxesWrite8 := [network EXCEPT ![(msg).sender] = Append(network[(msg).sender], [type |-> REJECT_MSG, sender |-> self, bal |-> maxBal, slot |-> NULL, val |-> NULL, accepted |-> <<>>])];
                                 network := mailboxesWrite8;
                                 goto A;
@@ -470,12 +479,14 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
                                     maxBal := (msg).bal;
                                     payload := [type |-> ACCEPT_MSG, sender |-> self, bal |-> maxBal, slot |-> (msg).slot, val |-> (msg).val, accepted |-> <<>>];
                                     acceptedValues := Append(acceptedValues, [slot |-> (msg).slot, bal |-> (msg).bal, val |-> (msg).val]);
+                                    await (Len(network[(msg).sender])) < (BUFFER_SIZE);
                                     mailboxesWrite8 := [network EXCEPT ![(msg).sender] = Append(network[(msg).sender], payload)];
                                     loopIndex := (NUM_PROPOSERS) + (NUM_ACCEPTORS);
                                     network := mailboxesWrite8;
 
                                 ANotifyLearners:
                                     if ((loopIndex) <= (((NUM_PROPOSERS) + (NUM_ACCEPTORS)) + ((NUM_LEARNERS) - (1)))) {
+                                        await (Len(network[loopIndex])) < (BUFFER_SIZE);
                                         mailboxesWrite8 := [network EXCEPT ![loopIndex] = Append(network[loopIndex], payload)];
                                         loopIndex := (loopIndex) + (1);
                                         mailboxesWrite9 := mailboxesWrite8;
@@ -490,6 +501,7 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
                             } else {
                                 if ((((msg).type) = (PROPOSE_MSG)) /\ (((msg).bal) < (maxBal))) {
                                     ABadPropose:
+                                        await (Len(network[(msg).sender])) < (BUFFER_SIZE);
                                         mailboxesWrite8 := [network EXCEPT ![(msg).sender] = Append(network[(msg).sender], [type |-> REJECT_MSG, sender |-> self, bal |-> maxBal, slot |-> (msg).slot, val |-> (msg).val, accepted |-> <<>>])];
                                         network := mailboxesWrite8;
                                         goto A;
@@ -575,10 +587,10 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
 ***************************************************************************)
 
 \* BEGIN TRANSLATION
-\* Process variable acceptedValues of process proposer at line 286 col 42 changed to acceptedValues_
-\* Process variable entry of process proposer at line 286 col 123 changed to entry_
-\* Process variable accepts of process proposer at line 286 col 140 changed to accepts_
-\* Process variable msg of process acceptor at line 441 col 73 changed to msg_
+\* Process variable acceptedValues of process proposer at line 290 col 42 changed to acceptedValues_
+\* Process variable entry of process proposer at line 290 col 123 changed to entry_
+\* Process variable accepts of process proposer at line 290 col 140 changed to accepts_
+\* Process variable msg of process acceptor at line 448 col 73 changed to msg_
 CONSTANT defaultInitValue
 VARIABLES network, values, valueStreamRead, mailboxesWrite, mailboxesWrite0,
           mailboxesRead, mailboxesWrite1, mailboxesWrite2, mailboxesWrite3,
@@ -791,7 +803,8 @@ PFindMaxVal(self) == /\ pc[self] = "PFindMaxVal"
 
 PSendProposes(self) == /\ pc[self] = "PSendProposes"
                        /\ IF (index[self]) <= ((NUM_PROPOSERS) + ((NUM_ACCEPTORS) - (1)))
-                             THEN /\ mailboxesWrite' = [network EXCEPT ![index[self]] = Append(network[index[self]], [type |-> PROPOSE_MSG, bal |-> b[self], sender |-> self, slot |-> s[self], val |-> value[self]])]
+                             THEN /\ (Len(network[index[self]])) < (BUFFER_SIZE)
+                                  /\ mailboxesWrite' = [network EXCEPT ![index[self]] = Append(network[index[self]], [type |-> PROPOSE_MSG, bal |-> b[self], sender |-> self, slot |-> s[self], val |-> value[self]])]
                                   /\ index' = [index EXCEPT ![self] = (index[self]) + (1)]
                                   /\ mailboxesWrite0' = mailboxesWrite'
                                   /\ network' = mailboxesWrite0'
@@ -891,7 +904,8 @@ PIncSlot(self) == /\ pc[self] = "PIncSlot"
 
 PReqVotes(self) == /\ pc[self] = "PReqVotes"
                    /\ IF (index[self]) <= ((NUM_PROPOSERS) + ((NUM_ACCEPTORS) - (1)))
-                         THEN /\ mailboxesWrite' = [network EXCEPT ![index[self]] = Append(network[index[self]], [type |-> PREPARE_MSG, bal |-> b[self], sender |-> self, slot |-> NULL, val |-> NULL])]
+                         THEN /\ (Len(network[index[self]])) < (BUFFER_SIZE)
+                              /\ mailboxesWrite' = [network EXCEPT ![index[self]] = Append(network[index[self]], [type |-> PREPARE_MSG, bal |-> b[self], sender |-> self, slot |-> NULL, val |-> NULL])]
                               /\ index' = [index EXCEPT ![self] = (index[self]) + (1)]
                               /\ mailboxesWrite1' = mailboxesWrite'
                               /\ network' = mailboxesWrite1'
@@ -1002,7 +1016,8 @@ PBecomeLeader(self) == /\ pc[self] = "PBecomeLeader"
 
 PReSendReqVotes(self) == /\ pc[self] = "PReSendReqVotes"
                          /\ IF (index[self]) <= ((NUM_PROPOSERS) + ((NUM_ACCEPTORS) - (1)))
-                               THEN /\ mailboxesWrite' = [network EXCEPT ![index[self]] = Append(network[index[self]], [type |-> PREPARE_MSG, bal |-> b[self], sender |-> self, slot |-> NULL, val |-> NULL])]
+                               THEN /\ (Len(network[index[self]])) < (BUFFER_SIZE)
+                                    /\ mailboxesWrite' = [network EXCEPT ![index[self]] = Append(network[index[self]], [type |-> PREPARE_MSG, bal |-> b[self], sender |-> self, slot |-> NULL, val |-> NULL])]
                                     /\ index' = [index EXCEPT ![self] = (index[self]) + (1)]
                                     /\ mailboxesWrite2' = mailboxesWrite'
                                     /\ network' = mailboxesWrite2'
@@ -1118,6 +1133,7 @@ AMsgSwitch(self) == /\ pc[self] = "AMsgSwitch"
 
 APrepare(self) == /\ pc[self] = "APrepare"
                   /\ maxBal' = [maxBal EXCEPT ![self] = (msg_[self]).bal]
+                  /\ (Len(network[(msg_[self]).sender])) < (BUFFER_SIZE)
                   /\ mailboxesWrite8' = [network EXCEPT ![(msg_[self]).sender] = Append(network[(msg_[self]).sender], [type |-> PROMISE_MSG, sender |-> self, bal |-> maxBal'[self], slot |-> NULL, val |-> NULL, accepted |-> acceptedValues[self]])]
                   /\ network' = mailboxesWrite8'
                   /\ pc' = [pc EXCEPT ![self] = "A"]
@@ -1140,6 +1156,7 @@ APrepare(self) == /\ pc[self] = "APrepare"
                                   entry, msg >>
 
 ABadPrepare(self) == /\ pc[self] = "ABadPrepare"
+                     /\ (Len(network[(msg_[self]).sender])) < (BUFFER_SIZE)
                      /\ mailboxesWrite8' = [network EXCEPT ![(msg_[self]).sender] = Append(network[(msg_[self]).sender], [type |-> REJECT_MSG, sender |-> self, bal |-> maxBal[self], slot |-> NULL, val |-> NULL, accepted |-> <<>>])]
                      /\ network' = mailboxesWrite8'
                      /\ pc' = [pc EXCEPT ![self] = "A"]
@@ -1166,6 +1183,7 @@ APropose(self) == /\ pc[self] = "APropose"
                   /\ maxBal' = [maxBal EXCEPT ![self] = (msg_[self]).bal]
                   /\ payload' = [payload EXCEPT ![self] = [type |-> ACCEPT_MSG, sender |-> self, bal |-> maxBal'[self], slot |-> (msg_[self]).slot, val |-> (msg_[self]).val, accepted |-> <<>>]]
                   /\ acceptedValues' = [acceptedValues EXCEPT ![self] = Append(acceptedValues[self], [slot |-> (msg_[self]).slot, bal |-> (msg_[self]).bal, val |-> (msg_[self]).val])]
+                  /\ (Len(network[(msg_[self]).sender])) < (BUFFER_SIZE)
                   /\ mailboxesWrite8' = [network EXCEPT ![(msg_[self]).sender] = Append(network[(msg_[self]).sender], payload'[self])]
                   /\ loopIndex' = [loopIndex EXCEPT ![self] = (NUM_PROPOSERS) + (NUM_ACCEPTORS)]
                   /\ network' = mailboxesWrite8'
@@ -1189,7 +1207,8 @@ APropose(self) == /\ pc[self] = "APropose"
 
 ANotifyLearners(self) == /\ pc[self] = "ANotifyLearners"
                          /\ IF (loopIndex[self]) <= (((NUM_PROPOSERS) + (NUM_ACCEPTORS)) + ((NUM_LEARNERS) - (1)))
-                               THEN /\ mailboxesWrite8' = [network EXCEPT ![loopIndex[self]] = Append(network[loopIndex[self]], payload[self])]
+                               THEN /\ (Len(network[loopIndex[self]])) < (BUFFER_SIZE)
+                                    /\ mailboxesWrite8' = [network EXCEPT ![loopIndex[self]] = Append(network[loopIndex[self]], payload[self])]
                                     /\ loopIndex' = [loopIndex EXCEPT ![self] = (loopIndex[self]) + (1)]
                                     /\ mailboxesWrite9' = mailboxesWrite8'
                                     /\ network' = mailboxesWrite9'
@@ -1218,6 +1237,7 @@ ANotifyLearners(self) == /\ pc[self] = "ANotifyLearners"
                                          numAccepted, iterator, entry, msg >>
 
 ABadPropose(self) == /\ pc[self] = "ABadPropose"
+                     /\ (Len(network[(msg_[self]).sender])) < (BUFFER_SIZE)
                      /\ mailboxesWrite8' = [network EXCEPT ![(msg_[self]).sender] = Append(network[(msg_[self]).sender], [type |-> REJECT_MSG, sender |-> self, bal |-> maxBal[self], slot |-> (msg_[self]).slot, val |-> (msg_[self]).val, accepted |-> <<>>])]
                      /\ network' = mailboxesWrite8'
                      /\ pc' = [pc EXCEPT ![self] = "A"]
@@ -1316,7 +1336,7 @@ LCheckMajority(self) == /\ pc[self] = "LCheckMajority"
                                                    accepts >>
                               ELSE /\ IF ((numAccepted[self]) * (2)) > (Cardinality(Acceptor))
                                          THEN /\ Assert(((decidedLocal[self][(msg[self]).slot]) = (NULL)) \/ ((decidedLocal[self][(msg[self]).slot]) = ((msg[self]).val)),
-                                                        "Failure of assertion at line 544, column 37.")
+                                                        "Failure of assertion at line 556, column 37.")
                                               /\ decidedWrite' = [decidedLocal[self] EXCEPT ![(msg[self]).slot] = (msg[self]).val]
                                               /\ accepts' = [accepts EXCEPT ![self] = <<>>]
                                               /\ decidedWrite0' = decidedWrite'
