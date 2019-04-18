@@ -155,11 +155,9 @@ public class ModularPlusCalCodeGenVisitor extends PlusCalStatementVisitor<List<P
 		writeTemporaryBinding.stopRecording();
 		writeTemporaryBinding.restore(checkpoint);
 
-		checkpoint = writeTemporaryBinding.checkpoint();
 		Map<UID, TLAGeneralIdentifier> noWrites = writeTemporaryBinding.startRecording();
 		List<PlusCalStatement> no = substituteBlock(plusCalIf.getNo());
 		writeTemporaryBinding.stopRecording();
-		writeTemporaryBinding.restore(checkpoint);
 
 		Map<UID, TLAGeneralIdentifier> touchedVars = new LinkedHashMap<>();
 		declareJoinNames(location, yesWrites, touchedVars);
@@ -179,12 +177,17 @@ public class ModularPlusCalCodeGenVisitor extends PlusCalStatementVisitor<List<P
 		List<List<PlusCalStatement>> transformedCases = new ArrayList<>();
 		List<Map<UID, TLAGeneralIdentifier>> writesList = new ArrayList<>();
 		List<List<PlusCalStatement>> cases = plusCalEither.getCases();
-		for (List<PlusCalStatement> aCase : cases) {
+		for (int i = 0; i < cases.size(); i++) {
+			List<PlusCalStatement> aCase = cases.get(i);
 			TemporaryBinding.Checkpoint checkpoint = writeTemporaryBinding.checkpoint();
 			Map<UID, TLAGeneralIdentifier> touchedVars = writeTemporaryBinding.startRecording();
 			transformedCases.add(substituteBlock(aCase));
 			writeTemporaryBinding.stopRecording();
-			writeTemporaryBinding.restore(checkpoint);
+			if (i != cases.size() - 1) {
+				// only restore checkpoint if it's not the last case, so that the state of writeTemporaryBinding is
+				// correct after translating this either statement
+				writeTemporaryBinding.restore(checkpoint);
+			}
 			writesList.add(touchedVars);
 		}
 		Map<UID, TLAGeneralIdentifier> touchedVars = new LinkedHashMap<>();
