@@ -1520,6 +1520,9 @@ public class PlusCalCodeGenPassTest {
 						//            aBoolRead := b;
 						//            if (aBoolRead) {
 						//                either {
+						//                    aBoolWrite1 := b;
+						//                    aBoolWrite2 := aBoolWrite1;
+						//                    b := aBoolWrite2;
 						//                    goto l;
 						//                } or {
 						//                    l1:
@@ -1538,6 +1541,8 @@ public class PlusCalCodeGenPassTest {
 						//                }
 						//            } else {
 						//                print "ok";
+						//                    aBoolWrite2 := b;
+						//                    b := aBoolWrite2;
 						//            }
 						//
 						//    }
@@ -1548,7 +1553,9 @@ public class PlusCalCodeGenPassTest {
 										pcalVarDecl("b", false, false, bool(true)),
 										pcalVarDecl("aBoolRead", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
 										pcalVarDecl("aBoolWrite", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
-										pcalVarDecl("aBoolWrite0", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
+										pcalVarDecl("aBoolWrite0", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+										pcalVarDecl("aBoolWrite1", false, false, PLUSCAL_DEFAULT_INIT_VALUE),
+										pcalVarDecl("aBoolWrite2", false, false, PLUSCAL_DEFAULT_INIT_VALUE)
 								),
 								Collections.emptyList(),
 								Collections.emptyList(),
@@ -1564,7 +1571,12 @@ public class PlusCalCodeGenPassTest {
 														idexp("aBoolRead"),
 														Collections.singletonList(
 																either(Arrays.asList(
-																		Collections.singletonList(gotoS("l")),
+																		Arrays.asList(
+																				assign(idexp("aBoolWrite1"), idexp("b")),
+																				assign(idexp("aBoolWrite2"), idexp("aBoolWrite1")),
+																				assign(idexp("b"), idexp("aBoolWrite2")),
+																				gotoS("l")
+																		),
 																		Collections.singletonList(
 																				labeled(
 																						label("l1"),
@@ -1587,7 +1599,11 @@ public class PlusCalCodeGenPassTest {
 																		)
 																))
 														),
-														Collections.singletonList(printS(str("ok")))
+														Arrays.asList(
+																printS(str("ok")),
+																assign(idexp("aBoolWrite2"), idexp("b")),
+																assign(idexp("b"), idexp("aBoolWrite2"))
+														)
 												)
 										)
 								)
