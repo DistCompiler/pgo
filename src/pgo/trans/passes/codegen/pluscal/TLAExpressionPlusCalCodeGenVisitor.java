@@ -15,24 +15,28 @@ public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLA
 	private final DefinitionRegistry registry;
 	private final Map<UID, PlusCalVariableDeclaration> params;
 	private final Map<UID, TLAGeneralIdentifier> arguments;
+	private final Set<UID> expressionArguments;
 	private final Map<UID, ModularPlusCalMappingMacro> mappings;
 	private final Set<UID> functionMappedVars;
 	private final TemporaryBinding readTemporaryBinding;
 	private final TemporaryBinding writeTemporaryBinding;
+	private final ProcedureExpander procedureExpander;
 	private final List<PlusCalStatement> output;
 
 	TLAExpressionPlusCalCodeGenVisitor(DefinitionRegistry registry, Map<UID, PlusCalVariableDeclaration> params,
-	                                   Map<UID, TLAGeneralIdentifier> arguments,
+	                                   Map<UID, TLAGeneralIdentifier> arguments, Set<UID> expressionArguments,
 	                                   Map<UID, ModularPlusCalMappingMacro> mappings, Set<UID> functionMappedVars,
 	                                   TemporaryBinding readTemporaryBinding, TemporaryBinding writeTemporaryBinding,
-	                                   List<PlusCalStatement> output) {
+	                                   ProcedureExpander procedureExpander, List<PlusCalStatement> output) {
 		this.registry = registry;
 		this.params = params;
 		this.arguments = arguments;
+		this.expressionArguments = expressionArguments;
 		this.mappings = mappings;
 		this.functionMappedVars = functionMappedVars;
 		this.readTemporaryBinding = readTemporaryBinding;
 		this.writeTemporaryBinding = writeTemporaryBinding;
+		this.procedureExpander = procedureExpander;
 		this.output = output;
 	}
 
@@ -67,8 +71,15 @@ public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLA
 	                                TLAExpression index) {
 		ModularPlusCalMappingMacroReadExpansionVisitor visitor =
 				new ModularPlusCalMappingMacroReadExpansionVisitor(
+						registry,
+						params,
+						arguments,
+						mappings,
+						expressionArguments,
+						functionMappedVars,
 						readTemporaryBinding,
 						writeTemporaryBinding,
+						procedureExpander,
 						dollarVariable,
 						varUID,
 						params.get(varUID).getName().getValue() + "Write",
@@ -136,13 +147,13 @@ public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLA
 		List<PlusCalStatement> currentBlock = output;
 		for (TLACaseArm arm : tlaCase.getArms()) {
 			TLAExpression condition = arm.getCondition().accept(new TLAExpressionPlusCalCodeGenVisitor(
-					registry, params, arguments, mappings, functionMappedVars, readTemporaryBinding,
-					writeTemporaryBinding, currentBlock));
+					registry, params, arguments, expressionArguments, mappings, functionMappedVars,
+					readTemporaryBinding, writeTemporaryBinding, procedureExpander, currentBlock));
 			List<PlusCalStatement> yes = new ArrayList<>();
 			List<PlusCalStatement> no = new ArrayList<>();
 			TLAExpression result = arm.getResult().accept(new TLAExpressionPlusCalCodeGenVisitor(
-					registry, params, arguments, mappings, functionMappedVars, readTemporaryBinding,
-					writeTemporaryBinding, yes));
+					registry, params, arguments, expressionArguments, mappings, functionMappedVars,
+					readTemporaryBinding, writeTemporaryBinding, procedureExpander, yes));
 			yes.add(new PlusCalAssignment(
 					arm.getResult().getLocation(),
 					Collections.singletonList(new PlusCalAssignmentPair(
@@ -154,8 +165,8 @@ public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLA
 			currentBlock.add(new PlusCalAssert(tlaCase.getLocation(), new TLABool(tlaCase.getLocation(), false)));
 		} else {
 			TLAExpression other = tlaCase.getOther().accept(new TLAExpressionPlusCalCodeGenVisitor(
-					registry, params, arguments, mappings, functionMappedVars, readTemporaryBinding,
-					writeTemporaryBinding, currentBlock));
+					registry, params, arguments, expressionArguments, mappings, functionMappedVars,
+					readTemporaryBinding, writeTemporaryBinding, procedureExpander, currentBlock));
 			currentBlock.add(new PlusCalAssignment(
 					tlaCase.getOther().getLocation(),
 					Collections.singletonList(new PlusCalAssignmentPair(
@@ -220,16 +231,16 @@ public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLA
 		TLAExpression condition = tlaIf.getCond().accept(this);
 		List<PlusCalStatement> yes = new ArrayList<>();
 		TLAExpression yesResult = tlaIf.getTval().accept(new TLAExpressionPlusCalCodeGenVisitor(
-				registry, params, arguments, mappings, functionMappedVars, readTemporaryBinding, writeTemporaryBinding,
-				yes));
+				registry, params, arguments, expressionArguments, mappings, functionMappedVars, readTemporaryBinding,
+				writeTemporaryBinding, procedureExpander, yes));
 		yes.add(new PlusCalAssignment(
 				tlaIf.getTval().getLocation(),
 				Collections.singletonList(new PlusCalAssignmentPair(
 						tlaIf.getTval().getLocation(), ifResult, yesResult))));
 		List<PlusCalStatement> no = new ArrayList<>();
 		TLAExpression noResult = tlaIf.getFval().accept(new TLAExpressionPlusCalCodeGenVisitor(
-				registry, params, arguments, mappings, functionMappedVars, readTemporaryBinding, writeTemporaryBinding,
-				no));
+				registry, params, arguments, expressionArguments, mappings, functionMappedVars, readTemporaryBinding,
+				writeTemporaryBinding, procedureExpander, no));
 		no.add(new PlusCalAssignment(
 				tlaIf.getFval().getLocation(),
 				Collections.singletonList(new PlusCalAssignmentPair(
