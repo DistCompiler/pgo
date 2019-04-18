@@ -17,7 +17,7 @@ import java.util.*;
 public class TemporaryBinding {
 	public static class Checkpoint {
 		private final TemporaryBinding from;
-		private final Map<UID, Recycling.Checkpoint> checkpoints;
+		private final Map<UID, Recycling.Checkpoint<TLAGeneralIdentifier>> checkpoints;
 
 		private Checkpoint(TemporaryBinding from, Map<UID, Recycling<TLAGeneralIdentifier>> temporaries) {
 			this.from = from;
@@ -29,7 +29,7 @@ public class TemporaryBinding {
 	private final NameCleaner nameCleaner;
 	private final Map<UID, Recycling<TLAGeneralIdentifier>> temporaries;
 	private final List<PlusCalVariableDeclaration> declarations;
-	private Map<UID, TLAGeneralIdentifier> touchedVars;
+	private LinkedHashMap<UID, TLAGeneralIdentifier> touchedVars;
 	private int recording;
 
 	public TemporaryBinding(NameCleaner nameCleaner, List<PlusCalVariableDeclaration> declarations) {
@@ -129,15 +129,14 @@ public class TemporaryBinding {
 		touchedVars.remove(varUID);
 	}
 
-	public void startRecording() {
+	public LinkedHashMap<UID, TLAGeneralIdentifier> startRecording() {
 		touchedVars = new LinkedHashMap<>();
 		recording += 1;
+		return touchedVars;
 	}
 
-	public Map<UID, TLAGeneralIdentifier> stopRecording() {
-		Map<UID, TLAGeneralIdentifier> result = touchedVars;
+	public void stopRecording() {
 		touchedVars = new LinkedHashMap<>();
 		recording -= 1;
-		return result;
 	}
 }
