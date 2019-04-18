@@ -271,6 +271,26 @@ public class ExpressionCodeGenRunTest {
 				Collections.emptyList(),
 				Collections.singletonList("[1 2 3 10 11]")
 			},
+			{
+                opcall("SubSeq", idexp("seq"), num(4), num(5)),
+				Collections.singletonList(kv("seq", tuple(num(1), num(2), num(3), num(4), num(5)))),
+				Collections.singletonList("[4 5]"),
+			},
+			{
+				opcall("SubSeq", idexp("seq"), num(6), num(5)),
+				Collections.singletonList(kv("seq", tuple(num(1), num(2), num(3), num(4), num(5)))),
+				Collections.singletonList("[]"),
+			},
+			{
+				opcall("SubSeq", idexp("seq"), num(5), num(5)),
+				Collections.singletonList(kv("seq", tuple(num(1), num(2), num(3), num(4), num(5)))),
+				Collections.singletonList("[5]"),
+			},
+			{
+				opcall("SubSeq", idexp("seq"), num(1), num(1)),
+				Collections.singletonList(kv("seq", tuple(num(1), num(2), num(3), num(4), num(5)))),
+				Collections.singletonList("[1]"),
+			},
 			// function tests
 			{
 				function(
