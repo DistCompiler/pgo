@@ -8,6 +8,9 @@ ASSUME /\ NUM_PROPOSERS \in Nat
        /\ NUM_ACCEPTORS \in Nat
        /\ NUM_LEARNERS \in Nat
 
+CONSTANT NULL
+ASSUME NULL \notin 1..NUM_SLOTS
+
 AllNodes == 0..(NUM_PROPOSERS+NUM_ACCEPTORS+NUM_LEARNERS-1)
 
 (***************************************************************************
@@ -33,6 +36,11 @@ AllNodes == 0..(NUM_PROPOSERS+NUM_ACCEPTORS+NUM_LEARNERS-1)
       };
   }
 
+  macro BroadcastLearners(mailboxes, msg, i)
+  {
+      Broadcast(mailboxes, msg, i, NUM_PROPOSERS+NUM_ACCEPTORS+NUM_LEARNERS-1);
+  }
+
   mapping macro FIFOChannel {
       read {
           await Len($variable) > 0;
@@ -53,6 +61,7 @@ AllNodes == 0..(NUM_PROPOSERS+NUM_ACCEPTORS+NUM_LEARNERS-1)
       }
 
       write {
+          assert($value \notin $variable); \* TODO: change this to use a value instead of a set of values
           yield $variable \union {$value};
       }
   }
@@ -60,7 +69,7 @@ AllNodes == 0..(NUM_PROPOSERS+NUM_ACCEPTORS+NUM_LEARNERS-1)
   \* Acceptor process actions
   archetype ALearner(ref mailboxes, ref decided)
   variables accepts = <<>>,
-            cnt = 0,
+            numAccepted = 0,
             j,
             entry,
             msg;
@@ -70,16 +79,21 @@ L:  while (TRUE) {
 L1:     if (msg.type = ACCEPT_MSG) {
             accepts := Append(accepts, msg);
             j := 1;
-            cnt := 0;
+            numAccepted := 0;
 L2:         while (j <= Len(accepts)) {
                 entry := accepts[j];
                 if (entry.slot = msg.slot /\ entry.bal = msg.bal /\ entry.val = msg.val) {
-                    cnt := cnt + 1;
+                    numAccepted := numAccepted + 1;
                 };
                 j := j + 1;
             };
-            if (cnt*2 > Cardinality(Acceptor)) {
+
+            \* Checks whether the majority of acceptors accepted a value for the current slot
+            if (numAccepted*2 > Cardinality(Acceptor)) {
                 decided[msg.slot] := msg.val;
+
+                \* garbage collect: no longer need to keep previously accepted values
+                accepts := <<>>;
             };
         };
     };
@@ -88,7 +102,7 @@ L2:         while (j <= Len(accepts)) {
   \* Acceptor process actions
   archetype AAcceptor(ref mailboxes)
   variables maxBal = -1,
-            aidx,
+            loopIndex,
             acceptedValues = <<>>,
             payload,
             msg;
@@ -97,17 +111,17 @@ A:  while (TRUE) {
         msg := mailboxes[self];
 A1:     if (msg.type = PREPARE_MSG /\ msg.bal > maxBal) {
 A2:         maxBal := msg.bal;
-            mailboxes[msg.sender] := [type |-> PROMISE_MSG, sender |-> self, bal |-> maxBal, slot |-> msg.slot, val |-> msg.val, accepted |-> acceptedValues];
+            mailboxes[msg.sender] := [type |-> PROMISE_MSG, sender |-> self, bal |-> maxBal, slot |-> NULL, val |-> NULL, accepted |-> acceptedValues];
 
         } elseif (msg.type = PROPOSE_MSG /\ msg.bal >= maxBal) {
 A3:         maxBal := msg.bal;
-            aidx := NUM_PROPOSERS+NUM_ACCEPTORS;
-
             payload := [type |-> ACCEPT_MSG, sender |-> self, bal |-> maxBal, slot |-> msg.slot, val |-> msg.val, accepted |-> acceptedValues];
-            acceptedValues := Append(acceptedValues, [slot |-> msg.slot, bal |-> msg.bal, val |-> msg.val]);
 
+            acceptedValues := Append(acceptedValues, [slot |-> msg.slot, bal |-> msg.bal, val |-> msg.val]);
             mailboxes[msg.sender] := payload;
-loop2:      Broadcast(mailboxes, payload, aidx, NUM_PROPOSERS+NUM_ACCEPTORS+NUM_LEARNERS-1);
+
+            loopIndex := NUM_PROPOSERS+NUM_ACCEPTORS;
+loop2:      BroadcastLearners(mailboxes, payload, loopIndex);
 
         } elseif (msg.type = PROPOSE_MSG /\ msg.bal < maxBal) {
 A4:         mailboxes[msg.sender] := [type |-> ACCEPT_MSG, sender |-> self, bal |-> maxBal, slot |-> msg.slot, val |-> msg.val, accepted |-> acceptedValues];
@@ -131,13 +145,13 @@ A4:         mailboxes[msg.sender] := [type |-> ACCEPT_MSG, sender |-> self, bal 
             idx = NUM_PROPOSERS;
   {
 Pre:b := self;
-P:  while (s \in Slots /\ b \in Ballots) {
+P:  while (s \in Slots) {
 P1:     if (elected) {
             accepts := 0;
             v := self;
             j := 1;
 P5:         while (j <= Len(acceptedValues)) {
-                entry := Head(acceptedValues[j]);
+                entry := acceptedValues[j];
                 if (entry.slot = s /\ entry.bal >= max.bal) {
                     v := entry.val;
                     max := entry;
@@ -163,10 +177,10 @@ P6:                 if (resp.bal > b \/ resp.slot # s \/ resp.val # v) {
             };
             \* If still elected, then we must have a majority of accepts
 P7:         if (elected) {
-P8:             s := s + 1;
+               s := s + 1;
             };
         } else {
-loop3:      Broadcast(mailboxes, [type |-> PREPARE_MSG, bal |-> b, sender |-> self, slot |-> s, val |-> v], idx, NUM_PROPOSERS+NUM_ACCEPTORS-1);
+loop3:      Broadcast(mailboxes, [type |-> PREPARE_MSG, bal |-> b, sender |-> self, slot |-> NULL, val |-> v], idx, NUM_PROPOSERS+NUM_ACCEPTORS-1);
             idx := NUM_PROPOSERS;
             promises := 0;
             \* Wait for response from majority of acceptors
@@ -179,8 +193,8 @@ search2:    while (~elected) {
                     \* Is it still from a current term?
 P2:                 if (resp.bal > b) {
                         \* Pre-empted, try again for election
-                        b := b+NUM_PROPOSERS;
-loop4:                  Broadcast(mailboxes, [type |-> PREPARE_MSG, bal |-> b, sender |-> self, slot |-> s, val |-> v], idx, NUM_PROPOSERS+NUM_ACCEPTORS-1);
+                        b := b+NUM_PROPOSERS; \* to remain unique
+loop4:                  Broadcast(mailboxes, [type |-> PREPARE_MSG, bal |-> b, sender |-> self, slot |-> NULL, val |-> v], idx, NUM_PROPOSERS+NUM_ACCEPTORS-1);
                         idx := NUM_PROPOSERS;
                     } else {
 P3:                     if (resp.bal = b) {
@@ -230,7 +244,7 @@ P4:                         if (promises*2 > Cardinality(Acceptor)) {
         Pre:
             b := self;
         P:
-            if (((s) \in (Slots)) /\ ((b) \in (Ballots))) {
+            if ((s) \in (Slots)) {
                 P1:
                     if (elected) {
                         accepts := 0;
@@ -238,7 +252,7 @@ P4:                         if (promises*2 > Cardinality(Acceptor)) {
                         j := 1;
                         P5:
                             if ((j) <= (Len(acceptedValues))) {
-                                entry := Head(acceptedValues[j]);
+                                entry := acceptedValues[j];
                                 if ((((entry).slot) = (s)) /\ (((entry).bal) >= ((max).bal))) {
                                     v := (entry).val;
                                     max := entry;
@@ -286,10 +300,8 @@ P4:                         if (promises*2 > Cardinality(Acceptor)) {
 
                         P7:
                             if (elected) {
-                                P8:
-                                    s := (s) + (1);
-                                    goto P;
-
+                                s := (s) + (1);
+                                goto P;
                             } else {
                                 goto P;
                             };
@@ -297,7 +309,7 @@ P4:                         if (promises*2 > Cardinality(Acceptor)) {
                     } else {
                         loop3:
                             if ((idx) <= ((NUM_PROPOSERS) + ((NUM_ACCEPTORS) - (1)))) {
-                                mailboxesWrite := [network EXCEPT ![idx] = Append(network[idx], [type |-> PREPARE_MSG, bal |-> b, sender |-> self, slot |-> s, val |-> v])];
+                                mailboxesWrite := [network EXCEPT ![idx] = Append(network[idx], [type |-> PREPARE_MSG, bal |-> b, sender |-> self, slot |-> NULL, val |-> v])];
                                 idx := (idx) + (1);
                                 mailboxesWrite1 := mailboxesWrite;
                                 network := mailboxesWrite1;
@@ -325,7 +337,7 @@ P4:                         if (promises*2 > Cardinality(Acceptor)) {
                                             b := (b) + (NUM_PROPOSERS);
                                             loop4:
                                                 if ((idx) <= ((NUM_PROPOSERS) + ((NUM_ACCEPTORS) - (1)))) {
-                                                    mailboxesWrite := [network EXCEPT ![idx] = Append(network[idx], [type |-> PREPARE_MSG, bal |-> b, sender |-> self, slot |-> s, val |-> v])];
+                                                    mailboxesWrite := [network EXCEPT ![idx] = Append(network[idx], [type |-> PREPARE_MSG, bal |-> b, sender |-> self, slot |-> NULL, val |-> v])];
                                                     idx := (idx) + (1);
                                                     mailboxesWrite2 := mailboxesWrite;
                                                     network := mailboxesWrite2;
@@ -391,7 +403,7 @@ P4:                         if (promises*2 > Cardinality(Acceptor)) {
                     if ((((msg).type) = (PREPARE_MSG)) /\ (((msg).bal) > (maxBal))) {
                         A2:
                             maxBal := (msg).bal;
-                            mailboxesWrite8 := [network EXCEPT ![(msg).sender] = Append(network[(msg).sender], [type |-> PROMISE_MSG, sender |-> self, bal |-> maxBal, slot |-> (msg).slot, val |-> (msg).val, accepted |-> acceptedValues])];
+                            mailboxesWrite8 := [network EXCEPT ![(msg).sender] = Append(network[(msg).sender], [type |-> PROMISE_MSG, sender |-> self, bal |-> maxBal, slot |-> NULL, val |-> NULL, accepted |-> acceptedValues])];
                             network := mailboxesWrite8;
                             goto A;
 
@@ -442,7 +454,7 @@ P4:                         if (promises*2 > Cardinality(Acceptor)) {
 
     }
     fair process (learner \in Learner)
-    variables decidedLocal = [slot \in Slots |-> {}], accepts = <<>>, cnt = 0, j, entry, msg;
+    variables decidedLocal = [slot \in Slots |-> {}], accepts = <<>>, numAccepted = 0, j, entry, msg;
     {
         L:
             if (TRUE) {
@@ -457,20 +469,22 @@ P4:                         if (promises*2 > Cardinality(Acceptor)) {
                     if (((msg).type) = (ACCEPT_MSG)) {
                         accepts := Append(accepts, msg);
                         j := 1;
-                        cnt := 0;
+                        numAccepted := 0;
                         L2:
                             if ((j) <= (Len(accepts))) {
                                 entry := accepts[j];
                                 if (((((entry).slot) = ((msg).slot)) /\ (((entry).bal) = ((msg).bal))) /\ (((entry).val) = ((msg).val))) {
-                                    cnt := (cnt) + (1);
+                                    numAccepted := (numAccepted) + (1);
                                 };
                                 j := (j) + (1);
                                 decidedWrite1 := decidedLocal;
                                 decidedLocal := decidedWrite1;
                                 goto L2;
                             } else {
-                                if (((cnt) * (2)) > (Cardinality(Acceptor))) {
+                                if (((numAccepted) * (2)) > (Cardinality(Acceptor))) {
+                                    assert ((msg).val) \notin (decidedLocal[(msg).slot]);
                                     decidedWrite := [decidedLocal EXCEPT ![(msg).slot] = (decidedLocal[(msg).slot]) \union ({(msg).val})];
+                                    accepts := <<>>;
                                     decidedWrite0 := decidedWrite;
                                     decidedWrite1 := decidedWrite0;
                                     decidedLocal := decidedWrite1;
@@ -502,11 +516,11 @@ P4:                         if (promises*2 > Cardinality(Acceptor)) {
 ***************************************************************************)
 
 \* BEGIN TRANSLATION
-\* Process variable acceptedValues of process proposer at line 228 col 42 changed to acceptedValues_
-\* Process variable j of process proposer at line 228 col 116 changed to j_
-\* Process variable entry of process proposer at line 228 col 119 changed to entry_
-\* Process variable accepts of process proposer at line 228 col 136 changed to accepts_
-\* Process variable msg of process acceptor at line 379 col 68 changed to msg_
+\* Process variable acceptedValues of process proposer at line 237 col 42 changed to acceptedValues_
+\* Process variable j of process proposer at line 237 col 116 changed to j_
+\* Process variable entry of process proposer at line 237 col 119 changed to entry_
+\* Process variable accepts of process proposer at line 237 col 136 changed to accepts_
+\* Process variable msg of process acceptor at line 386 col 68 changed to msg_
 CONSTANT defaultInitValue
 VARIABLES network, mailboxesWrite, mailboxesWrite0, mailboxesRead,
           mailboxesWrite1, mailboxesWrite2, mailboxesWrite3, mailboxesWrite4,
@@ -530,7 +544,7 @@ CHOSEN_MSG == 4
 
 VARIABLES b, s, elected, acceptedValues_, max, j_, entry_, promises, accepts_,
           v, resp, idx, maxBal, aidx, acceptedValues, payload, msg_,
-          decidedLocal, accepts, cnt, j, entry, msg
+          decidedLocal, accepts, numAccepted, j, entry, msg
 
 vars == << network, mailboxesWrite, mailboxesWrite0, mailboxesRead,
            mailboxesWrite1, mailboxesWrite2, mailboxesWrite3, mailboxesWrite4,
@@ -541,7 +555,7 @@ vars == << network, mailboxesWrite, mailboxesWrite0, mailboxesRead,
            decidedWrite1, decidedWrite2, decidedWrite3, pc, b, s, elected,
            acceptedValues_, max, j_, entry_, promises, accepts_, v, resp, idx,
            maxBal, aidx, acceptedValues, payload, msg_, decidedLocal, accepts,
-           cnt, j, entry, msg >>
+           numAccepted, j, entry, msg >>
 
 ProcSet == (Proposer) \cup (Acceptor) \cup (Learner)
 
@@ -593,7 +607,7 @@ Init == (* Global variables *)
         (* Process learner *)
         /\ decidedLocal = [self \in Learner |-> [slot \in Slots |-> {}]]
         /\ accepts = [self \in Learner |-> <<>>]
-        /\ cnt = [self \in Learner |-> 0]
+        /\ numAccepted = [self \in Learner |-> 0]
         /\ j = [self \in Learner |-> defaultInitValue]
         /\ entry = [self \in Learner |-> defaultInitValue]
         /\ msg = [self \in Learner |-> defaultInitValue]
@@ -616,10 +630,10 @@ Pre(self) == /\ pc[self] = "Pre"
                              decidedWrite3, s, elected, acceptedValues_, max,
                              j_, entry_, promises, accepts_, v, resp, idx,
                              maxBal, aidx, acceptedValues, payload, msg_,
-                             decidedLocal, accepts, cnt, j, entry, msg >>
+                             decidedLocal, accepts, numAccepted, j, entry, msg >>
 
 P(self) == /\ pc[self] = "P"
-           /\ IF ((s[self]) \in (Slots)) /\ ((b[self]) \in (Ballots))
+           /\ IF (s[self]) \in (Slots)
                  THEN /\ pc' = [pc EXCEPT ![self] = "P1"]
                       /\ UNCHANGED << network, mailboxesWrite7 >>
                  ELSE /\ mailboxesWrite7' = network
@@ -636,7 +650,7 @@ P(self) == /\ pc[self] = "P"
                            elected, acceptedValues_, max, j_, entry_, promises,
                            accepts_, v, resp, idx, maxBal, aidx,
                            acceptedValues, payload, msg_, decidedLocal,
-                           accepts, cnt, j, entry, msg >>
+                           accepts, numAccepted, j, entry, msg >>
 
 P1(self) == /\ pc[self] = "P1"
             /\ IF elected[self]
@@ -657,11 +671,11 @@ P1(self) == /\ pc[self] = "P1"
                             decidedWrite2, decidedWrite3, b, s, elected,
                             acceptedValues_, max, entry_, promises, resp, idx,
                             maxBal, aidx, acceptedValues, payload, msg_,
-                            decidedLocal, accepts, cnt, j, entry, msg >>
+                            decidedLocal, accepts, numAccepted, j, entry, msg >>
 
 P5(self) == /\ pc[self] = "P5"
             /\ IF (j_[self]) <= (Len(acceptedValues_[self]))
-                  THEN /\ entry_' = [entry_ EXCEPT ![self] = Head(acceptedValues_[self][j_[self]])]
+                  THEN /\ entry_' = [entry_ EXCEPT ![self] = acceptedValues_[self][j_[self]]]
                        /\ IF (((entry_'[self]).slot) = (s[self])) /\ (((entry_'[self]).bal) >= ((max[self]).bal))
                              THEN /\ v' = [v EXCEPT ![self] = (entry_'[self]).val]
                                   /\ max' = [max EXCEPT ![self] = entry_'[self]]
@@ -682,7 +696,7 @@ P5(self) == /\ pc[self] = "P5"
                             decidedWrite2, decidedWrite3, b, s, elected,
                             acceptedValues_, promises, accepts_, resp, idx,
                             maxBal, aidx, acceptedValues, payload, msg_,
-                            decidedLocal, accepts, cnt, j, entry, msg >>
+                            decidedLocal, accepts, numAccepted, j, entry, msg >>
 
 loop1(self) == /\ pc[self] = "loop1"
                /\ IF (idx[self]) <= ((NUM_PROPOSERS) + ((NUM_ACCEPTORS) - (1)))
@@ -708,7 +722,8 @@ loop1(self) == /\ pc[self] = "loop1"
                                decidedWrite3, b, s, elected, acceptedValues_,
                                max, j_, entry_, promises, accepts_, v, resp,
                                maxBal, aidx, acceptedValues, payload, msg_,
-                               decidedLocal, accepts, cnt, j, entry, msg >>
+                               decidedLocal, accepts, numAccepted, j, entry,
+                               msg >>
 
 search1(self) == /\ pc[self] = "search1"
                  /\ IF (((accepts_[self]) * (2)) < (Cardinality(Acceptor))) /\ (elected[self])
@@ -738,7 +753,8 @@ search1(self) == /\ pc[self] = "search1"
                                  b, s, elected, acceptedValues_, max, j_,
                                  entry_, promises, accepts_, v, idx, maxBal,
                                  aidx, acceptedValues, payload, msg_,
-                                 decidedLocal, accepts, cnt, j, entry, msg >>
+                                 decidedLocal, accepts, numAccepted, j, entry,
+                                 msg >>
 
 P6(self) == /\ pc[self] = "P6"
             /\ IF ((((resp[self]).bal) > (b[self])) \/ (((resp[self]).slot) # (s[self]))) \/ (((resp[self]).val) # (v[self]))
@@ -759,29 +775,15 @@ P6(self) == /\ pc[self] = "P6"
                             decidedWrite2, decidedWrite3, b, s,
                             acceptedValues_, max, j_, entry_, promises, v,
                             resp, idx, maxBal, aidx, acceptedValues, payload,
-                            msg_, decidedLocal, accepts, cnt, j, entry, msg >>
+                            msg_, decidedLocal, accepts, numAccepted, j, entry,
+                            msg >>
 
 P7(self) == /\ pc[self] = "P7"
             /\ IF elected[self]
-                  THEN /\ pc' = [pc EXCEPT ![self] = "P8"]
+                  THEN /\ s' = [s EXCEPT ![self] = (s[self]) + (1)]
+                       /\ pc' = [pc EXCEPT ![self] = "P"]
                   ELSE /\ pc' = [pc EXCEPT ![self] = "P"]
-            /\ UNCHANGED << network, mailboxesWrite, mailboxesWrite0,
-                            mailboxesRead, mailboxesWrite1, mailboxesWrite2,
-                            mailboxesWrite3, mailboxesWrite4, mailboxesWrite5,
-                            mailboxesWrite6, mailboxesWrite7, mailboxesRead0,
-                            mailboxesWrite8, mailboxesWrite9, mailboxesWrite10,
-                            mailboxesWrite11, mailboxesWrite12,
-                            mailboxesWrite13, mailboxesRead1, mailboxesWrite14,
-                            decidedWrite, decidedWrite0, decidedWrite1,
-                            decidedWrite2, decidedWrite3, b, s, elected,
-                            acceptedValues_, max, j_, entry_, promises,
-                            accepts_, v, resp, idx, maxBal, aidx,
-                            acceptedValues, payload, msg_, decidedLocal,
-                            accepts, cnt, j, entry, msg >>
-
-P8(self) == /\ pc[self] = "P8"
-            /\ s' = [s EXCEPT ![self] = (s[self]) + (1)]
-            /\ pc' = [pc EXCEPT ![self] = "P"]
+                       /\ s' = s
             /\ UNCHANGED << network, mailboxesWrite, mailboxesWrite0,
                             mailboxesRead, mailboxesWrite1, mailboxesWrite2,
                             mailboxesWrite3, mailboxesWrite4, mailboxesWrite5,
@@ -794,11 +796,11 @@ P8(self) == /\ pc[self] = "P8"
                             acceptedValues_, max, j_, entry_, promises,
                             accepts_, v, resp, idx, maxBal, aidx,
                             acceptedValues, payload, msg_, decidedLocal,
-                            accepts, cnt, j, entry, msg >>
+                            accepts, numAccepted, j, entry, msg >>
 
 loop3(self) == /\ pc[self] = "loop3"
                /\ IF (idx[self]) <= ((NUM_PROPOSERS) + ((NUM_ACCEPTORS) - (1)))
-                     THEN /\ mailboxesWrite' = [network EXCEPT ![idx[self]] = Append(network[idx[self]], [type |-> PREPARE_MSG, bal |-> b[self], sender |-> self, slot |-> s[self], val |-> v[self]])]
+                     THEN /\ mailboxesWrite' = [network EXCEPT ![idx[self]] = Append(network[idx[self]], [type |-> PREPARE_MSG, bal |-> b[self], sender |-> self, slot |-> NULL, val |-> v[self]])]
                           /\ idx' = [idx EXCEPT ![self] = (idx[self]) + (1)]
                           /\ mailboxesWrite1' = mailboxesWrite'
                           /\ network' = mailboxesWrite1'
@@ -822,7 +824,8 @@ loop3(self) == /\ pc[self] = "loop3"
                                decidedWrite3, b, s, elected, acceptedValues_,
                                max, j_, entry_, accepts_, v, resp, maxBal,
                                aidx, acceptedValues, payload, msg_,
-                               decidedLocal, accepts, cnt, j, entry, msg >>
+                               decidedLocal, accepts, numAccepted, j, entry,
+                               msg >>
 
 search2(self) == /\ pc[self] = "search2"
                  /\ IF ~(elected[self])
@@ -860,7 +863,7 @@ search2(self) == /\ pc[self] = "search2"
                                  b, s, elected, max, j_, entry_, promises,
                                  accepts_, v, idx, maxBal, aidx,
                                  acceptedValues, payload, msg_, decidedLocal,
-                                 accepts, cnt, j, entry, msg >>
+                                 accepts, numAccepted, j, entry, msg >>
 
 P2(self) == /\ pc[self] = "P2"
             /\ IF ((resp[self]).bal) > (b[self])
@@ -880,11 +883,11 @@ P2(self) == /\ pc[self] = "P2"
                             acceptedValues_, max, j_, entry_, promises,
                             accepts_, v, resp, idx, maxBal, aidx,
                             acceptedValues, payload, msg_, decidedLocal,
-                            accepts, cnt, j, entry, msg >>
+                            accepts, numAccepted, j, entry, msg >>
 
 loop4(self) == /\ pc[self] = "loop4"
                /\ IF (idx[self]) <= ((NUM_PROPOSERS) + ((NUM_ACCEPTORS) - (1)))
-                     THEN /\ mailboxesWrite' = [network EXCEPT ![idx[self]] = Append(network[idx[self]], [type |-> PREPARE_MSG, bal |-> b[self], sender |-> self, slot |-> s[self], val |-> v[self]])]
+                     THEN /\ mailboxesWrite' = [network EXCEPT ![idx[self]] = Append(network[idx[self]], [type |-> PREPARE_MSG, bal |-> b[self], sender |-> self, slot |-> NULL, val |-> v[self]])]
                           /\ idx' = [idx EXCEPT ![self] = (idx[self]) + (1)]
                           /\ mailboxesWrite2' = mailboxesWrite'
                           /\ network' = mailboxesWrite2'
@@ -906,7 +909,8 @@ loop4(self) == /\ pc[self] = "loop4"
                                decidedWrite3, b, s, elected, acceptedValues_,
                                max, j_, entry_, promises, accepts_, v, resp,
                                maxBal, aidx, acceptedValues, payload, msg_,
-                               decidedLocal, accepts, cnt, j, entry, msg >>
+                               decidedLocal, accepts, numAccepted, j, entry,
+                               msg >>
 
 P3(self) == /\ pc[self] = "P3"
             /\ IF ((resp[self]).bal) = (b[self])
@@ -925,7 +929,8 @@ P3(self) == /\ pc[self] = "P3"
                             decidedWrite2, decidedWrite3, b, s, elected,
                             acceptedValues_, max, j_, entry_, accepts_, v,
                             resp, idx, maxBal, aidx, acceptedValues, payload,
-                            msg_, decidedLocal, accepts, cnt, j, entry, msg >>
+                            msg_, decidedLocal, accepts, numAccepted, j, entry,
+                            msg >>
 
 P4(self) == /\ pc[self] = "P4"
             /\ IF ((promises[self]) * (2)) > (Cardinality(Acceptor))
@@ -945,13 +950,12 @@ P4(self) == /\ pc[self] = "P4"
                             acceptedValues_, max, j_, entry_, promises,
                             accepts_, v, resp, idx, maxBal, aidx,
                             acceptedValues, payload, msg_, decidedLocal,
-                            accepts, cnt, j, entry, msg >>
+                            accepts, numAccepted, j, entry, msg >>
 
 proposer(self) == Pre(self) \/ P(self) \/ P1(self) \/ P5(self)
                      \/ loop1(self) \/ search1(self) \/ P6(self)
-                     \/ P7(self) \/ P8(self) \/ loop3(self)
-                     \/ search2(self) \/ P2(self) \/ loop4(self)
-                     \/ P3(self) \/ P4(self)
+                     \/ P7(self) \/ loop3(self) \/ search2(self)
+                     \/ P2(self) \/ loop4(self) \/ P3(self) \/ P4(self)
 
 A(self) == /\ pc[self] = "A"
            /\ IF TRUE
@@ -976,8 +980,8 @@ A(self) == /\ pc[self] = "A"
                            decidedWrite1, decidedWrite2, decidedWrite3, b, s,
                            elected, acceptedValues_, max, j_, entry_, promises,
                            accepts_, v, resp, idx, maxBal, aidx,
-                           acceptedValues, payload, decidedLocal, accepts, cnt,
-                           j, entry, msg >>
+                           acceptedValues, payload, decidedLocal, accepts,
+                           numAccepted, j, entry, msg >>
 
 A1(self) == /\ pc[self] = "A1"
             /\ IF (((msg_[self]).type) = (PREPARE_MSG)) /\ (((msg_[self]).bal) > (maxBal[self]))
@@ -1010,11 +1014,11 @@ A1(self) == /\ pc[self] = "A1"
                             elected, acceptedValues_, max, j_, entry_,
                             promises, accepts_, v, resp, idx, maxBal, aidx,
                             acceptedValues, payload, msg_, decidedLocal,
-                            accepts, cnt, j, entry, msg >>
+                            accepts, numAccepted, j, entry, msg >>
 
 A2(self) == /\ pc[self] = "A2"
             /\ maxBal' = [maxBal EXCEPT ![self] = (msg_[self]).bal]
-            /\ mailboxesWrite8' = [network EXCEPT ![(msg_[self]).sender] = Append(network[(msg_[self]).sender], [type |-> PROMISE_MSG, sender |-> self, bal |-> maxBal'[self], slot |-> (msg_[self]).slot, val |-> (msg_[self]).val, accepted |-> acceptedValues[self]])]
+            /\ mailboxesWrite8' = [network EXCEPT ![(msg_[self]).sender] = Append(network[(msg_[self]).sender], [type |-> PROMISE_MSG, sender |-> self, bal |-> maxBal'[self], slot |-> NULL, val |-> NULL, accepted |-> acceptedValues[self]])]
             /\ network' = mailboxesWrite8'
             /\ pc' = [pc EXCEPT ![self] = "A"]
             /\ UNCHANGED << mailboxesWrite, mailboxesWrite0, mailboxesRead,
@@ -1028,7 +1032,7 @@ A2(self) == /\ pc[self] = "A2"
                             elected, acceptedValues_, max, j_, entry_,
                             promises, accepts_, v, resp, idx, aidx,
                             acceptedValues, payload, msg_, decidedLocal,
-                            accepts, cnt, j, entry, msg >>
+                            accepts, numAccepted, j, entry, msg >>
 
 A3(self) == /\ pc[self] = "A3"
             /\ maxBal' = [maxBal EXCEPT ![self] = (msg_[self]).bal]
@@ -1048,7 +1052,7 @@ A3(self) == /\ pc[self] = "A3"
                             decidedWrite1, decidedWrite2, decidedWrite3, b, s,
                             elected, acceptedValues_, max, j_, entry_,
                             promises, accepts_, v, resp, idx, msg_,
-                            decidedLocal, accepts, cnt, j, entry, msg >>
+                            decidedLocal, accepts, numAccepted, j, entry, msg >>
 
 loop2(self) == /\ pc[self] = "loop2"
                /\ IF (aidx[self]) <= (((NUM_PROPOSERS) + (NUM_ACCEPTORS)) + ((NUM_LEARNERS) - (1)))
@@ -1073,7 +1077,8 @@ loop2(self) == /\ pc[self] = "loop2"
                                decidedWrite3, b, s, elected, acceptedValues_,
                                max, j_, entry_, promises, accepts_, v, resp,
                                idx, maxBal, acceptedValues, payload, msg_,
-                               decidedLocal, accepts, cnt, j, entry, msg >>
+                               decidedLocal, accepts, numAccepted, j, entry,
+                               msg >>
 
 A4(self) == /\ pc[self] = "A4"
             /\ mailboxesWrite8' = [network EXCEPT ![(msg_[self]).sender] = Append(network[(msg_[self]).sender], [type |-> ACCEPT_MSG, sender |-> self, bal |-> maxBal[self], slot |-> (msg_[self]).slot, val |-> (msg_[self]).val, accepted |-> acceptedValues[self]])]
@@ -1090,7 +1095,7 @@ A4(self) == /\ pc[self] = "A4"
                             elected, acceptedValues_, max, j_, entry_,
                             promises, accepts_, v, resp, idx, maxBal, aidx,
                             acceptedValues, payload, msg_, decidedLocal,
-                            accepts, cnt, j, entry, msg >>
+                            accepts, numAccepted, j, entry, msg >>
 
 acceptor(self) == A(self) \/ A1(self) \/ A2(self) \/ A3(self)
                      \/ loop2(self) \/ A4(self)
@@ -1119,20 +1124,20 @@ L(self) == /\ pc[self] = "L"
                            decidedWrite0, decidedWrite1, decidedWrite2, b, s,
                            elected, acceptedValues_, max, j_, entry_, promises,
                            accepts_, v, resp, idx, maxBal, aidx,
-                           acceptedValues, payload, msg_, accepts, cnt, j,
-                           entry >>
+                           acceptedValues, payload, msg_, accepts, numAccepted,
+                           j, entry >>
 
 L1(self) == /\ pc[self] = "L1"
             /\ IF ((msg[self]).type) = (ACCEPT_MSG)
                   THEN /\ accepts' = [accepts EXCEPT ![self] = Append(accepts[self], msg[self])]
                        /\ j' = [j EXCEPT ![self] = 1]
-                       /\ cnt' = [cnt EXCEPT ![self] = 0]
+                       /\ numAccepted' = [numAccepted EXCEPT ![self] = 0]
                        /\ pc' = [pc EXCEPT ![self] = "L2"]
                        /\ UNCHANGED << decidedWrite2, decidedLocal >>
                   ELSE /\ decidedWrite2' = decidedLocal[self]
                        /\ decidedLocal' = [decidedLocal EXCEPT ![self] = decidedWrite2']
                        /\ pc' = [pc EXCEPT ![self] = "L"]
-                       /\ UNCHANGED << accepts, cnt, j >>
+                       /\ UNCHANGED << accepts, numAccepted, j >>
             /\ UNCHANGED << network, mailboxesWrite, mailboxesWrite0,
                             mailboxesRead, mailboxesWrite1, mailboxesWrite2,
                             mailboxesWrite3, mailboxesWrite4, mailboxesWrite5,
@@ -1150,16 +1155,19 @@ L2(self) == /\ pc[self] = "L2"
             /\ IF (j[self]) <= (Len(accepts[self]))
                   THEN /\ entry' = [entry EXCEPT ![self] = accepts[self][j[self]]]
                        /\ IF ((((entry'[self]).slot) = ((msg[self]).slot)) /\ (((entry'[self]).bal) = ((msg[self]).bal))) /\ (((entry'[self]).val) = ((msg[self]).val))
-                             THEN /\ cnt' = [cnt EXCEPT ![self] = (cnt[self]) + (1)]
+                             THEN /\ numAccepted' = [numAccepted EXCEPT ![self] = (numAccepted[self]) + (1)]
                              ELSE /\ TRUE
-                                  /\ cnt' = cnt
+                                  /\ UNCHANGED numAccepted
                        /\ j' = [j EXCEPT ![self] = (j[self]) + (1)]
                        /\ decidedWrite1' = decidedLocal[self]
                        /\ decidedLocal' = [decidedLocal EXCEPT ![self] = decidedWrite1']
                        /\ pc' = [pc EXCEPT ![self] = "L2"]
-                       /\ UNCHANGED << decidedWrite, decidedWrite0 >>
-                  ELSE /\ IF ((cnt[self]) * (2)) > (Cardinality(Acceptor))
-                             THEN /\ decidedWrite' = [decidedLocal[self] EXCEPT ![(msg[self]).slot] = (decidedLocal[self][(msg[self]).slot]) \union ({(msg[self]).val})]
+                       /\ UNCHANGED << decidedWrite, decidedWrite0, accepts >>
+                  ELSE /\ IF ((numAccepted[self]) * (2)) > (Cardinality(Acceptor))
+                             THEN /\ Assert(((msg[self]).val) \notin (decidedLocal[self][(msg[self]).slot]),
+                                            "Failure of assertion at line 480, column 37.")
+                                  /\ decidedWrite' = [decidedLocal[self] EXCEPT ![(msg[self]).slot] = (decidedLocal[self][(msg[self]).slot]) \union ({(msg[self]).val})]
+                                  /\ accepts' = [accepts EXCEPT ![self] = <<>>]
                                   /\ decidedWrite0' = decidedWrite'
                                   /\ decidedWrite1' = decidedWrite0'
                                   /\ decidedLocal' = [decidedLocal EXCEPT ![self] = decidedWrite1']
@@ -1168,8 +1176,8 @@ L2(self) == /\ pc[self] = "L2"
                                   /\ decidedWrite1' = decidedWrite0'
                                   /\ decidedLocal' = [decidedLocal EXCEPT ![self] = decidedWrite1']
                                   /\ pc' = [pc EXCEPT ![self] = "L"]
-                                  /\ UNCHANGED decidedWrite
-                       /\ UNCHANGED << cnt, j, entry >>
+                                  /\ UNCHANGED << decidedWrite, accepts >>
+                       /\ UNCHANGED << numAccepted, j, entry >>
             /\ UNCHANGED << network, mailboxesWrite, mailboxesWrite0,
                             mailboxesRead, mailboxesWrite1, mailboxesWrite2,
                             mailboxesWrite3, mailboxesWrite4, mailboxesWrite5,
@@ -1180,7 +1188,7 @@ L2(self) == /\ pc[self] = "L2"
                             decidedWrite2, decidedWrite3, b, s, elected,
                             acceptedValues_, max, j_, entry_, promises,
                             accepts_, v, resp, idx, maxBal, aidx,
-                            acceptedValues, payload, msg_, accepts, msg >>
+                            acceptedValues, payload, msg_, msg >>
 
 learner(self) == L(self) \/ L1(self) \/ L2(self)
 
@@ -1206,5 +1214,7 @@ Agreement == \A l1, l2 \in Learner, slot \in Slots :
                   /\ Cardinality(decidedLocal[l2][slot]) = 1 => decidedLocal[l1][slot] = decidedLocal[l2][slot]
 
 SlotSafety == \A l \in Learner, slot \in Slots : Cardinality(decidedLocal[l][slot]) \in {0, 1}
+
+EventuallyLearned == \E l \in Learner : \E slot \in Slots : <>(Cardinality(decidedLocal[l][slot]) = 1)
 
 =========================================================
