@@ -40,7 +40,6 @@ CONSTANTS Nil
         RequestVoteResponse == 1
         AppendEntries == 2
         AppendEntriesResponse == 3
-        SubSeq(seq,first,last) == [i \in 1..(1+first-last) |-> seq[first+last-1]]
         Term(log,index) == (IF Len(log) >= index /\ Len(log) > 0 THEN log[index].term ELSE 0)
     }
     
@@ -59,14 +58,6 @@ CONSTANTS Nil
                                  prevIndex |-> nextIndex[idx]-1, prevTerm |-> Term(log, nextIndex[idx]-1), granted |-> FALSE];
             };
             
-            idx := idx + 1;
-        };
-    }
-    
-    macro SubSeq(t, t2, end, idx) {
-        while(idx <= end) {
-            t2 := Append(t2,Head(t));
-            t := Tail(t);
             idx := idx + 1;
         };
     }
