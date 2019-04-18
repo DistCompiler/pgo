@@ -125,7 +125,7 @@ public class TemporaryBinding {
 	}
 
 	public LinkedHashMap<UID, TLAGeneralIdentifier> startRecording() {
-		touchedVars = new LinkedHashMap<>();
+		touchedVars = new LinkedHashMap<>(touchedVarsStack.peek());
 		touchedVarsStack.push(touchedVars);
 		return touchedVars;
 	}
