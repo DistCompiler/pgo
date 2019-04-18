@@ -272,7 +272,7 @@ public class ExpressionCodeGenRunTest {
 				Collections.singletonList("[1 2 3 10 11]")
 			},
 			{
-                opcall("SubSeq", idexp("seq"), num(4), num(5)),
+				opcall("SubSeq", idexp("seq"), num(4), num(5)),
 				Collections.singletonList(kv("seq", tuple(num(1), num(2), num(3), num(4), num(5)))),
 				Collections.singletonList("[4 5]"),
 			},

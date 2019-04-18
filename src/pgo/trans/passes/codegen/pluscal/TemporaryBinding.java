@@ -1,5 +1,6 @@
 package pgo.trans.passes.codegen.pluscal;
 
+import pgo.InternalCompilerError;
 import pgo.model.pcal.PlusCalVariableDeclaration;
 import pgo.model.tla.PlusCalDefaultInitValue;
 import pgo.model.tla.TLAExpression;
@@ -14,18 +15,47 @@ import pgo.util.SourceLocation;
 import java.util.*;
 
 public class TemporaryBinding {
+	public static class Checkpoint {
+		private final TemporaryBinding from;
+		private final Map<UID, Recycling.Checkpoint<TLAGeneralIdentifier>> checkpoints;
+
+		private Checkpoint(TemporaryBinding from, Map<UID, Recycling<TLAGeneralIdentifier>> temporaries) {
+			this.from = from;
+			this.checkpoints = new HashMap<>();
+			temporaries.forEach((k, v) -> this.checkpoints.put(k, v.checkpoint()));
+		}
+	}
+
 	private final NameCleaner nameCleaner;
 	private final Map<UID, Recycling<TLAGeneralIdentifier>> temporaries;
 	private final List<PlusCalVariableDeclaration> declarations;
-	private Map<UID, TLAGeneralIdentifier> touchedVars;
-	private int recording;
+	private ArrayDeque<LinkedHashMap<UID, TLAGeneralIdentifier>> touchedVarsStack;
+	private LinkedHashMap<UID, TLAGeneralIdentifier> touchedVars;
 
 	public TemporaryBinding(NameCleaner nameCleaner, List<PlusCalVariableDeclaration> declarations) {
 		this.nameCleaner = nameCleaner;
 		this.temporaries = new HashMap<>();
 		this.declarations = declarations;
-		this.touchedVars = new LinkedHashMap<>();
-		this.recording = 0;
+		this.touchedVarsStack = new ArrayDeque<>();
+		this.touchedVarsStack.push(new LinkedHashMap<>());
+		this.touchedVars = touchedVarsStack.peek();
+	}
+
+	public Checkpoint checkpoint() {
+		return new Checkpoint(this, temporaries);
+	}
+
+	public void restore(Checkpoint checkpoint) {
+		if (checkpoint.from != this) {
+			throw new InternalCompilerError();
+		}
+		temporaries.forEach((k, v) -> {
+			if (checkpoint.checkpoints.containsKey(k)) {
+				v.restore(checkpoint.checkpoints.get(k));
+			} else {
+				v.reuse();
+			}
+		});
 	}
 
 	public TLAGeneralIdentifier freshVariable(SourceLocation location, UID varUID, String nameHint) {
@@ -48,7 +78,7 @@ public class TemporaryBinding {
 		PlusCalVariableDeclaration declaration = new PlusCalVariableDeclaration(
 				location, new Located<>(location, fresh.getName().getId()), false, false, value);
 		declarations.add(declaration);
-		if (recording > 0) {
+		if (touchedVarsStack.size() > 1) {
 			touchedVars.put(varUID, fresh);
 		}
 		return fresh;
@@ -62,7 +92,7 @@ public class TemporaryBinding {
 		if (temporaries.containsKey(varUID)) {
 			Optional<TLAGeneralIdentifier> optionalResult = temporaries.get(varUID).use();
 			if (optionalResult.isPresent()) {
-				if (recording > 0) {
+				if (touchedVarsStack.size() > 1) {
 					touchedVars.put(varUID, optionalResult.get());
 				}
 				return optionalResult.get();
@@ -94,15 +124,14 @@ public class TemporaryBinding {
 		touchedVars.remove(varUID);
 	}
 
-	public void startRecording() {
+	public LinkedHashMap<UID, TLAGeneralIdentifier> startRecording() {
 		touchedVars = new LinkedHashMap<>();
-		recording += 1;
+		touchedVarsStack.push(touchedVars);
+		return touchedVars;
 	}
 
-	public Map<UID, TLAGeneralIdentifier> stopRecording() {
-		Map<UID, TLAGeneralIdentifier> result = touchedVars;
-		touchedVars = new LinkedHashMap<>();
-		recording -= 1;
-		return result;
+	public void stopRecording() {
+		touchedVarsStack.pop();
+		touchedVars = touchedVarsStack.peek();
 	}
 }
