@@ -214,8 +214,8 @@ loop3:          while(lastApplied < commitIndex) {
                 };
             } else {
                 nextIndex[msg.sender] := IF nextIndex[msg.sender] - 1 > 1 THEN nextIndex[msg.sender] - 1 ELSE 1;
-N9:             network[msg.sender] := [type |-> RequestVote, term |-> currentTerm, sender |-> self, entries |-> SubSeq(log, nextIndex[msg.sender], Len(log)),
-                                        prevIndex |-> nextIndex[msg.sender]-1, prevTerm |-> Term(log, nextIndex[msg.sender]-1), granted |-> FALSE, commit |-> commitIndex];
+N9:             network[msg.sender] := [sender |-> self, type |-> RequestVote, term |-> currentTerm, granted |-> FALSE, entries |-> SubSeq(log, nextIndex[msg.sender], Len(log)),
+                                        prevIndex |-> nextIndex[msg.sender]-1, prevTerm |-> Term(log, nextIndex[msg.sender]-1), commit |-> commitIndex];
             };
         } elseif (msg.type = RequestVoteResponse) {
             if (msg.granted /\ state = Candidate) {
