@@ -20,6 +20,8 @@ public class TypeSolver {
 	private UnionFind<AbstractRecordType> abstractRecordGroups = new UnionFind<>();
 	private Map<AbstractRecordType, RecordTypeEntry> abstractRecordsToEntries = new HashMap<>();
 	private Deque<TypeSolver> stateStack = new ArrayDeque<>();
+	private int lastConstraintsSize = Integer.MAX_VALUE;
+	private Issue typeInferenceIssue = null;
 
 	private TypeVariableSubstitutionVisitor subs = new TypeVariableSubstitutionVisitor(
 			new TypeSubstitution(variableGroups, mapping));
@@ -36,10 +38,14 @@ public class TypeSolver {
 		constraints.addFirst(constraint);
 	}
 
-	private boolean backtrack() {
+	private Optional<Issue> backtrack(Issue issue) {
+		if (lastConstraintsSize > constraints.size()) {
+			lastConstraintsSize = constraints.size();
+			typeInferenceIssue = issue;
+		}
 		if (stateStack.size() <= 0) {
 			// unsuccessful
-			return false;
+			return Optional.of(typeInferenceIssue);
 		}
 		TypeSolver old = stateStack.pop();
 		constraints = old.constraints;
@@ -50,7 +56,7 @@ public class TypeSolver {
 		stateStack = old.stateStack;
 		subs = new TypeVariableSubstitutionVisitor(
 				new TypeSubstitution(variableGroups, mapping));
-		return true;
+		return Optional.empty();
 	}
 
 	private TypeSolver copy() {
@@ -89,6 +95,7 @@ public class TypeSolver {
 	}
 
 	private Optional<Issue> unify() {
+		lastConstraintsSize = constraints.size();
 		while (constraints.size() != 0) {
 			Constraint constraint = constraints.removeFirst();
 			if (constraint instanceof PolymorphicConstraint) {
@@ -128,10 +135,12 @@ public class TypeSolver {
 						}
 						return false;
 					})) {
-						if (backtrack()) {
-							continue;
+						Optional<Issue> optionalIssue =
+								backtrack(new NoMatchingFieldIssue((RecordType) expressionType, fieldName));
+						if (optionalIssue.isPresent()) {
+							return optionalIssue;
 						}
-						return Optional.of(new NoMatchingFieldIssue((RecordType) expressionType, fieldName));
+						continue;
 					}
 					continue;
 				}
@@ -148,10 +157,11 @@ public class TypeSolver {
 													new RecordTypeEntry.Abstract(
 															Collections.singletonMap(fieldName, fieldType))));
 						} catch (UnificationException e) {
-							if (backtrack()) {
-								continue;
+							Optional<Issue> optionalIssue = backtrack(e.getIssue());
+							if (optionalIssue.isPresent()) {
+								return optionalIssue;
 							}
-							return Optional.of(e.getIssue());
+							continue;
 						}
 					} else {
 						abstractRecordsToEntries.put(
@@ -231,10 +241,11 @@ public class TypeSolver {
 					}
 					abstractRecordsToEntries.put(rep, entryA.unify(this, entryB));
 				} catch (UnificationException e) {
-					if (backtrack()) {
-						continue;
+					Optional<Issue> optionalIssue = backtrack(e.getIssue());
+					if (optionalIssue.isPresent()) {
+						return optionalIssue;
 					}
-					return Optional.of(e.getIssue());
+					continue;
 				}
 				continue;
 			}
@@ -259,17 +270,19 @@ public class TypeSolver {
 				if (b instanceof AbstractRecordType) {
 					if (abstractRecordsToEntries.containsKey(b) &&
 							abstractRecordsToEntries.get(b).hasVariable((TypeVariable) a)) {
-						if (backtrack()) {
-							continue;
+						Optional<Issue> optionalIssue = backtrack(new InfiniteTypeIssue(a, b));
+						if (optionalIssue.isPresent()) {
+							return optionalIssue;
 						}
-						return Optional.of(new InfiniteTypeIssue(a, b));
+						continue;
 					}
 				} else {
 					if (b.accept(new TypeHasVariableVisitor((TypeVariable) a))) {
-						if (backtrack()) {
-							continue;
+						Optional<Issue> optionalIssue = backtrack(new InfiniteTypeIssue(a, b));
+						if (optionalIssue.isPresent()) {
+							return optionalIssue;
 						}
-						return Optional.of(new InfiniteTypeIssue(a, b));
+						continue;
 					}
 				}
 				// the constraint is of the form "a = some type"
@@ -287,20 +300,22 @@ public class TypeSolver {
 							abstractRecordsToEntries.getOrDefault(b, RecordTypeEntry.Abstract.EMPTY_ABSTRACT_RECORD)
 									.unify(this, new RecordTypeEntry.Concrete((RecordType) a)));
 				} catch (UnificationException e) {
-					if (backtrack()) {
-						continue;
+					Optional<Issue> optionalIssue = backtrack(e.getIssue());
+					if (optionalIssue.isPresent()) {
+						return optionalIssue;
 					}
-					return Optional.of(e.getIssue());
+					continue;
 				}
 			} else if (a instanceof RecordType && b instanceof RecordType) {
 				try {
 					(new RecordTypeEntry.Concrete((RecordType) a))
 							.unify(this, new RecordTypeEntry.Concrete((RecordType) b));
 				} catch (UnificationException e) {
-					if (backtrack()) {
-						continue;
+					Optional<Issue> optionalIssue = backtrack(e.getIssue());
+					if (optionalIssue.isPresent()) {
+						return optionalIssue;
 					}
-					return Optional.of(e.getIssue());
+					continue;
 				}
 			} else if (a instanceof ArchetypeResourceType && b instanceof ArchetypeResourceType) {
 				constraints.addFirst(new MonomorphicConstraint(
@@ -329,10 +344,11 @@ public class TypeSolver {
 				// in order for SimpleContainer[a] = SimpleContainer[b],
 				//   (1) the container types must be the same, and
 				if (!a.getClass().equals(b.getClass())) {
-					if (backtrack()) {
-						continue;
+					Optional<Issue> optionalIssue = backtrack(new UnsatisfiableConstraintIssue(a, b));
+					if (optionalIssue.isPresent()) {
+						return optionalIssue;
 					}
-					return Optional.of(new UnsatisfiableConstraintIssue(a, b));
+					continue;
 				}
 				//   (2) the element types must be the same
 				constraints.addFirst(new MonomorphicConstraint(
@@ -357,10 +373,11 @@ public class TypeSolver {
 				TupleType tb = (TupleType) b;
 				//   (1) they must have the same number of element types
 				if (ta.getElementTypes().size() != tb.getElementTypes().size()) {
-					if (backtrack()) {
-						continue;
+					Optional<Issue> optionalIssue = backtrack(new UnsatisfiableConstraintIssue(a, b));
+					if (optionalIssue.isPresent()) {
+						return optionalIssue;
 					}
-					return Optional.of(new UnsatisfiableConstraintIssue(a, b));
+					continue;
 				}
 				//   (2) each pair of corresponding element types must be the same
 				for (int i = 0; i < ta.getElementTypes().size(); i++) {
@@ -375,10 +392,11 @@ public class TypeSolver {
 				FunctionType fb = (FunctionType) b;
 				//   (1) their parameter lists must be of the same size, and
 				if (fa.getParamTypes().size() != fb.getParamTypes().size()) {
-					if (backtrack()) {
-						continue;
+					Optional<Issue> optionalIssue = backtrack(new UnsatisfiableConstraintIssue(a, b));
+					if (optionalIssue.isPresent()) {
+						return optionalIssue;
 					}
-					return Optional.of(new UnsatisfiableConstraintIssue(a, b));
+					continue;
 				}
 				//   (2) each pair of corresponding parameter types must be the same, and
 				for (int i = 0; i < fa.getParamTypes().size(); i++) {
@@ -398,10 +416,11 @@ public class TypeSolver {
 				ProcedureType pb = (ProcedureType) b;
 				//   (1) their parameter lists must be of the same size, and
 				if (pa.getParamTypes().size() != pb.getParamTypes().size()) {
-					if (backtrack()) {
-						continue;
+					Optional<Issue> optionalIssue = backtrack(new UnsatisfiableConstraintIssue(a, b));
+					if (optionalIssue.isPresent()) {
+						return optionalIssue;
 					}
-					return Optional.of(new UnsatisfiableConstraintIssue(a, b));
+					continue;
 				}
 				//   (2) each pair of corresponding parameter types must be the same
 				for (int i = 0; i < pa.getParamTypes().size(); i++) {
@@ -410,9 +429,11 @@ public class TypeSolver {
 							pa.getParamTypes().get(i),
 							pb.getParamTypes().get(i)));
 				}
-			} else if (!backtrack()) {
-				// there is no other case for type equality, hence, record error
-				return Optional.of(new UnsatisfiableConstraintIssue(a, b));
+			} else {
+				Optional<Issue> optionalIssue = backtrack(new UnsatisfiableConstraintIssue(a, b));
+				if (optionalIssue.isPresent()) {
+					return optionalIssue;
+				}
 			}
 			// we backtracked successfully, continue solving
 		}
