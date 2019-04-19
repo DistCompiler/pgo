@@ -12,15 +12,15 @@ import pgo.util.SourceLocation;
 import java.util.*;
 
 public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLAExpression, RuntimeException> {
-	private final DefinitionRegistry registry;
-	private final Map<UID, PlusCalVariableDeclaration> params;
-	private final Map<UID, TLAGeneralIdentifier> arguments;
-	private final Set<UID> expressionArguments;
-	private final Map<UID, ModularPlusCalMappingMacro> mappings;
-	private final Set<UID> functionMappedVars;
-	private final TemporaryBinding readTemporaryBinding;
-	private final TemporaryBinding writeTemporaryBinding;
-	private final ProcedureExpander procedureExpander;
+	protected final DefinitionRegistry registry;
+	protected final Map<UID, PlusCalVariableDeclaration> params;
+	protected final Map<UID, TLAGeneralIdentifier> arguments;
+	protected final Set<UID> expressionArguments;
+	protected final Map<UID, ModularPlusCalMappingMacro> mappings;
+	protected final Set<UID> functionMappedVars;
+	protected final TemporaryBinding readTemporaryBinding;
+	protected final TemporaryBinding writeTemporaryBinding;
+	protected final ProcedureExpander procedureExpander;
 	private final List<PlusCalStatement> output;
 
 	TLAExpressionPlusCalCodeGenVisitor(DefinitionRegistry registry, Map<UID, PlusCalVariableDeclaration> params,
@@ -38,6 +38,12 @@ public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLA
 		this.writeTemporaryBinding = writeTemporaryBinding;
 		this.procedureExpander = procedureExpander;
 		this.output = output;
+	}
+
+	public TLAExpressionPlusCalCodeGenVisitor createWith(List<PlusCalStatement> output) {
+		return new TLAExpressionPlusCalCodeGenVisitor(
+				registry, params, arguments, expressionArguments, mappings, functionMappedVars, readTemporaryBinding,
+				writeTemporaryBinding, procedureExpander, output);
 	}
 
 	static Optional<TLAGeneralIdentifier> extractFunctionCallIdentifier(TLAFunctionCall fnCall,
@@ -71,21 +77,13 @@ public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLA
 	                                TLAExpression index) {
 		ModularPlusCalMappingMacroReadExpansionVisitor visitor =
 				new ModularPlusCalMappingMacroReadExpansionVisitor(
-						registry,
-						params,
-						arguments,
-						mappings,
-						expressionArguments,
-						functionMappedVars,
-						readTemporaryBinding,
-						writeTemporaryBinding,
-						procedureExpander,
-						dollarVariable,
-						varUID,
-						params.get(varUID).getName().getValue() + "Write",
-						index,
+						registry, params, arguments, mappings, expressionArguments, functionMappedVars,
+						readTemporaryBinding, writeTemporaryBinding, procedureExpander, dollarVariable, varUID,
+						params.get(varUID).getName().getValue() + "Write", index,
 						new TLAExpressionMappingMacroReadExpansionVisitor(
-								registry, readTemporaryBinding, writeTemporaryBinding, dollarVariable, varUID, index),
+								registry, params, arguments, expressionArguments, mappings, functionMappedVars,
+								readTemporaryBinding, writeTemporaryBinding, procedureExpander, output, dollarVariable,
+								varUID, index),
 						temp);
 		for (PlusCalStatement statement : mappings.get(varUID).getReadBody()) {
 			output.addAll(statement.accept(visitor));
@@ -188,10 +186,24 @@ public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLA
 				tlaExistential.getBody().accept(this));
 	}
 
+	private List<TLAQuantifierBound> transformBounds(List<TLAQuantifierBound> bounds) {
+		List<TLAQuantifierBound> result = new ArrayList<>();
+		for (TLAQuantifierBound bound : bounds) {
+			result.add(new TLAQuantifierBound(
+					bound.getLocation(),
+					bound.getType(),
+					bound.getIds(),
+					bound.getSet().accept(this)));
+		}
+		return result;
+	}
+
 	@Override
 	public TLAExpression visit(TLAFunction tlaFunction) throws RuntimeException {
 		return new TLAFunction(
-				tlaFunction.getLocation(), tlaFunction.getArguments(), tlaFunction.getBody().accept(this));
+				tlaFunction.getLocation(),
+				transformBounds(tlaFunction.getArguments()),
+				tlaFunction.getBody().accept(this));
 	}
 
 	@Override
@@ -310,18 +322,6 @@ public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLA
 				tlaOperatorCall.getName(),
 				tlaOperatorCall.getPrefix(),
 				arguments);
-	}
-
-	private List<TLAQuantifierBound> transformBounds(List<TLAQuantifierBound> bounds) {
-		List<TLAQuantifierBound> result = new ArrayList<>();
-		for (TLAQuantifierBound bound : bounds) {
-			result.add(new TLAQuantifierBound(
-					bound.getLocation(),
-					bound.getType(),
-					bound.getIds(),
-					bound.getSet().accept(this)));
-		}
-		return result;
 	}
 
 	@Override

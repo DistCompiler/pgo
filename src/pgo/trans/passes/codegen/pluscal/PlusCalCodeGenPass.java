@@ -156,14 +156,17 @@ public class PlusCalCodeGenPass {
 					expressionArguments.add(paramUID);
 				}
 			}
+			TemporaryBinding writeTemporaryBinding = new TemporaryBinding(nameCleaner, globalVariables);
+			ProcedureExpander procedureExpander = new ProcedureExpander(
+					ctx, registry, nameCleaner, procedureCache, arguments, mappings, refs, functionMappedVars,
+					procedures);
 			// initialize the local variables
 			ModularPlusCalCodeGenVisitor v = new ModularPlusCalCodeGenVisitor(
 					registry, params, arguments, mappings, expressionArguments, functionMappedVars,
-					readTemporaryBinding,
-					new TemporaryBinding(nameCleaner, globalVariables),
-					new ProcedureExpander(
-							ctx, registry, nameCleaner, procedureCache, arguments, mappings, refs, functionMappedVars,
-							procedures));
+					readTemporaryBinding, writeTemporaryBinding, procedureExpander,
+					new TLAExpressionPlusCalCodeGenVisitor(registry, params, arguments, expressionArguments, mappings,
+							functionMappedVars, readTemporaryBinding, writeTemporaryBinding, procedureExpander,
+							Collections.emptyList()));
 			List<PlusCalStatement> body = new ArrayList<>();
 			ProcedureExpander.initializeLocalVariables(
 					registry, archetype.getLocation(), params, archetype.getVariables(),

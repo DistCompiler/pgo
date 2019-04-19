@@ -17,7 +17,7 @@ public class ModularPlusCalMappingMacroReadExpansionVisitor extends ModularPlusC
 	protected final UID varUID;
 	protected final String nameHint;
 	private final TLAExpression index;
-	protected final TLAExpressionVisitor<TLAExpression, RuntimeException> visitor;
+	protected final TLAExpressionPlusCalCodeGenVisitor visitor;
 	private final TLAGeneralIdentifier temporaryVariable;
 
 	ModularPlusCalMappingMacroReadExpansionVisitor(
@@ -26,10 +26,10 @@ public class ModularPlusCalMappingMacroReadExpansionVisitor extends ModularPlusC
 			Set<UID> expressionArguments, Set<UID> functionMappedVars, TemporaryBinding readTemporaryBinding,
 			TemporaryBinding writeTemporaryBinding, ProcedureExpander procedureExpander,
 			TLAGeneralIdentifier dollarVariable, UID varUID, String nameHint, TLAExpression index,
-			TLAExpressionVisitor<TLAExpression, RuntimeException> visitor, TLAGeneralIdentifier temporaryVariable) {
+			TLAExpressionPlusCalCodeGenVisitor visitor, TLAGeneralIdentifier temporaryVariable) {
 		super(
 				registry, params, arguments, mappings, expressionArguments, functionMappedVars, readTemporaryBinding,
-				writeTemporaryBinding, procedureExpander);
+				writeTemporaryBinding, procedureExpander, visitor);
 		this.dollarVariable = dollarVariable;
 		this.varUID = varUID;
 		this.nameHint = nameHint;
