@@ -414,7 +414,7 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
             try (GoBlockBuilder yes = ifBuilder.whenTrue()) {
                 String permission;
 
-                // TODO: GlobalVariableStrategys cannot be stateful, so the code below does not work (currentLockGroup may be wrong)
+                // TODO: GlobalVariableStrategies cannot be stateful, so the code below does not work (currentLockGroup may be wrong)
                 // TODO: Ideally, what we want to do is to appropriately fork the instance of this class, just like with CriticalSectionTracker
                 // TODO: For now, we take the pessimistic choice of always acquiring resources with write permissions
                 permission = "WRITE_ACCESS";
