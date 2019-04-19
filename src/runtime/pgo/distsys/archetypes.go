@@ -73,6 +73,7 @@ func init() {
 	RegisterResource(&ImmutableResource{})
 	RegisterResource(&LocallySharedResource{})
 	RegisterResource(&AtomicInteger{})
+	RegisterResource(&SleepResource{})
 }
 
 // RegisterResource assigns a priority to the type of the resource
@@ -1035,11 +1036,67 @@ func (aint *AtomicInteger) Abort() error {
 	return nil
 }
 
-// Less implements ordering among locally shared
-// resources. Lexicographical order on the resource name is used.
+// Less implements ordering among atomic integer resources.
+// Lexicographical order on the resource name is used.
 func (aint *AtomicInteger) Less(other ArchetypeResource) bool {
 	otherResource := other.(*AtomicInteger)
 	return strings.Compare(aint.name, otherResource.name) < 0
+}
+
+// Sleeping as Archetype Resources
+// -------------------------------
+
+// SleepResource allows implementations to sleep an arbitrary duration
+// while executing an archetype.
+type SleepResource struct {
+	name string        // resource name, for ordering
+	unit time.Duration // seconds, milliseconds, ...
+}
+
+// NewSleepResource creates a resource that sleeps for the specified
+// amount of time when the resource is written to. The parameter given
+// indicates the unit used when the resource is used (i.e., seconds,
+// milliseconds, etc.)
+func NewSleepResource(name string, unit time.Duration) *SleepResource {
+	return &SleepResource{
+		name: name,
+		unit: unit,
+	}
+}
+
+// Acquire is a no-op for sleep resources
+func (_ *SleepResource) Acquire(_ ResourceAccess) error {
+	return nil
+}
+
+// Read panics if invoked. Sleep resources should not be read from!
+func (_ *SleepResource) Read() (interface{}, error) {
+	panic("Attempted to read SleepResource")
+}
+
+// Write sleeps for the specified amount of time (must be an integer)
+func (s *SleepResource) Write(value interface{}) error {
+	t := value.(int)
+
+	time.Sleep(time.Duration(t) * s.unit)
+	return nil
+}
+
+// Release is a no-op for sleep resources
+func (_ *SleepResource) Release() error {
+	return nil
+}
+
+// Abort is a no-op for sleep resources
+func (_ *SleepResource) Abort() error {
+	return nil
+}
+
+// Less implements ordering among sleep resources
+// Lexicographical order on the resource name is used.
+func (s *SleepResource) Less(other ArchetypeResource) bool {
+	otherResource := other.(*SleepResource)
+	return strings.Compare(s.name, otherResource.name) < 0
 }
 
 /////////////////////////////////////////////////////////////////////////
