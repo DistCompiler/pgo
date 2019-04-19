@@ -25,8 +25,8 @@ public class ModularPlusCalMappingMacroVariableWriteExpansionVisitor
 			Map<UID, ModularPlusCalMappingMacro> mappings, Set<UID> expressionArguments,
 			Set<UID> functionMappedVars, TemporaryBinding readTemporaryBinding,
 			TemporaryBinding writeTemporaryBinding, ProcedureExpander procedureExpander,
-			TLAGeneralIdentifier dollarVariable, UID varUID, String nameHint, TLAExpression index,
-			TLAExpressionVisitor<TLAExpression, RuntimeException> visitor) {
+			TLAExpressionPlusCalCodeGenVisitor visitor, TLAGeneralIdentifier dollarVariable, UID varUID,
+			String nameHint, TLAExpression index) {
 		super(
 				registry, params, arguments, mappings, expressionArguments, functionMappedVars, readTemporaryBinding,
 				writeTemporaryBinding, procedureExpander, dollarVariable, varUID, nameHint, index, visitor, null);
