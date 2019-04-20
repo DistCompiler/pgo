@@ -3686,7 +3686,7 @@ Agreement == \A l1, l2 \in Learner, slot \in Slots :
 EventuallyConsumeValue == \A p \in Proposer : <> (value[p] = p)
 EventuallyElected == \E p \in Proposer : <> elected[p]
 
-AllValuesLogged == <> (\A p \in Learner : Proposer = DOMAIN decidedLocal[p] )
+AllValuesLogged == <> (\A p \in Learner : Proposer = { decidedLocal[p][d] : d \in DOMAIN decidedLocal[p] } )
 
 \* SlotSafety == \A l \in Learner, slot \in Slots : decidedLocal[l][slot]) \in {0, 1}
 
