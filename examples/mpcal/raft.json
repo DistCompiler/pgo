@@ -1,12 +1,15 @@
 {
   "build": {
-    "output_dir": "examples/output/mpcal",
+    "output_dir": "output",
     "dest_package": "raft"
   },
   "constants": {
     "Nil": "42",
     "Slots": "1",
     "N": "3",
-    "Terms": "3"
+    "Terms": "3",
+    "Follower": "0",
+    "Candidate": "1",
+    "Leader": "2"
   }
 }
