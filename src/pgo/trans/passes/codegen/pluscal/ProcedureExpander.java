@@ -132,13 +132,17 @@ class ProcedureExpander {
 		if (procedureCache.containsKey(match)) {
 			procedureName = procedureCache.get(match);
 		} else {
+			TemporaryBinding readTemporaryBinding = new TemporaryBinding(nameCleaner, localVariables);
+			TemporaryBinding writeTemporaryBinding = new TemporaryBinding(nameCleaner, localVariables);
 			ModularPlusCalCodeGenVisitor v = new ModularPlusCalCodeGenVisitor(
 					registry, params, arguments, mappings, Collections.emptySet(), functionMappedVars,
-					new TemporaryBinding(nameCleaner, localVariables),
-					new TemporaryBinding(nameCleaner, localVariables),
+					readTemporaryBinding, writeTemporaryBinding,
 					new ProcedureExpander(
 							ctx, registry, nameCleaner, procedureCache, arguments, mappings, refs, functionMappedVars,
-							procedures));
+							procedures),
+					new TLAExpressionPlusCalCodeGenVisitor(
+							registry, params, arguments, Collections.emptySet(), mappings, functionMappedVars,
+							readTemporaryBinding, writeTemporaryBinding, this, Collections.emptyList()));
 			List<PlusCalStatement> body = new ArrayList<>();
 			initializeLocalVariables(
 					registry, procedure.getLocation(), Collections.emptyMap(), procedure.getVariables(),
