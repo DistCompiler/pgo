@@ -1,13 +1,10 @@
 {
   "build": {
-    "output_dir": "examples/output/mpcal",
-    "dest_package": "paxos"
+    "output_dir": "output",
+    "dest_package": "paxos_kv"
   },
   "constants": {
-    "NUM_PROPOSERS": "2",
-    "NUM_ACCEPTORS": "1",
-    "NUM_LEARNERS": "1",
-    "NUM_SLOTS": "5",
-    "MAX_BALLOT": "10"
+    "NUM_NODES": "3",
+    "NULL": "-1"
   }
 }
