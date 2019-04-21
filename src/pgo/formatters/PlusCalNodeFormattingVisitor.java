@@ -195,7 +195,7 @@ public class PlusCalNodeFormattingVisitor extends PlusCalNodeVisitor<Void, IOExc
 
 	@Override
 	public Void visit(PlusCalAssignmentPair plusCalAssignmentPair) throws IOException {
-		plusCalAssignmentPair.getLhs().accept(new TLAExpressionFormattingVisitor(out));
+		plusCalAssignmentPair.getLhs().accept(new TLAExpressionFormattingVisitor(out, true));
 		out.write(" := ");
 		plusCalAssignmentPair.getRhs().accept(new TLAExpressionFormattingVisitor(out));
 		return null;
