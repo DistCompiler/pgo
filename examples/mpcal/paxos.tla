@@ -4957,7 +4957,7 @@ ConsistentDatabase == \A kv1, kv2 \in KVRequests, k \in PutSet :
 \* Put requests are eventually consumed by proposers
 EventuallyConsumeValue == LET putRequests == { [type |-> PUT_MSG, key |-> v, value |-> v] : v \in PutSet }
                           IN
-                            \A p \in Proposer, req \in putRequests : <>(value[p] = req)
+                            <>(\E p \in Proposer, req \in putRequests : value[p] # defaultInitValue /\ value[p].key = req.key /\ value[p].value = req.value)
 
 \* A leader is eventually elected
 EventuallyElected == \E p \in Proposer : <>(elected[p])
