@@ -5,17 +5,17 @@
 
 EXTENDS Integers, Sequences, FiniteSets, TLC
 
-CONSTANTS NUM_NODES, NUM_REQUESTS
+CONSTANTS NUM_NODES
+ASSUME NUM_NODES \in Nat
 
 CONSTANT BUFFER_SIZE
 ASSUME BUFFER_SIZE \in Nat
 
-ASSUME NUM_NODES \in Nat /\ NUM_REQUESTS \in Nat
-
 CONSTANT NULL
 ASSUME NULL \notin Nat
 
-CONSTANT KeySet
+CONSTANTS GetSet, PutSet
+ASSUME IsFiniteSet(GetSet) /\ IsFiniteSet(PutSet)
 
 \* maximum amount of leader failures tested in a behavior
 CONSTANT MAX_FAILURES
@@ -103,16 +103,12 @@ ASSUME MAX_FAILURES \in Nat
       }
   }
 
-  mapping macro SequentialReads {
+  mapping macro NextRequest {
      read {
          await Cardinality($variable) > 0;
-         with (el \in $variable, k \in KeySet) {
-             $variable := $variable \ {el};
-             either {
-                 yield [type |-> GET_MSG, key |-> k];
-             } or {
-                 yield [type |-> PUT_MSG, key |-> k, value |-> el];
-             };
+         with (req \in $variable) {
+             $variable := $variable \ {req};
+             yield req;
          }
      }
 
@@ -480,12 +476,12 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
         kvClient,
 
         \* requests to be sent by the client
-        requestSet = 1..NUM_REQUESTS,
+        requestSet = { [type |-> GET_MSG, key |-> k] : k \in GetSet } \cup { [type |-> PUT_MSG, key |-> v, value |-> v] : v \in PutSet},
 
         learnedChan = [l \in Learner |-> [value |-> NULL]],
         paxosLayerChan = [p \in KVRequests |-> [value |-> NULL]],
 
-        database = [p \in KVRequests, k \in KeySet |-> NULL],
+        database = [p \in KVRequests, k \in PutSet |-> NULL],
 
         electionInProgresssAbstract = [h \in Heartbeat |-> TRUE],
         iAmTheLeaderAbstract = [h \in Heartbeat |-> FALSE],
@@ -517,7 +513,7 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
         mapping iAmTheLeaderAbstract[_] via Identity;
 
     fair process (kvRequests \in KVRequests) == instance KeyValueRequests(requestSet, ref kvClient, iAmTheLeaderAbstract, values, paxosLayerChan, database)
-        mapping requestSet via SequentialReads
+        mapping requestSet via NextRequest
         mapping iAmTheLeaderAbstract[_] via Identity
         mapping values[_] via UnbufferedChannel
         mapping paxosLayerChan[_] via UnbufferedChannel
@@ -531,7 +527,7 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
 
 \* BEGIN PLUSCAL TRANSLATION
 --algorithm Paxos {
-    variables network = [id \in AllNodes |-> <<>>], values = [p \in Proposer |-> [value |-> NULL]], lastSeenAbstract, monitorLastSeen = 0, timeoutCheckerAbstract = [monitorLastseen |-> 0], sleeperAbstract, kvClient, requestSet = (1) .. (NUM_REQUESTS), learnedChan = [l \in Learner |-> [value |-> NULL]], paxosLayerChan = [p \in KVRequests |-> [value |-> NULL]], database = [p \in KVRequests, k \in KeySet |-> NULL], electionInProgresssAbstract = [h \in Heartbeat |-> TRUE], iAmTheLeaderAbstract = [h \in Heartbeat |-> FALSE], leaderFailureAbstract = [h \in Heartbeat |-> FALSE], valueStreamRead, mailboxesWrite, mailboxesWrite0, mailboxesRead, iAmTheLeaderWrite, electionInProgressWrite, leaderFailureRead, iAmTheLeaderWrite0, electionInProgressWrite0, iAmTheLeaderWrite1, electionInProgressWrite1, mailboxesWrite1, iAmTheLeaderWrite2, electionInProgressWrite2, mailboxesWrite2, iAmTheLeaderWrite3, electionInProgressWrite3, iAmTheLeaderWrite4, electionInProgressWrite4, mailboxesWrite3, electionInProgressWrite5, mailboxesWrite4, iAmTheLeaderWrite5, electionInProgressWrite6, mailboxesWrite5, mailboxesWrite6, iAmTheLeaderWrite6, electionInProgressWrite7, mailboxesWrite7, iAmTheLeaderWrite7, electionInProgressWrite8, mailboxesWrite8, iAmTheLeaderWrite8, electionInProgressWrite9, mailboxesRead0, mailboxesWrite9, mailboxesWrite10, mailboxesWrite11, mailboxesWrite12, mailboxesWrite13, mailboxesWrite14, mailboxesWrite15, mailboxesRead1, mailboxesWrite16, decidedWrite, decidedWrite0, decidedWrite1, decidedWrite2, mailboxesWrite17, decidedWrite3, electionInProgressRead, iAmTheLeaderRead, mailboxesWrite18, mailboxesWrite19, heartbeatFrequencyRead, sleeperWrite, mailboxesWrite20, sleeperWrite0, mailboxesWrite21, sleeperWrite1, mailboxesRead2, lastSeenWrite, mailboxesWrite22, lastSeenWrite0, mailboxesWrite23, sleeperWrite2, lastSeenWrite1, electionInProgressRead0, iAmTheLeaderRead0, lastSeenRead, timeoutCheckerRead, timeoutCheckerWrite, timeoutCheckerWrite0, timeoutCheckerWrite1, leaderFailureWrite, electionInProgressWrite10, leaderFailureWrite0, electionInProgressWrite11, timeoutCheckerWrite2, leaderFailureWrite1, electionInProgressWrite12, monitorFrequencyRead, sleeperWrite3, timeoutCheckerWrite3, leaderFailureWrite2, electionInProgressWrite13, sleeperWrite4, requestsRead, requestsWrite, dbRead, upstreamWrite, upstreamWrite0, iAmTheLeaderRead1, proposerChanWrite, paxosChanRead, proposerChanWrite0, upstreamWrite1, proposerChanWrite1, upstreamWrite2, requestsWrite0, upstreamWrite3, proposerChanWrite2, learnerChanRead, dbWrite, requestServiceWrite, requestServiceWrite0, dbWrite0, requestServiceWrite1;
+    variables network = [id \in AllNodes |-> <<>>], values = [p \in Proposer |-> [value |-> NULL]], lastSeenAbstract, monitorLastSeen = 0, timeoutCheckerAbstract = [monitorLastseen |-> 0], sleeperAbstract, kvClient, requestSet = ({[type |-> GET_MSG, key |-> k] : k \in GetSet}) \cup ({[type |-> PUT_MSG, key |-> v, value |-> v] : v \in PutSet}), learnedChan = [l \in Learner |-> [value |-> NULL]], paxosLayerChan = [p \in KVRequests |-> [value |-> NULL]], database = [p \in KVRequests, k \in PutSet |-> NULL], electionInProgresssAbstract = [h \in Heartbeat |-> TRUE], iAmTheLeaderAbstract = [h \in Heartbeat |-> FALSE], leaderFailureAbstract = [h \in Heartbeat |-> FALSE], valueStreamRead, mailboxesWrite, mailboxesWrite0, mailboxesRead, iAmTheLeaderWrite, electionInProgressWrite, leaderFailureRead, iAmTheLeaderWrite0, electionInProgressWrite0, iAmTheLeaderWrite1, electionInProgressWrite1, mailboxesWrite1, iAmTheLeaderWrite2, electionInProgressWrite2, mailboxesWrite2, iAmTheLeaderWrite3, electionInProgressWrite3, iAmTheLeaderWrite4, electionInProgressWrite4, mailboxesWrite3, electionInProgressWrite5, mailboxesWrite4, iAmTheLeaderWrite5, electionInProgressWrite6, mailboxesWrite5, mailboxesWrite6, iAmTheLeaderWrite6, electionInProgressWrite7, mailboxesWrite7, iAmTheLeaderWrite7, electionInProgressWrite8, mailboxesWrite8, iAmTheLeaderWrite8, electionInProgressWrite9, mailboxesRead0, mailboxesWrite9, mailboxesWrite10, mailboxesWrite11, mailboxesWrite12, mailboxesWrite13, mailboxesWrite14, mailboxesWrite15, mailboxesRead1, mailboxesWrite16, decidedWrite, decidedWrite0, decidedWrite1, decidedWrite2, mailboxesWrite17, decidedWrite3, electionInProgressRead, iAmTheLeaderRead, mailboxesWrite18, mailboxesWrite19, heartbeatFrequencyRead, sleeperWrite, mailboxesWrite20, sleeperWrite0, mailboxesWrite21, sleeperWrite1, mailboxesRead2, lastSeenWrite, mailboxesWrite22, lastSeenWrite0, mailboxesWrite23, sleeperWrite2, lastSeenWrite1, electionInProgressRead0, iAmTheLeaderRead0, lastSeenRead, timeoutCheckerRead, timeoutCheckerWrite, timeoutCheckerWrite0, timeoutCheckerWrite1, leaderFailureWrite, electionInProgressWrite10, leaderFailureWrite0, electionInProgressWrite11, timeoutCheckerWrite2, leaderFailureWrite1, electionInProgressWrite12, monitorFrequencyRead, sleeperWrite3, timeoutCheckerWrite3, leaderFailureWrite2, electionInProgressWrite13, sleeperWrite4, requestsRead, requestsWrite, dbRead, upstreamWrite, upstreamWrite0, iAmTheLeaderRead1, proposerChanWrite, paxosChanRead, proposerChanWrite0, upstreamWrite1, proposerChanWrite1, upstreamWrite2, requestsWrite0, upstreamWrite3, proposerChanWrite2, learnerChanRead, dbWrite, requestServiceWrite, requestServiceWrite0, dbWrite0, requestServiceWrite1;
     define {
         Proposer == (0) .. ((NUM_NODES) - (1))
         Acceptor == (NUM_NODES) .. (((2) * (NUM_NODES)) - (1))
@@ -1119,13 +1115,9 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
         kvLoop:
             if (TRUE) {
                 await (Cardinality(requestSet)) > (0);
-                with (el0 \in requestSet, k0 \in KeySet) {
-                    requestsWrite := (requestSet) \ ({el0});
-                    either {
-                        requestsRead := [type |-> GET_MSG, key |-> k0];
-                    } or {
-                        requestsRead := [type |-> PUT_MSG, key |-> k0, value |-> el0];
-                    };
+                with (req0 \in requestSet) {
+                    requestsWrite := (requestSet) \ ({req0});
+                    requestsRead := req0;
                 };
                 msg := requestsRead;
                 assert (((msg).type) = (GET_MSG)) \/ (((msg).type) = (PUT_MSG));
@@ -1239,16 +1231,16 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
 ***************************************************************************)
 
 \* BEGIN TRANSLATION
-\* Label findId of process leaderStatusMonitor at line 1051 col 13 changed to findId_
-\* Process variable acceptedValues of process proposer at line 560 col 42 changed to acceptedValues_
-\* Process variable index of process proposer at line 560 col 116 changed to index_
-\* Process variable entry of process proposer at line 560 col 123 changed to entry_
-\* Process variable accepts of process proposer at line 560 col 160 changed to accepts_
-\* Process variable msg of process acceptor at line 817 col 73 changed to msg_
-\* Process variable msg of process learner at line 897 col 73 changed to msg_l
-\* Process variable msg of process heartbeatAction at line 966 col 46 changed to msg_h
-\* Process variable heartbeatId of process leaderStatusMonitor at line 1048 col 44 changed to heartbeatId_
-\* Process variable requestId of process kvRequests at line 1117 col 64 changed to requestId_
+\* Label findId of process leaderStatusMonitor at line 1044 col 13 changed to findId_
+\* Process variable acceptedValues of process proposer at line 553 col 42 changed to acceptedValues_
+\* Process variable index of process proposer at line 553 col 116 changed to index_
+\* Process variable entry of process proposer at line 553 col 123 changed to entry_
+\* Process variable accepts of process proposer at line 553 col 160 changed to accepts_
+\* Process variable msg of process acceptor at line 810 col 73 changed to msg_
+\* Process variable msg of process learner at line 890 col 73 changed to msg_l
+\* Process variable msg of process heartbeatAction at line 959 col 46 changed to msg_h
+\* Process variable heartbeatId of process leaderStatusMonitor at line 1041 col 44 changed to heartbeatId_
+\* Process variable requestId of process kvRequests at line 1110 col 64 changed to requestId_
 CONSTANT defaultInitValue
 VARIABLES network, values, lastSeenAbstract, monitorLastSeen,
           timeoutCheckerAbstract, sleeperAbstract, kvClient, requestSet,
@@ -1376,10 +1368,10 @@ Init == (* Global variables *)
         /\ timeoutCheckerAbstract = [monitorLastseen |-> 0]
         /\ sleeperAbstract = defaultInitValue
         /\ kvClient = defaultInitValue
-        /\ requestSet = (1) .. (NUM_REQUESTS)
+        /\ requestSet = (({[type |-> GET_MSG, key |-> k] : k \in GetSet}) \cup ({[type |-> PUT_MSG, key |-> v, value |-> v] : v \in PutSet}))
         /\ learnedChan = [l \in Learner |-> [value |-> NULL]]
         /\ paxosLayerChan = [p \in KVRequests |-> [value |-> NULL]]
-        /\ database = [p \in KVRequests, k \in KeySet |-> NULL]
+        /\ database = [p \in KVRequests, k \in PutSet |-> NULL]
         /\ electionInProgresssAbstract = [h \in Heartbeat |-> TRUE]
         /\ iAmTheLeaderAbstract = [h \in Heartbeat |-> FALSE]
         /\ leaderFailureAbstract = [h \in Heartbeat |-> FALSE]
@@ -2026,7 +2018,7 @@ PSearchAccs(self) == /\ pc[self] = "PSearchAccs"
                                                       /\ (leaderFailureAbstract[heartbeatMonitorId[self]]) = (TRUE)
                                                       /\ leaderFailureRead' = leaderFailureAbstract[heartbeatMonitorId[self]]
                                                       /\ Assert((leaderFailureRead') = (TRUE),
-                                                                "Failure of assertion at line 645, column 41.")
+                                                                "Failure of assertion at line 638, column 41.")
                                                       /\ iAmTheLeaderWrite0' = iAmTheLeaderWrite'
                                                       /\ electionInProgressWrite0' = electionInProgressWrite'
                                                       /\ iAmTheLeaderWrite1' = iAmTheLeaderWrite0'
@@ -2366,7 +2358,7 @@ PCandidate(self) == /\ pc[self] = "PCandidate"
                                                      /\ (leaderFailureAbstract[heartbeatMonitorId[self]]) = (TRUE)
                                                      /\ leaderFailureRead' = leaderFailureAbstract[heartbeatMonitorId[self]]
                                                      /\ Assert((leaderFailureRead') = (TRUE),
-                                                               "Failure of assertion at line 760, column 41.")
+                                                               "Failure of assertion at line 753, column 41.")
                                                      /\ b' = [b EXCEPT ![self] = (b[self]) + (NUM_NODES)]
                                                      /\ index_' = [index_ EXCEPT ![self] = NUM_NODES]
                                                      /\ network' = mailboxesWrite'
@@ -3917,7 +3909,7 @@ followerLoop(self) == /\ pc[self] = "followerLoop"
                                       /\ mailboxesRead2' = msg4
                                  /\ msg_h' = [msg_h EXCEPT ![self] = mailboxesRead2']
                                  /\ Assert(((msg_h'[self]).type) = (HEARTBEAT_MSG),
-                                           "Failure of assertion at line 1022, column 25.")
+                                           "Failure of assertion at line 1015, column 25.")
                                  /\ lastSeenWrite' = msg_h'[self]
                                  /\ mailboxesWrite22' = mailboxesWrite18'
                                  /\ lastSeenWrite0' = lastSeenWrite'
@@ -4314,14 +4306,12 @@ kvInit(self) == /\ pc[self] = "kvInit"
 kvLoop(self) == /\ pc[self] = "kvLoop"
                 /\ IF TRUE
                       THEN /\ (Cardinality(requestSet)) > (0)
-                           /\ \E el0 \in requestSet:
-                                \E k0 \in KeySet:
-                                  /\ requestsWrite' = (requestSet) \ ({el0})
-                                  /\ \/ /\ requestsRead' = [type |-> GET_MSG, key |-> k0]
-                                     \/ /\ requestsRead' = [type |-> PUT_MSG, key |-> k0, value |-> el0]
+                           /\ \E req0 \in requestSet:
+                                /\ requestsWrite' = (requestSet) \ ({req0})
+                                /\ requestsRead' = req0
                            /\ msg' = [msg EXCEPT ![self] = requestsRead']
                            /\ Assert((((msg'[self]).type) = (GET_MSG)) \/ (((msg'[self]).type) = (PUT_MSG)),
-                                     "Failure of assertion at line 1134, column 17.")
+                                     "Failure of assertion at line 1123, column 17.")
                            /\ requestSet' = requestsWrite'
                            /\ pc' = [pc EXCEPT ![self] = "checkGet"]
                            /\ UNCHANGED << values, kvClient, requestsWrite0,
@@ -4590,7 +4580,7 @@ putConfirm(self) == /\ pc[self] = "putConfirm"
                     /\ putOk' = [putOk EXCEPT ![self] = paxosChanRead']
                     /\ confirmedRequestId' = [confirmedRequestId EXCEPT ![self] = (putOk'[self]).id]
                     /\ Assert(((confirmedRequestId'[self][1]) = (self)) /\ ((confirmedRequestId'[self][2]) = (counter[self])),
-                              "Failure of assertion at line 1163, column 33.")
+                              "Failure of assertion at line 1152, column 33.")
                     /\ upstreamWrite' = [type |-> PUT_OK_MSG, result |-> null[self]]
                     /\ counter' = [counter EXCEPT ![self] = (counter[self]) + (1)]
                     /\ kvClient' = upstreamWrite'
@@ -4890,7 +4880,7 @@ Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 \* END TRANSLATION
 
 \*  Every KV node has a consistent database
-ConsistentDatabase == \A kv1, kv2 \in KVRequests, k \in KeySet :
+ConsistentDatabase == \A kv1, kv2 \in KVRequests, k \in PutSet :
                           database[kv1, k] # NULL /\ database[kv2, k] # NULL => database[kv1, k] = database[kv2, k]
 
 THEOREM Spec => []ConsistentDatabase
