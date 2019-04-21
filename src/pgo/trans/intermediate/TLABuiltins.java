@@ -717,6 +717,15 @@ public class TLABuiltins {
 					return new GoCall(new GoVariableName("len"), Collections.singletonList(arguments.get(0)));
 				}
 		));
+		FiniteSets.addOperator("IsFiniteSet", new TypelessBuiltinOperator(
+				1,
+				(origin, args, solver, generator) -> {
+					throw new TODO();
+				},
+				(builder, origin, registry, arguments, typeMap) -> {
+					throw new TODO();
+				}
+		));
 
 	}
 
