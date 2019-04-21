@@ -5,7 +5,7 @@
 
 EXTENDS Integers, Sequences, FiniteSets, TLC
 
-CONSTANTS NUM_NODES, NUM_REQUESTS, NUM_SLOTS, MAX_BALLOT
+CONSTANTS NUM_NODES, NUM_REQUESTS
 
 CONSTANT BUFFER_SIZE
 ASSUME BUFFER_SIZE \in Nat
@@ -20,9 +20,6 @@ CONSTANT KeySet
 \* maximum amount of leader failures tested in a behavior
 CONSTANT MAX_FAILURES
 ASSUME MAX_FAILURES \in Nat
-
-Slots == 1..NUM_SLOTS
-
 
 (***************************************************************************
 --mpcal Paxos {
@@ -93,15 +90,15 @@ Slots == 1..NUM_SLOTS
   \* defines semantics of unbuffered Go channels
   mapping macro UnbufferedChannel {
       read {
-          await $variable # NULL;
+          await $variable.value # NULL;
           with (v = $variable) {
-              $variable := NULL;
+              $variable.value := NULL;
               yield v;
           }
       }
 
       write {
-          await $variable = NULL;
+          await $variable.value = NULL;
           yield $value;
       }
   }
@@ -153,7 +150,6 @@ Slots == 1..NUM_SLOTS
 
   archetype ALearner(ref mailboxes, ref decided)
   variables accepts = <<>>,
-            decisions = [slot \in Slots |-> NULL],
             newAccepts,
             numAccepted,
             iterator,
@@ -178,8 +174,7 @@ LCheckMajority: while (iterator <= Len(accepts)) {
 
             \* Checks whether the majority of acceptors accepted a value for the current slot
             if (numAccepted*2 > Cardinality(Acceptor)) {
-                decided := msg.val;
-                decisions[msg.slog] := msg.val;
+                decided[self] := msg.val;
 
                 \* garbage collection: accepted values related to the slot just
                 \* decided can be discarded
@@ -284,7 +279,7 @@ PFindMaxVal: while (index <= Len(acceptedValues)) {
             \* if we do not need to propose a previously accepted value, read
             \* next proposal from client stream
             if (~repropose) {
-                value := valueStream;
+                value := valueStream[self];
             };
 
             index := NUM_NODES;
@@ -386,7 +381,6 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
           \* if the leader has timed out.
           if (~electionInProgress[heartbeatId] /\ ~iAmTheLeader[heartbeatId]) {
               if (timeoutChecker[lastSeen]) {
-                  print "Leader failed.";
                   leaderFailure[heartbeatId] := TRUE;
                   electionInProgress[heartbeatId] := TRUE;
               }
@@ -398,10 +392,11 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
 
 
   archetype KeyValueRequests(requests, ref upstream, iAmTheLeader, ref proposerChan, paxosChan, db)
-  variables msg, null, heartbeatId, counter = 0, requestId, putOk, confirmedRequestId;
+  variables msg, null, heartbeatId, proposerId, counter = 0, requestId, putOk, confirmedRequestId;
   {
       kvInit:
         heartbeatId := self - 2*NUM_NODES;
+        proposerId := self - 5*NUM_NODES;
 
       kvLoop:
         while (TRUE) {
@@ -410,54 +405,57 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
 
             checkGet:
               if (msg.type = GET_MSG) {
-                  upstream := [type |-> GET_RESPONSE_MSG, result |-> db[msg.key]];
+                  upstream := [type |-> GET_RESPONSE_MSG, result |-> db[<< self, msg.key >>]];
               };
 
             checkPut:
               if (msg.type = PUT_MSG) {
                   if (iAmTheLeader[heartbeatId]) {
-                      upstream := [type |-> PUT_NOT_LEADER_MSG, result |-> null];
-                  } else {
-
                       \* unique request identifier
                       requestId := << self, counter >>;
 
                       \* request that this operation be proposed by the underlying proposer
-                      proposerChan := [id |-> requestId, key |-> msg.key, value |-> msg.value];
-                      putOk := paxosChan;
+                      proposerChan[proposerId] := [id |-> requestId, key |-> msg.key, value |-> msg.value];
 
-                      \* ensure that confirmation is for value requested above
-                      confirmedRequestId := putOk.id;
-                      assert(confirmedRequestId[1] = self /\ confirmedRequestId[2] = counter);
+                      putConfirm:
+                        putOk := paxosChan[self];
 
-                      \* send result upstream
-                      upstream := [type |-> PUT_OK_MSG, result |-> null];
+                        \* ensure that confirmation is for value requested above
+                        confirmedRequestId := putOk.id;
+                        assert(confirmedRequestId[1] = self /\ confirmedRequestId[2] = counter);
 
-                      counter := counter + 1;
+                        \* send result upstream
+                        upstream := [type |-> PUT_OK_MSG, result |-> null];
+
+                        counter := counter + 1;
+
+                  } else {
+                      upstream := [type |-> PUT_NOT_LEADER_MSG, result |-> null];
                   }
               };
         }
   }
 
   archetype KeyValuePaxosManager(ref requestService, learnerChan, ref db)
-  variables myId, operation, requestId;
+  variables kvId, learnerId, operation, requestId;
   {
       findId:
-        myId := self - NUM_NODES;
+        kvId := self - NUM_NODES;
+        learnerId := self - 4*NUM_NODES;
 
       kvManagerLoop:
         while (TRUE) {
             \* wait for a value to be informed by the learner
-            operation := learnerChan;
+            operation := learnerChan[learnerId];
             requestId := operation.id;
 
             \* update our database
-            db[operation.key] := operation.value;
+            db[<< kvId, operation.key >>] := operation.value;
 
             \* if the request was issued by the running instance, send the operation back
             \* to the request service.
-            if (requestId[1] = myId) {
-                requestService := operation;
+            if (requestId[1] = kvId) {
+                requestService[kvId] := operation;
             };
         }
   }
@@ -466,7 +464,7 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
         network = [id \in AllNodes |-> <<>>],
 
         \* values to be proposed by the distinguished proposer
-        values = NULL,
+        values = [p \in Proposer |-> [value |-> NULL]],
 
         \* keeps track when a leader was last seen (last received heartbeat). Abstraction
         lastSeenAbstract,
@@ -484,8 +482,10 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
         \* requests to be sent by the client
         requestSet = 1..NUM_REQUESTS,
 
-        learnedChan = NULL,
-        paxosLayerChan = NULL,
+        learnedChan = [l \in Learner |-> [value |-> NULL]],
+        paxosLayerChan = [p \in KVRequests |-> [value |-> NULL]],
+
+        database = [p \in KVRequests, k \in KeySet |-> NULL],
 
         electionInProgresssAbstract = [h \in Heartbeat |-> TRUE],
         iAmTheLeaderAbstract = [h \in Heartbeat |-> FALSE],
@@ -493,7 +493,7 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
 
     fair process (proposer \in Proposer) == instance AProposer(ref network, values, ref leaderFailureAbstract, ref electionInProgresssAbstract, ref iAmTheLeaderAbstract)
         mapping network[_] via FIFOChannel
-        mapping values via UnbufferedChannel
+        mapping values[_] via UnbufferedChannel
         mapping leaderFailureAbstract[_] via BlockingUntilTrue
         mapping electionInProgresssAbstract[_] via Identity
         mapping iAmTheLeaderAbstract[_] via Identity;
@@ -503,7 +503,7 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
 
     fair process (learner \in Learner) == instance ALearner(ref network, learnedChan)
         mapping network[_] via FIFOChannel
-        mapping learnedChan via UnbufferedChannel;
+        mapping learnedChan[_] via UnbufferedChannel;
 
     fair process (heartbeatAction \in Heartbeat) == instance HeartbeatAction(ref network, lastSeenAbstract, ref sleeperAbstract, electionInProgresssAbstract, iAmTheLeaderAbstract, 100) \* frequency is irrelevant in model checking
         mapping electionInProgresssAbstract[_] via Identity
@@ -516,22 +516,22 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
         mapping electionInProgresssAbstract[_] via Identity
         mapping iAmTheLeaderAbstract[_] via Identity;
 
-    fair process (kvRequests \in KVRequests) == instance KeyValueRequests(requestSet, ref kvClient, iAmTheLeaderAbstract, values, paxosLayerChan, [k \in KeySet |-> NULL])
+    fair process (kvRequests \in KVRequests) == instance KeyValueRequests(requestSet, ref kvClient, iAmTheLeaderAbstract, values, paxosLayerChan, database)
         mapping requestSet via SequentialReads
         mapping iAmTheLeaderAbstract[_] via Identity
-        mapping values via UnbufferedChannel
-        mapping paxosLayerChan via UnbufferedChannel
-        mapping @6[_] via Identity;
+        mapping values[_] via UnbufferedChannel
+        mapping paxosLayerChan[_] via UnbufferedChannel
+        mapping database[_] via Identity;
 
-    fair process (kvPaxosManager \in KVPaxosManager) == instance KeyValuePaxosManager(ref paxosLayerChan, learnedChan, [k \in KeySet |-> NULL])
-        mapping paxosLayerChan via UnbufferedChannel
-        mapping learnedChan via UnbufferedChannel
-        mapping @3[_] via Identity;
+    fair process (kvPaxosManager \in KVPaxosManager) == instance KeyValuePaxosManager(ref paxosLayerChan, learnedChan, ref database)
+        mapping paxosLayerChan[_] via UnbufferedChannel
+        mapping learnedChan[_] via UnbufferedChannel
+        mapping database[_] via Identity;
 }
 
 \* BEGIN PLUSCAL TRANSLATION
 --algorithm Paxos {
-    variables network = [id \in AllNodes |-> <<>>], values = NULL, lastSeenAbstract, monitorLastSeen = 0, timeoutCheckerAbstract = [monitorLastseen |-> 0], sleeperAbstract, kvClient, requestSet = (1) .. (NUM_REQUESTS), learnedChan = NULL, paxosLayerChan = NULL, electionInProgresssAbstract = [h \in Heartbeat |-> TRUE], iAmTheLeaderAbstract = [h \in Heartbeat |-> FALSE], leaderFailureAbstract = [h \in Heartbeat |-> FALSE], valueStreamRead, valueStreamWrite, valueStreamWrite0, valueStreamWrite1, mailboxesWrite, mailboxesWrite0, mailboxesRead, iAmTheLeaderWrite, electionInProgressWrite, leaderFailureRead, iAmTheLeaderWrite0, electionInProgressWrite0, iAmTheLeaderWrite1, electionInProgressWrite1, mailboxesWrite1, iAmTheLeaderWrite2, electionInProgressWrite2, mailboxesWrite2, iAmTheLeaderWrite3, electionInProgressWrite3, iAmTheLeaderWrite4, electionInProgressWrite4, mailboxesWrite3, electionInProgressWrite5, mailboxesWrite4, iAmTheLeaderWrite5, electionInProgressWrite6, mailboxesWrite5, mailboxesWrite6, iAmTheLeaderWrite6, electionInProgressWrite7, valueStreamWrite2, mailboxesWrite7, iAmTheLeaderWrite7, electionInProgressWrite8, valueStreamWrite3, mailboxesWrite8, iAmTheLeaderWrite8, electionInProgressWrite9, mailboxesRead0, mailboxesWrite9, mailboxesWrite10, mailboxesWrite11, mailboxesWrite12, mailboxesWrite13, mailboxesWrite14, mailboxesWrite15, mailboxesRead1, mailboxesWrite16, decidedWrite, decidedWrite0, decidedWrite1, decidedWrite2, mailboxesWrite17, decidedWrite3, electionInProgressRead, iAmTheLeaderRead, mailboxesWrite18, mailboxesWrite19, heartbeatFrequencyRead, sleeperWrite, mailboxesWrite20, sleeperWrite0, mailboxesWrite21, sleeperWrite1, mailboxesRead2, lastSeenWrite, mailboxesWrite22, lastSeenWrite0, mailboxesWrite23, sleeperWrite2, lastSeenWrite1, electionInProgressRead0, iAmTheLeaderRead0, lastSeenRead, timeoutCheckerRead, timeoutCheckerWrite, timeoutCheckerWrite0, timeoutCheckerWrite1, leaderFailureWrite, electionInProgressWrite10, leaderFailureWrite0, electionInProgressWrite11, timeoutCheckerWrite2, leaderFailureWrite1, electionInProgressWrite12, monitorFrequencyRead, sleeperWrite3, timeoutCheckerWrite3, leaderFailureWrite2, electionInProgressWrite13, sleeperWrite4, requestsRead, requestsWrite, dbRead, upstreamWrite, upstreamWrite0, iAmTheLeaderRead1, proposerChanWrite, paxosChanRead, paxosChanWrite, upstreamWrite1, proposerChanWrite0, paxosChanWrite0, upstreamWrite2, proposerChanWrite1, paxosChanWrite1, requestsWrite0, upstreamWrite3, proposerChanWrite2, paxosChanWrite2, learnerChanRead, learnerChanWrite, dbWrite, requestServiceWrite, requestServiceWrite0, learnerChanWrite0, dbWrite0, requestServiceWrite1;
+    variables network = [id \in AllNodes |-> <<>>], values = [p \in Proposer |-> [value |-> NULL]], lastSeenAbstract, monitorLastSeen = 0, timeoutCheckerAbstract = [monitorLastseen |-> 0], sleeperAbstract, kvClient, requestSet = (1) .. (NUM_REQUESTS), learnedChan = [l \in Learner |-> [value |-> NULL]], paxosLayerChan = [p \in KVRequests |-> [value |-> NULL]], database = [p \in KVRequests, k \in KeySet |-> NULL], electionInProgresssAbstract = [h \in Heartbeat |-> TRUE], iAmTheLeaderAbstract = [h \in Heartbeat |-> FALSE], leaderFailureAbstract = [h \in Heartbeat |-> FALSE], valueStreamRead, mailboxesWrite, mailboxesWrite0, mailboxesRead, iAmTheLeaderWrite, electionInProgressWrite, leaderFailureRead, iAmTheLeaderWrite0, electionInProgressWrite0, iAmTheLeaderWrite1, electionInProgressWrite1, mailboxesWrite1, iAmTheLeaderWrite2, electionInProgressWrite2, mailboxesWrite2, iAmTheLeaderWrite3, electionInProgressWrite3, iAmTheLeaderWrite4, electionInProgressWrite4, mailboxesWrite3, electionInProgressWrite5, mailboxesWrite4, iAmTheLeaderWrite5, electionInProgressWrite6, mailboxesWrite5, mailboxesWrite6, iAmTheLeaderWrite6, electionInProgressWrite7, mailboxesWrite7, iAmTheLeaderWrite7, electionInProgressWrite8, mailboxesWrite8, iAmTheLeaderWrite8, electionInProgressWrite9, mailboxesRead0, mailboxesWrite9, mailboxesWrite10, mailboxesWrite11, mailboxesWrite12, mailboxesWrite13, mailboxesWrite14, mailboxesWrite15, mailboxesRead1, mailboxesWrite16, decidedWrite, decidedWrite0, decidedWrite1, decidedWrite2, mailboxesWrite17, decidedWrite3, electionInProgressRead, iAmTheLeaderRead, mailboxesWrite18, mailboxesWrite19, heartbeatFrequencyRead, sleeperWrite, mailboxesWrite20, sleeperWrite0, mailboxesWrite21, sleeperWrite1, mailboxesRead2, lastSeenWrite, mailboxesWrite22, lastSeenWrite0, mailboxesWrite23, sleeperWrite2, lastSeenWrite1, electionInProgressRead0, iAmTheLeaderRead0, lastSeenRead, timeoutCheckerRead, timeoutCheckerWrite, timeoutCheckerWrite0, timeoutCheckerWrite1, leaderFailureWrite, electionInProgressWrite10, leaderFailureWrite0, electionInProgressWrite11, timeoutCheckerWrite2, leaderFailureWrite1, electionInProgressWrite12, monitorFrequencyRead, sleeperWrite3, timeoutCheckerWrite3, leaderFailureWrite2, electionInProgressWrite13, sleeperWrite4, requestsRead, requestsWrite, dbRead, upstreamWrite, upstreamWrite0, iAmTheLeaderRead1, proposerChanWrite, paxosChanRead, proposerChanWrite0, upstreamWrite1, proposerChanWrite1, upstreamWrite2, requestsWrite0, upstreamWrite3, proposerChanWrite2, learnerChanRead, dbWrite, requestServiceWrite, requestServiceWrite0, dbWrite0, requestServiceWrite1;
     define {
         Proposer == (0) .. ((NUM_NODES) - (1))
         Acceptor == (NUM_NODES) .. (((2) * (NUM_NODES)) - (1))
@@ -575,24 +575,17 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
                                     max := entry;
                                 };
                                 index := (index) + (1);
-                                valueStreamWrite1 := values;
-                                values := valueStreamWrite1;
                                 goto PFindMaxVal;
                             } else {
                                 if (~(repropose)) {
-                                    await (values) # (NULL);
-                                    with (v0 = values) {
-                                        valueStreamWrite := NULL;
+                                    await ((values[self]).value) # (NULL);
+                                    with (v0 = values[self]) {
+                                        values[self].value := NULL;
                                         valueStreamRead := v0;
                                     };
                                     value := valueStreamRead;
-                                    valueStreamWrite0 := valueStreamWrite;
-                                } else {
-                                    valueStreamWrite0 := values;
                                 };
                                 index := NUM_NODES;
-                                valueStreamWrite1 := valueStreamWrite0;
-                                values := valueStreamWrite1;
                             };
 
                         PSendProposes:
@@ -808,12 +801,10 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
                     };
 
             } else {
-                valueStreamWrite3 := values;
                 mailboxesWrite8 := network;
                 iAmTheLeaderWrite8 := iAmTheLeaderAbstract;
                 electionInProgressWrite9 := electionInProgresssAbstract;
                 network := mailboxesWrite8;
-                values := valueStreamWrite3;
                 electionInProgresssAbstract := electionInProgressWrite9;
                 iAmTheLeaderAbstract := iAmTheLeaderWrite8;
             };
@@ -900,7 +891,7 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
 
     }
     fair process (learner \in Learner)
-    variables accepts = <<>>, decisions = [slot \in Slots |-> NULL], newAccepts, numAccepted, iterator, entry, msg;
+    variables accepts = <<>>, newAccepts, numAccepted, iterator, entry, msg;
     {
         L:
             if (TRUE) {
@@ -928,9 +919,8 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
                                 goto LCheckMajority;
                             } else {
                                 if (((numAccepted) * (2)) > (Cardinality(Acceptor))) {
-                                    await (learnedChan) = (NULL);
-                                    decidedWrite := (msg).val;
-                                    decisions[(msg).slog] := (msg).val;
+                                    await ((learnedChan[self]).value) = (NULL);
+                                    decidedWrite := [learnedChan EXCEPT ![self] = (msg).val];
                                     newAccepts := <<>>;
                                     iterator := 1;
                                     learnedChan := decidedWrite;
@@ -1078,7 +1068,6 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
                         timeoutCheckerWrite1 := timeoutCheckerAbstract;
                     };
                     if (timeoutCheckerRead) {
-                        print "Leader failed.";
                         leaderFailureWrite := [leaderFailureAbstract EXCEPT ![heartbeatId] = TRUE];
                         electionInProgressWrite10 := [electionInProgresssAbstract EXCEPT ![heartbeatId] = TRUE];
                         leaderFailureWrite0 := leaderFailureWrite;
@@ -1122,10 +1111,11 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
 
     }
     fair process (kvRequests \in KVRequests)
-    variables dbLocal = [k \in KeySet |-> NULL], msg, null, heartbeatId, counter = 0, requestId, putOk, confirmedRequestId;
+    variables msg, null, heartbeatId, proposerId, counter = 0, requestId, putOk, confirmedRequestId;
     {
         kvInit:
             heartbeatId := (self) - ((2) * (NUM_NODES));
+            proposerId := (self) - ((5) * (NUM_NODES));
         kvLoop:
             if (TRUE) {
                 await (Cardinality(requestSet)) > (0);
@@ -1142,7 +1132,7 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
                 requestSet := requestsWrite;
                 checkGet:
                     if (((msg).type) = (GET_MSG)) {
-                        dbRead := dbLocal[(msg).key];
+                        dbRead := database[<<self, (msg).key>>];
                         upstreamWrite := [type |-> GET_RESPONSE_MSG, result |-> dbRead];
                         upstreamWrite0 := upstreamWrite;
                         kvClient := upstreamWrite0;
@@ -1155,49 +1145,39 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
                     if (((msg).type) = (PUT_MSG)) {
                         iAmTheLeaderRead1 := iAmTheLeaderAbstract[heartbeatId];
                         if (iAmTheLeaderRead1) {
-                            upstreamWrite := [type |-> PUT_NOT_LEADER_MSG, result |-> null];
-                            upstreamWrite1 := upstreamWrite;
-                            proposerChanWrite0 := values;
-                            paxosChanWrite0 := paxosLayerChan;
-                            upstreamWrite2 := upstreamWrite1;
-                            proposerChanWrite1 := proposerChanWrite0;
-                            paxosChanWrite1 := paxosChanWrite0;
-                            kvClient := upstreamWrite2;
-                            values := proposerChanWrite1;
-                            paxosLayerChan := paxosChanWrite1;
-                            goto kvLoop;
-                        } else {
                             requestId := <<self, counter>>;
-                            await (values) = (NULL);
-                            proposerChanWrite := [id |-> requestId, key |-> (msg).key, value |-> (msg).value];
-                            await (paxosLayerChan) # (NULL);
-                            with (v1 = paxosLayerChan) {
-                                paxosChanWrite := NULL;
-                                paxosChanRead := v1;
-                            };
-                            putOk := paxosChanRead;
-                            confirmedRequestId := (putOk).id;
-                            assert ((confirmedRequestId[1]) = (self)) /\ ((confirmedRequestId[2]) = (counter));
-                            upstreamWrite := [type |-> PUT_OK_MSG, result |-> null];
-                            counter := (counter) + (1);
+                            await ((values[proposerId]).value) = (NULL);
+                            proposerChanWrite := [values EXCEPT ![proposerId] = [id |-> requestId, key |-> (msg).key, value |-> (msg).value]];
+                            values := proposerChanWrite;
+                            putConfirm:
+                                await ((paxosLayerChan[self]).value) # (NULL);
+                                with (v1 = paxosLayerChan[self]) {
+                                    paxosLayerChan[self].value := NULL;
+                                    paxosChanRead := v1;
+                                };
+                                putOk := paxosChanRead;
+                                confirmedRequestId := (putOk).id;
+                                assert ((confirmedRequestId[1]) = (self)) /\ ((confirmedRequestId[2]) = (counter));
+                                upstreamWrite := [type |-> PUT_OK_MSG, result |-> null];
+                                counter := (counter) + (1);
+                                kvClient := upstreamWrite;
+                                goto kvLoop;
+
+                        } else {
+                            upstreamWrite := [type |-> PUT_NOT_LEADER_MSG, result |-> null];
+                            proposerChanWrite0 := values;
                             upstreamWrite1 := upstreamWrite;
-                            proposerChanWrite0 := proposerChanWrite;
-                            paxosChanWrite0 := paxosChanWrite;
-                            upstreamWrite2 := upstreamWrite1;
                             proposerChanWrite1 := proposerChanWrite0;
-                            paxosChanWrite1 := paxosChanWrite0;
+                            upstreamWrite2 := upstreamWrite1;
                             kvClient := upstreamWrite2;
                             values := proposerChanWrite1;
-                            paxosLayerChan := paxosChanWrite1;
                             goto kvLoop;
                         };
                     } else {
-                        upstreamWrite2 := kvClient;
                         proposerChanWrite1 := values;
-                        paxosChanWrite1 := paxosLayerChan;
+                        upstreamWrite2 := kvClient;
                         kvClient := upstreamWrite2;
                         values := proposerChanWrite1;
-                        paxosLayerChan := paxosChanWrite1;
                         goto kvLoop;
                     };
 
@@ -1205,57 +1185,50 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
                 requestsWrite0 := requestSet;
                 upstreamWrite3 := kvClient;
                 proposerChanWrite2 := values;
-                paxosChanWrite2 := paxosLayerChan;
                 requestSet := requestsWrite0;
                 kvClient := upstreamWrite3;
                 values := proposerChanWrite2;
-                paxosLayerChan := paxosChanWrite2;
             };
 
     }
     fair process (kvPaxosManager \in KVPaxosManager)
-    variables dbLocal0 = [k \in KeySet |-> NULL], myId, operation, requestId;
+    variables kvId, learnerId, operation, requestId;
     {
         findId:
-            myId := (self) - (NUM_NODES);
+            kvId := (self) - (NUM_NODES);
+            learnerId := (self) - ((4) * (NUM_NODES));
         kvManagerLoop:
             if (TRUE) {
-                await (learnedChan) # (NULL);
-                with (v2 = learnedChan) {
-                    learnerChanWrite := NULL;
+                await ((learnedChan[learnerId]).value) # (NULL);
+                with (v2 = learnedChan[learnerId]) {
+                    learnedChan[learnerId].value := NULL;
                     learnerChanRead := v2;
                 };
                 operation := learnerChanRead;
                 requestId := (operation).id;
-                dbWrite := [dbLocal0 EXCEPT ![(operation).key] = (operation).value];
-                if ((requestId[1]) = (myId)) {
-                    await (paxosLayerChan) = (NULL);
-                    requestServiceWrite := operation;
+                dbWrite := [database EXCEPT ![<<kvId, (operation).key>>] = (operation).value];
+                if ((requestId[1]) = (kvId)) {
+                    await ((paxosLayerChan[kvId]).value) = (NULL);
+                    requestServiceWrite := [paxosLayerChan EXCEPT ![kvId] = operation];
                     requestServiceWrite0 := requestServiceWrite;
-                    learnerChanWrite0 := learnerChanWrite;
                     dbWrite0 := dbWrite;
                     requestServiceWrite1 := requestServiceWrite0;
                     paxosLayerChan := requestServiceWrite1;
-                    learnedChan := learnerChanWrite0;
-                    dbLocal0 := dbWrite0;
+                    database := dbWrite0;
                     goto kvManagerLoop;
                 } else {
                     requestServiceWrite0 := paxosLayerChan;
-                    learnerChanWrite0 := learnerChanWrite;
                     dbWrite0 := dbWrite;
                     requestServiceWrite1 := requestServiceWrite0;
                     paxosLayerChan := requestServiceWrite1;
-                    learnedChan := learnerChanWrite0;
-                    dbLocal0 := dbWrite0;
+                    database := dbWrite0;
                     goto kvManagerLoop;
                 };
             } else {
-                learnerChanWrite0 := learnedChan;
-                dbWrite0 := dbLocal0;
+                dbWrite0 := database;
                 requestServiceWrite1 := paxosLayerChan;
                 paxosLayerChan := requestServiceWrite1;
-                learnedChan := learnerChanWrite0;
-                dbLocal0 := dbWrite0;
+                database := dbWrite0;
             };
 
     }
@@ -1266,22 +1239,21 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
 ***************************************************************************)
 
 \* BEGIN TRANSLATION
-\* Label findId of process leaderStatusMonitor at line 1058 col 13 changed to findId_
-\* Process variable acceptedValues of process proposer at line 557 col 42 changed to acceptedValues_
-\* Process variable index of process proposer at line 557 col 116 changed to index_
-\* Process variable entry of process proposer at line 557 col 123 changed to entry_
-\* Process variable accepts of process proposer at line 557 col 160 changed to accepts_
-\* Process variable msg of process acceptor at line 823 col 73 changed to msg_
-\* Process variable msg of process learner at line 903 col 112 changed to msg_l
-\* Process variable msg of process heartbeatAction at line 973 col 46 changed to msg_h
-\* Process variable heartbeatId of process leaderStatusMonitor at line 1055 col 44 changed to heartbeatId_
-\* Process variable requestId of process kvRequests at line 1125 col 87 changed to requestId_
+\* Label findId of process leaderStatusMonitor at line 1051 col 13 changed to findId_
+\* Process variable acceptedValues of process proposer at line 560 col 42 changed to acceptedValues_
+\* Process variable index of process proposer at line 560 col 116 changed to index_
+\* Process variable entry of process proposer at line 560 col 123 changed to entry_
+\* Process variable accepts of process proposer at line 560 col 160 changed to accepts_
+\* Process variable msg of process acceptor at line 817 col 73 changed to msg_
+\* Process variable msg of process learner at line 897 col 73 changed to msg_l
+\* Process variable msg of process heartbeatAction at line 966 col 46 changed to msg_h
+\* Process variable heartbeatId of process leaderStatusMonitor at line 1048 col 44 changed to heartbeatId_
+\* Process variable requestId of process kvRequests at line 1117 col 64 changed to requestId_
 CONSTANT defaultInitValue
 VARIABLES network, values, lastSeenAbstract, monitorLastSeen,
           timeoutCheckerAbstract, sleeperAbstract, kvClient, requestSet,
-          learnedChan, paxosLayerChan, electionInProgresssAbstract,
+          learnedChan, paxosLayerChan, database, electionInProgresssAbstract,
           iAmTheLeaderAbstract, leaderFailureAbstract, valueStreamRead,
-          valueStreamWrite, valueStreamWrite0, valueStreamWrite1,
           mailboxesWrite, mailboxesWrite0, mailboxesRead, iAmTheLeaderWrite,
           electionInProgressWrite, leaderFailureRead, iAmTheLeaderWrite0,
           electionInProgressWrite0, iAmTheLeaderWrite1,
@@ -1291,18 +1263,18 @@ VARIABLES network, values, lastSeenAbstract, monitorLastSeen,
           electionInProgressWrite4, mailboxesWrite3, electionInProgressWrite5,
           mailboxesWrite4, iAmTheLeaderWrite5, electionInProgressWrite6,
           mailboxesWrite5, mailboxesWrite6, iAmTheLeaderWrite6,
-          electionInProgressWrite7, valueStreamWrite2, mailboxesWrite7,
-          iAmTheLeaderWrite7, electionInProgressWrite8, valueStreamWrite3,
-          mailboxesWrite8, iAmTheLeaderWrite8, electionInProgressWrite9,
-          mailboxesRead0, mailboxesWrite9, mailboxesWrite10, mailboxesWrite11,
-          mailboxesWrite12, mailboxesWrite13, mailboxesWrite14,
-          mailboxesWrite15, mailboxesRead1, mailboxesWrite16, decidedWrite,
-          decidedWrite0, decidedWrite1, decidedWrite2, mailboxesWrite17,
-          decidedWrite3, electionInProgressRead, iAmTheLeaderRead,
-          mailboxesWrite18, mailboxesWrite19, heartbeatFrequencyRead,
-          sleeperWrite, mailboxesWrite20, sleeperWrite0, mailboxesWrite21,
-          sleeperWrite1, mailboxesRead2, lastSeenWrite, mailboxesWrite22,
-          lastSeenWrite0, mailboxesWrite23, sleeperWrite2, lastSeenWrite1,
+          electionInProgressWrite7, mailboxesWrite7, iAmTheLeaderWrite7,
+          electionInProgressWrite8, mailboxesWrite8, iAmTheLeaderWrite8,
+          electionInProgressWrite9, mailboxesRead0, mailboxesWrite9,
+          mailboxesWrite10, mailboxesWrite11, mailboxesWrite12,
+          mailboxesWrite13, mailboxesWrite14, mailboxesWrite15,
+          mailboxesRead1, mailboxesWrite16, decidedWrite, decidedWrite0,
+          decidedWrite1, decidedWrite2, mailboxesWrite17, decidedWrite3,
+          electionInProgressRead, iAmTheLeaderRead, mailboxesWrite18,
+          mailboxesWrite19, heartbeatFrequencyRead, sleeperWrite,
+          mailboxesWrite20, sleeperWrite0, mailboxesWrite21, sleeperWrite1,
+          mailboxesRead2, lastSeenWrite, mailboxesWrite22, lastSeenWrite0,
+          mailboxesWrite23, sleeperWrite2, lastSeenWrite1,
           electionInProgressRead0, iAmTheLeaderRead0, lastSeenRead,
           timeoutCheckerRead, timeoutCheckerWrite, timeoutCheckerWrite0,
           timeoutCheckerWrite1, leaderFailureWrite, electionInProgressWrite10,
@@ -1312,13 +1284,11 @@ VARIABLES network, values, lastSeenAbstract, monitorLastSeen,
           timeoutCheckerWrite3, leaderFailureWrite2,
           electionInProgressWrite13, sleeperWrite4, requestsRead,
           requestsWrite, dbRead, upstreamWrite, upstreamWrite0,
-          iAmTheLeaderRead1, proposerChanWrite, paxosChanRead, paxosChanWrite,
-          upstreamWrite1, proposerChanWrite0, paxosChanWrite0, upstreamWrite2,
-          proposerChanWrite1, paxosChanWrite1, requestsWrite0, upstreamWrite3,
-          proposerChanWrite2, paxosChanWrite2, learnerChanRead,
-          learnerChanWrite, dbWrite, requestServiceWrite,
-          requestServiceWrite0, learnerChanWrite0, dbWrite0,
-          requestServiceWrite1, pc
+          iAmTheLeaderRead1, proposerChanWrite, paxosChanRead,
+          proposerChanWrite0, upstreamWrite1, proposerChanWrite1,
+          upstreamWrite2, requestsWrite0, upstreamWrite3, proposerChanWrite2,
+          learnerChanRead, dbWrite, requestServiceWrite, requestServiceWrite0,
+          dbWrite0, requestServiceWrite1, pc
 
 (* define statement *)
 Proposer == (0) .. ((NUM_NODES) - (1))
@@ -1343,17 +1313,16 @@ PUT_OK_MSG == 10
 
 VARIABLES b, s, elected, acceptedValues_, max, index_, entry_, promises,
           heartbeatMonitorId, accepts_, value, repropose, resp, maxBal,
-          loopIndex, acceptedValues, payload, msg_, accepts, decisions,
-          newAccepts, numAccepted, iterator, entry, msg_l,
-          heartbeatFrequencyLocal, msg_h, index, monitorFrequencyLocal,
-          heartbeatId_, dbLocal, msg, null, heartbeatId, counter, requestId_,
-          putOk, confirmedRequestId, dbLocal0, myId, operation, requestId
+          loopIndex, acceptedValues, payload, msg_, accepts, newAccepts,
+          numAccepted, iterator, entry, msg_l, heartbeatFrequencyLocal, msg_h,
+          index, monitorFrequencyLocal, heartbeatId_, msg, null, heartbeatId,
+          proposerId, counter, requestId_, putOk, confirmedRequestId, kvId,
+          learnerId, operation, requestId
 
 vars == << network, values, lastSeenAbstract, monitorLastSeen,
            timeoutCheckerAbstract, sleeperAbstract, kvClient, requestSet,
-           learnedChan, paxosLayerChan, electionInProgresssAbstract,
+           learnedChan, paxosLayerChan, database, electionInProgresssAbstract,
            iAmTheLeaderAbstract, leaderFailureAbstract, valueStreamRead,
-           valueStreamWrite, valueStreamWrite0, valueStreamWrite1,
            mailboxesWrite, mailboxesWrite0, mailboxesRead, iAmTheLeaderWrite,
            electionInProgressWrite, leaderFailureRead, iAmTheLeaderWrite0,
            electionInProgressWrite0, iAmTheLeaderWrite1,
@@ -1363,19 +1332,18 @@ vars == << network, values, lastSeenAbstract, monitorLastSeen,
            electionInProgressWrite4, mailboxesWrite3,
            electionInProgressWrite5, mailboxesWrite4, iAmTheLeaderWrite5,
            electionInProgressWrite6, mailboxesWrite5, mailboxesWrite6,
-           iAmTheLeaderWrite6, electionInProgressWrite7, valueStreamWrite2,
-           mailboxesWrite7, iAmTheLeaderWrite7, electionInProgressWrite8,
-           valueStreamWrite3, mailboxesWrite8, iAmTheLeaderWrite8,
-           electionInProgressWrite9, mailboxesRead0, mailboxesWrite9,
-           mailboxesWrite10, mailboxesWrite11, mailboxesWrite12,
-           mailboxesWrite13, mailboxesWrite14, mailboxesWrite15,
-           mailboxesRead1, mailboxesWrite16, decidedWrite, decidedWrite0,
-           decidedWrite1, decidedWrite2, mailboxesWrite17, decidedWrite3,
-           electionInProgressRead, iAmTheLeaderRead, mailboxesWrite18,
-           mailboxesWrite19, heartbeatFrequencyRead, sleeperWrite,
-           mailboxesWrite20, sleeperWrite0, mailboxesWrite21, sleeperWrite1,
-           mailboxesRead2, lastSeenWrite, mailboxesWrite22, lastSeenWrite0,
-           mailboxesWrite23, sleeperWrite2, lastSeenWrite1,
+           iAmTheLeaderWrite6, electionInProgressWrite7, mailboxesWrite7,
+           iAmTheLeaderWrite7, electionInProgressWrite8, mailboxesWrite8,
+           iAmTheLeaderWrite8, electionInProgressWrite9, mailboxesRead0,
+           mailboxesWrite9, mailboxesWrite10, mailboxesWrite11,
+           mailboxesWrite12, mailboxesWrite13, mailboxesWrite14,
+           mailboxesWrite15, mailboxesRead1, mailboxesWrite16, decidedWrite,
+           decidedWrite0, decidedWrite1, decidedWrite2, mailboxesWrite17,
+           decidedWrite3, electionInProgressRead, iAmTheLeaderRead,
+           mailboxesWrite18, mailboxesWrite19, heartbeatFrequencyRead,
+           sleeperWrite, mailboxesWrite20, sleeperWrite0, mailboxesWrite21,
+           sleeperWrite1, mailboxesRead2, lastSeenWrite, mailboxesWrite22,
+           lastSeenWrite0, mailboxesWrite23, sleeperWrite2, lastSeenWrite1,
            electionInProgressRead0, iAmTheLeaderRead0, lastSeenRead,
            timeoutCheckerRead, timeoutCheckerWrite, timeoutCheckerWrite0,
            timeoutCheckerWrite1, leaderFailureWrite,
@@ -1386,41 +1354,36 @@ vars == << network, values, lastSeenAbstract, monitorLastSeen,
            leaderFailureWrite2, electionInProgressWrite13, sleeperWrite4,
            requestsRead, requestsWrite, dbRead, upstreamWrite, upstreamWrite0,
            iAmTheLeaderRead1, proposerChanWrite, paxosChanRead,
-           paxosChanWrite, upstreamWrite1, proposerChanWrite0,
-           paxosChanWrite0, upstreamWrite2, proposerChanWrite1,
-           paxosChanWrite1, requestsWrite0, upstreamWrite3,
-           proposerChanWrite2, paxosChanWrite2, learnerChanRead,
-           learnerChanWrite, dbWrite, requestServiceWrite,
-           requestServiceWrite0, learnerChanWrite0, dbWrite0,
-           requestServiceWrite1, pc, b, s, elected, acceptedValues_, max,
-           index_, entry_, promises, heartbeatMonitorId, accepts_, value,
-           repropose, resp, maxBal, loopIndex, acceptedValues, payload, msg_,
-           accepts, decisions, newAccepts, numAccepted, iterator, entry,
-           msg_l, heartbeatFrequencyLocal, msg_h, index,
-           monitorFrequencyLocal, heartbeatId_, dbLocal, msg, null,
-           heartbeatId, counter, requestId_, putOk, confirmedRequestId,
-           dbLocal0, myId, operation, requestId >>
+           proposerChanWrite0, upstreamWrite1, proposerChanWrite1,
+           upstreamWrite2, requestsWrite0, upstreamWrite3, proposerChanWrite2,
+           learnerChanRead, dbWrite, requestServiceWrite,
+           requestServiceWrite0, dbWrite0, requestServiceWrite1, pc, b, s,
+           elected, acceptedValues_, max, index_, entry_, promises,
+           heartbeatMonitorId, accepts_, value, repropose, resp, maxBal,
+           loopIndex, acceptedValues, payload, msg_, accepts, newAccepts,
+           numAccepted, iterator, entry, msg_l, heartbeatFrequencyLocal,
+           msg_h, index, monitorFrequencyLocal, heartbeatId_, msg, null,
+           heartbeatId, proposerId, counter, requestId_, putOk,
+           confirmedRequestId, kvId, learnerId, operation, requestId >>
 
 ProcSet == (Proposer) \cup (Acceptor) \cup (Learner) \cup (Heartbeat) \cup (LeaderMonitor) \cup (KVRequests) \cup (KVPaxosManager)
 
 Init == (* Global variables *)
         /\ network = [id \in AllNodes |-> <<>>]
-        /\ values = NULL
+        /\ values = [p \in Proposer |-> [value |-> NULL]]
         /\ lastSeenAbstract = defaultInitValue
         /\ monitorLastSeen = 0
         /\ timeoutCheckerAbstract = [monitorLastseen |-> 0]
         /\ sleeperAbstract = defaultInitValue
         /\ kvClient = defaultInitValue
         /\ requestSet = (1) .. (NUM_REQUESTS)
-        /\ learnedChan = NULL
-        /\ paxosLayerChan = NULL
+        /\ learnedChan = [l \in Learner |-> [value |-> NULL]]
+        /\ paxosLayerChan = [p \in KVRequests |-> [value |-> NULL]]
+        /\ database = [p \in KVRequests, k \in KeySet |-> NULL]
         /\ electionInProgresssAbstract = [h \in Heartbeat |-> TRUE]
         /\ iAmTheLeaderAbstract = [h \in Heartbeat |-> FALSE]
         /\ leaderFailureAbstract = [h \in Heartbeat |-> FALSE]
         /\ valueStreamRead = defaultInitValue
-        /\ valueStreamWrite = defaultInitValue
-        /\ valueStreamWrite0 = defaultInitValue
-        /\ valueStreamWrite1 = defaultInitValue
         /\ mailboxesWrite = defaultInitValue
         /\ mailboxesWrite0 = defaultInitValue
         /\ mailboxesRead = defaultInitValue
@@ -1448,11 +1411,9 @@ Init == (* Global variables *)
         /\ mailboxesWrite6 = defaultInitValue
         /\ iAmTheLeaderWrite6 = defaultInitValue
         /\ electionInProgressWrite7 = defaultInitValue
-        /\ valueStreamWrite2 = defaultInitValue
         /\ mailboxesWrite7 = defaultInitValue
         /\ iAmTheLeaderWrite7 = defaultInitValue
         /\ electionInProgressWrite8 = defaultInitValue
-        /\ valueStreamWrite3 = defaultInitValue
         /\ mailboxesWrite8 = defaultInitValue
         /\ iAmTheLeaderWrite8 = defaultInitValue
         /\ electionInProgressWrite9 = defaultInitValue
@@ -1517,23 +1478,17 @@ Init == (* Global variables *)
         /\ iAmTheLeaderRead1 = defaultInitValue
         /\ proposerChanWrite = defaultInitValue
         /\ paxosChanRead = defaultInitValue
-        /\ paxosChanWrite = defaultInitValue
-        /\ upstreamWrite1 = defaultInitValue
         /\ proposerChanWrite0 = defaultInitValue
-        /\ paxosChanWrite0 = defaultInitValue
-        /\ upstreamWrite2 = defaultInitValue
+        /\ upstreamWrite1 = defaultInitValue
         /\ proposerChanWrite1 = defaultInitValue
-        /\ paxosChanWrite1 = defaultInitValue
+        /\ upstreamWrite2 = defaultInitValue
         /\ requestsWrite0 = defaultInitValue
         /\ upstreamWrite3 = defaultInitValue
         /\ proposerChanWrite2 = defaultInitValue
-        /\ paxosChanWrite2 = defaultInitValue
         /\ learnerChanRead = defaultInitValue
-        /\ learnerChanWrite = defaultInitValue
         /\ dbWrite = defaultInitValue
         /\ requestServiceWrite = defaultInitValue
         /\ requestServiceWrite0 = defaultInitValue
-        /\ learnerChanWrite0 = defaultInitValue
         /\ dbWrite0 = defaultInitValue
         /\ requestServiceWrite1 = defaultInitValue
         (* Process proposer *)
@@ -1558,7 +1513,6 @@ Init == (* Global variables *)
         /\ msg_ = [self \in Acceptor |-> defaultInitValue]
         (* Process learner *)
         /\ accepts = [self \in Learner |-> <<>>]
-        /\ decisions = [self \in Learner |-> [slot \in Slots |-> NULL]]
         /\ newAccepts = [self \in Learner |-> defaultInitValue]
         /\ numAccepted = [self \in Learner |-> defaultInitValue]
         /\ iterator = [self \in Learner |-> defaultInitValue]
@@ -1572,17 +1526,17 @@ Init == (* Global variables *)
         /\ monitorFrequencyLocal = [self \in LeaderMonitor |-> 100]
         /\ heartbeatId_ = [self \in LeaderMonitor |-> defaultInitValue]
         (* Process kvRequests *)
-        /\ dbLocal = [self \in KVRequests |-> [k \in KeySet |-> NULL]]
         /\ msg = [self \in KVRequests |-> defaultInitValue]
         /\ null = [self \in KVRequests |-> defaultInitValue]
         /\ heartbeatId = [self \in KVRequests |-> defaultInitValue]
+        /\ proposerId = [self \in KVRequests |-> defaultInitValue]
         /\ counter = [self \in KVRequests |-> 0]
         /\ requestId_ = [self \in KVRequests |-> defaultInitValue]
         /\ putOk = [self \in KVRequests |-> defaultInitValue]
         /\ confirmedRequestId = [self \in KVRequests |-> defaultInitValue]
         (* Process kvPaxosManager *)
-        /\ dbLocal0 = [self \in KVPaxosManager |-> [k \in KeySet |-> NULL]]
-        /\ myId = [self \in KVPaxosManager |-> defaultInitValue]
+        /\ kvId = [self \in KVPaxosManager |-> defaultInitValue]
+        /\ learnerId = [self \in KVPaxosManager |-> defaultInitValue]
         /\ operation = [self \in KVPaxosManager |-> defaultInitValue]
         /\ requestId = [self \in KVPaxosManager |-> defaultInitValue]
         /\ pc = [self \in ProcSet |-> CASE self \in Proposer -> "Pre"
@@ -1600,29 +1554,26 @@ Pre(self) == /\ pc[self] = "Pre"
              /\ UNCHANGED << network, values, lastSeenAbstract,
                              monitorLastSeen, timeoutCheckerAbstract,
                              sleeperAbstract, kvClient, requestSet,
-                             learnedChan, paxosLayerChan,
+                             learnedChan, paxosLayerChan, database,
                              electionInProgresssAbstract, iAmTheLeaderAbstract,
                              leaderFailureAbstract, valueStreamRead,
-                             valueStreamWrite, valueStreamWrite0,
-                             valueStreamWrite1, mailboxesWrite,
-                             mailboxesWrite0, mailboxesRead, iAmTheLeaderWrite,
-                             electionInProgressWrite, leaderFailureRead,
-                             iAmTheLeaderWrite0, electionInProgressWrite0,
-                             iAmTheLeaderWrite1, electionInProgressWrite1,
-                             mailboxesWrite1, iAmTheLeaderWrite2,
-                             electionInProgressWrite2, mailboxesWrite2,
-                             iAmTheLeaderWrite3, electionInProgressWrite3,
-                             iAmTheLeaderWrite4, electionInProgressWrite4,
-                             mailboxesWrite3, electionInProgressWrite5,
-                             mailboxesWrite4, iAmTheLeaderWrite5,
-                             electionInProgressWrite6, mailboxesWrite5,
-                             mailboxesWrite6, iAmTheLeaderWrite6,
-                             electionInProgressWrite7, valueStreamWrite2,
+                             mailboxesWrite, mailboxesWrite0, mailboxesRead,
+                             iAmTheLeaderWrite, electionInProgressWrite,
+                             leaderFailureRead, iAmTheLeaderWrite0,
+                             electionInProgressWrite0, iAmTheLeaderWrite1,
+                             electionInProgressWrite1, mailboxesWrite1,
+                             iAmTheLeaderWrite2, electionInProgressWrite2,
+                             mailboxesWrite2, iAmTheLeaderWrite3,
+                             electionInProgressWrite3, iAmTheLeaderWrite4,
+                             electionInProgressWrite4, mailboxesWrite3,
+                             electionInProgressWrite5, mailboxesWrite4,
+                             iAmTheLeaderWrite5, electionInProgressWrite6,
+                             mailboxesWrite5, mailboxesWrite6,
+                             iAmTheLeaderWrite6, electionInProgressWrite7,
                              mailboxesWrite7, iAmTheLeaderWrite7,
-                             electionInProgressWrite8, valueStreamWrite3,
-                             mailboxesWrite8, iAmTheLeaderWrite8,
-                             electionInProgressWrite9, mailboxesRead0,
-                             mailboxesWrite9, mailboxesWrite10,
+                             electionInProgressWrite8, mailboxesWrite8,
+                             iAmTheLeaderWrite8, electionInProgressWrite9,
+                             mailboxesRead0, mailboxesWrite9, mailboxesWrite10,
                              mailboxesWrite11, mailboxesWrite12,
                              mailboxesWrite13, mailboxesWrite14,
                              mailboxesWrite15, mailboxesRead1,
@@ -1647,61 +1598,54 @@ Pre(self) == /\ pc[self] = "Pre"
                              electionInProgressWrite13, sleeperWrite4,
                              requestsRead, requestsWrite, dbRead,
                              upstreamWrite, upstreamWrite0, iAmTheLeaderRead1,
-                             proposerChanWrite, paxosChanRead, paxosChanWrite,
-                             upstreamWrite1, proposerChanWrite0,
-                             paxosChanWrite0, upstreamWrite2,
-                             proposerChanWrite1, paxosChanWrite1,
+                             proposerChanWrite, paxosChanRead,
+                             proposerChanWrite0, upstreamWrite1,
+                             proposerChanWrite1, upstreamWrite2,
                              requestsWrite0, upstreamWrite3,
-                             proposerChanWrite2, paxosChanWrite2,
-                             learnerChanRead, learnerChanWrite, dbWrite,
+                             proposerChanWrite2, learnerChanRead, dbWrite,
                              requestServiceWrite, requestServiceWrite0,
-                             learnerChanWrite0, dbWrite0, requestServiceWrite1,
-                             s, elected, acceptedValues_, max, index_, entry_,
-                             promises, accepts_, value, repropose, resp,
-                             maxBal, loopIndex, acceptedValues, payload, msg_,
-                             accepts, decisions, newAccepts, numAccepted,
-                             iterator, entry, msg_l, heartbeatFrequencyLocal,
-                             msg_h, index, monitorFrequencyLocal, heartbeatId_,
-                             dbLocal, msg, null, heartbeatId, counter,
-                             requestId_, putOk, confirmedRequestId, dbLocal0,
-                             myId, operation, requestId >>
+                             dbWrite0, requestServiceWrite1, s, elected,
+                             acceptedValues_, max, index_, entry_, promises,
+                             accepts_, value, repropose, resp, maxBal,
+                             loopIndex, acceptedValues, payload, msg_, accepts,
+                             newAccepts, numAccepted, iterator, entry, msg_l,
+                             heartbeatFrequencyLocal, msg_h, index,
+                             monitorFrequencyLocal, heartbeatId_, msg, null,
+                             heartbeatId, proposerId, counter, requestId_,
+                             putOk, confirmedRequestId, kvId, learnerId,
+                             operation, requestId >>
 
 P(self) == /\ pc[self] = "P"
            /\ IF TRUE
                  THEN /\ pc' = [pc EXCEPT ![self] = "PLeaderCheck"]
-                      /\ UNCHANGED << network, values,
-                                      electionInProgresssAbstract,
-                                      iAmTheLeaderAbstract, valueStreamWrite3,
-                                      mailboxesWrite8, iAmTheLeaderWrite8,
+                      /\ UNCHANGED << network, electionInProgresssAbstract,
+                                      iAmTheLeaderAbstract, mailboxesWrite8,
+                                      iAmTheLeaderWrite8,
                                       electionInProgressWrite9 >>
-                 ELSE /\ valueStreamWrite3' = values
-                      /\ mailboxesWrite8' = network
+                 ELSE /\ mailboxesWrite8' = network
                       /\ iAmTheLeaderWrite8' = iAmTheLeaderAbstract
                       /\ electionInProgressWrite9' = electionInProgresssAbstract
                       /\ network' = mailboxesWrite8'
-                      /\ values' = valueStreamWrite3'
                       /\ electionInProgresssAbstract' = electionInProgressWrite9'
                       /\ iAmTheLeaderAbstract' = iAmTheLeaderWrite8'
                       /\ pc' = [pc EXCEPT ![self] = "Done"]
-           /\ UNCHANGED << lastSeenAbstract, monitorLastSeen,
+           /\ UNCHANGED << values, lastSeenAbstract, monitorLastSeen,
                            timeoutCheckerAbstract, sleeperAbstract, kvClient,
-                           requestSet, learnedChan, paxosLayerChan,
+                           requestSet, learnedChan, paxosLayerChan, database,
                            leaderFailureAbstract, valueStreamRead,
-                           valueStreamWrite, valueStreamWrite0,
-                           valueStreamWrite1, mailboxesWrite, mailboxesWrite0,
-                           mailboxesRead, iAmTheLeaderWrite,
-                           electionInProgressWrite, leaderFailureRead,
-                           iAmTheLeaderWrite0, electionInProgressWrite0,
-                           iAmTheLeaderWrite1, electionInProgressWrite1,
-                           mailboxesWrite1, iAmTheLeaderWrite2,
-                           electionInProgressWrite2, mailboxesWrite2,
-                           iAmTheLeaderWrite3, electionInProgressWrite3,
-                           iAmTheLeaderWrite4, electionInProgressWrite4,
-                           mailboxesWrite3, electionInProgressWrite5,
-                           mailboxesWrite4, iAmTheLeaderWrite5,
-                           electionInProgressWrite6, mailboxesWrite5,
-                           mailboxesWrite6, iAmTheLeaderWrite6,
-                           electionInProgressWrite7, valueStreamWrite2,
+                           mailboxesWrite, mailboxesWrite0, mailboxesRead,
+                           iAmTheLeaderWrite, electionInProgressWrite,
+                           leaderFailureRead, iAmTheLeaderWrite0,
+                           electionInProgressWrite0, iAmTheLeaderWrite1,
+                           electionInProgressWrite1, mailboxesWrite1,
+                           iAmTheLeaderWrite2, electionInProgressWrite2,
+                           mailboxesWrite2, iAmTheLeaderWrite3,
+                           electionInProgressWrite3, iAmTheLeaderWrite4,
+                           electionInProgressWrite4, mailboxesWrite3,
+                           electionInProgressWrite5, mailboxesWrite4,
+                           iAmTheLeaderWrite5, electionInProgressWrite6,
+                           mailboxesWrite5, mailboxesWrite6,
+                           iAmTheLeaderWrite6, electionInProgressWrite7,
                            mailboxesWrite7, iAmTheLeaderWrite7,
                            electionInProgressWrite8, mailboxesRead0,
                            mailboxesWrite9, mailboxesWrite10, mailboxesWrite11,
@@ -1728,22 +1672,20 @@ P(self) == /\ pc[self] = "P"
                            electionInProgressWrite13, sleeperWrite4,
                            requestsRead, requestsWrite, dbRead, upstreamWrite,
                            upstreamWrite0, iAmTheLeaderRead1,
-                           proposerChanWrite, paxosChanRead, paxosChanWrite,
-                           upstreamWrite1, proposerChanWrite0, paxosChanWrite0,
-                           upstreamWrite2, proposerChanWrite1, paxosChanWrite1,
-                           requestsWrite0, upstreamWrite3, proposerChanWrite2,
-                           paxosChanWrite2, learnerChanRead, learnerChanWrite,
+                           proposerChanWrite, paxosChanRead,
+                           proposerChanWrite0, upstreamWrite1,
+                           proposerChanWrite1, upstreamWrite2, requestsWrite0,
+                           upstreamWrite3, proposerChanWrite2, learnerChanRead,
                            dbWrite, requestServiceWrite, requestServiceWrite0,
-                           learnerChanWrite0, dbWrite0, requestServiceWrite1,
-                           b, s, elected, acceptedValues_, max, index_, entry_,
-                           promises, heartbeatMonitorId, accepts_, value,
-                           repropose, resp, maxBal, loopIndex, acceptedValues,
-                           payload, msg_, accepts, decisions, newAccepts,
-                           numAccepted, iterator, entry, msg_l,
-                           heartbeatFrequencyLocal, msg_h, index,
-                           monitorFrequencyLocal, heartbeatId_, dbLocal, msg,
-                           null, heartbeatId, counter, requestId_, putOk,
-                           confirmedRequestId, dbLocal0, myId, operation,
+                           dbWrite0, requestServiceWrite1, b, s, elected,
+                           acceptedValues_, max, index_, entry_, promises,
+                           heartbeatMonitorId, accepts_, value, repropose,
+                           resp, maxBal, loopIndex, acceptedValues, payload,
+                           msg_, accepts, newAccepts, numAccepted, iterator,
+                           entry, msg_l, heartbeatFrequencyLocal, msg_h, index,
+                           monitorFrequencyLocal, heartbeatId_, msg, null,
+                           heartbeatId, proposerId, counter, requestId_, putOk,
+                           confirmedRequestId, kvId, learnerId, operation,
                            requestId >>
 
 PLeaderCheck(self) == /\ pc[self] = "PLeaderCheck"
@@ -1758,14 +1700,12 @@ PLeaderCheck(self) == /\ pc[self] = "PLeaderCheck"
                       /\ UNCHANGED << network, values, lastSeenAbstract,
                                       monitorLastSeen, timeoutCheckerAbstract,
                                       sleeperAbstract, kvClient, requestSet,
-                                      learnedChan, paxosLayerChan,
+                                      learnedChan, paxosLayerChan, database,
                                       electionInProgresssAbstract,
                                       iAmTheLeaderAbstract,
                                       leaderFailureAbstract, valueStreamRead,
-                                      valueStreamWrite, valueStreamWrite0,
-                                      valueStreamWrite1, mailboxesWrite,
-                                      mailboxesWrite0, mailboxesRead,
-                                      iAmTheLeaderWrite,
+                                      mailboxesWrite, mailboxesWrite0,
+                                      mailboxesRead, iAmTheLeaderWrite,
                                       electionInProgressWrite,
                                       leaderFailureRead, iAmTheLeaderWrite0,
                                       electionInProgressWrite0,
@@ -1784,11 +1724,9 @@ PLeaderCheck(self) == /\ pc[self] = "PLeaderCheck"
                                       mailboxesWrite5, mailboxesWrite6,
                                       iAmTheLeaderWrite6,
                                       electionInProgressWrite7,
-                                      valueStreamWrite2, mailboxesWrite7,
-                                      iAmTheLeaderWrite7,
+                                      mailboxesWrite7, iAmTheLeaderWrite7,
                                       electionInProgressWrite8,
-                                      valueStreamWrite3, mailboxesWrite8,
-                                      iAmTheLeaderWrite8,
+                                      mailboxesWrite8, iAmTheLeaderWrite8,
                                       electionInProgressWrite9, mailboxesRead0,
                                       mailboxesWrite9, mailboxesWrite10,
                                       mailboxesWrite11, mailboxesWrite12,
@@ -1824,27 +1762,24 @@ PLeaderCheck(self) == /\ pc[self] = "PLeaderCheck"
                                       requestsRead, requestsWrite, dbRead,
                                       upstreamWrite, upstreamWrite0,
                                       iAmTheLeaderRead1, proposerChanWrite,
-                                      paxosChanRead, paxosChanWrite,
-                                      upstreamWrite1, proposerChanWrite0,
-                                      paxosChanWrite0, upstreamWrite2,
-                                      proposerChanWrite1, paxosChanWrite1,
-                                      requestsWrite0, upstreamWrite3,
-                                      proposerChanWrite2, paxosChanWrite2,
-                                      learnerChanRead, learnerChanWrite,
-                                      dbWrite, requestServiceWrite,
-                                      requestServiceWrite0, learnerChanWrite0,
-                                      dbWrite0, requestServiceWrite1, b, s,
-                                      elected, acceptedValues_, max, entry_,
-                                      promises, heartbeatMonitorId, value,
-                                      resp, maxBal, loopIndex, acceptedValues,
-                                      payload, msg_, accepts, decisions,
-                                      newAccepts, numAccepted, iterator, entry,
-                                      msg_l, heartbeatFrequencyLocal, msg_h,
-                                      index, monitorFrequencyLocal,
-                                      heartbeatId_, dbLocal, msg, null,
-                                      heartbeatId, counter, requestId_, putOk,
-                                      confirmedRequestId, dbLocal0, myId,
-                                      operation, requestId >>
+                                      paxosChanRead, proposerChanWrite0,
+                                      upstreamWrite1, proposerChanWrite1,
+                                      upstreamWrite2, requestsWrite0,
+                                      upstreamWrite3, proposerChanWrite2,
+                                      learnerChanRead, dbWrite,
+                                      requestServiceWrite,
+                                      requestServiceWrite0, dbWrite0,
+                                      requestServiceWrite1, b, s, elected,
+                                      acceptedValues_, max, entry_, promises,
+                                      heartbeatMonitorId, value, resp, maxBal,
+                                      loopIndex, acceptedValues, payload, msg_,
+                                      accepts, newAccepts, numAccepted,
+                                      iterator, entry, msg_l,
+                                      heartbeatFrequencyLocal, msg_h, index,
+                                      monitorFrequencyLocal, heartbeatId_, msg,
+                                      null, heartbeatId, proposerId, counter,
+                                      requestId_, putOk, confirmedRequestId,
+                                      kvId, learnerId, operation, requestId >>
 
 PFindMaxVal(self) == /\ pc[self] = "PFindMaxVal"
                      /\ IF (index_[self]) <= (Len(acceptedValues_[self]))
@@ -1857,32 +1792,25 @@ PFindMaxVal(self) == /\ pc[self] = "PFindMaxVal"
                                            /\ UNCHANGED << max, value,
                                                            repropose >>
                                 /\ index_' = [index_ EXCEPT ![self] = (index_[self]) + (1)]
-                                /\ valueStreamWrite1' = values
-                                /\ values' = valueStreamWrite1'
                                 /\ pc' = [pc EXCEPT ![self] = "PFindMaxVal"]
-                                /\ UNCHANGED << valueStreamRead,
-                                                valueStreamWrite,
-                                                valueStreamWrite0 >>
+                                /\ UNCHANGED << values, valueStreamRead >>
                            ELSE /\ IF ~(repropose[self])
-                                      THEN /\ (values) # (NULL)
-                                           /\ LET v0 == values IN
-                                                /\ valueStreamWrite' = NULL
+                                      THEN /\ ((values[self]).value) # (NULL)
+                                           /\ LET v0 == values[self] IN
+                                                /\ values' = [values EXCEPT ![self].value = NULL]
                                                 /\ valueStreamRead' = v0
                                            /\ value' = [value EXCEPT ![self] = valueStreamRead']
-                                           /\ valueStreamWrite0' = valueStreamWrite'
-                                      ELSE /\ valueStreamWrite0' = values
-                                           /\ UNCHANGED << valueStreamRead,
-                                                           valueStreamWrite,
+                                      ELSE /\ TRUE
+                                           /\ UNCHANGED << values,
+                                                           valueStreamRead,
                                                            value >>
                                 /\ index_' = [index_ EXCEPT ![self] = NUM_NODES]
-                                /\ valueStreamWrite1' = valueStreamWrite0'
-                                /\ values' = valueStreamWrite1'
                                 /\ pc' = [pc EXCEPT ![self] = "PSendProposes"]
                                 /\ UNCHANGED << max, entry_, repropose >>
                      /\ UNCHANGED << network, lastSeenAbstract,
                                      monitorLastSeen, timeoutCheckerAbstract,
                                      sleeperAbstract, kvClient, requestSet,
-                                     learnedChan, paxosLayerChan,
+                                     learnedChan, paxosLayerChan, database,
                                      electionInProgresssAbstract,
                                      iAmTheLeaderAbstract,
                                      leaderFailureAbstract, mailboxesWrite,
@@ -1903,11 +1831,9 @@ PFindMaxVal(self) == /\ pc[self] = "PFindMaxVal"
                                      iAmTheLeaderWrite5,
                                      electionInProgressWrite6, mailboxesWrite5,
                                      mailboxesWrite6, iAmTheLeaderWrite6,
-                                     electionInProgressWrite7,
-                                     valueStreamWrite2, mailboxesWrite7,
+                                     electionInProgressWrite7, mailboxesWrite7,
                                      iAmTheLeaderWrite7,
-                                     electionInProgressWrite8,
-                                     valueStreamWrite3, mailboxesWrite8,
+                                     electionInProgressWrite8, mailboxesWrite8,
                                      iAmTheLeaderWrite8,
                                      electionInProgressWrite9, mailboxesRead0,
                                      mailboxesWrite9, mailboxesWrite10,
@@ -1942,27 +1868,23 @@ PFindMaxVal(self) == /\ pc[self] = "PFindMaxVal"
                                      requestsRead, requestsWrite, dbRead,
                                      upstreamWrite, upstreamWrite0,
                                      iAmTheLeaderRead1, proposerChanWrite,
-                                     paxosChanRead, paxosChanWrite,
-                                     upstreamWrite1, proposerChanWrite0,
-                                     paxosChanWrite0, upstreamWrite2,
-                                     proposerChanWrite1, paxosChanWrite1,
-                                     requestsWrite0, upstreamWrite3,
-                                     proposerChanWrite2, paxosChanWrite2,
-                                     learnerChanRead, learnerChanWrite,
-                                     dbWrite, requestServiceWrite,
-                                     requestServiceWrite0, learnerChanWrite0,
+                                     paxosChanRead, proposerChanWrite0,
+                                     upstreamWrite1, proposerChanWrite1,
+                                     upstreamWrite2, requestsWrite0,
+                                     upstreamWrite3, proposerChanWrite2,
+                                     learnerChanRead, dbWrite,
+                                     requestServiceWrite, requestServiceWrite0,
                                      dbWrite0, requestServiceWrite1, b, s,
                                      elected, acceptedValues_, promises,
                                      heartbeatMonitorId, accepts_, resp,
                                      maxBal, loopIndex, acceptedValues,
-                                     payload, msg_, accepts, decisions,
-                                     newAccepts, numAccepted, iterator, entry,
-                                     msg_l, heartbeatFrequencyLocal, msg_h,
-                                     index, monitorFrequencyLocal,
-                                     heartbeatId_, dbLocal, msg, null,
-                                     heartbeatId, counter, requestId_, putOk,
-                                     confirmedRequestId, dbLocal0, myId,
-                                     operation, requestId >>
+                                     payload, msg_, accepts, newAccepts,
+                                     numAccepted, iterator, entry, msg_l,
+                                     heartbeatFrequencyLocal, msg_h, index,
+                                     monitorFrequencyLocal, heartbeatId_, msg,
+                                     null, heartbeatId, proposerId, counter,
+                                     requestId_, putOk, confirmedRequestId,
+                                     kvId, learnerId, operation, requestId >>
 
 PSendProposes(self) == /\ pc[self] = "PSendProposes"
                        /\ IF (index_[self]) <= (((2) * (NUM_NODES)) - (1))
@@ -1979,13 +1901,11 @@ PSendProposes(self) == /\ pc[self] = "PSendProposes"
                        /\ UNCHANGED << values, lastSeenAbstract,
                                        monitorLastSeen, timeoutCheckerAbstract,
                                        sleeperAbstract, kvClient, requestSet,
-                                       learnedChan, paxosLayerChan,
+                                       learnedChan, paxosLayerChan, database,
                                        electionInProgresssAbstract,
                                        iAmTheLeaderAbstract,
                                        leaderFailureAbstract, valueStreamRead,
-                                       valueStreamWrite, valueStreamWrite0,
-                                       valueStreamWrite1, mailboxesRead,
-                                       iAmTheLeaderWrite,
+                                       mailboxesRead, iAmTheLeaderWrite,
                                        electionInProgressWrite,
                                        leaderFailureRead, iAmTheLeaderWrite0,
                                        electionInProgressWrite0,
@@ -2004,11 +1924,9 @@ PSendProposes(self) == /\ pc[self] = "PSendProposes"
                                        mailboxesWrite5, mailboxesWrite6,
                                        iAmTheLeaderWrite6,
                                        electionInProgressWrite7,
-                                       valueStreamWrite2, mailboxesWrite7,
-                                       iAmTheLeaderWrite7,
+                                       mailboxesWrite7, iAmTheLeaderWrite7,
                                        electionInProgressWrite8,
-                                       valueStreamWrite3, mailboxesWrite8,
-                                       iAmTheLeaderWrite8,
+                                       mailboxesWrite8, iAmTheLeaderWrite8,
                                        electionInProgressWrite9,
                                        mailboxesRead0, mailboxesWrite9,
                                        mailboxesWrite10, mailboxesWrite11,
@@ -2047,27 +1965,23 @@ PSendProposes(self) == /\ pc[self] = "PSendProposes"
                                        requestsWrite, dbRead, upstreamWrite,
                                        upstreamWrite0, iAmTheLeaderRead1,
                                        proposerChanWrite, paxosChanRead,
-                                       paxosChanWrite, upstreamWrite1,
-                                       proposerChanWrite0, paxosChanWrite0,
-                                       upstreamWrite2, proposerChanWrite1,
-                                       paxosChanWrite1, requestsWrite0,
-                                       upstreamWrite3, proposerChanWrite2,
-                                       paxosChanWrite2, learnerChanRead,
-                                       learnerChanWrite, dbWrite,
-                                       requestServiceWrite,
-                                       requestServiceWrite0, learnerChanWrite0,
-                                       dbWrite0, requestServiceWrite1, b, s,
-                                       elected, acceptedValues_, max, entry_,
-                                       promises, heartbeatMonitorId, accepts_,
-                                       value, repropose, resp, maxBal,
-                                       loopIndex, acceptedValues, payload,
-                                       msg_, accepts, decisions, newAccepts,
-                                       numAccepted, iterator, entry, msg_l,
-                                       heartbeatFrequencyLocal, msg_h, index,
-                                       monitorFrequencyLocal, heartbeatId_,
-                                       dbLocal, msg, null, heartbeatId,
-                                       counter, requestId_, putOk,
-                                       confirmedRequestId, dbLocal0, myId,
+                                       proposerChanWrite0, upstreamWrite1,
+                                       proposerChanWrite1, upstreamWrite2,
+                                       requestsWrite0, upstreamWrite3,
+                                       proposerChanWrite2, learnerChanRead,
+                                       dbWrite, requestServiceWrite,
+                                       requestServiceWrite0, dbWrite0,
+                                       requestServiceWrite1, b, s, elected,
+                                       acceptedValues_, max, entry_, promises,
+                                       heartbeatMonitorId, accepts_, value,
+                                       repropose, resp, maxBal, loopIndex,
+                                       acceptedValues, payload, msg_, accepts,
+                                       newAccepts, numAccepted, iterator,
+                                       entry, msg_l, heartbeatFrequencyLocal,
+                                       msg_h, index, monitorFrequencyLocal,
+                                       heartbeatId_, msg, null, heartbeatId,
+                                       proposerId, counter, requestId_, putOk,
+                                       confirmedRequestId, kvId, learnerId,
                                        operation, requestId >>
 
 PSearchAccs(self) == /\ pc[self] = "PSearchAccs"
@@ -2112,7 +2026,7 @@ PSearchAccs(self) == /\ pc[self] = "PSearchAccs"
                                                       /\ (leaderFailureAbstract[heartbeatMonitorId[self]]) = (TRUE)
                                                       /\ leaderFailureRead' = leaderFailureAbstract[heartbeatMonitorId[self]]
                                                       /\ Assert((leaderFailureRead') = (TRUE),
-                                                                "Failure of assertion at line 649, column 41.")
+                                                                "Failure of assertion at line 645, column 41.")
                                                       /\ iAmTheLeaderWrite0' = iAmTheLeaderWrite'
                                                       /\ electionInProgressWrite0' = electionInProgressWrite'
                                                       /\ iAmTheLeaderWrite1' = iAmTheLeaderWrite0'
@@ -2159,9 +2073,8 @@ PSearchAccs(self) == /\ pc[self] = "PSearchAccs"
                      /\ UNCHANGED << values, lastSeenAbstract, monitorLastSeen,
                                      timeoutCheckerAbstract, sleeperAbstract,
                                      kvClient, requestSet, learnedChan,
-                                     paxosLayerChan, leaderFailureAbstract,
-                                     valueStreamRead, valueStreamWrite,
-                                     valueStreamWrite0, valueStreamWrite1,
+                                     paxosLayerChan, database,
+                                     leaderFailureAbstract, valueStreamRead,
                                      mailboxesWrite0, mailboxesWrite2,
                                      iAmTheLeaderWrite3,
                                      electionInProgressWrite3,
@@ -2171,11 +2084,9 @@ PSearchAccs(self) == /\ pc[self] = "PSearchAccs"
                                      iAmTheLeaderWrite5,
                                      electionInProgressWrite6, mailboxesWrite5,
                                      mailboxesWrite6, iAmTheLeaderWrite6,
-                                     electionInProgressWrite7,
-                                     valueStreamWrite2, mailboxesWrite7,
+                                     electionInProgressWrite7, mailboxesWrite7,
                                      iAmTheLeaderWrite7,
-                                     electionInProgressWrite8,
-                                     valueStreamWrite3, mailboxesWrite8,
+                                     electionInProgressWrite8, mailboxesWrite8,
                                      iAmTheLeaderWrite8,
                                      electionInProgressWrite9, mailboxesRead0,
                                      mailboxesWrite9, mailboxesWrite10,
@@ -2210,27 +2121,24 @@ PSearchAccs(self) == /\ pc[self] = "PSearchAccs"
                                      requestsRead, requestsWrite, dbRead,
                                      upstreamWrite, upstreamWrite0,
                                      iAmTheLeaderRead1, proposerChanWrite,
-                                     paxosChanRead, paxosChanWrite,
-                                     upstreamWrite1, proposerChanWrite0,
-                                     paxosChanWrite0, upstreamWrite2,
-                                     proposerChanWrite1, paxosChanWrite1,
-                                     requestsWrite0, upstreamWrite3,
-                                     proposerChanWrite2, paxosChanWrite2,
-                                     learnerChanRead, learnerChanWrite,
-                                     dbWrite, requestServiceWrite,
-                                     requestServiceWrite0, learnerChanWrite0,
+                                     paxosChanRead, proposerChanWrite0,
+                                     upstreamWrite1, proposerChanWrite1,
+                                     upstreamWrite2, requestsWrite0,
+                                     upstreamWrite3, proposerChanWrite2,
+                                     learnerChanRead, dbWrite,
+                                     requestServiceWrite, requestServiceWrite0,
                                      dbWrite0, requestServiceWrite1, b, s,
                                      acceptedValues_, max, index_, entry_,
                                      promises, heartbeatMonitorId, value,
                                      repropose, maxBal, loopIndex,
                                      acceptedValues, payload, msg_, accepts,
-                                     decisions, newAccepts, numAccepted,
-                                     iterator, entry, msg_l,
-                                     heartbeatFrequencyLocal, msg_h, index,
-                                     monitorFrequencyLocal, heartbeatId_,
-                                     dbLocal, msg, null, heartbeatId, counter,
-                                     requestId_, putOk, confirmedRequestId,
-                                     dbLocal0, myId, operation, requestId >>
+                                     newAccepts, numAccepted, iterator, entry,
+                                     msg_l, heartbeatFrequencyLocal, msg_h,
+                                     index, monitorFrequencyLocal,
+                                     heartbeatId_, msg, null, heartbeatId,
+                                     proposerId, counter, requestId_, putOk,
+                                     confirmedRequestId, kvId, learnerId,
+                                     operation, requestId >>
 
 PIncSlot(self) == /\ pc[self] = "PIncSlot"
                   /\ IF elected[self]
@@ -2241,42 +2149,39 @@ PIncSlot(self) == /\ pc[self] = "PIncSlot"
                   /\ UNCHANGED << network, values, lastSeenAbstract,
                                   monitorLastSeen, timeoutCheckerAbstract,
                                   sleeperAbstract, kvClient, requestSet,
-                                  learnedChan, paxosLayerChan,
+                                  learnedChan, paxosLayerChan, database,
                                   electionInProgresssAbstract,
                                   iAmTheLeaderAbstract, leaderFailureAbstract,
-                                  valueStreamRead, valueStreamWrite,
-                                  valueStreamWrite0, valueStreamWrite1,
-                                  mailboxesWrite, mailboxesWrite0,
-                                  mailboxesRead, iAmTheLeaderWrite,
-                                  electionInProgressWrite, leaderFailureRead,
-                                  iAmTheLeaderWrite0, electionInProgressWrite0,
-                                  iAmTheLeaderWrite1, electionInProgressWrite1,
-                                  mailboxesWrite1, iAmTheLeaderWrite2,
-                                  electionInProgressWrite2, mailboxesWrite2,
-                                  iAmTheLeaderWrite3, electionInProgressWrite3,
-                                  iAmTheLeaderWrite4, electionInProgressWrite4,
-                                  mailboxesWrite3, electionInProgressWrite5,
-                                  mailboxesWrite4, iAmTheLeaderWrite5,
-                                  electionInProgressWrite6, mailboxesWrite5,
-                                  mailboxesWrite6, iAmTheLeaderWrite6,
-                                  electionInProgressWrite7, valueStreamWrite2,
+                                  valueStreamRead, mailboxesWrite,
+                                  mailboxesWrite0, mailboxesRead,
+                                  iAmTheLeaderWrite, electionInProgressWrite,
+                                  leaderFailureRead, iAmTheLeaderWrite0,
+                                  electionInProgressWrite0, iAmTheLeaderWrite1,
+                                  electionInProgressWrite1, mailboxesWrite1,
+                                  iAmTheLeaderWrite2, electionInProgressWrite2,
+                                  mailboxesWrite2, iAmTheLeaderWrite3,
+                                  electionInProgressWrite3, iAmTheLeaderWrite4,
+                                  electionInProgressWrite4, mailboxesWrite3,
+                                  electionInProgressWrite5, mailboxesWrite4,
+                                  iAmTheLeaderWrite5, electionInProgressWrite6,
+                                  mailboxesWrite5, mailboxesWrite6,
+                                  iAmTheLeaderWrite6, electionInProgressWrite7,
                                   mailboxesWrite7, iAmTheLeaderWrite7,
-                                  electionInProgressWrite8, valueStreamWrite3,
-                                  mailboxesWrite8, iAmTheLeaderWrite8,
-                                  electionInProgressWrite9, mailboxesRead0,
-                                  mailboxesWrite9, mailboxesWrite10,
-                                  mailboxesWrite11, mailboxesWrite12,
-                                  mailboxesWrite13, mailboxesWrite14,
-                                  mailboxesWrite15, mailboxesRead1,
-                                  mailboxesWrite16, decidedWrite,
-                                  decidedWrite0, decidedWrite1, decidedWrite2,
-                                  mailboxesWrite17, decidedWrite3,
-                                  electionInProgressRead, iAmTheLeaderRead,
-                                  mailboxesWrite18, mailboxesWrite19,
-                                  heartbeatFrequencyRead, sleeperWrite,
-                                  mailboxesWrite20, sleeperWrite0,
-                                  mailboxesWrite21, sleeperWrite1,
-                                  mailboxesRead2, lastSeenWrite,
+                                  electionInProgressWrite8, mailboxesWrite8,
+                                  iAmTheLeaderWrite8, electionInProgressWrite9,
+                                  mailboxesRead0, mailboxesWrite9,
+                                  mailboxesWrite10, mailboxesWrite11,
+                                  mailboxesWrite12, mailboxesWrite13,
+                                  mailboxesWrite14, mailboxesWrite15,
+                                  mailboxesRead1, mailboxesWrite16,
+                                  decidedWrite, decidedWrite0, decidedWrite1,
+                                  decidedWrite2, mailboxesWrite17,
+                                  decidedWrite3, electionInProgressRead,
+                                  iAmTheLeaderRead, mailboxesWrite18,
+                                  mailboxesWrite19, heartbeatFrequencyRead,
+                                  sleeperWrite, mailboxesWrite20,
+                                  sleeperWrite0, mailboxesWrite21,
+                                  sleeperWrite1, mailboxesRead2, lastSeenWrite,
                                   mailboxesWrite22, lastSeenWrite0,
                                   mailboxesWrite23, sleeperWrite2,
                                   lastSeenWrite1, electionInProgressRead0,
@@ -2295,26 +2200,23 @@ PIncSlot(self) == /\ pc[self] = "PIncSlot"
                                   requestsRead, requestsWrite, dbRead,
                                   upstreamWrite, upstreamWrite0,
                                   iAmTheLeaderRead1, proposerChanWrite,
-                                  paxosChanRead, paxosChanWrite,
-                                  upstreamWrite1, proposerChanWrite0,
-                                  paxosChanWrite0, upstreamWrite2,
-                                  proposerChanWrite1, paxosChanWrite1,
-                                  requestsWrite0, upstreamWrite3,
-                                  proposerChanWrite2, paxosChanWrite2,
-                                  learnerChanRead, learnerChanWrite, dbWrite,
+                                  paxosChanRead, proposerChanWrite0,
+                                  upstreamWrite1, proposerChanWrite1,
+                                  upstreamWrite2, requestsWrite0,
+                                  upstreamWrite3, proposerChanWrite2,
+                                  learnerChanRead, dbWrite,
                                   requestServiceWrite, requestServiceWrite0,
-                                  learnerChanWrite0, dbWrite0,
-                                  requestServiceWrite1, b, elected,
+                                  dbWrite0, requestServiceWrite1, b, elected,
                                   acceptedValues_, max, index_, entry_,
                                   promises, heartbeatMonitorId, accepts_,
                                   value, repropose, resp, maxBal, loopIndex,
                                   acceptedValues, payload, msg_, accepts,
-                                  decisions, newAccepts, numAccepted, iterator,
-                                  entry, msg_l, heartbeatFrequencyLocal, msg_h,
-                                  index, monitorFrequencyLocal, heartbeatId_,
-                                  dbLocal, msg, null, heartbeatId, counter,
-                                  requestId_, putOk, confirmedRequestId,
-                                  dbLocal0, myId, operation, requestId >>
+                                  newAccepts, numAccepted, iterator, entry,
+                                  msg_l, heartbeatFrequencyLocal, msg_h, index,
+                                  monitorFrequencyLocal, heartbeatId_, msg,
+                                  null, heartbeatId, proposerId, counter,
+                                  requestId_, putOk, confirmedRequestId, kvId,
+                                  learnerId, operation, requestId >>
 
 PReqVotes(self) == /\ pc[self] = "PReqVotes"
                    /\ IF (index_[self]) <= (((2) * (NUM_NODES)) - (1))
@@ -2345,9 +2247,8 @@ PReqVotes(self) == /\ pc[self] = "PReqVotes"
                    /\ UNCHANGED << values, lastSeenAbstract, monitorLastSeen,
                                    timeoutCheckerAbstract, sleeperAbstract,
                                    kvClient, requestSet, learnedChan,
-                                   paxosLayerChan, leaderFailureAbstract,
-                                   valueStreamRead, valueStreamWrite,
-                                   valueStreamWrite0, valueStreamWrite1,
+                                   paxosLayerChan, database,
+                                   leaderFailureAbstract, valueStreamRead,
                                    mailboxesWrite0, mailboxesRead,
                                    leaderFailureRead, iAmTheLeaderWrite0,
                                    electionInProgressWrite0,
@@ -2361,10 +2262,10 @@ PReqVotes(self) == /\ pc[self] = "PReqVotes"
                                    iAmTheLeaderWrite5,
                                    electionInProgressWrite6, mailboxesWrite5,
                                    mailboxesWrite6, iAmTheLeaderWrite6,
-                                   electionInProgressWrite7, valueStreamWrite2,
-                                   mailboxesWrite7, iAmTheLeaderWrite7,
-                                   electionInProgressWrite8, valueStreamWrite3,
-                                   mailboxesWrite8, iAmTheLeaderWrite8,
+                                   electionInProgressWrite7, mailboxesWrite7,
+                                   iAmTheLeaderWrite7,
+                                   electionInProgressWrite8, mailboxesWrite8,
+                                   iAmTheLeaderWrite8,
                                    electionInProgressWrite9, mailboxesRead0,
                                    mailboxesWrite9, mailboxesWrite10,
                                    mailboxesWrite11, mailboxesWrite12,
@@ -2397,27 +2298,23 @@ PReqVotes(self) == /\ pc[self] = "PReqVotes"
                                    requestsRead, requestsWrite, dbRead,
                                    upstreamWrite, upstreamWrite0,
                                    iAmTheLeaderRead1, proposerChanWrite,
-                                   paxosChanRead, paxosChanWrite,
-                                   upstreamWrite1, proposerChanWrite0,
-                                   paxosChanWrite0, upstreamWrite2,
-                                   proposerChanWrite1, paxosChanWrite1,
-                                   requestsWrite0, upstreamWrite3,
-                                   proposerChanWrite2, paxosChanWrite2,
-                                   learnerChanRead, learnerChanWrite, dbWrite,
+                                   paxosChanRead, proposerChanWrite0,
+                                   upstreamWrite1, proposerChanWrite1,
+                                   upstreamWrite2, requestsWrite0,
+                                   upstreamWrite3, proposerChanWrite2,
+                                   learnerChanRead, dbWrite,
                                    requestServiceWrite, requestServiceWrite0,
-                                   learnerChanWrite0, dbWrite0,
-                                   requestServiceWrite1, b, s, elected,
-                                   acceptedValues_, max, entry_,
+                                   dbWrite0, requestServiceWrite1, b, s,
+                                   elected, acceptedValues_, max, entry_,
                                    heartbeatMonitorId, accepts_, value,
                                    repropose, resp, maxBal, loopIndex,
                                    acceptedValues, payload, msg_, accepts,
-                                   decisions, newAccepts, numAccepted,
-                                   iterator, entry, msg_l,
-                                   heartbeatFrequencyLocal, msg_h, index,
-                                   monitorFrequencyLocal, heartbeatId_,
-                                   dbLocal, msg, null, heartbeatId, counter,
-                                   requestId_, putOk, confirmedRequestId,
-                                   dbLocal0, myId, operation, requestId >>
+                                   newAccepts, numAccepted, iterator, entry,
+                                   msg_l, heartbeatFrequencyLocal, msg_h,
+                                   index, monitorFrequencyLocal, heartbeatId_,
+                                   msg, null, heartbeatId, proposerId, counter,
+                                   requestId_, putOk, confirmedRequestId, kvId,
+                                   learnerId, operation, requestId >>
 
 PCandidate(self) == /\ pc[self] = "PCandidate"
                     /\ IF ~(elected[self])
@@ -2469,7 +2366,7 @@ PCandidate(self) == /\ pc[self] = "PCandidate"
                                                      /\ (leaderFailureAbstract[heartbeatMonitorId[self]]) = (TRUE)
                                                      /\ leaderFailureRead' = leaderFailureAbstract[heartbeatMonitorId[self]]
                                                      /\ Assert((leaderFailureRead') = (TRUE),
-                                                               "Failure of assertion at line 764, column 41.")
+                                                               "Failure of assertion at line 760, column 41.")
                                                      /\ b' = [b EXCEPT ![self] = (b[self]) + (NUM_NODES)]
                                                      /\ index_' = [index_ EXCEPT ![self] = NUM_NODES]
                                                      /\ network' = mailboxesWrite'
@@ -2528,9 +2425,8 @@ PCandidate(self) == /\ pc[self] = "PCandidate"
                     /\ UNCHANGED << values, lastSeenAbstract, monitorLastSeen,
                                     timeoutCheckerAbstract, sleeperAbstract,
                                     kvClient, requestSet, learnedChan,
-                                    paxosLayerChan, leaderFailureAbstract,
-                                    valueStreamRead, valueStreamWrite,
-                                    valueStreamWrite0, valueStreamWrite1,
+                                    paxosLayerChan, database,
+                                    leaderFailureAbstract, valueStreamRead,
                                     mailboxesWrite0, iAmTheLeaderWrite0,
                                     electionInProgressWrite0,
                                     iAmTheLeaderWrite1,
@@ -2539,10 +2435,8 @@ PCandidate(self) == /\ pc[self] = "PCandidate"
                                     electionInProgressWrite2, mailboxesWrite2,
                                     iAmTheLeaderWrite3,
                                     electionInProgressWrite3, mailboxesWrite3,
-                                    valueStreamWrite2, mailboxesWrite7,
-                                    iAmTheLeaderWrite7,
-                                    electionInProgressWrite8,
-                                    valueStreamWrite3, mailboxesWrite8,
+                                    mailboxesWrite7, iAmTheLeaderWrite7,
+                                    electionInProgressWrite8, mailboxesWrite8,
                                     iAmTheLeaderWrite8,
                                     electionInProgressWrite9, mailboxesRead0,
                                     mailboxesWrite9, mailboxesWrite10,
@@ -2576,26 +2470,23 @@ PCandidate(self) == /\ pc[self] = "PCandidate"
                                     requestsRead, requestsWrite, dbRead,
                                     upstreamWrite, upstreamWrite0,
                                     iAmTheLeaderRead1, proposerChanWrite,
-                                    paxosChanRead, paxosChanWrite,
-                                    upstreamWrite1, proposerChanWrite0,
-                                    paxosChanWrite0, upstreamWrite2,
-                                    proposerChanWrite1, paxosChanWrite1,
-                                    requestsWrite0, upstreamWrite3,
-                                    proposerChanWrite2, paxosChanWrite2,
-                                    learnerChanRead, learnerChanWrite, dbWrite,
+                                    paxosChanRead, proposerChanWrite0,
+                                    upstreamWrite1, proposerChanWrite1,
+                                    upstreamWrite2, requestsWrite0,
+                                    upstreamWrite3, proposerChanWrite2,
+                                    learnerChanRead, dbWrite,
                                     requestServiceWrite, requestServiceWrite0,
-                                    learnerChanWrite0, dbWrite0,
-                                    requestServiceWrite1, s, max, entry_,
-                                    heartbeatMonitorId, accepts_, value,
-                                    repropose, maxBal, loopIndex,
+                                    dbWrite0, requestServiceWrite1, s, max,
+                                    entry_, heartbeatMonitorId, accepts_,
+                                    value, repropose, maxBal, loopIndex,
                                     acceptedValues, payload, msg_, accepts,
-                                    decisions, newAccepts, numAccepted,
-                                    iterator, entry, msg_l,
-                                    heartbeatFrequencyLocal, msg_h, index,
-                                    monitorFrequencyLocal, heartbeatId_,
-                                    dbLocal, msg, null, heartbeatId, counter,
-                                    requestId_, putOk, confirmedRequestId,
-                                    dbLocal0, myId, operation, requestId >>
+                                    newAccepts, numAccepted, iterator, entry,
+                                    msg_l, heartbeatFrequencyLocal, msg_h,
+                                    index, monitorFrequencyLocal, heartbeatId_,
+                                    msg, null, heartbeatId, proposerId,
+                                    counter, requestId_, putOk,
+                                    confirmedRequestId, kvId, learnerId,
+                                    operation, requestId >>
 
 PReSendReqVotes(self) == /\ pc[self] = "PReSendReqVotes"
                          /\ IF (index_[self]) <= (((2) * (NUM_NODES)) - (1))
@@ -2613,14 +2504,12 @@ PReSendReqVotes(self) == /\ pc[self] = "PReSendReqVotes"
                                          monitorLastSeen,
                                          timeoutCheckerAbstract,
                                          sleeperAbstract, kvClient, requestSet,
-                                         learnedChan, paxosLayerChan,
+                                         learnedChan, paxosLayerChan, database,
                                          electionInProgresssAbstract,
                                          iAmTheLeaderAbstract,
                                          leaderFailureAbstract,
-                                         valueStreamRead, valueStreamWrite,
-                                         valueStreamWrite0, valueStreamWrite1,
-                                         mailboxesWrite0, mailboxesRead,
-                                         iAmTheLeaderWrite,
+                                         valueStreamRead, mailboxesWrite0,
+                                         mailboxesRead, iAmTheLeaderWrite,
                                          electionInProgressWrite,
                                          leaderFailureRead, iAmTheLeaderWrite0,
                                          electionInProgressWrite0,
@@ -2638,11 +2527,9 @@ PReSendReqVotes(self) == /\ pc[self] = "PReSendReqVotes"
                                          mailboxesWrite5, mailboxesWrite6,
                                          iAmTheLeaderWrite6,
                                          electionInProgressWrite7,
-                                         valueStreamWrite2, mailboxesWrite7,
-                                         iAmTheLeaderWrite7,
+                                         mailboxesWrite7, iAmTheLeaderWrite7,
                                          electionInProgressWrite8,
-                                         valueStreamWrite3, mailboxesWrite8,
-                                         iAmTheLeaderWrite8,
+                                         mailboxesWrite8, iAmTheLeaderWrite8,
                                          electionInProgressWrite9,
                                          mailboxesRead0, mailboxesWrite9,
                                          mailboxesWrite10, mailboxesWrite11,
@@ -2683,29 +2570,25 @@ PReSendReqVotes(self) == /\ pc[self] = "PReSendReqVotes"
                                          requestsWrite, dbRead, upstreamWrite,
                                          upstreamWrite0, iAmTheLeaderRead1,
                                          proposerChanWrite, paxosChanRead,
-                                         paxosChanWrite, upstreamWrite1,
-                                         proposerChanWrite0, paxosChanWrite0,
-                                         upstreamWrite2, proposerChanWrite1,
-                                         paxosChanWrite1, requestsWrite0,
-                                         upstreamWrite3, proposerChanWrite2,
-                                         paxosChanWrite2, learnerChanRead,
-                                         learnerChanWrite, dbWrite,
-                                         requestServiceWrite,
-                                         requestServiceWrite0,
-                                         learnerChanWrite0, dbWrite0,
+                                         proposerChanWrite0, upstreamWrite1,
+                                         proposerChanWrite1, upstreamWrite2,
+                                         requestsWrite0, upstreamWrite3,
+                                         proposerChanWrite2, learnerChanRead,
+                                         dbWrite, requestServiceWrite,
+                                         requestServiceWrite0, dbWrite0,
                                          requestServiceWrite1, b, s, elected,
                                          acceptedValues_, max, entry_,
                                          promises, heartbeatMonitorId,
                                          accepts_, value, repropose, resp,
                                          maxBal, loopIndex, acceptedValues,
-                                         payload, msg_, accepts, decisions,
-                                         newAccepts, numAccepted, iterator,
-                                         entry, msg_l, heartbeatFrequencyLocal,
-                                         msg_h, index, monitorFrequencyLocal,
-                                         heartbeatId_, dbLocal, msg, null,
-                                         heartbeatId, counter, requestId_,
-                                         putOk, confirmedRequestId, dbLocal0,
-                                         myId, operation, requestId >>
+                                         payload, msg_, accepts, newAccepts,
+                                         numAccepted, iterator, entry, msg_l,
+                                         heartbeatFrequencyLocal, msg_h, index,
+                                         monitorFrequencyLocal, heartbeatId_,
+                                         msg, null, heartbeatId, proposerId,
+                                         counter, requestId_, putOk,
+                                         confirmedRequestId, kvId, learnerId,
+                                         operation, requestId >>
 
 proposer(self) == Pre(self) \/ P(self) \/ PLeaderCheck(self)
                      \/ PFindMaxVal(self) \/ PSendProposes(self)
@@ -2729,39 +2612,37 @@ A(self) == /\ pc[self] = "A"
                       /\ UNCHANGED << mailboxesRead0, mailboxesWrite9, msg_ >>
            /\ UNCHANGED << values, lastSeenAbstract, monitorLastSeen,
                            timeoutCheckerAbstract, sleeperAbstract, kvClient,
-                           requestSet, learnedChan, paxosLayerChan,
+                           requestSet, learnedChan, paxosLayerChan, database,
                            electionInProgresssAbstract, iAmTheLeaderAbstract,
                            leaderFailureAbstract, valueStreamRead,
-                           valueStreamWrite, valueStreamWrite0,
-                           valueStreamWrite1, mailboxesWrite, mailboxesWrite0,
-                           mailboxesRead, iAmTheLeaderWrite,
-                           electionInProgressWrite, leaderFailureRead,
-                           iAmTheLeaderWrite0, electionInProgressWrite0,
-                           iAmTheLeaderWrite1, electionInProgressWrite1,
-                           mailboxesWrite1, iAmTheLeaderWrite2,
-                           electionInProgressWrite2, mailboxesWrite2,
-                           iAmTheLeaderWrite3, electionInProgressWrite3,
-                           iAmTheLeaderWrite4, electionInProgressWrite4,
-                           mailboxesWrite3, electionInProgressWrite5,
-                           mailboxesWrite4, iAmTheLeaderWrite5,
-                           electionInProgressWrite6, mailboxesWrite5,
-                           mailboxesWrite6, iAmTheLeaderWrite6,
-                           electionInProgressWrite7, valueStreamWrite2,
+                           mailboxesWrite, mailboxesWrite0, mailboxesRead,
+                           iAmTheLeaderWrite, electionInProgressWrite,
+                           leaderFailureRead, iAmTheLeaderWrite0,
+                           electionInProgressWrite0, iAmTheLeaderWrite1,
+                           electionInProgressWrite1, mailboxesWrite1,
+                           iAmTheLeaderWrite2, electionInProgressWrite2,
+                           mailboxesWrite2, iAmTheLeaderWrite3,
+                           electionInProgressWrite3, iAmTheLeaderWrite4,
+                           electionInProgressWrite4, mailboxesWrite3,
+                           electionInProgressWrite5, mailboxesWrite4,
+                           iAmTheLeaderWrite5, electionInProgressWrite6,
+                           mailboxesWrite5, mailboxesWrite6,
+                           iAmTheLeaderWrite6, electionInProgressWrite7,
                            mailboxesWrite7, iAmTheLeaderWrite7,
-                           electionInProgressWrite8, valueStreamWrite3,
-                           mailboxesWrite8, iAmTheLeaderWrite8,
-                           electionInProgressWrite9, mailboxesWrite10,
-                           mailboxesWrite11, mailboxesWrite12,
-                           mailboxesWrite13, mailboxesWrite14, mailboxesRead1,
-                           mailboxesWrite16, decidedWrite, decidedWrite0,
-                           decidedWrite1, decidedWrite2, mailboxesWrite17,
-                           decidedWrite3, electionInProgressRead,
-                           iAmTheLeaderRead, mailboxesWrite18,
-                           mailboxesWrite19, heartbeatFrequencyRead,
-                           sleeperWrite, mailboxesWrite20, sleeperWrite0,
-                           mailboxesWrite21, sleeperWrite1, mailboxesRead2,
-                           lastSeenWrite, mailboxesWrite22, lastSeenWrite0,
-                           mailboxesWrite23, sleeperWrite2, lastSeenWrite1,
+                           electionInProgressWrite8, mailboxesWrite8,
+                           iAmTheLeaderWrite8, electionInProgressWrite9,
+                           mailboxesWrite10, mailboxesWrite11,
+                           mailboxesWrite12, mailboxesWrite13,
+                           mailboxesWrite14, mailboxesRead1, mailboxesWrite16,
+                           decidedWrite, decidedWrite0, decidedWrite1,
+                           decidedWrite2, mailboxesWrite17, decidedWrite3,
+                           electionInProgressRead, iAmTheLeaderRead,
+                           mailboxesWrite18, mailboxesWrite19,
+                           heartbeatFrequencyRead, sleeperWrite,
+                           mailboxesWrite20, sleeperWrite0, mailboxesWrite21,
+                           sleeperWrite1, mailboxesRead2, lastSeenWrite,
+                           mailboxesWrite22, lastSeenWrite0, mailboxesWrite23,
+                           sleeperWrite2, lastSeenWrite1,
                            electionInProgressRead0, iAmTheLeaderRead0,
                            lastSeenRead, timeoutCheckerRead,
                            timeoutCheckerWrite, timeoutCheckerWrite0,
@@ -2774,22 +2655,20 @@ A(self) == /\ pc[self] = "A"
                            electionInProgressWrite13, sleeperWrite4,
                            requestsRead, requestsWrite, dbRead, upstreamWrite,
                            upstreamWrite0, iAmTheLeaderRead1,
-                           proposerChanWrite, paxosChanRead, paxosChanWrite,
-                           upstreamWrite1, proposerChanWrite0, paxosChanWrite0,
-                           upstreamWrite2, proposerChanWrite1, paxosChanWrite1,
-                           requestsWrite0, upstreamWrite3, proposerChanWrite2,
-                           paxosChanWrite2, learnerChanRead, learnerChanWrite,
+                           proposerChanWrite, paxosChanRead,
+                           proposerChanWrite0, upstreamWrite1,
+                           proposerChanWrite1, upstreamWrite2, requestsWrite0,
+                           upstreamWrite3, proposerChanWrite2, learnerChanRead,
                            dbWrite, requestServiceWrite, requestServiceWrite0,
-                           learnerChanWrite0, dbWrite0, requestServiceWrite1,
-                           b, s, elected, acceptedValues_, max, index_, entry_,
-                           promises, heartbeatMonitorId, accepts_, value,
-                           repropose, resp, maxBal, loopIndex, acceptedValues,
-                           payload, accepts, decisions, newAccepts,
-                           numAccepted, iterator, entry, msg_l,
-                           heartbeatFrequencyLocal, msg_h, index,
-                           monitorFrequencyLocal, heartbeatId_, dbLocal, msg,
-                           null, heartbeatId, counter, requestId_, putOk,
-                           confirmedRequestId, dbLocal0, myId, operation,
+                           dbWrite0, requestServiceWrite1, b, s, elected,
+                           acceptedValues_, max, index_, entry_, promises,
+                           heartbeatMonitorId, accepts_, value, repropose,
+                           resp, maxBal, loopIndex, acceptedValues, payload,
+                           accepts, newAccepts, numAccepted, iterator, entry,
+                           msg_l, heartbeatFrequencyLocal, msg_h, index,
+                           monitorFrequencyLocal, heartbeatId_, msg, null,
+                           heartbeatId, proposerId, counter, requestId_, putOk,
+                           confirmedRequestId, kvId, learnerId, operation,
                            requestId >>
 
 AMsgSwitch(self) == /\ pc[self] = "AMsgSwitch"
@@ -2829,15 +2708,14 @@ AMsgSwitch(self) == /\ pc[self] = "AMsgSwitch"
                     /\ UNCHANGED << values, lastSeenAbstract, monitorLastSeen,
                                     timeoutCheckerAbstract, sleeperAbstract,
                                     kvClient, requestSet, learnedChan,
-                                    paxosLayerChan,
+                                    paxosLayerChan, database,
                                     electionInProgresssAbstract,
                                     iAmTheLeaderAbstract,
                                     leaderFailureAbstract, valueStreamRead,
-                                    valueStreamWrite, valueStreamWrite0,
-                                    valueStreamWrite1, mailboxesWrite,
-                                    mailboxesWrite0, mailboxesRead,
-                                    iAmTheLeaderWrite, electionInProgressWrite,
-                                    leaderFailureRead, iAmTheLeaderWrite0,
+                                    mailboxesWrite, mailboxesWrite0,
+                                    mailboxesRead, iAmTheLeaderWrite,
+                                    electionInProgressWrite, leaderFailureRead,
+                                    iAmTheLeaderWrite0,
                                     electionInProgressWrite0,
                                     iAmTheLeaderWrite1,
                                     electionInProgressWrite1, mailboxesWrite1,
@@ -2851,11 +2729,9 @@ AMsgSwitch(self) == /\ pc[self] = "AMsgSwitch"
                                     iAmTheLeaderWrite5,
                                     electionInProgressWrite6, mailboxesWrite5,
                                     mailboxesWrite6, iAmTheLeaderWrite6,
-                                    electionInProgressWrite7,
-                                    valueStreamWrite2, mailboxesWrite7,
+                                    electionInProgressWrite7, mailboxesWrite7,
                                     iAmTheLeaderWrite7,
-                                    electionInProgressWrite8,
-                                    valueStreamWrite3, mailboxesWrite8,
+                                    electionInProgressWrite8, mailboxesWrite8,
                                     iAmTheLeaderWrite8,
                                     electionInProgressWrite9, mailboxesRead0,
                                     mailboxesWrite9, mailboxesWrite10,
@@ -2887,27 +2763,24 @@ AMsgSwitch(self) == /\ pc[self] = "AMsgSwitch"
                                     requestsRead, requestsWrite, dbRead,
                                     upstreamWrite, upstreamWrite0,
                                     iAmTheLeaderRead1, proposerChanWrite,
-                                    paxosChanRead, paxosChanWrite,
-                                    upstreamWrite1, proposerChanWrite0,
-                                    paxosChanWrite0, upstreamWrite2,
-                                    proposerChanWrite1, paxosChanWrite1,
-                                    requestsWrite0, upstreamWrite3,
-                                    proposerChanWrite2, paxosChanWrite2,
-                                    learnerChanRead, learnerChanWrite, dbWrite,
+                                    paxosChanRead, proposerChanWrite0,
+                                    upstreamWrite1, proposerChanWrite1,
+                                    upstreamWrite2, requestsWrite0,
+                                    upstreamWrite3, proposerChanWrite2,
+                                    learnerChanRead, dbWrite,
                                     requestServiceWrite, requestServiceWrite0,
-                                    learnerChanWrite0, dbWrite0,
-                                    requestServiceWrite1, b, s, elected,
-                                    acceptedValues_, max, index_, entry_,
-                                    promises, heartbeatMonitorId, accepts_,
-                                    value, repropose, resp, maxBal, loopIndex,
-                                    acceptedValues, payload, msg_, accepts,
-                                    decisions, newAccepts, numAccepted,
-                                    iterator, entry, msg_l,
-                                    heartbeatFrequencyLocal, msg_h, index,
-                                    monitorFrequencyLocal, heartbeatId_,
-                                    dbLocal, msg, null, heartbeatId, counter,
-                                    requestId_, putOk, confirmedRequestId,
-                                    dbLocal0, myId, operation, requestId >>
+                                    dbWrite0, requestServiceWrite1, b, s,
+                                    elected, acceptedValues_, max, index_,
+                                    entry_, promises, heartbeatMonitorId,
+                                    accepts_, value, repropose, resp, maxBal,
+                                    loopIndex, acceptedValues, payload, msg_,
+                                    accepts, newAccepts, numAccepted, iterator,
+                                    entry, msg_l, heartbeatFrequencyLocal,
+                                    msg_h, index, monitorFrequencyLocal,
+                                    heartbeatId_, msg, null, heartbeatId,
+                                    proposerId, counter, requestId_, putOk,
+                                    confirmedRequestId, kvId, learnerId,
+                                    operation, requestId >>
 
 APrepare(self) == /\ pc[self] = "APrepare"
                   /\ maxBal' = [maxBal EXCEPT ![self] = (msg_[self]).bal]
@@ -2918,40 +2791,39 @@ APrepare(self) == /\ pc[self] = "APrepare"
                   /\ UNCHANGED << values, lastSeenAbstract, monitorLastSeen,
                                   timeoutCheckerAbstract, sleeperAbstract,
                                   kvClient, requestSet, learnedChan,
-                                  paxosLayerChan, electionInProgresssAbstract,
+                                  paxosLayerChan, database,
+                                  electionInProgresssAbstract,
                                   iAmTheLeaderAbstract, leaderFailureAbstract,
-                                  valueStreamRead, valueStreamWrite,
-                                  valueStreamWrite0, valueStreamWrite1,
-                                  mailboxesWrite, mailboxesWrite0,
-                                  mailboxesRead, iAmTheLeaderWrite,
-                                  electionInProgressWrite, leaderFailureRead,
-                                  iAmTheLeaderWrite0, electionInProgressWrite0,
-                                  iAmTheLeaderWrite1, electionInProgressWrite1,
-                                  mailboxesWrite1, iAmTheLeaderWrite2,
-                                  electionInProgressWrite2, mailboxesWrite2,
-                                  iAmTheLeaderWrite3, electionInProgressWrite3,
-                                  iAmTheLeaderWrite4, electionInProgressWrite4,
-                                  mailboxesWrite3, electionInProgressWrite5,
-                                  mailboxesWrite4, iAmTheLeaderWrite5,
-                                  electionInProgressWrite6, mailboxesWrite5,
-                                  mailboxesWrite6, iAmTheLeaderWrite6,
-                                  electionInProgressWrite7, valueStreamWrite2,
+                                  valueStreamRead, mailboxesWrite,
+                                  mailboxesWrite0, mailboxesRead,
+                                  iAmTheLeaderWrite, electionInProgressWrite,
+                                  leaderFailureRead, iAmTheLeaderWrite0,
+                                  electionInProgressWrite0, iAmTheLeaderWrite1,
+                                  electionInProgressWrite1, mailboxesWrite1,
+                                  iAmTheLeaderWrite2, electionInProgressWrite2,
+                                  mailboxesWrite2, iAmTheLeaderWrite3,
+                                  electionInProgressWrite3, iAmTheLeaderWrite4,
+                                  electionInProgressWrite4, mailboxesWrite3,
+                                  electionInProgressWrite5, mailboxesWrite4,
+                                  iAmTheLeaderWrite5, electionInProgressWrite6,
+                                  mailboxesWrite5, mailboxesWrite6,
+                                  iAmTheLeaderWrite6, electionInProgressWrite7,
                                   mailboxesWrite7, iAmTheLeaderWrite7,
-                                  electionInProgressWrite8, valueStreamWrite3,
-                                  mailboxesWrite8, iAmTheLeaderWrite8,
-                                  electionInProgressWrite9, mailboxesRead0,
-                                  mailboxesWrite10, mailboxesWrite11,
-                                  mailboxesWrite12, mailboxesWrite13,
-                                  mailboxesWrite14, mailboxesWrite15,
-                                  mailboxesRead1, mailboxesWrite16,
-                                  decidedWrite, decidedWrite0, decidedWrite1,
-                                  decidedWrite2, mailboxesWrite17,
-                                  decidedWrite3, electionInProgressRead,
-                                  iAmTheLeaderRead, mailboxesWrite18,
-                                  mailboxesWrite19, heartbeatFrequencyRead,
-                                  sleeperWrite, mailboxesWrite20,
-                                  sleeperWrite0, mailboxesWrite21,
-                                  sleeperWrite1, mailboxesRead2, lastSeenWrite,
+                                  electionInProgressWrite8, mailboxesWrite8,
+                                  iAmTheLeaderWrite8, electionInProgressWrite9,
+                                  mailboxesRead0, mailboxesWrite10,
+                                  mailboxesWrite11, mailboxesWrite12,
+                                  mailboxesWrite13, mailboxesWrite14,
+                                  mailboxesWrite15, mailboxesRead1,
+                                  mailboxesWrite16, decidedWrite,
+                                  decidedWrite0, decidedWrite1, decidedWrite2,
+                                  mailboxesWrite17, decidedWrite3,
+                                  electionInProgressRead, iAmTheLeaderRead,
+                                  mailboxesWrite18, mailboxesWrite19,
+                                  heartbeatFrequencyRead, sleeperWrite,
+                                  mailboxesWrite20, sleeperWrite0,
+                                  mailboxesWrite21, sleeperWrite1,
+                                  mailboxesRead2, lastSeenWrite,
                                   mailboxesWrite22, lastSeenWrite0,
                                   mailboxesWrite23, sleeperWrite2,
                                   lastSeenWrite1, electionInProgressRead0,
@@ -2970,26 +2842,23 @@ APrepare(self) == /\ pc[self] = "APrepare"
                                   requestsRead, requestsWrite, dbRead,
                                   upstreamWrite, upstreamWrite0,
                                   iAmTheLeaderRead1, proposerChanWrite,
-                                  paxosChanRead, paxosChanWrite,
-                                  upstreamWrite1, proposerChanWrite0,
-                                  paxosChanWrite0, upstreamWrite2,
-                                  proposerChanWrite1, paxosChanWrite1,
-                                  requestsWrite0, upstreamWrite3,
-                                  proposerChanWrite2, paxosChanWrite2,
-                                  learnerChanRead, learnerChanWrite, dbWrite,
+                                  paxosChanRead, proposerChanWrite0,
+                                  upstreamWrite1, proposerChanWrite1,
+                                  upstreamWrite2, requestsWrite0,
+                                  upstreamWrite3, proposerChanWrite2,
+                                  learnerChanRead, dbWrite,
                                   requestServiceWrite, requestServiceWrite0,
-                                  learnerChanWrite0, dbWrite0,
-                                  requestServiceWrite1, b, s, elected,
-                                  acceptedValues_, max, index_, entry_,
-                                  promises, heartbeatMonitorId, accepts_,
-                                  value, repropose, resp, loopIndex,
+                                  dbWrite0, requestServiceWrite1, b, s,
+                                  elected, acceptedValues_, max, index_,
+                                  entry_, promises, heartbeatMonitorId,
+                                  accepts_, value, repropose, resp, loopIndex,
                                   acceptedValues, payload, msg_, accepts,
-                                  decisions, newAccepts, numAccepted, iterator,
-                                  entry, msg_l, heartbeatFrequencyLocal, msg_h,
-                                  index, monitorFrequencyLocal, heartbeatId_,
-                                  dbLocal, msg, null, heartbeatId, counter,
-                                  requestId_, putOk, confirmedRequestId,
-                                  dbLocal0, myId, operation, requestId >>
+                                  newAccepts, numAccepted, iterator, entry,
+                                  msg_l, heartbeatFrequencyLocal, msg_h, index,
+                                  monitorFrequencyLocal, heartbeatId_, msg,
+                                  null, heartbeatId, proposerId, counter,
+                                  requestId_, putOk, confirmedRequestId, kvId,
+                                  learnerId, operation, requestId >>
 
 ABadPrepare(self) == /\ pc[self] = "ABadPrepare"
                      /\ (Len(network[(msg_[self]).sender])) < (BUFFER_SIZE)
@@ -2999,14 +2868,12 @@ ABadPrepare(self) == /\ pc[self] = "ABadPrepare"
                      /\ UNCHANGED << values, lastSeenAbstract, monitorLastSeen,
                                      timeoutCheckerAbstract, sleeperAbstract,
                                      kvClient, requestSet, learnedChan,
-                                     paxosLayerChan,
+                                     paxosLayerChan, database,
                                      electionInProgresssAbstract,
                                      iAmTheLeaderAbstract,
                                      leaderFailureAbstract, valueStreamRead,
-                                     valueStreamWrite, valueStreamWrite0,
-                                     valueStreamWrite1, mailboxesWrite,
-                                     mailboxesWrite0, mailboxesRead,
-                                     iAmTheLeaderWrite,
+                                     mailboxesWrite, mailboxesWrite0,
+                                     mailboxesRead, iAmTheLeaderWrite,
                                      electionInProgressWrite,
                                      leaderFailureRead, iAmTheLeaderWrite0,
                                      electionInProgressWrite0,
@@ -3022,11 +2889,9 @@ ABadPrepare(self) == /\ pc[self] = "ABadPrepare"
                                      iAmTheLeaderWrite5,
                                      electionInProgressWrite6, mailboxesWrite5,
                                      mailboxesWrite6, iAmTheLeaderWrite6,
-                                     electionInProgressWrite7,
-                                     valueStreamWrite2, mailboxesWrite7,
+                                     electionInProgressWrite7, mailboxesWrite7,
                                      iAmTheLeaderWrite7,
-                                     electionInProgressWrite8,
-                                     valueStreamWrite3, mailboxesWrite8,
+                                     electionInProgressWrite8, mailboxesWrite8,
                                      iAmTheLeaderWrite8,
                                      electionInProgressWrite9, mailboxesRead0,
                                      mailboxesWrite10, mailboxesWrite11,
@@ -3060,27 +2925,24 @@ ABadPrepare(self) == /\ pc[self] = "ABadPrepare"
                                      requestsRead, requestsWrite, dbRead,
                                      upstreamWrite, upstreamWrite0,
                                      iAmTheLeaderRead1, proposerChanWrite,
-                                     paxosChanRead, paxosChanWrite,
-                                     upstreamWrite1, proposerChanWrite0,
-                                     paxosChanWrite0, upstreamWrite2,
-                                     proposerChanWrite1, paxosChanWrite1,
-                                     requestsWrite0, upstreamWrite3,
-                                     proposerChanWrite2, paxosChanWrite2,
-                                     learnerChanRead, learnerChanWrite,
-                                     dbWrite, requestServiceWrite,
-                                     requestServiceWrite0, learnerChanWrite0,
+                                     paxosChanRead, proposerChanWrite0,
+                                     upstreamWrite1, proposerChanWrite1,
+                                     upstreamWrite2, requestsWrite0,
+                                     upstreamWrite3, proposerChanWrite2,
+                                     learnerChanRead, dbWrite,
+                                     requestServiceWrite, requestServiceWrite0,
                                      dbWrite0, requestServiceWrite1, b, s,
                                      elected, acceptedValues_, max, index_,
                                      entry_, promises, heartbeatMonitorId,
                                      accepts_, value, repropose, resp, maxBal,
                                      loopIndex, acceptedValues, payload, msg_,
-                                     accepts, decisions, newAccepts,
-                                     numAccepted, iterator, entry, msg_l,
+                                     accepts, newAccepts, numAccepted,
+                                     iterator, entry, msg_l,
                                      heartbeatFrequencyLocal, msg_h, index,
-                                     monitorFrequencyLocal, heartbeatId_,
-                                     dbLocal, msg, null, heartbeatId, counter,
+                                     monitorFrequencyLocal, heartbeatId_, msg,
+                                     null, heartbeatId, proposerId, counter,
                                      requestId_, putOk, confirmedRequestId,
-                                     dbLocal0, myId, operation, requestId >>
+                                     kvId, learnerId, operation, requestId >>
 
 APropose(self) == /\ pc[self] = "APropose"
                   /\ maxBal' = [maxBal EXCEPT ![self] = (msg_[self]).bal]
@@ -3094,40 +2956,39 @@ APropose(self) == /\ pc[self] = "APropose"
                   /\ UNCHANGED << values, lastSeenAbstract, monitorLastSeen,
                                   timeoutCheckerAbstract, sleeperAbstract,
                                   kvClient, requestSet, learnedChan,
-                                  paxosLayerChan, electionInProgresssAbstract,
+                                  paxosLayerChan, database,
+                                  electionInProgresssAbstract,
                                   iAmTheLeaderAbstract, leaderFailureAbstract,
-                                  valueStreamRead, valueStreamWrite,
-                                  valueStreamWrite0, valueStreamWrite1,
-                                  mailboxesWrite, mailboxesWrite0,
-                                  mailboxesRead, iAmTheLeaderWrite,
-                                  electionInProgressWrite, leaderFailureRead,
-                                  iAmTheLeaderWrite0, electionInProgressWrite0,
-                                  iAmTheLeaderWrite1, electionInProgressWrite1,
-                                  mailboxesWrite1, iAmTheLeaderWrite2,
-                                  electionInProgressWrite2, mailboxesWrite2,
-                                  iAmTheLeaderWrite3, electionInProgressWrite3,
-                                  iAmTheLeaderWrite4, electionInProgressWrite4,
-                                  mailboxesWrite3, electionInProgressWrite5,
-                                  mailboxesWrite4, iAmTheLeaderWrite5,
-                                  electionInProgressWrite6, mailboxesWrite5,
-                                  mailboxesWrite6, iAmTheLeaderWrite6,
-                                  electionInProgressWrite7, valueStreamWrite2,
+                                  valueStreamRead, mailboxesWrite,
+                                  mailboxesWrite0, mailboxesRead,
+                                  iAmTheLeaderWrite, electionInProgressWrite,
+                                  leaderFailureRead, iAmTheLeaderWrite0,
+                                  electionInProgressWrite0, iAmTheLeaderWrite1,
+                                  electionInProgressWrite1, mailboxesWrite1,
+                                  iAmTheLeaderWrite2, electionInProgressWrite2,
+                                  mailboxesWrite2, iAmTheLeaderWrite3,
+                                  electionInProgressWrite3, iAmTheLeaderWrite4,
+                                  electionInProgressWrite4, mailboxesWrite3,
+                                  electionInProgressWrite5, mailboxesWrite4,
+                                  iAmTheLeaderWrite5, electionInProgressWrite6,
+                                  mailboxesWrite5, mailboxesWrite6,
+                                  iAmTheLeaderWrite6, electionInProgressWrite7,
                                   mailboxesWrite7, iAmTheLeaderWrite7,
-                                  electionInProgressWrite8, valueStreamWrite3,
-                                  mailboxesWrite8, iAmTheLeaderWrite8,
-                                  electionInProgressWrite9, mailboxesRead0,
-                                  mailboxesWrite10, mailboxesWrite11,
-                                  mailboxesWrite12, mailboxesWrite13,
-                                  mailboxesWrite14, mailboxesWrite15,
-                                  mailboxesRead1, mailboxesWrite16,
-                                  decidedWrite, decidedWrite0, decidedWrite1,
-                                  decidedWrite2, mailboxesWrite17,
-                                  decidedWrite3, electionInProgressRead,
-                                  iAmTheLeaderRead, mailboxesWrite18,
-                                  mailboxesWrite19, heartbeatFrequencyRead,
-                                  sleeperWrite, mailboxesWrite20,
-                                  sleeperWrite0, mailboxesWrite21,
-                                  sleeperWrite1, mailboxesRead2, lastSeenWrite,
+                                  electionInProgressWrite8, mailboxesWrite8,
+                                  iAmTheLeaderWrite8, electionInProgressWrite9,
+                                  mailboxesRead0, mailboxesWrite10,
+                                  mailboxesWrite11, mailboxesWrite12,
+                                  mailboxesWrite13, mailboxesWrite14,
+                                  mailboxesWrite15, mailboxesRead1,
+                                  mailboxesWrite16, decidedWrite,
+                                  decidedWrite0, decidedWrite1, decidedWrite2,
+                                  mailboxesWrite17, decidedWrite3,
+                                  electionInProgressRead, iAmTheLeaderRead,
+                                  mailboxesWrite18, mailboxesWrite19,
+                                  heartbeatFrequencyRead, sleeperWrite,
+                                  mailboxesWrite20, sleeperWrite0,
+                                  mailboxesWrite21, sleeperWrite1,
+                                  mailboxesRead2, lastSeenWrite,
                                   mailboxesWrite22, lastSeenWrite0,
                                   mailboxesWrite23, sleeperWrite2,
                                   lastSeenWrite1, electionInProgressRead0,
@@ -3146,25 +3007,22 @@ APropose(self) == /\ pc[self] = "APropose"
                                   requestsRead, requestsWrite, dbRead,
                                   upstreamWrite, upstreamWrite0,
                                   iAmTheLeaderRead1, proposerChanWrite,
-                                  paxosChanRead, paxosChanWrite,
-                                  upstreamWrite1, proposerChanWrite0,
-                                  paxosChanWrite0, upstreamWrite2,
-                                  proposerChanWrite1, paxosChanWrite1,
-                                  requestsWrite0, upstreamWrite3,
-                                  proposerChanWrite2, paxosChanWrite2,
-                                  learnerChanRead, learnerChanWrite, dbWrite,
+                                  paxosChanRead, proposerChanWrite0,
+                                  upstreamWrite1, proposerChanWrite1,
+                                  upstreamWrite2, requestsWrite0,
+                                  upstreamWrite3, proposerChanWrite2,
+                                  learnerChanRead, dbWrite,
                                   requestServiceWrite, requestServiceWrite0,
-                                  learnerChanWrite0, dbWrite0,
-                                  requestServiceWrite1, b, s, elected,
-                                  acceptedValues_, max, index_, entry_,
-                                  promises, heartbeatMonitorId, accepts_,
-                                  value, repropose, resp, msg_, accepts,
-                                  decisions, newAccepts, numAccepted, iterator,
+                                  dbWrite0, requestServiceWrite1, b, s,
+                                  elected, acceptedValues_, max, index_,
+                                  entry_, promises, heartbeatMonitorId,
+                                  accepts_, value, repropose, resp, msg_,
+                                  accepts, newAccepts, numAccepted, iterator,
                                   entry, msg_l, heartbeatFrequencyLocal, msg_h,
                                   index, monitorFrequencyLocal, heartbeatId_,
-                                  dbLocal, msg, null, heartbeatId, counter,
-                                  requestId_, putOk, confirmedRequestId,
-                                  dbLocal0, myId, operation, requestId >>
+                                  msg, null, heartbeatId, proposerId, counter,
+                                  requestId_, putOk, confirmedRequestId, kvId,
+                                  learnerId, operation, requestId >>
 
 ANotifyLearners(self) == /\ pc[self] = "ANotifyLearners"
                          /\ IF (loopIndex[self]) <= (((3) * (NUM_NODES)) - (1))
@@ -3182,14 +3040,13 @@ ANotifyLearners(self) == /\ pc[self] = "ANotifyLearners"
                                          monitorLastSeen,
                                          timeoutCheckerAbstract,
                                          sleeperAbstract, kvClient, requestSet,
-                                         learnedChan, paxosLayerChan,
+                                         learnedChan, paxosLayerChan, database,
                                          electionInProgresssAbstract,
                                          iAmTheLeaderAbstract,
                                          leaderFailureAbstract,
-                                         valueStreamRead, valueStreamWrite,
-                                         valueStreamWrite0, valueStreamWrite1,
-                                         mailboxesWrite, mailboxesWrite0,
-                                         mailboxesRead, iAmTheLeaderWrite,
+                                         valueStreamRead, mailboxesWrite,
+                                         mailboxesWrite0, mailboxesRead,
+                                         iAmTheLeaderWrite,
                                          electionInProgressWrite,
                                          leaderFailureRead, iAmTheLeaderWrite0,
                                          electionInProgressWrite0,
@@ -3208,11 +3065,9 @@ ANotifyLearners(self) == /\ pc[self] = "ANotifyLearners"
                                          mailboxesWrite5, mailboxesWrite6,
                                          iAmTheLeaderWrite6,
                                          electionInProgressWrite7,
-                                         valueStreamWrite2, mailboxesWrite7,
-                                         iAmTheLeaderWrite7,
+                                         mailboxesWrite7, iAmTheLeaderWrite7,
                                          electionInProgressWrite8,
-                                         valueStreamWrite3, mailboxesWrite8,
-                                         iAmTheLeaderWrite8,
+                                         mailboxesWrite8, iAmTheLeaderWrite8,
                                          electionInProgressWrite9,
                                          mailboxesRead0, mailboxesWrite11,
                                          mailboxesWrite12, mailboxesWrite13,
@@ -3252,28 +3107,24 @@ ANotifyLearners(self) == /\ pc[self] = "ANotifyLearners"
                                          requestsWrite, dbRead, upstreamWrite,
                                          upstreamWrite0, iAmTheLeaderRead1,
                                          proposerChanWrite, paxosChanRead,
-                                         paxosChanWrite, upstreamWrite1,
-                                         proposerChanWrite0, paxosChanWrite0,
-                                         upstreamWrite2, proposerChanWrite1,
-                                         paxosChanWrite1, requestsWrite0,
-                                         upstreamWrite3, proposerChanWrite2,
-                                         paxosChanWrite2, learnerChanRead,
-                                         learnerChanWrite, dbWrite,
-                                         requestServiceWrite,
-                                         requestServiceWrite0,
-                                         learnerChanWrite0, dbWrite0,
+                                         proposerChanWrite0, upstreamWrite1,
+                                         proposerChanWrite1, upstreamWrite2,
+                                         requestsWrite0, upstreamWrite3,
+                                         proposerChanWrite2, learnerChanRead,
+                                         dbWrite, requestServiceWrite,
+                                         requestServiceWrite0, dbWrite0,
                                          requestServiceWrite1, b, s, elected,
                                          acceptedValues_, max, index_, entry_,
                                          promises, heartbeatMonitorId,
                                          accepts_, value, repropose, resp,
                                          maxBal, acceptedValues, payload, msg_,
-                                         accepts, decisions, newAccepts,
-                                         numAccepted, iterator, entry, msg_l,
+                                         accepts, newAccepts, numAccepted,
+                                         iterator, entry, msg_l,
                                          heartbeatFrequencyLocal, msg_h, index,
                                          monitorFrequencyLocal, heartbeatId_,
-                                         dbLocal, msg, null, heartbeatId,
+                                         msg, null, heartbeatId, proposerId,
                                          counter, requestId_, putOk,
-                                         confirmedRequestId, dbLocal0, myId,
+                                         confirmedRequestId, kvId, learnerId,
                                          operation, requestId >>
 
 ABadPropose(self) == /\ pc[self] = "ABadPropose"
@@ -3284,14 +3135,12 @@ ABadPropose(self) == /\ pc[self] = "ABadPropose"
                      /\ UNCHANGED << values, lastSeenAbstract, monitorLastSeen,
                                      timeoutCheckerAbstract, sleeperAbstract,
                                      kvClient, requestSet, learnedChan,
-                                     paxosLayerChan,
+                                     paxosLayerChan, database,
                                      electionInProgresssAbstract,
                                      iAmTheLeaderAbstract,
                                      leaderFailureAbstract, valueStreamRead,
-                                     valueStreamWrite, valueStreamWrite0,
-                                     valueStreamWrite1, mailboxesWrite,
-                                     mailboxesWrite0, mailboxesRead,
-                                     iAmTheLeaderWrite,
+                                     mailboxesWrite, mailboxesWrite0,
+                                     mailboxesRead, iAmTheLeaderWrite,
                                      electionInProgressWrite,
                                      leaderFailureRead, iAmTheLeaderWrite0,
                                      electionInProgressWrite0,
@@ -3307,11 +3156,9 @@ ABadPropose(self) == /\ pc[self] = "ABadPropose"
                                      iAmTheLeaderWrite5,
                                      electionInProgressWrite6, mailboxesWrite5,
                                      mailboxesWrite6, iAmTheLeaderWrite6,
-                                     electionInProgressWrite7,
-                                     valueStreamWrite2, mailboxesWrite7,
+                                     electionInProgressWrite7, mailboxesWrite7,
                                      iAmTheLeaderWrite7,
-                                     electionInProgressWrite8,
-                                     valueStreamWrite3, mailboxesWrite8,
+                                     electionInProgressWrite8, mailboxesWrite8,
                                      iAmTheLeaderWrite8,
                                      electionInProgressWrite9, mailboxesRead0,
                                      mailboxesWrite10, mailboxesWrite11,
@@ -3345,27 +3192,24 @@ ABadPropose(self) == /\ pc[self] = "ABadPropose"
                                      requestsRead, requestsWrite, dbRead,
                                      upstreamWrite, upstreamWrite0,
                                      iAmTheLeaderRead1, proposerChanWrite,
-                                     paxosChanRead, paxosChanWrite,
-                                     upstreamWrite1, proposerChanWrite0,
-                                     paxosChanWrite0, upstreamWrite2,
-                                     proposerChanWrite1, paxosChanWrite1,
-                                     requestsWrite0, upstreamWrite3,
-                                     proposerChanWrite2, paxosChanWrite2,
-                                     learnerChanRead, learnerChanWrite,
-                                     dbWrite, requestServiceWrite,
-                                     requestServiceWrite0, learnerChanWrite0,
+                                     paxosChanRead, proposerChanWrite0,
+                                     upstreamWrite1, proposerChanWrite1,
+                                     upstreamWrite2, requestsWrite0,
+                                     upstreamWrite3, proposerChanWrite2,
+                                     learnerChanRead, dbWrite,
+                                     requestServiceWrite, requestServiceWrite0,
                                      dbWrite0, requestServiceWrite1, b, s,
                                      elected, acceptedValues_, max, index_,
                                      entry_, promises, heartbeatMonitorId,
                                      accepts_, value, repropose, resp, maxBal,
                                      loopIndex, acceptedValues, payload, msg_,
-                                     accepts, decisions, newAccepts,
-                                     numAccepted, iterator, entry, msg_l,
+                                     accepts, newAccepts, numAccepted,
+                                     iterator, entry, msg_l,
                                      heartbeatFrequencyLocal, msg_h, index,
-                                     monitorFrequencyLocal, heartbeatId_,
-                                     dbLocal, msg, null, heartbeatId, counter,
+                                     monitorFrequencyLocal, heartbeatId_, msg,
+                                     null, heartbeatId, proposerId, counter,
                                      requestId_, putOk, confirmedRequestId,
-                                     dbLocal0, myId, operation, requestId >>
+                                     kvId, learnerId, operation, requestId >>
 
 acceptor(self) == A(self) \/ AMsgSwitch(self) \/ APrepare(self)
                      \/ ABadPrepare(self) \/ APropose(self)
@@ -3390,32 +3234,30 @@ L(self) == /\ pc[self] = "L"
                       /\ UNCHANGED << mailboxesRead1, mailboxesWrite16, msg_l >>
            /\ UNCHANGED << values, lastSeenAbstract, monitorLastSeen,
                            timeoutCheckerAbstract, sleeperAbstract, kvClient,
-                           requestSet, paxosLayerChan,
+                           requestSet, paxosLayerChan, database,
                            electionInProgresssAbstract, iAmTheLeaderAbstract,
                            leaderFailureAbstract, valueStreamRead,
-                           valueStreamWrite, valueStreamWrite0,
-                           valueStreamWrite1, mailboxesWrite, mailboxesWrite0,
-                           mailboxesRead, iAmTheLeaderWrite,
-                           electionInProgressWrite, leaderFailureRead,
-                           iAmTheLeaderWrite0, electionInProgressWrite0,
-                           iAmTheLeaderWrite1, electionInProgressWrite1,
-                           mailboxesWrite1, iAmTheLeaderWrite2,
-                           electionInProgressWrite2, mailboxesWrite2,
-                           iAmTheLeaderWrite3, electionInProgressWrite3,
-                           iAmTheLeaderWrite4, electionInProgressWrite4,
-                           mailboxesWrite3, electionInProgressWrite5,
-                           mailboxesWrite4, iAmTheLeaderWrite5,
-                           electionInProgressWrite6, mailboxesWrite5,
-                           mailboxesWrite6, iAmTheLeaderWrite6,
-                           electionInProgressWrite7, valueStreamWrite2,
+                           mailboxesWrite, mailboxesWrite0, mailboxesRead,
+                           iAmTheLeaderWrite, electionInProgressWrite,
+                           leaderFailureRead, iAmTheLeaderWrite0,
+                           electionInProgressWrite0, iAmTheLeaderWrite1,
+                           electionInProgressWrite1, mailboxesWrite1,
+                           iAmTheLeaderWrite2, electionInProgressWrite2,
+                           mailboxesWrite2, iAmTheLeaderWrite3,
+                           electionInProgressWrite3, iAmTheLeaderWrite4,
+                           electionInProgressWrite4, mailboxesWrite3,
+                           electionInProgressWrite5, mailboxesWrite4,
+                           iAmTheLeaderWrite5, electionInProgressWrite6,
+                           mailboxesWrite5, mailboxesWrite6,
+                           iAmTheLeaderWrite6, electionInProgressWrite7,
                            mailboxesWrite7, iAmTheLeaderWrite7,
-                           electionInProgressWrite8, valueStreamWrite3,
-                           mailboxesWrite8, iAmTheLeaderWrite8,
-                           electionInProgressWrite9, mailboxesRead0,
-                           mailboxesWrite9, mailboxesWrite10, mailboxesWrite11,
-                           mailboxesWrite12, mailboxesWrite13,
-                           mailboxesWrite14, mailboxesWrite15, decidedWrite,
-                           decidedWrite0, decidedWrite1, decidedWrite2,
+                           electionInProgressWrite8, mailboxesWrite8,
+                           iAmTheLeaderWrite8, electionInProgressWrite9,
+                           mailboxesRead0, mailboxesWrite9, mailboxesWrite10,
+                           mailboxesWrite11, mailboxesWrite12,
+                           mailboxesWrite13, mailboxesWrite14,
+                           mailboxesWrite15, decidedWrite, decidedWrite0,
+                           decidedWrite1, decidedWrite2,
                            electionInProgressRead, iAmTheLeaderRead,
                            mailboxesWrite18, mailboxesWrite19,
                            heartbeatFrequencyRead, sleeperWrite,
@@ -3435,22 +3277,20 @@ L(self) == /\ pc[self] = "L"
                            electionInProgressWrite13, sleeperWrite4,
                            requestsRead, requestsWrite, dbRead, upstreamWrite,
                            upstreamWrite0, iAmTheLeaderRead1,
-                           proposerChanWrite, paxosChanRead, paxosChanWrite,
-                           upstreamWrite1, proposerChanWrite0, paxosChanWrite0,
-                           upstreamWrite2, proposerChanWrite1, paxosChanWrite1,
-                           requestsWrite0, upstreamWrite3, proposerChanWrite2,
-                           paxosChanWrite2, learnerChanRead, learnerChanWrite,
+                           proposerChanWrite, paxosChanRead,
+                           proposerChanWrite0, upstreamWrite1,
+                           proposerChanWrite1, upstreamWrite2, requestsWrite0,
+                           upstreamWrite3, proposerChanWrite2, learnerChanRead,
                            dbWrite, requestServiceWrite, requestServiceWrite0,
-                           learnerChanWrite0, dbWrite0, requestServiceWrite1,
-                           b, s, elected, acceptedValues_, max, index_, entry_,
-                           promises, heartbeatMonitorId, accepts_, value,
-                           repropose, resp, maxBal, loopIndex, acceptedValues,
-                           payload, msg_, accepts, decisions, newAccepts,
-                           numAccepted, iterator, entry,
-                           heartbeatFrequencyLocal, msg_h, index,
-                           monitorFrequencyLocal, heartbeatId_, dbLocal, msg,
-                           null, heartbeatId, counter, requestId_, putOk,
-                           confirmedRequestId, dbLocal0, myId, operation,
+                           dbWrite0, requestServiceWrite1, b, s, elected,
+                           acceptedValues_, max, index_, entry_, promises,
+                           heartbeatMonitorId, accepts_, value, repropose,
+                           resp, maxBal, loopIndex, acceptedValues, payload,
+                           msg_, accepts, newAccepts, numAccepted, iterator,
+                           entry, heartbeatFrequencyLocal, msg_h, index,
+                           monitorFrequencyLocal, heartbeatId_, msg, null,
+                           heartbeatId, proposerId, counter, requestId_, putOk,
+                           confirmedRequestId, kvId, learnerId, operation,
                            requestId >>
 
 LGotAcc(self) == /\ pc[self] = "LGotAcc"
@@ -3467,38 +3307,37 @@ LGotAcc(self) == /\ pc[self] = "LGotAcc"
                  /\ UNCHANGED << network, values, lastSeenAbstract,
                                  monitorLastSeen, timeoutCheckerAbstract,
                                  sleeperAbstract, kvClient, requestSet,
-                                 paxosLayerChan, electionInProgresssAbstract,
+                                 paxosLayerChan, database,
+                                 electionInProgresssAbstract,
                                  iAmTheLeaderAbstract, leaderFailureAbstract,
-                                 valueStreamRead, valueStreamWrite,
-                                 valueStreamWrite0, valueStreamWrite1,
-                                 mailboxesWrite, mailboxesWrite0,
-                                 mailboxesRead, iAmTheLeaderWrite,
-                                 electionInProgressWrite, leaderFailureRead,
-                                 iAmTheLeaderWrite0, electionInProgressWrite0,
-                                 iAmTheLeaderWrite1, electionInProgressWrite1,
-                                 mailboxesWrite1, iAmTheLeaderWrite2,
-                                 electionInProgressWrite2, mailboxesWrite2,
-                                 iAmTheLeaderWrite3, electionInProgressWrite3,
-                                 iAmTheLeaderWrite4, electionInProgressWrite4,
-                                 mailboxesWrite3, electionInProgressWrite5,
-                                 mailboxesWrite4, iAmTheLeaderWrite5,
-                                 electionInProgressWrite6, mailboxesWrite5,
-                                 mailboxesWrite6, iAmTheLeaderWrite6,
-                                 electionInProgressWrite7, valueStreamWrite2,
+                                 valueStreamRead, mailboxesWrite,
+                                 mailboxesWrite0, mailboxesRead,
+                                 iAmTheLeaderWrite, electionInProgressWrite,
+                                 leaderFailureRead, iAmTheLeaderWrite0,
+                                 electionInProgressWrite0, iAmTheLeaderWrite1,
+                                 electionInProgressWrite1, mailboxesWrite1,
+                                 iAmTheLeaderWrite2, electionInProgressWrite2,
+                                 mailboxesWrite2, iAmTheLeaderWrite3,
+                                 electionInProgressWrite3, iAmTheLeaderWrite4,
+                                 electionInProgressWrite4, mailboxesWrite3,
+                                 electionInProgressWrite5, mailboxesWrite4,
+                                 iAmTheLeaderWrite5, electionInProgressWrite6,
+                                 mailboxesWrite5, mailboxesWrite6,
+                                 iAmTheLeaderWrite6, electionInProgressWrite7,
                                  mailboxesWrite7, iAmTheLeaderWrite7,
-                                 electionInProgressWrite8, valueStreamWrite3,
-                                 mailboxesWrite8, iAmTheLeaderWrite8,
-                                 electionInProgressWrite9, mailboxesRead0,
-                                 mailboxesWrite9, mailboxesWrite10,
-                                 mailboxesWrite11, mailboxesWrite12,
-                                 mailboxesWrite13, mailboxesWrite14,
-                                 mailboxesWrite15, mailboxesRead1,
-                                 mailboxesWrite16, decidedWrite, decidedWrite0,
-                                 decidedWrite1, mailboxesWrite17,
-                                 decidedWrite3, electionInProgressRead,
-                                 iAmTheLeaderRead, mailboxesWrite18,
-                                 mailboxesWrite19, heartbeatFrequencyRead,
-                                 sleeperWrite, mailboxesWrite20, sleeperWrite0,
+                                 electionInProgressWrite8, mailboxesWrite8,
+                                 iAmTheLeaderWrite8, electionInProgressWrite9,
+                                 mailboxesRead0, mailboxesWrite9,
+                                 mailboxesWrite10, mailboxesWrite11,
+                                 mailboxesWrite12, mailboxesWrite13,
+                                 mailboxesWrite14, mailboxesWrite15,
+                                 mailboxesRead1, mailboxesWrite16,
+                                 decidedWrite, decidedWrite0, decidedWrite1,
+                                 mailboxesWrite17, decidedWrite3,
+                                 electionInProgressRead, iAmTheLeaderRead,
+                                 mailboxesWrite18, mailboxesWrite19,
+                                 heartbeatFrequencyRead, sleeperWrite,
+                                 mailboxesWrite20, sleeperWrite0,
                                  mailboxesWrite21, sleeperWrite1,
                                  mailboxesRead2, lastSeenWrite,
                                  mailboxesWrite22, lastSeenWrite0,
@@ -3518,26 +3357,22 @@ LGotAcc(self) == /\ pc[self] = "LGotAcc"
                                  requestsRead, requestsWrite, dbRead,
                                  upstreamWrite, upstreamWrite0,
                                  iAmTheLeaderRead1, proposerChanWrite,
-                                 paxosChanRead, paxosChanWrite, upstreamWrite1,
-                                 proposerChanWrite0, paxosChanWrite0,
-                                 upstreamWrite2, proposerChanWrite1,
-                                 paxosChanWrite1, requestsWrite0,
+                                 paxosChanRead, proposerChanWrite0,
+                                 upstreamWrite1, proposerChanWrite1,
+                                 upstreamWrite2, requestsWrite0,
                                  upstreamWrite3, proposerChanWrite2,
-                                 paxosChanWrite2, learnerChanRead,
-                                 learnerChanWrite, dbWrite,
-                                 requestServiceWrite, requestServiceWrite0,
-                                 learnerChanWrite0, dbWrite0,
+                                 learnerChanRead, dbWrite, requestServiceWrite,
+                                 requestServiceWrite0, dbWrite0,
                                  requestServiceWrite1, b, s, elected,
                                  acceptedValues_, max, index_, entry_,
                                  promises, heartbeatMonitorId, accepts_, value,
                                  repropose, resp, maxBal, loopIndex,
-                                 acceptedValues, payload, msg_, decisions,
-                                 newAccepts, entry, msg_l,
-                                 heartbeatFrequencyLocal, msg_h, index,
-                                 monitorFrequencyLocal, heartbeatId_, dbLocal,
-                                 msg, null, heartbeatId, counter, requestId_,
-                                 putOk, confirmedRequestId, dbLocal0, myId,
-                                 operation, requestId >>
+                                 acceptedValues, payload, msg_, newAccepts,
+                                 entry, msg_l, heartbeatFrequencyLocal, msg_h,
+                                 index, monitorFrequencyLocal, heartbeatId_,
+                                 msg, null, heartbeatId, proposerId, counter,
+                                 requestId_, putOk, confirmedRequestId, kvId,
+                                 learnerId, operation, requestId >>
 
 LCheckMajority(self) == /\ pc[self] = "LCheckMajority"
                         /\ IF (iterator[self]) <= (Len(accepts[self]))
@@ -3551,11 +3386,10 @@ LCheckMajority(self) == /\ pc[self] = "LCheckMajority"
                                    /\ learnedChan' = decidedWrite1'
                                    /\ pc' = [pc EXCEPT ![self] = "LCheckMajority"]
                                    /\ UNCHANGED << decidedWrite, decidedWrite0,
-                                                   decisions, newAccepts >>
+                                                   newAccepts >>
                               ELSE /\ IF ((numAccepted[self]) * (2)) > (Cardinality(Acceptor))
-                                         THEN /\ (learnedChan) = (NULL)
-                                              /\ decidedWrite' = (msg_l[self]).val
-                                              /\ decisions' = [decisions EXCEPT ![self][(msg_l[self]).slog] = (msg_l[self]).val]
+                                         THEN /\ ((learnedChan[self]).value) = (NULL)
+                                              /\ decidedWrite' = [learnedChan EXCEPT ![self] = (msg_l[self]).val]
                                               /\ newAccepts' = [newAccepts EXCEPT ![self] = <<>>]
                                               /\ iterator' = [iterator EXCEPT ![self] = 1]
                                               /\ learnedChan' = decidedWrite'
@@ -3567,7 +3401,6 @@ LCheckMajority(self) == /\ pc[self] = "LCheckMajority"
                                               /\ learnedChan' = decidedWrite1'
                                               /\ pc' = [pc EXCEPT ![self] = "L"]
                                               /\ UNCHANGED << decidedWrite,
-                                                              decisions,
                                                               newAccepts,
                                                               iterator >>
                                    /\ UNCHANGED << numAccepted, entry >>
@@ -3575,14 +3408,12 @@ LCheckMajority(self) == /\ pc[self] = "LCheckMajority"
                                         monitorLastSeen,
                                         timeoutCheckerAbstract,
                                         sleeperAbstract, kvClient, requestSet,
-                                        paxosLayerChan,
+                                        paxosLayerChan, database,
                                         electionInProgresssAbstract,
                                         iAmTheLeaderAbstract,
                                         leaderFailureAbstract, valueStreamRead,
-                                        valueStreamWrite, valueStreamWrite0,
-                                        valueStreamWrite1, mailboxesWrite,
-                                        mailboxesWrite0, mailboxesRead,
-                                        iAmTheLeaderWrite,
+                                        mailboxesWrite, mailboxesWrite0,
+                                        mailboxesRead, iAmTheLeaderWrite,
                                         electionInProgressWrite,
                                         leaderFailureRead, iAmTheLeaderWrite0,
                                         electionInProgressWrite0,
@@ -3601,11 +3432,9 @@ LCheckMajority(self) == /\ pc[self] = "LCheckMajority"
                                         mailboxesWrite5, mailboxesWrite6,
                                         iAmTheLeaderWrite6,
                                         electionInProgressWrite7,
-                                        valueStreamWrite2, mailboxesWrite7,
-                                        iAmTheLeaderWrite7,
+                                        mailboxesWrite7, iAmTheLeaderWrite7,
                                         electionInProgressWrite8,
-                                        valueStreamWrite3, mailboxesWrite8,
-                                        iAmTheLeaderWrite8,
+                                        mailboxesWrite8, iAmTheLeaderWrite8,
                                         electionInProgressWrite9,
                                         mailboxesRead0, mailboxesWrite9,
                                         mailboxesWrite10, mailboxesWrite11,
@@ -3644,16 +3473,12 @@ LCheckMajority(self) == /\ pc[self] = "LCheckMajority"
                                         requestsWrite, dbRead, upstreamWrite,
                                         upstreamWrite0, iAmTheLeaderRead1,
                                         proposerChanWrite, paxosChanRead,
-                                        paxosChanWrite, upstreamWrite1,
-                                        proposerChanWrite0, paxosChanWrite0,
-                                        upstreamWrite2, proposerChanWrite1,
-                                        paxosChanWrite1, requestsWrite0,
-                                        upstreamWrite3, proposerChanWrite2,
-                                        paxosChanWrite2, learnerChanRead,
-                                        learnerChanWrite, dbWrite,
-                                        requestServiceWrite,
-                                        requestServiceWrite0,
-                                        learnerChanWrite0, dbWrite0,
+                                        proposerChanWrite0, upstreamWrite1,
+                                        proposerChanWrite1, upstreamWrite2,
+                                        requestsWrite0, upstreamWrite3,
+                                        proposerChanWrite2, learnerChanRead,
+                                        dbWrite, requestServiceWrite,
+                                        requestServiceWrite0, dbWrite0,
                                         requestServiceWrite1, b, s, elected,
                                         acceptedValues_, max, index_, entry_,
                                         promises, heartbeatMonitorId, accepts_,
@@ -3662,9 +3487,9 @@ LCheckMajority(self) == /\ pc[self] = "LCheckMajority"
                                         msg_, accepts, msg_l,
                                         heartbeatFrequencyLocal, msg_h, index,
                                         monitorFrequencyLocal, heartbeatId_,
-                                        dbLocal, msg, null, heartbeatId,
+                                        msg, null, heartbeatId, proposerId,
                                         counter, requestId_, putOk,
-                                        confirmedRequestId, dbLocal0, myId,
+                                        confirmedRequestId, kvId, learnerId,
                                         operation, requestId >>
 
 garbageCollection(self) == /\ pc[self] = "garbageCollection"
@@ -3686,13 +3511,11 @@ garbageCollection(self) == /\ pc[self] = "garbageCollection"
                                            timeoutCheckerAbstract,
                                            sleeperAbstract, kvClient,
                                            requestSet, learnedChan,
-                                           paxosLayerChan,
+                                           paxosLayerChan, database,
                                            electionInProgresssAbstract,
                                            iAmTheLeaderAbstract,
                                            leaderFailureAbstract,
-                                           valueStreamRead, valueStreamWrite,
-                                           valueStreamWrite0,
-                                           valueStreamWrite1, mailboxesWrite,
+                                           valueStreamRead, mailboxesWrite,
                                            mailboxesWrite0, mailboxesRead,
                                            iAmTheLeaderWrite,
                                            electionInProgressWrite,
@@ -3714,11 +3537,9 @@ garbageCollection(self) == /\ pc[self] = "garbageCollection"
                                            mailboxesWrite5, mailboxesWrite6,
                                            iAmTheLeaderWrite6,
                                            electionInProgressWrite7,
-                                           valueStreamWrite2, mailboxesWrite7,
-                                           iAmTheLeaderWrite7,
+                                           mailboxesWrite7, iAmTheLeaderWrite7,
                                            electionInProgressWrite8,
-                                           valueStreamWrite3, mailboxesWrite8,
-                                           iAmTheLeaderWrite8,
+                                           mailboxesWrite8, iAmTheLeaderWrite8,
                                            electionInProgressWrite9,
                                            mailboxesRead0, mailboxesWrite9,
                                            mailboxesWrite10, mailboxesWrite11,
@@ -3760,29 +3581,26 @@ garbageCollection(self) == /\ pc[self] = "garbageCollection"
                                            upstreamWrite, upstreamWrite0,
                                            iAmTheLeaderRead1,
                                            proposerChanWrite, paxosChanRead,
-                                           paxosChanWrite, upstreamWrite1,
-                                           proposerChanWrite0, paxosChanWrite0,
-                                           upstreamWrite2, proposerChanWrite1,
-                                           paxosChanWrite1, requestsWrite0,
-                                           upstreamWrite3, proposerChanWrite2,
-                                           paxosChanWrite2, learnerChanRead,
-                                           learnerChanWrite, dbWrite,
-                                           requestServiceWrite,
-                                           requestServiceWrite0,
-                                           learnerChanWrite0, dbWrite0,
+                                           proposerChanWrite0, upstreamWrite1,
+                                           proposerChanWrite1, upstreamWrite2,
+                                           requestsWrite0, upstreamWrite3,
+                                           proposerChanWrite2, learnerChanRead,
+                                           dbWrite, requestServiceWrite,
+                                           requestServiceWrite0, dbWrite0,
                                            requestServiceWrite1, b, s, elected,
                                            acceptedValues_, max, index_,
                                            entry_, promises,
                                            heartbeatMonitorId, accepts_, value,
                                            repropose, resp, maxBal, loopIndex,
                                            acceptedValues, payload, msg_,
-                                           decisions, numAccepted, msg_l,
+                                           numAccepted, msg_l,
                                            heartbeatFrequencyLocal, msg_h,
                                            index, monitorFrequencyLocal,
-                                           heartbeatId_, dbLocal, msg, null,
-                                           heartbeatId, counter, requestId_,
-                                           putOk, confirmedRequestId, dbLocal0,
-                                           myId, operation, requestId >>
+                                           heartbeatId_, msg, null,
+                                           heartbeatId, proposerId, counter,
+                                           requestId_, putOk,
+                                           confirmedRequestId, kvId, learnerId,
+                                           operation, requestId >>
 
 learner(self) == L(self) \/ LGotAcc(self) \/ LCheckMajority(self)
                     \/ garbageCollection(self)
@@ -3802,42 +3620,39 @@ mainLoop(self) == /\ pc[self] = "mainLoop"
                              /\ pc' = [pc EXCEPT ![self] = "Done"]
                   /\ UNCHANGED << values, monitorLastSeen,
                                   timeoutCheckerAbstract, kvClient, requestSet,
-                                  learnedChan, paxosLayerChan,
+                                  learnedChan, paxosLayerChan, database,
                                   electionInProgresssAbstract,
                                   iAmTheLeaderAbstract, leaderFailureAbstract,
-                                  valueStreamRead, valueStreamWrite,
-                                  valueStreamWrite0, valueStreamWrite1,
-                                  mailboxesWrite, mailboxesWrite0,
-                                  mailboxesRead, iAmTheLeaderWrite,
-                                  electionInProgressWrite, leaderFailureRead,
-                                  iAmTheLeaderWrite0, electionInProgressWrite0,
-                                  iAmTheLeaderWrite1, electionInProgressWrite1,
-                                  mailboxesWrite1, iAmTheLeaderWrite2,
-                                  electionInProgressWrite2, mailboxesWrite2,
-                                  iAmTheLeaderWrite3, electionInProgressWrite3,
-                                  iAmTheLeaderWrite4, electionInProgressWrite4,
-                                  mailboxesWrite3, electionInProgressWrite5,
-                                  mailboxesWrite4, iAmTheLeaderWrite5,
-                                  electionInProgressWrite6, mailboxesWrite5,
-                                  mailboxesWrite6, iAmTheLeaderWrite6,
-                                  electionInProgressWrite7, valueStreamWrite2,
+                                  valueStreamRead, mailboxesWrite,
+                                  mailboxesWrite0, mailboxesRead,
+                                  iAmTheLeaderWrite, electionInProgressWrite,
+                                  leaderFailureRead, iAmTheLeaderWrite0,
+                                  electionInProgressWrite0, iAmTheLeaderWrite1,
+                                  electionInProgressWrite1, mailboxesWrite1,
+                                  iAmTheLeaderWrite2, electionInProgressWrite2,
+                                  mailboxesWrite2, iAmTheLeaderWrite3,
+                                  electionInProgressWrite3, iAmTheLeaderWrite4,
+                                  electionInProgressWrite4, mailboxesWrite3,
+                                  electionInProgressWrite5, mailboxesWrite4,
+                                  iAmTheLeaderWrite5, electionInProgressWrite6,
+                                  mailboxesWrite5, mailboxesWrite6,
+                                  iAmTheLeaderWrite6, electionInProgressWrite7,
                                   mailboxesWrite7, iAmTheLeaderWrite7,
-                                  electionInProgressWrite8, valueStreamWrite3,
-                                  mailboxesWrite8, iAmTheLeaderWrite8,
-                                  electionInProgressWrite9, mailboxesRead0,
-                                  mailboxesWrite9, mailboxesWrite10,
-                                  mailboxesWrite11, mailboxesWrite12,
-                                  mailboxesWrite13, mailboxesWrite14,
-                                  mailboxesWrite15, mailboxesRead1,
-                                  mailboxesWrite16, decidedWrite,
-                                  decidedWrite0, decidedWrite1, decidedWrite2,
-                                  mailboxesWrite17, decidedWrite3,
-                                  electionInProgressRead, iAmTheLeaderRead,
-                                  mailboxesWrite18, mailboxesWrite19,
-                                  heartbeatFrequencyRead, sleeperWrite,
-                                  mailboxesWrite20, sleeperWrite0,
-                                  mailboxesWrite21, sleeperWrite1,
-                                  mailboxesRead2, lastSeenWrite,
+                                  electionInProgressWrite8, mailboxesWrite8,
+                                  iAmTheLeaderWrite8, electionInProgressWrite9,
+                                  mailboxesRead0, mailboxesWrite9,
+                                  mailboxesWrite10, mailboxesWrite11,
+                                  mailboxesWrite12, mailboxesWrite13,
+                                  mailboxesWrite14, mailboxesWrite15,
+                                  mailboxesRead1, mailboxesWrite16,
+                                  decidedWrite, decidedWrite0, decidedWrite1,
+                                  decidedWrite2, mailboxesWrite17,
+                                  decidedWrite3, electionInProgressRead,
+                                  iAmTheLeaderRead, mailboxesWrite18,
+                                  mailboxesWrite19, heartbeatFrequencyRead,
+                                  sleeperWrite, mailboxesWrite20,
+                                  sleeperWrite0, mailboxesWrite21,
+                                  sleeperWrite1, mailboxesRead2, lastSeenWrite,
                                   mailboxesWrite22, lastSeenWrite0,
                                   electionInProgressRead0, iAmTheLeaderRead0,
                                   lastSeenRead, timeoutCheckerRead,
@@ -3854,26 +3669,23 @@ mainLoop(self) == /\ pc[self] = "mainLoop"
                                   requestsRead, requestsWrite, dbRead,
                                   upstreamWrite, upstreamWrite0,
                                   iAmTheLeaderRead1, proposerChanWrite,
-                                  paxosChanRead, paxosChanWrite,
-                                  upstreamWrite1, proposerChanWrite0,
-                                  paxosChanWrite0, upstreamWrite2,
-                                  proposerChanWrite1, paxosChanWrite1,
-                                  requestsWrite0, upstreamWrite3,
-                                  proposerChanWrite2, paxosChanWrite2,
-                                  learnerChanRead, learnerChanWrite, dbWrite,
+                                  paxosChanRead, proposerChanWrite0,
+                                  upstreamWrite1, proposerChanWrite1,
+                                  upstreamWrite2, requestsWrite0,
+                                  upstreamWrite3, proposerChanWrite2,
+                                  learnerChanRead, dbWrite,
                                   requestServiceWrite, requestServiceWrite0,
-                                  learnerChanWrite0, dbWrite0,
-                                  requestServiceWrite1, b, s, elected,
-                                  acceptedValues_, max, index_, entry_,
-                                  promises, heartbeatMonitorId, accepts_,
-                                  value, repropose, resp, maxBal, loopIndex,
-                                  acceptedValues, payload, msg_, accepts,
-                                  decisions, newAccepts, numAccepted, iterator,
+                                  dbWrite0, requestServiceWrite1, b, s,
+                                  elected, acceptedValues_, max, index_,
+                                  entry_, promises, heartbeatMonitorId,
+                                  accepts_, value, repropose, resp, maxBal,
+                                  loopIndex, acceptedValues, payload, msg_,
+                                  accepts, newAccepts, numAccepted, iterator,
                                   entry, msg_l, heartbeatFrequencyLocal, msg_h,
                                   index, monitorFrequencyLocal, heartbeatId_,
-                                  dbLocal, msg, null, heartbeatId, counter,
-                                  requestId_, putOk, confirmedRequestId,
-                                  dbLocal0, myId, operation, requestId >>
+                                  msg, null, heartbeatId, proposerId, counter,
+                                  requestId_, putOk, confirmedRequestId, kvId,
+                                  learnerId, operation, requestId >>
 
 leaderLoop(self) == /\ pc[self] = "leaderLoop"
                     /\ electionInProgressRead' = electionInProgresssAbstract[self]
@@ -3892,14 +3704,13 @@ leaderLoop(self) == /\ pc[self] = "leaderLoop"
                     /\ UNCHANGED << values, lastSeenAbstract, monitorLastSeen,
                                     timeoutCheckerAbstract, kvClient,
                                     requestSet, learnedChan, paxosLayerChan,
-                                    electionInProgresssAbstract,
+                                    database, electionInProgresssAbstract,
                                     iAmTheLeaderAbstract,
                                     leaderFailureAbstract, valueStreamRead,
-                                    valueStreamWrite, valueStreamWrite0,
-                                    valueStreamWrite1, mailboxesWrite,
-                                    mailboxesWrite0, mailboxesRead,
-                                    iAmTheLeaderWrite, electionInProgressWrite,
-                                    leaderFailureRead, iAmTheLeaderWrite0,
+                                    mailboxesWrite, mailboxesWrite0,
+                                    mailboxesRead, iAmTheLeaderWrite,
+                                    electionInProgressWrite, leaderFailureRead,
+                                    iAmTheLeaderWrite0,
                                     electionInProgressWrite0,
                                     iAmTheLeaderWrite1,
                                     electionInProgressWrite1, mailboxesWrite1,
@@ -3913,11 +3724,9 @@ leaderLoop(self) == /\ pc[self] = "leaderLoop"
                                     iAmTheLeaderWrite5,
                                     electionInProgressWrite6, mailboxesWrite5,
                                     mailboxesWrite6, iAmTheLeaderWrite6,
-                                    electionInProgressWrite7,
-                                    valueStreamWrite2, mailboxesWrite7,
+                                    electionInProgressWrite7, mailboxesWrite7,
                                     iAmTheLeaderWrite7,
-                                    electionInProgressWrite8,
-                                    valueStreamWrite3, mailboxesWrite8,
+                                    electionInProgressWrite8, mailboxesWrite8,
                                     iAmTheLeaderWrite8,
                                     electionInProgressWrite9, mailboxesRead0,
                                     mailboxesWrite9, mailboxesWrite10,
@@ -3949,27 +3758,24 @@ leaderLoop(self) == /\ pc[self] = "leaderLoop"
                                     requestsRead, requestsWrite, dbRead,
                                     upstreamWrite, upstreamWrite0,
                                     iAmTheLeaderRead1, proposerChanWrite,
-                                    paxosChanRead, paxosChanWrite,
-                                    upstreamWrite1, proposerChanWrite0,
-                                    paxosChanWrite0, upstreamWrite2,
-                                    proposerChanWrite1, paxosChanWrite1,
-                                    requestsWrite0, upstreamWrite3,
-                                    proposerChanWrite2, paxosChanWrite2,
-                                    learnerChanRead, learnerChanWrite, dbWrite,
+                                    paxosChanRead, proposerChanWrite0,
+                                    upstreamWrite1, proposerChanWrite1,
+                                    upstreamWrite2, requestsWrite0,
+                                    upstreamWrite3, proposerChanWrite2,
+                                    learnerChanRead, dbWrite,
                                     requestServiceWrite, requestServiceWrite0,
-                                    learnerChanWrite0, dbWrite0,
-                                    requestServiceWrite1, b, s, elected,
-                                    acceptedValues_, max, index_, entry_,
-                                    promises, heartbeatMonitorId, accepts_,
-                                    value, repropose, resp, maxBal, loopIndex,
-                                    acceptedValues, payload, msg_, accepts,
-                                    decisions, newAccepts, numAccepted,
-                                    iterator, entry, msg_l,
-                                    heartbeatFrequencyLocal, msg_h,
-                                    monitorFrequencyLocal, heartbeatId_,
-                                    dbLocal, msg, null, heartbeatId, counter,
-                                    requestId_, putOk, confirmedRequestId,
-                                    dbLocal0, myId, operation, requestId >>
+                                    dbWrite0, requestServiceWrite1, b, s,
+                                    elected, acceptedValues_, max, index_,
+                                    entry_, promises, heartbeatMonitorId,
+                                    accepts_, value, repropose, resp, maxBal,
+                                    loopIndex, acceptedValues, payload, msg_,
+                                    accepts, newAccepts, numAccepted, iterator,
+                                    entry, msg_l, heartbeatFrequencyLocal,
+                                    msg_h, monitorFrequencyLocal, heartbeatId_,
+                                    msg, null, heartbeatId, proposerId,
+                                    counter, requestId_, putOk,
+                                    confirmedRequestId, kvId, learnerId,
+                                    operation, requestId >>
 
 heartbeatBroadcast(self) == /\ pc[self] = "heartbeatBroadcast"
                             /\ IF (index[self]) <= (((4) * (NUM_NODES)) - (1))
@@ -4006,13 +3812,11 @@ heartbeatBroadcast(self) == /\ pc[self] = "heartbeatBroadcast"
                                             monitorLastSeen,
                                             timeoutCheckerAbstract, kvClient,
                                             requestSet, learnedChan,
-                                            paxosLayerChan,
+                                            paxosLayerChan, database,
                                             electionInProgresssAbstract,
                                             iAmTheLeaderAbstract,
                                             leaderFailureAbstract,
-                                            valueStreamRead, valueStreamWrite,
-                                            valueStreamWrite0,
-                                            valueStreamWrite1, mailboxesWrite,
+                                            valueStreamRead, mailboxesWrite,
                                             mailboxesWrite0, mailboxesRead,
                                             iAmTheLeaderWrite,
                                             electionInProgressWrite,
@@ -4037,10 +3841,10 @@ heartbeatBroadcast(self) == /\ pc[self] = "heartbeatBroadcast"
                                             mailboxesWrite5, mailboxesWrite6,
                                             iAmTheLeaderWrite6,
                                             electionInProgressWrite7,
-                                            valueStreamWrite2, mailboxesWrite7,
+                                            mailboxesWrite7,
                                             iAmTheLeaderWrite7,
                                             electionInProgressWrite8,
-                                            valueStreamWrite3, mailboxesWrite8,
+                                            mailboxesWrite8,
                                             iAmTheLeaderWrite8,
                                             electionInProgressWrite9,
                                             mailboxesRead0, mailboxesWrite9,
@@ -4080,33 +3884,28 @@ heartbeatBroadcast(self) == /\ pc[self] = "heartbeatBroadcast"
                                             upstreamWrite, upstreamWrite0,
                                             iAmTheLeaderRead1,
                                             proposerChanWrite, paxosChanRead,
-                                            paxosChanWrite, upstreamWrite1,
-                                            proposerChanWrite0,
-                                            paxosChanWrite0, upstreamWrite2,
-                                            proposerChanWrite1,
-                                            paxosChanWrite1, requestsWrite0,
-                                            upstreamWrite3, proposerChanWrite2,
-                                            paxosChanWrite2, learnerChanRead,
-                                            learnerChanWrite, dbWrite,
+                                            proposerChanWrite0, upstreamWrite1,
+                                            proposerChanWrite1, upstreamWrite2,
+                                            requestsWrite0, upstreamWrite3,
+                                            proposerChanWrite2,
+                                            learnerChanRead, dbWrite,
                                             requestServiceWrite,
-                                            requestServiceWrite0,
-                                            learnerChanWrite0, dbWrite0,
+                                            requestServiceWrite0, dbWrite0,
                                             requestServiceWrite1, b, s,
                                             elected, acceptedValues_, max,
                                             index_, entry_, promises,
                                             heartbeatMonitorId, accepts_,
                                             value, repropose, resp, maxBal,
                                             loopIndex, acceptedValues, payload,
-                                            msg_, accepts, decisions,
-                                            newAccepts, numAccepted, iterator,
-                                            entry, msg_l,
-                                            heartbeatFrequencyLocal, msg_h,
-                                            monitorFrequencyLocal,
-                                            heartbeatId_, dbLocal, msg, null,
-                                            heartbeatId, counter, requestId_,
-                                            putOk, confirmedRequestId,
-                                            dbLocal0, myId, operation,
-                                            requestId >>
+                                            msg_, accepts, newAccepts,
+                                            numAccepted, iterator, entry,
+                                            msg_l, heartbeatFrequencyLocal,
+                                            msg_h, monitorFrequencyLocal,
+                                            heartbeatId_, msg, null,
+                                            heartbeatId, proposerId, counter,
+                                            requestId_, putOk,
+                                            confirmedRequestId, kvId,
+                                            learnerId, operation, requestId >>
 
 followerLoop(self) == /\ pc[self] = "followerLoop"
                       /\ electionInProgressRead' = electionInProgresssAbstract[self]
@@ -4118,7 +3917,7 @@ followerLoop(self) == /\ pc[self] = "followerLoop"
                                       /\ mailboxesRead2' = msg4
                                  /\ msg_h' = [msg_h EXCEPT ![self] = mailboxesRead2']
                                  /\ Assert(((msg_h'[self]).type) = (HEARTBEAT_MSG),
-                                           "Failure of assertion at line 1029, column 25.")
+                                           "Failure of assertion at line 1022, column 25.")
                                  /\ lastSeenWrite' = msg_h'[self]
                                  /\ mailboxesWrite22' = mailboxesWrite18'
                                  /\ lastSeenWrite0' = lastSeenWrite'
@@ -4136,14 +3935,12 @@ followerLoop(self) == /\ pc[self] = "followerLoop"
                       /\ UNCHANGED << values, monitorLastSeen,
                                       timeoutCheckerAbstract, sleeperAbstract,
                                       kvClient, requestSet, learnedChan,
-                                      paxosLayerChan,
+                                      paxosLayerChan, database,
                                       electionInProgresssAbstract,
                                       iAmTheLeaderAbstract,
                                       leaderFailureAbstract, valueStreamRead,
-                                      valueStreamWrite, valueStreamWrite0,
-                                      valueStreamWrite1, mailboxesWrite,
-                                      mailboxesWrite0, mailboxesRead,
-                                      iAmTheLeaderWrite,
+                                      mailboxesWrite, mailboxesWrite0,
+                                      mailboxesRead, iAmTheLeaderWrite,
                                       electionInProgressWrite,
                                       leaderFailureRead, iAmTheLeaderWrite0,
                                       electionInProgressWrite0,
@@ -4162,11 +3959,9 @@ followerLoop(self) == /\ pc[self] = "followerLoop"
                                       mailboxesWrite5, mailboxesWrite6,
                                       iAmTheLeaderWrite6,
                                       electionInProgressWrite7,
-                                      valueStreamWrite2, mailboxesWrite7,
-                                      iAmTheLeaderWrite7,
+                                      mailboxesWrite7, iAmTheLeaderWrite7,
                                       electionInProgressWrite8,
-                                      valueStreamWrite3, mailboxesWrite8,
-                                      iAmTheLeaderWrite8,
+                                      mailboxesWrite8, iAmTheLeaderWrite8,
                                       electionInProgressWrite9, mailboxesRead0,
                                       mailboxesWrite9, mailboxesWrite10,
                                       mailboxesWrite11, mailboxesWrite12,
@@ -4198,27 +3993,25 @@ followerLoop(self) == /\ pc[self] = "followerLoop"
                                       requestsRead, requestsWrite, dbRead,
                                       upstreamWrite, upstreamWrite0,
                                       iAmTheLeaderRead1, proposerChanWrite,
-                                      paxosChanRead, paxosChanWrite,
-                                      upstreamWrite1, proposerChanWrite0,
-                                      paxosChanWrite0, upstreamWrite2,
-                                      proposerChanWrite1, paxosChanWrite1,
-                                      requestsWrite0, upstreamWrite3,
-                                      proposerChanWrite2, paxosChanWrite2,
-                                      learnerChanRead, learnerChanWrite,
-                                      dbWrite, requestServiceWrite,
-                                      requestServiceWrite0, learnerChanWrite0,
-                                      dbWrite0, requestServiceWrite1, b, s,
-                                      elected, acceptedValues_, max, index_,
-                                      entry_, promises, heartbeatMonitorId,
-                                      accepts_, value, repropose, resp, maxBal,
+                                      paxosChanRead, proposerChanWrite0,
+                                      upstreamWrite1, proposerChanWrite1,
+                                      upstreamWrite2, requestsWrite0,
+                                      upstreamWrite3, proposerChanWrite2,
+                                      learnerChanRead, dbWrite,
+                                      requestServiceWrite,
+                                      requestServiceWrite0, dbWrite0,
+                                      requestServiceWrite1, b, s, elected,
+                                      acceptedValues_, max, index_, entry_,
+                                      promises, heartbeatMonitorId, accepts_,
+                                      value, repropose, resp, maxBal,
                                       loopIndex, acceptedValues, payload, msg_,
-                                      accepts, decisions, newAccepts,
-                                      numAccepted, iterator, entry, msg_l,
+                                      accepts, newAccepts, numAccepted,
+                                      iterator, entry, msg_l,
                                       heartbeatFrequencyLocal, index,
-                                      monitorFrequencyLocal, heartbeatId_,
-                                      dbLocal, msg, null, heartbeatId, counter,
+                                      monitorFrequencyLocal, heartbeatId_, msg,
+                                      null, heartbeatId, proposerId, counter,
                                       requestId_, putOk, confirmedRequestId,
-                                      dbLocal0, myId, operation, requestId >>
+                                      kvId, learnerId, operation, requestId >>
 
 heartbeatAction(self) == mainLoop(self) \/ leaderLoop(self)
                             \/ heartbeatBroadcast(self)
@@ -4230,40 +4023,37 @@ findId_(self) == /\ pc[self] = "findId_"
                  /\ UNCHANGED << network, values, lastSeenAbstract,
                                  monitorLastSeen, timeoutCheckerAbstract,
                                  sleeperAbstract, kvClient, requestSet,
-                                 learnedChan, paxosLayerChan,
+                                 learnedChan, paxosLayerChan, database,
                                  electionInProgresssAbstract,
                                  iAmTheLeaderAbstract, leaderFailureAbstract,
-                                 valueStreamRead, valueStreamWrite,
-                                 valueStreamWrite0, valueStreamWrite1,
-                                 mailboxesWrite, mailboxesWrite0,
-                                 mailboxesRead, iAmTheLeaderWrite,
-                                 electionInProgressWrite, leaderFailureRead,
-                                 iAmTheLeaderWrite0, electionInProgressWrite0,
-                                 iAmTheLeaderWrite1, electionInProgressWrite1,
-                                 mailboxesWrite1, iAmTheLeaderWrite2,
-                                 electionInProgressWrite2, mailboxesWrite2,
-                                 iAmTheLeaderWrite3, electionInProgressWrite3,
-                                 iAmTheLeaderWrite4, electionInProgressWrite4,
-                                 mailboxesWrite3, electionInProgressWrite5,
-                                 mailboxesWrite4, iAmTheLeaderWrite5,
-                                 electionInProgressWrite6, mailboxesWrite5,
-                                 mailboxesWrite6, iAmTheLeaderWrite6,
-                                 electionInProgressWrite7, valueStreamWrite2,
+                                 valueStreamRead, mailboxesWrite,
+                                 mailboxesWrite0, mailboxesRead,
+                                 iAmTheLeaderWrite, electionInProgressWrite,
+                                 leaderFailureRead, iAmTheLeaderWrite0,
+                                 electionInProgressWrite0, iAmTheLeaderWrite1,
+                                 electionInProgressWrite1, mailboxesWrite1,
+                                 iAmTheLeaderWrite2, electionInProgressWrite2,
+                                 mailboxesWrite2, iAmTheLeaderWrite3,
+                                 electionInProgressWrite3, iAmTheLeaderWrite4,
+                                 electionInProgressWrite4, mailboxesWrite3,
+                                 electionInProgressWrite5, mailboxesWrite4,
+                                 iAmTheLeaderWrite5, electionInProgressWrite6,
+                                 mailboxesWrite5, mailboxesWrite6,
+                                 iAmTheLeaderWrite6, electionInProgressWrite7,
                                  mailboxesWrite7, iAmTheLeaderWrite7,
-                                 electionInProgressWrite8, valueStreamWrite3,
-                                 mailboxesWrite8, iAmTheLeaderWrite8,
-                                 electionInProgressWrite9, mailboxesRead0,
-                                 mailboxesWrite9, mailboxesWrite10,
-                                 mailboxesWrite11, mailboxesWrite12,
-                                 mailboxesWrite13, mailboxesWrite14,
-                                 mailboxesWrite15, mailboxesRead1,
-                                 mailboxesWrite16, decidedWrite, decidedWrite0,
-                                 decidedWrite1, decidedWrite2,
-                                 mailboxesWrite17, decidedWrite3,
-                                 electionInProgressRead, iAmTheLeaderRead,
-                                 mailboxesWrite18, mailboxesWrite19,
-                                 heartbeatFrequencyRead, sleeperWrite,
-                                 mailboxesWrite20, sleeperWrite0,
+                                 electionInProgressWrite8, mailboxesWrite8,
+                                 iAmTheLeaderWrite8, electionInProgressWrite9,
+                                 mailboxesRead0, mailboxesWrite9,
+                                 mailboxesWrite10, mailboxesWrite11,
+                                 mailboxesWrite12, mailboxesWrite13,
+                                 mailboxesWrite14, mailboxesWrite15,
+                                 mailboxesRead1, mailboxesWrite16,
+                                 decidedWrite, decidedWrite0, decidedWrite1,
+                                 decidedWrite2, mailboxesWrite17,
+                                 decidedWrite3, electionInProgressRead,
+                                 iAmTheLeaderRead, mailboxesWrite18,
+                                 mailboxesWrite19, heartbeatFrequencyRead,
+                                 sleeperWrite, mailboxesWrite20, sleeperWrite0,
                                  mailboxesWrite21, sleeperWrite1,
                                  mailboxesRead2, lastSeenWrite,
                                  mailboxesWrite22, lastSeenWrite0,
@@ -4283,26 +4073,23 @@ findId_(self) == /\ pc[self] = "findId_"
                                  requestsRead, requestsWrite, dbRead,
                                  upstreamWrite, upstreamWrite0,
                                  iAmTheLeaderRead1, proposerChanWrite,
-                                 paxosChanRead, paxosChanWrite, upstreamWrite1,
-                                 proposerChanWrite0, paxosChanWrite0,
-                                 upstreamWrite2, proposerChanWrite1,
-                                 paxosChanWrite1, requestsWrite0,
+                                 paxosChanRead, proposerChanWrite0,
+                                 upstreamWrite1, proposerChanWrite1,
+                                 upstreamWrite2, requestsWrite0,
                                  upstreamWrite3, proposerChanWrite2,
-                                 paxosChanWrite2, learnerChanRead,
-                                 learnerChanWrite, dbWrite,
-                                 requestServiceWrite, requestServiceWrite0,
-                                 learnerChanWrite0, dbWrite0,
+                                 learnerChanRead, dbWrite, requestServiceWrite,
+                                 requestServiceWrite0, dbWrite0,
                                  requestServiceWrite1, b, s, elected,
                                  acceptedValues_, max, index_, entry_,
                                  promises, heartbeatMonitorId, accepts_, value,
                                  repropose, resp, maxBal, loopIndex,
                                  acceptedValues, payload, msg_, accepts,
-                                 decisions, newAccepts, numAccepted, iterator,
-                                 entry, msg_l, heartbeatFrequencyLocal, msg_h,
-                                 index, monitorFrequencyLocal, dbLocal, msg,
-                                 null, heartbeatId, counter, requestId_, putOk,
-                                 confirmedRequestId, dbLocal0, myId, operation,
-                                 requestId >>
+                                 newAccepts, numAccepted, iterator, entry,
+                                 msg_l, heartbeatFrequencyLocal, msg_h, index,
+                                 monitorFrequencyLocal, msg, null, heartbeatId,
+                                 proposerId, counter, requestId_, putOk,
+                                 confirmedRequestId, kvId, learnerId,
+                                 operation, requestId >>
 
 monitorLoop(self) == /\ pc[self] = "monitorLoop"
                      /\ IF TRUE
@@ -4324,8 +4111,7 @@ monitorLoop(self) == /\ pc[self] = "monitorLoop"
                                                       /\ UNCHANGED << timeoutCheckerWrite,
                                                                       timeoutCheckerWrite0 >>
                                            /\ IF timeoutCheckerRead'
-                                                 THEN /\ PrintT("Leader failed.")
-                                                      /\ leaderFailureWrite' = [leaderFailureAbstract EXCEPT ![heartbeatId_[self]] = TRUE]
+                                                 THEN /\ leaderFailureWrite' = [leaderFailureAbstract EXCEPT ![heartbeatId_[self]] = TRUE]
                                                       /\ electionInProgressWrite10' = [electionInProgresssAbstract EXCEPT ![heartbeatId_[self]] = TRUE]
                                                       /\ leaderFailureWrite0' = leaderFailureWrite'
                                                       /\ electionInProgressWrite11' = electionInProgressWrite10'
@@ -4389,12 +4175,10 @@ monitorLoop(self) == /\ pc[self] = "monitorLoop"
                                                 sleeperWrite3 >>
                      /\ UNCHANGED << network, values, lastSeenAbstract,
                                      monitorLastSeen, kvClient, requestSet,
-                                     learnedChan, paxosLayerChan,
+                                     learnedChan, paxosLayerChan, database,
                                      iAmTheLeaderAbstract, valueStreamRead,
-                                     valueStreamWrite, valueStreamWrite0,
-                                     valueStreamWrite1, mailboxesWrite,
-                                     mailboxesWrite0, mailboxesRead,
-                                     iAmTheLeaderWrite,
+                                     mailboxesWrite, mailboxesWrite0,
+                                     mailboxesRead, iAmTheLeaderWrite,
                                      electionInProgressWrite,
                                      leaderFailureRead, iAmTheLeaderWrite0,
                                      electionInProgressWrite0,
@@ -4410,11 +4194,9 @@ monitorLoop(self) == /\ pc[self] = "monitorLoop"
                                      iAmTheLeaderWrite5,
                                      electionInProgressWrite6, mailboxesWrite5,
                                      mailboxesWrite6, iAmTheLeaderWrite6,
-                                     electionInProgressWrite7,
-                                     valueStreamWrite2, mailboxesWrite7,
+                                     electionInProgressWrite7, mailboxesWrite7,
                                      iAmTheLeaderWrite7,
-                                     electionInProgressWrite8,
-                                     valueStreamWrite3, mailboxesWrite8,
+                                     electionInProgressWrite8, mailboxesWrite8,
                                      iAmTheLeaderWrite8,
                                      electionInProgressWrite9, mailboxesRead0,
                                      mailboxesWrite9, mailboxesWrite10,
@@ -4436,42 +4218,39 @@ monitorLoop(self) == /\ pc[self] = "monitorLoop"
                                      requestsRead, requestsWrite, dbRead,
                                      upstreamWrite, upstreamWrite0,
                                      iAmTheLeaderRead1, proposerChanWrite,
-                                     paxosChanRead, paxosChanWrite,
-                                     upstreamWrite1, proposerChanWrite0,
-                                     paxosChanWrite0, upstreamWrite2,
-                                     proposerChanWrite1, paxosChanWrite1,
-                                     requestsWrite0, upstreamWrite3,
-                                     proposerChanWrite2, paxosChanWrite2,
-                                     learnerChanRead, learnerChanWrite,
-                                     dbWrite, requestServiceWrite,
-                                     requestServiceWrite0, learnerChanWrite0,
+                                     paxosChanRead, proposerChanWrite0,
+                                     upstreamWrite1, proposerChanWrite1,
+                                     upstreamWrite2, requestsWrite0,
+                                     upstreamWrite3, proposerChanWrite2,
+                                     learnerChanRead, dbWrite,
+                                     requestServiceWrite, requestServiceWrite0,
                                      dbWrite0, requestServiceWrite1, b, s,
                                      elected, acceptedValues_, max, index_,
                                      entry_, promises, heartbeatMonitorId,
                                      accepts_, value, repropose, resp, maxBal,
                                      loopIndex, acceptedValues, payload, msg_,
-                                     accepts, decisions, newAccepts,
-                                     numAccepted, iterator, entry, msg_l,
+                                     accepts, newAccepts, numAccepted,
+                                     iterator, entry, msg_l,
                                      heartbeatFrequencyLocal, msg_h, index,
-                                     monitorFrequencyLocal, heartbeatId_,
-                                     dbLocal, msg, null, heartbeatId, counter,
+                                     monitorFrequencyLocal, heartbeatId_, msg,
+                                     null, heartbeatId, proposerId, counter,
                                      requestId_, putOk, confirmedRequestId,
-                                     dbLocal0, myId, operation, requestId >>
+                                     kvId, learnerId, operation, requestId >>
 
 leaderStatusMonitor(self) == findId_(self) \/ monitorLoop(self)
 
 kvInit(self) == /\ pc[self] = "kvInit"
                 /\ heartbeatId' = [heartbeatId EXCEPT ![self] = (self) - ((2) * (NUM_NODES))]
+                /\ proposerId' = [proposerId EXCEPT ![self] = (self) - ((5) * (NUM_NODES))]
                 /\ pc' = [pc EXCEPT ![self] = "kvLoop"]
                 /\ UNCHANGED << network, values, lastSeenAbstract,
                                 monitorLastSeen, timeoutCheckerAbstract,
                                 sleeperAbstract, kvClient, requestSet,
-                                learnedChan, paxosLayerChan,
+                                learnedChan, paxosLayerChan, database,
                                 electionInProgresssAbstract,
                                 iAmTheLeaderAbstract, leaderFailureAbstract,
-                                valueStreamRead, valueStreamWrite,
-                                valueStreamWrite0, valueStreamWrite1,
-                                mailboxesWrite, mailboxesWrite0, mailboxesRead,
+                                valueStreamRead, mailboxesWrite,
+                                mailboxesWrite0, mailboxesRead,
                                 iAmTheLeaderWrite, electionInProgressWrite,
                                 leaderFailureRead, iAmTheLeaderWrite0,
                                 electionInProgressWrite0, iAmTheLeaderWrite1,
@@ -4484,9 +4263,8 @@ kvInit(self) == /\ pc[self] = "kvInit"
                                 iAmTheLeaderWrite5, electionInProgressWrite6,
                                 mailboxesWrite5, mailboxesWrite6,
                                 iAmTheLeaderWrite6, electionInProgressWrite7,
-                                valueStreamWrite2, mailboxesWrite7,
-                                iAmTheLeaderWrite7, electionInProgressWrite8,
-                                valueStreamWrite3, mailboxesWrite8,
+                                mailboxesWrite7, iAmTheLeaderWrite7,
+                                electionInProgressWrite8, mailboxesWrite8,
                                 iAmTheLeaderWrite8, electionInProgressWrite9,
                                 mailboxesRead0, mailboxesWrite9,
                                 mailboxesWrite10, mailboxesWrite11,
@@ -4517,25 +4295,21 @@ kvInit(self) == /\ pc[self] = "kvInit"
                                 requestsRead, requestsWrite, dbRead,
                                 upstreamWrite, upstreamWrite0,
                                 iAmTheLeaderRead1, proposerChanWrite,
-                                paxosChanRead, paxosChanWrite, upstreamWrite1,
-                                proposerChanWrite0, paxosChanWrite0,
-                                upstreamWrite2, proposerChanWrite1,
-                                paxosChanWrite1, requestsWrite0,
-                                upstreamWrite3, proposerChanWrite2,
-                                paxosChanWrite2, learnerChanRead,
-                                learnerChanWrite, dbWrite, requestServiceWrite,
-                                requestServiceWrite0, learnerChanWrite0,
+                                paxosChanRead, proposerChanWrite0,
+                                upstreamWrite1, proposerChanWrite1,
+                                upstreamWrite2, requestsWrite0, upstreamWrite3,
+                                proposerChanWrite2, learnerChanRead, dbWrite,
+                                requestServiceWrite, requestServiceWrite0,
                                 dbWrite0, requestServiceWrite1, b, s, elected,
                                 acceptedValues_, max, index_, entry_, promises,
                                 heartbeatMonitorId, accepts_, value, repropose,
                                 resp, maxBal, loopIndex, acceptedValues,
-                                payload, msg_, accepts, decisions, newAccepts,
+                                payload, msg_, accepts, newAccepts,
                                 numAccepted, iterator, entry, msg_l,
                                 heartbeatFrequencyLocal, msg_h, index,
-                                monitorFrequencyLocal, heartbeatId_, dbLocal,
-                                msg, null, counter, requestId_, putOk,
-                                confirmedRequestId, dbLocal0, myId, operation,
-                                requestId >>
+                                monitorFrequencyLocal, heartbeatId_, msg, null,
+                                counter, requestId_, putOk, confirmedRequestId,
+                                kvId, learnerId, operation, requestId >>
 
 kvLoop(self) == /\ pc[self] = "kvLoop"
                 /\ IF TRUE
@@ -4547,29 +4321,26 @@ kvLoop(self) == /\ pc[self] = "kvLoop"
                                      \/ /\ requestsRead' = [type |-> PUT_MSG, key |-> k0, value |-> el0]
                            /\ msg' = [msg EXCEPT ![self] = requestsRead']
                            /\ Assert((((msg'[self]).type) = (GET_MSG)) \/ (((msg'[self]).type) = (PUT_MSG)),
-                                     "Failure of assertion at line 1141, column 17.")
+                                     "Failure of assertion at line 1134, column 17.")
                            /\ requestSet' = requestsWrite'
                            /\ pc' = [pc EXCEPT ![self] = "checkGet"]
-                           /\ UNCHANGED << values, kvClient, paxosLayerChan,
-                                           requestsWrite0, upstreamWrite3,
-                                           proposerChanWrite2, paxosChanWrite2 >>
+                           /\ UNCHANGED << values, kvClient, requestsWrite0,
+                                           upstreamWrite3, proposerChanWrite2 >>
                       ELSE /\ requestsWrite0' = requestSet
                            /\ upstreamWrite3' = kvClient
                            /\ proposerChanWrite2' = values
-                           /\ paxosChanWrite2' = paxosLayerChan
                            /\ requestSet' = requestsWrite0'
                            /\ kvClient' = upstreamWrite3'
                            /\ values' = proposerChanWrite2'
-                           /\ paxosLayerChan' = paxosChanWrite2'
                            /\ pc' = [pc EXCEPT ![self] = "Done"]
                            /\ UNCHANGED << requestsRead, requestsWrite, msg >>
                 /\ UNCHANGED << network, lastSeenAbstract, monitorLastSeen,
                                 timeoutCheckerAbstract, sleeperAbstract,
-                                learnedChan, electionInProgresssAbstract,
+                                learnedChan, paxosLayerChan, database,
+                                electionInProgresssAbstract,
                                 iAmTheLeaderAbstract, leaderFailureAbstract,
-                                valueStreamRead, valueStreamWrite,
-                                valueStreamWrite0, valueStreamWrite1,
-                                mailboxesWrite, mailboxesWrite0, mailboxesRead,
+                                valueStreamRead, mailboxesWrite,
+                                mailboxesWrite0, mailboxesRead,
                                 iAmTheLeaderWrite, electionInProgressWrite,
                                 leaderFailureRead, iAmTheLeaderWrite0,
                                 electionInProgressWrite0, iAmTheLeaderWrite1,
@@ -4582,9 +4353,8 @@ kvLoop(self) == /\ pc[self] = "kvLoop"
                                 iAmTheLeaderWrite5, electionInProgressWrite6,
                                 mailboxesWrite5, mailboxesWrite6,
                                 iAmTheLeaderWrite6, electionInProgressWrite7,
-                                valueStreamWrite2, mailboxesWrite7,
-                                iAmTheLeaderWrite7, electionInProgressWrite8,
-                                valueStreamWrite3, mailboxesWrite8,
+                                mailboxesWrite7, iAmTheLeaderWrite7,
+                                electionInProgressWrite8, mailboxesWrite8,
                                 iAmTheLeaderWrite8, electionInProgressWrite9,
                                 mailboxesRead0, mailboxesWrite9,
                                 mailboxesWrite10, mailboxesWrite11,
@@ -4614,27 +4384,25 @@ kvLoop(self) == /\ pc[self] = "kvLoop"
                                 electionInProgressWrite13, sleeperWrite4,
                                 dbRead, upstreamWrite, upstreamWrite0,
                                 iAmTheLeaderRead1, proposerChanWrite,
-                                paxosChanRead, paxosChanWrite, upstreamWrite1,
-                                proposerChanWrite0, paxosChanWrite0,
-                                upstreamWrite2, proposerChanWrite1,
-                                paxosChanWrite1, learnerChanRead,
-                                learnerChanWrite, dbWrite, requestServiceWrite,
-                                requestServiceWrite0, learnerChanWrite0,
+                                paxosChanRead, proposerChanWrite0,
+                                upstreamWrite1, proposerChanWrite1,
+                                upstreamWrite2, learnerChanRead, dbWrite,
+                                requestServiceWrite, requestServiceWrite0,
                                 dbWrite0, requestServiceWrite1, b, s, elected,
                                 acceptedValues_, max, index_, entry_, promises,
                                 heartbeatMonitorId, accepts_, value, repropose,
                                 resp, maxBal, loopIndex, acceptedValues,
-                                payload, msg_, accepts, decisions, newAccepts,
+                                payload, msg_, accepts, newAccepts,
                                 numAccepted, iterator, entry, msg_l,
                                 heartbeatFrequencyLocal, msg_h, index,
-                                monitorFrequencyLocal, heartbeatId_, dbLocal,
-                                null, heartbeatId, counter, requestId_, putOk,
-                                confirmedRequestId, dbLocal0, myId, operation,
-                                requestId >>
+                                monitorFrequencyLocal, heartbeatId_, null,
+                                heartbeatId, proposerId, counter, requestId_,
+                                putOk, confirmedRequestId, kvId, learnerId,
+                                operation, requestId >>
 
 checkGet(self) == /\ pc[self] = "checkGet"
                   /\ IF ((msg[self]).type) = (GET_MSG)
-                        THEN /\ dbRead' = dbLocal[self][(msg[self]).key]
+                        THEN /\ dbRead' = database[<<self, (msg[self]).key>>]
                              /\ upstreamWrite' = [type |-> GET_RESPONSE_MSG, result |-> dbRead']
                              /\ upstreamWrite0' = upstreamWrite'
                              /\ kvClient' = upstreamWrite0'
@@ -4645,41 +4413,39 @@ checkGet(self) == /\ pc[self] = "checkGet"
                   /\ UNCHANGED << network, values, lastSeenAbstract,
                                   monitorLastSeen, timeoutCheckerAbstract,
                                   sleeperAbstract, requestSet, learnedChan,
-                                  paxosLayerChan, electionInProgresssAbstract,
+                                  paxosLayerChan, database,
+                                  electionInProgresssAbstract,
                                   iAmTheLeaderAbstract, leaderFailureAbstract,
-                                  valueStreamRead, valueStreamWrite,
-                                  valueStreamWrite0, valueStreamWrite1,
-                                  mailboxesWrite, mailboxesWrite0,
-                                  mailboxesRead, iAmTheLeaderWrite,
-                                  electionInProgressWrite, leaderFailureRead,
-                                  iAmTheLeaderWrite0, electionInProgressWrite0,
-                                  iAmTheLeaderWrite1, electionInProgressWrite1,
-                                  mailboxesWrite1, iAmTheLeaderWrite2,
-                                  electionInProgressWrite2, mailboxesWrite2,
-                                  iAmTheLeaderWrite3, electionInProgressWrite3,
-                                  iAmTheLeaderWrite4, electionInProgressWrite4,
-                                  mailboxesWrite3, electionInProgressWrite5,
-                                  mailboxesWrite4, iAmTheLeaderWrite5,
-                                  electionInProgressWrite6, mailboxesWrite5,
-                                  mailboxesWrite6, iAmTheLeaderWrite6,
-                                  electionInProgressWrite7, valueStreamWrite2,
+                                  valueStreamRead, mailboxesWrite,
+                                  mailboxesWrite0, mailboxesRead,
+                                  iAmTheLeaderWrite, electionInProgressWrite,
+                                  leaderFailureRead, iAmTheLeaderWrite0,
+                                  electionInProgressWrite0, iAmTheLeaderWrite1,
+                                  electionInProgressWrite1, mailboxesWrite1,
+                                  iAmTheLeaderWrite2, electionInProgressWrite2,
+                                  mailboxesWrite2, iAmTheLeaderWrite3,
+                                  electionInProgressWrite3, iAmTheLeaderWrite4,
+                                  electionInProgressWrite4, mailboxesWrite3,
+                                  electionInProgressWrite5, mailboxesWrite4,
+                                  iAmTheLeaderWrite5, electionInProgressWrite6,
+                                  mailboxesWrite5, mailboxesWrite6,
+                                  iAmTheLeaderWrite6, electionInProgressWrite7,
                                   mailboxesWrite7, iAmTheLeaderWrite7,
-                                  electionInProgressWrite8, valueStreamWrite3,
-                                  mailboxesWrite8, iAmTheLeaderWrite8,
-                                  electionInProgressWrite9, mailboxesRead0,
-                                  mailboxesWrite9, mailboxesWrite10,
-                                  mailboxesWrite11, mailboxesWrite12,
-                                  mailboxesWrite13, mailboxesWrite14,
-                                  mailboxesWrite15, mailboxesRead1,
-                                  mailboxesWrite16, decidedWrite,
-                                  decidedWrite0, decidedWrite1, decidedWrite2,
-                                  mailboxesWrite17, decidedWrite3,
-                                  electionInProgressRead, iAmTheLeaderRead,
-                                  mailboxesWrite18, mailboxesWrite19,
-                                  heartbeatFrequencyRead, sleeperWrite,
-                                  mailboxesWrite20, sleeperWrite0,
-                                  mailboxesWrite21, sleeperWrite1,
-                                  mailboxesRead2, lastSeenWrite,
+                                  electionInProgressWrite8, mailboxesWrite8,
+                                  iAmTheLeaderWrite8, electionInProgressWrite9,
+                                  mailboxesRead0, mailboxesWrite9,
+                                  mailboxesWrite10, mailboxesWrite11,
+                                  mailboxesWrite12, mailboxesWrite13,
+                                  mailboxesWrite14, mailboxesWrite15,
+                                  mailboxesRead1, mailboxesWrite16,
+                                  decidedWrite, decidedWrite0, decidedWrite1,
+                                  decidedWrite2, mailboxesWrite17,
+                                  decidedWrite3, electionInProgressRead,
+                                  iAmTheLeaderRead, mailboxesWrite18,
+                                  mailboxesWrite19, heartbeatFrequencyRead,
+                                  sleeperWrite, mailboxesWrite20,
+                                  sleeperWrite0, mailboxesWrite21,
+                                  sleeperWrite1, mailboxesRead2, lastSeenWrite,
                                   mailboxesWrite22, lastSeenWrite0,
                                   mailboxesWrite23, sleeperWrite2,
                                   lastSeenWrite1, electionInProgressRead0,
@@ -4697,123 +4463,93 @@ checkGet(self) == /\ pc[self] = "checkGet"
                                   electionInProgressWrite13, sleeperWrite4,
                                   requestsRead, requestsWrite,
                                   iAmTheLeaderRead1, proposerChanWrite,
-                                  paxosChanRead, paxosChanWrite,
-                                  upstreamWrite1, proposerChanWrite0,
-                                  paxosChanWrite0, upstreamWrite2,
-                                  proposerChanWrite1, paxosChanWrite1,
-                                  requestsWrite0, upstreamWrite3,
-                                  proposerChanWrite2, paxosChanWrite2,
-                                  learnerChanRead, learnerChanWrite, dbWrite,
+                                  paxosChanRead, proposerChanWrite0,
+                                  upstreamWrite1, proposerChanWrite1,
+                                  upstreamWrite2, requestsWrite0,
+                                  upstreamWrite3, proposerChanWrite2,
+                                  learnerChanRead, dbWrite,
                                   requestServiceWrite, requestServiceWrite0,
-                                  learnerChanWrite0, dbWrite0,
-                                  requestServiceWrite1, b, s, elected,
-                                  acceptedValues_, max, index_, entry_,
-                                  promises, heartbeatMonitorId, accepts_,
-                                  value, repropose, resp, maxBal, loopIndex,
-                                  acceptedValues, payload, msg_, accepts,
-                                  decisions, newAccepts, numAccepted, iterator,
+                                  dbWrite0, requestServiceWrite1, b, s,
+                                  elected, acceptedValues_, max, index_,
+                                  entry_, promises, heartbeatMonitorId,
+                                  accepts_, value, repropose, resp, maxBal,
+                                  loopIndex, acceptedValues, payload, msg_,
+                                  accepts, newAccepts, numAccepted, iterator,
                                   entry, msg_l, heartbeatFrequencyLocal, msg_h,
                                   index, monitorFrequencyLocal, heartbeatId_,
-                                  dbLocal, msg, null, heartbeatId, counter,
-                                  requestId_, putOk, confirmedRequestId,
-                                  dbLocal0, myId, operation, requestId >>
+                                  msg, null, heartbeatId, proposerId, counter,
+                                  requestId_, putOk, confirmedRequestId, kvId,
+                                  learnerId, operation, requestId >>
 
 checkPut(self) == /\ pc[self] = "checkPut"
                   /\ IF ((msg[self]).type) = (PUT_MSG)
                         THEN /\ iAmTheLeaderRead1' = iAmTheLeaderAbstract[heartbeatId[self]]
                              /\ IF iAmTheLeaderRead1'
-                                   THEN /\ upstreamWrite' = [type |-> PUT_NOT_LEADER_MSG, result |-> null[self]]
-                                        /\ upstreamWrite1' = upstreamWrite'
+                                   THEN /\ requestId_' = [requestId_ EXCEPT ![self] = <<self, counter[self]>>]
+                                        /\ ((values[proposerId[self]]).value) = (NULL)
+                                        /\ proposerChanWrite' = [values EXCEPT ![proposerId[self]] = [id |-> requestId_'[self], key |-> (msg[self]).key, value |-> (msg[self]).value]]
+                                        /\ values' = proposerChanWrite'
+                                        /\ pc' = [pc EXCEPT ![self] = "putConfirm"]
+                                        /\ UNCHANGED << kvClient,
+                                                        upstreamWrite,
+                                                        proposerChanWrite0,
+                                                        upstreamWrite1,
+                                                        proposerChanWrite1,
+                                                        upstreamWrite2 >>
+                                   ELSE /\ upstreamWrite' = [type |-> PUT_NOT_LEADER_MSG, result |-> null[self]]
                                         /\ proposerChanWrite0' = values
-                                        /\ paxosChanWrite0' = paxosLayerChan
-                                        /\ upstreamWrite2' = upstreamWrite1'
+                                        /\ upstreamWrite1' = upstreamWrite'
                                         /\ proposerChanWrite1' = proposerChanWrite0'
-                                        /\ paxosChanWrite1' = paxosChanWrite0'
+                                        /\ upstreamWrite2' = upstreamWrite1'
                                         /\ kvClient' = upstreamWrite2'
                                         /\ values' = proposerChanWrite1'
-                                        /\ paxosLayerChan' = paxosChanWrite1'
                                         /\ pc' = [pc EXCEPT ![self] = "kvLoop"]
                                         /\ UNCHANGED << proposerChanWrite,
-                                                        paxosChanRead,
-                                                        paxosChanWrite,
-                                                        counter, requestId_,
-                                                        putOk,
-                                                        confirmedRequestId >>
-                                   ELSE /\ requestId_' = [requestId_ EXCEPT ![self] = <<self, counter[self]>>]
-                                        /\ (values) = (NULL)
-                                        /\ proposerChanWrite' = [id |-> requestId_'[self], key |-> (msg[self]).key, value |-> (msg[self]).value]
-                                        /\ (paxosLayerChan) # (NULL)
-                                        /\ LET v1 == paxosLayerChan IN
-                                             /\ paxosChanWrite' = NULL
-                                             /\ paxosChanRead' = v1
-                                        /\ putOk' = [putOk EXCEPT ![self] = paxosChanRead']
-                                        /\ confirmedRequestId' = [confirmedRequestId EXCEPT ![self] = (putOk'[self]).id]
-                                        /\ Assert(((confirmedRequestId'[self][1]) = (self)) /\ ((confirmedRequestId'[self][2]) = (counter[self])),
-                                                  "Failure of assertion at line 1180, column 29.")
-                                        /\ upstreamWrite' = [type |-> PUT_OK_MSG, result |-> null[self]]
-                                        /\ counter' = [counter EXCEPT ![self] = (counter[self]) + (1)]
-                                        /\ upstreamWrite1' = upstreamWrite'
-                                        /\ proposerChanWrite0' = proposerChanWrite'
-                                        /\ paxosChanWrite0' = paxosChanWrite'
-                                        /\ upstreamWrite2' = upstreamWrite1'
-                                        /\ proposerChanWrite1' = proposerChanWrite0'
-                                        /\ paxosChanWrite1' = paxosChanWrite0'
-                                        /\ kvClient' = upstreamWrite2'
-                                        /\ values' = proposerChanWrite1'
-                                        /\ paxosLayerChan' = paxosChanWrite1'
-                                        /\ pc' = [pc EXCEPT ![self] = "kvLoop"]
-                        ELSE /\ upstreamWrite2' = kvClient
-                             /\ proposerChanWrite1' = values
-                             /\ paxosChanWrite1' = paxosLayerChan
+                                                        requestId_ >>
+                        ELSE /\ proposerChanWrite1' = values
+                             /\ upstreamWrite2' = kvClient
                              /\ kvClient' = upstreamWrite2'
                              /\ values' = proposerChanWrite1'
-                             /\ paxosLayerChan' = paxosChanWrite1'
                              /\ pc' = [pc EXCEPT ![self] = "kvLoop"]
                              /\ UNCHANGED << upstreamWrite, iAmTheLeaderRead1,
-                                             proposerChanWrite, paxosChanRead,
-                                             paxosChanWrite, upstreamWrite1,
+                                             proposerChanWrite,
                                              proposerChanWrite0,
-                                             paxosChanWrite0, counter,
-                                             requestId_, putOk,
-                                             confirmedRequestId >>
+                                             upstreamWrite1, requestId_ >>
                   /\ UNCHANGED << network, lastSeenAbstract, monitorLastSeen,
                                   timeoutCheckerAbstract, sleeperAbstract,
-                                  requestSet, learnedChan,
-                                  electionInProgresssAbstract,
+                                  requestSet, learnedChan, paxosLayerChan,
+                                  database, electionInProgresssAbstract,
                                   iAmTheLeaderAbstract, leaderFailureAbstract,
-                                  valueStreamRead, valueStreamWrite,
-                                  valueStreamWrite0, valueStreamWrite1,
-                                  mailboxesWrite, mailboxesWrite0,
-                                  mailboxesRead, iAmTheLeaderWrite,
-                                  electionInProgressWrite, leaderFailureRead,
-                                  iAmTheLeaderWrite0, electionInProgressWrite0,
-                                  iAmTheLeaderWrite1, electionInProgressWrite1,
-                                  mailboxesWrite1, iAmTheLeaderWrite2,
-                                  electionInProgressWrite2, mailboxesWrite2,
-                                  iAmTheLeaderWrite3, electionInProgressWrite3,
-                                  iAmTheLeaderWrite4, electionInProgressWrite4,
-                                  mailboxesWrite3, electionInProgressWrite5,
-                                  mailboxesWrite4, iAmTheLeaderWrite5,
-                                  electionInProgressWrite6, mailboxesWrite5,
-                                  mailboxesWrite6, iAmTheLeaderWrite6,
-                                  electionInProgressWrite7, valueStreamWrite2,
+                                  valueStreamRead, mailboxesWrite,
+                                  mailboxesWrite0, mailboxesRead,
+                                  iAmTheLeaderWrite, electionInProgressWrite,
+                                  leaderFailureRead, iAmTheLeaderWrite0,
+                                  electionInProgressWrite0, iAmTheLeaderWrite1,
+                                  electionInProgressWrite1, mailboxesWrite1,
+                                  iAmTheLeaderWrite2, electionInProgressWrite2,
+                                  mailboxesWrite2, iAmTheLeaderWrite3,
+                                  electionInProgressWrite3, iAmTheLeaderWrite4,
+                                  electionInProgressWrite4, mailboxesWrite3,
+                                  electionInProgressWrite5, mailboxesWrite4,
+                                  iAmTheLeaderWrite5, electionInProgressWrite6,
+                                  mailboxesWrite5, mailboxesWrite6,
+                                  iAmTheLeaderWrite6, electionInProgressWrite7,
                                   mailboxesWrite7, iAmTheLeaderWrite7,
-                                  electionInProgressWrite8, valueStreamWrite3,
-                                  mailboxesWrite8, iAmTheLeaderWrite8,
-                                  electionInProgressWrite9, mailboxesRead0,
-                                  mailboxesWrite9, mailboxesWrite10,
-                                  mailboxesWrite11, mailboxesWrite12,
-                                  mailboxesWrite13, mailboxesWrite14,
-                                  mailboxesWrite15, mailboxesRead1,
-                                  mailboxesWrite16, decidedWrite,
-                                  decidedWrite0, decidedWrite1, decidedWrite2,
-                                  mailboxesWrite17, decidedWrite3,
-                                  electionInProgressRead, iAmTheLeaderRead,
-                                  mailboxesWrite18, mailboxesWrite19,
-                                  heartbeatFrequencyRead, sleeperWrite,
-                                  mailboxesWrite20, sleeperWrite0,
-                                  mailboxesWrite21, sleeperWrite1,
-                                  mailboxesRead2, lastSeenWrite,
+                                  electionInProgressWrite8, mailboxesWrite8,
+                                  iAmTheLeaderWrite8, electionInProgressWrite9,
+                                  mailboxesRead0, mailboxesWrite9,
+                                  mailboxesWrite10, mailboxesWrite11,
+                                  mailboxesWrite12, mailboxesWrite13,
+                                  mailboxesWrite14, mailboxesWrite15,
+                                  mailboxesRead1, mailboxesWrite16,
+                                  decidedWrite, decidedWrite0, decidedWrite1,
+                                  decidedWrite2, mailboxesWrite17,
+                                  decidedWrite3, electionInProgressRead,
+                                  iAmTheLeaderRead, mailboxesWrite18,
+                                  mailboxesWrite19, heartbeatFrequencyRead,
+                                  sleeperWrite, mailboxesWrite20,
+                                  sleeperWrite0, mailboxesWrite21,
+                                  sleeperWrite1, mailboxesRead2, lastSeenWrite,
                                   mailboxesWrite22, lastSeenWrite0,
                                   mailboxesWrite23, sleeperWrite2,
                                   lastSeenWrite1, electionInProgressRead0,
@@ -4830,38 +4566,126 @@ checkPut(self) == /\ pc[self] = "checkPut"
                                   timeoutCheckerWrite3, leaderFailureWrite2,
                                   electionInProgressWrite13, sleeperWrite4,
                                   requestsRead, requestsWrite, dbRead,
-                                  upstreamWrite0, requestsWrite0,
-                                  upstreamWrite3, proposerChanWrite2,
-                                  paxosChanWrite2, learnerChanRead,
-                                  learnerChanWrite, dbWrite,
+                                  upstreamWrite0, paxosChanRead,
+                                  requestsWrite0, upstreamWrite3,
+                                  proposerChanWrite2, learnerChanRead, dbWrite,
                                   requestServiceWrite, requestServiceWrite0,
-                                  learnerChanWrite0, dbWrite0,
-                                  requestServiceWrite1, b, s, elected,
-                                  acceptedValues_, max, index_, entry_,
-                                  promises, heartbeatMonitorId, accepts_,
-                                  value, repropose, resp, maxBal, loopIndex,
-                                  acceptedValues, payload, msg_, accepts,
-                                  decisions, newAccepts, numAccepted, iterator,
+                                  dbWrite0, requestServiceWrite1, b, s,
+                                  elected, acceptedValues_, max, index_,
+                                  entry_, promises, heartbeatMonitorId,
+                                  accepts_, value, repropose, resp, maxBal,
+                                  loopIndex, acceptedValues, payload, msg_,
+                                  accepts, newAccepts, numAccepted, iterator,
                                   entry, msg_l, heartbeatFrequencyLocal, msg_h,
                                   index, monitorFrequencyLocal, heartbeatId_,
-                                  dbLocal, msg, null, heartbeatId, dbLocal0,
-                                  myId, operation, requestId >>
+                                  msg, null, heartbeatId, proposerId, counter,
+                                  putOk, confirmedRequestId, kvId, learnerId,
+                                  operation, requestId >>
+
+putConfirm(self) == /\ pc[self] = "putConfirm"
+                    /\ ((paxosLayerChan[self]).value) # (NULL)
+                    /\ LET v1 == paxosLayerChan[self] IN
+                         /\ paxosLayerChan' = [paxosLayerChan EXCEPT ![self].value = NULL]
+                         /\ paxosChanRead' = v1
+                    /\ putOk' = [putOk EXCEPT ![self] = paxosChanRead']
+                    /\ confirmedRequestId' = [confirmedRequestId EXCEPT ![self] = (putOk'[self]).id]
+                    /\ Assert(((confirmedRequestId'[self][1]) = (self)) /\ ((confirmedRequestId'[self][2]) = (counter[self])),
+                              "Failure of assertion at line 1163, column 33.")
+                    /\ upstreamWrite' = [type |-> PUT_OK_MSG, result |-> null[self]]
+                    /\ counter' = [counter EXCEPT ![self] = (counter[self]) + (1)]
+                    /\ kvClient' = upstreamWrite'
+                    /\ pc' = [pc EXCEPT ![self] = "kvLoop"]
+                    /\ UNCHANGED << network, values, lastSeenAbstract,
+                                    monitorLastSeen, timeoutCheckerAbstract,
+                                    sleeperAbstract, requestSet, learnedChan,
+                                    database, electionInProgresssAbstract,
+                                    iAmTheLeaderAbstract,
+                                    leaderFailureAbstract, valueStreamRead,
+                                    mailboxesWrite, mailboxesWrite0,
+                                    mailboxesRead, iAmTheLeaderWrite,
+                                    electionInProgressWrite, leaderFailureRead,
+                                    iAmTheLeaderWrite0,
+                                    electionInProgressWrite0,
+                                    iAmTheLeaderWrite1,
+                                    electionInProgressWrite1, mailboxesWrite1,
+                                    iAmTheLeaderWrite2,
+                                    electionInProgressWrite2, mailboxesWrite2,
+                                    iAmTheLeaderWrite3,
+                                    electionInProgressWrite3,
+                                    iAmTheLeaderWrite4,
+                                    electionInProgressWrite4, mailboxesWrite3,
+                                    electionInProgressWrite5, mailboxesWrite4,
+                                    iAmTheLeaderWrite5,
+                                    electionInProgressWrite6, mailboxesWrite5,
+                                    mailboxesWrite6, iAmTheLeaderWrite6,
+                                    electionInProgressWrite7, mailboxesWrite7,
+                                    iAmTheLeaderWrite7,
+                                    electionInProgressWrite8, mailboxesWrite8,
+                                    iAmTheLeaderWrite8,
+                                    electionInProgressWrite9, mailboxesRead0,
+                                    mailboxesWrite9, mailboxesWrite10,
+                                    mailboxesWrite11, mailboxesWrite12,
+                                    mailboxesWrite13, mailboxesWrite14,
+                                    mailboxesWrite15, mailboxesRead1,
+                                    mailboxesWrite16, decidedWrite,
+                                    decidedWrite0, decidedWrite1,
+                                    decidedWrite2, mailboxesWrite17,
+                                    decidedWrite3, electionInProgressRead,
+                                    iAmTheLeaderRead, mailboxesWrite18,
+                                    mailboxesWrite19, heartbeatFrequencyRead,
+                                    sleeperWrite, mailboxesWrite20,
+                                    sleeperWrite0, mailboxesWrite21,
+                                    sleeperWrite1, mailboxesRead2,
+                                    lastSeenWrite, mailboxesWrite22,
+                                    lastSeenWrite0, mailboxesWrite23,
+                                    sleeperWrite2, lastSeenWrite1,
+                                    electionInProgressRead0, iAmTheLeaderRead0,
+                                    lastSeenRead, timeoutCheckerRead,
+                                    timeoutCheckerWrite, timeoutCheckerWrite0,
+                                    timeoutCheckerWrite1, leaderFailureWrite,
+                                    electionInProgressWrite10,
+                                    leaderFailureWrite0,
+                                    electionInProgressWrite11,
+                                    timeoutCheckerWrite2, leaderFailureWrite1,
+                                    electionInProgressWrite12,
+                                    monitorFrequencyRead, sleeperWrite3,
+                                    timeoutCheckerWrite3, leaderFailureWrite2,
+                                    electionInProgressWrite13, sleeperWrite4,
+                                    requestsRead, requestsWrite, dbRead,
+                                    upstreamWrite0, iAmTheLeaderRead1,
+                                    proposerChanWrite, proposerChanWrite0,
+                                    upstreamWrite1, proposerChanWrite1,
+                                    upstreamWrite2, requestsWrite0,
+                                    upstreamWrite3, proposerChanWrite2,
+                                    learnerChanRead, dbWrite,
+                                    requestServiceWrite, requestServiceWrite0,
+                                    dbWrite0, requestServiceWrite1, b, s,
+                                    elected, acceptedValues_, max, index_,
+                                    entry_, promises, heartbeatMonitorId,
+                                    accepts_, value, repropose, resp, maxBal,
+                                    loopIndex, acceptedValues, payload, msg_,
+                                    accepts, newAccepts, numAccepted, iterator,
+                                    entry, msg_l, heartbeatFrequencyLocal,
+                                    msg_h, index, monitorFrequencyLocal,
+                                    heartbeatId_, msg, null, heartbeatId,
+                                    proposerId, requestId_, kvId, learnerId,
+                                    operation, requestId >>
 
 kvRequests(self) == kvInit(self) \/ kvLoop(self) \/ checkGet(self)
-                       \/ checkPut(self)
+                       \/ checkPut(self) \/ putConfirm(self)
 
 findId(self) == /\ pc[self] = "findId"
-                /\ myId' = [myId EXCEPT ![self] = (self) - (NUM_NODES)]
+                /\ kvId' = [kvId EXCEPT ![self] = (self) - (NUM_NODES)]
+                /\ learnerId' = [learnerId EXCEPT ![self] = (self) - ((4) * (NUM_NODES))]
                 /\ pc' = [pc EXCEPT ![self] = "kvManagerLoop"]
                 /\ UNCHANGED << network, values, lastSeenAbstract,
                                 monitorLastSeen, timeoutCheckerAbstract,
                                 sleeperAbstract, kvClient, requestSet,
-                                learnedChan, paxosLayerChan,
+                                learnedChan, paxosLayerChan, database,
                                 electionInProgresssAbstract,
                                 iAmTheLeaderAbstract, leaderFailureAbstract,
-                                valueStreamRead, valueStreamWrite,
-                                valueStreamWrite0, valueStreamWrite1,
-                                mailboxesWrite, mailboxesWrite0, mailboxesRead,
+                                valueStreamRead, mailboxesWrite,
+                                mailboxesWrite0, mailboxesRead,
                                 iAmTheLeaderWrite, electionInProgressWrite,
                                 leaderFailureRead, iAmTheLeaderWrite0,
                                 electionInProgressWrite0, iAmTheLeaderWrite1,
@@ -4874,9 +4698,8 @@ findId(self) == /\ pc[self] = "findId"
                                 iAmTheLeaderWrite5, electionInProgressWrite6,
                                 mailboxesWrite5, mailboxesWrite6,
                                 iAmTheLeaderWrite6, electionInProgressWrite7,
-                                valueStreamWrite2, mailboxesWrite7,
-                                iAmTheLeaderWrite7, electionInProgressWrite8,
-                                valueStreamWrite3, mailboxesWrite8,
+                                mailboxesWrite7, iAmTheLeaderWrite7,
+                                electionInProgressWrite8, mailboxesWrite8,
                                 iAmTheLeaderWrite8, electionInProgressWrite9,
                                 mailboxesRead0, mailboxesWrite9,
                                 mailboxesWrite10, mailboxesWrite11,
@@ -4907,65 +4730,55 @@ findId(self) == /\ pc[self] = "findId"
                                 requestsRead, requestsWrite, dbRead,
                                 upstreamWrite, upstreamWrite0,
                                 iAmTheLeaderRead1, proposerChanWrite,
-                                paxosChanRead, paxosChanWrite, upstreamWrite1,
-                                proposerChanWrite0, paxosChanWrite0,
-                                upstreamWrite2, proposerChanWrite1,
-                                paxosChanWrite1, requestsWrite0,
-                                upstreamWrite3, proposerChanWrite2,
-                                paxosChanWrite2, learnerChanRead,
-                                learnerChanWrite, dbWrite, requestServiceWrite,
-                                requestServiceWrite0, learnerChanWrite0,
+                                paxosChanRead, proposerChanWrite0,
+                                upstreamWrite1, proposerChanWrite1,
+                                upstreamWrite2, requestsWrite0, upstreamWrite3,
+                                proposerChanWrite2, learnerChanRead, dbWrite,
+                                requestServiceWrite, requestServiceWrite0,
                                 dbWrite0, requestServiceWrite1, b, s, elected,
                                 acceptedValues_, max, index_, entry_, promises,
                                 heartbeatMonitorId, accepts_, value, repropose,
                                 resp, maxBal, loopIndex, acceptedValues,
-                                payload, msg_, accepts, decisions, newAccepts,
+                                payload, msg_, accepts, newAccepts,
                                 numAccepted, iterator, entry, msg_l,
                                 heartbeatFrequencyLocal, msg_h, index,
-                                monitorFrequencyLocal, heartbeatId_, dbLocal,
-                                msg, null, heartbeatId, counter, requestId_,
-                                putOk, confirmedRequestId, dbLocal0, operation,
+                                monitorFrequencyLocal, heartbeatId_, msg, null,
+                                heartbeatId, proposerId, counter, requestId_,
+                                putOk, confirmedRequestId, operation,
                                 requestId >>
 
 kvManagerLoop(self) == /\ pc[self] = "kvManagerLoop"
                        /\ IF TRUE
-                             THEN /\ (learnedChan) # (NULL)
-                                  /\ LET v2 == learnedChan IN
-                                       /\ learnerChanWrite' = NULL
+                             THEN /\ ((learnedChan[learnerId[self]]).value) # (NULL)
+                                  /\ LET v2 == learnedChan[learnerId[self]] IN
+                                       /\ learnedChan' = [learnedChan EXCEPT ![learnerId[self]].value = NULL]
                                        /\ learnerChanRead' = v2
                                   /\ operation' = [operation EXCEPT ![self] = learnerChanRead']
                                   /\ requestId' = [requestId EXCEPT ![self] = (operation'[self]).id]
-                                  /\ dbWrite' = [dbLocal0[self] EXCEPT ![(operation'[self]).key] = (operation'[self]).value]
-                                  /\ IF (requestId'[self][1]) = (myId[self])
-                                        THEN /\ (paxosLayerChan) = (NULL)
-                                             /\ requestServiceWrite' = operation'[self]
+                                  /\ dbWrite' = [database EXCEPT ![<<kvId[self], (operation'[self]).key>>] = (operation'[self]).value]
+                                  /\ IF (requestId'[self][1]) = (kvId[self])
+                                        THEN /\ ((paxosLayerChan[kvId[self]]).value) = (NULL)
+                                             /\ requestServiceWrite' = [paxosLayerChan EXCEPT ![kvId[self]] = operation'[self]]
                                              /\ requestServiceWrite0' = requestServiceWrite'
-                                             /\ learnerChanWrite0' = learnerChanWrite'
                                              /\ dbWrite0' = dbWrite'
                                              /\ requestServiceWrite1' = requestServiceWrite0'
                                              /\ paxosLayerChan' = requestServiceWrite1'
-                                             /\ learnedChan' = learnerChanWrite0'
-                                             /\ dbLocal0' = [dbLocal0 EXCEPT ![self] = dbWrite0']
+                                             /\ database' = dbWrite0'
                                              /\ pc' = [pc EXCEPT ![self] = "kvManagerLoop"]
                                         ELSE /\ requestServiceWrite0' = paxosLayerChan
-                                             /\ learnerChanWrite0' = learnerChanWrite'
                                              /\ dbWrite0' = dbWrite'
                                              /\ requestServiceWrite1' = requestServiceWrite0'
                                              /\ paxosLayerChan' = requestServiceWrite1'
-                                             /\ learnedChan' = learnerChanWrite0'
-                                             /\ dbLocal0' = [dbLocal0 EXCEPT ![self] = dbWrite0']
+                                             /\ database' = dbWrite0'
                                              /\ pc' = [pc EXCEPT ![self] = "kvManagerLoop"]
                                              /\ UNCHANGED requestServiceWrite
-                             ELSE /\ learnerChanWrite0' = learnedChan
-                                  /\ dbWrite0' = dbLocal0[self]
+                             ELSE /\ dbWrite0' = database
                                   /\ requestServiceWrite1' = paxosLayerChan
                                   /\ paxosLayerChan' = requestServiceWrite1'
-                                  /\ learnedChan' = learnerChanWrite0'
-                                  /\ dbLocal0' = [dbLocal0 EXCEPT ![self] = dbWrite0']
+                                  /\ database' = dbWrite0'
                                   /\ pc' = [pc EXCEPT ![self] = "Done"]
-                                  /\ UNCHANGED << learnerChanRead,
-                                                  learnerChanWrite, dbWrite,
-                                                  requestServiceWrite,
+                                  /\ UNCHANGED << learnedChan, learnerChanRead,
+                                                  dbWrite, requestServiceWrite,
                                                   requestServiceWrite0,
                                                   operation, requestId >>
                        /\ UNCHANGED << network, values, lastSeenAbstract,
@@ -4974,10 +4787,8 @@ kvManagerLoop(self) == /\ pc[self] = "kvManagerLoop"
                                        electionInProgresssAbstract,
                                        iAmTheLeaderAbstract,
                                        leaderFailureAbstract, valueStreamRead,
-                                       valueStreamWrite, valueStreamWrite0,
-                                       valueStreamWrite1, mailboxesWrite,
-                                       mailboxesWrite0, mailboxesRead,
-                                       iAmTheLeaderWrite,
+                                       mailboxesWrite, mailboxesWrite0,
+                                       mailboxesRead, iAmTheLeaderWrite,
                                        electionInProgressWrite,
                                        leaderFailureRead, iAmTheLeaderWrite0,
                                        electionInProgressWrite0,
@@ -4996,11 +4807,9 @@ kvManagerLoop(self) == /\ pc[self] = "kvManagerLoop"
                                        mailboxesWrite5, mailboxesWrite6,
                                        iAmTheLeaderWrite6,
                                        electionInProgressWrite7,
-                                       valueStreamWrite2, mailboxesWrite7,
-                                       iAmTheLeaderWrite7,
+                                       mailboxesWrite7, iAmTheLeaderWrite7,
                                        electionInProgressWrite8,
-                                       valueStreamWrite3, mailboxesWrite8,
-                                       iAmTheLeaderWrite8,
+                                       mailboxesWrite8, iAmTheLeaderWrite8,
                                        electionInProgressWrite9,
                                        mailboxesRead0, mailboxesWrite9,
                                        mailboxesWrite10, mailboxesWrite11,
@@ -5039,23 +4848,21 @@ kvManagerLoop(self) == /\ pc[self] = "kvManagerLoop"
                                        requestsWrite, dbRead, upstreamWrite,
                                        upstreamWrite0, iAmTheLeaderRead1,
                                        proposerChanWrite, paxosChanRead,
-                                       paxosChanWrite, upstreamWrite1,
-                                       proposerChanWrite0, paxosChanWrite0,
-                                       upstreamWrite2, proposerChanWrite1,
-                                       paxosChanWrite1, requestsWrite0,
-                                       upstreamWrite3, proposerChanWrite2,
-                                       paxosChanWrite2, b, s, elected,
+                                       proposerChanWrite0, upstreamWrite1,
+                                       proposerChanWrite1, upstreamWrite2,
+                                       requestsWrite0, upstreamWrite3,
+                                       proposerChanWrite2, b, s, elected,
                                        acceptedValues_, max, index_, entry_,
                                        promises, heartbeatMonitorId, accepts_,
                                        value, repropose, resp, maxBal,
                                        loopIndex, acceptedValues, payload,
-                                       msg_, accepts, decisions, newAccepts,
-                                       numAccepted, iterator, entry, msg_l,
+                                       msg_, accepts, newAccepts, numAccepted,
+                                       iterator, entry, msg_l,
                                        heartbeatFrequencyLocal, msg_h, index,
                                        monitorFrequencyLocal, heartbeatId_,
-                                       dbLocal, msg, null, heartbeatId,
+                                       msg, null, heartbeatId, proposerId,
                                        counter, requestId_, putOk,
-                                       confirmedRequestId, myId >>
+                                       confirmedRequestId, kvId, learnerId >>
 
 kvPaxosManager(self) == findId(self) \/ kvManagerLoop(self)
 
@@ -5082,13 +4889,10 @@ Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 
 \* END TRANSLATION
 
-\*  No acceptor could have finalized/decided 2 different vals for same slot
-Agreement == \A l1, l2 \in Learner, slot \in Slots :
-                     decisions[l1][slot] # NULL
-                  /\ decisions[l2][slot] # NULL => decisions[l1][slot] = decisions[l2][slot]
+\*  Every KV node has a consistent database
+ConsistentDatabase == \A kv1, kv2 \in KVRequests, k \in KeySet :
+                          database[kv1, k] # NULL /\ database[kv2, k] # NULL => database[kv1, k] = database[kv2, k]
 
-\* SlotSafety == \A l \in Learner, slot \in Slots : decidedLocal[l][slot]) \in {0, 1}
-
-\* EventuallyLearned == \E l \in Learner : \E slot \in Slots : <>(decidedLocal[l][slot] # NULL)
+THEOREM Spec => []ConsistentDatabase
 
 =========================================================
