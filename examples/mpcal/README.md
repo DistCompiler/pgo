@@ -2,19 +2,20 @@
 ## Model Checking Values
 * Slots - a bound on the number of values to decide on
 * N - the number of nodes
-* Nil - default value (should not be anything that could appear in the spec)
+* NULL - default value (should not be anything that could appear in the spec)
 * Terms - a bound on the number of terms
 * BUFFER_SIZE - a bound on the number of in-flight messages (per mailbox)
 * Follower - uniquely identifies the follower state
 * Leader - uniquely identifies the leader state
 * Candidate - uniquely identifies the candidate state
+* Steps - how often to send heartbeats
 
-Reccomended values are: [Slots <- 2, N <- 3, Nil <- 100, Terms <- 3, BUFFER_SIZE <- 3, Follower <- 0, Leader <- 2, Candidate <- 1].
+Reccomended values are: [Slots <- 2, N <- 3, NULL <- -1, Terms <- 3, BUFFER_SIZE <- 3, Follower <- 0, Leader <- 2, Candidate <- 1, Steps <- 2].
 
 There are two mapping macros for the network, FIFOQueues, which guarantees all messages are reliably delivered in order (for model checking correctness, termination, and liveness under perfect network conditions), and UnstableFIFOQueues, where messages can be dropped, duplicated, or reordered (for model checking correctness in the presence of failures).
 
 The following State Constraint ensures no errors and proper timeout behavior:
-`((\E s \in Servers: state[s] = Leader) \/ timeoutRead = TRUE \/ timeoutRead = defaultInitValue) /\ (\A s \in Servers: Len(valuesLocal[s]) > 0 /\ Len(mailboxes[s])<BUFFER_SIZE /\ Len(log[s]) < Slots /\ currentTerm[s] < Terms)`.
+`((\E s \in Servers: state[s] = Leader) \/ timeoutRead = TRUE \/ timeoutRead = defaultInitValue) /\ (\A s \in Servers: Len(mailboxes[s])<BUFFER_SIZE /\ Len(log[s]) < Slots /\ currentTerm[s] < Terms)`.
 
 The invariants you want to check are:
 * `Election Safety`: at most one leader can be elected in a given term.
