@@ -1,4 +1,4 @@
-package raftlib
+package main
 
 import (
 	"fmt"
