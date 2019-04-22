@@ -100,7 +100,7 @@ public class TypeInferencePass {
 			mapping.put(p.getUID(), fresh);
 		}
 
-		for (ModularPlusCalArchetype archetype : modularPlusCalBlock.getArchetypes()) {
+		for (ModularPlusCalArchetype archetype : modularPlusCalBlock.getInstantiatedArchetypes()) {
 			boolean[] signature = registry.getSignature(archetype.getUID())
 					.orElseGet(() -> new boolean[archetype.getParams().size()]);
 			List<PlusCalVariableDeclaration> params = archetype.getParams();

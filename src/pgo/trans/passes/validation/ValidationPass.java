@@ -80,17 +80,21 @@ public class ValidationPass {
 			}
 			ModularPlusCalModificationValidationVisitor visitor =
 					new ModularPlusCalModificationValidationVisitor(ctx, registry, nonRefParams);
-			Map<UID, Boolean> functionMapped = new HashMap<>();
-			boolean[] signature = registry.getSignature(archetype.getUID())
-					.orElseGet(() -> new boolean[archetype.getParams().size()]);
-			List<PlusCalVariableDeclaration> params = archetype.getParams();
-			for (int i = 0; i < params.size(); i++) {
-				PlusCalVariableDeclaration param = params.get(i);
-				functionMapped.put(param.getUID(), signature[i]);
-			}
-			for (PlusCalStatement statement : archetype.getBody()) {
-				statement.accept(visitor);
-				statement.accept(new ModularPlusCalStatementValidationVisitor(ctx, registry, functionMapped));
+
+			// only validate usage if the archetype is actually instantiated
+			if (modularPlusCalBlock.getInstantiatedArchetypes().contains(archetype)) {
+				Map<UID, Boolean> functionMapped = new HashMap<>();
+				boolean[] signature = registry.getSignature(archetype.getUID())
+						.orElseGet(() -> new boolean[archetype.getParams().size()]);
+				List<PlusCalVariableDeclaration> params = archetype.getParams();
+				for (int i = 0; i < params.size(); i++) {
+					PlusCalVariableDeclaration param = params.get(i);
+					functionMapped.put(param.getUID(), signature[i]);
+				}
+				for (PlusCalStatement statement : archetype.getBody()) {
+					statement.accept(visitor);
+					statement.accept(new ModularPlusCalStatementValidationVisitor(ctx, registry, functionMapped));
+				}
 			}
 		}
 	}
