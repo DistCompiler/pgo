@@ -7,7 +7,6 @@ import (
 )
 
 const (
-	KEY_LENGTH  = 1024
 	BUFFER_SIZE = 4096
 )
 
@@ -20,19 +19,11 @@ func readToken(buffer []byte) int {
 	return len(buffer)
 }
 
-func issueGet(key []byte) {
-	fmt.Printf("getting %s\n", string(key))
-}
-
-func issuePut(key []byte, value []byte) {
-	fmt.Printf("putting %s %s\n", string(key), string(value))
-}
-
 func main() {
 	// set up connection to implementation
+	client := NewDummyClient()
 	// bench
 	buffer := make([]byte, BUFFER_SIZE)
-	keyScratchSpace := make([]byte, KEY_LENGTH)
 	current := 0
 	end := 0
 	readMore := false
@@ -95,14 +86,13 @@ func main() {
 				}
 				// condition here: tokenLength < end-i || lastTokenLength == tokenLength
 				// we've retried and there's no more data
-				copy(keyScratchSpace[:tokenLength], buffer[i:])
-				key := keyScratchSpace[:tokenLength]
+				key := string(buffer[i : i+tokenLength])
 				if tokenLength < end-i && buffer[i+tokenLength] != '\n' {
 					fmt.Fprintln(os.Stderr, "Get command must be followed by new line; found", string(buffer[current:end]))
 					os.Exit(4)
 				}
 				// time to issue the get!
-				issueGet(key)
+				client.Get(key)
 				lastTokenLength = -1
 				readMore = false
 				current = i + tokenLength + 1
@@ -128,8 +118,7 @@ func main() {
 					os.Exit(5)
 				}
 				// condition here: tokenlength < end-token
-				copy(keyScratchSpace[:tokenLength], buffer[i:])
-				key := keyScratchSpace[:tokenLength]
+				key := string(buffer[i : i+tokenLength])
 				if buffer[i+tokenLength] != ' ' {
 					fmt.Fprintln(os.Stderr, "Ill-formed command:", string(buffer[current:end]))
 					os.Exit(6)
@@ -153,9 +142,9 @@ func main() {
 					os.Exit(7)
 				}
 				// we've (possibly) retried and there's no more data
-				value := buffer[i : i+tokenLength]
+				value := string(buffer[i : i+tokenLength])
 				// time to issue the put!
-				issuePut(key, value)
+				client.Put(key, value)
 				lastTokenLength = -1
 				readMore = false
 				current = i + tokenLength + 1

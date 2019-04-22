@@ -26,7 +26,7 @@ func NewEtcdClient(endpoints []string) EtcdClient {
 	return EtcdClient{client: c}
 }
 
-func (c *EtcdClient) Get(key string) (string, err) {
+func (c *EtcdClient) Get(key string) (string, error) {
 	c.ctx, c.cancel = context.WithTimeout(context.Background(), 1000*time.Second)
 	response, err := c.client.Get(c.ctx, key)
 	if err != nil {
@@ -41,7 +41,7 @@ func (c *EtcdClient) Get(key string) (string, err) {
 	return "", nil
 }
 
-func (c *EtcdClient) Put(key string, value string) err {
+func (c *EtcdClient) Put(key string, value string) error {
 	c.ctx, c.cancel = context.WithTimeout(context.Background(), 1000*time.Second)
 	_, err := c.client.Put(c.ctx, string(key), string(value))
 	return err
