@@ -8,9 +8,15 @@ import java.util.List;
 
 public class TLAExpressionFormattingVisitor extends TLAExpressionVisitor<Void, IOException> {
 	IndentingWriter out;
+	private boolean lhs;
+
+	public TLAExpressionFormattingVisitor(IndentingWriter out, boolean lhs) {
+		this.out = out;
+		this.lhs = lhs;
+	}
 
 	public TLAExpressionFormattingVisitor(IndentingWriter out) {
-		this.out = out;
+		this(out, false);
 	}
 
 	private void formatPrefix(List<TLAGeneralIdentifierPart> prefix) throws IOException {
@@ -81,9 +87,15 @@ public class TLAExpressionFormattingVisitor extends TLAExpressionVisitor<Void, I
 
 	@Override
 	public Void visit(TLADot tlaDot) throws IOException {
-		out.write("(");
-		tlaDot.getExpression().accept(this);
-		out.write(")");
+		// (expr).field := expr
+		// is not valid PlusCal syntax
+		if (lhs) {
+			tlaDot.getExpression().accept(this);
+		} else {
+			out.write("(");
+			tlaDot.getExpression().accept(this);
+			out.write(")");
+		}
 		out.write(".");
 		out.write(tlaDot.getField());
 		return null;
