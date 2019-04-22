@@ -26,15 +26,7 @@ func NewEtcdClient(endpoints []string) EtcdClient {
 	return EtcdClient{client: c}
 }
 
-func (c *EtcdClient) Get(key []byte) string {
-	value, err := c.getInternal(string(key))
-	if err != nil {
-		panic(err.Error())
-	}
-	return value
-}
-
-func (c *EtcdClient) getInternal(key string) (string, error) {
+func (c *EtcdClient) Get(key string) (string, err) {
 	c.ctx, c.cancel = context.WithTimeout(context.Background(), 1000*time.Second)
 	response, err := c.client.Get(c.ctx, key)
 	if err != nil {
@@ -49,13 +41,10 @@ func (c *EtcdClient) getInternal(key string) (string, error) {
 	return "", nil
 }
 
-func (c *EtcdClient) Put(key []byte, value []byte) {
+func (c *EtcdClient) Put(key string, value string) err {
 	c.ctx, c.cancel = context.WithTimeout(context.Background(), 1000*time.Second)
 	_, err := c.client.Put(c.ctx, string(key), string(value))
-	if err != nil {
-		panic(err.Error())
-	}
-	return
+	return err
 }
 
 func (c *EtcdClient) TearDown() {
