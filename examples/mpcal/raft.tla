@@ -35,6 +35,8 @@ CONSTANTS NULL
 --mpcal Raft {
     define {
         Servers == 1..N
+        Heartbeats == N+1..N*2
+        Clients == N*2+1..N*3
         RequestVote == 0
         RequestVoteResponse == 1
         AppendEntries == 2
@@ -69,7 +71,7 @@ CONSTANTS NULL
         while (idx <= Cardinality(Servers)) {
             \* granted is unused, but NULL wouldn't type check
             network[idx] := [sender |-> candidateId, type |-> AppendEntries, term |-> cterm, granted |-> FALSE, entries |-> <<>>,
-                             prevIndex |-> NULL, prevTerm |-> NULL, commit |-> NULL];
+                             prevIndex |-> NULL, prevTerm |-> 0, commit |-> NULL];
             
             idx := idx + 1;
         };
@@ -155,13 +157,18 @@ CONSTANTS NULL
   HBLoop: 
     while (TRUE) {
       CheckHeartBeat:
-        if (timer[self] /\ iAmTheLeader[self - N]) {
-            index := 1;
-            cterm := term[self - N];
+        await(iAmTheLeader[self - N]);
 
-            \* Make AppendEntries RPC calls to every other node (as a heartbeat and to notify them of new entries)
-          SendHeartBeats:
-            SendHeartBeats(network, cterm, self - N, index);
+      SendHeartBeatLoop:
+        while (iAmTheLeader[self - N]) {
+            if (timer[self]) {
+                index := 1;
+                cterm := term[self - N];
+    
+                \* Make AppendEntries RPC calls to every other node (as a heartbeat and to notify them of new entries)
+              SendHeartBeats:
+                SendHeartBeats(network, cterm, self - N, index);
+            };
         };
     };
     }
@@ -211,10 +218,9 @@ CONSTANTS NULL
       LeaderCheck:
         \* TODO: check for value before broadcasting
         if (state = Leader) { \* I am the leader for the currentTerm
-            print("I am the leader");
             \* Make progress (append to the log)
             with (value = values[self]) {
-                log := Append(log, [val |-> value, term |-> currentTerm]);
+                log := Append(log, [val |-> value.value, term |-> currentTerm]);
             };
 
             matchIndex[self] := Len(log);
@@ -230,7 +236,7 @@ CONSTANTS NULL
             \* Apply newly commited values
             while(lastApplied < commitIndex) {
                 lastApplied := lastApplied + 1;
-                applied[self] := [value |-> log[lastApplied]];
+                applied[self] := [value |-> log[lastApplied].val];
             };
 
             iterator := 1;
@@ -263,8 +269,8 @@ MsgSwitch:  if (msg.type = AppendEntries) {
                 response := [sender |-> self, type |-> AppendEntriesResponse, term |-> currentTerm, granted |-> FALSE,
                              entries |-> <<>>, prevIndex |-> NULL, prevTerm |-> NULL, commit |-> NULL];
 
-                if ((msg.term >= currentTerm) /\ (msg.entries # <<>>) \* Empty AppendEntries are heartbeats
-                    /\ ((msg.prevIndex > 0 /\ Len(log) < msg.prevIndex) \/ Term(log, msg.prevIndex) # msg.prevTerm)) {
+                if ((msg.term >= currentTerm) /\ ((msg.prevIndex > 0 /\ Len(log) < msg.prevIndex)
+                                                  \/ Term(log, msg.prevIndex) # msg.prevTerm)) {
                     \* Following entries don't have matching terms
                     assert(state # Leader);
                     \* Delete entries that don't match
@@ -272,7 +278,8 @@ MsgSwitch:  if (msg.type = AppendEntries) {
                 } elseif (msg.term >= currentTerm /\ Len(log) = msg.prevIndex) {
                     \* Append new entries
                     log := log \o msg.entries;
-AEValid:            response.granted := TRUE;
+AEValid:            response := [sender |-> self, type |-> AppendEntriesResponse, term |-> currentTerm, granted |-> TRUE,
+                                 entries |-> <<>>, prevIndex |-> Len(log), prevTerm |-> NULL, commit |-> NULL];
                 };
 
 AESendResponse: network[msg.sender] := response;
@@ -283,11 +290,11 @@ AESendResponse: network[msg.sender] := response;
                   AEApplyCommitted:
                     while(lastApplied < commitIndex) {
                         lastApplied := lastApplied + 1;
-                        applied[self] := [value |-> log[lastApplied]];
+                        applied[self] := [value |-> log[lastApplied].val];
                     };
                 };
             } elseif (msg.type = RequestVote) {
-                response := [sender |-> self, type |-> RequestVoteResponse, term |-> msg.term, granted |-> FALSE,
+                response := [sender |-> self, type |-> RequestVoteResponse, term |-> currentTerm, granted |-> FALSE,
                              entries |-> <<>>, prevIndex |-> NULL, prevTerm |-> NULL, commit |-> NULL];
 
                 \* Check if the candidate's log is at least as up-to-date as ours, and we haven't voted for someone else
@@ -297,10 +304,9 @@ AESendResponse: network[msg.sender] := response;
                        \/ (msg.prevTerm = Term(log, Len(log)) /\ msg.prevIndex >= Len(log)))) {
 RVValid:            response.granted := TRUE;
                     votedFor := msg.sender;
-                    currentTerm := msg.term;
                 };
-                
-              RVSendResponse: 
+
+              RVSendResponse:
                 network[msg.sender] := response;
             } elseif (msg.type = AppendEntriesResponse /\ msg.term = currentTerm /\ state = Leader) {
                 if (msg.granted) { \* They successfully added all entries! Update index we have recorded for them
@@ -323,7 +329,7 @@ RVValid:            response.granted := TRUE;
                         \* Re-initialize volatile state
                         matchIndex := [s3 \in Servers |-> 0];
                         nextIndex := [s4 \in Servers |-> 1];
-                        \* Techniquely should send initial empty AppendEntries as a heartbeat, but this is unnecessary for model-checking
+                        \* Initial empty AppendEntry heartbeats are handled by HeartBeat archetype
                         iAmTheLeader[self] := TRUE;
                         term[self] := currentTerm;
                     };
@@ -339,36 +345,38 @@ RVValid:            response.granted := TRUE;
         heartbeatChan = [s \in Servers |-> [value |-> NULL]],
         leader = [s \in Servers |-> FALSE],
         terms = [s \in Servers |-> NULL],
-        timers = [s \in N..N*2 |-> 2],
+        timers = [s \in Heartbeats |-> 2],
         mailboxes = [id \in Servers |-> <<>>];
 
     \* TODO: Copy valuestream instantiation from paxos spec (queue)
-    fair process (server \in Servers) == instance Node(ref mailboxes, learnedChan, valueStream, TRUE, heartbeatChan, ref leader, ref terms)
+    fair process (server \in Servers) == instance Node(ref mailboxes, [s \in 1..Slots |-> [value |-> NULL]], valueStream, TRUE, heartbeatChan, ref leader, ref terms)
         mapping mailboxes[_] via FIFOQueues
-        mapping learnedChan[_] via UnbufferedChannel
+        mapping @2[_] via UnbufferedChannel
         mapping valueStream[_] via UnbufferedChannel
         mapping @4[_] via Timeout
         mapping heartbeatChan[_] via UnbufferedChannel
         mapping leader[_] via ID
         mapping terms[_] via ID;
     
-    fair process (heartbeat \in N+1..2*N) == instance Heartbeat(ref mailboxes, heartbeatChan, leader, terms, timers)
+    fair process (heartbeat \in Heartbeats) == instance Heartbeat(ref mailboxes, heartbeatChan, leader, terms, timers)
         mapping mailboxes[_] via FIFOQueues
         mapping heartbeatChan[_] via UnbufferedChannel
         mapping leader[_] via ID
         mapping terms[_] via ID
         mapping timers[_] via Timer;
 
-    fair process (client \in N*2+1..N*3) == instance Client(ref valueStream)
+    fair process (client \in Clients) == instance Client(ref valueStream)
         mapping valueStream[_] via UnbufferedChannel;
 }
 
 
 \* BEGIN PLUSCAL TRANSLATION
 --algorithm Raft {
-    variables valueStream = [p \in Servers |-> [value |-> NULL]], learnedChan = [l \in Servers |-> [value |-> NULL]], heartbeatChan = [s \in Servers |-> [value |-> NULL]], leader = [s \in Servers |-> FALSE], terms = [s \in Servers |-> NULL], timers = [s \in (N) .. ((N) * (2)) |-> 2], mailboxes = [id \in Servers |-> <<>>], timeoutRead, networkWrite, networkWrite0, networkWrite1, valuesRead, appliedWrite, appliedWrite0, networkWrite2, appliedWrite1, networkWrite3, networkRead, iAmTheLeaderWrite, iAmTheLeaderWrite0, ifResult, appliedWrite2, appliedWrite3, ifResult0, networkWrite4, termWrite, iAmTheLeaderWrite1, termWrite0, iAmTheLeaderWrite2, termWrite1, iAmTheLeaderWrite3, termWrite2, networkWrite5, iAmTheLeaderWrite4, termWrite3, networkWrite6, iAmTheLeaderWrite5, termWrite4, networkWrite7, appliedWrite4, iAmTheLeaderWrite6, termWrite5, iAmTheLeaderWrite7, networkWrite8, appliedWrite5, termWrite6, networkWrite9, appliedWrite6, iAmTheLeaderWrite8, termWrite7, timerRead, iAmTheLeaderRead, termRead, networkWrite10, networkWrite11, networkWrite12, networkWrite13, streamWrite, streamWrite0;
+    variables valueStream = [p \in Servers |-> [value |-> NULL]], learnedChan = [l \in Servers |-> [value |-> NULL]], heartbeatChan = [s \in Servers |-> [value |-> NULL]], leader = [s \in Servers |-> FALSE], terms = [s \in Servers |-> NULL], timers = [s \in Heartbeats |-> 2], mailboxes = [id \in Servers |-> <<>>], timeoutRead, networkWrite, networkWrite0, networkWrite1, valuesRead, appliedWrite, appliedWrite0, networkWrite2, appliedWrite1, networkWrite3, networkRead, iAmTheLeaderWrite, iAmTheLeaderWrite0, ifResult, appliedWrite2, appliedWrite3, ifResult0, networkWrite4, termWrite, iAmTheLeaderWrite1, termWrite0, iAmTheLeaderWrite2, termWrite1, iAmTheLeaderWrite3, termWrite2, networkWrite5, iAmTheLeaderWrite4, termWrite3, networkWrite6, iAmTheLeaderWrite5, termWrite4, networkWrite7, appliedWrite4, iAmTheLeaderWrite6, termWrite5, iAmTheLeaderWrite7, networkWrite8, appliedWrite5, termWrite6, networkWrite9, appliedWrite6, iAmTheLeaderWrite8, termWrite7, iAmTheLeaderRead, timerRead, termRead, networkWrite10, networkWrite11, networkWrite12, networkWrite13, networkWrite14, streamWrite, streamWrite0;
     define {
         Servers == (1) .. (N)
+        Heartbeats == ((N) + (1)) .. ((N) * (2))
+        Clients == (((N) * (2)) + (1)) .. ((N) * (3))
         RequestVote == 0
         RequestVoteResponse == 1
         AppendEntries == 2
@@ -376,7 +384,7 @@ RVValid:            response.granted := TRUE;
         Term(log, index) == IF (((index) > (0)) /\ ((Len(log)) >= (index))) /\ ((Len(log)) > (0)) THEN (log[index]).term ELSE 0
     }
     fair process (server \in Servers)
-    variables timeoutLocal = TRUE, currentTerm = 0, votedFor = NULL, log = <<>>, state = Follower, commitIndex = 0, lastApplied = 0, nextIndex, matchIndex, iterator, votes = [t \in (0) .. (Terms) |-> {}], msg, response, msgs;
+    variables appliedLocal = [s \in (1) .. (Slots) |-> [value |-> NULL]], timeoutLocal = TRUE, currentTerm = 0, votedFor = NULL, log = <<>>, state = Follower, commitIndex = 0, lastApplied = 0, nextIndex, matchIndex, iterator, votes = [t \in (0) .. (Terms) |-> {}], msg, response, msgs;
     {
         NodeLoop:
             if (TRUE) {
@@ -412,14 +420,13 @@ RVValid:            response.granted := TRUE;
                 
                 LeaderCheck:
                     if ((state) = (Leader)) {
-                        print "I am the leader";
                         await ((valueStream[self]).value) # (NULL);
                         with (v0 = valueStream[self]) {
                             valueStream[self].value := NULL;
                             valuesRead := v0;
                         };
                         with (value = valuesRead) {
-                            log := Append(log, [val |-> value, term |-> currentTerm]);
+                            log := Append(log, [val |-> (value).value, term |-> currentTerm]);
                         };
                         matchIndex[self] := Len(log);
                         nextIndex[self] := (Len(log)) + (1);
@@ -432,15 +439,15 @@ RVValid:            response.granted := TRUE;
                         ApplyCommited:
                             if ((lastApplied) < (commitIndex)) {
                                 lastApplied := (lastApplied) + (1);
-                                await ((learnedChan[self]).value) = (NULL);
-                                appliedWrite := [learnedChan EXCEPT ![self] = [value |-> log[lastApplied]]];
+                                await ((appliedLocal[self]).value) = (NULL);
+                                appliedWrite := [appliedLocal EXCEPT ![self] = [value |-> (log[lastApplied]).val]];
                                 appliedWrite0 := appliedWrite;
-                                learnedChan := appliedWrite0;
+                                appliedLocal := appliedWrite0;
                                 goto ApplyCommited;
                             } else {
                                 iterator := 1;
-                                appliedWrite0 := learnedChan;
-                                learnedChan := appliedWrite0;
+                                appliedWrite0 := appliedLocal;
+                                appliedLocal := appliedWrite0;
                             };
                         
                         SendAppendEntries:
@@ -457,10 +464,10 @@ RVValid:            response.granted := TRUE;
                             };
                     
                     } else {
-                        appliedWrite1 := learnedChan;
+                        appliedWrite1 := appliedLocal;
                         networkWrite3 := mailboxes;
                         mailboxes := networkWrite3;
-                        learnedChan := appliedWrite1;
+                        appliedLocal := appliedWrite1;
                     };
                 
                 RecvMsg:
@@ -493,14 +500,14 @@ RVValid:            response.granted := TRUE;
                         MsgSwitch:
                             if (((msg).type) = (AppendEntries)) {
                                 response := [sender |-> self, type |-> AppendEntriesResponse, term |-> currentTerm, granted |-> FALSE, entries |-> <<>>, prevIndex |-> NULL, prevTerm |-> NULL, commit |-> NULL];
-                                if (((((msg).term) >= (currentTerm)) /\ (((msg).entries) # (<<>>))) /\ (((((msg).prevIndex) > (0)) /\ ((Len(log)) < ((msg).prevIndex))) \/ ((Term(log, (msg).prevIndex)) # ((msg).prevTerm)))) {
+                                if ((((msg).term) >= (currentTerm)) /\ (((((msg).prevIndex) > (0)) /\ ((Len(log)) < ((msg).prevIndex))) \/ ((Term(log, (msg).prevIndex)) # ((msg).prevTerm)))) {
                                     assert (state) # (Leader);
                                     log := SubSeq(log, 1, ((msg).prevIndex) - (1));
                                 } else {
                                     if ((((msg).term) >= (currentTerm)) /\ ((Len(log)) = ((msg).prevIndex))) {
                                         log := (log) \o ((msg).entries);
                                         AEValid:
-                                            response.granted := TRUE;
+                                            response := [sender |-> self, type |-> AppendEntriesResponse, term |-> currentTerm, granted |-> TRUE, entries |-> <<>>, prevIndex |-> Len(log), prevTerm |-> NULL, commit |-> NULL];
                                     
                                     };
                                 };
@@ -518,32 +525,31 @@ RVValid:            response.granted := TRUE;
                                         AEApplyCommitted:
                                             if ((lastApplied) < (commitIndex)) {
                                                 lastApplied := (lastApplied) + (1);
-                                                await ((learnedChan[self]).value) = (NULL);
-                                                appliedWrite := [learnedChan EXCEPT ![self] = [value |-> log[lastApplied]]];
+                                                await ((appliedLocal[self]).value) = (NULL);
+                                                appliedWrite := [appliedLocal EXCEPT ![self] = [value |-> (log[lastApplied]).val]];
                                                 appliedWrite2 := appliedWrite;
-                                                learnedChan := appliedWrite2;
+                                                appliedLocal := appliedWrite2;
                                                 goto AEApplyCommitted;
                                             } else {
-                                                appliedWrite2 := learnedChan;
-                                                learnedChan := appliedWrite2;
+                                                appliedWrite2 := appliedLocal;
+                                                appliedLocal := appliedWrite2;
                                                 goto ProcessMsgs;
                                             };
                                     
                                     } else {
-                                        appliedWrite3 := learnedChan;
+                                        appliedWrite3 := appliedLocal;
                                         mailboxes := networkWrite;
-                                        learnedChan := appliedWrite3;
+                                        appliedLocal := appliedWrite3;
                                         goto ProcessMsgs;
                                     };
                             
                             } else {
                                 if (((msg).type) = (RequestVote)) {
-                                    response := [sender |-> self, type |-> RequestVoteResponse, term |-> (msg).term, granted |-> FALSE, entries |-> <<>>, prevIndex |-> NULL, prevTerm |-> NULL, commit |-> NULL];
+                                    response := [sender |-> self, type |-> RequestVoteResponse, term |-> currentTerm, granted |-> FALSE, entries |-> <<>>, prevIndex |-> NULL, prevTerm |-> NULL, commit |-> NULL];
                                     if (((((votedFor) = (NULL)) \/ ((votedFor) = ((msg).sender))) /\ (((msg).term) >= (currentTerm))) /\ ((((msg).prevTerm) > (Term(log, Len(log)))) \/ ((((msg).prevTerm) = (Term(log, Len(log)))) /\ (((msg).prevIndex) >= (Len(log)))))) {
                                         RVValid:
                                             response.granted := TRUE;
                                             votedFor := (msg).sender;
-                                            currentTerm := (msg).term;
                                     
                                     };
                                     RVSendResponse:
@@ -565,11 +571,11 @@ RVValid:            response.granted := TRUE;
                                             iAmTheLeaderWrite5 := iAmTheLeaderWrite4;
                                             termWrite4 := termWrite3;
                                             networkWrite7 := networkWrite6;
-                                            appliedWrite4 := learnedChan;
+                                            appliedWrite4 := appliedLocal;
                                             iAmTheLeaderWrite6 := iAmTheLeaderWrite5;
                                             termWrite5 := termWrite4;
                                             mailboxes := networkWrite7;
-                                            learnedChan := appliedWrite4;
+                                            appliedLocal := appliedWrite4;
                                             leader := iAmTheLeaderWrite6;
                                             terms := termWrite5;
                                             goto ProcessMsgs;
@@ -610,11 +616,11 @@ RVValid:            response.granted := TRUE;
                                                     iAmTheLeaderWrite5 := iAmTheLeaderWrite4;
                                                     termWrite4 := termWrite3;
                                                     networkWrite7 := networkWrite6;
-                                                    appliedWrite4 := learnedChan;
+                                                    appliedWrite4 := appliedLocal;
                                                     iAmTheLeaderWrite6 := iAmTheLeaderWrite5;
                                                     termWrite5 := termWrite4;
                                                     mailboxes := networkWrite7;
-                                                    learnedChan := appliedWrite4;
+                                                    appliedLocal := appliedWrite4;
                                                     leader := iAmTheLeaderWrite6;
                                                     terms := termWrite5;
                                                     goto ProcessMsgs;
@@ -632,11 +638,11 @@ RVValid:            response.granted := TRUE;
                                                     iAmTheLeaderWrite5 := iAmTheLeaderWrite4;
                                                     termWrite4 := termWrite3;
                                                     networkWrite7 := networkWrite6;
-                                                    appliedWrite4 := learnedChan;
+                                                    appliedWrite4 := appliedLocal;
                                                     iAmTheLeaderWrite6 := iAmTheLeaderWrite5;
                                                     termWrite5 := termWrite4;
                                                     mailboxes := networkWrite7;
-                                                    learnedChan := appliedWrite4;
+                                                    appliedLocal := appliedWrite4;
                                                     leader := iAmTheLeaderWrite6;
                                                     terms := termWrite5;
                                                     goto ProcessMsgs;
@@ -653,11 +659,11 @@ RVValid:            response.granted := TRUE;
                                                 iAmTheLeaderWrite5 := iAmTheLeaderWrite4;
                                                 termWrite4 := termWrite3;
                                                 networkWrite7 := networkWrite6;
-                                                appliedWrite4 := learnedChan;
+                                                appliedWrite4 := appliedLocal;
                                                 iAmTheLeaderWrite6 := iAmTheLeaderWrite5;
                                                 termWrite5 := termWrite4;
                                                 mailboxes := networkWrite7;
-                                                learnedChan := appliedWrite4;
+                                                appliedLocal := appliedWrite4;
                                                 leader := iAmTheLeaderWrite6;
                                                 terms := termWrite5;
                                                 goto ProcessMsgs;
@@ -672,11 +678,11 @@ RVValid:            response.granted := TRUE;
                                             iAmTheLeaderWrite5 := iAmTheLeaderWrite4;
                                             termWrite4 := termWrite3;
                                             networkWrite7 := networkWrite6;
-                                            appliedWrite4 := learnedChan;
+                                            appliedWrite4 := appliedLocal;
                                             iAmTheLeaderWrite6 := iAmTheLeaderWrite5;
                                             termWrite5 := termWrite4;
                                             mailboxes := networkWrite7;
-                                            learnedChan := appliedWrite4;
+                                            appliedLocal := appliedWrite4;
                                             leader := iAmTheLeaderWrite6;
                                             terms := termWrite5;
                                             goto ProcessMsgs;
@@ -688,10 +694,10 @@ RVValid:            response.granted := TRUE;
                     } else {
                         iAmTheLeaderWrite7 := leader;
                         networkWrite8 := mailboxes;
-                        appliedWrite5 := learnedChan;
+                        appliedWrite5 := appliedLocal;
                         termWrite6 := terms;
                         mailboxes := networkWrite8;
-                        learnedChan := appliedWrite5;
+                        appliedLocal := appliedWrite5;
                         leader := iAmTheLeaderWrite7;
                         terms := termWrite6;
                         goto NodeLoop;
@@ -699,55 +705,66 @@ RVValid:            response.granted := TRUE;
             
             } else {
                 networkWrite9 := mailboxes;
-                appliedWrite6 := learnedChan;
+                appliedWrite6 := appliedLocal;
                 iAmTheLeaderWrite8 := leader;
                 termWrite7 := terms;
                 mailboxes := networkWrite9;
-                learnedChan := appliedWrite6;
+                appliedLocal := appliedWrite6;
                 leader := iAmTheLeaderWrite8;
                 terms := termWrite7;
             };
     
     }
-    fair process (heartbeat \in ((N) + (1)) .. ((2) * (N)))
+    fair process (heartbeat \in Heartbeats)
     variables index, cterm;
     {
         HBLoop:
             if (TRUE) {
                 CheckHeartBeat:
-                    timerRead := TRUE;
                     iAmTheLeaderRead := leader[(self) - (N)];
-                    if ((timerRead) /\ (iAmTheLeaderRead)) {
-                        index := 1;
-                        termRead := terms[(self) - (N)];
-                        cterm := termRead;
-                        SendHeartBeats:
-                            if ((index) <= (Cardinality(Servers))) {
-                                await (Len(mailboxes[index])) < (BUFFER_SIZE);
-                                networkWrite10 := [mailboxes EXCEPT ![index] = Append(mailboxes[index], [sender |-> (self) - (N), type |-> AppendEntries, term |-> cterm, granted |-> FALSE, entries |-> <<>>, prevIndex |-> NULL, prevTerm |-> NULL, commit |-> NULL])];
-                                index := (index) + (1);
-                                networkWrite11 := networkWrite10;
-                                mailboxes := networkWrite11;
-                                goto SendHeartBeats;
-                            } else {
-                                networkWrite11 := mailboxes;
-                                mailboxes := networkWrite11;
-                                goto HBLoop;
-                            };
-                    
+                    await iAmTheLeaderRead;
+                
+                SendHeartBeatLoop:
+                    iAmTheLeaderRead := leader[(self) - (N)];
+                    if (iAmTheLeaderRead) {
+                        timerRead := TRUE;
+                        if (timerRead) {
+                            index := 1;
+                            termRead := terms[(self) - (N)];
+                            cterm := termRead;
+                            SendHeartBeats:
+                                if ((index) <= (Cardinality(Servers))) {
+                                    await (Len(mailboxes[index])) < (BUFFER_SIZE);
+                                    networkWrite10 := [mailboxes EXCEPT ![index] = Append(mailboxes[index], [sender |-> (self) - (N), type |-> AppendEntries, term |-> cterm, granted |-> FALSE, entries |-> <<>>, prevIndex |-> NULL, prevTerm |-> 0, commit |-> NULL])];
+                                    index := (index) + (1);
+                                    networkWrite11 := networkWrite10;
+                                    mailboxes := networkWrite11;
+                                    goto SendHeartBeats;
+                                } else {
+                                    networkWrite11 := mailboxes;
+                                    mailboxes := networkWrite11;
+                                    goto SendHeartBeatLoop;
+                                };
+                        
+                        } else {
+                            networkWrite12 := mailboxes;
+                            networkWrite13 := networkWrite12;
+                            mailboxes := networkWrite13;
+                            goto SendHeartBeatLoop;
+                        };
                     } else {
-                        networkWrite12 := mailboxes;
-                        mailboxes := networkWrite12;
+                        networkWrite13 := mailboxes;
+                        mailboxes := networkWrite13;
                         goto HBLoop;
                     };
             
             } else {
-                networkWrite13 := mailboxes;
-                mailboxes := networkWrite13;
+                networkWrite14 := mailboxes;
+                mailboxes := networkWrite14;
             };
     
     }
-    fair process (client \in (((N) * (2)) + (1)) .. ((N) * (3)))
+    fair process (client \in Clients)
     variables next = 0;
     {
         ClientLoop:
@@ -783,21 +800,23 @@ VARIABLES valueStream, learnedChan, heartbeatChan, leader, terms, timers,
           iAmTheLeaderWrite5, termWrite4, networkWrite7, appliedWrite4, 
           iAmTheLeaderWrite6, termWrite5, iAmTheLeaderWrite7, networkWrite8, 
           appliedWrite5, termWrite6, networkWrite9, appliedWrite6, 
-          iAmTheLeaderWrite8, termWrite7, timerRead, iAmTheLeaderRead, 
+          iAmTheLeaderWrite8, termWrite7, iAmTheLeaderRead, timerRead, 
           termRead, networkWrite10, networkWrite11, networkWrite12, 
-          networkWrite13, streamWrite, streamWrite0, pc
+          networkWrite13, networkWrite14, streamWrite, streamWrite0, pc
 
 (* define statement *)
 Servers == (1) .. (N)
+Heartbeats == ((N) + (1)) .. ((N) * (2))
+Clients == (((N) * (2)) + (1)) .. ((N) * (3))
 RequestVote == 0
 RequestVoteResponse == 1
 AppendEntries == 2
 AppendEntriesResponse == 3
 Term(log, index) == IF (((index) > (0)) /\ ((Len(log)) >= (index))) /\ ((Len(log)) > (0)) THEN (log[index]).term ELSE 0
 
-VARIABLES timeoutLocal, currentTerm, votedFor, log, state, commitIndex, 
-          lastApplied, nextIndex, matchIndex, iterator, votes, msg, response, 
-          msgs, index, cterm, next
+VARIABLES appliedLocal, timeoutLocal, currentTerm, votedFor, log, state, 
+          commitIndex, lastApplied, nextIndex, matchIndex, iterator, votes, 
+          msg, response, msgs, index, cterm, next
 
 vars == << valueStream, learnedChan, heartbeatChan, leader, terms, timers, 
            mailboxes, timeoutRead, networkWrite, networkWrite0, networkWrite1, 
@@ -810,14 +829,15 @@ vars == << valueStream, learnedChan, heartbeatChan, leader, terms, timers,
            networkWrite6, iAmTheLeaderWrite5, termWrite4, networkWrite7, 
            appliedWrite4, iAmTheLeaderWrite6, termWrite5, iAmTheLeaderWrite7, 
            networkWrite8, appliedWrite5, termWrite6, networkWrite9, 
-           appliedWrite6, iAmTheLeaderWrite8, termWrite7, timerRead, 
-           iAmTheLeaderRead, termRead, networkWrite10, networkWrite11, 
-           networkWrite12, networkWrite13, streamWrite, streamWrite0, pc, 
-           timeoutLocal, currentTerm, votedFor, log, state, commitIndex, 
-           lastApplied, nextIndex, matchIndex, iterator, votes, msg, response, 
-           msgs, index, cterm, next >>
+           appliedWrite6, iAmTheLeaderWrite8, termWrite7, iAmTheLeaderRead, 
+           timerRead, termRead, networkWrite10, networkWrite11, 
+           networkWrite12, networkWrite13, networkWrite14, streamWrite, 
+           streamWrite0, pc, appliedLocal, timeoutLocal, currentTerm, 
+           votedFor, log, state, commitIndex, lastApplied, nextIndex, 
+           matchIndex, iterator, votes, msg, response, msgs, index, cterm, 
+           next >>
 
-ProcSet == (Servers) \cup (((N) + (1)) .. ((2) * (N))) \cup ((((N) * (2)) + (1)) .. ((N) * (3)))
+ProcSet == (Servers) \cup (Heartbeats) \cup (Clients)
 
 Init == (* Global variables *)
         /\ valueStream = [p \in Servers |-> [value |-> NULL]]
@@ -825,7 +845,7 @@ Init == (* Global variables *)
         /\ heartbeatChan = [s \in Servers |-> [value |-> NULL]]
         /\ leader = [s \in Servers |-> FALSE]
         /\ terms = [s \in Servers |-> NULL]
-        /\ timers = [s \in (N) .. ((N) * (2)) |-> 2]
+        /\ timers = [s \in Heartbeats |-> 2]
         /\ mailboxes = [id \in Servers |-> <<>>]
         /\ timeoutRead = defaultInitValue
         /\ networkWrite = defaultInitValue
@@ -870,16 +890,18 @@ Init == (* Global variables *)
         /\ appliedWrite6 = defaultInitValue
         /\ iAmTheLeaderWrite8 = defaultInitValue
         /\ termWrite7 = defaultInitValue
-        /\ timerRead = defaultInitValue
         /\ iAmTheLeaderRead = defaultInitValue
+        /\ timerRead = defaultInitValue
         /\ termRead = defaultInitValue
         /\ networkWrite10 = defaultInitValue
         /\ networkWrite11 = defaultInitValue
         /\ networkWrite12 = defaultInitValue
         /\ networkWrite13 = defaultInitValue
+        /\ networkWrite14 = defaultInitValue
         /\ streamWrite = defaultInitValue
         /\ streamWrite0 = defaultInitValue
         (* Process server *)
+        /\ appliedLocal = [self \in Servers |-> [s \in (1) .. (Slots) |-> [value |-> NULL]]]
         /\ timeoutLocal = [self \in Servers |-> TRUE]
         /\ currentTerm = [self \in Servers |-> 0]
         /\ votedFor = [self \in Servers |-> NULL]
@@ -895,35 +917,35 @@ Init == (* Global variables *)
         /\ response = [self \in Servers |-> defaultInitValue]
         /\ msgs = [self \in Servers |-> defaultInitValue]
         (* Process heartbeat *)
-        /\ index = [self \in ((N) + (1)) .. ((2) * (N)) |-> defaultInitValue]
-        /\ cterm = [self \in ((N) + (1)) .. ((2) * (N)) |-> defaultInitValue]
+        /\ index = [self \in Heartbeats |-> defaultInitValue]
+        /\ cterm = [self \in Heartbeats |-> defaultInitValue]
         (* Process client *)
-        /\ next = [self \in (((N) * (2)) + (1)) .. ((N) * (3)) |-> 0]
+        /\ next = [self \in Clients |-> 0]
         /\ pc = [self \in ProcSet |-> CASE self \in Servers -> "NodeLoop"
-                                        [] self \in ((N) + (1)) .. ((2) * (N)) -> "HBLoop"
-                                        [] self \in (((N) * (2)) + (1)) .. ((N) * (3)) -> "ClientLoop"]
+                                        [] self \in Heartbeats -> "HBLoop"
+                                        [] self \in Clients -> "ClientLoop"]
 
 NodeLoop(self) == /\ pc[self] = "NodeLoop"
                   /\ IF TRUE
                         THEN /\ pc' = [pc EXCEPT ![self] = "TimeoutCheck"]
-                             /\ UNCHANGED << learnedChan, leader, terms, 
-                                             mailboxes, networkWrite9, 
-                                             appliedWrite6, iAmTheLeaderWrite8, 
-                                             termWrite7 >>
+                             /\ UNCHANGED << leader, terms, mailboxes, 
+                                             networkWrite9, appliedWrite6, 
+                                             iAmTheLeaderWrite8, termWrite7, 
+                                             appliedLocal >>
                         ELSE /\ networkWrite9' = mailboxes
-                             /\ appliedWrite6' = learnedChan
+                             /\ appliedWrite6' = appliedLocal[self]
                              /\ iAmTheLeaderWrite8' = leader
                              /\ termWrite7' = terms
                              /\ mailboxes' = networkWrite9'
-                             /\ learnedChan' = appliedWrite6'
+                             /\ appliedLocal' = [appliedLocal EXCEPT ![self] = appliedWrite6']
                              /\ leader' = iAmTheLeaderWrite8'
                              /\ terms' = termWrite7'
                              /\ pc' = [pc EXCEPT ![self] = "Done"]
-                  /\ UNCHANGED << valueStream, heartbeatChan, timers, 
-                                  timeoutRead, networkWrite, networkWrite0, 
-                                  networkWrite1, valuesRead, appliedWrite, 
-                                  appliedWrite0, networkWrite2, appliedWrite1, 
-                                  networkWrite3, networkRead, 
+                  /\ UNCHANGED << valueStream, learnedChan, heartbeatChan, 
+                                  timers, timeoutRead, networkWrite, 
+                                  networkWrite0, networkWrite1, valuesRead, 
+                                  appliedWrite, appliedWrite0, networkWrite2, 
+                                  appliedWrite1, networkWrite3, networkRead, 
                                   iAmTheLeaderWrite, iAmTheLeaderWrite0, 
                                   ifResult, appliedWrite2, appliedWrite3, 
                                   ifResult0, networkWrite4, termWrite, 
@@ -936,14 +958,15 @@ NodeLoop(self) == /\ pc[self] = "NodeLoop"
                                   networkWrite7, appliedWrite4, 
                                   iAmTheLeaderWrite6, termWrite5, 
                                   iAmTheLeaderWrite7, networkWrite8, 
-                                  appliedWrite5, termWrite6, timerRead, 
-                                  iAmTheLeaderRead, termRead, networkWrite10, 
+                                  appliedWrite5, termWrite6, iAmTheLeaderRead, 
+                                  timerRead, termRead, networkWrite10, 
                                   networkWrite11, networkWrite12, 
-                                  networkWrite13, streamWrite, streamWrite0, 
-                                  timeoutLocal, currentTerm, votedFor, log, 
-                                  state, commitIndex, lastApplied, nextIndex, 
-                                  matchIndex, iterator, votes, msg, response, 
-                                  msgs, index, cterm, next >>
+                                  networkWrite13, networkWrite14, streamWrite, 
+                                  streamWrite0, timeoutLocal, currentTerm, 
+                                  votedFor, log, state, commitIndex, 
+                                  lastApplied, nextIndex, matchIndex, iterator, 
+                                  votes, msg, response, msgs, index, cterm, 
+                                  next >>
 
 TimeoutCheck(self) == /\ pc[self] = "TimeoutCheck"
                       /\ \/ /\ timeoutRead' = FALSE
@@ -981,10 +1004,11 @@ TimeoutCheck(self) == /\ pc[self] = "TimeoutCheck"
                                       iAmTheLeaderWrite7, networkWrite8, 
                                       appliedWrite5, termWrite6, networkWrite9, 
                                       appliedWrite6, iAmTheLeaderWrite8, 
-                                      termWrite7, timerRead, iAmTheLeaderRead, 
+                                      termWrite7, iAmTheLeaderRead, timerRead, 
                                       termRead, networkWrite10, networkWrite11, 
                                       networkWrite12, networkWrite13, 
-                                      streamWrite, streamWrite0, timeoutLocal, 
+                                      networkWrite14, streamWrite, 
+                                      streamWrite0, appliedLocal, timeoutLocal, 
                                       log, commitIndex, lastApplied, nextIndex, 
                                       matchIndex, msg, response, msgs, index, 
                                       cterm, next >>
@@ -1021,10 +1045,11 @@ SendReqVotes(self) == /\ pc[self] = "SendReqVotes"
                                       iAmTheLeaderWrite7, networkWrite8, 
                                       appliedWrite5, termWrite6, networkWrite9, 
                                       appliedWrite6, iAmTheLeaderWrite8, 
-                                      termWrite7, timerRead, iAmTheLeaderRead, 
+                                      termWrite7, iAmTheLeaderRead, timerRead, 
                                       termRead, networkWrite10, networkWrite11, 
                                       networkWrite12, networkWrite13, 
-                                      streamWrite, streamWrite0, timeoutLocal, 
+                                      networkWrite14, streamWrite, 
+                                      streamWrite0, appliedLocal, timeoutLocal, 
                                       currentTerm, votedFor, log, state, 
                                       commitIndex, lastApplied, nextIndex, 
                                       matchIndex, votes, msg, response, msgs, 
@@ -1032,29 +1057,29 @@ SendReqVotes(self) == /\ pc[self] = "SendReqVotes"
 
 LeaderCheck(self) == /\ pc[self] = "LeaderCheck"
                      /\ IF (state[self]) = (Leader)
-                           THEN /\ PrintT("I am the leader")
-                                /\ ((valueStream[self]).value) # (NULL)
+                           THEN /\ ((valueStream[self]).value) # (NULL)
                                 /\ LET v0 == valueStream[self] IN
                                      /\ valueStream' = [valueStream EXCEPT ![self].value = NULL]
                                      /\ valuesRead' = v0
                                 /\ LET value == valuesRead' IN
-                                     log' = [log EXCEPT ![self] = Append(log[self], [val |-> value, term |-> currentTerm[self]])]
+                                     log' = [log EXCEPT ![self] = Append(log[self], [val |-> (value).value, term |-> currentTerm[self]])]
                                 /\ matchIndex' = [matchIndex EXCEPT ![self][self] = Len(log'[self])]
                                 /\ nextIndex' = [nextIndex EXCEPT ![self][self] = (Len(log'[self])) + (1)]
                                 /\ pc' = [pc EXCEPT ![self] = "AdvanceIndex"]
-                                /\ UNCHANGED << learnedChan, mailboxes, 
-                                                appliedWrite1, networkWrite3 >>
-                           ELSE /\ appliedWrite1' = learnedChan
+                                /\ UNCHANGED << mailboxes, appliedWrite1, 
+                                                networkWrite3, appliedLocal >>
+                           ELSE /\ appliedWrite1' = appliedLocal[self]
                                 /\ networkWrite3' = mailboxes
                                 /\ mailboxes' = networkWrite3'
-                                /\ learnedChan' = appliedWrite1'
+                                /\ appliedLocal' = [appliedLocal EXCEPT ![self] = appliedWrite1']
                                 /\ pc' = [pc EXCEPT ![self] = "RecvMsg"]
                                 /\ UNCHANGED << valueStream, valuesRead, log, 
                                                 nextIndex, matchIndex >>
-                     /\ UNCHANGED << heartbeatChan, leader, terms, timers, 
-                                     timeoutRead, networkWrite, networkWrite0, 
-                                     networkWrite1, appliedWrite, 
-                                     appliedWrite0, networkWrite2, networkRead, 
+                     /\ UNCHANGED << learnedChan, heartbeatChan, leader, terms, 
+                                     timers, timeoutRead, networkWrite, 
+                                     networkWrite0, networkWrite1, 
+                                     appliedWrite, appliedWrite0, 
+                                     networkWrite2, networkRead, 
                                      iAmTheLeaderWrite, iAmTheLeaderWrite0, 
                                      ifResult, appliedWrite2, appliedWrite3, 
                                      ifResult0, networkWrite4, termWrite, 
@@ -1069,13 +1094,14 @@ LeaderCheck(self) == /\ pc[self] = "LeaderCheck"
                                      iAmTheLeaderWrite7, networkWrite8, 
                                      appliedWrite5, termWrite6, networkWrite9, 
                                      appliedWrite6, iAmTheLeaderWrite8, 
-                                     termWrite7, timerRead, iAmTheLeaderRead, 
+                                     termWrite7, iAmTheLeaderRead, timerRead, 
                                      termRead, networkWrite10, networkWrite11, 
                                      networkWrite12, networkWrite13, 
-                                     streamWrite, streamWrite0, timeoutLocal, 
-                                     currentTerm, votedFor, state, commitIndex, 
-                                     lastApplied, iterator, votes, msg, 
-                                     response, msgs, index, cterm, next >>
+                                     networkWrite14, streamWrite, streamWrite0, 
+                                     timeoutLocal, currentTerm, votedFor, 
+                                     state, commitIndex, lastApplied, iterator, 
+                                     votes, msg, response, msgs, index, cterm, 
+                                     next >>
 
 AdvanceIndex(self) == /\ pc[self] = "AdvanceIndex"
                       /\ IF (((Cardinality({i \in Servers : (matchIndex[self][i]) > (commitIndex[self])})) * (2)) > (Cardinality(Servers))) /\ ((Term(log[self], (commitIndex[self]) + (1))) = (currentTerm[self]))
@@ -1104,10 +1130,11 @@ AdvanceIndex(self) == /\ pc[self] = "AdvanceIndex"
                                       iAmTheLeaderWrite7, networkWrite8, 
                                       appliedWrite5, termWrite6, networkWrite9, 
                                       appliedWrite6, iAmTheLeaderWrite8, 
-                                      termWrite7, timerRead, iAmTheLeaderRead, 
+                                      termWrite7, iAmTheLeaderRead, timerRead, 
                                       termRead, networkWrite10, networkWrite11, 
                                       networkWrite12, networkWrite13, 
-                                      streamWrite, streamWrite0, timeoutLocal, 
+                                      networkWrite14, streamWrite, 
+                                      streamWrite0, appliedLocal, timeoutLocal, 
                                       currentTerm, votedFor, log, state, 
                                       lastApplied, nextIndex, matchIndex, 
                                       iterator, votes, msg, response, msgs, 
@@ -1116,26 +1143,27 @@ AdvanceIndex(self) == /\ pc[self] = "AdvanceIndex"
 ApplyCommited(self) == /\ pc[self] = "ApplyCommited"
                        /\ IF (lastApplied[self]) < (commitIndex[self])
                              THEN /\ lastApplied' = [lastApplied EXCEPT ![self] = (lastApplied[self]) + (1)]
-                                  /\ ((learnedChan[self]).value) = (NULL)
-                                  /\ appliedWrite' = [learnedChan EXCEPT ![self] = [value |-> log[self][lastApplied'[self]]]]
+                                  /\ ((appliedLocal[self][self]).value) = (NULL)
+                                  /\ appliedWrite' = [appliedLocal[self] EXCEPT ![self] = [value |-> (log[self][lastApplied'[self]]).val]]
                                   /\ appliedWrite0' = appliedWrite'
-                                  /\ learnedChan' = appliedWrite0'
+                                  /\ appliedLocal' = [appliedLocal EXCEPT ![self] = appliedWrite0']
                                   /\ pc' = [pc EXCEPT ![self] = "ApplyCommited"]
                                   /\ UNCHANGED iterator
                              ELSE /\ iterator' = [iterator EXCEPT ![self] = 1]
-                                  /\ appliedWrite0' = learnedChan
-                                  /\ learnedChan' = appliedWrite0'
+                                  /\ appliedWrite0' = appliedLocal[self]
+                                  /\ appliedLocal' = [appliedLocal EXCEPT ![self] = appliedWrite0']
                                   /\ pc' = [pc EXCEPT ![self] = "SendAppendEntries"]
                                   /\ UNCHANGED << appliedWrite, lastApplied >>
-                       /\ UNCHANGED << valueStream, heartbeatChan, leader, 
-                                       terms, timers, mailboxes, timeoutRead, 
-                                       networkWrite, networkWrite0, 
-                                       networkWrite1, valuesRead, 
-                                       networkWrite2, appliedWrite1, 
-                                       networkWrite3, networkRead, 
-                                       iAmTheLeaderWrite, iAmTheLeaderWrite0, 
-                                       ifResult, appliedWrite2, appliedWrite3, 
-                                       ifResult0, networkWrite4, termWrite, 
+                       /\ UNCHANGED << valueStream, learnedChan, heartbeatChan, 
+                                       leader, terms, timers, mailboxes, 
+                                       timeoutRead, networkWrite, 
+                                       networkWrite0, networkWrite1, 
+                                       valuesRead, networkWrite2, 
+                                       appliedWrite1, networkWrite3, 
+                                       networkRead, iAmTheLeaderWrite, 
+                                       iAmTheLeaderWrite0, ifResult, 
+                                       appliedWrite2, appliedWrite3, ifResult0, 
+                                       networkWrite4, termWrite, 
                                        iAmTheLeaderWrite1, termWrite0, 
                                        iAmTheLeaderWrite2, termWrite1, 
                                        iAmTheLeaderWrite3, termWrite2, 
@@ -1148,14 +1176,14 @@ ApplyCommited(self) == /\ pc[self] = "ApplyCommited"
                                        appliedWrite5, termWrite6, 
                                        networkWrite9, appliedWrite6, 
                                        iAmTheLeaderWrite8, termWrite7, 
-                                       timerRead, iAmTheLeaderRead, termRead, 
+                                       iAmTheLeaderRead, timerRead, termRead, 
                                        networkWrite10, networkWrite11, 
                                        networkWrite12, networkWrite13, 
-                                       streamWrite, streamWrite0, timeoutLocal, 
-                                       currentTerm, votedFor, log, state, 
-                                       commitIndex, nextIndex, matchIndex, 
-                                       votes, msg, response, msgs, index, 
-                                       cterm, next >>
+                                       networkWrite14, streamWrite, 
+                                       streamWrite0, timeoutLocal, currentTerm, 
+                                       votedFor, log, state, commitIndex, 
+                                       nextIndex, matchIndex, votes, msg, 
+                                       response, msgs, index, cterm, next >>
 
 SendAppendEntries(self) == /\ pc[self] = "SendAppendEntries"
                            /\ IF (iterator[self]) <= (Cardinality(Servers))
@@ -1191,11 +1219,12 @@ SendAppendEntries(self) == /\ pc[self] = "SendAppendEntries"
                                            appliedWrite5, termWrite6, 
                                            networkWrite9, appliedWrite6, 
                                            iAmTheLeaderWrite8, termWrite7, 
-                                           timerRead, iAmTheLeaderRead, 
+                                           iAmTheLeaderRead, timerRead, 
                                            termRead, networkWrite10, 
                                            networkWrite11, networkWrite12, 
-                                           networkWrite13, streamWrite, 
-                                           streamWrite0, timeoutLocal, 
+                                           networkWrite13, networkWrite14, 
+                                           streamWrite, streamWrite0, 
+                                           appliedLocal, timeoutLocal, 
                                            currentTerm, votedFor, log, state, 
                                            commitIndex, lastApplied, nextIndex, 
                                            matchIndex, votes, msg, response, 
@@ -1225,10 +1254,11 @@ RecvMsg(self) == /\ pc[self] = "RecvMsg"
                                  iAmTheLeaderWrite7, networkWrite8, 
                                  appliedWrite5, termWrite6, networkWrite9, 
                                  appliedWrite6, iAmTheLeaderWrite8, termWrite7, 
-                                 timerRead, iAmTheLeaderRead, termRead, 
+                                 iAmTheLeaderRead, timerRead, termRead, 
                                  networkWrite10, networkWrite11, 
-                                 networkWrite12, networkWrite13, streamWrite, 
-                                 streamWrite0, timeoutLocal, currentTerm, 
+                                 networkWrite12, networkWrite13, 
+                                 networkWrite14, streamWrite, streamWrite0, 
+                                 appliedLocal, timeoutLocal, currentTerm, 
                                  votedFor, log, state, commitIndex, 
                                  lastApplied, nextIndex, matchIndex, iterator, 
                                  votes, msg, response, index, cterm, next >>
@@ -1236,24 +1266,25 @@ RecvMsg(self) == /\ pc[self] = "RecvMsg"
 ProcessMsgs(self) == /\ pc[self] = "ProcessMsgs"
                      /\ IF (Len(msgs[self])) > (0)
                            THEN /\ pc' = [pc EXCEPT ![self] = "GetMsg"]
-                                /\ UNCHANGED << learnedChan, leader, terms, 
-                                                mailboxes, iAmTheLeaderWrite7, 
+                                /\ UNCHANGED << leader, terms, mailboxes, 
+                                                iAmTheLeaderWrite7, 
                                                 networkWrite8, appliedWrite5, 
-                                                termWrite6 >>
+                                                termWrite6, appliedLocal >>
                            ELSE /\ iAmTheLeaderWrite7' = leader
                                 /\ networkWrite8' = mailboxes
-                                /\ appliedWrite5' = learnedChan
+                                /\ appliedWrite5' = appliedLocal[self]
                                 /\ termWrite6' = terms
                                 /\ mailboxes' = networkWrite8'
-                                /\ learnedChan' = appliedWrite5'
+                                /\ appliedLocal' = [appliedLocal EXCEPT ![self] = appliedWrite5']
                                 /\ leader' = iAmTheLeaderWrite7'
                                 /\ terms' = termWrite6'
                                 /\ pc' = [pc EXCEPT ![self] = "NodeLoop"]
-                     /\ UNCHANGED << valueStream, heartbeatChan, timers, 
-                                     timeoutRead, networkWrite, networkWrite0, 
-                                     networkWrite1, valuesRead, appliedWrite, 
-                                     appliedWrite0, networkWrite2, 
-                                     appliedWrite1, networkWrite3, networkRead, 
+                     /\ UNCHANGED << valueStream, learnedChan, heartbeatChan, 
+                                     timers, timeoutRead, networkWrite, 
+                                     networkWrite0, networkWrite1, valuesRead, 
+                                     appliedWrite, appliedWrite0, 
+                                     networkWrite2, appliedWrite1, 
+                                     networkWrite3, networkRead, 
                                      iAmTheLeaderWrite, iAmTheLeaderWrite0, 
                                      ifResult, appliedWrite2, appliedWrite3, 
                                      ifResult0, networkWrite4, termWrite, 
@@ -1266,15 +1297,15 @@ ProcessMsgs(self) == /\ pc[self] = "ProcessMsgs"
                                      networkWrite7, appliedWrite4, 
                                      iAmTheLeaderWrite6, termWrite5, 
                                      networkWrite9, appliedWrite6, 
-                                     iAmTheLeaderWrite8, termWrite7, timerRead, 
-                                     iAmTheLeaderRead, termRead, 
+                                     iAmTheLeaderWrite8, termWrite7, 
+                                     iAmTheLeaderRead, timerRead, termRead, 
                                      networkWrite10, networkWrite11, 
                                      networkWrite12, networkWrite13, 
-                                     streamWrite, streamWrite0, timeoutLocal, 
-                                     currentTerm, votedFor, log, state, 
-                                     commitIndex, lastApplied, nextIndex, 
-                                     matchIndex, iterator, votes, msg, 
-                                     response, msgs, index, cterm, next >>
+                                     networkWrite14, streamWrite, streamWrite0, 
+                                     timeoutLocal, currentTerm, votedFor, log, 
+                                     state, commitIndex, lastApplied, 
+                                     nextIndex, matchIndex, iterator, votes, 
+                                     msg, response, msgs, index, cterm, next >>
 
 GetMsg(self) == /\ pc[self] = "GetMsg"
                 /\ msg' = [msg EXCEPT ![self] = Head(msgs[self])]
@@ -1297,13 +1328,13 @@ GetMsg(self) == /\ pc[self] = "GetMsg"
                                 iAmTheLeaderWrite7, networkWrite8, 
                                 appliedWrite5, termWrite6, networkWrite9, 
                                 appliedWrite6, iAmTheLeaderWrite8, termWrite7, 
-                                timerRead, iAmTheLeaderRead, termRead, 
+                                iAmTheLeaderRead, timerRead, termRead, 
                                 networkWrite10, networkWrite11, networkWrite12, 
-                                networkWrite13, streamWrite, streamWrite0, 
-                                timeoutLocal, currentTerm, votedFor, log, 
-                                state, commitIndex, lastApplied, nextIndex, 
-                                matchIndex, iterator, votes, response, index, 
-                                cterm, next >>
+                                networkWrite13, networkWrite14, streamWrite, 
+                                streamWrite0, appliedLocal, timeoutLocal, 
+                                currentTerm, votedFor, log, state, commitIndex, 
+                                lastApplied, nextIndex, matchIndex, iterator, 
+                                votes, response, index, cterm, next >>
 
 CheckMsgTerm(self) == /\ pc[self] = "CheckMsgTerm"
                       /\ IF ((msg[self]).term) > (currentTerm[self])
@@ -1337,10 +1368,11 @@ CheckMsgTerm(self) == /\ pc[self] = "CheckMsgTerm"
                                       iAmTheLeaderWrite7, networkWrite8, 
                                       appliedWrite5, termWrite6, networkWrite9, 
                                       appliedWrite6, iAmTheLeaderWrite8, 
-                                      termWrite7, timerRead, iAmTheLeaderRead, 
+                                      termWrite7, iAmTheLeaderRead, timerRead, 
                                       termRead, networkWrite10, networkWrite11, 
                                       networkWrite12, networkWrite13, 
-                                      streamWrite, streamWrite0, timeoutLocal, 
+                                      networkWrite14, streamWrite, 
+                                      streamWrite0, appliedLocal, timeoutLocal, 
                                       log, commitIndex, lastApplied, nextIndex, 
                                       matchIndex, iterator, votes, msg, 
                                       response, msgs, index, cterm, next >>
@@ -1348,9 +1380,9 @@ CheckMsgTerm(self) == /\ pc[self] = "CheckMsgTerm"
 MsgSwitch(self) == /\ pc[self] = "MsgSwitch"
                    /\ IF ((msg[self]).type) = (AppendEntries)
                          THEN /\ response' = [response EXCEPT ![self] = [sender |-> self, type |-> AppendEntriesResponse, term |-> currentTerm[self], granted |-> FALSE, entries |-> <<>>, prevIndex |-> NULL, prevTerm |-> NULL, commit |-> NULL]]
-                              /\ IF ((((msg[self]).term) >= (currentTerm[self])) /\ (((msg[self]).entries) # (<<>>))) /\ (((((msg[self]).prevIndex) > (0)) /\ ((Len(log[self])) < ((msg[self]).prevIndex))) \/ ((Term(log[self], (msg[self]).prevIndex)) # ((msg[self]).prevTerm)))
+                              /\ IF (((msg[self]).term) >= (currentTerm[self])) /\ (((((msg[self]).prevIndex) > (0)) /\ ((Len(log[self])) < ((msg[self]).prevIndex))) \/ ((Term(log[self], (msg[self]).prevIndex)) # ((msg[self]).prevTerm)))
                                     THEN /\ Assert((state[self]) # (Leader), 
-                                                   "Failure of assertion at line 497, column 37.")
+                                                   "Failure of assertion at line 504, column 37.")
                                          /\ log' = [log EXCEPT ![self] = SubSeq(log[self], 1, ((msg[self]).prevIndex) - (1))]
                                          /\ pc' = [pc EXCEPT ![self] = "AESendResponse"]
                                     ELSE /\ IF (((msg[self]).term) >= (currentTerm[self])) /\ ((Len(log[self])) = ((msg[self]).prevIndex))
@@ -1358,27 +1390,27 @@ MsgSwitch(self) == /\ pc[self] = "MsgSwitch"
                                                     /\ pc' = [pc EXCEPT ![self] = "AEValid"]
                                                ELSE /\ pc' = [pc EXCEPT ![self] = "AESendResponse"]
                                                     /\ log' = log
-                              /\ UNCHANGED << learnedChan, leader, terms, 
-                                              mailboxes, iAmTheLeaderWrite, 
-                                              ifResult0, networkWrite4, 
-                                              termWrite, iAmTheLeaderWrite1, 
-                                              termWrite0, iAmTheLeaderWrite2, 
-                                              termWrite1, iAmTheLeaderWrite3, 
-                                              termWrite2, networkWrite5, 
+                              /\ UNCHANGED << leader, terms, mailboxes, 
+                                              iAmTheLeaderWrite, ifResult0, 
+                                              networkWrite4, termWrite, 
+                                              iAmTheLeaderWrite1, termWrite0, 
+                                              iAmTheLeaderWrite2, termWrite1, 
+                                              iAmTheLeaderWrite3, termWrite2, 
+                                              networkWrite5, 
                                               iAmTheLeaderWrite4, termWrite3, 
                                               networkWrite6, 
                                               iAmTheLeaderWrite5, termWrite4, 
                                               networkWrite7, appliedWrite4, 
                                               iAmTheLeaderWrite6, termWrite5, 
-                                              state, nextIndex, matchIndex, 
-                                              votes >>
+                                              appliedLocal, state, nextIndex, 
+                                              matchIndex, votes >>
                          ELSE /\ IF ((msg[self]).type) = (RequestVote)
-                                    THEN /\ response' = [response EXCEPT ![self] = [sender |-> self, type |-> RequestVoteResponse, term |-> (msg[self]).term, granted |-> FALSE, entries |-> <<>>, prevIndex |-> NULL, prevTerm |-> NULL, commit |-> NULL]]
+                                    THEN /\ response' = [response EXCEPT ![self] = [sender |-> self, type |-> RequestVoteResponse, term |-> currentTerm[self], granted |-> FALSE, entries |-> <<>>, prevIndex |-> NULL, prevTerm |-> NULL, commit |-> NULL]]
                                          /\ IF ((((votedFor[self]) = (NULL)) \/ ((votedFor[self]) = ((msg[self]).sender))) /\ (((msg[self]).term) >= (currentTerm[self]))) /\ ((((msg[self]).prevTerm) > (Term(log[self], Len(log[self])))) \/ ((((msg[self]).prevTerm) = (Term(log[self], Len(log[self])))) /\ (((msg[self]).prevIndex) >= (Len(log[self])))))
                                                THEN /\ pc' = [pc EXCEPT ![self] = "RVValid"]
                                                ELSE /\ pc' = [pc EXCEPT ![self] = "RVSendResponse"]
-                                         /\ UNCHANGED << learnedChan, leader, 
-                                                         terms, mailboxes, 
+                                         /\ UNCHANGED << leader, terms, 
+                                                         mailboxes, 
                                                          iAmTheLeaderWrite, 
                                                          ifResult0, 
                                                          networkWrite4, 
@@ -1398,7 +1430,8 @@ MsgSwitch(self) == /\ pc[self] = "MsgSwitch"
                                                          networkWrite7, 
                                                          appliedWrite4, 
                                                          iAmTheLeaderWrite6, 
-                                                         termWrite5, state, 
+                                                         termWrite5, 
+                                                         appliedLocal, state, 
                                                          nextIndex, matchIndex, 
                                                          votes >>
                                     ELSE /\ IF ((((msg[self]).type) = (AppendEntriesResponse)) /\ (((msg[self]).term) = (currentTerm[self]))) /\ ((state[self]) = (Leader))
@@ -1413,11 +1446,11 @@ MsgSwitch(self) == /\ pc[self] = "MsgSwitch"
                                                                /\ iAmTheLeaderWrite5' = iAmTheLeaderWrite4'
                                                                /\ termWrite4' = termWrite3'
                                                                /\ networkWrite7' = networkWrite6'
-                                                               /\ appliedWrite4' = learnedChan
+                                                               /\ appliedWrite4' = appliedLocal[self]
                                                                /\ iAmTheLeaderWrite6' = iAmTheLeaderWrite5'
                                                                /\ termWrite5' = termWrite4'
                                                                /\ mailboxes' = networkWrite7'
-                                                               /\ learnedChan' = appliedWrite4'
+                                                               /\ appliedLocal' = [appliedLocal EXCEPT ![self] = appliedWrite4']
                                                                /\ leader' = iAmTheLeaderWrite6'
                                                                /\ terms' = termWrite5'
                                                                /\ pc' = [pc EXCEPT ![self] = "ProcessMsgs"]
@@ -1427,8 +1460,7 @@ MsgSwitch(self) == /\ pc[self] = "MsgSwitch"
                                                                      ELSE /\ ifResult0' = 1
                                                                /\ nextIndex' = [nextIndex EXCEPT ![self][msg[self].sender] = ifResult0']
                                                                /\ pc' = [pc EXCEPT ![self] = "RetryAppendEntry"]
-                                                               /\ UNCHANGED << learnedChan, 
-                                                                               leader, 
+                                                               /\ UNCHANGED << leader, 
                                                                                terms, 
                                                                                mailboxes, 
                                                                                networkWrite4, 
@@ -1442,6 +1474,7 @@ MsgSwitch(self) == /\ pc[self] = "MsgSwitch"
                                                                                appliedWrite4, 
                                                                                iAmTheLeaderWrite6, 
                                                                                termWrite5, 
+                                                                               appliedLocal, 
                                                                                matchIndex >>
                                                     /\ UNCHANGED << iAmTheLeaderWrite, 
                                                                     termWrite, 
@@ -1475,11 +1508,11 @@ MsgSwitch(self) == /\ pc[self] = "MsgSwitch"
                                                                                      /\ iAmTheLeaderWrite5' = iAmTheLeaderWrite4'
                                                                                      /\ termWrite4' = termWrite3'
                                                                                      /\ networkWrite7' = networkWrite6'
-                                                                                     /\ appliedWrite4' = learnedChan
+                                                                                     /\ appliedWrite4' = appliedLocal[self]
                                                                                      /\ iAmTheLeaderWrite6' = iAmTheLeaderWrite5'
                                                                                      /\ termWrite5' = termWrite4'
                                                                                      /\ mailboxes' = networkWrite7'
-                                                                                     /\ learnedChan' = appliedWrite4'
+                                                                                     /\ appliedLocal' = [appliedLocal EXCEPT ![self] = appliedWrite4']
                                                                                      /\ leader' = iAmTheLeaderWrite6'
                                                                                      /\ terms' = termWrite5'
                                                                                      /\ pc' = [pc EXCEPT ![self] = "ProcessMsgs"]
@@ -1496,11 +1529,11 @@ MsgSwitch(self) == /\ pc[self] = "MsgSwitch"
                                                                                      /\ iAmTheLeaderWrite5' = iAmTheLeaderWrite4'
                                                                                      /\ termWrite4' = termWrite3'
                                                                                      /\ networkWrite7' = networkWrite6'
-                                                                                     /\ appliedWrite4' = learnedChan
+                                                                                     /\ appliedWrite4' = appliedLocal[self]
                                                                                      /\ iAmTheLeaderWrite6' = iAmTheLeaderWrite5'
                                                                                      /\ termWrite5' = termWrite4'
                                                                                      /\ mailboxes' = networkWrite7'
-                                                                                     /\ learnedChan' = appliedWrite4'
+                                                                                     /\ appliedLocal' = [appliedLocal EXCEPT ![self] = appliedWrite4']
                                                                                      /\ leader' = iAmTheLeaderWrite6'
                                                                                      /\ terms' = termWrite5'
                                                                                      /\ pc' = [pc EXCEPT ![self] = "ProcessMsgs"]
@@ -1520,11 +1553,11 @@ MsgSwitch(self) == /\ pc[self] = "MsgSwitch"
                                                                           /\ iAmTheLeaderWrite5' = iAmTheLeaderWrite4'
                                                                           /\ termWrite4' = termWrite3'
                                                                           /\ networkWrite7' = networkWrite6'
-                                                                          /\ appliedWrite4' = learnedChan
+                                                                          /\ appliedWrite4' = appliedLocal[self]
                                                                           /\ iAmTheLeaderWrite6' = iAmTheLeaderWrite5'
                                                                           /\ termWrite5' = termWrite4'
                                                                           /\ mailboxes' = networkWrite7'
-                                                                          /\ learnedChan' = appliedWrite4'
+                                                                          /\ appliedLocal' = [appliedLocal EXCEPT ![self] = appliedWrite4']
                                                                           /\ leader' = iAmTheLeaderWrite6'
                                                                           /\ terms' = termWrite5'
                                                                           /\ pc' = [pc EXCEPT ![self] = "ProcessMsgs"]
@@ -1545,11 +1578,11 @@ MsgSwitch(self) == /\ pc[self] = "MsgSwitch"
                                                                /\ iAmTheLeaderWrite5' = iAmTheLeaderWrite4'
                                                                /\ termWrite4' = termWrite3'
                                                                /\ networkWrite7' = networkWrite6'
-                                                               /\ appliedWrite4' = learnedChan
+                                                               /\ appliedWrite4' = appliedLocal[self]
                                                                /\ iAmTheLeaderWrite6' = iAmTheLeaderWrite5'
                                                                /\ termWrite5' = termWrite4'
                                                                /\ mailboxes' = networkWrite7'
-                                                               /\ learnedChan' = appliedWrite4'
+                                                               /\ appliedLocal' = [appliedLocal EXCEPT ![self] = appliedWrite4']
                                                                /\ leader' = iAmTheLeaderWrite6'
                                                                /\ terms' = termWrite5'
                                                                /\ pc' = [pc EXCEPT ![self] = "ProcessMsgs"]
@@ -1567,19 +1600,20 @@ MsgSwitch(self) == /\ pc[self] = "MsgSwitch"
                                                                     networkWrite4 >>
                                          /\ UNCHANGED response
                               /\ log' = log
-                   /\ UNCHANGED << valueStream, heartbeatChan, timers, 
-                                   timeoutRead, networkWrite, networkWrite0, 
-                                   networkWrite1, valuesRead, appliedWrite, 
-                                   appliedWrite0, networkWrite2, appliedWrite1, 
-                                   networkWrite3, networkRead, 
+                   /\ UNCHANGED << valueStream, learnedChan, heartbeatChan, 
+                                   timers, timeoutRead, networkWrite, 
+                                   networkWrite0, networkWrite1, valuesRead, 
+                                   appliedWrite, appliedWrite0, networkWrite2, 
+                                   appliedWrite1, networkWrite3, networkRead, 
                                    iAmTheLeaderWrite0, ifResult, appliedWrite2, 
                                    appliedWrite3, iAmTheLeaderWrite7, 
                                    networkWrite8, appliedWrite5, termWrite6, 
                                    networkWrite9, appliedWrite6, 
-                                   iAmTheLeaderWrite8, termWrite7, timerRead, 
-                                   iAmTheLeaderRead, termRead, networkWrite10, 
-                                   networkWrite11, networkWrite12, 
-                                   networkWrite13, streamWrite, streamWrite0, 
+                                   iAmTheLeaderWrite8, termWrite7, 
+                                   iAmTheLeaderRead, timerRead, termRead, 
+                                   networkWrite10, networkWrite11, 
+                                   networkWrite12, networkWrite13, 
+                                   networkWrite14, streamWrite, streamWrite0, 
                                    timeoutLocal, currentTerm, votedFor, 
                                    commitIndex, lastApplied, iterator, msg, 
                                    msgs, index, cterm, next >>
@@ -1594,21 +1628,22 @@ AESendResponse(self) == /\ pc[self] = "AESendResponse"
                                    /\ commitIndex' = [commitIndex EXCEPT ![self] = ifResult']
                                    /\ mailboxes' = networkWrite'
                                    /\ pc' = [pc EXCEPT ![self] = "AEApplyCommitted"]
-                                   /\ UNCHANGED << learnedChan, appliedWrite3 >>
-                              ELSE /\ appliedWrite3' = learnedChan
+                                   /\ UNCHANGED << appliedWrite3, appliedLocal >>
+                              ELSE /\ appliedWrite3' = appliedLocal[self]
                                    /\ mailboxes' = networkWrite'
-                                   /\ learnedChan' = appliedWrite3'
+                                   /\ appliedLocal' = [appliedLocal EXCEPT ![self] = appliedWrite3']
                                    /\ pc' = [pc EXCEPT ![self] = "ProcessMsgs"]
                                    /\ UNCHANGED << ifResult, commitIndex >>
-                        /\ UNCHANGED << valueStream, heartbeatChan, leader, 
-                                        terms, timers, timeoutRead, 
-                                        networkWrite0, networkWrite1, 
-                                        valuesRead, appliedWrite, 
-                                        appliedWrite0, networkWrite2, 
-                                        appliedWrite1, networkWrite3, 
-                                        networkRead, iAmTheLeaderWrite, 
-                                        iAmTheLeaderWrite0, appliedWrite2, 
-                                        ifResult0, networkWrite4, termWrite, 
+                        /\ UNCHANGED << valueStream, learnedChan, 
+                                        heartbeatChan, leader, terms, timers, 
+                                        timeoutRead, networkWrite0, 
+                                        networkWrite1, valuesRead, 
+                                        appliedWrite, appliedWrite0, 
+                                        networkWrite2, appliedWrite1, 
+                                        networkWrite3, networkRead, 
+                                        iAmTheLeaderWrite, iAmTheLeaderWrite0, 
+                                        appliedWrite2, ifResult0, 
+                                        networkWrite4, termWrite, 
                                         iAmTheLeaderWrite1, termWrite0, 
                                         iAmTheLeaderWrite2, termWrite1, 
                                         iAmTheLeaderWrite3, termWrite2, 
@@ -1621,30 +1656,31 @@ AESendResponse(self) == /\ pc[self] = "AESendResponse"
                                         appliedWrite5, termWrite6, 
                                         networkWrite9, appliedWrite6, 
                                         iAmTheLeaderWrite8, termWrite7, 
-                                        timerRead, iAmTheLeaderRead, termRead, 
+                                        iAmTheLeaderRead, timerRead, termRead, 
                                         networkWrite10, networkWrite11, 
                                         networkWrite12, networkWrite13, 
-                                        streamWrite, streamWrite0, 
-                                        timeoutLocal, currentTerm, votedFor, 
-                                        log, state, lastApplied, nextIndex, 
-                                        matchIndex, iterator, votes, msg, 
-                                        response, msgs, index, cterm, next >>
+                                        networkWrite14, streamWrite, 
+                                        streamWrite0, timeoutLocal, 
+                                        currentTerm, votedFor, log, state, 
+                                        lastApplied, nextIndex, matchIndex, 
+                                        iterator, votes, msg, response, msgs, 
+                                        index, cterm, next >>
 
 AEApplyCommitted(self) == /\ pc[self] = "AEApplyCommitted"
                           /\ IF (lastApplied[self]) < (commitIndex[self])
                                 THEN /\ lastApplied' = [lastApplied EXCEPT ![self] = (lastApplied[self]) + (1)]
-                                     /\ ((learnedChan[self]).value) = (NULL)
-                                     /\ appliedWrite' = [learnedChan EXCEPT ![self] = [value |-> log[self][lastApplied'[self]]]]
+                                     /\ ((appliedLocal[self][self]).value) = (NULL)
+                                     /\ appliedWrite' = [appliedLocal[self] EXCEPT ![self] = [value |-> (log[self][lastApplied'[self]]).val]]
                                      /\ appliedWrite2' = appliedWrite'
-                                     /\ learnedChan' = appliedWrite2'
+                                     /\ appliedLocal' = [appliedLocal EXCEPT ![self] = appliedWrite2']
                                      /\ pc' = [pc EXCEPT ![self] = "AEApplyCommitted"]
-                                ELSE /\ appliedWrite2' = learnedChan
-                                     /\ learnedChan' = appliedWrite2'
+                                ELSE /\ appliedWrite2' = appliedLocal[self]
+                                     /\ appliedLocal' = [appliedLocal EXCEPT ![self] = appliedWrite2']
                                      /\ pc' = [pc EXCEPT ![self] = "ProcessMsgs"]
                                      /\ UNCHANGED << appliedWrite, lastApplied >>
-                          /\ UNCHANGED << valueStream, heartbeatChan, leader, 
-                                          terms, timers, mailboxes, 
-                                          timeoutRead, networkWrite, 
+                          /\ UNCHANGED << valueStream, learnedChan, 
+                                          heartbeatChan, leader, terms, timers, 
+                                          mailboxes, timeoutRead, networkWrite, 
                                           networkWrite0, networkWrite1, 
                                           valuesRead, appliedWrite0, 
                                           networkWrite2, appliedWrite1, 
@@ -1665,18 +1701,18 @@ AEApplyCommitted(self) == /\ pc[self] = "AEApplyCommitted"
                                           appliedWrite5, termWrite6, 
                                           networkWrite9, appliedWrite6, 
                                           iAmTheLeaderWrite8, termWrite7, 
-                                          timerRead, iAmTheLeaderRead, 
+                                          iAmTheLeaderRead, timerRead, 
                                           termRead, networkWrite10, 
                                           networkWrite11, networkWrite12, 
-                                          networkWrite13, streamWrite, 
-                                          streamWrite0, timeoutLocal, 
-                                          currentTerm, votedFor, log, state, 
-                                          commitIndex, nextIndex, matchIndex, 
-                                          iterator, votes, msg, response, msgs, 
-                                          index, cterm, next >>
+                                          networkWrite13, networkWrite14, 
+                                          streamWrite, streamWrite0, 
+                                          timeoutLocal, currentTerm, votedFor, 
+                                          log, state, commitIndex, nextIndex, 
+                                          matchIndex, iterator, votes, msg, 
+                                          response, msgs, index, cterm, next >>
 
 AEValid(self) == /\ pc[self] = "AEValid"
-                 /\ response' = [response EXCEPT ![self].granted = TRUE]
+                 /\ response' = [response EXCEPT ![self] = [sender |-> self, type |-> AppendEntriesResponse, term |-> currentTerm[self], granted |-> TRUE, entries |-> <<>>, prevIndex |-> Len(log[self]), prevTerm |-> NULL, commit |-> NULL]]
                  /\ pc' = [pc EXCEPT ![self] = "AESendResponse"]
                  /\ UNCHANGED << valueStream, learnedChan, heartbeatChan, 
                                  leader, terms, timers, mailboxes, timeoutRead, 
@@ -1695,10 +1731,11 @@ AEValid(self) == /\ pc[self] = "AEValid"
                                  iAmTheLeaderWrite7, networkWrite8, 
                                  appliedWrite5, termWrite6, networkWrite9, 
                                  appliedWrite6, iAmTheLeaderWrite8, termWrite7, 
-                                 timerRead, iAmTheLeaderRead, termRead, 
+                                 iAmTheLeaderRead, timerRead, termRead, 
                                  networkWrite10, networkWrite11, 
-                                 networkWrite12, networkWrite13, streamWrite, 
-                                 streamWrite0, timeoutLocal, currentTerm, 
+                                 networkWrite12, networkWrite13, 
+                                 networkWrite14, streamWrite, streamWrite0, 
+                                 appliedLocal, timeoutLocal, currentTerm, 
                                  votedFor, log, state, commitIndex, 
                                  lastApplied, nextIndex, matchIndex, iterator, 
                                  votes, msg, msgs, index, cterm, next >>
@@ -1730,10 +1767,11 @@ RVSendResponse(self) == /\ pc[self] = "RVSendResponse"
                                         appliedWrite5, termWrite6, 
                                         networkWrite9, appliedWrite6, 
                                         iAmTheLeaderWrite8, termWrite7, 
-                                        timerRead, iAmTheLeaderRead, termRead, 
+                                        iAmTheLeaderRead, timerRead, termRead, 
                                         networkWrite10, networkWrite11, 
                                         networkWrite12, networkWrite13, 
-                                        streamWrite, streamWrite0, 
+                                        networkWrite14, streamWrite, 
+                                        streamWrite0, appliedLocal, 
                                         timeoutLocal, currentTerm, votedFor, 
                                         log, state, commitIndex, lastApplied, 
                                         nextIndex, matchIndex, iterator, votes, 
@@ -1743,7 +1781,6 @@ RVSendResponse(self) == /\ pc[self] = "RVSendResponse"
 RVValid(self) == /\ pc[self] = "RVValid"
                  /\ response' = [response EXCEPT ![self].granted = TRUE]
                  /\ votedFor' = [votedFor EXCEPT ![self] = (msg[self]).sender]
-                 /\ currentTerm' = [currentTerm EXCEPT ![self] = (msg[self]).term]
                  /\ pc' = [pc EXCEPT ![self] = "RVSendResponse"]
                  /\ UNCHANGED << valueStream, learnedChan, heartbeatChan, 
                                  leader, terms, timers, mailboxes, timeoutRead, 
@@ -1762,11 +1799,12 @@ RVValid(self) == /\ pc[self] = "RVValid"
                                  iAmTheLeaderWrite7, networkWrite8, 
                                  appliedWrite5, termWrite6, networkWrite9, 
                                  appliedWrite6, iAmTheLeaderWrite8, termWrite7, 
-                                 timerRead, iAmTheLeaderRead, termRead, 
+                                 iAmTheLeaderRead, timerRead, termRead, 
                                  networkWrite10, networkWrite11, 
-                                 networkWrite12, networkWrite13, streamWrite, 
-                                 streamWrite0, timeoutLocal, log, state, 
-                                 commitIndex, lastApplied, nextIndex, 
+                                 networkWrite12, networkWrite13, 
+                                 networkWrite14, streamWrite, streamWrite0, 
+                                 appliedLocal, timeoutLocal, currentTerm, log, 
+                                 state, commitIndex, lastApplied, nextIndex, 
                                  matchIndex, iterator, votes, msg, msgs, index, 
                                  cterm, next >>
 
@@ -1798,11 +1836,12 @@ RetryAppendEntry(self) == /\ pc[self] = "RetryAppendEntry"
                                           appliedWrite5, termWrite6, 
                                           networkWrite9, appliedWrite6, 
                                           iAmTheLeaderWrite8, termWrite7, 
-                                          timerRead, iAmTheLeaderRead, 
+                                          iAmTheLeaderRead, timerRead, 
                                           termRead, networkWrite10, 
                                           networkWrite11, networkWrite12, 
-                                          networkWrite13, streamWrite, 
-                                          streamWrite0, timeoutLocal, 
+                                          networkWrite13, networkWrite14, 
+                                          streamWrite, streamWrite0, 
+                                          appliedLocal, timeoutLocal, 
                                           currentTerm, votedFor, log, state, 
                                           commitIndex, lastApplied, nextIndex, 
                                           matchIndex, iterator, votes, msg, 
@@ -1820,9 +1859,9 @@ server(self) == NodeLoop(self) \/ TimeoutCheck(self) \/ SendReqVotes(self)
 HBLoop(self) == /\ pc[self] = "HBLoop"
                 /\ IF TRUE
                       THEN /\ pc' = [pc EXCEPT ![self] = "CheckHeartBeat"]
-                           /\ UNCHANGED << mailboxes, networkWrite13 >>
-                      ELSE /\ networkWrite13' = mailboxes
-                           /\ mailboxes' = networkWrite13'
+                           /\ UNCHANGED << mailboxes, networkWrite14 >>
+                      ELSE /\ networkWrite14' = mailboxes
+                           /\ mailboxes' = networkWrite14'
                            /\ pc' = [pc EXCEPT ![self] = "Done"]
                 /\ UNCHANGED << valueStream, learnedChan, heartbeatChan, 
                                 leader, terms, timers, timeoutRead, 
@@ -1841,29 +1880,21 @@ HBLoop(self) == /\ pc[self] = "HBLoop"
                                 iAmTheLeaderWrite7, networkWrite8, 
                                 appliedWrite5, termWrite6, networkWrite9, 
                                 appliedWrite6, iAmTheLeaderWrite8, termWrite7, 
-                                timerRead, iAmTheLeaderRead, termRead, 
+                                iAmTheLeaderRead, timerRead, termRead, 
                                 networkWrite10, networkWrite11, networkWrite12, 
-                                streamWrite, streamWrite0, timeoutLocal, 
-                                currentTerm, votedFor, log, state, commitIndex, 
-                                lastApplied, nextIndex, matchIndex, iterator, 
-                                votes, msg, response, msgs, index, cterm, next >>
+                                networkWrite13, streamWrite, streamWrite0, 
+                                appliedLocal, timeoutLocal, currentTerm, 
+                                votedFor, log, state, commitIndex, lastApplied, 
+                                nextIndex, matchIndex, iterator, votes, msg, 
+                                response, msgs, index, cterm, next >>
 
 CheckHeartBeat(self) == /\ pc[self] = "CheckHeartBeat"
-                        /\ timerRead' = TRUE
                         /\ iAmTheLeaderRead' = leader[(self) - (N)]
-                        /\ IF (timerRead') /\ (iAmTheLeaderRead')
-                              THEN /\ index' = [index EXCEPT ![self] = 1]
-                                   /\ termRead' = terms[(self) - (N)]
-                                   /\ cterm' = [cterm EXCEPT ![self] = termRead']
-                                   /\ pc' = [pc EXCEPT ![self] = "SendHeartBeats"]
-                                   /\ UNCHANGED << mailboxes, networkWrite12 >>
-                              ELSE /\ networkWrite12' = mailboxes
-                                   /\ mailboxes' = networkWrite12'
-                                   /\ pc' = [pc EXCEPT ![self] = "HBLoop"]
-                                   /\ UNCHANGED << termRead, index, cterm >>
+                        /\ iAmTheLeaderRead'
+                        /\ pc' = [pc EXCEPT ![self] = "SendHeartBeatLoop"]
                         /\ UNCHANGED << valueStream, learnedChan, 
                                         heartbeatChan, leader, terms, timers, 
-                                        timeoutRead, networkWrite, 
+                                        mailboxes, timeoutRead, networkWrite, 
                                         networkWrite0, networkWrite1, 
                                         valuesRead, appliedWrite, 
                                         appliedWrite0, networkWrite2, 
@@ -1884,25 +1915,83 @@ CheckHeartBeat(self) == /\ pc[self] = "CheckHeartBeat"
                                         appliedWrite5, termWrite6, 
                                         networkWrite9, appliedWrite6, 
                                         iAmTheLeaderWrite8, termWrite7, 
-                                        networkWrite10, networkWrite11, 
-                                        networkWrite13, streamWrite, 
-                                        streamWrite0, timeoutLocal, 
+                                        timerRead, termRead, networkWrite10, 
+                                        networkWrite11, networkWrite12, 
+                                        networkWrite13, networkWrite14, 
+                                        streamWrite, streamWrite0, 
+                                        appliedLocal, timeoutLocal, 
                                         currentTerm, votedFor, log, state, 
                                         commitIndex, lastApplied, nextIndex, 
                                         matchIndex, iterator, votes, msg, 
-                                        response, msgs, next >>
+                                        response, msgs, index, cterm, next >>
+
+SendHeartBeatLoop(self) == /\ pc[self] = "SendHeartBeatLoop"
+                           /\ iAmTheLeaderRead' = leader[(self) - (N)]
+                           /\ IF iAmTheLeaderRead'
+                                 THEN /\ timerRead' = TRUE
+                                      /\ IF timerRead'
+                                            THEN /\ index' = [index EXCEPT ![self] = 1]
+                                                 /\ termRead' = terms[(self) - (N)]
+                                                 /\ cterm' = [cterm EXCEPT ![self] = termRead']
+                                                 /\ pc' = [pc EXCEPT ![self] = "SendHeartBeats"]
+                                                 /\ UNCHANGED << mailboxes, 
+                                                                 networkWrite12, 
+                                                                 networkWrite13 >>
+                                            ELSE /\ networkWrite12' = mailboxes
+                                                 /\ networkWrite13' = networkWrite12'
+                                                 /\ mailboxes' = networkWrite13'
+                                                 /\ pc' = [pc EXCEPT ![self] = "SendHeartBeatLoop"]
+                                                 /\ UNCHANGED << termRead, 
+                                                                 index, cterm >>
+                                 ELSE /\ networkWrite13' = mailboxes
+                                      /\ mailboxes' = networkWrite13'
+                                      /\ pc' = [pc EXCEPT ![self] = "HBLoop"]
+                                      /\ UNCHANGED << timerRead, termRead, 
+                                                      networkWrite12, index, 
+                                                      cterm >>
+                           /\ UNCHANGED << valueStream, learnedChan, 
+                                           heartbeatChan, leader, terms, 
+                                           timers, timeoutRead, networkWrite, 
+                                           networkWrite0, networkWrite1, 
+                                           valuesRead, appliedWrite, 
+                                           appliedWrite0, networkWrite2, 
+                                           appliedWrite1, networkWrite3, 
+                                           networkRead, iAmTheLeaderWrite, 
+                                           iAmTheLeaderWrite0, ifResult, 
+                                           appliedWrite2, appliedWrite3, 
+                                           ifResult0, networkWrite4, termWrite, 
+                                           iAmTheLeaderWrite1, termWrite0, 
+                                           iAmTheLeaderWrite2, termWrite1, 
+                                           iAmTheLeaderWrite3, termWrite2, 
+                                           networkWrite5, iAmTheLeaderWrite4, 
+                                           termWrite3, networkWrite6, 
+                                           iAmTheLeaderWrite5, termWrite4, 
+                                           networkWrite7, appliedWrite4, 
+                                           iAmTheLeaderWrite6, termWrite5, 
+                                           iAmTheLeaderWrite7, networkWrite8, 
+                                           appliedWrite5, termWrite6, 
+                                           networkWrite9, appliedWrite6, 
+                                           iAmTheLeaderWrite8, termWrite7, 
+                                           networkWrite10, networkWrite11, 
+                                           networkWrite14, streamWrite, 
+                                           streamWrite0, appliedLocal, 
+                                           timeoutLocal, currentTerm, votedFor, 
+                                           log, state, commitIndex, 
+                                           lastApplied, nextIndex, matchIndex, 
+                                           iterator, votes, msg, response, 
+                                           msgs, next >>
 
 SendHeartBeats(self) == /\ pc[self] = "SendHeartBeats"
                         /\ IF (index[self]) <= (Cardinality(Servers))
                               THEN /\ (Len(mailboxes[index[self]])) < (BUFFER_SIZE)
-                                   /\ networkWrite10' = [mailboxes EXCEPT ![index[self]] = Append(mailboxes[index[self]], [sender |-> (self) - (N), type |-> AppendEntries, term |-> cterm[self], granted |-> FALSE, entries |-> <<>>, prevIndex |-> NULL, prevTerm |-> NULL, commit |-> NULL])]
+                                   /\ networkWrite10' = [mailboxes EXCEPT ![index[self]] = Append(mailboxes[index[self]], [sender |-> (self) - (N), type |-> AppendEntries, term |-> cterm[self], granted |-> FALSE, entries |-> <<>>, prevIndex |-> NULL, prevTerm |-> 0, commit |-> NULL])]
                                    /\ index' = [index EXCEPT ![self] = (index[self]) + (1)]
                                    /\ networkWrite11' = networkWrite10'
                                    /\ mailboxes' = networkWrite11'
                                    /\ pc' = [pc EXCEPT ![self] = "SendHeartBeats"]
                               ELSE /\ networkWrite11' = mailboxes
                                    /\ mailboxes' = networkWrite11'
-                                   /\ pc' = [pc EXCEPT ![self] = "HBLoop"]
+                                   /\ pc' = [pc EXCEPT ![self] = "SendHeartBeatLoop"]
                                    /\ UNCHANGED << networkWrite10, index >>
                         /\ UNCHANGED << valueStream, learnedChan, 
                                         heartbeatChan, leader, terms, timers, 
@@ -1927,16 +2016,17 @@ SendHeartBeats(self) == /\ pc[self] = "SendHeartBeats"
                                         appliedWrite5, termWrite6, 
                                         networkWrite9, appliedWrite6, 
                                         iAmTheLeaderWrite8, termWrite7, 
-                                        timerRead, iAmTheLeaderRead, termRead, 
+                                        iAmTheLeaderRead, timerRead, termRead, 
                                         networkWrite12, networkWrite13, 
-                                        streamWrite, streamWrite0, 
+                                        networkWrite14, streamWrite, 
+                                        streamWrite0, appliedLocal, 
                                         timeoutLocal, currentTerm, votedFor, 
                                         log, state, commitIndex, lastApplied, 
                                         nextIndex, matchIndex, iterator, votes, 
                                         msg, response, msgs, cterm, next >>
 
 heartbeat(self) == HBLoop(self) \/ CheckHeartBeat(self)
-                      \/ SendHeartBeats(self)
+                      \/ SendHeartBeatLoop(self) \/ SendHeartBeats(self)
 
 ClientLoop(self) == /\ pc[self] = "ClientLoop"
                     /\ IF TRUE
@@ -1965,14 +2055,14 @@ ClientLoop(self) == /\ pc[self] = "ClientLoop"
                                     iAmTheLeaderWrite7, networkWrite8, 
                                     appliedWrite5, termWrite6, networkWrite9, 
                                     appliedWrite6, iAmTheLeaderWrite8, 
-                                    termWrite7, timerRead, iAmTheLeaderRead, 
+                                    termWrite7, iAmTheLeaderRead, timerRead, 
                                     termRead, networkWrite10, networkWrite11, 
                                     networkWrite12, networkWrite13, 
-                                    streamWrite, timeoutLocal, currentTerm, 
-                                    votedFor, log, state, commitIndex, 
-                                    lastApplied, nextIndex, matchIndex, 
-                                    iterator, votes, msg, response, msgs, 
-                                    index, cterm, next >>
+                                    networkWrite14, streamWrite, appliedLocal, 
+                                    timeoutLocal, currentTerm, votedFor, log, 
+                                    state, commitIndex, lastApplied, nextIndex, 
+                                    matchIndex, iterator, votes, msg, response, 
+                                    msgs, index, cterm, next >>
 
 WriteValue(self) == /\ pc[self] = "WriteValue"
                     /\ ((valueStream[(self) - ((2) * (N))]).value) = (NULL)
@@ -2000,27 +2090,27 @@ WriteValue(self) == /\ pc[self] = "WriteValue"
                                     iAmTheLeaderWrite7, networkWrite8, 
                                     appliedWrite5, termWrite6, networkWrite9, 
                                     appliedWrite6, iAmTheLeaderWrite8, 
-                                    termWrite7, timerRead, iAmTheLeaderRead, 
+                                    termWrite7, iAmTheLeaderRead, timerRead, 
                                     termRead, networkWrite10, networkWrite11, 
                                     networkWrite12, networkWrite13, 
-                                    streamWrite0, timeoutLocal, currentTerm, 
-                                    votedFor, log, state, commitIndex, 
-                                    lastApplied, nextIndex, matchIndex, 
-                                    iterator, votes, msg, response, msgs, 
-                                    index, cterm >>
+                                    networkWrite14, streamWrite0, appliedLocal, 
+                                    timeoutLocal, currentTerm, votedFor, log, 
+                                    state, commitIndex, lastApplied, nextIndex, 
+                                    matchIndex, iterator, votes, msg, response, 
+                                    msgs, index, cterm >>
 
 client(self) == ClientLoop(self) \/ WriteValue(self)
 
 Next == (\E self \in Servers: server(self))
-           \/ (\E self \in ((N) + (1)) .. ((2) * (N)): heartbeat(self))
-           \/ (\E self \in (((N) * (2)) + (1)) .. ((N) * (3)): client(self))
+           \/ (\E self \in Heartbeats: heartbeat(self))
+           \/ (\E self \in Clients: client(self))
            \/ (* Disjunct to prevent deadlock on termination *)
               ((\A self \in ProcSet: pc[self] = "Done") /\ UNCHANGED vars)
 
 Spec == /\ Init /\ [][Next]_vars
         /\ \A self \in Servers : WF_vars(server(self))
-        /\ \A self \in ((N) + (1)) .. ((2) * (N)) : WF_vars(heartbeat(self))
-        /\ \A self \in (((N) * (2)) + (1)) .. ((N) * (3)) : WF_vars(client(self))
+        /\ \A self \in Heartbeats : WF_vars(heartbeat(self))
+        /\ \A self \in Clients : WF_vars(client(self))
 
 Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 
@@ -2052,7 +2142,7 @@ LeaderCompleteness == \A i,j \in Servers:
 
 StateMachineSafety == \A i,j \in Servers :
                             \A k \in 1..(IF lastApplied[i] < lastApplied[j] THEN lastApplied[i] ELSE lastApplied[j]):
-                                learnedChan[i][k] = learnedChan[j][k]
+                                appliedLocal[i][k] = appliedLocal[j][k]
 
 \* Other properties (for sanity checking)
 \*AppliedCorrect == \A n \in Servers, s \in 1..Slots : learnedChan[n][s].value # NULL
