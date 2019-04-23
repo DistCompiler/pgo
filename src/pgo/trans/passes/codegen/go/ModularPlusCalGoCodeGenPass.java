@@ -11,7 +11,6 @@ import pgo.model.golang.type.GoType;
 import pgo.model.golang.type.GoTypeName;
 import pgo.model.mpcal.ModularPlusCalArchetype;
 import pgo.model.mpcal.ModularPlusCalBlock;
-import pgo.model.mpcal.ModularPlusCalInstance;
 import pgo.model.pcal.PlusCalNode;
 import pgo.model.pcal.PlusCalStatement;
 import pgo.model.pcal.PlusCalVariableDeclaration;
@@ -105,14 +104,26 @@ public class ModularPlusCalGoCodeGenPass {
                     .anyMatch(uid -> requiresRecords.apply(typeMap.get(uid)));
 
             if (writesRecord) {
-                GoExpression register = new GoCall(
+                GoExpression registerRecord = new GoCall(
                         new GoSelectorExpression(new GoVariableName("distsys"), "DefineCustomType"),
                         Collections.singletonList(
                                 new GoMapLiteral(GoBuiltins.String, GoBuiltins.Interface, Collections.emptyMap())
                         )
                 );
 
-                initBuilder.addStatement(register);
+                // TODO: we should only register []map[string]interface{} if this is ever transmitted over the wire
+                GoExpression registerListOfRecords = new GoCall(
+                        new GoSelectorExpression(new GoVariableName("distsys"), "DefineCustomType"),
+                        Collections.singletonList(
+                                new GoSliceLiteral(
+                                        new GoMapType(GoBuiltins.String, GoBuiltins.Interface, Collections.emptyMap()),
+                                        Collections.emptyList()
+                                )
+                        )
+                );
+
+                initBuilder.addStatement(registerRecord);
+                initBuilder.addStatement(registerListOfRecords);
             }
 
             // sets rand seed for unique random numbers on every execution
