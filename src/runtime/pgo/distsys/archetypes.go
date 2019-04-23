@@ -122,7 +122,8 @@ func releaseLock(lock chan<- int) {
 	case lock <- 0:
 		return
 	default:
-		panic("Attempt to release unlocked lock")
+		// fmt.Printf("Warning: Attempt to release unlocked lock\n")
+		// panic("Attempt to release unlocked lock")
 	}
 }
 
