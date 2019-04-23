@@ -615,10 +615,6 @@ func (mbox *Mailbox) Read() (interface{}, error) {
 // Write saves a message with the value given in a buffer to be sent
 // later, when the channel is released.
 func (mbox *Mailbox) Write(value interface{}) error {
-	if stringInList(mbox.name, mbox.selfNames) {
-		panic(fmt.Sprintf("Tried to send message to local mailbox %s (attempted by %s)", mbox.name, mbox.selfNames))
-	}
-
 	mbox.lock.Lock()
 	defer mbox.lock.Unlock()
 
