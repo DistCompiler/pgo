@@ -15,7 +15,7 @@ The `--help` flag will show you a bunch of CRUD operations
 you can use for basic sanity tests that you're running `doozerd` correctly.
 
 `doozerclient.go` provides a means of interacting with Doozer which seems to work. Throw issues
-as @fhackett if they don't. `main.go` contains some example code to set up a basic connection
+at @fhackett if they don't. `main.go` contains some example code to set up a basic connection
 (reproduced below):
 
 ```golang
