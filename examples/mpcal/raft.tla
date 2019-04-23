@@ -196,6 +196,7 @@ CONSTANTS NULL
              iterator,
              votes = [t \in 0..Terms |-> {}],
              \* The following are temporary state:
+             value,
              msg,
              response,
              msgs; {
@@ -219,9 +220,8 @@ CONSTANTS NULL
         \* TODO: check for value before broadcasting
         if (state = Leader) { \* I am the leader for the currentTerm
             \* Make progress (append to the log)
-            with (value = values[self]) {
-                log := Append(log, [val |-> value.value, term |-> currentTerm]);
-            };
+GetVal:     value := values[self].value;
+            log := Append(log, [val |-> value, term |-> currentTerm]);
 
             matchIndex[self] := Len(log);
             nextIndex[self] := Len(log)+1;
@@ -302,7 +302,9 @@ AESendResponse: network[msg.sender] := response;
                     /\ (msg.term >= currentTerm)
                     /\ (msg.prevTerm > Term(log, Len(log))
                        \/ (msg.prevTerm = Term(log, Len(log)) /\ msg.prevIndex >= Len(log)))) {
-RVValid:            response.granted := TRUE;
+                    \* Have to overwrite entire response cause PGo doesn't support overwriting record entries
+RVValid:            response := [sender |-> self, type |-> RequestVoteResponse, term |-> currentTerm, granted |-> TRUE,
+                                 entries |-> <<>>, prevIndex |-> NULL, prevTerm |-> NULL, commit |-> NULL];
                     votedFor := msg.sender;
                 };
 
@@ -325,7 +327,7 @@ RVValid:            response.granted := TRUE;
                     votes[msg.term] := votes[msg.term] \union {msg.sender};
                     if (Cardinality(votes[msg.term])*2 > Cardinality(Servers)) {
                         \* Voters form a quorum!
-                        state := Leader;
+BecomeLeader:           state := Leader;
                         \* Re-initialize volatile state
                         matchIndex := [s3 \in Servers |-> 0];
                         nextIndex := [s4 \in Servers |-> 1];
