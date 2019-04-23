@@ -9,6 +9,18 @@ type DoozerClient struct {
     oldRev int64
 }
 
+func DialDoozer(uri string, buri string) (*DoozerClient, error) {
+    conn, err := doozer.DialUri(uri, buri)
+    if err != nil {
+        return nil, err
+    }
+    return &DoozerClient{conn, 0}, nil
+}
+
+func(c *DoozerClient) Close() {
+    c.conn.Close()
+}
+
 func(c *DoozerClient) Get(key string) (string, error) {
     value, rev, err := c.conn.Get("/"+key, nil)
     if err != nil {
@@ -32,6 +44,7 @@ func(c *DoozerClient) Put(key string, value string) error {
                 return err
             }
             c.oldRev = newRev
+            return nil
         }
     }
 }

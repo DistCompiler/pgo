@@ -21,7 +21,12 @@ func readToken(buffer []byte) int {
 
 func main() {
 	// set up connection to implementation
-	client := NewDummyClient()
+    client, err := DialDoozer("doozer:?ca=127.0.0.1:8046", "") // default addr
+    if err != nil {
+        fmt.Fprintln(os.Stderr, "Error connecting to db:", err)
+        os.Exit(1)
+    }
+    defer client.Close()
 	// bench
 	buffer := make([]byte, BUFFER_SIZE)
 	current := 0
