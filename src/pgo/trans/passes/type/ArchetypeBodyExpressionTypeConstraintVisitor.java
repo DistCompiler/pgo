@@ -28,7 +28,7 @@ public class ArchetypeBodyExpressionTypeConstraintVisitor extends TLAExpressionT
 		Type type = super.visit(tlaGeneralIdentifier);
 		UID varUID = registry.followReference(tlaGeneralIdentifier.getUID());
 		if (paramUIDs.contains(varUID)) {
-			Type returnType = generator.getTypeVariable(Collections.singletonList(tlaGeneralIdentifier));
+			TypeVariable returnType = generator.getTypeVariable(Collections.singletonList(tlaGeneralIdentifier));
 			solver.addConstraint(new MonomorphicConstraint(
 					tlaGeneralIdentifier,
 					mapping.get(varUID),
@@ -36,6 +36,7 @@ public class ArchetypeBodyExpressionTypeConstraintVisitor extends TLAExpressionT
 							returnType,
 							generator.getTypeVariable(Collections.singletonList(tlaGeneralIdentifier)),
 							Collections.singletonList(tlaGeneralIdentifier))));
+			mapping.put(tlaGeneralIdentifier.getUID(), returnType);
 			return returnType;
 		}
 		return type;

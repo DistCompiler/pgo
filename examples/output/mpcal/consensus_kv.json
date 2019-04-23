@@ -1,0 +1,9 @@
+{
+  "build": {
+    "output_dir": "output",
+    "dest_package": "consensus_kv"
+  },
+  "constants": {
+    "NUM_NODES": "3"
+  }
+}

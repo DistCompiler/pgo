@@ -114,6 +114,11 @@ public class ScopingPass {
 			registry.addArchetype(archetype);
 			modularPlusCalScope.defineGlobal(archetype.getName(), archetype.getUID());
 
+			// do not resolve constants for archetypes that are not instantiated
+			if (!modularPlusCalBlock.getInstantiatedArchetypes().contains(archetype)) {
+				resolveConstants = false;
+			}
+
 			TLAScopeBuilder argScope = new TLAScopeBuilder(
 					ctx, new ChainMap<>(tlaScope.getDeclarations()), tlaScope.getDefinitions(),
 					tlaScope.getReferences());
