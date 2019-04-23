@@ -33,21 +33,20 @@ ASSUME MAX_FAILURES \in Nat
       KVPaxosManager == (6*NUM_NODES)..(7*NUM_NODES-1)
       AllNodes       == 0..(4*NUM_NODES-1)
 
-      PREPARE_MSG        == 0
-      PROMISE_MSG        == 1
-      PROPOSE_MSG        == 2
-      ACCEPT_MSG         == 3
-      REJECT_MSG         == 4
-      HEARTBEAT_MSG      == 5
-      GET_MSG            == 6
-      PUT_MSG            == 7
-      GET_RESPONSE_MSG   == 8
-      NOT_LEADER_MSG     == 9
-      OK_MSG             == 10
+      PREPARE_MSG      == "prepare_msg"
+      PROMISE_MSG      == "promise_msg"
+      PROPOSE_MSG      == "propose_msg"
+      ACCEPT_MSG       == "accept_msg"
+      REJECT_MSG       == "reject_msg"
+      HEARTBEAT_MSG    == "heartbeat_msg"
+      GET_MSG          == "get_msg"
+      PUT_MSG          == "put_msg"
+      GET_RESPONSE_MSG == "get_response_msg"
+      NOT_LEADER_MSG   == "not_leader_msg"
+      OK_MSG           == "ok_msg"
 
-      GET == 11
-      PUT == 12
-
+      GET == "get"
+      PUT == "put"
   }
 
   \* Broadcasts to nodes in range i..stop.
@@ -555,19 +554,19 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
         KVRequests == ((5) * (NUM_NODES)) .. (((6) * (NUM_NODES)) - (1))
         KVPaxosManager == ((6) * (NUM_NODES)) .. (((7) * (NUM_NODES)) - (1))
         AllNodes == (0) .. (((4) * (NUM_NODES)) - (1))
-        PREPARE_MSG == 0
-        PROMISE_MSG == 1
-        PROPOSE_MSG == 2
-        ACCEPT_MSG == 3
-        REJECT_MSG == 4
-        HEARTBEAT_MSG == 5
-        GET_MSG == 6
-        PUT_MSG == 7
-        GET_RESPONSE_MSG == 8
-        NOT_LEADER_MSG == 9
-        OK_MSG == 10
-        GET == 11
-        PUT == 12
+        PREPARE_MSG == "prepare_msg"
+        PROMISE_MSG == "promise_msg"
+        PROPOSE_MSG == "propose_msg"
+        ACCEPT_MSG == "accept_msg"
+        REJECT_MSG == "reject_msg"
+        HEARTBEAT_MSG == "heartbeat_msg"
+        GET_MSG == "get_msg"
+        PUT_MSG == "put_msg"
+        GET_RESPONSE_MSG == "get_response_msg"
+        NOT_LEADER_MSG == "not_leader_msg"
+        OK_MSG == "ok_msg"
+        GET == "get"
+        PUT == "put"
     }
     fair process (proposer \in Proposer)
     variables b, s = 1, elected = FALSE, acceptedValues = <<>>, max = [slot |-> -(1), bal |-> -(1), val |-> -(1)], index, entry, promises, heartbeatMonitorId, accepts = 0, value, repropose, resp;
@@ -1251,16 +1250,16 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
 ***************************************************************************)
 
 \* BEGIN TRANSLATION
-\* Label findId of process leaderStatusMonitor at line 1064 col 13 changed to findId_
-\* Process variable acceptedValues of process proposer at line 573 col 42 changed to acceptedValues_
-\* Process variable index of process proposer at line 573 col 116 changed to index_
-\* Process variable entry of process proposer at line 573 col 123 changed to entry_
-\* Process variable accepts of process proposer at line 573 col 160 changed to accepts_
-\* Process variable msg of process acceptor at line 830 col 73 changed to msg_
-\* Process variable msg of process learner at line 910 col 73 changed to msg_l
-\* Process variable msg of process heartbeatAction at line 979 col 46 changed to msg_h
-\* Process variable heartbeatId of process leaderStatusMonitor at line 1061 col 44 changed to heartbeatId_
-\* Process variable result of process kvRequests at line 1133 col 116 changed to result_
+\* Label findId of process leaderStatusMonitor at line 1063 col 13 changed to findId_
+\* Process variable acceptedValues of process proposer at line 572 col 42 changed to acceptedValues_
+\* Process variable index of process proposer at line 572 col 116 changed to index_
+\* Process variable entry of process proposer at line 572 col 123 changed to entry_
+\* Process variable accepts of process proposer at line 572 col 160 changed to accepts_
+\* Process variable msg of process acceptor at line 829 col 73 changed to msg_
+\* Process variable msg of process learner at line 909 col 73 changed to msg_l
+\* Process variable msg of process heartbeatAction at line 978 col 46 changed to msg_h
+\* Process variable heartbeatId of process leaderStatusMonitor at line 1060 col 44 changed to heartbeatId_
+\* Process variable result of process kvRequests at line 1132 col 116 changed to result_
 CONSTANT defaultInitValue
 VARIABLES network, values, lastSeenAbstract, timeoutCheckerAbstract,
           sleeperAbstract, kvClient, idAbstract, requestSet, learnedChan,
@@ -1310,19 +1309,19 @@ LeaderMonitor == ((4) * (NUM_NODES)) .. (((5) * (NUM_NODES)) - (1))
 KVRequests == ((5) * (NUM_NODES)) .. (((6) * (NUM_NODES)) - (1))
 KVPaxosManager == ((6) * (NUM_NODES)) .. (((7) * (NUM_NODES)) - (1))
 AllNodes == (0) .. (((4) * (NUM_NODES)) - (1))
-PREPARE_MSG == 0
-PROMISE_MSG == 1
-PROPOSE_MSG == 2
-ACCEPT_MSG == 3
-REJECT_MSG == 4
-HEARTBEAT_MSG == 5
-GET_MSG == 6
-PUT_MSG == 7
-GET_RESPONSE_MSG == 8
-NOT_LEADER_MSG == 9
-OK_MSG == 10
-GET == 11
-PUT == 12
+PREPARE_MSG == "prepare_msg"
+PROMISE_MSG == "promise_msg"
+PROPOSE_MSG == "propose_msg"
+ACCEPT_MSG == "accept_msg"
+REJECT_MSG == "reject_msg"
+HEARTBEAT_MSG == "heartbeat_msg"
+GET_MSG == "get_msg"
+PUT_MSG == "put_msg"
+GET_RESPONSE_MSG == "get_response_msg"
+NOT_LEADER_MSG == "not_leader_msg"
+OK_MSG == "ok_msg"
+GET == "get"
+PUT == "put"
 
 VARIABLES b, s, elected, acceptedValues_, max, index_, entry_, promises,
           heartbeatMonitorId, accepts_, value, repropose, resp, maxBal,
@@ -2039,7 +2038,7 @@ PSearchAccs(self) == /\ pc[self] = "PSearchAccs"
                                                       /\ (leaderFailureAbstract[heartbeatMonitorId[self]]) = (TRUE)
                                                       /\ leaderFailureRead' = leaderFailureAbstract[heartbeatMonitorId[self]]
                                                       /\ Assert((leaderFailureRead') = (TRUE),
-                                                                "Failure of assertion at line 658, column 41.")
+                                                                "Failure of assertion at line 657, column 41.")
                                                       /\ iAmTheLeaderWrite0' = iAmTheLeaderWrite'
                                                       /\ electionInProgressWrite0' = electionInProgressWrite'
                                                       /\ iAmTheLeaderWrite1' = iAmTheLeaderWrite0'
@@ -2378,7 +2377,7 @@ PCandidate(self) == /\ pc[self] = "PCandidate"
                                                      /\ (leaderFailureAbstract[heartbeatMonitorId[self]]) = (TRUE)
                                                      /\ leaderFailureRead' = leaderFailureAbstract[heartbeatMonitorId[self]]
                                                      /\ Assert((leaderFailureRead') = (TRUE),
-                                                               "Failure of assertion at line 773, column 41.")
+                                                               "Failure of assertion at line 772, column 41.")
                                                      /\ b' = [b EXCEPT ![self] = (b[self]) + (NUM_NODES)]
                                                      /\ index_' = [index_ EXCEPT ![self] = NUM_NODES]
                                                      /\ network' = mailboxesWrite'
@@ -3924,7 +3923,7 @@ followerLoop(self) == /\ pc[self] = "followerLoop"
                                       /\ mailboxesRead2' = msg4
                                  /\ msg_h' = [msg_h EXCEPT ![self] = mailboxesRead2']
                                  /\ Assert(((msg_h'[self]).type) = (HEARTBEAT_MSG),
-                                           "Failure of assertion at line 1035, column 25.")
+                                           "Failure of assertion at line 1034, column 25.")
                                  /\ lastSeenWrite' = msg_h'[self]
                                  /\ mailboxesWrite22' = mailboxesWrite18'
                                  /\ lastSeenWrite0' = lastSeenWrite'
@@ -4398,7 +4397,7 @@ kvLoop(self) == /\ pc[self] = "kvLoop"
                                 /\ requestsRead' = req0
                            /\ msg' = [msg EXCEPT ![self] = requestsRead']
                            /\ Assert((((msg'[self]).type) = (GET_MSG)) \/ (((msg'[self]).type) = (PUT_MSG)),
-                                     "Failure of assertion at line 1146, column 17.")
+                                     "Failure of assertion at line 1145, column 17.")
                            /\ iAmTheLeaderRead1' = iAmTheLeaderAbstract[heartbeatId[self]]
                            /\ IF iAmTheLeaderRead1'
                                  THEN /\ requestId' = [requestId EXCEPT ![self] = <<self, counter[self]>>]
