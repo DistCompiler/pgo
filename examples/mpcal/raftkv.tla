@@ -160,9 +160,9 @@ ASSUME FiniteNaturalSet(GetSet) /\ FiniteNaturalSet(PutSet)
     }
     
     mapping macro Timer {
-        read { yield TRUE; }
+        read { assert(FALSE); }
   
-        write { assert(FALSE); }
+        write { yield $value; }
     }
     
     \* defines semantics of unbuffered Go channels
@@ -181,7 +181,7 @@ ASSUME FiniteNaturalSet(GetSet) /\ FiniteNaturalSet(PutSet)
     }
 
     archetype KeyValueRequests(requests, ref upstream, iAmTheLeader, ref proposerChan, raftChan)
-    variables msg, null, heartbeatId, proposerId, counter = 0, requestId, requestOk, confirmedRequestId, proposal, result;
+    variables msg, null, heartbeatId, proposerId, counter = 0, requestId, proposal, result;
     {
       kvInit:
         heartbeatId := self - NUM_NODES;
@@ -201,10 +201,9 @@ ASSUME FiniteNaturalSet(GetSet) /\ FiniteNaturalSet(PutSet)
                 };
                 \* divergence from Paxos spec: no function application in proposerChan
                 proposerChan[proposerId] := proposal;
-                requestConfirm:
-                  result := raftChan[self];
-                  upstream := [type |-> OK_MSG, result |-> result];
-                  counter := counter + 1;
+                result := raftChan[self];
+                upstream := [type |-> OK_MSG, result |-> result];
+                counter := counter + 1;
             } else {
                 upstream := [type |-> NOT_LEADER_MSG, result |-> null];
             }
@@ -238,7 +237,7 @@ ASSUME FiniteNaturalSet(GetSet) /\ FiniteNaturalSet(PutSet)
         }
     }
     
-    archetype Heartbeat(ref network, ref heartbeatchan, iAmTheLeader, term, timer)
+    archetype Heartbeat(ref network, iAmTheLeader, term, ref timer)
     variable index, cterm; {
       HBLoop: 
         while (FALSE) {
@@ -247,19 +246,19 @@ ASSUME FiniteNaturalSet(GetSet) /\ FiniteNaturalSet(PutSet)
     
           SendHeartBeatLoop:
             while (iAmTheLeader[self]) {
-                if (timer[self]) {
-                    index := 1;
-                    cterm := term[self - NUM_NODES];
+                \* Sleep for 500 ms
+                timer := 500;
+                index := 1;
+                cterm := term[self - NUM_NODES];
         
-                    \* Make AppendEntries RPC calls to every other node (as a heartbeat and to notify them of new entries)
-                  SendHeartBeats:
-                    SendHeartBeats(network, cterm, self - NUM_NODES, index);
-                };
+                \* Make AppendEntries RPC calls to every other node (as a heartbeat and to notify them of new entries)
+              SendHeartBeats:
+                SendHeartBeats(network, cterm, self - NUM_NODES, index);
             };
         };
     }
 
-    archetype Node(ref network, ref applied, input, timeout, heartbeat, ref iAmTheLeader, ref term, ref lastmsg)
+    archetype Node(ref network, ref applied, input, timeout, ref iAmTheLeader, ref term, ref lastmsg)
     \* Every variable should be name correspondingly with those described on page 5 of the Ongaro paper
     variable currentTerm = 0,
              votedFor = NULL,
@@ -339,19 +338,20 @@ CheckMsgTerm:   if (msg.term > currentTerm) { \* If hearing of a later term, som
 MsgSwitch:      if (msg.type = AppendEntries) {
                     response := [sender |-> self, type |-> AppendEntriesResponse, term |-> currentTerm, granted |-> FALSE,
                                  entries |-> <<>>, prevIndex |-> NULL, prevTerm |-> NULL, commit |-> NULL];
-    
+
                     if ((msg.term >= currentTerm) /\ ((msg.prevIndex > 0 /\ Len(log) < msg.prevIndex)
                                                       \/ Term(log, msg.prevIndex) # msg.prevTerm)) {
-                        lastSeen := msg;
                         \* Following entries don't have matching terms
                         assert(state # Leader);
                         \* Delete entries that don't match
                         log := SubSeq(log, 1, msg.prevIndex-1);
+                        lastmsg := msg;
                     } elseif (msg.term >= currentTerm /\ Len(log) = msg.prevIndex) {
                         \* Append new entries
                         log := log \o msg.entries;
 AEValid:                response := [sender |-> self, type |-> AppendEntriesResponse, term |-> currentTerm, granted |-> TRUE,
                                      entries |-> <<>>, prevIndex |-> Len(log), prevTerm |-> NULL, commit |-> NULL];
+                        lastmsg := msg;
                     };
     
 AESendResponse:     network[msg.sender] := response;
@@ -421,9 +421,8 @@ BecomeLeader:               state := Leader;
         database = [p \in KVRequests, k \in GetSet \union PutSet |-> NULL_DB_VALUE],
         iAmTheLeaderAbstract = [h \in Heartbeats |-> TRUE],
         \* Used in Raft:
-        heartbeatChan = [s \in Servers |-> [value |-> NULL]],
+        frequency = 500,
         terms = [s \in Servers |-> NULL],
-        timers = [s \in Heartbeats |-> 2],
         lastSeen,
         mailboxes = [id \in Servers |-> <<>>];
 
@@ -438,27 +437,25 @@ BecomeLeader:               state := Leader;
         mapping learnedChan[_] via FIFOChannel
         mapping database[_] via ID
         mapping idAbstract via SelfManager;        
-    fair process (server \in Servers) == instance Node(ref mailboxes, learnedChan, values, TRUE, heartbeatChan, ref iAmTheLeaderAbstract, ref terms, ref lastSeen)
+    fair process (server \in Servers) == instance Node(ref mailboxes, learnedChan, values, TRUE, ref iAmTheLeaderAbstract, ref terms, ref lastSeen)
         mapping mailboxes[_] via FIFOQueues
         mapping learnedChan[_] via FIFOChannel
         mapping values[_] via FIFOChannel
         mapping @4 via Timeout
-        mapping heartbeatChan[_] via UnbufferedChannel
         mapping iAmTheLeaderAbstract[_] via ID
         mapping terms[_] via ID
         mapping lastSeen via ID;
-    fair process (heartbeat \in Heartbeats) == instance Heartbeat(ref mailboxes, heartbeatChan, iAmTheLeaderAbstract, terms, timers)
+    fair process (heartbeat \in Heartbeats) == instance Heartbeat(ref mailboxes, iAmTheLeaderAbstract, terms, ref frequency)
         mapping mailboxes[_] via FIFOQueues
-        mapping heartbeatChan[_] via UnbufferedChannel
         mapping iAmTheLeaderAbstract[_] via ID
         mapping terms[_] via ID
-        mapping timers[_] via Timer;
+        mapping frequency via Timer;
 }
 
 
 \* BEGIN PLUSCAL TRANSLATION
 --algorithm Raft {
-    variables values = [k \in Servers |-> <<>>], requestSet = ({[type |-> GET_MSG, key |-> k, value |-> NULL] : k \in GetSet}) \union ({[type |-> PUT_MSG, key |-> v, value |-> v] : v \in PutSet}), learnedChan = [l \in Servers |-> <<>>], raftLayerChan = [p \in KVRequests |-> <<>>], kvClient = {}, idAbstract, database = [p \in KVRequests, k \in (GetSet) \union (PutSet) |-> NULL_DB_VALUE], iAmTheLeaderAbstract = [h \in Heartbeats |-> TRUE], heartbeatChan = [s \in Servers |-> [value |-> NULL]], terms = [s \in Servers |-> NULL], timers = [s \in Heartbeats |-> 2], lastSeen, mailboxes = [id \in Servers |-> <<>>], requestsRead, requestsWrite, iAmTheLeaderRead, proposerChanWrite, raftChanRead, raftChanWrite, upstreamWrite, proposerChanWrite0, raftChanWrite0, upstreamWrite0, requestsWrite0, proposerChanWrite1, raftChanWrite1, upstreamWrite1, learnerChanRead, learnerChanWrite, kvIdRead, dbWrite, dbWrite0, kvIdRead0, kvIdRead1, dbRead, kvIdRead2, requestServiceWrite, requestServiceWrite0, learnerChanWrite0, dbWrite1, requestServiceWrite1, timeoutRead, networkWrite, networkWrite0, networkWrite1, inputRead, inputWrite, appliedWrite, appliedWrite0, networkWrite2, inputWrite0, appliedWrite1, networkWrite3, networkRead, iAmTheLeaderWrite, iAmTheLeaderWrite0, ifResult, appliedWrite2, appliedWrite3, ifResult0, networkWrite4, termWrite, iAmTheLeaderWrite1, termWrite0, iAmTheLeaderWrite2, termWrite1, iAmTheLeaderWrite3, termWrite2, networkWrite5, iAmTheLeaderWrite4, termWrite3, networkWrite6, iAmTheLeaderWrite5, termWrite4, networkWrite7, appliedWrite4, iAmTheLeaderWrite6, termWrite5, iAmTheLeaderWrite7, networkWrite8, appliedWrite5, termWrite6, networkWrite9, inputWrite1, appliedWrite6, iAmTheLeaderWrite8, termWrite7, iAmTheLeaderRead0, timerRead, termRead, networkWrite10, networkWrite11, networkWrite12, networkWrite13, networkWrite14;
+    variables values = [k \in Servers |-> <<>>], requestSet = ({[type |-> GET_MSG, key |-> k, value |-> NULL] : k \in GetSet}) \union ({[type |-> PUT_MSG, key |-> v, value |-> v] : v \in PutSet}), learnedChan = [l \in Servers |-> <<>>], raftLayerChan = [p \in KVRequests |-> <<>>], kvClient = {}, idAbstract, database = [p \in KVRequests, k \in (GetSet) \union (PutSet) |-> NULL_DB_VALUE], iAmTheLeaderAbstract = [h \in Heartbeats |-> TRUE], terms = [s \in Servers |-> NULL], timers = [s \in Heartbeats |-> 2], lastSeen, mailboxes = [id \in Servers |-> <<>>], requestsRead, requestsWrite, iAmTheLeaderRead, proposerChanWrite, raftChanRead, raftChanWrite, upstreamWrite, proposerChanWrite0, raftChanWrite0, upstreamWrite0, requestsWrite0, proposerChanWrite1, raftChanWrite1, upstreamWrite1, learnerChanRead, learnerChanWrite, kvIdRead, dbWrite, dbWrite0, kvIdRead0, kvIdRead1, dbRead, kvIdRead2, requestServiceWrite, requestServiceWrite0, learnerChanWrite0, dbWrite1, requestServiceWrite1, timeoutRead, networkWrite, networkWrite0, networkWrite1, inputRead, inputWrite, appliedWrite, appliedWrite0, networkWrite2, inputWrite0, appliedWrite1, networkWrite3, networkRead, iAmTheLeaderWrite, iAmTheLeaderWrite0, lastmsgWrite, lastmsgWrite0, lastmsgWrite1, ifResult, appliedWrite2, appliedWrite3, ifResult0, networkWrite4, termWrite, iAmTheLeaderWrite1, termWrite0, iAmTheLeaderWrite2, termWrite1, iAmTheLeaderWrite3, termWrite2, networkWrite5, iAmTheLeaderWrite4, termWrite3, networkWrite6, iAmTheLeaderWrite5, termWrite4, lastmsgWrite2, networkWrite7, appliedWrite4, iAmTheLeaderWrite6, termWrite5, iAmTheLeaderWrite7, lastmsgWrite3, networkWrite8, appliedWrite5, termWrite6, networkWrite9, inputWrite1, appliedWrite6, iAmTheLeaderWrite8, lastmsgWrite4, termWrite7, iAmTheLeaderRead0, timerRead, termRead, networkWrite10, networkWrite11, networkWrite12, networkWrite13, networkWrite14;
     define {
         RequestVote == 0
         RequestVoteResponse == 1
@@ -503,21 +500,26 @@ BecomeLeader:               state := Leader;
                     };
                     await (Len(values[proposerId])) < (BUFFER_SIZE);
                     proposerChanWrite := [values EXCEPT ![proposerId] = Append(values[proposerId], proposal)];
-                    requestSet := requestsWrite;
-                    values := proposerChanWrite;
-                    requestConfirm:
-                        await (Len(raftLayerChan[self])) > (0);
-                        with (msg0 = Head(raftLayerChan[self])) {
-                            raftChanWrite := [raftLayerChan EXCEPT ![self] = Tail(raftLayerChan[self])];
-                            raftChanRead := msg0;
-                        };
-                        result := raftChanRead;
-                        upstreamWrite := (kvClient) \union ({[type |-> OK_MSG, result |-> result]});
-                        counter := (counter) + (1);
-                        kvClient := upstreamWrite;
-                        raftLayerChan := raftChanWrite;
-                        goto kvLoop;
-                
+                    await (Len(raftLayerChan[self])) > (0);
+                    with (msg0 = Head(raftLayerChan[self])) {
+                        raftChanWrite := [raftLayerChan EXCEPT ![self] = Tail(raftLayerChan[self])];
+                        raftChanRead := msg0;
+                    };
+                    result := raftChanRead;
+                    upstreamWrite := (kvClient) \union ({[type |-> OK_MSG, result |-> result]});
+                    counter := (counter) + (1);
+                    proposerChanWrite0 := proposerChanWrite;
+                    raftChanWrite0 := raftChanWrite;
+                    upstreamWrite0 := upstreamWrite;
+                    requestsWrite0 := requestsWrite;
+                    proposerChanWrite1 := proposerChanWrite0;
+                    raftChanWrite1 := raftChanWrite0;
+                    upstreamWrite1 := upstreamWrite0;
+                    requestSet := requestsWrite0;
+                    kvClient := upstreamWrite1;
+                    values := proposerChanWrite1;
+                    raftLayerChan := raftChanWrite1;
+                    goto kvLoop;
                 } else {
                     upstreamWrite := (kvClient) \union ({[type |-> NOT_LEADER_MSG, result |-> null]});
                     proposerChanWrite0 := values;
@@ -727,15 +729,23 @@ BecomeLeader:               state := Leader;
                             if (((msg).type) = (AppendEntries)) {
                                 response := [sender |-> self, type |-> AppendEntriesResponse, term |-> currentTerm, granted |-> FALSE, entries |-> <<>>, prevIndex |-> NULL, prevTerm |-> NULL, commit |-> NULL];
                                 if ((((msg).term) >= (currentTerm)) /\ (((((msg).prevIndex) > (0)) /\ ((Len(log)) < ((msg).prevIndex))) \/ ((Term(log, (msg).prevIndex)) # ((msg).prevTerm)))) {
-                                    lastSeen := msg;
                                     assert (state) # (Leader);
                                     log := SubSeq(log, 1, ((msg).prevIndex) - (1));
+                                    lastmsgWrite := msg;
+                                    lastmsgWrite1 := lastmsgWrite;
+                                    lastSeen := lastmsgWrite1;
                                 } else {
                                     if ((((msg).term) >= (currentTerm)) /\ ((Len(log)) = ((msg).prevIndex))) {
                                         log := (log) \o ((msg).entries);
                                         AEValid:
                                             response := [sender |-> self, type |-> AppendEntriesResponse, term |-> currentTerm, granted |-> TRUE, entries |-> <<>>, prevIndex |-> Len(log), prevTerm |-> NULL, commit |-> NULL];
+                                            lastmsgWrite := msg;
+                                            lastSeen := lastmsgWrite;
                                     
+                                    } else {
+                                        lastmsgWrite0 := lastSeen;
+                                        lastmsgWrite1 := lastmsgWrite0;
+                                        lastSeen := lastmsgWrite1;
                                     };
                                 };
                                 AESendResponse:
@@ -797,6 +807,7 @@ BecomeLeader:               state := Leader;
                                             networkWrite6 := networkWrite5;
                                             iAmTheLeaderWrite5 := iAmTheLeaderWrite4;
                                             termWrite4 := termWrite3;
+                                            lastmsgWrite2 := lastSeen;
                                             networkWrite7 := networkWrite6;
                                             appliedWrite4 := learnedChan;
                                             iAmTheLeaderWrite6 := iAmTheLeaderWrite5;
@@ -805,6 +816,7 @@ BecomeLeader:               state := Leader;
                                             learnedChan := appliedWrite4;
                                             iAmTheLeaderAbstract := iAmTheLeaderWrite6;
                                             terms := termWrite5;
+                                            lastSeen := lastmsgWrite2;
                                             goto ProcessMsgs;
                                         } else {
                                             if (((nextIndex[(msg).sender]) - (1)) > (1)) {
@@ -848,6 +860,7 @@ BecomeLeader:               state := Leader;
                                                     networkWrite6 := networkWrite5;
                                                     iAmTheLeaderWrite5 := iAmTheLeaderWrite4;
                                                     termWrite4 := termWrite3;
+                                                    lastmsgWrite2 := lastSeen;
                                                     networkWrite7 := networkWrite6;
                                                     appliedWrite4 := learnedChan;
                                                     iAmTheLeaderWrite6 := iAmTheLeaderWrite5;
@@ -856,6 +869,7 @@ BecomeLeader:               state := Leader;
                                                     learnedChan := appliedWrite4;
                                                     iAmTheLeaderAbstract := iAmTheLeaderWrite6;
                                                     terms := termWrite5;
+                                                    lastSeen := lastmsgWrite2;
                                                     goto ProcessMsgs;
                                                 };
                                             } else {
@@ -869,6 +883,7 @@ BecomeLeader:               state := Leader;
                                                 networkWrite6 := networkWrite5;
                                                 iAmTheLeaderWrite5 := iAmTheLeaderWrite4;
                                                 termWrite4 := termWrite3;
+                                                lastmsgWrite2 := lastSeen;
                                                 networkWrite7 := networkWrite6;
                                                 appliedWrite4 := learnedChan;
                                                 iAmTheLeaderWrite6 := iAmTheLeaderWrite5;
@@ -877,6 +892,7 @@ BecomeLeader:               state := Leader;
                                                 learnedChan := appliedWrite4;
                                                 iAmTheLeaderAbstract := iAmTheLeaderWrite6;
                                                 terms := termWrite5;
+                                                lastSeen := lastmsgWrite2;
                                                 goto ProcessMsgs;
                                             };
                                         } else {
@@ -888,6 +904,7 @@ BecomeLeader:               state := Leader;
                                             networkWrite6 := networkWrite5;
                                             iAmTheLeaderWrite5 := iAmTheLeaderWrite4;
                                             termWrite4 := termWrite3;
+                                            lastmsgWrite2 := lastSeen;
                                             networkWrite7 := networkWrite6;
                                             appliedWrite4 := learnedChan;
                                             iAmTheLeaderWrite6 := iAmTheLeaderWrite5;
@@ -896,6 +913,7 @@ BecomeLeader:               state := Leader;
                                             learnedChan := appliedWrite4;
                                             iAmTheLeaderAbstract := iAmTheLeaderWrite6;
                                             terms := termWrite5;
+                                            lastSeen := lastmsgWrite2;
                                             goto ProcessMsgs;
                                         };
                                     };
@@ -904,6 +922,7 @@ BecomeLeader:               state := Leader;
                     
                     } else {
                         iAmTheLeaderWrite7 := iAmTheLeaderAbstract;
+                        lastmsgWrite3 := lastSeen;
                         networkWrite8 := mailboxes;
                         appliedWrite5 := learnedChan;
                         termWrite6 := terms;
@@ -911,6 +930,7 @@ BecomeLeader:               state := Leader;
                         learnedChan := appliedWrite5;
                         iAmTheLeaderAbstract := iAmTheLeaderWrite7;
                         terms := termWrite6;
+                        lastSeen := lastmsgWrite3;
                         goto NodeLoop;
                     };
             
@@ -919,12 +939,14 @@ BecomeLeader:               state := Leader;
                 inputWrite1 := values;
                 appliedWrite6 := learnedChan;
                 iAmTheLeaderWrite8 := iAmTheLeaderAbstract;
+                lastmsgWrite4 := lastSeen;
                 termWrite7 := terms;
                 mailboxes := networkWrite9;
                 learnedChan := appliedWrite6;
                 values := inputWrite1;
                 iAmTheLeaderAbstract := iAmTheLeaderWrite8;
                 terms := termWrite7;
+                lastSeen := lastmsgWrite4;
             };
     
     }
