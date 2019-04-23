@@ -183,7 +183,7 @@ CONSTANTS NULL
     };
     }
 
-    archetype Node(ref network, ref applied, values, timeout, heartbeat, ref iAmTheLeader, ref term)
+    archetype Node(ref network, ref applied, values, timeout, heartbeat, ref iAmTheLeader, ref term, ref lastSeen)
     \* Every variable should be name correspondingly with those described on page 5 of the Ongaro paper
     variable currentTerm = 0,
              votedFor = NULL,
@@ -271,6 +271,7 @@ MsgSwitch:  if (msg.type = AppendEntries) {
 
                 if ((msg.term >= currentTerm) /\ ((msg.prevIndex > 0 /\ Len(log) < msg.prevIndex)
                                                   \/ Term(log, msg.prevIndex) # msg.prevTerm)) {
+                    lastSeen := msg;
                     \* Following entries don't have matching terms
                     assert(state # Leader);
                     \* Delete entries that don't match
@@ -348,17 +349,19 @@ BecomeLeader:           state := Leader;
         leader = [s \in Servers |-> FALSE],
         terms = [s \in Servers |-> NULL],
         timers = [s \in Heartbeats |-> 2],
+        lastSeen,
         mailboxes = [id \in Servers |-> <<>>];
 
     \* TODO: Copy valuestream instantiation from paxos spec (queue)
-    fair process (server \in Servers) == instance Node(ref mailboxes, [s \in 1..Slots |-> [value |-> NULL]], valueStream, TRUE, heartbeatChan, ref leader, ref terms)
+    fair process (server \in Servers) == instance Node(ref mailboxes, [s \in 1..Slots |-> [value |-> NULL]], valueStream, TRUE, heartbeatChan, ref leader, ref terms, ref lastSeen)
         mapping mailboxes[_] via FIFOQueues
         mapping @2[_] via UnbufferedChannel
         mapping valueStream[_] via UnbufferedChannel
         mapping @4[_] via Timeout
         mapping heartbeatChan[_] via UnbufferedChannel
         mapping leader[_] via ID
-        mapping terms[_] via ID;
+        mapping terms[_] via ID
+        mapping lastSeen via ID;
     
     fair process (heartbeat \in Heartbeats) == instance Heartbeat(ref mailboxes, heartbeatChan, leader, terms, timers)
         mapping mailboxes[_] via FIFOQueues
