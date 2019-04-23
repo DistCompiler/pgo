@@ -11,6 +11,7 @@ import pgo.model.golang.type.GoType;
 import pgo.model.golang.type.GoTypeName;
 import pgo.model.mpcal.ModularPlusCalArchetype;
 import pgo.model.mpcal.ModularPlusCalBlock;
+import pgo.model.mpcal.ModularPlusCalInstance;
 import pgo.model.pcal.PlusCalNode;
 import pgo.model.pcal.PlusCalStatement;
 import pgo.model.pcal.PlusCalVariableDeclaration;
@@ -96,7 +97,7 @@ public class ModularPlusCalGoCodeGenPass {
             // if the write type of any archetype resource is a record, define our record representation
             // (map[string]interface{}) with the runtime
             boolean writesRecord = modularPlusCalBlock
-                    .getArchetypes()
+                    .getInstantiatedArchetypes()
                     .stream()
                     .map(ModularPlusCalArchetype::getParams)
                     .flatMap(Collection::stream)
@@ -216,7 +217,7 @@ public class ModularPlusCalGoCodeGenPass {
         generateInit(modularPlusCalBlock, module, registry, typeMap, localStrategy, globalStrategy);
         defineShouldRetry(module, sleepMin, sleepMax);
 
-        for (ModularPlusCalArchetype archetype : modularPlusCalBlock.getArchetypes()) {
+        for (ModularPlusCalArchetype archetype : modularPlusCalBlock.getInstantiatedArchetypes()) {
             globalStrategy = new ArchetypeResourcesGlobalVariableStrategy(registry, typeMap, localStrategy, archetype.getUID());
 
             GoFunctionDeclarationBuilder fn = module.defineFunction(archetype.getUID(), archetype.getName());

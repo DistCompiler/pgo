@@ -29,7 +29,6 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
     private UID archetype;
     private GoVariableName err;
     private GoVariableName acquiredResources;
-    private Set<String> functionMappedResourceNames;
     private int currentLockGroup;
     private GoLabelName currentLabel;
     private boolean functionMaps;
@@ -130,10 +129,6 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
                     )
             );
         }
-
-        // keeps track of the function-mapped resources read or written
-        // in this label so that they can be released at the end of the label.
-        functionMappedResourceNames = new HashSet<>();
 
         // keep track of the current lock group so that function-mapped
         // resources can be properly acquired when accessed
@@ -301,18 +296,32 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
         );
     }
 
-        // Releases/aborts resources
+    // Releases/aborts resources
     private void terminateCriticalSection(GoBlockBuilder builder, int lockGroup, String method, boolean isError) {
+        Set<String> functionMappedResourceNames = new HashSet<>();
+
         // release all non-function mapped resources in order
         Set<TLAExpression> varMapped = new HashSet<>();
-        Consumer<TLAExpression> collectVariableMapped = e -> {
+        Consumer<TLAExpression> collectResources = e -> {
             if (e instanceof TLAGeneralIdentifier) {
                 varMapped.add(e);
+            } else if (e instanceof TLAFunctionCall) {
+                TLAFunctionCall fnCall = (TLAFunctionCall) e;
+
+                TLAExpression fn = fnCall.getFunction();
+                if (!(fn instanceof TLAGeneralIdentifier)) {
+                    throw new TODO();
+                }
+
+                TLAGeneralIdentifier name = (TLAGeneralIdentifier) fn;
+                functionMappedResourceNames.add(name.getName().getId());
+            } else {
+                throw new InternalCompilerError();
             }
         };
 
-        registry.getResourceReadsInLockGroup(lockGroup).forEach(collectVariableMapped);
-        registry.getResourceWritesInLockGroup(lockGroup).forEach(collectVariableMapped);
+        registry.getResourceReadsInLockGroup(lockGroup).forEach(collectResources);
+        registry.getResourceWritesInLockGroup(lockGroup).forEach(collectResources);
 
         List<GoExpression> varMappedExpressions = varMapped
                 .stream()
@@ -381,8 +390,6 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
             throw new InternalCompilerError();
         }
 
-        functionMappedResourceNames.add(resourceName);
-
         // if _, ok := acquiredResources["{name}"]; !ok {
         //     acquiredResources["{name}"] = []interface{}{}
         // }
@@ -414,13 +421,19 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
             try (GoBlockBuilder yes = ifBuilder.whenTrue()) {
                 String permission;
 
-                if (registry.getResourceReadsInLockGroup(currentLockGroup).contains(fnCall)) {
-                    permission = "READ_ACCESS";
-                } else if (registry.getResourceWritesInLockGroup(currentLockGroup).contains(fnCall)) {
-                    permission = "WRITE_ACCESS";
-                } else {
-                    throw new InternalCompilerError();
-                }
+                // TODO: GlobalVariableStrategies cannot be stateful, so the code below does not work (currentLockGroup may be wrong)
+                // TODO: Ideally, what we want to do is to appropriately fork the instance of this class, just like with CriticalSectionTracker
+                // TODO: For now, we take the pessimistic choice of always acquiring resources with write permissions
+                permission = "WRITE_ACCESS";
+
+                // TODO: this is the code that should work with proper branching as described above.
+                // if (registry.getResourceReadsInLockGroup(currentLockGroup).contains(fnCall)) {
+                //     permission = "READ_ACCESS";
+                // } else if (registry.getResourceWritesInLockGroup(currentLockGroup).contains(fnCall)) {
+                //     permission = "WRITE_ACCESS";
+                // } else {
+                //     throw new InternalCompilerError();
+                // }
 
                 yes.assign(err, new GoCall(
                         distsys("AcquireResources"),

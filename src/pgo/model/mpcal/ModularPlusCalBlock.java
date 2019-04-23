@@ -121,6 +121,15 @@ public class ModularPlusCalBlock extends ModularPlusCalNode {
 		return Collections.unmodifiableList(archetypes);
 	}
 
+	public List<ModularPlusCalArchetype> getInstantiatedArchetypes() {
+		return getArchetypes()
+				.stream()
+				.filter(a -> getInstances()
+						.stream()
+						.anyMatch(i -> i.getTarget().equals(a.getName())))
+				.collect(Collectors.toList());
+	}
+
 	public List<PlusCalMacro> getMacros() {
 		return Collections.unmodifiableList(macros);
 	}
