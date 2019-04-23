@@ -91,8 +91,8 @@ func main() {
 	} else {
 		fmt.Printf("Connected!\n")
 
-		in := distsys.NewLocalChannel("in")
-		out := distsys.NewLocalChannel("out")
+		in := distsys.NewLocalChannel("in", 0)
+		out := distsys.NewLocalChannel("out", 0)
 
 		go load_balancer.AClient(self, distsys.ArchetypeResourceSlice(mailboxes), in, out)
 

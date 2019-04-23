@@ -672,11 +672,11 @@ type LocalChannelResource struct {
 
 // NewLocalChannel creates a LocalChannelResource. The caller does not
 // need to know about the underlying Go channel.
-func NewLocalChannel(name string) *LocalChannelResource {
+func NewLocalChannel(name string, bufferSize int) *LocalChannelResource {
 	return &LocalChannelResource{
 		name:     name,
 		lock:     newLock(),
-		ch:       make(chan interface{}),
+		ch:       make(chan interface{}, bufferSize),
 		readBuf:  []interface{}{},
 		writeBuf: []interface{}{},
 	}
