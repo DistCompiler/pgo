@@ -435,7 +435,7 @@ func mailboxErrorDescription(e int) string {
 type Mailbox struct {
 	name           string            // internal name exposed via RPC
 	version        int               // version of this service being created
-	selfName       string            // identifier of the process that created the reference
+	selfNames      []string          // identifiers deployed at the node that created the mailbox
 	configuration  map[string]string // configuration of the system (PlusCal process -> IP address)
 	conns          *Connections      // the set of connections to nodes within the system
 	readAttempts   int               // number of times to attempt a read when no message is buffered
@@ -511,6 +511,16 @@ func (mbox *Mailbox) tryRead() (interface{}, bool) {
 	return nil, false
 }
 
+func stringInList(target string, list []string) bool {
+	for _, s := range list {
+		if target == s {
+			return true
+		}
+	}
+
+	return false
+}
+
 // MailboxRef represents a reference to some mailbox. It can be local
 // (if the process 'id' is the same as the mailbox being referenced),
 // or remote (if they are different).
@@ -527,11 +537,11 @@ func (mbox *Mailbox) tryRead() (interface{}, bool) {
 // the reply of a function call. Passing a timeout of 0 causes the
 // runtime to not employ any timeout mechanism (falling back to the
 // underlying system's TCP timeout).
-func MailboxRef(name string, version int, conns *Connections, configuration map[string]string, id string, bufferSize uint, timeout uint) (*Mailbox, error) {
+func MailboxRef(name string, version int, conns *Connections, configuration map[string]string, ids []string, bufferSize uint, timeout uint) (*Mailbox, error) {
 	mbox := &Mailbox{
 		name:           name,
 		version:        version,
-		selfName:       id,
+		selfNames:      ids,
 		configuration:  configuration,
 		conns:          conns,
 		readAttempts:   30,
@@ -545,7 +555,7 @@ func MailboxRef(name string, version int, conns *Connections, configuration map[
 	// if the reference is for the mailbox of the current process,
 	// expose RPC calls that allow other processes to send messages to
 	// it.
-	if name == id {
+	if stringInList(name, ids) {
 		readChan := make(chan interface{}, bufferSize)
 		receiver := &Receiver{readChan}
 		mbox.readChan = readChan
@@ -567,8 +577,8 @@ func (_ *Mailbox) Acquire(_ ResourceAccess) error {
 // returns an AbortRetryError. It is enforced that processes can only
 // read messages from their own mailboxes.
 func (mbox *Mailbox) Read() (interface{}, error) {
-	if mbox.name != mbox.selfName {
-		panic(fmt.Sprintf("Tried to read non-local mailbox %s (attempted by %s)", mbox.name, mbox.selfName))
+	if !stringInList(mbox.name, mbox.selfNames) {
+		panic(fmt.Sprintf("Tried to read non-local mailbox %s (attempted by %s)", mbox.name, mbox.selfNames))
 	}
 
 	mbox.lock.Lock()
@@ -604,8 +614,8 @@ func (mbox *Mailbox) Read() (interface{}, error) {
 // Write saves a message with the value given in a buffer to be sent
 // later, when the channel is released.
 func (mbox *Mailbox) Write(value interface{}) error {
-	if mbox.name == mbox.selfName {
-		panic(fmt.Sprintf("Tried to send message to local mailbox (attempted by %s)", mbox.selfName))
+	if stringInList(mbox.name, mbox.selfNames) {
+		panic(fmt.Sprintf("Tried to send message to local mailbox %s (attempted by %s)", mbox.name, mbox.selfNames))
 	}
 
 	mbox.lock.Lock()
