@@ -228,10 +228,10 @@ A:  while (TRUE) {
 AMsgSwitch: if (msg.type = PREPARE_MSG /\ msg.bal > maxBal) { \* Essentially voting for a new leader, ensures no values with a ballot less than the new ballot are ever accepted
 APrepare:   maxBal := msg.bal;
             \* Respond with promise to reject all proposals with a lower ballot number
-            mailboxes[msg.sender] := [type |-> PROMISE_MSG, sender |-> self, bal |-> maxBal, slot |-> NULL, val |-> NULL, accepted |-> acceptedValues];
+            mailboxes[msg.sender] := [type |-> PROMISE_MSG, sender |-> self, bal |-> maxBal, slot |-> NULL, val |-> msg.val, accepted |-> acceptedValues];
 
         } elseif (msg.type = PREPARE_MSG /\ msg.bal <= maxBal) { \* Reject invalid prepares so candidates don't hang waiting for messages
-ABadPrepare: mailboxes[msg.sender] := [type |-> REJECT_MSG, sender |-> self, bal |-> maxBal, slot |-> NULL, val |-> NULL, accepted |-> <<>>];
+ABadPrepare: mailboxes[msg.sender] := [type |-> REJECT_MSG, sender |-> self, bal |-> maxBal, slot |-> NULL, val |-> msg.val, accepted |-> <<>>];
         } elseif (msg.type = PROPOSE_MSG /\ msg.bal >= maxBal) { \* Accept valid proposals. Invariants are maintained by the proposer so no need to check the value
             \* Update max ballot
 APropose:   maxBal := msg.bal;
@@ -328,8 +328,9 @@ PIncSlot:   if (elected) {
             \* PHASE 1
             \***********
             index := NUM_NODES;
-            \* Send prepares to every acceptor
-PReqVotes:  BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |-> b, sender |-> self, slot |-> NULL, val |-> NULL], index);
+            \* Send prepares to every acceptor (NOTE: `val` entry is not read in this message, but we set it there to stop the type
+            \* checker from enforcing `value` to be an integer (or whatever the concrete type of NULL is when compiling)
+PReqVotes:  BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |-> b, sender |-> self, slot |-> NULL, val |-> value], index);
             promises := 0;
             iAmTheLeader[heartbeatMonitorId] := FALSE;
             electionInProgress[heartbeatMonitorId] := TRUE;
@@ -354,7 +355,8 @@ PCandidate: while (~elected) {
 PWaitLeaderFailure: assert(leaderFailure[heartbeatMonitorId] = TRUE);
                     b := b + NUM_NODES; \* to remain unique
                     index := NUM_NODES;
-PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |-> b, sender |-> self, slot |-> NULL, val |-> NULL], index);
+                    \* `val` is not necessary in this message (see NOTE above)
+PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |-> b, sender |-> self, slot |-> NULL, val |-> value], index);
                 }
             };
         };
@@ -707,7 +709,7 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
                         PReqVotes:
                             if ((index) <= (((2) * (NUM_NODES)) - (1))) {
                                 await (Len(network[index])) < (BUFFER_SIZE);
-                                mailboxesWrite := [network EXCEPT ![index] = Append(network[index], [type |-> PREPARE_MSG, bal |-> b, sender |-> self, slot |-> NULL, val |-> NULL])];
+                                mailboxesWrite := [network EXCEPT ![index] = Append(network[index], [type |-> PREPARE_MSG, bal |-> b, sender |-> self, slot |-> NULL, val |-> value])];
                                 index := (index) + (1);
                                 mailboxesWrite2 := mailboxesWrite;
                                 iAmTheLeaderWrite3 := iAmTheLeaderAbstract;
@@ -784,7 +786,7 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
                                         PReSendReqVotes:
                                             if ((index) <= (((2) * (NUM_NODES)) - (1))) {
                                                 await (Len(network[index])) < (BUFFER_SIZE);
-                                                mailboxesWrite := [network EXCEPT ![index] = Append(network[index], [type |-> PREPARE_MSG, bal |-> b, sender |-> self, slot |-> NULL, val |-> NULL])];
+                                                mailboxesWrite := [network EXCEPT ![index] = Append(network[index], [type |-> PREPARE_MSG, bal |-> b, sender |-> self, slot |-> NULL, val |-> value])];
                                                 index := (index) + (1);
                                                 mailboxesWrite3 := mailboxesWrite;
                                                 network := mailboxesWrite3;
@@ -849,7 +851,7 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
                         APrepare:
                             maxBal := (msg).bal;
                             await (Len(network[(msg).sender])) < (BUFFER_SIZE);
-                            mailboxesWrite9 := [network EXCEPT ![(msg).sender] = Append(network[(msg).sender], [type |-> PROMISE_MSG, sender |-> self, bal |-> maxBal, slot |-> NULL, val |-> NULL, accepted |-> acceptedValues])];
+                            mailboxesWrite9 := [network EXCEPT ![(msg).sender] = Append(network[(msg).sender], [type |-> PROMISE_MSG, sender |-> self, bal |-> maxBal, slot |-> NULL, val |-> (msg).val, accepted |-> acceptedValues])];
                             network := mailboxesWrite9;
                             goto A;
 
@@ -857,7 +859,7 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
                         if ((((msg).type) = (PREPARE_MSG)) /\ (((msg).bal) <= (maxBal))) {
                             ABadPrepare:
                                 await (Len(network[(msg).sender])) < (BUFFER_SIZE);
-                                mailboxesWrite9 := [network EXCEPT ![(msg).sender] = Append(network[(msg).sender], [type |-> REJECT_MSG, sender |-> self, bal |-> maxBal, slot |-> NULL, val |-> NULL, accepted |-> <<>>])];
+                                mailboxesWrite9 := [network EXCEPT ![(msg).sender] = Append(network[(msg).sender], [type |-> REJECT_MSG, sender |-> self, bal |-> maxBal, slot |-> NULL, val |-> (msg).val, accepted |-> <<>>])];
                                 network := mailboxesWrite9;
                                 goto A;
 
@@ -1222,7 +1224,7 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
                     };
                     kvIdRead2 := (self) - (NUM_NODES);
                     await ((paxosLayerChan[kvIdRead2]).value) = (NULL);
-                    requestServiceWrite := [paxosLayerChan EXCEPT ![kvIdRead2] = result];
+                    requestServiceWrite := [paxosLayerChan EXCEPT ![kvIdRead2].value = result];
                     requestServiceWrite0 := requestServiceWrite;
                     dbWrite1 := dbWrite0;
                     requestServiceWrite1 := requestServiceWrite0;
@@ -1252,17 +1254,17 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
 ***************************************************************************)
 
 \* BEGIN TRANSLATION
-\* Label findId of process leaderStatusMonitor at line 1065 col 13 changed to findId_
-\* Process variable acceptedValues of process proposer at line 582 col 42 changed to acceptedValues_
-\* Process variable maxBal of process proposer at line 582 col 65 changed to maxBal_
-\* Process variable index of process proposer at line 582 col 80 changed to index_
-\* Process variable entry of process proposer at line 582 col 87 changed to entry_
-\* Process variable accepts of process proposer at line 582 col 124 changed to accepts_
-\* Process variable msg of process acceptor at line 836 col 73 changed to msg_
-\* Process variable msg of process learner at line 916 col 73 changed to msg_l
-\* Process variable msg of process heartbeatAction at line 985 col 46 changed to msg_h
-\* Process variable heartbeatId of process leaderStatusMonitor at line 1062 col 44 changed to heartbeatId_
-\* Process variable result of process kvRequests at line 1134 col 116 changed to result_
+\* Label findId of process leaderStatusMonitor at line 1067 col 13 changed to findId_
+\* Process variable acceptedValues of process proposer at line 584 col 42 changed to acceptedValues_
+\* Process variable maxBal of process proposer at line 584 col 65 changed to maxBal_
+\* Process variable index of process proposer at line 584 col 80 changed to index_
+\* Process variable entry of process proposer at line 584 col 87 changed to entry_
+\* Process variable accepts of process proposer at line 584 col 124 changed to accepts_
+\* Process variable msg of process acceptor at line 838 col 73 changed to msg_
+\* Process variable msg of process learner at line 918 col 73 changed to msg_l
+\* Process variable msg of process heartbeatAction at line 987 col 46 changed to msg_h
+\* Process variable heartbeatId of process leaderStatusMonitor at line 1064 col 44 changed to heartbeatId_
+\* Process variable result of process kvRequests at line 1136 col 116 changed to result_
 CONSTANT defaultInitValue
 VARIABLES network, values, lastSeenAbstract, timeoutCheckerAbstract,
           sleeperAbstract, kvClient, idAbstract, requestSet, learnedChan,
@@ -2152,7 +2154,7 @@ PWaitFailure(self) == /\ pc[self] = "PWaitFailure"
                       /\ (leaderFailureAbstract[heartbeatMonitorId[self]]) = (TRUE)
                       /\ leaderFailureRead' = leaderFailureAbstract[heartbeatMonitorId[self]]
                       /\ Assert((leaderFailureRead') = (TRUE),
-                                "Failure of assertion at line 671, column 45.")
+                                "Failure of assertion at line 673, column 45.")
                       /\ pc' = [pc EXCEPT ![self] = "PSearchAccs"]
                       /\ UNCHANGED << network, values, lastSeenAbstract,
                                       timeoutCheckerAbstract, sleeperAbstract,
@@ -2321,7 +2323,7 @@ PIncSlot(self) == /\ pc[self] = "PIncSlot"
 PReqVotes(self) == /\ pc[self] = "PReqVotes"
                    /\ IF (index_[self]) <= (((2) * (NUM_NODES)) - (1))
                          THEN /\ (Len(network[index_[self]])) < (BUFFER_SIZE)
-                              /\ mailboxesWrite' = [network EXCEPT ![index_[self]] = Append(network[index_[self]], [type |-> PREPARE_MSG, bal |-> b[self], sender |-> self, slot |-> NULL, val |-> NULL])]
+                              /\ mailboxesWrite' = [network EXCEPT ![index_[self]] = Append(network[index_[self]], [type |-> PREPARE_MSG, bal |-> b[self], sender |-> self, slot |-> NULL, val |-> value[self]])]
                               /\ index_' = [index_ EXCEPT ![self] = (index_[self]) + (1)]
                               /\ mailboxesWrite2' = mailboxesWrite'
                               /\ iAmTheLeaderWrite3' = iAmTheLeaderAbstract
@@ -2581,7 +2583,7 @@ PWaitLeaderFailure(self) == /\ pc[self] = "PWaitLeaderFailure"
                             /\ (leaderFailureAbstract[heartbeatMonitorId[self]]) = (TRUE)
                             /\ leaderFailureRead' = leaderFailureAbstract[heartbeatMonitorId[self]]
                             /\ Assert((leaderFailureRead') = (TRUE),
-                                      "Failure of assertion at line 780, column 45.")
+                                      "Failure of assertion at line 782, column 45.")
                             /\ b' = [b EXCEPT ![self] = (b[self]) + (NUM_NODES)]
                             /\ index_' = [index_ EXCEPT ![self] = NUM_NODES]
                             /\ pc' = [pc EXCEPT ![self] = "PReSendReqVotes"]
@@ -2691,7 +2693,7 @@ PWaitLeaderFailure(self) == /\ pc[self] = "PWaitLeaderFailure"
 PReSendReqVotes(self) == /\ pc[self] = "PReSendReqVotes"
                          /\ IF (index_[self]) <= (((2) * (NUM_NODES)) - (1))
                                THEN /\ (Len(network[index_[self]])) < (BUFFER_SIZE)
-                                    /\ mailboxesWrite' = [network EXCEPT ![index_[self]] = Append(network[index_[self]], [type |-> PREPARE_MSG, bal |-> b[self], sender |-> self, slot |-> NULL, val |-> NULL])]
+                                    /\ mailboxesWrite' = [network EXCEPT ![index_[self]] = Append(network[index_[self]], [type |-> PREPARE_MSG, bal |-> b[self], sender |-> self, slot |-> NULL, val |-> value[self]])]
                                     /\ index_' = [index_ EXCEPT ![self] = (index_[self]) + (1)]
                                     /\ mailboxesWrite3' = mailboxesWrite'
                                     /\ network' = mailboxesWrite3'
@@ -2985,7 +2987,7 @@ AMsgSwitch(self) == /\ pc[self] = "AMsgSwitch"
 APrepare(self) == /\ pc[self] = "APrepare"
                   /\ maxBal' = [maxBal EXCEPT ![self] = (msg_[self]).bal]
                   /\ (Len(network[(msg_[self]).sender])) < (BUFFER_SIZE)
-                  /\ mailboxesWrite9' = [network EXCEPT ![(msg_[self]).sender] = Append(network[(msg_[self]).sender], [type |-> PROMISE_MSG, sender |-> self, bal |-> maxBal'[self], slot |-> NULL, val |-> NULL, accepted |-> acceptedValues[self]])]
+                  /\ mailboxesWrite9' = [network EXCEPT ![(msg_[self]).sender] = Append(network[(msg_[self]).sender], [type |-> PROMISE_MSG, sender |-> self, bal |-> maxBal'[self], slot |-> NULL, val |-> (msg_[self]).val, accepted |-> acceptedValues[self]])]
                   /\ network' = mailboxesWrite9'
                   /\ pc' = [pc EXCEPT ![self] = "A"]
                   /\ UNCHANGED << values, lastSeenAbstract,
@@ -3062,7 +3064,7 @@ APrepare(self) == /\ pc[self] = "APrepare"
 
 ABadPrepare(self) == /\ pc[self] = "ABadPrepare"
                      /\ (Len(network[(msg_[self]).sender])) < (BUFFER_SIZE)
-                     /\ mailboxesWrite9' = [network EXCEPT ![(msg_[self]).sender] = Append(network[(msg_[self]).sender], [type |-> REJECT_MSG, sender |-> self, bal |-> maxBal[self], slot |-> NULL, val |-> NULL, accepted |-> <<>>])]
+                     /\ mailboxesWrite9' = [network EXCEPT ![(msg_[self]).sender] = Append(network[(msg_[self]).sender], [type |-> REJECT_MSG, sender |-> self, bal |-> maxBal[self], slot |-> NULL, val |-> (msg_[self]).val, accepted |-> <<>>])]
                      /\ network' = mailboxesWrite9'
                      /\ pc' = [pc EXCEPT ![self] = "A"]
                      /\ UNCHANGED << values, lastSeenAbstract,
@@ -4107,7 +4109,7 @@ followerLoop(self) == /\ pc[self] = "followerLoop"
                                       /\ mailboxesRead2' = msg4
                                  /\ msg_h' = [msg_h EXCEPT ![self] = mailboxesRead2']
                                  /\ Assert(((msg_h'[self]).type) = (HEARTBEAT_MSG),
-                                           "Failure of assertion at line 1036, column 25.")
+                                           "Failure of assertion at line 1038, column 25.")
                                  /\ lastSeenWrite' = msg_h'[self]
                                  /\ mailboxesWrite22' = mailboxesWrite18'
                                  /\ lastSeenWrite0' = lastSeenWrite'
@@ -4581,7 +4583,7 @@ kvLoop(self) == /\ pc[self] = "kvLoop"
                                 /\ requestsRead' = req0
                            /\ msg' = [msg EXCEPT ![self] = requestsRead']
                            /\ Assert((((msg'[self]).type) = (GET_MSG)) \/ (((msg'[self]).type) = (PUT_MSG)),
-                                     "Failure of assertion at line 1147, column 17.")
+                                     "Failure of assertion at line 1149, column 17.")
                            /\ iAmTheLeaderRead1' = iAmTheLeaderAbstract[heartbeatId[self]]
                            /\ IF iAmTheLeaderRead1'
                                  THEN /\ requestId' = [requestId EXCEPT ![self] = <<self, counter[self]>>]
@@ -4883,7 +4885,7 @@ kvManagerLoop(self) == /\ pc[self] = "kvManagerLoop"
                                                                         dbRead >>
                                              /\ kvIdRead2' = (self) - (NUM_NODES)
                                              /\ ((paxosLayerChan[kvIdRead2']).value) = (NULL)
-                                             /\ requestServiceWrite' = [paxosLayerChan EXCEPT ![kvIdRead2'] = result'[self]]
+                                             /\ requestServiceWrite' = [paxosLayerChan EXCEPT ![kvIdRead2'].value = result'[self]]
                                              /\ requestServiceWrite0' = requestServiceWrite'
                                              /\ dbWrite1' = dbWrite0'
                                              /\ requestServiceWrite1' = requestServiceWrite0'
