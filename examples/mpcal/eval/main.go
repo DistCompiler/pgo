@@ -285,18 +285,18 @@ func main() {
 	if len(os.Args) < 4 {
 		usage(os.Args[0])
 	}
-	// parse number of workers
-	n, err := strconv.ParseInt(os.Args[2], 10, 32)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "Unable to parse number of worker; found:", os.Args[1])
-		os.Exit(2)
-	}
-	nworker := int(n)
 	// parse client
 	which := parseClient(os.Args[1])
 	if which < 0 {
 		usage(os.Args[0])
 	}
+	// parse number of workers
+	n, err := strconv.ParseInt(os.Args[2], 10, 32)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Unable to parse number of workers; found:", os.Args[2])
+		os.Exit(2)
+	}
+	nworker := int(n)
 
 	for i := 0; i < nworker; i++ {
 		go worker(i, which, os.Args[3])
