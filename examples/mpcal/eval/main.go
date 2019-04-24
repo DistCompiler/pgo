@@ -128,6 +128,7 @@ func worker(self int, which int, address string) {
 	}
 	writer := bufio.NewWriter(output)
 	defer output.Close()
+	defer writer.Flush()
 
 	input, err := os.Open(fmt.Sprintf("input/worker-%d.inp", self))
 	if err != nil {
