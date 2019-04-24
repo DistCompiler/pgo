@@ -36,3 +36,10 @@ Note that this replacement includes inside old protobuf-generated files. Pray Pr
 generated-source compatibility with the old version from 6 years ago :) (or, if it does you know
 where to start)
 
+# PGo Generated Paxos Key-Value Store
+
+The `pgo/paxos` directory includes a setup of 3 nodes that run a key-value
+store compiled from the `paxos.tla` and `consensus_kv` specifications. A
+snapshot of the compilation is included. A `main.go` function bootstraps the
+system and waits for client connections. A valid Paxos client implementation is
+in `paxosclient.go`.
