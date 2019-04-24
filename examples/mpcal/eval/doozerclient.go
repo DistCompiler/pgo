@@ -2,6 +2,7 @@ package main
 
 import (
     "github.com/ha/doozer"
+    "fmt"
 )
 
 type DoozerClient struct {
@@ -14,7 +15,7 @@ func DialDoozer(uri string, buri string) (*DoozerClient, error) {
     if err != nil {
         return nil, err
     }
-    return &DoozerClient{conn, 0}, nil
+    return &DoozerClient{conn, 1}, nil
 }
 
 func(c *DoozerClient) Close() {
@@ -22,7 +23,7 @@ func(c *DoozerClient) Close() {
 }
 
 func(c *DoozerClient) Get(key string) (string, error) {
-    value, rev, err := c.conn.Get("/"+key, nil)
+    value, rev, err := c.conn.Get("/keys/"+key, nil)
     if err != nil {
         return "", err
     }
@@ -32,15 +33,17 @@ func(c *DoozerClient) Get(key string) (string, error) {
 
 func(c *DoozerClient) Put(key string, value string) error {
     for {
-        newRev, err := c.conn.Set("/"+key, c.oldRev, []byte(value))
-        if err == doozer.ErrOldRev {
+        newRev, err := c.conn.Set("/keys/"+key, c.oldRev, []byte(value))
+        if err != nil && err.Error() == "REV_MISMATCH" { // doozer.ErrOldRev {
             newRev, err = c.conn.Rev()
             if err != nil {
+		fmt.Println("Error updating rev", err)
                 return err
             }
             c.oldRev = newRev
         } else {
             if err != nil {
+		fmt.Println("Fatal put error", err)
                 return err
             }
             c.oldRev = newRev
