@@ -112,7 +112,7 @@ func issuePut(self int, client Client, key string, value string) (time.Time, tim
 }
 
 func outputToLog(output *bufio.Writer, opType byte, offset time.Duration, latency time.Duration) {
-	fmt.Fprintf(output, "%c %d %d", opType, offset, latency)
+	fmt.Fprintf(output, "%c %d %d\n", opType, offset, latency)
 }
 
 func worker(self int, which int, address string) {
