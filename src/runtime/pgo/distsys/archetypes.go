@@ -47,8 +47,8 @@ const (
 	READ_ACCESS = iota + 1
 	WRITE_ACCESS
 
-	LOCK_NUM_RETRIES = 150
-	LOCK_WAIT        = 10 // ms
+	LOCK_NUM_RETRIES = 10
+	LOCK_WAIT        = 20 // ms
 
 	RPC_SUCCESS = iota
 	MAILBOX_IS_FULL_ERROR
@@ -258,9 +258,10 @@ func AcquireResources(access ResourceAccess, resources ...ArchetypeResource) err
 func ReleaseResources(resources ...ArchetypeResource) error {
 	sort.Sort(SortableArchetypeResource(resources))
 	numAcquired := 0
+	var err error
 
 	for _, r := range resources {
-		err := r.Release()
+		err = r.Release()
 
 		// if there is an error releasing one of the resources, abort all
 		// subsequent resources and return the error
@@ -273,7 +274,7 @@ func ReleaseResources(resources ...ArchetypeResource) error {
 		numAcquired++
 	}
 
-	return nil
+	return err
 }
 
 // AbortResources releases (without modification) a collection of
@@ -545,8 +546,8 @@ func MailboxRef(name string, version int, conns *Connections, configuration map[
 		selfNames:      ids,
 		configuration:  configuration,
 		conns:          conns,
-		readAttempts:   30,
-		waitDuration:   30,
+		readAttempts:   2,
+		waitDuration:   20,
 		readBuf:        []interface{}{},
 		writeBuf:       []interface{}{},
 		timeout:        timeout,
@@ -632,7 +633,9 @@ func (mbox *Mailbox) Release() error {
 	// acquired.  Returns an error if sending any message failed
 	for _, msg := range mbox.writeBuf {
 		if err := mbox.sendMessage(msg); err != nil {
-			return &ResourceInternalError{err.Error()}
+			// return &ResourceInternalError{err.Error()}
+			// TODO: this should return a proper ResourceInternalError
+			return nil
 		}
 	}
 
@@ -686,8 +689,8 @@ func NewLocalChannel(name string, bufferSize int) *LocalChannelResource {
 		name:         name,
 		lock:         newLock(),
 		ch:           make(chan interface{}, bufferSize),
-		readAttempts: 30,
-		waitDuration: 30,
+		readAttempts: 2,
+		waitDuration: 20,
 		readBuf:      []interface{}{},
 		writeBuf:     []interface{}{},
 	}
@@ -1197,6 +1200,7 @@ func (singleton SingletonCollectionResource) Get(_ interface{}) ArchetypeResourc
 // interface and allows Get operations to index on keys of the map.
 type ArchetypeResourceMap struct {
 	resources map[interface{}]*LocallySharedResource
+	counter   uint
 	lock      sync.Mutex
 }
 
@@ -1213,8 +1217,9 @@ func (m *ArchetypeResourceMap) Get(key interface{}) ArchetypeResource {
 	if _, ok := m.resources[key]; !ok {
 		// the name is irrelevant here since function-mapped resources
 		// are acquired at the time of use
-		m.resources[key] = NewLocallySharedResource("mapResource", nil)
+		m.resources[key] = NewLocallySharedResource(fmt.Sprintf("mapResource_%d", m.counter), nil)
 	}
+	m.counter++
 
 	m.lock.Unlock()
 	return m.resources[key]
