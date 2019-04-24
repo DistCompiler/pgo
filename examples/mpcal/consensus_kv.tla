@@ -139,6 +139,9 @@ ASSUME FiniteNaturalSet(GetSet) /\ FiniteNaturalSet(PutSet)
 
                 proposerChan[proposerId] := proposal;
 
+                \* Known limitation: the current may no longer be the leader by the time the key-value
+                \* node sends the proposal. We need a way to receive a notification from the proposer that
+                \* the we are no longer the leader.
                 requestConfirm:
                   result := paxosChan[self];
 
@@ -151,11 +154,12 @@ ASSUME FiniteNaturalSet(GetSet) /\ FiniteNaturalSet(PutSet)
         }
   }
 
-  archetype KeyValuePaxosManager(ref requestService, learnerChan, ref db, kvId)
-  variables result, learnerId, decided;
+  archetype KeyValuePaxosManager(ref requestService, learnerChan, ref db)
+  variables result, learnerId, decided, kvId;
   {
       findId:
         learnerId := self - 4*NUM_NODES;
+        kvId := self - NUM_NODES;
 
       kvManagerLoop:
         while (TRUE) {
@@ -165,14 +169,14 @@ ASSUME FiniteNaturalSet(GetSet) /\ FiniteNaturalSet(PutSet)
             \* always update the database if it's a PUT request, regardless of whether
             \* this instance issued the request
             if (decided.operation = PUT) {
-                db[<< kvId, decided.key >>] := decided.value;
+                db[decided.key] := decided.value;
             };
 
             \* only send the result to the request service if we issued the request
             if (decided.id[1] = kvId) {
                 \* read value from the database and return result
                 if (decided.operation = GET) {
-                    result := db[<< kvId, decided.key >>];
+                    result := db[decided.key];
                 } else {
                     result := decided.value;
                 };
@@ -195,7 +199,6 @@ ASSUME FiniteNaturalSet(GetSet) /\ FiniteNaturalSet(PutSet)
         kvClient = {},
         idAbstract,
 
-        database = [p \in KVRequests, k \in GetSet \union PutSet |-> NULL_DB_VALUE],
         iAmTheLeaderAbstract = [h \in Heartbeat |-> TRUE];
 
     fair process (kvRequests \in KVRequests) == instance KeyValueRequests(requestSet, ref kvClient, iAmTheLeaderAbstract, values, paxosLayerChan)
@@ -205,11 +208,10 @@ ASSUME FiniteNaturalSet(GetSet) /\ FiniteNaturalSet(PutSet)
         mapping values[_] via UnbufferedRecordChannel
         mapping paxosLayerChan[_] via UnbufferedIntChannel;
 
-    fair process (kvPaxosManager \in KVPaxosManager) == instance KeyValuePaxosManager(ref paxosLayerChan, learnedChan, ref database, idAbstract)
+    fair process (kvPaxosManager \in KVPaxosManager) == instance KeyValuePaxosManager(ref paxosLayerChan, learnedChan, [k \in GetSet \union PutSet |-> NULL_DB_VALUE])
         mapping paxosLayerChan[_] via UnbufferedIntChannel
         mapping learnedChan[_] via UnbufferedRecordChannel
-        mapping database[_] via Identity
-        mapping idAbstract via SelfManager;
+        mapping @3[_] via Identity;
 
     fair process (consensus \in ConsensusSet) == instance Consensus(values, learnedChan)
         mapping values[_] via UnbufferedRecordChannel
@@ -218,7 +220,7 @@ ASSUME FiniteNaturalSet(GetSet) /\ FiniteNaturalSet(PutSet)
 
 \* BEGIN PLUSCAL TRANSLATION
 --algorithm ConsensusKV {
-    variables values = [k \in Proposer |-> [value |-> NULL]], requestSet = ({[type |-> GET_MSG, key |-> k, value |-> k] : k \in GetSet}) \union ({[type |-> PUT_MSG, key |-> v, value |-> v] : v \in PutSet}), learnedChan = [l \in Learner |-> [value |-> NULL]], paxosLayerChan = [p \in KVRequests |-> NULL], kvClient = {}, idAbstract, database = [p \in KVRequests, k \in (GetSet) \union (PutSet) |-> NULL_DB_VALUE], iAmTheLeaderAbstract = [h \in Heartbeat |-> TRUE], requestsRead, requestsWrite, iAmTheLeaderRead, proposerChanWrite, paxosChanRead, paxosChanWrite, upstreamWrite, proposerChanWrite0, paxosChanWrite0, upstreamWrite0, requestsWrite0, proposerChanWrite1, paxosChanWrite1, upstreamWrite1, learnerChanRead, kvIdRead, dbWrite, dbWrite0, kvIdRead0, kvIdRead1, dbRead, kvIdRead2, requestServiceWrite, requestServiceWrite0, dbWrite1, requestServiceWrite1, proposerChanRead, learnerChanWrite, learnerChanWrite0;
+    variables values = [k \in Proposer |-> [value |-> NULL]], requestSet = ({[type |-> GET_MSG, key |-> k, value |-> k] : k \in GetSet}) \union ({[type |-> PUT_MSG, key |-> v, value |-> v] : v \in PutSet}), learnedChan = [l \in Learner |-> [value |-> NULL]], paxosLayerChan = [p \in KVRequests |-> NULL], kvClient = {}, idAbstract, iAmTheLeaderAbstract = [h \in Heartbeat |-> TRUE], requestsRead, requestsWrite, iAmTheLeaderRead, proposerChanWrite, paxosChanRead, paxosChanWrite, upstreamWrite, proposerChanWrite0, paxosChanWrite0, upstreamWrite0, requestsWrite0, proposerChanWrite1, paxosChanWrite1, upstreamWrite1, learnerChanRead, dbWrite, dbWrite0, dbRead, requestServiceWrite, requestServiceWrite0, dbWrite1, requestServiceWrite1, proposerChanRead, learnerChanWrite, learnerChanWrite0;
     define {
         Proposer == (0) .. ((NUM_NODES) - (1))
         Learner == ((2) * (NUM_NODES)) .. (((3) * (NUM_NODES)) - (1))
@@ -295,10 +297,11 @@ ASSUME FiniteNaturalSet(GetSet) /\ FiniteNaturalSet(PutSet)
 
     }
     fair process (kvPaxosManager \in KVPaxosManager)
-    variables result, learnerId, decided;
+    variables dbLocal = [k \in (GetSet) \union (PutSet) |-> NULL_DB_VALUE], result, learnerId, decided, kvId;
     {
         findId:
             learnerId := (self) - ((4) * (NUM_NODES));
+            kvId := (self) - (NUM_NODES);
         kvManagerLoop:
             if (TRUE) {
                 await ((learnedChan[learnerId]).value) # (NULL);
@@ -308,43 +311,39 @@ ASSUME FiniteNaturalSet(GetSet) /\ FiniteNaturalSet(PutSet)
                 };
                 decided := learnerChanRead;
                 if (((decided).operation) = (PUT)) {
-                    kvIdRead := (self) - (NUM_NODES);
-                    dbWrite := [database EXCEPT ![<<kvIdRead, (decided).key>>] = (decided).value];
+                    dbWrite := [dbLocal EXCEPT ![(decided).key] = (decided).value];
                     dbWrite0 := dbWrite;
                 } else {
-                    dbWrite0 := database;
+                    dbWrite0 := dbLocal;
                 };
-                kvIdRead0 := (self) - (NUM_NODES);
-                if (((decided).id[1]) = (kvIdRead0)) {
+                if (((decided).id[1]) = (kvId)) {
                     if (((decided).operation) = (GET)) {
-                        kvIdRead1 := (self) - (NUM_NODES);
-                        dbRead := dbWrite0[<<kvIdRead1, (decided).key>>];
+                        dbRead := dbWrite0[(decided).key];
                         result := dbRead;
                     } else {
                         result := (decided).value;
                     };
-                    kvIdRead2 := (self) - (NUM_NODES);
-                    await (paxosLayerChan[kvIdRead2]) = (NULL);
-                    requestServiceWrite := [paxosLayerChan EXCEPT ![kvIdRead2] = result];
+                    await (paxosLayerChan[kvId]) = (NULL);
+                    requestServiceWrite := [paxosLayerChan EXCEPT ![kvId] = result];
                     requestServiceWrite0 := requestServiceWrite;
                     dbWrite1 := dbWrite0;
                     requestServiceWrite1 := requestServiceWrite0;
                     paxosLayerChan := requestServiceWrite1;
-                    database := dbWrite1;
+                    dbLocal := dbWrite1;
                     goto kvManagerLoop;
                 } else {
                     requestServiceWrite0 := paxosLayerChan;
                     dbWrite1 := dbWrite0;
                     requestServiceWrite1 := requestServiceWrite0;
                     paxosLayerChan := requestServiceWrite1;
-                    database := dbWrite1;
+                    dbLocal := dbWrite1;
                     goto kvManagerLoop;
                 };
             } else {
-                dbWrite1 := database;
+                dbWrite1 := dbLocal;
                 requestServiceWrite1 := paxosLayerChan;
                 paxosLayerChan := requestServiceWrite1;
-                database := dbWrite1;
+                dbLocal := dbWrite1;
             };
 
     }
@@ -380,18 +379,17 @@ ASSUME FiniteNaturalSet(GetSet) /\ FiniteNaturalSet(PutSet)
 ***************************************************************************)
 
 \* BEGIN TRANSLATION
-\* Process variable msg of process kvRequests at line 238 col 15 changed to msg_
-\* Process variable proposerId of process kvRequests at line 238 col 39 changed to proposerId_
-\* Process variable result of process kvRequests at line 238 col 85 changed to result_
-\* Process variable learnerId of process kvPaxosManager at line 298 col 23 changed to learnerId_
+\* Process variable msg of process kvRequests at line 240 col 15 changed to msg_
+\* Process variable proposerId of process kvRequests at line 240 col 39 changed to proposerId_
+\* Process variable result of process kvRequests at line 240 col 85 changed to result_
+\* Process variable learnerId of process kvPaxosManager at line 300 col 85 changed to learnerId_
 CONSTANT defaultInitValue
 VARIABLES values, requestSet, learnedChan, paxosLayerChan, kvClient,
-          idAbstract, database, iAmTheLeaderAbstract, requestsRead,
-          requestsWrite, iAmTheLeaderRead, proposerChanWrite, paxosChanRead,
-          paxosChanWrite, upstreamWrite, proposerChanWrite0, paxosChanWrite0,
-          upstreamWrite0, requestsWrite0, proposerChanWrite1, paxosChanWrite1,
-          upstreamWrite1, learnerChanRead, kvIdRead, dbWrite, dbWrite0,
-          kvIdRead0, kvIdRead1, dbRead, kvIdRead2, requestServiceWrite,
+          idAbstract, iAmTheLeaderAbstract, requestsRead, requestsWrite,
+          iAmTheLeaderRead, proposerChanWrite, paxosChanRead, paxosChanWrite,
+          upstreamWrite, proposerChanWrite0, paxosChanWrite0, upstreamWrite0,
+          requestsWrite0, proposerChanWrite1, paxosChanWrite1, upstreamWrite1,
+          learnerChanRead, dbWrite, dbWrite0, dbRead, requestServiceWrite,
           requestServiceWrite0, dbWrite1, requestServiceWrite1,
           proposerChanRead, learnerChanWrite, learnerChanWrite0, pc
 
@@ -411,20 +409,20 @@ GET == "get"
 PUT == "put"
 
 VARIABLES msg_, null, heartbeatId, proposerId_, counter, requestId, proposal,
-          result_, result, learnerId_, decided, msg, learnerId, proposerId
+          result_, dbLocal, result, learnerId_, decided, kvId, msg, learnerId,
+          proposerId
 
 vars == << values, requestSet, learnedChan, paxosLayerChan, kvClient,
-           idAbstract, database, iAmTheLeaderAbstract, requestsRead,
-           requestsWrite, iAmTheLeaderRead, proposerChanWrite, paxosChanRead,
-           paxosChanWrite, upstreamWrite, proposerChanWrite0, paxosChanWrite0,
-           upstreamWrite0, requestsWrite0, proposerChanWrite1,
-           paxosChanWrite1, upstreamWrite1, learnerChanRead, kvIdRead,
-           dbWrite, dbWrite0, kvIdRead0, kvIdRead1, dbRead, kvIdRead2,
+           idAbstract, iAmTheLeaderAbstract, requestsRead, requestsWrite,
+           iAmTheLeaderRead, proposerChanWrite, paxosChanRead, paxosChanWrite,
+           upstreamWrite, proposerChanWrite0, paxosChanWrite0, upstreamWrite0,
+           requestsWrite0, proposerChanWrite1, paxosChanWrite1,
+           upstreamWrite1, learnerChanRead, dbWrite, dbWrite0, dbRead,
            requestServiceWrite, requestServiceWrite0, dbWrite1,
            requestServiceWrite1, proposerChanRead, learnerChanWrite,
            learnerChanWrite0, pc, msg_, null, heartbeatId, proposerId_,
-           counter, requestId, proposal, result_, result, learnerId_, decided,
-           msg, learnerId, proposerId >>
+           counter, requestId, proposal, result_, dbLocal, result, learnerId_,
+           decided, kvId, msg, learnerId, proposerId >>
 
 ProcSet == (KVRequests) \cup (KVPaxosManager) \cup (ConsensusSet)
 
@@ -435,7 +433,6 @@ Init == (* Global variables *)
         /\ paxosLayerChan = [p \in KVRequests |-> NULL]
         /\ kvClient = {}
         /\ idAbstract = defaultInitValue
-        /\ database = [p \in KVRequests, k \in (GetSet) \union (PutSet) |-> NULL_DB_VALUE]
         /\ iAmTheLeaderAbstract = [h \in Heartbeat |-> TRUE]
         /\ requestsRead = defaultInitValue
         /\ requestsWrite = defaultInitValue
@@ -452,13 +449,9 @@ Init == (* Global variables *)
         /\ paxosChanWrite1 = defaultInitValue
         /\ upstreamWrite1 = defaultInitValue
         /\ learnerChanRead = defaultInitValue
-        /\ kvIdRead = defaultInitValue
         /\ dbWrite = defaultInitValue
         /\ dbWrite0 = defaultInitValue
-        /\ kvIdRead0 = defaultInitValue
-        /\ kvIdRead1 = defaultInitValue
         /\ dbRead = defaultInitValue
-        /\ kvIdRead2 = defaultInitValue
         /\ requestServiceWrite = defaultInitValue
         /\ requestServiceWrite0 = defaultInitValue
         /\ dbWrite1 = defaultInitValue
@@ -476,9 +469,11 @@ Init == (* Global variables *)
         /\ proposal = [self \in KVRequests |-> defaultInitValue]
         /\ result_ = [self \in KVRequests |-> defaultInitValue]
         (* Process kvPaxosManager *)
+        /\ dbLocal = [self \in KVPaxosManager |-> [k \in (GetSet) \union (PutSet) |-> NULL_DB_VALUE]]
         /\ result = [self \in KVPaxosManager |-> defaultInitValue]
         /\ learnerId_ = [self \in KVPaxosManager |-> defaultInitValue]
         /\ decided = [self \in KVPaxosManager |-> defaultInitValue]
+        /\ kvId = [self \in KVPaxosManager |-> defaultInitValue]
         (* Process consensus *)
         /\ msg = [self \in ConsensusSet |-> defaultInitValue]
         /\ learnerId = [self \in ConsensusSet |-> defaultInitValue]
@@ -492,7 +487,7 @@ kvInit(self) == /\ pc[self] = "kvInit"
                 /\ proposerId_' = [proposerId_ EXCEPT ![self] = (self) - ((5) * (NUM_NODES))]
                 /\ pc' = [pc EXCEPT ![self] = "kvLoop"]
                 /\ UNCHANGED << values, requestSet, learnedChan,
-                                paxosLayerChan, kvClient, idAbstract, database,
+                                paxosLayerChan, kvClient, idAbstract,
                                 iAmTheLeaderAbstract, requestsRead,
                                 requestsWrite, iAmTheLeaderRead,
                                 proposerChanWrite, paxosChanRead,
@@ -500,15 +495,14 @@ kvInit(self) == /\ pc[self] = "kvInit"
                                 proposerChanWrite0, paxosChanWrite0,
                                 upstreamWrite0, requestsWrite0,
                                 proposerChanWrite1, paxosChanWrite1,
-                                upstreamWrite1, learnerChanRead, kvIdRead,
-                                dbWrite, dbWrite0, kvIdRead0, kvIdRead1,
-                                dbRead, kvIdRead2, requestServiceWrite,
+                                upstreamWrite1, learnerChanRead, dbWrite,
+                                dbWrite0, dbRead, requestServiceWrite,
                                 requestServiceWrite0, dbWrite1,
                                 requestServiceWrite1, proposerChanRead,
                                 learnerChanWrite, learnerChanWrite0, msg_,
                                 null, counter, requestId, proposal, result_,
-                                result, learnerId_, decided, msg, learnerId,
-                                proposerId >>
+                                dbLocal, result, learnerId_, decided, kvId,
+                                msg, learnerId, proposerId >>
 
 kvLoop(self) == /\ pc[self] = "kvLoop"
                 /\ IF TRUE
@@ -518,7 +512,7 @@ kvLoop(self) == /\ pc[self] = "kvLoop"
                                 /\ requestsRead' = req0
                            /\ msg_' = [msg_ EXCEPT ![self] = requestsRead']
                            /\ Assert((((msg_'[self]).type) = (GET_MSG)) \/ (((msg_'[self]).type) = (PUT_MSG)),
-                                     "Failure of assertion at line 251, column 17.")
+                                     "Failure of assertion at line 253, column 17.")
                            /\ iAmTheLeaderRead' = iAmTheLeaderAbstract[heartbeatId[self]]
                            /\ IF iAmTheLeaderRead'
                                  THEN /\ requestId' = [requestId EXCEPT ![self] = <<self, counter[self]>>]
@@ -550,19 +544,17 @@ kvLoop(self) == /\ pc[self] = "kvLoop"
                            /\ UNCHANGED << requestsRead, requestsWrite,
                                            iAmTheLeaderRead, proposerChanWrite,
                                            msg_, requestId, proposal >>
-                /\ UNCHANGED << learnedChan, idAbstract, database,
-                                iAmTheLeaderAbstract, paxosChanRead,
-                                paxosChanWrite, upstreamWrite,
+                /\ UNCHANGED << learnedChan, idAbstract, iAmTheLeaderAbstract,
+                                paxosChanRead, paxosChanWrite, upstreamWrite,
                                 proposerChanWrite0, paxosChanWrite0,
-                                upstreamWrite0, learnerChanRead, kvIdRead,
-                                dbWrite, dbWrite0, kvIdRead0, kvIdRead1,
-                                dbRead, kvIdRead2, requestServiceWrite,
+                                upstreamWrite0, learnerChanRead, dbWrite,
+                                dbWrite0, dbRead, requestServiceWrite,
                                 requestServiceWrite0, dbWrite1,
                                 requestServiceWrite1, proposerChanRead,
                                 learnerChanWrite, learnerChanWrite0, null,
                                 heartbeatId, proposerId_, counter, result_,
-                                result, learnerId_, decided, msg, learnerId,
-                                proposerId >>
+                                dbLocal, result, learnerId_, decided, kvId,
+                                msg, learnerId, proposerId >>
 
 requestConfirm(self) == /\ pc[self] = "requestConfirm"
                         /\ (paxosLayerChan[self]) # (NULL)
@@ -576,30 +568,29 @@ requestConfirm(self) == /\ pc[self] = "requestConfirm"
                         /\ paxosLayerChan' = paxosChanWrite'
                         /\ pc' = [pc EXCEPT ![self] = "kvLoop"]
                         /\ UNCHANGED << values, requestSet, learnedChan,
-                                        idAbstract, database,
-                                        iAmTheLeaderAbstract, requestsRead,
-                                        requestsWrite, iAmTheLeaderRead,
-                                        proposerChanWrite, proposerChanWrite0,
-                                        paxosChanWrite0, upstreamWrite0,
-                                        requestsWrite0, proposerChanWrite1,
-                                        paxosChanWrite1, upstreamWrite1,
-                                        learnerChanRead, kvIdRead, dbWrite,
-                                        dbWrite0, kvIdRead0, kvIdRead1, dbRead,
-                                        kvIdRead2, requestServiceWrite,
+                                        idAbstract, iAmTheLeaderAbstract,
+                                        requestsRead, requestsWrite,
+                                        iAmTheLeaderRead, proposerChanWrite,
+                                        proposerChanWrite0, paxosChanWrite0,
+                                        upstreamWrite0, requestsWrite0,
+                                        proposerChanWrite1, paxosChanWrite1,
+                                        upstreamWrite1, learnerChanRead,
+                                        dbWrite, dbWrite0, dbRead,
+                                        requestServiceWrite,
                                         requestServiceWrite0, dbWrite1,
                                         requestServiceWrite1, proposerChanRead,
                                         learnerChanWrite, learnerChanWrite0,
                                         msg_, null, heartbeatId, proposerId_,
-                                        requestId, proposal, result,
-                                        learnerId_, decided, msg, learnerId,
-                                        proposerId >>
+                                        requestId, proposal, dbLocal, result,
+                                        learnerId_, decided, kvId, msg,
+                                        learnerId, proposerId >>
 
 notLeader(self) == /\ pc[self] = "notLeader"
                    /\ upstreamWrite' = ((kvClient) \union ({[type |-> NOT_LEADER_MSG, result |-> null[self]]}))
                    /\ kvClient' = upstreamWrite'
                    /\ pc' = [pc EXCEPT ![self] = "kvLoop"]
                    /\ UNCHANGED << values, requestSet, learnedChan,
-                                   paxosLayerChan, idAbstract, database,
+                                   paxosLayerChan, idAbstract,
                                    iAmTheLeaderAbstract, requestsRead,
                                    requestsWrite, iAmTheLeaderRead,
                                    proposerChanWrite, paxosChanRead,
@@ -607,25 +598,24 @@ notLeader(self) == /\ pc[self] = "notLeader"
                                    paxosChanWrite0, upstreamWrite0,
                                    requestsWrite0, proposerChanWrite1,
                                    paxosChanWrite1, upstreamWrite1,
-                                   learnerChanRead, kvIdRead, dbWrite,
-                                   dbWrite0, kvIdRead0, kvIdRead1, dbRead,
-                                   kvIdRead2, requestServiceWrite,
-                                   requestServiceWrite0, dbWrite1,
-                                   requestServiceWrite1, proposerChanRead,
-                                   learnerChanWrite, learnerChanWrite0, msg_,
-                                   null, heartbeatId, proposerId_, counter,
-                                   requestId, proposal, result_, result,
-                                   learnerId_, decided, msg, learnerId,
-                                   proposerId >>
+                                   learnerChanRead, dbWrite, dbWrite0, dbRead,
+                                   requestServiceWrite, requestServiceWrite0,
+                                   dbWrite1, requestServiceWrite1,
+                                   proposerChanRead, learnerChanWrite,
+                                   learnerChanWrite0, msg_, null, heartbeatId,
+                                   proposerId_, counter, requestId, proposal,
+                                   result_, dbLocal, result, learnerId_,
+                                   decided, kvId, msg, learnerId, proposerId >>
 
 kvRequests(self) == kvInit(self) \/ kvLoop(self) \/ requestConfirm(self)
                        \/ notLeader(self)
 
 findId(self) == /\ pc[self] = "findId"
                 /\ learnerId_' = [learnerId_ EXCEPT ![self] = (self) - ((4) * (NUM_NODES))]
+                /\ kvId' = [kvId EXCEPT ![self] = (self) - (NUM_NODES)]
                 /\ pc' = [pc EXCEPT ![self] = "kvManagerLoop"]
                 /\ UNCHANGED << values, requestSet, learnedChan,
-                                paxosLayerChan, kvClient, idAbstract, database,
+                                paxosLayerChan, kvClient, idAbstract,
                                 iAmTheLeaderAbstract, requestsRead,
                                 requestsWrite, iAmTheLeaderRead,
                                 proposerChanWrite, paxosChanRead,
@@ -633,15 +623,14 @@ findId(self) == /\ pc[self] = "findId"
                                 proposerChanWrite0, paxosChanWrite0,
                                 upstreamWrite0, requestsWrite0,
                                 proposerChanWrite1, paxosChanWrite1,
-                                upstreamWrite1, learnerChanRead, kvIdRead,
-                                dbWrite, dbWrite0, kvIdRead0, kvIdRead1,
-                                dbRead, kvIdRead2, requestServiceWrite,
+                                upstreamWrite1, learnerChanRead, dbWrite,
+                                dbWrite0, dbRead, requestServiceWrite,
                                 requestServiceWrite0, dbWrite1,
                                 requestServiceWrite1, proposerChanRead,
                                 learnerChanWrite, learnerChanWrite0, msg_,
                                 null, heartbeatId, proposerId_, counter,
-                                requestId, proposal, result_, result, decided,
-                                msg, learnerId, proposerId >>
+                                requestId, proposal, result_, dbLocal, result,
+                                decided, msg, learnerId, proposerId >>
 
 kvManagerLoop(self) == /\ pc[self] = "kvManagerLoop"
                        /\ IF TRUE
@@ -651,48 +640,40 @@ kvManagerLoop(self) == /\ pc[self] = "kvManagerLoop"
                                        /\ learnerChanRead' = v1
                                   /\ decided' = [decided EXCEPT ![self] = learnerChanRead']
                                   /\ IF ((decided'[self]).operation) = (PUT)
-                                        THEN /\ kvIdRead' = (self) - (NUM_NODES)
-                                             /\ dbWrite' = [database EXCEPT ![<<kvIdRead', (decided'[self]).key>>] = (decided'[self]).value]
+                                        THEN /\ dbWrite' = [dbLocal[self] EXCEPT ![(decided'[self]).key] = (decided'[self]).value]
                                              /\ dbWrite0' = dbWrite'
-                                        ELSE /\ dbWrite0' = database
-                                             /\ UNCHANGED << kvIdRead, dbWrite >>
-                                  /\ kvIdRead0' = (self) - (NUM_NODES)
-                                  /\ IF ((decided'[self]).id[1]) = (kvIdRead0')
+                                        ELSE /\ dbWrite0' = dbLocal[self]
+                                             /\ UNCHANGED dbWrite
+                                  /\ IF ((decided'[self]).id[1]) = (kvId[self])
                                         THEN /\ IF ((decided'[self]).operation) = (GET)
-                                                   THEN /\ kvIdRead1' = (self) - (NUM_NODES)
-                                                        /\ dbRead' = dbWrite0'[<<kvIdRead1', (decided'[self]).key>>]
+                                                   THEN /\ dbRead' = dbWrite0'[(decided'[self]).key]
                                                         /\ result' = [result EXCEPT ![self] = dbRead']
                                                    ELSE /\ result' = [result EXCEPT ![self] = (decided'[self]).value]
-                                                        /\ UNCHANGED << kvIdRead1,
-                                                                        dbRead >>
-                                             /\ kvIdRead2' = (self) - (NUM_NODES)
-                                             /\ (paxosLayerChan[kvIdRead2']) = (NULL)
-                                             /\ requestServiceWrite' = [paxosLayerChan EXCEPT ![kvIdRead2'] = result'[self]]
+                                                        /\ UNCHANGED dbRead
+                                             /\ (paxosLayerChan[kvId[self]]) = (NULL)
+                                             /\ requestServiceWrite' = [paxosLayerChan EXCEPT ![kvId[self]] = result'[self]]
                                              /\ requestServiceWrite0' = requestServiceWrite'
                                              /\ dbWrite1' = dbWrite0'
                                              /\ requestServiceWrite1' = requestServiceWrite0'
                                              /\ paxosLayerChan' = requestServiceWrite1'
-                                             /\ database' = dbWrite1'
+                                             /\ dbLocal' = [dbLocal EXCEPT ![self] = dbWrite1']
                                              /\ pc' = [pc EXCEPT ![self] = "kvManagerLoop"]
                                         ELSE /\ requestServiceWrite0' = paxosLayerChan
                                              /\ dbWrite1' = dbWrite0'
                                              /\ requestServiceWrite1' = requestServiceWrite0'
                                              /\ paxosLayerChan' = requestServiceWrite1'
-                                             /\ database' = dbWrite1'
+                                             /\ dbLocal' = [dbLocal EXCEPT ![self] = dbWrite1']
                                              /\ pc' = [pc EXCEPT ![self] = "kvManagerLoop"]
-                                             /\ UNCHANGED << kvIdRead1, dbRead,
-                                                             kvIdRead2,
+                                             /\ UNCHANGED << dbRead,
                                                              requestServiceWrite,
                                                              result >>
-                             ELSE /\ dbWrite1' = database
+                             ELSE /\ dbWrite1' = dbLocal[self]
                                   /\ requestServiceWrite1' = paxosLayerChan
                                   /\ paxosLayerChan' = requestServiceWrite1'
-                                  /\ database' = dbWrite1'
+                                  /\ dbLocal' = [dbLocal EXCEPT ![self] = dbWrite1']
                                   /\ pc' = [pc EXCEPT ![self] = "Done"]
                                   /\ UNCHANGED << learnedChan, learnerChanRead,
-                                                  kvIdRead, dbWrite, dbWrite0,
-                                                  kvIdRead0, kvIdRead1, dbRead,
-                                                  kvIdRead2,
+                                                  dbWrite, dbWrite0, dbRead,
                                                   requestServiceWrite,
                                                   requestServiceWrite0, result,
                                                   decided >>
@@ -709,7 +690,8 @@ kvManagerLoop(self) == /\ pc[self] = "kvManagerLoop"
                                        learnerChanWrite0, msg_, null,
                                        heartbeatId, proposerId_, counter,
                                        requestId, proposal, result_,
-                                       learnerId_, msg, learnerId, proposerId >>
+                                       learnerId_, kvId, msg, learnerId,
+                                       proposerId >>
 
 kvPaxosManager(self) == findId(self) \/ kvManagerLoop(self)
 
@@ -719,22 +701,21 @@ findIds(self) == /\ pc[self] = "findIds"
                  /\ pc' = [pc EXCEPT ![self] = "consensusLoop"]
                  /\ UNCHANGED << values, requestSet, learnedChan,
                                  paxosLayerChan, kvClient, idAbstract,
-                                 database, iAmTheLeaderAbstract, requestsRead,
+                                 iAmTheLeaderAbstract, requestsRead,
                                  requestsWrite, iAmTheLeaderRead,
                                  proposerChanWrite, paxosChanRead,
                                  paxosChanWrite, upstreamWrite,
                                  proposerChanWrite0, paxosChanWrite0,
                                  upstreamWrite0, requestsWrite0,
                                  proposerChanWrite1, paxosChanWrite1,
-                                 upstreamWrite1, learnerChanRead, kvIdRead,
-                                 dbWrite, dbWrite0, kvIdRead0, kvIdRead1,
-                                 dbRead, kvIdRead2, requestServiceWrite,
+                                 upstreamWrite1, learnerChanRead, dbWrite,
+                                 dbWrite0, dbRead, requestServiceWrite,
                                  requestServiceWrite0, dbWrite1,
                                  requestServiceWrite1, proposerChanRead,
                                  learnerChanWrite, learnerChanWrite0, msg_,
                                  null, heartbeatId, proposerId_, counter,
-                                 requestId, proposal, result_, result,
-                                 learnerId_, decided, msg >>
+                                 requestId, proposal, result_, dbLocal, result,
+                                 learnerId_, decided, kvId, msg >>
 
 consensusLoop(self) == /\ pc[self] = "consensusLoop"
                        /\ IF TRUE
@@ -754,24 +735,22 @@ consensusLoop(self) == /\ pc[self] = "consensusLoop"
                                   /\ UNCHANGED << values, proposerChanRead,
                                                   learnerChanWrite, msg >>
                        /\ UNCHANGED << requestSet, paxosLayerChan, kvClient,
-                                       idAbstract, database,
-                                       iAmTheLeaderAbstract, requestsRead,
-                                       requestsWrite, iAmTheLeaderRead,
-                                       proposerChanWrite, paxosChanRead,
-                                       paxosChanWrite, upstreamWrite,
-                                       proposerChanWrite0, paxosChanWrite0,
-                                       upstreamWrite0, requestsWrite0,
-                                       proposerChanWrite1, paxosChanWrite1,
-                                       upstreamWrite1, learnerChanRead,
-                                       kvIdRead, dbWrite, dbWrite0, kvIdRead0,
-                                       kvIdRead1, dbRead, kvIdRead2,
-                                       requestServiceWrite,
+                                       idAbstract, iAmTheLeaderAbstract,
+                                       requestsRead, requestsWrite,
+                                       iAmTheLeaderRead, proposerChanWrite,
+                                       paxosChanRead, paxosChanWrite,
+                                       upstreamWrite, proposerChanWrite0,
+                                       paxosChanWrite0, upstreamWrite0,
+                                       requestsWrite0, proposerChanWrite1,
+                                       paxosChanWrite1, upstreamWrite1,
+                                       learnerChanRead, dbWrite, dbWrite0,
+                                       dbRead, requestServiceWrite,
                                        requestServiceWrite0, dbWrite1,
                                        requestServiceWrite1, msg_, null,
                                        heartbeatId, proposerId_, counter,
-                                       requestId, proposal, result_, result,
-                                       learnerId_, decided, learnerId,
-                                       proposerId >>
+                                       requestId, proposal, result_, dbLocal,
+                                       result, learnerId_, decided, kvId,
+                                       learnerId, proposerId >>
 
 consensus(self) == findIds(self) \/ consensusLoop(self)
 
@@ -794,11 +773,11 @@ Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 \* ConsistentDatabase == \A kv1, kv2 \in KVRequests, k \in PutSet :
 \*                           database[kv1, k] # NULL /\ database[kv2, k] # NULL => database[kv1, k] = database[kv2, k]
 
-ConsistentDatabase == \A kv1 \in KVRequests, k \in PutSet : database[kv1, k] = NULL_DB_VALUE \/ database[kv1, k] = k
+ConsistentDatabase == \A kv1 \in KVPaxosManager, k \in PutSet : dbLocal[kv1][k] = NULL_DB_VALUE \/ dbLocal[kv1][k] = k
 
 \* Eventually the database of every node is populated with the associated value
 \* All PUT operations performed are in the format: Put(key, key)
-Progress == \A kv \in KVRequests, k \in PutSet : <>(database[kv, k] = k)
+Progress == \A kv \in KVPaxosManager, k \in PutSet : <>(dbLocal[kv][k] = k)
 
 \* Termination formula:
 \* ~(\A k \in PutSet : \E kv \in KVRequests : database[kv, k] # NULL)
