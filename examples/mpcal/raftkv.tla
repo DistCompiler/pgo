@@ -53,9 +53,11 @@ ASSUME FiniteNaturalSet(GetSet) /\ FiniteNaturalSet(PutSet)
     \* Invokes a RequestVote RPC on every Node
     macro SendRequestVotes(network, cterm, candidateId, lastLogIndex, lastLogTerm, idx) {
         while (idx < NUM_NODES) {
-            \* granted and entries are unused, but NULL wouldn't type check
-            network[idx] := [sender |-> candidateId, type |-> RequestVote, term |-> cterm, granted |-> FALSE, entries |-> <<>>,
-                             prevIndex |-> lastLogIndex, prevTerm |-> lastLogTerm, commit |-> NULL];
+            if (idx # candidateId) {
+                \* granted and entries are unused, but NULL wouldn't type check
+                network[idx] := [sender |-> candidateId, type |-> RequestVote, term |-> cterm, granted |-> FALSE, entries |-> <<>>,
+                                 prevIndex |-> lastLogIndex, prevTerm |-> lastLogTerm, commit |-> NULL];
+            };
 
             idx := idx + 1;
         };
@@ -64,9 +66,11 @@ ASSUME FiniteNaturalSet(GetSet) /\ FiniteNaturalSet(PutSet)
     \* Invokes an AppendEntries RPC on every Node (can serve to make progress or just as a heartbeat from the leader)
     macro SendAppendEntries(network, cterm, candidateId, nextIndex, matchIndex, log, leaderCommit, idx) {
         while (idx < NUM_NODES) {
-            \* granted is unused, but NULL wouldn't type check
-            network[idx] := [sender |-> candidateId, type |-> AppendEntries, term |-> cterm, granted |-> FALSE, entries |-> SubSeq(log, nextIndex[idx], Len(log)),
-                             prevIndex |-> nextIndex[idx]-1, prevTerm |-> Term(log, nextIndex[idx]-1), commit |-> leaderCommit];
+            if (idx # candidateId) {
+                \* granted is unused, but NULL wouldn't type check
+                network[idx] := [sender |-> candidateId, type |-> AppendEntries, term |-> cterm, granted |-> FALSE, entries |-> SubSeq(log, nextIndex[idx], Len(log)),
+                                 prevIndex |-> nextIndex[idx]-1, prevTerm |-> Term(log, nextIndex[idx]-1), commit |-> leaderCommit];
+            };
             
             idx := idx + 1;
         };
@@ -75,9 +79,11 @@ ASSUME FiniteNaturalSet(GetSet) /\ FiniteNaturalSet(PutSet)
     \* Invokes empty AppendEntries RPC on every Node (serves as heartbeats)
     macro SendHeartBeats(network, cterm, candidateId, idx) {
         while (idx < NUM_NODES) {
-            \* granted is unused, but NULL wouldn't type check
-            network[idx] := [sender |-> candidateId, type |-> AppendEntries, term |-> cterm, granted |-> FALSE, entries |-> <<>>,
-                             prevIndex |-> NULL, prevTerm |-> 0, commit |-> NULL];
+            if (idx # candidateId) {
+                \* granted is unused, but NULL wouldn't type check
+                network[idx] := [sender |-> candidateId, type |-> AppendEntries, term |-> cterm, granted |-> FALSE, entries |-> <<>>,
+                                 prevIndex |-> NULL, prevTerm |-> 0, commit |-> NULL];
+            };
             
             idx := idx + 1;
         };
@@ -138,7 +144,6 @@ ASSUME FiniteNaturalSet(GetSet) /\ FiniteNaturalSet(PutSet)
         }
   
         write {
-            await Len($variable) < BUFFER_SIZE;
             yield Append($variable, $value);
         }
     }
@@ -444,17 +449,19 @@ BecomeLeader:               state := Leader;
         mapping iAmTheLeaderAbstract[_] via ID
         mapping terms[_] via ID
         mapping lastSeen via ID;
+(*
     fair process (heartbeat \in Heartbeats) == instance Heartbeat(ref mailboxes, iAmTheLeaderAbstract, terms, ref frequency)
         mapping mailboxes[_] via FIFOQueues
         mapping iAmTheLeaderAbstract[_] via ID
         mapping terms[_] via ID
         mapping frequency via Timer;
+*)
 }
 
 
 \* BEGIN PLUSCAL TRANSLATION
 --algorithm Raft {
-    variables values = [k \in Servers |-> <<>>], requestSet = ({[type |-> GET_MSG, key |-> k, value |-> NULL] : k \in GetSet}) \union ({[type |-> PUT_MSG, key |-> v, value |-> v] : v \in PutSet}), learnedChan = [l \in Servers |-> <<>>], raftLayerChan = [p \in KVRequests |-> <<>>], kvClient = {}, idAbstract, database = [p \in KVRequests, k \in (GetSet) \union (PutSet) |-> NULL_DB_VALUE], iAmTheLeaderAbstract = [h \in Heartbeats |-> TRUE], frequency = 500, terms = [s \in Servers |-> NULL], lastSeen, mailboxes = [id \in Servers |-> <<>>], requestsRead, requestsWrite, iAmTheLeaderRead, proposerChanWrite, raftChanRead, raftChanWrite, upstreamWrite, proposerChanWrite0, raftChanWrite0, upstreamWrite0, requestsWrite0, proposerChanWrite1, raftChanWrite1, upstreamWrite1, learnerChanRead, learnerChanWrite, kvIdRead, dbWrite, dbWrite0, kvIdRead0, kvIdRead1, dbRead, kvIdRead2, requestServiceWrite, requestServiceWrite0, learnerChanWrite0, dbWrite1, requestServiceWrite1, timeoutRead, networkWrite, networkWrite0, networkWrite1, inputRead, inputWrite, appliedWrite, appliedWrite0, networkWrite2, inputWrite0, appliedWrite1, networkWrite3, networkRead, iAmTheLeaderWrite, iAmTheLeaderWrite0, lastmsgWrite, lastmsgWrite0, lastmsgWrite1, ifResult, appliedWrite2, appliedWrite3, ifResult0, networkWrite4, termWrite, iAmTheLeaderWrite1, termWrite0, iAmTheLeaderWrite2, termWrite1, iAmTheLeaderWrite3, termWrite2, networkWrite5, iAmTheLeaderWrite4, termWrite3, networkWrite6, iAmTheLeaderWrite5, termWrite4, lastmsgWrite2, networkWrite7, appliedWrite4, iAmTheLeaderWrite6, termWrite5, iAmTheLeaderWrite7, lastmsgWrite3, networkWrite8, appliedWrite5, termWrite6, networkWrite9, inputWrite1, appliedWrite6, iAmTheLeaderWrite8, lastmsgWrite4, termWrite7, iAmTheLeaderRead0, timerWrite, termRead, networkWrite10, networkWrite11, timerWrite0, networkWrite12, timerWrite1, networkWrite13;
+    variables values = [k \in Servers |-> <<>>], requestSet = ({[type |-> GET_MSG, key |-> k, value |-> NULL] : k \in GetSet}) \union ({[type |-> PUT_MSG, key |-> v, value |-> v] : v \in PutSet}), learnedChan = [l \in Servers |-> <<>>], raftLayerChan = [p \in KVRequests |-> <<>>], kvClient = {}, idAbstract, database = [p \in KVRequests, k \in (GetSet) \union (PutSet) |-> NULL_DB_VALUE], iAmTheLeaderAbstract = [h \in Heartbeats |-> TRUE], frequency = 500, terms = [s \in Servers |-> NULL], lastSeen, mailboxes = [id \in Servers |-> <<>>], requestsRead, requestsWrite, iAmTheLeaderRead, proposerChanWrite, raftChanRead, raftChanWrite, upstreamWrite, proposerChanWrite0, raftChanWrite0, upstreamWrite0, requestsWrite0, proposerChanWrite1, raftChanWrite1, upstreamWrite1, learnerChanRead, learnerChanWrite, kvIdRead, dbWrite, dbWrite0, kvIdRead0, kvIdRead1, dbRead, kvIdRead2, requestServiceWrite, requestServiceWrite0, learnerChanWrite0, dbWrite1, requestServiceWrite1, timeoutRead, networkWrite, networkWrite0, networkWrite1, networkWrite2, inputRead, inputWrite, appliedWrite, appliedWrite0, networkWrite3, networkWrite4, inputWrite0, appliedWrite1, networkWrite5, networkRead, iAmTheLeaderWrite, iAmTheLeaderWrite0, lastmsgWrite, lastmsgWrite0, lastmsgWrite1, ifResult, appliedWrite2, appliedWrite3, ifResult0, networkWrite6, termWrite, iAmTheLeaderWrite1, termWrite0, iAmTheLeaderWrite2, termWrite1, iAmTheLeaderWrite3, termWrite2, networkWrite7, iAmTheLeaderWrite4, termWrite3, networkWrite8, iAmTheLeaderWrite5, termWrite4, lastmsgWrite2, networkWrite9, appliedWrite4, iAmTheLeaderWrite6, termWrite5, iAmTheLeaderWrite7, lastmsgWrite3, networkWrite10, appliedWrite5, termWrite6, networkWrite11, inputWrite1, appliedWrite6, iAmTheLeaderWrite8, lastmsgWrite4, termWrite7;
     define {
         RequestVote == 0
         RequestVoteResponse == 1
@@ -624,20 +631,24 @@ BecomeLeader:               state := Leader;
                         iterator := 0;
                         SendReqVotes:
                             if ((iterator) < (NUM_NODES)) {
-                                await (Len(mailboxes[iterator])) < (BUFFER_SIZE);
-                                networkWrite := [mailboxes EXCEPT ![iterator] = Append(mailboxes[iterator], [sender |-> self, type |-> RequestVote, term |-> currentTerm, granted |-> FALSE, entries |-> <<>>, prevIndex |-> Len(log), prevTerm |-> Term(log, Len(log)), commit |-> NULL])];
+                                if ((iterator) # (self)) {
+                                    networkWrite := [mailboxes EXCEPT ![iterator] = Append(mailboxes[iterator], [sender |-> self, type |-> RequestVote, term |-> currentTerm, granted |-> FALSE, entries |-> <<>>, prevIndex |-> Len(log), prevTerm |-> Term(log, Len(log)), commit |-> NULL])];
+                                    networkWrite0 := networkWrite;
+                                } else {
+                                    networkWrite0 := mailboxes;
+                                };
                                 iterator := (iterator) + (1);
-                                networkWrite0 := networkWrite;
-                                mailboxes := networkWrite0;
+                                networkWrite1 := networkWrite0;
+                                mailboxes := networkWrite1;
                                 goto SendReqVotes;
                             } else {
-                                networkWrite0 := mailboxes;
-                                mailboxes := networkWrite0;
+                                networkWrite1 := mailboxes;
+                                mailboxes := networkWrite1;
                             };
                     
                     } else {
-                        networkWrite1 := mailboxes;
-                        mailboxes := networkWrite1;
+                        networkWrite2 := mailboxes;
+                        mailboxes := networkWrite2;
                     };
                 
                 LeaderCheck:
@@ -676,22 +687,26 @@ BecomeLeader:               state := Leader;
                         
                         SendAppendEntries:
                             if ((iterator) < (NUM_NODES)) {
-                                await (Len(mailboxes[iterator])) < (BUFFER_SIZE);
-                                networkWrite := [mailboxes EXCEPT ![iterator] = Append(mailboxes[iterator], [sender |-> self, type |-> AppendEntries, term |-> currentTerm, granted |-> FALSE, entries |-> SubSeq(log, nextIndex[iterator], Len(log)), prevIndex |-> (nextIndex[iterator]) - (1), prevTerm |-> Term(log, (nextIndex[iterator]) - (1)), commit |-> commitIndex])];
+                                if ((iterator) # (self)) {
+                                    networkWrite := [mailboxes EXCEPT ![iterator] = Append(mailboxes[iterator], [sender |-> self, type |-> AppendEntries, term |-> currentTerm, granted |-> FALSE, entries |-> SubSeq(log, nextIndex[iterator], Len(log)), prevIndex |-> (nextIndex[iterator]) - (1), prevTerm |-> Term(log, (nextIndex[iterator]) - (1)), commit |-> commitIndex])];
+                                    networkWrite3 := networkWrite;
+                                } else {
+                                    networkWrite3 := mailboxes;
+                                };
                                 iterator := (iterator) + (1);
-                                networkWrite2 := networkWrite;
-                                mailboxes := networkWrite2;
+                                networkWrite4 := networkWrite3;
+                                mailboxes := networkWrite4;
                                 goto SendAppendEntries;
                             } else {
-                                networkWrite2 := mailboxes;
-                                mailboxes := networkWrite2;
+                                networkWrite4 := mailboxes;
+                                mailboxes := networkWrite4;
                             };
                     
                     } else {
                         inputWrite0 := values;
                         appliedWrite1 := learnedChan;
-                        networkWrite3 := mailboxes;
-                        mailboxes := networkWrite3;
+                        networkWrite5 := mailboxes;
+                        mailboxes := networkWrite5;
                         learnedChan := appliedWrite1;
                         values := inputWrite0;
                     };
@@ -747,7 +762,6 @@ BecomeLeader:               state := Leader;
                                     };
                                 };
                                 AESendResponse:
-                                    await (Len(mailboxes[(msg).sender])) < (BUFFER_SIZE);
                                     networkWrite := [mailboxes EXCEPT ![(msg).sender] = Append(mailboxes[(msg).sender], response)];
                                     if (((msg).commit) > (commitIndex)) {
                                         if (((msg).commit) < (Len(log))) {
@@ -788,7 +802,6 @@ BecomeLeader:               state := Leader;
                                     
                                     };
                                     RVSendResponse:
-                                        await (Len(mailboxes[(msg).sender])) < (BUFFER_SIZE);
                                         networkWrite := [mailboxes EXCEPT ![(msg).sender] = Append(mailboxes[(msg).sender], response)];
                                         mailboxes := networkWrite;
                                         goto ProcessMsgs;
@@ -798,19 +811,19 @@ BecomeLeader:               state := Leader;
                                         if ((msg).granted) {
                                             nextIndex[msg.sender] := ((msg).prevIndex) + (1);
                                             matchIndex[msg.sender] := (msg).prevIndex;
-                                            networkWrite4 := mailboxes;
-                                            networkWrite5 := networkWrite4;
+                                            networkWrite6 := mailboxes;
+                                            networkWrite7 := networkWrite6;
                                             iAmTheLeaderWrite4 := iAmTheLeaderAbstract;
                                             termWrite3 := terms;
-                                            networkWrite6 := networkWrite5;
+                                            networkWrite8 := networkWrite7;
                                             iAmTheLeaderWrite5 := iAmTheLeaderWrite4;
                                             termWrite4 := termWrite3;
                                             lastmsgWrite2 := lastSeen;
-                                            networkWrite7 := networkWrite6;
+                                            networkWrite9 := networkWrite8;
                                             appliedWrite4 := learnedChan;
                                             iAmTheLeaderWrite6 := iAmTheLeaderWrite5;
                                             termWrite5 := termWrite4;
-                                            mailboxes := networkWrite7;
+                                            mailboxes := networkWrite9;
                                             learnedChan := appliedWrite4;
                                             iAmTheLeaderAbstract := iAmTheLeaderWrite6;
                                             terms := termWrite5;
@@ -824,7 +837,6 @@ BecomeLeader:               state := Leader;
                                             };
                                             nextIndex[msg.sender] := ifResult0;
                                             RetryAppendEntry:
-                                                await (Len(mailboxes[(msg).sender])) < (BUFFER_SIZE);
                                                 networkWrite := [mailboxes EXCEPT ![(msg).sender] = Append(mailboxes[(msg).sender], [sender |-> self, type |-> RequestVote, term |-> currentTerm, granted |-> FALSE, entries |-> SubSeq(log, nextIndex[(msg).sender], Len(log)), prevIndex |-> (nextIndex[(msg).sender]) - (1), prevTerm |-> Term(log, (nextIndex[(msg).sender]) - (1)), commit |-> commitIndex])];
                                                 mailboxes := networkWrite;
                                                 goto ProcessMsgs;
@@ -852,18 +864,18 @@ BecomeLeader:               state := Leader;
                                                     termWrite1 := termWrite0;
                                                     iAmTheLeaderWrite3 := iAmTheLeaderWrite2;
                                                     termWrite2 := termWrite1;
-                                                    networkWrite5 := mailboxes;
+                                                    networkWrite7 := mailboxes;
                                                     iAmTheLeaderWrite4 := iAmTheLeaderWrite3;
                                                     termWrite3 := termWrite2;
-                                                    networkWrite6 := networkWrite5;
+                                                    networkWrite8 := networkWrite7;
                                                     iAmTheLeaderWrite5 := iAmTheLeaderWrite4;
                                                     termWrite4 := termWrite3;
                                                     lastmsgWrite2 := lastSeen;
-                                                    networkWrite7 := networkWrite6;
+                                                    networkWrite9 := networkWrite8;
                                                     appliedWrite4 := learnedChan;
                                                     iAmTheLeaderWrite6 := iAmTheLeaderWrite5;
                                                     termWrite5 := termWrite4;
-                                                    mailboxes := networkWrite7;
+                                                    mailboxes := networkWrite9;
                                                     learnedChan := appliedWrite4;
                                                     iAmTheLeaderAbstract := iAmTheLeaderWrite6;
                                                     terms := termWrite5;
@@ -875,18 +887,18 @@ BecomeLeader:               state := Leader;
                                                 termWrite1 := terms;
                                                 iAmTheLeaderWrite3 := iAmTheLeaderWrite2;
                                                 termWrite2 := termWrite1;
-                                                networkWrite5 := mailboxes;
+                                                networkWrite7 := mailboxes;
                                                 iAmTheLeaderWrite4 := iAmTheLeaderWrite3;
                                                 termWrite3 := termWrite2;
-                                                networkWrite6 := networkWrite5;
+                                                networkWrite8 := networkWrite7;
                                                 iAmTheLeaderWrite5 := iAmTheLeaderWrite4;
                                                 termWrite4 := termWrite3;
                                                 lastmsgWrite2 := lastSeen;
-                                                networkWrite7 := networkWrite6;
+                                                networkWrite9 := networkWrite8;
                                                 appliedWrite4 := learnedChan;
                                                 iAmTheLeaderWrite6 := iAmTheLeaderWrite5;
                                                 termWrite5 := termWrite4;
-                                                mailboxes := networkWrite7;
+                                                mailboxes := networkWrite9;
                                                 learnedChan := appliedWrite4;
                                                 iAmTheLeaderAbstract := iAmTheLeaderWrite6;
                                                 terms := termWrite5;
@@ -896,18 +908,18 @@ BecomeLeader:               state := Leader;
                                         } else {
                                             iAmTheLeaderWrite3 := iAmTheLeaderAbstract;
                                             termWrite2 := terms;
-                                            networkWrite5 := mailboxes;
+                                            networkWrite7 := mailboxes;
                                             iAmTheLeaderWrite4 := iAmTheLeaderWrite3;
                                             termWrite3 := termWrite2;
-                                            networkWrite6 := networkWrite5;
+                                            networkWrite8 := networkWrite7;
                                             iAmTheLeaderWrite5 := iAmTheLeaderWrite4;
                                             termWrite4 := termWrite3;
                                             lastmsgWrite2 := lastSeen;
-                                            networkWrite7 := networkWrite6;
+                                            networkWrite9 := networkWrite8;
                                             appliedWrite4 := learnedChan;
                                             iAmTheLeaderWrite6 := iAmTheLeaderWrite5;
                                             termWrite5 := termWrite4;
-                                            mailboxes := networkWrite7;
+                                            mailboxes := networkWrite9;
                                             learnedChan := appliedWrite4;
                                             iAmTheLeaderAbstract := iAmTheLeaderWrite6;
                                             terms := termWrite5;
@@ -921,10 +933,10 @@ BecomeLeader:               state := Leader;
                     } else {
                         iAmTheLeaderWrite7 := iAmTheLeaderAbstract;
                         lastmsgWrite3 := lastSeen;
-                        networkWrite8 := mailboxes;
+                        networkWrite10 := mailboxes;
                         appliedWrite5 := learnedChan;
                         termWrite6 := terms;
-                        mailboxes := networkWrite8;
+                        mailboxes := networkWrite10;
                         learnedChan := appliedWrite5;
                         iAmTheLeaderAbstract := iAmTheLeaderWrite7;
                         terms := termWrite6;
@@ -933,65 +945,18 @@ BecomeLeader:               state := Leader;
                     };
             
             } else {
-                networkWrite9 := mailboxes;
+                networkWrite11 := mailboxes;
                 inputWrite1 := values;
                 appliedWrite6 := learnedChan;
                 iAmTheLeaderWrite8 := iAmTheLeaderAbstract;
                 lastmsgWrite4 := lastSeen;
                 termWrite7 := terms;
-                mailboxes := networkWrite9;
+                mailboxes := networkWrite11;
                 learnedChan := appliedWrite6;
                 values := inputWrite1;
                 iAmTheLeaderAbstract := iAmTheLeaderWrite8;
                 terms := termWrite7;
                 lastSeen := lastmsgWrite4;
-            };
-    
-    }
-    fair process (heartbeat \in Heartbeats)
-    variables index, cterm;
-    {
-        HBLoop:
-            if (TRUE) {
-                CheckHeartBeat:
-                    iAmTheLeaderRead0 := iAmTheLeaderAbstract[self];
-                    await iAmTheLeaderRead0;
-                
-                SendHeartBeatLoop:
-                    iAmTheLeaderRead0 := iAmTheLeaderAbstract[self];
-                    if (iAmTheLeaderRead0) {
-                        timerWrite := 500;
-                        index := 0;
-                        termRead := terms[(self) - (NUM_NODES)];
-                        cterm := termRead;
-                        frequency := timerWrite;
-                        SendHeartBeats:
-                            if ((index) < (NUM_NODES)) {
-                                await (Len(mailboxes[index])) < (BUFFER_SIZE);
-                                networkWrite10 := [mailboxes EXCEPT ![index] = Append(mailboxes[index], [sender |-> (self) - (NUM_NODES), type |-> AppendEntries, term |-> cterm, granted |-> FALSE, entries |-> <<>>, prevIndex |-> NULL, prevTerm |-> 0, commit |-> NULL])];
-                                index := (index) + (1);
-                                networkWrite11 := networkWrite10;
-                                mailboxes := networkWrite11;
-                                goto SendHeartBeats;
-                            } else {
-                                networkWrite11 := mailboxes;
-                                mailboxes := networkWrite11;
-                                goto SendHeartBeatLoop;
-                            };
-                    
-                    } else {
-                        timerWrite0 := frequency;
-                        networkWrite12 := mailboxes;
-                        mailboxes := networkWrite12;
-                        frequency := timerWrite0;
-                        goto HBLoop;
-                    };
-            
-            } else {
-                timerWrite1 := frequency;
-                networkWrite13 := mailboxes;
-                mailboxes := networkWrite13;
-                frequency := timerWrite1;
             };
     
     }
@@ -1001,8 +966,8 @@ BecomeLeader:               state := Leader;
 ******************************************************************************)
 
 \* BEGIN TRANSLATION
-\* Process variable msg of process kvRequests at line 477 col 15 changed to msg_
-\* Process variable result of process kvRequests at line 477 col 85 changed to result_
+\* Process variable msg of process kvRequests at line 484 col 15 changed to msg_
+\* Process variable result of process kvRequests at line 484 col 85 changed to result_
 CONSTANT defaultInitValue
 VARIABLES values, requestSet, learnedChan, raftLayerChan, kvClient, 
           idAbstract, database, iAmTheLeaderAbstract, frequency, terms, 
@@ -1013,21 +978,19 @@ VARIABLES values, requestSet, learnedChan, raftLayerChan, kvClient,
           learnerChanWrite, kvIdRead, dbWrite, dbWrite0, kvIdRead0, kvIdRead1, 
           dbRead, kvIdRead2, requestServiceWrite, requestServiceWrite0, 
           learnerChanWrite0, dbWrite1, requestServiceWrite1, timeoutRead, 
-          networkWrite, networkWrite0, networkWrite1, inputRead, inputWrite, 
-          appliedWrite, appliedWrite0, networkWrite2, inputWrite0, 
-          appliedWrite1, networkWrite3, networkRead, iAmTheLeaderWrite, 
-          iAmTheLeaderWrite0, lastmsgWrite, lastmsgWrite0, lastmsgWrite1, 
-          ifResult, appliedWrite2, appliedWrite3, ifResult0, networkWrite4, 
-          termWrite, iAmTheLeaderWrite1, termWrite0, iAmTheLeaderWrite2, 
-          termWrite1, iAmTheLeaderWrite3, termWrite2, networkWrite5, 
-          iAmTheLeaderWrite4, termWrite3, networkWrite6, iAmTheLeaderWrite5, 
-          termWrite4, lastmsgWrite2, networkWrite7, appliedWrite4, 
-          iAmTheLeaderWrite6, termWrite5, iAmTheLeaderWrite7, lastmsgWrite3, 
-          networkWrite8, appliedWrite5, termWrite6, networkWrite9, 
-          inputWrite1, appliedWrite6, iAmTheLeaderWrite8, lastmsgWrite4, 
-          termWrite7, iAmTheLeaderRead0, timerWrite, termRead, networkWrite10, 
-          networkWrite11, timerWrite0, networkWrite12, timerWrite1, 
-          networkWrite13, pc
+          networkWrite, networkWrite0, networkWrite1, networkWrite2, 
+          inputRead, inputWrite, appliedWrite, appliedWrite0, networkWrite3, 
+          networkWrite4, inputWrite0, appliedWrite1, networkWrite5, 
+          networkRead, iAmTheLeaderWrite, iAmTheLeaderWrite0, lastmsgWrite, 
+          lastmsgWrite0, lastmsgWrite1, ifResult, appliedWrite2, 
+          appliedWrite3, ifResult0, networkWrite6, termWrite, 
+          iAmTheLeaderWrite1, termWrite0, iAmTheLeaderWrite2, termWrite1, 
+          iAmTheLeaderWrite3, termWrite2, networkWrite7, iAmTheLeaderWrite4, 
+          termWrite3, networkWrite8, iAmTheLeaderWrite5, termWrite4, 
+          lastmsgWrite2, networkWrite9, appliedWrite4, iAmTheLeaderWrite6, 
+          termWrite5, iAmTheLeaderWrite7, lastmsgWrite3, networkWrite10, 
+          appliedWrite5, termWrite6, networkWrite11, inputWrite1, 
+          appliedWrite6, iAmTheLeaderWrite8, lastmsgWrite4, termWrite7, pc
 
 (* define statement *)
 RequestVote == 0
@@ -1050,8 +1013,7 @@ Term(log, index) == IF (((index) > (0)) /\ ((Len(log)) >= (index))) /\ ((Len(log
 VARIABLES msg_, null, heartbeatId, proposerId, counter, requestId, proposal, 
           result_, result, learnerId, decided, timeoutLocal, currentTerm, 
           votedFor, log, state, commitIndex, lastApplied, nextIndex, 
-          matchIndex, iterator, votes, value, msg, response, msgs, index, 
-          cterm
+          matchIndex, iterator, votes, value, msg, response, msgs
 
 vars == << values, requestSet, learnedChan, raftLayerChan, kvClient, 
            idAbstract, database, iAmTheLeaderAbstract, frequency, terms, 
@@ -1063,27 +1025,25 @@ vars == << values, requestSet, learnedChan, raftLayerChan, kvClient,
            kvIdRead0, kvIdRead1, dbRead, kvIdRead2, requestServiceWrite, 
            requestServiceWrite0, learnerChanWrite0, dbWrite1, 
            requestServiceWrite1, timeoutRead, networkWrite, networkWrite0, 
-           networkWrite1, inputRead, inputWrite, appliedWrite, appliedWrite0, 
-           networkWrite2, inputWrite0, appliedWrite1, networkWrite3, 
-           networkRead, iAmTheLeaderWrite, iAmTheLeaderWrite0, lastmsgWrite, 
-           lastmsgWrite0, lastmsgWrite1, ifResult, appliedWrite2, 
-           appliedWrite3, ifResult0, networkWrite4, termWrite, 
-           iAmTheLeaderWrite1, termWrite0, iAmTheLeaderWrite2, termWrite1, 
-           iAmTheLeaderWrite3, termWrite2, networkWrite5, iAmTheLeaderWrite4, 
-           termWrite3, networkWrite6, iAmTheLeaderWrite5, termWrite4, 
-           lastmsgWrite2, networkWrite7, appliedWrite4, iAmTheLeaderWrite6, 
-           termWrite5, iAmTheLeaderWrite7, lastmsgWrite3, networkWrite8, 
-           appliedWrite5, termWrite6, networkWrite9, inputWrite1, 
-           appliedWrite6, iAmTheLeaderWrite8, lastmsgWrite4, termWrite7, 
-           iAmTheLeaderRead0, timerWrite, termRead, networkWrite10, 
-           networkWrite11, timerWrite0, networkWrite12, timerWrite1, 
-           networkWrite13, pc, msg_, null, heartbeatId, proposerId, counter, 
+           networkWrite1, networkWrite2, inputRead, inputWrite, appliedWrite, 
+           appliedWrite0, networkWrite3, networkWrite4, inputWrite0, 
+           appliedWrite1, networkWrite5, networkRead, iAmTheLeaderWrite, 
+           iAmTheLeaderWrite0, lastmsgWrite, lastmsgWrite0, lastmsgWrite1, 
+           ifResult, appliedWrite2, appliedWrite3, ifResult0, networkWrite6, 
+           termWrite, iAmTheLeaderWrite1, termWrite0, iAmTheLeaderWrite2, 
+           termWrite1, iAmTheLeaderWrite3, termWrite2, networkWrite7, 
+           iAmTheLeaderWrite4, termWrite3, networkWrite8, iAmTheLeaderWrite5, 
+           termWrite4, lastmsgWrite2, networkWrite9, appliedWrite4, 
+           iAmTheLeaderWrite6, termWrite5, iAmTheLeaderWrite7, lastmsgWrite3, 
+           networkWrite10, appliedWrite5, termWrite6, networkWrite11, 
+           inputWrite1, appliedWrite6, iAmTheLeaderWrite8, lastmsgWrite4, 
+           termWrite7, pc, msg_, null, heartbeatId, proposerId, counter, 
            requestId, proposal, result_, result, learnerId, decided, 
            timeoutLocal, currentTerm, votedFor, log, state, commitIndex, 
            lastApplied, nextIndex, matchIndex, iterator, votes, value, msg, 
-           response, msgs, index, cterm >>
+           response, msgs >>
 
-ProcSet == (KVRequests) \cup (KVManager) \cup (Servers) \cup (Heartbeats)
+ProcSet == (KVRequests) \cup (KVManager) \cup (Servers)
 
 Init == (* Global variables *)
         /\ values = [k \in Servers |-> <<>>]
@@ -1130,14 +1090,16 @@ Init == (* Global variables *)
         /\ networkWrite = defaultInitValue
         /\ networkWrite0 = defaultInitValue
         /\ networkWrite1 = defaultInitValue
+        /\ networkWrite2 = defaultInitValue
         /\ inputRead = defaultInitValue
         /\ inputWrite = defaultInitValue
         /\ appliedWrite = defaultInitValue
         /\ appliedWrite0 = defaultInitValue
-        /\ networkWrite2 = defaultInitValue
+        /\ networkWrite3 = defaultInitValue
+        /\ networkWrite4 = defaultInitValue
         /\ inputWrite0 = defaultInitValue
         /\ appliedWrite1 = defaultInitValue
-        /\ networkWrite3 = defaultInitValue
+        /\ networkWrite5 = defaultInitValue
         /\ networkRead = defaultInitValue
         /\ iAmTheLeaderWrite = defaultInitValue
         /\ iAmTheLeaderWrite0 = defaultInitValue
@@ -1148,7 +1110,7 @@ Init == (* Global variables *)
         /\ appliedWrite2 = defaultInitValue
         /\ appliedWrite3 = defaultInitValue
         /\ ifResult0 = defaultInitValue
-        /\ networkWrite4 = defaultInitValue
+        /\ networkWrite6 = defaultInitValue
         /\ termWrite = defaultInitValue
         /\ iAmTheLeaderWrite1 = defaultInitValue
         /\ termWrite0 = defaultInitValue
@@ -1156,37 +1118,28 @@ Init == (* Global variables *)
         /\ termWrite1 = defaultInitValue
         /\ iAmTheLeaderWrite3 = defaultInitValue
         /\ termWrite2 = defaultInitValue
-        /\ networkWrite5 = defaultInitValue
+        /\ networkWrite7 = defaultInitValue
         /\ iAmTheLeaderWrite4 = defaultInitValue
         /\ termWrite3 = defaultInitValue
-        /\ networkWrite6 = defaultInitValue
+        /\ networkWrite8 = defaultInitValue
         /\ iAmTheLeaderWrite5 = defaultInitValue
         /\ termWrite4 = defaultInitValue
         /\ lastmsgWrite2 = defaultInitValue
-        /\ networkWrite7 = defaultInitValue
+        /\ networkWrite9 = defaultInitValue
         /\ appliedWrite4 = defaultInitValue
         /\ iAmTheLeaderWrite6 = defaultInitValue
         /\ termWrite5 = defaultInitValue
         /\ iAmTheLeaderWrite7 = defaultInitValue
         /\ lastmsgWrite3 = defaultInitValue
-        /\ networkWrite8 = defaultInitValue
+        /\ networkWrite10 = defaultInitValue
         /\ appliedWrite5 = defaultInitValue
         /\ termWrite6 = defaultInitValue
-        /\ networkWrite9 = defaultInitValue
+        /\ networkWrite11 = defaultInitValue
         /\ inputWrite1 = defaultInitValue
         /\ appliedWrite6 = defaultInitValue
         /\ iAmTheLeaderWrite8 = defaultInitValue
         /\ lastmsgWrite4 = defaultInitValue
         /\ termWrite7 = defaultInitValue
-        /\ iAmTheLeaderRead0 = defaultInitValue
-        /\ timerWrite = defaultInitValue
-        /\ termRead = defaultInitValue
-        /\ networkWrite10 = defaultInitValue
-        /\ networkWrite11 = defaultInitValue
-        /\ timerWrite0 = defaultInitValue
-        /\ networkWrite12 = defaultInitValue
-        /\ timerWrite1 = defaultInitValue
-        /\ networkWrite13 = defaultInitValue
         (* Process kvRequests *)
         /\ msg_ = [self \in KVRequests |-> defaultInitValue]
         /\ null = [self \in KVRequests |-> defaultInitValue]
@@ -1216,13 +1169,9 @@ Init == (* Global variables *)
         /\ msg = [self \in Servers |-> defaultInitValue]
         /\ response = [self \in Servers |-> defaultInitValue]
         /\ msgs = [self \in Servers |-> defaultInitValue]
-        (* Process heartbeat *)
-        /\ index = [self \in Heartbeats |-> defaultInitValue]
-        /\ cterm = [self \in Heartbeats |-> defaultInitValue]
         /\ pc = [self \in ProcSet |-> CASE self \in KVRequests -> "kvInit"
                                         [] self \in KVManager -> "findId"
-                                        [] self \in Servers -> "NodeLoop"
-                                        [] self \in Heartbeats -> "HBLoop"]
+                                        [] self \in Servers -> "NodeLoop"]
 
 kvInit(self) == /\ pc[self] = "kvInit"
                 /\ heartbeatId' = [heartbeatId EXCEPT ![self] = (self) - (NUM_NODES)]
@@ -1244,33 +1193,30 @@ kvInit(self) == /\ pc[self] = "kvInit"
                                 learnerChanWrite0, dbWrite1, 
                                 requestServiceWrite1, timeoutRead, 
                                 networkWrite, networkWrite0, networkWrite1, 
-                                inputRead, inputWrite, appliedWrite, 
-                                appliedWrite0, networkWrite2, inputWrite0, 
-                                appliedWrite1, networkWrite3, networkRead, 
-                                iAmTheLeaderWrite, iAmTheLeaderWrite0, 
-                                lastmsgWrite, lastmsgWrite0, lastmsgWrite1, 
-                                ifResult, appliedWrite2, appliedWrite3, 
-                                ifResult0, networkWrite4, termWrite, 
-                                iAmTheLeaderWrite1, termWrite0, 
-                                iAmTheLeaderWrite2, termWrite1, 
-                                iAmTheLeaderWrite3, termWrite2, networkWrite5, 
-                                iAmTheLeaderWrite4, termWrite3, networkWrite6, 
+                                networkWrite2, inputRead, inputWrite, 
+                                appliedWrite, appliedWrite0, networkWrite3, 
+                                networkWrite4, inputWrite0, appliedWrite1, 
+                                networkWrite5, networkRead, iAmTheLeaderWrite, 
+                                iAmTheLeaderWrite0, lastmsgWrite, 
+                                lastmsgWrite0, lastmsgWrite1, ifResult, 
+                                appliedWrite2, appliedWrite3, ifResult0, 
+                                networkWrite6, termWrite, iAmTheLeaderWrite1, 
+                                termWrite0, iAmTheLeaderWrite2, termWrite1, 
+                                iAmTheLeaderWrite3, termWrite2, networkWrite7, 
+                                iAmTheLeaderWrite4, termWrite3, networkWrite8, 
                                 iAmTheLeaderWrite5, termWrite4, lastmsgWrite2, 
-                                networkWrite7, appliedWrite4, 
+                                networkWrite9, appliedWrite4, 
                                 iAmTheLeaderWrite6, termWrite5, 
                                 iAmTheLeaderWrite7, lastmsgWrite3, 
-                                networkWrite8, appliedWrite5, termWrite6, 
-                                networkWrite9, inputWrite1, appliedWrite6, 
+                                networkWrite10, appliedWrite5, termWrite6, 
+                                networkWrite11, inputWrite1, appliedWrite6, 
                                 iAmTheLeaderWrite8, lastmsgWrite4, termWrite7, 
-                                iAmTheLeaderRead0, timerWrite, termRead, 
-                                networkWrite10, networkWrite11, timerWrite0, 
-                                networkWrite12, timerWrite1, networkWrite13, 
                                 msg_, null, counter, requestId, proposal, 
                                 result_, result, learnerId, decided, 
                                 timeoutLocal, currentTerm, votedFor, log, 
                                 state, commitIndex, lastApplied, nextIndex, 
                                 matchIndex, iterator, votes, value, msg, 
-                                response, msgs, index, cterm >>
+                                response, msgs >>
 
 kvLoop(self) == /\ pc[self] = "kvLoop"
                 /\ IF TRUE
@@ -1280,7 +1226,7 @@ kvLoop(self) == /\ pc[self] = "kvLoop"
                                 /\ requestsRead' = req0
                            /\ msg_' = [msg_ EXCEPT ![self] = requestsRead']
                            /\ Assert((((msg_'[self]).type) = (GET_MSG)) \/ (((msg_'[self]).type) = (PUT_MSG)), 
-                                     "Failure of assertion at line 490, column 17.")
+                                     "Failure of assertion at line 497, column 17.")
                            /\ iAmTheLeaderRead' = iAmTheLeaderAbstract[heartbeatId[self]]
                            /\ IF iAmTheLeaderRead'
                                  THEN /\ requestId' = [requestId EXCEPT ![self] = <<self, counter[self]>>]
@@ -1351,32 +1297,29 @@ kvLoop(self) == /\ pc[self] = "kvLoop"
                                 learnerChanWrite0, dbWrite1, 
                                 requestServiceWrite1, timeoutRead, 
                                 networkWrite, networkWrite0, networkWrite1, 
-                                inputRead, inputWrite, appliedWrite, 
-                                appliedWrite0, networkWrite2, inputWrite0, 
-                                appliedWrite1, networkWrite3, networkRead, 
-                                iAmTheLeaderWrite, iAmTheLeaderWrite0, 
-                                lastmsgWrite, lastmsgWrite0, lastmsgWrite1, 
-                                ifResult, appliedWrite2, appliedWrite3, 
-                                ifResult0, networkWrite4, termWrite, 
-                                iAmTheLeaderWrite1, termWrite0, 
-                                iAmTheLeaderWrite2, termWrite1, 
-                                iAmTheLeaderWrite3, termWrite2, networkWrite5, 
-                                iAmTheLeaderWrite4, termWrite3, networkWrite6, 
+                                networkWrite2, inputRead, inputWrite, 
+                                appliedWrite, appliedWrite0, networkWrite3, 
+                                networkWrite4, inputWrite0, appliedWrite1, 
+                                networkWrite5, networkRead, iAmTheLeaderWrite, 
+                                iAmTheLeaderWrite0, lastmsgWrite, 
+                                lastmsgWrite0, lastmsgWrite1, ifResult, 
+                                appliedWrite2, appliedWrite3, ifResult0, 
+                                networkWrite6, termWrite, iAmTheLeaderWrite1, 
+                                termWrite0, iAmTheLeaderWrite2, termWrite1, 
+                                iAmTheLeaderWrite3, termWrite2, networkWrite7, 
+                                iAmTheLeaderWrite4, termWrite3, networkWrite8, 
                                 iAmTheLeaderWrite5, termWrite4, lastmsgWrite2, 
-                                networkWrite7, appliedWrite4, 
+                                networkWrite9, appliedWrite4, 
                                 iAmTheLeaderWrite6, termWrite5, 
                                 iAmTheLeaderWrite7, lastmsgWrite3, 
-                                networkWrite8, appliedWrite5, termWrite6, 
-                                networkWrite9, inputWrite1, appliedWrite6, 
+                                networkWrite10, appliedWrite5, termWrite6, 
+                                networkWrite11, inputWrite1, appliedWrite6, 
                                 iAmTheLeaderWrite8, lastmsgWrite4, termWrite7, 
-                                iAmTheLeaderRead0, timerWrite, termRead, 
-                                networkWrite10, networkWrite11, timerWrite0, 
-                                networkWrite12, timerWrite1, networkWrite13, 
                                 null, heartbeatId, proposerId, result, 
                                 learnerId, decided, timeoutLocal, currentTerm, 
                                 votedFor, log, state, commitIndex, lastApplied, 
                                 nextIndex, matchIndex, iterator, votes, value, 
-                                msg, response, msgs, index, cterm >>
+                                msg, response, msgs >>
 
 kvRequests(self) == kvInit(self) \/ kvLoop(self)
 
@@ -1399,33 +1342,30 @@ findId(self) == /\ pc[self] = "findId"
                                 learnerChanWrite0, dbWrite1, 
                                 requestServiceWrite1, timeoutRead, 
                                 networkWrite, networkWrite0, networkWrite1, 
-                                inputRead, inputWrite, appliedWrite, 
-                                appliedWrite0, networkWrite2, inputWrite0, 
-                                appliedWrite1, networkWrite3, networkRead, 
-                                iAmTheLeaderWrite, iAmTheLeaderWrite0, 
-                                lastmsgWrite, lastmsgWrite0, lastmsgWrite1, 
-                                ifResult, appliedWrite2, appliedWrite3, 
-                                ifResult0, networkWrite4, termWrite, 
-                                iAmTheLeaderWrite1, termWrite0, 
-                                iAmTheLeaderWrite2, termWrite1, 
-                                iAmTheLeaderWrite3, termWrite2, networkWrite5, 
-                                iAmTheLeaderWrite4, termWrite3, networkWrite6, 
+                                networkWrite2, inputRead, inputWrite, 
+                                appliedWrite, appliedWrite0, networkWrite3, 
+                                networkWrite4, inputWrite0, appliedWrite1, 
+                                networkWrite5, networkRead, iAmTheLeaderWrite, 
+                                iAmTheLeaderWrite0, lastmsgWrite, 
+                                lastmsgWrite0, lastmsgWrite1, ifResult, 
+                                appliedWrite2, appliedWrite3, ifResult0, 
+                                networkWrite6, termWrite, iAmTheLeaderWrite1, 
+                                termWrite0, iAmTheLeaderWrite2, termWrite1, 
+                                iAmTheLeaderWrite3, termWrite2, networkWrite7, 
+                                iAmTheLeaderWrite4, termWrite3, networkWrite8, 
                                 iAmTheLeaderWrite5, termWrite4, lastmsgWrite2, 
-                                networkWrite7, appliedWrite4, 
+                                networkWrite9, appliedWrite4, 
                                 iAmTheLeaderWrite6, termWrite5, 
                                 iAmTheLeaderWrite7, lastmsgWrite3, 
-                                networkWrite8, appliedWrite5, termWrite6, 
-                                networkWrite9, inputWrite1, appliedWrite6, 
+                                networkWrite10, appliedWrite5, termWrite6, 
+                                networkWrite11, inputWrite1, appliedWrite6, 
                                 iAmTheLeaderWrite8, lastmsgWrite4, termWrite7, 
-                                iAmTheLeaderRead0, timerWrite, termRead, 
-                                networkWrite10, networkWrite11, timerWrite0, 
-                                networkWrite12, timerWrite1, networkWrite13, 
                                 msg_, null, heartbeatId, proposerId, counter, 
                                 requestId, proposal, result_, result, decided, 
                                 timeoutLocal, currentTerm, votedFor, log, 
                                 state, commitIndex, lastApplied, nextIndex, 
                                 matchIndex, iterator, votes, value, msg, 
-                                response, msgs, index, cterm >>
+                                response, msgs >>
 
 kvManagerLoop(self) == /\ pc[self] = "kvManagerLoop"
                        /\ IF TRUE
@@ -1497,40 +1437,36 @@ kvManagerLoop(self) == /\ pc[self] = "kvManagerLoop"
                                        requestsWrite0, proposerChanWrite1, 
                                        raftChanWrite1, upstreamWrite1, 
                                        timeoutRead, networkWrite, 
-                                       networkWrite0, networkWrite1, inputRead, 
-                                       inputWrite, appliedWrite, appliedWrite0, 
-                                       networkWrite2, inputWrite0, 
-                                       appliedWrite1, networkWrite3, 
-                                       networkRead, iAmTheLeaderWrite, 
-                                       iAmTheLeaderWrite0, lastmsgWrite, 
-                                       lastmsgWrite0, lastmsgWrite1, ifResult, 
-                                       appliedWrite2, appliedWrite3, ifResult0, 
-                                       networkWrite4, termWrite, 
-                                       iAmTheLeaderWrite1, termWrite0, 
-                                       iAmTheLeaderWrite2, termWrite1, 
-                                       iAmTheLeaderWrite3, termWrite2, 
-                                       networkWrite5, iAmTheLeaderWrite4, 
-                                       termWrite3, networkWrite6, 
-                                       iAmTheLeaderWrite5, termWrite4, 
-                                       lastmsgWrite2, networkWrite7, 
-                                       appliedWrite4, iAmTheLeaderWrite6, 
-                                       termWrite5, iAmTheLeaderWrite7, 
-                                       lastmsgWrite3, networkWrite8, 
-                                       appliedWrite5, termWrite6, 
-                                       networkWrite9, inputWrite1, 
+                                       networkWrite0, networkWrite1, 
+                                       networkWrite2, inputRead, inputWrite, 
+                                       appliedWrite, appliedWrite0, 
+                                       networkWrite3, networkWrite4, 
+                                       inputWrite0, appliedWrite1, 
+                                       networkWrite5, networkRead, 
+                                       iAmTheLeaderWrite, iAmTheLeaderWrite0, 
+                                       lastmsgWrite, lastmsgWrite0, 
+                                       lastmsgWrite1, ifResult, appliedWrite2, 
+                                       appliedWrite3, ifResult0, networkWrite6, 
+                                       termWrite, iAmTheLeaderWrite1, 
+                                       termWrite0, iAmTheLeaderWrite2, 
+                                       termWrite1, iAmTheLeaderWrite3, 
+                                       termWrite2, networkWrite7, 
+                                       iAmTheLeaderWrite4, termWrite3, 
+                                       networkWrite8, iAmTheLeaderWrite5, 
+                                       termWrite4, lastmsgWrite2, 
+                                       networkWrite9, appliedWrite4, 
+                                       iAmTheLeaderWrite6, termWrite5, 
+                                       iAmTheLeaderWrite7, lastmsgWrite3, 
+                                       networkWrite10, appliedWrite5, 
+                                       termWrite6, networkWrite11, inputWrite1, 
                                        appliedWrite6, iAmTheLeaderWrite8, 
-                                       lastmsgWrite4, termWrite7, 
-                                       iAmTheLeaderRead0, timerWrite, termRead, 
-                                       networkWrite10, networkWrite11, 
-                                       timerWrite0, networkWrite12, 
-                                       timerWrite1, networkWrite13, msg_, null, 
+                                       lastmsgWrite4, termWrite7, msg_, null, 
                                        heartbeatId, proposerId, counter, 
                                        requestId, proposal, result_, learnerId, 
                                        timeoutLocal, currentTerm, votedFor, 
                                        log, state, commitIndex, lastApplied, 
                                        nextIndex, matchIndex, iterator, votes, 
-                                       value, msg, response, msgs, index, 
-                                       cterm >>
+                                       value, msg, response, msgs >>
 
 kvManager(self) == findId(self) \/ kvManagerLoop(self)
 
@@ -1540,16 +1476,16 @@ NodeLoop(self) == /\ pc[self] = "NodeLoop"
                              /\ UNCHANGED << values, learnedChan, 
                                              iAmTheLeaderAbstract, terms, 
                                              lastSeen, mailboxes, 
-                                             networkWrite9, inputWrite1, 
+                                             networkWrite11, inputWrite1, 
                                              appliedWrite6, iAmTheLeaderWrite8, 
                                              lastmsgWrite4, termWrite7 >>
-                        ELSE /\ networkWrite9' = mailboxes
+                        ELSE /\ networkWrite11' = mailboxes
                              /\ inputWrite1' = values
                              /\ appliedWrite6' = learnedChan
                              /\ iAmTheLeaderWrite8' = iAmTheLeaderAbstract
                              /\ lastmsgWrite4' = lastSeen
                              /\ termWrite7' = terms
-                             /\ mailboxes' = networkWrite9'
+                             /\ mailboxes' = networkWrite11'
                              /\ learnedChan' = appliedWrite6'
                              /\ values' = inputWrite1'
                              /\ iAmTheLeaderAbstract' = iAmTheLeaderWrite8'
@@ -1571,33 +1507,31 @@ NodeLoop(self) == /\ pc[self] = "NodeLoop"
                                   requestServiceWrite0, learnerChanWrite0, 
                                   dbWrite1, requestServiceWrite1, timeoutRead, 
                                   networkWrite, networkWrite0, networkWrite1, 
-                                  inputRead, inputWrite, appliedWrite, 
-                                  appliedWrite0, networkWrite2, inputWrite0, 
-                                  appliedWrite1, networkWrite3, networkRead, 
+                                  networkWrite2, inputRead, inputWrite, 
+                                  appliedWrite, appliedWrite0, networkWrite3, 
+                                  networkWrite4, inputWrite0, appliedWrite1, 
+                                  networkWrite5, networkRead, 
                                   iAmTheLeaderWrite, iAmTheLeaderWrite0, 
                                   lastmsgWrite, lastmsgWrite0, lastmsgWrite1, 
                                   ifResult, appliedWrite2, appliedWrite3, 
-                                  ifResult0, networkWrite4, termWrite, 
+                                  ifResult0, networkWrite6, termWrite, 
                                   iAmTheLeaderWrite1, termWrite0, 
                                   iAmTheLeaderWrite2, termWrite1, 
                                   iAmTheLeaderWrite3, termWrite2, 
-                                  networkWrite5, iAmTheLeaderWrite4, 
-                                  termWrite3, networkWrite6, 
+                                  networkWrite7, iAmTheLeaderWrite4, 
+                                  termWrite3, networkWrite8, 
                                   iAmTheLeaderWrite5, termWrite4, 
-                                  lastmsgWrite2, networkWrite7, appliedWrite4, 
+                                  lastmsgWrite2, networkWrite9, appliedWrite4, 
                                   iAmTheLeaderWrite6, termWrite5, 
                                   iAmTheLeaderWrite7, lastmsgWrite3, 
-                                  networkWrite8, appliedWrite5, termWrite6, 
-                                  iAmTheLeaderRead0, timerWrite, termRead, 
-                                  networkWrite10, networkWrite11, timerWrite0, 
-                                  networkWrite12, timerWrite1, networkWrite13, 
+                                  networkWrite10, appliedWrite5, termWrite6, 
                                   msg_, null, heartbeatId, proposerId, counter, 
                                   requestId, proposal, result_, result, 
                                   learnerId, decided, timeoutLocal, 
                                   currentTerm, votedFor, log, state, 
                                   commitIndex, lastApplied, nextIndex, 
                                   matchIndex, iterator, votes, value, msg, 
-                                  response, msgs, index, cterm >>
+                                  response, msgs >>
 
 TimeoutCheck(self) == /\ pc[self] = "TimeoutCheck"
                       /\ \/ /\ timeoutRead' = FALSE
@@ -1609,9 +1543,9 @@ TimeoutCheck(self) == /\ pc[self] = "TimeoutCheck"
                                  /\ votedFor' = [votedFor EXCEPT ![self] = self]
                                  /\ iterator' = [iterator EXCEPT ![self] = 0]
                                  /\ pc' = [pc EXCEPT ![self] = "SendReqVotes"]
-                                 /\ UNCHANGED << mailboxes, networkWrite1 >>
-                            ELSE /\ networkWrite1' = mailboxes
-                                 /\ mailboxes' = networkWrite1'
+                                 /\ UNCHANGED << mailboxes, networkWrite2 >>
+                            ELSE /\ networkWrite2' = mailboxes
+                                 /\ mailboxes' = networkWrite2'
                                  /\ pc' = [pc EXCEPT ![self] = "LeaderCheck"]
                                  /\ UNCHANGED << currentTerm, votedFor, state, 
                                                  iterator, votes >>
@@ -1631,51 +1565,52 @@ TimeoutCheck(self) == /\ pc[self] = "TimeoutCheck"
                                       kvIdRead2, requestServiceWrite, 
                                       requestServiceWrite0, learnerChanWrite0, 
                                       dbWrite1, requestServiceWrite1, 
-                                      networkWrite, networkWrite0, inputRead, 
-                                      inputWrite, appliedWrite, appliedWrite0, 
-                                      networkWrite2, inputWrite0, 
-                                      appliedWrite1, networkWrite3, 
-                                      networkRead, iAmTheLeaderWrite, 
-                                      iAmTheLeaderWrite0, lastmsgWrite, 
-                                      lastmsgWrite0, lastmsgWrite1, ifResult, 
-                                      appliedWrite2, appliedWrite3, ifResult0, 
-                                      networkWrite4, termWrite, 
-                                      iAmTheLeaderWrite1, termWrite0, 
-                                      iAmTheLeaderWrite2, termWrite1, 
-                                      iAmTheLeaderWrite3, termWrite2, 
-                                      networkWrite5, iAmTheLeaderWrite4, 
-                                      termWrite3, networkWrite6, 
-                                      iAmTheLeaderWrite5, termWrite4, 
-                                      lastmsgWrite2, networkWrite7, 
+                                      networkWrite, networkWrite0, 
+                                      networkWrite1, inputRead, inputWrite, 
+                                      appliedWrite, appliedWrite0, 
+                                      networkWrite3, networkWrite4, 
+                                      inputWrite0, appliedWrite1, 
+                                      networkWrite5, networkRead, 
+                                      iAmTheLeaderWrite, iAmTheLeaderWrite0, 
+                                      lastmsgWrite, lastmsgWrite0, 
+                                      lastmsgWrite1, ifResult, appliedWrite2, 
+                                      appliedWrite3, ifResult0, networkWrite6, 
+                                      termWrite, iAmTheLeaderWrite1, 
+                                      termWrite0, iAmTheLeaderWrite2, 
+                                      termWrite1, iAmTheLeaderWrite3, 
+                                      termWrite2, networkWrite7, 
+                                      iAmTheLeaderWrite4, termWrite3, 
+                                      networkWrite8, iAmTheLeaderWrite5, 
+                                      termWrite4, lastmsgWrite2, networkWrite9, 
                                       appliedWrite4, iAmTheLeaderWrite6, 
                                       termWrite5, iAmTheLeaderWrite7, 
-                                      lastmsgWrite3, networkWrite8, 
-                                      appliedWrite5, termWrite6, networkWrite9, 
-                                      inputWrite1, appliedWrite6, 
-                                      iAmTheLeaderWrite8, lastmsgWrite4, 
-                                      termWrite7, iAmTheLeaderRead0, 
-                                      timerWrite, termRead, networkWrite10, 
-                                      networkWrite11, timerWrite0, 
-                                      networkWrite12, timerWrite1, 
-                                      networkWrite13, msg_, null, heartbeatId, 
-                                      proposerId, counter, requestId, proposal, 
-                                      result_, result, learnerId, decided, 
-                                      timeoutLocal, log, commitIndex, 
-                                      lastApplied, nextIndex, matchIndex, 
-                                      value, msg, response, msgs, index, cterm >>
+                                      lastmsgWrite3, networkWrite10, 
+                                      appliedWrite5, termWrite6, 
+                                      networkWrite11, inputWrite1, 
+                                      appliedWrite6, iAmTheLeaderWrite8, 
+                                      lastmsgWrite4, termWrite7, msg_, null, 
+                                      heartbeatId, proposerId, counter, 
+                                      requestId, proposal, result_, result, 
+                                      learnerId, decided, timeoutLocal, log, 
+                                      commitIndex, lastApplied, nextIndex, 
+                                      matchIndex, value, msg, response, msgs >>
 
 SendReqVotes(self) == /\ pc[self] = "SendReqVotes"
                       /\ IF (iterator[self]) < (NUM_NODES)
-                            THEN /\ (Len(mailboxes[iterator[self]])) < (BUFFER_SIZE)
-                                 /\ networkWrite' = [mailboxes EXCEPT ![iterator[self]] = Append(mailboxes[iterator[self]], [sender |-> self, type |-> RequestVote, term |-> currentTerm[self], granted |-> FALSE, entries |-> <<>>, prevIndex |-> Len(log[self]), prevTerm |-> Term(log[self], Len(log[self])), commit |-> NULL])]
+                            THEN /\ IF (iterator[self]) # (self)
+                                       THEN /\ networkWrite' = [mailboxes EXCEPT ![iterator[self]] = Append(mailboxes[iterator[self]], [sender |-> self, type |-> RequestVote, term |-> currentTerm[self], granted |-> FALSE, entries |-> <<>>, prevIndex |-> Len(log[self]), prevTerm |-> Term(log[self], Len(log[self])), commit |-> NULL])]
+                                            /\ networkWrite0' = networkWrite'
+                                       ELSE /\ networkWrite0' = mailboxes
+                                            /\ UNCHANGED networkWrite
                                  /\ iterator' = [iterator EXCEPT ![self] = (iterator[self]) + (1)]
-                                 /\ networkWrite0' = networkWrite'
-                                 /\ mailboxes' = networkWrite0'
+                                 /\ networkWrite1' = networkWrite0'
+                                 /\ mailboxes' = networkWrite1'
                                  /\ pc' = [pc EXCEPT ![self] = "SendReqVotes"]
-                            ELSE /\ networkWrite0' = mailboxes
-                                 /\ mailboxes' = networkWrite0'
+                            ELSE /\ networkWrite1' = mailboxes
+                                 /\ mailboxes' = networkWrite1'
                                  /\ pc' = [pc EXCEPT ![self] = "LeaderCheck"]
-                                 /\ UNCHANGED << networkWrite, iterator >>
+                                 /\ UNCHANGED << networkWrite, networkWrite0, 
+                                                 iterator >>
                       /\ UNCHANGED << values, requestSet, learnedChan, 
                                       raftLayerChan, kvClient, idAbstract, 
                                       database, iAmTheLeaderAbstract, 
@@ -1692,50 +1627,47 @@ SendReqVotes(self) == /\ pc[self] = "SendReqVotes"
                                       kvIdRead2, requestServiceWrite, 
                                       requestServiceWrite0, learnerChanWrite0, 
                                       dbWrite1, requestServiceWrite1, 
-                                      timeoutRead, networkWrite1, inputRead, 
+                                      timeoutRead, networkWrite2, inputRead, 
                                       inputWrite, appliedWrite, appliedWrite0, 
-                                      networkWrite2, inputWrite0, 
-                                      appliedWrite1, networkWrite3, 
-                                      networkRead, iAmTheLeaderWrite, 
-                                      iAmTheLeaderWrite0, lastmsgWrite, 
-                                      lastmsgWrite0, lastmsgWrite1, ifResult, 
-                                      appliedWrite2, appliedWrite3, ifResult0, 
-                                      networkWrite4, termWrite, 
-                                      iAmTheLeaderWrite1, termWrite0, 
-                                      iAmTheLeaderWrite2, termWrite1, 
-                                      iAmTheLeaderWrite3, termWrite2, 
-                                      networkWrite5, iAmTheLeaderWrite4, 
-                                      termWrite3, networkWrite6, 
-                                      iAmTheLeaderWrite5, termWrite4, 
-                                      lastmsgWrite2, networkWrite7, 
+                                      networkWrite3, networkWrite4, 
+                                      inputWrite0, appliedWrite1, 
+                                      networkWrite5, networkRead, 
+                                      iAmTheLeaderWrite, iAmTheLeaderWrite0, 
+                                      lastmsgWrite, lastmsgWrite0, 
+                                      lastmsgWrite1, ifResult, appliedWrite2, 
+                                      appliedWrite3, ifResult0, networkWrite6, 
+                                      termWrite, iAmTheLeaderWrite1, 
+                                      termWrite0, iAmTheLeaderWrite2, 
+                                      termWrite1, iAmTheLeaderWrite3, 
+                                      termWrite2, networkWrite7, 
+                                      iAmTheLeaderWrite4, termWrite3, 
+                                      networkWrite8, iAmTheLeaderWrite5, 
+                                      termWrite4, lastmsgWrite2, networkWrite9, 
                                       appliedWrite4, iAmTheLeaderWrite6, 
                                       termWrite5, iAmTheLeaderWrite7, 
-                                      lastmsgWrite3, networkWrite8, 
-                                      appliedWrite5, termWrite6, networkWrite9, 
-                                      inputWrite1, appliedWrite6, 
-                                      iAmTheLeaderWrite8, lastmsgWrite4, 
-                                      termWrite7, iAmTheLeaderRead0, 
-                                      timerWrite, termRead, networkWrite10, 
-                                      networkWrite11, timerWrite0, 
-                                      networkWrite12, timerWrite1, 
-                                      networkWrite13, msg_, null, heartbeatId, 
-                                      proposerId, counter, requestId, proposal, 
-                                      result_, result, learnerId, decided, 
-                                      timeoutLocal, currentTerm, votedFor, log, 
-                                      state, commitIndex, lastApplied, 
-                                      nextIndex, matchIndex, votes, value, msg, 
-                                      response, msgs, index, cterm >>
+                                      lastmsgWrite3, networkWrite10, 
+                                      appliedWrite5, termWrite6, 
+                                      networkWrite11, inputWrite1, 
+                                      appliedWrite6, iAmTheLeaderWrite8, 
+                                      lastmsgWrite4, termWrite7, msg_, null, 
+                                      heartbeatId, proposerId, counter, 
+                                      requestId, proposal, result_, result, 
+                                      learnerId, decided, timeoutLocal, 
+                                      currentTerm, votedFor, log, state, 
+                                      commitIndex, lastApplied, nextIndex, 
+                                      matchIndex, votes, value, msg, response, 
+                                      msgs >>
 
 LeaderCheck(self) == /\ pc[self] = "LeaderCheck"
                      /\ IF (state[self]) = (Leader)
                            THEN /\ pc' = [pc EXCEPT ![self] = "GetVal"]
                                 /\ UNCHANGED << values, learnedChan, mailboxes, 
                                                 inputWrite0, appliedWrite1, 
-                                                networkWrite3 >>
+                                                networkWrite5 >>
                            ELSE /\ inputWrite0' = values
                                 /\ appliedWrite1' = learnedChan
-                                /\ networkWrite3' = mailboxes
-                                /\ mailboxes' = networkWrite3'
+                                /\ networkWrite5' = mailboxes
+                                /\ mailboxes' = networkWrite5'
                                 /\ learnedChan' = appliedWrite1'
                                 /\ values' = inputWrite0'
                                 /\ pc' = [pc EXCEPT ![self] = "RecvMsg"]
@@ -1756,36 +1688,33 @@ LeaderCheck(self) == /\ pc[self] = "LeaderCheck"
                                      learnerChanWrite0, dbWrite1, 
                                      requestServiceWrite1, timeoutRead, 
                                      networkWrite, networkWrite0, 
-                                     networkWrite1, inputRead, inputWrite, 
-                                     appliedWrite, appliedWrite0, 
-                                     networkWrite2, networkRead, 
+                                     networkWrite1, networkWrite2, inputRead, 
+                                     inputWrite, appliedWrite, appliedWrite0, 
+                                     networkWrite3, networkWrite4, networkRead, 
                                      iAmTheLeaderWrite, iAmTheLeaderWrite0, 
                                      lastmsgWrite, lastmsgWrite0, 
                                      lastmsgWrite1, ifResult, appliedWrite2, 
-                                     appliedWrite3, ifResult0, networkWrite4, 
+                                     appliedWrite3, ifResult0, networkWrite6, 
                                      termWrite, iAmTheLeaderWrite1, termWrite0, 
                                      iAmTheLeaderWrite2, termWrite1, 
                                      iAmTheLeaderWrite3, termWrite2, 
-                                     networkWrite5, iAmTheLeaderWrite4, 
-                                     termWrite3, networkWrite6, 
+                                     networkWrite7, iAmTheLeaderWrite4, 
+                                     termWrite3, networkWrite8, 
                                      iAmTheLeaderWrite5, termWrite4, 
-                                     lastmsgWrite2, networkWrite7, 
+                                     lastmsgWrite2, networkWrite9, 
                                      appliedWrite4, iAmTheLeaderWrite6, 
                                      termWrite5, iAmTheLeaderWrite7, 
-                                     lastmsgWrite3, networkWrite8, 
-                                     appliedWrite5, termWrite6, networkWrite9, 
+                                     lastmsgWrite3, networkWrite10, 
+                                     appliedWrite5, termWrite6, networkWrite11, 
                                      inputWrite1, appliedWrite6, 
                                      iAmTheLeaderWrite8, lastmsgWrite4, 
-                                     termWrite7, iAmTheLeaderRead0, timerWrite, 
-                                     termRead, networkWrite10, networkWrite11, 
-                                     timerWrite0, networkWrite12, timerWrite1, 
-                                     networkWrite13, msg_, null, heartbeatId, 
+                                     termWrite7, msg_, null, heartbeatId, 
                                      proposerId, counter, requestId, proposal, 
                                      result_, result, learnerId, decided, 
                                      timeoutLocal, currentTerm, votedFor, log, 
                                      state, commitIndex, lastApplied, 
                                      nextIndex, matchIndex, iterator, votes, 
-                                     value, msg, response, msgs, index, cterm >>
+                                     value, msg, response, msgs >>
 
 GetVal(self) == /\ pc[self] = "GetVal"
                 /\ (Len(values[self])) > (0)
@@ -1814,32 +1743,29 @@ GetVal(self) == /\ pc[self] = "GetVal"
                                 learnerChanWrite0, dbWrite1, 
                                 requestServiceWrite1, timeoutRead, 
                                 networkWrite, networkWrite0, networkWrite1, 
-                                appliedWrite, appliedWrite0, networkWrite2, 
-                                inputWrite0, appliedWrite1, networkWrite3, 
-                                networkRead, iAmTheLeaderWrite, 
-                                iAmTheLeaderWrite0, lastmsgWrite, 
-                                lastmsgWrite0, lastmsgWrite1, ifResult, 
-                                appliedWrite2, appliedWrite3, ifResult0, 
-                                networkWrite4, termWrite, iAmTheLeaderWrite1, 
-                                termWrite0, iAmTheLeaderWrite2, termWrite1, 
-                                iAmTheLeaderWrite3, termWrite2, networkWrite5, 
-                                iAmTheLeaderWrite4, termWrite3, networkWrite6, 
+                                networkWrite2, appliedWrite, appliedWrite0, 
+                                networkWrite3, networkWrite4, inputWrite0, 
+                                appliedWrite1, networkWrite5, networkRead, 
+                                iAmTheLeaderWrite, iAmTheLeaderWrite0, 
+                                lastmsgWrite, lastmsgWrite0, lastmsgWrite1, 
+                                ifResult, appliedWrite2, appliedWrite3, 
+                                ifResult0, networkWrite6, termWrite, 
+                                iAmTheLeaderWrite1, termWrite0, 
+                                iAmTheLeaderWrite2, termWrite1, 
+                                iAmTheLeaderWrite3, termWrite2, networkWrite7, 
+                                iAmTheLeaderWrite4, termWrite3, networkWrite8, 
                                 iAmTheLeaderWrite5, termWrite4, lastmsgWrite2, 
-                                networkWrite7, appliedWrite4, 
+                                networkWrite9, appliedWrite4, 
                                 iAmTheLeaderWrite6, termWrite5, 
                                 iAmTheLeaderWrite7, lastmsgWrite3, 
-                                networkWrite8, appliedWrite5, termWrite6, 
-                                networkWrite9, inputWrite1, appliedWrite6, 
+                                networkWrite10, appliedWrite5, termWrite6, 
+                                networkWrite11, inputWrite1, appliedWrite6, 
                                 iAmTheLeaderWrite8, lastmsgWrite4, termWrite7, 
-                                iAmTheLeaderRead0, timerWrite, termRead, 
-                                networkWrite10, networkWrite11, timerWrite0, 
-                                networkWrite12, timerWrite1, networkWrite13, 
                                 msg_, null, heartbeatId, proposerId, counter, 
                                 requestId, proposal, result_, result, 
                                 learnerId, decided, timeoutLocal, currentTerm, 
                                 votedFor, state, commitIndex, lastApplied, 
-                                iterator, votes, msg, response, msgs, index, 
-                                cterm >>
+                                iterator, votes, msg, response, msgs >>
 
 AdvanceIndex(self) == /\ pc[self] = "AdvanceIndex"
                       /\ IF (((Cardinality({i \in Servers : (matchIndex[self][i]) > (commitIndex[self])})) * (2)) > (Cardinality(Servers))) /\ ((Term(log[self], (commitIndex[self]) + (1))) = (currentTerm[self]))
@@ -1865,39 +1791,36 @@ AdvanceIndex(self) == /\ pc[self] = "AdvanceIndex"
                                       requestServiceWrite0, learnerChanWrite0, 
                                       dbWrite1, requestServiceWrite1, 
                                       timeoutRead, networkWrite, networkWrite0, 
-                                      networkWrite1, inputRead, inputWrite, 
-                                      appliedWrite, appliedWrite0, 
-                                      networkWrite2, inputWrite0, 
-                                      appliedWrite1, networkWrite3, 
-                                      networkRead, iAmTheLeaderWrite, 
-                                      iAmTheLeaderWrite0, lastmsgWrite, 
-                                      lastmsgWrite0, lastmsgWrite1, ifResult, 
-                                      appliedWrite2, appliedWrite3, ifResult0, 
-                                      networkWrite4, termWrite, 
-                                      iAmTheLeaderWrite1, termWrite0, 
-                                      iAmTheLeaderWrite2, termWrite1, 
-                                      iAmTheLeaderWrite3, termWrite2, 
-                                      networkWrite5, iAmTheLeaderWrite4, 
-                                      termWrite3, networkWrite6, 
-                                      iAmTheLeaderWrite5, termWrite4, 
-                                      lastmsgWrite2, networkWrite7, 
+                                      networkWrite1, networkWrite2, inputRead, 
+                                      inputWrite, appliedWrite, appliedWrite0, 
+                                      networkWrite3, networkWrite4, 
+                                      inputWrite0, appliedWrite1, 
+                                      networkWrite5, networkRead, 
+                                      iAmTheLeaderWrite, iAmTheLeaderWrite0, 
+                                      lastmsgWrite, lastmsgWrite0, 
+                                      lastmsgWrite1, ifResult, appliedWrite2, 
+                                      appliedWrite3, ifResult0, networkWrite6, 
+                                      termWrite, iAmTheLeaderWrite1, 
+                                      termWrite0, iAmTheLeaderWrite2, 
+                                      termWrite1, iAmTheLeaderWrite3, 
+                                      termWrite2, networkWrite7, 
+                                      iAmTheLeaderWrite4, termWrite3, 
+                                      networkWrite8, iAmTheLeaderWrite5, 
+                                      termWrite4, lastmsgWrite2, networkWrite9, 
                                       appliedWrite4, iAmTheLeaderWrite6, 
                                       termWrite5, iAmTheLeaderWrite7, 
-                                      lastmsgWrite3, networkWrite8, 
-                                      appliedWrite5, termWrite6, networkWrite9, 
-                                      inputWrite1, appliedWrite6, 
-                                      iAmTheLeaderWrite8, lastmsgWrite4, 
-                                      termWrite7, iAmTheLeaderRead0, 
-                                      timerWrite, termRead, networkWrite10, 
-                                      networkWrite11, timerWrite0, 
-                                      networkWrite12, timerWrite1, 
-                                      networkWrite13, msg_, null, heartbeatId, 
-                                      proposerId, counter, requestId, proposal, 
-                                      result_, result, learnerId, decided, 
-                                      timeoutLocal, currentTerm, votedFor, log, 
-                                      state, lastApplied, nextIndex, 
-                                      matchIndex, iterator, votes, value, msg, 
-                                      response, msgs, index, cterm >>
+                                      lastmsgWrite3, networkWrite10, 
+                                      appliedWrite5, termWrite6, 
+                                      networkWrite11, inputWrite1, 
+                                      appliedWrite6, iAmTheLeaderWrite8, 
+                                      lastmsgWrite4, termWrite7, msg_, null, 
+                                      heartbeatId, proposerId, counter, 
+                                      requestId, proposal, result_, result, 
+                                      learnerId, decided, timeoutLocal, 
+                                      currentTerm, votedFor, log, state, 
+                                      lastApplied, nextIndex, matchIndex, 
+                                      iterator, votes, value, msg, response, 
+                                      msgs >>
 
 ApplyCommited(self) == /\ pc[self] = "ApplyCommited"
                        /\ IF (lastApplied[self]) < (commitIndex[self])
@@ -1930,52 +1853,52 @@ ApplyCommited(self) == /\ pc[self] = "ApplyCommited"
                                        requestServiceWrite0, learnerChanWrite0, 
                                        dbWrite1, requestServiceWrite1, 
                                        timeoutRead, networkWrite, 
-                                       networkWrite0, networkWrite1, inputRead, 
-                                       inputWrite, networkWrite2, inputWrite0, 
-                                       appliedWrite1, networkWrite3, 
-                                       networkRead, iAmTheLeaderWrite, 
-                                       iAmTheLeaderWrite0, lastmsgWrite, 
-                                       lastmsgWrite0, lastmsgWrite1, ifResult, 
-                                       appliedWrite2, appliedWrite3, ifResult0, 
-                                       networkWrite4, termWrite, 
-                                       iAmTheLeaderWrite1, termWrite0, 
-                                       iAmTheLeaderWrite2, termWrite1, 
-                                       iAmTheLeaderWrite3, termWrite2, 
-                                       networkWrite5, iAmTheLeaderWrite4, 
-                                       termWrite3, networkWrite6, 
-                                       iAmTheLeaderWrite5, termWrite4, 
-                                       lastmsgWrite2, networkWrite7, 
-                                       appliedWrite4, iAmTheLeaderWrite6, 
-                                       termWrite5, iAmTheLeaderWrite7, 
-                                       lastmsgWrite3, networkWrite8, 
-                                       appliedWrite5, termWrite6, 
-                                       networkWrite9, inputWrite1, 
+                                       networkWrite0, networkWrite1, 
+                                       networkWrite2, inputRead, inputWrite, 
+                                       networkWrite3, networkWrite4, 
+                                       inputWrite0, appliedWrite1, 
+                                       networkWrite5, networkRead, 
+                                       iAmTheLeaderWrite, iAmTheLeaderWrite0, 
+                                       lastmsgWrite, lastmsgWrite0, 
+                                       lastmsgWrite1, ifResult, appliedWrite2, 
+                                       appliedWrite3, ifResult0, networkWrite6, 
+                                       termWrite, iAmTheLeaderWrite1, 
+                                       termWrite0, iAmTheLeaderWrite2, 
+                                       termWrite1, iAmTheLeaderWrite3, 
+                                       termWrite2, networkWrite7, 
+                                       iAmTheLeaderWrite4, termWrite3, 
+                                       networkWrite8, iAmTheLeaderWrite5, 
+                                       termWrite4, lastmsgWrite2, 
+                                       networkWrite9, appliedWrite4, 
+                                       iAmTheLeaderWrite6, termWrite5, 
+                                       iAmTheLeaderWrite7, lastmsgWrite3, 
+                                       networkWrite10, appliedWrite5, 
+                                       termWrite6, networkWrite11, inputWrite1, 
                                        appliedWrite6, iAmTheLeaderWrite8, 
-                                       lastmsgWrite4, termWrite7, 
-                                       iAmTheLeaderRead0, timerWrite, termRead, 
-                                       networkWrite10, networkWrite11, 
-                                       timerWrite0, networkWrite12, 
-                                       timerWrite1, networkWrite13, msg_, null, 
+                                       lastmsgWrite4, termWrite7, msg_, null, 
                                        heartbeatId, proposerId, counter, 
                                        requestId, proposal, result_, result, 
                                        learnerId, decided, timeoutLocal, 
                                        currentTerm, votedFor, log, state, 
                                        commitIndex, nextIndex, matchIndex, 
-                                       votes, value, msg, response, msgs, 
-                                       index, cterm >>
+                                       votes, value, msg, response, msgs >>
 
 SendAppendEntries(self) == /\ pc[self] = "SendAppendEntries"
                            /\ IF (iterator[self]) < (NUM_NODES)
-                                 THEN /\ (Len(mailboxes[iterator[self]])) < (BUFFER_SIZE)
-                                      /\ networkWrite' = [mailboxes EXCEPT ![iterator[self]] = Append(mailboxes[iterator[self]], [sender |-> self, type |-> AppendEntries, term |-> currentTerm[self], granted |-> FALSE, entries |-> SubSeq(log[self], nextIndex[self][iterator[self]], Len(log[self])), prevIndex |-> (nextIndex[self][iterator[self]]) - (1), prevTerm |-> Term(log[self], (nextIndex[self][iterator[self]]) - (1)), commit |-> commitIndex[self]])]
+                                 THEN /\ IF (iterator[self]) # (self)
+                                            THEN /\ networkWrite' = [mailboxes EXCEPT ![iterator[self]] = Append(mailboxes[iterator[self]], [sender |-> self, type |-> AppendEntries, term |-> currentTerm[self], granted |-> FALSE, entries |-> SubSeq(log[self], nextIndex[self][iterator[self]], Len(log[self])), prevIndex |-> (nextIndex[self][iterator[self]]) - (1), prevTerm |-> Term(log[self], (nextIndex[self][iterator[self]]) - (1)), commit |-> commitIndex[self]])]
+                                                 /\ networkWrite3' = networkWrite'
+                                            ELSE /\ networkWrite3' = mailboxes
+                                                 /\ UNCHANGED networkWrite
                                       /\ iterator' = [iterator EXCEPT ![self] = (iterator[self]) + (1)]
-                                      /\ networkWrite2' = networkWrite'
-                                      /\ mailboxes' = networkWrite2'
+                                      /\ networkWrite4' = networkWrite3'
+                                      /\ mailboxes' = networkWrite4'
                                       /\ pc' = [pc EXCEPT ![self] = "SendAppendEntries"]
-                                 ELSE /\ networkWrite2' = mailboxes
-                                      /\ mailboxes' = networkWrite2'
+                                 ELSE /\ networkWrite4' = mailboxes
+                                      /\ mailboxes' = networkWrite4'
                                       /\ pc' = [pc EXCEPT ![self] = "RecvMsg"]
-                                      /\ UNCHANGED << networkWrite, iterator >>
+                                      /\ UNCHANGED << networkWrite, 
+                                                      networkWrite3, iterator >>
                            /\ UNCHANGED << values, requestSet, learnedChan, 
                                            raftLayerChan, kvClient, idAbstract, 
                                            database, iAmTheLeaderAbstract, 
@@ -1995,42 +1918,37 @@ SendAppendEntries(self) == /\ pc[self] = "SendAppendEntries"
                                            learnerChanWrite0, dbWrite1, 
                                            requestServiceWrite1, timeoutRead, 
                                            networkWrite0, networkWrite1, 
-                                           inputRead, inputWrite, appliedWrite, 
+                                           networkWrite2, inputRead, 
+                                           inputWrite, appliedWrite, 
                                            appliedWrite0, inputWrite0, 
-                                           appliedWrite1, networkWrite3, 
+                                           appliedWrite1, networkWrite5, 
                                            networkRead, iAmTheLeaderWrite, 
                                            iAmTheLeaderWrite0, lastmsgWrite, 
                                            lastmsgWrite0, lastmsgWrite1, 
                                            ifResult, appliedWrite2, 
                                            appliedWrite3, ifResult0, 
-                                           networkWrite4, termWrite, 
+                                           networkWrite6, termWrite, 
                                            iAmTheLeaderWrite1, termWrite0, 
                                            iAmTheLeaderWrite2, termWrite1, 
                                            iAmTheLeaderWrite3, termWrite2, 
-                                           networkWrite5, iAmTheLeaderWrite4, 
-                                           termWrite3, networkWrite6, 
+                                           networkWrite7, iAmTheLeaderWrite4, 
+                                           termWrite3, networkWrite8, 
                                            iAmTheLeaderWrite5, termWrite4, 
-                                           lastmsgWrite2, networkWrite7, 
+                                           lastmsgWrite2, networkWrite9, 
                                            appliedWrite4, iAmTheLeaderWrite6, 
                                            termWrite5, iAmTheLeaderWrite7, 
-                                           lastmsgWrite3, networkWrite8, 
+                                           lastmsgWrite3, networkWrite10, 
                                            appliedWrite5, termWrite6, 
-                                           networkWrite9, inputWrite1, 
+                                           networkWrite11, inputWrite1, 
                                            appliedWrite6, iAmTheLeaderWrite8, 
-                                           lastmsgWrite4, termWrite7, 
-                                           iAmTheLeaderRead0, timerWrite, 
-                                           termRead, networkWrite10, 
-                                           networkWrite11, timerWrite0, 
-                                           networkWrite12, timerWrite1, 
-                                           networkWrite13, msg_, null, 
-                                           heartbeatId, proposerId, counter, 
-                                           requestId, proposal, result_, 
-                                           result, learnerId, decided, 
+                                           lastmsgWrite4, termWrite7, msg_, 
+                                           null, heartbeatId, proposerId, 
+                                           counter, requestId, proposal, 
+                                           result_, result, learnerId, decided, 
                                            timeoutLocal, currentTerm, votedFor, 
                                            log, state, commitIndex, 
                                            lastApplied, nextIndex, matchIndex, 
-                                           votes, value, msg, response, msgs, 
-                                           index, cterm >>
+                                           votes, value, msg, response, msgs >>
 
 RecvMsg(self) == /\ pc[self] = "RecvMsg"
                  /\ LET msgs0 == mailboxes[self] IN
@@ -2054,33 +1972,31 @@ RecvMsg(self) == /\ pc[self] = "RecvMsg"
                                  requestServiceWrite, requestServiceWrite0, 
                                  learnerChanWrite0, dbWrite1, 
                                  requestServiceWrite1, timeoutRead, 
-                                 networkWrite0, networkWrite1, inputRead, 
-                                 inputWrite, appliedWrite, appliedWrite0, 
-                                 networkWrite2, inputWrite0, appliedWrite1, 
-                                 networkWrite3, iAmTheLeaderWrite, 
-                                 iAmTheLeaderWrite0, lastmsgWrite, 
-                                 lastmsgWrite0, lastmsgWrite1, ifResult, 
-                                 appliedWrite2, appliedWrite3, ifResult0, 
-                                 networkWrite4, termWrite, iAmTheLeaderWrite1, 
-                                 termWrite0, iAmTheLeaderWrite2, termWrite1, 
-                                 iAmTheLeaderWrite3, termWrite2, networkWrite5, 
-                                 iAmTheLeaderWrite4, termWrite3, networkWrite6, 
+                                 networkWrite0, networkWrite1, networkWrite2, 
+                                 inputRead, inputWrite, appliedWrite, 
+                                 appliedWrite0, networkWrite3, networkWrite4, 
+                                 inputWrite0, appliedWrite1, networkWrite5, 
+                                 iAmTheLeaderWrite, iAmTheLeaderWrite0, 
+                                 lastmsgWrite, lastmsgWrite0, lastmsgWrite1, 
+                                 ifResult, appliedWrite2, appliedWrite3, 
+                                 ifResult0, networkWrite6, termWrite, 
+                                 iAmTheLeaderWrite1, termWrite0, 
+                                 iAmTheLeaderWrite2, termWrite1, 
+                                 iAmTheLeaderWrite3, termWrite2, networkWrite7, 
+                                 iAmTheLeaderWrite4, termWrite3, networkWrite8, 
                                  iAmTheLeaderWrite5, termWrite4, lastmsgWrite2, 
-                                 networkWrite7, appliedWrite4, 
+                                 networkWrite9, appliedWrite4, 
                                  iAmTheLeaderWrite6, termWrite5, 
                                  iAmTheLeaderWrite7, lastmsgWrite3, 
-                                 networkWrite8, appliedWrite5, termWrite6, 
-                                 networkWrite9, inputWrite1, appliedWrite6, 
+                                 networkWrite10, appliedWrite5, termWrite6, 
+                                 networkWrite11, inputWrite1, appliedWrite6, 
                                  iAmTheLeaderWrite8, lastmsgWrite4, termWrite7, 
-                                 iAmTheLeaderRead0, timerWrite, termRead, 
-                                 networkWrite10, networkWrite11, timerWrite0, 
-                                 networkWrite12, timerWrite1, networkWrite13, 
                                  msg_, null, heartbeatId, proposerId, counter, 
                                  requestId, proposal, result_, result, 
                                  learnerId, decided, timeoutLocal, currentTerm, 
                                  votedFor, log, state, commitIndex, 
                                  lastApplied, nextIndex, matchIndex, iterator, 
-                                 votes, value, msg, response, index, cterm >>
+                                 votes, value, msg, response >>
 
 ProcessMsgs(self) == /\ pc[self] = "ProcessMsgs"
                      /\ IF (Len(msgs[self])) > (0)
@@ -2089,14 +2005,14 @@ ProcessMsgs(self) == /\ pc[self] = "ProcessMsgs"
                                                 iAmTheLeaderAbstract, terms, 
                                                 lastSeen, mailboxes, 
                                                 iAmTheLeaderWrite7, 
-                                                lastmsgWrite3, networkWrite8, 
+                                                lastmsgWrite3, networkWrite10, 
                                                 appliedWrite5, termWrite6 >>
                            ELSE /\ iAmTheLeaderWrite7' = iAmTheLeaderAbstract
                                 /\ lastmsgWrite3' = lastSeen
-                                /\ networkWrite8' = mailboxes
+                                /\ networkWrite10' = mailboxes
                                 /\ appliedWrite5' = learnedChan
                                 /\ termWrite6' = terms
-                                /\ mailboxes' = networkWrite8'
+                                /\ mailboxes' = networkWrite10'
                                 /\ learnedChan' = appliedWrite5'
                                 /\ iAmTheLeaderAbstract' = iAmTheLeaderWrite7'
                                 /\ terms' = termWrite6'
@@ -2118,35 +2034,32 @@ ProcessMsgs(self) == /\ pc[self] = "ProcessMsgs"
                                      learnerChanWrite0, dbWrite1, 
                                      requestServiceWrite1, timeoutRead, 
                                      networkWrite, networkWrite0, 
-                                     networkWrite1, inputRead, inputWrite, 
-                                     appliedWrite, appliedWrite0, 
-                                     networkWrite2, inputWrite0, appliedWrite1, 
-                                     networkWrite3, networkRead, 
+                                     networkWrite1, networkWrite2, inputRead, 
+                                     inputWrite, appliedWrite, appliedWrite0, 
+                                     networkWrite3, networkWrite4, inputWrite0, 
+                                     appliedWrite1, networkWrite5, networkRead, 
                                      iAmTheLeaderWrite, iAmTheLeaderWrite0, 
                                      lastmsgWrite, lastmsgWrite0, 
                                      lastmsgWrite1, ifResult, appliedWrite2, 
-                                     appliedWrite3, ifResult0, networkWrite4, 
+                                     appliedWrite3, ifResult0, networkWrite6, 
                                      termWrite, iAmTheLeaderWrite1, termWrite0, 
                                      iAmTheLeaderWrite2, termWrite1, 
                                      iAmTheLeaderWrite3, termWrite2, 
-                                     networkWrite5, iAmTheLeaderWrite4, 
-                                     termWrite3, networkWrite6, 
+                                     networkWrite7, iAmTheLeaderWrite4, 
+                                     termWrite3, networkWrite8, 
                                      iAmTheLeaderWrite5, termWrite4, 
-                                     lastmsgWrite2, networkWrite7, 
+                                     lastmsgWrite2, networkWrite9, 
                                      appliedWrite4, iAmTheLeaderWrite6, 
-                                     termWrite5, networkWrite9, inputWrite1, 
+                                     termWrite5, networkWrite11, inputWrite1, 
                                      appliedWrite6, iAmTheLeaderWrite8, 
-                                     lastmsgWrite4, termWrite7, 
-                                     iAmTheLeaderRead0, timerWrite, termRead, 
-                                     networkWrite10, networkWrite11, 
-                                     timerWrite0, networkWrite12, timerWrite1, 
-                                     networkWrite13, msg_, null, heartbeatId, 
-                                     proposerId, counter, requestId, proposal, 
-                                     result_, result, learnerId, decided, 
-                                     timeoutLocal, currentTerm, votedFor, log, 
-                                     state, commitIndex, lastApplied, 
-                                     nextIndex, matchIndex, iterator, votes, 
-                                     value, msg, response, msgs, index, cterm >>
+                                     lastmsgWrite4, termWrite7, msg_, null, 
+                                     heartbeatId, proposerId, counter, 
+                                     requestId, proposal, result_, result, 
+                                     learnerId, decided, timeoutLocal, 
+                                     currentTerm, votedFor, log, state, 
+                                     commitIndex, lastApplied, nextIndex, 
+                                     matchIndex, iterator, votes, value, msg, 
+                                     response, msgs >>
 
 GetMsg(self) == /\ pc[self] = "GetMsg"
                 /\ msg' = [msg EXCEPT ![self] = Head(msgs[self])]
@@ -2168,33 +2081,30 @@ GetMsg(self) == /\ pc[self] = "GetMsg"
                                 learnerChanWrite0, dbWrite1, 
                                 requestServiceWrite1, timeoutRead, 
                                 networkWrite, networkWrite0, networkWrite1, 
-                                inputRead, inputWrite, appliedWrite, 
-                                appliedWrite0, networkWrite2, inputWrite0, 
-                                appliedWrite1, networkWrite3, networkRead, 
-                                iAmTheLeaderWrite, iAmTheLeaderWrite0, 
-                                lastmsgWrite, lastmsgWrite0, lastmsgWrite1, 
-                                ifResult, appliedWrite2, appliedWrite3, 
-                                ifResult0, networkWrite4, termWrite, 
-                                iAmTheLeaderWrite1, termWrite0, 
-                                iAmTheLeaderWrite2, termWrite1, 
-                                iAmTheLeaderWrite3, termWrite2, networkWrite5, 
-                                iAmTheLeaderWrite4, termWrite3, networkWrite6, 
+                                networkWrite2, inputRead, inputWrite, 
+                                appliedWrite, appliedWrite0, networkWrite3, 
+                                networkWrite4, inputWrite0, appliedWrite1, 
+                                networkWrite5, networkRead, iAmTheLeaderWrite, 
+                                iAmTheLeaderWrite0, lastmsgWrite, 
+                                lastmsgWrite0, lastmsgWrite1, ifResult, 
+                                appliedWrite2, appliedWrite3, ifResult0, 
+                                networkWrite6, termWrite, iAmTheLeaderWrite1, 
+                                termWrite0, iAmTheLeaderWrite2, termWrite1, 
+                                iAmTheLeaderWrite3, termWrite2, networkWrite7, 
+                                iAmTheLeaderWrite4, termWrite3, networkWrite8, 
                                 iAmTheLeaderWrite5, termWrite4, lastmsgWrite2, 
-                                networkWrite7, appliedWrite4, 
+                                networkWrite9, appliedWrite4, 
                                 iAmTheLeaderWrite6, termWrite5, 
                                 iAmTheLeaderWrite7, lastmsgWrite3, 
-                                networkWrite8, appliedWrite5, termWrite6, 
-                                networkWrite9, inputWrite1, appliedWrite6, 
+                                networkWrite10, appliedWrite5, termWrite6, 
+                                networkWrite11, inputWrite1, appliedWrite6, 
                                 iAmTheLeaderWrite8, lastmsgWrite4, termWrite7, 
-                                iAmTheLeaderRead0, timerWrite, termRead, 
-                                networkWrite10, networkWrite11, timerWrite0, 
-                                networkWrite12, timerWrite1, networkWrite13, 
                                 msg_, null, heartbeatId, proposerId, counter, 
                                 requestId, proposal, result_, result, 
                                 learnerId, decided, timeoutLocal, currentTerm, 
                                 votedFor, log, state, commitIndex, lastApplied, 
                                 nextIndex, matchIndex, iterator, votes, value, 
-                                response, index, cterm >>
+                                response >>
 
 CheckMsgTerm(self) == /\ pc[self] = "CheckMsgTerm"
                       /\ IF ((msg[self]).term) > (currentTerm[self])
@@ -2226,44 +2136,41 @@ CheckMsgTerm(self) == /\ pc[self] = "CheckMsgTerm"
                                       requestServiceWrite0, learnerChanWrite0, 
                                       dbWrite1, requestServiceWrite1, 
                                       timeoutRead, networkWrite, networkWrite0, 
-                                      networkWrite1, inputRead, inputWrite, 
-                                      appliedWrite, appliedWrite0, 
-                                      networkWrite2, inputWrite0, 
-                                      appliedWrite1, networkWrite3, 
-                                      networkRead, lastmsgWrite, lastmsgWrite0, 
-                                      lastmsgWrite1, ifResult, appliedWrite2, 
-                                      appliedWrite3, ifResult0, networkWrite4, 
-                                      termWrite, iAmTheLeaderWrite1, 
-                                      termWrite0, iAmTheLeaderWrite2, 
-                                      termWrite1, iAmTheLeaderWrite3, 
-                                      termWrite2, networkWrite5, 
-                                      iAmTheLeaderWrite4, termWrite3, 
-                                      networkWrite6, iAmTheLeaderWrite5, 
-                                      termWrite4, lastmsgWrite2, networkWrite7, 
+                                      networkWrite1, networkWrite2, inputRead, 
+                                      inputWrite, appliedWrite, appliedWrite0, 
+                                      networkWrite3, networkWrite4, 
+                                      inputWrite0, appliedWrite1, 
+                                      networkWrite5, networkRead, lastmsgWrite, 
+                                      lastmsgWrite0, lastmsgWrite1, ifResult, 
+                                      appliedWrite2, appliedWrite3, ifResult0, 
+                                      networkWrite6, termWrite, 
+                                      iAmTheLeaderWrite1, termWrite0, 
+                                      iAmTheLeaderWrite2, termWrite1, 
+                                      iAmTheLeaderWrite3, termWrite2, 
+                                      networkWrite7, iAmTheLeaderWrite4, 
+                                      termWrite3, networkWrite8, 
+                                      iAmTheLeaderWrite5, termWrite4, 
+                                      lastmsgWrite2, networkWrite9, 
                                       appliedWrite4, iAmTheLeaderWrite6, 
                                       termWrite5, iAmTheLeaderWrite7, 
-                                      lastmsgWrite3, networkWrite8, 
-                                      appliedWrite5, termWrite6, networkWrite9, 
-                                      inputWrite1, appliedWrite6, 
-                                      iAmTheLeaderWrite8, lastmsgWrite4, 
-                                      termWrite7, iAmTheLeaderRead0, 
-                                      timerWrite, termRead, networkWrite10, 
-                                      networkWrite11, timerWrite0, 
-                                      networkWrite12, timerWrite1, 
-                                      networkWrite13, msg_, null, heartbeatId, 
-                                      proposerId, counter, requestId, proposal, 
-                                      result_, result, learnerId, decided, 
-                                      timeoutLocal, log, commitIndex, 
-                                      lastApplied, nextIndex, matchIndex, 
-                                      iterator, votes, value, msg, response, 
-                                      msgs, index, cterm >>
+                                      lastmsgWrite3, networkWrite10, 
+                                      appliedWrite5, termWrite6, 
+                                      networkWrite11, inputWrite1, 
+                                      appliedWrite6, iAmTheLeaderWrite8, 
+                                      lastmsgWrite4, termWrite7, msg_, null, 
+                                      heartbeatId, proposerId, counter, 
+                                      requestId, proposal, result_, result, 
+                                      learnerId, decided, timeoutLocal, log, 
+                                      commitIndex, lastApplied, nextIndex, 
+                                      matchIndex, iterator, votes, value, msg, 
+                                      response, msgs >>
 
 MsgSwitch(self) == /\ pc[self] = "MsgSwitch"
                    /\ IF ((msg[self]).type) = (AppendEntries)
                          THEN /\ response' = [response EXCEPT ![self] = [sender |-> self, type |-> AppendEntriesResponse, term |-> currentTerm[self], granted |-> FALSE, entries |-> <<>>, prevIndex |-> NULL, prevTerm |-> NULL, commit |-> NULL]]
                               /\ IF (((msg[self]).term) >= (currentTerm[self])) /\ (((((msg[self]).prevIndex) > (0)) /\ ((Len(log[self])) < ((msg[self]).prevIndex))) \/ ((Term(log[self], (msg[self]).prevIndex)) # ((msg[self]).prevTerm)))
                                     THEN /\ Assert((state[self]) # (Leader), 
-                                                   "Failure of assertion at line 730, column 37.")
+                                                   "Failure of assertion at line 745, column 37.")
                                          /\ log' = [log EXCEPT ![self] = SubSeq(log[self], 1, ((msg[self]).prevIndex) - (1))]
                                          /\ lastmsgWrite' = msg[self]
                                          /\ lastmsgWrite1' = lastmsgWrite'
@@ -2285,15 +2192,15 @@ MsgSwitch(self) == /\ pc[self] = "MsgSwitch"
                               /\ UNCHANGED << learnedChan, 
                                               iAmTheLeaderAbstract, terms, 
                                               mailboxes, ifResult0, 
-                                              networkWrite4, 
+                                              networkWrite6, 
                                               iAmTheLeaderWrite1, termWrite0, 
                                               iAmTheLeaderWrite2, termWrite1, 
                                               iAmTheLeaderWrite3, termWrite2, 
-                                              networkWrite5, 
+                                              networkWrite7, 
                                               iAmTheLeaderWrite4, termWrite3, 
-                                              networkWrite6, 
+                                              networkWrite8, 
                                               iAmTheLeaderWrite5, termWrite4, 
-                                              lastmsgWrite2, networkWrite7, 
+                                              lastmsgWrite2, networkWrite9, 
                                               appliedWrite4, 
                                               iAmTheLeaderWrite6, termWrite5, 
                                               nextIndex, matchIndex, votes >>
@@ -2306,21 +2213,21 @@ MsgSwitch(self) == /\ pc[self] = "MsgSwitch"
                                                          iAmTheLeaderAbstract, 
                                                          terms, lastSeen, 
                                                          mailboxes, ifResult0, 
-                                                         networkWrite4, 
+                                                         networkWrite6, 
                                                          iAmTheLeaderWrite1, 
                                                          termWrite0, 
                                                          iAmTheLeaderWrite2, 
                                                          termWrite1, 
                                                          iAmTheLeaderWrite3, 
                                                          termWrite2, 
-                                                         networkWrite5, 
+                                                         networkWrite7, 
                                                          iAmTheLeaderWrite4, 
                                                          termWrite3, 
-                                                         networkWrite6, 
+                                                         networkWrite8, 
                                                          iAmTheLeaderWrite5, 
                                                          termWrite4, 
                                                          lastmsgWrite2, 
-                                                         networkWrite7, 
+                                                         networkWrite9, 
                                                          appliedWrite4, 
                                                          iAmTheLeaderWrite6, 
                                                          termWrite5, nextIndex, 
@@ -2329,19 +2236,19 @@ MsgSwitch(self) == /\ pc[self] = "MsgSwitch"
                                                THEN /\ IF (msg[self]).granted
                                                           THEN /\ nextIndex' = [nextIndex EXCEPT ![self][msg[self].sender] = ((msg[self]).prevIndex) + (1)]
                                                                /\ matchIndex' = [matchIndex EXCEPT ![self][msg[self].sender] = (msg[self]).prevIndex]
-                                                               /\ networkWrite4' = mailboxes
-                                                               /\ networkWrite5' = networkWrite4'
+                                                               /\ networkWrite6' = mailboxes
+                                                               /\ networkWrite7' = networkWrite6'
                                                                /\ iAmTheLeaderWrite4' = iAmTheLeaderAbstract
                                                                /\ termWrite3' = terms
-                                                               /\ networkWrite6' = networkWrite5'
+                                                               /\ networkWrite8' = networkWrite7'
                                                                /\ iAmTheLeaderWrite5' = iAmTheLeaderWrite4'
                                                                /\ termWrite4' = termWrite3'
                                                                /\ lastmsgWrite2' = lastSeen
-                                                               /\ networkWrite7' = networkWrite6'
+                                                               /\ networkWrite9' = networkWrite8'
                                                                /\ appliedWrite4' = learnedChan
                                                                /\ iAmTheLeaderWrite6' = iAmTheLeaderWrite5'
                                                                /\ termWrite5' = termWrite4'
-                                                               /\ mailboxes' = networkWrite7'
+                                                               /\ mailboxes' = networkWrite9'
                                                                /\ learnedChan' = appliedWrite4'
                                                                /\ iAmTheLeaderAbstract' = iAmTheLeaderWrite6'
                                                                /\ terms' = termWrite5'
@@ -2358,15 +2265,15 @@ MsgSwitch(self) == /\ pc[self] = "MsgSwitch"
                                                                                terms, 
                                                                                lastSeen, 
                                                                                mailboxes, 
-                                                                               networkWrite4, 
-                                                                               networkWrite5, 
+                                                                               networkWrite6, 
+                                                                               networkWrite7, 
                                                                                iAmTheLeaderWrite4, 
                                                                                termWrite3, 
-                                                                               networkWrite6, 
+                                                                               networkWrite8, 
                                                                                iAmTheLeaderWrite5, 
                                                                                termWrite4, 
                                                                                lastmsgWrite2, 
-                                                                               networkWrite7, 
+                                                                               networkWrite9, 
                                                                                appliedWrite4, 
                                                                                iAmTheLeaderWrite6, 
                                                                                termWrite5, 
@@ -2394,14 +2301,14 @@ MsgSwitch(self) == /\ pc[self] = "MsgSwitch"
                                                                                                      termWrite1, 
                                                                                                      iAmTheLeaderWrite3, 
                                                                                                      termWrite2, 
-                                                                                                     networkWrite5, 
+                                                                                                     networkWrite7, 
                                                                                                      iAmTheLeaderWrite4, 
                                                                                                      termWrite3, 
-                                                                                                     networkWrite6, 
+                                                                                                     networkWrite8, 
                                                                                                      iAmTheLeaderWrite5, 
                                                                                                      termWrite4, 
                                                                                                      lastmsgWrite2, 
-                                                                                                     networkWrite7, 
+                                                                                                     networkWrite9, 
                                                                                                      appliedWrite4, 
                                                                                                      iAmTheLeaderWrite6, 
                                                                                                      termWrite5 >>
@@ -2411,18 +2318,18 @@ MsgSwitch(self) == /\ pc[self] = "MsgSwitch"
                                                                                      /\ termWrite1' = termWrite0'
                                                                                      /\ iAmTheLeaderWrite3' = iAmTheLeaderWrite2'
                                                                                      /\ termWrite2' = termWrite1'
-                                                                                     /\ networkWrite5' = mailboxes
+                                                                                     /\ networkWrite7' = mailboxes
                                                                                      /\ iAmTheLeaderWrite4' = iAmTheLeaderWrite3'
                                                                                      /\ termWrite3' = termWrite2'
-                                                                                     /\ networkWrite6' = networkWrite5'
+                                                                                     /\ networkWrite8' = networkWrite7'
                                                                                      /\ iAmTheLeaderWrite5' = iAmTheLeaderWrite4'
                                                                                      /\ termWrite4' = termWrite3'
                                                                                      /\ lastmsgWrite2' = lastSeen
-                                                                                     /\ networkWrite7' = networkWrite6'
+                                                                                     /\ networkWrite9' = networkWrite8'
                                                                                      /\ appliedWrite4' = learnedChan
                                                                                      /\ iAmTheLeaderWrite6' = iAmTheLeaderWrite5'
                                                                                      /\ termWrite5' = termWrite4'
-                                                                                     /\ mailboxes' = networkWrite7'
+                                                                                     /\ mailboxes' = networkWrite9'
                                                                                      /\ learnedChan' = appliedWrite4'
                                                                                      /\ iAmTheLeaderAbstract' = iAmTheLeaderWrite6'
                                                                                      /\ terms' = termWrite5'
@@ -2432,18 +2339,18 @@ MsgSwitch(self) == /\ pc[self] = "MsgSwitch"
                                                                           /\ termWrite1' = terms
                                                                           /\ iAmTheLeaderWrite3' = iAmTheLeaderWrite2'
                                                                           /\ termWrite2' = termWrite1'
-                                                                          /\ networkWrite5' = mailboxes
+                                                                          /\ networkWrite7' = mailboxes
                                                                           /\ iAmTheLeaderWrite4' = iAmTheLeaderWrite3'
                                                                           /\ termWrite3' = termWrite2'
-                                                                          /\ networkWrite6' = networkWrite5'
+                                                                          /\ networkWrite8' = networkWrite7'
                                                                           /\ iAmTheLeaderWrite5' = iAmTheLeaderWrite4'
                                                                           /\ termWrite4' = termWrite3'
                                                                           /\ lastmsgWrite2' = lastSeen
-                                                                          /\ networkWrite7' = networkWrite6'
+                                                                          /\ networkWrite9' = networkWrite8'
                                                                           /\ appliedWrite4' = learnedChan
                                                                           /\ iAmTheLeaderWrite6' = iAmTheLeaderWrite5'
                                                                           /\ termWrite5' = termWrite4'
-                                                                          /\ mailboxes' = networkWrite7'
+                                                                          /\ mailboxes' = networkWrite9'
                                                                           /\ learnedChan' = appliedWrite4'
                                                                           /\ iAmTheLeaderAbstract' = iAmTheLeaderWrite6'
                                                                           /\ terms' = termWrite5'
@@ -2454,18 +2361,18 @@ MsgSwitch(self) == /\ pc[self] = "MsgSwitch"
                                                                                           votes >>
                                                           ELSE /\ iAmTheLeaderWrite3' = iAmTheLeaderAbstract
                                                                /\ termWrite2' = terms
-                                                               /\ networkWrite5' = mailboxes
+                                                               /\ networkWrite7' = mailboxes
                                                                /\ iAmTheLeaderWrite4' = iAmTheLeaderWrite3'
                                                                /\ termWrite3' = termWrite2'
-                                                               /\ networkWrite6' = networkWrite5'
+                                                               /\ networkWrite8' = networkWrite7'
                                                                /\ iAmTheLeaderWrite5' = iAmTheLeaderWrite4'
                                                                /\ termWrite4' = termWrite3'
                                                                /\ lastmsgWrite2' = lastSeen
-                                                               /\ networkWrite7' = networkWrite6'
+                                                               /\ networkWrite9' = networkWrite8'
                                                                /\ appliedWrite4' = learnedChan
                                                                /\ iAmTheLeaderWrite6' = iAmTheLeaderWrite5'
                                                                /\ termWrite5' = termWrite4'
-                                                               /\ mailboxes' = networkWrite7'
+                                                               /\ mailboxes' = networkWrite9'
                                                                /\ learnedChan' = appliedWrite4'
                                                                /\ iAmTheLeaderAbstract' = iAmTheLeaderWrite6'
                                                                /\ terms' = termWrite5'
@@ -2477,7 +2384,7 @@ MsgSwitch(self) == /\ pc[self] = "MsgSwitch"
                                                                                termWrite1, 
                                                                                votes >>
                                                     /\ UNCHANGED << ifResult0, 
-                                                                    networkWrite4, 
+                                                                    networkWrite6, 
                                                                     nextIndex, 
                                                                     matchIndex >>
                                          /\ UNCHANGED response
@@ -2498,28 +2405,25 @@ MsgSwitch(self) == /\ pc[self] = "MsgSwitch"
                                    requestServiceWrite0, learnerChanWrite0, 
                                    dbWrite1, requestServiceWrite1, timeoutRead, 
                                    networkWrite, networkWrite0, networkWrite1, 
-                                   inputRead, inputWrite, appliedWrite, 
-                                   appliedWrite0, networkWrite2, inputWrite0, 
-                                   appliedWrite1, networkWrite3, networkRead, 
+                                   networkWrite2, inputRead, inputWrite, 
+                                   appliedWrite, appliedWrite0, networkWrite3, 
+                                   networkWrite4, inputWrite0, appliedWrite1, 
+                                   networkWrite5, networkRead, 
                                    iAmTheLeaderWrite, iAmTheLeaderWrite0, 
                                    ifResult, appliedWrite2, appliedWrite3, 
                                    termWrite, iAmTheLeaderWrite7, 
-                                   lastmsgWrite3, networkWrite8, appliedWrite5, 
-                                   termWrite6, networkWrite9, inputWrite1, 
-                                   appliedWrite6, iAmTheLeaderWrite8, 
-                                   lastmsgWrite4, termWrite7, 
-                                   iAmTheLeaderRead0, timerWrite, termRead, 
-                                   networkWrite10, networkWrite11, timerWrite0, 
-                                   networkWrite12, timerWrite1, networkWrite13, 
-                                   msg_, null, heartbeatId, proposerId, 
-                                   counter, requestId, proposal, result_, 
-                                   result, learnerId, decided, timeoutLocal, 
-                                   currentTerm, votedFor, state, commitIndex, 
-                                   lastApplied, iterator, value, msg, msgs, 
-                                   index, cterm >>
+                                   lastmsgWrite3, networkWrite10, 
+                                   appliedWrite5, termWrite6, networkWrite11, 
+                                   inputWrite1, appliedWrite6, 
+                                   iAmTheLeaderWrite8, lastmsgWrite4, 
+                                   termWrite7, msg_, null, heartbeatId, 
+                                   proposerId, counter, requestId, proposal, 
+                                   result_, result, learnerId, decided, 
+                                   timeoutLocal, currentTerm, votedFor, state, 
+                                   commitIndex, lastApplied, iterator, value, 
+                                   msg, msgs >>
 
 AESendResponse(self) == /\ pc[self] = "AESendResponse"
-                        /\ (Len(mailboxes[(msg[self]).sender])) < (BUFFER_SIZE)
                         /\ networkWrite' = [mailboxes EXCEPT ![(msg[self]).sender] = Append(mailboxes[(msg[self]).sender], response[self])]
                         /\ IF ((msg[self]).commit) > (commitIndex[self])
                               THEN /\ IF ((msg[self]).commit) < (Len(log[self]))
@@ -2552,40 +2456,36 @@ AESendResponse(self) == /\ pc[self] = "AESendResponse"
                                         learnerChanWrite0, dbWrite1, 
                                         requestServiceWrite1, timeoutRead, 
                                         networkWrite0, networkWrite1, 
-                                        inputRead, inputWrite, appliedWrite, 
-                                        appliedWrite0, networkWrite2, 
+                                        networkWrite2, inputRead, inputWrite, 
+                                        appliedWrite, appliedWrite0, 
+                                        networkWrite3, networkWrite4, 
                                         inputWrite0, appliedWrite1, 
-                                        networkWrite3, networkRead, 
+                                        networkWrite5, networkRead, 
                                         iAmTheLeaderWrite, iAmTheLeaderWrite0, 
                                         lastmsgWrite, lastmsgWrite0, 
                                         lastmsgWrite1, appliedWrite2, 
-                                        ifResult0, networkWrite4, termWrite, 
+                                        ifResult0, networkWrite6, termWrite, 
                                         iAmTheLeaderWrite1, termWrite0, 
                                         iAmTheLeaderWrite2, termWrite1, 
                                         iAmTheLeaderWrite3, termWrite2, 
-                                        networkWrite5, iAmTheLeaderWrite4, 
-                                        termWrite3, networkWrite6, 
+                                        networkWrite7, iAmTheLeaderWrite4, 
+                                        termWrite3, networkWrite8, 
                                         iAmTheLeaderWrite5, termWrite4, 
-                                        lastmsgWrite2, networkWrite7, 
+                                        lastmsgWrite2, networkWrite9, 
                                         appliedWrite4, iAmTheLeaderWrite6, 
                                         termWrite5, iAmTheLeaderWrite7, 
-                                        lastmsgWrite3, networkWrite8, 
+                                        lastmsgWrite3, networkWrite10, 
                                         appliedWrite5, termWrite6, 
-                                        networkWrite9, inputWrite1, 
+                                        networkWrite11, inputWrite1, 
                                         appliedWrite6, iAmTheLeaderWrite8, 
-                                        lastmsgWrite4, termWrite7, 
-                                        iAmTheLeaderRead0, timerWrite, 
-                                        termRead, networkWrite10, 
-                                        networkWrite11, timerWrite0, 
-                                        networkWrite12, timerWrite1, 
-                                        networkWrite13, msg_, null, 
+                                        lastmsgWrite4, termWrite7, msg_, null, 
                                         heartbeatId, proposerId, counter, 
                                         requestId, proposal, result_, result, 
                                         learnerId, decided, timeoutLocal, 
                                         currentTerm, votedFor, log, state, 
                                         lastApplied, nextIndex, matchIndex, 
                                         iterator, votes, value, msg, response, 
-                                        msgs, index, cterm >>
+                                        msgs >>
 
 AEApplyCommitted(self) == /\ pc[self] = "AEApplyCommitted"
                           /\ IF (lastApplied[self]) < (commitIndex[self])
@@ -2618,41 +2518,37 @@ AEApplyCommitted(self) == /\ pc[self] = "AEApplyCommitted"
                                           learnerChanWrite0, dbWrite1, 
                                           requestServiceWrite1, timeoutRead, 
                                           networkWrite, networkWrite0, 
-                                          networkWrite1, inputRead, inputWrite, 
-                                          appliedWrite0, networkWrite2, 
+                                          networkWrite1, networkWrite2, 
+                                          inputRead, inputWrite, appliedWrite0, 
+                                          networkWrite3, networkWrite4, 
                                           inputWrite0, appliedWrite1, 
-                                          networkWrite3, networkRead, 
+                                          networkWrite5, networkRead, 
                                           iAmTheLeaderWrite, 
                                           iAmTheLeaderWrite0, lastmsgWrite, 
                                           lastmsgWrite0, lastmsgWrite1, 
                                           ifResult, appliedWrite3, ifResult0, 
-                                          networkWrite4, termWrite, 
+                                          networkWrite6, termWrite, 
                                           iAmTheLeaderWrite1, termWrite0, 
                                           iAmTheLeaderWrite2, termWrite1, 
                                           iAmTheLeaderWrite3, termWrite2, 
-                                          networkWrite5, iAmTheLeaderWrite4, 
-                                          termWrite3, networkWrite6, 
+                                          networkWrite7, iAmTheLeaderWrite4, 
+                                          termWrite3, networkWrite8, 
                                           iAmTheLeaderWrite5, termWrite4, 
-                                          lastmsgWrite2, networkWrite7, 
+                                          lastmsgWrite2, networkWrite9, 
                                           appliedWrite4, iAmTheLeaderWrite6, 
                                           termWrite5, iAmTheLeaderWrite7, 
-                                          lastmsgWrite3, networkWrite8, 
+                                          lastmsgWrite3, networkWrite10, 
                                           appliedWrite5, termWrite6, 
-                                          networkWrite9, inputWrite1, 
+                                          networkWrite11, inputWrite1, 
                                           appliedWrite6, iAmTheLeaderWrite8, 
-                                          lastmsgWrite4, termWrite7, 
-                                          iAmTheLeaderRead0, timerWrite, 
-                                          termRead, networkWrite10, 
-                                          networkWrite11, timerWrite0, 
-                                          networkWrite12, timerWrite1, 
-                                          networkWrite13, msg_, null, 
-                                          heartbeatId, proposerId, counter, 
-                                          requestId, proposal, result_, result, 
-                                          learnerId, decided, timeoutLocal, 
-                                          currentTerm, votedFor, log, state, 
-                                          commitIndex, nextIndex, matchIndex, 
-                                          iterator, votes, value, msg, 
-                                          response, msgs, index, cterm >>
+                                          lastmsgWrite4, termWrite7, msg_, 
+                                          null, heartbeatId, proposerId, 
+                                          counter, requestId, proposal, 
+                                          result_, result, learnerId, decided, 
+                                          timeoutLocal, currentTerm, votedFor, 
+                                          log, state, commitIndex, nextIndex, 
+                                          matchIndex, iterator, votes, value, 
+                                          msg, response, msgs >>
 
 AEValid(self) == /\ pc[self] = "AEValid"
                  /\ response' = [response EXCEPT ![self] = [sender |-> self, type |-> AppendEntriesResponse, term |-> currentTerm[self], granted |-> TRUE, entries |-> <<>>, prevIndex |-> Len(log[self]), prevTerm |-> NULL, commit |-> NULL]]
@@ -2675,35 +2571,32 @@ AEValid(self) == /\ pc[self] = "AEValid"
                                  learnerChanWrite0, dbWrite1, 
                                  requestServiceWrite1, timeoutRead, 
                                  networkWrite, networkWrite0, networkWrite1, 
-                                 inputRead, inputWrite, appliedWrite, 
-                                 appliedWrite0, networkWrite2, inputWrite0, 
-                                 appliedWrite1, networkWrite3, networkRead, 
-                                 iAmTheLeaderWrite, iAmTheLeaderWrite0, 
-                                 lastmsgWrite0, lastmsgWrite1, ifResult, 
-                                 appliedWrite2, appliedWrite3, ifResult0, 
-                                 networkWrite4, termWrite, iAmTheLeaderWrite1, 
-                                 termWrite0, iAmTheLeaderWrite2, termWrite1, 
-                                 iAmTheLeaderWrite3, termWrite2, networkWrite5, 
-                                 iAmTheLeaderWrite4, termWrite3, networkWrite6, 
+                                 networkWrite2, inputRead, inputWrite, 
+                                 appliedWrite, appliedWrite0, networkWrite3, 
+                                 networkWrite4, inputWrite0, appliedWrite1, 
+                                 networkWrite5, networkRead, iAmTheLeaderWrite, 
+                                 iAmTheLeaderWrite0, lastmsgWrite0, 
+                                 lastmsgWrite1, ifResult, appliedWrite2, 
+                                 appliedWrite3, ifResult0, networkWrite6, 
+                                 termWrite, iAmTheLeaderWrite1, termWrite0, 
+                                 iAmTheLeaderWrite2, termWrite1, 
+                                 iAmTheLeaderWrite3, termWrite2, networkWrite7, 
+                                 iAmTheLeaderWrite4, termWrite3, networkWrite8, 
                                  iAmTheLeaderWrite5, termWrite4, lastmsgWrite2, 
-                                 networkWrite7, appliedWrite4, 
+                                 networkWrite9, appliedWrite4, 
                                  iAmTheLeaderWrite6, termWrite5, 
                                  iAmTheLeaderWrite7, lastmsgWrite3, 
-                                 networkWrite8, appliedWrite5, termWrite6, 
-                                 networkWrite9, inputWrite1, appliedWrite6, 
+                                 networkWrite10, appliedWrite5, termWrite6, 
+                                 networkWrite11, inputWrite1, appliedWrite6, 
                                  iAmTheLeaderWrite8, lastmsgWrite4, termWrite7, 
-                                 iAmTheLeaderRead0, timerWrite, termRead, 
-                                 networkWrite10, networkWrite11, timerWrite0, 
-                                 networkWrite12, timerWrite1, networkWrite13, 
                                  msg_, null, heartbeatId, proposerId, counter, 
                                  requestId, proposal, result_, result, 
                                  learnerId, decided, timeoutLocal, currentTerm, 
                                  votedFor, log, state, commitIndex, 
                                  lastApplied, nextIndex, matchIndex, iterator, 
-                                 votes, value, msg, msgs, index, cterm >>
+                                 votes, value, msg, msgs >>
 
 RVSendResponse(self) == /\ pc[self] = "RVSendResponse"
-                        /\ (Len(mailboxes[(msg[self]).sender])) < (BUFFER_SIZE)
                         /\ networkWrite' = [mailboxes EXCEPT ![(msg[self]).sender] = Append(mailboxes[(msg[self]).sender], response[self])]
                         /\ mailboxes' = networkWrite'
                         /\ pc' = [pc EXCEPT ![self] = "ProcessMsgs"]
@@ -2726,41 +2619,37 @@ RVSendResponse(self) == /\ pc[self] = "RVSendResponse"
                                         learnerChanWrite0, dbWrite1, 
                                         requestServiceWrite1, timeoutRead, 
                                         networkWrite0, networkWrite1, 
-                                        inputRead, inputWrite, appliedWrite, 
-                                        appliedWrite0, networkWrite2, 
+                                        networkWrite2, inputRead, inputWrite, 
+                                        appliedWrite, appliedWrite0, 
+                                        networkWrite3, networkWrite4, 
                                         inputWrite0, appliedWrite1, 
-                                        networkWrite3, networkRead, 
+                                        networkWrite5, networkRead, 
                                         iAmTheLeaderWrite, iAmTheLeaderWrite0, 
                                         lastmsgWrite, lastmsgWrite0, 
                                         lastmsgWrite1, ifResult, appliedWrite2, 
                                         appliedWrite3, ifResult0, 
-                                        networkWrite4, termWrite, 
+                                        networkWrite6, termWrite, 
                                         iAmTheLeaderWrite1, termWrite0, 
                                         iAmTheLeaderWrite2, termWrite1, 
                                         iAmTheLeaderWrite3, termWrite2, 
-                                        networkWrite5, iAmTheLeaderWrite4, 
-                                        termWrite3, networkWrite6, 
+                                        networkWrite7, iAmTheLeaderWrite4, 
+                                        termWrite3, networkWrite8, 
                                         iAmTheLeaderWrite5, termWrite4, 
-                                        lastmsgWrite2, networkWrite7, 
+                                        lastmsgWrite2, networkWrite9, 
                                         appliedWrite4, iAmTheLeaderWrite6, 
                                         termWrite5, iAmTheLeaderWrite7, 
-                                        lastmsgWrite3, networkWrite8, 
+                                        lastmsgWrite3, networkWrite10, 
                                         appliedWrite5, termWrite6, 
-                                        networkWrite9, inputWrite1, 
+                                        networkWrite11, inputWrite1, 
                                         appliedWrite6, iAmTheLeaderWrite8, 
-                                        lastmsgWrite4, termWrite7, 
-                                        iAmTheLeaderRead0, timerWrite, 
-                                        termRead, networkWrite10, 
-                                        networkWrite11, timerWrite0, 
-                                        networkWrite12, timerWrite1, 
-                                        networkWrite13, msg_, null, 
+                                        lastmsgWrite4, termWrite7, msg_, null, 
                                         heartbeatId, proposerId, counter, 
                                         requestId, proposal, result_, result, 
                                         learnerId, decided, timeoutLocal, 
                                         currentTerm, votedFor, log, state, 
                                         commitIndex, lastApplied, nextIndex, 
                                         matchIndex, iterator, votes, value, 
-                                        msg, response, msgs, index, cterm >>
+                                        msg, response, msgs >>
 
 RVValid(self) == /\ pc[self] = "RVValid"
                  /\ response' = [response EXCEPT ![self] = [sender |-> self, type |-> RequestVoteResponse, term |-> currentTerm[self], granted |-> TRUE, entries |-> <<>>, prevIndex |-> NULL, prevTerm |-> NULL, commit |-> NULL]]
@@ -2783,36 +2672,32 @@ RVValid(self) == /\ pc[self] = "RVValid"
                                  learnerChanWrite0, dbWrite1, 
                                  requestServiceWrite1, timeoutRead, 
                                  networkWrite, networkWrite0, networkWrite1, 
-                                 inputRead, inputWrite, appliedWrite, 
-                                 appliedWrite0, networkWrite2, inputWrite0, 
-                                 appliedWrite1, networkWrite3, networkRead, 
-                                 iAmTheLeaderWrite, iAmTheLeaderWrite0, 
-                                 lastmsgWrite, lastmsgWrite0, lastmsgWrite1, 
-                                 ifResult, appliedWrite2, appliedWrite3, 
-                                 ifResult0, networkWrite4, termWrite, 
-                                 iAmTheLeaderWrite1, termWrite0, 
-                                 iAmTheLeaderWrite2, termWrite1, 
-                                 iAmTheLeaderWrite3, termWrite2, networkWrite5, 
-                                 iAmTheLeaderWrite4, termWrite3, networkWrite6, 
+                                 networkWrite2, inputRead, inputWrite, 
+                                 appliedWrite, appliedWrite0, networkWrite3, 
+                                 networkWrite4, inputWrite0, appliedWrite1, 
+                                 networkWrite5, networkRead, iAmTheLeaderWrite, 
+                                 iAmTheLeaderWrite0, lastmsgWrite, 
+                                 lastmsgWrite0, lastmsgWrite1, ifResult, 
+                                 appliedWrite2, appliedWrite3, ifResult0, 
+                                 networkWrite6, termWrite, iAmTheLeaderWrite1, 
+                                 termWrite0, iAmTheLeaderWrite2, termWrite1, 
+                                 iAmTheLeaderWrite3, termWrite2, networkWrite7, 
+                                 iAmTheLeaderWrite4, termWrite3, networkWrite8, 
                                  iAmTheLeaderWrite5, termWrite4, lastmsgWrite2, 
-                                 networkWrite7, appliedWrite4, 
+                                 networkWrite9, appliedWrite4, 
                                  iAmTheLeaderWrite6, termWrite5, 
                                  iAmTheLeaderWrite7, lastmsgWrite3, 
-                                 networkWrite8, appliedWrite5, termWrite6, 
-                                 networkWrite9, inputWrite1, appliedWrite6, 
+                                 networkWrite10, appliedWrite5, termWrite6, 
+                                 networkWrite11, inputWrite1, appliedWrite6, 
                                  iAmTheLeaderWrite8, lastmsgWrite4, termWrite7, 
-                                 iAmTheLeaderRead0, timerWrite, termRead, 
-                                 networkWrite10, networkWrite11, timerWrite0, 
-                                 networkWrite12, timerWrite1, networkWrite13, 
                                  msg_, null, heartbeatId, proposerId, counter, 
                                  requestId, proposal, result_, result, 
                                  learnerId, decided, timeoutLocal, currentTerm, 
                                  log, state, commitIndex, lastApplied, 
                                  nextIndex, matchIndex, iterator, votes, value, 
-                                 msg, msgs, index, cterm >>
+                                 msg, msgs >>
 
 RetryAppendEntry(self) == /\ pc[self] = "RetryAppendEntry"
-                          /\ (Len(mailboxes[(msg[self]).sender])) < (BUFFER_SIZE)
                           /\ networkWrite' = [mailboxes EXCEPT ![(msg[self]).sender] = Append(mailboxes[(msg[self]).sender], [sender |-> self, type |-> RequestVote, term |-> currentTerm[self], granted |-> FALSE, entries |-> SubSeq(log[self], nextIndex[self][(msg[self]).sender], Len(log[self])), prevIndex |-> (nextIndex[self][(msg[self]).sender]) - (1), prevTerm |-> Term(log[self], (nextIndex[self][(msg[self]).sender]) - (1)), commit |-> commitIndex[self]])]
                           /\ mailboxes' = networkWrite'
                           /\ pc' = [pc EXCEPT ![self] = "ProcessMsgs"]
@@ -2835,42 +2720,38 @@ RetryAppendEntry(self) == /\ pc[self] = "RetryAppendEntry"
                                           learnerChanWrite0, dbWrite1, 
                                           requestServiceWrite1, timeoutRead, 
                                           networkWrite0, networkWrite1, 
-                                          inputRead, inputWrite, appliedWrite, 
-                                          appliedWrite0, networkWrite2, 
+                                          networkWrite2, inputRead, inputWrite, 
+                                          appliedWrite, appliedWrite0, 
+                                          networkWrite3, networkWrite4, 
                                           inputWrite0, appliedWrite1, 
-                                          networkWrite3, networkRead, 
+                                          networkWrite5, networkRead, 
                                           iAmTheLeaderWrite, 
                                           iAmTheLeaderWrite0, lastmsgWrite, 
                                           lastmsgWrite0, lastmsgWrite1, 
                                           ifResult, appliedWrite2, 
                                           appliedWrite3, ifResult0, 
-                                          networkWrite4, termWrite, 
+                                          networkWrite6, termWrite, 
                                           iAmTheLeaderWrite1, termWrite0, 
                                           iAmTheLeaderWrite2, termWrite1, 
                                           iAmTheLeaderWrite3, termWrite2, 
-                                          networkWrite5, iAmTheLeaderWrite4, 
-                                          termWrite3, networkWrite6, 
+                                          networkWrite7, iAmTheLeaderWrite4, 
+                                          termWrite3, networkWrite8, 
                                           iAmTheLeaderWrite5, termWrite4, 
-                                          lastmsgWrite2, networkWrite7, 
+                                          lastmsgWrite2, networkWrite9, 
                                           appliedWrite4, iAmTheLeaderWrite6, 
                                           termWrite5, iAmTheLeaderWrite7, 
-                                          lastmsgWrite3, networkWrite8, 
+                                          lastmsgWrite3, networkWrite10, 
                                           appliedWrite5, termWrite6, 
-                                          networkWrite9, inputWrite1, 
+                                          networkWrite11, inputWrite1, 
                                           appliedWrite6, iAmTheLeaderWrite8, 
-                                          lastmsgWrite4, termWrite7, 
-                                          iAmTheLeaderRead0, timerWrite, 
-                                          termRead, networkWrite10, 
-                                          networkWrite11, timerWrite0, 
-                                          networkWrite12, timerWrite1, 
-                                          networkWrite13, msg_, null, 
-                                          heartbeatId, proposerId, counter, 
-                                          requestId, proposal, result_, result, 
-                                          learnerId, decided, timeoutLocal, 
-                                          currentTerm, votedFor, log, state, 
-                                          commitIndex, lastApplied, nextIndex, 
-                                          matchIndex, iterator, votes, value, 
-                                          msg, response, msgs, index, cterm >>
+                                          lastmsgWrite4, termWrite7, msg_, 
+                                          null, heartbeatId, proposerId, 
+                                          counter, requestId, proposal, 
+                                          result_, result, learnerId, decided, 
+                                          timeoutLocal, currentTerm, votedFor, 
+                                          log, state, commitIndex, lastApplied, 
+                                          nextIndex, matchIndex, iterator, 
+                                          votes, value, msg, response, msgs >>
 
 BecomeLeader(self) == /\ pc[self] = "BecomeLeader"
                       /\ state' = [state EXCEPT ![self] = Leader]
@@ -2898,38 +2779,34 @@ BecomeLeader(self) == /\ pc[self] = "BecomeLeader"
                                       requestServiceWrite0, learnerChanWrite0, 
                                       dbWrite1, requestServiceWrite1, 
                                       timeoutRead, networkWrite, networkWrite0, 
-                                      networkWrite1, inputRead, inputWrite, 
-                                      appliedWrite, appliedWrite0, 
-                                      networkWrite2, inputWrite0, 
-                                      appliedWrite1, networkWrite3, 
-                                      networkRead, iAmTheLeaderWrite0, 
-                                      lastmsgWrite, lastmsgWrite0, 
-                                      lastmsgWrite1, ifResult, appliedWrite2, 
-                                      appliedWrite3, ifResult0, networkWrite4, 
-                                      iAmTheLeaderWrite1, termWrite0, 
-                                      iAmTheLeaderWrite2, termWrite1, 
-                                      iAmTheLeaderWrite3, termWrite2, 
-                                      networkWrite5, iAmTheLeaderWrite4, 
-                                      termWrite3, networkWrite6, 
-                                      iAmTheLeaderWrite5, termWrite4, 
-                                      lastmsgWrite2, networkWrite7, 
+                                      networkWrite1, networkWrite2, inputRead, 
+                                      inputWrite, appliedWrite, appliedWrite0, 
+                                      networkWrite3, networkWrite4, 
+                                      inputWrite0, appliedWrite1, 
+                                      networkWrite5, networkRead, 
+                                      iAmTheLeaderWrite0, lastmsgWrite, 
+                                      lastmsgWrite0, lastmsgWrite1, ifResult, 
+                                      appliedWrite2, appliedWrite3, ifResult0, 
+                                      networkWrite6, iAmTheLeaderWrite1, 
+                                      termWrite0, iAmTheLeaderWrite2, 
+                                      termWrite1, iAmTheLeaderWrite3, 
+                                      termWrite2, networkWrite7, 
+                                      iAmTheLeaderWrite4, termWrite3, 
+                                      networkWrite8, iAmTheLeaderWrite5, 
+                                      termWrite4, lastmsgWrite2, networkWrite9, 
                                       appliedWrite4, iAmTheLeaderWrite6, 
                                       termWrite5, iAmTheLeaderWrite7, 
-                                      lastmsgWrite3, networkWrite8, 
-                                      appliedWrite5, termWrite6, networkWrite9, 
-                                      inputWrite1, appliedWrite6, 
-                                      iAmTheLeaderWrite8, lastmsgWrite4, 
-                                      termWrite7, iAmTheLeaderRead0, 
-                                      timerWrite, termRead, networkWrite10, 
-                                      networkWrite11, timerWrite0, 
-                                      networkWrite12, timerWrite1, 
-                                      networkWrite13, msg_, null, heartbeatId, 
-                                      proposerId, counter, requestId, proposal, 
-                                      result_, result, learnerId, decided, 
-                                      timeoutLocal, currentTerm, votedFor, log, 
-                                      commitIndex, lastApplied, iterator, 
-                                      votes, value, msg, response, msgs, index, 
-                                      cterm >>
+                                      lastmsgWrite3, networkWrite10, 
+                                      appliedWrite5, termWrite6, 
+                                      networkWrite11, inputWrite1, 
+                                      appliedWrite6, iAmTheLeaderWrite8, 
+                                      lastmsgWrite4, termWrite7, msg_, null, 
+                                      heartbeatId, proposerId, counter, 
+                                      requestId, proposal, result_, result, 
+                                      learnerId, decided, timeoutLocal, 
+                                      currentTerm, votedFor, log, commitIndex, 
+                                      lastApplied, iterator, votes, value, msg, 
+                                      response, msgs >>
 
 server(self) == NodeLoop(self) \/ TimeoutCheck(self) \/ SendReqVotes(self)
                    \/ LeaderCheck(self) \/ GetVal(self)
@@ -2942,262 +2819,9 @@ server(self) == NodeLoop(self) \/ TimeoutCheck(self) \/ SendReqVotes(self)
                    \/ RVValid(self) \/ RetryAppendEntry(self)
                    \/ BecomeLeader(self)
 
-HBLoop(self) == /\ pc[self] = "HBLoop"
-                /\ IF TRUE
-                      THEN /\ pc' = [pc EXCEPT ![self] = "CheckHeartBeat"]
-                           /\ UNCHANGED << frequency, mailboxes, timerWrite1, 
-                                           networkWrite13 >>
-                      ELSE /\ timerWrite1' = frequency
-                           /\ networkWrite13' = mailboxes
-                           /\ mailboxes' = networkWrite13'
-                           /\ frequency' = timerWrite1'
-                           /\ pc' = [pc EXCEPT ![self] = "Done"]
-                /\ UNCHANGED << values, requestSet, learnedChan, raftLayerChan, 
-                                kvClient, idAbstract, database, 
-                                iAmTheLeaderAbstract, terms, lastSeen, 
-                                requestsRead, requestsWrite, iAmTheLeaderRead, 
-                                proposerChanWrite, raftChanRead, raftChanWrite, 
-                                upstreamWrite, proposerChanWrite0, 
-                                raftChanWrite0, upstreamWrite0, requestsWrite0, 
-                                proposerChanWrite1, raftChanWrite1, 
-                                upstreamWrite1, learnerChanRead, 
-                                learnerChanWrite, kvIdRead, dbWrite, dbWrite0, 
-                                kvIdRead0, kvIdRead1, dbRead, kvIdRead2, 
-                                requestServiceWrite, requestServiceWrite0, 
-                                learnerChanWrite0, dbWrite1, 
-                                requestServiceWrite1, timeoutRead, 
-                                networkWrite, networkWrite0, networkWrite1, 
-                                inputRead, inputWrite, appliedWrite, 
-                                appliedWrite0, networkWrite2, inputWrite0, 
-                                appliedWrite1, networkWrite3, networkRead, 
-                                iAmTheLeaderWrite, iAmTheLeaderWrite0, 
-                                lastmsgWrite, lastmsgWrite0, lastmsgWrite1, 
-                                ifResult, appliedWrite2, appliedWrite3, 
-                                ifResult0, networkWrite4, termWrite, 
-                                iAmTheLeaderWrite1, termWrite0, 
-                                iAmTheLeaderWrite2, termWrite1, 
-                                iAmTheLeaderWrite3, termWrite2, networkWrite5, 
-                                iAmTheLeaderWrite4, termWrite3, networkWrite6, 
-                                iAmTheLeaderWrite5, termWrite4, lastmsgWrite2, 
-                                networkWrite7, appliedWrite4, 
-                                iAmTheLeaderWrite6, termWrite5, 
-                                iAmTheLeaderWrite7, lastmsgWrite3, 
-                                networkWrite8, appliedWrite5, termWrite6, 
-                                networkWrite9, inputWrite1, appliedWrite6, 
-                                iAmTheLeaderWrite8, lastmsgWrite4, termWrite7, 
-                                iAmTheLeaderRead0, timerWrite, termRead, 
-                                networkWrite10, networkWrite11, timerWrite0, 
-                                networkWrite12, msg_, null, heartbeatId, 
-                                proposerId, counter, requestId, proposal, 
-                                result_, result, learnerId, decided, 
-                                timeoutLocal, currentTerm, votedFor, log, 
-                                state, commitIndex, lastApplied, nextIndex, 
-                                matchIndex, iterator, votes, value, msg, 
-                                response, msgs, index, cterm >>
-
-CheckHeartBeat(self) == /\ pc[self] = "CheckHeartBeat"
-                        /\ iAmTheLeaderRead0' = iAmTheLeaderAbstract[self]
-                        /\ iAmTheLeaderRead0'
-                        /\ pc' = [pc EXCEPT ![self] = "SendHeartBeatLoop"]
-                        /\ UNCHANGED << values, requestSet, learnedChan, 
-                                        raftLayerChan, kvClient, idAbstract, 
-                                        database, iAmTheLeaderAbstract, 
-                                        frequency, terms, lastSeen, mailboxes, 
-                                        requestsRead, requestsWrite, 
-                                        iAmTheLeaderRead, proposerChanWrite, 
-                                        raftChanRead, raftChanWrite, 
-                                        upstreamWrite, proposerChanWrite0, 
-                                        raftChanWrite0, upstreamWrite0, 
-                                        requestsWrite0, proposerChanWrite1, 
-                                        raftChanWrite1, upstreamWrite1, 
-                                        learnerChanRead, learnerChanWrite, 
-                                        kvIdRead, dbWrite, dbWrite0, kvIdRead0, 
-                                        kvIdRead1, dbRead, kvIdRead2, 
-                                        requestServiceWrite, 
-                                        requestServiceWrite0, 
-                                        learnerChanWrite0, dbWrite1, 
-                                        requestServiceWrite1, timeoutRead, 
-                                        networkWrite, networkWrite0, 
-                                        networkWrite1, inputRead, inputWrite, 
-                                        appliedWrite, appliedWrite0, 
-                                        networkWrite2, inputWrite0, 
-                                        appliedWrite1, networkWrite3, 
-                                        networkRead, iAmTheLeaderWrite, 
-                                        iAmTheLeaderWrite0, lastmsgWrite, 
-                                        lastmsgWrite0, lastmsgWrite1, ifResult, 
-                                        appliedWrite2, appliedWrite3, 
-                                        ifResult0, networkWrite4, termWrite, 
-                                        iAmTheLeaderWrite1, termWrite0, 
-                                        iAmTheLeaderWrite2, termWrite1, 
-                                        iAmTheLeaderWrite3, termWrite2, 
-                                        networkWrite5, iAmTheLeaderWrite4, 
-                                        termWrite3, networkWrite6, 
-                                        iAmTheLeaderWrite5, termWrite4, 
-                                        lastmsgWrite2, networkWrite7, 
-                                        appliedWrite4, iAmTheLeaderWrite6, 
-                                        termWrite5, iAmTheLeaderWrite7, 
-                                        lastmsgWrite3, networkWrite8, 
-                                        appliedWrite5, termWrite6, 
-                                        networkWrite9, inputWrite1, 
-                                        appliedWrite6, iAmTheLeaderWrite8, 
-                                        lastmsgWrite4, termWrite7, timerWrite, 
-                                        termRead, networkWrite10, 
-                                        networkWrite11, timerWrite0, 
-                                        networkWrite12, timerWrite1, 
-                                        networkWrite13, msg_, null, 
-                                        heartbeatId, proposerId, counter, 
-                                        requestId, proposal, result_, result, 
-                                        learnerId, decided, timeoutLocal, 
-                                        currentTerm, votedFor, log, state, 
-                                        commitIndex, lastApplied, nextIndex, 
-                                        matchIndex, iterator, votes, value, 
-                                        msg, response, msgs, index, cterm >>
-
-SendHeartBeatLoop(self) == /\ pc[self] = "SendHeartBeatLoop"
-                           /\ iAmTheLeaderRead0' = iAmTheLeaderAbstract[self]
-                           /\ IF iAmTheLeaderRead0'
-                                 THEN /\ timerWrite' = 500
-                                      /\ index' = [index EXCEPT ![self] = 0]
-                                      /\ termRead' = terms[(self) - (NUM_NODES)]
-                                      /\ cterm' = [cterm EXCEPT ![self] = termRead']
-                                      /\ frequency' = timerWrite'
-                                      /\ pc' = [pc EXCEPT ![self] = "SendHeartBeats"]
-                                      /\ UNCHANGED << mailboxes, timerWrite0, 
-                                                      networkWrite12 >>
-                                 ELSE /\ timerWrite0' = frequency
-                                      /\ networkWrite12' = mailboxes
-                                      /\ mailboxes' = networkWrite12'
-                                      /\ frequency' = timerWrite0'
-                                      /\ pc' = [pc EXCEPT ![self] = "HBLoop"]
-                                      /\ UNCHANGED << timerWrite, termRead, 
-                                                      index, cterm >>
-                           /\ UNCHANGED << values, requestSet, learnedChan, 
-                                           raftLayerChan, kvClient, idAbstract, 
-                                           database, iAmTheLeaderAbstract, 
-                                           terms, lastSeen, requestsRead, 
-                                           requestsWrite, iAmTheLeaderRead, 
-                                           proposerChanWrite, raftChanRead, 
-                                           raftChanWrite, upstreamWrite, 
-                                           proposerChanWrite0, raftChanWrite0, 
-                                           upstreamWrite0, requestsWrite0, 
-                                           proposerChanWrite1, raftChanWrite1, 
-                                           upstreamWrite1, learnerChanRead, 
-                                           learnerChanWrite, kvIdRead, dbWrite, 
-                                           dbWrite0, kvIdRead0, kvIdRead1, 
-                                           dbRead, kvIdRead2, 
-                                           requestServiceWrite, 
-                                           requestServiceWrite0, 
-                                           learnerChanWrite0, dbWrite1, 
-                                           requestServiceWrite1, timeoutRead, 
-                                           networkWrite, networkWrite0, 
-                                           networkWrite1, inputRead, 
-                                           inputWrite, appliedWrite, 
-                                           appliedWrite0, networkWrite2, 
-                                           inputWrite0, appliedWrite1, 
-                                           networkWrite3, networkRead, 
-                                           iAmTheLeaderWrite, 
-                                           iAmTheLeaderWrite0, lastmsgWrite, 
-                                           lastmsgWrite0, lastmsgWrite1, 
-                                           ifResult, appliedWrite2, 
-                                           appliedWrite3, ifResult0, 
-                                           networkWrite4, termWrite, 
-                                           iAmTheLeaderWrite1, termWrite0, 
-                                           iAmTheLeaderWrite2, termWrite1, 
-                                           iAmTheLeaderWrite3, termWrite2, 
-                                           networkWrite5, iAmTheLeaderWrite4, 
-                                           termWrite3, networkWrite6, 
-                                           iAmTheLeaderWrite5, termWrite4, 
-                                           lastmsgWrite2, networkWrite7, 
-                                           appliedWrite4, iAmTheLeaderWrite6, 
-                                           termWrite5, iAmTheLeaderWrite7, 
-                                           lastmsgWrite3, networkWrite8, 
-                                           appliedWrite5, termWrite6, 
-                                           networkWrite9, inputWrite1, 
-                                           appliedWrite6, iAmTheLeaderWrite8, 
-                                           lastmsgWrite4, termWrite7, 
-                                           networkWrite10, networkWrite11, 
-                                           timerWrite1, networkWrite13, msg_, 
-                                           null, heartbeatId, proposerId, 
-                                           counter, requestId, proposal, 
-                                           result_, result, learnerId, decided, 
-                                           timeoutLocal, currentTerm, votedFor, 
-                                           log, state, commitIndex, 
-                                           lastApplied, nextIndex, matchIndex, 
-                                           iterator, votes, value, msg, 
-                                           response, msgs >>
-
-SendHeartBeats(self) == /\ pc[self] = "SendHeartBeats"
-                        /\ IF (index[self]) < (NUM_NODES)
-                              THEN /\ (Len(mailboxes[index[self]])) < (BUFFER_SIZE)
-                                   /\ networkWrite10' = [mailboxes EXCEPT ![index[self]] = Append(mailboxes[index[self]], [sender |-> (self) - (NUM_NODES), type |-> AppendEntries, term |-> cterm[self], granted |-> FALSE, entries |-> <<>>, prevIndex |-> NULL, prevTerm |-> 0, commit |-> NULL])]
-                                   /\ index' = [index EXCEPT ![self] = (index[self]) + (1)]
-                                   /\ networkWrite11' = networkWrite10'
-                                   /\ mailboxes' = networkWrite11'
-                                   /\ pc' = [pc EXCEPT ![self] = "SendHeartBeats"]
-                              ELSE /\ networkWrite11' = mailboxes
-                                   /\ mailboxes' = networkWrite11'
-                                   /\ pc' = [pc EXCEPT ![self] = "SendHeartBeatLoop"]
-                                   /\ UNCHANGED << networkWrite10, index >>
-                        /\ UNCHANGED << values, requestSet, learnedChan, 
-                                        raftLayerChan, kvClient, idAbstract, 
-                                        database, iAmTheLeaderAbstract, 
-                                        frequency, terms, lastSeen, 
-                                        requestsRead, requestsWrite, 
-                                        iAmTheLeaderRead, proposerChanWrite, 
-                                        raftChanRead, raftChanWrite, 
-                                        upstreamWrite, proposerChanWrite0, 
-                                        raftChanWrite0, upstreamWrite0, 
-                                        requestsWrite0, proposerChanWrite1, 
-                                        raftChanWrite1, upstreamWrite1, 
-                                        learnerChanRead, learnerChanWrite, 
-                                        kvIdRead, dbWrite, dbWrite0, kvIdRead0, 
-                                        kvIdRead1, dbRead, kvIdRead2, 
-                                        requestServiceWrite, 
-                                        requestServiceWrite0, 
-                                        learnerChanWrite0, dbWrite1, 
-                                        requestServiceWrite1, timeoutRead, 
-                                        networkWrite, networkWrite0, 
-                                        networkWrite1, inputRead, inputWrite, 
-                                        appliedWrite, appliedWrite0, 
-                                        networkWrite2, inputWrite0, 
-                                        appliedWrite1, networkWrite3, 
-                                        networkRead, iAmTheLeaderWrite, 
-                                        iAmTheLeaderWrite0, lastmsgWrite, 
-                                        lastmsgWrite0, lastmsgWrite1, ifResult, 
-                                        appliedWrite2, appliedWrite3, 
-                                        ifResult0, networkWrite4, termWrite, 
-                                        iAmTheLeaderWrite1, termWrite0, 
-                                        iAmTheLeaderWrite2, termWrite1, 
-                                        iAmTheLeaderWrite3, termWrite2, 
-                                        networkWrite5, iAmTheLeaderWrite4, 
-                                        termWrite3, networkWrite6, 
-                                        iAmTheLeaderWrite5, termWrite4, 
-                                        lastmsgWrite2, networkWrite7, 
-                                        appliedWrite4, iAmTheLeaderWrite6, 
-                                        termWrite5, iAmTheLeaderWrite7, 
-                                        lastmsgWrite3, networkWrite8, 
-                                        appliedWrite5, termWrite6, 
-                                        networkWrite9, inputWrite1, 
-                                        appliedWrite6, iAmTheLeaderWrite8, 
-                                        lastmsgWrite4, termWrite7, 
-                                        iAmTheLeaderRead0, timerWrite, 
-                                        termRead, timerWrite0, networkWrite12, 
-                                        timerWrite1, networkWrite13, msg_, 
-                                        null, heartbeatId, proposerId, counter, 
-                                        requestId, proposal, result_, result, 
-                                        learnerId, decided, timeoutLocal, 
-                                        currentTerm, votedFor, log, state, 
-                                        commitIndex, lastApplied, nextIndex, 
-                                        matchIndex, iterator, votes, value, 
-                                        msg, response, msgs, cterm >>
-
-heartbeat(self) == HBLoop(self) \/ CheckHeartBeat(self)
-                      \/ SendHeartBeatLoop(self) \/ SendHeartBeats(self)
-
 Next == (\E self \in KVRequests: kvRequests(self))
            \/ (\E self \in KVManager: kvManager(self))
            \/ (\E self \in Servers: server(self))
-           \/ (\E self \in Heartbeats: heartbeat(self))
            \/ (* Disjunct to prevent deadlock on termination *)
               ((\A self \in ProcSet: pc[self] = "Done") /\ UNCHANGED vars)
 
@@ -3205,7 +2829,6 @@ Spec == /\ Init /\ [][Next]_vars
         /\ \A self \in KVRequests : WF_vars(kvRequests(self))
         /\ \A self \in KVManager : WF_vars(kvManager(self))
         /\ \A self \in Servers : WF_vars(server(self))
-        /\ \A self \in Heartbeats : WF_vars(heartbeat(self))
 
 Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 
