@@ -499,13 +499,13 @@ func (mbox *Mailbox) sendMessage(msg interface{}) error {
 	}
 }
 
-func (mbox *Mailbox) tryRead() (interface{}, bool) {
-	for i := 0; i < mbox.readAttempts; i++ {
+func tryRead(ch chan interface{}, attempts, wait int) (interface{}, bool) {
+	for i := 0; i < attempts; i++ {
 		select {
-		case msg := <-mbox.readChan:
+		case msg := <-ch:
 			return msg, true
 		default:
-			time.Sleep(time.Duration(mbox.waitDuration) * time.Millisecond)
+			time.Sleep(time.Duration(wait) * time.Millisecond)
 		}
 	}
 
@@ -604,7 +604,7 @@ func (mbox *Mailbox) Read() (interface{}, error) {
 	// incoming messages on the mailbox
 	var msg interface{}
 	var ok bool
-	if msg, ok = mbox.tryRead(); !ok {
+	if msg, ok = tryRead(mbox.readChan, mbox.readAttempts, mbox.waitDuration); !ok {
 		return nil, &AbortRetryError{"No messages in the buffer"}
 	}
 
@@ -670,22 +670,26 @@ func (mbox *Mailbox) Less(other ArchetypeResource) bool {
 // Parameters can be sent via channels and the result of the
 // computation performed can also be transmitted via channels.
 type LocalChannelResource struct {
-	name     string           // channel identifier
-	ch       chan interface{} // the underlying Go channel
-	lock     chan int         // guarantees access to the underlying channel is exclusive
-	readBuf  []interface{}    // keeps track of read values
-	writeBuf []interface{}    // values written to the channel; sent when the resource is released
+	name         string           // channel identifier
+	ch           chan interface{} // the underlying Go channel
+	readAttempts int              // how many times to try to read from a channel
+	waitDuration int              // how long to wait between each attempt (in ms)
+	lock         chan int         // guarantees access to the underlying channel is exclusive
+	readBuf      []interface{}    // keeps track of read values
+	writeBuf     []interface{}    // values written to the channel; sent when the resource is released
 }
 
 // NewLocalChannel creates a LocalChannelResource. The caller does not
 // need to know about the underlying Go channel.
 func NewLocalChannel(name string, bufferSize int) *LocalChannelResource {
 	return &LocalChannelResource{
-		name:     name,
-		lock:     newLock(),
-		ch:       make(chan interface{}, bufferSize),
-		readBuf:  []interface{}{},
-		writeBuf: []interface{}{},
+		name:         name,
+		lock:         newLock(),
+		ch:           make(chan interface{}, bufferSize),
+		readAttempts: 30,
+		waitDuration: 30,
+		readBuf:      []interface{}{},
+		writeBuf:     []interface{}{},
 	}
 }
 
@@ -700,9 +704,14 @@ func (localCh *LocalChannelResource) Acquire(access ResourceAccess) error {
 
 // Read waits for data to be available in the underlying Go channel.
 func (localCh *LocalChannelResource) Read() (interface{}, error) {
-	val := <-localCh.ch
-	localCh.readBuf = append(localCh.readBuf, val)
+	var val interface{}
+	var ok bool
 
+	if val, ok = tryRead(localCh.ch, localCh.readAttempts, localCh.waitDuration); !ok {
+		return nil, &AbortRetryError{"No messages in the channel"}
+	}
+
+	localCh.readBuf = append(localCh.readBuf, val)
 	return val, nil
 }
 
