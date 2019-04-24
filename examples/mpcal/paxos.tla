@@ -257,9 +257,8 @@ ABadPropose: mailboxes[msg.sender] := [type |-> REJECT_MSG, sender |-> self, bal
   variables b, \* local ballot
             s = 1, \* current slot
             elected = FALSE,
-            null,
             acceptedValues = <<>>,
-            max = [slot |-> -1, bal |-> -1, val |-> null],
+            maxBal = -1,
             index, \* temporary variable for iteration
             entry,
             promises,
@@ -285,10 +284,10 @@ PLeaderCheck: if (elected) { \* This proposer thinks it is the distinguished pro
             \* Make sure the value proposed is the same as the value of the accepted proposal with the highest ballot (if such a value exists)
 PFindMaxVal: while (index <= Len(acceptedValues)) {
                 entry := acceptedValues[index];
-                if (entry.slot = s /\ entry.bal >= max.bal) {
+                if (entry.slot = s /\ entry.bal >= maxBal) {
                     repropose := TRUE;
                     value := entry.val;
-                    max := entry;
+                    maxBal := entry.bal;
                 };
                 index := index + 1;
             };
@@ -580,7 +579,7 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
         PUT == "put"
     }
     fair process (proposer \in Proposer)
-    variables b, s = 1, elected = FALSE, null, acceptedValues = <<>>, max = [slot |-> -(1), bal |-> -(1), val |-> null], index, entry, promises, heartbeatMonitorId, accepts = 0, value, repropose, resp;
+    variables b, s = 1, elected = FALSE, acceptedValues = <<>>, maxBal = -(1), index, entry, promises, heartbeatMonitorId, accepts = 0, value, repropose, resp;
     {
         Pre:
             b := self;
@@ -595,10 +594,10 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
                         PFindMaxVal:
                             if ((index) <= (Len(acceptedValues))) {
                                 entry := acceptedValues[index];
-                                if ((((entry).slot) = (s)) /\ (((entry).bal) >= ((max).bal))) {
+                                if ((((entry).slot) = (s)) /\ (((entry).bal) >= (maxBal))) {
                                     repropose := TRUE;
                                     value := (entry).val;
-                                    max := entry;
+                                    maxBal := (entry).bal;
                                 };
                                 index := (index) + (1);
                                 goto PFindMaxVal;
@@ -1223,7 +1222,7 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
                     };
                     kvIdRead2 := (self) - (NUM_NODES);
                     await ((paxosLayerChan[kvIdRead2]).value) = (NULL);
-                    requestServiceWrite := [paxosLayerChan EXCEPT ![kvIdRead2].value = result];
+                    requestServiceWrite := [paxosLayerChan EXCEPT ![kvIdRead2] = result];
                     requestServiceWrite0 := requestServiceWrite;
                     dbWrite1 := dbWrite0;
                     requestServiceWrite1 := requestServiceWrite0;
@@ -1253,17 +1252,17 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
 ***************************************************************************)
 
 \* BEGIN TRANSLATION
-\* Label findId of process leaderStatusMonitor at line 1066 col 13 changed to findId_
-\* Process variable null of process proposer at line 583 col 42 changed to null_
-\* Process variable acceptedValues of process proposer at line 583 col 48 changed to acceptedValues_
-\* Process variable index of process proposer at line 583 col 122 changed to index_
-\* Process variable entry of process proposer at line 583 col 129 changed to entry_
-\* Process variable accepts of process proposer at line 583 col 166 changed to accepts_
-\* Process variable msg of process acceptor at line 837 col 73 changed to msg_
-\* Process variable msg of process learner at line 917 col 73 changed to msg_l
-\* Process variable msg of process heartbeatAction at line 986 col 46 changed to msg_h
-\* Process variable heartbeatId of process leaderStatusMonitor at line 1063 col 44 changed to heartbeatId_
-\* Process variable result of process kvRequests at line 1135 col 116 changed to result_
+\* Label findId of process leaderStatusMonitor at line 1065 col 13 changed to findId_
+\* Process variable acceptedValues of process proposer at line 582 col 42 changed to acceptedValues_
+\* Process variable maxBal of process proposer at line 582 col 65 changed to maxBal_
+\* Process variable index of process proposer at line 582 col 80 changed to index_
+\* Process variable entry of process proposer at line 582 col 87 changed to entry_
+\* Process variable accepts of process proposer at line 582 col 124 changed to accepts_
+\* Process variable msg of process acceptor at line 836 col 73 changed to msg_
+\* Process variable msg of process learner at line 916 col 73 changed to msg_l
+\* Process variable msg of process heartbeatAction at line 985 col 46 changed to msg_h
+\* Process variable heartbeatId of process leaderStatusMonitor at line 1062 col 44 changed to heartbeatId_
+\* Process variable result of process kvRequests at line 1134 col 116 changed to result_
 CONSTANT defaultInitValue
 VARIABLES network, values, lastSeenAbstract, timeoutCheckerAbstract,
           sleeperAbstract, kvClient, idAbstract, requestSet, learnedChan,
@@ -1327,14 +1326,13 @@ OK_MSG == "ok_msg"
 GET == "get"
 PUT == "put"
 
-VARIABLES b, s, elected, null_, acceptedValues_, max, index_, entry_,
-          promises, heartbeatMonitorId, accepts_, value, repropose, resp,
-          maxBal, loopIndex, acceptedValues, payload, msg_, accepts,
-          newAccepts, numAccepted, iterator, entry, msg_l,
-          heartbeatFrequencyLocal, msg_h, index, monitorFrequencyLocal,
-          heartbeatId_, msg, null, heartbeatId, proposerId, counter,
-          requestId, requestOk, confirmedRequestId, proposal, result_, result,
-          learnerId, decided
+VARIABLES b, s, elected, acceptedValues_, maxBal_, index_, entry_, promises,
+          heartbeatMonitorId, accepts_, value, repropose, resp, maxBal,
+          loopIndex, acceptedValues, payload, msg_, accepts, newAccepts,
+          numAccepted, iterator, entry, msg_l, heartbeatFrequencyLocal, msg_h,
+          index, monitorFrequencyLocal, heartbeatId_, msg, null, heartbeatId,
+          proposerId, counter, requestId, requestOk, confirmedRequestId,
+          proposal, result_, result, learnerId, decided
 
 vars == << network, values, lastSeenAbstract, timeoutCheckerAbstract,
            sleeperAbstract, kvClient, idAbstract, requestSet, learnedChan,
@@ -1373,14 +1371,14 @@ vars == << network, values, lastSeenAbstract, timeoutCheckerAbstract,
            requestsWrite0, proposerChanWrite1, upstreamWrite1,
            learnerChanRead, kvIdRead, dbWrite, dbWrite0, kvIdRead0, kvIdRead1,
            dbRead, kvIdRead2, requestServiceWrite, requestServiceWrite0,
-           dbWrite1, requestServiceWrite1, pc, b, s, elected, null_,
-           acceptedValues_, max, index_, entry_, promises, heartbeatMonitorId,
-           accepts_, value, repropose, resp, maxBal, loopIndex,
-           acceptedValues, payload, msg_, accepts, newAccepts, numAccepted,
-           iterator, entry, msg_l, heartbeatFrequencyLocal, msg_h, index,
-           monitorFrequencyLocal, heartbeatId_, msg, null, heartbeatId,
-           proposerId, counter, requestId, requestOk, confirmedRequestId,
-           proposal, result_, result, learnerId, decided >>
+           dbWrite1, requestServiceWrite1, pc, b, s, elected, acceptedValues_,
+           maxBal_, index_, entry_, promises, heartbeatMonitorId, accepts_,
+           value, repropose, resp, maxBal, loopIndex, acceptedValues, payload,
+           msg_, accepts, newAccepts, numAccepted, iterator, entry, msg_l,
+           heartbeatFrequencyLocal, msg_h, index, monitorFrequencyLocal,
+           heartbeatId_, msg, null, heartbeatId, proposerId, counter,
+           requestId, requestOk, confirmedRequestId, proposal, result_,
+           result, learnerId, decided >>
 
 ProcSet == (Proposer) \cup (Acceptor) \cup (Learner) \cup (Heartbeat) \cup (LeaderMonitor) \cup (KVRequests) \cup (KVPaxosManager)
 
@@ -1512,9 +1510,8 @@ Init == (* Global variables *)
         /\ b = [self \in Proposer |-> defaultInitValue]
         /\ s = [self \in Proposer |-> 1]
         /\ elected = [self \in Proposer |-> FALSE]
-        /\ null_ = [self \in Proposer |-> defaultInitValue]
         /\ acceptedValues_ = [self \in Proposer |-> <<>>]
-        /\ max = [self \in Proposer |-> [slot |-> -(1), bal |-> -(1), val |-> null_[self]]]
+        /\ maxBal_ = [self \in Proposer |-> -(1)]
         /\ index_ = [self \in Proposer |-> defaultInitValue]
         /\ entry_ = [self \in Proposer |-> defaultInitValue]
         /\ promises = [self \in Proposer |-> defaultInitValue]
@@ -1622,12 +1619,12 @@ Pre(self) == /\ pc[self] = "Pre"
                              learnerChanRead, kvIdRead, dbWrite, dbWrite0,
                              kvIdRead0, kvIdRead1, dbRead, kvIdRead2,
                              requestServiceWrite, requestServiceWrite0,
-                             dbWrite1, requestServiceWrite1, s, elected, null_,
-                             acceptedValues_, max, index_, entry_, promises,
-                             accepts_, value, repropose, resp, maxBal,
-                             loopIndex, acceptedValues, payload, msg_, accepts,
-                             newAccepts, numAccepted, iterator, entry, msg_l,
-                             heartbeatFrequencyLocal, msg_h, index,
+                             dbWrite1, requestServiceWrite1, s, elected,
+                             acceptedValues_, maxBal_, index_, entry_,
+                             promises, accepts_, value, repropose, resp,
+                             maxBal, loopIndex, acceptedValues, payload, msg_,
+                             accepts, newAccepts, numAccepted, iterator, entry,
+                             msg_l, heartbeatFrequencyLocal, msg_h, index,
                              monitorFrequencyLocal, heartbeatId_, msg, null,
                              heartbeatId, proposerId, counter, requestId,
                              requestOk, confirmedRequestId, proposal, result_,
@@ -1694,8 +1691,8 @@ P(self) == /\ pc[self] = "P"
                            learnerChanRead, kvIdRead, dbWrite, dbWrite0,
                            kvIdRead0, kvIdRead1, dbRead, kvIdRead2,
                            requestServiceWrite, requestServiceWrite0, dbWrite1,
-                           requestServiceWrite1, b, s, elected, null_,
-                           acceptedValues_, max, index_, entry_, promises,
+                           requestServiceWrite1, b, s, elected,
+                           acceptedValues_, maxBal_, index_, entry_, promises,
                            heartbeatMonitorId, accepts_, value, repropose,
                            resp, maxBal, loopIndex, acceptedValues, payload,
                            msg_, accepts, newAccepts, numAccepted, iterator,
@@ -1787,7 +1784,7 @@ PLeaderCheck(self) == /\ pc[self] = "PLeaderCheck"
                                       requestServiceWrite,
                                       requestServiceWrite0, dbWrite1,
                                       requestServiceWrite1, b, s, elected,
-                                      null_, acceptedValues_, max, entry_,
+                                      acceptedValues_, maxBal_, entry_,
                                       promises, heartbeatMonitorId, value,
                                       resp, maxBal, loopIndex, acceptedValues,
                                       payload, msg_, accepts, newAccepts,
@@ -1802,12 +1799,12 @@ PLeaderCheck(self) == /\ pc[self] = "PLeaderCheck"
 PFindMaxVal(self) == /\ pc[self] = "PFindMaxVal"
                      /\ IF (index_[self]) <= (Len(acceptedValues_[self]))
                            THEN /\ entry_' = [entry_ EXCEPT ![self] = acceptedValues_[self][index_[self]]]
-                                /\ IF (((entry_'[self]).slot) = (s[self])) /\ (((entry_'[self]).bal) >= ((max[self]).bal))
+                                /\ IF (((entry_'[self]).slot) = (s[self])) /\ (((entry_'[self]).bal) >= (maxBal_[self]))
                                       THEN /\ repropose' = [repropose EXCEPT ![self] = TRUE]
                                            /\ value' = [value EXCEPT ![self] = (entry_'[self]).val]
-                                           /\ max' = [max EXCEPT ![self] = entry_'[self]]
+                                           /\ maxBal_' = [maxBal_ EXCEPT ![self] = (entry_'[self]).bal]
                                       ELSE /\ TRUE
-                                           /\ UNCHANGED << max, value,
+                                           /\ UNCHANGED << maxBal_, value,
                                                            repropose >>
                                 /\ index_' = [index_ EXCEPT ![self] = (index_[self]) + (1)]
                                 /\ pc' = [pc EXCEPT ![self] = "PFindMaxVal"]
@@ -1824,7 +1821,7 @@ PFindMaxVal(self) == /\ pc[self] = "PFindMaxVal"
                                                            value >>
                                 /\ index_' = [index_ EXCEPT ![self] = NUM_NODES]
                                 /\ pc' = [pc EXCEPT ![self] = "PSendProposes"]
-                                /\ UNCHANGED << max, entry_, repropose >>
+                                /\ UNCHANGED << maxBal_, entry_, repropose >>
                      /\ UNCHANGED << network, lastSeenAbstract,
                                      timeoutCheckerAbstract, sleeperAbstract,
                                      kvClient, idAbstract, requestSet,
@@ -1892,7 +1889,7 @@ PFindMaxVal(self) == /\ pc[self] = "PFindMaxVal"
                                      dbRead, kvIdRead2, requestServiceWrite,
                                      requestServiceWrite0, dbWrite1,
                                      requestServiceWrite1, b, s, elected,
-                                     null_, acceptedValues_, promises,
+                                     acceptedValues_, promises,
                                      heartbeatMonitorId, accepts_, resp,
                                      maxBal, loopIndex, acceptedValues,
                                      payload, msg_, accepts, newAccepts,
@@ -1990,7 +1987,7 @@ PSendProposes(self) == /\ pc[self] = "PSendProposes"
                                        kvIdRead2, requestServiceWrite,
                                        requestServiceWrite0, dbWrite1,
                                        requestServiceWrite1, b, s, elected,
-                                       null_, acceptedValues_, max, entry_,
+                                       acceptedValues_, maxBal_, entry_,
                                        promises, heartbeatMonitorId, accepts_,
                                        value, repropose, resp, maxBal,
                                        loopIndex, acceptedValues, payload,
@@ -2138,8 +2135,8 @@ PSearchAccs(self) == /\ pc[self] = "PSearchAccs"
                                      dbWrite, dbWrite0, kvIdRead0, kvIdRead1,
                                      dbRead, kvIdRead2, requestServiceWrite,
                                      requestServiceWrite0, dbWrite1,
-                                     requestServiceWrite1, b, s, null_,
-                                     acceptedValues_, max, index_, entry_,
+                                     requestServiceWrite1, b, s,
+                                     acceptedValues_, maxBal_, index_, entry_,
                                      promises, heartbeatMonitorId, value,
                                      repropose, maxBal, loopIndex,
                                      acceptedValues, payload, msg_, accepts,
@@ -2155,7 +2152,7 @@ PWaitFailure(self) == /\ pc[self] = "PWaitFailure"
                       /\ (leaderFailureAbstract[heartbeatMonitorId[self]]) = (TRUE)
                       /\ leaderFailureRead' = leaderFailureAbstract[heartbeatMonitorId[self]]
                       /\ Assert((leaderFailureRead') = (TRUE),
-                                "Failure of assertion at line 672, column 45.")
+                                "Failure of assertion at line 671, column 45.")
                       /\ pc' = [pc EXCEPT ![self] = "PSearchAccs"]
                       /\ UNCHANGED << network, values, lastSeenAbstract,
                                       timeoutCheckerAbstract, sleeperAbstract,
@@ -2230,9 +2227,9 @@ PWaitFailure(self) == /\ pc[self] = "PWaitFailure"
                                       requestServiceWrite,
                                       requestServiceWrite0, dbWrite1,
                                       requestServiceWrite1, b, s, elected,
-                                      null_, acceptedValues_, max, index_,
-                                      entry_, promises, heartbeatMonitorId,
-                                      accepts_, value, repropose, resp, maxBal,
+                                      acceptedValues_, maxBal_, index_, entry_,
+                                      promises, heartbeatMonitorId, accepts_,
+                                      value, repropose, resp, maxBal,
                                       loopIndex, acceptedValues, payload, msg_,
                                       accepts, newAccepts, numAccepted,
                                       iterator, entry, msg_l,
@@ -2308,8 +2305,8 @@ PIncSlot(self) == /\ pc[self] = "PIncSlot"
                                   dbWrite, dbWrite0, kvIdRead0, kvIdRead1,
                                   dbRead, kvIdRead2, requestServiceWrite,
                                   requestServiceWrite0, dbWrite1,
-                                  requestServiceWrite1, b, elected, null_,
-                                  acceptedValues_, max, index_, entry_,
+                                  requestServiceWrite1, b, elected,
+                                  acceptedValues_, maxBal_, index_, entry_,
                                   promises, heartbeatMonitorId, accepts_,
                                   value, repropose, resp, maxBal, loopIndex,
                                   acceptedValues, payload, msg_, accepts,
@@ -2406,8 +2403,8 @@ PReqVotes(self) == /\ pc[self] = "PReqVotes"
                                    dbWrite, dbWrite0, kvIdRead0, kvIdRead1,
                                    dbRead, kvIdRead2, requestServiceWrite,
                                    requestServiceWrite0, dbWrite1,
-                                   requestServiceWrite1, b, s, elected, null_,
-                                   acceptedValues_, max, entry_,
+                                   requestServiceWrite1, b, s, elected,
+                                   acceptedValues_, maxBal_, entry_,
                                    heartbeatMonitorId, accepts_, value,
                                    repropose, resp, maxBal, loopIndex,
                                    acceptedValues, payload, msg_, accepts,
@@ -2568,7 +2565,7 @@ PCandidate(self) == /\ pc[self] = "PCandidate"
                                     dbWrite, dbWrite0, kvIdRead0, kvIdRead1,
                                     dbRead, kvIdRead2, requestServiceWrite,
                                     requestServiceWrite0, dbWrite1,
-                                    requestServiceWrite1, b, s, null_, max,
+                                    requestServiceWrite1, b, s, maxBal_,
                                     index_, entry_, heartbeatMonitorId,
                                     accepts_, value, repropose, maxBal,
                                     loopIndex, acceptedValues, payload, msg_,
@@ -2584,7 +2581,7 @@ PWaitLeaderFailure(self) == /\ pc[self] = "PWaitLeaderFailure"
                             /\ (leaderFailureAbstract[heartbeatMonitorId[self]]) = (TRUE)
                             /\ leaderFailureRead' = leaderFailureAbstract[heartbeatMonitorId[self]]
                             /\ Assert((leaderFailureRead') = (TRUE),
-                                      "Failure of assertion at line 781, column 45.")
+                                      "Failure of assertion at line 780, column 45.")
                             /\ b' = [b EXCEPT ![self] = (b[self]) + (NUM_NODES)]
                             /\ index_' = [index_ EXCEPT ![self] = NUM_NODES]
                             /\ pc' = [pc EXCEPT ![self] = "PReSendReqVotes"]
@@ -2675,12 +2672,11 @@ PWaitLeaderFailure(self) == /\ pc[self] = "PWaitLeaderFailure"
                                             requestServiceWrite,
                                             requestServiceWrite0, dbWrite1,
                                             requestServiceWrite1, s, elected,
-                                            null_, acceptedValues_, max,
-                                            entry_, promises,
-                                            heartbeatMonitorId, accepts_,
-                                            value, repropose, resp, maxBal,
-                                            loopIndex, acceptedValues, payload,
-                                            msg_, accepts, newAccepts,
+                                            acceptedValues_, maxBal_, entry_,
+                                            promises, heartbeatMonitorId,
+                                            accepts_, value, repropose, resp,
+                                            maxBal, loopIndex, acceptedValues,
+                                            payload, msg_, accepts, newAccepts,
                                             numAccepted, iterator, entry,
                                             msg_l, heartbeatFrequencyLocal,
                                             msg_h, index,
@@ -2781,7 +2777,7 @@ PReSendReqVotes(self) == /\ pc[self] = "PReSendReqVotes"
                                          requestServiceWrite,
                                          requestServiceWrite0, dbWrite1,
                                          requestServiceWrite1, b, s, elected,
-                                         null_, acceptedValues_, max, entry_,
+                                         acceptedValues_, maxBal_, entry_,
                                          promises, heartbeatMonitorId,
                                          accepts_, value, repropose, resp,
                                          maxBal, loopIndex, acceptedValues,
@@ -2864,8 +2860,8 @@ A(self) == /\ pc[self] = "A"
                            learnerChanRead, kvIdRead, dbWrite, dbWrite0,
                            kvIdRead0, kvIdRead1, dbRead, kvIdRead2,
                            requestServiceWrite, requestServiceWrite0, dbWrite1,
-                           requestServiceWrite1, b, s, elected, null_,
-                           acceptedValues_, max, index_, entry_, promises,
+                           requestServiceWrite1, b, s, elected,
+                           acceptedValues_, maxBal_, index_, entry_, promises,
                            heartbeatMonitorId, accepts_, value, repropose,
                            resp, maxBal, loopIndex, acceptedValues, payload,
                            accepts, newAccepts, numAccepted, iterator, entry,
@@ -2973,8 +2969,8 @@ AMsgSwitch(self) == /\ pc[self] = "AMsgSwitch"
                                     dbWrite, dbWrite0, kvIdRead0, kvIdRead1,
                                     dbRead, kvIdRead2, requestServiceWrite,
                                     requestServiceWrite0, dbWrite1,
-                                    requestServiceWrite1, b, s, elected, null_,
-                                    acceptedValues_, max, index_, entry_,
+                                    requestServiceWrite1, b, s, elected,
+                                    acceptedValues_, maxBal_, index_, entry_,
                                     promises, heartbeatMonitorId, accepts_,
                                     value, repropose, resp, maxBal, loopIndex,
                                     acceptedValues, payload, msg_, accepts,
@@ -3051,8 +3047,8 @@ APrepare(self) == /\ pc[self] = "APrepare"
                                   dbWrite, dbWrite0, kvIdRead0, kvIdRead1,
                                   dbRead, kvIdRead2, requestServiceWrite,
                                   requestServiceWrite0, dbWrite1,
-                                  requestServiceWrite1, b, s, elected, null_,
-                                  acceptedValues_, max, index_, entry_,
+                                  requestServiceWrite1, b, s, elected,
+                                  acceptedValues_, maxBal_, index_, entry_,
                                   promises, heartbeatMonitorId, accepts_,
                                   value, repropose, resp, loopIndex,
                                   acceptedValues, payload, msg_, accepts,
@@ -3135,18 +3131,17 @@ ABadPrepare(self) == /\ pc[self] = "ABadPrepare"
                                      dbRead, kvIdRead2, requestServiceWrite,
                                      requestServiceWrite0, dbWrite1,
                                      requestServiceWrite1, b, s, elected,
-                                     null_, acceptedValues_, max, index_,
-                                     entry_, promises, heartbeatMonitorId,
-                                     accepts_, value, repropose, resp, maxBal,
-                                     loopIndex, acceptedValues, payload, msg_,
-                                     accepts, newAccepts, numAccepted,
-                                     iterator, entry, msg_l,
-                                     heartbeatFrequencyLocal, msg_h, index,
-                                     monitorFrequencyLocal, heartbeatId_, msg,
-                                     null, heartbeatId, proposerId, counter,
-                                     requestId, requestOk, confirmedRequestId,
-                                     proposal, result_, result, learnerId,
-                                     decided >>
+                                     acceptedValues_, maxBal_, index_, entry_,
+                                     promises, heartbeatMonitorId, accepts_,
+                                     value, repropose, resp, maxBal, loopIndex,
+                                     acceptedValues, payload, msg_, accepts,
+                                     newAccepts, numAccepted, iterator, entry,
+                                     msg_l, heartbeatFrequencyLocal, msg_h,
+                                     index, monitorFrequencyLocal,
+                                     heartbeatId_, msg, null, heartbeatId,
+                                     proposerId, counter, requestId, requestOk,
+                                     confirmedRequestId, proposal, result_,
+                                     result, learnerId, decided >>
 
 APropose(self) == /\ pc[self] = "APropose"
                   /\ maxBal' = [maxBal EXCEPT ![self] = (msg_[self]).bal]
@@ -3216,8 +3211,8 @@ APropose(self) == /\ pc[self] = "APropose"
                                   dbWrite, dbWrite0, kvIdRead0, kvIdRead1,
                                   dbRead, kvIdRead2, requestServiceWrite,
                                   requestServiceWrite0, dbWrite1,
-                                  requestServiceWrite1, b, s, elected, null_,
-                                  acceptedValues_, max, index_, entry_,
+                                  requestServiceWrite1, b, s, elected,
+                                  acceptedValues_, maxBal_, index_, entry_,
                                   promises, heartbeatMonitorId, accepts_,
                                   value, repropose, resp, msg_, accepts,
                                   newAccepts, numAccepted, iterator, entry,
@@ -3318,7 +3313,7 @@ ANotifyLearners(self) == /\ pc[self] = "ANotifyLearners"
                                          requestServiceWrite,
                                          requestServiceWrite0, dbWrite1,
                                          requestServiceWrite1, b, s, elected,
-                                         null_, acceptedValues_, max, index_,
+                                         acceptedValues_, maxBal_, index_,
                                          entry_, promises, heartbeatMonitorId,
                                          accepts_, value, repropose, resp,
                                          maxBal, acceptedValues, payload, msg_,
@@ -3402,18 +3397,17 @@ ABadPropose(self) == /\ pc[self] = "ABadPropose"
                                      dbRead, kvIdRead2, requestServiceWrite,
                                      requestServiceWrite0, dbWrite1,
                                      requestServiceWrite1, b, s, elected,
-                                     null_, acceptedValues_, max, index_,
-                                     entry_, promises, heartbeatMonitorId,
-                                     accepts_, value, repropose, resp, maxBal,
-                                     loopIndex, acceptedValues, payload, msg_,
-                                     accepts, newAccepts, numAccepted,
-                                     iterator, entry, msg_l,
-                                     heartbeatFrequencyLocal, msg_h, index,
-                                     monitorFrequencyLocal, heartbeatId_, msg,
-                                     null, heartbeatId, proposerId, counter,
-                                     requestId, requestOk, confirmedRequestId,
-                                     proposal, result_, result, learnerId,
-                                     decided >>
+                                     acceptedValues_, maxBal_, index_, entry_,
+                                     promises, heartbeatMonitorId, accepts_,
+                                     value, repropose, resp, maxBal, loopIndex,
+                                     acceptedValues, payload, msg_, accepts,
+                                     newAccepts, numAccepted, iterator, entry,
+                                     msg_l, heartbeatFrequencyLocal, msg_h,
+                                     index, monitorFrequencyLocal,
+                                     heartbeatId_, msg, null, heartbeatId,
+                                     proposerId, counter, requestId, requestOk,
+                                     confirmedRequestId, proposal, result_,
+                                     result, learnerId, decided >>
 
 acceptor(self) == A(self) \/ AMsgSwitch(self) \/ APrepare(self)
                      \/ ABadPrepare(self) \/ APropose(self)
@@ -3485,8 +3479,8 @@ L(self) == /\ pc[self] = "L"
                            learnerChanRead, kvIdRead, dbWrite, dbWrite0,
                            kvIdRead0, kvIdRead1, dbRead, kvIdRead2,
                            requestServiceWrite, requestServiceWrite0, dbWrite1,
-                           requestServiceWrite1, b, s, elected, null_,
-                           acceptedValues_, max, index_, entry_, promises,
+                           requestServiceWrite1, b, s, elected,
+                           acceptedValues_, maxBal_, index_, entry_, promises,
                            heartbeatMonitorId, accepts_, value, repropose,
                            resp, maxBal, loopIndex, acceptedValues, payload,
                            msg_, accepts, newAccepts, numAccepted, iterator,
@@ -3566,8 +3560,8 @@ LGotAcc(self) == /\ pc[self] = "LGotAcc"
                                  dbWrite, dbWrite0, kvIdRead0, kvIdRead1,
                                  dbRead, kvIdRead2, requestServiceWrite,
                                  requestServiceWrite0, dbWrite1,
-                                 requestServiceWrite1, b, s, elected, null_,
-                                 acceptedValues_, max, index_, entry_,
+                                 requestServiceWrite1, b, s, elected,
+                                 acceptedValues_, maxBal_, index_, entry_,
                                  promises, heartbeatMonitorId, accepts_, value,
                                  repropose, resp, maxBal, loopIndex,
                                  acceptedValues, payload, msg_, newAccepts,
@@ -3681,7 +3675,7 @@ LCheckMajority(self) == /\ pc[self] = "LCheckMajority"
                                         kvIdRead2, requestServiceWrite,
                                         requestServiceWrite0, dbWrite1,
                                         requestServiceWrite1, b, s, elected,
-                                        null_, acceptedValues_, max, index_,
+                                        acceptedValues_, maxBal_, index_,
                                         entry_, promises, heartbeatMonitorId,
                                         accepts_, value, repropose, resp,
                                         maxBal, loopIndex, acceptedValues,
@@ -3788,7 +3782,7 @@ garbageCollection(self) == /\ pc[self] = "garbageCollection"
                                            requestServiceWrite,
                                            requestServiceWrite0, dbWrite1,
                                            requestServiceWrite1, b, s, elected,
-                                           null_, acceptedValues_, max, index_,
+                                           acceptedValues_, maxBal_, index_,
                                            entry_, promises,
                                            heartbeatMonitorId, accepts_, value,
                                            repropose, resp, maxBal, loopIndex,
@@ -3875,8 +3869,8 @@ mainLoop(self) == /\ pc[self] = "mainLoop"
                                   dbWrite, dbWrite0, kvIdRead0, kvIdRead1,
                                   dbRead, kvIdRead2, requestServiceWrite,
                                   requestServiceWrite0, dbWrite1,
-                                  requestServiceWrite1, b, s, elected, null_,
-                                  acceptedValues_, max, index_, entry_,
+                                  requestServiceWrite1, b, s, elected,
+                                  acceptedValues_, maxBal_, index_, entry_,
                                   promises, heartbeatMonitorId, accepts_,
                                   value, repropose, resp, maxBal, loopIndex,
                                   acceptedValues, payload, msg_, accepts,
@@ -3966,8 +3960,8 @@ leaderLoop(self) == /\ pc[self] = "leaderLoop"
                                     dbWrite, dbWrite0, kvIdRead0, kvIdRead1,
                                     dbRead, kvIdRead2, requestServiceWrite,
                                     requestServiceWrite0, dbWrite1,
-                                    requestServiceWrite1, b, s, elected, null_,
-                                    acceptedValues_, max, index_, entry_,
+                                    requestServiceWrite1, b, s, elected,
+                                    acceptedValues_, maxBal_, index_, entry_,
                                     promises, heartbeatMonitorId, accepts_,
                                     value, repropose, resp, maxBal, loopIndex,
                                     acceptedValues, payload, msg_, accepts,
@@ -4087,8 +4081,8 @@ heartbeatBroadcast(self) == /\ pc[self] = "heartbeatBroadcast"
                                             requestServiceWrite,
                                             requestServiceWrite0, dbWrite1,
                                             requestServiceWrite1, b, s,
-                                            elected, null_, acceptedValues_,
-                                            max, index_, entry_, promises,
+                                            elected, acceptedValues_, maxBal_,
+                                            index_, entry_, promises,
                                             heartbeatMonitorId, accepts_,
                                             value, repropose, resp, maxBal,
                                             loopIndex, acceptedValues, payload,
@@ -4113,7 +4107,7 @@ followerLoop(self) == /\ pc[self] = "followerLoop"
                                       /\ mailboxesRead2' = msg4
                                  /\ msg_h' = [msg_h EXCEPT ![self] = mailboxesRead2']
                                  /\ Assert(((msg_h'[self]).type) = (HEARTBEAT_MSG),
-                                           "Failure of assertion at line 1037, column 25.")
+                                           "Failure of assertion at line 1036, column 25.")
                                  /\ lastSeenWrite' = msg_h'[self]
                                  /\ mailboxesWrite22' = mailboxesWrite18'
                                  /\ lastSeenWrite0' = lastSeenWrite'
@@ -4196,9 +4190,9 @@ followerLoop(self) == /\ pc[self] = "followerLoop"
                                       requestServiceWrite,
                                       requestServiceWrite0, dbWrite1,
                                       requestServiceWrite1, b, s, elected,
-                                      null_, acceptedValues_, max, index_,
-                                      entry_, promises, heartbeatMonitorId,
-                                      accepts_, value, repropose, resp, maxBal,
+                                      acceptedValues_, maxBal_, index_, entry_,
+                                      promises, heartbeatMonitorId, accepts_,
+                                      value, repropose, resp, maxBal,
                                       loopIndex, acceptedValues, payload, msg_,
                                       accepts, newAccepts, numAccepted,
                                       iterator, entry, msg_l,
@@ -4275,8 +4269,8 @@ findId_(self) == /\ pc[self] = "findId_"
                                  dbWrite, dbWrite0, kvIdRead0, kvIdRead1,
                                  dbRead, kvIdRead2, requestServiceWrite,
                                  requestServiceWrite0, dbWrite1,
-                                 requestServiceWrite1, b, s, elected, null_,
-                                 acceptedValues_, max, index_, entry_,
+                                 requestServiceWrite1, b, s, elected,
+                                 acceptedValues_, maxBal_, index_, entry_,
                                  promises, heartbeatMonitorId, accepts_, value,
                                  repropose, resp, maxBal, loopIndex,
                                  acceptedValues, payload, msg_, accepts,
@@ -4421,18 +4415,17 @@ monitorLoop(self) == /\ pc[self] = "monitorLoop"
                                      dbRead, kvIdRead2, requestServiceWrite,
                                      requestServiceWrite0, dbWrite1,
                                      requestServiceWrite1, b, s, elected,
-                                     null_, acceptedValues_, max, index_,
-                                     entry_, promises, heartbeatMonitorId,
-                                     accepts_, value, repropose, resp, maxBal,
-                                     loopIndex, acceptedValues, payload, msg_,
-                                     accepts, newAccepts, numAccepted,
-                                     iterator, entry, msg_l,
-                                     heartbeatFrequencyLocal, msg_h, index,
-                                     monitorFrequencyLocal, heartbeatId_, msg,
-                                     null, heartbeatId, proposerId, counter,
-                                     requestId, requestOk, confirmedRequestId,
-                                     proposal, result_, result, learnerId,
-                                     decided >>
+                                     acceptedValues_, maxBal_, index_, entry_,
+                                     promises, heartbeatMonitorId, accepts_,
+                                     value, repropose, resp, maxBal, loopIndex,
+                                     acceptedValues, payload, msg_, accepts,
+                                     newAccepts, numAccepted, iterator, entry,
+                                     msg_l, heartbeatFrequencyLocal, msg_h,
+                                     index, monitorFrequencyLocal,
+                                     heartbeatId_, msg, null, heartbeatId,
+                                     proposerId, counter, requestId, requestOk,
+                                     confirmedRequestId, proposal, result_,
+                                     result, learnerId, decided >>
 
 sleep(self) == /\ pc[self] = "sleep"
                /\ monitorFrequencyRead' = monitorFrequencyLocal[self]
@@ -4492,17 +4485,17 @@ sleep(self) == /\ pc[self] = "sleep"
                                dbWrite, dbWrite0, kvIdRead0, kvIdRead1, dbRead,
                                kvIdRead2, requestServiceWrite,
                                requestServiceWrite0, dbWrite1,
-                               requestServiceWrite1, b, s, elected, null_,
-                               acceptedValues_, max, index_, entry_, promises,
-                               heartbeatMonitorId, accepts_, value, repropose,
-                               resp, maxBal, loopIndex, acceptedValues,
-                               payload, msg_, accepts, newAccepts, numAccepted,
-                               iterator, entry, msg_l, heartbeatFrequencyLocal,
-                               msg_h, index, monitorFrequencyLocal,
-                               heartbeatId_, msg, null, heartbeatId,
-                               proposerId, counter, requestId, requestOk,
-                               confirmedRequestId, proposal, result_, result,
-                               learnerId, decided >>
+                               requestServiceWrite1, b, s, elected,
+                               acceptedValues_, maxBal_, index_, entry_,
+                               promises, heartbeatMonitorId, accepts_, value,
+                               repropose, resp, maxBal, loopIndex,
+                               acceptedValues, payload, msg_, accepts,
+                               newAccepts, numAccepted, iterator, entry, msg_l,
+                               heartbeatFrequencyLocal, msg_h, index,
+                               monitorFrequencyLocal, heartbeatId_, msg, null,
+                               heartbeatId, proposerId, counter, requestId,
+                               requestOk, confirmedRequestId, proposal,
+                               result_, result, learnerId, decided >>
 
 leaderStatusMonitor(self) == findId_(self) \/ monitorLoop(self)
                                 \/ sleep(self)
@@ -4569,7 +4562,7 @@ kvInit(self) == /\ pc[self] = "kvInit"
                                 kvIdRead0, kvIdRead1, dbRead, kvIdRead2,
                                 requestServiceWrite, requestServiceWrite0,
                                 dbWrite1, requestServiceWrite1, b, s, elected,
-                                null_, acceptedValues_, max, index_, entry_,
+                                acceptedValues_, maxBal_, index_, entry_,
                                 promises, heartbeatMonitorId, accepts_, value,
                                 repropose, resp, maxBal, loopIndex,
                                 acceptedValues, payload, msg_, accepts,
@@ -4588,7 +4581,7 @@ kvLoop(self) == /\ pc[self] = "kvLoop"
                                 /\ requestsRead' = req0
                            /\ msg' = [msg EXCEPT ![self] = requestsRead']
                            /\ Assert((((msg'[self]).type) = (GET_MSG)) \/ (((msg'[self]).type) = (PUT_MSG)),
-                                     "Failure of assertion at line 1148, column 17.")
+                                     "Failure of assertion at line 1147, column 17.")
                            /\ iAmTheLeaderRead1' = iAmTheLeaderAbstract[heartbeatId[self]]
                            /\ IF iAmTheLeaderRead1'
                                  THEN /\ requestId' = [requestId EXCEPT ![self] = <<self, counter[self]>>]
@@ -4682,13 +4675,13 @@ kvLoop(self) == /\ pc[self] = "kvLoop"
                                 dbWrite, dbWrite0, kvIdRead0, kvIdRead1,
                                 dbRead, kvIdRead2, requestServiceWrite,
                                 requestServiceWrite0, dbWrite1,
-                                requestServiceWrite1, b, s, elected, null_,
-                                acceptedValues_, max, index_, entry_, promises,
-                                heartbeatMonitorId, accepts_, value, repropose,
-                                resp, maxBal, loopIndex, acceptedValues,
-                                payload, msg_, accepts, newAccepts,
-                                numAccepted, iterator, entry, msg_l,
-                                heartbeatFrequencyLocal, msg_h, index,
+                                requestServiceWrite1, b, s, elected,
+                                acceptedValues_, maxBal_, index_, entry_,
+                                promises, heartbeatMonitorId, accepts_, value,
+                                repropose, resp, maxBal, loopIndex,
+                                acceptedValues, payload, msg_, accepts,
+                                newAccepts, numAccepted, iterator, entry,
+                                msg_l, heartbeatFrequencyLocal, msg_h, index,
                                 monitorFrequencyLocal, heartbeatId_, null,
                                 heartbeatId, proposerId, counter, requestOk,
                                 confirmedRequestId, result_, result, learnerId,
@@ -4779,7 +4772,7 @@ requestConfirm(self) == /\ pc[self] = "requestConfirm"
                                         kvIdRead2, requestServiceWrite,
                                         requestServiceWrite0, dbWrite1,
                                         requestServiceWrite1, b, s, elected,
-                                        null_, acceptedValues_, max, index_,
+                                        acceptedValues_, maxBal_, index_,
                                         entry_, promises, heartbeatMonitorId,
                                         accepts_, value, repropose, resp,
                                         maxBal, loopIndex, acceptedValues,
@@ -4855,7 +4848,7 @@ findId(self) == /\ pc[self] = "findId"
                                 kvIdRead0, kvIdRead1, dbRead, kvIdRead2,
                                 requestServiceWrite, requestServiceWrite0,
                                 dbWrite1, requestServiceWrite1, b, s, elected,
-                                null_, acceptedValues_, max, index_, entry_,
+                                acceptedValues_, maxBal_, index_, entry_,
                                 promises, heartbeatMonitorId, accepts_, value,
                                 repropose, resp, maxBal, loopIndex,
                                 acceptedValues, payload, msg_, accepts,
@@ -4890,7 +4883,7 @@ kvManagerLoop(self) == /\ pc[self] = "kvManagerLoop"
                                                                         dbRead >>
                                              /\ kvIdRead2' = (self) - (NUM_NODES)
                                              /\ ((paxosLayerChan[kvIdRead2']).value) = (NULL)
-                                             /\ requestServiceWrite' = [paxosLayerChan EXCEPT ![kvIdRead2'].value = result'[self]]
+                                             /\ requestServiceWrite' = [paxosLayerChan EXCEPT ![kvIdRead2'] = result'[self]]
                                              /\ requestServiceWrite0' = requestServiceWrite'
                                              /\ dbWrite1' = dbWrite0'
                                              /\ requestServiceWrite1' = requestServiceWrite0'
@@ -4988,7 +4981,7 @@ kvManagerLoop(self) == /\ pc[self] = "kvManagerLoop"
                                        upstreamWrite, proposerChanWrite0,
                                        upstreamWrite0, requestsWrite0,
                                        proposerChanWrite1, upstreamWrite1, b,
-                                       s, elected, null_, acceptedValues_, max,
+                                       s, elected, acceptedValues_, maxBal_,
                                        index_, entry_, promises,
                                        heartbeatMonitorId, accepts_, value,
                                        repropose, resp, maxBal, loopIndex,
