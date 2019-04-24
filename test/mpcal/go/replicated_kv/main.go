@@ -146,7 +146,7 @@ func fatal(msg string) {
 }
 
 func makeMailboxRef(name string) *distsys.Mailbox {
-	mbox, err := distsys.MailboxRef(name, 0, connections, configuration, id, MAILBOX_SIZE, CONNECTION_TIMEOUT)
+	mbox, err := distsys.MailboxRef(name, 0, connections, configuration, []string{id}, MAILBOX_SIZE, CONNECTION_TIMEOUT)
 	if err != nil {
 		panic(err)
 	}

@@ -96,7 +96,7 @@ public class ModularPlusCalGoCodeGenPass {
             // if the write type of any archetype resource is a record, define our record representation
             // (map[string]interface{}) with the runtime
             boolean writesRecord = modularPlusCalBlock
-                    .getArchetypes()
+                    .getInstantiatedArchetypes()
                     .stream()
                     .map(ModularPlusCalArchetype::getParams)
                     .flatMap(Collection::stream)
@@ -104,14 +104,26 @@ public class ModularPlusCalGoCodeGenPass {
                     .anyMatch(uid -> requiresRecords.apply(typeMap.get(uid)));
 
             if (writesRecord) {
-                GoExpression register = new GoCall(
+                GoExpression registerRecord = new GoCall(
                         new GoSelectorExpression(new GoVariableName("distsys"), "DefineCustomType"),
                         Collections.singletonList(
                                 new GoMapLiteral(GoBuiltins.String, GoBuiltins.Interface, Collections.emptyMap())
                         )
                 );
 
-                initBuilder.addStatement(register);
+                // TODO: we should only register []map[string]interface{} if this is ever transmitted over the wire
+                GoExpression registerListOfRecords = new GoCall(
+                        new GoSelectorExpression(new GoVariableName("distsys"), "DefineCustomType"),
+                        Collections.singletonList(
+                                new GoSliceLiteral(
+                                        new GoMapType(GoBuiltins.String, GoBuiltins.Interface, Collections.emptyMap()),
+                                        Collections.emptyList()
+                                )
+                        )
+                );
+
+                initBuilder.addStatement(registerRecord);
+                initBuilder.addStatement(registerListOfRecords);
             }
 
             // sets rand seed for unique random numbers on every execution
@@ -216,7 +228,7 @@ public class ModularPlusCalGoCodeGenPass {
         generateInit(modularPlusCalBlock, module, registry, typeMap, localStrategy, globalStrategy);
         defineShouldRetry(module, sleepMin, sleepMax);
 
-        for (ModularPlusCalArchetype archetype : modularPlusCalBlock.getArchetypes()) {
+        for (ModularPlusCalArchetype archetype : modularPlusCalBlock.getInstantiatedArchetypes()) {
             globalStrategy = new ArchetypeResourcesGlobalVariableStrategy(registry, typeMap, localStrategy, archetype.getUID());
 
             GoFunctionDeclarationBuilder fn = module.defineFunction(archetype.getUID(), archetype.getName());

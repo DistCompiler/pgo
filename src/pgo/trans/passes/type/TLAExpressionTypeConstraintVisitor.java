@@ -31,7 +31,7 @@ public class TLAExpressionTypeConstraintVisitor extends TLAExpressionVisitor<Typ
 		this.mapping = mapping;
 	}
 
-	private Type typeVariableReference(UID reference) {
+	private TypeVariable typeVariableReference(UID reference) {
 		if (mapping.containsKey(reference)) {
 			return mapping.get(reference);
 		} else {
@@ -274,7 +274,9 @@ public class TLAExpressionTypeConstraintVisitor extends TLAExpressionVisitor<Typ
 
 	@Override
 	public Type visit(TLAGeneralIdentifier tlaGeneralIdentifier) throws RuntimeException {
-		return typeVariableReference(registry.followReference(tlaGeneralIdentifier.getUID()));
+		TypeVariable v = typeVariableReference(registry.followReference(tlaGeneralIdentifier.getUID()));
+		mapping.put(tlaGeneralIdentifier.getUID(), v);
+		return v;
 	}
 
 	@Override

@@ -1,0 +1,10 @@
+{
+  "build": {
+    "output_dir": "output",
+    "dest_package": "paxos"
+  },
+  "constants": {
+    "NUM_NODES": "3",
+    "NULL": "-1"
+  }
+}

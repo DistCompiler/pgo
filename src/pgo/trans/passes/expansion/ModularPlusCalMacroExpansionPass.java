@@ -16,7 +16,21 @@ public class ModularPlusCalMacroExpansionPass {
 				ctx.error(new MacroNameConflictIssue(macros.get(macro.getName()), macro));
 				continue;
 			}
+
 			macros.put(macro.getName(), macro);
+		}
+
+		// Expand macros themselves to allow macro composition
+		for (PlusCalMacro macro : modularPlusCalBlock.getMacros()) {
+			PlusCalMacroExpansionVisitor macroExpander = new PlusCalMacroExpansionVisitor(ctx, macros, new HashSet<>(), new HashMap<>());
+			List<PlusCalStatement> stmts = new ArrayList<>();
+
+			for (PlusCalStatement s : macro.getBody()) {
+				stmts.addAll(s.accept(macroExpander));
+			}
+
+			PlusCalMacro expanded = new PlusCalMacro(macro.getLocation(), macro.getName(), macro.getParams(), stmts);
+			macros.put(macro.getName(), expanded);
 		}
 
 		List<PlusCalProcedure> procedures = new ArrayList<>();
