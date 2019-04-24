@@ -6,8 +6,8 @@ import (
 
 type DummyClient struct{}
 
-func NewDummyClient() DummyClient {
-	return DummyClient{}
+func NewDummyClient() *DummyClient {
+	return &DummyClient{}
 }
 
 func (c *DummyClient) Get(key string) (string, error) {
@@ -18,4 +18,7 @@ func (c *DummyClient) Get(key string) (string, error) {
 func (c *DummyClient) Put(key, value string) error {
 	fmt.Printf("putting %s %s\n", key, value)
 	return nil
+}
+
+func (c *DummyClient) Close() {
 }

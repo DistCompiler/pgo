@@ -160,7 +160,8 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 
 	@Override
 	public Void visit(UnresolvableMacroCallIssue unresolvableMacroCallIssue) throws IOException {
-		out.write("could not find macro referenced by macro call at line ");
+		out.write("could not find macro [" + unresolvableMacroCallIssue.getMacroCall().getTarget() +
+						"] referenced by macro call at line ");
 		out.write(unresolvableMacroCallIssue.getMacroCall().getLocation().getStartLine());
 		out.write(" column ");
 		out.write(unresolvableMacroCallIssue.getMacroCall().getLocation().getStartColumn());

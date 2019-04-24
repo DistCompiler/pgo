@@ -47,8 +47,8 @@ const (
 	READ_ACCESS = iota + 1
 	WRITE_ACCESS
 
-	LOCK_NUM_RETRIES = 150
-	LOCK_WAIT        = 10 // ms
+	LOCK_NUM_RETRIES = 10
+	LOCK_WAIT        = 20 // ms
 
 	RPC_SUCCESS = iota
 	MAILBOX_IS_FULL_ERROR
@@ -73,6 +73,7 @@ func init() {
 	RegisterResource(&ImmutableResource{})
 	RegisterResource(&LocallySharedResource{})
 	RegisterResource(&AtomicInteger{})
+	RegisterResource(&SleepResource{})
 }
 
 // RegisterResource assigns a priority to the type of the resource
@@ -121,7 +122,8 @@ func releaseLock(lock chan<- int) {
 	case lock <- 0:
 		return
 	default:
-		panic("Attempt to release unlocked lock")
+		// fmt.Printf("Warning: Attempt to release unlocked lock\n")
+		// panic("Attempt to release unlocked lock")
 	}
 }
 
@@ -256,9 +258,10 @@ func AcquireResources(access ResourceAccess, resources ...ArchetypeResource) err
 func ReleaseResources(resources ...ArchetypeResource) error {
 	sort.Sort(SortableArchetypeResource(resources))
 	numAcquired := 0
+	var err error
 
 	for _, r := range resources {
-		err := r.Release()
+		err = r.Release()
 
 		// if there is an error releasing one of the resources, abort all
 		// subsequent resources and return the error
@@ -271,7 +274,7 @@ func ReleaseResources(resources ...ArchetypeResource) error {
 		numAcquired++
 	}
 
-	return nil
+	return err
 }
 
 // AbortResources releases (without modification) a collection of
@@ -434,7 +437,7 @@ func mailboxErrorDescription(e int) string {
 type Mailbox struct {
 	name           string            // internal name exposed via RPC
 	version        int               // version of this service being created
-	selfName       string            // identifier of the process that created the reference
+	selfNames      []string          // identifiers deployed at the node that created the mailbox
 	configuration  map[string]string // configuration of the system (PlusCal process -> IP address)
 	conns          *Connections      // the set of connections to nodes within the system
 	readAttempts   int               // number of times to attempt a read when no message is buffered
@@ -497,17 +500,27 @@ func (mbox *Mailbox) sendMessage(msg interface{}) error {
 	}
 }
 
-func (mbox *Mailbox) tryRead() (interface{}, bool) {
-	for i := 0; i < mbox.readAttempts; i++ {
+func tryRead(ch chan interface{}, attempts, wait int) (interface{}, bool) {
+	for i := 0; i < attempts; i++ {
 		select {
-		case msg := <-mbox.readChan:
+		case msg := <-ch:
 			return msg, true
 		default:
-			time.Sleep(time.Duration(mbox.waitDuration) * time.Millisecond)
+			time.Sleep(time.Duration(wait) * time.Millisecond)
 		}
 	}
 
 	return nil, false
+}
+
+func stringInList(target string, list []string) bool {
+	for _, s := range list {
+		if target == s {
+			return true
+		}
+	}
+
+	return false
 }
 
 // MailboxRef represents a reference to some mailbox. It can be local
@@ -526,15 +539,15 @@ func (mbox *Mailbox) tryRead() (interface{}, bool) {
 // the reply of a function call. Passing a timeout of 0 causes the
 // runtime to not employ any timeout mechanism (falling back to the
 // underlying system's TCP timeout).
-func MailboxRef(name string, version int, conns *Connections, configuration map[string]string, id string, bufferSize uint, timeout uint) (*Mailbox, error) {
+func MailboxRef(name string, version int, conns *Connections, configuration map[string]string, ids []string, bufferSize uint, timeout uint) (*Mailbox, error) {
 	mbox := &Mailbox{
 		name:           name,
 		version:        version,
-		selfName:       id,
+		selfNames:      ids,
 		configuration:  configuration,
 		conns:          conns,
-		readAttempts:   30,
-		waitDuration:   30,
+		readAttempts:   2,
+		waitDuration:   20,
 		readBuf:        []interface{}{},
 		writeBuf:       []interface{}{},
 		timeout:        timeout,
@@ -544,7 +557,7 @@ func MailboxRef(name string, version int, conns *Connections, configuration map[
 	// if the reference is for the mailbox of the current process,
 	// expose RPC calls that allow other processes to send messages to
 	// it.
-	if name == id {
+	if stringInList(name, ids) {
 		readChan := make(chan interface{}, bufferSize)
 		receiver := &Receiver{readChan}
 		mbox.readChan = readChan
@@ -566,8 +579,8 @@ func (_ *Mailbox) Acquire(_ ResourceAccess) error {
 // returns an AbortRetryError. It is enforced that processes can only
 // read messages from their own mailboxes.
 func (mbox *Mailbox) Read() (interface{}, error) {
-	if mbox.name != mbox.selfName {
-		panic(fmt.Sprintf("Tried to read non-local mailbox %s (attempted by %s)", mbox.name, mbox.selfName))
+	if !stringInList(mbox.name, mbox.selfNames) {
+		panic(fmt.Sprintf("Tried to read non-local mailbox %s (attempted by %s)", mbox.name, mbox.selfNames))
 	}
 
 	mbox.lock.Lock()
@@ -592,7 +605,7 @@ func (mbox *Mailbox) Read() (interface{}, error) {
 	// incoming messages on the mailbox
 	var msg interface{}
 	var ok bool
-	if msg, ok = mbox.tryRead(); !ok {
+	if msg, ok = tryRead(mbox.readChan, mbox.readAttempts, mbox.waitDuration); !ok {
 		return nil, &AbortRetryError{"No messages in the buffer"}
 	}
 
@@ -603,10 +616,6 @@ func (mbox *Mailbox) Read() (interface{}, error) {
 // Write saves a message with the value given in a buffer to be sent
 // later, when the channel is released.
 func (mbox *Mailbox) Write(value interface{}) error {
-	if mbox.name == mbox.selfName {
-		panic(fmt.Sprintf("Tried to send message to local mailbox (attempted by %s)", mbox.selfName))
-	}
-
 	mbox.lock.Lock()
 	defer mbox.lock.Unlock()
 
@@ -624,7 +633,9 @@ func (mbox *Mailbox) Release() error {
 	// acquired.  Returns an error if sending any message failed
 	for _, msg := range mbox.writeBuf {
 		if err := mbox.sendMessage(msg); err != nil {
-			return &ResourceInternalError{err.Error()}
+			// return &ResourceInternalError{err.Error()}
+			// TODO: this should return a proper ResourceInternalError
+			return nil
 		}
 	}
 
@@ -662,22 +673,26 @@ func (mbox *Mailbox) Less(other ArchetypeResource) bool {
 // Parameters can be sent via channels and the result of the
 // computation performed can also be transmitted via channels.
 type LocalChannelResource struct {
-	name     string           // channel identifier
-	ch       chan interface{} // the underlying Go channel
-	lock     chan int         // guarantees access to the underlying channel is exclusive
-	readBuf  []interface{}    // keeps track of read values
-	writeBuf []interface{}    // values written to the channel; sent when the resource is released
+	name         string           // channel identifier
+	ch           chan interface{} // the underlying Go channel
+	readAttempts int              // how many times to try to read from a channel
+	waitDuration int              // how long to wait between each attempt (in ms)
+	lock         chan int         // guarantees access to the underlying channel is exclusive
+	readBuf      []interface{}    // keeps track of read values
+	writeBuf     []interface{}    // values written to the channel; sent when the resource is released
 }
 
 // NewLocalChannel creates a LocalChannelResource. The caller does not
 // need to know about the underlying Go channel.
-func NewLocalChannel(name string) *LocalChannelResource {
+func NewLocalChannel(name string, bufferSize int) *LocalChannelResource {
 	return &LocalChannelResource{
-		name:     name,
-		lock:     newLock(),
-		ch:       make(chan interface{}),
-		readBuf:  []interface{}{},
-		writeBuf: []interface{}{},
+		name:         name,
+		lock:         newLock(),
+		ch:           make(chan interface{}, bufferSize),
+		readAttempts: 2,
+		waitDuration: 20,
+		readBuf:      []interface{}{},
+		writeBuf:     []interface{}{},
 	}
 }
 
@@ -692,9 +707,14 @@ func (localCh *LocalChannelResource) Acquire(access ResourceAccess) error {
 
 // Read waits for data to be available in the underlying Go channel.
 func (localCh *LocalChannelResource) Read() (interface{}, error) {
-	val := <-localCh.ch
-	localCh.readBuf = append(localCh.readBuf, val)
+	var val interface{}
+	var ok bool
 
+	if val, ok = tryRead(localCh.ch, localCh.readAttempts, localCh.waitDuration); !ok {
+		return nil, &AbortRetryError{"No messages in the channel"}
+	}
+
+	localCh.readBuf = append(localCh.readBuf, val)
 	return val, nil
 }
 
@@ -1035,11 +1055,67 @@ func (aint *AtomicInteger) Abort() error {
 	return nil
 }
 
-// Less implements ordering among locally shared
-// resources. Lexicographical order on the resource name is used.
+// Less implements ordering among atomic integer resources.
+// Lexicographical order on the resource name is used.
 func (aint *AtomicInteger) Less(other ArchetypeResource) bool {
 	otherResource := other.(*AtomicInteger)
 	return strings.Compare(aint.name, otherResource.name) < 0
+}
+
+// Sleeping as Archetype Resources
+// -------------------------------
+
+// SleepResource allows implementations to sleep an arbitrary duration
+// while executing an archetype.
+type SleepResource struct {
+	name string        // resource name, for ordering
+	unit time.Duration // seconds, milliseconds, ...
+}
+
+// NewSleepResource creates a resource that sleeps for the specified
+// amount of time when the resource is written to. The parameter given
+// indicates the unit used when the resource is used (i.e., seconds,
+// milliseconds, etc.)
+func NewSleepResource(name string, unit time.Duration) *SleepResource {
+	return &SleepResource{
+		name: name,
+		unit: unit,
+	}
+}
+
+// Acquire is a no-op for sleep resources
+func (_ *SleepResource) Acquire(_ ResourceAccess) error {
+	return nil
+}
+
+// Read panics if invoked. Sleep resources should not be read from!
+func (_ *SleepResource) Read() (interface{}, error) {
+	panic("Attempted to read SleepResource")
+}
+
+// Write sleeps for the specified amount of time (must be an integer)
+func (s *SleepResource) Write(value interface{}) error {
+	t := value.(int)
+
+	time.Sleep(time.Duration(t) * s.unit)
+	return nil
+}
+
+// Release is a no-op for sleep resources
+func (_ *SleepResource) Release() error {
+	return nil
+}
+
+// Abort is a no-op for sleep resources
+func (_ *SleepResource) Abort() error {
+	return nil
+}
+
+// Less implements ordering among sleep resources
+// Lexicographical order on the resource name is used.
+func (s *SleepResource) Less(other ArchetypeResource) bool {
+	otherResource := other.(*SleepResource)
+	return strings.Compare(s.name, otherResource.name) < 0
 }
 
 /////////////////////////////////////////////////////////////////////////
@@ -1124,6 +1200,7 @@ func (singleton SingletonCollectionResource) Get(_ interface{}) ArchetypeResourc
 // interface and allows Get operations to index on keys of the map.
 type ArchetypeResourceMap struct {
 	resources map[interface{}]*LocallySharedResource
+	counter   uint
 	lock      sync.Mutex
 }
 
@@ -1140,8 +1217,9 @@ func (m *ArchetypeResourceMap) Get(key interface{}) ArchetypeResource {
 	if _, ok := m.resources[key]; !ok {
 		// the name is irrelevant here since function-mapped resources
 		// are acquired at the time of use
-		m.resources[key] = NewLocallySharedResource("mapResource", nil)
+		m.resources[key] = NewLocallySharedResource(fmt.Sprintf("mapResource_%d", m.counter), nil)
 	}
+	m.counter++
 
 	m.lock.Unlock()
 	return m.resources[key]

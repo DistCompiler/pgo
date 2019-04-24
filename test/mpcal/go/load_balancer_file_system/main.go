@@ -46,7 +46,7 @@ func init() {
 }
 
 func makeMailboxRef(name string) *distsys.Mailbox {
-	mbox, err := distsys.MailboxRef(name, 0, connections, configuration, id, MAILBOX_SIZE, 0)
+	mbox, err := distsys.MailboxRef(name, 0, connections, configuration, []string{id}, MAILBOX_SIZE, 0)
 	if err != nil {
 		panic(err)
 	}
@@ -91,8 +91,8 @@ func main() {
 	} else {
 		fmt.Printf("Connected!\n")
 
-		in := distsys.NewLocalChannel("in")
-		out := distsys.NewLocalChannel("out")
+		in := distsys.NewLocalChannel("in", 0)
+		out := distsys.NewLocalChannel("out", 0)
 
 		go load_balancer.AClient(self, distsys.ArchetypeResourceSlice(mailboxes), in, out)
 

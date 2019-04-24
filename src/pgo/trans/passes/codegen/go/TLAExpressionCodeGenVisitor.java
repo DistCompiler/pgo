@@ -208,8 +208,7 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 
 	@Override
 	public GoExpression visit(TLADot tlaDot) throws RuntimeException {
-		UID ref = registry.followReference(tlaDot.getExpression().getUID());
-		Type expressionType = typeMap.get(ref);
+		Type expressionType = typeMap.get(tlaDot.getExpression().getUID());
 		if (!(expressionType instanceof RecordType)) {
 			throw new TODO();
 		}

@@ -29,7 +29,6 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
     private UID archetype;
     private GoVariableName err;
     private GoVariableName acquiredResources;
-    private Set<String> functionMappedResourceNames;
     private int currentLockGroup;
     private GoLabelName currentLabel;
     private boolean functionMaps;
@@ -75,7 +74,7 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
         if (functionMaps) {
             GoType type = new GoMapType(
                     GoBuiltins.String,
-                    new GoMapType(GoBuiltins.Interface, GoBuiltins.Bool)
+                    new GoMapType(GoBuiltins.UInt64, GoBuiltins.Interface)
             );
 
             this.acquiredResources = builder.varDecl("acquiredResources", type);
@@ -126,14 +125,10 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
                     acquiredResources,
                     new GoMapLiteral(
                             GoBuiltins.String,
-                            new GoMapType(GoBuiltins.Interface, GoBuiltins.Bool), Collections.emptyMap()
+                            new GoMapType(GoBuiltins.UInt64, GoBuiltins.Interface), Collections.emptyMap()
                     )
             );
         }
-
-        // keeps track of the function-mapped resources read or written
-        // in this label so that they can be released at the end of the label.
-        functionMappedResourceNames = new HashSet<>();
 
         // keep track of the current lock group so that function-mapped
         // resources can be properly acquired when accessed
@@ -301,18 +296,32 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
         );
     }
 
-        // Releases/aborts resources
+    // Releases/aborts resources
     private void terminateCriticalSection(GoBlockBuilder builder, int lockGroup, String method, boolean isError) {
+        Set<String> functionMappedResourceNames = new HashSet<>();
+
         // release all non-function mapped resources in order
         Set<TLAExpression> varMapped = new HashSet<>();
-        Consumer<TLAExpression> collectVariableMapped = e -> {
+        Consumer<TLAExpression> collectResources = e -> {
             if (e instanceof TLAGeneralIdentifier) {
                 varMapped.add(e);
+            } else if (e instanceof TLAFunctionCall) {
+                TLAFunctionCall fnCall = (TLAFunctionCall) e;
+
+                TLAExpression fn = fnCall.getFunction();
+                if (!(fn instanceof TLAGeneralIdentifier)) {
+                    throw new TODO();
+                }
+
+                TLAGeneralIdentifier name = (TLAGeneralIdentifier) fn;
+                functionMappedResourceNames.add(name.getName().getId());
+            } else {
+                throw new InternalCompilerError();
             }
         };
 
-        registry.getResourceReadsInLockGroup(lockGroup).forEach(collectVariableMapped);
-        registry.getResourceWritesInLockGroup(lockGroup).forEach(collectVariableMapped);
+        registry.getResourceReadsInLockGroup(lockGroup).forEach(collectResources);
+        registry.getResourceWritesInLockGroup(lockGroup).forEach(collectResources);
 
         List<GoExpression> varMappedExpressions = varMapped
                 .stream()
@@ -339,7 +348,7 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
 
             GoExpression resources = new GoIndexExpression(acquiredResources, new GoStringLiteral(resourceName));
             GoForRangeBuilder rangeBuilder = builder.forRange(resources);
-            GoVariableName r = rangeBuilder.initVariables(Arrays.asList("r", "_")).get(0);
+            GoVariableName r = rangeBuilder.initVariables(Arrays.asList("_", "r")).get(1);
             try (GoBlockBuilder rangeBody = rangeBuilder.getBlockBuilder()) {
                 GoExpression resourceGet = new GoCall(
                         new GoSelectorExpression(new GoVariableName(resourceName), "Get"),
@@ -381,10 +390,8 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
             throw new InternalCompilerError();
         }
 
-        functionMappedResourceNames.add(resourceName);
-
         // if _, ok := acquiredResources["{name}"]; !ok {
-        //     acquiredResources["{name}"] = []interface{}{}
+        //     acquiredResources["{name}"] = map[uint64]interface{}{}
         // }
         // {name}Acquired := acquiredResources["{name}"]
         GoExpression currentlyAcquired = new GoIndexExpression(acquiredResources, new GoStringLiteral(resourceName));
@@ -395,7 +402,7 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
             try (GoBlockBuilder yes = ifBuilder.whenTrue()) {
                 yes.assign(
                         currentlyAcquired,
-                        new GoMapLiteral(GoBuiltins.Interface, GoBuiltins.Bool, Collections.emptyMap())
+                        new GoMapLiteral(GoBuiltins.UInt64, GoBuiltins.Interface, Collections.emptyMap())
                 );
             }
         }
@@ -406,7 +413,9 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
         );
 
         try (GoIfBuilder ifBuilder = builder.ifStmt(null)) {
-            GoExpression argAcquired = new GoIndexExpression(currentlyAcquired, goArg);
+            GoExpression argHash = new GoCall(distsys("Hash"), Collections.singletonList(goArg));
+            GoVariableName resourceHash = builder.varDecl("resourceHash", argHash);
+            GoExpression argAcquired = new GoIndexExpression(currentlyAcquired, resourceHash);
             GoVariableName acquired = ifBuilder.initialAssignment(Arrays.asList("_", "acquired"), argAcquired).get(1);
 
             ifBuilder.setCondition(new GoUnary(GoUnary.Operation.NOT, acquired));
@@ -414,13 +423,19 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
             try (GoBlockBuilder yes = ifBuilder.whenTrue()) {
                 String permission;
 
-                if (registry.getResourceReadsInLockGroup(currentLockGroup).contains(fnCall)) {
-                    permission = "READ_ACCESS";
-                } else if (registry.getResourceWritesInLockGroup(currentLockGroup).contains(fnCall)) {
-                    permission = "WRITE_ACCESS";
-                } else {
-                    throw new InternalCompilerError();
-                }
+                // TODO: GlobalVariableStrategies cannot be stateful, so the code below does not work (currentLockGroup may be wrong)
+                // TODO: Ideally, what we want to do is to appropriately fork the instance of this class, just like with CriticalSectionTracker
+                // TODO: For now, we take the pessimistic choice of always acquiring resources with write permissions
+                permission = "WRITE_ACCESS";
+
+                // TODO: this is the code that should work with proper branching as described above.
+                // if (registry.getResourceReadsInLockGroup(currentLockGroup).contains(fnCall)) {
+                //     permission = "READ_ACCESS";
+                // } else if (registry.getResourceWritesInLockGroup(currentLockGroup).contains(fnCall)) {
+                //     permission = "WRITE_ACCESS";
+                // } else {
+                //     throw new InternalCompilerError();
+                // }
 
                 yes.assign(err, new GoCall(
                         distsys("AcquireResources"),
@@ -431,7 +446,7 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
                 ));
                 shouldRetry(yes, true);
 
-                yes.assign(argAcquired, GoBuiltins.True);
+                yes.assign(argAcquired, goArg);
             }
         }
 

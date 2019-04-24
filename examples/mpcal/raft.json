@@ -1,0 +1,12 @@
+{
+  "build": {
+    "output_dir": "examples/output/mpcal",
+    "dest_package": "raft"
+  },
+  "constants": {
+    "Nil": "42",
+    "Slots": "1",
+    "N": "3",
+    "Terms": "3"
+  }
+}

@@ -2,39 +2,39 @@ package main
 
 import (
 	"context"
-	"fmt"
 	v3 "go.etcd.io/etcd/clientv3"
 	"time"
 )
 
 type EtcdClient struct {
 	client *v3.Client
+	kv     v3.KV
 	ctx    context.Context
 	cancel context.CancelFunc
 }
 
-func NewEtcdClient(endpoints []string) EtcdClient {
+func NewEtcdClient(endpoint string) (*EtcdClient, error) {
 	cfg := v3.Config{
-		Endpoints: []string{"http://127.0.0.1:2379"},
+		Endpoints: []string{endpoint},
 	}
 
 	c, err := v3.New(cfg)
 	if err != nil {
-		panic(err.Error())
+		return nil, err
 	}
 
-	return EtcdClient{client: c}
+	return &EtcdClient{client: c, kv: v3.NewKV(c)}, nil
 }
 
 func (c *EtcdClient) Get(key string) (string, error) {
 	c.ctx, c.cancel = context.WithTimeout(context.Background(), 1000*time.Second)
-	response, err := c.client.Get(c.ctx, key)
+	response, err := c.kv.Get(c.ctx, key)
 	if err != nil {
 		return "", err
 	}
 	for _, ev := range response.Kvs {
-		if fmt.Sprintf("%s", ev.Key) == key {
-			return fmt.Sprintf("%s", ev.Value), nil
+		if string(ev.Key) == key {
+			return string(ev.Value), nil
 		}
 	}
 
@@ -43,13 +43,13 @@ func (c *EtcdClient) Get(key string) (string, error) {
 
 func (c *EtcdClient) Put(key string, value string) error {
 	c.ctx, c.cancel = context.WithTimeout(context.Background(), 1000*time.Second)
-	_, err := c.client.Put(c.ctx, string(key), string(value))
+	_, err := c.kv.Put(c.ctx, key, value)
 	return err
 }
 
-func (c *EtcdClient) TearDown() {
-	c.client.Close()
+func (c *EtcdClient) Close() {
 	c.cancel()
+	c.client.Close()
 }
 
 // EXAMPLE USAGE:
