@@ -74,7 +74,7 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
         if (functionMaps) {
             GoType type = new GoMapType(
                     GoBuiltins.String,
-                    new GoMapType(GoBuiltins.Interface, GoBuiltins.Bool)
+                    new GoMapType(GoBuiltins.UInt64, GoBuiltins.Interface)
             );
 
             this.acquiredResources = builder.varDecl("acquiredResources", type);
@@ -125,7 +125,7 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
                     acquiredResources,
                     new GoMapLiteral(
                             GoBuiltins.String,
-                            new GoMapType(GoBuiltins.Interface, GoBuiltins.Bool), Collections.emptyMap()
+                            new GoMapType(GoBuiltins.UInt64, GoBuiltins.Interface), Collections.emptyMap()
                     )
             );
         }
@@ -348,7 +348,7 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
 
             GoExpression resources = new GoIndexExpression(acquiredResources, new GoStringLiteral(resourceName));
             GoForRangeBuilder rangeBuilder = builder.forRange(resources);
-            GoVariableName r = rangeBuilder.initVariables(Arrays.asList("r", "_")).get(0);
+            GoVariableName r = rangeBuilder.initVariables(Arrays.asList("_", "r")).get(1);
             try (GoBlockBuilder rangeBody = rangeBuilder.getBlockBuilder()) {
                 GoExpression resourceGet = new GoCall(
                         new GoSelectorExpression(new GoVariableName(resourceName), "Get"),
@@ -391,7 +391,7 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
         }
 
         // if _, ok := acquiredResources["{name}"]; !ok {
-        //     acquiredResources["{name}"] = []interface{}{}
+        //     acquiredResources["{name}"] = map[uint64]interface{}{}
         // }
         // {name}Acquired := acquiredResources["{name}"]
         GoExpression currentlyAcquired = new GoIndexExpression(acquiredResources, new GoStringLiteral(resourceName));
@@ -402,7 +402,7 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
             try (GoBlockBuilder yes = ifBuilder.whenTrue()) {
                 yes.assign(
                         currentlyAcquired,
-                        new GoMapLiteral(GoBuiltins.Interface, GoBuiltins.Bool, Collections.emptyMap())
+                        new GoMapLiteral(GoBuiltins.UInt64, GoBuiltins.Interface, Collections.emptyMap())
                 );
             }
         }
@@ -413,7 +413,9 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
         );
 
         try (GoIfBuilder ifBuilder = builder.ifStmt(null)) {
-            GoExpression argAcquired = new GoIndexExpression(currentlyAcquired, goArg);
+            GoExpression argHash = new GoCall(distsys("Hash"), Collections.singletonList(goArg));
+            GoVariableName resourceHash = builder.varDecl("resourceHash", argHash);
+            GoExpression argAcquired = new GoIndexExpression(currentlyAcquired, resourceHash);
             GoVariableName acquired = ifBuilder.initialAssignment(Arrays.asList("_", "acquired"), argAcquired).get(1);
 
             ifBuilder.setCondition(new GoUnary(GoUnary.Operation.NOT, acquired));
@@ -444,7 +446,7 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
                 ));
                 shouldRetry(yes, true);
 
-                yes.assign(argAcquired, GoBuiltins.True);
+                yes.assign(argAcquired, goArg);
             }
         }
 
