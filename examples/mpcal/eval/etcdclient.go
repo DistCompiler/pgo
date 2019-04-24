@@ -13,17 +13,17 @@ type EtcdClient struct {
 	cancel context.CancelFunc
 }
 
-func NewEtcdClient(endpoints []string) EtcdClient {
+func NewEtcdClient(endpoint string) (*EtcdClient, error) {
 	cfg := v3.Config{
-		Endpoints: []string{"http://127.0.0.1:2379"},
+		Endpoints: []string{endpoint},
 	}
 
 	c, err := v3.New(cfg)
 	if err != nil {
-		panic(err.Error())
+		return nil, err
 	}
 
-	return EtcdClient{client: c}
+	return &EtcdClient{client: c}, nil
 }
 
 func (c *EtcdClient) Get(key string) (string, error) {
@@ -47,7 +47,7 @@ func (c *EtcdClient) Put(key string, value string) error {
 	return err
 }
 
-func (c *EtcdClient) TearDown() {
+func (c *EtcdClient) Close() {
 	c.client.Close()
 	c.cancel()
 }
