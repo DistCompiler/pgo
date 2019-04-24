@@ -14,8 +14,8 @@ ASSUME BUFFER_SIZE \in Nat
 CONSTANT NULL, NULL_DB_VALUE
 ASSUME NULL \notin Nat /\ NULL_DB_VALUE \notin Nat /\ NULL # NULL_DB_VALUE
 
-CONSTANTS GetSet, PutSet
-ASSUME IsFiniteSet(GetSet) /\ IsFiniteSet(PutSet)
+\*CONSTANTS GetSet, PutSet
+\*ASSUME IsFiniteSet(GetSet) /\ IsFiniteSet(PutSet)
 
 \* maximum amount of leader failures tested in a behavior
 CONSTANT MAX_FAILURES
