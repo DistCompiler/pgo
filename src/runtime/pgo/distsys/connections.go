@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"net"
 	"net/rpc"
+	"sync"
 )
 
 // Connections maintain the state of the connections across the processes in the network.
@@ -19,6 +20,7 @@ type Connections struct {
 	listener *net.TCPListener       // where the server is listening to, if at all
 	server   *rpc.Server            // RPC server instance, if this process exposes methods to the network
 	network  map[string]*rpc.Client // existing connections to other processes
+	lock     sync.Mutex             // exclusive access to the metadata
 }
 
 // NewConnections returns an empty connection map.
@@ -69,6 +71,9 @@ func (c *Connections) ExposeImplementation(name string, impl interface{}) error 
 
 // ConnectTo builds a TCP connection to a given node in the address given.
 func (c *Connections) ConnectTo(addr string) error {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
 	// if the connection already exists, nothing to do here
 	if _, connected := c.network[addr]; connected {
 		return nil
