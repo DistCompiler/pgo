@@ -10,10 +10,12 @@ import (
 )
 
 const (
-	BUFFER_SIZE  = 4096
+	BUFFER_SIZE = 4096
+
 	DUMMY_CLIENT = iota
 	DOOZER_CIENT
 	ETCD_CLIENT
+	PAXOS_CLIENT
 )
 
 var (
@@ -23,9 +25,13 @@ var (
 	doneChan       = make(chan bool, 0)
 )
 
+func fatal(message string, status int) {
+	fmt.Fprintf(os.Stderr, "%s\n", message)
+	os.Exit(status)
+}
+
 func usage(programName string) {
-	fmt.Fprintln(os.Stderr, "Usage:", programName, "<nworker> <dummy|doozer|etcd> <address>")
-	os.Exit(1)
+	fatal(fmt.Sprintf("Usage: %s <dummy|doozer|etcd|paxos> <nworker> [<address1>..<addressN>]", programName), 1)
 }
 
 func parseClient(client string) int {
@@ -36,29 +42,36 @@ func parseClient(client string) int {
 		return DOOZER_CIENT
 	case "etcd":
 		return ETCD_CLIENT
+	case "paxos":
+		return PAXOS_CLIENT
 	default:
-		fmt.Fprintln(os.Stderr, "Unknown client:", client)
+		fatal(fmt.Sprintf("Unknown client: %s\n", client), 1)
 		return -1
 	}
 }
 
-func createClient(which int, address string) Client {
+func createClient(which int, addresses []string) Client {
 	switch which {
 	case DUMMY_CLIENT:
 		return NewDummyClient()
 	case DOOZER_CIENT:
-		client, err := DialDoozer(address, "")
+		client, err := DialDoozer(addresses[0], "")
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "Error connecting to doozer client:", err)
-			os.Exit(1)
+			fatal(fmt.Sprintf("Error connecting to Doozer client: %v", err), 2)
 		}
 		return client
 	case ETCD_CLIENT:
-		client, err := NewEtcdClient(address)
+		client, err := NewEtcdClient(addresses[0])
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "Error connecting to etcd client:", err)
-			os.Exit(1)
+			fatal(fmt.Sprintf("Error connecting to etcd client: %v", err), 2)
 		}
+		return client
+	case PAXOS_CLIENT:
+		client, err := NewPaxosClient(addresses)
+		if err != nil {
+			fatal(fmt.Sprintf("Error connecting to Paxos client: %v", err), 2)
+		}
+
 		return client
 	default:
 		panic(fmt.Sprintf("Unknown client: %d", which))
@@ -105,7 +118,7 @@ func outputToLog(output *bufio.Writer, opType byte, offset time.Duration, latenc
 func worker(self int, which int, address string) {
 	// set up connection to implementation
 	// example: client := createClient(1, "doozer:?ca=127.0.0.1:8046")
-	client := createClient(which, address)
+	client := createClient(which, os.Args[3:])
 	defer client.Close()
 
 	output, err := os.Create(fmt.Sprintf("output/worker-%d.out", self))
@@ -269,18 +282,18 @@ workerDone:
 }
 
 func main() {
-	if len(os.Args) != 4 {
+	if len(os.Args) < 4 {
 		usage(os.Args[0])
 	}
 	// parse number of workers
-	n, err := strconv.ParseInt(os.Args[1], 10, 32)
+	n, err := strconv.ParseInt(os.Args[2], 10, 32)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Unable to parse number of worker; found:", os.Args[1])
 		os.Exit(2)
 	}
 	nworker := int(n)
 	// parse client
-	which := parseClient(os.Args[2])
+	which := parseClient(os.Args[1])
 	if which < 0 {
 		usage(os.Args[0])
 	}
