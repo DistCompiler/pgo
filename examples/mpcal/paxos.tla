@@ -14,9 +14,6 @@ ASSUME BUFFER_SIZE \in Nat
 CONSTANT NULL, NULL_DB_VALUE
 ASSUME NULL \notin Nat /\ NULL_DB_VALUE \notin Nat /\ NULL # NULL_DB_VALUE
 
-\*CONSTANTS GetSet, PutSet
-\*ASSUME IsFiniteSet(GetSet) /\ IsFiniteSet(PutSet)
-
 \* maximum amount of leader failures tested in a behavior
 CONSTANT MAX_FAILURES
 ASSUME MAX_FAILURES \in Nat
@@ -90,30 +87,9 @@ ASSUME MAX_FAILURES \in Nat
       }
   }
 
-  mapping macro Self {
-      read  { yield self; }
-      write { assert(FALSE); yield $value; }
-  }
-
   mapping macro SelfManager {
       read  { yield self - NUM_NODES; }
       write { assert(FALSE); yield $value; }
-  }
-
-  \* defines semantics of unbuffered Go channels
-  mapping macro UnbufferedChannel {
-      read {
-          await $variable.value # NULL;
-          with (v = $variable) {
-              $variable.value := NULL;
-              yield v;
-          }
-      }
-
-      write {
-          await $variable.value = NULL;
-          yield $value;
-      }
   }
 
   mapping macro NextProposal {
@@ -172,41 +148,46 @@ ASSUME MAX_FAILURES \in Nat
             entry,
             msg;
   {
-L:  while (TRUE) {
-        msg := mailboxes[self];
-        \* Add new accepts to record
-LGotAcc: if (msg.type = ACCEPT_MSG) {
-            accepts := Append(accepts, msg);
-            iterator := 1;
-            numAccepted := 0;
-            \* Count the number of equivalent accepts to the received message
-LCheckMajority: while (iterator <= Len(accepts)) {
-                entry := accepts[iterator];
-                if (entry.slot = msg.slot /\ entry.bal = msg.bal /\ entry.val = msg.val) {
-                    numAccepted := numAccepted + 1;
-                };
-                iterator := iterator + 1;
-            };
+      L:
+        while (TRUE) {
+            msg := mailboxes[self];
 
-            \* Checks whether the majority of acceptors accepted a value for the current slot
-            if (numAccepted*2 > Cardinality(Acceptor)) {
-                decided[self] := msg.val;
+            \* Add new accepts to record
+            LGotAcc:
+              if (msg.type = ACCEPT_MSG) {
+                  accepts := Append(accepts, msg);
+                  iterator := 1;
+                  numAccepted := 0;
 
-                \* garbage collection: accepted values related to the slot just
-                \* decided can be discarded
-                newAccepts := <<>>;
-                iterator := 1;
+                  \* Count the number of equivalent accepts to the received message
+                  LCheckMajority:
+                    while (iterator <= Len(accepts)) {
+                        entry := accepts[iterator];
+                        if (entry.slot = msg.slot /\ entry.bal = msg.bal /\ entry.val = msg.val) {
+                            numAccepted := numAccepted + 1;
+                        };
+                        iterator := iterator + 1;
+                    };
 
-                garbageCollection:
-                  while (iterator <= Len(accepts)) {
-                      entry := accepts[iterator];
+                    \* Checks whether the majority of acceptors accepted a value for the current slot
+                    if (numAccepted*2 > Cardinality(Acceptor)) {
+                        decided[self] := msg.val;
 
-                      if (entry.slot # msg.slot) {
-                          newAccepts := Append(newAccepts, entry);
-                      };
+                        \* garbage collection: accepted values related to the slot just
+                        \* decided can be discarded
+                        newAccepts := <<>>;
+                        iterator := 1;
 
-                      iterator := iterator + 1;
-                  };
+                        garbageCollection:
+                          while (iterator <= Len(accepts)) {
+                              entry := accepts[iterator];
+
+                              if (entry.slot # msg.slot) {
+                                  newAccepts := Append(newAccepts, entry);
+                              };
+
+                              iterator := iterator + 1;
+                          };
 
                   accepts := newAccepts;
             };
@@ -222,32 +203,48 @@ LCheckMajority: while (iterator <= Len(accepts)) {
             payload,
             msg;
   {
-A:  while (TRUE) {
-        \* Acceptors just listen for and respond to messages from proposers
-        msg := mailboxes[self];
-AMsgSwitch: if (msg.type = PREPARE_MSG /\ msg.bal > maxBal) { \* Essentially voting for a new leader, ensures no values with a ballot less than the new ballot are ever accepted
-APrepare:   maxBal := msg.bal;
-            \* Respond with promise to reject all proposals with a lower ballot number
-            mailboxes[msg.sender] := [type |-> PROMISE_MSG, sender |-> self, bal |-> maxBal, slot |-> NULL, val |-> msg.val, accepted |-> acceptedValues];
+      A:
+        while (TRUE) {
+            \* Acceptors just listen for and respond to messages from proposers
+            msg := mailboxes[self];
 
-        } elseif (msg.type = PREPARE_MSG /\ msg.bal <= maxBal) { \* Reject invalid prepares so candidates don't hang waiting for messages
-ABadPrepare: mailboxes[msg.sender] := [type |-> REJECT_MSG, sender |-> self, bal |-> maxBal, slot |-> NULL, val |-> msg.val, accepted |-> <<>>];
-        } elseif (msg.type = PROPOSE_MSG /\ msg.bal >= maxBal) { \* Accept valid proposals. Invariants are maintained by the proposer so no need to check the value
-            \* Update max ballot
-APropose:   maxBal := msg.bal;
-            payload := [type |-> ACCEPT_MSG, sender |-> self, bal |-> maxBal, slot |-> msg.slot, val |-> msg.val, accepted |-> <<>>];
+            AMsgSwitch:
+              \* Essentially voting for a new leader, ensures no values with a ballot less than the new ballot are ever accepted
+              if (msg.type = PREPARE_MSG /\ msg.bal > maxBal) {
+                  APrepare:
+                    maxBal := msg.bal;
 
-            \* Add the value to the list of accepted values
-            acceptedValues := Append(acceptedValues, [slot |-> msg.slot, bal |-> msg.bal, val |-> msg.val]);
-            \* Respond that the proposal was accepted
-            mailboxes[msg.sender] := payload;
+                    \* Respond with promise to reject all proposals with a lower ballot number
+                    mailboxes[msg.sender] := [type |-> PROMISE_MSG, sender |-> self, bal |-> maxBal, slot |-> NULL, val |-> msg.val, accepted |-> acceptedValues];
 
-            loopIndex := 2*NUM_NODES;
-            \* Inform the learners of the accept
-ANotifyLearners: BroadcastLearners(mailboxes, payload, loopIndex);
+              } elseif (msg.type = PREPARE_MSG /\ msg.bal <= maxBal) {
+                  \* Reject invalid prepares so candidates don't hang waiting for messages
+                  ABadPrepare:
+                    mailboxes[msg.sender] := [type |-> REJECT_MSG, sender |-> self, bal |-> maxBal, slot |-> NULL, val |-> msg.val, accepted |-> <<>>];
 
-        } elseif (msg.type = PROPOSE_MSG /\ msg.bal < maxBal) { \* Reject invalid proposals to maintain promises
-ABadPropose: mailboxes[msg.sender] := [type |-> REJECT_MSG, sender |-> self, bal |-> maxBal, slot |-> msg.slot, val |-> msg.val, accepted |-> <<>>];
+              } elseif (msg.type = PROPOSE_MSG /\ msg.bal >= maxBal) {
+                  \* Accept valid proposals. Invariants are maintained by the proposer so no need to check the value
+                  \* Update max ballot
+                  APropose:
+                    maxBal := msg.bal;
+                    payload := [type |-> ACCEPT_MSG, sender |-> self, bal |-> maxBal, slot |-> msg.slot, val |-> msg.val, accepted |-> <<>>];
+
+                    \* Add the value to the list of accepted values
+                    acceptedValues := Append(acceptedValues, [slot |-> msg.slot, bal |-> msg.bal, val |-> msg.val]);
+
+                    \* Respond that the proposal was accepted
+                    mailboxes[msg.sender] := payload;
+
+                    loopIndex := 2*NUM_NODES;
+
+                    \* Inform the learners of the accept
+                    ANotifyLearners:
+                      BroadcastLearners(mailboxes, payload, loopIndex);
+
+              } elseif (msg.type = PROPOSE_MSG /\ msg.bal < maxBal) {
+                  \* Reject invalid proposals to maintain promises
+                  ABadPropose:
+                    mailboxes[msg.sender] := [type |-> REJECT_MSG, sender |-> self, bal |-> maxBal, slot |-> msg.slot, val |-> msg.val, accepted |-> <<>>];
         }
     }
   }
@@ -268,101 +265,127 @@ ABadPropose: mailboxes[msg.sender] := [type |-> REJECT_MSG, sender |-> self, bal
             repropose,
             resp;
   {
-Pre:b := self;
-    heartbeatMonitorId := self + 3*NUM_NODES;
-P:  while (TRUE) {
-PLeaderCheck: if (elected) { \* This proposer thinks it is the distinguished proposer
-            \***********
-            \* PHASE 2
-            \***********
-            accepts := 0;
+      Pre:
+        b := self;
+        heartbeatMonitorId := self + 3*NUM_NODES;
 
-            \* whether proposing a previously accepted value is necessary
-            repropose := FALSE;
+      P:
+        while (TRUE) {
+            PLeaderCheck:
+              \* This proposer thinks it is the distinguished proposer
+              if (elected) {
+                  \***********
+                  \* PHASE 2
+                  \***********
+                  accepts := 0;
 
-            index := 1;
-            \* Make sure the value proposed is the same as the value of the accepted proposal with the highest ballot (if such a value exists)
-PFindMaxVal: while (index <= Len(acceptedValues)) {
-                entry := acceptedValues[index];
-                if (entry.slot = s /\ entry.bal >= maxBal) {
-                    repropose := TRUE;
-                    value := entry.val;
-                    maxBal := entry.bal;
-                };
-                index := index + 1;
-            };
+                  \* whether proposing a previously accepted value is necessary
+                  repropose := FALSE;
 
-            \* if we do not need to propose a previously accepted value, read
-            \* next proposal from client stream
-            if (~repropose) {
-                value := valueStream;
-            };
+                  index := 1;
 
-            index := NUM_NODES;
-            \* Send Propose message to every acceptor
-PSendProposes: BroadcastAcceptors(mailboxes, [type |-> PROPOSE_MSG, bal |-> b, sender |-> self, slot |-> s, val |-> value], index);
-
-            \* Await responses, abort if necessary
-PSearchAccs: while (accepts*2 < Cardinality(Acceptor) /\ elected) {
-                \* Wait for response
-                resp := mailboxes[self];
-                if (resp.type = ACCEPT_MSG) {
-                    \* Is it valid?
-                    if (resp.bal = b /\ resp.slot = s /\ resp.val = value) {
-                        accepts := accepts + 1;
+                  \* Make sure the value proposed is the same as the value of the accepted proposal with the highest ballot (if such a value exists)
+                  PFindMaxVal:
+                    while (index <= Len(acceptedValues)) {
+                        entry := acceptedValues[index];
+                        if (entry.slot = s /\ entry.bal >= maxBal) {
+                            repropose := TRUE;
+                            value := entry.val;
+                            maxBal := entry.bal;
+                        };
+                        index := index + 1;
                     };
-                } elseif (resp.type = REJECT_MSG) {
-                    \* Pre-empted by another proposer (this is no longer the distinguished proposer)
-                    elected := FALSE;
-                    iAmTheLeader[heartbeatMonitorId] := FALSE;
-                    electionInProgress[heartbeatMonitorId] := FALSE;
-PWaitFailure:       assert(leaderFailure[heartbeatMonitorId] = TRUE);
-                }
-            };
-            \* If still elected, then we must have a majority of accepts, so we can try to find a value for the next slot
-PIncSlot:   if (elected) {
-               s := s + 1;
-            };
-        } else { \* Try to become elected the distiguished proposer (TODO: only do so initially and on timeout)
+
+                    \* if we do not need to propose a previously accepted value, read
+                    \* next proposal from client stream
+                    if (~repropose) {
+                        value := valueStream;
+                    };
+
+                    index := NUM_NODES;
+
+                    \* Send Propose message to every acceptor
+                    PSendProposes:
+                      BroadcastAcceptors(mailboxes, [type |-> PROPOSE_MSG, bal |-> b, sender |-> self, slot |-> s, val |-> value], index);
+
+                    \* Await responses, abort if necessary
+                    PSearchAccs:
+                      while (accepts*2 < Cardinality(Acceptor) /\ elected) {
+                          \* Wait for response
+                          resp := mailboxes[self];
+                          if (resp.type = ACCEPT_MSG) {
+                              \* Is it valid?
+                              if (resp.bal = b /\ resp.slot = s /\ resp.val = value) {
+                                  accepts := accepts + 1;
+                              };
+                          } elseif (resp.type = REJECT_MSG) {
+                              \* Pre-empted by another proposer (this is no longer the distinguished proposer)
+                              elected := FALSE;
+                              iAmTheLeader[heartbeatMonitorId] := FALSE;
+                              electionInProgress[heartbeatMonitorId] := FALSE;
+
+                              PWaitFailure:
+                                assert(leaderFailure[heartbeatMonitorId] = TRUE);
+                      }
+              };
+              \* If still elected, then we must have a majority of accepts, so we can try to find a value for the next slot
+              PIncSlot:
+                if (elected) {
+                    s := s + 1;
+                };
+
+        } else {
+            \* Try to become elected the distiguished proposer (TODO: only do so initially and on timeout)
+
             \***********
             \* PHASE 1
             \***********
             index := NUM_NODES;
+
             \* Send prepares to every acceptor (NOTE: `val` entry is not read in this message, but we set it there to stop the type
             \* checker from enforcing `value` to be an integer (or whatever the concrete type of NULL is when compiling)
-PReqVotes:  BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |-> b, sender |-> self, slot |-> NULL, val |-> value], index);
-            promises := 0;
-            iAmTheLeader[heartbeatMonitorId] := FALSE;
-            electionInProgress[heartbeatMonitorId] := TRUE;
+            PReqVotes:
+              BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |-> b, sender |-> self, slot |-> NULL, val |-> value], index);
+              promises := 0;
+              iAmTheLeader[heartbeatMonitorId] := FALSE;
+              electionInProgress[heartbeatMonitorId] := TRUE;
 
             \* Wait for response from majority of acceptors
-PCandidate: while (~elected) {
-                \* Wait for promise
-                resp := mailboxes[self];
-                if (resp.type = PROMISE_MSG /\ resp.bal = b) {
-                    acceptedValues := acceptedValues \o resp.accepted;
-                    \* Is it still from a current term?
-                    promises := promises + 1;
-                    \* Check if a majority of acceptors think that this proposer is the distinguished proposer, if so, become the leader
-                    if (promises*2 > Cardinality(Acceptor)) {
-                        elected := TRUE;
-                        iAmTheLeader[heartbeatMonitorId] := TRUE;
-                        electionInProgress[heartbeatMonitorId] := FALSE;
-                    };
+            PCandidate:
+              while (~elected) {
+                  \* Wait for promise
+                  resp := mailboxes[self];
+                  if (resp.type = PROMISE_MSG /\ resp.bal = b) {
+                      acceptedValues := acceptedValues \o resp.accepted;
+                      \* Is it still from a current term?
+                      promises := promises + 1;
+                      \* Check if a majority of acceptors think that this proposer is the distinguished proposer, if so, become the leader
+                      if (promises*2 > Cardinality(Acceptor)) {
+                          elected := TRUE;
+                          iAmTheLeader[heartbeatMonitorId] := TRUE;
+                          electionInProgress[heartbeatMonitorId] := FALSE;
+                      };
                 } elseif (resp.type = REJECT_MSG \/ resp.bal > b) {
                     \* Pre-empted, try again for election
                     electionInProgress[heartbeatMonitorId] := FALSE;
-PWaitLeaderFailure: assert(leaderFailure[heartbeatMonitorId] = TRUE);
-                    b := b + NUM_NODES; \* to remain unique
-                    index := NUM_NODES;
+
+                    PWaitLeaderFailure:
+                      assert(leaderFailure[heartbeatMonitorId] = TRUE);
+                      b := b + NUM_NODES; \* to remain unique
+                      index := NUM_NODES;
+
                     \* `val` is not necessary in this message (see NOTE above)
-PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |-> b, sender |-> self, slot |-> NULL, val |-> value], index);
+                    PReSendReqVotes:
+                      BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |-> b, sender |-> self, slot |-> NULL, val |-> value], index);
                 }
             };
         };
    }
   }
 
+  \* HeartbeatAction: either sends hearbeat messages if the node believes to be the leader, or receives broadcast messages
+  \* from the leader and sends them over a a `lastSeen` resource, that is supposed to keep track of timestamps
+  \* (see LeaderStatusMonitor) archetype
   archetype HeartbeatAction(ref mailboxes, ref lastSeen, ref sleeper, electionInProgress, iAmTheLeader, heartbeatFrequency)
   variables msg, index;
   {
@@ -387,6 +410,7 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
      }
   }
 
+  \* LeaderStatusMonitor checks whether the leader has timed out every so often (defined by monitorFrequency).
   archetype LeaderStatusMonitor(timeoutChecker, ref leaderFailure, ref electionInProgress, ref iAmTheLeader, ref sleeper, monitorFrequency)
   variables heartbeatId;
   {
@@ -1048,13 +1072,13 @@ PReSendReqVotes:    BroadcastAcceptors(mailboxes, [type |-> PREPARE_MSG, bal |->
 ***************************************************************************)
 
 \* BEGIN TRANSLATION
-\* Process variable acceptedValues of process proposer at line 485 col 42 changed to acceptedValues_
-\* Process variable maxBal of process proposer at line 485 col 65 changed to maxBal_
-\* Process variable index of process proposer at line 485 col 80 changed to index_
-\* Process variable entry of process proposer at line 485 col 87 changed to entry_
-\* Process variable accepts of process proposer at line 485 col 124 changed to accepts_
-\* Process variable msg of process acceptor at line 748 col 73 changed to msg_
-\* Process variable msg of process learner at line 828 col 73 changed to msg_l
+\* Process variable acceptedValues of process proposer at line 509 col 42 changed to acceptedValues_
+\* Process variable maxBal of process proposer at line 509 col 65 changed to maxBal_
+\* Process variable index of process proposer at line 509 col 80 changed to index_
+\* Process variable entry of process proposer at line 509 col 87 changed to entry_
+\* Process variable accepts of process proposer at line 509 col 124 changed to accepts_
+\* Process variable msg of process acceptor at line 772 col 73 changed to msg_
+\* Process variable msg of process learner at line 852 col 73 changed to msg_l
 CONSTANT defaultInitValue
 VARIABLES network, values, lastSeenAbstract, timeoutCheckerAbstract,
           decidedValues, sleeperAbstract, electionInProgresssAbstract,
@@ -1833,7 +1857,7 @@ PWaitFailure(self) == /\ pc[self] = "PWaitFailure"
                       /\ (leaderFailureAbstract[heartbeatMonitorId[self]]) = (TRUE)
                       /\ leaderFailureRead' = leaderFailureAbstract[heartbeatMonitorId[self]]
                       /\ Assert((leaderFailureRead') = (TRUE),
-                                "Failure of assertion at line 581, column 45.")
+                                "Failure of assertion at line 605, column 45.")
                       /\ pc' = [pc EXCEPT ![self] = "PSearchAccs"]
                       /\ UNCHANGED << network, values, lastSeenAbstract,
                                       timeoutCheckerAbstract, decidedValues,
@@ -2213,7 +2237,7 @@ PWaitLeaderFailure(self) == /\ pc[self] = "PWaitLeaderFailure"
                             /\ (leaderFailureAbstract[heartbeatMonitorId[self]]) = (TRUE)
                             /\ leaderFailureRead' = leaderFailureAbstract[heartbeatMonitorId[self]]
                             /\ Assert((leaderFailureRead') = (TRUE),
-                                      "Failure of assertion at line 690, column 45.")
+                                      "Failure of assertion at line 714, column 45.")
                             /\ b' = [b EXCEPT ![self] = (b[self]) + (NUM_NODES)]
                             /\ index_' = [index_ EXCEPT ![self] = NUM_NODES]
                             /\ pc' = [pc EXCEPT ![self] = "PReSendReqVotes"]
@@ -3538,7 +3562,7 @@ followerLoop(self) == /\ pc[self] = "followerLoop"
                                       /\ mailboxesRead2' = msg4
                                  /\ msg' = [msg EXCEPT ![self] = mailboxesRead2']
                                  /\ Assert(((msg'[self]).type) = (HEARTBEAT_MSG),
-                                           "Failure of assertion at line 947, column 25.")
+                                           "Failure of assertion at line 971, column 25.")
                                  /\ lastSeenWrite' = msg'[self]
                                  /\ mailboxesWrite22' = mailboxesWrite18'
                                  /\ lastSeenWrite0' = lastSeenWrite'
