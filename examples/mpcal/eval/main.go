@@ -72,7 +72,7 @@ func main() {
 	// example: client := createClient(1, "doozer:?ca=127.0.0.1:8046")
 	which := parseClient(os.Args[1])
 	if which < 0 {
-		usage(os.Args[1])
+		usage(os.Args[0])
 	}
 	client := createClient(which, os.Args[2])
 	defer client.Close()

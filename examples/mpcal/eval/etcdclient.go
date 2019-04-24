@@ -9,6 +9,7 @@ import (
 
 type EtcdClient struct {
 	client *v3.Client
+	kv     *v3.KV
 	ctx    context.Context
 	cancel context.CancelFunc
 }
@@ -23,7 +24,7 @@ func NewEtcdClient(endpoint string) (*EtcdClient, error) {
 		return nil, err
 	}
 
-	return &EtcdClient{client: c}, nil
+	return &EtcdClient{client: v3.NewKV(c)}, nil
 }
 
 func (c *EtcdClient) Get(key string) (string, error) {
@@ -43,7 +44,7 @@ func (c *EtcdClient) Get(key string) (string, error) {
 
 func (c *EtcdClient) Put(key string, value string) error {
 	c.ctx, c.cancel = context.WithTimeout(context.Background(), 1000*time.Second)
-	_, err := c.client.Put(c.ctx, string(key), string(value))
+	_, err := c.client.Put(c.ctx, key, value)
 	return err
 }
 
