@@ -7,7 +7,7 @@ CONSTANTS NUM_NODES
 CONSTANTS Follower
 CONSTANTS Candidate
 CONSTANTS Leader
-CONSTANTS Steps
+CONSTANTS HeartBeatFrequency
 ASSUME Follower # Candidate /\ Candidate # Leader /\ Follower # Leader
 
 ASSUME NUM_NODES \in Nat
@@ -251,7 +251,7 @@ ASSUME FiniteNaturalSet(GetSet) /\ FiniteNaturalSet(PutSet)
           SendHeartBeatLoop:
             while (iAmTheLeader[self]) {
                 \* Sleep for 500 ms
-                timer := 500;
+                timer := HeartBeatFrequency;
                 index := 0;
                 cterm := term[self - NUM_NODES];
         
