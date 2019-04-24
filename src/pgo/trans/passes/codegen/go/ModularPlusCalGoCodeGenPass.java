@@ -222,8 +222,8 @@ public class ModularPlusCalGoCodeGenPass {
         SnapshottingLocalVariableStrategy localStrategy = new SnapshottingLocalVariableStrategy(registry, typeMap);
         GlobalVariableStrategy globalStrategy = new ArchetypeResourcesGlobalVariableStrategy(registry, typeMap, localStrategy, null);
 
-        GoVariableName sleepMin = module.defineGlobal(new UID(), "sleepMin", new GoIntLiteral(100));
-        GoVariableName sleepMax = module.defineGlobal(new UID(), "sleepMax", new GoIntLiteral(300));
+        GoVariableName sleepMin = module.defineGlobal(new UID(), "sleepMin", new GoIntLiteral(10));
+        GoVariableName sleepMax = module.defineGlobal(new UID(), "sleepMax", new GoIntLiteral(30));
 
         generateInit(modularPlusCalBlock, module, registry, typeMap, localStrategy, globalStrategy);
         defineShouldRetry(module, sleepMin, sleepMax);
