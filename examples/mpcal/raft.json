@@ -11,6 +11,6 @@
     "Follower": "0",
     "Candidate": "1",
     "Leader": "2",
-    "Steps": "2"
+    "HeartBeatFrequency": "300"
   }
 }

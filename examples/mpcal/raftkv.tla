@@ -53,36 +53,21 @@ ASSUME FiniteNaturalSet(GetSet) /\ FiniteNaturalSet(PutSet)
     \* Invokes a RequestVote RPC on every Node
     macro SendRequestVotes(network, cterm, candidateId, lastLogIndex, lastLogTerm, idx) {
         while (idx < NUM_NODES) {
-            if (idx # candidateId) {
-                \* granted and entries are unused, but NULL wouldn't type check
-                network[idx] := [sender |-> candidateId, type |-> RequestVote, term |-> cterm, granted |-> FALSE, entries |-> <<>>,
-                                 prevIndex |-> lastLogIndex, prevTerm |-> lastLogTerm, commit |-> NULL];
-            };
+            \* granted and entries are unused, but NULL wouldn't type check
+            network[idx] := [sender |-> candidateId, type |-> RequestVote, term |-> cterm, granted |-> FALSE, entries |-> <<>>,
+                             prevIndex |-> lastLogIndex, prevTerm |-> lastLogTerm, commit |-> NULL];
 
             idx := idx + 1;
         };
     }
     
     \* Invokes an AppendEntries RPC on every Node (can serve to make progress or just as a heartbeat from the leader)
-    macro SendAppendEntries(network, cterm, candidateId, nextIndex, matchIndex, log, leaderCommit, idx) {
+    macro SendAppendEntries(network, cterm, candidateId, nextIndex, log, leaderCommit, idx) {
         while (idx < NUM_NODES) {
             if (idx # candidateId) {
                 \* granted is unused, but NULL wouldn't type check
                 network[idx] := [sender |-> candidateId, type |-> AppendEntries, term |-> cterm, granted |-> FALSE, entries |-> SubSeq(log, nextIndex[idx], Len(log)),
                                  prevIndex |-> nextIndex[idx]-1, prevTerm |-> Term(log, nextIndex[idx]-1), commit |-> leaderCommit];
-            };
-            
-            idx := idx + 1;
-        };
-    }
-    
-    \* Invokes empty AppendEntries RPC on every Node (serves as heartbeats)
-    macro SendHeartBeats(network, cterm, candidateId, idx) {
-        while (idx < NUM_NODES) {
-            if (idx # candidateId) {
-                \* granted is unused, but NULL wouldn't type check
-                network[idx] := [sender |-> candidateId, type |-> AppendEntries, term |-> cterm, granted |-> FALSE, entries |-> <<>>,
-                                 prevIndex |-> NULL, prevTerm |-> 0, commit |-> NULL];
             };
             
             idx := idx + 1;
@@ -241,8 +226,8 @@ ASSUME FiniteNaturalSet(GetSet) /\ FiniteNaturalSet(PutSet)
         }
     }
     
-    archetype Heartbeat(ref network, iAmTheLeader, term, ref timer)
-    variable index, cterm; {
+    archetype Heartbeat(ref network, iAmTheLeader, term, ref timer, nextIndexIn, logIn, commitIn)
+    variable index, next = [s \in Servers |-> NULL]; {
       HBLoop: 
         while (TRUE) {
           CheckHeartBeat:
@@ -253,16 +238,17 @@ ASSUME FiniteNaturalSet(GetSet) /\ FiniteNaturalSet(PutSet)
                 \* Sleep for 500 ms
                 timer := HeartBeatFrequency;
                 index := 0;
-                cterm := term[self - NUM_NODES];
+                \* Must be read into local so PGo learns type
+                next := nextIndexIn[self - NUM_NODES];
         
                 \* Make AppendEntries RPC calls to every other node (as a heartbeat and to notify them of new entries)
               SendHeartBeats:
-                SendHeartBeats(network, cterm, self - NUM_NODES, index);
+                SendAppendEntries(network, term[self - NUM_NODES], self - NUM_NODES, next, logIn[self - NUM_NODES], commitIn[self - NUM_NODES], index);
             };
         };
     }
 
-    archetype Node(ref network, ref applied, input, timeout, ref iAmTheLeader, ref term, ref lastmsg)
+    archetype Node(ref network, ref applied, input, timeout, ref iAmTheLeader, ref term, ref lastmsg, ref nextChan, ref logChan, ref commitChan)
     \* Every variable should be name correspondingly with those described on page 5 of the Ongaro paper
     variable currentTerm = 0,
              votedFor = NULL,
@@ -303,11 +289,15 @@ GetVal:         value := input[self];
     
                 matchIndex[self] := Len(log);
                 nextIndex[self] := Len(log)+1;
+                logChan[self] := log;
+                nextChan[self] := nextIndex;
 
                 \* Can we commit more entries?
 AdvanceIndex:   while (Cardinality({i \in Servers: matchIndex[i] > commitIndex})*2 > Cardinality(Servers) /\ Term(log, commitIndex+1) = currentTerm) {
                     commitIndex := commitIndex + 1;
                 };
+                
+UpdateCommit:   commitChan[self] := commitIndex;
 
                 \* Apply newly commited values
 ApplyCommited:  while(lastApplied < commitIndex) {
@@ -319,7 +309,7 @@ ApplyCommited:  while(lastApplied < commitIndex) {
     
               SendAppendEntries:
                 \* Make AppendEntries RPC calls to every other node (as a heartbeat and to notify them of new entries)
-                SendAppendEntries(network, currentTerm, self, nextIndex, matchIndex, log, commitIndex, iterator);
+                SendAppendEntries(network, currentTerm, self, nextIndex, log, commitIndex, iterator);
             };
     
             \* Handle messages
@@ -343,16 +333,19 @@ MsgSwitch:      if (msg.type = AppendEntries) {
                     response := [sender |-> self, type |-> AppendEntriesResponse, term |-> currentTerm, granted |-> FALSE,
                                  entries |-> <<>>, prevIndex |-> NULL, prevTerm |-> NULL, commit |-> NULL];
 
-                    if ((msg.term >= currentTerm) /\ ((msg.prevIndex > 0 /\ Len(log) < msg.prevIndex)
+                    if ((msg.term >= currentTerm) /\ ((msg.prevIndex > 0 /\ Len(log) > msg.prevIndex)
                                                       \/ Term(log, msg.prevIndex) # msg.prevTerm)) {
                         \* Following entries don't have matching terms
                         assert(state # Leader);
                         \* Delete entries that don't match
                         log := SubSeq(log, 1, msg.prevIndex-1);
                         lastmsg := msg;
-                    } elseif (msg.term >= currentTerm /\ Len(log) = msg.prevIndex) {
+                    } elseif (msg.term >= currentTerm) {
                         \* Append new entries
-                        log := log \o msg.entries;
+                        if (Len(log) = msg.prevIndex) {
+                            log := log \o msg.entries;
+                        };
+
 AEValid:                response := [sender |-> self, type |-> AppendEntriesResponse, term |-> currentTerm, granted |-> TRUE,
                                      entries |-> <<>>, prevIndex |-> Len(log), prevTerm |-> NULL, commit |-> NULL];
                         lastmsg := msg;
@@ -371,7 +364,7 @@ AEApplyCommitted:       while(lastApplied < commitIndex) {
                 } elseif (msg.type = RequestVote) {
                     response := [sender |-> self, type |-> RequestVoteResponse, term |-> currentTerm, granted |-> FALSE,
                                  entries |-> <<>>, prevIndex |-> NULL, prevTerm |-> NULL, commit |-> NULL];
-    
+
                     \* Check if the candidate's log is at least as up-to-date as ours, and we haven't voted for someone else
                     if ((votedFor = NULL \/ votedFor = msg.sender)
                         /\ (msg.term >= currentTerm)
@@ -382,31 +375,36 @@ RVValid:                response := [sender |-> self, type |-> RequestVoteRespon
                                      entries |-> <<>>, prevIndex |-> NULL, prevTerm |-> NULL, commit |-> NULL];
                         votedFor := msg.sender;
                     };
-    
-RVSendResponse:     network[msg.sender] := response;
+
+RVSendResponse:    network[msg.sender] := response;
                 } elseif (msg.type = AppendEntriesResponse /\ msg.term = currentTerm /\ state = Leader) {
-                    if (msg.granted) { \* They successfully added all entries! Update index we have recorded for them
+AERCheckGranted:    if (msg.granted) { \* They successfully added all entries! Update index we have recorded for them
                         nextIndex[msg.sender] := msg.prevIndex + 1;
                         matchIndex[msg.sender] := msg.prevIndex;
+                        nextChan[self] := nextIndex;
                     } else {
                         \* The append was rejected, try again with the previous index
                         nextIndex[msg.sender] := IF nextIndex[msg.sender] - 1 > 1 THEN nextIndex[msg.sender] - 1 ELSE 1;
     
 RetryAppendEntry:       network[msg.sender] := [sender |-> self, type |-> RequestVote, term |-> currentTerm, granted |-> FALSE, entries |-> SubSeq(log, nextIndex[msg.sender], Len(log)),
                                                 prevIndex |-> nextIndex[msg.sender]-1, prevTerm |-> Term(log, nextIndex[msg.sender]-1), commit |-> commitIndex];
+                        nextChan[self] := nextIndex;
                     };
                 } elseif (msg.type = RequestVoteResponse /\ msg.term = currentTerm /\ state = Candidate) {
                     if (msg.granted) { \* This server has received an additional vote
                         votes[msg.term] := votes[msg.term] \union {msg.sender};
                         if (Cardinality(votes[msg.term])*2 > Cardinality(Servers)) {
                             \* Voters form a quorum!
-BecomeLeader:               state := Leader;
+BecomeLeader:               iAmTheLeader[self + NUM_NODES] := TRUE;
+                            term[self] := currentTerm;
+                            logChan[self] := log;
+                            commitChan[self] := commitIndex;
+                            state := Leader;
                             \* Re-initialize volatile state
                             matchIndex := [s3 \in Servers |-> 0];
                             nextIndex := [s4 \in Servers |-> 1];
                             \* Initial empty AppendEntry heartbeats are handled by HeartBeat archetype
-                            iAmTheLeader[self + NUM_NODES] := TRUE;
-                            term[self] := currentTerm;
+                            nextChan[self] := nextIndex;
                         };
                     };
                 };
@@ -423,11 +421,14 @@ BecomeLeader:               state := Leader;
         kvClient = {},
         idAbstract,
         database = [p \in KVRequests, k \in GetSet \union PutSet |-> NULL_DB_VALUE],
-        iAmTheLeaderAbstract = [h \in Heartbeats |-> TRUE],
+        iAmTheLeaderAbstract = [h \in Heartbeats |-> FALSE],
         \* Used in Raft:
         frequency = 500,
         terms = [s \in Servers |-> NULL],
         lastSeen,
+        nexts = [x \in Servers |-> [s \in Servers |-> NULL]],
+        logs = [s \in Servers |-> NULL],
+        commits = [s \in Servers |-> NULL],
         mailboxes = [id \in Servers |-> <<>>];
 
     fair process (kvRequests \in KVRequests) == instance KeyValueRequests(requestSet, ref kvClient, iAmTheLeaderAbstract, ref values, raftLayerChan)
@@ -440,28 +441,34 @@ BecomeLeader:               state := Leader;
         mapping raftLayerChan[_] via FIFOChannel
         mapping learnedChan[_] via FIFOChannel
         mapping database[_] via ID
-        mapping idAbstract via SelfManager;        
-    fair process (server \in Servers) == instance Node(ref mailboxes, learnedChan, values, TRUE, ref iAmTheLeaderAbstract, ref terms, ref lastSeen)
+        mapping idAbstract via SelfManager;
+    fair process (server \in Servers) == instance Node(ref mailboxes, learnedChan, values, TRUE, ref iAmTheLeaderAbstract, ref terms, ref lastSeen, ref nexts, ref logs, ref commits)
         mapping mailboxes[_] via FIFOQueues
         mapping learnedChan[_] via FIFOChannel
         mapping values[_] via FIFOChannel
         mapping @4 via Timeout
         mapping iAmTheLeaderAbstract[_] via ID
         mapping terms[_] via ID
-        mapping lastSeen via ID;
-(*
-    fair process (heartbeat \in Heartbeats) == instance Heartbeat(ref mailboxes, iAmTheLeaderAbstract, terms, ref frequency)
+        mapping lastSeen via ID
+        mapping nexts[_] via ID
+        mapping logs[_] via ID
+        mapping commits[_] via ID;
+
+    fair process (heartbeat \in Heartbeats) == instance Heartbeat(ref mailboxes, iAmTheLeaderAbstract, terms, ref frequency, nexts, logs, commits)
         mapping mailboxes[_] via FIFOQueues
         mapping iAmTheLeaderAbstract[_] via ID
         mapping terms[_] via ID
-        mapping frequency via Timer;
-*)
+        mapping frequency via Timer
+        mapping nexts[_] via ID
+        mapping logs[_] via ID
+        mapping commits[_] via ID;
+
 }
 
 
 \* BEGIN PLUSCAL TRANSLATION
 --algorithm Raft {
-    variables values = [k \in Servers |-> <<>>], requestSet = ({[type |-> GET_MSG, key |-> k, value |-> NULL] : k \in GetSet}) \union ({[type |-> PUT_MSG, key |-> v, value |-> v] : v \in PutSet}), learnedChan = [l \in Servers |-> <<>>], raftLayerChan = [p \in KVRequests |-> <<>>], kvClient = {}, idAbstract, database = [p \in KVRequests, k \in (GetSet) \union (PutSet) |-> NULL_DB_VALUE], iAmTheLeaderAbstract = [h \in Heartbeats |-> TRUE], frequency = 500, terms = [s \in Servers |-> NULL], lastSeen, mailboxes = [id \in Servers |-> <<>>], requestsRead, requestsWrite, iAmTheLeaderRead, proposerChanWrite, raftChanRead, raftChanWrite, upstreamWrite, proposerChanWrite0, raftChanWrite0, upstreamWrite0, requestsWrite0, proposerChanWrite1, raftChanWrite1, upstreamWrite1, learnerChanRead, learnerChanWrite, kvIdRead, dbWrite, dbWrite0, kvIdRead0, kvIdRead1, dbRead, kvIdRead2, requestServiceWrite, requestServiceWrite0, learnerChanWrite0, dbWrite1, requestServiceWrite1, timeoutRead, networkWrite, networkWrite0, networkWrite1, networkWrite2, inputRead, inputWrite, appliedWrite, appliedWrite0, networkWrite3, networkWrite4, inputWrite0, appliedWrite1, networkWrite5, networkRead, iAmTheLeaderWrite, iAmTheLeaderWrite0, lastmsgWrite, lastmsgWrite0, lastmsgWrite1, ifResult, appliedWrite2, appliedWrite3, ifResult0, networkWrite6, termWrite, iAmTheLeaderWrite1, termWrite0, iAmTheLeaderWrite2, termWrite1, iAmTheLeaderWrite3, termWrite2, networkWrite7, iAmTheLeaderWrite4, termWrite3, networkWrite8, iAmTheLeaderWrite5, termWrite4, lastmsgWrite2, networkWrite9, appliedWrite4, iAmTheLeaderWrite6, termWrite5, iAmTheLeaderWrite7, lastmsgWrite3, networkWrite10, appliedWrite5, termWrite6, networkWrite11, inputWrite1, appliedWrite6, iAmTheLeaderWrite8, lastmsgWrite4, termWrite7;
+    variables values = [k \in Servers |-> <<>>], requestSet = ({[type |-> GET_MSG, key |-> k, value |-> NULL] : k \in GetSet}) \union ({[type |-> PUT_MSG, key |-> v, value |-> v] : v \in PutSet}), learnedChan = [l \in Servers |-> <<>>], raftLayerChan = [p \in KVRequests |-> <<>>], kvClient = {}, idAbstract, database = [p \in KVRequests, k \in (GetSet) \union (PutSet) |-> NULL_DB_VALUE], iAmTheLeaderAbstract = [h \in Heartbeats |-> FALSE], frequency = 500, terms = [s \in Servers |-> NULL], lastSeen, nexts = [x \in Servers |-> [s \in Servers |-> NULL]], logs = [s \in Servers |-> NULL], commits = [s \in Servers |-> NULL], mailboxes = [id \in Servers |-> <<>>], requestsRead, requestsWrite, iAmTheLeaderRead, proposerChanWrite, raftChanRead, raftChanWrite, upstreamWrite, proposerChanWrite0, raftChanWrite0, upstreamWrite0, requestsWrite0, proposerChanWrite1, raftChanWrite1, upstreamWrite1, learnerChanRead, learnerChanWrite, kvIdRead, dbWrite, dbWrite0, kvIdRead0, kvIdRead1, dbRead, kvIdRead2, requestServiceWrite, requestServiceWrite0, learnerChanWrite0, dbWrite1, requestServiceWrite1, timeoutRead, networkWrite, networkWrite0, networkWrite1, inputRead, inputWrite, logChanWrite, nextChanWrite, commitChanWrite, appliedWrite, appliedWrite0, networkWrite2, networkWrite3, inputWrite0, logChanWrite0, nextChanWrite0, commitChanWrite0, appliedWrite1, networkWrite4, networkRead, iAmTheLeaderWrite, iAmTheLeaderWrite0, lastmsgWrite, lastmsgWrite0, lastmsgWrite1, ifResult, appliedWrite2, appliedWrite3, ifResult0, nextChanWrite1, networkWrite5, termWrite, iAmTheLeaderWrite1, termWrite0, logChanWrite1, commitChanWrite1, nextChanWrite2, iAmTheLeaderWrite2, termWrite1, logChanWrite2, commitChanWrite2, nextChanWrite3, iAmTheLeaderWrite3, termWrite2, logChanWrite3, commitChanWrite3, nextChanWrite4, nextChanWrite5, networkWrite6, iAmTheLeaderWrite4, termWrite3, logChanWrite4, commitChanWrite4, networkWrite7, nextChanWrite6, iAmTheLeaderWrite5, termWrite4, logChanWrite5, commitChanWrite5, lastmsgWrite2, networkWrite8, appliedWrite4, nextChanWrite7, iAmTheLeaderWrite6, termWrite5, logChanWrite6, commitChanWrite6, iAmTheLeaderWrite7, lastmsgWrite3, networkWrite9, appliedWrite5, nextChanWrite8, termWrite6, logChanWrite7, commitChanWrite7, networkWrite10, inputWrite1, logChanWrite8, nextChanWrite9, commitChanWrite8, appliedWrite6, iAmTheLeaderWrite8, lastmsgWrite4, termWrite7, iAmTheLeaderRead0, timerWrite, nextIndexInRead, termRead, logInRead, logInRead0, logInRead1, commitInRead, networkWrite11, networkWrite12, networkWrite13, timerWrite0, networkWrite14, timerWrite1, networkWrite15;
     define {
         RequestVote == 0
         RequestVoteResponse == 1
@@ -631,24 +638,19 @@ BecomeLeader:               state := Leader;
                         iterator := 0;
                         SendReqVotes:
                             if ((iterator) < (NUM_NODES)) {
-                                if ((iterator) # (self)) {
-                                    networkWrite := [mailboxes EXCEPT ![iterator] = Append(mailboxes[iterator], [sender |-> self, type |-> RequestVote, term |-> currentTerm, granted |-> FALSE, entries |-> <<>>, prevIndex |-> Len(log), prevTerm |-> Term(log, Len(log)), commit |-> NULL])];
-                                    networkWrite0 := networkWrite;
-                                } else {
-                                    networkWrite0 := mailboxes;
-                                };
+                                networkWrite := [mailboxes EXCEPT ![iterator] = Append(mailboxes[iterator], [sender |-> self, type |-> RequestVote, term |-> currentTerm, granted |-> FALSE, entries |-> <<>>, prevIndex |-> Len(log), prevTerm |-> Term(log, Len(log)), commit |-> NULL])];
                                 iterator := (iterator) + (1);
-                                networkWrite1 := networkWrite0;
-                                mailboxes := networkWrite1;
+                                networkWrite0 := networkWrite;
+                                mailboxes := networkWrite0;
                                 goto SendReqVotes;
                             } else {
-                                networkWrite1 := mailboxes;
-                                mailboxes := networkWrite1;
+                                networkWrite0 := mailboxes;
+                                mailboxes := networkWrite0;
                             };
                     
                     } else {
-                        networkWrite2 := mailboxes;
-                        mailboxes := networkWrite2;
+                        networkWrite1 := mailboxes;
+                        mailboxes := networkWrite1;
                     };
                 
                 LeaderCheck:
@@ -663,13 +665,21 @@ BecomeLeader:               state := Leader;
                             log := Append(log, [val |-> value, term |-> currentTerm]);
                             matchIndex[self] := Len(log);
                             nextIndex[self] := (Len(log)) + (1);
+                            logChanWrite := [logs EXCEPT ![self] = log];
+                            nextChanWrite := [nexts EXCEPT ![self] = nextIndex];
                             values := inputWrite;
+                            nexts := nextChanWrite;
+                            logs := logChanWrite;
                         
                         AdvanceIndex:
                             if ((((Cardinality({i \in Servers : (matchIndex[i]) > (commitIndex)})) * (2)) > (Cardinality(Servers))) /\ ((Term(log, (commitIndex) + (1))) = (currentTerm))) {
                                 commitIndex := (commitIndex) + (1);
                                 goto AdvanceIndex;
                             };
+                        
+                        UpdateCommit:
+                            commitChanWrite := [commits EXCEPT ![self] = commitIndex];
+                            commits := commitChanWrite;
                         
                         ApplyCommited:
                             if ((lastApplied) < (commitIndex)) {
@@ -689,26 +699,32 @@ BecomeLeader:               state := Leader;
                             if ((iterator) < (NUM_NODES)) {
                                 if ((iterator) # (self)) {
                                     networkWrite := [mailboxes EXCEPT ![iterator] = Append(mailboxes[iterator], [sender |-> self, type |-> AppendEntries, term |-> currentTerm, granted |-> FALSE, entries |-> SubSeq(log, nextIndex[iterator], Len(log)), prevIndex |-> (nextIndex[iterator]) - (1), prevTerm |-> Term(log, (nextIndex[iterator]) - (1)), commit |-> commitIndex])];
-                                    networkWrite3 := networkWrite;
+                                    networkWrite2 := networkWrite;
                                 } else {
-                                    networkWrite3 := mailboxes;
+                                    networkWrite2 := mailboxes;
                                 };
                                 iterator := (iterator) + (1);
-                                networkWrite4 := networkWrite3;
-                                mailboxes := networkWrite4;
+                                networkWrite3 := networkWrite2;
+                                mailboxes := networkWrite3;
                                 goto SendAppendEntries;
                             } else {
-                                networkWrite4 := mailboxes;
-                                mailboxes := networkWrite4;
+                                networkWrite3 := mailboxes;
+                                mailboxes := networkWrite3;
                             };
                     
                     } else {
                         inputWrite0 := values;
+                        logChanWrite0 := logs;
+                        nextChanWrite0 := nexts;
+                        commitChanWrite0 := commits;
                         appliedWrite1 := learnedChan;
-                        networkWrite5 := mailboxes;
-                        mailboxes := networkWrite5;
+                        networkWrite4 := mailboxes;
+                        mailboxes := networkWrite4;
                         learnedChan := appliedWrite1;
                         values := inputWrite0;
+                        nexts := nextChanWrite0;
+                        logs := logChanWrite0;
+                        commits := commitChanWrite0;
                     };
                 
                 RecvMsg:
@@ -741,15 +757,17 @@ BecomeLeader:               state := Leader;
                         MsgSwitch:
                             if (((msg).type) = (AppendEntries)) {
                                 response := [sender |-> self, type |-> AppendEntriesResponse, term |-> currentTerm, granted |-> FALSE, entries |-> <<>>, prevIndex |-> NULL, prevTerm |-> NULL, commit |-> NULL];
-                                if ((((msg).term) >= (currentTerm)) /\ (((((msg).prevIndex) > (0)) /\ ((Len(log)) < ((msg).prevIndex))) \/ ((Term(log, (msg).prevIndex)) # ((msg).prevTerm)))) {
+                                if ((((msg).term) >= (currentTerm)) /\ (((((msg).prevIndex) > (0)) /\ ((Len(log)) > ((msg).prevIndex))) \/ ((Term(log, (msg).prevIndex)) # ((msg).prevTerm)))) {
                                     assert (state) # (Leader);
                                     log := SubSeq(log, 1, ((msg).prevIndex) - (1));
                                     lastmsgWrite := msg;
                                     lastmsgWrite1 := lastmsgWrite;
                                     lastSeen := lastmsgWrite1;
                                 } else {
-                                    if ((((msg).term) >= (currentTerm)) /\ ((Len(log)) = ((msg).prevIndex))) {
-                                        log := (log) \o ((msg).entries);
+                                    if (((msg).term) >= (currentTerm)) {
+                                        if ((Len(log)) = ((msg).prevIndex)) {
+                                            log := (log) \o ((msg).entries);
+                                        };
                                         AEValid:
                                             response := [sender |-> self, type |-> AppendEntriesResponse, term |-> currentTerm, granted |-> TRUE, entries |-> <<>>, prevIndex |-> Len(log), prevTerm |-> NULL, commit |-> NULL];
                                             lastmsgWrite := msg;
@@ -808,122 +826,174 @@ BecomeLeader:               state := Leader;
                                 
                                 } else {
                                     if (((((msg).type) = (AppendEntriesResponse)) /\ (((msg).term) = (currentTerm))) /\ ((state) = (Leader))) {
-                                        if ((msg).granted) {
-                                            nextIndex[msg.sender] := ((msg).prevIndex) + (1);
-                                            matchIndex[msg.sender] := (msg).prevIndex;
-                                            networkWrite6 := mailboxes;
-                                            networkWrite7 := networkWrite6;
-                                            iAmTheLeaderWrite4 := iAmTheLeaderAbstract;
-                                            termWrite3 := terms;
-                                            networkWrite8 := networkWrite7;
-                                            iAmTheLeaderWrite5 := iAmTheLeaderWrite4;
-                                            termWrite4 := termWrite3;
-                                            lastmsgWrite2 := lastSeen;
-                                            networkWrite9 := networkWrite8;
-                                            appliedWrite4 := learnedChan;
-                                            iAmTheLeaderWrite6 := iAmTheLeaderWrite5;
-                                            termWrite5 := termWrite4;
-                                            mailboxes := networkWrite9;
-                                            learnedChan := appliedWrite4;
-                                            iAmTheLeaderAbstract := iAmTheLeaderWrite6;
-                                            terms := termWrite5;
-                                            lastSeen := lastmsgWrite2;
-                                            goto ProcessMsgs;
-                                        } else {
-                                            if (((nextIndex[(msg).sender]) - (1)) > (1)) {
-                                                ifResult0 := (nextIndex[(msg).sender]) - (1);
-                                            } else {
-                                                ifResult0 := 1;
-                                            };
-                                            nextIndex[msg.sender] := ifResult0;
-                                            RetryAppendEntry:
-                                                networkWrite := [mailboxes EXCEPT ![(msg).sender] = Append(mailboxes[(msg).sender], [sender |-> self, type |-> RequestVote, term |-> currentTerm, granted |-> FALSE, entries |-> SubSeq(log, nextIndex[(msg).sender], Len(log)), prevIndex |-> (nextIndex[(msg).sender]) - (1), prevTerm |-> Term(log, (nextIndex[(msg).sender]) - (1)), commit |-> commitIndex])];
-                                                mailboxes := networkWrite;
+                                        AERCheckGranted:
+                                            if ((msg).granted) {
+                                                nextIndex[msg.sender] := ((msg).prevIndex) + (1);
+                                                matchIndex[msg.sender] := (msg).prevIndex;
+                                                nextChanWrite := [nexts EXCEPT ![self] = nextIndex];
+                                                nextChanWrite1 := nextChanWrite;
+                                                networkWrite5 := mailboxes;
+                                                mailboxes := networkWrite5;
+                                                nexts := nextChanWrite1;
                                                 goto ProcessMsgs;
-                                        
-                                        };
+                                            } else {
+                                                if (((nextIndex[(msg).sender]) - (1)) > (1)) {
+                                                    ifResult0 := (nextIndex[(msg).sender]) - (1);
+                                                } else {
+                                                    ifResult0 := 1;
+                                                };
+                                                nextIndex[msg.sender] := ifResult0;
+                                                RetryAppendEntry:
+                                                    networkWrite := [mailboxes EXCEPT ![(msg).sender] = Append(mailboxes[(msg).sender], [sender |-> self, type |-> RequestVote, term |-> currentTerm, granted |-> FALSE, entries |-> SubSeq(log, nextIndex[(msg).sender], Len(log)), prevIndex |-> (nextIndex[(msg).sender]) - (1), prevTerm |-> Term(log, (nextIndex[(msg).sender]) - (1)), commit |-> commitIndex])];
+                                                    nextChanWrite := [nexts EXCEPT ![self] = nextIndex];
+                                                    mailboxes := networkWrite;
+                                                    nexts := nextChanWrite;
+                                                    goto ProcessMsgs;
+                                            
+                                            };
+                                    
                                     } else {
                                         if (((((msg).type) = (RequestVoteResponse)) /\ (((msg).term) = (currentTerm))) /\ ((state) = (Candidate))) {
                                             if ((msg).granted) {
                                                 votes[msg.term] := (votes[(msg).term]) \union ({(msg).sender});
                                                 if (((Cardinality(votes[(msg).term])) * (2)) > (Cardinality(Servers))) {
                                                     BecomeLeader:
+                                                        iAmTheLeaderWrite := [iAmTheLeaderAbstract EXCEPT ![(self) + (NUM_NODES)] = TRUE];
+                                                        termWrite := [terms EXCEPT ![self] = currentTerm];
+                                                        logChanWrite := [logs EXCEPT ![self] = log];
+                                                        commitChanWrite := [commits EXCEPT ![self] = commitIndex];
                                                         state := Leader;
                                                         matchIndex := [s3 \in Servers |-> 0];
                                                         nextIndex := [s4 \in Servers |-> 1];
-                                                        iAmTheLeaderWrite := [iAmTheLeaderAbstract EXCEPT ![(self) + (NUM_NODES)] = TRUE];
-                                                        termWrite := [terms EXCEPT ![self] = currentTerm];
+                                                        nextChanWrite := [nexts EXCEPT ![self] = nextIndex];
                                                         iAmTheLeaderAbstract := iAmTheLeaderWrite;
                                                         terms := termWrite;
+                                                        nexts := nextChanWrite;
+                                                        logs := logChanWrite;
+                                                        commits := commitChanWrite;
                                                         goto ProcessMsgs;
                                                 
                                                 } else {
                                                     iAmTheLeaderWrite1 := iAmTheLeaderAbstract;
                                                     termWrite0 := terms;
+                                                    logChanWrite1 := logs;
+                                                    commitChanWrite1 := commits;
+                                                    nextChanWrite2 := nexts;
                                                     iAmTheLeaderWrite2 := iAmTheLeaderWrite1;
                                                     termWrite1 := termWrite0;
+                                                    logChanWrite2 := logChanWrite1;
+                                                    commitChanWrite2 := commitChanWrite1;
+                                                    nextChanWrite3 := nextChanWrite2;
                                                     iAmTheLeaderWrite3 := iAmTheLeaderWrite2;
                                                     termWrite2 := termWrite1;
-                                                    networkWrite7 := mailboxes;
+                                                    logChanWrite3 := logChanWrite2;
+                                                    commitChanWrite3 := commitChanWrite2;
+                                                    nextChanWrite4 := nextChanWrite3;
+                                                    nextChanWrite5 := nextChanWrite4;
+                                                    networkWrite6 := mailboxes;
                                                     iAmTheLeaderWrite4 := iAmTheLeaderWrite3;
                                                     termWrite3 := termWrite2;
-                                                    networkWrite8 := networkWrite7;
+                                                    logChanWrite4 := logChanWrite3;
+                                                    commitChanWrite4 := commitChanWrite3;
+                                                    networkWrite7 := networkWrite6;
+                                                    nextChanWrite6 := nextChanWrite5;
                                                     iAmTheLeaderWrite5 := iAmTheLeaderWrite4;
                                                     termWrite4 := termWrite3;
+                                                    logChanWrite5 := logChanWrite4;
+                                                    commitChanWrite5 := commitChanWrite4;
                                                     lastmsgWrite2 := lastSeen;
-                                                    networkWrite9 := networkWrite8;
+                                                    networkWrite8 := networkWrite7;
                                                     appliedWrite4 := learnedChan;
+                                                    nextChanWrite7 := nextChanWrite6;
                                                     iAmTheLeaderWrite6 := iAmTheLeaderWrite5;
                                                     termWrite5 := termWrite4;
-                                                    mailboxes := networkWrite9;
+                                                    logChanWrite6 := logChanWrite5;
+                                                    commitChanWrite6 := commitChanWrite5;
+                                                    mailboxes := networkWrite8;
                                                     learnedChan := appliedWrite4;
                                                     iAmTheLeaderAbstract := iAmTheLeaderWrite6;
                                                     terms := termWrite5;
                                                     lastSeen := lastmsgWrite2;
+                                                    nexts := nextChanWrite7;
+                                                    logs := logChanWrite6;
+                                                    commits := commitChanWrite6;
                                                     goto ProcessMsgs;
                                                 };
                                             } else {
                                                 iAmTheLeaderWrite2 := iAmTheLeaderAbstract;
                                                 termWrite1 := terms;
+                                                logChanWrite2 := logs;
+                                                commitChanWrite2 := commits;
+                                                nextChanWrite3 := nexts;
                                                 iAmTheLeaderWrite3 := iAmTheLeaderWrite2;
                                                 termWrite2 := termWrite1;
-                                                networkWrite7 := mailboxes;
+                                                logChanWrite3 := logChanWrite2;
+                                                commitChanWrite3 := commitChanWrite2;
+                                                nextChanWrite4 := nextChanWrite3;
+                                                nextChanWrite5 := nextChanWrite4;
+                                                networkWrite6 := mailboxes;
                                                 iAmTheLeaderWrite4 := iAmTheLeaderWrite3;
                                                 termWrite3 := termWrite2;
-                                                networkWrite8 := networkWrite7;
+                                                logChanWrite4 := logChanWrite3;
+                                                commitChanWrite4 := commitChanWrite3;
+                                                networkWrite7 := networkWrite6;
+                                                nextChanWrite6 := nextChanWrite5;
                                                 iAmTheLeaderWrite5 := iAmTheLeaderWrite4;
                                                 termWrite4 := termWrite3;
+                                                logChanWrite5 := logChanWrite4;
+                                                commitChanWrite5 := commitChanWrite4;
                                                 lastmsgWrite2 := lastSeen;
-                                                networkWrite9 := networkWrite8;
+                                                networkWrite8 := networkWrite7;
                                                 appliedWrite4 := learnedChan;
+                                                nextChanWrite7 := nextChanWrite6;
                                                 iAmTheLeaderWrite6 := iAmTheLeaderWrite5;
                                                 termWrite5 := termWrite4;
-                                                mailboxes := networkWrite9;
+                                                logChanWrite6 := logChanWrite5;
+                                                commitChanWrite6 := commitChanWrite5;
+                                                mailboxes := networkWrite8;
                                                 learnedChan := appliedWrite4;
                                                 iAmTheLeaderAbstract := iAmTheLeaderWrite6;
                                                 terms := termWrite5;
                                                 lastSeen := lastmsgWrite2;
+                                                nexts := nextChanWrite7;
+                                                logs := logChanWrite6;
+                                                commits := commitChanWrite6;
                                                 goto ProcessMsgs;
                                             };
                                         } else {
                                             iAmTheLeaderWrite3 := iAmTheLeaderAbstract;
                                             termWrite2 := terms;
-                                            networkWrite7 := mailboxes;
+                                            logChanWrite3 := logs;
+                                            commitChanWrite3 := commits;
+                                            nextChanWrite4 := nexts;
+                                            nextChanWrite5 := nextChanWrite4;
+                                            networkWrite6 := mailboxes;
                                             iAmTheLeaderWrite4 := iAmTheLeaderWrite3;
                                             termWrite3 := termWrite2;
-                                            networkWrite8 := networkWrite7;
+                                            logChanWrite4 := logChanWrite3;
+                                            commitChanWrite4 := commitChanWrite3;
+                                            networkWrite7 := networkWrite6;
+                                            nextChanWrite6 := nextChanWrite5;
                                             iAmTheLeaderWrite5 := iAmTheLeaderWrite4;
                                             termWrite4 := termWrite3;
+                                            logChanWrite5 := logChanWrite4;
+                                            commitChanWrite5 := commitChanWrite4;
                                             lastmsgWrite2 := lastSeen;
-                                            networkWrite9 := networkWrite8;
+                                            networkWrite8 := networkWrite7;
                                             appliedWrite4 := learnedChan;
+                                            nextChanWrite7 := nextChanWrite6;
                                             iAmTheLeaderWrite6 := iAmTheLeaderWrite5;
                                             termWrite5 := termWrite4;
-                                            mailboxes := networkWrite9;
+                                            logChanWrite6 := logChanWrite5;
+                                            commitChanWrite6 := commitChanWrite5;
+                                            mailboxes := networkWrite8;
                                             learnedChan := appliedWrite4;
                                             iAmTheLeaderAbstract := iAmTheLeaderWrite6;
                                             terms := termWrite5;
                                             lastSeen := lastmsgWrite2;
+                                            nexts := nextChanWrite7;
+                                            logs := logChanWrite6;
+                                            commits := commitChanWrite6;
                                             goto ProcessMsgs;
                                         };
                                     };
@@ -933,30 +1003,98 @@ BecomeLeader:               state := Leader;
                     } else {
                         iAmTheLeaderWrite7 := iAmTheLeaderAbstract;
                         lastmsgWrite3 := lastSeen;
-                        networkWrite10 := mailboxes;
+                        networkWrite9 := mailboxes;
                         appliedWrite5 := learnedChan;
+                        nextChanWrite8 := nexts;
                         termWrite6 := terms;
-                        mailboxes := networkWrite10;
+                        logChanWrite7 := logs;
+                        commitChanWrite7 := commits;
+                        mailboxes := networkWrite9;
                         learnedChan := appliedWrite5;
                         iAmTheLeaderAbstract := iAmTheLeaderWrite7;
                         terms := termWrite6;
                         lastSeen := lastmsgWrite3;
+                        nexts := nextChanWrite8;
+                        logs := logChanWrite7;
+                        commits := commitChanWrite7;
                         goto NodeLoop;
                     };
             
             } else {
-                networkWrite11 := mailboxes;
+                networkWrite10 := mailboxes;
                 inputWrite1 := values;
+                logChanWrite8 := logs;
+                nextChanWrite9 := nexts;
+                commitChanWrite8 := commits;
                 appliedWrite6 := learnedChan;
                 iAmTheLeaderWrite8 := iAmTheLeaderAbstract;
                 lastmsgWrite4 := lastSeen;
                 termWrite7 := terms;
-                mailboxes := networkWrite11;
+                mailboxes := networkWrite10;
                 learnedChan := appliedWrite6;
                 values := inputWrite1;
                 iAmTheLeaderAbstract := iAmTheLeaderWrite8;
                 terms := termWrite7;
                 lastSeen := lastmsgWrite4;
+                nexts := nextChanWrite9;
+                logs := logChanWrite8;
+                commits := commitChanWrite8;
+            };
+    
+    }
+    fair process (heartbeat \in Heartbeats)
+    variables index, next = [s \in Servers |-> NULL];
+    {
+        HBLoop:
+            if (TRUE) {
+                CheckHeartBeat:
+                    iAmTheLeaderRead0 := iAmTheLeaderAbstract[self];
+                    await iAmTheLeaderRead0;
+                
+                SendHeartBeatLoop:
+                    iAmTheLeaderRead0 := iAmTheLeaderAbstract[self];
+                    if (iAmTheLeaderRead0) {
+                        timerWrite := HeartBeatFrequency;
+                        index := 0;
+                        nextIndexInRead := nexts[(self) - (NUM_NODES)];
+                        next := nextIndexInRead;
+                        frequency := timerWrite;
+                        SendHeartBeats:
+                            if ((index) < (NUM_NODES)) {
+                                if ((index) # ((self) - (NUM_NODES))) {
+                                    termRead := terms[(self) - (NUM_NODES)];
+                                    logInRead := logs[(self) - (NUM_NODES)];
+                                    logInRead0 := logs[(self) - (NUM_NODES)];
+                                    logInRead1 := logs[(self) - (NUM_NODES)];
+                                    commitInRead := commits[(self) - (NUM_NODES)];
+                                    networkWrite11 := [mailboxes EXCEPT ![index] = Append(mailboxes[index], [sender |-> (self) - (NUM_NODES), type |-> AppendEntries, term |-> termRead, granted |-> FALSE, entries |-> SubSeq(logInRead, next[index], Len(logInRead0)), prevIndex |-> (next[index]) - (1), prevTerm |-> Term(logInRead1, (next[index]) - (1)), commit |-> commitInRead])];
+                                    networkWrite12 := networkWrite11;
+                                } else {
+                                    networkWrite12 := mailboxes;
+                                };
+                                index := (index) + (1);
+                                networkWrite13 := networkWrite12;
+                                mailboxes := networkWrite13;
+                                goto SendHeartBeats;
+                            } else {
+                                networkWrite13 := mailboxes;
+                                mailboxes := networkWrite13;
+                                goto SendHeartBeatLoop;
+                            };
+                    
+                    } else {
+                        timerWrite0 := frequency;
+                        networkWrite14 := mailboxes;
+                        mailboxes := networkWrite14;
+                        frequency := timerWrite0;
+                        goto HBLoop;
+                    };
+            
+            } else {
+                timerWrite1 := frequency;
+                networkWrite15 := mailboxes;
+                mailboxes := networkWrite15;
+                frequency := timerWrite1;
             };
     
     }
@@ -966,31 +1104,43 @@ BecomeLeader:               state := Leader;
 ******************************************************************************)
 
 \* BEGIN TRANSLATION
-\* Process variable msg of process kvRequests at line 484 col 15 changed to msg_
-\* Process variable result of process kvRequests at line 484 col 85 changed to result_
+\* Process variable msg of process kvRequests at line 491 col 15 changed to msg_
+\* Process variable result of process kvRequests at line 491 col 85 changed to result_
 CONSTANT defaultInitValue
 VARIABLES values, requestSet, learnedChan, raftLayerChan, kvClient, 
           idAbstract, database, iAmTheLeaderAbstract, frequency, terms, 
-          lastSeen, mailboxes, requestsRead, requestsWrite, iAmTheLeaderRead, 
-          proposerChanWrite, raftChanRead, raftChanWrite, upstreamWrite, 
-          proposerChanWrite0, raftChanWrite0, upstreamWrite0, requestsWrite0, 
-          proposerChanWrite1, raftChanWrite1, upstreamWrite1, learnerChanRead, 
-          learnerChanWrite, kvIdRead, dbWrite, dbWrite0, kvIdRead0, kvIdRead1, 
-          dbRead, kvIdRead2, requestServiceWrite, requestServiceWrite0, 
-          learnerChanWrite0, dbWrite1, requestServiceWrite1, timeoutRead, 
-          networkWrite, networkWrite0, networkWrite1, networkWrite2, 
-          inputRead, inputWrite, appliedWrite, appliedWrite0, networkWrite3, 
-          networkWrite4, inputWrite0, appliedWrite1, networkWrite5, 
+          lastSeen, nexts, logs, commits, mailboxes, requestsRead, 
+          requestsWrite, iAmTheLeaderRead, proposerChanWrite, raftChanRead, 
+          raftChanWrite, upstreamWrite, proposerChanWrite0, raftChanWrite0, 
+          upstreamWrite0, requestsWrite0, proposerChanWrite1, raftChanWrite1, 
+          upstreamWrite1, learnerChanRead, learnerChanWrite, kvIdRead, 
+          dbWrite, dbWrite0, kvIdRead0, kvIdRead1, dbRead, kvIdRead2, 
+          requestServiceWrite, requestServiceWrite0, learnerChanWrite0, 
+          dbWrite1, requestServiceWrite1, timeoutRead, networkWrite, 
+          networkWrite0, networkWrite1, inputRead, inputWrite, logChanWrite, 
+          nextChanWrite, commitChanWrite, appliedWrite, appliedWrite0, 
+          networkWrite2, networkWrite3, inputWrite0, logChanWrite0, 
+          nextChanWrite0, commitChanWrite0, appliedWrite1, networkWrite4, 
           networkRead, iAmTheLeaderWrite, iAmTheLeaderWrite0, lastmsgWrite, 
           lastmsgWrite0, lastmsgWrite1, ifResult, appliedWrite2, 
-          appliedWrite3, ifResult0, networkWrite6, termWrite, 
-          iAmTheLeaderWrite1, termWrite0, iAmTheLeaderWrite2, termWrite1, 
-          iAmTheLeaderWrite3, termWrite2, networkWrite7, iAmTheLeaderWrite4, 
-          termWrite3, networkWrite8, iAmTheLeaderWrite5, termWrite4, 
-          lastmsgWrite2, networkWrite9, appliedWrite4, iAmTheLeaderWrite6, 
-          termWrite5, iAmTheLeaderWrite7, lastmsgWrite3, networkWrite10, 
-          appliedWrite5, termWrite6, networkWrite11, inputWrite1, 
-          appliedWrite6, iAmTheLeaderWrite8, lastmsgWrite4, termWrite7, pc
+          appliedWrite3, ifResult0, nextChanWrite1, networkWrite5, termWrite, 
+          iAmTheLeaderWrite1, termWrite0, logChanWrite1, commitChanWrite1, 
+          nextChanWrite2, iAmTheLeaderWrite2, termWrite1, logChanWrite2, 
+          commitChanWrite2, nextChanWrite3, iAmTheLeaderWrite3, termWrite2, 
+          logChanWrite3, commitChanWrite3, nextChanWrite4, nextChanWrite5, 
+          networkWrite6, iAmTheLeaderWrite4, termWrite3, logChanWrite4, 
+          commitChanWrite4, networkWrite7, nextChanWrite6, iAmTheLeaderWrite5, 
+          termWrite4, logChanWrite5, commitChanWrite5, lastmsgWrite2, 
+          networkWrite8, appliedWrite4, nextChanWrite7, iAmTheLeaderWrite6, 
+          termWrite5, logChanWrite6, commitChanWrite6, iAmTheLeaderWrite7, 
+          lastmsgWrite3, networkWrite9, appliedWrite5, nextChanWrite8, 
+          termWrite6, logChanWrite7, commitChanWrite7, networkWrite10, 
+          inputWrite1, logChanWrite8, nextChanWrite9, commitChanWrite8, 
+          appliedWrite6, iAmTheLeaderWrite8, lastmsgWrite4, termWrite7, 
+          iAmTheLeaderRead0, timerWrite, nextIndexInRead, termRead, logInRead, 
+          logInRead0, logInRead1, commitInRead, networkWrite11, 
+          networkWrite12, networkWrite13, timerWrite0, networkWrite14, 
+          timerWrite1, networkWrite15, pc
 
 (* define statement *)
 RequestVote == 0
@@ -1013,37 +1163,49 @@ Term(log, index) == IF (((index) > (0)) /\ ((Len(log)) >= (index))) /\ ((Len(log
 VARIABLES msg_, null, heartbeatId, proposerId, counter, requestId, proposal, 
           result_, result, learnerId, decided, timeoutLocal, currentTerm, 
           votedFor, log, state, commitIndex, lastApplied, nextIndex, 
-          matchIndex, iterator, votes, value, msg, response, msgs
+          matchIndex, iterator, votes, value, msg, response, msgs, index, 
+          next
 
 vars == << values, requestSet, learnedChan, raftLayerChan, kvClient, 
            idAbstract, database, iAmTheLeaderAbstract, frequency, terms, 
-           lastSeen, mailboxes, requestsRead, requestsWrite, iAmTheLeaderRead, 
-           proposerChanWrite, raftChanRead, raftChanWrite, upstreamWrite, 
-           proposerChanWrite0, raftChanWrite0, upstreamWrite0, requestsWrite0, 
-           proposerChanWrite1, raftChanWrite1, upstreamWrite1, 
-           learnerChanRead, learnerChanWrite, kvIdRead, dbWrite, dbWrite0, 
-           kvIdRead0, kvIdRead1, dbRead, kvIdRead2, requestServiceWrite, 
-           requestServiceWrite0, learnerChanWrite0, dbWrite1, 
-           requestServiceWrite1, timeoutRead, networkWrite, networkWrite0, 
-           networkWrite1, networkWrite2, inputRead, inputWrite, appliedWrite, 
-           appliedWrite0, networkWrite3, networkWrite4, inputWrite0, 
-           appliedWrite1, networkWrite5, networkRead, iAmTheLeaderWrite, 
-           iAmTheLeaderWrite0, lastmsgWrite, lastmsgWrite0, lastmsgWrite1, 
-           ifResult, appliedWrite2, appliedWrite3, ifResult0, networkWrite6, 
-           termWrite, iAmTheLeaderWrite1, termWrite0, iAmTheLeaderWrite2, 
-           termWrite1, iAmTheLeaderWrite3, termWrite2, networkWrite7, 
-           iAmTheLeaderWrite4, termWrite3, networkWrite8, iAmTheLeaderWrite5, 
-           termWrite4, lastmsgWrite2, networkWrite9, appliedWrite4, 
-           iAmTheLeaderWrite6, termWrite5, iAmTheLeaderWrite7, lastmsgWrite3, 
-           networkWrite10, appliedWrite5, termWrite6, networkWrite11, 
-           inputWrite1, appliedWrite6, iAmTheLeaderWrite8, lastmsgWrite4, 
-           termWrite7, pc, msg_, null, heartbeatId, proposerId, counter, 
-           requestId, proposal, result_, result, learnerId, decided, 
-           timeoutLocal, currentTerm, votedFor, log, state, commitIndex, 
-           lastApplied, nextIndex, matchIndex, iterator, votes, value, msg, 
-           response, msgs >>
+           lastSeen, nexts, logs, commits, mailboxes, requestsRead, 
+           requestsWrite, iAmTheLeaderRead, proposerChanWrite, raftChanRead, 
+           raftChanWrite, upstreamWrite, proposerChanWrite0, raftChanWrite0, 
+           upstreamWrite0, requestsWrite0, proposerChanWrite1, raftChanWrite1, 
+           upstreamWrite1, learnerChanRead, learnerChanWrite, kvIdRead, 
+           dbWrite, dbWrite0, kvIdRead0, kvIdRead1, dbRead, kvIdRead2, 
+           requestServiceWrite, requestServiceWrite0, learnerChanWrite0, 
+           dbWrite1, requestServiceWrite1, timeoutRead, networkWrite, 
+           networkWrite0, networkWrite1, inputRead, inputWrite, logChanWrite, 
+           nextChanWrite, commitChanWrite, appliedWrite, appliedWrite0, 
+           networkWrite2, networkWrite3, inputWrite0, logChanWrite0, 
+           nextChanWrite0, commitChanWrite0, appliedWrite1, networkWrite4, 
+           networkRead, iAmTheLeaderWrite, iAmTheLeaderWrite0, lastmsgWrite, 
+           lastmsgWrite0, lastmsgWrite1, ifResult, appliedWrite2, 
+           appliedWrite3, ifResult0, nextChanWrite1, networkWrite5, termWrite, 
+           iAmTheLeaderWrite1, termWrite0, logChanWrite1, commitChanWrite1, 
+           nextChanWrite2, iAmTheLeaderWrite2, termWrite1, logChanWrite2, 
+           commitChanWrite2, nextChanWrite3, iAmTheLeaderWrite3, termWrite2, 
+           logChanWrite3, commitChanWrite3, nextChanWrite4, nextChanWrite5, 
+           networkWrite6, iAmTheLeaderWrite4, termWrite3, logChanWrite4, 
+           commitChanWrite4, networkWrite7, nextChanWrite6, 
+           iAmTheLeaderWrite5, termWrite4, logChanWrite5, commitChanWrite5, 
+           lastmsgWrite2, networkWrite8, appliedWrite4, nextChanWrite7, 
+           iAmTheLeaderWrite6, termWrite5, logChanWrite6, commitChanWrite6, 
+           iAmTheLeaderWrite7, lastmsgWrite3, networkWrite9, appliedWrite5, 
+           nextChanWrite8, termWrite6, logChanWrite7, commitChanWrite7, 
+           networkWrite10, inputWrite1, logChanWrite8, nextChanWrite9, 
+           commitChanWrite8, appliedWrite6, iAmTheLeaderWrite8, lastmsgWrite4, 
+           termWrite7, iAmTheLeaderRead0, timerWrite, nextIndexInRead, 
+           termRead, logInRead, logInRead0, logInRead1, commitInRead, 
+           networkWrite11, networkWrite12, networkWrite13, timerWrite0, 
+           networkWrite14, timerWrite1, networkWrite15, pc, msg_, null, 
+           heartbeatId, proposerId, counter, requestId, proposal, result_, 
+           result, learnerId, decided, timeoutLocal, currentTerm, votedFor, 
+           log, state, commitIndex, lastApplied, nextIndex, matchIndex, 
+           iterator, votes, value, msg, response, msgs, index, next >>
 
-ProcSet == (KVRequests) \cup (KVManager) \cup (Servers)
+ProcSet == (KVRequests) \cup (KVManager) \cup (Servers) \cup (Heartbeats)
 
 Init == (* Global variables *)
         /\ values = [k \in Servers |-> <<>>]
@@ -1053,10 +1215,13 @@ Init == (* Global variables *)
         /\ kvClient = {}
         /\ idAbstract = defaultInitValue
         /\ database = [p \in KVRequests, k \in (GetSet) \union (PutSet) |-> NULL_DB_VALUE]
-        /\ iAmTheLeaderAbstract = [h \in Heartbeats |-> TRUE]
+        /\ iAmTheLeaderAbstract = [h \in Heartbeats |-> FALSE]
         /\ frequency = 500
         /\ terms = [s \in Servers |-> NULL]
         /\ lastSeen = defaultInitValue
+        /\ nexts = [x \in Servers |-> [s \in Servers |-> NULL]]
+        /\ logs = [s \in Servers |-> NULL]
+        /\ commits = [s \in Servers |-> NULL]
         /\ mailboxes = [id \in Servers |-> <<>>]
         /\ requestsRead = defaultInitValue
         /\ requestsWrite = defaultInitValue
@@ -1090,16 +1255,21 @@ Init == (* Global variables *)
         /\ networkWrite = defaultInitValue
         /\ networkWrite0 = defaultInitValue
         /\ networkWrite1 = defaultInitValue
-        /\ networkWrite2 = defaultInitValue
         /\ inputRead = defaultInitValue
         /\ inputWrite = defaultInitValue
+        /\ logChanWrite = defaultInitValue
+        /\ nextChanWrite = defaultInitValue
+        /\ commitChanWrite = defaultInitValue
         /\ appliedWrite = defaultInitValue
         /\ appliedWrite0 = defaultInitValue
+        /\ networkWrite2 = defaultInitValue
         /\ networkWrite3 = defaultInitValue
-        /\ networkWrite4 = defaultInitValue
         /\ inputWrite0 = defaultInitValue
+        /\ logChanWrite0 = defaultInitValue
+        /\ nextChanWrite0 = defaultInitValue
+        /\ commitChanWrite0 = defaultInitValue
         /\ appliedWrite1 = defaultInitValue
-        /\ networkWrite5 = defaultInitValue
+        /\ networkWrite4 = defaultInitValue
         /\ networkRead = defaultInitValue
         /\ iAmTheLeaderWrite = defaultInitValue
         /\ iAmTheLeaderWrite0 = defaultInitValue
@@ -1110,36 +1280,76 @@ Init == (* Global variables *)
         /\ appliedWrite2 = defaultInitValue
         /\ appliedWrite3 = defaultInitValue
         /\ ifResult0 = defaultInitValue
-        /\ networkWrite6 = defaultInitValue
+        /\ nextChanWrite1 = defaultInitValue
+        /\ networkWrite5 = defaultInitValue
         /\ termWrite = defaultInitValue
         /\ iAmTheLeaderWrite1 = defaultInitValue
         /\ termWrite0 = defaultInitValue
+        /\ logChanWrite1 = defaultInitValue
+        /\ commitChanWrite1 = defaultInitValue
+        /\ nextChanWrite2 = defaultInitValue
         /\ iAmTheLeaderWrite2 = defaultInitValue
         /\ termWrite1 = defaultInitValue
+        /\ logChanWrite2 = defaultInitValue
+        /\ commitChanWrite2 = defaultInitValue
+        /\ nextChanWrite3 = defaultInitValue
         /\ iAmTheLeaderWrite3 = defaultInitValue
         /\ termWrite2 = defaultInitValue
-        /\ networkWrite7 = defaultInitValue
+        /\ logChanWrite3 = defaultInitValue
+        /\ commitChanWrite3 = defaultInitValue
+        /\ nextChanWrite4 = defaultInitValue
+        /\ nextChanWrite5 = defaultInitValue
+        /\ networkWrite6 = defaultInitValue
         /\ iAmTheLeaderWrite4 = defaultInitValue
         /\ termWrite3 = defaultInitValue
-        /\ networkWrite8 = defaultInitValue
+        /\ logChanWrite4 = defaultInitValue
+        /\ commitChanWrite4 = defaultInitValue
+        /\ networkWrite7 = defaultInitValue
+        /\ nextChanWrite6 = defaultInitValue
         /\ iAmTheLeaderWrite5 = defaultInitValue
         /\ termWrite4 = defaultInitValue
+        /\ logChanWrite5 = defaultInitValue
+        /\ commitChanWrite5 = defaultInitValue
         /\ lastmsgWrite2 = defaultInitValue
-        /\ networkWrite9 = defaultInitValue
+        /\ networkWrite8 = defaultInitValue
         /\ appliedWrite4 = defaultInitValue
+        /\ nextChanWrite7 = defaultInitValue
         /\ iAmTheLeaderWrite6 = defaultInitValue
         /\ termWrite5 = defaultInitValue
+        /\ logChanWrite6 = defaultInitValue
+        /\ commitChanWrite6 = defaultInitValue
         /\ iAmTheLeaderWrite7 = defaultInitValue
         /\ lastmsgWrite3 = defaultInitValue
-        /\ networkWrite10 = defaultInitValue
+        /\ networkWrite9 = defaultInitValue
         /\ appliedWrite5 = defaultInitValue
+        /\ nextChanWrite8 = defaultInitValue
         /\ termWrite6 = defaultInitValue
-        /\ networkWrite11 = defaultInitValue
+        /\ logChanWrite7 = defaultInitValue
+        /\ commitChanWrite7 = defaultInitValue
+        /\ networkWrite10 = defaultInitValue
         /\ inputWrite1 = defaultInitValue
+        /\ logChanWrite8 = defaultInitValue
+        /\ nextChanWrite9 = defaultInitValue
+        /\ commitChanWrite8 = defaultInitValue
         /\ appliedWrite6 = defaultInitValue
         /\ iAmTheLeaderWrite8 = defaultInitValue
         /\ lastmsgWrite4 = defaultInitValue
         /\ termWrite7 = defaultInitValue
+        /\ iAmTheLeaderRead0 = defaultInitValue
+        /\ timerWrite = defaultInitValue
+        /\ nextIndexInRead = defaultInitValue
+        /\ termRead = defaultInitValue
+        /\ logInRead = defaultInitValue
+        /\ logInRead0 = defaultInitValue
+        /\ logInRead1 = defaultInitValue
+        /\ commitInRead = defaultInitValue
+        /\ networkWrite11 = defaultInitValue
+        /\ networkWrite12 = defaultInitValue
+        /\ networkWrite13 = defaultInitValue
+        /\ timerWrite0 = defaultInitValue
+        /\ networkWrite14 = defaultInitValue
+        /\ timerWrite1 = defaultInitValue
+        /\ networkWrite15 = defaultInitValue
         (* Process kvRequests *)
         /\ msg_ = [self \in KVRequests |-> defaultInitValue]
         /\ null = [self \in KVRequests |-> defaultInitValue]
@@ -1169,9 +1379,13 @@ Init == (* Global variables *)
         /\ msg = [self \in Servers |-> defaultInitValue]
         /\ response = [self \in Servers |-> defaultInitValue]
         /\ msgs = [self \in Servers |-> defaultInitValue]
+        (* Process heartbeat *)
+        /\ index = [self \in Heartbeats |-> defaultInitValue]
+        /\ next = [self \in Heartbeats |-> [s \in Servers |-> NULL]]
         /\ pc = [self \in ProcSet |-> CASE self \in KVRequests -> "kvInit"
                                         [] self \in KVManager -> "findId"
-                                        [] self \in Servers -> "NodeLoop"]
+                                        [] self \in Servers -> "NodeLoop"
+                                        [] self \in Heartbeats -> "HBLoop"]
 
 kvInit(self) == /\ pc[self] = "kvInit"
                 /\ heartbeatId' = [heartbeatId EXCEPT ![self] = (self) - (NUM_NODES)]
@@ -1180,8 +1394,8 @@ kvInit(self) == /\ pc[self] = "kvInit"
                 /\ UNCHANGED << values, requestSet, learnedChan, raftLayerChan, 
                                 kvClient, idAbstract, database, 
                                 iAmTheLeaderAbstract, frequency, terms, 
-                                lastSeen, mailboxes, requestsRead, 
-                                requestsWrite, iAmTheLeaderRead, 
+                                lastSeen, nexts, logs, commits, mailboxes, 
+                                requestsRead, requestsWrite, iAmTheLeaderRead, 
                                 proposerChanWrite, raftChanRead, raftChanWrite, 
                                 upstreamWrite, proposerChanWrite0, 
                                 raftChanWrite0, upstreamWrite0, requestsWrite0, 
@@ -1193,30 +1407,46 @@ kvInit(self) == /\ pc[self] = "kvInit"
                                 learnerChanWrite0, dbWrite1, 
                                 requestServiceWrite1, timeoutRead, 
                                 networkWrite, networkWrite0, networkWrite1, 
-                                networkWrite2, inputRead, inputWrite, 
-                                appliedWrite, appliedWrite0, networkWrite3, 
-                                networkWrite4, inputWrite0, appliedWrite1, 
-                                networkWrite5, networkRead, iAmTheLeaderWrite, 
+                                inputRead, inputWrite, logChanWrite, 
+                                nextChanWrite, commitChanWrite, appliedWrite, 
+                                appliedWrite0, networkWrite2, networkWrite3, 
+                                inputWrite0, logChanWrite0, nextChanWrite0, 
+                                commitChanWrite0, appliedWrite1, networkWrite4, 
+                                networkRead, iAmTheLeaderWrite, 
                                 iAmTheLeaderWrite0, lastmsgWrite, 
                                 lastmsgWrite0, lastmsgWrite1, ifResult, 
                                 appliedWrite2, appliedWrite3, ifResult0, 
-                                networkWrite6, termWrite, iAmTheLeaderWrite1, 
-                                termWrite0, iAmTheLeaderWrite2, termWrite1, 
-                                iAmTheLeaderWrite3, termWrite2, networkWrite7, 
-                                iAmTheLeaderWrite4, termWrite3, networkWrite8, 
-                                iAmTheLeaderWrite5, termWrite4, lastmsgWrite2, 
-                                networkWrite9, appliedWrite4, 
-                                iAmTheLeaderWrite6, termWrite5, 
-                                iAmTheLeaderWrite7, lastmsgWrite3, 
-                                networkWrite10, appliedWrite5, termWrite6, 
-                                networkWrite11, inputWrite1, appliedWrite6, 
+                                nextChanWrite1, networkWrite5, termWrite, 
+                                iAmTheLeaderWrite1, termWrite0, logChanWrite1, 
+                                commitChanWrite1, nextChanWrite2, 
+                                iAmTheLeaderWrite2, termWrite1, logChanWrite2, 
+                                commitChanWrite2, nextChanWrite3, 
+                                iAmTheLeaderWrite3, termWrite2, logChanWrite3, 
+                                commitChanWrite3, nextChanWrite4, 
+                                nextChanWrite5, networkWrite6, 
+                                iAmTheLeaderWrite4, termWrite3, logChanWrite4, 
+                                commitChanWrite4, networkWrite7, 
+                                nextChanWrite6, iAmTheLeaderWrite5, termWrite4, 
+                                logChanWrite5, commitChanWrite5, lastmsgWrite2, 
+                                networkWrite8, appliedWrite4, nextChanWrite7, 
+                                iAmTheLeaderWrite6, termWrite5, logChanWrite6, 
+                                commitChanWrite6, iAmTheLeaderWrite7, 
+                                lastmsgWrite3, networkWrite9, appliedWrite5, 
+                                nextChanWrite8, termWrite6, logChanWrite7, 
+                                commitChanWrite7, networkWrite10, inputWrite1, 
+                                logChanWrite8, nextChanWrite9, 
+                                commitChanWrite8, appliedWrite6, 
                                 iAmTheLeaderWrite8, lastmsgWrite4, termWrite7, 
-                                msg_, null, counter, requestId, proposal, 
-                                result_, result, learnerId, decided, 
-                                timeoutLocal, currentTerm, votedFor, log, 
-                                state, commitIndex, lastApplied, nextIndex, 
-                                matchIndex, iterator, votes, value, msg, 
-                                response, msgs >>
+                                iAmTheLeaderRead0, timerWrite, nextIndexInRead, 
+                                termRead, logInRead, logInRead0, logInRead1, 
+                                commitInRead, networkWrite11, networkWrite12, 
+                                networkWrite13, timerWrite0, networkWrite14, 
+                                timerWrite1, networkWrite15, msg_, null, 
+                                counter, requestId, proposal, result_, result, 
+                                learnerId, decided, timeoutLocal, currentTerm, 
+                                votedFor, log, state, commitIndex, lastApplied, 
+                                nextIndex, matchIndex, iterator, votes, value, 
+                                msg, response, msgs, index, next >>
 
 kvLoop(self) == /\ pc[self] = "kvLoop"
                 /\ IF TRUE
@@ -1226,7 +1456,7 @@ kvLoop(self) == /\ pc[self] = "kvLoop"
                                 /\ requestsRead' = req0
                            /\ msg_' = [msg_ EXCEPT ![self] = requestsRead']
                            /\ Assert((((msg_'[self]).type) = (GET_MSG)) \/ (((msg_'[self]).type) = (PUT_MSG)), 
-                                     "Failure of assertion at line 497, column 17.")
+                                     "Failure of assertion at line 504, column 17.")
                            /\ iAmTheLeaderRead' = iAmTheLeaderAbstract[heartbeatId[self]]
                            /\ IF iAmTheLeaderRead'
                                  THEN /\ requestId' = [requestId EXCEPT ![self] = <<self, counter[self]>>]
@@ -1290,36 +1520,53 @@ kvLoop(self) == /\ pc[self] = "kvLoop"
                                            result_ >>
                 /\ UNCHANGED << learnedChan, idAbstract, database, 
                                 iAmTheLeaderAbstract, frequency, terms, 
-                                lastSeen, mailboxes, learnerChanRead, 
-                                learnerChanWrite, kvIdRead, dbWrite, dbWrite0, 
-                                kvIdRead0, kvIdRead1, dbRead, kvIdRead2, 
-                                requestServiceWrite, requestServiceWrite0, 
-                                learnerChanWrite0, dbWrite1, 
-                                requestServiceWrite1, timeoutRead, 
+                                lastSeen, nexts, logs, commits, mailboxes, 
+                                learnerChanRead, learnerChanWrite, kvIdRead, 
+                                dbWrite, dbWrite0, kvIdRead0, kvIdRead1, 
+                                dbRead, kvIdRead2, requestServiceWrite, 
+                                requestServiceWrite0, learnerChanWrite0, 
+                                dbWrite1, requestServiceWrite1, timeoutRead, 
                                 networkWrite, networkWrite0, networkWrite1, 
-                                networkWrite2, inputRead, inputWrite, 
-                                appliedWrite, appliedWrite0, networkWrite3, 
-                                networkWrite4, inputWrite0, appliedWrite1, 
-                                networkWrite5, networkRead, iAmTheLeaderWrite, 
+                                inputRead, inputWrite, logChanWrite, 
+                                nextChanWrite, commitChanWrite, appliedWrite, 
+                                appliedWrite0, networkWrite2, networkWrite3, 
+                                inputWrite0, logChanWrite0, nextChanWrite0, 
+                                commitChanWrite0, appliedWrite1, networkWrite4, 
+                                networkRead, iAmTheLeaderWrite, 
                                 iAmTheLeaderWrite0, lastmsgWrite, 
                                 lastmsgWrite0, lastmsgWrite1, ifResult, 
                                 appliedWrite2, appliedWrite3, ifResult0, 
-                                networkWrite6, termWrite, iAmTheLeaderWrite1, 
-                                termWrite0, iAmTheLeaderWrite2, termWrite1, 
-                                iAmTheLeaderWrite3, termWrite2, networkWrite7, 
-                                iAmTheLeaderWrite4, termWrite3, networkWrite8, 
-                                iAmTheLeaderWrite5, termWrite4, lastmsgWrite2, 
-                                networkWrite9, appliedWrite4, 
-                                iAmTheLeaderWrite6, termWrite5, 
-                                iAmTheLeaderWrite7, lastmsgWrite3, 
-                                networkWrite10, appliedWrite5, termWrite6, 
-                                networkWrite11, inputWrite1, appliedWrite6, 
+                                nextChanWrite1, networkWrite5, termWrite, 
+                                iAmTheLeaderWrite1, termWrite0, logChanWrite1, 
+                                commitChanWrite1, nextChanWrite2, 
+                                iAmTheLeaderWrite2, termWrite1, logChanWrite2, 
+                                commitChanWrite2, nextChanWrite3, 
+                                iAmTheLeaderWrite3, termWrite2, logChanWrite3, 
+                                commitChanWrite3, nextChanWrite4, 
+                                nextChanWrite5, networkWrite6, 
+                                iAmTheLeaderWrite4, termWrite3, logChanWrite4, 
+                                commitChanWrite4, networkWrite7, 
+                                nextChanWrite6, iAmTheLeaderWrite5, termWrite4, 
+                                logChanWrite5, commitChanWrite5, lastmsgWrite2, 
+                                networkWrite8, appliedWrite4, nextChanWrite7, 
+                                iAmTheLeaderWrite6, termWrite5, logChanWrite6, 
+                                commitChanWrite6, iAmTheLeaderWrite7, 
+                                lastmsgWrite3, networkWrite9, appliedWrite5, 
+                                nextChanWrite8, termWrite6, logChanWrite7, 
+                                commitChanWrite7, networkWrite10, inputWrite1, 
+                                logChanWrite8, nextChanWrite9, 
+                                commitChanWrite8, appliedWrite6, 
                                 iAmTheLeaderWrite8, lastmsgWrite4, termWrite7, 
-                                null, heartbeatId, proposerId, result, 
-                                learnerId, decided, timeoutLocal, currentTerm, 
-                                votedFor, log, state, commitIndex, lastApplied, 
-                                nextIndex, matchIndex, iterator, votes, value, 
-                                msg, response, msgs >>
+                                iAmTheLeaderRead0, timerWrite, nextIndexInRead, 
+                                termRead, logInRead, logInRead0, logInRead1, 
+                                commitInRead, networkWrite11, networkWrite12, 
+                                networkWrite13, timerWrite0, networkWrite14, 
+                                timerWrite1, networkWrite15, null, heartbeatId, 
+                                proposerId, result, learnerId, decided, 
+                                timeoutLocal, currentTerm, votedFor, log, 
+                                state, commitIndex, lastApplied, nextIndex, 
+                                matchIndex, iterator, votes, value, msg, 
+                                response, msgs, index, next >>
 
 kvRequests(self) == kvInit(self) \/ kvLoop(self)
 
@@ -1329,8 +1576,8 @@ findId(self) == /\ pc[self] = "findId"
                 /\ UNCHANGED << values, requestSet, learnedChan, raftLayerChan, 
                                 kvClient, idAbstract, database, 
                                 iAmTheLeaderAbstract, frequency, terms, 
-                                lastSeen, mailboxes, requestsRead, 
-                                requestsWrite, iAmTheLeaderRead, 
+                                lastSeen, nexts, logs, commits, mailboxes, 
+                                requestsRead, requestsWrite, iAmTheLeaderRead, 
                                 proposerChanWrite, raftChanRead, raftChanWrite, 
                                 upstreamWrite, proposerChanWrite0, 
                                 raftChanWrite0, upstreamWrite0, requestsWrite0, 
@@ -1342,30 +1589,47 @@ findId(self) == /\ pc[self] = "findId"
                                 learnerChanWrite0, dbWrite1, 
                                 requestServiceWrite1, timeoutRead, 
                                 networkWrite, networkWrite0, networkWrite1, 
-                                networkWrite2, inputRead, inputWrite, 
-                                appliedWrite, appliedWrite0, networkWrite3, 
-                                networkWrite4, inputWrite0, appliedWrite1, 
-                                networkWrite5, networkRead, iAmTheLeaderWrite, 
+                                inputRead, inputWrite, logChanWrite, 
+                                nextChanWrite, commitChanWrite, appliedWrite, 
+                                appliedWrite0, networkWrite2, networkWrite3, 
+                                inputWrite0, logChanWrite0, nextChanWrite0, 
+                                commitChanWrite0, appliedWrite1, networkWrite4, 
+                                networkRead, iAmTheLeaderWrite, 
                                 iAmTheLeaderWrite0, lastmsgWrite, 
                                 lastmsgWrite0, lastmsgWrite1, ifResult, 
                                 appliedWrite2, appliedWrite3, ifResult0, 
-                                networkWrite6, termWrite, iAmTheLeaderWrite1, 
-                                termWrite0, iAmTheLeaderWrite2, termWrite1, 
-                                iAmTheLeaderWrite3, termWrite2, networkWrite7, 
-                                iAmTheLeaderWrite4, termWrite3, networkWrite8, 
-                                iAmTheLeaderWrite5, termWrite4, lastmsgWrite2, 
-                                networkWrite9, appliedWrite4, 
-                                iAmTheLeaderWrite6, termWrite5, 
-                                iAmTheLeaderWrite7, lastmsgWrite3, 
-                                networkWrite10, appliedWrite5, termWrite6, 
-                                networkWrite11, inputWrite1, appliedWrite6, 
+                                nextChanWrite1, networkWrite5, termWrite, 
+                                iAmTheLeaderWrite1, termWrite0, logChanWrite1, 
+                                commitChanWrite1, nextChanWrite2, 
+                                iAmTheLeaderWrite2, termWrite1, logChanWrite2, 
+                                commitChanWrite2, nextChanWrite3, 
+                                iAmTheLeaderWrite3, termWrite2, logChanWrite3, 
+                                commitChanWrite3, nextChanWrite4, 
+                                nextChanWrite5, networkWrite6, 
+                                iAmTheLeaderWrite4, termWrite3, logChanWrite4, 
+                                commitChanWrite4, networkWrite7, 
+                                nextChanWrite6, iAmTheLeaderWrite5, termWrite4, 
+                                logChanWrite5, commitChanWrite5, lastmsgWrite2, 
+                                networkWrite8, appliedWrite4, nextChanWrite7, 
+                                iAmTheLeaderWrite6, termWrite5, logChanWrite6, 
+                                commitChanWrite6, iAmTheLeaderWrite7, 
+                                lastmsgWrite3, networkWrite9, appliedWrite5, 
+                                nextChanWrite8, termWrite6, logChanWrite7, 
+                                commitChanWrite7, networkWrite10, inputWrite1, 
+                                logChanWrite8, nextChanWrite9, 
+                                commitChanWrite8, appliedWrite6, 
                                 iAmTheLeaderWrite8, lastmsgWrite4, termWrite7, 
-                                msg_, null, heartbeatId, proposerId, counter, 
-                                requestId, proposal, result_, result, decided, 
+                                iAmTheLeaderRead0, timerWrite, nextIndexInRead, 
+                                termRead, logInRead, logInRead0, logInRead1, 
+                                commitInRead, networkWrite11, networkWrite12, 
+                                networkWrite13, timerWrite0, networkWrite14, 
+                                timerWrite1, networkWrite15, msg_, null, 
+                                heartbeatId, proposerId, counter, requestId, 
+                                proposal, result_, result, decided, 
                                 timeoutLocal, currentTerm, votedFor, log, 
                                 state, commitIndex, lastApplied, nextIndex, 
                                 matchIndex, iterator, votes, value, msg, 
-                                response, msgs >>
+                                response, msgs, index, next >>
 
 kvManagerLoop(self) == /\ pc[self] = "kvManagerLoop"
                        /\ IF TRUE
@@ -1428,45 +1692,68 @@ kvManagerLoop(self) == /\ pc[self] = "kvManagerLoop"
                                                   decided >>
                        /\ UNCHANGED << values, requestSet, kvClient, 
                                        idAbstract, iAmTheLeaderAbstract, 
-                                       frequency, terms, lastSeen, mailboxes, 
-                                       requestsRead, requestsWrite, 
-                                       iAmTheLeaderRead, proposerChanWrite, 
-                                       raftChanRead, raftChanWrite, 
-                                       upstreamWrite, proposerChanWrite0, 
-                                       raftChanWrite0, upstreamWrite0, 
-                                       requestsWrite0, proposerChanWrite1, 
-                                       raftChanWrite1, upstreamWrite1, 
-                                       timeoutRead, networkWrite, 
-                                       networkWrite0, networkWrite1, 
-                                       networkWrite2, inputRead, inputWrite, 
-                                       appliedWrite, appliedWrite0, 
-                                       networkWrite3, networkWrite4, 
-                                       inputWrite0, appliedWrite1, 
-                                       networkWrite5, networkRead, 
+                                       frequency, terms, lastSeen, nexts, logs, 
+                                       commits, mailboxes, requestsRead, 
+                                       requestsWrite, iAmTheLeaderRead, 
+                                       proposerChanWrite, raftChanRead, 
+                                       raftChanWrite, upstreamWrite, 
+                                       proposerChanWrite0, raftChanWrite0, 
+                                       upstreamWrite0, requestsWrite0, 
+                                       proposerChanWrite1, raftChanWrite1, 
+                                       upstreamWrite1, timeoutRead, 
+                                       networkWrite, networkWrite0, 
+                                       networkWrite1, inputRead, inputWrite, 
+                                       logChanWrite, nextChanWrite, 
+                                       commitChanWrite, appliedWrite, 
+                                       appliedWrite0, networkWrite2, 
+                                       networkWrite3, inputWrite0, 
+                                       logChanWrite0, nextChanWrite0, 
+                                       commitChanWrite0, appliedWrite1, 
+                                       networkWrite4, networkRead, 
                                        iAmTheLeaderWrite, iAmTheLeaderWrite0, 
                                        lastmsgWrite, lastmsgWrite0, 
                                        lastmsgWrite1, ifResult, appliedWrite2, 
-                                       appliedWrite3, ifResult0, networkWrite6, 
+                                       appliedWrite3, ifResult0, 
+                                       nextChanWrite1, networkWrite5, 
                                        termWrite, iAmTheLeaderWrite1, 
-                                       termWrite0, iAmTheLeaderWrite2, 
-                                       termWrite1, iAmTheLeaderWrite3, 
-                                       termWrite2, networkWrite7, 
+                                       termWrite0, logChanWrite1, 
+                                       commitChanWrite1, nextChanWrite2, 
+                                       iAmTheLeaderWrite2, termWrite1, 
+                                       logChanWrite2, commitChanWrite2, 
+                                       nextChanWrite3, iAmTheLeaderWrite3, 
+                                       termWrite2, logChanWrite3, 
+                                       commitChanWrite3, nextChanWrite4, 
+                                       nextChanWrite5, networkWrite6, 
                                        iAmTheLeaderWrite4, termWrite3, 
-                                       networkWrite8, iAmTheLeaderWrite5, 
-                                       termWrite4, lastmsgWrite2, 
-                                       networkWrite9, appliedWrite4, 
+                                       logChanWrite4, commitChanWrite4, 
+                                       networkWrite7, nextChanWrite6, 
+                                       iAmTheLeaderWrite5, termWrite4, 
+                                       logChanWrite5, commitChanWrite5, 
+                                       lastmsgWrite2, networkWrite8, 
+                                       appliedWrite4, nextChanWrite7, 
                                        iAmTheLeaderWrite6, termWrite5, 
+                                       logChanWrite6, commitChanWrite6, 
                                        iAmTheLeaderWrite7, lastmsgWrite3, 
-                                       networkWrite10, appliedWrite5, 
-                                       termWrite6, networkWrite11, inputWrite1, 
-                                       appliedWrite6, iAmTheLeaderWrite8, 
-                                       lastmsgWrite4, termWrite7, msg_, null, 
+                                       networkWrite9, appliedWrite5, 
+                                       nextChanWrite8, termWrite6, 
+                                       logChanWrite7, commitChanWrite7, 
+                                       networkWrite10, inputWrite1, 
+                                       logChanWrite8, nextChanWrite9, 
+                                       commitChanWrite8, appliedWrite6, 
+                                       iAmTheLeaderWrite8, lastmsgWrite4, 
+                                       termWrite7, iAmTheLeaderRead0, 
+                                       timerWrite, nextIndexInRead, termRead, 
+                                       logInRead, logInRead0, logInRead1, 
+                                       commitInRead, networkWrite11, 
+                                       networkWrite12, networkWrite13, 
+                                       timerWrite0, networkWrite14, 
+                                       timerWrite1, networkWrite15, msg_, null, 
                                        heartbeatId, proposerId, counter, 
                                        requestId, proposal, result_, learnerId, 
                                        timeoutLocal, currentTerm, votedFor, 
                                        log, state, commitIndex, lastApplied, 
                                        nextIndex, matchIndex, iterator, votes, 
-                                       value, msg, response, msgs >>
+                                       value, msg, response, msgs, index, next >>
 
 kvManager(self) == findId(self) \/ kvManagerLoop(self)
 
@@ -1475,22 +1762,30 @@ NodeLoop(self) == /\ pc[self] = "NodeLoop"
                         THEN /\ pc' = [pc EXCEPT ![self] = "TimeoutCheck"]
                              /\ UNCHANGED << values, learnedChan, 
                                              iAmTheLeaderAbstract, terms, 
-                                             lastSeen, mailboxes, 
-                                             networkWrite11, inputWrite1, 
+                                             lastSeen, nexts, logs, commits, 
+                                             mailboxes, networkWrite10, 
+                                             inputWrite1, logChanWrite8, 
+                                             nextChanWrite9, commitChanWrite8, 
                                              appliedWrite6, iAmTheLeaderWrite8, 
                                              lastmsgWrite4, termWrite7 >>
-                        ELSE /\ networkWrite11' = mailboxes
+                        ELSE /\ networkWrite10' = mailboxes
                              /\ inputWrite1' = values
+                             /\ logChanWrite8' = logs
+                             /\ nextChanWrite9' = nexts
+                             /\ commitChanWrite8' = commits
                              /\ appliedWrite6' = learnedChan
                              /\ iAmTheLeaderWrite8' = iAmTheLeaderAbstract
                              /\ lastmsgWrite4' = lastSeen
                              /\ termWrite7' = terms
-                             /\ mailboxes' = networkWrite11'
+                             /\ mailboxes' = networkWrite10'
                              /\ learnedChan' = appliedWrite6'
                              /\ values' = inputWrite1'
                              /\ iAmTheLeaderAbstract' = iAmTheLeaderWrite8'
                              /\ terms' = termWrite7'
                              /\ lastSeen' = lastmsgWrite4'
+                             /\ nexts' = nextChanWrite9'
+                             /\ logs' = logChanWrite8'
+                             /\ commits' = commitChanWrite8'
                              /\ pc' = [pc EXCEPT ![self] = "Done"]
                   /\ UNCHANGED << requestSet, raftLayerChan, kvClient, 
                                   idAbstract, database, frequency, 
@@ -1507,31 +1802,46 @@ NodeLoop(self) == /\ pc[self] = "NodeLoop"
                                   requestServiceWrite0, learnerChanWrite0, 
                                   dbWrite1, requestServiceWrite1, timeoutRead, 
                                   networkWrite, networkWrite0, networkWrite1, 
-                                  networkWrite2, inputRead, inputWrite, 
-                                  appliedWrite, appliedWrite0, networkWrite3, 
-                                  networkWrite4, inputWrite0, appliedWrite1, 
-                                  networkWrite5, networkRead, 
+                                  inputRead, inputWrite, logChanWrite, 
+                                  nextChanWrite, commitChanWrite, appliedWrite, 
+                                  appliedWrite0, networkWrite2, networkWrite3, 
+                                  inputWrite0, logChanWrite0, nextChanWrite0, 
+                                  commitChanWrite0, appliedWrite1, 
+                                  networkWrite4, networkRead, 
                                   iAmTheLeaderWrite, iAmTheLeaderWrite0, 
                                   lastmsgWrite, lastmsgWrite0, lastmsgWrite1, 
                                   ifResult, appliedWrite2, appliedWrite3, 
-                                  ifResult0, networkWrite6, termWrite, 
-                                  iAmTheLeaderWrite1, termWrite0, 
-                                  iAmTheLeaderWrite2, termWrite1, 
-                                  iAmTheLeaderWrite3, termWrite2, 
-                                  networkWrite7, iAmTheLeaderWrite4, 
-                                  termWrite3, networkWrite8, 
+                                  ifResult0, nextChanWrite1, networkWrite5, 
+                                  termWrite, iAmTheLeaderWrite1, termWrite0, 
+                                  logChanWrite1, commitChanWrite1, 
+                                  nextChanWrite2, iAmTheLeaderWrite2, 
+                                  termWrite1, logChanWrite2, commitChanWrite2, 
+                                  nextChanWrite3, iAmTheLeaderWrite3, 
+                                  termWrite2, logChanWrite3, commitChanWrite3, 
+                                  nextChanWrite4, nextChanWrite5, 
+                                  networkWrite6, iAmTheLeaderWrite4, 
+                                  termWrite3, logChanWrite4, commitChanWrite4, 
+                                  networkWrite7, nextChanWrite6, 
                                   iAmTheLeaderWrite5, termWrite4, 
-                                  lastmsgWrite2, networkWrite9, appliedWrite4, 
-                                  iAmTheLeaderWrite6, termWrite5, 
+                                  logChanWrite5, commitChanWrite5, 
+                                  lastmsgWrite2, networkWrite8, appliedWrite4, 
+                                  nextChanWrite7, iAmTheLeaderWrite6, 
+                                  termWrite5, logChanWrite6, commitChanWrite6, 
                                   iAmTheLeaderWrite7, lastmsgWrite3, 
-                                  networkWrite10, appliedWrite5, termWrite6, 
-                                  msg_, null, heartbeatId, proposerId, counter, 
-                                  requestId, proposal, result_, result, 
-                                  learnerId, decided, timeoutLocal, 
-                                  currentTerm, votedFor, log, state, 
-                                  commitIndex, lastApplied, nextIndex, 
-                                  matchIndex, iterator, votes, value, msg, 
-                                  response, msgs >>
+                                  networkWrite9, appliedWrite5, nextChanWrite8, 
+                                  termWrite6, logChanWrite7, commitChanWrite7, 
+                                  iAmTheLeaderRead0, timerWrite, 
+                                  nextIndexInRead, termRead, logInRead, 
+                                  logInRead0, logInRead1, commitInRead, 
+                                  networkWrite11, networkWrite12, 
+                                  networkWrite13, timerWrite0, networkWrite14, 
+                                  timerWrite1, networkWrite15, msg_, null, 
+                                  heartbeatId, proposerId, counter, requestId, 
+                                  proposal, result_, result, learnerId, 
+                                  decided, timeoutLocal, currentTerm, votedFor, 
+                                  log, state, commitIndex, lastApplied, 
+                                  nextIndex, matchIndex, iterator, votes, 
+                                  value, msg, response, msgs, index, next >>
 
 TimeoutCheck(self) == /\ pc[self] = "TimeoutCheck"
                       /\ \/ /\ timeoutRead' = FALSE
@@ -1543,133 +1853,183 @@ TimeoutCheck(self) == /\ pc[self] = "TimeoutCheck"
                                  /\ votedFor' = [votedFor EXCEPT ![self] = self]
                                  /\ iterator' = [iterator EXCEPT ![self] = 0]
                                  /\ pc' = [pc EXCEPT ![self] = "SendReqVotes"]
-                                 /\ UNCHANGED << mailboxes, networkWrite2 >>
-                            ELSE /\ networkWrite2' = mailboxes
-                                 /\ mailboxes' = networkWrite2'
+                                 /\ UNCHANGED << mailboxes, networkWrite1 >>
+                            ELSE /\ networkWrite1' = mailboxes
+                                 /\ mailboxes' = networkWrite1'
                                  /\ pc' = [pc EXCEPT ![self] = "LeaderCheck"]
                                  /\ UNCHANGED << currentTerm, votedFor, state, 
                                                  iterator, votes >>
                       /\ UNCHANGED << values, requestSet, learnedChan, 
                                       raftLayerChan, kvClient, idAbstract, 
                                       database, iAmTheLeaderAbstract, 
-                                      frequency, terms, lastSeen, requestsRead, 
-                                      requestsWrite, iAmTheLeaderRead, 
-                                      proposerChanWrite, raftChanRead, 
-                                      raftChanWrite, upstreamWrite, 
-                                      proposerChanWrite0, raftChanWrite0, 
-                                      upstreamWrite0, requestsWrite0, 
-                                      proposerChanWrite1, raftChanWrite1, 
-                                      upstreamWrite1, learnerChanRead, 
-                                      learnerChanWrite, kvIdRead, dbWrite, 
-                                      dbWrite0, kvIdRead0, kvIdRead1, dbRead, 
-                                      kvIdRead2, requestServiceWrite, 
+                                      frequency, terms, lastSeen, nexts, logs, 
+                                      commits, requestsRead, requestsWrite, 
+                                      iAmTheLeaderRead, proposerChanWrite, 
+                                      raftChanRead, raftChanWrite, 
+                                      upstreamWrite, proposerChanWrite0, 
+                                      raftChanWrite0, upstreamWrite0, 
+                                      requestsWrite0, proposerChanWrite1, 
+                                      raftChanWrite1, upstreamWrite1, 
+                                      learnerChanRead, learnerChanWrite, 
+                                      kvIdRead, dbWrite, dbWrite0, kvIdRead0, 
+                                      kvIdRead1, dbRead, kvIdRead2, 
+                                      requestServiceWrite, 
                                       requestServiceWrite0, learnerChanWrite0, 
                                       dbWrite1, requestServiceWrite1, 
-                                      networkWrite, networkWrite0, 
-                                      networkWrite1, inputRead, inputWrite, 
-                                      appliedWrite, appliedWrite0, 
-                                      networkWrite3, networkWrite4, 
-                                      inputWrite0, appliedWrite1, 
-                                      networkWrite5, networkRead, 
+                                      networkWrite, networkWrite0, inputRead, 
+                                      inputWrite, logChanWrite, nextChanWrite, 
+                                      commitChanWrite, appliedWrite, 
+                                      appliedWrite0, networkWrite2, 
+                                      networkWrite3, inputWrite0, 
+                                      logChanWrite0, nextChanWrite0, 
+                                      commitChanWrite0, appliedWrite1, 
+                                      networkWrite4, networkRead, 
                                       iAmTheLeaderWrite, iAmTheLeaderWrite0, 
                                       lastmsgWrite, lastmsgWrite0, 
                                       lastmsgWrite1, ifResult, appliedWrite2, 
-                                      appliedWrite3, ifResult0, networkWrite6, 
-                                      termWrite, iAmTheLeaderWrite1, 
-                                      termWrite0, iAmTheLeaderWrite2, 
-                                      termWrite1, iAmTheLeaderWrite3, 
-                                      termWrite2, networkWrite7, 
-                                      iAmTheLeaderWrite4, termWrite3, 
-                                      networkWrite8, iAmTheLeaderWrite5, 
-                                      termWrite4, lastmsgWrite2, networkWrite9, 
-                                      appliedWrite4, iAmTheLeaderWrite6, 
-                                      termWrite5, iAmTheLeaderWrite7, 
-                                      lastmsgWrite3, networkWrite10, 
-                                      appliedWrite5, termWrite6, 
-                                      networkWrite11, inputWrite1, 
+                                      appliedWrite3, ifResult0, nextChanWrite1, 
+                                      networkWrite5, termWrite, 
+                                      iAmTheLeaderWrite1, termWrite0, 
+                                      logChanWrite1, commitChanWrite1, 
+                                      nextChanWrite2, iAmTheLeaderWrite2, 
+                                      termWrite1, logChanWrite2, 
+                                      commitChanWrite2, nextChanWrite3, 
+                                      iAmTheLeaderWrite3, termWrite2, 
+                                      logChanWrite3, commitChanWrite3, 
+                                      nextChanWrite4, nextChanWrite5, 
+                                      networkWrite6, iAmTheLeaderWrite4, 
+                                      termWrite3, logChanWrite4, 
+                                      commitChanWrite4, networkWrite7, 
+                                      nextChanWrite6, iAmTheLeaderWrite5, 
+                                      termWrite4, logChanWrite5, 
+                                      commitChanWrite5, lastmsgWrite2, 
+                                      networkWrite8, appliedWrite4, 
+                                      nextChanWrite7, iAmTheLeaderWrite6, 
+                                      termWrite5, logChanWrite6, 
+                                      commitChanWrite6, iAmTheLeaderWrite7, 
+                                      lastmsgWrite3, networkWrite9, 
+                                      appliedWrite5, nextChanWrite8, 
+                                      termWrite6, logChanWrite7, 
+                                      commitChanWrite7, networkWrite10, 
+                                      inputWrite1, logChanWrite8, 
+                                      nextChanWrite9, commitChanWrite8, 
                                       appliedWrite6, iAmTheLeaderWrite8, 
-                                      lastmsgWrite4, termWrite7, msg_, null, 
-                                      heartbeatId, proposerId, counter, 
-                                      requestId, proposal, result_, result, 
-                                      learnerId, decided, timeoutLocal, log, 
-                                      commitIndex, lastApplied, nextIndex, 
-                                      matchIndex, value, msg, response, msgs >>
+                                      lastmsgWrite4, termWrite7, 
+                                      iAmTheLeaderRead0, timerWrite, 
+                                      nextIndexInRead, termRead, logInRead, 
+                                      logInRead0, logInRead1, commitInRead, 
+                                      networkWrite11, networkWrite12, 
+                                      networkWrite13, timerWrite0, 
+                                      networkWrite14, timerWrite1, 
+                                      networkWrite15, msg_, null, heartbeatId, 
+                                      proposerId, counter, requestId, proposal, 
+                                      result_, result, learnerId, decided, 
+                                      timeoutLocal, log, commitIndex, 
+                                      lastApplied, nextIndex, matchIndex, 
+                                      value, msg, response, msgs, index, next >>
 
 SendReqVotes(self) == /\ pc[self] = "SendReqVotes"
                       /\ IF (iterator[self]) < (NUM_NODES)
-                            THEN /\ IF (iterator[self]) # (self)
-                                       THEN /\ networkWrite' = [mailboxes EXCEPT ![iterator[self]] = Append(mailboxes[iterator[self]], [sender |-> self, type |-> RequestVote, term |-> currentTerm[self], granted |-> FALSE, entries |-> <<>>, prevIndex |-> Len(log[self]), prevTerm |-> Term(log[self], Len(log[self])), commit |-> NULL])]
-                                            /\ networkWrite0' = networkWrite'
-                                       ELSE /\ networkWrite0' = mailboxes
-                                            /\ UNCHANGED networkWrite
+                            THEN /\ networkWrite' = [mailboxes EXCEPT ![iterator[self]] = Append(mailboxes[iterator[self]], [sender |-> self, type |-> RequestVote, term |-> currentTerm[self], granted |-> FALSE, entries |-> <<>>, prevIndex |-> Len(log[self]), prevTerm |-> Term(log[self], Len(log[self])), commit |-> NULL])]
                                  /\ iterator' = [iterator EXCEPT ![self] = (iterator[self]) + (1)]
-                                 /\ networkWrite1' = networkWrite0'
-                                 /\ mailboxes' = networkWrite1'
+                                 /\ networkWrite0' = networkWrite'
+                                 /\ mailboxes' = networkWrite0'
                                  /\ pc' = [pc EXCEPT ![self] = "SendReqVotes"]
-                            ELSE /\ networkWrite1' = mailboxes
-                                 /\ mailboxes' = networkWrite1'
+                            ELSE /\ networkWrite0' = mailboxes
+                                 /\ mailboxes' = networkWrite0'
                                  /\ pc' = [pc EXCEPT ![self] = "LeaderCheck"]
-                                 /\ UNCHANGED << networkWrite, networkWrite0, 
-                                                 iterator >>
+                                 /\ UNCHANGED << networkWrite, iterator >>
                       /\ UNCHANGED << values, requestSet, learnedChan, 
                                       raftLayerChan, kvClient, idAbstract, 
                                       database, iAmTheLeaderAbstract, 
-                                      frequency, terms, lastSeen, requestsRead, 
-                                      requestsWrite, iAmTheLeaderRead, 
-                                      proposerChanWrite, raftChanRead, 
-                                      raftChanWrite, upstreamWrite, 
-                                      proposerChanWrite0, raftChanWrite0, 
-                                      upstreamWrite0, requestsWrite0, 
-                                      proposerChanWrite1, raftChanWrite1, 
-                                      upstreamWrite1, learnerChanRead, 
-                                      learnerChanWrite, kvIdRead, dbWrite, 
-                                      dbWrite0, kvIdRead0, kvIdRead1, dbRead, 
-                                      kvIdRead2, requestServiceWrite, 
+                                      frequency, terms, lastSeen, nexts, logs, 
+                                      commits, requestsRead, requestsWrite, 
+                                      iAmTheLeaderRead, proposerChanWrite, 
+                                      raftChanRead, raftChanWrite, 
+                                      upstreamWrite, proposerChanWrite0, 
+                                      raftChanWrite0, upstreamWrite0, 
+                                      requestsWrite0, proposerChanWrite1, 
+                                      raftChanWrite1, upstreamWrite1, 
+                                      learnerChanRead, learnerChanWrite, 
+                                      kvIdRead, dbWrite, dbWrite0, kvIdRead0, 
+                                      kvIdRead1, dbRead, kvIdRead2, 
+                                      requestServiceWrite, 
                                       requestServiceWrite0, learnerChanWrite0, 
                                       dbWrite1, requestServiceWrite1, 
-                                      timeoutRead, networkWrite2, inputRead, 
-                                      inputWrite, appliedWrite, appliedWrite0, 
-                                      networkWrite3, networkWrite4, 
-                                      inputWrite0, appliedWrite1, 
-                                      networkWrite5, networkRead, 
+                                      timeoutRead, networkWrite1, inputRead, 
+                                      inputWrite, logChanWrite, nextChanWrite, 
+                                      commitChanWrite, appliedWrite, 
+                                      appliedWrite0, networkWrite2, 
+                                      networkWrite3, inputWrite0, 
+                                      logChanWrite0, nextChanWrite0, 
+                                      commitChanWrite0, appliedWrite1, 
+                                      networkWrite4, networkRead, 
                                       iAmTheLeaderWrite, iAmTheLeaderWrite0, 
                                       lastmsgWrite, lastmsgWrite0, 
                                       lastmsgWrite1, ifResult, appliedWrite2, 
-                                      appliedWrite3, ifResult0, networkWrite6, 
-                                      termWrite, iAmTheLeaderWrite1, 
-                                      termWrite0, iAmTheLeaderWrite2, 
-                                      termWrite1, iAmTheLeaderWrite3, 
-                                      termWrite2, networkWrite7, 
-                                      iAmTheLeaderWrite4, termWrite3, 
-                                      networkWrite8, iAmTheLeaderWrite5, 
-                                      termWrite4, lastmsgWrite2, networkWrite9, 
-                                      appliedWrite4, iAmTheLeaderWrite6, 
-                                      termWrite5, iAmTheLeaderWrite7, 
-                                      lastmsgWrite3, networkWrite10, 
-                                      appliedWrite5, termWrite6, 
-                                      networkWrite11, inputWrite1, 
+                                      appliedWrite3, ifResult0, nextChanWrite1, 
+                                      networkWrite5, termWrite, 
+                                      iAmTheLeaderWrite1, termWrite0, 
+                                      logChanWrite1, commitChanWrite1, 
+                                      nextChanWrite2, iAmTheLeaderWrite2, 
+                                      termWrite1, logChanWrite2, 
+                                      commitChanWrite2, nextChanWrite3, 
+                                      iAmTheLeaderWrite3, termWrite2, 
+                                      logChanWrite3, commitChanWrite3, 
+                                      nextChanWrite4, nextChanWrite5, 
+                                      networkWrite6, iAmTheLeaderWrite4, 
+                                      termWrite3, logChanWrite4, 
+                                      commitChanWrite4, networkWrite7, 
+                                      nextChanWrite6, iAmTheLeaderWrite5, 
+                                      termWrite4, logChanWrite5, 
+                                      commitChanWrite5, lastmsgWrite2, 
+                                      networkWrite8, appliedWrite4, 
+                                      nextChanWrite7, iAmTheLeaderWrite6, 
+                                      termWrite5, logChanWrite6, 
+                                      commitChanWrite6, iAmTheLeaderWrite7, 
+                                      lastmsgWrite3, networkWrite9, 
+                                      appliedWrite5, nextChanWrite8, 
+                                      termWrite6, logChanWrite7, 
+                                      commitChanWrite7, networkWrite10, 
+                                      inputWrite1, logChanWrite8, 
+                                      nextChanWrite9, commitChanWrite8, 
                                       appliedWrite6, iAmTheLeaderWrite8, 
-                                      lastmsgWrite4, termWrite7, msg_, null, 
-                                      heartbeatId, proposerId, counter, 
-                                      requestId, proposal, result_, result, 
-                                      learnerId, decided, timeoutLocal, 
-                                      currentTerm, votedFor, log, state, 
-                                      commitIndex, lastApplied, nextIndex, 
-                                      matchIndex, votes, value, msg, response, 
-                                      msgs >>
+                                      lastmsgWrite4, termWrite7, 
+                                      iAmTheLeaderRead0, timerWrite, 
+                                      nextIndexInRead, termRead, logInRead, 
+                                      logInRead0, logInRead1, commitInRead, 
+                                      networkWrite11, networkWrite12, 
+                                      networkWrite13, timerWrite0, 
+                                      networkWrite14, timerWrite1, 
+                                      networkWrite15, msg_, null, heartbeatId, 
+                                      proposerId, counter, requestId, proposal, 
+                                      result_, result, learnerId, decided, 
+                                      timeoutLocal, currentTerm, votedFor, log, 
+                                      state, commitIndex, lastApplied, 
+                                      nextIndex, matchIndex, votes, value, msg, 
+                                      response, msgs, index, next >>
 
 LeaderCheck(self) == /\ pc[self] = "LeaderCheck"
                      /\ IF (state[self]) = (Leader)
                            THEN /\ pc' = [pc EXCEPT ![self] = "GetVal"]
-                                /\ UNCHANGED << values, learnedChan, mailboxes, 
-                                                inputWrite0, appliedWrite1, 
-                                                networkWrite5 >>
+                                /\ UNCHANGED << values, learnedChan, nexts, 
+                                                logs, commits, mailboxes, 
+                                                inputWrite0, logChanWrite0, 
+                                                nextChanWrite0, 
+                                                commitChanWrite0, 
+                                                appliedWrite1, networkWrite4 >>
                            ELSE /\ inputWrite0' = values
+                                /\ logChanWrite0' = logs
+                                /\ nextChanWrite0' = nexts
+                                /\ commitChanWrite0' = commits
                                 /\ appliedWrite1' = learnedChan
-                                /\ networkWrite5' = mailboxes
-                                /\ mailboxes' = networkWrite5'
+                                /\ networkWrite4' = mailboxes
+                                /\ mailboxes' = networkWrite4'
                                 /\ learnedChan' = appliedWrite1'
                                 /\ values' = inputWrite0'
+                                /\ nexts' = nextChanWrite0'
+                                /\ logs' = logChanWrite0'
+                                /\ commits' = commitChanWrite0'
                                 /\ pc' = [pc EXCEPT ![self] = "RecvMsg"]
                      /\ UNCHANGED << requestSet, raftLayerChan, kvClient, 
                                      idAbstract, database, 
@@ -1688,33 +2048,54 @@ LeaderCheck(self) == /\ pc[self] = "LeaderCheck"
                                      learnerChanWrite0, dbWrite1, 
                                      requestServiceWrite1, timeoutRead, 
                                      networkWrite, networkWrite0, 
-                                     networkWrite1, networkWrite2, inputRead, 
-                                     inputWrite, appliedWrite, appliedWrite0, 
-                                     networkWrite3, networkWrite4, networkRead, 
+                                     networkWrite1, inputRead, inputWrite, 
+                                     logChanWrite, nextChanWrite, 
+                                     commitChanWrite, appliedWrite, 
+                                     appliedWrite0, networkWrite2, 
+                                     networkWrite3, networkRead, 
                                      iAmTheLeaderWrite, iAmTheLeaderWrite0, 
                                      lastmsgWrite, lastmsgWrite0, 
                                      lastmsgWrite1, ifResult, appliedWrite2, 
-                                     appliedWrite3, ifResult0, networkWrite6, 
-                                     termWrite, iAmTheLeaderWrite1, termWrite0, 
-                                     iAmTheLeaderWrite2, termWrite1, 
+                                     appliedWrite3, ifResult0, nextChanWrite1, 
+                                     networkWrite5, termWrite, 
+                                     iAmTheLeaderWrite1, termWrite0, 
+                                     logChanWrite1, commitChanWrite1, 
+                                     nextChanWrite2, iAmTheLeaderWrite2, 
+                                     termWrite1, logChanWrite2, 
+                                     commitChanWrite2, nextChanWrite3, 
                                      iAmTheLeaderWrite3, termWrite2, 
-                                     networkWrite7, iAmTheLeaderWrite4, 
-                                     termWrite3, networkWrite8, 
-                                     iAmTheLeaderWrite5, termWrite4, 
-                                     lastmsgWrite2, networkWrite9, 
-                                     appliedWrite4, iAmTheLeaderWrite6, 
-                                     termWrite5, iAmTheLeaderWrite7, 
-                                     lastmsgWrite3, networkWrite10, 
-                                     appliedWrite5, termWrite6, networkWrite11, 
-                                     inputWrite1, appliedWrite6, 
+                                     logChanWrite3, commitChanWrite3, 
+                                     nextChanWrite4, nextChanWrite5, 
+                                     networkWrite6, iAmTheLeaderWrite4, 
+                                     termWrite3, logChanWrite4, 
+                                     commitChanWrite4, networkWrite7, 
+                                     nextChanWrite6, iAmTheLeaderWrite5, 
+                                     termWrite4, logChanWrite5, 
+                                     commitChanWrite5, lastmsgWrite2, 
+                                     networkWrite8, appliedWrite4, 
+                                     nextChanWrite7, iAmTheLeaderWrite6, 
+                                     termWrite5, logChanWrite6, 
+                                     commitChanWrite6, iAmTheLeaderWrite7, 
+                                     lastmsgWrite3, networkWrite9, 
+                                     appliedWrite5, nextChanWrite8, termWrite6, 
+                                     logChanWrite7, commitChanWrite7, 
+                                     networkWrite10, inputWrite1, 
+                                     logChanWrite8, nextChanWrite9, 
+                                     commitChanWrite8, appliedWrite6, 
                                      iAmTheLeaderWrite8, lastmsgWrite4, 
-                                     termWrite7, msg_, null, heartbeatId, 
+                                     termWrite7, iAmTheLeaderRead0, timerWrite, 
+                                     nextIndexInRead, termRead, logInRead, 
+                                     logInRead0, logInRead1, commitInRead, 
+                                     networkWrite11, networkWrite12, 
+                                     networkWrite13, timerWrite0, 
+                                     networkWrite14, timerWrite1, 
+                                     networkWrite15, msg_, null, heartbeatId, 
                                      proposerId, counter, requestId, proposal, 
                                      result_, result, learnerId, decided, 
                                      timeoutLocal, currentTerm, votedFor, log, 
                                      state, commitIndex, lastApplied, 
                                      nextIndex, matchIndex, iterator, votes, 
-                                     value, msg, response, msgs >>
+                                     value, msg, response, msgs, index, next >>
 
 GetVal(self) == /\ pc[self] = "GetVal"
                 /\ (Len(values[self])) > (0)
@@ -1725,12 +2106,16 @@ GetVal(self) == /\ pc[self] = "GetVal"
                 /\ log' = [log EXCEPT ![self] = Append(log[self], [val |-> value'[self], term |-> currentTerm[self]])]
                 /\ matchIndex' = [matchIndex EXCEPT ![self][self] = Len(log'[self])]
                 /\ nextIndex' = [nextIndex EXCEPT ![self][self] = (Len(log'[self])) + (1)]
+                /\ logChanWrite' = [logs EXCEPT ![self] = log'[self]]
+                /\ nextChanWrite' = [nexts EXCEPT ![self] = nextIndex'[self]]
                 /\ values' = inputWrite'
+                /\ nexts' = nextChanWrite'
+                /\ logs' = logChanWrite'
                 /\ pc' = [pc EXCEPT ![self] = "AdvanceIndex"]
                 /\ UNCHANGED << requestSet, learnedChan, raftLayerChan, 
                                 kvClient, idAbstract, database, 
                                 iAmTheLeaderAbstract, frequency, terms, 
-                                lastSeen, mailboxes, requestsRead, 
+                                lastSeen, commits, mailboxes, requestsRead, 
                                 requestsWrite, iAmTheLeaderRead, 
                                 proposerChanWrite, raftChanRead, raftChanWrite, 
                                 upstreamWrite, proposerChanWrite0, 
@@ -1743,41 +2128,132 @@ GetVal(self) == /\ pc[self] = "GetVal"
                                 learnerChanWrite0, dbWrite1, 
                                 requestServiceWrite1, timeoutRead, 
                                 networkWrite, networkWrite0, networkWrite1, 
-                                networkWrite2, appliedWrite, appliedWrite0, 
-                                networkWrite3, networkWrite4, inputWrite0, 
-                                appliedWrite1, networkWrite5, networkRead, 
-                                iAmTheLeaderWrite, iAmTheLeaderWrite0, 
-                                lastmsgWrite, lastmsgWrite0, lastmsgWrite1, 
-                                ifResult, appliedWrite2, appliedWrite3, 
-                                ifResult0, networkWrite6, termWrite, 
-                                iAmTheLeaderWrite1, termWrite0, 
-                                iAmTheLeaderWrite2, termWrite1, 
-                                iAmTheLeaderWrite3, termWrite2, networkWrite7, 
-                                iAmTheLeaderWrite4, termWrite3, networkWrite8, 
-                                iAmTheLeaderWrite5, termWrite4, lastmsgWrite2, 
-                                networkWrite9, appliedWrite4, 
-                                iAmTheLeaderWrite6, termWrite5, 
-                                iAmTheLeaderWrite7, lastmsgWrite3, 
-                                networkWrite10, appliedWrite5, termWrite6, 
-                                networkWrite11, inputWrite1, appliedWrite6, 
+                                commitChanWrite, appliedWrite, appliedWrite0, 
+                                networkWrite2, networkWrite3, inputWrite0, 
+                                logChanWrite0, nextChanWrite0, 
+                                commitChanWrite0, appliedWrite1, networkWrite4, 
+                                networkRead, iAmTheLeaderWrite, 
+                                iAmTheLeaderWrite0, lastmsgWrite, 
+                                lastmsgWrite0, lastmsgWrite1, ifResult, 
+                                appliedWrite2, appliedWrite3, ifResult0, 
+                                nextChanWrite1, networkWrite5, termWrite, 
+                                iAmTheLeaderWrite1, termWrite0, logChanWrite1, 
+                                commitChanWrite1, nextChanWrite2, 
+                                iAmTheLeaderWrite2, termWrite1, logChanWrite2, 
+                                commitChanWrite2, nextChanWrite3, 
+                                iAmTheLeaderWrite3, termWrite2, logChanWrite3, 
+                                commitChanWrite3, nextChanWrite4, 
+                                nextChanWrite5, networkWrite6, 
+                                iAmTheLeaderWrite4, termWrite3, logChanWrite4, 
+                                commitChanWrite4, networkWrite7, 
+                                nextChanWrite6, iAmTheLeaderWrite5, termWrite4, 
+                                logChanWrite5, commitChanWrite5, lastmsgWrite2, 
+                                networkWrite8, appliedWrite4, nextChanWrite7, 
+                                iAmTheLeaderWrite6, termWrite5, logChanWrite6, 
+                                commitChanWrite6, iAmTheLeaderWrite7, 
+                                lastmsgWrite3, networkWrite9, appliedWrite5, 
+                                nextChanWrite8, termWrite6, logChanWrite7, 
+                                commitChanWrite7, networkWrite10, inputWrite1, 
+                                logChanWrite8, nextChanWrite9, 
+                                commitChanWrite8, appliedWrite6, 
                                 iAmTheLeaderWrite8, lastmsgWrite4, termWrite7, 
-                                msg_, null, heartbeatId, proposerId, counter, 
-                                requestId, proposal, result_, result, 
-                                learnerId, decided, timeoutLocal, currentTerm, 
-                                votedFor, state, commitIndex, lastApplied, 
-                                iterator, votes, msg, response, msgs >>
+                                iAmTheLeaderRead0, timerWrite, nextIndexInRead, 
+                                termRead, logInRead, logInRead0, logInRead1, 
+                                commitInRead, networkWrite11, networkWrite12, 
+                                networkWrite13, timerWrite0, networkWrite14, 
+                                timerWrite1, networkWrite15, msg_, null, 
+                                heartbeatId, proposerId, counter, requestId, 
+                                proposal, result_, result, learnerId, decided, 
+                                timeoutLocal, currentTerm, votedFor, state, 
+                                commitIndex, lastApplied, iterator, votes, msg, 
+                                response, msgs, index, next >>
 
 AdvanceIndex(self) == /\ pc[self] = "AdvanceIndex"
                       /\ IF (((Cardinality({i \in Servers : (matchIndex[self][i]) > (commitIndex[self])})) * (2)) > (Cardinality(Servers))) /\ ((Term(log[self], (commitIndex[self]) + (1))) = (currentTerm[self]))
                             THEN /\ commitIndex' = [commitIndex EXCEPT ![self] = (commitIndex[self]) + (1)]
                                  /\ pc' = [pc EXCEPT ![self] = "AdvanceIndex"]
-                            ELSE /\ pc' = [pc EXCEPT ![self] = "ApplyCommited"]
+                            ELSE /\ pc' = [pc EXCEPT ![self] = "UpdateCommit"]
                                  /\ UNCHANGED commitIndex
                       /\ UNCHANGED << values, requestSet, learnedChan, 
                                       raftLayerChan, kvClient, idAbstract, 
                                       database, iAmTheLeaderAbstract, 
-                                      frequency, terms, lastSeen, mailboxes, 
-                                      requestsRead, requestsWrite, 
+                                      frequency, terms, lastSeen, nexts, logs, 
+                                      commits, mailboxes, requestsRead, 
+                                      requestsWrite, iAmTheLeaderRead, 
+                                      proposerChanWrite, raftChanRead, 
+                                      raftChanWrite, upstreamWrite, 
+                                      proposerChanWrite0, raftChanWrite0, 
+                                      upstreamWrite0, requestsWrite0, 
+                                      proposerChanWrite1, raftChanWrite1, 
+                                      upstreamWrite1, learnerChanRead, 
+                                      learnerChanWrite, kvIdRead, dbWrite, 
+                                      dbWrite0, kvIdRead0, kvIdRead1, dbRead, 
+                                      kvIdRead2, requestServiceWrite, 
+                                      requestServiceWrite0, learnerChanWrite0, 
+                                      dbWrite1, requestServiceWrite1, 
+                                      timeoutRead, networkWrite, networkWrite0, 
+                                      networkWrite1, inputRead, inputWrite, 
+                                      logChanWrite, nextChanWrite, 
+                                      commitChanWrite, appliedWrite, 
+                                      appliedWrite0, networkWrite2, 
+                                      networkWrite3, inputWrite0, 
+                                      logChanWrite0, nextChanWrite0, 
+                                      commitChanWrite0, appliedWrite1, 
+                                      networkWrite4, networkRead, 
+                                      iAmTheLeaderWrite, iAmTheLeaderWrite0, 
+                                      lastmsgWrite, lastmsgWrite0, 
+                                      lastmsgWrite1, ifResult, appliedWrite2, 
+                                      appliedWrite3, ifResult0, nextChanWrite1, 
+                                      networkWrite5, termWrite, 
+                                      iAmTheLeaderWrite1, termWrite0, 
+                                      logChanWrite1, commitChanWrite1, 
+                                      nextChanWrite2, iAmTheLeaderWrite2, 
+                                      termWrite1, logChanWrite2, 
+                                      commitChanWrite2, nextChanWrite3, 
+                                      iAmTheLeaderWrite3, termWrite2, 
+                                      logChanWrite3, commitChanWrite3, 
+                                      nextChanWrite4, nextChanWrite5, 
+                                      networkWrite6, iAmTheLeaderWrite4, 
+                                      termWrite3, logChanWrite4, 
+                                      commitChanWrite4, networkWrite7, 
+                                      nextChanWrite6, iAmTheLeaderWrite5, 
+                                      termWrite4, logChanWrite5, 
+                                      commitChanWrite5, lastmsgWrite2, 
+                                      networkWrite8, appliedWrite4, 
+                                      nextChanWrite7, iAmTheLeaderWrite6, 
+                                      termWrite5, logChanWrite6, 
+                                      commitChanWrite6, iAmTheLeaderWrite7, 
+                                      lastmsgWrite3, networkWrite9, 
+                                      appliedWrite5, nextChanWrite8, 
+                                      termWrite6, logChanWrite7, 
+                                      commitChanWrite7, networkWrite10, 
+                                      inputWrite1, logChanWrite8, 
+                                      nextChanWrite9, commitChanWrite8, 
+                                      appliedWrite6, iAmTheLeaderWrite8, 
+                                      lastmsgWrite4, termWrite7, 
+                                      iAmTheLeaderRead0, timerWrite, 
+                                      nextIndexInRead, termRead, logInRead, 
+                                      logInRead0, logInRead1, commitInRead, 
+                                      networkWrite11, networkWrite12, 
+                                      networkWrite13, timerWrite0, 
+                                      networkWrite14, timerWrite1, 
+                                      networkWrite15, msg_, null, heartbeatId, 
+                                      proposerId, counter, requestId, proposal, 
+                                      result_, result, learnerId, decided, 
+                                      timeoutLocal, currentTerm, votedFor, log, 
+                                      state, lastApplied, nextIndex, 
+                                      matchIndex, iterator, votes, value, msg, 
+                                      response, msgs, index, next >>
+
+UpdateCommit(self) == /\ pc[self] = "UpdateCommit"
+                      /\ commitChanWrite' = [commits EXCEPT ![self] = commitIndex[self]]
+                      /\ commits' = commitChanWrite'
+                      /\ pc' = [pc EXCEPT ![self] = "ApplyCommited"]
+                      /\ UNCHANGED << values, requestSet, learnedChan, 
+                                      raftLayerChan, kvClient, idAbstract, 
+                                      database, iAmTheLeaderAbstract, 
+                                      frequency, terms, lastSeen, nexts, logs, 
+                                      mailboxes, requestsRead, requestsWrite, 
                                       iAmTheLeaderRead, proposerChanWrite, 
                                       raftChanRead, raftChanWrite, 
                                       upstreamWrite, proposerChanWrite0, 
@@ -1791,36 +2267,57 @@ AdvanceIndex(self) == /\ pc[self] = "AdvanceIndex"
                                       requestServiceWrite0, learnerChanWrite0, 
                                       dbWrite1, requestServiceWrite1, 
                                       timeoutRead, networkWrite, networkWrite0, 
-                                      networkWrite1, networkWrite2, inputRead, 
-                                      inputWrite, appliedWrite, appliedWrite0, 
-                                      networkWrite3, networkWrite4, 
-                                      inputWrite0, appliedWrite1, 
-                                      networkWrite5, networkRead, 
-                                      iAmTheLeaderWrite, iAmTheLeaderWrite0, 
-                                      lastmsgWrite, lastmsgWrite0, 
-                                      lastmsgWrite1, ifResult, appliedWrite2, 
-                                      appliedWrite3, ifResult0, networkWrite6, 
-                                      termWrite, iAmTheLeaderWrite1, 
-                                      termWrite0, iAmTheLeaderWrite2, 
-                                      termWrite1, iAmTheLeaderWrite3, 
-                                      termWrite2, networkWrite7, 
-                                      iAmTheLeaderWrite4, termWrite3, 
-                                      networkWrite8, iAmTheLeaderWrite5, 
-                                      termWrite4, lastmsgWrite2, networkWrite9, 
-                                      appliedWrite4, iAmTheLeaderWrite6, 
-                                      termWrite5, iAmTheLeaderWrite7, 
-                                      lastmsgWrite3, networkWrite10, 
-                                      appliedWrite5, termWrite6, 
-                                      networkWrite11, inputWrite1, 
+                                      networkWrite1, inputRead, inputWrite, 
+                                      logChanWrite, nextChanWrite, 
+                                      appliedWrite, appliedWrite0, 
+                                      networkWrite2, networkWrite3, 
+                                      inputWrite0, logChanWrite0, 
+                                      nextChanWrite0, commitChanWrite0, 
+                                      appliedWrite1, networkWrite4, 
+                                      networkRead, iAmTheLeaderWrite, 
+                                      iAmTheLeaderWrite0, lastmsgWrite, 
+                                      lastmsgWrite0, lastmsgWrite1, ifResult, 
+                                      appliedWrite2, appliedWrite3, ifResult0, 
+                                      nextChanWrite1, networkWrite5, termWrite, 
+                                      iAmTheLeaderWrite1, termWrite0, 
+                                      logChanWrite1, commitChanWrite1, 
+                                      nextChanWrite2, iAmTheLeaderWrite2, 
+                                      termWrite1, logChanWrite2, 
+                                      commitChanWrite2, nextChanWrite3, 
+                                      iAmTheLeaderWrite3, termWrite2, 
+                                      logChanWrite3, commitChanWrite3, 
+                                      nextChanWrite4, nextChanWrite5, 
+                                      networkWrite6, iAmTheLeaderWrite4, 
+                                      termWrite3, logChanWrite4, 
+                                      commitChanWrite4, networkWrite7, 
+                                      nextChanWrite6, iAmTheLeaderWrite5, 
+                                      termWrite4, logChanWrite5, 
+                                      commitChanWrite5, lastmsgWrite2, 
+                                      networkWrite8, appliedWrite4, 
+                                      nextChanWrite7, iAmTheLeaderWrite6, 
+                                      termWrite5, logChanWrite6, 
+                                      commitChanWrite6, iAmTheLeaderWrite7, 
+                                      lastmsgWrite3, networkWrite9, 
+                                      appliedWrite5, nextChanWrite8, 
+                                      termWrite6, logChanWrite7, 
+                                      commitChanWrite7, networkWrite10, 
+                                      inputWrite1, logChanWrite8, 
+                                      nextChanWrite9, commitChanWrite8, 
                                       appliedWrite6, iAmTheLeaderWrite8, 
-                                      lastmsgWrite4, termWrite7, msg_, null, 
-                                      heartbeatId, proposerId, counter, 
-                                      requestId, proposal, result_, result, 
-                                      learnerId, decided, timeoutLocal, 
-                                      currentTerm, votedFor, log, state, 
-                                      lastApplied, nextIndex, matchIndex, 
-                                      iterator, votes, value, msg, response, 
-                                      msgs >>
+                                      lastmsgWrite4, termWrite7, 
+                                      iAmTheLeaderRead0, timerWrite, 
+                                      nextIndexInRead, termRead, logInRead, 
+                                      logInRead0, logInRead1, commitInRead, 
+                                      networkWrite11, networkWrite12, 
+                                      networkWrite13, timerWrite0, 
+                                      networkWrite14, timerWrite1, 
+                                      networkWrite15, msg_, null, heartbeatId, 
+                                      proposerId, counter, requestId, proposal, 
+                                      result_, result, learnerId, decided, 
+                                      timeoutLocal, currentTerm, votedFor, log, 
+                                      state, commitIndex, lastApplied, 
+                                      nextIndex, matchIndex, iterator, votes, 
+                                      value, msg, response, msgs, index, next >>
 
 ApplyCommited(self) == /\ pc[self] = "ApplyCommited"
                        /\ IF (lastApplied[self]) < (commitIndex[self])
@@ -1839,116 +2336,164 @@ ApplyCommited(self) == /\ pc[self] = "ApplyCommited"
                        /\ UNCHANGED << values, requestSet, raftLayerChan, 
                                        kvClient, idAbstract, database, 
                                        iAmTheLeaderAbstract, frequency, terms, 
-                                       lastSeen, mailboxes, requestsRead, 
-                                       requestsWrite, iAmTheLeaderRead, 
-                                       proposerChanWrite, raftChanRead, 
-                                       raftChanWrite, upstreamWrite, 
-                                       proposerChanWrite0, raftChanWrite0, 
-                                       upstreamWrite0, requestsWrite0, 
-                                       proposerChanWrite1, raftChanWrite1, 
-                                       upstreamWrite1, learnerChanRead, 
-                                       learnerChanWrite, kvIdRead, dbWrite, 
-                                       dbWrite0, kvIdRead0, kvIdRead1, dbRead, 
-                                       kvIdRead2, requestServiceWrite, 
+                                       lastSeen, nexts, logs, commits, 
+                                       mailboxes, requestsRead, requestsWrite, 
+                                       iAmTheLeaderRead, proposerChanWrite, 
+                                       raftChanRead, raftChanWrite, 
+                                       upstreamWrite, proposerChanWrite0, 
+                                       raftChanWrite0, upstreamWrite0, 
+                                       requestsWrite0, proposerChanWrite1, 
+                                       raftChanWrite1, upstreamWrite1, 
+                                       learnerChanRead, learnerChanWrite, 
+                                       kvIdRead, dbWrite, dbWrite0, kvIdRead0, 
+                                       kvIdRead1, dbRead, kvIdRead2, 
+                                       requestServiceWrite, 
                                        requestServiceWrite0, learnerChanWrite0, 
                                        dbWrite1, requestServiceWrite1, 
                                        timeoutRead, networkWrite, 
-                                       networkWrite0, networkWrite1, 
-                                       networkWrite2, inputRead, inputWrite, 
-                                       networkWrite3, networkWrite4, 
-                                       inputWrite0, appliedWrite1, 
-                                       networkWrite5, networkRead, 
+                                       networkWrite0, networkWrite1, inputRead, 
+                                       inputWrite, logChanWrite, nextChanWrite, 
+                                       commitChanWrite, networkWrite2, 
+                                       networkWrite3, inputWrite0, 
+                                       logChanWrite0, nextChanWrite0, 
+                                       commitChanWrite0, appliedWrite1, 
+                                       networkWrite4, networkRead, 
                                        iAmTheLeaderWrite, iAmTheLeaderWrite0, 
                                        lastmsgWrite, lastmsgWrite0, 
                                        lastmsgWrite1, ifResult, appliedWrite2, 
-                                       appliedWrite3, ifResult0, networkWrite6, 
+                                       appliedWrite3, ifResult0, 
+                                       nextChanWrite1, networkWrite5, 
                                        termWrite, iAmTheLeaderWrite1, 
-                                       termWrite0, iAmTheLeaderWrite2, 
-                                       termWrite1, iAmTheLeaderWrite3, 
-                                       termWrite2, networkWrite7, 
+                                       termWrite0, logChanWrite1, 
+                                       commitChanWrite1, nextChanWrite2, 
+                                       iAmTheLeaderWrite2, termWrite1, 
+                                       logChanWrite2, commitChanWrite2, 
+                                       nextChanWrite3, iAmTheLeaderWrite3, 
+                                       termWrite2, logChanWrite3, 
+                                       commitChanWrite3, nextChanWrite4, 
+                                       nextChanWrite5, networkWrite6, 
                                        iAmTheLeaderWrite4, termWrite3, 
-                                       networkWrite8, iAmTheLeaderWrite5, 
-                                       termWrite4, lastmsgWrite2, 
-                                       networkWrite9, appliedWrite4, 
+                                       logChanWrite4, commitChanWrite4, 
+                                       networkWrite7, nextChanWrite6, 
+                                       iAmTheLeaderWrite5, termWrite4, 
+                                       logChanWrite5, commitChanWrite5, 
+                                       lastmsgWrite2, networkWrite8, 
+                                       appliedWrite4, nextChanWrite7, 
                                        iAmTheLeaderWrite6, termWrite5, 
+                                       logChanWrite6, commitChanWrite6, 
                                        iAmTheLeaderWrite7, lastmsgWrite3, 
-                                       networkWrite10, appliedWrite5, 
-                                       termWrite6, networkWrite11, inputWrite1, 
-                                       appliedWrite6, iAmTheLeaderWrite8, 
-                                       lastmsgWrite4, termWrite7, msg_, null, 
+                                       networkWrite9, appliedWrite5, 
+                                       nextChanWrite8, termWrite6, 
+                                       logChanWrite7, commitChanWrite7, 
+                                       networkWrite10, inputWrite1, 
+                                       logChanWrite8, nextChanWrite9, 
+                                       commitChanWrite8, appliedWrite6, 
+                                       iAmTheLeaderWrite8, lastmsgWrite4, 
+                                       termWrite7, iAmTheLeaderRead0, 
+                                       timerWrite, nextIndexInRead, termRead, 
+                                       logInRead, logInRead0, logInRead1, 
+                                       commitInRead, networkWrite11, 
+                                       networkWrite12, networkWrite13, 
+                                       timerWrite0, networkWrite14, 
+                                       timerWrite1, networkWrite15, msg_, null, 
                                        heartbeatId, proposerId, counter, 
                                        requestId, proposal, result_, result, 
                                        learnerId, decided, timeoutLocal, 
                                        currentTerm, votedFor, log, state, 
                                        commitIndex, nextIndex, matchIndex, 
-                                       votes, value, msg, response, msgs >>
+                                       votes, value, msg, response, msgs, 
+                                       index, next >>
 
 SendAppendEntries(self) == /\ pc[self] = "SendAppendEntries"
                            /\ IF (iterator[self]) < (NUM_NODES)
                                  THEN /\ IF (iterator[self]) # (self)
                                             THEN /\ networkWrite' = [mailboxes EXCEPT ![iterator[self]] = Append(mailboxes[iterator[self]], [sender |-> self, type |-> AppendEntries, term |-> currentTerm[self], granted |-> FALSE, entries |-> SubSeq(log[self], nextIndex[self][iterator[self]], Len(log[self])), prevIndex |-> (nextIndex[self][iterator[self]]) - (1), prevTerm |-> Term(log[self], (nextIndex[self][iterator[self]]) - (1)), commit |-> commitIndex[self]])]
-                                                 /\ networkWrite3' = networkWrite'
-                                            ELSE /\ networkWrite3' = mailboxes
+                                                 /\ networkWrite2' = networkWrite'
+                                            ELSE /\ networkWrite2' = mailboxes
                                                  /\ UNCHANGED networkWrite
                                       /\ iterator' = [iterator EXCEPT ![self] = (iterator[self]) + (1)]
-                                      /\ networkWrite4' = networkWrite3'
-                                      /\ mailboxes' = networkWrite4'
+                                      /\ networkWrite3' = networkWrite2'
+                                      /\ mailboxes' = networkWrite3'
                                       /\ pc' = [pc EXCEPT ![self] = "SendAppendEntries"]
-                                 ELSE /\ networkWrite4' = mailboxes
-                                      /\ mailboxes' = networkWrite4'
+                                 ELSE /\ networkWrite3' = mailboxes
+                                      /\ mailboxes' = networkWrite3'
                                       /\ pc' = [pc EXCEPT ![self] = "RecvMsg"]
                                       /\ UNCHANGED << networkWrite, 
-                                                      networkWrite3, iterator >>
+                                                      networkWrite2, iterator >>
                            /\ UNCHANGED << values, requestSet, learnedChan, 
                                            raftLayerChan, kvClient, idAbstract, 
                                            database, iAmTheLeaderAbstract, 
-                                           frequency, terms, lastSeen, 
-                                           requestsRead, requestsWrite, 
-                                           iAmTheLeaderRead, proposerChanWrite, 
-                                           raftChanRead, raftChanWrite, 
-                                           upstreamWrite, proposerChanWrite0, 
-                                           raftChanWrite0, upstreamWrite0, 
-                                           requestsWrite0, proposerChanWrite1, 
-                                           raftChanWrite1, upstreamWrite1, 
-                                           learnerChanRead, learnerChanWrite, 
-                                           kvIdRead, dbWrite, dbWrite0, 
-                                           kvIdRead0, kvIdRead1, dbRead, 
-                                           kvIdRead2, requestServiceWrite, 
+                                           frequency, terms, lastSeen, nexts, 
+                                           logs, commits, requestsRead, 
+                                           requestsWrite, iAmTheLeaderRead, 
+                                           proposerChanWrite, raftChanRead, 
+                                           raftChanWrite, upstreamWrite, 
+                                           proposerChanWrite0, raftChanWrite0, 
+                                           upstreamWrite0, requestsWrite0, 
+                                           proposerChanWrite1, raftChanWrite1, 
+                                           upstreamWrite1, learnerChanRead, 
+                                           learnerChanWrite, kvIdRead, dbWrite, 
+                                           dbWrite0, kvIdRead0, kvIdRead1, 
+                                           dbRead, kvIdRead2, 
+                                           requestServiceWrite, 
                                            requestServiceWrite0, 
                                            learnerChanWrite0, dbWrite1, 
                                            requestServiceWrite1, timeoutRead, 
                                            networkWrite0, networkWrite1, 
-                                           networkWrite2, inputRead, 
-                                           inputWrite, appliedWrite, 
-                                           appliedWrite0, inputWrite0, 
-                                           appliedWrite1, networkWrite5, 
+                                           inputRead, inputWrite, logChanWrite, 
+                                           nextChanWrite, commitChanWrite, 
+                                           appliedWrite, appliedWrite0, 
+                                           inputWrite0, logChanWrite0, 
+                                           nextChanWrite0, commitChanWrite0, 
+                                           appliedWrite1, networkWrite4, 
                                            networkRead, iAmTheLeaderWrite, 
                                            iAmTheLeaderWrite0, lastmsgWrite, 
                                            lastmsgWrite0, lastmsgWrite1, 
                                            ifResult, appliedWrite2, 
                                            appliedWrite3, ifResult0, 
-                                           networkWrite6, termWrite, 
-                                           iAmTheLeaderWrite1, termWrite0, 
+                                           nextChanWrite1, networkWrite5, 
+                                           termWrite, iAmTheLeaderWrite1, 
+                                           termWrite0, logChanWrite1, 
+                                           commitChanWrite1, nextChanWrite2, 
                                            iAmTheLeaderWrite2, termWrite1, 
-                                           iAmTheLeaderWrite3, termWrite2, 
-                                           networkWrite7, iAmTheLeaderWrite4, 
-                                           termWrite3, networkWrite8, 
+                                           logChanWrite2, commitChanWrite2, 
+                                           nextChanWrite3, iAmTheLeaderWrite3, 
+                                           termWrite2, logChanWrite3, 
+                                           commitChanWrite3, nextChanWrite4, 
+                                           nextChanWrite5, networkWrite6, 
+                                           iAmTheLeaderWrite4, termWrite3, 
+                                           logChanWrite4, commitChanWrite4, 
+                                           networkWrite7, nextChanWrite6, 
                                            iAmTheLeaderWrite5, termWrite4, 
-                                           lastmsgWrite2, networkWrite9, 
-                                           appliedWrite4, iAmTheLeaderWrite6, 
-                                           termWrite5, iAmTheLeaderWrite7, 
-                                           lastmsgWrite3, networkWrite10, 
-                                           appliedWrite5, termWrite6, 
-                                           networkWrite11, inputWrite1, 
-                                           appliedWrite6, iAmTheLeaderWrite8, 
-                                           lastmsgWrite4, termWrite7, msg_, 
-                                           null, heartbeatId, proposerId, 
-                                           counter, requestId, proposal, 
-                                           result_, result, learnerId, decided, 
+                                           logChanWrite5, commitChanWrite5, 
+                                           lastmsgWrite2, networkWrite8, 
+                                           appliedWrite4, nextChanWrite7, 
+                                           iAmTheLeaderWrite6, termWrite5, 
+                                           logChanWrite6, commitChanWrite6, 
+                                           iAmTheLeaderWrite7, lastmsgWrite3, 
+                                           networkWrite9, appliedWrite5, 
+                                           nextChanWrite8, termWrite6, 
+                                           logChanWrite7, commitChanWrite7, 
+                                           networkWrite10, inputWrite1, 
+                                           logChanWrite8, nextChanWrite9, 
+                                           commitChanWrite8, appliedWrite6, 
+                                           iAmTheLeaderWrite8, lastmsgWrite4, 
+                                           termWrite7, iAmTheLeaderRead0, 
+                                           timerWrite, nextIndexInRead, 
+                                           termRead, logInRead, logInRead0, 
+                                           logInRead1, commitInRead, 
+                                           networkWrite11, networkWrite12, 
+                                           networkWrite13, timerWrite0, 
+                                           networkWrite14, timerWrite1, 
+                                           networkWrite15, msg_, null, 
+                                           heartbeatId, proposerId, counter, 
+                                           requestId, proposal, result_, 
+                                           result, learnerId, decided, 
                                            timeoutLocal, currentTerm, votedFor, 
                                            log, state, commitIndex, 
                                            lastApplied, nextIndex, matchIndex, 
-                                           votes, value, msg, response, msgs >>
+                                           votes, value, msg, response, msgs, 
+                                           index, next >>
 
 RecvMsg(self) == /\ pc[self] = "RecvMsg"
                  /\ LET msgs0 == mailboxes[self] IN
@@ -1960,9 +2505,10 @@ RecvMsg(self) == /\ pc[self] = "RecvMsg"
                  /\ UNCHANGED << values, requestSet, learnedChan, 
                                  raftLayerChan, kvClient, idAbstract, database, 
                                  iAmTheLeaderAbstract, frequency, terms, 
-                                 lastSeen, requestsRead, requestsWrite, 
-                                 iAmTheLeaderRead, proposerChanWrite, 
-                                 raftChanRead, raftChanWrite, upstreamWrite, 
+                                 lastSeen, nexts, logs, commits, requestsRead, 
+                                 requestsWrite, iAmTheLeaderRead, 
+                                 proposerChanWrite, raftChanRead, 
+                                 raftChanWrite, upstreamWrite, 
                                  proposerChanWrite0, raftChanWrite0, 
                                  upstreamWrite0, requestsWrite0, 
                                  proposerChanWrite1, raftChanWrite1, 
@@ -1972,51 +2518,77 @@ RecvMsg(self) == /\ pc[self] = "RecvMsg"
                                  requestServiceWrite, requestServiceWrite0, 
                                  learnerChanWrite0, dbWrite1, 
                                  requestServiceWrite1, timeoutRead, 
-                                 networkWrite0, networkWrite1, networkWrite2, 
-                                 inputRead, inputWrite, appliedWrite, 
-                                 appliedWrite0, networkWrite3, networkWrite4, 
-                                 inputWrite0, appliedWrite1, networkWrite5, 
-                                 iAmTheLeaderWrite, iAmTheLeaderWrite0, 
-                                 lastmsgWrite, lastmsgWrite0, lastmsgWrite1, 
-                                 ifResult, appliedWrite2, appliedWrite3, 
-                                 ifResult0, networkWrite6, termWrite, 
-                                 iAmTheLeaderWrite1, termWrite0, 
-                                 iAmTheLeaderWrite2, termWrite1, 
-                                 iAmTheLeaderWrite3, termWrite2, networkWrite7, 
-                                 iAmTheLeaderWrite4, termWrite3, networkWrite8, 
-                                 iAmTheLeaderWrite5, termWrite4, lastmsgWrite2, 
-                                 networkWrite9, appliedWrite4, 
-                                 iAmTheLeaderWrite6, termWrite5, 
+                                 networkWrite0, networkWrite1, inputRead, 
+                                 inputWrite, logChanWrite, nextChanWrite, 
+                                 commitChanWrite, appliedWrite, appliedWrite0, 
+                                 networkWrite2, networkWrite3, inputWrite0, 
+                                 logChanWrite0, nextChanWrite0, 
+                                 commitChanWrite0, appliedWrite1, 
+                                 networkWrite4, iAmTheLeaderWrite, 
+                                 iAmTheLeaderWrite0, lastmsgWrite, 
+                                 lastmsgWrite0, lastmsgWrite1, ifResult, 
+                                 appliedWrite2, appliedWrite3, ifResult0, 
+                                 nextChanWrite1, networkWrite5, termWrite, 
+                                 iAmTheLeaderWrite1, termWrite0, logChanWrite1, 
+                                 commitChanWrite1, nextChanWrite2, 
+                                 iAmTheLeaderWrite2, termWrite1, logChanWrite2, 
+                                 commitChanWrite2, nextChanWrite3, 
+                                 iAmTheLeaderWrite3, termWrite2, logChanWrite3, 
+                                 commitChanWrite3, nextChanWrite4, 
+                                 nextChanWrite5, networkWrite6, 
+                                 iAmTheLeaderWrite4, termWrite3, logChanWrite4, 
+                                 commitChanWrite4, networkWrite7, 
+                                 nextChanWrite6, iAmTheLeaderWrite5, 
+                                 termWrite4, logChanWrite5, commitChanWrite5, 
+                                 lastmsgWrite2, networkWrite8, appliedWrite4, 
+                                 nextChanWrite7, iAmTheLeaderWrite6, 
+                                 termWrite5, logChanWrite6, commitChanWrite6, 
                                  iAmTheLeaderWrite7, lastmsgWrite3, 
-                                 networkWrite10, appliedWrite5, termWrite6, 
-                                 networkWrite11, inputWrite1, appliedWrite6, 
-                                 iAmTheLeaderWrite8, lastmsgWrite4, termWrite7, 
-                                 msg_, null, heartbeatId, proposerId, counter, 
-                                 requestId, proposal, result_, result, 
-                                 learnerId, decided, timeoutLocal, currentTerm, 
-                                 votedFor, log, state, commitIndex, 
-                                 lastApplied, nextIndex, matchIndex, iterator, 
-                                 votes, value, msg, response >>
+                                 networkWrite9, appliedWrite5, nextChanWrite8, 
+                                 termWrite6, logChanWrite7, commitChanWrite7, 
+                                 networkWrite10, inputWrite1, logChanWrite8, 
+                                 nextChanWrite9, commitChanWrite8, 
+                                 appliedWrite6, iAmTheLeaderWrite8, 
+                                 lastmsgWrite4, termWrite7, iAmTheLeaderRead0, 
+                                 timerWrite, nextIndexInRead, termRead, 
+                                 logInRead, logInRead0, logInRead1, 
+                                 commitInRead, networkWrite11, networkWrite12, 
+                                 networkWrite13, timerWrite0, networkWrite14, 
+                                 timerWrite1, networkWrite15, msg_, null, 
+                                 heartbeatId, proposerId, counter, requestId, 
+                                 proposal, result_, result, learnerId, decided, 
+                                 timeoutLocal, currentTerm, votedFor, log, 
+                                 state, commitIndex, lastApplied, nextIndex, 
+                                 matchIndex, iterator, votes, value, msg, 
+                                 response, index, next >>
 
 ProcessMsgs(self) == /\ pc[self] = "ProcessMsgs"
                      /\ IF (Len(msgs[self])) > (0)
                            THEN /\ pc' = [pc EXCEPT ![self] = "GetMsg"]
                                 /\ UNCHANGED << learnedChan, 
                                                 iAmTheLeaderAbstract, terms, 
-                                                lastSeen, mailboxes, 
-                                                iAmTheLeaderWrite7, 
-                                                lastmsgWrite3, networkWrite10, 
-                                                appliedWrite5, termWrite6 >>
+                                                lastSeen, nexts, logs, commits, 
+                                                mailboxes, iAmTheLeaderWrite7, 
+                                                lastmsgWrite3, networkWrite9, 
+                                                appliedWrite5, nextChanWrite8, 
+                                                termWrite6, logChanWrite7, 
+                                                commitChanWrite7 >>
                            ELSE /\ iAmTheLeaderWrite7' = iAmTheLeaderAbstract
                                 /\ lastmsgWrite3' = lastSeen
-                                /\ networkWrite10' = mailboxes
+                                /\ networkWrite9' = mailboxes
                                 /\ appliedWrite5' = learnedChan
+                                /\ nextChanWrite8' = nexts
                                 /\ termWrite6' = terms
-                                /\ mailboxes' = networkWrite10'
+                                /\ logChanWrite7' = logs
+                                /\ commitChanWrite7' = commits
+                                /\ mailboxes' = networkWrite9'
                                 /\ learnedChan' = appliedWrite5'
                                 /\ iAmTheLeaderAbstract' = iAmTheLeaderWrite7'
                                 /\ terms' = termWrite6'
                                 /\ lastSeen' = lastmsgWrite3'
+                                /\ nexts' = nextChanWrite8'
+                                /\ logs' = logChanWrite7'
+                                /\ commits' = commitChanWrite7'
                                 /\ pc' = [pc EXCEPT ![self] = "NodeLoop"]
                      /\ UNCHANGED << values, requestSet, raftLayerChan, 
                                      kvClient, idAbstract, database, frequency, 
@@ -2034,32 +2606,53 @@ ProcessMsgs(self) == /\ pc[self] = "ProcessMsgs"
                                      learnerChanWrite0, dbWrite1, 
                                      requestServiceWrite1, timeoutRead, 
                                      networkWrite, networkWrite0, 
-                                     networkWrite1, networkWrite2, inputRead, 
-                                     inputWrite, appliedWrite, appliedWrite0, 
-                                     networkWrite3, networkWrite4, inputWrite0, 
-                                     appliedWrite1, networkWrite5, networkRead, 
+                                     networkWrite1, inputRead, inputWrite, 
+                                     logChanWrite, nextChanWrite, 
+                                     commitChanWrite, appliedWrite, 
+                                     appliedWrite0, networkWrite2, 
+                                     networkWrite3, inputWrite0, logChanWrite0, 
+                                     nextChanWrite0, commitChanWrite0, 
+                                     appliedWrite1, networkWrite4, networkRead, 
                                      iAmTheLeaderWrite, iAmTheLeaderWrite0, 
                                      lastmsgWrite, lastmsgWrite0, 
                                      lastmsgWrite1, ifResult, appliedWrite2, 
-                                     appliedWrite3, ifResult0, networkWrite6, 
-                                     termWrite, iAmTheLeaderWrite1, termWrite0, 
-                                     iAmTheLeaderWrite2, termWrite1, 
+                                     appliedWrite3, ifResult0, nextChanWrite1, 
+                                     networkWrite5, termWrite, 
+                                     iAmTheLeaderWrite1, termWrite0, 
+                                     logChanWrite1, commitChanWrite1, 
+                                     nextChanWrite2, iAmTheLeaderWrite2, 
+                                     termWrite1, logChanWrite2, 
+                                     commitChanWrite2, nextChanWrite3, 
                                      iAmTheLeaderWrite3, termWrite2, 
-                                     networkWrite7, iAmTheLeaderWrite4, 
-                                     termWrite3, networkWrite8, 
-                                     iAmTheLeaderWrite5, termWrite4, 
-                                     lastmsgWrite2, networkWrite9, 
-                                     appliedWrite4, iAmTheLeaderWrite6, 
-                                     termWrite5, networkWrite11, inputWrite1, 
+                                     logChanWrite3, commitChanWrite3, 
+                                     nextChanWrite4, nextChanWrite5, 
+                                     networkWrite6, iAmTheLeaderWrite4, 
+                                     termWrite3, logChanWrite4, 
+                                     commitChanWrite4, networkWrite7, 
+                                     nextChanWrite6, iAmTheLeaderWrite5, 
+                                     termWrite4, logChanWrite5, 
+                                     commitChanWrite5, lastmsgWrite2, 
+                                     networkWrite8, appliedWrite4, 
+                                     nextChanWrite7, iAmTheLeaderWrite6, 
+                                     termWrite5, logChanWrite6, 
+                                     commitChanWrite6, networkWrite10, 
+                                     inputWrite1, logChanWrite8, 
+                                     nextChanWrite9, commitChanWrite8, 
                                      appliedWrite6, iAmTheLeaderWrite8, 
-                                     lastmsgWrite4, termWrite7, msg_, null, 
-                                     heartbeatId, proposerId, counter, 
-                                     requestId, proposal, result_, result, 
-                                     learnerId, decided, timeoutLocal, 
-                                     currentTerm, votedFor, log, state, 
-                                     commitIndex, lastApplied, nextIndex, 
-                                     matchIndex, iterator, votes, value, msg, 
-                                     response, msgs >>
+                                     lastmsgWrite4, termWrite7, 
+                                     iAmTheLeaderRead0, timerWrite, 
+                                     nextIndexInRead, termRead, logInRead, 
+                                     logInRead0, logInRead1, commitInRead, 
+                                     networkWrite11, networkWrite12, 
+                                     networkWrite13, timerWrite0, 
+                                     networkWrite14, timerWrite1, 
+                                     networkWrite15, msg_, null, heartbeatId, 
+                                     proposerId, counter, requestId, proposal, 
+                                     result_, result, learnerId, decided, 
+                                     timeoutLocal, currentTerm, votedFor, log, 
+                                     state, commitIndex, lastApplied, 
+                                     nextIndex, matchIndex, iterator, votes, 
+                                     value, msg, response, msgs, index, next >>
 
 GetMsg(self) == /\ pc[self] = "GetMsg"
                 /\ msg' = [msg EXCEPT ![self] = Head(msgs[self])]
@@ -2068,8 +2661,8 @@ GetMsg(self) == /\ pc[self] = "GetMsg"
                 /\ UNCHANGED << values, requestSet, learnedChan, raftLayerChan, 
                                 kvClient, idAbstract, database, 
                                 iAmTheLeaderAbstract, frequency, terms, 
-                                lastSeen, mailboxes, requestsRead, 
-                                requestsWrite, iAmTheLeaderRead, 
+                                lastSeen, nexts, logs, commits, mailboxes, 
+                                requestsRead, requestsWrite, iAmTheLeaderRead, 
                                 proposerChanWrite, raftChanRead, raftChanWrite, 
                                 upstreamWrite, proposerChanWrite0, 
                                 raftChanWrite0, upstreamWrite0, requestsWrite0, 
@@ -2081,30 +2674,47 @@ GetMsg(self) == /\ pc[self] = "GetMsg"
                                 learnerChanWrite0, dbWrite1, 
                                 requestServiceWrite1, timeoutRead, 
                                 networkWrite, networkWrite0, networkWrite1, 
-                                networkWrite2, inputRead, inputWrite, 
-                                appliedWrite, appliedWrite0, networkWrite3, 
-                                networkWrite4, inputWrite0, appliedWrite1, 
-                                networkWrite5, networkRead, iAmTheLeaderWrite, 
+                                inputRead, inputWrite, logChanWrite, 
+                                nextChanWrite, commitChanWrite, appliedWrite, 
+                                appliedWrite0, networkWrite2, networkWrite3, 
+                                inputWrite0, logChanWrite0, nextChanWrite0, 
+                                commitChanWrite0, appliedWrite1, networkWrite4, 
+                                networkRead, iAmTheLeaderWrite, 
                                 iAmTheLeaderWrite0, lastmsgWrite, 
                                 lastmsgWrite0, lastmsgWrite1, ifResult, 
                                 appliedWrite2, appliedWrite3, ifResult0, 
-                                networkWrite6, termWrite, iAmTheLeaderWrite1, 
-                                termWrite0, iAmTheLeaderWrite2, termWrite1, 
-                                iAmTheLeaderWrite3, termWrite2, networkWrite7, 
-                                iAmTheLeaderWrite4, termWrite3, networkWrite8, 
-                                iAmTheLeaderWrite5, termWrite4, lastmsgWrite2, 
-                                networkWrite9, appliedWrite4, 
-                                iAmTheLeaderWrite6, termWrite5, 
-                                iAmTheLeaderWrite7, lastmsgWrite3, 
-                                networkWrite10, appliedWrite5, termWrite6, 
-                                networkWrite11, inputWrite1, appliedWrite6, 
+                                nextChanWrite1, networkWrite5, termWrite, 
+                                iAmTheLeaderWrite1, termWrite0, logChanWrite1, 
+                                commitChanWrite1, nextChanWrite2, 
+                                iAmTheLeaderWrite2, termWrite1, logChanWrite2, 
+                                commitChanWrite2, nextChanWrite3, 
+                                iAmTheLeaderWrite3, termWrite2, logChanWrite3, 
+                                commitChanWrite3, nextChanWrite4, 
+                                nextChanWrite5, networkWrite6, 
+                                iAmTheLeaderWrite4, termWrite3, logChanWrite4, 
+                                commitChanWrite4, networkWrite7, 
+                                nextChanWrite6, iAmTheLeaderWrite5, termWrite4, 
+                                logChanWrite5, commitChanWrite5, lastmsgWrite2, 
+                                networkWrite8, appliedWrite4, nextChanWrite7, 
+                                iAmTheLeaderWrite6, termWrite5, logChanWrite6, 
+                                commitChanWrite6, iAmTheLeaderWrite7, 
+                                lastmsgWrite3, networkWrite9, appliedWrite5, 
+                                nextChanWrite8, termWrite6, logChanWrite7, 
+                                commitChanWrite7, networkWrite10, inputWrite1, 
+                                logChanWrite8, nextChanWrite9, 
+                                commitChanWrite8, appliedWrite6, 
                                 iAmTheLeaderWrite8, lastmsgWrite4, termWrite7, 
-                                msg_, null, heartbeatId, proposerId, counter, 
-                                requestId, proposal, result_, result, 
-                                learnerId, decided, timeoutLocal, currentTerm, 
-                                votedFor, log, state, commitIndex, lastApplied, 
-                                nextIndex, matchIndex, iterator, votes, value, 
-                                response >>
+                                iAmTheLeaderRead0, timerWrite, nextIndexInRead, 
+                                termRead, logInRead, logInRead0, logInRead1, 
+                                commitInRead, networkWrite11, networkWrite12, 
+                                networkWrite13, timerWrite0, networkWrite14, 
+                                timerWrite1, networkWrite15, msg_, null, 
+                                heartbeatId, proposerId, counter, requestId, 
+                                proposal, result_, result, learnerId, decided, 
+                                timeoutLocal, currentTerm, votedFor, log, 
+                                state, commitIndex, lastApplied, nextIndex, 
+                                matchIndex, iterator, votes, value, response, 
+                                index, next >>
 
 CheckMsgTerm(self) == /\ pc[self] = "CheckMsgTerm"
                       /\ IF ((msg[self]).term) > (currentTerm[self])
@@ -2122,7 +2732,8 @@ CheckMsgTerm(self) == /\ pc[self] = "CheckMsgTerm"
                       /\ UNCHANGED << values, requestSet, learnedChan, 
                                       raftLayerChan, kvClient, idAbstract, 
                                       database, frequency, terms, lastSeen, 
-                                      mailboxes, requestsRead, requestsWrite, 
+                                      nexts, logs, commits, mailboxes, 
+                                      requestsRead, requestsWrite, 
                                       iAmTheLeaderRead, proposerChanWrite, 
                                       raftChanRead, raftChanWrite, 
                                       upstreamWrite, proposerChanWrite0, 
@@ -2136,49 +2747,74 @@ CheckMsgTerm(self) == /\ pc[self] = "CheckMsgTerm"
                                       requestServiceWrite0, learnerChanWrite0, 
                                       dbWrite1, requestServiceWrite1, 
                                       timeoutRead, networkWrite, networkWrite0, 
-                                      networkWrite1, networkWrite2, inputRead, 
-                                      inputWrite, appliedWrite, appliedWrite0, 
-                                      networkWrite3, networkWrite4, 
-                                      inputWrite0, appliedWrite1, 
-                                      networkWrite5, networkRead, lastmsgWrite, 
+                                      networkWrite1, inputRead, inputWrite, 
+                                      logChanWrite, nextChanWrite, 
+                                      commitChanWrite, appliedWrite, 
+                                      appliedWrite0, networkWrite2, 
+                                      networkWrite3, inputWrite0, 
+                                      logChanWrite0, nextChanWrite0, 
+                                      commitChanWrite0, appliedWrite1, 
+                                      networkWrite4, networkRead, lastmsgWrite, 
                                       lastmsgWrite0, lastmsgWrite1, ifResult, 
                                       appliedWrite2, appliedWrite3, ifResult0, 
-                                      networkWrite6, termWrite, 
+                                      nextChanWrite1, networkWrite5, termWrite, 
                                       iAmTheLeaderWrite1, termWrite0, 
-                                      iAmTheLeaderWrite2, termWrite1, 
+                                      logChanWrite1, commitChanWrite1, 
+                                      nextChanWrite2, iAmTheLeaderWrite2, 
+                                      termWrite1, logChanWrite2, 
+                                      commitChanWrite2, nextChanWrite3, 
                                       iAmTheLeaderWrite3, termWrite2, 
-                                      networkWrite7, iAmTheLeaderWrite4, 
-                                      termWrite3, networkWrite8, 
-                                      iAmTheLeaderWrite5, termWrite4, 
-                                      lastmsgWrite2, networkWrite9, 
-                                      appliedWrite4, iAmTheLeaderWrite6, 
-                                      termWrite5, iAmTheLeaderWrite7, 
-                                      lastmsgWrite3, networkWrite10, 
-                                      appliedWrite5, termWrite6, 
-                                      networkWrite11, inputWrite1, 
+                                      logChanWrite3, commitChanWrite3, 
+                                      nextChanWrite4, nextChanWrite5, 
+                                      networkWrite6, iAmTheLeaderWrite4, 
+                                      termWrite3, logChanWrite4, 
+                                      commitChanWrite4, networkWrite7, 
+                                      nextChanWrite6, iAmTheLeaderWrite5, 
+                                      termWrite4, logChanWrite5, 
+                                      commitChanWrite5, lastmsgWrite2, 
+                                      networkWrite8, appliedWrite4, 
+                                      nextChanWrite7, iAmTheLeaderWrite6, 
+                                      termWrite5, logChanWrite6, 
+                                      commitChanWrite6, iAmTheLeaderWrite7, 
+                                      lastmsgWrite3, networkWrite9, 
+                                      appliedWrite5, nextChanWrite8, 
+                                      termWrite6, logChanWrite7, 
+                                      commitChanWrite7, networkWrite10, 
+                                      inputWrite1, logChanWrite8, 
+                                      nextChanWrite9, commitChanWrite8, 
                                       appliedWrite6, iAmTheLeaderWrite8, 
-                                      lastmsgWrite4, termWrite7, msg_, null, 
-                                      heartbeatId, proposerId, counter, 
-                                      requestId, proposal, result_, result, 
-                                      learnerId, decided, timeoutLocal, log, 
-                                      commitIndex, lastApplied, nextIndex, 
-                                      matchIndex, iterator, votes, value, msg, 
-                                      response, msgs >>
+                                      lastmsgWrite4, termWrite7, 
+                                      iAmTheLeaderRead0, timerWrite, 
+                                      nextIndexInRead, termRead, logInRead, 
+                                      logInRead0, logInRead1, commitInRead, 
+                                      networkWrite11, networkWrite12, 
+                                      networkWrite13, timerWrite0, 
+                                      networkWrite14, timerWrite1, 
+                                      networkWrite15, msg_, null, heartbeatId, 
+                                      proposerId, counter, requestId, proposal, 
+                                      result_, result, learnerId, decided, 
+                                      timeoutLocal, log, commitIndex, 
+                                      lastApplied, nextIndex, matchIndex, 
+                                      iterator, votes, value, msg, response, 
+                                      msgs, index, next >>
 
 MsgSwitch(self) == /\ pc[self] = "MsgSwitch"
                    /\ IF ((msg[self]).type) = (AppendEntries)
                          THEN /\ response' = [response EXCEPT ![self] = [sender |-> self, type |-> AppendEntriesResponse, term |-> currentTerm[self], granted |-> FALSE, entries |-> <<>>, prevIndex |-> NULL, prevTerm |-> NULL, commit |-> NULL]]
-                              /\ IF (((msg[self]).term) >= (currentTerm[self])) /\ (((((msg[self]).prevIndex) > (0)) /\ ((Len(log[self])) < ((msg[self]).prevIndex))) \/ ((Term(log[self], (msg[self]).prevIndex)) # ((msg[self]).prevTerm)))
+                              /\ IF (((msg[self]).term) >= (currentTerm[self])) /\ (((((msg[self]).prevIndex) > (0)) /\ ((Len(log[self])) > ((msg[self]).prevIndex))) \/ ((Term(log[self], (msg[self]).prevIndex)) # ((msg[self]).prevTerm)))
                                     THEN /\ Assert((state[self]) # (Leader), 
-                                                   "Failure of assertion at line 745, column 37.")
+                                                   "Failure of assertion at line 761, column 37.")
                                          /\ log' = [log EXCEPT ![self] = SubSeq(log[self], 1, ((msg[self]).prevIndex) - (1))]
                                          /\ lastmsgWrite' = msg[self]
                                          /\ lastmsgWrite1' = lastmsgWrite'
                                          /\ lastSeen' = lastmsgWrite1'
                                          /\ pc' = [pc EXCEPT ![self] = "AESendResponse"]
                                          /\ UNCHANGED lastmsgWrite0
-                                    ELSE /\ IF (((msg[self]).term) >= (currentTerm[self])) /\ ((Len(log[self])) = ((msg[self]).prevIndex))
-                                               THEN /\ log' = [log EXCEPT ![self] = (log[self]) \o ((msg[self]).entries)]
+                                    ELSE /\ IF ((msg[self]).term) >= (currentTerm[self])
+                                               THEN /\ IF (Len(log[self])) = ((msg[self]).prevIndex)
+                                                          THEN /\ log' = [log EXCEPT ![self] = (log[self]) \o ((msg[self]).entries)]
+                                                          ELSE /\ TRUE
+                                                               /\ log' = log
                                                     /\ pc' = [pc EXCEPT ![self] = "AEValid"]
                                                     /\ UNCHANGED << lastSeen, 
                                                                     lastmsgWrite0, 
@@ -2191,19 +2827,27 @@ MsgSwitch(self) == /\ pc[self] = "MsgSwitch"
                                          /\ UNCHANGED lastmsgWrite
                               /\ UNCHANGED << learnedChan, 
                                               iAmTheLeaderAbstract, terms, 
-                                              mailboxes, ifResult0, 
-                                              networkWrite6, 
+                                              nexts, logs, commits, mailboxes, 
                                               iAmTheLeaderWrite1, termWrite0, 
+                                              logChanWrite1, commitChanWrite1, 
+                                              nextChanWrite2, 
                                               iAmTheLeaderWrite2, termWrite1, 
+                                              logChanWrite2, commitChanWrite2, 
+                                              nextChanWrite3, 
                                               iAmTheLeaderWrite3, termWrite2, 
-                                              networkWrite7, 
+                                              logChanWrite3, commitChanWrite3, 
+                                              nextChanWrite4, nextChanWrite5, 
+                                              networkWrite6, 
                                               iAmTheLeaderWrite4, termWrite3, 
-                                              networkWrite8, 
+                                              logChanWrite4, commitChanWrite4, 
+                                              networkWrite7, nextChanWrite6, 
                                               iAmTheLeaderWrite5, termWrite4, 
-                                              lastmsgWrite2, networkWrite9, 
-                                              appliedWrite4, 
+                                              logChanWrite5, commitChanWrite5, 
+                                              lastmsgWrite2, networkWrite8, 
+                                              appliedWrite4, nextChanWrite7, 
                                               iAmTheLeaderWrite6, termWrite5, 
-                                              nextIndex, matchIndex, votes >>
+                                              logChanWrite6, commitChanWrite6, 
+                                              votes >>
                          ELSE /\ IF ((msg[self]).type) = (RequestVote)
                                     THEN /\ response' = [response EXCEPT ![self] = [sender |-> self, type |-> RequestVoteResponse, term |-> currentTerm[self], granted |-> FALSE, entries |-> <<>>, prevIndex |-> NULL, prevTerm |-> NULL, commit |-> NULL]]
                                          /\ IF ((((votedFor[self]) = (NULL)) \/ ((votedFor[self]) = ((msg[self]).sender))) /\ (((msg[self]).term) >= (currentTerm[self]))) /\ ((((msg[self]).prevTerm) > (Term(log[self], Len(log[self])))) \/ ((((msg[self]).prevTerm) = (Term(log[self], Len(log[self])))) /\ (((msg[self]).prevIndex) >= (Len(log[self])))))
@@ -2212,78 +2856,89 @@ MsgSwitch(self) == /\ pc[self] = "MsgSwitch"
                                          /\ UNCHANGED << learnedChan, 
                                                          iAmTheLeaderAbstract, 
                                                          terms, lastSeen, 
-                                                         mailboxes, ifResult0, 
-                                                         networkWrite6, 
+                                                         nexts, logs, commits, 
+                                                         mailboxes, 
                                                          iAmTheLeaderWrite1, 
                                                          termWrite0, 
+                                                         logChanWrite1, 
+                                                         commitChanWrite1, 
+                                                         nextChanWrite2, 
                                                          iAmTheLeaderWrite2, 
                                                          termWrite1, 
+                                                         logChanWrite2, 
+                                                         commitChanWrite2, 
+                                                         nextChanWrite3, 
                                                          iAmTheLeaderWrite3, 
                                                          termWrite2, 
-                                                         networkWrite7, 
+                                                         logChanWrite3, 
+                                                         commitChanWrite3, 
+                                                         nextChanWrite4, 
+                                                         nextChanWrite5, 
+                                                         networkWrite6, 
                                                          iAmTheLeaderWrite4, 
                                                          termWrite3, 
-                                                         networkWrite8, 
+                                                         logChanWrite4, 
+                                                         commitChanWrite4, 
+                                                         networkWrite7, 
+                                                         nextChanWrite6, 
                                                          iAmTheLeaderWrite5, 
                                                          termWrite4, 
+                                                         logChanWrite5, 
+                                                         commitChanWrite5, 
                                                          lastmsgWrite2, 
-                                                         networkWrite9, 
+                                                         networkWrite8, 
                                                          appliedWrite4, 
+                                                         nextChanWrite7, 
                                                          iAmTheLeaderWrite6, 
-                                                         termWrite5, nextIndex, 
-                                                         matchIndex, votes >>
+                                                         termWrite5, 
+                                                         logChanWrite6, 
+                                                         commitChanWrite6, 
+                                                         votes >>
                                     ELSE /\ IF ((((msg[self]).type) = (AppendEntriesResponse)) /\ (((msg[self]).term) = (currentTerm[self]))) /\ ((state[self]) = (Leader))
-                                               THEN /\ IF (msg[self]).granted
-                                                          THEN /\ nextIndex' = [nextIndex EXCEPT ![self][msg[self].sender] = ((msg[self]).prevIndex) + (1)]
-                                                               /\ matchIndex' = [matchIndex EXCEPT ![self][msg[self].sender] = (msg[self]).prevIndex]
-                                                               /\ networkWrite6' = mailboxes
-                                                               /\ networkWrite7' = networkWrite6'
-                                                               /\ iAmTheLeaderWrite4' = iAmTheLeaderAbstract
-                                                               /\ termWrite3' = terms
-                                                               /\ networkWrite8' = networkWrite7'
-                                                               /\ iAmTheLeaderWrite5' = iAmTheLeaderWrite4'
-                                                               /\ termWrite4' = termWrite3'
-                                                               /\ lastmsgWrite2' = lastSeen
-                                                               /\ networkWrite9' = networkWrite8'
-                                                               /\ appliedWrite4' = learnedChan
-                                                               /\ iAmTheLeaderWrite6' = iAmTheLeaderWrite5'
-                                                               /\ termWrite5' = termWrite4'
-                                                               /\ mailboxes' = networkWrite9'
-                                                               /\ learnedChan' = appliedWrite4'
-                                                               /\ iAmTheLeaderAbstract' = iAmTheLeaderWrite6'
-                                                               /\ terms' = termWrite5'
-                                                               /\ lastSeen' = lastmsgWrite2'
-                                                               /\ pc' = [pc EXCEPT ![self] = "ProcessMsgs"]
-                                                               /\ UNCHANGED ifResult0
-                                                          ELSE /\ IF ((nextIndex[self][(msg[self]).sender]) - (1)) > (1)
-                                                                     THEN /\ ifResult0' = (nextIndex[self][(msg[self]).sender]) - (1)
-                                                                     ELSE /\ ifResult0' = 1
-                                                               /\ nextIndex' = [nextIndex EXCEPT ![self][msg[self].sender] = ifResult0']
-                                                               /\ pc' = [pc EXCEPT ![self] = "RetryAppendEntry"]
-                                                               /\ UNCHANGED << learnedChan, 
-                                                                               iAmTheLeaderAbstract, 
-                                                                               terms, 
-                                                                               lastSeen, 
-                                                                               mailboxes, 
-                                                                               networkWrite6, 
-                                                                               networkWrite7, 
-                                                                               iAmTheLeaderWrite4, 
-                                                                               termWrite3, 
-                                                                               networkWrite8, 
-                                                                               iAmTheLeaderWrite5, 
-                                                                               termWrite4, 
-                                                                               lastmsgWrite2, 
-                                                                               networkWrite9, 
-                                                                               appliedWrite4, 
-                                                                               iAmTheLeaderWrite6, 
-                                                                               termWrite5, 
-                                                                               matchIndex >>
-                                                    /\ UNCHANGED << iAmTheLeaderWrite1, 
+                                               THEN /\ pc' = [pc EXCEPT ![self] = "AERCheckGranted"]
+                                                    /\ UNCHANGED << learnedChan, 
+                                                                    iAmTheLeaderAbstract, 
+                                                                    terms, 
+                                                                    lastSeen, 
+                                                                    nexts, 
+                                                                    logs, 
+                                                                    commits, 
+                                                                    mailboxes, 
+                                                                    iAmTheLeaderWrite1, 
                                                                     termWrite0, 
+                                                                    logChanWrite1, 
+                                                                    commitChanWrite1, 
+                                                                    nextChanWrite2, 
                                                                     iAmTheLeaderWrite2, 
                                                                     termWrite1, 
+                                                                    logChanWrite2, 
+                                                                    commitChanWrite2, 
+                                                                    nextChanWrite3, 
                                                                     iAmTheLeaderWrite3, 
                                                                     termWrite2, 
+                                                                    logChanWrite3, 
+                                                                    commitChanWrite3, 
+                                                                    nextChanWrite4, 
+                                                                    nextChanWrite5, 
+                                                                    networkWrite6, 
+                                                                    iAmTheLeaderWrite4, 
+                                                                    termWrite3, 
+                                                                    logChanWrite4, 
+                                                                    commitChanWrite4, 
+                                                                    networkWrite7, 
+                                                                    nextChanWrite6, 
+                                                                    iAmTheLeaderWrite5, 
+                                                                    termWrite4, 
+                                                                    logChanWrite5, 
+                                                                    commitChanWrite5, 
+                                                                    lastmsgWrite2, 
+                                                                    networkWrite8, 
+                                                                    appliedWrite4, 
+                                                                    nextChanWrite7, 
+                                                                    iAmTheLeaderWrite6, 
+                                                                    termWrite5, 
+                                                                    logChanWrite6, 
+                                                                    commitChanWrite6, 
                                                                     votes >>
                                                ELSE /\ IF ((((msg[self]).type) = (RequestVoteResponse)) /\ (((msg[self]).term) = (currentTerm[self]))) /\ ((state[self]) = (Candidate))
                                                           THEN /\ IF (msg[self]).granted
@@ -2294,99 +2949,179 @@ MsgSwitch(self) == /\ pc[self] = "MsgSwitch"
                                                                                                      iAmTheLeaderAbstract, 
                                                                                                      terms, 
                                                                                                      lastSeen, 
+                                                                                                     nexts, 
+                                                                                                     logs, 
+                                                                                                     commits, 
                                                                                                      mailboxes, 
                                                                                                      iAmTheLeaderWrite1, 
                                                                                                      termWrite0, 
+                                                                                                     logChanWrite1, 
+                                                                                                     commitChanWrite1, 
+                                                                                                     nextChanWrite2, 
                                                                                                      iAmTheLeaderWrite2, 
                                                                                                      termWrite1, 
+                                                                                                     logChanWrite2, 
+                                                                                                     commitChanWrite2, 
+                                                                                                     nextChanWrite3, 
                                                                                                      iAmTheLeaderWrite3, 
                                                                                                      termWrite2, 
-                                                                                                     networkWrite7, 
+                                                                                                     logChanWrite3, 
+                                                                                                     commitChanWrite3, 
+                                                                                                     nextChanWrite4, 
+                                                                                                     nextChanWrite5, 
+                                                                                                     networkWrite6, 
                                                                                                      iAmTheLeaderWrite4, 
                                                                                                      termWrite3, 
-                                                                                                     networkWrite8, 
+                                                                                                     logChanWrite4, 
+                                                                                                     commitChanWrite4, 
+                                                                                                     networkWrite7, 
+                                                                                                     nextChanWrite6, 
                                                                                                      iAmTheLeaderWrite5, 
                                                                                                      termWrite4, 
+                                                                                                     logChanWrite5, 
+                                                                                                     commitChanWrite5, 
                                                                                                      lastmsgWrite2, 
-                                                                                                     networkWrite9, 
+                                                                                                     networkWrite8, 
                                                                                                      appliedWrite4, 
+                                                                                                     nextChanWrite7, 
                                                                                                      iAmTheLeaderWrite6, 
-                                                                                                     termWrite5 >>
+                                                                                                     termWrite5, 
+                                                                                                     logChanWrite6, 
+                                                                                                     commitChanWrite6 >>
                                                                                 ELSE /\ iAmTheLeaderWrite1' = iAmTheLeaderAbstract
                                                                                      /\ termWrite0' = terms
+                                                                                     /\ logChanWrite1' = logs
+                                                                                     /\ commitChanWrite1' = commits
+                                                                                     /\ nextChanWrite2' = nexts
                                                                                      /\ iAmTheLeaderWrite2' = iAmTheLeaderWrite1'
                                                                                      /\ termWrite1' = termWrite0'
+                                                                                     /\ logChanWrite2' = logChanWrite1'
+                                                                                     /\ commitChanWrite2' = commitChanWrite1'
+                                                                                     /\ nextChanWrite3' = nextChanWrite2'
                                                                                      /\ iAmTheLeaderWrite3' = iAmTheLeaderWrite2'
                                                                                      /\ termWrite2' = termWrite1'
-                                                                                     /\ networkWrite7' = mailboxes
+                                                                                     /\ logChanWrite3' = logChanWrite2'
+                                                                                     /\ commitChanWrite3' = commitChanWrite2'
+                                                                                     /\ nextChanWrite4' = nextChanWrite3'
+                                                                                     /\ nextChanWrite5' = nextChanWrite4'
+                                                                                     /\ networkWrite6' = mailboxes
                                                                                      /\ iAmTheLeaderWrite4' = iAmTheLeaderWrite3'
                                                                                      /\ termWrite3' = termWrite2'
-                                                                                     /\ networkWrite8' = networkWrite7'
+                                                                                     /\ logChanWrite4' = logChanWrite3'
+                                                                                     /\ commitChanWrite4' = commitChanWrite3'
+                                                                                     /\ networkWrite7' = networkWrite6'
+                                                                                     /\ nextChanWrite6' = nextChanWrite5'
                                                                                      /\ iAmTheLeaderWrite5' = iAmTheLeaderWrite4'
                                                                                      /\ termWrite4' = termWrite3'
+                                                                                     /\ logChanWrite5' = logChanWrite4'
+                                                                                     /\ commitChanWrite5' = commitChanWrite4'
                                                                                      /\ lastmsgWrite2' = lastSeen
-                                                                                     /\ networkWrite9' = networkWrite8'
+                                                                                     /\ networkWrite8' = networkWrite7'
                                                                                      /\ appliedWrite4' = learnedChan
+                                                                                     /\ nextChanWrite7' = nextChanWrite6'
                                                                                      /\ iAmTheLeaderWrite6' = iAmTheLeaderWrite5'
                                                                                      /\ termWrite5' = termWrite4'
-                                                                                     /\ mailboxes' = networkWrite9'
+                                                                                     /\ logChanWrite6' = logChanWrite5'
+                                                                                     /\ commitChanWrite6' = commitChanWrite5'
+                                                                                     /\ mailboxes' = networkWrite8'
                                                                                      /\ learnedChan' = appliedWrite4'
                                                                                      /\ iAmTheLeaderAbstract' = iAmTheLeaderWrite6'
                                                                                      /\ terms' = termWrite5'
                                                                                      /\ lastSeen' = lastmsgWrite2'
+                                                                                     /\ nexts' = nextChanWrite7'
+                                                                                     /\ logs' = logChanWrite6'
+                                                                                     /\ commits' = commitChanWrite6'
                                                                                      /\ pc' = [pc EXCEPT ![self] = "ProcessMsgs"]
                                                                      ELSE /\ iAmTheLeaderWrite2' = iAmTheLeaderAbstract
                                                                           /\ termWrite1' = terms
+                                                                          /\ logChanWrite2' = logs
+                                                                          /\ commitChanWrite2' = commits
+                                                                          /\ nextChanWrite3' = nexts
                                                                           /\ iAmTheLeaderWrite3' = iAmTheLeaderWrite2'
                                                                           /\ termWrite2' = termWrite1'
-                                                                          /\ networkWrite7' = mailboxes
+                                                                          /\ logChanWrite3' = logChanWrite2'
+                                                                          /\ commitChanWrite3' = commitChanWrite2'
+                                                                          /\ nextChanWrite4' = nextChanWrite3'
+                                                                          /\ nextChanWrite5' = nextChanWrite4'
+                                                                          /\ networkWrite6' = mailboxes
                                                                           /\ iAmTheLeaderWrite4' = iAmTheLeaderWrite3'
                                                                           /\ termWrite3' = termWrite2'
-                                                                          /\ networkWrite8' = networkWrite7'
+                                                                          /\ logChanWrite4' = logChanWrite3'
+                                                                          /\ commitChanWrite4' = commitChanWrite3'
+                                                                          /\ networkWrite7' = networkWrite6'
+                                                                          /\ nextChanWrite6' = nextChanWrite5'
                                                                           /\ iAmTheLeaderWrite5' = iAmTheLeaderWrite4'
                                                                           /\ termWrite4' = termWrite3'
+                                                                          /\ logChanWrite5' = logChanWrite4'
+                                                                          /\ commitChanWrite5' = commitChanWrite4'
                                                                           /\ lastmsgWrite2' = lastSeen
-                                                                          /\ networkWrite9' = networkWrite8'
+                                                                          /\ networkWrite8' = networkWrite7'
                                                                           /\ appliedWrite4' = learnedChan
+                                                                          /\ nextChanWrite7' = nextChanWrite6'
                                                                           /\ iAmTheLeaderWrite6' = iAmTheLeaderWrite5'
                                                                           /\ termWrite5' = termWrite4'
-                                                                          /\ mailboxes' = networkWrite9'
+                                                                          /\ logChanWrite6' = logChanWrite5'
+                                                                          /\ commitChanWrite6' = commitChanWrite5'
+                                                                          /\ mailboxes' = networkWrite8'
                                                                           /\ learnedChan' = appliedWrite4'
                                                                           /\ iAmTheLeaderAbstract' = iAmTheLeaderWrite6'
                                                                           /\ terms' = termWrite5'
                                                                           /\ lastSeen' = lastmsgWrite2'
+                                                                          /\ nexts' = nextChanWrite7'
+                                                                          /\ logs' = logChanWrite6'
+                                                                          /\ commits' = commitChanWrite6'
                                                                           /\ pc' = [pc EXCEPT ![self] = "ProcessMsgs"]
                                                                           /\ UNCHANGED << iAmTheLeaderWrite1, 
                                                                                           termWrite0, 
+                                                                                          logChanWrite1, 
+                                                                                          commitChanWrite1, 
+                                                                                          nextChanWrite2, 
                                                                                           votes >>
                                                           ELSE /\ iAmTheLeaderWrite3' = iAmTheLeaderAbstract
                                                                /\ termWrite2' = terms
-                                                               /\ networkWrite7' = mailboxes
+                                                               /\ logChanWrite3' = logs
+                                                               /\ commitChanWrite3' = commits
+                                                               /\ nextChanWrite4' = nexts
+                                                               /\ nextChanWrite5' = nextChanWrite4'
+                                                               /\ networkWrite6' = mailboxes
                                                                /\ iAmTheLeaderWrite4' = iAmTheLeaderWrite3'
                                                                /\ termWrite3' = termWrite2'
-                                                               /\ networkWrite8' = networkWrite7'
+                                                               /\ logChanWrite4' = logChanWrite3'
+                                                               /\ commitChanWrite4' = commitChanWrite3'
+                                                               /\ networkWrite7' = networkWrite6'
+                                                               /\ nextChanWrite6' = nextChanWrite5'
                                                                /\ iAmTheLeaderWrite5' = iAmTheLeaderWrite4'
                                                                /\ termWrite4' = termWrite3'
+                                                               /\ logChanWrite5' = logChanWrite4'
+                                                               /\ commitChanWrite5' = commitChanWrite4'
                                                                /\ lastmsgWrite2' = lastSeen
-                                                               /\ networkWrite9' = networkWrite8'
+                                                               /\ networkWrite8' = networkWrite7'
                                                                /\ appliedWrite4' = learnedChan
+                                                               /\ nextChanWrite7' = nextChanWrite6'
                                                                /\ iAmTheLeaderWrite6' = iAmTheLeaderWrite5'
                                                                /\ termWrite5' = termWrite4'
-                                                               /\ mailboxes' = networkWrite9'
+                                                               /\ logChanWrite6' = logChanWrite5'
+                                                               /\ commitChanWrite6' = commitChanWrite5'
+                                                               /\ mailboxes' = networkWrite8'
                                                                /\ learnedChan' = appliedWrite4'
                                                                /\ iAmTheLeaderAbstract' = iAmTheLeaderWrite6'
                                                                /\ terms' = termWrite5'
                                                                /\ lastSeen' = lastmsgWrite2'
+                                                               /\ nexts' = nextChanWrite7'
+                                                               /\ logs' = logChanWrite6'
+                                                               /\ commits' = commitChanWrite6'
                                                                /\ pc' = [pc EXCEPT ![self] = "ProcessMsgs"]
                                                                /\ UNCHANGED << iAmTheLeaderWrite1, 
                                                                                termWrite0, 
+                                                                               logChanWrite1, 
+                                                                               commitChanWrite1, 
+                                                                               nextChanWrite2, 
                                                                                iAmTheLeaderWrite2, 
                                                                                termWrite1, 
+                                                                               logChanWrite2, 
+                                                                               commitChanWrite2, 
+                                                                               nextChanWrite3, 
                                                                                votes >>
-                                                    /\ UNCHANGED << ifResult0, 
-                                                                    networkWrite6, 
-                                                                    nextIndex, 
-                                                                    matchIndex >>
                                          /\ UNCHANGED response
                               /\ UNCHANGED << lastmsgWrite, lastmsgWrite0, 
                                               lastmsgWrite1, log >>
@@ -2405,23 +3140,34 @@ MsgSwitch(self) == /\ pc[self] = "MsgSwitch"
                                    requestServiceWrite0, learnerChanWrite0, 
                                    dbWrite1, requestServiceWrite1, timeoutRead, 
                                    networkWrite, networkWrite0, networkWrite1, 
-                                   networkWrite2, inputRead, inputWrite, 
-                                   appliedWrite, appliedWrite0, networkWrite3, 
-                                   networkWrite4, inputWrite0, appliedWrite1, 
-                                   networkWrite5, networkRead, 
+                                   inputRead, inputWrite, logChanWrite, 
+                                   nextChanWrite, commitChanWrite, 
+                                   appliedWrite, appliedWrite0, networkWrite2, 
+                                   networkWrite3, inputWrite0, logChanWrite0, 
+                                   nextChanWrite0, commitChanWrite0, 
+                                   appliedWrite1, networkWrite4, networkRead, 
                                    iAmTheLeaderWrite, iAmTheLeaderWrite0, 
                                    ifResult, appliedWrite2, appliedWrite3, 
+                                   ifResult0, nextChanWrite1, networkWrite5, 
                                    termWrite, iAmTheLeaderWrite7, 
-                                   lastmsgWrite3, networkWrite10, 
-                                   appliedWrite5, termWrite6, networkWrite11, 
-                                   inputWrite1, appliedWrite6, 
+                                   lastmsgWrite3, networkWrite9, appliedWrite5, 
+                                   nextChanWrite8, termWrite6, logChanWrite7, 
+                                   commitChanWrite7, networkWrite10, 
+                                   inputWrite1, logChanWrite8, nextChanWrite9, 
+                                   commitChanWrite8, appliedWrite6, 
                                    iAmTheLeaderWrite8, lastmsgWrite4, 
-                                   termWrite7, msg_, null, heartbeatId, 
-                                   proposerId, counter, requestId, proposal, 
-                                   result_, result, learnerId, decided, 
-                                   timeoutLocal, currentTerm, votedFor, state, 
-                                   commitIndex, lastApplied, iterator, value, 
-                                   msg, msgs >>
+                                   termWrite7, iAmTheLeaderRead0, timerWrite, 
+                                   nextIndexInRead, termRead, logInRead, 
+                                   logInRead0, logInRead1, commitInRead, 
+                                   networkWrite11, networkWrite12, 
+                                   networkWrite13, timerWrite0, networkWrite14, 
+                                   timerWrite1, networkWrite15, msg_, null, 
+                                   heartbeatId, proposerId, counter, requestId, 
+                                   proposal, result_, result, learnerId, 
+                                   decided, timeoutLocal, currentTerm, 
+                                   votedFor, state, commitIndex, lastApplied, 
+                                   nextIndex, matchIndex, iterator, value, msg, 
+                                   msgs, index, next >>
 
 AESendResponse(self) == /\ pc[self] = "AESendResponse"
                         /\ networkWrite' = [mailboxes EXCEPT ![(msg[self]).sender] = Append(mailboxes[(msg[self]).sender], response[self])]
@@ -2441,7 +3187,8 @@ AESendResponse(self) == /\ pc[self] = "AESendResponse"
                         /\ UNCHANGED << values, requestSet, raftLayerChan, 
                                         kvClient, idAbstract, database, 
                                         iAmTheLeaderAbstract, frequency, terms, 
-                                        lastSeen, requestsRead, requestsWrite, 
+                                        lastSeen, nexts, logs, commits, 
+                                        requestsRead, requestsWrite, 
                                         iAmTheLeaderRead, proposerChanWrite, 
                                         raftChanRead, raftChanWrite, 
                                         upstreamWrite, proposerChanWrite0, 
@@ -2456,36 +3203,58 @@ AESendResponse(self) == /\ pc[self] = "AESendResponse"
                                         learnerChanWrite0, dbWrite1, 
                                         requestServiceWrite1, timeoutRead, 
                                         networkWrite0, networkWrite1, 
-                                        networkWrite2, inputRead, inputWrite, 
+                                        inputRead, inputWrite, logChanWrite, 
+                                        nextChanWrite, commitChanWrite, 
                                         appliedWrite, appliedWrite0, 
-                                        networkWrite3, networkWrite4, 
-                                        inputWrite0, appliedWrite1, 
-                                        networkWrite5, networkRead, 
-                                        iAmTheLeaderWrite, iAmTheLeaderWrite0, 
-                                        lastmsgWrite, lastmsgWrite0, 
-                                        lastmsgWrite1, appliedWrite2, 
-                                        ifResult0, networkWrite6, termWrite, 
-                                        iAmTheLeaderWrite1, termWrite0, 
+                                        networkWrite2, networkWrite3, 
+                                        inputWrite0, logChanWrite0, 
+                                        nextChanWrite0, commitChanWrite0, 
+                                        appliedWrite1, networkWrite4, 
+                                        networkRead, iAmTheLeaderWrite, 
+                                        iAmTheLeaderWrite0, lastmsgWrite, 
+                                        lastmsgWrite0, lastmsgWrite1, 
+                                        appliedWrite2, ifResult0, 
+                                        nextChanWrite1, networkWrite5, 
+                                        termWrite, iAmTheLeaderWrite1, 
+                                        termWrite0, logChanWrite1, 
+                                        commitChanWrite1, nextChanWrite2, 
                                         iAmTheLeaderWrite2, termWrite1, 
-                                        iAmTheLeaderWrite3, termWrite2, 
-                                        networkWrite7, iAmTheLeaderWrite4, 
-                                        termWrite3, networkWrite8, 
+                                        logChanWrite2, commitChanWrite2, 
+                                        nextChanWrite3, iAmTheLeaderWrite3, 
+                                        termWrite2, logChanWrite3, 
+                                        commitChanWrite3, nextChanWrite4, 
+                                        nextChanWrite5, networkWrite6, 
+                                        iAmTheLeaderWrite4, termWrite3, 
+                                        logChanWrite4, commitChanWrite4, 
+                                        networkWrite7, nextChanWrite6, 
                                         iAmTheLeaderWrite5, termWrite4, 
-                                        lastmsgWrite2, networkWrite9, 
-                                        appliedWrite4, iAmTheLeaderWrite6, 
-                                        termWrite5, iAmTheLeaderWrite7, 
-                                        lastmsgWrite3, networkWrite10, 
-                                        appliedWrite5, termWrite6, 
-                                        networkWrite11, inputWrite1, 
-                                        appliedWrite6, iAmTheLeaderWrite8, 
-                                        lastmsgWrite4, termWrite7, msg_, null, 
-                                        heartbeatId, proposerId, counter, 
+                                        logChanWrite5, commitChanWrite5, 
+                                        lastmsgWrite2, networkWrite8, 
+                                        appliedWrite4, nextChanWrite7, 
+                                        iAmTheLeaderWrite6, termWrite5, 
+                                        logChanWrite6, commitChanWrite6, 
+                                        iAmTheLeaderWrite7, lastmsgWrite3, 
+                                        networkWrite9, appliedWrite5, 
+                                        nextChanWrite8, termWrite6, 
+                                        logChanWrite7, commitChanWrite7, 
+                                        networkWrite10, inputWrite1, 
+                                        logChanWrite8, nextChanWrite9, 
+                                        commitChanWrite8, appliedWrite6, 
+                                        iAmTheLeaderWrite8, lastmsgWrite4, 
+                                        termWrite7, iAmTheLeaderRead0, 
+                                        timerWrite, nextIndexInRead, termRead, 
+                                        logInRead, logInRead0, logInRead1, 
+                                        commitInRead, networkWrite11, 
+                                        networkWrite12, networkWrite13, 
+                                        timerWrite0, networkWrite14, 
+                                        timerWrite1, networkWrite15, msg_, 
+                                        null, heartbeatId, proposerId, counter, 
                                         requestId, proposal, result_, result, 
                                         learnerId, decided, timeoutLocal, 
                                         currentTerm, votedFor, log, state, 
                                         lastApplied, nextIndex, matchIndex, 
                                         iterator, votes, value, msg, response, 
-                                        msgs >>
+                                        msgs, index, next >>
 
 AEApplyCommitted(self) == /\ pc[self] = "AEApplyCommitted"
                           /\ IF (lastApplied[self]) < (commitIndex[self])
@@ -2502,53 +3271,76 @@ AEApplyCommitted(self) == /\ pc[self] = "AEApplyCommitted"
                           /\ UNCHANGED << values, requestSet, raftLayerChan, 
                                           kvClient, idAbstract, database, 
                                           iAmTheLeaderAbstract, frequency, 
-                                          terms, lastSeen, mailboxes, 
-                                          requestsRead, requestsWrite, 
-                                          iAmTheLeaderRead, proposerChanWrite, 
-                                          raftChanRead, raftChanWrite, 
-                                          upstreamWrite, proposerChanWrite0, 
-                                          raftChanWrite0, upstreamWrite0, 
-                                          requestsWrite0, proposerChanWrite1, 
-                                          raftChanWrite1, upstreamWrite1, 
-                                          learnerChanRead, learnerChanWrite, 
-                                          kvIdRead, dbWrite, dbWrite0, 
-                                          kvIdRead0, kvIdRead1, dbRead, 
-                                          kvIdRead2, requestServiceWrite, 
+                                          terms, lastSeen, nexts, logs, 
+                                          commits, mailboxes, requestsRead, 
+                                          requestsWrite, iAmTheLeaderRead, 
+                                          proposerChanWrite, raftChanRead, 
+                                          raftChanWrite, upstreamWrite, 
+                                          proposerChanWrite0, raftChanWrite0, 
+                                          upstreamWrite0, requestsWrite0, 
+                                          proposerChanWrite1, raftChanWrite1, 
+                                          upstreamWrite1, learnerChanRead, 
+                                          learnerChanWrite, kvIdRead, dbWrite, 
+                                          dbWrite0, kvIdRead0, kvIdRead1, 
+                                          dbRead, kvIdRead2, 
+                                          requestServiceWrite, 
                                           requestServiceWrite0, 
                                           learnerChanWrite0, dbWrite1, 
                                           requestServiceWrite1, timeoutRead, 
                                           networkWrite, networkWrite0, 
-                                          networkWrite1, networkWrite2, 
-                                          inputRead, inputWrite, appliedWrite0, 
-                                          networkWrite3, networkWrite4, 
-                                          inputWrite0, appliedWrite1, 
-                                          networkWrite5, networkRead, 
-                                          iAmTheLeaderWrite, 
+                                          networkWrite1, inputRead, inputWrite, 
+                                          logChanWrite, nextChanWrite, 
+                                          commitChanWrite, appliedWrite0, 
+                                          networkWrite2, networkWrite3, 
+                                          inputWrite0, logChanWrite0, 
+                                          nextChanWrite0, commitChanWrite0, 
+                                          appliedWrite1, networkWrite4, 
+                                          networkRead, iAmTheLeaderWrite, 
                                           iAmTheLeaderWrite0, lastmsgWrite, 
                                           lastmsgWrite0, lastmsgWrite1, 
                                           ifResult, appliedWrite3, ifResult0, 
-                                          networkWrite6, termWrite, 
-                                          iAmTheLeaderWrite1, termWrite0, 
+                                          nextChanWrite1, networkWrite5, 
+                                          termWrite, iAmTheLeaderWrite1, 
+                                          termWrite0, logChanWrite1, 
+                                          commitChanWrite1, nextChanWrite2, 
                                           iAmTheLeaderWrite2, termWrite1, 
-                                          iAmTheLeaderWrite3, termWrite2, 
-                                          networkWrite7, iAmTheLeaderWrite4, 
-                                          termWrite3, networkWrite8, 
+                                          logChanWrite2, commitChanWrite2, 
+                                          nextChanWrite3, iAmTheLeaderWrite3, 
+                                          termWrite2, logChanWrite3, 
+                                          commitChanWrite3, nextChanWrite4, 
+                                          nextChanWrite5, networkWrite6, 
+                                          iAmTheLeaderWrite4, termWrite3, 
+                                          logChanWrite4, commitChanWrite4, 
+                                          networkWrite7, nextChanWrite6, 
                                           iAmTheLeaderWrite5, termWrite4, 
-                                          lastmsgWrite2, networkWrite9, 
-                                          appliedWrite4, iAmTheLeaderWrite6, 
-                                          termWrite5, iAmTheLeaderWrite7, 
-                                          lastmsgWrite3, networkWrite10, 
-                                          appliedWrite5, termWrite6, 
-                                          networkWrite11, inputWrite1, 
-                                          appliedWrite6, iAmTheLeaderWrite8, 
-                                          lastmsgWrite4, termWrite7, msg_, 
-                                          null, heartbeatId, proposerId, 
-                                          counter, requestId, proposal, 
-                                          result_, result, learnerId, decided, 
-                                          timeoutLocal, currentTerm, votedFor, 
-                                          log, state, commitIndex, nextIndex, 
-                                          matchIndex, iterator, votes, value, 
-                                          msg, response, msgs >>
+                                          logChanWrite5, commitChanWrite5, 
+                                          lastmsgWrite2, networkWrite8, 
+                                          appliedWrite4, nextChanWrite7, 
+                                          iAmTheLeaderWrite6, termWrite5, 
+                                          logChanWrite6, commitChanWrite6, 
+                                          iAmTheLeaderWrite7, lastmsgWrite3, 
+                                          networkWrite9, appliedWrite5, 
+                                          nextChanWrite8, termWrite6, 
+                                          logChanWrite7, commitChanWrite7, 
+                                          networkWrite10, inputWrite1, 
+                                          logChanWrite8, nextChanWrite9, 
+                                          commitChanWrite8, appliedWrite6, 
+                                          iAmTheLeaderWrite8, lastmsgWrite4, 
+                                          termWrite7, iAmTheLeaderRead0, 
+                                          timerWrite, nextIndexInRead, 
+                                          termRead, logInRead, logInRead0, 
+                                          logInRead1, commitInRead, 
+                                          networkWrite11, networkWrite12, 
+                                          networkWrite13, timerWrite0, 
+                                          networkWrite14, timerWrite1, 
+                                          networkWrite15, msg_, null, 
+                                          heartbeatId, proposerId, counter, 
+                                          requestId, proposal, result_, result, 
+                                          learnerId, decided, timeoutLocal, 
+                                          currentTerm, votedFor, log, state, 
+                                          commitIndex, nextIndex, matchIndex, 
+                                          iterator, votes, value, msg, 
+                                          response, msgs, index, next >>
 
 AEValid(self) == /\ pc[self] = "AEValid"
                  /\ response' = [response EXCEPT ![self] = [sender |-> self, type |-> AppendEntriesResponse, term |-> currentTerm[self], granted |-> TRUE, entries |-> <<>>, prevIndex |-> Len(log[self]), prevTerm |-> NULL, commit |-> NULL]]
@@ -2557,108 +3349,8 @@ AEValid(self) == /\ pc[self] = "AEValid"
                  /\ pc' = [pc EXCEPT ![self] = "AESendResponse"]
                  /\ UNCHANGED << values, requestSet, learnedChan, 
                                  raftLayerChan, kvClient, idAbstract, database, 
-                                 iAmTheLeaderAbstract, frequency, terms, 
-                                 mailboxes, requestsRead, requestsWrite, 
-                                 iAmTheLeaderRead, proposerChanWrite, 
-                                 raftChanRead, raftChanWrite, upstreamWrite, 
-                                 proposerChanWrite0, raftChanWrite0, 
-                                 upstreamWrite0, requestsWrite0, 
-                                 proposerChanWrite1, raftChanWrite1, 
-                                 upstreamWrite1, learnerChanRead, 
-                                 learnerChanWrite, kvIdRead, dbWrite, dbWrite0, 
-                                 kvIdRead0, kvIdRead1, dbRead, kvIdRead2, 
-                                 requestServiceWrite, requestServiceWrite0, 
-                                 learnerChanWrite0, dbWrite1, 
-                                 requestServiceWrite1, timeoutRead, 
-                                 networkWrite, networkWrite0, networkWrite1, 
-                                 networkWrite2, inputRead, inputWrite, 
-                                 appliedWrite, appliedWrite0, networkWrite3, 
-                                 networkWrite4, inputWrite0, appliedWrite1, 
-                                 networkWrite5, networkRead, iAmTheLeaderWrite, 
-                                 iAmTheLeaderWrite0, lastmsgWrite0, 
-                                 lastmsgWrite1, ifResult, appliedWrite2, 
-                                 appliedWrite3, ifResult0, networkWrite6, 
-                                 termWrite, iAmTheLeaderWrite1, termWrite0, 
-                                 iAmTheLeaderWrite2, termWrite1, 
-                                 iAmTheLeaderWrite3, termWrite2, networkWrite7, 
-                                 iAmTheLeaderWrite4, termWrite3, networkWrite8, 
-                                 iAmTheLeaderWrite5, termWrite4, lastmsgWrite2, 
-                                 networkWrite9, appliedWrite4, 
-                                 iAmTheLeaderWrite6, termWrite5, 
-                                 iAmTheLeaderWrite7, lastmsgWrite3, 
-                                 networkWrite10, appliedWrite5, termWrite6, 
-                                 networkWrite11, inputWrite1, appliedWrite6, 
-                                 iAmTheLeaderWrite8, lastmsgWrite4, termWrite7, 
-                                 msg_, null, heartbeatId, proposerId, counter, 
-                                 requestId, proposal, result_, result, 
-                                 learnerId, decided, timeoutLocal, currentTerm, 
-                                 votedFor, log, state, commitIndex, 
-                                 lastApplied, nextIndex, matchIndex, iterator, 
-                                 votes, value, msg, msgs >>
-
-RVSendResponse(self) == /\ pc[self] = "RVSendResponse"
-                        /\ networkWrite' = [mailboxes EXCEPT ![(msg[self]).sender] = Append(mailboxes[(msg[self]).sender], response[self])]
-                        /\ mailboxes' = networkWrite'
-                        /\ pc' = [pc EXCEPT ![self] = "ProcessMsgs"]
-                        /\ UNCHANGED << values, requestSet, learnedChan, 
-                                        raftLayerChan, kvClient, idAbstract, 
-                                        database, iAmTheLeaderAbstract, 
-                                        frequency, terms, lastSeen, 
-                                        requestsRead, requestsWrite, 
-                                        iAmTheLeaderRead, proposerChanWrite, 
-                                        raftChanRead, raftChanWrite, 
-                                        upstreamWrite, proposerChanWrite0, 
-                                        raftChanWrite0, upstreamWrite0, 
-                                        requestsWrite0, proposerChanWrite1, 
-                                        raftChanWrite1, upstreamWrite1, 
-                                        learnerChanRead, learnerChanWrite, 
-                                        kvIdRead, dbWrite, dbWrite0, kvIdRead0, 
-                                        kvIdRead1, dbRead, kvIdRead2, 
-                                        requestServiceWrite, 
-                                        requestServiceWrite0, 
-                                        learnerChanWrite0, dbWrite1, 
-                                        requestServiceWrite1, timeoutRead, 
-                                        networkWrite0, networkWrite1, 
-                                        networkWrite2, inputRead, inputWrite, 
-                                        appliedWrite, appliedWrite0, 
-                                        networkWrite3, networkWrite4, 
-                                        inputWrite0, appliedWrite1, 
-                                        networkWrite5, networkRead, 
-                                        iAmTheLeaderWrite, iAmTheLeaderWrite0, 
-                                        lastmsgWrite, lastmsgWrite0, 
-                                        lastmsgWrite1, ifResult, appliedWrite2, 
-                                        appliedWrite3, ifResult0, 
-                                        networkWrite6, termWrite, 
-                                        iAmTheLeaderWrite1, termWrite0, 
-                                        iAmTheLeaderWrite2, termWrite1, 
-                                        iAmTheLeaderWrite3, termWrite2, 
-                                        networkWrite7, iAmTheLeaderWrite4, 
-                                        termWrite3, networkWrite8, 
-                                        iAmTheLeaderWrite5, termWrite4, 
-                                        lastmsgWrite2, networkWrite9, 
-                                        appliedWrite4, iAmTheLeaderWrite6, 
-                                        termWrite5, iAmTheLeaderWrite7, 
-                                        lastmsgWrite3, networkWrite10, 
-                                        appliedWrite5, termWrite6, 
-                                        networkWrite11, inputWrite1, 
-                                        appliedWrite6, iAmTheLeaderWrite8, 
-                                        lastmsgWrite4, termWrite7, msg_, null, 
-                                        heartbeatId, proposerId, counter, 
-                                        requestId, proposal, result_, result, 
-                                        learnerId, decided, timeoutLocal, 
-                                        currentTerm, votedFor, log, state, 
-                                        commitIndex, lastApplied, nextIndex, 
-                                        matchIndex, iterator, votes, value, 
-                                        msg, response, msgs >>
-
-RVValid(self) == /\ pc[self] = "RVValid"
-                 /\ response' = [response EXCEPT ![self] = [sender |-> self, type |-> RequestVoteResponse, term |-> currentTerm[self], granted |-> TRUE, entries |-> <<>>, prevIndex |-> NULL, prevTerm |-> NULL, commit |-> NULL]]
-                 /\ votedFor' = [votedFor EXCEPT ![self] = (msg[self]).sender]
-                 /\ pc' = [pc EXCEPT ![self] = "RVSendResponse"]
-                 /\ UNCHANGED << values, requestSet, learnedChan, 
-                                 raftLayerChan, kvClient, idAbstract, database, 
-                                 iAmTheLeaderAbstract, frequency, terms, 
-                                 lastSeen, mailboxes, requestsRead, 
+                                 iAmTheLeaderAbstract, frequency, terms, nexts, 
+                                 logs, commits, mailboxes, requestsRead, 
                                  requestsWrite, iAmTheLeaderRead, 
                                  proposerChanWrite, raftChanRead, 
                                  raftChanWrite, upstreamWrite, 
@@ -2672,40 +3364,292 @@ RVValid(self) == /\ pc[self] = "RVValid"
                                  learnerChanWrite0, dbWrite1, 
                                  requestServiceWrite1, timeoutRead, 
                                  networkWrite, networkWrite0, networkWrite1, 
-                                 networkWrite2, inputRead, inputWrite, 
-                                 appliedWrite, appliedWrite0, networkWrite3, 
-                                 networkWrite4, inputWrite0, appliedWrite1, 
-                                 networkWrite5, networkRead, iAmTheLeaderWrite, 
+                                 inputRead, inputWrite, logChanWrite, 
+                                 nextChanWrite, commitChanWrite, appliedWrite, 
+                                 appliedWrite0, networkWrite2, networkWrite3, 
+                                 inputWrite0, logChanWrite0, nextChanWrite0, 
+                                 commitChanWrite0, appliedWrite1, 
+                                 networkWrite4, networkRead, iAmTheLeaderWrite, 
+                                 iAmTheLeaderWrite0, lastmsgWrite0, 
+                                 lastmsgWrite1, ifResult, appliedWrite2, 
+                                 appliedWrite3, ifResult0, nextChanWrite1, 
+                                 networkWrite5, termWrite, iAmTheLeaderWrite1, 
+                                 termWrite0, logChanWrite1, commitChanWrite1, 
+                                 nextChanWrite2, iAmTheLeaderWrite2, 
+                                 termWrite1, logChanWrite2, commitChanWrite2, 
+                                 nextChanWrite3, iAmTheLeaderWrite3, 
+                                 termWrite2, logChanWrite3, commitChanWrite3, 
+                                 nextChanWrite4, nextChanWrite5, networkWrite6, 
+                                 iAmTheLeaderWrite4, termWrite3, logChanWrite4, 
+                                 commitChanWrite4, networkWrite7, 
+                                 nextChanWrite6, iAmTheLeaderWrite5, 
+                                 termWrite4, logChanWrite5, commitChanWrite5, 
+                                 lastmsgWrite2, networkWrite8, appliedWrite4, 
+                                 nextChanWrite7, iAmTheLeaderWrite6, 
+                                 termWrite5, logChanWrite6, commitChanWrite6, 
+                                 iAmTheLeaderWrite7, lastmsgWrite3, 
+                                 networkWrite9, appliedWrite5, nextChanWrite8, 
+                                 termWrite6, logChanWrite7, commitChanWrite7, 
+                                 networkWrite10, inputWrite1, logChanWrite8, 
+                                 nextChanWrite9, commitChanWrite8, 
+                                 appliedWrite6, iAmTheLeaderWrite8, 
+                                 lastmsgWrite4, termWrite7, iAmTheLeaderRead0, 
+                                 timerWrite, nextIndexInRead, termRead, 
+                                 logInRead, logInRead0, logInRead1, 
+                                 commitInRead, networkWrite11, networkWrite12, 
+                                 networkWrite13, timerWrite0, networkWrite14, 
+                                 timerWrite1, networkWrite15, msg_, null, 
+                                 heartbeatId, proposerId, counter, requestId, 
+                                 proposal, result_, result, learnerId, decided, 
+                                 timeoutLocal, currentTerm, votedFor, log, 
+                                 state, commitIndex, lastApplied, nextIndex, 
+                                 matchIndex, iterator, votes, value, msg, msgs, 
+                                 index, next >>
+
+RVSendResponse(self) == /\ pc[self] = "RVSendResponse"
+                        /\ networkWrite' = [mailboxes EXCEPT ![(msg[self]).sender] = Append(mailboxes[(msg[self]).sender], response[self])]
+                        /\ mailboxes' = networkWrite'
+                        /\ pc' = [pc EXCEPT ![self] = "ProcessMsgs"]
+                        /\ UNCHANGED << values, requestSet, learnedChan, 
+                                        raftLayerChan, kvClient, idAbstract, 
+                                        database, iAmTheLeaderAbstract, 
+                                        frequency, terms, lastSeen, nexts, 
+                                        logs, commits, requestsRead, 
+                                        requestsWrite, iAmTheLeaderRead, 
+                                        proposerChanWrite, raftChanRead, 
+                                        raftChanWrite, upstreamWrite, 
+                                        proposerChanWrite0, raftChanWrite0, 
+                                        upstreamWrite0, requestsWrite0, 
+                                        proposerChanWrite1, raftChanWrite1, 
+                                        upstreamWrite1, learnerChanRead, 
+                                        learnerChanWrite, kvIdRead, dbWrite, 
+                                        dbWrite0, kvIdRead0, kvIdRead1, dbRead, 
+                                        kvIdRead2, requestServiceWrite, 
+                                        requestServiceWrite0, 
+                                        learnerChanWrite0, dbWrite1, 
+                                        requestServiceWrite1, timeoutRead, 
+                                        networkWrite0, networkWrite1, 
+                                        inputRead, inputWrite, logChanWrite, 
+                                        nextChanWrite, commitChanWrite, 
+                                        appliedWrite, appliedWrite0, 
+                                        networkWrite2, networkWrite3, 
+                                        inputWrite0, logChanWrite0, 
+                                        nextChanWrite0, commitChanWrite0, 
+                                        appliedWrite1, networkWrite4, 
+                                        networkRead, iAmTheLeaderWrite, 
+                                        iAmTheLeaderWrite0, lastmsgWrite, 
+                                        lastmsgWrite0, lastmsgWrite1, ifResult, 
+                                        appliedWrite2, appliedWrite3, 
+                                        ifResult0, nextChanWrite1, 
+                                        networkWrite5, termWrite, 
+                                        iAmTheLeaderWrite1, termWrite0, 
+                                        logChanWrite1, commitChanWrite1, 
+                                        nextChanWrite2, iAmTheLeaderWrite2, 
+                                        termWrite1, logChanWrite2, 
+                                        commitChanWrite2, nextChanWrite3, 
+                                        iAmTheLeaderWrite3, termWrite2, 
+                                        logChanWrite3, commitChanWrite3, 
+                                        nextChanWrite4, nextChanWrite5, 
+                                        networkWrite6, iAmTheLeaderWrite4, 
+                                        termWrite3, logChanWrite4, 
+                                        commitChanWrite4, networkWrite7, 
+                                        nextChanWrite6, iAmTheLeaderWrite5, 
+                                        termWrite4, logChanWrite5, 
+                                        commitChanWrite5, lastmsgWrite2, 
+                                        networkWrite8, appliedWrite4, 
+                                        nextChanWrite7, iAmTheLeaderWrite6, 
+                                        termWrite5, logChanWrite6, 
+                                        commitChanWrite6, iAmTheLeaderWrite7, 
+                                        lastmsgWrite3, networkWrite9, 
+                                        appliedWrite5, nextChanWrite8, 
+                                        termWrite6, logChanWrite7, 
+                                        commitChanWrite7, networkWrite10, 
+                                        inputWrite1, logChanWrite8, 
+                                        nextChanWrite9, commitChanWrite8, 
+                                        appliedWrite6, iAmTheLeaderWrite8, 
+                                        lastmsgWrite4, termWrite7, 
+                                        iAmTheLeaderRead0, timerWrite, 
+                                        nextIndexInRead, termRead, logInRead, 
+                                        logInRead0, logInRead1, commitInRead, 
+                                        networkWrite11, networkWrite12, 
+                                        networkWrite13, timerWrite0, 
+                                        networkWrite14, timerWrite1, 
+                                        networkWrite15, msg_, null, 
+                                        heartbeatId, proposerId, counter, 
+                                        requestId, proposal, result_, result, 
+                                        learnerId, decided, timeoutLocal, 
+                                        currentTerm, votedFor, log, state, 
+                                        commitIndex, lastApplied, nextIndex, 
+                                        matchIndex, iterator, votes, value, 
+                                        msg, response, msgs, index, next >>
+
+RVValid(self) == /\ pc[self] = "RVValid"
+                 /\ response' = [response EXCEPT ![self] = [sender |-> self, type |-> RequestVoteResponse, term |-> currentTerm[self], granted |-> TRUE, entries |-> <<>>, prevIndex |-> NULL, prevTerm |-> NULL, commit |-> NULL]]
+                 /\ votedFor' = [votedFor EXCEPT ![self] = (msg[self]).sender]
+                 /\ pc' = [pc EXCEPT ![self] = "RVSendResponse"]
+                 /\ UNCHANGED << values, requestSet, learnedChan, 
+                                 raftLayerChan, kvClient, idAbstract, database, 
+                                 iAmTheLeaderAbstract, frequency, terms, 
+                                 lastSeen, nexts, logs, commits, mailboxes, 
+                                 requestsRead, requestsWrite, iAmTheLeaderRead, 
+                                 proposerChanWrite, raftChanRead, 
+                                 raftChanWrite, upstreamWrite, 
+                                 proposerChanWrite0, raftChanWrite0, 
+                                 upstreamWrite0, requestsWrite0, 
+                                 proposerChanWrite1, raftChanWrite1, 
+                                 upstreamWrite1, learnerChanRead, 
+                                 learnerChanWrite, kvIdRead, dbWrite, dbWrite0, 
+                                 kvIdRead0, kvIdRead1, dbRead, kvIdRead2, 
+                                 requestServiceWrite, requestServiceWrite0, 
+                                 learnerChanWrite0, dbWrite1, 
+                                 requestServiceWrite1, timeoutRead, 
+                                 networkWrite, networkWrite0, networkWrite1, 
+                                 inputRead, inputWrite, logChanWrite, 
+                                 nextChanWrite, commitChanWrite, appliedWrite, 
+                                 appliedWrite0, networkWrite2, networkWrite3, 
+                                 inputWrite0, logChanWrite0, nextChanWrite0, 
+                                 commitChanWrite0, appliedWrite1, 
+                                 networkWrite4, networkRead, iAmTheLeaderWrite, 
                                  iAmTheLeaderWrite0, lastmsgWrite, 
                                  lastmsgWrite0, lastmsgWrite1, ifResult, 
                                  appliedWrite2, appliedWrite3, ifResult0, 
-                                 networkWrite6, termWrite, iAmTheLeaderWrite1, 
-                                 termWrite0, iAmTheLeaderWrite2, termWrite1, 
-                                 iAmTheLeaderWrite3, termWrite2, networkWrite7, 
-                                 iAmTheLeaderWrite4, termWrite3, networkWrite8, 
-                                 iAmTheLeaderWrite5, termWrite4, lastmsgWrite2, 
-                                 networkWrite9, appliedWrite4, 
-                                 iAmTheLeaderWrite6, termWrite5, 
+                                 nextChanWrite1, networkWrite5, termWrite, 
+                                 iAmTheLeaderWrite1, termWrite0, logChanWrite1, 
+                                 commitChanWrite1, nextChanWrite2, 
+                                 iAmTheLeaderWrite2, termWrite1, logChanWrite2, 
+                                 commitChanWrite2, nextChanWrite3, 
+                                 iAmTheLeaderWrite3, termWrite2, logChanWrite3, 
+                                 commitChanWrite3, nextChanWrite4, 
+                                 nextChanWrite5, networkWrite6, 
+                                 iAmTheLeaderWrite4, termWrite3, logChanWrite4, 
+                                 commitChanWrite4, networkWrite7, 
+                                 nextChanWrite6, iAmTheLeaderWrite5, 
+                                 termWrite4, logChanWrite5, commitChanWrite5, 
+                                 lastmsgWrite2, networkWrite8, appliedWrite4, 
+                                 nextChanWrite7, iAmTheLeaderWrite6, 
+                                 termWrite5, logChanWrite6, commitChanWrite6, 
                                  iAmTheLeaderWrite7, lastmsgWrite3, 
-                                 networkWrite10, appliedWrite5, termWrite6, 
-                                 networkWrite11, inputWrite1, appliedWrite6, 
-                                 iAmTheLeaderWrite8, lastmsgWrite4, termWrite7, 
-                                 msg_, null, heartbeatId, proposerId, counter, 
-                                 requestId, proposal, result_, result, 
-                                 learnerId, decided, timeoutLocal, currentTerm, 
-                                 log, state, commitIndex, lastApplied, 
-                                 nextIndex, matchIndex, iterator, votes, value, 
-                                 msg, msgs >>
+                                 networkWrite9, appliedWrite5, nextChanWrite8, 
+                                 termWrite6, logChanWrite7, commitChanWrite7, 
+                                 networkWrite10, inputWrite1, logChanWrite8, 
+                                 nextChanWrite9, commitChanWrite8, 
+                                 appliedWrite6, iAmTheLeaderWrite8, 
+                                 lastmsgWrite4, termWrite7, iAmTheLeaderRead0, 
+                                 timerWrite, nextIndexInRead, termRead, 
+                                 logInRead, logInRead0, logInRead1, 
+                                 commitInRead, networkWrite11, networkWrite12, 
+                                 networkWrite13, timerWrite0, networkWrite14, 
+                                 timerWrite1, networkWrite15, msg_, null, 
+                                 heartbeatId, proposerId, counter, requestId, 
+                                 proposal, result_, result, learnerId, decided, 
+                                 timeoutLocal, currentTerm, log, state, 
+                                 commitIndex, lastApplied, nextIndex, 
+                                 matchIndex, iterator, votes, value, msg, msgs, 
+                                 index, next >>
+
+AERCheckGranted(self) == /\ pc[self] = "AERCheckGranted"
+                         /\ IF (msg[self]).granted
+                               THEN /\ nextIndex' = [nextIndex EXCEPT ![self][msg[self].sender] = ((msg[self]).prevIndex) + (1)]
+                                    /\ matchIndex' = [matchIndex EXCEPT ![self][msg[self].sender] = (msg[self]).prevIndex]
+                                    /\ nextChanWrite' = [nexts EXCEPT ![self] = nextIndex'[self]]
+                                    /\ nextChanWrite1' = nextChanWrite'
+                                    /\ networkWrite5' = mailboxes
+                                    /\ mailboxes' = networkWrite5'
+                                    /\ nexts' = nextChanWrite1'
+                                    /\ pc' = [pc EXCEPT ![self] = "ProcessMsgs"]
+                                    /\ UNCHANGED ifResult0
+                               ELSE /\ IF ((nextIndex[self][(msg[self]).sender]) - (1)) > (1)
+                                          THEN /\ ifResult0' = (nextIndex[self][(msg[self]).sender]) - (1)
+                                          ELSE /\ ifResult0' = 1
+                                    /\ nextIndex' = [nextIndex EXCEPT ![self][msg[self].sender] = ifResult0']
+                                    /\ pc' = [pc EXCEPT ![self] = "RetryAppendEntry"]
+                                    /\ UNCHANGED << nexts, mailboxes, 
+                                                    nextChanWrite, 
+                                                    nextChanWrite1, 
+                                                    networkWrite5, matchIndex >>
+                         /\ UNCHANGED << values, requestSet, learnedChan, 
+                                         raftLayerChan, kvClient, idAbstract, 
+                                         database, iAmTheLeaderAbstract, 
+                                         frequency, terms, lastSeen, logs, 
+                                         commits, requestsRead, requestsWrite, 
+                                         iAmTheLeaderRead, proposerChanWrite, 
+                                         raftChanRead, raftChanWrite, 
+                                         upstreamWrite, proposerChanWrite0, 
+                                         raftChanWrite0, upstreamWrite0, 
+                                         requestsWrite0, proposerChanWrite1, 
+                                         raftChanWrite1, upstreamWrite1, 
+                                         learnerChanRead, learnerChanWrite, 
+                                         kvIdRead, dbWrite, dbWrite0, 
+                                         kvIdRead0, kvIdRead1, dbRead, 
+                                         kvIdRead2, requestServiceWrite, 
+                                         requestServiceWrite0, 
+                                         learnerChanWrite0, dbWrite1, 
+                                         requestServiceWrite1, timeoutRead, 
+                                         networkWrite, networkWrite0, 
+                                         networkWrite1, inputRead, inputWrite, 
+                                         logChanWrite, commitChanWrite, 
+                                         appliedWrite, appliedWrite0, 
+                                         networkWrite2, networkWrite3, 
+                                         inputWrite0, logChanWrite0, 
+                                         nextChanWrite0, commitChanWrite0, 
+                                         appliedWrite1, networkWrite4, 
+                                         networkRead, iAmTheLeaderWrite, 
+                                         iAmTheLeaderWrite0, lastmsgWrite, 
+                                         lastmsgWrite0, lastmsgWrite1, 
+                                         ifResult, appliedWrite2, 
+                                         appliedWrite3, termWrite, 
+                                         iAmTheLeaderWrite1, termWrite0, 
+                                         logChanWrite1, commitChanWrite1, 
+                                         nextChanWrite2, iAmTheLeaderWrite2, 
+                                         termWrite1, logChanWrite2, 
+                                         commitChanWrite2, nextChanWrite3, 
+                                         iAmTheLeaderWrite3, termWrite2, 
+                                         logChanWrite3, commitChanWrite3, 
+                                         nextChanWrite4, nextChanWrite5, 
+                                         networkWrite6, iAmTheLeaderWrite4, 
+                                         termWrite3, logChanWrite4, 
+                                         commitChanWrite4, networkWrite7, 
+                                         nextChanWrite6, iAmTheLeaderWrite5, 
+                                         termWrite4, logChanWrite5, 
+                                         commitChanWrite5, lastmsgWrite2, 
+                                         networkWrite8, appliedWrite4, 
+                                         nextChanWrite7, iAmTheLeaderWrite6, 
+                                         termWrite5, logChanWrite6, 
+                                         commitChanWrite6, iAmTheLeaderWrite7, 
+                                         lastmsgWrite3, networkWrite9, 
+                                         appliedWrite5, nextChanWrite8, 
+                                         termWrite6, logChanWrite7, 
+                                         commitChanWrite7, networkWrite10, 
+                                         inputWrite1, logChanWrite8, 
+                                         nextChanWrite9, commitChanWrite8, 
+                                         appliedWrite6, iAmTheLeaderWrite8, 
+                                         lastmsgWrite4, termWrite7, 
+                                         iAmTheLeaderRead0, timerWrite, 
+                                         nextIndexInRead, termRead, logInRead, 
+                                         logInRead0, logInRead1, commitInRead, 
+                                         networkWrite11, networkWrite12, 
+                                         networkWrite13, timerWrite0, 
+                                         networkWrite14, timerWrite1, 
+                                         networkWrite15, msg_, null, 
+                                         heartbeatId, proposerId, counter, 
+                                         requestId, proposal, result_, result, 
+                                         learnerId, decided, timeoutLocal, 
+                                         currentTerm, votedFor, log, state, 
+                                         commitIndex, lastApplied, iterator, 
+                                         votes, value, msg, response, msgs, 
+                                         index, next >>
 
 RetryAppendEntry(self) == /\ pc[self] = "RetryAppendEntry"
                           /\ networkWrite' = [mailboxes EXCEPT ![(msg[self]).sender] = Append(mailboxes[(msg[self]).sender], [sender |-> self, type |-> RequestVote, term |-> currentTerm[self], granted |-> FALSE, entries |-> SubSeq(log[self], nextIndex[self][(msg[self]).sender], Len(log[self])), prevIndex |-> (nextIndex[self][(msg[self]).sender]) - (1), prevTerm |-> Term(log[self], (nextIndex[self][(msg[self]).sender]) - (1)), commit |-> commitIndex[self]])]
+                          /\ nextChanWrite' = [nexts EXCEPT ![self] = nextIndex[self]]
                           /\ mailboxes' = networkWrite'
+                          /\ nexts' = nextChanWrite'
                           /\ pc' = [pc EXCEPT ![self] = "ProcessMsgs"]
                           /\ UNCHANGED << values, requestSet, learnedChan, 
                                           raftLayerChan, kvClient, idAbstract, 
                                           database, iAmTheLeaderAbstract, 
-                                          frequency, terms, lastSeen, 
-                                          requestsRead, requestsWrite, 
+                                          frequency, terms, lastSeen, logs, 
+                                          commits, requestsRead, requestsWrite, 
                                           iAmTheLeaderRead, proposerChanWrite, 
                                           raftChanRead, raftChanWrite, 
                                           upstreamWrite, proposerChanWrite0, 
@@ -2720,47 +3664,75 @@ RetryAppendEntry(self) == /\ pc[self] = "RetryAppendEntry"
                                           learnerChanWrite0, dbWrite1, 
                                           requestServiceWrite1, timeoutRead, 
                                           networkWrite0, networkWrite1, 
-                                          networkWrite2, inputRead, inputWrite, 
-                                          appliedWrite, appliedWrite0, 
-                                          networkWrite3, networkWrite4, 
-                                          inputWrite0, appliedWrite1, 
-                                          networkWrite5, networkRead, 
+                                          inputRead, inputWrite, logChanWrite, 
+                                          commitChanWrite, appliedWrite, 
+                                          appliedWrite0, networkWrite2, 
+                                          networkWrite3, inputWrite0, 
+                                          logChanWrite0, nextChanWrite0, 
+                                          commitChanWrite0, appliedWrite1, 
+                                          networkWrite4, networkRead, 
                                           iAmTheLeaderWrite, 
                                           iAmTheLeaderWrite0, lastmsgWrite, 
                                           lastmsgWrite0, lastmsgWrite1, 
                                           ifResult, appliedWrite2, 
                                           appliedWrite3, ifResult0, 
-                                          networkWrite6, termWrite, 
-                                          iAmTheLeaderWrite1, termWrite0, 
+                                          nextChanWrite1, networkWrite5, 
+                                          termWrite, iAmTheLeaderWrite1, 
+                                          termWrite0, logChanWrite1, 
+                                          commitChanWrite1, nextChanWrite2, 
                                           iAmTheLeaderWrite2, termWrite1, 
-                                          iAmTheLeaderWrite3, termWrite2, 
-                                          networkWrite7, iAmTheLeaderWrite4, 
-                                          termWrite3, networkWrite8, 
+                                          logChanWrite2, commitChanWrite2, 
+                                          nextChanWrite3, iAmTheLeaderWrite3, 
+                                          termWrite2, logChanWrite3, 
+                                          commitChanWrite3, nextChanWrite4, 
+                                          nextChanWrite5, networkWrite6, 
+                                          iAmTheLeaderWrite4, termWrite3, 
+                                          logChanWrite4, commitChanWrite4, 
+                                          networkWrite7, nextChanWrite6, 
                                           iAmTheLeaderWrite5, termWrite4, 
-                                          lastmsgWrite2, networkWrite9, 
-                                          appliedWrite4, iAmTheLeaderWrite6, 
-                                          termWrite5, iAmTheLeaderWrite7, 
-                                          lastmsgWrite3, networkWrite10, 
-                                          appliedWrite5, termWrite6, 
-                                          networkWrite11, inputWrite1, 
-                                          appliedWrite6, iAmTheLeaderWrite8, 
-                                          lastmsgWrite4, termWrite7, msg_, 
-                                          null, heartbeatId, proposerId, 
-                                          counter, requestId, proposal, 
-                                          result_, result, learnerId, decided, 
-                                          timeoutLocal, currentTerm, votedFor, 
-                                          log, state, commitIndex, lastApplied, 
-                                          nextIndex, matchIndex, iterator, 
-                                          votes, value, msg, response, msgs >>
+                                          logChanWrite5, commitChanWrite5, 
+                                          lastmsgWrite2, networkWrite8, 
+                                          appliedWrite4, nextChanWrite7, 
+                                          iAmTheLeaderWrite6, termWrite5, 
+                                          logChanWrite6, commitChanWrite6, 
+                                          iAmTheLeaderWrite7, lastmsgWrite3, 
+                                          networkWrite9, appliedWrite5, 
+                                          nextChanWrite8, termWrite6, 
+                                          logChanWrite7, commitChanWrite7, 
+                                          networkWrite10, inputWrite1, 
+                                          logChanWrite8, nextChanWrite9, 
+                                          commitChanWrite8, appliedWrite6, 
+                                          iAmTheLeaderWrite8, lastmsgWrite4, 
+                                          termWrite7, iAmTheLeaderRead0, 
+                                          timerWrite, nextIndexInRead, 
+                                          termRead, logInRead, logInRead0, 
+                                          logInRead1, commitInRead, 
+                                          networkWrite11, networkWrite12, 
+                                          networkWrite13, timerWrite0, 
+                                          networkWrite14, timerWrite1, 
+                                          networkWrite15, msg_, null, 
+                                          heartbeatId, proposerId, counter, 
+                                          requestId, proposal, result_, result, 
+                                          learnerId, decided, timeoutLocal, 
+                                          currentTerm, votedFor, log, state, 
+                                          commitIndex, lastApplied, nextIndex, 
+                                          matchIndex, iterator, votes, value, 
+                                          msg, response, msgs, index, next >>
 
 BecomeLeader(self) == /\ pc[self] = "BecomeLeader"
+                      /\ iAmTheLeaderWrite' = [iAmTheLeaderAbstract EXCEPT ![(self) + (NUM_NODES)] = TRUE]
+                      /\ termWrite' = [terms EXCEPT ![self] = currentTerm[self]]
+                      /\ logChanWrite' = [logs EXCEPT ![self] = log[self]]
+                      /\ commitChanWrite' = [commits EXCEPT ![self] = commitIndex[self]]
                       /\ state' = [state EXCEPT ![self] = Leader]
                       /\ matchIndex' = [matchIndex EXCEPT ![self] = [s3 \in Servers |-> 0]]
                       /\ nextIndex' = [nextIndex EXCEPT ![self] = [s4 \in Servers |-> 1]]
-                      /\ iAmTheLeaderWrite' = [iAmTheLeaderAbstract EXCEPT ![(self) + (NUM_NODES)] = TRUE]
-                      /\ termWrite' = [terms EXCEPT ![self] = currentTerm[self]]
+                      /\ nextChanWrite' = [nexts EXCEPT ![self] = nextIndex'[self]]
                       /\ iAmTheLeaderAbstract' = iAmTheLeaderWrite'
                       /\ terms' = termWrite'
+                      /\ nexts' = nextChanWrite'
+                      /\ logs' = logChanWrite'
+                      /\ commits' = commitChanWrite'
                       /\ pc' = [pc EXCEPT ![self] = "ProcessMsgs"]
                       /\ UNCHANGED << values, requestSet, learnedChan, 
                                       raftLayerChan, kvClient, idAbstract, 
@@ -2779,49 +3751,410 @@ BecomeLeader(self) == /\ pc[self] = "BecomeLeader"
                                       requestServiceWrite0, learnerChanWrite0, 
                                       dbWrite1, requestServiceWrite1, 
                                       timeoutRead, networkWrite, networkWrite0, 
-                                      networkWrite1, networkWrite2, inputRead, 
-                                      inputWrite, appliedWrite, appliedWrite0, 
-                                      networkWrite3, networkWrite4, 
-                                      inputWrite0, appliedWrite1, 
-                                      networkWrite5, networkRead, 
-                                      iAmTheLeaderWrite0, lastmsgWrite, 
-                                      lastmsgWrite0, lastmsgWrite1, ifResult, 
-                                      appliedWrite2, appliedWrite3, ifResult0, 
-                                      networkWrite6, iAmTheLeaderWrite1, 
-                                      termWrite0, iAmTheLeaderWrite2, 
-                                      termWrite1, iAmTheLeaderWrite3, 
-                                      termWrite2, networkWrite7, 
+                                      networkWrite1, inputRead, inputWrite, 
+                                      appliedWrite, appliedWrite0, 
+                                      networkWrite2, networkWrite3, 
+                                      inputWrite0, logChanWrite0, 
+                                      nextChanWrite0, commitChanWrite0, 
+                                      appliedWrite1, networkWrite4, 
+                                      networkRead, iAmTheLeaderWrite0, 
+                                      lastmsgWrite, lastmsgWrite0, 
+                                      lastmsgWrite1, ifResult, appliedWrite2, 
+                                      appliedWrite3, ifResult0, nextChanWrite1, 
+                                      networkWrite5, iAmTheLeaderWrite1, 
+                                      termWrite0, logChanWrite1, 
+                                      commitChanWrite1, nextChanWrite2, 
+                                      iAmTheLeaderWrite2, termWrite1, 
+                                      logChanWrite2, commitChanWrite2, 
+                                      nextChanWrite3, iAmTheLeaderWrite3, 
+                                      termWrite2, logChanWrite3, 
+                                      commitChanWrite3, nextChanWrite4, 
+                                      nextChanWrite5, networkWrite6, 
                                       iAmTheLeaderWrite4, termWrite3, 
-                                      networkWrite8, iAmTheLeaderWrite5, 
-                                      termWrite4, lastmsgWrite2, networkWrite9, 
-                                      appliedWrite4, iAmTheLeaderWrite6, 
-                                      termWrite5, iAmTheLeaderWrite7, 
-                                      lastmsgWrite3, networkWrite10, 
-                                      appliedWrite5, termWrite6, 
-                                      networkWrite11, inputWrite1, 
-                                      appliedWrite6, iAmTheLeaderWrite8, 
-                                      lastmsgWrite4, termWrite7, msg_, null, 
-                                      heartbeatId, proposerId, counter, 
-                                      requestId, proposal, result_, result, 
-                                      learnerId, decided, timeoutLocal, 
-                                      currentTerm, votedFor, log, commitIndex, 
-                                      lastApplied, iterator, votes, value, msg, 
-                                      response, msgs >>
+                                      logChanWrite4, commitChanWrite4, 
+                                      networkWrite7, nextChanWrite6, 
+                                      iAmTheLeaderWrite5, termWrite4, 
+                                      logChanWrite5, commitChanWrite5, 
+                                      lastmsgWrite2, networkWrite8, 
+                                      appliedWrite4, nextChanWrite7, 
+                                      iAmTheLeaderWrite6, termWrite5, 
+                                      logChanWrite6, commitChanWrite6, 
+                                      iAmTheLeaderWrite7, lastmsgWrite3, 
+                                      networkWrite9, appliedWrite5, 
+                                      nextChanWrite8, termWrite6, 
+                                      logChanWrite7, commitChanWrite7, 
+                                      networkWrite10, inputWrite1, 
+                                      logChanWrite8, nextChanWrite9, 
+                                      commitChanWrite8, appliedWrite6, 
+                                      iAmTheLeaderWrite8, lastmsgWrite4, 
+                                      termWrite7, iAmTheLeaderRead0, 
+                                      timerWrite, nextIndexInRead, termRead, 
+                                      logInRead, logInRead0, logInRead1, 
+                                      commitInRead, networkWrite11, 
+                                      networkWrite12, networkWrite13, 
+                                      timerWrite0, networkWrite14, timerWrite1, 
+                                      networkWrite15, msg_, null, heartbeatId, 
+                                      proposerId, counter, requestId, proposal, 
+                                      result_, result, learnerId, decided, 
+                                      timeoutLocal, currentTerm, votedFor, log, 
+                                      commitIndex, lastApplied, iterator, 
+                                      votes, value, msg, response, msgs, index, 
+                                      next >>
 
 server(self) == NodeLoop(self) \/ TimeoutCheck(self) \/ SendReqVotes(self)
                    \/ LeaderCheck(self) \/ GetVal(self)
-                   \/ AdvanceIndex(self) \/ ApplyCommited(self)
-                   \/ SendAppendEntries(self) \/ RecvMsg(self)
-                   \/ ProcessMsgs(self) \/ GetMsg(self)
+                   \/ AdvanceIndex(self) \/ UpdateCommit(self)
+                   \/ ApplyCommited(self) \/ SendAppendEntries(self)
+                   \/ RecvMsg(self) \/ ProcessMsgs(self) \/ GetMsg(self)
                    \/ CheckMsgTerm(self) \/ MsgSwitch(self)
                    \/ AESendResponse(self) \/ AEApplyCommitted(self)
                    \/ AEValid(self) \/ RVSendResponse(self)
-                   \/ RVValid(self) \/ RetryAppendEntry(self)
-                   \/ BecomeLeader(self)
+                   \/ RVValid(self) \/ AERCheckGranted(self)
+                   \/ RetryAppendEntry(self) \/ BecomeLeader(self)
+
+HBLoop(self) == /\ pc[self] = "HBLoop"
+                /\ IF TRUE
+                      THEN /\ pc' = [pc EXCEPT ![self] = "CheckHeartBeat"]
+                           /\ UNCHANGED << frequency, mailboxes, timerWrite1, 
+                                           networkWrite15 >>
+                      ELSE /\ timerWrite1' = frequency
+                           /\ networkWrite15' = mailboxes
+                           /\ mailboxes' = networkWrite15'
+                           /\ frequency' = timerWrite1'
+                           /\ pc' = [pc EXCEPT ![self] = "Done"]
+                /\ UNCHANGED << values, requestSet, learnedChan, raftLayerChan, 
+                                kvClient, idAbstract, database, 
+                                iAmTheLeaderAbstract, terms, lastSeen, nexts, 
+                                logs, commits, requestsRead, requestsWrite, 
+                                iAmTheLeaderRead, proposerChanWrite, 
+                                raftChanRead, raftChanWrite, upstreamWrite, 
+                                proposerChanWrite0, raftChanWrite0, 
+                                upstreamWrite0, requestsWrite0, 
+                                proposerChanWrite1, raftChanWrite1, 
+                                upstreamWrite1, learnerChanRead, 
+                                learnerChanWrite, kvIdRead, dbWrite, dbWrite0, 
+                                kvIdRead0, kvIdRead1, dbRead, kvIdRead2, 
+                                requestServiceWrite, requestServiceWrite0, 
+                                learnerChanWrite0, dbWrite1, 
+                                requestServiceWrite1, timeoutRead, 
+                                networkWrite, networkWrite0, networkWrite1, 
+                                inputRead, inputWrite, logChanWrite, 
+                                nextChanWrite, commitChanWrite, appliedWrite, 
+                                appliedWrite0, networkWrite2, networkWrite3, 
+                                inputWrite0, logChanWrite0, nextChanWrite0, 
+                                commitChanWrite0, appliedWrite1, networkWrite4, 
+                                networkRead, iAmTheLeaderWrite, 
+                                iAmTheLeaderWrite0, lastmsgWrite, 
+                                lastmsgWrite0, lastmsgWrite1, ifResult, 
+                                appliedWrite2, appliedWrite3, ifResult0, 
+                                nextChanWrite1, networkWrite5, termWrite, 
+                                iAmTheLeaderWrite1, termWrite0, logChanWrite1, 
+                                commitChanWrite1, nextChanWrite2, 
+                                iAmTheLeaderWrite2, termWrite1, logChanWrite2, 
+                                commitChanWrite2, nextChanWrite3, 
+                                iAmTheLeaderWrite3, termWrite2, logChanWrite3, 
+                                commitChanWrite3, nextChanWrite4, 
+                                nextChanWrite5, networkWrite6, 
+                                iAmTheLeaderWrite4, termWrite3, logChanWrite4, 
+                                commitChanWrite4, networkWrite7, 
+                                nextChanWrite6, iAmTheLeaderWrite5, termWrite4, 
+                                logChanWrite5, commitChanWrite5, lastmsgWrite2, 
+                                networkWrite8, appliedWrite4, nextChanWrite7, 
+                                iAmTheLeaderWrite6, termWrite5, logChanWrite6, 
+                                commitChanWrite6, iAmTheLeaderWrite7, 
+                                lastmsgWrite3, networkWrite9, appliedWrite5, 
+                                nextChanWrite8, termWrite6, logChanWrite7, 
+                                commitChanWrite7, networkWrite10, inputWrite1, 
+                                logChanWrite8, nextChanWrite9, 
+                                commitChanWrite8, appliedWrite6, 
+                                iAmTheLeaderWrite8, lastmsgWrite4, termWrite7, 
+                                iAmTheLeaderRead0, timerWrite, nextIndexInRead, 
+                                termRead, logInRead, logInRead0, logInRead1, 
+                                commitInRead, networkWrite11, networkWrite12, 
+                                networkWrite13, timerWrite0, networkWrite14, 
+                                msg_, null, heartbeatId, proposerId, counter, 
+                                requestId, proposal, result_, result, 
+                                learnerId, decided, timeoutLocal, currentTerm, 
+                                votedFor, log, state, commitIndex, lastApplied, 
+                                nextIndex, matchIndex, iterator, votes, value, 
+                                msg, response, msgs, index, next >>
+
+CheckHeartBeat(self) == /\ pc[self] = "CheckHeartBeat"
+                        /\ iAmTheLeaderRead0' = iAmTheLeaderAbstract[self]
+                        /\ iAmTheLeaderRead0'
+                        /\ pc' = [pc EXCEPT ![self] = "SendHeartBeatLoop"]
+                        /\ UNCHANGED << values, requestSet, learnedChan, 
+                                        raftLayerChan, kvClient, idAbstract, 
+                                        database, iAmTheLeaderAbstract, 
+                                        frequency, terms, lastSeen, nexts, 
+                                        logs, commits, mailboxes, requestsRead, 
+                                        requestsWrite, iAmTheLeaderRead, 
+                                        proposerChanWrite, raftChanRead, 
+                                        raftChanWrite, upstreamWrite, 
+                                        proposerChanWrite0, raftChanWrite0, 
+                                        upstreamWrite0, requestsWrite0, 
+                                        proposerChanWrite1, raftChanWrite1, 
+                                        upstreamWrite1, learnerChanRead, 
+                                        learnerChanWrite, kvIdRead, dbWrite, 
+                                        dbWrite0, kvIdRead0, kvIdRead1, dbRead, 
+                                        kvIdRead2, requestServiceWrite, 
+                                        requestServiceWrite0, 
+                                        learnerChanWrite0, dbWrite1, 
+                                        requestServiceWrite1, timeoutRead, 
+                                        networkWrite, networkWrite0, 
+                                        networkWrite1, inputRead, inputWrite, 
+                                        logChanWrite, nextChanWrite, 
+                                        commitChanWrite, appliedWrite, 
+                                        appliedWrite0, networkWrite2, 
+                                        networkWrite3, inputWrite0, 
+                                        logChanWrite0, nextChanWrite0, 
+                                        commitChanWrite0, appliedWrite1, 
+                                        networkWrite4, networkRead, 
+                                        iAmTheLeaderWrite, iAmTheLeaderWrite0, 
+                                        lastmsgWrite, lastmsgWrite0, 
+                                        lastmsgWrite1, ifResult, appliedWrite2, 
+                                        appliedWrite3, ifResult0, 
+                                        nextChanWrite1, networkWrite5, 
+                                        termWrite, iAmTheLeaderWrite1, 
+                                        termWrite0, logChanWrite1, 
+                                        commitChanWrite1, nextChanWrite2, 
+                                        iAmTheLeaderWrite2, termWrite1, 
+                                        logChanWrite2, commitChanWrite2, 
+                                        nextChanWrite3, iAmTheLeaderWrite3, 
+                                        termWrite2, logChanWrite3, 
+                                        commitChanWrite3, nextChanWrite4, 
+                                        nextChanWrite5, networkWrite6, 
+                                        iAmTheLeaderWrite4, termWrite3, 
+                                        logChanWrite4, commitChanWrite4, 
+                                        networkWrite7, nextChanWrite6, 
+                                        iAmTheLeaderWrite5, termWrite4, 
+                                        logChanWrite5, commitChanWrite5, 
+                                        lastmsgWrite2, networkWrite8, 
+                                        appliedWrite4, nextChanWrite7, 
+                                        iAmTheLeaderWrite6, termWrite5, 
+                                        logChanWrite6, commitChanWrite6, 
+                                        iAmTheLeaderWrite7, lastmsgWrite3, 
+                                        networkWrite9, appliedWrite5, 
+                                        nextChanWrite8, termWrite6, 
+                                        logChanWrite7, commitChanWrite7, 
+                                        networkWrite10, inputWrite1, 
+                                        logChanWrite8, nextChanWrite9, 
+                                        commitChanWrite8, appliedWrite6, 
+                                        iAmTheLeaderWrite8, lastmsgWrite4, 
+                                        termWrite7, timerWrite, 
+                                        nextIndexInRead, termRead, logInRead, 
+                                        logInRead0, logInRead1, commitInRead, 
+                                        networkWrite11, networkWrite12, 
+                                        networkWrite13, timerWrite0, 
+                                        networkWrite14, timerWrite1, 
+                                        networkWrite15, msg_, null, 
+                                        heartbeatId, proposerId, counter, 
+                                        requestId, proposal, result_, result, 
+                                        learnerId, decided, timeoutLocal, 
+                                        currentTerm, votedFor, log, state, 
+                                        commitIndex, lastApplied, nextIndex, 
+                                        matchIndex, iterator, votes, value, 
+                                        msg, response, msgs, index, next >>
+
+SendHeartBeatLoop(self) == /\ pc[self] = "SendHeartBeatLoop"
+                           /\ iAmTheLeaderRead0' = iAmTheLeaderAbstract[self]
+                           /\ IF iAmTheLeaderRead0'
+                                 THEN /\ timerWrite' = HeartBeatFrequency
+                                      /\ index' = [index EXCEPT ![self] = 0]
+                                      /\ nextIndexInRead' = nexts[(self) - (NUM_NODES)]
+                                      /\ next' = [next EXCEPT ![self] = nextIndexInRead']
+                                      /\ frequency' = timerWrite'
+                                      /\ pc' = [pc EXCEPT ![self] = "SendHeartBeats"]
+                                      /\ UNCHANGED << mailboxes, timerWrite0, 
+                                                      networkWrite14 >>
+                                 ELSE /\ timerWrite0' = frequency
+                                      /\ networkWrite14' = mailboxes
+                                      /\ mailboxes' = networkWrite14'
+                                      /\ frequency' = timerWrite0'
+                                      /\ pc' = [pc EXCEPT ![self] = "HBLoop"]
+                                      /\ UNCHANGED << timerWrite, 
+                                                      nextIndexInRead, index, 
+                                                      next >>
+                           /\ UNCHANGED << values, requestSet, learnedChan, 
+                                           raftLayerChan, kvClient, idAbstract, 
+                                           database, iAmTheLeaderAbstract, 
+                                           terms, lastSeen, nexts, logs, 
+                                           commits, requestsRead, 
+                                           requestsWrite, iAmTheLeaderRead, 
+                                           proposerChanWrite, raftChanRead, 
+                                           raftChanWrite, upstreamWrite, 
+                                           proposerChanWrite0, raftChanWrite0, 
+                                           upstreamWrite0, requestsWrite0, 
+                                           proposerChanWrite1, raftChanWrite1, 
+                                           upstreamWrite1, learnerChanRead, 
+                                           learnerChanWrite, kvIdRead, dbWrite, 
+                                           dbWrite0, kvIdRead0, kvIdRead1, 
+                                           dbRead, kvIdRead2, 
+                                           requestServiceWrite, 
+                                           requestServiceWrite0, 
+                                           learnerChanWrite0, dbWrite1, 
+                                           requestServiceWrite1, timeoutRead, 
+                                           networkWrite, networkWrite0, 
+                                           networkWrite1, inputRead, 
+                                           inputWrite, logChanWrite, 
+                                           nextChanWrite, commitChanWrite, 
+                                           appliedWrite, appliedWrite0, 
+                                           networkWrite2, networkWrite3, 
+                                           inputWrite0, logChanWrite0, 
+                                           nextChanWrite0, commitChanWrite0, 
+                                           appliedWrite1, networkWrite4, 
+                                           networkRead, iAmTheLeaderWrite, 
+                                           iAmTheLeaderWrite0, lastmsgWrite, 
+                                           lastmsgWrite0, lastmsgWrite1, 
+                                           ifResult, appliedWrite2, 
+                                           appliedWrite3, ifResult0, 
+                                           nextChanWrite1, networkWrite5, 
+                                           termWrite, iAmTheLeaderWrite1, 
+                                           termWrite0, logChanWrite1, 
+                                           commitChanWrite1, nextChanWrite2, 
+                                           iAmTheLeaderWrite2, termWrite1, 
+                                           logChanWrite2, commitChanWrite2, 
+                                           nextChanWrite3, iAmTheLeaderWrite3, 
+                                           termWrite2, logChanWrite3, 
+                                           commitChanWrite3, nextChanWrite4, 
+                                           nextChanWrite5, networkWrite6, 
+                                           iAmTheLeaderWrite4, termWrite3, 
+                                           logChanWrite4, commitChanWrite4, 
+                                           networkWrite7, nextChanWrite6, 
+                                           iAmTheLeaderWrite5, termWrite4, 
+                                           logChanWrite5, commitChanWrite5, 
+                                           lastmsgWrite2, networkWrite8, 
+                                           appliedWrite4, nextChanWrite7, 
+                                           iAmTheLeaderWrite6, termWrite5, 
+                                           logChanWrite6, commitChanWrite6, 
+                                           iAmTheLeaderWrite7, lastmsgWrite3, 
+                                           networkWrite9, appliedWrite5, 
+                                           nextChanWrite8, termWrite6, 
+                                           logChanWrite7, commitChanWrite7, 
+                                           networkWrite10, inputWrite1, 
+                                           logChanWrite8, nextChanWrite9, 
+                                           commitChanWrite8, appliedWrite6, 
+                                           iAmTheLeaderWrite8, lastmsgWrite4, 
+                                           termWrite7, termRead, logInRead, 
+                                           logInRead0, logInRead1, 
+                                           commitInRead, networkWrite11, 
+                                           networkWrite12, networkWrite13, 
+                                           timerWrite1, networkWrite15, msg_, 
+                                           null, heartbeatId, proposerId, 
+                                           counter, requestId, proposal, 
+                                           result_, result, learnerId, decided, 
+                                           timeoutLocal, currentTerm, votedFor, 
+                                           log, state, commitIndex, 
+                                           lastApplied, nextIndex, matchIndex, 
+                                           iterator, votes, value, msg, 
+                                           response, msgs >>
+
+SendHeartBeats(self) == /\ pc[self] = "SendHeartBeats"
+                        /\ IF (index[self]) < (NUM_NODES)
+                              THEN /\ IF (index[self]) # ((self) - (NUM_NODES))
+                                         THEN /\ termRead' = terms[(self) - (NUM_NODES)]
+                                              /\ logInRead' = logs[(self) - (NUM_NODES)]
+                                              /\ logInRead0' = logs[(self) - (NUM_NODES)]
+                                              /\ logInRead1' = logs[(self) - (NUM_NODES)]
+                                              /\ commitInRead' = commits[(self) - (NUM_NODES)]
+                                              /\ networkWrite11' = [mailboxes EXCEPT ![index[self]] = Append(mailboxes[index[self]], [sender |-> (self) - (NUM_NODES), type |-> AppendEntries, term |-> termRead', granted |-> FALSE, entries |-> SubSeq(logInRead', next[self][index[self]], Len(logInRead0')), prevIndex |-> (next[self][index[self]]) - (1), prevTerm |-> Term(logInRead1', (next[self][index[self]]) - (1)), commit |-> commitInRead'])]
+                                              /\ networkWrite12' = networkWrite11'
+                                         ELSE /\ networkWrite12' = mailboxes
+                                              /\ UNCHANGED << termRead, 
+                                                              logInRead, 
+                                                              logInRead0, 
+                                                              logInRead1, 
+                                                              commitInRead, 
+                                                              networkWrite11 >>
+                                   /\ index' = [index EXCEPT ![self] = (index[self]) + (1)]
+                                   /\ networkWrite13' = networkWrite12'
+                                   /\ mailboxes' = networkWrite13'
+                                   /\ pc' = [pc EXCEPT ![self] = "SendHeartBeats"]
+                              ELSE /\ networkWrite13' = mailboxes
+                                   /\ mailboxes' = networkWrite13'
+                                   /\ pc' = [pc EXCEPT ![self] = "SendHeartBeatLoop"]
+                                   /\ UNCHANGED << termRead, logInRead, 
+                                                   logInRead0, logInRead1, 
+                                                   commitInRead, 
+                                                   networkWrite11, 
+                                                   networkWrite12, index >>
+                        /\ UNCHANGED << values, requestSet, learnedChan, 
+                                        raftLayerChan, kvClient, idAbstract, 
+                                        database, iAmTheLeaderAbstract, 
+                                        frequency, terms, lastSeen, nexts, 
+                                        logs, commits, requestsRead, 
+                                        requestsWrite, iAmTheLeaderRead, 
+                                        proposerChanWrite, raftChanRead, 
+                                        raftChanWrite, upstreamWrite, 
+                                        proposerChanWrite0, raftChanWrite0, 
+                                        upstreamWrite0, requestsWrite0, 
+                                        proposerChanWrite1, raftChanWrite1, 
+                                        upstreamWrite1, learnerChanRead, 
+                                        learnerChanWrite, kvIdRead, dbWrite, 
+                                        dbWrite0, kvIdRead0, kvIdRead1, dbRead, 
+                                        kvIdRead2, requestServiceWrite, 
+                                        requestServiceWrite0, 
+                                        learnerChanWrite0, dbWrite1, 
+                                        requestServiceWrite1, timeoutRead, 
+                                        networkWrite, networkWrite0, 
+                                        networkWrite1, inputRead, inputWrite, 
+                                        logChanWrite, nextChanWrite, 
+                                        commitChanWrite, appliedWrite, 
+                                        appliedWrite0, networkWrite2, 
+                                        networkWrite3, inputWrite0, 
+                                        logChanWrite0, nextChanWrite0, 
+                                        commitChanWrite0, appliedWrite1, 
+                                        networkWrite4, networkRead, 
+                                        iAmTheLeaderWrite, iAmTheLeaderWrite0, 
+                                        lastmsgWrite, lastmsgWrite0, 
+                                        lastmsgWrite1, ifResult, appliedWrite2, 
+                                        appliedWrite3, ifResult0, 
+                                        nextChanWrite1, networkWrite5, 
+                                        termWrite, iAmTheLeaderWrite1, 
+                                        termWrite0, logChanWrite1, 
+                                        commitChanWrite1, nextChanWrite2, 
+                                        iAmTheLeaderWrite2, termWrite1, 
+                                        logChanWrite2, commitChanWrite2, 
+                                        nextChanWrite3, iAmTheLeaderWrite3, 
+                                        termWrite2, logChanWrite3, 
+                                        commitChanWrite3, nextChanWrite4, 
+                                        nextChanWrite5, networkWrite6, 
+                                        iAmTheLeaderWrite4, termWrite3, 
+                                        logChanWrite4, commitChanWrite4, 
+                                        networkWrite7, nextChanWrite6, 
+                                        iAmTheLeaderWrite5, termWrite4, 
+                                        logChanWrite5, commitChanWrite5, 
+                                        lastmsgWrite2, networkWrite8, 
+                                        appliedWrite4, nextChanWrite7, 
+                                        iAmTheLeaderWrite6, termWrite5, 
+                                        logChanWrite6, commitChanWrite6, 
+                                        iAmTheLeaderWrite7, lastmsgWrite3, 
+                                        networkWrite9, appliedWrite5, 
+                                        nextChanWrite8, termWrite6, 
+                                        logChanWrite7, commitChanWrite7, 
+                                        networkWrite10, inputWrite1, 
+                                        logChanWrite8, nextChanWrite9, 
+                                        commitChanWrite8, appliedWrite6, 
+                                        iAmTheLeaderWrite8, lastmsgWrite4, 
+                                        termWrite7, iAmTheLeaderRead0, 
+                                        timerWrite, nextIndexInRead, 
+                                        timerWrite0, networkWrite14, 
+                                        timerWrite1, networkWrite15, msg_, 
+                                        null, heartbeatId, proposerId, counter, 
+                                        requestId, proposal, result_, result, 
+                                        learnerId, decided, timeoutLocal, 
+                                        currentTerm, votedFor, log, state, 
+                                        commitIndex, lastApplied, nextIndex, 
+                                        matchIndex, iterator, votes, value, 
+                                        msg, response, msgs, next >>
+
+heartbeat(self) == HBLoop(self) \/ CheckHeartBeat(self)
+                      \/ SendHeartBeatLoop(self) \/ SendHeartBeats(self)
 
 Next == (\E self \in KVRequests: kvRequests(self))
            \/ (\E self \in KVManager: kvManager(self))
            \/ (\E self \in Servers: server(self))
+           \/ (\E self \in Heartbeats: heartbeat(self))
            \/ (* Disjunct to prevent deadlock on termination *)
               ((\A self \in ProcSet: pc[self] = "Done") /\ UNCHANGED vars)
 
@@ -2829,6 +4162,7 @@ Spec == /\ Init /\ [][Next]_vars
         /\ \A self \in KVRequests : WF_vars(kvRequests(self))
         /\ \A self \in KVManager : WF_vars(kvManager(self))
         /\ \A self \in Servers : WF_vars(server(self))
+        /\ \A self \in Heartbeats : WF_vars(heartbeat(self))
 
 Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 
