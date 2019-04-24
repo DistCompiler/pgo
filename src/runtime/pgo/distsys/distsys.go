@@ -1,6 +1,8 @@
 package distsys
 
 import (
+	"github.com/mitchellh/hashstructure"
+
 	"bytes"
 	"encoding/gob"
 	"fmt"
@@ -597,4 +599,14 @@ func NewStateServer(configuration map[string]string, address, coordinator string
 // by PGo.
 func DefineCustomType(value interface{}) {
 	gob.Register(value)
+}
+
+// Hash returns a uint64 representation for arbitrary data types.
+func Hash(value interface{}) uint64 {
+	result, err := hashstructure.Hash(value, nil)
+	if err != nil {
+		panic(fmt.Sprintf("Cannot hash value: %v", value))
+	}
+
+	return result
 }
