@@ -5,14 +5,17 @@
 
 EXTENDS Integers, Sequences, FiniteSets, TLC
 
-CONSTANTS NUM_NODES, NUM_PROPOSALS
-ASSUME NUM_NODES \in Nat /\ NUM_PROPOSALS \in Nat
+CONSTANTS NUM_PROPOSERS, NUM_ACCEPTORS, NUM_LEARNERS
+ASSUME NUM_PROPOSERS \in Nat /\ NUM_ACCEPTORS \in Nat /\ NUM_LEARNERS \in Nat
+
+CONSTANT NUM_PROPOSALS
+ASSUME NUM_PROPOSALS \in Nat
 
 CONSTANT BUFFER_SIZE
 ASSUME BUFFER_SIZE \in Nat
 
-CONSTANT NULL, NULL_DB_VALUE
-ASSUME NULL \notin Nat /\ NULL_DB_VALUE \notin Nat /\ NULL # NULL_DB_VALUE
+CONSTANT NULL
+ASSUME NULL \notin Nat
 
 \* maximum amount of leader failures tested in a behavior
 CONSTANT MAX_FAILURES
@@ -21,14 +24,12 @@ ASSUME MAX_FAILURES \in Nat
 (***************************************************************************
 --mpcal Paxos {
   define {
-      Proposer       == 0..NUM_NODES-1
-      Acceptor       == NUM_NODES..(2*NUM_NODES-1)
-      Learner        == (2*NUM_NODES)..(3*NUM_NODES-1)
-      Heartbeat      == (3*NUM_NODES)..(4*NUM_NODES-1)
-      LeaderMonitor  == (4*NUM_NODES)..(5*NUM_NODES-1)
-      KVRequests     == (5*NUM_NODES)..(6*NUM_NODES-1)
-      KVPaxosManager == (6*NUM_NODES)..(7*NUM_NODES-1)
-      AllNodes       == 0..(4*NUM_NODES-1)
+      Proposer       == 0..NUM_PROPOSERS-1
+      Acceptor       == NUM_PROPOSERS..(NUM_PROPOSERS+NUM_ACCEPTORS-1)
+      Learner        == (NUM_PROPOSERS+NUM_ACCEPTORS)..(NUM_PROPOSERS+NUM_ACCEPTORS+NUM_LEARNERS-1)
+      Heartbeat      == (NUM_PROPOSERS+NUM_ACCEPTORS+NUM_LEARNERS)..(2*NUM_PROPOSERS+NUM_ACCEPTORS+NUM_LEARNERS-1)
+      LeaderMonitor  == (2*NUM_PROPOSERS+NUM_ACCEPTORS+NUM_LEARNERS)..(3*NUM_PROPOSERS+NUM_ACCEPTORS+NUM_LEARNERS-1)
+      AllNodes       == 0..(2*NUM_PROPOSERS+NUM_ACCEPTORS+NUM_LEARNERS-1)
 
       PREPARE_MSG      == "prepare_msg"
       PROMISE_MSG      == "promise_msg"
@@ -36,14 +37,6 @@ ASSUME MAX_FAILURES \in Nat
       ACCEPT_MSG       == "accept_msg"
       REJECT_MSG       == "reject_msg"
       HEARTBEAT_MSG    == "heartbeat_msg"
-      GET_MSG          == "get_msg"
-      PUT_MSG          == "put_msg"
-      GET_RESPONSE_MSG == "get_response_msg"
-      NOT_LEADER_MSG   == "not_leader_msg"
-      OK_MSG           == "ok_msg"
-
-      GET == "get"
-      PUT == "put"
   }
 
   \* Broadcasts to nodes in range i..stop.
@@ -55,15 +48,15 @@ ASSUME MAX_FAILURES \in Nat
   }
 
   macro BroadcastLearners(mailboxes, msg, i) {
-      Broadcast(mailboxes, msg, i, 3*NUM_NODES-1);
+      Broadcast(mailboxes, msg, i, NUM_PROPOSERS+NUM_ACCEPTORS+NUM_LEARNERS-1);
   }
 
   macro BroadcastAcceptors(mailboxes, msg, i) {
-      Broadcast(mailboxes, msg, i, 2*NUM_NODES-1);
+      Broadcast(mailboxes, msg, i, NUM_PROPOSERS+NUM_ACCEPTORS-1);
   }
 
   macro BroadcastHeartbeats(mailboxes,  msg, i, me) {
-      while (i <= 4*NUM_NODES-1) {
+      while (i <= 2*NUM_PROPOSERS+NUM_ACCEPTORS+NUM_LEARNERS-1) {
           if (i # me) {
               mailboxes[i] := msg;
           };
@@ -85,11 +78,6 @@ ASSUME MAX_FAILURES \in Nat
           await Len($variable) < BUFFER_SIZE;
           yield Append($variable, $value);
       }
-  }
-
-  mapping macro SelfManager {
-      read  { yield self - NUM_NODES; }
-      write { assert(FALSE); yield $value; }
   }
 
   mapping macro NextProposal {
@@ -235,7 +223,7 @@ ASSUME MAX_FAILURES \in Nat
                     \* Respond that the proposal was accepted
                     mailboxes[msg.sender] := payload;
 
-                    loopIndex := 2*NUM_NODES;
+                    loopIndex := NUM_PROPOSERS+NUM_ACCEPTORS;
 
                     \* Inform the learners of the accept
                     ANotifyLearners:
@@ -267,7 +255,7 @@ ASSUME MAX_FAILURES \in Nat
   {
       Pre:
         b := self;
-        heartbeatMonitorId := self + 3*NUM_NODES;
+        heartbeatMonitorId := self + NUM_PROPOSERS+NUM_ACCEPTORS+NUM_LEARNERS;
 
       P:
         while (TRUE) {
@@ -302,7 +290,7 @@ ASSUME MAX_FAILURES \in Nat
                         value := valueStream;
                     };
 
-                    index := NUM_NODES;
+                    index := NUM_PROPOSERS;
 
                     \* Send Propose message to every acceptor
                     PSendProposes:
@@ -340,7 +328,7 @@ ASSUME MAX_FAILURES \in Nat
             \***********
             \* PHASE 1
             \***********
-            index := NUM_NODES;
+            index := NUM_PROPOSERS;
 
             \* Send prepares to every acceptor (NOTE: `val` entry is not read in this message, but we set it there to stop the type
             \* checker from enforcing `value` to be an integer (or whatever the concrete type of NULL is when compiling)
@@ -371,8 +359,8 @@ ASSUME MAX_FAILURES \in Nat
 
                     PWaitLeaderFailure:
                       assert(leaderFailure[heartbeatMonitorId] = TRUE);
-                      b := b + NUM_NODES; \* to remain unique
-                      index := NUM_NODES;
+                      b := b + NUM_PROPOSERS; \* to remain unique
+                      index := NUM_PROPOSERS;
 
                     \* `val` is not necessary in this message (see NOTE above)
                     PReSendReqVotes:
@@ -393,10 +381,10 @@ ASSUME MAX_FAILURES \in Nat
         while (TRUE) {
           leaderLoop:
              while (~electionInProgress[self] /\ iAmTheLeader[self]) {
-                 index := 3*NUM_NODES;
+                 index := NUM_PROPOSERS+NUM_ACCEPTORS+NUM_LEARNERS;
 
                  heartbeatBroadcast:
-                   BroadcastHeartbeats(mailboxes, [type |-> HEARTBEAT_MSG, leader |-> self - 3*NUM_NODES], index, self);
+                   BroadcastHeartbeats(mailboxes, [type |-> HEARTBEAT_MSG, leader |-> self - NUM_PROPOSERS+NUM_ACCEPTORS+NUM_LEARNERS], index, self);
 
                  sleeper := heartbeatFrequency;
              };
@@ -415,7 +403,7 @@ ASSUME MAX_FAILURES \in Nat
   variables heartbeatId;
   {
     findId:
-      heartbeatId := self - NUM_NODES;
+      heartbeatId := self - NUM_PROPOSERS;
 
     monitorLoop:
       while (TRUE) {
@@ -483,34 +471,25 @@ ASSUME MAX_FAILURES \in Nat
 --algorithm Paxos {
     variables network = [id \in AllNodes |-> <<>>], values = (1) .. (NUM_PROPOSALS), lastSeenAbstract, timeoutCheckerAbstract = 0, decidedValues = [l \in Learner |-> <<>>], sleeperAbstract, electionInProgresssAbstract = [h \in Heartbeat |-> TRUE], iAmTheLeaderAbstract = [h \in Heartbeat |-> FALSE], leaderFailureAbstract = [h \in Heartbeat |-> FALSE], valueStreamRead, valueStreamWrite, valueStreamWrite0, valueStreamWrite1, mailboxesWrite, mailboxesWrite0, mailboxesRead, iAmTheLeaderWrite, electionInProgressWrite, leaderFailureRead, iAmTheLeaderWrite0, electionInProgressWrite0, iAmTheLeaderWrite1, electionInProgressWrite1, mailboxesWrite1, iAmTheLeaderWrite2, electionInProgressWrite2, mailboxesWrite2, iAmTheLeaderWrite3, electionInProgressWrite3, iAmTheLeaderWrite4, electionInProgressWrite4, mailboxesWrite3, electionInProgressWrite5, mailboxesWrite4, iAmTheLeaderWrite5, electionInProgressWrite6, mailboxesWrite5, mailboxesWrite6, iAmTheLeaderWrite6, electionInProgressWrite7, valueStreamWrite2, mailboxesWrite7, iAmTheLeaderWrite7, electionInProgressWrite8, valueStreamWrite3, mailboxesWrite8, iAmTheLeaderWrite8, electionInProgressWrite9, mailboxesRead0, mailboxesWrite9, mailboxesWrite10, mailboxesWrite11, mailboxesWrite12, mailboxesWrite13, mailboxesWrite14, mailboxesWrite15, mailboxesRead1, mailboxesWrite16, decidedWrite, decidedWrite0, decidedWrite1, decidedWrite2, mailboxesWrite17, decidedWrite3, electionInProgressRead, iAmTheLeaderRead, mailboxesWrite18, mailboxesWrite19, heartbeatFrequencyRead, sleeperWrite, mailboxesWrite20, sleeperWrite0, mailboxesWrite21, sleeperWrite1, mailboxesRead2, lastSeenWrite, mailboxesWrite22, lastSeenWrite0, mailboxesWrite23, sleeperWrite2, lastSeenWrite1, electionInProgressRead0, iAmTheLeaderRead0, timeoutCheckerRead, timeoutCheckerWrite, timeoutCheckerWrite0, timeoutCheckerWrite1, leaderFailureWrite, electionInProgressWrite10, leaderFailureWrite0, electionInProgressWrite11, timeoutCheckerWrite2, leaderFailureWrite1, electionInProgressWrite12, monitorFrequencyRead, sleeperWrite3, timeoutCheckerWrite3, leaderFailureWrite2, electionInProgressWrite13, sleeperWrite4;
     define {
-        Proposer == (0) .. ((NUM_NODES) - (1))
-        Acceptor == (NUM_NODES) .. (((2) * (NUM_NODES)) - (1))
-        Learner == ((2) * (NUM_NODES)) .. (((3) * (NUM_NODES)) - (1))
-        Heartbeat == ((3) * (NUM_NODES)) .. (((4) * (NUM_NODES)) - (1))
-        LeaderMonitor == ((4) * (NUM_NODES)) .. (((5) * (NUM_NODES)) - (1))
-        KVRequests == ((5) * (NUM_NODES)) .. (((6) * (NUM_NODES)) - (1))
-        KVPaxosManager == ((6) * (NUM_NODES)) .. (((7) * (NUM_NODES)) - (1))
-        AllNodes == (0) .. (((4) * (NUM_NODES)) - (1))
+        Proposer == (0) .. ((NUM_PROPOSERS) - (1))
+        Acceptor == (NUM_PROPOSERS) .. ((NUM_PROPOSERS) + ((NUM_ACCEPTORS) - (1)))
+        Learner == ((NUM_PROPOSERS) + (NUM_ACCEPTORS)) .. (((NUM_PROPOSERS) + (NUM_ACCEPTORS)) + ((NUM_LEARNERS) - (1)))
+        Heartbeat == (((NUM_PROPOSERS) + (NUM_ACCEPTORS)) + (NUM_LEARNERS)) .. ((((2) * (NUM_PROPOSERS)) + (NUM_ACCEPTORS)) + ((NUM_LEARNERS) - (1)))
+        LeaderMonitor == ((((2) * (NUM_PROPOSERS)) + (NUM_ACCEPTORS)) + (NUM_LEARNERS)) .. ((((3) * (NUM_PROPOSERS)) + (NUM_ACCEPTORS)) + ((NUM_LEARNERS) - (1)))
+        AllNodes == (0) .. ((((2) * (NUM_PROPOSERS)) + (NUM_ACCEPTORS)) + ((NUM_LEARNERS) - (1)))
         PREPARE_MSG == "prepare_msg"
         PROMISE_MSG == "promise_msg"
         PROPOSE_MSG == "propose_msg"
         ACCEPT_MSG == "accept_msg"
         REJECT_MSG == "reject_msg"
         HEARTBEAT_MSG == "heartbeat_msg"
-        GET_MSG == "get_msg"
-        PUT_MSG == "put_msg"
-        GET_RESPONSE_MSG == "get_response_msg"
-        NOT_LEADER_MSG == "not_leader_msg"
-        OK_MSG == "ok_msg"
-        GET == "get"
-        PUT == "put"
     }
     fair process (proposer \in Proposer)
     variables b, s = 1, elected = FALSE, acceptedValues = <<>>, maxBal = -(1), index, entry, promises, heartbeatMonitorId, accepts = 0, value, repropose, resp;
     {
         Pre:
             b := self;
-            heartbeatMonitorId := (self) + ((3) * (NUM_NODES));
+            heartbeatMonitorId := (((self) + (NUM_PROPOSERS)) + (NUM_ACCEPTORS)) + (NUM_LEARNERS);
         P:
             if (TRUE) {
                 PLeaderCheck:
@@ -542,13 +521,13 @@ ASSUME MAX_FAILURES \in Nat
                                 } else {
                                     valueStreamWrite0 := values;
                                 };
-                                index := NUM_NODES;
+                                index := NUM_PROPOSERS;
                                 valueStreamWrite1 := valueStreamWrite0;
                                 values := valueStreamWrite1;
                             };
 
                         PSendProposes:
-                            if ((index) <= (((2) * (NUM_NODES)) - (1))) {
+                            if ((index) <= ((NUM_PROPOSERS) + ((NUM_ACCEPTORS) - (1)))) {
                                 await (Len(network[index])) < (BUFFER_SIZE);
                                 mailboxesWrite := [network EXCEPT ![index] = Append(network[index], [type |-> PROPOSE_MSG, bal |-> b, sender |-> self, slot |-> s, val |-> value])];
                                 index := (index) + (1);
@@ -637,9 +616,9 @@ ASSUME MAX_FAILURES \in Nat
                             };
 
                     } else {
-                        index := NUM_NODES;
+                        index := NUM_PROPOSERS;
                         PReqVotes:
-                            if ((index) <= (((2) * (NUM_NODES)) - (1))) {
+                            if ((index) <= ((NUM_PROPOSERS) + ((NUM_ACCEPTORS) - (1)))) {
                                 await (Len(network[index])) < (BUFFER_SIZE);
                                 mailboxesWrite := [network EXCEPT ![index] = Append(network[index], [type |-> PREPARE_MSG, bal |-> b, sender |-> self, slot |-> NULL, val |-> value])];
                                 index := (index) + (1);
@@ -712,11 +691,11 @@ ASSUME MAX_FAILURES \in Nat
                                             await (leaderFailureAbstract[heartbeatMonitorId]) = (TRUE);
                                             leaderFailureRead := leaderFailureAbstract[heartbeatMonitorId];
                                             assert (leaderFailureRead) = (TRUE);
-                                            b := (b) + (NUM_NODES);
-                                            index := NUM_NODES;
+                                            b := (b) + (NUM_PROPOSERS);
+                                            index := NUM_PROPOSERS;
 
                                         PReSendReqVotes:
-                                            if ((index) <= (((2) * (NUM_NODES)) - (1))) {
+                                            if ((index) <= ((NUM_PROPOSERS) + ((NUM_ACCEPTORS) - (1)))) {
                                                 await (Len(network[index])) < (BUFFER_SIZE);
                                                 mailboxesWrite := [network EXCEPT ![index] = Append(network[index], [type |-> PREPARE_MSG, bal |-> b, sender |-> self, slot |-> NULL, val |-> value])];
                                                 index := (index) + (1);
@@ -805,11 +784,11 @@ ASSUME MAX_FAILURES \in Nat
                                     acceptedValues := Append(acceptedValues, [slot |-> (msg).slot, bal |-> (msg).bal, val |-> (msg).val]);
                                     await (Len(network[(msg).sender])) < (BUFFER_SIZE);
                                     mailboxesWrite9 := [network EXCEPT ![(msg).sender] = Append(network[(msg).sender], payload)];
-                                    loopIndex := (2) * (NUM_NODES);
+                                    loopIndex := (NUM_PROPOSERS) + (NUM_ACCEPTORS);
                                     network := mailboxesWrite9;
 
                                 ANotifyLearners:
-                                    if ((loopIndex) <= (((3) * (NUM_NODES)) - (1))) {
+                                    if ((loopIndex) <= (((NUM_PROPOSERS) + (NUM_ACCEPTORS)) + ((NUM_LEARNERS) - (1)))) {
                                         await (Len(network[loopIndex])) < (BUFFER_SIZE);
                                         mailboxesWrite9 := [network EXCEPT ![loopIndex] = Append(network[loopIndex], payload)];
                                         loopIndex := (loopIndex) + (1);
@@ -925,12 +904,12 @@ ASSUME MAX_FAILURES \in Nat
                     electionInProgressRead := electionInProgresssAbstract[self];
                     iAmTheLeaderRead := iAmTheLeaderAbstract[self];
                     if ((~(electionInProgressRead)) /\ (iAmTheLeaderRead)) {
-                        index := (3) * (NUM_NODES);
+                        index := ((NUM_PROPOSERS) + (NUM_ACCEPTORS)) + (NUM_LEARNERS);
                         heartbeatBroadcast:
-                            if ((index) <= (((4) * (NUM_NODES)) - (1))) {
+                            if ((index) <= ((((2) * (NUM_PROPOSERS)) + (NUM_ACCEPTORS)) + ((NUM_LEARNERS) - (1)))) {
                                 if ((index) # (self)) {
                                     await (Len(network[index])) < (BUFFER_SIZE);
-                                    mailboxesWrite18 := [network EXCEPT ![index] = Append(network[index], [type |-> HEARTBEAT_MSG, leader |-> (self) - ((3) * (NUM_NODES))])];
+                                    mailboxesWrite18 := [network EXCEPT ![index] = Append(network[index], [type |-> HEARTBEAT_MSG, leader |-> (((self) - (NUM_PROPOSERS)) + (NUM_ACCEPTORS)) + (NUM_LEARNERS)])];
                                     mailboxesWrite19 := mailboxesWrite18;
                                 } else {
                                     mailboxesWrite19 := network;
@@ -997,7 +976,7 @@ ASSUME MAX_FAILURES \in Nat
     variables monitorFrequencyLocal = 100, heartbeatId;
     {
         findId:
-            heartbeatId := (self) - (NUM_NODES);
+            heartbeatId := (self) - (NUM_PROPOSERS);
         monitorLoop:
             if (TRUE) {
                 electionInProgressRead0 := electionInProgresssAbstract[heartbeatId];
@@ -1072,13 +1051,13 @@ ASSUME MAX_FAILURES \in Nat
 ***************************************************************************)
 
 \* BEGIN TRANSLATION
-\* Process variable acceptedValues of process proposer at line 509 col 42 changed to acceptedValues_
-\* Process variable maxBal of process proposer at line 509 col 65 changed to maxBal_
-\* Process variable index of process proposer at line 509 col 80 changed to index_
-\* Process variable entry of process proposer at line 509 col 87 changed to entry_
-\* Process variable accepts of process proposer at line 509 col 124 changed to accepts_
-\* Process variable msg of process acceptor at line 772 col 73 changed to msg_
-\* Process variable msg of process learner at line 852 col 73 changed to msg_l
+\* Process variable acceptedValues of process proposer at line 488 col 42 changed to acceptedValues_
+\* Process variable maxBal of process proposer at line 488 col 65 changed to maxBal_
+\* Process variable index of process proposer at line 488 col 80 changed to index_
+\* Process variable entry of process proposer at line 488 col 87 changed to entry_
+\* Process variable accepts of process proposer at line 488 col 124 changed to accepts_
+\* Process variable msg of process acceptor at line 751 col 73 changed to msg_
+\* Process variable msg of process learner at line 831 col 73 changed to msg_l
 CONSTANT defaultInitValue
 VARIABLES network, values, lastSeenAbstract, timeoutCheckerAbstract,
           decidedValues, sleeperAbstract, electionInProgresssAbstract,
@@ -1114,27 +1093,18 @@ VARIABLES network, values, lastSeenAbstract, timeoutCheckerAbstract,
           leaderFailureWrite2, electionInProgressWrite13, sleeperWrite4, pc
 
 (* define statement *)
-Proposer == (0) .. ((NUM_NODES) - (1))
-Acceptor == (NUM_NODES) .. (((2) * (NUM_NODES)) - (1))
-Learner == ((2) * (NUM_NODES)) .. (((3) * (NUM_NODES)) - (1))
-Heartbeat == ((3) * (NUM_NODES)) .. (((4) * (NUM_NODES)) - (1))
-LeaderMonitor == ((4) * (NUM_NODES)) .. (((5) * (NUM_NODES)) - (1))
-KVRequests == ((5) * (NUM_NODES)) .. (((6) * (NUM_NODES)) - (1))
-KVPaxosManager == ((6) * (NUM_NODES)) .. (((7) * (NUM_NODES)) - (1))
-AllNodes == (0) .. (((4) * (NUM_NODES)) - (1))
+Proposer == (0) .. ((NUM_PROPOSERS) - (1))
+Acceptor == (NUM_PROPOSERS) .. ((NUM_PROPOSERS) + ((NUM_ACCEPTORS) - (1)))
+Learner == ((NUM_PROPOSERS) + (NUM_ACCEPTORS)) .. (((NUM_PROPOSERS) + (NUM_ACCEPTORS)) + ((NUM_LEARNERS) - (1)))
+Heartbeat == (((NUM_PROPOSERS) + (NUM_ACCEPTORS)) + (NUM_LEARNERS)) .. ((((2) * (NUM_PROPOSERS)) + (NUM_ACCEPTORS)) + ((NUM_LEARNERS) - (1)))
+LeaderMonitor == ((((2) * (NUM_PROPOSERS)) + (NUM_ACCEPTORS)) + (NUM_LEARNERS)) .. ((((3) * (NUM_PROPOSERS)) + (NUM_ACCEPTORS)) + ((NUM_LEARNERS) - (1)))
+AllNodes == (0) .. ((((2) * (NUM_PROPOSERS)) + (NUM_ACCEPTORS)) + ((NUM_LEARNERS) - (1)))
 PREPARE_MSG == "prepare_msg"
 PROMISE_MSG == "promise_msg"
 PROPOSE_MSG == "propose_msg"
 ACCEPT_MSG == "accept_msg"
 REJECT_MSG == "reject_msg"
 HEARTBEAT_MSG == "heartbeat_msg"
-GET_MSG == "get_msg"
-PUT_MSG == "put_msg"
-GET_RESPONSE_MSG == "get_response_msg"
-NOT_LEADER_MSG == "not_leader_msg"
-OK_MSG == "ok_msg"
-GET == "get"
-PUT == "put"
 
 VARIABLES b, s, elected, acceptedValues_, maxBal_, index_, entry_, promises,
           heartbeatMonitorId, accepts_, value, repropose, resp, maxBal,
@@ -1326,7 +1296,7 @@ Init == (* Global variables *)
 
 Pre(self) == /\ pc[self] = "Pre"
              /\ b' = [b EXCEPT ![self] = self]
-             /\ heartbeatMonitorId' = [heartbeatMonitorId EXCEPT ![self] = (self) + ((3) * (NUM_NODES))]
+             /\ heartbeatMonitorId' = [heartbeatMonitorId EXCEPT ![self] = (((self) + (NUM_PROPOSERS)) + (NUM_ACCEPTORS)) + (NUM_LEARNERS)]
              /\ pc' = [pc EXCEPT ![self] = "P"]
              /\ UNCHANGED << network, values, lastSeenAbstract,
                              timeoutCheckerAbstract, decidedValues,
@@ -1453,7 +1423,7 @@ PLeaderCheck(self) == /\ pc[self] = "PLeaderCheck"
                                  /\ repropose' = [repropose EXCEPT ![self] = FALSE]
                                  /\ index_' = [index_ EXCEPT ![self] = 1]
                                  /\ pc' = [pc EXCEPT ![self] = "PFindMaxVal"]
-                            ELSE /\ index_' = [index_ EXCEPT ![self] = NUM_NODES]
+                            ELSE /\ index_' = [index_ EXCEPT ![self] = NUM_PROPOSERS]
                                  /\ pc' = [pc EXCEPT ![self] = "PReqVotes"]
                                  /\ UNCHANGED << accepts_, repropose >>
                       /\ UNCHANGED << network, values, lastSeenAbstract,
@@ -1558,7 +1528,7 @@ PFindMaxVal(self) == /\ pc[self] = "PFindMaxVal"
                                            /\ UNCHANGED << valueStreamRead,
                                                            valueStreamWrite,
                                                            value >>
-                                /\ index_' = [index_ EXCEPT ![self] = NUM_NODES]
+                                /\ index_' = [index_ EXCEPT ![self] = NUM_PROPOSERS]
                                 /\ valueStreamWrite1' = valueStreamWrite0'
                                 /\ values' = valueStreamWrite1'
                                 /\ pc' = [pc EXCEPT ![self] = "PSendProposes"]
@@ -1630,7 +1600,7 @@ PFindMaxVal(self) == /\ pc[self] = "PFindMaxVal"
                                      monitorFrequencyLocal, heartbeatId >>
 
 PSendProposes(self) == /\ pc[self] = "PSendProposes"
-                       /\ IF (index_[self]) <= (((2) * (NUM_NODES)) - (1))
+                       /\ IF (index_[self]) <= ((NUM_PROPOSERS) + ((NUM_ACCEPTORS) - (1)))
                              THEN /\ (Len(network[index_[self]])) < (BUFFER_SIZE)
                                   /\ mailboxesWrite' = [network EXCEPT ![index_[self]] = Append(network[index_[self]], [type |-> PROPOSE_MSG, bal |-> b[self], sender |-> self, slot |-> s[self], val |-> value[self]])]
                                   /\ index_' = [index_ EXCEPT ![self] = (index_[self]) + (1)]
@@ -1857,7 +1827,7 @@ PWaitFailure(self) == /\ pc[self] = "PWaitFailure"
                       /\ (leaderFailureAbstract[heartbeatMonitorId[self]]) = (TRUE)
                       /\ leaderFailureRead' = leaderFailureAbstract[heartbeatMonitorId[self]]
                       /\ Assert((leaderFailureRead') = (TRUE),
-                                "Failure of assertion at line 605, column 45.")
+                                "Failure of assertion at line 584, column 45.")
                       /\ pc' = [pc EXCEPT ![self] = "PSearchAccs"]
                       /\ UNCHANGED << network, values, lastSeenAbstract,
                                       timeoutCheckerAbstract, decidedValues,
@@ -2000,7 +1970,7 @@ PIncSlot(self) == /\ pc[self] = "PIncSlot"
                                   index, monitorFrequencyLocal, heartbeatId >>
 
 PReqVotes(self) == /\ pc[self] = "PReqVotes"
-                   /\ IF (index_[self]) <= (((2) * (NUM_NODES)) - (1))
+                   /\ IF (index_[self]) <= ((NUM_PROPOSERS) + ((NUM_ACCEPTORS) - (1)))
                          THEN /\ (Len(network[index_[self]])) < (BUFFER_SIZE)
                               /\ mailboxesWrite' = [network EXCEPT ![index_[self]] = Append(network[index_[self]], [type |-> PREPARE_MSG, bal |-> b[self], sender |-> self, slot |-> NULL, val |-> value[self]])]
                               /\ index_' = [index_ EXCEPT ![self] = (index_[self]) + (1)]
@@ -2237,9 +2207,9 @@ PWaitLeaderFailure(self) == /\ pc[self] = "PWaitLeaderFailure"
                             /\ (leaderFailureAbstract[heartbeatMonitorId[self]]) = (TRUE)
                             /\ leaderFailureRead' = leaderFailureAbstract[heartbeatMonitorId[self]]
                             /\ Assert((leaderFailureRead') = (TRUE),
-                                      "Failure of assertion at line 714, column 45.")
-                            /\ b' = [b EXCEPT ![self] = (b[self]) + (NUM_NODES)]
-                            /\ index_' = [index_ EXCEPT ![self] = NUM_NODES]
+                                      "Failure of assertion at line 693, column 45.")
+                            /\ b' = [b EXCEPT ![self] = (b[self]) + (NUM_PROPOSERS)]
+                            /\ index_' = [index_ EXCEPT ![self] = NUM_PROPOSERS]
                             /\ pc' = [pc EXCEPT ![self] = "PReSendReqVotes"]
                             /\ UNCHANGED << network, values, lastSeenAbstract,
                                             timeoutCheckerAbstract,
@@ -2327,7 +2297,7 @@ PWaitLeaderFailure(self) == /\ pc[self] = "PWaitLeaderFailure"
                                             heartbeatId >>
 
 PReSendReqVotes(self) == /\ pc[self] = "PReSendReqVotes"
-                         /\ IF (index_[self]) <= (((2) * (NUM_NODES)) - (1))
+                         /\ IF (index_[self]) <= ((NUM_PROPOSERS) + ((NUM_ACCEPTORS) - (1)))
                                THEN /\ (Len(network[index_[self]])) < (BUFFER_SIZE)
                                     /\ mailboxesWrite' = [network EXCEPT ![index_[self]] = Append(network[index_[self]], [type |-> PREPARE_MSG, bal |-> b[self], sender |-> self, slot |-> NULL, val |-> value[self]])]
                                     /\ index_' = [index_ EXCEPT ![self] = (index_[self]) + (1)]
@@ -2730,7 +2700,7 @@ APropose(self) == /\ pc[self] = "APropose"
                   /\ acceptedValues' = [acceptedValues EXCEPT ![self] = Append(acceptedValues[self], [slot |-> (msg_[self]).slot, bal |-> (msg_[self]).bal, val |-> (msg_[self]).val])]
                   /\ (Len(network[(msg_[self]).sender])) < (BUFFER_SIZE)
                   /\ mailboxesWrite9' = [network EXCEPT ![(msg_[self]).sender] = Append(network[(msg_[self]).sender], payload'[self])]
-                  /\ loopIndex' = [loopIndex EXCEPT ![self] = (2) * (NUM_NODES)]
+                  /\ loopIndex' = [loopIndex EXCEPT ![self] = (NUM_PROPOSERS) + (NUM_ACCEPTORS)]
                   /\ network' = mailboxesWrite9'
                   /\ pc' = [pc EXCEPT ![self] = "ANotifyLearners"]
                   /\ UNCHANGED << values, lastSeenAbstract,
@@ -2791,7 +2761,7 @@ APropose(self) == /\ pc[self] = "APropose"
                                   index, monitorFrequencyLocal, heartbeatId >>
 
 ANotifyLearners(self) == /\ pc[self] = "ANotifyLearners"
-                         /\ IF (loopIndex[self]) <= (((3) * (NUM_NODES)) - (1))
+                         /\ IF (loopIndex[self]) <= (((NUM_PROPOSERS) + (NUM_ACCEPTORS)) + ((NUM_LEARNERS) - (1)))
                                THEN /\ (Len(network[loopIndex[self]])) < (BUFFER_SIZE)
                                     /\ mailboxesWrite9' = [network EXCEPT ![loopIndex[self]] = Append(network[loopIndex[self]], payload[self])]
                                     /\ loopIndex' = [loopIndex EXCEPT ![self] = (loopIndex[self]) + (1)]
@@ -3369,7 +3339,7 @@ leaderLoop(self) == /\ pc[self] = "leaderLoop"
                     /\ electionInProgressRead' = electionInProgresssAbstract[self]
                     /\ iAmTheLeaderRead' = iAmTheLeaderAbstract[self]
                     /\ IF (~(electionInProgressRead')) /\ (iAmTheLeaderRead')
-                          THEN /\ index' = [index EXCEPT ![self] = (3) * (NUM_NODES)]
+                          THEN /\ index' = [index EXCEPT ![self] = ((NUM_PROPOSERS) + (NUM_ACCEPTORS)) + (NUM_LEARNERS)]
                                /\ pc' = [pc EXCEPT ![self] = "heartbeatBroadcast"]
                                /\ UNCHANGED << network, sleeperAbstract,
                                                mailboxesWrite21, sleeperWrite1 >>
@@ -3445,10 +3415,10 @@ leaderLoop(self) == /\ pc[self] = "leaderLoop"
                                     monitorFrequencyLocal, heartbeatId >>
 
 heartbeatBroadcast(self) == /\ pc[self] = "heartbeatBroadcast"
-                            /\ IF (index[self]) <= (((4) * (NUM_NODES)) - (1))
+                            /\ IF (index[self]) <= ((((2) * (NUM_PROPOSERS)) + (NUM_ACCEPTORS)) + ((NUM_LEARNERS) - (1)))
                                   THEN /\ IF (index[self]) # (self)
                                              THEN /\ (Len(network[index[self]])) < (BUFFER_SIZE)
-                                                  /\ mailboxesWrite18' = [network EXCEPT ![index[self]] = Append(network[index[self]], [type |-> HEARTBEAT_MSG, leader |-> (self) - ((3) * (NUM_NODES))])]
+                                                  /\ mailboxesWrite18' = [network EXCEPT ![index[self]] = Append(network[index[self]], [type |-> HEARTBEAT_MSG, leader |-> (((self) - (NUM_PROPOSERS)) + (NUM_ACCEPTORS)) + (NUM_LEARNERS)])]
                                                   /\ mailboxesWrite19' = mailboxesWrite18'
                                              ELSE /\ mailboxesWrite19' = network
                                                   /\ UNCHANGED mailboxesWrite18
@@ -3562,7 +3532,7 @@ followerLoop(self) == /\ pc[self] = "followerLoop"
                                       /\ mailboxesRead2' = msg4
                                  /\ msg' = [msg EXCEPT ![self] = mailboxesRead2']
                                  /\ Assert(((msg'[self]).type) = (HEARTBEAT_MSG),
-                                           "Failure of assertion at line 971, column 25.")
+                                           "Failure of assertion at line 950, column 25.")
                                  /\ lastSeenWrite' = msg'[self]
                                  /\ mailboxesWrite22' = mailboxesWrite18'
                                  /\ lastSeenWrite0' = lastSeenWrite'
@@ -3651,7 +3621,7 @@ heartbeatAction(self) == mainLoop(self) \/ leaderLoop(self)
                             \/ followerLoop(self)
 
 findId(self) == /\ pc[self] = "findId"
-                /\ heartbeatId' = [heartbeatId EXCEPT ![self] = (self) - (NUM_NODES)]
+                /\ heartbeatId' = [heartbeatId EXCEPT ![self] = (self) - (NUM_PROPOSERS)]
                 /\ pc' = [pc EXCEPT ![self] = "monitorLoop"]
                 /\ UNCHANGED << network, values, lastSeenAbstract,
                                 timeoutCheckerAbstract, decidedValues,
