@@ -113,6 +113,7 @@ CONSTANT WEB_PAGE
             \* Note that tuples are 1-indexed.
             rcvMsg:
               msg := mailboxes[LoadBalancerId];
+              print << "Received req", msg.path >>;
               assert(msg.message_type = GET_PAGE);
 
             \* the load balancer needs to forward the client request to the
@@ -129,6 +130,7 @@ CONSTANT WEB_PAGE
             \* enough for our (illustrative) purposes.
             sendServer:
               next := (next % NUM_SERVERS) + 1;
+              print << "Send req", msg.path, "to server", next >>;
               mailboxes[next] := [message_id |-> next, client_id |-> msg.client_id, path |-> msg.path];
         }
   }
@@ -160,6 +162,7 @@ CONSTANT WEB_PAGE
           sendPage:
             \* sends a web page (read from `file_system`) back to the requester
             \* i.e., the client.
+            print << "Serving", msg.path, "to client", msg.client_id >>;
             mailboxes[msg.client_id] := file_system[msg.path];
         }
   }
@@ -258,11 +261,13 @@ CONSTANT WEB_PAGE
                         mailboxesRead := msg0;
                     };
                     msg := mailboxesRead;
+                    print <<"Received req", (msg).path>>;
                     assert ((msg).message_type) = (GET_PAGE);
                     network := mailboxesWrite;
                 
                 sendServer:
                     next := ((next) % (NUM_SERVERS)) + (1);
+                    print <<"Send req", (msg).path, "to server", next>>;
                     await (Len(network[next])) < (BUFFER_SIZE);
                     mailboxesWrite := [network EXCEPT ![next] = Append(network[next], [message_id |-> next, client_id |-> (msg).client_id, path |-> (msg).path])];
                     network := mailboxesWrite;
@@ -289,6 +294,7 @@ CONSTANT WEB_PAGE
                     network := mailboxesWrite1;
                 
                 sendPage:
+                    print <<"Serving", (msg).path, "to client", (msg).client_id>>;
                     file_systemRead := WEB_PAGE;
                     await (Len(network[(msg).client_id])) < (BUFFER_SIZE);
                     mailboxesWrite1 := [network EXCEPT ![(msg).client_id] = Append(network[(msg).client_id], file_systemRead)];
@@ -340,7 +346,7 @@ CONSTANT WEB_PAGE
 
 ***************************************************************************)
 \* BEGIN TRANSLATION
-\* Process variable msg of process LoadBalancer at line 250 col 15 changed to msg_
+\* Process variable msg of process LoadBalancer at line 253 col 15 changed to msg_
 CONSTANT defaultInitValue
 VARIABLES network, in, out, fs, mailboxesRead, mailboxesWrite, 
           mailboxesWrite0, mailboxesRead0, mailboxesWrite1, file_systemRead, 
@@ -409,8 +415,9 @@ rcvMsg == /\ pc[LoadBalancerId] = "rcvMsg"
                /\ mailboxesWrite' = [network EXCEPT ![LoadBalancerId] = Tail(network[LoadBalancerId])]
                /\ mailboxesRead' = msg0
           /\ msg_' = mailboxesRead'
+          /\ PrintT(<<"Received req", (msg_').path>>)
           /\ Assert(((msg_').message_type) = (GET_PAGE), 
-                    "Failure of assertion at line 261, column 21.")
+                    "Failure of assertion at line 265, column 21.")
           /\ network' = mailboxesWrite'
           /\ pc' = [pc EXCEPT ![LoadBalancerId] = "sendServer"]
           /\ UNCHANGED << in, out, fs, mailboxesWrite0, mailboxesRead0, 
@@ -421,6 +428,7 @@ rcvMsg == /\ pc[LoadBalancerId] = "rcvMsg"
 
 sendServer == /\ pc[LoadBalancerId] = "sendServer"
               /\ next' = ((next) % (NUM_SERVERS)) + (1)
+              /\ PrintT(<<"Send req", (msg_).path, "to server", next'>>)
               /\ (Len(network[next'])) < (BUFFER_SIZE)
               /\ mailboxesWrite' = [network EXCEPT ![next'] = Append(network[next'], [message_id |-> next', client_id |-> (msg_).client_id, path |-> (msg_).path])]
               /\ network' = mailboxesWrite'
@@ -464,6 +472,7 @@ rcvReq(self) == /\ pc[self] = "rcvReq"
                                 req, resp >>
 
 sendPage(self) == /\ pc[self] = "sendPage"
+                  /\ PrintT(<<"Serving", (msg[self]).path, "to client", (msg[self]).client_id>>)
                   /\ file_systemRead' = WEB_PAGE
                   /\ (Len(network[(msg[self]).client_id])) < (BUFFER_SIZE)
                   /\ mailboxesWrite1' = [network EXCEPT ![(msg[self]).client_id] = Append(network[(msg[self]).client_id], file_systemRead')]

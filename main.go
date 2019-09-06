@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"time"
-	"load_balancer"
+	"load_balancer" // import the compiled load_balancer.tla module
 	"os"
 	"pgo/distsys"
 	"strconv"
@@ -28,6 +28,7 @@ func init() {
 
 	id = os.Args[1]
 	ipPort := os.Args[2]
+        // the assumed mapping of Process(id) to host:port
 	configuration = map[string]string{
 		"ALoadBalancer(0)": "tlaconf-aloadbalancer0:2222",
 		"AServer(1)":       "tlaconf-aserver1:3333",
@@ -83,10 +84,13 @@ func main() {
 	// wait for all process to come online
 	waitBarrier()
 
+        // depending on which process we are, run the corresponding archetype in a goroutine
+        // pass in relevant resources, generally at least the mailboxes
 	if role == "ALoadBalancer" {
 		go load_balancer.ALoadBalancer(self, distsys.ArchetypeResourceSlice(mailboxes))
 		fmt.Printf("Launched load balancer\n")
 	} else if role == "AServer" {
+                // provide the servers with a directory to serve (path is a command-line argument)
 		path := os.Args[3]
 		fs := distsys.NewFileSystemDirectory(path)
 
@@ -95,18 +99,22 @@ func main() {
 	} else {
 		fmt.Printf("Connected!\n")
 
+                // these resources control the client. requests go to in, and responses can be read from out
 		in := distsys.NewLocalChannel("in", 0)
 		out := distsys.NewLocalChannel("out", 0)
 
 		go load_balancer.AClient(self, distsys.ArchetypeResourceSlice(mailboxes), in, out)
 
-		for _, path := range []string{"page1.html", "page1.html", "page2.html"} {
+                // keep requesting each page one by one forever
+		paths := []string{"page1.html", "page1.html", "page2.html"}
+                for i := 0;; i++ {
+                        path := paths[i % 3];
 			fmt.Printf("Requesting page %s\n", path)
 			in.Send(path)
 			bArray := out.Receive().([]byte)
 			fmt.Printf("Received page: %s\n", strings.TrimSpace(string(bArray[:len(bArray)])))
 			fmt.Printf("(waiting one second for demo)\n")
-			time.Sleep(1 * time.Second)
+			time.Sleep(5 * time.Second)
 		}
 	}
 
