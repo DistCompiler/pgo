@@ -198,8 +198,10 @@
   <target name="tests" depends="build-test">
     <mkdir dir="${junit.output.dir}"/>
 
-    <junit fork="no" printsummary="withOutAndErr" showoutput="true" failureproperty="tests.failure">
-      <classpath refid="pgo.devclasspath"/>
+    <junit fork="yes" printsummary="withOutAndErr" showoutput="true" failureproperty="tests.failure">
+      <classpath>
+        <path refid="pgo.devclasspath"/>
+      </classpath>
       <formatter type="xml"/>
 
       <batchtest todir="${junit.output.dir}">
