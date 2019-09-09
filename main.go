@@ -113,7 +113,7 @@ func main() {
 			in.Send(path)
 			bArray := out.Receive().([]byte)
 			fmt.Printf("Received page: %s\n", strings.TrimSpace(string(bArray[:len(bArray)])))
-			fmt.Printf("(waiting one second for demo)\n")
+			fmt.Printf("(waiting five seconds for demo)\n")
 			time.Sleep(5 * time.Second)
 		}
 	}
