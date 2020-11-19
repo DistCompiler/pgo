@@ -28,6 +28,7 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
     private LocalVariableStrategy localStrategy;
     private UID archetype;
     private GoVariableName err;
+    private GoVariableName riskBit;
     private GoVariableName acquiredResources;
     private int currentLockGroup;
     private GoLabelName currentLabel;
@@ -79,6 +80,9 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
 
             this.acquiredResources = builder.varDecl("acquiredResources", type);
         }
+
+        // all archetype resources need a risk bit
+        this.riskBit = builder.varDecl("riskBit", GoBuiltins.Bool);
     }
 
     @Override
@@ -118,6 +122,9 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
                 shouldRetry(builder, false);
             }
         };
+
+        // reset risk bit
+        builder.assign(riskBit, GoBuiltins.False);
 
         // reset acquired resources
         if (functionMaps) {
@@ -203,7 +210,7 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
 
         GoExpression readCall = new GoCall(
                 new GoSelectorExpression(target, "Read"),
-                Collections.emptyList()
+                Collections.singletonList(new GoUnary(GoUnary.Operation.ADDR, riskBit))
         );
 
         GoVariableName readTemp = builder.varDecl("readTemp", GoBuiltins.Interface);
@@ -238,7 +245,7 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
             public void writeAfter(GoBlockBuilder builder) {
                 GoExpression write = new GoCall(
                         new GoSelectorExpression(target, "Write"),
-                        Collections.singletonList(tempVar)
+                        Arrays.asList(tempVar, new GoUnary(GoUnary.Operation.ADDR, riskBit))
                 );
                 builder.assign(err, write);
                 shouldRetry(builder, true);
@@ -441,7 +448,8 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
                         distsys("AcquireResources"),
                         Arrays.asList(
                                 distsys(permission),
-                                resourceGet
+                                resourceGet,
+                                new GoUnary(GoUnary.Operation.ADDR, riskBit)
                         )
                 ));
                 shouldRetry(yes, true);
