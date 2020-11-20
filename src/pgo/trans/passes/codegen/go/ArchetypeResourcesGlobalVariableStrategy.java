@@ -86,6 +86,11 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
     }
 
     @Override
+    public void registerNondeterminism(GoBlockBuilder builder) {
+        builder.assign(new GoUnary(GoUnary.Operation.DEREF, riskBit), GoBuiltins.True);
+    }
+
+    @Override
     public void mainPrelude(GoBlockBuilder builder) {
         throw new TODO();
     }
@@ -109,13 +114,11 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
         registry.getResourceReadsInLockGroup(lockGroup).forEach(generateLocalBinding.apply(readExps));
         registry.getResourceWritesInLockGroup(lockGroup).forEach(generateLocalBinding.apply(writeExps));
 
-        // err = distsys.AcquireResources(distys.READ_ACCESS, ...{readExps})
+        // err = distsys.AcquireResources(distys.READ_ACCESS, riskBit, ...{readExps})
         // if err != nil { return err }
         BiConsumer<String, Set<GoExpression>> acquire = (permission, resources) -> {
             if (!resources.isEmpty()) {
-                ArrayList<GoExpression> args = new ArrayList<>(
-                        Collections.singletonList(distsys(permission))
-                );
+                ArrayList<GoExpression> args = new ArrayList<>(Arrays.asList(distsys(permission), new GoUnary(GoUnary.Operation.ADDR, riskBit)));
                 args.addAll(resources);
                 GoExpression acquireCall = new GoCall(distsys("AcquireResources"), args);
                 builder.assign(err, acquireCall);
@@ -448,8 +451,8 @@ public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStra
                         distsys("AcquireResources"),
                         Arrays.asList(
                                 distsys(permission),
-                                resourceGet,
-                                new GoUnary(GoUnary.Operation.ADDR, riskBit)
+                                new GoUnary(GoUnary.Operation.ADDR, riskBit),
+                                resourceGet
                         )
                 ));
                 shouldRetry(yes, true);
