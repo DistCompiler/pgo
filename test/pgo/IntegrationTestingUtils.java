@@ -6,6 +6,7 @@ import pgo.formatters.TLAExpressionFormattingVisitor;
 import pgo.model.tla.TLAExpression;
 
 import static org.hamcrest.CoreMatchers.is;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThat;
 
 import java.io.*;
@@ -288,13 +289,18 @@ public class IntegrationTestingUtils {
 				 InputStreamReader r = new InputStreamReader(err);
 				 BufferedReader br = new BufferedReader(r)) {
 
-				br.lines().forEach(lines::add);
+				br.lines().forEach(line -> {
+					System.out.println(prefix + ": " + line);
+					lines.add(line);
+				});
 			}
 
 			try {
 				int exitCode = build.waitFor();
 				if (checkSuccess) {
-					assertThat(exitCode, is(0));
+					if (exitCode != 0) {
+						assertFalse(prefix + " exited with (checked) non-zero exit code " + exitCode, true);
+					}
 				}
 			} catch (InterruptedException e) {
 				throw new RuntimeException("Interrupted: " + e.getMessage());
@@ -315,10 +321,10 @@ public class IntegrationTestingUtils {
 		String binary = "mpcal_output";
 
 		// TODO: get rid of `go get` once we remove dependency on etcd
-		ProcessBuilder pb = new ProcessBuilder("go", "get");
+		ProcessBuilder pb = new ProcessBuilder("go", "get", "-v");
 		pb.environment().put("GOPATH", codePath.toString());
-		pb.directory(codePath.toFile());
-		runAndPrint(pb, "build", false);
+		pb.directory(codePath.resolve("src").resolve("pgo").resolve("distsys").toFile());
+		runAndPrint(pb, "get");
 
 		pb = new ProcessBuilder("go", "build", "-v", "-o", binary);
 		pb.environment().put("GOPATH", codePath.toString());

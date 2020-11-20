@@ -315,7 +315,7 @@ public class TestMPCalCodeGenRun {
                 outputPath -> {
                     List<File> directories = new ArrayList<>();
 
-                    // copy files and directories under test/mpcal/spec/{spec_name} to the compiled
+                    // copy files and directories under test/go/spec/{spec_name} to the compiled
                     // output temporary directory before we attempt to run it
                     for (Iterator<File> it = FileUtils.iterateFiles(goDir, TrueFileFilter.INSTANCE, new IOFileFilter() {
                         @Override

@@ -51,7 +51,7 @@ import (
 	"fmt"
 	"time"
 
-	etcd "github.com/coreos/etcd/client"
+	etcd "go.etcd.io/etcd/client/v2"
 )
 
 // declares the types of global variables supported by PGo at the moment.
