@@ -517,8 +517,8 @@ func tryRead(ch chan interface{}, attempts, wait int, riskBit RiskBit) (interfac
             select {
             case msg := <-ch:
                 return msg, true
-            default:
-                time.Sleep(time.Duration(wait) * time.Millisecond)
+            case <-time.After(time.Duration(wait) * time.Millisecond):
+                continue
             }
         }
     } else {
@@ -601,23 +601,31 @@ func (mbox *Mailbox) Read(riskBit RiskBit) (interface{}, error) {
 		panic(fmt.Sprintf("Tried to read non-local mailbox %s (attempted by %s)", mbox.name, mbox.selfNames))
 	}
 
-	mbox.lock.Lock()
-	defer mbox.lock.Unlock()
-
-	// if we are still reading messages from an aborted session
-	if mbox.readingAborted {
-		// read from the buffer of previously read messages (pop from
-		// the queue)
-		if len(mbox.readBuf) > 0 {
-			msg := mbox.readBuf[0]
-			mbox.readBuf = mbox.readBuf[1:]
-			return msg, nil
-		} else {
-			// if there are no more previously read messages, we are
-			// no longer reading from a previous transaction
-			mbox.readingAborted = false
-		}
+	// isolate processing of aborted reads, release locks when we're done
+	if msg, shouldReturn := (func() (interface{}, bool) {
+	    mbox.lock.Lock()
+        defer mbox.lock.Unlock()
+	    // if we are still reading messages from an aborted session
+    	if mbox.readingAborted {
+    		// read from the buffer of previously read messages (pop from
+    		// the queue)
+    		if len(mbox.readBuf) > 0 {
+    			msg := mbox.readBuf[0]
+    			mbox.readBuf = mbox.readBuf[1:]
+    			return msg, true
+    		} else {
+    			// if there are no more previously read messages, we are
+    			// no longer reading from a previous transaction
+    			mbox.readingAborted = false
+    		}
+    	}
+    	return nil, false
+	})(); shouldReturn {
+        return msg, nil
 	}
+
+	// NOTE: locks are not needed for the reading part, and to avoid potential deadlock, we should wait
+	// (potentially forever) with the buffer locks released
 
 	// if we are not reading from a previous transaction, wait for
 	// incoming messages on the mailbox
@@ -627,6 +635,9 @@ func (mbox *Mailbox) Read(riskBit RiskBit) (interface{}, error) {
 		return nil, &AbortRetryError{"No messages in the buffer"}
 	}
 
+    // lock readBuf to append to it
+    mbox.lock.Lock()
+    defer mbox.lock.Unlock()
 	mbox.readBuf = append(mbox.readBuf, msg)
 	return msg, nil
 }
@@ -653,6 +664,7 @@ func (mbox *Mailbox) Release() error {
 		if err := mbox.sendMessage(msg); err != nil {
 			// return &ResourceInternalError{err.Error()}
 			// TODO: this should return a proper ResourceInternalError
+			panic(err)
 			return nil
 		}
 	}
