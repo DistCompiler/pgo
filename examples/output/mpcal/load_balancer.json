@@ -7,6 +7,6 @@
     "NUM_CLIENTS": "1",
     "LoadBalancerId": "0",
     "GET_PAGE": "200",
-    "NUM_SERVERS": "2"
+    "NUM_SERVERS": "3"
   }
 }

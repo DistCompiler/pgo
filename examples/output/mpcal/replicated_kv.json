@@ -1,6 +1,6 @@
 {
   "build": {
-    "output_dir": "output",
+    "output_dir": "examples/output/mpcal",
     "dest_package": "replicated_kv"
   },
   "constants": {
