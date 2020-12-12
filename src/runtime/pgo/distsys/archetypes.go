@@ -505,8 +505,8 @@ func tryRead(ch chan interface{}, attempts, wait int) (interface{}, bool) {
 		select {
 		case msg := <-ch:
 			return msg, true
-		default:
-			time.Sleep(time.Duration(wait) * time.Millisecond)
+		case <-time.After(time.Duration(wait) * time.Millisecond):
+		    // pass
 		}
 	}
 

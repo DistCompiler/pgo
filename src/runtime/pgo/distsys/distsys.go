@@ -603,7 +603,7 @@ func DefineCustomType(value interface{}) {
 
 // Hash returns a uint64 representation for arbitrary data types.
 func Hash(value interface{}) uint64 {
-	result, err := hashstructure.Hash(value, nil)
+	result, err := hashstructure.Hash(value, hashstructure.FormatV2, nil)
 	if err != nil {
 		panic(fmt.Sprintf("Cannot hash value: %v", value))
 	}
