@@ -2,6 +2,7 @@ package pgo.parser;
 
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertThat;
+import static org.junit.Assert.fail;
 import static pgo.model.mpcal.ModularPlusCalBuilder.*;
 import static pgo.model.pcal.PlusCalBuilder.*;
 import static pgo.model.tla.TLABuilder.*;
@@ -221,10 +222,10 @@ public class ModularPlusCalUnitParserTest {
 	}
 
 	@Test
-	public void test() throws ParseFailureException {
-		LexicalContext ctx = new LexicalContext(testFile, String.join(System.lineSeparator(), unitString.split("\n")));
+	public void test() {
 		System.out.println(unitString);
-		ModularPlusCalUnit unit = ModularPlusCalParser.readUnit(ctx);
-		assertThat(unit, is(unitExpected));
+		fail("TODO");
+		//ModularPlusCalUnit unit = ModularPlusCalParser.readUnit(ctx);
+		//assertThat(unit, is(unitExpected));
 	}
 }

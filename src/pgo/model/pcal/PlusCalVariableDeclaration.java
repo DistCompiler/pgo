@@ -1,16 +1,19 @@
 package pgo.model.pcal;
 
+import pgo.model.tla.TLADefinitionOne;
 import pgo.model.tla.TLAExpression;
-import pgo.parser.Located;
+import pgo.model.tla.TLAIdentifier;
 import pgo.util.SourceLocation;
+import scala.collection.immutable.Map;
+import scala.collection.immutable.Map$;
 
-public class PlusCalVariableDeclaration extends PlusCalNode {
-	private final Located<String> name;
+public class PlusCalVariableDeclaration extends PlusCalNode implements TLADefinitionOne {
+	private final TLAIdentifier name;
 	private final boolean isRef;
 	private final boolean set;
 	private final TLAExpression value;
 
-	public PlusCalVariableDeclaration(SourceLocation location, Located<String> name, boolean isRef, boolean isSet, TLAExpression value) {
+	public PlusCalVariableDeclaration(SourceLocation location, TLAIdentifier name, boolean isRef, boolean isSet, TLAExpression value) {
 		super(location);
 		this.name = name;
 		this.isRef = isRef;
@@ -19,11 +22,32 @@ public class PlusCalVariableDeclaration extends PlusCalNode {
 	}
 
 	@Override
-	public PlusCalVariableDeclaration copy() {
-		return new PlusCalVariableDeclaration(getLocation(), name, isRef, set, value.copy());
+	public int arity() {
+		return 0;
 	}
 
-	public Located<String> getName() {
+	@Override
+	public boolean isModuleInstance() {
+		return false;
+	}
+
+	@Override
+	public TLAIdentifier identifier() {
+		return name;
+	}
+
+	@Override
+	public Map<TLAIdentifier, TLADefinitionOne> scope() {
+		return Map$.MODULE$.empty();
+	}
+
+	@Override
+	public PlusCalVariableDeclaration copy() {
+		throw new RuntimeException("bad");
+		//return new PlusCalVariableDeclaration(getLocation(), name, isRef, set, value.copy());
+	}
+
+	public TLAIdentifier getName() {
 		return name;
 	}
 
@@ -65,7 +89,7 @@ public class PlusCalVariableDeclaration extends PlusCalNode {
 		PlusCalVariableDeclaration that = (PlusCalVariableDeclaration) obj;
 		return set == that.set &&
 				((name == null && that.name == null) ||
-						(name != null && name.getValue().equals(that.name.getValue()))) &&
+						(name != null && name.equals(that.name))) &&
 				((value == null && that.value != null) ||
 						(value != null && value.equals(that.value)));
 	}

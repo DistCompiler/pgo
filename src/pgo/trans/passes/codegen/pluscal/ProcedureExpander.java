@@ -59,7 +59,7 @@ class ProcedureExpander {
 						variableLocation, variable.getName(), variable.isRef(), variable.isSet(),
 						new PlusCalDefaultInitValue(variableLocation)));
 				TLAGeneralIdentifier lhs = new TLAGeneralIdentifier(
-						variableLocation, new TLAIdentifier(variableLocation, variable.getName().getValue()),
+						variableLocation, new TLAIdentifier(variableLocation, variable.getName().getId()),
 						Collections.emptyList());
 				registry.getReferences().put(lhs.getUID(), variable.getUID());
 				initStatements.add(new PlusCalAssignment(

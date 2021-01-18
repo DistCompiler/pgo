@@ -7,7 +7,7 @@ public abstract class TLAUnitVisitor<T, E extends Throwable> {
 	public abstract T visit(TLATheorem pGoTLATheorem) throws E;
 	public abstract T visit(TLAModule pGoTLAModule) throws E;
 	public abstract T visit(TLAVariableDeclaration pGoTLAVariableDeclaration) throws E;
-	public abstract T visit(TLAConstantDeclaration TLAConstantDeclaration) throws E;
+	public abstract T visit(TLAConstantDeclaration tlaConstantDeclaration) throws E;
 	public abstract T visit(TLAModuleDefinition pGoTLAModuleDefinition) throws E;
-	public abstract T visit(TLAAssumption TLAAssumption) throws E;
+	public abstract T visit(TLAAssumption tlaAssumption) throws E;
 }

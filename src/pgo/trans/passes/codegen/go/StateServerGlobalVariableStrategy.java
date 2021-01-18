@@ -50,7 +50,7 @@ public class StateServerGlobalVariableStrategy extends GlobalVariableStrategy {
 	                                  GoVariableName processArgument) {
 		try (GoSwitchBuilder switchBuilder = builder.switchStmt(processName)) {
 			for (PlusCalProcess process : ((PlusCalMultiProcess) modularPlusCalBlock.getProcesses()).getProcesses()) {
-				String name = process.getName().getName().getValue();
+				String name = process.getName().getName().getId();
 				GoType type = typeMap.get(process.getName().getUID()).accept(new TypeConversionVisitor());
 				try (GoBlockBuilder caseBody = switchBuilder.addCase(new GoStringLiteral(name))) {
 					if (type.equals(GoBuiltins.Int)) {

@@ -5,7 +5,7 @@ package pgo;
  * the pluscal file
  *
  */
-public abstract class PGoException extends Exception {
+public abstract class PGoException extends RuntimeException {
 	private int line;
 	private String msg;
 	private String prefix;

@@ -143,6 +143,9 @@ public class IntegrationTestingUtils {
 				out.write("*)");
 
 				out.newLine();
+				out.write("\\* BEGIN TRANSLATION");
+
+				out.newLine();
 				out.write("====");
 			}
 			return inputFilePath;

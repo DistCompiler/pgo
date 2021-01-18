@@ -73,7 +73,7 @@ public class MultithreadedProcessGlobalVariableStrategy extends GlobalVariableSt
 	@Override
 	public void mainPrelude(GoBlockBuilder builder) {
 		for (PlusCalProcess process : ((PlusCalMultiProcess) modularPlusCalBlock.getProcesses()).getProcesses()) {
-			String processName = process.getName().getName().getValue();
+			String processName = process.getName().getName().getId();
 			GoExpression value = process.getName().getValue().accept(
 					new TLAExpressionCodeGenVisitor(builder, registry, typeMap, localStrategy, this));
 			if (process.getName().isSet()) {

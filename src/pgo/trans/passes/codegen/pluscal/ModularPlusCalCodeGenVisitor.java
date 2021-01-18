@@ -89,7 +89,7 @@ public class ModularPlusCalCodeGenVisitor extends PlusCalStatementVisitor<List<P
 	public List<PlusCalStatement> visit(PlusCalLabeledStatements plusCalLabeledStatements) throws RuntimeException {
 		for (UID varUID : expressionArguments) {
 			readTemporaryBinding.declare(
-					plusCalLabeledStatements.getLocation(), varUID, params.get(varUID).getName().getValue() + "Local");
+					plusCalLabeledStatements.getLocation(), varUID, params.get(varUID).getName().getId() + "Local");
 		}
 		// translate the statements in this labeledStatements
 		List<PlusCalStatement> statements = substituteStatements(plusCalLabeledStatements.getStatements());
@@ -110,7 +110,7 @@ public class ModularPlusCalCodeGenVisitor extends PlusCalStatementVisitor<List<P
 				output.put(
 						varUID,
 						writeTemporaryBinding.forceDeclare(
-								location, varUID, params.get(varUID).getName().getValue() + "Write"));
+								location, varUID, params.get(varUID).getName().getId() + "Write"));
 			}
 		}
 	}
@@ -260,7 +260,7 @@ public class ModularPlusCalCodeGenVisitor extends PlusCalStatementVisitor<List<P
 				continue;
 			}
 			TLAGeneralIdentifier dollarVariable = arguments.get(varUID);
-			String nameHint = params.get(varUID).getName().getValue() + "Write";
+			String nameHint = params.get(varUID).getName().getId() + "Write";
 			PlusCalStatementVisitor<List<PlusCalStatement>, RuntimeException> writeVisitor;
 			if (lhs instanceof TLAFunctionCall) {
 				TLAExpressionPlusCalCodeGenVisitor v = visitor.createWith(result);

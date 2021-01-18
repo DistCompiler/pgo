@@ -11,15 +11,24 @@ import java.util.stream.Collectors;
  * 
  */
 public class TLAUnary extends TLAExpression {
-	private TLASymbol operation;
-	private TLAExpression operand;
-	private List<TLAGeneralIdentifierPart> prefix;
+	private final TLASymbol operation;
+	private final TLAExpression operand;
+	private final List<TLAGeneralIdentifierPart> prefix;
+	private TLADefinitionOne refersTo;
 
 	public TLAUnary(SourceLocation location, TLASymbol operation, List<TLAGeneralIdentifierPart> prefix, TLAExpression operand) {
 		super(location);
 		this.operation = operation;
 		this.prefix = prefix;
 		this.operand = operand;
+	}
+
+	public void setRefersTo(TLADefinitionOne refersTo) {
+		this.refersTo = refersTo;
+	}
+
+	public TLADefinitionOne getRefersTo() {
+		return refersTo;
 	}
 	
 	@Override

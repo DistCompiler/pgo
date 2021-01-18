@@ -31,7 +31,7 @@ public class SnapshottingLocalVariableStrategy extends LocalVariableStrategy {
         localCopies.clear();
         archetype.getVariables().forEach(var -> {
             GoType localType = typeMap.get(var.getUID()).accept(new TypeConversionVisitor());
-            localCopies.put(var.getUID(), builder.varDecl(var.getName().getValue() + "Copy", localType));
+            localCopies.put(var.getUID(), builder.varDecl(var.getName().getId() + "Copy", localType));
         });
     }
 

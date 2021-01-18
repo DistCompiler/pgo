@@ -66,6 +66,7 @@ public class DefinitionRegistry {
 	public void addOperatorDefinition(TLAOperatorDefinition def) {
 		if (!definitions.containsKey(def.getUID())) {
 			definitions.put(def.getUID(), def);
+			addOperator(def.getUID(), new CompiledOperatorAccessor(def));
 		}
 	}
 

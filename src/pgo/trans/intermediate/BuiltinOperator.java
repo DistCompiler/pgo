@@ -1,5 +1,6 @@
 package pgo.trans.intermediate;
 
+import pgo.InternalCompilerError;
 import pgo.model.golang.GoExpression;
 import pgo.model.golang.builder.GoBlockBuilder;
 import pgo.model.tla.TLAExpression;
@@ -28,18 +29,16 @@ public class BuiltinOperator extends OperatorAccessor {
 
 	private int argumentCount;
 	private TypeConstraintGenerator typeConstraintGenerator;
-	private UID uid;
 	private GoGenerator goGenerator;
 
 	public BuiltinOperator(int argumentCount, TypeConstraintGenerator typeConstraintGenerator, GoGenerator goGenerator) {
-		this.uid = new UID();
 		this.argumentCount = argumentCount;
 		this.typeConstraintGenerator = typeConstraintGenerator;
 		this.goGenerator = goGenerator;
 	}
 
 	public UID getUID() {
-		return uid;
+		throw new InternalCompilerError();
 	}
 
 	@Override

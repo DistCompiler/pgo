@@ -1,18 +1,24 @@
 package pgo.model.tla;
 
 import pgo.util.SourceLocation;
+import scala.collection.immutable.*;
 
-public class TLAFunctionDefinition extends TLAUnit {
+public class TLAFunctionDefinition extends TLAUnit implements TLADefinitionOne {
 	
-	private TLAIdentifier name;
-	private TLAFunction function;
-	private boolean local;
+	private final TLAIdentifier name;
+	private final TLAFunction function;
+	private final boolean local;
 	
 	public TLAFunctionDefinition(SourceLocation location, TLAIdentifier name, TLAFunction function, boolean isLocal) {
 		super(location);
 		this.name = name;
 		this.function = function;
 		this.local = isLocal;
+	}
+
+	@Override
+	public List<TLADefinition> definitions() {
+		return new $colon$colon<>(this, List$.MODULE$.empty());
 	}
 	
 	@Override
@@ -30,6 +36,26 @@ public class TLAFunctionDefinition extends TLAUnit {
 	
 	public boolean isLocal() {
 		return local;
+	}
+
+	@Override
+	public int arity() {
+		return 0;
+	}
+
+	@Override
+	public boolean isModuleInstance() {
+		return false;
+	}
+
+	@Override
+	public TLAIdentifier identifier() {
+		return name;
+	}
+
+	@Override
+	public Map<TLAIdentifier, TLADefinitionOne> scope() {
+		return Map$.MODULE$.empty();
 	}
 
 	@Override

@@ -9,24 +9,19 @@ import pgo.scope.UID;
 
 import java.io.IOException;
 import java.io.StringWriter;
+import java.util.Objects;
 
-public class InvalidArchetypeResourceUsageIssue extends Issue {
+public final class InvalidArchetypeResourceUsageIssue extends Issue {
     private final PlusCalStatement statement;
-    private final UID varUID;
     private final boolean isFunction;
 
-    public InvalidArchetypeResourceUsageIssue(PlusCalStatement statement, UID varUID, boolean isFunction) {
+    public InvalidArchetypeResourceUsageIssue(PlusCalStatement statement, boolean isFunction) {
         this.statement = statement;
-        this.varUID = varUID;
         this.isFunction = isFunction;
     }
 
     public PlusCalStatement getStatement() {
         return this.statement;
-    }
-
-    public UID getVarUID() {
-        return varUID;
     }
 
     public boolean isFunction() {
@@ -38,21 +33,16 @@ public class InvalidArchetypeResourceUsageIssue extends Issue {
     }
 
     @Override
-    public boolean equals(Object obj) {
-        if (this == obj)
-            return true;
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        InvalidArchetypeResourceUsageIssue that = (InvalidArchetypeResourceUsageIssue) o;
+        return isFunction == that.isFunction && Objects.equals(statement, that.statement);
+    }
 
-        if (obj == null)
-            return false;
-
-        if (this.getClass() != obj.getClass())
-            return false;
-
-        InvalidArchetypeResourceUsageIssue other = (InvalidArchetypeResourceUsageIssue) obj;
-
-        return this.getStatement().equals(other.getStatement()) &&
-                this.getVarUID().equals(other.getVarUID()) &&
-                this.isFunction == other.isFunction;
+    @Override
+    public int hashCode() {
+        return Objects.hash(statement, isFunction);
     }
 
     @Override

@@ -77,7 +77,7 @@ public class TypeDefaultValueVisitor extends TypeVisitor<GoExpression, RuntimeEx
 
 	@Override
 	public GoExpression visit(InterfaceType interfaceType) throws RuntimeException {
-		throw new TODO();
+		return GoBuiltins.Nil;
 	}
 
 	@Override

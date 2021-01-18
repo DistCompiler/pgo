@@ -58,7 +58,7 @@ public class ModularPlusCalMacroExpansionPass {
 
 			archetypes.add(new ModularPlusCalArchetype(
 					archetype.getLocation(),
-					archetype.getName(),
+					archetype.getId(),
 					archetype.getParams(),
 					archetype.getVariables(),
 					stmts));

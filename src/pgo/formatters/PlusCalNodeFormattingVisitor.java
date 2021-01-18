@@ -1,9 +1,9 @@
 package pgo.formatters;
 
-import pgo.TODO;
 import pgo.Unreachable;
 import pgo.model.pcal.*;
 import pgo.model.tla.PlusCalDefaultInitValue;
+import pgo.model.tla.TLAIdentifier;
 import pgo.model.tla.TLAUnit;
 
 import java.io.IOException;
@@ -17,7 +17,7 @@ public class PlusCalNodeFormattingVisitor extends PlusCalNodeVisitor<Void, IOExc
 		this.out = out;
 	}
 
-	boolean writeVariableDeclarations(String prefix, List<PlusCalVariableDeclaration> declarations, String postfix)
+	public boolean writeVariableDeclarations(String prefix, List<PlusCalVariableDeclaration> declarations, String postfix)
 			throws IOException {
 		if (declarations.size() > 0) {
 			out.write(prefix);
@@ -37,7 +37,7 @@ public class PlusCalNodeFormattingVisitor extends PlusCalNodeVisitor<Void, IOExc
 	@Override
 	public Void visit(PlusCalAlgorithm plusCalAlgorithm) throws IOException {
 		out.write("--algorithm ");
-		out.write(plusCalAlgorithm.getName().getValue());
+		out.write(plusCalAlgorithm.getName().getId());
 		out.write(" {");
 		out.newLine();
 		try (IndentingWriter.Indent ignored = out.indent()) {
@@ -122,7 +122,29 @@ public class PlusCalNodeFormattingVisitor extends PlusCalNodeVisitor<Void, IOExc
 
 	@Override
 	public Void visit(PlusCalMacro macro) throws IOException {
-		throw new TODO();
+		out.write("macro ");
+		out.write(macro.getName());
+		out.write("(");
+		boolean first = true;
+		for(TLAIdentifier id: macro.getParams()) {
+			if(!first) {
+				out.write(", ");
+			}{
+				first = false;
+			}
+			out.write(id.getId());
+		}
+		out.write(")");
+		out.write(" {");
+		try(IndentingWriter.Indent i_ = out.indent()) {
+			for (PlusCalStatement stmt : macro.getBody()) {
+				out.newLine();
+				stmt.accept(new PlusCalStatementFormattingVisitor(out));
+			}
+		}
+		out.newLine();
+		out.write("};");
+		return null;
 	}
 
 	@Override
@@ -181,7 +203,7 @@ public class PlusCalNodeFormattingVisitor extends PlusCalNodeVisitor<Void, IOExc
 
 	@Override
 	public Void visit(PlusCalVariableDeclaration variableDeclaration) throws IOException {
-		out.write(variableDeclaration.getName().getValue());
+		out.write(variableDeclaration.getName().getId());
 		if (!(variableDeclaration.getValue() instanceof PlusCalDefaultInitValue)) {
 			if (variableDeclaration.isSet()) {
 				out.write(" \\in ");

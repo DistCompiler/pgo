@@ -6,10 +6,19 @@ import java.util.Objects;
 
 public class TLARef extends TLAExpression {
 	private final String target;
+	private TLADefinitionOne refersTo;
 
 	public TLARef(SourceLocation location, String target) {
 		super(location);
 		this.target = target;
+	}
+
+	public void setRefersTo(TLADefinitionOne refersTo) {
+		this.refersTo = refersTo;
+	}
+
+	public TLADefinitionOne getRefersTo() {
+		return refersTo;
 	}
 
 	@Override

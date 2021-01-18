@@ -5,6 +5,8 @@ import pgo.errors.IssueContext;
 import pgo.model.mpcal.ModularPlusCalYield;
 import pgo.model.pcal.*;
 import pgo.model.tla.TLAExpression;
+import pgo.model.tla.TLAGeneralIdentifier;
+import pgo.util.SourceLocation;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -91,12 +93,12 @@ public class PlusCalMacroExpansionVisitor extends PlusCalStatementVisitor<List<P
 			ctx.error(new RecursiveMacroCallIssue(macroCall));
 		} else if (macros.containsKey(macroCall.getTarget())) {
 			PlusCalMacro macro = macros.get(macroCall.getTarget());
-			if (macro.getParams().size() != macroCall.getArguments().size()) {
+			if (macro.getParamIds().size() != macroCall.getArguments().size()) {
 				ctx.error(new MacroArgumentCountMismatchIssue(macroCall, macro));
 			} else {
 				Map<String, TLAExpression> argsMap = new HashMap<>();
 				for (int i = 0; i < macroCall.getArguments().size(); ++i) {
-					argsMap.put(macro.getParams().get(i), macroCall.getArguments().get(i));
+					argsMap.put(macro.getParamIds().get(i), macroCall.getArguments().get(i));
 				}
 				Set<String> innerRecursionSet = new HashSet<>(recursionSet);
 				innerRecursionSet.add(macro.getName());
@@ -116,16 +118,30 @@ public class PlusCalMacroExpansionVisitor extends PlusCalStatementVisitor<List<P
 
 	@Override
 	public List<PlusCalStatement> visit(PlusCalWith plusCalWith) throws RuntimeException {
-		return Collections.singletonList(new PlusCalWith(
+		// FIXME: ugly mutation-based hack to correctly handle nested renames
+		Map<String,TLAExpression> recovery = new HashMap<>();
+		List<PlusCalStatement> result = Collections.singletonList(new PlusCalWith(
 				plusCalWith.getLocation(),
 				plusCalWith.getVariables().stream().map(v -> {
 					if (macroArgs.containsKey(v.getName())) {
 						// TODO: error reporting in this case?
 					}
-					return new PlusCalVariableDeclaration(v.getLocation(), v.getName(),
+					PlusCalVariableDeclaration replacement = new PlusCalVariableDeclaration(v.getLocation(), v.getName(),
 							v.isRef(), v.isSet(), v.getValue().accept(macroSubst));
+					TLAGeneralIdentifier replacementID = new TLAGeneralIdentifier(SourceLocation.unknown(), v.getName(), Collections.emptyList());
+					replacementID.setRefersTo(replacement);
+					recovery.put(v.getName().getId(), macroArgs.put(v.getName().getId(), replacementID));
+					return replacement;
 				}).collect(Collectors.toList()),
 				substituteStatements(plusCalWith.getBody())));
+		for(String recName: recovery.keySet()) {
+			if(recovery.get(recName) == null) {
+				macroArgs.remove(recName);
+			} else {
+				macroArgs.put(recName, recovery.get(recName));
+			}
+		}
+		return result;
 	}
 
 	@Override

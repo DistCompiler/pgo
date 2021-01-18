@@ -79,12 +79,12 @@ public class PlusCalProcessesCodeGenVisitor extends PlusCalProcessesVisitor<Void
 
 			for (PlusCalVariableDeclaration arg : procedure.getParams()) {
 				GoType argType = typeMap.get(arg.getUID()).accept(new TypeConversionVisitor());
-				argMap.put(arg.getName().getValue(), builder.addParameter(arg.getName().getValue(), argType));
+				argMap.put(arg.getName().getId(), builder.addParameter(arg.getName().getId(), argType));
 			}
 
 			try (GoBlockBuilder procBody = builder.getBlockBuilder()) {
 				for (PlusCalVariableDeclaration arg : procedure.getParams()) {
-					procBody.linkUID(arg.getUID(), argMap.get(arg.getName().getValue()));
+					procBody.linkUID(arg.getUID(), argMap.get(arg.getName().getId()));
 				}
 
 				generateLocalVariableDefinitions(registry, typeMap, localStrategy, globalStrategy, procBody, procedure.getVariables());
@@ -105,7 +105,7 @@ public class PlusCalProcessesCodeGenVisitor extends PlusCalProcessesVisitor<Void
 			if (variableDeclaration.isSet()) {
 				value = new GoIndexExpression(value, new GoIntLiteral(0));
 			}
-			GoVariableName name = processBody.varDecl(variableDeclaration.getName().getValue(), value);
+			GoVariableName name = processBody.varDecl(variableDeclaration.getName().getId(), value);
 			processBody.linkUID(variableDeclaration.getUID(), name);
 		}
 	}
@@ -133,7 +133,7 @@ public class PlusCalProcessesCodeGenVisitor extends PlusCalProcessesVisitor<Void
 				TLAExpression value = variableDeclaration.getValue();
 				GoType type = typeMap.get(variableDeclaration.getUID()).accept(new TypeConversionVisitor());
 				GoVariableName name = moduleBuilder.defineGlobal(
-						variableDeclaration.getUID(), variableDeclaration.getName().getValue(), type);
+						variableDeclaration.getUID(), variableDeclaration.getName().getId(), type);
 				if (variableDeclaration.isSet()) {
 					initBuilder.assign(
 							name,
@@ -155,12 +155,12 @@ public class PlusCalProcessesCodeGenVisitor extends PlusCalProcessesVisitor<Void
 		for (PlusCalProcess process : multiProcess.getProcesses()) {
 			UID processUID = process.getName().getUID();
 			GoFunctionDeclarationBuilder functionBuilder = moduleBuilder.defineFunction(
-					processUID, process.getName().getName().getValue());
+					processUID, process.getName().getName().getId());
 			GoType selfType = typeMap.get(processUID).accept(new TypeConversionVisitor());
 			GoVariableName self = functionBuilder.addParameter("self", selfType);
 			try (GoBlockBuilder processBody = functionBuilder.getBlockBuilder()) {
 				processBody.linkUID(processUID, self);
-				globalStrategy.processPrelude(processBody, process, process.getName().getName().getValue(), self, selfType);
+				globalStrategy.processPrelude(processBody, process, process.getName().getName().getId(), self, selfType);
 				generateLocalVariableDefinitions(registry, typeMap, localStrategy, globalStrategy, processBody, process.getVariables());
 		 		for (PlusCalStatement statements : process.getBody()) {
 					statements.accept(new PlusCalStatementCodeGenVisitor(

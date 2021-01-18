@@ -69,7 +69,7 @@ public class ModularPlusCalAtomicityInferencePass {
 
             // build a map from resource's name to whether they are function mapped or not
             // By default, every archetype resource is non-function mapped
-            archetype.getParams().forEach(p -> mappings.put(p.getName().getValue(), false));
+            archetype.getParams().forEach(p -> mappings.put(p.getName().getId(), false));
 
             // if there is one instantiation where a resource is function mapped, update
             // the mappings accordingly
@@ -100,7 +100,7 @@ public class ModularPlusCalAtomicityInferencePass {
                         } else {
                             throw new Unreachable();
                         }
-                        mappings.put(archetype.getParams().get(pos).getName().getValue(), m.getVariable().isFunctionCall());
+                        mappings.put(archetype.getParams().get(pos).getName().getId(), m.getVariable().isFunctionCall());
                     }
                 }
             }

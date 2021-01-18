@@ -1,23 +1,22 @@
 package pgo.trans.passes.parse.pcal;
 
-import pgo.errors.IssueContext;
+import pgo.errors.Issue;
 import pgo.model.pcal.PlusCalAlgorithm;
-import pgo.parser.LexicalContext;
-import pgo.parser.ParseFailureException;
+import pgo.model.tla.TLAModule;
+import pgo.parser.ParsingError;
 import pgo.parser.PlusCalParser;
-import pgo.trans.passes.parse.tla.ParsingIssue;
+import pgo.trans.passes.parse.ParsingIssue;
 
 import java.nio.file.Path;
 
 public class PlusCalParsingPass {
 	private PlusCalParsingPass() {}
 
-	public static PlusCalAlgorithm perform(IssueContext ctx, Path inputFileName, CharSequence inputFileContents) {
+	public static PlusCalAlgorithm perform(Path inputFileName, CharSequence inputFileContents, TLAModule tlaModule) throws Issue {
 		try {
-			return PlusCalParser.readAlgorithm(new LexicalContext(inputFileName, inputFileContents));
-		} catch (ParseFailureException e) {
-			ctx.error(new ParsingIssue("PlusCal", e.getReason()));
-			return null;
+			return PlusCalParser.readAlgorithm(inputFileName, inputFileContents, tlaModule);
+		} catch (ParsingError e) {
+			throw new ParsingIssue("PlusCal", e);
 		}
 	}
 }

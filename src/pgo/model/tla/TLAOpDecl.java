@@ -1,6 +1,8 @@
 package pgo.model.tla;
 
 import pgo.util.SourceLocation;
+import scala.collection.immutable.Map$;
+import scala.collection.immutable.Map;
 
 /**
  * 
@@ -9,8 +11,8 @@ import pgo.util.SourceLocation;
  * used for higher-order operators.
  *
  */
-public class TLAOpDecl extends TLANode {
-	
+public class TLAOpDecl extends TLANode implements TLADefinitionOne {
+
 	public enum Type{
 		INFIX,
 		PREFIX,
@@ -19,15 +21,46 @@ public class TLAOpDecl extends TLANode {
 		ID,
 	}
 
-	private TLAIdentifier name;
-	private Type type;
-	private int arity;
+	private final TLAIdentifier name;
+	private final Type type;
+	private final int arity;
 	
 	private TLAOpDecl(SourceLocation location, TLAIdentifier name, Type type, int arity) {
 		super(location);
 		this.name = name;
 		this.type = type;
 		this.arity = arity;
+	}
+
+	@Override
+	public int arity() {
+		switch(type) {
+			case INFIX:
+				return 2;
+			case PREFIX:
+			case POSTFIX:
+				return 1;
+			case NAMED:
+				return arity;
+			case ID:
+				return 0;
+		}
+		return -1; // unreachable
+	}
+
+	@Override
+	public boolean isModuleInstance() {
+		return false;
+	}
+
+	@Override
+	public TLAIdentifier identifier() {
+		return name;
+	}
+
+	@Override
+	public Map<TLAIdentifier, TLADefinitionOne> scope() {
+		return Map$.MODULE$.empty();
 	}
 	
 	@Override

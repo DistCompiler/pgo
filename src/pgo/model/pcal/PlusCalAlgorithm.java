@@ -1,7 +1,7 @@
 package pgo.model.pcal;
 
+import pgo.model.tla.TLAIdentifier;
 import pgo.model.tla.TLAUnit;
-import pgo.parser.Located;
 import pgo.util.SourceLocation;
 
 import java.util.List;
@@ -10,7 +10,7 @@ import java.util.stream.Collectors;
 
 public class PlusCalAlgorithm extends PlusCalNode {
 
-	private final Located<String> name;
+	private final TLAIdentifier name;
 
 	private final PlusCalFairness fairness;
 	private final List<PlusCalVariableDeclaration> variables;
@@ -20,7 +20,7 @@ public class PlusCalAlgorithm extends PlusCalNode {
 
 	private final PlusCalProcesses processes;
 
-	public PlusCalAlgorithm(SourceLocation location, PlusCalFairness fairness, Located<String> name,
+	public PlusCalAlgorithm(SourceLocation location, PlusCalFairness fairness, TLAIdentifier name,
 	                        List<PlusCalVariableDeclaration> variables, List<PlusCalMacro> macros,
 	                        List<PlusCalProcedure> procedures, List<TLAUnit> units, PlusCalProcesses processes) {
 		super(location);
@@ -48,7 +48,7 @@ public class PlusCalAlgorithm extends PlusCalNode {
 
 	public PlusCalFairness getFairness() { return fairness; }
 
-	public Located<String> getName() {
+	public TLAIdentifier getName() {
 		return name;
 	}
 

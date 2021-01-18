@@ -79,7 +79,7 @@ public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLA
 				new ModularPlusCalMappingMacroReadExpansionVisitor(
 						registry, params, arguments, mappings, expressionArguments, functionMappedVars,
 						readTemporaryBinding, writeTemporaryBinding, procedureExpander, dollarVariable, varUID,
-						params.get(varUID).getName().getValue() + "Write", index,
+						params.get(varUID).getName().getId() + "Write", index,
 						new TLAExpressionMappingMacroReadExpansionVisitor(
 								registry, params, arguments, expressionArguments, mappings, functionMappedVars,
 								readTemporaryBinding, writeTemporaryBinding, procedureExpander, output, dollarVariable,
@@ -107,7 +107,7 @@ public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLA
 				TLAGeneralIdentifier temp = readTemporaryBinding.declare(
 						variable.getLocation(),
 						varUID,
-						params.get(varUID).getName().getValue() + "Read");
+						params.get(varUID).getName().getId() + "Read");
 				substituteReadBody(temp, arguments.get(varUID), varUID, index);
 				if (accumulatedIndices.size() > 0) {
 					return new TLAFunctionCall(tlaFunctionCall.getLocation(), temp, accumulatedIndices);
@@ -275,7 +275,7 @@ public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLA
 			TLAGeneralIdentifier temp = readTemporaryBinding.declare(
 					location,
 					varUID,
-					params.get(varUID).getName().getValue() + "Read");
+					params.get(varUID).getName().getId() + "Read");
 			if (mappings.containsKey(varUID)) {
 				substituteReadBody(temp, dollarVariable, varUID, null);
 			} else {
@@ -388,8 +388,11 @@ public class TLAExpressionPlusCalCodeGenVisitor extends TLAExpressionVisitor<TLA
 	public TLAExpression visit(TLASetRefinement tlaSetRefinement) throws RuntimeException {
 		return new TLASetRefinement(
 				tlaSetRefinement.getLocation(),
-				tlaSetRefinement.getIdent(),
-				tlaSetRefinement.getFrom().accept(this),
+				new TLAQuantifierBound(
+						tlaSetRefinement.getBinding().getLocation(),
+						tlaSetRefinement.getBinding().getType(),
+						tlaSetRefinement.getBinding().getIds(),
+						tlaSetRefinement.getBinding().getSet().accept(this)),
 				tlaSetRefinement.getWhen().accept(this));
 	}
 

@@ -5,7 +5,6 @@ import pgo.model.mpcal.ModularPlusCalMappingMacro;
 import pgo.model.mpcal.ModularPlusCalYield;
 import pgo.model.pcal.*;
 import pgo.model.tla.*;
-import pgo.parser.Located;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
 import pgo.util.SourceLocation;
@@ -138,10 +137,10 @@ public class ModularPlusCalMappingMacroReadExpansionVisitor extends ModularPlusC
 		List<PlusCalVariableDeclaration> declarations = new ArrayList<>();
 		for (PlusCalVariableDeclaration declaration : plusCalWith.getVariables()) {
 			TLAGeneralIdentifier fresh = readTemporaryBinding.freshVariable(
-					declaration.getLocation(), declaration.getUID(), declaration.getName().getValue());
+					declaration.getLocation(), declaration.getUID(), declaration.getName().getId());
 			declarations.add(new PlusCalVariableDeclaration(
 					declaration.getLocation(),
-					new Located<>(declaration.getName().getLocation(), fresh.getName().getId()),
+					new TLAIdentifier(declaration.getName().getLocation(), fresh.getName().getId()),
 					false,
 					declaration.isSet(),
 					declaration.getValue().accept(visitor)));

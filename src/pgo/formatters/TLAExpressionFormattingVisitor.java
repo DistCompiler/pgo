@@ -1,7 +1,7 @@
 package pgo.formatters;
 
 import pgo.model.tla.*;
-import pgo.parser.TLAParser;
+import pgo.parser.TLAMeta;
 
 import java.io.IOException;
 import java.util.List;
@@ -310,13 +310,13 @@ public class TLAExpressionFormattingVisitor extends TLAExpressionVisitor<Void, I
 			out.write("(");
 			tlaUnary.getOperand().accept(this);
 			out.write(")");
-		} else if (TLAParser.PREFIX_OPERATORS.contains(tlaUnary.getOperation().getValue())) {
+		} else if (TLAMeta.prefixOperators().contains(tlaUnary.getOperation().getValue())) {
 			formatPrefix(tlaUnary.getPrefix());
 			out.write(tlaUnary.getOperation().getValue());
 			out.write("(");
 			tlaUnary.getOperand().accept(this);
 			out.write(")");
-		} else if (TLAParser.POSTFIX_OPERATORS.contains(tlaUnary.getOperation().getValue())) {
+		} else if (TLAMeta.postfixOperators().contains(tlaUnary.getOperation().getValue())) {
 			out.write("(");
 			tlaUnary.getOperand().accept(this);
 			out.write(")");

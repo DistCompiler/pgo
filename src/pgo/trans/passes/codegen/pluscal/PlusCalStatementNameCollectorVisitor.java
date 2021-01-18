@@ -69,7 +69,7 @@ public class PlusCalStatementNameCollectorVisitor extends PlusCalStatementVisito
 
 	@Override
 	public Void visit(PlusCalWith plusCalWith) throws RuntimeException {
-		plusCalWith.getVariables().forEach(v -> names.add(v.getName().getValue()));
+		plusCalWith.getVariables().forEach(v -> names.add(v.getName().getId()));
 		plusCalWith.getBody().forEach(s -> s.accept(this));
 		return null;
 	}

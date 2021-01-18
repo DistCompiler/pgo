@@ -29,7 +29,7 @@ public class ModularPlusCalDesugarPass {
 		for (ModularPlusCalArchetype archetype : modularPlusCalBlock.getArchetypes()) {
 			archetypes.add(new ModularPlusCalArchetype(
 					archetype.getLocation(),
-					archetype.getName(),
+					archetype.getId(),
 					archetype.getParams(),
 					archetype.getVariables(),
 					desugarLabeledStatements(visitor, archetype.getBody())));

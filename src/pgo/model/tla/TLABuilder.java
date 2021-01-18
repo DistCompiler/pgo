@@ -26,11 +26,11 @@ public class TLABuilder {
 	}
 	
 	public static TLAQuantifierBound qbIds(List<TLAIdentifier> ids, TLAExpression set) {
-		return new TLAQuantifierBound(SourceLocation.unknown(), TLAQuantifierBound.Type.IDS, ids, set);
+		return new TLAQuantifierBound(SourceLocation.unknown(), TLAQuantifierBound.Type$.MODULE$.ids(), ids, set);
 	}
 	
 	public static TLAQuantifierBound qbTuple(List<TLAIdentifier> ids, TLAExpression set) {
-		return new TLAQuantifierBound(SourceLocation.unknown(), TLAQuantifierBound.Type.TUPLE, ids, set);
+		return new TLAQuantifierBound(SourceLocation.unknown(), TLAQuantifierBound.Type$.MODULE$.tuple(), ids, set);
 	}
 	
 	public static TLAIdentifier id(String name) {
@@ -74,6 +74,10 @@ public class TLABuilder {
 	public static TLASetConstructor set(TLAExpression... members) {
 		return new TLASetConstructor(SourceLocation.unknown(), Arrays.asList(members));
 	}
+
+	public static TLALet let(List<TLAUnit> units, TLAExpression body) {
+		return new TLALet(SourceLocation.unknown(), units, body);
+	}
 	
 	public static TLAOperatorCall opcall(List<TLAGeneralIdentifierPart> prefix, TLAIdentifier name, TLAExpression... args) {
 		return new TLAOperatorCall(SourceLocation.unknown(), name, prefix, Arrays.asList(args));
@@ -100,7 +104,7 @@ public class TLABuilder {
 	}
 
 	public static TLASetRefinement setRefinement(String id, TLAExpression set, TLAExpression condition) {
-		return new TLASetRefinement(SourceLocation.unknown(), TLAIdentifierOrTuple.Identifier(id(id)), set, condition);
+		return new TLASetRefinement(SourceLocation.unknown(), qbIds(Collections.singletonList(id(id)), set), condition);
 	}
 	
 	public static TLAFunctionSet functionSet(TLAExpression from, TLAExpression to) {
@@ -159,12 +163,16 @@ public class TLABuilder {
 		return new TLAQuantifiedUniversal(SourceLocation.unknown(), bounds, expr);
 	}
 
+	public static TLAExistential uqExistential(List<TLAIdentifier> ids, TLAExpression expr) {
+		return new TLAExistential(SourceLocation.unknown(), ids, expr);
+	}
+
 	public static TLAQuantifiedExistential existential(List<TLAQuantifierBound> bounds, TLAExpression expr) {
 		return new TLAQuantifiedExistential(SourceLocation.unknown(), bounds, expr);
 	}
 
-	public static TLAModule module(String name, List<TLAIdentifier> exts, List<TLAUnit> preTranslationUnits, List<TLAUnit> translatedUnits, List<TLAUnit> postTranslationUnits) {
-		return new TLAModule(SourceLocation.unknown(), id(name), exts, preTranslationUnits, translatedUnits, postTranslationUnits);
+	public static TLAModule module(String name, List<TLAIdentifier> exts, List<TLAUnit> units) {
+		return new TLAModule(SourceLocation.unknown(), id(name), exts, units);
 	}
 	
 	public static List<TLAOpDecl> opdecls(TLAOpDecl... opdecls){
@@ -193,6 +201,10 @@ public class TLABuilder {
 	
 	public static TLAOperatorDefinition opdef(boolean isLocal, TLAIdentifier id, List<TLAOpDecl> args, TLAExpression body) {
 		return new TLAOperatorDefinition(SourceLocation.unknown(), id, args, body, isLocal);
+	}
+
+	public static TLAConstantDeclaration constants(TLAOpDecl... constants) {
+		return new TLAConstantDeclaration(SourceLocation.unknown(), Arrays.asList(constants));
 	}
 	
 	public static TLABinOp binop(String op, TLAExpression lhs, TLAExpression rhs) {

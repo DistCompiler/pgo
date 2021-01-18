@@ -1,7 +1,6 @@
 package pgo.trans.passes.codegen.go;
 
 import pgo.InternalCompilerError;
-import pgo.TODO;
 import pgo.Unreachable;
 import pgo.model.golang.*;
 import pgo.model.golang.builder.GoBlockBuilder;
@@ -338,7 +337,7 @@ public class PlusCalStatementCodeGenVisitor extends PlusCalStatementVisitor<Void
 			if (decl.isSet()) {
 				value = new GoIndexExpression(value, new GoIntLiteral(0));
 			}
-			builder.linkUID(decl.getUID(), builder.varDecl(decl.getName().getValue(), value));
+			builder.linkUID(decl.getUID(), builder.varDecl(decl.getName().getId(), value));
 		}
 		for (PlusCalStatement statement : plusCalWith.getBody()) {
 			statement.accept(this);

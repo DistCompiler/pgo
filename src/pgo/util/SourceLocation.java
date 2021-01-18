@@ -1,5 +1,15 @@
 package pgo.util;
 
+import pgo.Unreachable;
+import pgo.formatters.IndentingWriter;
+
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.RandomAccessFile;
+import java.io.StringWriter;
+import java.nio.MappedByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.Objects;
 
@@ -21,6 +31,86 @@ public class SourceLocation implements Comparable<SourceLocation> {
 		this.endLine = endLine;
 		this.startColumn = startColumn;
 		this.endColumn = endColumn;
+	}
+
+	public String prettyString() {
+		StringWriter sw = new StringWriter();
+		writePretty(new IndentingWriter(sw));
+		return sw.getBuffer().toString();
+	}
+
+	public void writePretty(IndentingWriter out) {
+		try {
+			if(isUnknown()) {
+				out.write("at unknown source location");
+			} else {
+				out.write("at ");
+				if(startLine != endLine) {
+					out.write(""+(startLine+1)+":"+(startColumn+1)+"-"+(endLine+1)+":"+endColumn);
+				} else {
+					if(startColumn != endColumn) {
+						out.write(""+(startLine+1)+":"+(startColumn+1)+"-"+endColumn);
+					} else {
+						out.write(""+(startLine+1)+":"+(startColumn+1));
+					}
+				}
+				out.write(" in file "+file);
+				out.newLine();
+				try {
+					FileChannel fileChannel = new RandomAccessFile(file.toFile(), "r").getChannel();
+					MappedByteBuffer buffer = fileChannel.map(FileChannel.MapMode.READ_ONLY, 0, fileChannel.size());
+					CharSequence charSeq = StandardCharsets.UTF_8.decode(buffer);
+					int lineStart = startOffset;
+					while(lineStart >= 0 && (lineStart >= charSeq.length() || charSeq.charAt(lineStart) != '\n')) {
+						lineStart--;
+					}
+					if(charSeq.charAt(lineStart) == '\n') {
+						lineStart++;
+					}
+					int lineEnd = endOffset;
+					while(lineEnd < charSeq.length() && charSeq.charAt(lineEnd) != '\n') {
+						lineEnd++;
+					}
+					if(startLine != endLine) {
+						for(int pos = lineStart; pos < startOffset; pos++) {
+							out.append(' ');
+						}
+						for(int pos = startOffset; pos <= endOffset && charSeq.charAt(pos) != '\n'; pos++) {
+							out.append('v');
+						}
+						out.newLine();
+					}
+					int lastLineBegin = lineStart;
+					for(int pos = lineStart; pos < lineEnd; pos++) {
+						if(charSeq.charAt(pos) == '\n') {
+							lastLineBegin = pos + 1;
+						}
+					}
+					out.append(charSeq, lineStart, lineEnd);
+					out.newLine();
+					for(int pos = lastLineBegin; pos < startOffset; pos++) {
+						out.append(' ');
+					}
+					final int effectiveEndOffset;
+					if(startOffset == endOffset) {
+						effectiveEndOffset = endOffset + 1;
+					} else {
+						effectiveEndOffset = endOffset;
+					}
+					for(int pos = startOffset; pos < lineEnd && pos < effectiveEndOffset; pos++) {
+						out.append('^');
+					}
+					if(startOffset == charSeq.length()) {
+						out.append("^ EOF");
+					}
+				} catch (IOException e) { // if we can't read the file, replace the intended message with stacktrace
+					PrintWriter pw = new PrintWriter(out);
+					e.printStackTrace(pw);
+				}
+			}
+		} catch (IOException e) {
+			throw new Unreachable(); // string ops shouldn't throw IO exceptions
+		}
 	}
 	
 	public static SourceLocation unknown() {

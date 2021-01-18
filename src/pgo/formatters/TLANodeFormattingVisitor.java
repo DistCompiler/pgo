@@ -94,17 +94,15 @@ public class TLANodeFormattingVisitor extends TLANodeVisitor<Void, IOException> 
 
 	@Override
 	public Void visit(TLAQuantifierBound pGoTLAQuantifierBound) throws IOException {
-		switch(pGoTLAQuantifierBound.getType()) {
-			case IDS:
-				FormattingTools.writeCommaSeparated(out, pGoTLAQuantifierBound.getIds(), id -> id.accept(this));
-				break;
-			case TUPLE:
-				out.write("<<");
-				FormattingTools.writeCommaSeparated(out, pGoTLAQuantifierBound.getIds(), id -> id.accept(this));
-				out.write(">>");
-				break;
-			default:
-				throw new Unreachable();
+		TLAQuantifierBound.Type type = pGoTLAQuantifierBound.getType();
+		if (TLAQuantifierBound.Type$.MODULE$.ids().equals(type)) {
+			FormattingTools.writeCommaSeparated(out, pGoTLAQuantifierBound.getIds(), id -> id.accept(this));
+		} else if (TLAQuantifierBound.Type$.MODULE$.tuple().equals(type)) {
+			out.write("<<");
+			FormattingTools.writeCommaSeparated(out, pGoTLAQuantifierBound.getIds(), id -> id.accept(this));
+			out.write(">>");
+		} else {
+			throw new Unreachable();
 		}
 		out.write(" \\in ");
 		pGoTLAQuantifierBound.getSet().accept(new TLAExpressionFormattingVisitor(out));

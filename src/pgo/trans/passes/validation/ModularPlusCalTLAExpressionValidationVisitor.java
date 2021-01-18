@@ -31,7 +31,7 @@ public class ModularPlusCalTLAExpressionValidationVisitor extends TLAExpressionV
             UID varUID = registry.followReference(tlaFunctionCall.getFunction().getUID());
 
             if (functionMapped.containsKey(varUID) && !functionMapped.get(varUID)) {
-                ctx.error(new InvalidArchetypeResourceUsageIssue(containingStatement, varUID, false));
+                ctx.error(new InvalidArchetypeResourceUsageIssue(containingStatement, false));
             }
         }
 
@@ -109,7 +109,7 @@ public class ModularPlusCalTLAExpressionValidationVisitor extends TLAExpressionV
         UID varUID = registry.followReference(tlaGeneralIdentifier.getUID());
 
         if (functionMapped.containsKey(varUID) && functionMapped.get(varUID)) {
-            ctx.error(new InvalidArchetypeResourceUsageIssue(containingStatement, varUID, true));
+            ctx.error(new InvalidArchetypeResourceUsageIssue(containingStatement, true));
         }
 
         return null;

@@ -1,7 +1,6 @@
 package pgo;
 
 import org.json.JSONObject;
-import pgo.parser.Located;
 import pgo.util.SourceLocation;
 
 import java.nio.file.Paths;
@@ -10,7 +9,7 @@ import java.util.Map;
 
 public class PGoConstantDefs {
 	
-	private Map<String, Located<String>> defs;
+	private Map<String, PGoConstantDef> defs;
 	
 	public PGoConstantDefs(JSONObject config, String configFilePath) {
 		defs = new HashMap<>();
@@ -18,14 +17,14 @@ public class PGoConstantDefs {
 			JSONObject constants = config.getJSONObject("constants");
 			for (String name : constants.keySet()) {
 				String val = constants.getString(name);
-				defs.put(name, new Located<>(
+				defs.put(name, new PGoConstantDef(
 						new SourceLocation(Paths.get(configFilePath), 0, 0, 1, 1, 1, val.length()+1),
 						val));
 			}
 		}
 	}
 	
-	public Map<String, Located<String>> getConstants(){
+	public Map<String, PGoConstantDef> getConstants(){
 		return defs;
 	}
 

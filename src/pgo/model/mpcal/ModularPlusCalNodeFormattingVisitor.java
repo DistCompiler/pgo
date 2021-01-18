@@ -1,12 +1,12 @@
 package pgo.model.mpcal;
 
-import pgo.TODO;
 import pgo.Unreachable;
 import pgo.formatters.IndentingWriter;
 import pgo.formatters.PlusCalNodeFormattingVisitor;
 import pgo.formatters.TLAExpressionFormattingVisitor;
-import pgo.model.pcal.PlusCalFairness;
-import pgo.model.pcal.PlusCalStatement;
+import pgo.formatters.TLAUnitFormattingVisitor;
+import pgo.model.pcal.*;
+import pgo.model.tla.TLAUnit;
 
 import java.io.IOException;
 import java.util.stream.Collectors;
@@ -20,7 +20,56 @@ public class ModularPlusCalNodeFormattingVisitor extends ModularPlusCalNodeVisit
 
 	@Override
 	public Void visit(ModularPlusCalBlock modularPlusCalBlock) throws IOException {
-		throw new TODO();
+		out.write("--mpcal ");
+		out.write(modularPlusCalBlock.name().getId());
+		out.write(" {");
+
+		try(IndentingWriter.Indent i_ = out.indent()) {
+
+			if(!modularPlusCalBlock.getUnits().isEmpty()) {
+				out.newLine();
+				out.write("define {");
+				try(IndentingWriter.Indent ii_ = out.indent()) {
+					for(TLAUnit unit: modularPlusCalBlock.getUnits()) {
+						out.newLine();
+						unit.accept(new TLAUnitFormattingVisitor(out));
+					}
+				}
+				out.newLine();
+				out.write("}");
+			}
+
+			for(PlusCalMacro macro: modularPlusCalBlock.getMacros()) {
+				out.newLine();
+				macro.accept(new PlusCalNodeFormattingVisitor(out));
+			}
+			for(PlusCalProcedure proc: modularPlusCalBlock.getProcedures()) {
+				out.newLine();
+				proc.accept(new PlusCalNodeFormattingVisitor(out));
+			}
+			for(ModularPlusCalMappingMacro mm: modularPlusCalBlock.getMappingMacros()) {
+				out.newLine();
+				mm.accept(this);
+			}
+			for(ModularPlusCalArchetype arch: modularPlusCalBlock.getArchetypes()) {
+				out.newLine();
+				arch.accept(this);
+			}
+			if(!modularPlusCalBlock.getVariables().isEmpty()) {
+				out.newLine();
+			}
+			new PlusCalNodeFormattingVisitor(out).writeVariableDeclarations("variables ", modularPlusCalBlock.getVariables(), ";");
+			for(ModularPlusCalInstance inst: modularPlusCalBlock.getInstances()) {
+				out.newLine();
+				inst.accept(this);
+			}
+			out.newLine();
+			modularPlusCalBlock.getProcesses().accept(new PlusCalNodeFormattingVisitor(out));
+		}
+		out.newLine();
+		out.write("}");
+
+		return null;
 	}
 
 	@Override
@@ -31,7 +80,7 @@ public class ModularPlusCalNodeFormattingVisitor extends ModularPlusCalNodeVisit
 		out.write(modularPlusCalArchetype
 				.getParams()
 				.stream()
-				.map(arg -> (arg.isRef() ? "ref " : "") + arg.getName().getValue())
+				.map(arg -> (arg.isRef() ? "ref " : "") + arg.getName().getId())
 				.collect(Collectors.joining(", ")));
 		out.write(")");
 		if (modularPlusCalArchetype.getVariables().isEmpty()) {
@@ -110,18 +159,29 @@ public class ModularPlusCalNodeFormattingVisitor extends ModularPlusCalNodeVisit
 		out.write(modularPlusCalMappingMacro.getName());
 		out.write("{");
 
+		out.newLine();
 		out.write("read {");
-		for (PlusCalStatement s : modularPlusCalMappingMacro.getReadBody()) {
-			s.accept(new PlusCalNodeFormattingVisitor(out));
+		try(IndentingWriter.Indent i_ = out.indent()) {
+			for (PlusCalStatement s : modularPlusCalMappingMacro.getReadBody()) {
+				out.newLine();
+				s.accept(new PlusCalNodeFormattingVisitor(out));
+			}
 		}
+		out.newLine();
 		out.write("}");
 
+		out.newLine();
 		out.write("write {");
-		for (PlusCalStatement s : modularPlusCalMappingMacro.getWriteBody()) {
-			s.accept(new PlusCalNodeFormattingVisitor(out));
+		try(IndentingWriter.Indent i_ = out.indent()) {
+			for (PlusCalStatement s : modularPlusCalMappingMacro.getWriteBody()) {
+				out.newLine();
+				s.accept(new PlusCalNodeFormattingVisitor(out));
+			}
 		}
+		out.newLine();
 		out.write("}");
 
+		out.newLine();
 		out.write("}");
 		return null;
 	}

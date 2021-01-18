@@ -9,6 +9,8 @@ import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
 
+import static junit.framework.TestCase.fail;
+
 @RunWith(Parameterized.class)
 public class PlusCalUnitParserTest {
     @Parameterized.Parameters
@@ -87,11 +89,11 @@ public class PlusCalUnitParserTest {
         this.unit = unit;
     }
 
-    @Test(expected = ParseFailureException.class)
-    public void test() throws ParseFailureException {
-        LexicalContext ctx = new LexicalContext(testFile, String.join(System.lineSeparator(), unit.split("\n")));
+    @Test(expected = ParsingError.class)
+    public void test() {
         System.out.println(unit);
 
-        PlusCalParser.readUnit(ctx);
+        fail("TODO");
+        //PlusCalParser.readUnit(ctx);
     }
 }

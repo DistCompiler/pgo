@@ -14,7 +14,7 @@ import java.util.stream.Collectors;
  */
 public class TLARecordConstructor extends TLAExpression {
 
-	private List<Field> fields;
+	private final List<Field> fields;
 
 	public TLARecordConstructor(SourceLocation location, List<Field> fields) {
 		super(location);
@@ -27,8 +27,8 @@ public class TLARecordConstructor extends TLAExpression {
 	}
 	
 	public static class Field extends TLANode {
-		TLAIdentifier name;
-		TLAExpression value;
+		private final TLAIdentifier name;
+		private final TLAExpression value;
 		public Field(SourceLocation location, TLAIdentifier name, TLAExpression value) {
 			super(location);
 			this.name = name;
