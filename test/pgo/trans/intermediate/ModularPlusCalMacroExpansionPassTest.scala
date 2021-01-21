@@ -1,5 +1,7 @@
 package pgo.trans.intermediate
 
+import org.scalactic.source.Position
+
 import java.util.Collections
 import org.scalatest.funsuite.AnyFunSuite
 import pgo.TestingUtils
@@ -9,14 +11,12 @@ import pgo.model.pcal.PlusCalAlgorithm
 import pgo.trans.passes.expansion.ModularPlusCalMacroExpansionPass
 import pgo.model.pcal.PlusCalBuilder._
 import pgo.model.tla.TLABuilder._
-import pgo.parser.{ModularPlusCalParser, TLAParser}
 
-import java.nio.file.Files
 import scala.jdk.CollectionConverters._
 
 
 class ModularPlusCalMacroExpansionPassTest extends AnyFunSuite {
-  def check(tag: String)(pair: (PlusCalAlgorithm,PlusCalAlgorithm)) =
+  def check(tag: String)(pair: (PlusCalAlgorithm,PlusCalAlgorithm))(implicit pos: Position): Unit =
     test(tag) {
       val (beforePCal, expectedPCal) = pair
       val before = ModularPlusCalBlock.from(beforePCal)

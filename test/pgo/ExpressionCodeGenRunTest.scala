@@ -1,5 +1,6 @@
 package pgo
 
+import org.scalactic.source.Position
 import org.scalatest.funsuite.AnyFunSuite
 import pgo.IntegrationTestingUtils.{KeyValue, testCompileExpression, testRunGoCode}
 import pgo.model.tla.TLABuilder._
@@ -8,7 +9,7 @@ import pgo.model.tla.TLAExpression
 import scala.jdk.CollectionConverters._
 
 class ExpressionCodeGenRunTest extends AnyFunSuite {
-  def check(tag: String)(expr: TLAExpression, vars: List[(String,TLAExpression)] = Nil, expectedStr: String): Unit =
+  def check(tag: String)(expr: TLAExpression, vars: List[(String,TLAExpression)] = Nil, expectedStr: String)(implicit pos: Position): Unit =
     test(tag) {
       // try to run the compiled Go code, check that it prints the right thing
       testCompileExpression(

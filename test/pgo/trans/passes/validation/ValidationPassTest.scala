@@ -1,5 +1,6 @@
 package pgo.trans.passes.validation
 
+import org.scalactic.source.Position
 import org.scalatest.funsuite.AnyFunSuite
 import pgo.TestingUtils
 import pgo.errors.{Issue, TopLevelIssueContext}
@@ -10,7 +11,7 @@ import java.util.Collections
 import scala.jdk.CollectionConverters._
 
 class ValidationPassTest extends AnyFunSuite {
-  def check(tag: String)(pair: (String,List[Issue])): Unit =
+  def check(tag: String)(pair: (String,List[Issue]))(implicit pos: Position): Unit =
     test(tag) {
       val (specStr, expectedIssues) = pair
       val ctx = new TopLevelIssueContext()

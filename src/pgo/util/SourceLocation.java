@@ -64,7 +64,7 @@ public class SourceLocation implements Comparable<SourceLocation> {
 					while(lineStart >= 0 && (lineStart >= charSeq.length() || charSeq.charAt(lineStart) != '\n')) {
 						lineStart--;
 					}
-					if(charSeq.charAt(lineStart) == '\n') {
+					if(lineStart < charSeq.length() && (lineStart == -1 || charSeq.charAt(lineStart) == '\n')) {
 						lineStart++;
 					}
 					int lineEnd = endOffset;

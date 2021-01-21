@@ -1,5 +1,6 @@
 package pgo
 
+import org.scalactic.source.Position
 import org.scalatest.funsuite.AnyFunSuite
 import pgo.IntegrationTestingUtils.{testCompileFile, testRunGoCode}
 
@@ -7,7 +8,7 @@ import java.nio.file.Paths
 import scala.jdk.CollectionConverters._
 
 class TestCodeGenRunTest extends AnyFunSuite {
-  def check(tag: String)(fileName: String, constants: Map[String,String] = Map.empty, expectedStr: String): Unit =
+  def check(tag: String)(fileName: String, constants: Map[String,String] = Map.empty, expectedStr: String)(implicit pos: Position): Unit =
     test(tag) {
       testCompileFile(
         Paths.get("test", "integration", fileName),

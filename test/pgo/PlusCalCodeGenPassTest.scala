@@ -24,14 +24,7 @@ class PlusCalCodeGenPassTest extends AnyFunSuite {
 
         val actualAlgorithm = main.mpcalToPcal(testFile, ctx, mpcalBlock, tlaModule)
 
-        withClue {
-          val expectedLines = expectedAlgorithm.toString.linesIterator.toBuffer
-          val actualLines = actualAlgorithm.toString.linesIterator.toBuffer
-          val patch = DiffUtils.diff(expectedLines.asJava, actualLines.asJava)
-
-          val diff = UnifiedDiffUtils.generateUnifiedDiff("expected", "actual", expectedLines.asJava, patch, 3)
-          s"with diff:\n${diff.asScala.mkString("\n")}\n".stripMargin
-        } {
+        withClue(s"with diff:\n${TestingUtils.stringDiff(expected = expectedAlgorithm.toString, actual = actualAlgorithm.toString).mkString("\n")}\n") {
           assert(expectedAlgorithm == actualAlgorithm)
         }
       }

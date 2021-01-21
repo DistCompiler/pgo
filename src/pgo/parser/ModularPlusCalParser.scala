@@ -168,8 +168,8 @@ trait ModularPlusCalParser extends PlusCalParser {
                 varDecls.foldLeft(tmp)(_.withDefinition(_))
               }
               rep(ws ~> mpcalInstance) ~ {
-                (ws ~> withSourceLocation(pcalCSyntax.pcalCompoundStmt)) ^^ { case (loc, stmts) => new PlusCalSingleProcess(loc, stmts.asJava) } |
-                  (ws ~> withSourceLocation(repsep(pcalCSyntax.pcalProcess, ws))) ^^ { case (loc, procs) => new PlusCalMultiProcess(loc, procs.asJava) }
+                (ws ~> withSourceLocation(mpcalWithRefs.pcalCSyntax.pcalCompoundStmt.cast)) ^^ { case (loc, stmts) => new PlusCalSingleProcess(loc, stmts.asJava) } |
+                  (ws ~> withSourceLocation(repsep(mpcalWithRefs.pcalCSyntax.pcalProcess.cast, ws))) ^^ { case (loc, procs) => new PlusCalMultiProcess(loc, procs.asJava) }
               } <~ ws <~ "}" ^^ ((name, defns, macros, procedures, mappingMacros, archetypes, varDecls, _))
           }
       }

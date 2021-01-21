@@ -1,25 +1,28 @@
 package pgo.parser
 
+import org.scalactic.source.Position
 import org.scalatest.funsuite.AnyFunSuite
 
-import java.nio.file.Paths
 import java.util
 import java.util.Collections
-import pgo.model.tla.TLABool
-import pgo.model.tla.TLAExpression
-import pgo.model.tla.TLAFairness
+import pgo.model.tla.{TLABool, TLABuiltinModules, TLAExpression, TLAFairness}
 import pgo.util.SourceLocation
 import pgo.model.tla.TLABuilder._
 
 class TLAExpressionParseTest extends AnyFunSuite {
-  private val testFile = Paths.get("TEST")
-
-  def check(tag: String)(pair: (String,TLAExpression)): Unit =
+  def check(tag: String)(pair: (String,TLAExpression))(implicit pos: Position): Unit =
     test(tag) {
       val (str, expected) = pair
-      System.out.println(str)
-      val expr = TLAParser.readExpression(testFile, str)
-      assert(expr == expected)
+      withClue(str) {
+        val testFile = ParserTestingUtils.ensureBackingFile(str)
+        val expr = TLAParser.readExpression(
+          testFile,
+          str,
+          definitions = TLABuiltinModules.Integers.members ++
+            TLABuiltinModules.Sequences.members ++
+            TLABuiltinModules.Bags.members) // needed for (+)
+        assert(expr == expected)
+      }
     }
   // TODO: re-introduce in a way that makes sense given scoping
   //				{"a!b", idexp(prefix(idpart("a")), "b") },

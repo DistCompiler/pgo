@@ -1,5 +1,6 @@
 package pgo
 
+import org.scalactic.source.Position
 import org.scalatest.funsuite.AnyFunSuite
 import pgo.IntegrationTestingUtils.{mpcalRunDef, testCompileMPCal, testRunDistributedMPCal}
 
@@ -12,7 +13,7 @@ import scala.jdk.CollectionConverters._
 class MPCalCodeGenRunTest extends AnyFunSuite {
   def check(tag: String)(specName: String, pack: String,
                          constants: Map[String,String],
-                         processes: List[IntegrationTestingUtils.MPCalRunDefinition]): Unit =
+                         processes: List[IntegrationTestingUtils.MPCalRunDefinition])(implicit pos: Position): Unit =
     test(tag) {
       val goDir = Paths.get("test", "mpcal", "go", specName)
 

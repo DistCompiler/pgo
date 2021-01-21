@@ -877,8 +877,9 @@ trait TLAParser extends RegexParsers {
 }
 
 object TLAParser extends TLAParser with ParsingUtils {
-  def readExpression(path: java.nio.file.Path, seq: CharSequence): TLAExpression = {
-    implicit val ctx = TLABuiltinModules.Intrinsics.members.foldLeft(TLAParserContext())(_.withDefinition(_))
+  def readExpression(path: java.nio.file.Path, seq: CharSequence, definitions: Seq[TLADefinition] = Nil): TLAExpression = {
+    implicit val ctx = definitions.foldLeft(
+      TLABuiltinModules.Intrinsics.members.foldLeft(TLAParserContext())(_.withDefinition(_)))(_.withDefinition(_))
     checkResult {
       phrase(wsChk ~> tlaExpression <~ wsChk)(buildReader(path, seq))
     }
