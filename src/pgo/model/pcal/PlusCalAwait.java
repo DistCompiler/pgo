@@ -5,7 +5,7 @@ import pgo.util.SourceLocation;
 
 public class PlusCalAwait extends PlusCalStatement {
 	
-	private TLAExpression condition;
+	private final TLAExpression condition;
 	
 	public PlusCalAwait(SourceLocation location, TLAExpression condition) {
 		super(location);

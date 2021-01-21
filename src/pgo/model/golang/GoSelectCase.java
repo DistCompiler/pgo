@@ -5,8 +5,8 @@ import java.util.Objects;
 
 public class GoSelectCase extends GoNode {
 	
-	private GoStatement condition;
-	private List<GoStatement> block;
+	private final GoStatement condition;
+	private final List<GoStatement> block;
 
 	public GoSelectCase(GoStatement condition, List<GoStatement> block) {
 		super();

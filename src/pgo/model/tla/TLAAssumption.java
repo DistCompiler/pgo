@@ -6,7 +6,7 @@ import scala.collection.immutable.List$;
 
 public class TLAAssumption extends TLAUnit {
 	
-	private TLAExpression assumption;
+	private final TLAExpression assumption;
 
 	public TLAAssumption(SourceLocation location, TLAExpression assumption) {
 		super(location);

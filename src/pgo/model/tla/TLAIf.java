@@ -11,9 +11,9 @@ import pgo.util.SourceLocation;
  */
 public class TLAIf extends TLAExpression {
 
-	private TLAExpression cond;
-	private TLAExpression tval;
-	private TLAExpression fval;
+	private final TLAExpression cond;
+	private final TLAExpression tval;
+	private final TLAExpression fval;
 	
 	public TLAIf(SourceLocation location, TLAExpression cond, TLAExpression tval, TLAExpression fval) {
 		super(location);

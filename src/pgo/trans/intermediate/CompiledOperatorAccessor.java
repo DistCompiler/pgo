@@ -24,8 +24,8 @@ import java.util.stream.Collectors;
 
 public class CompiledOperatorAccessor extends OperatorAccessor {
 
-	private TLAOperatorDefinition def;
-	private Map<List<GoType>, GoVariableName> implementations;
+	private final TLAOperatorDefinition def;
+	private final Map<List<GoType>, GoVariableName> implementations;
 
 	public CompiledOperatorAccessor(TLAOperatorDefinition pGoTLAOperator) {
 		this.def = pGoTLAOperator;

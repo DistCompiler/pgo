@@ -7,8 +7,8 @@ import java.util.*;
 
 public class PlusCalProcessesMacroExpansionVisitor extends PlusCalProcessesVisitor<PlusCalProcesses, RuntimeException> {
 
-	private IssueContext ctx;
-	private Map<String, PlusCalMacro> macros;
+	private final IssueContext ctx;
+	private final Map<String, PlusCalMacro> macros;
 
 	public PlusCalProcessesMacroExpansionVisitor(IssueContext ctx, Map<String, PlusCalMacro> macros) {
 		this.ctx = ctx;

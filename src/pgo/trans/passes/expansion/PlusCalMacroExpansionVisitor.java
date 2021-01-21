@@ -12,11 +12,11 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 public class PlusCalMacroExpansionVisitor extends PlusCalStatementVisitor<List<PlusCalStatement>, RuntimeException> {
-	private IssueContext ctx;
-	private Map<String, PlusCalMacro> macros;
-	private Set<String> recursionSet;
-	private Map<String, TLAExpression> macroArgs;
-	private TLAExpressionMacroSubstitutionVisitor macroSubst;
+	private final IssueContext ctx;
+	private final Map<String, PlusCalMacro> macros;
+	private final Set<String> recursionSet;
+	private final Map<String, TLAExpression> macroArgs;
+	private final TLAExpressionMacroSubstitutionVisitor macroSubst;
 
 	public PlusCalMacroExpansionVisitor(IssueContext ctx, Map<String, PlusCalMacro> macros, Set<String> recursionSet, Map<String, TLAExpression> macroArgs) {
 		this.ctx = ctx;

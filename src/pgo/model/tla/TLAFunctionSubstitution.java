@@ -14,8 +14,8 @@ import java.util.stream.Collectors;
  */
 public class TLAFunctionSubstitution extends TLAExpression {
 
-	private TLAExpression source;
-	private List<TLAFunctionSubstitutionPair> subs;
+	private final TLAExpression source;
+	private final List<TLAFunctionSubstitutionPair> subs;
 
 	public TLAFunctionSubstitution(SourceLocation location, TLAExpression source, List<TLAFunctionSubstitutionPair> subs) {
 		super(location);

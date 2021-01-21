@@ -4,7 +4,7 @@ import java.util.Objects;
 
 public class GoVariableName extends GoExpression {
 	
-	private String name;
+	private final String name;
 	
 	public GoVariableName(String name) {
 		this.name = name;

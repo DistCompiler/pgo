@@ -3,7 +3,7 @@ package pgo.model.golang;
 import java.util.Objects;
 
 public class GoVariableDeclarationStatement extends GoStatement {
-	private GoVariableDeclaration variableDeclaration;
+	private final GoVariableDeclaration variableDeclaration;
 
 	public GoVariableDeclarationStatement(GoVariableDeclaration variableDeclaration) {
 		this.variableDeclaration = variableDeclaration;

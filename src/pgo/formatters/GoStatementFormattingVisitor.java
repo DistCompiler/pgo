@@ -8,7 +8,7 @@ import java.util.List;
 
 public class GoStatementFormattingVisitor extends GoStatementVisitor<Void, IOException> {
 
-	private IndentingWriter out;
+	private final IndentingWriter out;
 
 	public GoStatementFormattingVisitor(IndentingWriter out) {
 		this.out = out;

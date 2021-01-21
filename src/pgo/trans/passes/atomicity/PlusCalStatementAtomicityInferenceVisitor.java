@@ -11,11 +11,11 @@ import java.util.Set;
 import java.util.function.BiConsumer;
 
 public class PlusCalStatementAtomicityInferenceVisitor extends PlusCalStatementVisitor<Void, RuntimeException> {
-	private UID currentLabelUID;
-	private BiConsumer<TLAExpression, UID> captureLabelRead;
-	private BiConsumer<TLAExpression, UID> captureLabelWrite;
-	private Set<UID> foundLabels;
-	private TLAExpressionValueAtomicityInferenceVisitor visitor;
+	private final UID currentLabelUID;
+	private final BiConsumer<TLAExpression, UID> captureLabelRead;
+	private final BiConsumer<TLAExpression, UID> captureLabelWrite;
+	private final Set<UID> foundLabels;
+	private final TLAExpressionValueAtomicityInferenceVisitor visitor;
 
 	public PlusCalStatementAtomicityInferenceVisitor(UID currentLabelUID, BiConsumer<TLAExpression, UID> captureLabelRead,
 	                                                 BiConsumer<TLAExpression, UID> captureLabelWrite, Set<UID> foundLabels) {

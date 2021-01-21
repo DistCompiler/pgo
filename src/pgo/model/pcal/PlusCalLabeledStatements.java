@@ -7,8 +7,8 @@ import java.util.stream.Collectors;
 
 public class PlusCalLabeledStatements extends PlusCalStatement {
 	
-	private PlusCalLabel label;
-	private List<PlusCalStatement> statements;
+	private final PlusCalLabel label;
+	private final List<PlusCalStatement> statements;
 	
 	public PlusCalLabeledStatements(SourceLocation location, PlusCalLabel label, List<PlusCalStatement> statements) {
 		super(location);

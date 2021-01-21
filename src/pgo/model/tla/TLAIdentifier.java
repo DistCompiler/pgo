@@ -12,7 +12,7 @@ import scala.collection.immutable.Map;
  */
 public class TLAIdentifier extends TLANode implements TLADefinitionOne {
 	
-	private String id;
+	private final String id;
 	
 	public TLAIdentifier(SourceLocation location, String id) {
 		super(location);

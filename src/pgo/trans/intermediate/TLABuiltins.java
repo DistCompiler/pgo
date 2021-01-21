@@ -185,7 +185,7 @@ public class TLABuiltins {
 		}
 	}
 
-	private static BuiltinModule universalBuiltIns = new BuiltinModule();
+	private static final BuiltinModule universalBuiltIns = new BuiltinModule();
 	static {
 		universalBuiltIns.addOperator("=", new BuiltinOperator(
 				2,
@@ -414,7 +414,7 @@ public class TLABuiltins {
 				}));
 	}
 
-	private static Map<String, BuiltinModule> builtinModules = new HashMap<>();
+	private static final Map<String, BuiltinModule> builtinModules = new HashMap<>();
 	static {
 		BuiltinModule TLC = new BuiltinModule();
 		builtinModules.put("TLC", TLC);

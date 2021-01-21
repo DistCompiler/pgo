@@ -8,7 +8,7 @@ import java.util.List;
  * Represents a type variable.
  */
 public class TypeVariable extends Type {
-	private String name;
+	private final String name;
 
 	// The constructors must be kept package protected so that
 	// PGoTypeGenerator can safely do its job

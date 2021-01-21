@@ -20,11 +20,11 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpression, RuntimeException> {
-	private GoBlockBuilder builder;
-	private DefinitionRegistry registry;
-	private Map<UID, Type> typeMap;
-	private LocalVariableStrategy localStrategy;
-	private GlobalVariableStrategy globalStrategy;
+	private final GoBlockBuilder builder;
+	private final DefinitionRegistry registry;
+	private final Map<UID, Type> typeMap;
+	private final LocalVariableStrategy localStrategy;
+	private final GlobalVariableStrategy globalStrategy;
 
 	public TLAExpressionCodeGenVisitor(GoBlockBuilder builder, DefinitionRegistry registry, Map<UID, Type> typeMap,
 									   LocalVariableStrategy localStrategy, GlobalVariableStrategy globalStrategy) {

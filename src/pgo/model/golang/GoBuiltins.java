@@ -14,7 +14,7 @@ public final class GoBuiltins {
 	private GoBuiltins() {}
 
 	public static class BuiltinConstant extends GoExpression {
-		private String value;
+		private final String value;
 
 		public BuiltinConstant(String value) {
 			this.value = value;

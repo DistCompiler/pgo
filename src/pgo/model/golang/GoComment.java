@@ -7,7 +7,7 @@ import java.util.Objects;
  *
  */
 public class GoComment extends GoStatement {
-	private String comment;
+	private final String comment;
 
 	public GoComment(String comment) {
 		this.comment = comment;

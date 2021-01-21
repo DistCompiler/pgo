@@ -9,7 +9,7 @@ import java.util.Set;
 
 public class GoStatementRemoveUnusedLabelsVisitor extends GoStatementVisitor<GoStatement, RuntimeException> {
 
-	private Set<String> usedLabels;
+	private final Set<String> usedLabels;
 
 	public GoStatementRemoveUnusedLabelsVisitor(Set<String> usedLabels) {
 		this.usedLabels = usedLabels;

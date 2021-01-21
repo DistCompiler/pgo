@@ -15,8 +15,8 @@ import java.util.stream.Collectors;
 public class TLAFunctionCall extends TLAExpression {
 
 	// the function called
-	private TLAExpression function;
-	private List<TLAExpression> params;
+	private final TLAExpression function;
+	private final List<TLAExpression> params;
 	
 	public TLAFunctionCall(SourceLocation location, TLAExpression function, List<TLAExpression> params) {
 		super(location);

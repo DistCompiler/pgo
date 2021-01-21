@@ -15,8 +15,8 @@ import java.util.stream.Collectors;
  * @param <V> The the value type
  */
 public class ChainMap<K, V> implements Map<K, V> {
-	private Map<K, V> parent;
-	private Map<K, V> members;
+	private final Map<K, V> parent;
+	private final Map<K, V> members;
 
 	public ChainMap(Map<K, V> parent) {
 		this.parent = parent;

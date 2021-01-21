@@ -10,7 +10,7 @@ import java.util.Collections;
 import java.util.List;
 
 public class MonomorphicConstraint extends Constraint {
-	private BasicConstraint basicConstraint;
+	private final BasicConstraint basicConstraint;
 
 	public MonomorphicConstraint(Origin origin, Type lhs, Type rhs) {
 		this(Collections.singletonList(origin), new EqualityConstraint(lhs, rhs));

@@ -10,7 +10,7 @@ import java.util.Optional;
 public class Recycling<T> {
 	public static class Checkpoint<T> {
 		private final Recycling<T> from;
-		private int currentIndex;
+		private final int currentIndex;
 
 		public Checkpoint(Recycling<T> from, int currentIndex) {
 			this.from = from;

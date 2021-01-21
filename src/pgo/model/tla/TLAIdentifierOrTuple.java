@@ -19,8 +19,8 @@ import java.util.stream.Collectors;
  */
 public class TLAIdentifierOrTuple extends TLANode {
 	
-	private List<TLAIdentifier> ids;
-	private boolean tuple;
+	private final List<TLAIdentifier> ids;
+	private final boolean tuple;
 	
 	private TLAIdentifierOrTuple(SourceLocation location, List<TLAIdentifier> ids, boolean isTuple) {
 		super(location);

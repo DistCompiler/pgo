@@ -11,7 +11,7 @@ import java.util.List;
 
 public class PlusCalNodeFormattingVisitor extends PlusCalNodeVisitor<Void, IOException> {
 
-	private IndentingWriter out;
+	private final IndentingWriter out;
 
 	public PlusCalNodeFormattingVisitor(IndentingWriter out) {
 		this.out = out;

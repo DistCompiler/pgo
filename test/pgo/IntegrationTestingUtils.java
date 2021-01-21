@@ -57,8 +57,8 @@ public class IntegrationTestingUtils {
 	private IntegrationTestingUtils() {}
 
 	static class KeyValue {
-		private String key;
-		private TLAExpression value;
+		private final String key;
+		private final TLAExpression value;
 
 		KeyValue(String key, TLAExpression value) {
 			super();

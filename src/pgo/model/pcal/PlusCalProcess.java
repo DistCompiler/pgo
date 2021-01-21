@@ -7,10 +7,10 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 public class PlusCalProcess extends PlusCalNode {
-	private PlusCalVariableDeclaration name;
-	private PlusCalFairness fairness;
-	private List<PlusCalVariableDeclaration> variables;
-	private List<PlusCalStatement> body;
+	private final PlusCalVariableDeclaration name;
+	private final PlusCalFairness fairness;
+	private final List<PlusCalVariableDeclaration> variables;
+	private final List<PlusCalStatement> body;
 
 	public PlusCalProcess(SourceLocation location, PlusCalVariableDeclaration name, PlusCalFairness fairness,
 						  List<PlusCalVariableDeclaration> variables, List<PlusCalStatement> body) {

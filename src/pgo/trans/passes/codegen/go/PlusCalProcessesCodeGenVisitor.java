@@ -23,12 +23,12 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 public class PlusCalProcessesCodeGenVisitor extends PlusCalProcessesVisitor<Void, RuntimeException> {
-	private DefinitionRegistry registry;
-	private Map<UID, Type> typeMap;
-	private LocalVariableStrategy localStrategy;
-	private GlobalVariableStrategy globalStrategy;
-	private ModularPlusCalBlock modularPlusCalBlock;
-	private GoModuleBuilder moduleBuilder;
+	private final DefinitionRegistry registry;
+	private final Map<UID, Type> typeMap;
+	private final LocalVariableStrategy localStrategy;
+	private final GlobalVariableStrategy globalStrategy;
+	private final ModularPlusCalBlock modularPlusCalBlock;
+	private final GoModuleBuilder moduleBuilder;
 
 	public PlusCalProcessesCodeGenVisitor(DefinitionRegistry registry, Map<UID, Type> typeMap,
 	                                      LocalVariableStrategy localStrategy, GlobalVariableStrategy globalStrategy,

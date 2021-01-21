@@ -8,7 +8,7 @@ import java.util.stream.Collectors;
 
 public class PlusCalMultiProcess extends PlusCalProcesses {
 	
-	private List<PlusCalProcess> processes;
+	private final List<PlusCalProcess> processes;
 	
 	public PlusCalMultiProcess(SourceLocation location, List<PlusCalProcess> processes) {
 		super(location);

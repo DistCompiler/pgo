@@ -11,9 +11,9 @@ import java.util.Objects;
  */
 public class GoTypeAssertion extends GoExpression {
 	// the expr we are casting
-	private GoExpression target;
+	private final GoExpression target;
 	
-	private GoType type;
+	private final GoType type;
 	
 	public GoTypeAssertion(GoExpression target, GoType type) {
 		this.target = target;

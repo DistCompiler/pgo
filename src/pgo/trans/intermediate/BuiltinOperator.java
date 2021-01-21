@@ -27,9 +27,9 @@ public class BuiltinOperator extends OperatorAccessor {
 							  Map<UID, Type> typeMap, LocalVariableStrategy localSrtrategy, GlobalVariableStrategy globalStrategy);
 	}
 
-	private int argumentCount;
-	private TypeConstraintGenerator typeConstraintGenerator;
-	private GoGenerator goGenerator;
+	private final int argumentCount;
+	private final TypeConstraintGenerator typeConstraintGenerator;
+	private final GoGenerator goGenerator;
 
 	public BuiltinOperator(int argumentCount, TypeConstraintGenerator typeConstraintGenerator, GoGenerator goGenerator) {
 		this.argumentCount = argumentCount;

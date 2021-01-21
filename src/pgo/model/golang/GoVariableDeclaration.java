@@ -6,9 +6,9 @@ import java.util.Objects;
 
 public class GoVariableDeclaration extends GoDeclaration {
 
-	private String name;
-	private GoType type;
-	private GoExpression value;
+	private final String name;
+	private final GoType type;
+	private final GoExpression value;
 
 	public GoVariableDeclaration(String name, GoType type, GoExpression value) {
 		this.name = name;

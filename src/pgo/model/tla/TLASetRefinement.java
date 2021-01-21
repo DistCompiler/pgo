@@ -12,8 +12,8 @@ import pgo.util.SourceLocation;
  */
 public class TLASetRefinement extends TLAExpression {
 
-	private TLAQuantifierBound binding;
-	private TLAExpression when;
+	private final TLAQuantifierBound binding;
+	private final TLAExpression when;
 
 	public TLASetRefinement(SourceLocation location, TLAQuantifierBound binding, TLAExpression when) {
 		super(location);

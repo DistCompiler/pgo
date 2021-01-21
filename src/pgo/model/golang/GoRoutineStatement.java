@@ -3,7 +3,7 @@ package pgo.model.golang;
 import java.util.Objects;
 
 public class GoRoutineStatement extends GoStatement {
-	private GoExpression expression;
+	private final GoExpression expression;
 
 	public GoRoutineStatement(GoExpression expression) {
 		this.expression = expression;

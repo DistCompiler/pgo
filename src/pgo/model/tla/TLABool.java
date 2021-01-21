@@ -4,7 +4,7 @@ import pgo.util.SourceLocation;
 
 public class TLABool extends TLAExpression {
 
-	private boolean value;
+	private final boolean value;
 
 	public TLABool(SourceLocation location, boolean value) {
 		super(location);

@@ -18,12 +18,12 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 public class PlusCalStatementCodeGenVisitor extends PlusCalStatementVisitor<Void, RuntimeException> {
-	private DefinitionRegistry registry;
-	private Map<UID, Type> typeMap;
-	private LocalVariableStrategy localStrategy;
-	private GlobalVariableStrategy globalStrategy;
-	private UID processUID;
-	private GoBlockBuilder builder;
+	private final DefinitionRegistry registry;
+	private final Map<UID, Type> typeMap;
+	private final LocalVariableStrategy localStrategy;
+	private final GlobalVariableStrategy globalStrategy;
+	private final UID processUID;
+	private final GoBlockBuilder builder;
 	private CriticalSectionTracker criticalSectionTracker;
 	private Function<GoBlockBuilder, GoLabelName> awaitAction;
 
@@ -203,7 +203,7 @@ public class PlusCalStatementCodeGenVisitor extends PlusCalStatementVisitor<Void
 		// generate labels
 		List<GoLabelName> labels = new ArrayList<>();
 		for (int i = 0; i < cases.size(); i++) {
-			labels.add(builder.newLabel("case" + Integer.toString(i)));
+			labels.add(builder.newLabel("case" + i));
 		}
 		GoLabelName endEither = builder.newLabel("endEither");
 		// start codegen
@@ -314,7 +314,7 @@ public class PlusCalStatementCodeGenVisitor extends PlusCalStatementVisitor<Void
 		for (int i = 0; i < args.size(); i++) {
 			TLAExpression arg = args.get(i);
 			GoExpression e = arg.accept(new TLAExpressionCodeGenVisitor(builder, registry, typeMap, localStrategy, globalStrategy));
-			arguments.add(builder.varDecl("arg" + Integer.toString(i + 1), e));
+			arguments.add(builder.varDecl("arg" + (i + 1), e));
 		}
 		// the critical section ends here because the procedure has to have a label on the first line of its body
 		criticalSectionTracker.end(builder);

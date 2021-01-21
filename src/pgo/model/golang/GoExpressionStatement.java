@@ -4,7 +4,7 @@ import java.util.Objects;
 
 public class GoExpressionStatement extends GoStatement {
 
-	private GoExpression expression;
+	private final GoExpression expression;
 
 	public GoExpressionStatement(GoExpression expression) {
 		this.expression = expression;

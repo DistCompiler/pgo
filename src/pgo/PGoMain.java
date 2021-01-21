@@ -55,7 +55,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class PGoMain {
-	private String[] cmdArgs;
+	private final String[] cmdArgs;
 	private static Logger logger;
 
 	public PGoMain(String[] args) {

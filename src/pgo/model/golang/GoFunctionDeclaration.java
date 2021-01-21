@@ -8,12 +8,12 @@ import java.util.Objects;
  *
  */
 public class GoFunctionDeclaration extends GoDeclaration {
-	private String name;
+	private final String name;
 	
 	private GoFunctionParameter receiver;
-	private List<GoFunctionParameter> arguments;
-	private List<GoFunctionParameter> returnTypes;
-	private GoBlock body;
+	private final List<GoFunctionParameter> arguments;
+	private final List<GoFunctionParameter> returnTypes;
+	private final GoBlock body;
 	
 	public GoFunctionDeclaration(String name, GoFunctionParameter receiver, List<GoFunctionParameter> arguments, List<GoFunctionParameter> returnTypes, GoBlock body) {
 		this.name = name;

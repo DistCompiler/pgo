@@ -77,7 +77,7 @@ public class PGoNetOptions {
 	public static final String STATE_FIELD = "state";
 
 	// allows the developer to easily turn off networking by setting this parameter to +false+
-	private boolean enabled;
+	private final boolean enabled;
 
 	private StateOptions stateOptions;
 

@@ -17,9 +17,9 @@ import java.util.function.Function;
 
 public class LessThanCodeGenVisitor extends GoTypeVisitor<GoExpression, RuntimeException> {
 
-	private GoBlockBuilder builder;
-	private GoExpression lhs;
-	private GoExpression rhs;
+	private final GoBlockBuilder builder;
+	private final GoExpression lhs;
+	private final GoExpression rhs;
 
 	public LessThanCodeGenVisitor(GoBlockBuilder builder, GoExpression lhs, GoExpression rhs) {
 		this.builder = builder;

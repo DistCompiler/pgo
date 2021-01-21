@@ -12,7 +12,7 @@ import java.io.IOException;
 import java.util.stream.Collectors;
 
 public class ModularPlusCalNodeFormattingVisitor extends ModularPlusCalNodeVisitor<Void, IOException> {
-	private IndentingWriter out;
+	private final IndentingWriter out;
 
 	public ModularPlusCalNodeFormattingVisitor(IndentingWriter out) {
 		this.out = out;

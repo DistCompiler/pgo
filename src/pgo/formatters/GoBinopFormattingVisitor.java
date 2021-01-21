@@ -13,7 +13,7 @@ public class GoBinopFormattingVisitor extends GoExpressionVisitor<Void, IOExcept
 	private final IndentingWriter out;
 	private final int precedence;
 
-	private static Map<GoBinop.Operation, Integer> operatorPrecedence = new HashMap<>();
+	private static final Map<GoBinop.Operation, Integer> operatorPrecedence = new HashMap<>();
 	static{
 		// *  /  %  <<  >>  &  &^
 		for(GoBinop.Operation op : Arrays.asList(

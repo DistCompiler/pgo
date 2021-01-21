@@ -6,8 +6,8 @@ import pgo.model.type.Type;
 import pgo.scope.UID;
 
 public class TypeInferenceFailureIssue extends Issue {
-	private UID uid;
-	private Type type;
+	private final UID uid;
+	private final Type type;
 
 	public TypeInferenceFailureIssue(UID uid, Type type) {
 		this.uid = uid;

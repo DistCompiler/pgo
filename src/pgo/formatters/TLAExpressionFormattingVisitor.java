@@ -8,7 +8,7 @@ import java.util.List;
 
 public class TLAExpressionFormattingVisitor extends TLAExpressionVisitor<Void, IOException> {
 	IndentingWriter out;
-	private boolean lhs;
+	private final boolean lhs;
 
 	public TLAExpressionFormattingVisitor(IndentingWriter out, boolean lhs) {
 		this.out = out;

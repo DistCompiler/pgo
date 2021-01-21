@@ -8,7 +8,7 @@ import java.util.stream.Collectors;
 
 public class PolymorphicConstraint extends Constraint
 		implements Iterator<List<BasicConstraint>>, Iterable<List<BasicConstraint>> {
-	private List<List<BasicConstraint>> constraints;
+	private final List<List<BasicConstraint>> constraints;
 	private int currentIndex;
 
 	public PolymorphicConstraint(Origin origin, List<List<BasicConstraint>> constraints) {

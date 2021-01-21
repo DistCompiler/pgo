@@ -9,9 +9,9 @@ import java.util.Objects;
 
 public class GoInterfaceTypeField extends GoNode {
 	
-	private String name;
-	private List<GoFunctionParameter> arguments;
-	private List<GoFunctionParameter> returnTypes;
+	private final String name;
+	private final List<GoFunctionParameter> arguments;
+	private final List<GoFunctionParameter> returnTypes;
 
 	public GoInterfaceTypeField(String name, List<GoFunctionParameter> arguments, List<GoFunctionParameter> returnTypes) {
 		this.name = name;

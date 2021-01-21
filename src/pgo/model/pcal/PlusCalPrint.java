@@ -5,7 +5,7 @@ import pgo.util.SourceLocation;
 
 public class PlusCalPrint extends PlusCalStatement {
 	
-	private TLAExpression value;
+	private final TLAExpression value;
 	
 	public PlusCalPrint(SourceLocation location, TLAExpression value) {
 		super(location);

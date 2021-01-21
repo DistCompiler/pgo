@@ -42,8 +42,8 @@ public class PGoOptions {
 	public PGoNetOptions net;
 	public PGoConstantDefs constants;
 
-	private Options plumeOptions;
-	private String[] remainingArgs;
+	private final Options plumeOptions;
+	private final String[] remainingArgs;
 
 	public void printHelp() {
 		plumeOptions.print_usage();

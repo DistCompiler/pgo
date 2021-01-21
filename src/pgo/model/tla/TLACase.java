@@ -16,8 +16,8 @@ import java.util.stream.Collectors;
  */
 public class TLACase extends TLAExpression {
 
-	private List<TLACaseArm> arms;
-	private TLAExpression other;
+	private final List<TLACaseArm> arms;
+	private final TLAExpression other;
 
 	public TLACase(SourceLocation location, List<TLACaseArm> arms, TLAExpression other) {
 		super(location);

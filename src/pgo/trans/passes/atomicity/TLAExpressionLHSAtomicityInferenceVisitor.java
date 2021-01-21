@@ -8,8 +8,8 @@ import pgo.scope.UID;
 import java.util.function.Consumer;
 
 public class TLAExpressionLHSAtomicityInferenceVisitor extends TLAExpressionVisitor<Void, RuntimeException> {
-	private TLAExpressionValueAtomicityInferenceVisitor visitor;
-	private Consumer<TLAExpression> captureWrite;
+	private final TLAExpressionValueAtomicityInferenceVisitor visitor;
+	private final Consumer<TLAExpression> captureWrite;
 
 	public TLAExpressionLHSAtomicityInferenceVisitor(TLAExpressionValueAtomicityInferenceVisitor visitor,
 	                                                 Consumer<TLAExpression> captureWrite) {

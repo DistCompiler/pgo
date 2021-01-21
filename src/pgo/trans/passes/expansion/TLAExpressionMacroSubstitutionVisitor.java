@@ -11,8 +11,8 @@ import java.util.stream.Collectors;
 
 public class TLAExpressionMacroSubstitutionVisitor extends TLAExpressionVisitor<TLAExpression, RuntimeException> {
 
-	private IssueContext ctx;
-	private Map<String, TLAExpression> macroArgs;
+	private final IssueContext ctx;
+	private final Map<String, TLAExpression> macroArgs;
 
 	public TLAExpressionMacroSubstitutionVisitor(IssueContext ctx, Map<String, TLAExpression> macroArgs) {
 		this.ctx= ctx;

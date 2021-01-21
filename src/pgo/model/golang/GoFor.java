@@ -8,11 +8,11 @@ import java.util.Objects;
  */
 public class GoFor extends GoStatement {
 	// boolean condition
-	private GoStatement init;
-	private GoExpression cond;
-	private GoStatement inc;
+	private final GoStatement init;
+	private final GoExpression cond;
+	private final GoStatement inc;
 
-	private GoBlock body;
+	private final GoBlock body;
 
 	public GoFor(GoStatement init, GoExpression cond, GoStatement inc, GoBlock body) {
 		this.init = init;

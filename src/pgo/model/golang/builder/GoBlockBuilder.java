@@ -20,8 +20,8 @@ public class GoBlockBuilder extends GoASTBuilder implements Closeable {
 		void action(GoBlock block);
 	}
 
-	private OnSuccess onSuccess;
-	private NameCleaner labelScope;
+	private final OnSuccess onSuccess;
+	private final NameCleaner labelScope;
 
 	public GoBlockBuilder(GoASTBuilder builder, NameCleaner nameCleaner, Map<UID, GoVariableName> nameMap, NameCleaner labelScope) {
 		this.builder = builder;

@@ -6,7 +6,7 @@ import scala.collection.immutable.List$;
 
 public class TLATheorem extends TLAUnit {
 	
-	private TLAExpression theorem;
+	private final TLAExpression theorem;
 
 	@Override
 	public List<TLADefinition> definitions() {

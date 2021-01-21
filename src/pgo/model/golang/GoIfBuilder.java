@@ -13,15 +13,15 @@ import java.util.Map;
 
 public class GoIfBuilder implements Closeable {
 
-	private GoASTBuilder builder;
-	private NameCleaner nameCleaner;
-	private NameCleaner labelScope;
+	private final GoASTBuilder builder;
+	private final NameCleaner nameCleaner;
+	private final NameCleaner labelScope;
 	private GoExpression condition;
 	private GoBlock trueBranch;
 	private GoBlock falseBranch;
-	private List<GoVariableName> initialVariables;
+	private final List<GoVariableName> initialVariables;
 	private GoExpression initialExpression;
-	private Map<UID, GoVariableName> nameMap;
+	private final Map<UID, GoVariableName> nameMap;
 
 	public GoIfBuilder(GoASTBuilder builder, NameCleaner nameCleaner, Map<UID, GoVariableName> nameMap,
 					   NameCleaner labelScope, GoExpression condition) {

@@ -6,8 +6,8 @@ import java.util.Objects;
 
 public class GoTypeDeclaration extends GoDeclaration {
 	
-	private String name;
-	private GoType type;
+	private final String name;
+	private final GoType type;
 	
 	public GoTypeDeclaration(String name, GoType type) {
 		super();

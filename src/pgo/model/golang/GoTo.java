@@ -8,7 +8,7 @@ import java.util.Objects;
  */
 public class GoTo extends GoStatement {
 	// the to label location
-	private GoLabelName to;
+	private final GoLabelName to;
 
 	public GoTo(GoLabelName to) {
 		this.to = to;

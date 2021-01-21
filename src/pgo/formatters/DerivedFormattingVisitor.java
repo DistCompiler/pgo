@@ -13,7 +13,7 @@ import java.io.IOException;
 import java.util.List;
 
 public class DerivedFormattingVisitor extends DerivedVisitor<Void, IOException> {
-	private IndentingWriter out;
+	private final IndentingWriter out;
 
 	public DerivedFormattingVisitor(IndentingWriter out) {
 		this.out = out;

@@ -28,7 +28,7 @@ public class TemporaryBinding {
 	private final NameCleaner nameCleaner;
 	private final Map<UID, Recycling<TLAGeneralIdentifier>> temporaries;
 	private final List<PlusCalVariableDeclaration> declarations;
-	private ArrayDeque<LinkedHashMap<UID, TLAGeneralIdentifier>> touchedVarsStack;
+	private final ArrayDeque<LinkedHashMap<UID, TLAGeneralIdentifier>> touchedVarsStack;
 	private LinkedHashMap<UID, TLAGeneralIdentifier> touchedVars;
 
 	public TemporaryBinding(NameCleaner nameCleaner, List<PlusCalVariableDeclaration> declarations) {

@@ -12,8 +12,8 @@ import java.util.stream.Collectors;
 
 public class CopyVisitor extends GoTypeVisitor<GoVariableName, RuntimeException> {
 
-    private GoBlockBuilder builder;
-    private GoVariableName source;
+    private final GoBlockBuilder builder;
+    private final GoVariableName source;
 
     public CopyVisitor(GoBlockBuilder builder, GoVariableName source) {
         this.builder = builder;

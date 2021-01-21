@@ -4,7 +4,7 @@ import pgo.model.golang.type.GoType;
 import pgo.model.golang.type.GoTypeVisitor;
 
 public class GoPtrType extends GoType {
-	private GoType pointee;
+	private final GoType pointee;
 	
 	public GoPtrType(GoType pointee) {
 		this.pointee = pointee;

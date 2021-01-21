@@ -14,13 +14,13 @@ import java.nio.file.Path;
 import java.util.Objects;
 
 public class SourceLocation implements Comparable<SourceLocation> {
-	private Path file;
-	private int startOffset;
-	private int endOffset;
-	private int startLine;
-	private int endLine;
-	private int startColumn;
-	private int endColumn;
+	private final Path file;
+	private final int startOffset;
+	private final int endOffset;
+	private final int startLine;
+	private final int endLine;
+	private final int startColumn;
+	private final int endColumn;
 	
 	public SourceLocation(Path file, int startOffset, int endOffset, int startLine, int endLine, int startColumn,
 	                      int endColumn) {

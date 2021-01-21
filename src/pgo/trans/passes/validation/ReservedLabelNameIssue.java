@@ -11,7 +11,7 @@ import java.io.StringWriter;
 
 public class ReservedLabelNameIssue extends Issue {
 
-    private PlusCalStatement statement;
+    private final PlusCalStatement statement;
 
     public ReservedLabelNameIssue(PlusCalStatement statement) {
         this.statement = statement;

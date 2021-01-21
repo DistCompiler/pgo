@@ -19,16 +19,16 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 public class StateServerGlobalVariableStrategy extends GlobalVariableStrategy {
-	private DefinitionRegistry registry;
-	private Map<UID, Type> typeMap;
-	private PGoNetOptions.StateOptions stateOptions;
-	private ModularPlusCalBlock modularPlusCalBlock;
-	private GoCommandLineArgumentParser commandLineArgumentParser;
-	private UID processNameUID;
-	private UID processArgumentUID;
-	private UID errUID;
-	private UID globalStateUID;
-	private UID refsUID;
+	private final DefinitionRegistry registry;
+	private final Map<UID, Type> typeMap;
+	private final PGoNetOptions.StateOptions stateOptions;
+	private final ModularPlusCalBlock modularPlusCalBlock;
+	private final GoCommandLineArgumentParser commandLineArgumentParser;
+	private final UID processNameUID;
+	private final UID processArgumentUID;
+	private final UID errUID;
+	private final UID globalStateUID;
+	private final UID refsUID;
 
 	public StateServerGlobalVariableStrategy(DefinitionRegistry registry, Map<UID, Type> typeMap,
 	                                         PGoNetOptions.StateOptions stateOptions,

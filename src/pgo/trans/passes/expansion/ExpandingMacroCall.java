@@ -6,7 +6,7 @@ import pgo.model.pcal.PlusCalMacroCall;
 
 public class ExpandingMacroCall extends Context {
 
-	private PlusCalMacroCall macroCall;
+	private final PlusCalMacroCall macroCall;
 
 	public ExpandingMacroCall(PlusCalMacroCall macroCall) {
 		this.macroCall = macroCall;

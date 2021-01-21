@@ -14,8 +14,8 @@ import java.util.stream.Collectors;
  */
 public class TLASetComprehension extends TLAExpression {
 	
-	private TLAExpression body;
-	private List<TLAQuantifierBound> bounds;
+	private final TLAExpression body;
+	private final List<TLAQuantifierBound> bounds;
 
 	public TLASetComprehension(SourceLocation location, TLAExpression body, List<TLAQuantifierBound> bounds) {
 		super(location);

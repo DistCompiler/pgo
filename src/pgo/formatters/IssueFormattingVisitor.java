@@ -23,7 +23,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
-	private IndentingWriter out;
+	private final IndentingWriter out;
 
 	public IssueFormattingVisitor(IndentingWriter out) {
 		this.out = out;

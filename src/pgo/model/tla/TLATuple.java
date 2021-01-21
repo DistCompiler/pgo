@@ -14,7 +14,7 @@ import java.util.stream.Collectors;
  */
 public class TLATuple extends TLAExpression {
 
-	private List<TLAExpression> elements;
+	private final List<TLAExpression> elements;
 	
 	public TLATuple(SourceLocation location, List<TLAExpression> elements) {
 		super(location);

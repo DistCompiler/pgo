@@ -15,8 +15,8 @@ import java.util.stream.Collectors;
  */
 public class TLAUniversal extends TLAExpression {
 	
-	private List<TLAIdentifier> ids;
-	private TLAExpression body;
+	private final List<TLAIdentifier> ids;
+	private final TLAExpression body;
 
 	public TLAUniversal(SourceLocation location, List<TLAIdentifier> ids, TLAExpression body) {
 		super(location);

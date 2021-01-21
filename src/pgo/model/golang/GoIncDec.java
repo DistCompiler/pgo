@@ -4,8 +4,8 @@ import java.util.Objects;
 
 public class GoIncDec extends GoStatement {
 	
-	private boolean inc;
-	private GoExpression expression;
+	private final boolean inc;
+	private final GoExpression expression;
 
 	public GoIncDec(boolean inc, GoExpression expression) {
 		this.inc = inc;

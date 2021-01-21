@@ -4,10 +4,10 @@ import java.util.List;
 import java.util.Objects;
 
 public class GoModule extends GoNode {
-	private String name;
-	private List<GoDeclaration> declarations;
-	private List<String> imports;
-	private GoExpression pack;
+	private final String name;
+	private final List<GoDeclaration> declarations;
+	private final List<String> imports;
+	private final GoExpression pack;
 	
 	public GoModule(String name, GoExpression pack, List<String> imports, List<GoDeclaration> declarations) {
 		this.name = name;

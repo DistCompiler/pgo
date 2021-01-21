@@ -4,7 +4,7 @@ import java.util.Objects;
 
 public class GoStringLiteral extends GoExpression {
 	
-	private String value;
+	private final String value;
 
 	public GoStringLiteral(String value) {
 		this.value = value;

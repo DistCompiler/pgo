@@ -23,10 +23,10 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class ArchetypeResourcesGlobalVariableStrategy extends GlobalVariableStrategy {
-    private DefinitionRegistry registry;
-    private Map<UID, Type> typeMap;
-    private LocalVariableStrategy localStrategy;
-    private UID archetype;
+    private final DefinitionRegistry registry;
+    private final Map<UID, Type> typeMap;
+    private final LocalVariableStrategy localStrategy;
+    private final UID archetype;
     private GoVariableName err;
     private GoVariableName acquiredResources;
     private int currentLockGroup;

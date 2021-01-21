@@ -12,8 +12,8 @@ import java.io.StringWriter;
 
 public abstract class PlusCalNode extends SourceLocatable {
 
-	private SourceLocation location;
-	private UID uid;
+	private final SourceLocation location;
+	private final UID uid;
 
 	public PlusCalNode(SourceLocation location) {
 		this.location = location;

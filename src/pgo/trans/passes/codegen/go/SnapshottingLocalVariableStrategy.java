@@ -14,10 +14,10 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class SnapshottingLocalVariableStrategy extends LocalVariableStrategy {
-    private DefinitionRegistry registry;
-    private Map<UID, Type> typeMap;
+    private final DefinitionRegistry registry;
+    private final Map<UID, Type> typeMap;
     private ModularPlusCalArchetype archetype;
-    private Map<UID, GoVariableName> localCopies;
+    private final Map<UID, GoVariableName> localCopies;
 
     public SnapshottingLocalVariableStrategy(DefinitionRegistry registry, Map<UID, Type> typeMap) {
         this.registry = registry;

@@ -9,7 +9,7 @@ import java.util.Map;
 
 public class PGoConstantDefs {
 	
-	private Map<String, PGoConstantDef> defs;
+	private final Map<String, PGoConstantDef> defs;
 	
 	public PGoConstantDefs(JSONObject config, String configFilePath) {
 		defs = new HashMap<>();

@@ -7,9 +7,9 @@ import java.util.List;
 import java.util.Objects;
 
 public class GoSwitch extends GoStatement {
-    private GoExpression switchExp;
-	private List<GoSwitchCase> cases;
-	private List<GoStatement> defaultBlock;
+    private final GoExpression switchExp;
+	private final List<GoSwitchCase> cases;
+	private final List<GoStatement> defaultBlock;
 
 	public static GoSwitch typeSwitch(GoExpression exp, List<GoSwitchCase> cases, List<GoStatement> defaultBlock) {
 		// sanity check: in a type switch, all cases should be types.

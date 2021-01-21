@@ -10,7 +10,7 @@ import java.io.IOException;
 
 public class GoDeclarationFormattingVisitor extends GoDeclarationVisitor<Void, IOException> {
 
-	private IndentingWriter out;
+	private final IndentingWriter out;
 
 	public GoDeclarationFormattingVisitor(IndentingWriter out) {
 		this.out = out;

@@ -6,9 +6,9 @@ package pgo;
  *
  */
 public abstract class PGoException extends RuntimeException {
-	private int line;
-	private String msg;
-	private String prefix;
+	private final int line;
+	private final String msg;
+	private final String prefix;
 
 	public PGoException(String prefix, String msg) {
 		super(prefix + ": " + msg);

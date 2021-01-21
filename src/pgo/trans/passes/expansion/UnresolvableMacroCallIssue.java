@@ -6,7 +6,7 @@ import pgo.model.pcal.PlusCalMacroCall;
 
 public class UnresolvableMacroCallIssue extends Issue {
 
-	private PlusCalMacroCall macroCall;
+	private final PlusCalMacroCall macroCall;
 
 	public UnresolvableMacroCallIssue(PlusCalMacroCall macroCall) {
 		this.macroCall = macroCall;
