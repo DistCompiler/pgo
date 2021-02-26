@@ -6,7 +6,7 @@ import pgo.model.tla.TLAIdentifier;
 
 public class MacroArgumentInnerScopeConflictIssue extends Issue {
 
-	private TLAIdentifier id;
+	private final TLAIdentifier id;
 
 	public MacroArgumentInnerScopeConflictIssue(TLAIdentifier id) {
 		this.id = id;

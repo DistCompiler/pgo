@@ -17,7 +17,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public abstract class GlobalVariableStrategy implements CriticalSection {
-	private Map<UID, GoVariableName> variables = new HashMap<>();
+	private final Map<UID, GoVariableName> variables = new HashMap<>();
 
 	protected void addVariable(UID uid, GoVariableName variableName) {
 		if (variables.containsKey(uid)) {

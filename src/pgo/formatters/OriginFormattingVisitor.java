@@ -8,7 +8,7 @@ import java.io.IOException;
 
 public class OriginFormattingVisitor extends OriginVisitor<Void, IOException> {
 
-	private IndentingWriter out;
+	private final IndentingWriter out;
 
 	public OriginFormattingVisitor(IndentingWriter out) {
 		this.out = out;

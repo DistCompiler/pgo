@@ -7,8 +7,8 @@ import pgo.model.pcal.PlusCalMacroCall;
 
 public class MacroArgumentCountMismatchIssue extends Issue {
 
-	private PlusCalMacroCall macroCall;
-	private PlusCalMacro macro;
+	private final PlusCalMacroCall macroCall;
+	private final PlusCalMacro macro;
 
 	public MacroArgumentCountMismatchIssue(PlusCalMacroCall macroCall, PlusCalMacro macro) {
 		this.macroCall = macroCall;

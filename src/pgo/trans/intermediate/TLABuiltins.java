@@ -9,16 +9,14 @@ import pgo.model.golang.builder.GoForRangeBuilder;
 import pgo.model.golang.builder.GoForStatementClauseBuilder;
 import pgo.model.golang.type.GoSliceType;
 import pgo.model.golang.type.GoType;
+import pgo.model.tla.TLABuiltinModules;
 import pgo.model.tla.TLAExpression;
 import pgo.model.type.*;
 import pgo.model.type.constraint.EqualityConstraint;
 import pgo.model.type.constraint.MonomorphicConstraint;
 import pgo.model.type.constraint.PolymorphicConstraint;
 import pgo.scope.UID;
-import pgo.trans.passes.codegen.go.EqCodeGenVisitor;
-import pgo.trans.passes.codegen.go.LessThanCodeGenVisitor;
-import pgo.trans.passes.codegen.go.TypeConversionVisitor;
-import pgo.trans.passes.codegen.go.TLAExpressionCodeGenVisitor;
+import pgo.trans.passes.codegen.go.*;
 import pgo.util.Origin;
 
 import java.util.*;
@@ -187,7 +185,7 @@ public class TLABuiltins {
 		}
 	}
 
-	private static BuiltinModule universalBuiltIns = new BuiltinModule();
+	private static final BuiltinModule universalBuiltIns = new BuiltinModule();
 	static {
 		universalBuiltIns.addOperator("=", new BuiltinOperator(
 				2,
@@ -416,7 +414,7 @@ public class TLABuiltins {
 				}));
 	}
 
-	private static Map<String, BuiltinModule> builtinModules = new HashMap<>();
+	private static final Map<String, BuiltinModule> builtinModules = new HashMap<>();
 	static {
 		BuiltinModule TLC = new BuiltinModule();
 		builtinModules.put("TLC", TLC);
@@ -727,6 +725,66 @@ public class TLABuiltins {
 				}
 		));
 
+		BuiltinModule Bags = new BuiltinModule();
+		builtinModules.put("Bags", Bags);
+
+		BuiltinModule ProtoReals = new BuiltinModule();
+		builtinModules.put("ProtoReals", ProtoReals);
+
+		BuiltinModule Peano = new BuiltinModule();
+		builtinModules.put("Peano", Peano);
+
+		BuiltinModule Reals = new BuiltinModule();
+		builtinModules.put("Reals", Reals);
+	}
+
+	private static void fillDefinitionRegistryFromBuiltinModule(DefinitionRegistry registry, BuiltinModule module, TLABuiltinModules.TLABuiltinModule tlaModule) {
+		tlaModule.members().foreach(defn -> {
+			OperatorAccessor accessor = module.getOperators().get(defn.identifier().getId());
+			if(accessor == null) {
+				final String unsupportedMsg;
+				if(tlaModule.identifier().getId().equals("")) {
+					unsupportedMsg = "unsupported TLA+ operator "+defn.identifier().getId();
+				} else {
+					unsupportedMsg = "unsupported TLA+ operator "+tlaModule.identifier().getId()+"!"+defn.identifier().getId();
+				}
+				// add a dummy operator that throws "unsupported!" if we ever try to meaningfully use it
+				registry.addOperator(defn.getUID(), new OperatorAccessor() {
+					@Override
+					public Type constrainTypes(Origin origin, DefinitionRegistry registry, List<Type> args, TypeSolver solver, TypeGenerator generator, Map<UID, TypeVariable> mapping) {
+						throw new UnsupportedFeatureIssue(unsupportedMsg);
+					}
+
+					@Override
+					public int getArgumentCount() {
+						throw new UnsupportedFeatureIssue(unsupportedMsg);
+					}
+
+					@Override
+					public UID getUID() {
+						throw new UnsupportedFeatureIssue(unsupportedMsg);
+					}
+
+					@Override
+					public GoExpression generateGo(GoBlockBuilder builder, TLAExpression origin, DefinitionRegistry registry, List<TLAExpression> args, Map<UID, Type> typeMap, LocalVariableStrategy localStrategy, GlobalVariableStrategy globalStrategy) {
+						throw new UnsupportedFeatureIssue(unsupportedMsg);
+					}
+				});
+			} else {
+				registry.addOperator(defn.getUID(), accessor);
+			}
+			return null;
+		});
+	}
+
+	public static void fillDefinitionRegistry(DefinitionRegistry registry) {
+		fillDefinitionRegistryFromBuiltinModule(registry, universalBuiltIns, TLABuiltinModules.Intrinsics$.MODULE$);
+		TLABuiltinModules.builtinModules().foreach(pair -> {
+			String name = pair._1().getId();
+			TLABuiltinModules.TLABuiltinModule tlaModule = pair._2();
+			fillDefinitionRegistryFromBuiltinModule(registry, Objects.requireNonNull(builtinModules.get(name)), tlaModule);
+			return null;
+		});
 	}
 
 	public static BuiltinModule getUniversalBuiltIns() {

@@ -6,8 +6,8 @@ import pgo.model.golang.GoNodeVisitor;
 import java.util.Objects;
 
 public class GoStructTypeField extends GoNode {
-	private String name;
-	private GoType type;
+	private final String name;
+	private final GoType type;
 	
 	public GoStructTypeField(String name, GoType type) {
 		this.name = name;

@@ -1,19 +1,20 @@
 package pgo.model.mpcal;
 
+import pgo.model.tla.TLAIdentifier;
 import pgo.util.SourceLocation;
 
 import java.util.Objects;
 
 public class ModularPlusCalMappingVariableName extends ModularPlusCalMappingVariable {
-	private final String name;
+	private final TLAIdentifier name;
 
-	public ModularPlusCalMappingVariableName(SourceLocation location, String name, boolean functionCall) {
+	public ModularPlusCalMappingVariableName(SourceLocation location, TLAIdentifier name, boolean functionCall) {
 		super(location, functionCall);
 		this.name = name;
 	}
 
 	public String getName() {
-		return name;
+		return name.getId();
 	}
 
 	@Override
@@ -40,6 +41,6 @@ public class ModularPlusCalMappingVariableName extends ModularPlusCalMappingVari
 
 	@Override
 	public String toString() {
-		return name;
+		return name.toString();
 	}
 }

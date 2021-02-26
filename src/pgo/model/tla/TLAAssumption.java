@@ -1,14 +1,21 @@
 package pgo.model.tla;
 
 import pgo.util.SourceLocation;
+import scala.collection.immutable.List;
+import scala.collection.immutable.List$;
 
 public class TLAAssumption extends TLAUnit {
 	
-	private TLAExpression assumption;
+	private final TLAExpression assumption;
 
 	public TLAAssumption(SourceLocation location, TLAExpression assumption) {
 		super(location);
 		this.assumption = assumption;
+	}
+
+	@Override
+	public List<TLADefinition> definitions() {
+		return List$.MODULE$.empty();
 	}
 	
 	@Override

@@ -11,12 +11,12 @@ import java.util.Map;
 
 public class GoAnonymousFunctionBuilder {
 	
-	private GoASTBuilder parent;
-	private NameCleaner nameCleaner;
-	private Map<UID, GoVariableName> nameMap;
+	private final GoASTBuilder parent;
+	private final NameCleaner nameCleaner;
+	private final Map<UID, GoVariableName> nameMap;
 	
-	private List<GoFunctionParameter> arguments;
-	private List<GoFunctionParameter> returnValues;
+	private final List<GoFunctionParameter> arguments;
+	private final List<GoFunctionParameter> returnValues;
 	private GoBlock block;
 	
 	public GoAnonymousFunctionBuilder(GoASTBuilder parent, NameCleaner nameCleaner, Map<UID, GoVariableName> nameMap) {

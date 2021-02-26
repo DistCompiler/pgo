@@ -10,7 +10,7 @@ import java.util.Objects;
 public class GoReturn extends GoStatement {
 
 	// the return value if any
-	private List<GoExpression> values;
+	private final List<GoExpression> values;
 
 	public GoReturn(List<GoExpression> values) {
 		this.values = values;

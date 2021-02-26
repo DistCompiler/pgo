@@ -11,7 +11,7 @@ import java.io.StringWriter;
 
 public class MissingLabelIssue extends Issue {
 
-    private PlusCalStatement statement;
+    private final PlusCalStatement statement;
 
     public MissingLabelIssue(PlusCalStatement statement) {
         this.statement = statement;

@@ -5,9 +5,9 @@ import java.util.Map;
 import java.util.Objects;
 
 public class GoMapType extends GoType {
-	private GoType keyType;
-	private GoType valueType;
-	private Map<String, GoType> inferredTypes;
+	private final GoType keyType;
+	private final GoType valueType;
+	private final Map<String, GoType> inferredTypes;
 
 	public GoMapType(GoType keyType, GoType valueType, Map<String, GoType> inferredTypes) {
 		this.keyType = keyType;

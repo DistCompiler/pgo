@@ -6,9 +6,9 @@ import java.util.List;
 import java.util.Objects;
 
 public class GoSwitchCase extends GoNode {
-	private GoExpression condition;
-	private GoType type;
-	private List<GoStatement> block;
+	private final GoExpression condition;
+	private final GoType type;
+	private final List<GoStatement> block;
 	
 	public GoSwitchCase(GoExpression condition, List<GoStatement> block) {
 		super();

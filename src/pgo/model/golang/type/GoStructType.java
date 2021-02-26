@@ -4,7 +4,7 @@ import java.util.List;
 
 public class GoStructType extends GoType {
 
-	private List<GoStructTypeField> fields;
+	private final List<GoStructTypeField> fields;
 	
 	public GoStructType(List<GoStructTypeField> fields) {
 		this.fields = fields;

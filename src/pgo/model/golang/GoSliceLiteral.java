@@ -6,8 +6,8 @@ import java.util.List;
 import java.util.Objects;
 
 public class GoSliceLiteral extends GoExpression {
-	private List<GoExpression> initializers;
-	private GoType elementType;
+	private final List<GoExpression> initializers;
+	private final GoType elementType;
 
 	public GoSliceLiteral(GoType elementType, List<GoExpression> initializers) {
 		this.elementType = elementType;

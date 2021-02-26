@@ -15,10 +15,10 @@ import java.util.List;
 
 public class EqCodeGenVisitor extends GoTypeVisitor<GoExpression, RuntimeException> {
 
-	private GoBlockBuilder builder;
-	private GoExpression lhs;
-	private GoExpression rhs;
-	private boolean invert;
+	private final GoBlockBuilder builder;
+	private final GoExpression lhs;
+	private final GoExpression rhs;
+	private final boolean invert;
 
 	public EqCodeGenVisitor(GoBlockBuilder builder, GoExpression lhs, GoExpression rhs, boolean invert) {
 		this.builder = builder;

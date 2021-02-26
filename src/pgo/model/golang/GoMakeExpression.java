@@ -6,9 +6,9 @@ import java.util.Objects;
 
 public class GoMakeExpression extends GoExpression {
 
-	private GoType type;
-	private GoExpression size;
-	private GoExpression capacity;
+	private final GoType type;
+	private final GoExpression size;
+	private final GoExpression capacity;
 
 	public GoMakeExpression(GoType type, GoExpression size, GoExpression capacity) {
 		this.type = type;

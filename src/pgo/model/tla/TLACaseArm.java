@@ -4,8 +4,8 @@ import pgo.util.SourceLocation;
 
 public class TLACaseArm extends TLANode {
 	
-	private TLAExpression cond;
-	private TLAExpression result;
+	private final TLAExpression cond;
+	private final TLAExpression result;
 
 	public TLACaseArm(SourceLocation location, TLAExpression cond, TLAExpression result) {
 		super(location);

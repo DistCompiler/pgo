@@ -7,7 +7,7 @@ import java.util.stream.Collectors;
 
 /**
  * 
- * TLA AST PlusCalNode:
+ * TLA AST Node:
  * 
  * LET op(a, b, c) == <expr>
  * 	   fn[d \in D] == <expr>
@@ -19,8 +19,8 @@ import java.util.stream.Collectors;
  */
 public class TLALet extends TLAExpression {
 
-	private TLAExpression body;
-	private List<TLAUnit> defs;
+	private final TLAExpression body;
+	private final List<TLAUnit> defs;
 
 	public TLALet(SourceLocation location, List<TLAUnit> defs, TLAExpression body) {
 		super(location);

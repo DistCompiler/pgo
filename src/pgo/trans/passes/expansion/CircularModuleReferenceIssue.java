@@ -5,7 +5,7 @@ import pgo.errors.IssueVisitor;
 
 public class CircularModuleReferenceIssue extends Issue {
 	
-	private String moduleName;
+	private final String moduleName;
 
 	public CircularModuleReferenceIssue(String moduleName) {
 		super();

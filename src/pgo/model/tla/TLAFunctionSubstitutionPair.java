@@ -7,8 +7,8 @@ import java.util.stream.Collectors;
 
 public class TLAFunctionSubstitutionPair extends TLANode {
 
-	private List<TLASubstitutionKey> keys;
-	private TLAExpression value;
+	private final List<TLASubstitutionKey> keys;
+	private final TLAExpression value;
 
 	public TLAFunctionSubstitutionPair(SourceLocation location, List<TLASubstitutionKey> keys, TLAExpression value) {
 		super(location);

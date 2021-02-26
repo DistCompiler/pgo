@@ -3,6 +3,7 @@ package pgo.model.mpcal;
 import pgo.model.pcal.PlusCalFairness;
 import pgo.model.pcal.PlusCalVariableDeclaration;
 import pgo.model.tla.TLAExpression;
+import pgo.model.tla.TLAIdentifier;
 import pgo.util.SourceLocation;
 
 import java.util.Collections;
@@ -20,14 +21,14 @@ import java.util.stream.Collectors;
 public class ModularPlusCalInstance extends ModularPlusCalUnit {
 	private final PlusCalVariableDeclaration name;
 	private final PlusCalFairness fairness;
-	private final String target;
+	private final TLAIdentifier target;
 	private final List<TLAExpression> arguments;
 	private final List<ModularPlusCalMapping> mappings;
 	// TODO
 	// private final Located<String> interleavingTarget;
 
 	public ModularPlusCalInstance(SourceLocation location, PlusCalVariableDeclaration name, PlusCalFairness fairness,
-	                              String target, List<TLAExpression> arguments, List<ModularPlusCalMapping> mappings) {
+								  TLAIdentifier target, List<TLAExpression> arguments, List<ModularPlusCalMapping> mappings) {
 		super(location);
 		this.name = name;
 		this.fairness = fairness;
@@ -82,7 +83,7 @@ public class ModularPlusCalInstance extends ModularPlusCalUnit {
 	}
 
 	public String getTarget() {
-		return target;
+		return target.getId();
 	}
 
 	public List<ModularPlusCalMapping> getMappings() {

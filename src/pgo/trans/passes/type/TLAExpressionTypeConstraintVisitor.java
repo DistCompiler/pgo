@@ -63,26 +63,24 @@ public class TLAExpressionTypeConstraintVisitor extends TLAExpressionVisitor<Typ
 		TypeVariable elementType = generator.getTypeVariable(Collections.singletonList(qb));
 		solver.addConstraint(new MonomorphicConstraint(
 				qb, new SetType(elementType, Collections.singletonList(qb)), wrappedVisit(qb.getSet())));
-		switch(qb.getType()) {
-			case IDS:
-				for (TLAIdentifier id : qb.getIds()) {
-					TypeVariable idType = generator.getTypeVariable(Collections.singletonList(id));
-					mapping.put(id.getUID(), idType);
-					solver.addConstraint(new MonomorphicConstraint(qb, elementType, idType));
-				}
-				break;
-			case TUPLE:
-				List<Type> tupleTypes = new ArrayList<>();
-				for (TLAIdentifier id : qb.getIds()) {
-					TypeVariable idType = generator.getTypeVariable(Collections.singletonList(id));
-					mapping.put(id.getUID(), idType);
-					tupleTypes.add(idType);
-				}
-				solver.addConstraint(new MonomorphicConstraint(
-						qb, elementType, new TupleType(tupleTypes, Collections.singletonList(qb))));
-				break;
-			default:
-				throw new Unreachable();
+		TLAQuantifierBound.Type type = qb.getType();
+		if (TLAQuantifierBound.Type$.MODULE$.ids().equals(type)) {
+			for (TLAIdentifier id : qb.getIds()) {
+				TypeVariable idType = generator.getTypeVariable(Collections.singletonList(id));
+				mapping.put(id.getUID(), idType);
+				solver.addConstraint(new MonomorphicConstraint(qb, elementType, idType));
+			}
+		} else if (TLAQuantifierBound.Type$.MODULE$.tuple().equals(type)) {
+			List<Type> tupleTypes = new ArrayList<>();
+			for (TLAIdentifier id : qb.getIds()) {
+				TypeVariable idType = generator.getTypeVariable(Collections.singletonList(id));
+				mapping.put(id.getUID(), idType);
+				tupleTypes.add(idType);
+			}
+			solver.addConstraint(new MonomorphicConstraint(
+					qb, elementType, new TupleType(tupleTypes, Collections.singletonList(qb))));
+		} else {
+			throw new Unreachable();
 		}
 		return elementType;
 	}
@@ -125,9 +123,9 @@ public class TLAExpressionTypeConstraintVisitor extends TLAExpressionVisitor<Typ
 	@Override
 	public Type visit(TLABinOp tlaBinOp) throws RuntimeException {
 		return registry
-				.findOperator(registry.followReference(tlaBinOp.getOperation().getUID()))
+				.findOperator(registry.followReference(tlaBinOp.getUID()))
 				.constrainTypes(
-						tlaBinOp.getOperation(), registry,
+						tlaBinOp, registry,
 						Arrays.asList(wrappedVisit(tlaBinOp.getLHS()), wrappedVisit(tlaBinOp.getRHS())),
 						solver, generator, mapping);
 	}
@@ -323,7 +321,7 @@ public class TLAExpressionTypeConstraintVisitor extends TLAExpressionVisitor<Typ
 	@Override
 	public Type visit(TLAOperatorCall tlaOperatorCall) throws RuntimeException {
 		return registry
-				.findOperator(registry.followReference(tlaOperatorCall.getName().getUID()))
+				.findOperator(registry.followReference(tlaOperatorCall.getUID()))
 				.constrainTypes(
 						tlaOperatorCall, registry,
 						tlaOperatorCall.getArgs().stream()
@@ -422,10 +420,10 @@ public class TLAExpressionTypeConstraintVisitor extends TLAExpressionVisitor<Typ
 
 	@Override
 	public Type visit(TLAUnary tlaUnary) throws RuntimeException {
-		UID ref = registry.followReference(tlaUnary.getOperation().getUID());
+		UID ref = registry.followReference(tlaUnary.getUID());
 		OperatorAccessor op = registry.findOperator(ref);
 		return op.constrainTypes(
-				tlaUnary.getOperation(), registry,
+				tlaUnary, registry,
 				Collections.singletonList(wrappedVisit(tlaUnary.getOperand())),
 				solver, generator, mapping);
 	}

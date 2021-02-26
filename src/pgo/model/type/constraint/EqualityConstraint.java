@@ -7,8 +7,8 @@ import pgo.model.type.Type;
  * A plain old Java object representing an equality constraint.
  */
 public class EqualityConstraint extends BasicConstraint {
-	private Type lhs;
-	private Type rhs;
+	private final Type lhs;
+	private final Type rhs;
 
 	public EqualityConstraint(Type lhs, Type rhs) {
 		this.lhs = lhs;

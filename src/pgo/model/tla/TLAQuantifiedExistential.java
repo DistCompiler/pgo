@@ -14,8 +14,8 @@ import java.util.stream.Collectors;
  */
 public class TLAQuantifiedExistential extends TLAExpression {
 
-	private TLAExpression body;
-	private List<TLAQuantifierBound> ids;
+	private final TLAExpression body;
+	private final List<TLAQuantifierBound> ids;
 
 	public TLAQuantifiedExistential(SourceLocation location, List<TLAQuantifierBound> ids, TLAExpression body) {
 		super(location);

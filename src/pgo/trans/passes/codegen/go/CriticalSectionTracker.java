@@ -9,9 +9,9 @@ import pgo.trans.intermediate.DefinitionRegistry;
 import java.util.function.Consumer;
 
 public class CriticalSectionTracker {
-	private DefinitionRegistry registry;
-	private UID processUID;
-	private CriticalSection criticalSection;
+	private final DefinitionRegistry registry;
+	private final UID processUID;
+	private final CriticalSection criticalSection;
 	private int currentLockGroup;
 	private UID currentLabelUID;
 	private GoLabelName currentLabelName;

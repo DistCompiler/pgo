@@ -2,6 +2,7 @@ package pgo.model.mpcal;
 
 import pgo.model.pcal.PlusCalStatement;
 import pgo.model.pcal.PlusCalVariableDeclaration;
+import pgo.model.tla.TLAIdentifier;
 import pgo.scope.UID;
 import pgo.util.SourceLocation;
 
@@ -20,17 +21,15 @@ import java.util.stream.Collectors;
  * }
  */
 public class ModularPlusCalArchetype extends ModularPlusCalUnit {
-	private final String name;
-	private final UID selfVariableUID;
+	private final TLAIdentifier name;
 	private final List<PlusCalVariableDeclaration> params;
 	private final List<PlusCalVariableDeclaration> variables;
 	private final List<PlusCalStatement> body;
 
-	public ModularPlusCalArchetype(SourceLocation location, String name, List<PlusCalVariableDeclaration> params,
-	                               List<PlusCalVariableDeclaration> variables, List<PlusCalStatement> body) {
+	public ModularPlusCalArchetype(SourceLocation location, TLAIdentifier name, List<PlusCalVariableDeclaration> params,
+								   List<PlusCalVariableDeclaration> variables, List<PlusCalStatement> body) {
 		super(location);
 		this.name = name;
-		this.selfVariableUID = new UID();
 		this.params = params;
 		this.variables = variables;
 		this.body = body;
@@ -40,7 +39,7 @@ public class ModularPlusCalArchetype extends ModularPlusCalUnit {
 	public ModularPlusCalArchetype copy() {
 		return new ModularPlusCalArchetype(
 				getLocation(),
-				name,
+				name.copy(),
 				params.stream().map(PlusCalVariableDeclaration::copy).collect(Collectors.toList()),
 				variables.stream().map(PlusCalVariableDeclaration::copy).collect(Collectors.toList()),
 				body.stream().map(PlusCalStatement::copy).collect(Collectors.toList()));
@@ -76,11 +75,14 @@ public class ModularPlusCalArchetype extends ModularPlusCalUnit {
 	}
 
 	public String getName() {
+		return name.getId();
+	}
+	public TLAIdentifier getId() {
 		return name;
 	}
 
 	public UID getSelfVariableUID() {
-		return selfVariableUID;
+		return name.getUID();
 	}
 
 	public List<PlusCalVariableDeclaration> getParams() {

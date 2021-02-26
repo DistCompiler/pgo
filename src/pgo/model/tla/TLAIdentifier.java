@@ -1,6 +1,8 @@
 package pgo.model.tla;
 
 import pgo.util.SourceLocation;
+import scala.collection.immutable.Map$;
+import scala.collection.immutable.Map;
 
 /**
  * 
@@ -8,9 +10,9 @@ import pgo.util.SourceLocation;
  * the identifier level.
  * 
  */
-public class TLAIdentifier extends TLANode {
+public class TLAIdentifier extends TLANode implements TLADefinitionOne {
 	
-	private String id;
+	private final String id;
 	
 	public TLAIdentifier(SourceLocation location, String id) {
 		super(location);
@@ -19,7 +21,8 @@ public class TLAIdentifier extends TLANode {
 	
 	@Override
 	public TLAIdentifier copy() {
-		return new TLAIdentifier(getLocation(), id);
+		throw new RuntimeException("bad");
+		//return new TLAIdentifier(getLocation(), id);
 	}
 	
 	@Override
@@ -29,6 +32,26 @@ public class TLAIdentifier extends TLANode {
 	
 	public String getId() {
 		return id;
+	}
+
+	@Override
+	public int arity() {
+		return 0;
+	}
+
+	@Override
+	public boolean isModuleInstance() {
+		return false;
+	}
+
+	@Override
+	public TLAIdentifier identifier() {
+		return this;
+	}
+
+	@Override
+	public Map<TLAIdentifier, TLADefinitionOne> scope() {
+		return Map$.MODULE$.empty();
 	}
 
 	@Override
@@ -52,5 +75,4 @@ public class TLAIdentifier extends TLANode {
 			return other.id == null;
 		} else return id.equals(other.id);
 	}
-
 }

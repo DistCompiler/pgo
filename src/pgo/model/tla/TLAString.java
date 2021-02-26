@@ -8,7 +8,7 @@ import pgo.util.SourceLocation;
  */
 public class TLAString extends TLAExpression {
 
-	private String value;
+	private final String value;
 
 	public TLAString(SourceLocation location, String value) {
 		super(location);

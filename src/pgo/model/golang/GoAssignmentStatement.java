@@ -12,9 +12,9 @@ import java.util.Objects;
  */
 public class GoAssignmentStatement extends GoStatement {
 
-	private List<GoExpression> names;
-	private boolean defines;
-	private List<GoExpression> values;
+	private final List<GoExpression> names;
+	private final boolean defines;
+	private final List<GoExpression> values;
     
     public GoAssignmentStatement(List<GoExpression> names, boolean defines, List<GoExpression> values) {
     	this.names = names;

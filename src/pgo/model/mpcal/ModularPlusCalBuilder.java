@@ -1,9 +1,10 @@
 package pgo.model.mpcal;
 
 import pgo.model.pcal.*;
+import pgo.model.tla.TLABuilder;
 import pgo.model.tla.TLAExpression;
+import pgo.model.tla.TLAIdentifier;
 import pgo.model.tla.TLAUnit;
-import pgo.parser.Located;
 import pgo.util.SourceLocation;
 
 import java.util.Arrays;
@@ -15,7 +16,7 @@ public class ModularPlusCalBuilder {
 	public static ModularPlusCalArchetype archetype(String name, List<PlusCalVariableDeclaration> arguments,
 	                                                List<PlusCalVariableDeclaration> variables,
 	                                                List<PlusCalStatement> body) {
-		return new ModularPlusCalArchetype(SourceLocation.unknown(), name, arguments, variables, body);
+		return new ModularPlusCalArchetype(SourceLocation.unknown(), TLABuilder.id(name), arguments, variables, body);
 	}
 
 	public static ModularPlusCalMapping mapping(int position, boolean functionCalls, String target) {
@@ -28,19 +29,19 @@ public class ModularPlusCalBuilder {
 	public static ModularPlusCalMapping mapping(String variable, boolean functionCalls, String target) {
 		return new ModularPlusCalMapping(
 				SourceLocation.unknown(),
-				new ModularPlusCalMappingVariableName(SourceLocation.unknown(), variable, functionCalls),
+				new ModularPlusCalMappingVariableName(SourceLocation.unknown(), TLABuilder.id(variable), functionCalls),
 				new ModularPlusCalMappingTarget(SourceLocation.unknown(), target));
 	}
 
 	public static ModularPlusCalInstance instance(PlusCalVariableDeclaration name, PlusCalFairness fairness,
 												  String target, List<TLAExpression> params,
 												  List<ModularPlusCalMapping> mappings) {
-		return new ModularPlusCalInstance(SourceLocation.unknown(), name, fairness, target, params, mappings);
+		return new ModularPlusCalInstance(SourceLocation.unknown(), name, fairness, TLABuilder.id(target), params, mappings);
 	}
 
 	public static ModularPlusCalMappingMacro mappingMacro(String name, List<PlusCalStatement> readBody,
 	                                                      List<PlusCalStatement> writeBody) {
-		return new ModularPlusCalMappingMacro(SourceLocation.unknown(), name, readBody, writeBody);
+		return new ModularPlusCalMappingMacro(SourceLocation.unknown(), TLABuilder.id(name), readBody, writeBody);
 	}
 
 	public static ModularPlusCalBlock mpcal(String name, List<TLAUnit> units, List<PlusCalMacro> macros,
@@ -51,7 +52,7 @@ public class ModularPlusCalBuilder {
 	                                        List<ModularPlusCalInstance> instances, PlusCalProcess... processes) {
 		return new ModularPlusCalBlock(
 				SourceLocation.unknown(),
-				new Located<>(SourceLocation.unknown(), name),
+				new TLAIdentifier(SourceLocation.unknown(), name),
 				units, macros, procedures, mappingMacros, archetypes, variables,
 				instances, new PlusCalMultiProcess(SourceLocation.unknown(), Arrays.asList(processes))
 		);
@@ -65,7 +66,7 @@ public class ModularPlusCalBuilder {
 	                                        List<ModularPlusCalInstance> instances, List<PlusCalStatement> statements) {
 		return new ModularPlusCalBlock(
 				SourceLocation.unknown(),
-				new Located<>(SourceLocation.unknown(), name),
+				new TLAIdentifier(SourceLocation.unknown(), name),
 				units, macros, procedures, mappingMacros, archetypes, variables,
 				instances, new PlusCalSingleProcess(SourceLocation.unknown(), statements)
 		);

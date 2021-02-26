@@ -8,8 +8,8 @@ import java.util.stream.Collectors;
 
 public class PlusCalWith extends PlusCalStatement {
 
-	private List<PlusCalVariableDeclaration> variables;
-	private List<PlusCalStatement> body;
+	private final List<PlusCalVariableDeclaration> variables;
+	private final List<PlusCalStatement> body;
 
 	public PlusCalWith(SourceLocation location, List<PlusCalVariableDeclaration> variables, List<PlusCalStatement> body) {
 		super(location);

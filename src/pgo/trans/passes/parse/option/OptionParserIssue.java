@@ -4,7 +4,7 @@ import pgo.errors.Issue;
 import pgo.errors.IssueVisitor;
 
 public class OptionParserIssue extends Issue {
-	private String message;
+	private final String message;
 
 	public OptionParserIssue(String message) {
 		this.message = message;

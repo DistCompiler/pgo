@@ -2,7 +2,7 @@ package pgo.model.golang.type;
 
 public class GoSliceType extends GoType {
 
-	private GoType elementType;
+	private final GoType elementType;
 
 	public GoSliceType(GoType elementType) {
 		this.elementType = elementType;

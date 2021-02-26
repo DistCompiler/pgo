@@ -81,27 +81,15 @@ public class TLAUnitFormattingVisitor extends TLAUnitVisitor<Void, IOException> 
 		pGoTLAModule.getName().accept(new TLANodeFormattingVisitor(out));
 		out.write("----");
 		out.newLine();
-		List<TLAIdentifier> exts = pGoTLAModule.getExtends();
+		List<TLAModuleExtends> exts = pGoTLAModule.getExtends();
 		if(!exts.isEmpty()) {
 			out.write("EXTENDS ");
 			FormattingTools.writeCommaSeparated(out, exts, ext -> {
-				ext.accept(new TLANodeFormattingVisitor(out));
+				ext.identifier().accept(new TLANodeFormattingVisitor(out));
 			});
 			out.newLine();
 		}
-		for(TLAUnit unit : pGoTLAModule.getPreTranslationUnits()) {
-			unit.accept(this);
-			out.newLine();
-		}
-		out.write("\\* BEGIN TRANSLATION");
-		out.newLine();
-		for(TLAUnit unit : pGoTLAModule.getTranslatedUnits()) {
-			unit.accept(this);
-			out.newLine();
-		}
-		out.write("\\* END TRANSLATION");
-		out.newLine();
-		for(TLAUnit unit : pGoTLAModule.getPostTranslationUnits()) {
+		for(TLAUnit unit : pGoTLAModule.getUnits()) {
 			unit.accept(this);
 			out.newLine();
 		}

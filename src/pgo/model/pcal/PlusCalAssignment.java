@@ -7,7 +7,7 @@ import java.util.stream.Collectors;
 
 public class PlusCalAssignment extends PlusCalStatement {
 	
-	private List<PlusCalAssignmentPair> pairs;
+	private final List<PlusCalAssignmentPair> pairs;
 	
 	public PlusCalAssignment(SourceLocation location, List<PlusCalAssignmentPair> pairs) {
 		super(location);

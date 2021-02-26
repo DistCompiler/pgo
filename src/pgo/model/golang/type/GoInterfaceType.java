@@ -4,7 +4,7 @@ import java.util.List;
 
 public class GoInterfaceType extends GoType {
 	
-	private List<GoInterfaceTypeField> fields;
+	private final List<GoInterfaceTypeField> fields;
 
 	public GoInterfaceType(List<GoInterfaceTypeField> fields) {
 		this.fields = fields;

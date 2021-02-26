@@ -38,7 +38,7 @@ public class ModularPlusCalGoCodeGenPass {
                 Type inferredType = typeMap.get(variableDeclaration.getUID());
 
                 varType = inferredType.accept(new TypeConversionVisitor());
-                name = processBody.varDecl(variableDeclaration.getName().getValue(), varType);
+                name = processBody.varDecl(variableDeclaration.getName().getId(), varType);
             } else {
                 GoExpression value = variableDeclaration.getValue().accept(
                         new TLAExpressionCodeGenVisitor(processBody, registry, typeMap, localStrategy, globalStrategy));
@@ -46,7 +46,7 @@ public class ModularPlusCalGoCodeGenPass {
                     value = new GoIndexExpression(value, new GoIntLiteral(0));
                 }
 
-                name = processBody.varDecl(variableDeclaration.getName().getValue(), value);
+                name = processBody.varDecl(variableDeclaration.getName().getId(), value);
             }
             processBody.linkUID(variableDeclaration.getUID(), name);
         }
@@ -218,7 +218,7 @@ public class ModularPlusCalGoCodeGenPass {
 
     public static GoModule perform(DefinitionRegistry registry, Map<UID, Type> typeMap, PGoOptions opts,
                                    ModularPlusCalBlock modularPlusCalBlock) {
-        GoModuleBuilder module = new GoModuleBuilder(modularPlusCalBlock.getName().getValue(), opts.buildPackage);
+        GoModuleBuilder module = new GoModuleBuilder(modularPlusCalBlock.getName().getId(), opts.buildPackage);
         SnapshottingLocalVariableStrategy localStrategy = new SnapshottingLocalVariableStrategy(registry, typeMap);
         GlobalVariableStrategy globalStrategy = new ArchetypeResourcesGlobalVariableStrategy(registry, typeMap, localStrategy, null);
 
@@ -251,7 +251,7 @@ public class ModularPlusCalGoCodeGenPass {
                     argType = new GoTypeName("distsys.ArchetypeResource");
                 }
 
-                argMap.put(arg.getName().getValue(), fn.addParameter(arg.getName().getValue(), argType));
+                argMap.put(arg.getName().getId(), fn.addParameter(arg.getName().getId(), argType));
             }
 
             try (GoBlockBuilder fnBody = fn.getBlockBuilder()) {
@@ -259,7 +259,7 @@ public class ModularPlusCalGoCodeGenPass {
                 fnBody.linkUID(archetype.getSelfVariableUID(), selfVariable);
 
                 for (PlusCalVariableDeclaration arg : archetype.getParams()) {
-                    fnBody.linkUID(arg.getUID(), argMap.get(arg.getName().getValue()));
+                    fnBody.linkUID(arg.getUID(), argMap.get(arg.getName().getId()));
                 }
 
                 generateLocalVariableDefinitions(registry, typeMap, localStrategy, globalStrategy, fnBody, archetype.getVariables());

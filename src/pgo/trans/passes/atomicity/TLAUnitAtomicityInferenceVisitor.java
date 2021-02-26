@@ -2,7 +2,6 @@ package pgo.trans.passes.atomicity;
 
 import pgo.Unreachable;
 import pgo.model.tla.*;
-import pgo.trans.passes.atomicity.TLAExpressionValueAtomicityInferenceVisitor;
 
 public class TLAUnitAtomicityInferenceVisitor extends TLAUnitVisitor<Void, RuntimeException> {
 	protected TLAExpressionValueAtomicityInferenceVisitor visitor;

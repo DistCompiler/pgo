@@ -14,17 +14,26 @@ import java.util.stream.Collectors;
  */
 public class TLABinOp extends TLAExpression {
 
-	private TLAExpression lhs;
-	private TLAExpression rhs;
-	private TLASymbol op;
-	private List<TLAGeneralIdentifierPart> prefix;
-	
+	private final TLAExpression lhs;
+	private final TLAExpression rhs;
+	private final TLASymbol op;
+	private final List<TLAGeneralIdentifierPart> prefix;
+	private TLADefinitionOne refersTo;
+
 	public TLABinOp(SourceLocation location, TLASymbol op, List<TLAGeneralIdentifierPart> prefix, TLAExpression lhs, TLAExpression rhs) {
 		super(location);
 		this.lhs = lhs;
 		this.rhs = rhs;
 		this.op = op;
 		this.prefix = prefix;
+	}
+
+	public void setRefersTo(TLADefinitionOne refersTo) {
+		this.refersTo = refersTo;
+	}
+
+	public TLADefinitionOne getRefersTo() {
+		return refersTo;
 	}
 	
 	@Override

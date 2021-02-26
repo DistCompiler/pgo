@@ -7,7 +7,7 @@ import java.util.Set;
 
 public class ChainSet<T> implements Set<T> {
 	
-	private Set<T> union;
+	private final Set<T> union;
 	
 	public ChainSet(Set<T> parent) {
 		this.union = new HashSet<>(parent);

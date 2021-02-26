@@ -6,7 +6,7 @@ import pgo.model.pcal.PlusCalMacroCall;
 
 public class RecursiveMacroCallIssue extends Issue {
 
-	private PlusCalMacroCall macroCall;
+	private final PlusCalMacroCall macroCall;
 
 	public RecursiveMacroCallIssue(PlusCalMacroCall macroCall) {
 		this.macroCall = macroCall;

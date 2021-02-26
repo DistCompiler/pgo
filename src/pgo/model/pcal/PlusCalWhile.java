@@ -7,8 +7,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class PlusCalWhile extends PlusCalStatement {
-	private TLAExpression condition;
-	private List<PlusCalStatement> body;
+	private final TLAExpression condition;
+	private final List<PlusCalStatement> body;
 	
 	public PlusCalWhile(SourceLocation location, TLAExpression condition, List<PlusCalStatement> body) {
 		super(location);

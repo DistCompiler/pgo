@@ -6,7 +6,6 @@ import pgo.model.tla.PlusCalDefaultInitValue;
 import pgo.model.tla.TLAExpression;
 import pgo.model.tla.TLAGeneralIdentifier;
 import pgo.model.tla.TLAIdentifier;
-import pgo.parser.Located;
 import pgo.scope.UID;
 import pgo.trans.passes.codegen.NameCleaner;
 import pgo.trans.passes.codegen.Recycling;
@@ -29,7 +28,7 @@ public class TemporaryBinding {
 	private final NameCleaner nameCleaner;
 	private final Map<UID, Recycling<TLAGeneralIdentifier>> temporaries;
 	private final List<PlusCalVariableDeclaration> declarations;
-	private ArrayDeque<LinkedHashMap<UID, TLAGeneralIdentifier>> touchedVarsStack;
+	private final ArrayDeque<LinkedHashMap<UID, TLAGeneralIdentifier>> touchedVarsStack;
 	private LinkedHashMap<UID, TLAGeneralIdentifier> touchedVars;
 
 	public TemporaryBinding(NameCleaner nameCleaner, List<PlusCalVariableDeclaration> declarations) {
@@ -76,7 +75,7 @@ public class TemporaryBinding {
 	                                         TLAExpression value) {
 		TLAGeneralIdentifier fresh = freshVariable(location, varUID, nameHint);
 		PlusCalVariableDeclaration declaration = new PlusCalVariableDeclaration(
-				location, new Located<>(location, fresh.getName().getId()), false, false, value);
+				location, new TLAIdentifier(location, fresh.getName().getId()), false, false, value);
 		declarations.add(declaration);
 		if (touchedVarsStack.size() > 1) {
 			touchedVars.put(varUID, fresh);

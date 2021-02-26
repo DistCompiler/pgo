@@ -7,9 +7,9 @@ import java.util.Objects;
 
 public class GoMapLiteral extends GoExpression {
 	
-	private Map<GoExpression, GoExpression> pairs;
-	private GoType keyType;
-	private GoType valueType;
+	private final Map<GoExpression, GoExpression> pairs;
+	private final GoType keyType;
+	private final GoType valueType;
 
 	public GoMapLiteral(GoType keyType, GoType valueType, Map<GoExpression, GoExpression> pairs) {
 		this.keyType = keyType;

@@ -10,12 +10,12 @@ import java.util.List;
 import java.util.Map;
 
 public class GoSwitchBuilder implements Closeable {
-	private GoASTBuilder builder;
-	private NameCleaner nameCleaner;
-	private Map<UID, GoVariableName> nameMap;
-	private NameCleaner labelScope;
-	private GoExpression switchExp;
-	private List<GoSwitchCase> cases;
+	private final GoASTBuilder builder;
+	private final NameCleaner nameCleaner;
+	private final Map<UID, GoVariableName> nameMap;
+	private final NameCleaner labelScope;
+	private final GoExpression switchExp;
+	private final List<GoSwitchCase> cases;
 	private List<GoStatement> defaultBlock;
 
 	public GoSwitchBuilder(GoASTBuilder builder, NameCleaner nameCleaner, Map<UID, GoVariableName> nameMap,

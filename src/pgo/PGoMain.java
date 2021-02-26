@@ -7,18 +7,19 @@ import pgo.formatters.IndentingWriter;
 import pgo.formatters.PlusCalNodeFormattingVisitor;
 import pgo.model.golang.GoModule;
 import pgo.model.mpcal.ModularPlusCalBlock;
+import pgo.model.mpcal.ModularPlusCalUtils;
 import pgo.model.pcal.PlusCalAlgorithm;
+import pgo.model.tla.PlusCalDefaultInitValue;
 import pgo.model.tla.TLAExpression;
 import pgo.model.tla.TLAModule;
+import pgo.model.tla.TLAUtils;
 import pgo.model.type.Type;
-import pgo.modules.TLAModuleLoader;
-import pgo.parser.LexicalContext;
-import pgo.parser.Located;
 import pgo.parser.PlusCalParser;
 import pgo.scope.UID;
 import pgo.trans.PGoTransException;
 import pgo.trans.intermediate.CheckOptionsPass;
 import pgo.trans.intermediate.DefinitionRegistry;
+import pgo.trans.intermediate.TLABuiltins;
 import pgo.trans.passes.atomicity.AtomicityInferencePass;
 import pgo.trans.passes.atomicity.ModularPlusCalAtomicityInferencePass;
 import pgo.trans.passes.codegen.go.ModularPlusCalGoCodeGenPass;
@@ -33,9 +34,9 @@ import pgo.trans.passes.parse.option.OptionParserIssue;
 import pgo.trans.passes.parse.option.OptionParsingPass;
 import pgo.trans.passes.parse.pcal.PlusCalParsingPass;
 import pgo.trans.passes.parse.tla.TLAParsingPass;
-import pgo.trans.passes.scope.ScopingPass;
 import pgo.trans.passes.type.TypeInferencePass;
 import pgo.trans.passes.validation.ValidationPass;
+import pgo.util.SourceLocation;
 
 import java.io.*;
 import java.nio.CharBuffer;
@@ -46,15 +47,15 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 import java.util.logging.Logger;
 import java.util.regex.MatchResult;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class PGoMain {
-	private String[] cmdArgs;
+	private final String[] cmdArgs;
 	private static Logger logger;
 
 	public PGoMain(String[] args) {
@@ -87,24 +88,6 @@ public class PGoMain {
 		return macroExpandedModularPlusCalBlock;
 	}
 
-	private DefinitionRegistry resolveScopes(
-			TopLevelIssueContext ctx,
-			boolean resolveConstants,
-			Path inputFilePath,
-			Map<String, TLAExpression> constantDefinitions,
-			TLAModule tlaModule,
-			ModularPlusCalBlock modularPlusCalBlock)
-			throws PGoTransException {
-
-		logger.info("Resolving scopes");
-		TLAModuleLoader loader = new TLAModuleLoader(Collections.singletonList(inputFilePath.toAbsolutePath().getParent()));
-		DefinitionRegistry registry = ScopingPass.perform(
-				ctx, resolveConstants, loader, constantDefinitions, tlaModule, modularPlusCalBlock);
-		checkErrors(ctx);
-
-		return registry;
-	}
-
 	private void validateSemanticsPostScoping(TopLevelIssueContext ctx, DefinitionRegistry registry,
 	                                          ModularPlusCalBlock modularPlusCalBlock)
 			throws PGoTransException {
@@ -119,9 +102,6 @@ public class PGoMain {
 			ModularPlusCalBlock modularPlusCalBlock,
 			TLAModule tlaModule)
 			throws PGoTransException {
-
-		Map<String, TLAExpression> constantDefinitions = new HashMap<>();
-
 		validateSemantics(ctx, modularPlusCalBlock);
 		ModularPlusCalBlock macroExpandedModularPlusCalBlock = expandPlusCalMacros(ctx, modularPlusCalBlock);
 
@@ -129,8 +109,10 @@ public class PGoMain {
 				macroExpandedModularPlusCalBlock);
 
 		validateSemantics(ctx, desugaredModularPlusCalBlock);
-		DefinitionRegistry registry = resolveScopes(
-				ctx, false, inputFilePath, constantDefinitions, tlaModule, desugaredModularPlusCalBlock);
+		DefinitionRegistry registry = new DefinitionRegistry();
+		TLABuiltins.fillDefinitionRegistry(registry);
+		TLAUtils.fillDefinitionRegistryFromModule(registry, tlaModule);
+		ModularPlusCalUtils.fillDefinitionRegistryFromModularPlusCalBlock(registry, desugaredModularPlusCalBlock);
 		checkErrors(ctx);
 		validateSemanticsPostScoping(ctx, registry, desugaredModularPlusCalBlock);
 
@@ -166,14 +148,18 @@ public class PGoMain {
 			MappedByteBuffer buffer = fileChannel.map(FileChannel.MapMode.READ_ONLY, 0, fileChannel.size());
 			// assume UTF-8, though technically TLA+ is ASCII only according to the book
 			CharBuffer inputFileContents = StandardCharsets.UTF_8.decode(buffer);
-			LexicalContext lexicalContext = new LexicalContext(inputFilePath, inputFileContents);
-			Optional<Located<MatchResult>> beginPlusCalTranslation =
-					lexicalContext.matchPattern(PlusCalParser.BEGIN_PLUSCAL_TRANSLATION_PATTERN);
-			Optional<Located<MatchResult>> endPlusCalTranslation =
-					lexicalContext.matchPattern(PlusCalParser.END_PLUSCAL_TRANSLATION_PATTERN);
-			if (beginPlusCalTranslation.isPresent() && endPlusCalTranslation.isPresent()) {
-				startOffset = beginPlusCalTranslation.get().getLocation().getEndOffset();
-				endOffset = endPlusCalTranslation.get().getLocation().getEndOffset();
+			Pattern beginPattern = Pattern.compile(".*?\\\\\\*\\s+BEGIN\\s+PLUSCAL\\s+TRANSLATION", Pattern.DOTALL);
+			Pattern endPattern = Pattern.compile(".*?\\\\(\\*\\s+END\\s+PLUSCAL\\s+TRANSLATION)", Pattern.DOTALL);
+			Matcher beginMatcher = beginPattern.matcher(inputFileContents);
+			if(beginMatcher.lookingAt()) {
+				startOffset = beginMatcher.end() + 1;
+				Matcher endMatcher = endPattern.matcher(inputFileContents);
+				endMatcher.region(beginMatcher.end() + 1, beginMatcher.regionEnd());
+				if(endMatcher.lookingAt()) {
+					endOffset = endMatcher.start(1);
+				} else {
+					endOffset = -1;
+				}
 			} else {
 				startOffset = -1;
 				endOffset = -1;
@@ -189,19 +175,18 @@ public class PGoMain {
 				long pos = destination.transferFrom(source, 0, startOffset);
 				pos += destination.write(StandardCharsets.UTF_8.encode("\n"), pos);
 				pos += destination.write(StandardCharsets.UTF_8.encode(serializedAlgorithm), pos);
-				pos += destination.write(StandardCharsets.UTF_8.encode(
-						"\n" + PlusCalParser.END_PLUSCAL_TRANSLATION), pos);
+				pos += destination.write(StandardCharsets.UTF_8.encode("\n\\* END PLUSCAL TRANSLATION"), pos);
 				pos += destination.transferFrom(source.position(endOffset), pos, source.size() - endOffset);
 				destination.truncate(pos);
 			} else {
 				final int blockEndOffset = modularPlusCalBlock.getLocation().getEndOffset();
 				long pos = destination.transferFrom(source, 0, blockEndOffset);
 				pos += destination.write(
-						StandardCharsets.UTF_8.encode("\n\n" + PlusCalParser.BEGIN_PLUSCAL_TRANSLATION + "\n"),
+						StandardCharsets.UTF_8.encode("\n\n\\* BEGIN PLUSCAL TRANSLATION\n"),
 						pos);
 				pos += destination.write(StandardCharsets.UTF_8.encode(serializedAlgorithm), pos);
 				pos += destination.write(
-						StandardCharsets.UTF_8.encode("\n" + PlusCalParser.END_PLUSCAL_TRANSLATION + "\n\n"),
+						StandardCharsets.UTF_8.encode("\n\\* END PLUSCAL TRANSLATION\n\n"),
 						pos);
 				pos += destination.transferFrom(source.position(blockEndOffset), pos, source.size() - blockEndOffset);
 				destination.truncate(pos);
@@ -222,17 +207,31 @@ public class PGoMain {
 
 		logger.info("Parsing constant definitions from configuration");
 		Map<String, TLAExpression> constantDefinitions = ConstantDefinitionParsingPass.perform(
-				ctx, opts.constants.getConstants());
+				opts.constants.getConstants());
 		checkErrors(ctx);
 
 		logger.info("Checking compile options for sanity");
 		CheckOptionsPass.perform(ctx, modularPlusCalBlock, opts);
 		checkErrors(ctx);
 
+		logger.info("Expanding macros");
 		validateSemantics(ctx, modularPlusCalBlock);
 		ModularPlusCalBlock macroExpandedModularPlusCalBlock = expandPlusCalMacros(ctx, modularPlusCalBlock);
-		DefinitionRegistry registry = resolveScopes(
-				ctx, true, inputFilePath, constantDefinitions, tlaModule, macroExpandedModularPlusCalBlock);
+		DefinitionRegistry registry = new DefinitionRegistry();
+		TLABuiltins.fillDefinitionRegistry(registry);
+		TLAUtils.fillDefinitionRegistryFromModule(registry, tlaModule);
+		ModularPlusCalUtils.fillDefinitionRegistryFromModularPlusCalBlock(registry, macroExpandedModularPlusCalBlock);
+		for(UID constant: registry.getConstants()) {
+			String name = registry.getConstantName(constant);
+			TLAExpression value = constantDefinitions.get(name);
+			if(value == null) {
+				//throw new PGoTransException("Constant "+name+" has no specified value");
+				registry.setConstantValue(constant, new PlusCalDefaultInitValue(SourceLocation.unknown()));
+			} else {
+				registry.setConstantValue(constant, value);
+				TLAUtils.fillDefinitionRegistryFromExpression(registry, value);
+			}
+		}
 		validateSemanticsPostScoping(ctx, registry, macroExpandedModularPlusCalBlock);
 
 		logger.info("Inferring types");
@@ -306,22 +305,20 @@ public class PGoMain {
 					ctx.error(new OptionParserIssue("Specification does not contain a Modular PlusCal block."));
 					checkErrors(ctx);
 				}
+				logger.info("Parsing TLA+ module");
+				tlaModule = TLAParsingPass.perform(inputFilePath, inputFileContents);
+				checkErrors(ctx);
 
 				if (isMPCal) {
 					logger.info("Parsing modular PlusCal code");
-					modularPlusCalBlock = ModularPlusCalParsingPass.perform(ctx, inputFilePath, inputFileContents);
+					modularPlusCalBlock = ModularPlusCalParsingPass.perform(inputFilePath, inputFileContents, tlaModule);
 					checkErrors(ctx);
 				} else {
 					logger.info("Parsing PlusCal code");
-					final PlusCalAlgorithm plusCalAlgorithm = PlusCalParsingPass.perform(
-							ctx, inputFilePath, inputFileContents);
+					final PlusCalAlgorithm plusCalAlgorithm = PlusCalParsingPass.perform(inputFilePath, inputFileContents, tlaModule);
 					checkErrors(ctx);
 					modularPlusCalBlock = ModularPlusCalBlock.from(plusCalAlgorithm);
 				}
-
-				logger.info("Parsing TLA+ module");
-				tlaModule = TLAParsingPass.perform(ctx, inputFilePath, inputFileContents);
-				checkErrors(ctx);
 			}
 
 			if (opts.mpcalCompile) {

@@ -14,8 +14,8 @@ import pgo.util.SourceLocation;
  */
 public class TLAFunctionSet extends TLAExpression {
 
-	private TLAExpression from;
-	private TLAExpression to;
+	private final TLAExpression from;
+	private final TLAExpression to;
 
 	public TLAFunctionSet(SourceLocation location, TLAExpression from, TLAExpression to) {
 		super(location);

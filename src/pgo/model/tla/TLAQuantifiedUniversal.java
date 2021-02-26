@@ -14,8 +14,8 @@ import java.util.stream.Collectors;
  */
 public class TLAQuantifiedUniversal extends TLAExpression {
 
-	private List<TLAQuantifierBound> ids;
-	private TLAExpression body;
+	private final List<TLAQuantifierBound> ids;
+	private final TLAExpression body;
 
 	public TLAQuantifiedUniversal(SourceLocation location, List<TLAQuantifierBound> ids, TLAExpression body) {
 		super(location);

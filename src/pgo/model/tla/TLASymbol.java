@@ -4,11 +4,17 @@ import pgo.util.SourceLocation;
 
 public class TLASymbol extends TLANode {
 	
-	private String value;
+	private final String value;
+	private final TLAIdentifier identifier;
 
 	public TLASymbol(SourceLocation location, String value) {
 		super(location);
 		this.value = value;
+		this.identifier = new TLAIdentifier(location, value);
+	}
+
+	public TLAIdentifier getIdentifier() {
+		return identifier;
 	}
 	
 	public String getValue() {
@@ -17,7 +23,8 @@ public class TLASymbol extends TLANode {
 
 	@Override
 	public TLANode copy() {
-		return new TLASymbol(getLocation(), value);
+		throw new RuntimeException("bad");
+		//return new TLASymbol(getLocation(), value);
 	}
 
 	@Override

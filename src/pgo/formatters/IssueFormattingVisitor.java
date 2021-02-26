@@ -5,33 +5,25 @@ import pgo.errors.IssueWithContext;
 import pgo.model.mpcal.ModularPlusCalArchetype;
 import pgo.model.mpcal.ModularPlusCalInstance;
 import pgo.model.mpcal.ModularPlusCalNodeFormattingVisitor;
-import pgo.model.pcal.PlusCalCall;
 import pgo.model.pcal.PlusCalMacro;
-import pgo.model.pcal.PlusCalProcedure;
 import pgo.model.type.*;
 import pgo.model.type.constraint.PolymorphicConstraint;
-import pgo.parser.ParseFailure;
 import pgo.trans.intermediate.*;
 import pgo.trans.passes.codegen.pluscal.RefMismatchIssue;
 import pgo.trans.passes.expansion.*;
 import pgo.trans.passes.parse.option.OptionParserIssue;
 import pgo.trans.passes.parse.pcal.PlusCalParserIssue;
-import pgo.trans.passes.parse.tla.ParsingIssue;
-import pgo.trans.passes.scope.*;
+import pgo.trans.passes.parse.ParsingIssue;
 import pgo.trans.passes.type.TypeInferenceFailureIssue;
 import pgo.trans.passes.validation.*;
 import pgo.util.Origin;
-import pgo.util.SourceLocation;
 
 import java.io.IOException;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
-	private IndentingWriter out;
+	private final IndentingWriter out;
 
 	public IssueFormattingVisitor(IndentingWriter out) {
 		this.out = out;
@@ -62,37 +54,6 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 	}
 
 	@Override
-	public Void visit(ScopeConflictIssue scopeConflictIssue) throws IOException {
-		out.write("scoping conflict between ");
-		scopeConflictIssue.getFirst().accept(new OriginFormattingVisitor(out));
-		out.write(" and ");
-		scopeConflictIssue.getSecond().accept(new OriginFormattingVisitor(out));
-		return null;
-	}
-
-	@Override
-	public Void visit(ModuleNotFoundIssue moduleNotFoundIssue) throws IOException {
-		out.write("TLA module ");
-		out.write(moduleNotFoundIssue.getModuleName());
-		out.write(" not found; looked in:");
-		try (IndentingWriter.Indent ignored = out.indent()) {
-			for (Path path : moduleNotFoundIssue.getPathsChecked()) {
-				out.newLine();
-				out.write("- ");
-				out.write(path.toString());
-			}
-		}
-		return null;
-	}
-
-	@Override
-	public Void visit(DanglingReferenceIssue danglingReferenceIssue) throws IOException {
-		out.write("could not resolve ");
-		danglingReferenceIssue.getFrom().accept(new OriginFormattingVisitor(out));
-		return null;
-	}
-
-	@Override
 	public Void visit(IOErrorIssue ioErrorIssue) throws IOException {
 		out.write("IO Error: ");
 		out.write(ioErrorIssue.getError().toString());
@@ -101,21 +62,8 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 
 	@Override
 	public Void visit(ParsingIssue parsingIssue) throws IOException {
-		Map.Entry<SourceLocation, Set<ParseFailure>> lastEntry = parsingIssue.getError().lastEntry();
-		out.write("could not parse " + parsingIssue.getLanguage() + " at " + lastEntry.getKey() + ": ");
-		try (IndentingWriter.Indent ignored = out.indent()) {
-			Set<ParseFailure> lastFailures = lastEntry.getValue();
-			for (ParseFailure f : lastFailures) {
-				out.newLine();
-				out.write(f.toString());
-			}
-		}
-		return null;
-	}
-
-	@Override
-	public Void visit(NoModulesFoundInFileIssue noModulesFoundInFileIssue) throws IOException {
-		out.write("file does not contain any TLA modules");
+		out.write("error parsing "+parsingIssue.getLanguage()+": ");
+		out.write(parsingIssue.getError().getMessage());
 		return null;
 	}
 
@@ -124,14 +72,6 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 		out.write("non-ref ");
 		nonRefParamModification.getDeclarationUID().accept(new DerivedFormattingVisitor(out));
 		out.write(" is modified in archetype body");
-		return null;
-	}
-
-	@Override
-	public Void visit(ModuleSubstitutionNotFoundIssue moduleSubstitutionNotFoundIssue) throws IOException {
-		out.write("module instantiation provided a substitution (");
-		out.write(moduleSubstitutionNotFoundIssue.getFrom().getId());
-		out.write(" that does not match and variables/constants declared by that module");
 		return null;
 	}
 
@@ -214,16 +154,6 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 	}
 
 	@Override
-	public Void visit(MultipleMappingIssue multipleMappingIssue) throws IOException {
-		out.write("mappings ");
-		multipleMappingIssue.getFirst().accept(new OriginFormattingVisitor(out));
-		out.write(" and ");
-		multipleMappingIssue.getSecond().accept(new OriginFormattingVisitor(out));
-		out.write(" conflict");
-		return null;
-	}
-
-	@Override
 	public Void visit(MacroNameConflictIssue macroNameConflictIssue) throws IOException {
 		out.write("the two macro definitions at line ");
 		out.write(macroNameConflictIssue.getFirst().getLocation().getStartLine());
@@ -266,24 +196,6 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 		typeInferenceFailureIssue.getUID().accept(new DerivedFormattingVisitor(out));
 		out.write("; got ");
 		typeInferenceFailureIssue.getType().accept(new DerivedFormattingVisitor(out));
-		return null;
-	}
-
-	@Override
-	public Void visit(ProcedureNotFoundIssue procedureNotFoundIssue) throws IOException {
-		out.write("could not find procedure with name ");
-		out.write(procedureNotFoundIssue.getProcedureName());
-		out.write(" from ");
-		procedureNotFoundIssue.getOrigin().accept(new OriginFormattingVisitor(out));
-		return null;
-	}
-
-	@Override
-	public Void visit(ConstantWithNoValueIssue constantWithNoValueIssue) throws IOException {
-		out.write("could not find value for constant ");
-		out.write(constantWithNoValueIssue.getName());
-		out.write(" in configuration file; ");
-		constantWithNoValueIssue.getDefinition().accept(new OriginFormattingVisitor(out));
 		return null;
 	}
 
@@ -373,42 +285,9 @@ public class IssueFormattingVisitor extends IssueVisitor<Void, IOException> {
 			mappedAs = "variable";
 		}
 
-		out.write("invalid use of archetype resource ");
-		invalidArchetypeResourceUsageIssue.getVarUID().accept(new DerivedFormattingVisitor(out));
-		out.write(": used as a " + usedAs + " but mapped as a " + mappedAs + ". In statement: ");
+		out.write("invalid use of archetype resource: used as a " + usedAs + " but mapped as a " + mappedAs + ". In statement: ");
 		invalidArchetypeResourceUsageIssue.getStatement().accept(new PlusCalStatementFormattingVisitor(out));
 
-		return null;
-	}
-
-	@Override
-	public Void visit(ProcedureCallArgumentCountMismatchIssue procedureCallArgumentCountMismatchIssue) throws IOException {
-		out.write("procedure ");
-		PlusCalProcedure procedure = procedureCallArgumentCountMismatchIssue.getProcedure();
-		out.write(procedure.getName());
-		out.write(" defined at line ");
-		out.write(Integer.toString(procedure.getLocation().getStartLine()));
-		out.write(" column ");
-		out.write(Integer.toString(procedure.getLocation().getStartColumn()));
-		out.write(" requires ");
-		out.write(Integer.toString(procedure.getParams().size()));
-		out.write(" parameters while procedure call at line ");
-		PlusCalCall plusCalCall = procedureCallArgumentCountMismatchIssue.getCall();
-		out.write(Integer.toString(plusCalCall.getLocation().getStartLine()));
-		out.write(" column ");
-		out.write(Integer.toString(plusCalCall.getLocation().getStartColumn()));
-		out.write(" referencing it provides ");
-		out.write(Integer.toString(plusCalCall.getArguments().size()));
-		out.write(" arguments");
-		return null;
-	}
-
-	@Override
-	public Void visit(ArchetypeNotFoundIssue archetypeNotFoundIssue) throws IOException {
-		out.write("could not find archetype with name ");
-		out.write(archetypeNotFoundIssue.getArchetypeName());
-		out.write(" from ");
-		archetypeNotFoundIssue.getOrigin().accept(new OriginFormattingVisitor(out));
 		return null;
 	}
 

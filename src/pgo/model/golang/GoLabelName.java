@@ -4,7 +4,7 @@ import java.util.Objects;
 
 public class GoLabelName extends GoNode {
 	
-	private String name;
+	private final String name;
 
 	public GoLabelName(String name) {
 		this.name = name;

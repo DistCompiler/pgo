@@ -4,8 +4,8 @@ import pgo.errors.Issue;
 import pgo.errors.IssueVisitor;
 
 public class UnsatisfiableConstraintIssue extends Issue {
-	private Type lhs;
-	private Type rhs;
+	private final Type lhs;
+	private final Type rhs;
 
 	public UnsatisfiableConstraintIssue(Type lhs, Type rhs) {
 		this.lhs = lhs;

@@ -20,11 +20,11 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpression, RuntimeException> {
-	private GoBlockBuilder builder;
-	private DefinitionRegistry registry;
-	private Map<UID, Type> typeMap;
-	private LocalVariableStrategy localStrategy;
-	private GlobalVariableStrategy globalStrategy;
+	private final GoBlockBuilder builder;
+	private final DefinitionRegistry registry;
+	private final Map<UID, Type> typeMap;
+	private final LocalVariableStrategy localStrategy;
+	private final GlobalVariableStrategy globalStrategy;
 
 	public TLAExpressionCodeGenVisitor(GoBlockBuilder builder, DefinitionRegistry registry, Map<UID, Type> typeMap,
 									   LocalVariableStrategy localStrategy, GlobalVariableStrategy globalStrategy) {
@@ -60,7 +60,7 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 			TLAQuantifierBound bound = bounds.get(i);
 			GoForRangeBuilder forRangeBuilder = currentBuilder.forRange(set);
 
-			if (bound.getType() == TLAQuantifierBound.Type.TUPLE) {
+			if (bound.getType() == TLAQuantifierBound.Type$.MODULE$.tuple()) {
 				GoVariableName v = forRangeBuilder.initVariables(Arrays.asList("_", "v")).get(1);
 				currentBuilder = forRangeBuilder.getBlockBuilder();
 
@@ -163,7 +163,7 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 
 	@Override
 	public GoExpression visit(TLABinOp tlaBinOp) throws RuntimeException {
-		UID ref = registry.followReference(tlaBinOp.getOperation().getUID());
+		UID ref = registry.followReference(tlaBinOp.getUID());
 		OperatorAccessor op = registry.findOperator(ref);
 		return op.generateGo(
 				builder, tlaBinOp, registry,
@@ -360,7 +360,7 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 	@Override
 	public GoExpression visit(TLAOperatorCall tlaOperatorCall) throws RuntimeException {
 		return registry
-				.findOperator(registry.followReference(tlaOperatorCall.getName().getUID()))
+				.findOperator(registry.followReference(tlaOperatorCall.getUID()))
 				.generateGo(
 						builder, tlaOperatorCall, registry,
 						tlaOperatorCall.getArgs(),
@@ -521,7 +521,7 @@ public class TLAExpressionCodeGenVisitor extends TLAExpressionVisitor<GoExpressi
 	@Override
 	public GoExpression visit(TLAUnary tlaUnary) throws RuntimeException {
 		return registry
-				.findOperator(registry.followReference(tlaUnary.getOperation().getUID()))
+				.findOperator(registry.followReference(tlaUnary.getUID()))
 				.generateGo(
 						builder, tlaUnary, registry,
 						Collections.singletonList(tlaUnary.getOperand()),

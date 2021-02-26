@@ -11,7 +11,7 @@ import java.io.StringWriter;
 
 public class LabelNotAllowedIssue extends Issue {
 
-    private PlusCalStatement statement;
+    private final PlusCalStatement statement;
 
     public LabelNotAllowedIssue(PlusCalStatement statement) {
         this.statement = statement;

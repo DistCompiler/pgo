@@ -14,7 +14,7 @@ import java.util.stream.Collectors;
  */
 public class TLASetConstructor extends TLAExpression {
 
-	private List<TLAExpression> contents;
+	private final List<TLAExpression> contents;
 	
 	public TLASetConstructor(SourceLocation location, List<TLAExpression> contents) {
 		super(location);

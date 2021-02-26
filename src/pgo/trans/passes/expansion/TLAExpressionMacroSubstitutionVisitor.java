@@ -1,6 +1,5 @@
 package pgo.trans.passes.expansion;
 
-import pgo.TODO;
 import pgo.Unreachable;
 import pgo.errors.IssueContext;
 import pgo.model.tla.*;
@@ -12,8 +11,8 @@ import java.util.stream.Collectors;
 
 public class TLAExpressionMacroSubstitutionVisitor extends TLAExpressionVisitor<TLAExpression, RuntimeException> {
 
-	private IssueContext ctx;
-	private Map<String, TLAExpression> macroArgs;
+	private final IssueContext ctx;
+	private final Map<String, TLAExpression> macroArgs;
 
 	public TLAExpressionMacroSubstitutionVisitor(IssueContext ctx, Map<String, TLAExpression> macroArgs) {
 		this.ctx= ctx;
@@ -40,14 +39,12 @@ public class TLAExpressionMacroSubstitutionVisitor extends TLAExpressionVisitor<
 	}
 	
 	private List<TLAIdentifier> substituteIdentifiers(List<TLAIdentifier> ids){
-		List<TLAIdentifier> result = new ArrayList<>();
 		for(TLAIdentifier id : ids) {
 			if(macroArgs.containsKey(id.getId())) {
 				ctx.error(new MacroArgumentInnerScopeConflictIssue(id));
 			}
-			result.add(id.copy());
 		}
-		return result;
+		return ids;
 	}
 
 	@Override
@@ -58,9 +55,11 @@ public class TLAExpressionMacroSubstitutionVisitor extends TLAExpressionVisitor<
 
 	@Override
 	public TLAExpression visit(TLABinOp tlaBinOp) throws RuntimeException {
-		return new TLABinOp(tlaBinOp.getLocation(), tlaBinOp.getOperation(),
+		TLABinOp result = new TLABinOp(tlaBinOp.getLocation(), tlaBinOp.getOperation(),
 				substitutePrefix(tlaBinOp.getPrefix()), tlaBinOp.getLHS().accept(this),
 				tlaBinOp.getRHS().accept(this));
+		result.setRefersTo(tlaBinOp.getRefersTo());
+		return result;
 	}
 
 	@Override
@@ -129,15 +128,17 @@ public class TLAExpressionMacroSubstitutionVisitor extends TLAExpressionVisitor<
 	public TLAExpression visit(TLAGeneralIdentifier tlaGeneralIdentifier) throws RuntimeException {
 		if(tlaGeneralIdentifier.getGeneralIdentifierPrefix().isEmpty()) {
 			if(macroArgs.containsKey(tlaGeneralIdentifier.getName().getId())) {
-				return macroArgs.get(tlaGeneralIdentifier.getName().getId()).copy();
+				return macroArgs.get(tlaGeneralIdentifier.getName().getId());
 			}
 		}else {
 			if(macroArgs.containsKey(tlaGeneralIdentifier.getName().getId())) {
 				ctx.error(new MacroArgumentInnerScopeConflictIssue(tlaGeneralIdentifier.getName()));
 			}
 		}
-		return new TLAGeneralIdentifier(tlaGeneralIdentifier.getLocation(), tlaGeneralIdentifier.getName().copy(),
+		TLAGeneralIdentifier result = new TLAGeneralIdentifier(tlaGeneralIdentifier.getLocation(), tlaGeneralIdentifier.getName(),
 				substitutePrefix(tlaGeneralIdentifier.getGeneralIdentifierPrefix()));
+		result.setRefersTo(tlaGeneralIdentifier.getRefersTo());
+		return result;
 	}
 
 	@Override
@@ -160,10 +161,12 @@ public class TLAExpressionMacroSubstitutionVisitor extends TLAExpressionVisitor<
 		if(macroArgs.containsKey(tlaOperatorCall.getName().getId())) {
 			ctx.error(new MacroArgumentInnerScopeConflictIssue(tlaOperatorCall.getName()));
 		}
-		return new TLAOperatorCall(tlaOperatorCall.getLocation(),
-				tlaOperatorCall.getName().copy(),
+		TLAOperatorCall result = new TLAOperatorCall(tlaOperatorCall.getLocation(),
+				tlaOperatorCall.getName(),
 				substitutePrefix(tlaOperatorCall.getPrefix()),
 				tlaOperatorCall.getArgs().stream().map(a -> a.accept(this)).collect(Collectors.toList()));
+		result.setRefersTo(tlaOperatorCall.getRefersTo());
+		return result;
 	}
 
 	@Override
@@ -186,7 +189,7 @@ public class TLAExpressionMacroSubstitutionVisitor extends TLAExpressionVisitor<
 			if(macroArgs.containsKey(field.getName().getId())) {
 				ctx.error(new MacroArgumentInnerScopeConflictIssue(field.getName()));
 			}
-			return new TLARecordConstructor.Field(field.getLocation(), field.getName().copy(), field.getValue().accept(this));
+			return new TLARecordConstructor.Field(field.getLocation(), field.getName(), field.getValue().accept(this));
 		}).collect(Collectors.toList()));
 	}
 
@@ -230,8 +233,14 @@ public class TLAExpressionMacroSubstitutionVisitor extends TLAExpressionVisitor<
 				ctx.error(new MacroArgumentInnerScopeConflictIssue(ident.getId()));
 			}
 		}
-		return new TLASetRefinement(tlaSetRefinement.getLocation(), tlaSetRefinement.getIdent().copy(),
-				tlaSetRefinement.getFrom().accept(this), tlaSetRefinement.getWhen().accept(this));
+		return new TLASetRefinement(
+				tlaSetRefinement.getLocation(),
+				new TLAQuantifierBound(
+						tlaSetRefinement.getBinding().getLocation(),
+						tlaSetRefinement.getBinding().getType(),
+						tlaSetRefinement.getBinding().getIds(),
+						tlaSetRefinement.getBinding().getSet().accept(this)),
+				tlaSetRefinement.getWhen().accept(this));
 	}
 
 	@Override
@@ -241,8 +250,10 @@ public class TLAExpressionMacroSubstitutionVisitor extends TLAExpressionVisitor<
 
 	@Override
 	public TLAExpression visit(TLAUnary tlaUnary) throws RuntimeException {
-		return new TLAUnary(tlaUnary.getLocation(), tlaUnary.getOperation(), substitutePrefix(tlaUnary.getPrefix()),
+		TLAUnary result = new TLAUnary(tlaUnary.getLocation(), tlaUnary.getOperation(), substitutePrefix(tlaUnary.getPrefix()),
 				tlaUnary.getOperand().accept(this));
+		result.setRefersTo(tlaUnary.getRefersTo());
+		return result;
 	}
 
 	@Override

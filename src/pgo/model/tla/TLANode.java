@@ -17,8 +17,8 @@ import java.io.StringWriter;
  *
  */
 public abstract class TLANode extends SourceLocatable {
-	private SourceLocation location;
-	private UID uid;
+	private final SourceLocation location;
+	private final UID uid;
 	
 	public TLANode(SourceLocation location) {
 		this.location = location;

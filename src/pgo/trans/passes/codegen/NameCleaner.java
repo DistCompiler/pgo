@@ -8,7 +8,7 @@ import java.util.Set;
 
 public class NameCleaner {
 
-	private Set<String> existingNames;
+	private final Set<String> existingNames;
 
 	public NameCleaner() {
 		this(new HashSet<>());

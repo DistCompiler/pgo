@@ -11,8 +11,8 @@ import pgo.util.SourceLocation;
  */
 public class TLAMaybeAction extends TLAExpression {
 
-	private TLAExpression body;
-	private TLAExpression vars;
+	private final TLAExpression body;
+	private final TLAExpression vars;
 	
 	public TLAMaybeAction(SourceLocation location, TLAExpression body, TLAExpression vars) {
 		super(location);

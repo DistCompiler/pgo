@@ -8,7 +8,7 @@ import java.util.stream.Collectors;
 
 public class PlusCalEither extends PlusCalStatement {
 
-	private List<List<PlusCalStatement>> cases;
+	private final List<List<PlusCalStatement>> cases;
 	
 	public PlusCalEither(SourceLocation location, List<List<PlusCalStatement>> cases) {
 		super(location);

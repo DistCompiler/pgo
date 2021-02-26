@@ -15,15 +15,24 @@ import java.util.stream.Collectors;
  */
 public class TLAOperatorCall extends TLAExpression {
 
-	private TLAIdentifier name;
-	private List<TLAExpression> args;
-	private List<TLAGeneralIdentifierPart> prefix;
+	private final TLAIdentifier name;
+	private final List<TLAExpression> args;
+	private final List<TLAGeneralIdentifierPart> prefix;
+	private TLADefinitionOne refersTo;
 	
 	public TLAOperatorCall(SourceLocation location, TLAIdentifier name, List<TLAGeneralIdentifierPart> prefix, List<TLAExpression> args) {
 		super(location);
 		this.name = name;
 		this.args = args;
 		this.prefix = prefix;
+	}
+
+	public void setRefersTo(TLADefinitionOne refersTo) {
+		this.refersTo = refersTo;
+	}
+
+	public TLADefinitionOne getRefersTo() {
+		return refersTo;
 	}
 	
 	@Override

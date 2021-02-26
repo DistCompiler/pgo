@@ -1,6 +1,7 @@
 package pgo.model.pcal;
 
 import pgo.model.mpcal.ModularPlusCalBlockVisitor;
+import pgo.model.tla.TLAIdentifier;
 import pgo.util.SourceLocation;
 
 import java.util.ArrayList;
@@ -9,10 +10,10 @@ import java.util.stream.Collectors;
 
 public class PlusCalMacro extends PlusCalNode {
 	private final String name;
-	private final List<String> params;
+	private final List<TLAIdentifier> params;
 	private final List<PlusCalStatement> body;
 
-	public PlusCalMacro(SourceLocation location, String name, List<String> params, List<PlusCalStatement> body) {
+	public PlusCalMacro(SourceLocation location, String name, List<TLAIdentifier> params, List<PlusCalStatement> body) {
 		super(location);
 		this.name = name;
 		this.params = params;
@@ -32,8 +33,14 @@ public class PlusCalMacro extends PlusCalNode {
 		return name;
 	}
 
-	public List<String> getParams(){
+	public List<TLAIdentifier> getParams() {
 		return params;
+	}
+
+	public List<String> getParamIds(){
+		return params.stream()
+				.map(TLAIdentifier::getId)
+				.collect(Collectors.toList());
 	}
 
 	public List<PlusCalStatement> getBody(){

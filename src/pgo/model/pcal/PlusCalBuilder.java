@@ -1,15 +1,15 @@
 package pgo.model.pcal;
 
 import pgo.model.mpcal.*;
-import pgo.model.tla.PlusCalDefaultInitValue;
-import pgo.model.tla.TLAExpression;
-import pgo.model.tla.TLAUnit;
-import pgo.parser.Located;
+import pgo.model.tla.*;
 import pgo.util.SourceLocation;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
+
+import static pgo.model.tla.TLABuilder.id;
 
 public class PlusCalBuilder {
 	private PlusCalBuilder() {}
@@ -18,24 +18,29 @@ public class PlusCalBuilder {
 
 	public static PlusCalAlgorithm algorithm(String name, List<PlusCalVariableDeclaration> vars, List<PlusCalMacro> macros, List<PlusCalProcedure> procedures, List<TLAUnit> units, PlusCalLabeledStatements... statements) {
 		return new PlusCalAlgorithm(SourceLocation.unknown(), PlusCalFairness.UNFAIR,
-				new Located<>(SourceLocation.unknown(), name), vars, macros, procedures, units,
+				new TLAIdentifier(SourceLocation.unknown(), name), vars, macros, procedures, units,
 				new PlusCalSingleProcess(SourceLocation.unknown(), Arrays.asList(statements)));
 	}
 
 	public static PlusCalAlgorithm algorithm(String name, List<PlusCalVariableDeclaration> vars, List<PlusCalMacro> macros, List<PlusCalProcedure> procedures, List<TLAUnit> units, PlusCalProcess... processes) {
 		return new PlusCalAlgorithm(SourceLocation.unknown(), PlusCalFairness.UNFAIR,
-				new Located<>(SourceLocation.unknown(), name), vars, macros, procedures, units,
+				new TLAIdentifier(SourceLocation.unknown(), name), vars, macros, procedures, units,
 				new PlusCalMultiProcess(SourceLocation.unknown(), Arrays.asList(processes)));
 	}
 
 	public static PlusCalVariableDeclaration pcalVarDecl(String name, boolean isRef, boolean isSet,
 	                                                     TLAExpression value) {
 		return new PlusCalVariableDeclaration(
-				SourceLocation.unknown(), new Located<>(SourceLocation.unknown(), name), isRef, isSet, value);
+				SourceLocation.unknown(), new TLAIdentifier(SourceLocation.unknown(), name), isRef, isSet, value);
 	}
 
 	public static PlusCalMacro macro(String name, List<String> params, PlusCalStatement... statements) {
-		return new PlusCalMacro(SourceLocation.unknown(), name, params, Arrays.asList(statements));
+		return new PlusCalMacro(
+				SourceLocation.unknown(), name,
+				params.stream()
+						.map(TLABuilder::id)
+						.collect(Collectors.toList()),
+				Arrays.asList(statements));
 	}
 
 	public static PlusCalProcedure procedure(String name, List<PlusCalVariableDeclaration> params,

@@ -5,7 +5,6 @@ import pgo.errors.IssueContext;
 import pgo.model.mpcal.*;
 import pgo.model.pcal.*;
 import pgo.model.tla.*;
-import pgo.parser.Located;
 import pgo.scope.UID;
 import pgo.trans.intermediate.DefinitionRegistry;
 import pgo.trans.intermediate.UnsupportedFeatureIssue;
@@ -49,14 +48,14 @@ public class PlusCalCodeGenPass {
 		for (PlusCalProcedure procedure : modularPlusCalBlock.getProcedures()) {
 			nameCleanerSeed.add(procedure.getName());
 			Stream.concat(procedure.getVariables().stream(), procedure.getParams().stream())
-					.forEach(v -> nameCleanerSeed.add(v.getName().getValue()));
+					.forEach(v -> nameCleanerSeed.add(v.getName().getId()));
 			procedure.getBody().forEach(s -> s.accept(nameCollector));
 		}
 		if (modularPlusCalBlock.getProcesses() instanceof PlusCalMultiProcess) {
 			for (PlusCalProcess process : ((PlusCalMultiProcess) modularPlusCalBlock.getProcesses()).getProcesses()) {
-				nameCleanerSeed.add(process.getName().getName().getValue());
+				nameCleanerSeed.add(process.getName().getName().getId());
 				for (PlusCalVariableDeclaration declaration : process.getVariables()) {
-					nameCleanerSeed.add(declaration.getName().getValue());
+					nameCleanerSeed.add(declaration.getName().getId());
 				}
 				process.getBody().forEach(s -> s.accept(nameCollector));
 			}
@@ -64,7 +63,7 @@ public class PlusCalCodeGenPass {
 		for (ModularPlusCalArchetype archetype : modularPlusCalBlock.getArchetypes()) {
 			nameCleanerSeed.add(archetype.getName());
 			Stream.concat(archetype.getParams().stream(), archetype.getParams().stream())
-					.forEach(v -> nameCleanerSeed.add(v.getName().getValue()));
+					.forEach(v -> nameCleanerSeed.add(v.getName().getId()));
 			archetype.getBody().forEach(s -> s.accept(nameCollector));
 		}
 		for (ModularPlusCalMappingMacro mappingMacro : modularPlusCalBlock.getMappingMacros()) {
@@ -73,7 +72,7 @@ public class PlusCalCodeGenPass {
 			mappingMacro.getWriteBody().forEach(s -> s.accept(nameCollector));
 		}
 		for (ModularPlusCalInstance instance : modularPlusCalBlock.getInstances()) {
-			nameCleanerSeed.add(instance.getName().getName().getValue());
+			nameCleanerSeed.add(instance.getName().getName().getId());
 		}
 		NameCleaner nameCleaner = new NameCleaner(nameCleanerSeed);
 
@@ -126,7 +125,7 @@ public class PlusCalCodeGenPass {
 					if (param.isRef()) {
 						refs.add(paramUID);
 					}
-					String nameHint = param.getName().getValue() + "Local";
+					String nameHint = param.getName().getId() + "Local";
 					// this argument is bound to a TLA+ expression, so we need to add a variable declaration for it
 					TLAGeneralIdentifier local;
 					if (value.accept(
@@ -134,7 +133,7 @@ public class PlusCalCodeGenPass {
 						local = readTemporaryBinding.freshVariable(value.getLocation(), paramUID, nameHint);
 						localVariables.add(new PlusCalVariableDeclaration(
 								value.getLocation(),
-								new Located<>(value.getLocation(), local.getName().getId()),
+								new TLAIdentifier(value.getLocation(), local.getName().getId()),
 								false,
 								false,
 								new PlusCalDefaultInitValue(value.getLocation())));
@@ -148,7 +147,7 @@ public class PlusCalCodeGenPass {
 					} else {
 						local = readTemporaryBinding.freshVariable(value.getLocation(), paramUID, nameHint);
 						localVariables.add(new PlusCalVariableDeclaration(
-								value.getLocation(), new Located<>(value.getLocation(), local.getName().getId()),
+								value.getLocation(), new TLAIdentifier(value.getLocation(), local.getName().getId()),
 								false, false, value));
 					}
 					arguments.put(paramUID, local);

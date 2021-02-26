@@ -5,7 +5,7 @@ import pgo.util.SourceLocation;
 
 public class PlusCalAssert extends PlusCalStatement {
 	
-	private TLAExpression condition;
+	private final TLAExpression condition;
 	
 	public PlusCalAssert(SourceLocation location, TLAExpression condition) {
 		super(location);

@@ -9,8 +9,8 @@ import java.util.concurrent.atomic.AtomicLong;
  * Generates fresh PGoTypeVariables and PGoAbstractRecords.
  */
 public class TypeGenerator {
-	private AtomicLong current = new AtomicLong(0);
-	private String prefix;
+	private final AtomicLong current = new AtomicLong(0);
+	private final String prefix;
 
 	public TypeGenerator(String prefix) {
 		this.prefix = prefix;

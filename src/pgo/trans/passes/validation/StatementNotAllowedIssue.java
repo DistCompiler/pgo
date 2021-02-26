@@ -11,7 +11,7 @@ import java.io.StringWriter;
 
 public class StatementNotAllowedIssue extends Issue {
 
-    private PlusCalStatement statement;
+    private final PlusCalStatement statement;
 
     public StatementNotAllowedIssue(PlusCalStatement statement) {
         this.statement = statement;

@@ -2,8 +2,8 @@ package pgo.model.golang.type;
 
 public class GoTypeName extends GoType {
 	
-	private String name;
-	private boolean builtin;
+	private final String name;
+	private final boolean builtin;
 	
 	public GoTypeName(String name) {
 		this.name = name;

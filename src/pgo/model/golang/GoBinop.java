@@ -4,9 +4,9 @@ import java.util.Objects;
 
 public class GoBinop extends GoExpression {
 	
-	private GoExpression lhs;
-	private GoExpression rhs;
-	private Operation op;
+	private final GoExpression lhs;
+	private final GoExpression rhs;
+	private final Operation op;
 	
 	public enum Operation{
 		// grouped by precedence

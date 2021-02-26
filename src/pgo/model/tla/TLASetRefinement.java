@@ -4,7 +4,7 @@ import pgo.util.SourceLocation;
 
 /**
  * 
- * TLA AST PlusCalNode:
+ * TLA AST Node:
  * 
  * { a \in <expr> : <expr> }
  * { <<a, b, c>> \in <expr> : <expr> }
@@ -12,28 +12,30 @@ import pgo.util.SourceLocation;
  */
 public class TLASetRefinement extends TLAExpression {
 
-	private TLAIdentifierOrTuple ident;
-	private TLAExpression from;
-	private TLAExpression when;
+	private final TLAQuantifierBound binding;
+	private final TLAExpression when;
 
-	public TLASetRefinement(SourceLocation location, TLAIdentifierOrTuple ident, TLAExpression from, TLAExpression when) {
+	public TLASetRefinement(SourceLocation location, TLAQuantifierBound binding, TLAExpression when) {
 		super(location);
-		this.ident = ident;
-		this.from = from;
+		this.binding = binding;
 		this.when = when;
 	}
 	
 	@Override
 	public TLASetRefinement copy() {
-		return new TLASetRefinement(getLocation(), ident.copy(), from.copy(), when.copy());
+		return new TLASetRefinement(getLocation(), binding.copy(), when.copy());
 	}
 	
+	public TLAQuantifierBound getBinding() {
+		return binding;
+	}
+
 	public TLAIdentifierOrTuple getIdent() {
-		return ident;
+		return binding.identifierOrTuple();
 	}
-	
+
 	public TLAExpression getFrom() {
-		return from;
+		return binding.getSet();
 	}
 
 	public TLAExpression getWhen() {
@@ -49,34 +51,16 @@ public class TLASetRefinement extends TLAExpression {
 	public int hashCode() {
 		final int prime = 31;
 		int result = 1;
-		result = prime * result + ((from == null) ? 0 : from.hashCode());
-		result = prime * result + ((ident == null) ? 0 : ident.hashCode());
+		result = prime * result + ((binding == null) ? 0 : binding.hashCode());
 		result = prime * result + ((when == null) ? 0 : when.hashCode());
 		return result;
 	}
 
 	@Override
-	public boolean equals(Object obj) {
-		if (this == obj)
-			return true;
-		if (obj == null)
-			return false;
-		if (getClass() != obj.getClass())
-			return false;
-		TLASetRefinement other = (TLASetRefinement) obj;
-		if (from == null) {
-			if (other.from != null)
-				return false;
-		} else if (!from.equals(other.from))
-			return false;
-		if (ident == null) {
-			if (other.ident != null)
-				return false;
-		} else if (!ident.equals(other.ident))
-			return false;
-		if (when == null) {
-			return other.when == null;
-		} else return when.equals(other.when);
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		TLASetRefinement that = (TLASetRefinement) o;
+		return binding.equals(that.binding) && when.equals(that.when);
 	}
-
 }

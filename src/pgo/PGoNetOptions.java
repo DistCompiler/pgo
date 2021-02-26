@@ -29,7 +29,7 @@ public class PGoNetOptions {
 	//
 	// This class ensures that the options provided in the configuration file make
 	// sense, i.e., whether they use a known/supported state management strategy.
-	public class StateOptions {
+	public static class StateOptions {
 		public static final String STATE_ETCD = "etcd";
 		public static final String STATE_SERVER = "state-server";
 
@@ -77,7 +77,7 @@ public class PGoNetOptions {
 	public static final String STATE_FIELD = "state";
 
 	// allows the developer to easily turn off networking by setting this parameter to +false+
-	private boolean enabled;
+	private final boolean enabled;
 
 	private StateOptions stateOptions;
 

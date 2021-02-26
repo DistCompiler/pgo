@@ -127,9 +127,9 @@ public class ModularPlusCalLabelingRulesVisitor extends PlusCalStatementVisitor<
     }
 
     // Some label names are reserved by the PlusCal to TLA+ translator
-    private static String[] RESERVED_LABELS = {"Done", "Error"};
+    private static final String[] RESERVED_LABELS = {"Done", "Error"};
 
-    private IssueContext ctx;
+    private final IssueContext ctx;
     private PlusCalStatement previousStatement;
     private boolean labelsAllowed;
     private Set<TLAExpression> assignedVariables;

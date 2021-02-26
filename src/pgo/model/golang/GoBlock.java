@@ -5,7 +5,7 @@ import java.util.Objects;
 
 public class GoBlock extends GoStatement {
 	
-	private List<GoStatement> statements;
+	private final List<GoStatement> statements;
 	
 	public GoBlock(List<GoStatement> statements) {
 		this.statements = statements;

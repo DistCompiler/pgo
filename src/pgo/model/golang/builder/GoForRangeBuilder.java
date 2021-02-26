@@ -11,13 +11,13 @@ import java.util.List;
 import java.util.Map;
 
 public class GoForRangeBuilder {
-	private GoASTBuilder parent;
-	private NameCleaner nameCleaner;
-	private Map<UID, GoVariableName> nameMap;
-	private NameCleaner labelScope;
+	private final GoASTBuilder parent;
+	private final NameCleaner nameCleaner;
+	private final Map<UID, GoVariableName> nameMap;
+	private final NameCleaner labelScope;
 
-	private List<GoExpression> lhs;
-	private GoExpression rangeExpr;
+	private final List<GoExpression> lhs;
+	private final GoExpression rangeExpr;
 
 	public GoForRangeBuilder(GoASTBuilder parent, NameCleaner nameCleaner, Map<UID, GoVariableName> nameMap, NameCleaner labelScope, GoExpression rangeExpr) {
 		this.parent = parent;

@@ -11,12 +11,12 @@ import java.util.*;
 
 public class GoModuleBuilder extends GoASTBuilder {
 
-	private String name;
-	private String pack;
-	private Set<String> imports;
-	private Map<UID, GoVariableName> nameMap;
-	private List<GoDeclaration> declarations;
-	private NameCleaner nameCleaner;
+	private final String name;
+	private final String pack;
+	private final Set<String> imports;
+	private final Map<UID, GoVariableName> nameMap;
+	private final List<GoDeclaration> declarations;
+	private final NameCleaner nameCleaner;
 
 	public GoModuleBuilder(String name, String pack) {
 		this.name = name;

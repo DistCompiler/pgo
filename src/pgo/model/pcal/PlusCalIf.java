@@ -8,9 +8,9 @@ import java.util.stream.Collectors;
 
 public class PlusCalIf extends PlusCalStatement {
 	
-	TLAExpression condition;
-	List<PlusCalStatement> yes;
-	List<PlusCalStatement> no;
+	private final TLAExpression condition;
+	private final List<PlusCalStatement> yes;
+	private final List<PlusCalStatement> no;
 	
 	public PlusCalIf(SourceLocation location, TLAExpression condition, List<PlusCalStatement> yes, List<PlusCalStatement> no) {
 		super(location);

@@ -24,8 +24,8 @@ import java.util.stream.Collectors;
 
 public class CompiledOperatorAccessor extends OperatorAccessor {
 
-	private TLAOperatorDefinition def;
-	private Map<List<GoType>, GoVariableName> implementations;
+	private final TLAOperatorDefinition def;
+	private final Map<List<GoType>, GoVariableName> implementations;
 
 	public CompiledOperatorAccessor(TLAOperatorDefinition pGoTLAOperator) {
 		this.def = pGoTLAOperator;
@@ -81,10 +81,10 @@ public class CompiledOperatorAccessor extends OperatorAccessor {
 
 			// arguments
 			for (TLAOpDecl arg : def.getArgs()) {
-				Type argType = typeMap.get(arg.getName().getUID());
+				Type argType = typeMap.get(arg.getUID());
 				GoType goType = argType.accept(new TypeConversionVisitor());
 				GoVariableName name = declBuilder.addParameter(arg.getName().getId(), goType);
-				builder.linkUID(arg.getName().getUID(), name);
+				builder.linkUID(arg.getUID(), name);
 			}
 
 			try (GoBlockBuilder fnBuilder = declBuilder.getBlockBuilder()){

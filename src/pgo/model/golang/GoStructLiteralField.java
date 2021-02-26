@@ -4,8 +4,8 @@ import java.util.Objects;
 
 public class GoStructLiteralField extends GoNode {
 
-	private String name;
-	private GoExpression value;
+	private final String name;
+	private final GoExpression value;
 
 	public GoStructLiteralField(String name, GoExpression value){
 		this.name = name;

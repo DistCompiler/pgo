@@ -10,7 +10,7 @@ import java.util.Map;
 
 public class GoTypeFormattingVisitor extends GoTypeVisitor<Void, IOException> {
 
-	private IndentingWriter out;
+	private final IndentingWriter out;
 
 	public GoTypeFormattingVisitor(IndentingWriter out) {
 		this.out = out;

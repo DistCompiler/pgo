@@ -1,7 +1,7 @@
 package pgo.model.golang.type;
 
 public class GoChanType extends GoType {
-	private GoType elementType;
+	private final GoType elementType;
 
 	public GoChanType(GoType elementType) {
 		this.elementType = elementType;

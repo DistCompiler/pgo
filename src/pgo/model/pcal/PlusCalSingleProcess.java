@@ -9,7 +9,7 @@ import java.util.stream.Collectors;
 
 public class PlusCalSingleProcess extends PlusCalProcesses {
 	
-	private List<PlusCalStatement> body;
+	private final List<PlusCalStatement> body;
 	
 	public PlusCalSingleProcess(SourceLocation location, List<PlusCalStatement> body) {
 		super(location);

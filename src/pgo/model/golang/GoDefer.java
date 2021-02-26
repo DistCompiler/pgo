@@ -3,7 +3,7 @@ package pgo.model.golang;
 import java.util.Objects;
 
 public class GoDefer extends GoStatement {
-	private GoExpression expression;
+	private final GoExpression expression;
 
 	public GoDefer(GoExpression expression) {
 		this.expression = expression;

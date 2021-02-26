@@ -4,7 +4,7 @@ import pgo.errors.Issue;
 import pgo.errors.IssueVisitor;
 
 public class PlusCalParserIssue extends Issue {
-	private String message;
+	private final String message;
 
 	public PlusCalParserIssue(String message) {
 		this.message = message;

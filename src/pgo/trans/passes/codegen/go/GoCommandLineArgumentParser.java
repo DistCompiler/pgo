@@ -8,7 +8,7 @@ import java.util.stream.Collectors;
 
 // TODO add support for GoRoutineStatement's flag package
 public class GoCommandLineArgumentParser {
-	private Map<String, String> positionalArguments = new LinkedHashMap<>();
+	private final Map<String, String> positionalArguments = new LinkedHashMap<>();
 
 	public void addPositionalArgument(String name, String display) {
 		positionalArguments.put(name, display);

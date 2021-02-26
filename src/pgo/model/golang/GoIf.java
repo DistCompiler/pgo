@@ -9,11 +9,11 @@ import java.util.Objects;
  */
 public class GoIf extends GoStatement {
 	// boolean condition
-	private GoExpression cond;
-	private List<GoVariableName> initialVariables;
-	private GoExpression initialExpression;
-	private GoBlock bThen;
-	private GoBlock bElse;
+	private final GoExpression cond;
+	private final List<GoVariableName> initialVariables;
+	private final GoExpression initialExpression;
+	private final GoBlock bThen;
+	private final GoBlock bElse;
 
 	public GoIf(GoExpression cond, List<GoVariableName> initialVariables, GoExpression initialExpression, GoBlock bThen, GoBlock bElse) {
 		this.cond = cond;

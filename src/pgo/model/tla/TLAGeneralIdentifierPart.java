@@ -7,8 +7,8 @@ import java.util.stream.Collectors;
 
 public class TLAGeneralIdentifierPart extends TLANode {
 
-	private TLAIdentifier id;
-	private List<TLAExpression> parameters;
+	private final TLAIdentifier id;
+	private final List<TLAExpression> parameters;
 
 	public TLAGeneralIdentifierPart(SourceLocation location, TLAIdentifier id, List<TLAExpression> parameters) {
 		super(location);

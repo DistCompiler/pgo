@@ -9,7 +9,7 @@ import java.util.Map;
 
 public class GoExpressionFormattingVisitor extends GoExpressionVisitor<Void, IOException> {
 
-	private IndentingWriter out;
+	private final IndentingWriter out;
 
 	public GoExpressionFormattingVisitor(IndentingWriter out) {
 		this.out = out;

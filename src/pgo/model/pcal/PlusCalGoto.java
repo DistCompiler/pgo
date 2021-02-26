@@ -4,7 +4,7 @@ import pgo.util.SourceLocation;
 
 public class PlusCalGoto extends PlusCalStatement {
 	
-	private String target;
+	private final String target;
 	
 	public PlusCalGoto(SourceLocation location, String target) {
 		super(location);

@@ -15,8 +15,8 @@ public class TLANumber extends TLAExpression {
 		HEXADECIMAL
 	}
 
-	private String val;
-	private Base base;
+	private final String val;
+	private final Base base;
 
 	public TLANumber(SourceLocation location, String val, Base base) {
 		super(location);

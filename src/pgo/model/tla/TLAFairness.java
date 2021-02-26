@@ -11,9 +11,9 @@ public class TLAFairness extends TLAExpression {
 		WEAK,
 	}
 
-	private Type type;
-	private TLAExpression vars;
-	private TLAExpression expression;
+	private final Type type;
+	private final TLAExpression vars;
+	private final TLAExpression expression;
 
 	public TLAFairness(SourceLocation location, Type type, TLAExpression vars, TLAExpression expression){
 		super(location);

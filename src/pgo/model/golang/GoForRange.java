@@ -7,11 +7,11 @@ import java.util.Objects;
  * Represents a for _ := range _ loop in GoRoutineStatement
  */
 public class GoForRange extends GoStatement {
-	private List<GoExpression> lhs;
-	private boolean defines;
-	private GoExpression rangeExpr;
+	private final List<GoExpression> lhs;
+	private final boolean defines;
+	private final GoExpression rangeExpr;
 
-	private GoBlock body;
+	private final GoBlock body;
 
 	public GoForRange(List<GoExpression> lhs, boolean defines, GoExpression rangeExpr, GoBlock body) {
 		this.lhs = lhs;

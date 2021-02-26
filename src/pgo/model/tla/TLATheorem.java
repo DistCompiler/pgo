@@ -1,10 +1,17 @@
 package pgo.model.tla;
 
 import pgo.util.SourceLocation;
+import scala.collection.immutable.List;
+import scala.collection.immutable.List$;
 
 public class TLATheorem extends TLAUnit {
 	
-	private TLAExpression theorem;
+	private final TLAExpression theorem;
+
+	@Override
+	public List<TLADefinition> definitions() {
+		return List$.MODULE$.empty();
+	}
 
 	public TLATheorem(SourceLocation location, TLAExpression theorem) {
 		super(location);

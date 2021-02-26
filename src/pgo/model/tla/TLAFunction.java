@@ -14,8 +14,8 @@ import java.util.stream.Collectors;
  */
 public class TLAFunction extends TLAExpression {
 
-	private List<TLAQuantifierBound> args;
-	private TLAExpression body;
+	private final List<TLAQuantifierBound> args;
+	private final TLAExpression body;
 
 	public TLAFunction(SourceLocation location, List<TLAQuantifierBound> args, TLAExpression body) {
 		super(location);

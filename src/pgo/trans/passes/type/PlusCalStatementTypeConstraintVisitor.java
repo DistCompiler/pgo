@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
 public class PlusCalStatementTypeConstraintVisitor extends PlusCalStatementVisitor<Void, RuntimeException> {
 	protected DefinitionRegistry registry;
 	protected TypeSolver solver;
-	private TypeGenerator generator;
+	private final TypeGenerator generator;
 	protected Map<UID, TypeVariable> mapping;
 	protected TLAExpressionTypeConstraintVisitor exprVisitor;
 

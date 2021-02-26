@@ -8,7 +8,7 @@ import java.util.Objects;
  */
 public class GoLabel extends GoStatement {
 
-	private String name;
+	private final String name;
 
 	public GoLabel(String name) {
 		this.name = name;

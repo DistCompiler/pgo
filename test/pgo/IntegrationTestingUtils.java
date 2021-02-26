@@ -57,8 +57,8 @@ public class IntegrationTestingUtils {
 	private IntegrationTestingUtils() {}
 
 	static class KeyValue {
-		private String key;
-		private TLAExpression value;
+		private final String key;
+		private final TLAExpression value;
 
 		KeyValue(String key, TLAExpression value) {
 			super();
@@ -141,6 +141,9 @@ public class IntegrationTestingUtils {
 				out.write("}");
 				out.newLine();
 				out.write("*)");
+
+				out.newLine();
+				out.write("\\* BEGIN TRANSLATION");
 
 				out.newLine();
 				out.write("====");

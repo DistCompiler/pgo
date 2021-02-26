@@ -8,7 +8,7 @@ import java.io.IOException;
 
 public class ContextFormattingVisitor extends ContextVisitor<Void, IOException> {
 
-	private IndentingWriter out;
+	private final IndentingWriter out;
 
 	public ContextFormattingVisitor(IndentingWriter out) {
 		this.out = out;

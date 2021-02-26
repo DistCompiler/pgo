@@ -9,10 +9,10 @@ import java.util.Map;
 
 public class GoForStatementClauseBuilder {
 
-	private GoASTBuilder parent;
-	private NameCleaner nameCleaner;
-	private Map<UID, GoVariableName> nameMap;
-	private NameCleaner labelScope;
+	private final GoASTBuilder parent;
+	private final NameCleaner nameCleaner;
+	private final Map<UID, GoVariableName> nameMap;
+	private final NameCleaner labelScope;
 	
 	private GoStatement init;
 	private GoExpression condition;

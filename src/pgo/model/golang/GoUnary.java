@@ -5,7 +5,7 @@ import java.util.Objects;
 public class GoUnary extends GoExpression {
 
 	GoExpression target;
-	private Operation op;
+	private final Operation op;
 
 	public enum Operation {
 		POS,

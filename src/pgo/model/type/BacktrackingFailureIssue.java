@@ -5,7 +5,7 @@ import pgo.errors.IssueVisitor;
 import pgo.model.type.constraint.PolymorphicConstraint;
 
 public class BacktrackingFailureIssue extends Issue {
-	private PolymorphicConstraint polymorphicConstraint;
+	private final PolymorphicConstraint polymorphicConstraint;
 
 	public BacktrackingFailureIssue(PolymorphicConstraint polymorphicConstraint) {
 		this.polymorphicConstraint = polymorphicConstraint;

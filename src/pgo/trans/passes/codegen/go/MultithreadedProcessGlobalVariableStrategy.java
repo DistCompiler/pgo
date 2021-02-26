@@ -22,13 +22,13 @@ import java.util.Objects;
 
 // FIXME this strategy, for efficiency reasons, does not implement abortCriticalSection correctly
 public class MultithreadedProcessGlobalVariableStrategy extends GlobalVariableStrategy {
-	private DefinitionRegistry registry;
-	private Map<UID, Type> typeMap;
-	private LocalVariableStrategy localStrategy;
-	private ModularPlusCalBlock modularPlusCalBlock;
-	private UID pGoLockUID;
-	private UID pGoWaitUID;
-	private UID pGoStartUID;
+	private final DefinitionRegistry registry;
+	private final Map<UID, Type> typeMap;
+	private final LocalVariableStrategy localStrategy;
+	private final ModularPlusCalBlock modularPlusCalBlock;
+	private final UID pGoLockUID;
+	private final UID pGoWaitUID;
+	private final UID pGoStartUID;
 
 	private static final GoType PGO_LOCK_TYPE = new GoSliceType(new GoTypeName("sync.RWMutex"));
 
@@ -73,7 +73,7 @@ public class MultithreadedProcessGlobalVariableStrategy extends GlobalVariableSt
 	@Override
 	public void mainPrelude(GoBlockBuilder builder) {
 		for (PlusCalProcess process : ((PlusCalMultiProcess) modularPlusCalBlock.getProcesses()).getProcesses()) {
-			String processName = process.getName().getName().getValue();
+			String processName = process.getName().getName().getId();
 			GoExpression value = process.getName().getValue().accept(
 					new TLAExpressionCodeGenVisitor(builder, registry, typeMap, localStrategy, this));
 			if (process.getName().isSet()) {
