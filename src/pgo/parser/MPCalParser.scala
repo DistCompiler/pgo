@@ -191,8 +191,8 @@ trait MPCalParser extends PCalParser {
                   }
                   ref
               }
-          }
-        }.map(TLAExtensionExpression) | super.pcalCallParam
+          }.map(TLAExtensionExpression)
+        } | super.pcalCallParam
       }
     }
 

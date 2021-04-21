@@ -1,9 +1,7 @@
 package pgo.model.pcal
 
-import pgo.model.RefersTo.Renamer
 import pgo.model.{Definition, DefinitionOne, RefersTo, Rewritable, SourceLocatable, Visitable}
 import pgo.model.tla._
-import pgo.util.IdMap
 
 
 sealed abstract class PCalNode extends Rewritable with Visitable with SourceLocatable {
@@ -22,48 +20,7 @@ final case class PCalDefaultInitValue() extends PCalNode
 
 final case class PCalAlgorithm(fairness: PCalFairness, name: TLAIdentifier, variables: List[PCalVariableDeclaration],
                                units: List[TLAUnit], macros: List[PCalMacro], procedures: List[PCalProcedure],
-                               processes: Either[List[PCalStatement],List[PCalProcess]]) extends PCalNode {
-  override def mapChildren(fn: Any => Any): this.type = {
-    val renamer = new Renamer[Rewritable]()
-    val mappedName = fn(name)
-    val mappedVariables = renamer.mapConserveRenamingAny(variables, fn)
-    val mappedUnits = renamer.mapConserveRenamingAny(units, fn)
-    var mappedMacros = macros.mapConserve(renamer.captureRenamingAny(_, fn))
-    var mappedProcedures = procedures.mapConserve(renamer.captureRenamingAny(_, fn))
-    // macros and procedures are mutually referential, so we have to apply any renamings using a special strategy
-    if((mappedMacros ne macros) || (mappedProcedures ne procedures)) {
-      def duplicator[N <: Rewritable](n: N): N =
-        n.rewrite() {
-          case call @PCalCall(_, _) => call.shallowCopy()
-          case macroCall @PCalMacroCall(_, _) => macroCall.shallowCopy()
-        }
-      mappedMacros = mappedMacros.mapConserve(renamer.captureRenaming(_, duplicator[PCalMacro]))
-      mappedProcedures = mappedProcedures.mapConserve(renamer.captureRenaming(_, duplicator[PCalProcedure]))
-      val macroMap = (macros.view zip mappedMacros).to(IdMap)
-      val procMap = (procedures.view zip mappedProcedures).to(IdMap)
-      def referenceFixer[N <: Visitable](n: N): Unit =
-        n.visit() {
-          case call @PCalCall(_, _) => call.setRefersTo(procMap(call.refersTo))
-          case macroCall @PCalMacroCall(_, _) => macroCall.setRefersTo(macroMap(macroCall.refersTo))
-        }
-      mappedMacros.foreach(referenceFixer(_))
-      mappedProcedures.foreach(referenceFixer(_))
-    }
-    val mappedProcesses = processes match {
-      case Left(body) =>
-        val mappedBody = body.mapConserve(stmt => fn(renamer(stmt)).asInstanceOf[PCalStatement])
-        if(mappedBody ne body) {
-          Left(mappedBody)
-        } else processes
-      case Right(processes) =>
-        val mappedProcesses = processes.mapConserve(process => fn(renamer(process)).asInstanceOf[PCalProcess])
-        if(mappedProcesses ne processes) {
-          Right(mappedProcesses)
-        } else processes
-    }
-    withChildren(Iterator(fairness, mappedName, mappedVariables, mappedUnits, mappedMacros, mappedProcedures, mappedProcesses))
-  }
-}
+                               processes: Either[List[PCalStatement],List[PCalProcess]]) extends PCalNode
 
 final case class PCalPVariableDeclaration(name: TLAIdentifier, value: Option[TLAExpression]) extends PCalNode with DefinitionOne {
   override def arity: Int = 0
@@ -83,39 +40,13 @@ final case class PCalVariableDeclarationValue(name: TLAIdentifier, value: TLAExp
 final case class PCalVariableDeclarationSet(name: TLAIdentifier, set: TLAExpression) extends PCalVariableDeclarationBound
 
 final case class PCalMacro(name: TLAIdentifier, params: List[TLADefiningIdentifier], body: List[PCalStatement],
-                           freeVars: List[TLADefiningIdentifier]) extends PCalNode {
-  override def mapChildren(fn: Any => Any): this.type = {
-    val renamer = new Renamer[TLADefiningIdentifier]()
-    val mappedName = fn(name)
-    val mappedFreeVars = renamer.mapConserveRenamingAny(freeVars, fn)
-    val mappedParams = renamer.mapConserveRenamingAny(params, fn)
-    val mappedBody = body.mapConserve(stmt => fn(renamer(stmt)).asInstanceOf[PCalStatement])
-    withChildren(Iterator(mappedName, mappedParams, mappedBody, mappedFreeVars))
-  }
-}
+                           freeVars: List[TLADefiningIdentifier]) extends PCalNode with RefersTo.HasReferences
 
 final case class PCalProcedure(name: TLAIdentifier, params: List[PCalPVariableDeclaration],
-                               variables: List[PCalPVariableDeclaration], body: List[PCalStatement]) extends PCalNode {
-  override def mapChildren(fn: Any => Any): this.type = {
-    val renamer = new Renamer[DefinitionOne with Rewritable]()
-    val mappedName = fn(name).asInstanceOf[TLAIdentifier]
-    val mappedParams = renamer.mapConserveRenamingAny(params, fn)
-    val mappedVariables = renamer.mapConserveRenamingAny(variables, fn)
-    val mappedBody = body.mapConserve(stmt => fn(renamer(stmt)).asInstanceOf[PCalStatement])
-    withChildren(Iterator(mappedName, mappedParams, mappedVariables, mappedBody))
-  }
-}
+                               variables: List[PCalPVariableDeclaration], body: List[PCalStatement]) extends PCalNode with RefersTo.HasReferences
 
 final case class PCalProcess(selfDecl: PCalVariableDeclarationBound, fairness: PCalFairness,
-                             variables: List[PCalVariableDeclaration], body: List[PCalStatement]) extends PCalNode {
-  override def mapChildren(fn: Any => Any): this.type = {
-    val renamer = new Renamer[PCalVariableDeclaration]()
-    val mappedSelfDecl = renamer.captureRenamingAny(selfDecl, fn)
-    val mappedVariables = renamer.mapConserveRenamingAny(variables, fn)
-    val mappedBody = body.mapConserve(stmt => fn(renamer(stmt)).asInstanceOf[PCalStatement])
-    withChildren(Iterator(mappedSelfDecl, fairness, mappedVariables, mappedBody))
-  }
-}
+                             variables: List[PCalVariableDeclaration], body: List[PCalStatement]) extends PCalNode
 
 sealed abstract class PCalStatement extends PCalNode
 
@@ -165,11 +96,4 @@ final case class PCalSkip() extends PCalStatement
 
 final case class PCalWhile(condition: TLAExpression, body: List[PCalStatement]) extends PCalStatement
 
-final case class PCalWith(variables: List[PCalVariableDeclarationBound], body: List[PCalStatement]) extends PCalStatement {
-  override def mapChildren(fn: Any => Any): this.type = {
-    val renamer = new Renamer[PCalVariableDeclarationBound]()
-    val mappedVariables = renamer.mapConserveRenamingAny(variables, fn)
-    val mappedBody = body.mapConserve(bodyStmt => fn(renamer(bodyStmt)).asInstanceOf[PCalStatement])
-    withChildren(Iterator(mappedVariables, mappedBody))
-  }
-}
+final case class PCalWith(variables: List[PCalVariableDeclarationBound], body: List[PCalStatement]) extends PCalStatement

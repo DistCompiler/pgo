@@ -24,7 +24,7 @@ object Definition {
   }
 }
 
-trait DefinitionOne extends Definition {
+trait DefinitionOne extends Definition with RefersTo.HasReferences {
   override def singleDefinitions: View[DefinitionOne] = View(this)
 
   def arity: Int

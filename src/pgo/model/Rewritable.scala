@@ -1,18 +1,86 @@
 package pgo.model
 
+import pgo.util.IdMap
+
 import java.lang.reflect.Constructor
+import scala.annotation.tailrec
 
 trait Rewritable {
   import Rewritable._
 
   def productIterator: Iterator[Any]
 
-  //def namedParts: Iterator[Any] = Iterator.empty
+  /**
+   * Creates an iterator over all "named things" contained within this Rewritable.
+   * Assumption: an instance of RefersTo.HasReferences that is directly accessible from this case class's fields
+   * (i.e not contained within some other nested Rewritable) is part of this AST node, and may be referenced
+   * by other subtrees.
+   */
+  def namedParts: Iterator[RefersTo.HasReferences] = {
+    def gatherOtherwise(subject: Any): Iterator[RefersTo.HasReferences] =
+      subject match {
+        case _: Rewritable => Iterator.empty
+        case map: Map[_, _] => map.valuesIterator.flatMap(gather)
+        case iterable: Iterable[_] => iterable.iterator.flatMap(gather)
+        case product: Product => product.productIterator.flatMap(gather)
+        case _ => Iterator.empty
+      }
+
+    def gather(subject: Any): Iterator[RefersTo.HasReferences] =
+      subject match {
+        case subject: RefersTo.HasReferences => Iterator(subject) ++ gatherOtherwise(subject)
+        case otherwise => gatherOtherwise(otherwise)
+      }
+
+    gather(this)
+  }
 
   def decorateLike(succ: this.type): this.type = succ
 
-  def mapChildren(fn: Any => Any): this.type =
-    withChildren(productIterator.map(fn))
+  def mapChildren(fn: Any => Any): this.type = {
+    @tailrec
+    def applyRenamings(self: Rewritable, rewrittenSelf: Rewritable, existingRenamings: IdMap[RefersTo.HasReferences,RefersTo.HasReferences]): Rewritable = {
+      val newRenamings = (self.namedParts zip rewrittenSelf.namedParts).filter(p => (p._1 ne p._2) && !existingRenamings.contains(p._1)).to(IdMap)
+      def applyAllRenamings: Rewritable = {
+        val allRenamings = existingRenamings ++ newRenamings
+        Visitable.BottomUpFirstStrategy.execute(rewrittenSelf, {
+          case ref: RefersTo[RefersTo.HasReferences] @unchecked if allRenamings.contains(ref.refersTo) =>
+            def findTarget(target: RefersTo.HasReferences): RefersTo.HasReferences =
+              allRenamings.get(target) match {
+                case Some(target) => target
+                case None => target
+              }
+
+            ref.setRefersTo(findTarget(ref.refersTo))
+        })
+
+        rewrittenSelf
+      }
+
+      if(newRenamings.isEmpty) {
+        applyAllRenamings
+      } else {
+        val withDups = rewrittenSelf.withChildren(rewrittenSelf.productIterator.map { elem =>
+          Rewritable.BottomUpOnceStrategy.execute(elem, {
+            case ref: RefersTo[_] if newRenamings.contains(ref.refersTo) => ref.shallowCopy()
+            case other => other
+          })
+        })
+        if(withDups ne rewrittenSelf) {
+          applyRenamings(self, withDups, existingRenamings ++ newRenamings)
+        } else {
+          applyAllRenamings
+        }
+      }
+    }
+
+    val result = withChildren(productIterator.map(fn))
+    if(this ne result) {
+      applyRenamings(this, result, IdMap.empty).asInstanceOf[this.type]
+    } else {
+      this
+    }
+  }
 
   final def withChildren(children: Iterator[Any]): this.type = {
     val childrenSeq = children.toSeq

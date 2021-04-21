@@ -1,6 +1,5 @@
 package pgo.model.tla
 
-import pgo.model.RefersTo.Renamer
 import pgo.model.{Definition, DefinitionComposite, DefinitionOne, RefersTo, Rewritable, SourceLocatable, Visitable}
 
 import scala.collection.View
@@ -228,7 +227,7 @@ object TLAOpDecl {
   }
 }
 
-sealed abstract class TLAUnit extends TLANode {
+sealed abstract class TLAUnit extends TLANode with RefersTo.HasReferences {
   def definitions: View[Definition]
 }
 
@@ -259,13 +258,9 @@ final case class TLAModule(name: TLAIdentifier, exts: List[TLAModuleRef], units:
       units.view.flatMap(_.definitions).flatMap(_.singleDefinitions).filter(captureLocal || _.isLocal)
 
   override def mapChildren(fn: Any => Any): this.type = {
-    val renamer = new Renamer[TLAUnit]()
-    val mappedName = fn(name)
-    val mappedExts = exts.mapConserve(ext => fn(ext).asInstanceOf[TLAModuleRef])
-    assert(mappedExts eq exts, s"internal error: can't automatically rewrite module contents after replacing EXTENDS clause(s)")
-
-    val mappedUnits = renamer.mapConserveRenamingAny(units, fn)
-    withChildren(Iterator(mappedName, mappedExts, mappedUnits))
+    val mapped = super.mapChildren(fn)
+    assert(mapped.exts eq exts, s"internal error: can't automatically rewrite module contents after replacing EXTENDS clause(s)")
+    mapped
   }
 }
 
@@ -325,8 +320,6 @@ sealed abstract class TLAExpression extends TLANode
 
 final case class TLAExtensionExpression(contents: Any) extends TLAExpression
 
-//final case class TLABool(value: Boolean) extends TLAExpression
-
 final case class TLAString(value: String) extends TLAExpression
 
 final case class TLANumber(value: TLANumber.Value, syntax: TLANumber.Syntax = TLANumber.DecimalSyntax) extends TLAExpression
@@ -341,7 +334,6 @@ object TLANumber {
   case object BinarySyntax extends Syntax
   case object OctalSyntax extends Syntax
   case object HexadecimalSyntax extends Syntax
-
 }
 
 final case class TLAGeneralIdentifier(name: TLAIdentifier, prefix: List[TLAGeneralIdentifierPart]) extends TLAExpression with RefersTo[DefinitionOne]
@@ -356,14 +348,7 @@ final case class TLABinOp(operation: TLASymbol, prefix: List[TLAGeneralIdentifie
 
 final case class TLAIf(cond: TLAExpression, tval: TLAExpression, fval: TLAExpression) extends TLAExpression
 
-final case class TLALet(defs: List[TLAUnit], body: TLAExpression) extends TLAExpression {
-  override def mapChildren(fn: Any => Any): this.type = {
-    val renamer = new RefersTo.Renamer[TLAUnit]()
-    val mappedDefs = renamer.mapConserveRenamingAny(defs, fn)
-    val mappedBody = fn(renamer(body))
-    withChildren(Iterator(mappedDefs, mappedBody))
-  }
-}
+final case class TLALet(defs: List[TLAUnit], body: TLAExpression) extends TLAExpression
 
 final case class TLACase(arms: List[TLACaseArm], other: Option[TLAExpression]) extends TLAExpression
 
@@ -381,14 +366,7 @@ object TLAFairness {
   case object WeakFairness extends Kind
 }
 
-final case class TLAFunction(args: List[TLAQuantifierBound], body: TLAExpression) extends TLAExpression {
-  override def mapChildren(fn: Any => Any): this.type = {
-    val renamer = new RefersTo.Renamer[TLAQuantifierBound]()
-    val mappedArgs = renamer.mapConserveRenamingAny(args, fn)
-    val mappedBody = fn(renamer(body))
-    withChildren(Iterator(mappedArgs, mappedBody))
-  }
-}
+final case class TLAFunction(args: List[TLAQuantifierBound], body: TLAExpression) extends TLAExpression
 
 final case class TLAFunctionCall(function: TLAExpression, params: List[TLAExpression]) extends TLAExpression
 
@@ -401,16 +379,8 @@ final case class TLAFunctionSubstitutionPair(keys: List[TLAFunctionSubstitutionK
 final case class TLAFunctionSubstitutionKey(indices: List[TLAExpression]) extends TLANode
 
 trait TLAQuantified {
-  self: Rewritable =>
   def bounds: List[TLAQuantifierBound]
   def body: TLAExpression
-
-  override def mapChildren(fn: Any => Any): this.type = {
-    val renamer = new RefersTo.Renamer[TLAQuantifierBound]()
-    val mappedBounds = renamer.mapConserveRenamingAny(bounds, fn)
-    val mappedBody = fn(renamer(body))
-    withChildren(Iterator(mappedBounds, mappedBody))
-  }
 }
 
 final case class TLAQuantifiedExistential(bounds: List[TLAQuantifierBound], body: TLAExpression) extends TLAExpression with TLAQuantified
@@ -418,16 +388,8 @@ final case class TLAQuantifiedExistential(bounds: List[TLAQuantifierBound], body
 final case class TLAQuantifiedUniversal(bounds: List[TLAQuantifierBound], body: TLAExpression) extends TLAExpression with TLAQuantified
 
 trait TLAUnquantified {
-  self: Rewritable =>
   def ids: List[TLADefiningIdentifier]
   def body: TLAExpression
-
-  override def mapChildren(fn: Any => Any): this.type = {
-    val renamer = new RefersTo.Renamer[TLADefiningIdentifier]()
-    val mappedIds = renamer.mapConserveRenamingAny(ids, fn)
-    val mappedBody = fn(renamer.apply(body))
-    withChildren(Iterator(mappedIds, mappedBody))
-  }
 }
 
 final case class TLAExistential(ids: List[TLADefiningIdentifier], body: TLAExpression) extends TLAExpression with TLAUnquantified
@@ -436,23 +398,9 @@ final case class TLAUniversal(ids: List[TLADefiningIdentifier], body: TLAExpress
 
 final case class TLASetConstructor(contents: List[TLAExpression]) extends TLAExpression
 
-final case class TLASetRefinement(binding: TLAQuantifierBound, when: TLAExpression) extends TLAExpression {
-  override def mapChildren(fn: Any => Any): this.type = {
-    val renamer = new RefersTo.Renamer[TLAQuantifierBound]()
-    val mappedBinding = renamer.captureRenamingAny(binding, fn)
-    val mappedWhen = fn(renamer(when))
-    withChildren(Iterator(mappedBinding, mappedWhen))
-  }
-}
+final case class TLASetRefinement(binding: TLAQuantifierBound, when: TLAExpression) extends TLAExpression
 
-final case class TLASetComprehension(body: TLAExpression, bounds: List[TLAQuantifierBound]) extends TLAExpression {
-  override def mapChildren(fn: Any => Any): this.type = {
-    val renamer = new RefersTo.Renamer[TLAQuantifierBound]()
-    val mappedBounds = renamer.mapConserveRenamingAny(bounds, fn)
-    val mappedBody = fn(renamer(body))
-    withChildren(Iterator(mappedBody, mappedBounds))
-  }
-}
+final case class TLASetComprehension(body: TLAExpression, bounds: List[TLAQuantifierBound]) extends TLAExpression
 
 final case class TLATuple(elements: List[TLAExpression]) extends TLAExpression
 

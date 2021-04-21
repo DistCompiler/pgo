@@ -307,6 +307,32 @@ object MPCalSemanticCheckPass {
         val paramsMap = params.view.map(p => p -> p).to(IdMap)
         body.foreach { stmt =>
           stmt.visit(Visitable.BottomUpFirstStrategy) {
+            case PCalAssignmentPair(lhs, _) =>
+              @tailrec
+              def findMappingCount(lhs: PCalAssignmentLhs, acc: Int = 0): Int =
+                lhs match {
+                  case PCalAssignmentLhsIdentifier(_) => acc
+                  case PCalAssignmentLhsProjection(lhs, _) => findMappingCount(lhs, acc + 1)
+                }
+
+              @tailrec
+              def findDefn(lhs: PCalAssignmentLhs): Option[MPCalParam] =
+                lhs match {
+                  case lhs @PCalAssignmentLhsIdentifier(_) =>
+                    lhs.refersTo match {
+                      case p: MPCalParam => Some(p)
+                      case _ => None
+                    }
+                  case PCalAssignmentLhsProjection(lhs, _) => findDefn(lhs)
+                }
+
+              findDefn(lhs).foreach { defn =>
+                val mappingCount = findMappingCount(lhs)
+                val mappingCountP = defn.mappingCount
+                if(mappingCountP > mappingCount) {
+                  errors += SemanticError.MPCalKindMismatchError(usage = lhs, defn = defn)
+                }
+              }
             case ref @MPCalValExpr(_, mappingCount) =>
               paramsMap(ref.refersTo) match {
                 case defn @ MPCalRefParam(_, mappingCountP) =>
