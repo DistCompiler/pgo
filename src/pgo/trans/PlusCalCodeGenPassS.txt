@@ -1,0 +1,760 @@
+package pgo.trans
+
+import pgo.model.tla._
+import pgo.trans.intermediate.UnsupportedFeatureIssue
+import pgo.trans.passes.codegen.NameCleaner
+import pgo.trans.passes.codegen.pluscal.ExpandedProcedureMatch
+import pgo.trans.passes.codegen.pluscal.NameCleanerSeedGatherer.gatherNameCleanerSeed
+
+import scala.collection.{View, mutable}
+import scala.jdk.CollectionConverters._
+
+final case class PlusCalCodeGenPassContext(nameCleaner: NameCleaner,
+                                           proceduresToExpand: Map[String,PlusCalProcedure],
+                                           expandedProcedures: mutable.ListBuffer[PlusCalProcedure],
+                                           expandedProcedureCache: mutable.HashMap[ExpandedProcedureMatch,PlusCalProcedure],
+                                           mappingMacros: Map[String,ModularPlusCalMappingMacro],
+                                           archetypes: Map[String,ModularPlusCalArchetype])
+
+object PlusCalCodeGenPassS {
+  abstract class MappingMacroReadExpander {
+    def expand(readVar: TLAExpression, readSink: TLAExpression=>List[PlusCalStatement]): List[PlusCalStatement]
+  }
+  abstract class MappingMacroWriteExpander {
+    def expand(writeVar: TLAExpression, writeSink: TLAExpression=>List[PlusCalStatement]): List[PlusCalStatement]
+  }
+  final class MappingMacroExpander(val read: MappingMacroReadExpander, val write: MappingMacroWriteExpander, val isFnMapped: Boolean)
+
+  private final case class ProcedureExpansionSignature(procUID: UID, macroParams: List[Option[TLARef]])
+
+  class ReadWriteReferencesCounter { self =>
+    type CountsMap = Map[TLADefinitionOne,Int]
+    private val underlying = mutable.HashMap[PlusCalStatement,(CountsMap,CountsMap)]()
+    private val underlyingAggregates = mutable.HashMap[View[PlusCalStatement],(CountsMap,CountsMap)]()
+
+    private def implExpr(expr: TLAExpression): CountsMap =
+      TLAUtils.mapReduceExpr(Map.empty: CountsMap) {
+        case ident: TLAGeneralIdentifier =>
+          join(
+            Map(ident.getRefersTo -> 1),
+            ident.prefix.view.flatMap(part => part.getParameters.asScala.view.map(implExpr)).reduce(join))
+        case ref: TLARef =>
+          Map(ref.getRefersTo -> 1)
+      }(join)(expr)
+
+    private def join(left: CountsMap, right: CountsMap): CountsMap =
+      (View.from(left) ++ right).groupMapReduce(_._1)(_._2)(_ + _)
+
+    private def join(lefts: (CountsMap,CountsMap), rights: (CountsMap,CountsMap)): (CountsMap,CountsMap) =
+      (join(lefts._1, rights._1), join(lefts._2, rights._2))
+    
+    def apply(stmt: PlusCalStatement): (CountsMap, CountsMap) =
+      underlying.getOrElseUpdate(stmt, {
+        stmt.accept(new PlusCalStatementVisitor[(CountsMap,CountsMap),RuntimeException] {
+          private def emptyPair: (CountsMap,CountsMap) = (Map.empty, Map.empty)
+          override def visit(plusCalLabeledStatements: PlusCalLabeledStatements): (CountsMap,CountsMap) =
+            self(plusCalLabeledStatements.statements)
+          override def visit(plusCalWhile: PlusCalWhile): (CountsMap,CountsMap) = ???
+          override def visit(plusCalIf: PlusCalIf): (CountsMap,CountsMap) = ???
+          override def visit(plusCalEither: PlusCalEither): (CountsMap,CountsMap) = ???
+          override def visit(plusCalAssignment: PlusCalAssignment): (CountsMap,CountsMap) =
+            plusCalAssignment.getPairs.asScala.view.map { pair =>
+              def implLhs(lhs: TLAExpression): (CountsMap,CountsMap) =
+                lhs match {
+                  case ident: TLAGeneralIdentifier =>
+                    (Map.empty, Map(ident.getRefersTo -> 1))
+                  case dot: TLADot => implLhs(dot.getExpression)
+                  case fnCall: TLAFunctionCall =>
+                    val (innerReads, innerWrites) = implLhs(fnCall.getFunction)
+                    val paramReads = fnCall.getParams.asScala.view.map(implExpr).reduce(join)
+                    (join(paramReads, innerReads), innerWrites)
+                }
+              val (lhsReads, lhsWrites) = implLhs(pair.getLhs)
+              (join(lhsReads, implExpr(pair.getRhs)), lhsWrites)
+            }.reduce(join)
+          override def visit(plusCalReturn: PlusCalReturn): (CountsMap,CountsMap) = emptyPair
+          override def visit(plusCalSkip: PlusCalSkip): (CountsMap,CountsMap) = emptyPair
+          override def visit(plusCalCall: PlusCalCall): (CountsMap,CountsMap) = ???
+          override def visit(macroCall: PlusCalMacroCall): (CountsMap,CountsMap) = ???
+          override def visit(plusCalWith: PlusCalWith): (CountsMap,CountsMap) = ???
+          override def visit(plusCalPrint: PlusCalPrint): (CountsMap,CountsMap) = ???
+          override def visit(plusCalAssert: PlusCalAssert): (CountsMap,CountsMap) = ???
+          override def visit(plusCalAwait: PlusCalAwait): (CountsMap,CountsMap) = ???
+          override def visit(plusCalGoto: PlusCalGoto): (CountsMap,CountsMap) = ???
+          override def visit(modularPlusCalYield: ModularPlusCalYield): (CountsMap,CountsMap) = ???
+        })
+      })
+    
+    def apply(stmts: Iterable[PlusCalStatement]): (CountsMap,CountsMap) =
+      underlyingAggregates.getOrElseUpdate(stmts.view, {
+        if(stmts.isEmpty) {
+          (Map.empty, Map.empty)
+        } else {
+          join(self(stmts.head), self(stmts.view.tail))
+        }
+      })
+  }
+
+  private object LhsHead {
+    def unapply(expr: TLAExpression): Option[TLAGeneralIdentifier] =
+      expr match {
+        case ident: TLAGeneralIdentifier => Some(ident)
+        case dot: TLADot => LhsHead.unapply(dot.getExpression)
+        case fnCall: TLAFunctionCall => LhsHead.unapply(fnCall.getFunction)
+        case _ => None
+      }
+  }
+
+  def pcalStatementExpandMacros(statement: PlusCalStatement, mappingMacros: Map[TLADefinitionOne, MappingMacroExpander], macros: Map[String,PlusCalMacro], nameCleaner: NameCleaner): List[PlusCalStatement] = {
+
+    def readExprs(exprs: List[TLAExpression], body: List[TLAExpression]=>List[PlusCalStatement]): List[PlusCalStatement] = {
+      def impl(elems: List[TLAExpression], convertedExprs: List[TLAExpression]): List[PlusCalStatement] =
+        elems match {
+          case Nil =>
+            body(convertedExprs.reverse)
+          case hd :: tl =>
+            implExprRead(hd, { hdRead =>
+              impl(tl, hdRead :: convertedExprs)
+            })
+        }
+      impl(exprs, Nil)
+    }
+
+    def readGeneralIdentifierPrefix(parts: List[TLAGeneralIdentifierPart], body: List[TLAGeneralIdentifierPart]=>List[PlusCalStatement]): List[PlusCalStatement] = {
+      def impl(parts: List[TLAGeneralIdentifierPart], readParts: List[TLAGeneralIdentifierPart]): List[PlusCalStatement] =
+        parts match {
+          case Nil =>
+            body(readParts.reverse)
+          case part :: restParts =>
+            readExprs(part.getParameters.asScala.toList, { paramsRead =>
+              impl(restParts, new TLAGeneralIdentifierPart(part.getLocation, part.getIdentifier, paramsRead.asJava) :: readParts)
+            })
+        }
+      impl(parts, Nil)
+    }
+
+    def implExprRead(expr: TLAExpression, body: TLAExpression=>List[PlusCalStatement]): List[PlusCalStatement] = {
+      object MappingMacroCandidate {
+        def unapply(expr: TLAExpression): Option[TLAGeneralIdentifier] =
+          expr match {
+            case ident: TLAGeneralIdentifier => Some(ident)
+            case fnCall: TLAFunctionCall =>
+              fnCall.getFunction match {
+                case ident: TLAGeneralIdentifier =>
+                  // match a function call iff the mapping macro is function-mapped
+                  mappingMacros.get(ident.getRefersTo).flatMap { mm =>
+                    if(mm.isFnMapped) Some(ident) else None
+                  }
+                case _ => None
+              }
+            case _ => None
+          }
+      }
+      expr match {
+        case MappingMacroCandidate(ident) if mappingMacros.contains(ident.getRefersTo) =>
+          // edge case: if expr is a function call and its arguments are candidates for mapping macro expansion,
+          // expand those before the current mapping macro
+          def preprocessExpr(expr: TLAExpression, body: TLAExpression=>List[PlusCalStatement]): List[PlusCalStatement] =
+            expr match {
+              case _: TLAGeneralIdentifier => body(expr)
+              case fnCall: TLAFunctionCall =>
+                readExprs(fnCall.getParams.asScala.toList, { paramsRead =>
+                  body(new TLAFunctionCall(fnCall.getLocation, fnCall.getFunction, paramsRead.asJava))
+                })
+            }
+          preprocessExpr(expr, { expr =>
+            val macroExpander = mappingMacros(ident.getRefersTo)
+            assert(ident.prefix.isEmpty)
+            macroExpander.read.expand(expr, { expr =>
+              // make sure the value that was read is immediately bound by a with statement, to avoid any assignments
+              // nested inside `body` interfering with any variable reads nested inside the value's expression
+              val tmpVarName = new TLAIdentifier(ident.getLocation, nameCleaner.cleanName(ident.name.getId))
+              val tmpVarDecl = new PlusCalVariableDeclaration(ident.getLocation, tmpVarName, false, false, expr)
+              val tmpGeneralIdent = new TLAGeneralIdentifier(ident.getLocation, tmpVarName, Nil)
+              tmpGeneralIdent.setRefersTo(tmpVarDecl)
+              List(new PlusCalWith(ident.getLocation, List(tmpVarDecl).asJava, body(tmpGeneralIdent).asJava))
+            })
+          })
+        case _ =>
+          expr.accept(new TLAExpressionVisitor[List[PlusCalStatement],RuntimeException] {
+            override def visit(tlaFunctionCall: TLAFunctionCall): List[PlusCalStatement] =
+              readExprs(tlaFunctionCall.getParams.asScala.toList, { readParams =>
+                implExprRead(tlaFunctionCall.getFunction, { fnRead =>
+                  body(new TLAFunctionCall(tlaFunctionCall.getLocation, fnRead, readParams.asJava))
+                })
+              })
+            override def visit(tlaBinOp: TLABinOp): List[PlusCalStatement] =
+              readGeneralIdentifierPrefix(tlaBinOp.getPrefix.asScala.toList, { prefixRead =>
+                readExprs(List(tlaBinOp.getLHS, tlaBinOp.getRHS), {
+                  case List(lhsRead, rhsRead) =>
+                    val op = new TLABinOp(tlaBinOp.getLocation, tlaBinOp.getOperation, prefixRead.asJava, lhsRead, rhsRead)
+                    op.setRefersTo(tlaBinOp.getRefersTo)
+                    body(op)
+                })
+              })
+            override def visit(tlaBool: TLABool): List[PlusCalStatement] = body(tlaBool)
+            override def visit(tlaCase: TLACase): List[PlusCalStatement] = ???
+            override def visit(tlaDot: TLADot): List[PlusCalStatement] =
+              implExprRead(tlaDot.getExpression, { exprRead =>
+                body(new TLADot(tlaDot.getLocation, exprRead, tlaDot.getField))
+              })
+            override def visit(tlaExistential: TLAExistential): List[PlusCalStatement] = ???
+            override def visit(tlaFairness: TLAFairness): List[PlusCalStatement] = ???
+            override def visit(tlaFunction: TLAFunction): List[PlusCalStatement] = ???
+            override def visit(tlaFunctionSet: TLAFunctionSet): List[PlusCalStatement] = ???
+            override def visit(tlaFunctionSubstitution: TLAFunctionSubstitution): List[PlusCalStatement] =
+              implExprRead(tlaFunctionSubstitution.getSource, { sourceRead =>
+                def readSubstitutionPairs(substitutions: List[TLAFunctionSubstitutionPair], substitutionsRead: List[TLAFunctionSubstitutionPair]): List[PlusCalStatement] =
+                  substitutions match {
+                    case Nil =>
+                      body(new TLAFunctionSubstitution(tlaFunctionSubstitution.getLocation, sourceRead, substitutionsRead.reverse.asJava))
+                    case sub :: restSubs =>
+                      def readKeys(keys: List[TLASubstitutionKey], readKeysAcc: List[TLASubstitutionKey]): List[PlusCalStatement] =
+                        keys match {
+                          case Nil =>
+                            implExprRead(sub.getValue, { readValue =>
+                              readSubstitutionPairs(restSubs, new TLAFunctionSubstitutionPair(sub.getLocation, readKeysAcc.reverse.asJava, readValue) :: restSubs)
+                            })
+                          case key :: restKeys =>
+                            readExprs(key.getIndices.asScala.toList, { indicesRead =>
+                              readKeys(restKeys, new TLASubstitutionKey(key.getLocation, indicesRead.asJava) :: readKeysAcc)
+                            })
+                        }
+                      readKeys(sub.getKeys.asScala.toList, Nil)
+                  }
+                readSubstitutionPairs(tlaFunctionSubstitution.getSubstitutions.asScala.toList, Nil)
+              })
+            override def visit(tlaIf: TLAIf): List[PlusCalStatement] =
+              readExprs(List(tlaIf.getCond, tlaIf.getTval, tlaIf.getFval), {
+                case List(readCond, readTVal, readFVal) =>
+                  body(new TLAIf(tlaIf.getLocation, readCond, readTVal, readFVal))
+              })
+            override def visit(tlaLet: TLALet): List[PlusCalStatement] = ???
+            override def visit(tlaGeneralIdentifier: TLAGeneralIdentifier): List[PlusCalStatement] =
+              readGeneralIdentifierPrefix(tlaGeneralIdentifier.prefix, { prefixRead =>
+                body(new TLAGeneralIdentifier(tlaGeneralIdentifier.getLocation, tlaGeneralIdentifier.name, prefixRead))
+              })
+            override def visit(tlaTuple: TLATuple): List[PlusCalStatement] =
+              readExprs(tlaTuple.getElements.asScala.toList, { readExprs =>
+                body(new TLATuple(tlaTuple.getLocation, readExprs.reverse.asJava))
+              })
+            override def visit(tlaMaybeAction: TLAMaybeAction): List[PlusCalStatement] = ??? // makes no sense here
+            override def visit(tlaNumber: TLANumber): List[PlusCalStatement] = body(tlaNumber)
+            override def visit(tlaOperatorCall: TLAOperatorCall): List[PlusCalStatement] = ???
+            override def visit(tlaQuantifiedExistential: TLAQuantifiedExistential): List[PlusCalStatement] = ???
+            override def visit(tlaQuantifiedUniversal: TLAQuantifiedUniversal): List[PlusCalStatement] = ???
+            override def visit(tlaRecordConstructor: TLARecordConstructor): List[PlusCalStatement] = ???
+            override def visit(tlaRecordSet: TLARecordSet): List[PlusCalStatement] = ???
+            override def visit(tlaRef: TLARef): List[PlusCalStatement] = ???
+            override def visit(tlaRequiredAction: TLARequiredAction): List[PlusCalStatement] = ???
+            override def visit(tlaSetConstructor: TLASetConstructor): List[PlusCalStatement] = ???
+            override def visit(tlaSetComprehension: TLASetComprehension): List[PlusCalStatement] = ???
+            override def visit(tlaSetRefinement: TLASetRefinement): List[PlusCalStatement] = ???
+            override def visit(tlaSpecialVariableVariable: TLASpecialVariableVariable): List[PlusCalStatement] = ???
+            override def visit(tlaSpecialVariableValue: TLASpecialVariableValue): List[PlusCalStatement] = ???
+            override def visit(tlaString: TLAString): List[PlusCalStatement] = body(tlaString)
+            override def visit(tlaUnary: TLAUnary): List[PlusCalStatement] = ???
+            override def visit(tlaUniversal: TLAUniversal): List[PlusCalStatement] = ???
+            override def visit(plusCalDefaultInitValue: PlusCalDefaultInitValue): List[PlusCalStatement] = ???
+          })
+      }
+    }
+
+    def substExpr(expr: TLAExpression)(implicit subst: Map[TLADefinitionOne,TLAExpression]): TLAExpression =
+      TLAUtils.rewriteExprPre {
+        case ident: TLAGeneralIdentifier if subst.contains(ident.getRefersTo) =>
+          subst(ident.getRefersTo)
+        case ref: TLARef if subst.contains(ref.getRefersTo) =>
+          ???
+      }(expr)
+
+    def implStmt(stmt: PlusCalStatement)(implicit subst: Map[TLADefinitionOne,TLAExpression], visitedMacros: Set[String]): List[PlusCalStatement] =
+      stmt.accept(new PlusCalStatementVisitor[List[PlusCalStatement],RuntimeException] {
+        override def visit(plusCalLabeledStatements: PlusCalLabeledStatements): List[PlusCalStatement] =
+          List(new PlusCalLabeledStatements(
+            plusCalLabeledStatements.getLocation,
+            plusCalLabeledStatements.label,
+            plusCalLabeledStatements.statements.flatMap(implStmt)))
+        override def visit(plusCalWhile: PlusCalWhile): List[PlusCalStatement] = ??? // unreachable
+        override def visit(plusCalIf: PlusCalIf): List[PlusCalStatement] =
+          // note: this, and several other cases, prevents a predictable translation of statements located after a yield
+          // expression in a mapping macro, due to what might happen if multiple reads occur in one expression. TODO: reject these cases?
+          implExprRead(substExpr(plusCalIf.getCondition), { readCondition =>
+            List(new PlusCalIf(
+              plusCalIf.getLocation,
+              readCondition,
+              plusCalIf.getYes.asScala.flatMap(implStmt).asJava,
+              plusCalIf.getNo.asScala.flatMap(implStmt).asJava))
+          })
+        override def visit(plusCalEither: PlusCalEither): List[PlusCalStatement] =
+          List(new PlusCalEither(plusCalEither.getLocation, plusCalEither.getCases.asScala.map { caseStmts =>
+            caseStmts.asScala.flatMap(implStmt).asJava
+          }.asJava))
+        override def visit(plusCalAssignment: PlusCalAssignment): List[PlusCalStatement] =
+          readExprs(plusCalAssignment.getPairs.asScala.iterator.map(_.getRhs).toList, { readExprs =>
+            val bindingVarDecls = readExprs.map { readExpr =>
+              val tmpVarName = new TLAIdentifier(readExpr.getLocation, nameCleaner.cleanName("assignRhs"))
+              new PlusCalVariableDeclaration(readExpr.getLocation, tmpVarName, false, false, readExpr)
+            }
+            val boundRhss = bindingVarDecls.map { varDecl =>
+              val ident = new TLAGeneralIdentifier(varDecl.getLocation, varDecl.getName, Nil)
+              ident.setRefersTo(varDecl)
+              ident
+            }
+            val body = (plusCalAssignment.getPairs.asScala.iterator zip boundRhss).flatMap {
+              case (assignmentPair, boundRhs) =>
+                substExpr(assignmentPair.getLhs) match {
+                  case lhsSubst @LhsHead(ident) if mappingMacros.contains(ident.getRefersTo) =>
+                    val mappingMacroExpander = mappingMacros(ident.getRefersTo)
+                    mappingMacroExpander.write.expand(lhsSubst, { exprWrite =>
+                      List(new PlusCalAssignment(
+                        assignmentPair.getLocation,
+                        List(new PlusCalAssignmentPair(assignmentPair.getLocation, lhsSubst, exprWrite)).asJava))
+                    })
+                  case lhsSubst =>
+                    List(new PlusCalAssignment(
+                      assignmentPair.getLocation,
+                      List(new PlusCalAssignmentPair(assignmentPair.getLocation, lhsSubst, boundRhs)).asJava))
+                }
+            }.toList
+            List(new PlusCalWith(plusCalAssignment.getLocation, bindingVarDecls.asJava, body.asJava))
+          })
+        override def visit(plusCalReturn: PlusCalReturn): List[PlusCalStatement] = List(plusCalReturn)
+        override def visit(plusCalSkip: PlusCalSkip): List[PlusCalStatement] = List(plusCalSkip)
+        override def visit(plusCalCall: PlusCalCall): List[PlusCalStatement] = ??? // TODO
+        override def visit(macroCall: PlusCalMacroCall): List[PlusCalStatement] = {
+          if(visitedMacros(macroCall.getTarget)) {
+            ???
+          }
+          val mcr = macros(macroCall.getTarget)
+          assert(mcr.getParams.asScala.size == macroCall.getArguments.asScala.size)
+          val innerSubst = subst ++ (mcr.getParams.asScala.view zip macroCall.getArguments.asScala.view.map(substExpr))
+          mcr.getBody.asScala.view.flatMap(implStmt(_)(subst = innerSubst, visitedMacros = visitedMacros + mcr.getName)).toList
+        }
+        override def visit(plusCalWith: PlusCalWith): List[PlusCalStatement] =
+          readExprs(plusCalWith.getVariables.asScala.iterator.map(_.getValue).map(substExpr).toList, { exprsRead =>
+            List(new PlusCalWith(plusCalWith.getLocation, (plusCalWith.getVariables.asScala.iterator zip exprsRead).map {
+              case (decl, valExpr) => new PlusCalVariableDeclaration(decl.getLocation, decl.getName, decl.isRef, decl.isSet, valExpr)
+            }.toList.asJava, plusCalWith.getBody.asScala.flatMap(implStmt).asJava))
+          })
+        override def visit(plusCalPrint: PlusCalPrint): List[PlusCalStatement] =
+          implExprRead(substExpr(plusCalPrint.getValue), { readVal =>
+            List(new PlusCalPrint(plusCalPrint.getLocation, readVal))
+          })
+        override def visit(plusCalAssert: PlusCalAssert): List[PlusCalStatement] =
+          implExprRead(substExpr(plusCalAssert.getCondition), { readCond =>
+            List(new PlusCalAssert(plusCalAssert.getLocation, readCond))
+          })
+        override def visit(plusCalAwait: PlusCalAwait): List[PlusCalStatement] =
+          implExprRead(substExpr(plusCalAwait.getCondition), { readCond =>
+            List(new PlusCalAwait(plusCalAwait.getLocation, readCond))
+          })
+        override def visit(plusCalGoto: PlusCalGoto): List[PlusCalStatement] = List(plusCalGoto)
+        override def visit(modularPlusCalYield: ModularPlusCalYield): List[PlusCalStatement] = ??? // bad
+      })
+
+    implStmt(statement)(subst = Map.empty, visitedMacros = Set.empty)
+  }
+
+  private final case class TailBlock(loc: SourceLocation, label: PlusCalLabel, stmts: List[PlusCalStatement])
+  private final case class TailBlockConversion(unlabeledStmts: mutable.ListBuffer[PlusCalStatement],
+                                               tailBlocks: mutable.ListBuffer[TailBlock],
+                                               hasFallthrough: Boolean)
+
+  private def pcalStatementsToTailBlockForm(stmts: List[PlusCalStatement], fallthroughLabel: Option[PlusCalLabel]): TailBlockConversion = {
+    def pcalStatementToTailBlockForm(stmt: PlusCalStatement, fallthroughLabel: Option[PlusCalLabel]): TailBlockConversion =
+      stmt.accept(new PlusCalStatementVisitor[TailBlockConversion,RuntimeException] {
+        override def visit(plusCalLabeledStatements: PlusCalLabeledStatements): TailBlockConversion = ???
+
+        override def visit(plusCalWhile: PlusCalWhile): TailBlockConversion = {
+          // problem: you need to fall through to the label _above_ the while, easier to just desugar into if + goto
+          // first
+          ???
+        }
+
+        override def visit(plusCalIf: PlusCalIf): TailBlockConversion = {
+          val TailBlockConversion(unlabeledStmtsYes, tailBlocksYes, hasFallthroughYes) =
+            pcalStatementsToTailBlockForm(plusCalIf.getYes.asScala.toList, fallthroughLabel = fallthroughLabel)
+          val TailBlockConversion(unlabeledStmtsNo, tailBlocksNo, hasFallthroughNo) =
+            pcalStatementsToTailBlockForm(plusCalIf.getNo.asScala.toList, fallthroughLabel = fallthroughLabel)
+
+          TailBlockConversion(
+            unlabeledStmts = mutable.ListBuffer(
+              new PlusCalIf(plusCalIf.getLocation, plusCalIf.getCondition, unlabeledStmtsYes.asJava, unlabeledStmtsNo.asJava)),
+            tailBlocks = tailBlocksYes ++= tailBlocksNo,
+            hasFallthrough = hasFallthroughYes || hasFallthroughNo)
+        }
+
+        override def visit(plusCalEither: PlusCalEither): TailBlockConversion = {
+          val tailBlockConversions = plusCalEither.getCases.asScala.toList.map { branch =>
+            pcalStatementsToTailBlockForm(branch.asScala.toList, fallthroughLabel = fallthroughLabel)
+          }
+          TailBlockConversion(
+            unlabeledStmts = mutable.ListBuffer(
+              new PlusCalEither(plusCalEither.getLocation, tailBlockConversions.map(_.unlabeledStmts.asJava).asJava)),
+            tailBlocks = tailBlockConversions.foldLeft(mutable.ListBuffer[TailBlock]())(_ ++= _.tailBlocks),
+            hasFallthrough = tailBlockConversions.exists(_.hasFallthrough))
+        }
+
+        override def visit(plusCalAssignment: PlusCalAssignment): TailBlockConversion =
+          TailBlockConversion(
+            unlabeledStmts = mutable.ListBuffer(plusCalAssignment),
+            tailBlocks = mutable.ListBuffer(),
+            hasFallthrough = true)
+
+        override def visit(plusCalReturn: PlusCalReturn): TailBlockConversion =
+          TailBlockConversion(
+            unlabeledStmts = mutable.ListBuffer(plusCalReturn),
+            tailBlocks = mutable.ListBuffer(),
+            hasFallthrough = false)
+
+        override def visit(plusCalSkip: PlusCalSkip): TailBlockConversion =
+          TailBlockConversion(
+            unlabeledStmts = mutable.ListBuffer(plusCalSkip),
+            tailBlocks = mutable.ListBuffer(),
+            hasFallthrough = true)
+
+        override def visit(plusCalCall: PlusCalCall): TailBlockConversion =
+          TailBlockConversion(
+            unlabeledStmts = mutable.ListBuffer(plusCalCall),
+            tailBlocks = mutable.ListBuffer(),
+            hasFallthrough = false)
+
+        override def visit(macroCall: PlusCalMacroCall): TailBlockConversion = {
+          // problem: what if the macro body ends in a goto? unlikely, but a goto is not a label
+          // easier to expand macros before doing this
+          ???
+        }
+
+        override def visit(plusCalWith: PlusCalWith): TailBlockConversion = {
+          val TailBlockConversion(unlabeledStmts, mutable.ListBuffer(), hasFallthrough) =
+            pcalStatementsToTailBlockForm(plusCalWith.getBody.asScala.toList, fallthroughLabel = fallthroughLabel)
+          TailBlockConversion(
+            unlabeledStmts = mutable.ListBuffer(
+              new PlusCalWith(plusCalWith.getLocation, plusCalWith.getVariables, unlabeledStmts.toList.asJava)),
+            tailBlocks = mutable.ListBuffer(),
+            hasFallthrough = hasFallthrough)
+        }
+
+        override def visit(plusCalPrint: PlusCalPrint): TailBlockConversion =
+          TailBlockConversion(
+            unlabeledStmts = mutable.ListBuffer(plusCalPrint),
+            tailBlocks = mutable.ListBuffer(),
+            hasFallthrough = true)
+
+        override def visit(plusCalAssert: PlusCalAssert): TailBlockConversion =
+          TailBlockConversion(
+            unlabeledStmts = mutable.ListBuffer(plusCalAssert),
+            tailBlocks = mutable.ListBuffer(),
+            hasFallthrough = true)
+
+        override def visit(plusCalAwait: PlusCalAwait): TailBlockConversion =
+          TailBlockConversion(
+            unlabeledStmts = mutable.ListBuffer(plusCalAwait),
+            tailBlocks = mutable.ListBuffer(),
+            hasFallthrough = true)
+
+        override def visit(plusCalGoto: PlusCalGoto): TailBlockConversion =
+          TailBlockConversion(
+            unlabeledStmts = mutable.ListBuffer(plusCalGoto),
+            tailBlocks = mutable.ListBuffer(),
+            hasFallthrough = false)
+
+        override def visit(modularPlusCalYield: ModularPlusCalYield): TailBlockConversion =
+          TailBlockConversion(
+            unlabeledStmts = mutable.ListBuffer(modularPlusCalYield),
+            tailBlocks = mutable.ListBuffer(),
+            hasFallthrough = true)
+      })
+
+    val unlabeledStmts = stmts.filterNot(_.isInstanceOf[PlusCalLabeledStatements])
+    val labeledStmts = stmts.collect { case stmt: PlusCalLabeledStatements => stmt }
+
+    // PCal semantics assertion: any labeled statements must follow unlabeled statements
+    assert(unlabeledStmts.view ++ labeledStmts == stmts.view)
+    // each statement has a fallthrough label:
+    // - any unlabeled statement's fallthrough label is
+    //   a) the first labeled statement's label
+    //   b) the fallthrough label passed in
+    // - any labeled statement's fallthrough label is:
+    //   a) the next labeled statement's label
+    //   b) if there is no next labeled statement, the passed in fallthrough label
+    val fallthroughLabels: List[Option[PlusCalLabel]] =
+      unlabeledStmts.map(_ => labeledStmts.headOption.map(_.label).orElse(fallthroughLabel)) ++
+      labeledStmts.tail.map(stmt => Some(stmt.label)) :+ fallthroughLabel
+    // if this isn't true, we have a problem (PlusCal semantics violation)
+    assert(fallthroughLabels.size == stmts.size)
+
+    (stmts zip fallthroughLabels).foldLeft(TailBlockConversion(mutable.ListBuffer(), mutable.ListBuffer(), true)) { (acc, pair) =>
+      val (stmt, fallthroughLabel) = pair
+      (acc, stmt) match {
+        case (tc @TailBlockConversion(unlabeledStmts, tailBlocks @mutable.ListBuffer(), hasFallthrough), stmt: PlusCalLabeledStatements) =>
+          val TailBlockConversion(innerUnlabeledStmts, innerTailBlocks, innerHasFallthrough) =
+            pcalStatementsToTailBlockForm(stmt.statements, fallthroughLabel = fallthroughLabel)
+
+          // this is our first label, so we generate a trailing goto that points to it
+          // ... but only if it doesn't already contain some other control flow
+          if(hasFallthrough) {
+            unlabeledStmts += new PlusCalGoto(stmt.label.getLocation, stmt.label.getName)
+          }
+          // if the label body has a fallthrough, plug it with a goto to the fallthrough label
+          if(innerHasFallthrough) {
+            fallthroughLabel match {
+              case None => innerUnlabeledStmts += new PlusCalGoto(SourceLocation.unknown(), "done")
+              case Some(fallthroughLabel) =>
+                innerUnlabeledStmts += new PlusCalGoto(fallthroughLabel.getLocation, fallthroughLabel.getName)
+            }
+          }
+
+          tailBlocks += TailBlock(stmt.label.getLocation, stmt.label, innerUnlabeledStmts.toList)
+          tailBlocks ++= innerTailBlocks
+          tc.copy(hasFallthrough = false) // can't have fallthrough, we prevented it above
+        case (tc @TailBlockConversion(unlabeledStmts, tailBlocks @mutable.ListBuffer(), hasFallthrough), stmt) =>
+          val TailBlockConversion(innerUnlabeledStmts, innerTailBlocks, innerHasFallthrough) =
+            pcalStatementToTailBlockForm(stmt, fallthroughLabel = fallthroughLabel)
+          unlabeledStmts ++= innerUnlabeledStmts
+
+          // innerTailBlocks may or may not be empty.
+          // if empty, keep gathering unlabeled stmts
+          // if not, we should only encounter further labeled statements at this level
+          tailBlocks ++= innerTailBlocks
+          // if the statement has a fallthrough, so do we; if it doesn't, we don't either
+          tc.copy(hasFallthrough = hasFallthrough && innerHasFallthrough)
+        case (tc @TailBlockConversion(_, tailBlocks, false), stmt: PlusCalLabeledStatements) =>
+          // in case a label has already encountered, we know:
+          // no fallthrough from previous statement (prev was a label, which prevents this)
+          val TailBlockConversion(innerUnlabeledStmts, innerTailBlocks, innerHasFallthrough) =
+            pcalStatementsToTailBlockForm(stmt.statements, fallthroughLabel = fallthroughLabel)
+          // if the label body has a fallthrough, plug it with a goto
+          if(innerHasFallthrough) {
+            fallthroughLabel match {
+              case None => innerUnlabeledStmts += new PlusCalGoto(SourceLocation.unknown(), "done")
+              case Some(fallthroughLabel) =>
+                innerUnlabeledStmts += new PlusCalGoto(fallthroughLabel.getLocation, fallthroughLabel.getName)
+            }
+          }
+          tailBlocks += TailBlock(stmt.label.getLocation, stmt.label, innerUnlabeledStmts.toList)
+          tailBlocks ++= innerTailBlocks
+          tc
+      }
+    }
+  }
+
+  private def mpcalAdjustAssignments(tailBlockForm: TailBlockConversion, nameCleaner: NameCleaner): TailBlockConversion = {
+    val countReadWriteReferences = new ReadWriteReferencesCounter
+
+    def implStmts(stmts: List[PlusCalStatement])(implicit lifted: Map[TLADefinitionOne,(TLAGeneralIdentifier,TLAGeneralIdentifier)],
+                                                 renamings: Map[TLADefinitionOne,SourceLocation=>TLAGeneralIdentifier]): List[PlusCalStatement] = {
+      stmts match {
+        case Nil =>
+          lifted.toList.sortBy(_._1.identifier.getId).map {
+            case (_, (tempBinding, underlyingVar)) =>
+              ??? // TODO: assign temp binding of lifted name to the underlying name, to ensure the resulting value is visible at the next step
+          }
+        case stmt :: restStmts =>
+          stmt.accept(new PlusCalStatementVisitor[List[PlusCalStatement],RuntimeException] {
+            override def visit(plusCalLabeledStatements: PlusCalLabeledStatements): List[PlusCalStatement] = ??? // should be unreachable
+            override def visit(plusCalWhile: PlusCalWhile): List[PlusCalStatement] = ??? // should be unreachable
+            override def visit(plusCalIf: PlusCalIf): List[PlusCalStatement] =
+              List(new PlusCalIf(
+                plusCalIf.getLocation,
+                ??? /* TODO: renaming in cond */,
+                implStmts(plusCalIf.getYes.asScala.toList ::: restStmts).asJava,
+                implStmts(plusCalIf.getNo.asScala.toList ::: restStmts).asJava))
+            override def visit(plusCalEither: PlusCalEither): List[PlusCalStatement] =
+              List(new PlusCalEither(
+                plusCalEither.getLocation,
+                plusCalEither.getCases.asScala.map { cse =>
+                  implStmts(cse.asScala.toList ::: restStmts).asJava
+                }.asJava))
+            override def visit(plusCalAssignment: PlusCalAssignment): List[PlusCalStatement] = {
+              assert(plusCalAssignment.getPairs.asScala.size == 1)
+              val pair = plusCalAssignment.getPairs.asScala.head
+              val (readCounts, writeCounts) = countReadWriteReferences(restStmts)
+              val LhsHead(headIdent) = pair.getLhs
+              val renamedRhs = ??? // renamed RHS
+              if(writeCounts.getOrElse(headIdent.getRefersTo, 0) > 0) {
+                ??? // TODO: insert clean with-binding
+                // also, ensure the binding is reflected in lifted, so it can be tracked / reverted later, if needed.
+                // and also, flatten out function-assignment semantics into the appropriate pure record update ops
+              } else {
+                val renamedLhs = ??? // renamed RHS
+                val renamedAssignment = new PlusCalAssignment(plusCalAssignment.getLocation, List(
+                  new PlusCalAssignmentPair(pair.getLocation, renamedLhs, renamedRhs)
+                ).asJava)
+                // lifted tracks which names we still need to assign to when we're done. if this counts as a last
+                // assignment, we're done with it and can discard it.
+                // this won't happen e.g if one branch of a conditional makes another assignment, but the other does not
+                renamedAssignment :: implStmts(restStmts)(lifted = lifted.removed(headIdent.getRefersTo), renamings = renamings)
+              }
+            }
+            override def visit(plusCalReturn: PlusCalReturn): List[PlusCalStatement] =
+              plusCalReturn :: implStmts(restStmts)
+            override def visit(plusCalSkip: PlusCalSkip): List[PlusCalStatement] =
+              plusCalSkip :: implStmts(restStmts)
+            override def visit(plusCalCall: PlusCalCall): List[PlusCalStatement] = ???
+            override def visit(macroCall: PlusCalMacroCall): List[PlusCalStatement] = ??? // unreachable
+            override def visit(plusCalWith: PlusCalWith): List[PlusCalStatement] = {
+              ??? // TODO: blindly rename the bound name to avoid scoping conflicts, absorb all subsequent stmts
+            }
+            override def visit(plusCalPrint: PlusCalPrint): List[PlusCalStatement] = ???
+            override def visit(plusCalAssert: PlusCalAssert): List[PlusCalStatement] = ???
+            override def visit(plusCalAwait: PlusCalAwait): List[PlusCalStatement] = ???
+            override def visit(plusCalGoto: PlusCalGoto): List[PlusCalStatement] =
+              plusCalGoto :: implStmts(restStmts)
+            override def visit(modularPlusCalYield: ModularPlusCalYield): List[PlusCalStatement] = ??? // unreachable
+          })
+      }
+    }
+
+    TailBlockConversion(
+      unlabeledStmts = implStmts(tailBlockForm.unlabeledStmts.result())(lifted = Map.empty, renamings = Map.empty).to(mutable.ListBuffer),
+      tailBlocks = tailBlockForm.tailBlocks.mapInPlace {
+        case TailBlock(loc, label, stmts) => TailBlock(loc, label, implStmts(stmts)(lifted = Map.empty, renamings = Map.empty))
+      },
+      hasFallthrough = tailBlockForm.hasFallthrough)
+  }
+
+  def mpcalExpandArchetype(archetype: ModularPlusCalArchetype, instance: ModularPlusCalInstance,
+                           mappingMacros: Map[String, ModularPlusCalMappingMacro],
+                           macros: Map[String,PlusCalMacro],
+                           nameCleaner: NameCleaner): PlusCalProcess = {
+    val instanceVariables = mutable.ListBuffer[PlusCalVariableDeclaration]()
+    val exprSubstitutionsBuilder = Map.newBuilder[UID,SourceLocation=>TLAExpression]
+
+    // TODO: add way to avoid adding dummy locals when archetype is well-behaved and doesn't write to a non-ref input
+
+    (archetype.getParams.asScala.iterator zip instance.getArguments.asScala.iterator).foreach {
+      case (decl, arg: TLARef) =>
+        exprSubstitutionsBuilder += ((decl.getUID, { loc =>
+          val id = new TLAGeneralIdentifier(loc, new TLAIdentifier(loc, arg.getTarget), Nil)
+          id.setRefersTo(arg.getRefersTo)
+          id
+        }))
+      case (decl, arg: TLAGeneralIdentifier) =>
+        ???
+      case (decl, expr) =>
+        val freshName = nameCleaner.cleanName(decl.getName.getId)
+        val freshId = new TLAIdentifier(expr.getLocation, freshName)
+        val instanceDecl = new PlusCalVariableDeclaration(expr.getLocation, freshId, false, false, expr)
+        instanceVariables += instanceDecl
+        exprSubstitutionsBuilder += ((decl.getUID, { loc =>
+          val id = new TLAGeneralIdentifier(loc, new TLAIdentifier(loc, freshName), Nil)
+          id.setRefersTo(instanceDecl)
+          id
+        }))
+    }
+
+    val exprSubstitutions = exprSubstitutionsBuilder.result()
+
+    instance.getMappings.asScala.foreach { mapping =>
+      mappingMacros.get(mapping.getTarget.getName) match {
+        case None => ???
+        case Some(mcr) =>
+          val param = mapping.getVariable match {
+            case name: ModularPlusCalMappingVariableName =>
+              archetype.getParams.asScala.find(_.getName.getId == name.getName).get
+            case position: ModularPlusCalMappingVariablePosition =>
+              archetype.getParams.asScala.apply(position.getPosition - 1)
+            case _ => ???
+          }
+          ??? // TODO
+      }
+    }
+
+    val mappingMacroExpanders: Map[TLADefinitionOne,MappingMacroExpander] = ???
+
+    new PlusCalProcess(
+      instance.getLocation,
+      instance.getName,
+      instance.getFairness,
+      (archetype.getVariables.asScala.toList ++ instanceVariables.toList).asJava,
+      archetype.getBody.asScala.flatMap(pcalStatementExpandMacros(_, mappingMacroExpanders, macros, nameCleaner)).asJava)
+  }
+
+  def perform(ctx: IssueContext, tlaModule: TLAModule, modularPlusCalBlock: ModularPlusCalBlock): PlusCalAlgorithm = {
+    val nameCleanerSeed = (gatherNameCleanerSeed(tlaModule) ++ gatherNameCleanerSeed(modularPlusCalBlock))
+      .to(mutable.HashSet)
+    val nameCleaner = new NameCleaner(nameCleanerSeed.asJava)
+
+    // procedures with `ref` in their arguments need macro expansion; those without do not
+    val (proceduresWithRefs,proceduresWithoutRefs) =
+      modularPlusCalBlock.procedures.partition(_.getParams.asScala.exists(_.isRef))
+
+    val proceduresToExpand = proceduresWithRefs.iterator.map(proc => proc.getName -> proc).toMap
+    val archetypes = modularPlusCalBlock.archetypes.iterator.map(arch => arch.getName -> arch).toMap
+    val mappingMacros = modularPlusCalBlock.mappingMacros.iterator.map(m => m.getName -> m).toMap
+    val macros = modularPlusCalBlock.macros.iterator.map(m => m.getName -> m).toMap
+
+    val expandedProcedures = mutable.ListBuffer[PlusCalProcedure]()
+    val expandedProcedureCache = mutable.HashMap[ExpandedProcedureMatch,PlusCalProcedure]()
+
+    val expandedMPCalInstances =
+      modularPlusCalBlock.instances.map { instance =>
+        archetypes.get(instance.getTarget) match {
+          case None => ???
+          case Some(archetype) =>
+            mpcalExpandArchetype(archetype, instance, mappingMacros, macros, nameCleaner)
+        }
+      }
+
+    val adjustedMPCalInstances =
+      expandedMPCalInstances.map { instance =>
+        val initialTailBlockConversion =
+          pcalStatementsToTailBlockForm(instance.getBody.asScala.toList, fallthroughLabel = None)
+        val adjustedTailBlockConversion = mpcalAdjustAssignments(initialTailBlockConversion, nameCleaner)
+        new PlusCalProcess(
+          instance.getLocation,
+          instance.getName,
+          instance.getFairness,
+          instance.getVariables,
+          (adjustedTailBlockConversion.unlabeledStmts.view ++ adjustedTailBlockConversion.tailBlocks.view.map {
+            case TailBlock(loc, label, stmts) =>
+              new PlusCalLabeledStatements(loc, label, stmts)
+          }).toList.asJava)
+      }
+
+    val expandedPCalProcesses =
+      modularPlusCalBlock.processes.accept(new PlusCalProcessesVisitor[List[PlusCalProcess],RuntimeException] {
+        override def visit(singleProcess: PlusCalSingleProcess): List[PlusCalProcess] = Nil // catch this special case below
+
+        override def visit(multiProcess: PlusCalMultiProcess): List[PlusCalProcess] =
+          multiProcess.getProcesses.asScala.view.map { proc =>
+            new PlusCalProcess(
+              proc.getLocation,
+              proc.getName,
+              proc.getFairness,
+              proc.getVariables,
+              proc.getBody.asScala.flatMap(pcalStatementExpandMacros(_, Map.empty, macros, nameCleaner)).asJava)
+          }.toList
+      })
+
+    // rearrange the list of processes back into a PlusCalProcesses structure, and optionally handle the single-process
+    // form that was skipped above, if no additional processes were generated during expansion (from instances)
+    val expandedProcesses = modularPlusCalBlock.processes.accept(new PlusCalProcessesVisitor[PlusCalProcesses,RuntimeException] {
+      override def visit(singleProcess: PlusCalSingleProcess): PlusCalProcesses =
+        if(expandedMPCalInstances.nonEmpty) {
+          throw new UnsupportedFeatureIssue("single process with instances")
+        } else {
+          new PlusCalSingleProcess(
+            singleProcess.getLocation,
+            singleProcess.getBody.asScala.flatMap(pcalStatementExpandMacros(_, Map.empty, macros, nameCleaner)).asJava)
+        }
+
+      override def visit(multiProcess: PlusCalMultiProcess): PlusCalProcesses =
+        new PlusCalMultiProcess(
+          multiProcess.getLocation,
+          (expandedMPCalInstances.view ++ expandedPCalProcesses).toList.asJava)
+    })
+
+    new PlusCalAlgorithm(
+      modularPlusCalBlock.getLocation,
+      PlusCalFairness.UNFAIR,
+      modularPlusCalBlock.name,
+      modularPlusCalBlock.variables.asJava,
+      Nil.asJava,
+      (proceduresWithoutRefs ++ expandedProcedures.toList).asJava,
+      modularPlusCalBlock.units.asJava,
+      expandedProcesses)
+  }
+}
