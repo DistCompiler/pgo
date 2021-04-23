@@ -59,10 +59,10 @@ trait MPCalParser extends PCalParser {
           withSourceLocation {
             querySourceLocation("@" ~> mpcalMappingPosition) ~ (ws ~> mpcalRefSuffix) ^^ {
               case (positionLoc, position) ~ mappingCount =>
-                if(position > maxPosition) {
+                if(position > maxPosition || position <= 0) {
                   throw MappingIndexOutOfBounds(positionLoc, position, maxPosition)
                 }
-                MPCalMappingTarget(position, mappingCount)
+                MPCalMappingTarget(position-1, mappingCount)
             }
           }
       } ~ (ws ~> "via" ~> ws ~> tlaIdentifierExpr) ^^ {
@@ -119,7 +119,7 @@ trait MPCalParser extends PCalParser {
       mpcalSpecialVariable | super.tlaExpressionNoOperators
 
     override def pcalLhsId(implicit ctx: PCalParserContext): Parser[PCalAssignmentLhs] =
-      (mpcalSpecialVariable ^^ PCalAssignmentLhsExtension) | super.pcalLhsId
+      withSourceLocation(mpcalSpecialVariable ^^ PCalAssignmentLhsExtension) | super.pcalLhsId
 
     override val pcalCSyntax: PCalCSyntax = new PCalCSyntax {
       override def pcalUnlabeledStmt(implicit ctx: PCalParserContext): Parser[PCalStatement] =

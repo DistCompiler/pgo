@@ -118,7 +118,7 @@ object MPCalPassUtils {
           case badExpr =>
             throw MacroExpandError(List(MacroExpandError.MacroExpandAssignmentLhsError(ref, badExpr)))
         }
-      case ref: RefersTo[TLADefiningIdentifier] if paramsMap.contains(ref.refersTo) =>
+      case ref: RefersTo[TLADefiningIdentifier @unchecked] if paramsMap.contains(ref.refersTo) =>
         paramsMap(ref.refersTo): TLAExpression
       case ref: SourceLocatable =>
         ref.shallowCopy().setSourceLocation(
@@ -127,7 +127,7 @@ object MPCalPassUtils {
 
     // remap all the references to free variables to point to what the free vars point to (relies on duplication, from above)
     body.foreach(_.visit(Visitable.BottomUpFirstStrategy) {
-      case ref: RefersTo[DefinitionOne] if referenceMapping.contains(ref.refersTo) =>
+      case ref: RefersTo[DefinitionOne @unchecked] if referenceMapping.contains(ref.refersTo) =>
         ref.setRefersTo(referenceMapping(ref.refersTo))
     })
     body
@@ -160,4 +160,34 @@ object MPCalPassUtils {
             variables.foldLeft(enclosingScope)((nestedScope, v) => nestedScope.updated(v.name.id, v))))))
       case stmt => List(stmt)
     }
+
+  def gatherContainsLabels(mpcalBlock: MPCalBlock): IdSet[PCalStatement] = {
+    var containsLabels = IdSet.empty[PCalStatement]
+    def gatherContainsLabels(stmt: PCalStatement): Boolean = {
+      // note: the seemingly over-engineered map+reduce ensures all sub-statements are reached,
+      //   vs. a more concise but short-circuiting .exists(...)
+      val result: Boolean = stmt match {
+        case PCalEither(cases) => cases.view.flatMap(_.view.map(gatherContainsLabels)).foldLeft(false)(_ || _)
+        case PCalIf(_, yes, no) =>
+          yes.view.map(gatherContainsLabels).foldLeft(false)(_ || _) ||
+            no.view.map(gatherContainsLabels).foldLeft(false)(_ || _)
+        case PCalLabeledStatements(_, statements) =>
+          statements.foreach(gatherContainsLabels)
+          true
+        case PCalWhile(_, body) => body.view.map(gatherContainsLabels).foldLeft(false)(_ || _)
+        case PCalWith(_, body) => body.view.map(gatherContainsLabels).foldLeft(false)(_ || _)
+        case _ => false
+      }
+      if(result) {
+        containsLabels += stmt
+      }
+      result
+    }
+
+    mpcalBlock.visit(Visitable.TopDownFirstStrategy) {
+      case stmt: PCalStatement => gatherContainsLabels(stmt)
+    }
+
+    containsLabels
+  }
 }

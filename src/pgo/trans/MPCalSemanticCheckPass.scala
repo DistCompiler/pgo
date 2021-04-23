@@ -111,35 +111,7 @@ object MPCalSemanticCheckPass {
       hasRecursiveMacro
     }
 
-    val containsLabels: IdSet[PCalStatement] = locally {
-      var containsLabels = IdSet.empty[PCalStatement]
-      def gatherContainsLabels(stmt: PCalStatement): Boolean = {
-        // note: the seemingly over-engineered map+reduce ensures all sub-statements are reached,
-        //   vs. a more concise but short-circuiting .exists(...)
-        val result: Boolean = stmt match {
-          case PCalEither(cases) => cases.view.flatMap(_.view.map(gatherContainsLabels)).foldLeft(false)(_ || _)
-          case PCalIf(_, yes, no) =>
-            yes.view.map(gatherContainsLabels).foldLeft(false)(_ || _) ||
-              no.view.map(gatherContainsLabels).foldLeft(false)(_ || _)
-          case PCalLabeledStatements(_, statements) =>
-            statements.foreach(gatherContainsLabels)
-            true
-          case PCalWhile(_, body) => body.view.map(gatherContainsLabels).foldLeft(false)(_ || _)
-          case PCalWith(_, body) => body.view.map(gatherContainsLabels).foldLeft(false)(_ || _)
-          case _ => false
-        }
-        if(result) {
-          containsLabels += stmt
-        }
-        result
-      }
-
-      mpcalBlock.visit(Visitable.TopDownFirstStrategy) {
-        case stmt: PCalStatement => gatherContainsLabels(stmt)
-      }
-
-      containsLabels
-    }
+    val containsLabels: IdSet[PCalStatement] = MPCalPassUtils.gatherContainsLabels(mpcalBlock)
 
     val tailStatements: IdMap[PCalStatement,Vector[PCalStatement]] = locally {
       var tailStatements = IdMap.empty[PCalStatement,Vector[PCalStatement]]
@@ -175,6 +147,7 @@ object MPCalSemanticCheckPass {
 
     def checkWhileLabelPlacement(visitable: Visitable): Unit =
       visitable.visit(Visitable.TopDownFirstStrategy) {
+        case PCalMacro(_, _, _, _) => // skip macro bodies, we check these at expansion site
         case PCalLabeledStatements(_, PCalWhile(_, whileBody) :: restBody) =>
           whileBody.foreach(checkWhileLabelPlacement)
           restBody.foreach(checkWhileLabelPlacement)
@@ -183,7 +156,16 @@ object MPCalSemanticCheckPass {
           body.foreach(checkWhileLabelPlacement)
       }
 
-    checkWhileLabelPlacement(mpcalBlock)
+    // check that all while statements are directly inside labels (accounting for macro expansion, if that's sound)
+    checkWhileLabelPlacement {
+      if(!hasRecursiveMacro) {
+        MPCalPassUtils.rewriteEachBody(mpcalBlock) { (body, lexicalScope) =>
+          MPCalPassUtils.expandMacroCalls(body, lexicalScope)
+        }
+      } else {
+        mpcalBlock
+      }
+    }
 
     // check whether statements that must be followed by a label are followed by a label
     locally {
@@ -203,6 +185,7 @@ object MPCalSemanticCheckPass {
               val labelNeedingStatementComesBefore =
                 tailStatements(beforeStmt).exists {
                   case ifStmt: PCalIf => containsLabels(ifStmt)
+                  case eitherStmt: PCalEither => containsLabels(eitherStmt)
                   case _: PCalReturn => true
                   case _: PCalGoto => true
                   case _: PCalCall => !supportsTailCall(notLabel)
@@ -250,6 +233,7 @@ object MPCalSemanticCheckPass {
                   lhs match {
                     case PCalAssignmentLhsIdentifier(identifier) => identifier
                     case PCalAssignmentLhsProjection(lhs, _) => getId(lhs)
+                    case PCalAssignmentLhsExtension(TLAExtensionExpression(MPCalDollarVariable())) => TLAIdentifier("$variable") // hack to model special var
                   }
 
                 val lhsId = getId(lhs)
@@ -382,6 +366,7 @@ object MPCalSemanticCheckPass {
           }
           (archetype.params.view zip arguments.view).foreach {
             case (MPCalRefParam(_, mappingCountP), Left(MPCalRefParam(_, mappingCount))) if mappingCount == mappingCountP => // ok
+            case (MPCalRefParam(_, 0), Right(_)) => // ok (see TODO above..?)
             case (MPCalValParam(_, 0), Right(_)) => // ok
             case (MPCalValParam(_, mappingCountP), Left(MPCalValParam(_, mappingCount))) if mappingCount == mappingCountP => // ok
             case (param, Left(arg)) =>

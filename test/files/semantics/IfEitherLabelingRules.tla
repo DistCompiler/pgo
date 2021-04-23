@@ -40,6 +40,11 @@ EXTENDS Sequences, FiniteSets, Integers
              };
          \*:: expectedError: LabelRequiredError
          y := 20; (* missing label *)
+
+         l6: while(TRUE) {
+            l7: skip;
+         };
+         skip; \* ok, no label needed (this says something about the correct desugaring for while)
      }
 }
 *)

@@ -13,6 +13,9 @@ sealed abstract class SourceLocation {
 
   def maybeOffset: Int = -1
 
+  def derivedVia(description: Description, viaPos: SourceLocation = SourceLocationInternal): SourceLocation =
+    DerivedSourceLocation(this, viaPos, description)
+
   def ++(other: SourceLocation): SourceLocation = {
     (this, other) match {
       case (SourceLocationUnknown, SourceLocationUnknown) => SourceLocationUnknown
