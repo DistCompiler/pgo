@@ -270,7 +270,7 @@ trait PCalParser extends TLAParser {
   trait PCalCSyntax extends GenericSyntax {
     override def pcalIf(implicit ctx: PCalParserContext): Parser[PCalIf] =
       withSourceLocation {
-        "if" ~> ws ~> "(" ~> tlaExpression ~ (ws ~> ")" ~> ws ~> pcalStmts) ~
+        "if" ~>! ws ~> "(" ~> tlaExpression ~ (ws ~> ")" ~> ws ~> pcalStmts) ~
           opt(opt(ws ~> ";") ~> ws ~> "else" ~> ws ~> pcalStmts).map(_.getOrElse(Nil)) ^^ {
           case cond ~ yes ~ no => PCalIf(cond, yes, no)
         }
@@ -278,25 +278,25 @@ trait PCalParser extends TLAParser {
 
     override def pcalWhile(implicit ctx: PCalParserContext): Parser[PCalWhile] =
       withSourceLocation {
-        "while" ~> ws ~> "(" ~> ws ~> tlaExpression ~ (ws ~> ")" ~> ws ~> pcalStmts) ^^ {
+        "while" ~>! ws ~> "(" ~> ws ~> tlaExpression ~ (ws ~> ")" ~> ws ~> pcalStmts) ^^ {
           case cond ~ body => PCalWhile(cond, body)
         }
       }
 
     override def pcalEither(implicit ctx: PCalParserContext): Parser[PCalEither] =
       withSourceLocation {
-        "either" ~> ws ~> pcalStmts ~ (ws ~> rep1sep("or" ~> ws ~> pcalStmts, ws)) ^^ {
+        "either" ~>! ws ~> pcalStmts ~ (ws ~> rep1sep("or" ~> ws ~> pcalStmts, ws)) ^^ {
           case part1 ~ parts => PCalEither(part1 :: parts)
         }
       }
 
     override def pcalWith(implicit ctx: PCalParserContext): Parser[PCalWith] =
       withSourceLocation {
-        "with" ~> ws ~> "(" ~> {
+        "with" ~>! ws ~> "(" ~> {
           def rec(rest: Boolean)(implicit ctx: PCalParserContext): Parser[(List[PCalVariableDeclarationBound],List[PCalStatement])] = {
             val origCtx = ctx
             (if(rest) {
-              ws ~> (";" | ",")
+              ws ~> (";" | ",") ~> ws
             } else {
               ws
             }) ~> pcalVarDeclBound.flatMap { decl =>
@@ -344,17 +344,17 @@ trait PCalParser extends TLAParser {
     override def pcalIf(implicit ctx: PCalParserContext): Parser[PCalIf] = {
       lazy val elsePart: Parser[List[PCalStatement]] = {
         val elsif = withSourceLocation {
-          "elsif" ~> ws ~> tlaExpression ~ (ws ~> "then" ~> ws ~> rep1sep(pcalStmt, ws)) ~ (ws ~> elsePart) ^^ {
+          "elsif" ~>! ws ~> tlaExpression ~ (ws ~> "then" ~> ws ~> rep1sep(pcalStmt, ws)) ~ (ws ~> elsePart) ^^ {
             case cond ~ yes ~ no => PCalIf(cond, yes, no)
           }
         } ^^ (List(_))
-        val els = "else" ~> ws ~> rep1sep(pcalStmt, ws)
+        val els = "else" ~>! ws ~> rep1sep(pcalStmt, ws)
 
         elsif | els | success(Nil)
       }
 
       withSourceLocation {
-        "if" ~> ws ~> tlaExpression ~ (ws ~> "then" ~> ws ~> rep1sep(pcalStmt, ws) <~ ws) ~ elsePart <~ ws <~ "end" <~ ws <~ "if" ^^ {
+        "if" ~>! ws ~> tlaExpression ~ (ws ~> "then" ~> ws ~> rep1sep(pcalStmt, ws) <~ ws) ~ elsePart <~ ws <~ "end" <~ ws <~ "if" ^^ {
           case cond ~ yes ~ no => PCalIf(cond, yes, no)
         }
       }
@@ -362,19 +362,19 @@ trait PCalParser extends TLAParser {
 
     override def pcalWhile(implicit ctx: PCalParserContext): Parser[PCalWhile] =
       withSourceLocation {
-        "while" ~> ws ~> tlaExpression ~ (ws ~> "do" ~> ws  ~> rep1sep(pcalStmt, ws) <~ ws <~ "end" <~ ws <~ "while") ^^ {
+        "while" ~>! ws ~> tlaExpression ~ (ws ~> "do" ~> ws  ~> rep1sep(pcalStmt, ws) <~ ws <~ "end" <~ ws <~ "while") ^^ {
           case cond ~ body => PCalWhile(cond, body)
         }
       }
 
     override def pcalEither(implicit ctx: PCalParserContext): Parser[PCalEither] =
       withSourceLocation {
-        "either" ~> ws ~> rep1sep(rep1sep(pcalStmt, ws), ws ~> "or" ~> ws) <~ ws <~ "end" <~ ws <~ "either" ^^ PCalEither
+        "either" ~>! ws ~> rep1sep(rep1sep(pcalStmt, ws), ws ~> "or" ~> ws) <~ ws <~ "end" <~ ws <~ "either" ^^ PCalEither
       }
 
     override def pcalWith(implicit ctx: PCalParserContext): Parser[PCalWith] =
       withSourceLocation {
-        "with" ~> {
+        "with" ~>! {
           def rec(rest: Boolean)(implicit ctx: PCalParserContext): Parser[(List[PCalVariableDeclarationBound], List[PCalStatement])] = {
             val origCtx = ctx
             (if (rest) {
@@ -410,7 +410,7 @@ trait PCalParser extends TLAParser {
     override def pcalStmts(implicit ctx: PCalParserContext): Parser[List[PCalStatement]] = rep1sep(pcalStmt, ws)
 
     override def pcalBody(pSuffix: String)(implicit ctx: PCalParserContext): Parser[List[PCalStatement]] =
-      "begin" ~> ws ~> pcalStmts <~ ws <~ "end" <~ ws <~ pSuffix
+      "begin" ~>! ws ~> pcalStmts <~ ws <~ "end" <~ ws <~ pSuffix
 
     override def pcalProcessSelf(implicit ctx: PCalParserContext): Parser[PCalVariableDeclarationBound] = pcalVarDeclBound
 

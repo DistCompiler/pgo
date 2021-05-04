@@ -137,7 +137,8 @@ final case class SourceLocationWithUnderlying(underlying: SourceLocation.Underly
           d"$header\n${lines.view.map(_.toDescription.ensureLineBreakBefore).flattenDescriptions}\n$footer"
         }
       } else {
-        val footer = (View.fill(startColumn)(d" ") ++ View.fill(endColumn - startColumn)(d"^") ++ (if(atEOF) View(d" EOF") else View.empty)).flattenDescriptions
+        val effectiveEndColumn = if(startColumn == endColumn) startColumn + 1 else endColumn
+        val footer = (View.fill(startColumn)(d" ") ++ View.fill(effectiveEndColumn - startColumn)(d"^") ++ (if(atEOF) View(d" EOF") else View.empty)).flattenDescriptions
         d"$firstLine\n$footer"
       }
     }"

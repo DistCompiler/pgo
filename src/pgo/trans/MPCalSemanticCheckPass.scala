@@ -288,7 +288,7 @@ object MPCalSemanticCheckPass {
     // enforce kind-matching for MPCal params (ref vs. non-ref, number of mappings)
     locally {
       def checkMPCalParamRefs(body: List[PCalStatement], params: List[MPCalParam]): Unit = {
-        val paramsMap = params.view.map(p => p -> p).to(IdMap)
+        val paramsMap = params.view.map(p => (p: DefinitionOne) -> p).to(IdMap)
         body.foreach { stmt =>
           stmt.visit(Visitable.BottomUpFirstStrategy) {
             case PCalAssignmentPair(lhs, _) =>
@@ -352,11 +352,11 @@ object MPCalSemanticCheckPass {
             case MPCalMapping(target @MPCalMappingTarget(position, mappingCount), id) =>
               arguments(position) match {
                 case Left(param) => param match {
-                  case MPCalRefParam(_, mappingCountP) =>
+                  case MPCalRefExpr(_, mappingCountP) =>
                     if(mappingCount < mappingCountP) {
                       errors += SemanticError.MPCalKindMismatchError(usage = target, defn = param)
                     }
-                  case MPCalValParam(_, mappingCountP) =>
+                  case MPCalValExpr(_, mappingCountP) =>
                     if(mappingCount < mappingCountP) {
                       errors += SemanticError.MPCalKindMismatchError(usage = target, defn = param)
                     }
@@ -365,10 +365,10 @@ object MPCalSemanticCheckPass {
               }
           }
           (archetype.params.view zip arguments.view).foreach {
-            case (MPCalRefParam(_, mappingCountP), Left(MPCalRefParam(_, mappingCount))) if mappingCount == mappingCountP => // ok
+            case (MPCalRefParam(_, mappingCountP), Left(MPCalRefExpr(_, mappingCount))) if mappingCount == mappingCountP => // ok
             case (MPCalRefParam(_, 0), Right(_)) => // ok (see TODO above..?)
             case (MPCalValParam(_, 0), Right(_)) => // ok
-            case (MPCalValParam(_, mappingCountP), Left(MPCalValParam(_, mappingCount))) if mappingCount == mappingCountP => // ok
+            case (MPCalValParam(_, mappingCountP), Left(MPCalValExpr(_, mappingCount))) if mappingCount == mappingCountP => // ok
             case (param, Left(arg)) =>
               errors += SemanticError.MPCalKindMismatchError(usage = arg, defn = param)
             case (param, Right(arg)) =>

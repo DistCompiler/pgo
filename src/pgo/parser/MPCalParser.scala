@@ -82,7 +82,9 @@ trait MPCalParser extends PCalParser {
       ((("fair" ~> ws ~> "+" ^^^ PCalFairness.StrongFair) | ("fair" ^^^ PCalFairness.WeakFair) | success(PCalFairness.Unfair)) ~
         (ws ~> "process" ~> ws ~> "(" ~> pcalVarDeclBound <~ ws <~ ")") ~
         (ws ~> "==" ~> ws ~> "instance" ~> ws ~> tlaIdentifierExpr) ~
-        (ws ~> "(" ~> ws ~> repsep(mpcalParam ^^ (Left(_)) | tlaExpression ^^ (Right(_)), ws ~> "," ~> ws) <~ ws <~ ")")).flatMap {
+        (ws ~> "(" ~> ws ~> repsep(mpcalParamExpr ^^ { case TLAExtensionExpression(pExp: MPCalParamExpr) => Left(pExp) } |
+          tlaExpression ^^ (Right(_)), ws ~> "," ~> ws) <~ ws <~ ")")
+        ).flatMap {
         case fairness ~ nameDecl ~ target ~ arguments =>
           val namePosMapping = arguments.view.zipWithIndex.collect {
             case (Left(param), idx) => param.name.id -> idx
@@ -160,40 +162,36 @@ trait MPCalParser extends PCalParser {
       }
     }
 
+  def mpcalParamExpr(implicit ctx: PCalParserContext): Parser[TLAExpression] =
+    withSourceLocation {
+      querySourceLocation {
+        ("ref" ~> ws ~> tlaIdentifierExpr ~ (ws ~> mpcalRefSuffix) ^^ {
+          case id ~ mappingCount => (id, MPCalRefExpr(id, mappingCount))
+        } |
+          tlaIdentifierExpr ~ (ws ~> mpcalRefSuffix) ^^ {
+            case id ~ mappingCount => (id, MPCalValExpr(id, mappingCount))
+          })
+      }
+        .map {
+          case (loc, (id, ref)) =>
+            ref.setSourceLocation(loc)
+            ctx.ctx.lookupDefinition(List(Definition.ScopeIdentifierName(id))) match {
+              case None =>
+                if(ctx.ctx.lateBindingStack.nonEmpty) {
+                  ctx.ctx.lateBindingStack.head.getOrElseUpdate(id, mutable.ArrayBuffer()) += ref.setRefersTo
+                } else {
+                  throw DefinitionLookupError(Nil, Definition.ScopeIdentifierName(id))
+                }
+              case Some(defn) =>
+                ref.setRefersTo(defn)
+            }
+            ref
+          }.map(TLAExtensionExpression)
+    } | super.pcalCallParam
+
   def mpcalWithRefs(implicit ctx: MPCalParserContext): MPCalParser =
     new MPCalParser {
-      override def pcalCallParam(implicit ctx: PCalParserContext): Parser[TLAExpression] = {
-        withSourceLocation {
-          withSourceLocation {
-            ("ref" ~> ws ~> tlaIdentifierExpr ~ (ws ~> mpcalRefSuffix) ^^ {
-              case id ~ mappingCount => (id, MPCalRefExpr(id, mappingCount))
-            } |
-              tlaIdentifierExpr ~ (ws ~> mpcalRefSuffix) ^^ {
-                case id ~ mappingCount => (id, MPCalValExpr(id, mappingCount))
-              })
-              .map {
-                case (id, ref) =>
-                  ctx.ctx.lookupDefinition(List(Definition.ScopeIdentifierName(id))) match {
-                    case None =>
-                      if(ctx.ctx.lateBindingStack.nonEmpty) {
-                        ctx.ctx.lateBindingStack.head.getOrElseUpdate(id, mutable.ArrayBuffer()) += {
-                          case param: MPCalParam => ref.setRefersTo(param)
-                          case _ => throw KindMismatchError(ref.sourceLocation, d"expected procedure or archetype param reference")
-                        }
-                      } else {
-                        throw DefinitionLookupError(Nil, Definition.ScopeIdentifierName(id))
-                      }
-                    case Some(defn) =>
-                      defn match {
-                        case param: MPCalParam => ref.setRefersTo(param)
-                        case _ => throw KindMismatchError(ref.sourceLocation, d"expected procedure or archetype param reference")
-                      }
-                  }
-                  ref
-              }
-          }.map(TLAExtensionExpression)
-        } | super.pcalCallParam
-      }
+      override def pcalCallParam(implicit ctx: PCalParserContext): Parser[TLAExpression] = mpcalParamExpr
     }
 
   def mpcalBlock(implicit ctx: MPCalParserContext): Parser[MPCalBlock] =
@@ -248,7 +246,11 @@ trait MPCalParser extends PCalParser {
           // like this, even if it's fake, all the parts have a refersTo, and the auto-renaming at least "thinks" it's working correctly
           result = result.rewrite() {
             case call @PCalCall(target, args) if mpcalProcedureMap.contains(target) =>
-              PCalExtensionStatement(MPCalCall(target, args)
+              val transformedArgs = args.map {
+                case TLAExtensionExpression(pExp: MPCalParamExpr) => Left(pExp)
+                case expr => Right(expr)
+              }
+              PCalExtensionStatement(MPCalCall(target, transformedArgs)
                 .setSourceLocation(call.sourceLocation)
                 .setRefersTo(mpcalProcedureMap(target))).setSourceLocation(call.sourceLocation)
           }
@@ -276,6 +278,11 @@ object MPCalParser extends MPCalParser with ParsingUtils {
     val result = checkResult(phrase(findInComment("mpcal", mpcalBlock))(buildReader(charSeq, underlying)))
     result.visit(Visitable.BottomUpFirstStrategy) {
       case loc: SourceLocatable => assert(loc.sourceLocation.isInstanceOf[SourceLocationWithUnderlying], s"internal error: did not have source location: $loc")
+    }
+    // ensure no dandling ref or [_] are left in random expressions
+    result.visit(Visitable.BottomUpFirstStrategy) {
+      case TLAExtensionExpression(pExp: MPCalParamExpr) =>
+        assert(false, s"ref or [_] found in wrong expression context: these syntaxes may only be used directly as arguments to an MPCal procedure call: ${pExp.sourceLocation}")
     }
     result
   }

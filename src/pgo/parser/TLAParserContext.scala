@@ -8,7 +8,8 @@ import scala.collection.mutable
 
 final case class TLAParserContext(minColumn: Int = -1,
                                   lateBindingStack: List[mutable.Map[TLAIdentifier,mutable.Buffer[DefinitionOne=>Unit]]] = Nil,
-                                  currentScope: Map[Definition.ScopeIdentifier,DefinitionOne] = Map.empty) {
+                                  currentScope: Map[Definition.ScopeIdentifier,DefinitionOne] = Map.empty,
+                                  functionSubstitutionPairAnchor: Option[TLAFunctionSubstitutionPairAnchor] = None) {
   def withMinColumn(minColumn: Int): TLAParserContext =
     copy(minColumn=minColumn)
 
@@ -18,6 +19,9 @@ final case class TLAParserContext(minColumn: Int = -1,
         copy(currentScope=currentScope.updated(defn.identifier, defn))
       case defn: DefinitionComposite => defn.singleDefinitions.foldLeft(this)(_.withDefinition(_))
     }
+
+  def withFunctionSubstitutionPairAnchor(anchor: TLAFunctionSubstitutionPairAnchor): TLAParserContext =
+    copy(functionSubstitutionPairAnchor = Some(anchor))
 
   def withLateBinding: TLAParserContext =
     copy(lateBindingStack=mutable.Map.empty[TLAIdentifier,mutable.Buffer[DefinitionOne=>Unit]] :: lateBindingStack)

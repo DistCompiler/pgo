@@ -46,5 +46,8 @@ final case class ArchetypeArityMismatchError(loc: SourceLocation, archetype: MPC
 final case class KindMismatchError(loc: SourceLocation, explanation: Description) extends ParsingError(
   loc, d"kind mismatch: $explanation")
 
+final case class FunctionSubstitutionAtError(loc: SourceLocation) extends ParsingError(
+  loc, d"function substitution anchor (the @ expression) found outside EXCEPT expression")
+
 final case class ParseFailureError(err: String, loc: SourceLocation) extends ParsingError(
   loc, d"parsing failed: $err")

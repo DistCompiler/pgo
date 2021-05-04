@@ -59,6 +59,7 @@ object BuiltinModules {
     symOp(TLASymbol.EqualsSymbol)
     symOp(TLASymbol.NotEqualsSymbol)
     symOp(TLASymbol.InSymbol)
+    symOp(TLASymbol.NotInSymbol)
     symOp(TLASymbol.IntersectSymbol)
     symOp(TLASymbol.UnionSymbol)
     symOp(TLASymbol.SubsetOrEqualSymbol)

@@ -19,7 +19,10 @@ object MPCalNormalizePass {
       MPCalPassUtils.expandMacroCalls(body, lexicalScope)
     }
     // remove the now-expanded macros
-    block = block.decorateLike(block.copy(macros = Nil))
+    locally {
+      val stableBlock = block // hax because decorateLike incorrectly uses this.type
+      block = stableBlock.decorateLike(stableBlock.copy(macros = Nil).asInstanceOf[stableBlock.type])
+    }
 
     // normalise label nesting, so all labels appear at the top level.
     // retain control flow by injecting synthetic gotos at label boundaries that use fall-through

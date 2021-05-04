@@ -71,7 +71,7 @@ final case class PCalEither(cases: List[List[PCalStatement]]) extends PCalStatem
   require(cases.nonEmpty, s"either must have at least one case")
 }
 
-// target is a string, because it would be much to hard to integrate gotos (which can reference any local label) into RefersTo
+// target is a string, because it would be much too hard to integrate gotos (which can reference any local label) into RefersTo
 final case class PCalGoto(target: String) extends PCalStatement
 
 final case class PCalIf(condition: TLAExpression, yes: List[PCalStatement], no: List[PCalStatement]) extends PCalStatement

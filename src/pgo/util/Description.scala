@@ -108,6 +108,15 @@ object Description {
   implicit class IterableFlattenDescriptions(val descList: Iterable[Description]) extends AnyVal {
     def flattenDescriptions: Description =
       new Description(descList.view.flatMap(_.parts))
+
+    def separateBy(desc: Description): Description =
+      new Description(View.fromIteratorProvider { () =>
+        var first = true
+        descList.iterator.flatMap(elem => if(first) {
+          first = false
+          elem.parts.iterator
+        } else desc.parts.iterator ++ elem.parts.iterator)
+      })
   }
 
   implicit class StringToDescription(val str: String) extends AnyVal {

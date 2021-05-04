@@ -59,6 +59,16 @@ object TLASymbol {
       precedenceLow
     }
 
+    /**
+     * A canonical string to represent this symbol at definition site
+     */
+    def stringReprDefn: String = representations.head
+
+    /**
+     * A canonical string to represent this symbol when referenced in an expression
+     */
+    def stringReprUsage: String = representations.head
+
     def precedenceLow: Int =
       TLAMeta.prefixOperators.get(representations.head).map(_._1)
         .orElse(TLAMeta.infixOperators.get(representations.head).map(_._1))
@@ -81,7 +91,9 @@ object TLASymbol {
   case object PrefixUnionSymbol extends Symbol("UNION")
   case object TLEventuallySymbol extends Symbol("<>")
   case object TLAlwaysSymbol extends Symbol("[]")
-  case object NegationSymbol extends Symbol("-_")
+  case object NegationSymbol extends Symbol("-_") {
+    override def stringReprUsage: String = "-"
+  }
 
   // infix
   case object DoubleExclamationSymbol extends Symbol("!!")
@@ -340,11 +352,7 @@ final case class TLAGeneralIdentifier(name: TLAIdentifier, prefix: List[TLAGener
 
 final case class TLADot(lhs: TLAExpression, identifier: TLAIdentifier) extends TLAExpression
 
-final case class TLAUnary(operation: TLASymbol, prefix: List[TLAGeneralIdentifierPart], operand: TLAExpression) extends TLAExpression with RefersTo[DefinitionOne]
-
 final case class TLAOperatorCall(name: Definition.ScopeIdentifier, prefix: List[TLAGeneralIdentifierPart], arguments: List[TLAExpression]) extends TLAExpression with RefersTo[DefinitionOne]
-
-final case class TLABinOp(operation: TLASymbol, prefix: List[TLAGeneralIdentifierPart], lhs: TLAExpression, rhs: TLAExpression) extends TLAExpression with RefersTo[DefinitionOne]
 
 final case class TLAIf(cond: TLAExpression, tval: TLAExpression, fval: TLAExpression) extends TLAExpression
 
@@ -374,9 +382,13 @@ final case class TLAFunctionSet(from: TLAExpression, to: TLAExpression) extends 
 
 final case class TLAFunctionSubstitution(source: TLAExpression, substitutions: List[TLAFunctionSubstitutionPair]) extends TLAExpression
 
-final case class TLAFunctionSubstitutionPair(keys: List[TLAFunctionSubstitutionKey], value: TLAExpression) extends TLANode
+final case class TLAFunctionSubstitutionPair(anchor: TLAFunctionSubstitutionPairAnchor, keys: List[TLAFunctionSubstitutionKey], value: TLAExpression) extends TLANode
 
 final case class TLAFunctionSubstitutionKey(indices: List[TLAExpression]) extends TLANode
+
+final case class TLAFunctionSubstitutionPairAnchor() extends TLANode with RefersTo.HasReferences
+
+final case class TLAFunctionSubstitutionAt() extends TLAExpression with RefersTo[TLAFunctionSubstitutionPairAnchor]
 
 trait TLAQuantified {
   def bounds: List[TLAQuantifierBound]

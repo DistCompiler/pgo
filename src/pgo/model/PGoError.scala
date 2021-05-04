@@ -2,9 +2,13 @@ package pgo.model
 
 import pgo.util.Description
 
+import Description._
+
 abstract class PGoError extends RuntimeException {
   override def getMessage: String =
-    errors.view.map(err => err.description.ensureLineBreakBefore)
+    errors.view.map { err =>
+      d"${err.description} at ${err.sourceLocation.longDescription}".ensureLineBreakBefore
+    }
       .flattenDescriptions
       .linesIterator
       .mkString("\n")
