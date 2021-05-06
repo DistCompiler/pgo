@@ -41,7 +41,7 @@ CONSTANTS BUFFER_SIZE, NUM_CONSUMERS, PRODUCER
   }
 
   (* consumer: Processes one element read from the network at a time, infinitely *)
-  archetype AConsumer(ref net, ref proc) {
+  archetype AConsumer(ref net[_], ref proc) {
       c: while (TRUE) {
           (* request more data to the producer by sending your own identifier
              over the network *)
@@ -53,7 +53,7 @@ CONSTANTS BUFFER_SIZE, NUM_CONSUMERS, PRODUCER
       }
   }
 
-  archetype AProducer(ref net, s)
+  archetype AProducer(ref net[_], ref s)
   variable requester; {
       p: while (TRUE) {
           (* wait for a consumer to request data *)
@@ -68,9 +68,9 @@ CONSTANTS BUFFER_SIZE, NUM_CONSUMERS, PRODUCER
             processor = 0,
             stream = 0;
 
-  fair process (Consumer \in 1..NUM_CONSUMERS) == instance AConsumer(ref network, ref processor)
+  fair process (Consumer \in 1..NUM_CONSUMERS) == instance AConsumer(ref network[_], ref processor)
       mapping network[_] via TCPChannel;
-  fair process (Producer \in {PRODUCER}) == instance AProducer(ref network, stream)
+  fair process (Producer \in {PRODUCER}) == instance AProducer(ref network[_], ref stream)
       mapping network[_] via TCPChannel
       mapping stream via CyclicReads;
 }

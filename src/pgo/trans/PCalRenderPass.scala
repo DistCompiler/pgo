@@ -208,6 +208,8 @@ object PCalRenderPass {
       case TLAOperatorDefinition(name, args, body, isLocal) =>
         d"${if(isLocal && !ignoreLocal) d"LOCAL " else d""}${
           name match {
+            case Definition.ScopeIdentifierName(name) if args.isEmpty =>
+              d"${name.id} == ${describeExpr(body)}"
             case Definition.ScopeIdentifierName(name) =>
               d"${name.id}(${args.view.map(describeOpDecl).separateBy(d", ")}) == ${describeExpr(body)}"
             case Definition.ScopeIdentifierSymbol(symbol) =>
@@ -254,6 +256,8 @@ object PCalRenderPass {
               d"${describeLhs(lhs)}[${projections.view.map(describeExpr).separateBy(d", ")}]"
             case PCalAssignmentLhsExtension(MPCalDollarVariable()) =>
               d"$$variable"
+            case PCalAssignmentLhsExtension(contents) =>
+              d"?? ${contents.toString} ??"
           }
 
         pairs.view.map {
@@ -390,7 +394,7 @@ object PCalRenderPass {
                   case PCalFairness.WeakFair => d"fair "
                   case PCalFairness.StrongFair => d"fair+ "
                 }
-              } process (${describeVarDecl(selfDecl)})${
+              }process (${describeVarDecl(selfDecl)})${
                 if(variables.nonEmpty) {
                   d"\nvariables${
                     variables.view.map { decl =>
@@ -401,7 +405,7 @@ object PCalRenderPass {
               }\n{\n${
                 describeStatements(body).indented
               }\n}"
-          }.flattenDescriptions
+          }.flattenDescriptions.indented
       }
     }\n}"
   }

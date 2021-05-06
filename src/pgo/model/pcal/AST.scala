@@ -4,7 +4,7 @@ import pgo.model.{Definition, DefinitionOne, RefersTo, Rewritable, SourceLocatab
 import pgo.model.tla._
 
 
-sealed abstract class PCalNode extends Rewritable with Visitable with SourceLocatable {
+sealed abstract class PCalNode extends Rewritable with SourceLocatable {
   override def decorateLike(succ: this.type): this.type =
     super.decorateLike(succ.setSourceLocation(sourceLocation))
 }
@@ -61,7 +61,9 @@ final case class PCalAssignmentPair(lhs: PCalAssignmentLhs, rhs: TLAExpression) 
 sealed abstract class PCalAssignmentLhs extends PCalNode
 final case class PCalAssignmentLhsIdentifier(identifier: TLAIdentifier) extends PCalAssignmentLhs with RefersTo[DefinitionOne]
 final case class PCalAssignmentLhsProjection(lhs: PCalAssignmentLhs, projections: List[TLAExpression]) extends PCalAssignmentLhs
-final case class PCalAssignmentLhsExtension(contents: Any) extends PCalAssignmentLhs
+final case class PCalAssignmentLhsExtension(contents: Any) extends PCalAssignmentLhs {
+  assert(!contents.isInstanceOf[TLAGeneralIdentifier])
+}
 
 final case class PCalAwait(condition: TLAExpression) extends PCalStatement
 

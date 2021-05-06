@@ -25,6 +25,7 @@ class NameCleaner {
       hintCounterAcc(hint) = currSuffix + 1
       currName
     } else {
+      namesSeen += hint
       hint
     }
   }

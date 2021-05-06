@@ -5,7 +5,7 @@ import pgo.model.{Definition, DefinitionComposite, DefinitionOne, RefersTo, Rewr
 import scala.collection.View
 
 
-sealed abstract class TLANode extends Rewritable with Visitable with SourceLocatable {
+sealed abstract class TLANode extends Rewritable with SourceLocatable {
   override def decorateLike(succ: this.type): this.type =
     super.decorateLike(succ.setSourceLocation(sourceLocation))
 }

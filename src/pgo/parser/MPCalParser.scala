@@ -82,8 +82,10 @@ trait MPCalParser extends PCalParser {
       ((("fair" ~> ws ~> "+" ^^^ PCalFairness.StrongFair) | ("fair" ^^^ PCalFairness.WeakFair) | success(PCalFairness.Unfair)) ~
         (ws ~> "process" ~> ws ~> "(" ~> pcalVarDeclBound <~ ws <~ ")") ~
         (ws ~> "==" ~> ws ~> "instance" ~> ws ~> tlaIdentifierExpr) ~
-        (ws ~> "(" ~> ws ~> repsep(mpcalParamExpr ^^ { case TLAExtensionExpression(pExp: MPCalParamExpr) => Left(pExp) } |
-          tlaExpression ^^ (Right(_)), ws ~> "," ~> ws) <~ ws <~ ")")
+        (ws ~> "(" ~> ws ~> repsep(mpcalParamExpr ^^ {
+          case TLAExtensionExpression(pExp: MPCalParamExpr) => Left(pExp)
+          case expr: TLAExpression => Right(expr)
+        }, ws ~> "," ~> ws) <~ ws <~ ")")
         ).flatMap {
         case fairness ~ nameDecl ~ target ~ arguments =>
           val namePosMapping = arguments.view.zipWithIndex.collect {
@@ -121,7 +123,8 @@ trait MPCalParser extends PCalParser {
       mpcalSpecialVariable | super.tlaExpressionNoOperators
 
     override def pcalLhsId(implicit ctx: PCalParserContext): Parser[PCalAssignmentLhs] =
-      withSourceLocation(mpcalSpecialVariable ^^ PCalAssignmentLhsExtension) | super.pcalLhsId
+      withSourceLocation(withSourceLocation("$variable" ^^ (_ => MPCalDollarVariable())) ^^ PCalAssignmentLhsExtension) |
+        super.pcalLhsId
 
     override val pcalCSyntax: PCalCSyntax = new PCalCSyntax {
       override def pcalUnlabeledStmt(implicit ctx: PCalParserContext): Parser[PCalStatement] =

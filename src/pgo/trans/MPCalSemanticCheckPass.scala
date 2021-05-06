@@ -233,7 +233,7 @@ object MPCalSemanticCheckPass {
                   lhs match {
                     case PCalAssignmentLhsIdentifier(identifier) => identifier
                     case PCalAssignmentLhsProjection(lhs, _) => getId(lhs)
-                    case PCalAssignmentLhsExtension(TLAExtensionExpression(MPCalDollarVariable())) => TLAIdentifier("$variable") // hack to model special var
+                    case PCalAssignmentLhsExtension(MPCalDollarVariable()) => TLAIdentifier("$variable") // hack to model special var
                   }
 
                 val lhsId = getId(lhs)

@@ -104,7 +104,7 @@ object PGo {
             var pcalBeginFound = false
             var pcalEndFound = false
 
-            os.write(tempOutput, os.read.lines.stream(config.PCalGenCmd.specFile()).zipWithIndex.flatMap {
+            os.write.over(tempOutput, (os.read.lines.stream(config.PCalGenCmd.specFile()).zipWithIndex.flatMap {
               case (PCalBeginTranslation(), lineIdx) if !pcalBeginFound =>
                 assert(!pcalEndFound, s"at line ${lineIdx+1}, found PLUSCAL END TRANSLATION comment before PLUSCAL BEGIN TRANSLATION")
                 pcalBeginFound = true
@@ -119,7 +119,7 @@ object PGo {
               case (line, _) => Iterator(line)
             } ++ Generator.selfClosing {
               (if(!pcalBeginFound) renderedPCalIterator else Iterator.empty, () => ())
-            })
+            }).map(line => s"$line\n"))
           }
           // move the rendered output over the spec file, replacing it
           os.move(from = tempOutput, to = config.PCalGenCmd.specFile(), replaceExisting = true, atomicMove = true)

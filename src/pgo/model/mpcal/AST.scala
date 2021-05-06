@@ -4,7 +4,7 @@ import pgo.model.{Definition, DefinitionOne, RefersTo, Rewritable, SourceLocatab
 import pgo.model.tla._
 import pgo.model.pcal._
 
-sealed abstract class MPCalNode extends Rewritable with Visitable with SourceLocatable {
+sealed abstract class MPCalNode extends Rewritable with SourceLocatable {
   override def decorateLike(succ: this.type): this.type =
     super.decorateLike(succ.setSourceLocation(sourceLocation))
 }

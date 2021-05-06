@@ -1,5 +1,9 @@
 package pgo
 
+import com.github.difflib.{DiffUtils, UnifiedDiffUtils}
+
+import scala.jdk.CollectionConverters._
+
 class PCalGenFileTests extends FileTestSuite {
   override val testFiles: List[os.Path] = (os.list.stream(os.pwd / "test" / "files" / "pcalgen") ++
     os.list.stream(os.pwd / "test" / "files" / "semantics"))
@@ -12,7 +16,19 @@ class PCalGenFileTests extends FileTestSuite {
       val errors = PGo.run(Seq("pcalgen", "-s", tmpFile.toString()))
       checkErrors(errors, testFile)
       if(errors.isEmpty) {
-        // TODO: check PCal compilation
+        val expectedFile = testFile / os.up / s"${testFile.last}.expectpcal"
+        val expectedLines = if(os.exists(expectedFile)) os.read.lines(expectedFile) else IndexedSeq.empty
+        val actualLines = os.read.lines(tmpFile)
+
+        val patch = DiffUtils.diff(expectedLines.asJava, actualLines.asJava)
+        val diff = UnifiedDiffUtils.generateUnifiedDiff("expected", "actual", expectedLines.asJava, patch, 5)
+
+        withClue(diff.asScala.mkString("\n")) {
+          if(expectedLines != actualLines) {
+            os.write.over(testFile / os.up / s"${testFile.last}.outpcal", data = tmpFile.toSource)
+            fail(s"expected PCal codegen did not match actual")
+          }
+        }
       }
     }
   }

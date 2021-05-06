@@ -55,8 +55,8 @@ object MPCalNormalizePass {
             case (labeledStmts @PCalLabeledStatements(whileLabel, (whileStmt @PCalWhile(whileCondition, whileBody)) :: afterWhileStmts)) :: restBlocks =>
               val (whileBodyTrans, whileBodyBlocks) = impl(whileBody, Some(whileLabel), Iterator.empty, Iterator.empty)
               val (afterWhileTrans, afterWhileBlocks) = impl(afterWhileStmts, findLabelAfter(restBlocks, labelAfter), Iterator.empty, Iterator.empty)
-              val whileTrans = whileStmt.withChildren(Iterator(whileCondition, whileBodyTrans))
-              val labeledStmtsTrans = labeledStmts.withChildren(Iterator(whileLabel, whileTrans :: afterWhileTrans))
+              val whileTrans = PCalIf(whileCondition, whileBodyTrans, afterWhileTrans).setSourceLocation(whileStmt.sourceLocation)
+              val labeledStmtsTrans = labeledStmts.withChildren(Iterator(whileLabel, whileTrans :: Nil))
               transBlocks(restBlocks, labelAfter, blocksOut ++ Iterator.single(labeledStmtsTrans) ++ whileBodyBlocks ++ afterWhileBlocks)
             case (labeledStmts @PCalLabeledStatements(label, stmts)) :: restBlocks =>
               val (stmtsTrans, stmtsBlocks) = impl(stmts, findLabelAfter(restBlocks, labelAfter), Iterator.empty, Iterator.empty)
@@ -84,7 +84,6 @@ object MPCalNormalizePass {
             case stmt => (stmt, Iterator.empty)
           }
 
-        @tailrec
         def impl(stmts: List[PCalStatement], labelAfter: Option[PCalLabel], stmtsOut: Iterator[PCalStatement], blocksOut: Iterator[PCalLabeledStatements]): (List[PCalStatement],Iterator[PCalLabeledStatements]) = {
           object ContainsJump {
             def unapply(stmts: List[PCalStatement]): Option[(List[PCalStatement],List[PCalStatement])] =
@@ -109,9 +108,10 @@ object MPCalNormalizePass {
             case Nil =>
               val synthJump = labelAfter.map(label => PCalGoto(label.name).setSourceLocation(DerivedSourceLocation(label.sourceLocation, SourceLocationInternal, d"tail-call transformation")))
               ((stmtsOut ++ synthJump.iterator).toList, blocksOut)
-            case allBlocks @PCalLabeledStatements(_, _) :: _ =>
+            case allBlocks @PCalLabeledStatements(nextLabel, _) :: _ =>
               assert(allBlocks.forall(_.isInstanceOf[PCalLabeledStatements]))
-              (stmtsOut.toList, transBlocks(allBlocks.asInstanceOf[List[PCalLabeledStatements]], labelAfter, blocksOut))
+              val (resultStmts, _) = impl(Nil, Some(nextLabel), stmtsOut, Iterator.empty)
+              (resultStmts, transBlocks(allBlocks.asInstanceOf[List[PCalLabeledStatements]], labelAfter, blocksOut))
             case ContainsJump(jumpStmts, restStmts) =>
               assert(restStmts.forall(_.isInstanceOf[PCalLabeledStatements]))
               val jumpTrans = jumpStmts.map(transStmt(_, findLabelAfter(restStmts, labelAfter)))
@@ -135,19 +135,27 @@ object MPCalNormalizePass {
       }
     }
 
-    // desugar while loops into ifs and gotos
+    /*// desugar while loops into ifs and gotos
     // note: the statements after the while go inside the _else branch_, as evidenced by a label not being needed
     //       after a label-containing while statement (if it were equivalent to an if with statements after it, a label would be needed)
     block = block.rewrite(Rewritable.BottomUpOnceStrategy) {
       case labeledStmts @PCalLabeledStatements(label, (whileStmt @PCalWhile(condition, body)) :: restStmts) =>
+        def pushDownGoto(goto: PCalStatement, stmts: List[PCalStatement]): List[PCalStatement] =
+          stmts match {
+            case Nil => goto :: Nil
+            case (labeled@PCalLabeledStatements(label, stmts)) :: Nil =>
+              labeled.withChildren(Iterator(label, pushDownGoto(goto, stmts))) :: Nil
+            case hd :: tl => hd :: pushDownGoto(goto, tl)
+          }
+
         PCalLabeledStatements(
           label,
           List(PCalIf(
             condition,
-            body :+ PCalGoto(label.name).setSourceLocation(whileStmt.sourceLocation.derivedVia(d"while statement desugaring")),
+            pushDownGoto(PCalGoto(label.name).setSourceLocation(whileStmt.sourceLocation.derivedVia(d"while statement desugaring")), body),
             restStmts).setSourceLocation(whileStmt.sourceLocation.derivedVia(d"while statement desugaring")))
         ).setSourceLocation(labeledStmts.sourceLocation)
-    }
+    }*/
 
     // needed below: gather all names, to generate synthetic ones for multiple assignment temp vars
     val nameCleaner = new NameCleaner

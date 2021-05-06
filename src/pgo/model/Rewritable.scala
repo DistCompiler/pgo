@@ -5,7 +5,7 @@ import pgo.util.IdMap
 import java.lang.reflect.Constructor
 import scala.annotation.tailrec
 
-trait Rewritable {
+trait Rewritable extends Visitable {
   import Rewritable._
 
   def productIterator: Iterator[Any]
@@ -19,7 +19,7 @@ trait Rewritable {
   def namedParts: Iterator[RefersTo.HasReferences] = {
     def gatherOtherwise(subject: Any): Iterator[RefersTo.HasReferences] =
       subject match {
-        case _: Rewritable => Iterator.empty
+        case subject: Rewritable if subject ne this => Iterator.empty
         case map: Map[_, _] => map.valuesIterator.flatMap(gather)
         case iterable: Iterable[_] => iterable.iterator.flatMap(gather)
         case product: Product => product.productIterator.flatMap(gather)
