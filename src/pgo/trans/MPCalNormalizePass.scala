@@ -119,16 +119,17 @@ object MPCalNormalizePass {
             case stmt :: restStmts =>
               val (stmtTrans, stmtBlocks) = transStmt(stmt, findLabelAfter(restStmts, labelAfter))
               // if:
-              //   1. restStmts is empty
+              //   1. restStmts is empty, or labeled
               //   2. stmt had sub-statements (proxy: the translation was one of the compound expressions we don't desugar), and we had a labelAfter
-              // then stmt will have our final gotos embedded into it, so we should _not_ add our own
-              // otherwise, we should keep looking for places to add synthetic gotos
-              val effectiveLabelAfter =
-                stmtTrans match {
-                  case PCalEither(_) | PCalIf(_, _, _) | PCalWith(_, _) if restStmts.isEmpty => None
-                  case _ => labelAfter
-                }
-              impl(restStmts, effectiveLabelAfter, stmtsOut ++ Iterator.single(stmtTrans), blocksOut ++ stmtBlocks)
+              // then stmt will have our final gotos embedded into it, so we should _not_ add our own (which is what will happen if we just recurse on restStmts)
+              // otherwise, we recurse normally, and will keep looking for places to add synthetic gotos
+              stmtTrans match {
+                case PCalEither(_) | PCalIf(_, _, _) | PCalWith(_, _) if restStmts.isEmpty || restStmts.head.isInstanceOf[PCalLabeledStatements] =>
+                  assert(restStmts.forall(_.isInstanceOf[PCalLabeledStatements]))
+                  ((stmtsOut ++ Iterator.single(stmtTrans)).toList, transBlocks(restStmts.asInstanceOf[List[PCalLabeledStatements]], labelAfter, blocksOut))
+                case _ =>
+                  impl(restStmts, labelAfter, stmtsOut ++ Iterator.single(stmtTrans), blocksOut ++ stmtBlocks)
+              }
           }
         }
 

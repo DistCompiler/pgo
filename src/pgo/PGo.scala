@@ -2,13 +2,13 @@ package pgo
 
 import geny.Generator
 import org.rogach.scallop
-import org.rogach.scallop.{ScallopConf, Subcommand}
+import org.rogach.scallop.{ScallopConf, ScallopOption, Subcommand, ValueConverter}
+import os.Path
 import pgo.model.{PGoError, SourceLocation}
 import pgo.model.mpcal.MPCalBlock
 import pgo.model.tla.TLAModule
 import pgo.parser.{MPCalParser, TLAParser}
 import pgo.trans.{MPCalGoCodegenPass, MPCalNormalizePass, MPCalPCalCodegenPass, MPCalSemanticCheckPass, PCalRenderPass}
-
 import pgo.util.Description._
 
 import java.io.RandomAccessFile
@@ -17,12 +17,12 @@ import java.nio.charset.StandardCharsets
 import scala.util.Using
 
 object PGo {
-  implicit val pathConverter = scallop.singleArgConverter(os.Path(_, os.pwd))
+  implicit val pathConverter: ValueConverter[Path] = scallop.singleArgConverter(os.Path(_, os.pwd))
 
   class Config(arguments: Seq[String]) extends ScallopConf(arguments) {
     banner("PGo compiler")
     trait Cmd { self: ScallopConf =>
-      val specFile = opt[os.Path](required = true)
+      val specFile: ScallopOption[Path] = opt[os.Path](required = true)
       addValidation {
         if(os.exists(specFile())) {
           Right(())
@@ -32,8 +32,8 @@ object PGo {
       }
     }
     object GoGenCmd extends Subcommand("gogen") with Cmd {
-      val outFile = opt[os.Path](required = true)
-      val packageName = opt[String](required = false)
+      val outFile: ScallopOption[Path] = opt[os.Path](required = true)
+      val packageName: ScallopOption[String] = opt[String](required = false)
     }
     addSubcommand(GoGenCmd)
     object PCalGenCmd extends Subcommand("pcalgen") with Cmd {
@@ -94,8 +94,8 @@ object PGo {
 
           val tempOutput = os.temp.apply(dir = os.pwd)
           locally {
-            val PCalBeginTranslation = raw"""\\*\s+BEGIN\s+PLUSCAL\s+TRANSLATION""".r
-            val PCalEndTranslation = raw"""\\*\s+END\s+PLUSCAL\s+TRANSLATION""".r
+            val PCalBeginTranslation = raw"""\s*\\\*\s+BEGIN\s+PLUSCAL\s+TRANSLATION""".r
+            val PCalEndTranslation = raw"""\s*\\\*\s+END\s+PLUSCAL\s+TRANSLATION""".r
 
             val renderedPCalIterator = Iterator("", "", "\\* BEGIN PLUSCAL TRANSLATION") ++
               renderedPCal.linesIterator ++
@@ -104,7 +104,7 @@ object PGo {
             var pcalBeginFound = false
             var pcalEndFound = false
 
-            os.write.over(tempOutput, (os.read.lines.stream(config.PCalGenCmd.specFile()).zipWithIndex.flatMap {
+            os.write.over(tempOutput, os.read.lines.stream(config.PCalGenCmd.specFile()).zipWithIndex.flatMap {
               case (PCalBeginTranslation(), lineIdx) if !pcalBeginFound =>
                 assert(!pcalEndFound, s"at line ${lineIdx+1}, found PLUSCAL END TRANSLATION comment before PLUSCAL BEGIN TRANSLATION")
                 pcalBeginFound = true
@@ -117,9 +117,11 @@ object PGo {
                 // skip all lines between begin and end of translation
                 Generator()
               case (line, _) => Iterator(line)
-            } ++ Generator.selfClosing {
-              (if(!pcalBeginFound) renderedPCalIterator else Iterator.empty, () => ())
-            }).map(line => s"$line\n"))
+            }.map(line => s"$line\n"))
+
+            assert(pcalBeginFound && pcalEndFound,
+              s"""one or both of "\\* PLUSCAL BEGIN TRANSLATION" and "\\* PLUSCAL END TRANSLATION" not found;
+                 |add these tags so that PGo knows where to put its generated PlusCal""".stripMargin)
           }
           // move the rendered output over the spec file, replacing it
           os.move(from = tempOutput, to = config.PCalGenCmd.specFile(), replaceExisting = true, atomicMove = true)
