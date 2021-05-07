@@ -1,13 +1,14 @@
 package pgo.trans
 
-import pgo.model.{Definition, DefinitionOne, PGoError, RefersTo, Rewritable, SourceLocation, Visitable}
+import pgo.model.{Definition, DefinitionOne, PGoError, RefersTo, Rewritable, Visitable}
 import pgo.model.mpcal._
 import pgo.model.pcal._
 import pgo.model.tla._
-import pgo.util.{IdMap, IdSet, NameCleaner}
+import pgo.util.Unreachable.!!!
+import pgo.util.{IdMap, NameCleaner}
 
 import scala.annotation.tailrec
-import scala.collection.{immutable, mutable}
+import scala.collection.mutable
 
 object MPCalPCalCodegenPass {
   @throws[PGoError]
@@ -51,38 +52,39 @@ object MPCalPCalCodegenPass {
           unapplyImpl(expr, mappingCount = 0)
       }
 
-      def updateStmt(stmt: PCalStatement)(implicit mappingsMap: IdMap[DefinitionOne,(Int,MPCalMappingMacro)], substitutions: IdMap[RefersTo.HasReferences,DefinitionOne]): PCalStatement = {
-        var stmtSink: PCalStatement => PCalStatement = identity
+      def updateStmt(stmt: PCalStatement)(implicit mappingsMap: IdMap[DefinitionOne,(Int,MPCalMappingMacro)], substitutions: IdMap[RefersTo.HasReferences,DefinitionOne]): List[PCalStatement] = {
+        var stmtSink: List[PCalStatement] => List[PCalStatement] = identity
 
         def updateReads[E <: Rewritable](expr: E, skipMappings: Boolean = false): E =
           expr.rewrite(Rewritable.TopDownFirstStrategy) {
             case expr@MappedRead(mappingCount, ident) if !skipMappings && mappingsMap.get(ident.refersTo).exists(_._1 == mappingCount) =>
               val (_, mapping) = mappingsMap(ident.refersTo)
-              val mappedBind = PCalVariableDeclarationValue(TLAIdentifier(nameCleaner.cleanName("value")), updateReads(expr, skipMappings = true))
+              val translatedExpr = updateReads(expr, skipMappings = true)
+              def translateLhs(expr: TLAExpression): PCalAssignmentLhs =
+                expr match {
+                  case expr@TLAGeneralIdentifier(name, Nil) => PCalAssignmentLhsIdentifier(name).setRefersTo(expr.refersTo)
+                  case TLAFunctionCall(fn, arguments) => PCalAssignmentLhsProjection(translateLhs(fn), arguments)
+                }
+
+              val translatedLhs = translateLhs(translatedExpr)
+
               val placeholder = PCalVariableDeclarationValue(TLAIdentifier("THIS_IS_A_BUG"), TLAString("THIS IS A BUG"))
 
-              stmtSink = { innerStmt =>
-                stmtSink {
-                  PCalWith(List(mappedBind),
-                    mapping.readBody.mapConserve(_.rewrite(Rewritable.BottomUpOnceStrategy) {
-                      case PCalAssignmentLhsExtension(MPCalDollarVariable()) =>
-                        val sub = substitutions(ident.refersTo)
-                        PCalAssignmentLhsIdentifier(sub.identifier.asInstanceOf[Definition.ScopeIdentifierName].name)
-                          .setRefersTo(sub)
-                      case TLAExtensionExpression(MPCalDollarVariable()) =>
-                        val sub = substitutions(ident.refersTo)
-                        TLAGeneralIdentifier(sub.identifier.asInstanceOf[Definition.ScopeIdentifierName].name, Nil)
-                          .setRefersTo(sub)
-                      case PCalExtensionStatement(MPCalYield(valExpr)) =>
-                        val yieldedBind = PCalVariableDeclarationValue(TLAIdentifier(nameCleaner.cleanName("yielded")), valExpr)
-                        PCalWith(List(yieldedBind), List(
-                          innerStmt.rewrite(Rewritable.BottomUpOnceStrategy) {
-                            case ident: TLAGeneralIdentifier if ident.refersTo eq placeholder =>
-                              TLAGeneralIdentifier(yieldedBind.name, Nil).setRefersTo(yieldedBind)
-                          }
-                        ))
-                    })
-                  )
+              val oldStmtSink = stmtSink
+              stmtSink = { innerStmts =>
+                oldStmtSink {
+                  mapping.readBody.mapConserve(_.rewrite(Rewritable.BottomUpOnceStrategy) {
+                    case PCalAssignmentLhsExtension(MPCalDollarVariable()) => translatedLhs
+                    case TLAExtensionExpression(MPCalDollarVariable()) => translatedExpr
+                    case PCalExtensionStatement(MPCalYield(valExpr)) =>
+                      val yieldedBind = PCalVariableDeclarationValue(TLAIdentifier(nameCleaner.cleanName("yielded")), valExpr)
+                      PCalWith(List(yieldedBind),
+                        innerStmts.mapConserve(_.rewrite(Rewritable.BottomUpOnceStrategy) {
+                          case ident: TLAGeneralIdentifier if ident.refersTo eq placeholder =>
+                            TLAGeneralIdentifier(yieldedBind.name, Nil).setRefersTo(yieldedBind)
+                        })
+                      )
+                  })
                 }
               }
               TLAGeneralIdentifier(placeholder.name, Nil).setRefersTo(placeholder)
@@ -105,7 +107,9 @@ object MPCalPCalCodegenPass {
             def replaceRef(lhs: PCalAssignmentLhs): PCalAssignmentLhs =
               lhs match {
                 case ident: PCalAssignmentLhsIdentifier if substitutions.contains(ident.refersTo) =>
-                  ident.shallowCopy().setRefersTo(substitutions(ident.refersTo))
+                  val sub = substitutions(ident.refersTo)
+                  PCalAssignmentLhsIdentifier(sub.identifier.asInstanceOf[Definition.ScopeIdentifierName].name)
+                    .setRefersTo(sub)
                 case ident: PCalAssignmentLhsIdentifier => ident
                 case proj@PCalAssignmentLhsProjection(lhs, projections) =>
                   proj.withChildren(Iterator(replaceRef(lhs), projections))
@@ -168,22 +172,22 @@ object MPCalPCalCodegenPass {
             }.getOrElse(withReads)
           case stmt@PCalEither(cases) =>
             stmt.withChildren(Iterator(
-              cases.mapConserve(_.mapConserve(updateStmt))
+              cases.map(_.flatMap(updateStmt))
             ))
           case stmt@PCalIf(condition, yes, no) =>
             stmt.withChildren(Iterator(
               updateReads(condition),
-              yes.mapConserve(updateStmt),
-              no.mapConserve(updateStmt),
+              yes.flatMap(updateStmt),
+              no.flatMap(updateStmt),
             ))
           case stmt@PCalLabeledStatements(label, statements) =>
-            stmt.withChildren(Iterator(label, statements.mapConserve(updateStmt)))
-          case PCalMacroCall(_, _) => ???
-          case PCalWhile(_, _) => ???
+            stmt.withChildren(Iterator(label, statements.flatMap(updateStmt)))
+          case PCalMacroCall(_, _) => !!!
+          case PCalWhile(_, _) => !!!
           case stmt@PCalWith(variables, body) =>
             stmt.withChildren(Iterator(
               variables.mapConserve(updateReads(_)),
-              body.mapConserve(updateStmt),
+              body.flatMap(updateStmt),
             ))
           case PCalExtensionStatement(MPCalCall(target, arguments)) =>
             ??? // TODO: correctly handle refs, that is, ensure that the mpcal procedure is instantiated correctly,
@@ -191,7 +195,7 @@ object MPCalPCalCodegenPass {
           // (substitutions will remove refs/function mappings, by design, but also breaking procedure signatures)
           case stmt => updateReads(stmt)
         }
-        stmtSink(unwrappedStmt)
+        stmtSink(List(unwrappedStmt))
       }
 
       // TODO: single-process MPCal
@@ -209,7 +213,7 @@ object MPCalPCalCodegenPass {
             case Left(arg @MPCalRefExpr(_, _)) -> param =>
               substitutionsBuilder += param -> arg.refersTo
             case Left(arg @MPCalValExpr(_, _)) -> param =>
-              variables += PCalVariableDeclarationValue(param.name, TLAGeneralIdentifier(arg.name, Nil))
+              variables += PCalVariableDeclarationValue(param.name, TLAGeneralIdentifier(arg.name, Nil).setRefersTo(arg.refersTo))
               substitutionsBuilder += param -> variables.last
             case Right(expr) -> param =>
               variables += PCalVariableDeclarationValue(param.name, expr)
@@ -225,20 +229,21 @@ object MPCalPCalCodegenPass {
 
           generatedPCalProcesses += PCalProcess(
             selfDecl, fairness, variables.result(),
-            archetype.body.mapConserve(updateStmt(_)(substitutions = substitutions, mappingsMap = mappingsMap))
+            archetype.body.flatMap(updateStmt(_)(substitutions = substitutions, mappingsMap = mappingsMap))
           ).setSourceLocation(instance.sourceLocation)
 
           instance // return the instance unchanged; we got what we came for
         case proc@PCalProcess(selfDecl, fairness, variables, body) =>
           proc.withChildren(Iterator(selfDecl, fairness, variables,
-            body.mapConserve(updateStmt(_)(substitutions = IdMap.empty, mappingsMap = IdMap.empty))))
+            body.flatMap(updateStmt(_)(substitutions = IdMap.empty, mappingsMap = IdMap.empty))))
         case proc@PCalProcedure(name, params, variables, body) =>
           proc.withChildren(Iterator(name, params, variables,
-            body.mapConserve(updateStmt(_)(substitutions = IdMap.empty, mappingsMap = IdMap.empty))))
+            body.flatMap(updateStmt(_)(substitutions = IdMap.empty, mappingsMap = IdMap.empty))))
       }
 
       rewritten.copy(
         pcalProcedures = generatedPCalProcedures.result(),
+        mappingMacros = Nil,
         mpcalProcedures = Nil,
         instances = Nil,
         processes = rewritten.processes match {
@@ -249,8 +254,56 @@ object MPCalPCalCodegenPass {
             Right(existingProcs ::: generatedPCalProcesses.result())
         })
     }
-    // expand archetypes + mapping macros (using list buffer accumulator for add'l stmts) + mpcal procedures
-    // ensure single assignment to each var
+
+    // desugar all non-trivial (e.g just to a name) assignments, using the TLA+ EXCEPT expression where appropriate
+    // rationale: this makes it a lot easier to repair any "multiple write within same label" issues induced by MPCal expansion
+    //            as plain assignments match with statement semantics, vs. just needing to do the same transformation in-line
+    //            with repairs anyway, which is more complicated
+    block = block.rewrite(Rewritable.BottomUpOnceStrategy) {
+      case PCalAssignment(List(PCalAssignmentPair(lhs, rhs))) =>
+        @tailrec
+        def findIdent(lhs: PCalAssignmentLhs): PCalAssignmentLhsIdentifier =
+          lhs match {
+            case lhs: PCalAssignmentLhsIdentifier => lhs
+            case PCalAssignmentLhsProjection(lhs, _) => findIdent(lhs)
+          }
+
+        @tailrec
+        def findSubstitutionKeys(lhs: PCalAssignmentLhs, keysAcc: mutable.ListBuffer[TLAFunctionSubstitutionKey]): List[TLAFunctionSubstitutionKey] =
+          lhs match {
+            case PCalAssignmentLhsIdentifier(_) => keysAcc.result()
+            case PCalAssignmentLhsProjection(lhs, projections) =>
+              keysAcc += TLAFunctionSubstitutionKey(projections)
+              findSubstitutionKeys(lhs, keysAcc)
+          }
+
+        val ident = findIdent(lhs)
+        val substitutionKeys = findSubstitutionKeys(lhs, mutable.ListBuffer.empty)
+        val wrappedRhs =
+          if(substitutionKeys.isEmpty) {
+            rhs
+          } else {
+            TLAFunctionSubstitution(
+              source = TLAGeneralIdentifier(ident.identifier, Nil).setRefersTo(ident.refersTo),
+              substitutions = List(TLAFunctionSubstitutionPair(
+                anchor = TLAFunctionSubstitutionPairAnchor(),
+                keys = substitutionKeys,
+                value = rhs))
+            )
+          }
+
+        PCalAssignment(List(PCalAssignmentPair(ident, wrappedRhs)))
+    }
+
+    // TODO: deduplicate repeat assignments within the same label, by lifting non-final assignments to with statements
+    /*block = locally {
+
+
+      block.rewrite(Rewritable.TopDownFirstStrategy) {
+        case PCalLabeledStatements(label, body) =>
+          ???
+      }
+    }*/
 
     PCalAlgorithm(
       name = block.name,

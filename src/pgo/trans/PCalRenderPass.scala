@@ -330,7 +330,7 @@ object PCalRenderPass {
     val header = fairness match {
       case PCalFairness.Unfair => d"--algorithm"
       case PCalFairness.WeakFair => d"--fair algorithm"
-      case PCalFairness.StrongFair => ???
+      case PCalFairness.StrongFair => d"--fair+ algorithm" // TODO: is this correct? we can't parse this
     }
 
     d"$header ${name.id} {${

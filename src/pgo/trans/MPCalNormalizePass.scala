@@ -6,6 +6,7 @@ import pgo.model.pcal._
 import pgo.model.tla._
 import pgo.util.{Description, IdMap, MPCalPassUtils, NameCleaner}
 import Description._
+import pgo.util.Unreachable.!!!
 
 import scala.annotation.tailrec
 
@@ -73,10 +74,8 @@ object MPCalNormalizePass {
               val (yesTrans, yesBlocks) = impl(yes, labelAfter, Iterator.empty, Iterator.empty)
               val (noTrans, noBlocks) = impl(no, labelAfter, Iterator.empty, Iterator.empty)
               (stmt.withChildren(Iterator(condition, yesTrans, noTrans)), yesBlocks ++ noBlocks)
-            case PCalLabeledStatements(label, statements) => ??? // should be inaccessible; handled via other cases
-            case stmt @PCalWhile(condition, body) =>
-              val (bodyTrans, bodyBlocks) = impl(body, labelAfter, Iterator.empty, Iterator.empty)
-              (stmt.withChildren(Iterator(condition, bodyTrans)), bodyBlocks)
+            case PCalLabeledStatements(_, _) => !!! // should be inaccessible; handled via other cases
+            case PCalWhile(_, _) => !!! // see above
             case stmt @PCalWith(variables, body) =>
               val (bodyTrans, bodyBlocks) = impl(body, labelAfter, Iterator.empty, Iterator.empty)
               assert(bodyBlocks.isEmpty)
@@ -119,7 +118,17 @@ object MPCalNormalizePass {
                 transBlocks(restStmts.asInstanceOf[List[PCalLabeledStatements]], labelAfter, blocksOut ++ jumpTrans.iterator.flatMap(_._2)))
             case stmt :: restStmts =>
               val (stmtTrans, stmtBlocks) = transStmt(stmt, findLabelAfter(restStmts, labelAfter))
-              impl(restStmts, labelAfter, stmtsOut ++ Iterator.single(stmtTrans), blocksOut ++ stmtBlocks)
+              // if:
+              //   1. restStmts is empty
+              //   2. stmt had sub-statements (proxy: the translation was one of the compound expressions we don't desugar), and we had a labelAfter
+              // then stmt will have our final gotos embedded into it, so we should _not_ add our own
+              // otherwise, we should keep looking for places to add synthetic gotos
+              val effectiveLabelAfter =
+                stmtTrans match {
+                  case PCalEither(_) | PCalIf(_, _, _) | PCalWith(_, _) if restStmts.isEmpty => None
+                  case _ => labelAfter
+                }
+              impl(restStmts, effectiveLabelAfter, stmtsOut ++ Iterator.single(stmtTrans), blocksOut ++ stmtBlocks)
           }
         }
 
@@ -134,28 +143,6 @@ object MPCalNormalizePass {
 
       }
     }
-
-    /*// desugar while loops into ifs and gotos
-    // note: the statements after the while go inside the _else branch_, as evidenced by a label not being needed
-    //       after a label-containing while statement (if it were equivalent to an if with statements after it, a label would be needed)
-    block = block.rewrite(Rewritable.BottomUpOnceStrategy) {
-      case labeledStmts @PCalLabeledStatements(label, (whileStmt @PCalWhile(condition, body)) :: restStmts) =>
-        def pushDownGoto(goto: PCalStatement, stmts: List[PCalStatement]): List[PCalStatement] =
-          stmts match {
-            case Nil => goto :: Nil
-            case (labeled@PCalLabeledStatements(label, stmts)) :: Nil =>
-              labeled.withChildren(Iterator(label, pushDownGoto(goto, stmts))) :: Nil
-            case hd :: tl => hd :: pushDownGoto(goto, tl)
-          }
-
-        PCalLabeledStatements(
-          label,
-          List(PCalIf(
-            condition,
-            pushDownGoto(PCalGoto(label.name).setSourceLocation(whileStmt.sourceLocation.derivedVia(d"while statement desugaring")), body),
-            restStmts).setSourceLocation(whileStmt.sourceLocation.derivedVia(d"while statement desugaring")))
-        ).setSourceLocation(labeledStmts.sourceLocation)
-    }*/
 
     // needed below: gather all names, to generate synthetic ones for multiple assignment temp vars
     val nameCleaner = new NameCleaner
