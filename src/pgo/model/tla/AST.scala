@@ -69,6 +69,8 @@ object TLASymbol {
      */
     def stringReprUsage: String = representations.head
 
+    def productPrefix: String
+
     def precedenceLow: Int =
       TLAMeta.prefixOperators.get(representations.head).map(_._1)
         .orElse(TLAMeta.infixOperators.get(representations.head).map(_._1))

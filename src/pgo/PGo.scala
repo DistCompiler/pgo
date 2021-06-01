@@ -82,17 +82,17 @@ object PGo {
           MPCalSemanticCheckPass(tlaModule, mpcalBlock)
           mpcalBlock = MPCalNormalizePass(tlaModule, mpcalBlock)
 
-          val goCode = MPCalGoCodegenPass(mpcalBlock, packageName = config.GoGenCmd.packageName.toOption)
-          os.write(config.GoGenCmd.outFile(), goCode.linesIterator)
+          val goCode = MPCalGoCodegenPass(tlaModule, mpcalBlock, packageName = config.GoGenCmd.packageName.toOption)
+          os.write.over(config.GoGenCmd.outFile(), goCode.linesIterator.map(line => s"$line\n"))
         case config.PCalGenCmd =>
           var (tlaModule, mpcalBlock) = parseMPCal(config.PCalGenCmd.specFile())
           MPCalSemanticCheckPass(tlaModule, mpcalBlock)
           mpcalBlock = MPCalNormalizePass(tlaModule, mpcalBlock)
 
-          val pcalAlgorithm = MPCalPCalCodegenPass(mpcalBlock)
+          val pcalAlgorithm = MPCalPCalCodegenPass(tlaModule, mpcalBlock)
           val renderedPCal = PCalRenderPass(pcalAlgorithm)
 
-          val tempOutput = os.temp.apply(dir = os.pwd)
+          val tempOutput = os.temp(dir = os.pwd)
           locally {
             val PCalBeginTranslation = raw"""\s*\\\*\s+BEGIN\s+PLUSCAL\s+TRANSLATION""".r
             val PCalEndTranslation = raw"""\s*\\\*\s+END\s+PLUSCAL\s+TRANSLATION""".r

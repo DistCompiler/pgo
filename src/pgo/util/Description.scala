@@ -10,7 +10,12 @@ private case object DescriptionDedentPart extends DescriptionPart
 private final case class DescriptionStringPart(str: String) extends DescriptionPart
 private final case class DescriptionEmbedPart(embed: Any) extends DescriptionPart
 
-final class Description private (private val parts: View[DescriptionPart]) {
+final class Description private (private val parts: View[DescriptionPart]) extends Description.Describable {
+  def +(other: Description): Description =
+    new Description(parts ++ other.parts)
+
+  override def description: Description = this
+
   def indented: Description =
     new Description(View(DescriptionIndentPart) ++ parts ++ View(DescriptionDedentPart))
 
@@ -105,6 +110,22 @@ object Description {
     partsBuffer.result().view
   }
 
+  abstract class Describable {
+    def description: Description
+  }
+
+  implicit class DescribableDescriptions(descriptions: Iterable[Description]) extends Describable {
+    override def description: Description = descriptions.flattenDescriptions
+  }
+
+  implicit class DescribableString(str: String) extends Describable {
+    override def description: Description = str.toDescription
+  }
+
+  implicit class DescribableNumber[T : Numeric](num: T) extends Describable {
+    override def description: Description = num.toString.toDescription
+  }
+
   implicit class IterableFlattenDescriptions(val descList: Iterable[Description]) extends AnyVal {
     def flattenDescriptions: Description =
       new Description(descList.view.flatMap(_.parts))
@@ -125,32 +146,28 @@ object Description {
   }
 
   implicit class DescriptionHelper(val ctx: StringContext) extends AnyVal {
-    private def mkDesc(parts: Seq[String], args: Seq[Any]): Description = {
+    private def mkDesc(args: Seq[Describable]): Description = {
       val parts = Description.stringToDescriptionParts(StringContext.processEscapes(ctx.parts.head)) ++
         (args.view zip ctx.parts.view.tail).flatMap {
           case (arg, part) =>
-            (arg match {
-              case arg: Description => arg.parts
-              case str: String => Description.stringToDescriptionParts(str)
-              case any => View(DescriptionEmbedPart(any))
-            }) ++ Description.stringToDescriptionParts(StringContext.processEscapes(part))
+            arg.description.parts ++ Description.stringToDescriptionParts(StringContext.processEscapes(part))
         }
       new Description(parts)
     }
 
-    def d(args: Any*): Description = mkDesc(ctx.parts, args)
+    def d(args: Describable*): Description = mkDesc(args)
 
-    def dd(args: Any*): Description = {
-      var foundPipe = false
-      val mappedParts = ctx.parts.map { part =>
-        StringContext.processEscapes(part).flatMap {
-          case '\n' => foundPipe = false; "\n"
-          case _ if !foundPipe => ""
-          case '|' => foundPipe = true; ""
-          case ch => ch.toString
-        }
-      }
-      mkDesc(mappedParts, args)
-    }
+//    def dd(args: Any*): Description = {
+//      var foundPipe = false
+//      val mappedParts = ctx.parts.map { part =>
+//        StringContext.processEscapes(part).flatMap {
+//          case '\n' => foundPipe = false; "\n"
+//          case _ if !foundPipe => ""
+//          case '|' => foundPipe = true; ""
+//          case ch => ch.toString
+//        }
+//      }
+//      mkDesc(mappedParts, args)
+//    }
   }
 }

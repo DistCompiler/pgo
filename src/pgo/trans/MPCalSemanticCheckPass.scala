@@ -1,11 +1,10 @@
 package pgo.trans
 
-import pgo.model.{DefinitionOne, PGoError, SourceLocatable, SourceLocation, Visitable}
+import pgo.model.{DefinitionOne, PGoError, RefersTo, SourceLocatable, SourceLocation, Visitable}
 import pgo.model.mpcal._
 import pgo.model.pcal._
 import pgo.model.tla._
 import pgo.util.{Description, IdMap, IdSet, MPCalPassUtils}
-
 import Description._
 
 import scala.annotation.tailrec
@@ -40,6 +39,11 @@ object MPCalSemanticCheckPass {
 
     final case class MPCalKindMismatchError(usage: SourceLocatable, defn: SourceLocatable) extends Error(
       usage.sourceLocation, d"reference to kinded definition at ${
+        defn.sourceLocation.longDescription
+      }\n does not match")
+
+    final case class PClArityMismatch(usage: SourceLocatable, defn: SourceLocatable) extends Error(
+      usage.sourceLocation, d"call arity at ${
         defn.sourceLocation.longDescription
       }\n does not match")
   }
@@ -285,13 +289,26 @@ object MPCalSemanticCheckPass {
       MPCalPassUtils.forEachBody(mpcalBlock)((body, _) => checkInBody(body))
     }
 
+    // for each PCal procedure call, the argument count must match parameter count at the definition
+    locally {
+      mpcalBlock.visit(Visitable.TopDownFirstStrategy) {
+        case call@PCalCall(_, arguments) =>
+          if(call.refersTo.params.size != arguments.size) {
+            errors += SemanticError.PClArityMismatch(usage = call, defn = call.refersTo)
+          }
+      }
+    }
+
     // enforce kind-matching for MPCal params (ref vs. non-ref, number of mappings)
     locally {
       def checkMPCalParamRefs(body: List[PCalStatement], params: List[MPCalParam]): Unit = {
         val paramsMap = params.view.map(p => (p: DefinitionOne) -> p).to(IdMap)
         body.foreach { stmt =>
-          stmt.visit(Visitable.BottomUpFirstStrategy) {
-            case PCalAssignmentPair(lhs, _) =>
+          lazy val impl: PartialFunction[Visitable,Unit] = {
+            case PCalAssignmentPair(lhs, rhs) =>
+              // make sure to actually process assignment RHS
+              rhs.visit(Visitable.TopDownFirstStrategy)(impl)
+
               @tailrec
               def findMappingCount(lhs: PCalAssignmentLhs, acc: Int = 0): Int =
                 lhs match {
@@ -300,11 +317,11 @@ object MPCalSemanticCheckPass {
                 }
 
               @tailrec
-              def findDefn(lhs: PCalAssignmentLhs): Option[MPCalParam] =
+              def findDefn(lhs: PCalAssignmentLhs): Option[MPCalRefParam] =
                 lhs match {
                   case lhs @PCalAssignmentLhsIdentifier(_) =>
                     lhs.refersTo match {
-                      case p: MPCalParam => Some(p)
+                      case p: MPCalRefParam => Some(p)
                       case _ => None
                     }
                   case PCalAssignmentLhsProjection(lhs, _) => findDefn(lhs)
@@ -317,27 +334,38 @@ object MPCalSemanticCheckPass {
                   errors += SemanticError.MPCalKindMismatchError(usage = lhs, defn = defn)
                 }
               }
-            case ref @MPCalValExpr(_, mappingCount) =>
-              paramsMap(ref.refersTo) match {
-                case defn @ MPCalRefParam(_, mappingCountP) =>
-                  if(mappingCountP > mappingCount) {
-                    errors += SemanticError.MPCalKindMismatchError(usage = ref, defn = defn)
-                  }
-                case defn @MPCalValParam(_, mappingCountP) =>
-                  if(mappingCountP > mappingCount) {
-                    errors += SemanticError.MPCalKindMismatchError(usage = ref, defn = defn)
-                  }
-              }
             case ref @MPCalRefExpr(_, mappingCount) =>
               paramsMap(ref.refersTo) match {
                 case defn @ MPCalRefParam(_, mappingCountP) =>
                   if(mappingCountP > mappingCount) {
                     errors += SemanticError.MPCalKindMismatchError(usage = ref, defn = defn)
                   }
-                case defn @MPCalValParam(_, _) =>
-                  errors += SemanticError.MPCalKindMismatchError(usage = ref, defn = defn)
+                case _: MPCalValParam => // pass; always OK
               }
+            case expr@MPCalPassUtils.MappedRead(mappingCount, ident) if (paramsMap.get(ident.refersTo) match {
+              case Some(MPCalRefParam(_, mappingCountP)) => mappingCount >= mappingCountP
+              case Some(MPCalValParam(_)) => true // it's a value, anything goes
+              case _ => false
+            }) =>
+              // if this is reached, we found an appropriate expression-level usage of a function-mapped param.
+              // however, we may have missed issues in argument-position for the involved function applications
+              // so we explicitly recurse over the arguments, knowing our expression can only be function applications
+              // and idents
+              @tailrec
+              def checkMappingArgs(expr: TLAExpression): Unit =
+                expr match {
+                  case TLAGeneralIdentifier(_, Nil) =>
+                  case TLAFunctionCall(function, params) =>
+                    params.foreach(_.visit(Visitable.TopDownFirstStrategy)(impl))
+                    checkMappingArgs(function)
+                }
+
+              checkMappingArgs(expr)
+            case ref: RefersTo[DefinitionOne @unchecked] with SourceLocatable if ref.refersTo.isInstanceOf[DefinitionOne] && paramsMap.contains(ref.refersTo) =>
+              errors += SemanticError.MPCalKindMismatchError(usage = ref, defn = paramsMap(ref.refersTo))
           }
+
+          stmt.visit(Visitable.TopDownFirstStrategy)(impl)
         }
       }
 
@@ -349,30 +377,49 @@ object MPCalSemanticCheckPass {
         case instance @MPCalInstance(_, _, _, arguments, mappings) =>
           val archetype = instance.refersTo
           mappings.foreach {
-            case MPCalMapping(target @MPCalMappingTarget(position, mappingCount), id) =>
+            case MPCalMapping(target @MPCalMappingTarget(position, mappingCount), _) =>
               arguments(position) match {
-                case Left(param) => param match {
-                  case MPCalRefExpr(_, mappingCountP) =>
-                    if(mappingCount < mappingCountP) {
-                      errors += SemanticError.MPCalKindMismatchError(usage = target, defn = param)
-                    }
-                  case MPCalValExpr(_, mappingCountP) =>
-                    if(mappingCount < mappingCountP) {
-                      errors += SemanticError.MPCalKindMismatchError(usage = target, defn = param)
-                    }
-                }
-                case Right(_) => // any mappings work here, we'll add an underlying variable if we have to; TODO: is this true?
+                case Left(param@MPCalRefExpr(_, mappingCountP)) =>
+                  if(mappingCount != mappingCountP) {
+                    errors += SemanticError.MPCalKindMismatchError(usage = target, defn = param)
+                  }
+                case Right(_) => // any mappings work here, we'll add an underlying variable if we have to
               }
           }
           (archetype.params.view zip arguments.view).foreach {
             case (MPCalRefParam(_, mappingCountP), Left(MPCalRefExpr(_, mappingCount))) if mappingCount == mappingCountP => // ok
-            case (MPCalRefParam(_, 0), Right(_)) => // ok (see TODO above..?)
-            case (MPCalValParam(_, 0), Right(_)) => // ok
-            case (MPCalValParam(_, mappingCountP), Left(MPCalValExpr(_, mappingCount))) if mappingCount == mappingCountP => // ok
+            case (MPCalRefParam(_, 0), Right(_)) => // ok, we'll add an underlying variable if we have to
             case (param, Left(arg)) =>
               errors += SemanticError.MPCalKindMismatchError(usage = arg, defn = param)
             case (param, Right(arg)) =>
               errors += SemanticError.MPCalKindMismatchError(usage = arg, defn = param)
+          }
+      }
+
+      def checkMPCalParamUsage(arguments: List[Either[MPCalRefExpr,TLAExpression]], params: List[MPCalParam]): Unit =
+        (arguments.view zip params.view).foreach {
+          case (Left(MPCalRefExpr(_, mappingCount)), MPCalRefParam(_, mappingCountP)) if mappingCount == mappingCountP => // ok
+          case (Right(_: TLAExpression), MPCalValParam(_)) => // ok
+          case (eitherArg, param) =>
+            val arg: SourceLocatable = eitherArg match {
+              case Left(value) => value
+              case Right(value) => value
+            }
+            errors += SemanticError.MPCalKindMismatchError(usage = arg, defn = param)
+        }
+
+      mpcalBlock.visit(Visitable.TopDownFirstStrategy) {
+        case instance@MPCalInstance(_, _, _, arguments, _) =>
+          if(instance.refersTo.params.size != arguments.size) {
+            errors += SemanticError.PClArityMismatch(usage = instance, defn = instance.refersTo)
+          } else {
+            checkMPCalParamUsage(arguments, instance.refersTo.params)
+          }
+        case PCalExtensionStatement(call@MPCalCall(_, arguments)) =>
+          if(call.refersTo.params.size != arguments.size) {
+            errors += SemanticError.PClArityMismatch(usage = call, defn = call.refersTo)
+          } else {
+            checkMPCalParamUsage(arguments, call.refersTo.params)
           }
       }
     }

@@ -7,7 +7,6 @@ import pgo.model.pcal._
 import pgo.model.tla._
 
 import pgo.util.Description
-import Description._
 
 trait MPCalParser extends PCalParser {
   import pgo.parser.MPCalParserContext._
@@ -21,7 +20,7 @@ trait MPCalParser extends PCalParser {
   def mpcalParam(implicit ctx: MPCalParserContext): Parser[MPCalParam] =
     withSourceLocation {
       "ref" ~> ws ~> tlaIdentifierExpr ~ (ws ~> mpcalRefSuffix) ^^ { case id ~ mappingCount => MPCalRefParam(id, mappingCount)} |
-        (tlaIdentifierExpr <~ ws) ~ mpcalRefSuffix ^^ { case id ~ mappingCount => MPCalValParam(id, mappingCount) }
+        (tlaIdentifierExpr <~ ws) ^^ MPCalValParam
     }
 
   def mpcalArchetype(implicit ctx: MPCalParserContext): Parser[MPCalArchetype] =
@@ -83,7 +82,7 @@ trait MPCalParser extends PCalParser {
         (ws ~> "process" ~> ws ~> "(" ~> pcalVarDeclBound <~ ws <~ ")") ~
         (ws ~> "==" ~> ws ~> "instance" ~> ws ~> tlaIdentifierExpr) ~
         (ws ~> "(" ~> ws ~> repsep(mpcalParamExpr ^^ {
-          case TLAExtensionExpression(pExp: MPCalParamExpr) => Left(pExp)
+          case TLAExtensionExpression(pExp: MPCalRefExpr) => Left(pExp)
           case expr: TLAExpression => Right(expr)
         }, ws ~> "," ~> ws) <~ ws <~ ")")
         ).flatMap {
@@ -168,12 +167,9 @@ trait MPCalParser extends PCalParser {
   def mpcalParamExpr(implicit ctx: PCalParserContext): Parser[TLAExpression] =
     withSourceLocation {
       querySourceLocation {
-        ("ref" ~> ws ~> tlaIdentifierExpr ~ (ws ~> mpcalRefSuffix) ^^ {
+        "ref" ~> ws ~> tlaIdentifierExpr ~ (ws ~> mpcalRefSuffix) ^^ {
           case id ~ mappingCount => (id, MPCalRefExpr(id, mappingCount))
-        } |
-          tlaIdentifierExpr ~ (ws ~> mpcalRefSuffix) ^^ {
-            case id ~ mappingCount => (id, MPCalValExpr(id, mappingCount))
-          })
+        }
       }
         .map {
           case (loc, (id, ref)) =>
@@ -250,7 +246,7 @@ trait MPCalParser extends PCalParser {
           result = result.rewrite() {
             case call @PCalCall(target, args) if mpcalProcedureMap.contains(target) =>
               val transformedArgs = args.map {
-                case TLAExtensionExpression(pExp: MPCalParamExpr) => Left(pExp)
+                case TLAExtensionExpression(pExp: MPCalRefExpr) => Left(pExp)
                 case expr => Right(expr)
               }
               PCalExtensionStatement(MPCalCall(target, transformedArgs)
@@ -284,7 +280,7 @@ object MPCalParser extends MPCalParser with ParsingUtils {
     }
     // ensure no dandling ref or [_] are left in random expressions
     result.visit(Visitable.BottomUpFirstStrategy) {
-      case TLAExtensionExpression(pExp: MPCalParamExpr) =>
+      case TLAExtensionExpression(pExp: MPCalRefExpr) =>
         assert(false, s"ref or [_] found in wrong expression context: these syntaxes may only be used directly as arguments to an MPCal procedure call: ${pExp.sourceLocation}")
     }
     result

@@ -140,7 +140,7 @@ CONSTANT WEB_PAGE
   \* - file_system: abstraction of a real file system. In practice,
   \*                this is implementation specific and irrelevant for
   \*                the properties we want to check in this specification
-  archetype AServer(ref mailboxes, file_system)
+  archetype AServer(ref mailboxes, ref file_system[_])
 
   \* Local variables
   variable
@@ -174,7 +174,7 @@ CONSTANT WEB_PAGE
   \* - instream: a stream of inputs to the client
   \* - outstream: an output stream, where the client sends the messages it receives
   \*              from servers.
-  archetype AClient(ref mailboxes, instream, ref outstream)
+  archetype AClient(ref mailboxes[_], ref instream, ref outstream)
 
   \* Local variables
   variable
@@ -232,11 +232,11 @@ CONSTANT WEB_PAGE
   \* We map the page stream according to the WebPages mapping macro since this is
   \* an implementation detail that needs to be specified during implementation at
   \* a later stage.
-  fair process (Servers \in 1..NUM_SERVERS) == instance AServer(ref network, fs)
+  fair process (Servers \in 1..NUM_SERVERS) == instance AServer(ref network, ref fs[_])
       mapping network[_] via TCPChannel
       mapping fs[_] via WebPages;
 
-  fair process (Client \in (NUM_SERVERS+1)..(NUM_SERVERS+NUM_CLIENTS)) == instance AClient(ref network, in, ref out)
+  fair process (Client \in (NUM_SERVERS+1)..(NUM_SERVERS+NUM_CLIENTS)) == instance AClient(ref network[_], ref in, ref out)
       mapping network[_] via TCPChannel;
 }
 

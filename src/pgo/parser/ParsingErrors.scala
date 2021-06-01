@@ -11,13 +11,17 @@ sealed abstract class ParsingError(override val sourceLocation: SourceLocation, 
 }
 
 final case class DefinitionLookupError(pfx: List[TLAGeneralIdentifierPart], id: Definition.ScopeIdentifier) extends ParsingError(
-  id.sourceLocation,d"identifier ${pfx.mkString("!")}${if(pfx.nonEmpty){"!"} else {""}}$id does not refer to a known definition")
+  id.sourceLocation,d"identifier ${pfx.mkString("!")}${if(pfx.nonEmpty){"!"} else {""}}${
+    id match {
+      case Definition.ScopeIdentifierName(name) => name.id
+      case Definition.ScopeIdentifierSymbol(symbol) => symbol.symbol.stringReprUsage
+    }} does not refer to a known definition")
 
 final case class DoesNotExtendAModuleError(id: Definition.ScopeIdentifierName, badDefn: DefinitionOne) extends ParsingError(
-  id.sourceLocation,d"${id.name.id} does not refer to a module. actually refers to $badDefn")
+  id.sourceLocation,d"${id.name.id} does not refer to a module. actually refers to ${badDefn.toString}")
 
 final case class ModuleNotFoundError(id: Definition.ScopeIdentifierName) extends ParsingError(
-  id.sourceLocation,d"module $id not found")
+  id.sourceLocation,d"module ${id.name.id} not found")
 
 final case class MacroLookupError(target: TLAIdentifier) extends ParsingError(
   target.sourceLocation, d"could not find definition for macro `${target.id}`")

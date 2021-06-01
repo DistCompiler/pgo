@@ -2,7 +2,7 @@
 EXTENDS Sequences, FiniteSets, Integers
 (*
 --mpcal NoFirstLabel {
-    procedure MPCalProc(a^) {
+    procedure MPCalProc(a) {
         \*:: expectedError: LabelRequiredError
         print(2 + 2);
     }

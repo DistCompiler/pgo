@@ -1,6 +1,6 @@
 package pgo.model.mpcal
 
-import pgo.model.{Definition, DefinitionOne, RefersTo, Rewritable, SourceLocatable, Visitable}
+import pgo.model.{Definition, DefinitionOne, RefersTo, Rewritable, SourceLocatable}
 import pgo.model.tla._
 import pgo.model.pcal._
 
@@ -9,13 +9,7 @@ sealed abstract class MPCalNode extends Rewritable with SourceLocatable {
     super.decorateLike(succ.setSourceLocation(sourceLocation))
 }
 
-sealed abstract class MPCalParamExpr extends MPCalNode with RefersTo[DefinitionOne] {
-  def name: TLAIdentifier
-  def mappingCount: Int
-}
-
-final case class MPCalRefExpr(override val name: TLAIdentifier, override val mappingCount: Int) extends MPCalParamExpr
-final case class MPCalValExpr(override val name: TLAIdentifier, override val mappingCount: Int) extends MPCalParamExpr
+final case class MPCalRefExpr(name: TLAIdentifier, mappingCount: Int) extends MPCalNode with RefersTo[DefinitionOne]
 
 final case class MPCalDollarValue() extends MPCalNode
 
@@ -23,17 +17,16 @@ final case class MPCalDollarVariable() extends MPCalNode
 
 final case class MPCalYield(expr: TLAExpression) extends MPCalNode
 
-final case class MPCalCall(target: TLAIdentifier, arguments: List[Either[MPCalParamExpr,TLAExpression]]) extends MPCalNode with RefersTo[MPCalProcedure]
+final case class MPCalCall(target: TLAIdentifier, arguments: List[Either[MPCalRefExpr,TLAExpression]]) extends MPCalNode with RefersTo[MPCalProcedure]
 
 sealed abstract class MPCalParam extends MPCalNode with DefinitionOne {
   def name: TLAIdentifier
-  def mappingCount: Int
 
   override def arity: Int = 0
   override def identifier: Definition.ScopeIdentifier = Definition.ScopeIdentifierName(name)
 }
-final case class MPCalRefParam(override val name: TLAIdentifier, override val mappingCount: Int) extends MPCalParam
-final case class MPCalValParam(override val name: TLAIdentifier, override val mappingCount: Int) extends MPCalParam
+final case class MPCalRefParam(override val name: TLAIdentifier, mappingCount: Int) extends MPCalParam
+final case class MPCalValParam(override val name: TLAIdentifier) extends MPCalParam
 
 final case class MPCalBlock(name: TLAIdentifier, units: List[TLAUnit], macros: List[PCalMacro], mpcalProcedures: List[MPCalProcedure],
                             mappingMacros: List[MPCalMappingMacro], archetypes: List[MPCalArchetype],
@@ -51,7 +44,7 @@ final case class MPCalArchetype(name: TLAIdentifier, selfDecl: TLADefiningIdenti
                                 variables: List[PCalVariableDeclaration], body: List[PCalStatement]) extends MPCalNode with RefersTo.HasReferences
 
 final case class MPCalInstance(selfDecl: PCalVariableDeclarationBound, fairness: PCalFairness,
-                               archetypeName: TLAIdentifier, arguments: List[Either[MPCalParamExpr,TLAExpression]],
+                               archetypeName: TLAIdentifier, arguments: List[Either[MPCalRefExpr,TLAExpression]],
                                mappings: List[MPCalMapping]) extends MPCalNode with RefersTo[MPCalArchetype]
 
 final case class MPCalMapping(target: MPCalMappingTarget, mappingMacroIdentifier: TLAIdentifier) extends MPCalNode with RefersTo[MPCalMappingMacro]

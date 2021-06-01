@@ -1,7 +1,7 @@
 package distsys
 
 import (
-	"github.com/mitchellh/hashstructure"
+	"github.com/mitchellh/hashstructure/v2"
 
 	"bytes"
 	"encoding/gob"

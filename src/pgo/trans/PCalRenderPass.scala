@@ -235,13 +235,10 @@ object PCalRenderPass {
   def describeStatement(stmt: PCalStatement): Description =
     stmt match {
       case PCalExtensionStatement(MPCalCall(target, arguments)) =>
-        d"call $target(${
+        d"call ${target.id}(${
           arguments.view.map {
-            case Left(pExp: MPCalParamExpr) =>
-              pExp match {
-                case MPCalRefExpr(name, mappingCount) => d"ref ${name.id}${View.fill(mappingCount)(d"[_]").flattenDescriptions}"
-                case MPCalValExpr(name, mappingCount) => d"${name.id}${View.fill(mappingCount)(d"[_]").flattenDescriptions}"
-              }
+            case Left(MPCalRefExpr(name, mappingCount)) =>
+              d"ref ${name.id}${View.fill(mappingCount)(d"[_]").flattenDescriptions}"
             case Right(expr) => describeExpr(expr)
           }.separateBy(d", ")
         })"
@@ -371,7 +368,7 @@ object PCalRenderPass {
               d"variables${
                 variables.view.map {
                   case PCalPVariableDeclaration(name, value) =>
-                    d" ${name.id}${value.map(v => d" = ${describeExpr(v)};")}"
+                    d" ${name.id}${value.map(v => d" = ${describeExpr(v)};").getOrElse(d"")}"
                 }.flattenDescriptions
               }"
             } else d""

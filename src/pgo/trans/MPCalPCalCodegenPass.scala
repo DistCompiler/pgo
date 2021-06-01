@@ -4,6 +4,7 @@ import pgo.model.{Definition, DefinitionOne, PGoError, RefersTo, Rewritable, Vis
 import pgo.model.mpcal._
 import pgo.model.pcal._
 import pgo.model.tla._
+import pgo.util.MPCalPassUtils.MappedRead
 import pgo.util.Unreachable.!!!
 import pgo.util.{IdMap, NameCleaner}
 
@@ -12,10 +13,13 @@ import scala.collection.mutable
 
 object MPCalPCalCodegenPass {
   @throws[PGoError]
-  def apply(mpcalBlock: MPCalBlock): PCalAlgorithm = {
+  def apply(tlaModule: TLAModule, mpcalBlock: MPCalBlock): PCalAlgorithm = {
     var block: MPCalBlock = mpcalBlock
 
     val nameCleaner = new NameCleaner
+    tlaModule.visit(Visitable.BottomUpFirstStrategy) {
+      case TLAIdentifier(id) => nameCleaner.addKnownName(id)
+    }
     block.visit(Visitable.BottomUpFirstStrategy) {
       case TLAIdentifier(id) => nameCleaner.addKnownName(id)
     }
@@ -37,20 +41,6 @@ object MPCalPCalCodegenPass {
       // - for a ref param, the identity of the param referenced (or, the expression, if that's the case), and the identity of the mapping to be applied
       // - for a non-ref [_] param, the identity of the mapping to be applied (but not the identity of what is referenced, as it is taken by-value)
       val mpcalProcedureCache = mutable.HashMap[List[TLAExpression],PCalProcedure]()
-
-      object MappedRead {
-        @tailrec
-        private def unapplyImpl(expr: TLAExpression, mappingCount: Int): Option[(Int,TLAGeneralIdentifier)] =
-          expr match {
-            case TLAFunctionCall(fn, _) =>
-              unapplyImpl(fn, mappingCount + 1)
-            case ident: TLAGeneralIdentifier => Some((mappingCount, ident))
-            case _ => None
-          }
-
-        def unapply(expr: TLAExpression): Option[(Int,TLAGeneralIdentifier)] =
-          unapplyImpl(expr, mappingCount = 0)
-      }
 
       def updateStmt(stmt: PCalStatement)(implicit mappingsMap: IdMap[DefinitionOne,(Int,MPCalMappingMacro)], substitutions: IdMap[RefersTo.HasReferences,DefinitionOne]): List[PCalStatement] = {
         var stmtSink: List[PCalStatement] => List[PCalStatement] = identity
@@ -212,9 +202,6 @@ object MPCalPCalCodegenPass {
           (arguments.iterator zip archetype.params).foreach {
             case Left(arg @MPCalRefExpr(_, _)) -> param =>
               substitutionsBuilder += param -> arg.refersTo
-            case Left(arg @MPCalValExpr(_, _)) -> param =>
-              variables += PCalVariableDeclarationValue(param.name, TLAGeneralIdentifier(arg.name, Nil).setRefersTo(arg.refersTo))
-              substitutionsBuilder += param -> variables.last
             case Right(expr) -> param =>
               variables += PCalVariableDeclarationValue(param.name, expr)
               substitutionsBuilder += param -> variables.last
@@ -416,14 +403,14 @@ object MPCalPCalCodegenPass {
                   case PCalWith(bindings, body) =>
                     // push the remaining statements inside the body, so lifted assignments are guaranteed to be in scope
                     // for the entire critical section. to avoid name collisions, conservatively rename all bindings to fresh names
-                    val renamedbBindings = bindings.map {
+                    val renamedBindings = bindings.map {
                       case PCalVariableDeclarationValue(name, value) =>
                         PCalVariableDeclarationValue(TLAIdentifier(nameCleaner.cleanName(name.id)), value)
                       case PCalVariableDeclarationSet(name, set) =>
                         PCalVariableDeclarationSet(TLAIdentifier(nameCleaner.cleanName(name.id)), set)
                     }
-                    List(PCalWith(renamedbBindings,
-                      impl(body ::: tl, substitutions ++ (bindings.iterator zip renamedbBindings), lifted)))
+                    List(PCalWith(renamedBindings,
+                      impl(body ::: tl, substitutions ++ (bindings.iterator zip renamedBindings), lifted)))
                   case PCalIf(cond, yes, no) =>
                     List(PCalIf(
                       cond,

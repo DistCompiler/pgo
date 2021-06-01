@@ -6,6 +6,7 @@ import pgo.model.pcal._
 import pgo.model.tla._
 import Description._
 
+import scala.annotation.tailrec
 import scala.collection.mutable
 
 object MPCalPassUtils {
@@ -189,5 +190,19 @@ object MPCalPassUtils {
     }
 
     containsLabels
+  }
+
+  object MappedRead {
+    @tailrec
+    private def unapplyImpl(expr: TLAExpression, mappingCount: Int): Option[(Int,TLAGeneralIdentifier)] =
+      expr match {
+        case TLAFunctionCall(fn, _) =>
+          unapplyImpl(fn, mappingCount + 1)
+        case ident: TLAGeneralIdentifier => Some((mappingCount, ident))
+        case _ => None
+      }
+
+    def unapply(expr: TLAExpression): Option[(Int,TLAGeneralIdentifier)] =
+      unapplyImpl(expr, mappingCount = 0)
   }
 }
