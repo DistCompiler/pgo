@@ -86,7 +86,7 @@ CONSTANT WEB_PAGE
   \* ALoadBalancer is the archetype that defines the behavior of
   \* the load balancer process. The `mailboxes` parameter represents
   \* connections to all nodes in the system.
-  archetype ALoadBalancer(ref mailboxes)
+  archetype ALoadBalancer(ref mailboxes[_])
 
   \* Local variables of this archetype:
   variables
@@ -140,7 +140,7 @@ CONSTANT WEB_PAGE
   \* - file_system: abstraction of a real file system. In practice,
   \*                this is implementation specific and irrelevant for
   \*                the properties we want to check in this specification
-  archetype AServer(ref mailboxes, file_system)
+  archetype AServer(ref mailboxes[_], ref file_system[_])
 
   \* Local variables
   variable
@@ -174,7 +174,7 @@ CONSTANT WEB_PAGE
   \* - instream: a stream of inputs to the client
   \* - outstream: an output stream, where the client sends the messages it receives
   \*              from servers.
-  archetype AClient(ref mailboxes, instream, ref outstream)
+  archetype AClient(ref mailboxes[_], ref instream, ref outstream)
 
   \* Local variables
   variable
@@ -225,18 +225,18 @@ CONSTANT WEB_PAGE
   \* The system has a single load balancer entity, instantiated from the ALoadBalancer
   \* archetype. The model of our network is going to be the one defined by the TCPChannel
   \* mapping macro in all instantiations.
-  fair process (LoadBalancer = LoadBalancerId) == instance ALoadBalancer(ref network)
+  fair process (LoadBalancer = LoadBalancerId) == instance ALoadBalancer(ref network[_])
       mapping network[_] via TCPChannel;
 
   \* Instantiate `NUM_SERVERS` server processes according to the AServer archetype.
   \* We map the page stream according to the WebPages mapping macro since this is
   \* an implementation detail that needs to be specified during implementation at
   \* a later stage.
-  fair process (Servers \in 1..NUM_SERVERS) == instance AServer(ref network, fs)
+  fair process (Servers \in 1..NUM_SERVERS) == instance AServer(ref network[_], ref fs[_])
       mapping network[_] via TCPChannel
       mapping fs[_] via WebPages;
 
-  fair process (Client \in (NUM_SERVERS+1)..(NUM_SERVERS+NUM_CLIENTS)) == instance AClient(ref network, in, ref out)
+  fair process (Client \in (NUM_SERVERS+1)..(NUM_SERVERS+NUM_CLIENTS)) == instance AClient(ref network[_], ref in, ref out)
       mapping network[_] via TCPChannel;
 }
 
@@ -276,7 +276,7 @@ CONSTANT WEB_PAGE
   }
   
   fair process (Servers \in (1) .. (NUM_SERVERS))
-    variables msg; file_system = fs;
+    variables msg;
   {
     serverLoop:
       if(TRUE) {
@@ -302,14 +302,14 @@ CONSTANT WEB_PAGE
   }
   
   fair process (Client \in ((NUM_SERVERS) + (1)) .. ((NUM_SERVERS) + (NUM_CLIENTS)))
-    variables req; resp; instream = in;
+    variables req; resp;
   {
     clientLoop:
       if(TRUE) {
         goto clientRequest;
       };
     clientRequest:
-      req := [message_type |-> GET_PAGE, client_id |-> self, path |-> instream];
+      req := [message_type |-> GET_PAGE, client_id |-> self, path |-> in];
       with (value10 = req) {
         await (Len((network)[LoadBalancerId])) < (BUFFER_SIZE);
         network := [network EXCEPT ![LoadBalancerId] = Append((network)[LoadBalancerId], value10)];

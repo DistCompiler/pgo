@@ -86,7 +86,7 @@ CONSTANT WEB_PAGE
   \* ALoadBalancer is the archetype that defines the behavior of
   \* the load balancer process. The `mailboxes` parameter represents
   \* connections to all nodes in the system.
-  archetype ALoadBalancer(ref mailboxes)
+  archetype ALoadBalancer(ref mailboxes[_])
 
   \* Local variables of this archetype:
   variables
@@ -140,7 +140,7 @@ CONSTANT WEB_PAGE
   \* - file_system: abstraction of a real file system. In practice,
   \*                this is implementation specific and irrelevant for
   \*                the properties we want to check in this specification
-  archetype AServer(ref mailboxes, ref file_system[_])
+  archetype AServer(ref mailboxes[_], ref file_system[_])
 
   \* Local variables
   variable
@@ -225,14 +225,14 @@ CONSTANT WEB_PAGE
   \* The system has a single load balancer entity, instantiated from the ALoadBalancer
   \* archetype. The model of our network is going to be the one defined by the TCPChannel
   \* mapping macro in all instantiations.
-  fair process (LoadBalancer = LoadBalancerId) == instance ALoadBalancer(ref network)
+  fair process (LoadBalancer = LoadBalancerId) == instance ALoadBalancer(ref network[_])
       mapping network[_] via TCPChannel;
 
   \* Instantiate `NUM_SERVERS` server processes according to the AServer archetype.
   \* We map the page stream according to the WebPages mapping macro since this is
   \* an implementation detail that needs to be specified during implementation at
   \* a later stage.
-  fair process (Servers \in 1..NUM_SERVERS) == instance AServer(ref network, ref fs[_])
+  fair process (Servers \in 1..NUM_SERVERS) == instance AServer(ref network[_], ref fs[_])
       mapping network[_] via TCPChannel
       mapping fs[_] via WebPages;
 

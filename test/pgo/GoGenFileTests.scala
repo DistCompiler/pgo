@@ -14,6 +14,7 @@ class GoGenFileTests extends FileTestSuite {
     test(s"gogen ${testFile.relativeTo(os.pwd)}") {
       val outDir = os.temp.dir()
       val goTestsDir = testFile / os.up / s"${testFile.last}.gotests"
+
       if(os.isDir(goTestsDir)) { // should only do something useful when PGo isn't expected to error out
         os.copy.over(from = goTestsDir, to = outDir, createFolders = true)
         // rewrite go.mod to point to the absolute path of our local copy of the distsys library
@@ -23,10 +24,12 @@ class GoGenFileTests extends FileTestSuite {
           case line => Some(line)
         }.map(line => s"$line\n"))
       }
+
       val outFile = outDir / s"${testFile.baseName}.go"
       val errors = PGo.run(Seq("gogen", "-s", testFile.toString(), "-o", outFile.toString()))
       checkErrors(errors, testFile)
       if(errors.isEmpty) {
+        assert(os.exists(goTestsDir)) // sanity
         if(!sys.env.contains("TESTS_DO_NOT_WRITE")) {
           // unless the environment var above is set, write the output file into the test files, so the test can
           // be debugged / manipulated using standard Go tools

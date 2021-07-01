@@ -128,7 +128,10 @@ object PGo {
       }
       Nil
     } catch {
-      case err: PGoError => err.errors
+      case err: PGoError =>
+        err.errors
+          // ensure you don't see the same msg twice
+          .distinctBy(e => (e.sourceLocation.longDescription + d"\n" + e.description).linesIterator.mkString("\n"))
     }
   }
 

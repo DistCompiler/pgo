@@ -156,7 +156,7 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
   \*             incoming messages.
   \* - kv: the underlying "database". When 'put' requests become stable, this
   \*       database is updated to include the value being set by the client.
-  archetype AReplica(ref clients, replicas, ref kv)
+  archetype AReplica(ref clients[_], ref replicas[_], ref kv[_])
 
   \* Local state in a replica:
   variables
@@ -423,7 +423,7 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
   \* A Get message sent to the replica is a record in the following format:
   \*
   \*     [op: GET_MSG, key: key, client: client_id, timestamp: lamport_clock]
-  archetype Get(clientId, ref replicas, clients, key, ref clock, spin, ref outside)
+  archetype Get(ref clientId, ref replicas[_], ref clients[_], key, ref clock[_], spin, ref outside)
   variable continue = TRUE, getReq, getResp;
   {
       \* Loop until disconnected
@@ -478,7 +478,7 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
   \* A Put message sent to the replica is a record in the following format:
   \*
   \*     [op: PUT_MSG, key: key, value: value, client: client_id, timestamp: lamport_clock]
-  archetype Put(clientId, ref replicas, clients, key, value, ref clock, spin, ref outside)
+  archetype Put(ref clientId, ref replicas[_], ref clients[_], key, value, ref clock[_], spin, ref outside)
   variables continue = TRUE, i, j, putReq, putResp;
   {
       \* Loops indefinitely until disconnected
@@ -531,7 +531,7 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
   \* A Disconnect message sent to the replica is a record in the following format:
   \*
   \*     [op: DISCONNECT_MSG, client: client_id]
-  archetype Disconnect(clientId, ref replicas, ref clock)
+  archetype Disconnect(ref clientId, ref replicas[_], ref clock[_])
   variables msg, j;
   {
       sendDisconnectRequest:
@@ -555,7 +555,7 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
   \* A ClockUpdate message sent to the replica is a record in the following format:
   \*
   \*     [op: NULL_MSG, client: client_id, timestamp: logical_clock]
-  archetype ClockUpdate(clientId, ref replicas, ref clock, spin)
+  archetype ClockUpdate(ref clientId, ref replicas[_], ref clock[_], spin)
   variables continue = TRUE, j, msg;
   {
       clockUpdateLoop:
@@ -617,34 +617,30 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
 
   \* Instantiate replica servers. The network model used is the one defined in
   \* the FIFOChannel mapping macro.
-  fair process (Replica \in ReplicaSet) == instance AReplica(ref clientMailboxes, replicasNetwork, [k \in KeySpace |-> NULL])
+  fair process (Replica \in ReplicaSet) == instance AReplica(ref clientMailboxes[_], ref replicasNetwork[_], [k \in KeySpace |-> NULL])
       mapping @1[_] via FIFOChannel
       mapping @2[_] via FIFOChannel
       mapping @3[_] via Identity;
 
   \* Instantiate clients:
 
-  fair process (GetClient \in GetSet) == instance Get(cid, ref replicasNetwork, clientMailboxes, GET_KEY, ref clocks, TRUE, ref out)
+  fair process (GetClient \in GetSet) == instance Get(ref cid, ref replicasNetwork[_], ref clientMailboxes[_], GET_KEY, ref clocks[_], TRUE, ref out)
       mapping cid via GetClientId
       mapping replicasNetwork[_] via FIFOChannel
-      mapping clientMailboxes[_] via FIFOChannel
-      mapping clocks[_] via Identity;
+      mapping clientMailboxes[_] via FIFOChannel;
 
-  fair process (PutClient \in PutSet) == instance Put(cid, ref replicasNetwork, clientMailboxes, PUT_KEY, PUT_VALUE, ref clocks, TRUE, ref out)
+  fair process (PutClient \in PutSet) == instance Put(ref cid, ref replicasNetwork[_], ref clientMailboxes[_], PUT_KEY, PUT_VALUE, ref clocks[_], TRUE, ref out)
       mapping cid via PutClientId
       mapping replicasNetwork[_] via FIFOChannel
-      mapping clientMailboxes[_] via FIFOChannel
-      mapping clocks[_] via Identity;
+      mapping clientMailboxes[_] via FIFOChannel;
 
-  fair process (DisconnectClient \in DisconnectSet) == instance Disconnect(cid, ref replicasNetwork, ref clocks)
+  fair process (DisconnectClient \in DisconnectSet) == instance Disconnect(ref cid, ref replicasNetwork[_], ref clocks[_])
       mapping cid via DisconnectClientId
-      mapping replicasNetwork[_] via FIFOChannel
-      mapping clocks[_] via Identity;
+      mapping replicasNetwork[_] via FIFOChannel;
 
-  fair process (ClockUpdateClient \in NullSet) == instance ClockUpdate(cid, ref replicasNetwork, ref clocks, TRUE)
+  fair process (ClockUpdateClient \in NullSet) == instance ClockUpdate(ref cid, ref replicasNetwork[_], ref clocks[_], TRUE)
       mapping cid via NullClientId
-      mapping replicasNetwork[_] via FIFOChannel
-      mapping clocks[_] via Identity;
+      mapping replicasNetwork[_] via FIFOChannel;
 }
 
 \* BEGIN PLUSCAL TRANSLATION
