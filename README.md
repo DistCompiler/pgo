@@ -1,4 +1,4 @@
-# PGo [![Build Status](https://travis-ci.org/UBC-NSS/pgo.svg?branch=master)](https://travis-ci.org/UBC-NSS/pgo)
+# PGo ![CI Status](https://github.com/UBC-NSS/pgo/actions/workflows/ci.yml/badge.svg?branch=master)
 
 PGo is a source to source compiler to compile
 [PlusCal](http://lamport.azurewebsites.net/tla/pluscal.html)
