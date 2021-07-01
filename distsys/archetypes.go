@@ -61,7 +61,9 @@ type LocalArchetypeResource struct {
 
 type localArchetypeResourceRecord struct {
 	IsInitialized bool // start-up flag, to avoid setting up state again when reloading from disk
-	HasOldValue     bool
+	HasOldValue   bool // if true, this resource has already been written in this critical section
+	// if this resource is already written in this critical section, OldValue contains prev value
+	// Value always contains the "current" value
 	Value, OldValue TLAValue
 }
 
@@ -131,7 +133,7 @@ func (res *LocalArchetypeResource) GobEncode() ([]byte, error) {
 type InputChannelResource struct {
 	ArchetypeResourceLeafMixin
 	channel <-chan TLAValue
-	buffer []TLAValue
+	buffer  []TLAValue
 }
 
 var _ ArchetypeResource = &InputChannelResource{}
@@ -189,13 +191,13 @@ func (res *InputChannelResource) GobEncode() ([]byte, error) {
 
 type OutputChannelResource struct {
 	ArchetypeResourceLeafMixin
-	channel chan <-TLAValue
-	buffer []TLAValue
+	channel chan<- TLAValue
+	buffer  []TLAValue
 }
 
 var _ ArchetypeResource = &OutputChannelResource{}
 
-func EnsureOutputChannelResource(ensurer MPCalContextResourceEnsurer, channel chan <-TLAValue) ArchetypeResourceHandle {
+func EnsureOutputChannelResource(ensurer MPCalContextResourceEnsurer, channel chan<- TLAValue) ArchetypeResourceHandle {
 	return ensurer(&OutputChannelResource{}, func(resource ArchetypeResource) {
 		res := resource.(*OutputChannelResource)
 		res.channel = channel
@@ -250,7 +252,7 @@ type IncrementalArchetypeMapResource struct {
 }
 
 type incrementalArchetypeMapResourceRecord struct {
-	Key TLAValue
+	Key   TLAValue
 	Value ArchetypeResource
 }
 
@@ -285,7 +287,7 @@ func (res *IncrementalArchetypeMapResource) EnsureConfig(fillFunction func(Incre
 
 func (res *IncrementalArchetypeMapResource) Index(index TLAValue) (ArchetypeResource, error) {
 	var resource ArchetypeResource
-	res.FillFunction(func (blank ArchetypeResource, configFn func(ArchetypeResource)) {
+	res.FillFunction(func(blank ArchetypeResource, configFn func(ArchetypeResource)) {
 		if subRes, ok := res.realizedMap.Get(index); ok {
 			resource = subRes.(ArchetypeResource)
 		} else {
@@ -319,7 +321,7 @@ func (res *IncrementalArchetypeMapResource) PreCommit() chan error {
 				break
 			}
 		}
-		outCh<- err
+		outCh <- err
 	}()
 	return outCh
 }
@@ -342,7 +344,7 @@ func (res *IncrementalArchetypeMapResource) Commit() chan struct{} {
 		for _, ch := range nonTrivialCommits {
 			<-ch
 		}
-		outCh<- struct{}{}
+		outCh <- struct{}{}
 	}()
 	return outCh
 }
@@ -365,7 +367,7 @@ func (res *IncrementalArchetypeMapResource) Abort() chan struct{} {
 		for _, ch := range nonTrivialAborts {
 			<-ch
 		}
-		outCh<- struct{}{}
+		outCh <- struct{}{}
 	}()
 	return outCh
 }
@@ -396,7 +398,7 @@ func (res *IncrementalArchetypeMapResource) GobEncode() ([]byte, error) {
 	for !it.Done() {
 		key, value := it.Next()
 		err := encoder.Encode(incrementalArchetypeMapResourceRecord{
-			Key: key.(TLAValue),
+			Key:   key.(TLAValue),
 			Value: value.(ArchetypeResource),
 		})
 		if err != nil {
@@ -462,14 +464,14 @@ type TCPMailboxLocalArchetypeResource struct {
 	ArchetypeResourceLeafMixin
 	listenAddr string
 
-	listener net.Listener
-	buffer *list.List
+	listener         net.Listener
+	buffer           *list.List
 	bufferFillNotify chan struct{}
-	bufferLock sync.Mutex
+	bufferLock       sync.Mutex
 
 	bufferSize int
 
-	readBacklog []TLAValue
+	readBacklog     []TLAValue
 	readsInProgress []TLAValue
 }
 
@@ -655,10 +657,10 @@ type TCPMailboxRemoteArchetypeResource struct {
 	dialAddr string
 
 	inCriticalSection bool
-	conn net.Conn
-	connEncoder *gob.Encoder
-	connDecoder *gob.Decoder
-	sendBuffer []TLAValue
+	conn              net.Conn
+	connEncoder       *gob.Encoder
+	connDecoder       *gob.Decoder
+	sendBuffer        []TLAValue
 }
 
 var _ ArchetypeResource = &TCPMailboxRemoteArchetypeResource{}
@@ -717,7 +719,7 @@ func (res *TCPMailboxRemoteArchetypeResource) Commit() chan struct{} {
 	ch := make(chan struct{}, 1)
 	go func() {
 		var err error
-		outerLoop:
+	outerLoop:
 		for {
 			if err != nil {
 				log.Printf("network error during commit, resetting: %v", err)

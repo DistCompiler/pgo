@@ -16,7 +16,6 @@ type dummyDurableStorage struct{}
 
 var _ distsys.MPCalDurableStorage = &dummyDurableStorage{}
 
-
 func (d dummyDurableStorage) RecoverResources() (rec *distsys.MPCalDurableStorageRecord, err error) {
 	return nil, nil
 }

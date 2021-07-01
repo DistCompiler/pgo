@@ -8,9 +8,9 @@ import (
 var AssertionFailed = errors.New("assertion failed")
 
 type ArchetypeResourceHandle struct {
-	Tag int
+	Tag   int
 	Index int
-	Name string
+	Name  string
 }
 
 const (
@@ -19,11 +19,11 @@ const (
 )
 
 type MPCalDurableStorageRecord struct {
-	Resources []ArchetypeResource
-	Frame int
-	FrameStack []int
+	Resources       []ArchetypeResource
+	Frame           int
+	FrameStack      []int
 	ResourcesByName map[string]ArchetypeResource
-	CommitPending map[ArchetypeResourceHandle]bool
+	CommitPending   map[ArchetypeResourceHandle]bool
 }
 
 func (record *MPCalDurableStorageRecord) getResourceByHandle(handle ArchetypeResourceHandle) ArchetypeResource {
@@ -44,7 +44,7 @@ type MPCalDurableStorage interface {
 
 type MPCalContext struct {
 	durableStorage MPCalDurableStorage
-	record MPCalDurableStorageRecord
+	record         MPCalDurableStorageRecord
 }
 
 func NewMPCalContext(durableStorage MPCalDurableStorage) (*MPCalContext, error) {
@@ -75,10 +75,9 @@ func NewMPCalContext(durableStorage MPCalDurableStorage) (*MPCalContext, error) 
 	}
 	return &MPCalContext{
 		durableStorage: durableStorage,
-		record: *record,
+		record:         *record,
 	}, nil
 }
-
 
 type MPCalContextArchetypeConfigFn func(durability MPCalDurableStorage, resource ArchetypeResource)
 
@@ -123,8 +122,8 @@ func (ctx *MPCalContext) PositionalResourceStackPush() {
 }
 
 func (ctx *MPCalContext) PositionalResourceStackPop() {
-	ctx.record.Frame = ctx.record.FrameStack[len(ctx.record.FrameStack) - 1]
-	ctx.record.FrameStack = ctx.record.FrameStack[:len(ctx.record.FrameStack) - 1]
+	ctx.record.Frame = ctx.record.FrameStack[len(ctx.record.FrameStack)-1]
+	ctx.record.FrameStack = ctx.record.FrameStack[:len(ctx.record.FrameStack)-1]
 	ctx.record.Resources = ctx.record.Resources[:ctx.record.Frame]
 }
 
