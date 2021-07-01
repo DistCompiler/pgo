@@ -81,7 +81,7 @@
 		},
 		"numeric-constants": {
 			"name": "constant.numeric.tlaplus",
-			"match": "((\\d+)|(\\d*\\.\\d+)|((\\\\b|\\\\B)[01]+)|((\\\\o|\\\\O)[0-7]+)|((\\\\h|\\\\H)([0-9]|[a-f]|[A-F])+))"
+			"match": "\\b((\\d+)|(\\d*\\.\\d+)|((\\\\b|\\\\B)[01]+)|((\\\\o|\\\\O)[0-7]+)|((\\\\h|\\\\H)([0-9]|[a-f]|[A-F])+))\\b"
 		},
 		"at-least-4-dashes": {
             "name": "comment.line.tlaplus",
