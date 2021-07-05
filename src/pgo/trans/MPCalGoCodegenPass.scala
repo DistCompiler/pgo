@@ -95,14 +95,15 @@ object MPCalGoCodegenPass {
           replacementAST
         case ident@TLAGeneralIdentifier(_, prefix) =>
           assert(prefix.isEmpty)
-          ctx.bindings(ident.refersTo) match {
-            case ResourceBinding(_) =>
+          ctx.bindings.get(ident.refersTo) match {
+            case Some(ResourceBinding(_)) =>
               val cleanName = ctx.nameCleaner.cleanName(hint)
               val replacementDefn = PCalVariableDeclarationEmpty(TLAIdentifier(cleanName))
               val replacementAST = TLAGeneralIdentifier(TLAIdentifier(cleanName), Nil).setRefersTo(replacementDefn)
               resourceReads += ((ident.refersTo, replacementDefn, Nil))
               replacementAST
-            case _ => ident
+            case Some(_) => ident // does not bind a resource; needs no read process
+            case _ => ident // an expression-local variable, bound by let or some quantifier. also needs no read process
           }
       }
       val exprWithReads = expr.rewrite(Rewritable.TopDownFirstStrategy)(readReplacer)

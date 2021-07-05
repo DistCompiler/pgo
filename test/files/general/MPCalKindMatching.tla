@@ -33,7 +33,7 @@ EXTENDS Sequences, FiniteSets, Integers
 
     process (B = 43) == instance Arch((*:: expectedError: MPCalKindMismatchError *) ref myVar);
 
-    process (C = 44) == instance Arch((*:: expectedError: MPCalKindMismatchError *) myVar);
+    process (C = 44) == instance Arch(myVar); \* will generate a synthetic local var
 
     process (D = 45) == instance Arch((*:: expectedError: MPCalKindMismatchError *) ref myVar[_][_]);
 }

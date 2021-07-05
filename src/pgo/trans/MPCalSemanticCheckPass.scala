@@ -51,6 +51,7 @@ object MPCalSemanticCheckPass {
   @throws[PGoError]
   def apply(tlaModule: TLAModule, mpcalBlock: MPCalBlock): Unit = {
     val errors = mutable.ListBuffer[SemanticError.Error]()
+    var block = mpcalBlock
 
     // enforce that the first statement / top-level statements in:
     // - procedures
@@ -65,7 +66,7 @@ object MPCalSemanticCheckPass {
             errors += SemanticError.LabelRequiredError(stmt)
         }
       }
-      mpcalBlock.visit(Visitable.TopDownFirstStrategy) {
+      block.visit(Visitable.TopDownFirstStrategy) {
         case MPCalArchetype(_, _, _, _, body) => checkInBody(body)
         case MPCalProcedure(_, _, _, body) => checkInBody(body)
         case PCalProcedure(_, _, _, body) => checkInBody(body)
@@ -81,7 +82,7 @@ object MPCalSemanticCheckPass {
             errors += SemanticError.LabelForbiddenError(label)
         }
 
-      mpcalBlock.visit(Visitable.TopDownFirstStrategy) {
+      block.visit(Visitable.TopDownFirstStrategy) {
         case m: PCalMacro => requireNoLabels(m)
         case mm: MPCalMappingMacro => requireNoLabels(mm)
         case w: PCalWith => requireNoLabels(w)
@@ -89,13 +90,13 @@ object MPCalSemanticCheckPass {
     }
 
     // enforce reserved label names
-    mpcalBlock.visit(Visitable.BottomUpFirstStrategy) {
+    block.visit(Visitable.BottomUpFirstStrategy) {
       case PCalLabeledStatements(label, _) if label.name == "Error" || label.name == "Done" =>
         errors += SemanticError.ReservedLabelError(label)
     }
 
     // enforce non-recursive macros
-    val hasRecursiveMacro: Boolean = locally {
+    block = locally {
       var hasRecursiveMacro = false
       def checkNonRec(visitable: Visitable, macrosBeingExpanded: Map[String,PCalMacroCall]): Unit =
         visitable.visit(Visitable.TopDownFirstStrategy) {
@@ -111,11 +112,18 @@ object MPCalSemanticCheckPass {
             }
         }
 
-      checkNonRec(mpcalBlock, Map.empty)
-      hasRecursiveMacro
+      checkNonRec(block, Map.empty)
+
+      if(!hasRecursiveMacro) {
+        MPCalPassUtils.rewriteEachBody(block) { (body, lexicalScope) =>
+          MPCalPassUtils.expandMacroCalls(body, lexicalScope)
+        }
+      } else {
+        block
+      }
     }
 
-    val containsLabels: IdSet[PCalStatement] = MPCalPassUtils.gatherContainsLabels(mpcalBlock)
+    val containsLabels: IdSet[PCalStatement] = MPCalPassUtils.gatherContainsLabels(block)
 
     val tailStatements: IdMap[PCalStatement,Vector[PCalStatement]] = locally {
       var tailStatements = IdMap.empty[PCalStatement,Vector[PCalStatement]]
@@ -130,8 +138,6 @@ object MPCalSemanticCheckPass {
               no.view.map(gatherTailStatements).lastOption.getOrElse(Vector.empty)
           case PCalLabeledStatements(_, statements) =>
             statements.view.map(gatherTailStatements).last
-          case macroCall @PCalMacroCall(_, _) if !hasRecursiveMacro =>
-            macroCall.refersTo.body.view.map(gatherTailStatements).lastOption.getOrElse(Vector.empty)
           case PCalWhile(_, body) =>
             body.view.map(gatherTailStatements).lastOption.getOrElse(Vector.empty)
           case PCalWith(_, body) =>
@@ -142,7 +148,7 @@ object MPCalSemanticCheckPass {
         result
       }
 
-      mpcalBlock.visit(Visitable.TopDownFirstStrategy) {
+      block.visit(Visitable.TopDownFirstStrategy) {
         case stmt: PCalStatement =>
           gatherTailStatements(stmt)
       }
@@ -161,15 +167,7 @@ object MPCalSemanticCheckPass {
       }
 
     // check that all while statements are directly inside labels (accounting for macro expansion, if that's sound)
-    checkWhileLabelPlacement {
-      if(!hasRecursiveMacro) {
-        MPCalPassUtils.rewriteEachBody(mpcalBlock) { (body, lexicalScope) =>
-          MPCalPassUtils.expandMacroCalls(body, lexicalScope)
-        }
-      } else {
-        mpcalBlock
-      }
-    }
+    checkWhileLabelPlacement(block)
 
     // check whether statements that must be followed by a label are followed by a label
     locally {
@@ -203,7 +201,7 @@ object MPCalSemanticCheckPass {
         }
 
       // visit all parts of the MPCal block that contain a list of statements
-      mpcalBlock.visit(Visitable.BottomUpFirstStrategy) {
+      block.visit(Visitable.BottomUpFirstStrategy) {
         case MPCalMappingMacro(_, readBody, writeBody, _) =>
           checkInBody(readBody)
           checkInBody(writeBody)
@@ -226,7 +224,7 @@ object MPCalSemanticCheckPass {
 
     // enforce multiple assignment rules
     locally {
-      def checkInBody(assignedVars: Map[TLAIdentifier,TLAIdentifier], contextualBindings: Map[String,DefinitionOne], body: List[PCalStatement]): Map[TLAIdentifier,TLAIdentifier] =
+      def checkInBody(assignedVars: Map[TLAIdentifier,TLAIdentifier], body: List[PCalStatement]): Map[TLAIdentifier,TLAIdentifier] =
         body.view.scanLeft(assignedVars) { (assignedVars, stmt) =>
           stmt match {
             case PCalAssignment(pairs) =>
@@ -249,28 +247,20 @@ object MPCalSemanticCheckPass {
                 assignedVars.updated(lhsId, lhsId)
               }.last
             case PCalEither(cases) =>
-              cases.map(checkInBody(assignedVars, contextualBindings, _)).reduce(_ ++ _)
+              cases.map(checkInBody(assignedVars, _)).reduce(_ ++ _)
             case PCalIf(_, yes, no) =>
-              checkInBody(assignedVars, contextualBindings, yes) ++ checkInBody(assignedVars, contextualBindings, no)
+              checkInBody(assignedVars, yes) ++ checkInBody(assignedVars, no)
             case PCalLabeledStatements(_, statements) =>
-              checkInBody(Map.empty, contextualBindings, statements)
+              checkInBody(Map.empty, statements)
               Map.empty
-            case macroCall: PCalMacroCall if !hasRecursiveMacro =>
-              checkInBody(
-                assignedVars,
-                contextualBindings,
-                MPCalPassUtils.expandMacroCalls(List(macroCall), contextualBindings))
-            case PCalWhile(_, body) => checkInBody(assignedVars, contextualBindings, body)
+            case PCalWhile(_, body) => checkInBody(assignedVars, body)
             case PCalWith(bindings, body) =>
-              checkInBody(
-                assignedVars,
-                bindings.foldLeft(contextualBindings)((contextualBindings, b) => contextualBindings.updated(b.name.id, b)),
-                body)
+              checkInBody(assignedVars, body)
             case _ => assignedVars
           }
         }.last
 
-      MPCalPassUtils.forEachBody(mpcalBlock)((body, contextualBindings) => checkInBody(Map.empty, contextualBindings, body))
+      MPCalPassUtils.forEachBody(block)((body, _) => checkInBody(Map.empty, body))
     }
 
     // for each PCal "body", every goto must refer to a defined label
@@ -286,12 +276,12 @@ object MPCalSemanticCheckPass {
         })
       }
 
-      MPCalPassUtils.forEachBody(mpcalBlock)((body, _) => checkInBody(body))
+      MPCalPassUtils.forEachBody(block)((body, _) => checkInBody(body))
     }
 
     // for each PCal procedure call, the argument count must match parameter count at the definition
     locally {
-      mpcalBlock.visit(Visitable.TopDownFirstStrategy) {
+      block.visit(Visitable.TopDownFirstStrategy) {
         case call@PCalCall(_, arguments) =>
           if(call.refersTo.params.size != arguments.size) {
             errors += SemanticError.PClArityMismatch(usage = call, defn = call.refersTo)
@@ -369,7 +359,7 @@ object MPCalSemanticCheckPass {
         }
       }
 
-      mpcalBlock.visit(Visitable.TopDownFirstStrategy) {
+      block.visit(Visitable.TopDownFirstStrategy) {
         case MPCalArchetype(_, _, params, _, body) =>
           checkMPCalParamRefs(body, params)
         case MPCalProcedure(_, params, _, body) =>
@@ -388,7 +378,8 @@ object MPCalSemanticCheckPass {
           }
           (archetype.params.view zip arguments.view).foreach {
             case (MPCalRefParam(_, mappingCountP), Left(MPCalRefExpr(_, mappingCount))) if mappingCount == mappingCountP => // ok
-            case (MPCalRefParam(_, 0), Right(_)) => // ok, we'll add an underlying variable if we have to
+            case (MPCalRefParam(_, _), Right(_)) => // ok, we'll add an underlying variable if we have to
+            case (MPCalValParam(_), Right(_)) => // ok, pass by value
             case (param, Left(arg)) =>
               errors += SemanticError.MPCalKindMismatchError(usage = arg, defn = param)
             case (param, Right(arg)) =>
@@ -400,6 +391,7 @@ object MPCalSemanticCheckPass {
         (arguments.view zip params.view).foreach {
           case (Left(MPCalRefExpr(_, mappingCount)), MPCalRefParam(_, mappingCountP)) if mappingCount == mappingCountP => // ok
           case (Right(_: TLAExpression), MPCalValParam(_)) => // ok
+          case (Right(_: TLAExpression), MPCalRefParam(_, _)) => // special case: we should generate a synthetic local
           case (eitherArg, param) =>
             val arg: SourceLocatable = eitherArg match {
               case Left(value) => value
@@ -408,7 +400,7 @@ object MPCalSemanticCheckPass {
             errors += SemanticError.MPCalKindMismatchError(usage = arg, defn = param)
         }
 
-      mpcalBlock.visit(Visitable.TopDownFirstStrategy) {
+      block.visit(Visitable.TopDownFirstStrategy) {
         case instance@MPCalInstance(_, _, _, arguments, _) =>
           if(instance.refersTo.params.size != arguments.size) {
             errors += SemanticError.PClArityMismatch(usage = instance, defn = instance.refersTo)
