@@ -44,7 +44,7 @@
 			"match": "\\b(archetype|instance|ref|mapping|read|write|via)\\b"
 		},
 		"variables": {
-			"name": "variable.language",
+			"name": "variable.parameter",
 			"match": "(\\$variable|\\$value)\\b"
 		},
 		"strings": {
