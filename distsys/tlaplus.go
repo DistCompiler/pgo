@@ -9,6 +9,7 @@ import (
 	"github.com/benbjohnson/immutable"
 	"hash/fnv"
 	"io"
+	"math"
 	"strconv"
 	"strings"
 )
@@ -66,6 +67,12 @@ func (v *TLAValue) GobEncode() ([]byte, error) {
 	encoder := gob.NewEncoder(&buf)
 	err := encoder.Encode(&v.data)
 	return buf.Bytes(), err
+}
+
+func require(req bool, msg string) {
+	if !req {
+		panic(fmt.Errorf("%w: %s", TLATypeError, msg))
+	}
 }
 
 func (v TLAValue) AsBool() bool {
@@ -148,12 +155,16 @@ func (v TLAValue) ApplyFunction(argument TLAValue) TLAValue {
 	}
 }
 
+func (v TLAValue) PCalPrint() {
+	fmt.Println(v)
+}
+
 func TLA_EqualsSymbol(lhs, rhs TLAValue) TLAValue {
-	if lhs.Equal(rhs) {
-		return TLA_TRUE
-	} else {
-		return TLA_FALSE
-	}
+	return NewTLABool(lhs.Equal(rhs))
+}
+
+func TLA_NotEqualsSymbol(lhs, rhs TLAValue) TLAValue {
+	return NewTLABool(!lhs.Equal(rhs))
 }
 
 type TLAValueHasher struct{}
@@ -180,6 +191,15 @@ var _ tlaValueImpl = tlaValueBool(false)
 
 var TLA_TRUE = TLAValue{tlaValueBool(true)}
 var TLA_FALSE = TLAValue{tlaValueBool(false)}
+var TLA_BOOLEAN = NewTLASet(TLA_TRUE, TLA_FALSE)
+
+func NewTLABool(v bool) TLAValue {
+	if v {
+		return TLA_TRUE
+	} else {
+		return TLA_FALSE
+	}
+}
 
 func (v tlaValueBool) Hash() uint32 {
 	h := fnv.New32()
@@ -202,6 +222,26 @@ func (v tlaValueBool) String() string {
 	}
 }
 
+func TLA_LogicalAndSymbol(lhs, rhs TLAValue) TLAValue {
+	return NewTLABool(lhs.AsBool() && rhs.AsBool())
+}
+
+func TLA_LogicalOrSymbol(lhs, rhs TLAValue) TLAValue {
+	return NewTLABool(lhs.AsBool() || rhs.AsBool())
+}
+
+func TLA_LogicalNotSymbol(v TLAValue) TLAValue {
+	return NewTLABool(!v.AsBool())
+}
+
+func TLA_ImpliesSymbol(lhs, rhs TLAValue) TLAValue {
+	return NewTLABool(!lhs.AsBool() || rhs.AsBool())
+}
+
+func TLA_EquivSymbol(lhs, rhs TLAValue) TLAValue {
+	return NewTLABool(lhs.AsBool() == rhs.AsBool())
+}
+
 type tlaValueNumber int32
 
 var _ tlaValueImpl = tlaValueNumber(0)
@@ -209,6 +249,10 @@ var _ tlaValueImpl = tlaValueNumber(0)
 func NewTLANumber(num int32) TLAValue {
 	return TLAValue{tlaValueNumber(num)}
 }
+
+// FIXME: better error handling
+var TLA_Nat = TLAValue{}
+var TLA_Int = TLAValue{}
 
 func (v tlaValueNumber) Hash() uint32 {
 	h := fnv.New32()
@@ -231,8 +275,57 @@ func TLA_PlusSymbol(lhs, rhs TLAValue) TLAValue {
 	return NewTLANumber(lhs.AsNumber() + rhs.AsNumber())
 }
 
+func TLA_MinusSymbol(lhs, rhs TLAValue) TLAValue {
+	return NewTLANumber(lhs.AsNumber() - rhs.AsNumber())
+}
+
+func TLA_AsteriskSymbol(lhs, rhs TLAValue) TLAValue {
+	return NewTLANumber(lhs.AsNumber() * rhs.AsNumber())
+}
+
+func TLA_SuperscriptSymbol(lhs, rhs TLAValue) TLAValue {
+	return NewTLANumber(int32(math.Pow(float64(lhs.AsNumber()), float64(rhs.AsNumber()))))
+}
+
+func TLA_LessThanOrEqualSymbol(lhs, rhs TLAValue) TLAValue {
+	return NewTLABool(lhs.AsNumber() <= rhs.AsNumber())
+}
+
+func TLA_GreaterThanOrEqualSymbol(lhs, rhs TLAValue) TLAValue {
+	return NewTLABool(lhs.AsNumber() >= rhs.AsNumber())
+}
+
+func TLA_LessThanSymbol(lhs, rhs TLAValue) TLAValue {
+	return NewTLABool(lhs.AsNumber() < rhs.AsNumber())
+}
+
+func TLA_GreaterThanSymbol(lhs, rhs TLAValue) TLAValue {
+	return NewTLABool(lhs.AsNumber() > rhs.AsNumber())
+}
+
+func TLA_DotDotSymbol(lhs, rhs TLAValue) TLAValue {
+	from, to := lhs.AsNumber(), rhs.AsNumber()
+	builder := immutable.NewListBuilder()
+	for i := from; i <= to; i++ {
+		builder.Append(i)
+	}
+	return TLAValue{&tlaValueTuple{builder.List()}}
+}
+
+func TLA_DivSymbol(lhs, rhs TLAValue) TLAValue {
+	rhsNum := rhs.AsNumber()
+	require(rhsNum != 0, "divisor must not be 0")
+	return NewTLANumber(lhs.AsNumber() / rhsNum)
+}
+
 func TLA_PercentSymbol(lhs, rhs TLAValue) TLAValue {
-	return NewTLANumber(lhs.AsNumber() % rhs.AsNumber())
+	rhsNum := rhs.AsNumber()
+	require(rhsNum != 0, "divisor must not be 0")
+	return NewTLANumber(lhs.AsNumber() % rhsNum)
+}
+
+func TLA_NegationSymbol(v TLAValue) TLAValue {
+	return NewTLANumber(-v.AsNumber())
 }
 
 type tlaValueString string
@@ -368,6 +461,112 @@ func (v *tlaValueSet) GobDecode(input []byte) error {
 	}
 }
 
+func TLA_InSymbol(lhs, rhs TLAValue) TLAValue {
+	set := rhs.AsSet()
+	_, ok := set.Get(lhs)
+	return NewTLABool(ok)
+}
+
+func TLA_NotInSymbol(lhs, rhs TLAValue) TLAValue {
+	set := rhs.AsSet()
+	_, ok := set.Get(lhs)
+	return NewTLABool(!ok)
+}
+
+func TLA_IntersectSymbol(lhs, rhs TLAValue) TLAValue {
+	lhsSet, rhsSet := lhs.AsSet(), rhs.AsSet()
+	builder := immutable.NewMapBuilder(TLAValueHasher{})
+	it := lhsSet.Iterator()
+	for !it.Done() {
+		elem, _ := it.Next()
+		if _, ok := rhsSet.Get(elem); ok {
+			builder.Set(elem, true)
+		}
+	}
+	return TLAValue{&tlaValueSet{builder.Map()}}
+}
+
+func TLA_UnionSymbol(lhs, rhs TLAValue) TLAValue {
+	lhsSet, rhsSet := lhs.AsSet(), rhs.AsSet()
+	builder := immutable.NewMapBuilder(TLAValueHasher{})
+	it := lhsSet.Iterator()
+	for !it.Done() {
+		v, _ := it.Next()
+		builder.Set(v, true)
+	}
+	it = rhsSet.Iterator()
+	for !it.Done() {
+		v, _ := it.Next()
+		builder.Set(v, true)
+	}
+	return TLAValue{&tlaValueSet{builder.Map()}}
+}
+
+func TLA_SubsetOrEqualSymbol(lhs, rhs TLAValue) TLAValue {
+	lhsSet, rhsSet := lhs.AsSet(), rhs.AsSet()
+	it := lhsSet.Iterator()
+	for !it.Done() {
+		elem, _ := it.Next()
+		_, ok := rhsSet.Get(elem)
+		if !ok {
+			return TLA_FALSE
+		}
+	}
+	return TLA_TRUE
+}
+
+func TLA_BackslashSymbol(lhs, rhs TLAValue) TLAValue {
+	lhsSet, rhsSet := lhs.AsSet(), rhs.AsSet()
+	builder := immutable.NewMapBuilder(TLAValueHasher{})
+	it := lhsSet.Iterator()
+	for !it.Done() {
+		elem, _ := it.Next()
+		if _, ok := rhsSet.Get(elem); !ok {
+			builder.Set(elem, true)
+		}
+	}
+	return TLAValue{&tlaValueSet{builder.Map()}}
+}
+
+func TLA_PrefixSubsetSymbol(v TLAValue) TLAValue {
+	set := v.AsSet()
+	builder := immutable.NewMapBuilder(TLAValueHasher{})
+	shrinkingSet := set
+	it := set.Iterator()
+	for !it.Done() {
+		elem, _ := it.Next()
+		builder.Set(shrinkingSet, true)
+		shrinkingSet = shrinkingSet.Delete(elem)
+	}
+	builder.Set(shrinkingSet, true) // add the empty set
+	return TLAValue{&tlaValueSet{builder.Map()}}
+}
+
+func TLA_PrefixUnionSymbol(v TLAValue) TLAValue {
+	setOfSets := v.AsSet()
+	builder := immutable.NewMapBuilder(TLAValueHasher{})
+	it := setOfSets.Iterator()
+	for !it.Done() {
+		elem, _ := it.Next()
+		set := elem.(TLAValue).AsSet()
+		innerIt := set.Iterator()
+		for !innerIt.Done() {
+			elem, _ := it.Next()
+			builder.Set(elem, true)
+		}
+	}
+	return TLAValue{&tlaValueSet{builder.Map()}}
+}
+
+func TLA_IsFiniteSet(v TLAValue) TLAValue {
+	_ = v.AsSet() // it should at least _be_ a set, even if we're sure it's finite
+	return TLA_TRUE
+}
+
+func TLA_Cardinality(v TLAValue) TLAValue {
+	return NewTLANumber(int32(v.AsSet().Len()))
+}
+
 type tlaValueTuple struct {
 	*immutable.List
 }
@@ -463,9 +662,54 @@ func (v *tlaValueTuple) GobDecode(input []byte) error {
 	}
 }
 
+func TLA_Seq(v TLAValue) TLAValue {
+	panic("implement me")
+}
+
+func TLA_Len(v TLAValue) TLAValue {
+	return NewTLANumber(int32(v.AsTuple().Len()))
+}
+
+func TLA_OSymbol(lhs, rhs TLAValue) TLAValue {
+	lhsTuple, rhsTuple := lhs.AsTuple(), rhs.AsTuple()
+	it := rhsTuple.Iterator()
+	for !it.Done() {
+		_, elem := it.Next()
+		lhsTuple = lhsTuple.Append(elem)
+	}
+	return TLAValue{&tlaValueTuple{lhsTuple}}
+}
+
+func TLA_Append(lhs, rhs TLAValue) TLAValue {
+	return TLAValue{&tlaValueTuple{lhs.AsTuple().Append(rhs)}}
+}
+
+func TLA_Head(v TLAValue) TLAValue {
+	tuple := v.AsTuple()
+	require(tuple.Len() > 0, "to call Head, tuple must not be empty")
+	return tuple.Get(0).(TLAValue)
+}
+
+func TLA_Tail(v TLAValue) TLAValue {
+	tuple := v.AsTuple()
+	require(tuple.Len() > 0, "to call Tail, tuple must not be empty")
+	return TLAValue{&tlaValueTuple{tuple.Slice(1, tuple.Len())}}
+}
+
+func TLA_SubSeq(v, m, n TLAValue) TLAValue {
+	tuple := v.AsTuple()
+	from, to := int(m.AsNumber()), int(n.AsNumber())
+	require(from <= to && from >= 0 && to <= tuple.Len(), "to call SubSeq, from and to indices must be in-bounds")
+	return TLAValue{&tlaValueTuple{tuple.Slice(from-1, to)}}
+}
+
+// TODO: TLA_SelectSeq, uses predicate
+func TLA_SelectSeq(a, b TLAValue) TLAValue {
+	panic("implement me")
+}
+
 type tlaValueFunction struct {
 	*immutable.Map
-	domain, rng *TLAValue
 }
 
 type TLARecordField struct {
@@ -492,7 +736,30 @@ func NewTLARecord(pairs []TLARecordField) TLAValue {
 	for _, pair := range pairs {
 		builder.Set(pair.Key, pair.Value)
 	}
-	return TLAValue{&tlaValueFunction{Map: builder.Map()}}
+	return TLAValue{&tlaValueFunction{builder.Map()}}
+}
+
+func NewTLARecordSet(pairs []TLARecordField) TLAValue {
+	recordSet := immutable.NewMap(TLAValueHasher{})
+	// start with a set of one empty map
+	recordSet = recordSet.Set(TLAValue{&tlaValueFunction{immutable.NewMap(TLAValueHasher{})}}, true)
+	for _, pair := range pairs {
+		fieldValueSet := pair.Value.AsSet()
+		builder := immutable.NewMapBuilder(TLAValueHasher{})
+		// iterate over accumulated set of records, and add every possible value for this field, from fieldValueSet
+		it := recordSet.Iterator()
+		for !it.Done() {
+			acc, _ := it.Next()
+			accFn := acc.(TLAValue).AsFunction()
+			valIt := fieldValueSet.Iterator()
+			for !valIt.Done() {
+				val, _ := valIt.Next()
+				builder.Set(TLAValue{&tlaValueFunction{accFn.Set(pair.Key, val)}}, true)
+			}
+		}
+		recordSet = builder.Map()
+	}
+	return TLAValue{&tlaValueSet{recordSet}}
 }
 
 func (v *tlaValueFunction) Hash() uint32 {
@@ -580,4 +847,15 @@ func (v *tlaValueFunction) GobDecode(input []byte) error {
 		}
 		builder.Set(field.Key, field.Value)
 	}
+}
+
+func TLA_DomainSymbol(v TLAValue) TLAValue {
+	fn := v.AsFunction()
+	builder := immutable.NewMapBuilder(TLAValueHasher{})
+	it := fn.Iterator()
+	for !it.Done() {
+		domainElem, _ := it.Next()
+		builder.Set(domainElem, true)
+	}
+	return TLAValue{&tlaValueSet{builder.Map()}}
 }

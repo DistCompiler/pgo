@@ -25,6 +25,7 @@ func ALoadBalancer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants C
 		mainLabelTag = iota
 		rcvMsgLabelTag
 		sendServerLabelTag
+		DoneLabelTag
 	)
 	programCounter := distsys.EnsureLocalArchetypeResource(ctx.ResourceEnsurerPositional(), distsys.NewTLANumber(mainLabelTag))
 	msg := distsys.EnsureLocalArchetypeResource(ctx.ResourceEnsurerPositional(), distsys.TLAValue{})
@@ -55,7 +56,14 @@ func ALoadBalancer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants C
 					continue
 				}
 			} else {
-				// no statements
+				err = ctx.Write(programCounter, []distsys.TLAValue{}, distsys.NewTLANumber(DoneLabelTag))
+				if err != nil {
+					continue
+				}
+				err = ctx.Commit()
+				if err != nil {
+					continue
+				}
 			}
 			// no statements
 		case rcvMsgLabelTag:
@@ -131,6 +139,8 @@ func ALoadBalancer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants C
 			if err != nil {
 				continue
 			}
+		case DoneLabelTag:
+			return nil
 		default:
 			return fmt.Errorf("invalid program counter %v", labelTag)
 		}
@@ -144,6 +154,7 @@ func AServer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constan
 		serverLoopLabelTag = iota
 		rcvReqLabelTag
 		sendPageLabelTag
+		DoneLabelTag
 	)
 	programCounter0 := distsys.EnsureLocalArchetypeResource(ctx.ResourceEnsurerPositional(), distsys.NewTLANumber(serverLoopLabelTag))
 	msg0 := distsys.EnsureLocalArchetypeResource(ctx.ResourceEnsurerPositional(), distsys.TLAValue{})
@@ -173,7 +184,14 @@ func AServer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constan
 					continue
 				}
 			} else {
-				// no statements
+				err0 = ctx.Write(programCounter0, []distsys.TLAValue{}, distsys.NewTLANumber(DoneLabelTag))
+				if err0 != nil {
+					continue
+				}
+				err0 = ctx.Commit()
+				if err0 != nil {
+					continue
+				}
 			}
 			// no statements
 		case rcvReqLabelTag:
@@ -222,6 +240,8 @@ func AServer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constan
 			if err0 != nil {
 				continue
 			}
+		case DoneLabelTag:
+			return nil
 		default:
 			return fmt.Errorf("invalid program counter %v", labelTag0)
 		}
@@ -235,6 +255,7 @@ func AClient(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constan
 		clientLoopLabelTag = iota
 		clientRequestLabelTag
 		clientReceiveLabelTag
+		DoneLabelTag
 	)
 	programCounter1 := distsys.EnsureLocalArchetypeResource(ctx.ResourceEnsurerPositional(), distsys.NewTLANumber(clientLoopLabelTag))
 	req := distsys.EnsureLocalArchetypeResource(ctx.ResourceEnsurerPositional(), distsys.TLAValue{})
@@ -265,7 +286,14 @@ func AClient(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constan
 					continue
 				}
 			} else {
-				// no statements
+				err1 = ctx.Write(programCounter1, []distsys.TLAValue{}, distsys.NewTLANumber(DoneLabelTag))
+				if err1 != nil {
+					continue
+				}
+				err1 = ctx.Commit()
+				if err1 != nil {
+					continue
+				}
 			}
 			// no statements
 		case clientRequestLabelTag:
@@ -326,6 +354,8 @@ func AClient(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constan
 			if err1 != nil {
 				continue
 			}
+		case DoneLabelTag:
+			return nil
 		default:
 			return fmt.Errorf("invalid program counter %v", labelTag1)
 		}

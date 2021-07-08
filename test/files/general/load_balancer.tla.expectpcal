@@ -255,6 +255,8 @@ CONSTANT WEB_PAGE
     main:
       if(TRUE) {
         goto rcvMsg;
+      } else {
+        goto Done;
       };
     rcvMsg:
       await (Len((network)[LoadBalancerId])) > (0);
@@ -281,6 +283,8 @@ CONSTANT WEB_PAGE
     serverLoop:
       if(TRUE) {
         goto rcvReq;
+      } else {
+        goto Done;
       };
     rcvReq:
       await (Len((network)[self])) > (0);
@@ -307,6 +311,8 @@ CONSTANT WEB_PAGE
     clientLoop:
       if(TRUE) {
         goto clientRequest;
+      } else {
+        goto Done;
       };
     clientRequest:
       req := [message_type |-> GET_PAGE, client_id |-> self, path |-> in];

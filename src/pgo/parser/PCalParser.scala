@@ -60,9 +60,13 @@ trait PCalParser extends TLAParser {
       rec | success(Nil)
     }
 
-  def pcalLhsId(implicit ctx: PCalParserContext): Parser[PCalAssignmentLhs] =
+  def pcalLhsId(implicit ctx: PCalParserContext): Parser[PCalAssignmentLhs] = {
+    val lhsPart: Parser[Any] =
+      ("." ~> ws ~> tlaIdentifier) |
+        ("[" ~> ws ~> rep1sep(tlaExpression, ws ~> "," ~> ws) <~ ws <~ "]")
+
     withSourceLocation {
-      tlaIdentifierExpr <~ guard(ws ~> (":=" | "[" | ".")) ^^ { id => // avoid accidentally matching labels
+      tlaIdentifierExpr <~ guard(ws ~> repsep(lhsPart, ws) ~> ws ~> ":=") ^^ { id => // avoid accidentally matching non-assignments
         ctx.ctx.lookupDefinition(List(Definition.ScopeIdentifierName(id))) match {
           case Some(defn) =>
             val result = PCalAssignmentLhsIdentifier(id)
@@ -78,8 +82,9 @@ trait PCalParser extends TLAParser {
         }
       }
     }
+  }
 
-    def pcalLhs(implicit ctx: PCalParserContext): Parser[PCalAssignmentLhs] = {
+  def pcalLhs(implicit ctx: PCalParserContext): Parser[PCalAssignmentLhs] = {
       def rec(lhs: PCalAssignmentLhs): Parser[PCalAssignmentLhs] =
         opt(ws ~> withSourceLocation {
           "." ~> ws ~> tlaIdentifierExpr ^^ (id => PCalAssignmentLhsProjection(lhs, List(TLAString(id.id).setSourceLocation(id.sourceLocation)))) |

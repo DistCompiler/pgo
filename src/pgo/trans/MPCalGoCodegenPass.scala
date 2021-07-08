@@ -65,10 +65,10 @@ object MPCalGoCodegenPass {
       .map(either => either -> ctx.nameCleaner.cleanName("fairnessCounter"))
       .to(IdMap)
 
-    val labelBinds = body.view.map {
+    val labelBinds = (body.view.map {
       case PCalLabeledStatements(label, statements) =>
         label.name -> s"${ctx.nameCleaner.cleanName(label.name)}LabelTag"
-    }.toMap
+    } ++ List("Done" -> "DoneLabelTag")).toMap
 
     def readExpr(expr: TLAExpression, hint: String = "resourceRead")(fn: Description=>Description)(implicit ctx: GoCodegenContext): Description = {
       val resourceReads = mutable.ListBuffer[(DefinitionOne,PCalVariableDeclarationEmpty,List[TLAExpression])]()
@@ -328,7 +328,8 @@ object MPCalGoCodegenPass {
               body.view.tail.map {
                 case PCalLabeledStatements(label, _) =>
                   d"\n${labelBinds(label.name)}"
-              }.flattenDescriptions).indented
+              }.flattenDescriptions +
+              d"\nDoneLabelTag").indented
           }\n)" +
           d"\n$programCounterResourceName := ${ensureLocalResource {
             val firstLabel = labelBinds(body.head.asInstanceOf[PCalLabeledStatements].label.name)
@@ -370,7 +371,9 @@ object MPCalGoCodegenPass {
                         d"\ncase ${labelBinds(label.name)}:${
                           impl(statements).indented
                         }"
-                    }
+                    }.flattenDescriptions +
+                      d"\ncase DoneLabelTag:" +
+                      d"\nreturn nil".indented
                   }\ndefault:${
                     d"""\nreturn fmt.Errorf("invalid program counter %v", $labelTag)""".indented
                   }\n}"
@@ -447,7 +450,7 @@ object MPCalGoCodegenPass {
             d"$bind(${ctx.constantsName}, ${arguments.map(translateExpr).separateBy(d", ")})"
         }
       case TLAIf(cond, tval, fval) =>
-        d"func() {${
+        d"func() $TLAValue {${
           (d"\nif ${translateExpr(cond)}.AsBool() {" +
             d"\nreturn ${translateExpr(tval)}".indented +
             d"\n} else {" +

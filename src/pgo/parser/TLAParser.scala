@@ -824,7 +824,8 @@ trait TLAParser extends RegexParsers {
 
   def tlaModuleBeforeTranslation(implicit ctx: TLAParserContext): Parser[TLAModule] =
     withSourceLocation {
-      val translationTag = "\\*" <~ rep("*") <~ rep(" ") <~ "BEGIN" <~ rep(" ") <~ "TRANSLATION"
+      val translationTag = ("\\*" <~ rep("*") <~ rep(" ") <~ "BEGIN" <~ rep(" ") <~ "TRANSLATION")
+        .withFailureMessage("\\* expected: for scoping reasons, an MPCal-compilable TLA+ module must contain a `\\* BEGIN TRANSLATION` tag")
       val wsWithoutTranslationTag =
         rep(regex("""\s+""".r) | tlaMultilineComment | not(translationTag) ~> tlaLineComment)
 

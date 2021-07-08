@@ -22,6 +22,7 @@ func AConsumer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Const
 		cLabelTag = iota
 		c1LabelTag
 		c2LabelTag
+		DoneLabelTag
 	)
 	programCounter := distsys.EnsureLocalArchetypeResource(ctx.ResourceEnsurerPositional(), distsys.NewTLANumber(cLabelTag))
 
@@ -50,7 +51,14 @@ func AConsumer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Const
 					continue
 				}
 			} else {
-				// no statements
+				err = ctx.Write(programCounter, []distsys.TLAValue{}, distsys.NewTLANumber(DoneLabelTag))
+				if err != nil {
+					continue
+				}
+				err = ctx.Commit()
+				if err != nil {
+					continue
+				}
 			}
 			// no statements
 		case c1LabelTag:
@@ -84,6 +92,8 @@ func AConsumer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Const
 			if err != nil {
 				continue
 			}
+		case DoneLabelTag:
+			return nil
 		default:
 			return fmt.Errorf("invalid program counter %v", labelTag)
 		}
@@ -97,6 +107,7 @@ func AProducer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Const
 		pLabelTag = iota
 		p1LabelTag
 		p2LabelTag
+		DoneLabelTag
 	)
 	programCounter0 := distsys.EnsureLocalArchetypeResource(ctx.ResourceEnsurerPositional(), distsys.NewTLANumber(pLabelTag))
 	requester := distsys.EnsureLocalArchetypeResource(ctx.ResourceEnsurerPositional(), distsys.TLAValue{})
@@ -126,7 +137,14 @@ func AProducer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Const
 					continue
 				}
 			} else {
-				// no statements
+				err0 = ctx.Write(programCounter0, []distsys.TLAValue{}, distsys.NewTLANumber(DoneLabelTag))
+				if err0 != nil {
+					continue
+				}
+				err0 = ctx.Commit()
+				if err0 != nil {
+					continue
+				}
 			}
 			// no statements
 		case p1LabelTag:
@@ -170,6 +188,8 @@ func AProducer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Const
 			if err0 != nil {
 				continue
 			}
+		case DoneLabelTag:
+			return nil
 		default:
 			return fmt.Errorf("invalid program counter %v", labelTag0)
 		}

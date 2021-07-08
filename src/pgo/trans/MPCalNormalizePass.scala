@@ -136,7 +136,8 @@ object MPCalNormalizePass {
         body match {
           case PCalLabeledStatements(_, _) :: _ =>
             assert(body.forall(_.isInstanceOf[PCalLabeledStatements]))
-            transBlocks(body.asInstanceOf[List[PCalLabeledStatements]], None, Iterator.empty).toList
+            // add a dummy label "Done", which is valid, in that it jumps to end-of-program, as the "last" critical section should
+            transBlocks(body.asInstanceOf[List[PCalLabeledStatements]], Some(PCalLabel("Done", PCalLabel.NoModifier)), Iterator.empty).toList
           case _ =>
             assert(body.forall(!containsLabels(_)))
             body

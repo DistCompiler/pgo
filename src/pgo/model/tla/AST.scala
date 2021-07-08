@@ -418,10 +418,14 @@ final case class TLASetComprehension(body: TLAExpression, bounds: List[TLAQuanti
 
 final case class TLATuple(elements: List[TLAExpression]) extends TLAExpression
 
-final case class TLARecordConstructor(fields: List[TLARecordConstructorField]) extends TLAExpression
+final case class TLARecordConstructor(fields: List[TLARecordConstructorField]) extends TLAExpression {
+  require(fields.nonEmpty)
+}
 
 final case class TLARecordConstructorField(name: TLAIdentifier, value: TLAExpression) extends TLANode
 
-final case class TLARecordSet(fields: List[TLARecordSetField]) extends TLAExpression
+final case class TLARecordSet(fields: List[TLARecordSetField]) extends TLAExpression {
+  require(fields.nonEmpty)
+}
 
 final case class TLARecordSetField(name: TLAIdentifier, set: TLAExpression) extends TLANode

@@ -156,7 +156,7 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
   \*             incoming messages.
   \* - kv: the underlying "database". When 'put' requests become stable, this
   \*       database is updated to include the value being set by the client.
-  archetype AReplica(ref clients, replicas, ref kv)
+  archetype AReplica(ref clients[_], ref replicas[_], ref kv[_])
 
   \* Local state in a replica:
   variables
@@ -423,7 +423,7 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
   \* A Get message sent to the replica is a record in the following format:
   \*
   \*     [op: GET_MSG, key: key, client: client_id, timestamp: lamport_clock]
-  archetype Get(clientId, ref replicas, clients, key, ref clock, spin, ref outside)
+  archetype Get(ref clientId, ref replicas[_], ref clients[_], key, ref clock[_], spin, ref outside)
   variable continue = TRUE, getReq, getResp;
   {
       \* Loop until disconnected
@@ -478,7 +478,7 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
   \* A Put message sent to the replica is a record in the following format:
   \*
   \*     [op: PUT_MSG, key: key, value: value, client: client_id, timestamp: lamport_clock]
-  archetype Put(clientId, ref replicas, clients, key, value, ref clock, spin, ref outside)
+  archetype Put(ref clientId, ref replicas[_], ref clients[_], key, value, ref clock[_], spin, ref outside)
   variables continue = TRUE, i, j, putReq, putResp;
   {
       \* Loops indefinitely until disconnected
@@ -531,7 +531,7 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
   \* A Disconnect message sent to the replica is a record in the following format:
   \*
   \*     [op: DISCONNECT_MSG, client: client_id]
-  archetype Disconnect(clientId, ref replicas, ref clock)
+  archetype Disconnect(ref clientId, ref replicas[_], ref clock[_])
   variables msg, j;
   {
       sendDisconnectRequest:
@@ -555,7 +555,7 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
   \* A ClockUpdate message sent to the replica is a record in the following format:
   \*
   \*     [op: NULL_MSG, client: client_id, timestamp: logical_clock]
-  archetype ClockUpdate(clientId, ref replicas, ref clock, spin)
+  archetype ClockUpdate(ref clientId, ref replicas[_], ref clock[_], spin)
   variables continue = TRUE, j, msg;
   {
       clockUpdateLoop:
@@ -617,34 +617,30 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
 
   \* Instantiate replica servers. The network model used is the one defined in
   \* the FIFOChannel mapping macro.
-  fair process (Replica \in ReplicaSet) == instance AReplica(ref clientMailboxes, replicasNetwork, [k \in KeySpace |-> NULL])
+  fair process (Replica \in ReplicaSet) == instance AReplica(ref clientMailboxes[_], ref replicasNetwork[_], [k \in KeySpace |-> NULL])
       mapping @1[_] via FIFOChannel
       mapping @2[_] via FIFOChannel
       mapping @3[_] via Identity;
 
   \* Instantiate clients:
 
-  fair process (GetClient \in GetSet) == instance Get(cid, ref replicasNetwork, clientMailboxes, GET_KEY, ref clocks, TRUE, ref out)
+  fair process (GetClient \in GetSet) == instance Get(ref cid, ref replicasNetwork[_], ref clientMailboxes[_], GET_KEY, ref clocks[_], TRUE, ref out)
       mapping cid via GetClientId
       mapping replicasNetwork[_] via FIFOChannel
-      mapping clientMailboxes[_] via FIFOChannel
-      mapping clocks[_] via Identity;
+      mapping clientMailboxes[_] via FIFOChannel;
 
-  fair process (PutClient \in PutSet) == instance Put(cid, ref replicasNetwork, clientMailboxes, PUT_KEY, PUT_VALUE, ref clocks, TRUE, ref out)
+  fair process (PutClient \in PutSet) == instance Put(ref cid, ref replicasNetwork[_], ref clientMailboxes[_], PUT_KEY, PUT_VALUE, ref clocks[_], TRUE, ref out)
       mapping cid via PutClientId
       mapping replicasNetwork[_] via FIFOChannel
-      mapping clientMailboxes[_] via FIFOChannel
-      mapping clocks[_] via Identity;
+      mapping clientMailboxes[_] via FIFOChannel;
 
-  fair process (DisconnectClient \in DisconnectSet) == instance Disconnect(cid, ref replicasNetwork, ref clocks)
+  fair process (DisconnectClient \in DisconnectSet) == instance Disconnect(ref cid, ref replicasNetwork[_], ref clocks[_])
       mapping cid via DisconnectClientId
-      mapping replicasNetwork[_] via FIFOChannel
-      mapping clocks[_] via Identity;
+      mapping replicasNetwork[_] via FIFOChannel;
 
-  fair process (ClockUpdateClient \in NullSet) == instance ClockUpdate(cid, ref replicasNetwork, ref clocks, TRUE)
+  fair process (ClockUpdateClient \in NullSet) == instance ClockUpdate(ref cid, ref replicasNetwork[_], ref clocks[_], TRUE)
       mapping cid via NullClientId
-      mapping replicasNetwork[_] via FIFOChannel
-      mapping clocks[_] via Identity;
+      mapping replicasNetwork[_] via FIFOChannel;
 }
 
 
@@ -659,18 +655,20 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
   }
   
   fair process (Replica \in ReplicaSet)
-    variables liveClients = ClientSet; pendingRequests = [c \in liveClients |-> <<>>]; stableMessages = <<>>; i; firstPending; timestamp; nextClient; lowestPending; chooseMessage; currentClocks = [c \in liveClients |-> 0]; minClock; continue; pendingClients; clientsIter; msg; ok; key; val; replicas = replicasNetwork; kv = [k \in KeySpace |-> NULL];
+    variables liveClients = ClientSet; pendingRequests = [c \in liveClients |-> <<>>]; stableMessages = <<>>; i; firstPending; timestamp; nextClient; lowestPending; chooseMessage; currentClocks = [c \in liveClients |-> 0]; minClock; continue; pendingClients; clientsIter; msg; ok; key; val; kv = [k \in KeySpace |-> NULL];
   {
     replicaLoop:
       if(TRUE) {
         stableMessages := <<>>;
         continue := TRUE;
         goto receiveClientRequest;
+      } else {
+        goto Done;
       };
     receiveClientRequest:
-      await (Len((replicas)[self])) > (0);
-      with (msg0 = Head((replicas)[self])) {
-        replicas := [replicas EXCEPT ![self] = Tail((replicas)[self])];
+      await (Len((replicasNetwork)[self])) > (0);
+      with (msg0 = Head((replicasNetwork)[self])) {
+        replicasNetwork := [replicasNetwork EXCEPT ![self] = Tail((replicasNetwork)[self])];
         with (yielded_replicas0 = msg0) {
           msg := yielded_replicas0;
           goto clientDisconnected;
@@ -797,8 +795,8 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
       if(((msg).op) = (PUT_MSG)) {
         key := (msg).key;
         val := (msg).value;
-        with (value11 = val) {
-          kv := [kv EXCEPT ![key] = value11];
+        with (value10 = val) {
+          kv := [kv EXCEPT ![key] = value10];
           with (value20 = [type |-> PUT_RESPONSE, result |-> ok]) {
             await (Len((clientMailboxes)[(msg).reply_to])) < (BUFFER_SIZE);
             clientMailboxes := [clientMailboxes EXCEPT ![(msg).reply_to] = Append((clientMailboxes)[(msg).reply_to], value20)];
@@ -811,31 +809,31 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
   }
   
   fair process (GetClient \in GetSet)
-    variables continue = TRUE; getReq; getResp; clientId = cid; clients = clientMailboxes; key = GET_KEY; spin = TRUE;
+    variables continue = TRUE; getReq; getResp; key = GET_KEY; spin = TRUE;
   {
     getLoop:
       if(continue) {
         goto getRequest;
+      } else {
+        goto Done;
       };
     getRequest:
-      with (yielded_clock1 = (clocks)[clientId]) {
-        if((yielded_clock1) = (- (1))) {
+      with (yielded_clientId3 = (self) - ((NUM_CLIENTS) * (GET_ORDER))) {
+        if(((clocks)[yielded_clientId3]) = (- (1))) {
           continue := FALSE;
           goto getCheckSpin;
         } else {
-          with (yielded_clientId7 = (self) - ((NUM_CLIENTS) * (GET_ORDER))) {
-            with (yielded_clock12 = (clocks)[clientId]) {
-              with (value30 = (yielded_clock12) + (1)) {
-                clocks := [clocks EXCEPT ![yielded_clientId7] = value30];
-                with (yielded_clientId00 = (self) - ((NUM_CLIENTS) * (GET_ORDER))) {
-                  with (yielded_clock00 = (clocks)[clientId]) {
-                    getReq := [op |-> GET_MSG, key |-> key, client |-> yielded_clientId00, timestamp |-> yielded_clock00, reply_to |-> self];
-                    with (dst \in ReplicaSet) {
-                      with (value40 = getReq) {
-                        await (Len((replicasNetwork)[dst])) < (BUFFER_SIZE);
-                        replicasNetwork := [replicasNetwork EXCEPT ![dst] = Append((replicasNetwork)[dst], value40)];
-                        goto getReply;
-                      };
+          with (yielded_clientId00 = (self) - ((NUM_CLIENTS) * (GET_ORDER))) {
+            with (yielded_clientId20 = (self) - ((NUM_CLIENTS) * (GET_ORDER))) {
+              clock := [clock EXCEPT ![yielded_clientId00] = ((clocks)[yielded_clientId20]) + (1)];
+              with (yielded_clientId21 = (self) - ((NUM_CLIENTS) * (GET_ORDER))) {
+                with (yielded_clientId110 = (self) - ((NUM_CLIENTS) * (GET_ORDER))) {
+                  getReq := [op |-> GET_MSG, key |-> key, client |-> yielded_clientId21, timestamp |-> (clocks)[yielded_clientId110], reply_to |-> self];
+                  with (dst \in ReplicaSet) {
+                    with (value30 = getReq) {
+                      await (Len((replicasNetwork)[dst])) < (BUFFER_SIZE);
+                      replicasNetwork := [replicasNetwork EXCEPT ![dst] = Append((replicasNetwork)[dst], value30)];
+                      goto getReply;
                     };
                   };
                 };
@@ -845,14 +843,14 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
         };
       };
     getReply:
-      with (yielded_clock2 = (clocks)[clientId]) {
-        if((yielded_clock2) = (- (1))) {
+      with (yielded_clientId4 = (self) - ((NUM_CLIENTS) * (GET_ORDER))) {
+        if(((clocks)[yielded_clientId4]) = (- (1))) {
           continue := FALSE;
           goto getCheckSpin;
         } else {
-          await (Len((clients)[self])) > (0);
-          with (msg1 = Head((clients)[self])) {
-            clients := [clients EXCEPT ![self] = Tail((clients)[self])];
+          await (Len((clientMailboxes)[self])) > (0);
+          with (msg1 = Head((clientMailboxes)[self])) {
+            clientMailboxes := [clientMailboxes EXCEPT ![self] = Tail((clientMailboxes)[self])];
             with (yielded_clients1 = msg1) {
               getResp := yielded_clients1;
               assert ((getResp).type) = (GET_RESPONSE);
@@ -872,29 +870,29 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
   }
   
   fair process (PutClient \in PutSet)
-    variables continue = TRUE; i; j; putReq; putResp; clientId = cid; clients = clientMailboxes; key = PUT_KEY; value = PUT_VALUE; spin = TRUE;
+    variables continue = TRUE; i; j; putReq; putResp; key = PUT_KEY; value = PUT_VALUE; spin = TRUE;
   {
     putLoop:
       if(continue) {
         goto putRequest;
+      } else {
+        goto Done;
       };
     putRequest:
-      with (yielded_clock5 = (clocks)[clientId]) {
-        if((yielded_clock5) = (- (1))) {
+      with (yielded_clientId9 = (self) - ((NUM_CLIENTS) * (PUT_ORDER))) {
+        if(((clocks)[yielded_clientId9]) = (- (1))) {
           continue := FALSE;
           goto putCheckSpin;
         } else {
-          with (yielded_clientId10 = (self) - ((NUM_CLIENTS) * (PUT_ORDER))) {
-            with (yielded_clock30 = (clocks)[clientId]) {
-              with (value50 = (yielded_clock30) + (1)) {
-                clocks := [clocks EXCEPT ![yielded_clientId10] = value50];
-                with (yielded_clientId20 = (self) - ((NUM_CLIENTS) * (PUT_ORDER))) {
-                  with (yielded_clock40 = (clocks)[clientId]) {
-                    putReq := [op |-> PUT_MSG, key |-> key, value |-> value, client |-> yielded_clientId20, timestamp |-> yielded_clock40, reply_to |-> self];
-                    i := 0;
-                    j := 0;
-                    goto putBroadcast;
-                  };
+          with (yielded_clientId60 = (self) - ((NUM_CLIENTS) * (PUT_ORDER))) {
+            with (yielded_clientId50 = (self) - ((NUM_CLIENTS) * (PUT_ORDER))) {
+              clock := [clock EXCEPT ![yielded_clientId60] = ((clocks)[yielded_clientId50]) + (1)];
+              with (yielded_clientId80 = (self) - ((NUM_CLIENTS) * (PUT_ORDER))) {
+                with (yielded_clientId70 = (self) - ((NUM_CLIENTS) * (PUT_ORDER))) {
+                  putReq := [op |-> PUT_MSG, key |-> key, value |-> value, client |-> yielded_clientId80, timestamp |-> (clocks)[yielded_clientId70], reply_to |-> self];
+                  i := 0;
+                  j := 0;
+                  goto putBroadcast;
                 };
               };
             };
@@ -902,11 +900,11 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
         };
       };
     putBroadcast:
-      with (yielded_clock6 = (clocks)[clientId]) {
-        if(((j) <= ((NUM_REPLICAS) - (1))) /\ ((yielded_clock6) # (- (1)))) {
-          with (value60 = putReq) {
+      with (yielded_clientId10 = (self) - ((NUM_CLIENTS) * (PUT_ORDER))) {
+        if(((j) <= ((NUM_REPLICAS) - (1))) /\ (((clocks)[yielded_clientId10]) # (- (1)))) {
+          with (value40 = putReq) {
             await (Len((replicasNetwork)[j])) < (BUFFER_SIZE);
-            replicasNetwork := [replicasNetwork EXCEPT ![j] = Append((replicasNetwork)[j], value60)];
+            replicasNetwork := [replicasNetwork EXCEPT ![j] = Append((replicasNetwork)[j], value40)];
             j := (j) + (1);
             goto putBroadcast;
           };
@@ -916,14 +914,14 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
       };
     putResponse:
       if((i) < (Cardinality(ReplicaSet))) {
-        with (yielded_clock7 = (clocks)[clientId]) {
-          if((yielded_clock7) = (- (1))) {
+        with (yielded_clientId11 = (self) - ((NUM_CLIENTS) * (PUT_ORDER))) {
+          if(((clocks)[yielded_clientId11]) = (- (1))) {
             continue := FALSE;
             goto putLoop;
           } else {
-            await (Len((clients)[self])) > (0);
-            with (msg2 = Head((clients)[self])) {
-              clients := [clients EXCEPT ![self] = Tail((clients)[self])];
+            await (Len((clientMailboxes)[self])) > (0);
+            with (msg2 = Head((clientMailboxes)[self])) {
+              clientMailboxes := [clientMailboxes EXCEPT ![self] = Tail((clientMailboxes)[self])];
               with (yielded_clients00 = msg2) {
                 putResp := yielded_clients00;
                 assert ((putResp).type) = (PUT_RESPONSE);
@@ -949,63 +947,63 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
   }
   
   fair process (DisconnectClient \in DisconnectSet)
-    variables msg; j; clientId = cid;
+    variables msg; j;
   {
     sendDisconnectRequest:
-      with (yielded_clientId30 = (self) - ((NUM_CLIENTS) * (DISCONNECT_ORDER))) {
-        msg := [op |-> DISCONNECT_MSG, client |-> yielded_clientId30];
-        with (yielded_clientId40 = (self) - ((NUM_CLIENTS) * (DISCONNECT_ORDER))) {
-          with (value70 = - (1)) {
-            clocks := [clocks EXCEPT ![yielded_clientId40] = value70];
-            j := 0;
-            goto disconnectBroadcast;
-          };
+      with (yielded_clientId120 = (self) - ((NUM_CLIENTS) * (DISCONNECT_ORDER))) {
+        msg := [op |-> DISCONNECT_MSG, client |-> yielded_clientId120];
+        with (yielded_clientId130 = (self) - ((NUM_CLIENTS) * (DISCONNECT_ORDER))) {
+          clock := [clock EXCEPT ![yielded_clientId130] = - (1)];
+          j := 0;
+          goto disconnectBroadcast;
         };
       };
     disconnectBroadcast:
       if(((j) <= ((NUM_REPLICAS) - (1))) /\ ((0) # (- (1)))) {
-        with (value80 = msg) {
+        with (value50 = msg) {
           await (Len((replicasNetwork)[j])) < (BUFFER_SIZE);
-          replicasNetwork := [replicasNetwork EXCEPT ![j] = Append((replicasNetwork)[j], value80)];
+          replicasNetwork := [replicasNetwork EXCEPT ![j] = Append((replicasNetwork)[j], value50)];
           j := (j) + (1);
           goto disconnectBroadcast;
         };
+      } else {
+        goto Done;
       };
   }
   
   fair process (ClockUpdateClient \in NullSet)
-    variables continue = TRUE; j; msg; clientId = cid; spin = TRUE;
+    variables continue = TRUE; j; msg; spin = TRUE;
   {
     clockUpdateLoop:
       if(continue) {
-        with (yielded_clock10 = (clocks)[clientId]) {
-          if((yielded_clock10) = (- (1))) {
+        with (yielded_clientId18 = (self) - ((NUM_CLIENTS) * (NULL_ORDER))) {
+          if(((clocks)[yielded_clientId18]) = (- (1))) {
             continue := FALSE;
             goto nullCheckSpin;
           } else {
-            with (yielded_clientId50 = (self) - ((NUM_CLIENTS) * (NULL_ORDER))) {
-              with (yielded_clock80 = (clocks)[clientId]) {
-                with (value90 = (yielded_clock80) + (1)) {
-                  clocks := [clocks EXCEPT ![yielded_clientId50] = value90];
-                  with (yielded_clientId60 = (self) - ((NUM_CLIENTS) * (NULL_ORDER))) {
-                    with (yielded_clock90 = (clocks)[clientId]) {
-                      msg := [op |-> NULL_MSG, client |-> yielded_clientId60, timestamp |-> yielded_clock90];
-                      j := 0;
-                      goto nullBroadcast;
-                    };
+            with (yielded_clientId150 = (self) - ((NUM_CLIENTS) * (NULL_ORDER))) {
+              with (yielded_clientId140 = (self) - ((NUM_CLIENTS) * (NULL_ORDER))) {
+                clock := [clock EXCEPT ![yielded_clientId150] = ((clocks)[yielded_clientId140]) + (1)];
+                with (yielded_clientId170 = (self) - ((NUM_CLIENTS) * (NULL_ORDER))) {
+                  with (yielded_clientId160 = (self) - ((NUM_CLIENTS) * (NULL_ORDER))) {
+                    msg := [op |-> NULL_MSG, client |-> yielded_clientId170, timestamp |-> (clocks)[yielded_clientId160]];
+                    j := 0;
+                    goto nullBroadcast;
                   };
                 };
               };
             };
           };
         };
+      } else {
+        goto Done;
       };
     nullBroadcast:
-      with (yielded_clock11 = (clocks)[clientId]) {
-        if(((j) <= ((NUM_REPLICAS) - (1))) /\ ((yielded_clock11) # (- (1)))) {
-          with (value100 = msg) {
+      with (yielded_clientId19 = (self) - ((NUM_CLIENTS) * (NULL_ORDER))) {
+        if(((j) <= ((NUM_REPLICAS) - (1))) /\ (((clocks)[yielded_clientId19]) # (- (1)))) {
+          with (value60 = msg) {
             await (Len((replicasNetwork)[j])) < (BUFFER_SIZE);
-            replicasNetwork := [replicasNetwork EXCEPT ![j] = Append((replicasNetwork)[j], value100)];
+            replicasNetwork := [replicasNetwork EXCEPT ![j] = Append((replicasNetwork)[j], value60)];
             j := (j) + (1);
             goto nullBroadcast;
           };

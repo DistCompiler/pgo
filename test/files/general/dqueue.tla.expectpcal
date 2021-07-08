@@ -89,6 +89,8 @@ CONSTANTS BUFFER_SIZE, NUM_CONSUMERS, PRODUCER
     c:
       if(TRUE) {
         goto c1;
+      } else {
+        goto Done;
       };
     c1:
       with (value1 = self) {
@@ -113,6 +115,8 @@ CONSTANTS BUFFER_SIZE, NUM_CONSUMERS, PRODUCER
     p:
       if(TRUE) {
         goto p1;
+      } else {
+        goto Done;
       };
     p1:
       await (Len((network)[self])) > (0);

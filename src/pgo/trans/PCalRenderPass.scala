@@ -139,19 +139,27 @@ object PCalRenderPass {
       case TLATuple(elements) =>
         d"<<${elements.view.map(describeExpr).separateBy(d", ")}>>"
       case TLARecordConstructor(fields) =>
-        d"[${
-          fields.view.map {
-            case TLARecordConstructorField(name, value) =>
-              d"${name.id} |-> ${describeExpr(value)}"
-          }.separateBy(d", ")
-        }]"
+        if(fields.isEmpty) {
+          d"[ ]" // or else this empty case will be parsed as the temporal "always" prefix operator
+        } else {
+          d"[${
+            fields.view.map {
+              case TLARecordConstructorField(name, value) =>
+                d"${name.id} |-> ${describeExpr(value)}"
+            }.separateBy(d", ")
+          }]"
+        }
       case TLARecordSet(fields) =>
-        d"[${
-          fields.view.map {
-            case TLARecordSetField(name, set) =>
-              d"${name.id} : ${describeExpr(set)}"
-          }.separateBy(d", ")
-        }]"
+        if(fields.isEmpty) {
+          d"[ ]" // same as above, avoids confusion with temporal "always" operator []
+        } else {
+          d"[${
+            fields.view.map {
+              case TLARecordSetField(name, set) =>
+                d"${name.id} : ${describeExpr(set)}"
+            }.separateBy(d", ")
+          }]"
+        }
     }
 
   def describeOpDecl(opDecl: TLAOpDecl): Description =
