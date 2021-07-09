@@ -360,7 +360,9 @@ final case class TLAIf(cond: TLAExpression, tval: TLAExpression, fval: TLAExpres
 
 final case class TLALet(defs: List[TLAUnit], body: TLAExpression) extends TLAExpression
 
-final case class TLACase(arms: List[TLACaseArm], other: Option[TLAExpression]) extends TLAExpression
+final case class TLACase(arms: List[TLACaseArm], other: Option[TLAExpression]) extends TLAExpression {
+  require(arms.nonEmpty)
+}
 
 final case class TLACaseArm(cond: TLAExpression, result: TLAExpression) extends TLANode
 

@@ -107,7 +107,10 @@ object TLAExprInterpreter {
       BuiltinModules.TLC.memberAlpha("Permutations") -> { _ => throw Unsupported() },
       BuiltinModules.TLC.memberAlpha("SortSeq") -> { _ => throw Unsupported() },
 
-      BuiltinModules.Sequences.memberAlpha("Seq") -> { _ => throw Unsupported() },
+      BuiltinModules.Sequences.memberAlpha("Seq") -> {
+        case List(TLAValueSet(elems)) =>
+          TLAValueSet(elems.toVector.permutations.map(TLAValueTuple).toSet)
+      },
       BuiltinModules.Sequences.memberAlpha("Len") -> {
         case List(TLAValueTuple(elems)) => TLAValueNumber(elems.size)
       },
@@ -134,11 +137,7 @@ object TLAExprInterpreter {
       BuiltinModules.Sequences.memberAlpha("SelectSeq") -> { _ => throw Unsupported() },
 
       BuiltinModules.FiniteSets.memberAlpha("IsFiniteSet") -> {
-        case List(candidate) =>
-          candidate match {
-            case TLAValueSet(_) => TLAValueBool(true)
-            case _ => TLAValueBool(false)
-          }
+        case List(TLAValueSet(_)) => TLAValueBool(true)
       },
       BuiltinModules.FiniteSets.memberAlpha("Cardinality") -> {
         case List(TLAValueSet(set)) => TLAValueNumber(set.size)

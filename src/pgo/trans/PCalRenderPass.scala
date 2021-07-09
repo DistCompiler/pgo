@@ -39,6 +39,8 @@ object PCalRenderPass {
             case '\n' => "\\n"
             case '\f' => "\\f"
             case '\r' => "\\r"
+            case ')' => "\\)" // these last two are extras, to allow writing (* and *) in MPCal comments
+            case '*' => "\\*"
             case ch => ch.toString
           }
         }""""

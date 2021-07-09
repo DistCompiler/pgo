@@ -663,7 +663,44 @@ func (v *tlaValueTuple) GobDecode(input []byte) error {
 }
 
 func TLA_Seq(v TLAValue) TLAValue {
-	panic("implement me")
+	set := v.AsSet()
+	// move all the elements onto a slice for easier handling
+	var elems []TLAValue
+	it := set.Iterator()
+	for !it.Done() {
+		elem, _ := it.Next()
+		elems = append(elems, elem.(TLAValue))
+	}
+
+	// prepare to build a set of tuples
+	builder := immutable.NewMapBuilder(TLAValueHasher{})
+
+	// skip for k = 0, which is not handles but also needs no work
+	if len(elems) != 0 {
+		// generate permutations using Heap's algorithm
+		var generatePermutations func(k int)
+		generatePermutations = func(k int) {
+			if k == 1 {
+				// store a new tuple in the set
+				builder.Set(NewTLATuple(elems...), true)
+			} else {
+				generatePermutations(k - 1)
+
+				for i := 0; i < k-1; i += 1 {
+					if k%2 == 0 {
+						elems[i], elems[k-1] = elems[k-1], elems[i]
+					} else {
+						elems[0], elems[k-1] = elems[k-1], elems[0]
+					}
+					generatePermutations(k - 1)
+				}
+			}
+		}
+
+		generatePermutations(len(elems))
+	}
+
+	return TLAValue{&tlaValueSet{builder.Map()}}
 }
 
 func TLA_Len(v TLAValue) TLAValue {
@@ -760,6 +797,20 @@ func NewTLARecordSet(pairs []TLARecordField) TLAValue {
 		recordSet = builder.Map()
 	}
 	return TLAValue{&tlaValueSet{recordSet}}
+}
+
+func NewTLAFunctionSet(from, to TLAValue) TLAValue {
+	fromSet, _ := from.AsSet(), to.AsSet()
+	var pairs []TLARecordField
+	it := fromSet.Iterator()
+	for !it.Done() {
+		key, _ := it.Next()
+		pairs = append(pairs, TLARecordField{
+			Key:   key.(TLAValue),
+			Value: to,
+		})
+	}
+	return NewTLARecordSet(pairs)
 }
 
 func (v *tlaValueFunction) Hash() uint32 {

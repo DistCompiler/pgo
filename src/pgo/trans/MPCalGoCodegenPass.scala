@@ -538,13 +538,13 @@ object MPCalGoCodegenPass {
               case (TLAQuantifierBound(TLAQuantifierBound.TupleType, elements, _), idx) =>
                 elements.view.zipWithIndex.map {
                   case (element, elemIdx) =>
-                    d"\nvar ${argIds(element)} $TLAValue = $argsName[$idx].FunctionApply(distsys.NewTLANumber($elemIdx))"
+                    d"\nvar ${argIds(element)} $TLAValue = $argsName[$idx].ApplyFunction(distsys.NewTLANumber($elemIdx))"
                 }
             }.flattenDescriptions + d"\nreturn ${translateExpr(body)}").indented
           }\n})"
         }
       case TLAFunctionCall(function, params) =>
-        d"${translateExpr(function)}.FunctionApply(${
+        d"${translateExpr(function)}.ApplyFunction(${
           if(params.size == 1) {
             translateExpr(params.head)
           } else {

@@ -4,12 +4,16 @@ import org.scalacheck.{Arbitrary, Gen, Prop}
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import pgo.model.Definition.ScopeIdentifierName
+import pgo.model.DefinitionOne
 import pgo.model.tla._
 import pgo.trans.PCalRenderPass
 import pgo.util.Description._
-import pgo.util.TLAExprInterpreter
+import pgo.util.{IdMap, IdSet, TLAExprInterpreter}
+import pgo.util.TLAExprInterpreter.{TLAValue, TLAValueBool, TLAValueFunction, TLAValueNumber, TLAValueSet, TLAValueString, TLAValueTuple, builtinOperators}
 
+import scala.annotation.tailrec
 import scala.collection.mutable
+import scala.util.control.NonFatal
 
 class TLAExpressionFuzzTests extends AnyFunSuite with ScalaCheckPropertyChecks {
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
@@ -92,14 +96,20 @@ class TLAExpressionFuzzTests extends AnyFunSuite with ScalaCheckPropertyChecks {
           }, "degenerate", "correct") {
             os.write.over(testFile, data = mpcalSetup.linesIterator.map(line => s"$line\n"))
 
-            val errs = PGo.run(Seq("gogen", "-s", testFile.toString(), "-o", outFile.toString()))
-            assert(errs == Nil)
-
             def somethingBadHappened(): Unit = {
               os.makeDir.all(os.pwd / "fuzz_output")
               val testOut = os.temp.dir(dir = os.pwd / "fuzz_output", deleteOnExit = false)
               println(s"something bad happened. saving test to $testOut")
               os.copy.over(from = workDir, to = testOut)
+            }
+
+            try {
+              val errs = PGo.run(Seq("gogen", "-s", testFile.toString(), "-o", outFile.toString()))
+              assert(errs == Nil)
+            } catch {
+              case NonFatal(err) =>
+                somethingBadHappened()
+                throw err
             }
 
             os.proc("go", "mod", "download").call(cwd = workDir)
@@ -131,94 +141,144 @@ class TLAExpressionFuzzTests extends AnyFunSuite with ScalaCheckPropertyChecks {
     }
   }
 
-  lazy val trueRandomExprGen: Gen[TLAExpression] = locally {
-    val cache = mutable.WeakHashMap[Int,Gen[TLAExpression]]()
+  private def genCombinedASTNodePossibilities(subExprs: List[TLAExpression])(implicit env: IdSet[DefinitionOne], anchorOpt: Option[TLAFunctionSubstitutionPairAnchor]): List[Gen[TLAExpression]] = {
+    sealed abstract class GenProvider {
+      def genIterator: Iterator[Gen[TLAExpression]]
+    }
 
-    val zeroSizePrimitiveSyntax: List[Gen[TLAExpression]] =
-      List(
-        Gen.posNum[Int].map(i => TLANumber(TLANumber.IntValue(i), TLANumber.DecimalSyntax)),
-        Gen.identifier.map(TLAString),
-      )
+    implicit class PartialFnGenProvider(iterable: Iterable[Gen[TLAExpression]]) extends GenProvider {
+      override def genIterator: Iterator[Gen[TLAExpression]] = iterable.iterator
+    }
 
-    def sizedVariadics(sz: Int): List[Gen[TLAExpression]] = {
-      val maxWidth = Integer.max(sz - 1, 0)
-      def subArity(opWidth: Int): Int =
-        if(opWidth == 0) maxWidth else maxWidth / opWidth
+    implicit class PartialFnIterableGenProvider(gen: Gen[TLAExpression]) extends GenProvider {
+      override def genIterator: Iterator[Gen[TLAExpression]] = Iterator.single(gen)
+    }
 
-      (for {
-        ident <- Gen.identifier
-        sub <- sizedAST(maxWidth)
-      } yield TLADot(sub, TLAIdentifier(ident))) ::
-        (if(maxWidth >= 3) {
-          List(Gen.listOfN(3, sizedAST(subArity(3))).map {
-            case List(cond, tval, fval) =>
-              TLAIf(cond, tval, fval)
-          })
-        } else Nil) ::: // TODO: TLACase on
-        (Gen.oneOf(0 to maxWidth).flatMap { elemCount =>
-          Gen.listOfN(elemCount, sizedAST(subArity(elemCount)))
-            .map(TLASetConstructor)
-        }) :: // TODO: TLASetRefinement on
-        (Gen.oneOf(0 to maxWidth).flatMap { elemCount =>
-          Gen.listOfN(elemCount, sizedAST(subArity(elemCount)))
-            .map(TLATuple)
-        }) ::
-        (if(maxWidth >= 1) {
-          List(Gen.oneOf(1 to maxWidth).flatMap { elemCount =>
-            for {
-              elems <- Gen.listOfN(elemCount, sizedAST(subArity(elemCount)))
-              names <- Gen.listOfN(elemCount, Gen.identifier)
-            } yield TLARecordConstructor((names zip elems).map {
-              case (name, elem) => TLARecordConstructorField(TLAIdentifier(name), elem)
-            })
-          })
-        } else Nil) :::
-        (if(maxWidth >= 1) {
-          List(Gen.oneOf(1 to maxWidth).flatMap { elemCount =>
-            for {
-              elems <- Gen.listOfN(elemCount, sizedAST(subArity(elemCount)))
-              names <- Gen.listOfN(elemCount, Gen.identifier)
-            } yield TLARecordSet((names zip elems).map {
-              case (name, elem) => TLARecordSetField(TLAIdentifier(name), elem)
-            })
-          })
-        } else Nil) :::
-        BuiltinModules.builtinModules.values.view
-          .filter { mod =>
-            (mod ne BuiltinModules.Reals) &&
-              (mod ne BuiltinModules.Bags) &&
-              (mod ne BuiltinModules.TLC) &&
-              (mod ne BuiltinModules.Peano) &&
-              (mod ne BuiltinModules.ProtoReals)
-          }
+    val builtinModules = BuiltinModules.builtinModules.values.filter { mod =>
+      (mod ne BuiltinModules.Reals) &&
+        (mod ne BuiltinModules.Bags) &&
+        (mod ne BuiltinModules.TLC) &&
+        (mod ne BuiltinModules.Peano) &&
+        (mod ne BuiltinModules.ProtoReals)
+    }
+
+    val cases: Iterator[PartialFunction[List[TLAExpression],GenProvider]] = Iterator(
+      { case Nil => for {
+          num <- Gen.posNum[Int]
+        } yield TLANumber(TLANumber.IntValue(num), TLANumber.DecimalSyntax)
+      },
+      { case Nil => Gen.asciiPrintableStr.map(TLAString) }, // TODO: consider nonsense w/ unprintable ASCII
+      { case Nil if env.exists(_.arity == 0) =>
+        env.view
+          .filter(_.arity == 0)
+          .map { defn =>
+            TLAGeneralIdentifier(defn.identifier.asInstanceOf[ScopeIdentifierName].name, Nil)
+              .setRefersTo(defn)
+          } : Iterable[Gen[TLAExpression]]
+      },
+      { case Nil =>
+        builtinModules.view
           .flatMap(_.members)
-          .filter(_.arity <= maxWidth)
-          .map { op =>
-            Gen.listOfN(op.arity, sizedAST(subArity(op.arity))).map { exprs =>
-              if(op.arity == 0) {
-                TLAGeneralIdentifier(op.identifier.asInstanceOf[ScopeIdentifierName].name, Nil)
-                  .setRefersTo(op)
-              } else {
-                TLAOperatorCall(op.identifier, Nil, exprs)
-                  .setRefersTo(op)
-              }
-            }
-          }.toList
+          .filter(_.arity == 0)
+          .map { defn =>
+            TLAGeneralIdentifier(defn.identifier.asInstanceOf[ScopeIdentifierName].name, Nil)
+              .setRefersTo(defn)
+          } : Iterable[Gen[TLAExpression]]
+      },
+      { case List(expr: TLAExpression) =>
+        for {
+          ident <- Gen.identifier
+        } yield TLADot(expr, TLAIdentifier(ident))
+      },
+      { case subExprs: List[TLAExpression] if subExprs.nonEmpty && env.exists(_.arity == subExprs.size) =>
+        env.view.filter(_.arity == subExprs.size).map { defn =>
+          Gen.const(TLAOperatorCall(defn.identifier, Nil, subExprs).setRefersTo(defn))
+        }
+      },
+      { case subExprs: List[TLAExpression] if subExprs.nonEmpty =>
+        builtinModules.view
+          .flatMap(_.members)
+          .filter(_.arity == subExprs.size)
+          .map { defn =>
+            TLAOperatorCall(defn.identifier, Nil, subExprs)
+              .setRefersTo(defn)
+          } : Iterable[Gen[TLAExpression]]
+      },
+      { case List(cond: TLAExpression, yes: TLAExpression, no: TLAExpression) =>
+        Gen.const(TLAIf(cond, yes, no))
+      },
+      // LET exprs skipped on purpose; we need to understand scoping to get those right, so we leave it to other routines
+      { case subExprs: List[TLAExpression] if subExprs.size >= 2 => // require at least one whole case arm's worth
+        @tailrec
+        def impl(subExprs: List[TLAExpression], armsAcc: List[TLACaseArm]): TLACase =
+          subExprs match {
+            case Nil => TLACase(armsAcc, None)
+            case other :: Nil => TLACase(armsAcc, Some(other))
+            case cond :: result :: restArms =>
+              impl(restArms, TLACaseArm(cond, result) :: armsAcc)
+          }
+
+        Gen.const(impl(subExprs, Nil))
+      },
+      // skipping function defn for same reason as LET
+      { case subExprs: List[TLAExpression] if subExprs.size >= 2 =>
+        Gen.const(TLAFunctionCall(subExprs.head, subExprs.tail))
+      },
+      { case List(from: TLAExpression, to: TLAExpression) =>
+        Gen.const(TLAFunctionSet(from, to))
+      },
+      // TODO: skipping function substitution because complicated
+      { case Nil if anchorOpt.nonEmpty =>
+        Gen.const(TLAFunctionSubstitutionAt()
+          .setRefersTo(anchorOpt.get))
+      },
+      // skipping quantifiers, again due to scoping
+      { case subExprs: List[TLAExpression] =>
+        Gen.const(TLASetConstructor(subExprs))
+      },
+      // skipping set refinement, comprehension due to scoping
+      { case subExprs: List[TLAExpression] =>
+        Gen.const(TLATuple(subExprs))
+      },
+      { case subExprs: List[TLAExpression] if subExprs.nonEmpty =>
+        for {
+          idents <- Gen.listOfN(subExprs.size, Gen.identifier)
+        } yield TLARecordConstructor((idents.view zip subExprs).map {
+          case ident -> expr => TLARecordConstructorField(TLAIdentifier(ident), expr)
+        }.toList)
+      },
+      { case subExprs: List[TLAExpression] if subExprs.nonEmpty =>
+        for {
+          idents <- Gen.listOfN(subExprs.size, Gen.identifier)
+        } yield TLARecordSet((idents.view zip subExprs).map {
+          case ident -> expr => TLARecordSetField(TLAIdentifier(ident), expr)
+        }.toList)
+      },
+    )
+
+    cases.flatMap { fn =>
+      fn.unapply(subExprs)
+        .map(_.genIterator)
     }
+      .flatten
+      .toList
+  }
 
-    def sizedAST(sz: Int): Gen[TLAExpression] = {
-      Gen.lzy {
-        cache.getOrElseUpdate(if (sz <= 0) 0 else sz, {
-          val elems: List[Gen[TLAExpression]] =
-            (if (sz <= 0) zeroSizePrimitiveSyntax else Nil) :::
-              sizedVariadics(sz)
+  private def forceOneOf[T](gens: List[Gen[T]]): Gen[T] = {
+    require(gens.nonEmpty)
+    Gen.choose(min = 0, max = gens.size - 1)
+      .flatMap(gens)
+  }
 
-          Gen.oneOf(elems.head, elems.tail.head, elems.tail.tail: _*)
-        })
-      }
-    }
+  lazy val trueRandomExprGen: Gen[TLAExpression] = {
+    def impl(size: Int)(implicit env: IdSet[DefinitionOne], anchorOpt: Option[TLAFunctionSubstitutionPairAnchor]): Gen[TLAExpression] =
+      for {
+        breadth <- Gen.oneOf(0 to size)
+        subExprs <- Gen.listOfN(breadth, impl(size / (breadth + 1)))
+        expr <- forceOneOf(genCombinedASTNodePossibilities(subExprs))
+      } yield expr
 
-    Gen.sized(sizedAST)
+    Gen.sized(size => impl(size)(IdSet.empty, None))
   }
 
 }

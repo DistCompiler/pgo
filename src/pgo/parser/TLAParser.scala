@@ -78,8 +78,9 @@ trait TLAParser extends RegexParsers {
   val tlaString : Parser[String] =
     elem('\"') ~> (rep[Char] {
       (elem('\\') ~>! {
-        elem('\"') | elem('\\') | ("t" ^^^ '\t') | ("n" ^^^ '\n') | ("f" ^^^ '\f') | ("r" ^^^ '\r')
-      }.withFailureMessage("expected valid string escape: one of \\\", \\t, \\n, \\f, or \\r")) |
+        elem('\"') | elem('\\') | ("t" ^^^ '\t') | ("n" ^^^ '\n') | ("f" ^^^ '\f') | ("r" ^^^ '\r') |
+          elem(')') | elem('*')
+      }.withFailureMessage("expected valid string escape: one of \\\", \\t, \\n, \\f, \\r, \\*, or \\)")) |
         acceptMatch("string contents", { case c if c != '\"' => c })
     } ^^ { parts => parts.mkString("") }) <~ elem('\"')
 
