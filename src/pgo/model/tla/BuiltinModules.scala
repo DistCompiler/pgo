@@ -97,8 +97,8 @@ object BuiltinModules {
     alphaOp("PrintT", 1)
     alphaOp("Assert", 2)
     alphaOp("JavaTime", 0)
-    alphaOp(":>", 2)
-    alphaOp("@@", 2)
+    symOp(TLASymbol.ColonGreaterThanSymbol)
+    symOp(TLASymbol.DoubleAtSignSymbol)
     alphaOp("Permutations", 1)
     alphaOp("SortSeq", 2)
   }

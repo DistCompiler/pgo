@@ -29,7 +29,9 @@ func ALoadBalancer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants C
 	)
 	programCounter := distsys.EnsureLocalArchetypeResource(ctx.ResourceEnsurerPositional(), distsys.NewTLANumber(mainLabelTag))
 	msg := distsys.EnsureLocalArchetypeResource(ctx.ResourceEnsurerPositional(), distsys.TLAValue{})
+	_ = msg
 	next := distsys.EnsureLocalArchetypeResource(ctx.ResourceEnsurerPositional(), distsys.NewTLANumber(0))
+	_ = next
 
 	for {
 		if err != nil {
@@ -146,7 +148,6 @@ func ALoadBalancer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants C
 		}
 	}
 }
-
 func AServer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constants, mailboxes0 distsys.ArchetypeResourceHandle, file_system distsys.ArchetypeResourceHandle) error {
 	var err0 error
 	// label tags
@@ -158,6 +159,7 @@ func AServer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constan
 	)
 	programCounter0 := distsys.EnsureLocalArchetypeResource(ctx.ResourceEnsurerPositional(), distsys.NewTLANumber(serverLoopLabelTag))
 	msg0 := distsys.EnsureLocalArchetypeResource(ctx.ResourceEnsurerPositional(), distsys.TLAValue{})
+	_ = msg0
 
 	for {
 		if err0 != nil {
@@ -247,7 +249,6 @@ func AServer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constan
 		}
 	}
 }
-
 func AClient(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constants, mailboxes1 distsys.ArchetypeResourceHandle, instream distsys.ArchetypeResourceHandle, outstream distsys.ArchetypeResourceHandle) error {
 	var err1 error
 	// label tags
@@ -259,7 +260,9 @@ func AClient(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constan
 	)
 	programCounter1 := distsys.EnsureLocalArchetypeResource(ctx.ResourceEnsurerPositional(), distsys.NewTLANumber(clientLoopLabelTag))
 	req := distsys.EnsureLocalArchetypeResource(ctx.ResourceEnsurerPositional(), distsys.TLAValue{})
+	_ = req
 	resp := distsys.EnsureLocalArchetypeResource(ctx.ResourceEnsurerPositional(), distsys.TLAValue{})
+	_ = resp
 
 	for {
 		if err1 != nil {

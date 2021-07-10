@@ -197,7 +197,9 @@ trait TLAParser extends RegexParsers {
                   lateBindings.getOrElseUpdate(id, mutable.ArrayBuffer()) += ref.setRefersTo
                   success(ref)
                 case _ =>
-                  throw DefinitionLookupError(pfx, Definition.ScopeIdentifierName(id))
+                  // don't fail hard; it's possible that the prefix is empty and the identifier is an ambiguous
+                  // prefix of some other piece of syntax; perhaps an OpDecl
+                  failure(s"lookup failed for identifier ${pfx.map(_.id.id).mkString("!")}!$id")
               }
             case Some(defn) =>
               if( defn.arity > 0 ) {
@@ -354,7 +356,7 @@ trait TLAParser extends RegexParsers {
                 })
           }.flatMap { path =>
             val anchor = TLAFunctionSubstitutionPairAnchor() // definition for the @ expression
-            implicit val ctx = origCtx.withFunctionSubstitutionPairAnchor(anchor)
+            implicit val ctx: TLAParserContext = origCtx.withFunctionSubstitutionPairAnchor(anchor)
             (wsChk ~> "=" ~> wsChk ~> tlaExpression) ^^ { value =>
               TLAFunctionSubstitutionPair(anchor, path, value)
             }

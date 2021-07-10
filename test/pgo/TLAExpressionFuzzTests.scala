@@ -8,8 +8,8 @@ import pgo.model.DefinitionOne
 import pgo.model.tla._
 import pgo.trans.PCalRenderPass
 import pgo.util.Description._
-import pgo.util.{IdMap, IdSet, TLAExprInterpreter}
-import pgo.util.TLAExprInterpreter.{TLAValue, TLAValueBool, TLAValueFunction, TLAValueNumber, TLAValueSet, TLAValueString, TLAValueTuple, builtinOperators}
+import pgo.util.TLAExprInterpreter.TLAValue
+import pgo.util.{IdSet, TLAExprInterpreter}
 
 import scala.annotation.tailrec
 import scala.collection.mutable
@@ -115,7 +115,14 @@ class TLAExpressionFuzzTests extends AnyFunSuite with ScalaCheckPropertyChecks {
             os.proc("go", "mod", "download").call(cwd = workDir)
 
             try {
-              os.proc("go", "run", "./main").call(cwd = workDir, mergeErrIntoOut = true, timeout = 15000)
+              val result = os.proc("go", "run", "./main").call(cwd = workDir, mergeErrIntoOut = true, timeout = 30000)
+              val valueFromGo = TLAValue.parseFromString(result.out.text())
+              expectedBehaviour match {
+                case Left(err) =>
+                  fail(s"expected an error, because Scala-based interpreter threw one", err)
+                case Right(valueFromScala) =>
+                  assert(valueFromGo == valueFromScala)
+              }
               Prop.passed
             } catch {
               case err: os.SubprocessException =>
@@ -132,6 +139,9 @@ class TLAExpressionFuzzTests extends AnyFunSuite with ScalaCheckPropertyChecks {
                     somethingBadHappened()
                     throw err
                 }
+              case NonFatal(err) =>
+                somethingBadHappened()
+                throw err
             }
           }
         }
@@ -141,7 +151,7 @@ class TLAExpressionFuzzTests extends AnyFunSuite with ScalaCheckPropertyChecks {
     }
   }
 
-  private def genCombinedASTNodePossibilities(subExprs: List[TLAExpression])(implicit env: IdSet[DefinitionOne], anchorOpt: Option[TLAFunctionSubstitutionPairAnchor]): List[Gen[TLAExpression]] = {
+  private def genFlatASTOptions(subExprs: List[TLAExpression])(implicit env: IdSet[DefinitionOne], anchorOpt: Option[TLAFunctionSubstitutionPairAnchor]): List[Gen[TLAExpression]] = {
     sealed abstract class GenProvider {
       def genIterator: Iterator[Gen[TLAExpression]]
     }
@@ -264,18 +274,96 @@ class TLAExpressionFuzzTests extends AnyFunSuite with ScalaCheckPropertyChecks {
       .toList
   }
 
+  def genNamedASTOptions(breadth: Int, makeExpr: (IdSet[DefinitionOne],Option[TLAFunctionSubstitutionPairAnchor])=>Gen[TLAExpression])(implicit env: IdSet[DefinitionOne], anchorOpt: Option[TLAFunctionSubstitutionPairAnchor]): List[Gen[TLAExpression]] = {
+    val options = mutable.ListBuffer[Gen[TLAExpression]]()
+
+    lazy val genQuantifierBound: Gen[TLAQuantifierBound] = for {
+      tpe <- Gen.oneOf(TLAQuantifierBound.IdsType, TLAQuantifierBound.TupleType)
+      ids <- tpe match {
+        case TLAQuantifierBound.IdsType => Gen.identifier.map(id => List(TLAIdentifier(id).toDefiningIdentifier))
+        case TLAQuantifierBound.TupleType => Gen.nonEmptyListOf(Gen.identifier.map(id => TLAIdentifier(id).toDefiningIdentifier))
+      }
+      set <- makeExpr(env, anchorOpt)
+    } yield TLAQuantifierBound(tpe, ids, set)
+
+    if(breadth >= 2) {
+      def impl(count: Int, acc: List[TLAUnit])(implicit env: IdSet[DefinitionOne], anchorOpt: Option[TLAFunctionSubstitutionPairAnchor]): Gen[TLAExpression] = {
+        assert(count >= 1)
+        if(count == 1) {
+          makeExpr(env, anchorOpt).map { body =>
+            TLALet(acc.reverse, body)
+          }
+        } else {
+          for {
+            name <- Gen.identifier.map(TLAIdentifier)
+            // TODO: consider more complex argument shapes? this is just plain single names, for now
+            idents <- Gen.listOf(Gen.identifier.map(name => TLAOpDecl(TLAOpDecl.NamedVariant(TLAIdentifier(name), 0))))
+            body <- makeExpr(env ++ idents, anchorOpt)
+            defn = TLAOperatorDefinition(ScopeIdentifierName(name), idents, body, isLocal = false)
+            result <- impl(count - 1, defn :: acc)(env = env ++ defn.singleDefinitions, anchorOpt = anchorOpt)
+          } yield result
+        }
+      }
+
+      options += impl(breadth, Nil)
+
+      options += (for {
+        qbs <- Gen.listOfN(breadth - 1, genQuantifierBound)
+        body <- makeExpr(env ++ qbs.view.flatMap(_.singleDefinitions), anchorOpt)
+      } yield TLAFunction(qbs, body))
+
+      options += (for {
+        constructor <- Gen.oneOf(TLAQuantifiedExistential, TLAQuantifiedUniversal)
+        bounds <- Gen.listOfN(breadth - 1, genQuantifierBound)
+        body <- makeExpr(env ++ bounds.view.flatMap(_.singleDefinitions), anchorOpt)
+      } yield constructor(bounds, body))
+    }
+
+    if(breadth == 2) {
+      options += (for {
+        binding <- genQuantifierBound
+        when <- makeExpr(env ++ binding.singleDefinitions, anchorOpt)
+      } yield TLASetRefinement(binding, when))
+    }
+
+    if(breadth >= 2) {
+      options += (for {
+        bounds <- Gen.listOfN(breadth - 1, genQuantifierBound)
+        body <- makeExpr(env ++ bounds.view.flatMap(_.singleDefinitions), anchorOpt)
+      } yield TLASetComprehension(body, bounds))
+    }
+
+    options.result()
+  }
+
   private def forceOneOf[T](gens: List[Gen[T]]): Gen[T] = {
     require(gens.nonEmpty)
-    Gen.choose(min = 0, max = gens.size - 1)
-      .flatMap(gens)
+    if(gens.size == 1) {
+      gens.head
+    } else {
+      Gen.choose(min = 0, max = gens.size - 1)
+        .flatMap(gens)
+    }
   }
 
   lazy val trueRandomExprGen: Gen[TLAExpression] = {
     def impl(size: Int)(implicit env: IdSet[DefinitionOne], anchorOpt: Option[TLAFunctionSubstitutionPairAnchor]): Gen[TLAExpression] =
       for {
         breadth <- Gen.oneOf(0 to size)
-        subExprs <- Gen.listOfN(breadth, impl(size / (breadth + 1)))
-        expr <- forceOneOf(genCombinedASTNodePossibilities(subExprs))
+        expr <- locally {
+          val namedOptions = genNamedASTOptions(breadth, impl(size / (breadth + 1))(_, _))
+          val unnamedCase =
+            for {
+              subExprs <- Gen.listOfN(breadth, impl(size / (breadth + 1)))
+              expr <- forceOneOf(genFlatASTOptions(subExprs))
+            } yield expr
+
+          if(namedOptions.nonEmpty) {
+            Gen.oneOf(forceOneOf(namedOptions), unnamedCase)
+          } else {
+            unnamedCase // if there are no named options for this breadth, avoid choice-of-none error
+          }
+        }
       } yield expr
 
     Gen.sized(size => impl(size)(IdSet.empty, None))

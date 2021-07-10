@@ -461,6 +461,102 @@ func (v *tlaValueSet) GobDecode(input []byte) error {
 	}
 }
 
+func TLAQuantifiedUniversal(setVals []TLAValue, pred func([]TLAValue) bool) TLAValue {
+	var sets []*immutable.Map
+	for _, val := range setVals {
+		sets = append(sets, val.AsSet())
+	}
+
+	predArgs := make([]TLAValue, len(sets))
+
+	var helper func(idx int) bool
+	helper = func(idx int) bool {
+		if idx == len(sets) {
+			return pred(predArgs)
+		}
+
+		it := sets[idx].Iterator()
+		for !it.Done() {
+			elem, _ := it.Next()
+			predArgs[idx] = elem.(TLAValue)
+			if !helper(idx + 1) {
+				return false
+			}
+		}
+		return true
+	}
+
+	return NewTLABool(helper(0))
+}
+
+func TLAQuantifiedExistential(setVals []TLAValue, pred func([]TLAValue) bool) TLAValue {
+	var sets []*immutable.Map
+	for _, val := range setVals {
+		sets = append(sets, val.AsSet())
+	}
+
+	predArgs := make([]TLAValue, len(sets))
+
+	var helper func(idx int) bool
+	helper = func(idx int) bool {
+		if idx == len(sets) {
+			return pred(predArgs)
+		}
+
+		it := sets[idx].Iterator()
+		for !it.Done() {
+			elem, _ := it.Next()
+			predArgs[idx] = elem.(TLAValue)
+			if helper(idx + 1) {
+				return true
+			}
+		}
+		return false
+	}
+
+	return NewTLABool(helper(0))
+}
+
+func TLASetRefinement(setVal TLAValue, pred func(TLAValue) bool) TLAValue {
+	set := setVal.AsSet()
+	builder := immutable.NewMapBuilder(TLAValueHasher{})
+	it := set.Iterator()
+	for !it.Done() {
+		elem, _ := it.Next()
+		if pred(elem.(TLAValue)) {
+			builder.Set(elem, true)
+		}
+	}
+	return TLAValue{&tlaValueSet{builder.Map()}}
+}
+
+func TLASetComprehension(setVals []TLAValue, body func([]TLAValue) TLAValue) TLAValue {
+	var sets []*immutable.Map
+	for _, val := range setVals {
+		sets = append(sets, val.AsSet())
+	}
+
+	builder := immutable.NewMapBuilder(TLAValueHasher{})
+	bodyArgs := make([]TLAValue, len(sets))
+
+	var helper func(idx int)
+	helper = func(idx int) {
+		if idx == len(sets) {
+			builder.Set(body(bodyArgs), true)
+		} else {
+			it := sets[idx].Iterator()
+			for !it.Done() {
+				elem, _ := it.Next()
+				bodyArgs[idx] = elem.(TLAValue)
+				helper(idx + 1)
+			}
+		}
+	}
+
+	helper(0)
+	return TLAValue{&tlaValueSet{builder.Map()}}
+}
+
 func TLA_InSymbol(lhs, rhs TLAValue) TLAValue {
 	set := rhs.AsSet()
 	_, ok := set.Get(lhs)
@@ -675,8 +771,10 @@ func TLA_Seq(v TLAValue) TLAValue {
 	// prepare to build a set of tuples
 	builder := immutable.NewMapBuilder(TLAValueHasher{})
 
-	// skip for k = 0, which is not handles but also needs no work
-	if len(elems) != 0 {
+	// special-case the empty set, as the main process doesn't handle it
+	if len(elems) == 0 {
+		builder.Set(NewTLATuple(), true)
+	} else {
 		// generate permutations using Heap's algorithm
 		var generatePermutations func(k int)
 		generatePermutations = func(k int) {
@@ -768,6 +866,35 @@ func (field TLARecordField) Hash() uint32 {
 
 var _ tlaValueImpl = &tlaValueFunction{}
 
+func NewTLAFunction(setVals []TLAValue, body func([]TLAValue) TLAValue) TLAValue {
+	require(len(setVals) > 0, "the domain of a TLA+ function cannot be the product of no sets")
+	builder := immutable.NewMapBuilder(TLAValueHasher{})
+
+	var sets []*immutable.Map
+	for _, val := range setVals {
+		sets = append(sets, val.AsSet())
+	}
+
+	bodyArgs := make([]TLAValue, len(sets))
+
+	var helper func(idx int)
+	helper = func(idx int) {
+		if idx == len(bodyArgs) {
+			builder.Set(NewTLATuple(bodyArgs...), body(bodyArgs))
+		} else {
+			it := sets[idx].Iterator()
+			for !it.Done() {
+				elem, _ := it.Next()
+				bodyArgs[idx] = elem.(TLAValue)
+				helper(idx + 1)
+			}
+		}
+	}
+	helper(0)
+
+	return TLAValue{&tlaValueFunction{builder.Map()}}
+}
+
 func NewTLARecord(pairs []TLARecordField) TLAValue {
 	builder := immutable.NewMapBuilder(TLAValueHasher{})
 	for _, pair := range pairs {
@@ -846,7 +973,7 @@ func (v *tlaValueFunction) Equal(other TLAValue) bool {
 
 func (v *tlaValueFunction) String() string {
 	builder := strings.Builder{}
-	builder.WriteString("[")
+	builder.WriteString("(")
 	first := true
 	it := v.Iterator()
 	for !it.Done() {
@@ -854,13 +981,15 @@ func (v *tlaValueFunction) String() string {
 		if first {
 			first = false
 		} else {
-			builder.WriteString(", ")
+			builder.WriteString(" @@ ")
 		}
+		builder.WriteString("(")
 		builder.WriteString(key.(TLAValue).String())
-		builder.WriteString(" |-> ")
+		builder.WriteString(") :> (")
 		builder.WriteString(value.(TLAValue).String())
+		builder.WriteString(")")
 	}
-	builder.WriteString("]")
+	builder.WriteString(")")
 	return builder.String()
 }
 

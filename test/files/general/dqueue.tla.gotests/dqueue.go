@@ -99,7 +99,6 @@ func AConsumer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Const
 		}
 	}
 }
-
 func AProducer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constants, net0 distsys.ArchetypeResourceHandle, s distsys.ArchetypeResourceHandle) error {
 	var err0 error
 	// label tags
@@ -111,6 +110,7 @@ func AProducer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Const
 	)
 	programCounter0 := distsys.EnsureLocalArchetypeResource(ctx.ResourceEnsurerPositional(), distsys.NewTLANumber(pLabelTag))
 	requester := distsys.EnsureLocalArchetypeResource(ctx.ResourceEnsurerPositional(), distsys.TLAValue{})
+	_ = requester
 
 	for {
 		if err0 != nil {
