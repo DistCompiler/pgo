@@ -121,7 +121,7 @@ object PCalRenderPass {
                     d"[${indices.view.map(describeExpr).separateBy(d", ")}]"
                 }.flattenDescriptions
               } = ${describeExpr(value)}"
-          }.separateBy(d" ")
+          }.separateBy(d", ")
         }]"
       case TLAFunctionSubstitutionAt() => d"@"
       case TLAQuantifiedExistential(bounds, body) =>

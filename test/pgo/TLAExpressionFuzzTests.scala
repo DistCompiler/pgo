@@ -13,6 +13,7 @@ import pgo.util.{IdSet, TLAExprInterpreter}
 
 import scala.annotation.tailrec
 import scala.collection.mutable
+import scala.math
 import scala.util.control.NonFatal
 
 class TLAExpressionFuzzTests extends AnyFunSuite with ScalaCheckPropertyChecks {
@@ -116,7 +117,7 @@ class TLAExpressionFuzzTests extends AnyFunSuite with ScalaCheckPropertyChecks {
           os.proc("go", "mod", "download").call(cwd = workDir)
 
           try {
-            val result = os.proc("go", "run", "./main").call(cwd = workDir, mergeErrIntoOut = true, timeout = 30000)
+            val result = os.proc("go", "run", "./main").call(cwd = workDir, mergeErrIntoOut = true, timeout = 60000)
             val valueFromGo = TLAValue.parseFromString(result.out.text())
             expectedBehaviour match {
               case Left(err) =>
@@ -235,7 +236,7 @@ class TLAExpressionFuzzTests extends AnyFunSuite with ScalaCheckPropertyChecks {
       { case List(from: TLAExpression, to: TLAExpression) =>
         Gen.const(TLAFunctionSet(from, to))
       },
-      // TODO: skipping function substitution because complicated
+      // skipping function substitution; requires scoping
       { case Nil if anchorOpt.nonEmpty =>
         Gen.const(TLAFunctionSubstitutionAt()
           .setRefersTo(anchorOpt.get))
@@ -287,7 +288,7 @@ class TLAExpressionFuzzTests extends AnyFunSuite with ScalaCheckPropertyChecks {
     if(breadth >= 2) {
       def impl(count: Int, acc: List[TLAUnit])(implicit env: IdSet[DefinitionOne], anchorOpt: Option[TLAFunctionSubstitutionPairAnchor]): Gen[TLAExpression] = {
         assert(count >= 1)
-        if(count == 1) {
+        if (count == 1) {
           makeExpr(env, anchorOpt).map { body =>
             TLALet(acc.reverse, body)
           }
@@ -309,7 +310,28 @@ class TLAExpressionFuzzTests extends AnyFunSuite with ScalaCheckPropertyChecks {
         qbs <- Gen.listOfN(breadth - 1, genQuantifierBound)
         body <- makeExpr(env ++ qbs.view.flatMap(_.singleDefinitions), anchorOpt)
       } yield TLAFunction(qbs, body))
+    }
 
+    if(breadth >= 3) {
+      // some of these might end up being quite "wide", but it's simpler than trying to accurately
+      // count sub-expressions
+      val genSubstitutionPair: Gen[TLAFunctionSubstitutionPair] = for {
+        anchor <- Gen.delay(Gen.const(TLAFunctionSubstitutionPairAnchor()))
+        keyCount <- Gen.chooseNum(1, (breadth - 1) / 2)
+        keys <- Gen.listOfN(keyCount, for {
+          indexCount <- Gen.chooseNum(1, math.max(((breadth - 1) / 2) / keyCount, 0))
+          indices <- Gen.listOfN(indexCount, makeExpr(env, anchorOpt))
+        } yield TLAFunctionSubstitutionKey(indices))
+        value <- makeExpr(env, Some(anchor))
+      } yield TLAFunctionSubstitutionPair(anchor, keys, value)
+
+      options += (for {
+        source <- makeExpr(env, anchorOpt)
+        pairs <- Gen.listOfN((breadth - 1) / 2, genSubstitutionPair)
+      } yield TLAFunctionSubstitution(source, pairs))
+    }
+
+    if(breadth >= 2) {
       options += (for {
         constructor <- Gen.oneOf(TLAQuantifiedExistential, TLAQuantifiedUniversal)
         bounds <- Gen.listOfN(breadth - 1, genQuantifierBound)

@@ -369,6 +369,7 @@ object TLAExprInterpreter {
                   }
                   origValue match {
                     case TLAValueFunction(origFn) =>
+                      require(origFn.contains(indexValue))
                       TLAValueFunction(origFn.updated(indexValue, subKeys(restKeys, origFn(indexValue))))
                   }
               }

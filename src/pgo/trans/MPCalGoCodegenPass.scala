@@ -24,7 +24,7 @@ object MPCalGoCodegenPass {
       |chan         else         goto         package      switch
       |const        fallthrough  if           range        type
       |continue     for          import       return       var
-      |""".stripMargin.split(' ').view.filter(_.nonEmpty).toList
+      |""".stripMargin.split(Array(' ', '\n')).view.filter(_.nonEmpty).toList
 
   sealed abstract class Binding {
     val bind: String
@@ -601,7 +601,23 @@ object MPCalGoCodegenPass {
         })"""
       case TLAFunctionSet(from, to) =>
         d"distsys.NewTLAFunctionSet(${translateExpr(from)}, ${translateExpr(to)})"
-      case TLAFunctionSubstitution(source, substitutions) => ???
+      case TLAFunctionSubstitution(source, substitutions) =>
+        d"distsys.TLAFunctionSubstitution(${translateExpr(source)}, []distsys.TLAFunctionSubstitutionRecord{${
+          substitutions.view.map {
+            case TLAFunctionSubstitutionPair(anchor, keys, value) =>
+              ctx.cleanName("anchor") { anchorName =>
+                d"\n{[]$TLAValue{${
+                  keys.view.map {
+                    case TLAFunctionSubstitutionKey(List(index)) => translateExpr(index)
+                    case TLAFunctionSubstitutionKey(indices) =>
+                      d"distsys.NewTLATuple(${indices.view.map(translateExpr).separateBy(d", ")})"
+                  }.separateBy(d", ")
+                }}, func($anchorName $TLAValue) $TLAValue {${
+                  d"return ${translateExpr(value)(ctx = ctx.copy(bindings = ctx.bindings.updated(anchor, FixedValueBinding(anchorName))))}"
+                }\n}},"
+              }
+          }.flattenDescriptions.indented
+        }\n})"
       case at@TLAFunctionSubstitutionAt() =>
         val FixedValueBinding(name) = ctx.bindings(at.refersTo)
         name.toDescription

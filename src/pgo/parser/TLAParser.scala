@@ -3,8 +3,8 @@ package pgo.parser
 import pgo.model.{Definition, DefinitionOne, SourceLocatable, SourceLocation, SourceLocationWithUnderlying, Visitable}
 import pgo.model.tla._
 import pgo.util.Description
-import Description._
 import pgo.model.Definition.ScopeIdentifierName
+import pgo.util.Description.DescriptionHelper
 
 import scala.collection.mutable
 import scala.util.parsing.combinator.RegexParsers
@@ -147,9 +147,10 @@ trait TLAParser extends RegexParsers {
               failure(s"lookup failed for identifier ${pfx.map(_.id.id).mkString("!")}!${id.id}")
             case Some(defn) =>
               if (defn.arity == 0) {
-                wsChk ~> "!" ^^^ PrefixPart(TLAGeneralIdentifierPart(id, Nil), defn)
+                // the extra negation is to avoid matching parts of an EXCEPT expression, where an id might be followed by !
+                wsChk ~> "!" ~> not(wsChk ~> "[" ~> tlaWhitespace) ^^^ PrefixPart(TLAGeneralIdentifierPart(id, Nil), defn)
               } else {
-                wsChk ~> "(" ~> wsChk ~> tlaComma1Sep(tlaExpression) <~ wsChk <~ ")" <~ wsChk <~ "!" ^^ { args =>
+                wsChk ~> "(" ~> wsChk ~> tlaComma1Sep(tlaExpression) <~ wsChk <~ ")" <~ wsChk <~ "!" <~ not(wsChk ~> "[" ~> tlaWhitespace) ^^ { args =>
                   PrefixPart(TLAGeneralIdentifierPart(id, args), defn)
                 }
               }
@@ -159,9 +160,11 @@ trait TLAParser extends RegexParsers {
         case PrefixPart(idPart, defn) =>
           if(!defn.isModuleInstance) {
             throw KindMismatchError(idPart.sourceLocation, d"expected module instance, found operator or variable")
+            //failure(s"kind mismatch: expected module instance, found operator or variable `${defn.identifier.asInstanceOf[ScopeIdentifierName].name.id}`")
           }
           if(idPart.parameters.length != defn.arity) {
             throw ArityMismatchError(idPart.sourceLocation, defn, idPart.parameters.length)
+            //failure(s"arity mismatch: definition has arity ${defn.arity}, mismatched with ${idPart.parameters.length}")
           }
           val path = pfx :+ idPart
           opt(wsChk ~> impl(path)) ^^ (_.getOrElse(path))
@@ -185,7 +188,7 @@ trait TLAParser extends RegexParsers {
 
   def tlaOperatorCallOrGeneralIdentifier(implicit ctx: TLAParserContext): Parser[TLAExpression] =
     withSourceLocation {
-      (tlaInstancePrefix ~ (wsChk ~> tlaIdentifierExpr)).flatMap {
+      (tlaInstancePrefix ~ (not(wsChk ~> "[") ~> wsChk ~> tlaIdentifierExpr)).flatMap {
         case pfx ~ id =>
           val name = Definition.ScopeIdentifierName(id)
           ctx.lookupDefinition(pfx.map(id => Definition.ScopeIdentifierName(id.id)) :+ name) match {
@@ -355,6 +358,7 @@ trait TLAParser extends RegexParsers {
                 })
           }.flatMap { path =>
             val anchor = TLAFunctionSubstitutionPairAnchor() // definition for the @ expression
+              .setSourceLocation(path.view.map(_.sourceLocation).reduce(_ ++ _))
             implicit val ctx: TLAParserContext = origCtx.withFunctionSubstitutionPairAnchor(anchor)
             (wsChk ~> "=" ~> wsChk ~> tlaExpression) ^^ { value =>
               TLAFunctionSubstitutionPair(anchor, path, value)

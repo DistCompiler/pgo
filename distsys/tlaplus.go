@@ -120,10 +120,10 @@ func (v TLAValue) AsTuple() *immutable.List {
 	}
 }
 
-func (v TLAValue) AsFunction() *tlaValueFunction {
+func (v TLAValue) AsFunction() *immutable.Map {
 	switch data := v.data.(type) {
 	case *tlaValueFunction:
-		return data
+		return data.Map
 	default:
 		panic(fmt.Errorf("%w: %v is not a function", TLATypeError, v))
 	}
@@ -136,7 +136,7 @@ func (v TLAValue) SelectElement() TLAValue {
 		key, _ := it.Next()
 		return key.(TLAValue)
 	} else {
-		panic(fmt.Errorf("tried to select an element of %v, which was an empty set", v))
+		panic(fmt.Errorf("%w: tried to select an element of %v, which was an empty set", TLATypeError, v))
 	}
 }
 
@@ -147,7 +147,7 @@ func (v TLAValue) ApplyFunction(argument TLAValue) TLAValue {
 	case *tlaValueFunction:
 		value, ok := data.Get(argument)
 		if !ok {
-			panic(fmt.Errorf("function %v's domain does not contain index %v", v, argument))
+			panic(fmt.Errorf("%w: function %v's domain does not contain index %v", TLATypeError, v, argument))
 		}
 		return value.(TLAValue)
 	default:
@@ -1027,6 +1027,30 @@ func (v *tlaValueFunction) GobDecode(input []byte) error {
 		}
 		builder.Set(field.Key, field.Value)
 	}
+}
+
+type TLAFunctionSubstitutionRecord struct {
+	Keys  []TLAValue
+	Value func(anchor TLAValue) TLAValue
+}
+
+func TLAFunctionSubstitution(source TLAValue, substitutions []TLAFunctionSubstitutionRecord) TLAValue {
+	var keysHelper func(source TLAValue, keys []TLAValue, value func(anchor TLAValue) TLAValue) TLAValue
+	keysHelper = func(source TLAValue, keys []TLAValue, value func(anchor TLAValue) TLAValue) TLAValue {
+		if len(keys) == 0 {
+			return value(source)
+		} else {
+			sourceFn := source.AsFunction()
+			val, keyOk := sourceFn.Get(keys[0])
+			require(keyOk, "invalid key during function substitution")
+			sourceFn = sourceFn.Set(keys[0], keysHelper(val.(TLAValue), keys[1:], value))
+			return TLAValue{&tlaValueFunction{sourceFn}}
+		}
+	}
+	for _, substitution := range substitutions {
+		source = keysHelper(source, substitution.Keys, substitution.Value)
+	}
+	return source
 }
 
 func TLA_DomainSymbol(v TLAValue) TLAValue {

@@ -400,9 +400,13 @@ final case class TLAFunctionSet(from: TLAExpression, to: TLAExpression) extends 
 
 final case class TLAFunctionSubstitution(source: TLAExpression, substitutions: List[TLAFunctionSubstitutionPair]) extends TLAExpression
 
-final case class TLAFunctionSubstitutionPair(anchor: TLAFunctionSubstitutionPairAnchor, keys: List[TLAFunctionSubstitutionKey], value: TLAExpression) extends TLANode
+final case class TLAFunctionSubstitutionPair(anchor: TLAFunctionSubstitutionPairAnchor, keys: List[TLAFunctionSubstitutionKey], value: TLAExpression) extends TLANode {
+  require(keys.nonEmpty)
+}
 
-final case class TLAFunctionSubstitutionKey(indices: List[TLAExpression]) extends TLANode
+final case class TLAFunctionSubstitutionKey(indices: List[TLAExpression]) extends TLANode {
+  require(indices.nonEmpty)
+}
 
 final case class TLAFunctionSubstitutionPairAnchor() extends TLANode with RefersTo.HasReferences
 
