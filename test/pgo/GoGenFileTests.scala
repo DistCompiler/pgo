@@ -1,7 +1,5 @@
 package pgo
 
-import scala.util.control.NonFatal
-
 class GoGenFileTests extends FileTestSuite {
   lazy val goExe: String = sys.env.getOrElse("GO_EXE", "go")
 

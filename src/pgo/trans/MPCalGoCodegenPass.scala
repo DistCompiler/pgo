@@ -754,7 +754,11 @@ object MPCalGoCodegenPass {
       d"\nimport (${
         (d"""\n"github.com/UBC-NSS/pgo/distsys"""" +
           d"""\n"fmt"""").indented
-      })\n" +
+      }\n)" +
+      d"\n" +
+      d"\nvar _ = new(fmt.Stringer) // unconditionally prevent go compiler from reporting unused fmt import" +
+      d"\nvar _ = distsys.TLAValue{} // same, for distsys" +
+      d"\n" +
       d"\ntype $Constants struct {${
         constantDecls.map {
           case decl@TLAOpDecl(variant) =>

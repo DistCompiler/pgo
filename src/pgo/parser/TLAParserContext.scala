@@ -7,7 +7,7 @@ import scala.annotation.tailrec
 import scala.collection.mutable
 
 final case class TLAParserContext(minColumn: Int = -1,
-                                  lateBindingStack: List[mutable.Map[TLAIdentifier,mutable.Buffer[DefinitionOne=>Unit]]] = Nil,
+                                  lateBindingStack: Int = 0,
                                   currentScope: Map[Definition.ScopeIdentifier,DefinitionOne] = Map.empty,
                                   functionSubstitutionPairAnchor: Option[TLAFunctionSubstitutionPairAnchor] = None) {
   def withMinColumn(minColumn: Int): TLAParserContext =
@@ -24,7 +24,7 @@ final case class TLAParserContext(minColumn: Int = -1,
     copy(functionSubstitutionPairAnchor = Some(anchor))
 
   def withLateBinding: TLAParserContext =
-    copy(lateBindingStack=mutable.Map.empty[TLAIdentifier,mutable.Buffer[DefinitionOne=>Unit]] :: lateBindingStack)
+    copy(lateBindingStack = lateBindingStack + 1)
 
   def lookupModuleExtends(id: Definition.ScopeIdentifierName): TLAModuleRef =
     currentScope.get(id) match {

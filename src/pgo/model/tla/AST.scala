@@ -1,5 +1,6 @@
 package pgo.model.tla
 
+import pgo.model.Definition.ScopeIdentifierName
 import pgo.model.{Definition, DefinitionComposite, DefinitionOne, RefersTo, Rewritable, SourceLocatable, Visitable}
 
 import scala.collection.View
@@ -350,11 +351,24 @@ object TLANumber {
   case object HexadecimalSyntax extends Syntax
 }
 
-final case class TLAGeneralIdentifier(name: TLAIdentifier, prefix: List[TLAGeneralIdentifierPart]) extends TLAExpression with RefersTo[DefinitionOne]
+final case class TLAGeneralIdentifier(name: TLAIdentifier, prefix: List[TLAGeneralIdentifierPart]) extends TLAExpression with RefersTo[DefinitionOne] {
+  override def setRefersTo(refersTo: DefinitionOne): TLAGeneralIdentifier.this.type = {
+    // TODO: why is this sometimes not true, but things seem fine?
+    // assert(refersTo.identifier.isInstanceOf[ScopeIdentifierName] && name == refersTo.identifier.asInstanceOf[ScopeIdentifierName].name,
+    //   s"it is probably a bug that an identifier with lexical name $name actually refers to ${refersTo.identifier}")
+    super.setRefersTo(refersTo)
+  }
+}
 
 final case class TLADot(lhs: TLAExpression, identifier: TLAIdentifier) extends TLAExpression
 
-final case class TLAOperatorCall(name: Definition.ScopeIdentifier, prefix: List[TLAGeneralIdentifierPart], arguments: List[TLAExpression]) extends TLAExpression with RefersTo[DefinitionOne]
+final case class TLAOperatorCall(name: Definition.ScopeIdentifier, prefix: List[TLAGeneralIdentifierPart], arguments: List[TLAExpression]) extends TLAExpression with RefersTo[DefinitionOne] {
+  override def setRefersTo(refersTo: DefinitionOne): TLAOperatorCall.this.type = {
+    // TODO: why is this sometimes not true, but things seem fine?
+    // assert(refersTo.identifier == name, s"it is probably a bug that an operator call with lexical name $name actually refers to ${refersTo.identifier}")
+    super.setRefersTo(refersTo)
+  }
+}
 
 final case class TLAIf(cond: TLAExpression, tval: TLAExpression, fval: TLAExpression) extends TLAExpression
 

@@ -9,6 +9,7 @@ trait RefersTo[T <: RefersTo.HasReferences] extends Rewritable {
     refersTo_ = Some(refersTo)
     this
   }
+  def hasRefersTo: Boolean = refersTo_.nonEmpty
 
   override def decorateLike(succ: this.type): this.type =
     super.decorateLike(succ.setRefersTo(refersTo))

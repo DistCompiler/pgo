@@ -1,9 +1,10 @@
 package pgo.parser
 
-import pgo.model.{Definition, DefinitionOne, SourceLocatable, SourceLocation, SourceLocationWithUnderlying}
+import pgo.model.{Definition, DefinitionOne, SourceLocatable, SourceLocation, SourceLocationWithUnderlying, Visitable}
 import pgo.model.tla._
 import pgo.util.Description
 import Description._
+import pgo.model.Definition.ScopeIdentifierName
 
 import scala.collection.mutable
 import scala.util.parsing.combinator.RegexParsers
@@ -143,7 +144,7 @@ trait TLAParser extends RegexParsers {
         tlaIdentifierExpr.flatMap { id =>
           ctx.lookupDefinition(pfx.map(id => Definition.ScopeIdentifierName(id.id)) :+ Definition.ScopeIdentifierName(id)) match {
             case None =>
-              failure(s"lookup failed for identifier ${pfx.map(_.id.id).mkString("!")}!$id")
+              failure(s"lookup failed for identifier ${pfx.map(_.id.id).mkString("!")}!${id.id}")
             case Some(defn) =>
               if (defn.arity == 0) {
                 wsChk ~> "!" ^^^ PrefixPart(TLAGeneralIdentifierPart(id, Nil), defn)
@@ -189,17 +190,15 @@ trait TLAParser extends RegexParsers {
           val name = Definition.ScopeIdentifierName(id)
           ctx.lookupDefinition(pfx.map(id => Definition.ScopeIdentifierName(id.id)) :+ name) match {
             case None =>
-              ctx.lateBindingStack match {
-                case lateBindings :: _ if pfx.isEmpty =>
-                  // if the context allows late bindings (i.e names bound to the right)
-                  // then assume arity == 0 and defer setRefersTo below
-                  val ref = TLAGeneralIdentifier(id, Nil)
-                  lateBindings.getOrElseUpdate(id, mutable.ArrayBuffer()) += ref.setRefersTo
-                  success(ref)
-                case _ =>
-                  // don't fail hard; it's possible that the prefix is empty and the identifier is an ambiguous
-                  // prefix of some other piece of syntax; perhaps an OpDecl
-                  failure(s"lookup failed for identifier ${pfx.map(_.id.id).mkString("!")}!$id")
+              if(ctx.lateBindingStack > 0 && pfx.isEmpty) {
+                // if the context allows late bindings (i.e names bound to the right)
+                // then assume arity == 0 and expect whoever incremented lateBindingStack to gather and handle
+                // the unbound identifier
+                success(TLAGeneralIdentifier(id, Nil))
+              } else {
+                // don't fail hard; it's possible that the prefix is empty and the identifier is an ambiguous
+                // prefix of some other piece of syntax; perhaps an OpDecl
+                failure(s"lookup failed for identifier ${pfx.map(_.id.id).mkString("!")}!${id.id}")
               }
             case Some(defn) =>
               if( defn.arity > 0 ) {
@@ -436,38 +435,34 @@ trait TLAParser extends RegexParsers {
     withSourceLocation {
       ("{" ~> wsChk ~> {
         implicit val ctx: TLAParserContext = origCtx.withLateBinding
-        (tlaExpression <~ wsChk <~ ":") ^^ ((_, ctx.lateBindingStack.head))
+        tlaExpression <~ wsChk <~ ":"
       }) ~ (wsChk ~> tlaComma1Sep(tlaQuantifierBound) <~ wsChk <~ "}") ^^ {
-        case (expr, lateBindings) ~ bounds =>
+        case expr ~ bounds =>
           // extract all late bindings from bounds, and match them up with any relevant elements
           // of lateBindings, removing them in the process
           val defns: List[DefinitionOne] = bounds.flatMap(bind => bind.singleDefinitions)
-          defns.foreach { defn =>
-            val defnName = defn.identifier.asInstanceOf[Definition.ScopeIdentifierName].name
-            lateBindings.get(defnName) match {
-              case Some(lateBind) =>
-                lateBind.foreach(_(defn))
-                lateBindings -= defnName
+          val defnMap = defns.view.map(defn => defn.identifier.asInstanceOf[ScopeIdentifierName].name -> defn).toMap
+
+          // gather all nested unbound names
+          // (yes, this could end up being really slow, but last time I tried to be smart w/ mutable state or something, a fuzz tester exposed a really weird bug)
+          val idents = mutable.ListBuffer[TLAGeneralIdentifier]()
+          expr.visit(Visitable.TopDownFirstStrategy) {
+            case ident@TLAGeneralIdentifier(_, Nil) if !ident.hasRefersTo => idents += ident
+          }
+
+          idents.foreach { ident =>
+            defnMap.get(ident.name) match {
+              case Some(defn) => ident.setRefersTo(defn)
               case None =>
-            }
-          }
-          // if lateBindings is not empty after this (i.e we didn't match all the contained bindings)
-          // then either these should be bound even later (add to the next late bindings map in the stack)
-          // or we're out of possible late bindings, in which case raise an error indicating the location
-          // of one of the remaining identifiers (alphabetically least, for consistency)
-          if(lateBindings.nonEmpty) {
-            ctx.lateBindingStack match {
-              case Nil =>
-                val id = lateBindings.keysIterator.minBy(_.id)
-                throw DefinitionLookupError(Nil, Definition.ScopeIdentifierName(id))
-              case outerBindings :: _ =>
-                lateBindings.foreach {
-                  case (key, bindings) =>
-                    outerBindings.getOrElseUpdate(key, mutable.ArrayBuffer.empty) ++= bindings
+                // if the late bindings count is 0 after this, we should check that no idents remain unbound.
+                // if so, raise the [AST traversal-wise, probably lexically] "earliest" one as an error.
+                // otherwise, unbound idents may still be bound via currently unknown context, so don't do anything
+                if(ctx.lateBindingStack == 0) {
+                  throw DefinitionLookupError(Nil, Definition.ScopeIdentifierName(ident.name))
                 }
-                lateBindings.clear()
             }
           }
+
           TLASetComprehension(expr, bounds)
       }
     }
@@ -827,7 +822,7 @@ trait TLAParser extends RegexParsers {
 
   def tlaModuleBeforeTranslation(implicit ctx: TLAParserContext): Parser[TLAModule] =
     withSourceLocation {
-      val translationTag = ("\\*" <~ rep("*") <~ rep(" ") <~ "BEGIN" <~ rep(" ") <~ "TRANSLATION")
+      val translationTag = ("\\*" <~ rep("*") <~ rep1(" ") <~ "BEGIN" <~ rep1(" ") <~ "TRANSLATION")
         .withFailureMessage("\\* expected: for scoping reasons, an MPCal-compilable TLA+ module must contain a `\\* BEGIN TRANSLATION` tag")
       val wsWithoutTranslationTag =
         rep(regex("""\s+""".r) | tlaMultilineComment | not(translationTag) ~> tlaLineComment)

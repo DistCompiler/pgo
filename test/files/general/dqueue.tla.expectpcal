@@ -141,11 +141,8 @@ CONSTANTS BUFFER_SIZE, NUM_CONSUMERS, PRODUCER
 
 \* END PLUSCAL TRANSLATION
 
+*)
 
-
-
-
-***************************************************************************)
 \* BEGIN TRANSLATION PCal-e64ab9284c1a4c5172f564abb6f099c4
 CONSTANT defaultInitValue
 VARIABLES network, processor, stream, netWrite, netRead, procWrite, netWrite0, 

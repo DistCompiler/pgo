@@ -1,6 +1,6 @@
 package pgo
 
-import org.scalacheck.{Arbitrary, Gen, Prop}
+import org.scalacheck.Gen
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import pgo.model.Definition.ScopeIdentifierName
@@ -19,7 +19,7 @@ class TLAExpressionFuzzTests extends AnyFunSuite with ScalaCheckPropertyChecks {
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(workers = 1, minSuccessful = 100, maxDiscardedFactor = 10)
 
-  test("TLA+ compiled to Go code behaves like the built-in interpreter (true random ASTs)") {
+  test("TLA+ expr eval (true random ASTs)") {
     val workDir = os.temp.dir()
     val testFile = workDir / "TestBed.tla"
     val outFile = workDir / "testbed.go"
@@ -90,59 +90,57 @@ class TLAExpressionFuzzTests extends AnyFunSuite with ScalaCheckPropertyChecks {
         }
         whenever(!shouldSkip) {
           cases += 1
-          Prop.classify(expectedBehaviour match {
-            case Left(_) => degenerateCases += 1; true
-            case Right(_) => false
-          }, "degenerate", "correct") {
-            os.write.over(testFile, data = mpcalSetup.linesIterator.map(line => s"$line\n"))
+          expectedBehaviour match {
+            case Left(_) => degenerateCases += 1
+            case Right(_) =>
+          }
+          os.remove.all(outFile)
+          os.write.over(testFile, data = mpcalSetup.linesIterator.map(line => s"$line\n"))
 
-            def somethingBadHappened(): Unit = {
-              os.makeDir.all(os.pwd / "fuzz_output")
-              val testOut = os.temp.dir(dir = os.pwd / "fuzz_output", deleteOnExit = false)
-              println(s"something bad happened. saving test to $testOut")
-              os.copy.over(from = workDir, to = testOut)
+          def somethingBadHappened(): Unit = {
+            os.makeDir.all(os.pwd / "fuzz_output")
+            val testOut = os.temp.dir(dir = os.pwd / "fuzz_output", deleteOnExit = false)
+            println(s"something bad happened. saving test to $testOut")
+            os.copy.over(from = workDir, to = testOut)
+          }
+
+          try {
+            val errs = PGo.run(Seq("gogen", "-s", testFile.toString(), "-o", outFile.toString()))
+            assert(errs == Nil)
+          } catch {
+            case NonFatal(err) =>
+              somethingBadHappened()
+              throw err
+          }
+
+          os.proc("go", "mod", "download").call(cwd = workDir)
+
+          try {
+            val result = os.proc("go", "run", "./main").call(cwd = workDir, mergeErrIntoOut = true, timeout = 30000)
+            val valueFromGo = TLAValue.parseFromString(result.out.text())
+            expectedBehaviour match {
+              case Left(err) =>
+                fail(s"expected an error, because Scala-based interpreter threw one", err)
+              case Right(valueFromScala) =>
+                assert(valueFromGo == valueFromScala)
             }
-
-            try {
-              val errs = PGo.run(Seq("gogen", "-s", testFile.toString(), "-o", outFile.toString()))
-              assert(errs == Nil)
-            } catch {
-              case NonFatal(err) =>
-                somethingBadHappened()
-                throw err
-            }
-
-            os.proc("go", "mod", "download").call(cwd = workDir)
-
-            try {
-              val result = os.proc("go", "run", "./main").call(cwd = workDir, mergeErrIntoOut = true, timeout = 30000)
-              val valueFromGo = TLAValue.parseFromString(result.out.text())
+          } catch {
+            case err: os.SubprocessException =>
               expectedBehaviour match {
-                case Left(err) =>
-                  fail(s"expected an error, because Scala-based interpreter threw one", err)
-                case Right(valueFromScala) =>
-                  assert(valueFromGo == valueFromScala)
-              }
-              Prop.passed
-            } catch {
-              case err: os.SubprocessException =>
-                expectedBehaviour match {
-                  case Left(_) =>
-                    if (err.result.out.text().startsWith("panic: TLA+ type error")) {
-                      // that's ok then
-                      Prop.passed
-                    } else {
-                      somethingBadHappened()
-                      throw err
-                    }
-                  case Right(_) =>
+                case Left(_) =>
+                  if (err.result.out.text().startsWith("panic: TLA+ type error")) {
+                    // that's ok then
+                  } else {
                     somethingBadHappened()
                     throw err
-                }
-              case NonFatal(err) =>
-                somethingBadHappened()
-                throw err
-            }
+                  }
+                case Right(_) =>
+                  somethingBadHappened()
+                  throw err
+              }
+            case NonFatal(err) =>
+              somethingBadHappened()
+              throw err
           }
         }
       }
@@ -277,7 +275,7 @@ class TLAExpressionFuzzTests extends AnyFunSuite with ScalaCheckPropertyChecks {
   def genNamedASTOptions(breadth: Int, makeExpr: (IdSet[DefinitionOne],Option[TLAFunctionSubstitutionPairAnchor])=>Gen[TLAExpression])(implicit env: IdSet[DefinitionOne], anchorOpt: Option[TLAFunctionSubstitutionPairAnchor]): List[Gen[TLAExpression]] = {
     val options = mutable.ListBuffer[Gen[TLAExpression]]()
 
-    lazy val genQuantifierBound: Gen[TLAQuantifierBound] = for {
+    def genQuantifierBound(implicit env: IdSet[DefinitionOne], anchorOpt: Option[TLAFunctionSubstitutionPairAnchor]): Gen[TLAQuantifierBound] = for {
       tpe <- Gen.oneOf(TLAQuantifierBound.IdsType, TLAQuantifierBound.TupleType)
       ids <- tpe match {
         case TLAQuantifierBound.IdsType => Gen.identifier.map(id => List(TLAIdentifier(id).toDefiningIdentifier))

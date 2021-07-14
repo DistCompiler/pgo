@@ -138,11 +138,23 @@ trait MPCalParser extends PCalParser {
         implicit val ctx: MPCalParserContext = origCtx.withLateBinding
         (ws ~> "{" ~> ws ~> "read" ~> ws ~> cast(mpcalMappingMacroBody.pcalCSyntax.pcalCompoundStmt)) ~
           (ws ~> "write" ~> ws ~> cast(mpcalMappingMacroBody.pcalCSyntax.pcalCompoundStmt) <~ ws <~ "}") ^^
-          ((name, _, ctx.ctx.ctx.lateBindingStack.head))
+          ((name, _))
       } ^^ {
-        case (name, readBlock ~ writeBlock, lateBindings) =>
+        case (name, readBlock ~ writeBlock) =>
+          val lateBindings = locally {
+            val lateBindingsAcc = mutable.HashMap[TLAIdentifier,mutable.ListBuffer[TLAGeneralIdentifier]]()
+            val visitor: PartialFunction[Visitable,Unit] = {
+              case ident@TLAGeneralIdentifier(name, Nil) if !ident.hasRefersTo =>
+                lateBindingsAcc.getOrElseUpdate(name, mutable.ListBuffer()) += ident
+            }
+            readBlock.foreach(_.visit(Visitable.TopDownFirstStrategy)(visitor))
+            writeBlock.foreach(_.visit(Visitable.TopDownFirstStrategy)(visitor))
+
+            lateBindingsAcc.toMap
+          }
+
           val freeVars = lateBindings.keysIterator.map(_.toDefiningIdentifier).toList.sortBy(_.id.id)
-          freeVars.foreach { v => lateBindings(v.id).foreach(_(v)) }
+          freeVars.foreach { v => lateBindings(v.id).foreach(_.setRefersTo(v)) }
           MPCalMappingMacro(name, readBlock, writeBlock, freeVars)
       }
     }
@@ -176,8 +188,8 @@ trait MPCalParser extends PCalParser {
             ref.setSourceLocation(loc)
             ctx.ctx.lookupDefinition(List(Definition.ScopeIdentifierName(id))) match {
               case None =>
-                if(ctx.ctx.lateBindingStack.nonEmpty) {
-                  ctx.ctx.lateBindingStack.head.getOrElseUpdate(id, mutable.ArrayBuffer()) += ref.setRefersTo
+                if(ctx.ctx.lateBindingStack > 0) {
+                  // pass; expect whoever incremented late bindings to set the reference later
                 } else {
                   throw DefinitionLookupError(Nil, Definition.ScopeIdentifierName(id))
                 }

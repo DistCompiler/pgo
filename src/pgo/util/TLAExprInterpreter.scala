@@ -1,6 +1,6 @@
 package pgo.util
 
-import pgo.model.{Definition, DefinitionOne, SourceLocation}
+import pgo.model.{Definition, DefinitionOne, RefersTo, SourceLocation}
 import pgo.model.tla._
 import pgo.parser.TLAParser
 import pgo.util.Unreachable.!!!
@@ -236,7 +236,7 @@ object TLAExprInterpreter {
       BuiltinModules.Reals.memberAlpha("Infinity") -> { _ => throw Unsupported() },
     )
 
-  def interpret(expr: TLAExpression)(implicit env: Map[String,TLAValue]): TLAValue = {
+  def interpret(expr: TLAExpression)(implicit env: Map[RefersTo.HasReferences,TLAValue]): TLAValue = {
     try {
       expr match {
         case TLAString(value) => TLAValueString(value)
@@ -246,25 +246,25 @@ object TLAExprInterpreter {
           }
         case ident@TLAGeneralIdentifier(name, prefix) =>
           assert(prefix.isEmpty)
-          env.getOrElse(name.id, {
+          env.getOrElse(ident.refersTo, {
             builtinOperators(ident.refersTo)(Nil)
           })
         case TLADot(lhs, identifier) =>
           interpret(lhs) match {
             case TLAValueFunction(value) =>
-              require(value.contains(identifier.id))
-              value(identifier.id)
+              val idx = TLAValueString(identifier.id)
+              require(value.contains(idx))
+              value(idx)
           }
         case opcall@TLAOperatorCall(_, _, arguments) =>
           opcall.refersTo match {
             case builtin: BuiltinModules.TLABuiltinOperator =>
               builtinOperators(builtin)(arguments.map(interpret))
             case TLAOperatorDefinition(_, args, body, _) =>
-              assert(args.size == arguments.size)
-              assert(args.forall(_.variant.isInstanceOf[TLAOpDecl.NamedVariant]))
-              val argNames = args.view.map(_.variant.asInstanceOf[TLAOpDecl.NamedVariant].ident.id)
+              require(args.size == arguments.size)
+              require(args.forall(_.variant.isInstanceOf[TLAOpDecl.NamedVariant]))
               val argValues = arguments.map(interpret)
-              interpret(body)(env = env ++ (argNames zip argValues))
+              interpret(body)(env = env ++ (args zip argValues))
           }
         case TLAIf(cond, tval, fval) =>
           interpret(cond) match {
@@ -273,17 +273,13 @@ object TLAExprInterpreter {
           }
         case TLALet(defs, body) =>
           @tailrec
-          def impl(defs: List[TLAUnit])(implicit env: Map[String, TLAValue]): TLAValue =
+          def impl(defs: List[TLAUnit])(implicit env: Map[RefersTo.HasReferences, TLAValue]): TLAValue =
             defs match {
               case Nil => interpret(body)
               case unit :: restUnits =>
                 unit match {
-                  case TLAOperatorDefinition(name, args, body, _) if args.isEmpty =>
-                    val strName = name match {
-                      case Definition.ScopeIdentifierName(name) => name.id
-                      case Definition.ScopeIdentifierSymbol(symbol) => symbol.symbol.stringReprDefn
-                    }
-                    impl(restUnits)(env = env.updated(strName, interpret(body)))
+                  case defn@TLAOperatorDefinition(name, args, body, _) if args.isEmpty =>
+                    impl(restUnits)(env = env.updated(defn, interpret(body)))
                   case _: TLAOperatorDefinition =>
                     // for definitions with args, they will be called by TLAOperatorCall, and scoping is done already
                     impl(restUnits)
@@ -315,7 +311,7 @@ object TLAExprInterpreter {
             case TLAValueSet(set) => set
           }.toList
 
-          def impl(args: List[TLAQuantifierBound], argSets: List[Set[TLAValue]], acc: Vector[TLAValue])(implicit env: Map[String, TLAValue]): Iterator[(TLAValue, TLAValue)] =
+          def impl(args: List[TLAQuantifierBound], argSets: List[Set[TLAValue]], acc: Vector[TLAValue])(implicit env: Map[RefersTo.HasReferences, TLAValue]): Iterator[(TLAValue, TLAValue)] =
             (args, argSets) match {
               case (Nil, Nil) => Iterator.single(TLAValueTuple(acc) -> interpret(body))
               case (TLAQuantifierBound(tpe, ids, _) :: restArgs, argSet :: restArgSets) =>
@@ -323,13 +319,13 @@ object TLAExprInterpreter {
                     case TLAQuantifierBound.IdsType =>
                       val List(id) = ids
                       argSet.iterator.flatMap { v =>
-                        impl(restArgs, restArgSets, acc :+ v)(env = env.updated(id.id.id, v))
+                        impl(restArgs, restArgSets, acc :+ v)(env = env.updated(id, v))
                       }
                     case TLAQuantifierBound.TupleType =>
                       argSet.iterator.flatMap {
                         case v@TLAValueTuple(elems) =>
                           require(elems.size == ids.size)
-                          impl(restArgs, restArgSets, acc :+ v)(env = env ++ (ids.view.map(_.id.id) zip elems))
+                          impl(restArgs, restArgSets, acc :+ v)(env = env ++ (ids.view zip elems))
                       }
                   }
             }
@@ -361,11 +357,11 @@ object TLAExprInterpreter {
           }
         case TLAFunctionSubstitution(source, substitutions) =>
           substitutions.foldLeft(interpret(source)) { (fnValue, sub) =>
-            val TLAFunctionSubstitutionPair(_, keys, value) = sub
+            val TLAFunctionSubstitutionPair(anchor, keys, value) = sub
 
             def subKeys(keys: List[TLAFunctionSubstitutionKey], origValue: TLAValue): TLAValue =
               keys match {
-                case Nil => interpret(value)(env = env.updated("@", origValue))
+                case Nil => interpret(value)(env = env.updated(anchor, origValue))
                 case TLAFunctionSubstitutionKey(indices) :: restKeys =>
                   val indexValue = indices match {
                     case List(index) => interpret(index)
@@ -379,7 +375,7 @@ object TLAExprInterpreter {
 
             subKeys(keys, fnValue)
           }
-        case TLAFunctionSubstitutionAt() => env("@")
+        case at@TLAFunctionSubstitutionAt() => env(at.refersTo)
         case expr@(TLAQuantifiedExistential(_, _) | TLAQuantifiedUniversal(_, _)) =>
           // merge universal and existential code paths, because they are so similar
           val (bounds, body) = expr match {
@@ -397,10 +393,10 @@ object TLAExprInterpreter {
             case TLAQuantifiedExistential(_, _) => _.exists(_)
           }
 
-          def impl(bounds: List[TLAQuantifierBound], boundValues: List[Set[TLAValue]], envAcc: Map[String,TLAValue]): Boolean =
+          def impl(bounds: List[TLAQuantifierBound], boundValues: List[Set[TLAValue]], envAcc: Map[RefersTo.HasReferences,TLAValue]): Boolean =
             (bounds, boundValues) match {
               case (Nil, Nil) =>
-                implicit val env: Map[String,TLAValue] = envAcc
+                implicit val env: Map[RefersTo.HasReferences,TLAValue] = envAcc
                 interpret(body) match {
                   case TLAValueBool(value) => value
                 }
@@ -408,12 +404,12 @@ object TLAExprInterpreter {
                 tpe match {
                   case TLAQuantifierBound.IdsType =>
                     val List(id) = ids
-                    fn(set, v => impl(restBounds, restBoundValues, envAcc.updated(id.id.id, v)))
+                    fn(set, v => impl(restBounds, restBoundValues, envAcc.updated(id, v)))
                   case TLAQuantifierBound.TupleType =>
                     fn(set, {
                       case TLAValueTuple(elems) =>
                         require(ids.size == elems.size)
-                        impl(restBounds, restBoundValues, envAcc ++ (ids.view.map(_.id.id) zip elems))
+                        impl(restBounds, restBoundValues, envAcc ++ (ids.view zip elems))
                     })
                 }
               case _ => !!!
@@ -429,7 +425,7 @@ object TLAExprInterpreter {
                 case TLAQuantifierBound.IdsType =>
                   val List(id) = ids
                   TLAValueSet(setValue.filter { v =>
-                    interpret(when)(env = env.updated(id.id.id, v)) match {
+                    interpret(when)(env = env.updated(id, v)) match {
                       case TLAValueBool(value) => value
                     }
                   })
@@ -437,7 +433,7 @@ object TLAExprInterpreter {
                   TLAValueSet(setValue.filter {
                     case TLAValueTuple(elems) =>
                       require(elems.size == ids.size)
-                      interpret(when)(env = env ++ (ids.view.map(_.id.id) zip elems)) match {
+                      interpret(when)(env = env ++ (ids.view zip elems)) match {
                         case TLAValueBool(value) => value
                       }
                   })
@@ -447,7 +443,7 @@ object TLAExprInterpreter {
           val boundValues = bounds.view.map(_.set).map(interpret).map {
             case TLAValueSet(set) => set // require all sets are actual sets
           }.toList
-          def impl(bounds: List[TLAQuantifierBound], boundValues: List[Set[TLAValue]])(implicit env: Map[String, TLAValue]): Iterator[TLAValue] =
+          def impl(bounds: List[TLAQuantifierBound], boundValues: List[Set[TLAValue]])(implicit env: Map[RefersTo.HasReferences, TLAValue]): Iterator[TLAValue] =
             (bounds, boundValues) match {
               case (Nil, Nil) => Iterator.single(interpret(body))
               case (TLAQuantifierBound(tpe, ids, _) :: restBounds, setValue :: restSetValues) =>
@@ -455,13 +451,13 @@ object TLAExprInterpreter {
                   case TLAQuantifierBound.IdsType =>
                     val List(id) = ids
                     setValue.iterator.flatMap { v =>
-                      impl(restBounds, restSetValues)(env = env.updated(id.id.id, v))
+                      impl(restBounds, restSetValues)(env = env.updated(id, v))
                     }
                   case TLAQuantifierBound.TupleType =>
                     setValue.iterator.flatMap {
                       case TLAValueTuple(elems) =>
                         require(ids.size == elems.size)
-                        impl(restBounds, restSetValues)(env = env ++ (ids.view.map(_.id.id) zip elems))
+                        impl(restBounds, restSetValues)(env = env ++ (ids.view zip elems))
                     }
                 }
               case _ => !!!

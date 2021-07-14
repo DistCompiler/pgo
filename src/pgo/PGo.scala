@@ -94,8 +94,8 @@ object PGo {
 
           val tempOutput = os.temp(dir = os.pwd)
           locally {
-            val PCalBeginTranslation = raw"""\s*\\\*\s+BEGIN\s+PLUSCAL\s+TRANSLATION""".r
-            val PCalEndTranslation = raw"""\s*\\\*\s+END\s+PLUSCAL\s+TRANSLATION""".r
+            val PCalBeginTranslation = raw"""\s*\\\*\s+BEGIN\s+PLUSCAL\s+TRANSLATION\s*""".r
+            val PCalEndTranslation = raw"""\s*\\\*\s+END\s+PLUSCAL\s+TRANSLATION\s*""".r
 
             val renderedPCalIterator = Iterator("", "", "\\* BEGIN PLUSCAL TRANSLATION") ++
               renderedPCal.linesIterator ++
@@ -106,11 +106,11 @@ object PGo {
 
             os.write.over(tempOutput, os.read.lines.stream(config.PCalGenCmd.specFile()).zipWithIndex.flatMap {
               case (PCalBeginTranslation(), lineIdx) if !pcalBeginFound =>
-                assert(!pcalEndFound, s"at line ${lineIdx+1}, found PLUSCAL END TRANSLATION comment before PLUSCAL BEGIN TRANSLATION")
+                assert(!pcalEndFound, s"at line ${lineIdx+1}, found `\\* END PLUSCAL TRANSLATION` comment before `\\* BEGIN PLUSCAL TRANSLATION`")
                 pcalBeginFound = true
                 Generator.from(renderedPCalIterator)
               case (PCalEndTranslation(), lineIdx) =>
-                assert(!pcalEndFound, s"at line ${lineIdx+1}, found PLUSCAL END TRANSLATION without corresponding previous PLUSCAL BEGIN TRANSLATION")
+                assert(!pcalEndFound, s"at line ${lineIdx+1}, found `\\* END PLUSCAL TRANSLATION` without corresponding previous `\\* BEGIN PLUSCAL TRANSLATION`")
                 pcalEndFound = true
                 Generator()
               case _ if pcalBeginFound && !pcalEndFound =>
@@ -120,7 +120,7 @@ object PGo {
             }.map(line => s"$line\n"))
 
             assert(pcalBeginFound && pcalEndFound,
-              s"""one or both of "\\* PLUSCAL BEGIN TRANSLATION" and "\\* PLUSCAL END TRANSLATION" not found;
+              s"""one or both of `\\* BEGIN PLUSCAL TRANSLATION` and `\\* END PLUSCAL TRANSLATION` not found;
                  |add these tags so that PGo knows where to put its generated PlusCal""".stripMargin)
           }
           // move the rendered output over the spec file, replacing it

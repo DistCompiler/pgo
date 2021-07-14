@@ -1,6 +1,6 @@
 package pgo.parser
 
-import pgo.model.{Definition, SourceLocation}
+import pgo.model.{Definition, DefinitionOne, SourceLocation, Visitable}
 import pgo.model.pcal._
 import pgo.model.tla._
 
@@ -72,11 +72,10 @@ trait PCalParser extends TLAParser {
             val result = PCalAssignmentLhsIdentifier(id)
             result.setRefersTo(defn)
             result
-          case None if ctx.ctx.lateBindingStack.nonEmpty =>
-            val lateBindings = ctx.ctx.lateBindingStack.head
-            val result = PCalAssignmentLhsIdentifier(id)
-            lateBindings.getOrElseUpdate(id, mutable.ArrayBuffer.empty) += result.setRefersTo
-            result
+          case None if ctx.ctx.lateBindingStack > 0 =>
+            // let whoever incremented lateBindingStack set the reference later
+            // this should be the parser for PCalMacro
+            PCalAssignmentLhsIdentifier(id)
           case None =>
             throw DefinitionLookupError(Nil, Definition.ScopeIdentifierName(id))
         }
@@ -179,9 +178,19 @@ trait PCalParser extends TLAParser {
         "macro" ~> ws ~> tlaIdentifierExpr ~ (ws ~> "(" ~> ws ~> repsep(tlaIdentifierExpr, ws ~> "," ~> ws)).flatMap { params =>
           val definingParams = params.map(_.toDefiningIdentifier)
           implicit val ctx: PCalParserContext = definingParams.foldLeft(origCtx)(_.withDefinition(_)).withLateBinding
-          (ws ~> ")" ~> ws ~> pcalBody("macro") <~ opt(ws ~> ";")) ^^ ((definingParams, _, ctx.ctx.lateBindingStack.head))
+          (ws ~> ")" ~> ws ~> pcalBody("macro") <~ opt(ws ~> ";")) ^^ ((definingParams, _))
         } ^^ {
-          case id ~ ((params, body, freeVars)) =>
+          case id ~ ((params, body)) =>
+            val freeVars = locally {
+              val freeVarsAcc = mutable.HashMap[TLAIdentifier,mutable.ListBuffer[DefinitionOne=>Unit]]()
+              body.foreach(_.visit(Visitable.TopDownFirstStrategy) {
+                case ident@TLAGeneralIdentifier(name, Nil) if !ident.hasRefersTo =>
+                  freeVarsAcc.getOrElseUpdate(name, mutable.ListBuffer()) += ident.setRefersTo
+                case lhs@PCalAssignmentLhsIdentifier(name) if !lhs.hasRefersTo =>
+                  freeVarsAcc.getOrElseUpdate(name, mutable.ListBuffer()) += lhs.setRefersTo
+              })
+              freeVarsAcc.toMap
+            }
             val freeVarsList = freeVars.keysIterator.toArray.sortInPlaceBy(_.id).iterator.map(_.toDefiningIdentifier).toList
             freeVarsList.foreach { ident =>
               freeVars(ident.id).foreach(_(ident))
