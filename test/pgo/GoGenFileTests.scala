@@ -3,10 +3,10 @@ package pgo
 class GoGenFileTests extends FileTestSuite {
   lazy val goExe: String = sys.env.getOrElse("GO_EXE", "go")
 
-  override val testFiles: List[os.Path] = (os.list.stream(os.pwd / "test" / "files" / "gogen") ++
-    os.list.stream(os.pwd / "test" / "files" / "general"))
-    .filter(_.last.endsWith(".tla"))
-    .toList
+  override val testFiles: List[os.Path] =
+    os.list.stream(os.pwd / "test" / "files" / "general")
+      .filter(_.last.endsWith(".tla"))
+      .toList
 
   testFiles.foreach { testFile =>
     test(s"gogen ${testFile.relativeTo(os.pwd)}") {

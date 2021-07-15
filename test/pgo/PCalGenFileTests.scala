@@ -5,10 +5,10 @@ import com.github.difflib.{DiffUtils, UnifiedDiffUtils}
 import scala.jdk.CollectionConverters._
 
 class PCalGenFileTests extends FileTestSuite {
-  override val testFiles: List[os.Path] = (os.list.stream(os.pwd / "test" / "files" / "pcalgen") ++
-    os.list.stream(os.pwd / "test" / "files" / "general"))
-    .filter(_.last.endsWith(".tla"))
-    .toList
+  override val testFiles: List[os.Path] =
+    os.list.stream(os.pwd / "test" / "files" / "general")
+      .filter(_.last.endsWith(".tla"))
+      .toList
 
   testFiles.foreach { testFile =>
     test(s"pcalgen ${testFile.relativeTo(os.pwd)}") {
