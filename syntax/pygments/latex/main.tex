@@ -5,19 +5,10 @@
 \usepackage{hyperref}
 \hypersetup{}
 
-\usepackage[utf8]{inputenc}
-\usepackage[english]{babel}
-\usepackage{url}
-
-\usepackage{listings}
-\usepackage{parskip}
-\usepackage{float}
-\usepackage[table,xcdraw]{xcolor}
-\usepackage{amsmath, amsthm, amscd, amsfonts, amssymb, graphicx, color}
 \usepackage{xspace}
-\usepackage{listings}
 \usepackage{minted}
-\usepackage[htt]{hyphenat}
+
+\usepackage[skip=2pt]{caption}
 
 \begin{document}
 
@@ -26,7 +17,7 @@
 
 \maketitle
 
-We use \href{https://ctan.org/pkg/minted?lang=en}{\textsf{minted}} package for syntax highlighting in the \LaTeX documents. Figure \ref{fig-mpcal} shows an MPCal code block that uses \texttt{mpcal} lexer. It's useful when you want to show a block of MPCal code. Figure \ref{fig-tlaplus} depicts a TLA\textsuperscript{+} code block using \texttt{tla+} lexer. It supports PlusCal and MPCal languages in the comments.
+We use \href{https://ctan.org/pkg/minted?lang=en}{\textsf{minted}} package for syntax highlighting in the \LaTeX\xspace documents. Figure \ref{fig-mpcal} shows an MPCal code block that uses \texttt{mpcal} lexer. It's useful when you want to show a block of MPCal code. Figure \ref{fig-tlaplus} depicts a TLA\textsuperscript{+} code block using \texttt{tla+} lexer. It supports PlusCal and MPCal languages in the comments.
 
 \begin{figure}[H]
 	\begin{minted}[frame=single, linenos, breaklines, fontsize=\footnotesize]{mpcal}
