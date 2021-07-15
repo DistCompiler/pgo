@@ -46,6 +46,8 @@ common_tokens = {
     'pluscal': [
         (r'}', Punctuation, '#pop'),
         (r'{', Punctuation, '#push'),
+        
+        (r'(goto)(\s+)([^\W\d]\w*)(;)', bygroups(Keyword, Text, Name.Label, Punctuation)),
 
         (r'variables?\b', Keyword.Declaration),
         (words(("algorithm", "define", "macro", "procedure", "process"), suffix=r'\b'), Keyword.Declaration),
@@ -64,7 +66,7 @@ common_tokens = {
     'mpcal': [
         (words(("mpcal", "archetype", "instance", "ref"), suffix=r'\b'), Keyword.Declaration),
         (words(("mapping", "read", "write", "yield", "via"), suffix=r'\b'), Keyword),
-        (r'(\$variable|\$value)\b', Name.Builtin.Pseudo),
+        (r'(\$variable|\$value)\b', Name.Variable.Magic),
         include('pluscal'),
     ],
     'comment': [
@@ -94,14 +96,14 @@ class MPCalLexer(RegexLexer):
 
 class TLAplusLexer(RegexLexer):
     name = 'TLA+'
-    aliases = ['tla+']
+    aliases = ['tla+', 'tlaplus']
     filenames = ['*.tla']
 
     tokens = {
         'root': [
             (r'(\-\-\-\-+)(\s*)(MODULE)(\s*)(\w*)(\s*)(\-\-\-\-+)',
                 bygroups(Comment.PreProc, Text, Keyword.Namespace, Text,
-                         Comment.PreProc, Text, Comment.PreProc)),
+                         Name, Text, Comment.PreProc)),
             (r'====+', Comment.PreProc),
             include('comment-root'),
             include('tla'),
