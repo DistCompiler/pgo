@@ -70,6 +70,18 @@ object MPCalGoCodegenPass {
         label.name -> s"${ctx.nameCleaner.cleanName(label.name)}LabelTag"
     } ++ List("Done" -> "DoneLabelTag")).toMap
 
+    /**
+     * Ensures that any archetype resource reads embedded within expr are lifted out and performed ahead of time.
+     * Pure expressions will be unaffected.
+     *
+     * e.g:
+     * `print x + 1`
+     * becomes something like
+     * `
+     * tmp := ctx.Read(...)
+     * (tmp + 1).PCalPrint()
+     * `
+     */
     def readExpr(expr: TLAExpression, hint: String = "resourceRead")(fn: Description=>Description)(implicit ctx: GoCodegenContext): Description = {
       val resourceReads = mutable.ListBuffer[(DefinitionOne,PCalVariableDeclarationEmpty,List[TLAExpression])]()
       lazy val readReplacer: PartialFunction[Rewritable,Rewritable] = {
@@ -124,6 +136,14 @@ object MPCalGoCodegenPass {
       }
     }
 
+    /**
+     * The plural of readExpr.
+     *
+     * @param exprs multiple expressions to read
+     * @param fn the "body", mapping from a list of bound expression values to a sequence of Go statements
+     * @param ctx the context
+     * @return the entire sequence of (1) perform expression reads and bindings (2) insert the result of fn(...)
+     */
     def readExprs(exprs: List[(TLAExpression,String)])(fn: List[Description]=>Description)(implicit ctx: GoCodegenContext): Description = {
       def impl(exprs: List[(TLAExpression,String)], acc: mutable.ListBuffer[Description]): Description =
         exprs match {
@@ -425,32 +445,16 @@ object MPCalGoCodegenPass {
       case id -> name => id -> FixedValueBinding(name)
     })
     bindingInfos.view.map(_._2).flattenDescriptions + body(innerCtx)
-
-    /*val boundIds = bounds.view.flatMap {
-      case TLAQuantifierBound(TLAQuantifierBound.IdsType, List(id), _) =>
-        Some(id -> ctx.nameCleaner.cleanName(id.id.id))
-      case TLAQuantifierBound(TLAQuantifierBound.TupleType, elements, _) =>
-        elements.view.map(id => id -> ctx.nameCleaner.cleanName(id.id.id))
-    }.to(IdMap)
-    val innerCtx: GoCodegenContext = ctx.copy(bindings = ctx.bindings ++ boundIds.map {
-      case id -> name => id -> FixedValueBinding(name)
-    })
-
-    bounds.view.zipWithIndex.flatMap {
-      case (TLAQuantifierBound(TLAQuantifierBound.IdsType, List(id), _), idx) =>
-        List {
-          d"\nvar ${boundIds(id)} $TLAValue = $setsTupleName[$idx]" +
-            d"\n_ = ${boundIds(id)}" // stop the Go compiler from catching unused vars
-        }
-      case (TLAQuantifierBound(TLAQuantifierBound.TupleType, elements, _), idx) =>
-        elements.view.zipWithIndex.map {
-          case (element, elemIdx) =>
-            d"\nvar ${boundIds(element)} $TLAValue = $setsTupleName[$idx].ApplyFunction(distsys.NewTLANumber($elemIdx))" +
-              d"\n_ = ${boundIds(element)}"
-        }
-    }.flattenDescriptions + body(innerCtx)*/
   }
 
+  /**
+   * Given ctx, translates the expression into Go code.
+   *
+   * The output type is Description, which can be thought of as a lazy String which is optimized for
+   * concatenation, embedding, and other generative operations.
+   *
+   * Note: this function relies on readExpr, defined above, for the handling of archetype resource reads.
+   */
   def translateExpr(expression: TLAExpression)(implicit ctx: GoCodegenContext): Description =
     expression match {
       case TLAString(value) =>
