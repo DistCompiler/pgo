@@ -213,7 +213,7 @@ object MPCalGoCodegenPass {
                 d"\nif !$condition.AsBool() {${
                   (d"""\n${ctx.err} = fmt.Errorf("%w: ${
                     escapeStringToGo(PCalRenderPass.describeExpr(conditionExpr).linesIterator.mkString("\n"))
-                  }", distsys.AssertionFailed)""" +
+                  }", distsys.ErrAssertionFailed)""" +
                     d"\ncontinue").indented
                 }\n}"
               }
@@ -249,7 +249,7 @@ object MPCalGoCodegenPass {
             case PCalAwait(condition) =>
               readExpr(condition, hint = "condition") { condition =>
                 d"\nif !$condition.AsBool() {${
-                  (d"\n${ctx.err} = distsys.CriticalSectionAborted" +
+                  (d"\n${ctx.err} = distsys.ErrCriticalSectionAborted" +
                     d"\ncontinue").indented
                 }\n}"
               }
@@ -377,7 +377,7 @@ object MPCalGoCodegenPass {
           d"\n" +
           d"\nfor {${
             (d"\nif $err != nil {${
-              (d"\nif $err == distsys.CriticalSectionAborted {${
+              (d"\nif $err == distsys.ErrCriticalSectionAborted {${
                 (d"\nctx.Abort()" +
                   d"\n$err = nil").indented
               }\n} else {${

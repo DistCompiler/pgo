@@ -46,6 +46,11 @@ object MPCalSemanticCheckPass {
       usage.sourceLocation, d"call arity at ${
         defn.sourceLocation.longDescription
       }\n does not match")
+
+    final case class MPCalMultipleMapping(firstMapping: SourceLocatable, secondMapping: SourceLocatable) extends Error(
+      secondMapping.sourceLocation, d"instance parameter mapped at ${
+        firstMapping.sourceLocation.longDescription
+      }\n is mapped again")
   }
 
   @throws[PGoError]
@@ -414,6 +419,21 @@ object MPCalSemanticCheckPass {
             checkMPCalParamUsage(arguments, call.refersTo.params)
           }
       }
+    }
+
+    // check that mapping macros are not many-to-one
+    // i.e that the same instance parameter is not mapped more than one way
+    block.visit(Visitable.TopDownFirstStrategy) {
+      case MPCalInstance(_, _, _, _, mappings) =>
+        val visitedPositions = mutable.HashMap[Int,MPCalMapping]()
+        mappings.foreach {
+          case mapping@MPCalMapping(target, _) =>
+            if(!visitedPositions.contains(target.position)) {
+              visitedPositions.update(target.position, mapping)
+            } else {
+              errors += SemanticError.MPCalMultipleMapping(visitedPositions(target.position), mapping)
+            }
+        }
     }
 
     if(errors.nonEmpty) {

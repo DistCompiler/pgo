@@ -38,7 +38,7 @@ func ALoadBalancer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants C
 
 	for {
 		if err != nil {
-			if err == distsys.CriticalSectionAborted {
+			if err == distsys.ErrCriticalSectionAborted {
 				ctx.Abort()
 				err = nil
 			} else {
@@ -87,7 +87,7 @@ func ALoadBalancer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants C
 				continue
 			}
 			if !distsys.TLA_EqualsSymbol(condition.ApplyFunction(distsys.NewTLAString("message_type")), constants.GET_PAGE).AsBool() {
-				err = fmt.Errorf("%w: ((msg).message_type) = (GET_PAGE)", distsys.AssertionFailed)
+				err = fmt.Errorf("%w: ((msg).message_type) = (GET_PAGE)", distsys.ErrAssertionFailed)
 				continue
 			}
 			err = ctx.Write(programCounter, []distsys.TLAValue{}, distsys.NewTLANumber(sendServerLabelTag))
@@ -166,7 +166,7 @@ func AServer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constan
 
 	for {
 		if err0 != nil {
-			if err0 == distsys.CriticalSectionAborted {
+			if err0 == distsys.ErrCriticalSectionAborted {
 				ctx.Abort()
 				err0 = nil
 			} else {
@@ -269,7 +269,7 @@ func AClient(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constan
 
 	for {
 		if err1 != nil {
-			if err1 == distsys.CriticalSectionAborted {
+			if err1 == distsys.ErrCriticalSectionAborted {
 				ctx.Abort()
 				err1 = nil
 			} else {

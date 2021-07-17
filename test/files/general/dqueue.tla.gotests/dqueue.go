@@ -31,7 +31,7 @@ func AConsumer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Const
 
 	for {
 		if err != nil {
-			if err == distsys.CriticalSectionAborted {
+			if err == distsys.ErrCriticalSectionAborted {
 				ctx.Abort()
 				err = nil
 			} else {
@@ -117,7 +117,7 @@ func AProducer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Const
 
 	for {
 		if err0 != nil {
-			if err0 == distsys.CriticalSectionAborted {
+			if err0 == distsys.ErrCriticalSectionAborted {
 				ctx.Abort()
 				err0 = nil
 			} else {

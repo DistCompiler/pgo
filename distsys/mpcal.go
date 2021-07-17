@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-var AssertionFailed = errors.New("assertion failed")
+var ErrAssertionFailed = errors.New("assertion failed")
 
 type ArchetypeResourceHandle struct {
 	Tag   int

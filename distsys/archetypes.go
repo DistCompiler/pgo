@@ -7,18 +7,15 @@ import (
 	"errors"
 	"fmt"
 	"github.com/benbjohnson/immutable"
-	"io"
 	"log"
 	"net"
 	"sync"
 	"time"
 )
 
-var CriticalSectionAborted = errors.New("MPCal critical section aborted")
+var ErrCriticalSectionAborted = errors.New("MPCal critical section aborted")
 
 type ArchetypeResource interface {
-	gob.GobDecoder
-	gob.GobEncoder
 	Abort() chan struct{}
 	PreCommit() chan error
 	Commit() chan struct{}
@@ -29,22 +26,22 @@ type ArchetypeResource interface {
 
 type ArchetypeResourceLeafMixin struct{}
 
-var ArchetypeResourceLeafIndexedError = errors.New("internal error: attempted to index a leaf archetype resource")
+var ErrArchetypeResourceLeafIndexed = errors.New("internal error: attempted to index a leaf archetype resource")
 
 func (ArchetypeResourceLeafMixin) Index(TLAValue) (ArchetypeResource, error) {
-	return nil, ArchetypeResourceLeafIndexedError
+	return nil, ErrArchetypeResourceLeafIndexed
 }
 
 type ArchetypeResourceMapMixin struct{}
 
-var ArchetypeResourceMapReadWriteError = errors.New("internal error: attempted to read/write a map archetype resource")
+var ErrArchetypeResourceMapReadWrite = errors.New("internal error: attempted to read/write a map archetype resource")
 
 func (ArchetypeResourceMapMixin) ReadValue() (TLAValue, error) {
-	return TLAValue{}, ArchetypeResourceMapReadWriteError
+	return TLAValue{}, ErrArchetypeResourceMapReadWrite
 }
 
 func (ArchetypeResourceMapMixin) WriteValue(TLAValue) error {
-	return ArchetypeResourceMapReadWriteError
+	return ErrArchetypeResourceMapReadWrite
 }
 
 ////////////////////////////////////////////////
@@ -170,20 +167,12 @@ func (res *InputChannelResource) ReadValue() (TLAValue, error) {
 		res.buffer = append(res.buffer, value)
 		return value, nil
 	case <-time.After(time.Millisecond * 20):
-		return TLAValue{}, CriticalSectionAborted
+		return TLAValue{}, ErrCriticalSectionAborted
 	}
 }
 
 func (res *InputChannelResource) WriteValue(value TLAValue) error {
 	panic(fmt.Errorf("attempted to write %v to an input channel resource", value))
-}
-
-func (res *InputChannelResource) GobDecode(input []byte) error {
-	panic("implement me")
-}
-
-func (res *InputChannelResource) GobEncode() ([]byte, error) {
-	panic("implement me")
 }
 
 // Output channel resource: a write-only resource backed by an externally-readable Go channel
@@ -232,14 +221,6 @@ func (res *OutputChannelResource) ReadValue() (TLAValue, error) {
 func (res *OutputChannelResource) WriteValue(value TLAValue) error {
 	res.buffer = append(res.buffer, value)
 	return nil
-}
-
-func (res *OutputChannelResource) GobDecode(i []byte) error {
-	panic("implement me")
-}
-
-func (res *OutputChannelResource) GobEncode() ([]byte, error) {
-	panic("implement me")
 }
 
 // A generic map resource, with hooks to programmatically and serializably realize child resources during execution
@@ -370,42 +351,6 @@ func (res *IncrementalArchetypeMapResource) Abort() chan struct{} {
 		outCh <- struct{}{}
 	}()
 	return outCh
-}
-
-func (res *IncrementalArchetypeMapResource) GobDecode(input []byte) error {
-	buf := bytes.NewBuffer(input)
-	decoder := gob.NewDecoder(buf)
-	builder := immutable.NewMapBuilder(TLAValueHasher{})
-	for {
-		var record incrementalArchetypeMapResourceRecord
-		err := decoder.Decode(&record)
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				res.realizedMap = builder.Map()
-				return nil
-			} else {
-				return err
-			}
-		}
-		builder.Set(record.Key, record.Value)
-	}
-}
-
-func (res *IncrementalArchetypeMapResource) GobEncode() ([]byte, error) {
-	var buf bytes.Buffer
-	encoder := gob.NewEncoder(&buf)
-	it := res.realizedMap.Iterator()
-	for !it.Done() {
-		key, value := it.Next()
-		err := encoder.Encode(incrementalArchetypeMapResourceRecord{
-			Key:   key.(TLAValue),
-			Value: value.(ArchetypeResource),
-		})
-		if err != nil {
-			return nil, err
-		}
-	}
-	return buf.Bytes(), nil
 }
 
 // Global State as Archetype Resource
@@ -636,20 +581,12 @@ func (res *TCPMailboxLocalArchetypeResource) ReadValue() (TLAValue, error) {
 		res.readsInProgress = append(res.readsInProgress, poppedValue)
 		return poppedValue, nil
 	case <-time.After(20 * time.Millisecond):
-		return TLAValue{}, CriticalSectionAborted
+		return TLAValue{}, ErrCriticalSectionAborted
 	}
 }
 
 func (res *TCPMailboxLocalArchetypeResource) WriteValue(value TLAValue) error {
 	panic(fmt.Errorf("attempted to write value %v to a local mailbox archetype resource", value))
-}
-
-func (res *TCPMailboxLocalArchetypeResource) GobDecode(i []byte) error {
-	panic("implement me")
-}
-
-func (res *TCPMailboxLocalArchetypeResource) GobEncode() ([]byte, error) {
-	panic("implement me")
 }
 
 type TCPMailboxRemoteArchetypeResource struct {
@@ -676,7 +613,7 @@ func (res *TCPMailboxRemoteArchetypeResource) ensureConnection() error {
 		if err != nil {
 			log.Printf("failed to dial %s, aborting after 50ms: %v", res.dialAddr, err)
 			time.Sleep(time.Millisecond * 50)
-			return CriticalSectionAborted
+			return ErrCriticalSectionAborted
 		}
 		res.connEncoder = gob.NewEncoder(res.conn)
 		res.connDecoder = gob.NewDecoder(res.conn)
@@ -710,7 +647,7 @@ func (res *TCPMailboxRemoteArchetypeResource) PreCommit() chan error {
 	handleError:
 		log.Printf("network error while performing pre-commit handshake, aborting: %v", err)
 		res.conn = nil
-		ch <- CriticalSectionAborted
+		ch <- ErrCriticalSectionAborted
 	}()
 	return ch
 }
@@ -790,13 +727,43 @@ func (res *TCPMailboxRemoteArchetypeResource) WriteValue(value TLAValue) error {
 handleError:
 	log.Printf("network error during remote value write, aborting: %v", err)
 	res.conn = nil
-	return CriticalSectionAborted
+	return ErrCriticalSectionAborted
 }
 
-func (res *TCPMailboxRemoteArchetypeResource) GobDecode(i []byte) error {
+// Filesystem archetype resource
+// -----------------------------
+
+type FilesystemArchetypeResource struct {
+	ArchetypeResourceLeafMixin
+	workingDirectory string
+	writesPending    map[string]TLAValue
+}
+
+var _ ArchetypeResource = &FilesystemArchetypeResource{}
+
+func NewFilesystemArchetypeResource(ensurer MPCalContextResourceEnsurer, workingDirectory string) ArchetypeResourceHandle {
+	return ensurer(&FilesystemArchetypeResource{}, func(resource ArchetypeResource) {
+		res := resource.(*FilesystemArchetypeResource)
+		_ = res
+	})
+}
+
+func (res *FilesystemArchetypeResource) Abort() chan struct{} {
 	panic("implement me")
 }
 
-func (res *TCPMailboxRemoteArchetypeResource) GobEncode() ([]byte, error) {
+func (res *FilesystemArchetypeResource) PreCommit() chan error {
+	panic("implement me")
+}
+
+func (res *FilesystemArchetypeResource) Commit() chan struct{} {
+	panic("implement me")
+}
+
+func (res *FilesystemArchetypeResource) ReadValue() (TLAValue, error) {
+	panic("implement me")
+}
+
+func (res *FilesystemArchetypeResource) WriteValue(value TLAValue) error {
 	panic("implement me")
 }

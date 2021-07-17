@@ -1,5 +1,6 @@
 package pgo.util
 
+import pgo.util.Unreachable.!!!
 import scala.collection.{AbstractIterator, View, mutable}
 
 private sealed abstract class DescriptionPart
@@ -65,7 +66,7 @@ final class Description private (private val parts: View[DescriptionPart]) exten
                 (0 until indent).foreach(_ => lineBuilder += ' ')
               }
               lineBuilder.addAll(str)
-            case DescriptionEmbedPart(_) => ??? // should be unreachable
+            case DescriptionEmbedPart(_) => !!! // should be unreachable
           }
         }
         // lineBuilder.nonEmpty ==> make sure to output trailing strings without a new line following them
