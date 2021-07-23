@@ -200,7 +200,9 @@ func (v TLAValue) SelectElement() TLAValue {
 func (v TLAValue) ApplyFunction(argument TLAValue) TLAValue {
 	switch data := v.data.(type) {
 	case *tlaValueTuple:
-		return data.Get(int(argument.AsNumber())).(TLAValue)
+		idx := int(argument.AsNumber())
+		require(idx >= 1 || idx <= data.Len(), "tuple indices must be in range; note that tuples are 1-indexed in TLA+")
+		return data.Get(idx - 1).(TLAValue)
 	case *tlaValueFunction:
 		value, ok := data.Get(argument)
 		if !ok {
@@ -249,6 +251,11 @@ var _ tlaValueImpl = tlaValueBool(false)
 var TLA_TRUE = TLAValue{tlaValueBool(true)}
 var TLA_FALSE = TLAValue{tlaValueBool(false)}
 var TLA_BOOLEAN = NewTLASet(TLA_TRUE, TLA_FALSE)
+
+func TLA_Assert(cond, msg TLAValue) TLAValue {
+	require(cond.AsBool(), fmt.Sprintf("TLA+ assertion: %s", msg.AsString()))
+	return TLA_TRUE
+}
 
 func NewTLABool(v bool) TLAValue {
 	if v {
@@ -306,6 +313,8 @@ var _ tlaValueImpl = tlaValueNumber(0)
 func NewTLANumber(num int32) TLAValue {
 	return TLAValue{tlaValueNumber(num)}
 }
+
+var TLA_Zero = NewTLANumber(0)
 
 // FIXME: better error handling
 var TLA_Nat = TLAValue{}
@@ -1122,6 +1131,22 @@ func TLAFunctionSubstitution(source TLAValue, substitutions []TLAFunctionSubstit
 		source = keysHelper(source, substitution.Keys, substitution.Value)
 	}
 	return source
+}
+
+func TLA_ColonGreaterThanSymbol(lhs, rhs TLAValue) TLAValue {
+	builder := immutable.NewMapBuilder(TLAValueHasher{})
+	builder.Set(lhs, rhs)
+	return TLAValue{&tlaValueFunction{builder.Map()}}
+}
+
+func TLA_DoubleAtSignSymbol(lhs, rhs TLAValue) TLAValue {
+	lhsFn, rhsFh := lhs.AsFunction(), rhs.AsFunction()
+	it := rhsFh.Iterator()
+	for !it.Done() {
+		key, value := it.Next()
+		lhsFn = lhsFn.Set(key, value)
+	}
+	return TLAValue{&tlaValueFunction{lhsFn}}
 }
 
 func TLA_DomainSymbol(v TLAValue) TLAValue {

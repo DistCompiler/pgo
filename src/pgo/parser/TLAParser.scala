@@ -144,7 +144,7 @@ trait TLAParser extends RegexParsers {
         tlaIdentifierExpr.flatMap { id =>
           ctx.lookupDefinition(pfx.map(id => Definition.ScopeIdentifierName(id.id)) :+ Definition.ScopeIdentifierName(id)) match {
             case None =>
-              failure(s"lookup failed for identifier ${pfx.map(_.id.id).mkString("!")}!${id.id}")
+              failure(s"lookup failed for identifier ${pfx.map(_.id.id).mkString("!")}${if(pfx.nonEmpty) "!" else ""}${id.id}")
             case Some(defn) =>
               if (defn.arity == 0) {
                 // the extra negation is to avoid matching parts of an EXCEPT expression, where an id might be followed by !
@@ -201,7 +201,7 @@ trait TLAParser extends RegexParsers {
               } else {
                 // don't fail hard; it's possible that the prefix is empty and the identifier is an ambiguous
                 // prefix of some other piece of syntax; perhaps an OpDecl
-                failure(s"lookup failed for identifier ${pfx.map(_.id.id).mkString("!")}!${id.id}")
+                failure(s"lookup failed for identifier ${pfx.map(_.id.id).mkString("!")}${if(pfx.nonEmpty) "!" else ""}${id.id}")
               }
             case Some(defn) =>
               if( defn.arity > 0 ) {
@@ -655,7 +655,7 @@ trait TLAParser extends RegexParsers {
       tlaLetExpr |
       tlaCaseExpr |
       // starting with [
-      tlaFunctionExpr | tlaRecordSetExpr | tlaRecordConstructorExpr | tlaFunctionSetExpr |
+      tlaFunctionExpr |  tlaRecordSetExpr | tlaRecordConstructorExpr | tlaFunctionSetExpr |
       tlaMaybeActionExpr | tlaFunctionSubstitutionExpr |
       // starting with \E, EE, \A, \AA
       tlaQuantifiedExistentialExpr | tlaQuantifiedUniversalExpr |

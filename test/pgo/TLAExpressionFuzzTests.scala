@@ -6,14 +6,13 @@ import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import pgo.model.Definition.ScopeIdentifierName
 import pgo.model.DefinitionOne
 import pgo.model.tla._
-import pgo.trans.PCalRenderPass
+import pgo.trans.{MPCalGoCodegenPass, PCalRenderPass}
 import pgo.util.Description._
 import pgo.util.TLAExprInterpreter.TLAValue
 import pgo.util.{IdSet, TLAExprInterpreter}
 
 import scala.annotation.tailrec
 import scala.collection.mutable
-import scala.math
 import scala.util.control.NonFatal
 
 class TLAExpressionFuzzTests extends AnyFunSuite with ScalaCheckPropertyChecks {
@@ -59,7 +58,7 @@ class TLAExpressionFuzzTests extends AnyFunSuite with ScalaCheckPropertyChecks {
       forAll(trueRandomExprGen) { (expr: TLAExpression) =>
         val mpcalSetup =
           d"----MODULE TestBed----\n" +
-            d"EXTENDS Integers, Sequences, TLC, FiniteSets\n" +
+            d"EXTENDS Integers, Sequences, TLC, FiniteSets, Peano\n" +
             d"(* --mpcal TestBed {\n" +
             d"archetype TestBed() {\n" +
             d"lbl: print ${PCalRenderPass.describeExpr(expr)};\n".indented +
@@ -149,13 +148,10 @@ class TLAExpressionFuzzTests extends AnyFunSuite with ScalaCheckPropertyChecks {
       override def genIterator: Iterator[Gen[TLAExpression]] = Iterator.single(gen)
     }
 
-    val builtinModules = BuiltinModules.builtinModules.values.filter { mod =>
-      (mod ne BuiltinModules.Reals) &&
-        (mod ne BuiltinModules.Bags) &&
-        (mod ne BuiltinModules.TLC) &&
-        (mod ne BuiltinModules.Peano) &&
-        (mod ne BuiltinModules.ProtoReals)
-    }
+    val builtinOps = BuiltinModules.builtinModules.values.view
+      .flatMap(_.members)
+      .filter(op => !MPCalGoCodegenPass.unsupportedOperators(op))
+      .toList
 
     val cases: Iterator[PartialFunction[List[TLAExpression],GenProvider]] = Iterator(
       { case Nil => for {
@@ -172,8 +168,7 @@ class TLAExpressionFuzzTests extends AnyFunSuite with ScalaCheckPropertyChecks {
           } : Iterable[Gen[TLAExpression]]
       },
       { case Nil =>
-        builtinModules.view
-          .flatMap(_.members)
+        builtinOps.view
           .filter(_.arity == 0)
           .map { defn =>
             TLAGeneralIdentifier(defn.identifier.asInstanceOf[ScopeIdentifierName].name, Nil)
@@ -191,8 +186,7 @@ class TLAExpressionFuzzTests extends AnyFunSuite with ScalaCheckPropertyChecks {
         }
       },
       { case subExprs: List[TLAExpression] if subExprs.nonEmpty =>
-        builtinModules.view
-          .flatMap(_.members)
+        builtinOps.view
           .filter(_.arity == subExprs.size)
           .map { defn =>
             TLAOperatorCall(defn.identifier, Nil, subExprs)

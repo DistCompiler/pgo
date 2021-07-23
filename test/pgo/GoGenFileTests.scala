@@ -4,7 +4,8 @@ class GoGenFileTests extends FileTestSuite {
   lazy val goExe: String = sys.env.getOrElse("GO_EXE", "go")
 
   override val testFiles: List[os.Path] =
-    os.list.stream(os.pwd / "test" / "files" / "general")
+    (os.list.stream(os.pwd / "test" / "files" / "general") ++
+      os.list.stream(os.pwd / "test" / "files" / "gogen"))
       .filter(_.last.endsWith(".tla"))
       .toList
 

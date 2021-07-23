@@ -1,12 +1,12 @@
 package pgo.trans
 
-import pgo.model.{Definition, DefinitionOne, PGoError, RefersTo, Rewritable, Visitable}
+import pgo.model.{Definition, DefinitionOne, PGoError, RefersTo, Rewritable, SourceLocation, Visitable}
 import pgo.model.mpcal._
 import pgo.model.pcal._
 import pgo.model.tla._
-import pgo.util.{Description, IdMap, NameCleaner}
+import pgo.util.{Description, IdMap, IdSet, NameCleaner}
 import Description._
-import pgo.model.tla.BuiltinModules.TLABuiltinOperator
+import pgo.model.tla.BuiltinModules.{TLABuiltinOperator, builtinModules}
 import pgo.util.MPCalPassUtils.MappedRead
 import pgo.util.Unreachable.!!!
 
@@ -15,6 +15,66 @@ import scala.annotation.tailrec
 import scala.collection.{View, mutable}
 
 object MPCalGoCodegenPass {
+  final case class UnsupportedOperationsError(override val errors: List[UnsupportedOperationsError.UnsupportedOperationError]) extends PGoError
+
+  object UnsupportedOperationsError {
+    final case class UnsupportedOperationError(override val sourceLocation: SourceLocation) extends PGoError.Error {
+      override val description: Description = d"unsupported built-in operator referenced"
+    }
+  }
+
+  lazy val unsupportedOperators: IdSet[TLABuiltinOperator] = IdSet(
+    BuiltinModules.Intrinsics.memberAlpha("STRING"),
+
+    BuiltinModules.Intrinsics.memberSym(TLASymbol.PrimeSymbol),
+    BuiltinModules.Intrinsics.memberSym(TLASymbol.EnabledSymbol),
+    BuiltinModules.Intrinsics.memberSym(TLASymbol.UnchangedSymbol),
+    BuiltinModules.Intrinsics.memberSym(TLASymbol.CDotSymbol),
+
+    BuiltinModules.Intrinsics.memberSym(TLASymbol.TLAlwaysSymbol),
+    BuiltinModules.Intrinsics.memberSym(TLASymbol.TLEventuallySymbol),
+    BuiltinModules.Intrinsics.memberSym(TLASymbol.SequencingSymbol),
+    BuiltinModules.Intrinsics.memberSym(TLASymbol.PlusArrowSymbol),
+
+    BuiltinModules.TLC.memberAlpha("Print"),
+    BuiltinModules.TLC.memberAlpha("PrintT"),
+    BuiltinModules.TLC.memberAlpha("JavaTime"),
+    BuiltinModules.TLC.memberAlpha("Permutations"),
+    BuiltinModules.TLC.memberAlpha("SortSeq"),
+
+    BuiltinModules.Sequences.memberAlpha("SelectSeq"),
+
+    BuiltinModules.Bags.memberAlpha("IsABag"),
+    BuiltinModules.Bags.memberAlpha("BagToSet"),
+    BuiltinModules.Bags.memberAlpha("SetToBag"),
+    BuiltinModules.Bags.memberAlpha("BagIn"),
+    BuiltinModules.Bags.memberAlpha("EmptyBag"),
+    BuiltinModules.Bags.memberAlpha("CopiesIn"),
+    BuiltinModules.Bags.memberSym(TLASymbol.OPlusSymbol),
+    BuiltinModules.Bags.memberSym(TLASymbol.OMinusSymbol),
+    BuiltinModules.Bags.memberAlpha("BagUnion"),
+    BuiltinModules.Bags.memberSym(TLASymbol.SquareSupersetOrEqualSymbol),
+    BuiltinModules.Bags.memberAlpha("SubBag"),
+    BuiltinModules.Bags.memberAlpha("BagOfAll"),
+    BuiltinModules.Bags.memberAlpha("BagCardinality"),
+
+    BuiltinModules.Peano.memberAlpha("PeanoAxioms"),
+    BuiltinModules.Peano.memberAlpha("Succ"),
+    BuiltinModules.Peano.memberAlpha("Nat"),
+
+    BuiltinModules.ProtoReals.memberAlpha("IsModelOfReals"),
+    BuiltinModules.ProtoReals.memberAlpha("RM"),
+    BuiltinModules.ProtoReals.memberAlpha("Real"),
+    BuiltinModules.ProtoReals.memberAlpha("Infinity"),
+    BuiltinModules.ProtoReals.memberAlpha("MinusInfinity"),
+    BuiltinModules.ProtoReals.memberSym(TLASymbol.SlashSymbol),
+    BuiltinModules.ProtoReals.memberAlpha("Int"),
+
+    BuiltinModules.Reals.memberAlpha("Real"),
+    BuiltinModules.Reals.memberSym(TLASymbol.SlashSymbol),
+    BuiltinModules.Reals.memberAlpha("Infinity"),
+  )
+
   private val TLAValue = "distsys.TLAValue"
   private val ArchetypeResourceHandle = "distsys.ArchetypeResourceHandle"
   val goKeywords: List[String] =
@@ -722,6 +782,36 @@ object MPCalGoCodegenPass {
 
   @throws[PGoError]
   def apply(tlaModule: TLAModule, mpcalBlock: MPCalBlock, packageName: Option[String]): Description = {
+    locally {
+      val errors = mutable.ListBuffer[UnsupportedOperationsError.UnsupportedOperationError]()
+
+      def checkBuiltin(sourceLocation: SourceLocation, builtin: TLABuiltinOperator): Unit =
+        if (unsupportedOperators(builtin)) {
+          errors += UnsupportedOperationsError.UnsupportedOperationError(sourceLocation)
+        }
+
+      val supportedOpsChecker: PartialFunction[Visitable, Unit] = {
+        case ident: TLAGeneralIdentifier =>
+          ident.refersTo match {
+            case builtin: TLABuiltinOperator => checkBuiltin(ident.sourceLocation, builtin)
+            case _ =>
+          }
+        case opCall: TLAOperatorCall =>
+          opCall.refersTo match {
+            case builtin: TLABuiltinOperator => checkBuiltin(opCall.sourceLocation, builtin)
+            case _ =>
+          }
+      }
+      tlaModule.units.foreach(_.visit(Visitable.BottomUpFirstStrategy)(supportedOpsChecker))
+      mpcalBlock.units.foreach(_.visit(Visitable.BottomUpFirstStrategy)(supportedOpsChecker))
+      mpcalBlock.mpcalProcedures.foreach(_.visit(Visitable.BottomUpFirstStrategy)(supportedOpsChecker))
+      mpcalBlock.archetypes.foreach(_.visit(Visitable.BottomUpFirstStrategy)(supportedOpsChecker))
+
+      if(errors.nonEmpty) {
+        throw UnsupportedOperationsError(errors.toList)
+      }
+    }
+
     val nameCleaner = new NameCleaner
     goKeywords.foreach(nameCleaner.addKnownName)
     nameCleaner.addKnownName("distsys")

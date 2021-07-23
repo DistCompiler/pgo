@@ -1,6 +1,6 @@
 package pgo.util
 
-import pgo.model.{Definition, DefinitionOne, RefersTo, SourceLocation}
+import pgo.model.{DefinitionOne, RefersTo, SourceLocation}
 import pgo.model.tla._
 import pgo.parser.TLAParser
 import pgo.util.Unreachable.!!!
@@ -30,7 +30,7 @@ object TLAExprInterpreter {
   final case class TLAValueTuple(value: Vector[TLAValue]) extends TLAValue
   final case class TLAValueFunction(value: Map[TLAValue,TLAValue]) extends TLAValue
 
-  lazy val builtinOperators: IdMap[DefinitionOne,List[TLAValue]=>TLAValue] =
+  lazy val builtinOperators: IdMap[DefinitionOne,PartialFunction[List[TLAValue],TLAValue]] =
     IdMap(
       BuiltinModules.Intrinsics.memberSym(TLASymbol.LogicalAndSymbol) -> {
         case List(TLAValueBool(lhs), TLAValueBool(rhs)) => TLAValueBool(lhs && rhs)
@@ -111,7 +111,7 @@ object TLAExprInterpreter {
       BuiltinModules.TLC.memberAlpha("PrintT") -> { case List(_) => throw Unsupported() },
       BuiltinModules.TLC.memberAlpha("Assert") -> {
         case List(TLAValueBool(cond), out) =>
-          assert(cond, out.toString)
+          require(cond, out.toString)
           TLAValueBool(true)
       },
       BuiltinModules.TLC.memberAlpha("JavaTime") -> { case Nil => throw Unsupported() },
@@ -244,7 +244,7 @@ object TLAExprInterpreter {
           value match {
             case TLANumber.IntValue(value) => TLAValueNumber(value.intValue)
           }
-        case ident@TLAGeneralIdentifier(name, prefix) =>
+        case ident@TLAGeneralIdentifier(_, prefix) =>
           assert(prefix.isEmpty)
           env.getOrElse(ident.refersTo, {
             builtinOperators(ident.refersTo)(Nil)
@@ -278,7 +278,7 @@ object TLAExprInterpreter {
               case Nil => interpret(body)
               case unit :: restUnits =>
                 unit match {
-                  case defn@TLAOperatorDefinition(name, args, body, _) if args.isEmpty =>
+                  case defn@TLAOperatorDefinition(_, args, body, _) if args.isEmpty =>
                     impl(restUnits)(env = env.updated(defn, interpret(body)))
                   case _: TLAOperatorDefinition =>
                     // for definitions with args, they will be called by TLAOperatorCall, and scoping is done already
@@ -339,7 +339,7 @@ object TLAExprInterpreter {
           interpret(function) match {
             case TLAValueTuple(value) =>
               paramValue match {
-                case TLAValueNumber(idx) => value(idx)
+                case TLAValueNumber(idx) if idx >= 1 && idx <= value.size => value(idx - 1)
               }
             case TLAValueFunction(value) => value(paramValue)
           }
@@ -484,7 +484,9 @@ object TLAExprInterpreter {
 
           TLAValueSet(impl(fields.map {
             case TLARecordSetField(name, set) =>
-              (name.id, interpret(set))
+              interpret(set) match {
+                case setVal: TLAValueSet => name.id -> setVal
+              }
           }, Map.empty).toSet)
       }
     } catch {

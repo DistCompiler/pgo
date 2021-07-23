@@ -25,14 +25,14 @@ func Test1(constants Constants) distsys.TLAValue {
 
 func Test2(constants Constants) distsys.TLAValue {
 	return distsys.TLAQuantifiedUniversal([]distsys.TLAValue{distsys.NewTLAString("W\"!<WY=K0NjGp1&3=D} ;IY]VxaL1f5uHL~b(|Mnvp_WBN4kG,Vs1H 3ZLD\"3mnaLj8$XEDQ#iT"), distsys.NewTLARecord([]distsys.TLARecordField{
-		{distsys.NewTLAString("rjg96CqaSMuCjtyr450h6DL1e02XHUTSveCKybqCudAztsOjRmkIEFEkhaCX9AEfDDCOqmuEg0Xtb5AWWeMNM2fXfObxeWMG7AcDR5KDDHmtkGN8Xd"), distsys.TLA_Nat},
+		{distsys.NewTLAString("rjg96CqaSMuCjtyr450h6DL1e02XHUTSveCKybqCudAztsOjRmkIEFEkhaCX9AEfDDCOqmuEg0Xtb5AWWeMNM2fXfObxeWMG7AcDR5KDDHmtkGN8Xd"), distsys.TLA_Zero},
 		{distsys.NewTLAString("cSOk29itvxzRN2lPY"), distsys.NewTLATuple()},
 		{distsys.NewTLAString("cfZGl3Wdyxt6gGxpst0G2YzBErEDXQwzSSWERs9MLYB4BpT7ne6vVOh8FuGMFN9KLaHIP7vJe7ItfvqjAIKw8K8LdrCZt"), distsys.NewTLAString("nybf*j`.#ogke@%3kx7zwaX;~nx68X6qVB=\"Dj__7mkIq=25>YVw#\\#]8?t=]ndqUQnWNDhr([Q2Zd6;")},
 		{distsys.NewTLAString("fHeAZdw1vCnj3xfH9h22hrUcMclAc21eFx"), distsys.NewTLATuple()},
-		{distsys.NewTLAString("kPKP6DMtdXB26DOcOq"), distsys.TLA_Int},
-		{distsys.NewTLAString("kOufhkQQBNihpnqM5EG2ave4gvDLXzM4eM3AF0s1vozipbR3jl8f25jIZF2l1DrHNVNGzYyh"), distsys.TLA_Nat},
+		{distsys.NewTLAString("kPKP6DMtdXB26DOcOq"), distsys.TLA_Zero},
+		{distsys.NewTLAString("kOufhkQQBNihpnqM5EG2ave4gvDLXzM4eM3AF0s1vozipbR3jl8f25jIZF2l1DrHNVNGzYyh"), distsys.TLA_Zero},
 		{distsys.NewTLAString("pes31jiQYk7kh9MbAqDybYqzToYtXL24"), distsys.NewTLANumber(105)},
-	}), distsys.TLASetComprehension([]distsys.TLAValue{distsys.NewTLANumber(66), distsys.NewTLANumber(99), distsys.TLA_Nat, distsys.TLA_Int, distsys.TLA_Nat, distsys.TLA_Nat}, func(args3 []distsys.TLAValue) distsys.TLAValue {
+	}), distsys.TLASetComprehension([]distsys.TLAValue{distsys.NewTLANumber(66), distsys.NewTLANumber(99), distsys.TLA_Zero, distsys.TLA_Zero, distsys.TLA_Zero, distsys.TLA_Zero}, func(args3 []distsys.TLAValue) distsys.TLAValue {
 		var nocBmpMYH5HkfAmS1Hxov1sNAmNpre32Go2PPwiq2V distsys.TLAValue = args3[0]
 		_ = nocBmpMYH5HkfAmS1Hxov1sNAmNpre32Go2PPwiq2V
 		var j8KL43er distsys.TLAValue = args3[1]
@@ -164,7 +164,7 @@ func Test2(constants Constants) distsys.TLAValue {
 		var yXTIbTDjWUn6gCVk2lQGSZr3TCdqbtiHw4edqxs6DLzkJMdFyeYs1jl7Ls6yXVKXlKM7bbGw1v7022fiJIzpF6Rf distsys.TLAValue = args3[5].ApplyFunction(distsys.NewTLANumber(59))
 		_ = yXTIbTDjWUn6gCVk2lQGSZr3TCdqbtiHw4edqxs6DLzkJMdFyeYs1jl7Ls6yXVKXlKM7bbGw1v7022fiJIzpF6Rf
 		return dVpTt5jrKlWu0I6Hq6H80zTmUxwUAJYO4dKwf6DQfbTQWe9fGr8TtnynL58wFnRcfuVdaQJ6yRM
-	}), distsys.TLASetComprehension([]distsys.TLAValue{distsys.NewTLANumber(68), distsys.TLA_Len(distsys.TLA_Nat), distsys.TLA_Tail(distsys.NewTLATuple())}, func(args4 []distsys.TLAValue) distsys.TLAValue {
+	}), distsys.TLASetComprehension([]distsys.TLAValue{distsys.NewTLANumber(68), distsys.TLA_Len(distsys.TLA_Zero), distsys.TLA_Tail(distsys.NewTLATuple())}, func(args4 []distsys.TLAValue) distsys.TLAValue {
 		var nMDLcmFYG6N5X5qUG4Q4ELPxCZRP1ByOFD8cIbWHPjvMaPtf5Q7BBDw71oHBnalYi6KgmUCNtO0j7r3nAkq7Wn3ClMSz44nnJXpgNIZZydK distsys.TLAValue = args4[0]
 		_ = nMDLcmFYG6N5X5qUG4Q4ELPxCZRP1ByOFD8cIbWHPjvMaPtf5Q7BBDw71oHBnalYi6KgmUCNtO0j7r3nAkq7Wn3ClMSz44nnJXpgNIZZydK
 		var vvmBdcUQcmzi3aF14n2S3Oie2iBRkC6Pq5dh91BNivvWOU8pQ8lX0buK5SxjDEHFi distsys.TLAValue = args4[1]
@@ -250,7 +250,7 @@ func Test2(constants Constants) distsys.TLAValue {
 		var kKrE0nlxzpu1lHtP7uXyLbghdH3rmMWbOEAY7Cqkn4xchUmVC distsys.TLAValue = args4[2].ApplyFunction(distsys.NewTLANumber(39))
 		_ = kKrE0nlxzpu1lHtP7uXyLbghdH3rmMWbOEAY7Cqkn4xchUmVC
 		return distsys.NewTLASet(zWSbRBDcKvPAzjLcOPdpDMdxHB07sO7kEq9Sk9MydQzf7b5IguRfwHTQeQwDS8uwsPPE77kph4VdYlWi6GlfISwJgzUF5mDwt)
-	}), distsys.TLA_Nat, distsys.TLA_Len(distsys.TLA_Nat).ApplyFunction(distsys.NewTLATuple(distsys.TLA_Int, distsys.TLA_Head(distsys.TLA_Nat), distsys.TLA_Cardinality(distsys.NewTLATuple()))), distsys.TLASetComprehension([]distsys.TLAValue{distsys.NewTLATuple()}, func(args5 []distsys.TLAValue) distsys.TLAValue {
+	}), distsys.TLA_Zero, distsys.TLA_Len(distsys.TLA_Zero).ApplyFunction(distsys.NewTLATuple(distsys.TLA_Zero, distsys.TLA_Head(distsys.TLA_Zero), distsys.TLA_Cardinality(distsys.NewTLATuple()))), distsys.TLASetComprehension([]distsys.TLAValue{distsys.NewTLATuple()}, func(args5 []distsys.TLAValue) distsys.TLAValue {
 		var jFSnew60k9UkNMbOwRMQkAjaDOsCVlPPzNCyFhfU0fyWovez0zXZDVqaX3EHHxW8P9RjGDPX8z8k8OPG6zvn distsys.TLAValue = args5[0]
 		_ = jFSnew60k9UkNMbOwRMQkAjaDOsCVlPPzNCyFhfU0fyWovez0zXZDVqaX3EHHxW8P9RjGDPX8z8k8OPG6zvn
 		return distsys.TLASetComprehension([]distsys.TLAValue{distsys.NewTLASet()}, func(args6 []distsys.TLAValue) distsys.TLAValue {
@@ -261,11 +261,11 @@ func Test2(constants Constants) distsys.TLAValue {
 	}), func() distsys.TLAValue {
 		switch {
 		case distsys.NewTLATuple(distsys.NewTLAString("|AP8[H3v] 0TXS4l;{MD>jLmGb~(,$M3&I+03G/|yp\\lCm\"gW{Y,|Jp`i$ICm_%\").WjP_Q/lA5")).AsBool():
-			return distsys.TLA_Nat
+			return distsys.TLA_Zero
 		case distsys.NewTLAString("~ l").AsBool():
 			return distsys.NewTLANumber(34)
-		case distsys.TLA_Int.ApplyFunction(distsys.NewTLAString("tpFXgtDC996txdhqxvc6uTZ7LGguVCIqPWhb4GPq0vrjsU6VJ36ivYQrBcr6eLu6EeizwwVG4duDRq6")).AsBool():
-			return distsys.TLA_Cardinality(distsys.TLA_Nat)
+		case distsys.TLA_Zero.ApplyFunction(distsys.NewTLAString("tpFXgtDC996txdhqxvc6uTZ7LGguVCIqPWhb4GPq0vrjsU6VJ36ivYQrBcr6eLu6EeizwwVG4duDRq6")).AsBool():
+			return distsys.TLA_Cardinality(distsys.TLA_Zero)
 		default:
 			panic("no cases matched for TLA+ case expression!")
 		}
@@ -274,7 +274,7 @@ func Test2(constants Constants) distsys.TLAValue {
 		{distsys.NewTLAString("izEEDYZa31aMoAX0ZZSPtnzZiSJasTS5zXqdJAympTsARWZkLDJD"), distsys.NewTLANumber(113)},
 		{distsys.NewTLAString("dyEu1EeADkIvzDaPjLTdpJIcifTMU16PgoOR7843Gu7mpKqkARv0JE2u1zPr2eQ4vy0VjJul5uqeh7XlPAPV9enWRCf8t0B0xY0IzPaYhk71Y"), distsys.NewTLATuple()},
 		{distsys.NewTLAString("ihxh4hux8hT1KYXTuUzKlwPYkKAA"), distsys.NewTLASet()},
-		{distsys.NewTLAString("ztbbVgCSX1bb5RMzZV4BCFgYkbdQlRyqG57NRyYuAN37oz96UHjVkC7HEElI4leshq4qEfyyLaNoJgFjFiy1Ucxd5jJpteH1vEaWkHa6yFo0Zzk"), distsys.TLA_Int},
+		{distsys.NewTLAString("ztbbVgCSX1bb5RMzZV4BCFgYkbdQlRyqG57NRyYuAN37oz96UHjVkC7HEElI4leshq4qEfyyLaNoJgFjFiy1Ucxd5jJpteH1vEaWkHa6yFo0Zzk"), distsys.TLA_Zero},
 		{distsys.NewTLAString("zjWP4mQbVQ2lc9Ah2qo2sENITxJ9Fk"), distsys.NewTLASet()},
 		{distsys.NewTLAString("v4uawbLQboCq5rPaF4O4P9LhHxvqZlwWboXHoHD4oeoKTh3DhpLroR9zLte1WE3VZl5QuYZf71I5yofGfhfrcAeWZq4MopRwyEv"), distsys.NewTLATuple()},
 	}), func() distsys.TLAValue {
@@ -347,7 +347,7 @@ func Test2(constants Constants) distsys.TLAValue {
 		var tnD4 distsys.TLAValue = args7[1].ApplyFunction(distsys.NewTLANumber(19))
 		_ = tnD4
 		return distsys.TLA_Head(distsys.NewTLASet())
-	}), distsys.TLASetComprehension([]distsys.TLAValue{distsys.NewTLAString("Or4uYZ'{+a*`I/tHTU'@Fw=}G/B/d%h):%R.FE[0}o-\\ -8'jRgIskN&SKdu\\,\")9%r;op>bex)&O5eqhS/xtaJG,nV#QWjd-c_f:)d"), distsys.TLA_Nat, distsys.NewTLANumber(55), distsys.NewTLAString(">&cXJ)Blo@-}ot<1`,WaQ4UI%BWVB)psW,;X"), distsys.NewTLATuple(), distsys.NewTLANumber(68)}, func(args8 []distsys.TLAValue) distsys.TLAValue {
+	}), distsys.TLASetComprehension([]distsys.TLAValue{distsys.NewTLAString("Or4uYZ'{+a*`I/tHTU'@Fw=}G/B/d%h):%R.FE[0}o-\\ -8'jRgIskN&SKdu\\,\")9%r;op>bex)&O5eqhS/xtaJG,nV#QWjd-c_f:)d"), distsys.TLA_Zero, distsys.NewTLANumber(55), distsys.NewTLAString(">&cXJ)Blo@-}ot<1`,WaQ4UI%BWVB)psW,;X"), distsys.NewTLATuple(), distsys.NewTLANumber(68)}, func(args8 []distsys.TLAValue) distsys.TLAValue {
 		var kO0o8ujUrtEZSKXpafhXQv9EHVxF45b4MkRvqWCB76Ex6z1DdtwByAbWNZyQ6UfhvyVKTxjOmES5Jlx2nCIGaQB7KsdUw00Ozvmm7CtuhSt4GEGL1Hvf distsys.TLAValue = args8[0].ApplyFunction(distsys.NewTLANumber(0))
 		_ = kO0o8ujUrtEZSKXpafhXQv9EHVxF45b4MkRvqWCB76Ex6z1DdtwByAbWNZyQ6UfhvyVKTxjOmES5Jlx2nCIGaQB7KsdUw00Ozvmm7CtuhSt4GEGL1Hvf
 		var ldBDvTLTWC5zA7k distsys.TLAValue = args8[0].ApplyFunction(distsys.NewTLANumber(1))
@@ -876,7 +876,7 @@ func Test2(constants Constants) distsys.TLAValue {
 		_ = udHap4MoGBwMbWe3wfkwHtySrtHxLY7fUmyjYtOczUnO4wn09ksrx
 		return qxbM0ySqkdzWhn6gaROcgBgxFwsaY7adHaF3zhWU3qvyZMiXDYvhlbWBjZSc6nCHr8DLrsWqkB1ZScZHg8LjT4uJqajwOdLZpq4pEzU6a6Gc
 	}), distsys.NewTLASet(distsys.NewTLAString("w5:3;Z'1<OF377`;e7=u:'~4.`#h8L|?"), distsys.TLA_NegationSymbol(distsys.NewTLARecordSet([]distsys.TLARecordField{
-		{distsys.NewTLAString("bIomrUoR"), distsys.TLA_Nat},
+		{distsys.NewTLAString("bIomrUoR"), distsys.TLA_Zero},
 	})))}, func(args1 []distsys.TLAValue) bool {
 		var o0nT5iaxQ0CGr distsys.TLAValue = args1[0].ApplyFunction(distsys.NewTLANumber(0))
 		_ = o0nT5iaxQ0CGr
