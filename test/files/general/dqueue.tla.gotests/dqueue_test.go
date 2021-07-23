@@ -1,7 +1,9 @@
 package dqueue
 
 import (
+	"fmt"
 	"github.com/UBC-NSS/pgo/distsys"
+	"github.com/UBC-NSS/pgo/distsys/archetype_resources"
 	"testing"
 )
 
@@ -12,30 +14,12 @@ func TestNUM_NODES(t *testing.T) {
 	}
 }
 
-type dummyDurableStorage struct{}
-
-var _ distsys.MPCalDurableStorage = &dummyDurableStorage{}
-
-func (d dummyDurableStorage) RecoverResources() (rec *distsys.MPCalDurableStorageRecord, err error) {
-	return nil, nil
-}
-
-func (d dummyDurableStorage) SnapshotResources(rec *distsys.MPCalDurableStorageRecord) {
-	// pass
-}
-
 func TestProducerConsumer(t *testing.T) {
-	producerCtx, err := distsys.NewMPCalContext(&dummyDurableStorage{})
-	if err != nil {
-		panic(err)
-	}
+	producerCtx := distsys.NewMPCalContext()
 	producerSelf := distsys.NewTLANumber(1)
 	producerInputChannel := make(chan distsys.TLAValue, 3)
 
-	consumerCtx, err := distsys.NewMPCalContext(&dummyDurableStorage{})
-	if err != nil {
-		panic(err)
-	}
+	consumerCtx := distsys.NewMPCalContext()
 	consumerSelf := distsys.NewTLANumber(2)
 	consumerOutputChannel := make(chan distsys.TLAValue, 3)
 
@@ -44,17 +28,17 @@ func TestProducerConsumer(t *testing.T) {
 	}
 
 	go func() {
-		network := distsys.EnsureTCPMailboxesArchetypeResource(producerCtx.ResourceEnsurerByName("network"), func(index distsys.TLAValue) (distsys.TCPMailboxKind, string) {
+		network := producerCtx.EnsureArchetypeResourceByName("network", archetype_resources.TCPMailboxesArchetypeResourceMaker(func(index distsys.TLAValue) (archetype_resources.TCPMailboxKind, string) {
 			switch index.AsNumber() {
 			case 1:
-				return distsys.TCPMailboxesLocal, "localhost:8001"
+				return archetype_resources.TCPMailboxesLocal, "localhost:8001"
 			case 2:
-				return distsys.TCPMailboxesRemote, "localhost:8002"
+				return archetype_resources.TCPMailboxesRemote, "localhost:8002"
 			default:
-				panic("TODO")
+				panic(fmt.Errorf("unknown mailbox index %v", index))
 			}
-		})
-		s := distsys.EnsureInputChannelResource(producerCtx.ResourceEnsurerByName("s"), producerInputChannel)
+		}))
+		s := producerCtx.EnsureArchetypeResourceByName("s", archetype_resources.InputChannelResourceMaker(producerInputChannel))
 		err := AProducer(producerCtx, producerSelf, constants, network, s)
 		if err != nil {
 			panic(err)
@@ -62,17 +46,17 @@ func TestProducerConsumer(t *testing.T) {
 	}()
 
 	go func() {
-		network := distsys.EnsureTCPMailboxesArchetypeResource(consumerCtx.ResourceEnsurerByName("network"), func(index distsys.TLAValue) (distsys.TCPMailboxKind, string) {
+		network := consumerCtx.EnsureArchetypeResourceByName("network", archetype_resources.TCPMailboxesArchetypeResourceMaker(func(index distsys.TLAValue) (archetype_resources.TCPMailboxKind, string) {
 			switch index.AsNumber() {
 			case 1:
-				return distsys.TCPMailboxesRemote, "localhost:8001"
+				return archetype_resources.TCPMailboxesRemote, "localhost:8001"
 			case 2:
-				return distsys.TCPMailboxesLocal, "localhost:8002"
+				return archetype_resources.TCPMailboxesLocal, "localhost:8002"
 			default:
-				panic("TODO")
+				panic(fmt.Errorf("unknown mailbox index %v", index))
 			}
-		})
-		proc := distsys.EnsureOutputChannelResource(consumerCtx.ResourceEnsurerByName("proc"), consumerOutputChannel)
+		}))
+		proc := consumerCtx.EnsureArchetypeResourceByName("proc", archetype_resources.OutputChannelResourceMaker(consumerOutputChannel))
 		err := AConsumer(consumerCtx, consumerSelf, constants, network, proc)
 		if err != nil {
 			panic(err)

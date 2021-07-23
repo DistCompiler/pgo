@@ -22,6 +22,7 @@ func init() {
 	gob.Register(tlaValueString(""))
 	gob.Register(&tlaValueSet{})
 	gob.Register(&tlaValueTuple{})
+	gob.Register(&tlaValueFunction{})
 }
 
 type TLAValue struct {
@@ -29,6 +30,8 @@ type TLAValue struct {
 }
 
 var _ fmt.Stringer = TLAValue{}
+var _ gob.GobDecoder = &TLAValue{}
+var _ gob.GobEncoder = &TLAValue{}
 
 func (v TLAValue) Hash() uint32 {
 	if v.data == nil {
@@ -72,6 +75,60 @@ func (v *TLAValue) GobEncode() ([]byte, error) {
 func require(req bool, msg string) {
 	if !req {
 		panic(fmt.Errorf("%w: %s", TLATypeError, msg))
+	}
+}
+
+func (v TLAValue) IsBool() bool {
+	switch v.data.(type) {
+	case tlaValueBool:
+		return true
+	default:
+		return false
+	}
+}
+
+func (v TLAValue) IsNumber() bool {
+	switch v.data.(type) {
+	case tlaValueNumber:
+		return true
+	default:
+		return false
+	}
+}
+
+func (v TLAValue) IsString() bool {
+	switch v.data.(type) {
+	case tlaValueString:
+		return true
+	default:
+		return false
+	}
+}
+
+func (v TLAValue) IsSet() bool {
+	switch v.data.(type) {
+	case *tlaValueSet:
+		return true
+	default:
+		return false
+	}
+}
+
+func (v TLAValue) IsTuple() bool {
+	switch v.data.(type) {
+	case *tlaValueTuple:
+		return true
+	default:
+		return false
+	}
+}
+
+func (v TLAValue) IsFunction() bool {
+	switch v.data.(type) {
+	case *tlaValueFunction:
+		return true
+	default:
+		return false
 	}
 }
 
@@ -264,7 +321,7 @@ func (v tlaValueNumber) Hash() uint32 {
 }
 
 func (v tlaValueNumber) Equal(other TLAValue) bool {
-	return int32(v) == other.AsNumber()
+	return other.IsNumber() && int32(v) == other.AsNumber()
 }
 
 func (v tlaValueNumber) String() string {
@@ -347,7 +404,7 @@ func (v tlaValueString) Hash() uint32 {
 }
 
 func (v tlaValueString) Equal(other TLAValue) bool {
-	return string(v) == other.AsString()
+	return other.IsString() && string(v) == other.AsString()
 }
 
 func (v tlaValueString) String() string {
@@ -386,6 +443,9 @@ func (v *tlaValueSet) Hash() uint32 {
 }
 
 func (v *tlaValueSet) Equal(other TLAValue) bool {
+	if !other.IsSet() {
+		return false
+	}
 	oC := other.AsSet()
 	if v.Len() != oC.Len() {
 		return false
@@ -434,7 +494,8 @@ func (v *tlaValueSet) GobEncode() ([]byte, error) {
 	it := v.Iterator()
 	for !it.Done() {
 		elem, _ := it.Next()
-		err := encoder.Encode(elem.(TLAValue))
+		elemV := elem.(TLAValue)
+		err := encoder.Encode(&elemV) // make sure encoded thing is addressable
 		if err != nil {
 			return nil, err
 		}
@@ -692,6 +753,10 @@ func (v *tlaValueTuple) Hash() uint32 {
 }
 
 func (v *tlaValueTuple) Equal(other TLAValue) bool {
+	if !other.IsTuple() {
+		return false
+	}
+
 	otherTuple := other.AsTuple()
 	if v.Len() != otherTuple.Len() {
 		return false
@@ -731,7 +796,8 @@ func (v *tlaValueTuple) GobEncode() ([]byte, error) {
 	it := v.Iterator()
 	for !it.Done() {
 		_, elem := it.Next()
-		err := encoder.Encode(elem)
+		elemV := elem.(TLAValue)
+		err := encoder.Encode(&elemV)
 		if err != nil {
 			return nil, err
 		}
@@ -956,6 +1022,10 @@ func (v *tlaValueFunction) Hash() uint32 {
 }
 
 func (v *tlaValueFunction) Equal(other TLAValue) bool {
+	if !other.IsFunction() {
+		return false
+	}
+
 	otherFunction := other.AsFunction()
 	if v.Len() != otherFunction.Len() {
 		return false
@@ -999,10 +1069,11 @@ func (v *tlaValueFunction) GobEncode() ([]byte, error) {
 	it := v.Iterator()
 	for !it.Done() {
 		key, value := it.Next()
-		err := encoder.Encode(TLARecordField{
+		field := TLARecordField{
 			Key:   key.(TLAValue),
 			Value: value.(TLAValue),
-		})
+		}
+		err := encoder.Encode(&field)
 		if err != nil {
 			return nil, err
 		}

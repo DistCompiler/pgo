@@ -25,15 +25,16 @@ func ALoadBalancer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants C
 	var err error
 	// label tags
 	const (
-		mainLabelTag = iota
+		InitLabelTag = iota
+		mainLabelTag
 		rcvMsgLabelTag
 		sendServerLabelTag
 		DoneLabelTag
 	)
-	programCounter := distsys.EnsureLocalArchetypeResource(ctx.ResourceEnsurerPositional(), distsys.NewTLANumber(mainLabelTag))
-	msg := distsys.EnsureLocalArchetypeResource(ctx.ResourceEnsurerPositional(), distsys.TLAValue{})
+	programCounter := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.NewTLANumber(InitLabelTag)))
+	msg := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.TLAValue{}))
 	_ = msg
-	next := distsys.EnsureLocalArchetypeResource(ctx.ResourceEnsurerPositional(), distsys.NewTLANumber(0))
+	next := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.TLAValue{}))
 	_ = next
 
 	for {
@@ -45,11 +46,21 @@ func ALoadBalancer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants C
 				return err
 			}
 		}
-		labelTag, err := ctx.Read(programCounter, []distsys.TLAValue{})
+		var labelTag distsys.TLAValue
+		labelTag, err = ctx.Read(programCounter, []distsys.TLAValue{})
 		if err != nil {
 			return err
 		}
 		switch labelTag.AsNumber() {
+		case InitLabelTag:
+			err = ctx.Write(next, nil, distsys.NewTLANumber(0))
+			if err != nil {
+				continue
+			}
+			err = ctx.Write(programCounter, []distsys.TLAValue{}, distsys.NewTLANumber(mainLabelTag))
+			if err != nil {
+				continue
+			}
 		case mainLabelTag:
 			if distsys.TLA_TRUE.AsBool() {
 				err = ctx.Write(programCounter, []distsys.TLAValue{}, distsys.NewTLANumber(rcvMsgLabelTag))
@@ -151,17 +162,19 @@ func ALoadBalancer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants C
 		}
 	}
 }
+
 func AServer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constants, mailboxes0 distsys.ArchetypeResourceHandle, file_system distsys.ArchetypeResourceHandle) error {
 	var err0 error
 	// label tags
 	const (
-		serverLoopLabelTag = iota
+		InitLabelTag0 = iota
+		serverLoopLabelTag
 		rcvReqLabelTag
 		sendPageLabelTag
-		DoneLabelTag
+		DoneLabelTag0
 	)
-	programCounter0 := distsys.EnsureLocalArchetypeResource(ctx.ResourceEnsurerPositional(), distsys.NewTLANumber(serverLoopLabelTag))
-	msg0 := distsys.EnsureLocalArchetypeResource(ctx.ResourceEnsurerPositional(), distsys.TLAValue{})
+	programCounter0 := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.NewTLANumber(InitLabelTag0)))
+	msg0 := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.TLAValue{}))
 	_ = msg0
 
 	for {
@@ -173,11 +186,17 @@ func AServer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constan
 				return err0
 			}
 		}
-		labelTag0, err0 := ctx.Read(programCounter0, []distsys.TLAValue{})
+		var labelTag0 distsys.TLAValue
+		labelTag0, err0 = ctx.Read(programCounter0, []distsys.TLAValue{})
 		if err0 != nil {
 			return err0
 		}
 		switch labelTag0.AsNumber() {
+		case InitLabelTag0:
+			err0 = ctx.Write(programCounter0, []distsys.TLAValue{}, distsys.NewTLANumber(serverLoopLabelTag))
+			if err0 != nil {
+				continue
+			}
 		case serverLoopLabelTag:
 			if distsys.TLA_TRUE.AsBool() {
 				err0 = ctx.Write(programCounter0, []distsys.TLAValue{}, distsys.NewTLANumber(rcvReqLabelTag))
@@ -189,7 +208,7 @@ func AServer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constan
 					continue
 				}
 			} else {
-				err0 = ctx.Write(programCounter0, []distsys.TLAValue{}, distsys.NewTLANumber(DoneLabelTag))
+				err0 = ctx.Write(programCounter0, []distsys.TLAValue{}, distsys.NewTLANumber(DoneLabelTag0))
 				if err0 != nil {
 					continue
 				}
@@ -245,26 +264,28 @@ func AServer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constan
 			if err0 != nil {
 				continue
 			}
-		case DoneLabelTag:
+		case DoneLabelTag0:
 			return nil
 		default:
 			return fmt.Errorf("invalid program counter %v", labelTag0)
 		}
 	}
 }
+
 func AClient(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constants, mailboxes1 distsys.ArchetypeResourceHandle, instream distsys.ArchetypeResourceHandle, outstream distsys.ArchetypeResourceHandle) error {
 	var err1 error
 	// label tags
 	const (
-		clientLoopLabelTag = iota
+		InitLabelTag1 = iota
+		clientLoopLabelTag
 		clientRequestLabelTag
 		clientReceiveLabelTag
-		DoneLabelTag
+		DoneLabelTag1
 	)
-	programCounter1 := distsys.EnsureLocalArchetypeResource(ctx.ResourceEnsurerPositional(), distsys.NewTLANumber(clientLoopLabelTag))
-	req := distsys.EnsureLocalArchetypeResource(ctx.ResourceEnsurerPositional(), distsys.TLAValue{})
+	programCounter1 := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.NewTLANumber(InitLabelTag1)))
+	req := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.TLAValue{}))
 	_ = req
-	resp := distsys.EnsureLocalArchetypeResource(ctx.ResourceEnsurerPositional(), distsys.TLAValue{})
+	resp := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.TLAValue{}))
 	_ = resp
 
 	for {
@@ -276,11 +297,17 @@ func AClient(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constan
 				return err1
 			}
 		}
-		labelTag1, err1 := ctx.Read(programCounter1, []distsys.TLAValue{})
+		var labelTag1 distsys.TLAValue
+		labelTag1, err1 = ctx.Read(programCounter1, []distsys.TLAValue{})
 		if err1 != nil {
 			return err1
 		}
 		switch labelTag1.AsNumber() {
+		case InitLabelTag1:
+			err1 = ctx.Write(programCounter1, []distsys.TLAValue{}, distsys.NewTLANumber(clientLoopLabelTag))
+			if err1 != nil {
+				continue
+			}
 		case clientLoopLabelTag:
 			if distsys.TLA_TRUE.AsBool() {
 				err1 = ctx.Write(programCounter1, []distsys.TLAValue{}, distsys.NewTLANumber(clientRequestLabelTag))
@@ -292,7 +319,7 @@ func AClient(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constan
 					continue
 				}
 			} else {
-				err1 = ctx.Write(programCounter1, []distsys.TLAValue{}, distsys.NewTLANumber(DoneLabelTag))
+				err1 = ctx.Write(programCounter1, []distsys.TLAValue{}, distsys.NewTLANumber(DoneLabelTag1))
 				if err1 != nil {
 					continue
 				}
@@ -360,7 +387,7 @@ func AClient(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constan
 			if err1 != nil {
 				continue
 			}
-		case DoneLabelTag:
+		case DoneLabelTag1:
 			return nil
 		default:
 			return fmt.Errorf("invalid program counter %v", labelTag1)

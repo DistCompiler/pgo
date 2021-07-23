@@ -46,24 +46,10 @@ class TLAExpressionFuzzTests extends AnyFunSuite with ScalaCheckPropertyChecks {
          |import "github.com/UBC-NSS/pgo/distsys"
          |import "example.org/testbed"
          |
-         |type dummyDurableStorage struct{}
-         |
-         |var _ distsys.MPCalDurableStorage = &dummyDurableStorage{}
-         |
-         |func (d dummyDurableStorage) RecoverResources() (rec *distsys.MPCalDurableStorageRecord, err error) {
-         |	return nil, nil
-         |}
-         |
-         |func (d dummyDurableStorage) SnapshotResources(rec *distsys.MPCalDurableStorageRecord) {
-         |	// pass
-         |}
          |
          |func main() {
-         |  ctx, err := distsys.NewMPCalContext(&dummyDurableStorage{})
-         |  if err != nil {
-         |    panic(err)
-         |  }
-         |  err = testbed.TestBed(ctx, distsys.NewTLAString("self"), testbed.Constants{})
+         |  ctx := distsys.NewMPCalContext()
+         |  err := testbed.TestBed(ctx, distsys.NewTLAString("self"), testbed.Constants{})
          |  if err != nil {
          |    panic(err)
          |  }

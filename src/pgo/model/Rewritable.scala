@@ -5,6 +5,11 @@ import pgo.util.IdMap
 import java.lang.reflect.Constructor
 import scala.annotation.tailrec
 
+/**
+ * This transformation mechanism is heavily inspired by the Viper project's similar, but more general, mechanism.
+ *
+ * See https://github.com/viperproject/silver.
+ */
 trait Rewritable extends Visitable {
   import Rewritable._
 
