@@ -1,4 +1,4 @@
-package archetype_resources
+package resources
 
 import (
 	"github.com/UBC-NSS/pgo/distsys"

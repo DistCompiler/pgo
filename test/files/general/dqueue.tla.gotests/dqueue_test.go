@@ -3,7 +3,7 @@ package dqueue
 import (
 	"fmt"
 	"github.com/UBC-NSS/pgo/distsys"
-	"github.com/UBC-NSS/pgo/distsys/archetype_resources"
+	"github.com/UBC-NSS/pgo/distsys/resources"
 	"testing"
 )
 
@@ -28,17 +28,17 @@ func TestProducerConsumer(t *testing.T) {
 	}
 
 	go func() {
-		network := producerCtx.EnsureArchetypeResourceByName("network", archetype_resources.TCPMailboxesArchetypeResourceMaker(func(index distsys.TLAValue) (archetype_resources.TCPMailboxKind, string) {
+		network := producerCtx.EnsureArchetypeResourceByName("network", resources.TCPMailboxesArchetypeResourceMaker(func(index distsys.TLAValue) (resources.TCPMailboxKind, string) {
 			switch index.AsNumber() {
 			case 1:
-				return archetype_resources.TCPMailboxesLocal, "localhost:8001"
+				return resources.TCPMailboxesLocal, "localhost:8001"
 			case 2:
-				return archetype_resources.TCPMailboxesRemote, "localhost:8002"
+				return resources.TCPMailboxesRemote, "localhost:8002"
 			default:
 				panic(fmt.Errorf("unknown mailbox index %v", index))
 			}
 		}))
-		s := producerCtx.EnsureArchetypeResourceByName("s", archetype_resources.InputChannelResourceMaker(producerInputChannel))
+		s := producerCtx.EnsureArchetypeResourceByName("s", resources.InputChannelResourceMaker(producerInputChannel))
 		err := AProducer(producerCtx, producerSelf, constants, network, s)
 		if err != nil {
 			panic(err)
@@ -46,17 +46,17 @@ func TestProducerConsumer(t *testing.T) {
 	}()
 
 	go func() {
-		network := consumerCtx.EnsureArchetypeResourceByName("network", archetype_resources.TCPMailboxesArchetypeResourceMaker(func(index distsys.TLAValue) (archetype_resources.TCPMailboxKind, string) {
+		network := consumerCtx.EnsureArchetypeResourceByName("network", resources.TCPMailboxesArchetypeResourceMaker(func(index distsys.TLAValue) (resources.TCPMailboxKind, string) {
 			switch index.AsNumber() {
 			case 1:
-				return archetype_resources.TCPMailboxesRemote, "localhost:8001"
+				return resources.TCPMailboxesRemote, "localhost:8001"
 			case 2:
-				return archetype_resources.TCPMailboxesLocal, "localhost:8002"
+				return resources.TCPMailboxesLocal, "localhost:8002"
 			default:
 				panic(fmt.Errorf("unknown mailbox index %v", index))
 			}
 		}))
-		proc := consumerCtx.EnsureArchetypeResourceByName("proc", archetype_resources.OutputChannelResourceMaker(consumerOutputChannel))
+		proc := consumerCtx.EnsureArchetypeResourceByName("proc", resources.OutputChannelResourceMaker(consumerOutputChannel))
 		err := AConsumer(consumerCtx, consumerSelf, constants, network, proc)
 		if err != nil {
 			panic(err)

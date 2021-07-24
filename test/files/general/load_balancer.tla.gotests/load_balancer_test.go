@@ -3,7 +3,7 @@ package loadbalancer
 import (
 	"fmt"
 	"github.com/UBC-NSS/pgo/distsys"
-	"github.com/UBC-NSS/pgo/distsys/archetype_resources"
+	"github.com/UBC-NSS/pgo/distsys/resources"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -42,14 +42,14 @@ func TestOneServerOneClient(t *testing.T) {
 	go func() {
 		ctx := distsys.NewMPCalContext()
 		self := distsys.NewTLANumber(0)
-		mailboxes := ctx.EnsureArchetypeResourceByName("mailboxes", archetype_resources.TCPMailboxesArchetypeResourceMaker(func(index distsys.TLAValue) (archetype_resources.TCPMailboxKind, string) {
+		mailboxes := ctx.EnsureArchetypeResourceByName("mailboxes", resources.TCPMailboxesArchetypeResourceMaker(func(index distsys.TLAValue) (resources.TCPMailboxKind, string) {
 			switch index.AsNumber() {
 			case 0:
-				return archetype_resources.TCPMailboxesLocal, "localhost:8001"
+				return resources.TCPMailboxesLocal, "localhost:8001"
 			case 1:
-				return archetype_resources.TCPMailboxesRemote, "localhost:8002"
+				return resources.TCPMailboxesRemote, "localhost:8002"
 			case 2:
-				return archetype_resources.TCPMailboxesRemote, "localhost:8003"
+				return resources.TCPMailboxesRemote, "localhost:8003"
 			default:
 				panic(fmt.Errorf("unknown mailbox index %v", index))
 			}
@@ -63,19 +63,19 @@ func TestOneServerOneClient(t *testing.T) {
 	go func() {
 		ctx := distsys.NewMPCalContext()
 		self := distsys.NewTLANumber(1)
-		mailboxes := ctx.EnsureArchetypeResourceByName("mailboxes", archetype_resources.TCPMailboxesArchetypeResourceMaker(func(index distsys.TLAValue) (archetype_resources.TCPMailboxKind, string) {
+		mailboxes := ctx.EnsureArchetypeResourceByName("mailboxes", resources.TCPMailboxesArchetypeResourceMaker(func(index distsys.TLAValue) (resources.TCPMailboxKind, string) {
 			switch index.AsNumber() {
 			case 0:
-				return archetype_resources.TCPMailboxesRemote, "localhost:8001"
+				return resources.TCPMailboxesRemote, "localhost:8001"
 			case 1:
-				return archetype_resources.TCPMailboxesLocal, "localhost:8002"
+				return resources.TCPMailboxesLocal, "localhost:8002"
 			case 2:
-				return archetype_resources.TCPMailboxesRemote, "localhost:8003"
+				return resources.TCPMailboxesRemote, "localhost:8003"
 			default:
 				panic(fmt.Errorf("unknown mailbox index %v", index))
 			}
 		}))
-		filesystem := ctx.EnsureArchetypeResourceByName("filesystem", archetype_resources.FilesystemArchetypeResourceMaker(tempDir))
+		filesystem := ctx.EnsureArchetypeResourceByName("filesystem", resources.FilesystemArchetypeResourceMaker(tempDir))
 		err := AServer(ctx, self, constants, mailboxes, filesystem)
 		if err != nil {
 			panic(err)
@@ -87,20 +87,20 @@ func TestOneServerOneClient(t *testing.T) {
 	go func() {
 		ctx := distsys.NewMPCalContext()
 		self := distsys.NewTLANumber(2)
-		mailboxes := ctx.EnsureArchetypeResourceByName("mailboxes", archetype_resources.TCPMailboxesArchetypeResourceMaker(func(index distsys.TLAValue) (archetype_resources.TCPMailboxKind, string) {
+		mailboxes := ctx.EnsureArchetypeResourceByName("mailboxes", resources.TCPMailboxesArchetypeResourceMaker(func(index distsys.TLAValue) (resources.TCPMailboxKind, string) {
 			switch index.AsNumber() {
 			case 0:
-				return archetype_resources.TCPMailboxesRemote, "localhost:8001"
+				return resources.TCPMailboxesRemote, "localhost:8001"
 			case 1:
-				return archetype_resources.TCPMailboxesRemote, "localhost:8002"
+				return resources.TCPMailboxesRemote, "localhost:8002"
 			case 2:
-				return archetype_resources.TCPMailboxesLocal, "localhost:8003"
+				return resources.TCPMailboxesLocal, "localhost:8003"
 			default:
 				panic(fmt.Errorf("unknown mailbox index %v", index))
 			}
 		}))
-		instream := ctx.EnsureArchetypeResourceByName("instream", archetype_resources.InputChannelResourceMaker(requestChannel))
-		outstream := ctx.EnsureArchetypeResourceByName("outstream", archetype_resources.OutputChannelResourceMaker(responseChannel))
+		instream := ctx.EnsureArchetypeResourceByName("instream", resources.InputChannelResourceMaker(requestChannel))
+		outstream := ctx.EnsureArchetypeResourceByName("outstream", resources.OutputChannelResourceMaker(responseChannel))
 		err := AClient(ctx, self, constants, mailboxes, instream, outstream)
 		if err != nil {
 			panic(err)

@@ -14,6 +14,11 @@ var ErrCriticalSectionAborted = errors.New("MPCal critical section aborted")
 // These handles insulate the end-user from worrying about the specifics of resource lifetimes, logging, and
 // crash recovery scenarios.
 type ArchetypeResourceHandle struct {
+	// a semantic path into the tree of resources stored in MPCalContext
+	// the type TLAValue is used because it is easy to use as an immutable.Map key, and resource indices are TLAValue anyway
+	// in general, this can take two forms:
+	// - <<"named_resource_name", index_1, ...>>
+	// - <<... stack frame info, index_1, ...>> \* in the case where the resource is local, and possible part of a procedure call
 	path TLAValue
 }
 
@@ -84,6 +89,13 @@ func NewMPCalContext() *MPCalContext {
 	}
 }
 
+// EnsureArchetypeResourceByName returns a handle to the ArchetypeResource referenced by name, creating it if necessary
+// this function will either:
+// - use the provided maker to instantiate the requested resource, storing the newly-created resource
+// - find an existing resource with the requested name, then process it via maker.Configure, in case that resource
+//   has been recovered from disk and requires non-serializable configuration before use (e.g function pointers)
+// the main design rationale behind keeping resource creation optional is the possibility that the MPCalContext
+// has been recovered from disk and already contains partially-configured snapshots of existing resource state
 func (ctx *MPCalContext) EnsureArchetypeResourceByName(name string, maker ArchetypeResourceMaker) ArchetypeResourceHandle {
 	handle := ArchetypeResourceHandle{
 		path: NewTLAString(name),
@@ -99,6 +111,9 @@ func (ctx *MPCalContext) EnsureArchetypeResourceByName(name string, maker Archet
 	return handle
 }
 
+// EnsureArchetypeResourceByPosition operates in the same way as EnsureArchetypeResourceByName, but additionally allows for callstack semantics
+// The resource identifier ("path") will be generated based on an internal callstack, which means that a potentially
+// recursive MPCal model can allocate local resources without needing to worry about name collisions.
 func (ctx *MPCalContext) EnsureArchetypeResourceByPosition(maker ArchetypeResourceMaker) ArchetypeResourceHandle {
 	frame := ctx.frameStack[len(ctx.frameStack)-1]
 	handle := ArchetypeResourceHandle{

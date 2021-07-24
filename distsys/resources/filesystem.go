@@ -1,4 +1,4 @@
-package archetype_resources
+package resources
 
 import (
 	"fmt"

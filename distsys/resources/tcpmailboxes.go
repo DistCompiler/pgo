@@ -1,4 +1,4 @@
-package archetype_resources
+package resources
 
 import (
 	"encoding/gob"
@@ -24,6 +24,12 @@ type TCPMailboxKind int
 const (
 	TCPMailboxesLocal = iota
 	TCPMailboxesRemote
+)
+
+const (
+	tcpMailboxesReceiveChannelSize          = 100                   // TODO: this should be a configuration option
+	tcpMailboxesSendTimeout                 = 20 * time.Millisecond // TODO: same as above
+	tcpMailboxesConnectionDroppedRetryDelay = 50 * time.Millisecond // TODO: same
 )
 
 func TCPMailboxesArchetypeResourceMaker(addressMappingFn func(distsys.TLAValue) (TCPMailboxKind, string)) distsys.ArchetypeResourceMaker {
@@ -52,7 +58,7 @@ var _ distsys.ArchetypeResource = &tcpMailboxesLocalArchetypeResource{}
 
 func tcpMailboxesLocalArchetypeResourceMaker(listenAddr string) distsys.ArchetypeResourceMaker {
 	return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
-		msgChannel := make(chan distsys.TLAValue, 100)
+		msgChannel := make(chan distsys.TLAValue, tcpMailboxesReceiveChannelSize)
 		listener, err := net.Listen("tcp", listenAddr)
 		if err != nil {
 			log.Fatalf("could not listen on address %s", listenAddr)
@@ -171,7 +177,7 @@ func (res *tcpMailboxesLocalArchetypeResource) ReadValue() (distsys.TLAValue, er
 	case msg := <-res.msgChannel:
 		res.readsInProgress = append(res.readsInProgress, msg)
 		return msg, nil
-	case <-time.After(20 * time.Millisecond):
+	case <-time.After(tcpMailboxesSendTimeout):
 		return distsys.TLAValue{}, distsys.ErrCriticalSectionAborted
 	}
 }
@@ -188,7 +194,6 @@ type tcpMailboxesRemoteArchetypeResource struct {
 	conn              net.Conn
 	connEncoder       *gob.Encoder
 	connDecoder       *gob.Decoder
-	sendBuffer        []distsys.TLAValue
 }
 
 var _ distsys.ArchetypeResource = &tcpMailboxesRemoteArchetypeResource{}
@@ -207,7 +212,7 @@ func (res *tcpMailboxesRemoteArchetypeResource) ensureConnection() error {
 		res.conn, err = net.Dial("tcp", res.dialAddr)
 		if err != nil {
 			log.Printf("failed to dial %s, aborting after 50ms: %v", res.dialAddr, err)
-			time.Sleep(time.Millisecond * 50)
+			time.Sleep(tcpMailboxesConnectionDroppedRetryDelay)
 			return distsys.ErrCriticalSectionAborted
 		}
 		res.connEncoder = gob.NewEncoder(res.conn)
@@ -217,7 +222,6 @@ func (res *tcpMailboxesRemoteArchetypeResource) ensureConnection() error {
 }
 
 func (res *tcpMailboxesRemoteArchetypeResource) Abort() chan struct{} {
-	res.sendBuffer = nil
 	// nothing to do; the remote end tolerates just starting over with no explanation
 	return nil
 }
@@ -226,23 +230,23 @@ func (res *tcpMailboxesRemoteArchetypeResource) PreCommit() chan error {
 	ch := make(chan error, 1)
 	go func() {
 		var err error
-		{
-			err = res.connEncoder.Encode(tcpNetworkPreCommit)
-			if err != nil {
-				goto handleError
-			}
-			var ack struct{}
-			err = res.connDecoder.Decode(&ack)
-			if err != nil {
-				goto handleError
-			}
-			ch <- nil
+		handleError := func() {
+			log.Printf("network error while performing pre-commit handshake, aborting: %v", err)
+			res.conn = nil
+			ch <- distsys.ErrCriticalSectionAborted
+		}
+		err = res.connEncoder.Encode(tcpNetworkPreCommit)
+		if err != nil {
+			handleError()
 			return
 		}
-	handleError:
-		log.Printf("network error while performing pre-commit handshake, aborting: %v", err)
-		res.conn = nil
-		ch <- distsys.ErrCriticalSectionAborted
+		var ack struct{}
+		err = res.connDecoder.Decode(&ack)
+		if err != nil {
+			handleError()
+			return
+		}
+		ch <- nil
 	}()
 	return ch
 }
@@ -271,23 +275,8 @@ func (res *tcpMailboxesRemoteArchetypeResource) Commit() chan struct{} {
 				continue outerLoop
 			}
 			if shouldResend {
-				err = res.connEncoder.Encode(tcpNetworkBegin)
-				if err != nil {
-					continue outerLoop
-				}
-				for _, value := range res.sendBuffer {
-					err = res.connEncoder.Encode(tcpNetworkValue)
-					if err != nil {
-						continue outerLoop
-					}
-					err = res.connEncoder.Encode(&value)
-					if err != nil {
-						continue outerLoop
-					}
-				}
-				continue outerLoop
+				panic("resending is not implemented")
 			}
-			res.sendBuffer = nil
 			ch <- struct{}{}
 			return
 		}

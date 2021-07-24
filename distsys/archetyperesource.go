@@ -7,7 +7,7 @@ import (
 // ArchetypeResource represents an interface between an MPCal model and some external environment.
 // Such a resource should be instantiated under the control of MPCalContext.EnsureArchetypeResourceByName or
 // MPCalContext.EnsureArchetypeResourceByPosition. Typically, the former would be clearer.
-// Many implementations are available under ./archetype_resources.
+// Many implementations are available under ./resources.
 // This API describes what is expected of those implementations, and any others.
 type ArchetypeResource interface {
 	// Abort will be called when the resource should be reset to a state similar to the last Commit.
