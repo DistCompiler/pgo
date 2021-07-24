@@ -33,10 +33,19 @@
 			"include": "#comment-block"
 		},
 		{
+			"include": "#operators-4-char"
+		},
+		{
+			"include": "#like-operators-3-char"
+		},
+		{
 			"include": "#operators-3-char"
 		},
 		{
 			"include": "#punctuation-3-char"
+		},
+		{
+			"include": "#like-operators-2-char"
 		},
 		{
 			"include": "#operators-2-char"
@@ -66,7 +75,7 @@
         },
 		"keywords-operator": {
 			"name": "keyword.operator.tlaplus",
-			"match": "(\\\\(lnot|neg|cap|cup|div|equiv|geq|in|intersect|leq|sqsubset|subset|subseteq|succ|succeq|supset|supseteq|union))\\b"
+			"match": "\\\\sqsubseteq|\\\\sqsupseteq|\\\\intersect|\\\\sqsubset|\\\\sqsupset|\\\\subseteq|\\\\supseteq|\\\\bigcirc|\\\\approx|\\\\bullet|\\\\ominus|\\\\oslash|\\\\otimes|\\\\preceq|\\\\propto|\\\\subset|\\\\succeq|\\\\supset|\\\\asymp|\\\\doteq|\\\\equiv|\\\\notin|\\\\oplus|\\\\simeq|\\\\sqcap|\\\\sqcup|\\\\union|\\\\uplus|\\\\cdot|\\\\circ|\\\\cong|\\\\land|\\\\lnot|\\\\odot|\\\\prec|\\\\star|\\\\succ|\\\\cap|\\\\cup|\\\\div|\\\\geq|\\\\leq|\\\\lor|\\\\neg|\\\\sim|\\\\gg|\\\\in|\\\\ll|\\\\wr"
 		},
 		"strings": {
 			"name": "string.quoted.double.tlaplus",
@@ -132,17 +141,29 @@
 				}
 			]
 		},
+		"operators-4-char": {
+			"name": "keyword.operator.tlaplus",
+			"match": "(\\(\\\\X\\)|-\\+-\\>)"
+		},
+		"like-operators-3-char": {
+			"name": "keyword.operator.tlaplus",
+			"match": "(\\\\AA|\\\\EE)"
+		},
 		"operators-3-char": {
 			"name": "keyword.operator.tlaplus",
-			"match": "(\\<=\\>|\\\\AA|\\\\EE)"
+			"match": "(\\(\\+\\)|\\(-\\)|\\(\\.\\)|\\(\\/\\)|\\.\\.\\.|::=|\\<=\\>)"
 		},
 		"punctuation-3-char": {
 			"name": "punctuation.tlaplus",
 			"match": "(\\|\\-\\>)"
 		},
+		"like-operators-2-char": {
+			"name": "keyword.operator.tlaplus",
+			"match": "(==|\\\\A|\\\\E)"
+		},
 		"operators-2-char": {
 			"name": "keyword.operator.tlaplus",
-			"match": "(==|\\\\A|\\\\E|\\[\\]|<>|!!|##|\\$\\$|%%|&&|=\\>|\\?\\?|@@|\\\\\\/|\\|\\||~\\>|\\*\\*|\\+\\+|\\-\\-|\\-\\||\\.\\.|\\/\\/|\\/=|\\/\\\\|:=)"
+			"match": "(\\!\\!|\\#\\#|\\$\\$|\\%\\%|\\&\\&|\\*\\*|\\+\\+|\\-\\-|\\-\\_|\\-\\||\\.\\.|\\/\\/|\\/\\=|\\/\\\\|\\:\\=|\\:\\>|\\<\\:|\\<\\=|\\<\\>|\\=\\<|\\=\\>|\\=\\||\\>\\=|\\?\\?|\\@\\@|\\[\\]|\\\\\\/|\\\\o|\\^\\#|\\^\\*|\\^\\+|\\^\\^|\\|\\-|\\|\\=|\\|\\||\\~\\>)"
 		},
 		"punctuation-2-char": {
 			"name": "punctuation.tlaplus",

@@ -26,21 +26,25 @@ common_tokens = {
 
         (r'"(\\\\|\\[^\\]|[^"\\])*"', String),
 
-        (r'(\\(lnot|neg|cap|cup|div|equiv|geq|in|intersect|leq|sqsubset|subset|subseteq|succ|succeq|supset|'
-         r'supseteq|union))\b', Operator.Word),
+        (words(('\\sqsubseteq', '\\sqsupseteq', '\\intersect', '\\sqsubset', '\\sqsupset', '\\subseteq', '\\supseteq',
+                '\\bigcirc', '\\approx', '\\bullet', '\\ominus', '\\oslash', '\\otimes', '\\preceq', '\\propto',
+                '\\subset', '\\succeq', '\\supset', '\\asymp', '\\doteq', '\\equiv', '\\notin', '\\oplus', '\\simeq',
+                '\\sqcap', '\\sqcup', '\\union', '\\uplus', '\\cdot', '\\circ', '\\cong', '\\land', '\\lnot',
+                '\\odot', '\\prec', '\\star', '\\succ', '\\cap', '\\cup', '\\div', '\\geq', '\\leq', '\\lor', '\\neg',
+                '\\sim', '\\gg', '\\in', '\\ll', '\\wr'), suffix=r'\b'), Operator.Word),
 
-        # (r'(\|\-\>|\\AA|\\EE)', Punctuation),  # 3 char
+        (r'(\(\\X\)|-\+-\>)', Operator),  # 4 char
+
         (r'(\|\-\>)', Punctuation),  # 3 char
-        (r'(\\AA|\\EE)', Operator),  # 3 char
-        (r'(\<=\>)', Operator),  # 3 char
+        (r'(\\AA|\\EE)', Operator),  # 3 char, these are not operators exactly but we treat them as operators
+        (r'(\(\+\)|\(-\)|\(\.\)|\(\/\)|\.\.\.|::=|\<=\>)', Operator),  # 3 char
 
-        # (r'(==|\\A|\\E|\<\<|\>\>)', Punctuation),  # 2 char
         (r'(\<\<|\>\>)', Punctuation),  # 2 char
-        (r'(==|\\A|\\E)', Operator),  # 2 char
-        (r'(\[\]|<>|!!|##|\$\$|%%|&&|=\>|\?\?|@@|\\\/|\|\||~\>)', Operator),  # 2 char
-        (r'(\*\*|\+\+|\-\-|\-\||\.\.|\/\/|\/=|\/\\|:=)', Operator),  # 2 char
+        (r'(==|\\A|\\E)', Operator),  # 2 char, these are not operators exactly but we treat them as operator
+        (r'(\!\!|\#\#|\$\$|\%\%|\&\&|\*\*|\+\+|\-\-|\-\_|\-\||\.\.|\/\/|\/\=|\/\\|\:\=|\:\>|\<\:|\<\=|\<\>|\=\<|\=\>|'
+         r'\=\||\>\=|\?\?|\@\@|\[\]|\\\/|\\o|\^\#|\^\*|\^\+|\^\^|\|\-|\|\=|\|\||\~\>)', Operator),  # 2 char
 
-        (r'([\-~#$%&*+\-=\<\>\?\\\^\|\.])', Operator),  # 1 char
+        (r'([\#\$\%\&\'\*\+\-\.\/\<\=\>\?\\\^\|\~])', Operator),  # 1 char
         (r'([\[\]\(\):{},;!\'])', Punctuation),  # 1 char
     ],
     'pluscal': [
