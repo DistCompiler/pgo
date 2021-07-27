@@ -17,9 +17,13 @@ type ArchetypeResourceHandle struct {
 	// a semantic path into the tree of resources stored in MPCalContext
 	// the type TLAValue is used because it is easy to use as an immutable.Map key, and resource indices are TLAValue anyway
 	// in general, this can take two forms:
-	// - <<"named_resource_name", index_1, ...>>
-	// - <<... stack frame info, index_1, ...>> \* in the case where the resource is local, and possible part of a procedure call
+	// - "named_resource_name" \* named resources are user-defined and live in a flat namespace
+	// - <<... stack_index, ...>> \* in the case where the resource is local, and possibly part of a recursive procedure call
 	path TLAValue
+}
+
+func (handle ArchetypeResourceHandle) String() string {
+	return handle.path.String()
 }
 
 // ArchetypeResourceMaker encapsulates how a specific kind of ArchetypeResource is created.
@@ -183,6 +187,7 @@ func (ctx *MPCalContext) Commit() (err error) {
 	// same as above, run all the commit processes async
 	var nonTrivialCommits []chan struct{}
 	for _, resHandle := range ctx.dirtyResourceHandles {
+		//fmt.Printf("-- commit: %v\n", resHandle)
 		ch := ctx.getResourceByHandle(resHandle).Commit()
 		if ch != nil {
 			nonTrivialCommits = append(nonTrivialCommits, ch)

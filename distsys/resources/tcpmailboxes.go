@@ -4,7 +4,6 @@ import (
 	"encoding/gob"
 	"fmt"
 	"github.com/UBC-NSS/pgo/distsys"
-	"log"
 	"net"
 	"time"
 )
@@ -61,13 +60,13 @@ func tcpMailboxesLocalArchetypeResourceMaker(listenAddr string) distsys.Archetyp
 		msgChannel := make(chan distsys.TLAValue, tcpMailboxesReceiveChannelSize)
 		listener, err := net.Listen("tcp", listenAddr)
 		if err != nil {
-			log.Fatalf("could not listen on address %s", listenAddr)
+			panic(fmt.Errorf("could not listen on address %s: %w", listenAddr, err))
 		}
 		go func() {
 			for {
 				conn, err := listener.Accept()
 				if err != nil {
-					log.Fatalf("error listening on %s", listenAddr)
+					panic(fmt.Errorf("error listening on %s: %w", listenAddr, err))
 				}
 				go func() {
 					var err error
@@ -77,7 +76,7 @@ func tcpMailboxesLocalArchetypeResourceMaker(listenAddr string) distsys.Archetyp
 					hasBegun := false
 					for {
 						if err != nil {
-							log.Printf("network error: %s", err.Error())
+							fmt.Printf("network error, dropping connection: %s", err.Error())
 							break
 						}
 						var tag int
@@ -85,11 +84,10 @@ func tcpMailboxesLocalArchetypeResourceMaker(listenAddr string) distsys.Archetyp
 						if err != nil {
 							continue
 						}
+
 						switch tag {
 						case tcpNetworkBegin:
-							if localBuffer != nil {
-								localBuffer = nil
-							}
+							localBuffer = nil
 							hasBegun = true
 						case tcpNetworkValue:
 							var value distsys.TLAValue
@@ -104,39 +102,29 @@ func tcpMailboxesLocalArchetypeResourceMaker(listenAddr string) distsys.Archetyp
 								continue
 							}
 						case tcpNetworkCommit:
-							// when crash-proofing, we need a way to identify repeat commits
-							// _when an old commit was successful but didn't persist due to crash_
-							// could be done by:
-							// - send a unique incrementing counter on pre-commit
-							// - commit-er sends this id on commit, and we store this commit attempt in a persistent set
-							//   alongside the buffer itself
-							// - receiving two commits for the same id can be detected by looking in the set, in which
-							//   case do nothing and reply that the thing is done.
-							// - starting a new critical section sends the id of the remote's last commit, which
-							//   indicates that commit was successful, and that the id can be removed from the set
 							if !hasBegun {
-								err = encoder.Encode(true)
-								if err != nil {
-									continue
-								}
-							} else {
-								// FIXME: this is weak to restarts, but fixing that without proper context is really hard
-								// at least, in this case the msgChannel will function as a rate limiter, so
-								// crash-free operation shouldn't do anything weird
-								for _, elem := range localBuffer {
-									msgChannel <- elem
-								}
-								err = encoder.Encode(false)
-								if err != nil {
-									continue
-								}
-								hasBegun = false
+								panic("a correct TCP mailbox exchange must always start with tcpMailboxBegin")
 							}
+							// FIXME: this is weak to restarts, but fixing that without proper context is really hard
+							// at least, in this case the msgChannel will function as a rate limiter, so
+							// crash-free operation shouldn't do anything weird
+
+							// a restart-proof method would take advantage of TCP necessarily dropping the connection,
+							// thus ending this connection, and log enough that everything important can be recovered
+							err = encoder.Encode(false)
+							if err != nil {
+								continue
+							}
+							for _, elem := range localBuffer {
+								msgChannel <- elem
+							}
+							localBuffer = nil
+							hasBegun = false
 						}
 					}
 					err = conn.Close()
 					if err != nil {
-						log.Printf("error closing connection: %s", err.Error())
+						fmt.Printf("error closing connection: %v", err)
 					}
 				}()
 			}
@@ -149,7 +137,7 @@ func tcpMailboxesLocalArchetypeResourceMaker(listenAddr string) distsys.Archetyp
 }
 
 func (res *tcpMailboxesLocalArchetypeResource) Abort() chan struct{} {
-	res.readBacklog = append(res.readBacklog, res.readsInProgress...)
+	res.readBacklog = append(res.readsInProgress, res.readBacklog...)
 	res.readsInProgress = nil
 	return nil
 }
@@ -167,8 +155,9 @@ func (res *tcpMailboxesLocalArchetypeResource) ReadValue() (distsys.TLAValue, er
 	// if a critical section previously aborted, already-read values will be here
 	if len(res.readBacklog) > 0 {
 		value := res.readBacklog[0]
-		res.readBacklog[0] = distsys.TLAValue{}
+		res.readBacklog[0] = distsys.TLAValue{} // ensure this TLAValue is null, otherwise it will dangle and prevent potential GC
 		res.readBacklog = res.readBacklog[1:]
+		res.readsInProgress = append(res.readsInProgress, value)
 		return value, nil
 	}
 
@@ -211,7 +200,8 @@ func (res *tcpMailboxesRemoteArchetypeResource) ensureConnection() error {
 		var err error
 		res.conn, err = net.Dial("tcp", res.dialAddr)
 		if err != nil {
-			log.Printf("failed to dial %s, aborting after 50ms: %v", res.dialAddr, err)
+			res.conn, res.connEncoder, res.connDecoder = nil, nil, nil
+			fmt.Printf("failed to dial %s, aborting after 50ms: %v", res.dialAddr, err)
 			time.Sleep(tcpMailboxesConnectionDroppedRetryDelay)
 			return distsys.ErrCriticalSectionAborted
 		}
@@ -223,6 +213,7 @@ func (res *tcpMailboxesRemoteArchetypeResource) ensureConnection() error {
 
 func (res *tcpMailboxesRemoteArchetypeResource) Abort() chan struct{} {
 	// nothing to do; the remote end tolerates just starting over with no explanation
+	res.inCriticalSection = false // but note to ourselves that we are starting over, so we re-send the begin record
 	return nil
 }
 
@@ -231,9 +222,18 @@ func (res *tcpMailboxesRemoteArchetypeResource) PreCommit() chan error {
 	go func() {
 		var err error
 		handleError := func() {
-			log.Printf("network error while performing pre-commit handshake, aborting: %v", err)
+			fmt.Printf("network error while performing pre-commit handshake, aborting: %v", err)
 			res.conn = nil
 			ch <- distsys.ErrCriticalSectionAborted
+		}
+		// be resilient to somehow reaching this without any sends
+		if !res.inCriticalSection {
+			res.inCriticalSection = true
+			err = res.connEncoder.Encode(tcpNetworkBegin)
+			if err != nil {
+				handleError()
+				return
+			}
 		}
 		err = res.connEncoder.Encode(tcpNetworkPreCommit)
 		if err != nil {
@@ -258,13 +258,13 @@ func (res *tcpMailboxesRemoteArchetypeResource) Commit() chan struct{} {
 	outerLoop:
 		for {
 			if err != nil {
-				log.Printf("network error during commit, resetting: %v", err)
-				res.conn = nil
+				panic(fmt.Errorf("network error during commit: %s", err))
 			}
 			err = res.ensureConnection()
 			if err != nil {
 				continue outerLoop
 			}
+
 			err = res.connEncoder.Encode(tcpNetworkCommit)
 			if err != nil {
 				continue outerLoop
@@ -277,6 +277,7 @@ func (res *tcpMailboxesRemoteArchetypeResource) Commit() chan struct{} {
 			if shouldResend {
 				panic("resending is not implemented")
 			}
+			res.inCriticalSection = false
 			ch <- struct{}{}
 			return
 		}
@@ -291,7 +292,7 @@ func (res *tcpMailboxesRemoteArchetypeResource) ReadValue() (distsys.TLAValue, e
 func (res *tcpMailboxesRemoteArchetypeResource) WriteValue(value distsys.TLAValue) error {
 	var err error
 	handleError := func() error {
-		log.Printf("network error during remote value write, aborting: %v", err)
+		fmt.Printf("network error during remote value write, aborting: %v", err)
 		res.conn = nil
 		return distsys.ErrCriticalSectionAborted
 	}
@@ -301,6 +302,7 @@ func (res *tcpMailboxesRemoteArchetypeResource) WriteValue(value distsys.TLAValu
 		return err
 	}
 	if !res.inCriticalSection {
+		res.inCriticalSection = true
 		err = res.connEncoder.Encode(tcpNetworkBegin)
 		if err != nil {
 			return handleError()
@@ -310,9 +312,7 @@ func (res *tcpMailboxesRemoteArchetypeResource) WriteValue(value distsys.TLAValu
 	if err != nil {
 		return handleError()
 	}
-	addressableValue := new(distsys.TLAValue)
-	*addressableValue = value
-	err = res.connEncoder.Encode(addressableValue)
+	err = res.connEncoder.Encode(&value)
 	if err != nil {
 		return handleError()
 	}

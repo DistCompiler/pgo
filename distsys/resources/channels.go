@@ -10,8 +10,8 @@ import (
 // to the channel.
 type InputChannelResource struct {
 	distsys.ArchetypeResourceLeafMixin
-	channel <-chan distsys.TLAValue
-	buffer  []distsys.TLAValue
+	channel               <-chan distsys.TLAValue
+	buffer, backlogBuffer []distsys.TLAValue
 }
 
 var _ distsys.ArchetypeResource = &InputChannelResource{}
@@ -29,6 +29,7 @@ func InputChannelResourceMaker(channel <-chan distsys.TLAValue) distsys.Archetyp
 }
 
 func (res *InputChannelResource) Abort() chan struct{} {
+	res.buffer = append(res.backlogBuffer, res.buffer...)
 	return nil
 }
 
@@ -37,7 +38,7 @@ func (res *InputChannelResource) PreCommit() chan error {
 }
 
 func (res *InputChannelResource) Commit() chan struct{} {
-	res.buffer = nil
+	res.backlogBuffer = nil
 	return nil
 }
 
@@ -45,12 +46,13 @@ func (res *InputChannelResource) ReadValue() (distsys.TLAValue, error) {
 	if len(res.buffer) > 0 {
 		value := res.buffer[0]
 		res.buffer = res.buffer[1:]
+		res.backlogBuffer = append(res.backlogBuffer, value)
 		return value, nil
 	}
 
 	select {
 	case value := <-res.channel:
-		res.buffer = append(res.buffer, value)
+		res.backlogBuffer = append(res.backlogBuffer, value)
 		return value, nil
 	case <-time.After(time.Millisecond * 20):
 		return distsys.TLAValue{}, distsys.ErrCriticalSectionAborted
@@ -104,7 +106,7 @@ func (res *OutputChannelResource) Commit() chan struct{} {
 }
 
 func (res *OutputChannelResource) ReadValue() (distsys.TLAValue, error) {
-	panic(fmt.Errorf("attempted to read from an input channel resource"))
+	panic(fmt.Errorf("attempted to read from an output channel resource"))
 }
 
 func (res *OutputChannelResource) WriteValue(value distsys.TLAValue) error {

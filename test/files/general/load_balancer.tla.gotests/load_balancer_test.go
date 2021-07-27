@@ -39,21 +39,27 @@ func TestOneServerOneClient(t *testing.T) {
 		panic(err)
 	}
 
-	go func() {
-		ctx := distsys.NewMPCalContext()
-		self := distsys.NewTLANumber(0)
-		mailboxes := ctx.EnsureArchetypeResourceByName("mailboxes", resources.TCPMailboxesArchetypeResourceMaker(func(index distsys.TLAValue) (resources.TCPMailboxKind, string) {
+	makeAddressFn := func(ownId int) func(index distsys.TLAValue) (resources.TCPMailboxKind, string) {
+		return func(index distsys.TLAValue) (resources.TCPMailboxKind, string) {
+			kind := [3]resources.TCPMailboxKind{resources.TCPMailboxesRemote, resources.TCPMailboxesRemote, resources.TCPMailboxesRemote}
+			kind[ownId] = resources.TCPMailboxesLocal
 			switch index.AsNumber() {
 			case 0:
-				return resources.TCPMailboxesLocal, "localhost:8001"
+				return kind[0], "localhost:8001"
 			case 1:
-				return resources.TCPMailboxesRemote, "localhost:8002"
+				return kind[1], "localhost:8002"
 			case 2:
-				return resources.TCPMailboxesRemote, "localhost:8003"
+				return kind[2], "localhost:8003"
 			default:
 				panic(fmt.Errorf("unknown mailbox index %v", index))
 			}
-		}))
+		}
+	}
+
+	go func() {
+		ctx := distsys.NewMPCalContext()
+		self := distsys.NewTLANumber(0)
+		mailboxes := ctx.EnsureArchetypeResourceByName("mailboxes", resources.TCPMailboxesArchetypeResourceMaker(makeAddressFn(0)))
 		err := ALoadBalancer(ctx, self, constants, mailboxes)
 		if err != nil {
 			panic(err)
@@ -63,18 +69,7 @@ func TestOneServerOneClient(t *testing.T) {
 	go func() {
 		ctx := distsys.NewMPCalContext()
 		self := distsys.NewTLANumber(1)
-		mailboxes := ctx.EnsureArchetypeResourceByName("mailboxes", resources.TCPMailboxesArchetypeResourceMaker(func(index distsys.TLAValue) (resources.TCPMailboxKind, string) {
-			switch index.AsNumber() {
-			case 0:
-				return resources.TCPMailboxesRemote, "localhost:8001"
-			case 1:
-				return resources.TCPMailboxesLocal, "localhost:8002"
-			case 2:
-				return resources.TCPMailboxesRemote, "localhost:8003"
-			default:
-				panic(fmt.Errorf("unknown mailbox index %v", index))
-			}
-		}))
+		mailboxes := ctx.EnsureArchetypeResourceByName("mailboxes", resources.TCPMailboxesArchetypeResourceMaker(makeAddressFn(1)))
 		filesystem := ctx.EnsureArchetypeResourceByName("filesystem", resources.FilesystemArchetypeResourceMaker(tempDir))
 		err := AServer(ctx, self, constants, mailboxes, filesystem)
 		if err != nil {
@@ -87,18 +82,7 @@ func TestOneServerOneClient(t *testing.T) {
 	go func() {
 		ctx := distsys.NewMPCalContext()
 		self := distsys.NewTLANumber(2)
-		mailboxes := ctx.EnsureArchetypeResourceByName("mailboxes", resources.TCPMailboxesArchetypeResourceMaker(func(index distsys.TLAValue) (resources.TCPMailboxKind, string) {
-			switch index.AsNumber() {
-			case 0:
-				return resources.TCPMailboxesRemote, "localhost:8001"
-			case 1:
-				return resources.TCPMailboxesRemote, "localhost:8002"
-			case 2:
-				return resources.TCPMailboxesLocal, "localhost:8003"
-			default:
-				panic(fmt.Errorf("unknown mailbox index %v", index))
-			}
-		}))
+		mailboxes := ctx.EnsureArchetypeResourceByName("mailboxes", resources.TCPMailboxesArchetypeResourceMaker(makeAddressFn(2)))
 		instream := ctx.EnsureArchetypeResourceByName("instream", resources.InputChannelResourceMaker(requestChannel))
 		outstream := ctx.EnsureArchetypeResourceByName("outstream", resources.OutputChannelResourceMaker(responseChannel))
 		err := AClient(ctx, self, constants, mailboxes, instream, outstream)
@@ -124,10 +108,23 @@ func TestOneServerOneClient(t *testing.T) {
 	for i := range requestResponsePairs {
 		requestChannel <- requestResponsePairs[i].Request
 	}
-	for i := range requestResponsePairs {
+	var receivedValues []distsys.TLAValue
+	for range requestResponsePairs {
 		response := <-responseChannel
-		if !response.Equal(requestResponsePairs[i].Response) {
-			t.Fatalf("actual response %v to request %v did not equal expected response %v", response, requestResponsePairs[i].Request, requestResponsePairs[i].Response)
+		receivedValues = append(receivedValues, response)
+	}
+	close(responseChannel)
+	time.Sleep(100 * time.Millisecond) // make sure the model isn't replying more than necessary
+	// if so, it will crash due to the channel being closed, assuming it would reply again within 100ms
+
+	// compare received values
+	for i, receivedValue := range receivedValues {
+		if !requestResponsePairs[i].Response.Equal(receivedValue) {
+			var expectedValues []distsys.TLAValue
+			for _, pair := range requestResponsePairs {
+				expectedValues = append(expectedValues, pair.Response)
+			}
+			t.Fatalf("expected received values %v do not match actual received values %v", expectedValues, receivedValues)
 		}
 	}
 }
