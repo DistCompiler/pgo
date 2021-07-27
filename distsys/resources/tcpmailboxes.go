@@ -31,6 +31,36 @@ const (
 	tcpMailboxesConnectionDroppedRetryDelay = 50 * time.Millisecond // TODO: same
 )
 
+// TCPMailboxesArchetypeResourceMaker produces a distsys.ArchetypeResourceMaker for a collection of TCP mailboxes.
+// Each individual mailbox will match the following mapping macro, assuming exactly one process "reads" from it:
+//
+//     mapping macro TCPChannel {
+//       read {
+//           await Len($variable) > 0;
+//           with (msg = Head($variable)) {
+//               $variable := Tail($variable);
+//               yield msg;
+//           };
+//       }
+//
+//       write {
+//           await Len($variable) < BUFFER_SIZE;
+//           yield Append($variable, $value);
+//       }
+//     }
+//
+// As is shown above, each mailbox should be a fully reliable, ordered channel, which these resources approximate
+// via a lightweight TCP-based protocol optimised for optimistic data transmission. While the protocol should be
+// extended to support reliability under crash recovery in the future, this behaviour is currently a stub.
+//
+// addressMappingFn is responsible for translating the index, as in network[index] from distsys.TLAValue to a pair of
+// TCPMailboxKind and address string, where the address string would be appropriate to pass to net.Listen("tcp", ...)
+// or net.Dial("tcp", ...). It should return TCPMailboxesLocal if this node is to be the only listener, and it should
+// return TCPMailboxesRemote if the mailbox is remote and should be dialed. This could potentially allow unusual setups
+// where a single process "owns" more than one mailbox.
+//
+// Note that BUFFER_SIZE is currently fixed to internal constant tcpMailboxesReceiveChannelSize, although precise numbers of
+// in-flight messages may slightly exceed this number, as "reception" speculatively accepts one commit of messages before rate-limiting.
 func TCPMailboxesArchetypeResourceMaker(addressMappingFn func(distsys.TLAValue) (TCPMailboxKind, string)) distsys.ArchetypeResourceMaker {
 	return IncrementalArchetypeMapResourceMaker(func(index distsys.TLAValue) distsys.ArchetypeResourceMaker {
 		tpe, addr := addressMappingFn(index)
