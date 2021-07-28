@@ -45,9 +45,11 @@ func (res *fileArchetypeResource) PreCommit() chan error {
 }
 
 func (res *fileArchetypeResource) Commit() chan struct{} {
+	res.cachedRead = nil
 	if res.writePending != nil {
 		doneCh := make(chan struct{})
 		go func() {
+			// FIXME: this is not atomic. see: https://github.com/natefinch/atomic and potential need for flush ops
 			err := ioutil.WriteFile(path.Join(res.workingDirectory, res.subPath), []byte(*res.writePending), 0777)
 			if err != nil {
 				panic(fmt.Errorf("could not write file %s: %w", path.Join(res.workingDirectory, res.subPath), err))
@@ -57,7 +59,6 @@ func (res *fileArchetypeResource) Commit() chan struct{} {
 		}()
 		return doneCh
 	}
-	res.cachedRead = nil
 	return nil
 }
 

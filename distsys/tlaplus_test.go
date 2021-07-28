@@ -26,6 +26,13 @@ func TestTLAModel(t *testing.T) {
 			},
 			ExpectedResult: "FALSE",
 		},
+		{
+			Name: "[x \\in {} |-> x]",
+			Operation: func() TLAValue {
+				return NewTLARecord(nil)
+			},
+			ExpectedResult: "[x \\in {} |-> x]",
+		},
 	}
 
 	for _, test := range tests {

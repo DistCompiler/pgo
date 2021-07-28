@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+const inputChannelResourceReadTimout = 20 * time.Millisecond
+
 // InputChannelResource wraps a native Go channel, such that an MPCal model might read what is written
 // to the channel.
 type InputChannelResource struct {
@@ -54,7 +56,7 @@ func (res *InputChannelResource) ReadValue() (distsys.TLAValue, error) {
 	case value := <-res.channel:
 		res.backlogBuffer = append(res.backlogBuffer, value)
 		return value, nil
-	case <-time.After(time.Millisecond * 20):
+	case <-time.After(inputChannelResourceReadTimout):
 		return distsys.TLAValue{}, distsys.ErrCriticalSectionAborted
 	}
 }

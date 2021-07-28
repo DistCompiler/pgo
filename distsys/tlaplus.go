@@ -1051,6 +1051,11 @@ func (v *tlaValueFunction) Equal(other TLAValue) bool {
 }
 
 func (v *tlaValueFunction) String() string {
+	// special case the empty function; a concatenation of 0 functions looks like `()`, which doesn't parse
+	// but this trivially empty function expression should do the trick
+	if v.Map.Len() == 0 {
+		return "[x \\in {} |-> x]"
+	}
 	builder := strings.Builder{}
 	builder.WriteString("(")
 	first := true
