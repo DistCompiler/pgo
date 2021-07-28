@@ -8,15 +8,20 @@ import (
 // A generic map resource, with hooks to programmatically realize child resources during execution
 // ----------------------------------------------------------------------------------------------------------------
 
+// FillFn maps from an index of a given map resource into a distsys.ArchetypeResourceMaker for the resource
+// intended at that location. It is assumed that this mapping is stable, in that, for the same index, a maker for
+// a resource with the same behaviour will be returned, no matter when the function is called.
+type FillFn func(index distsys.TLAValue) distsys.ArchetypeResourceMaker
+
 type IncrementalArchetypeMapResource struct {
 	distsys.ArchetypeResourceMapMixin
 	realizedMap  *immutable.Map
-	fillFunction func(index distsys.TLAValue) distsys.ArchetypeResourceMaker
+	fillFunction FillFn
 }
 
 var _ distsys.ArchetypeResource = &IncrementalArchetypeMapResource{}
 
-func IncrementalArchetypeMapResourceMaker(fillFunction func(index distsys.TLAValue) distsys.ArchetypeResourceMaker) distsys.ArchetypeResourceMaker {
+func IncrementalArchetypeMapResourceMaker(fillFunction FillFn) distsys.ArchetypeResourceMaker {
 	return distsys.ArchetypeResourceMakerStruct{
 		MakeFn: func() distsys.ArchetypeResource {
 			return &IncrementalArchetypeMapResource{
