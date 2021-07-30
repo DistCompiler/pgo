@@ -27,3 +27,9 @@ jobs:
         go-version: ${{ matrix.golang-version }}
     - name: Run tests
       run: sbt test
+    - name: 'Upload Fuzz Test Results on Test Failure (in case there are some)'
+      if: ${{ failure() }}
+      uses: actions/upload-artifact@v2
+      with:
+        name: fuzz-test-results
+        path: fuzz_output/*

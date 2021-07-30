@@ -201,7 +201,7 @@ func (v TLAValue) ApplyFunction(argument TLAValue) TLAValue {
 	switch data := v.data.(type) {
 	case *tlaValueTuple:
 		idx := int(argument.AsNumber())
-		require(idx >= 1 || idx <= data.Len(), "tuple indices must be in range; note that tuples are 1-indexed in TLA+")
+		require(idx >= 1 && idx <= data.Len(), "tuple indices must be in range; note that tuples are 1-indexed in TLA+")
 		return data.Get(idx - 1).(TLAValue)
 	case *tlaValueFunction:
 		value, ok := data.Get(argument)
