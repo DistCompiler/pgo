@@ -1,6 +1,6 @@
 module example.org/dqueue
 
-go 1.14
+go 1.13
 
 replace github.com/UBC-NSS/pgo/distsys => ../../../../distsys
 
