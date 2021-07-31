@@ -1,7 +1,7 @@
 # PGo ![CI Status](https://github.com/UBC-NSS/pgo/actions/workflows/ci.yml/badge.svg?branch=master)
 
-PGo is a source to source compiler to compile Modular Pluscal
-specifications (whuch use a superset of
+PGo is a source to source compiler to compile Modular PlusCal
+specifications (which use a superset of
 [PlusCal](http://lamport.azurewebsites.net/tla/pluscal.html)) into [Go](https://golang.org/) programs.
 
 In addition to the PGo compiler, this source tree includes:
