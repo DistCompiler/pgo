@@ -371,11 +371,11 @@ func TLA_GreaterThanSymbol(lhs, rhs TLAValue) TLAValue {
 
 func TLA_DotDotSymbol(lhs, rhs TLAValue) TLAValue {
 	from, to := lhs.AsNumber(), rhs.AsNumber()
-	builder := immutable.NewListBuilder()
+	builder := immutable.NewMapBuilder(TLAValueHasher{})
 	for i := from; i <= to; i++ {
-		builder.Append(NewTLANumber(i))
+		builder.Set(NewTLANumber(i), true)
 	}
-	return TLAValue{&tlaValueTuple{builder.List()}}
+	return TLAValue{&tlaValueSet{builder.Map()}}
 }
 
 func TLA_DivSymbol(lhs, rhs TLAValue) TLAValue {
