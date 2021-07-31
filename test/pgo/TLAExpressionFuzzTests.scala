@@ -99,6 +99,7 @@ class TLAExpressionFuzzTests extends AnyFunSuite with ScalaCheckPropertyChecks {
               throw err
           }
 
+          os.proc("go", "mod", "tidy").call(cwd = workDir)
           os.proc("go", "mod", "download").call(cwd = workDir)
 
           try {
