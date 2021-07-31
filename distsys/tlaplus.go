@@ -909,7 +909,7 @@ func TLA_Tail(v TLAValue) TLAValue {
 func TLA_SubSeq(v, m, n TLAValue) TLAValue {
 	tuple := v.AsTuple()
 	from, to := int(m.AsNumber()), int(n.AsNumber())
-	require(from <= to && from >= 0 && to <= tuple.Len(), "to call SubSeq, from and to indices must be in-bounds")
+	require(from <= to && from >= 1 && to <= tuple.Len(), "to call SubSeq, from and to indices must be in-bounds")
 	return TLAValue{&tlaValueTuple{tuple.Slice(from-1, to)}}
 }
 
