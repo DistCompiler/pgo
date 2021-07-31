@@ -4,6 +4,11 @@ PGo is a source to source compiler to compile Modular Pluscal
 specifications (whuch use a superset of
 [PlusCal](http://lamport.azurewebsites.net/tla/pluscal.html)) into [Go](https://golang.org/) programs.
 
+In addition to the PGo compiler, this source tree includes:
+
+- the `distsys` support library, which is used by PGo's generated Go code, available in the `distsys/` folder.
+- syntax highlighting modes for Visual Studio Code and pygments, available in the `syntax/` folder.
+
 ## Purpose and motivation
 
 [PlusCal](http://lamport.azurewebsites.net/tla/pluscal.html) is a
@@ -35,7 +40,7 @@ Actively under development. PGo supports compilation of all PlusCal
 control flow constructs, but not procedures.
 PGo also supports a vast majority of the value-level TLA+ supported by TLC.
 
-See [`manual.pdf`](https://github.com/UBC-NSS/pgo/blob/master/manual.pdf) in the
+See [`manual.pdf`](https://github.com/UBC-NSS/pgo/blob/master/manual.pdf) (WARNING: update in progress) in the
 repository for a snapshot of the latest version of the manual that details
 implemented features and several examples.
 
