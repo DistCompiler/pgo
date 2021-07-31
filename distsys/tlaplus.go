@@ -373,7 +373,7 @@ func TLA_DotDotSymbol(lhs, rhs TLAValue) TLAValue {
 	from, to := lhs.AsNumber(), rhs.AsNumber()
 	builder := immutable.NewListBuilder()
 	for i := from; i <= to; i++ {
-		builder.Append(i)
+		builder.Append(NewTLANumber(i))
 	}
 	return TLAValue{&tlaValueTuple{builder.List()}}
 }
