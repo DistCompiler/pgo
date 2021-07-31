@@ -8,19 +8,28 @@ on:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        java-version: ['11', '12', '13', '14', '15', '16']
+        golang-version: ['1.13', '1.14', '1.15', '1.16']
 
     steps:
     - uses: actions/checkout@v2
-    - name: Set up JDK 11
+    - name: Set up JDK ${{ matrix.java-version }}
       uses: actions/setup-java@v2
       with:
-        java-version: '11'
+        java-version: ${{ matrix.java-version }}
         distribution: 'adopt'
     - name: Setup Go environment
       uses: actions/setup-go@v2.1.3
       with:
-        go-version: 1.14
+        go-version: ${{ matrix.golang-version }}
     - name: Run tests
       run: sbt test
+    - name: 'Upload Fuzz Test Results on Test Failure (in case there are some)'
+      if: ${{ failure() }}
+      uses: actions/upload-artifact@v2
+      with:
+        name: fuzz-test-results
+        path: fuzz_output/*

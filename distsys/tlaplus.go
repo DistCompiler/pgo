@@ -201,7 +201,7 @@ func (v TLAValue) ApplyFunction(argument TLAValue) TLAValue {
 	switch data := v.data.(type) {
 	case *tlaValueTuple:
 		idx := int(argument.AsNumber())
-		require(idx >= 1 || idx <= data.Len(), "tuple indices must be in range; note that tuples are 1-indexed in TLA+")
+		require(idx >= 1 && idx <= data.Len(), "tuple indices must be in range; note that tuples are 1-indexed in TLA+")
 		return data.Get(idx - 1).(TLAValue)
 	case *tlaValueFunction:
 		value, ok := data.Get(argument)
@@ -371,11 +371,11 @@ func TLA_GreaterThanSymbol(lhs, rhs TLAValue) TLAValue {
 
 func TLA_DotDotSymbol(lhs, rhs TLAValue) TLAValue {
 	from, to := lhs.AsNumber(), rhs.AsNumber()
-	builder := immutable.NewListBuilder()
+	builder := immutable.NewMapBuilder(TLAValueHasher{})
 	for i := from; i <= to; i++ {
-		builder.Append(i)
+		builder.Set(NewTLANumber(i), true)
 	}
-	return TLAValue{&tlaValueTuple{builder.List()}}
+	return TLAValue{&tlaValueSet{builder.Map()}}
 }
 
 func TLA_DivSymbol(lhs, rhs TLAValue) TLAValue {
@@ -909,7 +909,7 @@ func TLA_Tail(v TLAValue) TLAValue {
 func TLA_SubSeq(v, m, n TLAValue) TLAValue {
 	tuple := v.AsTuple()
 	from, to := int(m.AsNumber()), int(n.AsNumber())
-	require(from <= to && from >= 0 && to <= tuple.Len(), "to call SubSeq, from and to indices must be in-bounds")
+	require(from <= to && from >= 1 && to <= tuple.Len(), "to call SubSeq, from and to indices must be in-bounds")
 	return TLAValue{&tlaValueTuple{tuple.Slice(from-1, to)}}
 }
 

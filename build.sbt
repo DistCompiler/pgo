@@ -10,7 +10,6 @@ Test / scalaSource := baseDirectory.value / "test"
 libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value
 
 libraryDependencies += "org.rogach" %% "scallop" % "4.0.2"
-libraryDependencies += "io.spray" %%  "spray-json" % "1.3.6"
 
 libraryDependencies += "org.scala-lang.modules" %% "scala-parser-combinators" % "1.2.0-M1"
 libraryDependencies += "com.lihaoyi" %% "os-lib" % "0.7.3"

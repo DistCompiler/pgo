@@ -33,6 +33,13 @@ func TestTLAModel(t *testing.T) {
 			},
 			ExpectedResult: "[x \\in {} |-> x]",
 		},
+		{
+			Name: "1 .. 3",
+			Operation: func() TLAValue {
+				return TLA_DotDotSymbol(NewTLANumber(1), NewTLANumber(4))
+			},
+			ExpectedResult: "{1, 2, 3, 4}",
+		},
 	}
 
 	for _, test := range tests {

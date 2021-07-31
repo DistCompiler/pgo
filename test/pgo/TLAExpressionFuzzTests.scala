@@ -30,7 +30,7 @@ class TLAExpressionFuzzTests extends AnyFunSuite with ScalaCheckPropertyChecks {
     os.write(modFile,
       s"""module example.org/testbed
          |
-         |go 1.14
+         |go 1.13
          |
          |replace github.com/UBC-NSS/pgo/distsys => ${os.pwd / "distsys"}
          |
@@ -99,6 +99,7 @@ class TLAExpressionFuzzTests extends AnyFunSuite with ScalaCheckPropertyChecks {
               throw err
           }
 
+          os.proc("go", "mod", "tidy").call(cwd = workDir)
           os.proc("go", "mod", "download").call(cwd = workDir)
 
           try {

@@ -1,10 +1,15 @@
 # PGo ![CI Status](https://github.com/UBC-NSS/pgo/actions/workflows/ci.yml/badge.svg?branch=master)
 
-PGo is a source to source compiler to compile
-[PlusCal](http://lamport.azurewebsites.net/tla/pluscal.html)
-specifications into [Go](https://golang.org/) programs.
+PGo is a source to source compiler to compile Modular Pluscal
+specifications (whuch use a superset of
+[PlusCal](http://lamport.azurewebsites.net/tla/pluscal.html)) into [Go](https://golang.org/) programs.
 
-## Purpose/motivation
+In addition to the PGo compiler, this source tree includes:
+
+- the `distsys` support library, which is used by PGo's generated Go code, available in the `distsys/` folder.
+- syntax highlighting modes for Visual Studio Code and pygments, available in the `syntax/` folder.
+
+## Purpose and motivation
 
 [PlusCal](http://lamport.azurewebsites.net/tla/pluscal.html) is a
 language for specifying/modeling concurrent systems. It was designed
@@ -22,76 +27,115 @@ developing distributed systems.
 Currently there are no tools that correspond a PlusCal/TLA+ spec with
 an implementation of the spec. PGo is a tool that aims to connect the
 specification with the implementation by generating Go code based on a
-PlusCal specification. PGo enables the translation of a verified
-PlusCal specification of a distributed system algorithm into a
-semantically equivalent Go program.
+specification written in Modular PlusCal. The "Modular" prefix
+comes from the need to distinguish the description of a system from
+the model of its environment, which is needed for model checking.
+PGo enables the translation of a Modular PlusCal description of a
+distributed system to verifiable PlusCal,
+as well as to a semantically equivalent Go program.
 
 ## Current status
 
-Actively under development. PGo supports compilation of most
-uni-process and very simple multiprocess PlusCal algorithms into
-corresponding compilable and runnable Go code.
+Actively under development. PGo supports compilation of all PlusCal
+control flow constructs, but not procedures.
+PGo also supports a vast majority of the value-level TLA+ supported by TLC.
 
-See [`manual.pdf`](https://github.com/UBC-NSS/pgo/blob/master/manual.pdf) in the
+See [`manual.pdf`](https://github.com/UBC-NSS/pgo/blob/master/manual.pdf) (WARNING: update in progress) in the
 repository for a snapshot of the latest version of the manual that details
 implemented features and several examples.
 
 ## Usage
 
-To learn how to use PGo, see the [PGo usage page](https://github.com/UBC-NSS/pgo/wiki/PGo-Usage).
+To learn how to use PGo during verification, see the [PGo usage page](https://github.com/UBC-NSS/pgo/wiki/PGo-Usage) (WARNING: update in progress).
+
+For an in-depth description of how PGo works and how to interact with its generated code, see the manual (WARNING: update in progress).
+
+For the tool's compilation modes and flags at a high level, see below.
+
+The PGo tool's help text reads:
+
+```
+PGo compiler
+  -h, --help   Show help message
+
+Subcommand: gogen
+  -o, --out-file  <arg>
+  -p, --package-name  <arg>
+  -s, --spec-file  <arg>
+  -h, --help                  Show help message
+
+Subcommand: pcalgen
+  -s, --spec-file  <arg>
+  -h, --help               Show help message
+```
+
+### gogen
+
+The `gogen` subcommand requests that PGo generate a Go file from an MPCal-containing TLA+ module.
+Most customisation of this stage should be done by choosing specific parameters when calling the generated Go code,
+so there are only a few options to consider.
+
+- `--out-file` specifies the path to the Go output file, like `-o` in GCC.
+- `--spec-file` specifies the path to the TLA+ input file
+- `--package-name` allows customisation of the package name of the Go output file. This defaults to a sanitized version of the
+  MPCal algorithm name.
+
+### pcalgen
+
+The `pcalgen` subcommand requests that PGo rewrite its MPCal-containing TLA+ input file,
+such that it contains a PlusCal translation of the MPCal algorithm.
+The only option, `--spec-file`, is the path to the spec file, which will be rewritten.
+
+To insert the PlusCal translation, PGo will look for comments like, give or take whitespace:
+```
+\* BEGIN PLUSCAL TRANSLATION
+... any number of lines may go here
+\* END PLUSCAL TRANSLATION
+```
+
+If it cannot find one of both of these comments in that order, it will give up with an error message describing the problem,
+and will not write any output.
 
 ## How it works
 
-PGo is a source to source compiler written in Java. It compiles specifications written in an extension of PlusCal, called Modular PlusCal (see the [Modular PlusCal page](https://github.com/UBC-NSS/pgo/wiki/Modular-PlusCal) for more details), to Go programs.
+PGo is a source to source compiler written in Scala. It compiles specifications written in an extension of PlusCal,
+called Modular PlusCal (see the [Modular PlusCal page](https://github.com/UBC-NSS/pgo/wiki/Modular-PlusCal) for more details),
+to Go programs.
 
-## How to install (for development)
+## How to build (for development)
 
-Requirements: IntelliJ, Eclipse, or Ant 1.9
+PGo's Scala code builds via an [sbt](https://www.scala-sbt.org/) project, with its dependencies managed
+by [Maven](https://maven.apache.org/).
+PGo additionally provides a runtime support library for its generated Go code, which lives in the `distsys/`
+subfolder. This Go code is a standard Go module, which can be imported via the URL https://github.com/UBC-NSS/pgo/distsys.
 
-First download/clone the repository
+The main build script is the top-level [build.sbt](https://github.com/UBC-NSS/pgo/blob/master/build.sbt).
+To build from terminal, run `sbt` in the root directory and use the standard commands provided by the sbt console.
+These include `run <command-line args>` to (re-)compile and run PGo, and `test` to run all tests, including Go tests
+(TODO: add runner for free-standing Go tests; that one, specifically, is missing).
 
-Option 1: Import as an IntelliJ project.
+The sbt build can also be auto-imported by the IntelliJ Scala plugin, as well as likely any other IDE with Scala support.
 
-Option 2: Import as an Eclipse project.
+PGo's Scala code has managed dependencies on a small set of utility libraries:
 
-Option 3: Execute `ant build` to compile the project and then execute `pgo.sh [options] pcalfile` to compile `pcalfile`.
+- [scallop](https://github.com/scallop/scallop) for command-line argument parsing
+- [scala-parser-combinators](https://github.com/scala/scala-parser-combinators) for the TLA+/PCal/MPCal parser
+- [os-lib](https://github.com/com-lihaoyi/os-lib) for simplified file and process manipulation (process manipulation is used during tests)
 
-Dependencies:
+PGo's test suites additionally depend on:
 
-- The [Plume options library](https://mernst.github.io/plume-lib/).
+- the `go` executable. The tests will attempt to find this, probably on the `$PATH` or equivalent, via the JVM's default lookup process.
+- [ScalaTest](https://www.scalatest.org/) as test framework
+- [ScalaCheck](https://www.scalacheck.org/) for implementing fuzz tests
+- [java-diff-utils](https://github.com/java-diff-utils/java-diff-utils) for generating diffs when tests compare big blocks of text
 
-- [Java Hamcrest](http://hamcrest.org/JavaHamcrest/).
+PGo's Go runtime library depends on:
 
-- The [JSON reference implementation](https://github.com/stleary/JSON-java).
+- [immutable](https://github.com/benbjohnson/immutable) for efficient immutable implementations of lists and maps in the TLA+ data model.
+  For example, creating a modified map with one different key-value pair should take constant time, rather than copy the
+  entire existing structure.
 
-PGo is tested using OpenJDK 1.8, and 1.9, and Go 1.8, 1.9, 1.10, and 1.11.
-
-## How to run (for development)
-
-Use `pgo.sh` to invoke the compiler. Below are the options that the compiler accepts.
-
-```bash
-Usage: pgo [options] spec
-  --version=<boolean>          - Version [default false]
-  -h --help=<boolean>          - Print usage information [default false]
-  -q --logLvlQuiet=<boolean>   - Reduce printing during execution [default false]
-  -v --logLvlVerbose=<boolean> - Print detailed information during execution  [default false]
-  -m --mpcalCompile=<boolean>  - Compile a Modular PlusCal spec to vanilla PlusCal [default false]
-  -c --configFilePath=<string> - path to the configuration file, if any
-```
-
-## Further notes for developers
-
-If you use Eclipse, you should import the code style found in the
-`pgo-code-style.epf` file by clicking `File -> Import...` and
-selecting the file.
-
-Furthermore, use the Unix text file line delimiter (especially
-important if you are using Windows) by going to Eclipse's
-preferences/options, and under General and Workspace set "New text
-file line delimiter" to be "Unix".
-
-By default Eclipse does not enable assertions. Our projects assume
-that you have assertions enabled at all times.  To globally enable
-assertions as a default for all projects, go to Window -> Preferences
--> Java / Installed JREs.  Select the JRE and click "Edit...".
+PGo is tested using OpenJDK 1.11 through 1.16, and Go 1.13 through 1.16.
+OpenJDK 1.11+ is needed because of standard API usage.
+Go >=1.13 is needed because of [changes to the errors package in that version](https://blog.golang.org/go1.13-errors),
+and, otherwise, Go >=1.11 is needed due to the use of Go modules.
