@@ -17,7 +17,7 @@ import scala.util.control.NonFatal
 
 class TLAExpressionFuzzTests extends AnyFunSuite with ScalaCheckPropertyChecks {
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
-    PropertyCheckConfiguration(workers = 1, minSuccessful = 1, maxDiscardedFactor = 10)
+    PropertyCheckConfiguration(workers = 1, minSuccessful = 100, maxDiscardedFactor = 10)
 
   test("TLA+ expr eval (true random ASTs)") {
     val workDir = os.temp.dir()
@@ -128,10 +128,6 @@ class TLAExpressionFuzzTests extends AnyFunSuite with ScalaCheckPropertyChecks {
             case NonFatal(err) =>
               somethingBadHappened()
               throw err
-          } finally {
-            somethingBadHappened()
-            class MyException extends Exception
-            throw new MyException
           }
         }
       }
