@@ -32,4 +32,4 @@ jobs:
       uses: actions/upload-artifact@v2
       with:
         name: fuzz-test-results
-        path: fuzz_output/*
+        path: ${{ github.workspace }}/fuzz_output/*
