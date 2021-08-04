@@ -6,8 +6,9 @@ import org.rogach.scallop.{ScallopConf, ScallopOption, Subcommand, ValueConverte
 import os.Path
 import pgo.model.{PGoError, SourceLocation}
 import pgo.model.mpcal.MPCalBlock
+import pgo.model.pcal.PCalAlgorithm
 import pgo.model.tla.TLAModule
-import pgo.parser.{MPCalParser, TLAParser}
+import pgo.parser.{MPCalParser, PCalParser, TLAParser}
 import pgo.trans.{MPCalGoCodegenPass, MPCalNormalizePass, MPCalPCalCodegenPass, MPCalSemanticCheckPass, PCalRenderPass}
 import pgo.util.Description._
 
@@ -60,16 +61,31 @@ object PGo {
     verify()
   }
 
+  private def charBufferFromFile(file: os.Path, use: Using.Manager): java.nio.CharBuffer = {
+    val fileChannel = use(new RandomAccessFile(file.toIO, "r").getChannel)
+    val buffer = fileChannel.map(FileChannel.MapMode.READ_ONLY, 0, fileChannel.size)
+    StandardCharsets.UTF_8.decode(buffer)
+  }
+
   private def parseMPCal(specFile: os.Path): (TLAModule, MPCalBlock) = {
     val underlyingFile = new SourceLocation.UnderlyingFile(specFile)
     Using.Manager { use =>
-      val fileChannel = use(new RandomAccessFile(specFile.toIO, "r").getChannel)
-      val buffer = fileChannel.map(FileChannel.MapMode.READ_ONLY, 0, fileChannel.size)
-      val charBuffer = StandardCharsets.UTF_8.decode(buffer)
+      val charBuffer = charBufferFromFile(specFile, use = use)
 
       val tlaModule = TLAParser.readModuleBeforeTranslation(underlyingFile, charBuffer)
       val mpcalBlock = MPCalParser.readBlock(underlyingFile, charBuffer, tlaModule)
       (tlaModule, mpcalBlock)
+    }.get
+  }
+
+  private def parsePCal(specFile: os.Path): (TLAModule, PCalAlgorithm) = {
+    val underlyingFile = new SourceLocation.UnderlyingFile(specFile)
+    Using.Manager { use =>
+      val charBuffer = charBufferFromFile(specFile, use = use)
+
+      val tlaModule = TLAParser.readModuleBeforeTranslation(underlyingFile, charBuffer)
+      val pcalAlgorithm = PCalParser.readAlgorithm(underlyingFile, charBuffer, tlaModule)
+      (tlaModule, pcalAlgorithm)
     }.get
   }
 
@@ -84,6 +100,7 @@ object PGo {
 
           val goCode = MPCalGoCodegenPass(tlaModule, mpcalBlock, packageName = config.GoGenCmd.packageName.toOption)
           os.write.over(config.GoGenCmd.outFile(), goCode.linesIterator.map(line => s"$line\n"))
+
         case config.PCalGenCmd =>
           var (tlaModule, mpcalBlock) = parseMPCal(config.PCalGenCmd.specFile())
           MPCalSemanticCheckPass(tlaModule, mpcalBlock)
@@ -123,8 +140,22 @@ object PGo {
               s"""one or both of `\\* BEGIN PLUSCAL TRANSLATION` and `\\* END PLUSCAL TRANSLATION` not found;
                  |add these tags so that PGo knows where to put its generated PlusCal""".stripMargin)
           }
+
           // move the rendered output over the spec file, replacing it
           os.move(from = tempOutput, to = config.PCalGenCmd.specFile(), replaceExisting = true, atomicMove = true)
+
+          // run a free-standing semantic check on the generated code, in case our codegen doesn't agree with our
+          // own semantic checks (which would be a bug!)
+          locally {
+            try {
+              val (tlaModule, pcalAlgorithm) = parsePCal(config.PCalGenCmd.specFile())
+              MPCalSemanticCheckPass(tlaModule, MPCalBlock.fromPCalAlgorithm(pcalAlgorithm))
+            } catch {
+              case err: PGoError =>
+                throw MPCalSemanticCheckPass.SemanticError(
+                  err.errors.map(MPCalSemanticCheckPass.SemanticError.ConsistencyCheckFailed))
+            }
+          }
       }
       Nil
     } catch {

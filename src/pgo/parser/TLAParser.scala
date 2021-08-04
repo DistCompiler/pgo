@@ -442,30 +442,9 @@ trait TLAParser extends RegexParsers {
         tlaExpression <~ wsChk <~ ":"
       }) ~ (wsChk ~> tlaComma1Sep(tlaQuantifierBound) <~ wsChk <~ "}") ^^ {
         case expr ~ bounds =>
-          // extract all late bindings from bounds, and match them up with any relevant elements
-          // of lateBindings, removing them in the process
+          // extract all late bindings from bounds, and match them up
           val defns: List[DefinitionOne] = bounds.flatMap(bind => bind.singleDefinitions)
-          val defnMap = defns.view.map(defn => defn.identifier.asInstanceOf[ScopeIdentifierName].name -> defn).toMap
-
-          // gather all nested unbound names
-          // (yes, this could end up being really slow, but last time I tried to be smart w/ mutable state or something, a fuzz tester exposed a really weird bug)
-          val idents = mutable.ListBuffer[TLAGeneralIdentifier]()
-          expr.visit(Visitable.TopDownFirstStrategy) {
-            case ident@TLAGeneralIdentifier(_, Nil) if !ident.hasRefersTo => idents += ident
-          }
-
-          idents.foreach { ident =>
-            defnMap.get(ident.name) match {
-              case Some(defn) => ident.setRefersTo(defn)
-              case None =>
-                // if the late bindings count is 0 after this, we should check that no idents remain unbound.
-                // if so, raise the [AST traversal-wise, probably lexically] "earliest" one as an error.
-                // otherwise, unbound idents may still be bound via currently unknown context, so don't do anything
-                if(ctx.lateBindingStack == 0) {
-                  throw DefinitionLookupError(Nil, Definition.ScopeIdentifierName(ident.name))
-                }
-            }
-          }
+          ctx.resolveLateBindings(expr, defns = defns)
 
           TLASetComprehension(expr, bounds)
       }

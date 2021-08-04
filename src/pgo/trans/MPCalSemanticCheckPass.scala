@@ -51,6 +51,9 @@ object MPCalSemanticCheckPass {
       secondMapping.sourceLocation, d"instance parameter mapped at ${
         firstMapping.sourceLocation.longDescription
       }\n is mapped again")
+
+    final case class ConsistencyCheckFailed(error: PGoError.Error) extends Error(
+      error.sourceLocation, d"semantic check on output failed. probably a PGo bug!\n${error.description.indented}")
   }
 
   @throws[PGoError]
@@ -271,7 +274,7 @@ object MPCalSemanticCheckPass {
     // for each PCal "body", every goto must refer to a defined label
     locally {
       def checkInBody(body: List[PCalStatement]): Unit = {
-        val labels = mutable.HashSet[String]()
+        val labels = mutable.HashSet[String]("Error", "Done")
         body.foreach(_.visit(Visitable.BottomUpFirstStrategy) {
           case PCalLabeledStatements(label, _) => labels += label.name
         })
