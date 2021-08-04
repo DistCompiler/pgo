@@ -368,14 +368,17 @@ object MPCalPCalCodegenPass {
           }
 
           def impl(stmts: List[PCalStatement], substitutions: IdMap[DefinitionOne,DefinitionOne], lifted: List[(DefinitionOne,DefinitionOne)]): List[PCalStatement] = {
+            /**
+             * Perform substitutions, _specifically avoiding assignment LHS_! Fundamentally, these subs are for
+             * temporary with-bindings, and they should never change an assignment target.
+             *
+             * "Adding the LHS case in the hope it would fix something, only to break something" count of shame: 1, pre-comment
+             */
             def performSubstitutions(stmt: PCalStatement): PCalStatement =
               stmt.rewrite(Rewritable.BottomUpOnceStrategy) {
                 case ident@TLAGeneralIdentifier(_, pfx) if substitutions.contains(ident.refersTo) =>
                   val sub = substitutions(ident.refersTo)
                   ident.withChildren(Iterator(sub.identifier.asInstanceOf[Definition.ScopeIdentifierName].name, pfx)).setRefersTo(sub)
-                case lhs@PCalAssignmentLhsIdentifier(_) if substitutions.contains(lhs.refersTo) =>
-                  val sub = substitutions(lhs.refersTo)
-                  lhs.withChildren(Iterator(sub.identifier.asInstanceOf[Definition.ScopeIdentifierName].name)).setRefersTo(sub)
               }
 
             @tailrec

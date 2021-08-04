@@ -7,7 +7,8 @@ import scala.util.control.NonFatal
 
 class PCalGenFileTests extends FileTestSuite {
   override val testFiles: List[os.Path] =
-    os.list.stream(os.pwd / "test" / "files" / "general")
+    (os.list.stream(os.pwd / "test" / "files" / "general") ++
+      os.list.stream(os.pwd / "test" / "files" / "pcalgen"))
       .filter(_.last.endsWith(".tla"))
       .toList
 
