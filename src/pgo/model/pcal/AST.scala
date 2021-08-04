@@ -1,6 +1,6 @@
 package pgo.model.pcal
 
-import pgo.model.{Definition, DefinitionOne, RefersTo, Rewritable, SourceLocatable, Visitable}
+import pgo.model.{Definition, DefinitionOne, RefersTo, Rewritable, SourceLocatable}
 import pgo.model.tla._
 
 
@@ -20,7 +20,12 @@ final case class PCalDefaultInitValue() extends PCalNode
 
 final case class PCalAlgorithm(fairness: PCalFairness, name: TLAIdentifier, variables: List[PCalVariableDeclaration],
                                units: List[TLAUnit], macros: List[PCalMacro], procedures: List[PCalProcedure],
-                               processes: Either[List[PCalStatement],List[PCalProcess]]) extends PCalNode
+                               processes: Either[List[PCalStatement],List[PCalProcess]]) extends PCalNode {
+  require(processes match {
+    case Left(_) => true
+    case Right(processes) => processes.nonEmpty
+  }, "a PlusCal algorithm may not have 0 processes")
+}
 
 final case class PCalPVariableDeclaration(name: TLAIdentifier, value: Option[TLAExpression]) extends PCalNode with DefinitionOne {
   override def arity: Int = 0

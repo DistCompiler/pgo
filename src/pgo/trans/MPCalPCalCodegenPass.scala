@@ -1,20 +1,43 @@
 package pgo.trans
 
-import pgo.model.{Definition, DefinitionOne, PGoError, RefersTo, Rewritable, Visitable}
+import pgo.model.Definition.ScopeIdentifierName
+import pgo.model.{Definition, DefinitionOne, PGoError, RefersTo, Rewritable, SourceLocation, Visitable}
 import pgo.model.mpcal._
 import pgo.model.pcal._
 import pgo.model.tla._
+import pgo.util.Description._
 import pgo.util.MPCalPassUtils.MappedRead
 import pgo.util.Unreachable.!!!
-import pgo.util.{IdMap, NameCleaner}
+import pgo.util.{Description, IdMap, NameCleaner}
 
 import scala.annotation.tailrec
 import scala.collection.mutable
 
 object MPCalPCalCodegenPass {
+  final class MPCalPCalEffectivelyNoProcessesError(mpcalBlock: MPCalBlock) extends PGoError {
+    override val errors: List[PGoError.Error] =
+      List(MPCalPCalEffectivelyNoProcessesError.MPCalEffectivelyNoProcesses(mpcalBlock))
+  }
+  object MPCalPCalEffectivelyNoProcessesError {
+    final case class MPCalEffectivelyNoProcesses(mpcalBlock: MPCalBlock) extends PGoError.Error {
+      override def sourceLocation: SourceLocation = mpcalBlock.sourceLocation
+      override val description: Description = d"Modular PlusCal block has effectively no processes"
+    }
+  }
+
   @throws[PGoError]
   def apply(tlaModule: TLAModule, mpcalBlock: MPCalBlock): PCalAlgorithm = {
     var block: MPCalBlock = mpcalBlock
+
+    // if the block effectively has no processes _at all_, we can't generate a valid PCal algorithm from it
+    // we can generate Go code though, so this check shouldn't be a general semantic check; it's the only codegen check
+    block.processes match {
+      case Left(_) => // this check doesn't matter for single-process in any case (though it's unsupported below)
+      case Right(processes) =>
+        if(processes.isEmpty && block.instances.isEmpty) {
+          throw new MPCalPCalEffectivelyNoProcessesError(block)
+        }
+    }
 
     val nameCleaner = new NameCleaner
     tlaModule.visit(Visitable.BottomUpFirstStrategy) {
@@ -42,7 +65,27 @@ object MPCalPCalCodegenPass {
       // - for a non-ref [_] param, the identity of the mapping to be applied (but not the identity of what is referenced, as it is taken by-value)
       val mpcalProcedureCache = mutable.HashMap[List[TLAExpression],PCalProcedure]()
 
-      def updateStmt(stmt: PCalStatement)(implicit mappingsMap: IdMap[DefinitionOne,(Int,MPCalMappingMacro)], substitutions: IdMap[RefersTo.HasReferences,DefinitionOne]): List[PCalStatement] = {
+      /**
+       * Transform the statement according to the provided substitutions. Accounts for assignment LHS, but
+       * will not work for unusual things like $variable and $value, or if the replacement does not have an
+       * alphanumeric name (that can is represented as a TLAIdentifier).
+       */
+      def applySubstitutions(stmt: PCalStatement)(implicit substitutions: IdMap[RefersTo.HasReferences,DefinitionOne]): PCalStatement =
+        stmt.rewrite(Rewritable.TopDownFirstStrategy ) {
+          case ident@TLAGeneralIdentifier(_, pfx) if substitutions.contains(ident.refersTo) =>
+            assert(pfx.isEmpty)
+            val sub = substitutions(ident.refersTo)
+            TLAGeneralIdentifier(sub.identifier.asInstanceOf[ScopeIdentifierName].name, pfx).setRefersTo(sub)
+          case lhs@PCalAssignmentLhsIdentifier(_) if substitutions.contains(lhs.refersTo) =>
+            val sub = substitutions(lhs.refersTo)
+            PCalAssignmentLhsIdentifier(sub.identifier.asInstanceOf[ScopeIdentifierName].name).setRefersTo(sub)
+        }
+
+      /**
+       * Transform the statement according to the provided mapping macros. Does not rename anything - that's done separately,
+       * after the transformation.
+       */
+      def applyMappingMacros(stmt: PCalStatement)(implicit mappingsMap: IdMap[DefinitionOne,(Int,MPCalMappingMacro)]): List[PCalStatement] = {
         var stmtSink: List[PCalStatement] => List[PCalStatement] = identity
 
         def updateReads[E <: Rewritable](expr: E, skipMappings: Boolean = false): E =
@@ -78,11 +121,6 @@ object MPCalPCalCodegenPass {
                 }
               }
               TLAGeneralIdentifier(placeholder.name, Nil).setRefersTo(placeholder)
-            case ident@TLAGeneralIdentifier(_, prefix) if substitutions.contains(ident.refersTo) =>
-              val mappedPrefix = prefix.mapConserve(updateReads(_))
-              val subDefn = substitutions(ident.refersTo)
-              val name = subDefn.identifier.asInstanceOf[Definition.ScopeIdentifierName].name
-              TLAGeneralIdentifier(name, mappedPrefix).setRefersTo(subDefn)
           }
 
         val unwrappedStmt = stmt match {
@@ -94,40 +132,12 @@ object MPCalPCalCodegenPass {
                 case PCalAssignmentLhsProjection(lhs, _) => findRef(lhs)
               }
 
-            def replaceRef(lhs: PCalAssignmentLhs): PCalAssignmentLhs =
+            @tailrec
+            def findLhsDepth(lhs: PCalAssignmentLhs, acc: Int = 0): Int =
               lhs match {
-                case ident: PCalAssignmentLhsIdentifier if substitutions.contains(ident.refersTo) =>
-                  val sub = substitutions(ident.refersTo)
-                  PCalAssignmentLhsIdentifier(sub.identifier.asInstanceOf[Definition.ScopeIdentifierName].name)
-                    .setRefersTo(sub)
-                case ident: PCalAssignmentLhsIdentifier => ident
-                case proj@PCalAssignmentLhsProjection(lhs, projections) =>
-                  proj.withChildren(Iterator(replaceRef(lhs), projections))
+                case PCalAssignmentLhsIdentifier(_) => acc
+                case PCalAssignmentLhsProjection(lhs, _) => findLhsDepth(lhs, acc + 1)
               }
-
-            def splitLhs(lhs: PCalAssignmentLhs, mappingCount: Int): (PCalAssignmentLhs, PCalAssignmentLhs=>PCalAssignmentLhs) = {
-              assert(mappingCount >= 0)
-              @tailrec
-              def findDepth(lhs: PCalAssignmentLhs, acc: Int = 0): Int =
-                lhs match {
-                  case PCalAssignmentLhsIdentifier(_) => acc
-                  case PCalAssignmentLhsProjection(lhs, _) => findDepth(lhs, acc + 1)
-                }
-
-              val depth = findDepth(lhs)
-              @tailrec
-              def findMappedLhs(lhs: PCalAssignmentLhs, layersToDiscard: Int): PCalAssignmentLhs = {
-                assert(layersToDiscard >= 0)
-                if(layersToDiscard == 0) {
-                  replaceRef(lhs)
-                } else {
-                  val PCalAssignmentLhsProjection(innerLhs, _) = lhs
-                  findMappedLhs(innerLhs, layersToDiscard - 1)
-                }
-              }
-              // FIXME: the wrapper for when depth > mappingCount
-              (findMappedLhs(lhs, depth - mappingCount), identity)
-            }
 
             def convertLhs(lhs: PCalAssignmentLhs): TLAExpression =
               lhs match {
@@ -142,42 +152,43 @@ object MPCalPCalCodegenPass {
             findRef(lhs).flatMap {
               case ident if mappingsMap.contains(ident.refersTo) =>
                 val (mappingCount, mapping) = mappingsMap(ident.refersTo)
-                val (mappedLhs, lhsReplacer) = splitLhs(lhs, mappingCount)
-                val convertedLhs = convertLhs(mappedLhs)
+                // TODO: maybe implement depth > mappingCount, but it may be more confusion than it's worth
+                // for now, assert that it's not the case, to avoid very confusion mis-compilations
+                assert(mappingCount == findLhsDepth(lhs))
+                val convertedLhs = convertLhs(lhs)
                 val valueBind = PCalVariableDeclarationValue(TLAIdentifier(nameCleaner.cleanName("value")), rhs)
                 Some {
                   PCalWith(List(valueBind), mapping.writeBody.mapConserve(_.rewrite(Rewritable.BottomUpOnceStrategy) {
                     case PCalAssignmentLhsExtension(MPCalDollarVariable()) =>
-                      mappedLhs
+                      lhs
                     case TLAExtensionExpression(MPCalDollarValue()) =>
                       TLAGeneralIdentifier(valueBind.name, Nil).setRefersTo(valueBind)
                     case TLAExtensionExpression(MPCalDollarVariable()) =>
                       convertedLhs
                     case PCalExtensionStatement(MPCalYield(yieldedExpr)) =>
-                      // FIXME: account for "extra" lhs parts
-                      PCalAssignment(List(PCalAssignmentPair(mappedLhs, yieldedExpr)))
+                      PCalAssignment(List(PCalAssignmentPair(lhs, yieldedExpr)))
                   }))
                 }
               case _ => None
             }.getOrElse(withReads)
           case stmt@PCalEither(cases) =>
             stmt.withChildren(Iterator(
-              cases.map(_.flatMap(updateStmt))
+              cases.map(_.flatMap(applyMappingMacros))
             ))
           case stmt@PCalIf(condition, yes, no) =>
             stmt.withChildren(Iterator(
               updateReads(condition),
-              yes.flatMap(updateStmt),
-              no.flatMap(updateStmt),
+              yes.flatMap(applyMappingMacros),
+              no.flatMap(applyMappingMacros),
             ))
           case stmt@PCalLabeledStatements(label, statements) =>
-            stmt.withChildren(Iterator(label, statements.flatMap(updateStmt)))
+            stmt.withChildren(Iterator(label, statements.flatMap(applyMappingMacros)))
           case PCalMacroCall(_, _) => !!!
           case PCalWhile(_, _) => !!!
           case stmt@PCalWith(variables, body) =>
             stmt.withChildren(Iterator(
               variables.mapConserve(updateReads(_)),
-              body.flatMap(updateStmt),
+              body.flatMap(applyMappingMacros),
             ))
           case PCalExtensionStatement(MPCalCall(target, arguments)) =>
             ??? // TODO: correctly handle refs, that is, ensure that the mpcal procedure is instantiated correctly,
@@ -216,16 +227,19 @@ object MPCalPCalCodegenPass {
 
           generatedPCalProcesses += PCalProcess(
             selfDecl, fairness, variables.result(),
-            archetype.body.flatMap(updateStmt(_)(substitutions = substitutions, mappingsMap = mappingsMap))
+            archetype.body.view
+              .flatMap(applyMappingMacros(_)(mappingsMap = mappingsMap))
+              .map(applySubstitutions(_)(substitutions = substitutions)) // subs after mapping macros, to deal with many-to-one subs
+              .toList
           ).setSourceLocation(instance.sourceLocation)
 
           instance // return the instance unchanged; we got what we came for
         case proc@PCalProcess(selfDecl, fairness, variables, body) =>
           proc.withChildren(Iterator(selfDecl, fairness, variables,
-            body.flatMap(updateStmt(_)(substitutions = IdMap.empty, mappingsMap = IdMap.empty))))
+            body.flatMap(applyMappingMacros(_)(mappingsMap = IdMap.empty))))
         case proc@PCalProcedure(name, params, variables, body) =>
           proc.withChildren(Iterator(name, params, variables,
-            body.flatMap(updateStmt(_)(substitutions = IdMap.empty, mappingsMap = IdMap.empty))))
+            body.flatMap(applyMappingMacros(_)(mappingsMap = IdMap.empty))))
       }
 
       rewritten.copy(
@@ -242,7 +256,7 @@ object MPCalPCalCodegenPass {
         })
     }
 
-    // desugar all non-trivial (e.g just to a name) assignments, using the TLA+ EXCEPT expression where appropriate
+    // desugar all non-trivial (e.g not just to a name) assignments, using the TLA+ EXCEPT expression where appropriate
     // rationale: this makes it a lot easier to repair any "multiple write within same label" issues induced by MPCal expansion
     //            as plain assignments match with statement semantics, vs. just needing to do the same transformation in-line
     //            with repairs anyway, which is more complicated
@@ -306,13 +320,14 @@ object MPCalPCalCodegenPass {
       }
 
       block.rewrite(Rewritable.TopDownFirstStrategy) {
-        case labeldStmts@PCalLabeledStatements(label, body) =>
+        case labeledStmts@PCalLabeledStatements(label, body) =>
           var assignmentCountsStmt = IdMap.empty[PCalStatement,IdMap[DefinitionOne,Int]]
 
           def calculateAssignmentCounts(body: List[PCalStatement]): IdMap[DefinitionOne,Int] = {
             var result = IdMap.empty[DefinitionOne,Int]
             body.foreach(_.visit(Visitable.TopDownFirstStrategy) {
-              case stmt: PCalStatement if assignmentCountsStmt.contains(stmt) => assignmentCountsStmt(stmt)
+              case stmt: PCalStatement if assignmentCountsStmt.contains(stmt) =>
+                result +++= assignmentCountsStmt(stmt)
               case PCalIf(_, yes, no) =>
                 result +++= (calculateAssignmentCounts(yes) ||| calculateAssignmentCounts(no))
               case PCalEither(cases) =>
@@ -358,6 +373,9 @@ object MPCalPCalCodegenPass {
                 case ident@TLAGeneralIdentifier(_, pfx) if substitutions.contains(ident.refersTo) =>
                   val sub = substitutions(ident.refersTo)
                   ident.withChildren(Iterator(sub.identifier.asInstanceOf[Definition.ScopeIdentifierName].name, pfx)).setRefersTo(sub)
+                case lhs@PCalAssignmentLhsIdentifier(_) if substitutions.contains(lhs.refersTo) =>
+                  val sub = substitutions(lhs.refersTo)
+                  lhs.withChildren(Iterator(sub.identifier.asInstanceOf[Definition.ScopeIdentifierName].name)).setRefersTo(sub)
               }
 
             @tailrec
@@ -424,7 +442,7 @@ object MPCalPCalCodegenPass {
             }
           }
 
-          labeldStmts.withChildren(Iterator(label, impl(body, IdMap.empty, Nil)))
+          labeledStmts.withChildren(Iterator(label, impl(body, IdMap.empty, Nil)))
       }
     }
 
