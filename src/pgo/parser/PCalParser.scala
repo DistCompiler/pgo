@@ -239,22 +239,29 @@ trait PCalParser extends TLAParser {
     def pcalAlgorithm(implicit ctx: PCalParserContext): Parser[PCalAlgorithm] =
       withSourceLocation {
         val origCtx = ctx
-        (("--algorithm" ^^^ PCalFairness.Unfair | "--fair algorithm" ^^^ PCalFairness.WeakFair) ~
-          (ws ~> tlaIdentifierExpr) ~ (pcalAlgorithmOpenBrace ~> opt(ws ~> pcalVarDecls).map(_.getOrElse(Nil)))).flatMap {
-          case fairness ~ name ~ decls =>
-            implicit val ctx: PCalParserContext = decls.foldLeft(origCtx)(_.withDefinition(_))
-            val origCtx2 = ctx
-            opt(ws ~> pcalDefinitions).map(_.getOrElse(Nil)).flatMap { defns =>
-              implicit val ctx: PCalParserContext = defns.foldLeft(origCtx2) { (ctx, unit) =>
-                unit.definitions.foldLeft(ctx)(_.withDefinition(_))
-              }
-              (ws ~> repsep(pcalMacro, ws)) ~
-                (ws ~> repsep(pcalProcedure, ws)) ~
-                (ws ~> {
-                  pcalBody("algorithm") ^^ (Left(_)) |
-                    rep1sep(pcalProcess, ws) ^^ (Right(_))
+        locally {
+          implicit val ctx: PCalParserContext = origCtx.withLateBinding
+          (("--algorithm" ^^^ PCalFairness.Unfair | "--fair algorithm" ^^^ PCalFairness.WeakFair) ~
+            (ws ~> tlaIdentifierExpr) ~ (pcalAlgorithmOpenBrace ~> opt(ws ~> pcalVarDecls).map(_.getOrElse(Nil)))).flatMap {
+            case fairness ~ name ~ decls =>
+              implicit val ctx: PCalParserContext = decls.foldLeft(origCtx)(_.withDefinition(_))
+              val origCtx2 = ctx
+              opt(ws ~> pcalDefinitions).map(_.getOrElse(Nil)).flatMap { defns =>
+                val defnsSingleDefinitions = defns.view.flatMap(_.definitions.flatMap(_.singleDefinitions)).toList
+                // because pcalDefinitions appear after pcalVarDecls, but may be references by the latter, we have to
+                // allow for this with "late bindings"
+                decls.foreach { decl =>
+                  origCtx.ctx.resolveLateBindings(decl, defns = defnsSingleDefinitions)
+                }
+                implicit val ctx: PCalParserContext = defnsSingleDefinitions.foldLeft(origCtx2)(_.withDefinition(_))
+                (ws ~> repsep(pcalMacro, ws)) ~
+                  (ws ~> repsep(pcalProcedure, ws)) ~
+                  (ws ~> {
+                    pcalBody("algorithm") ^^ (Left(_)) |
+                      rep1sep(pcalProcess, ws) ^^ (Right(_))
                   }) ^^ ((fairness, name, decls, defns, _))
-            }
+              }
+          }
         } <~ pcalAlgorithmCloseBrace ^^ {
           case (fairness, name, decls, defns, macros ~ procedures ~ proc) =>
             val result = PCalAlgorithm(fairness, name, decls, defns, macros, procedures, proc)

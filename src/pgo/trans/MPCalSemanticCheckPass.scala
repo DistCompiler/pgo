@@ -6,6 +6,8 @@ import pgo.model.pcal._
 import pgo.model.tla._
 import pgo.util.{Description, IdMap, IdSet, MPCalPassUtils}
 import Description._
+import pgo.trans.MPCalSemanticCheckPass.SemanticError.PCalInvalidAssignment
+import pgo.util.Unreachable.!!!
 
 import scala.annotation.tailrec
 import scala.collection.mutable
@@ -51,6 +53,12 @@ object MPCalSemanticCheckPass {
       secondMapping.sourceLocation, d"instance parameter mapped at ${
         firstMapping.sourceLocation.longDescription
       }\n is mapped again")
+
+    final case class ConsistencyCheckFailed(error: PGoError.Error) extends Error(
+      error.sourceLocation, d"semantic check on output failed. probably a PGo bug!\n${error.description.indented}")
+
+    final case class PCalInvalidAssignment(occurrence: SourceLocatable) extends Error(
+      occurrence.sourceLocation, d"invalid assignment: assigned to something that isn't a state variable")
   }
 
   @throws[PGoError]
@@ -271,7 +279,7 @@ object MPCalSemanticCheckPass {
     // for each PCal "body", every goto must refer to a defined label
     locally {
       def checkInBody(body: List[PCalStatement]): Unit = {
-        val labels = mutable.HashSet[String]()
+        val labels = mutable.HashSet[String]("Error", "Done")
         body.foreach(_.visit(Visitable.BottomUpFirstStrategy) {
           case PCalLabeledStatements(label, _) => labels += label.name
         })
@@ -434,6 +442,49 @@ object MPCalSemanticCheckPass {
               errors += SemanticError.MPCalMultipleMapping(visitedPositions(target.position), mapping)
             }
         }
+    }
+
+    // check that assignments are only to assignable things, which are all state variables, or indirect references to them
+    // these are, exhaustively:
+    // - local or global state vars
+    // - archetype and procedure params
+    //
+    // strategy: capture all these things, then look for assignments to things that are not them
+    locally {
+      // gather all the assignable things
+      val assignableThings: IdSet[DefinitionOne] = {
+        var assignableThingsAcc: IdSet[DefinitionOne] = IdSet.empty
+        block.visit(Visitable.TopDownFirstStrategy) {
+          case arch: MPCalArchetype => assignableThingsAcc ++= arch.params ++ arch.variables
+          case proc: MPCalProcedure => assignableThingsAcc ++= proc.params ++ proc.variables
+          case proc: PCalProcedure => assignableThingsAcc ++= proc.params ++ proc.variables
+          case proc: PCalProcess => assignableThingsAcc ++= proc.selfDecl +: proc.variables
+        }
+        assignableThingsAcc ++= block.variables
+        assignableThingsAcc
+      }
+
+      block.visit(Visitable.TopDownFirstStrategy) {
+        case _: PCalMacro => // don't look at macro bodies
+        case PCalAssignmentPair(lhs, _) =>
+          @tailrec
+          def findRef(lhs: PCalAssignmentLhs): Option[PCalAssignmentLhsIdentifier] =
+            lhs match {
+              case ref: PCalAssignmentLhsIdentifier => Some(ref)
+              case PCalAssignmentLhsProjection(lhs, _) => findRef(lhs)
+              case PCalAssignmentLhsExtension(MPCalDollarVariable()) => None
+              case PCalAssignmentLhsExtension(locatable: SourceLocatable) =>
+                errors += PCalInvalidAssignment(locatable)
+                None
+              case _ => !!!
+            }
+
+          findRef(lhs).foreach { ref =>
+            if(!assignableThings(ref.refersTo)) {
+              errors += PCalInvalidAssignment(ref)
+            }
+          }
+      }
     }
 
     if(errors.nonEmpty) {

@@ -103,7 +103,7 @@ CONSTANTS BUFFER_SIZE, NUM_CONSUMERS, PRODUCER
       with (msg0 = Head((network)[self])) {
         network := [network EXCEPT ![self] = Tail((network)[self])];
         with (yielded_net1 = msg0) {
-          proc := yielded_net1;
+          processor := yielded_net1;
           goto c;
         };
       };

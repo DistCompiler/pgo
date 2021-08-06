@@ -34,6 +34,26 @@ final case class MPCalBlock(name: TLAIdentifier, units: List[TLAUnit], macros: L
                             pcalProcedures: List[PCalProcedure],
                             processes: Either[List[PCalStatement],List[PCalProcess]]) extends MPCalNode
 
+object MPCalBlock {
+  /**
+   * Generate a Modular PlusCal block from a PlusCal algorithm, filling out empty defaults when needed.
+   * @return a fresh MPCalBlock that shares all semantic information with the provided pcalAlgorithm
+   */
+  def fromPCalAlgorithm(pcalAlgorithm: PCalAlgorithm): MPCalBlock =
+    MPCalBlock(
+      name = pcalAlgorithm.name,
+      units = pcalAlgorithm.units,
+      macros = pcalAlgorithm.macros,
+      mpcalProcedures = Nil,
+      mappingMacros = Nil,
+      archetypes = Nil,
+      variables = pcalAlgorithm.variables,
+      instances = Nil,
+      pcalProcedures = pcalAlgorithm.procedures,
+      processes = pcalAlgorithm.processes,
+    ).setSourceLocation(pcalAlgorithm.sourceLocation)
+}
+
 final case class MPCalProcedure(name: TLAIdentifier, params: List[MPCalParam], variables: List[PCalPVariableDeclaration],
                                 body: List[PCalStatement]) extends MPCalNode with RefersTo.HasReferences
 

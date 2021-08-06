@@ -341,7 +341,9 @@ object TLAExprInterpreter {
               paramValue match {
                 case TLAValueNumber(idx) if idx >= 1 && idx <= value.size => value(idx - 1)
               }
-            case TLAValueFunction(value) => value(paramValue)
+            case TLAValueFunction(value) =>
+              require(value.contains(paramValue))
+              value(paramValue)
           }
         case TLAFunctionSet(from, to) =>
           (interpret(from), interpret(to)) match {

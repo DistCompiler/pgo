@@ -825,7 +825,7 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
         } else {
           with (yielded_clientId00 = (self) - ((NUM_CLIENTS) * (GET_ORDER))) {
             with (yielded_clientId20 = (self) - ((NUM_CLIENTS) * (GET_ORDER))) {
-              clock := [clock EXCEPT ![yielded_clientId00] = ((clocks)[yielded_clientId20]) + (1)];
+              clocks := [clocks EXCEPT ![yielded_clientId00] = ((clocks)[yielded_clientId20]) + (1)];
               with (yielded_clientId21 = (self) - ((NUM_CLIENTS) * (GET_ORDER))) {
                 with (yielded_clientId110 = (self) - ((NUM_CLIENTS) * (GET_ORDER))) {
                   getReq := [op |-> GET_MSG, key |-> key, client |-> yielded_clientId21, timestamp |-> (clocks)[yielded_clientId110], reply_to |-> self];
@@ -854,7 +854,7 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
             with (yielded_clients1 = msg1) {
               getResp := yielded_clients1;
               assert ((getResp).type) = (GET_RESPONSE);
-              outside := (getResp).result;
+              out := (getResp).result;
               goto getCheckSpin;
             };
           };
@@ -886,7 +886,7 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
         } else {
           with (yielded_clientId60 = (self) - ((NUM_CLIENTS) * (PUT_ORDER))) {
             with (yielded_clientId50 = (self) - ((NUM_CLIENTS) * (PUT_ORDER))) {
-              clock := [clock EXCEPT ![yielded_clientId60] = ((clocks)[yielded_clientId50]) + (1)];
+              clocks := [clocks EXCEPT ![yielded_clientId60] = ((clocks)[yielded_clientId50]) + (1)];
               with (yielded_clientId80 = (self) - ((NUM_CLIENTS) * (PUT_ORDER))) {
                 with (yielded_clientId70 = (self) - ((NUM_CLIENTS) * (PUT_ORDER))) {
                   putReq := [op |-> PUT_MSG, key |-> key, value |-> value, client |-> yielded_clientId80, timestamp |-> (clocks)[yielded_clientId70], reply_to |-> self];
@@ -935,7 +935,7 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
         goto putComplete;
       };
     putComplete:
-      outside := PUT_RESPONSE;
+      out := PUT_RESPONSE;
       goto putCheckSpin;
     putCheckSpin:
       if(~ (spin)) {
@@ -953,7 +953,7 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
       with (yielded_clientId120 = (self) - ((NUM_CLIENTS) * (DISCONNECT_ORDER))) {
         msg := [op |-> DISCONNECT_MSG, client |-> yielded_clientId120];
         with (yielded_clientId130 = (self) - ((NUM_CLIENTS) * (DISCONNECT_ORDER))) {
-          clock := [clock EXCEPT ![yielded_clientId130] = - (1)];
+          clocks := [clocks EXCEPT ![yielded_clientId130] = - (1)];
           j := 0;
           goto disconnectBroadcast;
         };
@@ -983,7 +983,7 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
           } else {
             with (yielded_clientId150 = (self) - ((NUM_CLIENTS) * (NULL_ORDER))) {
               with (yielded_clientId140 = (self) - ((NUM_CLIENTS) * (NULL_ORDER))) {
-                clock := [clock EXCEPT ![yielded_clientId150] = ((clocks)[yielded_clientId140]) + (1)];
+                clocks := [clocks EXCEPT ![yielded_clientId150] = ((clocks)[yielded_clientId140]) + (1)];
                 with (yielded_clientId170 = (self) - ((NUM_CLIENTS) * (NULL_ORDER))) {
                   with (yielded_clientId160 = (self) - ((NUM_CLIENTS) * (NULL_ORDER))) {
                     msg := [op |-> NULL_MSG, client |-> yielded_clientId170, timestamp |-> (clocks)[yielded_clientId160]];
