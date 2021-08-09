@@ -23,13 +23,13 @@ object MPCalPassUtils {
     }
   }
 
-  def forEachBody(mpcalBlock: MPCalBlock)(fn: (List[PCalStatement], Map[String,DefinitionOne]) => Unit): Unit =
-    rewriteEachBody(mpcalBlock) { (body, lexicalScope) =>
+  def forEachBody(mpcalBlock: MPCalBlock, ignoreMacros: Boolean = false)(fn: (List[PCalStatement], Map[String,DefinitionOne]) => Unit): Unit =
+    rewriteEachBody(mpcalBlock, ignoreMacros = ignoreMacros) { (body, lexicalScope) =>
       fn(body, lexicalScope)
       body
     }
 
-  def rewriteEachBody(mpcalBlock: MPCalBlock)(fn: (List[PCalStatement], Map[String,DefinitionOne]) => List[PCalStatement]): MPCalBlock =
+  def rewriteEachBody(mpcalBlock: MPCalBlock, ignoreMacros: Boolean = false)(fn: (List[PCalStatement], Map[String,DefinitionOne]) => List[PCalStatement]): MPCalBlock =
     mpcalBlock.rewrite(Rewritable.TopDownFirstStrategy) {
       case blk @MPCalMappingMacro(name, readBody, writeBody, freeVars) =>
         val lexicalScope = freeVars.view.map(v => v.id.id -> v).toMap
@@ -38,7 +38,7 @@ object MPCalPassUtils {
           fn(readBody, lexicalScope),
           fn(writeBody, lexicalScope),
           freeVars))
-      case blk @PCalMacro(name, params, body, freeVars) =>
+      case blk @PCalMacro(name, params, body, freeVars) if !ignoreMacros =>
         blk.withChildren(Iterator(
           name, params,
           fn(body, (params.view.map(p => p.id.id -> p) ++ freeVars.view.map(v => v.id.id -> v)).toMap),

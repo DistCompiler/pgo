@@ -136,6 +136,8 @@ object MPCalSemanticCheckPass {
       }
     }
 
+    // !!!! beyond this point, macros will already be expanded if possible, and their contents may be ignored !!!!
+
     val containsLabels: IdSet[PCalStatement] = MPCalPassUtils.gatherContainsLabels(block)
 
     val tailStatements: IdMap[PCalStatement,Vector[PCalStatement]] = locally {
@@ -289,7 +291,9 @@ object MPCalSemanticCheckPass {
         })
       }
 
-      MPCalPassUtils.forEachBody(block)((body, _) => checkInBody(body))
+      // macros may reference labels that only make sense at expansion site, so we shouldn't naively check unexpanded macros
+      // macros are already expanded here, so just checking the expansion is good enough, and we can just ignore macro defs
+      MPCalPassUtils.forEachBody(block, ignoreMacros = true)((body, _) => checkInBody(body))
     }
 
     // for each PCal procedure call, the argument count must match parameter count at the definition
