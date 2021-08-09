@@ -101,6 +101,11 @@ object PGo {
           val goCode = MPCalGoCodegenPass(tlaModule, mpcalBlock, packageName = config.GoGenCmd.packageName.toOption)
           os.write.over(config.GoGenCmd.outFile(), goCode.linesIterator.map(line => s"$line\n"))
 
+          val fmtResult = os.proc("go", "fmt", config.GoGenCmd.outFile()).call(cwd = os.pwd, check = false)
+          if(fmtResult.exitCode != 0) {
+            println("could not run go fmt on output. this probably isn't fatal, but the Go output might look a little odd")
+          }
+
         case config.PCalGenCmd =>
           var (tlaModule, mpcalBlock) = parseMPCal(config.PCalGenCmd.specFile())
           MPCalSemanticCheckPass(tlaModule, mpcalBlock)
