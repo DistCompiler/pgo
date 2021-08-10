@@ -66,69 +66,65 @@ class TLAExpressionFuzzTests extends AnyFunSuite with ScalaCheckPropertyChecks {
             d"\\* BEGIN TRANSLATION\n" +
             d"===="
 
-        val (shouldSkip, expectedBehaviour) = try {
-          (false, Right(TLAExprInterpreter.interpret(expr)(env = Map.empty)))
-        } catch {
-          case err@TLAExprInterpreter.Unsupported() =>
-            (true, Left(err))
-          case err@TLAExprInterpreter.TypeError() =>
-            (false, Left(err))
+        os.remove.all(outFile)
+        os.write.over(testFile, data = mpcalSetup.linesIterator.map(line => s"$line\n"))
+
+        def somethingBadHappened(): Unit = {
+          os.makeDir.all(os.pwd / "fuzz_output")
+          val testOut = os.temp.dir(dir = os.pwd / "fuzz_output", deleteOnExit = false)
+          println(s"something bad happened. saving test to $testOut")
+          os.copy.over(from = workDir, to = testOut)
         }
-        whenever(!shouldSkip) {
-          cases += 1
-          expectedBehaviour match {
-            case Left(_) => degenerateCases += 1
-            case Right(_) =>
-          }
-          os.remove.all(outFile)
-          os.write.over(testFile, data = mpcalSetup.linesIterator.map(line => s"$line\n"))
 
-          def somethingBadHappened(): Unit = {
-            os.makeDir.all(os.pwd / "fuzz_output")
-            val testOut = os.temp.dir(dir = os.pwd / "fuzz_output", deleteOnExit = false)
-            println(s"something bad happened. saving test to $testOut")
-            os.copy.over(from = workDir, to = testOut)
+        try {
+          val (shouldSkip, expectedBehaviour) = try {
+            (false, Right(TLAExprInterpreter.interpret(expr)(env = Map.empty)))
+          } catch {
+            case err@TLAExprInterpreter.Unsupported() =>
+              (true, Left(err))
+            case err@TLAExprInterpreter.TypeError() =>
+              (false, Left(err))
           }
+          whenever(!shouldSkip) {
+            cases += 1
+            expectedBehaviour match {
+              case Left(_) => degenerateCases += 1
+              case Right(_) =>
+            }
 
-          try {
             val errs = PGo.run(Seq("gogen", "-s", testFile.toString(), "-o", outFile.toString()))
             assert(errs == Nil)
-          } catch {
-            case NonFatal(err) =>
-              somethingBadHappened()
-              throw err
-          }
 
-          os.proc("go", "mod", "tidy").call(cwd = workDir)
-          os.proc("go", "mod", "download").call(cwd = workDir)
+            os.proc("go", "mod", "tidy").call(cwd = workDir)
+            os.proc("go", "mod", "download").call(cwd = workDir)
 
-          try {
-            val result = os.proc("go", "run", "./main").call(cwd = workDir, mergeErrIntoOut = true, timeout = 60000)
-            val valueFromGo = TLAValue.parseFromString(result.out.text())
-            expectedBehaviour match {
-              case Left(err) =>
-                fail(s"expected an error, because Scala-based interpreter threw one", err)
-              case Right(valueFromScala) =>
-                assert(valueFromGo == valueFromScala)
-            }
-          } catch {
-            case err: os.SubprocessException =>
+            try {
+              val result = os.proc("go", "run", "./main").call(cwd = workDir, mergeErrIntoOut = true, timeout = 60000)
+              val valueFromGo = TLAValue.parseFromString(result.out.text())
               expectedBehaviour match {
-                case Left(_) =>
-                  if (err.result.out.text().startsWith("panic: TLA+ type error")) {
-                    // that's ok then
-                  } else {
-                    somethingBadHappened()
-                    throw err
-                  }
-                case Right(_) =>
-                  somethingBadHappened()
-                  throw err
+                case Left(err) =>
+                  fail(s"expected an error, because Scala-based interpreter threw one", err)
+                case Right(valueFromScala) =>
+                  assert(valueFromGo == valueFromScala)
               }
-            case NonFatal(err) =>
-              somethingBadHappened()
-              throw err
+            } catch {
+              case err: os.SubprocessException =>
+                expectedBehaviour match {
+                  case Left(_) =>
+                    if (err.result.out.text().startsWith("panic: TLA+ type error")) {
+                      // that's ok then
+                    } else {
+                      throw err
+                    }
+                  case Right(_) =>
+                    throw err
+                }
+            }
           }
+        } catch {
+          case NonFatal(err) =>
+            somethingBadHappened()
+            throw err
         }
       }
     } finally {
@@ -156,8 +152,8 @@ class TLAExpressionFuzzTests extends AnyFunSuite with ScalaCheckPropertyChecks {
 
     val cases: Iterator[PartialFunction[List[TLAExpression],GenProvider]] = Iterator(
       { case Nil => for {
-          num <- Gen.posNum[Int]
-        } yield TLANumber(TLANumber.IntValue(num), TLANumber.DecimalSyntax)
+        num <- Gen.posNum[Int]
+      } yield TLANumber(TLANumber.IntValue(num), TLANumber.DecimalSyntax)
       },
       { case Nil => Gen.asciiPrintableStr.map(TLAString) }, // TODO: consider nonsense w/ unprintable ASCII
       { case Nil if env.exists(_.arity == 0) =>
