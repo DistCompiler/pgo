@@ -75,8 +75,6 @@ CONSTANTS BUFFER_SIZE, NUM_CONSUMERS, PRODUCER
       mapping stream via CyclicReads;
 }
 
-
-
 \* BEGIN PLUSCAL TRANSLATION
 --algorithm dqueue {
   variables network = [id \in (0) .. ((NUM_NODES) - (1)) |-> <<>>]; processor = 0; stream = 0;
@@ -140,7 +138,6 @@ CONSTANTS BUFFER_SIZE, NUM_CONSUMERS, PRODUCER
 }
 
 \* END PLUSCAL TRANSLATION
-
 *)
 
 \* BEGIN TRANSLATION PCal-e64ab9284c1a4c5172f564abb6f099c4
