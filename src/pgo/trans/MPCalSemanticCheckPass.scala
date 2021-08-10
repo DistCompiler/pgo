@@ -81,8 +81,8 @@ object MPCalSemanticCheckPass {
       }
       block.visit(Visitable.TopDownFirstStrategy) {
         case MPCalArchetype(_, _, _, _, body) => checkInBody(body)
-        case MPCalProcedure(_, _, _, body) => checkInBody(body)
-        case PCalProcedure(_, _, _, body) => checkInBody(body)
+        case MPCalProcedure(_, _, _, _, body) => checkInBody(body)
+        case PCalProcedure(_, _, _, _, body) => checkInBody(body)
         case PCalProcess(_, _, _, body) => checkInBody(body)
       }
     }
@@ -217,12 +217,12 @@ object MPCalSemanticCheckPass {
 
       // visit all parts of the MPCal block that contain a list of statements
       block.visit(Visitable.BottomUpFirstStrategy) {
-        case MPCalMappingMacro(_, readBody, writeBody, _) =>
+        case MPCalMappingMacro(_, _, readBody, writeBody) =>
           checkInBody(readBody)
           checkInBody(writeBody)
         case PCalMacro(_, _, body, _) => checkInBody(body)
-        case PCalProcedure(_, _, _, body) => checkInBody(body)
-        case MPCalProcedure(_, _, _, body) => checkInBody(body)
+        case PCalProcedure(_, _, _, _, body) => checkInBody(body)
+        case MPCalProcedure(_, _, _, _, body) => checkInBody(body)
         case PCalProcess(_, _, _, body) => checkInBody(body)
         case MPCalArchetype(_, _, _, _, body) => checkInBody(body)
 
@@ -251,6 +251,7 @@ object MPCalSemanticCheckPass {
                     case PCalAssignmentLhsIdentifier(identifier) => identifier
                     case PCalAssignmentLhsProjection(lhs, _) => getId(lhs)
                     case PCalAssignmentLhsExtension(MPCalDollarVariable()) => TLAIdentifier("$variable") // hack to model special var
+                    case PCalAssignmentLhsExtension(_) => !!!
                   }
 
                 val lhsId = getId(lhs)
@@ -321,6 +322,7 @@ object MPCalSemanticCheckPass {
                 lhs match {
                   case PCalAssignmentLhsIdentifier(_) => acc
                   case PCalAssignmentLhsProjection(lhs, _) => findMappingCount(lhs, acc + 1)
+                  case PCalAssignmentLhsExtension(_) => !!!
                 }
 
               @tailrec
@@ -332,6 +334,7 @@ object MPCalSemanticCheckPass {
                       case _ => None
                     }
                   case PCalAssignmentLhsProjection(lhs, _) => findDefn(lhs)
+                  case PCalAssignmentLhsExtension(_) => !!!
                 }
 
               findDefn(lhs).foreach { defn =>
@@ -341,13 +344,21 @@ object MPCalSemanticCheckPass {
                   errors += SemanticError.MPCalKindMismatchError(usage = lhs, defn = defn)
                 }
               }
-            case ref @MPCalRefExpr(_, mappingCount) =>
-              paramsMap(ref.refersTo) match {
+            case ref@MPCalRefExpr(_, mappingCount) =>
+              paramsMap.get(ref.refersTo).map {
                 case defn @ MPCalRefParam(_, mappingCountP) =>
                   if(mappingCountP > mappingCount) {
                     errors += SemanticError.MPCalKindMismatchError(usage = ref, defn = defn)
                   }
                 case _: MPCalValParam => // pass; always OK
+              }.getOrElse {
+                ref.refersTo match {
+                  case PCalPVariableDeclaration(_, _) | _: PCalVariableDeclaration =>
+                    // OK, because it's either a state variable, or it's a local
+                  case defn: SourceLocatable =>
+                    errors += SemanticError.MPCalKindMismatchError(usage = ref, defn = defn)
+                  case _ => !!! // all defns should be SourceLocatable
+                }
               }
             case expr@MPCalPassUtils.MappedRead(mappingCount, ident) if (paramsMap.get(ident.refersTo) match {
               case Some(MPCalRefParam(_, mappingCountP)) => mappingCount >= mappingCountP
@@ -365,10 +376,11 @@ object MPCalSemanticCheckPass {
                   case TLAFunctionCall(function, params) =>
                     params.foreach(_.visit(Visitable.TopDownFirstStrategy)(impl))
                     checkMappingArgs(function)
+                  case _ => !!! // exhaustivity via MappedRead
                 }
 
               checkMappingArgs(expr)
-            case ref: RefersTo[DefinitionOne @unchecked] with SourceLocatable if ref.refersTo.isInstanceOf[DefinitionOne] && paramsMap.contains(ref.refersTo) =>
+            case ref: RefersTo[DefinitionOne@unchecked] with SourceLocatable if ref.refersTo.isInstanceOf[DefinitionOne] && paramsMap.contains(ref.refersTo) =>
               errors += SemanticError.MPCalKindMismatchError(usage = ref, defn = paramsMap(ref.refersTo))
           }
 
@@ -379,7 +391,7 @@ object MPCalSemanticCheckPass {
       block.visit(Visitable.TopDownFirstStrategy) {
         case MPCalArchetype(_, _, params, _, body) =>
           checkMPCalParamRefs(body, params)
-        case MPCalProcedure(_, params, _, body) =>
+        case MPCalProcedure(_, _, params, _, body) =>
           checkMPCalParamRefs(body, params)
         case instance @MPCalInstance(_, _, _, arguments, mappings) =>
           val archetype = instance.refersTo

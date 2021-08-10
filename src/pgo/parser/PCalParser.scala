@@ -202,17 +202,21 @@ trait PCalParser extends TLAParser {
     def pcalProcedure(implicit ctx: PCalParserContext): Parser[PCalProcedure] =
       withSourceLocation {
         val origCtx = ctx
-        ("procedure" ~> ws ~> tlaIdentifierExpr).flatMap { id =>
-          ((ws ~> "(" ~> ws ~> repsep(pcalPVarDecl, ws ~> "," ~> ws)) ~
-            (ws ~> ")" ~> opt(ws ~> ("variables" | "variable") ~> ws ~> rep1sep(pcalPVarDecl, ws ~> (";"|",") ~> ws) <~ opt(ws ~> (";" | ","))).map(_.getOrElse(Nil))))
-            .flatMap {
-              case args ~ locals =>
-                implicit val ctx: PCalParserContext = locals.foldLeft(args.foldLeft(origCtx)(_.withDefinition(_)))(_.withDefinition(_))
-                (ws ~> pcalBody("procedure") <~ opt(ws ~> ";")) ^^ ((id, args, locals, _))
-            }
+        querySourceLocation("procedure" ~> ws ~> tlaIdentifierExpr).flatMap {
+          case (selfLoc, id) =>
+            val selfDecl = TLAIdentifier("self").setSourceLocation(selfLoc).toDefiningIdentifier
+            implicit val ctx: PCalParserContext = origCtx.withDefinition(selfDecl)
+            val origCtx2 = ctx
+            ((ws ~> "(" ~> ws ~> repsep(pcalPVarDecl, ws ~> "," ~> ws)) ~
+              (ws ~> ")" ~> opt(ws ~> ("variables" | "variable") ~> ws ~> rep1sep(pcalPVarDecl, ws ~> (";"|",") ~> ws) <~ opt(ws ~> (";" | ","))).map(_.getOrElse(Nil))))
+              .flatMap {
+                case args ~ locals =>
+                  implicit val ctx: PCalParserContext = locals.foldLeft(args.foldLeft(origCtx2)(_.withDefinition(_)))(_.withDefinition(_))
+                  (ws ~> pcalBody("procedure") <~ opt(ws ~> ";")) ^^ ((id, selfDecl, args, locals, _))
+              }
         } ^^ {
-          case (id, args, locals, body) =>
-            PCalProcedure(id, args, locals, body)
+          case (id, selfDecl, args, locals, body) =>
+            PCalProcedure(id, selfDecl, args, locals, body)
         }
       }
 
@@ -291,7 +295,7 @@ trait PCalParser extends TLAParser {
   trait PCalCSyntax extends GenericSyntax {
     override def pcalIf(implicit ctx: PCalParserContext): Parser[PCalIf] =
       withSourceLocation {
-        "if" ~>! ws ~> "(" ~> tlaExpression ~ (ws ~> ")" ~> ws ~> pcalStmts) ~
+        "if" ~>! ws ~> "(" ~> ws ~> tlaExpression ~ (ws ~> ")" ~> ws ~> pcalStmts) ~
           opt(opt(ws ~> ";") ~> ws ~> "else" ~> ws ~> pcalStmts).map(_.getOrElse(Nil)) ^^ {
           case cond ~ yes ~ no => PCalIf(cond, yes, no)
         }

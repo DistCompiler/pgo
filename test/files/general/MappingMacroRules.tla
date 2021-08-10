@@ -1,7 +1,7 @@
 ---- MODULE MappingMacroRules ----
 EXTENDS Sequences, FiniteSets, Integers
 
-CONSTANTS NODE_SET, SERVER_SET
+CONSTANTS NODE_SET, SERVER_SET, BUFFER_SIZE
 
 (*
 --mpcal MappingMacroRules {

@@ -1,0 +1,78 @@
+---- MODULE bug2 ----
+EXTENDS Naturals, Sequences, TLC
+
+CONSTANTS NUM_NODES, BUFFER_SIZE
+
+(* --mpcal bug2 {
+    mapping macro TCPChannel {
+        read {
+            await Len($variable) > 0;
+            with (msg = Head($variable)) {
+                $variable := Tail($variable);
+                yield msg;
+            };
+        }
+
+        write {
+            await Len($variable) < BUFFER_SIZE;
+            yield Append($variable, $value);
+        }
+    }
+
+    archetype AEchoServer(ref net[_])
+    variables
+        msg;
+    {
+        serverLoop:
+            while (TRUE) {
+                rcvMsg:
+                    msg := net[self, 1];
+                sndMsg:
+                    net[msg.from, msg.typ] := [from |-> self, to |-> msg.from,
+                                              body |-> msg.body, typ |-> msg.typ];
+            };
+    }
+
+    variables
+        network = [id \in 1..NUM_NODES, typ \in 1..4 |-> <<>>];
+
+    fair process (EchoServer \in 1..NUM_NODES) == instance AEchoServer(ref network[_])
+        mapping network[_] via TCPChannel;
+}
+
+\* BEGIN PLUSCAL TRANSLATION
+--algorithm bug2 {
+  variables network = [id \in (1) .. (NUM_NODES), typ \in (1) .. (4) |-> <<>>];
+  
+  fair process (EchoServer \in (1) .. (NUM_NODES))
+    variables msg;
+  {
+    serverLoop:
+      if(TRUE) {
+        goto rcvMsg;
+      } else {
+        goto Done;
+      };
+    rcvMsg:
+      await (Len((network)[self, 1])) > (0);
+      with (msg0 = Head((network)[self, 1])) {
+        network := [network EXCEPT ![self, 1] = Tail((network)[self, 1])];
+        with (yielded_net0 = msg0) {
+          msg := yielded_net0;
+          goto sndMsg;
+        };
+      };
+    sndMsg:
+      with (value0 = [from |-> self, to |-> (msg).from, body |-> (msg).body, typ |-> (msg).typ]) {
+        await (Len((network)[(msg).from, (msg).typ])) < (BUFFER_SIZE);
+        network := [network EXCEPT ![(msg).from, (msg).typ] = Append((network)[(msg).from, (msg).typ], value0)];
+        goto serverLoop;
+      };
+  }
+}
+
+\* END PLUSCAL TRANSLATION
+*)
+
+\* BEGIN TRANSLATION
+====

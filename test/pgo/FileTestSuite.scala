@@ -68,7 +68,7 @@ trait FileTestSuite extends AnyFunSuite {
           if(unexpectedErrors.nonEmpty) {
             d"Unexpected errors present:${
               unexpectedErrors.view.map { err =>
-                d"${err.productPrefix}: ${err.description} at ${err.sourceLocation.longDescription}"
+                d"${err.productPrefix}(${err.sourceLocation.maybeOffset}): ${err.description} at ${err.sourceLocation.longDescription}"
                   .indented
                   .ensureLineBreakBefore
               }.flattenDescriptions

@@ -47,7 +47,7 @@ final case class PCalVariableDeclarationSet(name: TLAIdentifier, set: TLAExpress
 final case class PCalMacro(name: TLAIdentifier, params: List[TLADefiningIdentifier], body: List[PCalStatement],
                            freeVars: List[TLADefiningIdentifier]) extends PCalNode with RefersTo.HasReferences
 
-final case class PCalProcedure(name: TLAIdentifier, params: List[PCalPVariableDeclaration],
+final case class PCalProcedure(name: TLAIdentifier, selfDecl: TLADefiningIdentifier, params: List[PCalPVariableDeclaration],
                                variables: List[PCalPVariableDeclaration], body: List[PCalStatement]) extends PCalNode with RefersTo.HasReferences
 
 final case class PCalProcess(selfDecl: PCalVariableDeclarationBound, fairness: PCalFairness,

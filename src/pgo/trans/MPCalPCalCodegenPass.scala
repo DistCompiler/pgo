@@ -85,7 +85,7 @@ object MPCalPCalCodegenPass {
        * Transform the statement according to the provided mapping macros. Does not rename anything - that's done separately,
        * after the transformation.
        */
-      def applyMappingMacros(stmt: PCalStatement)(implicit mappingsMap: IdMap[DefinitionOne,(Int,MPCalMappingMacro)]): List[PCalStatement] = {
+      def applyMappingMacros(stmt: PCalStatement)(implicit mappingsMap: IdMap[DefinitionOne,(Int,MPCalMappingMacro)], selfDecl: DefinitionOne): List[PCalStatement] = {
         var stmtSink: List[PCalStatement] => List[PCalStatement] = identity
 
         def updateReads[E <: Rewritable](expr: E, skipMappings: Boolean = false): E =
@@ -97,6 +97,7 @@ object MPCalPCalCodegenPass {
                 expr match {
                   case expr@TLAGeneralIdentifier(name, Nil) => PCalAssignmentLhsIdentifier(name).setRefersTo(expr.refersTo)
                   case TLAFunctionCall(fn, arguments) => PCalAssignmentLhsProjection(translateLhs(fn), arguments)
+                  case _ => !!! // MappedRead matching should ensure exhaustivity of the cases above
                 }
 
               val translatedLhs = translateLhs(translatedExpr)
@@ -107,6 +108,8 @@ object MPCalPCalCodegenPass {
               stmtSink = { innerStmts =>
                 oldStmtSink {
                   mapping.readBody.mapConserve(_.rewrite(Rewritable.BottomUpOnceStrategy) {
+                    case ident: TLAGeneralIdentifier if ident.refersTo eq mapping.selfDecl =>
+                      TLAGeneralIdentifier(TLAIdentifier("self"), Nil).setRefersTo(selfDecl)
                     case PCalAssignmentLhsExtension(MPCalDollarVariable()) => translatedLhs
                     case TLAExtensionExpression(MPCalDollarVariable()) => translatedExpr
                     case PCalExtensionStatement(MPCalYield(valExpr)) =>
@@ -130,6 +133,7 @@ object MPCalPCalCodegenPass {
               lhs match {
                 case ident: PCalAssignmentLhsIdentifier => Some(ident)
                 case PCalAssignmentLhsProjection(lhs, _) => findRef(lhs)
+                case PCalAssignmentLhsExtension(_) => !!! // shouldn't happen
               }
 
             @tailrec
@@ -137,6 +141,7 @@ object MPCalPCalCodegenPass {
               lhs match {
                 case PCalAssignmentLhsIdentifier(_) => acc
                 case PCalAssignmentLhsProjection(lhs, _) => findLhsDepth(lhs, acc + 1)
+                case PCalAssignmentLhsExtension(_) => !!! // shouldn't happen
               }
 
             def convertLhs(lhs: PCalAssignmentLhs): TLAExpression =
@@ -146,6 +151,7 @@ object MPCalPCalCodegenPass {
                     .setRefersTo(lhs.refersTo)
                 case PCalAssignmentLhsProjection(lhs, projections) =>
                   TLAFunctionCall(convertLhs(lhs), projections)
+                case PCalAssignmentLhsExtension(_) => !!! // shouldn't happen
               }
 
             val withReads@PCalAssignment(List(PCalAssignmentPair(lhs, rhs))) = updateReads(stmt)
@@ -159,6 +165,8 @@ object MPCalPCalCodegenPass {
                 val valueBind = PCalVariableDeclarationValue(TLAIdentifier(nameCleaner.cleanName("value")), rhs)
                 Some {
                   PCalWith(List(valueBind), mapping.writeBody.mapConserve(_.rewrite(Rewritable.BottomUpOnceStrategy) {
+                    case ident: TLAGeneralIdentifier if ident.refersTo eq mapping.selfDecl =>
+                      TLAGeneralIdentifier(TLAIdentifier("self"), Nil).setRefersTo(selfDecl)
                     case PCalAssignmentLhsExtension(MPCalDollarVariable()) =>
                       lhs
                     case TLAExtensionExpression(MPCalDollarValue()) =>
@@ -192,8 +200,8 @@ object MPCalPCalCodegenPass {
             ))
           case PCalExtensionStatement(MPCalCall(target, arguments)) =>
             ??? // TODO: correctly handle refs, that is, ensure that the mpcal procedure is instantiated correctly,
-          // and that substitutions are also applied correctly
-          // (substitutions will remove refs/function mappings, by design, but also breaking procedure signatures)
+            // and that substitutions are also applied correctly
+            // (substitutions will remove refs/function mappings, by design, but also breaking procedure signatures)
           case stmt => updateReads(stmt)
         }
         stmtSink(List(unwrappedStmt))
@@ -228,7 +236,7 @@ object MPCalPCalCodegenPass {
           generatedPCalProcesses += PCalProcess(
             selfDecl, fairness, variables.result(),
             archetype.body.view
-              .flatMap(applyMappingMacros(_)(mappingsMap = mappingsMap))
+              .flatMap(applyMappingMacros(_)(mappingsMap = mappingsMap, selfDecl = selfDecl))
               .map(applySubstitutions(_)(substitutions = substitutions)) // subs after mapping macros, to deal with many-to-one subs
               .toList
           ).setSourceLocation(instance.sourceLocation)
@@ -236,10 +244,10 @@ object MPCalPCalCodegenPass {
           instance // return the instance unchanged; we got what we came for
         case proc@PCalProcess(selfDecl, fairness, variables, body) =>
           proc.withChildren(Iterator(selfDecl, fairness, variables,
-            body.flatMap(applyMappingMacros(_)(mappingsMap = IdMap.empty))))
-        case proc@PCalProcedure(name, params, variables, body) =>
+            body.flatMap(applyMappingMacros(_)(mappingsMap = IdMap.empty, selfDecl = selfDecl))))
+        case proc@PCalProcedure(name, selfDecl, params, variables, body) =>
           proc.withChildren(Iterator(name, params, variables,
-            body.flatMap(applyMappingMacros(_)(mappingsMap = IdMap.empty))))
+            body.flatMap(applyMappingMacros(_)(mappingsMap = IdMap.empty, selfDecl = selfDecl))))
       }
 
       rewritten.copy(
@@ -267,6 +275,7 @@ object MPCalPCalCodegenPass {
           lhs match {
             case lhs: PCalAssignmentLhsIdentifier => lhs
             case PCalAssignmentLhsProjection(lhs, _) => findIdent(lhs)
+            case PCalAssignmentLhsExtension(_) => !!! // shouldn't happen
           }
 
         @tailrec
@@ -276,6 +285,7 @@ object MPCalPCalCodegenPass {
             case PCalAssignmentLhsProjection(lhs, projections) =>
               keysAcc += TLAFunctionSubstitutionKey(projections)
               findSubstitutionKeys(lhs, keysAcc)
+            case PCalAssignmentLhsExtension(_) => !!! // shouldn't happen
           }
 
         val ident = findIdent(lhs)
@@ -408,6 +418,7 @@ object MPCalPCalCodegenPass {
                       TLAGeneralIdentifier(liftedTo.identifier.asInstanceOf[Definition.ScopeIdentifierName].name, Nil).setRefersTo(liftedTo),
                     )))
                 } ::: tailStmts.mapConserve(performSubstitutions) // make sure call args get replaced, because they might use with-bound names that have changed
+              case Nil => !!! // taken care of by TailJumpStmts, but scalac doesn't know that
               case hd :: tl =>
                 val hdRewritten = performSubstitutions(hd)
                 hdRewritten match {

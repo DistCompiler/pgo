@@ -54,11 +54,10 @@ object MPCalBlock {
     ).setSourceLocation(pcalAlgorithm.sourceLocation)
 }
 
-final case class MPCalProcedure(name: TLAIdentifier, params: List[MPCalParam], variables: List[PCalPVariableDeclaration],
-                                body: List[PCalStatement]) extends MPCalNode with RefersTo.HasReferences
+final case class MPCalProcedure(name: TLAIdentifier, selfDecl: TLADefiningIdentifier, params: List[MPCalParam],
+                                variables: List[PCalPVariableDeclaration], body: List[PCalStatement]) extends MPCalNode with RefersTo.HasReferences
 
-final case class MPCalMappingMacro(name: TLAIdentifier, readBody: List[PCalStatement], writeBody: List[PCalStatement],
-                                   freeVars: List[TLADefiningIdentifier]) extends MPCalNode with RefersTo.HasReferences
+final case class MPCalMappingMacro(name: TLAIdentifier, selfDecl: TLADefiningIdentifier, readBody: List[PCalStatement], writeBody: List[PCalStatement]) extends MPCalNode with RefersTo.HasReferences
 
 final case class MPCalArchetype(name: TLAIdentifier, selfDecl: TLADefiningIdentifier, params: List[MPCalParam],
                                 variables: List[PCalVariableDeclaration], body: List[PCalStatement]) extends MPCalNode with RefersTo.HasReferences
