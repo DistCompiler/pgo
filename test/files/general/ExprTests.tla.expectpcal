@@ -22,8 +22,6 @@ Test2 == \A <<o0nT5iaxQ0CGr, a1FO5HvdyoLWp, uXXYnplomNiSbQyMwj71XmbnXjoqCn7xaeTF
     }
 }
 
-
-
 \* BEGIN PLUSCAL TRANSLATION
 --algorithm ExprTests {
   
@@ -36,7 +34,6 @@ Test2 == \A <<o0nT5iaxQ0CGr, a1FO5HvdyoLWp, uXXYnplomNiSbQyMwj71XmbnXjoqCn7xaeTF
 }
 
 \* END PLUSCAL TRANSLATION
-
 *)
 
 \* BEGIN TRANSLATION

@@ -201,8 +201,6 @@ ASSUME NUM_SERVERS > 0 /\ NUM_CLIENTS > 0
 
 
 
-
-
 \* BEGIN PLUSCAL TRANSLATION
 --algorithm proxy {
   variables network = [id \in NODE_SET, typ \in MSG_TYP_SET |-> [queue |-> <<>>, enabled |-> TRUE]]; fd = [id \in NODE_SET |-> FALSE];
@@ -402,7 +400,6 @@ ASSUME NUM_SERVERS > 0 /\ NUM_CLIENTS > 0
 }
 
 \* END PLUSCAL TRANSLATION
-
 
 
 ********************)

@@ -190,8 +190,6 @@ ASSUME NUM_SERVERS > 0 /\ NUM_CLIENTS > 0
         mapping network[_] via ReliableFIFOLink;
 }
 
-
-
 \* BEGIN PLUSCAL TRANSLATION
 --algorithm proxy_w_macro {
   variables network = [id \in NODE_SET, typ \in MSG_TYP_SET |-> [queue |-> <<>>, enabled |-> TRUE]]; fd = [id \in NODE_SET |-> FALSE];
@@ -391,7 +389,6 @@ ASSUME NUM_SERVERS > 0 /\ NUM_CLIENTS > 0
 }
 
 \* END PLUSCAL TRANSLATION
-
 
 ********************)
 \* BEGIN TRANSLATION (chksum(pcal) = "ba6cf426" /\ chksum(tla) = "3fa8c3b5")

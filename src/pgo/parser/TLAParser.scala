@@ -1,12 +1,9 @@
 package pgo.parser
 
-import pgo.model.{Definition, DefinitionOne, SourceLocatable, SourceLocation, SourceLocationWithUnderlying, Visitable}
+import pgo.model.{Definition, DefinitionOne, SourceLocatable, SourceLocation, SourceLocationWithUnderlying}
 import pgo.model.tla._
-import pgo.util.Description
-import pgo.model.Definition.ScopeIdentifierName
 import pgo.util.Description.DescriptionHelper
 
-import scala.collection.mutable
 import scala.util.parsing.combinator.RegexParsers
 
 

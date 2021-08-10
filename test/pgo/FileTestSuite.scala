@@ -16,17 +16,23 @@ trait FileTestSuite extends AnyFunSuite {
     val fileContents = os.read(testFile)
     final class ExpectedError(matchResult: MatchResult) {
       val offset: Int = locally {
+        // for very, very weird cases where you can't just put the comment in the right place (e.g the place is already
+        // in a comment), so you can instead bump the intended location around via [positive] character offset
+        val adjustment = matchResult.group(1) match {
+          case null => 0
+          case offsetStr => offsetStr.tail.toInt
+        }
         var offset: Int = matchResult.end()
-        while(Character.isWhitespace(fileContents.charAt(offset))) {
+        while(offset < fileContents.length && Character.isWhitespace(fileContents.charAt(offset))) {
           offset += 1
         }
-        offset
+        offset + adjustment
       }
-      val name: String = matchResult.group(1)
+      val name: String = matchResult.group(2)
     }
 
-    val parenError = Pattern.compile("\\(\\*::\\s+expectedError:\\s+(\\w+)\\s+\\*\\)")
-    val lineError = Pattern.compile("\\\\\\*::\\s+expectedError:\\s+(\\w+)\\s+")
+    val parenError = Pattern.compile("\\(\\*::\\s+expectedError(\\+\\d+)?:\\s+(\\w+)\\s*\\*\\)")
+    val lineError = Pattern.compile("\\\\\\*::\\s+expectedError(\\+\\d+)?:\\s+(\\w+)\\s*")
     val expectedErrors = locally {
       val resultsBuilder = mutable.ListBuffer[ExpectedError]()
       parenError.matcher(fileContents).results().forEachOrdered(res => resultsBuilder += new ExpectedError(res))
