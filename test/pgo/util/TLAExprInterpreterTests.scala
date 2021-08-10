@@ -6,7 +6,7 @@ import pgo.model.SourceLocation
 import pgo.model.tla.BuiltinModules
 import pgo.parser.TLAParser
 import pgo.trans.MPCalGoCodegenPass
-import pgo.util.TLAExprInterpreter.{TLAValue, TLAValueNumber}
+import pgo.util.TLAExprInterpreter.{TLAValue, TLAValueBool, TLAValueNumber}
 
 class TLAExprInterpreterTests extends AnyFunSuite {
   private lazy val builtinOps = BuiltinModules.builtinModules.values.view
@@ -40,4 +40,7 @@ class TLAExprInterpreterTests extends AnyFunSuite {
     s"""[foo |-> 1]["bar"]"""
   }
 
+  checkPass("existential avoids errors when a set is empty") {
+    s"""\\E <<w, zk>> \\in {"}nWO"}, juAOg \\in {} : w""" -> TLAValueBool(false)
+  }
 }
