@@ -643,8 +643,6 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
       mapping replicasNetwork[_] via FIFOChannel;
 }
 
-
-
 \* BEGIN PLUSCAL TRANSLATION
 --algorithm ReplicatedKV {
   variables replicasNetwork = [id \in ReplicaSet |-> <<>>]; allClients = (((GetSet) \union (PutSet)) \union (DisconnectSet)) \union (NullSet); clientMailboxes = [id \in allClients |-> <<>>]; cid = 0; out = 0; clocks = [c \in ClientSet |-> 0];
@@ -1022,7 +1020,6 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
 }
 
 \* END PLUSCAL TRANSLATION
-
 
 
 ***************************************************************************)

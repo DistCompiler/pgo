@@ -240,8 +240,6 @@ CONSTANT WEB_PAGE
       mapping network[_] via TCPChannel;
 }
 
-
-
 \* BEGIN PLUSCAL TRANSLATION
 --algorithm LoadBalancer {
   variables network = [id \in (0) .. ((NUM_NODES) - (1)) |-> <<>>]; in = 0; out = 0; fs = [f \in {in} |-> WEB_PAGE];
@@ -335,7 +333,6 @@ CONSTANT WEB_PAGE
 }
 
 \* END PLUSCAL TRANSLATION
-
 
 
 

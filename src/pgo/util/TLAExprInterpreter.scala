@@ -390,35 +390,50 @@ object TLAExprInterpreter {
             case TLAValueSet(set) => set // require all sets to be actual sets
           }.toList
 
+          // compute a configuration iterator of lists of set elements to consider, so that we don't end up evaluating _anything_ on any
+          // set elements until we know we should evaluate the body at least once (i.e if one set is empty, this
+          // iterator will also be empty)
+          val configurations: Iterator[List[TLAValue]] = locally {
+            @tailrec
+            def impl(boundValues: List[Set[TLAValue]], acc: Iterator[List[TLAValue]]): Iterator[List[TLAValue]] =
+              boundValues match {
+                case Nil => acc
+                case set :: restSets =>
+                  impl(restSets, acc.flatMap(config => set.iterator.map(config :+ _)))
+              }
+
+            if(boundValues.nonEmpty && boundValues.tail.nonEmpty) {
+              impl(boundValues.tail, boundValues.head.iterator.map(List(_)))
+            } else if(boundValues.nonEmpty) {
+              boundValues.head.iterator.map(List(_))
+            } else {
+              !!!
+            }
+          }
+
           // a function that slots in at the decision point, choosing exists or forall aggregation
-          val fn: (Set[TLAValue],TLAValue=>Boolean)=>Boolean = expr match {
+          val fn: (Iterator[List[TLAValue]],List[TLAValue]=>Boolean)=>Boolean = expr match {
             case TLAQuantifiedUniversal(_, _) => _.forall(_)
             case TLAQuantifiedExistential(_, _) => _.exists(_)
           }
 
-          def impl(bounds: List[TLAQuantifierBound], boundValues: List[Set[TLAValue]], envAcc: Map[RefersTo.HasReferences,TLAValue]): Boolean =
-            (bounds, boundValues) match {
-              case (Nil, Nil) =>
-                implicit val env: Map[RefersTo.HasReferences,TLAValue] = envAcc
-                interpret(body) match {
-                  case TLAValueBool(value) => value
-                }
-              case (TLAQuantifierBound(tpe, ids, _) :: restBounds, set :: restBoundValues) =>
+          TLAValueBool(fn(configurations, { args =>
+            val bindings = (bounds.iterator zip args).flatMap {
+              case (TLAQuantifierBound(tpe, ids, _), assignment) =>
                 tpe match {
-                  case TLAQuantifierBound.IdsType =>
-                    val List(id) = ids
-                    fn(set, v => impl(restBounds, restBoundValues, envAcc.updated(id, v)))
+                  case TLAQuantifierBound.IdsType => Some(ids.head -> assignment)
                   case TLAQuantifierBound.TupleType =>
-                    fn(set, {
+                    assignment match {
                       case TLAValueTuple(elems) =>
-                        require(ids.size == elems.size)
-                        impl(restBounds, restBoundValues, envAcc ++ (ids.view zip elems))
-                    })
+                        require(elems.size == ids.size)
+                        ids.iterator zip elems
+                    }
                 }
-              case _ => !!!
             }
-
-          TLAValueBool(impl(bounds, boundValues, env))
+            interpret(body)(env = env ++ bindings) match {
+              case TLAValueBool(truth) => truth
+            }
+          }))
         case TLASetConstructor(contents) =>
           TLAValueSet(contents.view.map(interpret).toSet)
         case TLASetRefinement(TLAQuantifierBound(tpe, ids, set), when) =>

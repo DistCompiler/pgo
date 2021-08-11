@@ -1,6 +1,5 @@
 package pgo
 
-import geny.Generator
 import org.rogach.scallop
 import org.rogach.scallop.{ScallopConf, ScallopOption, Subcommand, ValueConverter}
 import os.Path
@@ -8,14 +7,16 @@ import pgo.model.{PGoError, SourceLocation}
 import pgo.model.mpcal.MPCalBlock
 import pgo.model.pcal.PCalAlgorithm
 import pgo.model.tla.TLAModule
-import pgo.parser.{MPCalParser, PCalParser, TLAParser}
+import pgo.parser.{MPCalParser, PCalParser, ParseFailureError, ParsingUtils, TLAParser}
 import pgo.trans.{MPCalGoCodegenPass, MPCalNormalizePass, MPCalPCalCodegenPass, MPCalSemanticCheckPass, PCalRenderPass}
+import pgo.util.Description
 import pgo.util.Description._
 
 import java.io.RandomAccessFile
 import java.nio.channels.FileChannel
 import java.nio.charset.StandardCharsets
 import scala.util.Using
+import scala.util.parsing.combinator.RegexParsers
 
 object PGo {
   implicit val pathConverter: ValueConverter[Path] = scallop.singleArgConverter(os.Path(_, os.pwd))
@@ -89,6 +90,21 @@ object PGo {
     }.get
   }
 
+  sealed abstract class PCalWriteError extends PGoError with PGoError.Error {
+    override val errors: List[PGoError.Error] = List(this)
+  }
+  object PCalWriteError {
+    final case class PCalTagsError(err: ParseFailureError) extends PCalWriteError {
+      initCause(err)
+
+      override val sourceLocation: SourceLocation = err.sourceLocation
+      override val description: Description =
+        d"one or both of `\\* BEGIN PLUSCAL TRANSLATION` and `\\* END PLUSCAL TRANSLATION` not found, or not found in the correct order;\n" +
+          d"add these tags so that PGo knows where to put its generated PlusCal:\n" +
+          err.description.indented
+    }
+  }
+
   def run(args: Seq[String]): List[PGoError.Error] = {
     val config = new Config(args)
     try {
@@ -116,34 +132,63 @@ object PGo {
 
           val tempOutput = os.temp(dir = os.pwd)
           locally {
-            val PCalBeginTranslation = raw"""\s*\\\*\s+BEGIN\s+PLUSCAL\s+TRANSLATION\s*""".r
-            val PCalEndTranslation = raw"""\s*\\\*\s+END\s+PLUSCAL\s+TRANSLATION\s*""".r
+            /**
+             * A simple parser that splits ("chops") an MPCal-containing TLA+ file into 3 parts:
+             * - the bit before the PlusCal translation area
+             * - the PlusCal translation area (which is not returned)
+             * - the bit after the PlusCal translation area
+             *
+             * the before- and after- parts can be combined with a new PlusCal translation in order to insert a new
+             *  translation
+             */
+            object PCalChopParser extends RegexParsers with ParsingUtils {
+              override val skipWhitespace: Boolean = false // as usual, let us handle all the spacing explicitly
 
-            val renderedPCalIterator = Iterator("", "", "\\* BEGIN PLUSCAL TRANSLATION") ++
+              val ws: Parser[String] = raw"""(?!\n)\s+""".r
+              val pcalBeginTranslation: Parser[Unit] =
+                ((ws.? ~> "\\*" ~> ws ~> "BEGIN" ~> ws ~> "PLUSCAL" ~> ws ~> "TRANSLATION" ~> ws.? ~> "\n") ^^^ ())
+                  .withFailureMessage("`\\* BEGIN PLUSCAL TRANSLATION`, modulo whitespace, expected")
+              val pcalEndTranslation: Parser[Unit] =
+                ((ws.? ~> "\\*" ~> ws ~> "END" ~> ws ~> "PLUSCAL" ~> ws ~> "TRANSLATION" ~> ws.? ~> "\n") ^^^ ())
+                  .withFailureMessage("`\\* END PLUSCAL TRANSLATION`, modulo whitespace, expected")
+              val anyLine: Parser[String] = (rep(acceptIf(_ != '\n')(ch => s"'$ch' was a newline'")) <~ "\n").map(_.mkString)
+
+              val nonMarkerLine: Parser[String] = not(pcalBeginTranslation | pcalEndTranslation) ~> anyLine
+
+              val theChop: Parser[(List[String],List[String])] =
+                phrase {
+                  rep(nonMarkerLine) ~
+                    (pcalBeginTranslation ~> rep(nonMarkerLine) ~> pcalEndTranslation ~> (rep(nonMarkerLine) ~
+                      (not(pcalBeginTranslation | pcalEndTranslation) ~> rep1(acceptIf(_ != '\n')(ch => s"'$ch' was a newline")).map(_.mkString).?)))
+                } ^^ {
+                  case linesBefore ~ (linesAfter ~ lastLine) =>
+                    // note: lastLine accounts for cases where a file is not \n-terminated... which happens somewhat often, and
+                    //       confuses the line detection method used in anyLine, which relies on all lines having a trailing \n
+                    (linesBefore, linesAfter ++ lastLine)
+                }
+
+              def parseTheChop(file: os.Path): (List[String],List[String]) = {
+                val underlyingText = new SourceLocation.UnderlyingFile(file)
+                Using.Manager { use =>
+                  val reader = buildReader(charBufferFromFile(file, use), underlyingText)
+                  checkResult(theChop(reader))
+                }.get
+              }
+            }
+
+            val renderedPCalIterator = Iterator("\\* BEGIN PLUSCAL TRANSLATION") ++
               renderedPCal.linesIterator ++
-              Iterator("", "\\* END PLUSCAL TRANSLATION", "")
+              Iterator("", "\\* END PLUSCAL TRANSLATION")
 
-            var pcalBeginFound = false
-            var pcalEndFound = false
-
-            os.write.over(tempOutput, os.read.lines.stream(config.PCalGenCmd.specFile()).zipWithIndex.flatMap {
-              case (PCalBeginTranslation(), lineIdx) if !pcalBeginFound =>
-                assert(!pcalEndFound, s"at line ${lineIdx+1}, found `\\* END PLUSCAL TRANSLATION` comment before `\\* BEGIN PLUSCAL TRANSLATION`")
-                pcalBeginFound = true
-                Generator.from(renderedPCalIterator)
-              case (PCalEndTranslation(), lineIdx) =>
-                assert(!pcalEndFound, s"at line ${lineIdx+1}, found `\\* END PLUSCAL TRANSLATION` without corresponding previous `\\* BEGIN PLUSCAL TRANSLATION`")
-                pcalEndFound = true
-                Generator()
-              case _ if pcalBeginFound && !pcalEndFound =>
-                // skip all lines between begin and end of translation
-                Generator()
-              case (line, _) => Iterator(line)
-            }.map(line => s"$line\n"))
-
-            assert(pcalBeginFound && pcalEndFound,
-              s"""one or both of `\\* BEGIN PLUSCAL TRANSLATION` and `\\* END PLUSCAL TRANSLATION` not found;
-                 |add these tags so that PGo knows where to put its generated PlusCal""".stripMargin)
+            try {
+              os.write.over(tempOutput, PCalChopParser.parseTheChop(config.PCalGenCmd.specFile()) match {
+                case (beforeLines, afterLines) =>
+                  (beforeLines.iterator ++ renderedPCalIterator ++ afterLines.iterator)
+                    .flatMap(line => Iterator(line, "\n"))
+              })
+            } catch {
+              case err: ParseFailureError => throw PCalWriteError.PCalTagsError(err) // wrap error for UI; this is a special parse error
+            }
           }
 
           // move the rendered output over the spec file, replacing it
