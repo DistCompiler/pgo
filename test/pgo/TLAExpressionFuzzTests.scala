@@ -9,7 +9,7 @@ import pgo.model.tla._
 import pgo.trans.{MPCalGoCodegenPass, PCalRenderPass}
 import pgo.util.Description._
 import pgo.util.TLAExprInterpreter.TLAValue
-import pgo.util.{IdSet, TLAExprInterpreter}
+import pgo.util.{ById, TLAExprInterpreter}
 
 import scala.annotation.tailrec
 import scala.collection.mutable
@@ -132,7 +132,7 @@ class TLAExpressionFuzzTests extends AnyFunSuite with ScalaCheckPropertyChecks {
     }
   }
 
-  private def genFlatASTOptions(subExprs: List[TLAExpression])(implicit env: IdSet[DefinitionOne], anchorOpt: Option[TLAFunctionSubstitutionPairAnchor]): List[Gen[TLAExpression]] = {
+  private def genFlatASTOptions(subExprs: List[TLAExpression])(implicit env: Set[ById[DefinitionOne]], anchorOpt: Option[TLAFunctionSubstitutionPairAnchor]): List[Gen[TLAExpression]] = {
     sealed abstract class GenProvider {
       def genIterator: Iterator[Gen[TLAExpression]]
     }
@@ -147,7 +147,7 @@ class TLAExpressionFuzzTests extends AnyFunSuite with ScalaCheckPropertyChecks {
 
     val builtinOps = BuiltinModules.builtinModules.values.view
       .flatMap(_.members)
-      .filter(op => !MPCalGoCodegenPass.unsupportedOperators(op))
+      .filter(op => !MPCalGoCodegenPass.unsupportedOperators(ById(op)))
       .toList
 
     val cases: Iterator[PartialFunction[List[TLAExpression],GenProvider]] = Iterator(
@@ -156,12 +156,13 @@ class TLAExpressionFuzzTests extends AnyFunSuite with ScalaCheckPropertyChecks {
       } yield TLANumber(TLANumber.IntValue(num), TLANumber.DecimalSyntax)
       },
       { case Nil => Gen.asciiPrintableStr.map(TLAString) }, // TODO: consider nonsense w/ unprintable ASCII
-      { case Nil if env.exists(_.arity == 0) =>
+      { case Nil if env.exists(_.ref.arity == 0) =>
         env.view
-          .filter(_.arity == 0)
-          .map { defn =>
-            TLAGeneralIdentifier(defn.identifier.asInstanceOf[ScopeIdentifierName].name, Nil)
-              .setRefersTo(defn)
+          .filter(_.ref.arity == 0)
+          .map {
+            case ById(defn) =>
+              TLAGeneralIdentifier(defn.identifier.asInstanceOf[ScopeIdentifierName].name, Nil)
+                .setRefersTo(defn)
           } : Iterable[Gen[TLAExpression]]
       },
       { case Nil =>
@@ -177,9 +178,9 @@ class TLAExpressionFuzzTests extends AnyFunSuite with ScalaCheckPropertyChecks {
           ident <- Gen.identifier
         } yield TLADot(expr, TLAIdentifier(ident))
       },
-      { case subExprs: List[TLAExpression] if subExprs.nonEmpty && env.exists(_.arity == subExprs.size) =>
-        env.view.filter(_.arity == subExprs.size).map { defn =>
-          Gen.const(TLAOperatorCall(defn.identifier, Nil, subExprs).setRefersTo(defn))
+      { case subExprs: List[TLAExpression] if subExprs.nonEmpty && env.exists(_.ref.arity == subExprs.size) =>
+        env.view.filter(_.ref.arity == subExprs.size).map {
+          case ById(defn) => Gen.const(TLAOperatorCall(defn.identifier, Nil, subExprs).setRefersTo(defn))
         }
       },
       { case subExprs: List[TLAExpression] if subExprs.nonEmpty =>
@@ -250,17 +251,17 @@ class TLAExpressionFuzzTests extends AnyFunSuite with ScalaCheckPropertyChecks {
       .toList
   }
 
-  def genNamedASTOptions(breadth: Int, makeExpr: (IdSet[DefinitionOne],Option[TLAFunctionSubstitutionPairAnchor])=>Gen[TLAExpression])(implicit env: IdSet[DefinitionOne], anchorOpt: Option[TLAFunctionSubstitutionPairAnchor]): List[Gen[TLAExpression]] = {
+  def genNamedASTOptions(breadth: Int, makeExpr: (Set[ById[DefinitionOne]],Option[TLAFunctionSubstitutionPairAnchor])=>Gen[TLAExpression])(implicit env: Set[ById[DefinitionOne]], anchorOpt: Option[TLAFunctionSubstitutionPairAnchor]): List[Gen[TLAExpression]] = {
     val options = mutable.ListBuffer[Gen[TLAExpression]]()
 
-    def cleanIdentifier(implicit env: IdSet[DefinitionOne]): Gen[String] = {
+    def cleanIdentifier(implicit env: Set[ById[DefinitionOne]]): Gen[String] = {
       // make scanning for names a tiny bit less painful... this still has bad big-O though, because this will run
       // at any point along a recursion. luckily, we don't get that deep when fuzzing only 100 cases... probably
-      val envNames = env.view.map(_.identifier.asInstanceOf[ScopeIdentifierName].name.id).toSet
+      val envNames = env.view.map(_.ref.identifier.asInstanceOf[ScopeIdentifierName].name.id).toSet
       Gen.identifier.filterNot(envNames)
     }
 
-    def genQuantifierBound(implicit env: IdSet[DefinitionOne], anchorOpt: Option[TLAFunctionSubstitutionPairAnchor]): Gen[TLAQuantifierBound] =
+    def genQuantifierBound(implicit env: Set[ById[DefinitionOne]], anchorOpt: Option[TLAFunctionSubstitutionPairAnchor]): Gen[TLAQuantifierBound] =
       for {
         tpe <- Gen.oneOf(TLAQuantifierBound.IdsType, TLAQuantifierBound.TupleType)
         ids <- tpe match {
@@ -271,7 +272,7 @@ class TLAExpressionFuzzTests extends AnyFunSuite with ScalaCheckPropertyChecks {
       } yield TLAQuantifierBound(tpe, ids, set)
 
     if(breadth >= 2) {
-      def impl(count: Int, acc: List[TLAUnit])(implicit env: IdSet[DefinitionOne], anchorOpt: Option[TLAFunctionSubstitutionPairAnchor]): Gen[TLAExpression] = {
+      def impl(count: Int, acc: List[TLAUnit])(implicit env: Set[ById[DefinitionOne]], anchorOpt: Option[TLAFunctionSubstitutionPairAnchor]): Gen[TLAExpression] = {
         assert(count >= 1)
         if (count == 1) {
           makeExpr(env, anchorOpt).map { body =>
@@ -282,9 +283,9 @@ class TLAExpressionFuzzTests extends AnyFunSuite with ScalaCheckPropertyChecks {
             name <- cleanIdentifier.map(TLAIdentifier)
             // TODO: consider more complex argument shapes? this is just plain single names, for now
             idents <- Gen.listOf(cleanIdentifier.map(name => TLAOpDecl(TLAOpDecl.NamedVariant(TLAIdentifier(name), 0))))
-            body <- makeExpr(env ++ idents, anchorOpt)
+            body <- makeExpr(env ++ idents.iterator.map(ById(_)), anchorOpt)
             defn = TLAOperatorDefinition(ScopeIdentifierName(name), idents, body, isLocal = false)
-            result <- impl(count - 1, defn :: acc)(env = env ++ defn.singleDefinitions, anchorOpt = anchorOpt)
+            result <- impl(count - 1, defn :: acc)(env = env ++ defn.singleDefinitions.map(ById(_)), anchorOpt = anchorOpt)
           } yield result
         }
       }
@@ -293,7 +294,7 @@ class TLAExpressionFuzzTests extends AnyFunSuite with ScalaCheckPropertyChecks {
 
       options += (for {
         qbs <- Gen.listOfN(breadth - 1, genQuantifierBound)
-        body <- makeExpr(env ++ qbs.view.flatMap(_.singleDefinitions), anchorOpt)
+        body <- makeExpr(env ++ qbs.view.flatMap(_.singleDefinitions).map(ById(_)), anchorOpt)
       } yield TLAFunction(qbs, body))
     }
 
@@ -320,21 +321,21 @@ class TLAExpressionFuzzTests extends AnyFunSuite with ScalaCheckPropertyChecks {
       options += (for {
         constructor <- Gen.oneOf(TLAQuantifiedExistential, TLAQuantifiedUniversal)
         bounds <- Gen.listOfN(breadth - 1, genQuantifierBound)
-        body <- makeExpr(env ++ bounds.view.flatMap(_.singleDefinitions), anchorOpt)
+        body <- makeExpr(env ++ bounds.view.flatMap(_.singleDefinitions).map(ById(_)), anchorOpt)
       } yield constructor(bounds, body))
     }
 
     if(breadth == 2) {
       options += (for {
         binding <- genQuantifierBound
-        when <- makeExpr(env ++ binding.singleDefinitions, anchorOpt)
+        when <- makeExpr(env ++ binding.singleDefinitions.map(ById(_)), anchorOpt)
       } yield TLASetRefinement(binding, when))
     }
 
     if(breadth >= 2) {
       options += (for {
         bounds <- Gen.listOfN(breadth - 1, genQuantifierBound)
-        body <- makeExpr(env ++ bounds.view.flatMap(_.singleDefinitions), anchorOpt)
+        body <- makeExpr(env ++ bounds.view.flatMap(_.singleDefinitions).map(ById(_)), anchorOpt)
       } yield TLASetComprehension(body, bounds))
     }
 
@@ -352,7 +353,7 @@ class TLAExpressionFuzzTests extends AnyFunSuite with ScalaCheckPropertyChecks {
   }
 
   lazy val trueRandomExprGen: Gen[TLAExpression] = {
-    def impl(size: Int)(implicit env: IdSet[DefinitionOne], anchorOpt: Option[TLAFunctionSubstitutionPairAnchor]): Gen[TLAExpression] =
+    def impl(size: Int)(implicit env: Set[ById[DefinitionOne]], anchorOpt: Option[TLAFunctionSubstitutionPairAnchor]): Gen[TLAExpression] =
       for {
         breadth <- Gen.oneOf(0 to size)
         expr <- locally {
@@ -371,7 +372,7 @@ class TLAExpressionFuzzTests extends AnyFunSuite with ScalaCheckPropertyChecks {
         }
       } yield expr
 
-    Gen.sized(size => impl(size)(IdSet.empty, None))
+    Gen.sized(size => impl(size)(Set.empty, None))
   }
 
 }

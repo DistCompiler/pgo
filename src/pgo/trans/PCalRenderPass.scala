@@ -30,6 +30,7 @@ object PCalRenderPass {
     expr match {
       case TLAExtensionExpression(MPCalDollarVariable()) => d"$$variable"
       case TLAExtensionExpression(MPCalDollarValue()) => d"$$value"
+      case TLAExtensionExpression(MPCalRefExpr(name, count)) => d"ref ${name.id}${View.fill(count)(d"[_]")}"
       case TLAString(value) =>
         d""""${
           value.flatMap {
@@ -364,10 +365,10 @@ object PCalRenderPass {
           }) {${
             describeStatements(body).indented
           }\n}"
-      }.flattenDescriptions
+      }.flattenDescriptions.indented
     }${
       procedures.view.map {
-        case PCalProcedure(name, params, variables, body) =>
+        case PCalProcedure(name, _, params, variables, body) =>
           d"\n\nprocedure ${name.id}(${
             params.view.map {
               case PCalPVariableDeclaration(name, value) =>
@@ -375,17 +376,17 @@ object PCalRenderPass {
             }.separateBy(d", ")
           })${
             if(variables.nonEmpty) {
-              d"variables${
+              d"\nvariables${
                 variables.view.map {
                   case PCalPVariableDeclaration(name, value) =>
-                    d" ${name.id}${value.map(v => d" = ${describeExpr(v)};").getOrElse(d"")}"
+                    d" ${name.id}${value.map(v => d" = ${describeExpr(v)}").getOrElse(d"")};"
                 }.flattenDescriptions
-              }"
+              }".indented
             } else d""
           }\n{${
             describeStatements(body).indented
           }\n}"
-      }.flattenDescriptions
+      }.flattenDescriptions.indented
     }${
       processes match {
         case Left(statements) =>

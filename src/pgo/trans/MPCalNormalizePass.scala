@@ -4,7 +4,7 @@ import pgo.model.{DerivedSourceLocation, PGoError, Rewritable, SourceLocationInt
 import pgo.model.mpcal._
 import pgo.model.pcal._
 import pgo.model.tla._
-import pgo.util.{Description, IdMap, MPCalPassUtils, NameCleaner}
+import pgo.util.{ById, Description, MPCalPassUtils, NameCleaner}
 import Description._
 import pgo.util.Unreachable.!!!
 
@@ -33,15 +33,9 @@ object MPCalNormalizePass {
     block = locally {
       val containsLabels = MPCalPassUtils.gatherContainsLabels(block)
 
-      MPCalPassUtils.rewriteEachBody(block) { (body, _) =>
-        val labelCleaner = new NameCleaner
-        body.foreach { stmt =>
-          stmt.visit(Visitable.BottomUpFirstStrategy) {
-            case PCalLabeledStatements(label, _) =>
-              labelCleaner.addKnownName(label.name)
-          }
-        }
-
+      // labelAfter will be used as target for any synthetic jumps inserted when control flow would otherwise "run off the end"
+      //   this varies depending on whether we're in a procedure or process (Done and Error, respectively)
+      def rewriteBody(body: List[PCalStatement], labelAfter: PCalLabel): List[PCalStatement] = {
         def findLabelAfter(restStmts: List[PCalStatement], labelAfter: Option[PCalLabel]): Option[PCalLabel] =
           restStmts match {
             case Nil => labelAfter
@@ -88,8 +82,9 @@ object MPCalNormalizePass {
             def unapply(stmts: List[PCalStatement]): Option[(List[PCalStatement],List[PCalStatement])] =
               stmts match {
                 case (goto: PCalGoto) :: restBlocks => Some((List(goto), restBlocks))
-                case (ifStmt: PCalIf) :: restBlocks if containsLabels(ifStmt) => Some((List(ifStmt), restBlocks))
-                case (either: PCalEither) :: restBlocks if containsLabels(either) => Some((List(either), restBlocks))
+                case (ret: PCalReturn) :: restBlocks => Some((List(ret), restBlocks))
+                case (ifStmt: PCalIf) :: restBlocks if containsLabels(ById(ifStmt)) => Some((List(ifStmt), restBlocks))
+                case (either: PCalEither) :: restBlocks if containsLabels(ById(either)) => Some((List(either), restBlocks))
 
                 case (call: PCalCall) :: (ret: PCalReturn) :: restBlocks => Some((List(call, ret), restBlocks))
                 case (call: PCalCall) :: (goto: PCalGoto) :: restBlocks => Some((List(call, goto), restBlocks))
@@ -136,13 +131,26 @@ object MPCalNormalizePass {
         body match {
           case PCalLabeledStatements(_, _) :: _ =>
             assert(body.forall(_.isInstanceOf[PCalLabeledStatements]))
-            // add a dummy label "Done", which is valid, in that it jumps to end-of-program, as the "last" critical section should
-            transBlocks(body.asInstanceOf[List[PCalLabeledStatements]], Some(PCalLabel("Done", PCalLabel.NoModifier)), Iterator.empty).toList
+            transBlocks(body.asInstanceOf[List[PCalLabeledStatements]], Some(labelAfter), Iterator.empty).toList
           case _ =>
-            assert(body.forall(!containsLabels(_)))
+            assert(body.forall(stmt => !containsLabels(ById(stmt))))
             body
         }
+      }
 
+      block.rewrite(Rewritable.TopDownFirstStrategy) {
+        case proc@MPCalProcedure(name, selfDecl, params, variables, body) =>
+          proc.withChildren(Iterator(name, selfDecl, params, variables,
+            rewriteBody(body, PCalLabel("Error", PCalLabel.NoModifier))))
+        case arch@MPCalArchetype(name, selfDecl, params, variables, body) =>
+          arch.withChildren(Iterator(name, selfDecl, params, variables,
+            rewriteBody(body, PCalLabel("Done", PCalLabel.NoModifier))))
+        case proc@PCalProcedure(name, selfDecl, params, variables, body) =>
+          proc.withChildren(Iterator(name, selfDecl, params, variables,
+            rewriteBody(body, PCalLabel("Error", PCalLabel.NoModifier))))
+        case proc@PCalProcess(selfDecl, fairness, variables, body) =>
+          proc.withChildren(Iterator(selfDecl, fairness, variables,
+            rewriteBody(body, PCalLabel("Done", PCalLabel.NoModifier))))
       }
     }
 
@@ -173,13 +181,13 @@ object MPCalNormalizePass {
               .setSourceLocation(pair.sourceLocation.derivedVia(d"multiple-assignment desugaring"))
             (lhsIdent.refersTo, decl)
         }
-        val refMap = bindings.to(IdMap)
+        val refMap = bindings.to(ById.mapFactory)
         PCalWith(bindings.map(_._2), pairs.map {
           case pair @PCalAssignmentPair(lhs, rhs) =>
             def applyRenamings[T <: Rewritable](rewritable: T): T =
               rewritable.rewrite(Rewritable.BottomUpOnceStrategy) {
-                case ident: TLAGeneralIdentifier if refMap.contains(ident.refersTo) =>
-                  val defn = refMap(ident.refersTo)
+                case ident: TLAGeneralIdentifier if refMap.contains(ById(ident.refersTo)) =>
+                  val defn = refMap(ById(ident.refersTo))
                   val loc = ident.sourceLocation.derivedVia(d"multiple-assignment desugaring")
                   TLAGeneralIdentifier(defn.name.shallowCopy().setSourceLocation(loc), Nil)
                     .setSourceLocation(loc)

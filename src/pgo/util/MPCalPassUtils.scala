@@ -161,8 +161,8 @@ object MPCalPassUtils {
       case stmt => List(stmt)
     }
 
-  def gatherContainsLabels(mpcalBlock: MPCalBlock): IdSet[PCalStatement] = {
-    var containsLabels = IdSet.empty[PCalStatement]
+  def gatherContainsLabels(mpcalBlock: MPCalBlock): Set[ById[PCalStatement]] = {
+    var containsLabels = Set.empty[ById[PCalStatement]]
     def gatherContainsLabels(stmt: PCalStatement): Boolean = {
       // note: the seemingly over-engineered map+reduce ensures all sub-statements are reached,
       //   vs. a more concise but short-circuiting .exists(...)
@@ -179,7 +179,7 @@ object MPCalPassUtils {
         case _ => false
       }
       if(result) {
-        containsLabels += stmt
+        containsLabels += ById(stmt)
       }
       result
     }

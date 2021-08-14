@@ -284,7 +284,7 @@ object MPCalParser extends MPCalParser with ParsingUtils {
     result.visit(Visitable.BottomUpFirstStrategy) {
       case loc: SourceLocatable => assert(loc.sourceLocation.isInstanceOf[SourceLocationWithUnderlying], s"internal error: did not have source location: $loc")
     }
-    // ensure no dandling ref or [_] are left in random expressions
+    // ensure no dangling ref or [_] are left in random expressions
     result.visit(Visitable.BottomUpFirstStrategy) {
       case TLAExtensionExpression(pExp: MPCalRefExpr) =>
         assert(false, s"ref or [_] found in wrong expression context: these syntaxes may only be used directly as arguments to an MPCal procedure call: ${pExp.sourceLocation}")

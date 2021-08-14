@@ -13,7 +13,7 @@ import scala.collection.immutable.HashSet
 class TLAExprInterpreterTests extends AnyFunSuite {
   private lazy val builtinOps = BuiltinModules.builtinModules.values.view
     .flatMap(_.members)
-    .filter(op => !MPCalGoCodegenPass.unsupportedOperators(op))
+    .filter(op => !MPCalGoCodegenPass.unsupportedOperators(ById(op)))
     .toList
 
   def checkPass(name: String)(pair: (String,TLAValue))(implicit pos: Position): Unit = {

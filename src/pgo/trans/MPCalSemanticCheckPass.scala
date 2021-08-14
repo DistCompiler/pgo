@@ -4,7 +4,7 @@ import pgo.model.{DefinitionOne, PGoError, RefersTo, SourceLocatable, SourceLoca
 import pgo.model.mpcal._
 import pgo.model.pcal._
 import pgo.model.tla._
-import pgo.util.{Description, IdMap, IdSet, MPCalPassUtils}
+import pgo.util.{ById, Description, MPCalPassUtils}
 import Description._
 import pgo.trans.MPCalSemanticCheckPass.SemanticError.PCalInvalidAssignment
 import pgo.util.Unreachable.!!!
@@ -138,10 +138,10 @@ object MPCalSemanticCheckPass {
 
     // !!!! beyond this point, macros will already be expanded if possible, and their contents may be ignored !!!!
 
-    val containsLabels: IdSet[PCalStatement] = MPCalPassUtils.gatherContainsLabels(block)
+    val containsLabels: Set[ById[PCalStatement]] = MPCalPassUtils.gatherContainsLabels(block)
 
-    val tailStatements: IdMap[PCalStatement,Vector[PCalStatement]] = locally {
-      var tailStatements = IdMap.empty[PCalStatement,Vector[PCalStatement]]
+    val tailStatements: Map[ById[PCalStatement],Vector[PCalStatement]] = locally {
+      var tailStatements = Map.empty[ById[PCalStatement],Vector[PCalStatement]]
 
       def gatherTailStatements(stmt: PCalStatement): Vector[PCalStatement] = {
         val result: Vector[PCalStatement] = stmt +: (stmt match {
@@ -159,7 +159,7 @@ object MPCalSemanticCheckPass {
             body.view.map(gatherTailStatements).lastOption.getOrElse(Vector.empty)
           case _ => Vector.empty
         })
-        tailStatements = tailStatements.updated(stmt, result)
+        tailStatements = tailStatements.updated(ById(stmt), result)
         result
       }
 
@@ -200,9 +200,9 @@ object MPCalSemanticCheckPass {
             case (beforeStmt, notLabel) =>
 
               val labelNeedingStatementComesBefore =
-                tailStatements(beforeStmt).exists {
-                  case ifStmt: PCalIf => containsLabels(ifStmt)
-                  case eitherStmt: PCalEither => containsLabels(eitherStmt)
+                tailStatements(ById(beforeStmt)).exists {
+                  case ifStmt: PCalIf => containsLabels(ById(ifStmt))
+                  case eitherStmt: PCalEither => containsLabels(ById(eitherStmt))
                   case _: PCalReturn => true
                   case _: PCalGoto => true
                   case _: PCalCall => !supportsTailCall(notLabel)
@@ -310,7 +310,7 @@ object MPCalSemanticCheckPass {
     // enforce kind-matching for MPCal params (ref vs. non-ref, number of mappings)
     locally {
       def checkMPCalParamRefs(body: List[PCalStatement], params: List[MPCalParam]): Unit = {
-        val paramsMap = params.view.map(p => (p: DefinitionOne) -> p).to(IdMap)
+        val paramsMap = params.view.map(p => (p: DefinitionOne) -> p).to(ById.mapFactory)
         body.foreach { stmt =>
           lazy val impl: PartialFunction[Visitable,Unit] = {
             case PCalAssignmentPair(lhs, rhs) =>
@@ -345,7 +345,7 @@ object MPCalSemanticCheckPass {
                 }
               }
             case ref@MPCalRefExpr(_, mappingCount) =>
-              paramsMap.get(ref.refersTo).map {
+              paramsMap.get(ById(ref.refersTo)).map {
                 case defn @ MPCalRefParam(_, mappingCountP) =>
                   if(mappingCountP > mappingCount) {
                     errors += SemanticError.MPCalKindMismatchError(usage = ref, defn = defn)
@@ -360,7 +360,7 @@ object MPCalSemanticCheckPass {
                   case _ => !!! // all defns should be SourceLocatable
                 }
               }
-            case expr@MPCalPassUtils.MappedRead(mappingCount, ident) if (paramsMap.get(ident.refersTo) match {
+            case expr@MPCalPassUtils.MappedRead(mappingCount, ident) if (paramsMap.get(ById(ident.refersTo)) match {
               case Some(MPCalRefParam(_, mappingCountP)) => mappingCount >= mappingCountP
               case Some(MPCalValParam(_)) => true // it's a value, anything goes
               case _ => false
@@ -380,8 +380,8 @@ object MPCalSemanticCheckPass {
                 }
 
               checkMappingArgs(expr)
-            case ref: RefersTo[DefinitionOne@unchecked] with SourceLocatable if ref.refersTo.isInstanceOf[DefinitionOne] && paramsMap.contains(ref.refersTo) =>
-              errors += SemanticError.MPCalKindMismatchError(usage = ref, defn = paramsMap(ref.refersTo))
+            case ref: RefersTo[DefinitionOne@unchecked] with SourceLocatable if ref.refersTo.isInstanceOf[DefinitionOne] && paramsMap.contains(ById(ref.refersTo)) =>
+              errors += SemanticError.MPCalKindMismatchError(usage = ref, defn = paramsMap(ById(ref.refersTo)))
           }
 
           stmt.visit(Visitable.TopDownFirstStrategy)(impl)
@@ -468,15 +468,15 @@ object MPCalSemanticCheckPass {
     // strategy: capture all these things, then look for assignments to things that are not them
     locally {
       // gather all the assignable things
-      val assignableThings: IdSet[DefinitionOne] = {
-        var assignableThingsAcc: IdSet[DefinitionOne] = IdSet.empty
+      val assignableThings: Set[ById[DefinitionOne]] = {
+        var assignableThingsAcc: Set[ById[DefinitionOne]] = Set.empty
         block.visit(Visitable.TopDownFirstStrategy) {
-          case arch: MPCalArchetype => assignableThingsAcc ++= arch.params ++ arch.variables
-          case proc: MPCalProcedure => assignableThingsAcc ++= proc.params ++ proc.variables
-          case proc: PCalProcedure => assignableThingsAcc ++= proc.params ++ proc.variables
-          case proc: PCalProcess => assignableThingsAcc ++= proc.selfDecl +: proc.variables
+          case arch: MPCalArchetype => assignableThingsAcc ++= (arch.params.iterator ++ arch.variables).map(ById(_))
+          case proc: MPCalProcedure => assignableThingsAcc ++= (proc.params.iterator ++ proc.variables).map(ById(_))
+          case proc: PCalProcedure => assignableThingsAcc ++= (proc.params.iterator ++ proc.variables).map(ById(_))
+          case proc: PCalProcess => assignableThingsAcc ++= (Iterator.single(proc.selfDecl) ++ proc.variables).map(ById(_))
         }
-        assignableThingsAcc ++= block.variables
+        assignableThingsAcc ++= block.variables.iterator.map(ById(_))
         assignableThingsAcc
       }
 
@@ -496,7 +496,7 @@ object MPCalSemanticCheckPass {
             }
 
           findRef(lhs).foreach { ref =>
-            if(!assignableThings(ref.refersTo)) {
+            if(!assignableThings(ById(ref.refersTo))) {
               errors += PCalInvalidAssignment(ref)
             }
           }

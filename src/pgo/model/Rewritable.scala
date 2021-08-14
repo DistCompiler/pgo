@@ -1,6 +1,6 @@
 package pgo.model
 
-import pgo.util.IdMap
+import pgo.util.ById
 
 import java.lang.reflect.Constructor
 import scala.annotation.tailrec
@@ -43,15 +43,19 @@ trait Rewritable extends Visitable {
   def decorateLike(succ: this.type): this.type = succ
 
   def mapChildren(fn: Any => Any): this.type = {
+    def findRenamings(before: Rewritable, after: Rewritable): Iterator[(RefersTo.HasReferences,RefersTo.HasReferences)] =
+      (before.namedParts zip after.namedParts)
+        .filter(p => p._1 ne p._2)
+
     @tailrec
-    def applyRenamings(self: Rewritable, rewrittenSelf: Rewritable, existingRenamings: IdMap[RefersTo.HasReferences,RefersTo.HasReferences]): Rewritable = {
-      val newRenamings = (self.namedParts zip rewrittenSelf.namedParts).filter(p => (p._1 ne p._2) && !existingRenamings.contains(p._1)).to(IdMap)
+    def applyRenamings(self: Rewritable, rewrittenSelf: Rewritable, alreadyRenamed: Set[ById[RefersTo.HasReferences]]): Rewritable = {
       def applyAllRenamings: Rewritable = {
-        val allRenamings = existingRenamings ++ newRenamings
+        val allRenamings = findRenamings(self, rewrittenSelf).to(ById.mapFactory)
+
         Visitable.BottomUpFirstStrategy.execute(rewrittenSelf, {
-          case ref: RefersTo[RefersTo.HasReferences] @unchecked if allRenamings.contains(ref.refersTo) =>
+          case ref: RefersTo[RefersTo.HasReferences] @unchecked if allRenamings.contains(ById(ref.refersTo)) =>
             def findTarget(target: RefersTo.HasReferences): RefersTo.HasReferences =
-              allRenamings.get(target) match {
+              allRenamings.get(ById(target)) match {
                 case Some(target) => target
                 case None => target
               }
@@ -62,17 +66,23 @@ trait Rewritable extends Visitable {
         rewrittenSelf
       }
 
-      if(newRenamings.isEmpty) {
+      val newRenamed = findRenamings(self, rewrittenSelf)
+        .map(_._1)
+        .map(ById(_))
+        .filter(!alreadyRenamed(_))
+        .toSet
+
+      if(newRenamed.isEmpty) {
         applyAllRenamings
       } else {
         val withDups = rewrittenSelf.withChildren(rewrittenSelf.productIterator.map { elem =>
           Rewritable.BottomUpOnceStrategy.execute(elem, {
-            case ref: RefersTo[_] if newRenamings.contains(ref.refersTo) => ref.shallowCopy()
+            case ref: RefersTo[_] if newRenamed(ById(ref.refersTo)) => ref.shallowCopy()
             case other => other
           })
         })
         if(withDups ne rewrittenSelf) {
-          applyRenamings(self, withDups, existingRenamings ++ newRenamings)
+          applyRenamings(self, withDups, alreadyRenamed ++ newRenamed)
         } else {
           applyAllRenamings
         }
@@ -81,7 +91,7 @@ trait Rewritable extends Visitable {
 
     val result = withChildren(productIterator.map(fn))
     if(this ne result) {
-      applyRenamings(this, result, IdMap.empty).asInstanceOf[this.type]
+      applyRenamings(this, result, Set.empty).asInstanceOf[this.type]
     } else {
       this
     }
