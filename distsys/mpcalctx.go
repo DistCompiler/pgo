@@ -3,11 +3,16 @@ package distsys
 import (
 	"errors"
 	"fmt"
+	"log"
+
 	"github.com/benbjohnson/immutable"
 )
 
+// ErrAssertionFailed it will be returned by the generated code if an assertion fails.
 var ErrAssertionFailed = errors.New("assertion failed")
 
+// ErrCriticalSectionAborted it may be returned by any resource operations that can return an error. If it is returned
+// the critical section that was performing that operation will be rolled back and canceled.
 var ErrCriticalSectionAborted = errors.New("MPCal critical section aborted")
 
 // ArchetypeResourceHandle encapsulates a reference to an ArchetypeResource.
@@ -167,8 +172,10 @@ func (ctx *MPCalContext) Commit() (err error) {
 	// dispatch all parts of the pre-commit phase asynchronously, so we only wait as long as the slowest resource
 	var nonTrivialPreCommits []chan error
 	for _, resHandle := range ctx.dirtyResourceHandles {
+		log.Printf("-- precommit: %v", resHandle)
 		ch := ctx.getResourceByHandle(resHandle).PreCommit()
 		if ch != nil {
+			log.Println("non-trivial pre-commit from", resHandle)
 			nonTrivialPreCommits = append(nonTrivialPreCommits, ch)
 		}
 	}
@@ -187,7 +194,7 @@ func (ctx *MPCalContext) Commit() (err error) {
 	// same as above, run all the commit processes async
 	var nonTrivialCommits []chan struct{}
 	for _, resHandle := range ctx.dirtyResourceHandles {
-		//fmt.Printf("-- commit: %v\n", resHandle)
+		log.Printf("-- commit: %v", resHandle)
 		ch := ctx.getResourceByHandle(resHandle).Commit()
 		if ch != nil {
 			nonTrivialCommits = append(nonTrivialCommits, ch)

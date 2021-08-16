@@ -3,6 +3,7 @@ package resources
 import (
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/benbjohnson/immutable"
+	"log"
 )
 
 // A generic map resource, with hooks to programmatically realize child resources during execution
@@ -53,9 +54,10 @@ func (res *IncrementalArchetypeMapResource) PreCommit() chan error {
 	var nonTrivialOps []chan error
 	it := res.realizedMap.Iterator()
 	for !it.Done() {
-		_, r := it.Next()
+		idx, r := it.Next()
 		ch := r.(distsys.ArchetypeResource).PreCommit()
 		if ch != nil {
+			log.Println("non-trivial incmap pre-commit from index", idx.(distsys.TLAValue))
 			nonTrivialOps = append(nonTrivialOps, ch)
 		}
 	}
