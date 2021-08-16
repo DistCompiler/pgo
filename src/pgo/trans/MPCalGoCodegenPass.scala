@@ -321,7 +321,7 @@ object MPCalGoCodegenPass {
             case either@PCalEither(cases) =>
               ctx.cleanName(s"fairnessCounterCurrent") { fairnessCounterCurrent =>
                 d"\n$fairnessCounterCurrent := ${fairnessCounterNames(either)}" +
-                  d"\n${fairnessCounterNames(either)} = ${fairnessCounterNames(either)} + 1 % ${cases.size}" +
+                  d"\n${fairnessCounterNames(either)} = (${fairnessCounterNames(either)} + 1) % ${cases.size}" +
                   d"\nswitch $fairnessCounterCurrent {${
                     cases.view.zipWithIndex.map {
                       case (body, idx) =>
