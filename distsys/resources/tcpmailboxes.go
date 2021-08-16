@@ -3,10 +3,11 @@ package resources
 import (
 	"encoding/gob"
 	"fmt"
-	"github.com/UBC-NSS/pgo/distsys"
-	"io"
+	"log"
 	"net"
 	"time"
+
+	"github.com/UBC-NSS/pgo/distsys"
 )
 
 // Mailboxes as Archetype Resource
@@ -22,7 +23,7 @@ const (
 type TCPMailboxKind int
 
 const (
-	TCPMailboxesLocal = iota
+	TCPMailboxesLocal TCPMailboxKind = iota
 	TCPMailboxesRemote
 )
 
@@ -33,12 +34,12 @@ const (
 	tcpMailboxesConnectionDroppedRetryDelay = 50 * time.Millisecond // TODO: same
 )
 
-// AddressMappingFn is responsible for translating the index, as in network[index] from distsys.TLAValue to a pair of
+// TCPMailboxesAddressMappingFn is responsible for translating the index, as in network[index] from distsys.TLAValue to a pair of
 // TCPMailboxKind and address string, where the address string would be appropriate to pass to net.Listen("tcp", ...)
 // or net.Dial("tcp", ...). It should return TCPMailboxesLocal if this node is to be the only listener, and it should
 // return TCPMailboxesRemote if the mailbox is remote and should be dialed. This could potentially allow unusual setups
 // where a single process "owns" more than one mailbox.
-type AddressMappingFn func(distsys.TLAValue) (TCPMailboxKind, string)
+type TCPMailboxesAddressMappingFn func(distsys.TLAValue) (TCPMailboxKind, string)
 
 // TCPMailboxesArchetypeResourceMaker produces a distsys.ArchetypeResourceMaker for a collection of TCP mailboxes.
 // Each individual mailbox will match the following mapping macro, assuming exactly one process "reads" from it:
@@ -72,7 +73,7 @@ type AddressMappingFn func(distsys.TLAValue) (TCPMailboxKind, string)
 // Note also that this protocol is not live, with respect to Commit. All other ops will recover from timeouts via aborts,
 // which will not be visible and will not take infinitely long. Commit is the exception, as it _must complete_ for semantics
 // to be preserved, or it would be possible to observe partial effects of critical sections.
-func TCPMailboxesArchetypeResourceMaker(addressMappingFn AddressMappingFn) distsys.ArchetypeResourceMaker {
+func TCPMailboxesArchetypeResourceMaker(addressMappingFn TCPMailboxesAddressMappingFn) distsys.ArchetypeResourceMaker {
 	return IncrementalArchetypeMapResourceMaker(func(index distsys.TLAValue) distsys.ArchetypeResourceMaker {
 		typ, addr := addressMappingFn(index)
 		switch typ {
@@ -104,15 +105,14 @@ func tcpMailboxesLocalArchetypeResourceMaker(listenAddr string) distsys.Archetyp
 		if err != nil {
 			panic(fmt.Errorf("could not listen on address %s: %w", listenAddr, err))
 		}
+		log.Printf("started listening on: %s", listenAddr)
 		res := &tcpMailboxesLocalArchetypeResource{
 			listenAddr: listenAddr,
 			msgChannel: msgChannel,
 		}
 		go res.listen(listener)
 
-		return &tcpMailboxesLocalArchetypeResource{
-			msgChannel: msgChannel,
-		}
+		return res
 	})
 }
 
@@ -134,7 +134,7 @@ func (res *tcpMailboxesLocalArchetypeResource) handleConn(conn net.Conn) {
 	hasBegun := false
 	for {
 		if err != nil {
-			fmt.Printf("network error, dropping connection: %s", err.Error())
+			log.Printf("network error, dropping connection: %s", err.Error())
 			break
 		}
 		var tag int
@@ -182,7 +182,7 @@ func (res *tcpMailboxesLocalArchetypeResource) handleConn(conn net.Conn) {
 	}
 	err = conn.Close()
 	if err != nil {
-		fmt.Printf("error closing connection: %v", err)
+		log.Printf("error closing connection: %v", err)
 	}
 }
 
@@ -225,36 +225,6 @@ func (res *tcpMailboxesLocalArchetypeResource) WriteValue(value distsys.TLAValue
 	panic(fmt.Errorf("attempted to write value %v to a local mailbox archetype resource", value))
 }
 
-type readWriterWithConnIdleTimeout struct {
-	conn    net.Conn
-	timeout time.Duration
-}
-
-var _ io.ReadWriter = &readWriterWithConnIdleTimeout{}
-
-func makeReadWriterWithConnIdleTimeout(conn net.Conn, timeout time.Duration) readWriterWithConnIdleTimeout {
-	return readWriterWithConnIdleTimeout{
-		conn:    conn,
-		timeout: timeout,
-	}
-}
-
-func (rw readWriterWithConnIdleTimeout) Read(data []byte) (n int, err error) {
-	err = rw.conn.SetReadDeadline(time.Now().Add(rw.timeout))
-	if err != nil {
-		panic(err)
-	}
-	return rw.conn.Read(data)
-}
-
-func (rw readWriterWithConnIdleTimeout) Write(data []byte) (n int, err error) {
-	err = rw.conn.SetWriteDeadline(time.Now().Add(rw.timeout))
-	if err != nil {
-		panic(err)
-	}
-	return rw.conn.Write(data)
-}
-
 type tcpMailboxesRemoteArchetypeResource struct {
 	distsys.ArchetypeResourceLeafMixin
 	dialAddr string
@@ -281,12 +251,12 @@ func (res *tcpMailboxesRemoteArchetypeResource) ensureConnection() error {
 		res.conn, err = net.DialTimeout("tcp", res.dialAddr, tcpMailboxesTCPTimeout)
 		if err != nil {
 			res.conn, res.connEncoder, res.connDecoder = nil, nil, nil
-			fmt.Printf("failed to dial %s, aborting after 50ms: %v", res.dialAddr, err)
+			log.Printf("failed to dial %s, aborting after %v: %v", res.dialAddr, tcpMailboxesConnectionDroppedRetryDelay, err)
 			time.Sleep(tcpMailboxesConnectionDroppedRetryDelay)
 			return distsys.ErrCriticalSectionAborted
 		}
 		// res.conn is wrapped; don't try to use it directly, or you might miss resetting the deadline!
-		wrappedReaderWriter := makeReadWriterWithConnIdleTimeout(res.conn, tcpMailboxesTCPTimeout)
+		wrappedReaderWriter := makeReadWriterConnTimeout(res.conn, tcpMailboxesTCPTimeout)
 		res.connEncoder = gob.NewEncoder(wrappedReaderWriter)
 		res.connDecoder = gob.NewDecoder(wrappedReaderWriter)
 	}
@@ -300,22 +270,25 @@ func (res *tcpMailboxesRemoteArchetypeResource) Abort() chan struct{} {
 }
 
 func (res *tcpMailboxesRemoteArchetypeResource) PreCommit() chan error {
+	log.Println("pre-commit inCriticalSection", res.inCriticalSection)
+	if !res.inCriticalSection {
+		return nil
+	}
+
 	ch := make(chan error, 1)
 	go func() {
 		var err error
 		handleError := func() {
-			fmt.Printf("network error while performing pre-commit handshake, aborting: %v", err)
+			log.Printf("network error while performing pre-commit handshake, aborting: %v", err)
 			res.conn = nil
 			ch <- distsys.ErrCriticalSectionAborted
 		}
-		// be resilient to somehow reaching this without any sends
-		if !res.inCriticalSection {
-			res.inCriticalSection = true
-			err = res.connEncoder.Encode(tcpNetworkBegin)
-			if err != nil {
-				handleError()
-				return
-			}
+
+		err = res.ensureConnection()
+		if err != nil {
+			log.Println("ensure conn error")
+			handleError()
+			return
 		}
 		err = res.connEncoder.Encode(tcpNetworkPreCommit)
 		if err != nil {
@@ -334,6 +307,11 @@ func (res *tcpMailboxesRemoteArchetypeResource) PreCommit() chan error {
 }
 
 func (res *tcpMailboxesRemoteArchetypeResource) Commit() chan struct{} {
+	log.Println("commit inCriticalSection", res.inCriticalSection)
+	if !res.inCriticalSection {
+		return nil
+	}
+
 	ch := make(chan struct{}, 1)
 	go func() {
 		var err error
@@ -374,7 +352,7 @@ func (res *tcpMailboxesRemoteArchetypeResource) ReadValue() (distsys.TLAValue, e
 func (res *tcpMailboxesRemoteArchetypeResource) WriteValue(value distsys.TLAValue) error {
 	var err error
 	handleError := func() error {
-		fmt.Printf("network error during remote value write, aborting: %v", err)
+		log.Printf("network error during remote value write, aborting: %v", err)
 		res.conn = nil
 		return distsys.ErrCriticalSectionAborted
 	}
