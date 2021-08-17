@@ -25,6 +25,12 @@ final case class PCalAlgorithm(fairness: PCalFairness, name: TLAIdentifier, vari
     case Left(_) => true
     case Right(processes) => processes.nonEmpty
   }, "a PlusCal algorithm may not have 0 processes")
+
+  def bleedableDefinitions: Iterator[DefinitionOne] =
+    procedures.iterator.flatMap(proc => proc.params ++ proc.variables) ++
+      processes.fold(_ => Nil, processes => processes.iterator.flatMap(_.variables))
+
+  override def namedParts: Iterator[RefersTo.HasReferences] = super.namedParts ++ bleedableDefinitions
 }
 
 final case class PCalPVariableDeclaration(name: TLAIdentifier, value: Option[TLAExpression]) extends PCalNode with DefinitionOne {

@@ -32,7 +32,13 @@ final case class MPCalBlock(name: TLAIdentifier, units: List[TLAUnit], macros: L
                             mappingMacros: List[MPCalMappingMacro], archetypes: List[MPCalArchetype],
                             variables: List[PCalVariableDeclaration], instances: List[MPCalInstance],
                             pcalProcedures: List[PCalProcedure],
-                            processes: Either[List[PCalStatement],List[PCalProcess]]) extends MPCalNode
+                            processes: Either[List[PCalStatement],List[PCalProcess]]) extends MPCalNode {
+  def bleedableDefinitions: Iterator[DefinitionOne] =
+    pcalProcedures.iterator.flatMap(proc => proc.params ++ proc.variables) ++
+      processes.fold(_ => Nil, processes => processes.iterator.flatMap(_.variables))
+
+  override def namedParts: Iterator[RefersTo.HasReferences] = super.namedParts ++ bleedableDefinitions
+}
 
 object MPCalBlock {
   /**

@@ -1,5 +1,6 @@
 package pgo.parser
 
+import pgo.model.Definition.ScopeIdentifier
 import pgo.model.{Definition, DefinitionOne, SourceLocation, Visitable}
 import pgo.model.pcal._
 import pgo.model.tla._
@@ -132,7 +133,7 @@ trait PCalParser extends TLAParser {
   def pcalCall(implicit ctx: PCalParserContext): Parser[PCalCall] =
     withSourceLocation {
       "call" ~> ws ~> tlaIdentifierExpr ~ (ws ~> "(" ~> ws ~> repsep(pcalCallParam, ws ~> "," ~> ws) <~ ws <~ ")") ^^ {
-        case id ~ args => PCalCall(id, args)
+        case id ~ args => PCalCall(id, args) // has refersTo, but will be assigned later
       }
     }
 
@@ -242,9 +243,9 @@ trait PCalParser extends TLAParser {
     def pcalAlgorithmCloseBrace(implicit ctx: PCalParserContext): Parser[Unit]
     def pcalAlgorithm(implicit ctx: PCalParserContext): Parser[PCalAlgorithm] =
       withSourceLocation {
-        val origCtx = ctx
+        val origCtx = ctx.withLateBinding // for bleed references between processes and procedures
         locally {
-          implicit val ctx: PCalParserContext = origCtx.withLateBinding
+          implicit val ctx: PCalParserContext = origCtx.withLateBinding // decls may reference definitions
           (("--algorithm" ^^^ PCalFairness.Unfair | "--fair algorithm" ^^^ PCalFairness.WeakFair) ~
             (ws ~> tlaIdentifierExpr) ~ (pcalAlgorithmOpenBrace ~> opt(ws ~> pcalVarDecls).map(_.getOrElse(Nil)))).flatMap {
             case fairness ~ name ~ decls =>
@@ -285,6 +286,19 @@ trait PCalParser extends TLAParser {
                   case None => throw ProcedureLookupError(target)
                 }
             }
+            // resolve bleeding refs, but refuse to resolve ambiguous refs, where a bleed could go to one of multiple locals
+            val bleedableDefs = result.bleedableDefinitions.toList
+            val bleedableDefNamesSeen = mutable.HashSet[ScopeIdentifier]()
+            val bleedableDefsWithDups = bleedableDefs.iterator.flatMap { defn =>
+              if(bleedableDefNamesSeen(defn.identifier)) {
+                Some(defn.identifier)
+              } else {
+                bleedableDefNamesSeen += defn.identifier
+                Nil
+              }
+            }.toSet
+            ctx.ctx.resolveLateBindings(result, bleedableDefs.filter(defn => !bleedableDefsWithDups(defn.identifier)))
+
             result
         }
       }

@@ -1,10 +1,13 @@
 package pgo.parser
 
+import pgo.model.Definition.ScopeIdentifier
 import pgo.model.{Definition, SourceLocatable, SourceLocation, SourceLocationWithUnderlying, Visitable}
 import pgo.model.mpcal._
 import pgo.model.pcal._
 import pgo.model.tla._
 import pgo.util.Unreachable.!!!
+
+import scala.collection.mutable
 
 trait MPCalParser extends PCalParser {
   import pgo.parser.MPCalParserContext._
@@ -199,7 +202,7 @@ trait MPCalParser extends PCalParser {
 
   def mpcalBlock(implicit ctx: MPCalParserContext): Parser[MPCalBlock] =
     withSourceLocation {
-      val origCtx = ctx
+      val origCtx = ctx.withLateBinding
       (("--mpcal" ~> ws ~> tlaIdentifierExpr <~ ws <~ "{") ~ opt(ws ~> pcalDefinitions).map(_.getOrElse(Nil))).flatMap {
         case name ~ defns =>
           implicit val ctx: MPCalParserContext = defns.foldLeft(origCtx)((ctx, unit) => unit.definitions.foldLeft(ctx)(_.withDefinition(_)))
@@ -246,6 +249,20 @@ trait MPCalParser extends PCalParser {
                 case None => throw ProcedureLookupError(target)
               }
           }
+
+          // resolve bleeding refs, but refuse to resolve ambiguous refs, where a bleed could go to one of multiple locals
+          val bleedableDefs = result.bleedableDefinitions.toList
+          val bleedableDefNamesSeen = mutable.HashSet[ScopeIdentifier]()
+          val bleedableDefsWithDups = bleedableDefs.iterator.flatMap { defn =>
+            if(bleedableDefNamesSeen(defn.identifier)) {
+              Some(defn.identifier)
+            } else {
+              bleedableDefNamesSeen += defn.identifier
+              Nil
+            }
+          }.toSet
+          ctx.ctx.ctx.resolveLateBindings(result, bleedableDefs.filter(defn => !bleedableDefsWithDups(defn.identifier)))
+
           // rewrite pcal proc calls to mpcal proc calls strictly at the end, to avoid messing up the auto-renaming in rewrite
           // like this, even if it's fake, all the parts have a refersTo, and the auto-renaming at least "thinks" it's working correctly
           result = result.rewrite() {

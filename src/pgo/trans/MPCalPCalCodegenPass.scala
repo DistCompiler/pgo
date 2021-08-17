@@ -65,6 +65,23 @@ object MPCalPCalCodegenPass {
       // cache to properly resolve shared MPCal procedure expansions + recursion loops
       val mpcalProcedureCache = mutable.HashMap[MPCalProcedureSignature,Either[(TLAIdentifier, mutable.ListBuffer[PCalProcedure=>Unit]),PCalProcedure]]()
 
+      // name cleaner specifically for state variables; avoid renaming state vars unnecessarily
+      val stateVarNameCleaner = new NameCleaner
+      block.variables.foreach { decl =>
+        stateVarNameCleaner.addKnownName(decl.name.id)
+      }
+      block.pcalProcedures.foreach { proc =>
+        proc.params.foreach(p => stateVarNameCleaner.addKnownName(p.name.id))
+        proc.variables.foreach(p => stateVarNameCleaner.addKnownName(p.name.id))
+      }
+      block.processes match {
+        case Left(_) =>
+        case Right(processes) =>
+          processes.foreach { proc =>
+            proc.variables.foreach(p => stateVarNameCleaner.addKnownName(p.name.id))
+          }
+      }
+
       /**
        * Transform the statement according to the provided substitutions. Accounts for assignment LHS, but
        * will not work for unusual things like $variable and $value, or if the replacement does not have an
@@ -162,7 +179,7 @@ object MPCalPCalCodegenPass {
               case ident if mappingsMap.contains(ById(ident.refersTo)) =>
                 val (mappingCount, mapping) = mappingsMap(ById(ident.refersTo))
                 // maybe implement depth > mappingCount in the future, but it may be more confusion than it's worth
-                // for now, assert that it's not the case, to avoid very confusion mis-compilations
+                // for now, assert that it's not the case, to avoid very confusing mis-compilations
                 assert(mappingCount == findLhsDepth(lhs))
                 val convertedLhs = convertLhs(lhs)
                 val valueBind = PCalVariableDeclarationValue(TLAIdentifier(nameCleaner.cleanName("value")), rhs)
@@ -228,8 +245,14 @@ object MPCalPCalCodegenPass {
               assert(refParams.size == byRefArgs.size)
               val valParams = mpcalProcedure.params.collect { case v: MPCalValParam => v }
 
-              val transformedValParams = valParams.map(p => PCalPVariableDeclaration(p.name, None))
-              val transformedVariables = mpcalProcedure.variables.map(_.shallowCopy())
+              // clean things that match state vars, so we don't cause name conflicts during expansion
+              val transformedValParams = valParams.map { p =>
+                PCalPVariableDeclaration(TLAIdentifier(stateVarNameCleaner.cleanName(p.name.id)), None)
+              }
+              val transformedVariables = mpcalProcedure.variables.map {
+                case PCalPVariableDeclaration(name, value) =>
+                  PCalPVariableDeclaration(TLAIdentifier(stateVarNameCleaner.cleanName(name.id)), value)
+              }
               val freshSelfDecl = mpcalProcedure.selfDecl.shallowCopy()
 
               val substitutions: Map[ById[RefersTo.HasReferences],DefinitionOne] =
@@ -282,7 +305,15 @@ object MPCalPCalCodegenPass {
 
           val substitutionsBuilder = mutable.Buffer.empty[(RefersTo.HasReferences,DefinitionOne)]
           val variables = archetype.variables.iterator.map { v =>
-            val clone = v.shallowCopy()
+            // clean state var names, so that we don't add state variable naming conflicts during expansion
+            val clone = v match {
+              case PCalVariableDeclarationEmpty(name) =>
+                PCalVariableDeclarationEmpty(TLAIdentifier(stateVarNameCleaner.cleanName(name.id)))
+              case PCalVariableDeclarationValue(name, value) =>
+                PCalVariableDeclarationValue(TLAIdentifier(stateVarNameCleaner.cleanName(name.id)), value)
+              case PCalVariableDeclarationSet(name, set) =>
+                PCalVariableDeclarationSet(TLAIdentifier(stateVarNameCleaner.cleanName(name.id)), set)
+            }
             substitutionsBuilder += v -> clone
             clone
           }.to(mutable.ListBuffer)
@@ -299,7 +330,7 @@ object MPCalPCalCodegenPass {
                 substitutionsBuilder += param -> arg.refersTo
               }
             case Right(expr) -> param =>
-              variables += PCalVariableDeclarationValue(param.name, expr)
+              variables += PCalVariableDeclarationValue(TLAIdentifier(stateVarNameCleaner.cleanName(param.name.id)), expr)
               substitutionsBuilder += param -> variables.last
           }
           val substitutions = substitutionsBuilder.to(ById.mapFactory)
@@ -323,12 +354,12 @@ object MPCalPCalCodegenPass {
           proc.withChildren(Iterator(selfDecl, fairness, variables,
             body.flatMap(applyMappingMacros(_)(mappingsMap = Map.empty, selfDecl = selfDecl))))
         case proc@PCalProcedure(name, selfDecl, params, variables, body) =>
-          proc.withChildren(Iterator(name, params, variables,
+          proc.withChildren(Iterator(name, selfDecl, params, variables,
             body.flatMap(applyMappingMacros(_)(mappingsMap = Map.empty, selfDecl = selfDecl))))
       }
 
       val pcalAlgorithm = rewritten.copy(
-        pcalProcedures = generatedPCalProcedures.result(),
+        pcalProcedures = rewritten.pcalProcedures ++ generatedPCalProcedures.result(),
         mappingMacros = Nil,
         mpcalProcedures = Nil,
         instances = Nil,

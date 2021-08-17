@@ -276,7 +276,7 @@ CONSTANT WEB_PAGE
   }
   
   fair process (Servers \in (1) .. (NUM_SERVERS))
-    variables msg;
+    variables msg0;
   {
     serverLoop:
       if(TRUE) {
@@ -289,15 +289,15 @@ CONSTANT WEB_PAGE
       with (msg1 = Head((network)[self])) {
         network := [network EXCEPT ![self] = Tail((network)[self])];
         with (yielded_network00 = msg1) {
-          msg := yielded_network00;
+          msg0 := yielded_network00;
           goto sendPage;
         };
       };
     sendPage:
       with (yielded_fs0 = WEB_PAGE) {
         with (value00 = yielded_fs0) {
-          await (Len((network)[(msg).client_id])) < (BUFFER_SIZE);
-          network := [network EXCEPT ![(msg).client_id] = Append((network)[(msg).client_id], value00)];
+          await (Len((network)[(msg0).client_id])) < (BUFFER_SIZE);
+          network := [network EXCEPT ![(msg0).client_id] = Append((network)[(msg0).client_id], value00)];
           goto serverLoop;
         };
       };

@@ -420,22 +420,22 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_CLIENTS > 0
   }
   
   fair process (Client \in ((NUM_REPLICAS) + (1)) .. ((NUM_REPLICAS) + (NUM_CLIENTS)))
-    variables req; resp; idx; body;
+    variables req; resp0; idx0; body;
   {
     sndPutReq:
-      idx := 1;
+      idx0 := 1;
       goto sndPutReqLoop;
     sndPutReqLoop:
-      if((idx) <= (NUM_REPLICAS)) {
+      if((idx0) <= (NUM_REPLICAS)) {
         goto sndPutMsg;
       } else {
         goto rcvPutResp;
       };
     sndPutMsg:
-      with (yielded_fd1 = (fd)[idx]) {
+      with (yielded_fd1 = (fd)[idx0]) {
         if((yielded_fd1) = (TRUE)) {
           body := [key |-> KEY1, value |-> VALUE1];
-          req := [from |-> self, to |-> idx, body |-> body, srcTyp |-> CLIENT_SRC, typ |-> PUT_REQ, id |-> 1];
+          req := [from |-> self, to |-> idx0, body |-> body, srcTyp |-> CLIENT_SRC, typ |-> PUT_REQ, id |-> 1];
           with (value60 = req) {
             await (Len((network)[<<(req).to, (req).typ>>])) < (BUFFER_SIZE);
             network := [network EXCEPT ![<<(req).to, (req).typ>>] = Append((network)[<<(req).to, (req).typ>>], value60)];
@@ -446,19 +446,19 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_CLIENTS > 0
         };
       };
     rcvPutResp:
-      with (yielded_fd2 = (fd)[idx]) {
+      with (yielded_fd2 = (fd)[idx0]) {
         if((yielded_fd2) = (TRUE)) {
           await (Len((network)[<<self, PUT_RESP>>])) > (0);
           with (msg3 = Head((network)[<<self, PUT_RESP>>])) {
             network := [network EXCEPT ![<<self, PUT_RESP>>] = Tail((network)[<<self, PUT_RESP>>])];
             with (yielded_network20 = msg3) {
-              resp := yielded_network20;
-              assert ((resp).to) = (self);
-              assert ((resp).body) = (ACK_MSG);
-              assert ((resp).srcTyp) = (PRIMARY_SRC);
-              assert ((resp).typ) = (PUT_RESP);
-              assert ((resp).id) = (1);
-              print <<"PUT RESP: ", resp>>;
+              resp0 := yielded_network20;
+              assert ((resp0).to) = (self);
+              assert ((resp0).body) = (ACK_MSG);
+              assert ((resp0).srcTyp) = (PRIMARY_SRC);
+              assert ((resp0).typ) = (PUT_RESP);
+              assert ((resp0).id) = (1);
+              print <<"PUT RESP: ", resp0>>;
               goto sndGetReq;
             };
           };
@@ -467,19 +467,19 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_CLIENTS > 0
         };
       };
     sndGetReq:
-      idx := 1;
+      idx0 := 1;
       goto sndGetReqLoop;
     sndGetReqLoop:
-      if((idx) <= (NUM_REPLICAS)) {
+      if((idx0) <= (NUM_REPLICAS)) {
         goto sndGetMsg;
       } else {
         goto rcvGetResp;
       };
     sndGetMsg:
-      with (yielded_fd3 = (fd)[idx]) {
+      with (yielded_fd3 = (fd)[idx0]) {
         if((yielded_fd3) = (TRUE)) {
           body := [key |-> KEY1, value |-> TEMP_VAL];
-          req := [from |-> self, to |-> idx, body |-> body, srcTyp |-> CLIENT_SRC, typ |-> GET_REQ, id |-> 2];
+          req := [from |-> self, to |-> idx0, body |-> body, srcTyp |-> CLIENT_SRC, typ |-> GET_REQ, id |-> 2];
           with (value70 = req) {
             await (Len((network)[<<(req).to, (req).typ>>])) < (BUFFER_SIZE);
             network := [network EXCEPT ![<<(req).to, (req).typ>>] = Append((network)[<<(req).to, (req).typ>>], value70)];
@@ -490,18 +490,18 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_CLIENTS > 0
         };
       };
     rcvGetResp:
-      with (yielded_fd4 = (fd)[idx]) {
+      with (yielded_fd4 = (fd)[idx0]) {
         if((yielded_fd4) = (TRUE)) {
           await (Len((network)[<<self, GET_RESP>>])) > (0);
           with (msg4 = Head((network)[<<self, GET_RESP>>])) {
             network := [network EXCEPT ![<<self, GET_RESP>>] = Tail((network)[<<self, GET_RESP>>])];
             with (yielded_network30 = msg4) {
-              resp := yielded_network30;
-              assert ((resp).to) = (self);
-              assert ((resp).body) = (VALUE1);
-              assert ((resp).typ) = (GET_RESP);
-              assert ((resp).id) = (2);
-              print <<"GET RESP: ", resp>>;
+              resp0 := yielded_network30;
+              assert ((resp0).to) = (self);
+              assert ((resp0).body) = (VALUE1);
+              assert ((resp0).typ) = (GET_RESP);
+              assert ((resp0).id) = (2);
+              print <<"GET RESP: ", resp0>>;
               goto Done;
             };
           };
