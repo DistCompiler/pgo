@@ -2,16 +2,17 @@ package resources
 
 import (
 	"fmt"
-	"github.com/UBC-NSS/pgo/distsys"
 	"io/ioutil"
 	"path"
+
+	"github.com/UBC-NSS/pgo/distsys"
 )
 
-// FilesystemArchetypeResourceMaker produces a distsys.ArchetypeResourceMaker for a filesystem-backed
+// FileSystemArchetypeResourceMaker produces a distsys.ArchetypeResourceMaker for a filesystem-backed
 // map-like resource. Each element of the map will refer to a file, with keys and values being required
 // to be string-typed, and keys being required to refer to valid paths (or create-able paths, if a
 // key is written to before it is read).
-func FilesystemArchetypeResourceMaker(workingDirectory string) distsys.ArchetypeResourceMaker {
+func FileSystemArchetypeResourceMaker(workingDirectory string) distsys.ArchetypeResourceMaker {
 	return IncrementalArchetypeMapResourceMaker(func(index distsys.TLAValue) distsys.ArchetypeResourceMaker {
 		return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
 			return &fileArchetypeResource{
@@ -82,5 +83,9 @@ func (res *fileArchetypeResource) WriteValue(value distsys.TLAValue) error {
 	res.cachedRead = nil
 	strToWrite := value.AsString()
 	res.writePending = &strToWrite
+	return nil
+}
+
+func (res *fileArchetypeResource) Close() error {
 	return nil
 }

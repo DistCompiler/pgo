@@ -91,6 +91,7 @@ type tcpMailboxesLocalArchetypeResource struct {
 	distsys.ArchetypeResourceLeafMixin
 	listenAddr string
 	msgChannel chan distsys.TLAValue
+	listener   net.Listener
 
 	readBacklog     []distsys.TLAValue
 	readsInProgress []distsys.TLAValue
@@ -109,8 +110,9 @@ func tcpMailboxesLocalArchetypeResourceMaker(listenAddr string) distsys.Archetyp
 		res := &tcpMailboxesLocalArchetypeResource{
 			listenAddr: listenAddr,
 			msgChannel: msgChannel,
+			listener:   listener,
 		}
-		go res.listen(listener)
+		go res.listen(res.listener)
 
 		return res
 	})
@@ -223,6 +225,14 @@ func (res *tcpMailboxesLocalArchetypeResource) ReadValue() (distsys.TLAValue, er
 
 func (res *tcpMailboxesLocalArchetypeResource) WriteValue(value distsys.TLAValue) error {
 	panic(fmt.Errorf("attempted to write value %v to a local mailbox archetype resource", value))
+}
+
+func (res *tcpMailboxesLocalArchetypeResource) Close() error {
+	var err error
+	if res.listener != nil {
+		err = res.listener.Close()
+	}
+	return err
 }
 
 type tcpMailboxesRemoteArchetypeResource struct {
@@ -377,4 +387,12 @@ func (res *tcpMailboxesRemoteArchetypeResource) WriteValue(value distsys.TLAValu
 		return handleError()
 	}
 	return nil
+}
+
+func (res *tcpMailboxesRemoteArchetypeResource) Close() error {
+	var err error
+	if res.conn != nil {
+		err = res.conn.Close()
+	}
+	return err
 }

@@ -2,8 +2,9 @@ package resources
 
 import (
 	"fmt"
-	"github.com/UBC-NSS/pgo/distsys"
 	"time"
+
+	"github.com/UBC-NSS/pgo/distsys"
 )
 
 const inputChannelResourceReadTimout = 20 * time.Millisecond
@@ -65,6 +66,10 @@ func (res *InputChannelResource) WriteValue(value distsys.TLAValue) error {
 	panic(fmt.Errorf("attempted to write %v to an input channel resource", value))
 }
 
+func (res *InputChannelResource) Close() error {
+	return nil
+}
+
 // OutputChannelResource wraps a native Go channel, such that an MPCal model may write to that channel.
 type OutputChannelResource struct {
 	distsys.ArchetypeResourceLeafMixin
@@ -113,5 +118,9 @@ func (res *OutputChannelResource) ReadValue() (distsys.TLAValue, error) {
 
 func (res *OutputChannelResource) WriteValue(value distsys.TLAValue) error {
 	res.buffer = append(res.buffer, value)
+	return nil
+}
+
+func (res *OutputChannelResource) Close() error {
 	return nil
 }
