@@ -48,6 +48,8 @@ func (a ArchetypeState) String() string {
 type Monitor struct {
 	ListenAddr string
 
+	listener net.Listener
+
 	lock   sync.RWMutex
 	states map[distsys.TLAValue]ArchetypeState
 }
@@ -97,26 +99,34 @@ func (m *Monitor) RunArchetype(archetypeID distsys.TLAValue, fn WrappedArchetype
 }
 
 func (m *Monitor) ListenAndServe() error {
-	rpcServer := &MonitorRPCServer{m: m}
-	err := rpc.Register(rpcServer)
+	rpcRcvr := &MonitorRPCReceiver{m: m}
+	err := rpc.Register(rpcRcvr)
 	if err != nil {
 		return err
 	}
 
-	listener, err := net.Listen("tcp", m.ListenAddr)
+	m.listener, err = net.Listen("tcp", m.ListenAddr)
 	if err != nil {
 		return err
 	}
-	rpc.Accept(listener)
+	rpc.Accept(m.listener)
 	return nil
 }
 
-type MonitorRPCServer struct {
+func (m *Monitor) Close() error {
+	var err error
+	if m.listener != nil {
+		err = m.listener.Close()
+	}
+	return err
+}
+
+type MonitorRPCReceiver struct {
 	m *Monitor
 }
 
-func (rs *MonitorRPCServer) IsAlive(arg distsys.TLAValue, reply *ArchetypeState) error {
-	state, ok := rs.m.getState(arg)
+func (rcvr *MonitorRPCReceiver) IsAlive(arg distsys.TLAValue, reply *ArchetypeState) error {
+	state, ok := rcvr.m.getState(arg)
 	if !ok {
 		return errors.New("archetype not found")
 	}
@@ -220,7 +230,7 @@ func (res *singleFailureDetectorResource) mainLoop() {
 		}
 
 		var reply ArchetypeState
-		call := res.client.Go("MonitorRPCServer.IsAlive", &res.archetypeID, &reply, nil)
+		call := res.client.Go("MonitorRPCReceiver.IsAlive", &res.archetypeID, &reply, nil)
 		timeout := false
 		select {
 		case <-call.Done:
@@ -269,4 +279,12 @@ func (res *singleFailureDetectorResource) ReadValue() (distsys.TLAValue, error) 
 
 func (res *singleFailureDetectorResource) WriteValue(value distsys.TLAValue) error {
 	panic(fmt.Errorf("attempted to write value %v to a single failure detector resource", value))
+}
+
+func (res *singleFailureDetectorResource) Close() error {
+	var err error
+	if res.client != nil {
+		err = res.client.Close()
+	}
+	return err
 }

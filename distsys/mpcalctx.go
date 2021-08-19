@@ -6,6 +6,7 @@ import (
 	"log"
 
 	"github.com/benbjohnson/immutable"
+	"go.uber.org/multierr"
 )
 
 // ErrAssertionFailed it will be returned by the generated code if an assertion fails.
@@ -241,4 +242,17 @@ func (ctx *MPCalContext) Read(handle ArchetypeResourceHandle, indices []TLAValue
 	}
 	value, err = res.ReadValue()
 	return
+}
+
+func (ctx *MPCalContext) Close() error {
+	log.Println("mpcal ctx close")
+
+	var err error
+	it := ctx.resources.Iterator()
+	for !it.Done() {
+		_, r := it.Next()
+		cerr := r.(ArchetypeResource).Close()
+		err = multierr.Append(err, cerr)
+	}
+	return err
 }

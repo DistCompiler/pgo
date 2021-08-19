@@ -40,6 +40,8 @@ type ArchetypeResource interface {
 	// ErrCriticalSectionAborted.
 	// This makes no sense for a value-like resource, and should be blocked off with ArchetypeResourceLeafMixin in that case.
 	Index(index TLAValue) (ArchetypeResource, error)
+
+	Close() error
 }
 
 type ArchetypeResourceLeafMixin struct{}
@@ -112,5 +114,9 @@ func (res *LocalArchetypeResource) WriteValue(value TLAValue) error {
 		res.hasOldValue = true
 	}
 	res.value = value
+	return nil
+}
+
+func (res *LocalArchetypeResource) Close() error {
 	return nil
 }

@@ -41,3 +41,7 @@ func (res *PlaceHolderResource) WriteValue(value distsys.TLAValue) error {
 func (res *PlaceHolderResource) Index(index distsys.TLAValue) (distsys.ArchetypeResource, error) {
 	panic(ErrPlaceHolderAccess)
 }
+
+func (res *PlaceHolderResource) Close() error {
+	return nil
+}

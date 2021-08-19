@@ -1,9 +1,11 @@
 package resources
 
 import (
+	"log"
+
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/benbjohnson/immutable"
-	"log"
+	"go.uber.org/multierr"
 )
 
 // A generic map resource, with hooks to programmatically realize child resources during execution
@@ -128,4 +130,15 @@ func (res *IncrementalArchetypeMapResource) Abort() chan struct{} {
 	}
 
 	return nil
+}
+
+func (res *IncrementalArchetypeMapResource) Close() error {
+	var err error
+	it := res.realizedMap.Iterator()
+	for !it.Done() {
+		_, r := it.Next()
+		cerr := r.(distsys.ArchetypeResource).Close()
+		err = multierr.Append(err, cerr)
+	}
+	return err
 }
