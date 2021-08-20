@@ -17,8 +17,6 @@ const (
 	failureDetectorPullInterval = 2 * time.Second
 )
 
-// type ArchetypeID distsys.TLAValue
-
 type ArchetypeState int
 
 const (

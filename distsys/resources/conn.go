@@ -41,15 +41,3 @@ func (rw readWriterConnTimeout) Write(data []byte) (n int, err error) {
 	}
 	return
 }
-
-// type readWriteCloserConnTimeout struct {
-// 	readWriterConnTimeout
-// 	io.Closer
-// }
-
-// func makeReadWriteCloserConnTimeout(conn net.Conn, timeout time.Duration) readWriteCloserConnTimeout {
-// 	return readWriteCloserConnTimeout{
-// 		readWriterConnTimeout: makeReadWriterConnTimeout(conn, timeout),
-// 		Closer:                conn,
-// 	}
-// }
