@@ -95,6 +95,8 @@ type tcpMailboxesLocalArchetypeResource struct {
 
 	readBacklog     []distsys.TLAValue
 	readsInProgress []distsys.TLAValue
+
+	done chan struct{}
 }
 
 var _ distsys.ArchetypeResource = &tcpMailboxesLocalArchetypeResource{}
@@ -111,18 +113,24 @@ func tcpMailboxesLocalArchetypeResourceMaker(listenAddr string) distsys.Archetyp
 			listenAddr: listenAddr,
 			msgChannel: msgChannel,
 			listener:   listener,
+			done:       make(chan struct{}),
 		}
-		go res.listen(res.listener)
+		go res.listen()
 
 		return res
 	})
 }
 
-func (res *tcpMailboxesLocalArchetypeResource) listen(listener net.Listener) {
+func (res *tcpMailboxesLocalArchetypeResource) listen() {
 	for {
-		conn, err := listener.Accept()
+		conn, err := res.listener.Accept()
 		if err != nil {
-			panic(fmt.Errorf("error listening on %s: %w", res.listenAddr, err))
+			select {
+			case <-res.done:
+				return
+			default:
+				panic(fmt.Errorf("error listening on %s: %w", res.listenAddr, err))
+			}
 		}
 		go res.handleConn(conn)
 	}
@@ -229,6 +237,8 @@ func (res *tcpMailboxesLocalArchetypeResource) WriteValue(value distsys.TLAValue
 
 func (res *tcpMailboxesLocalArchetypeResource) Close() error {
 	var err error
+	log.Println("close listen addr", res.listenAddr)
+	close(res.done)
 	if res.listener != nil {
 		err = res.listener.Close()
 	}
@@ -280,7 +290,7 @@ func (res *tcpMailboxesRemoteArchetypeResource) Abort() chan struct{} {
 }
 
 func (res *tcpMailboxesRemoteArchetypeResource) PreCommit() chan error {
-	log.Println("pre-commit inCriticalSection", res.inCriticalSection)
+	//log.Println("pre-commit inCriticalSection", res.inCriticalSection)
 	if !res.inCriticalSection {
 		return nil
 	}
@@ -317,7 +327,7 @@ func (res *tcpMailboxesRemoteArchetypeResource) PreCommit() chan error {
 }
 
 func (res *tcpMailboxesRemoteArchetypeResource) Commit() chan struct{} {
-	log.Println("commit inCriticalSection", res.inCriticalSection)
+	//log.Println("commit inCriticalSection", res.inCriticalSection)
 	if !res.inCriticalSection {
 		return nil
 	}

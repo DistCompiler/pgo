@@ -23,28 +23,28 @@ func makeReadWriterConnTimeout(conn net.Conn, timeout time.Duration) readWriterC
 
 func (rw readWriterConnTimeout) Read(data []byte) (n int, err error) {
 	if deadlineErr := rw.conn.SetReadDeadline(time.Now().Add(rw.timeout)); deadlineErr != nil {
-		panic(deadlineErr)
+		return 0, deadlineErr
 	}
 	n, err = rw.conn.Read(data)
 	if err != nil {
 		log.Println("conn read err", err)
 	}
 	if deadlineErr := rw.conn.SetReadDeadline(time.Time{}); deadlineErr != nil {
-		panic(deadlineErr)
+		return 0, deadlineErr
 	}
 	return
 }
 
 func (rw readWriterConnTimeout) Write(data []byte) (n int, err error) {
 	if deadlineErr := rw.conn.SetWriteDeadline(time.Now().Add(rw.timeout)); deadlineErr != nil {
-		panic(deadlineErr)
+		return 0, deadlineErr
 	}
 	n, err = rw.conn.Write(data)
 	if err != nil {
 		log.Println("conn write err", err)
 	}
 	if deadlineErr := rw.conn.SetWriteDeadline(time.Time{}); deadlineErr != nil {
-		panic(deadlineErr)
+		return 0, deadlineErr
 	}
 	return
 }

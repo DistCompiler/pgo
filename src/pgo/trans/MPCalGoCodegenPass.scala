@@ -433,6 +433,11 @@ object MPCalGoCodegenPass {
           }.flattenDescriptions +
           d"\n" +
           d"\nfor {${
+            (d"\nselect {" +
+              d"\ncase <-ctx.Done():" +
+              d"\n$err = distsys.ErrContextClosed".indented +
+              d"\ndefault:" +
+              d"\n}").indented +
             (d"\nif $err != nil {${
               (d"\nif $err == distsys.ErrCriticalSectionAborted {${
                 (d"\nctx.Abort()" +

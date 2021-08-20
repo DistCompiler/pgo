@@ -3,6 +3,7 @@ package resources
 import (
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"net/rpc"
 	"sync"
@@ -49,6 +50,9 @@ type Monitor struct {
 	ListenAddr string
 
 	listener net.Listener
+	server   *rpc.Server
+
+	done chan struct{}
 
 	lock   sync.RWMutex
 	states map[distsys.TLAValue]ArchetypeState
@@ -58,6 +62,7 @@ func NewMonitor(listenAddr string) *Monitor {
 	return &Monitor{
 		ListenAddr: listenAddr,
 		states:     make(map[distsys.TLAValue]ArchetypeState),
+		done:       make(chan struct{}),
 	}
 }
 
@@ -100,7 +105,8 @@ func (m *Monitor) RunArchetype(archetypeID distsys.TLAValue, fn WrappedArchetype
 
 func (m *Monitor) ListenAndServe() error {
 	rpcRcvr := &MonitorRPCReceiver{m: m}
-	err := rpc.Register(rpcRcvr)
+	m.server = rpc.NewServer()
+	err := m.server.Register(rpcRcvr)
 	if err != nil {
 		return err
 	}
@@ -109,12 +115,25 @@ func (m *Monitor) ListenAndServe() error {
 	if err != nil {
 		return err
 	}
-	rpc.Accept(m.listener)
-	return nil
+	log.Printf("Monitor: started listening on %s", m.ListenAddr)
+	for {
+		conn, err := m.listener.Accept()
+		if err != nil {
+			select {
+			case <-m.done:
+				return nil
+			default:
+				return err
+			}
+		}
+		go m.server.ServeConn(conn)
+	}
 }
 
 func (m *Monitor) Close() error {
 	var err error
+	log.Println("monitor close, listen addr", m.ListenAddr)
+	close(m.done)
 	if m.listener != nil {
 		err = m.listener.Close()
 	}
@@ -153,6 +172,7 @@ type singleFailureDetectorResource struct {
 
 	client *rpc.Client
 	reDial bool
+	ticker *time.Ticker
 
 	lock  sync.RWMutex
 	state ArchetypeState
@@ -218,14 +238,20 @@ func (res *singleFailureDetectorResource) ensureClient() error {
 }
 
 func (res *singleFailureDetectorResource) mainLoop() {
-	ticker := time.NewTicker(res.pullInterval)
-	for range ticker.C {
-		// log.Println("tick")
+	log.Printf("fd initial, archetype = %v, state = %v", res.archetypeID, res.getState())
+
+	res.ticker = time.NewTicker(res.pullInterval)
+	for range res.ticker.C {
+		oldState := res.getState()
+		log.Printf("fd tick, archetype = %v, state = %v", res.archetypeID, oldState)
 
 		err := res.ensureClient()
 		if err != nil {
-			//log.Println("fd dial err", err, "archetype id", res.archetypeID)
 			res.setState(failed)
+			if oldState != failed {
+				log.Printf("fd change state: archetype = %v, old state = %v, "+
+					"new state = %v. Due to dial error: %v", res.archetypeID, oldState, failed, err)
+			}
 			continue
 		}
 
@@ -238,18 +264,28 @@ func (res *singleFailureDetectorResource) mainLoop() {
 		case <-time.After(res.timeout):
 			timeout = true
 		}
-		if timeout || err != nil {
-			//log.Println("fd call err", err, "timeout", timeout, "archetype id", res.archetypeID)
+		if err != nil {
 			res.setState(failed)
+			if oldState != failed {
+				log.Printf("fd change state: archetype = %v, old state = %v, "+
+					"new state = %v. Due to rpc call error: %v", res.archetypeID, oldState, failed, err)
+			}
 			if err == rpc.ErrShutdown {
 				res.reDial = true
 			}
+		} else if timeout {
+			res.setState(failed)
+			if oldState != failed {
+				log.Printf("fd change state: archetype = %v, old state = %v, "+
+					"new state = %v. Due to rpc call timeout", res.archetypeID, oldState, failed)
+			}
 		} else {
-			// log.Println("fd reply", reply, "archetype id", res.archetypeID)
 			res.setState(reply)
+			if oldState != reply {
+				log.Printf("fd change state: archetype = %v, old state = %v, "+
+					"new state = %v. Due to rpc call reply", res.archetypeID, oldState, failed)
+			}
 		}
-
-		// log.Println("fd state", res.getState(), "archetype id", res.archetypeID)
 	}
 }
 
@@ -285,6 +321,9 @@ func (res *singleFailureDetectorResource) Close() error {
 	var err error
 	if res.client != nil {
 		err = res.client.Close()
+	}
+	if res.ticker != nil {
+		res.ticker.Stop()
 	}
 	return err
 }
