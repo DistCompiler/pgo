@@ -2,10 +2,12 @@ package dqueue
 
 import (
 	"fmt"
-	"github.com/UBC-NSS/pgo/distsys"
-	"github.com/UBC-NSS/pgo/distsys/resources"
+	"log"
 	"testing"
 	"time"
+
+	"github.com/UBC-NSS/pgo/distsys"
+	"github.com/UBC-NSS/pgo/distsys/resources"
 )
 
 func TestNUM_NODES(t *testing.T) {
@@ -26,8 +28,8 @@ func TestProducerConsumer(t *testing.T) {
 		PRODUCER: producerSelf,
 	}
 
-	go func() {
-		ctx := distsys.NewMPCalContext()
+	ctxProducer := distsys.NewMPCalContext()
+	go func(ctx *distsys.MPCalContext) {
 		network := ctx.EnsureArchetypeResourceByName("network", resources.TCPMailboxesArchetypeResourceMaker(func(index distsys.TLAValue) (resources.TCPMailboxKind, string) {
 			switch index.AsNumber() {
 			case 1:
@@ -40,13 +42,13 @@ func TestProducerConsumer(t *testing.T) {
 		}))
 		s := ctx.EnsureArchetypeResourceByName("s", resources.InputChannelResourceMaker(producerInputChannel))
 		err := AProducer(ctx, producerSelf, constants, network, s)
-		if err != nil {
+		if err != nil && err != distsys.ErrContextClosed {
 			panic(err)
 		}
-	}()
+	}(ctxProducer)
 
-	go func() {
-		ctx := distsys.NewMPCalContext()
+	ctxConsumer := distsys.NewMPCalContext()
+	go func(ctx *distsys.MPCalContext) {
 		network := ctx.EnsureArchetypeResourceByName("network", resources.TCPMailboxesArchetypeResourceMaker(func(index distsys.TLAValue) (resources.TCPMailboxKind, string) {
 			switch index.AsNumber() {
 			case 1:
@@ -59,8 +61,17 @@ func TestProducerConsumer(t *testing.T) {
 		}))
 		proc := ctx.EnsureArchetypeResourceByName("proc", resources.OutputChannelResourceMaker(consumerOutputChannel))
 		err := AConsumer(ctx, consumerSelf, constants, network, proc)
-		if err != nil {
+		if err != nil && err != distsys.ErrContextClosed {
 			panic(err)
+		}
+	}(ctxConsumer)
+
+	defer func() {
+		if err := ctxProducer.Close(); err != nil {
+			log.Println(err)
+		}
+		if err := ctxConsumer.Close(); err != nil {
+			log.Println(err)
 		}
 	}()
 
@@ -77,7 +88,12 @@ func TestProducerConsumer(t *testing.T) {
 	close(consumerOutputChannel)
 	time.Sleep(100 * time.Millisecond)
 
-	if len(consumedValues) != len(producedValues) || !consumedValues[0].Equal(producedValues[0]) || !consumedValues[1].Equal(producedValues[1]) || !consumedValues[2].Equal(producedValues[2]) {
-		t.Errorf("Consumed values %v did not match produced values %v", consumedValues, producedValues)
+	if len(consumedValues) != len(producedValues) {
+		t.Fatalf("Consumed values %v did not match produced values %v", consumedValues, producedValues)
+	}
+	for i := range producedValues {
+		if !consumedValues[i].Equal(producedValues[i]) {
+			t.Fatalf("Consumed values %v did not match produced values %v", consumedValues, producedValues)
+		}
 	}
 }
