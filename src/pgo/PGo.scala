@@ -15,6 +15,7 @@ import pgo.util.Description._
 import java.io.RandomAccessFile
 import java.nio.channels.FileChannel
 import java.nio.charset.StandardCharsets
+import java.nio.file.AtomicMoveNotSupportedException
 import scala.util.Using
 import scala.util.parsing.combinator.RegexParsers
 
@@ -192,7 +193,12 @@ object PGo {
           }
 
           // move the rendered output over the spec file, replacing it
-          os.move(from = tempOutput, to = config.PCalGenCmd.specFile(), replaceExisting = true, atomicMove = true)
+          try {
+            os.move(from = tempOutput, to = config.PCalGenCmd.specFile(), replaceExisting = true, atomicMove = true)
+          } catch {
+            case _: AtomicMoveNotSupportedException =>
+              os.move(from = tempOutput, to = config.PCalGenCmd.specFile(), replaceExisting = true, atomicMove = false)
+          }
 
           // run a free-standing semantic check on the generated code, in case our codegen doesn't agree with our
           // own semantic checks (which would be a bug!)
