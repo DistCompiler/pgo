@@ -57,7 +57,6 @@ func (res *IncrementalArchetypeMapResource) PreCommit() chan error {
 		_, r := it.Next()
 		ch := r.(distsys.ArchetypeResource).PreCommit()
 		if ch != nil {
-			//log.Println("non-trivial incmap pre-commit from index", idx.(distsys.TLAValue))
 			nonTrivialOps = append(nonTrivialOps, ch)
 		}
 	}

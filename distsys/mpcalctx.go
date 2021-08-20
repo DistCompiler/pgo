@@ -3,8 +3,6 @@ package distsys
 import (
 	"errors"
 	"fmt"
-	"log"
-
 	"github.com/benbjohnson/immutable"
 	"go.uber.org/multierr"
 )
@@ -255,8 +253,6 @@ func (ctx *MPCalContext) Done() <-chan struct{} {
 }
 
 func (ctx *MPCalContext) Close() error {
-	log.Println("mpcal ctx close start")
-
 	ctx.done <- struct{}{}
 
 	var err error
@@ -266,6 +262,5 @@ func (ctx *MPCalContext) Close() error {
 		cerr := r.(ArchetypeResource).Close()
 		err = multierr.Append(err, cerr)
 	}
-	log.Println("mpcal ctx close finish")
 	return err
 }

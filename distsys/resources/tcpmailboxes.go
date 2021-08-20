@@ -237,7 +237,6 @@ func (res *tcpMailboxesLocalArchetypeResource) WriteValue(value distsys.TLAValue
 
 func (res *tcpMailboxesLocalArchetypeResource) Close() error {
 	var err error
-	log.Println("close listen addr", res.listenAddr)
 	close(res.done)
 	if res.listener != nil {
 		err = res.listener.Close()
@@ -290,7 +289,6 @@ func (res *tcpMailboxesRemoteArchetypeResource) Abort() chan struct{} {
 }
 
 func (res *tcpMailboxesRemoteArchetypeResource) PreCommit() chan error {
-	//log.Println("pre-commit inCriticalSection", res.inCriticalSection)
 	if !res.inCriticalSection {
 		return nil
 	}
@@ -306,7 +304,6 @@ func (res *tcpMailboxesRemoteArchetypeResource) PreCommit() chan error {
 
 		err = res.ensureConnection()
 		if err != nil {
-			log.Println("ensure conn error")
 			handleError()
 			return
 		}
@@ -327,7 +324,6 @@ func (res *tcpMailboxesRemoteArchetypeResource) PreCommit() chan error {
 }
 
 func (res *tcpMailboxesRemoteArchetypeResource) Commit() chan struct{} {
-	//log.Println("commit inCriticalSection", res.inCriticalSection)
 	if !res.inCriticalSection {
 		return nil
 	}

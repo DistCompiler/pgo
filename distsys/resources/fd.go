@@ -132,7 +132,6 @@ func (m *Monitor) ListenAndServe() error {
 
 func (m *Monitor) Close() error {
 	var err error
-	log.Println("monitor close, listen addr", m.ListenAddr)
 	close(m.done)
 	if m.listener != nil {
 		err = m.listener.Close()
@@ -224,9 +223,7 @@ func (res *singleFailureDetectorResource) setState(state ArchetypeState) {
 }
 
 func (res *singleFailureDetectorResource) ensureClient() error {
-	// log.Println("client", res.client, "reDial", res.reDial)
 	if res.client == nil || res.reDial {
-		//log.Println("fd dialing", "archetype id", res.archetypeID)
 		conn, err := net.DialTimeout("tcp", res.monitorAddr, res.timeout)
 		if err != nil {
 			return err
@@ -238,12 +235,9 @@ func (res *singleFailureDetectorResource) ensureClient() error {
 }
 
 func (res *singleFailureDetectorResource) mainLoop() {
-	log.Printf("fd initial, archetype = %v, state = %v", res.archetypeID, res.getState())
-
 	res.ticker = time.NewTicker(res.pullInterval)
 	for range res.ticker.C {
 		oldState := res.getState()
-		log.Printf("fd tick, archetype = %v, state = %v", res.archetypeID, oldState)
 
 		err := res.ensureClient()
 		if err != nil {
