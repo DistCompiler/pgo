@@ -100,6 +100,11 @@ func AProxy(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constant
 	var fairnessCounter0 int = 0
 
 	for {
+		select {
+		case <-ctx.Done():
+			err = distsys.ErrContextClosed
+		default:
+		}
 		if err != nil {
 			if err == distsys.ErrCriticalSectionAborted {
 				ctx.Abort()
@@ -247,7 +252,7 @@ func AProxy(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constant
 			// no statements
 		case proxySendMsgLabelTag:
 			fairnessCounterCurrent := fairnessCounter
-			fairnessCounter = fairnessCounter + 1%2
+			fairnessCounter = (fairnessCounter + 1) % 2
 			switch fairnessCounterCurrent {
 			case 0:
 				var exprRead6 distsys.TLAValue
@@ -341,7 +346,7 @@ func AProxy(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constant
 			// no statements
 		case proxyRcvMsgLabelTag:
 			fairnessCounterCurrent0 := fairnessCounter0
-			fairnessCounter0 = fairnessCounter0 + 1%2
+			fairnessCounter0 = (fairnessCounter0 + 1) % 2
 			switch fairnessCounterCurrent0 {
 			case 0:
 				var exprRead11 distsys.TLAValue
@@ -525,6 +530,11 @@ func AServer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constan
 	var fairnessCounter3 int = 0
 
 	for {
+		select {
+		case <-ctx.Done():
+			err0 = distsys.ErrContextClosed
+		default:
+		}
 		if err0 != nil {
 			if err0 == distsys.ErrCriticalSectionAborted {
 				ctx.Abort()
@@ -548,7 +558,7 @@ func AServer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constan
 			if distsys.TLA_TRUE.AsBool() {
 				if constants.EXPLORE_FAIL.AsBool() {
 					fairnessCounterCurrent1 := fairnessCounter1
-					fairnessCounter1 = fairnessCounter1 + 1%2
+					fairnessCounter1 = (fairnessCounter1 + 1) % 2
 					switch fairnessCounterCurrent1 {
 					case 0:
 						// skip
@@ -636,7 +646,7 @@ func AServer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constan
 			}
 			if constants.EXPLORE_FAIL.AsBool() {
 				fairnessCounterCurrent2 := fairnessCounter2
-				fairnessCounter2 = fairnessCounter2 + 1%2
+				fairnessCounter2 = (fairnessCounter2 + 1) % 2
 				switch fairnessCounterCurrent2 {
 				case 0:
 					// skip
@@ -720,7 +730,7 @@ func AServer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constan
 			}
 			if constants.EXPLORE_FAIL.AsBool() {
 				fairnessCounterCurrent3 := fairnessCounter3
-				fairnessCounter3 = fairnessCounter3 + 1%2
+				fairnessCounter3 = (fairnessCounter3 + 1) % 2
 				switch fairnessCounterCurrent3 {
 				case 0:
 					// skip
@@ -798,6 +808,11 @@ func AClient(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constan
 	_ = resp1
 
 	for {
+		select {
+		case <-ctx.Done():
+			err1 = distsys.ErrContextClosed
+		default:
+		}
 		if err1 != nil {
 			if err1 == distsys.ErrCriticalSectionAborted {
 				ctx.Abort()

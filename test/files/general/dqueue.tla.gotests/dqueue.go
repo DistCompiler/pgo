@@ -31,6 +31,11 @@ func AConsumer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Const
 	programCounter := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.NewTLANumber(InitLabelTag)))
 
 	for {
+		select {
+		case <-ctx.Done():
+			err = distsys.ErrContextClosed
+		default:
+		}
 		if err != nil {
 			if err == distsys.ErrCriticalSectionAborted {
 				ctx.Abort()
@@ -125,6 +130,11 @@ func AProducer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Const
 	_ = requester
 
 	for {
+		select {
+		case <-ctx.Done():
+			err0 = distsys.ErrContextClosed
+		default:
+		}
 		if err0 != nil {
 			if err0 == distsys.ErrCriticalSectionAborted {
 				ctx.Abort()

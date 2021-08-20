@@ -38,6 +38,11 @@ func ALoadBalancer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants C
 	_ = next
 
 	for {
+		select {
+		case <-ctx.Done():
+			err = distsys.ErrContextClosed
+		default:
+		}
 		if err != nil {
 			if err == distsys.ErrCriticalSectionAborted {
 				ctx.Abort()
@@ -178,6 +183,11 @@ func AServer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constan
 	_ = msg0
 
 	for {
+		select {
+		case <-ctx.Done():
+			err0 = distsys.ErrContextClosed
+		default:
+		}
 		if err0 != nil {
 			if err0 == distsys.ErrCriticalSectionAborted {
 				ctx.Abort()
@@ -289,6 +299,11 @@ func AClient(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constan
 	_ = resp
 
 	for {
+		select {
+		case <-ctx.Done():
+			err1 = distsys.ErrContextClosed
+		default:
+		}
 		if err1 != nil {
 			if err1 == distsys.ErrCriticalSectionAborted {
 				ctx.Abort()
