@@ -1,8 +1,6 @@
 package resources
 
 import (
-	"log"
-
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/benbjohnson/immutable"
 	"go.uber.org/multierr"
@@ -56,10 +54,10 @@ func (res *IncrementalArchetypeMapResource) PreCommit() chan error {
 	var nonTrivialOps []chan error
 	it := res.realizedMap.Iterator()
 	for !it.Done() {
-		idx, r := it.Next()
+		_, r := it.Next()
 		ch := r.(distsys.ArchetypeResource).PreCommit()
 		if ch != nil {
-			log.Println("non-trivial incmap pre-commit from index", idx.(distsys.TLAValue))
+			//log.Println("non-trivial incmap pre-commit from index", idx.(distsys.TLAValue))
 			nonTrivialOps = append(nonTrivialOps, ch)
 		}
 	}

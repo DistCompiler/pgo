@@ -16,6 +16,8 @@ var ErrAssertionFailed = errors.New("assertion failed")
 // the critical section that was performing that operation will be rolled back and canceled.
 var ErrCriticalSectionAborted = errors.New("MPCal critical section aborted")
 
+var ErrContextClosed = errors.New("MPCal context closed")
+
 // ArchetypeResourceHandle encapsulates a reference to an ArchetypeResource.
 // These handles insulate the end-user from worrying about the specifics of resource lifetimes, logging, and
 // crash recovery scenarios.
@@ -87,6 +89,8 @@ type MPCalContext struct {
 	frameStack [][]ArchetypeResourceHandle
 
 	dirtyResourceHandles []ArchetypeResourceHandle
+
+	done chan struct{}
 }
 
 func NewMPCalContext() *MPCalContext {
@@ -96,6 +100,8 @@ func NewMPCalContext() *MPCalContext {
 		pathBase:   NewTLATuple(),
 		frameIdx:   0,
 		frameStack: [][]ArchetypeResourceHandle{{}},
+
+		done: make(chan struct{}),
 	}
 }
 
@@ -173,10 +179,10 @@ func (ctx *MPCalContext) Commit() (err error) {
 	// dispatch all parts of the pre-commit phase asynchronously, so we only wait as long as the slowest resource
 	var nonTrivialPreCommits []chan error
 	for _, resHandle := range ctx.dirtyResourceHandles {
-		log.Printf("-- precommit: %v", resHandle)
+		//log.Printf("-- precommit: %v", resHandle)
 		ch := ctx.getResourceByHandle(resHandle).PreCommit()
 		if ch != nil {
-			log.Println("non-trivial pre-commit from", resHandle)
+			//log.Println("non-trivial pre-commit from", resHandle)
 			nonTrivialPreCommits = append(nonTrivialPreCommits, ch)
 		}
 	}
@@ -195,7 +201,7 @@ func (ctx *MPCalContext) Commit() (err error) {
 	// same as above, run all the commit processes async
 	var nonTrivialCommits []chan struct{}
 	for _, resHandle := range ctx.dirtyResourceHandles {
-		log.Printf("-- commit: %v", resHandle)
+		//log.Printf("-- commit: %v", resHandle)
 		ch := ctx.getResourceByHandle(resHandle).Commit()
 		if ch != nil {
 			nonTrivialCommits = append(nonTrivialCommits, ch)
@@ -244,8 +250,14 @@ func (ctx *MPCalContext) Read(handle ArchetypeResourceHandle, indices []TLAValue
 	return
 }
 
+func (ctx *MPCalContext) Done() <-chan struct{} {
+	return ctx.done
+}
+
 func (ctx *MPCalContext) Close() error {
-	log.Println("mpcal ctx close")
+	log.Println("mpcal ctx close start")
+
+	ctx.done <- struct{}{}
 
 	var err error
 	it := ctx.resources.Iterator()
@@ -254,5 +266,6 @@ func (ctx *MPCalContext) Close() error {
 		cerr := r.(ArchetypeResource).Close()
 		err = multierr.Append(err, cerr)
 	}
+	log.Println("mpcal ctx close finish")
 	return err
 }
