@@ -133,6 +133,11 @@ func AReplica(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Consta
 	_ = val
 
 	for {
+		select {
+		case <-ctx.Done():
+			err = distsys.ErrContextClosed
+		default:
+		}
 		if err != nil {
 			if err == distsys.ErrCriticalSectionAborted {
 				ctx.Abort()
@@ -1070,6 +1075,11 @@ func Get(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constants, 
 	_ = getResp
 
 	for {
+		select {
+		case <-ctx.Done():
+			err0 = distsys.ErrContextClosed
+		default:
+		}
 		if err0 != nil {
 			if err0 == distsys.ErrCriticalSectionAborted {
 				ctx.Abort()
@@ -1345,6 +1355,11 @@ func Put(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constants, 
 	_ = putResp
 
 	for {
+		select {
+		case <-ctx.Done():
+			err1 = distsys.ErrContextClosed
+		default:
+		}
 		if err1 != nil {
 			if err1 == distsys.ErrCriticalSectionAborted {
 				ctx.Abort()
@@ -1699,6 +1714,11 @@ func Disconnect(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Cons
 	_ = j0
 
 	for {
+		select {
+		case <-ctx.Done():
+			err2 = distsys.ErrContextClosed
+		default:
+		}
 		if err2 != nil {
 			if err2 == distsys.ErrCriticalSectionAborted {
 				ctx.Abort()
@@ -1829,6 +1849,11 @@ func ClockUpdate(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Con
 	_ = msg1
 
 	for {
+		select {
+		case <-ctx.Done():
+			err3 = distsys.ErrContextClosed
+		default:
+		}
 		if err3 != nil {
 			if err3 == distsys.ErrCriticalSectionAborted {
 				ctx.Abort()

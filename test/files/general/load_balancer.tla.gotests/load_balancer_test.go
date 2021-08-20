@@ -70,7 +70,7 @@ func TestOneServerOneClient(t *testing.T) {
 		ctx := distsys.NewMPCalContext()
 		self := distsys.NewTLANumber(1)
 		mailboxes := ctx.EnsureArchetypeResourceByName("mailboxes", resources.TCPMailboxesArchetypeResourceMaker(makeAddressFn(1)))
-		filesystem := ctx.EnsureArchetypeResourceByName("filesystem", resources.FilesystemArchetypeResourceMaker(tempDir))
+		filesystem := ctx.EnsureArchetypeResourceByName("filesystem", resources.FileSystemArchetypeResourceMaker(tempDir))
 		err := AServer(ctx, self, constants, mailboxes, filesystem)
 		if err != nil {
 			panic(err)
