@@ -2,7 +2,6 @@ package resources
 
 import (
 	"io"
-	"log"
 	"net"
 	"time"
 )
@@ -26,9 +25,6 @@ func (rw readWriterConnTimeout) Read(data []byte) (n int, err error) {
 		return 0, deadlineErr
 	}
 	n, err = rw.conn.Read(data)
-	if err != nil {
-		log.Println("conn read err", err)
-	}
 	if deadlineErr := rw.conn.SetReadDeadline(time.Time{}); deadlineErr != nil {
 		return 0, deadlineErr
 	}
@@ -40,9 +36,6 @@ func (rw readWriterConnTimeout) Write(data []byte) (n int, err error) {
 		return 0, deadlineErr
 	}
 	n, err = rw.conn.Write(data)
-	if err != nil {
-		log.Println("conn write err", err)
-	}
 	if deadlineErr := rw.conn.SetWriteDeadline(time.Time{}); deadlineErr != nil {
 		return 0, deadlineErr
 	}
