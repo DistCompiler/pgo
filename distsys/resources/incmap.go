@@ -18,6 +18,7 @@ type IncrementalArchetypeMapResource struct {
 	distsys.ArchetypeResourceMapMixin
 	realizedMap  *immutable.Map
 	fillFunction FillFn
+	dirtyElems *immutable.Map
 }
 
 var _ distsys.ArchetypeResource = &IncrementalArchetypeMapResource{}
@@ -27,6 +28,7 @@ func IncrementalArchetypeMapResourceMaker(fillFunction FillFn) distsys.Archetype
 		MakeFn: func() distsys.ArchetypeResource {
 			return &IncrementalArchetypeMapResource{
 				realizedMap: immutable.NewMap(distsys.TLAValueHasher{}),
+				dirtyElems: immutable.NewMap(distsys.TLAValueHasher{}),
 			}
 		},
 		ConfigureFn: func(res distsys.ArchetypeResource) {
@@ -41,18 +43,20 @@ func (res *IncrementalArchetypeMapResource) Index(index distsys.TLAValue) (dists
 	if subRes, ok := res.realizedMap.Get(index); ok {
 		r := subRes.(distsys.ArchetypeResource)
 		maker.Configure(r)
+		res.dirtyElems = res.dirtyElems.Set(index, subRes)
 		return subRes.(distsys.ArchetypeResource), nil
 	}
 
 	subRes := maker.Make()
 	maker.Configure(subRes)
 	res.realizedMap = res.realizedMap.Set(index, subRes)
+	res.dirtyElems = res.dirtyElems.Set(index, subRes)
 	return subRes, nil
 }
 
 func (res *IncrementalArchetypeMapResource) PreCommit() chan error {
 	var nonTrivialOps []chan error
-	it := res.realizedMap.Iterator()
+	it := res.dirtyElems.Iterator()
 	for !it.Done() {
 		_, r := it.Next()
 		ch := r.(distsys.ArchetypeResource).PreCommit()
@@ -80,8 +84,12 @@ func (res *IncrementalArchetypeMapResource) PreCommit() chan error {
 }
 
 func (res *IncrementalArchetypeMapResource) Commit() chan struct{} {
+	defer func() {
+		res.dirtyElems = immutable.NewMap(distsys.TLAValueHasher{})
+	}()
+
 	var nonTrivialOps []chan struct{}
-	it := res.realizedMap.Iterator()
+	it := res.dirtyElems.Iterator()
 	for !it.Done() {
 		_, r := it.Next()
 		ch := r.(distsys.ArchetypeResource).Commit()
@@ -105,8 +113,12 @@ func (res *IncrementalArchetypeMapResource) Commit() chan struct{} {
 }
 
 func (res *IncrementalArchetypeMapResource) Abort() chan struct{} {
+	defer func() {
+		res.dirtyElems = immutable.NewMap(distsys.TLAValueHasher{})
+	}()
+
 	var nonTrivialOps []chan struct{}
-	it := res.realizedMap.Iterator()
+	it := res.dirtyElems.Iterator()
 	for !it.Done() {
 		_, r := it.Next()
 		ch := r.(distsys.ArchetypeResource).Abort()

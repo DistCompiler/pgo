@@ -26,7 +26,7 @@ func (rw readWriterConnTimeout) Read(data []byte) (n int, err error) {
 	}
 	n, err = rw.conn.Read(data)
 	if deadlineErr := rw.conn.SetReadDeadline(time.Time{}); deadlineErr != nil {
-		return 0, deadlineErr
+		return n, deadlineErr
 	}
 	return
 }
@@ -37,7 +37,7 @@ func (rw readWriterConnTimeout) Write(data []byte) (n int, err error) {
 	}
 	n, err = rw.conn.Write(data)
 	if deadlineErr := rw.conn.SetWriteDeadline(time.Time{}); deadlineErr != nil {
-		return 0, deadlineErr
+		return n, deadlineErr
 	}
 	return
 }

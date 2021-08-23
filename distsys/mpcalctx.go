@@ -254,6 +254,7 @@ func (ctx *MPCalContext) Done() <-chan struct{} {
 
 func (ctx *MPCalContext) Close() error {
 	ctx.done <- struct{}{}
+	close(ctx.done)
 
 	var err error
 	it := ctx.resources.Iterator()
