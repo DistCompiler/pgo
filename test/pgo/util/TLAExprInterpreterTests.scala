@@ -6,7 +6,7 @@ import pgo.model.SourceLocation
 import pgo.model.tla.BuiltinModules
 import pgo.parser.TLAParser
 import pgo.trans.MPCalGoCodegenPass
-import pgo.util.TLAExprInterpreter.{TLAValue, TLAValueBool, TLAValueNumber}
+import pgo.util.TLAExprInterpreter.{TLAValue, TLAValueBool, TLAValueFunction, TLAValueNumber, TLAValueSet, TLAValueString, TLAValueTuple}
 
 class TLAExprInterpreterTests extends AnyFunSuite {
   private lazy val builtinOps = BuiltinModules.builtinModules.values.view
@@ -42,5 +42,11 @@ class TLAExprInterpreterTests extends AnyFunSuite {
 
   checkPass("existential avoids errors when a set is empty") {
     s"""\\E <<w, zk>> \\in {"}nWO"}, juAOg \\in {} : w""" -> TLAValueBool(false)
+  }
+
+  checkPass("ensure we do tuple indexing right by a strong example") {
+    s"""{[asZX9CzCt25kR |-> IsFiniteSet({}), wMuDL7vAxos |-> Zero, u8CCtjXS4Qm1QQWq7B |-> fUvEkcAMZ1klHtG6, i |-> Zero]
+       |: <<fUvEkcAMZ1klHtG6, c94gDDm, hfc>> \\in Seq({<<>>, Zero, {}})}""".stripMargin ->
+      TLAValueSet(Set(TLAValueFunction(Map(TLAValueString("asZX9CzCt25kR") -> TLAValueBool(true), TLAValueString("wMuDL7vAxos") -> TLAValueNumber(0), TLAValueString("u8CCtjXS4Qm1QQWq7B") -> TLAValueTuple(Vector()), TLAValueString("i") -> TLAValueNumber(0))), TLAValueFunction(Map(TLAValueString("asZX9CzCt25kR") -> TLAValueBool(true), TLAValueString("wMuDL7vAxos") -> TLAValueNumber(0), TLAValueString("u8CCtjXS4Qm1QQWq7B") -> TLAValueSet(Set()), TLAValueString("i") -> TLAValueNumber(0))), TLAValueFunction(Map(TLAValueString("asZX9CzCt25kR") -> TLAValueBool(true), TLAValueString("wMuDL7vAxos") -> TLAValueNumber(0), TLAValueString("u8CCtjXS4Qm1QQWq7B") -> TLAValueNumber(0), TLAValueString("i") -> TLAValueNumber(0)))))
   }
 }

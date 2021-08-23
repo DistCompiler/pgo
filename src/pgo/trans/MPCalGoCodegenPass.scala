@@ -512,7 +512,7 @@ object MPCalGoCodegenPass {
         val boundIds: IdMap[RefersTo.HasReferences,String] = elements.view.map(id => id -> ctx.nameCleaner.cleanName(id.id.id)).to(IdMap)
         val bindings = elements.view.zipWithIndex.map {
           case (element, elemIdx) =>
-            d"\nvar ${boundIds(element)} $TLAValue = $setExpr.ApplyFunction(distsys.NewTLANumber($elemIdx))" +
+            d"\nvar ${boundIds(element)} $TLAValue = $setExpr.ApplyFunction(distsys.NewTLANumber(${elemIdx + 1}))" +
               d"\n_ = ${boundIds(element)}"
         }.flattenDescriptions
         (boundIds, bindings)
