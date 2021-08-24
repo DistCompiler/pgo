@@ -8,6 +8,8 @@ import pgo.parser.TLAParser
 import pgo.trans.MPCalGoCodegenPass
 import pgo.util.TLAExprInterpreter.{TLAValue, TLAValueBool, TLAValueFunction, TLAValueNumber, TLAValueSet, TLAValueString, TLAValueTuple}
 
+import scala.collection.immutable.HashSet
+
 class TLAExprInterpreterTests extends AnyFunSuite {
   private lazy val builtinOps = BuiltinModules.builtinModules.values.view
     .flatMap(_.members)
@@ -51,6 +53,8 @@ class TLAExprInterpreterTests extends AnyFunSuite {
   }
 
   checkPass("creating a set with elements that have different types") {
-    s"""{Zero, {}, 3, <<{}>>, {}, {}, IsFiniteSet({}), <<<<>>>>}""" -> TLAValueBool(false)
+    s"""{Zero, {}, 3, <<{}>>, {}, {}, IsFiniteSet({}), <<<<>>>>}""" ->
+      TLAValueSet(HashSet(TLAValueNumber(0), TLAValueTuple(Vector(TLAValueSet(Set()))), TLAValueNumber(3),
+        TLAValueTuple(Vector(TLAValueTuple(Vector()))), TLAValueSet(Set()), TLAValueBool(true)))
   }
 }
