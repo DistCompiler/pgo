@@ -49,4 +49,8 @@ class TLAExprInterpreterTests extends AnyFunSuite {
        |: <<fUvEkcAMZ1klHtG6, c94gDDm, hfc>> \\in Seq({<<>>, Zero, {}})}""".stripMargin ->
       TLAValueSet(Set(TLAValueFunction(Map(TLAValueString("asZX9CzCt25kR") -> TLAValueBool(true), TLAValueString("wMuDL7vAxos") -> TLAValueNumber(0), TLAValueString("u8CCtjXS4Qm1QQWq7B") -> TLAValueTuple(Vector()), TLAValueString("i") -> TLAValueNumber(0))), TLAValueFunction(Map(TLAValueString("asZX9CzCt25kR") -> TLAValueBool(true), TLAValueString("wMuDL7vAxos") -> TLAValueNumber(0), TLAValueString("u8CCtjXS4Qm1QQWq7B") -> TLAValueSet(Set()), TLAValueString("i") -> TLAValueNumber(0))), TLAValueFunction(Map(TLAValueString("asZX9CzCt25kR") -> TLAValueBool(true), TLAValueString("wMuDL7vAxos") -> TLAValueNumber(0), TLAValueString("u8CCtjXS4Qm1QQWq7B") -> TLAValueNumber(0), TLAValueString("i") -> TLAValueNumber(0)))))
   }
+
+  checkPass("creating a set with elements that have different types") {
+    s"""{Zero, {}, 3, <<{}>>, {}, {}, IsFiniteSet({}), <<<<>>>>}""" -> TLAValueBool(false)
+  }
 }

@@ -276,7 +276,7 @@ func (v tlaValueBool) Hash() uint32 {
 }
 
 func (v tlaValueBool) Equal(other TLAValue) bool {
-	return bool(v) == other.AsBool()
+	return other.IsBool() && bool(v) == other.AsBool()
 }
 
 func (v tlaValueBool) String() string {
