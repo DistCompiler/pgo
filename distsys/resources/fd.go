@@ -17,6 +17,7 @@ const (
 	failureDetectorPullInterval = 2 * time.Second
 )
 
+// ArchetypeState is an enum that denotes an archetype running state.
 type ArchetypeState int
 
 const (
@@ -44,6 +45,14 @@ func (a ArchetypeState) String() string {
 	}
 }
 
+// Monitor monitors the registered archetypes by wrapping them. Monitor provides
+// the IsAlive API, which can be queried to find out whether a specific
+// archetype is alive. At most one monitor should be defined in each OS process,
+// and it catches all archetypes' goroutines errors and panics. In the case of
+// an error or a panic for an archetype's goroutine, the Monitor returns false
+// to IsAlive calls with that particular archetype. Monitor exposes IsAlive API
+// as an RPC. If the whole OS process fails, consequent calls to IsAlive will
+// time out, and this timeout behavior denotes failure of the queried archetype.
 type Monitor struct {
 	ListenAddr string
 
@@ -56,6 +65,7 @@ type Monitor struct {
 	states map[distsys.TLAValue]ArchetypeState
 }
 
+// NewMonitor creates a new Monitor and returns a pointer to it.
 func NewMonitor(listenAddr string) *Monitor {
 	return &Monitor{
 		ListenAddr: listenAddr,
@@ -77,8 +87,18 @@ func (m *Monitor) getState(archetypeID distsys.TLAValue) (ArchetypeState, bool) 
 	return state, ok
 }
 
+// WrappedArchetypeFn denotes a function that runs an archetype with all the
+// required resources and returns its execution error. For example:
+//
+// var fn distsys.WrappedArchetypeFn
+// fn = func() error {
+//     err := archetype(ctx, self, constants, resource_1, ..., resource_n)
+//     return err
+// }
+//
 type WrappedArchetypeFn func() error
 
+// RunArchetype runs the given archetype inside the monitor.
 func (m *Monitor) RunArchetype(archetypeID distsys.TLAValue, fn WrappedArchetypeFn) error {
 	done := make(chan error)
 	go func() {
@@ -101,6 +121,8 @@ func (m *Monitor) RunArchetype(archetypeID distsys.TLAValue, fn WrappedArchetype
 	return <-done
 }
 
+// ListenAndServe starts the monitor's RPC server and serves the incoming
+// connections. It blocks until an error occurs or the monitor closes.
 func (m *Monitor) ListenAndServe() error {
 	rpcRcvr := &MonitorRPCReceiver{m: m}
 	m.server = rpc.NewServer()
@@ -128,6 +150,8 @@ func (m *Monitor) ListenAndServe() error {
 	}
 }
 
+// Close stops the monitor's RPC servers. It doesn't do anything with the
+// archetypes that the monitor is running.
 func (m *Monitor) Close() error {
 	var err error
 	close(m.done)
@@ -150,8 +174,36 @@ func (rcvr *MonitorRPCReceiver) IsAlive(arg distsys.TLAValue, reply *ArchetypeSt
 	return nil
 }
 
+// FailureDetectorAddressMappingFn returns address of the monitor that is
+// running the archetype with the given index.
 type FailureDetectorAddressMappingFn func(distsys.TLAValue) string
 
+// FailureDetectorResourceMaker produces a distsys.ArchetypeResourceMaker for a
+// collection of single failure detectors. Each single failure detector is
+// responsible to detect that a particular archetype is alive or not. Actually
+// the single failure detector with index i is equivalent to `fd[i]` in the
+// MPCal spec. A single failure detector periodically calls the IsAlive RPC
+// from archetype's monitor. In case of false response or timeout, it marks
+// the archetype as failed. Optionally, it gives options to configure parameters
+// such as timeouts.
+// Read from a single failure detector returns true if it detects the archetype
+// as failed. Otherwise, it returns false.
+// FailureDetector is matches the guarantees following mapping macro:
+//
+// mapping macro PracticalFD {
+//    read {
+//        if ($variable = FALSE) { \* process is alive
+//            either { yield TRUE; } or { yield FALSE; }; \* no accuracy guarantee
+//        } else {
+//            yield $variable; \* (eventual) completeness
+//        }
+//    }
+//    write { assert(FALSE); yield $value; }
+// }
+//
+// It provides strong completeness but no accuracy guarantee. This failure
+// detector can have both false positive (due to no accuracy) and false negative
+// (due to [eventual] completeness) outputs.
 func FailureDetectorResourceMaker(addressMappingFn FailureDetectorAddressMappingFn, opts ...FailureDetectorOption) distsys.ArchetypeResourceMaker {
 	return IncrementalArchetypeMapResourceMaker(func(index distsys.TLAValue) distsys.ArchetypeResourceMaker {
 		monitorAddr := addressMappingFn(index)

@@ -3,17 +3,20 @@ package distsys
 import (
 	"errors"
 	"fmt"
+
 	"github.com/benbjohnson/immutable"
 	"go.uber.org/multierr"
 )
 
-// ErrAssertionFailed it will be returned by the generated code if an assertion fails.
+// ErrAssertionFailed it will be returned by an archetype function in the
+// generated code if an assertion fails.
 var ErrAssertionFailed = errors.New("assertion failed")
 
 // ErrCriticalSectionAborted it may be returned by any resource operations that can return an error. If it is returned
 // the critical section that was performing that operation will be rolled back and canceled.
 var ErrCriticalSectionAborted = errors.New("MPCal critical section aborted")
 
+// ErrContextClosed will be returned if the context of an archetype is closed.
 var ErrContextClosed = errors.New("MPCal context closed")
 
 // ArchetypeResourceHandle encapsulates a reference to an ArchetypeResource.
@@ -248,15 +251,24 @@ func (ctx *MPCalContext) Read(handle ArchetypeResourceHandle, indices []TLAValue
 	return
 }
 
+// Done returns a channel that blocks until the context closes. Successive
+// calls to Done return the same value.
 func (ctx *MPCalContext) Done() <-chan struct{} {
 	return ctx.done
 }
 
+// Close first stops execution of the running archetype that uses this context
+// and then closes registered resources.
 func (ctx *MPCalContext) Close() error {
+	// In order to not interrupting an archetype when it's in the middle of a
+	// critical section, we block here to send the context closed signal to the
+	// archetype. Archetype quits after receiving this signal, and then we can
+	// close the done channel and the registered resources.
 	ctx.done <- struct{}{}
 	close(ctx.done)
 
 	var err error
+	// Note that we should close all the resources, not just the dirty ones.
 	it := ctx.resources.Iterator()
 	for !it.Done() {
 		_, r := it.Next()
