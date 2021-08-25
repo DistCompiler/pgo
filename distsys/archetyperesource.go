@@ -40,7 +40,11 @@ type ArchetypeResource interface {
 	// ErrCriticalSectionAborted.
 	// This makes no sense for a value-like resource, and should be blocked off with ArchetypeResourceLeafMixin in that case.
 	Index(index TLAValue) (ArchetypeResource, error)
-
+	// Close will be called when the archetype stops running. Close stops
+	// running of any background jobs and cleans up the stuff that no longer
+	// needed when the archetype is not running. The behavior of Close after the
+	// first call is undefined. Specific implementations may document their own
+	// behavior.
 	Close() error
 }
 

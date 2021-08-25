@@ -143,6 +143,8 @@ func (res *IncrementalArchetypeMapResource) Abort() chan struct{} {
 
 func (res *IncrementalArchetypeMapResource) Close() error {
 	var err error
+	// Note that we should close all the realized elements, not just the dirty
+	// ones.
 	it := res.realizedMap.Iterator()
 	for !it.Done() {
 		_, r := it.Next()
