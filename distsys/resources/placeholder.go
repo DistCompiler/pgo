@@ -10,9 +10,9 @@ var ErrPlaceHolderAccess = errors.New("no access is allowed to PlaceHolderResour
 
 type PlaceHolderResource struct{}
 
-// PlaceHolderResourceMaker produces a distsys.ArchetypeResourceMaker that is
-// not doing anything. It's just for usage of passing as placeholder for an
-// archetype's argument and calling any of its methods causes a panic.
+// PlaceHolderResourceMaker produces a distsys.ArchetypeResourceMaker that does
+// nothing. It's just for usage of passing as placeholder for an archetype's
+// argument and calling any of its methods causes a panic.
 func PlaceHolderResourceMaker() distsys.ArchetypeResourceMaker {
 	return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
 		return &PlaceHolderResource{}

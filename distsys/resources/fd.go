@@ -188,7 +188,7 @@ type FailureDetectorAddressMappingFn func(distsys.TLAValue) string
 // such as timeouts.
 // Read from a single failure detector returns true if it detects the archetype
 // as failed. Otherwise, it returns false.
-// FailureDetector is matches the guarantees following mapping macro:
+// FailureDetector refines the guarantees following mapping macro:
 //
 // mapping macro PracticalFD {
 //    read {

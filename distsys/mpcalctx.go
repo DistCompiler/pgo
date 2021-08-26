@@ -8,7 +8,7 @@ import (
 	"go.uber.org/multierr"
 )
 
-// ErrAssertionFailed it will be returned by an archetype function in the
+// ErrAssertionFailed will be returned by an archetype function in the
 // generated code if an assertion fails.
 var ErrAssertionFailed = errors.New("assertion failed")
 
