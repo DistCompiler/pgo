@@ -34,6 +34,8 @@ var _ fmt.Stringer = TLAValue{}
 var _ gob.GobDecoder = &TLAValue{}
 var _ gob.GobEncoder = &TLAValue{}
 
+var TLA_defaultInitValue = TLAValue{}
+
 func (v TLAValue) Hash() uint32 {
 	if v.data == nil {
 		return 0

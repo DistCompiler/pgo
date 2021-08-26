@@ -8,10 +8,7 @@ import (
 var _ = new(fmt.Stringer)  // unconditionally prevent go compiler from reporting unused fmt import
 var _ = distsys.TLAValue{} // same, for distsys
 
-type Constants struct {
-}
-
-func Test1(constants Constants) distsys.TLAValue {
+func Test1(iface distsys.ArchetypeInterface) distsys.TLAValue {
 	return distsys.TLASetComprehension([]distsys.TLAValue{distsys.TLASetComprehension([]distsys.TLAValue{distsys.NewTLASet(distsys.NewTLANumber(1), distsys.NewTLANumber(2), distsys.NewTLANumber(3))}, func(args0 []distsys.TLAValue) distsys.TLAValue {
 		var y distsys.TLAValue = args0[0]
 		_ = y
@@ -22,8 +19,7 @@ func Test1(constants Constants) distsys.TLAValue {
 		return x
 	})
 }
-
-func Test2(constants Constants) distsys.TLAValue {
+func Test2(iface distsys.ArchetypeInterface) distsys.TLAValue {
 	return distsys.TLAQuantifiedUniversal([]distsys.TLAValue{distsys.NewTLAString("W\"!<WY=K0NjGp1&3=D} ;IY]VxaL1f5uHL~b(|Mnvp_WBN4kG,Vs1H 3ZLD\"3mnaLj8$XEDQ#iT"), distsys.NewTLARecord([]distsys.TLARecordField{
 		{distsys.NewTLAString("rjg96CqaSMuCjtyr450h6DL1e02XHUTSveCKybqCudAztsOjRmkIEFEkhaCX9AEfDDCOqmuEg0Xtb5AWWeMNM2fXfObxeWMG7AcDR5KDDHmtkGN8Xd"), distsys.TLA_Zero},
 		{distsys.NewTLAString("cSOk29itvxzRN2lPY"), distsys.NewTLATuple()},
@@ -2267,3 +2263,7 @@ func Test2(constants Constants) distsys.TLAValue {
 		}).AsBool()
 	})
 }
+
+var procTable = distsys.MakeMPCalProcTable()
+
+var jumpTable = distsys.MakeMPCalJumpTable()

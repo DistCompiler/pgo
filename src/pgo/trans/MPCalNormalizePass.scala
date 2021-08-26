@@ -79,20 +79,20 @@ object MPCalNormalizePass {
 
         def impl(stmts: List[PCalStatement], labelAfter: Option[PCalLabel], stmtsOut: Iterator[PCalStatement], blocksOut: Iterator[PCalLabeledStatements]): (List[PCalStatement],Iterator[PCalLabeledStatements]) = {
           object ContainsJump {
-            def unapply(stmts: List[PCalStatement]): Option[(List[PCalStatement],List[PCalStatement])] =
+            def unapply(stmts: List[PCalStatement]): Option[(List[PCalStatement],List[PCalStatement],Boolean)] =
               stmts match {
-                case (goto: PCalGoto) :: restBlocks => Some((List(goto), restBlocks))
-                case (ret: PCalReturn) :: restBlocks => Some((List(ret), restBlocks))
-                case (ifStmt: PCalIf) :: restBlocks if containsLabels(ById(ifStmt)) => Some((List(ifStmt), restBlocks))
-                case (either: PCalEither) :: restBlocks if containsLabels(ById(either)) => Some((List(either), restBlocks))
+                case (goto: PCalGoto) :: restBlocks => Some((List(goto), restBlocks, false))
+                case (ret: PCalReturn) :: restBlocks => Some((List(ret), restBlocks, false))
+                case (ifStmt: PCalIf) :: restBlocks if containsLabels(ById(ifStmt)) => Some((List(ifStmt), restBlocks, false))
+                case (either: PCalEither) :: restBlocks if containsLabels(ById(either)) => Some((List(either), restBlocks, false))
 
-                case (call: PCalCall) :: (ret: PCalReturn) :: restBlocks => Some((List(call, ret), restBlocks))
-                case (call: PCalCall) :: (goto: PCalGoto) :: restBlocks => Some((List(call, goto), restBlocks))
-                case (call: PCalCall) :: restBlocks => Some((List(call), restBlocks))
+                case (call: PCalCall) :: (ret: PCalReturn) :: restBlocks => Some((List(call, ret), restBlocks, false))
+                case (call: PCalCall) :: (goto: PCalGoto) :: restBlocks => Some((List(call, goto), restBlocks, false))
+                case (call: PCalCall) :: restBlocks => Some((List(call), restBlocks, true))
 
-                case (mpCall @PCalExtensionStatement(_: MPCalCall)) :: (ret: PCalReturn) :: restBlocks => Some((List(mpCall, ret), restBlocks))
-                case (mpCall @PCalExtensionStatement(_: MPCalCall)) :: (goto: PCalGoto) :: restBlocks => Some((List(mpCall, goto), restBlocks))
-                case (mpCall @PCalExtensionStatement(_: MPCalCall)) :: restBlocks => Some((List(mpCall), restBlocks))
+                case (mpCall @PCalExtensionStatement(_: MPCalCall)) :: (ret: PCalReturn) :: restBlocks => Some((List(mpCall, ret), restBlocks, false))
+                case (mpCall @PCalExtensionStatement(_: MPCalCall)) :: (goto: PCalGoto) :: restBlocks => Some((List(mpCall, goto), restBlocks, false))
+                case (mpCall @PCalExtensionStatement(_: MPCalCall)) :: restBlocks => Some((List(mpCall), restBlocks, true))
 
                 case _ => None
               }
@@ -106,9 +106,13 @@ object MPCalNormalizePass {
               assert(allBlocks.forall(_.isInstanceOf[PCalLabeledStatements]))
               val (resultStmts, _) = impl(Nil, Some(nextLabel), stmtsOut, Iterator.empty)
               (resultStmts, transBlocks(allBlocks.asInstanceOf[List[PCalLabeledStatements]], labelAfter, blocksOut))
-            case ContainsJump(jumpStmts, restStmts) =>
+            case ContainsJump(jumpStmts, restStmts, needsGoto) =>
               assert(restStmts.forall(_.isInstanceOf[PCalLabeledStatements]))
-              val jumpTrans = jumpStmts.map(transStmt(_, findLabelAfter(restStmts, labelAfter)))
+              val localLabelAfter = findLabelAfter(restStmts, labelAfter)
+              val jumpTrans = jumpStmts.map(transStmt(_, localLabelAfter)) :::
+                (if(needsGoto) {
+                  List((PCalGoto(localLabelAfter.get.name), Iterator.empty))
+                } else Nil)
               ((stmtsOut ++ jumpTrans.iterator.map(_._1)).toList,
                 transBlocks(restStmts.asInstanceOf[List[PCalLabeledStatements]], labelAfter, blocksOut ++ jumpTrans.iterator.flatMap(_._2)))
             case stmt :: restStmts =>

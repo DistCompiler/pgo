@@ -92,6 +92,11 @@ object BuiltinModules {
     Peano, ProtoReals, Naturals, Integers, Reals,
   ).map(mod => mod.identifier -> mod).toMap
 
+  // these are not real built-ins, but can end up being accessible due to how PlusCal is structured
+  object PCalNames extends TLABuiltinModule(".PCalNames") {
+    alphaOp("defaultInitValue", 0)
+  }
+
   object TLC extends TLABuiltinModule("TLC") {
     alphaOp("Print", 2)
     alphaOp("PrintT", 1)

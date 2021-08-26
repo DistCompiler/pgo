@@ -89,6 +89,7 @@ process (Pross5 = 5) {
   {
     Proc1lbl1:
       call Proc20();
+      goto Proc1lbl2;
     Proc1lbl2:
       with (yielded_V100 = (V1) + (1)) {
         with (value00 = (yielded_V100) + (b)) {
@@ -110,6 +111,7 @@ process (Pross5 = 5) {
   {
     Proc1lbl1:
       call Proc21();
+      goto Proc1lbl2;
     Proc1lbl2:
       V1 := (V1) + (b);
       return;
@@ -127,6 +129,7 @@ process (Pross5 = 5) {
   {
     Proc1lbl1:
       call Proc22();
+      goto Proc1lbl2;
     Proc1lbl2:
       V2 := (V2) + (b);
       return;
@@ -144,6 +147,7 @@ process (Pross5 = 5) {
   {
     Proc1lbl1:
       call Proc23();
+      goto Proc1lbl2;
     Proc1lbl2:
       c := (c) + (b);
       return;
@@ -162,14 +166,17 @@ process (Pross5 = 5) {
   {
     Prosslbl1:
       call Proc13(10);
+      goto Prosslbl2;
     Prosslbl2:
       call Proc11(20);
+      goto Done;
   }
   
   process (Pross5 = 5)
   {
     Pross5lbl1:
       call RecursiveProcRef0();
+      goto Done;
   }
   
   process (Pross1 = 1)
@@ -177,6 +184,7 @@ process (Pross5 = 5) {
   {
     Arch1lbl:
       call Proc10(f);
+      goto Done;
   }
   
   process (Pross2 = 2)
@@ -184,6 +192,7 @@ process (Pross5 = 5) {
   {
     Arch1lbl:
       call Proc11(f0);
+      goto Done;
   }
   
   process (Pross3 = 3)
@@ -191,6 +200,7 @@ process (Pross5 = 5) {
   {
     Arch1lbl:
       call Proc12(f1);
+      goto Done;
   }
   
   process (Pross3Bis = 33)
@@ -198,6 +208,7 @@ process (Pross5 = 5) {
   {
     Arch1lbl:
       call Proc12(f2);
+      goto Done;
   }
 }
 

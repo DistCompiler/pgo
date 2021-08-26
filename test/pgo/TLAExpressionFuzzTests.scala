@@ -47,8 +47,8 @@ class TLAExpressionFuzzTests extends AnyFunSuite with ScalaCheckPropertyChecks {
          |
          |
          |func main() {
-         |  ctx := distsys.NewMPCalContext()
-         |  err := testbed.TestBed(ctx, distsys.NewTLAString("self"), testbed.Constants{})
+         |  ctx := distsys.NewMPCalContext(distsys.NewTLAString("self"), testbed.TestBed)
+         |  err := ctx.Run()
          |  if err != nil {
          |    panic(err)
          |  }

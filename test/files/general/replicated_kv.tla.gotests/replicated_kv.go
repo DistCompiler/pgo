@@ -8,732 +8,566 @@ import (
 var _ = new(fmt.Stringer)  // unconditionally prevent go compiler from reporting unused fmt import
 var _ = distsys.TLAValue{} // same, for distsys
 
-type Constants struct {
-	BUFFER_SIZE    distsys.TLAValue
-	NUM_REPLICAS   distsys.TLAValue
-	NUM_CLIENTS    distsys.TLAValue
-	DISCONNECT_MSG distsys.TLAValue
-	GET_MSG        distsys.TLAValue
-	PUT_MSG        distsys.TLAValue
-	NULL_MSG       distsys.TLAValue
-	GET_RESPONSE   distsys.TLAValue
-	PUT_RESPONSE   distsys.TLAValue
-	NULL           distsys.TLAValue
-	GET_KEY        distsys.TLAValue
-	PUT_KEY        distsys.TLAValue
-	PUT_VALUE      distsys.TLAValue
+func KeySpace(iface distsys.ArchetypeInterface) distsys.TLAValue {
+	return distsys.NewTLASet(iface.GetConstant("GET_KEY")(), iface.GetConstant("PUT_KEY")())
 }
-
-func KeySpace(constants Constants) distsys.TLAValue {
-	return distsys.NewTLASet(constants.GET_KEY, constants.PUT_KEY)
-}
-
-func GET_ORDER(constants Constants) distsys.TLAValue {
+func GET_ORDER(iface distsys.ArchetypeInterface) distsys.TLAValue {
 	return distsys.NewTLANumber(0)
 }
-
-func PUT_ORDER(constants Constants) distsys.TLAValue {
+func PUT_ORDER(iface distsys.ArchetypeInterface) distsys.TLAValue {
 	return distsys.NewTLANumber(1)
 }
-
-func DISCONNECT_ORDER(constants Constants) distsys.TLAValue {
+func DISCONNECT_ORDER(iface distsys.ArchetypeInterface) distsys.TLAValue {
 	return distsys.NewTLANumber(2)
 }
-
-func NULL_ORDER(constants Constants) distsys.TLAValue {
+func NULL_ORDER(iface distsys.ArchetypeInterface) distsys.TLAValue {
 	return distsys.NewTLANumber(3)
 }
-
-func GetSet(constants Constants) distsys.TLAValue {
-	return distsys.TLA_DotDotSymbol(constants.NUM_REPLICAS, distsys.TLA_PlusSymbol(constants.NUM_REPLICAS, distsys.TLA_MinusSymbol(constants.NUM_CLIENTS, distsys.NewTLANumber(1))))
+func GetSet(iface distsys.ArchetypeInterface) distsys.TLAValue {
+	return distsys.TLA_DotDotSymbol(iface.GetConstant("NUM_REPLICAS")(), distsys.TLA_PlusSymbol(iface.GetConstant("NUM_REPLICAS")(), distsys.TLA_MinusSymbol(iface.GetConstant("NUM_CLIENTS")(), distsys.NewTLANumber(1))))
+}
+func PutSet(iface distsys.ArchetypeInterface) distsys.TLAValue {
+	return distsys.TLA_DotDotSymbol(distsys.TLA_PlusSymbol(iface.GetConstant("NUM_REPLICAS")(), iface.GetConstant("NUM_CLIENTS")()), distsys.TLA_PlusSymbol(iface.GetConstant("NUM_REPLICAS")(), distsys.TLA_MinusSymbol(distsys.TLA_AsteriskSymbol(distsys.NewTLANumber(2), iface.GetConstant("NUM_CLIENTS")()), distsys.NewTLANumber(1))))
+}
+func DisconnectSet(iface distsys.ArchetypeInterface) distsys.TLAValue {
+	return distsys.TLA_DotDotSymbol(distsys.TLA_PlusSymbol(iface.GetConstant("NUM_REPLICAS")(), distsys.TLA_AsteriskSymbol(distsys.NewTLANumber(2), iface.GetConstant("NUM_CLIENTS")())), distsys.TLA_PlusSymbol(iface.GetConstant("NUM_REPLICAS")(), distsys.TLA_MinusSymbol(distsys.TLA_AsteriskSymbol(distsys.NewTLANumber(3), iface.GetConstant("NUM_CLIENTS")()), distsys.NewTLANumber(1))))
+}
+func NullSet(iface distsys.ArchetypeInterface) distsys.TLAValue {
+	return distsys.TLA_DotDotSymbol(distsys.TLA_PlusSymbol(iface.GetConstant("NUM_REPLICAS")(), distsys.TLA_AsteriskSymbol(distsys.NewTLANumber(3), iface.GetConstant("NUM_CLIENTS")())), distsys.TLA_PlusSymbol(iface.GetConstant("NUM_REPLICAS")(), distsys.TLA_MinusSymbol(distsys.TLA_AsteriskSymbol(distsys.NewTLANumber(4), iface.GetConstant("NUM_CLIENTS")()), distsys.NewTLANumber(1))))
+}
+func NUM_NODES(iface distsys.ArchetypeInterface) distsys.TLAValue {
+	return distsys.TLA_PlusSymbol(iface.GetConstant("NUM_REPLICAS")(), iface.GetConstant("NUM_CLIENTS")())
+}
+func ReplicaSet(iface distsys.ArchetypeInterface) distsys.TLAValue {
+	return distsys.TLA_DotDotSymbol(distsys.NewTLANumber(0), distsys.TLA_MinusSymbol(iface.GetConstant("NUM_REPLICAS")(), distsys.NewTLANumber(1)))
+}
+func ClientSet(iface distsys.ArchetypeInterface) distsys.TLAValue {
+	return distsys.TLA_DotDotSymbol(iface.GetConstant("NUM_REPLICAS")(), distsys.TLA_MinusSymbol(NUM_NODES(iface), distsys.NewTLANumber(1)))
 }
 
-func PutSet(constants Constants) distsys.TLAValue {
-	return distsys.TLA_DotDotSymbol(distsys.TLA_PlusSymbol(constants.NUM_REPLICAS, constants.NUM_CLIENTS), distsys.TLA_PlusSymbol(constants.NUM_REPLICAS, distsys.TLA_MinusSymbol(distsys.TLA_AsteriskSymbol(distsys.NewTLANumber(2), constants.NUM_CLIENTS), distsys.NewTLANumber(1))))
-}
+var procTable = distsys.MakeMPCalProcTable()
 
-func DisconnectSet(constants Constants) distsys.TLAValue {
-	return distsys.TLA_DotDotSymbol(distsys.TLA_PlusSymbol(constants.NUM_REPLICAS, distsys.TLA_AsteriskSymbol(distsys.NewTLANumber(2), constants.NUM_CLIENTS)), distsys.TLA_PlusSymbol(constants.NUM_REPLICAS, distsys.TLA_MinusSymbol(distsys.TLA_AsteriskSymbol(distsys.NewTLANumber(3), constants.NUM_CLIENTS), distsys.NewTLANumber(1))))
-}
-
-func NullSet(constants Constants) distsys.TLAValue {
-	return distsys.TLA_DotDotSymbol(distsys.TLA_PlusSymbol(constants.NUM_REPLICAS, distsys.TLA_AsteriskSymbol(distsys.NewTLANumber(3), constants.NUM_CLIENTS)), distsys.TLA_PlusSymbol(constants.NUM_REPLICAS, distsys.TLA_MinusSymbol(distsys.TLA_AsteriskSymbol(distsys.NewTLANumber(4), constants.NUM_CLIENTS), distsys.NewTLANumber(1))))
-}
-
-func NUM_NODES(constants Constants) distsys.TLAValue {
-	return distsys.TLA_PlusSymbol(constants.NUM_REPLICAS, constants.NUM_CLIENTS)
-}
-
-func ReplicaSet(constants Constants) distsys.TLAValue {
-	return distsys.TLA_DotDotSymbol(distsys.NewTLANumber(0), distsys.TLA_MinusSymbol(constants.NUM_REPLICAS, distsys.NewTLANumber(1)))
-}
-
-func ClientSet(constants Constants) distsys.TLAValue {
-	return distsys.TLA_DotDotSymbol(constants.NUM_REPLICAS, distsys.TLA_MinusSymbol(func() distsys.TLAValue {
-		return NUM_NODES(constants)
-	}(), distsys.NewTLANumber(1)))
-}
-
-func AReplica(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constants, clients distsys.ArchetypeResourceHandle, replicas distsys.ArchetypeResourceHandle, kv distsys.ArchetypeResourceHandle) error {
-	ctx.ReportEvent(distsys.ArchetypeStarted)
-	defer func() {
-		ctx.ReportEvent(distsys.ArchetypeFinished)
-	}()
-	var err error
-	// label tags
-	const (
-		InitLabelTag = iota
-		replicaLoopLabelTag
-		receiveClientRequestLabelTag
-		clientDisconnectedLabelTag
-		replicaGetRequestLabelTag
-		replicaPutRequestLabelTag
-		replicaNullRequestLabelTag
-		findStableRequestsLoopLabelTag
-		findMinClockLabelTag
-		findMinClientLabelTag
-		addStableMessageLabelTag
-		respondPendingRequestsLoopLabelTag
-		respondStableGetLabelTag
-		respondStablePutLabelTag
-		DoneLabelTag
-	)
-	programCounter := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.NewTLANumber(InitLabelTag)))
-	liveClients := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.TLAValue{}))
-	_ = liveClients
-	pendingRequests := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.TLAValue{}))
-	_ = pendingRequests
-	stableMessages := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.TLAValue{}))
-	_ = stableMessages
-	i := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.TLAValue{}))
-	_ = i
-	firstPending := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.TLAValue{}))
-	_ = firstPending
-	timestamp := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.TLAValue{}))
-	_ = timestamp
-	nextClient := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.TLAValue{}))
-	_ = nextClient
-	lowestPending := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.TLAValue{}))
-	_ = lowestPending
-	chooseMessage := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.TLAValue{}))
-	_ = chooseMessage
-	currentClocks := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.TLAValue{}))
-	_ = currentClocks
-	minClock := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.TLAValue{}))
-	_ = minClock
-	continue0 := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.TLAValue{}))
-	_ = continue0
-	pendingClients := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.TLAValue{}))
-	_ = pendingClients
-	clientsIter := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.TLAValue{}))
-	_ = clientsIter
-	msg := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.TLAValue{}))
-	_ = msg
-	ok := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.TLAValue{}))
-	_ = ok
-	key := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.TLAValue{}))
-	_ = key
-	val := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.TLAValue{}))
-	_ = val
-
-	for {
-		select {
-		case <-ctx.Done():
-			err = distsys.ErrContextClosed
-		default:
-		}
-		if err != nil {
-			if err == distsys.ErrCriticalSectionAborted {
-				ctx.Abort()
-				err = nil
+var jumpTable = distsys.MakeMPCalJumpTable(
+	distsys.MPCalCriticalSection{
+		Name: "AReplica.replicaLoop",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
+			stableMessages := iface.RequireArchetypeResource("AReplica.stableMessages")
+			continue0 := iface.RequireArchetypeResource("AReplica.continue")
+			if distsys.TLA_TRUE.AsBool() {
+				err = iface.Write(stableMessages, []distsys.TLAValue{}, distsys.NewTLATuple())
+				if err != nil {
+					return err
+				}
+				err = iface.Write(continue0, []distsys.TLAValue{}, distsys.TLA_TRUE)
+				if err != nil {
+					return err
+				}
+				return iface.Goto("AReplica.receiveClientRequest")
 			} else {
+				return iface.Goto("AReplica.Done")
+			}
+			// no statements
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "AReplica.receiveClientRequest",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
+			msg := iface.RequireArchetypeResource("AReplica.msg")
+			replicas, err := iface.RequireArchetypeResourceRef("AReplica.replicas")
+			if err != nil {
 				return err
 			}
-		}
-		var labelTag distsys.TLAValue
-		labelTag, err = ctx.Read(programCounter, []distsys.TLAValue{})
-		if err != nil {
-			return err
-		}
-		switch labelTag.AsNumber() {
-		case InitLabelTag:
-			err = ctx.Write(liveClients, nil, func() distsys.TLAValue {
-				return ClientSet(constants)
-			}())
-			if err != nil {
-				continue
-			}
-			var resourceRead distsys.TLAValue
-			resourceRead, err = ctx.Read(liveClients, []distsys.TLAValue{})
-			if err != nil {
-				continue
-			}
-			err = ctx.Write(pendingRequests, nil, distsys.NewTLAFunction([]distsys.TLAValue{resourceRead}, func(args []distsys.TLAValue) distsys.TLAValue {
-				var c distsys.TLAValue = args[0]
-				_ = c
-				return distsys.NewTLATuple()
-			}))
-			if err != nil {
-				continue
-			}
-			err = ctx.Write(stableMessages, nil, distsys.NewTLATuple())
-			if err != nil {
-				continue
-			}
-			var resourceRead0 distsys.TLAValue
-			resourceRead0, err = ctx.Read(liveClients, []distsys.TLAValue{})
-			if err != nil {
-				continue
-			}
-			err = ctx.Write(currentClocks, nil, distsys.NewTLAFunction([]distsys.TLAValue{resourceRead0}, func(args0 []distsys.TLAValue) distsys.TLAValue {
-				var c0 distsys.TLAValue = args0[0]
-				_ = c0
-				return distsys.NewTLANumber(0)
-			}))
-			if err != nil {
-				continue
-			}
-			err = ctx.Write(programCounter, []distsys.TLAValue{}, distsys.NewTLANumber(replicaLoopLabelTag))
-			if err != nil {
-				continue
-			}
-		case replicaLoopLabelTag:
-			if distsys.TLA_TRUE.AsBool() {
-				err = ctx.Write(stableMessages, []distsys.TLAValue{}, distsys.NewTLATuple())
-				if err != nil {
-					continue
-				}
-				err = ctx.Write(continue0, []distsys.TLAValue{}, distsys.TLA_TRUE)
-				if err != nil {
-					continue
-				}
-				err = ctx.Write(programCounter, []distsys.TLAValue{}, distsys.NewTLANumber(receiveClientRequestLabelTag))
-				if err != nil {
-					continue
-				}
-				err = ctx.Commit()
-				if err != nil {
-					continue
-				}
-			} else {
-				err = ctx.Write(programCounter, []distsys.TLAValue{}, distsys.NewTLANumber(DoneLabelTag))
-				if err != nil {
-					continue
-				}
-				err = ctx.Commit()
-				if err != nil {
-					continue
-				}
-			}
-			// no statements
-		case receiveClientRequestLabelTag:
 			var exprRead distsys.TLAValue
-			exprRead, err = ctx.Read(replicas, []distsys.TLAValue{self})
+			exprRead, err = iface.Read(replicas, []distsys.TLAValue{iface.Self()})
 			if err != nil {
-				continue
+				return err
 			}
-			err = ctx.Write(msg, []distsys.TLAValue{}, exprRead)
+			err = iface.Write(msg, []distsys.TLAValue{}, exprRead)
 			if err != nil {
-				continue
+				return err
 			}
-			err = ctx.Write(programCounter, []distsys.TLAValue{}, distsys.NewTLANumber(clientDisconnectedLabelTag))
-			if err != nil {
-				continue
-			}
-			err = ctx.Commit()
-			if err != nil {
-				continue
-			}
-		case clientDisconnectedLabelTag:
+			return iface.Goto("AReplica.clientDisconnected")
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "AReplica.clientDisconnected",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
+			msg0 := iface.RequireArchetypeResource("AReplica.msg")
+			liveClients := iface.RequireArchetypeResource("AReplica.liveClients")
 			var condition distsys.TLAValue
-			condition, err = ctx.Read(msg, []distsys.TLAValue{})
+			condition, err = iface.Read(msg0, []distsys.TLAValue{})
 			if err != nil {
-				continue
+				return err
 			}
-			if distsys.TLA_EqualsSymbol(condition.ApplyFunction(distsys.NewTLAString("op")), constants.DISCONNECT_MSG).AsBool() {
+			if distsys.TLA_EqualsSymbol(condition.ApplyFunction(distsys.NewTLAString("op")), iface.GetConstant("DISCONNECT_MSG")()).AsBool() {
 				var exprRead0 distsys.TLAValue
-				exprRead0, err = ctx.Read(liveClients, []distsys.TLAValue{})
+				exprRead0, err = iface.Read(liveClients, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
 				var exprRead1 distsys.TLAValue
-				exprRead1, err = ctx.Read(msg, []distsys.TLAValue{})
+				exprRead1, err = iface.Read(msg0, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
-				err = ctx.Write(liveClients, []distsys.TLAValue{}, distsys.TLA_BackslashSymbol(exprRead0, distsys.NewTLASet(exprRead1.ApplyFunction(distsys.NewTLAString("client")))))
+				err = iface.Write(liveClients, []distsys.TLAValue{}, distsys.TLA_BackslashSymbol(exprRead0, distsys.NewTLASet(exprRead1.ApplyFunction(distsys.NewTLAString("client")))))
 				if err != nil {
-					continue
+					return err
 				}
-				err = ctx.Write(programCounter, []distsys.TLAValue{}, distsys.NewTLANumber(replicaGetRequestLabelTag))
-				if err != nil {
-					continue
-				}
-				err = ctx.Commit()
-				if err != nil {
-					continue
-				}
+				return iface.Goto("AReplica.replicaGetRequest")
 			} else {
-				err = ctx.Write(programCounter, []distsys.TLAValue{}, distsys.NewTLANumber(replicaGetRequestLabelTag))
-				if err != nil {
-					continue
-				}
-				err = ctx.Commit()
-				if err != nil {
-					continue
-				}
+				return iface.Goto("AReplica.replicaGetRequest")
 			}
 			// no statements
-		case replicaGetRequestLabelTag:
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "AReplica.replicaGetRequest",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
+			msg2 := iface.RequireArchetypeResource("AReplica.msg")
+			liveClients1 := iface.RequireArchetypeResource("AReplica.liveClients")
+			currentClocks := iface.RequireArchetypeResource("AReplica.currentClocks")
+			pendingRequests := iface.RequireArchetypeResource("AReplica.pendingRequests")
 			var condition0 distsys.TLAValue
-			condition0, err = ctx.Read(msg, []distsys.TLAValue{})
+			condition0, err = iface.Read(msg2, []distsys.TLAValue{})
 			if err != nil {
-				continue
+				return err
 			}
-			if distsys.TLA_EqualsSymbol(condition0.ApplyFunction(distsys.NewTLAString("op")), constants.GET_MSG).AsBool() {
+			if distsys.TLA_EqualsSymbol(condition0.ApplyFunction(distsys.NewTLAString("op")), iface.GetConstant("GET_MSG")()).AsBool() {
 				var condition1 distsys.TLAValue
-				condition1, err = ctx.Read(msg, []distsys.TLAValue{})
+				condition1, err = iface.Read(msg2, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
 				var condition2 distsys.TLAValue
-				condition2, err = ctx.Read(liveClients, []distsys.TLAValue{})
+				condition2, err = iface.Read(liveClients1, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
 				if !distsys.TLA_InSymbol(condition1.ApplyFunction(distsys.NewTLAString("client")), condition2).AsBool() {
-					err = fmt.Errorf("%w: ((msg).client) \\in (liveClients)", distsys.ErrAssertionFailed)
-					continue
+					return fmt.Errorf("%w: ((msg).client) \\in (liveClients)", distsys.ErrAssertionFailed)
 				}
 				var exprRead2 distsys.TLAValue
-				exprRead2, err = ctx.Read(msg, []distsys.TLAValue{})
+				exprRead2, err = iface.Read(msg2, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
 				var indexRead distsys.TLAValue
-				indexRead, err = ctx.Read(msg, []distsys.TLAValue{})
+				indexRead, err = iface.Read(msg2, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
-				err = ctx.Write(currentClocks, []distsys.TLAValue{indexRead.ApplyFunction(distsys.NewTLAString("client"))}, exprRead2.ApplyFunction(distsys.NewTLAString("timestamp")))
+				err = iface.Write(currentClocks, []distsys.TLAValue{indexRead.ApplyFunction(distsys.NewTLAString("client"))}, exprRead2.ApplyFunction(distsys.NewTLAString("timestamp")))
 				if err != nil {
-					continue
+					return err
 				}
 				var exprRead3 distsys.TLAValue
-				exprRead3, err = ctx.Read(pendingRequests, []distsys.TLAValue{})
+				exprRead3, err = iface.Read(pendingRequests, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
 				var exprRead4 distsys.TLAValue
-				exprRead4, err = ctx.Read(msg, []distsys.TLAValue{})
+				exprRead4, err = iface.Read(msg2, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
 				var exprRead5 distsys.TLAValue
-				exprRead5, err = ctx.Read(msg, []distsys.TLAValue{})
+				exprRead5, err = iface.Read(msg2, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
 				var indexRead0 distsys.TLAValue
-				indexRead0, err = ctx.Read(msg, []distsys.TLAValue{})
+				indexRead0, err = iface.Read(msg2, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
-				err = ctx.Write(pendingRequests, []distsys.TLAValue{indexRead0.ApplyFunction(distsys.NewTLAString("client"))}, distsys.TLA_Append(exprRead3.ApplyFunction(exprRead4.ApplyFunction(distsys.NewTLAString("client"))), exprRead5))
+				err = iface.Write(pendingRequests, []distsys.TLAValue{indexRead0.ApplyFunction(distsys.NewTLAString("client"))}, distsys.TLA_Append(exprRead3.ApplyFunction(exprRead4.ApplyFunction(distsys.NewTLAString("client"))), exprRead5))
 				if err != nil {
-					continue
+					return err
 				}
-				err = ctx.Write(programCounter, []distsys.TLAValue{}, distsys.NewTLANumber(replicaPutRequestLabelTag))
-				if err != nil {
-					continue
-				}
-				err = ctx.Commit()
-				if err != nil {
-					continue
-				}
+				return iface.Goto("AReplica.replicaPutRequest")
 			} else {
-				err = ctx.Write(programCounter, []distsys.TLAValue{}, distsys.NewTLANumber(replicaPutRequestLabelTag))
-				if err != nil {
-					continue
-				}
-				err = ctx.Commit()
-				if err != nil {
-					continue
-				}
+				return iface.Goto("AReplica.replicaPutRequest")
 			}
 			// no statements
-		case replicaPutRequestLabelTag:
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "AReplica.replicaPutRequest",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
+			msg9 := iface.RequireArchetypeResource("AReplica.msg")
+			currentClocks0 := iface.RequireArchetypeResource("AReplica.currentClocks")
+			pendingRequests1 := iface.RequireArchetypeResource("AReplica.pendingRequests")
 			var condition3 distsys.TLAValue
-			condition3, err = ctx.Read(msg, []distsys.TLAValue{})
+			condition3, err = iface.Read(msg9, []distsys.TLAValue{})
 			if err != nil {
-				continue
+				return err
 			}
-			if distsys.TLA_EqualsSymbol(condition3.ApplyFunction(distsys.NewTLAString("op")), constants.PUT_MSG).AsBool() {
+			if distsys.TLA_EqualsSymbol(condition3.ApplyFunction(distsys.NewTLAString("op")), iface.GetConstant("PUT_MSG")()).AsBool() {
 				var exprRead6 distsys.TLAValue
-				exprRead6, err = ctx.Read(msg, []distsys.TLAValue{})
+				exprRead6, err = iface.Read(msg9, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
 				var indexRead1 distsys.TLAValue
-				indexRead1, err = ctx.Read(msg, []distsys.TLAValue{})
+				indexRead1, err = iface.Read(msg9, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
-				err = ctx.Write(currentClocks, []distsys.TLAValue{indexRead1.ApplyFunction(distsys.NewTLAString("client"))}, exprRead6.ApplyFunction(distsys.NewTLAString("timestamp")))
+				err = iface.Write(currentClocks0, []distsys.TLAValue{indexRead1.ApplyFunction(distsys.NewTLAString("client"))}, exprRead6.ApplyFunction(distsys.NewTLAString("timestamp")))
 				if err != nil {
-					continue
+					return err
 				}
 				var exprRead7 distsys.TLAValue
-				exprRead7, err = ctx.Read(pendingRequests, []distsys.TLAValue{})
+				exprRead7, err = iface.Read(pendingRequests1, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
 				var exprRead8 distsys.TLAValue
-				exprRead8, err = ctx.Read(msg, []distsys.TLAValue{})
+				exprRead8, err = iface.Read(msg9, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
 				var exprRead9 distsys.TLAValue
-				exprRead9, err = ctx.Read(msg, []distsys.TLAValue{})
+				exprRead9, err = iface.Read(msg9, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
 				var indexRead2 distsys.TLAValue
-				indexRead2, err = ctx.Read(msg, []distsys.TLAValue{})
+				indexRead2, err = iface.Read(msg9, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
-				err = ctx.Write(pendingRequests, []distsys.TLAValue{indexRead2.ApplyFunction(distsys.NewTLAString("client"))}, distsys.TLA_Append(exprRead7.ApplyFunction(exprRead8.ApplyFunction(distsys.NewTLAString("client"))), exprRead9))
+				err = iface.Write(pendingRequests1, []distsys.TLAValue{indexRead2.ApplyFunction(distsys.NewTLAString("client"))}, distsys.TLA_Append(exprRead7.ApplyFunction(exprRead8.ApplyFunction(distsys.NewTLAString("client"))), exprRead9))
 				if err != nil {
-					continue
+					return err
 				}
-				err = ctx.Write(programCounter, []distsys.TLAValue{}, distsys.NewTLANumber(replicaNullRequestLabelTag))
-				if err != nil {
-					continue
-				}
-				err = ctx.Commit()
-				if err != nil {
-					continue
-				}
+				return iface.Goto("AReplica.replicaNullRequest")
 			} else {
-				err = ctx.Write(programCounter, []distsys.TLAValue{}, distsys.NewTLANumber(replicaNullRequestLabelTag))
-				if err != nil {
-					continue
-				}
-				err = ctx.Commit()
-				if err != nil {
-					continue
-				}
+				return iface.Goto("AReplica.replicaNullRequest")
 			}
 			// no statements
-		case replicaNullRequestLabelTag:
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "AReplica.replicaNullRequest",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
+			msg15 := iface.RequireArchetypeResource("AReplica.msg")
+			currentClocks1 := iface.RequireArchetypeResource("AReplica.currentClocks")
 			var condition4 distsys.TLAValue
-			condition4, err = ctx.Read(msg, []distsys.TLAValue{})
+			condition4, err = iface.Read(msg15, []distsys.TLAValue{})
 			if err != nil {
-				continue
+				return err
 			}
-			if distsys.TLA_EqualsSymbol(condition4.ApplyFunction(distsys.NewTLAString("op")), constants.NULL_MSG).AsBool() {
+			if distsys.TLA_EqualsSymbol(condition4.ApplyFunction(distsys.NewTLAString("op")), iface.GetConstant("NULL_MSG")()).AsBool() {
 				var exprRead10 distsys.TLAValue
-				exprRead10, err = ctx.Read(msg, []distsys.TLAValue{})
+				exprRead10, err = iface.Read(msg15, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
 				var indexRead3 distsys.TLAValue
-				indexRead3, err = ctx.Read(msg, []distsys.TLAValue{})
+				indexRead3, err = iface.Read(msg15, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
-				err = ctx.Write(currentClocks, []distsys.TLAValue{indexRead3.ApplyFunction(distsys.NewTLAString("client"))}, exprRead10.ApplyFunction(distsys.NewTLAString("timestamp")))
+				err = iface.Write(currentClocks1, []distsys.TLAValue{indexRead3.ApplyFunction(distsys.NewTLAString("client"))}, exprRead10.ApplyFunction(distsys.NewTLAString("timestamp")))
 				if err != nil {
-					continue
+					return err
 				}
-				err = ctx.Write(programCounter, []distsys.TLAValue{}, distsys.NewTLANumber(findStableRequestsLoopLabelTag))
-				if err != nil {
-					continue
-				}
-				err = ctx.Commit()
-				if err != nil {
-					continue
-				}
+				return iface.Goto("AReplica.findStableRequestsLoop")
 			} else {
-				err = ctx.Write(programCounter, []distsys.TLAValue{}, distsys.NewTLANumber(findStableRequestsLoopLabelTag))
-				if err != nil {
-					continue
-				}
-				err = ctx.Commit()
-				if err != nil {
-					continue
-				}
+				return iface.Goto("AReplica.findStableRequestsLoop")
 			}
 			// no statements
-		case findStableRequestsLoopLabelTag:
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "AReplica.findStableRequestsLoop",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
+			continue1 := iface.RequireArchetypeResource("AReplica.continue")
+			pendingClients := iface.RequireArchetypeResource("AReplica.pendingClients")
+			liveClients2 := iface.RequireArchetypeResource("AReplica.liveClients")
+			pendingRequests3 := iface.RequireArchetypeResource("AReplica.pendingRequests")
+			nextClient := iface.RequireArchetypeResource("AReplica.nextClient")
+			clientsIter := iface.RequireArchetypeResource("AReplica.clientsIter")
+			i := iface.RequireArchetypeResource("AReplica.i")
+			minClock := iface.RequireArchetypeResource("AReplica.minClock")
 			var condition5 distsys.TLAValue
-			condition5, err = ctx.Read(continue0, []distsys.TLAValue{})
+			condition5, err = iface.Read(continue1, []distsys.TLAValue{})
 			if err != nil {
-				continue
+				return err
 			}
 			if condition5.AsBool() {
 				var exprRead11 distsys.TLAValue
-				exprRead11, err = ctx.Read(liveClients, []distsys.TLAValue{})
+				exprRead11, err = iface.Read(liveClients2, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
 				var exprRead12 distsys.TLAValue
-				exprRead12, err = ctx.Read(pendingRequests, []distsys.TLAValue{})
+				exprRead12, err = iface.Read(pendingRequests3, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
-				err = ctx.Write(pendingClients, []distsys.TLAValue{}, distsys.TLASetRefinement(exprRead11, func(elem distsys.TLAValue) bool {
-					var c1 distsys.TLAValue = elem
-					_ = c1
-					return distsys.TLA_GreaterThanSymbol(distsys.TLA_Len(exprRead12.ApplyFunction(c1)), distsys.NewTLANumber(0)).AsBool()
+				err = iface.Write(pendingClients, []distsys.TLAValue{}, distsys.TLASetRefinement(exprRead11, func(elem distsys.TLAValue) bool {
+					var c distsys.TLAValue = elem
+					_ = c
+					return distsys.TLA_GreaterThanSymbol(distsys.TLA_Len(exprRead12.ApplyFunction(c)), distsys.NewTLANumber(0)).AsBool()
 				}))
 				if err != nil {
-					continue
+					return err
 				}
-				err = ctx.Write(nextClient, []distsys.TLAValue{}, distsys.TLA_PlusSymbol(func() distsys.TLAValue {
-					return NUM_NODES(constants)
-				}(), distsys.NewTLANumber(1)))
+				err = iface.Write(nextClient, []distsys.TLAValue{}, distsys.TLA_PlusSymbol(NUM_NODES(iface), distsys.NewTLANumber(1)))
 				if err != nil {
-					continue
+					return err
 				}
 				var exprRead13 distsys.TLAValue
-				exprRead13, err = ctx.Read(liveClients, []distsys.TLAValue{})
+				exprRead13, err = iface.Read(liveClients2, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
-				err = ctx.Write(clientsIter, []distsys.TLAValue{}, exprRead13)
+				err = iface.Write(clientsIter, []distsys.TLAValue{}, exprRead13)
 				if err != nil {
-					continue
+					return err
 				}
-				err = ctx.Write(i, []distsys.TLAValue{}, distsys.NewTLANumber(0))
+				err = iface.Write(i, []distsys.TLAValue{}, distsys.NewTLANumber(0))
 				if err != nil {
-					continue
+					return err
 				}
-				err = ctx.Write(minClock, []distsys.TLAValue{}, distsys.NewTLANumber(0))
+				err = iface.Write(minClock, []distsys.TLAValue{}, distsys.NewTLANumber(0))
 				if err != nil {
-					continue
+					return err
 				}
-				err = ctx.Write(programCounter, []distsys.TLAValue{}, distsys.NewTLANumber(findMinClockLabelTag))
-				if err != nil {
-					continue
-				}
-				err = ctx.Commit()
-				if err != nil {
-					continue
-				}
+				return iface.Goto("AReplica.findMinClock")
 			} else {
-				err = ctx.Write(i, []distsys.TLAValue{}, distsys.NewTLANumber(1))
+				err = iface.Write(i, []distsys.TLAValue{}, distsys.NewTLANumber(1))
 				if err != nil {
-					continue
+					return err
 				}
-				err = ctx.Write(programCounter, []distsys.TLAValue{}, distsys.NewTLANumber(respondPendingRequestsLoopLabelTag))
-				if err != nil {
-					continue
-				}
-				err = ctx.Commit()
-				if err != nil {
-					continue
-				}
+				return iface.Goto("AReplica.respondPendingRequestsLoop")
 			}
 			// no statements
-		case findMinClockLabelTag:
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "AReplica.findMinClock",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
+			i1 := iface.RequireArchetypeResource("AReplica.i")
+			clientsIter0 := iface.RequireArchetypeResource("AReplica.clientsIter")
+			minClock0 := iface.RequireArchetypeResource("AReplica.minClock")
+			currentClocks2 := iface.RequireArchetypeResource("AReplica.currentClocks")
+			lowestPending := iface.RequireArchetypeResource("AReplica.lowestPending")
 			var condition6 distsys.TLAValue
-			condition6, err = ctx.Read(i, []distsys.TLAValue{})
+			condition6, err = iface.Read(i1, []distsys.TLAValue{})
 			if err != nil {
-				continue
+				return err
 			}
 			var condition7 distsys.TLAValue
-			condition7, err = ctx.Read(clientsIter, []distsys.TLAValue{})
+			condition7, err = iface.Read(clientsIter0, []distsys.TLAValue{})
 			if err != nil {
-				continue
+				return err
 			}
 			if distsys.TLA_LessThanSymbol(condition6, distsys.TLA_Cardinality(condition7)).AsBool() {
 				var clientRead distsys.TLAValue
-				clientRead, err = ctx.Read(clientsIter, []distsys.TLAValue{})
+				clientRead, err = iface.Read(clientsIter0, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
 				var client distsys.TLAValue = clientRead.SelectElement()
 				var condition8 distsys.TLAValue
-				condition8, err = ctx.Read(minClock, []distsys.TLAValue{})
+				condition8, err = iface.Read(minClock0, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
 				var condition9 distsys.TLAValue
-				condition9, err = ctx.Read(currentClocks, []distsys.TLAValue{})
+				condition9, err = iface.Read(currentClocks2, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
 				var condition10 distsys.TLAValue
-				condition10, err = ctx.Read(minClock, []distsys.TLAValue{})
+				condition10, err = iface.Read(minClock0, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
 				if distsys.TLA_LogicalOrSymbol(distsys.TLA_EqualsSymbol(condition8, distsys.NewTLANumber(0)), distsys.TLA_LessThanSymbol(condition9.ApplyFunction(client), condition10)).AsBool() {
 					var exprRead14 distsys.TLAValue
-					exprRead14, err = ctx.Read(currentClocks, []distsys.TLAValue{})
+					exprRead14, err = iface.Read(currentClocks2, []distsys.TLAValue{})
 					if err != nil {
-						continue
+						return err
 					}
-					err = ctx.Write(minClock, []distsys.TLAValue{}, exprRead14.ApplyFunction(client))
+					err = iface.Write(minClock0, []distsys.TLAValue{}, exprRead14.ApplyFunction(client))
 					if err != nil {
-						continue
+						return err
 					}
 					// no statements
 				} else {
 					// no statements
 				}
 				var exprRead15 distsys.TLAValue
-				exprRead15, err = ctx.Read(clientsIter, []distsys.TLAValue{})
+				exprRead15, err = iface.Read(clientsIter0, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
-				err = ctx.Write(clientsIter, []distsys.TLAValue{}, distsys.TLA_BackslashSymbol(exprRead15, distsys.NewTLASet(client)))
+				err = iface.Write(clientsIter0, []distsys.TLAValue{}, distsys.TLA_BackslashSymbol(exprRead15, distsys.NewTLASet(client)))
 				if err != nil {
-					continue
+					return err
 				}
-				err = ctx.Write(programCounter, []distsys.TLAValue{}, distsys.NewTLANumber(findMinClockLabelTag))
-				if err != nil {
-					continue
-				}
-				err = ctx.Commit()
-				if err != nil {
-					continue
-				}
+				return iface.Goto("AReplica.findMinClock")
 				// no statements
 			} else {
 				var exprRead16 distsys.TLAValue
-				exprRead16, err = ctx.Read(minClock, []distsys.TLAValue{})
+				exprRead16, err = iface.Read(minClock0, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
-				err = ctx.Write(lowestPending, []distsys.TLAValue{}, distsys.TLA_PlusSymbol(exprRead16, distsys.NewTLANumber(1)))
+				err = iface.Write(lowestPending, []distsys.TLAValue{}, distsys.TLA_PlusSymbol(exprRead16, distsys.NewTLANumber(1)))
 				if err != nil {
-					continue
+					return err
 				}
-				err = ctx.Write(i, []distsys.TLAValue{}, distsys.NewTLANumber(0))
+				err = iface.Write(i1, []distsys.TLAValue{}, distsys.NewTLANumber(0))
 				if err != nil {
-					continue
+					return err
 				}
-				err = ctx.Write(programCounter, []distsys.TLAValue{}, distsys.NewTLANumber(findMinClientLabelTag))
-				if err != nil {
-					continue
-				}
-				err = ctx.Commit()
-				if err != nil {
-					continue
-				}
+				return iface.Goto("AReplica.findMinClient")
 			}
 			// no statements
-		case findMinClientLabelTag:
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "AReplica.findMinClient",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
+			i3 := iface.RequireArchetypeResource("AReplica.i")
+			pendingClients0 := iface.RequireArchetypeResource("AReplica.pendingClients")
+			firstPending := iface.RequireArchetypeResource("AReplica.firstPending")
+			pendingRequests4 := iface.RequireArchetypeResource("AReplica.pendingRequests")
+			timestamp := iface.RequireArchetypeResource("AReplica.timestamp")
+			minClock4 := iface.RequireArchetypeResource("AReplica.minClock")
+			chooseMessage := iface.RequireArchetypeResource("AReplica.chooseMessage")
+			lowestPending0 := iface.RequireArchetypeResource("AReplica.lowestPending")
+			nextClient0 := iface.RequireArchetypeResource("AReplica.nextClient")
 			var condition11 distsys.TLAValue
-			condition11, err = ctx.Read(i, []distsys.TLAValue{})
+			condition11, err = iface.Read(i3, []distsys.TLAValue{})
 			if err != nil {
-				continue
+				return err
 			}
 			var condition12 distsys.TLAValue
-			condition12, err = ctx.Read(pendingClients, []distsys.TLAValue{})
+			condition12, err = iface.Read(pendingClients0, []distsys.TLAValue{})
 			if err != nil {
-				continue
+				return err
 			}
 			if distsys.TLA_LessThanSymbol(condition11, distsys.TLA_Cardinality(condition12)).AsBool() {
 				var clientRead0 distsys.TLAValue
-				clientRead0, err = ctx.Read(pendingClients, []distsys.TLAValue{})
+				clientRead0, err = iface.Read(pendingClients0, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
 				var client0 distsys.TLAValue = clientRead0.SelectElement()
 				var exprRead17 distsys.TLAValue
-				exprRead17, err = ctx.Read(pendingRequests, []distsys.TLAValue{})
+				exprRead17, err = iface.Read(pendingRequests4, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
-				err = ctx.Write(firstPending, []distsys.TLAValue{}, distsys.TLA_Head(exprRead17.ApplyFunction(client0)))
+				err = iface.Write(firstPending, []distsys.TLAValue{}, distsys.TLA_Head(exprRead17.ApplyFunction(client0)))
 				if err != nil {
-					continue
+					return err
 				}
 				var condition13 distsys.TLAValue
-				condition13, err = ctx.Read(firstPending, []distsys.TLAValue{})
+				condition13, err = iface.Read(firstPending, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
 				var condition14 distsys.TLAValue
-				condition14, err = ctx.Read(firstPending, []distsys.TLAValue{})
+				condition14, err = iface.Read(firstPending, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
-				if !distsys.TLA_LogicalOrSymbol(distsys.TLA_EqualsSymbol(condition13.ApplyFunction(distsys.NewTLAString("op")), constants.GET_MSG), distsys.TLA_EqualsSymbol(condition14.ApplyFunction(distsys.NewTLAString("op")), constants.PUT_MSG)).AsBool() {
-					err = fmt.Errorf("%w: (((firstPending).op) = (GET_MSG)) \\/ (((firstPending).op) = (PUT_MSG))", distsys.ErrAssertionFailed)
-					continue
+				if !distsys.TLA_LogicalOrSymbol(distsys.TLA_EqualsSymbol(condition13.ApplyFunction(distsys.NewTLAString("op")), iface.GetConstant("GET_MSG")()), distsys.TLA_EqualsSymbol(condition14.ApplyFunction(distsys.NewTLAString("op")), iface.GetConstant("PUT_MSG")())).AsBool() {
+					return fmt.Errorf("%w: (((firstPending).op) = (GET_MSG)) \\/ (((firstPending).op) = (PUT_MSG))", distsys.ErrAssertionFailed)
 				}
 				var exprRead18 distsys.TLAValue
-				exprRead18, err = ctx.Read(firstPending, []distsys.TLAValue{})
+				exprRead18, err = iface.Read(firstPending, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
-				err = ctx.Write(timestamp, []distsys.TLAValue{}, exprRead18.ApplyFunction(distsys.NewTLAString("timestamp")))
+				err = iface.Write(timestamp, []distsys.TLAValue{}, exprRead18.ApplyFunction(distsys.NewTLAString("timestamp")))
 				if err != nil {
-					continue
+					return err
 				}
 				var condition15 distsys.TLAValue
-				condition15, err = ctx.Read(timestamp, []distsys.TLAValue{})
+				condition15, err = iface.Read(timestamp, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
 				var condition16 distsys.TLAValue
-				condition16, err = ctx.Read(minClock, []distsys.TLAValue{})
+				condition16, err = iface.Read(minClock4, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
 				if distsys.TLA_LessThanSymbol(condition15, condition16).AsBool() {
 					var exprRead19 distsys.TLAValue
-					exprRead19, err = ctx.Read(timestamp, []distsys.TLAValue{})
+					exprRead19, err = iface.Read(timestamp, []distsys.TLAValue{})
 					if err != nil {
-						continue
+						return err
 					}
 					var exprRead20 distsys.TLAValue
-					exprRead20, err = ctx.Read(lowestPending, []distsys.TLAValue{})
+					exprRead20, err = iface.Read(lowestPending0, []distsys.TLAValue{})
 					if err != nil {
-						continue
+						return err
 					}
 					var exprRead21 distsys.TLAValue
-					exprRead21, err = ctx.Read(timestamp, []distsys.TLAValue{})
+					exprRead21, err = iface.Read(timestamp, []distsys.TLAValue{})
 					if err != nil {
-						continue
+						return err
 					}
 					var exprRead22 distsys.TLAValue
-					exprRead22, err = ctx.Read(lowestPending, []distsys.TLAValue{})
+					exprRead22, err = iface.Read(lowestPending0, []distsys.TLAValue{})
 					if err != nil {
-						continue
+						return err
 					}
 					var exprRead23 distsys.TLAValue
-					exprRead23, err = ctx.Read(nextClient, []distsys.TLAValue{})
+					exprRead23, err = iface.Read(nextClient0, []distsys.TLAValue{})
 					if err != nil {
-						continue
+						return err
 					}
-					err = ctx.Write(chooseMessage, []distsys.TLAValue{}, distsys.TLA_LogicalOrSymbol(distsys.TLA_LessThanSymbol(exprRead19, exprRead20), distsys.TLA_LogicalAndSymbol(distsys.TLA_EqualsSymbol(exprRead21, exprRead22), distsys.TLA_LessThanSymbol(client0, exprRead23))))
+					err = iface.Write(chooseMessage, []distsys.TLAValue{}, distsys.TLA_LogicalOrSymbol(distsys.TLA_LessThanSymbol(exprRead19, exprRead20), distsys.TLA_LogicalAndSymbol(distsys.TLA_EqualsSymbol(exprRead21, exprRead22), distsys.TLA_LessThanSymbol(client0, exprRead23))))
 					if err != nil {
-						continue
+						return err
 					}
 					var condition17 distsys.TLAValue
-					condition17, err = ctx.Read(chooseMessage, []distsys.TLAValue{})
+					condition17, err = iface.Read(chooseMessage, []distsys.TLAValue{})
 					if err != nil {
-						continue
+						return err
 					}
 					if condition17.AsBool() {
-						err = ctx.Write(nextClient, []distsys.TLAValue{}, client0)
+						err = iface.Write(nextClient0, []distsys.TLAValue{}, client0)
 						if err != nil {
-							continue
+							return err
 						}
 						var exprRead24 distsys.TLAValue
-						exprRead24, err = ctx.Read(timestamp, []distsys.TLAValue{})
+						exprRead24, err = iface.Read(timestamp, []distsys.TLAValue{})
 						if err != nil {
-							continue
+							return err
 						}
-						err = ctx.Write(lowestPending, []distsys.TLAValue{}, exprRead24)
+						err = iface.Write(lowestPending0, []distsys.TLAValue{}, exprRead24)
 						if err != nil {
-							continue
+							return err
 						}
 						// no statements
 					} else {
@@ -744,1350 +578,1217 @@ func AReplica(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Consta
 					// no statements
 				}
 				var exprRead25 distsys.TLAValue
-				exprRead25, err = ctx.Read(pendingClients, []distsys.TLAValue{})
+				exprRead25, err = iface.Read(pendingClients0, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
-				err = ctx.Write(pendingClients, []distsys.TLAValue{}, distsys.TLA_BackslashSymbol(exprRead25, distsys.NewTLASet(client0)))
+				err = iface.Write(pendingClients0, []distsys.TLAValue{}, distsys.TLA_BackslashSymbol(exprRead25, distsys.NewTLASet(client0)))
 				if err != nil {
-					continue
+					return err
 				}
-				err = ctx.Write(programCounter, []distsys.TLAValue{}, distsys.NewTLANumber(findMinClientLabelTag))
-				if err != nil {
-					continue
-				}
-				err = ctx.Commit()
-				if err != nil {
-					continue
-				}
+				return iface.Goto("AReplica.findMinClient")
 				// no statements
 			} else {
-				err = ctx.Write(programCounter, []distsys.TLAValue{}, distsys.NewTLANumber(addStableMessageLabelTag))
-				if err != nil {
-					continue
-				}
-				err = ctx.Commit()
-				if err != nil {
-					continue
-				}
+				return iface.Goto("AReplica.addStableMessage")
 			}
 			// no statements
-		case addStableMessageLabelTag:
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "AReplica.addStableMessage",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
+			lowestPending3 := iface.RequireArchetypeResource("AReplica.lowestPending")
+			minClock5 := iface.RequireArchetypeResource("AReplica.minClock")
+			msg18 := iface.RequireArchetypeResource("AReplica.msg")
+			pendingRequests5 := iface.RequireArchetypeResource("AReplica.pendingRequests")
+			nextClient2 := iface.RequireArchetypeResource("AReplica.nextClient")
+			stableMessages0 := iface.RequireArchetypeResource("AReplica.stableMessages")
+			continue2 := iface.RequireArchetypeResource("AReplica.continue")
 			var condition18 distsys.TLAValue
-			condition18, err = ctx.Read(lowestPending, []distsys.TLAValue{})
+			condition18, err = iface.Read(lowestPending3, []distsys.TLAValue{})
 			if err != nil {
-				continue
+				return err
 			}
 			var condition19 distsys.TLAValue
-			condition19, err = ctx.Read(minClock, []distsys.TLAValue{})
+			condition19, err = iface.Read(minClock5, []distsys.TLAValue{})
 			if err != nil {
-				continue
+				return err
 			}
 			if distsys.TLA_LessThanSymbol(condition18, condition19).AsBool() {
 				var exprRead26 distsys.TLAValue
-				exprRead26, err = ctx.Read(pendingRequests, []distsys.TLAValue{})
+				exprRead26, err = iface.Read(pendingRequests5, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
 				var exprRead27 distsys.TLAValue
-				exprRead27, err = ctx.Read(nextClient, []distsys.TLAValue{})
+				exprRead27, err = iface.Read(nextClient2, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
-				err = ctx.Write(msg, []distsys.TLAValue{}, distsys.TLA_Head(exprRead26.ApplyFunction(exprRead27)))
+				err = iface.Write(msg18, []distsys.TLAValue{}, distsys.TLA_Head(exprRead26.ApplyFunction(exprRead27)))
 				if err != nil {
-					continue
+					return err
 				}
 				var exprRead28 distsys.TLAValue
-				exprRead28, err = ctx.Read(pendingRequests, []distsys.TLAValue{})
+				exprRead28, err = iface.Read(pendingRequests5, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
 				var exprRead29 distsys.TLAValue
-				exprRead29, err = ctx.Read(nextClient, []distsys.TLAValue{})
+				exprRead29, err = iface.Read(nextClient2, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
 				var indexRead4 distsys.TLAValue
-				indexRead4, err = ctx.Read(nextClient, []distsys.TLAValue{})
+				indexRead4, err = iface.Read(nextClient2, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
-				err = ctx.Write(pendingRequests, []distsys.TLAValue{indexRead4}, distsys.TLA_Tail(exprRead28.ApplyFunction(exprRead29)))
+				err = iface.Write(pendingRequests5, []distsys.TLAValue{indexRead4}, distsys.TLA_Tail(exprRead28.ApplyFunction(exprRead29)))
 				if err != nil {
-					continue
+					return err
 				}
 				var exprRead30 distsys.TLAValue
-				exprRead30, err = ctx.Read(stableMessages, []distsys.TLAValue{})
+				exprRead30, err = iface.Read(stableMessages0, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
 				var exprRead31 distsys.TLAValue
-				exprRead31, err = ctx.Read(msg, []distsys.TLAValue{})
+				exprRead31, err = iface.Read(msg18, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
-				err = ctx.Write(stableMessages, []distsys.TLAValue{}, distsys.TLA_Append(exprRead30, exprRead31))
+				err = iface.Write(stableMessages0, []distsys.TLAValue{}, distsys.TLA_Append(exprRead30, exprRead31))
 				if err != nil {
-					continue
+					return err
 				}
-				err = ctx.Write(programCounter, []distsys.TLAValue{}, distsys.NewTLANumber(findStableRequestsLoopLabelTag))
-				if err != nil {
-					continue
-				}
-				err = ctx.Commit()
-				if err != nil {
-					continue
-				}
+				return iface.Goto("AReplica.findStableRequestsLoop")
 			} else {
-				err = ctx.Write(continue0, []distsys.TLAValue{}, distsys.TLA_FALSE)
+				err = iface.Write(continue2, []distsys.TLAValue{}, distsys.TLA_FALSE)
 				if err != nil {
-					continue
+					return err
 				}
-				err = ctx.Write(programCounter, []distsys.TLAValue{}, distsys.NewTLANumber(findStableRequestsLoopLabelTag))
-				if err != nil {
-					continue
-				}
-				err = ctx.Commit()
-				if err != nil {
-					continue
-				}
+				return iface.Goto("AReplica.findStableRequestsLoop")
 			}
 			// no statements
-		case respondPendingRequestsLoopLabelTag:
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "AReplica.respondPendingRequestsLoop",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
+			i4 := iface.RequireArchetypeResource("AReplica.i")
+			stableMessages2 := iface.RequireArchetypeResource("AReplica.stableMessages")
+			msg20 := iface.RequireArchetypeResource("AReplica.msg")
 			var condition20 distsys.TLAValue
-			condition20, err = ctx.Read(i, []distsys.TLAValue{})
+			condition20, err = iface.Read(i4, []distsys.TLAValue{})
 			if err != nil {
-				continue
+				return err
 			}
 			var condition21 distsys.TLAValue
-			condition21, err = ctx.Read(stableMessages, []distsys.TLAValue{})
+			condition21, err = iface.Read(stableMessages2, []distsys.TLAValue{})
 			if err != nil {
-				continue
+				return err
 			}
 			if distsys.TLA_LessThanOrEqualSymbol(condition20, distsys.TLA_Len(condition21)).AsBool() {
 				var exprRead32 distsys.TLAValue
-				exprRead32, err = ctx.Read(stableMessages, []distsys.TLAValue{})
+				exprRead32, err = iface.Read(stableMessages2, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
 				var exprRead33 distsys.TLAValue
-				exprRead33, err = ctx.Read(i, []distsys.TLAValue{})
+				exprRead33, err = iface.Read(i4, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
-				err = ctx.Write(msg, []distsys.TLAValue{}, exprRead32.ApplyFunction(exprRead33))
+				err = iface.Write(msg20, []distsys.TLAValue{}, exprRead32.ApplyFunction(exprRead33))
 				if err != nil {
-					continue
+					return err
 				}
 				var exprRead34 distsys.TLAValue
-				exprRead34, err = ctx.Read(i, []distsys.TLAValue{})
+				exprRead34, err = iface.Read(i4, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
-				err = ctx.Write(i, []distsys.TLAValue{}, distsys.TLA_PlusSymbol(exprRead34, distsys.NewTLANumber(1)))
+				err = iface.Write(i4, []distsys.TLAValue{}, distsys.TLA_PlusSymbol(exprRead34, distsys.NewTLANumber(1)))
 				if err != nil {
-					continue
+					return err
 				}
-				err = ctx.Write(programCounter, []distsys.TLAValue{}, distsys.NewTLANumber(respondStableGetLabelTag))
-				if err != nil {
-					continue
-				}
-				err = ctx.Commit()
-				if err != nil {
-					continue
-				}
+				return iface.Goto("AReplica.respondStableGet")
 			} else {
-				err = ctx.Write(programCounter, []distsys.TLAValue{}, distsys.NewTLANumber(replicaLoopLabelTag))
-				if err != nil {
-					continue
-				}
-				err = ctx.Commit()
-				if err != nil {
-					continue
-				}
+				return iface.Goto("AReplica.replicaLoop")
 			}
 			// no statements
-		case respondStableGetLabelTag:
-			var condition22 distsys.TLAValue
-			condition22, err = ctx.Read(msg, []distsys.TLAValue{})
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "AReplica.respondStableGet",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
+			msg21 := iface.RequireArchetypeResource("AReplica.msg")
+			key := iface.RequireArchetypeResource("AReplica.key")
+			val := iface.RequireArchetypeResource("AReplica.val")
+			kv, err := iface.RequireArchetypeResourceRef("AReplica.kv")
 			if err != nil {
-				continue
+				return err
 			}
-			if distsys.TLA_EqualsSymbol(condition22.ApplyFunction(distsys.NewTLAString("op")), constants.GET_MSG).AsBool() {
+			clients, err := iface.RequireArchetypeResourceRef("AReplica.clients")
+			if err != nil {
+				return err
+			}
+			var condition22 distsys.TLAValue
+			condition22, err = iface.Read(msg21, []distsys.TLAValue{})
+			if err != nil {
+				return err
+			}
+			if distsys.TLA_EqualsSymbol(condition22.ApplyFunction(distsys.NewTLAString("op")), iface.GetConstant("GET_MSG")()).AsBool() {
 				var exprRead35 distsys.TLAValue
-				exprRead35, err = ctx.Read(msg, []distsys.TLAValue{})
+				exprRead35, err = iface.Read(msg21, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
-				err = ctx.Write(key, []distsys.TLAValue{}, exprRead35.ApplyFunction(distsys.NewTLAString("key")))
+				err = iface.Write(key, []distsys.TLAValue{}, exprRead35.ApplyFunction(distsys.NewTLAString("key")))
 				if err != nil {
-					continue
+					return err
 				}
 				var exprRead36 distsys.TLAValue
-				exprRead36, err = ctx.Read(key, []distsys.TLAValue{})
+				exprRead36, err = iface.Read(key, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
 				var exprRead37 distsys.TLAValue
-				exprRead37, err = ctx.Read(kv, []distsys.TLAValue{exprRead36})
+				exprRead37, err = iface.Read(kv, []distsys.TLAValue{exprRead36})
 				if err != nil {
-					continue
+					return err
 				}
-				err = ctx.Write(val, []distsys.TLAValue{}, exprRead37)
+				err = iface.Write(val, []distsys.TLAValue{}, exprRead37)
 				if err != nil {
-					continue
+					return err
 				}
 				var exprRead38 distsys.TLAValue
-				exprRead38, err = ctx.Read(val, []distsys.TLAValue{})
+				exprRead38, err = iface.Read(val, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
 				var indexRead5 distsys.TLAValue
-				indexRead5, err = ctx.Read(msg, []distsys.TLAValue{})
+				indexRead5, err = iface.Read(msg21, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
-				err = ctx.Write(clients, []distsys.TLAValue{indexRead5.ApplyFunction(distsys.NewTLAString("reply_to"))}, distsys.NewTLARecord([]distsys.TLARecordField{
-					{distsys.NewTLAString("type"), constants.GET_RESPONSE},
+				err = iface.Write(clients, []distsys.TLAValue{indexRead5.ApplyFunction(distsys.NewTLAString("reply_to"))}, distsys.NewTLARecord([]distsys.TLARecordField{
+					{distsys.NewTLAString("type"), iface.GetConstant("GET_RESPONSE")()},
 					{distsys.NewTLAString("result"), exprRead38},
 				}))
 				if err != nil {
-					continue
+					return err
 				}
-				err = ctx.Write(programCounter, []distsys.TLAValue{}, distsys.NewTLANumber(respondStablePutLabelTag))
-				if err != nil {
-					continue
-				}
-				err = ctx.Commit()
-				if err != nil {
-					continue
-				}
+				return iface.Goto("AReplica.respondStablePut")
 			} else {
-				err = ctx.Write(programCounter, []distsys.TLAValue{}, distsys.NewTLANumber(respondStablePutLabelTag))
-				if err != nil {
-					continue
-				}
-				err = ctx.Commit()
-				if err != nil {
-					continue
-				}
+				return iface.Goto("AReplica.respondStablePut")
 			}
 			// no statements
-		case respondStablePutLabelTag:
-			var condition23 distsys.TLAValue
-			condition23, err = ctx.Read(msg, []distsys.TLAValue{})
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "AReplica.respondStablePut",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
+			msg24 := iface.RequireArchetypeResource("AReplica.msg")
+			key1 := iface.RequireArchetypeResource("AReplica.key")
+			val1 := iface.RequireArchetypeResource("AReplica.val")
+			kv0, err := iface.RequireArchetypeResourceRef("AReplica.kv")
 			if err != nil {
-				continue
+				return err
 			}
-			if distsys.TLA_EqualsSymbol(condition23.ApplyFunction(distsys.NewTLAString("op")), constants.PUT_MSG).AsBool() {
+			clients0, err := iface.RequireArchetypeResourceRef("AReplica.clients")
+			if err != nil {
+				return err
+			}
+			ok := iface.RequireArchetypeResource("AReplica.ok")
+			var condition23 distsys.TLAValue
+			condition23, err = iface.Read(msg24, []distsys.TLAValue{})
+			if err != nil {
+				return err
+			}
+			if distsys.TLA_EqualsSymbol(condition23.ApplyFunction(distsys.NewTLAString("op")), iface.GetConstant("PUT_MSG")()).AsBool() {
 				var exprRead39 distsys.TLAValue
-				exprRead39, err = ctx.Read(msg, []distsys.TLAValue{})
+				exprRead39, err = iface.Read(msg24, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
-				err = ctx.Write(key, []distsys.TLAValue{}, exprRead39.ApplyFunction(distsys.NewTLAString("key")))
+				err = iface.Write(key1, []distsys.TLAValue{}, exprRead39.ApplyFunction(distsys.NewTLAString("key")))
 				if err != nil {
-					continue
+					return err
 				}
 				var exprRead40 distsys.TLAValue
-				exprRead40, err = ctx.Read(msg, []distsys.TLAValue{})
+				exprRead40, err = iface.Read(msg24, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
-				err = ctx.Write(val, []distsys.TLAValue{}, exprRead40.ApplyFunction(distsys.NewTLAString("value")))
+				err = iface.Write(val1, []distsys.TLAValue{}, exprRead40.ApplyFunction(distsys.NewTLAString("value")))
 				if err != nil {
-					continue
+					return err
 				}
 				var exprRead41 distsys.TLAValue
-				exprRead41, err = ctx.Read(val, []distsys.TLAValue{})
+				exprRead41, err = iface.Read(val1, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
 				var indexRead6 distsys.TLAValue
-				indexRead6, err = ctx.Read(key, []distsys.TLAValue{})
+				indexRead6, err = iface.Read(key1, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
-				err = ctx.Write(kv, []distsys.TLAValue{indexRead6}, exprRead41)
+				err = iface.Write(kv0, []distsys.TLAValue{indexRead6}, exprRead41)
 				if err != nil {
-					continue
+					return err
 				}
 				var exprRead42 distsys.TLAValue
-				exprRead42, err = ctx.Read(ok, []distsys.TLAValue{})
+				exprRead42, err = iface.Read(ok, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
 				var indexRead7 distsys.TLAValue
-				indexRead7, err = ctx.Read(msg, []distsys.TLAValue{})
+				indexRead7, err = iface.Read(msg24, []distsys.TLAValue{})
 				if err != nil {
-					continue
+					return err
 				}
-				err = ctx.Write(clients, []distsys.TLAValue{indexRead7.ApplyFunction(distsys.NewTLAString("reply_to"))}, distsys.NewTLARecord([]distsys.TLARecordField{
-					{distsys.NewTLAString("type"), constants.PUT_RESPONSE},
+				err = iface.Write(clients0, []distsys.TLAValue{indexRead7.ApplyFunction(distsys.NewTLAString("reply_to"))}, distsys.NewTLARecord([]distsys.TLARecordField{
+					{distsys.NewTLAString("type"), iface.GetConstant("PUT_RESPONSE")()},
 					{distsys.NewTLAString("result"), exprRead42},
 				}))
 				if err != nil {
-					continue
+					return err
 				}
-				err = ctx.Write(programCounter, []distsys.TLAValue{}, distsys.NewTLANumber(respondPendingRequestsLoopLabelTag))
-				if err != nil {
-					continue
-				}
-				err = ctx.Commit()
-				if err != nil {
-					continue
-				}
+				return iface.Goto("AReplica.respondPendingRequestsLoop")
 			} else {
-				err = ctx.Write(programCounter, []distsys.TLAValue{}, distsys.NewTLANumber(respondPendingRequestsLoopLabelTag))
-				if err != nil {
-					continue
-				}
-				err = ctx.Commit()
-				if err != nil {
-					continue
-				}
+				return iface.Goto("AReplica.respondPendingRequestsLoop")
 			}
 			// no statements
-		case DoneLabelTag:
-			return nil
-		default:
-			return fmt.Errorf("invalid program counter %v", labelTag)
-		}
-	}
-}
-
-func Get(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constants, clientId distsys.ArchetypeResourceHandle, replicas0 distsys.ArchetypeResourceHandle, clients0 distsys.ArchetypeResourceHandle, key0 distsys.TLAValue, clock distsys.ArchetypeResourceHandle, spin distsys.TLAValue, outside distsys.ArchetypeResourceHandle) error {
-	ctx.ReportEvent(distsys.ArchetypeStarted)
-	defer func() {
-		ctx.ReportEvent(distsys.ArchetypeFinished)
-	}()
-	var err0 error
-	// label tags
-	const (
-		InitLabelTag0 = iota
-		getLoopLabelTag
-		getRequestLabelTag
-		getReplyLabelTag
-		getCheckSpinLabelTag
-		DoneLabelTag0
-	)
-	programCounter0 := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.NewTLANumber(InitLabelTag0)))
-	key1 := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(key0))
-	spin0 := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(spin))
-	continue1 := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.TLAValue{}))
-	_ = continue1
-	getReq := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.TLAValue{}))
-	_ = getReq
-	getResp := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.TLAValue{}))
-	_ = getResp
-
-	for {
-		select {
-		case <-ctx.Done():
-			err0 = distsys.ErrContextClosed
-		default:
-		}
-		if err0 != nil {
-			if err0 == distsys.ErrCriticalSectionAborted {
-				ctx.Abort()
-				err0 = nil
-			} else {
-				return err0
-			}
-		}
-		var labelTag0 distsys.TLAValue
-		labelTag0, err0 = ctx.Read(programCounter0, []distsys.TLAValue{})
-		if err0 != nil {
-			return err0
-		}
-		switch labelTag0.AsNumber() {
-		case InitLabelTag0:
-			err0 = ctx.Write(continue1, nil, distsys.TLA_TRUE)
-			if err0 != nil {
-				continue
-			}
-			err0 = ctx.Write(programCounter0, []distsys.TLAValue{}, distsys.NewTLANumber(getLoopLabelTag))
-			if err0 != nil {
-				continue
-			}
-		case getLoopLabelTag:
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "AReplica.Done",
+		Body: func(distsys.ArchetypeInterface) error {
+			return distsys.ErrDone
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "Get.getLoop",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
+			continue3 := iface.RequireArchetypeResource("Get.continue")
 			var condition24 distsys.TLAValue
-			condition24, err0 = ctx.Read(continue1, []distsys.TLAValue{})
-			if err0 != nil {
-				continue
+			condition24, err = iface.Read(continue3, []distsys.TLAValue{})
+			if err != nil {
+				return err
 			}
 			if condition24.AsBool() {
-				err0 = ctx.Write(programCounter0, []distsys.TLAValue{}, distsys.NewTLANumber(getRequestLabelTag))
-				if err0 != nil {
-					continue
-				}
-				err0 = ctx.Commit()
-				if err0 != nil {
-					continue
-				}
+				return iface.Goto("Get.getRequest")
 			} else {
-				err0 = ctx.Write(programCounter0, []distsys.TLAValue{}, distsys.NewTLANumber(DoneLabelTag0))
-				if err0 != nil {
-					continue
-				}
-				err0 = ctx.Commit()
-				if err0 != nil {
-					continue
-				}
+				return iface.Goto("Get.Done")
 			}
 			// no statements
-		case getRequestLabelTag:
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "Get.getRequest",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
+			clock, err := iface.RequireArchetypeResourceRef("Get.clock")
+			if err != nil {
+				return err
+			}
+			clientId, err := iface.RequireArchetypeResourceRef("Get.clientId")
+			if err != nil {
+				return err
+			}
+			continue4 := iface.RequireArchetypeResource("Get.continue")
+			getReq := iface.RequireArchetypeResource("Get.getReq")
+			key3 := iface.RequireArchetypeResource("Get.key")
+			replicas0, err := iface.RequireArchetypeResourceRef("Get.replicas")
+			if err != nil {
+				return err
+			}
 			var condition25 distsys.TLAValue
-			condition25, err0 = ctx.Read(clientId, []distsys.TLAValue{})
-			if err0 != nil {
-				continue
+			condition25, err = iface.Read(clientId, []distsys.TLAValue{})
+			if err != nil {
+				return err
 			}
 			var condition26 distsys.TLAValue
-			condition26, err0 = ctx.Read(clock, []distsys.TLAValue{condition25})
-			if err0 != nil {
-				continue
+			condition26, err = iface.Read(clock, []distsys.TLAValue{condition25})
+			if err != nil {
+				return err
 			}
 			if distsys.TLA_EqualsSymbol(condition26, distsys.TLA_NegationSymbol(distsys.NewTLANumber(1))).AsBool() {
-				err0 = ctx.Write(continue1, []distsys.TLAValue{}, distsys.TLA_FALSE)
-				if err0 != nil {
-					continue
+				err = iface.Write(continue4, []distsys.TLAValue{}, distsys.TLA_FALSE)
+				if err != nil {
+					return err
 				}
-				err0 = ctx.Write(programCounter0, []distsys.TLAValue{}, distsys.NewTLANumber(getCheckSpinLabelTag))
-				if err0 != nil {
-					continue
-				}
-				err0 = ctx.Commit()
-				if err0 != nil {
-					continue
-				}
+				return iface.Goto("Get.getCheckSpin")
 			} else {
 				var exprRead43 distsys.TLAValue
-				exprRead43, err0 = ctx.Read(clientId, []distsys.TLAValue{})
-				if err0 != nil {
-					continue
+				exprRead43, err = iface.Read(clientId, []distsys.TLAValue{})
+				if err != nil {
+					return err
 				}
 				var exprRead44 distsys.TLAValue
-				exprRead44, err0 = ctx.Read(clock, []distsys.TLAValue{exprRead43})
-				if err0 != nil {
-					continue
+				exprRead44, err = iface.Read(clock, []distsys.TLAValue{exprRead43})
+				if err != nil {
+					return err
 				}
 				var indexRead8 distsys.TLAValue
-				indexRead8, err0 = ctx.Read(clientId, []distsys.TLAValue{})
-				if err0 != nil {
-					continue
+				indexRead8, err = iface.Read(clientId, []distsys.TLAValue{})
+				if err != nil {
+					return err
 				}
-				err0 = ctx.Write(clock, []distsys.TLAValue{indexRead8}, distsys.TLA_PlusSymbol(exprRead44, distsys.NewTLANumber(1)))
-				if err0 != nil {
-					continue
+				err = iface.Write(clock, []distsys.TLAValue{indexRead8}, distsys.TLA_PlusSymbol(exprRead44, distsys.NewTLANumber(1)))
+				if err != nil {
+					return err
 				}
 				var exprRead45 distsys.TLAValue
-				exprRead45, err0 = ctx.Read(key1, []distsys.TLAValue{})
-				if err0 != nil {
-					continue
+				exprRead45, err = iface.Read(key3, []distsys.TLAValue{})
+				if err != nil {
+					return err
 				}
 				var exprRead46 distsys.TLAValue
-				exprRead46, err0 = ctx.Read(clientId, []distsys.TLAValue{})
-				if err0 != nil {
-					continue
+				exprRead46, err = iface.Read(clientId, []distsys.TLAValue{})
+				if err != nil {
+					return err
 				}
 				var exprRead47 distsys.TLAValue
-				exprRead47, err0 = ctx.Read(clientId, []distsys.TLAValue{})
-				if err0 != nil {
-					continue
+				exprRead47, err = iface.Read(clientId, []distsys.TLAValue{})
+				if err != nil {
+					return err
 				}
 				var exprRead48 distsys.TLAValue
-				exprRead48, err0 = ctx.Read(clock, []distsys.TLAValue{exprRead47})
-				if err0 != nil {
-					continue
+				exprRead48, err = iface.Read(clock, []distsys.TLAValue{exprRead47})
+				if err != nil {
+					return err
 				}
-				err0 = ctx.Write(getReq, []distsys.TLAValue{}, distsys.NewTLARecord([]distsys.TLARecordField{
-					{distsys.NewTLAString("op"), constants.GET_MSG},
+				err = iface.Write(getReq, []distsys.TLAValue{}, distsys.NewTLARecord([]distsys.TLARecordField{
+					{distsys.NewTLAString("op"), iface.GetConstant("GET_MSG")()},
 					{distsys.NewTLAString("key"), exprRead45},
 					{distsys.NewTLAString("client"), exprRead46},
 					{distsys.NewTLAString("timestamp"), exprRead48},
-					{distsys.NewTLAString("reply_to"), self},
+					{distsys.NewTLAString("reply_to"), iface.Self()},
 				}))
-				if err0 != nil {
-					continue
+				if err != nil {
+					return err
 				}
-				var dst distsys.TLAValue = func() distsys.TLAValue {
-					return ReplicaSet(constants)
-				}().SelectElement()
+				var dst distsys.TLAValue = ReplicaSet(iface).SelectElement()
 				var exprRead49 distsys.TLAValue
-				exprRead49, err0 = ctx.Read(getReq, []distsys.TLAValue{})
-				if err0 != nil {
-					continue
+				exprRead49, err = iface.Read(getReq, []distsys.TLAValue{})
+				if err != nil {
+					return err
 				}
-				err0 = ctx.Write(replicas0, []distsys.TLAValue{dst}, exprRead49)
-				if err0 != nil {
-					continue
+				err = iface.Write(replicas0, []distsys.TLAValue{dst}, exprRead49)
+				if err != nil {
+					return err
 				}
-				err0 = ctx.Write(programCounter0, []distsys.TLAValue{}, distsys.NewTLANumber(getReplyLabelTag))
-				if err0 != nil {
-					continue
-				}
-				err0 = ctx.Commit()
-				if err0 != nil {
-					continue
-				}
+				return iface.Goto("Get.getReply")
 				// no statements
 			}
 			// no statements
-		case getReplyLabelTag:
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "Get.getReply",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
+			clock3, err := iface.RequireArchetypeResourceRef("Get.clock")
+			if err != nil {
+				return err
+			}
+			clientId4, err := iface.RequireArchetypeResourceRef("Get.clientId")
+			if err != nil {
+				return err
+			}
+			continue5 := iface.RequireArchetypeResource("Get.continue")
+			getResp := iface.RequireArchetypeResource("Get.getResp")
+			clients1, err := iface.RequireArchetypeResourceRef("Get.clients")
+			if err != nil {
+				return err
+			}
+			outside, err := iface.RequireArchetypeResourceRef("Get.outside")
+			if err != nil {
+				return err
+			}
 			var condition27 distsys.TLAValue
-			condition27, err0 = ctx.Read(clientId, []distsys.TLAValue{})
-			if err0 != nil {
-				continue
+			condition27, err = iface.Read(clientId4, []distsys.TLAValue{})
+			if err != nil {
+				return err
 			}
 			var condition28 distsys.TLAValue
-			condition28, err0 = ctx.Read(clock, []distsys.TLAValue{condition27})
-			if err0 != nil {
-				continue
+			condition28, err = iface.Read(clock3, []distsys.TLAValue{condition27})
+			if err != nil {
+				return err
 			}
 			if distsys.TLA_EqualsSymbol(condition28, distsys.TLA_NegationSymbol(distsys.NewTLANumber(1))).AsBool() {
-				err0 = ctx.Write(continue1, []distsys.TLAValue{}, distsys.TLA_FALSE)
-				if err0 != nil {
-					continue
+				err = iface.Write(continue5, []distsys.TLAValue{}, distsys.TLA_FALSE)
+				if err != nil {
+					return err
 				}
-				err0 = ctx.Write(programCounter0, []distsys.TLAValue{}, distsys.NewTLANumber(getCheckSpinLabelTag))
-				if err0 != nil {
-					continue
-				}
-				err0 = ctx.Commit()
-				if err0 != nil {
-					continue
-				}
+				return iface.Goto("Get.getCheckSpin")
 			} else {
 				var exprRead50 distsys.TLAValue
-				exprRead50, err0 = ctx.Read(clients0, []distsys.TLAValue{self})
-				if err0 != nil {
-					continue
+				exprRead50, err = iface.Read(clients1, []distsys.TLAValue{iface.Self()})
+				if err != nil {
+					return err
 				}
-				err0 = ctx.Write(getResp, []distsys.TLAValue{}, exprRead50)
-				if err0 != nil {
-					continue
+				err = iface.Write(getResp, []distsys.TLAValue{}, exprRead50)
+				if err != nil {
+					return err
 				}
 				var condition29 distsys.TLAValue
-				condition29, err0 = ctx.Read(getResp, []distsys.TLAValue{})
-				if err0 != nil {
-					continue
+				condition29, err = iface.Read(getResp, []distsys.TLAValue{})
+				if err != nil {
+					return err
 				}
-				if !distsys.TLA_EqualsSymbol(condition29.ApplyFunction(distsys.NewTLAString("type")), constants.GET_RESPONSE).AsBool() {
-					err0 = fmt.Errorf("%w: ((getResp).type) = (GET_RESPONSE)", distsys.ErrAssertionFailed)
-					continue
+				if !distsys.TLA_EqualsSymbol(condition29.ApplyFunction(distsys.NewTLAString("type")), iface.GetConstant("GET_RESPONSE")()).AsBool() {
+					return fmt.Errorf("%w: ((getResp).type) = (GET_RESPONSE)", distsys.ErrAssertionFailed)
 				}
 				var exprRead51 distsys.TLAValue
-				exprRead51, err0 = ctx.Read(getResp, []distsys.TLAValue{})
-				if err0 != nil {
-					continue
+				exprRead51, err = iface.Read(getResp, []distsys.TLAValue{})
+				if err != nil {
+					return err
 				}
-				err0 = ctx.Write(outside, []distsys.TLAValue{}, exprRead51.ApplyFunction(distsys.NewTLAString("result")))
-				if err0 != nil {
-					continue
+				err = iface.Write(outside, []distsys.TLAValue{}, exprRead51.ApplyFunction(distsys.NewTLAString("result")))
+				if err != nil {
+					return err
 				}
-				err0 = ctx.Write(programCounter0, []distsys.TLAValue{}, distsys.NewTLANumber(getCheckSpinLabelTag))
-				if err0 != nil {
-					continue
-				}
-				err0 = ctx.Commit()
-				if err0 != nil {
-					continue
-				}
+				return iface.Goto("Get.getCheckSpin")
 			}
 			// no statements
-		case getCheckSpinLabelTag:
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "Get.getCheckSpin",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
+			spin := iface.RequireArchetypeResource("Get.spin")
+			continue6 := iface.RequireArchetypeResource("Get.continue")
 			var condition30 distsys.TLAValue
-			condition30, err0 = ctx.Read(spin0, []distsys.TLAValue{})
-			if err0 != nil {
-				continue
+			condition30, err = iface.Read(spin, []distsys.TLAValue{})
+			if err != nil {
+				return err
 			}
 			if distsys.TLA_LogicalNotSymbol(condition30).AsBool() {
-				err0 = ctx.Write(continue1, []distsys.TLAValue{}, distsys.TLA_FALSE)
-				if err0 != nil {
-					continue
+				err = iface.Write(continue6, []distsys.TLAValue{}, distsys.TLA_FALSE)
+				if err != nil {
+					return err
 				}
-				err0 = ctx.Write(programCounter0, []distsys.TLAValue{}, distsys.NewTLANumber(getLoopLabelTag))
-				if err0 != nil {
-					continue
-				}
-				err0 = ctx.Commit()
-				if err0 != nil {
-					continue
-				}
+				return iface.Goto("Get.getLoop")
 			} else {
-				err0 = ctx.Write(programCounter0, []distsys.TLAValue{}, distsys.NewTLANumber(getLoopLabelTag))
-				if err0 != nil {
-					continue
-				}
-				err0 = ctx.Commit()
-				if err0 != nil {
-					continue
-				}
+				return iface.Goto("Get.getLoop")
 			}
 			// no statements
-		case DoneLabelTag0:
-			return nil
-		default:
-			return fmt.Errorf("invalid program counter %v", labelTag0)
-		}
-	}
-}
-
-func Put(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constants, clientId0 distsys.ArchetypeResourceHandle, replicas1 distsys.ArchetypeResourceHandle, clients1 distsys.ArchetypeResourceHandle, key2 distsys.TLAValue, value distsys.TLAValue, clock0 distsys.ArchetypeResourceHandle, spin1 distsys.TLAValue, outside0 distsys.ArchetypeResourceHandle) error {
-	ctx.ReportEvent(distsys.ArchetypeStarted)
-	defer func() {
-		ctx.ReportEvent(distsys.ArchetypeFinished)
-	}()
-	var err1 error
-	// label tags
-	const (
-		InitLabelTag1 = iota
-		putLoopLabelTag
-		putRequestLabelTag
-		putBroadcastLabelTag
-		putResponseLabelTag
-		putCompleteLabelTag
-		putCheckSpinLabelTag
-		DoneLabelTag1
-	)
-	programCounter1 := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.NewTLANumber(InitLabelTag1)))
-	key3 := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(key2))
-	value0 := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(value))
-	spin2 := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(spin1))
-	continue2 := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.TLAValue{}))
-	_ = continue2
-	i0 := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.TLAValue{}))
-	_ = i0
-	j := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.TLAValue{}))
-	_ = j
-	putReq := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.TLAValue{}))
-	_ = putReq
-	putResp := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.TLAValue{}))
-	_ = putResp
-
-	for {
-		select {
-		case <-ctx.Done():
-			err1 = distsys.ErrContextClosed
-		default:
-		}
-		if err1 != nil {
-			if err1 == distsys.ErrCriticalSectionAborted {
-				ctx.Abort()
-				err1 = nil
-			} else {
-				return err1
-			}
-		}
-		var labelTag1 distsys.TLAValue
-		labelTag1, err1 = ctx.Read(programCounter1, []distsys.TLAValue{})
-		if err1 != nil {
-			return err1
-		}
-		switch labelTag1.AsNumber() {
-		case InitLabelTag1:
-			err1 = ctx.Write(continue2, nil, distsys.TLA_TRUE)
-			if err1 != nil {
-				continue
-			}
-			err1 = ctx.Write(programCounter1, []distsys.TLAValue{}, distsys.NewTLANumber(putLoopLabelTag))
-			if err1 != nil {
-				continue
-			}
-		case putLoopLabelTag:
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "Get.Done",
+		Body: func(distsys.ArchetypeInterface) error {
+			return distsys.ErrDone
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "Put.putLoop",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
+			continue7 := iface.RequireArchetypeResource("Put.continue")
 			var condition31 distsys.TLAValue
-			condition31, err1 = ctx.Read(continue2, []distsys.TLAValue{})
-			if err1 != nil {
-				continue
+			condition31, err = iface.Read(continue7, []distsys.TLAValue{})
+			if err != nil {
+				return err
 			}
 			if condition31.AsBool() {
-				err1 = ctx.Write(programCounter1, []distsys.TLAValue{}, distsys.NewTLANumber(putRequestLabelTag))
-				if err1 != nil {
-					continue
-				}
-				err1 = ctx.Commit()
-				if err1 != nil {
-					continue
-				}
+				return iface.Goto("Put.putRequest")
 			} else {
-				err1 = ctx.Write(programCounter1, []distsys.TLAValue{}, distsys.NewTLANumber(DoneLabelTag1))
-				if err1 != nil {
-					continue
-				}
-				err1 = ctx.Commit()
-				if err1 != nil {
-					continue
-				}
+				return iface.Goto("Put.Done")
 			}
 			// no statements
-		case putRequestLabelTag:
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "Put.putRequest",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
+			clock4, err := iface.RequireArchetypeResourceRef("Put.clock")
+			if err != nil {
+				return err
+			}
+			clientId5, err := iface.RequireArchetypeResourceRef("Put.clientId")
+			if err != nil {
+				return err
+			}
+			continue8 := iface.RequireArchetypeResource("Put.continue")
+			putReq := iface.RequireArchetypeResource("Put.putReq")
+			key4 := iface.RequireArchetypeResource("Put.key")
+			value := iface.RequireArchetypeResource("Put.value")
+			i8 := iface.RequireArchetypeResource("Put.i")
+			j := iface.RequireArchetypeResource("Put.j")
 			var condition32 distsys.TLAValue
-			condition32, err1 = ctx.Read(clientId0, []distsys.TLAValue{})
-			if err1 != nil {
-				continue
+			condition32, err = iface.Read(clientId5, []distsys.TLAValue{})
+			if err != nil {
+				return err
 			}
 			var condition33 distsys.TLAValue
-			condition33, err1 = ctx.Read(clock0, []distsys.TLAValue{condition32})
-			if err1 != nil {
-				continue
+			condition33, err = iface.Read(clock4, []distsys.TLAValue{condition32})
+			if err != nil {
+				return err
 			}
 			if distsys.TLA_EqualsSymbol(condition33, distsys.TLA_NegationSymbol(distsys.NewTLANumber(1))).AsBool() {
-				err1 = ctx.Write(continue2, []distsys.TLAValue{}, distsys.TLA_FALSE)
-				if err1 != nil {
-					continue
+				err = iface.Write(continue8, []distsys.TLAValue{}, distsys.TLA_FALSE)
+				if err != nil {
+					return err
 				}
-				err1 = ctx.Write(programCounter1, []distsys.TLAValue{}, distsys.NewTLANumber(putCheckSpinLabelTag))
-				if err1 != nil {
-					continue
-				}
-				err1 = ctx.Commit()
-				if err1 != nil {
-					continue
-				}
+				return iface.Goto("Put.putCheckSpin")
 			} else {
 				var exprRead52 distsys.TLAValue
-				exprRead52, err1 = ctx.Read(clientId0, []distsys.TLAValue{})
-				if err1 != nil {
-					continue
+				exprRead52, err = iface.Read(clientId5, []distsys.TLAValue{})
+				if err != nil {
+					return err
 				}
 				var exprRead53 distsys.TLAValue
-				exprRead53, err1 = ctx.Read(clock0, []distsys.TLAValue{exprRead52})
-				if err1 != nil {
-					continue
+				exprRead53, err = iface.Read(clock4, []distsys.TLAValue{exprRead52})
+				if err != nil {
+					return err
 				}
 				var indexRead9 distsys.TLAValue
-				indexRead9, err1 = ctx.Read(clientId0, []distsys.TLAValue{})
-				if err1 != nil {
-					continue
+				indexRead9, err = iface.Read(clientId5, []distsys.TLAValue{})
+				if err != nil {
+					return err
 				}
-				err1 = ctx.Write(clock0, []distsys.TLAValue{indexRead9}, distsys.TLA_PlusSymbol(exprRead53, distsys.NewTLANumber(1)))
-				if err1 != nil {
-					continue
+				err = iface.Write(clock4, []distsys.TLAValue{indexRead9}, distsys.TLA_PlusSymbol(exprRead53, distsys.NewTLANumber(1)))
+				if err != nil {
+					return err
 				}
 				var exprRead54 distsys.TLAValue
-				exprRead54, err1 = ctx.Read(key3, []distsys.TLAValue{})
-				if err1 != nil {
-					continue
+				exprRead54, err = iface.Read(key4, []distsys.TLAValue{})
+				if err != nil {
+					return err
 				}
 				var exprRead55 distsys.TLAValue
-				exprRead55, err1 = ctx.Read(value0, []distsys.TLAValue{})
-				if err1 != nil {
-					continue
+				exprRead55, err = iface.Read(value, []distsys.TLAValue{})
+				if err != nil {
+					return err
 				}
 				var exprRead56 distsys.TLAValue
-				exprRead56, err1 = ctx.Read(clientId0, []distsys.TLAValue{})
-				if err1 != nil {
-					continue
+				exprRead56, err = iface.Read(clientId5, []distsys.TLAValue{})
+				if err != nil {
+					return err
 				}
 				var exprRead57 distsys.TLAValue
-				exprRead57, err1 = ctx.Read(clientId0, []distsys.TLAValue{})
-				if err1 != nil {
-					continue
+				exprRead57, err = iface.Read(clientId5, []distsys.TLAValue{})
+				if err != nil {
+					return err
 				}
 				var exprRead58 distsys.TLAValue
-				exprRead58, err1 = ctx.Read(clock0, []distsys.TLAValue{exprRead57})
-				if err1 != nil {
-					continue
+				exprRead58, err = iface.Read(clock4, []distsys.TLAValue{exprRead57})
+				if err != nil {
+					return err
 				}
-				err1 = ctx.Write(putReq, []distsys.TLAValue{}, distsys.NewTLARecord([]distsys.TLARecordField{
-					{distsys.NewTLAString("op"), constants.PUT_MSG},
+				err = iface.Write(putReq, []distsys.TLAValue{}, distsys.NewTLARecord([]distsys.TLARecordField{
+					{distsys.NewTLAString("op"), iface.GetConstant("PUT_MSG")()},
 					{distsys.NewTLAString("key"), exprRead54},
 					{distsys.NewTLAString("value"), exprRead55},
 					{distsys.NewTLAString("client"), exprRead56},
 					{distsys.NewTLAString("timestamp"), exprRead58},
-					{distsys.NewTLAString("reply_to"), self},
+					{distsys.NewTLAString("reply_to"), iface.Self()},
 				}))
-				if err1 != nil {
-					continue
+				if err != nil {
+					return err
 				}
-				err1 = ctx.Write(i0, []distsys.TLAValue{}, distsys.NewTLANumber(0))
-				if err1 != nil {
-					continue
+				err = iface.Write(i8, []distsys.TLAValue{}, distsys.NewTLANumber(0))
+				if err != nil {
+					return err
 				}
-				err1 = ctx.Write(j, []distsys.TLAValue{}, distsys.NewTLANumber(0))
-				if err1 != nil {
-					continue
+				err = iface.Write(j, []distsys.TLAValue{}, distsys.NewTLANumber(0))
+				if err != nil {
+					return err
 				}
-				err1 = ctx.Write(programCounter1, []distsys.TLAValue{}, distsys.NewTLANumber(putBroadcastLabelTag))
-				if err1 != nil {
-					continue
-				}
-				err1 = ctx.Commit()
-				if err1 != nil {
-					continue
-				}
+				return iface.Goto("Put.putBroadcast")
 			}
 			// no statements
-		case putBroadcastLabelTag:
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "Put.putBroadcast",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
+			j0 := iface.RequireArchetypeResource("Put.j")
+			clock8, err := iface.RequireArchetypeResourceRef("Put.clock")
+			if err != nil {
+				return err
+			}
+			clientId10, err := iface.RequireArchetypeResourceRef("Put.clientId")
+			if err != nil {
+				return err
+			}
+			replicas1, err := iface.RequireArchetypeResourceRef("Put.replicas")
+			if err != nil {
+				return err
+			}
+			putReq0 := iface.RequireArchetypeResource("Put.putReq")
 			var condition34 distsys.TLAValue
-			condition34, err1 = ctx.Read(j, []distsys.TLAValue{})
-			if err1 != nil {
-				continue
+			condition34, err = iface.Read(j0, []distsys.TLAValue{})
+			if err != nil {
+				return err
 			}
 			var condition35 distsys.TLAValue
-			condition35, err1 = ctx.Read(clientId0, []distsys.TLAValue{})
-			if err1 != nil {
-				continue
+			condition35, err = iface.Read(clientId10, []distsys.TLAValue{})
+			if err != nil {
+				return err
 			}
 			var condition36 distsys.TLAValue
-			condition36, err1 = ctx.Read(clock0, []distsys.TLAValue{condition35})
-			if err1 != nil {
-				continue
+			condition36, err = iface.Read(clock8, []distsys.TLAValue{condition35})
+			if err != nil {
+				return err
 			}
-			if distsys.TLA_LogicalAndSymbol(distsys.TLA_LessThanOrEqualSymbol(condition34, distsys.TLA_MinusSymbol(constants.NUM_REPLICAS, distsys.NewTLANumber(1))), distsys.TLA_NotEqualsSymbol(condition36, distsys.TLA_NegationSymbol(distsys.NewTLANumber(1)))).AsBool() {
+			if distsys.TLA_LogicalAndSymbol(distsys.TLA_LessThanOrEqualSymbol(condition34, distsys.TLA_MinusSymbol(iface.GetConstant("NUM_REPLICAS")(), distsys.NewTLANumber(1))), distsys.TLA_NotEqualsSymbol(condition36, distsys.TLA_NegationSymbol(distsys.NewTLANumber(1)))).AsBool() {
 				var exprRead59 distsys.TLAValue
-				exprRead59, err1 = ctx.Read(putReq, []distsys.TLAValue{})
-				if err1 != nil {
-					continue
+				exprRead59, err = iface.Read(putReq0, []distsys.TLAValue{})
+				if err != nil {
+					return err
 				}
 				var indexRead10 distsys.TLAValue
-				indexRead10, err1 = ctx.Read(j, []distsys.TLAValue{})
-				if err1 != nil {
-					continue
+				indexRead10, err = iface.Read(j0, []distsys.TLAValue{})
+				if err != nil {
+					return err
 				}
-				err1 = ctx.Write(replicas1, []distsys.TLAValue{indexRead10}, exprRead59)
-				if err1 != nil {
-					continue
+				err = iface.Write(replicas1, []distsys.TLAValue{indexRead10}, exprRead59)
+				if err != nil {
+					return err
 				}
 				var exprRead60 distsys.TLAValue
-				exprRead60, err1 = ctx.Read(j, []distsys.TLAValue{})
-				if err1 != nil {
-					continue
+				exprRead60, err = iface.Read(j0, []distsys.TLAValue{})
+				if err != nil {
+					return err
 				}
-				err1 = ctx.Write(j, []distsys.TLAValue{}, distsys.TLA_PlusSymbol(exprRead60, distsys.NewTLANumber(1)))
-				if err1 != nil {
-					continue
+				err = iface.Write(j0, []distsys.TLAValue{}, distsys.TLA_PlusSymbol(exprRead60, distsys.NewTLANumber(1)))
+				if err != nil {
+					return err
 				}
-				err1 = ctx.Write(programCounter1, []distsys.TLAValue{}, distsys.NewTLANumber(putBroadcastLabelTag))
-				if err1 != nil {
-					continue
-				}
-				err1 = ctx.Commit()
-				if err1 != nil {
-					continue
-				}
+				return iface.Goto("Put.putBroadcast")
 			} else {
-				err1 = ctx.Write(programCounter1, []distsys.TLAValue{}, distsys.NewTLANumber(putResponseLabelTag))
-				if err1 != nil {
-					continue
-				}
-				err1 = ctx.Commit()
-				if err1 != nil {
-					continue
-				}
+				return iface.Goto("Put.putResponse")
 			}
 			// no statements
-		case putResponseLabelTag:
-			var condition37 distsys.TLAValue
-			condition37, err1 = ctx.Read(i0, []distsys.TLAValue{})
-			if err1 != nil {
-				continue
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "Put.putResponse",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
+			i9 := iface.RequireArchetypeResource("Put.i")
+			clock9, err := iface.RequireArchetypeResourceRef("Put.clock")
+			if err != nil {
+				return err
 			}
-			if distsys.TLA_LessThanSymbol(condition37, distsys.TLA_Cardinality(func() distsys.TLAValue {
-				return ReplicaSet(constants)
-			}())).AsBool() {
+			clientId11, err := iface.RequireArchetypeResourceRef("Put.clientId")
+			if err != nil {
+				return err
+			}
+			continue9 := iface.RequireArchetypeResource("Put.continue")
+			putResp := iface.RequireArchetypeResource("Put.putResp")
+			clients2, err := iface.RequireArchetypeResourceRef("Put.clients")
+			if err != nil {
+				return err
+			}
+			var condition37 distsys.TLAValue
+			condition37, err = iface.Read(i9, []distsys.TLAValue{})
+			if err != nil {
+				return err
+			}
+			if distsys.TLA_LessThanSymbol(condition37, distsys.TLA_Cardinality(ReplicaSet(iface))).AsBool() {
 				var condition38 distsys.TLAValue
-				condition38, err1 = ctx.Read(clientId0, []distsys.TLAValue{})
-				if err1 != nil {
-					continue
+				condition38, err = iface.Read(clientId11, []distsys.TLAValue{})
+				if err != nil {
+					return err
 				}
 				var condition39 distsys.TLAValue
-				condition39, err1 = ctx.Read(clock0, []distsys.TLAValue{condition38})
-				if err1 != nil {
-					continue
+				condition39, err = iface.Read(clock9, []distsys.TLAValue{condition38})
+				if err != nil {
+					return err
 				}
 				if distsys.TLA_EqualsSymbol(condition39, distsys.TLA_NegationSymbol(distsys.NewTLANumber(1))).AsBool() {
-					err1 = ctx.Write(continue2, []distsys.TLAValue{}, distsys.TLA_FALSE)
-					if err1 != nil {
-						continue
+					err = iface.Write(continue9, []distsys.TLAValue{}, distsys.TLA_FALSE)
+					if err != nil {
+						return err
 					}
-					err1 = ctx.Write(programCounter1, []distsys.TLAValue{}, distsys.NewTLANumber(putLoopLabelTag))
-					if err1 != nil {
-						continue
-					}
-					err1 = ctx.Commit()
-					if err1 != nil {
-						continue
-					}
+					return iface.Goto("Put.putLoop")
 				} else {
 					var exprRead61 distsys.TLAValue
-					exprRead61, err1 = ctx.Read(clients1, []distsys.TLAValue{self})
-					if err1 != nil {
-						continue
+					exprRead61, err = iface.Read(clients2, []distsys.TLAValue{iface.Self()})
+					if err != nil {
+						return err
 					}
-					err1 = ctx.Write(putResp, []distsys.TLAValue{}, exprRead61)
-					if err1 != nil {
-						continue
+					err = iface.Write(putResp, []distsys.TLAValue{}, exprRead61)
+					if err != nil {
+						return err
 					}
 					var condition40 distsys.TLAValue
-					condition40, err1 = ctx.Read(putResp, []distsys.TLAValue{})
-					if err1 != nil {
-						continue
+					condition40, err = iface.Read(putResp, []distsys.TLAValue{})
+					if err != nil {
+						return err
 					}
-					if !distsys.TLA_EqualsSymbol(condition40.ApplyFunction(distsys.NewTLAString("type")), constants.PUT_RESPONSE).AsBool() {
-						err1 = fmt.Errorf("%w: ((putResp).type) = (PUT_RESPONSE)", distsys.ErrAssertionFailed)
-						continue
+					if !distsys.TLA_EqualsSymbol(condition40.ApplyFunction(distsys.NewTLAString("type")), iface.GetConstant("PUT_RESPONSE")()).AsBool() {
+						return fmt.Errorf("%w: ((putResp).type) = (PUT_RESPONSE)", distsys.ErrAssertionFailed)
 					}
 					var exprRead62 distsys.TLAValue
-					exprRead62, err1 = ctx.Read(i0, []distsys.TLAValue{})
-					if err1 != nil {
-						continue
+					exprRead62, err = iface.Read(i9, []distsys.TLAValue{})
+					if err != nil {
+						return err
 					}
-					err1 = ctx.Write(i0, []distsys.TLAValue{}, distsys.TLA_PlusSymbol(exprRead62, distsys.NewTLANumber(1)))
-					if err1 != nil {
-						continue
+					err = iface.Write(i9, []distsys.TLAValue{}, distsys.TLA_PlusSymbol(exprRead62, distsys.NewTLANumber(1)))
+					if err != nil {
+						return err
 					}
-					err1 = ctx.Write(programCounter1, []distsys.TLAValue{}, distsys.NewTLANumber(putResponseLabelTag))
-					if err1 != nil {
-						continue
-					}
-					err1 = ctx.Commit()
-					if err1 != nil {
-						continue
-					}
+					return iface.Goto("Put.putResponse")
 				}
 				// no statements
 			} else {
-				err1 = ctx.Write(programCounter1, []distsys.TLAValue{}, distsys.NewTLANumber(putCompleteLabelTag))
-				if err1 != nil {
-					continue
-				}
-				err1 = ctx.Commit()
-				if err1 != nil {
-					continue
-				}
+				return iface.Goto("Put.putComplete")
 			}
 			// no statements
-		case putCompleteLabelTag:
-			err1 = ctx.Write(outside0, []distsys.TLAValue{}, constants.PUT_RESPONSE)
-			if err1 != nil {
-				continue
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "Put.putComplete",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
+			outside0, err := iface.RequireArchetypeResourceRef("Put.outside")
+			if err != nil {
+				return err
 			}
-			err1 = ctx.Write(programCounter1, []distsys.TLAValue{}, distsys.NewTLANumber(putCheckSpinLabelTag))
-			if err1 != nil {
-				continue
+			err = iface.Write(outside0, []distsys.TLAValue{}, iface.GetConstant("PUT_RESPONSE")())
+			if err != nil {
+				return err
 			}
-			err1 = ctx.Commit()
-			if err1 != nil {
-				continue
-			}
-		case putCheckSpinLabelTag:
+			return iface.Goto("Put.putCheckSpin")
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "Put.putCheckSpin",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
+			spin0 := iface.RequireArchetypeResource("Put.spin")
+			continue10 := iface.RequireArchetypeResource("Put.continue")
 			var condition41 distsys.TLAValue
-			condition41, err1 = ctx.Read(spin2, []distsys.TLAValue{})
-			if err1 != nil {
-				continue
+			condition41, err = iface.Read(spin0, []distsys.TLAValue{})
+			if err != nil {
+				return err
 			}
 			if distsys.TLA_LogicalNotSymbol(condition41).AsBool() {
-				err1 = ctx.Write(continue2, []distsys.TLAValue{}, distsys.TLA_FALSE)
-				if err1 != nil {
-					continue
+				err = iface.Write(continue10, []distsys.TLAValue{}, distsys.TLA_FALSE)
+				if err != nil {
+					return err
 				}
-				err1 = ctx.Write(programCounter1, []distsys.TLAValue{}, distsys.NewTLANumber(putLoopLabelTag))
-				if err1 != nil {
-					continue
-				}
-				err1 = ctx.Commit()
-				if err1 != nil {
-					continue
-				}
+				return iface.Goto("Put.putLoop")
 			} else {
-				err1 = ctx.Write(programCounter1, []distsys.TLAValue{}, distsys.NewTLANumber(putLoopLabelTag))
-				if err1 != nil {
-					continue
-				}
-				err1 = ctx.Commit()
-				if err1 != nil {
-					continue
-				}
+				return iface.Goto("Put.putLoop")
 			}
 			// no statements
-		case DoneLabelTag1:
-			return nil
-		default:
-			return fmt.Errorf("invalid program counter %v", labelTag1)
-		}
-	}
-}
-
-func Disconnect(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constants, clientId1 distsys.ArchetypeResourceHandle, replicas2 distsys.ArchetypeResourceHandle, clock1 distsys.ArchetypeResourceHandle) error {
-	ctx.ReportEvent(distsys.ArchetypeStarted)
-	defer func() {
-		ctx.ReportEvent(distsys.ArchetypeFinished)
-	}()
-	var err2 error
-	// label tags
-	const (
-		InitLabelTag2 = iota
-		sendDisconnectRequestLabelTag
-		disconnectBroadcastLabelTag
-		DoneLabelTag2
-	)
-	programCounter2 := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.NewTLANumber(InitLabelTag2)))
-	msg0 := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.TLAValue{}))
-	_ = msg0
-	j0 := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.TLAValue{}))
-	_ = j0
-
-	for {
-		select {
-		case <-ctx.Done():
-			err2 = distsys.ErrContextClosed
-		default:
-		}
-		if err2 != nil {
-			if err2 == distsys.ErrCriticalSectionAborted {
-				ctx.Abort()
-				err2 = nil
-			} else {
-				return err2
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "Put.Done",
+		Body: func(distsys.ArchetypeInterface) error {
+			return distsys.ErrDone
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "Disconnect.sendDisconnectRequest",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
+			msg28 := iface.RequireArchetypeResource("Disconnect.msg")
+			clientId12, err := iface.RequireArchetypeResourceRef("Disconnect.clientId")
+			if err != nil {
+				return err
 			}
-		}
-		var labelTag2 distsys.TLAValue
-		labelTag2, err2 = ctx.Read(programCounter2, []distsys.TLAValue{})
-		if err2 != nil {
-			return err2
-		}
-		switch labelTag2.AsNumber() {
-		case InitLabelTag2:
-			err2 = ctx.Write(programCounter2, []distsys.TLAValue{}, distsys.NewTLANumber(sendDisconnectRequestLabelTag))
-			if err2 != nil {
-				continue
+			clock10, err := iface.RequireArchetypeResourceRef("Disconnect.clock")
+			if err != nil {
+				return err
 			}
-		case sendDisconnectRequestLabelTag:
+			j4 := iface.RequireArchetypeResource("Disconnect.j")
 			var exprRead63 distsys.TLAValue
-			exprRead63, err2 = ctx.Read(clientId1, []distsys.TLAValue{})
-			if err2 != nil {
-				continue
+			exprRead63, err = iface.Read(clientId12, []distsys.TLAValue{})
+			if err != nil {
+				return err
 			}
-			err2 = ctx.Write(msg0, []distsys.TLAValue{}, distsys.NewTLARecord([]distsys.TLARecordField{
-				{distsys.NewTLAString("op"), constants.DISCONNECT_MSG},
+			err = iface.Write(msg28, []distsys.TLAValue{}, distsys.NewTLARecord([]distsys.TLARecordField{
+				{distsys.NewTLAString("op"), iface.GetConstant("DISCONNECT_MSG")()},
 				{distsys.NewTLAString("client"), exprRead63},
 			}))
-			if err2 != nil {
-				continue
+			if err != nil {
+				return err
 			}
 			var indexRead11 distsys.TLAValue
-			indexRead11, err2 = ctx.Read(clientId1, []distsys.TLAValue{})
-			if err2 != nil {
-				continue
+			indexRead11, err = iface.Read(clientId12, []distsys.TLAValue{})
+			if err != nil {
+				return err
 			}
-			err2 = ctx.Write(clock1, []distsys.TLAValue{indexRead11}, distsys.TLA_NegationSymbol(distsys.NewTLANumber(1)))
-			if err2 != nil {
-				continue
+			err = iface.Write(clock10, []distsys.TLAValue{indexRead11}, distsys.TLA_NegationSymbol(distsys.NewTLANumber(1)))
+			if err != nil {
+				return err
 			}
-			err2 = ctx.Write(j0, []distsys.TLAValue{}, distsys.NewTLANumber(0))
-			if err2 != nil {
-				continue
+			err = iface.Write(j4, []distsys.TLAValue{}, distsys.NewTLANumber(0))
+			if err != nil {
+				return err
 			}
-			err2 = ctx.Write(programCounter2, []distsys.TLAValue{}, distsys.NewTLANumber(disconnectBroadcastLabelTag))
-			if err2 != nil {
-				continue
+			return iface.Goto("Disconnect.disconnectBroadcast")
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "Disconnect.disconnectBroadcast",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
+			j5 := iface.RequireArchetypeResource("Disconnect.j")
+			replicas2, err := iface.RequireArchetypeResourceRef("Disconnect.replicas")
+			if err != nil {
+				return err
 			}
-			err2 = ctx.Commit()
-			if err2 != nil {
-				continue
-			}
-		case disconnectBroadcastLabelTag:
+			msg29 := iface.RequireArchetypeResource("Disconnect.msg")
 			var condition42 distsys.TLAValue
-			condition42, err2 = ctx.Read(j0, []distsys.TLAValue{})
-			if err2 != nil {
-				continue
+			condition42, err = iface.Read(j5, []distsys.TLAValue{})
+			if err != nil {
+				return err
 			}
-			if distsys.TLA_LogicalAndSymbol(distsys.TLA_LessThanOrEqualSymbol(condition42, distsys.TLA_MinusSymbol(constants.NUM_REPLICAS, distsys.NewTLANumber(1))), distsys.TLA_NotEqualsSymbol(distsys.NewTLANumber(0), distsys.TLA_NegationSymbol(distsys.NewTLANumber(1)))).AsBool() {
+			if distsys.TLA_LogicalAndSymbol(distsys.TLA_LessThanOrEqualSymbol(condition42, distsys.TLA_MinusSymbol(iface.GetConstant("NUM_REPLICAS")(), distsys.NewTLANumber(1))), distsys.TLA_NotEqualsSymbol(distsys.NewTLANumber(0), distsys.TLA_NegationSymbol(distsys.NewTLANumber(1)))).AsBool() {
 				var exprRead64 distsys.TLAValue
-				exprRead64, err2 = ctx.Read(msg0, []distsys.TLAValue{})
-				if err2 != nil {
-					continue
+				exprRead64, err = iface.Read(msg29, []distsys.TLAValue{})
+				if err != nil {
+					return err
 				}
 				var indexRead12 distsys.TLAValue
-				indexRead12, err2 = ctx.Read(j0, []distsys.TLAValue{})
-				if err2 != nil {
-					continue
+				indexRead12, err = iface.Read(j5, []distsys.TLAValue{})
+				if err != nil {
+					return err
 				}
-				err2 = ctx.Write(replicas2, []distsys.TLAValue{indexRead12}, exprRead64)
-				if err2 != nil {
-					continue
+				err = iface.Write(replicas2, []distsys.TLAValue{indexRead12}, exprRead64)
+				if err != nil {
+					return err
 				}
 				var exprRead65 distsys.TLAValue
-				exprRead65, err2 = ctx.Read(j0, []distsys.TLAValue{})
-				if err2 != nil {
-					continue
+				exprRead65, err = iface.Read(j5, []distsys.TLAValue{})
+				if err != nil {
+					return err
 				}
-				err2 = ctx.Write(j0, []distsys.TLAValue{}, distsys.TLA_PlusSymbol(exprRead65, distsys.NewTLANumber(1)))
-				if err2 != nil {
-					continue
+				err = iface.Write(j5, []distsys.TLAValue{}, distsys.TLA_PlusSymbol(exprRead65, distsys.NewTLANumber(1)))
+				if err != nil {
+					return err
 				}
-				err2 = ctx.Write(programCounter2, []distsys.TLAValue{}, distsys.NewTLANumber(disconnectBroadcastLabelTag))
-				if err2 != nil {
-					continue
-				}
-				err2 = ctx.Commit()
-				if err2 != nil {
-					continue
-				}
+				return iface.Goto("Disconnect.disconnectBroadcast")
 			} else {
-				err2 = ctx.Write(programCounter2, []distsys.TLAValue{}, distsys.NewTLANumber(DoneLabelTag2))
-				if err2 != nil {
-					continue
-				}
-				err2 = ctx.Commit()
-				if err2 != nil {
-					continue
-				}
+				return iface.Goto("Disconnect.Done")
 			}
 			// no statements
-		case DoneLabelTag2:
-			return nil
-		default:
-			return fmt.Errorf("invalid program counter %v", labelTag2)
-		}
-	}
-}
-
-func ClockUpdate(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constants, clientId2 distsys.ArchetypeResourceHandle, replicas3 distsys.ArchetypeResourceHandle, clock2 distsys.ArchetypeResourceHandle, spin3 distsys.TLAValue) error {
-	ctx.ReportEvent(distsys.ArchetypeStarted)
-	defer func() {
-		ctx.ReportEvent(distsys.ArchetypeFinished)
-	}()
-	var err3 error
-	// label tags
-	const (
-		InitLabelTag3 = iota
-		clockUpdateLoopLabelTag
-		nullBroadcastLabelTag
-		nullCheckSpinLabelTag
-		DoneLabelTag3
-	)
-	programCounter3 := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.NewTLANumber(InitLabelTag3)))
-	spin4 := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(spin3))
-	continue3 := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.TLAValue{}))
-	_ = continue3
-	j1 := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.TLAValue{}))
-	_ = j1
-	msg1 := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.TLAValue{}))
-	_ = msg1
-
-	for {
-		select {
-		case <-ctx.Done():
-			err3 = distsys.ErrContextClosed
-		default:
-		}
-		if err3 != nil {
-			if err3 == distsys.ErrCriticalSectionAborted {
-				ctx.Abort()
-				err3 = nil
-			} else {
-				return err3
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "Disconnect.Done",
+		Body: func(distsys.ArchetypeInterface) error {
+			return distsys.ErrDone
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "ClockUpdate.clockUpdateLoop",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
+			continue11 := iface.RequireArchetypeResource("ClockUpdate.continue")
+			clock11, err := iface.RequireArchetypeResourceRef("ClockUpdate.clock")
+			if err != nil {
+				return err
 			}
-		}
-		var labelTag3 distsys.TLAValue
-		labelTag3, err3 = ctx.Read(programCounter3, []distsys.TLAValue{})
-		if err3 != nil {
-			return err3
-		}
-		switch labelTag3.AsNumber() {
-		case InitLabelTag3:
-			err3 = ctx.Write(continue3, nil, distsys.TLA_TRUE)
-			if err3 != nil {
-				continue
+			clientId14, err := iface.RequireArchetypeResourceRef("ClockUpdate.clientId")
+			if err != nil {
+				return err
 			}
-			err3 = ctx.Write(programCounter3, []distsys.TLAValue{}, distsys.NewTLANumber(clockUpdateLoopLabelTag))
-			if err3 != nil {
-				continue
-			}
-		case clockUpdateLoopLabelTag:
+			msg30 := iface.RequireArchetypeResource("ClockUpdate.msg")
+			j9 := iface.RequireArchetypeResource("ClockUpdate.j")
 			var condition43 distsys.TLAValue
-			condition43, err3 = ctx.Read(continue3, []distsys.TLAValue{})
-			if err3 != nil {
-				continue
+			condition43, err = iface.Read(continue11, []distsys.TLAValue{})
+			if err != nil {
+				return err
 			}
 			if condition43.AsBool() {
 				var condition44 distsys.TLAValue
-				condition44, err3 = ctx.Read(clientId2, []distsys.TLAValue{})
-				if err3 != nil {
-					continue
+				condition44, err = iface.Read(clientId14, []distsys.TLAValue{})
+				if err != nil {
+					return err
 				}
 				var condition45 distsys.TLAValue
-				condition45, err3 = ctx.Read(clock2, []distsys.TLAValue{condition44})
-				if err3 != nil {
-					continue
+				condition45, err = iface.Read(clock11, []distsys.TLAValue{condition44})
+				if err != nil {
+					return err
 				}
 				if distsys.TLA_EqualsSymbol(condition45, distsys.TLA_NegationSymbol(distsys.NewTLANumber(1))).AsBool() {
-					err3 = ctx.Write(continue3, []distsys.TLAValue{}, distsys.TLA_FALSE)
-					if err3 != nil {
-						continue
+					err = iface.Write(continue11, []distsys.TLAValue{}, distsys.TLA_FALSE)
+					if err != nil {
+						return err
 					}
-					err3 = ctx.Write(programCounter3, []distsys.TLAValue{}, distsys.NewTLANumber(nullCheckSpinLabelTag))
-					if err3 != nil {
-						continue
-					}
-					err3 = ctx.Commit()
-					if err3 != nil {
-						continue
-					}
+					return iface.Goto("ClockUpdate.nullCheckSpin")
 				} else {
 					var exprRead66 distsys.TLAValue
-					exprRead66, err3 = ctx.Read(clientId2, []distsys.TLAValue{})
-					if err3 != nil {
-						continue
+					exprRead66, err = iface.Read(clientId14, []distsys.TLAValue{})
+					if err != nil {
+						return err
 					}
 					var exprRead67 distsys.TLAValue
-					exprRead67, err3 = ctx.Read(clock2, []distsys.TLAValue{exprRead66})
-					if err3 != nil {
-						continue
+					exprRead67, err = iface.Read(clock11, []distsys.TLAValue{exprRead66})
+					if err != nil {
+						return err
 					}
 					var indexRead13 distsys.TLAValue
-					indexRead13, err3 = ctx.Read(clientId2, []distsys.TLAValue{})
-					if err3 != nil {
-						continue
+					indexRead13, err = iface.Read(clientId14, []distsys.TLAValue{})
+					if err != nil {
+						return err
 					}
-					err3 = ctx.Write(clock2, []distsys.TLAValue{indexRead13}, distsys.TLA_PlusSymbol(exprRead67, distsys.NewTLANumber(1)))
-					if err3 != nil {
-						continue
+					err = iface.Write(clock11, []distsys.TLAValue{indexRead13}, distsys.TLA_PlusSymbol(exprRead67, distsys.NewTLANumber(1)))
+					if err != nil {
+						return err
 					}
 					var exprRead68 distsys.TLAValue
-					exprRead68, err3 = ctx.Read(clientId2, []distsys.TLAValue{})
-					if err3 != nil {
-						continue
+					exprRead68, err = iface.Read(clientId14, []distsys.TLAValue{})
+					if err != nil {
+						return err
 					}
 					var exprRead69 distsys.TLAValue
-					exprRead69, err3 = ctx.Read(clientId2, []distsys.TLAValue{})
-					if err3 != nil {
-						continue
+					exprRead69, err = iface.Read(clientId14, []distsys.TLAValue{})
+					if err != nil {
+						return err
 					}
 					var exprRead70 distsys.TLAValue
-					exprRead70, err3 = ctx.Read(clock2, []distsys.TLAValue{exprRead69})
-					if err3 != nil {
-						continue
+					exprRead70, err = iface.Read(clock11, []distsys.TLAValue{exprRead69})
+					if err != nil {
+						return err
 					}
-					err3 = ctx.Write(msg1, []distsys.TLAValue{}, distsys.NewTLARecord([]distsys.TLARecordField{
-						{distsys.NewTLAString("op"), constants.NULL_MSG},
+					err = iface.Write(msg30, []distsys.TLAValue{}, distsys.NewTLARecord([]distsys.TLARecordField{
+						{distsys.NewTLAString("op"), iface.GetConstant("NULL_MSG")()},
 						{distsys.NewTLAString("client"), exprRead68},
 						{distsys.NewTLAString("timestamp"), exprRead70},
 					}))
-					if err3 != nil {
-						continue
+					if err != nil {
+						return err
 					}
-					err3 = ctx.Write(j1, []distsys.TLAValue{}, distsys.NewTLANumber(0))
-					if err3 != nil {
-						continue
+					err = iface.Write(j9, []distsys.TLAValue{}, distsys.NewTLANumber(0))
+					if err != nil {
+						return err
 					}
-					err3 = ctx.Write(programCounter3, []distsys.TLAValue{}, distsys.NewTLANumber(nullBroadcastLabelTag))
-					if err3 != nil {
-						continue
-					}
-					err3 = ctx.Commit()
-					if err3 != nil {
-						continue
-					}
+					return iface.Goto("ClockUpdate.nullBroadcast")
 				}
 				// no statements
 			} else {
-				err3 = ctx.Write(programCounter3, []distsys.TLAValue{}, distsys.NewTLANumber(DoneLabelTag3))
-				if err3 != nil {
-					continue
-				}
-				err3 = ctx.Commit()
-				if err3 != nil {
-					continue
-				}
+				return iface.Goto("ClockUpdate.Done")
 			}
 			// no statements
-		case nullBroadcastLabelTag:
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "ClockUpdate.nullBroadcast",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
+			j10 := iface.RequireArchetypeResource("ClockUpdate.j")
+			clock15, err := iface.RequireArchetypeResourceRef("ClockUpdate.clock")
+			if err != nil {
+				return err
+			}
+			clientId19, err := iface.RequireArchetypeResourceRef("ClockUpdate.clientId")
+			if err != nil {
+				return err
+			}
+			replicas3, err := iface.RequireArchetypeResourceRef("ClockUpdate.replicas")
+			if err != nil {
+				return err
+			}
+			msg31 := iface.RequireArchetypeResource("ClockUpdate.msg")
 			var condition46 distsys.TLAValue
-			condition46, err3 = ctx.Read(j1, []distsys.TLAValue{})
-			if err3 != nil {
-				continue
+			condition46, err = iface.Read(j10, []distsys.TLAValue{})
+			if err != nil {
+				return err
 			}
 			var condition47 distsys.TLAValue
-			condition47, err3 = ctx.Read(clientId2, []distsys.TLAValue{})
-			if err3 != nil {
-				continue
+			condition47, err = iface.Read(clientId19, []distsys.TLAValue{})
+			if err != nil {
+				return err
 			}
 			var condition48 distsys.TLAValue
-			condition48, err3 = ctx.Read(clock2, []distsys.TLAValue{condition47})
-			if err3 != nil {
-				continue
+			condition48, err = iface.Read(clock15, []distsys.TLAValue{condition47})
+			if err != nil {
+				return err
 			}
-			if distsys.TLA_LogicalAndSymbol(distsys.TLA_LessThanOrEqualSymbol(condition46, distsys.TLA_MinusSymbol(constants.NUM_REPLICAS, distsys.NewTLANumber(1))), distsys.TLA_NotEqualsSymbol(condition48, distsys.TLA_NegationSymbol(distsys.NewTLANumber(1)))).AsBool() {
+			if distsys.TLA_LogicalAndSymbol(distsys.TLA_LessThanOrEqualSymbol(condition46, distsys.TLA_MinusSymbol(iface.GetConstant("NUM_REPLICAS")(), distsys.NewTLANumber(1))), distsys.TLA_NotEqualsSymbol(condition48, distsys.TLA_NegationSymbol(distsys.NewTLANumber(1)))).AsBool() {
 				var exprRead71 distsys.TLAValue
-				exprRead71, err3 = ctx.Read(msg1, []distsys.TLAValue{})
-				if err3 != nil {
-					continue
+				exprRead71, err = iface.Read(msg31, []distsys.TLAValue{})
+				if err != nil {
+					return err
 				}
 				var indexRead14 distsys.TLAValue
-				indexRead14, err3 = ctx.Read(j1, []distsys.TLAValue{})
-				if err3 != nil {
-					continue
+				indexRead14, err = iface.Read(j10, []distsys.TLAValue{})
+				if err != nil {
+					return err
 				}
-				err3 = ctx.Write(replicas3, []distsys.TLAValue{indexRead14}, exprRead71)
-				if err3 != nil {
-					continue
+				err = iface.Write(replicas3, []distsys.TLAValue{indexRead14}, exprRead71)
+				if err != nil {
+					return err
 				}
 				var exprRead72 distsys.TLAValue
-				exprRead72, err3 = ctx.Read(j1, []distsys.TLAValue{})
-				if err3 != nil {
-					continue
+				exprRead72, err = iface.Read(j10, []distsys.TLAValue{})
+				if err != nil {
+					return err
 				}
-				err3 = ctx.Write(j1, []distsys.TLAValue{}, distsys.TLA_PlusSymbol(exprRead72, distsys.NewTLANumber(1)))
-				if err3 != nil {
-					continue
+				err = iface.Write(j10, []distsys.TLAValue{}, distsys.TLA_PlusSymbol(exprRead72, distsys.NewTLANumber(1)))
+				if err != nil {
+					return err
 				}
-				err3 = ctx.Write(programCounter3, []distsys.TLAValue{}, distsys.NewTLANumber(nullBroadcastLabelTag))
-				if err3 != nil {
-					continue
-				}
-				err3 = ctx.Commit()
-				if err3 != nil {
-					continue
-				}
+				return iface.Goto("ClockUpdate.nullBroadcast")
 			} else {
-				err3 = ctx.Write(programCounter3, []distsys.TLAValue{}, distsys.NewTLANumber(nullCheckSpinLabelTag))
-				if err3 != nil {
-					continue
-				}
-				err3 = ctx.Commit()
-				if err3 != nil {
-					continue
-				}
+				return iface.Goto("ClockUpdate.nullCheckSpin")
 			}
 			// no statements
-		case nullCheckSpinLabelTag:
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "ClockUpdate.nullCheckSpin",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
+			spin1 := iface.RequireArchetypeResource("ClockUpdate.spin")
+			continue13 := iface.RequireArchetypeResource("ClockUpdate.continue")
 			var condition49 distsys.TLAValue
-			condition49, err3 = ctx.Read(spin4, []distsys.TLAValue{})
-			if err3 != nil {
-				continue
+			condition49, err = iface.Read(spin1, []distsys.TLAValue{})
+			if err != nil {
+				return err
 			}
 			if distsys.TLA_LogicalNotSymbol(condition49).AsBool() {
-				err3 = ctx.Write(continue3, []distsys.TLAValue{}, distsys.TLA_FALSE)
-				if err3 != nil {
-					continue
+				err = iface.Write(continue13, []distsys.TLAValue{}, distsys.TLA_FALSE)
+				if err != nil {
+					return err
 				}
-				err3 = ctx.Write(programCounter3, []distsys.TLAValue{}, distsys.NewTLANumber(clockUpdateLoopLabelTag))
-				if err3 != nil {
-					continue
-				}
-				err3 = ctx.Commit()
-				if err3 != nil {
-					continue
-				}
+				return iface.Goto("ClockUpdate.clockUpdateLoop")
 			} else {
-				err3 = ctx.Write(programCounter3, []distsys.TLAValue{}, distsys.NewTLANumber(clockUpdateLoopLabelTag))
-				if err3 != nil {
-					continue
-				}
-				err3 = ctx.Commit()
-				if err3 != nil {
-					continue
-				}
+				return iface.Goto("ClockUpdate.clockUpdateLoop")
 			}
 			// no statements
-		case DoneLabelTag3:
-			return nil
-		default:
-			return fmt.Errorf("invalid program counter %v", labelTag3)
-		}
-	}
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "ClockUpdate.Done",
+		Body: func(distsys.ArchetypeInterface) error {
+			return distsys.ErrDone
+		},
+	},
+)
+
+var AReplica = distsys.MPCalArchetype{
+	Name:              "AReplica",
+	Label:             "AReplica.replicaLoop",
+	RequiredRefParams: []string{"AReplica.clients", "AReplica.replicas", "AReplica.kv"},
+	RequiredValParams: []string{},
+	JumpTable:         jumpTable,
+	ProcTable:         procTable,
+	PreAmble: func(iface distsys.ArchetypeInterface) {
+		iface.EnsureArchetypeResourceLocal("AReplica.liveClients", ClientSet(iface))
+		iface.EnsureArchetypeResourceLocal("AReplica.pendingRequests", distsys.NewTLAFunction([]distsys.TLAValue{iface.ReadArchetypeResourceLocal("AReplica.liveClients")}, func(args []distsys.TLAValue) distsys.TLAValue {
+			var c0 distsys.TLAValue = args[0]
+			_ = c0
+			return distsys.NewTLATuple()
+		}))
+		iface.EnsureArchetypeResourceLocal("AReplica.stableMessages", distsys.NewTLATuple())
+		iface.EnsureArchetypeResourceLocal("AReplica.i", distsys.TLAValue{})
+		iface.EnsureArchetypeResourceLocal("AReplica.firstPending", distsys.TLAValue{})
+		iface.EnsureArchetypeResourceLocal("AReplica.timestamp", distsys.TLAValue{})
+		iface.EnsureArchetypeResourceLocal("AReplica.nextClient", distsys.TLAValue{})
+		iface.EnsureArchetypeResourceLocal("AReplica.lowestPending", distsys.TLAValue{})
+		iface.EnsureArchetypeResourceLocal("AReplica.chooseMessage", distsys.TLAValue{})
+		iface.EnsureArchetypeResourceLocal("AReplica.currentClocks", distsys.NewTLAFunction([]distsys.TLAValue{iface.ReadArchetypeResourceLocal("AReplica.liveClients")}, func(args0 []distsys.TLAValue) distsys.TLAValue {
+			var c1 distsys.TLAValue = args0[0]
+			_ = c1
+			return distsys.NewTLANumber(0)
+		}))
+		iface.EnsureArchetypeResourceLocal("AReplica.minClock", distsys.TLAValue{})
+		iface.EnsureArchetypeResourceLocal("AReplica.continue", distsys.TLAValue{})
+		iface.EnsureArchetypeResourceLocal("AReplica.pendingClients", distsys.TLAValue{})
+		iface.EnsureArchetypeResourceLocal("AReplica.clientsIter", distsys.TLAValue{})
+		iface.EnsureArchetypeResourceLocal("AReplica.msg", distsys.TLAValue{})
+		iface.EnsureArchetypeResourceLocal("AReplica.ok", distsys.TLAValue{})
+		iface.EnsureArchetypeResourceLocal("AReplica.key", distsys.TLAValue{})
+		iface.EnsureArchetypeResourceLocal("AReplica.val", distsys.TLAValue{})
+	},
+}
+
+var Get = distsys.MPCalArchetype{
+	Name:              "Get",
+	Label:             "Get.getLoop",
+	RequiredRefParams: []string{"Get.clientId", "Get.replicas", "Get.clients", "Get.clock", "Get.outside"},
+	RequiredValParams: []string{"Get.key", "Get.spin"},
+	JumpTable:         jumpTable,
+	ProcTable:         procTable,
+	PreAmble: func(iface distsys.ArchetypeInterface) {
+		iface.EnsureArchetypeResourceLocal("Get.continue", distsys.TLA_TRUE)
+		iface.EnsureArchetypeResourceLocal("Get.getReq", distsys.TLAValue{})
+		iface.EnsureArchetypeResourceLocal("Get.getResp", distsys.TLAValue{})
+	},
+}
+
+var Put = distsys.MPCalArchetype{
+	Name:              "Put",
+	Label:             "Put.putLoop",
+	RequiredRefParams: []string{"Put.clientId", "Put.replicas", "Put.clients", "Put.clock", "Put.outside"},
+	RequiredValParams: []string{"Put.key", "Put.value", "Put.spin"},
+	JumpTable:         jumpTable,
+	ProcTable:         procTable,
+	PreAmble: func(iface distsys.ArchetypeInterface) {
+		iface.EnsureArchetypeResourceLocal("Put.continue", distsys.TLA_TRUE)
+		iface.EnsureArchetypeResourceLocal("Put.i", distsys.TLAValue{})
+		iface.EnsureArchetypeResourceLocal("Put.j", distsys.TLAValue{})
+		iface.EnsureArchetypeResourceLocal("Put.putReq", distsys.TLAValue{})
+		iface.EnsureArchetypeResourceLocal("Put.putResp", distsys.TLAValue{})
+	},
+}
+
+var Disconnect = distsys.MPCalArchetype{
+	Name:              "Disconnect",
+	Label:             "Disconnect.sendDisconnectRequest",
+	RequiredRefParams: []string{"Disconnect.clientId", "Disconnect.replicas", "Disconnect.clock"},
+	RequiredValParams: []string{},
+	JumpTable:         jumpTable,
+	ProcTable:         procTable,
+	PreAmble: func(iface distsys.ArchetypeInterface) {
+		iface.EnsureArchetypeResourceLocal("Disconnect.msg", distsys.TLAValue{})
+		iface.EnsureArchetypeResourceLocal("Disconnect.j", distsys.TLAValue{})
+	},
+}
+
+var ClockUpdate = distsys.MPCalArchetype{
+	Name:              "ClockUpdate",
+	Label:             "ClockUpdate.clockUpdateLoop",
+	RequiredRefParams: []string{"ClockUpdate.clientId", "ClockUpdate.replicas", "ClockUpdate.clock"},
+	RequiredValParams: []string{"ClockUpdate.spin"},
+	JumpTable:         jumpTable,
+	ProcTable:         procTable,
+	PreAmble: func(iface distsys.ArchetypeInterface) {
+		iface.EnsureArchetypeResourceLocal("ClockUpdate.continue", distsys.TLA_TRUE)
+		iface.EnsureArchetypeResourceLocal("ClockUpdate.j", distsys.TLAValue{})
+		iface.EnsureArchetypeResourceLocal("ClockUpdate.msg", distsys.TLAValue{})
+	},
 }

@@ -12,15 +12,17 @@ procedure inc(self_, ref counter) {
 }
 
 (* *)
-archetype Counter()
+archetype Counter(ref out)
 variables value;
 {
     c0: value := 0;
     c1: call inc(self, ref value);
-    c2: print(value);
+    c2: out := value;
 }
 
-  process (Server = "1") == instance Counter();
+  variables out;
+
+  process (Server = "1") == instance Counter(ref out);
 }
 
 \* BEGIN PLUSCAL TRANSLATION

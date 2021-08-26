@@ -1,11 +1,13 @@
 package exprtests
 
 import (
+	"github.com/UBC-NSS/pgo/distsys"
 	"testing"
 )
 
 func TestTest1(t *testing.T) {
-	result := Test1(Constants{})
+	ctx := distsys.NewMPCalContextWithoutArchetype()
+	result := Test1(ctx.IFace())
 	actualStr := result.String()
 	expectedStr := "{1, 2, 3}"
 	if actualStr != expectedStr {

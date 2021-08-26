@@ -8,131 +8,107 @@ import (
 var _ = new(fmt.Stringer)  // unconditionally prevent go compiler from reporting unused fmt import
 var _ = distsys.TLAValue{} // same, for distsys
 
-type Constants struct {
-	NUM_NODES   distsys.TLAValue
-	BUFFER_SIZE distsys.TLAValue
-}
+var procTable = distsys.MakeMPCalProcTable()
 
-func AEchoServer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constants, net distsys.ArchetypeResourceHandle) error {
-	var err error
-	// label tags
-	const (
-		InitLabelTag = iota
-		serverLoopLabelTag
-		rcvMsgLabelTag
-		sndMsgLabelTag
-		DoneLabelTag
-	)
-	programCounter := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.NewTLANumber(InitLabelTag)))
-	msg := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.TLAValue{}))
-	_ = msg
-
-	for {
-		if err != nil {
-			if err == distsys.ErrCriticalSectionAborted {
-				ctx.Abort()
-				err = nil
-			} else {
-				return err
-			}
-		}
-		var labelTag distsys.TLAValue
-		labelTag, err = ctx.Read(programCounter, []distsys.TLAValue{})
-		if err != nil {
-			return err
-		}
-		switch labelTag.AsNumber() {
-		case InitLabelTag:
-			err = ctx.Write(programCounter, []distsys.TLAValue{}, distsys.NewTLANumber(serverLoopLabelTag))
-			if err != nil {
-				continue
-			}
-		case serverLoopLabelTag:
+var jumpTable = distsys.MakeMPCalJumpTable(
+	distsys.MPCalCriticalSection{
+		Name: "AEchoServer.serverLoop",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
 			if distsys.TLA_TRUE.AsBool() {
-				err = ctx.Write(programCounter, []distsys.TLAValue{}, distsys.NewTLANumber(rcvMsgLabelTag))
-				if err != nil {
-					continue
-				}
-				err = ctx.Commit()
-				if err != nil {
-					continue
-				}
+				return iface.Goto("AEchoServer.rcvMsg")
 			} else {
-				err = ctx.Write(programCounter, []distsys.TLAValue{}, distsys.NewTLANumber(DoneLabelTag))
-				if err != nil {
-					continue
-				}
-				err = ctx.Commit()
-				if err != nil {
-					continue
-				}
+				return iface.Goto("AEchoServer.Done")
 			}
 			// no statements
-		case rcvMsgLabelTag:
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "AEchoServer.rcvMsg",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
+			msg := iface.RequireArchetypeResource("AEchoServer.msg")
+			net, err := iface.RequireArchetypeResourceRef("AEchoServer.net")
+			if err != nil {
+				return err
+			}
 			var exprRead distsys.TLAValue
-			exprRead, err = ctx.Read(net, []distsys.TLAValue{distsys.NewTLATuple(self, distsys.NewTLANumber(1))})
+			exprRead, err = iface.Read(net, []distsys.TLAValue{distsys.NewTLATuple(iface.Self(), distsys.NewTLANumber(1))})
 			if err != nil {
-				continue
+				return err
 			}
-			err = ctx.Write(msg, []distsys.TLAValue{}, exprRead)
+			err = iface.Write(msg, []distsys.TLAValue{}, exprRead)
 			if err != nil {
-				continue
+				return err
 			}
-			err = ctx.Write(programCounter, []distsys.TLAValue{}, distsys.NewTLANumber(sndMsgLabelTag))
+			return iface.Goto("AEchoServer.sndMsg")
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "AEchoServer.sndMsg",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
+			net0, err := iface.RequireArchetypeResourceRef("AEchoServer.net")
 			if err != nil {
-				continue
+				return err
 			}
-			err = ctx.Commit()
-			if err != nil {
-				continue
-			}
-		case sndMsgLabelTag:
+			msg0 := iface.RequireArchetypeResource("AEchoServer.msg")
 			var exprRead0 distsys.TLAValue
-			exprRead0, err = ctx.Read(msg, []distsys.TLAValue{})
+			exprRead0, err = iface.Read(msg0, []distsys.TLAValue{})
 			if err != nil {
-				continue
+				return err
 			}
 			var exprRead1 distsys.TLAValue
-			exprRead1, err = ctx.Read(msg, []distsys.TLAValue{})
+			exprRead1, err = iface.Read(msg0, []distsys.TLAValue{})
 			if err != nil {
-				continue
+				return err
 			}
 			var exprRead2 distsys.TLAValue
-			exprRead2, err = ctx.Read(msg, []distsys.TLAValue{})
+			exprRead2, err = iface.Read(msg0, []distsys.TLAValue{})
 			if err != nil {
-				continue
+				return err
 			}
 			var indexRead distsys.TLAValue
-			indexRead, err = ctx.Read(msg, []distsys.TLAValue{})
+			indexRead, err = iface.Read(msg0, []distsys.TLAValue{})
 			if err != nil {
-				continue
+				return err
 			}
 			var indexRead0 distsys.TLAValue
-			indexRead0, err = ctx.Read(msg, []distsys.TLAValue{})
+			indexRead0, err = iface.Read(msg0, []distsys.TLAValue{})
 			if err != nil {
-				continue
+				return err
 			}
-			err = ctx.Write(net, []distsys.TLAValue{distsys.NewTLATuple(indexRead.ApplyFunction(distsys.NewTLAString("from")), indexRead0.ApplyFunction(distsys.NewTLAString("typ")))}, distsys.NewTLARecord([]distsys.TLARecordField{
-				{distsys.NewTLAString("from"), self},
+			err = iface.Write(net0, []distsys.TLAValue{distsys.NewTLATuple(indexRead.ApplyFunction(distsys.NewTLAString("from")), indexRead0.ApplyFunction(distsys.NewTLAString("typ")))}, distsys.NewTLARecord([]distsys.TLARecordField{
+				{distsys.NewTLAString("from"), iface.Self()},
 				{distsys.NewTLAString("to"), exprRead0.ApplyFunction(distsys.NewTLAString("from"))},
 				{distsys.NewTLAString("body"), exprRead1.ApplyFunction(distsys.NewTLAString("body"))},
 				{distsys.NewTLAString("typ"), exprRead2.ApplyFunction(distsys.NewTLAString("typ"))},
 			}))
 			if err != nil {
-				continue
+				return err
 			}
-			err = ctx.Write(programCounter, []distsys.TLAValue{}, distsys.NewTLANumber(serverLoopLabelTag))
-			if err != nil {
-				continue
-			}
-			err = ctx.Commit()
-			if err != nil {
-				continue
-			}
-		case DoneLabelTag:
-			return nil
-		default:
-			return fmt.Errorf("invalid program counter %v", labelTag)
-		}
-	}
+			return iface.Goto("AEchoServer.serverLoop")
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "AEchoServer.Done",
+		Body: func(distsys.ArchetypeInterface) error {
+			return distsys.ErrDone
+		},
+	},
+)
+
+var AEchoServer = distsys.MPCalArchetype{
+	Name:              "AEchoServer",
+	Label:             "AEchoServer.serverLoop",
+	RequiredRefParams: []string{"AEchoServer.net"},
+	RequiredValParams: []string{},
+	JumpTable:         jumpTable,
+	ProcTable:         procTable,
+	PreAmble: func(iface distsys.ArchetypeInterface) {
+		iface.EnsureArchetypeResourceLocal("AEchoServer.msg", distsys.TLAValue{})
+	},
 }

@@ -8,416 +8,319 @@ import (
 var _ = new(fmt.Stringer)  // unconditionally prevent go compiler from reporting unused fmt import
 var _ = distsys.TLAValue{} // same, for distsys
 
-type Constants struct {
-	BUFFER_SIZE    distsys.TLAValue
-	LoadBalancerId distsys.TLAValue
-	NUM_SERVERS    distsys.TLAValue
-	NUM_CLIENTS    distsys.TLAValue
-	GET_PAGE       distsys.TLAValue
-	WEB_PAGE       distsys.TLAValue
+func NUM_NODES(iface distsys.ArchetypeInterface) distsys.TLAValue {
+	return distsys.TLA_PlusSymbol(distsys.TLA_PlusSymbol(iface.GetConstant("NUM_CLIENTS")(), iface.GetConstant("NUM_SERVERS")()), distsys.NewTLANumber(1))
 }
 
-func NUM_NODES(constants Constants) distsys.TLAValue {
-	return distsys.TLA_PlusSymbol(distsys.TLA_PlusSymbol(constants.NUM_CLIENTS, constants.NUM_SERVERS), distsys.NewTLANumber(1))
-}
+var procTable = distsys.MakeMPCalProcTable()
 
-func ALoadBalancer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constants, mailboxes distsys.ArchetypeResourceHandle) error {
-	ctx.ReportEvent(distsys.ArchetypeStarted)
-	defer func() {
-		ctx.ReportEvent(distsys.ArchetypeFinished)
-	}()
-	var err error
-	// label tags
-	const (
-		InitLabelTag = iota
-		mainLabelTag
-		rcvMsgLabelTag
-		sendServerLabelTag
-		DoneLabelTag
-	)
-	programCounter := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.NewTLANumber(InitLabelTag)))
-	msg := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.TLAValue{}))
-	_ = msg
-	next := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.TLAValue{}))
-	_ = next
-
-	for {
-		select {
-		case <-ctx.Done():
-			err = distsys.ErrContextClosed
-		default:
-		}
-		if err != nil {
-			if err == distsys.ErrCriticalSectionAborted {
-				ctx.Abort()
-				err = nil
-			} else {
-				return err
-			}
-		}
-		var labelTag distsys.TLAValue
-		labelTag, err = ctx.Read(programCounter, []distsys.TLAValue{})
-		if err != nil {
-			return err
-		}
-		switch labelTag.AsNumber() {
-		case InitLabelTag:
-			err = ctx.Write(next, nil, distsys.NewTLANumber(0))
-			if err != nil {
-				continue
-			}
-			err = ctx.Write(programCounter, []distsys.TLAValue{}, distsys.NewTLANumber(mainLabelTag))
-			if err != nil {
-				continue
-			}
-		case mainLabelTag:
+var jumpTable = distsys.MakeMPCalJumpTable(
+	distsys.MPCalCriticalSection{
+		Name: "ALoadBalancer.main",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
 			if distsys.TLA_TRUE.AsBool() {
-				err = ctx.Write(programCounter, []distsys.TLAValue{}, distsys.NewTLANumber(rcvMsgLabelTag))
-				if err != nil {
-					continue
-				}
-				err = ctx.Commit()
-				if err != nil {
-					continue
-				}
+				return iface.Goto("ALoadBalancer.rcvMsg")
 			} else {
-				err = ctx.Write(programCounter, []distsys.TLAValue{}, distsys.NewTLANumber(DoneLabelTag))
-				if err != nil {
-					continue
-				}
-				err = ctx.Commit()
-				if err != nil {
-					continue
-				}
+				return iface.Goto("ALoadBalancer.Done")
 			}
 			// no statements
-		case rcvMsgLabelTag:
-			var exprRead distsys.TLAValue
-			exprRead, err = ctx.Read(mailboxes, []distsys.TLAValue{constants.LoadBalancerId})
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "ALoadBalancer.rcvMsg",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
+			msg := iface.RequireArchetypeResource("ALoadBalancer.msg")
+			mailboxes, err := iface.RequireArchetypeResourceRef("ALoadBalancer.mailboxes")
 			if err != nil {
-				continue
+				return err
 			}
-			err = ctx.Write(msg, []distsys.TLAValue{}, exprRead)
+			var exprRead distsys.TLAValue
+			exprRead, err = iface.Read(mailboxes, []distsys.TLAValue{iface.GetConstant("LoadBalancerId")()})
 			if err != nil {
-				continue
+				return err
+			}
+			err = iface.Write(msg, []distsys.TLAValue{}, exprRead)
+			if err != nil {
+				return err
 			}
 			var condition distsys.TLAValue
-			condition, err = ctx.Read(msg, []distsys.TLAValue{})
+			condition, err = iface.Read(msg, []distsys.TLAValue{})
 			if err != nil {
-				continue
+				return err
 			}
-			if !distsys.TLA_EqualsSymbol(condition.ApplyFunction(distsys.NewTLAString("message_type")), constants.GET_PAGE).AsBool() {
-				err = fmt.Errorf("%w: ((msg).message_type) = (GET_PAGE)", distsys.ErrAssertionFailed)
-				continue
+			if !distsys.TLA_EqualsSymbol(condition.ApplyFunction(distsys.NewTLAString("message_type")), iface.GetConstant("GET_PAGE")()).AsBool() {
+				return fmt.Errorf("%w: ((msg).message_type) = (GET_PAGE)", distsys.ErrAssertionFailed)
 			}
-			err = ctx.Write(programCounter, []distsys.TLAValue{}, distsys.NewTLANumber(sendServerLabelTag))
+			return iface.Goto("ALoadBalancer.sendServer")
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "ALoadBalancer.sendServer",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
+			next := iface.RequireArchetypeResource("ALoadBalancer.next")
+			mailboxes0, err := iface.RequireArchetypeResourceRef("ALoadBalancer.mailboxes")
 			if err != nil {
-				continue
+				return err
 			}
-			err = ctx.Commit()
-			if err != nil {
-				continue
-			}
-		case sendServerLabelTag:
+			msg1 := iface.RequireArchetypeResource("ALoadBalancer.msg")
 			var exprRead0 distsys.TLAValue
-			exprRead0, err = ctx.Read(next, []distsys.TLAValue{})
+			exprRead0, err = iface.Read(next, []distsys.TLAValue{})
 			if err != nil {
-				continue
+				return err
 			}
-			err = ctx.Write(next, []distsys.TLAValue{}, distsys.TLA_PlusSymbol(distsys.TLA_PercentSymbol(exprRead0, constants.NUM_SERVERS), distsys.NewTLANumber(1)))
+			err = iface.Write(next, []distsys.TLAValue{}, distsys.TLA_PlusSymbol(distsys.TLA_PercentSymbol(exprRead0, iface.GetConstant("NUM_SERVERS")()), distsys.NewTLANumber(1)))
 			if err != nil {
-				continue
+				return err
 			}
 			var exprRead1 distsys.TLAValue
-			exprRead1, err = ctx.Read(next, []distsys.TLAValue{})
+			exprRead1, err = iface.Read(next, []distsys.TLAValue{})
 			if err != nil {
-				continue
+				return err
 			}
 			var exprRead2 distsys.TLAValue
-			exprRead2, err = ctx.Read(msg, []distsys.TLAValue{})
+			exprRead2, err = iface.Read(msg1, []distsys.TLAValue{})
 			if err != nil {
-				continue
+				return err
 			}
 			var exprRead3 distsys.TLAValue
-			exprRead3, err = ctx.Read(msg, []distsys.TLAValue{})
+			exprRead3, err = iface.Read(msg1, []distsys.TLAValue{})
 			if err != nil {
-				continue
+				return err
 			}
 			var indexRead distsys.TLAValue
-			indexRead, err = ctx.Read(next, []distsys.TLAValue{})
+			indexRead, err = iface.Read(next, []distsys.TLAValue{})
 			if err != nil {
-				continue
+				return err
 			}
-			err = ctx.Write(mailboxes, []distsys.TLAValue{indexRead}, distsys.NewTLARecord([]distsys.TLARecordField{
+			err = iface.Write(mailboxes0, []distsys.TLAValue{indexRead}, distsys.NewTLARecord([]distsys.TLARecordField{
 				{distsys.NewTLAString("message_id"), exprRead1},
 				{distsys.NewTLAString("client_id"), exprRead2.ApplyFunction(distsys.NewTLAString("client_id"))},
 				{distsys.NewTLAString("path"), exprRead3.ApplyFunction(distsys.NewTLAString("path"))},
 			}))
 			if err != nil {
-				continue
+				return err
 			}
-			err = ctx.Write(programCounter, []distsys.TLAValue{}, distsys.NewTLANumber(mainLabelTag))
-			if err != nil {
-				continue
-			}
-			err = ctx.Commit()
-			if err != nil {
-				continue
-			}
-		case DoneLabelTag:
-			return nil
-		default:
-			return fmt.Errorf("invalid program counter %v", labelTag)
-		}
-	}
-}
-
-func AServer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constants, mailboxes0 distsys.ArchetypeResourceHandle, file_system distsys.ArchetypeResourceHandle) error {
-	ctx.ReportEvent(distsys.ArchetypeStarted)
-	defer func() {
-		ctx.ReportEvent(distsys.ArchetypeFinished)
-	}()
-	var err0 error
-	// label tags
-	const (
-		InitLabelTag0 = iota
-		serverLoopLabelTag
-		rcvReqLabelTag
-		sendPageLabelTag
-		DoneLabelTag0
-	)
-	programCounter0 := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.NewTLANumber(InitLabelTag0)))
-	msg0 := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.TLAValue{}))
-	_ = msg0
-
-	for {
-		select {
-		case <-ctx.Done():
-			err0 = distsys.ErrContextClosed
-		default:
-		}
-		if err0 != nil {
-			if err0 == distsys.ErrCriticalSectionAborted {
-				ctx.Abort()
-				err0 = nil
-			} else {
-				return err0
-			}
-		}
-		var labelTag0 distsys.TLAValue
-		labelTag0, err0 = ctx.Read(programCounter0, []distsys.TLAValue{})
-		if err0 != nil {
-			return err0
-		}
-		switch labelTag0.AsNumber() {
-		case InitLabelTag0:
-			err0 = ctx.Write(programCounter0, []distsys.TLAValue{}, distsys.NewTLANumber(serverLoopLabelTag))
-			if err0 != nil {
-				continue
-			}
-		case serverLoopLabelTag:
+			return iface.Goto("ALoadBalancer.main")
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "ALoadBalancer.Done",
+		Body: func(distsys.ArchetypeInterface) error {
+			return distsys.ErrDone
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "AServer.serverLoop",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
 			if distsys.TLA_TRUE.AsBool() {
-				err0 = ctx.Write(programCounter0, []distsys.TLAValue{}, distsys.NewTLANumber(rcvReqLabelTag))
-				if err0 != nil {
-					continue
-				}
-				err0 = ctx.Commit()
-				if err0 != nil {
-					continue
-				}
+				return iface.Goto("AServer.rcvReq")
 			} else {
-				err0 = ctx.Write(programCounter0, []distsys.TLAValue{}, distsys.NewTLANumber(DoneLabelTag0))
-				if err0 != nil {
-					continue
-				}
-				err0 = ctx.Commit()
-				if err0 != nil {
-					continue
-				}
+				return iface.Goto("AServer.Done")
 			}
 			// no statements
-		case rcvReqLabelTag:
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "AServer.rcvReq",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
+			msg3 := iface.RequireArchetypeResource("AServer.msg")
+			mailboxes1, err := iface.RequireArchetypeResourceRef("AServer.mailboxes")
+			if err != nil {
+				return err
+			}
 			var exprRead4 distsys.TLAValue
-			exprRead4, err0 = ctx.Read(mailboxes0, []distsys.TLAValue{self})
-			if err0 != nil {
-				continue
+			exprRead4, err = iface.Read(mailboxes1, []distsys.TLAValue{iface.Self()})
+			if err != nil {
+				return err
 			}
-			err0 = ctx.Write(msg0, []distsys.TLAValue{}, exprRead4)
-			if err0 != nil {
-				continue
+			err = iface.Write(msg3, []distsys.TLAValue{}, exprRead4)
+			if err != nil {
+				return err
 			}
-			err0 = ctx.Write(programCounter0, []distsys.TLAValue{}, distsys.NewTLANumber(sendPageLabelTag))
-			if err0 != nil {
-				continue
+			return iface.Goto("AServer.sendPage")
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "AServer.sendPage",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
+			mailboxes2, err := iface.RequireArchetypeResourceRef("AServer.mailboxes")
+			if err != nil {
+				return err
 			}
-			err0 = ctx.Commit()
-			if err0 != nil {
-				continue
+			msg4 := iface.RequireArchetypeResource("AServer.msg")
+			file_system, err := iface.RequireArchetypeResourceRef("AServer.file_system")
+			if err != nil {
+				return err
 			}
-		case sendPageLabelTag:
 			var exprRead5 distsys.TLAValue
-			exprRead5, err0 = ctx.Read(msg0, []distsys.TLAValue{})
-			if err0 != nil {
-				continue
+			exprRead5, err = iface.Read(msg4, []distsys.TLAValue{})
+			if err != nil {
+				return err
 			}
 			var exprRead6 distsys.TLAValue
-			exprRead6, err0 = ctx.Read(file_system, []distsys.TLAValue{exprRead5.ApplyFunction(distsys.NewTLAString("path"))})
-			if err0 != nil {
-				continue
+			exprRead6, err = iface.Read(file_system, []distsys.TLAValue{exprRead5.ApplyFunction(distsys.NewTLAString("path"))})
+			if err != nil {
+				return err
 			}
 			var indexRead0 distsys.TLAValue
-			indexRead0, err0 = ctx.Read(msg0, []distsys.TLAValue{})
-			if err0 != nil {
-				continue
+			indexRead0, err = iface.Read(msg4, []distsys.TLAValue{})
+			if err != nil {
+				return err
 			}
-			err0 = ctx.Write(mailboxes0, []distsys.TLAValue{indexRead0.ApplyFunction(distsys.NewTLAString("client_id"))}, exprRead6)
-			if err0 != nil {
-				continue
+			err = iface.Write(mailboxes2, []distsys.TLAValue{indexRead0.ApplyFunction(distsys.NewTLAString("client_id"))}, exprRead6)
+			if err != nil {
+				return err
 			}
-			err0 = ctx.Write(programCounter0, []distsys.TLAValue{}, distsys.NewTLANumber(serverLoopLabelTag))
-			if err0 != nil {
-				continue
-			}
-			err0 = ctx.Commit()
-			if err0 != nil {
-				continue
-			}
-		case DoneLabelTag0:
-			return nil
-		default:
-			return fmt.Errorf("invalid program counter %v", labelTag0)
-		}
-	}
-}
-
-func AClient(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constants, mailboxes1 distsys.ArchetypeResourceHandle, instream distsys.ArchetypeResourceHandle, outstream distsys.ArchetypeResourceHandle) error {
-	ctx.ReportEvent(distsys.ArchetypeStarted)
-	defer func() {
-		ctx.ReportEvent(distsys.ArchetypeFinished)
-	}()
-	var err1 error
-	// label tags
-	const (
-		InitLabelTag1 = iota
-		clientLoopLabelTag
-		clientRequestLabelTag
-		clientReceiveLabelTag
-		DoneLabelTag1
-	)
-	programCounter1 := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.NewTLANumber(InitLabelTag1)))
-	req := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.TLAValue{}))
-	_ = req
-	resp := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.TLAValue{}))
-	_ = resp
-
-	for {
-		select {
-		case <-ctx.Done():
-			err1 = distsys.ErrContextClosed
-		default:
-		}
-		if err1 != nil {
-			if err1 == distsys.ErrCriticalSectionAborted {
-				ctx.Abort()
-				err1 = nil
-			} else {
-				return err1
-			}
-		}
-		var labelTag1 distsys.TLAValue
-		labelTag1, err1 = ctx.Read(programCounter1, []distsys.TLAValue{})
-		if err1 != nil {
-			return err1
-		}
-		switch labelTag1.AsNumber() {
-		case InitLabelTag1:
-			err1 = ctx.Write(programCounter1, []distsys.TLAValue{}, distsys.NewTLANumber(clientLoopLabelTag))
-			if err1 != nil {
-				continue
-			}
-		case clientLoopLabelTag:
+			return iface.Goto("AServer.serverLoop")
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "AServer.Done",
+		Body: func(distsys.ArchetypeInterface) error {
+			return distsys.ErrDone
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "AClient.clientLoop",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
 			if distsys.TLA_TRUE.AsBool() {
-				err1 = ctx.Write(programCounter1, []distsys.TLAValue{}, distsys.NewTLANumber(clientRequestLabelTag))
-				if err1 != nil {
-					continue
-				}
-				err1 = ctx.Commit()
-				if err1 != nil {
-					continue
-				}
+				return iface.Goto("AClient.clientRequest")
 			} else {
-				err1 = ctx.Write(programCounter1, []distsys.TLAValue{}, distsys.NewTLANumber(DoneLabelTag1))
-				if err1 != nil {
-					continue
-				}
-				err1 = ctx.Commit()
-				if err1 != nil {
-					continue
-				}
+				return iface.Goto("AClient.Done")
 			}
 			// no statements
-		case clientRequestLabelTag:
-			var exprRead7 distsys.TLAValue
-			exprRead7, err1 = ctx.Read(instream, []distsys.TLAValue{})
-			if err1 != nil {
-				continue
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "AClient.clientRequest",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
+			req := iface.RequireArchetypeResource("AClient.req")
+			instream, err := iface.RequireArchetypeResourceRef("AClient.instream")
+			if err != nil {
+				return err
 			}
-			err1 = ctx.Write(req, []distsys.TLAValue{}, distsys.NewTLARecord([]distsys.TLARecordField{
-				{distsys.NewTLAString("message_type"), constants.GET_PAGE},
-				{distsys.NewTLAString("client_id"), self},
+			mailboxes3, err := iface.RequireArchetypeResourceRef("AClient.mailboxes")
+			if err != nil {
+				return err
+			}
+			var exprRead7 distsys.TLAValue
+			exprRead7, err = iface.Read(instream, []distsys.TLAValue{})
+			if err != nil {
+				return err
+			}
+			err = iface.Write(req, []distsys.TLAValue{}, distsys.NewTLARecord([]distsys.TLARecordField{
+				{distsys.NewTLAString("message_type"), iface.GetConstant("GET_PAGE")()},
+				{distsys.NewTLAString("client_id"), iface.Self()},
 				{distsys.NewTLAString("path"), exprRead7},
 			}))
-			if err1 != nil {
-				continue
+			if err != nil {
+				return err
 			}
 			var exprRead8 distsys.TLAValue
-			exprRead8, err1 = ctx.Read(req, []distsys.TLAValue{})
-			if err1 != nil {
-				continue
+			exprRead8, err = iface.Read(req, []distsys.TLAValue{})
+			if err != nil {
+				return err
 			}
-			err1 = ctx.Write(mailboxes1, []distsys.TLAValue{constants.LoadBalancerId}, exprRead8)
-			if err1 != nil {
-				continue
+			err = iface.Write(mailboxes3, []distsys.TLAValue{iface.GetConstant("LoadBalancerId")()}, exprRead8)
+			if err != nil {
+				return err
 			}
-			err1 = ctx.Write(programCounter1, []distsys.TLAValue{}, distsys.NewTLANumber(clientReceiveLabelTag))
-			if err1 != nil {
-				continue
+			return iface.Goto("AClient.clientReceive")
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "AClient.clientReceive",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
+			resp := iface.RequireArchetypeResource("AClient.resp")
+			mailboxes4, err := iface.RequireArchetypeResourceRef("AClient.mailboxes")
+			if err != nil {
+				return err
 			}
-			err1 = ctx.Commit()
-			if err1 != nil {
-				continue
+			outstream, err := iface.RequireArchetypeResourceRef("AClient.outstream")
+			if err != nil {
+				return err
 			}
-		case clientReceiveLabelTag:
 			var exprRead9 distsys.TLAValue
-			exprRead9, err1 = ctx.Read(mailboxes1, []distsys.TLAValue{self})
-			if err1 != nil {
-				continue
+			exprRead9, err = iface.Read(mailboxes4, []distsys.TLAValue{iface.Self()})
+			if err != nil {
+				return err
 			}
-			err1 = ctx.Write(resp, []distsys.TLAValue{}, exprRead9)
-			if err1 != nil {
-				continue
+			err = iface.Write(resp, []distsys.TLAValue{}, exprRead9)
+			if err != nil {
+				return err
 			}
 			var exprRead10 distsys.TLAValue
-			exprRead10, err1 = ctx.Read(resp, []distsys.TLAValue{})
-			if err1 != nil {
-				continue
+			exprRead10, err = iface.Read(resp, []distsys.TLAValue{})
+			if err != nil {
+				return err
 			}
-			err1 = ctx.Write(outstream, []distsys.TLAValue{}, exprRead10)
-			if err1 != nil {
-				continue
+			err = iface.Write(outstream, []distsys.TLAValue{}, exprRead10)
+			if err != nil {
+				return err
 			}
-			err1 = ctx.Write(programCounter1, []distsys.TLAValue{}, distsys.NewTLANumber(clientLoopLabelTag))
-			if err1 != nil {
-				continue
-			}
-			err1 = ctx.Commit()
-			if err1 != nil {
-				continue
-			}
-		case DoneLabelTag1:
-			return nil
-		default:
-			return fmt.Errorf("invalid program counter %v", labelTag1)
-		}
-	}
+			return iface.Goto("AClient.clientLoop")
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "AClient.Done",
+		Body: func(distsys.ArchetypeInterface) error {
+			return distsys.ErrDone
+		},
+	},
+)
+
+var ALoadBalancer = distsys.MPCalArchetype{
+	Name:              "ALoadBalancer",
+	Label:             "ALoadBalancer.main",
+	RequiredRefParams: []string{"ALoadBalancer.mailboxes"},
+	RequiredValParams: []string{},
+	JumpTable:         jumpTable,
+	ProcTable:         procTable,
+	PreAmble: func(iface distsys.ArchetypeInterface) {
+		iface.EnsureArchetypeResourceLocal("ALoadBalancer.msg", distsys.TLAValue{})
+		iface.EnsureArchetypeResourceLocal("ALoadBalancer.next", distsys.NewTLANumber(0))
+	},
+}
+
+var AServer = distsys.MPCalArchetype{
+	Name:              "AServer",
+	Label:             "AServer.serverLoop",
+	RequiredRefParams: []string{"AServer.mailboxes", "AServer.file_system"},
+	RequiredValParams: []string{},
+	JumpTable:         jumpTable,
+	ProcTable:         procTable,
+	PreAmble: func(iface distsys.ArchetypeInterface) {
+		iface.EnsureArchetypeResourceLocal("AServer.msg", distsys.TLAValue{})
+	},
+}
+
+var AClient = distsys.MPCalArchetype{
+	Name:              "AClient",
+	Label:             "AClient.clientLoop",
+	RequiredRefParams: []string{"AClient.mailboxes", "AClient.instream", "AClient.outstream"},
+	RequiredValParams: []string{},
+	JumpTable:         jumpTable,
+	ProcTable:         procTable,
+	PreAmble: func(iface distsys.ArchetypeInterface) {
+		iface.EnsureArchetypeResourceLocal("AClient.req", distsys.TLAValue{})
+		iface.EnsureArchetypeResourceLocal("AClient.resp", distsys.TLAValue{})
+	},
 }

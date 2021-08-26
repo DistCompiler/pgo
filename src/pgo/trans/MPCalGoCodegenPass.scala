@@ -6,6 +6,7 @@ import pgo.model.pcal._
 import pgo.model.tla._
 import pgo.util.{ById, Description, NameCleaner}
 import Description._
+import pgo.model.Definition.ScopeIdentifierName
 import pgo.model.tla.BuiltinModules.{TLABuiltinOperator, builtinModules}
 import pgo.util.MPCalPassUtils.MappedRead
 import pgo.util.Unreachable.!!!
@@ -93,13 +94,10 @@ object MPCalGoCodegenPass {
   final case class DependentCallableBinding(bind: String) extends Binding
   final case class FixedValueBinding(bind: String) extends Binding
   final case class ResourceBinding(bind: String) extends Binding
+  final case class ConstantBinding(bind: String) extends Binding
 
   case class GoCodegenContext(nameCleaner: NameCleaner, bindings: Map[ById[RefersTo.HasReferences],Binding] = Map.empty,
-                              errOpt: Option[Description] = None,
-                              ctxName: String, selfName: String, constantsName: String, constantsTypeName: String,
-                              resourceMappingCounts: Map[ById[RefersTo.HasReferences],Int] = Map.empty
-                             ) {
-    def err: Description = errOpt.get
+                              err: String, iface: String) {
     def cleanName[T](hint: String)(fn: String => T): T =
       fn(nameCleaner.cleanName(hint))
   }
@@ -107,178 +105,190 @@ object MPCalGoCodegenPass {
   def toGoPublicName(id: String): String =
     id.capitalize
 
-  def translateMPCalCallable(callableName: String, selfDeclOpt: Option[TLADefiningIdentifier], params: List[MPCalParam], variables: List[PCalVariableDeclaration], body: List[PCalStatement])(implicit ctx: GoCodegenContext): Description = {
-    assert(body.forall(_.isInstanceOf[PCalLabeledStatements]))
-    val nameCleaner = ctx.nameCleaner
+  def hasMappingWithCount(mappingCount: Int, ident: TLAGeneralIdentifier): Boolean =
+    ident.refersTo match {
+      case MPCalRefParam(_, `mappingCount`) => true
+      case _ => false
+    }
 
-    val programCounterResourceName = nameCleaner.cleanName("programCounter")
-    val err = nameCleaner.cleanName("err")
+  /**
+   * Ensures that any archetype resource reads embedded within expr are lifted out and performed ahead of time.
+   * Pure expressions will be unaffected.
+   *
+   * e.g:
+   * `print x + 1`
+   * becomes something like
+   * `
+   * tmp := ctx.Read(...)
+   * (tmp + 1).PCalPrint()
+   * `
+   */
+  def readExpr(expr: TLAExpression, hint: String = "resourceRead")(fn: Description=>Description)(implicit ctx: GoCodegenContext): Description = {
+    val resourceReads = mutable.ListBuffer[(DefinitionOne,PCalVariableDeclarationEmpty,List[TLAExpression])]()
+    lazy val readReplacer: PartialFunction[Rewritable,Rewritable] = {
+      case expr@MappedRead(mappingCount, ident) if hasMappingWithCount(mappingCount, ident) =>
+        @tailrec
+        def findIndices(expr: TLAExpression, acc: mutable.ListBuffer[TLAExpression]): List[TLAExpression] =
+          expr match {
+            case _: TLAGeneralIdentifier => acc.result()
+            case TLAFunctionCall(fn, params) =>
+              if(params.size == 1) {
+                acc.prepend(params.head)
+              } else {
+                acc.prepend(TLATuple(params))
+              }
+              findIndices(fn, acc)
+          }
 
-    val pcalEithers = locally {
+        val indices = findIndices(expr, mutable.ListBuffer.empty).map(_.rewrite(Rewritable.TopDownFirstStrategy)(readReplacer))
+        val cleanName = ctx.nameCleaner.cleanName(hint)
+        val replacementDefn = PCalVariableDeclarationEmpty(TLAIdentifier(cleanName))
+        val replacementAST = TLAGeneralIdentifier(TLAIdentifier(cleanName), Nil).setRefersTo(replacementDefn)
+        resourceReads += ((ident.refersTo, replacementDefn, indices))
+        replacementAST
+      case ident@TLAGeneralIdentifier(_, prefix) =>
+        assert(prefix.isEmpty)
+        ctx.bindings.get(ById(ident.refersTo)) match {
+          case Some(ResourceBinding(_)) =>
+            val cleanName = ctx.nameCleaner.cleanName(hint)
+            val replacementDefn = PCalVariableDeclarationEmpty(TLAIdentifier(cleanName))
+            val replacementAST = TLAGeneralIdentifier(TLAIdentifier(cleanName), Nil).setRefersTo(replacementDefn)
+            resourceReads += ((ident.refersTo, replacementDefn, Nil))
+            replacementAST
+          case Some(_) => ident // does not bind a resource; needs no read process
+          case _ => ident // an expression-local variable, bound by let or some quantifier. also needs no read process
+        }
+    }
+    val exprWithReads = expr.rewrite(Rewritable.TopDownFirstStrategy)(readReplacer)
+    val origCtx = ctx
+    locally {
+      implicit val ctx: GoCodegenContext = origCtx.copy(bindings = origCtx.bindings ++ resourceReads.view.map {
+        case (_, replaceDefn, _) => ById(replaceDefn) -> FixedValueBinding(replaceDefn.name.id)
+      })
+      resourceReads.view.map {
+        case (defn, replaceDefn, indices) =>
+          d"\nvar ${replaceDefn.name.id} $TLAValue" +
+            d"\n${replaceDefn.name.id}, ${ctx.err} = ${ctx.iface}.Read(${ctx.bindings(ById(defn)).bind}, []$TLAValue{${indices.view.map(translateExpr)}})" +
+            d"\nif ${ctx.err} != nil {${
+              d"\nreturn ${ctx.err}".indented
+            }\n}"
+      }.flattenDescriptions +
+        fn(translateExpr(exprWithReads))
+    }
+  }
+
+  /**
+   * The plural of readExpr.
+   *
+   * @param exprs multiple expressions to read
+   * @param fn the "body", mapping from a list of bound expression values to a sequence of Go statements
+   * @param ctx the context
+   * @return the entire sequence of (1) perform expression reads and bindings (2) insert the result of fn(...)
+   */
+  def readExprs(exprs: List[(TLAExpression,String)])(fn: List[Description]=>Description)(implicit ctx: GoCodegenContext): Description = {
+    def impl(exprs: List[(TLAExpression,String)], acc: mutable.ListBuffer[Description]): Description =
+      exprs match {
+        case Nil => fn(acc.result())
+        case (expr, hint) :: restExprs =>
+          readExpr(expr, hint = hint) { exprRead =>
+            acc.append(exprRead)
+            impl(restExprs, acc)
+          }
+      }
+
+    impl(exprs, mutable.ListBuffer[Description]())
+  }
+
+  def translateBodyStmts(labelPrefix: String, selfDecl: DefinitionOne, fairnessInfix: String, stateVariables: Set[ById[DefinitionOne]], refStateVariables: Set[ById[DefinitionOne]], stmts: List[PCalStatement])(implicit ctx: GoCodegenContext): Description = {
+    val pcalEithers: List[PCalEither] = locally {
       val acc = mutable.ListBuffer.empty[PCalEither]
-      body.foreach(_.visit(Visitable.BottomUpFirstStrategy) {
-        case either@PCalEither(_) => acc += either
+      stmts.foreach(_.visit(Visitable.BottomUpFirstStrategy) {
+        case either: PCalEither => acc += either
       })
       acc.result()
     }
-    val fairnessCounterNames = pcalEithers.view
-      .map(either => either -> ctx.nameCleaner.cleanName("fairnessCounter"))
-      .to(ById.mapFactory)
+    val fairnessCounterIds = pcalEithers.view
+      .zipWithIndex
+      .map { case (either, idx) => ById(either) -> s"$labelPrefix.$fairnessInfix.$idx" }
+      .toMap
 
-    val InitLabelTag = ctx.nameCleaner.cleanName("InitLabelTag")
-    val DoneLabelTag = ctx.nameCleaner.cleanName("DoneLabelTag")
-    val labelBinds = (body.view.map {
-      case PCalLabeledStatements(label, _) =>
-        label.name -> s"${ctx.nameCleaner.cleanName(label.name)}LabelTag"
-    } ++ List("Done" -> DoneLabelTag)).toMap
-
-    val FirstLabel = labelBinds(body.head.asInstanceOf[PCalLabeledStatements].label.name)
-
-    /**
-     * Ensures that any archetype resource reads embedded within expr are lifted out and performed ahead of time.
-     * Pure expressions will be unaffected.
-     *
-     * e.g:
-     * `print x + 1`
-     * becomes something like
-     * `
-     * tmp := ctx.Read(...)
-     * (tmp + 1).PCalPrint()
-     * `
-     */
-    def readExpr(expr: TLAExpression, hint: String = "resourceRead")(fn: Description=>Description)(implicit ctx: GoCodegenContext): Description = {
-      val resourceReads = mutable.ListBuffer[(DefinitionOne,PCalVariableDeclarationEmpty,List[TLAExpression])]()
-      lazy val readReplacer: PartialFunction[Rewritable,Rewritable] = {
-        case expr@MappedRead(mappingCount, ident) if ctx.resourceMappingCounts.get(ById(ident.refersTo)).contains(mappingCount) =>
-          @tailrec
-          def findIndices(expr: TLAExpression, acc: mutable.ListBuffer[TLAExpression]): List[TLAExpression] =
-            expr match {
-              case _: TLAGeneralIdentifier => acc.result()
-              case TLAFunctionCall(fn, params) =>
-                if(params.size == 1) {
-                  acc.prepend(params.head)
-                } else {
-                  acc.prepend(TLATuple(params))
-                }
-                findIndices(fn, acc)
-            }
-
-          val indices = findIndices(expr, mutable.ListBuffer.empty).map(_.rewrite(Rewritable.TopDownFirstStrategy)(readReplacer))
-          val cleanName = ctx.nameCleaner.cleanName(hint)
-          val replacementDefn = PCalVariableDeclarationEmpty(TLAIdentifier(cleanName))
-          val replacementAST = TLAGeneralIdentifier(TLAIdentifier(cleanName), Nil).setRefersTo(replacementDefn)
-          resourceReads += ((ident.refersTo, replacementDefn, indices))
-          replacementAST
-        case ident@TLAGeneralIdentifier(_, prefix) =>
-          assert(prefix.isEmpty)
-          ctx.bindings.get(ById(ident.refersTo)) match {
-            case Some(ResourceBinding(_)) =>
-              val cleanName = ctx.nameCleaner.cleanName(hint)
-              val replacementDefn = PCalVariableDeclarationEmpty(TLAIdentifier(cleanName))
-              val replacementAST = TLAGeneralIdentifier(TLAIdentifier(cleanName), Nil).setRefersTo(replacementDefn)
-              resourceReads += ((ident.refersTo, replacementDefn, Nil))
-              replacementAST
-            case Some(_) => ident // does not bind a resource; needs no read process
-            case _ => ident // an expression-local variable, bound by let or some quantifier. also needs no read process
-          }
-      }
-      val exprWithReads = expr.rewrite(Rewritable.TopDownFirstStrategy)(readReplacer)
-      val origCtx = ctx
-      locally {
-        implicit val ctx: GoCodegenContext = origCtx.copy(bindings = origCtx.bindings ++ resourceReads.view.map {
-          case (_, replaceDefn, _) => ById(replaceDefn) -> FixedValueBinding(replaceDefn.name.id)
-        })
-        resourceReads.view.map {
-          case (defn, replaceDefn, indices) =>
-            d"\nvar ${replaceDefn.name.id} $TLAValue" +
-              d"\n${replaceDefn.name.id}, ${ctx.err} = ${ctx.ctxName}.Read(${ctx.bindings(ById(defn)).bind}, []$TLAValue{${indices.view.map(translateExpr)}})" +
-              d"\nif ${ctx.err} != nil {${
-                d"\ncontinue".indented
-              }\n}"
-        }.flattenDescriptions +
-          fn(translateExpr(exprWithReads))
-      }
+    val necessaryStateVariables: List[(DefinitionOne,String)] = locally {
+      val acc = mutable.ListBuffer.empty[(DefinitionOne,String)]
+      // MPCalRefExpr is deliberately omitted from capture, because the reference is passed as a string, and not otherwise used in codegen.
+      stmts.foreach(_.visit(Visitable.BottomUpFirstStrategy) {
+        case ident: TLAGeneralIdentifier if stateVariables(ById(ident.refersTo)) =>
+          acc += ident.refersTo -> ctx.nameCleaner.cleanName(ident.name.id)
+        case lhs: PCalAssignmentLhsIdentifier if stateVariables(ById(lhs.refersTo)) =>
+          acc += lhs.refersTo -> ctx.nameCleaner.cleanName(lhs.identifier.id)
+      })
+      acc.result().distinctBy(p => ById(p._1))
     }
-
-    /**
-     * The plural of readExpr.
-     *
-     * @param exprs multiple expressions to read
-     * @param fn the "body", mapping from a list of bound expression values to a sequence of Go statements
-     * @param ctx the context
-     * @return the entire sequence of (1) perform expression reads and bindings (2) insert the result of fn(...)
-     */
-    def readExprs(exprs: List[(TLAExpression,String)])(fn: List[Description]=>Description)(implicit ctx: GoCodegenContext): Description = {
-      def impl(exprs: List[(TLAExpression,String)], acc: mutable.ListBuffer[Description]): Description =
-        exprs match {
-          case Nil => fn(acc.result())
-          case (expr, hint) :: restExprs =>
-            readExpr(expr, hint = hint) { exprRead =>
-              acc.append(exprRead)
-              impl(restExprs, acc)
-            }
-        }
-
-      impl(exprs, mutable.ListBuffer[Description]())
-    }
-
-    def commit(body: =>Description)(implicit ctx: GoCodegenContext): Description =
-      d"\n${ctx.err} = ${ctx.ctxName}.Commit()" +
-        d"\nif ${ctx.err} != nil {${
-          d"\ncontinue".indented
-        }\n}" +
-        body
-
-    def goto(label: String)(implicit ctx: GoCodegenContext): Description =
-      d"\n${ctx.err} = ${ctx.ctxName}.Write($programCounterResourceName, []$TLAValue{}, distsys.NewTLANumber($label))" +
-        d"\nif ${ctx.err} != nil {${
-          d"\ncontinue".indented
-        }\n}"
 
     def impl(stmts: List[PCalStatement], pfxDesc: Description = d"")(implicit ctx: GoCodegenContext): Description =
       stmts match {
         case Nil =>
           d"$pfxDesc\n// no statements"
         case PCalGoto(target) :: Nil =>
-          pfxDesc + goto(labelBinds(target)) + commit(d"")
+          pfxDesc + d"\nreturn ${ctx.iface}.Goto(${mkGoString(s"$labelPrefix.$target")})"
         case PCalReturn() :: Nil =>
-          pfxDesc + commit(d"\nreturn nil")
-        case PCalExtensionStatement(call@MPCalCall(_, arguments)) :: restStmts =>
-          ??? // generate a jump to a separate, synthetic block. this block will have its own PC, and control will
-          // go through it to call the procedure. When the procedure returns, that block will take care of executing
-          // the correct jump (not considered: tail calls).
-          /*val exprArgs = arguments.collect { case Right(expr) => expr }
-          val exprArgIndices = exprArgs.view.zipWithIndex.to(IdMap)
-          pfxDesc + readExprs(exprArgs) { exprReads =>
-            commit {
-              val IndependentCallableBinding(nameToCall) = ctx.bindings(call.refersTo)
-              d"\n${ctx.err} = $nameToCall(${ctx.constantsName}${
-                arguments.map {
-                  case Left(ref) => d", ${ctx.bindings(ref.refersTo).bind}"
-                  case Right(expr) => d", ${exprReads(exprArgIndices(expr))}"
+          pfxDesc + d"\nreturn ${ctx.iface}.Return()"
+        case PCalExtensionStatement(call@MPCalCall(_, arguments)) :: (tailStmt@(PCalReturn() | PCalGoto(_))) :: restStmts =>
+          assert(restStmts.isEmpty)
+
+          // the two small differences between a tail-call and a call with a local return addr
+          // note that all calls should be followed by a goto indicating return address, as a consequence of
+          // the normalize pass
+          val returnTargetOpt = tailStmt match {
+            case PCalReturn() => ""
+            case PCalGoto(returnTarget) => s", ${mkGoString(s"$labelPrefix.$returnTarget")}"
+          }
+          val callFn = tailStmt match {
+            case PCalReturn() => "TailCall"
+            case PCalGoto(_) => "Call"
+          }
+
+          val callee = call.refersTo
+
+          // while value arguments can be read as usual with readExpr, for ref arguments, we have to pass the underlying resource's name
+          def readArgumentValues(arguments: List[Either[MPCalRefExpr,TLAExpression]], accBinds: List[Description] = Nil)(body: List[Description]=>Description): Description = {
+            arguments match {
+              case Nil => body(accBinds.reverse)
+              case Left(ref) :: restArgs =>
+                val bind = ctx.nameCleaner.cleanName(ref.name.id)
+                // to get the name of the underlying resource (which may be different from that of name in the ref expr), there are two cases:
+                ref.refersTo match {
+                  case _: MPCalRefParam =>
+                    // 1) the name already refers to a ref param, so the resource with that name actually stores the ref'd
+                    //    resource as a value already. treat the ref param as a plain value, and the correct name comes out
+                    d"\n$bind := ${ctx.iface}.ReadArchetypeResourceLocal(${mkGoString(s"$labelPrefix.${ref.name.id}")})" +
+                      readArgumentValues(restArgs, bind.toDescription :: accBinds)(body)
+                  case _ =>
+                    // 2) the name refers to a state variable (param or internal state var), and we should pass the name
+                    //    directly as a string value, which is statically know to be the actual name in the ref
+                    readArgumentValues(restArgs, d"distsys.NewTLAString(${mkGoString(s"$labelPrefix.${ref.name.id}")})" :: accBinds)(body)
                 }
-              })" +
-                d"\nif ${ctx.err} != nil {${
-                  d"\nreturn err".indented
-                }\n}" +
-                (restStmts match {
-                  case PCalGoto(target) :: Nil =>
-                    d"\ngoto $target"
-                  case PCalReturn() :: Nil =>
-                    d"\nreturn nil"
-                })
+              case Right(expr) :: restArgs =>
+                // for plain expressions, fall back to standard processing for reading values
+                readExpr(expr) { argBind =>
+                  readArgumentValues(restArgs, argBind :: accBinds)(body)
+                }
             }
-          }*/
+          }
+
+          pfxDesc + readArgumentValues(arguments) { argBinds =>
+            val calleeName = mkGoString(callee.name.id)
+            d"\nreturn ${ctx.iface}.$callFn($calleeName$returnTargetOpt, ${argBinds.separateBy(d", ")})"
+          }
+
         case stmt :: restStmts =>
           val result = stmt match {
             case PCalAssert(condition) =>
               val conditionExpr = condition
               readExpr(condition, hint = "condition") { condition =>
                 d"\nif !$condition.AsBool() {${
-                  (d"""\n${ctx.err} = fmt.Errorf("%w: ${
+                  d"""\nreturn fmt.Errorf("%w: ${
                     escapeStringToGo(PCalRenderPass.describeExpr(conditionExpr).linesIterator.mkString("\n"))
-                  }", distsys.ErrAssertionFailed)""" +
-                    d"\ncontinue").indented
+                  }", distsys.ErrAssertionFailed)""".indented
                 }\n}"
               }
             case PCalAssignment(List(PCalAssignmentPair(lhs, rhs))) =>
@@ -305,33 +315,28 @@ object MPCalGoCodegenPass {
                 }
 
               readExprs((rhs, "exprRead") :: gatherLhsIndices(lhs, mutable.ListBuffer.empty).map(_ -> "indexRead")) { exprReads =>
-                d"\n${ctx.err} = ${ctx.ctxName}.Write(${ctx.bindings(ById(findLhsIdent(lhs).refersTo)).bind}, []$TLAValue{${exprReads.tail.separateBy(d", ")}}, ${exprReads.head})" +
+                d"\n${ctx.err} = ${ctx.iface}.Write(${ctx.bindings(ById(findLhsIdent(lhs).refersTo)).bind}, []$TLAValue{${exprReads.tail.separateBy(d", ")}}, ${exprReads.head})" +
                   d"\nif ${ctx.err} != nil {${
-                    d"\ncontinue".indented
+                    d"\nreturn ${ctx.err}".indented
                   }\n}"
               }
             case PCalAwait(condition) =>
               readExpr(condition, hint = "condition") { condition =>
                 d"\nif !$condition.AsBool() {${
-                  (d"\n${ctx.err} = distsys.ErrCriticalSectionAborted" +
-                    d"\ncontinue").indented
+                  d"\nreturn distsys.ErrCriticalSectionAborted".indented
                 }\n}"
               }
             case PCalCall(_, _) => !!! // replaced by MPCalCall above
             case either@PCalEither(cases) =>
-              ctx.cleanName(s"fairnessCounterCurrent") { fairnessCounterCurrent =>
-                d"\n$fairnessCounterCurrent := ${fairnessCounterNames(ById(either))}" +
-                  d"\n${fairnessCounterNames(ById(either))} = (${fairnessCounterNames(ById(either))} + 1) % ${cases.size}" +
-                  d"\nswitch $fairnessCounterCurrent {${
-                    cases.view.zipWithIndex.map {
-                      case (body, idx) =>
-                        d"\ncase $idx:" +
-                          impl(body).indented
-                    }.flattenDescriptions +
-                      d"\ndefault:" +
-                      d"""\npanic("current branch of either matches no code paths!")""".indented
-                  }\n}"
-              }
+              d"""\nswitch ${ctx.iface}.Fairness("${fairnessCounterIds(ById(either))}", ${cases.size}) {${
+                cases.view.zipWithIndex.map {
+                  case (body, idx) =>
+                    d"\ncase $idx:" +
+                      impl(body).indented
+                }.flattenDescriptions +
+                  d"\ndefault:" +
+                  d"""\npanic("current branch of either matches no code paths!")""".indented
+              }\n}"""
             case PCalIf(condition, yes, no) =>
               readExpr(condition, hint = "condition") { condition =>
                 d"\nif $condition.AsBool() {${
@@ -371,119 +376,49 @@ object MPCalGoCodegenPass {
           impl(restStmts, pfxDesc = pfxDesc + result)
       }
 
-    val paramNames = params.view.map {
-      case param@MPCalRefParam(name, _) => param -> nameCleaner.cleanName(name.id)
-      case param@MPCalValParam(name) => param -> nameCleaner.cleanName(name.id)
-    }.to(ById.mapFactory)
-    val paramLocalNames = params.view.collect {
-      case param@MPCalValParam(name) => param -> nameCleaner.cleanName(name.id)
-    }.to(ById.mapFactory)
-    val varNames = variables.view.map { decl =>
-      decl -> nameCleaner.cleanName(decl.name.id)
-    }.to(ById.mapFactory)
-
     val origCtx = ctx
     locally {
       implicit val ctx: GoCodegenContext = origCtx.copy(
         bindings = origCtx.bindings ++
-          selfDeclOpt.map(selfDecl => ById(selfDecl) -> FixedValueBinding(origCtx.selfName)) ++
-          paramNames.collect { case (paramId@ById(_: MPCalRefParam)) -> name => paramId -> ResourceBinding(name) } ++
-          paramLocalNames.view.map { case paramId -> name => paramId -> ResourceBinding(name) } ++
-          varNames.view.map { case vId -> name => vId -> ResourceBinding(name) },
-        errOpt = Some(err.toDescription),
-        resourceMappingCounts = params.view.collect {
-          case param@MPCalRefParam(_, mappingCount) => param -> mappingCount
-        }.to(ById.mapFactory),
-      )
+          Some(ById(selfDecl) -> FixedValueBinding(s"${origCtx.iface}.Self()")) ++
+          necessaryStateVariables.view.map {
+            case defn -> bind => ById(defn) -> ResourceBinding(bind)
+          })
 
-      def ensureLocalResource(value: Description): Description =
-        d"${ctx.ctxName}.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker($value))"
-
-      d"""\n\nfunc $callableName(${ctx.ctxName} *distsys.MPCalContext, ${ctx.selfName} $TLAValue, ${ctx.constantsName} ${ctx.constantsTypeName}${
-        params.view.map {
-          case param@MPCalRefParam(_, _) => d", ${paramNames(ById(param))} $ArchetypeResourceHandle"
-          case param@MPCalValParam(_) => d", ${paramNames(ById(param))} $TLAValue"
-        }.flattenDescriptions
-      }) error {${
-        (d"\nvar ${ctx.err} error" +
-          d"\n// label tags" +
-          d"\nconst (${
-            (d"\n$InitLabelTag = iota" +
-              body.view.map {
-                case PCalLabeledStatements(label, _) =>
-                  d"\n${labelBinds(label.name)}"
-              }.flattenDescriptions +
-              d"\n$DoneLabelTag").indented
-          }\n)" +
-          d"\n$programCounterResourceName := ${
-            ensureLocalResource {
-              d"distsys.NewTLANumber($InitLabelTag)"
+      d"\nvar ${ctx.err} error" +
+        d"\n_ = ${ctx.err}" +
+        necessaryStateVariables.view.map {
+          case (defn, bind) =>
+            val stateVarName = s"$labelPrefix.${defn.identifier.asInstanceOf[ScopeIdentifierName].name.id}"
+            if (refStateVariables(ById(defn))) {
+              d"\n$bind, ${ctx.err} := ${ctx.iface}.RequireArchetypeResourceRef(${mkGoString(stateVarName)})" +
+                d"\nif ${ctx.err} != nil {${
+                  d"\nreturn ${ctx.err}".indented
+                }\n}"
+            } else {
+              d"\n$bind := ${ctx.iface}.RequireArchetypeResource(${mkGoString(stateVarName)})"
             }
-          }" +
-          params.view.collect {
-            case param: MPCalValParam =>
-              d"\n${paramLocalNames(ById(param))} := ${ensureLocalResource(paramNames(ById(param)).toDescription)}"
-          }.flattenDescriptions +
-          variables.view.map { decl =>
-            d"\n${varNames(ById(decl))} := ${ensureLocalResource(d"$TLAValue{}")}" +
-              d"\n_ = ${varNames(ById(decl))}" // avoid any chance of the unused vars error
-          }.flattenDescriptions +
-          pcalEithers.map { either =>
-            d"\nvar ${fairnessCounterNames(ById(either))} int = 0"
-          }.flattenDescriptions +
-          d"\n" +
-          d"\nfor {${
-            (d"\nif $err != nil {${
-              (d"\nif $err == distsys.ErrCriticalSectionAborted {${
-                (d"\nctx.Abort()" +
-                  d"\n$err = nil").indented
-              }\n} else {${
-                d"\nreturn $err".indented
-              }\n}").indented
-            }\n}" +
-              ctx.cleanName("labelTag") { labelTag =>
-                d"\nvar $labelTag $TLAValue" +
-                  d"\n$labelTag, ${ctx.err} = ${ctx.ctxName}.Read($programCounterResourceName, []$TLAValue{})" +
-                  d"\nif ${ctx.err} != nil {${
-                    d"\nreturn ${ctx.err}".indented
-                  }\n}" +
-                  d"\nswitch $labelTag.AsNumber() {${
-                    // perform any initial commits
-                    d"\ncase $InitLabelTag:" +
-                      variables.map {
-                        case PCalVariableDeclarationEmpty(_) => d""
-                        case decl@PCalVariableDeclarationSet(_, set) =>
-                          readExpr(set) { setRead =>
-                            d"\n${ctx.err} = ${ctx.ctxName}.Write(${varNames(ById(decl))}, nil, $setRead.SelectElement())" +
-                              d"\nif ${ctx.err} != nil {${
-                                d"\ncontinue".indented
-                              }\n}"
-                          }
-                        case decl@PCalVariableDeclarationValue(_, value) =>
-                          readExpr(value) { valueRead =>
-                            d"\n${ctx.err} = ${ctx.ctxName}.Write(${varNames(ById(decl))}, nil, $valueRead)" +
-                              d"\nif ${ctx.err} != nil {${
-                                d"\ncontinue".indented
-                              }\n}"
-                          }
-                      }.flattenDescriptions.indented +
-                      goto(FirstLabel).indented +
-                      body.map {
-                        case PCalLabeledStatements(label, statements) =>
-                          d"\ncase ${labelBinds(label.name)}:${
-                            impl(statements).indented
-                          }"
-                      }.flattenDescriptions +
-                      d"\ncase $DoneLabelTag:" +
-                      d"\nreturn nil".indented
-                  }\ndefault:${
-                    d"""\nreturn fmt.Errorf("invalid program counter %v", $labelTag)""".indented
-                  }\n}"
-              }).indented
-          }\n}").indented
-      }\n}"""
+        }.flattenDescriptions +
+        impl(stmts)
     }
   }
+
+  def translateCriticalSection(labelPrefix: String, selfDecl: DefinitionOne, stateVariables: Set[ById[DefinitionOne]], refStateVariables: Set[ById[DefinitionOne]], criticalSection: PCalLabeledStatements)(implicit ctx: GoCodegenContext): Description = {
+    d"\ndistsys.MPCalCriticalSection {${
+      (d"\nName: ${mkGoString(s"$labelPrefix.${criticalSection.label.name}")},".indented +
+        d"\nBody: func(${ctx.iface} distsys.ArchetypeInterface) error {${
+            translateBodyStmts(labelPrefix,
+              selfDecl = selfDecl,
+              fairnessInfix = criticalSection.label.name,
+              stateVariables = stateVariables,
+              refStateVariables = refStateVariables,
+              stmts = criticalSection.statements).indented
+        }\n},").indented
+    }\n},"
+  }
+
+  def mkGoString(str: String): String =
+    s""""${escapeStringToGo(str)}""""
 
   def escapeStringToGo(str: String): String =
     str.flatMap {
@@ -544,22 +479,7 @@ object MPCalGoCodegenPass {
             case TLANumber.DecimalValue(value) => ??? //value.toString() // FIXME: should we be able to support this?
           }
         })"""
-      case expr@MappedRead(mappingCount, ident) if ctx.resourceMappingCounts.get(ById(ident.refersTo)).contains(mappingCount) =>
-        @tailrec
-        def findIndices(expr: TLAExpression, acc: mutable.ListBuffer[TLAExpression]): List[TLAExpression] =
-          expr match {
-            case _: TLAGeneralIdentifier => acc.result()
-            case TLAFunctionCall(fn, params) =>
-              if(params.size == 1) {
-                acc.prepend(params.head)
-              } else {
-                acc.prepend(TLATuple(params))
-              }
-              findIndices(fn, acc)
-          }
-
-        val indices = findIndices(expr, mutable.ListBuffer.empty).map(translateExpr).separateBy(d", ")
-        d"${ctx.ctxName}.Read(${ctx.bindings(ById(ident.refersTo)).bind}, []$TLAValue{$indices})"
+      case MappedRead(mappingCount, ident) if hasMappingWithCount(mappingCount, ident) => !!!
       case ident@TLAGeneralIdentifier(_, prefix) =>
         assert(prefix.isEmpty)
         ctx.bindings(ById(ident.refersTo)) match {
@@ -572,18 +492,30 @@ object MPCalGoCodegenPass {
             // only makes sense when:
             // - reading a locally-defined operator with arity 0
             // - passing an (arity >=1) operator to an operator
-            val cleanArgs = View.fill(ident.refersTo.arity)(ctx.nameCleaner.cleanName("arg")).toList
-            val wrappedFunc =
-              d"func(${cleanArgs.view.map(arg => d"$arg $TLAValue").separateBy(d", ")}) $TLAValue {${
-                d"\nreturn $bind(${ctx.constantsName}${cleanArgs.view.map(arg => d", $arg").flattenDescriptions})".indented
-              }\n}"
 
             if(ident.refersTo.arity == 0) {
-              wrappedFunc + d"()" // if arity 0, pass by value
+              // if arity 0, just call with iface as only argument and yield the value
+              d"$bind(${ctx.iface})"
             } else {
-              wrappedFunc
+              // if arity >= 1 and this is not an operator call (that's a different AST node), construct a function
+              // with the right arguments in-place
+              val cleanArgs = View.fill(ident.refersTo.arity)(ctx.nameCleaner.cleanName("arg")).toList
+              d"func(${cleanArgs.view.map(arg => d"$arg $TLAValue").separateBy(d", ")}) $TLAValue {${
+                d"\nreturn $bind(${ctx.iface}${cleanArgs.view.map(arg => d", $arg").flattenDescriptions})".indented
+              }\n}"
             }
           case FixedValueBinding(bind) => bind.toDescription
+          case ConstantBinding(bind) =>
+            if(ident.refersTo.arity == 0) {
+              d"$bind()"
+            } else {
+              // because constant bindings give variadic functions, we need to generate a forwarder that is fixed-arity
+              // since the only place this makes sense is passing a constant operator to another operator
+              val cleanArgs = View.fill(ident.refersTo.arity)(ctx.nameCleaner.cleanName("arg")).toList
+              d"func(${cleanArgs.view.map(arg => d"$arg $TLAValue").separateBy(d", ")}) $TLAValue {${
+                d"\nreturn $bind(${cleanArgs.view.map(_.toDescription).separateBy(d", ")})".indented
+              }\n}"
+            }
           case ResourceBinding(_) => !!!
         }
       case TLADot(lhs, identifier) =>
@@ -596,7 +528,9 @@ object MPCalGoCodegenPass {
           case IndependentCallableBinding(bind) =>
             d"$bind(${arguments.map(translateExpr).separateBy(d", ")})"
           case DependentCallableBinding(bind) =>
-            d"$bind(${ctx.constantsName}, ${arguments.map(translateExpr).separateBy(d", ")})"
+            d"$bind(${ctx.iface}, ${arguments.map(translateExpr).separateBy(d", ")})"
+          case ConstantBinding(bind) =>
+            d"$bind(${arguments.map(translateExpr).separateBy(d", ")})"
         }
       case TLAIf(cond, tval, fval) =>
         d"func() $TLAValue {${
@@ -816,12 +750,10 @@ object MPCalGoCodegenPass {
     goKeywords.foreach(nameCleaner.addKnownName)
     nameCleaner.addKnownName("distsys")
 
-    val Constants = nameCleaner.cleanName("Constants")
-
     val tlaExtDefns = (BuiltinModules.Intrinsics.members.view ++ tlaModule.exts.flatMap {
       case TLAModuleRefBuiltin(module) => module.members.view
       case TLAModuleRefModule(module) => ??? // TODO: actually implement modules
-    }).toList
+    } ++ BuiltinModules.PCalNames.members).toList
 
     val tlaExtDefnNames = tlaExtDefns.view.map {
       case defn@TLABuiltinOperator(_, identifier, _) =>
@@ -851,25 +783,15 @@ object MPCalGoCodegenPass {
       case TLAConstantDeclaration(constants) => constants
     }.flatten.toList
 
-    // depends on the "constants" parameter, has to be scoped _within_ any top-level definition
-    val constantNames = constantDecls.view.map {
-      case decl@TLAOpDecl(variant) =>
-        variant match {
-          case TLAOpDecl.NamedVariant(ident, _) => ById(decl) -> nameCleaner.cleanName(toGoPublicName(ident.id))
-          case TLAOpDecl.SymbolVariant(sym) => ById(decl) -> nameCleaner.cleanName(toGoPublicName(sym.symbol.productPrefix))
-        }
-    }.toMap
-
-    val ctxName = nameCleaner.cleanName("ctx")
-    val selfName = nameCleaner.cleanName("self")
-    val constantsName = nameCleaner.cleanName("constants")
+    val errName = nameCleaner.cleanName("err")
+    val ifaceName = nameCleaner.cleanName("iface")
+    val jumpTableName = nameCleaner.cleanName("jumpTable")
+    val procTableName = nameCleaner.cleanName("procTable")
 
     implicit val ctx: GoCodegenContext = GoCodegenContext(
       nameCleaner = nameCleaner,
-      ctxName = ctxName,
-      selfName = selfName,
-      constantsName = constantsName,
-      constantsTypeName = Constants,
+      err = errName,
+      iface = ifaceName,
       bindings = (mpcalBlock.mpcalProcedures.view.map { proc =>
         ById(proc) -> IndependentCallableBinding(nameCleaner.cleanName(toGoPublicName(proc.name.id)))
       } ++ mpcalBlock.archetypes.view.map { arch =>
@@ -878,12 +800,13 @@ object MPCalGoCodegenPass {
         case defnId -> name => defnId -> IndependentCallableBinding(name)
       } ++ constantDecls.view.map {
         case decl@TLAOpDecl(variant) =>
-          variant match {
-            case TLAOpDecl.NamedVariant(_, 0) => ById(decl) -> FixedValueBinding(s"$constantsName.${constantNames(ById(decl))}")
-            case TLAOpDecl.NamedVariant(_, _) => ById(decl) -> IndependentCallableBinding(s"$constantsName.${constantNames(ById(decl))}")
-            case TLAOpDecl.SymbolVariant(_) => ById(decl) -> IndependentCallableBinding(s"$constantsName.${constantNames(ById(decl))}")
+          val name = variant match {
+            case TLAOpDecl.NamedVariant(ident, _) => ident.id
+            case TLAOpDecl.SymbolVariant(sym) => sym.symbol.stringReprDefn
           }
+          ById(decl) -> ConstantBinding(s"$ifaceName.GetConstant(${mkGoString(name)})")
       } ++ tlaUnits.view.map { defn =>
+        // we know this unit is an operator defn; we don't support any other type yet
         ById(defn.asInstanceOf[RefersTo.HasReferences]) -> DependentCallableBinding(tlaUnitNames(ById(defn)))
       }).toMap
     )
@@ -897,22 +820,8 @@ object MPCalGoCodegenPass {
       d"\nvar _ = new(fmt.Stringer) // unconditionally prevent go compiler from reporting unused fmt import" +
       d"\nvar _ = distsys.TLAValue{} // same, for distsys" +
       d"\n" +
-      d"\ntype $Constants struct {${
-        constantDecls.map {
-          case decl@TLAOpDecl(variant) =>
-            variant match {
-              case TLAOpDecl.NamedVariant(_, 0) =>
-                d"\n${constantNames(ById(decl))} $TLAValue"
-              case TLAOpDecl.NamedVariant(_, arity) =>
-                d"\n${constantNames(ById(decl))} func(${View.fill(arity)(TLAValue.toDescription).separateBy(d", ")} $TLAValue"
-              case TLAOpDecl.SymbolVariant(sym) =>
-                val arity = if (sym.symbol.isPrefix) 1 else if (sym.symbol.isPostfix) 1 else { assert(sym.symbol.isInfix); 2 }
-                d"\n${constantNames(ById(decl))} func(${View.fill(arity)(TLAValue.toDescription).separateBy(d", ")} $TLAValue"
-            }
-        }.flattenDescriptions.indented
-      }\n}\n" +
       tlaUnits.view.map {
-        case defn@TLAOperatorDefinition(name, args, body, _) =>
+        case defn@TLAOperatorDefinition(_, args, body, _) =>
           val origCtx = ctx
           val argNames = args.view.map {
             case decl@TLAOpDecl(variant) =>
@@ -925,7 +834,7 @@ object MPCalGoCodegenPass {
                   ById(decl) -> IndependentCallableBinding(nameCleaner.cleanName(sym.symbol.productPrefix))
               }
           }.toMap
-          d"\nfunc ${tlaUnitNames(ById(defn))}($constantsName $Constants${args.view.map {
+          d"\nfunc ${tlaUnitNames(ById(defn))}(${ctx.iface} distsys.ArchetypeInterface${args.view.map {
             case decl@TLAOpDecl(variant) =>
               variant match {
                 case TLAOpDecl.NamedVariant(_, 0) => d", ${argNames(ById(decl)).bind} $TLAValue"
@@ -937,11 +846,116 @@ object MPCalGoCodegenPass {
           }.flattenDescriptions}) $TLAValue {${
             implicit val ctx: GoCodegenContext = origCtx.copy(bindings = origCtx.bindings ++ argNames)
             d"\nreturn ${translateExpr(body)}".indented
-          }\n}\n"
-      }.flattenDescriptions + // TODO: procedures
+          }\n}"
+      }.flattenDescriptions +
+      d"\n\nvar $procTableName = distsys.MakeMPCalProcTable(${
+        mpcalBlock.mpcalProcedures.view.map { proc =>
+          d"\ndistsys.MPCalProc {${
+            (d"\nName: ${mkGoString(proc.name.id)}," +
+              d"\nLabel: ${mkGoString(s"${proc.name.id}.${proc.body.head.asInstanceOf[PCalLabeledStatements].label.name}")}," +
+              d"\nStateVars: []string{${
+                (proc.params.view ++ proc.variables.view)
+                  .map(_.identifier.asInstanceOf[ScopeIdentifierName].name.id)
+                  .map(id => s"${proc.name.id}.$id")
+                  .map(mkGoString)
+                  .map(_.toDescription)
+                  .separateBy(d", ")
+              }}," +
+              d"\nPreAmble: func(${ctx.iface} distsys.ArchetypeInterface) error {${
+                val preambleSynthStmts = proc.variables.map {
+                  case decl@PCalPVariableDeclaration(name, value) =>
+                    PCalAssignment(List(PCalAssignmentPair(
+                      PCalAssignmentLhsIdentifier(name)
+                        .setRefersTo(decl),
+                      value.getOrElse(TLAGeneralIdentifier(TLAIdentifier("defaultInitValue"), Nil)
+                        .setRefersTo(BuiltinModules.PCalNames.memberAlpha("defaultInitValue"))))))
+                }
+
+                (translateBodyStmts(proc.name.id,
+                  selfDecl = proc.selfDecl,
+                  fairnessInfix = ".",
+                  stateVariables = (proc.params.view ++ proc.variables.view).to(ById.setFactory),
+                  refStateVariables = proc.params.view.collect { case ref: MPCalRefParam => ref }.to(ById.setFactory),
+                  stmts = preambleSynthStmts) +
+                  d"\nreturn nil").indented
+              }\n},").indented
+          }\n},".indented
+        }.flattenDescriptions
+      }${if(mpcalBlock.mpcalProcedures.nonEmpty) d"\n" else d""})" +
+      d"\n\nvar $jumpTableName = distsys.MakeMPCalJumpTable(${
+        mpcalBlock.mpcalProcedures.view.map { proc =>
+          proc.body.view.map {
+            case criticalSection@PCalLabeledStatements(_, _) =>
+              translateCriticalSection(proc.name.id,
+                selfDecl = proc.selfDecl,
+                stateVariables = (proc.params.view ++ proc.variables).to(ById.setFactory),
+                refStateVariables = proc.params.view.collect { case ref: MPCalRefParam => ref }.to(ById.setFactory),
+                criticalSection = criticalSection)
+            case _ => !!!
+          }.flattenDescriptions +
+            d"\ndistsys.MPCalCriticalSection {${ // the Error label exists for all procedures, and is trivial
+              d"\nName: ${mkGoString(s"${proc.name.id}.Error")}," +
+                d"\nBody: func(distsys.ArchetypeInterface) error {${
+                  d"\nreturn distsys.ErrProcedureFallthrough".indented
+                }\n},"
+            }\n},"
+        }.flattenDescriptions.indented +
+          mpcalBlock.archetypes.view.map { arch =>
+            arch.body.view.map {
+              case criticalSection@PCalLabeledStatements(_, _) =>
+                translateCriticalSection(arch.name.id,
+                  selfDecl = arch.selfDecl,
+                  stateVariables = (arch.params.view ++ arch.variables.view).to(ById.setFactory),
+                  refStateVariables = arch.params.view.collect { case ref: MPCalRefParam => ref }.to(ById.setFactory),
+                  criticalSection = criticalSection)
+            }.flattenDescriptions +
+              d"\ndistsys.MPCalCriticalSection {${ // the Done label exists for all archetypes, and is trivial
+                (d"\nName: ${mkGoString(s"${arch.name.id}.Done")}," +
+                  d"\nBody: func(distsys.ArchetypeInterface) error {${
+                    d"\nreturn distsys.ErrDone".indented
+                  }\n},").indented
+              }\n},"
+          }.flattenDescriptions.indented
+      }${if(mpcalBlock.archetypes.nonEmpty || mpcalBlock.pcalProcedures.nonEmpty) d"\n" else d""})" +
       mpcalBlock.archetypes.view.map { arch =>
-        translateMPCalCallable(ctx.bindings(ById(arch)).bind,
-          selfDeclOpt = Some(arch.selfDecl), params = arch.params, variables = arch.variables, body = arch.body)
+        d"\n\nvar ${ctx.bindings(ById(arch)).bind} = distsys.MPCalArchetype {${
+          (d"\nName: ${mkGoString(arch.name.id)}," +
+            d"\nLabel: ${mkGoString(s"${arch.name.id}.${arch.body.head.asInstanceOf[PCalLabeledStatements].label.name}")}," +
+            d"\nRequiredRefParams: []string{${
+              arch.params.view
+                .collect { case MPCalRefParam(name, _) => s"${arch.name.id}.${name.id}" }
+                .map(mkGoString)
+                .map(_.toDescription)
+                .separateBy(d", ")
+            }}," +
+            d"\nRequiredValParams: []string{${
+              arch.params.view
+                .collect { case MPCalValParam(name) => s"${arch.name.id}.${name.id}" }
+                .map(mkGoString)
+                .map(_.toDescription)
+                .separateBy(d", ")
+            }}," +
+            d"\nJumpTable: $jumpTableName," +
+            d"\nProcTable: $procTableName," +
+            d"\nPreAmble: func(${ctx.iface} distsys.ArchetypeInterface) {${
+              val (resultDesc, _) = arch.variables.foldLeft((d"", ctx.copy(bindings = ctx.bindings + (ById(arch.selfDecl) -> FixedValueBinding(s"${ctx.iface}.Self()"))))) { (pair, decl) =>
+                val (prevDesc, origCtx) = pair
+                implicit val ctx: GoCodegenContext = origCtx
+                val resName = s"${arch.name.id}.${decl.name.id}"
+                val resBind = ById(decl) -> FixedValueBinding(s"${ctx.iface}.ReadArchetypeResourceLocal(${mkGoString(resName)})")
+                decl match {
+                  case PCalVariableDeclarationEmpty(_) =>
+                    (prevDesc + d"\n${ctx.iface}.EnsureArchetypeResourceLocal(${mkGoString(resName)}, $TLAValue{})",
+                      ctx.copy(bindings = ctx.bindings + resBind))
+                  case PCalVariableDeclarationValue(_, value) => (prevDesc + d"\n${ctx.iface}.EnsureArchetypeResourceLocal(${mkGoString(resName)}, ${translateExpr(value)})",
+                    ctx.copy(bindings = ctx.bindings + resBind))
+                  case PCalVariableDeclarationSet(_, set) => (prevDesc + d"\n${ctx.iface}.EnsureArchetypeResourceLocal(${mkGoString(resName)}, ${translateExpr(set)}.SelectElement())",
+                    ctx.copy(bindings = ctx.bindings + resBind))
+                }
+              }
+              resultDesc.indented
+            }\n},").indented
+        }\n}"
       }.flattenDescriptions
   }
 }
