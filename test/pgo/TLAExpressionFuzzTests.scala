@@ -178,6 +178,9 @@ class TLAExpressionFuzzTests extends AnyFunSuite with ScalaCheckPropertyChecks {
           ident <- Gen.identifier
         } yield TLADot(expr, TLAIdentifier(ident))
       },
+      { case subExprs: List[TLAExpression] if subExprs.nonEmpty =>
+        Gen.const(TLACrossProduct(subExprs))
+      },
       { case subExprs: List[TLAExpression] if subExprs.nonEmpty && env.exists(_.ref.arity == subExprs.size) =>
         env.view.filter(_.ref.arity == subExprs.size).map {
           case ById(defn) => Gen.const(TLAOperatorCall(defn.identifier, Nil, subExprs).setRefersTo(defn))

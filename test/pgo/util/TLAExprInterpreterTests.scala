@@ -6,9 +6,7 @@ import pgo.model.SourceLocation
 import pgo.model.tla.BuiltinModules
 import pgo.parser.TLAParser
 import pgo.trans.MPCalGoCodegenPass
-import pgo.util.TLAExprInterpreter.{TLAValue, TLAValueBool, TLAValueFunction, TLAValueNumber, TLAValueSet, TLAValueString, TLAValueTuple}
-
-import scala.collection.immutable.HashSet
+import pgo.util.TLAExprInterpreter._
 
 class TLAExprInterpreterTests extends AnyFunSuite {
   private lazy val builtinOps = BuiltinModules.builtinModules.values.view
@@ -35,15 +33,32 @@ class TLAExprInterpreterTests extends AnyFunSuite {
   }
 
   checkPass("function call, arg in domain") {
-    s"""[foo |-> 1]["foo"]""" -> TLAValueNumber(1)
+    raw"""[foo |-> 1]["foo"]""" -> TLAValueNumber(1)
   }
 
   checkTypeError("function call, arg outside domain") {
-    s"""[foo |-> 1]["bar"]"""
+    raw"""[foo |-> 1]["bar"]"""
   }
 
   checkPass("existential avoids errors when a set is empty") {
-    s"""\\E <<w, zk>> \\in {"}nWO"}, juAOg \\in {} : w""" -> TLAValueBool(false)
+    raw"""\E <<w, zk>> \in {"}nWO"}, juAOg \in {} : w""" -> TLAValueBool(false)
+  }
+
+  checkPass("dot operator with spaces around the `.`") {
+    raw"""[x |-> 1] . x""" -> TLAValueNumber(1)
+  }
+
+  checkPass("function application with a space before the `[`") {
+    raw"""[x |-> 1] ["x"]""" -> TLAValueNumber(1)
+  }
+
+  checkPass("cross product, expected case") {
+    raw"""{1, 2} \X {3, 4} \X {5}""" -> TLAValueSet(Set(
+      TLAValueTuple(Vector(TLAValueNumber(1), TLAValueNumber(3), TLAValueNumber(5))),
+      TLAValueTuple(Vector(TLAValueNumber(1), TLAValueNumber(4), TLAValueNumber(5))),
+      TLAValueTuple(Vector(TLAValueNumber(2), TLAValueNumber(3), TLAValueNumber(5))),
+      TLAValueTuple(Vector(TLAValueNumber(2), TLAValueNumber(4), TLAValueNumber(5))),
+    ))
   }
 
   checkPass("ensure we do tuple indexing right by a strong example") {
@@ -54,7 +69,7 @@ class TLAExprInterpreterTests extends AnyFunSuite {
 
   checkPass("creating a set with elements that have different types") {
     s"""{Zero, {}, 3, <<{}>>, {}, {}, IsFiniteSet({}), <<<<>>>>}""" ->
-      TLAValueSet(HashSet(TLAValueNumber(0), TLAValueTuple(Vector(TLAValueSet(Set()))), TLAValueNumber(3),
+      TLAValueSet(Set(TLAValueNumber(0), TLAValueTuple(Vector(TLAValueSet(Set()))), TLAValueNumber(3),
         TLAValueTuple(Vector(TLAValueTuple(Vector()))), TLAValueSet(Set()), TLAValueBool(true)))
   }
 }

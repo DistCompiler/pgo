@@ -362,6 +362,10 @@ final case class TLAGeneralIdentifier(name: TLAIdentifier, prefix: List[TLAGener
 
 final case class TLADot(lhs: TLAExpression, identifier: TLAIdentifier) extends TLAExpression
 
+final case class TLACrossProduct(operands: List[TLAExpression]) extends TLAExpression {
+  require(operands.nonEmpty, "it makes no sense to construct a cross product of 0 elements")
+}
+
 final case class TLAOperatorCall(name: Definition.ScopeIdentifier, prefix: List[TLAGeneralIdentifierPart], arguments: List[TLAExpression]) extends TLAExpression with RefersTo[DefinitionOne] {
   override def setRefersTo(refersTo: DefinitionOne): TLAOperatorCall.this.type = {
     // TODO: why is this sometimes not true, but things seem fine?

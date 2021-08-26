@@ -529,8 +529,11 @@ trait TLAParser extends RegexParsers {
     } | tlaExpressionNoOperators
 
     def withPartOpt(lhsLoc: SourceLocation, lhs: TLAExpression, maxPrecedence: Int): Parser[TLAExpression] =
-      withFunctionCall(lhsLoc, lhs, maxPrecedence) | withDot(lhsLoc, lhs, maxPrecedence) |
-        withInfix(lhsLoc, lhs, maxPrecedence) | withPostfix(lhsLoc, lhs, maxPrecedence) |
+      withFunctionCall(lhsLoc, lhs, maxPrecedence) |
+        withDot(lhsLoc, lhs, maxPrecedence) |
+        withCrossProduct(lhsLoc, lhs, maxPrecedence) |
+        withInfix(lhsLoc, lhs, maxPrecedence) |
+        withPostfix(lhsLoc, lhs, maxPrecedence) |
         success(lhs)
 
     def withPostfix(lhsLoc: SourceLocation, lhs: TLAExpression, maxPrecedence: Int): Parser[TLAExpression] =
@@ -551,9 +554,21 @@ trait TLAParser extends RegexParsers {
           withPartOpt(combinedLoc, result, maxPrecedence)
       }
 
+    def withCrossProduct(lhsLoc: SourceLocation, lhs: TLAExpression, maxPrecedence: Int): Parser[TLAExpression] =
+      if(minPrecedence <= 13 && maxPrecedence >= 10) {
+        (wsChk ~> rep1sep(("\\X" | "\\times") ~> wsChk ~> tlaExpressionMinPrecedence(14), wsChk)).flatMap { elems =>
+          val combinedLoc = lhsLoc ++ elems.view.map(_.sourceLocation).reduce(_ ++ _)
+          val expr = TLACrossProduct(lhs :: elems)
+            .setSourceLocation(combinedLoc)
+          withPartOpt(combinedLoc, expr, 9)
+        }
+      } else {
+        failure("not in precedence range 10-13")
+      }
+
     def withFunctionCall(lhsLoc: SourceLocation, lhs: TLAExpression, maxPrecedence: Int): Parser[TLAExpression] =
       if(minPrecedence <= 16) {
-        querySourceLocation("[" ~> wsChk ~> tlaComma1Sep(tlaExpression) <~ wsChk <~ "]").flatMap {
+        querySourceLocation(wsChk ~> "[" ~> wsChk ~> tlaComma1Sep(tlaExpression) <~ wsChk <~ "]").flatMap {
           case (loc, args) =>
             val combinedLoc = lhsLoc ++ loc
             withPartOpt(combinedLoc, TLAFunctionCall(lhs, args).setSourceLocation(combinedLoc), 15)
@@ -564,7 +579,7 @@ trait TLAParser extends RegexParsers {
 
     def withDot(lhsLoc: SourceLocation, lhs: TLAExpression, maxPrecedence: Int): Parser[TLAExpression] =
       if(minPrecedence <= 17) {
-        rep1sep("." ~> wsChk ~> tlaIdentifierExpr, wsChk).flatMap { dots =>
+        rep1sep(wsChk ~> "." ~> wsChk ~> tlaIdentifierExpr, wsChk).flatMap { dots =>
           val (combinedLoc, result) = dots.foldLeft((lhsLoc, lhs)) { (acc, dotId) =>
             val (lhsLoc, lhs) = acc
             val combinedLoc = lhsLoc ++ dotId.sourceLocation

@@ -522,6 +522,8 @@ object MPCalGoCodegenPass {
         d"${translateExpr(lhs)}.ApplyFunction(${
           d"""distsys.NewTLAString("${identifier.id}")"""
         })"
+      case TLACrossProduct(operands) =>
+        d"distsys.TLACrossProduct(${operands.view.map(translateExpr).separateBy(d", ")})"
       case call@TLAOperatorCall(_, prefix, arguments) =>
         assert(prefix.isEmpty)
         ctx.bindings(ById(call.refersTo)) match {

@@ -257,6 +257,17 @@ object TLAExprInterpreter {
               require(value.contains(idx))
               value(idx)
           }
+        case TLACrossProduct(operands) =>
+          val sets = operands.view
+            .map(interpret)
+            .map {  case TLAValueSet(set) => set }
+            .toList
+          val tuples = sets.tail.foldLeft(sets.head.iterator.map(elem => Vector(elem))) { (tuples, set) =>
+            tuples.flatMap { tuple =>
+              set.iterator.map(elem => tuple :+ elem)
+            }
+          }
+          TLAValueSet(tuples.map(TLAValueTuple).toSet)
         case opcall@TLAOperatorCall(_, _, arguments) =>
           opcall.refersTo match {
             case builtin: BuiltinModules.TLABuiltinOperator =>

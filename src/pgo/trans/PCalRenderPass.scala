@@ -56,6 +56,11 @@ object PCalRenderPass {
         d"${describePrefix(prefix)}${name.id}"
       case TLADot(lhs, identifier) =>
         d"(${describeExpr(lhs)}).${identifier.id}"
+      case TLACrossProduct(operands) =>
+        operands.view
+          .map(describeExpr)
+          .map(desc => d"($desc)")
+          .separateBy(d" \\X ")
       case TLAOperatorCall(name, prefix, arguments) =>
         name match {
           case Definition.ScopeIdentifierName(name) =>
