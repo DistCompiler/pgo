@@ -18,7 +18,7 @@ type IncrementalArchetypeMapResource struct {
 	distsys.ArchetypeResourceMapMixin
 	realizedMap  *immutable.Map
 	fillFunction FillFn
-	dirtyElems *immutable.Map
+	dirtyElems   *immutable.Map
 }
 
 var _ distsys.ArchetypeResource = &IncrementalArchetypeMapResource{}
@@ -28,7 +28,7 @@ func IncrementalArchetypeMapResourceMaker(fillFunction FillFn) distsys.Archetype
 		MakeFn: func() distsys.ArchetypeResource {
 			return &IncrementalArchetypeMapResource{
 				realizedMap: immutable.NewMap(distsys.TLAValueHasher{}),
-				dirtyElems: immutable.NewMap(distsys.TLAValueHasher{}),
+				dirtyElems:  immutable.NewMap(distsys.TLAValueHasher{}),
 			}
 		},
 		ConfigureFn: func(res distsys.ArchetypeResource) {
