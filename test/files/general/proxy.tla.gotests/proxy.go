@@ -2,7 +2,6 @@ package proxy
 
 import (
 	"fmt"
-
 	"github.com/UBC-NSS/pgo/distsys"
 )
 
