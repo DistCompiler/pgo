@@ -714,6 +714,12 @@ object MPCalGoCodegenPass {
             case TLARecordSetField(name, set) => d"""\n{distsys.NewTLAString("${name.id}"), ${translateExpr(set)}},"""
           }.flattenDescriptions.indented
         }${if(fields.nonEmpty) d"\n" else d""}})"
+      case TLAQuantifiedChoose(binding@TLAQuantifierBound(_, _, set), body) =>
+        val (bindings, bindingCode) = translateQuantifierBound(binding, d"${translateExpr(set)}.SelectElement()")
+        d"func() $TLAValue {${
+          (bindingCode +
+            d"\nreturn ${translateExpr(body)(ctx = ctx.copy(bindings = ctx.bindings ++ bindings.view.mapValues(FixedValueBinding)))}").indented
+        }\n}()"
     }
 
   @throws[PGoError]

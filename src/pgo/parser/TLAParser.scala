@@ -474,6 +474,29 @@ trait TLAParser extends RegexParsers {
       }
     }
 
+  def tlaChooseExpr(implicit ctx: TLAParserContext): Parser[TLAChoose] =
+    withSourceLocation {
+      val origCtx = ctx
+      ("CHOOSE" ~> wsChk ~> (tlaIdentifierExpr.map(Left(_)) | "<<" ~> wsChk ~> tlaCommaSep(tlaIdentifierExpr).map(Right(_)) <~ wsChk <~ ">>") <~ wsChk <~ ":" <~ wsChk).flatMap { ids =>
+        val definingIds = ids.fold(List(_),identity).map(_.toDefiningIdentifier)
+        val tpe = ids match {
+          case Left(_) => TLAChoose.Id
+          case Right(_) => TLAChoose.Tuple
+        }
+        implicit val ctx: TLAParserContext = definingIds.foldLeft(origCtx)(_.withDefinition(_))
+        tlaExpression ^^ (TLAChoose(definingIds, tpe, _))
+      }
+    }
+
+  def tlaQuantifiedChooseExpr(implicit ctx: TLAParserContext): Parser[TLAQuantifiedChoose] =
+    withSourceLocation {
+      val origCtx = ctx
+      ("CHOOSE" ~> wsChk ~> tlaQuantifierBound <~ wsChk <~ ":" <~ wsChk).flatMap { binding =>
+        implicit val ctx: TLAParserContext = origCtx.withDefinition(binding)
+        tlaExpression ^^ (TLAQuantifiedChoose(binding, _))
+      }
+    }
+
   val tlaPrefixOperator: Parser[TLASymbol] =
     withSourceLocation {
       TLAMeta.prefixOperators.keys.toList.sorted.sortWith(_.length > _.length)
@@ -652,7 +675,9 @@ trait TLAParser extends RegexParsers {
       tlaQuantifiedExistentialExpr | tlaQuantifiedUniversalExpr |
       tlaUnquantifiedExistentialExpr | tlaUnquantifiedUniversalExpr |
       // starting with {
-      tlaSetRefinementExpr | tlaSetComprehensionExpr | tlaSetConstructorExpr
+      tlaSetRefinementExpr | tlaSetComprehensionExpr | tlaSetConstructorExpr |
+      // starting with CHOOSE
+      tlaChooseExpr | tlaQuantifiedChooseExpr
 
   def tlaExpression(implicit ctx: TLAParserContext): Parser[TLAExpression] =
     tlaExpressionMinPrecedence(0)

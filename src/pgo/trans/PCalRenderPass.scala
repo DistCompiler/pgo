@@ -168,6 +168,16 @@ object PCalRenderPass {
             }.separateBy(d", ")
           }]"
         }
+      case TLAChoose(ids, tpe, body) =>
+        tpe match {
+          case TLAChoose.Id =>
+            val List(id) = ids
+            d"CHOOSE ${id.id.id} : ${describeExpr(body)}"
+          case TLAChoose.Tuple =>
+            d"CHOOSE <<${ids.view.map(_.id.id).map(_.toDescription).separateBy(d", ")}>> : ${describeExpr(body)}"
+        }
+      case TLAQuantifiedChoose(binding, body) =>
+        d"CHOOSE ${describeQuantifierBound(binding)} : ${describeExpr(body)}"
     }
 
   def describeOpDecl(opDecl: TLAOpDecl): Description =

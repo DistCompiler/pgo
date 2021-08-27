@@ -363,7 +363,7 @@ final case class TLAGeneralIdentifier(name: TLAIdentifier, prefix: List[TLAGener
 final case class TLADot(lhs: TLAExpression, identifier: TLAIdentifier) extends TLAExpression
 
 final case class TLACrossProduct(operands: List[TLAExpression]) extends TLAExpression {
-  require(operands.nonEmpty, "it makes no sense to construct a cross product of 0 elements")
+  require(operands.size >= 2, "it makes no sense to construct a cross product of fewer than 2 elements")
 }
 
 final case class TLAOperatorCall(name: Definition.ScopeIdentifier, prefix: List[TLAGeneralIdentifierPart], arguments: List[TLAExpression]) extends TLAExpression with RefersTo[DefinitionOne] {
@@ -453,3 +453,19 @@ final case class TLARecordSet(fields: List[TLARecordSetField]) extends TLAExpres
 }
 
 final case class TLARecordSetField(name: TLAIdentifier, set: TLAExpression) extends TLANode
+
+final case class TLAChoose(ids: List[TLADefiningIdentifier], tpe: TLAChoose.Type, body: TLAExpression) extends TLAExpression {
+  require(ids.nonEmpty, "TLA+ choose syntax must have at least one ID")
+  tpe match {
+    case TLAChoose.Id => require(ids.size == 1, "the TLA+ CHOOSE syntax can have only one ID without tuple, eg << id1, id2 >>")
+    case TLAChoose.Tuple => // no other requirements here
+  }
+}
+
+object TLAChoose {
+  sealed abstract class Type
+  case object Id extends Type
+  case object Tuple extends Type
+}
+
+final case class TLAQuantifiedChoose(binding: TLAQuantifierBound, body: TLAExpression) extends TLAExpression
