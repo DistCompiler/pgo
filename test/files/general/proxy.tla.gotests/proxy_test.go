@@ -44,23 +44,15 @@ func getNetworkMaker(self distsys.TLAValue, constants proxy.Constants) distsys.A
 }
 
 func runArchetype(done <-chan struct{}, ctx *distsys.MPCalContext, fn func() error) error {
-	errCh := make(chan error)
 	go func() {
-		errCh <- fn()
+		<-done
+		if cerr := ctx.Close(); cerr != nil {
+			log.Println(cerr)
+		}
 	}()
-	var err error
-	select {
-	case <-done:
-		cerr := ctx.Close()
-		if cerr != nil {
-			log.Println(cerr)
-		}
-		err = <-errCh
-	case err = <-errCh:
-		cerr := ctx.Close()
-		if cerr != nil {
-			log.Println(cerr)
-		}
+	err := fn()
+	if cerr := ctx.Close(); cerr != nil {
+		log.Println(cerr)
 	}
 	if err == distsys.ErrContextClosed {
 		return nil

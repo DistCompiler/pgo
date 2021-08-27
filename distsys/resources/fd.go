@@ -99,26 +99,22 @@ func (m *Monitor) getState(archetypeID distsys.TLAValue) (ArchetypeState, bool) 
 type WrappedArchetypeFn func() error
 
 // RunArchetype runs the given archetype inside the monitor.
-func (m *Monitor) RunArchetype(archetypeID distsys.TLAValue, fn WrappedArchetypeFn) error {
-	done := make(chan error)
-	go func() {
-		defer func() {
-			if r := recover(); r != nil {
-				m.setState(archetypeID, failed)
-				done <- fmt.Errorf("archetype %d recovered from panic: %s", archetypeID, r)
-			}
-		}()
-
-		m.setState(archetypeID, alive)
-		err := fn()
-		if err == nil {
-			m.setState(archetypeID, finished)
-		} else {
+func (m *Monitor) RunArchetype(archetypeID distsys.TLAValue, fn WrappedArchetypeFn) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
 			m.setState(archetypeID, failed)
+			err = fmt.Errorf("archetype %d recovered from panic: %s", archetypeID, r)
 		}
-		done <- err
 	}()
-	return <-done
+
+	m.setState(archetypeID, alive)
+	err = fn()
+	if err == nil {
+		m.setState(archetypeID, finished)
+	} else {
+		m.setState(archetypeID, failed)
+	}
+	return
 }
 
 // ListenAndServe starts the monitor's RPC server and serves the incoming

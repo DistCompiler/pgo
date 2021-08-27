@@ -405,7 +405,11 @@ object MPCalGoCodegenPass {
           case param@MPCalValParam(_) => d", ${paramNames(param)} $TLAValue"
         }.flattenDescriptions
       }) error {${
-        (d"\nvar ${ctx.err} error" +
+        (d"\nctx.ReportEvent(distsys.ArchetypeStarted)" +
+          d"\ndefer func() {" +
+          d"\nctx.ReportEvent(distsys.ArchetypeFinished)".indented +
+          d"\n}()" +
+          d"\nvar ${ctx.err} error" +
           d"\n// label tags" +
           d"\nconst (${
             (d"\n$InitLabelTag = iota" +

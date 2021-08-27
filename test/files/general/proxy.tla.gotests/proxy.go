@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"fmt"
+
 	"github.com/UBC-NSS/pgo/distsys"
 )
 
@@ -75,6 +76,10 @@ func MSG_ID_BOUND(constants Constants) distsys.TLAValue {
 }
 
 func AProxy(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constants, net distsys.ArchetypeResourceHandle, fd distsys.ArchetypeResourceHandle) error {
+	ctx.ReportEvent(distsys.ArchetypeStarted)
+	defer func() {
+		ctx.ReportEvent(distsys.ArchetypeFinished)
+	}()
 	var err error
 	// label tags
 	const (
@@ -537,6 +542,10 @@ func AProxy(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constant
 }
 
 func AServer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constants, net0 distsys.ArchetypeResourceHandle, netEnabled distsys.ArchetypeResourceHandle, fd0 distsys.ArchetypeResourceHandle) error {
+	ctx.ReportEvent(distsys.ArchetypeStarted)
+	defer func() {
+		ctx.ReportEvent(distsys.ArchetypeFinished)
+	}()
 	var err0 error
 	// label tags
 	const (
@@ -825,6 +834,10 @@ func AServer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constan
 }
 
 func AClient(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constants, net1 distsys.ArchetypeResourceHandle, output distsys.ArchetypeResourceHandle) error {
+	ctx.ReportEvent(distsys.ArchetypeStarted)
+	defer func() {
+		ctx.ReportEvent(distsys.ArchetypeFinished)
+	}()
 	var err1 error
 	// label tags
 	const (

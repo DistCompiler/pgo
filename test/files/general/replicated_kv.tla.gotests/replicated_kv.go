@@ -75,6 +75,10 @@ func ClientSet(constants Constants) distsys.TLAValue {
 }
 
 func AReplica(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constants, clients distsys.ArchetypeResourceHandle, replicas distsys.ArchetypeResourceHandle, kv distsys.ArchetypeResourceHandle) error {
+	ctx.ReportEvent(distsys.ArchetypeStarted)
+	defer func() {
+		ctx.ReportEvent(distsys.ArchetypeFinished)
+	}()
 	var err error
 	// label tags
 	const (
@@ -1054,6 +1058,10 @@ func AReplica(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Consta
 }
 
 func Get(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constants, clientId distsys.ArchetypeResourceHandle, replicas0 distsys.ArchetypeResourceHandle, clients0 distsys.ArchetypeResourceHandle, key0 distsys.TLAValue, clock distsys.ArchetypeResourceHandle, spin distsys.TLAValue, outside distsys.ArchetypeResourceHandle) error {
+	ctx.ReportEvent(distsys.ArchetypeStarted)
+	defer func() {
+		ctx.ReportEvent(distsys.ArchetypeFinished)
+	}()
 	var err0 error
 	// label tags
 	const (
@@ -1327,6 +1335,10 @@ func Get(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constants, 
 }
 
 func Put(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constants, clientId0 distsys.ArchetypeResourceHandle, replicas1 distsys.ArchetypeResourceHandle, clients1 distsys.ArchetypeResourceHandle, key2 distsys.TLAValue, value distsys.TLAValue, clock0 distsys.ArchetypeResourceHandle, spin1 distsys.TLAValue, outside0 distsys.ArchetypeResourceHandle) error {
+	ctx.ReportEvent(distsys.ArchetypeStarted)
+	defer func() {
+		ctx.ReportEvent(distsys.ArchetypeFinished)
+	}()
 	var err1 error
 	// label tags
 	const (
@@ -1699,6 +1711,10 @@ func Put(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constants, 
 }
 
 func Disconnect(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constants, clientId1 distsys.ArchetypeResourceHandle, replicas2 distsys.ArchetypeResourceHandle, clock1 distsys.ArchetypeResourceHandle) error {
+	ctx.ReportEvent(distsys.ArchetypeStarted)
+	defer func() {
+		ctx.ReportEvent(distsys.ArchetypeFinished)
+	}()
 	var err2 error
 	// label tags
 	const (
@@ -1830,6 +1846,10 @@ func Disconnect(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Cons
 }
 
 func ClockUpdate(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constants, clientId2 distsys.ArchetypeResourceHandle, replicas3 distsys.ArchetypeResourceHandle, clock2 distsys.ArchetypeResourceHandle, spin3 distsys.TLAValue) error {
+	ctx.ReportEvent(distsys.ArchetypeStarted)
+	defer func() {
+		ctx.ReportEvent(distsys.ArchetypeFinished)
+	}()
 	var err3 error
 	// label tags
 	const (

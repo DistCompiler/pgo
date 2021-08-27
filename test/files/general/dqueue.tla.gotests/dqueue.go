@@ -19,6 +19,10 @@ func NUM_NODES(constants Constants) distsys.TLAValue {
 }
 
 func AConsumer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constants, net distsys.ArchetypeResourceHandle, proc distsys.ArchetypeResourceHandle) error {
+	ctx.ReportEvent(distsys.ArchetypeStarted)
+	defer func() {
+		ctx.ReportEvent(distsys.ArchetypeFinished)
+	}()
 	var err error
 	// label tags
 	const (
@@ -116,6 +120,10 @@ func AConsumer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Const
 }
 
 func AProducer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constants, net0 distsys.ArchetypeResourceHandle, s distsys.ArchetypeResourceHandle) error {
+	ctx.ReportEvent(distsys.ArchetypeStarted)
+	defer func() {
+		ctx.ReportEvent(distsys.ArchetypeFinished)
+	}()
 	var err0 error
 	// label tags
 	const (

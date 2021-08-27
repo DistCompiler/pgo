@@ -192,7 +192,14 @@ object PGo {
             }
           }
 
-          // move the rendered output over the spec file, replacing it
+          // move the rendered output over the spec file, replacing it.
+          // when I tried to run tests, I got the following error multiple time:
+          // ```
+          // java.nio.file.AtomicMoveNotSupportedException: \
+          // /home/shayan/Documents/github/UBC-NSS/pgo/17831122514577711347.tmp -> \
+          // /tmp/4105362822459218356.tmp: Invalid cross-device link
+          // ```
+          // so I added a try-catch block to try non-atomic move if the atomic move fails.
           try {
             os.move(from = tempOutput, to = config.PCalGenCmd.specFile(), replaceExisting = true, atomicMove = true)
           } catch {

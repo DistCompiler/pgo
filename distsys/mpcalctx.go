@@ -3,6 +3,7 @@ package distsys
 import (
 	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/benbjohnson/immutable"
 	"go.uber.org/multierr"
@@ -91,7 +92,11 @@ type MPCalContext struct {
 
 	dirtyResourceHandles []ArchetypeResourceHandle
 
-	done chan struct{}
+	done   chan struct{}
+	events chan struct{}
+
+	lock   sync.Mutex
+	closed bool
 }
 
 func NewMPCalContext() *MPCalContext {
@@ -102,7 +107,35 @@ func NewMPCalContext() *MPCalContext {
 		frameIdx:   0,
 		frameStack: [][]ArchetypeResourceHandle{{}},
 
-		done: make(chan struct{}),
+		done:   make(chan struct{}),
+		events: make(chan struct{}, 2),
+
+		closed: false,
+	}
+}
+
+// ArchetypeEvent shows an event in an archetype execution process
+type ArchetypeEvent int
+
+const (
+	// ArchetypeStarted denotes that the archetype execution has started
+	ArchetypeStarted ArchetypeEvent = iota
+	// ArchetypeFinished denotes that the archetype execution has finished
+	ArchetypeFinished
+)
+
+// ReportEvent will be called by an archetype to report an event about its
+// execution.
+func (ctx *MPCalContext) ReportEvent(event ArchetypeEvent) {
+	switch event {
+	case ArchetypeStarted:
+		select {
+		case ctx.events <- struct{}{}:
+		default:
+			panic("archetype has started before")
+		}
+	case ArchetypeFinished:
+		close(ctx.events)
 	}
 }
 
@@ -258,13 +291,34 @@ func (ctx *MPCalContext) Done() <-chan struct{} {
 }
 
 // Close first stops execution of the running archetype that uses this context
-// and then closes registered resources.
+// and then closes registered resources. Calling Close more than once is safe,
+// and after first call it always returns nil.
 func (ctx *MPCalContext) Close() error {
-	// In order to not interrupting an archetype when it's in the middle of a
-	// critical section, we block here to send the context closed signal to the
-	// archetype. Archetype quits after receiving this signal, and then we can
-	// close the done channel and the registered resources.
-	ctx.done <- struct{}{}
+	ctx.lock.Lock()
+	defer ctx.lock.Unlock()
+	if ctx.closed {
+		return nil
+	}
+	ctx.closed = true
+
+	select {
+	case <-ctx.events:
+		// Archetype execution has started
+
+		select {
+		case <-ctx.events:
+			// Archetype execution has finished
+
+		case ctx.done <- struct{}{}:
+			// In order to not interrupting an archetype when it's in the middle of a
+			// critical section, we block here to send the context closed signal to the
+			// archetype. Archetype quits after receiving this signal, and then we can
+			// close the done channel and the registered resources.
+		}
+
+	default:
+		// Archetype has not even started
+	}
 	close(ctx.done)
 
 	var err error
