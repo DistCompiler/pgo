@@ -131,7 +131,7 @@ object PGo {
           val pcalAlgorithm = MPCalPCalCodegenPass(tlaModule, mpcalBlock)
           val renderedPCal = PCalRenderPass(pcalAlgorithm)
 
-          val tempOutput = os.temp(dir = os.pwd)
+          val tempOutput = os.temp(dir = config.PCalGenCmd.specFile() / os.up, deleteOnExit = true)
           locally {
             /**
              * A simple parser that splits ("chops") an MPCal-containing TLA+ file into 3 parts:
@@ -193,19 +193,7 @@ object PGo {
           }
 
           // move the rendered output over the spec file, replacing it.
-          // when I tried to run tests, I got the following error multiple time:
-          // ```
-          // java.nio.file.AtomicMoveNotSupportedException: \
-          // /home/shayan/Documents/github/UBC-NSS/pgo/17831122514577711347.tmp -> \
-          // /tmp/4105362822459218356.tmp: Invalid cross-device link
-          // ```
-          // so I added a try-catch block to try non-atomic move if the atomic move fails.
-          try {
-            os.move(from = tempOutput, to = config.PCalGenCmd.specFile(), replaceExisting = true, atomicMove = true)
-          } catch {
-            case _: AtomicMoveNotSupportedException =>
-              os.move(from = tempOutput, to = config.PCalGenCmd.specFile(), replaceExisting = true, atomicMove = false)
-          }
+          os.move(from = tempOutput, to = config.PCalGenCmd.specFile(), replaceExisting = true, atomicMove = true)
 
           // run a free-standing semantic check on the generated code, in case our codegen doesn't agree with our
           // own semantic checks (which would be a bug!)
