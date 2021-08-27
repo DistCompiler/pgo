@@ -15,6 +15,7 @@ import pgo.util.Description._
 import java.io.RandomAccessFile
 import java.nio.channels.FileChannel
 import java.nio.charset.StandardCharsets
+import java.nio.file.AtomicMoveNotSupportedException
 import scala.util.Using
 import scala.util.parsing.combinator.RegexParsers
 
@@ -130,7 +131,7 @@ object PGo {
           val pcalAlgorithm = MPCalPCalCodegenPass(tlaModule, mpcalBlock)
           val renderedPCal = PCalRenderPass(pcalAlgorithm)
 
-          val tempOutput = os.temp(dir = os.pwd)
+          val tempOutput = os.temp(dir = config.PCalGenCmd.specFile() / os.up, deleteOnExit = true)
           locally {
             /**
              * A simple parser that splits ("chops") an MPCal-containing TLA+ file into 3 parts:
@@ -191,7 +192,7 @@ object PGo {
             }
           }
 
-          // move the rendered output over the spec file, replacing it
+          // move the rendered output over the spec file, replacing it.
           os.move(from = tempOutput, to = config.PCalGenCmd.specFile(), replaceExisting = true, atomicMove = true)
 
           // run a free-standing semantic check on the generated code, in case our codegen doesn't agree with our

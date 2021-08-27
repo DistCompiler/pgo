@@ -1,4 +1,4 @@
-module example.org/proxy_w_macro
+module example.org/hello
 
 go 1.14
 

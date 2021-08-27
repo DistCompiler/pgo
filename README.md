@@ -134,6 +134,7 @@ PGo's Go runtime library depends on:
 - [immutable](https://github.com/benbjohnson/immutable) for efficient immutable implementations of lists and maps in the TLA+ data model.
   For example, creating a modified map with one different key-value pair should take constant time, rather than copy the
   entire existing structure.
+- [multierr](https://github.com/uber-go/multierr) for combining errors.
 
 PGo is tested using OpenJDK 1.11 through 1.16, and Go 1.13 through 1.16.
 OpenJDK 1.11+ is needed because of standard API usage.

@@ -369,3 +369,10 @@ target/
 project/
 .bloop/
 .bsp/
+
+# Python items related to pygments lexer
+__pycache__/
+*.egg-info/
+
+# Fuzz test output
+fuzz_output/

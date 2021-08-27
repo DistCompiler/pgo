@@ -6,15 +6,16 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
-	"github.com/benbjohnson/immutable"
 	"hash/fnv"
 	"io"
 	"math"
 	"strconv"
 	"strings"
+
+	"github.com/benbjohnson/immutable"
 )
 
-var TLATypeError = errors.New("TLA+ type error")
+var ErrTLAType = errors.New("TLA+ type error")
 
 func init() {
 	gob.Register(tlaValueBool(false))
@@ -74,7 +75,7 @@ func (v *TLAValue) GobEncode() ([]byte, error) {
 
 func require(req bool, msg string) {
 	if !req {
-		panic(fmt.Errorf("%w: %s", TLATypeError, msg))
+		panic(fmt.Errorf("%w: %s", ErrTLAType, msg))
 	}
 }
 
@@ -137,7 +138,7 @@ func (v TLAValue) AsBool() bool {
 	case tlaValueBool:
 		return bool(data)
 	default:
-		panic(fmt.Errorf("%w: %v is not a boolean", TLATypeError, v))
+		panic(fmt.Errorf("%w: %v is not a boolean", ErrTLAType, v))
 	}
 }
 
@@ -146,7 +147,7 @@ func (v TLAValue) AsNumber() int32 {
 	case tlaValueNumber:
 		return int32(data)
 	default:
-		panic(fmt.Errorf("%w: %v is not a number", TLATypeError, v))
+		panic(fmt.Errorf("%w: %v is not a number", ErrTLAType, v))
 	}
 }
 
@@ -155,7 +156,7 @@ func (v TLAValue) AsString() string {
 	case tlaValueString:
 		return string(data)
 	default:
-		panic(fmt.Errorf("%w: %v is not a string", TLATypeError, v))
+		panic(fmt.Errorf("%w: %v is not a string", ErrTLAType, v))
 	}
 }
 
@@ -164,7 +165,7 @@ func (v TLAValue) AsSet() *immutable.Map {
 	case *tlaValueSet:
 		return data.Map
 	default:
-		panic(fmt.Errorf("%w: %v is not a set", TLATypeError, v))
+		panic(fmt.Errorf("%w: %v is not a set", ErrTLAType, v))
 	}
 }
 
@@ -173,7 +174,7 @@ func (v TLAValue) AsTuple() *immutable.List {
 	case *tlaValueTuple:
 		return data.List
 	default:
-		panic(fmt.Errorf("%w: %v is not a tuple", TLATypeError, v))
+		panic(fmt.Errorf("%w: %v is not a tuple", ErrTLAType, v))
 	}
 }
 
@@ -182,7 +183,7 @@ func (v TLAValue) AsFunction() *immutable.Map {
 	case *tlaValueFunction:
 		return data.Map
 	default:
-		panic(fmt.Errorf("%w: %v is not a function", TLATypeError, v))
+		panic(fmt.Errorf("%w: %v is not a function", ErrTLAType, v))
 	}
 }
 
@@ -193,7 +194,7 @@ func (v TLAValue) SelectElement() TLAValue {
 		key, _ := it.Next()
 		return key.(TLAValue)
 	} else {
-		panic(fmt.Errorf("%w: tried to select an element of %v, which was an empty set", TLATypeError, v))
+		panic(fmt.Errorf("%w: tried to select an element of %v, which was an empty set", ErrTLAType, v))
 	}
 }
 
@@ -206,11 +207,11 @@ func (v TLAValue) ApplyFunction(argument TLAValue) TLAValue {
 	case *tlaValueFunction:
 		value, ok := data.Get(argument)
 		if !ok {
-			panic(fmt.Errorf("%w: function %v's domain does not contain index %v", TLATypeError, v, argument))
+			panic(fmt.Errorf("%w: function %v's domain does not contain index %v", ErrTLAType, v, argument))
 		}
 		return value.(TLAValue)
 	default:
-		panic(fmt.Errorf("%w: could not apply %v", TLATypeError, v))
+		panic(fmt.Errorf("%w: could not apply %v", ErrTLAType, v))
 	}
 }
 
@@ -275,7 +276,7 @@ func (v tlaValueBool) Hash() uint32 {
 }
 
 func (v tlaValueBool) Equal(other TLAValue) bool {
-	return bool(v) == other.AsBool()
+	return other.IsBool() && bool(v) == other.AsBool()
 }
 
 func (v tlaValueBool) String() string {

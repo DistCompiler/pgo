@@ -2,14 +2,16 @@ package loadbalancer
 
 import (
 	"fmt"
-	"github.com/UBC-NSS/pgo/distsys"
-	"github.com/UBC-NSS/pgo/distsys/resources"
 	"io/ioutil"
+	"log"
 	"math/rand"
 	"os"
 	"path"
 	"testing"
 	"time"
+
+	"github.com/UBC-NSS/pgo/distsys"
+	"github.com/UBC-NSS/pgo/distsys/resources"
 )
 
 func TestOneServerOneClient(t *testing.T) {
@@ -56,38 +58,50 @@ func TestOneServerOneClient(t *testing.T) {
 		}
 	}
 
-	go func() {
-		ctx := distsys.NewMPCalContext()
+	ctxLoadBalancer := distsys.NewMPCalContext()
+	go func(ctx *distsys.MPCalContext) {
 		self := distsys.NewTLANumber(0)
 		mailboxes := ctx.EnsureArchetypeResourceByName("mailboxes", resources.TCPMailboxesArchetypeResourceMaker(makeAddressFn(0)))
 		err := ALoadBalancer(ctx, self, constants, mailboxes)
-		if err != nil {
+		if err != nil && err != distsys.ErrContextClosed {
 			panic(err)
 		}
-	}()
+	}(ctxLoadBalancer)
 
-	go func() {
-		ctx := distsys.NewMPCalContext()
+	ctxServer := distsys.NewMPCalContext()
+	go func(ctx *distsys.MPCalContext) {
 		self := distsys.NewTLANumber(1)
 		mailboxes := ctx.EnsureArchetypeResourceByName("mailboxes", resources.TCPMailboxesArchetypeResourceMaker(makeAddressFn(1)))
-		filesystem := ctx.EnsureArchetypeResourceByName("filesystem", resources.FilesystemArchetypeResourceMaker(tempDir))
+		filesystem := ctx.EnsureArchetypeResourceByName("filesystem", resources.FileSystemArchetypeResourceMaker(tempDir))
 		err := AServer(ctx, self, constants, mailboxes, filesystem)
-		if err != nil {
+		if err != nil && err != distsys.ErrContextClosed {
 			panic(err)
 		}
-	}()
+	}(ctxServer)
 
+	ctxClient := distsys.NewMPCalContext()
 	requestChannel := make(chan distsys.TLAValue, 32)
 	responseChannel := make(chan distsys.TLAValue, 32)
-	go func() {
-		ctx := distsys.NewMPCalContext()
+	go func(ctx *distsys.MPCalContext) {
 		self := distsys.NewTLANumber(2)
 		mailboxes := ctx.EnsureArchetypeResourceByName("mailboxes", resources.TCPMailboxesArchetypeResourceMaker(makeAddressFn(2)))
 		instream := ctx.EnsureArchetypeResourceByName("instream", resources.InputChannelResourceMaker(requestChannel))
 		outstream := ctx.EnsureArchetypeResourceByName("outstream", resources.OutputChannelResourceMaker(responseChannel))
 		err := AClient(ctx, self, constants, mailboxes, instream, outstream)
-		if err != nil {
+		if err != nil && err != distsys.ErrContextClosed {
 			panic(err)
+		}
+	}(ctxClient)
+
+	defer func() {
+		if err := ctxLoadBalancer.Close(); err != nil {
+			log.Println(err)
+		}
+		if err := ctxServer.Close(); err != nil {
+			log.Println(err)
+		}
+		if err := ctxClient.Close(); err != nil {
+			log.Println(err)
 		}
 	}()
 

@@ -3,12 +3,22 @@ package distsys
 import (
 	"errors"
 	"fmt"
+	"sync"
+
 	"github.com/benbjohnson/immutable"
+	"go.uber.org/multierr"
 )
 
+// ErrAssertionFailed will be returned by an archetype function in the
+// generated code if an assertion fails.
 var ErrAssertionFailed = errors.New("assertion failed")
 
+// ErrCriticalSectionAborted it may be returned by any resource operations that can return an error. If it is returned
+// the critical section that was performing that operation will be rolled back and canceled.
 var ErrCriticalSectionAborted = errors.New("MPCal critical section aborted")
+
+// ErrContextClosed will be returned if the context of an archetype is closed.
+var ErrContextClosed = errors.New("MPCal context closed")
 
 // ArchetypeResourceHandle encapsulates a reference to an ArchetypeResource.
 // These handles insulate the end-user from worrying about the specifics of resource lifetimes, logging, and
@@ -81,6 +91,12 @@ type MPCalContext struct {
 	frameStack [][]ArchetypeResourceHandle
 
 	dirtyResourceHandles []ArchetypeResourceHandle
+
+	done   chan struct{}
+	events chan struct{}
+
+	lock   sync.Mutex
+	closed bool
 }
 
 func NewMPCalContext() *MPCalContext {
@@ -90,6 +106,36 @@ func NewMPCalContext() *MPCalContext {
 		pathBase:   NewTLATuple(),
 		frameIdx:   0,
 		frameStack: [][]ArchetypeResourceHandle{{}},
+
+		done:   make(chan struct{}),
+		events: make(chan struct{}, 2),
+
+		closed: false,
+	}
+}
+
+// ArchetypeEvent shows an event in an archetype execution process
+type ArchetypeEvent int
+
+const (
+	// ArchetypeStarted denotes that the archetype execution has started
+	ArchetypeStarted ArchetypeEvent = iota
+	// ArchetypeFinished denotes that the archetype execution has finished
+	ArchetypeFinished
+)
+
+// ReportEvent will be called by an archetype to report an event about its
+// execution.
+func (ctx *MPCalContext) ReportEvent(event ArchetypeEvent) {
+	switch event {
+	case ArchetypeStarted:
+		select {
+		case ctx.events <- struct{}{}:
+		default:
+			panic("archetype has started before")
+		}
+	case ArchetypeFinished:
+		close(ctx.events)
 	}
 }
 
@@ -167,8 +213,10 @@ func (ctx *MPCalContext) Commit() (err error) {
 	// dispatch all parts of the pre-commit phase asynchronously, so we only wait as long as the slowest resource
 	var nonTrivialPreCommits []chan error
 	for _, resHandle := range ctx.dirtyResourceHandles {
+		//log.Printf("-- precommit: %v", resHandle)
 		ch := ctx.getResourceByHandle(resHandle).PreCommit()
 		if ch != nil {
+			//log.Println("non-trivial pre-commit from", resHandle)
 			nonTrivialPreCommits = append(nonTrivialPreCommits, ch)
 		}
 	}
@@ -187,7 +235,7 @@ func (ctx *MPCalContext) Commit() (err error) {
 	// same as above, run all the commit processes async
 	var nonTrivialCommits []chan struct{}
 	for _, resHandle := range ctx.dirtyResourceHandles {
-		//fmt.Printf("-- commit: %v\n", resHandle)
+		//log.Printf("-- commit: %v", resHandle)
 		ch := ctx.getResourceByHandle(resHandle).Commit()
 		if ch != nil {
 			nonTrivialCommits = append(nonTrivialCommits, ch)
@@ -234,4 +282,52 @@ func (ctx *MPCalContext) Read(handle ArchetypeResourceHandle, indices []TLAValue
 	}
 	value, err = res.ReadValue()
 	return
+}
+
+// Done returns a channel that blocks until the context closes. Successive
+// calls to Done return the same value.
+func (ctx *MPCalContext) Done() <-chan struct{} {
+	return ctx.done
+}
+
+// Close first stops execution of the running archetype that uses this context
+// and then closes registered resources. Calling Close more than once is safe,
+// and after first call it always returns nil.
+func (ctx *MPCalContext) Close() error {
+	ctx.lock.Lock()
+	defer ctx.lock.Unlock()
+	if ctx.closed {
+		return nil
+	}
+	ctx.closed = true
+
+	select {
+	case <-ctx.events:
+		// Archetype execution has started
+
+		select {
+		case <-ctx.events:
+			// Archetype execution has finished
+
+		case ctx.done <- struct{}{}:
+			// In order to not interrupting an archetype when it's in the middle of a
+			// critical section, we block here to send the context closed signal to the
+			// archetype. Archetype quits after receiving this signal, and then we can
+			// close the done channel and the registered resources.
+		}
+
+	default:
+		// Archetype has not even started
+	}
+	close(ctx.done)
+
+	var err error
+	// Note that we should close all the resources, not just the dirty ones.
+	it := ctx.resources.Iterator()
+	for !it.Done() {
+		_, r := it.Next()
+		cerr := r.(ArchetypeResource).Close()
+		err = multierr.Append(err, cerr)
+	}
+	return err
 }

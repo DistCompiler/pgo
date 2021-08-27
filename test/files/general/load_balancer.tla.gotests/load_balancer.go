@@ -22,6 +22,10 @@ func NUM_NODES(constants Constants) distsys.TLAValue {
 }
 
 func ALoadBalancer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constants, mailboxes distsys.ArchetypeResourceHandle) error {
+	ctx.ReportEvent(distsys.ArchetypeStarted)
+	defer func() {
+		ctx.ReportEvent(distsys.ArchetypeFinished)
+	}()
 	var err error
 	// label tags
 	const (
@@ -38,6 +42,11 @@ func ALoadBalancer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants C
 	_ = next
 
 	for {
+		select {
+		case <-ctx.Done():
+			err = distsys.ErrContextClosed
+		default:
+		}
 		if err != nil {
 			if err == distsys.ErrCriticalSectionAborted {
 				ctx.Abort()
@@ -164,6 +173,10 @@ func ALoadBalancer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants C
 }
 
 func AServer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constants, mailboxes0 distsys.ArchetypeResourceHandle, file_system distsys.ArchetypeResourceHandle) error {
+	ctx.ReportEvent(distsys.ArchetypeStarted)
+	defer func() {
+		ctx.ReportEvent(distsys.ArchetypeFinished)
+	}()
 	var err0 error
 	// label tags
 	const (
@@ -178,6 +191,11 @@ func AServer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constan
 	_ = msg0
 
 	for {
+		select {
+		case <-ctx.Done():
+			err0 = distsys.ErrContextClosed
+		default:
+		}
 		if err0 != nil {
 			if err0 == distsys.ErrCriticalSectionAborted {
 				ctx.Abort()
@@ -273,6 +291,10 @@ func AServer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constan
 }
 
 func AClient(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constants, mailboxes1 distsys.ArchetypeResourceHandle, instream distsys.ArchetypeResourceHandle, outstream distsys.ArchetypeResourceHandle) error {
+	ctx.ReportEvent(distsys.ArchetypeStarted)
+	defer func() {
+		ctx.ReportEvent(distsys.ArchetypeFinished)
+	}()
 	var err1 error
 	// label tags
 	const (
@@ -289,6 +311,11 @@ func AClient(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constan
 	_ = resp
 
 	for {
+		select {
+		case <-ctx.Done():
+			err1 = distsys.ErrContextClosed
+		default:
+		}
 		if err1 != nil {
 			if err1 == distsys.ErrCriticalSectionAborted {
 				ctx.Abort()

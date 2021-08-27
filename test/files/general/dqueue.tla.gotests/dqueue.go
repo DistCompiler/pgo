@@ -19,6 +19,10 @@ func NUM_NODES(constants Constants) distsys.TLAValue {
 }
 
 func AConsumer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constants, net distsys.ArchetypeResourceHandle, proc distsys.ArchetypeResourceHandle) error {
+	ctx.ReportEvent(distsys.ArchetypeStarted)
+	defer func() {
+		ctx.ReportEvent(distsys.ArchetypeFinished)
+	}()
 	var err error
 	// label tags
 	const (
@@ -31,6 +35,11 @@ func AConsumer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Const
 	programCounter := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.NewTLANumber(InitLabelTag)))
 
 	for {
+		select {
+		case <-ctx.Done():
+			err = distsys.ErrContextClosed
+		default:
+		}
 		if err != nil {
 			if err == distsys.ErrCriticalSectionAborted {
 				ctx.Abort()
@@ -111,6 +120,10 @@ func AConsumer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Const
 }
 
 func AProducer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constants, net0 distsys.ArchetypeResourceHandle, s distsys.ArchetypeResourceHandle) error {
+	ctx.ReportEvent(distsys.ArchetypeStarted)
+	defer func() {
+		ctx.ReportEvent(distsys.ArchetypeFinished)
+	}()
 	var err0 error
 	// label tags
 	const (
@@ -125,6 +138,11 @@ func AProducer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Const
 	_ = requester
 
 	for {
+		select {
+		case <-ctx.Done():
+			err0 = distsys.ErrContextClosed
+		default:
+		}
 		if err0 != nil {
 			if err0 == distsys.ErrCriticalSectionAborted {
 				ctx.Abort()

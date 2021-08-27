@@ -12,7 +12,6 @@ type Constants struct {
 	NUM_SERVERS  distsys.TLAValue
 	NUM_CLIENTS  distsys.TLAValue
 	EXPLORE_FAIL distsys.TLAValue
-	F            distsys.TLAValue
 }
 
 func FAIL(constants Constants) distsys.TLAValue {
@@ -71,7 +70,15 @@ func MSG_TYP_SET(constants Constants) distsys.TLAValue {
 	}())
 }
 
+func MSG_ID_BOUND(constants Constants) distsys.TLAValue {
+	return distsys.NewTLANumber(2)
+}
+
 func AProxy(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constants, net distsys.ArchetypeResourceHandle, fd distsys.ArchetypeResourceHandle) error {
+	ctx.ReportEvent(distsys.ArchetypeStarted)
+	defer func() {
+		ctx.ReportEvent(distsys.ArchetypeFinished)
+	}()
 	var err error
 	// label tags
 	const (
@@ -100,6 +107,11 @@ func AProxy(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constant
 	var fairnessCounter0 int = 0
 
 	for {
+		select {
+		case <-ctx.Done():
+			err = distsys.ErrContextClosed
+		default:
+		}
 		if err != nil {
 			if err == distsys.ErrCriticalSectionAborted {
 				ctx.Abort()
@@ -247,7 +259,7 @@ func AProxy(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constant
 			// no statements
 		case proxySendMsgLabelTag:
 			fairnessCounterCurrent := fairnessCounter
-			fairnessCounter = fairnessCounter + 1%2
+			fairnessCounter = (fairnessCounter + 1) % 2
 			switch fairnessCounterCurrent {
 			case 0:
 				var exprRead6 distsys.TLAValue
@@ -341,11 +353,11 @@ func AProxy(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constant
 			// no statements
 		case proxyRcvMsgLabelTag:
 			fairnessCounterCurrent0 := fairnessCounter0
-			fairnessCounter0 = fairnessCounter0 + 1%2
+			fairnessCounter0 = (fairnessCounter0 + 1) % 2
 			switch fairnessCounterCurrent0 {
 			case 0:
-				var exprRead11 distsys.TLAValue
-				exprRead11, err = ctx.Read(net, []distsys.TLAValue{distsys.NewTLATuple(func() distsys.TLAValue {
+				var tmpRead distsys.TLAValue
+				tmpRead, err = ctx.Read(net, []distsys.TLAValue{distsys.NewTLATuple(func() distsys.TLAValue {
 					return ProxyID(constants)
 				}(), func() distsys.TLAValue {
 					return PROXY_RESP_MSG_TYP(constants)
@@ -353,77 +365,101 @@ func AProxy(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constant
 				if err != nil {
 					continue
 				}
-				err = ctx.Write(proxyResp, []distsys.TLAValue{}, exprRead11)
-				if err != nil {
-					continue
-				}
+				var tmp distsys.TLAValue = tmpRead
 				var condition4 distsys.TLAValue
-				condition4, err = ctx.Read(proxyResp, []distsys.TLAValue{})
+				condition4, err = ctx.Read(idx, []distsys.TLAValue{})
 				if err != nil {
 					continue
 				}
 				var condition5 distsys.TLAValue
-				condition5, err = ctx.Read(proxyResp, []distsys.TLAValue{})
+				condition5, err = ctx.Read(msg, []distsys.TLAValue{})
 				if err != nil {
 					continue
 				}
-				var condition6 distsys.TLAValue
-				condition6, err = ctx.Read(idx, []distsys.TLAValue{})
-				if err != nil {
-					continue
+				if distsys.TLA_LogicalOrSymbol(distsys.TLA_NotEqualsSymbol(tmp.ApplyFunction(distsys.NewTLAString("from")), condition4), distsys.TLA_NotEqualsSymbol(tmp.ApplyFunction(distsys.NewTLAString("id")), condition5.ApplyFunction(distsys.NewTLAString("id")))).AsBool() {
+					err = ctx.Write(programCounter, []distsys.TLAValue{}, distsys.NewTLANumber(proxyRcvMsgLabelTag))
+					if err != nil {
+						continue
+					}
+					err = ctx.Commit()
+					if err != nil {
+						continue
+					}
+				} else {
+					err = ctx.Write(proxyResp, []distsys.TLAValue{}, tmp)
+					if err != nil {
+						continue
+					}
+					var condition6 distsys.TLAValue
+					condition6, err = ctx.Read(proxyResp, []distsys.TLAValue{})
+					if err != nil {
+						continue
+					}
+					var condition7 distsys.TLAValue
+					condition7, err = ctx.Read(proxyResp, []distsys.TLAValue{})
+					if err != nil {
+						continue
+					}
+					var condition8 distsys.TLAValue
+					condition8, err = ctx.Read(idx, []distsys.TLAValue{})
+					if err != nil {
+						continue
+					}
+					var condition9 distsys.TLAValue
+					condition9, err = ctx.Read(proxyResp, []distsys.TLAValue{})
+					if err != nil {
+						continue
+					}
+					var condition10 distsys.TLAValue
+					condition10, err = ctx.Read(msg, []distsys.TLAValue{})
+					if err != nil {
+						continue
+					}
+					var condition11 distsys.TLAValue
+					condition11, err = ctx.Read(proxyResp, []distsys.TLAValue{})
+					if err != nil {
+						continue
+					}
+					if !distsys.TLA_LogicalAndSymbol(distsys.TLA_LogicalAndSymbol(distsys.TLA_LogicalAndSymbol(distsys.TLA_EqualsSymbol(condition6.ApplyFunction(distsys.NewTLAString("to")), func() distsys.TLAValue {
+						return ProxyID(constants)
+					}()), distsys.TLA_EqualsSymbol(condition7.ApplyFunction(distsys.NewTLAString("from")), condition8)), distsys.TLA_EqualsSymbol(condition9.ApplyFunction(distsys.NewTLAString("id")), condition10.ApplyFunction(distsys.NewTLAString("id")))), distsys.TLA_EqualsSymbol(condition11.ApplyFunction(distsys.NewTLAString("typ")), func() distsys.TLAValue {
+						return PROXY_RESP_MSG_TYP(constants)
+					}())).AsBool() {
+						err = fmt.Errorf("%w: (((((proxyResp).to) = (ProxyID)) /\\ (((proxyResp).from) = (idx))) /\\ (((proxyResp).id) = ((msg).id))) /\\ (((proxyResp).typ) = (PROXY_RESP_MSG_TYP))", distsys.ErrAssertionFailed)
+						continue
+					}
+					err = ctx.Write(programCounter, []distsys.TLAValue{}, distsys.NewTLANumber(sendMsgToClientLabelTag))
+					if err != nil {
+						continue
+					}
+					err = ctx.Commit()
+					if err != nil {
+						continue
+					}
 				}
-				var condition7 distsys.TLAValue
-				condition7, err = ctx.Read(proxyResp, []distsys.TLAValue{})
-				if err != nil {
-					continue
-				}
-				var condition8 distsys.TLAValue
-				condition8, err = ctx.Read(msg, []distsys.TLAValue{})
-				if err != nil {
-					continue
-				}
-				var condition9 distsys.TLAValue
-				condition9, err = ctx.Read(proxyResp, []distsys.TLAValue{})
-				if err != nil {
-					continue
-				}
-				if !distsys.TLA_LogicalAndSymbol(distsys.TLA_LogicalAndSymbol(distsys.TLA_LogicalAndSymbol(distsys.TLA_EqualsSymbol(condition4.ApplyFunction(distsys.NewTLAString("to")), func() distsys.TLAValue {
-					return ProxyID(constants)
-				}()), distsys.TLA_EqualsSymbol(condition5.ApplyFunction(distsys.NewTLAString("from")), condition6)), distsys.TLA_EqualsSymbol(condition7.ApplyFunction(distsys.NewTLAString("id")), condition8.ApplyFunction(distsys.NewTLAString("id")))), distsys.TLA_EqualsSymbol(condition9.ApplyFunction(distsys.NewTLAString("typ")), func() distsys.TLAValue {
-					return PROXY_RESP_MSG_TYP(constants)
-				}())).AsBool() {
-					err = fmt.Errorf("%w: (((((proxyResp).to) = (ProxyID)) /\\ (((proxyResp).from) = (idx))) /\\ (((proxyResp).id) = ((msg).id))) /\\ (((proxyResp).typ) = (PROXY_RESP_MSG_TYP))", distsys.ErrAssertionFailed)
-					continue
-				}
-				err = ctx.Write(programCounter, []distsys.TLAValue{}, distsys.NewTLANumber(sendMsgToClientLabelTag))
-				if err != nil {
-					continue
-				}
-				err = ctx.Commit()
-				if err != nil {
-					continue
-				}
+				// no statements
+				// no statements
 			case 1:
-				var condition10 distsys.TLAValue
-				condition10, err = ctx.Read(idx, []distsys.TLAValue{})
+				var condition12 distsys.TLAValue
+				condition12, err = ctx.Read(idx, []distsys.TLAValue{})
 				if err != nil {
 					continue
 				}
-				var condition11 distsys.TLAValue
-				condition11, err = ctx.Read(fd, []distsys.TLAValue{condition10})
+				var condition13 distsys.TLAValue
+				condition13, err = ctx.Read(fd, []distsys.TLAValue{condition12})
 				if err != nil {
 					continue
 				}
-				if !condition11.AsBool() {
+				if !condition13.AsBool() {
 					err = distsys.ErrCriticalSectionAborted
 					continue
 				}
-				var exprRead12 distsys.TLAValue
-				exprRead12, err = ctx.Read(idx, []distsys.TLAValue{})
+				var exprRead11 distsys.TLAValue
+				exprRead11, err = ctx.Read(idx, []distsys.TLAValue{})
 				if err != nil {
 					continue
 				}
-				err = ctx.Write(idx, []distsys.TLAValue{}, distsys.TLA_PlusSymbol(exprRead12, distsys.NewTLANumber(1)))
+				err = ctx.Write(idx, []distsys.TLAValue{}, distsys.TLA_PlusSymbol(exprRead11, distsys.NewTLANumber(1)))
 				if err != nil {
 					continue
 				}
@@ -451,7 +487,7 @@ func AProxy(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constant
 				continue
 			}
 			var exprRead4 distsys.TLAValue
-			exprRead4, err = ctx.Read(proxyResp, []distsys.TLAValue{})
+			exprRead4, err = ctx.Read(msg, []distsys.TLAValue{})
 			if err != nil {
 				continue
 			}
@@ -505,6 +541,10 @@ func AProxy(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constant
 }
 
 func AServer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constants, net0 distsys.ArchetypeResourceHandle, netEnabled distsys.ArchetypeResourceHandle, fd0 distsys.ArchetypeResourceHandle) error {
+	ctx.ReportEvent(distsys.ArchetypeStarted)
+	defer func() {
+		ctx.ReportEvent(distsys.ArchetypeFinished)
+	}()
 	var err0 error
 	// label tags
 	const (
@@ -525,6 +565,11 @@ func AServer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constan
 	var fairnessCounter3 int = 0
 
 	for {
+		select {
+		case <-ctx.Done():
+			err0 = distsys.ErrContextClosed
+		default:
+		}
 		if err0 != nil {
 			if err0 == distsys.ErrCriticalSectionAborted {
 				ctx.Abort()
@@ -548,7 +593,7 @@ func AServer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constan
 			if distsys.TLA_TRUE.AsBool() {
 				if constants.EXPLORE_FAIL.AsBool() {
 					fairnessCounterCurrent1 := fairnessCounter1
-					fairnessCounter1 = fairnessCounter1 + 1%2
+					fairnessCounter1 = (fairnessCounter1 + 1) % 2
 					switch fairnessCounterCurrent1 {
 					case 0:
 						// skip
@@ -561,7 +606,9 @@ func AServer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constan
 							continue
 						}
 					case 1:
-						err0 = ctx.Write(netEnabled, []distsys.TLAValue{self}, distsys.TLA_FALSE)
+						err0 = ctx.Write(netEnabled, []distsys.TLAValue{distsys.NewTLATuple(self, func() distsys.TLAValue {
+							return PROXY_REQ_MSG_TYP(constants)
+						}())}, distsys.TLA_FALSE)
 						if err0 != nil {
 							continue
 						}
@@ -600,24 +647,14 @@ func AServer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constan
 			}
 			// no statements
 		case serverRcvMsgLabelTag:
-			var exprRead13 distsys.TLAValue
-			exprRead13, err0 = ctx.Read(net0, []distsys.TLAValue{distsys.NewTLATuple(self, func() distsys.TLAValue {
+			var exprRead12 distsys.TLAValue
+			exprRead12, err0 = ctx.Read(net0, []distsys.TLAValue{distsys.NewTLATuple(self, func() distsys.TLAValue {
 				return PROXY_REQ_MSG_TYP(constants)
 			}())})
 			if err0 != nil {
 				continue
 			}
-			err0 = ctx.Write(msg0, []distsys.TLAValue{}, exprRead13)
-			if err0 != nil {
-				continue
-			}
-			var condition12 distsys.TLAValue
-			condition12, err0 = ctx.Read(msg0, []distsys.TLAValue{})
-			if err0 != nil {
-				continue
-			}
-			var condition13 distsys.TLAValue
-			condition13, err0 = ctx.Read(msg0, []distsys.TLAValue{})
+			err0 = ctx.Write(msg0, []distsys.TLAValue{}, exprRead12)
 			if err0 != nil {
 				continue
 			}
@@ -626,9 +663,19 @@ func AServer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constan
 			if err0 != nil {
 				continue
 			}
-			if !distsys.TLA_LogicalAndSymbol(distsys.TLA_LogicalAndSymbol(distsys.TLA_EqualsSymbol(condition12.ApplyFunction(distsys.NewTLAString("to")), self), distsys.TLA_EqualsSymbol(condition13.ApplyFunction(distsys.NewTLAString("from")), func() distsys.TLAValue {
+			var condition15 distsys.TLAValue
+			condition15, err0 = ctx.Read(msg0, []distsys.TLAValue{})
+			if err0 != nil {
+				continue
+			}
+			var condition16 distsys.TLAValue
+			condition16, err0 = ctx.Read(msg0, []distsys.TLAValue{})
+			if err0 != nil {
+				continue
+			}
+			if !distsys.TLA_LogicalAndSymbol(distsys.TLA_LogicalAndSymbol(distsys.TLA_EqualsSymbol(condition14.ApplyFunction(distsys.NewTLAString("to")), self), distsys.TLA_EqualsSymbol(condition15.ApplyFunction(distsys.NewTLAString("from")), func() distsys.TLAValue {
 				return ProxyID(constants)
-			}())), distsys.TLA_EqualsSymbol(condition14.ApplyFunction(distsys.NewTLAString("typ")), func() distsys.TLAValue {
+			}())), distsys.TLA_EqualsSymbol(condition16.ApplyFunction(distsys.NewTLAString("typ")), func() distsys.TLAValue {
 				return PROXY_REQ_MSG_TYP(constants)
 			}())).AsBool() {
 				err0 = fmt.Errorf("%w: ((((msg).to) = (self)) /\\ (((msg).from) = (ProxyID))) /\\ (((msg).typ) = (PROXY_REQ_MSG_TYP))", distsys.ErrAssertionFailed)
@@ -636,7 +683,7 @@ func AServer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constan
 			}
 			if constants.EXPLORE_FAIL.AsBool() {
 				fairnessCounterCurrent2 := fairnessCounter2
-				fairnessCounter2 = fairnessCounter2 + 1%2
+				fairnessCounter2 = (fairnessCounter2 + 1) % 2
 				switch fairnessCounterCurrent2 {
 				case 0:
 					// skip
@@ -649,7 +696,9 @@ func AServer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constan
 						continue
 					}
 				case 1:
-					err0 = ctx.Write(netEnabled, []distsys.TLAValue{self}, distsys.TLA_FALSE)
+					err0 = ctx.Write(netEnabled, []distsys.TLAValue{distsys.NewTLATuple(self, func() distsys.TLAValue {
+						return PROXY_REQ_MSG_TYP(constants)
+					}())}, distsys.TLA_FALSE)
 					if err0 != nil {
 						continue
 					}
@@ -677,21 +726,21 @@ func AServer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constan
 			}
 			// no statements
 		case serverSendMsgLabelTag:
+			var exprRead13 distsys.TLAValue
+			exprRead13, err0 = ctx.Read(msg0, []distsys.TLAValue{})
+			if err0 != nil {
+				continue
+			}
 			var exprRead14 distsys.TLAValue
 			exprRead14, err0 = ctx.Read(msg0, []distsys.TLAValue{})
 			if err0 != nil {
 				continue
 			}
-			var exprRead15 distsys.TLAValue
-			exprRead15, err0 = ctx.Read(msg0, []distsys.TLAValue{})
-			if err0 != nil {
-				continue
-			}
 			err0 = ctx.Write(resp0, []distsys.TLAValue{}, distsys.NewTLARecord([]distsys.TLARecordField{
 				{distsys.NewTLAString("from"), self},
-				{distsys.NewTLAString("to"), exprRead14.ApplyFunction(distsys.NewTLAString("from"))},
+				{distsys.NewTLAString("to"), exprRead13.ApplyFunction(distsys.NewTLAString("from"))},
 				{distsys.NewTLAString("body"), self},
-				{distsys.NewTLAString("id"), exprRead15.ApplyFunction(distsys.NewTLAString("id"))},
+				{distsys.NewTLAString("id"), exprRead14.ApplyFunction(distsys.NewTLAString("id"))},
 				{distsys.NewTLAString("typ"), func() distsys.TLAValue {
 					return PROXY_RESP_MSG_TYP(constants)
 				}()},
@@ -699,8 +748,8 @@ func AServer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constan
 			if err0 != nil {
 				continue
 			}
-			var exprRead16 distsys.TLAValue
-			exprRead16, err0 = ctx.Read(resp0, []distsys.TLAValue{})
+			var exprRead15 distsys.TLAValue
+			exprRead15, err0 = ctx.Read(resp0, []distsys.TLAValue{})
 			if err0 != nil {
 				continue
 			}
@@ -714,13 +763,13 @@ func AServer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constan
 			if err0 != nil {
 				continue
 			}
-			err0 = ctx.Write(net0, []distsys.TLAValue{distsys.NewTLATuple(indexRead2.ApplyFunction(distsys.NewTLAString("to")), indexRead3.ApplyFunction(distsys.NewTLAString("typ")))}, exprRead16)
+			err0 = ctx.Write(net0, []distsys.TLAValue{distsys.NewTLATuple(indexRead2.ApplyFunction(distsys.NewTLAString("to")), indexRead3.ApplyFunction(distsys.NewTLAString("typ")))}, exprRead15)
 			if err0 != nil {
 				continue
 			}
 			if constants.EXPLORE_FAIL.AsBool() {
 				fairnessCounterCurrent3 := fairnessCounter3
-				fairnessCounter3 = fairnessCounter3 + 1%2
+				fairnessCounter3 = (fairnessCounter3 + 1) % 2
 				switch fairnessCounterCurrent3 {
 				case 0:
 					// skip
@@ -733,7 +782,9 @@ func AServer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constan
 						continue
 					}
 				case 1:
-					err0 = ctx.Write(netEnabled, []distsys.TLAValue{self}, distsys.TLA_FALSE)
+					err0 = ctx.Write(netEnabled, []distsys.TLAValue{distsys.NewTLATuple(self, func() distsys.TLAValue {
+						return PROXY_REQ_MSG_TYP(constants)
+					}())}, distsys.TLA_FALSE)
 					if err0 != nil {
 						continue
 					}
@@ -781,7 +832,11 @@ func AServer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constan
 	}
 }
 
-func AClient(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constants, net1 distsys.ArchetypeResourceHandle) error {
+func AClient(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constants, net1 distsys.ArchetypeResourceHandle, output distsys.ArchetypeResourceHandle) error {
+	ctx.ReportEvent(distsys.ArchetypeStarted)
+	defer func() {
+		ctx.ReportEvent(distsys.ArchetypeFinished)
+	}()
 	var err1 error
 	// label tags
 	const (
@@ -796,8 +851,15 @@ func AClient(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constan
 	_ = req
 	resp1 := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.TLAValue{}))
 	_ = resp1
+	reqId := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.TLAValue{}))
+	_ = reqId
 
 	for {
+		select {
+		case <-ctx.Done():
+			err1 = distsys.ErrContextClosed
+		default:
+		}
 		if err1 != nil {
 			if err1 == distsys.ErrCriticalSectionAborted {
 				ctx.Abort()
@@ -813,6 +875,10 @@ func AClient(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constan
 		}
 		switch labelTag1.AsNumber() {
 		case InitLabelTag1:
+			err1 = ctx.Write(reqId, nil, distsys.NewTLANumber(0))
+			if err1 != nil {
+				continue
+			}
 			err1 = ctx.Write(programCounter1, []distsys.TLAValue{}, distsys.NewTLANumber(clientLoopLabelTag))
 			if err1 != nil {
 				continue
@@ -839,13 +905,18 @@ func AClient(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constan
 			}
 			// no statements
 		case clientSendReqLabelTag:
+			var exprRead16 distsys.TLAValue
+			exprRead16, err1 = ctx.Read(reqId, []distsys.TLAValue{})
+			if err1 != nil {
+				continue
+			}
 			err1 = ctx.Write(req, []distsys.TLAValue{}, distsys.NewTLARecord([]distsys.TLARecordField{
 				{distsys.NewTLAString("from"), self},
 				{distsys.NewTLAString("to"), func() distsys.TLAValue {
 					return ProxyID(constants)
 				}()},
 				{distsys.NewTLAString("body"), self},
-				{distsys.NewTLAString("id"), distsys.NewTLANumber(0)},
+				{distsys.NewTLAString("id"), exprRead16},
 				{distsys.NewTLAString("typ"), func() distsys.TLAValue {
 					return REQ_MSG_TYP(constants)
 				}()},
@@ -898,25 +969,37 @@ func AClient(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constan
 			if err1 != nil {
 				continue
 			}
-			var condition15 distsys.TLAValue
-			condition15, err1 = ctx.Read(resp1, []distsys.TLAValue{})
-			if err1 != nil {
-				continue
-			}
-			var condition16 distsys.TLAValue
-			condition16, err1 = ctx.Read(resp1, []distsys.TLAValue{})
-			if err1 != nil {
-				continue
-			}
 			var condition17 distsys.TLAValue
 			condition17, err1 = ctx.Read(resp1, []distsys.TLAValue{})
 			if err1 != nil {
 				continue
 			}
-			if !distsys.TLA_LogicalAndSymbol(distsys.TLA_LogicalAndSymbol(distsys.TLA_EqualsSymbol(condition15.ApplyFunction(distsys.NewTLAString("to")), self), distsys.TLA_EqualsSymbol(condition16.ApplyFunction(distsys.NewTLAString("id")), distsys.NewTLANumber(0))), distsys.TLA_EqualsSymbol(condition17.ApplyFunction(distsys.NewTLAString("typ")), func() distsys.TLAValue {
+			var condition18 distsys.TLAValue
+			condition18, err1 = ctx.Read(resp1, []distsys.TLAValue{})
+			if err1 != nil {
+				continue
+			}
+			var condition19 distsys.TLAValue
+			condition19, err1 = ctx.Read(reqId, []distsys.TLAValue{})
+			if err1 != nil {
+				continue
+			}
+			var condition20 distsys.TLAValue
+			condition20, err1 = ctx.Read(resp1, []distsys.TLAValue{})
+			if err1 != nil {
+				continue
+			}
+			var condition21 distsys.TLAValue
+			condition21, err1 = ctx.Read(resp1, []distsys.TLAValue{})
+			if err1 != nil {
+				continue
+			}
+			if !distsys.TLA_LogicalAndSymbol(distsys.TLA_LogicalAndSymbol(distsys.TLA_LogicalAndSymbol(distsys.TLA_EqualsSymbol(condition17.ApplyFunction(distsys.NewTLAString("to")), self), distsys.TLA_EqualsSymbol(condition18.ApplyFunction(distsys.NewTLAString("id")), condition19)), distsys.TLA_EqualsSymbol(condition20.ApplyFunction(distsys.NewTLAString("from")), func() distsys.TLAValue {
+				return ProxyID(constants)
+			}())), distsys.TLA_EqualsSymbol(condition21.ApplyFunction(distsys.NewTLAString("typ")), func() distsys.TLAValue {
 				return RESP_MSG_TYP(constants)
 			}())).AsBool() {
-				err1 = fmt.Errorf("%w: ((((resp).to) = (self)) /\\ (((resp).id) = (0))) /\\ (((resp).typ) = (RESP_MSG_TYP))", distsys.ErrAssertionFailed)
+				err1 = fmt.Errorf("%w: (((((resp).to) = (self)) /\\ (((resp).id) = (reqId))) /\\ (((resp).from) = (ProxyID))) /\\ (((resp).typ) = (RESP_MSG_TYP))", distsys.ErrAssertionFailed)
 				continue
 			}
 			var toPrint0 distsys.TLAValue
@@ -925,6 +1008,26 @@ func AClient(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constan
 				continue
 			}
 			distsys.NewTLATuple(distsys.NewTLAString("CLIENT RESP"), toPrint0).PCalPrint()
+			var exprRead19 distsys.TLAValue
+			exprRead19, err1 = ctx.Read(reqId, []distsys.TLAValue{})
+			if err1 != nil {
+				continue
+			}
+			err1 = ctx.Write(reqId, []distsys.TLAValue{}, distsys.TLA_PercentSymbol(distsys.TLA_PlusSymbol(exprRead19, distsys.NewTLANumber(1)), func() distsys.TLAValue {
+				return MSG_ID_BOUND(constants)
+			}()))
+			if err1 != nil {
+				continue
+			}
+			var exprRead20 distsys.TLAValue
+			exprRead20, err1 = ctx.Read(resp1, []distsys.TLAValue{})
+			if err1 != nil {
+				continue
+			}
+			err1 = ctx.Write(output, []distsys.TLAValue{}, exprRead20)
+			if err1 != nil {
+				continue
+			}
 			err1 = ctx.Write(programCounter1, []distsys.TLAValue{}, distsys.NewTLANumber(clientLoopLabelTag))
 			if err1 != nil {
 				continue

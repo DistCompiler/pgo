@@ -321,7 +321,7 @@ object MPCalGoCodegenPass {
             case either@PCalEither(cases) =>
               ctx.cleanName(s"fairnessCounterCurrent") { fairnessCounterCurrent =>
                 d"\n$fairnessCounterCurrent := ${fairnessCounterNames(either)}" +
-                  d"\n${fairnessCounterNames(either)} = ${fairnessCounterNames(either)} + 1 % ${cases.size}" +
+                  d"\n${fairnessCounterNames(either)} = (${fairnessCounterNames(either)} + 1) % ${cases.size}" +
                   d"\nswitch $fairnessCounterCurrent {${
                     cases.view.zipWithIndex.map {
                       case (body, idx) =>
@@ -405,7 +405,11 @@ object MPCalGoCodegenPass {
           case param@MPCalValParam(_) => d", ${paramNames(param)} $TLAValue"
         }.flattenDescriptions
       }) error {${
-        (d"\nvar ${ctx.err} error" +
+        (d"\nctx.ReportEvent(distsys.ArchetypeStarted)" +
+          d"\ndefer func() {" +
+          d"\nctx.ReportEvent(distsys.ArchetypeFinished)".indented +
+          d"\n}()" +
+          d"\nvar ${ctx.err} error" +
           d"\n// label tags" +
           d"\nconst (${
             (d"\n$InitLabelTag = iota" +
@@ -433,6 +437,11 @@ object MPCalGoCodegenPass {
           }.flattenDescriptions +
           d"\n" +
           d"\nfor {${
+            (d"\nselect {" +
+              d"\ncase <-ctx.Done():" +
+              d"\n$err = distsys.ErrContextClosed".indented +
+              d"\ndefault:" +
+              d"\n}").indented +
             (d"\nif $err != nil {${
               (d"\nif $err == distsys.ErrCriticalSectionAborted {${
                 (d"\nctx.Abort()" +
@@ -507,7 +516,7 @@ object MPCalGoCodegenPass {
         val boundIds: IdMap[RefersTo.HasReferences,String] = elements.view.map(id => id -> ctx.nameCleaner.cleanName(id.id.id)).to(IdMap)
         val bindings = elements.view.zipWithIndex.map {
           case (element, elemIdx) =>
-            d"\nvar ${boundIds(element)} $TLAValue = $setExpr.ApplyFunction(distsys.NewTLANumber($elemIdx))" +
+            d"\nvar ${boundIds(element)} $TLAValue = $setExpr.ApplyFunction(distsys.NewTLANumber(${elemIdx + 1}))" +
               d"\n_ = ${boundIds(element)}"
         }.flattenDescriptions
         (boundIds, bindings)
