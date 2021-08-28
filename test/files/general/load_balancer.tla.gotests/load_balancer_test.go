@@ -74,7 +74,7 @@ func TestOneServerOneClient(t *testing.T) {
     configFns = append(configFns, constantDefs...)
     configFns = append(configFns,
         distsys.EnsureArchetypeRefParam("mailboxes", resources.TCPMailboxesArchetypeResourceMaker(makeAddressFn(1))),
-        distsys.EnsureArchetypeRefParam("file_system", resources.FilesystemArchetypeResourceMaker(tempDir)))
+        distsys.EnsureArchetypeRefParam("file_system", resources.FileSystemArchetypeResourceMaker(tempDir)))
     ctxServer := distsys.NewMPCalContext(distsys.NewTLANumber(1), AServer, configFns...)
 	go func() {
 		err := ctxServer.Run()
@@ -94,10 +94,10 @@ func TestOneServerOneClient(t *testing.T) {
     ctxClient := distsys.NewMPCalContext(distsys.NewTLANumber(2), AClient, configFns...)
 	go func() {
 		err := ctxClient.Run()
-		if err != nil {
+		if err != nil && err != distsys.ErrContextClosed {
 			panic(err)
 		}
-	}
+	}()
 
 	defer func() {
 		if err := ctxLoadBalancer.Close(); err != nil {

@@ -190,22 +190,22 @@ type ArchetypeEvent int
 
 const (
 	// ArchetypeStarted denotes that the archetype execution has started
-	ArchetypeStarted ArchetypeEvent = iota
+	archetypeStarted ArchetypeEvent = iota
 	// ArchetypeFinished denotes that the archetype execution has finished
-	ArchetypeFinished
+	archetypeFinished
 )
 
 // ReportEvent will be called by an archetype to report an event about its
 // execution.
-func (ctx *MPCalContext) ReportEvent(event ArchetypeEvent) {
+func (ctx *MPCalContext) reportEvent(event ArchetypeEvent) {
 	switch event {
-	case ArchetypeStarted:
+	case archetypeStarted:
 		select {
 		case ctx.events <- struct{}{}:
 		default:
 			panic("archetype has started before")
 		}
-	case ArchetypeFinished:
+	case archetypeFinished:
 		close(ctx.events)
 	}
 }
@@ -428,9 +428,22 @@ func (ctx *MPCalContext) Run() error {
 	// sanity checks and other setup, done here so you can init a context, not call Run, and not get checks
 	ctx.preRun()
 
+	// report start, and defer reporting completion to whenever this function returns
+	ctx.reportEvent(archetypeStarted)
+	defer ctx.reportEvent(archetypeFinished)
+
 	pc := ctx.iface.RequireArchetypeResource(".pc")
 	var err error
 	for {
+		// poll the done channel for Close calls.
+		// this should execute "regularly", since all archetype label implementations are non-blocking
+		// (except commits, which we discretely ignore; you can't cancel them, anyhow)
+		select {
+		case <-ctx.done:
+			return ErrContextClosed
+		default: // pass
+		}
+
 		// all error control flow lives here, reached by "continue" from below
 		switch err {
 		case nil: // everything is fine; carry on
@@ -500,11 +513,9 @@ func (ctx *MPCalContext) Close() error {
 
 	var err error
 	// Note that we should close all the resources, not just the dirty ones.
-	it := ctx.resources.Iterator()
-	for !it.Done() {
-		_, r := it.Next()
-		cerr := r.(ArchetypeResource).Close()
-		err = multierr.Append(err, cerr)
+	for _, res := range ctx.resources {
+	    cerr := res.Close()
+    	err = multierr.Append(err, cerr)
 	}
 	return err
 }

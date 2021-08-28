@@ -33,6 +33,8 @@ class GoGenFileTests extends FileTestSuite {
           // unless the environment var above is set, write the output file into the test files, so the test can
           // be debugged / manipulated using standard Go tools
           os.write.over(goTestsDir / outFile.last, outFile.toSource)
+          // auto-tidy the copied files, so we can keep the setups up to date
+          os.proc(goExe, "mod", "tidy").call(cwd = goTestsDir)
         }
         // try to run tests in Go, subprocess failure will count as a test failure
         // see above for where to find generated code to debug
