@@ -2,10 +2,13 @@
 
 EXTENDS Naturals, Sequences, TLC, FiniteSets
 
+\* test higher-order constants
+CONSTANT MK_HELLO(_,_)
+
 (********************
 --mpcal hello {
     define {
-        HELLO == "hello"
+        HELLO == MK_HELLO("hell", "o")
     }
 
     archetype AHello(ref out) {

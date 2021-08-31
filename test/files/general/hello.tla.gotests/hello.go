@@ -9,7 +9,7 @@ var _ = new(fmt.Stringer)  // unconditionally prevent go compiler from reporting
 var _ = distsys.TLAValue{} // same, for distsys
 
 func HELLO(iface distsys.ArchetypeInterface) distsys.TLAValue {
-	return distsys.NewTLAString("hello")
+	return iface.GetConstant("MK_HELLO")(distsys.NewTLAString("hell"), distsys.NewTLAString("o"))
 }
 
 var procTable = distsys.MakeMPCalProcTable()

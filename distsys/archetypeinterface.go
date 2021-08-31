@@ -5,11 +5,17 @@ import (
 	"github.com/benbjohnson/immutable"
 )
 
+// ArchetypeInterface provides an archetype-centric interface to an MPCalContext.
+// While just an opaque wrapper for an MPCalContext, it provides a separation of concerns between:
+// (1) how to configure and run and MPCal archetype (available via a plain MPCalContext)
+// (2) how the MPCal archetype's code accesses its configuration and internal state while running (available via ArchetypeInterface)
 type ArchetypeInterface struct {
 	ctx *MPCalContext
 }
 
+// Self returns the associated archetype's self binding. Requires a configured archetype.
 func (iface ArchetypeInterface) Self() TLAValue {
+	iface.ctx.requireArchetype()
 	return iface.ctx.self
 }
 
@@ -17,6 +23,8 @@ func (iface ArchetypeInterface) ensureCriticalSectionWith(handle ArchetypeResour
 	iface.ctx.dirtyResourceHandles[handle] = true
 }
 
+// Write models the MPCal statement resourceFromHandle[indices...] := value.
+// It is expected to be called only from PGo-generated code.
 func (iface ArchetypeInterface) Write(handle ArchetypeResourceHandle, indices []TLAValue, value TLAValue) (err error) {
 	iface.ensureCriticalSectionWith(handle)
 	res := iface.ctx.getResourceByHandle(handle)
@@ -30,6 +38,8 @@ func (iface ArchetypeInterface) Write(handle ArchetypeResourceHandle, indices []
 	return
 }
 
+// Read models the MPCal expression resourceFromHandle[indices...].
+// If is expected to be called only from PGo-generated code.
 func (iface ArchetypeInterface) Read(handle ArchetypeResourceHandle, indices []TLAValue) (value TLAValue, err error) {
 	iface.ensureCriticalSectionWith(handle)
 	res := iface.ctx.getResourceByHandle(handle)
@@ -43,6 +53,8 @@ func (iface ArchetypeInterface) Read(handle ArchetypeResourceHandle, indices []T
 	return
 }
 
+// Fairness returns an int, which, from call to call, for the same id, follows the looping sequence 0..ceiling
+// This allows an archetype to explore different branches of an either statement (each of which has its own id) during execution.
 func (iface ArchetypeInterface) Fairness(id string, ceiling int) int {
 	fairnessCounters := iface.ctx.fairnessCounters
 	counter := fairnessCounters[id]
@@ -56,6 +68,8 @@ func (iface ArchetypeInterface) Fairness(id string, ceiling int) int {
 	return counter
 }
 
+// GetConstant returns the constant operator bound to the given name as a variadic Go function.
+// The function is generated in DefineConstantOperator, and is expected to check its own arguments.
 func (iface ArchetypeInterface) GetConstant(name string) func(args... TLAValue) TLAValue {
 	fn, wasFound := iface.ctx.constantDefns[name]
 	if !wasFound {
@@ -64,12 +78,17 @@ func (iface ArchetypeInterface) GetConstant(name string) func(args... TLAValue) 
 	return fn
 }
 
+// RequireArchetypeResource returns a handle to the archetype resource with the given name. It panics if this resource
+// does not exist.
 func (iface ArchetypeInterface) RequireArchetypeResource(name string) ArchetypeResourceHandle {
 	handle := ArchetypeResourceHandle(name)
 	_ = iface.ctx.getResourceByHandle(handle)
 	return handle
 }
 
+// RequireArchetypeResourceRef returns a handle to the archetype resource with the given name, when the name refers
+// to a resource that was passed by ref in MPCal (in Go, ref-passing has an extra indirection that must be followed).
+// If the resource does not exist, or an invalid indirection is used, this method will panic.
 func (iface ArchetypeInterface) RequireArchetypeResourceRef(name string) (ArchetypeResourceHandle, error) {
 	ptr := iface.RequireArchetypeResource(name)
 	ptrVal, err := iface.Read(ptr, nil)
@@ -79,10 +98,15 @@ func (iface ArchetypeInterface) RequireArchetypeResourceRef(name string) (Archet
 	return iface.RequireArchetypeResource(ptrVal.AsString()), nil
 }
 
+// EnsureArchetypeResourceLocal ensures that a local state variable exists (local to an archetype or procedure), creating
+// it with the given default value if not.
 func (iface ArchetypeInterface) EnsureArchetypeResourceLocal(name string, value TLAValue) {
 	_ = iface.ctx.ensureArchetypeResource(name, LocalArchetypeResourceMaker(value))
 }
 
+// ReadArchetypeResourceLocal is a short-cut to reading a local state variable, which, unlike other resources, is
+// statically known to not require any critical section management. It will return the resource's value as-is, and
+// will crash if the named resource isn't exactly a local state variable.
 func (iface ArchetypeInterface) ReadArchetypeResourceLocal(name string) TLAValue {
 	return iface.ctx.getResourceByHandle(ArchetypeResourceHandle(name)).(*LocalArchetypeResource).value
 }
@@ -108,12 +132,24 @@ func (iface ArchetypeInterface) ensureArchetypeResourceLocal(name string) Archet
 	return iface.ctx.ensureArchetypeResource(name, defaultLocalArchetypeResourceMaker)
 }
 
+// Goto sets the running archetype's program counter to the target value.
+// It will panic if the target is not a valid label name.
+// This method should be called at the end of a critical section.
 func (iface ArchetypeInterface) Goto(target string) error {
 	_ = iface.getCriticalSection(target) // crash now if the new pc isn't in the jump table
 	pc := iface.RequireArchetypeResource(".pc")
 	return iface.Write(pc, nil, NewTLAString(target))
 }
 
+// Call performs all necessary steps of a procedure call in MPCal, given a procedure name, a program counter to return to,
+// and any number of arguments.
+// Specifically, this involves:
+// - read the callee's locals, and saving them onto the stack state variable
+// - write the new argument values (argVals, in the same order as in MPCal) to the callee's arguments
+// - initialize any local state variables in the callee
+// - jump to the callee's first label via Goto
+//
+// This method should be called at the end of a critical section.
 func (iface ArchetypeInterface) Call(procName string, returnPC string, argVals... TLAValue) error {
 	proc := iface.getProc(procName)
 	stack := iface.RequireArchetypeResource(".stack")
@@ -165,6 +201,16 @@ func (iface ArchetypeInterface) Call(procName string, returnPC string, argVals..
 	return iface.Goto(proc.Label)
 }
 
+// TailCall specialises the Call operation via the well-known tail-call optimisation.
+// It does this by:
+// - extracting a return value from the top of the callstack
+// - performing a Return
+// - immediately performing a Call to procName with argVals and the extracted return destination
+//
+// This ensures that the existing top-of-stack is cleaned up, the correct return address is stored, and
+// all the procedure call semantics for a new call replacing the current one are satisfied.
+//
+// This method, like those it wraps, should be called at the end of a critical section.
 func (iface ArchetypeInterface) TailCall(procName string, argVals... TLAValue) error {
 	// pull the top-of-stack return address from the initial stack, so we can use it in the tail-call process below
 	stack := iface.RequireArchetypeResource(".stack")
@@ -188,6 +234,16 @@ func (iface ArchetypeInterface) TailCall(procName string, argVals... TLAValue) e
 	return iface.Call(procName, tailPC.(TLAValue).AsString(), argVals...)
 }
 
+// Return executes the entire semantics of an MPCal procedure return.
+// This involves:
+// - popping a record from top-of-stack (which must not be empty), which contains many pairs of name -> TLA+ value
+//   - for each pair, find the resource with the given name, and write the given TLA+ value to it
+//
+// This ensures all the callee's local state variables have their values restored to how they were before the procedure call.
+// The program counter, with the label to return to, is included in the state variables to "restore", so no special logic
+// is needed for that.
+//
+// This method should be called at the end of a critical section.
 func (iface ArchetypeInterface) Return() error {
 	stack := iface.RequireArchetypeResource(".stack")
 	// rewrite the stack, "popping" one the head element

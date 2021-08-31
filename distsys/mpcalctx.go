@@ -20,8 +20,10 @@ var ErrCriticalSectionAborted = errors.New("MPCal critical section aborted")
 // ErrContextClosed will be returned if the context of an archetype is closed.
 var ErrContextClosed = errors.New("MPCal context closed")
 
+// ErrDone exists only to be returned by archetype code implementing the Done label
 var ErrDone = errors.New("A pseudo-error to indicate an archetype has terminated execution normally")
 
+// ErrProcedureFallthrough indicated an archetype reached the Error label, and crashed.
 var ErrProcedureFallthrough = errors.New("control has reached the end of a procedure body without reaching a return")
 
 type MPCalJumpTable map[string]MPCalCriticalSection
@@ -113,9 +115,9 @@ func (mkStruct ArchetypeResourceMakerStruct) Configure(res ArchetypeResource) {
 
 // MPCalContext manages the internal lifecycle of a compiled MPCal model's execution.
 // This includes:
-// - currently stub-level stack frame management
-// - critical section semantics
-// - resource lifecycle management, which may eventually include logging and crash recovery
+// - critical section state
+// - configured resources, constant values, and the archetype's self binding
+// - the ability to start and stop the archetype, via Run and Close.
 type MPCalContext struct {
 	archetype MPCalArchetype
 
@@ -142,6 +144,21 @@ type MPCalContext struct {
 
 type MPCalContextConfigFn func(ctx *MPCalContext)
 
+// NewMPCalContext is the principal function for creating MPCalContext instances.
+// It returns a fully-constructed context, executing configuration steps internally.
+// The self parameter refers to the archetype's "self" binding, and should be an appropriately unique TLA+ value, with
+// the same semantics as used in PlusCal and TLC.
+// The archetype parameter should refer to a static PGo-compiled structure, which contains all intrinsic information
+// about how a given archetype should run.
+// This information includes:
+// - necessary value-level archetype parameters (no ref keyword)
+// - necessary archetype resources (with ref keyword, and with or without [_])
+// - control flow information, pointers to routines for the relevant critical sections
+//
+// See MPCalArchetype for further information.
+//
+// For information on both necessary and optional configuration, see MPCalContextConfigFn, which can be provided to
+// NewMPCalContext in order to set constant values, pass archetype parameters, and any other configuration information.
 func NewMPCalContext(self TLAValue, archetype MPCalArchetype, configFns... MPCalContextConfigFn) *MPCalContext {
 	ctx := &MPCalContext{
 		archetype: archetype,
@@ -174,6 +191,8 @@ func NewMPCalContext(self TLAValue, archetype MPCalArchetype, configFns... MPCal
 	return ctx
 }
 
+// requireArchetype should be called at the start of any method that requires ctx to have more than
+// MPCalContext.constantDefns initialised. Most user-accessible functions will need this.
 func (ctx *MPCalContext) requireArchetype() {
 	bad := ctx.fairnessCounters == nil ||
 		ctx.resources == nil ||
@@ -185,31 +204,12 @@ func (ctx *MPCalContext) requireArchetype() {
 	}
 }
 
-// ArchetypeEvent shows an event in an archetype execution process
-type ArchetypeEvent int
-
-const (
-	// ArchetypeStarted denotes that the archetype execution has started
-	archetypeStarted ArchetypeEvent = iota
-	// ArchetypeFinished denotes that the archetype execution has finished
-	archetypeFinished
-)
-
-// ReportEvent will be called by an archetype to report an event about its
-// execution.
-func (ctx *MPCalContext) reportEvent(event ArchetypeEvent) {
-	switch event {
-	case archetypeStarted:
-		select {
-		case ctx.events <- struct{}{}:
-		default:
-			panic("archetype has started before")
-		}
-	case archetypeFinished:
-		close(ctx.events)
-	}
-}
-
+// EnsureArchetypeRefParam binds an ArchetypeResource to the provided name.
+// The name must match one of the archetype's parameter names, and must refer to a ref parameter.
+// Calling MPCalContext.Run while failing to meet these conditions will panic.
+// The resource is provided via an ArchetypeResourceMaker, which allows resource construction routines to properly
+// handle restart scenarios, where an existing resource was persisted to disk, and the MPCalContext in use was recovered
+// containing existing state.
 func EnsureArchetypeRefParam(name string, maker ArchetypeResourceMaker) MPCalContextConfigFn {
 	return func(ctx *MPCalContext) {
 		ctx.requireArchetype()
@@ -220,6 +220,10 @@ func EnsureArchetypeRefParam(name string, maker ArchetypeResourceMaker) MPCalCon
 	}
 }
 
+// EnsureArchetypeValueParam binds a TLAValue to the provided name.
+// The name must match one of the archetype's parameter names, and must not refer to a ref parameter. If these conditions
+// are not met, attempting to call MPCalContext.Run will panic.
+// Like with EnsureArchetypeRefParam, the provided value may not be used, if existing state has been recovered from storage.
 func EnsureArchetypeValueParam(name string, value TLAValue) MPCalContextConfigFn {
 	return func(ctx *MPCalContext) {
 		ctx.requireArchetype()
@@ -227,12 +231,39 @@ func EnsureArchetypeValueParam(name string, value TLAValue) MPCalContextConfigFn
 	}
 }
 
+// DefineConstantValue will bind a constant name to a provided TLA+ value.
+// The name must match one of the constants declared in the MPCal module, for this option to make sense.
+// Not all constants need to be defined, as long as they are not accessed at runtime.
 func DefineConstantValue(name string, value TLAValue) MPCalContextConfigFn {
 	return DefineConstantOperator(name, func() TLAValue {
 		return value
 	})
 }
 
+// DefineConstantOperator is a more generic form of DefineConstantValue, which allows the specification of
+// higher-order constants.
+//
+// e.g:
+//
+//		CONSTANT IM_SPECIAL(_, _)
+//
+// The above example could be configured as such, if one wanted to approximate `IM_SPECIAL(a, b) == a + b`:
+//
+// 		DefineConstantOperator("IM_SPECIAL", func(a, b TLAValue) TLAValue {
+//      	return TLA_PlusSymbol(a, b)
+//      })
+//
+// Note that the type of defn is interface{} in order to accommodate variadic functions, with reflection being used
+// to determine the appropriate arity information. Any functions over TLAValue, returning a single TLAValue, are accepted.
+// To match TLA+ semantics, the provided function should behave as effectively pure.
+//
+// Valid inputs include:
+//
+// 		func() TLAValue { ... }
+// 		func(a, b, c, TLAValue) TLAValue { ... }
+// 		func(variadic... TLAValue) TLAValue { ... }
+//		func(a TLAValue, variadic... TLAValue) TLAValue { ... }
+//
 func DefineConstantOperator(name string, defn interface{}) MPCalContextConfigFn {
 	doubleDefnCheck := func(ctx *MPCalContext) {
 		if _, ok := ctx.constantDefns[name]; ok {
@@ -251,6 +282,7 @@ func DefineConstantOperator(name string, defn interface{}) MPCalContextConfigFn 
 		defnVal := reflect.ValueOf(defn)
 		defnTyp := reflect.TypeOf(defn)
 		tlaValueTyp := reflect.TypeOf(TLAValue{})
+		tlaValuesType := reflect.TypeOf([]TLAValue{})
 
 		// reflection-based sanity checks. we want fixed-arity functions of the shape func(TLAValue...) TLAValue
 		if defnTyp.Kind() != reflect.Func {
@@ -264,7 +296,11 @@ func DefineConstantOperator(name string, defn interface{}) MPCalContextConfigFn 
 			panic(fmt.Errorf("constant operator definition %s does not return a TLAValue; returns a %v instead", name, defnTyp.Out(0)))
 		}
 		for i := 0; i < argCount; i++ {
-			if !tlaValueTyp.AssignableTo(defnTyp.In(i)) {
+			if i == argCount - 1 && defnTyp.IsVariadic() {
+				if !tlaValuesType.AssignableTo(defnTyp.In(i)) {
+					panic(fmt.Errorf("constant operator definition %s argument %d, which is its variadic argument, does not have type []TLAValue; is a %v instead", name, i, defnTyp.In(i)))
+				}
+			} else if !tlaValueTyp.AssignableTo(defnTyp.In(i)) {
 				panic(fmt.Errorf("constant operator definition %s argument %d does not have type TLAValue; is a %v instead", name, i, defnTyp.In(i)))
 			}
 		}
@@ -312,10 +348,33 @@ func NewMPCalContextWithoutArchetype(configFns... MPCalContextConfigFn) *MPCalCo
 	return ctx
 }
 
+// archetypeEvent shows an event in an archetype execution process
+type archetypeEvent int
+
+const (
+	// ArchetypeStarted denotes that the archetype execution has started
+	archetypeStarted archetypeEvent = iota
+	// ArchetypeFinished denotes that the archetype execution has finished
+	archetypeFinished
+)
+
+// reportEvent will be called by MPCalContext.Run to update execution state. Affects MPCalContext.Close
+func (ctx *MPCalContext) reportEvent(event archetypeEvent) {
+	switch event {
+	case archetypeStarted:
+		select {
+		case ctx.events <- struct{}{}:
+		default:
+			panic("archetype has started before")
+		}
+	case archetypeFinished:
+		close(ctx.events)
+	}
+}
+
 // IFace provides an ArchetypeInterface, giving access to methods considered MPCal-internal.
 // This is useful when directly calling pure TLA+ operators using a context constructed via NewMPCalContextWithoutArchetype,
 // and is one of very few operations that will work on such a context.
-// This operation is not expected to be useful when running with an MPCalArchetype.
 func (ctx *MPCalContext) IFace() ArchetypeInterface {
 	return ctx.iface
 }
@@ -422,6 +481,15 @@ func (ctx *MPCalContext) preRun() {
 	ctx.archetype.PreAmble(ctx.iface)
 }
 
+// Run will execute the archetype loaded into ctx.
+// This routine assumes all necessary information (resources, constant definitions) have been pre-loaded, and
+// encapsulates the entire archetype's execution.
+//
+// This method may return the following outcomes:
+// - nil: the archetype reached the Done label, and has ended of its own accord
+// - ErrContextClosed: Close was called on ctx
+// - ErrAssertionFailed: an assertion in the MPCal code failed (this error will be wrapped by a string describing the assertion)
+// - ErrProcedureFallthrough: the Error label was reached, which is an error in the MPCal code
 func (ctx *MPCalContext) Run() error {
 	// pre-sanity checks: an archetype should be provided if we're going to try and run one
 	ctx.requireArchetype()
@@ -451,7 +519,6 @@ func (ctx *MPCalContext) Run() error {
 			ctx.abort()
 			err = nil
 		case ErrDone: // signals that we're done; quit successfully
-			// TODO: "close" semantics here?
 			return nil
 		default:
 			// some other error; return it to caller, we probably crashed
