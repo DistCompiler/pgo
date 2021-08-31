@@ -26,9 +26,11 @@ var ErrDone = errors.New("A pseudo-error to indicate an archetype has terminated
 // ErrProcedureFallthrough indicated an archetype reached the Error label, and crashed.
 var ErrProcedureFallthrough = errors.New("control has reached the end of a procedure body without reaching a return")
 
+// MPCalJumpTable is an immutable table of all critical sections a given collection of archetypes and procedures might jump to
 type MPCalJumpTable map[string]MPCalCriticalSection
 
-func MakeMPCalJumpTable(criticalSections... MPCalCriticalSection) MPCalJumpTable {
+// MakeMPCalJumpTable constructs a jump table from a sequence of MPCalCriticalSection records
+func MakeMPCalJumpTable(criticalSections ...MPCalCriticalSection) MPCalJumpTable {
 	tbl := make(MPCalJumpTable)
 	for _, criticalSection := range criticalSections {
 		tbl[criticalSection.Name] = criticalSection
@@ -36,14 +38,17 @@ func MakeMPCalJumpTable(criticalSections... MPCalCriticalSection) MPCalJumpTable
 	return tbl
 }
 
+// MPCalCriticalSection holds metadata for a single MPCal critical section
 type MPCalCriticalSection struct {
-	Name string
-	Body func(iface ArchetypeInterface) error
+	Name string                               // the critical section's full name (in the form ArchetypeOrProcedureName.LabelName)
+	Body func(iface ArchetypeInterface) error // code for executing this critical section. should be straight-line code that runs in a bounded amount of time.
 }
 
+// MPCalProcTable is an immutable table of all procedures a given collection of archetypes and procedures might call
 type MPCalProcTable map[string]MPCalProc
 
-func MakeMPCalProcTable(procs... MPCalProc) MPCalProcTable {
+// MakeMPCalProcTable constructs a table of procedure metadata from a sequence of MPCalProc
+func MakeMPCalProcTable(procs ...MPCalProc) MPCalProcTable {
 	tbl := make(MPCalProcTable)
 	for _, proc := range procs {
 		tbl[proc.Name] = proc
@@ -51,20 +56,22 @@ func MakeMPCalProcTable(procs... MPCalProc) MPCalProcTable {
 	return tbl
 }
 
+// MPCalProc holds all metadata necessary for calling an MPCal procedure
 type MPCalProc struct {
-	Name string
-	Label string
-	StateVars []string
-	PreAmble func(iface ArchetypeInterface) error
+	Name      string                               // the procedure's name, as given in the MPCal model
+	Label     string                               // the fully qualified name of the procedure's first label
+	StateVars []string                             // the fuly-qualified names of all the procedure's local state variables, including arguments and refs
+	PreAmble  func(iface ArchetypeInterface) error // code to initialize local state variables, writing any initial values they might have. runs as part of a call to the procedure.
 }
 
+// MPCalArchetype holds all the metadata necessary to run an archetype, aside from user-provided configuration
 type MPCalArchetype struct {
-	Name string
-	Label string
-	RequiredRefParams, RequiredValParams []string
-	JumpTable MPCalJumpTable
-	ProcTable MPCalProcTable
-	PreAmble func(iface ArchetypeInterface)
+	Name                                 string                         // the archetype's name, as it reads in the MPCal source code
+	Label                                string                         // the full label name of the first critical section this archetype should execute
+	RequiredRefParams, RequiredValParams []string                       // names of ref and non-ref parameters
+	JumpTable                            MPCalJumpTable                 // a cross-reference to a jump table containing this archetype's critical sections
+	ProcTable                            MPCalProcTable                 // a cross-reference to a table of all MPCal procedures this archetype might call
+	PreAmble                             func(iface ArchetypeInterface) // called on archetype start-up, this code should initialize any local variables the archetype has
 }
 
 // ArchetypeResourceHandle encapsulates a reference to an ArchetypeResource.
@@ -121,8 +128,8 @@ func (mkStruct ArchetypeResourceMakerStruct) Configure(res ArchetypeResource) {
 type MPCalContext struct {
 	archetype MPCalArchetype
 
-	self TLAValue
-	resources map[ArchetypeResourceHandle]ArchetypeResource
+	self             TLAValue
+	resources        map[ArchetypeResourceHandle]ArchetypeResource
 	fairnessCounters map[string]int
 
 	jumpTable MPCalJumpTable
@@ -133,13 +140,13 @@ type MPCalContext struct {
 	// iface points right back to this *MPCalContext; used to separate external and internal APIs
 	iface ArchetypeInterface
 
-	constantDefns map[string]func(args... TLAValue)TLAValue
+	constantDefns map[string]func(args ...TLAValue) TLAValue
 
-    done   chan struct{}
-    events chan struct{}
+	done   chan struct{}
+	events chan struct{}
 
-    lock   sync.Mutex
-    closed bool
+	lock   sync.Mutex
+	closed bool
 }
 
 type MPCalContextConfigFn func(ctx *MPCalContext)
@@ -159,12 +166,12 @@ type MPCalContextConfigFn func(ctx *MPCalContext)
 //
 // For information on both necessary and optional configuration, see MPCalContextConfigFn, which can be provided to
 // NewMPCalContext in order to set constant values, pass archetype parameters, and any other configuration information.
-func NewMPCalContext(self TLAValue, archetype MPCalArchetype, configFns... MPCalContextConfigFn) *MPCalContext {
+func NewMPCalContext(self TLAValue, archetype MPCalArchetype, configFns ...MPCalContextConfigFn) *MPCalContext {
 	ctx := &MPCalContext{
 		archetype: archetype,
 
-		self: self,
-		resources: make(map[ArchetypeResourceHandle]ArchetypeResource),
+		self:             self,
+		resources:        make(map[ArchetypeResourceHandle]ArchetypeResource),
 		fairnessCounters: make(map[string]int),
 
 		jumpTable: archetype.JumpTable,
@@ -174,12 +181,12 @@ func NewMPCalContext(self TLAValue, archetype MPCalArchetype, configFns... MPCal
 
 		// iface
 
-		constantDefns:      make(map[string]func(args... TLAValue)TLAValue),
+		constantDefns: make(map[string]func(args ...TLAValue) TLAValue),
 
-        done:   make(chan struct{}),
-        events: make(chan struct{}, 2),
+		done:   make(chan struct{}),
+		events: make(chan struct{}, 2),
 
-        closed: false,
+		closed: false,
 	}
 	ctx.iface = ArchetypeInterface{ctx: ctx}
 
@@ -227,7 +234,7 @@ func EnsureArchetypeRefParam(name string, maker ArchetypeResourceMaker) MPCalCon
 func EnsureArchetypeValueParam(name string, value TLAValue) MPCalContextConfigFn {
 	return func(ctx *MPCalContext) {
 		ctx.requireArchetype()
-		_ = ctx.ensureArchetypeResource(ctx.archetype.Name + "." + name, LocalArchetypeResourceMaker(value))
+		_ = ctx.ensureArchetypeResource(ctx.archetype.Name+"."+name, LocalArchetypeResourceMaker(value))
 	}
 }
 
@@ -272,7 +279,7 @@ func DefineConstantOperator(name string, defn interface{}) MPCalContextConfigFn 
 	}
 
 	switch defn := defn.(type) {
-	case func(args... TLAValue) TLAValue: // special case: if the defn is variadic, we can safely pass it straight through without reflection weirdness
+	case func(args ...TLAValue) TLAValue: // special case: if the defn is variadic, we can safely pass it straight through without reflection weirdness
 		return func(ctx *MPCalContext) {
 			doubleDefnCheck(ctx)
 			ctx.constantDefns[name] = defn
@@ -296,7 +303,7 @@ func DefineConstantOperator(name string, defn interface{}) MPCalContextConfigFn 
 			panic(fmt.Errorf("constant operator definition %s does not return a TLAValue; returns a %v instead", name, defnTyp.Out(0)))
 		}
 		for i := 0; i < argCount; i++ {
-			if i == argCount - 1 && defnTyp.IsVariadic() {
+			if i == argCount-1 && defnTyp.IsVariadic() {
 				if !tlaValuesType.AssignableTo(defnTyp.In(i)) {
 					panic(fmt.Errorf("constant operator definition %s argument %d, which is its variadic argument, does not have type []TLAValue; is a %v instead", name, i, defnTyp.In(i)))
 				}
@@ -309,7 +316,7 @@ func DefineConstantOperator(name string, defn interface{}) MPCalContextConfigFn 
 			doubleDefnCheck(ctx)
 
 			argVals := make([]reflect.Value, argCount)
-			ctx.constantDefns[name] = func(args... TLAValue) TLAValue {
+			ctx.constantDefns[name] = func(args ...TLAValue) TLAValue {
 				// convert arguments to a pre-allocated array of reflect.Value, to avoid unnecessary slice allocation
 				for i, arg := range args {
 					argVals[i] = reflect.ValueOf(arg)
@@ -333,11 +340,11 @@ func DefineConstantOperator(name string, defn interface{}) MPCalContextConfigFn 
 // The returned context will cause almost all operations to panic, except:
 // - configuring constant definitions
 // - passing the result of MPCalContext.IFace() to a plain TLA+ operator
-func NewMPCalContextWithoutArchetype(configFns... MPCalContextConfigFn) *MPCalContext {
+func NewMPCalContextWithoutArchetype(configFns ...MPCalContextConfigFn) *MPCalContext {
 	// only set constant defns; everything else is left zero-values, and all relevant ops should check
 	// MPCalContext.requireArchetype before running
 	ctx := &MPCalContext{
-		constantDefns:      make(map[string]func(args... TLAValue)TLAValue),
+		constantDefns: make(map[string]func(args ...TLAValue) TLAValue),
 	}
 	ctx.iface = ArchetypeInterface{ctx}
 
@@ -464,7 +471,7 @@ func (ctx *MPCalContext) preRun() {
 		if _, ok := ctx.resources[ArchetypeResourceHandle(requiredValParam)]; !ok {
 			panic(fmt.Errorf("archetype resource val param unspecified during initialization: %s", requiredValParam))
 		}
-		if _, ok := ctx.resources[ArchetypeResourceHandle("&" + requiredValParam)]; ok {
+		if _, ok := ctx.resources[ArchetypeResourceHandle("&"+requiredValParam)]; ok {
 			panic(fmt.Errorf("archetype resource val param was configured as a ref param: %s", requiredValParam))
 		}
 	}
@@ -472,7 +479,7 @@ func (ctx *MPCalContext) preRun() {
 		if _, ok := ctx.resources[ArchetypeResourceHandle(requiredRefParam)]; !ok {
 			panic(fmt.Errorf("archetype resource ref param unspecified during initialization: %s", requiredRefParam))
 		}
-		if _, ok := ctx.resources[ArchetypeResourceHandle("&" + requiredRefParam)]; !ok {
+		if _, ok := ctx.resources[ArchetypeResourceHandle("&"+requiredRefParam)]; !ok {
 			panic(fmt.Errorf("archetype resource ref param was configured as a val param: %s", requiredRefParam))
 		}
 	}
@@ -581,8 +588,8 @@ func (ctx *MPCalContext) Close() error {
 	var err error
 	// Note that we should close all the resources, not just the dirty ones.
 	for _, res := range ctx.resources {
-	    cerr := res.Close()
-    	err = multierr.Append(err, cerr)
+		cerr := res.Close()
+		err = multierr.Append(err, cerr)
 	}
 	return err
 }
