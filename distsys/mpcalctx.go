@@ -510,15 +510,6 @@ func (ctx *MPCalContext) Run() error {
 	pc := ctx.iface.RequireArchetypeResource(".pc")
 	var err error
 	for {
-		// poll the done channel for Close calls.
-		// this should execute "regularly", since all archetype label implementations are non-blocking
-		// (except commits, which we discretely ignore; you can't cancel them, anyhow)
-		select {
-		case <-ctx.done:
-			return ErrContextClosed
-		default: // pass
-		}
-
 		// all error control flow lives here, reached by "continue" from below
 		switch err {
 		case nil: // everything is fine; carry on
@@ -530,6 +521,15 @@ func (ctx *MPCalContext) Run() error {
 		default:
 			// some other error; return it to caller, we probably crashed
 			return err
+		}
+
+		// poll the done channel for Close calls.
+		// this should execute "regularly", since all archetype label implementations are non-blocking
+		// (except commits, which we discretely ignore; you can't cancel them, anyhow)
+		select {
+		case <-ctx.done:
+			return ErrContextClosed
+		default: // pass
 		}
 
 		var pcVal TLAValue
