@@ -34,6 +34,8 @@ var _ fmt.Stringer = TLAValue{}
 var _ gob.GobDecoder = &TLAValue{}
 var _ gob.GobEncoder = &TLAValue{}
 
+var TLA_defaultInitValue = TLAValue{}
+
 func (v TLAValue) Hash() uint32 {
 	if v.data == nil {
 		return 0
@@ -832,6 +834,33 @@ func (v *tlaValueTuple) GobDecode(input []byte) error {
 		}
 		builder.Append(elem)
 	}
+}
+
+func TLACrossProduct(vs ...TLAValue) TLAValue {
+	var sets []*immutable.Map
+	for _, v := range vs {
+		sets = append(sets, v.AsSet())
+	}
+
+	builder := immutable.NewMapBuilder(TLAValueHasher{})
+
+	var helper func(tuple *immutable.List, idx int)
+	helper = func(tuple *immutable.List, idx int) {
+		if idx < len(sets) {
+			set := sets[idx]
+			it := set.Iterator()
+			for !it.Done() {
+				elem, _ := it.Next()
+				helper(tuple.Append(elem), idx+1)
+			}
+		} else {
+			builder.Set(tuple, true)
+		}
+	}
+
+	helper(immutable.NewList(), 0)
+
+	return TLAValue{&tlaValueSet{builder.Map()}}
 }
 
 func TLA_Seq(v TLAValue) TLAValue {

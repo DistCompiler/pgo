@@ -1,0 +1,220 @@
+---- MODULE ProcedureSpaghetti ----
+EXTENDS TLC, Sequences, Integers
+
+(* --mpcal ProcedureSpaghetti {
+
+procedure Proc1(ref a, b)
+    variables c;
+{
+    Proc1lbl1:
+        call Proc2(ref a);
+    Proc1lbl2:
+        a := a + b;
+        return;
+}
+
+procedure Proc2(ref a_) {
+    Proc2lbl1:
+        a_ := a_ + 1;
+        return;
+}
+
+procedure RecursiveProcRef(ref X) {
+    RecursiveProclbl1:
+        print X;
+        call RecursiveProcRef(ref X);
+        return;
+}
+
+mapping macro M {
+    read {
+        yield $variable + 1;
+    }
+    write {
+        yield $value - 1;
+    }
+}
+
+archetype Arch1(ref e, f) {
+    Arch1lbl:
+        call Proc1(ref e, f);
+}
+
+variables V1, V2;
+
+process (Pross1 = 1) == instance Arch1(ref V1, 30)
+    mapping V1 via M;
+
+process (Pross2 = 2) == instance Arch1(ref V1, 40);
+
+process (Pross3 = 3) == instance Arch1(ref V2, 50);
+
+process (Pross3Bis = 33) == instance Arch1(ref V2, 60);
+
+process (Pross4 = 4)
+    variables c;
+{
+    Prosslbl1:
+        call Proc1(ref c, 10);
+    Prosslbl2:
+        call Proc1(ref V1, 20);
+}
+
+process (Pross5 = 5) {
+    Pross5lbl1:
+        call RecursiveProcRef(ref V1);
+}
+
+} *)
+
+(*
+
+\* BEGIN PLUSCAL TRANSLATION
+--algorithm ProcedureSpaghetti {
+  variables V1; V2;
+  
+  procedure Proc20()
+  {
+    Proc2lbl1:
+      with (yielded_V11 = (V1) + (1)) {
+        with (value1 = (yielded_V11) + (1)) {
+          V1 := (value1) - (1);
+          return;
+        };
+      };
+  }
+  
+  procedure Proc10(b)
+    variables c0;
+  {
+    Proc1lbl1:
+      call Proc20();
+      goto Proc1lbl2;
+    Proc1lbl2:
+      with (yielded_V100 = (V1) + (1)) {
+        with (value00 = (yielded_V100) + (b)) {
+          V1 := (value00) - (1);
+          return;
+        };
+      };
+  }
+  
+  procedure Proc21()
+  {
+    Proc2lbl1:
+      V1 := (V1) + (1);
+      return;
+  }
+  
+  procedure Proc11(b0)
+    variables c1;
+  {
+    Proc1lbl1:
+      call Proc21();
+      goto Proc1lbl2;
+    Proc1lbl2:
+      V1 := (V1) + (b);
+      return;
+  }
+  
+  procedure Proc22()
+  {
+    Proc2lbl1:
+      V2 := (V2) + (1);
+      return;
+  }
+  
+  procedure Proc12(b1)
+    variables c2;
+  {
+    Proc1lbl1:
+      call Proc22();
+      goto Proc1lbl2;
+    Proc1lbl2:
+      V2 := (V2) + (b);
+      return;
+  }
+  
+  procedure Proc23()
+  {
+    Proc2lbl1:
+      c := (c) + (1);
+      return;
+  }
+  
+  procedure Proc13(b2)
+    variables c3;
+  {
+    Proc1lbl1:
+      call Proc23();
+      goto Proc1lbl2;
+    Proc1lbl2:
+      c := (c) + (b);
+      return;
+  }
+  
+  procedure RecursiveProcRef0()
+  {
+    RecursiveProclbl1:
+      print V1;
+      call RecursiveProcRef0();
+      return;
+  }
+  
+  process (Pross4 = 4)
+    variables c;
+  {
+    Prosslbl1:
+      call Proc13(10);
+      goto Prosslbl2;
+    Prosslbl2:
+      call Proc11(20);
+      goto Done;
+  }
+  
+  process (Pross5 = 5)
+  {
+    Pross5lbl1:
+      call RecursiveProcRef0();
+      goto Done;
+  }
+  
+  process (Pross1 = 1)
+    variables f = 30;
+  {
+    Arch1lbl:
+      call Proc10(f);
+      goto Done;
+  }
+  
+  process (Pross2 = 2)
+    variables f0 = 40;
+  {
+    Arch1lbl:
+      call Proc11(f0);
+      goto Done;
+  }
+  
+  process (Pross3 = 3)
+    variables f1 = 50;
+  {
+    Arch1lbl:
+      call Proc12(f1);
+      goto Done;
+  }
+  
+  process (Pross3Bis = 33)
+    variables f2 = 60;
+  {
+    Arch1lbl:
+      call Proc12(f2);
+      goto Done;
+  }
+}
+
+\* END PLUSCAL TRANSLATION
+
+*)
+
+\* BEGIN TRANSLATION
+====

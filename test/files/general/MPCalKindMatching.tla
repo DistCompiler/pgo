@@ -23,7 +23,20 @@ EXTENDS Sequences, FiniteSets, Integers
         l3: skip;
     }
 
+    mapping macro M {
+        read {
+            yield $variable;
+        }
+        write {
+            yield $value;
+        }
+    }
+
     archetype Arch(ref a[_]) {
+        l1: skip;
+    }
+
+    archetype Arch2(ref a) {
         l1: skip;
     }
 
@@ -36,6 +49,12 @@ EXTENDS Sequences, FiniteSets, Integers
     process (C = 44) == instance Arch(myVar); \* will generate a synthetic local var
 
     process (D = 45) == instance Arch((*:: expectedError: MPCalKindMismatchError *) ref myVar[_][_]);
+
+    process (E = 46) == instance Arch(ref myVar[_])
+        mapping (*:: expectedError: MPCalKindMismatchError *) myVar via M;
+
+    process (F = 47) == instance Arch2(ref myVar)
+        mapping (*:: expectedError: MPCalKindMismatchError *) myVar[_] via M;
 }
 *)
 \* BEGIN TRANSLATION

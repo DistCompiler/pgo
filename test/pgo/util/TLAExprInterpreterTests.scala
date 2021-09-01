@@ -6,22 +6,30 @@ import pgo.model.SourceLocation
 import pgo.model.tla.BuiltinModules
 import pgo.parser.TLAParser
 import pgo.trans.MPCalGoCodegenPass
-import pgo.util.TLAExprInterpreter.{TLAValue, TLAValueBool, TLAValueFunction, TLAValueNumber, TLAValueSet, TLAValueString, TLAValueTuple}
+import pgo.util.TLAExprInterpreter._
 
-import scala.collection.immutable.HashSet
+import scala.util.{Failure, Success}
 
 class TLAExprInterpreterTests extends AnyFunSuite {
   private lazy val builtinOps = BuiltinModules.builtinModules.values.view
     .flatMap(_.members)
-    .filter(op => !MPCalGoCodegenPass.unsupportedOperators(op))
+    .filter(op => !MPCalGoCodegenPass.unsupportedOperators(ById(op)))
     .toList
 
   def checkPass(name: String)(pair: (String,TLAValue))(implicit pos: Position): Unit = {
+    val (str, expectedValue) = pair
+    checkMultiPass(name)((str, Set(expectedValue)))
+  }
+
+  def checkMultiPass(name: String)(pair: (String,Set[TLAValue]))(implicit pos: Position): Unit = {
     test(name) {
-      val (str, expectedValue) = pair
+      val (str, expectedValues) = pair
       val expr = TLAParser.readExpression(new SourceLocation.UnderlyingString(str), str, definitions = builtinOps)
-      val actualValue = TLAExprInterpreter.interpret(expr)(Map.empty)
-      assert(actualValue == expectedValue)
+      val actualValues = TLAExprInterpreter.interpret(expr)(Map.empty).outcomes.map {
+        case Success(value) => value
+        case Failure(exception) => throw exception
+      }.toSet
+      assert(actualValues == expectedValues)
     }
   }
 
@@ -30,20 +38,50 @@ class TLAExprInterpreterTests extends AnyFunSuite {
       val expr = TLAParser.readExpression(new SourceLocation.UnderlyingString(str), str, definitions = builtinOps)
       assertThrows[TLAExprInterpreter.TypeError] {
         TLAExprInterpreter.interpret(expr)(Map.empty)
+          .assumeUnambiguousSuccess
       }
     }
   }
 
   checkPass("function call, arg in domain") {
-    s"""[foo |-> 1]["foo"]""" -> TLAValueNumber(1)
+    raw"""[foo |-> 1]["foo"]""" -> TLAValueNumber(1)
   }
 
   checkTypeError("function call, arg outside domain") {
-    s"""[foo |-> 1]["bar"]"""
+    raw"""[foo |-> 1]["bar"]"""
   }
 
   checkPass("existential avoids errors when a set is empty") {
-    s"""\\E <<w, zk>> \\in {"}nWO"}, juAOg \\in {} : w""" -> TLAValueBool(false)
+    raw"""\E <<w, zk>> \in {"}nWO"}, juAOg \in {} : w""" -> TLAValueBool(false)
+  }
+
+  checkPass("dot operator with spaces around the `.`") {
+    raw"""[x |-> 1] . x""" -> TLAValueNumber(1)
+  }
+
+  checkPass("function application with a space before the `[`") {
+    raw"""[x |-> 1] ["x"]""" -> TLAValueNumber(1)
+  }
+
+  checkPass("cross product, expected case") {
+    raw"""{1, 2} \X {3, 4} \X {5}""" -> TLAValueSet(Set(
+      TLAValueTuple(Vector(TLAValueNumber(1), TLAValueNumber(3), TLAValueNumber(5))),
+      TLAValueTuple(Vector(TLAValueNumber(1), TLAValueNumber(4), TLAValueNumber(5))),
+      TLAValueTuple(Vector(TLAValueNumber(2), TLAValueNumber(3), TLAValueNumber(5))),
+      TLAValueTuple(Vector(TLAValueNumber(2), TLAValueNumber(4), TLAValueNumber(5))),
+    ))
+  }
+
+  checkMultiPass("CHOOSE multi-value semantics") {
+    raw"""CHOOSE x \in {1, 2, 3} : x > 1""" -> Set(TLAValueNumber(2), TLAValueNumber(3))
+  }
+
+  checkTypeError("CHOOSE when no value is available") {
+    raw"""CHOOSE x \in {1, 2, 3} : x = 4"""
+  }
+
+  checkMultiPass("CHOOSE as nested expression") {
+    raw"""(CHOOSE x \in {1, 2, 3} : x > 1) + 20""" -> Set(TLAValueNumber(22), TLAValueNumber(23))
   }
 
   checkPass("ensure we do tuple indexing right by a strong example") {
@@ -54,7 +92,7 @@ class TLAExprInterpreterTests extends AnyFunSuite {
 
   checkPass("creating a set with elements that have different types") {
     s"""{Zero, {}, 3, <<{}>>, {}, {}, IsFiniteSet({}), <<<<>>>>}""" ->
-      TLAValueSet(HashSet(TLAValueNumber(0), TLAValueTuple(Vector(TLAValueSet(Set()))), TLAValueNumber(3),
+      TLAValueSet(Set(TLAValueNumber(0), TLAValueTuple(Vector(TLAValueSet(Set()))), TLAValueNumber(3),
         TLAValueTuple(Vector(TLAValueTuple(Vector()))), TLAValueSet(Set()), TLAValueBool(true)))
   }
 }

@@ -13,6 +13,13 @@ class NameCleaner {
     this
   }
 
+  def copy(): NameCleaner = {
+    val cleaner = new NameCleaner
+    cleaner.namesSeen ++= namesSeen
+    cleaner.hintCounterAcc ++= hintCounterAcc
+    cleaner
+  }
+
   def cleanName(hint: String): String = {
     if(namesSeen(hint)) {
       var currSuffix = hintCounterAcc.getOrElse(hint, 0)

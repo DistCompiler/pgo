@@ -474,6 +474,29 @@ trait TLAParser extends RegexParsers {
       }
     }
 
+  def tlaChooseExpr(implicit ctx: TLAParserContext): Parser[TLAChoose] =
+    withSourceLocation {
+      val origCtx = ctx
+      ("CHOOSE" ~> wsChk ~> (tlaIdentifierExpr.map(Left(_)) | "<<" ~> wsChk ~> tlaCommaSep(tlaIdentifierExpr).map(Right(_)) <~ wsChk <~ ">>") <~ wsChk <~ ":" <~ wsChk).flatMap { ids =>
+        val definingIds = ids.fold(List(_),identity).map(_.toDefiningIdentifier)
+        val tpe = ids match {
+          case Left(_) => TLAChoose.Id
+          case Right(_) => TLAChoose.Tuple
+        }
+        implicit val ctx: TLAParserContext = definingIds.foldLeft(origCtx)(_.withDefinition(_))
+        tlaExpression ^^ (TLAChoose(definingIds, tpe, _))
+      }
+    }
+
+  def tlaQuantifiedChooseExpr(implicit ctx: TLAParserContext): Parser[TLAQuantifiedChoose] =
+    withSourceLocation {
+      val origCtx = ctx
+      ("CHOOSE" ~> wsChk ~> tlaQuantifierBound <~ wsChk <~ ":" <~ wsChk).flatMap { binding =>
+        implicit val ctx: TLAParserContext = origCtx.withDefinition(binding)
+        tlaExpression ^^ (TLAQuantifiedChoose(binding, _))
+      }
+    }
+
   val tlaPrefixOperator: Parser[TLASymbol] =
     withSourceLocation {
       TLAMeta.prefixOperators.keys.toList.sorted.sortWith(_.length > _.length)
@@ -529,8 +552,11 @@ trait TLAParser extends RegexParsers {
     } | tlaExpressionNoOperators
 
     def withPartOpt(lhsLoc: SourceLocation, lhs: TLAExpression, maxPrecedence: Int): Parser[TLAExpression] =
-      withFunctionCall(lhsLoc, lhs, maxPrecedence) | withDot(lhsLoc, lhs, maxPrecedence) |
-        withInfix(lhsLoc, lhs, maxPrecedence) | withPostfix(lhsLoc, lhs, maxPrecedence) |
+      withFunctionCall(lhsLoc, lhs, maxPrecedence) |
+        withDot(lhsLoc, lhs, maxPrecedence) |
+        withCrossProduct(lhsLoc, lhs, maxPrecedence) |
+        withInfix(lhsLoc, lhs, maxPrecedence) |
+        withPostfix(lhsLoc, lhs, maxPrecedence) |
         success(lhs)
 
     def withPostfix(lhsLoc: SourceLocation, lhs: TLAExpression, maxPrecedence: Int): Parser[TLAExpression] =
@@ -551,9 +577,21 @@ trait TLAParser extends RegexParsers {
           withPartOpt(combinedLoc, result, maxPrecedence)
       }
 
+    def withCrossProduct(lhsLoc: SourceLocation, lhs: TLAExpression, maxPrecedence: Int): Parser[TLAExpression] =
+      if(minPrecedence <= 13 && maxPrecedence >= 10) {
+        (wsChk ~> rep1sep(("\\X" | "\\times") ~> wsChk ~> tlaExpressionMinPrecedence(14), wsChk)).flatMap { elems =>
+          val combinedLoc = lhsLoc ++ elems.view.map(_.sourceLocation).reduce(_ ++ _)
+          val expr = TLACrossProduct(lhs :: elems)
+            .setSourceLocation(combinedLoc)
+          withPartOpt(combinedLoc, expr, 9)
+        }
+      } else {
+        failure("not in precedence range 10-13")
+      }
+
     def withFunctionCall(lhsLoc: SourceLocation, lhs: TLAExpression, maxPrecedence: Int): Parser[TLAExpression] =
       if(minPrecedence <= 16) {
-        querySourceLocation("[" ~> wsChk ~> tlaComma1Sep(tlaExpression) <~ wsChk <~ "]").flatMap {
+        querySourceLocation(wsChk ~> "[" ~> wsChk ~> tlaComma1Sep(tlaExpression) <~ wsChk <~ "]").flatMap {
           case (loc, args) =>
             val combinedLoc = lhsLoc ++ loc
             withPartOpt(combinedLoc, TLAFunctionCall(lhs, args).setSourceLocation(combinedLoc), 15)
@@ -564,7 +602,7 @@ trait TLAParser extends RegexParsers {
 
     def withDot(lhsLoc: SourceLocation, lhs: TLAExpression, maxPrecedence: Int): Parser[TLAExpression] =
       if(minPrecedence <= 17) {
-        rep1sep("." ~> wsChk ~> tlaIdentifierExpr, wsChk).flatMap { dots =>
+        rep1sep(wsChk ~> "." ~> wsChk ~> tlaIdentifierExpr, wsChk).flatMap { dots =>
           val (combinedLoc, result) = dots.foldLeft((lhsLoc, lhs)) { (acc, dotId) =>
             val (lhsLoc, lhs) = acc
             val combinedLoc = lhsLoc ++ dotId.sourceLocation
@@ -637,7 +675,9 @@ trait TLAParser extends RegexParsers {
       tlaQuantifiedExistentialExpr | tlaQuantifiedUniversalExpr |
       tlaUnquantifiedExistentialExpr | tlaUnquantifiedUniversalExpr |
       // starting with {
-      tlaSetRefinementExpr | tlaSetComprehensionExpr | tlaSetConstructorExpr
+      tlaSetRefinementExpr | tlaSetComprehensionExpr | tlaSetConstructorExpr |
+      // starting with CHOOSE
+      tlaChooseExpr | tlaQuantifiedChooseExpr
 
   def tlaExpression(implicit ctx: TLAParserContext): Parser[TLAExpression] =
     tlaExpressionMinPrecedence(0)

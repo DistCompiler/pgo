@@ -31,25 +31,24 @@ object MPCalPassUtils {
 
   def rewriteEachBody(mpcalBlock: MPCalBlock, ignoreMacros: Boolean = false)(fn: (List[PCalStatement], Map[String,DefinitionOne]) => List[PCalStatement]): MPCalBlock =
     mpcalBlock.rewrite(Rewritable.TopDownFirstStrategy) {
-      case blk @MPCalMappingMacro(name, readBody, writeBody, freeVars) =>
-        val lexicalScope = freeVars.view.map(v => v.id.id -> v).toMap
+      case blk @MPCalMappingMacro(name, selfDecl, readBody, writeBody) =>
         blk.withChildren(Iterator(
           name,
-          fn(readBody, lexicalScope),
-          fn(writeBody, lexicalScope),
-          freeVars))
+          selfDecl,
+          fn(readBody, Map.empty),
+          fn(writeBody, Map.empty)))
       case blk @PCalMacro(name, params, body, freeVars) if !ignoreMacros =>
         blk.withChildren(Iterator(
           name, params,
           fn(body, (params.view.map(p => p.id.id -> p) ++ freeVars.view.map(v => v.id.id -> v)).toMap),
           freeVars))
-      case blk @PCalProcedure(name, params, variables, body) =>
+      case blk @PCalProcedure(name, selfDecl, params, variables, body) =>
         blk.withChildren(Iterator(
-          name, params, variables,
+          name, selfDecl, params, variables,
           fn(body, (params.view.map(p => p.name.id -> p) ++ variables.view.map(v => v.name.id -> v)).toMap)))
-      case blk @MPCalProcedure(name, params, variables, body) =>
+      case blk @MPCalProcedure(name, selfDecl, params, variables, body) =>
         blk.withChildren(Iterator(
-          name, params, variables,
+          name, selfDecl, params, variables,
           fn(body, (params.view.map(p => p.name.id -> p) ++ variables.view.map(v => v.name.id -> v)).toMap)))
       case blk @PCalProcess(selfDecl, fairness, variables, body) =>
         blk.withChildren(Iterator(
@@ -162,8 +161,8 @@ object MPCalPassUtils {
       case stmt => List(stmt)
     }
 
-  def gatherContainsLabels(mpcalBlock: MPCalBlock): IdSet[PCalStatement] = {
-    var containsLabels = IdSet.empty[PCalStatement]
+  def gatherContainsLabels(mpcalBlock: MPCalBlock): Set[ById[PCalStatement]] = {
+    var containsLabels = Set.empty[ById[PCalStatement]]
     def gatherContainsLabels(stmt: PCalStatement): Boolean = {
       // note: the seemingly over-engineered map+reduce ensures all sub-statements are reached,
       //   vs. a more concise but short-circuiting .exists(...)
@@ -180,7 +179,7 @@ object MPCalPassUtils {
         case _ => false
       }
       if(result) {
-        containsLabels += stmt
+        containsLabels += ById(stmt)
       }
       result
     }

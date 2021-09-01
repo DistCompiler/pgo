@@ -15,11 +15,11 @@ import (
 )
 
 func TestOneServerOneClient(t *testing.T) {
-	constants := Constants{
-		LoadBalancerId: distsys.NewTLANumber(0),
-		NUM_SERVERS:    distsys.NewTLANumber(1),
-		NUM_CLIENTS:    distsys.NewTLANumber(1),
-		GET_PAGE:       distsys.NewTLAString("GET_PAGE"),
+	constantDefs := []distsys.MPCalContextConfigFn{
+		distsys.DefineConstantValue("LoadBalancerId", distsys.NewTLANumber(0)),
+		distsys.DefineConstantValue("NUM_SERVERS", distsys.NewTLANumber(1)),
+		distsys.DefineConstantValue("NUM_CLIENTS", distsys.NewTLANumber(1)),
+		distsys.DefineConstantValue("GET_PAGE", distsys.NewTLAString("GET_PAGE")),
 	}
 
 	tempDir, err := ioutil.TempDir("", "")
@@ -58,40 +58,46 @@ func TestOneServerOneClient(t *testing.T) {
 		}
 	}
 
-	ctxLoadBalancer := distsys.NewMPCalContext()
-	go func(ctx *distsys.MPCalContext) {
-		self := distsys.NewTLANumber(0)
-		mailboxes := ctx.EnsureArchetypeResourceByName("mailboxes", resources.TCPMailboxesArchetypeResourceMaker(makeAddressFn(0)))
-		err := ALoadBalancer(ctx, self, constants, mailboxes)
+	var configFns []distsys.MPCalContextConfigFn
+	configFns = append(configFns, constantDefs...)
+	configFns = append(configFns,
+		distsys.EnsureArchetypeRefParam("mailboxes", resources.TCPMailboxesArchetypeResourceMaker(makeAddressFn(0))))
+	ctxLoadBalancer := distsys.NewMPCalContext(distsys.NewTLANumber(0), ALoadBalancer, configFns...)
+	go func() {
+		err := ctxLoadBalancer.Run()
 		if err != nil && err != distsys.ErrContextClosed {
 			panic(err)
 		}
-	}(ctxLoadBalancer)
+	}()
 
-	ctxServer := distsys.NewMPCalContext()
-	go func(ctx *distsys.MPCalContext) {
-		self := distsys.NewTLANumber(1)
-		mailboxes := ctx.EnsureArchetypeResourceByName("mailboxes", resources.TCPMailboxesArchetypeResourceMaker(makeAddressFn(1)))
-		filesystem := ctx.EnsureArchetypeResourceByName("filesystem", resources.FileSystemArchetypeResourceMaker(tempDir))
-		err := AServer(ctx, self, constants, mailboxes, filesystem)
+	configFns = nil
+	configFns = append(configFns, constantDefs...)
+	configFns = append(configFns,
+		distsys.EnsureArchetypeRefParam("mailboxes", resources.TCPMailboxesArchetypeResourceMaker(makeAddressFn(1))),
+		distsys.EnsureArchetypeRefParam("file_system", resources.FileSystemArchetypeResourceMaker(tempDir)))
+	ctxServer := distsys.NewMPCalContext(distsys.NewTLANumber(1), AServer, configFns...)
+	go func() {
+		err := ctxServer.Run()
 		if err != nil && err != distsys.ErrContextClosed {
 			panic(err)
 		}
-	}(ctxServer)
+	}()
 
-	ctxClient := distsys.NewMPCalContext()
 	requestChannel := make(chan distsys.TLAValue, 32)
 	responseChannel := make(chan distsys.TLAValue, 32)
-	go func(ctx *distsys.MPCalContext) {
-		self := distsys.NewTLANumber(2)
-		mailboxes := ctx.EnsureArchetypeResourceByName("mailboxes", resources.TCPMailboxesArchetypeResourceMaker(makeAddressFn(2)))
-		instream := ctx.EnsureArchetypeResourceByName("instream", resources.InputChannelResourceMaker(requestChannel))
-		outstream := ctx.EnsureArchetypeResourceByName("outstream", resources.OutputChannelResourceMaker(responseChannel))
-		err := AClient(ctx, self, constants, mailboxes, instream, outstream)
+	configFns = nil
+	configFns = append(configFns, constantDefs...)
+	configFns = append(configFns,
+		distsys.EnsureArchetypeRefParam("mailboxes", resources.TCPMailboxesArchetypeResourceMaker(makeAddressFn(2))),
+		distsys.EnsureArchetypeRefParam("instream", resources.InputChannelResourceMaker(requestChannel)),
+		distsys.EnsureArchetypeRefParam("outstream", resources.OutputChannelResourceMaker(responseChannel)))
+	ctxClient := distsys.NewMPCalContext(distsys.NewTLANumber(2), AClient, configFns...)
+	go func() {
+		err := ctxClient.Run()
 		if err != nil && err != distsys.ErrContextClosed {
 			panic(err)
 		}
-	}(ctxClient)
+	}()
 
 	defer func() {
 		if err := ctxLoadBalancer.Close(); err != nil {

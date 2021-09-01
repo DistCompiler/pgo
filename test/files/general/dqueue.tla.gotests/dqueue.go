@@ -8,226 +8,166 @@ import (
 var _ = new(fmt.Stringer)  // unconditionally prevent go compiler from reporting unused fmt import
 var _ = distsys.TLAValue{} // same, for distsys
 
-type Constants struct {
-	BUFFER_SIZE   distsys.TLAValue
-	NUM_CONSUMERS distsys.TLAValue
-	PRODUCER      distsys.TLAValue
+func NUM_NODES(iface distsys.ArchetypeInterface) distsys.TLAValue {
+	return distsys.TLA_PlusSymbol(iface.GetConstant("NUM_CONSUMERS")(), distsys.NewTLANumber(1))
 }
 
-func NUM_NODES(constants Constants) distsys.TLAValue {
-	return distsys.TLA_PlusSymbol(constants.NUM_CONSUMERS, distsys.NewTLANumber(1))
-}
+var procTable = distsys.MakeMPCalProcTable()
 
-func AConsumer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constants, net distsys.ArchetypeResourceHandle, proc distsys.ArchetypeResourceHandle) error {
-	ctx.ReportEvent(distsys.ArchetypeStarted)
-	defer func() {
-		ctx.ReportEvent(distsys.ArchetypeFinished)
-	}()
-	var err error
-	// label tags
-	const (
-		InitLabelTag = iota
-		cLabelTag
-		c1LabelTag
-		c2LabelTag
-		DoneLabelTag
-	)
-	programCounter := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.NewTLANumber(InitLabelTag)))
-
-	for {
-		select {
-		case <-ctx.Done():
-			err = distsys.ErrContextClosed
-		default:
-		}
-		if err != nil {
-			if err == distsys.ErrCriticalSectionAborted {
-				ctx.Abort()
-				err = nil
+var jumpTable = distsys.MakeMPCalJumpTable(
+	distsys.MPCalCriticalSection{
+		Name: "AConsumer.c",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
+			if distsys.TLA_TRUE.AsBool() {
+				return iface.Goto("AConsumer.c1")
 			} else {
+				return iface.Goto("AConsumer.Done")
+			}
+			// no statements
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "AConsumer.c1",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
+			net, err := iface.RequireArchetypeResourceRef("AConsumer.net")
+			if err != nil {
 				return err
 			}
-		}
-		var labelTag distsys.TLAValue
-		labelTag, err = ctx.Read(programCounter, []distsys.TLAValue{})
-		if err != nil {
-			return err
-		}
-		switch labelTag.AsNumber() {
-		case InitLabelTag:
-			err = ctx.Write(programCounter, []distsys.TLAValue{}, distsys.NewTLANumber(cLabelTag))
+			err = iface.Write(net, []distsys.TLAValue{iface.GetConstant("PRODUCER")()}, iface.Self())
 			if err != nil {
-				continue
+				return err
 			}
-		case cLabelTag:
-			if distsys.TLA_TRUE.AsBool() {
-				err = ctx.Write(programCounter, []distsys.TLAValue{}, distsys.NewTLANumber(c1LabelTag))
-				if err != nil {
-					continue
-				}
-				err = ctx.Commit()
-				if err != nil {
-					continue
-				}
-			} else {
-				err = ctx.Write(programCounter, []distsys.TLAValue{}, distsys.NewTLANumber(DoneLabelTag))
-				if err != nil {
-					continue
-				}
-				err = ctx.Commit()
-				if err != nil {
-					continue
-				}
-			}
-			// no statements
-		case c1LabelTag:
-			err = ctx.Write(net, []distsys.TLAValue{constants.PRODUCER}, self)
+			return iface.Goto("AConsumer.c2")
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "AConsumer.c2",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
+			proc, err := iface.RequireArchetypeResourceRef("AConsumer.proc")
 			if err != nil {
-				continue
+				return err
 			}
-			err = ctx.Write(programCounter, []distsys.TLAValue{}, distsys.NewTLANumber(c2LabelTag))
+			net0, err := iface.RequireArchetypeResourceRef("AConsumer.net")
 			if err != nil {
-				continue
+				return err
 			}
-			err = ctx.Commit()
-			if err != nil {
-				continue
-			}
-		case c2LabelTag:
 			var exprRead distsys.TLAValue
-			exprRead, err = ctx.Read(net, []distsys.TLAValue{self})
+			exprRead, err = iface.Read(net0, []distsys.TLAValue{iface.Self()})
 			if err != nil {
-				continue
+				return err
 			}
-			err = ctx.Write(proc, []distsys.TLAValue{}, exprRead)
+			err = iface.Write(proc, []distsys.TLAValue{}, exprRead)
 			if err != nil {
-				continue
+				return err
 			}
-			err = ctx.Write(programCounter, []distsys.TLAValue{}, distsys.NewTLANumber(cLabelTag))
-			if err != nil {
-				continue
-			}
-			err = ctx.Commit()
-			if err != nil {
-				continue
-			}
-		case DoneLabelTag:
-			return nil
-		default:
-			return fmt.Errorf("invalid program counter %v", labelTag)
-		}
-	}
-}
-
-func AProducer(ctx *distsys.MPCalContext, self distsys.TLAValue, constants Constants, net0 distsys.ArchetypeResourceHandle, s distsys.ArchetypeResourceHandle) error {
-	ctx.ReportEvent(distsys.ArchetypeStarted)
-	defer func() {
-		ctx.ReportEvent(distsys.ArchetypeFinished)
-	}()
-	var err0 error
-	// label tags
-	const (
-		InitLabelTag0 = iota
-		pLabelTag
-		p1LabelTag
-		p2LabelTag
-		DoneLabelTag0
-	)
-	programCounter0 := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.NewTLANumber(InitLabelTag0)))
-	requester := ctx.EnsureArchetypeResourceByPosition(distsys.LocalArchetypeResourceMaker(distsys.TLAValue{}))
-	_ = requester
-
-	for {
-		select {
-		case <-ctx.Done():
-			err0 = distsys.ErrContextClosed
-		default:
-		}
-		if err0 != nil {
-			if err0 == distsys.ErrCriticalSectionAborted {
-				ctx.Abort()
-				err0 = nil
-			} else {
-				return err0
-			}
-		}
-		var labelTag0 distsys.TLAValue
-		labelTag0, err0 = ctx.Read(programCounter0, []distsys.TLAValue{})
-		if err0 != nil {
-			return err0
-		}
-		switch labelTag0.AsNumber() {
-		case InitLabelTag0:
-			err0 = ctx.Write(programCounter0, []distsys.TLAValue{}, distsys.NewTLANumber(pLabelTag))
-			if err0 != nil {
-				continue
-			}
-		case pLabelTag:
+			return iface.Goto("AConsumer.c")
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "AConsumer.Done",
+		Body: func(distsys.ArchetypeInterface) error {
+			return distsys.ErrDone
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "AProducer.p",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
 			if distsys.TLA_TRUE.AsBool() {
-				err0 = ctx.Write(programCounter0, []distsys.TLAValue{}, distsys.NewTLANumber(p1LabelTag))
-				if err0 != nil {
-					continue
-				}
-				err0 = ctx.Commit()
-				if err0 != nil {
-					continue
-				}
+				return iface.Goto("AProducer.p1")
 			} else {
-				err0 = ctx.Write(programCounter0, []distsys.TLAValue{}, distsys.NewTLANumber(DoneLabelTag0))
-				if err0 != nil {
-					continue
-				}
-				err0 = ctx.Commit()
-				if err0 != nil {
-					continue
-				}
+				return iface.Goto("AProducer.Done")
 			}
 			// no statements
-		case p1LabelTag:
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "AProducer.p1",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
+			requester := iface.RequireArchetypeResource("AProducer.requester")
+			net1, err := iface.RequireArchetypeResourceRef("AProducer.net")
+			if err != nil {
+				return err
+			}
 			var exprRead0 distsys.TLAValue
-			exprRead0, err0 = ctx.Read(net0, []distsys.TLAValue{self})
-			if err0 != nil {
-				continue
+			exprRead0, err = iface.Read(net1, []distsys.TLAValue{iface.Self()})
+			if err != nil {
+				return err
 			}
-			err0 = ctx.Write(requester, []distsys.TLAValue{}, exprRead0)
-			if err0 != nil {
-				continue
+			err = iface.Write(requester, []distsys.TLAValue{}, exprRead0)
+			if err != nil {
+				return err
 			}
-			err0 = ctx.Write(programCounter0, []distsys.TLAValue{}, distsys.NewTLANumber(p2LabelTag))
-			if err0 != nil {
-				continue
+			return iface.Goto("AProducer.p2")
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "AProducer.p2",
+		Body: func(iface distsys.ArchetypeInterface) error {
+			var err error
+			_ = err
+			net2, err := iface.RequireArchetypeResourceRef("AProducer.net")
+			if err != nil {
+				return err
 			}
-			err0 = ctx.Commit()
-			if err0 != nil {
-				continue
+			requester0 := iface.RequireArchetypeResource("AProducer.requester")
+			s, err := iface.RequireArchetypeResourceRef("AProducer.s")
+			if err != nil {
+				return err
 			}
-		case p2LabelTag:
 			var exprRead1 distsys.TLAValue
-			exprRead1, err0 = ctx.Read(s, []distsys.TLAValue{})
-			if err0 != nil {
-				continue
+			exprRead1, err = iface.Read(s, []distsys.TLAValue{})
+			if err != nil {
+				return err
 			}
 			var indexRead distsys.TLAValue
-			indexRead, err0 = ctx.Read(requester, []distsys.TLAValue{})
-			if err0 != nil {
-				continue
+			indexRead, err = iface.Read(requester0, []distsys.TLAValue{})
+			if err != nil {
+				return err
 			}
-			err0 = ctx.Write(net0, []distsys.TLAValue{indexRead}, exprRead1)
-			if err0 != nil {
-				continue
+			err = iface.Write(net2, []distsys.TLAValue{indexRead}, exprRead1)
+			if err != nil {
+				return err
 			}
-			err0 = ctx.Write(programCounter0, []distsys.TLAValue{}, distsys.NewTLANumber(pLabelTag))
-			if err0 != nil {
-				continue
-			}
-			err0 = ctx.Commit()
-			if err0 != nil {
-				continue
-			}
-		case DoneLabelTag0:
-			return nil
-		default:
-			return fmt.Errorf("invalid program counter %v", labelTag0)
-		}
-	}
+			return iface.Goto("AProducer.p")
+		},
+	},
+	distsys.MPCalCriticalSection{
+		Name: "AProducer.Done",
+		Body: func(distsys.ArchetypeInterface) error {
+			return distsys.ErrDone
+		},
+	},
+)
+
+var AConsumer = distsys.MPCalArchetype{
+	Name:              "AConsumer",
+	Label:             "AConsumer.c",
+	RequiredRefParams: []string{"AConsumer.net", "AConsumer.proc"},
+	RequiredValParams: []string{},
+	JumpTable:         jumpTable,
+	ProcTable:         procTable,
+	PreAmble: func(iface distsys.ArchetypeInterface) {
+	},
+}
+
+var AProducer = distsys.MPCalArchetype{
+	Name:              "AProducer",
+	Label:             "AProducer.p",
+	RequiredRefParams: []string{"AProducer.net", "AProducer.s"},
+	RequiredValParams: []string{},
+	JumpTable:         jumpTable,
+	ProcTable:         procTable,
+	PreAmble: func(iface distsys.ArchetypeInterface) {
+		iface.EnsureArchetypeResourceLocal("AProducer.requester", distsys.TLAValue{})
+	},
 }

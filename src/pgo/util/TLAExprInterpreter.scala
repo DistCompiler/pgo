@@ -6,6 +6,9 @@ import pgo.parser.TLAParser
 import pgo.util.Unreachable.!!!
 
 import scala.annotation.tailrec
+import scala.collection.View
+import scala.util.control.NonFatal
+import scala.util.{Failure, Success, Try}
 
 object TLAExprInterpreter {
   final case class Unsupported() extends RuntimeException("unsupported")
@@ -20,6 +23,7 @@ object TLAExprInterpreter {
         // Integers needed for prefix `-`, and TLC needed for `:>` and `@@`
         definitions = BuiltinModules.Integers.members ::: BuiltinModules.TLC.members)
       interpret(expr)(Map.empty)
+        .assumeUnambiguousSuccess
     }
   }
 
@@ -30,8 +34,8 @@ object TLAExprInterpreter {
   final case class TLAValueTuple(value: Vector[TLAValue]) extends TLAValue
   final case class TLAValueFunction(value: Map[TLAValue,TLAValue]) extends TLAValue
 
-  lazy val builtinOperators: IdMap[DefinitionOne,PartialFunction[List[TLAValue],TLAValue]] =
-    IdMap(
+  lazy val builtinOperators: Map[ById[DefinitionOne],PartialFunction[List[TLAValue],TLAValue]] =
+    View[(DefinitionOne,PartialFunction[List[TLAValue],TLAValue])](
       BuiltinModules.Intrinsics.memberSym(TLASymbol.LogicalAndSymbol) -> {
         case List(TLAValueBool(lhs), TLAValueBool(rhs)) => TLAValueBool(lhs && rhs)
       },
@@ -234,52 +238,143 @@ object TLAExprInterpreter {
       BuiltinModules.Reals.memberAlpha("Real") -> { _ => throw Unsupported() },
       BuiltinModules.Reals.memberSym(TLASymbol.SlashSymbol) -> { _ => throw Unsupported() },
       BuiltinModules.Reals.memberAlpha("Infinity") -> { _ => throw Unsupported() },
-    )
+    ).to(ById.mapFactory)
 
-  def interpret(expr: TLAExpression)(implicit env: Map[RefersTo.HasReferences,TLAValue]): TLAValue = {
-    try {
+  final class Result[V] private (private val values: LazyList[Try[V]]) {
+    assert(values.nonEmpty)
+
+    override def toString: String = s"Result($values)"
+
+    def assumeUnambiguousSuccess: V = values.head.get
+
+    def outcomes: LazyList[Try[V]] = values
+
+    private def transformErr(err: Throwable): Throwable = err match {
+      case err: IllegalArgumentException => TypeError().initCause(err)
+      case err: MatchError => TypeError().initCause(err)
+      case err => err
+    }
+
+    private def transformTryErr[T](t: Try[T]): Try[T] = t match {
+      case Failure(err) => Failure(transformErr(err))
+      case s@Success(_) => s
+    }
+
+    def map[U](fn: V=>U): Result[U] =
+      new Result(values.map(tryValue => transformTryErr(tryValue.map(fn))))
+
+
+    def map[U](fn: PartialFunction[V,U]): Result[U] = map(fn.apply _)
+
+    def flatMap[U](fn: V=>Result[U]): Result[U] =
+      new Result(values.flatMap {
+        case Failure(err) => Iterator.single(Failure(err))
+        case Success(value) =>
+          try {
+            fn(value).values
+          } catch {
+            case NonFatal(err) =>
+              Iterator.single(Failure(transformErr(err)))
+          }
+      })
+
+    def flatMap[U](fn: PartialFunction[V,Result[U]]): Result[U] = flatMap(fn.apply _)
+  }
+
+  object Result {
+    def apply[V](v: =>V): Result[V] = new Result(LazyList(Try(v)))
+
+    def multiple[V](vs: Iterable[V]): Result[V] = {
+      val vsLzy = vs.to(LazyList)
+      if(vsLzy.nonEmpty) {
+        new Result(vsLzy.map(Success(_)))
+      } else {
+        new Result(LazyList(Failure(TypeError())))
+      }
+    }
+  }
+
+  def interpretList[R](exprs: List[TLAExpression])(validator: PartialFunction[TLAValue,R])(implicit env: Map[ById[RefersTo.HasReferences],TLAValue]): Result[List[R]] = {
+    def impl(exprs: List[TLAExpression], acc: List[R]): Result[List[R]] =
+      exprs match {
+        case Nil => Result(acc.reverse)
+        case expr :: restExprs =>
+          interpret(expr).flatMap { value =>
+            val r = validator(value)
+            impl(restExprs, r :: acc)
+          }
+      }
+
+    impl(exprs, Nil)
+  }
+
+  def flattenResultView[R](it: Iterable[Result[R]]): Result[Vector[R]] =
+    it.foldLeft(Result(Vector.empty[R])) { (acc, result) =>
+      acc.flatMap { prefix =>
+        result.map(elem => prefix :+ elem)
+      }
+    }
+
+  def interpret(expr: TLAExpression)(implicit env: Map[ById[RefersTo.HasReferences],TLAValue]): Result[TLAValue] = {
+    Result(()).flatMap { _ =>
       expr match {
-        case TLAString(value) => TLAValueString(value)
+        case TLAString(value) => Result(TLAValueString(value))
         case TLANumber(value, _) =>
           value match {
-            case TLANumber.IntValue(value) => TLAValueNumber(value.intValue)
+            case TLANumber.IntValue(value) => Result(TLAValueNumber(value.intValue))
+            case _ => ???
           }
         case ident@TLAGeneralIdentifier(_, prefix) =>
           assert(prefix.isEmpty)
-          env.getOrElse(ident.refersTo, {
-            builtinOperators(ident.refersTo)(Nil)
-          })
+          Result(env.getOrElse(ById(ident.refersTo), {
+            builtinOperators(ById(ident.refersTo))(Nil)
+          }))
         case TLADot(lhs, identifier) =>
-          interpret(lhs) match {
+          interpret(lhs).map {
             case TLAValueFunction(value) =>
               val idx = TLAValueString(identifier.id)
               require(value.contains(idx))
               value(idx)
           }
+        case TLACrossProduct(operands) =>
+          interpretList(operands) {
+            case TLAValueSet(set) => set
+          }.map { sets =>
+            val tuples = sets.tail.foldLeft(sets.head.iterator.map(elem => Vector(elem))) { (tuples, set) =>
+              tuples.flatMap { tuple =>
+                set.iterator.map(elem => tuple :+ elem)
+              }
+            }
+            TLAValueSet(tuples.map(TLAValueTuple).toSet)
+          }
         case opcall@TLAOperatorCall(_, _, arguments) =>
           opcall.refersTo match {
             case builtin: BuiltinModules.TLABuiltinOperator =>
-              builtinOperators(builtin)(arguments.map(interpret))
+              interpretList(arguments)(PartialFunction.fromFunction(identity)).map { arguments =>
+                builtinOperators(ById(builtin))(arguments)
+              }
             case TLAOperatorDefinition(_, args, body, _) =>
               require(args.size == arguments.size)
               require(args.forall(_.variant.isInstanceOf[TLAOpDecl.NamedVariant]))
-              val argValues = arguments.map(interpret)
-              interpret(body)(env = env ++ (args zip argValues))
+              interpretList(arguments)(PartialFunction.fromFunction(identity)).flatMap { argValues =>
+                interpret(body)(env = env ++ (args.iterator.map(ById(_)) zip argValues))
+              }
           }
         case TLAIf(cond, tval, fval) =>
-          interpret(cond) match {
+          interpret(cond).flatMap {
             case TLAValueBool(value) =>
               if (value) interpret(tval) else interpret(fval)
           }
         case TLALet(defs, body) =>
-          @tailrec
-          def impl(defs: List[TLAUnit])(implicit env: Map[RefersTo.HasReferences, TLAValue]): TLAValue =
+          def impl(defs: List[TLAUnit])(implicit env: Map[ById[RefersTo.HasReferences], TLAValue]): Result[TLAValue] =
             defs match {
               case Nil => interpret(body)
               case unit :: restUnits =>
                 unit match {
                   case defn@TLAOperatorDefinition(_, args, body, _) if args.isEmpty =>
-                    impl(restUnits)(env = env.updated(defn, interpret(body)))
+                    interpret(body).flatMap { bodyVal =>
+                      impl(restUnits)(env = env.updated(ById(defn), bodyVal))
+                    }
                   case _: TLAOperatorDefinition =>
                     // for definitions with args, they will be called by TLAOperatorCall, and scoping is done already
                     impl(restUnits)
@@ -288,14 +383,13 @@ object TLAExprInterpreter {
 
           impl(defs)
         case TLACase(arms, other) =>
-          @tailrec
-          def armEval(arms: List[TLACaseArm]): TLAValue =
+          def armEval(arms: List[TLACaseArm]): Result[TLAValue] =
             arms match {
               case Nil => other match {
                 case Some(value) => interpret(value)
               }
               case TLACaseArm(cond, result) :: otherArms =>
-                interpret(cond) match {
+                interpret(cond).flatMap {
                   case TLAValueBool(value) =>
                     if (value) {
                       interpret(result)
@@ -307,78 +401,93 @@ object TLAExprInterpreter {
 
           armEval(arms)
         case TLAFunction(args, body) =>
-          val argSets = args.view.map(_.set).map(interpret).map {
+          interpretList(args.map(_.set)) {
             case TLAValueSet(set) => set
-          }.toList
-
-          def impl(args: List[TLAQuantifierBound], argSets: List[Set[TLAValue]], acc: Vector[TLAValue])(implicit env: Map[RefersTo.HasReferences, TLAValue]): Iterator[(TLAValue, TLAValue)] =
-            (args, argSets) match {
-              case (Nil, Nil) => Iterator.single(TLAValueTuple(acc) -> interpret(body))
-              case (TLAQuantifierBound(tpe, ids, _) :: restArgs, argSet :: restArgSets) =>
+          }.flatMap { argSets =>
+            def impl(args: List[TLAQuantifierBound], argSets: List[Set[TLAValue]], acc: Vector[TLAValue])(implicit env: Map[ById[RefersTo.HasReferences], TLAValue]): Result[View[(TLAValue, TLAValue)]] =
+              (args, argSets) match {
+                case (Nil, Nil) => interpret(body).map(bodyVal => View(TLAValueTuple(acc) -> bodyVal))
+                case (TLAQuantifierBound(tpe, ids, _) :: restArgs, argSet :: restArgSets) =>
                   tpe match {
                     case TLAQuantifierBound.IdsType =>
                       val List(id) = ids
-                      argSet.iterator.flatMap { v =>
-                        impl(restArgs, restArgSets, acc :+ v)(env = env.updated(id, v))
-                      }
+                      flattenResultView(argSet.view.map { v =>
+                        impl(restArgs, restArgSets, acc :+ v)(env = env.updated(ById(id), v))
+                      }).map(_.view.flatten)
                     case TLAQuantifierBound.TupleType =>
-                      argSet.iterator.flatMap {
+                      flattenResultView(argSet.view.map {
                         case v@TLAValueTuple(elems) =>
                           require(elems.size == ids.size)
-                          impl(restArgs, restArgSets, acc :+ v)(env = env ++ (ids.view zip elems))
-                      }
+                          impl(restArgs, restArgSets, acc :+ v)(env = env ++ (ids.view.map(ById(_)) zip elems))
+                      }).map(_.view.flatten)
                   }
-            }
-
-          TLAValueFunction(impl(args, argSets, Vector.empty).toMap)
-        case TLAFunctionCall(function, params) =>
-          val paramValue = params match {
-            case List(singleParam) => interpret(singleParam)
-            case params => TLAValueTuple(params.view.map(interpret).toVector)
-          }
-          interpret(function) match {
-            case TLAValueTuple(value) =>
-              paramValue match {
-                case TLAValueNumber(idx) if idx >= 1 && idx <= value.size => value(idx - 1)
               }
-            case TLAValueFunction(value) =>
-              require(value.contains(paramValue))
-              value(paramValue)
+
+            impl(args, argSets, Vector.empty).map { fnData =>
+              TLAValueFunction(fnData.toMap)
+            }
+          }
+        case TLAFunctionCall(function, params) =>
+          (params match {
+            case List(singleParam) => interpret(singleParam)
+            case params => interpretList(params)(PartialFunction.fromFunction(identity)).map { paramVals =>
+              TLAValueTuple(paramVals.toVector)
+            }
+          }).flatMap { paramValue =>
+            interpret(function).map {
+              case TLAValueTuple(value) =>
+                paramValue match {
+                  case TLAValueNumber(idx) if idx >= 1 && idx <= value.size => value(idx - 1)
+                }
+              case TLAValueFunction(value) =>
+                require(value.contains(paramValue))
+                value(paramValue)
+            }
           }
         case TLAFunctionSet(from, to) =>
-          (interpret(from), interpret(to)) match {
-            case (TLAValueSet(fromSet), TLAValueSet(toSet)) =>
-              TLAValueSet {
-                val keyList = fromSet.toList
-                val valueList = toSet.toList
-                val valueSets = keyList.iterator.foldLeft(Iterator.single(Nil: List[TLAValue])) { (acc, _) =>
-                  acc.flatMap(lst => valueList.iterator.map(v => v :: lst))
-                }
-                valueSets.map(valueSet => TLAValueFunction((keyList zip valueSet).toMap)).toSet
+          interpret(from).flatMap {
+            case TLAValueSet(fromSet) =>
+              interpret(to).map {
+                case TLAValueSet(toSet) =>
+                  TLAValueSet {
+                    val keyList = fromSet.toList
+                    val valueList = toSet.toList
+                    val valueSets = keyList.iterator.foldLeft(Iterator.single(Nil: List[TLAValue])) { (acc, _) =>
+                      acc.flatMap(lst => valueList.iterator.map(v => v :: lst))
+                    }
+                    valueSets.map(valueSet => TLAValueFunction((keyList zip valueSet).toMap)).toSet
+                  }: TLAValue
               }
           }
         case TLAFunctionSubstitution(source, substitutions) =>
           substitutions.foldLeft(interpret(source)) { (fnValue, sub) =>
-            val TLAFunctionSubstitutionPair(anchor, keys, value) = sub
+            fnValue.flatMap { fnValue =>
+              val TLAFunctionSubstitutionPair(anchor, keys, value) = sub
 
-            def subKeys(keys: List[TLAFunctionSubstitutionKey], origValue: TLAValue): TLAValue =
-              keys match {
-                case Nil => interpret(value)(env = env.updated(anchor, origValue))
-                case TLAFunctionSubstitutionKey(indices) :: restKeys =>
-                  val indexValue = indices match {
-                    case List(index) => interpret(index)
-                    case indices => TLAValueTuple(indices.view.map(interpret).toVector)
-                  }
-                  origValue match {
-                    case TLAValueFunction(origFn) =>
-                      require(origFn.contains(indexValue))
-                      TLAValueFunction(origFn.updated(indexValue, subKeys(restKeys, origFn(indexValue))))
-                  }
-              }
+              def subKeys(keys: List[TLAFunctionSubstitutionKey], origValue: TLAValue): Result[TLAValue] =
+                keys match {
+                  case Nil => interpret(value)(env = env.updated(ById(anchor), origValue))
+                  case TLAFunctionSubstitutionKey(indices) :: restKeys =>
+                    (indices match {
+                      case List(index) => interpret(index)
+                      case indices =>
+                        interpretList(indices)(PartialFunction.fromFunction(identity))
+                          .map(indexVals => TLAValueTuple(indexVals.toVector))
+                    }).flatMap { indexValue =>
+                      origValue match {
+                        case TLAValueFunction(origFn) =>
+                          require(origFn.contains(indexValue))
+                          subKeys(restKeys, origFn(indexValue)).map { subKeysVal =>
+                            TLAValueFunction(origFn.updated(indexValue, subKeysVal))
+                          }
+                      }
+                    }
+                }
 
-            subKeys(keys, fnValue)
+              subKeys(keys, fnValue)
+            }
           }
-        case at@TLAFunctionSubstitutionAt() => env(at.refersTo)
+        case at@TLAFunctionSubstitutionAt() => Result(env(ById(at.refersTo)))
         case expr@(TLAQuantifiedExistential(_, _) | TLAQuantifiedUniversal(_, _)) =>
           // merge universal and existential code paths, because they are so similar
           val (bounds, body) = expr match {
@@ -386,131 +495,165 @@ object TLAExprInterpreter {
             case TLAQuantifiedExistential(bounds, body) => (bounds, body)
           }
 
-          val boundValues = bounds.view.map(_.set).map(interpret).map {
+          interpretList(bounds.map(_.set)) {
             case TLAValueSet(set) => set // require all sets to be actual sets
-          }.toList
+          }.flatMap { boundValues =>
 
-          // compute a configuration iterator of lists of set elements to consider, so that we don't end up evaluating _anything_ on any
-          // set elements until we know we should evaluate the body at least once (i.e if one set is empty, this
-          // iterator will also be empty)
-          val configurations: Iterator[List[TLAValue]] = locally {
-            @tailrec
-            def impl(boundValues: List[Set[TLAValue]], acc: Iterator[List[TLAValue]]): Iterator[List[TLAValue]] =
-              boundValues match {
-                case Nil => acc
-                case set :: restSets =>
-                  impl(restSets, acc.flatMap(config => set.iterator.map(config :+ _)))
-              }
-
-            if(boundValues.nonEmpty && boundValues.tail.nonEmpty) {
-              impl(boundValues.tail, boundValues.head.iterator.map(List(_)))
-            } else if(boundValues.nonEmpty) {
-              boundValues.head.iterator.map(List(_))
-            } else {
-              !!!
-            }
-          }
-
-          // a function that slots in at the decision point, choosing exists or forall aggregation
-          val fn: (Iterator[List[TLAValue]],List[TLAValue]=>Boolean)=>Boolean = expr match {
-            case TLAQuantifiedUniversal(_, _) => _.forall(_)
-            case TLAQuantifiedExistential(_, _) => _.exists(_)
-          }
-
-          TLAValueBool(fn(configurations, { args =>
-            val bindings = (bounds.iterator zip args).flatMap {
-              case (TLAQuantifierBound(tpe, ids, _), assignment) =>
-                tpe match {
-                  case TLAQuantifierBound.IdsType => Some(ids.head -> assignment)
-                  case TLAQuantifierBound.TupleType =>
-                    assignment match {
-                      case TLAValueTuple(elems) =>
-                        require(elems.size == ids.size)
-                        ids.iterator zip elems
-                    }
+            // compute a configuration iterator of lists of set elements to consider, so that we don't end up evaluating _anything_ on any
+            // set elements until we know we should evaluate the body at least once (i.e if one set is empty, this
+            // view will also be empty)
+            val configurations: View[List[TLAValue]] = locally {
+              @tailrec
+              def impl(boundValues: List[Set[TLAValue]], acc: View[List[TLAValue]]): View[List[TLAValue]] =
+                boundValues match {
+                  case Nil => acc
+                  case set :: restSets =>
+                    impl(restSets, acc.flatMap(config => set.view.map(config :+ _)))
                 }
+
+              if (boundValues.nonEmpty && boundValues.tail.nonEmpty) {
+                impl(boundValues.tail, boundValues.head.view.map(List(_)))
+              } else if (boundValues.nonEmpty) {
+                boundValues.head.view.map(List(_))
+              } else {
+                !!!
+              }
             }
-            interpret(body)(env = env ++ bindings) match {
-              case TLAValueBool(truth) => truth
+
+            // a function that slots in at the decision point, choosing exists or forall aggregation
+            val fn: Vector[Boolean] => Boolean = expr match {
+              case TLAQuantifiedUniversal(_, _) => _.forall(identity)
+              case TLAQuantifiedExistential(_, _) => _.exists(identity)
             }
-          }))
+
+            flattenResultView(configurations.map { args =>
+              val bindings = (bounds.iterator zip args).flatMap {
+                case (TLAQuantifierBound(tpe, ids, _), assignment) =>
+                  tpe match {
+                    case TLAQuantifierBound.IdsType => Some(ById(ids.head) -> assignment)
+                    case TLAQuantifierBound.TupleType =>
+                      assignment match {
+                        case TLAValueTuple(elems) =>
+                          require(elems.size == ids.size)
+                          ids.iterator.map(ById(_)) zip elems
+                      }
+                  }
+              }
+              interpret(body)(env = env ++ bindings).map {
+                case TLAValueBool(truth) => truth
+              }
+            }).map(truths => TLAValueBool(fn(truths)))
+          }
         case TLASetConstructor(contents) =>
-          TLAValueSet(contents.view.map(interpret).toSet)
+          interpretList(contents)(PartialFunction.fromFunction(identity)).map { contents =>
+            TLAValueSet(contents.toSet)
+          }
         case TLASetRefinement(TLAQuantifierBound(tpe, ids, set), when) =>
-          interpret(set) match {
+          interpret(set).flatMap {
             case TLAValueSet(setValue) =>
               tpe match {
                 case TLAQuantifierBound.IdsType =>
                   val List(id) = ids
-                  TLAValueSet(setValue.filter { v =>
-                    interpret(when)(env = env.updated(id, v)) match {
-                      case TLAValueBool(value) => value
+                  val memberOpts = setValue.view.map { v =>
+                    interpret(when)(env = env.updated(ById(id), v)).map {
+                      case TLAValueBool(shouldKeep) => if (shouldKeep) Some(v) else None
                     }
-                  })
+                  }
+                  flattenResultView(memberOpts).map { memberOpts =>
+                    TLAValueSet(memberOpts.flatten.toSet): TLAValue
+                  }
                 case TLAQuantifierBound.TupleType =>
-                  TLAValueSet(setValue.filter {
-                    case TLAValueTuple(elems) =>
+                  val memberOpts = setValue.view.map {
+                    case v@TLAValueTuple(elems) =>
                       require(elems.size == ids.size)
-                      interpret(when)(env = env ++ (ids.view zip elems)) match {
-                        case TLAValueBool(value) => value
+                      interpret(when)(env = env ++ (ids.view.map(ById(_)) zip elems)).map {
+                        case TLAValueBool(shouldKeep) => if (shouldKeep) Some(v) else None
                       }
-                  })
+                    case _ => require(false); !!!
+                  }
+                  flattenResultView(memberOpts).map { memberOpts =>
+                    TLAValueSet(memberOpts.flatten.toSet): TLAValue
+                  }
               }
           }
         case TLASetComprehension(body, bounds) =>
-          val boundValues = bounds.view.map(_.set).map(interpret).map {
+          interpretList(bounds.map(_.set)) {
             case TLAValueSet(set) => set // require all sets are actual sets
-          }.toList
-          def impl(bounds: List[TLAQuantifierBound], boundValues: List[Set[TLAValue]])(implicit env: Map[RefersTo.HasReferences, TLAValue]): Iterator[TLAValue] =
-            (bounds, boundValues) match {
-              case (Nil, Nil) => Iterator.single(interpret(body))
-              case (TLAQuantifierBound(tpe, ids, _) :: restBounds, setValue :: restSetValues) =>
-                tpe match {
-                  case TLAQuantifierBound.IdsType =>
-                    val List(id) = ids
-                    setValue.iterator.flatMap { v =>
-                      impl(restBounds, restSetValues)(env = env.updated(id, v))
-                    }
-                  case TLAQuantifierBound.TupleType =>
-                    setValue.iterator.flatMap {
-                      case TLAValueTuple(elems) =>
-                        require(ids.size == elems.size)
-                        impl(restBounds, restSetValues)(env = env ++ (ids.view zip elems))
-                    }
-                }
-              case _ => !!!
-            }
+          }.flatMap { boundValues =>
+            def impl(bounds: List[TLAQuantifierBound], boundValues: List[Set[TLAValue]])(implicit env: Map[ById[RefersTo.HasReferences], TLAValue]): Result[View[TLAValue]] =
+              (bounds, boundValues) match {
+                case (Nil, Nil) => interpret(body).map(View(_))
+                case (TLAQuantifierBound(tpe, ids, _) :: restBounds, setValue :: restSetValues) =>
+                  tpe match {
+                    case TLAQuantifierBound.IdsType =>
+                      val List(id) = ids
+                      flattenResultView(setValue.view.map { v =>
+                        impl(restBounds, restSetValues)(env = env.updated(ById(id), v))
+                      }).map(_.view.flatten)
+                    case TLAQuantifierBound.TupleType =>
+                      flattenResultView(setValue.view.map {
+                        case TLAValueTuple(elems) =>
+                          require(ids.size == elems.size)
+                          impl(restBounds, restSetValues)(env = env ++ (ids.view.map(ById(_)) zip elems))
+                        case _ => require(false); !!!
+                      }).map(_.view.flatten)
+                  }
+                case _ => !!!
+              }
 
-          TLAValueSet(impl(bounds, boundValues).toSet)
+            impl(bounds, boundValues).map { members =>
+              TLAValueSet(members.toSet)
+            }
+          }
         case TLATuple(elements) =>
-          TLAValueTuple(elements.view.map(interpret).toVector)
+          interpretList(elements)(PartialFunction.fromFunction(identity))
+            .map(elements => TLAValueTuple(elements.toVector))
         case TLARecordConstructor(fields) =>
-          TLAValueFunction(fields.view.map {
+          flattenResultView(fields.view.map {
             case TLARecordConstructorField(name, value) =>
-              TLAValueString(name.id) -> interpret(value)
-          }.toMap)
+              interpret(value).map(TLAValueString(name.id) -> _)
+          }).map(pairs => TLAValueFunction(pairs.toMap))
         case TLARecordSet(fields) =>
-          def impl(fields: List[(String,TLAValue)], acc: Map[TLAValue, TLAValue]): Iterator[TLAValue] =
+          def impl(fields: List[(String, TLAValue)], acc: Map[TLAValue, TLAValue]): Iterator[TLAValue] =
             fields match {
               case Nil => Iterator.single(TLAValueFunction(acc))
               case (name, TLAValueSet(set)) :: restFields =>
-                  set.iterator.flatMap { v =>
-                    impl(restFields, acc.updated(TLAValueString(name), v))
-                  }
+                set.iterator.flatMap { v =>
+                  impl(restFields, acc.updated(TLAValueString(name), v))
+                }
             }
 
-          TLAValueSet(impl(fields.map {
+          flattenResultView(fields.view.map {
             case TLARecordSetField(name, set) =>
-              interpret(set) match {
+              interpret(set).map {
                 case setVal: TLAValueSet => name.id -> setVal
               }
-          }, Map.empty).toSet)
+          }).map { pairs =>
+            TLAValueSet(impl(pairs.toList, Map.empty).toSet)
+          }
+        case TLAQuantifiedChoose(TLAQuantifierBound(tpe, ids, set), body) =>
+          interpret(set).flatMap {
+            case TLAValueSet(setValue) =>
+              val validElements: View[Result[Option[TLAValue]]] = setValue.view.map { v =>
+                tpe match {
+                  case TLAQuantifierBound.IdsType =>
+                    val List(id) = ids
+                    interpret(body)(env = env.updated(ById(id), v)).map {
+                      case TLAValueBool(shouldInclude) => if(shouldInclude) Some(v) else None
+                    }
+                  case TLAQuantifierBound.TupleType =>
+                    val TLAValueTuple(elems) = v
+                    require(elems.size == ids.size)
+                    interpret(body)(env = env ++ (ids.view.map(ById(_)) zip elems)).map {
+                      case TLAValueBool(shouldInclude) => if(shouldInclude) Some(v) else None
+                    }
+                }
+              }
+              flattenResultView(validElements).flatMap { candidateOpts =>
+                Result.multiple(candidateOpts.flatten)
+              }
+          }
       }
-    } catch {
-      case err: IllegalArgumentException =>
-        throw TypeError().initCause(err)
-      case err: MatchError =>
-        throw TypeError().initCause(err)
     }
   }
 }

@@ -4,7 +4,7 @@ import pgo.model.{DefinitionOne, PGoError, RefersTo, SourceLocatable, SourceLoca
 import pgo.model.mpcal._
 import pgo.model.pcal._
 import pgo.model.tla._
-import pgo.util.{Description, IdMap, IdSet, MPCalPassUtils}
+import pgo.util.{ById, Description, MPCalPassUtils}
 import Description._
 import pgo.trans.MPCalSemanticCheckPass.SemanticError.PCalInvalidAssignment
 import pgo.util.Unreachable.!!!
@@ -81,8 +81,8 @@ object MPCalSemanticCheckPass {
       }
       block.visit(Visitable.TopDownFirstStrategy) {
         case MPCalArchetype(_, _, _, _, body) => checkInBody(body)
-        case MPCalProcedure(_, _, _, body) => checkInBody(body)
-        case PCalProcedure(_, _, _, body) => checkInBody(body)
+        case MPCalProcedure(_, _, _, _, body) => checkInBody(body)
+        case PCalProcedure(_, _, _, _, body) => checkInBody(body)
         case PCalProcess(_, _, _, body) => checkInBody(body)
       }
     }
@@ -138,10 +138,10 @@ object MPCalSemanticCheckPass {
 
     // !!!! beyond this point, macros will already be expanded if possible, and their contents may be ignored !!!!
 
-    val containsLabels: IdSet[PCalStatement] = MPCalPassUtils.gatherContainsLabels(block)
+    val containsLabels: Set[ById[PCalStatement]] = MPCalPassUtils.gatherContainsLabels(block)
 
-    val tailStatements: IdMap[PCalStatement,Vector[PCalStatement]] = locally {
-      var tailStatements = IdMap.empty[PCalStatement,Vector[PCalStatement]]
+    val tailStatements: Map[ById[PCalStatement],Vector[PCalStatement]] = locally {
+      var tailStatements = Map.empty[ById[PCalStatement],Vector[PCalStatement]]
 
       def gatherTailStatements(stmt: PCalStatement): Vector[PCalStatement] = {
         val result: Vector[PCalStatement] = stmt +: (stmt match {
@@ -159,7 +159,7 @@ object MPCalSemanticCheckPass {
             body.view.map(gatherTailStatements).lastOption.getOrElse(Vector.empty)
           case _ => Vector.empty
         })
-        tailStatements = tailStatements.updated(stmt, result)
+        tailStatements = tailStatements.updated(ById(stmt), result)
         result
       }
 
@@ -200,9 +200,9 @@ object MPCalSemanticCheckPass {
             case (beforeStmt, notLabel) =>
 
               val labelNeedingStatementComesBefore =
-                tailStatements(beforeStmt).exists {
-                  case ifStmt: PCalIf => containsLabels(ifStmt)
-                  case eitherStmt: PCalEither => containsLabels(eitherStmt)
+                tailStatements(ById(beforeStmt)).exists {
+                  case ifStmt: PCalIf => containsLabels(ById(ifStmt))
+                  case eitherStmt: PCalEither => containsLabels(ById(eitherStmt))
                   case _: PCalReturn => true
                   case _: PCalGoto => true
                   case _: PCalCall => !supportsTailCall(notLabel)
@@ -217,12 +217,12 @@ object MPCalSemanticCheckPass {
 
       // visit all parts of the MPCal block that contain a list of statements
       block.visit(Visitable.BottomUpFirstStrategy) {
-        case MPCalMappingMacro(_, readBody, writeBody, _) =>
+        case MPCalMappingMacro(_, _, readBody, writeBody) =>
           checkInBody(readBody)
           checkInBody(writeBody)
         case PCalMacro(_, _, body, _) => checkInBody(body)
-        case PCalProcedure(_, _, _, body) => checkInBody(body)
-        case MPCalProcedure(_, _, _, body) => checkInBody(body)
+        case PCalProcedure(_, _, _, _, body) => checkInBody(body)
+        case MPCalProcedure(_, _, _, _, body) => checkInBody(body)
         case PCalProcess(_, _, _, body) => checkInBody(body)
         case MPCalArchetype(_, _, _, _, body) => checkInBody(body)
 
@@ -251,6 +251,7 @@ object MPCalSemanticCheckPass {
                     case PCalAssignmentLhsIdentifier(identifier) => identifier
                     case PCalAssignmentLhsProjection(lhs, _) => getId(lhs)
                     case PCalAssignmentLhsExtension(MPCalDollarVariable()) => TLAIdentifier("$variable") // hack to model special var
+                    case PCalAssignmentLhsExtension(_) => !!!
                   }
 
                 val lhsId = getId(lhs)
@@ -309,7 +310,7 @@ object MPCalSemanticCheckPass {
     // enforce kind-matching for MPCal params (ref vs. non-ref, number of mappings)
     locally {
       def checkMPCalParamRefs(body: List[PCalStatement], params: List[MPCalParam]): Unit = {
-        val paramsMap = params.view.map(p => (p: DefinitionOne) -> p).to(IdMap)
+        val paramsMap = params.view.map(p => (p: DefinitionOne) -> p).to(ById.mapFactory)
         body.foreach { stmt =>
           lazy val impl: PartialFunction[Visitable,Unit] = {
             case PCalAssignmentPair(lhs, rhs) =>
@@ -321,6 +322,7 @@ object MPCalSemanticCheckPass {
                 lhs match {
                   case PCalAssignmentLhsIdentifier(_) => acc
                   case PCalAssignmentLhsProjection(lhs, _) => findMappingCount(lhs, acc + 1)
+                  case PCalAssignmentLhsExtension(_) => !!!
                 }
 
               @tailrec
@@ -332,6 +334,7 @@ object MPCalSemanticCheckPass {
                       case _ => None
                     }
                   case PCalAssignmentLhsProjection(lhs, _) => findDefn(lhs)
+                  case PCalAssignmentLhsExtension(_) => !!!
                 }
 
               findDefn(lhs).foreach { defn =>
@@ -341,15 +344,23 @@ object MPCalSemanticCheckPass {
                   errors += SemanticError.MPCalKindMismatchError(usage = lhs, defn = defn)
                 }
               }
-            case ref @MPCalRefExpr(_, mappingCount) =>
-              paramsMap(ref.refersTo) match {
+            case ref@MPCalRefExpr(_, mappingCount) =>
+              paramsMap.get(ById(ref.refersTo)).map {
                 case defn @ MPCalRefParam(_, mappingCountP) =>
                   if(mappingCountP > mappingCount) {
                     errors += SemanticError.MPCalKindMismatchError(usage = ref, defn = defn)
                   }
                 case _: MPCalValParam => // pass; always OK
+              }.getOrElse {
+                ref.refersTo match {
+                  case PCalPVariableDeclaration(_, _) | _: PCalVariableDeclaration =>
+                    // OK, because it's either a state variable, or it's a local
+                  case defn: SourceLocatable =>
+                    errors += SemanticError.MPCalKindMismatchError(usage = ref, defn = defn)
+                  case _ => !!! // all defns should be SourceLocatable
+                }
               }
-            case expr@MPCalPassUtils.MappedRead(mappingCount, ident) if (paramsMap.get(ident.refersTo) match {
+            case expr@MPCalPassUtils.MappedRead(mappingCount, ident) if (paramsMap.get(ById(ident.refersTo)) match {
               case Some(MPCalRefParam(_, mappingCountP)) => mappingCount >= mappingCountP
               case Some(MPCalValParam(_)) => true // it's a value, anything goes
               case _ => false
@@ -365,11 +376,12 @@ object MPCalSemanticCheckPass {
                   case TLAFunctionCall(function, params) =>
                     params.foreach(_.visit(Visitable.TopDownFirstStrategy)(impl))
                     checkMappingArgs(function)
+                  case _ => !!! // exhaustivity via MappedRead
                 }
 
               checkMappingArgs(expr)
-            case ref: RefersTo[DefinitionOne @unchecked] with SourceLocatable if ref.refersTo.isInstanceOf[DefinitionOne] && paramsMap.contains(ref.refersTo) =>
-              errors += SemanticError.MPCalKindMismatchError(usage = ref, defn = paramsMap(ref.refersTo))
+            case ref: RefersTo[DefinitionOne@unchecked] with SourceLocatable if ref.refersTo.isInstanceOf[DefinitionOne] && paramsMap.contains(ById(ref.refersTo)) =>
+              errors += SemanticError.MPCalKindMismatchError(usage = ref, defn = paramsMap(ById(ref.refersTo)))
           }
 
           stmt.visit(Visitable.TopDownFirstStrategy)(impl)
@@ -379,7 +391,7 @@ object MPCalSemanticCheckPass {
       block.visit(Visitable.TopDownFirstStrategy) {
         case MPCalArchetype(_, _, params, _, body) =>
           checkMPCalParamRefs(body, params)
-        case MPCalProcedure(_, params, _, body) =>
+        case MPCalProcedure(_, _, params, _, body) =>
           checkMPCalParamRefs(body, params)
         case instance @MPCalInstance(_, _, _, arguments, mappings) =>
           val archetype = instance.refersTo
@@ -456,15 +468,15 @@ object MPCalSemanticCheckPass {
     // strategy: capture all these things, then look for assignments to things that are not them
     locally {
       // gather all the assignable things
-      val assignableThings: IdSet[DefinitionOne] = {
-        var assignableThingsAcc: IdSet[DefinitionOne] = IdSet.empty
+      val assignableThings: Set[ById[DefinitionOne]] = {
+        var assignableThingsAcc: Set[ById[DefinitionOne]] = Set.empty
         block.visit(Visitable.TopDownFirstStrategy) {
-          case arch: MPCalArchetype => assignableThingsAcc ++= arch.params ++ arch.variables
-          case proc: MPCalProcedure => assignableThingsAcc ++= proc.params ++ proc.variables
-          case proc: PCalProcedure => assignableThingsAcc ++= proc.params ++ proc.variables
-          case proc: PCalProcess => assignableThingsAcc ++= proc.selfDecl +: proc.variables
+          case arch: MPCalArchetype => assignableThingsAcc ++= (arch.params.iterator ++ arch.variables).map(ById(_))
+          case proc: MPCalProcedure => assignableThingsAcc ++= (proc.params.iterator ++ proc.variables).map(ById(_))
+          case proc: PCalProcedure => assignableThingsAcc ++= (proc.params.iterator ++ proc.variables).map(ById(_))
+          case proc: PCalProcess => assignableThingsAcc ++= (Iterator.single(proc.selfDecl) ++ proc.variables).map(ById(_))
         }
-        assignableThingsAcc ++= block.variables
+        assignableThingsAcc ++= block.variables.iterator.map(ById(_))
         assignableThingsAcc
       }
 
@@ -484,7 +496,7 @@ object MPCalSemanticCheckPass {
             }
 
           findRef(lhs).foreach { ref =>
-            if(!assignableThings(ref.refersTo)) {
+            if(!assignableThings(ById(ref.refersTo))) {
               errors += PCalInvalidAssignment(ref)
             }
           }

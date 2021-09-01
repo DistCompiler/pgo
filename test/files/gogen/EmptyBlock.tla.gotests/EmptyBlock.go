@@ -8,5 +8,6 @@ import (
 var _ = new(fmt.Stringer)  // unconditionally prevent go compiler from reporting unused fmt import
 var _ = distsys.TLAValue{} // same, for distsys
 
-type Constants struct {
-}
+var procTable = distsys.MakeMPCalProcTable()
+
+var jumpTable = distsys.MakeMPCalJumpTable()

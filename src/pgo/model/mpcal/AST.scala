@@ -32,7 +32,13 @@ final case class MPCalBlock(name: TLAIdentifier, units: List[TLAUnit], macros: L
                             mappingMacros: List[MPCalMappingMacro], archetypes: List[MPCalArchetype],
                             variables: List[PCalVariableDeclaration], instances: List[MPCalInstance],
                             pcalProcedures: List[PCalProcedure],
-                            processes: Either[List[PCalStatement],List[PCalProcess]]) extends MPCalNode
+                            processes: Either[List[PCalStatement],List[PCalProcess]]) extends MPCalNode {
+  def bleedableDefinitions: Iterator[DefinitionOne] =
+    pcalProcedures.iterator.flatMap(proc => proc.params ++ proc.variables) ++
+      processes.fold(_ => Nil, processes => processes.iterator.flatMap(_.variables))
+
+  override def namedParts: Iterator[RefersTo.HasReferences] = super.namedParts ++ bleedableDefinitions
+}
 
 object MPCalBlock {
   /**
@@ -54,11 +60,10 @@ object MPCalBlock {
     ).setSourceLocation(pcalAlgorithm.sourceLocation)
 }
 
-final case class MPCalProcedure(name: TLAIdentifier, params: List[MPCalParam], variables: List[PCalPVariableDeclaration],
-                                body: List[PCalStatement]) extends MPCalNode with RefersTo.HasReferences
+final case class MPCalProcedure(name: TLAIdentifier, selfDecl: TLADefiningIdentifier, params: List[MPCalParam],
+                                variables: List[PCalPVariableDeclaration], body: List[PCalStatement]) extends MPCalNode with RefersTo.HasReferences
 
-final case class MPCalMappingMacro(name: TLAIdentifier, readBody: List[PCalStatement], writeBody: List[PCalStatement],
-                                   freeVars: List[TLADefiningIdentifier]) extends MPCalNode with RefersTo.HasReferences
+final case class MPCalMappingMacro(name: TLAIdentifier, selfDecl: TLADefiningIdentifier, readBody: List[PCalStatement], writeBody: List[PCalStatement]) extends MPCalNode with RefersTo.HasReferences
 
 final case class MPCalArchetype(name: TLAIdentifier, selfDecl: TLADefiningIdentifier, params: List[MPCalParam],
                                 variables: List[PCalVariableDeclaration], body: List[PCalStatement]) extends MPCalNode with RefersTo.HasReferences

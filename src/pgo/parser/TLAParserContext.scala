@@ -1,6 +1,8 @@
 package pgo.parser
 
-import pgo.model.Definition.ScopeIdentifierName
+import pgo.model.Definition.{ScopeIdentifier, ScopeIdentifierName}
+import pgo.model.mpcal.{MPCalCall, MPCalRefExpr}
+import pgo.model.pcal.{PCalAssignmentLhsIdentifier, PCalCall, PCalMacroCall}
 import pgo.model.{Definition, DefinitionComposite, DefinitionOne, Visitable}
 import pgo.model.tla._
 
@@ -31,34 +33,37 @@ final case class TLAParserContext(minColumn: Int = -1,
    * match any "late bindings" (e.g bindings that are defined after use) up with any unbound parts of the given
    * AST node, or raise a binding error
    *
-   * WARNING: may not work if the bindings are not TLA+, in which case, see PCalParser.GenericSyntax#pcalMacro
-   *          for other issues to keep in mind
+   * Note: this relies on know what things refer to other things, and should hopefully work on PCal, MPCal, and TLA+,
+   *       given references that work via DefinitionOne
    *
    * @param visitable the AST node
    * @param defns the definitions to late-bind
    */
-  def resolveLateBindings(visitable: Visitable, defns: List[DefinitionOne]): Unit = {
-    val defnMap = defns.view.map(defn => defn.identifier.asInstanceOf[ScopeIdentifierName].name -> defn).toMap
+  def resolveLateBindings(visitable: Visitable, defns: IterableOnce[DefinitionOne]): Unit = {
+    val defnMap = defns.iterator.map(defn => defn.identifier -> defn).toMap
 
     // gather all nested unbound names
     // yes, this could end up being really slow, but last time I tried to be smart w/ mutable state or something,
     // a fuzz tester exposed a really weird bug
-    val idents = mutable.ListBuffer[TLAGeneralIdentifier]()
+    val binders = mutable.ListBuffer[(ScopeIdentifier,DefinitionOne=>Unit)]()
     visitable.visit(Visitable.TopDownFirstStrategy) {
-      case ident@TLAGeneralIdentifier(_, Nil) if !ident.hasRefersTo => idents += ident
+      case ident@TLAGeneralIdentifier(name, Nil) if !ident.hasRefersTo => binders += ScopeIdentifierName(name) -> ident.setRefersTo
+      case lhs@PCalAssignmentLhsIdentifier(name) if !lhs.hasRefersTo => binders += ScopeIdentifierName(name) -> lhs.setRefersTo
+      case ref@MPCalRefExpr(name, _) if !ref.hasRefersTo => binders += ScopeIdentifierName(name) -> ref.setRefersTo
     }
 
-    idents.foreach { ident =>
-      defnMap.get(ident.name) match {
-        case Some(defn) => ident.setRefersTo(defn)
-        case None =>
-          // if the late bindings count is 0 we should check that no idents remain unbound.
-          // if so, raise the [AST traversal-wise, probably lexically] "earliest" one as an error.
-          // otherwise, unbound idents may still be bound via currently unknown context, so don't do anything
-          if(lateBindingStack == 0) {
-            throw DefinitionLookupError(Nil, Definition.ScopeIdentifierName(ident.name))
-          }
-      }
+    binders.foreach {
+      case (ident, setRef) =>
+        defnMap.get(ident) match {
+          case Some(defn) => setRef(defn)
+          case None =>
+            // if the late bindings count is 0 we should check that no idents remain unbound.
+            // if so, raise the [AST traversal-wise, probably lexically] "earliest" one as an error.
+            // otherwise, unbound idents may still be bound via currently unknown context, so don't do anything
+            if(lateBindingStack == 0) {
+              throw DefinitionLookupError(Nil, ident)
+            }
+        }
     }
   }
 

@@ -1,12 +1,13 @@
 package pgo.parser
 
-import scala.collection.mutable
+import pgo.model.Definition.ScopeIdentifier
 import pgo.model.{Definition, SourceLocatable, SourceLocation, SourceLocationWithUnderlying, Visitable}
 import pgo.model.mpcal._
 import pgo.model.pcal._
 import pgo.model.tla._
+import pgo.util.Unreachable.!!!
 
-import pgo.util.Description
+import scala.collection.mutable
 
 trait MPCalParser extends PCalParser {
   import pgo.parser.MPCalParserContext._
@@ -134,45 +135,39 @@ trait MPCalParser extends PCalParser {
   def mpcalMappingMacro(implicit ctx: MPCalParserContext): Parser[MPCalMappingMacro] =
     withSourceLocation {
       val origCtx = ctx
-      ("mapping" ~> ws ~> "macro" ~> ws ~> tlaIdentifierExpr).flatMap { name =>
-        implicit val ctx: MPCalParserContext = origCtx.withLateBinding
-        (ws ~> "{" ~> ws ~> "read" ~> ws ~> cast(mpcalMappingMacroBody.pcalCSyntax.pcalCompoundStmt)) ~
-          (ws ~> "write" ~> ws ~> cast(mpcalMappingMacroBody.pcalCSyntax.pcalCompoundStmt) <~ ws <~ "}") ^^
-          ((name, _))
+      querySourceLocation("mapping" ~> ws ~> "macro" ~> ws ~> tlaIdentifierExpr).flatMap {
+        case (selfLoc, name) =>
+          val selfDecl = TLAIdentifier("self")
+            .setSourceLocation(selfLoc)
+            .toDefiningIdentifier
+          implicit val ctx: MPCalParserContext = origCtx.withDefinition(selfDecl)
+          (ws ~> "{" ~> ws ~> "read" ~> ws ~> cast(mpcalMappingMacroBody.pcalCSyntax.pcalCompoundStmt)) ~
+            (ws ~> "write" ~> ws ~> cast(mpcalMappingMacroBody.pcalCSyntax.pcalCompoundStmt) <~ ws <~ "}") ^^
+            ((name, selfDecl, _))
       } ^^ {
-        case (name, readBlock ~ writeBlock) =>
-          val lateBindings = locally {
-            val lateBindingsAcc = mutable.HashMap[TLAIdentifier,mutable.ListBuffer[TLAGeneralIdentifier]]()
-            val visitor: PartialFunction[Visitable,Unit] = {
-              case ident@TLAGeneralIdentifier(name, Nil) if !ident.hasRefersTo =>
-                lateBindingsAcc.getOrElseUpdate(name, mutable.ListBuffer()) += ident
-            }
-            readBlock.foreach(_.visit(Visitable.TopDownFirstStrategy)(visitor))
-            writeBlock.foreach(_.visit(Visitable.TopDownFirstStrategy)(visitor))
-
-            lateBindingsAcc.toMap
-          }
-
-          val freeVars = lateBindings.keysIterator.map(_.toDefiningIdentifier).toList.sortBy(_.id.id)
-          freeVars.foreach { v => lateBindings(v.id).foreach(_.setRefersTo(v)) }
-          MPCalMappingMacro(name, readBlock, writeBlock, freeVars)
+        case (name, selfDecl, readBlock ~ writeBlock) =>
+          MPCalMappingMacro(name, selfDecl, readBlock, writeBlock)
       }
     }
 
   def mpcalProcedure(implicit ctx: MPCalParserContext): Parser[MPCalProcedure] =
     withSourceLocation {
       val origCtx = ctx
-      ("procedure" ~> ws ~> tlaIdentifierExpr).flatMap { id =>
-        ((ws ~> "(" ~> ws ~> repsep(mpcalParam, ws ~> "," ~> ws)) ~
-          (ws ~> ")" ~> opt(ws ~> ("variables" | "variable") ~> ws ~> rep1sep(pcalPVarDecl, ws ~> (";"|",") ~> ws) <~ opt(ws ~> (";" | ","))).map(_.getOrElse(Nil))))
-          .flatMap {
-            case args ~ locals =>
-              implicit val ctx: MPCalParserContext = locals.foldLeft(args.foldLeft(origCtx)(_.withDefinition(_)))(_.withDefinition(_))
-              (ws ~> cast(mpcalWithRefs.pcalCSyntax.pcalCompoundStmt) <~ opt(ws ~> ";")) ^^ ((id, args, locals, _))
-          }
+      querySourceLocation("procedure" ~> ws ~> tlaIdentifierExpr).flatMap {
+        case (selfLoc, id) =>
+          val selfDecl = TLAIdentifier("self").setSourceLocation(selfLoc).toDefiningIdentifier
+          implicit val ctx: MPCalParserContext = origCtx.withDefinition(selfDecl)
+          val origCtx2 = ctx
+          ((ws ~> "(" ~> ws ~> repsep(mpcalParam, ws ~> "," ~> ws)) ~
+            (ws ~> ")" ~> opt(ws ~> ("variables" | "variable") ~> ws ~> rep1sep(pcalPVarDecl, ws ~> (";"|",") ~> ws) <~ opt(ws ~> (";" | ","))).map(_.getOrElse(Nil))))
+            .flatMap {
+              case args ~ locals =>
+                implicit val ctx: MPCalParserContext = locals.foldLeft(args.foldLeft(origCtx2)(_.withDefinition(_)))(_.withDefinition(_))
+                (ws ~> cast(mpcalWithRefs.pcalCSyntax.pcalCompoundStmt) <~ opt(ws ~> ";")) ^^ ((id, selfDecl, args, locals, _))
+            }
       } ^^ {
-        case (id, args, locals, body) =>
-          MPCalProcedure(id, args, locals, body)
+        case (id, selfDecl, args, locals, body) =>
+          MPCalProcedure(id, selfDecl, args, locals, body)
       }
     }
 
@@ -207,7 +202,7 @@ trait MPCalParser extends PCalParser {
 
   def mpcalBlock(implicit ctx: MPCalParserContext): Parser[MPCalBlock] =
     withSourceLocation {
-      val origCtx = ctx
+      val origCtx = ctx.withLateBinding
       (("--mpcal" ~> ws ~> tlaIdentifierExpr <~ ws <~ "{") ~ opt(ws ~> pcalDefinitions).map(_.getOrElse(Nil))).flatMap {
         case name ~ defns =>
           implicit val ctx: MPCalParserContext = defns.foldLeft(origCtx)((ctx, unit) => unit.definitions.foldLeft(ctx)(_.withDefinition(_)))
@@ -231,7 +226,8 @@ trait MPCalParser extends PCalParser {
           }
       } ^^ {
         case (name, defns, macros, mpcalProcedures, mappingMacros, archetypes, varDecls, instances ~ pcalProcedures ~ procs) =>
-          val dummyPCalProc = PCalProcedure(TLAIdentifier("dummy"), Nil, Nil, Nil) // a dummy PCal procedure to make auto-rename happy, see below
+          val dummyPCalProc =
+            PCalProcedure(TLAIdentifier("dummy"), TLAIdentifier("self").toDefiningIdentifier, Nil, Nil, Nil) // a dummy PCal procedure to make auto-rename happy, see below
           var result = MPCalBlock(name, defns, macros, mpcalProcedures, mappingMacros, archetypes, varDecls, instances, dummyPCalProc :: pcalProcedures, procs)
           val macroMap = macros.view.map(m => m.name -> m).toMap
           result.visit() {
@@ -253,6 +249,20 @@ trait MPCalParser extends PCalParser {
                 case None => throw ProcedureLookupError(target)
               }
           }
+
+          // resolve bleeding refs, but refuse to resolve ambiguous refs, where a bleed could go to one of multiple locals
+          val bleedableDefs = result.bleedableDefinitions.toList
+          val bleedableDefNamesSeen = mutable.HashSet[ScopeIdentifier]()
+          val bleedableDefsWithDups = bleedableDefs.iterator.flatMap { defn =>
+            if(bleedableDefNamesSeen(defn.identifier)) {
+              Some(defn.identifier)
+            } else {
+              bleedableDefNamesSeen += defn.identifier
+              Nil
+            }
+          }.toSet
+          ctx.ctx.ctx.resolveLateBindings(result, bleedableDefs.filter(defn => !bleedableDefsWithDups(defn.identifier)))
+
           // rewrite pcal proc calls to mpcal proc calls strictly at the end, to avoid messing up the auto-renaming in rewrite
           // like this, even if it's fake, all the parts have a refersTo, and the auto-renaming at least "thinks" it's working correctly
           result = result.rewrite() {
@@ -277,6 +287,7 @@ object MPCalParser extends MPCalParser with ParsingUtils {
     findInComment("mpcal", "--mpcal")(buildReader(charSeq, underlying)) match {
       case Success(_, _) => true
       case NoSuccess(_, _) => false
+      case _ => !!! // keep scalac quiet; NoSuccess(_, _) really does cover the two other cases!
     }
 
   def readBlock(underlying: SourceLocation.UnderlyingText, charSeq: CharSequence, tlaModule: TLAModule): MPCalBlock = {
@@ -290,7 +301,7 @@ object MPCalParser extends MPCalParser with ParsingUtils {
     result.visit(Visitable.BottomUpFirstStrategy) {
       case loc: SourceLocatable => assert(loc.sourceLocation.isInstanceOf[SourceLocationWithUnderlying], s"internal error: did not have source location: $loc")
     }
-    // ensure no dandling ref or [_] are left in random expressions
+    // ensure no dangling ref or [_] are left in random expressions
     result.visit(Visitable.BottomUpFirstStrategy) {
       case TLAExtensionExpression(pExp: MPCalRefExpr) =>
         assert(false, s"ref or [_] found in wrong expression context: these syntaxes may only be used directly as arguments to an MPCal procedure call: ${pExp.sourceLocation}")
