@@ -836,7 +836,7 @@ func (v *tlaValueTuple) GobDecode(input []byte) error {
 	}
 }
 
-func TLACrossProduct(vs... TLAValue) TLAValue {
+func TLACrossProduct(vs ...TLAValue) TLAValue {
 	var sets []*immutable.Map
 	for _, v := range vs {
 		sets = append(sets, v.AsSet())
@@ -851,7 +851,7 @@ func TLACrossProduct(vs... TLAValue) TLAValue {
 			it := set.Iterator()
 			for !it.Done() {
 				elem, _ := it.Next()
-				helper(tuple.Append(elem), idx + 1)
+				helper(tuple.Append(elem), idx+1)
 			}
 		} else {
 			builder.Set(tuple, true)

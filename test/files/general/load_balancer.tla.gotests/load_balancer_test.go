@@ -58,11 +58,11 @@ func TestOneServerOneClient(t *testing.T) {
 		}
 	}
 
-    var configFns []distsys.MPCalContextConfigFn
-    configFns = append(configFns, constantDefs...)
-    configFns = append(configFns,
-        distsys.EnsureArchetypeRefParam("mailboxes", resources.TCPMailboxesArchetypeResourceMaker(makeAddressFn(0))))
-    ctxLoadBalancer := distsys.NewMPCalContext(distsys.NewTLANumber(0), ALoadBalancer, configFns...)
+	var configFns []distsys.MPCalContextConfigFn
+	configFns = append(configFns, constantDefs...)
+	configFns = append(configFns,
+		distsys.EnsureArchetypeRefParam("mailboxes", resources.TCPMailboxesArchetypeResourceMaker(makeAddressFn(0))))
+	ctxLoadBalancer := distsys.NewMPCalContext(distsys.NewTLANumber(0), ALoadBalancer, configFns...)
 	go func() {
 		err := ctxLoadBalancer.Run()
 		if err != nil && err != distsys.ErrContextClosed {
@@ -70,12 +70,12 @@ func TestOneServerOneClient(t *testing.T) {
 		}
 	}()
 
-    configFns = nil
-    configFns = append(configFns, constantDefs...)
-    configFns = append(configFns,
-        distsys.EnsureArchetypeRefParam("mailboxes", resources.TCPMailboxesArchetypeResourceMaker(makeAddressFn(1))),
-        distsys.EnsureArchetypeRefParam("file_system", resources.FileSystemArchetypeResourceMaker(tempDir)))
-    ctxServer := distsys.NewMPCalContext(distsys.NewTLANumber(1), AServer, configFns...)
+	configFns = nil
+	configFns = append(configFns, constantDefs...)
+	configFns = append(configFns,
+		distsys.EnsureArchetypeRefParam("mailboxes", resources.TCPMailboxesArchetypeResourceMaker(makeAddressFn(1))),
+		distsys.EnsureArchetypeRefParam("file_system", resources.FileSystemArchetypeResourceMaker(tempDir)))
+	ctxServer := distsys.NewMPCalContext(distsys.NewTLANumber(1), AServer, configFns...)
 	go func() {
 		err := ctxServer.Run()
 		if err != nil && err != distsys.ErrContextClosed {
@@ -86,12 +86,12 @@ func TestOneServerOneClient(t *testing.T) {
 	requestChannel := make(chan distsys.TLAValue, 32)
 	responseChannel := make(chan distsys.TLAValue, 32)
 	configFns = nil
-    configFns = append(configFns, constantDefs...)
-    configFns = append(configFns,
-        distsys.EnsureArchetypeRefParam("mailboxes", resources.TCPMailboxesArchetypeResourceMaker(makeAddressFn(2))),
-        distsys.EnsureArchetypeRefParam("instream", resources.InputChannelResourceMaker(requestChannel)),
-        distsys.EnsureArchetypeRefParam("outstream", resources.OutputChannelResourceMaker(responseChannel)))
-    ctxClient := distsys.NewMPCalContext(distsys.NewTLANumber(2), AClient, configFns...)
+	configFns = append(configFns, constantDefs...)
+	configFns = append(configFns,
+		distsys.EnsureArchetypeRefParam("mailboxes", resources.TCPMailboxesArchetypeResourceMaker(makeAddressFn(2))),
+		distsys.EnsureArchetypeRefParam("instream", resources.InputChannelResourceMaker(requestChannel)),
+		distsys.EnsureArchetypeRefParam("outstream", resources.OutputChannelResourceMaker(responseChannel)))
+	ctxClient := distsys.NewMPCalContext(distsys.NewTLANumber(2), AClient, configFns...)
 	go func() {
 		err := ctxClient.Run()
 		if err != nil && err != distsys.ErrContextClosed {

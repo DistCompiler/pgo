@@ -166,7 +166,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			switch iface.Fairness("AProxy.proxySendMsg.0", 2) {
+			switch iface.NextFairnessCounter("AProxy.proxySendMsg.0", 2) {
 			case 0:
 				var exprRead2 distsys.TLAValue
 				exprRead2, err = iface.Read(idx1, []distsys.TLAValue{})
@@ -254,7 +254,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			switch iface.Fairness("AProxy.proxyRcvMsg.0", 2) {
+			switch iface.NextFairnessCounter("AProxy.proxyRcvMsg.0", 2) {
 			case 0:
 				var tmpRead distsys.TLAValue
 				tmpRead, err = iface.Read(net1, []distsys.TLAValue{distsys.NewTLATuple(ProxyID(iface), PROXY_RESP_MSG_TYP(iface))})
@@ -422,7 +422,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			}
 			if distsys.TLA_TRUE.AsBool() {
 				if iface.GetConstant("EXPLORE_FAIL")().AsBool() {
-					switch iface.Fairness("AServer.serverLoop.0", 2) {
+					switch iface.NextFairnessCounter("AServer.serverLoop.0", 2) {
 					case 0:
 						// skip
 						return iface.Goto("AServer.serverRcvMsg")
@@ -488,7 +488,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				return fmt.Errorf("%w: ((((msg).to) = (self)) /\\ (((msg).from) = (ProxyID))) /\\ (((msg).typ) = (PROXY_REQ_MSG_TYP))", distsys.ErrAssertionFailed)
 			}
 			if iface.GetConstant("EXPLORE_FAIL")().AsBool() {
-				switch iface.Fairness("AServer.serverRcvMsg.0", 2) {
+				switch iface.NextFairnessCounter("AServer.serverRcvMsg.0", 2) {
 				case 0:
 					// skip
 					return iface.Goto("AServer.serverSendMsg")
@@ -563,7 +563,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				return err
 			}
 			if iface.GetConstant("EXPLORE_FAIL")().AsBool() {
-				switch iface.Fairness("AServer.serverSendMsg.0", 2) {
+				switch iface.NextFairnessCounter("AServer.serverSendMsg.0", 2) {
 				case 0:
 					// skip
 					return iface.Goto("AServer.serverLoop")

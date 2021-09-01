@@ -336,7 +336,7 @@ func DefineConstantOperator(name string, defn interface{}) MPCalContextConfigFn 
 	}
 }
 
-// NewMPCalContextWithoutArchetype creates an almost-unitialized context, useful for calling pure TLA+ operators.
+// NewMPCalContextWithoutArchetype creates an almost-uninitialized context, useful for calling pure TLA+ operators.
 // The returned context will cause almost all operations to panic, except:
 // - configuring constant definitions
 // - passing the result of MPCalContext.IFace() to a plain TLA+ operator
@@ -359,9 +359,9 @@ func NewMPCalContextWithoutArchetype(configFns ...MPCalContextConfigFn) *MPCalCo
 type archetypeEvent int
 
 const (
-	// ArchetypeStarted denotes that the archetype execution has started
+	// archetypeStarted denotes that the archetype execution has started
 	archetypeStarted archetypeEvent = iota
-	// ArchetypeFinished denotes that the archetype execution has finished
+	// archetypeFinished denotes that the archetype execution has finished
 	archetypeFinished
 )
 

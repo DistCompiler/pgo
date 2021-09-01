@@ -53,13 +53,13 @@ func (iface ArchetypeInterface) Read(handle ArchetypeResourceHandle, indices []T
 	return
 }
 
-// Fairness returns an int, which, from call to call, for the same id, follows the looping sequence 0..ceiling
+// NextFairnessCounter returns an int, which, from call to call, for the same id, follows the looping sequence 0..ceiling
 // This allows an archetype to explore different branches of an either statement (each of which has its own id) during execution.
-func (iface ArchetypeInterface) Fairness(id string, ceiling int) int {
+func (iface ArchetypeInterface) NextFairnessCounter(id string, ceiling int) int {
 	fairnessCounters := iface.ctx.fairnessCounters
 	counter := fairnessCounters[id]
 	var nextCounter int
-	if counter >= ceiling - 1 {
+	if counter >= ceiling-1 {
 		nextCounter = 0
 	} else {
 		nextCounter = counter + 1
@@ -70,7 +70,7 @@ func (iface ArchetypeInterface) Fairness(id string, ceiling int) int {
 
 // GetConstant returns the constant operator bound to the given name as a variadic Go function.
 // The function is generated in DefineConstantOperator, and is expected to check its own arguments.
-func (iface ArchetypeInterface) GetConstant(name string) func(args... TLAValue) TLAValue {
+func (iface ArchetypeInterface) GetConstant(name string) func(args ...TLAValue) TLAValue {
 	fn, wasFound := iface.ctx.constantDefns[name]
 	if !wasFound {
 		panic(fmt.Errorf("could not find constant definition %s", name))
@@ -118,7 +118,6 @@ func (iface ArchetypeInterface) getCriticalSection(name string) MPCalCriticalSec
 	panic(fmt.Errorf("could not find critical section %s", name))
 }
 
-
 func (iface ArchetypeInterface) getProc(name string) MPCalProc {
 	if proc, ok := iface.ctx.procTable[name]; ok {
 		return proc
@@ -128,7 +127,7 @@ func (iface ArchetypeInterface) getProc(name string) MPCalProc {
 
 var defaultLocalArchetypeResourceMaker = LocalArchetypeResourceMaker(TLAValue{})
 
-func (iface ArchetypeInterface) ensureArchetypeResourceLocal(name string) ArchetypeResourceHandle {
+func (iface ArchetypeInterface) ensureArchetypeResourceLocalWithDefault(name string) ArchetypeResourceHandle {
 	return iface.ctx.ensureArchetypeResource(name, defaultLocalArchetypeResourceMaker)
 }
 
@@ -150,7 +149,7 @@ func (iface ArchetypeInterface) Goto(target string) error {
 // - jump to the callee's first label via Goto
 //
 // This method should be called at the end of a critical section.
-func (iface ArchetypeInterface) Call(procName string, returnPC string, argVals... TLAValue) error {
+func (iface ArchetypeInterface) Call(procName string, returnPC string, argVals ...TLAValue) error {
 	proc := iface.getProc(procName)
 	stack := iface.RequireArchetypeResource(".stack")
 	stackVal, err := iface.Read(stack, nil)
@@ -158,6 +157,11 @@ func (iface ArchetypeInterface) Call(procName string, returnPC string, argVals..
 		return err
 	}
 
+	// StateVars is organised as [arg_1, ..., arg_i, local_1, ..., local_j], for i arguments and j locals
+	// during a call, argument values will be passed, but local vals will not.
+	// there's an explicit bounds check below that differentiates between argIdx being in range of arg vals,
+	// and argIdx referring to a state var (beyond len(argVals)).
+	// It's only an error to have more argVals than StateVars.
 	if len(argVals) > len(proc.StateVars) {
 		panic(fmt.Errorf("too many arguments when calling procedure %s", proc.Name))
 	}
@@ -166,7 +170,7 @@ func (iface ArchetypeInterface) Call(procName string, returnPC string, argVals..
 	builder := immutable.NewMapBuilder(TLAValueHasher{})
 	builder.Set(NewTLAString(".pc"), NewTLAString(returnPC)) // store return address
 	for argIdx, argVarName := range proc.StateVars {
-		argHandle := iface.ensureArchetypeResourceLocal(argVarName)
+		argHandle := iface.ensureArchetypeResourceLocalWithDefault(argVarName)
 
 		// save original argument value
 		argVal, err := iface.Read(argHandle, nil)
@@ -210,8 +214,10 @@ func (iface ArchetypeInterface) Call(procName string, returnPC string, argVals..
 // This ensures that the existing top-of-stack is cleaned up, the correct return address is stored, and
 // all the procedure call semantics for a new call replacing the current one are satisfied.
 //
+// Note: like Return, this should never be called outside a procedure, as it relies on an existing stack frame.
+//
 // This method, like those it wraps, should be called at the end of a critical section.
-func (iface ArchetypeInterface) TailCall(procName string, argVals... TLAValue) error {
+func (iface ArchetypeInterface) TailCall(procName string, argVals ...TLAValue) error {
 	// pull the top-of-stack return address from the initial stack, so we can use it in the tail-call process below
 	stack := iface.RequireArchetypeResource(".stack")
 	stackVal, err := iface.Read(stack, nil)

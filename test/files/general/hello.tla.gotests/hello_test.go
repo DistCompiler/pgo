@@ -11,11 +11,11 @@ import (
 
 func TestConstantDefinitionVariations(t *testing.T) {
 	type TestRec struct {
-		Name string
+		Name   string
 		Config distsys.MPCalContextConfigFn
 	}
 
-	tests := []TestRec {
+	tests := []TestRec{
 		{
 			Name: "two args",
 			Config: distsys.DefineConstantOperator("MK_HELLO", func(left, right distsys.TLAValue) distsys.TLAValue {
@@ -24,13 +24,13 @@ func TestConstantDefinitionVariations(t *testing.T) {
 		},
 		{
 			Name: "fully variadic",
-			Config: distsys.DefineConstantOperator("MK_HELLO", func(args... distsys.TLAValue) distsys.TLAValue {
+			Config: distsys.DefineConstantOperator("MK_HELLO", func(args ...distsys.TLAValue) distsys.TLAValue {
 				return distsys.NewTLAString(args[0].AsString() + args[1].AsString())
 			}),
 		},
 		{
 			Name: "partly variadic",
-			Config: distsys.DefineConstantOperator("MK_HELLO", func(left distsys.TLAValue, restArgs... distsys.TLAValue) distsys.TLAValue {
+			Config: distsys.DefineConstantOperator("MK_HELLO", func(left distsys.TLAValue, restArgs ...distsys.TLAValue) distsys.TLAValue {
 				return distsys.NewTLAString(left.AsString() + restArgs[0].AsString())
 			}),
 		},

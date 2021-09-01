@@ -71,7 +71,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			switch iface.Fairness("AReplica.rcvMsg.0", 2) {
+			switch iface.NextFairnessCounter("AReplica.rcvMsg.0", 2) {
 			case 0:
 				var exprRead distsys.TLAValue
 				exprRead, err = iface.Read(net, []distsys.TLAValue{distsys.NewTLATuple(iface.Self(), GET_REQ(iface))})

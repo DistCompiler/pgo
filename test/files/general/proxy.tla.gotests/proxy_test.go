@@ -66,7 +66,7 @@ var constantConfigs = []distsys.MPCalContextConfigFn{
 	distsys.DefineConstantValue("EXPLORE_FAIL", distsys.TLA_FALSE),
 }
 
-func withConstantConfigs(configFns... distsys.MPCalContextConfigFn) []distsys.MPCalContextConfigFn {
+func withConstantConfigs(configFns ...distsys.MPCalContextConfigFn) []distsys.MPCalContextConfigFn {
 	var result []distsys.MPCalContextConfigFn
 	result = append(result, constantConfigs...)
 	result = append(result, configFns...)
@@ -79,7 +79,7 @@ func runServer(done <-chan struct{}, self distsys.TLAValue, constantsIFace dists
 		distsys.EnsureArchetypeRefParam("fd", resources.PlaceHolderResourceMaker()),
 		distsys.EnsureArchetypeRefParam("netEnabled", resources.PlaceHolderResourceMaker()))...)
 	return runArchetype(done, ctx, func() error {
-		return mon.RunArchetype(self, ctx.Run)
+		return mon.RunArchetype(ctx)
 	})
 }
 
@@ -87,9 +87,7 @@ func runClient(done <-chan struct{}, self distsys.TLAValue, outputChannel chan d
 	ctx := distsys.NewMPCalContext(self, proxy.AClient, withConstantConfigs(
 		distsys.EnsureArchetypeRefParam("net", getNetworkMaker(self, constantsIFace)),
 		distsys.EnsureArchetypeRefParam("output", resources.OutputChannelResourceMaker(outputChannel)))...)
-	return runArchetype(done, ctx, func() error {
-		return ctx.Run()
-	})
+	return runArchetype(done, ctx, ctx.Run)
 }
 
 func runProxy(done <-chan struct{}, self distsys.TLAValue) error {
@@ -102,9 +100,7 @@ func runProxy(done <-chan struct{}, self distsys.TLAValue) error {
 			resources.WithFailureDetectorPullInterval(time.Millisecond*500),
 			resources.WithFailureDetectorTimeout(time.Second*3000),
 		)))...)
-	return runArchetype(done, ctx, func() error {
-		return ctx.Run()
-	})
+	return runArchetype(done, ctx, ctx.Run)
 }
 
 func setupMonitor() *resources.Monitor {

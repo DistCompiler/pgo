@@ -87,19 +87,9 @@ func (m *Monitor) getState(archetypeID distsys.TLAValue) (ArchetypeState, bool) 
 	return state, ok
 }
 
-// WrappedArchetypeFn denotes a function that runs an archetype with all the
-// required resources and returns its execution error. For example:
-//
-// var fn distsys.WrappedArchetypeFn
-// fn = func() error {
-//     err := archetype(ctx, self, constants, resource_1, ..., resource_n)
-//     return err
-// }
-//
-type WrappedArchetypeFn func() error
-
-// RunArchetype runs the given archetype inside the monitor.
-func (m *Monitor) RunArchetype(archetypeID distsys.TLAValue, fn WrappedArchetypeFn) (err error) {
+// RunArchetype runs the given archetype inside the monitor. Wraps a call to ctx.Run
+func (m *Monitor) RunArchetype(ctx *distsys.MPCalContext) (err error) {
+	archetypeID := ctx.IFace().Self()
 	defer func() {
 		if r := recover(); r != nil {
 			m.setState(archetypeID, failed)
@@ -108,7 +98,7 @@ func (m *Monitor) RunArchetype(archetypeID distsys.TLAValue, fn WrappedArchetype
 	}()
 
 	m.setState(archetypeID, alive)
-	err = fn()
+	err = ctx.Run()
 	if err == nil {
 		m.setState(archetypeID, finished)
 	} else {

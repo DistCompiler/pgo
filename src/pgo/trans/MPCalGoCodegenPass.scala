@@ -328,7 +328,7 @@ object MPCalGoCodegenPass {
               }
             case PCalCall(_, _) => !!! // replaced by MPCalCall above
             case either@PCalEither(cases) =>
-              d"""\nswitch ${ctx.iface}.Fairness("${fairnessCounterIds(ById(either))}", ${cases.size}) {${
+              d"""\nswitch ${ctx.iface}.NextFairnessCounter("${fairnessCounterIds(ById(either))}", ${cases.size}) {${
                 cases.view.zipWithIndex.map {
                   case (body, idx) =>
                     d"\ncase $idx:" +
