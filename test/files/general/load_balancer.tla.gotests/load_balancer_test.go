@@ -2,6 +2,7 @@ package loadbalancer
 
 import (
 	"fmt"
+	"github.com/UBC-NSS/pgo/distsys/tla"
 	"io/ioutil"
 	"log"
 	"math/rand"
@@ -16,10 +17,10 @@ import (
 
 func TestOneServerOneClient(t *testing.T) {
 	constantDefs := []distsys.MPCalContextConfigFn{
-		distsys.DefineConstantValue("LoadBalancerId", distsys.NewTLANumber(0)),
-		distsys.DefineConstantValue("NUM_SERVERS", distsys.NewTLANumber(1)),
-		distsys.DefineConstantValue("NUM_CLIENTS", distsys.NewTLANumber(1)),
-		distsys.DefineConstantValue("GET_PAGE", distsys.NewTLAString("GET_PAGE")),
+		distsys.DefineConstantValue("LoadBalancerId", tla.MakeTLANumber(0)),
+		distsys.DefineConstantValue("NUM_SERVERS", tla.MakeTLANumber(1)),
+		distsys.DefineConstantValue("NUM_CLIENTS", tla.MakeTLANumber(1)),
+		distsys.DefineConstantValue("GET_PAGE", tla.MakeTLAString("GET_PAGE")),
 	}
 
 	tempDir, err := ioutil.TempDir("", "")
@@ -41,8 +42,8 @@ func TestOneServerOneClient(t *testing.T) {
 		panic(err)
 	}
 
-	makeAddressFn := func(ownId int) func(index distsys.TLAValue) (resources.TCPMailboxKind, string) {
-		return func(index distsys.TLAValue) (resources.TCPMailboxKind, string) {
+	makeAddressFn := func(ownId int) func(index tla.TLAValue) (resources.TCPMailboxKind, string) {
+		return func(index tla.TLAValue) (resources.TCPMailboxKind, string) {
 			kind := [3]resources.TCPMailboxKind{resources.TCPMailboxesRemote, resources.TCPMailboxesRemote, resources.TCPMailboxesRemote}
 			kind[ownId] = resources.TCPMailboxesLocal
 			switch index.AsNumber() {
@@ -62,7 +63,7 @@ func TestOneServerOneClient(t *testing.T) {
 	configFns = append(configFns, constantDefs...)
 	configFns = append(configFns,
 		distsys.EnsureArchetypeRefParam("mailboxes", resources.TCPMailboxesArchetypeResourceMaker(makeAddressFn(0))))
-	ctxLoadBalancer := distsys.NewMPCalContext(distsys.NewTLANumber(0), ALoadBalancer, configFns...)
+	ctxLoadBalancer := distsys.NewMPCalContext(tla.MakeTLANumber(0), ALoadBalancer, configFns...)
 	go func() {
 		err := ctxLoadBalancer.Run()
 		if err != nil && err != distsys.ErrContextClosed {
@@ -75,7 +76,7 @@ func TestOneServerOneClient(t *testing.T) {
 	configFns = append(configFns,
 		distsys.EnsureArchetypeRefParam("mailboxes", resources.TCPMailboxesArchetypeResourceMaker(makeAddressFn(1))),
 		distsys.EnsureArchetypeRefParam("file_system", resources.FileSystemArchetypeResourceMaker(tempDir)))
-	ctxServer := distsys.NewMPCalContext(distsys.NewTLANumber(1), AServer, configFns...)
+	ctxServer := distsys.NewMPCalContext(tla.MakeTLANumber(1), AServer, configFns...)
 	go func() {
 		err := ctxServer.Run()
 		if err != nil && err != distsys.ErrContextClosed {
@@ -83,15 +84,15 @@ func TestOneServerOneClient(t *testing.T) {
 		}
 	}()
 
-	requestChannel := make(chan distsys.TLAValue, 32)
-	responseChannel := make(chan distsys.TLAValue, 32)
+	requestChannel := make(chan tla.TLAValue, 32)
+	responseChannel := make(chan tla.TLAValue, 32)
 	configFns = nil
 	configFns = append(configFns, constantDefs...)
 	configFns = append(configFns,
 		distsys.EnsureArchetypeRefParam("mailboxes", resources.TCPMailboxesArchetypeResourceMaker(makeAddressFn(2))),
 		distsys.EnsureArchetypeRefParam("instream", resources.InputChannelResourceMaker(requestChannel)),
 		distsys.EnsureArchetypeRefParam("outstream", resources.OutputChannelResourceMaker(responseChannel)))
-	ctxClient := distsys.NewMPCalContext(distsys.NewTLANumber(2), AClient, configFns...)
+	ctxClient := distsys.NewMPCalContext(tla.MakeTLANumber(2), AClient, configFns...)
 	go func() {
 		err := ctxClient.Run()
 		if err != nil && err != distsys.ErrContextClosed {
@@ -112,11 +113,11 @@ func TestOneServerOneClient(t *testing.T) {
 	}()
 
 	type RequestResponse struct {
-		Request, Response distsys.TLAValue
+		Request, Response tla.TLAValue
 	}
 	choices := []RequestResponse{
-		{Request: distsys.NewTLAString("test1.txt"), Response: distsys.NewTLAString("test 1")},
-		{Request: distsys.NewTLAString("test2.txt"), Response: distsys.NewTLAString("test 2")},
+		{Request: tla.MakeTLAString("test1.txt"), Response: tla.MakeTLAString("test 1")},
+		{Request: tla.MakeTLAString("test2.txt"), Response: tla.MakeTLAString("test 2")},
 	}
 
 	rand.Seed(time.Now().UnixNano())
@@ -128,7 +129,7 @@ func TestOneServerOneClient(t *testing.T) {
 	for i := range requestResponsePairs {
 		requestChannel <- requestResponsePairs[i].Request
 	}
-	var receivedValues []distsys.TLAValue
+	var receivedValues []tla.TLAValue
 	for range requestResponsePairs {
 		response := <-responseChannel
 		receivedValues = append(receivedValues, response)
@@ -140,7 +141,7 @@ func TestOneServerOneClient(t *testing.T) {
 	// compare received values
 	for i, receivedValue := range receivedValues {
 		if !requestResponsePairs[i].Response.Equal(receivedValue) {
-			var expectedValues []distsys.TLAValue
+			var expectedValues []tla.TLAValue
 			for _, pair := range requestResponsePairs {
 				expectedValues = append(expectedValues, pair.Response)
 			}

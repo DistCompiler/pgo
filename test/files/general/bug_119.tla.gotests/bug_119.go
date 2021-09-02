@@ -3,10 +3,12 @@ package test
 import (
 	"fmt"
 	"github.com/UBC-NSS/pgo/distsys"
+	"github.com/UBC-NSS/pgo/distsys/tla"
 )
 
-var _ = new(fmt.Stringer)  // unconditionally prevent go compiler from reporting unused fmt import
-var _ = distsys.TLAValue{} // same, for distsys
+var _ = new(fmt.Stringer) // unconditionally prevent go compiler from reporting unused fmt import
+var _ = distsys.ErrContextClosed
+var _ = tla.TLAValue{} // same, for tla
 
 var procTable = distsys.MakeMPCalProcTable(
 	distsys.MPCalProc{
@@ -32,12 +34,12 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			var exprRead distsys.TLAValue
-			exprRead, err = iface.Read(counter, []distsys.TLAValue{})
+			var exprRead tla.TLAValue
+			exprRead, err = iface.Read(counter, []tla.TLAValue{})
 			if err != nil {
 				return err
 			}
-			err = iface.Write(counter, []distsys.TLAValue{}, distsys.TLA_PlusSymbol(exprRead, distsys.NewTLANumber(1)))
+			err = iface.Write(counter, []tla.TLAValue{}, tla.TLA_PlusSymbol(exprRead, tla.MakeTLANumber(1)))
 			if err != nil {
 				return err
 			}
@@ -64,7 +66,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			var err error
 			_ = err
 			value := iface.RequireArchetypeResource("Counter.value")
-			err = iface.Write(value, []distsys.TLAValue{}, distsys.NewTLANumber(0))
+			err = iface.Write(value, []tla.TLAValue{}, tla.MakeTLANumber(0))
 			if err != nil {
 				return err
 			}
@@ -76,7 +78,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 		Body: func(iface distsys.ArchetypeInterface) error {
 			var err error
 			_ = err
-			return iface.Call("inc", "Counter.c2", iface.Self(), distsys.NewTLAString("Counter.value"))
+			return iface.Call("inc", "Counter.c2", iface.Self(), tla.MakeTLAString("Counter.value"))
 		},
 	},
 	distsys.MPCalCriticalSection{
@@ -89,12 +91,12 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				return err
 			}
 			value1 := iface.RequireArchetypeResource("Counter.value")
-			var exprRead0 distsys.TLAValue
-			exprRead0, err = iface.Read(value1, []distsys.TLAValue{})
+			var exprRead0 tla.TLAValue
+			exprRead0, err = iface.Read(value1, []tla.TLAValue{})
 			if err != nil {
 				return err
 			}
-			err = iface.Write(out, []distsys.TLAValue{}, exprRead0)
+			err = iface.Write(out, []tla.TLAValue{}, exprRead0)
 			if err != nil {
 				return err
 			}
@@ -117,6 +119,6 @@ var Counter = distsys.MPCalArchetype{
 	JumpTable:         jumpTable,
 	ProcTable:         procTable,
 	PreAmble: func(iface distsys.ArchetypeInterface) {
-		iface.EnsureArchetypeResourceLocal("Counter.value", distsys.TLAValue{})
+		iface.EnsureArchetypeResourceLocal("Counter.value", tla.TLAValue{})
 	},
 }

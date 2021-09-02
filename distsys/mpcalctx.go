@@ -6,6 +6,8 @@ import (
 	"reflect"
 	"sync"
 
+	"github.com/UBC-NSS/pgo/distsys/tla"
+
 	"go.uber.org/multierr"
 )
 
@@ -128,7 +130,7 @@ func (mkStruct ArchetypeResourceMakerStruct) Configure(res ArchetypeResource) {
 type MPCalContext struct {
 	archetype MPCalArchetype
 
-	self             TLAValue
+	self             tla.TLAValue
 	resources        map[ArchetypeResourceHandle]ArchetypeResource
 	fairnessCounters map[string]int
 
@@ -140,7 +142,7 @@ type MPCalContext struct {
 	// iface points right back to this *MPCalContext; used to separate external and internal APIs
 	iface ArchetypeInterface
 
-	constantDefns map[string]func(args ...TLAValue) TLAValue
+	constantDefns map[string]func(args ...tla.TLAValue) tla.TLAValue
 
 	done   chan struct{}
 	events chan struct{}
@@ -166,7 +168,7 @@ type MPCalContextConfigFn func(ctx *MPCalContext)
 //
 // For information on both necessary and optional configuration, see MPCalContextConfigFn, which can be provided to
 // NewMPCalContext in order to set constant values, pass archetype parameters, and any other configuration information.
-func NewMPCalContext(self TLAValue, archetype MPCalArchetype, configFns ...MPCalContextConfigFn) *MPCalContext {
+func NewMPCalContext(self tla.TLAValue, archetype MPCalArchetype, configFns ...MPCalContextConfigFn) *MPCalContext {
 	ctx := &MPCalContext{
 		archetype: archetype,
 
@@ -181,7 +183,7 @@ func NewMPCalContext(self TLAValue, archetype MPCalArchetype, configFns ...MPCal
 
 		// iface
 
-		constantDefns: make(map[string]func(args ...TLAValue) TLAValue),
+		constantDefns: make(map[string]func(args ...tla.TLAValue) tla.TLAValue),
 
 		done:   make(chan struct{}),
 		events: make(chan struct{}, 2),
@@ -190,8 +192,8 @@ func NewMPCalContext(self TLAValue, archetype MPCalArchetype, configFns ...MPCal
 	}
 	ctx.iface = ArchetypeInterface{ctx: ctx}
 
-	ctx.ensureArchetypeResource(".pc", LocalArchetypeResourceMaker(NewTLAString(archetype.Label)))
-	ctx.ensureArchetypeResource(".stack", LocalArchetypeResourceMaker(NewTLATuple()))
+	ctx.ensureArchetypeResource(".pc", LocalArchetypeResourceMaker(tla.MakeTLAString(archetype.Label)))
+	ctx.ensureArchetypeResource(".stack", LocalArchetypeResourceMaker(tla.MakeTLATuple()))
 	for _, configFn := range configFns {
 		configFn(ctx)
 	}
@@ -223,7 +225,7 @@ func EnsureArchetypeRefParam(name string, maker ArchetypeResourceMaker) MPCalCon
 		resourceName := "&" + ctx.archetype.Name + "." + name
 		refName := ctx.archetype.Name + "." + name
 		_ = ctx.ensureArchetypeResource(resourceName, maker)
-		_ = ctx.ensureArchetypeResource(refName, LocalArchetypeResourceMaker(NewTLAString(resourceName)))
+		_ = ctx.ensureArchetypeResource(refName, LocalArchetypeResourceMaker(tla.MakeTLAString(resourceName)))
 	}
 }
 
@@ -231,7 +233,7 @@ func EnsureArchetypeRefParam(name string, maker ArchetypeResourceMaker) MPCalCon
 // The name must match one of the archetype's parameter names, and must not refer to a ref parameter. If these conditions
 // are not met, attempting to call MPCalContext.Run will panic.
 // Like with EnsureArchetypeRefParam, the provided value may not be used, if existing state has been recovered from storage.
-func EnsureArchetypeValueParam(name string, value TLAValue) MPCalContextConfigFn {
+func EnsureArchetypeValueParam(name string, value tla.TLAValue) MPCalContextConfigFn {
 	return func(ctx *MPCalContext) {
 		ctx.requireArchetype()
 		_ = ctx.ensureArchetypeResource(ctx.archetype.Name+"."+name, LocalArchetypeResourceMaker(value))
@@ -241,8 +243,8 @@ func EnsureArchetypeValueParam(name string, value TLAValue) MPCalContextConfigFn
 // DefineConstantValue will bind a constant name to a provided TLA+ value.
 // The name must match one of the constants declared in the MPCal module, for this option to make sense.
 // Not all constants need to be defined, as long as they are not accessed at runtime.
-func DefineConstantValue(name string, value TLAValue) MPCalContextConfigFn {
-	return DefineConstantOperator(name, func() TLAValue {
+func DefineConstantValue(name string, value tla.TLAValue) MPCalContextConfigFn {
+	return DefineConstantOperator(name, func() tla.TLAValue {
 		return value
 	})
 }
@@ -279,7 +281,7 @@ func DefineConstantOperator(name string, defn interface{}) MPCalContextConfigFn 
 	}
 
 	switch defn := defn.(type) {
-	case func(args ...TLAValue) TLAValue: // special case: if the defn is variadic, we can safely pass it straight through without reflection weirdness
+	case func(args ...tla.TLAValue) tla.TLAValue: // special case: if the defn is variadic, we can safely pass it straight through without reflection weirdness
 		return func(ctx *MPCalContext) {
 			doubleDefnCheck(ctx)
 			ctx.constantDefns[name] = defn
@@ -288,8 +290,8 @@ func DefineConstantOperator(name string, defn interface{}) MPCalContextConfigFn 
 	default: // general case: use reflection to make sure the function looks "about right", and call it the generic way
 		defnVal := reflect.ValueOf(defn)
 		defnTyp := reflect.TypeOf(defn)
-		tlaValueTyp := reflect.TypeOf(TLAValue{})
-		tlaValuesType := reflect.TypeOf([]TLAValue{})
+		tlaValueTyp := reflect.TypeOf(tla.TLAValue{})
+		tlaValuesType := reflect.TypeOf([]tla.TLAValue{})
 
 		// reflection-based sanity checks. we want fixed-arity functions of the shape func(TLAValue...) TLAValue
 		if defnTyp.Kind() != reflect.Func {
@@ -316,7 +318,7 @@ func DefineConstantOperator(name string, defn interface{}) MPCalContextConfigFn 
 			doubleDefnCheck(ctx)
 
 			argVals := make([]reflect.Value, argCount)
-			ctx.constantDefns[name] = func(args ...TLAValue) TLAValue {
+			ctx.constantDefns[name] = func(args ...tla.TLAValue) tla.TLAValue {
 				// convert arguments to a pre-allocated array of reflect.Value, to avoid unnecessary slice allocation
 				for i, arg := range args {
 					argVals[i] = reflect.ValueOf(arg)
@@ -330,7 +332,7 @@ func DefineConstantOperator(name string, defn interface{}) MPCalContextConfigFn 
 					argVals[i] = reflect.Value{}
 				}
 
-				return result[0].Interface().(TLAValue)
+				return result[0].Interface().(tla.TLAValue)
 			}
 		}
 	}
@@ -344,7 +346,7 @@ func NewMPCalContextWithoutArchetype(configFns ...MPCalContextConfigFn) *MPCalCo
 	// only set constant defns; everything else is left zero-values, and all relevant ops should check
 	// MPCalContext.requireArchetype before running
 	ctx := &MPCalContext{
-		constantDefns: make(map[string]func(args ...TLAValue) TLAValue),
+		constantDefns: make(map[string]func(args ...tla.TLAValue) tla.TLAValue),
 	}
 	ctx.iface = ArchetypeInterface{ctx}
 
@@ -532,7 +534,7 @@ func (ctx *MPCalContext) Run() error {
 		default: // pass
 		}
 
-		var pcVal TLAValue
+		var pcVal tla.TLAValue
 		pcVal, err = ctx.iface.Read(pc, nil)
 		if err != nil {
 			continue

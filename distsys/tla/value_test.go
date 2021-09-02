@@ -1,6 +1,8 @@
-package distsys
+package tla
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestTLAModel(t *testing.T) {
 	type Record struct {
@@ -13,14 +15,14 @@ func TestTLAModel(t *testing.T) {
 		{
 			Name: "Seq({})",
 			Operation: func() TLAValue {
-				return TLA_Seq(NewTLASet())
+				return TLA_Seq(MakeTLASet())
 			},
 			ExpectedResult: "{<<>>}",
 		},
 		{
 			Name: "\\E foo \\in {} : TRUE",
 			Operation: func() TLAValue {
-				return TLAQuantifiedExistential([]TLAValue{NewTLASet()}, func([]TLAValue) bool {
+				return TLAQuantifiedExistential([]TLAValue{MakeTLASet()}, func([]TLAValue) bool {
 					return true
 				})
 			},
@@ -29,14 +31,14 @@ func TestTLAModel(t *testing.T) {
 		{
 			Name: "[x \\in {} |-> x]",
 			Operation: func() TLAValue {
-				return NewTLARecord(nil)
+				return MakeTLARecord(nil)
 			},
 			ExpectedResult: "[x \\in {} |-> x]",
 		},
 		{
 			Name: "1 .. 3",
 			Operation: func() TLAValue {
-				return TLA_DotDotSymbol(NewTLANumber(1), NewTLANumber(4))
+				return TLA_DotDotSymbol(MakeTLANumber(1), MakeTLANumber(4))
 			},
 			ExpectedResult: "{1, 2, 3, 4}",
 		},

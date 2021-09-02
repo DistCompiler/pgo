@@ -3,10 +3,12 @@ package procedurespaghetti
 import (
 	"fmt"
 	"github.com/UBC-NSS/pgo/distsys"
+	"github.com/UBC-NSS/pgo/distsys/tla"
 )
 
-var _ = new(fmt.Stringer)  // unconditionally prevent go compiler from reporting unused fmt import
-var _ = distsys.TLAValue{} // same, for distsys
+var _ = new(fmt.Stringer) // unconditionally prevent go compiler from reporting unused fmt import
+var _ = distsys.ErrContextClosed
+var _ = tla.TLAValue{} // same, for tla
 
 var procTable = distsys.MakeMPCalProcTable(
 	distsys.MPCalProc{
@@ -17,7 +19,7 @@ var procTable = distsys.MakeMPCalProcTable(
 			var err error
 			_ = err
 			c := iface.RequireArchetypeResource("Proc1.c")
-			err = iface.Write(c, []distsys.TLAValue{}, distsys.TLA_defaultInitValue)
+			err = iface.Write(c, []tla.TLAValue{}, tla.TLA_defaultInitValue)
 			if err != nil {
 				return err
 			}
@@ -69,17 +71,17 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				return err
 			}
 			b := iface.RequireArchetypeResource("Proc1.b")
-			var exprRead distsys.TLAValue
-			exprRead, err = iface.Read(a0, []distsys.TLAValue{})
+			var exprRead tla.TLAValue
+			exprRead, err = iface.Read(a0, []tla.TLAValue{})
 			if err != nil {
 				return err
 			}
-			var exprRead0 distsys.TLAValue
-			exprRead0, err = iface.Read(b, []distsys.TLAValue{})
+			var exprRead0 tla.TLAValue
+			exprRead0, err = iface.Read(b, []tla.TLAValue{})
 			if err != nil {
 				return err
 			}
-			err = iface.Write(a0, []distsys.TLAValue{}, distsys.TLA_PlusSymbol(exprRead, exprRead0))
+			err = iface.Write(a0, []tla.TLAValue{}, tla.TLA_PlusSymbol(exprRead, exprRead0))
 			if err != nil {
 				return err
 			}
@@ -101,12 +103,12 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			var exprRead1 distsys.TLAValue
-			exprRead1, err = iface.Read(a_, []distsys.TLAValue{})
+			var exprRead1 tla.TLAValue
+			exprRead1, err = iface.Read(a_, []tla.TLAValue{})
 			if err != nil {
 				return err
 			}
-			err = iface.Write(a_, []distsys.TLAValue{}, distsys.TLA_PlusSymbol(exprRead1, distsys.NewTLANumber(1)))
+			err = iface.Write(a_, []tla.TLAValue{}, tla.TLA_PlusSymbol(exprRead1, tla.MakeTLANumber(1)))
 			if err != nil {
 				return err
 			}
@@ -128,8 +130,8 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			var toPrint distsys.TLAValue
-			toPrint, err = iface.Read(X, []distsys.TLAValue{})
+			var toPrint tla.TLAValue
+			toPrint, err = iface.Read(X, []tla.TLAValue{})
 			if err != nil {
 				return err
 			}
@@ -151,8 +153,8 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			_ = err
 			f := iface.RequireArchetypeResource("Arch1.f")
 			e := iface.ReadArchetypeResourceLocal("Arch1.e")
-			var resourceRead distsys.TLAValue
-			resourceRead, err = iface.Read(f, []distsys.TLAValue{})
+			var resourceRead tla.TLAValue
+			resourceRead, err = iface.Read(f, []tla.TLAValue{})
 			if err != nil {
 				return err
 			}
