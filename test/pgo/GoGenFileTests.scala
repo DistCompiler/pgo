@@ -40,6 +40,7 @@ class GoGenFileTests extends FileTestSuite {
         // see above for where to find generated code to debug
         os.proc(goExe, "build").call(cwd = outDir)
         os.proc(goExe, "test").call(cwd = outDir)
+        os.proc(goExe, "test", "-race").call(cwd = outDir)
       }
     }
   }
