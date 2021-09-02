@@ -89,23 +89,6 @@ func TCPMailboxesArchetypeResourceMaker(addressMappingFn TCPMailboxesAddressMapp
 	})
 }
 
-type atomicBool struct {
-	lock sync.Mutex
-	val  bool
-}
-
-func (b *atomicBool) set(newValue bool) {
-	b.lock.Lock()
-	b.val = newValue
-	b.lock.Unlock()
-}
-
-func (b *atomicBool) get() bool {
-	b.lock.Lock()
-	defer b.lock.Unlock()
-	return b.val
-}
-
 type tcpMailboxesLocalArchetypeResource struct {
 	distsys.ArchetypeResourceLeafMixin
 	listenAddr string
@@ -117,7 +100,9 @@ type tcpMailboxesLocalArchetypeResource struct {
 
 	wg      sync.WaitGroup // contains the number of responded pre-commits that we haven't responded to their commits yet.
 	done    chan struct{}
-	closing atomicBool
+
+	lock sync.RWMutex
+	closing bool
 }
 
 var _ distsys.ArchetypeResource = &tcpMailboxesLocalArchetypeResource{}
@@ -135,7 +120,7 @@ func tcpMailboxesLocalArchetypeResourceMaker(listenAddr string) distsys.Archetyp
 			msgChannel: msgChannel,
 			listener:   listener,
 			done:       make(chan struct{}),
-			closing:    atomicBool{val: false},
+			closing:    false,
 		}
 		go res.listen()
 
@@ -199,24 +184,42 @@ func (res *tcpMailboxesLocalArchetypeResource) handleConn(conn net.Conn) {
 			localBuffer = nil
 			hasBegun = true
 		case tcpNetworkValue:
-			if res.closing.get() {
-				continue
-			}
 			var value tla.TLAValue
-			err = decoder.Decode(&value)
-			if err != nil {
+			handle := func() bool {
+				res.lock.RLock()
+				defer res.lock.RUnlock()
+				if res.closing {
+					return true
+				}
+				err = decoder.Decode(&value)
+				if err != nil {
+					return true
+				}
+				localBuffer = append(localBuffer, value)
+				return false
+			}
+			doContinue := handle()
+			if doContinue {
 				continue
 			}
-			localBuffer = append(localBuffer, value)
 		case tcpNetworkPreCommit:
-			if res.closing.get() {
+			handle := func() bool {
+				res.lock.RLock()
+				defer res.lock.RUnlock()
+				if res.closing {
+					return true
+				}
+				err = encoder.Encode(struct{}{})
+				if err != nil {
+					return true
+				}
+				res.wg.Add(1)
+				return false
+			}
+			doContinue := handle()
+			if doContinue {
 				continue
 			}
-			err = encoder.Encode(struct{}{})
-			if err != nil {
-				continue
-			}
-			res.wg.Add(1)
 		case tcpNetworkCommit:
 			if !hasBegun {
 				panic("a correct TCP mailbox exchange must always start with tcpMailboxBegin")
@@ -281,7 +284,9 @@ func (res *tcpMailboxesLocalArchetypeResource) WriteValue(value tla.TLAValue) er
 }
 
 func (res *tcpMailboxesLocalArchetypeResource) Close() error {
-	res.closing.set(true)
+	res.lock.Lock()
+	res.closing = true
+	res.lock.Unlock()
 
 	// wait for all the pre-commits that we have responded to be committed
 	res.wg.Wait()
