@@ -2,6 +2,7 @@ package resources
 
 import (
 	"github.com/UBC-NSS/pgo/distsys"
+	"github.com/UBC-NSS/pgo/distsys/tla"
 	"github.com/benbjohnson/immutable"
 	"go.uber.org/multierr"
 )
@@ -12,7 +13,7 @@ import (
 // FillFn maps from an index of a given map resource into a distsys.ArchetypeResourceMaker for the resource
 // intended at that location. It is assumed that this mapping is stable, in that, for the same index, a maker for
 // a resource with the same behaviour will be returned, no matter when the function is called.
-type FillFn func(index distsys.TLAValue) distsys.ArchetypeResourceMaker
+type FillFn func(index tla.TLAValue) distsys.ArchetypeResourceMaker
 
 type IncrementalArchetypeMapResource struct {
 	distsys.ArchetypeResourceMapMixin
@@ -27,8 +28,8 @@ func IncrementalArchetypeMapResourceMaker(fillFunction FillFn) distsys.Archetype
 	return distsys.ArchetypeResourceMakerStruct{
 		MakeFn: func() distsys.ArchetypeResource {
 			return &IncrementalArchetypeMapResource{
-				realizedMap: immutable.NewMap(distsys.TLAValueHasher{}),
-				dirtyElems:  immutable.NewMap(distsys.TLAValueHasher{}),
+				realizedMap: immutable.NewMap(tla.TLAValueHasher{}),
+				dirtyElems:  immutable.NewMap(tla.TLAValueHasher{}),
 			}
 		},
 		ConfigureFn: func(res distsys.ArchetypeResource) {
@@ -38,7 +39,7 @@ func IncrementalArchetypeMapResourceMaker(fillFunction FillFn) distsys.Archetype
 	}
 }
 
-func (res *IncrementalArchetypeMapResource) Index(index distsys.TLAValue) (distsys.ArchetypeResource, error) {
+func (res *IncrementalArchetypeMapResource) Index(index tla.TLAValue) (distsys.ArchetypeResource, error) {
 	maker := res.fillFunction(index)
 	if subRes, ok := res.realizedMap.Get(index); ok {
 		r := subRes.(distsys.ArchetypeResource)
@@ -85,7 +86,7 @@ func (res *IncrementalArchetypeMapResource) PreCommit() chan error {
 
 func (res *IncrementalArchetypeMapResource) Commit() chan struct{} {
 	defer func() {
-		res.dirtyElems = immutable.NewMap(distsys.TLAValueHasher{})
+		res.dirtyElems = immutable.NewMap(tla.TLAValueHasher{})
 	}()
 
 	var nonTrivialOps []chan struct{}
@@ -114,7 +115,7 @@ func (res *IncrementalArchetypeMapResource) Commit() chan struct{} {
 
 func (res *IncrementalArchetypeMapResource) Abort() chan struct{} {
 	defer func() {
-		res.dirtyElems = immutable.NewMap(distsys.TLAValueHasher{})
+		res.dirtyElems = immutable.NewMap(tla.TLAValueHasher{})
 	}()
 
 	var nonTrivialOps []chan struct{}

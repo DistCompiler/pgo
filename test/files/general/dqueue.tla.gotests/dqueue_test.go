@@ -2,6 +2,7 @@ package dqueue
 
 import (
 	"fmt"
+	"github.com/UBC-NSS/pgo/distsys/tla"
 	"log"
 	"testing"
 	"time"
@@ -12,7 +13,7 @@ import (
 
 func TestNUM_NODES(t *testing.T) {
 	ctx := distsys.NewMPCalContextWithoutArchetype(
-		distsys.DefineConstantValue("NUM_CONSUMERS", distsys.NewTLANumber(12)))
+		distsys.DefineConstantValue("NUM_CONSUMERS", tla.MakeTLANumber(12)))
 
 	result := NUM_NODES(ctx.IFace())
 	if result.AsNumber() != 13 {
@@ -21,15 +22,15 @@ func TestNUM_NODES(t *testing.T) {
 }
 
 func TestProducerConsumer(t *testing.T) {
-	producerSelf := distsys.NewTLANumber(1)
-	producerInputChannel := make(chan distsys.TLAValue, 3)
+	producerSelf := tla.MakeTLANumber(1)
+	producerInputChannel := make(chan tla.TLAValue, 3)
 
-	consumerSelf := distsys.NewTLANumber(2)
-	consumerOutputChannel := make(chan distsys.TLAValue, 3)
+	consumerSelf := tla.MakeTLANumber(2)
+	consumerOutputChannel := make(chan tla.TLAValue, 3)
 
 	ctxProducer := distsys.NewMPCalContext(producerSelf, AProducer,
 		distsys.DefineConstantValue("PRODUCER", producerSelf),
-		distsys.EnsureArchetypeRefParam("net", resources.TCPMailboxesArchetypeResourceMaker(func(index distsys.TLAValue) (resources.TCPMailboxKind, string) {
+		distsys.EnsureArchetypeRefParam("net", resources.TCPMailboxesArchetypeResourceMaker(func(index tla.TLAValue) (resources.TCPMailboxKind, string) {
 			switch index.AsNumber() {
 			case 1:
 				return resources.TCPMailboxesLocal, "localhost:8001"
@@ -49,7 +50,7 @@ func TestProducerConsumer(t *testing.T) {
 
 	ctxConsumer := distsys.NewMPCalContext(consumerSelf, AConsumer,
 		distsys.DefineConstantValue("PRODUCER", producerSelf),
-		distsys.EnsureArchetypeRefParam("net", resources.TCPMailboxesArchetypeResourceMaker(func(index distsys.TLAValue) (resources.TCPMailboxKind, string) {
+		distsys.EnsureArchetypeRefParam("net", resources.TCPMailboxesArchetypeResourceMaker(func(index tla.TLAValue) (resources.TCPMailboxKind, string) {
 			switch index.AsNumber() {
 			case 1:
 				return resources.TCPMailboxesRemote, "localhost:8001"
@@ -76,16 +77,16 @@ func TestProducerConsumer(t *testing.T) {
 		}
 	}()
 
-	producedValues := []distsys.TLAValue{
-		distsys.NewTLAString("foo"),
-		distsys.NewTLAString("bar"),
-		distsys.NewTLAString("ping"),
+	producedValues := []tla.TLAValue{
+		tla.MakeTLAString("foo"),
+		tla.MakeTLAString("bar"),
+		tla.MakeTLAString("ping"),
 	}
 	for _, value := range producedValues {
 		producerInputChannel <- value
 	}
 
-	consumedValues := []distsys.TLAValue{<-consumerOutputChannel, <-consumerOutputChannel, <-consumerOutputChannel}
+	consumedValues := []tla.TLAValue{<-consumerOutputChannel, <-consumerOutputChannel, <-consumerOutputChannel}
 	close(consumerOutputChannel)
 	time.Sleep(100 * time.Millisecond)
 

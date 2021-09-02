@@ -2,6 +2,7 @@ package resources
 
 import (
 	"errors"
+	"github.com/UBC-NSS/pgo/distsys/tla"
 
 	"github.com/UBC-NSS/pgo/distsys"
 )
@@ -33,15 +34,15 @@ func (res *PlaceHolderResource) Commit() chan struct{} {
 	panic(ErrPlaceHolderAccess)
 }
 
-func (res *PlaceHolderResource) ReadValue() (distsys.TLAValue, error) {
+func (res *PlaceHolderResource) ReadValue() (tla.TLAValue, error) {
 	panic(ErrPlaceHolderAccess)
 }
 
-func (res *PlaceHolderResource) WriteValue(value distsys.TLAValue) error {
+func (res *PlaceHolderResource) WriteValue(value tla.TLAValue) error {
 	panic(ErrPlaceHolderAccess)
 }
 
-func (res *PlaceHolderResource) Index(index distsys.TLAValue) (distsys.ArchetypeResource, error) {
+func (res *PlaceHolderResource) Index(index tla.TLAValue) (distsys.ArchetypeResource, error) {
 	panic(ErrPlaceHolderAccess)
 }
 

@@ -3,13 +3,15 @@ package dqueue
 import (
 	"fmt"
 	"github.com/UBC-NSS/pgo/distsys"
+	"github.com/UBC-NSS/pgo/distsys/tla"
 )
 
-var _ = new(fmt.Stringer)  // unconditionally prevent go compiler from reporting unused fmt import
-var _ = distsys.TLAValue{} // same, for distsys
+var _ = new(fmt.Stringer) // unconditionally prevent go compiler from reporting unused fmt import
+var _ = distsys.ErrContextClosed
+var _ = tla.TLAValue{} // same, for tla
 
-func NUM_NODES(iface distsys.ArchetypeInterface) distsys.TLAValue {
-	return distsys.TLA_PlusSymbol(iface.GetConstant("NUM_CONSUMERS")(), distsys.NewTLANumber(1))
+func NUM_NODES(iface distsys.ArchetypeInterface) tla.TLAValue {
+	return tla.TLA_PlusSymbol(iface.GetConstant("NUM_CONSUMERS")(), tla.MakeTLANumber(1))
 }
 
 var procTable = distsys.MakeMPCalProcTable()
@@ -20,7 +22,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 		Body: func(iface distsys.ArchetypeInterface) error {
 			var err error
 			_ = err
-			if distsys.TLA_TRUE.AsBool() {
+			if tla.TLA_TRUE.AsBool() {
 				return iface.Goto("AConsumer.c1")
 			} else {
 				return iface.Goto("AConsumer.Done")
@@ -37,7 +39,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			err = iface.Write(net, []distsys.TLAValue{iface.GetConstant("PRODUCER")()}, iface.Self())
+			err = iface.Write(net, []tla.TLAValue{iface.GetConstant("PRODUCER")()}, iface.Self())
 			if err != nil {
 				return err
 			}
@@ -57,12 +59,12 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			var exprRead distsys.TLAValue
-			exprRead, err = iface.Read(net0, []distsys.TLAValue{iface.Self()})
+			var exprRead tla.TLAValue
+			exprRead, err = iface.Read(net0, []tla.TLAValue{iface.Self()})
 			if err != nil {
 				return err
 			}
-			err = iface.Write(proc, []distsys.TLAValue{}, exprRead)
+			err = iface.Write(proc, []tla.TLAValue{}, exprRead)
 			if err != nil {
 				return err
 			}
@@ -80,7 +82,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 		Body: func(iface distsys.ArchetypeInterface) error {
 			var err error
 			_ = err
-			if distsys.TLA_TRUE.AsBool() {
+			if tla.TLA_TRUE.AsBool() {
 				return iface.Goto("AProducer.p1")
 			} else {
 				return iface.Goto("AProducer.Done")
@@ -98,12 +100,12 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			var exprRead0 distsys.TLAValue
-			exprRead0, err = iface.Read(net1, []distsys.TLAValue{iface.Self()})
+			var exprRead0 tla.TLAValue
+			exprRead0, err = iface.Read(net1, []tla.TLAValue{iface.Self()})
 			if err != nil {
 				return err
 			}
-			err = iface.Write(requester, []distsys.TLAValue{}, exprRead0)
+			err = iface.Write(requester, []tla.TLAValue{}, exprRead0)
 			if err != nil {
 				return err
 			}
@@ -124,17 +126,17 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			var exprRead1 distsys.TLAValue
-			exprRead1, err = iface.Read(s, []distsys.TLAValue{})
+			var exprRead1 tla.TLAValue
+			exprRead1, err = iface.Read(s, []tla.TLAValue{})
 			if err != nil {
 				return err
 			}
-			var indexRead distsys.TLAValue
-			indexRead, err = iface.Read(requester0, []distsys.TLAValue{})
+			var indexRead tla.TLAValue
+			indexRead, err = iface.Read(requester0, []tla.TLAValue{})
 			if err != nil {
 				return err
 			}
-			err = iface.Write(net2, []distsys.TLAValue{indexRead}, exprRead1)
+			err = iface.Write(net2, []tla.TLAValue{indexRead}, exprRead1)
 			if err != nil {
 				return err
 			}
@@ -168,6 +170,6 @@ var AProducer = distsys.MPCalArchetype{
 	JumpTable:         jumpTable,
 	ProcTable:         procTable,
 	PreAmble: func(iface distsys.ArchetypeInterface) {
-		iface.EnsureArchetypeResourceLocal("AProducer.requester", distsys.TLAValue{})
+		iface.EnsureArchetypeResourceLocal("AProducer.requester", tla.TLAValue{})
 	},
 }

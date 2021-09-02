@@ -2,6 +2,7 @@ package resources
 
 import (
 	"fmt"
+	"github.com/UBC-NSS/pgo/distsys/tla"
 	"io/ioutil"
 	"path"
 
@@ -13,7 +14,7 @@ import (
 // to be string-typed, and keys being required to refer to valid paths (or create-able paths, if a
 // key is written to before it is read).
 func FileSystemArchetypeResourceMaker(workingDirectory string) distsys.ArchetypeResourceMaker {
-	return IncrementalArchetypeMapResourceMaker(func(index distsys.TLAValue) distsys.ArchetypeResourceMaker {
+	return IncrementalArchetypeMapResourceMaker(func(index tla.TLAValue) distsys.ArchetypeResourceMaker {
 		return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
 			return &fileArchetypeResource{
 				workingDirectory: workingDirectory,
@@ -63,11 +64,11 @@ func (res *fileArchetypeResource) Commit() chan struct{} {
 	return nil
 }
 
-func (res *fileArchetypeResource) ReadValue() (distsys.TLAValue, error) {
+func (res *fileArchetypeResource) ReadValue() (tla.TLAValue, error) {
 	if res.writePending != nil {
-		return distsys.NewTLAString(*res.writePending), nil
+		return tla.MakeTLAString(*res.writePending), nil
 	} else if res.cachedRead != nil {
-		return distsys.NewTLAString(*res.cachedRead), nil
+		return tla.MakeTLAString(*res.cachedRead), nil
 	} else {
 		contents, err := ioutil.ReadFile(path.Join(res.workingDirectory, res.subPath))
 		if err != nil {
@@ -75,11 +76,11 @@ func (res *fileArchetypeResource) ReadValue() (distsys.TLAValue, error) {
 		}
 		contentsStr := string(contents)
 		res.cachedRead = &contentsStr
-		return distsys.NewTLAString(*res.cachedRead), nil
+		return tla.MakeTLAString(*res.cachedRead), nil
 	}
 }
 
-func (res *fileArchetypeResource) WriteValue(value distsys.TLAValue) error {
+func (res *fileArchetypeResource) WriteValue(value tla.TLAValue) error {
 	res.cachedRead = nil
 	strToWrite := value.AsString()
 	res.writePending = &strToWrite
