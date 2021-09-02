@@ -3,12 +3,13 @@ package resources
 import (
 	"encoding/gob"
 	"fmt"
-	"github.com/UBC-NSS/pgo/distsys/tla"
 	"log"
 	"net"
+	"sync"
 	"time"
 
 	"github.com/UBC-NSS/pgo/distsys"
+	"github.com/UBC-NSS/pgo/distsys/tla"
 )
 
 // Mailboxes as Archetype Resource
@@ -88,6 +89,23 @@ func TCPMailboxesArchetypeResourceMaker(addressMappingFn TCPMailboxesAddressMapp
 	})
 }
 
+type atomicBool struct {
+	lock sync.Mutex
+	val  bool
+}
+
+func (b *atomicBool) set(newValue bool) {
+	b.lock.Lock()
+	b.val = newValue
+	b.lock.Unlock()
+}
+
+func (b *atomicBool) get() bool {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+	return b.val
+}
+
 type tcpMailboxesLocalArchetypeResource struct {
 	distsys.ArchetypeResourceLeafMixin
 	listenAddr string
@@ -97,7 +115,9 @@ type tcpMailboxesLocalArchetypeResource struct {
 	readBacklog     []tla.TLAValue
 	readsInProgress []tla.TLAValue
 
-	done chan struct{}
+	wg      sync.WaitGroup // contains the number of responded pre-commits that we haven't responded to their commits yet.
+	done    chan struct{}
+	closing atomicBool
 }
 
 var _ distsys.ArchetypeResource = &tcpMailboxesLocalArchetypeResource{}
@@ -115,6 +135,7 @@ func tcpMailboxesLocalArchetypeResourceMaker(listenAddr string) distsys.Archetyp
 			msgChannel: msgChannel,
 			listener:   listener,
 			done:       make(chan struct{}),
+			closing:    atomicBool{val: false},
 		}
 		go res.listen()
 
@@ -138,6 +159,13 @@ func (res *tcpMailboxesLocalArchetypeResource) listen() {
 }
 
 func (res *tcpMailboxesLocalArchetypeResource) handleConn(conn net.Conn) {
+	defer func() {
+		err := conn.Close()
+		if err != nil {
+			log.Printf("error closing connection: %v", err)
+		}
+	}()
+
 	var err error
 	encoder := gob.NewEncoder(conn)
 	decoder := gob.NewDecoder(conn)
@@ -145,11 +173,23 @@ func (res *tcpMailboxesLocalArchetypeResource) handleConn(conn net.Conn) {
 	hasBegun := false
 	for {
 		if err != nil {
-			log.Printf("network error, dropping connection: %s", err.Error())
-			break
+			select {
+			case <-res.done:
+			default:
+				log.Printf("network error during handleConn, dropping connection: %s", err)
+			}
+			return
 		}
 		var tag int
-		err = decoder.Decode(&tag)
+		errCh := make(chan error)
+		go func() {
+			errCh <- decoder.Decode(&tag)
+		}()
+		select {
+		case err = <-errCh:
+		case <-res.done:
+			return
+		}
 		if err != nil {
 			continue
 		}
@@ -159,6 +199,9 @@ func (res *tcpMailboxesLocalArchetypeResource) handleConn(conn net.Conn) {
 			localBuffer = nil
 			hasBegun = true
 		case tcpNetworkValue:
+			if res.closing.get() {
+				continue
+			}
 			var value tla.TLAValue
 			err = decoder.Decode(&value)
 			if err != nil {
@@ -166,10 +209,14 @@ func (res *tcpMailboxesLocalArchetypeResource) handleConn(conn net.Conn) {
 			}
 			localBuffer = append(localBuffer, value)
 		case tcpNetworkPreCommit:
+			if res.closing.get() {
+				continue
+			}
 			err = encoder.Encode(struct{}{})
 			if err != nil {
 				continue
 			}
+			res.wg.Add(1)
 		case tcpNetworkCommit:
 			if !hasBegun {
 				panic("a correct TCP mailbox exchange must always start with tcpMailboxBegin")
@@ -184,16 +231,13 @@ func (res *tcpMailboxesLocalArchetypeResource) handleConn(conn net.Conn) {
 			if err != nil {
 				continue
 			}
+			res.wg.Done()
 			for _, elem := range localBuffer {
 				res.msgChannel <- elem
 			}
 			localBuffer = nil
 			hasBegun = false
 		}
-	}
-	err = conn.Close()
-	if err != nil {
-		log.Printf("error closing connection: %v", err)
 	}
 }
 
@@ -237,8 +281,14 @@ func (res *tcpMailboxesLocalArchetypeResource) WriteValue(value tla.TLAValue) er
 }
 
 func (res *tcpMailboxesLocalArchetypeResource) Close() error {
-	var err error
+	res.closing.set(true)
+
+	// wait for all the pre-commits that we have responded to be committed
+	res.wg.Wait()
+	// signal to close the listener and active connections
 	close(res.done)
+
+	var err error
 	if res.listener != nil {
 		err = res.listener.Close()
 	}
