@@ -379,3 +379,6 @@ fuzz_output/
 
 # TLA+ toolbox stuff
 *.toolbox/
+
+# Tests artifacts in case of failure
+*.outpcal
