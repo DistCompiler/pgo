@@ -313,7 +313,7 @@ func (res *singleFailureDetectorResource) mainLoop() {
 			res.setState(reply)
 			if oldState != reply {
 				log.Printf("fd change state: archetype = %v, old state = %v, "+
-					"new state = %v. Due to rpc call reply", res.archetypeID, oldState, failed)
+					"new state = %v. Due to rpc call reply", res.archetypeID, oldState, reply)
 			}
 		}
 	}
@@ -349,11 +349,11 @@ func (res *singleFailureDetectorResource) WriteValue(value distsys.TLAValue) err
 
 func (res *singleFailureDetectorResource) Close() error {
 	var err error
-	if res.client != nil {
-		err = res.client.Close()
-	}
 	if res.ticker != nil {
 		res.ticker.Stop()
+	}
+	if res.client != nil {
+		err = res.client.Close()
 	}
 	return err
 }

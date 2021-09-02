@@ -60,20 +60,35 @@ func runArchetype(done <-chan struct{}, ctx *distsys.MPCalContext, fn func() err
 
 const monAddr = "localhost:9000"
 
-var constantConfigs = []distsys.MPCalContextConfigFn{
-	distsys.DefineConstantValue("NUM_SERVERS", distsys.NewTLANumber(2)),
-	distsys.DefineConstantValue("NUM_CLIENTS", distsys.NewTLANumber(1)),
-	distsys.DefineConstantValue("EXPLORE_FAIL", distsys.TLA_FALSE),
+func genClientRun() func() distsys.TLAValue {
+	cnt := 0
+	return func() distsys.TLAValue {
+		res := distsys.TLA_FALSE
+		if cnt < numRequests {
+			res = distsys.TLA_TRUE
+		}
+		cnt++
+		return res
+	}
 }
 
 func withConstantConfigs(configFns ...distsys.MPCalContextConfigFn) []distsys.MPCalContextConfigFn {
+	var constantConfigs = []distsys.MPCalContextConfigFn{
+		distsys.DefineConstantValue("NUM_SERVERS", distsys.NewTLANumber(2)),
+		distsys.DefineConstantValue("NUM_CLIENTS", distsys.NewTLANumber(1)),
+		distsys.DefineConstantValue("EXPLORE_FAIL", distsys.TLA_FALSE),
+		distsys.DefineConstantOperator("CLIENT_RUN", genClientRun()),
+	}
+
 	var result []distsys.MPCalContextConfigFn
 	result = append(result, constantConfigs...)
 	result = append(result, configFns...)
 	return result
 }
 
-func runServer(done <-chan struct{}, self distsys.TLAValue, constantsIFace distsys.ArchetypeInterface, mon *resources.Monitor) error {
+var constantsIFace = distsys.NewMPCalContextWithoutArchetype(withConstantConfigs()...).IFace()
+
+func runServer(done <-chan struct{}, self distsys.TLAValue, mon *resources.Monitor) error {
 	ctx := distsys.NewMPCalContext(self, proxy.AServer, withConstantConfigs(
 		distsys.EnsureArchetypeRefParam("net", getNetworkMaker(self, constantsIFace)),
 		distsys.EnsureArchetypeRefParam("fd", resources.PlaceHolderResourceMaker()),
@@ -113,8 +128,6 @@ func setupMonitor() *resources.Monitor {
 	return mon
 }
 
-var constantsIFace = distsys.NewMPCalContextWithoutArchetype(withConstantConfigs()...).IFace()
-
 func TestProxy_AllServersRunning(t *testing.T) {
 	const numRunningArchetypes = 4
 
@@ -123,10 +136,10 @@ func TestProxy_AllServersRunning(t *testing.T) {
 	done := make(chan struct{})
 	errs := make(chan error)
 	go func() {
-		errs <- runServer(done, distsys.NewTLANumber(1), constantsIFace, mon)
+		errs <- runServer(done, distsys.NewTLANumber(1), mon)
 	}()
 	go func() {
-		errs <- runServer(done, distsys.NewTLANumber(2), constantsIFace, mon)
+		errs <- runServer(done, distsys.NewTLANumber(2), mon)
 	}()
 	go func() {
 		errs <- runProxy(done, distsys.NewTLANumber(4))
@@ -173,7 +186,7 @@ func TestProxy_SecondServerRunning(t *testing.T) {
 	done := make(chan struct{})
 	errs := make(chan error)
 	go func() {
-		errs <- runServer(done, distsys.NewTLANumber(2), constantsIFace, mon)
+		errs <- runServer(done, distsys.NewTLANumber(2), mon)
 	}()
 	go func() {
 		errs <- runProxy(done, distsys.NewTLANumber(4))
