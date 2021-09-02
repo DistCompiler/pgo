@@ -3,13 +3,15 @@ package hello
 import (
 	"fmt"
 	"github.com/UBC-NSS/pgo/distsys"
+	"github.com/UBC-NSS/pgo/distsys/tla"
 )
 
-var _ = new(fmt.Stringer)  // unconditionally prevent go compiler from reporting unused fmt import
-var _ = distsys.TLAValue{} // same, for distsys
+var _ = new(fmt.Stringer) // unconditionally prevent go compiler from reporting unused fmt import
+var _ = distsys.ErrContextClosed
+var _ = tla.TLAValue{} // same, for tla
 
-func HELLO(iface distsys.ArchetypeInterface) distsys.TLAValue {
-	return iface.GetConstant("MK_HELLO")(distsys.NewTLAString("hell"), distsys.NewTLAString("o"))
+func HELLO(iface distsys.ArchetypeInterface) tla.TLAValue {
+	return iface.GetConstant("MK_HELLO")(tla.MakeTLAString("hell"), tla.MakeTLAString("o"))
 }
 
 var procTable = distsys.MakeMPCalProcTable()
@@ -24,7 +26,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			err = iface.Write(out, []distsys.TLAValue{}, HELLO(iface))
+			err = iface.Write(out, []tla.TLAValue{}, HELLO(iface))
 			if err != nil {
 				return err
 			}

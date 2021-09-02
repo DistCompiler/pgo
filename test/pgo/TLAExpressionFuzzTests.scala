@@ -43,12 +43,16 @@ class TLAExpressionFuzzTests extends AnyFunSuite with ScalaCheckPropertyChecks {
     os.write(mainFile,
       s"""package main
          |
-         |import "github.com/UBC-NSS/pgo/distsys"
-         |import "example.org/testbed"
+         |import (
+         |  "github.com/UBC-NSS/pgo/distsys"
+         |  "github.com/UBC-NSS/pgo/distsys/tla"
+         |
+         |  "example.org/testbed"
+         |)
          |
          |
          |func main() {
-         |  ctx := distsys.NewMPCalContext(distsys.NewTLAString("self"), testbed.TestBed)
+         |  ctx := distsys.NewMPCalContext(tla.MakeTLAString("self"), testbed.TestBed)
          |  err := ctx.Run()
          |  if err != nil {
          |    panic(err)

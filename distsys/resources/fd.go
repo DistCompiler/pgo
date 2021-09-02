@@ -3,6 +3,7 @@ package resources
 import (
 	"errors"
 	"fmt"
+	"github.com/UBC-NSS/pgo/distsys/tla"
 	"log"
 	"net"
 	"net/rpc"
@@ -62,25 +63,25 @@ type Monitor struct {
 	done chan struct{}
 
 	lock   sync.RWMutex
-	states map[distsys.TLAValue]ArchetypeState
+	states map[tla.TLAValue]ArchetypeState
 }
 
 // NewMonitor creates a new Monitor and returns a pointer to it.
 func NewMonitor(listenAddr string) *Monitor {
 	return &Monitor{
 		ListenAddr: listenAddr,
-		states:     make(map[distsys.TLAValue]ArchetypeState),
+		states:     make(map[tla.TLAValue]ArchetypeState),
 		done:       make(chan struct{}),
 	}
 }
 
-func (m *Monitor) setState(archetypeID distsys.TLAValue, state ArchetypeState) {
+func (m *Monitor) setState(archetypeID tla.TLAValue, state ArchetypeState) {
 	m.lock.Lock()
 	m.states[archetypeID] = state
 	m.lock.Unlock()
 }
 
-func (m *Monitor) getState(archetypeID distsys.TLAValue) (ArchetypeState, bool) {
+func (m *Monitor) getState(archetypeID tla.TLAValue) (ArchetypeState, bool) {
 	m.lock.RLock()
 	state, ok := m.states[archetypeID]
 	m.lock.RUnlock()
@@ -151,7 +152,7 @@ type MonitorRPCReceiver struct {
 	m *Monitor
 }
 
-func (rcvr *MonitorRPCReceiver) IsAlive(arg distsys.TLAValue, reply *ArchetypeState) error {
+func (rcvr *MonitorRPCReceiver) IsAlive(arg tla.TLAValue, reply *ArchetypeState) error {
 	state, ok := rcvr.m.getState(arg)
 	if !ok {
 		return errors.New("archetype not found")
@@ -162,7 +163,7 @@ func (rcvr *MonitorRPCReceiver) IsAlive(arg distsys.TLAValue, reply *ArchetypeSt
 
 // FailureDetectorAddressMappingFn returns address of the monitor that is
 // running the archetype with the given index.
-type FailureDetectorAddressMappingFn func(distsys.TLAValue) string
+type FailureDetectorAddressMappingFn func(tla.TLAValue) string
 
 // FailureDetectorResourceMaker produces a distsys.ArchetypeResourceMaker for a
 // collection of single failure detectors. Each single failure detector is
@@ -191,7 +192,7 @@ type FailureDetectorAddressMappingFn func(distsys.TLAValue) string
 // detector can have both false positive (due to no accuracy) and false negative
 // (due to [eventual] completeness) outputs.
 func FailureDetectorResourceMaker(addressMappingFn FailureDetectorAddressMappingFn, opts ...FailureDetectorOption) distsys.ArchetypeResourceMaker {
-	return IncrementalArchetypeMapResourceMaker(func(index distsys.TLAValue) distsys.ArchetypeResourceMaker {
+	return IncrementalArchetypeMapResourceMaker(func(index tla.TLAValue) distsys.ArchetypeResourceMaker {
 		monitorAddr := addressMappingFn(index)
 		return singleFailureDetectorResourceMaker(index, monitorAddr, opts...)
 	})
@@ -199,7 +200,7 @@ func FailureDetectorResourceMaker(addressMappingFn FailureDetectorAddressMapping
 
 type singleFailureDetectorResource struct {
 	distsys.ArchetypeResourceLeafMixin
-	archetypeID distsys.TLAValue
+	archetypeID tla.TLAValue
 	monitorAddr string
 
 	timeout      time.Duration
@@ -227,7 +228,7 @@ func WithFailureDetectorPullInterval(t time.Duration) FailureDetectorOption {
 	}
 }
 
-func singleFailureDetectorResourceMaker(archetypeID distsys.TLAValue, monitorAddr string, opts ...FailureDetectorOption) distsys.ArchetypeResourceMaker {
+func singleFailureDetectorResourceMaker(archetypeID tla.TLAValue, monitorAddr string, opts ...FailureDetectorOption) distsys.ArchetypeResourceMaker {
 	return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
 		fd := &singleFailureDetectorResource{
 			archetypeID:  archetypeID,
@@ -331,19 +332,19 @@ func (res *singleFailureDetectorResource) Commit() chan struct{} {
 	return nil
 }
 
-func (res *singleFailureDetectorResource) ReadValue() (distsys.TLAValue, error) {
+func (res *singleFailureDetectorResource) ReadValue() (tla.TLAValue, error) {
 	state := res.getState()
 	if state == uninitialized {
 		time.Sleep(res.pullInterval)
-		return distsys.TLAValue{}, distsys.ErrCriticalSectionAborted
+		return tla.TLAValue{}, distsys.ErrCriticalSectionAborted
 	} else if state == alive {
-		return distsys.TLA_FALSE, nil
+		return tla.TLA_FALSE, nil
 	} else {
-		return distsys.TLA_TRUE, nil
+		return tla.TLA_TRUE, nil
 	}
 }
 
-func (res *singleFailureDetectorResource) WriteValue(value distsys.TLAValue) error {
+func (res *singleFailureDetectorResource) WriteValue(value tla.TLAValue) error {
 	panic(fmt.Errorf("attempted to write value %v to a single failure detector resource", value))
 }
 

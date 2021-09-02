@@ -2,6 +2,7 @@ package resources
 
 import (
 	"fmt"
+	"github.com/UBC-NSS/pgo/distsys/tla"
 	"time"
 
 	"github.com/UBC-NSS/pgo/distsys"
@@ -13,13 +14,13 @@ const inputChannelResourceReadTimout = 20 * time.Millisecond
 // to the channel.
 type InputChannelResource struct {
 	distsys.ArchetypeResourceLeafMixin
-	channel               <-chan distsys.TLAValue
-	buffer, backlogBuffer []distsys.TLAValue
+	channel               <-chan tla.TLAValue
+	buffer, backlogBuffer []tla.TLAValue
 }
 
 var _ distsys.ArchetypeResource = &InputChannelResource{}
 
-func InputChannelResourceMaker(channel <-chan distsys.TLAValue) distsys.ArchetypeResourceMaker {
+func InputChannelResourceMaker(channel <-chan tla.TLAValue) distsys.ArchetypeResourceMaker {
 	return distsys.ArchetypeResourceMakerStruct{
 		MakeFn: func() distsys.ArchetypeResource {
 			return &InputChannelResource{}
@@ -45,7 +46,7 @@ func (res *InputChannelResource) Commit() chan struct{} {
 	return nil
 }
 
-func (res *InputChannelResource) ReadValue() (distsys.TLAValue, error) {
+func (res *InputChannelResource) ReadValue() (tla.TLAValue, error) {
 	if len(res.buffer) > 0 {
 		value := res.buffer[0]
 		res.buffer = res.buffer[1:]
@@ -58,11 +59,11 @@ func (res *InputChannelResource) ReadValue() (distsys.TLAValue, error) {
 		res.backlogBuffer = append(res.backlogBuffer, value)
 		return value, nil
 	case <-time.After(inputChannelResourceReadTimout):
-		return distsys.TLAValue{}, distsys.ErrCriticalSectionAborted
+		return tla.TLAValue{}, distsys.ErrCriticalSectionAborted
 	}
 }
 
-func (res *InputChannelResource) WriteValue(value distsys.TLAValue) error {
+func (res *InputChannelResource) WriteValue(value tla.TLAValue) error {
 	panic(fmt.Errorf("attempted to write %v to an input channel resource", value))
 }
 
@@ -73,13 +74,13 @@ func (res *InputChannelResource) Close() error {
 // OutputChannelResource wraps a native Go channel, such that an MPCal model may write to that channel.
 type OutputChannelResource struct {
 	distsys.ArchetypeResourceLeafMixin
-	channel chan<- distsys.TLAValue
-	buffer  []distsys.TLAValue
+	channel chan<- tla.TLAValue
+	buffer  []tla.TLAValue
 }
 
 var _ distsys.ArchetypeResource = &OutputChannelResource{}
 
-func OutputChannelResourceMaker(channel chan<- distsys.TLAValue) distsys.ArchetypeResourceMaker {
+func OutputChannelResourceMaker(channel chan<- tla.TLAValue) distsys.ArchetypeResourceMaker {
 	return distsys.ArchetypeResourceMakerStruct{
 		MakeFn: func() distsys.ArchetypeResource {
 			return &OutputChannelResource{}
@@ -112,11 +113,11 @@ func (res *OutputChannelResource) Commit() chan struct{} {
 	return ch
 }
 
-func (res *OutputChannelResource) ReadValue() (distsys.TLAValue, error) {
+func (res *OutputChannelResource) ReadValue() (tla.TLAValue, error) {
 	panic(fmt.Errorf("attempted to read from an output channel resource"))
 }
 
-func (res *OutputChannelResource) WriteValue(value distsys.TLAValue) error {
+func (res *OutputChannelResource) WriteValue(value tla.TLAValue) error {
 	res.buffer = append(res.buffer, value)
 	return nil
 }
