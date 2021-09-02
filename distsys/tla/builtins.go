@@ -2,7 +2,8 @@ package tla
 
 import "github.com/benbjohnson/immutable"
 
-// this file contains all definitions of PGo's supported expressions which are built-in syntax (not pseudo-operators)
+// this file contains all definitions of PGo's supported expressions which are
+// built-in syntax (not the ones that require using `EXTENDS`)
 
 func TLAQuantifiedUniversal(setVals []TLAValue, pred func([]TLAValue) bool) TLAValue {
 	var sets []*immutable.Map
