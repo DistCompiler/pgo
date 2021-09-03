@@ -756,7 +756,7 @@ object MPCalGoCodegenPass {
 
     val nameCleaner = new NameCleaner
     goKeywords.foreach(nameCleaner.addKnownName)
-    nameCleaner.addKnownName("distsys")
+    nameCleaner.addKnownName("distsys").addKnownName("tla")
 
     val tlaExtDefns = (BuiltinModules.Intrinsics.members.view ++ tlaModule.exts.flatMap {
       case TLAModuleRefBuiltin(module) => module.members.view

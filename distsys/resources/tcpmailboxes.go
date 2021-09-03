@@ -98,10 +98,10 @@ type tcpMailboxesLocalArchetypeResource struct {
 	readBacklog     []tla.TLAValue
 	readsInProgress []tla.TLAValue
 
-	wg      sync.WaitGroup // contains the number of responded pre-commits that we haven't responded to their commits yet.
-	done    chan struct{}
+	wg   sync.WaitGroup // contains the number of responded pre-commits that we haven't responded to their commits yet.
+	done chan struct{}
 
-	lock sync.RWMutex
+	lock    sync.RWMutex
 	closing bool
 }
 
@@ -184,6 +184,9 @@ func (res *tcpMailboxesLocalArchetypeResource) handleConn(conn net.Conn) {
 			localBuffer = nil
 			hasBegun = true
 		case tcpNetworkValue:
+			if !hasBegun {
+				panic("a correct TCP mailbox exchange must always start with tcpMailboxBegin")
+			}
 			var value tla.TLAValue
 			handle := func() bool {
 				res.lock.RLock()
@@ -203,6 +206,9 @@ func (res *tcpMailboxesLocalArchetypeResource) handleConn(conn net.Conn) {
 				continue
 			}
 		case tcpNetworkPreCommit:
+			if !hasBegun {
+				panic("a correct TCP mailbox exchange must always start with tcpMailboxBegin")
+			}
 			handle := func() bool {
 				res.lock.RLock()
 				defer res.lock.RUnlock()
@@ -308,6 +314,8 @@ type tcpMailboxesRemoteArchetypeResource struct {
 	conn              net.Conn
 	connEncoder       *gob.Encoder
 	connDecoder       *gob.Decoder
+
+	resendBuffer []interface{}
 }
 
 var _ distsys.ArchetypeResource = &tcpMailboxesRemoteArchetypeResource{}
@@ -341,6 +349,7 @@ func (res *tcpMailboxesRemoteArchetypeResource) ensureConnection() error {
 func (res *tcpMailboxesRemoteArchetypeResource) Abort() chan struct{} {
 	// nothing to do; the remote end tolerates just starting over with no explanation
 	res.inCriticalSection = false // but note to ourselves that we are starting over, so we re-send the begin record
+	res.resendBuffer = nil
 	return nil
 }
 
@@ -354,14 +363,16 @@ func (res *tcpMailboxesRemoteArchetypeResource) PreCommit() chan error {
 		var err error
 		handleError := func() {
 			log.Printf("network error while performing pre-commit handshake, aborting: %v", err)
+			// close the connection to close the allocated file descriptors
+			if err := res.conn.Close(); err != nil {
+				log.Printf("error in closing conn: %s", err)
+			}
 			res.conn = nil
 			ch <- distsys.ErrCriticalSectionAborted
 		}
 
-		err = res.ensureConnection()
-		if err != nil {
-			handleError()
-			return
+		if res.conn == nil {
+			panic("no connection available while doing pre-commit")
 		}
 		err = res.connEncoder.Encode(tcpNetworkPreCommit)
 		if err != nil {
@@ -379,6 +390,33 @@ func (res *tcpMailboxesRemoteArchetypeResource) PreCommit() chan error {
 	return ch
 }
 
+// resend will be called only by Commit if a network error happens during the
+// commit. resend requires the res.conn to be nil, and creates a new connection.
+// It sends the necessary messages over the new connection, so the commit can
+// be done after.
+// We don't need to resend the pre-commit message, since we've got the
+// pre-commit confirmation before. The tcpNetworkBegin and all the values
+// should be sent in the same connection along with the commit message. So
+// we resend these messages to make it possible to send the commit message
+// over the new connection.
+func (res *tcpMailboxesRemoteArchetypeResource) resend() error {
+	if res.conn != nil {
+		panic("resend requires the conn to be nil")
+	}
+	err := res.ensureConnection()
+	if err != nil {
+		return err
+	}
+
+	for _, msg := range res.resendBuffer {
+		err = res.connEncoder.Encode(msg)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (res *tcpMailboxesRemoteArchetypeResource) Commit() chan struct{} {
 	if !res.inCriticalSection {
 		return nil
@@ -387,29 +425,38 @@ func (res *tcpMailboxesRemoteArchetypeResource) Commit() chan struct{} {
 	ch := make(chan struct{}, 1)
 	go func() {
 		var err error
-	outerLoop:
 		for {
 			if err != nil {
-				panic(fmt.Errorf("network error during commit: %s", err))
+				log.Printf("network error during commit: %s", err)
+				if res.conn != nil {
+					if err := res.conn.Close(); err != nil {
+						log.Printf("error in closing conn: %s", err)
+					}
+					res.conn = nil
+				}
+				err = res.resend()
+				if err != nil {
+					continue
+				}
 			}
-			err = res.ensureConnection()
-			if err != nil {
-				continue outerLoop
+			if res.conn == nil {
+				panic("no connection available while doing commit")
 			}
 
 			err = res.connEncoder.Encode(tcpNetworkCommit)
 			if err != nil {
-				continue outerLoop
+				continue
 			}
 			var shouldResend bool
 			err = res.connDecoder.Decode(&shouldResend)
 			if err != nil {
-				continue outerLoop
+				continue
 			}
 			if shouldResend {
-				panic("resending is not implemented")
+				panic("shouldResent must be false since we don't support crash-recovery model right now.")
 			}
 			res.inCriticalSection = false
+			res.resendBuffer = nil
 			ch <- struct{}{}
 			return
 		}
@@ -425,10 +472,16 @@ func (res *tcpMailboxesRemoteArchetypeResource) WriteValue(value tla.TLAValue) e
 	var err error
 	handleError := func() error {
 		log.Printf("network error during remote value write, aborting: %v", err)
+		// close the connection to close the allocated file descriptors
+		if err := res.conn.Close(); err != nil {
+			log.Printf("error in closing conn: %s", err)
+		}
 		res.conn = nil
 		return distsys.ErrCriticalSectionAborted
 	}
 
+	// Note that we should send all the data in only *one* connection. If we got
+	// an error anytime, we should abort the critical section.
 	err = res.ensureConnection()
 	if err != nil {
 		return err
@@ -439,15 +492,18 @@ func (res *tcpMailboxesRemoteArchetypeResource) WriteValue(value tla.TLAValue) e
 		if err != nil {
 			return handleError()
 		}
+		res.resendBuffer = append(res.resendBuffer, tcpNetworkBegin)
 	}
 	err = res.connEncoder.Encode(tcpNetworkValue)
 	if err != nil {
 		return handleError()
 	}
+	res.resendBuffer = append(res.resendBuffer, tcpNetworkValue)
 	err = res.connEncoder.Encode(&value)
 	if err != nil {
 		return handleError()
 	}
+	res.resendBuffer = append(res.resendBuffer, &value)
 	return nil
 }
 
