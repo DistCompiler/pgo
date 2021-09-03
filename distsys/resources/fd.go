@@ -3,12 +3,13 @@ package resources
 import (
 	"errors"
 	"fmt"
-	"github.com/UBC-NSS/pgo/distsys/tla"
 	"log"
 	"net"
 	"net/rpc"
 	"sync"
 	"time"
+
+	"github.com/UBC-NSS/pgo/distsys/tla"
 
 	"github.com/UBC-NSS/pgo/distsys"
 )
@@ -314,7 +315,7 @@ func (res *singleFailureDetectorResource) mainLoop() {
 			res.setState(reply)
 			if oldState != reply {
 				log.Printf("fd change state: archetype = %v, old state = %v, "+
-					"new state = %v. Due to rpc call reply", res.archetypeID, oldState, failed)
+					"new state = %v. Due to rpc call reply", res.archetypeID, oldState, reply)
 			}
 		}
 	}
@@ -350,11 +351,11 @@ func (res *singleFailureDetectorResource) WriteValue(value tla.TLAValue) error {
 
 func (res *singleFailureDetectorResource) Close() error {
 	var err error
-	if res.client != nil {
-		err = res.client.Close()
-	}
 	if res.ticker != nil {
 		res.ticker.Stop()
+	}
+	if res.client != nil {
+		err = res.client.Close()
 	}
 	return err
 }

@@ -3,9 +3,10 @@ package distsys
 import (
 	"errors"
 	"fmt"
-	"github.com/UBC-NSS/pgo/distsys/tla"
 	"reflect"
 	"sync"
+
+	"github.com/UBC-NSS/pgo/distsys/tla"
 
 	"go.uber.org/multierr"
 )
