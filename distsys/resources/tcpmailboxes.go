@@ -349,6 +349,7 @@ func (res *tcpMailboxesRemoteArchetypeResource) ensureConnection() error {
 func (res *tcpMailboxesRemoteArchetypeResource) Abort() chan struct{} {
 	// nothing to do; the remote end tolerates just starting over with no explanation
 	res.inCriticalSection = false // but note to ourselves that we are starting over, so we re-send the begin record
+	res.resendBuffer = nil
 	return nil
 }
 
