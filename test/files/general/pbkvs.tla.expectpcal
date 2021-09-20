@@ -79,7 +79,7 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_PUT_CLIENTS >= 0 /\ NUM_GET_CLIENTS >= 0
         if (EXPLORE_FAIL) {
             either { skip; } or {
                 netEnabled[<<selfID, REQ_INDEX>>] := FALSE;
-                \* netEnabled[<<selfID, RESP_INDEX>>] := FALSE;
+                netEnabled[<<selfID, RESP_INDEX>>] := FALSE;
                 goto failLabel;
             };
         };
@@ -475,8 +475,12 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_PUT_CLIENTS >= 0 /\ NUM_GET_CLIENTS >= 0
             goto syncPrimary;
           } or {
             with (value00 = FALSE) {
-              network := [network EXCEPT ![<<self, REQ_INDEX>>] = [queue |-> ((network)[<<self, REQ_INDEX>>]).queue, enabled |-> value00]];
-              goto failLabel;
+              with (network0 = [network EXCEPT ![<<self, REQ_INDEX>>] = [queue |-> ((network)[<<self, REQ_INDEX>>]).queue, enabled |-> value00]]) {
+                with (value110 = FALSE) {
+                  network := [network0 EXCEPT ![<<self, RESP_INDEX>>] = [queue |-> ((network0)[<<self, RESP_INDEX>>]).queue, enabled |-> value110]];
+                  goto failLabel;
+                };
+              };
             };
           };
         } else {
@@ -510,23 +514,27 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_PUT_CLIENTS >= 0 /\ NUM_GET_CLIENTS >= 0
         if((idx) # (self)) {
           either {
             repReq := [from |-> self, to |-> idx, body |-> lastPutBody, srcTyp |-> PRIMARY_SRC, typ |-> SYNC_REQ, id |-> 3];
-            with (value17 = repReq) {
+            with (value21 = repReq) {
               await ((network)[<<idx, REQ_INDEX>>]).enabled;
-              with (network0 = [network EXCEPT ![<<idx, REQ_INDEX>>] = [queue |-> Append(((network)[<<idx, REQ_INDEX>>]).queue, value17), enabled |-> ((network)[<<idx, REQ_INDEX>>]).enabled]]) {
+              with (network1 = [network EXCEPT ![<<idx, REQ_INDEX>>] = [queue |-> Append(((network)[<<idx, REQ_INDEX>>]).queue, value21), enabled |-> ((network)[<<idx, REQ_INDEX>>]).enabled]]) {
                 idx := (idx) + (1);
                 if(EXPLORE_FAIL) {
                   either {
                     skip;
-                    network := network0;
+                    network := network1;
                     goto sndSyncReqLoop;
                   } or {
-                    with (value20 = FALSE) {
-                      network := [network0 EXCEPT ![<<self, REQ_INDEX>>] = [queue |-> ((network0)[<<self, REQ_INDEX>>]).queue, enabled |-> value20]];
-                      goto failLabel;
+                    with (value30 = FALSE) {
+                      with (network2 = [network1 EXCEPT ![<<self, REQ_INDEX>>] = [queue |-> ((network1)[<<self, REQ_INDEX>>]).queue, enabled |-> value30]]) {
+                        with (value40 = FALSE) {
+                          network := [network1 EXCEPT ![<<self, RESP_INDEX>>] = [queue |-> ((network1)[<<self, RESP_INDEX>>]).queue, enabled |-> value40]];
+                          goto failLabel;
+                        };
+                      };
                     };
                   };
                 } else {
-                  network := network0;
+                  network := network1;
                   goto sndSyncReqLoop;
                 };
               };
@@ -540,9 +548,13 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_PUT_CLIENTS >= 0 /\ NUM_GET_CLIENTS >= 0
                   skip;
                   goto sndSyncReqLoop;
                 } or {
-                  with (value21 = FALSE) {
-                    network := [network EXCEPT ![<<self, REQ_INDEX>>] = [queue |-> ((network)[<<self, REQ_INDEX>>]).queue, enabled |-> value21]];
-                    goto failLabel;
+                  with (value31 = FALSE) {
+                    with (network3 = [network EXCEPT ![<<self, REQ_INDEX>>] = [queue |-> ((network)[<<self, REQ_INDEX>>]).queue, enabled |-> value31]]) {
+                      with (value41 = FALSE) {
+                        network := [network3 EXCEPT ![<<self, RESP_INDEX>>] = [queue |-> ((network3)[<<self, RESP_INDEX>>]).queue, enabled |-> value41]];
+                        goto failLabel;
+                      };
+                    };
                   };
                 };
               } else {
@@ -557,9 +569,13 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_PUT_CLIENTS >= 0 /\ NUM_GET_CLIENTS >= 0
               skip;
               goto sndSyncReqLoop;
             } or {
-              with (value22 = FALSE) {
-                network := [network EXCEPT ![<<self, REQ_INDEX>>] = [queue |-> ((network)[<<self, REQ_INDEX>>]).queue, enabled |-> value22]];
-                goto failLabel;
+              with (value32 = FALSE) {
+                with (network4 = [network EXCEPT ![<<self, REQ_INDEX>>] = [queue |-> ((network)[<<self, REQ_INDEX>>]).queue, enabled |-> value32]]) {
+                  with (value42 = FALSE) {
+                    network := [network4 EXCEPT ![<<self, RESP_INDEX>>] = [queue |-> ((network4)[<<self, RESP_INDEX>>]).queue, enabled |-> value42]];
+                    goto failLabel;
+                  };
+                };
               };
             };
           } else {
@@ -581,8 +597,8 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_PUT_CLIENTS >= 0 /\ NUM_GET_CLIENTS >= 0
               with (yielded_fd00 = (fd)[(repResp).from]) {
                 assert ((((((repResp).id) = (3)) /\ (((repResp).to) = (self))) /\ (((repResp).srcTyp) = (BACKUP_SRC))) /\ (((repResp).typ) = (SYNC_RESP))) /\ ((((repResp).from) \in (replicaSet)) \/ (yielded_fd00));
                 if((((repResp).body).versionNumber) > ((lastPutBody).versionNumber)) {
-                  with (value30 = ((repResp).body).value) {
-                    fs := [fs EXCEPT ![<<self, ((repResp).body).key>>] = value30];
+                  with (value50 = ((repResp).body).value) {
+                    fs := [fs EXCEPT ![<<self, ((repResp).body).key>>] = value50];
                     lastPutBody := (repResp).body;
                     replicaSet := (REPLICA_SET) \ ({self});
                     idx := 1;
@@ -683,41 +699,41 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_PUT_CLIENTS >= 0 /\ NUM_GET_CLIENTS >= 0
           respBody := [content |-> yielded_fs1];
           respTyp := GET_RESP;
           resp := [from |-> self, to |-> (req).from, body |-> respBody, srcTyp |-> BACKUP_SRC, typ |-> respTyp, id |-> (req).id];
-          with (value60 = resp) {
+          with (value80 = resp) {
             await ((network)[<<(resp).to, RESP_INDEX>>]).enabled;
-            network := [network EXCEPT ![<<(resp).to, RESP_INDEX>>] = [queue |-> Append(((network)[<<(resp).to, RESP_INDEX>>]).queue, value60), enabled |-> ((network)[<<(resp).to, RESP_INDEX>>]).enabled]];
+            network := [network EXCEPT ![<<(resp).to, RESP_INDEX>>] = [queue |-> Append(((network)[<<(resp).to, RESP_INDEX>>]).queue, value80), enabled |-> ((network)[<<(resp).to, RESP_INDEX>>]).enabled]];
             goto replicaLoop;
           };
         };
       } else {
         if(((req).typ) = (PUT_REQ)) {
-          with (value40 = ((req).body).value) {
-            fs := [fs EXCEPT ![<<self, ((req).body).key>>] = value40];
+          with (value60 = ((req).body).value) {
+            fs := [fs EXCEPT ![<<self, ((req).body).key>>] = value60];
             assert (((req).body).versionNumber) > ((lastPutBody).versionNumber);
             lastPutBody := (req).body;
             respBody := ACK_MSG_BODY;
             respTyp := PUT_RESP;
             shouldSync := TRUE;
             resp := [from |-> self, to |-> (req).from, body |-> respBody, srcTyp |-> BACKUP_SRC, typ |-> respTyp, id |-> (req).id];
-            with (value61 = resp) {
+            with (value81 = resp) {
               await ((network)[<<(resp).to, RESP_INDEX>>]).enabled;
-              network := [network EXCEPT ![<<(resp).to, RESP_INDEX>>] = [queue |-> Append(((network)[<<(resp).to, RESP_INDEX>>]).queue, value61), enabled |-> ((network)[<<(resp).to, RESP_INDEX>>]).enabled]];
+              network := [network EXCEPT ![<<(resp).to, RESP_INDEX>>] = [queue |-> Append(((network)[<<(resp).to, RESP_INDEX>>]).queue, value81), enabled |-> ((network)[<<(resp).to, RESP_INDEX>>]).enabled]];
               goto replicaLoop;
             };
           };
         } else {
           if(((req).typ) = (SYNC_REQ)) {
             if((((req).body).versionNumber) > ((lastPutBody).versionNumber)) {
-              with (value50 = ((req).body).value) {
-                fs := [fs EXCEPT ![<<self, ((req).body).key>>] = value50];
+              with (value70 = ((req).body).value) {
+                fs := [fs EXCEPT ![<<self, ((req).body).key>>] = value70];
                 lastPutBody := (req).body;
                 respBody := lastPutBody;
                 respTyp := SYNC_RESP;
                 shouldSync := TRUE;
                 resp := [from |-> self, to |-> (req).from, body |-> respBody, srcTyp |-> BACKUP_SRC, typ |-> respTyp, id |-> (req).id];
-                with (value62 = resp) {
+                with (value82 = resp) {
                   await ((network)[<<(resp).to, RESP_INDEX>>]).enabled;
-                  network := [network EXCEPT ![<<(resp).to, RESP_INDEX>>] = [queue |-> Append(((network)[<<(resp).to, RESP_INDEX>>]).queue, value62), enabled |-> ((network)[<<(resp).to, RESP_INDEX>>]).enabled]];
+                  network := [network EXCEPT ![<<(resp).to, RESP_INDEX>>] = [queue |-> Append(((network)[<<(resp).to, RESP_INDEX>>]).queue, value82), enabled |-> ((network)[<<(resp).to, RESP_INDEX>>]).enabled]];
                   goto replicaLoop;
                 };
               };
@@ -726,17 +742,17 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_PUT_CLIENTS >= 0 /\ NUM_GET_CLIENTS >= 0
               respTyp := SYNC_RESP;
               shouldSync := TRUE;
               resp := [from |-> self, to |-> (req).from, body |-> respBody, srcTyp |-> BACKUP_SRC, typ |-> respTyp, id |-> (req).id];
-              with (value63 = resp) {
+              with (value83 = resp) {
                 await ((network)[<<(resp).to, RESP_INDEX>>]).enabled;
-                network := [network EXCEPT ![<<(resp).to, RESP_INDEX>>] = [queue |-> Append(((network)[<<(resp).to, RESP_INDEX>>]).queue, value63), enabled |-> ((network)[<<(resp).to, RESP_INDEX>>]).enabled]];
+                network := [network EXCEPT ![<<(resp).to, RESP_INDEX>>] = [queue |-> Append(((network)[<<(resp).to, RESP_INDEX>>]).queue, value83), enabled |-> ((network)[<<(resp).to, RESP_INDEX>>]).enabled]];
                 goto replicaLoop;
               };
             };
           } else {
             resp := [from |-> self, to |-> (req).from, body |-> respBody, srcTyp |-> BACKUP_SRC, typ |-> respTyp, id |-> (req).id];
-            with (value64 = resp) {
+            with (value84 = resp) {
               await ((network)[<<(resp).to, RESP_INDEX>>]).enabled;
-              network := [network EXCEPT ![<<(resp).to, RESP_INDEX>>] = [queue |-> Append(((network)[<<(resp).to, RESP_INDEX>>]).queue, value64), enabled |-> ((network)[<<(resp).to, RESP_INDEX>>]).enabled]];
+              network := [network EXCEPT ![<<(resp).to, RESP_INDEX>>] = [queue |-> Append(((network)[<<(resp).to, RESP_INDEX>>]).queue, value84), enabled |-> ((network)[<<(resp).to, RESP_INDEX>>]).enabled]];
               goto replicaLoop;
             };
           };
@@ -752,8 +768,8 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_PUT_CLIENTS >= 0 /\ NUM_GET_CLIENTS >= 0
         };
       } else {
         if(((req).typ) = (PUT_REQ)) {
-          with (value70 = ((req).body).value) {
-            fs := [fs EXCEPT ![<<self, ((req).body).key>>] = value70];
+          with (value90 = ((req).body).value) {
+            fs := [fs EXCEPT ![<<self, ((req).body).key>>] = value90];
             lastPutBody := [versionNumber |-> ((lastPutBody).versionNumber) + (1), key |-> ((req).body).key, value |-> ((req).body).value];
             respBody := ACK_MSG_BODY;
             respTyp := PUT_RESP;
@@ -770,23 +786,27 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_PUT_CLIENTS >= 0 /\ NUM_GET_CLIENTS >= 0
         if((idx) # (self)) {
           either {
             repReq := [from |-> self, to |-> idx, body |-> lastPutBody, srcTyp |-> PRIMARY_SRC, typ |-> PUT_REQ, id |-> (req).id];
-            with (value80 = repReq) {
+            with (value100 = repReq) {
               await ((network)[<<idx, REQ_INDEX>>]).enabled;
-              with (network1 = [network EXCEPT ![<<idx, REQ_INDEX>>] = [queue |-> Append(((network)[<<idx, REQ_INDEX>>]).queue, value80), enabled |-> ((network)[<<idx, REQ_INDEX>>]).enabled]]) {
+              with (network5 = [network EXCEPT ![<<idx, REQ_INDEX>>] = [queue |-> Append(((network)[<<idx, REQ_INDEX>>]).queue, value100), enabled |-> ((network)[<<idx, REQ_INDEX>>]).enabled]]) {
                 idx := (idx) + (1);
                 if(EXPLORE_FAIL) {
                   either {
                     skip;
-                    network := network1;
+                    network := network5;
                     goto sndReplicaReqLoop;
                   } or {
-                    with (value90 = FALSE) {
-                      network := [network1 EXCEPT ![<<self, REQ_INDEX>>] = [queue |-> ((network1)[<<self, REQ_INDEX>>]).queue, enabled |-> value90]];
-                      goto failLabel;
+                    with (value111 = FALSE) {
+                      with (network6 = [network5 EXCEPT ![<<self, REQ_INDEX>>] = [queue |-> ((network5)[<<self, REQ_INDEX>>]).queue, enabled |-> value111]]) {
+                        with (value120 = FALSE) {
+                          network := [network5 EXCEPT ![<<self, RESP_INDEX>>] = [queue |-> ((network5)[<<self, RESP_INDEX>>]).queue, enabled |-> value120]];
+                          goto failLabel;
+                        };
+                      };
                     };
                   };
                 } else {
-                  network := network1;
+                  network := network5;
                   goto sndReplicaReqLoop;
                 };
               };
@@ -800,9 +820,13 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_PUT_CLIENTS >= 0 /\ NUM_GET_CLIENTS >= 0
                   skip;
                   goto sndReplicaReqLoop;
                 } or {
-                  with (value91 = FALSE) {
-                    network := [network EXCEPT ![<<self, REQ_INDEX>>] = [queue |-> ((network)[<<self, REQ_INDEX>>]).queue, enabled |-> value91]];
-                    goto failLabel;
+                  with (value112 = FALSE) {
+                    with (network7 = [network EXCEPT ![<<self, REQ_INDEX>>] = [queue |-> ((network)[<<self, REQ_INDEX>>]).queue, enabled |-> value112]]) {
+                      with (value121 = FALSE) {
+                        network := [network7 EXCEPT ![<<self, RESP_INDEX>>] = [queue |-> ((network7)[<<self, RESP_INDEX>>]).queue, enabled |-> value121]];
+                        goto failLabel;
+                      };
+                    };
                   };
                 };
               } else {
@@ -817,9 +841,13 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_PUT_CLIENTS >= 0 /\ NUM_GET_CLIENTS >= 0
               skip;
               goto sndReplicaReqLoop;
             } or {
-              with (value92 = FALSE) {
-                network := [network EXCEPT ![<<self, REQ_INDEX>>] = [queue |-> ((network)[<<self, REQ_INDEX>>]).queue, enabled |-> value92]];
-                goto failLabel;
+              with (value113 = FALSE) {
+                with (network8 = [network EXCEPT ![<<self, REQ_INDEX>>] = [queue |-> ((network)[<<self, REQ_INDEX>>]).queue, enabled |-> value113]]) {
+                  with (value122 = FALSE) {
+                    network := [network8 EXCEPT ![<<self, RESP_INDEX>>] = [queue |-> ((network8)[<<self, RESP_INDEX>>]).queue, enabled |-> value122]];
+                    goto failLabel;
+                  };
+                };
               };
             };
           } else {
@@ -835,7 +863,7 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_PUT_CLIENTS >= 0 /\ NUM_GET_CLIENTS >= 0
           assert ((network)[<<self, RESP_INDEX>>]).enabled;
           await (Len(((network)[<<self, RESP_INDEX>>]).queue)) > (0);
           with (readMsg3 = Head(((network)[<<self, RESP_INDEX>>]).queue)) {
-            with (network2 = [network EXCEPT ![<<self, RESP_INDEX>>] = [queue |-> Tail(((network)[<<self, RESP_INDEX>>]).queue), enabled |-> ((network)[<<self, RESP_INDEX>>]).enabled]]) {
+            with (network9 = [network EXCEPT ![<<self, RESP_INDEX>>] = [queue |-> Tail(((network)[<<self, RESP_INDEX>>]).queue), enabled |-> ((network)[<<self, RESP_INDEX>>]).enabled]]) {
               with (yielded_network20 = readMsg3) {
                 repResp := yielded_network20;
                 with (yielded_fd30 = (fd)[(repResp).from]) {
@@ -844,16 +872,20 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_PUT_CLIENTS >= 0 /\ NUM_GET_CLIENTS >= 0
                   if(EXPLORE_FAIL) {
                     either {
                       skip;
-                      network := network2;
+                      network := network9;
                       goto rcvReplicaRespLoop;
                     } or {
-                      with (value100 = FALSE) {
-                        network := [network2 EXCEPT ![<<self, REQ_INDEX>>] = [queue |-> ((network2)[<<self, REQ_INDEX>>]).queue, enabled |-> value100]];
-                        goto failLabel;
+                      with (value130 = FALSE) {
+                        with (network10 = [network9 EXCEPT ![<<self, REQ_INDEX>>] = [queue |-> ((network9)[<<self, REQ_INDEX>>]).queue, enabled |-> value130]]) {
+                          with (value140 = FALSE) {
+                            network := [network9 EXCEPT ![<<self, RESP_INDEX>>] = [queue |-> ((network9)[<<self, RESP_INDEX>>]).queue, enabled |-> value140]];
+                            goto failLabel;
+                          };
+                        };
                       };
                     };
                   } else {
-                    network := network2;
+                    network := network9;
                     goto rcvReplicaRespLoop;
                   };
                 };
@@ -871,9 +903,13 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_PUT_CLIENTS >= 0 /\ NUM_GET_CLIENTS >= 0
                   skip;
                   goto rcvReplicaRespLoop;
                 } or {
-                  with (value101 = FALSE) {
-                    network := [network EXCEPT ![<<self, REQ_INDEX>>] = [queue |-> ((network)[<<self, REQ_INDEX>>]).queue, enabled |-> value101]];
-                    goto failLabel;
+                  with (value131 = FALSE) {
+                    with (network11 = [network EXCEPT ![<<self, REQ_INDEX>>] = [queue |-> ((network)[<<self, REQ_INDEX>>]).queue, enabled |-> value131]]) {
+                      with (value141 = FALSE) {
+                        network := [network11 EXCEPT ![<<self, RESP_INDEX>>] = [queue |-> ((network11)[<<self, RESP_INDEX>>]).queue, enabled |-> value141]];
+                        goto failLabel;
+                      };
+                    };
                   };
                 };
               } else {
@@ -887,16 +923,16 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_PUT_CLIENTS >= 0 /\ NUM_GET_CLIENTS >= 0
       };
     sndResp:
       resp := [from |-> self, to |-> (req).from, body |-> respBody, srcTyp |-> PRIMARY_SRC, typ |-> respTyp, id |-> (req).id];
-      with (value110 = resp) {
+      with (value150 = resp) {
         await ((network)[<<(resp).to, RESP_INDEX>>]).enabled;
-        network := [network EXCEPT ![<<(resp).to, RESP_INDEX>>] = [queue |-> Append(((network)[<<(resp).to, RESP_INDEX>>]).queue, value110), enabled |-> ((network)[<<(resp).to, RESP_INDEX>>]).enabled]];
+        network := [network EXCEPT ![<<(resp).to, RESP_INDEX>>] = [queue |-> Append(((network)[<<(resp).to, RESP_INDEX>>]).queue, value150), enabled |-> ((network)[<<(resp).to, RESP_INDEX>>]).enabled]];
         goto replicaLoop;
       };
     failLabel:
-      with (value120 = TRUE) {
-        fd := [fd EXCEPT ![self] = value120];
-        with (value130 = self) {
-          primary := (primary) \ ({value130});
+      with (value160 = TRUE) {
+        fd := [fd EXCEPT ![self] = value160];
+        with (value170 = self) {
+          primary := (primary) \ ({value170});
           goto Done;
         };
       };
@@ -917,12 +953,12 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_PUT_CLIENTS >= 0 /\ NUM_GET_CLIENTS >= 0
           replica0 := yielded_primary50;
           if((replica0) # (NULL)) {
             either {
-              with (key1 \in KEY_SET, value18 \in VALUE_SET) {
-                body := [key |-> key1, value |-> value18];
+              with (key1 \in KEY_SET, value22 \in VALUE_SET) {
+                body := [key |-> key1, value |-> value22];
                 req0 := [from |-> self, to |-> replica0, body |-> body, srcTyp |-> CLIENT_SRC, typ |-> PUT_REQ, id |-> 1];
-                with (value140 = req0) {
+                with (value180 = req0) {
                   await ((network)[<<(req0).to, REQ_INDEX>>]).enabled;
-                  network := [network EXCEPT ![<<(req0).to, REQ_INDEX>>] = [queue |-> Append(((network)[<<(req0).to, REQ_INDEX>>]).queue, value140), enabled |-> ((network)[<<(req0).to, REQ_INDEX>>]).enabled]];
+                  network := [network EXCEPT ![<<(req0).to, REQ_INDEX>>] = [queue |-> Append(((network)[<<(req0).to, REQ_INDEX>>]).queue, value180), enabled |-> ((network)[<<(req0).to, REQ_INDEX>>]).enabled]];
                   goto rcvPutResp;
                 };
               };
@@ -941,12 +977,12 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_PUT_CLIENTS >= 0 /\ NUM_GET_CLIENTS >= 0
           replica0 := yielded_primary60;
           if((replica0) # (NULL)) {
             either {
-              with (key2 \in KEY_SET, value19 \in VALUE_SET) {
-                body := [key |-> key2, value |-> value19];
+              with (key2 \in KEY_SET, value23 \in VALUE_SET) {
+                body := [key |-> key2, value |-> value23];
                 req0 := [from |-> self, to |-> replica0, body |-> body, srcTyp |-> CLIENT_SRC, typ |-> PUT_REQ, id |-> 1];
-                with (value141 = req0) {
+                with (value181 = req0) {
                   await ((network)[<<(req0).to, REQ_INDEX>>]).enabled;
-                  network := [network EXCEPT ![<<(req0).to, REQ_INDEX>>] = [queue |-> Append(((network)[<<(req0).to, REQ_INDEX>>]).queue, value141), enabled |-> ((network)[<<(req0).to, REQ_INDEX>>]).enabled]];
+                  network := [network EXCEPT ![<<(req0).to, REQ_INDEX>>] = [queue |-> Append(((network)[<<(req0).to, REQ_INDEX>>]).queue, value181), enabled |-> ((network)[<<(req0).to, REQ_INDEX>>]).enabled]];
                   goto rcvPutResp;
                 };
               };
@@ -1000,9 +1036,9 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_PUT_CLIENTS >= 0 /\ NUM_GET_CLIENTS >= 0
             either {
               body0 := [key |-> KEY1];
               req1 := [from |-> self, to |-> replica1, body |-> body0, srcTyp |-> CLIENT_SRC, typ |-> GET_REQ, id |-> 2];
-              with (value150 = req1) {
+              with (value190 = req1) {
                 await ((network)[<<(req1).to, REQ_INDEX>>]).enabled;
-                network := [network EXCEPT ![<<(req1).to, REQ_INDEX>>] = [queue |-> Append(((network)[<<(req1).to, REQ_INDEX>>]).queue, value150), enabled |-> ((network)[<<(req1).to, REQ_INDEX>>]).enabled]];
+                network := [network EXCEPT ![<<(req1).to, REQ_INDEX>>] = [queue |-> Append(((network)[<<(req1).to, REQ_INDEX>>]).queue, value190), enabled |-> ((network)[<<(req1).to, REQ_INDEX>>]).enabled]];
                 goto rcvGetResp;
               };
             } or {
@@ -1022,9 +1058,9 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_PUT_CLIENTS >= 0 /\ NUM_GET_CLIENTS >= 0
             either {
               body0 := [key |-> KEY1];
               req1 := [from |-> self, to |-> replica1, body |-> body0, srcTyp |-> CLIENT_SRC, typ |-> GET_REQ, id |-> 2];
-              with (value151 = req1) {
+              with (value191 = req1) {
                 await ((network)[<<(req1).to, REQ_INDEX>>]).enabled;
-                network := [network EXCEPT ![<<(req1).to, REQ_INDEX>>] = [queue |-> Append(((network)[<<(req1).to, REQ_INDEX>>]).queue, value151), enabled |-> ((network)[<<(req1).to, REQ_INDEX>>]).enabled]];
+                network := [network EXCEPT ![<<(req1).to, REQ_INDEX>>] = [queue |-> Append(((network)[<<(req1).to, REQ_INDEX>>]).queue, value191), enabled |-> ((network)[<<(req1).to, REQ_INDEX>>]).enabled]];
                 goto rcvGetResp;
               };
             } or {

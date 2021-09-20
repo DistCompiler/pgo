@@ -79,7 +79,7 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_PUT_CLIENTS >= 0 /\ NUM_GET_CLIENTS >= 0
         if (EXPLORE_FAIL) {
             either { skip; } or {
                 netEnabled[<<selfID, REQ_INDEX>>] := FALSE;
-                \* netEnabled[<<selfID, RESP_INDEX>>] := FALSE;
+                netEnabled[<<selfID, RESP_INDEX>>] := FALSE;
                 goto failLabel;
             };
         };

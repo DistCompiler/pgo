@@ -115,6 +115,10 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 						if err != nil {
 							return err
 						}
+						err = iface.Write(netEnabled, []tla.TLAValue{tla.MakeTLATuple(iface.Self(), RESP_INDEX(iface))}, tla.TLA_FALSE)
+						if err != nil {
+							return err
+						}
 						return iface.Goto("AReplica.failLabel")
 					default:
 						panic("current branch of either matches no code paths!")
@@ -178,7 +182,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			netEnabled0, err := iface.RequireArchetypeResourceRef("AReplica.netEnabled")
+			netEnabled1, err := iface.RequireArchetypeResourceRef("AReplica.netEnabled")
 			if err != nil {
 				return err
 			}
@@ -269,7 +273,11 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 						// skip
 						return iface.Goto("AReplica.sndSyncReqLoop")
 					case 1:
-						err = iface.Write(netEnabled0, []tla.TLAValue{tla.MakeTLATuple(iface.Self(), REQ_INDEX(iface))}, tla.TLA_FALSE)
+						err = iface.Write(netEnabled1, []tla.TLAValue{tla.MakeTLATuple(iface.Self(), REQ_INDEX(iface))}, tla.TLA_FALSE)
+						if err != nil {
+							return err
+						}
+						err = iface.Write(netEnabled1, []tla.TLAValue{tla.MakeTLATuple(iface.Self(), RESP_INDEX(iface))}, tla.TLA_FALSE)
 						if err != nil {
 							return err
 						}
@@ -921,7 +929,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			netEnabled1, err := iface.RequireArchetypeResourceRef("AReplica.netEnabled")
+			netEnabled3, err := iface.RequireArchetypeResourceRef("AReplica.netEnabled")
 			if err != nil {
 				return err
 			}
@@ -1017,7 +1025,11 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 						// skip
 						return iface.Goto("AReplica.sndReplicaReqLoop")
 					case 1:
-						err = iface.Write(netEnabled1, []tla.TLAValue{tla.MakeTLATuple(iface.Self(), REQ_INDEX(iface))}, tla.TLA_FALSE)
+						err = iface.Write(netEnabled3, []tla.TLAValue{tla.MakeTLATuple(iface.Self(), REQ_INDEX(iface))}, tla.TLA_FALSE)
+						if err != nil {
+							return err
+						}
+						err = iface.Write(netEnabled3, []tla.TLAValue{tla.MakeTLATuple(iface.Self(), RESP_INDEX(iface))}, tla.TLA_FALSE)
 						if err != nil {
 							return err
 						}
@@ -1057,7 +1069,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			netEnabled2, err := iface.RequireArchetypeResourceRef("AReplica.netEnabled")
+			netEnabled5, err := iface.RequireArchetypeResourceRef("AReplica.netEnabled")
 			if err != nil {
 				return err
 			}
@@ -1202,7 +1214,11 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 						// skip
 						return iface.Goto("AReplica.rcvReplicaRespLoop")
 					case 1:
-						err = iface.Write(netEnabled2, []tla.TLAValue{tla.MakeTLATuple(iface.Self(), REQ_INDEX(iface))}, tla.TLA_FALSE)
+						err = iface.Write(netEnabled5, []tla.TLAValue{tla.MakeTLATuple(iface.Self(), REQ_INDEX(iface))}, tla.TLA_FALSE)
+						if err != nil {
+							return err
+						}
+						err = iface.Write(netEnabled5, []tla.TLAValue{tla.MakeTLATuple(iface.Self(), RESP_INDEX(iface))}, tla.TLA_FALSE)
 						if err != nil {
 							return err
 						}

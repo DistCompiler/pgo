@@ -15,7 +15,6 @@ import pgo.util.Description._
 import java.io.RandomAccessFile
 import java.nio.channels.FileChannel
 import java.nio.charset.StandardCharsets
-import java.nio.file.AtomicMoveNotSupportedException
 import scala.util.Using
 import scala.util.parsing.combinator.RegexParsers
 
@@ -24,8 +23,12 @@ object PGo {
 
   class Config(arguments: Seq[String]) extends ScallopConf(arguments) {
     banner("PGo compiler")
+
+    val noMultipleWrites: ScallopOption[Boolean] = opt[Boolean](required = true, default = Some(false),
+      descr = "whether to allow multiple assignments to the same variable within the same critical section. PCal does not. defaults to false.")
+
     trait Cmd { self: ScallopConf =>
-      val specFile: ScallopOption[Path] = opt[os.Path](required = true)
+      val specFile: ScallopOption[Path] = opt[os.Path](required = true, descr = "the .tla specification to operate on.")
       addValidation {
         if(os.exists(specFile())) {
           Right(())
@@ -35,8 +38,8 @@ object PGo {
       }
     }
     object GoGenCmd extends Subcommand("gogen") with Cmd {
-      val outFile: ScallopOption[Path] = opt[os.Path](required = true)
-      val packageName: ScallopOption[String] = opt[String](required = false)
+      val outFile: ScallopOption[Path] = opt[os.Path](required = true, descr = "the output .go file to write to.")
+      val packageName: ScallopOption[String] = opt[String](required = false, descr = "the package name within the generated .go file. defaults to a normalization of the MPCal block name.")
     }
     addSubcommand(GoGenCmd)
     object PCalGenCmd extends Subcommand("pcalgen") with Cmd {
@@ -112,7 +115,7 @@ object PGo {
       config.subcommand.get match {
         case config.GoGenCmd =>
           var (tlaModule, mpcalBlock) = parseMPCal(config.GoGenCmd.specFile())
-          MPCalSemanticCheckPass(tlaModule, mpcalBlock)
+          MPCalSemanticCheckPass(tlaModule, mpcalBlock, noMultipleWrites = config.noMultipleWrites())
           mpcalBlock = MPCalNormalizePass(tlaModule, mpcalBlock)
 
           val goCode = MPCalGoCodegenPass(tlaModule, mpcalBlock, packageName = config.GoGenCmd.packageName.toOption)
@@ -125,7 +128,7 @@ object PGo {
 
         case config.PCalGenCmd =>
           var (tlaModule, mpcalBlock) = parseMPCal(config.PCalGenCmd.specFile())
-          MPCalSemanticCheckPass(tlaModule, mpcalBlock)
+          MPCalSemanticCheckPass(tlaModule, mpcalBlock, noMultipleWrites = config.noMultipleWrites())
           mpcalBlock = MPCalNormalizePass(tlaModule, mpcalBlock)
 
           val pcalAlgorithm = MPCalPCalCodegenPass(tlaModule, mpcalBlock)
@@ -200,7 +203,7 @@ object PGo {
           locally {
             try {
               val (tlaModule, pcalAlgorithm) = parsePCal(config.PCalGenCmd.specFile())
-              MPCalSemanticCheckPass(tlaModule, MPCalBlock.fromPCalAlgorithm(pcalAlgorithm))
+              MPCalSemanticCheckPass(tlaModule, MPCalBlock.fromPCalAlgorithm(pcalAlgorithm), noMultipleWrites = true)
             } catch {
               case err: PGoError =>
                 throw MPCalSemanticCheckPass.SemanticError(

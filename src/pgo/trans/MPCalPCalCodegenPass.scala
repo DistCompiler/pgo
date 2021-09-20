@@ -443,35 +443,35 @@ object MPCalPCalCodegenPass {
 
       block.rewrite(Rewritable.TopDownFirstStrategy) {
         case labeledStmts@PCalLabeledStatements(label, body) =>
-          var assignmentCountsStmt = Map.empty[ById[PCalStatement],Map[ById[DefinitionOne],Int]]
-
-          def calculateAssignmentCounts(body: List[PCalStatement]): Map[ById[DefinitionOne],Int] = {
-            var result = Map.empty[ById[DefinitionOne],Int]
-            body.foreach(_.visit(Visitable.TopDownFirstStrategy) {
-              case stmt: PCalStatement if assignmentCountsStmt.contains(ById(stmt)) =>
-                result +++= assignmentCountsStmt(ById(stmt))
-              case PCalIf(_, yes, no) =>
-                result +++= (calculateAssignmentCounts(yes) ||| calculateAssignmentCounts(no))
-              case PCalEither(cases) =>
-                result +++= cases.iterator.map(calculateAssignmentCounts).reduce(_ ||| _)
-              case PCalAssignment(List(PCalAssignmentPair(lhs: PCalAssignmentLhsIdentifier, _))) =>
-                result = result.updated(ById(lhs.refersTo), result.getOrElse(ById(lhs.refersTo), 0) + 1)
-            })
-            result
-          }
-
-          body.foreach(_.visit(Visitable.BottomUpFirstStrategy) {
-            case stmt: PCalStatement =>
-              val counts = calculateAssignmentCounts(List(stmt))
-              assignmentCountsStmt = assignmentCountsStmt.updated(ById(stmt), counts)
-          })
-
+          // build a lazy system for counting assignments within trees of statements: any statement + list of statements
+          // should be traversed at most once, then the result should be cached in these tables.
+          // Note: this has to be done with lazy evals, as opposed to pre-computation, because parts of this code generate
+          //       ad-hoc fresh ASTs during rewriting. You can't pre-compute ad-hoc future data.
+          var assignmentCountsStmtMap = Map.empty[ById[PCalStatement],Map[ById[DefinitionOne],Int]]
           var assignmentCountsMap = Map.empty[ById[List[PCalStatement]],Map[ById[DefinitionOne],Int]]
+
+          def assignmentCountsStmt(stmt: PCalStatement): Map[ById[DefinitionOne],Int] =
+            assignmentCountsStmtMap.getOrElse(ById(stmt), {
+              var result = Map.empty[ById[DefinitionOne],Int]
+              stmt.visit(Visitable.TopDownFirstStrategy) {
+                case stmt: PCalStatement if assignmentCountsStmtMap.contains(ById(stmt)) =>
+                  result +++= assignmentCountsStmtMap(ById(stmt))
+                case PCalIf(_, yes, no) =>
+                  result +++= (assignmentCounts(yes) ||| assignmentCounts(no))
+                case PCalEither(cases) =>
+                  result +++= cases.iterator.map(assignmentCounts).reduce(_ ||| _)
+                case PCalAssignment(List(PCalAssignmentPair(lhs: PCalAssignmentLhsIdentifier, _))) =>
+                  result = result.updated(ById(lhs.refersTo), result.getOrElse(ById(lhs.refersTo), 0) + 1)
+              }
+              assignmentCountsStmtMap = assignmentCountsStmtMap.updated(ById(stmt), result)
+              result
+            })
+
           def assignmentCounts(stmts: List[PCalStatement]): Map[ById[DefinitionOne],Int] =
             assignmentCountsMap.getOrElse(ById(stmts), {
               val result = stmts match {
                 case Nil => Map.empty[ById[DefinitionOne],Int]
-                case hd :: tl => assignmentCountsStmt(ById(hd)) +++ assignmentCounts(tl)
+                case hd :: tl => assignmentCountsStmt(hd) +++ assignmentCounts(tl)
               }
               assignmentCountsMap = assignmentCountsMap.updated(ById(stmts), result)
               result
