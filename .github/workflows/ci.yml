@@ -11,8 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        java-version: ['11', '12', '13', '14', '15', '16']
-        golang-version: ['1.13', '1.14', '1.15', '1.16']
+        java-version: ['11', '16']
+        golang-version: ['1.13', '1.14', '1.15', '1.16', '1.17']
 
     steps:
     - uses: actions/checkout@v2
@@ -20,7 +20,7 @@ jobs:
       uses: actions/setup-java@v2
       with:
         java-version: ${{ matrix.java-version }}
-        distribution: 'adopt'
+        distribution: 'temurin'
     - name: Setup Go environment
       uses: actions/setup-go@v2.1.3
       with:
