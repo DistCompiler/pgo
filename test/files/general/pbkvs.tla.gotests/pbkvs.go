@@ -584,6 +584,10 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
+			fd2, err := iface.RequireArchetypeResourceRef("AReplica.fd")
+			if err != nil {
+				return err
+			}
 			var condition24 tla.TLAValue
 			condition24, err = iface.Read(req2, []tla.TLAValue{})
 			if err != nil {
@@ -776,19 +780,40 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			var exprRead23 tla.TLAValue
-			exprRead23, err = iface.Read(resp, []tla.TLAValue{})
-			if err != nil {
-				return err
-			}
-			var indexRead3 tla.TLAValue
-			indexRead3, err = iface.Read(resp, []tla.TLAValue{})
-			if err != nil {
-				return err
-			}
-			err = iface.Write(net2, []tla.TLAValue{tla.MakeTLATuple(indexRead3.ApplyFunction(tla.MakeTLAString("to")), RESP_INDEX(iface))}, exprRead23)
-			if err != nil {
-				return err
+			switch iface.NextFairnessCounter("AReplica.handleBackup.0", 2) {
+			case 0:
+				var exprRead23 tla.TLAValue
+				exprRead23, err = iface.Read(resp, []tla.TLAValue{})
+				if err != nil {
+					return err
+				}
+				var indexRead3 tla.TLAValue
+				indexRead3, err = iface.Read(resp, []tla.TLAValue{})
+				if err != nil {
+					return err
+				}
+				err = iface.Write(net2, []tla.TLAValue{tla.MakeTLATuple(indexRead3.ApplyFunction(tla.MakeTLAString("to")), RESP_INDEX(iface))}, exprRead23)
+				if err != nil {
+					return err
+				}
+				// no statements
+			case 1:
+				var condition32 tla.TLAValue
+				condition32, err = iface.Read(resp, []tla.TLAValue{})
+				if err != nil {
+					return err
+				}
+				var condition33 tla.TLAValue
+				condition33, err = iface.Read(fd2, []tla.TLAValue{condition32.ApplyFunction(tla.MakeTLAString("to"))})
+				if err != nil {
+					return err
+				}
+				if !condition33.AsBool() {
+					return distsys.ErrCriticalSectionAborted
+				}
+				// no statements
+			default:
+				panic("current branch of either matches no code paths!")
 			}
 			return iface.Goto("AReplica.replicaLoop")
 		},
@@ -808,20 +833,20 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			lastPutBody7 := iface.RequireArchetypeResource("AReplica.lastPutBody")
 			replicaSet8 := iface.RequireArchetypeResource("AReplica.replicaSet")
 			idx8 := iface.RequireArchetypeResource("AReplica.idx")
-			var condition32 tla.TLAValue
-			condition32, err = iface.Read(req17, []tla.TLAValue{})
+			var condition34 tla.TLAValue
+			condition34, err = iface.Read(req17, []tla.TLAValue{})
 			if err != nil {
 				return err
 			}
-			if !tla.TLA_EqualsSymbol(condition32.ApplyFunction(tla.MakeTLAString("srcTyp")), CLIENT_SRC(iface)).AsBool() {
+			if !tla.TLA_EqualsSymbol(condition34.ApplyFunction(tla.MakeTLAString("srcTyp")), CLIENT_SRC(iface)).AsBool() {
 				return fmt.Errorf("%w: ((req).srcTyp) = (CLIENT_SRC)", distsys.ErrAssertionFailed)
 			}
-			var condition33 tla.TLAValue
-			condition33, err = iface.Read(req17, []tla.TLAValue{})
+			var condition35 tla.TLAValue
+			condition35, err = iface.Read(req17, []tla.TLAValue{})
 			if err != nil {
 				return err
 			}
-			if tla.TLA_EqualsSymbol(condition33.ApplyFunction(tla.MakeTLAString("typ")), GET_REQ(iface)).AsBool() {
+			if tla.TLA_EqualsSymbol(condition35.ApplyFunction(tla.MakeTLAString("typ")), GET_REQ(iface)).AsBool() {
 				var exprRead24 tla.TLAValue
 				exprRead24, err = iface.Read(req17, []tla.TLAValue{})
 				if err != nil {
@@ -844,12 +869,12 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				}
 				return iface.Goto("AReplica.sndResp")
 			} else {
-				var condition34 tla.TLAValue
-				condition34, err = iface.Read(req17, []tla.TLAValue{})
+				var condition36 tla.TLAValue
+				condition36, err = iface.Read(req17, []tla.TLAValue{})
 				if err != nil {
 					return err
 				}
-				if tla.TLA_EqualsSymbol(condition34.ApplyFunction(tla.MakeTLAString("typ")), PUT_REQ(iface)).AsBool() {
+				if tla.TLA_EqualsSymbol(condition36.ApplyFunction(tla.MakeTLAString("typ")), PUT_REQ(iface)).AsBool() {
 					var exprRead26 tla.TLAValue
 					exprRead26, err = iface.Read(req17, []tla.TLAValue{})
 					if err != nil {
@@ -925,7 +950,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			fd2, err := iface.RequireArchetypeResourceRef("AReplica.fd")
+			fd3, err := iface.RequireArchetypeResourceRef("AReplica.fd")
 			if err != nil {
 				return err
 			}
@@ -933,18 +958,18 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			var condition35 tla.TLAValue
-			condition35, err = iface.Read(idx9, []tla.TLAValue{})
+			var condition37 tla.TLAValue
+			condition37, err = iface.Read(idx9, []tla.TLAValue{})
 			if err != nil {
 				return err
 			}
-			if tla.TLA_LessThanOrEqualSymbol(condition35, iface.GetConstant("NUM_REPLICAS")()).AsBool() {
-				var condition36 tla.TLAValue
-				condition36, err = iface.Read(idx9, []tla.TLAValue{})
+			if tla.TLA_LessThanOrEqualSymbol(condition37, iface.GetConstant("NUM_REPLICAS")()).AsBool() {
+				var condition38 tla.TLAValue
+				condition38, err = iface.Read(idx9, []tla.TLAValue{})
 				if err != nil {
 					return err
 				}
-				if tla.TLA_NotEqualsSymbol(condition36, iface.Self()).AsBool() {
+				if tla.TLA_NotEqualsSymbol(condition38, iface.Self()).AsBool() {
 					switch iface.NextFairnessCounter("AReplica.sndReplicaReqLoop.0", 2) {
 					case 0:
 						var exprRead31 tla.TLAValue
@@ -989,17 +1014,17 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 						}
 						// no statements
 					case 1:
-						var condition37 tla.TLAValue
-						condition37, err = iface.Read(idx9, []tla.TLAValue{})
+						var condition39 tla.TLAValue
+						condition39, err = iface.Read(idx9, []tla.TLAValue{})
 						if err != nil {
 							return err
 						}
-						var condition38 tla.TLAValue
-						condition38, err = iface.Read(fd2, []tla.TLAValue{condition37})
+						var condition40 tla.TLAValue
+						condition40, err = iface.Read(fd3, []tla.TLAValue{condition39})
 						if err != nil {
 							return err
 						}
-						if !condition38.AsBool() {
+						if !condition40.AsBool() {
 							return distsys.ErrCriticalSectionAborted
 						}
 						// no statements
@@ -1059,7 +1084,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			fd3, err := iface.RequireArchetypeResourceRef("AReplica.fd")
+			fd4, err := iface.RequireArchetypeResourceRef("AReplica.fd")
 			if err != nil {
 				return err
 			}
@@ -1073,12 +1098,12 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			var condition39 tla.TLAValue
-			condition39, err = iface.Read(replicaSet9, []tla.TLAValue{})
+			var condition41 tla.TLAValue
+			condition41, err = iface.Read(replicaSet9, []tla.TLAValue{})
 			if err != nil {
 				return err
 			}
-			if tla.TLA_GreaterThanSymbol(tla.TLA_Cardinality(condition39), tla.MakeTLANumber(0)).AsBool() {
+			if tla.TLA_GreaterThanSymbol(tla.TLA_Cardinality(condition41), tla.MakeTLANumber(0)).AsBool() {
 				switch iface.NextFairnessCounter("AReplica.rcvReplicaRespLoop.0", 2) {
 				case 0:
 					var exprRead35 tla.TLAValue
@@ -1090,23 +1115,13 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					if err != nil {
 						return err
 					}
-					var condition40 tla.TLAValue
-					condition40, err = iface.Read(repResp11, []tla.TLAValue{})
-					if err != nil {
-						return err
-					}
-					var condition41 tla.TLAValue
-					condition41, err = iface.Read(replicaSet9, []tla.TLAValue{})
-					if err != nil {
-						return err
-					}
 					var condition42 tla.TLAValue
 					condition42, err = iface.Read(repResp11, []tla.TLAValue{})
 					if err != nil {
 						return err
 					}
 					var condition43 tla.TLAValue
-					condition43, err = iface.Read(fd3, []tla.TLAValue{condition42.ApplyFunction(tla.MakeTLAString("from"))})
+					condition43, err = iface.Read(replicaSet9, []tla.TLAValue{})
 					if err != nil {
 						return err
 					}
@@ -1116,7 +1131,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 						return err
 					}
 					var condition45 tla.TLAValue
-					condition45, err = iface.Read(repResp11, []tla.TLAValue{})
+					condition45, err = iface.Read(fd4, []tla.TLAValue{condition44.ApplyFunction(tla.MakeTLAString("from"))})
 					if err != nil {
 						return err
 					}
@@ -1136,11 +1151,21 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 						return err
 					}
 					var condition49 tla.TLAValue
-					condition49, err = iface.Read(req26, []tla.TLAValue{})
+					condition49, err = iface.Read(repResp11, []tla.TLAValue{})
 					if err != nil {
 						return err
 					}
-					if !tla.TLA_LogicalAndSymbol(tla.TLA_LogicalAndSymbol(tla.TLA_LogicalAndSymbol(tla.TLA_LogicalAndSymbol(tla.TLA_LogicalAndSymbol(tla.TLA_LogicalOrSymbol(tla.TLA_InSymbol(condition40.ApplyFunction(tla.MakeTLAString("from")), condition41), condition43), tla.TLA_EqualsSymbol(condition44.ApplyFunction(tla.MakeTLAString("to")), iface.Self())), tla.TLA_EqualsSymbol(condition45.ApplyFunction(tla.MakeTLAString("body")), ACK_MSG_BODY(iface))), tla.TLA_EqualsSymbol(condition46.ApplyFunction(tla.MakeTLAString("srcTyp")), BACKUP_SRC(iface))), tla.TLA_EqualsSymbol(condition47.ApplyFunction(tla.MakeTLAString("typ")), PUT_RESP(iface))), tla.TLA_EqualsSymbol(condition48.ApplyFunction(tla.MakeTLAString("id")), condition49.ApplyFunction(tla.MakeTLAString("id")))).AsBool() {
+					var condition50 tla.TLAValue
+					condition50, err = iface.Read(repResp11, []tla.TLAValue{})
+					if err != nil {
+						return err
+					}
+					var condition51 tla.TLAValue
+					condition51, err = iface.Read(req26, []tla.TLAValue{})
+					if err != nil {
+						return err
+					}
+					if !tla.TLA_LogicalAndSymbol(tla.TLA_LogicalAndSymbol(tla.TLA_LogicalAndSymbol(tla.TLA_LogicalAndSymbol(tla.TLA_LogicalAndSymbol(tla.TLA_LogicalOrSymbol(tla.TLA_InSymbol(condition42.ApplyFunction(tla.MakeTLAString("from")), condition43), condition45), tla.TLA_EqualsSymbol(condition46.ApplyFunction(tla.MakeTLAString("to")), iface.Self())), tla.TLA_EqualsSymbol(condition47.ApplyFunction(tla.MakeTLAString("body")), ACK_MSG_BODY(iface))), tla.TLA_EqualsSymbol(condition48.ApplyFunction(tla.MakeTLAString("srcTyp")), BACKUP_SRC(iface))), tla.TLA_EqualsSymbol(condition49.ApplyFunction(tla.MakeTLAString("typ")), PUT_RESP(iface))), tla.TLA_EqualsSymbol(condition50.ApplyFunction(tla.MakeTLAString("id")), condition51.ApplyFunction(tla.MakeTLAString("id")))).AsBool() {
 						return fmt.Errorf("%w: ((((((((repResp).from) \\in (replicaSet)) \\/ ((fd)[(repResp).from])) /\\ (((repResp).to) = (self))) /\\ (((repResp).body) = (ACK_MSG_BODY))) /\\ (((repResp).srcTyp) = (BACKUP_SRC))) /\\ (((repResp).typ) = (PUT_RESP))) /\\ (((repResp).id) = ((req).id))", distsys.ErrAssertionFailed)
 					}
 					var exprRead36 tla.TLAValue
@@ -1172,22 +1197,22 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					if err != nil {
 						return err
 					}
-					var condition50 tla.TLAValue
-					condition50, err = iface.Read(replica2, []tla.TLAValue{})
-					if err != nil {
-						return err
-					}
-					var condition51 tla.TLAValue
-					condition51, err = iface.Read(fd3, []tla.TLAValue{condition50})
-					if err != nil {
-						return err
-					}
 					var condition52 tla.TLAValue
-					condition52, err = iface.Read(netLen0, []tla.TLAValue{tla.MakeTLATuple(iface.Self(), RESP_INDEX(iface))})
+					condition52, err = iface.Read(replica2, []tla.TLAValue{})
 					if err != nil {
 						return err
 					}
-					if !tla.TLA_LogicalAndSymbol(condition51, tla.TLA_EqualsSymbol(condition52, tla.MakeTLANumber(0))).AsBool() {
+					var condition53 tla.TLAValue
+					condition53, err = iface.Read(fd4, []tla.TLAValue{condition52})
+					if err != nil {
+						return err
+					}
+					var condition54 tla.TLAValue
+					condition54, err = iface.Read(netLen0, []tla.TLAValue{tla.MakeTLATuple(iface.Self(), RESP_INDEX(iface))})
+					if err != nil {
+						return err
+					}
+					if !tla.TLA_LogicalAndSymbol(condition53, tla.TLA_EqualsSymbol(condition54, tla.MakeTLANumber(0))).AsBool() {
 						return distsys.ErrCriticalSectionAborted
 					}
 					var exprRead39 tla.TLAValue
@@ -1242,7 +1267,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 		Body: func(iface distsys.ArchetypeInterface) error {
 			var err error
 			_ = err
-			resp2 := iface.RequireArchetypeResource("AReplica.resp")
+			resp3 := iface.RequireArchetypeResource("AReplica.resp")
 			req27 := iface.RequireArchetypeResource("AReplica.req")
 			respBody5 := iface.RequireArchetypeResource("AReplica.respBody")
 			respTyp5 := iface.RequireArchetypeResource("AReplica.respTyp")
@@ -1270,7 +1295,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			err = iface.Write(resp2, []tla.TLAValue{}, tla.MakeTLARecord([]tla.TLARecordField{
+			err = iface.Write(resp3, []tla.TLAValue{}, tla.MakeTLARecord([]tla.TLARecordField{
 				{tla.MakeTLAString("from"), iface.Self()},
 				{tla.MakeTLAString("to"), exprRead41.ApplyFunction(tla.MakeTLAString("from"))},
 				{tla.MakeTLAString("body"), exprRead42},
@@ -1282,12 +1307,12 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				return err
 			}
 			var exprRead45 tla.TLAValue
-			exprRead45, err = iface.Read(resp2, []tla.TLAValue{})
+			exprRead45, err = iface.Read(resp3, []tla.TLAValue{})
 			if err != nil {
 				return err
 			}
 			var indexRead6 tla.TLAValue
-			indexRead6, err = iface.Read(resp2, []tla.TLAValue{})
+			indexRead6, err = iface.Read(resp3, []tla.TLAValue{})
 			if err != nil {
 				return err
 			}
@@ -1303,7 +1328,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 		Body: func(iface distsys.ArchetypeInterface) error {
 			var err error
 			_ = err
-			fd5, err := iface.RequireArchetypeResourceRef("AReplica.fd")
+			fd6, err := iface.RequireArchetypeResourceRef("AReplica.fd")
 			if err != nil {
 				return err
 			}
@@ -1311,7 +1336,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			err = iface.Write(fd5, []tla.TLAValue{iface.Self()}, tla.TLA_TRUE)
+			err = iface.Write(fd6, []tla.TLAValue{iface.Self()}, tla.TLA_TRUE)
 			if err != nil {
 				return err
 			}
@@ -1357,7 +1382,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			fd6, err := iface.RequireArchetypeResourceRef("APutClient.fd")
+			fd7, err := iface.RequireArchetypeResourceRef("APutClient.fd")
 			if err != nil {
 				return err
 			}
@@ -1370,12 +1395,12 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			var condition53 tla.TLAValue
-			condition53, err = iface.Read(replica5, []tla.TLAValue{})
+			var condition55 tla.TLAValue
+			condition55, err = iface.Read(replica5, []tla.TLAValue{})
 			if err != nil {
 				return err
 			}
-			if tla.TLA_NotEqualsSymbol(condition53, NULL(iface)).AsBool() {
+			if tla.TLA_NotEqualsSymbol(condition55, NULL(iface)).AsBool() {
 				switch iface.NextFairnessCounter("APutClient.sndPutReq.0", 2) {
 				case 0:
 					var key tla.TLAValue = KEY_SET(iface).SelectElement()
@@ -1425,17 +1450,17 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					}
 					return iface.Goto("APutClient.rcvPutResp")
 				case 1:
-					var condition54 tla.TLAValue
-					condition54, err = iface.Read(replica5, []tla.TLAValue{})
+					var condition56 tla.TLAValue
+					condition56, err = iface.Read(replica5, []tla.TLAValue{})
 					if err != nil {
 						return err
 					}
-					var condition55 tla.TLAValue
-					condition55, err = iface.Read(fd6, []tla.TLAValue{condition54})
+					var condition57 tla.TLAValue
+					condition57, err = iface.Read(fd7, []tla.TLAValue{condition56})
 					if err != nil {
 						return err
 					}
-					if !condition55.AsBool() {
+					if !condition57.AsBool() {
 						return distsys.ErrCriticalSectionAborted
 					}
 					return iface.Goto("APutClient.sndPutReq")
@@ -1454,13 +1479,13 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 		Body: func(iface distsys.ArchetypeInterface) error {
 			var err error
 			_ = err
-			resp5 := iface.RequireArchetypeResource("APutClient.resp")
+			resp6 := iface.RequireArchetypeResource("APutClient.resp")
 			net7, err := iface.RequireArchetypeResourceRef("APutClient.net")
 			if err != nil {
 				return err
 			}
 			replica9 := iface.RequireArchetypeResource("APutClient.replica")
-			fd7, err := iface.RequireArchetypeResourceRef("APutClient.fd")
+			fd8, err := iface.RequireArchetypeResourceRef("APutClient.fd")
 			if err != nil {
 				return err
 			}
@@ -1475,66 +1500,66 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				err = iface.Write(resp5, []tla.TLAValue{}, exprRead50)
-				if err != nil {
-					return err
-				}
-				var condition56 tla.TLAValue
-				condition56, err = iface.Read(resp5, []tla.TLAValue{})
-				if err != nil {
-					return err
-				}
-				var condition57 tla.TLAValue
-				condition57, err = iface.Read(resp5, []tla.TLAValue{})
+				err = iface.Write(resp6, []tla.TLAValue{}, exprRead50)
 				if err != nil {
 					return err
 				}
 				var condition58 tla.TLAValue
-				condition58, err = iface.Read(replica9, []tla.TLAValue{})
+				condition58, err = iface.Read(resp6, []tla.TLAValue{})
 				if err != nil {
 					return err
 				}
 				var condition59 tla.TLAValue
-				condition59, err = iface.Read(resp5, []tla.TLAValue{})
+				condition59, err = iface.Read(resp6, []tla.TLAValue{})
 				if err != nil {
 					return err
 				}
 				var condition60 tla.TLAValue
-				condition60, err = iface.Read(resp5, []tla.TLAValue{})
+				condition60, err = iface.Read(replica9, []tla.TLAValue{})
 				if err != nil {
 					return err
 				}
 				var condition61 tla.TLAValue
-				condition61, err = iface.Read(resp5, []tla.TLAValue{})
+				condition61, err = iface.Read(resp6, []tla.TLAValue{})
 				if err != nil {
 					return err
 				}
 				var condition62 tla.TLAValue
-				condition62, err = iface.Read(resp5, []tla.TLAValue{})
+				condition62, err = iface.Read(resp6, []tla.TLAValue{})
 				if err != nil {
 					return err
 				}
-				if !tla.TLA_LogicalAndSymbol(tla.TLA_LogicalAndSymbol(tla.TLA_LogicalAndSymbol(tla.TLA_LogicalAndSymbol(tla.TLA_LogicalAndSymbol(tla.TLA_EqualsSymbol(condition56.ApplyFunction(tla.MakeTLAString("to")), iface.Self()), tla.TLA_EqualsSymbol(condition57.ApplyFunction(tla.MakeTLAString("from")), condition58)), tla.TLA_EqualsSymbol(condition59.ApplyFunction(tla.MakeTLAString("body")), ACK_MSG_BODY(iface))), tla.TLA_EqualsSymbol(condition60.ApplyFunction(tla.MakeTLAString("srcTyp")), PRIMARY_SRC(iface))), tla.TLA_EqualsSymbol(condition61.ApplyFunction(tla.MakeTLAString("typ")), PUT_RESP(iface))), tla.TLA_EqualsSymbol(condition62.ApplyFunction(tla.MakeTLAString("id")), tla.MakeTLANumber(1))).AsBool() {
-					return fmt.Errorf("%w: (((((((resp).to) = (self)) /\\ (((resp).from) = (replica))) /\\ (((resp).body) = (ACK_MSG_BODY))) /\\ (((resp).srcTyp) = (PRIMARY_SRC))) /\\ (((resp).typ) = (PUT_RESP))) /\\ (((resp).id) = (1))", distsys.ErrAssertionFailed)
-				}
-				return iface.Goto("APutClient.putClientLoop")
-			case 1:
 				var condition63 tla.TLAValue
-				condition63, err = iface.Read(replica9, []tla.TLAValue{})
+				condition63, err = iface.Read(resp6, []tla.TLAValue{})
 				if err != nil {
 					return err
 				}
 				var condition64 tla.TLAValue
-				condition64, err = iface.Read(fd7, []tla.TLAValue{condition63})
+				condition64, err = iface.Read(resp6, []tla.TLAValue{})
 				if err != nil {
 					return err
 				}
+				if !tla.TLA_LogicalAndSymbol(tla.TLA_LogicalAndSymbol(tla.TLA_LogicalAndSymbol(tla.TLA_LogicalAndSymbol(tla.TLA_LogicalAndSymbol(tla.TLA_EqualsSymbol(condition58.ApplyFunction(tla.MakeTLAString("to")), iface.Self()), tla.TLA_EqualsSymbol(condition59.ApplyFunction(tla.MakeTLAString("from")), condition60)), tla.TLA_EqualsSymbol(condition61.ApplyFunction(tla.MakeTLAString("body")), ACK_MSG_BODY(iface))), tla.TLA_EqualsSymbol(condition62.ApplyFunction(tla.MakeTLAString("srcTyp")), PRIMARY_SRC(iface))), tla.TLA_EqualsSymbol(condition63.ApplyFunction(tla.MakeTLAString("typ")), PUT_RESP(iface))), tla.TLA_EqualsSymbol(condition64.ApplyFunction(tla.MakeTLAString("id")), tla.MakeTLANumber(1))).AsBool() {
+					return fmt.Errorf("%w: (((((((resp).to) = (self)) /\\ (((resp).from) = (replica))) /\\ (((resp).body) = (ACK_MSG_BODY))) /\\ (((resp).srcTyp) = (PRIMARY_SRC))) /\\ (((resp).typ) = (PUT_RESP))) /\\ (((resp).id) = (1))", distsys.ErrAssertionFailed)
+				}
+				return iface.Goto("APutClient.putClientLoop")
+			case 1:
 				var condition65 tla.TLAValue
-				condition65, err = iface.Read(netLen1, []tla.TLAValue{tla.MakeTLATuple(iface.Self(), RESP_INDEX(iface))})
+				condition65, err = iface.Read(replica9, []tla.TLAValue{})
 				if err != nil {
 					return err
 				}
-				if !tla.TLA_LogicalAndSymbol(condition64, tla.TLA_EqualsSymbol(condition65, tla.MakeTLANumber(0))).AsBool() {
+				var condition66 tla.TLAValue
+				condition66, err = iface.Read(fd8, []tla.TLAValue{condition65})
+				if err != nil {
+					return err
+				}
+				var condition67 tla.TLAValue
+				condition67, err = iface.Read(netLen1, []tla.TLAValue{tla.MakeTLATuple(iface.Self(), RESP_INDEX(iface))})
+				if err != nil {
+					return err
+				}
+				if !tla.TLA_LogicalAndSymbol(condition66, tla.TLA_EqualsSymbol(condition67, tla.MakeTLANumber(0))).AsBool() {
 					return distsys.ErrCriticalSectionAborted
 				}
 				return iface.Goto("APutClient.sndPutReq")
@@ -1579,7 +1604,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			fd8, err := iface.RequireArchetypeResourceRef("AGetClient.fd")
+			fd9, err := iface.RequireArchetypeResourceRef("AGetClient.fd")
 			if err != nil {
 				return err
 			}
@@ -1592,12 +1617,12 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			var condition66 tla.TLAValue
-			condition66, err = iface.Read(replica11, []tla.TLAValue{})
+			var condition68 tla.TLAValue
+			condition68, err = iface.Read(replica11, []tla.TLAValue{})
 			if err != nil {
 				return err
 			}
-			if tla.TLA_NotEqualsSymbol(condition66, NULL(iface)).AsBool() {
+			if tla.TLA_NotEqualsSymbol(condition68, NULL(iface)).AsBool() {
 				switch iface.NextFairnessCounter("AGetClient.sndGetReq.0", 2) {
 				case 0:
 					err = iface.Write(body1, []tla.TLAValue{}, tla.MakeTLARecord([]tla.TLARecordField{
@@ -1643,17 +1668,17 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					}
 					return iface.Goto("AGetClient.rcvGetResp")
 				case 1:
-					var condition67 tla.TLAValue
-					condition67, err = iface.Read(replica11, []tla.TLAValue{})
+					var condition69 tla.TLAValue
+					condition69, err = iface.Read(replica11, []tla.TLAValue{})
 					if err != nil {
 						return err
 					}
-					var condition68 tla.TLAValue
-					condition68, err = iface.Read(fd8, []tla.TLAValue{condition67})
+					var condition70 tla.TLAValue
+					condition70, err = iface.Read(fd9, []tla.TLAValue{condition69})
 					if err != nil {
 						return err
 					}
-					if !condition68.AsBool() {
+					if !condition70.AsBool() {
 						return distsys.ErrCriticalSectionAborted
 					}
 					return iface.Goto("AGetClient.sndGetReq")
@@ -1672,13 +1697,13 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 		Body: func(iface distsys.ArchetypeInterface) error {
 			var err error
 			_ = err
-			resp12 := iface.RequireArchetypeResource("AGetClient.resp")
+			resp13 := iface.RequireArchetypeResource("AGetClient.resp")
 			net9, err := iface.RequireArchetypeResourceRef("AGetClient.net")
 			if err != nil {
 				return err
 			}
 			replica15 := iface.RequireArchetypeResource("AGetClient.replica")
-			fd9, err := iface.RequireArchetypeResourceRef("AGetClient.fd")
+			fd10, err := iface.RequireArchetypeResourceRef("AGetClient.fd")
 			if err != nil {
 				return err
 			}
@@ -1693,61 +1718,61 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				err = iface.Write(resp12, []tla.TLAValue{}, exprRead55)
-				if err != nil {
-					return err
-				}
-				var condition69 tla.TLAValue
-				condition69, err = iface.Read(resp12, []tla.TLAValue{})
-				if err != nil {
-					return err
-				}
-				var condition70 tla.TLAValue
-				condition70, err = iface.Read(resp12, []tla.TLAValue{})
+				err = iface.Write(resp13, []tla.TLAValue{}, exprRead55)
 				if err != nil {
 					return err
 				}
 				var condition71 tla.TLAValue
-				condition71, err = iface.Read(replica15, []tla.TLAValue{})
+				condition71, err = iface.Read(resp13, []tla.TLAValue{})
 				if err != nil {
 					return err
 				}
 				var condition72 tla.TLAValue
-				condition72, err = iface.Read(resp12, []tla.TLAValue{})
+				condition72, err = iface.Read(resp13, []tla.TLAValue{})
 				if err != nil {
 					return err
 				}
 				var condition73 tla.TLAValue
-				condition73, err = iface.Read(resp12, []tla.TLAValue{})
+				condition73, err = iface.Read(replica15, []tla.TLAValue{})
 				if err != nil {
 					return err
 				}
 				var condition74 tla.TLAValue
-				condition74, err = iface.Read(resp12, []tla.TLAValue{})
+				condition74, err = iface.Read(resp13, []tla.TLAValue{})
 				if err != nil {
 					return err
 				}
-				if !tla.TLA_LogicalAndSymbol(tla.TLA_LogicalAndSymbol(tla.TLA_LogicalAndSymbol(tla.TLA_LogicalAndSymbol(tla.TLA_EqualsSymbol(condition69.ApplyFunction(tla.MakeTLAString("to")), iface.Self()), tla.TLA_EqualsSymbol(condition70.ApplyFunction(tla.MakeTLAString("from")), condition71)), tla.TLA_EqualsSymbol(condition72.ApplyFunction(tla.MakeTLAString("srcTyp")), PRIMARY_SRC(iface))), tla.TLA_EqualsSymbol(condition73.ApplyFunction(tla.MakeTLAString("typ")), GET_RESP(iface))), tla.TLA_EqualsSymbol(condition74.ApplyFunction(tla.MakeTLAString("id")), tla.MakeTLANumber(2))).AsBool() {
-					return fmt.Errorf("%w: ((((((resp).to) = (self)) /\\ (((resp).from) = (replica))) /\\ (((resp).srcTyp) = (PRIMARY_SRC))) /\\ (((resp).typ) = (GET_RESP))) /\\ (((resp).id) = (2))", distsys.ErrAssertionFailed)
-				}
-				return iface.Goto("AGetClient.getClientLoop")
-			case 1:
 				var condition75 tla.TLAValue
-				condition75, err = iface.Read(replica15, []tla.TLAValue{})
+				condition75, err = iface.Read(resp13, []tla.TLAValue{})
 				if err != nil {
 					return err
 				}
 				var condition76 tla.TLAValue
-				condition76, err = iface.Read(fd9, []tla.TLAValue{condition75})
+				condition76, err = iface.Read(resp13, []tla.TLAValue{})
 				if err != nil {
 					return err
 				}
+				if !tla.TLA_LogicalAndSymbol(tla.TLA_LogicalAndSymbol(tla.TLA_LogicalAndSymbol(tla.TLA_LogicalAndSymbol(tla.TLA_EqualsSymbol(condition71.ApplyFunction(tla.MakeTLAString("to")), iface.Self()), tla.TLA_EqualsSymbol(condition72.ApplyFunction(tla.MakeTLAString("from")), condition73)), tla.TLA_EqualsSymbol(condition74.ApplyFunction(tla.MakeTLAString("srcTyp")), PRIMARY_SRC(iface))), tla.TLA_EqualsSymbol(condition75.ApplyFunction(tla.MakeTLAString("typ")), GET_RESP(iface))), tla.TLA_EqualsSymbol(condition76.ApplyFunction(tla.MakeTLAString("id")), tla.MakeTLANumber(2))).AsBool() {
+					return fmt.Errorf("%w: ((((((resp).to) = (self)) /\\ (((resp).from) = (replica))) /\\ (((resp).srcTyp) = (PRIMARY_SRC))) /\\ (((resp).typ) = (GET_RESP))) /\\ (((resp).id) = (2))", distsys.ErrAssertionFailed)
+				}
+				return iface.Goto("AGetClient.getClientLoop")
+			case 1:
 				var condition77 tla.TLAValue
-				condition77, err = iface.Read(netLen2, []tla.TLAValue{tla.MakeTLATuple(iface.Self(), RESP_INDEX(iface))})
+				condition77, err = iface.Read(replica15, []tla.TLAValue{})
 				if err != nil {
 					return err
 				}
-				if !tla.TLA_LogicalAndSymbol(condition76, tla.TLA_EqualsSymbol(condition77, tla.MakeTLANumber(0))).AsBool() {
+				var condition78 tla.TLAValue
+				condition78, err = iface.Read(fd10, []tla.TLAValue{condition77})
+				if err != nil {
+					return err
+				}
+				var condition79 tla.TLAValue
+				condition79, err = iface.Read(netLen2, []tla.TLAValue{tla.MakeTLATuple(iface.Self(), RESP_INDEX(iface))})
+				if err != nil {
+					return err
+				}
+				if !tla.TLA_LogicalAndSymbol(condition78, tla.TLA_EqualsSymbol(condition79, tla.MakeTLANumber(0))).AsBool() {
 					return distsys.ErrCriticalSectionAborted
 				}
 				return iface.Goto("AGetClient.sndGetReq")
