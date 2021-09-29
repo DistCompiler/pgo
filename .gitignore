@@ -382,3 +382,6 @@ fuzz_output/
 
 # Tests artifacts in case of failure
 *.outpcal
+
+# macOS files:
+.DS_Store
