@@ -142,7 +142,10 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_PUT_CLIENTS >= 0 /\ NUM_GET_CLIENTS >= 0
                 \* it's safe to use CHOOSE construct here since the set
                 \* {x \in $variable: \A r \in $variable: x =< r} has exactly
                 \* one element.
-                yield CHOOSE x \in $variable: \A r \in $variable: x =< r;
+                \* yield CHOOSE x \in $variable: \A r \in $variable: x =< r;
+                with (leader \in {x \in $variable: \A r \in $variable: x =< r}) {
+                    yield leader;
+                }
             } else {
                 yield NULL;
             }

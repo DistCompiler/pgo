@@ -102,6 +102,25 @@ object MPCalPCalCodegenPass {
         }
 
       /**
+       * Transforms any with-bindings in the provided PCal statement, such that the bound names use fresh names.
+       * This is important when expanding mapping macros that contain with-bindings, because expanding the same
+       * mapping macro twice might lead to one with-statement in the macro containing itself, leading to a scoping error.
+       */
+      def cleanWithBindings(stmt: PCalStatement): PCalStatement =
+        stmt.rewrite(Rewritable.BottomUpOnceStrategy) {
+          case wth@PCalWith(defns, body) =>
+            val cleanedDefns = defns.map {
+              case PCalVariableDeclarationValue(name, value) =>
+                PCalVariableDeclarationValue(TLAIdentifier(nameCleaner.cleanName(name.id)), value)
+              case PCalVariableDeclarationSet(name, set) =>
+                PCalVariableDeclarationSet(TLAIdentifier(nameCleaner.cleanName(name.id)), set)
+            }
+
+            applySubstitutions(
+              wth.withChildren(Iterator(cleanedDefns,body)))((defns.view.map(ById(_)) zip cleanedDefns).toMap)
+        }
+
+      /**
        * Transform the statement according to the provided mapping macros. Does not rename anything - that's done separately,
        * after the transformation.
        */
@@ -127,20 +146,22 @@ object MPCalPCalCodegenPass {
               val oldStmtSink = stmtSink
               stmtSink = { innerStmts =>
                 oldStmtSink {
-                  mapping.readBody.mapConserve(_.rewrite(Rewritable.BottomUpOnceStrategy) {
-                    case ident: TLAGeneralIdentifier if ident.refersTo eq mapping.selfDecl =>
-                      TLAGeneralIdentifier(TLAIdentifier("self"), Nil).setRefersTo(selfDecl)
-                    case PCalAssignmentLhsExtension(MPCalDollarVariable()) => translatedLhs
-                    case TLAExtensionExpression(MPCalDollarVariable()) => translatedExpr
-                    case PCalExtensionStatement(MPCalYield(valExpr)) =>
-                      val yieldedBind = PCalVariableDeclarationValue(TLAIdentifier(nameCleaner.cleanName(s"yielded_${ident.name.id}")), valExpr)
-                      PCalWith(List(yieldedBind),
-                        innerStmts.mapConserve(_.rewrite(Rewritable.BottomUpOnceStrategy) {
-                          case ident: TLAGeneralIdentifier if ident.refersTo eq placeholder =>
-                            TLAGeneralIdentifier(yieldedBind.name, Nil).setRefersTo(yieldedBind)
-                        })
-                      )
-                  })
+                  mapping.readBody
+                    .mapConserve(cleanWithBindings) // ensure contained with-bindings use fresh names
+                    .mapConserve(_.rewrite(Rewritable.BottomUpOnceStrategy) {
+                      case ident: TLAGeneralIdentifier if ident.refersTo eq mapping.selfDecl =>
+                        TLAGeneralIdentifier(TLAIdentifier("self"), Nil).setRefersTo(selfDecl)
+                      case PCalAssignmentLhsExtension(MPCalDollarVariable()) => translatedLhs
+                      case TLAExtensionExpression(MPCalDollarVariable()) => translatedExpr
+                      case PCalExtensionStatement(MPCalYield(valExpr)) =>
+                        val yieldedBind = PCalVariableDeclarationValue(TLAIdentifier(nameCleaner.cleanName(s"yielded_${ident.name.id}")), valExpr)
+                        PCalWith(List(yieldedBind),
+                          innerStmts.mapConserve(_.rewrite(Rewritable.BottomUpOnceStrategy) {
+                            case ident: TLAGeneralIdentifier if ident.refersTo eq placeholder =>
+                              TLAGeneralIdentifier(yieldedBind.name, Nil).setRefersTo(yieldedBind)
+                          })
+                        )
+                    })
                 }
               }
               TLAGeneralIdentifier(placeholder.name, Nil).setRefersTo(placeholder)
@@ -184,18 +205,22 @@ object MPCalPCalCodegenPass {
                 val convertedLhs = convertLhs(lhs)
                 val valueBind = PCalVariableDeclarationValue(TLAIdentifier(nameCleaner.cleanName("value")), rhs)
                 Some {
-                  PCalWith(List(valueBind), mapping.writeBody.mapConserve(_.rewrite(Rewritable.BottomUpOnceStrategy) {
-                    case ident: TLAGeneralIdentifier if ident.refersTo eq mapping.selfDecl =>
-                      TLAGeneralIdentifier(TLAIdentifier("self"), Nil).setRefersTo(selfDecl)
-                    case PCalAssignmentLhsExtension(MPCalDollarVariable()) =>
-                      lhs
-                    case TLAExtensionExpression(MPCalDollarValue()) =>
-                      TLAGeneralIdentifier(valueBind.name, Nil).setRefersTo(valueBind)
-                    case TLAExtensionExpression(MPCalDollarVariable()) =>
-                      convertedLhs
-                    case PCalExtensionStatement(MPCalYield(yieldedExpr)) =>
-                      PCalAssignment(List(PCalAssignmentPair(lhs, yieldedExpr)))
-                  }))
+                  PCalWith(
+                    List(valueBind),
+                    mapping.writeBody
+                      .mapConserve(cleanWithBindings) // ensure contained with-bindings use fresh names
+                      .mapConserve(_.rewrite(Rewritable.BottomUpOnceStrategy) {
+                        case ident: TLAGeneralIdentifier if ident.refersTo eq mapping.selfDecl =>
+                          TLAGeneralIdentifier(TLAIdentifier("self"), Nil).setRefersTo(selfDecl)
+                        case PCalAssignmentLhsExtension(MPCalDollarVariable()) =>
+                          lhs
+                        case TLAExtensionExpression(MPCalDollarValue()) =>
+                          TLAGeneralIdentifier(valueBind.name, Nil).setRefersTo(valueBind)
+                        case TLAExtensionExpression(MPCalDollarVariable()) =>
+                          convertedLhs
+                        case PCalExtensionStatement(MPCalYield(yieldedExpr)) =>
+                          PCalAssignment(List(PCalAssignmentPair(lhs, yieldedExpr)))
+                      }))
                 }
               case _ => None
             }.getOrElse(withReads)

@@ -258,9 +258,9 @@ CONSTANT WEB_PAGE
       };
     rcvMsg:
       await (Len((network)[LoadBalancerId])) > (0);
-      with (msg0 = Head((network)[LoadBalancerId])) {
+      with (msg00 = Head((network)[LoadBalancerId])) {
         network := [network EXCEPT ![LoadBalancerId] = Tail((network)[LoadBalancerId])];
-        with (yielded_network2 = msg0) {
+        with (yielded_network2 = msg00) {
           msg := yielded_network2;
           assert ((msg).message_type) = (GET_PAGE);
           goto sendServer;
@@ -286,9 +286,9 @@ CONSTANT WEB_PAGE
       };
     rcvReq:
       await (Len((network)[self])) > (0);
-      with (msg1 = Head((network)[self])) {
+      with (msg10 = Head((network)[self])) {
         network := [network EXCEPT ![self] = Tail((network)[self])];
-        with (yielded_network00 = msg1) {
+        with (yielded_network00 = msg10) {
           msg0 := yielded_network00;
           goto sendPage;
         };
@@ -321,9 +321,9 @@ CONSTANT WEB_PAGE
       };
     clientReceive:
       await (Len((network)[self])) > (0);
-      with (msg2 = Head((network)[self])) {
+      with (msg20 = Head((network)[self])) {
         network := [network EXCEPT ![self] = Tail((network)[self])];
-        with (yielded_network10 = msg2) {
+        with (yielded_network10 = msg20) {
           resp := yielded_network10;
           out := resp;
           goto clientLoop;

@@ -142,7 +142,10 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_PUT_CLIENTS >= 0 /\ NUM_GET_CLIENTS >= 0
                 \* it's safe to use CHOOSE construct here since the set
                 \* {x \in $variable: \A r \in $variable: x =< r} has exactly
                 \* one element.
-                yield CHOOSE x \in $variable: \A r \in $variable: x =< r;
+                \* yield CHOOSE x \in $variable: \A r \in $variable: x =< r;
+                with (leader \in {x \in $variable: \A r \in $variable: x =< r}) {
+                    yield leader;
+                }
             } else {
                 yield NULL;
             }
@@ -503,12 +506,14 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_PUT_CLIENTS >= 0 /\ NUM_GET_CLIENTS >= 0
       };
     syncPrimary:
       if((Cardinality(primary)) > (0)) {
-        with (yielded_primary = CHOOSE x \in primary : \A r \in primary : (x) <= (r)) {
-          if(((yielded_primary) = (self)) /\ (shouldSync)) {
-            shouldSync := TRUE;
-            goto sndSyncReqLoop;
-          } else {
-            goto rcvMsg;
+        with (leader0 \in {x \in primary : \A r \in primary : (x) <= (r)}) {
+          with (yielded_primary = leader0) {
+            if(((yielded_primary) = (self)) /\ (shouldSync)) {
+              shouldSync := TRUE;
+              goto sndSyncReqLoop;
+            } else {
+              goto rcvMsg;
+            };
           };
         };
       } else {
@@ -602,9 +607,9 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_PUT_CLIENTS >= 0 /\ NUM_GET_CLIENTS >= 0
         either {
           assert ((network)[<<self, RESP_INDEX>>]).enabled;
           await (Len(((network)[<<self, RESP_INDEX>>]).queue)) > (0);
-          with (readMsg0 = Head(((network)[<<self, RESP_INDEX>>]).queue)) {
+          with (readMsg00 = Head(((network)[<<self, RESP_INDEX>>]).queue)) {
             network := [network EXCEPT ![<<self, RESP_INDEX>>] = [queue |-> Tail(((network)[<<self, RESP_INDEX>>]).queue), enabled |-> ((network)[<<self, RESP_INDEX>>]).enabled]];
-            with (yielded_network8 = readMsg0) {
+            with (yielded_network8 = readMsg00) {
               repResp := yielded_network8;
               with (yielded_fd00 = (fd)[(repResp).from]) {
                 assert ((((((repResp).id) = (3)) /\ (((repResp).to) = (self))) /\ (((repResp).srcTyp) = (BACKUP_SRC))) /\ (((repResp).typ) = (SYNC_RESP))) /\ ((((repResp).from) \in (replicaSet)) \/ (yielded_fd00));
@@ -638,31 +643,35 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_PUT_CLIENTS >= 0 /\ NUM_GET_CLIENTS >= 0
       };
     rcvMsg:
       if((Cardinality(primary)) > (0)) {
-        with (yielded_primary3 = CHOOSE x \in primary : \A r \in primary : (x) <= (r)) {
-          if(((yielded_primary3) = (self)) /\ (shouldSync)) {
-            goto syncPrimary;
-          } else {
-            assert ((network)[<<self, REQ_INDEX>>]).enabled;
-            await (Len(((network)[<<self, REQ_INDEX>>]).queue)) > (0);
-            with (readMsg1 = Head(((network)[<<self, REQ_INDEX>>]).queue)) {
-              network := [network EXCEPT ![<<self, REQ_INDEX>>] = [queue |-> Tail(((network)[<<self, REQ_INDEX>>]).queue), enabled |-> ((network)[<<self, REQ_INDEX>>]).enabled]];
-              with (yielded_network10 = readMsg1) {
-                req := yielded_network10;
-                assert ((req).to) = (self);
-                if((Cardinality(primary)) > (0)) {
-                  with (yielded_primary1 = CHOOSE x \in primary : \A r \in primary : (x) <= (r)) {
-                    if(((yielded_primary1) = (self)) /\ (((req).srcTyp) = (CLIENT_SRC))) {
-                      goto handlePrimary;
-                    } else {
-                      goto handleBackup;
+        with (leader2 \in {x \in primary : \A r \in primary : (x) <= (r)}) {
+          with (yielded_primary3 = leader2) {
+            if(((yielded_primary3) = (self)) /\ (shouldSync)) {
+              goto syncPrimary;
+            } else {
+              assert ((network)[<<self, REQ_INDEX>>]).enabled;
+              await (Len(((network)[<<self, REQ_INDEX>>]).queue)) > (0);
+              with (readMsg10 = Head(((network)[<<self, REQ_INDEX>>]).queue)) {
+                network := [network EXCEPT ![<<self, REQ_INDEX>>] = [queue |-> Tail(((network)[<<self, REQ_INDEX>>]).queue), enabled |-> ((network)[<<self, REQ_INDEX>>]).enabled]];
+                with (yielded_network10 = readMsg10) {
+                  req := yielded_network10;
+                  assert ((req).to) = (self);
+                  if((Cardinality(primary)) > (0)) {
+                    with (leader1 \in {x \in primary : \A r \in primary : (x) <= (r)}) {
+                      with (yielded_primary1 = leader1) {
+                        if(((yielded_primary1) = (self)) /\ (((req).srcTyp) = (CLIENT_SRC))) {
+                          goto handlePrimary;
+                        } else {
+                          goto handleBackup;
+                        };
+                      };
                     };
-                  };
-                } else {
-                  with (yielded_primary2 = NULL) {
-                    if(((yielded_primary2) = (self)) /\ (((req).srcTyp) = (CLIENT_SRC))) {
-                      goto handlePrimary;
-                    } else {
-                      goto handleBackup;
+                  } else {
+                    with (yielded_primary2 = NULL) {
+                      if(((yielded_primary2) = (self)) /\ (((req).srcTyp) = (CLIENT_SRC))) {
+                        goto handlePrimary;
+                      } else {
+                        goto handleBackup;
+                      };
                     };
                   };
                 };
@@ -677,17 +686,19 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_PUT_CLIENTS >= 0 /\ NUM_GET_CLIENTS >= 0
           } else {
             assert ((network)[<<self, REQ_INDEX>>]).enabled;
             await (Len(((network)[<<self, REQ_INDEX>>]).queue)) > (0);
-            with (readMsg2 = Head(((network)[<<self, REQ_INDEX>>]).queue)) {
+            with (readMsg11 = Head(((network)[<<self, REQ_INDEX>>]).queue)) {
               network := [network EXCEPT ![<<self, REQ_INDEX>>] = [queue |-> Tail(((network)[<<self, REQ_INDEX>>]).queue), enabled |-> ((network)[<<self, REQ_INDEX>>]).enabled]];
-              with (yielded_network11 = readMsg2) {
+              with (yielded_network11 = readMsg11) {
                 req := yielded_network11;
                 assert ((req).to) = (self);
                 if((Cardinality(primary)) > (0)) {
-                  with (yielded_primary1 = CHOOSE x \in primary : \A r \in primary : (x) <= (r)) {
-                    if(((yielded_primary1) = (self)) /\ (((req).srcTyp) = (CLIENT_SRC))) {
-                      goto handlePrimary;
-                    } else {
-                      goto handleBackup;
+                  with (leader1 \in {x \in primary : \A r \in primary : (x) <= (r)}) {
+                    with (yielded_primary1 = leader1) {
+                      if(((yielded_primary1) = (self)) /\ (((req).srcTyp) = (CLIENT_SRC))) {
+                        goto handlePrimary;
+                      } else {
+                        goto handleBackup;
+                      };
                     };
                   };
                 } else {
@@ -909,9 +920,9 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_PUT_CLIENTS >= 0 /\ NUM_GET_CLIENTS >= 0
         either {
           assert ((network)[<<self, RESP_INDEX>>]).enabled;
           await (Len(((network)[<<self, RESP_INDEX>>]).queue)) > (0);
-          with (readMsg3 = Head(((network)[<<self, RESP_INDEX>>]).queue)) {
+          with (readMsg20 = Head(((network)[<<self, RESP_INDEX>>]).queue)) {
             with (network9 = [network EXCEPT ![<<self, RESP_INDEX>>] = [queue |-> Tail(((network)[<<self, RESP_INDEX>>]).queue), enabled |-> ((network)[<<self, RESP_INDEX>>]).enabled]]) {
-              with (yielded_network20 = readMsg3) {
+              with (yielded_network20 = readMsg20) {
                 repResp := yielded_network20;
                 with (yielded_fd40 = (fd)[(repResp).from]) {
                   assert ((((((((repResp).from) \in (replicaSet)) \/ (yielded_fd40)) /\ (((repResp).to) = (self))) /\ (((repResp).body) = (ACK_MSG_BODY))) /\ (((repResp).srcTyp) = (BACKUP_SRC))) /\ (((repResp).typ) = (PUT_RESP))) /\ (((repResp).id) = ((req).id));
@@ -996,27 +1007,29 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_PUT_CLIENTS >= 0 /\ NUM_GET_CLIENTS >= 0
       };
     sndPutReq:
       if((Cardinality(primary)) > (0)) {
-        with (yielded_primary50 = CHOOSE x \in primary : \A r \in primary : (x) <= (r)) {
-          replica0 := yielded_primary50;
-          if((replica0) # (NULL)) {
-            either {
-              with (key1 \in KEY_SET, value22 \in VALUE_SET) {
-                body := [key |-> key1, value |-> value22];
-                req0 := [from |-> self, to |-> replica0, body |-> body, srcTyp |-> CLIENT_SRC, typ |-> PUT_REQ, id |-> 1];
-                with (value180 = req0) {
-                  await ((network)[<<(req0).to, REQ_INDEX>>]).enabled;
-                  network := [network EXCEPT ![<<(req0).to, REQ_INDEX>>] = [queue |-> Append(((network)[<<(req0).to, REQ_INDEX>>]).queue, value180), enabled |-> ((network)[<<(req0).to, REQ_INDEX>>]).enabled]];
-                  goto rcvPutResp;
+        with (leader30 \in {x \in primary : \A r \in primary : (x) <= (r)}) {
+          with (yielded_primary50 = leader30) {
+            replica0 := yielded_primary50;
+            if((replica0) # (NULL)) {
+              either {
+                with (key1 \in KEY_SET, value22 \in VALUE_SET) {
+                  body := [key |-> key1, value |-> value22];
+                  req0 := [from |-> self, to |-> replica0, body |-> body, srcTyp |-> CLIENT_SRC, typ |-> PUT_REQ, id |-> 1];
+                  with (value180 = req0) {
+                    await ((network)[<<(req0).to, REQ_INDEX>>]).enabled;
+                    network := [network EXCEPT ![<<(req0).to, REQ_INDEX>>] = [queue |-> Append(((network)[<<(req0).to, REQ_INDEX>>]).queue, value180), enabled |-> ((network)[<<(req0).to, REQ_INDEX>>]).enabled]];
+                    goto rcvPutResp;
+                  };
+                };
+              } or {
+                with (yielded_fd60 = (fd)[replica0]) {
+                  await yielded_fd60;
+                  goto sndPutReq;
                 };
               };
-            } or {
-              with (yielded_fd60 = (fd)[replica0]) {
-                await yielded_fd60;
-                goto sndPutReq;
-              };
+            } else {
+              goto Done;
             };
-          } else {
-            goto Done;
           };
         };
       } else {
@@ -1048,9 +1061,9 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_PUT_CLIENTS >= 0 /\ NUM_GET_CLIENTS >= 0
       either {
         assert ((network)[<<self, RESP_INDEX>>]).enabled;
         await (Len(((network)[<<self, RESP_INDEX>>]).queue)) > (0);
-        with (readMsg4 = Head(((network)[<<self, RESP_INDEX>>]).queue)) {
+        with (readMsg30 = Head(((network)[<<self, RESP_INDEX>>]).queue)) {
           network := [network EXCEPT ![<<self, RESP_INDEX>>] = [queue |-> Tail(((network)[<<self, RESP_INDEX>>]).queue), enabled |-> ((network)[<<self, RESP_INDEX>>]).enabled]];
-          with (yielded_network40 = readMsg4) {
+          with (yielded_network40 = readMsg30) {
             resp0 := yielded_network40;
             assert (((((((resp0).to) = (self)) /\ (((resp0).from) = (replica0))) /\ (((resp0).body) = (ACK_MSG_BODY))) /\ (((resp0).srcTyp) = (PRIMARY_SRC))) /\ (((resp0).typ) = (PUT_RESP))) /\ (((resp0).id) = (1));
             goto putClientLoop;
@@ -1077,25 +1090,27 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_PUT_CLIENTS >= 0 /\ NUM_GET_CLIENTS >= 0
       };
     sndGetReq:
       if((Cardinality(primary)) > (0)) {
-        with (yielded_primary70 = CHOOSE x \in primary : \A r \in primary : (x) <= (r)) {
-          replica1 := yielded_primary70;
-          if((replica1) # (NULL)) {
-            either {
-              body0 := [key |-> KEY1];
-              req1 := [from |-> self, to |-> replica1, body |-> body0, srcTyp |-> CLIENT_SRC, typ |-> GET_REQ, id |-> 2];
-              with (value190 = req1) {
-                await ((network)[<<(req1).to, REQ_INDEX>>]).enabled;
-                network := [network EXCEPT ![<<(req1).to, REQ_INDEX>>] = [queue |-> Append(((network)[<<(req1).to, REQ_INDEX>>]).queue, value190), enabled |-> ((network)[<<(req1).to, REQ_INDEX>>]).enabled]];
-                goto rcvGetResp;
+        with (leader40 \in {x \in primary : \A r \in primary : (x) <= (r)}) {
+          with (yielded_primary70 = leader40) {
+            replica1 := yielded_primary70;
+            if((replica1) # (NULL)) {
+              either {
+                body0 := [key |-> KEY1];
+                req1 := [from |-> self, to |-> replica1, body |-> body0, srcTyp |-> CLIENT_SRC, typ |-> GET_REQ, id |-> 2];
+                with (value190 = req1) {
+                  await ((network)[<<(req1).to, REQ_INDEX>>]).enabled;
+                  network := [network EXCEPT ![<<(req1).to, REQ_INDEX>>] = [queue |-> Append(((network)[<<(req1).to, REQ_INDEX>>]).queue, value190), enabled |-> ((network)[<<(req1).to, REQ_INDEX>>]).enabled]];
+                  goto rcvGetResp;
+                };
+              } or {
+                with (yielded_fd80 = (fd)[replica1]) {
+                  await yielded_fd80;
+                  goto sndGetReq;
+                };
               };
-            } or {
-              with (yielded_fd80 = (fd)[replica1]) {
-                await yielded_fd80;
-                goto sndGetReq;
-              };
+            } else {
+              goto Done;
             };
-          } else {
-            goto Done;
           };
         };
       } else {
@@ -1125,9 +1140,9 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_PUT_CLIENTS >= 0 /\ NUM_GET_CLIENTS >= 0
       either {
         assert ((network)[<<self, RESP_INDEX>>]).enabled;
         await (Len(((network)[<<self, RESP_INDEX>>]).queue)) > (0);
-        with (readMsg5 = Head(((network)[<<self, RESP_INDEX>>]).queue)) {
+        with (readMsg40 = Head(((network)[<<self, RESP_INDEX>>]).queue)) {
           network := [network EXCEPT ![<<self, RESP_INDEX>>] = [queue |-> Tail(((network)[<<self, RESP_INDEX>>]).queue), enabled |-> ((network)[<<self, RESP_INDEX>>]).enabled]];
-          with (yielded_network60 = readMsg5) {
+          with (yielded_network60 = readMsg40) {
             resp1 := yielded_network60;
             assert ((((((resp1).to) = (self)) /\ (((resp1).from) = (replica1))) /\ (((resp1).srcTyp) = (PRIMARY_SRC))) /\ (((resp1).typ) = (GET_RESP))) /\ (((resp1).id) = (2));
             goto getClientLoop;

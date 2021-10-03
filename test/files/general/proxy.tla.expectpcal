@@ -243,9 +243,9 @@ ASSUME NUM_SERVERS > 0 /\ NUM_CLIENTS > 0
     rcvMsgFromClient:
       assert ((network)[<<ProxyID, REQ_MSG_TYP>>]).enabled;
       await (Len(((network)[<<ProxyID, REQ_MSG_TYP>>]).queue)) > (0);
-      with (readMsg0 = Head(((network)[<<ProxyID, REQ_MSG_TYP>>]).queue)) {
+      with (readMsg00 = Head(((network)[<<ProxyID, REQ_MSG_TYP>>]).queue)) {
         network := [network EXCEPT ![<<ProxyID, REQ_MSG_TYP>>] = [queue |-> Tail(((network)[<<ProxyID, REQ_MSG_TYP>>]).queue), enabled |-> ((network)[<<ProxyID, REQ_MSG_TYP>>]).enabled]];
-        with (yielded_network3 = readMsg0) {
+        with (yielded_network3 = readMsg00) {
           msg := yielded_network3;
           goto proxyMsg;
         };
@@ -280,9 +280,9 @@ ASSUME NUM_SERVERS > 0 /\ NUM_CLIENTS > 0
       either {
         assert ((network)[<<ProxyID, PROXY_RESP_MSG_TYP>>]).enabled;
         await (Len(((network)[<<ProxyID, PROXY_RESP_MSG_TYP>>]).queue)) > (0);
-        with (readMsg = Head(((network)[<<ProxyID, PROXY_RESP_MSG_TYP>>]).queue)) {
+        with (readMsg1 = Head(((network)[<<ProxyID, PROXY_RESP_MSG_TYP>>]).queue)) {
           network := [network EXCEPT ![<<ProxyID, PROXY_RESP_MSG_TYP>>] = [queue |-> Tail(((network)[<<ProxyID, PROXY_RESP_MSG_TYP>>]).queue), enabled |-> ((network)[<<ProxyID, PROXY_RESP_MSG_TYP>>]).enabled]];
-          with (yielded_network0 = readMsg) {
+          with (yielded_network0 = readMsg1) {
             with (tmp = yielded_network0) {
               if((((tmp).from) # (idx)) \/ (((tmp).id) # ((msg).id))) {
                 goto proxyRcvMsg;
@@ -334,9 +334,9 @@ ASSUME NUM_SERVERS > 0 /\ NUM_CLIENTS > 0
     serverRcvMsg:
       assert ((network)[<<self, PROXY_REQ_MSG_TYP>>]).enabled;
       await (Len(((network)[<<self, PROXY_REQ_MSG_TYP>>]).queue)) > (0);
-      with (readMsg1 = Head(((network)[<<self, PROXY_REQ_MSG_TYP>>]).queue)) {
+      with (readMsg20 = Head(((network)[<<self, PROXY_REQ_MSG_TYP>>]).queue)) {
         with (network0 = [network EXCEPT ![<<self, PROXY_REQ_MSG_TYP>>] = [queue |-> Tail(((network)[<<self, PROXY_REQ_MSG_TYP>>]).queue), enabled |-> ((network)[<<self, PROXY_REQ_MSG_TYP>>]).enabled]]) {
-          with (yielded_network10 = readMsg1) {
+          with (yielded_network10 = readMsg20) {
             msg0 := yielded_network10;
             assert ((((msg0).to) = (self)) /\ (((msg0).from) = (ProxyID))) /\ (((msg0).typ) = (PROXY_REQ_MSG_TYP));
             if(EXPLORE_FAIL) {
@@ -406,9 +406,9 @@ ASSUME NUM_SERVERS > 0 /\ NUM_CLIENTS > 0
     clientRcvResp:
       assert ((network)[<<self, RESP_MSG_TYP>>]).enabled;
       await (Len(((network)[<<self, RESP_MSG_TYP>>]).queue)) > (0);
-      with (readMsg2 = Head(((network)[<<self, RESP_MSG_TYP>>]).queue)) {
+      with (readMsg30 = Head(((network)[<<self, RESP_MSG_TYP>>]).queue)) {
         network := [network EXCEPT ![<<self, RESP_MSG_TYP>>] = [queue |-> Tail(((network)[<<self, RESP_MSG_TYP>>]).queue), enabled |-> ((network)[<<self, RESP_MSG_TYP>>]).enabled]];
-        with (yielded_network20 = readMsg2) {
+        with (yielded_network20 = readMsg30) {
           resp1 := yielded_network20;
           assert (((((resp1).to) = (self)) /\ (((resp1).id) = (reqId))) /\ (((resp1).from) = (ProxyID))) /\ (((resp1).typ) = (RESP_MSG_TYP));
           print <<"CLIENT RESP", resp1>>;
