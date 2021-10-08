@@ -25,7 +25,14 @@ class GoGenFileTests extends FileTestSuite {
       }
 
       val outFile = outDir / s"${testFile.baseName}.go"
-      val errors = PGo.run(Seq("gogen", "-s", testFile.toString(), "-o", outFile.toString()))
+
+      // use a tag file to conditionally re-enable multiple writes checking
+      val noMultipleWrites = if(getNoMultipleWrites(testFile)) {
+        Seq("--no-multiple-writes")
+      } else {
+        Seq.empty
+      }
+      val errors = PGo.run(noMultipleWrites ++ Seq("gogen", "-s", testFile.toString(), "-o", outFile.toString()))
       checkErrors(errors, testFile)
       if(errors.isEmpty) {
         assert(os.exists(goTestsDir)) // sanity

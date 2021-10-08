@@ -62,7 +62,7 @@ object MPCalSemanticCheckPass {
   }
 
   @throws[PGoError]
-  def apply(tlaModule: TLAModule, mpcalBlock: MPCalBlock): Unit = {
+  def apply(tlaModule: TLAModule, mpcalBlock: MPCalBlock, noMultipleWrites: Boolean): Unit = {
     val errors = mutable.ListBuffer[SemanticError.Error]()
     var block = mpcalBlock
 
@@ -276,7 +276,9 @@ object MPCalSemanticCheckPass {
           }
         }.last
 
-      MPCalPassUtils.forEachBody(block)((body, _) => checkInBody(Map.empty, body))
+      if(noMultipleWrites) {
+        MPCalPassUtils.forEachBody(block)((body, _) => checkInBody(Map.empty, body))
+      }
     }
 
     // for each PCal "body", every goto must refer to a defined label

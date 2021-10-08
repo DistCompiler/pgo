@@ -1,0 +1,68 @@
+---- MODULE MappingMacroNestedWithExpansion ----
+EXTENDS Sequences, FiniteSets, Integers
+
+(* --mpcal MappingMacroNestedWithExpansion {
+
+mapping macro IdentityWith {
+    read {
+        with (x = $variable) {
+            yield x;
+        }
+    }
+    write {
+        with (y = $value) {
+            yield y;
+        }
+    }
+}
+
+archetype Arch(ref foo) {
+    lbl:
+    foo := foo + 1;
+    foo := 2 + foo;
+}
+
+variable bar;
+
+process (Proc = 1) == instance Arch(ref bar)
+    mapping bar via IdentityWith;
+
+} *)
+
+(*
+\* BEGIN PLUSCAL TRANSLATION
+--algorithm MappingMacroNestedWithExpansion {
+  variables bar;
+  
+  process (Proc = 1)
+  {
+    lbl:
+      with (x00 = bar) {
+        with (yielded_bar1 = x00) {
+          with (value1 = (yielded_bar1) + (1)) {
+            with (y00 = value1) {
+              with (bar0 = y00) {
+                with (x10 = bar0) {
+                  with (yielded_bar00 = x10) {
+                    with (value00 = (2) + (yielded_bar00)) {
+                      with (y10 = value00) {
+                        bar := y10;
+                        goto Done;
+                      };
+                    };
+                  };
+                };
+              };
+            };
+          };
+        };
+      };
+  }
+}
+
+\* END PLUSCAL TRANSLATION
+*)
+
+\* BEGIN TRANSLATION
+
+====

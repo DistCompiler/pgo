@@ -102,6 +102,25 @@ object MPCalPCalCodegenPass {
         }
 
       /**
+       * Transforms any with-bindings in the provided PCal statement, such that the bound names use fresh names.
+       * This is important when expanding mapping macros that contain with-bindings, because expanding the same
+       * mapping macro twice might lead to one with-statement in the macro containing itself, leading to a scoping error.
+       */
+      def cleanWithBindings(stmt: PCalStatement): PCalStatement =
+        stmt.rewrite(Rewritable.BottomUpOnceStrategy) {
+          case wth@PCalWith(defns, body) =>
+            val cleanedDefns = defns.map {
+              case PCalVariableDeclarationValue(name, value) =>
+                PCalVariableDeclarationValue(TLAIdentifier(nameCleaner.cleanName(name.id)), value)
+              case PCalVariableDeclarationSet(name, set) =>
+                PCalVariableDeclarationSet(TLAIdentifier(nameCleaner.cleanName(name.id)), set)
+            }
+
+            applySubstitutions(
+              wth.withChildren(Iterator(cleanedDefns,body)))((defns.view.map(ById(_)) zip cleanedDefns).toMap)
+        }
+
+      /**
        * Transform the statement according to the provided mapping macros. Does not rename anything - that's done separately,
        * after the transformation.
        */
@@ -127,20 +146,22 @@ object MPCalPCalCodegenPass {
               val oldStmtSink = stmtSink
               stmtSink = { innerStmts =>
                 oldStmtSink {
-                  mapping.readBody.mapConserve(_.rewrite(Rewritable.BottomUpOnceStrategy) {
-                    case ident: TLAGeneralIdentifier if ident.refersTo eq mapping.selfDecl =>
-                      TLAGeneralIdentifier(TLAIdentifier("self"), Nil).setRefersTo(selfDecl)
-                    case PCalAssignmentLhsExtension(MPCalDollarVariable()) => translatedLhs
-                    case TLAExtensionExpression(MPCalDollarVariable()) => translatedExpr
-                    case PCalExtensionStatement(MPCalYield(valExpr)) =>
-                      val yieldedBind = PCalVariableDeclarationValue(TLAIdentifier(nameCleaner.cleanName(s"yielded_${ident.name.id}")), valExpr)
-                      PCalWith(List(yieldedBind),
-                        innerStmts.mapConserve(_.rewrite(Rewritable.BottomUpOnceStrategy) {
-                          case ident: TLAGeneralIdentifier if ident.refersTo eq placeholder =>
-                            TLAGeneralIdentifier(yieldedBind.name, Nil).setRefersTo(yieldedBind)
-                        })
-                      )
-                  })
+                  mapping.readBody
+                    .mapConserve(cleanWithBindings) // ensure contained with-bindings use fresh names
+                    .mapConserve(_.rewrite(Rewritable.BottomUpOnceStrategy) {
+                      case ident: TLAGeneralIdentifier if ident.refersTo eq mapping.selfDecl =>
+                        TLAGeneralIdentifier(TLAIdentifier("self"), Nil).setRefersTo(selfDecl)
+                      case PCalAssignmentLhsExtension(MPCalDollarVariable()) => translatedLhs
+                      case TLAExtensionExpression(MPCalDollarVariable()) => translatedExpr
+                      case PCalExtensionStatement(MPCalYield(valExpr)) =>
+                        val yieldedBind = PCalVariableDeclarationValue(TLAIdentifier(nameCleaner.cleanName(s"yielded_${ident.name.id}")), valExpr)
+                        PCalWith(List(yieldedBind),
+                          innerStmts.mapConserve(_.rewrite(Rewritable.BottomUpOnceStrategy) {
+                            case ident: TLAGeneralIdentifier if ident.refersTo eq placeholder =>
+                              TLAGeneralIdentifier(yieldedBind.name, Nil).setRefersTo(yieldedBind)
+                          })
+                        )
+                    })
                 }
               }
               TLAGeneralIdentifier(placeholder.name, Nil).setRefersTo(placeholder)
@@ -184,18 +205,22 @@ object MPCalPCalCodegenPass {
                 val convertedLhs = convertLhs(lhs)
                 val valueBind = PCalVariableDeclarationValue(TLAIdentifier(nameCleaner.cleanName("value")), rhs)
                 Some {
-                  PCalWith(List(valueBind), mapping.writeBody.mapConserve(_.rewrite(Rewritable.BottomUpOnceStrategy) {
-                    case ident: TLAGeneralIdentifier if ident.refersTo eq mapping.selfDecl =>
-                      TLAGeneralIdentifier(TLAIdentifier("self"), Nil).setRefersTo(selfDecl)
-                    case PCalAssignmentLhsExtension(MPCalDollarVariable()) =>
-                      lhs
-                    case TLAExtensionExpression(MPCalDollarValue()) =>
-                      TLAGeneralIdentifier(valueBind.name, Nil).setRefersTo(valueBind)
-                    case TLAExtensionExpression(MPCalDollarVariable()) =>
-                      convertedLhs
-                    case PCalExtensionStatement(MPCalYield(yieldedExpr)) =>
-                      PCalAssignment(List(PCalAssignmentPair(lhs, yieldedExpr)))
-                  }))
+                  PCalWith(
+                    List(valueBind),
+                    mapping.writeBody
+                      .mapConserve(cleanWithBindings) // ensure contained with-bindings use fresh names
+                      .mapConserve(_.rewrite(Rewritable.BottomUpOnceStrategy) {
+                        case ident: TLAGeneralIdentifier if ident.refersTo eq mapping.selfDecl =>
+                          TLAGeneralIdentifier(TLAIdentifier("self"), Nil).setRefersTo(selfDecl)
+                        case PCalAssignmentLhsExtension(MPCalDollarVariable()) =>
+                          lhs
+                        case TLAExtensionExpression(MPCalDollarValue()) =>
+                          TLAGeneralIdentifier(valueBind.name, Nil).setRefersTo(valueBind)
+                        case TLAExtensionExpression(MPCalDollarVariable()) =>
+                          convertedLhs
+                        case PCalExtensionStatement(MPCalYield(yieldedExpr)) =>
+                          PCalAssignment(List(PCalAssignmentPair(lhs, yieldedExpr)))
+                      }))
                 }
               case _ => None
             }.getOrElse(withReads)
@@ -443,35 +468,35 @@ object MPCalPCalCodegenPass {
 
       block.rewrite(Rewritable.TopDownFirstStrategy) {
         case labeledStmts@PCalLabeledStatements(label, body) =>
-          var assignmentCountsStmt = Map.empty[ById[PCalStatement],Map[ById[DefinitionOne],Int]]
-
-          def calculateAssignmentCounts(body: List[PCalStatement]): Map[ById[DefinitionOne],Int] = {
-            var result = Map.empty[ById[DefinitionOne],Int]
-            body.foreach(_.visit(Visitable.TopDownFirstStrategy) {
-              case stmt: PCalStatement if assignmentCountsStmt.contains(ById(stmt)) =>
-                result +++= assignmentCountsStmt(ById(stmt))
-              case PCalIf(_, yes, no) =>
-                result +++= (calculateAssignmentCounts(yes) ||| calculateAssignmentCounts(no))
-              case PCalEither(cases) =>
-                result +++= cases.iterator.map(calculateAssignmentCounts).reduce(_ ||| _)
-              case PCalAssignment(List(PCalAssignmentPair(lhs: PCalAssignmentLhsIdentifier, _))) =>
-                result = result.updated(ById(lhs.refersTo), result.getOrElse(ById(lhs.refersTo), 0) + 1)
-            })
-            result
-          }
-
-          body.foreach(_.visit(Visitable.BottomUpFirstStrategy) {
-            case stmt: PCalStatement =>
-              val counts = calculateAssignmentCounts(List(stmt))
-              assignmentCountsStmt = assignmentCountsStmt.updated(ById(stmt), counts)
-          })
-
+          // build a lazy system for counting assignments within trees of statements: any statement + list of statements
+          // should be traversed at most once, then the result should be cached in these tables.
+          // Note: this has to be done with lazy evals, as opposed to pre-computation, because parts of this code generate
+          //       ad-hoc fresh ASTs during rewriting. You can't pre-compute ad-hoc future data.
+          var assignmentCountsStmtMap = Map.empty[ById[PCalStatement],Map[ById[DefinitionOne],Int]]
           var assignmentCountsMap = Map.empty[ById[List[PCalStatement]],Map[ById[DefinitionOne],Int]]
+
+          def assignmentCountsStmt(stmt: PCalStatement): Map[ById[DefinitionOne],Int] =
+            assignmentCountsStmtMap.getOrElse(ById(stmt), {
+              var result = Map.empty[ById[DefinitionOne],Int]
+              stmt.visit(Visitable.TopDownFirstStrategy) {
+                case stmt: PCalStatement if assignmentCountsStmtMap.contains(ById(stmt)) =>
+                  result +++= assignmentCountsStmtMap(ById(stmt))
+                case PCalIf(_, yes, no) =>
+                  result +++= (assignmentCounts(yes) ||| assignmentCounts(no))
+                case PCalEither(cases) =>
+                  result +++= cases.iterator.map(assignmentCounts).reduce(_ ||| _)
+                case PCalAssignment(List(PCalAssignmentPair(lhs: PCalAssignmentLhsIdentifier, _))) =>
+                  result = result.updated(ById(lhs.refersTo), result.getOrElse(ById(lhs.refersTo), 0) + 1)
+              }
+              assignmentCountsStmtMap = assignmentCountsStmtMap.updated(ById(stmt), result)
+              result
+            })
+
           def assignmentCounts(stmts: List[PCalStatement]): Map[ById[DefinitionOne],Int] =
             assignmentCountsMap.getOrElse(ById(stmts), {
               val result = stmts match {
                 case Nil => Map.empty[ById[DefinitionOne],Int]
-                case hd :: tl => assignmentCountsStmt(ById(hd)) +++ assignmentCounts(tl)
+                case hd :: tl => assignmentCountsStmt(hd) +++ assignmentCounts(tl)
               }
               assignmentCountsMap = assignmentCountsMap.updated(ById(stmts), result)
               result

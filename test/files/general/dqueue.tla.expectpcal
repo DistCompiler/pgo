@@ -98,9 +98,9 @@ CONSTANTS BUFFER_SIZE, NUM_CONSUMERS, PRODUCER
       };
     c2:
       await (Len((network)[self])) > (0);
-      with (msg0 = Head((network)[self])) {
+      with (msg00 = Head((network)[self])) {
         network := [network EXCEPT ![self] = Tail((network)[self])];
-        with (yielded_network1 = msg0) {
+        with (yielded_network1 = msg00) {
           processor := yielded_network1;
           goto c;
         };
@@ -118,9 +118,9 @@ CONSTANTS BUFFER_SIZE, NUM_CONSUMERS, PRODUCER
       };
     p1:
       await (Len((network)[self])) > (0);
-      with (msg1 = Head((network)[self])) {
+      with (msg10 = Head((network)[self])) {
         network := [network EXCEPT ![self] = Tail((network)[self])];
-        with (yielded_network00 = msg1) {
+        with (yielded_network00 = msg10) {
           requester := yielded_network00;
           goto p2;
         };

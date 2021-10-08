@@ -55,9 +55,9 @@ CONSTANTS NUM_NODES, BUFFER_SIZE
       };
     rcvMsg:
       await (Len((network)[self, 1])) > (0);
-      with (msg0 = Head((network)[self, 1])) {
+      with (msg00 = Head((network)[self, 1])) {
         network := [network EXCEPT ![self, 1] = Tail((network)[self, 1])];
-        with (yielded_network0 = msg0) {
+        with (yielded_network0 = msg00) {
           msg := yielded_network0;
           goto sndMsg;
         };

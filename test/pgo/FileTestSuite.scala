@@ -12,6 +12,9 @@ import scala.collection.mutable
 trait FileTestSuite extends AnyFunSuite {
   def testFiles: List[os.Path]
 
+  def getNoMultipleWrites(file: os.Path): Boolean =
+    os.exists(file / os.up / s"${file.last}.noMultipleWrites")
+
   def checkErrors(errors: List[PGoError.Error], testFile: os.Path): scalatest.Assertion = {
     val fileContents = os.read(testFile)
     final class ExpectedError(matchResult: MatchResult) {

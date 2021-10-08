@@ -15,7 +15,14 @@ class PCalGenFileTests extends FileTestSuite {
   testFiles.foreach { testFile =>
     test(s"pcalgen ${testFile.relativeTo(os.pwd)}") {
       val tmpFile = os.temp(contents = testFile.toSource)
-      val errors = PGo.run(Seq("pcalgen", "-s", tmpFile.toString()))
+
+      // use a tag file to conditionally re-enable multiple writes checking
+      val noMultipleWrites = if(getNoMultipleWrites(testFile)) {
+        Seq("--no-multiple-writes")
+      } else {
+        Seq.empty
+      }
+      val errors = PGo.run(noMultipleWrites ++ Seq("pcalgen", "-s", tmpFile.toString()))
       try {
         checkErrors(errors, testFile)
         if (errors.isEmpty) {

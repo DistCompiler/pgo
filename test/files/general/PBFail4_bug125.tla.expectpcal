@@ -261,9 +261,9 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_CLIENTS > 0
     rcvMsg:
       either {
         await (Len((network)[<<self, GET_REQ>>])) > (0);
-        with (msg0 = Head((network)[<<self, GET_REQ>>])) {
+        with (msg00 = Head((network)[<<self, GET_REQ>>])) {
           network := [network EXCEPT ![<<self, GET_REQ>>] = Tail((network)[<<self, GET_REQ>>])];
-          with (yielded_network4 = msg0) {
+          with (yielded_network4 = msg00) {
             msg := yielded_network4;
             assert ((msg).to) = (self);
             if(((msg).srcTyp) = (CLIENT_SRC)) {
@@ -279,9 +279,9 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_CLIENTS > 0
         };
       } or {
         await (Len((network)[<<self, PUT_REQ>>])) > (0);
-        with (msg1 = Head((network)[<<self, PUT_REQ>>])) {
+        with (msg10 = Head((network)[<<self, PUT_REQ>>])) {
           network := [network EXCEPT ![<<self, PUT_REQ>>] = Tail((network)[<<self, PUT_REQ>>])];
-          with (yielded_network00 = msg1) {
+          with (yielded_network00 = msg10) {
             msg := yielded_network00;
             assert ((msg).to) = (self);
             if(((msg).srcTyp) = (CLIENT_SRC)) {
@@ -386,9 +386,9 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_CLIENTS > 0
       with (yielded_fd00 = (fd)[idx]) {
         if(((yielded_fd00) = (TRUE)) /\ ((idx) # (self))) {
           await (Len((network)[<<self, PUT_RESP>>])) > (0);
-          with (msg2 = Head((network)[<<self, PUT_RESP>>])) {
+          with (msg20 = Head((network)[<<self, PUT_RESP>>])) {
             network := [network EXCEPT ![<<self, PUT_RESP>>] = Tail((network)[<<self, PUT_RESP>>])];
-            with (yielded_network10 = msg2) {
+            with (yielded_network10 = msg20) {
               rep := yielded_network10;
               assert ((rep).from) = (idx);
               assert ((rep).to) = (self);
@@ -449,9 +449,9 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_CLIENTS > 0
       with (yielded_fd2 = (fd)[idx0]) {
         if((yielded_fd2) = (TRUE)) {
           await (Len((network)[<<self, PUT_RESP>>])) > (0);
-          with (msg3 = Head((network)[<<self, PUT_RESP>>])) {
+          with (msg30 = Head((network)[<<self, PUT_RESP>>])) {
             network := [network EXCEPT ![<<self, PUT_RESP>>] = Tail((network)[<<self, PUT_RESP>>])];
-            with (yielded_network20 = msg3) {
+            with (yielded_network20 = msg30) {
               resp0 := yielded_network20;
               assert ((resp0).to) = (self);
               assert ((resp0).body) = (ACK_MSG);
@@ -493,9 +493,9 @@ ASSUME NUM_REPLICAS > 0 /\ NUM_CLIENTS > 0
       with (yielded_fd4 = (fd)[idx0]) {
         if((yielded_fd4) = (TRUE)) {
           await (Len((network)[<<self, GET_RESP>>])) > (0);
-          with (msg4 = Head((network)[<<self, GET_RESP>>])) {
+          with (msg40 = Head((network)[<<self, GET_RESP>>])) {
             network := [network EXCEPT ![<<self, GET_RESP>>] = Tail((network)[<<self, GET_RESP>>])];
-            with (yielded_network30 = msg4) {
+            with (yielded_network30 = msg40) {
               resp0 := yielded_network30;
               assert ((resp0).to) = (self);
               assert ((resp0).body) = (VALUE1);

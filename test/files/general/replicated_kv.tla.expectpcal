@@ -665,9 +665,9 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
       };
     receiveClientRequest:
       await (Len((replicasNetwork)[self])) > (0);
-      with (msg0 = Head((replicasNetwork)[self])) {
+      with (msg00 = Head((replicasNetwork)[self])) {
         replicasNetwork := [replicasNetwork EXCEPT ![self] = Tail((replicasNetwork)[self])];
-        with (yielded_replicasNetwork0 = msg0) {
+        with (yielded_replicasNetwork0 = msg00) {
           msg := yielded_replicasNetwork0;
           goto clientDisconnected;
         };
@@ -847,9 +847,9 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
           goto getCheckSpin;
         } else {
           await (Len((clientMailboxes)[self])) > (0);
-          with (msg1 = Head((clientMailboxes)[self])) {
+          with (msg10 = Head((clientMailboxes)[self])) {
             clientMailboxes := [clientMailboxes EXCEPT ![self] = Tail((clientMailboxes)[self])];
-            with (yielded_clientMailboxes1 = msg1) {
+            with (yielded_clientMailboxes1 = msg10) {
               getResp := yielded_clientMailboxes1;
               assert ((getResp).type) = (GET_RESPONSE);
               out := (getResp).result;
@@ -918,9 +918,9 @@ NullSet == (NUM_REPLICAS+3*NUM_CLIENTS)..(NUM_REPLICAS+4*NUM_CLIENTS-1)
             goto putLoop;
           } else {
             await (Len((clientMailboxes)[self])) > (0);
-            with (msg2 = Head((clientMailboxes)[self])) {
+            with (msg20 = Head((clientMailboxes)[self])) {
               clientMailboxes := [clientMailboxes EXCEPT ![self] = Tail((clientMailboxes)[self])];
-              with (yielded_clientMailboxes00 = msg2) {
+              with (yielded_clientMailboxes00 = msg20) {
                 putResp := yielded_clientMailboxes00;
                 assert ((putResp).type) = (PUT_RESPONSE);
                 i0 := (i0) + (1);
