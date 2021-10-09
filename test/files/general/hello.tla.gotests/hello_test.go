@@ -1,9 +1,10 @@
 package hello_test
 
 import (
-	"github.com/UBC-NSS/pgo/distsys/tla"
 	"log"
 	"testing"
+
+	"github.com/UBC-NSS/pgo/distsys/tla"
 
 	"example.org/hello"
 	"github.com/UBC-NSS/pgo/distsys"
@@ -53,7 +54,7 @@ func TestEmpty(t *testing.T) {
 	outCh := make(chan tla.TLAValue, 1)
 	// omit the constant defn, and notice that it's still fine, because we ran nothing
 	ctx := distsys.NewMPCalContext(tla.MakeTLAString("self"), hello.AHello,
-		distsys.EnsureArchetypeRefParam("out", resources.OutputChannelResourceMaker(outCh)))
+		distsys.EnsureArchetypeRefParam("out", resources.OutputChannelMaker(outCh)))
 	defer func() {
 		err := ctx.Close()
 		if err != nil {
@@ -68,7 +69,7 @@ func TestHello(t *testing.T) {
 		distsys.DefineConstantOperator("MK_HELLO", func(left, right tla.TLAValue) tla.TLAValue {
 			return tla.MakeTLAString(left.AsString() + right.AsString())
 		}),
-		distsys.EnsureArchetypeRefParam("out", resources.OutputChannelResourceMaker(outCh)))
+		distsys.EnsureArchetypeRefParam("out", resources.OutputChannelMaker(outCh)))
 	defer func() {
 		err := ctx.Close()
 		if err != nil {

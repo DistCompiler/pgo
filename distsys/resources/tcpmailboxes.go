@@ -43,7 +43,7 @@ const (
 // where a single process "owns" more than one mailbox.
 type TCPMailboxesAddressMappingFn func(tla.TLAValue) (TCPMailboxKind, string)
 
-// TCPMailboxesArchetypeResourceMaker produces a distsys.ArchetypeResourceMaker for a collection of TCP mailboxes.
+// TCPMailboxesMaker produces a distsys.ArchetypeResourceMaker for a collection of TCP mailboxes.
 // Each individual mailbox will match the following mapping macro, assuming exactly one process "reads" from it:
 //
 //    \* assuming initially that:
@@ -75,21 +75,21 @@ type TCPMailboxesAddressMappingFn func(tla.TLAValue) (TCPMailboxKind, string)
 // Note also that this protocol is not live, with respect to Commit. All other ops will recover from timeouts via aborts,
 // which will not be visible and will not take infinitely long. Commit is the exception, as it _must complete_ for semantics
 // to be preserved, or it would be possible to observe partial effects of critical sections.
-func TCPMailboxesArchetypeResourceMaker(addressMappingFn TCPMailboxesAddressMappingFn) distsys.ArchetypeResourceMaker {
-	return IncrementalArchetypeMapResourceMaker(func(index tla.TLAValue) distsys.ArchetypeResourceMaker {
+func TCPMailboxesMaker(addressMappingFn TCPMailboxesAddressMappingFn) distsys.ArchetypeResourceMaker {
+	return IncrementalMapMaker(func(index tla.TLAValue) distsys.ArchetypeResourceMaker {
 		typ, addr := addressMappingFn(index)
 		switch typ {
 		case TCPMailboxesLocal:
-			return tcpMailboxesLocalArchetypeResourceMaker(addr)
+			return tcpMailboxesLocalMaker(addr)
 		case TCPMailboxesRemote:
-			return tcpMailboxesRemoteArchetypeResourceMaker(addr)
+			return tcpMailboxesRemoteMaker(addr)
 		default:
 			panic(fmt.Errorf("invalid TCP mailbox type %d for address %s: expected local or remote, which are %d or %d", typ, addr, TCPMailboxesLocal, TCPMailboxesRemote))
 		}
 	})
 }
 
-type tcpMailboxesLocalArchetypeResource struct {
+type tcpMailboxesLocal struct {
 	distsys.ArchetypeResourceLeafMixin
 	listenAddr string
 	msgChannel chan tla.TLAValue
@@ -105,9 +105,9 @@ type tcpMailboxesLocalArchetypeResource struct {
 	closing bool
 }
 
-var _ distsys.ArchetypeResource = &tcpMailboxesLocalArchetypeResource{}
+var _ distsys.ArchetypeResource = &tcpMailboxesLocal{}
 
-func tcpMailboxesLocalArchetypeResourceMaker(listenAddr string) distsys.ArchetypeResourceMaker {
+func tcpMailboxesLocalMaker(listenAddr string) distsys.ArchetypeResourceMaker {
 	return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
 		msgChannel := make(chan tla.TLAValue, tcpMailboxesReceiveChannelSize)
 		listener, err := net.Listen("tcp", listenAddr)
@@ -115,7 +115,7 @@ func tcpMailboxesLocalArchetypeResourceMaker(listenAddr string) distsys.Archetyp
 			panic(fmt.Errorf("could not listen on address %s: %w", listenAddr, err))
 		}
 		log.Printf("started listening on: %s", listenAddr)
-		res := &tcpMailboxesLocalArchetypeResource{
+		res := &tcpMailboxesLocal{
 			listenAddr: listenAddr,
 			msgChannel: msgChannel,
 			listener:   listener,
@@ -128,7 +128,7 @@ func tcpMailboxesLocalArchetypeResourceMaker(listenAddr string) distsys.Archetyp
 	})
 }
 
-func (res *tcpMailboxesLocalArchetypeResource) listen() {
+func (res *tcpMailboxesLocal) listen() {
 	for {
 		conn, err := res.listener.Accept()
 		if err != nil {
@@ -143,7 +143,7 @@ func (res *tcpMailboxesLocalArchetypeResource) listen() {
 	}
 }
 
-func (res *tcpMailboxesLocalArchetypeResource) handleConn(conn net.Conn) {
+func (res *tcpMailboxesLocal) handleConn(conn net.Conn) {
 	defer func() {
 		err := conn.Close()
 		if err != nil {
@@ -250,22 +250,22 @@ func (res *tcpMailboxesLocalArchetypeResource) handleConn(conn net.Conn) {
 	}
 }
 
-func (res *tcpMailboxesLocalArchetypeResource) Abort() chan struct{} {
+func (res *tcpMailboxesLocal) Abort() chan struct{} {
 	res.readBacklog = append(res.readsInProgress, res.readBacklog...)
 	res.readsInProgress = nil
 	return nil
 }
 
-func (res *tcpMailboxesLocalArchetypeResource) PreCommit() chan error {
+func (res *tcpMailboxesLocal) PreCommit() chan error {
 	return nil
 }
 
-func (res *tcpMailboxesLocalArchetypeResource) Commit() chan struct{} {
+func (res *tcpMailboxesLocal) Commit() chan struct{} {
 	res.readsInProgress = nil
 	return nil
 }
 
-func (res *tcpMailboxesLocalArchetypeResource) ReadValue() (tla.TLAValue, error) {
+func (res *tcpMailboxesLocal) ReadValue() (tla.TLAValue, error) {
 	// if a critical section previously aborted, already-read values will be here
 	if len(res.readBacklog) > 0 {
 		value := res.readBacklog[0]
@@ -285,11 +285,11 @@ func (res *tcpMailboxesLocalArchetypeResource) ReadValue() (tla.TLAValue, error)
 	}
 }
 
-func (res *tcpMailboxesLocalArchetypeResource) WriteValue(value tla.TLAValue) error {
+func (res *tcpMailboxesLocal) WriteValue(value tla.TLAValue) error {
 	panic(fmt.Errorf("attempted to write value %v to a local mailbox archetype resource", value))
 }
 
-func (res *tcpMailboxesLocalArchetypeResource) Close() error {
+func (res *tcpMailboxesLocal) Close() error {
 	res.lock.Lock()
 	res.closing = true
 	res.lock.Unlock()
@@ -306,7 +306,7 @@ func (res *tcpMailboxesLocalArchetypeResource) Close() error {
 	return err
 }
 
-type tcpMailboxesRemoteArchetypeResource struct {
+type tcpMailboxesRemote struct {
 	distsys.ArchetypeResourceLeafMixin
 	dialAddr string
 
@@ -318,17 +318,17 @@ type tcpMailboxesRemoteArchetypeResource struct {
 	resendBuffer []interface{}
 }
 
-var _ distsys.ArchetypeResource = &tcpMailboxesRemoteArchetypeResource{}
+var _ distsys.ArchetypeResource = &tcpMailboxesRemote{}
 
-func tcpMailboxesRemoteArchetypeResourceMaker(dialAddr string) distsys.ArchetypeResourceMaker {
+func tcpMailboxesRemoteMaker(dialAddr string) distsys.ArchetypeResourceMaker {
 	return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
-		return &tcpMailboxesRemoteArchetypeResource{
+		return &tcpMailboxesRemote{
 			dialAddr: dialAddr,
 		}
 	})
 }
 
-func (res *tcpMailboxesRemoteArchetypeResource) ensureConnection() error {
+func (res *tcpMailboxesRemote) ensureConnection() error {
 	if res.conn == nil {
 		var err error
 		res.conn, err = net.DialTimeout("tcp", res.dialAddr, tcpMailboxesTCPTimeout)
@@ -346,14 +346,14 @@ func (res *tcpMailboxesRemoteArchetypeResource) ensureConnection() error {
 	return nil
 }
 
-func (res *tcpMailboxesRemoteArchetypeResource) Abort() chan struct{} {
+func (res *tcpMailboxesRemote) Abort() chan struct{} {
 	// nothing to do; the remote end tolerates just starting over with no explanation
 	res.inCriticalSection = false // but note to ourselves that we are starting over, so we re-send the begin record
 	res.resendBuffer = nil
 	return nil
 }
 
-func (res *tcpMailboxesRemoteArchetypeResource) PreCommit() chan error {
+func (res *tcpMailboxesRemote) PreCommit() chan error {
 	if !res.inCriticalSection {
 		return nil
 	}
@@ -399,7 +399,7 @@ func (res *tcpMailboxesRemoteArchetypeResource) PreCommit() chan error {
 // should be sent in the same connection along with the commit message. So
 // we resend these messages to make it possible to send the commit message
 // over the new connection.
-func (res *tcpMailboxesRemoteArchetypeResource) resend() error {
+func (res *tcpMailboxesRemote) resend() error {
 	if res.conn != nil {
 		panic("resend requires the conn to be nil")
 	}
@@ -417,7 +417,7 @@ func (res *tcpMailboxesRemoteArchetypeResource) resend() error {
 	return nil
 }
 
-func (res *tcpMailboxesRemoteArchetypeResource) Commit() chan struct{} {
+func (res *tcpMailboxesRemote) Commit() chan struct{} {
 	if !res.inCriticalSection {
 		return nil
 	}
@@ -464,11 +464,11 @@ func (res *tcpMailboxesRemoteArchetypeResource) Commit() chan struct{} {
 	return ch
 }
 
-func (res *tcpMailboxesRemoteArchetypeResource) ReadValue() (tla.TLAValue, error) {
+func (res *tcpMailboxesRemote) ReadValue() (tla.TLAValue, error) {
 	panic(fmt.Errorf("attempted to read from a remote mailbox archetype resource"))
 }
 
-func (res *tcpMailboxesRemoteArchetypeResource) WriteValue(value tla.TLAValue) error {
+func (res *tcpMailboxesRemote) WriteValue(value tla.TLAValue) error {
 	var err error
 	handleError := func() error {
 		log.Printf("network error during remote value write, aborting: %v", err)
@@ -507,7 +507,7 @@ func (res *tcpMailboxesRemoteArchetypeResource) WriteValue(value tla.TLAValue) e
 	return nil
 }
 
-func (res *tcpMailboxesRemoteArchetypeResource) Close() error {
+func (res *tcpMailboxesRemote) Close() error {
 	var err error
 	if res.conn != nil {
 		err = res.conn.Close()

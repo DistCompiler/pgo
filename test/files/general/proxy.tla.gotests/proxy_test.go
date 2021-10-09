@@ -27,7 +27,7 @@ func TestNUM_NODES(t *testing.T) {
 }
 
 func getNetworkMaker(self tla.TLAValue, constantsIFace distsys.ArchetypeInterface) distsys.ArchetypeResourceMaker {
-	return resources.TCPMailboxesArchetypeResourceMaker(
+	return resources.TCPMailboxesMaker(
 		func(idx tla.TLAValue) (resources.TCPMailboxKind, string) {
 			aid := idx.AsTuple().Get(0).(tla.TLAValue).AsNumber()
 			msgType := idx.AsTuple().Get(1).(tla.TLAValue).AsNumber()
@@ -103,14 +103,14 @@ func runServer(done <-chan struct{}, self tla.TLAValue, mon *resources.Monitor) 
 func runClient(done <-chan struct{}, self tla.TLAValue, outputChannel chan tla.TLAValue) error {
 	ctx := distsys.NewMPCalContext(self, proxy.AClient, withConstantConfigs(
 		distsys.EnsureArchetypeRefParam("net", getNetworkMaker(self, constantsIFace)),
-		distsys.EnsureArchetypeRefParam("output", resources.OutputChannelResourceMaker(outputChannel)))...)
+		distsys.EnsureArchetypeRefParam("output", resources.OutputChannelMaker(outputChannel)))...)
 	return runArchetype(done, ctx, ctx.Run)
 }
 
 func runProxy(done <-chan struct{}, self tla.TLAValue) error {
 	ctx := distsys.NewMPCalContext(self, proxy.AProxy, withConstantConfigs(
 		distsys.EnsureArchetypeRefParam("net", getNetworkMaker(self, constantsIFace)),
-		distsys.EnsureArchetypeRefParam("fd", resources.FailureDetectorResourceMaker(
+		distsys.EnsureArchetypeRefParam("fd", resources.FailureDetectorMaker(
 			func(idx tla.TLAValue) string {
 				return monAddr
 			},

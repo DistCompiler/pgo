@@ -1,17 +1,18 @@
 package test
 
 import (
+	"testing"
+
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/resources"
 	"github.com/UBC-NSS/pgo/distsys/tla"
-	"testing"
 )
 
 func TestCounter(t *testing.T) {
 	outChan := make(chan tla.TLAValue, 1)
 
 	ctx := distsys.NewMPCalContext(tla.MakeTLAString("self"), Counter,
-		distsys.EnsureArchetypeRefParam("out", resources.OutputChannelResourceMaker(outChan)))
+		distsys.EnsureArchetypeRefParam("out", resources.OutputChannelMaker(outChan)))
 
 	err := ctx.Run()
 	if err != nil {

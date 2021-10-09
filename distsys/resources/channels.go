@@ -2,51 +2,52 @@ package resources
 
 import (
 	"fmt"
-	"github.com/UBC-NSS/pgo/distsys/tla"
 	"time"
+
+	"github.com/UBC-NSS/pgo/distsys/tla"
 
 	"github.com/UBC-NSS/pgo/distsys"
 )
 
 const inputChannelResourceReadTimout = 20 * time.Millisecond
 
-// InputChannelResource wraps a native Go channel, such that an MPCal model might read what is written
+// InputChannel wraps a native Go channel, such that an MPCal model might read what is written
 // to the channel.
-type InputChannelResource struct {
+type InputChannel struct {
 	distsys.ArchetypeResourceLeafMixin
 	channel               <-chan tla.TLAValue
 	buffer, backlogBuffer []tla.TLAValue
 }
 
-var _ distsys.ArchetypeResource = &InputChannelResource{}
+var _ distsys.ArchetypeResource = &InputChannel{}
 
-func InputChannelResourceMaker(channel <-chan tla.TLAValue) distsys.ArchetypeResourceMaker {
+func InputChannelMaker(channel <-chan tla.TLAValue) distsys.ArchetypeResourceMaker {
 	return distsys.ArchetypeResourceMakerStruct{
 		MakeFn: func() distsys.ArchetypeResource {
-			return &InputChannelResource{}
+			return &InputChannel{}
 		},
 		ConfigureFn: func(res distsys.ArchetypeResource) {
-			r := res.(*InputChannelResource)
+			r := res.(*InputChannel)
 			r.channel = channel
 		},
 	}
 }
 
-func (res *InputChannelResource) Abort() chan struct{} {
+func (res *InputChannel) Abort() chan struct{} {
 	res.buffer = append(res.backlogBuffer, res.buffer...)
 	return nil
 }
 
-func (res *InputChannelResource) PreCommit() chan error {
+func (res *InputChannel) PreCommit() chan error {
 	return nil
 }
 
-func (res *InputChannelResource) Commit() chan struct{} {
+func (res *InputChannel) Commit() chan struct{} {
 	res.backlogBuffer = nil
 	return nil
 }
 
-func (res *InputChannelResource) ReadValue() (tla.TLAValue, error) {
+func (res *InputChannel) ReadValue() (tla.TLAValue, error) {
 	if len(res.buffer) > 0 {
 		value := res.buffer[0]
 		res.buffer = res.buffer[1:]
@@ -63,45 +64,45 @@ func (res *InputChannelResource) ReadValue() (tla.TLAValue, error) {
 	}
 }
 
-func (res *InputChannelResource) WriteValue(value tla.TLAValue) error {
+func (res *InputChannel) WriteValue(value tla.TLAValue) error {
 	panic(fmt.Errorf("attempted to write %v to an input channel resource", value))
 }
 
-func (res *InputChannelResource) Close() error {
+func (res *InputChannel) Close() error {
 	return nil
 }
 
-// OutputChannelResource wraps a native Go channel, such that an MPCal model may write to that channel.
-type OutputChannelResource struct {
+// OutputChannel wraps a native Go channel, such that an MPCal model may write to that channel.
+type OutputChannel struct {
 	distsys.ArchetypeResourceLeafMixin
 	channel chan<- tla.TLAValue
 	buffer  []tla.TLAValue
 }
 
-var _ distsys.ArchetypeResource = &OutputChannelResource{}
+var _ distsys.ArchetypeResource = &OutputChannel{}
 
-func OutputChannelResourceMaker(channel chan<- tla.TLAValue) distsys.ArchetypeResourceMaker {
+func OutputChannelMaker(channel chan<- tla.TLAValue) distsys.ArchetypeResourceMaker {
 	return distsys.ArchetypeResourceMakerStruct{
 		MakeFn: func() distsys.ArchetypeResource {
-			return &OutputChannelResource{}
+			return &OutputChannel{}
 		},
 		ConfigureFn: func(res distsys.ArchetypeResource) {
-			r := res.(*OutputChannelResource)
+			r := res.(*OutputChannel)
 			r.channel = channel
 		},
 	}
 }
 
-func (res *OutputChannelResource) Abort() chan struct{} {
+func (res *OutputChannel) Abort() chan struct{} {
 	res.buffer = nil
 	return nil
 }
 
-func (res *OutputChannelResource) PreCommit() chan error {
+func (res *OutputChannel) PreCommit() chan error {
 	return nil
 }
 
-func (res *OutputChannelResource) Commit() chan struct{} {
+func (res *OutputChannel) Commit() chan struct{} {
 	ch := make(chan struct{})
 	go func() {
 		for _, value := range res.buffer {
@@ -113,15 +114,15 @@ func (res *OutputChannelResource) Commit() chan struct{} {
 	return ch
 }
 
-func (res *OutputChannelResource) ReadValue() (tla.TLAValue, error) {
+func (res *OutputChannel) ReadValue() (tla.TLAValue, error) {
 	panic(fmt.Errorf("attempted to read from an output channel resource"))
 }
 
-func (res *OutputChannelResource) WriteValue(value tla.TLAValue) error {
+func (res *OutputChannel) WriteValue(value tla.TLAValue) error {
 	res.buffer = append(res.buffer, value)
 	return nil
 }
 
-func (res *OutputChannelResource) Close() error {
+func (res *OutputChannel) Close() error {
 	return nil
 }

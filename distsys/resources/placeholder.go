@@ -2,50 +2,51 @@ package resources
 
 import (
 	"errors"
+
 	"github.com/UBC-NSS/pgo/distsys/tla"
 
 	"github.com/UBC-NSS/pgo/distsys"
 )
 
-var ErrPlaceHolderAccess = errors.New("no access is allowed to PlaceHolderResource")
+var ErrPlaceHolderAccess = errors.New("no access is allowed to PlaceHolder")
 
-type PlaceHolderResource struct{}
+type PlaceHolder struct{}
 
 // PlaceHolderResourceMaker produces a distsys.ArchetypeResourceMaker that does
 // nothing. It's just for usage of passing as placeholder for an archetype's
 // argument and calling any of its methods causes a panic.
 func PlaceHolderResourceMaker() distsys.ArchetypeResourceMaker {
 	return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
-		return &PlaceHolderResource{}
+		return &PlaceHolder{}
 	})
 }
 
-var _ distsys.ArchetypeResource = &PlaceHolderResource{}
+var _ distsys.ArchetypeResource = &PlaceHolder{}
 
-func (res *PlaceHolderResource) Abort() chan struct{} {
+func (res *PlaceHolder) Abort() chan struct{} {
 	panic(ErrPlaceHolderAccess)
 }
 
-func (res *PlaceHolderResource) PreCommit() chan error {
+func (res *PlaceHolder) PreCommit() chan error {
 	panic(ErrPlaceHolderAccess)
 }
 
-func (res *PlaceHolderResource) Commit() chan struct{} {
+func (res *PlaceHolder) Commit() chan struct{} {
 	panic(ErrPlaceHolderAccess)
 }
 
-func (res *PlaceHolderResource) ReadValue() (tla.TLAValue, error) {
+func (res *PlaceHolder) ReadValue() (tla.TLAValue, error) {
 	panic(ErrPlaceHolderAccess)
 }
 
-func (res *PlaceHolderResource) WriteValue(value tla.TLAValue) error {
+func (res *PlaceHolder) WriteValue(value tla.TLAValue) error {
 	panic(ErrPlaceHolderAccess)
 }
 
-func (res *PlaceHolderResource) Index(index tla.TLAValue) (distsys.ArchetypeResource, error) {
+func (res *PlaceHolder) Index(index tla.TLAValue) (distsys.ArchetypeResource, error) {
 	panic(ErrPlaceHolderAccess)
 }
 
-func (res *PlaceHolderResource) Close() error {
+func (res *PlaceHolder) Close() error {
 	return nil
 }

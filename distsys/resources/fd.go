@@ -166,7 +166,7 @@ func (rcvr *MonitorRPCReceiver) IsAlive(arg tla.TLAValue, reply *ArchetypeState)
 // running the archetype with the given index.
 type FailureDetectorAddressMappingFn func(tla.TLAValue) string
 
-// FailureDetectorResourceMaker produces a distsys.ArchetypeResourceMaker for a
+// FailureDetectorMaker produces a distsys.ArchetypeResourceMaker for a
 // collection of single failure detectors. Each single failure detector is
 // responsible to detect that a particular archetype is alive or not. Actually
 // the single failure detector with index i is equivalent to `fd[i]` in the
@@ -192,14 +192,14 @@ type FailureDetectorAddressMappingFn func(tla.TLAValue) string
 // It provides strong completeness but no accuracy guarantee. This failure
 // detector can have both false positive (due to no accuracy) and false negative
 // (due to [eventual] completeness) outputs.
-func FailureDetectorResourceMaker(addressMappingFn FailureDetectorAddressMappingFn, opts ...FailureDetectorOption) distsys.ArchetypeResourceMaker {
-	return IncrementalArchetypeMapResourceMaker(func(index tla.TLAValue) distsys.ArchetypeResourceMaker {
+func FailureDetectorMaker(addressMappingFn FailureDetectorAddressMappingFn, opts ...FailureDetectorOption) distsys.ArchetypeResourceMaker {
+	return IncrementalMapMaker(func(index tla.TLAValue) distsys.ArchetypeResourceMaker {
 		monitorAddr := addressMappingFn(index)
 		return singleFailureDetectorResourceMaker(index, monitorAddr, opts...)
 	})
 }
 
-type singleFailureDetectorResource struct {
+type singleFailureDetector struct {
 	distsys.ArchetypeResourceLeafMixin
 	archetypeID tla.TLAValue
 	monitorAddr string
@@ -215,23 +215,23 @@ type singleFailureDetectorResource struct {
 	state ArchetypeState
 }
 
-type FailureDetectorOption func(fd *singleFailureDetectorResource)
+type FailureDetectorOption func(fd *singleFailureDetector)
 
 func WithFailureDetectorTimeout(t time.Duration) FailureDetectorOption {
-	return func(fd *singleFailureDetectorResource) {
+	return func(fd *singleFailureDetector) {
 		fd.timeout = t
 	}
 }
 
 func WithFailureDetectorPullInterval(t time.Duration) FailureDetectorOption {
-	return func(fd *singleFailureDetectorResource) {
+	return func(fd *singleFailureDetector) {
 		fd.pullInterval = t
 	}
 }
 
 func singleFailureDetectorResourceMaker(archetypeID tla.TLAValue, monitorAddr string, opts ...FailureDetectorOption) distsys.ArchetypeResourceMaker {
 	return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
-		fd := &singleFailureDetectorResource{
+		fd := &singleFailureDetector{
 			archetypeID:  archetypeID,
 			monitorAddr:  monitorAddr,
 			timeout:      failureDetectorTimeout,
@@ -248,19 +248,19 @@ func singleFailureDetectorResourceMaker(archetypeID tla.TLAValue, monitorAddr st
 	})
 }
 
-func (res *singleFailureDetectorResource) getState() ArchetypeState {
+func (res *singleFailureDetector) getState() ArchetypeState {
 	res.lock.RLock()
 	defer res.lock.RUnlock()
 	return res.state
 }
 
-func (res *singleFailureDetectorResource) setState(state ArchetypeState) {
+func (res *singleFailureDetector) setState(state ArchetypeState) {
 	res.lock.Lock()
 	res.state = state
 	res.lock.Unlock()
 }
 
-func (res *singleFailureDetectorResource) ensureClient() error {
+func (res *singleFailureDetector) ensureClient() error {
 	if res.client == nil || res.reDial {
 		conn, err := net.DialTimeout("tcp", res.monitorAddr, res.timeout)
 		if err != nil {
@@ -272,7 +272,7 @@ func (res *singleFailureDetectorResource) ensureClient() error {
 	return nil
 }
 
-func (res *singleFailureDetectorResource) mainLoop() {
+func (res *singleFailureDetector) mainLoop() {
 	res.ticker = time.NewTicker(res.pullInterval)
 	for range res.ticker.C {
 		oldState := res.getState()
@@ -321,19 +321,19 @@ func (res *singleFailureDetectorResource) mainLoop() {
 	}
 }
 
-func (res *singleFailureDetectorResource) Abort() chan struct{} {
+func (res *singleFailureDetector) Abort() chan struct{} {
 	return nil
 }
 
-func (res *singleFailureDetectorResource) PreCommit() chan error {
+func (res *singleFailureDetector) PreCommit() chan error {
 	return nil
 }
 
-func (res *singleFailureDetectorResource) Commit() chan struct{} {
+func (res *singleFailureDetector) Commit() chan struct{} {
 	return nil
 }
 
-func (res *singleFailureDetectorResource) ReadValue() (tla.TLAValue, error) {
+func (res *singleFailureDetector) ReadValue() (tla.TLAValue, error) {
 	state := res.getState()
 	if state == uninitialized {
 		time.Sleep(res.pullInterval)
@@ -345,11 +345,11 @@ func (res *singleFailureDetectorResource) ReadValue() (tla.TLAValue, error) {
 	}
 }
 
-func (res *singleFailureDetectorResource) WriteValue(value tla.TLAValue) error {
+func (res *singleFailureDetector) WriteValue(value tla.TLAValue) error {
 	panic(fmt.Errorf("attempted to write value %v to a single failure detector resource", value))
 }
 
-func (res *singleFailureDetectorResource) Close() error {
+func (res *singleFailureDetector) Close() error {
 	var err error
 	if res.ticker != nil {
 		res.ticker.Stop()
