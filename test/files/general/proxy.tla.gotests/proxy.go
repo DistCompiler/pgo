@@ -55,82 +55,65 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 		Body: func(iface distsys.ArchetypeInterface) error {
 			var err error
 			_ = err
-			if tla.TLA_TRUE.AsBool() {
-				return iface.Goto("AProxy.rcvMsgFromClient")
-			} else {
-				return iface.Goto("AProxy.Done")
-			}
-			// no statements
-		},
-	},
-	distsys.MPCalCriticalSection{
-		Name: "AProxy.rcvMsgFromClient",
-		Body: func(iface distsys.ArchetypeInterface) error {
-			var err error
-			_ = err
 			msg := iface.RequireArchetypeResource("AProxy.msg")
 			net, err := iface.RequireArchetypeResourceRef("AProxy.net")
 			if err != nil {
 				return err
 			}
-			var exprRead tla.TLAValue
-			exprRead, err = iface.Read(net, []tla.TLAValue{tla.MakeTLATuple(ProxyID(iface), REQ_MSG_TYP(iface))})
-			if err != nil {
-				return err
-			}
-			err = iface.Write(msg, []tla.TLAValue{}, exprRead)
-			if err != nil {
-				return err
-			}
-			return iface.Goto("AProxy.proxyMsg")
-		},
-	},
-	distsys.MPCalCriticalSection{
-		Name: "AProxy.proxyMsg",
-		Body: func(iface distsys.ArchetypeInterface) error {
-			var err error
-			_ = err
-			msg0 := iface.RequireArchetypeResource("AProxy.msg")
 			proxyResp := iface.RequireArchetypeResource("AProxy.proxyResp")
 			idx := iface.RequireArchetypeResource("AProxy.idx")
-			var condition tla.TLAValue
-			condition, err = iface.Read(msg0, []tla.TLAValue{})
-			if err != nil {
-				return err
+			if tla.TLA_TRUE.AsBool() {
+				var exprRead tla.TLAValue
+				exprRead, err = iface.Read(net, []tla.TLAValue{tla.MakeTLATuple(ProxyID(iface), REQ_MSG_TYP(iface))})
+				if err != nil {
+					return err
+				}
+				err = iface.Write(msg, []tla.TLAValue{}, exprRead)
+				if err != nil {
+					return err
+				}
+				var condition tla.TLAValue
+				condition, err = iface.Read(msg, []tla.TLAValue{})
+				if err != nil {
+					return err
+				}
+				var condition0 tla.TLAValue
+				condition0, err = iface.Read(msg, []tla.TLAValue{})
+				if err != nil {
+					return err
+				}
+				if !tla.TLA_LogicalAndSymbol(tla.TLA_EqualsSymbol(condition.ApplyFunction(tla.MakeTLAString("to")), ProxyID(iface)), tla.TLA_EqualsSymbol(condition0.ApplyFunction(tla.MakeTLAString("typ")), REQ_MSG_TYP(iface))).AsBool() {
+					return fmt.Errorf("%w: (((msg).to) = (ProxyID)) /\\ (((msg).typ) = (REQ_MSG_TYP))", distsys.ErrAssertionFailed)
+				}
+				var exprRead0 tla.TLAValue
+				exprRead0, err = iface.Read(msg, []tla.TLAValue{})
+				if err != nil {
+					return err
+				}
+				var exprRead1 tla.TLAValue
+				exprRead1, err = iface.Read(msg, []tla.TLAValue{})
+				if err != nil {
+					return err
+				}
+				err = iface.Write(proxyResp, []tla.TLAValue{}, tla.MakeTLARecord([]tla.TLARecordField{
+					{tla.MakeTLAString("from"), ProxyID(iface)},
+					{tla.MakeTLAString("to"), exprRead0.ApplyFunction(tla.MakeTLAString("from"))},
+					{tla.MakeTLAString("body"), FAIL(iface)},
+					{tla.MakeTLAString("id"), exprRead1.ApplyFunction(tla.MakeTLAString("id"))},
+					{tla.MakeTLAString("typ"), PROXY_RESP_MSG_TYP(iface)},
+				}))
+				if err != nil {
+					return err
+				}
+				err = iface.Write(idx, []tla.TLAValue{}, tla.MakeTLANumber(1))
+				if err != nil {
+					return err
+				}
+				return iface.Goto("AProxy.serversLoop")
+			} else {
+				return iface.Goto("AProxy.Done")
 			}
-			var condition0 tla.TLAValue
-			condition0, err = iface.Read(msg0, []tla.TLAValue{})
-			if err != nil {
-				return err
-			}
-			if !tla.TLA_LogicalAndSymbol(tla.TLA_EqualsSymbol(condition.ApplyFunction(tla.MakeTLAString("to")), ProxyID(iface)), tla.TLA_EqualsSymbol(condition0.ApplyFunction(tla.MakeTLAString("typ")), REQ_MSG_TYP(iface))).AsBool() {
-				return fmt.Errorf("%w: (((msg).to) = (ProxyID)) /\\ (((msg).typ) = (REQ_MSG_TYP))", distsys.ErrAssertionFailed)
-			}
-			var exprRead0 tla.TLAValue
-			exprRead0, err = iface.Read(msg0, []tla.TLAValue{})
-			if err != nil {
-				return err
-			}
-			var exprRead1 tla.TLAValue
-			exprRead1, err = iface.Read(msg0, []tla.TLAValue{})
-			if err != nil {
-				return err
-			}
-			err = iface.Write(proxyResp, []tla.TLAValue{}, tla.MakeTLARecord([]tla.TLARecordField{
-				{tla.MakeTLAString("from"), ProxyID(iface)},
-				{tla.MakeTLAString("to"), exprRead0.ApplyFunction(tla.MakeTLAString("from"))},
-				{tla.MakeTLAString("body"), FAIL(iface)},
-				{tla.MakeTLAString("id"), exprRead1.ApplyFunction(tla.MakeTLAString("id"))},
-				{tla.MakeTLAString("typ"), PROXY_RESP_MSG_TYP(iface)},
-			}))
-			if err != nil {
-				return err
-			}
-			err = iface.Write(idx, []tla.TLAValue{}, tla.MakeTLANumber(1))
-			if err != nil {
-				return err
-			}
-			return iface.Goto("AProxy.serversLoop")
+			// no statements
 		},
 	},
 	distsys.MPCalCriticalSection{
@@ -139,26 +122,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			var err error
 			_ = err
 			idx0 := iface.RequireArchetypeResource("AProxy.idx")
-			var condition1 tla.TLAValue
-			condition1, err = iface.Read(idx0, []tla.TLAValue{})
-			if err != nil {
-				return err
-			}
-			if tla.TLA_LessThanOrEqualSymbol(condition1, iface.GetConstant("NUM_SERVERS")()).AsBool() {
-				return iface.Goto("AProxy.proxySendMsg")
-			} else {
-				return iface.Goto("AProxy.sendMsgToClient")
-			}
-			// no statements
-		},
-	},
-	distsys.MPCalCriticalSection{
-		Name: "AProxy.proxySendMsg",
-		Body: func(iface distsys.ArchetypeInterface) error {
-			var err error
-			_ = err
 			proxyMsg := iface.RequireArchetypeResource("AProxy.proxyMsg")
-			idx1 := iface.RequireArchetypeResource("AProxy.idx")
 			msg4 := iface.RequireArchetypeResource("AProxy.msg")
 			net0, err := iface.RequireArchetypeResourceRef("AProxy.net")
 			if err != nil {
@@ -168,74 +132,84 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			switch iface.NextFairnessCounter("AProxy.proxySendMsg.0", 2) {
-			case 0:
-				var exprRead2 tla.TLAValue
-				exprRead2, err = iface.Read(idx1, []tla.TLAValue{})
-				if err != nil {
-					return err
+			var condition1 tla.TLAValue
+			condition1, err = iface.Read(idx0, []tla.TLAValue{})
+			if err != nil {
+				return err
+			}
+			if tla.TLA_LessThanOrEqualSymbol(condition1, iface.GetConstant("NUM_SERVERS")()).AsBool() {
+				switch iface.NextFairnessCounter("AProxy.serversLoop.0", 2) {
+				case 0:
+					var exprRead2 tla.TLAValue
+					exprRead2, err = iface.Read(idx0, []tla.TLAValue{})
+					if err != nil {
+						return err
+					}
+					var exprRead3 tla.TLAValue
+					exprRead3, err = iface.Read(msg4, []tla.TLAValue{})
+					if err != nil {
+						return err
+					}
+					var exprRead4 tla.TLAValue
+					exprRead4, err = iface.Read(msg4, []tla.TLAValue{})
+					if err != nil {
+						return err
+					}
+					err = iface.Write(proxyMsg, []tla.TLAValue{}, tla.MakeTLARecord([]tla.TLARecordField{
+						{tla.MakeTLAString("from"), ProxyID(iface)},
+						{tla.MakeTLAString("to"), exprRead2},
+						{tla.MakeTLAString("body"), exprRead3.ApplyFunction(tla.MakeTLAString("body"))},
+						{tla.MakeTLAString("id"), exprRead4.ApplyFunction(tla.MakeTLAString("id"))},
+						{tla.MakeTLAString("typ"), PROXY_REQ_MSG_TYP(iface)},
+					}))
+					if err != nil {
+						return err
+					}
+					var exprRead5 tla.TLAValue
+					exprRead5, err = iface.Read(proxyMsg, []tla.TLAValue{})
+					if err != nil {
+						return err
+					}
+					var indexRead tla.TLAValue
+					indexRead, err = iface.Read(proxyMsg, []tla.TLAValue{})
+					if err != nil {
+						return err
+					}
+					err = iface.Write(net0, []tla.TLAValue{tla.MakeTLATuple(indexRead.ApplyFunction(tla.MakeTLAString("to")), PROXY_REQ_MSG_TYP(iface))}, exprRead5)
+					if err != nil {
+						return err
+					}
+					return iface.Goto("AProxy.proxyRcvMsg")
+				case 1:
+					var condition2 tla.TLAValue
+					condition2, err = iface.Read(idx0, []tla.TLAValue{})
+					if err != nil {
+						return err
+					}
+					var condition3 tla.TLAValue
+					condition3, err = iface.Read(fd, []tla.TLAValue{condition2})
+					if err != nil {
+						return err
+					}
+					if !condition3.AsBool() {
+						return distsys.ErrCriticalSectionAborted
+					}
+					var exprRead6 tla.TLAValue
+					exprRead6, err = iface.Read(idx0, []tla.TLAValue{})
+					if err != nil {
+						return err
+					}
+					err = iface.Write(idx0, []tla.TLAValue{}, tla.TLA_PlusSymbol(exprRead6, tla.MakeTLANumber(1)))
+					if err != nil {
+						return err
+					}
+					return iface.Goto("AProxy.serversLoop")
+				default:
+					panic("current branch of either matches no code paths!")
 				}
-				var exprRead3 tla.TLAValue
-				exprRead3, err = iface.Read(msg4, []tla.TLAValue{})
-				if err != nil {
-					return err
-				}
-				var exprRead4 tla.TLAValue
-				exprRead4, err = iface.Read(msg4, []tla.TLAValue{})
-				if err != nil {
-					return err
-				}
-				err = iface.Write(proxyMsg, []tla.TLAValue{}, tla.MakeTLARecord([]tla.TLARecordField{
-					{tla.MakeTLAString("from"), ProxyID(iface)},
-					{tla.MakeTLAString("to"), exprRead2},
-					{tla.MakeTLAString("body"), exprRead3.ApplyFunction(tla.MakeTLAString("body"))},
-					{tla.MakeTLAString("id"), exprRead4.ApplyFunction(tla.MakeTLAString("id"))},
-					{tla.MakeTLAString("typ"), PROXY_REQ_MSG_TYP(iface)},
-				}))
-				if err != nil {
-					return err
-				}
-				var exprRead5 tla.TLAValue
-				exprRead5, err = iface.Read(proxyMsg, []tla.TLAValue{})
-				if err != nil {
-					return err
-				}
-				var indexRead tla.TLAValue
-				indexRead, err = iface.Read(proxyMsg, []tla.TLAValue{})
-				if err != nil {
-					return err
-				}
-				err = iface.Write(net0, []tla.TLAValue{tla.MakeTLATuple(indexRead.ApplyFunction(tla.MakeTLAString("to")), PROXY_REQ_MSG_TYP(iface))}, exprRead5)
-				if err != nil {
-					return err
-				}
-				return iface.Goto("AProxy.proxyRcvMsg")
-			case 1:
-				var condition2 tla.TLAValue
-				condition2, err = iface.Read(idx1, []tla.TLAValue{})
-				if err != nil {
-					return err
-				}
-				var condition3 tla.TLAValue
-				condition3, err = iface.Read(fd, []tla.TLAValue{condition2})
-				if err != nil {
-					return err
-				}
-				if !condition3.AsBool() {
-					return distsys.ErrCriticalSectionAborted
-				}
-				var exprRead6 tla.TLAValue
-				exprRead6, err = iface.Read(idx1, []tla.TLAValue{})
-				if err != nil {
-					return err
-				}
-				err = iface.Write(idx1, []tla.TLAValue{}, tla.TLA_PlusSymbol(exprRead6, tla.MakeTLANumber(1)))
-				if err != nil {
-					return err
-				}
-				return iface.Goto("AProxy.serversLoop")
-			default:
-				panic("current branch of either matches no code paths!")
+				// no statements
+			} else {
+				return iface.Goto("AProxy.sendMsgToClient")
 			}
 			// no statements
 		},
@@ -612,66 +586,52 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 		Body: func(iface distsys.ArchetypeInterface) error {
 			var err error
 			_ = err
-			if iface.GetConstant("CLIENT_RUN")().AsBool() {
-				return iface.Goto("AClient.clientSendReq")
-			} else {
-				return iface.Goto("AClient.Done")
-			}
-			// no statements
-		},
-	},
-	distsys.MPCalCriticalSection{
-		Name: "AClient.clientSendReq",
-		Body: func(iface distsys.ArchetypeInterface) error {
-			var err error
-			_ = err
 			req := iface.RequireArchetypeResource("AClient.req")
 			reqId := iface.RequireArchetypeResource("AClient.reqId")
 			net5, err := iface.RequireArchetypeResourceRef("AClient.net")
 			if err != nil {
 				return err
 			}
-			var exprRead16 tla.TLAValue
-			exprRead16, err = iface.Read(reqId, []tla.TLAValue{})
-			if err != nil {
-				return err
+			if iface.GetConstant("CLIENT_RUN")().AsBool() {
+				var exprRead16 tla.TLAValue
+				exprRead16, err = iface.Read(reqId, []tla.TLAValue{})
+				if err != nil {
+					return err
+				}
+				err = iface.Write(req, []tla.TLAValue{}, tla.MakeTLARecord([]tla.TLARecordField{
+					{tla.MakeTLAString("from"), iface.Self()},
+					{tla.MakeTLAString("to"), ProxyID(iface)},
+					{tla.MakeTLAString("body"), iface.Self()},
+					{tla.MakeTLAString("id"), exprRead16},
+					{tla.MakeTLAString("typ"), REQ_MSG_TYP(iface)},
+				}))
+				if err != nil {
+					return err
+				}
+				var exprRead17 tla.TLAValue
+				exprRead17, err = iface.Read(req, []tla.TLAValue{})
+				if err != nil {
+					return err
+				}
+				var indexRead4 tla.TLAValue
+				indexRead4, err = iface.Read(req, []tla.TLAValue{})
+				if err != nil {
+					return err
+				}
+				var indexRead5 tla.TLAValue
+				indexRead5, err = iface.Read(req, []tla.TLAValue{})
+				if err != nil {
+					return err
+				}
+				err = iface.Write(net5, []tla.TLAValue{tla.MakeTLATuple(indexRead4.ApplyFunction(tla.MakeTLAString("to")), indexRead5.ApplyFunction(tla.MakeTLAString("typ")))}, exprRead17)
+				if err != nil {
+					return err
+				}
+				return iface.Goto("AClient.clientRcvResp")
+			} else {
+				return iface.Goto("AClient.Done")
 			}
-			err = iface.Write(req, []tla.TLAValue{}, tla.MakeTLARecord([]tla.TLARecordField{
-				{tla.MakeTLAString("from"), iface.Self()},
-				{tla.MakeTLAString("to"), ProxyID(iface)},
-				{tla.MakeTLAString("body"), iface.Self()},
-				{tla.MakeTLAString("id"), exprRead16},
-				{tla.MakeTLAString("typ"), REQ_MSG_TYP(iface)},
-			}))
-			if err != nil {
-				return err
-			}
-			var exprRead17 tla.TLAValue
-			exprRead17, err = iface.Read(req, []tla.TLAValue{})
-			if err != nil {
-				return err
-			}
-			var indexRead4 tla.TLAValue
-			indexRead4, err = iface.Read(req, []tla.TLAValue{})
-			if err != nil {
-				return err
-			}
-			var indexRead5 tla.TLAValue
-			indexRead5, err = iface.Read(req, []tla.TLAValue{})
-			if err != nil {
-				return err
-			}
-			err = iface.Write(net5, []tla.TLAValue{tla.MakeTLATuple(indexRead4.ApplyFunction(tla.MakeTLAString("to")), indexRead5.ApplyFunction(tla.MakeTLAString("typ")))}, exprRead17)
-			if err != nil {
-				return err
-			}
-			var toPrint tla.TLAValue
-			toPrint, err = iface.Read(req, []tla.TLAValue{})
-			if err != nil {
-				return err
-			}
-			tla.MakeTLATuple(tla.MakeTLAString("CLIENT START"), toPrint).PCalPrint()
-			return iface.Goto("AClient.clientRcvResp")
+			// no statements
 		},
 	},
 	distsys.MPCalCriticalSection{
@@ -726,12 +686,6 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if !tla.TLA_LogicalAndSymbol(tla.TLA_LogicalAndSymbol(tla.TLA_LogicalAndSymbol(tla.TLA_EqualsSymbol(condition17.ApplyFunction(tla.MakeTLAString("to")), iface.Self()), tla.TLA_EqualsSymbol(condition18.ApplyFunction(tla.MakeTLAString("id")), condition19)), tla.TLA_EqualsSymbol(condition20.ApplyFunction(tla.MakeTLAString("from")), ProxyID(iface))), tla.TLA_EqualsSymbol(condition21.ApplyFunction(tla.MakeTLAString("typ")), RESP_MSG_TYP(iface))).AsBool() {
 				return fmt.Errorf("%w: (((((resp).to) = (self)) /\\ (((resp).id) = (reqId))) /\\ (((resp).from) = (ProxyID))) /\\ (((resp).typ) = (RESP_MSG_TYP))", distsys.ErrAssertionFailed)
 			}
-			var toPrint0 tla.TLAValue
-			toPrint0, err = iface.Read(resp7, []tla.TLAValue{})
-			if err != nil {
-				return err
-			}
-			tla.MakeTLATuple(tla.MakeTLAString("CLIENT RESP"), toPrint0).PCalPrint()
 			var exprRead19 tla.TLAValue
 			exprRead19, err = iface.Read(reqId0, []tla.TLAValue{})
 			if err != nil {

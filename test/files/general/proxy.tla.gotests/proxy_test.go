@@ -266,3 +266,74 @@ func TestProxy_NoServerRunning(t *testing.T) {
 		}
 	}
 }
+
+func TestProxy_FirstServerCrashing(t *testing.T) {
+	outputChannel := make(chan tla.TLAValue)
+	mon := setupMonitor()
+	firstServerDone := make(chan struct{})
+	firstServerErr := make(chan error)
+	done := make(chan struct{})
+	errs := make(chan error)
+	go func() {
+		firstServerErr <- runServer(firstServerDone, tla.MakeTLANumber(1), mon)
+	}()
+	go func() {
+		errs <- runServer(done, tla.MakeTLANumber(2), mon)
+	}()
+	go func() {
+		errs <- runProxy(done, tla.MakeTLANumber(4))
+	}()
+	go func() {
+		errs <- runClient(done, tla.MakeTLANumber(3), outputChannel)
+	}()
+	defer func() {
+		numRunningArchetypes := 3 // excluding the first server
+		for i := 0; i < numRunningArchetypes; i++ {
+			done <- struct{}{}
+		}
+		for i := 0; i < numRunningArchetypes; i++ {
+			err := <-errs
+			if err != nil {
+				t.Errorf("archetype error: %s", err)
+			}
+		}
+		if err := mon.Close(); err != nil {
+			log.Println(err)
+		}
+	}()
+
+	for i := 0; i < numRequests / 2; i++ {
+		select {
+		case resp := <-outputChannel:
+			val, ok := resp.AsFunction().Get(tla.MakeTLAString("body"))
+			if !ok {
+				t.Fatalf("response body not found")
+			}
+			if !val.(tla.TLAValue).Equal(tla.MakeTLANumber(1)) {
+				t.Fatalf("wrong response body, got %v, expected %v", val.(tla.TLAValue), tla.MakeTLANumber(1))
+			}
+		case <-time.After(testTimeout):
+			t.Fatal("timeout")
+		}
+	}
+
+	firstServerDone <- struct{}{}
+	if err := <-firstServerErr; err != nil {
+		t.Errorf("first server error: %v", err)
+	}
+
+	for i := 0; i < numRequests / 2; i++ {
+		select {
+		case resp := <-outputChannel:
+			val, ok := resp.AsFunction().Get(tla.MakeTLAString("body"))
+			if !ok {
+				t.Fatalf("response body not found")
+			}
+			if !val.(tla.TLAValue).Equal(tla.MakeTLANumber(2)) {
+				t.Fatalf("wrong response body, got %v, expected %v", val.(tla.TLAValue), tla.MakeTLANumber(1))
+			}
+		case <-time.After(testTimeout):
+			t.Fatal("timeout")
+		}
+	}
+}

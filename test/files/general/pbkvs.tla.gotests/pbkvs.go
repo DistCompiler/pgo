@@ -1358,7 +1358,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 		Body: func(iface distsys.ArchetypeInterface) error {
 			var err error
 			_ = err
-			if tla.TLA_TRUE.AsBool() {
+			if iface.GetConstant("PUT_CLIENT_RUN")().AsBool() {
 				return iface.Goto("APutClient.sndPutReq")
 			} else {
 				return iface.Goto("APutClient.Done")
@@ -1580,7 +1580,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 		Body: func(iface distsys.ArchetypeInterface) error {
 			var err error
 			_ = err
-			if tla.TLA_TRUE.AsBool() {
+			if iface.GetConstant("GET_CLIENT_RUN")().AsBool() {
 				return iface.Goto("AGetClient.sndGetReq")
 			} else {
 				return iface.Goto("AGetClient.Done")
