@@ -418,7 +418,7 @@ object MPCalPCalCodegenPass {
         @tailrec
         def findSubstitutionKeys(lhs: PCalAssignmentLhs, keysAcc: mutable.ListBuffer[TLAFunctionSubstitutionKey]): List[TLAFunctionSubstitutionKey] =
           lhs match {
-            case PCalAssignmentLhsIdentifier(_) => keysAcc.result()
+            case PCalAssignmentLhsIdentifier(_) => keysAcc.result().reverse
             case PCalAssignmentLhsProjection(lhs, projections) =>
               keysAcc += TLAFunctionSubstitutionKey(projections)
               findSubstitutionKeys(lhs, keysAcc)
