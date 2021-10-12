@@ -1,0 +1,96 @@
+------------------------------- MODULE func -------------------------------
+
+EXTENDS Naturals, Sequences, TLC, FiniteSets
+
+(********************
+
+--mpcal func {
+
+    mapping macro MP {
+        read {
+            yield $variable;
+        }
+
+        write {
+            yield $value;
+        }
+    }
+
+    archetype ANode(ref arr[_][_]) {
+    lbl1:
+        arr[1][2] := "a";
+
+    lbl2:
+        print arr[1][2];
+    }
+
+    variable
+        arr = [d1 \in {1} |-> [d2 \in {2} |-> ""]];
+
+    fair process (Node \in {1}) == instance ANode(ref arr[_][_])
+        mapping arr[_][_] via MP;
+}
+
+\* BEGIN PLUSCAL TRANSLATION
+--algorithm func {
+  variables arr = [d1 \in {1} |-> [d2 \in {2} |-> ""]];
+  
+  fair process (Node \in {1})
+  {
+    lbl1:
+      with (value0 = "a") {
+        arr := [arr EXCEPT ![1][2] = value0];
+        goto lbl2;
+      };
+    lbl2:
+      with (yielded_arr0 = ((arr)[1])[2]) {
+        print yielded_arr0;
+        goto Done;
+      };
+  }
+}
+
+\* END PLUSCAL TRANSLATION
+
+********************)
+\* BEGIN TRANSLATION (chksum(pcal) = "32ce4915" /\ chksum(tla) = "85185b78")
+VARIABLES arr, pc
+
+vars == << arr, pc >>
+
+ProcSet == ({1})
+
+Init == (* Global variables *)
+        /\ arr = [d1 \in {1} |-> [d2 \in {2} |-> ""]]
+        /\ pc = [self \in ProcSet |-> "lbl1"]
+
+lbl1(self) == /\ pc[self] = "lbl1"
+              /\ LET value0 == "a" IN
+                   /\ arr' = [arr EXCEPT ![1][2] = value0]
+                   /\ pc' = [pc EXCEPT ![self] = "lbl2"]
+
+lbl2(self) == /\ pc[self] = "lbl2"
+              /\ LET yielded_arr0 == ((arr)[1])[2] IN
+                   /\ PrintT(yielded_arr0)
+                   /\ pc' = [pc EXCEPT ![self] = "Done"]
+              /\ arr' = arr
+
+Node(self) == lbl1(self) \/ lbl2(self)
+
+(* Allow infinite stuttering to prevent deadlock on termination. *)
+Terminating == /\ \A self \in ProcSet: pc[self] = "Done"
+               /\ UNCHANGED vars
+
+Next == (\E self \in {1}: Node(self))
+           \/ Terminating
+
+Spec == /\ Init /\ [][Next]_vars
+        /\ \A self \in {1} : WF_vars(Node(self))
+
+Termination == <>(\A self \in ProcSet: pc[self] = "Done")
+
+\* END TRANSLATION
+
+
+
+=============================================================================

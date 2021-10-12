@@ -44,6 +44,11 @@ object MPCalSemanticCheckPass {
         defn.sourceLocation.longDescription
       }\n does not match")
 
+    final case class MPCalReadWriteAssignmentForbidden(usage: SourceLocatable, defn: SourceLocatable) extends Error(
+      usage.sourceLocation, d"assignment implies both a read from and a write to the state variable defined at ${
+        defn.sourceLocation.longDescription
+      }\n if this is intended, use a with statement to explicitly show the separate read and write operations")
+
     final case class PClArityMismatch(usage: SourceLocatable, defn: SourceLocatable) extends Error(
       usage.sourceLocation, d"call arity at ${
         defn.sourceLocation.longDescription
@@ -342,8 +347,15 @@ object MPCalSemanticCheckPass {
               findDefn(lhs).foreach { defn =>
                 val mappingCount = findMappingCount(lhs)
                 val mappingCountP = defn.mappingCount
-                if(mappingCountP > mappingCount) {
-                  errors += SemanticError.MPCalKindMismatchError(usage = lhs, defn = defn)
+                // the mapping count must match exactly:
+                // - too few, and there is no reasonable behaviour
+                // - too many, and it implies a combined read-write, which would be confusing
+                if(mappingCountP != mappingCount) {
+                  if(mappingCountP < mappingCount) {
+                    errors += SemanticError.MPCalReadWriteAssignmentForbidden(usage = lhs, defn = defn)
+                  } else {
+                    errors += SemanticError.MPCalKindMismatchError(usage = lhs, defn = defn)
+                  }
                 }
               }
             case ref@MPCalRefExpr(_, mappingCount) =>
