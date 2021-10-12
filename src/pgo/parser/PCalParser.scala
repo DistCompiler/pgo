@@ -86,10 +86,16 @@ trait PCalParser extends TLAParser {
 
   def pcalLhs(implicit ctx: PCalParserContext): Parser[PCalAssignmentLhs] = {
       def rec(lhs: PCalAssignmentLhs): Parser[PCalAssignmentLhs] =
-        opt(ws ~> withSourceLocation {
-          "." ~> ws ~> tlaIdentifierExpr ^^ (id => PCalAssignmentLhsProjection(lhs, List(TLAString(id.id).setSourceLocation(id.sourceLocation)))) |
-          "[" ~> ws ~> rep1sep(tlaExpression, ws ~> "," ~> ws) <~ ws <~ "]" ^^ (PCalAssignmentLhsProjection(lhs, _))
-        }.flatMap(rec)).map(_.getOrElse(lhs))
+        opt {
+          ws ~> (querySourceLocation {
+            "." ~> ws ~> tlaIdentifierExpr ^^ (id => PCalAssignmentLhsProjection(lhs, List(TLAString(id.id).setSourceLocation(id.sourceLocation)))) |
+              "[" ~> ws ~> rep1sep(tlaExpression, ws ~> "," ~> ws) <~ ws <~ "]" ^^ (PCalAssignmentLhsProjection(lhs, _))
+          } ^^ {
+            case (loc, proj) => proj.setSourceLocation(lhs.sourceLocation ++ loc) // ensure the projection's position includes LHS
+          })
+            .flatMap(rec)
+        }
+          .map(_.getOrElse(lhs))
 
       pcalLhsId.flatMap(rec)
     }

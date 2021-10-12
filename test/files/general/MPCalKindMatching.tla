@@ -9,7 +9,7 @@ EXTENDS Sequences, FiniteSets, Integers
         l4: call Proc2(ref a[_][_]);
         l5: a[2] := 3;
         l3: (*:: expectedError: MPCalKindMismatchError *) a := 3;
-        l6: a[5][6] := 3;
+        l6: (*:: expectedError: MPCalReadWriteAssignmentForbidden *) a[5][6] := 3;
         l7: x := (*:: expectedError: MPCalKindMismatchError *) a;
         l8: x := a[3];
         l9: x := a[(*:: expectedError: MPCalKindMismatchError *) a];

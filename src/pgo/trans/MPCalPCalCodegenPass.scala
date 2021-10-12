@@ -199,8 +199,8 @@ object MPCalPCalCodegenPass {
             findRef(lhs).flatMap {
               case ident if mappingsMap.contains(ById(ident.refersTo)) =>
                 val (mappingCount, mapping) = mappingsMap(ById(ident.refersTo))
-                // maybe implement depth > mappingCount in the future, but it may be more confusion than it's worth
-                // for now, assert that it's not the case, to avoid very confusing mis-compilations
+                // this should always be the case; it would be too confusing otherwise, as documented in
+                // test/files/general/pcalgen/MappingMacroRWExpansion.tla
                 assert(mappingCount == findLhsDepth(lhs))
                 val convertedLhs = convertLhs(lhs)
                 val valueBind = PCalVariableDeclarationValue(TLAIdentifier(nameCleaner.cleanName("value")), rhs)
