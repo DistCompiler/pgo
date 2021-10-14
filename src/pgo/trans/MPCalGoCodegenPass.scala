@@ -168,7 +168,7 @@ object MPCalGoCodegenPass {
       resourceReads.view.map {
         case (defn, replaceDefn, indices) =>
           d"\nvar ${replaceDefn.name.id} $TLAValue" +
-            d"\n${replaceDefn.name.id}, ${ctx.err} = ${ctx.iface}.Read(${ctx.bindings(ById(defn)).bind}, []$TLAValue{${indices.view.map(translateExpr)}})" +
+            d"\n${replaceDefn.name.id}, ${ctx.err} = ${ctx.iface}.Read(${ctx.bindings(ById(defn)).bind}, []$TLAValue{${indices.view.map(translateExpr).separateBy(d", ")}})" +
             d"\nif ${ctx.err} != nil {${
               d"\nreturn ${ctx.err}".indented
             }\n}"
