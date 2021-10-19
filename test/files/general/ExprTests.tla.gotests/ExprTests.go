@@ -2265,6 +2265,13 @@ func Test2(iface distsys.ArchetypeInterface) tla.TLAValue {
 		}).AsBool()
 	})
 }
+func Test3(iface distsys.ArchetypeInterface) tla.TLAValue {
+	return tla.TLAChoose(tla.MakeTLASet(tla.MakeTLANumber(1), tla.MakeTLANumber(2), tla.MakeTLANumber(3)), func(element tla.TLAValue) bool {
+		var z0 tla.TLAValue = element
+		_ = z0
+		return tla.TLA_EqualsSymbol(z0, tla.MakeTLANumber(2)).AsBool()
+	})
+}
 
 var procTable = distsys.MakeMPCalProcTable()
 
