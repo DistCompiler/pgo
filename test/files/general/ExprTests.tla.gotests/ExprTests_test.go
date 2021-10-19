@@ -14,3 +14,13 @@ func TestTest1(t *testing.T) {
 		t.Errorf("Expected value %s, got %s", expectedStr, actualStr)
 	}
 }
+
+func TestTest3(t *testing.T) {
+	ctx := distsys.NewMPCalContextWithoutArchetype()
+	result := Test3(ctx.IFace())
+	actualStr := result.String()
+	expectedStr := "2"
+	if actualStr != expectedStr {
+		t.Errorf("Expected value %s, got %s", expectedStr, actualStr)
+	}
+}
