@@ -34,6 +34,10 @@ archetype AServer(ref net[_], ref netToggle[_]) {
     lbl: skip;
 }
 
+archetype OtherArchetype(notRef) {
+    lbl: skip;
+}
+
 variables
     network = [id \in NODE_SET |-> [queue |-> <<>>, enabled |-> TRUE]];
 
@@ -49,10 +53,14 @@ fair process (Server3 \in SERVER_SET) == instance AServer(ref network[_], ref ne
     mapping @2[_] via TCPChannel
     (*:: expectedError: MPCalMultipleMapping *) mapping @2[_] via NetworkToggle;
 
-fair process (Server3 \in SERVER_SET) == instance AServer(ref network[_], ref network[_])
+fair process (Server4 \in SERVER_SET) == instance AServer(ref network[_], ref network[_])
     mapping @1[_] via TCPChannel
     mapping @2[_] via NetworkToggle;
+
+fair process (Server5 \in SERVER_SET) == instance OtherArchetype("foo")
+    mapping (*:: expectedError: MPCalMappingValueRefMismatchError *) @1[_] via TCPChannel;
 }
+
 *)
 
 \* BEGIN TRANSLATION
