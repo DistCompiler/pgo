@@ -7,14 +7,13 @@ import (
 	"go.uber.org/multierr"
 )
 
-// A generic map resource, with hooks to programmatically realize child resources during execution
-// ----------------------------------------------------------------------------------------------------------------
-
 // FillFn maps from an index of a given map resource into a distsys.ArchetypeResourceMaker for the resource
 // intended at that location. It is assumed that this mapping is stable, in that, for the same index, a maker for
 // a resource with the same behaviour will be returned, no matter when the function is called.
 type FillFn func(index tla.TLAValue) distsys.ArchetypeResourceMaker
 
+// IncrementalMap is a generic map resource, with hooks to programmatically
+// realize child resources during execution.
 type IncrementalMap struct {
 	distsys.ArchetypeResourceMapMixin
 	realizedMap  *immutable.Map

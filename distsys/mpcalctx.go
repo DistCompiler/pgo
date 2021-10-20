@@ -229,6 +229,22 @@ func EnsureArchetypeRefParam(name string, maker ArchetypeResourceMaker) MPCalCon
 	}
 }
 
+type DerivedArchetypeResourceMaker func(res ArchetypeResource) ArchetypeResourceMaker
+
+func EnsureArchetypeDerivedRefParam(name string, parentName string, dMaker DerivedArchetypeResourceMaker) MPCalContextConfigFn {
+	return func(ctx *MPCalContext) {
+		ctx.requireArchetype()
+		parentRefName := ctx.archetype.Name + "." + parentName
+		parentHandle, err := ctx.iface.RequireArchetypeResourceRef(parentRefName)
+		if err != nil {
+			panic(fmt.Errorf("error in finding archetype derived ref param parent: %s", err))
+		}
+		parentRes := ctx.getResourceByHandle(parentHandle)
+		maker := dMaker(parentRes)
+		EnsureArchetypeRefParam(name, maker)(ctx)
+	}
+}
+
 // EnsureArchetypeValueParam binds a TLAValue to the provided name.
 // The name must match one of the archetype's parameter names, and must not refer to a ref parameter. If these conditions
 // are not met, attempting to call MPCalContext.Run will panic.

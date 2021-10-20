@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"net/rpc"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -95,7 +96,7 @@ func (m *Monitor) RunArchetype(ctx *distsys.MPCalContext) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			m.setState(archetypeID, failed)
-			err = fmt.Errorf("archetype %d recovered from panic: %s", archetypeID, r)
+			err = fmt.Errorf("archetype %d recovered from panic: %s\n%s", archetypeID, r, debug.Stack())
 		}
 	}()
 

@@ -302,7 +302,7 @@ func TestProxy_FirstServerCrashing(t *testing.T) {
 		}
 	}()
 
-	for i := 0; i < numRequests / 2; i++ {
+	for i := 0; i < numRequests/2; i++ {
 		select {
 		case resp := <-outputChannel:
 			val, ok := resp.AsFunction().Get(tla.MakeTLAString("body"))
@@ -322,7 +322,7 @@ func TestProxy_FirstServerCrashing(t *testing.T) {
 		t.Errorf("first server error: %v", err)
 	}
 
-	for i := 0; i < numRequests / 2; i++ {
+	for i := 0; i < numRequests/2; i++ {
 		select {
 		case resp := <-outputChannel:
 			val, ok := resp.AsFunction().Get(tla.MakeTLAString("body"))

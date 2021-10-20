@@ -514,3 +514,50 @@ func (res *tcpMailboxesRemote) Close() error {
 	}
 	return err
 }
+
+func TCPMailboxesLengthMaker(incMap distsys.ArchetypeResource) distsys.ArchetypeResourceMaker {
+	return IncrementalMapMaker(func(index tla.TLAValue) distsys.ArchetypeResourceMaker {
+		mailbox, err := incMap.Index(index)
+		if err != nil {
+			panic(fmt.Errorf("wrong index for tcpmailboxes length: %s", err))
+		}
+		return tcpMailboxesLocalLengthMaker(mailbox.(*tcpMailboxesLocal))
+	})
+}
+
+type tcpMailboxesLocalLength struct {
+	distsys.ArchetypeResourceLeafMixin
+	mailbox *tcpMailboxesLocal
+}
+
+func tcpMailboxesLocalLengthMaker(mailbox *tcpMailboxesLocal) distsys.ArchetypeResourceMaker {
+	return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
+		return &tcpMailboxesLocalLength{mailbox: mailbox}
+	})
+}
+
+var _ distsys.ArchetypeResource = &tcpMailboxesLocalLength{}
+
+func (res *tcpMailboxesLocalLength) Abort() chan struct{} {
+	return nil
+}
+
+func (res *tcpMailboxesLocalLength) PreCommit() chan error {
+	return nil
+}
+
+func (res *tcpMailboxesLocalLength) Commit() chan struct{} {
+	return nil
+}
+
+func (res *tcpMailboxesLocalLength) ReadValue() (tla.TLAValue, error) {
+	return tla.MakeTLANumber(int32(len(res.mailbox.readBacklog) + len(res.mailbox.msgChannel))), nil
+}
+
+func (res *tcpMailboxesLocalLength) WriteValue(value tla.TLAValue) error {
+	panic(fmt.Errorf("attempted to write value %v to a local mailbox length resource", value))
+}
+
+func (res *tcpMailboxesLocalLength) Close() error {
+	return nil
+}
