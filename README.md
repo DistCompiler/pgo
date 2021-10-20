@@ -37,8 +37,18 @@ as well as to a semantically equivalent Go program.
 ## Current status
 
 Actively under development. PGo supports compilation of all PlusCal
-control flow constructs, but not procedures.
+control flow constructs.
 PGo also supports a vast majority of the value-level TLA+ supported by TLC.
+See the pull requests and issues for documentation of ongoing work.
+
+In its active-development state, we do not provide stable releases.
+To run PGo, the best way is to clone the repository, and, on the master branch, run it via the [sbt](https://www.scala-sbt.org/) build tool:
+```
+$ sbt
+> run [command-line arguments]
+```
+
+See the usage notes below for what arguments the program accepts.
 
 See [`manual.pdf`](https://github.com/UBC-NSS/pgo/blob/master/manual.pdf) (WARNING: update in progress) in the
 repository for a snapshot of the latest version of the manual that details

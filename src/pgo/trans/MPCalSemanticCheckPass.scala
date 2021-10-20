@@ -44,6 +44,11 @@ object MPCalSemanticCheckPass {
         defn.sourceLocation.longDescription
       }\n does not match")
 
+    final case class MPCalMappingValueRefMismatchError(usage: SourceLocatable, defn: SourceLocatable) extends Error(
+      usage.sourceLocation, d"non-ref archetype parameter defined at ${
+        defn.sourceLocation.longDescription
+      }\n should not have a mapping")
+
     final case class MPCalReadWriteAssignmentForbidden(usage: SourceLocatable, defn: SourceLocatable) extends Error(
       usage.sourceLocation, d"assignment implies both a read from and a write to the state variable defined at ${
         defn.sourceLocation.longDescription
@@ -416,7 +421,19 @@ object MPCalSemanticCheckPass {
                   if(mappingCount != mappingCountP) {
                     errors += SemanticError.MPCalKindMismatchError(usage = target, defn = param)
                   }
-                case Right(_) => // any mappings work here, we'll add an underlying variable if we have to
+                case Right(_) =>
+                  // _almost_ any mappings work here, we'll add an underlying variable if we have to
+                  // ... but we should check that the mapping shape matches the archetype argument to which it applies
+                  // otherwise we give malformed mappings / arguments a free pass, because the expr case does not
+                  // actually guarantee any relationship between mapping and archetype argument, syntactically speaking
+                  archetype.params(position) match {
+                    case param@MPCalRefParam(_, mappingCountP) =>
+                      if(mappingCount != mappingCountP) {
+                        errors += SemanticError.MPCalKindMismatchError(usage = target, defn = param)
+                      }
+                    case param@MPCalValParam(_) =>
+                      errors += SemanticError.MPCalMappingValueRefMismatchError(usage = target, defn = param)
+                  }
               }
           }
           (archetype.params.view zip arguments.view).foreach {

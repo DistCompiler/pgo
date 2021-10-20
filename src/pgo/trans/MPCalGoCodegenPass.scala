@@ -715,11 +715,12 @@ object MPCalGoCodegenPass {
           }.flattenDescriptions.indented
         }${if(fields.nonEmpty) d"\n" else d""}})"
       case TLAQuantifiedChoose(binding@TLAQuantifierBound(_, _, set), body) =>
-        val (bindings, bindingCode) = translateQuantifierBound(binding, d"${translateExpr(set)}.SelectElement()")
-        d"func() $TLAValue {${
+        val boundName = ctx.nameCleaner.cleanName("element")
+        d"tla.TLAChoose(${translateExpr(set)}, func($boundName $TLAValue) bool {${
+          val (bindings, bindingCode) = translateQuantifierBound(binding, d"$boundName")
           (bindingCode +
-            d"\nreturn ${translateExpr(body)(ctx = ctx.copy(bindings = ctx.bindings ++ bindings.view.mapValues(FixedValueBinding)))}").indented
-        }\n}()"
+            d"\nreturn ${translateExpr(body)(ctx = ctx.copy(bindings = ctx.bindings ++ bindings.view.mapValues(FixedValueBinding)))}.AsBool()").indented
+        }\n})"
     }
 
   @throws[PGoError]

@@ -449,11 +449,11 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					if err != nil {
 						return err
 					}
-					err = iface.Write(replica, []tla.TLAValue{}, func() tla.TLAValue {
-						var r tla.TLAValue = exprRead8.SelectElement()
+					err = iface.Write(replica, []tla.TLAValue{}, tla.TLAChoose(exprRead8, func(element tla.TLAValue) bool {
+						var r tla.TLAValue = element
 						_ = r
-						return tla.TLA_TRUE
-					}())
+						return tla.TLA_TRUE.AsBool()
+					}))
 					if err != nil {
 						return err
 					}
@@ -1189,11 +1189,11 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 					if err != nil {
 						return err
 					}
-					err = iface.Write(replica2, []tla.TLAValue{}, func() tla.TLAValue {
-						var r0 tla.TLAValue = exprRead38.SelectElement()
+					err = iface.Write(replica2, []tla.TLAValue{}, tla.TLAChoose(exprRead38, func(element0 tla.TLAValue) bool {
+						var r0 tla.TLAValue = element0
 						_ = r0
-						return tla.TLA_TRUE
-					}())
+						return tla.TLA_TRUE.AsBool()
+					}))
 					if err != nil {
 						return err
 					}

@@ -79,15 +79,19 @@ trait MPCalParser extends PCalParser {
 
   def mpcalInstance(implicit ctx: MPCalParserContext): Parser[MPCalInstance] =
     withSourceLocation {
-      ((("fair" ~> ws ~> "+" ^^^ PCalFairness.StrongFair) | ("fair" ^^^ PCalFairness.WeakFair) | success(PCalFairness.Unfair)) ~
-        (ws ~> "process" ~> ws ~> "(" ~> pcalVarDeclBound <~ ws <~ ")") ~
-        (ws ~> "==" ~> ws ~> "instance" ~> ws ~> tlaIdentifierExpr) ~
-        (ws ~> "(" ~> ws ~> repsep(mpcalParamExpr ^^ {
-          case TLAExtensionExpression(pExp: MPCalRefExpr) => Left(pExp)
-          case expr: TLAExpression => Right(expr)
-        }, ws ~> "," ~> ws) <~ ws <~ ")")
+      val origCtx = ctx
+      (((("fair" ~> ws ~> "+" ^^^ PCalFairness.StrongFair) | ("fair" ^^^ PCalFairness.WeakFair) | success(PCalFairness.Unfair)) ~
+        (ws ~> "process" ~> ws ~> "(" ~> pcalVarDeclBound <~ ws <~ ")")).flatMap {
+        case fairness ~ nameDecl =>
+          implicit val ctx: MPCalParserContext = origCtx.withDefinition(nameDecl)
+          ((ws ~> "==" ~> ws ~> "instance" ~> ws ~> tlaIdentifierExpr) ~
+            (ws ~> "(" ~> ws ~> repsep(mpcalParamExpr ^^ {
+              case TLAExtensionExpression(pExp: MPCalRefExpr) => Left(pExp)
+              case expr: TLAExpression => Right(expr)
+            }, ws ~> "," ~> ws) <~ ws <~ ")")) ^^ { parts => (fairness, nameDecl, parts) }
+        }
         ).flatMap {
-        case fairness ~ nameDecl ~ target ~ arguments =>
+        case (fairness, nameDecl, target ~ arguments) =>
           val namePosMapping = arguments.view.zipWithIndex.collect {
             case (Left(param), idx) => param.name.id -> idx
           }.toMap

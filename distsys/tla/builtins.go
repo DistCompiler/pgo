@@ -151,3 +151,18 @@ func TLAFunctionSubstitution(source TLAValue, substitutions []TLAFunctionSubstit
 	}
 	return source
 }
+
+func TLAChoose(setVal TLAValue, pred func(value TLAValue) bool) TLAValue {
+	set := setVal.AsSet()
+	it := set.Iterator()
+	for !it.Done() {
+		elem, _ := it.Next()
+		elemV := elem.(TLAValue)
+		if pred(elemV) {
+			return elemV
+		}
+	}
+
+	require(false, "CHOOSE could not be satisfied; entire set of candidates exhausted")
+	panic("UNREACHABLE")
+}
