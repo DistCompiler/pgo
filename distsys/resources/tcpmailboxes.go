@@ -515,9 +515,9 @@ func (res *tcpMailboxesRemote) Close() error {
 	return err
 }
 
-func TCPMailboxesLengthMaker(incMap distsys.ArchetypeResource) distsys.ArchetypeResourceMaker {
+func TCPMailboxesLengthMaker(mailboxes distsys.ArchetypeResource) distsys.ArchetypeResourceMaker {
 	return IncrementalMapMaker(func(index tla.TLAValue) distsys.ArchetypeResourceMaker {
-		mailbox, err := incMap.Index(index)
+		mailbox, err := mailboxes.Index(index)
 		if err != nil {
 			panic(fmt.Errorf("wrong index for tcpmailboxes length: %s", err))
 		}

@@ -43,17 +43,8 @@ func getNetworkMaker(self tla.TLAValue, constantsIFace distsys.ArchetypeInterfac
 	)
 }
 
-func runArchetype(done <-chan struct{}, ctx *distsys.MPCalContext, fn func() error) error {
-	go func() {
-		<-done
-		if cerr := ctx.Close(); cerr != nil {
-			log.Println(cerr)
-		}
-	}()
+func runArchetype(fn func() error) error {
 	err := fn()
-	if cerr := ctx.Close(); cerr != nil {
-		log.Println(cerr)
-	}
 	if err == distsys.ErrContextClosed {
 		return nil
 	}
@@ -74,10 +65,13 @@ func genClientRun() func() tla.TLAValue {
 	}
 }
 
+const numServers = 2
+const numClients = 1
+
 func withConstantConfigs(configFns ...distsys.MPCalContextConfigFn) []distsys.MPCalContextConfigFn {
 	var constantConfigs = []distsys.MPCalContextConfigFn{
-		distsys.DefineConstantValue("NUM_SERVERS", tla.MakeTLANumber(2)),
-		distsys.DefineConstantValue("NUM_CLIENTS", tla.MakeTLANumber(1)),
+		distsys.DefineConstantValue("NUM_SERVERS", tla.MakeTLANumber(numServers)),
+		distsys.DefineConstantValue("NUM_CLIENTS", tla.MakeTLANumber(numClients)),
 		distsys.DefineConstantValue("EXPLORE_FAIL", tla.TLA_FALSE),
 		distsys.DefineConstantOperator("CLIENT_RUN", genClientRun()),
 	}
@@ -90,24 +84,22 @@ func withConstantConfigs(configFns ...distsys.MPCalContextConfigFn) []distsys.MP
 
 var constantsIFace = distsys.NewMPCalContextWithoutArchetype(withConstantConfigs()...).IFace()
 
-func runServer(done <-chan struct{}, self tla.TLAValue, mon *resources.Monitor) error {
+func getServerCtx(self tla.TLAValue) *distsys.MPCalContext {
 	ctx := distsys.NewMPCalContext(self, proxy.AServer, withConstantConfigs(
 		distsys.EnsureArchetypeRefParam("net", getNetworkMaker(self, constantsIFace)),
 		distsys.EnsureArchetypeRefParam("fd", resources.PlaceHolderResourceMaker()),
 		distsys.EnsureArchetypeRefParam("netEnabled", resources.PlaceHolderResourceMaker()))...)
-	return runArchetype(done, ctx, func() error {
-		return mon.RunArchetype(ctx)
-	})
+	return ctx
 }
 
-func runClient(done <-chan struct{}, self tla.TLAValue, outputChannel chan tla.TLAValue) error {
+func getClientCtx(self tla.TLAValue, outputChannel chan tla.TLAValue) *distsys.MPCalContext {
 	ctx := distsys.NewMPCalContext(self, proxy.AClient, withConstantConfigs(
 		distsys.EnsureArchetypeRefParam("net", getNetworkMaker(self, constantsIFace)),
 		distsys.EnsureArchetypeRefParam("output", resources.OutputChannelMaker(outputChannel)))...)
-	return runArchetype(done, ctx, ctx.Run)
+	return ctx
 }
 
-func runProxy(done <-chan struct{}, self tla.TLAValue) error {
+func getProxyCtx(self tla.TLAValue) *distsys.MPCalContext {
 	ctx := distsys.NewMPCalContext(self, proxy.AProxy, withConstantConfigs(
 		distsys.EnsureArchetypeRefParam("net", getNetworkMaker(self, constantsIFace)),
 		distsys.EnsureArchetypeRefParam("fd", resources.FailureDetectorMaker(
@@ -117,7 +109,7 @@ func runProxy(done <-chan struct{}, self tla.TLAValue) error {
 			resources.WithFailureDetectorPullInterval(time.Millisecond*500),
 			resources.WithFailureDetectorTimeout(time.Second*3000),
 		)))...)
-	return runArchetype(done, ctx, ctx.Run)
+	return ctx
 }
 
 func setupMonitor() *resources.Monitor {
@@ -131,29 +123,37 @@ func setupMonitor() *resources.Monitor {
 }
 
 func TestProxy_AllServersRunning(t *testing.T) {
-	const numRunningArchetypes = 4
-
 	outputChannel := make(chan tla.TLAValue)
 	mon := setupMonitor()
-	done := make(chan struct{})
 	errs := make(chan error)
+
+	var ctxs []*distsys.MPCalContext
+	for i := 1; i <= numServers; i++ {
+		serverCtx := getServerCtx(tla.MakeTLANumber(int32(i)))
+		ctxs = append(ctxs, serverCtx)
+		go func() {
+			errs <- runArchetype(func() error {
+				return mon.RunArchetype(serverCtx)
+			})
+		}()
+	}
+	proxyCtx := getProxyCtx(tla.MakeTLANumber(4))
+	ctxs = append(ctxs, proxyCtx)
 	go func() {
-		errs <- runServer(done, tla.MakeTLANumber(1), mon)
+		errs <- runArchetype(proxyCtx.Run)
 	}()
+	clientCtx := getClientCtx(tla.MakeTLANumber(3), outputChannel)
+	ctxs = append(ctxs, clientCtx)
 	go func() {
-		errs <- runServer(done, tla.MakeTLANumber(2), mon)
-	}()
-	go func() {
-		errs <- runProxy(done, tla.MakeTLANumber(4))
-	}()
-	go func() {
-		errs <- runClient(done, tla.MakeTLANumber(3), outputChannel)
+		errs <- runArchetype(clientCtx.Run)
 	}()
 	defer func() {
-		for i := 0; i < numRunningArchetypes; i++ {
-			done <- struct{}{}
+		for _, ctx := range ctxs {
+			if err := ctx.Close(); err != nil {
+				log.Println(err)
+			}
 		}
-		for i := 0; i < numRunningArchetypes; i++ {
+		for i := 0; i < len(ctxs); i++ {
 			err := <-errs
 			if err != nil {
 				t.Errorf("archetype error: %s", err)
@@ -181,26 +181,35 @@ func TestProxy_AllServersRunning(t *testing.T) {
 }
 
 func TestProxy_SecondServerRunning(t *testing.T) {
-	const numRunningArchetypes = 3
-
 	outputChannel := make(chan tla.TLAValue)
 	mon := setupMonitor()
-	done := make(chan struct{})
 	errs := make(chan error)
+
+	var ctxs []*distsys.MPCalContext
+	secondServerCtx := getServerCtx(tla.MakeTLANumber(2))
+	ctxs = append(ctxs, secondServerCtx)
 	go func() {
-		errs <- runServer(done, tla.MakeTLANumber(2), mon)
+		errs <- runArchetype(func() error {
+			return mon.RunArchetype(secondServerCtx)
+		})
 	}()
+	proxyCtx := getProxyCtx(tla.MakeTLANumber(4))
+	ctxs = append(ctxs, proxyCtx)
 	go func() {
-		errs <- runProxy(done, tla.MakeTLANumber(4))
+		errs <- runArchetype(proxyCtx.Run)
 	}()
+	clientCtx := getClientCtx(tla.MakeTLANumber(3), outputChannel)
+	ctxs = append(ctxs, clientCtx)
 	go func() {
-		errs <- runClient(done, tla.MakeTLANumber(3), outputChannel)
+		errs <- runArchetype(clientCtx.Run)
 	}()
 	defer func() {
-		for i := 0; i < numRunningArchetypes; i++ {
-			done <- struct{}{}
+		for _, ctx := range ctxs {
+			if err := ctx.Close(); err != nil {
+				log.Println(err)
+			}
 		}
-		for i := 0; i < numRunningArchetypes; i++ {
+		for i := 0; i < len(ctxs); i++ {
 			err := <-errs
 			if err != nil {
 				t.Errorf("archetype error: %s", err)
@@ -228,23 +237,28 @@ func TestProxy_SecondServerRunning(t *testing.T) {
 }
 
 func TestProxy_NoServerRunning(t *testing.T) {
-	const numRunningArchetypes = 2
-
 	outputChannel := make(chan tla.TLAValue)
 	mon := setupMonitor()
-	done := make(chan struct{})
 	errs := make(chan error)
+
+	var ctxs []*distsys.MPCalContext
+	proxyCtx := getProxyCtx(tla.MakeTLANumber(4))
+	ctxs = append(ctxs, proxyCtx)
 	go func() {
-		errs <- runProxy(done, tla.MakeTLANumber(4))
+		errs <- runArchetype(proxyCtx.Run)
 	}()
+	clientCtx := getClientCtx(tla.MakeTLANumber(3), outputChannel)
+	ctxs = append(ctxs, clientCtx)
 	go func() {
-		errs <- runClient(done, tla.MakeTLANumber(3), outputChannel)
+		errs <- runArchetype(clientCtx.Run)
 	}()
 	defer func() {
-		for i := 0; i < numRunningArchetypes; i++ {
-			done <- struct{}{}
+		for _, ctx := range ctxs {
+			if err := ctx.Close(); err != nil {
+				log.Println(err)
+			}
 		}
-		for i := 0; i < numRunningArchetypes; i++ {
+		for i := 0; i < len(ctxs); i++ {
 			err := <-errs
 			if err != nil {
 				t.Errorf("archetype error: %s", err)
@@ -270,28 +284,35 @@ func TestProxy_NoServerRunning(t *testing.T) {
 func TestProxy_FirstServerCrashing(t *testing.T) {
 	outputChannel := make(chan tla.TLAValue)
 	mon := setupMonitor()
-	firstServerDone := make(chan struct{})
-	firstServerErr := make(chan error)
-	done := make(chan struct{})
 	errs := make(chan error)
+
+	var ctxs []*distsys.MPCalContext
+	for i := 1; i <= numServers; i++ {
+		serverCtx := getServerCtx(tla.MakeTLANumber(int32(i)))
+		ctxs = append(ctxs, serverCtx)
+		go func() {
+			errs <- runArchetype(func() error {
+				return mon.RunArchetype(serverCtx)
+			})
+		}()
+	}
+	proxyCtx := getProxyCtx(tla.MakeTLANumber(4))
+	ctxs = append(ctxs, proxyCtx)
 	go func() {
-		firstServerErr <- runServer(firstServerDone, tla.MakeTLANumber(1), mon)
+		errs <- runArchetype(proxyCtx.Run)
 	}()
+	clientCtx := getClientCtx(tla.MakeTLANumber(3), outputChannel)
+	ctxs = append(ctxs, clientCtx)
 	go func() {
-		errs <- runServer(done, tla.MakeTLANumber(2), mon)
-	}()
-	go func() {
-		errs <- runProxy(done, tla.MakeTLANumber(4))
-	}()
-	go func() {
-		errs <- runClient(done, tla.MakeTLANumber(3), outputChannel)
+		errs <- runArchetype(clientCtx.Run)
 	}()
 	defer func() {
-		numRunningArchetypes := 3 // excluding the first server
-		for i := 0; i < numRunningArchetypes; i++ {
-			done <- struct{}{}
+		for _, ctx := range ctxs {
+			if err := ctx.Close(); err != nil {
+				log.Println(err)
+			}
 		}
-		for i := 0; i < numRunningArchetypes; i++ {
+		for i := 0; i < len(ctxs); i++ {
 			err := <-errs
 			if err != nil {
 				t.Errorf("archetype error: %s", err)
@@ -317,9 +338,8 @@ func TestProxy_FirstServerCrashing(t *testing.T) {
 		}
 	}
 
-	firstServerDone <- struct{}{}
-	if err := <-firstServerErr; err != nil {
-		t.Errorf("first server error: %v", err)
+	if err := ctxs[0].Close(); err != nil {
+		log.Printf("error in closing first server context: %s", err)
 	}
 
 	for i := 0; i < numRequests/2; i++ {

@@ -258,7 +258,7 @@ func TestPBKVS_ThreeReplicasConcurrentPut(t *testing.T) {
 		}()
 	}
 	ctxs := append(replicaCtxs, putCtxs...)
-	defer func() {
+	cleanup := func() {
 		for _, ctx := range ctxs {
 			if err := ctx.Close(); err != nil {
 				log.Println(err)
@@ -273,7 +273,7 @@ func TestPBKVS_ThreeReplicasConcurrentPut(t *testing.T) {
 		if err := mon.Close(); err != nil {
 			log.Println(err)
 		}
-	}()
+	}
 
 	key := tla.MakeTLAString("KEY1")
 	for i := 0; i < numReqs; i++ {
@@ -290,6 +290,8 @@ func TestPBKVS_ThreeReplicasConcurrentPut(t *testing.T) {
 			t.Fatal("timeout")
 		}
 	}
+
+	cleanup()
 
 	getVal := func(ctx *distsys.MPCalContext) (tla.TLAValue, error) {
 		fs, err := ctx.IFace().RequireArchetypeResourceRef("AReplica.fs")
@@ -350,7 +352,7 @@ func TestPBKVS_ThreeReplicasOneCrashConcurrentPut(t *testing.T) {
 		}()
 	}
 	ctxs := append(replicaCtxs, putCtxs...)
-	defer func() {
+	cleanup := func() {
 		for _, ctx := range ctxs {
 			if err := ctx.Close(); err != nil {
 				log.Println(err)
@@ -365,7 +367,7 @@ func TestPBKVS_ThreeReplicasOneCrashConcurrentPut(t *testing.T) {
 		if err := mon.Close(); err != nil {
 			log.Println(err)
 		}
-	}()
+	}
 
 	key := tla.MakeTLAString("KEY1")
 	for i := 0; i < numReqs; i++ {
@@ -387,6 +389,8 @@ func TestPBKVS_ThreeReplicasOneCrashConcurrentPut(t *testing.T) {
 			t.Fatal("timeout")
 		}
 	}
+
+	cleanup()
 
 	getVal := func(ctx *distsys.MPCalContext) (tla.TLAValue, error) {
 		fs, err := ctx.IFace().RequireArchetypeResourceRef("AReplica.fs")
