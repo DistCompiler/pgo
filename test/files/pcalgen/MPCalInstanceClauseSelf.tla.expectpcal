@@ -1,0 +1,31 @@
+---- MODULE MPCalInstanceClauseSelf ----
+EXTENDS Sequences, TLC, FiniteSets
+
+(*
+--mpcal MPCalInstanceClauseSelf {
+    archetype Foo(x) {
+        lbl: skip;
+    }
+
+    process (Bar = 42) == instance Foo(Bar);
+}
+
+\* BEGIN PLUSCAL TRANSLATION
+--algorithm MPCalInstanceClauseSelf {
+  
+  process (Bar = 42)
+    variables x = self;
+  {
+    lbl:
+      skip;
+      goto Done;
+  }
+}
+
+\* END PLUSCAL TRANSLATION
+
+*)
+
+\* BEGIN TRANSLATION
+
+====
