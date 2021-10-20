@@ -355,7 +355,13 @@ object MPCalPCalCodegenPass {
                 substitutionsBuilder += param -> arg.refersTo
               }
             case Right(expr) -> param =>
-              variables += PCalVariableDeclarationValue(TLAIdentifier(stateVarNameCleaner.cleanName(param.name.id)), expr)
+              // expr might contain references to the process's ID alias. replace them with "self" ids,
+              // still referring to selfDecl, so that the generated PlusCal just contains references to "self" in the right place(s)
+              variables += PCalVariableDeclarationValue(TLAIdentifier(stateVarNameCleaner.cleanName(param.name.id)), expr.rewrite(Rewritable.TopDownFirstStrategy) {
+                case ident@TLAGeneralIdentifier(_, _) if ident.refersTo eq selfDecl =>
+                  TLAGeneralIdentifier(TLAIdentifier("self"), Nil)
+                    .setRefersTo(selfDecl)
+              })
               substitutionsBuilder += param -> variables.last
           }
           val substitutions = substitutionsBuilder.to(ById.mapFactory)
