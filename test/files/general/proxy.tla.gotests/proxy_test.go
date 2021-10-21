@@ -14,7 +14,7 @@ import (
 )
 
 const numRequests = 10
-const testTimeout = 60 * time.Second
+const testTimeout = 30 * time.Second
 
 func TestNUM_NODES(t *testing.T) {
 	ctx := distsys.NewMPCalContextWithoutArchetype(
@@ -106,8 +106,8 @@ func getProxyCtx(self tla.TLAValue) *distsys.MPCalContext {
 			func(idx tla.TLAValue) string {
 				return monAddr
 			},
-			resources.WithFailureDetectorPullInterval(time.Millisecond*500),
-			resources.WithFailureDetectorTimeout(time.Second*3000),
+			resources.WithFailureDetectorPullInterval(time.Millisecond*200),
+			resources.WithFailureDetectorTimeout(time.Millisecond*500),
 		)))...)
 	return ctx
 }

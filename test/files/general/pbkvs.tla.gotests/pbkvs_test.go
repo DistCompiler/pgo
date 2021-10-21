@@ -13,7 +13,7 @@ import (
 	"github.com/UBC-NSS/pgo/distsys/tla"
 )
 
-const testTimeout = 60 * time.Second
+const testTimeout = 30 * time.Second
 
 func getNetworkMaker(self tla.TLAValue, constIFace distsys.ArchetypeInterface) distsys.ArchetypeResourceMaker {
 	return resources.TCPMailboxesMaker(
@@ -52,9 +52,13 @@ func getReplicaFSCtx(self tla.TLAValue, constants []distsys.MPCalContextConfigFn
 			}
 			return resources.FileSystemMaker(fmt.Sprintf("data/%v", self))
 		})),
-		distsys.EnsureArchetypeRefParam("fd", resources.FailureDetectorMaker(func(index tla.TLAValue) string {
-			return monAddr
-		})),
+		distsys.EnsureArchetypeRefParam("fd", resources.FailureDetectorMaker(
+			func(index tla.TLAValue) string {
+				return monAddr
+			},
+			resources.WithFailureDetectorPullInterval(time.Millisecond*200),
+			resources.WithFailureDetectorTimeout(time.Millisecond*500),
+		)),
 		distsys.EnsureArchetypeRefParam("netEnabled", resources.PlaceHolderResourceMaker()),
 		distsys.EnsureArchetypeRefParam("primary", pbkvs.LeaderElectionMaker()),
 		distsys.EnsureArchetypeDerivedRefParam("netLen", "net", resources.TCPMailboxesLengthMaker),
@@ -74,9 +78,13 @@ func getReplicaMapCtx(self tla.TLAValue, constants []distsys.MPCalContextConfigF
 				return distsys.LocalArchetypeResourceMaker(tla.MakeTLAString(""))
 			})
 		})),
-		distsys.EnsureArchetypeRefParam("fd", resources.FailureDetectorMaker(func(index tla.TLAValue) string {
-			return monAddr
-		})),
+		distsys.EnsureArchetypeRefParam("fd", resources.FailureDetectorMaker(
+			func(index tla.TLAValue) string {
+				return monAddr
+			},
+			resources.WithFailureDetectorPullInterval(time.Millisecond*200),
+			resources.WithFailureDetectorTimeout(time.Millisecond*500),
+		)),
 		distsys.EnsureArchetypeRefParam("netEnabled", resources.PlaceHolderResourceMaker()),
 		distsys.EnsureArchetypeRefParam("primary", pbkvs.LeaderElectionMaker()),
 		distsys.EnsureArchetypeDerivedRefParam("netLen", "net", resources.TCPMailboxesLengthMaker),
@@ -89,9 +97,13 @@ func getPutClientCtx(self tla.TLAValue, constants []distsys.MPCalContextConfigFn
 	var constIFace = distsys.NewMPCalContextWithoutArchetype(constants...).IFace()
 	ctx := distsys.NewMPCalContext(self, pbkvs.APutClient, append(constants,
 		distsys.EnsureArchetypeRefParam("net", getNetworkMaker(self, constIFace)),
-		distsys.EnsureArchetypeRefParam("fd", resources.FailureDetectorMaker(func(index tla.TLAValue) string {
-			return monAddr
-		})),
+		distsys.EnsureArchetypeRefParam("fd", resources.FailureDetectorMaker(
+			func(index tla.TLAValue) string {
+				return monAddr
+			},
+			resources.WithFailureDetectorPullInterval(time.Millisecond*200),
+			resources.WithFailureDetectorTimeout(time.Millisecond*500),
+		)),
 		distsys.EnsureArchetypeRefParam("primary", pbkvs.LeaderElectionMaker()),
 		distsys.EnsureArchetypeDerivedRefParam("netLen", "net", resources.TCPMailboxesLengthMaker),
 		distsys.EnsureArchetypeRefParam("input", resources.InputChannelMaker(inChan)),
@@ -105,9 +117,13 @@ func getGetClientCtx(self tla.TLAValue, constants []distsys.MPCalContextConfigFn
 	var constIFace = distsys.NewMPCalContextWithoutArchetype(constants...).IFace()
 	ctx := distsys.NewMPCalContext(self, pbkvs.AGetClient, append(constants,
 		distsys.EnsureArchetypeRefParam("net", getNetworkMaker(self, constIFace)),
-		distsys.EnsureArchetypeRefParam("fd", resources.FailureDetectorMaker(func(index tla.TLAValue) string {
-			return monAddr
-		})),
+		distsys.EnsureArchetypeRefParam("fd", resources.FailureDetectorMaker(
+			func(index tla.TLAValue) string {
+				return monAddr
+			},
+			resources.WithFailureDetectorPullInterval(time.Millisecond*200),
+			resources.WithFailureDetectorTimeout(time.Millisecond*500),
+		)),
 		distsys.EnsureArchetypeRefParam("primary", pbkvs.LeaderElectionMaker()),
 		distsys.EnsureArchetypeDerivedRefParam("netLen", "net", resources.TCPMailboxesLengthMaker),
 		distsys.EnsureArchetypeRefParam("input", resources.InputChannelMaker(inChan)),
