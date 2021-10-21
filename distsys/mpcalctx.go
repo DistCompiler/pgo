@@ -516,6 +516,13 @@ func (ctx *MPCalContext) preRun() {
 // - ErrAssertionFailed: an assertion in the MPCal code failed (this error will be wrapped by a string describing the assertion)
 // - ErrProcedureFallthrough: the Error label was reached, which is an error in the MPCal code
 func (ctx *MPCalContext) Run() error {
+	ctx.lock.Lock()
+	if ctx.closed {
+		ctx.lock.Unlock()
+		return ErrContextClosed
+	}
+	ctx.lock.Unlock()
+
 	// report start, and defer reporting completion to whenever this function returns
 	ctx.reportEvent(archetypeStarted)
 	defer ctx.reportEvent(archetypeFinished)
