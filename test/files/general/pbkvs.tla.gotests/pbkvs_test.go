@@ -13,7 +13,7 @@ import (
 	"github.com/UBC-NSS/pgo/distsys/tla"
 )
 
-const testTimeout = 10 * time.Second
+const testTimeout = 60 * time.Second
 
 func getNetworkMaker(self tla.TLAValue, constIFace distsys.ArchetypeInterface) distsys.ArchetypeResourceMaker {
 	return resources.TCPMailboxesMaker(
