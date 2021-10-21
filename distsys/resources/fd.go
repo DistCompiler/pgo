@@ -214,6 +214,8 @@ type singleFailureDetector struct {
 
 	lock  sync.RWMutex
 	state ArchetypeState
+
+	done chan struct{}
 }
 
 type FailureDetectorOption func(fd *singleFailureDetector)
@@ -274,8 +276,15 @@ func (res *singleFailureDetector) ensureClient() error {
 }
 
 func (res *singleFailureDetector) mainLoop() {
+	res.done = make(chan struct{})
 	res.ticker = time.NewTicker(res.pullInterval)
 	for range res.ticker.C {
+		select {
+		case <-res.done:
+			break
+		default:
+		}
+
 		oldState := res.getState()
 
 		err := res.ensureClient()
@@ -352,6 +361,9 @@ func (res *singleFailureDetector) WriteValue(value tla.TLAValue) error {
 
 func (res *singleFailureDetector) Close() error {
 	var err error
+	if res.done != nil {
+		res.done <- struct{}{}
+	}
 	if res.ticker != nil {
 		res.ticker.Stop()
 	}

@@ -14,7 +14,7 @@ import (
 )
 
 const numRequests = 10
-const testTimeout = 30 * time.Second
+const testTimeout = 120 * time.Second
 
 func TestNUM_NODES(t *testing.T) {
 	ctx := distsys.NewMPCalContextWithoutArchetype(
@@ -167,6 +167,7 @@ func TestProxy_AllServersRunning(t *testing.T) {
 	for i := 0; i < numRequests; i++ {
 		select {
 		case resp := <-outputChannel:
+			t.Log(resp)
 			val, ok := resp.AsFunction().Get(tla.MakeTLAString("body"))
 			if !ok {
 				t.Fatalf("response body not found")
@@ -223,6 +224,7 @@ func TestProxy_SecondServerRunning(t *testing.T) {
 	for i := 0; i < numRequests; i++ {
 		select {
 		case resp := <-outputChannel:
+			t.Log(resp)
 			val, ok := resp.AsFunction().Get(tla.MakeTLAString("body"))
 			if !ok {
 				t.Fatalf("response body not found")
@@ -270,13 +272,18 @@ func TestProxy_NoServerRunning(t *testing.T) {
 	}()
 
 	for i := 0; i < numRequests; i++ {
-		resp := <-outputChannel
-		val, ok := resp.AsFunction().Get(tla.MakeTLAString("body"))
-		if !ok {
-			t.Fatalf("response body not found")
-		}
-		if !val.(tla.TLAValue).Equal(proxy.FAIL(constantsIFace)) {
-			t.Fatalf("wrong response body, got %v, expected %v", val.(tla.TLAValue), proxy.FAIL(constantsIFace))
+		select {
+		case resp := <-outputChannel:
+			t.Log(resp)
+			val, ok := resp.AsFunction().Get(tla.MakeTLAString("body"))
+			if !ok {
+				t.Fatalf("response body not found")
+			}
+			if !val.(tla.TLAValue).Equal(proxy.FAIL(constantsIFace)) {
+				t.Fatalf("wrong response body, got %v, expected %v", val.(tla.TLAValue), proxy.FAIL(constantsIFace))
+			}
+		case <-time.After(testTimeout):
+			t.Fatal("timeout")
 		}
 	}
 }
