@@ -14,7 +14,7 @@ import (
 )
 
 const numRequests = 10
-const testTimeout = 2 * time.Second
+const testTimeout = 10 * time.Second
 
 func TestNUM_NODES(t *testing.T) {
 	ctx := distsys.NewMPCalContextWithoutArchetype(

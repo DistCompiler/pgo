@@ -516,14 +516,14 @@ func (ctx *MPCalContext) preRun() {
 // - ErrAssertionFailed: an assertion in the MPCal code failed (this error will be wrapped by a string describing the assertion)
 // - ErrProcedureFallthrough: the Error label was reached, which is an error in the MPCal code
 func (ctx *MPCalContext) Run() error {
+	// report start, and defer reporting completion to whenever this function returns
+	ctx.reportEvent(archetypeStarted)
+	defer ctx.reportEvent(archetypeFinished)
+
 	// pre-sanity checks: an archetype should be provided if we're going to try and run one
 	ctx.requireArchetype()
 	// sanity checks and other setup, done here so you can init a context, not call Run, and not get checks
 	ctx.preRun()
-
-	// report start, and defer reporting completion to whenever this function returns
-	ctx.reportEvent(archetypeStarted)
-	defer ctx.reportEvent(archetypeFinished)
 
 	pc := ctx.iface.RequireArchetypeResource(".pc")
 	var err error
