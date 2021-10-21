@@ -14,7 +14,7 @@ import (
 )
 
 const numRequests = 10
-const testTimeout = 120 * time.Second
+const testTimeout = 20 * time.Second
 
 func TestNUM_NODES(t *testing.T) {
 	ctx := distsys.NewMPCalContextWithoutArchetype(
@@ -53,18 +53,6 @@ func runArchetype(fn func() error) error {
 
 const monAddr = "localhost:9000"
 
-func genClientRun() func() tla.TLAValue {
-	cnt := 0
-	return func() tla.TLAValue {
-		res := tla.TLA_FALSE
-		if cnt < numRequests {
-			res = tla.TLA_TRUE
-		}
-		cnt++
-		return res
-	}
-}
-
 const numServers = 2
 const numClients = 1
 
@@ -73,7 +61,7 @@ func withConstantConfigs(configFns ...distsys.MPCalContextConfigFn) []distsys.MP
 		distsys.DefineConstantValue("NUM_SERVERS", tla.MakeTLANumber(numServers)),
 		distsys.DefineConstantValue("NUM_CLIENTS", tla.MakeTLANumber(numClients)),
 		distsys.DefineConstantValue("EXPLORE_FAIL", tla.TLA_FALSE),
-		distsys.DefineConstantOperator("CLIENT_RUN", genClientRun()),
+		distsys.DefineConstantValue("CLIENT_RUN", tla.TLA_TRUE),
 	}
 
 	var result []distsys.MPCalContextConfigFn
@@ -92,10 +80,11 @@ func getServerCtx(self tla.TLAValue) *distsys.MPCalContext {
 	return ctx
 }
 
-func getClientCtx(self tla.TLAValue, outputChannel chan tla.TLAValue) *distsys.MPCalContext {
+func getClientCtx(self tla.TLAValue, inChan chan tla.TLAValue, outChan chan tla.TLAValue) *distsys.MPCalContext {
 	ctx := distsys.NewMPCalContext(self, proxy.AClient, withConstantConfigs(
 		distsys.EnsureArchetypeRefParam("net", getNetworkMaker(self, constantsIFace)),
-		distsys.EnsureArchetypeRefParam("output", resources.OutputChannelMaker(outputChannel)))...)
+		distsys.EnsureArchetypeRefParam("input", resources.InputChannelMaker(inChan)),
+		distsys.EnsureArchetypeRefParam("output", resources.OutputChannelMaker(outChan)))...)
 	return ctx
 }
 
@@ -123,7 +112,8 @@ func setupMonitor() *resources.Monitor {
 }
 
 func TestProxy_AllServersRunning(t *testing.T) {
-	outputChannel := make(chan tla.TLAValue)
+	inChan := make(chan tla.TLAValue, numRequests)
+	outChan := make(chan tla.TLAValue, numRequests)
 	mon := setupMonitor()
 	errs := make(chan error)
 
@@ -142,7 +132,7 @@ func TestProxy_AllServersRunning(t *testing.T) {
 	go func() {
 		errs <- runArchetype(proxyCtx.Run)
 	}()
-	clientCtx := getClientCtx(tla.MakeTLANumber(3), outputChannel)
+	clientCtx := getClientCtx(tla.MakeTLANumber(3), inChan, outChan)
 	ctxs = append(ctxs, clientCtx)
 	go func() {
 		errs <- runArchetype(clientCtx.Run)
@@ -165,8 +155,11 @@ func TestProxy_AllServersRunning(t *testing.T) {
 	}()
 
 	for i := 0; i < numRequests; i++ {
+		inChan <- tla.MakeTLANumber(int32(i))
+	}
+	for i := 0; i < numRequests; i++ {
 		select {
-		case resp := <-outputChannel:
+		case resp := <-outChan:
 			t.Log(resp)
 			val, ok := resp.AsFunction().Get(tla.MakeTLAString("body"))
 			if !ok {
@@ -182,7 +175,8 @@ func TestProxy_AllServersRunning(t *testing.T) {
 }
 
 func TestProxy_SecondServerRunning(t *testing.T) {
-	outputChannel := make(chan tla.TLAValue)
+	inChan := make(chan tla.TLAValue, numRequests)
+	outChan := make(chan tla.TLAValue, numRequests)
 	mon := setupMonitor()
 	errs := make(chan error)
 
@@ -199,7 +193,7 @@ func TestProxy_SecondServerRunning(t *testing.T) {
 	go func() {
 		errs <- runArchetype(proxyCtx.Run)
 	}()
-	clientCtx := getClientCtx(tla.MakeTLANumber(3), outputChannel)
+	clientCtx := getClientCtx(tla.MakeTLANumber(3), inChan, outChan)
 	ctxs = append(ctxs, clientCtx)
 	go func() {
 		errs <- runArchetype(clientCtx.Run)
@@ -222,8 +216,11 @@ func TestProxy_SecondServerRunning(t *testing.T) {
 	}()
 
 	for i := 0; i < numRequests; i++ {
+		inChan <- tla.MakeTLANumber(int32(i))
+	}
+	for i := 0; i < numRequests; i++ {
 		select {
-		case resp := <-outputChannel:
+		case resp := <-outChan:
 			t.Log(resp)
 			val, ok := resp.AsFunction().Get(tla.MakeTLAString("body"))
 			if !ok {
@@ -239,7 +236,8 @@ func TestProxy_SecondServerRunning(t *testing.T) {
 }
 
 func TestProxy_NoServerRunning(t *testing.T) {
-	outputChannel := make(chan tla.TLAValue)
+	inChan := make(chan tla.TLAValue, numRequests)
+	outChan := make(chan tla.TLAValue, numRequests)
 	mon := setupMonitor()
 	errs := make(chan error)
 
@@ -249,7 +247,7 @@ func TestProxy_NoServerRunning(t *testing.T) {
 	go func() {
 		errs <- runArchetype(proxyCtx.Run)
 	}()
-	clientCtx := getClientCtx(tla.MakeTLANumber(3), outputChannel)
+	clientCtx := getClientCtx(tla.MakeTLANumber(3), inChan, outChan)
 	ctxs = append(ctxs, clientCtx)
 	go func() {
 		errs <- runArchetype(clientCtx.Run)
@@ -272,8 +270,11 @@ func TestProxy_NoServerRunning(t *testing.T) {
 	}()
 
 	for i := 0; i < numRequests; i++ {
+		inChan <- tla.MakeTLANumber(int32(i))
+	}
+	for i := 0; i < numRequests; i++ {
 		select {
-		case resp := <-outputChannel:
+		case resp := <-outChan:
 			t.Log(resp)
 			val, ok := resp.AsFunction().Get(tla.MakeTLAString("body"))
 			if !ok {
@@ -289,7 +290,8 @@ func TestProxy_NoServerRunning(t *testing.T) {
 }
 
 func TestProxy_FirstServerCrashing(t *testing.T) {
-	outputChannel := make(chan tla.TLAValue)
+	inChan := make(chan tla.TLAValue, numRequests)
+	outChan := make(chan tla.TLAValue, numRequests)
 	mon := setupMonitor()
 	errs := make(chan error)
 
@@ -308,7 +310,7 @@ func TestProxy_FirstServerCrashing(t *testing.T) {
 	go func() {
 		errs <- runArchetype(proxyCtx.Run)
 	}()
-	clientCtx := getClientCtx(tla.MakeTLANumber(3), outputChannel)
+	clientCtx := getClientCtx(tla.MakeTLANumber(3), inChan, outChan)
 	ctxs = append(ctxs, clientCtx)
 	go func() {
 		errs <- runArchetype(clientCtx.Run)
@@ -330,9 +332,12 @@ func TestProxy_FirstServerCrashing(t *testing.T) {
 		}
 	}()
 
-	for i := 0; i < numRequests/2; i++ {
+	for i := 0; i < numRequests; i++ {
+		inChan <- tla.MakeTLANumber(int32(i))
+	}
+	for i := 0; i < numRequests; i++ {
 		select {
-		case resp := <-outputChannel:
+		case resp := <-outChan:
 			t.Log(resp)
 			val, ok := resp.AsFunction().Get(tla.MakeTLAString("body"))
 			if !ok {
@@ -350,16 +355,18 @@ func TestProxy_FirstServerCrashing(t *testing.T) {
 		log.Printf("error in closing first server context: %s", err)
 	}
 
-	for i := 0; i < numRequests/2; i++ {
+	for i := 0; i < numRequests; i++ {
+		inChan <- tla.MakeTLANumber(int32(i))
+	}
+	for i := 0; i < numRequests; i++ {
 		select {
-		case resp := <-outputChannel:
+		case resp := <-outChan:
 			t.Log(resp)
 			val, ok := resp.AsFunction().Get(tla.MakeTLAString("body"))
 			if !ok {
 				t.Fatalf("response body not found")
 			}
-			// first request after crash might be from server 1 or server 2
-			if i > 0 && !val.(tla.TLAValue).Equal(tla.MakeTLANumber(2)) {
+			if !val.(tla.TLAValue).Equal(tla.MakeTLANumber(2)) {
 				t.Fatalf("wrong response body, got %v, expected %v", val.(tla.TLAValue), tla.MakeTLANumber(1))
 			}
 		case <-time.After(testTimeout):

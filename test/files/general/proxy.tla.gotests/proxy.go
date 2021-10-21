@@ -587,6 +587,10 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			var err error
 			_ = err
 			req := iface.RequireArchetypeResource("AClient.req")
+			input, err := iface.RequireArchetypeResourceRef("AClient.input")
+			if err != nil {
+				return err
+			}
 			reqId := iface.RequireArchetypeResource("AClient.reqId")
 			net5, err := iface.RequireArchetypeResourceRef("AClient.net")
 			if err != nil {
@@ -594,22 +598,27 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			}
 			if iface.GetConstant("CLIENT_RUN")().AsBool() {
 				var exprRead16 tla.TLAValue
-				exprRead16, err = iface.Read(reqId, []tla.TLAValue{})
+				exprRead16, err = iface.Read(input, []tla.TLAValue{})
+				if err != nil {
+					return err
+				}
+				var exprRead17 tla.TLAValue
+				exprRead17, err = iface.Read(reqId, []tla.TLAValue{})
 				if err != nil {
 					return err
 				}
 				err = iface.Write(req, []tla.TLAValue{}, tla.MakeTLARecord([]tla.TLARecordField{
 					{tla.MakeTLAString("from"), iface.Self()},
 					{tla.MakeTLAString("to"), ProxyID(iface)},
-					{tla.MakeTLAString("body"), iface.Self()},
-					{tla.MakeTLAString("id"), exprRead16},
+					{tla.MakeTLAString("body"), exprRead16},
+					{tla.MakeTLAString("id"), exprRead17},
 					{tla.MakeTLAString("typ"), REQ_MSG_TYP(iface)},
 				}))
 				if err != nil {
 					return err
 				}
-				var exprRead17 tla.TLAValue
-				exprRead17, err = iface.Read(req, []tla.TLAValue{})
+				var exprRead18 tla.TLAValue
+				exprRead18, err = iface.Read(req, []tla.TLAValue{})
 				if err != nil {
 					return err
 				}
@@ -623,7 +632,7 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 				if err != nil {
 					return err
 				}
-				err = iface.Write(net5, []tla.TLAValue{tla.MakeTLATuple(indexRead4.ApplyFunction(tla.MakeTLAString("to")), indexRead5.ApplyFunction(tla.MakeTLAString("typ")))}, exprRead17)
+				err = iface.Write(net5, []tla.TLAValue{tla.MakeTLATuple(indexRead4.ApplyFunction(tla.MakeTLAString("to")), indexRead5.ApplyFunction(tla.MakeTLAString("typ")))}, exprRead18)
 				if err != nil {
 					return err
 				}
@@ -649,12 +658,12 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if err != nil {
 				return err
 			}
-			var exprRead18 tla.TLAValue
-			exprRead18, err = iface.Read(net6, []tla.TLAValue{tla.MakeTLATuple(iface.Self(), RESP_MSG_TYP(iface))})
+			var exprRead19 tla.TLAValue
+			exprRead19, err = iface.Read(net6, []tla.TLAValue{tla.MakeTLATuple(iface.Self(), RESP_MSG_TYP(iface))})
 			if err != nil {
 				return err
 			}
-			err = iface.Write(resp7, []tla.TLAValue{}, exprRead18)
+			err = iface.Write(resp7, []tla.TLAValue{}, exprRead19)
 			if err != nil {
 				return err
 			}
@@ -686,21 +695,21 @@ var jumpTable = distsys.MakeMPCalJumpTable(
 			if !tla.TLA_LogicalAndSymbol(tla.TLA_LogicalAndSymbol(tla.TLA_LogicalAndSymbol(tla.TLA_EqualsSymbol(condition17.ApplyFunction(tla.MakeTLAString("to")), iface.Self()), tla.TLA_EqualsSymbol(condition18.ApplyFunction(tla.MakeTLAString("id")), condition19)), tla.TLA_EqualsSymbol(condition20.ApplyFunction(tla.MakeTLAString("from")), ProxyID(iface))), tla.TLA_EqualsSymbol(condition21.ApplyFunction(tla.MakeTLAString("typ")), RESP_MSG_TYP(iface))).AsBool() {
 				return fmt.Errorf("%w: (((((resp).to) = (self)) /\\ (((resp).id) = (reqId))) /\\ (((resp).from) = (ProxyID))) /\\ (((resp).typ) = (RESP_MSG_TYP))", distsys.ErrAssertionFailed)
 			}
-			var exprRead19 tla.TLAValue
-			exprRead19, err = iface.Read(reqId0, []tla.TLAValue{})
-			if err != nil {
-				return err
-			}
-			err = iface.Write(reqId0, []tla.TLAValue{}, tla.TLA_PercentSymbol(tla.TLA_PlusSymbol(exprRead19, tla.MakeTLANumber(1)), MSG_ID_BOUND(iface)))
-			if err != nil {
-				return err
-			}
 			var exprRead20 tla.TLAValue
-			exprRead20, err = iface.Read(resp7, []tla.TLAValue{})
+			exprRead20, err = iface.Read(reqId0, []tla.TLAValue{})
 			if err != nil {
 				return err
 			}
-			err = iface.Write(output, []tla.TLAValue{}, exprRead20)
+			err = iface.Write(reqId0, []tla.TLAValue{}, tla.TLA_PercentSymbol(tla.TLA_PlusSymbol(exprRead20, tla.MakeTLANumber(1)), MSG_ID_BOUND(iface)))
+			if err != nil {
+				return err
+			}
+			var exprRead21 tla.TLAValue
+			exprRead21, err = iface.Read(resp7, []tla.TLAValue{})
+			if err != nil {
+				return err
+			}
+			err = iface.Write(output, []tla.TLAValue{}, exprRead21)
 			if err != nil {
 				return err
 			}
@@ -747,7 +756,7 @@ var AServer = distsys.MPCalArchetype{
 var AClient = distsys.MPCalArchetype{
 	Name:              "AClient",
 	Label:             "AClient.clientLoop",
-	RequiredRefParams: []string{"AClient.net", "AClient.output"},
+	RequiredRefParams: []string{"AClient.net", "AClient.input", "AClient.output"},
 	RequiredValParams: []string{},
 	JumpTable:         jumpTable,
 	ProcTable:         procTable,

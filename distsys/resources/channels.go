@@ -9,7 +9,7 @@ import (
 	"github.com/UBC-NSS/pgo/distsys"
 )
 
-const inputChannelResourceReadTimout = 20 * time.Millisecond
+const inputChannelReadTimout = 20 * time.Millisecond
 
 // InputChannel wraps a native Go channel, such that an MPCal model might read what is written
 // to the channel.
@@ -59,7 +59,7 @@ func (res *InputChannel) ReadValue() (tla.TLAValue, error) {
 	case value := <-res.channel:
 		res.backlogBuffer = append(res.backlogBuffer, value)
 		return value, nil
-	case <-time.After(inputChannelResourceReadTimout):
+	case <-time.After(inputChannelReadTimout):
 		return tla.TLAValue{}, distsys.ErrCriticalSectionAborted
 	}
 }

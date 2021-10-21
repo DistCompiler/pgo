@@ -166,13 +166,13 @@ ASSUME NUM_SERVERS > 0 /\ NUM_CLIENTS > 0
         fd[self] := TRUE;
     }
 
-    archetype AClient(ref net[_], ref output)
+    archetype AClient(ref net[_], ref input, ref output)
     variables
         req, resp, reqId = 0;
     {
     clientLoop:
         while (CLIENT_RUN) {
-            req := [from |-> self, to |-> ProxyID, body |-> self, 
+            req := [from |-> self, to |-> ProxyID, body |-> input, 
                     id |-> reqId, typ |-> REQ_MSG_TYP];
             net[<<req.to, req.typ>>] := req;
             \* print <<"CLIENT START", req>>;
@@ -205,7 +205,7 @@ ASSUME NUM_SERVERS > 0 /\ NUM_CLIENTS > 0
         mapping @2[_] via NetworkToggle
         mapping @3[_] via PerfectFD;
 
-    fair process (Client \in CLIENT_SET) == instance AClient(ref network[_], ref output)
+    fair process (Client \in CLIENT_SET) == instance AClient(ref network[_], Client, ref output)
         mapping network[_] via ReliableFIFOLink;
 }
 
@@ -377,11 +377,11 @@ ASSUME NUM_SERVERS > 0 /\ NUM_CLIENTS > 0
   }
   
   fair process (Client \in CLIENT_SET)
-    variables req; resp1; reqId = 0;
+    variables req; resp1; reqId = 0; input = self;
   {
     clientLoop:
       if(CLIENT_RUN) {
-        req := [from |-> self, to |-> ProxyID, body |-> self, id |-> reqId, typ |-> REQ_MSG_TYP];
+        req := [from |-> self, to |-> ProxyID, body |-> input, id |-> reqId, typ |-> REQ_MSG_TYP];
         with (value60 = req) {
           await ((network)[<<(req).to, (req).typ>>]).enabled;
           network := [network EXCEPT ![<<(req).to, (req).typ>>] = [queue |-> Append(((network)[<<(req).to, (req).typ>>]).queue, value60), enabled |-> ((network)[<<(req).to, (req).typ>>]).enabled]];
@@ -411,7 +411,7 @@ ASSUME NUM_SERVERS > 0 /\ NUM_CLIENTS > 0
 
 ********************)
 
-\* BEGIN TRANSLATION (chksum(pcal) = "2b017304" /\ chksum(tla) = "6470a0ec")
+\* BEGIN TRANSLATION (chksum(pcal) = "36aae2fc" /\ chksum(tla) = "fde48588")
 CONSTANT defaultInitValue
 VARIABLES network, fd, output, pc
 
@@ -429,10 +429,11 @@ CLIENT_SET == ((NUM_SERVERS) + (1)) .. ((NUM_SERVERS) + (NUM_CLIENTS))
 MSG_TYP_SET == {REQ_MSG_TYP, RESP_MSG_TYP, PROXY_REQ_MSG_TYP, PROXY_RESP_MSG_TYP}
 MSG_ID_BOUND == 2
 
-VARIABLES msg, proxyMsg, idx, resp, proxyResp, msg0, resp0, req, resp1, reqId
+VARIABLES msg, proxyMsg, idx, resp, proxyResp, msg0, resp0, req, resp1, reqId, 
+          input
 
 vars == << network, fd, output, pc, msg, proxyMsg, idx, resp, proxyResp, msg0, 
-           resp0, req, resp1, reqId >>
+           resp0, req, resp1, reqId, input >>
 
 ProcSet == {ProxyID} \cup (SERVER_SET) \cup (CLIENT_SET)
 
@@ -453,6 +454,7 @@ Init == (* Global variables *)
         /\ req = [self \in CLIENT_SET |-> defaultInitValue]
         /\ resp1 = [self \in CLIENT_SET |-> defaultInitValue]
         /\ reqId = [self \in CLIENT_SET |-> 0]
+        /\ input = [self \in CLIENT_SET |-> self]
         /\ pc = [self \in ProcSet |-> CASE self = ProxyID -> "proxyLoop"
                                         [] self \in SERVER_SET -> "serverLoop"
                                         [] self \in CLIENT_SET -> "clientLoop"]
@@ -474,7 +476,7 @@ proxyLoop == /\ pc[ProxyID] = "proxyLoop"
                    ELSE /\ pc' = [pc EXCEPT ![ProxyID] = "Done"]
                         /\ UNCHANGED << network, msg, idx, proxyResp >>
              /\ UNCHANGED << fd, output, proxyMsg, resp, msg0, resp0, req, 
-                             resp1, reqId >>
+                             resp1, reqId, input >>
 
 serversLoop == /\ pc[ProxyID] = "serversLoop"
                /\ IF (idx) <= (NUM_SERVERS)
@@ -492,7 +494,7 @@ serversLoop == /\ pc[ProxyID] = "serversLoop"
                      ELSE /\ pc' = [pc EXCEPT ![ProxyID] = "sendMsgToClient"]
                           /\ UNCHANGED << network, proxyMsg, idx >>
                /\ UNCHANGED << fd, output, msg, resp, proxyResp, msg0, resp0, 
-                               req, resp1, reqId >>
+                               req, resp1, reqId, input >>
 
 proxyRcvMsg == /\ pc[ProxyID] = "proxyRcvMsg"
                /\ \/ /\ Assert(((network)[<<ProxyID, PROXY_RESP_MSG_TYP>>]).enabled, 
@@ -516,7 +518,7 @@ proxyRcvMsg == /\ pc[ProxyID] = "proxyRcvMsg"
                           /\ pc' = [pc EXCEPT ![ProxyID] = "serversLoop"]
                      /\ UNCHANGED <<network, proxyResp>>
                /\ UNCHANGED << fd, output, msg, proxyMsg, resp, msg0, resp0, 
-                               req, resp1, reqId >>
+                               req, resp1, reqId, input >>
 
 sendMsgToClient == /\ pc[ProxyID] = "sendMsgToClient"
                    /\ resp' = [from |-> ProxyID, to |-> (msg).from, body |-> (proxyResp).body, id |-> (msg).id, typ |-> RESP_MSG_TYP]
@@ -525,7 +527,7 @@ sendMsgToClient == /\ pc[ProxyID] = "sendMsgToClient"
                         /\ network' = [network EXCEPT ![<<(resp').to, (resp').typ>>] = [queue |-> Append(((network)[<<(resp').to, (resp').typ>>]).queue, value00), enabled |-> ((network)[<<(resp').to, (resp').typ>>]).enabled]]
                         /\ pc' = [pc EXCEPT ![ProxyID] = "proxyLoop"]
                    /\ UNCHANGED << fd, output, msg, proxyMsg, idx, proxyResp, 
-                                   msg0, resp0, req, resp1, reqId >>
+                                   msg0, resp0, req, resp1, reqId, input >>
 
 Proxy == proxyLoop \/ serversLoop \/ proxyRcvMsg \/ sendMsgToClient
 
@@ -543,7 +545,8 @@ serverLoop(self) == /\ pc[self] = "serverLoop"
                           ELSE /\ pc' = [pc EXCEPT ![self] = "failLabel"]
                                /\ UNCHANGED network
                     /\ UNCHANGED << fd, output, msg, proxyMsg, idx, resp, 
-                                    proxyResp, msg0, resp0, req, resp1, reqId >>
+                                    proxyResp, msg0, resp0, req, resp1, reqId, 
+                                    input >>
 
 serverRcvMsg(self) == /\ pc[self] = "serverRcvMsg"
                       /\ Assert(((network)[<<self, PROXY_REQ_MSG_TYP>>]).enabled, 
@@ -565,7 +568,8 @@ serverRcvMsg(self) == /\ pc[self] = "serverRcvMsg"
                                      ELSE /\ network' = network0
                                           /\ pc' = [pc EXCEPT ![self] = "serverSendMsg"]
                       /\ UNCHANGED << fd, output, msg, proxyMsg, idx, resp, 
-                                      proxyResp, resp0, req, resp1, reqId >>
+                                      proxyResp, resp0, req, resp1, reqId, 
+                                      input >>
 
 serverSendMsg(self) == /\ pc[self] = "serverSendMsg"
                        /\ resp0' = [resp0 EXCEPT ![self] = [from |-> self, to |-> (msg0[self]).from, body |-> self, id |-> (msg0[self]).id, typ |-> PROXY_RESP_MSG_TYP]]
@@ -582,21 +586,23 @@ serverSendMsg(self) == /\ pc[self] = "serverSendMsg"
                                     ELSE /\ network' = network1
                                          /\ pc' = [pc EXCEPT ![self] = "serverLoop"]
                        /\ UNCHANGED << fd, output, msg, proxyMsg, idx, resp, 
-                                       proxyResp, msg0, req, resp1, reqId >>
+                                       proxyResp, msg0, req, resp1, reqId, 
+                                       input >>
 
 failLabel(self) == /\ pc[self] = "failLabel"
                    /\ LET value50 == TRUE IN
                         /\ fd' = [fd EXCEPT ![self] = value50]
                         /\ pc' = [pc EXCEPT ![self] = "Done"]
                    /\ UNCHANGED << network, output, msg, proxyMsg, idx, resp, 
-                                   proxyResp, msg0, resp0, req, resp1, reqId >>
+                                   proxyResp, msg0, resp0, req, resp1, reqId, 
+                                   input >>
 
 Server(self) == serverLoop(self) \/ serverRcvMsg(self)
                    \/ serverSendMsg(self) \/ failLabel(self)
 
 clientLoop(self) == /\ pc[self] = "clientLoop"
                     /\ IF CLIENT_RUN
-                          THEN /\ req' = [req EXCEPT ![self] = [from |-> self, to |-> ProxyID, body |-> self, id |-> reqId[self], typ |-> REQ_MSG_TYP]]
+                          THEN /\ req' = [req EXCEPT ![self] = [from |-> self, to |-> ProxyID, body |-> input[self], id |-> reqId[self], typ |-> REQ_MSG_TYP]]
                                /\ LET value60 == req'[self] IN
                                     /\ ((network)[<<(req'[self]).to, (req'[self]).typ>>]).enabled
                                     /\ network' = [network EXCEPT ![<<(req'[self]).to, (req'[self]).typ>>] = [queue |-> Append(((network)[<<(req'[self]).to, (req'[self]).typ>>]).queue, value60), enabled |-> ((network)[<<(req'[self]).to, (req'[self]).typ>>]).enabled]]
@@ -604,7 +610,8 @@ clientLoop(self) == /\ pc[self] = "clientLoop"
                           ELSE /\ pc' = [pc EXCEPT ![self] = "Done"]
                                /\ UNCHANGED << network, req >>
                     /\ UNCHANGED << fd, output, msg, proxyMsg, idx, resp, 
-                                    proxyResp, msg0, resp0, resp1, reqId >>
+                                    proxyResp, msg0, resp0, resp1, reqId, 
+                                    input >>
 
 clientRcvResp(self) == /\ pc[self] = "clientRcvResp"
                        /\ Assert(((network)[<<self, RESP_MSG_TYP>>]).enabled, 
@@ -620,7 +627,7 @@ clientRcvResp(self) == /\ pc[self] = "clientRcvResp"
                                  /\ output' = resp1'[self]
                                  /\ pc' = [pc EXCEPT ![self] = "clientLoop"]
                        /\ UNCHANGED << fd, msg, proxyMsg, idx, resp, proxyResp, 
-                                       msg0, resp0, req >>
+                                       msg0, resp0, req, input >>
 
 Client(self) == clientLoop(self) \/ clientRcvResp(self)
 
@@ -655,5 +662,5 @@ ClientsOK == \A client \in CLIENT_SET : ReceiveResp(client)
 
 =============================================================================
 \* Modification History
-\* Last modified Fri Oct 08 18:12:55 PDT 2021 by shayan
+\* Last modified Thu Oct 21 00:59:02 PDT 2021 by shayan
 \* Created Wed Jun 30 19:19:46 PDT 2021 by shayan
