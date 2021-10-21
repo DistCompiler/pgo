@@ -326,6 +326,7 @@ func TestProxy_FirstServerCrashing(t *testing.T) {
 	for i := 0; i < numRequests/2; i++ {
 		select {
 		case resp := <-outputChannel:
+			t.Log(resp)
 			val, ok := resp.AsFunction().Get(tla.MakeTLAString("body"))
 			if !ok {
 				t.Fatalf("response body not found")
@@ -345,11 +346,13 @@ func TestProxy_FirstServerCrashing(t *testing.T) {
 	for i := 0; i < numRequests/2; i++ {
 		select {
 		case resp := <-outputChannel:
+			t.Log(resp)
 			val, ok := resp.AsFunction().Get(tla.MakeTLAString("body"))
 			if !ok {
 				t.Fatalf("response body not found")
 			}
-			if !val.(tla.TLAValue).Equal(tla.MakeTLANumber(2)) {
+			// first request after crash might be from server 1 or server 2
+			if i > 0 && !val.(tla.TLAValue).Equal(tla.MakeTLANumber(2)) {
 				t.Fatalf("wrong response body, got %v, expected %v", val.(tla.TLAValue), tla.MakeTLANumber(1))
 			}
 		case <-time.After(testTimeout):
