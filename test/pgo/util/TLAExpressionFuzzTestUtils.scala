@@ -7,7 +7,7 @@ import org.scalacheck.Test.TestCallback
 import org.scalacheck.rng.Seed
 import pgo.PGo
 import pgo.model.Definition.ScopeIdentifierName
-import pgo.model.DefinitionOne
+import pgo.model.{DefinitionOne, Visitable}
 import pgo.trans.{MPCalGoCodegenPass, PCalRenderPass}
 import pgo.util.TLAExprInterpreter.TLAValue
 
@@ -17,7 +17,6 @@ import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
 
 trait TLAExpressionFuzzTestUtils {
-
   final class TLAExpressionFuzzTestProps(seedStr: String) extends Properties("TLAExpression") {
     import org.scalacheck.Prop._
 
@@ -27,6 +26,9 @@ trait TLAExpressionFuzzTestUtils {
 
     var degenerateCases: Int = 0
     var cases: Int = 0
+
+    var treeSizes: Map[Int,Long] = Map.empty
+    var nodeFrequencies: Map[String,Long] = Map.empty
 
     var testOut: Option[os.Path] = None
 
@@ -72,6 +74,22 @@ trait TLAExpressionFuzzTestUtils {
           d"} } *)\n" +
           d"\\* BEGIN TRANSLATION\n" +
           d"===="
+
+      locally {
+        var count = 0
+        val presences = mutable.HashSet[String]()
+
+        expr.visit(Visitable.BottomUpFirstStrategy) {
+          case e: TLAExpression =>
+            count += 1
+            presences += e.productPrefix
+        }
+
+        presences.foreach { id =>
+          nodeFrequencies = nodeFrequencies.updated(id, nodeFrequencies.getOrElse(id, 0L) + 1L)
+        }
+        treeSizes = treeSizes.updated(count, treeSizes.getOrElse(count, 0L) + 1L)
+      }
 
       os.remove.all(outFile)
       os.write.over(testFile, data = mpcalSetup.linesIterator.map(line => s"$line\n"))
@@ -142,7 +160,7 @@ trait TLAExpressionFuzzTestUtils {
   }
 
   final case class FuzzTestingResult(success: Boolean, seed: String, cases: Int, degenerateCases: Int, testOut: Option[os.Path],
-                                     result: Test.Result)
+                                     result: Test.Result, treeSizes: Map[Int,Long], nodeFrequencies: Map[String,Long])
 
   def runExpressionFuzzTesting(seed: Seed = Seed.random()): FuzzTestingResult = {
     var resultCatcher: Option[Test.Result] = None
@@ -167,7 +185,9 @@ trait TLAExpressionFuzzTestUtils {
       cases = props.cases,
       degenerateCases = props.degenerateCases,
       testOut = props.testOut,
-      result = resultCatcher.get)
+      result = resultCatcher.get,
+      nodeFrequencies = props.nodeFrequencies,
+      treeSizes = props.treeSizes)
   }
 
   private def genFlatASTOptions(subExprs: List[TLAExpression])(implicit env: Set[ById[DefinitionOne]], anchorOpt: Option[TLAFunctionSubstitutionPairAnchor]): List[Gen[TLAExpression]] = {

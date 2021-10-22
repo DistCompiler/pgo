@@ -1,7 +1,6 @@
 package pgo.model.tla
 
-import pgo.model.Definition.ScopeIdentifierName
-import pgo.model.{Definition, DefinitionComposite, DefinitionOne, RefersTo, Rewritable, SourceLocatable, Visitable}
+import pgo.model.{Definition, DefinitionComposite, DefinitionOne, RefersTo, Rewritable, SourceLocatable}
 
 import scala.collection.View
 
