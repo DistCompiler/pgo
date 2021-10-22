@@ -229,6 +229,22 @@ func EnsureArchetypeRefParam(name string, maker ArchetypeResourceMaker) MPCalCon
 	}
 }
 
+type DerivedArchetypeResourceMaker func(res ArchetypeResource) ArchetypeResourceMaker
+
+func EnsureArchetypeDerivedRefParam(name string, parentName string, dMaker DerivedArchetypeResourceMaker) MPCalContextConfigFn {
+	return func(ctx *MPCalContext) {
+		ctx.requireArchetype()
+		parentRefName := ctx.archetype.Name + "." + parentName
+		parentHandle, err := ctx.iface.RequireArchetypeResourceRef(parentRefName)
+		if err != nil {
+			panic(fmt.Errorf("error in finding archetype derived ref param parent: %s", err))
+		}
+		parentRes := ctx.getResourceByHandle(parentHandle)
+		maker := dMaker(parentRes)
+		EnsureArchetypeRefParam(name, maker)(ctx)
+	}
+}
+
 // EnsureArchetypeValueParam binds a TLAValue to the provided name.
 // The name must match one of the archetype's parameter names, and must not refer to a ref parameter. If these conditions
 // are not met, attempting to call MPCalContext.Run will panic.
@@ -500,14 +516,21 @@ func (ctx *MPCalContext) preRun() {
 // - ErrAssertionFailed: an assertion in the MPCal code failed (this error will be wrapped by a string describing the assertion)
 // - ErrProcedureFallthrough: the Error label was reached, which is an error in the MPCal code
 func (ctx *MPCalContext) Run() error {
-	// pre-sanity checks: an archetype should be provided if we're going to try and run one
-	ctx.requireArchetype()
-	// sanity checks and other setup, done here so you can init a context, not call Run, and not get checks
-	ctx.preRun()
+	ctx.lock.Lock()
+	if ctx.closed {
+		ctx.lock.Unlock()
+		return ErrContextClosed
+	}
+	ctx.lock.Unlock()
 
 	// report start, and defer reporting completion to whenever this function returns
 	ctx.reportEvent(archetypeStarted)
 	defer ctx.reportEvent(archetypeFinished)
+
+	// pre-sanity checks: an archetype should be provided if we're going to try and run one
+	ctx.requireArchetype()
+	// sanity checks and other setup, done here so you can init a context, not call Run, and not get checks
+	ctx.preRun()
 
 	pc := ctx.iface.RequireArchetypeResource(".pc")
 	var err error

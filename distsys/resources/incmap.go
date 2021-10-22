@@ -7,39 +7,38 @@ import (
 	"go.uber.org/multierr"
 )
 
-// A generic map resource, with hooks to programmatically realize child resources during execution
-// ----------------------------------------------------------------------------------------------------------------
-
 // FillFn maps from an index of a given map resource into a distsys.ArchetypeResourceMaker for the resource
 // intended at that location. It is assumed that this mapping is stable, in that, for the same index, a maker for
 // a resource with the same behaviour will be returned, no matter when the function is called.
 type FillFn func(index tla.TLAValue) distsys.ArchetypeResourceMaker
 
-type IncrementalArchetypeMapResource struct {
+// IncrementalMap is a generic map resource, with hooks to programmatically
+// realize child resources during execution.
+type IncrementalMap struct {
 	distsys.ArchetypeResourceMapMixin
 	realizedMap  *immutable.Map
 	fillFunction FillFn
 	dirtyElems   *immutable.Map
 }
 
-var _ distsys.ArchetypeResource = &IncrementalArchetypeMapResource{}
+var _ distsys.ArchetypeResource = &IncrementalMap{}
 
-func IncrementalArchetypeMapResourceMaker(fillFunction FillFn) distsys.ArchetypeResourceMaker {
+func IncrementalMapMaker(fillFunction FillFn) distsys.ArchetypeResourceMaker {
 	return distsys.ArchetypeResourceMakerStruct{
 		MakeFn: func() distsys.ArchetypeResource {
-			return &IncrementalArchetypeMapResource{
+			return &IncrementalMap{
 				realizedMap: immutable.NewMap(tla.TLAValueHasher{}),
 				dirtyElems:  immutable.NewMap(tla.TLAValueHasher{}),
 			}
 		},
 		ConfigureFn: func(res distsys.ArchetypeResource) {
-			r := res.(*IncrementalArchetypeMapResource)
+			r := res.(*IncrementalMap)
 			r.fillFunction = fillFunction
 		},
 	}
 }
 
-func (res *IncrementalArchetypeMapResource) Index(index tla.TLAValue) (distsys.ArchetypeResource, error) {
+func (res *IncrementalMap) Index(index tla.TLAValue) (distsys.ArchetypeResource, error) {
 	maker := res.fillFunction(index)
 	if subRes, ok := res.realizedMap.Get(index); ok {
 		r := subRes.(distsys.ArchetypeResource)
@@ -55,7 +54,7 @@ func (res *IncrementalArchetypeMapResource) Index(index tla.TLAValue) (distsys.A
 	return subRes, nil
 }
 
-func (res *IncrementalArchetypeMapResource) PreCommit() chan error {
+func (res *IncrementalMap) PreCommit() chan error {
 	var nonTrivialOps []chan error
 	it := res.dirtyElems.Iterator()
 	for !it.Done() {
@@ -84,7 +83,7 @@ func (res *IncrementalArchetypeMapResource) PreCommit() chan error {
 	return nil
 }
 
-func (res *IncrementalArchetypeMapResource) Commit() chan struct{} {
+func (res *IncrementalMap) Commit() chan struct{} {
 	defer func() {
 		res.dirtyElems = immutable.NewMap(tla.TLAValueHasher{})
 	}()
@@ -113,7 +112,7 @@ func (res *IncrementalArchetypeMapResource) Commit() chan struct{} {
 	return nil
 }
 
-func (res *IncrementalArchetypeMapResource) Abort() chan struct{} {
+func (res *IncrementalMap) Abort() chan struct{} {
 	defer func() {
 		res.dirtyElems = immutable.NewMap(tla.TLAValueHasher{})
 	}()
@@ -142,7 +141,7 @@ func (res *IncrementalArchetypeMapResource) Abort() chan struct{} {
 	return nil
 }
 
-func (res *IncrementalArchetypeMapResource) Close() error {
+func (res *IncrementalMap) Close() error {
 	var err error
 	// Note that we should close all the realized elements, not just the dirty
 	// ones.

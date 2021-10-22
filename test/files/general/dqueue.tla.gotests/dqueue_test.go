@@ -2,10 +2,11 @@ package dqueue
 
 import (
 	"fmt"
-	"github.com/UBC-NSS/pgo/distsys/tla"
 	"log"
 	"testing"
 	"time"
+
+	"github.com/UBC-NSS/pgo/distsys/tla"
 
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/resources"
@@ -30,7 +31,7 @@ func TestProducerConsumer(t *testing.T) {
 
 	ctxProducer := distsys.NewMPCalContext(producerSelf, AProducer,
 		distsys.DefineConstantValue("PRODUCER", producerSelf),
-		distsys.EnsureArchetypeRefParam("net", resources.TCPMailboxesArchetypeResourceMaker(func(index tla.TLAValue) (resources.TCPMailboxKind, string) {
+		distsys.EnsureArchetypeRefParam("net", resources.TCPMailboxesMaker(func(index tla.TLAValue) (resources.TCPMailboxKind, string) {
 			switch index.AsNumber() {
 			case 1:
 				return resources.TCPMailboxesLocal, "localhost:8001"
@@ -40,7 +41,7 @@ func TestProducerConsumer(t *testing.T) {
 				panic(fmt.Errorf("unknown mailbox index %v", index))
 			}
 		})),
-		distsys.EnsureArchetypeRefParam("s", resources.InputChannelResourceMaker(producerInputChannel)))
+		distsys.EnsureArchetypeRefParam("s", resources.InputChannelMaker(producerInputChannel)))
 	go func() {
 		err := ctxProducer.Run()
 		if err != nil && err != distsys.ErrContextClosed {
@@ -50,7 +51,7 @@ func TestProducerConsumer(t *testing.T) {
 
 	ctxConsumer := distsys.NewMPCalContext(consumerSelf, AConsumer,
 		distsys.DefineConstantValue("PRODUCER", producerSelf),
-		distsys.EnsureArchetypeRefParam("net", resources.TCPMailboxesArchetypeResourceMaker(func(index tla.TLAValue) (resources.TCPMailboxKind, string) {
+		distsys.EnsureArchetypeRefParam("net", resources.TCPMailboxesMaker(func(index tla.TLAValue) (resources.TCPMailboxKind, string) {
 			switch index.AsNumber() {
 			case 1:
 				return resources.TCPMailboxesRemote, "localhost:8001"
@@ -60,7 +61,7 @@ func TestProducerConsumer(t *testing.T) {
 				panic(fmt.Errorf("unknown mailbox index %v", index))
 			}
 		})),
-		distsys.EnsureArchetypeRefParam("proc", resources.OutputChannelResourceMaker(consumerOutputChannel)))
+		distsys.EnsureArchetypeRefParam("proc", resources.OutputChannelMaker(consumerOutputChannel)))
 	go func() {
 		err := ctxConsumer.Run()
 		if err != nil && err != distsys.ErrContextClosed {

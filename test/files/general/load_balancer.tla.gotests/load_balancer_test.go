@@ -2,7 +2,6 @@ package loadbalancer
 
 import (
 	"fmt"
-	"github.com/UBC-NSS/pgo/distsys/tla"
 	"io/ioutil"
 	"log"
 	"math/rand"
@@ -10,6 +9,8 @@ import (
 	"path"
 	"testing"
 	"time"
+
+	"github.com/UBC-NSS/pgo/distsys/tla"
 
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/resources"
@@ -62,7 +63,7 @@ func TestOneServerOneClient(t *testing.T) {
 	var configFns []distsys.MPCalContextConfigFn
 	configFns = append(configFns, constantDefs...)
 	configFns = append(configFns,
-		distsys.EnsureArchetypeRefParam("mailboxes", resources.TCPMailboxesArchetypeResourceMaker(makeAddressFn(0))))
+		distsys.EnsureArchetypeRefParam("mailboxes", resources.TCPMailboxesMaker(makeAddressFn(0))))
 	ctxLoadBalancer := distsys.NewMPCalContext(tla.MakeTLANumber(0), ALoadBalancer, configFns...)
 	go func() {
 		err := ctxLoadBalancer.Run()
@@ -74,8 +75,8 @@ func TestOneServerOneClient(t *testing.T) {
 	configFns = nil
 	configFns = append(configFns, constantDefs...)
 	configFns = append(configFns,
-		distsys.EnsureArchetypeRefParam("mailboxes", resources.TCPMailboxesArchetypeResourceMaker(makeAddressFn(1))),
-		distsys.EnsureArchetypeRefParam("file_system", resources.FileSystemArchetypeResourceMaker(tempDir)))
+		distsys.EnsureArchetypeRefParam("mailboxes", resources.TCPMailboxesMaker(makeAddressFn(1))),
+		distsys.EnsureArchetypeRefParam("file_system", resources.FileSystemMaker(tempDir)))
 	ctxServer := distsys.NewMPCalContext(tla.MakeTLANumber(1), AServer, configFns...)
 	go func() {
 		err := ctxServer.Run()
@@ -89,9 +90,9 @@ func TestOneServerOneClient(t *testing.T) {
 	configFns = nil
 	configFns = append(configFns, constantDefs...)
 	configFns = append(configFns,
-		distsys.EnsureArchetypeRefParam("mailboxes", resources.TCPMailboxesArchetypeResourceMaker(makeAddressFn(2))),
-		distsys.EnsureArchetypeRefParam("instream", resources.InputChannelResourceMaker(requestChannel)),
-		distsys.EnsureArchetypeRefParam("outstream", resources.OutputChannelResourceMaker(responseChannel)))
+		distsys.EnsureArchetypeRefParam("mailboxes", resources.TCPMailboxesMaker(makeAddressFn(2))),
+		distsys.EnsureArchetypeRefParam("instream", resources.InputChannelMaker(requestChannel)),
+		distsys.EnsureArchetypeRefParam("outstream", resources.OutputChannelMaker(responseChannel)))
 	ctxClient := distsys.NewMPCalContext(tla.MakeTLANumber(2), AClient, configFns...)
 	go func() {
 		err := ctxClient.Run()

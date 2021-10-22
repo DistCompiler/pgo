@@ -2,21 +2,22 @@ package resources
 
 import (
 	"fmt"
-	"github.com/UBC-NSS/pgo/distsys/tla"
 	"io/ioutil"
 	"path"
+
+	"github.com/UBC-NSS/pgo/distsys/tla"
 
 	"github.com/UBC-NSS/pgo/distsys"
 )
 
-// FileSystemArchetypeResourceMaker produces a distsys.ArchetypeResourceMaker for a filesystem-backed
+// FileSystemMaker produces a distsys.ArchetypeResourceMaker for a filesystem-backed
 // map-like resource. Each element of the map will refer to a file, with keys and values being required
 // to be string-typed, and keys being required to refer to valid paths (or create-able paths, if a
 // key is written to before it is read).
-func FileSystemArchetypeResourceMaker(workingDirectory string) distsys.ArchetypeResourceMaker {
-	return IncrementalArchetypeMapResourceMaker(func(index tla.TLAValue) distsys.ArchetypeResourceMaker {
+func FileSystemMaker(workingDirectory string) distsys.ArchetypeResourceMaker {
+	return IncrementalMapMaker(func(index tla.TLAValue) distsys.ArchetypeResourceMaker {
 		return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
-			return &fileArchetypeResource{
+			return &file{
 				workingDirectory: workingDirectory,
 				subPath:          index.AsString(),
 			}
@@ -24,7 +25,7 @@ func FileSystemArchetypeResourceMaker(workingDirectory string) distsys.Archetype
 	})
 }
 
-type fileArchetypeResource struct {
+type file struct {
 	distsys.ArchetypeResourceLeafMixin
 
 	workingDirectory string
@@ -34,19 +35,19 @@ type fileArchetypeResource struct {
 	cachedRead   *string
 }
 
-var _ distsys.ArchetypeResource = &fileArchetypeResource{}
+var _ distsys.ArchetypeResource = &file{}
 
-func (res *fileArchetypeResource) Abort() chan struct{} {
+func (res *file) Abort() chan struct{} {
 	res.writePending = nil
 	res.cachedRead = nil
 	return nil
 }
 
-func (res *fileArchetypeResource) PreCommit() chan error {
+func (res *file) PreCommit() chan error {
 	return nil
 }
 
-func (res *fileArchetypeResource) Commit() chan struct{} {
+func (res *file) Commit() chan struct{} {
 	res.cachedRead = nil
 	if res.writePending != nil {
 		doneCh := make(chan struct{})
@@ -64,7 +65,7 @@ func (res *fileArchetypeResource) Commit() chan struct{} {
 	return nil
 }
 
-func (res *fileArchetypeResource) ReadValue() (tla.TLAValue, error) {
+func (res *file) ReadValue() (tla.TLAValue, error) {
 	if res.writePending != nil {
 		return tla.MakeTLAString(*res.writePending), nil
 	} else if res.cachedRead != nil {
@@ -80,13 +81,13 @@ func (res *fileArchetypeResource) ReadValue() (tla.TLAValue, error) {
 	}
 }
 
-func (res *fileArchetypeResource) WriteValue(value tla.TLAValue) error {
+func (res *file) WriteValue(value tla.TLAValue) error {
 	res.cachedRead = nil
 	strToWrite := value.AsString()
 	res.writePending = &strToWrite
 	return nil
 }
 
-func (res *fileArchetypeResource) Close() error {
+func (res *file) Close() error {
 	return nil
 }
