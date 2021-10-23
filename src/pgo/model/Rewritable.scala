@@ -13,6 +13,8 @@ import scala.annotation.tailrec
 trait Rewritable extends Visitable {
   import Rewritable._
 
+  def productPrefix: String
+
   def productIterator: Iterator[Any]
 
   /**
