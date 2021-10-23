@@ -24,13 +24,15 @@ trait TLAExpressionFuzzTestUtils {
     private val testFile = workDir / "TestBed.tla"
     private val outFile = workDir / "testbed.go"
 
-    var degenerateCases: Int = 0
+    var degenerateCases: Double = 0
     var cases: Int = 0
 
     var treeSizes: Map[Int,Long] = Map.empty
     var nodeFrequencies: Map[String,Long] = Map.empty
 
     var testOut: Option[os.Path] = None
+    var treeSize: Option[Int] = None
+    var failedDueToError: Option[Boolean] = None
 
     private val modFile = workDir / "go.mod"
     os.write(modFile,
@@ -88,6 +90,7 @@ trait TLAExpressionFuzzTestUtils {
         presences.foreach { id =>
           nodeFrequencies = nodeFrequencies.updated(id, nodeFrequencies.getOrElse(id, 0L) + 1L)
         }
+        this.treeSize = Some(count)
         treeSizes = treeSizes.updated(count, treeSizes.getOrElse(count, 0L) + 1L)
       }
 
@@ -139,12 +142,14 @@ trait TLAExpressionFuzzTestUtils {
         try {
           val result = os.proc("go", "run", "./main").call(cwd = workDir, mergeErrIntoOut = true, timeout = 60000)
           val valueFromGo = TLAValue.parseFromString(result.out.text())
+          this.failedDueToError = Some(false)
           Prop(expectedOutcomes.contains(Success(valueFromGo))).label(
             "the implementation's result should match one of the possible results computed")
         } catch {
           case err: os.SubprocessException =>
             if (err.result.out.text().startsWith("panic: TLA+ type error")) {
               // that's ok then, as long as we're expecting an error to be possible
+              this.failedDueToError = Some(true)
               Prop(expectedOutcomes.contains(Failure(TLAExprInterpreter.TypeError()))).label(
                 "if the implementation crashes with type error, that should have been a possible outcome")
             } else {
@@ -159,8 +164,9 @@ trait TLAExpressionFuzzTestUtils {
     }
   }
 
-  final case class FuzzTestingResult(success: Boolean, seed: String, cases: Int, degenerateCases: Int, testOut: Option[os.Path],
-                                     result: Test.Result, treeSizes: Map[Int,Long], nodeFrequencies: Map[String,Long])
+  final case class FuzzTestingResult(success: Boolean, seed: String, cases: Int, degenerateCases: Double, testOut: Option[os.Path],
+                                     result: Test.Result, failedDueToError: Boolean, failedTreeSize: Int,
+                                     treeSizes: Map[Int,Long], nodeFrequencies: Map[String,Long])
 
   def runExpressionFuzzTesting(seed: Seed = Seed.random()): FuzzTestingResult = {
     var resultCatcher: Option[Test.Result] = None
@@ -186,6 +192,8 @@ trait TLAExpressionFuzzTestUtils {
       degenerateCases = props.degenerateCases,
       testOut = props.testOut,
       result = resultCatcher.get,
+      failedDueToError = props.failedDueToError.get,
+      failedTreeSize = props.treeSize.get,
       nodeFrequencies = props.nodeFrequencies,
       treeSizes = props.treeSizes)
   }

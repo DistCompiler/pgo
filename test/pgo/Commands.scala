@@ -20,7 +20,8 @@ object Commands extends TLAExpressionFuzzTestUtils {
     pprint.pprintln(result)
   }
 
-  case class Stats(successCount: Int = 0, failCount: Int = 0, nodeFrequencies: Map[String,Long] = Map.empty, treeSizes: Map[Int,Long] = Map.empty)
+  case class Stats(successCount: Int = 0, failCount: Int = 0, degenerateCases: Double = 0, cases: Long = 0,
+                   nodeFrequencies: Map[String,Long] = Map.empty, treeSizes: Map[Int,Long] = Map.empty)
   object Stats {
     import upickle.default._
     implicit val rw: ReadWriter[Stats] = macroRW
@@ -35,12 +36,13 @@ object Commands extends TLAExpressionFuzzTestUtils {
                        @arg(doc = "password for victim's e-mail account") victimPassword: String): Unit = {
     import upickle.default._
 
+    val statsFile = os.Path(statsFileStr, os.pwd)
+
     var roundNum = 0
     var hasFailed = false
     while(!hasFailed) {
       roundNum += 1
 
-      val statsFile = os.Path(statsFileStr, os.pwd)
       var statss: Map[String,Stats] = if(os.exists(statsFile)) {
         upickle.default.read[Map[String,Stats]](os.read.stream(statsFile))
       } else Map.empty
@@ -55,6 +57,8 @@ object Commands extends TLAExpressionFuzzTestUtils {
         orig.copy(
           successCount = orig.successCount + results.result.succeeded,
           failCount = if(!results.success) orig.failCount + 1 else orig.failCount,
+          degenerateCases = orig.degenerateCases + results.degenerateCases,
+          cases = orig.cases + results.cases,
           nodeFrequencies = orig.nodeFrequencies ++ results.nodeFrequencies.view.map {
             case (id, freq) => (id, orig.nodeFrequencies.getOrElse(id, 0L) + freq)
           },
@@ -63,11 +67,13 @@ object Commands extends TLAExpressionFuzzTestUtils {
           },
         )
       })
-      os.write.over(statsFile, data = stream(statss))
+
+      val tmpFile = os.temp(dir = statsFile / os.up, deleteOnExit = false, contents = stream(statss))
+      os.move(from = tmpFile, to = statsFile, replaceExisting = true, atomicMove = true)
 
       if(!results.success) {
         hasFailed = true
-        val msgText = s"failure caught! seed was `${results.seed}`. counter-example stored at ${results.testOut}"
+        val msgText = s"failure caught! seed was `${results.seed}`; tree size was ${results.failedTreeSize}; ${if(results.failedDueToError) "shouldn't have failed" else "should have failed"}. counter-example stored at ${results.testOut}"
         println(msgText)
 
         // "fancy" mail support: send a failure notification, alongside a ZIP of the failing case
@@ -80,8 +86,8 @@ object Commands extends TLAExpressionFuzzTestUtils {
           .apply()
 
         val sendFuture = mailer {
-          Envelope.from(victimUser `@` victimDomain)
-            .to(victimUser `@` victimDomain)
+          Envelope.from(victimUser at victimDomain)
+            .to(victimUser at victimDomain)
             .subject("fuzz test failure")
             .content {
               var mp = Multipart()
