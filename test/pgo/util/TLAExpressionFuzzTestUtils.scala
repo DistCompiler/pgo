@@ -165,7 +165,7 @@ trait TLAExpressionFuzzTestUtils {
   }
 
   final case class FuzzTestingResult(success: Boolean, seed: String, cases: Int, degenerateCases: Double, testOut: Option[os.Path],
-                                     result: Test.Result, failedDueToError: Boolean, failedTreeSize: Int,
+                                     result: Test.Result, failedDueToError: Option[Boolean], failedTreeSize: Option[Int],
                                      treeSizes: Map[Int,Long], nodeFrequencies: Map[String,Long])
 
   def runExpressionFuzzTesting(seed: Seed = Seed.random()): FuzzTestingResult = {
@@ -192,8 +192,8 @@ trait TLAExpressionFuzzTestUtils {
       degenerateCases = props.degenerateCases,
       testOut = props.testOut,
       result = resultCatcher.get,
-      failedDueToError = props.failedDueToError.get,
-      failedTreeSize = props.treeSize.get,
+      failedDueToError = props.failedDueToError,
+      failedTreeSize = props.treeSize,
       nodeFrequencies = props.nodeFrequencies,
       treeSizes = props.treeSizes)
   }

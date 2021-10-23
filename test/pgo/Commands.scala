@@ -73,7 +73,7 @@ object Commands extends TLAExpressionFuzzTestUtils {
 
       if(!results.success) {
         hasFailed = true
-        val msgText = s"failure caught! seed was `${results.seed}`; tree size was ${results.failedTreeSize}; ${if(results.failedDueToError) "shouldn't have failed" else "should have failed"}. counter-example stored at ${results.testOut}"
+        val msgText = s"failure caught! seed was `${results.seed}`; tree size was ${results.failedTreeSize}; failedDueToError: ${results.failedDueToError}. counter-example stored at ${results.testOut}"
         println(msgText)
 
         // "fancy" mail support: send a failure notification, alongside a ZIP of the failing case
