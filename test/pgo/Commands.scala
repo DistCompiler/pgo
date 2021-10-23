@@ -2,9 +2,11 @@ package pgo
 
 import courier.Mailer
 import mainargs.{ParserForMethods, arg, main}
+import org.scalacheck.Test
 import org.scalacheck.rng.Seed
 import pgo.util.TLAExpressionFuzzTestUtils
 
+import java.io.{PrintStream, PrintWriter, StringWriter}
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
@@ -76,6 +78,14 @@ object Commands extends TLAExpressionFuzzTestUtils {
         val msgText = s"failure caught! seed was `${results.seed}`; tree size was ${results.failedTreeSize}; failedDueToError: ${results.failedDueToError}. counter-example stored at ${results.testOut}"
         println(msgText)
 
+        results.result.status match {
+          case Test.Failed(_, labels) =>
+            pprint.pprintln(labels)
+          case Test.PropException(_, e, _) =>
+            e.printStackTrace()
+          case _ =>
+        }
+
         // "fancy" mail support: send a failure notification, alongside a ZIP of the failing case
         import courier._, Defaults._
 
@@ -97,7 +107,19 @@ object Commands extends TLAExpressionFuzzTestUtils {
                 println(s"zipped counter-example file...")
                 mp = mp.attach((os.pwd / "counter_example.zip").toIO)
               }
-              mp = mp.text(msgText)
+              mp = mp.text(s"$msgText\n${
+                results.result.status match {
+                  case Test.Failed(_, labels) =>
+                    pprint.apply(labels).plainText
+                  case Test.PropException(_, e, _) =>
+                    val str = new StringWriter()
+                    val out = new PrintWriter(str)
+                    e.printStackTrace(out)
+                    str.getBuffer.toString
+                  case status =>
+                    pprint.apply(status).plainText
+                }
+              }")
               mp
             }
         }
