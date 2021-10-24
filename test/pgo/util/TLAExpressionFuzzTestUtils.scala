@@ -17,10 +17,9 @@ import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
 
 trait TLAExpressionFuzzTestUtils {
-  final class TLAExpressionFuzzTestProps(seedStr: String) extends Properties("TLAExpression") {
+  final class TLAExpressionFuzzTestProps(seedStr: String, workDir: os.Path) extends Properties("TLAExpression") {
     import org.scalacheck.Prop._
 
-    private val workDir = os.temp.dir()
     private val testFile = workDir / "TestBed.tla"
     private val outFile = workDir / "testbed.go"
 
@@ -171,31 +170,36 @@ trait TLAExpressionFuzzTestUtils {
   def runExpressionFuzzTesting(seed: Seed = Seed.random()): FuzzTestingResult = {
     var resultCatcher: Option[Test.Result] = None
     val seedStr = seed.toBase64
-    val props = new TLAExpressionFuzzTestProps(seedStr = seedStr)
-    Test.checkProperties(
-      prms = Test.Parameters.default
-        .withInitialSeed(seed)
-        .withWorkers(1)
-        .withMinSize(100)
-        .withMaxDiscardRatio(10)
-        .withTestCallback(new TestCallback {
-          override def onTestResult(name: String, result: Test.Result): Unit = {
-            resultCatcher = Some(result)
-          }
-        }),
-      ps = props)
+    val workDir = os.temp.dir(deleteOnExit = false)
+    try {
+      val props = new TLAExpressionFuzzTestProps(seedStr = seedStr, workDir = workDir)
+      Test.checkProperties(
+        prms = Test.Parameters.default
+          .withInitialSeed(seed)
+          .withWorkers(1)
+          .withMinSize(100)
+          .withMaxDiscardRatio(10)
+          .withTestCallback(new TestCallback {
+            override def onTestResult(name: String, result: Test.Result): Unit = {
+              resultCatcher = Some(result)
+            }
+          }),
+        ps = props)
 
-    FuzzTestingResult(
-      success = resultCatcher.get.passed,
-      seed = seedStr,
-      cases = props.cases,
-      degenerateCases = props.degenerateCases,
-      testOut = props.testOut,
-      result = resultCatcher.get,
-      failedDueToError = props.failedDueToError,
-      failedTreeSize = props.treeSize,
-      nodeFrequencies = props.nodeFrequencies,
-      treeSizes = props.treeSizes)
+      FuzzTestingResult(
+        success = resultCatcher.get.passed,
+        seed = seedStr,
+        cases = props.cases,
+        degenerateCases = props.degenerateCases,
+        testOut = props.testOut,
+        result = resultCatcher.get,
+        failedDueToError = props.failedDueToError,
+        failedTreeSize = props.treeSize,
+        nodeFrequencies = props.nodeFrequencies,
+        treeSizes = props.treeSizes)
+    } finally {
+      os.remove.all(workDir)
+    }
   }
 
   private def genFlatASTOptions(subExprs: List[TLAExpression])(implicit env: Set[ById[DefinitionOne]], anchorOpt: Option[TLAFunctionSubstitutionPairAnchor]): List[Gen[TLAExpression]] = {
