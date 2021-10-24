@@ -167,9 +167,12 @@ trait TLAExpressionFuzzTestUtils {
                                      result: Test.Result, failedDueToError: Option[Boolean], failedTreeSize: Option[Int],
                                      treeSizes: Map[Int,Long], nodeFrequencies: Map[String,Long])
 
-  def runExpressionFuzzTesting(seed: Seed = Seed.random()): FuzzTestingResult = {
+  def runExpressionFuzzTesting(seed: Seed = Seed.random(), dealWithGoCache: Boolean = false): FuzzTestingResult = {
     var resultCatcher: Option[Test.Result] = None
     val seedStr = seed.toBase64
+    if(dealWithGoCache) {
+      os.proc("go", "clean", "-cache").call()
+    }
     val workDir = os.temp.dir(deleteOnExit = false)
     try {
       val props = new TLAExpressionFuzzTestProps(seedStr = seedStr, workDir = workDir)

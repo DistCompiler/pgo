@@ -52,7 +52,7 @@ object Commands extends TLAExpressionFuzzTestUtils {
 
       println(s"beginning round $roundNum of current run, on commit $commitHash")
 
-      val results = runExpressionFuzzTesting()
+      val results = runExpressionFuzzTesting(dealWithGoCache = true)
 
       statss = statss.updated(commitHash, {
         val orig = statss.getOrElse(commitHash, Stats())
