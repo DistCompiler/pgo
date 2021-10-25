@@ -1,9 +1,13 @@
 package resources
 
 import (
+	"bytes"
+	"encoding/gob"
+	"errors"
 	"fmt"
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/tla"
+	"io"
 	"log"
 	"net"
 	"net/rpc"
@@ -23,8 +27,8 @@ type GCounter struct {
 	listenAddr  string
 
 	hasOldState bool
-	oldState    map[int32]int32
-	state       map[int32]int32
+	oldState    map[tla.TLAValue]int32
+	state       map[tla.TLAValue]int32
 	stateMu     sync.RWMutex
 
 	peerAddrs 	map[tla.TLAValue]string
@@ -37,12 +41,52 @@ type GCounter struct {
 var _ distsys.ArchetypeResource = &GCounter{}
 
 type ReceiveValueArgs struct {
-	Value map[int32]int32
+	Value map[tla.TLAValue]int32
+}
+
+type KeyVal struct {
+	K tla.TLAValue
+	V int32
+}
+
+func (arg ReceiveValueArgs) GobEncode() ([]byte, error) {
+	var buf bytes.Buffer
+	encoder := gob.NewEncoder(&buf)
+	for k, v := range arg.Value {
+		pair := KeyVal{K: k, V: v}
+		err := encoder.Encode(&pair)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return buf.Bytes(), nil
+}
+
+func (arg *ReceiveValueArgs) GobDecode(input []byte) error {
+	buf := bytes.NewBuffer(input)
+	decoder := gob.NewDecoder(buf)
+	arg.Value = make(map[tla.TLAValue]int32)
+	for {
+		var pair KeyVal
+		err := decoder.Decode(&pair)
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return nil
+			} else {
+				return err
+			}
+		}
+		arg.Value[pair.K] = pair.V
+	}
 }
 
 type ReceiveValueResp struct {}
 
 type GCounterAddressMappingFn func(value tla.TLAValue) string
+
+func init() {
+	gob.Register(ReceiveValueArgs{make(map[tla.TLAValue]int32)})
+}
 
 // TODO: Persist local state to disk on Commit, reload in maker
 
@@ -58,8 +102,8 @@ func GCounterMaker(id tla.TLAValue, peers []tla.TLAValue, addressMappingFn GCoun
 			id:         id,
 			listenAddr: addressMappingFn(id),
 
-			state:      make(map[int32]int32),
-			oldState: make(map[int32]int32),
+			state:      make(map[tla.TLAValue]int32),
+			oldState: make(map[tla.TLAValue]int32),
 			hasOldState: false,
 
 			peerAddrs: peerAddrs,
@@ -120,7 +164,7 @@ func (res *GCounter) WriteValue(value tla.TLAValue) error {
 		res.oldState = res.state
 		res.hasOldState = true
 	}
-	res.state[res.id.AsNumber()] += value.AsNumber()
+	res.state[res.id] += value.AsNumber()
 	return nil
 }
 
@@ -152,7 +196,7 @@ func (res *GCounter) ReceiveValue(args ReceiveValueArgs, reply *ReceiveValueResp
 	return nil
 }
 
-func (res *GCounter) merge(other map[int32]int32) {
+func (res *GCounter) merge(other map[tla.TLAValue]int32) {
 	for id, val := range other {
 		if v, ok := res.state[id]; !ok || v < val {
 			res.state[id] = val
