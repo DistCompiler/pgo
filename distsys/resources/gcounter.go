@@ -163,7 +163,7 @@ func (res *GCounter) merge(other map[int32]int32) {
 func (res *GCounter) tryConnectPeers() {
 	for id, addr := range res.peerAddrs {
 		if _, ok := res.peers[id]; !ok {
-			conn, err := net.DialTimeout("tcp", addr, 5 * time.Second)
+			conn, err := net.DialTimeout("tcp", addr, connectionTimeout)
 			if err == nil {
 				res.peers[id] = rpc.NewClient(conn)
 			}
