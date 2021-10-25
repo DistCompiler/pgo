@@ -11,7 +11,13 @@ import (
 	"time"
 )
 
-type GCounterResource struct {
+const (
+	broadcastTimeout = 2 * time.Second
+	broadcastInterval = 5 * time.Second
+	connectionTimeout = 2 * time.Second
+)
+
+type GCounter struct {
 	distsys.ArchetypeResourceLeafMixin
 	id          tla.TLAValue
 	listenAddr  string
@@ -25,13 +31,10 @@ type GCounterResource struct {
 	peers       map[tla.TLAValue]*rpc.Client
 	peersMu		sync.RWMutex
 
-	broadcastInt int32 // seconds
-
 	closeChan chan struct{}
-	doneChan chan struct{}
 }
 
-var _ distsys.ArchetypeResource = &GCounterResource{}
+var _ distsys.ArchetypeResource = &GCounter{}
 
 type ReceiveValueArgs struct {
 	Value map[int32]int32
@@ -43,7 +46,7 @@ type GCounterAddressMappingFn func(value tla.TLAValue) string
 
 // TODO: Persist local state to disk on Commit, reload in maker
 
-func GCounterResourceMaker(id tla.TLAValue, peers []tla.TLAValue, addressMappingFn GCounterAddressMappingFn) distsys.ArchetypeResourceMaker {
+func GCounterMaker(id tla.TLAValue, peers []tla.TLAValue, addressMappingFn GCounterAddressMappingFn) distsys.ArchetypeResourceMaker {
 	return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
 		listenAddr := addressMappingFn(id)
 		peerAddrs := make(map[tla.TLAValue]string, len(peers))
@@ -51,7 +54,7 @@ func GCounterResourceMaker(id tla.TLAValue, peers []tla.TLAValue, addressMapping
 			peerAddrs[pid] = addressMappingFn(pid)
 		}
 
-		res := &GCounterResource{
+		res := &GCounter{
 			id:         id,
 			listenAddr: addressMappingFn(id),
 
@@ -62,31 +65,28 @@ func GCounterResourceMaker(id tla.TLAValue, peers []tla.TLAValue, addressMapping
 			peerAddrs: peerAddrs,
 			peers: make(map[tla.TLAValue]*rpc.Client),
 
-			broadcastInt: 5,
-
-			doneChan: make(chan struct{}),
 			closeChan: make(chan struct{}),
 		}
 
 		rpcServer := rpc.NewServer()
 		err := rpcServer.Register(res)
 		if err != nil {
-			fmt.Errorf("could not register CRDT RPCs: %w", err)
+			panic(fmt.Errorf("could not register CRDT RPCs: %w", err))
 		}
 		listner, err := net.Listen("tcp", listenAddr)
 		if err != nil {
-			fmt.Errorf("could not listen on address %s: %w", listenAddr, err)
+			panic(fmt.Errorf("could not listen on address %s: %w", listenAddr, err))
 		}
 		log.Printf("Node %d started listening on %s", id.AsNumber(), listenAddr)
 
 		go rpcServer.Accept(listner)
-		go res.runBroadcasts()
+		go res.runBroadcasts(broadcastTimeout)
 
 		return res
 	})
 }
 
-func (res *GCounterResource) Abort() chan struct{} {
+func (res *GCounter) Abort() chan struct{} {
 	if res.hasOldState {
 		res.state = res.oldState
 		res.hasOldState = false
@@ -94,16 +94,16 @@ func (res *GCounterResource) Abort() chan struct{} {
 	return nil
 }
 
-func (res *GCounterResource) PreCommit() chan error {
-	return nil;
+func (res *GCounter) PreCommit() chan error {
+	return nil
 }
 
-func (res *GCounterResource) Commit() chan struct{} {
+func (res *GCounter) Commit() chan struct{} {
 	res.hasOldState = false
 	return nil
 }
 
-func (res *GCounterResource) ReadValue() (tla.TLAValue, error) {
+func (res *GCounter) ReadValue() (tla.TLAValue, error) {
 	res.stateMu.RLock()
 	defer res.stateMu.RUnlock()
 	var value int32 = 0
@@ -113,7 +113,7 @@ func (res *GCounterResource) ReadValue() (tla.TLAValue, error) {
 	return tla.MakeTLANumber(value), nil
 }
 
-func (res *GCounterResource) WriteValue(value tla.TLAValue) error {
+func (res *GCounter) WriteValue(value tla.TLAValue) error {
 	res.stateMu.Lock()
 	res.stateMu.Unlock()
 	if !res.hasOldState {
@@ -124,19 +124,19 @@ func (res *GCounterResource) WriteValue(value tla.TLAValue) error {
 	return nil
 }
 
-func (res *GCounterResource) Close() error {
-	// TODO: clean locks, close channels, connections
+func (res *GCounter) Close() error {
 	res.stateMu.RLock()
 	defer res.stateMu.RUnlock()
 
 	res.closeChan <- struct{}{}
-	<- res.doneChan
 
 	var err error
 	for id, client := range res.peers {
-		err = client.Close()
-		if err != nil {
-			fmt.Errorf("could not close connection with node %s: %w\n", id, err)
+		if client != nil {
+			err = client.Close()
+			if err != nil {
+				fmt.Errorf("could not close connection with node %s: %w\n", id, err)
+			}
 		}
 	}
 
@@ -144,7 +144,7 @@ func (res *GCounterResource) Close() error {
 	return nil
 }
 
-func (res *GCounterResource) ReceiveValue(args ReceiveValueArgs, reply *ReceiveValueResp) error {
+func (res *GCounter) ReceiveValue(args ReceiveValueArgs, reply *ReceiveValueResp) error {
 	log.Printf("node %d received value %v\n", res.id.AsNumber(), args.Value)
 	res.stateMu.Lock()
 	defer res.stateMu.Unlock()
@@ -152,7 +152,7 @@ func (res *GCounterResource) ReceiveValue(args ReceiveValueArgs, reply *ReceiveV
 	return nil
 }
 
-func (res *GCounterResource) merge(other map[int32]int32) {
+func (res *GCounter) merge(other map[int32]int32) {
 	for id, val := range other {
 		if v, ok := res.state[id]; !ok || v < val {
 			res.state[id] = val
@@ -160,40 +160,50 @@ func (res *GCounterResource) merge(other map[int32]int32) {
 	}
 }
 
-func (res *GCounterResource) tryConnectPeers() {
+func (res *GCounter) tryConnectPeers() {
 	for id, addr := range res.peerAddrs {
 		if _, ok := res.peers[id]; !ok {
-			client, err := rpc.Dial("tcp", addr)
+			conn, err := net.DialTimeout("tcp", addr, 5 * time.Second)
 			if err == nil {
-				res.peers[id] = client
+				res.peers[id] = rpc.NewClient(conn)
 			}
 		}
 	}
 }
 
-func (res *GCounterResource) runBroadcasts() {
-	calls := make(map[tla.TLAValue]*rpc.Call, len(res.peers))
+func (res *GCounter) runBroadcasts(timeout time.Duration) {
+	type callWithTimeout struct {
+		call *rpc.Call
+		timeoutChan <- chan time.Time
+	}
+
+	calls := make(map[tla.TLAValue]callWithTimeout, len(res.peers))
 	for {
 		select {
 		case <- res.closeChan:
 			log.Printf("node %d: terminating broadcasts\n", res.id.AsNumber())
-			res.doneChan <- struct{}{}
 			return
 		default:
-			time.Sleep(time.Duration(res.broadcastInt) * time.Second)
+			time.Sleep(broadcastInterval)
 			res.tryConnectPeers()
 			args := ReceiveValueArgs{
 				Value: res.oldState,
 			}
 			for id, client := range res.peers  {
-				calls[id] = client.Go("GCounterResource.ReceiveValue", args, nil, nil)
+				calls[id] = callWithTimeout {
+					call: client.Go("GCounter.ReceiveValue", args, nil, nil),
+					timeoutChan: time.After(timeout),
+				}
 			}
 
-			for id, call := range calls {
-				<- call.Done
-				if call.Error != nil {
-					fmt.Errorf("node %d could not broadcast to node %d:%w\n", res.id.AsNumber(), id.AsNumber(), call.Error)
-					delete(res.peers, id)
+			for id, cwt := range calls {
+				select {
+					case <- cwt.call.Done:
+					if cwt.call.Error != nil {
+						fmt.Errorf("node %d: could not broadcast to node %d:%w\n", res.id.AsNumber(), id.AsNumber(), cwt.call.Error)
+					}
+					case <- cwt.timeoutChan:
+						fmt.Errorf("node %d: broadcast to node %d timed out\n", res.id.AsNumber(), id.AsNumber())
 				}
 			}
 		}

@@ -29,7 +29,7 @@ func getNodeMapCtx(self tla.TLAValue, nodeAddrMap map[tla.TLAValue]string, const
 					peers = append(peers, nid)
 				}
 			}
-			return resources.GCounterResourceMaker(index, peers, func(index tla.TLAValue) string {
+			return resources.GCounterMaker(index, peers, func(index tla.TLAValue) string {
 				return nodeAddrMap[index]
 			})
 		})))...)
@@ -68,6 +68,9 @@ func TestGCounter(t *testing.T) {
 	}()
 
 	for i := 1; i <= numNodes; i++ {
-		<- errs
+		err := <- errs
+		if err != nil {
+			t.Fatalf("non-nil error from ANode archetype: %s", err)
+		}
 	}
 }
