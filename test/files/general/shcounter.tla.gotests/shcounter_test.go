@@ -1,16 +1,16 @@
 package shcounter
 
 import (
-	"log"
 	"fmt"
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/resources"
 	"github.com/UBC-NSS/pgo/distsys/tla"
+	"log"
 	"testing"
 )
 
 func getListenAddress(nodeIndex int) string {
-	return fmt.Sprintf("localhost:%d", 9000 + nodeIndex)
+	return fmt.Sprintf("localhost:%d", 9000+nodeIndex)
 }
 
 func getReplicas(selfIndex int, numNodes int) []resources.ReplicaHandle {
@@ -53,7 +53,7 @@ func TestShCounter(t *testing.T) {
 
 	for i := 0; i < numNodes; i++ {
 		replicas := getReplicas(i, numNodes)
-		nodeName := fmt.Sprintf("Node%d", i);
+		nodeName := fmt.Sprintf("Node%d", i)
 		maker := resources.TwoPCArchetypeResourceMaker(
 			tla.MakeTLANumber(0),
 			getListenAddress(i),
@@ -81,7 +81,7 @@ func TestShCounter(t *testing.T) {
 	}()
 
 	for i := 0; i < numNodes; i++ {
-		err := <- errs
+		err := <-errs
 		if err != nil {
 			t.Fatalf("non-nil error from ANode archetype: %s", err)
 		}

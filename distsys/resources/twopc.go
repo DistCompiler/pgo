@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
-	"github.com/UBC-NSS/pgo/distsys/tla"
 	"github.com/UBC-NSS/pgo/distsys"
+	"github.com/UBC-NSS/pgo/distsys/tla"
 	"net"
 	"net/rpc"
-	"time"
 	"sync"
+	"time"
 )
 
 //--- TwoPC Protocol
@@ -17,13 +17,13 @@ import (
 // TODO: Add a a unique ID associated for this iteration of 2PC
 //       This is necessary for associating Aborts / Commits to
 //       previous PreCommit requests
-type TwoPCRequest interface{
+type TwoPCRequest interface {
 	GetType() string
 }
 
 type PreCommitMessage struct {
-   Value tla.TLAValue
-   Proposer string
+	Value    tla.TLAValue
+	Proposer string
 }
 
 func (m PreCommitMessage) GetType() string {
@@ -74,7 +74,6 @@ type TwoPCResponse interface {
 }
 
 type TwoPCAccept struct {
-
 }
 
 type TwoPCReject struct {
@@ -93,16 +92,16 @@ func (response TwoPCReject) IsAccept() bool {
 
 type TwoPCReceiver struct {
 	ListenAddr string
-	done chan struct{}
-	twopc *TwoPCArchetypeResource
-	debug bool // Whether or not to display debug output
+	done       chan struct{}
+	twopc      *TwoPCArchetypeResource
+	debug      bool // Whether or not to display debug output
 }
 
 func MakeTwoPCReceiver(twopc *TwoPCArchetypeResource, ListenAddr string) TwoPCReceiver {
-	return TwoPCReceiver {
+	return TwoPCReceiver{
 		ListenAddr: ListenAddr,
-		twopc: twopc,
-		done: make(chan struct{}),
+		twopc:      twopc,
+		done:       make(chan struct{}),
 	}
 }
 
@@ -126,13 +125,13 @@ func (handle LocalReplicaHandle) Send(request TwoPCRequest, reply *TwoPCResponse
 
 // Interface for connecting with 2PC replicas over RPC
 type RPCReplicaHandle struct {
-	address string     // Client address
-    client *rpc.Client // RPC Client. Initialized during the first RPC request.
-	debug bool         // Whether or not to display debug output
+	address string      // Client address
+	client  *rpc.Client // RPC Client. Initialized during the first RPC request.
+	debug   bool        // Whether or not to display debug output
 }
 
 func (handle RPCReplicaHandle) String() string {
-    return fmt.Sprintf("%s[connected: %t]", handle.address, handle.client != nil)
+	return fmt.Sprintf("%s[connected: %t]", handle.address, handle.client != nil)
 }
 
 func (handle *RPCReplicaHandle) Send(request TwoPCRequest, reply *TwoPCResponse) chan error {
@@ -140,7 +139,7 @@ func (handle *RPCReplicaHandle) Send(request TwoPCRequest, reply *TwoPCResponse)
 	assert(reply != nil, "reply was not initialized correctly")
 	error_channel := make(chan error, 1)
 
-	if(handle.client == nil) {
+	if handle.client == nil {
 		client, err := makeClient(handle.address)
 		if err != nil {
 			error_channel <- err
@@ -285,7 +284,6 @@ func (state CriticalSectionState) String() string {
 	return "unknown"
 }
 
-
 //--- Archetype Functions
 
 // Abort the current critical section state
@@ -302,17 +300,16 @@ func (res *TwoPCArchetypeResource) Abort() chan struct{} {
 	if res.criticalSectionState == hasPreCommitted {
 		res.log("Rollback replicas due to Abort()")
 		for _, r := range res.replicas {
-			request := AbortMessage { Proposer: res.name }
+			request := AbortMessage{Proposer: res.name}
 			var reply TwoPCResponse
 			call := r.Send(request, &reply)
 			<-call
 		}
 	}
-	res.criticalSectionState = notInCriticalSection;
+	res.criticalSectionState = notInCriticalSection
 	res.mutex.Unlock()
 	return nil
 }
-
 
 // Local Critical Section PreCommit. This triggers the 2PC PreCommit on all
 // relicas. If any replica refuses the PreCommit(), then this should fail
@@ -326,12 +323,12 @@ func (res *TwoPCArchetypeResource) PreCommit() chan error {
 		res.mutex.Unlock()
 		return channel
 	}
-	res.criticalSectionState = inPreCommit;
+	res.criticalSectionState = inPreCommit
 	res.mutex.Unlock()
 
 	var num_successful_precommits = 0
 	for _, r := range res.replicas {
-		request := PreCommitMessage { Value: res.value , Proposer: res.name }
+		request := PreCommitMessage{Value: res.value, Proposer: res.name}
 		var reply TwoPCResponse
 		err_channel := r.Send(request, &reply)
 		err := <-err_channel
@@ -352,7 +349,7 @@ func (res *TwoPCArchetypeResource) PreCommit() chan error {
 		res.log("PreCommit for %s failed, rollback", res.value)
 		for _, r := range res.replicas[0:num_successful_precommits] {
 			res.log("Send rollback to %s", r)
-			request := AbortMessage { Proposer: res.name }
+			request := AbortMessage{Proposer: res.name}
 			var reply TwoPCResponse
 			call := r.Send(request, &reply)
 			<-call
@@ -367,8 +364,8 @@ func (res *TwoPCArchetypeResource) PreCommit() chan error {
 				res.name,
 				res.criticalSectionState,
 			),
-		);
-		res.criticalSectionState = hasPreCommitted;
+		)
+		res.criticalSectionState = hasPreCommitted
 		res.log("Successful PreCommit")
 		return nil
 	}
@@ -384,7 +381,7 @@ func (res *TwoPCArchetypeResource) Commit() chan struct{} {
 	)
 	assert(res.twoPCState != acceptedPreCommit, "Commit() called, but we have already accepted a PreCommit!")
 
-	request := CommitMessage { Proposer: res.name }
+	request := CommitMessage{Proposer: res.name}
 	for _, r := range res.replicas {
 		var reply TwoPCResponse
 		call := r.Send(request, &reply)
@@ -392,8 +389,8 @@ func (res *TwoPCArchetypeResource) Commit() chan struct{} {
 	}
 	res.log("Commit(%s) has been acknowledged by all replicas", res.value)
 	res.mutex.Lock()
-	res.oldValue = res.value;
-	res.criticalSectionState = notInCriticalSection;
+	res.oldValue = res.value
+	res.criticalSectionState = notInCriticalSection
 	res.mutex.Unlock()
 	return nil
 }
@@ -419,7 +416,7 @@ func (res *TwoPCArchetypeResource) WriteValue(value tla.TLAValue) error {
 	}
 	res.log("WriteValue() allowed")
 	res.value = value
-	res.criticalSectionState = inUninterruptedCriticalSection;
+	res.criticalSectionState = inUninterruptedCriticalSection
 	return nil
 }
 
@@ -430,7 +427,7 @@ func (res *TwoPCArchetypeResource) Close() error {
 }
 
 func (res *TwoPCArchetypeResource) inCriticalSection() bool {
-   return res.criticalSectionState != notInCriticalSection
+	return res.criticalSectionState != notInCriticalSection
 }
 
 // If a resource accepted a commit while in a critical section,
@@ -439,17 +436,16 @@ func (res *TwoPCArchetypeResource) inCriticalSection() bool {
 //       entering the critical section, or if the local value hasn't yet been
 //       *read* in the critical section.
 func (res *TwoPCArchetypeResource) criticalSectionPermanentlyFailed() bool {
-   return res.criticalSectionState == acceptedCommitInCriticalSection;
+	return res.criticalSectionState == acceptedCommitInCriticalSection
 }
 
 // We abort even if we have pre-commmitted a 2PC update. This behaviour is
 // pessimistic: in principle the precommit could be rolled back, allowing this
 // CS to succeed. However, logic is likely better for preventing deadlock.
 func (res *TwoPCArchetypeResource) shouldAbort() bool {
-   return res.criticalSectionPermanentlyFailed() ||
-	   res.twoPCState == acceptedPreCommit
+	return res.criticalSectionPermanentlyFailed() ||
+		res.twoPCState == acceptedPreCommit
 }
-
 
 // Updates the replicas for 2PC replication This function is only for testing;
 // things will likely break if this is called during 2PC operation.
@@ -466,7 +462,6 @@ func (res *TwoPCArchetypeResource) EnableDebug() {
 }
 
 //--- TwoPC Related Functions
-
 
 // Handler for receiving a 2PC message
 // TODO: Save state to stable storage
@@ -489,28 +484,28 @@ func (twopc *TwoPCArchetypeResource) receiveInternal(arg TwoPCRequest, reply *Tw
 		arg,
 		twopc.twoPCState,
 		twopc.criticalSectionState,
-	);
+	)
 	switch message := arg.(type) {
 	case PreCommitMessage:
 		if twopc.twoPCState == acceptedPreCommit {
 			twopc.log("Rejected PreCommit %s: already accepted PreCommit %s", message, twopc.acceptedPreCommit)
-			*reply = TwoPCReject { ResponsibleNode : twopc.acceptedPreCommit.Proposer }
+			*reply = TwoPCReject{ResponsibleNode: twopc.acceptedPreCommit.Proposer}
 		} else if twopc.criticalSectionState == hasPreCommitted {
 			twopc.log("Rejected PreCommit message %s: already PreCommitted.", message.Value)
-			*reply = TwoPCReject { ResponsibleNode : twopc.name }
+			*reply = TwoPCReject{ResponsibleNode: twopc.name}
 		} else if twopc.criticalSectionState == inPreCommit {
 			twopc.log("Rejected PreCommit message %s: in precommit.", message.Value)
-			*reply = TwoPCReject { ResponsibleNode : twopc.name }
+			*reply = TwoPCReject{ResponsibleNode: twopc.name}
 		} else {
 			twopc.log("Accepted PreCommit message %s.", message.Value)
-			*reply = TwoPCAccept{};
-			twopc.twoPCState = acceptedPreCommit;
-			twopc.acceptedPreCommit = message;
+			*reply = TwoPCAccept{}
+			twopc.twoPCState = acceptedPreCommit
+			twopc.acceptedPreCommit = message
 			twopc.log(
 				"After accepting PreCommit: CS State: %s, 2PC State: %s.",
 				twopc.twoPCState,
 				twopc.criticalSectionState,
-			);
+			)
 		}
 	case CommitMessage:
 		if message.Proposer != twopc.acceptedPreCommit.Proposer {
@@ -519,13 +514,13 @@ func (twopc *TwoPCArchetypeResource) receiveInternal(arg TwoPCRequest, reply *Tw
 				message.Proposer,
 				twopc.acceptedPreCommit.Proposer,
 			)
-		}  else {
+		} else {
 			twopc.log("Accepted Commit %s", twopc.acceptedPreCommit)
-            twopc.twoPCState = initial;
-			twopc.value = twopc.acceptedPreCommit.Value;
-			twopc.oldValue = twopc.acceptedPreCommit.Value;
+			twopc.twoPCState = initial
+			twopc.value = twopc.acceptedPreCommit.Value
+			twopc.oldValue = twopc.acceptedPreCommit.Value
 			if twopc.inCriticalSection() {
-				twopc.criticalSectionState = acceptedCommitInCriticalSection;
+				twopc.criticalSectionState = acceptedCommitInCriticalSection
 			}
 		}
 	case AbortMessage:
@@ -541,7 +536,7 @@ func (twopc *TwoPCArchetypeResource) receiveInternal(arg TwoPCRequest, reply *Tw
 				twopc.twoPCState,
 			)
 		} else {
-			twopc.twoPCState = initial;
+			twopc.twoPCState = initial
 		}
 	}
 	return nil
@@ -549,7 +544,7 @@ func (twopc *TwoPCArchetypeResource) receiveInternal(arg TwoPCRequest, reply *Tw
 
 func (rcvr *TwoPCReceiver) Receive(arg TwoPCRequest, reply *TwoPCResponse) error {
 	rcvr.log("Got an RPC request.")
-	twopc := rcvr.twopc;
+	twopc := rcvr.twopc
 	return twopc.receiveInternal(arg, reply)
 }
 
@@ -561,20 +556,20 @@ func assert(condition bool, message string) {
 	}
 }
 
-func (res *TwoPCArchetypeResource) log(format string, args... interface{}) {
+func (res *TwoPCArchetypeResource) log(format string, args ...interface{}) {
 	if res.debug {
 		printf_args := append([]interface{}{res.name}, args...)
-		fmt.Printf("%s: " + format + "\n", printf_args...)
+		fmt.Printf("%s: "+format+"\n", printf_args...)
 	}
 }
 
-func (res *RPCReplicaHandle) log(format string, args... interface{}) {
+func (res *RPCReplicaHandle) log(format string, args ...interface{}) {
 	if res.debug {
-		fmt.Printf(format + "\n", args...)
+		fmt.Printf(format+"\n", args...)
 	}
 }
 
-func (res *TwoPCReceiver) log(format string, args... interface{}) {
+func (res *TwoPCReceiver) log(format string, args ...interface{}) {
 	res.twopc.log(format, args...)
 }
 
@@ -586,13 +581,13 @@ func TwoPCArchetypeResourceMaker(
 ) distsys.ArchetypeResourceMaker {
 	return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
 		resource := TwoPCArchetypeResource{
-			value: value,
-			oldValue: value,
+			value:                value,
+			oldValue:             value,
 			criticalSectionState: notInCriticalSection,
-			twoPCState: initial,
-			replicas: replicas,
-			name: name,
-			debug: false,
+			twoPCState:           initial,
+			replicas:             replicas,
+			name:                 name,
+			debug:                false,
 		}
 		receiver := MakeTwoPCReceiver(&resource, address)
 		go ListenAndServe(&receiver, nil)
@@ -600,11 +595,10 @@ func TwoPCArchetypeResourceMaker(
 	})
 }
 
-func init(){
+func init() {
 	gob.Register(TwoPCAccept{})
-	gob.Register(TwoPCReject{ ResponsibleNode: ""})
-	gob.Register(PreCommitMessage{ Value: tla.MakeTLANumber(0), Proposer: ""})
-	gob.Register(CommitMessage{ Proposer: ""})
-	gob.Register(AbortMessage{ Proposer : ""})
+	gob.Register(TwoPCReject{ResponsibleNode: ""})
+	gob.Register(PreCommitMessage{Value: tla.MakeTLANumber(0), Proposer: ""})
+	gob.Register(CommitMessage{Proposer: ""})
+	gob.Register(AbortMessage{Proposer: ""})
 }
-
