@@ -33,6 +33,14 @@ func runArchetype(fn func() error) error {
 	return err
 }
 
+func getCounterValue(ctx *distsys.MPCalContext) (tla.TLAValue, error) {
+	arch, err := ctx.IFace().RequireArchetypeResourceRef("ANode.cntr")
+	if err != nil {
+		return tla.TLAValue{}, err
+	}
+	return ctx.IFace().Read(arch, []tla.TLAValue{})
+}
+
 func TestShCounter(t *testing.T) {
 	numNodes := 3
 
@@ -43,7 +51,6 @@ func TestShCounter(t *testing.T) {
 	replicaCtxs := make([]*distsys.MPCalContext, numNodes)
 	errs := make(chan error, numNodes)
 
-	complete := make(chan *resources.TwoPCArchetypeResource, numNodes)
 	for i := 0; i < numNodes; i++ {
 		replicas := getReplicas(i, numNodes)
 		nodeName := fmt.Sprintf("Node%d", i);
@@ -52,7 +59,6 @@ func TestShCounter(t *testing.T) {
 			getListenAddress(i),
 			replicas,
 			nodeName,
-			complete,
 		)
 		ctx := distsys.NewMPCalContext(tla.MakeTLANumber(int32(i)), ANode,
 			append(
@@ -81,8 +87,7 @@ func TestShCounter(t *testing.T) {
 		}
 	}
 	for i := 0; i < numNodes; i++ {
-		resource := <- complete
-		value, _ := resource.ReadValue()
+		value, _ := getCounterValue(replicaCtxs[i])
 		if value != tla.MakeTLANumber(int32(numNodes)) {
 			t.Fatalf("Replica value %s was not equal to expected %d", value, numNodes)
 		}

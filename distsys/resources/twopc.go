@@ -177,7 +177,9 @@ func ListenAndServe(rpcRcvr *TwoPCReceiver, done chan *TwoPCArchetypeResource) e
 		return err
 	}
 	rpcRcvr.log("Monitor: started listening on %s\n", rpcRcvr.ListenAddr)
-	done <- rpcRcvr.twopc
+	if done != nil {
+		done <- rpcRcvr.twopc
+	}
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
@@ -581,7 +583,6 @@ func TwoPCArchetypeResourceMaker(
 	address string,
 	replicas []ReplicaHandle,
 	name string,
-	done chan *TwoPCArchetypeResource,
 ) distsys.ArchetypeResourceMaker {
 	return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
 		resource := TwoPCArchetypeResource{
@@ -594,7 +595,7 @@ func TwoPCArchetypeResourceMaker(
 			debug: false,
 		}
 		receiver := MakeTwoPCReceiver(&resource, address)
-		go ListenAndServe(&receiver, done)
+		go ListenAndServe(&receiver, nil)
 		return &resource
 	})
 }
