@@ -35,6 +35,8 @@ func TestTest4(t *testing.T) {
 			if !errors.Is(err.(error), tla.ErrTLAType) {
 				t.Fatalf("unexpected panic %v", err)
 			}
+		} else {
+			t.Fatalf("should have panicked, but didn't")
 		}
 	}()
 	_ = Test4(ctx.IFace())
