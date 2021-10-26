@@ -289,6 +289,7 @@ func (state CriticalSectionState) String() string {
 // Abort the current critical section state
 // If were also attempting 2PC replication, sned a rollback message
 func (res *TwoPCArchetypeResource) Abort() chan struct{} {
+	res.mutex.Lock()
 	res.log(
 		"Aborts 2PC State %s, CS State: %s, replicas %s",
 		res.twoPCState,
@@ -306,6 +307,7 @@ func (res *TwoPCArchetypeResource) Abort() chan struct{} {
 		}
 	}
 	res.criticalSectionState = notInCriticalSection;
+	res.mutex.Unlock()
 	return nil
 }
 
@@ -387,12 +389,16 @@ func (res *TwoPCArchetypeResource) Commit() chan struct{} {
 		<-call
 	}
 	res.log("Commit(%s) has been acknowledged by all replicas", res.value)
+	res.mutex.Lock()
 	res.oldValue = res.value;
 	res.criticalSectionState = notInCriticalSection;
+	res.mutex.Unlock()
 	return nil
 }
 
 func (res *TwoPCArchetypeResource) ReadValue() (tla.TLAValue, error) {
+	res.mutex.Lock()
+	defer res.mutex.Unlock()
 	if res.shouldAbort() {
 		res.log("ReadValue() rejected")
 		return tla.TLAValue{}, distsys.ErrCriticalSectionAborted
@@ -403,6 +409,8 @@ func (res *TwoPCArchetypeResource) ReadValue() (tla.TLAValue, error) {
 }
 
 func (res *TwoPCArchetypeResource) WriteValue(value tla.TLAValue) error {
+	res.mutex.Lock()
+	defer res.mutex.Unlock()
 	if res.shouldAbort() {
 		res.log("WriteValue() rejected")
 		return distsys.ErrCriticalSectionAborted
