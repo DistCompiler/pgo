@@ -17,6 +17,8 @@ Test2 == \A <<o0nT5iaxQ0CGr, a1FO5HvdyoLWp, uXXYnplomNiSbQyMwj71XmbnXjoqCn7xaeTF
 
 Test3 == CHOOSE z \in {1, 2, 3} : z = 2
 
+Test4 == 48 ^ 37
+
 \* A trivial do-nothing process
 (* --mpcal ExprTests {
     process (Nothing = 0) {

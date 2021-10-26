@@ -43,6 +43,10 @@ class TLAExprInterpreterTests extends AnyFunSuite {
     }
   }
 
+  checkTypeError("pow function overflow") {
+    raw"""48 ^ 37"""
+  }
+
   checkPass("function call, arg in domain") {
     raw"""[foo |-> 1]["foo"]""" -> TLAValueNumber(1)
   }

@@ -203,7 +203,11 @@ object TLAExprInterpreter {
       BuiltinModules.ProtoReals.memberSym(TLASymbol.SlashSymbol) -> { case List(_, _) => throw Unsupported() },
       BuiltinModules.ProtoReals.memberAlpha("Int") -> { case Nil => throw Unsupported() },
       BuiltinModules.ProtoReals.memberSym(TLASymbol.SuperscriptSymbol) -> {
-        case List(TLAValueNumber(lhs), TLAValueNumber(rhs)) => TLAValueNumber(math.pow(lhs, rhs).toInt)
+        case List(TLAValueNumber(lhs), TLAValueNumber(rhs)) =>
+          // don't silently truncate overflows; fail with error
+          val result = math.pow(lhs, rhs)
+          require(result <= Int.MaxValue && result >= Int.MinValue)
+          TLAValueNumber(result.toInt)
       },
 
       BuiltinModules.Naturals.memberSym(TLASymbol.GreaterThanOrEqualSymbol) -> {
