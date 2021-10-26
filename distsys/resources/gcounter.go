@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"github.com/UBC-NSS/pgo/distsys"
 	"github.com/UBC-NSS/pgo/distsys/tla"
+	"github.com/benbjohnson/immutable"
 	"io"
 	"log"
 	"net"
 	"net/rpc"
+	"strings"
 	"sync"
 	"time"
 )
@@ -27,8 +29,9 @@ type GCounter struct {
 	listenAddr string
 
 	hasOldState bool
-	oldState    map[tla.TLAValue]int32
-	state       map[tla.TLAValue]int32
+	oldStateMu  sync.RWMutex
+	oldState    *immutable.Map
+	state       *immutable.Map
 	stateMu     sync.RWMutex
 
 	peerAddrs map[tla.TLAValue]string
@@ -41,7 +44,7 @@ type GCounter struct {
 var _ distsys.ArchetypeResource = &GCounter{}
 
 type ReceiveValueArgs struct {
-	Value map[tla.TLAValue]int32
+	Value *immutable.Map
 }
 
 type KeyVal struct {
@@ -52,8 +55,10 @@ type KeyVal struct {
 func (arg ReceiveValueArgs) GobEncode() ([]byte, error) {
 	var buf bytes.Buffer
 	encoder := gob.NewEncoder(&buf)
-	for k, v := range arg.Value {
-		pair := KeyVal{K: k, V: v}
+	it := arg.Value.Iterator()
+	for !it.Done() {
+		k, v := it.Next()
+		pair := KeyVal{K: k.(tla.TLAValue), V: v.(int32)}
 		err := encoder.Encode(&pair)
 		if err != nil {
 			return nil, err
@@ -65,18 +70,19 @@ func (arg ReceiveValueArgs) GobEncode() ([]byte, error) {
 func (arg *ReceiveValueArgs) GobDecode(input []byte) error {
 	buf := bytes.NewBuffer(input)
 	decoder := gob.NewDecoder(buf)
-	arg.Value = make(map[tla.TLAValue]int32)
+	b := immutable.NewMapBuilder(tla.TLAValueHasher{})
 	for {
 		var pair KeyVal
 		err := decoder.Decode(&pair)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
+				arg.Value = b.Map()
 				return nil
 			} else {
 				return err
 			}
 		}
-		arg.Value[pair.K] = pair.V
+		b.Set(pair.K, pair.V)
 	}
 }
 
@@ -85,7 +91,7 @@ type ReceiveValueResp struct{}
 type GCounterAddressMappingFn func(value tla.TLAValue) string
 
 func init() {
-	gob.Register(ReceiveValueArgs{make(map[tla.TLAValue]int32)})
+	gob.Register(ReceiveValueArgs{&immutable.Map{}})
 }
 
 // TODO: Persist local state to disk on Commit, reload in maker
@@ -102,8 +108,8 @@ func GCounterMaker(id tla.TLAValue, peers []tla.TLAValue, addressMappingFn GCoun
 			id:         id,
 			listenAddr: addressMappingFn(id),
 
-			state:       make(map[tla.TLAValue]int32),
-			oldState:    make(map[tla.TLAValue]int32),
+			state:       immutable.NewMap(tla.TLAValueHasher{}),
+			oldState:    immutable.NewMap(tla.TLAValueHasher{}),
 			hasOldState: false,
 
 			peerAddrs: peerAddrs,
@@ -131,6 +137,11 @@ func GCounterMaker(id tla.TLAValue, peers []tla.TLAValue, addressMappingFn GCoun
 }
 
 func (res *GCounter) Abort() chan struct{} {
+	res.stateMu.Lock()
+	res.oldStateMu.RLock()
+	defer res.stateMu.Unlock()
+	defer res.oldStateMu.RUnlock()
+
 	if res.hasOldState {
 		res.state = res.oldState
 		res.hasOldState = false
@@ -151,15 +162,20 @@ func (res *GCounter) ReadValue() (tla.TLAValue, error) {
 	res.stateMu.RLock()
 	defer res.stateMu.RUnlock()
 	var value int32 = 0
-	for _, v := range res.state {
-		value += v
+	it := res.state.Iterator()
+	for !it.Done() {
+		_, v := it.Next()
+		value += v.(int32)
 	}
 	return tla.MakeTLANumber(value), nil
 }
 
 func (res *GCounter) WriteValue(value tla.TLAValue) error {
 	res.stateMu.Lock()
-	res.stateMu.Unlock()
+	res.oldStateMu.Lock()
+	defer res.stateMu.Unlock()
+	defer res.oldStateMu.Unlock()
+
 	if !value.IsNumber() {
 		return distsys.ErrCriticalSectionAborted
 	}
@@ -167,15 +183,18 @@ func (res *GCounter) WriteValue(value tla.TLAValue) error {
 		res.oldState = res.state
 		res.hasOldState = true
 	}
-	res.state[res.id] += value.AsNumber()
+	res.state = res.state.Set(res.id, value.AsNumber())
+
 	return nil
 }
 
 func (res *GCounter) Close() error {
-	res.stateMu.RLock()
-	defer res.stateMu.RUnlock()
-
 	res.closeChan <- struct{}{}
+
+	res.stateMu.RLock()
+	res.peersMu.RLock()
+	defer res.stateMu.RUnlock()
+	defer res.peersMu.RUnlock()
 
 	var err error
 	for id, client := range res.peers {
@@ -187,27 +206,32 @@ func (res *GCounter) Close() error {
 		}
 	}
 
-	log.Printf("node %s: closing with state: %v\n", res.id, res.state)
+	log.Printf("node %s: closing with state: %s\n", res.id, toString(res.state))
 	return nil
 }
 
 func (res *GCounter) ReceiveValue(args ReceiveValueArgs, reply *ReceiveValueResp) error {
-	log.Printf("node %s: received value %v\n", res.id.String(), args.Value)
+	log.Printf("node %s: received value %s\n", res.id.String(), toString(args.Value))
 	res.stateMu.Lock()
 	defer res.stateMu.Unlock()
 	res.merge(args.Value)
 	return nil
 }
 
-func (res *GCounter) merge(other map[tla.TLAValue]int32) {
-	for id, val := range other {
-		if v, ok := res.state[id]; !ok || v < val {
-			res.state[id] = val
+func (res *GCounter) merge(other *immutable.Map) {
+	it := other.Iterator()
+	for !it.Done() {
+		id, val := it.Next()
+		if v, ok := res.state.Get(id); !ok || v.(int32) > val.(int32) {
+			res.state = res.state.Set(id, val)
 		}
 	}
 }
 
 func (res *GCounter) tryConnectPeers() {
+	res.peersMu.Lock()
+	defer res.peersMu.Unlock()
+
 	for id, addr := range res.peerAddrs {
 		if _, ok := res.peers[id]; !ok {
 			conn, err := net.DialTimeout("tcp", addr, connectionTimeout)
@@ -233,15 +257,23 @@ func (res *GCounter) runBroadcasts(timeout time.Duration) {
 		default:
 			time.Sleep(broadcastInterval)
 			res.tryConnectPeers()
-			args := ReceiveValueArgs{
-				Value: res.oldState,
+
+			if res.hasOldState {
+				continue
 			}
+
+			res.stateMu.RLock()
+			args := ReceiveValueArgs{
+				Value: res.state,
+			}
+
 			for id, client := range res.peers {
 				calls[id] = callWithTimeout{
 					call:        client.Go("GCounter.ReceiveValue", args, nil, nil),
 					timeoutChan: time.After(timeout),
 				}
 			}
+			res.stateMu.RUnlock()
 
 			for id, cwt := range calls {
 				select {
@@ -255,4 +287,24 @@ func (res *GCounter) runBroadcasts(timeout time.Duration) {
 			}
 		}
 	}
+}
+
+func toString(imap *immutable.Map) string {
+	it := imap.Iterator()
+	b := strings.Builder{}
+	b.WriteString("map[")
+	first := true
+	for !it.Done() {
+		if first {
+			first = false
+		} else {
+			b.WriteString(" ")
+		}
+		k, v := it.Next()
+		b.WriteString(k.(tla.TLAValue).String())
+		b.WriteString(":")
+		b.WriteString(fmt.Sprint(v))
+	}
+	b.WriteString("]")
+	return b.String()
 }
