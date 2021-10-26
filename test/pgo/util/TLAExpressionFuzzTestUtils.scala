@@ -142,15 +142,17 @@ trait TLAExpressionFuzzTestUtils {
           val result = os.proc("go", "run", "./main").call(cwd = workDir, mergeErrIntoOut = true, timeout = 60000)
           val valueFromGo = TLAValue.parseFromString(result.out.text())
           this.failedDueToError = Some(false)
-          Prop(expectedOutcomes.contains(Success(valueFromGo))).label(
+          assert(expectedOutcomes.contains(Success(valueFromGo)),
             "the implementation's result should match one of the possible results computed")
+          Prop.passed
         } catch {
           case err: os.SubprocessException =>
             if (err.result.out.text().startsWith("panic: TLA+ type error")) {
               // that's ok then, as long as we're expecting an error to be possible
               this.failedDueToError = Some(true)
-              Prop(expectedOutcomes.contains(Failure(TLAExprInterpreter.TypeError()))).label(
+              assert(expectedOutcomes.contains(Failure(TLAExprInterpreter.TypeError())),
                 "if the implementation crashes with type error, that should have been a possible outcome")
+              Prop.passed
             } else {
               throw err
             }
