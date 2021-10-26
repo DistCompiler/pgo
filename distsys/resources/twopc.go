@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/rpc"
 	"time"
+	"sync"
 )
 
 //--- TwoPC Protocol
@@ -233,6 +234,9 @@ type TwoPCArchetypeResource struct {
 
 	// Whether or not to enable debugging
 	debug bool
+
+	// Internal Mutex
+	mutex sync.Mutex
 }
 
 type TwoPCState int
@@ -311,12 +315,15 @@ func (res *TwoPCArchetypeResource) Abort() chan struct{} {
 func (res *TwoPCArchetypeResource) PreCommit() chan error {
 	res.log("Initiate PreCommit for value %s", res.value)
 	channel := make(chan error, 1)
+	res.mutex.Lock()
 	if res.shouldAbort() {
 		res.log("PreCommit for %s aborted locally", res.value)
 		channel <- distsys.ErrCriticalSectionAborted
+		res.mutex.Unlock()
 		return channel
 	}
 	res.criticalSectionState = inPreCommit;
+	res.mutex.Unlock()
 
 	var num_successful_precommits = 0
 	for _, r := range res.replicas {
@@ -464,6 +471,8 @@ func (res *TwoPCArchetypeResource) EnableDebug() {
 //        permanenently (i.e. by already having accepted a commit), then actions
 //        are now allowed.
 func (twopc *TwoPCArchetypeResource) receiveInternal(arg TwoPCRequest, reply *TwoPCResponse) error {
+	twopc.mutex.Lock()
+	defer twopc.mutex.Unlock()
 	twopc.log(
 		"Received %s message %s. CS State: %s, 2PC State: %s.",
 		arg.GetType(),
