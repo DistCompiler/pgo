@@ -267,7 +267,7 @@ func Test2(iface distsys.ArchetypeInterface) tla.TLAValue {
 		default:
 			panic("no cases matched for TLA+ case expression!")
 		}
-	}(), tla.MakeTLASet(tla.MakeTLANumber(103), tla.MakeTLATuple(tla.MakeTLASet()), tla.TLA_Tail(tla.MakeTLAString("ao>Q^45R*)&S.P;@h>(g&QFHhB2]CIa,O)R}&icu)|<rcbCRZ!s}W9F:`9s.Xl\\Z{A=%jK1Z%)\"Y@MrS]M*^\"i)oNf<X)$h06WH,E$)AV2)I=@e{4zwo"))), tla.MakeTLARecord([]tla.TLARecordField{
+	}(), tla.MakeTLASet(tla.MakeTLANumber(103), tla.MakeTLATuple(tla.MakeTLASet()), tla.TLA_Tail(tla.MakeTLAString("ao>Q^45R*_)&S.P;@h>(g&QFHhB2]CIa,O)R}&icu)|<rcbCRZ!s}W9F:`9s.Xl\\Z{A=%jK1Z%)\"Y@MrS]M*^\"i)oNf<X)$h06WH,E$)AV2)I=@e{4zwo"))), tla.MakeTLARecord([]tla.TLARecordField{
 		{tla.MakeTLAString("eSmDnVka2T5vfCr2D6NAeJaHIIDOlNw2EtW2rEOQXQPKS5kkyWOloH5TdOSGJ8Bz44giGFHo7gIWf8OEXbvNC4Tf8ygMzR3dqbcqv"), tla.MakeTLANumber(69)},
 		{tla.MakeTLAString("izEEDYZa31aMoAX0ZZSPtnzZiSJasTS5zXqdJAympTsARWZkLDJD"), tla.MakeTLANumber(113)},
 		{tla.MakeTLAString("dyEu1EeADkIvzDaPjLTdpJIcifTMU16PgoOR7843Gu7mpKqkARv0JE2u1zPr2eQ4vy0VjJul5uqeh7XlPAPV9enWRCf8t0B0xY0IzPaYhk71Y"), tla.MakeTLATuple()},

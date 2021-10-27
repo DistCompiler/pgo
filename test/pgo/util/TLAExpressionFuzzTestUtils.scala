@@ -230,7 +230,13 @@ trait TLAExpressionFuzzTestUtils {
         num <- Gen.posNum[Int]
       } yield TLANumber(TLANumber.IntValue(num), TLANumber.DecimalSyntax)
       },
-      { case Nil => Gen.asciiPrintableStr.map(TLAString) }, // TODO: consider nonsense w/ unprintable ASCII
+      { case Nil => // TODO: consider nonsense w/ unprintable ASCII
+        Gen.asciiPrintableStr.map { str =>
+          TLAString(str
+            .replace("*)", "*_)")
+            .replace("(*", "(_*"))
+        }
+      },
       { case Nil if env.exists(_.ref.arity == 0) =>
         env.view
           .filter(_.ref.arity == 0)
