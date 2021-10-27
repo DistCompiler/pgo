@@ -28,17 +28,20 @@ type GCounter struct {
 	id         tla.TLAValue
 	listenAddr string
 
-	hasOldState bool
-	oldStateMu  sync.RWMutex
-	oldState    *immutable.Map
-	state       *immutable.Map
-	stateMu     sync.RWMutex
+	state *GCounterState
 
-	peerAddrs map[tla.TLAValue]string
-	peers     map[tla.TLAValue]*rpc.Client
+	peerAddrs *immutable.Map
+	peers     *immutable.Map
 	peersMu   sync.RWMutex
 
 	closeChan chan struct{}
+}
+
+type GCounterState struct {
+	oldValue    *immutable.Map
+	value       *immutable.Map
+	hasOldValue bool
+	stateMu     sync.RWMutex
 }
 
 var _ distsys.ArchetypeResource = &GCounter{}
@@ -99,35 +102,35 @@ func init() {
 func GCounterMaker(id tla.TLAValue, peers []tla.TLAValue, addressMappingFn GCounterAddressMappingFn) distsys.ArchetypeResourceMaker {
 	return distsys.ArchetypeResourceMakerFn(func() distsys.ArchetypeResource {
 		listenAddr := addressMappingFn(id)
-		peerAddrs := make(map[tla.TLAValue]string, len(peers))
+		b := immutable.NewMapBuilder(tla.TLAValueHasher{})
 		for _, pid := range peers {
-			peerAddrs[pid] = addressMappingFn(pid)
+			b.Set(pid, addressMappingFn(pid))
 		}
 
 		res := &GCounter{
 			id:         id,
 			listenAddr: addressMappingFn(id),
-
-			state:       immutable.NewMap(tla.TLAValueHasher{}),
-			oldState:    immutable.NewMap(tla.TLAValueHasher{}),
-			hasOldState: false,
-
-			peerAddrs: peerAddrs,
-			peers:     make(map[tla.TLAValue]*rpc.Client),
-
+			state: &GCounterState{
+				oldValue:    immutable.NewMap(tla.TLAValueHasher{}),
+				value:       immutable.NewMap(tla.TLAValueHasher{}),
+				hasOldValue: false,
+				stateMu:     sync.RWMutex{},
+			},
+			peerAddrs: b.Map(),
+			peers:     immutable.NewMap(tla.TLAValueHasher{}),
 			closeChan: make(chan struct{}),
 		}
 
 		rpcServer := rpc.NewServer()
 		err := rpcServer.Register(res)
 		if err != nil {
-			panic(fmt.Errorf("node %s: could not register CRDT RPCs: %w", id.String(), err))
+			panic(fmt.Errorf("node %s: could not register CRDT RPCs: %w", id, err))
 		}
 		listner, err := net.Listen("tcp", listenAddr)
 		if err != nil {
-			panic(fmt.Errorf("node %s: could not listen on address %s: %w", id.String(), listenAddr, err))
+			panic(fmt.Errorf("node %s: could not listen on address %s: %w", id, listenAddr, err))
 		}
-		log.Printf("node %s: started listening on %s", id.String(), listenAddr)
+		log.Printf("node %s: started listening on %s", id, listenAddr)
 
 		go rpcServer.Accept(listner)
 		go res.runBroadcasts(broadcastTimeout)
@@ -137,14 +140,13 @@ func GCounterMaker(id tla.TLAValue, peers []tla.TLAValue, addressMappingFn GCoun
 }
 
 func (res *GCounter) Abort() chan struct{} {
-	res.stateMu.Lock()
-	res.oldStateMu.RLock()
-	defer res.stateMu.Unlock()
-	defer res.oldStateMu.RUnlock()
+	res.state.stateMu.Lock()
+	defer res.state.stateMu.Unlock()
 
-	if res.hasOldState {
-		res.state = res.oldState
-		res.hasOldState = false
+	s := res.state
+	if s.hasOldValue {
+		s.value = s.oldValue
+		s.hasOldValue = false
 	}
 	return nil
 }
@@ -154,15 +156,18 @@ func (res *GCounter) PreCommit() chan error {
 }
 
 func (res *GCounter) Commit() chan struct{} {
-	res.hasOldState = false
+	res.state.stateMu.Lock()
+	res.state.hasOldValue = false
+	res.state.stateMu.Unlock()
 	return nil
 }
 
 func (res *GCounter) ReadValue() (tla.TLAValue, error) {
-	res.stateMu.RLock()
-	defer res.stateMu.RUnlock()
+	res.state.stateMu.RLock()
+	defer res.state.stateMu.RUnlock()
+
 	var value int32 = 0
-	it := res.state.Iterator()
+	it := res.state.value.Iterator()
 	for !it.Done() {
 		_, v := it.Next()
 		value += v.(int32)
@@ -171,19 +176,18 @@ func (res *GCounter) ReadValue() (tla.TLAValue, error) {
 }
 
 func (res *GCounter) WriteValue(value tla.TLAValue) error {
-	res.stateMu.Lock()
-	res.oldStateMu.Lock()
-	defer res.stateMu.Unlock()
-	defer res.oldStateMu.Unlock()
+	res.state.stateMu.Lock()
+	defer res.state.stateMu.Unlock()
 
+	state := res.state
 	if !value.IsNumber() {
 		return distsys.ErrCriticalSectionAborted
 	}
-	if !res.hasOldState {
-		res.oldState = res.state
-		res.hasOldState = true
+	if !state.hasOldValue {
+		state.oldValue = res.state.value
+		state.hasOldValue = true
 	}
-	res.state = res.state.Set(res.id, value.AsNumber())
+	state.value = state.value.Set(res.id, value.AsNumber())
 
 	return nil
 }
@@ -191,39 +195,46 @@ func (res *GCounter) WriteValue(value tla.TLAValue) error {
 func (res *GCounter) Close() error {
 	res.closeChan <- struct{}{}
 
-	res.stateMu.RLock()
+	res.state.stateMu.RLock()
 	res.peersMu.RLock()
-	defer res.stateMu.RUnlock()
+	defer res.state.stateMu.RUnlock()
 	defer res.peersMu.RUnlock()
 
 	var err error
-	for id, client := range res.peers {
+	it := res.peers.Iterator()
+	for !it.Done() {
+		id, client := it.Next()
 		if client != nil {
-			err = client.Close()
+			err = client.(*rpc.Client).Close()
 			if err != nil {
-				fmt.Errorf("node %s: could not close connection with node %s: %w\n", res.id.String(), id.String(), err)
+				fmt.Errorf("node %s: could not close connection with node %s: %w\n", res.id, id, err)
 			}
 		}
 	}
 
-	log.Printf("node %s: closing with state: %s\n", res.id, toString(res.state))
+	log.Printf("node %s: closing with state: %s\n", res.id, toString(res.state.value))
 	return nil
 }
 
 func (res *GCounter) ReceiveValue(args ReceiveValueArgs, reply *ReceiveValueResp) error {
-	log.Printf("node %s: received value %s\n", res.id.String(), toString(args.Value))
-	res.stateMu.Lock()
-	defer res.stateMu.Unlock()
+	log.Printf("node %s: received value %s\n", res.id, toString(args.Value))
+	res.state.stateMu.Lock()
+	defer res.state.stateMu.Unlock()
 	res.merge(args.Value)
 	return nil
 }
 
+/**
+ * Merges current state value with other
+ * Assume locks are preheld
+ */
 func (res *GCounter) merge(other *immutable.Map) {
 	it := other.Iterator()
+	state := res.state
 	for !it.Done() {
 		id, val := it.Next()
-		if v, ok := res.state.Get(id); !ok || v.(int32) > val.(int32) {
-			res.state = res.state.Set(id, val)
+		if v, ok := state.value.Get(id); !ok || v.(int32) > val.(int32) {
+			state.value = state.value.Set(id, val)
 		}
 	}
 }
@@ -232,11 +243,13 @@ func (res *GCounter) tryConnectPeers() {
 	res.peersMu.Lock()
 	defer res.peersMu.Unlock()
 
-	for id, addr := range res.peerAddrs {
-		if _, ok := res.peers[id]; !ok {
-			conn, err := net.DialTimeout("tcp", addr, connectionTimeout)
+	it := res.peerAddrs.Iterator()
+	for !it.Done() {
+		id, addr := it.Next()
+		if _, ok := res.peers.Get(id); !ok {
+			conn, err := net.DialTimeout("tcp", addr.(string), connectionTimeout)
 			if err == nil {
-				res.peers[id] = rpc.NewClient(conn)
+				res.peers = res.peers.Set(id.(tla.TLAValue), rpc.NewClient(conn))
 			}
 		}
 	}
@@ -248,41 +261,49 @@ func (res *GCounter) runBroadcasts(timeout time.Duration) {
 		timeoutChan <-chan time.Time
 	}
 
-	calls := make(map[tla.TLAValue]callWithTimeout, len(res.peers))
 	for {
 		select {
 		case <-res.closeChan:
-			log.Printf("node %s: terminating broadcasts\n", res.id.String())
+			log.Printf("node %s: terminating broadcasts\n", res.id)
 			return
 		default:
 			time.Sleep(broadcastInterval)
 			res.tryConnectPeers()
 
-			if res.hasOldState {
+			res.state.stateMu.RLock()
+
+			// wait until the value stablizes
+			if res.state.hasOldValue {
 				continue
 			}
 
-			res.stateMu.RLock()
 			args := ReceiveValueArgs{
-				Value: res.state,
+				Value: res.state.value,
 			}
 
-			for id, client := range res.peers {
-				calls[id] = callWithTimeout{
-					call:        client.Go("GCounter.ReceiveValue", args, nil, nil),
+			b := immutable.NewMapBuilder(tla.TLAValueHasher{})
+			it := res.peers.Iterator()
+			for !it.Done() {
+				id, client := it.Next()
+				b.Set(id, callWithTimeout{
+					call:        client.(*rpc.Client).Go("GCounter.ReceiveValue", args, nil, nil),
 					timeoutChan: time.After(timeout),
-				}
+				})
 			}
-			res.stateMu.RUnlock()
+			res.state.stateMu.RUnlock()
 
-			for id, cwt := range calls {
+			calls := b.Map()
+			it = calls.Iterator()
+			for !it.Done() {
+				id, cwt := it.Next()
+				call := cwt.(callWithTimeout).call
 				select {
-				case <-cwt.call.Done:
-					if cwt.call.Error != nil {
-						fmt.Errorf("node %s: could not broadcast to node %s:%w\n", res.id.String(), id.String(), cwt.call.Error)
+				case <-call.Done:
+					if call.Error != nil {
+						fmt.Errorf("node %s: could not broadcast to node %s:%w\n", res.id, id, call.Error)
 					}
-				case <-cwt.timeoutChan:
-					fmt.Errorf("node %s: broadcast to node %s timed out\n", res.id.String(), id.String())
+				case <-cwt.(callWithTimeout).timeoutChan:
+					fmt.Errorf("node %s: broadcast to node %s timed out\n", res.id, id)
 				}
 			}
 		}

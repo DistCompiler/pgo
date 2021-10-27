@@ -67,10 +67,29 @@ func TestGCounter(t *testing.T) {
 		}
 	}()
 
+	getVal := func(ctx *distsys.MPCalContext) (tla.TLAValue, error) {
+		fs, err := ctx.IFace().RequireArchetypeResourceRef("ANode.cntr")
+		if err != nil {
+			return tla.TLAValue{}, err
+		}
+		return ctx.IFace().Read(fs, []tla.TLAValue{ctx.IFace().Self()})
+	}
+
 	for i := 1; i <= numNodes; i++ {
-		err := <- errs
+		err := <-errs
 		if err != nil {
 			t.Fatalf("non-nil error from ANode archetype: %s", err)
+		}
+	}
+
+	for _, ctx := range replicaCtxs {
+		replicaVal, err := getVal(ctx)
+		log.Printf("node %s's count: %s", ctx.IFace().Self(), replicaVal)
+		if err != nil {
+			t.Fatalf("could not read value from cntr")
+		}
+		if !replicaVal.Equal(tla.MakeTLANumber(int32(numNodes))) {
+			t.Fatalf("expected values %v and %v to be equal", replicaVal, numNodes)
 		}
 	}
 }
