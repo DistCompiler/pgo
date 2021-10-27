@@ -22,7 +22,9 @@ Test4 == 48 ^ 37
 \* A trivial do-nothing process
 (* --mpcal ExprTests {
     process (Nothing = 0) {
-        lbl: skip;
+        \* test for a TLA+ output bug: the brackets around the nested CASE are strictly necessary; omitting them will
+        \*   cause the inner CASE to steal the outer CASE's OTHER branch.
+        lbl: print (CASE FALSE -> (CASE "unreachable" -> "also unreachable") [] OTHER -> 42);
     }
 }
 

@@ -88,7 +88,9 @@ object PCalRenderPass {
             .flattenDescriptions.indented
         } IN ${describeExpr(body)}"
       case TLACase(TLACaseArm(cond1, result1) :: armsRest, other) =>
-        d"CASE ${describeExpr(cond1)} -> ${describeExpr(result1)}${
+        // those brackets can be necessary, it's safer to include them. otherwise, nested CASE expressions may steal
+        //   each others' clauses
+        d"(CASE ${describeExpr(cond1)} -> ${describeExpr(result1)}${
           armsRest.view.map {
             case TLACaseArm(cond, result) =>
               d"\n[] ${describeExpr(cond)} -> ${describeExpr(result)}"
@@ -97,7 +99,7 @@ object PCalRenderPass {
           other.map { other =>
             d"\n[] OTHER -> ${describeExpr(other)}".indented
           }.getOrElse(d"")
-        }"
+        })"
       case TLAMaybeAction(body, vars) =>
         d"[${describeExpr(body)}]_${describeExpr(vars)}"
       case TLARequiredAction(body, vars) =>
