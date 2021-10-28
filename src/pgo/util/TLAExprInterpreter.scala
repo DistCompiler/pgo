@@ -152,7 +152,10 @@ object TLAExprInterpreter {
           TLAValueTuple(elems.tail)
       },
       BuiltinModules.Sequences.memberAlpha("SubSeq") -> {
-        case List(TLAValueTuple(elems), TLAValueNumber(from), TLAValueNumber(to)) =>
+        case List(TLAValueTuple(elems), TLAValueNumber(from1), TLAValueNumber(to1)) =>
+          val from = from1 - 1
+          val to = to1 - 1
+          require(from >= 0 && to >= 0 && from < elems.size && to < elems.size)
           TLAValueTuple(elems.slice(from, to + 1))
       },
       BuiltinModules.Sequences.memberAlpha("SelectSeq") -> { _ => throw Unsupported() },

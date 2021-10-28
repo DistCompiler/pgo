@@ -19,6 +19,8 @@ Test3 == CHOOSE z \in {1, 2, 3} : z = 2
 
 Test4 == 48 ^ 37
 
+Test5(x, y) == SubSeq(<<1, 2, 3>>, x, y)
+
 \* A trivial do-nothing process
 (* --mpcal ExprTests {
     process (Nothing = 0) {

@@ -2275,6 +2275,9 @@ func Test3(iface distsys.ArchetypeInterface) tla.TLAValue {
 func Test4(iface distsys.ArchetypeInterface) tla.TLAValue {
 	return tla.TLA_SuperscriptSymbol(tla.MakeTLANumber(48), tla.MakeTLANumber(37))
 }
+func Test5(iface distsys.ArchetypeInterface, x0 tla.TLAValue, y0 tla.TLAValue) tla.TLAValue {
+	return tla.TLA_SubSeq(tla.MakeTLATuple(tla.MakeTLANumber(1), tla.MakeTLANumber(2), tla.MakeTLANumber(3)), x0, y0)
+}
 
 var procTable = distsys.MakeMPCalProcTable()
 
