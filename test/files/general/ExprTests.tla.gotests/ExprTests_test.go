@@ -45,16 +45,56 @@ func TestTest4(t *testing.T) {
 func TestTest5(t *testing.T) {
 	ctx := distsys.NewMPCalContextWithoutArchetype()
 
-	result := Test5(ctx.IFace(), tla.MakeTLANumber(1))
-	if result.AsNumber() != 2 * 1 {
-		t.Fatalf("result %v should have been 2 * 1", result)
-	}
+	t.Run("identity", func(t *testing.T) {
+		result := Test5(ctx.IFace(), tla.MakeTLANumber(1), tla.MakeTLANumber(3))
+		resultStr := result.String()
+		if resultStr != "<<1, 2, 3>>" {
+			t.Fatalf("result %v did not equal <<1, 2, 3>>", result)
+		}
+	})
+
+	t.Run("low left idx", func(t *testing.T) {
+		defer func() {
+			if err := recover(); err != nil {
+				if !errors.Is(err.(error), tla.ErrTLAType) {
+					t.Fatalf("unexpected panic %v", err)
+				}
+			} else {
+				t.Fatalf("should have panicked, but didn't")
+			}
+		}()
+
+		_ = Test5(ctx.IFace(), tla.MakeTLANumber(0), tla.MakeTLANumber(3))
+	})
+
+	t.Run("high right idx", func(t *testing.T) {
+		defer func() {
+			if err := recover(); err != nil {
+				if !errors.Is(err.(error), tla.ErrTLAType) {
+					t.Fatalf("unexpected panic %v", err)
+				}
+			} else {
+				t.Fatalf("should have panicked, but didn't")
+			}
+		}()
+
+		_ = Test5(ctx.IFace(), tla.MakeTLANumber(1), tla.MakeTLANumber(4))
+	})
 }
 
 func TestTest6(t *testing.T) {
 	ctx := distsys.NewMPCalContextWithoutArchetype()
 
-	result := Test6(ctx.IFace(), tla.MakeTLANumber(4))
+	result := Test6(ctx.IFace(), tla.MakeTLANumber(1))
+	if result.AsNumber() != 2 * 1 {
+		t.Fatalf("result %v should have been 2 * 1", result)
+	}
+}
+
+func TestTest7(t *testing.T) {
+	ctx := distsys.NewMPCalContextWithoutArchetype()
+
+	result := Test7(ctx.IFace(), tla.MakeTLANumber(4))
 	if result.AsNumber() != 4 * 3 * 2 * 1 {
 		t.Fatalf("result %v should have been 4 * 3 * 2 * 1", result)
 	}

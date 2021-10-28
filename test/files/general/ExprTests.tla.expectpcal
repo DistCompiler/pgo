@@ -19,12 +19,14 @@ Test3 == CHOOSE z \in {1, 2, 3} : z = 2
 
 Test4 == 48 ^ 37
 
-RECURSIVE Test6(_)
+Test5(x, y) == SubSeq(<<1, 2, 3>>, x, y)
 
-Test5(foo) == Test6(foo + 1)
+RECURSIVE Test7(_)
 
-Test6(bar) == CASE bar = 1 -> 1
-                [] bar > 1 -> bar * Test6(bar - 1)
+Test6(foo) == Test7(foo + 1)
+
+Test7(bar) == CASE bar = 1 -> 1
+                [] bar > 1 -> bar * Test7(bar - 1)
 
 \* A trivial do-nothing process
 (* --mpcal ExprTests {
