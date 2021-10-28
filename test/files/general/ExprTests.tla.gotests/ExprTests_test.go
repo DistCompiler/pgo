@@ -41,3 +41,21 @@ func TestTest4(t *testing.T) {
 	}()
 	_ = Test4(ctx.IFace())
 }
+
+func TestTest5(t *testing.T) {
+	ctx := distsys.NewMPCalContextWithoutArchetype()
+
+	result := Test5(ctx.IFace(), tla.MakeTLANumber(1))
+	if result.AsNumber() != 2 * 1 {
+		t.Fatalf("result %v should have been 2 * 1", result)
+	}
+}
+
+func TestTest6(t *testing.T) {
+	ctx := distsys.NewMPCalContextWithoutArchetype()
+
+	result := Test6(ctx.IFace(), tla.MakeTLANumber(4))
+	if result.AsNumber() != 4 * 3 * 2 * 1 {
+		t.Fatalf("result %v should have been 4 * 3 * 2 * 1", result)
+	}
+}

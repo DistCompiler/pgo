@@ -267,6 +267,10 @@ final case class TLAModule(name: TLAIdentifier, exts: List[TLAModuleRef], units:
   override def arity: Int = 0
   override def identifier: Definition.ScopeIdentifierName = Definition.ScopeIdentifierName(name)
 
+  // override namedParts: our nameParts might be nested _within_ a unit, rather than the unit itself (e.g anything with opdecls)
+  override def namedParts: Iterator[RefersTo.HasReferences] =
+    units.iterator.flatMap(_.definitions.map(_.asInstanceOf[RefersTo.HasReferences]))
+
   def moduleDefinitions(captureLocal: Boolean = false): View[DefinitionOne] =
     exts.view.flatMap(_.singleDefinitions).filter(!_.isLocal) ++
       units.view.flatMap(_.definitions).flatMap(_.singleDefinitions).filter(captureLocal || _.isLocal)
@@ -328,6 +332,17 @@ final case class TLATheorem(theorem: TLAExpression) extends TLAUnit {
 
 final case class TLAVariableDeclaration(variables: List[TLADefiningIdentifier]) extends TLAUnit with DefinitionComposite {
   override def definitions: View[Definition] = variables.view
+}
+
+final case class TLARecursive(decls: List[TLARecursive.Decl]) extends TLAUnit {
+  override def definitions: View[Definition] = decls.view
+}
+
+object TLARecursive {
+  final case class Decl(decl: TLAOpDecl) extends TLANode with DefinitionOne with RefersTo[TLAOperatorDefinition] {
+    override def arity: Int = decl.arity
+    override def identifier: Definition.ScopeIdentifier = decl.identifier
+  }
 }
 
 sealed abstract class TLAExpression extends TLANode

@@ -1,7 +1,9 @@
 package pgo.parser
 
-import pgo.model.{Definition, DefinitionOne, SourceLocatable, SourceLocation, SourceLocationWithUnderlying}
+import pgo.model.Definition.ScopeIdentifierName
+import pgo.model.{Definition, DefinitionOne, RefersTo, SourceLocatable, SourceLocation, SourceLocationWithUnderlying, Visitable}
 import pgo.model.tla._
+import pgo.util.ById
 import pgo.util.Description.DescriptionHelper
 
 import scala.util.parsing.combinator.RegexParsers
@@ -788,25 +790,63 @@ trait TLAParser extends RegexParsers {
       }
     }
 
-  def tlaModule(implicit ctx: TLAParserContext): Parser[TLAModule] =
+  def tlaRecursive(implicit ctx: TLAParserContext): Parser[TLARecursive] =
+    withSourceLocation {
+      "RECURSIVE" ~> wsChk ~> tlaComma1Sep(tlaOpDecl) ^^ { decls =>
+        // note: setRefersTo will be called when (if) the corresponding operator definition is reached.
+        //   tlaModule parsing should catch if there is no such definition
+        TLARecursive(decls.map(decl => TLARecursive.Decl(decl).setSourceLocation(decl.sourceLocation)))
+      }
+    }
+
+  private def tlaModuleAbstract(moduleEnd: Parser[Any], carefulWs: Parser[Any])(implicit ctx: TLAParserContext): Parser[TLAModule] =
     withSourceLocation {
       val origCtx = ctx
-      ("----" ~> rep(elem('-')) ~> wsChk ~> "MODULE" ~>! wsChk ~> tlaIdentifierExpr <~ wsChk <~ "----" <~ rep(elem('-')) <~ wsChk) ~
-        opt("EXTENDS" ~>! wsChk ~> tlaComma1Sep(tlaIdentifierExpr) <~ wsChk).flatMap { exts =>
+
+      ("----" ~> rep(elem('-')) ~> wsChk ~> "MODULE" ~>! wsChk ~> tlaIdentifierExpr <~ wsChk <~ "----" <~ rep(elem('-'))) ~
+        opt(wsChk ~> "EXTENDS" ~>! wsChk ~> tlaComma1Sep(tlaIdentifierExpr) <~ carefulWs).flatMap { exts =>
           def unitRec(implicit ctx: TLAParserContext): Parser[List[TLAUnit]] = {
             val origCtx = ctx
-            opt("----" ~> rep(elem('-')) ~> wsChk) ~> tlaUnit.flatMap { unit =>
-              implicit val ctx: TLAParserContext = unit.definitions.foldLeft(origCtx)(_.withDefinition(_))
-              (wsChk ~> unitRec ^^ (unit :: _)) | success(List(unit))
+            opt("----" ~> rep(elem('-')) ~> carefulWs) ~> tlaUnit.flatMap { unit =>
+                implicit val ctx: TLAParserContext = unit.definitions.foldLeft(origCtx)(_.withDefinition(_))
+                (carefulWs ~> unitRec ^^ (unit :: _)) | success(List(unit))
             }
           }
+
           val extensions = exts.getOrElse(Nil).map(ext => origCtx.lookupModuleExtends(Definition.ScopeIdentifierName(ext)))
           implicit val ctx: TLAParserContext = extensions.foldLeft(origCtx) { (ctx, ext) => ext.singleDefinitions.foldLeft(ctx)(_.withDefinition(_)) }
-          (unitRec | success(Nil)) ^^ ((extensions, _))
-        } <~ wsChk <~ "====" <~ rep(elem('=')) ^^ {
+          ((carefulWs ~> unitRec) | moduleEnd.map(_ => Nil)) ^^ { units =>
+            // resolve all uses of the RECURSIVE directive, which, until this point, is allowed to be used instead
+            // of the correct operator definition during scoping.
+            // the final outcome here should have no references to TLARecursive.Decl, only references
+            // to the operator definition
+            units.iterator
+              .collect { case TLARecursive(decls) => decls }
+              .flatten
+              .foreach { decl =>
+                if(!decl.hasRefersTo) {
+                  throw UnboundRecursiveDeclError(decl)
+                }
+              }
+
+            // rebind all references to TLARecursive.Decl, now we're sure all RECURSIVE directives _have_ alternative
+            // bindings
+            units.foreach(_.visit(Visitable.BottomUpFirstStrategy) {
+              case RefersTo(node: RefersTo[DefinitionOne @unchecked], decl: TLARecursive.Decl) =>
+                node.setRefersTo(decl.refersTo)
+            })
+
+            (extensions, units)
+          }
+        } ^^ {
         case name ~ ((exts, units)) => TLAModule(name, exts, units)
       }
     }
+
+  def tlaModule(implicit ctx: TLAParserContext): Parser[TLAModule] =
+    tlaModuleAbstract(
+      moduleEnd = wsChk <~ "====" <~ rep(elem('=')),
+      carefulWs = wsChk)
 
   def tlaUnit(implicit ctx: TLAParserContext): Parser[TLAUnit] = {
     val variableDeclaration: Parser[TLAUnit] = withSourceLocation {
@@ -823,9 +863,9 @@ trait TLAParser extends RegexParsers {
     }
 
     ("LOCAL" ~>! wsChk ~> {
-        tlaInstance(true) | tlaModuleDefinition(true) | tlaFunctionDefinition(true) |
-          tlaOperatorDefinition(true)
-      }) |
+      tlaInstance(true) | tlaModuleDefinition(true) | tlaFunctionDefinition(true) |
+        tlaOperatorDefinition(true)
+    }) |
       tlaInstance(false) |
       tlaModuleDefinition(false) |
       tlaFunctionDefinition(false) |
@@ -834,36 +874,23 @@ trait TLAParser extends RegexParsers {
       constantDeclaration |
       assumption |
       theorem |
+      tlaRecursive |
       tlaModule
   }
 
   val findTLAModule: Parser[Unit] =
     rep(not("----") ~> anything) ^^^ ()
 
-  def tlaModuleBeforeTranslation(implicit ctx: TLAParserContext): Parser[TLAModule] =
-    withSourceLocation {
-      val translationTag = ("\\*" <~ rep("*") <~ rep1(" ") <~ "BEGIN" <~ rep1(" ") <~ "TRANSLATION")
-        .withFailureMessage("\\* expected: for scoping reasons, an MPCal-compilable TLA+ module must contain a `\\* BEGIN TRANSLATION` tag")
-      val wsWithoutTranslationTag =
-        rep(regex("""\s+""".r) | tlaMultilineComment | not(translationTag) ~> tlaLineComment)
+  def tlaModuleBeforeTranslation(implicit ctx: TLAParserContext): Parser[TLAModule] = {
+    val translationTag = ("\\*" <~ rep("*") <~ rep1(" ") <~ "BEGIN" <~ rep1(" ") <~ "TRANSLATION")
+      .withFailureMessage("\\* expected: for scoping reasons, an MPCal-compilable TLA+ module must contain a `\\* BEGIN TRANSLATION` tag")
+    val wsWithoutTranslationTag =
+      rep(regex("""\s+""".r) | tlaMultilineComment | not(translationTag) ~> tlaLineComment)
 
-      val origCtx = ctx
-      ("----" ~> rep(elem('-')) ~> wsChk ~> "MODULE" ~>! wsChk ~> tlaIdentifierExpr <~ wsChk <~ "----" <~ rep(elem('-'))) ~
-        opt(wsChk ~> "EXTENDS" ~>! wsChk ~> tlaComma1Sep(tlaIdentifierExpr) <~ wsWithoutTranslationTag).flatMap { exts =>
-          def unitRec(implicit ctx: TLAParserContext): Parser[List[TLAUnit]] = {
-            val origCtx = ctx
-            opt("----" ~> rep(elem('-')) ~> wsWithoutTranslationTag) ~> tlaUnit.flatMap { unit =>
-              implicit val ctx: TLAParserContext = unit.definitions.foldLeft(origCtx)(_.withDefinition(_))
-              (wsWithoutTranslationTag ~> unitRec ^^ (unit :: _)) | success(List(unit))
-            }
-          }
-          val extensions = exts.getOrElse(Nil).map(ext => origCtx.lookupModuleExtends(Definition.ScopeIdentifierName(ext)))
-          implicit val ctx: TLAParserContext = extensions.foldLeft(origCtx) { (ctx, ext) => ext.singleDefinitions.foldLeft(ctx)(_.withDefinition(_)) }
-          (unitRec | success(Nil)) ^^ ((extensions, _))
-        } <~ wsWithoutTranslationTag <~ translationTag ^^ {
-        case name ~ ((exts, units)) => TLAModule(name, exts, units)
-      }
-    }
+    tlaModuleAbstract(
+      moduleEnd = wsWithoutTranslationTag ~> translationTag,
+      carefulWs = wsWithoutTranslationTag)
+  }
 }
 
 object TLAParser extends TLAParser with ParsingUtils {
