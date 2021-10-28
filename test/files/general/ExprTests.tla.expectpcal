@@ -21,6 +21,13 @@ Test4 == 48 ^ 37
 
 Test5(x, y) == SubSeq(<<1, 2, 3>>, x, y)
 
+RECURSIVE Test7(_)
+
+Test6(foo) == Test7(foo + 1)
+
+Test7(bar) == CASE bar = 1 -> 1
+                [] bar > 1 -> bar * Test7(bar - 1)
+
 \* A trivial do-nothing process
 (* --mpcal ExprTests {
     process (Nothing = 0) {

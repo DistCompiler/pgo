@@ -2278,6 +2278,21 @@ func Test4(iface distsys.ArchetypeInterface) tla.TLAValue {
 func Test5(iface distsys.ArchetypeInterface, x0 tla.TLAValue, y0 tla.TLAValue) tla.TLAValue {
 	return tla.TLA_SubSeq(tla.MakeTLATuple(tla.MakeTLANumber(1), tla.MakeTLANumber(2), tla.MakeTLANumber(3)), x0, y0)
 }
+func Test6(iface distsys.ArchetypeInterface, foo tla.TLAValue) tla.TLAValue {
+	return Test7(iface, tla.TLA_PlusSymbol(foo, tla.MakeTLANumber(1)))
+}
+func Test7(iface distsys.ArchetypeInterface, bar tla.TLAValue) tla.TLAValue {
+	return func() tla.TLAValue {
+		switch {
+		case tla.TLA_EqualsSymbol(bar, tla.MakeTLANumber(1)).AsBool():
+			return tla.MakeTLANumber(1)
+		case tla.TLA_GreaterThanSymbol(bar, tla.MakeTLANumber(1)).AsBool():
+			return tla.TLA_AsteriskSymbol(bar, Test7(iface, tla.TLA_MinusSymbol(bar, tla.MakeTLANumber(1))))
+		default:
+			panic("no cases matched for TLA+ case expression!")
+		}
+	}()
+}
 
 var procTable = distsys.MakeMPCalProcTable()
 
