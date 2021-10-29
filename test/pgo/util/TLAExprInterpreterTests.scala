@@ -111,4 +111,12 @@ class TLAExprInterpreterTests extends AnyFunSuite {
   checkPass("identity SubSeq") {
     raw"""SubSeq(<<1, 2, 3>>, 1, 3)""" -> TLAValueTuple(Vector(TLAValueNumber(1), TLAValueNumber(2), TLAValueNumber(3)))
   }
+
+  checkPass("function defn short-circuits on empty set") {
+    raw"""[<<foo, bar>> \in {12}, y \in {} |-> bar]""" -> TLAValueFunction(Map.empty)
+  }
+
+  checkTypeError("function defn fails with incompatible indices") {
+    raw"""[<<foo, bar>> \in {12} |-> bar]"""
+  }
 }
