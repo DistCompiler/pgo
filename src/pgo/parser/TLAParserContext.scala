@@ -12,12 +12,19 @@ import scala.collection.mutable
 final case class TLAParserContext(minColumn: Int = -1,
                                   lateBindingStack: Int = 0,
                                   currentScope: Map[Definition.ScopeIdentifier,DefinitionOne] = Map.empty,
+                                  recursiveOperators: Map[Definition.ScopeIdentifier,TLARecursive.Decl] = Map.empty,
                                   functionSubstitutionPairAnchor: Option[TLAFunctionSubstitutionPairAnchor] = None) {
   def withMinColumn(minColumn: Int): TLAParserContext =
     copy(minColumn=minColumn)
 
   def withDefinition(defn: Definition): TLAParserContext =
     defn match {
+      case defn: TLAOperatorDefinition if currentScope.get(defn.identifier).exists(_.isInstanceOf[TLARecursive.Decl]) =>
+        val decl = currentScope(defn.identifier).asInstanceOf[TLARecursive.Decl]
+        // this fixes one thing: the recursive directive now properly refers to the operator defn
+        // the full-module parser should then go on to properly update any already-made references to the recursive decl
+        decl.setRefersTo(defn)
+        copy(currentScope = currentScope.updated(defn.identifier, defn))
       case defn: DefinitionOne =>
         copy(currentScope=currentScope.updated(defn.identifier, defn))
       case defn: DefinitionComposite => defn.singleDefinitions.foldLeft(this)(_.withDefinition(_))

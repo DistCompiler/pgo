@@ -16,14 +16,10 @@ trait RefersTo[T <: RefersTo.HasReferences] extends Rewritable {
 }
 
 object RefersTo {
-  def unapply[T](candidate: Any)(implicit tag: ClassTag[T]): Option[T] =
+  def unapply(candidate: Any): Option[(RefersTo[_ <: HasReferences], _ <: HasReferences)] =
     candidate match {
       case refersTo: RefersTo[_] =>
-        refersTo.refersTo match {
-          case tag(refersTo) =>
-            Some(refersTo)
-          case _ => None
-        }
+        Some((refersTo, refersTo.refersTo))
       case _ => None
     }
 
