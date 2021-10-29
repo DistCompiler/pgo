@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ master cpsc538b ]
+    branches: [ 'master', 'cpsc538b' ]
   pull_request:
-    branches: [ master cpsc538b ]
+    branches: [ 'master', 'cpsc538b' ]
 
 jobs:
   build:
