@@ -125,7 +125,7 @@ object MPCalNormalizePass {
               stmtTrans match {
                 case PCalEither(_) | PCalIf(_, _, _) | PCalWith(_, _) if restStmts.isEmpty || restStmts.head.isInstanceOf[PCalLabeledStatements] =>
                   assert(restStmts.forall(_.isInstanceOf[PCalLabeledStatements]))
-                  ((stmtsOut ++ Iterator.single(stmtTrans)).toList, transBlocks(restStmts.asInstanceOf[List[PCalLabeledStatements]], labelAfter, blocksOut))
+                  ((stmtsOut ++ Iterator.single(stmtTrans)).toList, transBlocks(restStmts.asInstanceOf[List[PCalLabeledStatements]], labelAfter, blocksOut ++ stmtBlocks))
                 case _ =>
                   impl(restStmts, labelAfter, stmtsOut ++ Iterator.single(stmtTrans), blocksOut ++ stmtBlocks)
               }
